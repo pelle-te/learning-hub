@@ -1,0 +1,14 @@
+{
+  "name": "러닝 허브",
+  "short_name": "러닝허브",
+  "description": "졸업 계획·볼트/Anki 현황·일과 빈 시간을 한 곳에서, 주당 목표를 모듈로 자동 배분하는 로컬 러닝 허브",
+  "lang": "ko",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

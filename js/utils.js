@@ -1,0 +1,41 @@
+/* ============================================================
+   utils.js — 상수 & 공용 유틸 (가장 먼저 로드)
+============================================================ */
+const DOW=['일','월','화','수','목','금','토'];
+const DOW_MON=['월','화','수','목','금','토','일'];          // 주간뷰(월요일 시작)
+const REVIEW_OFFSETS=[1,3,7,16];                            // 간격반복 복습(일)
+const PALETTE=['#6ea8fe','#7ee0c0','#ffb454','#ff8fa3','#b794f6','#63d2ff','#f6c177','#9ece6a'];
+/* 고정 일과 블록 유형(색). '공부' 개념은 폐지 — 가용 공부시간은 '깨어있는 시간 − 이 블록들'로 자동 계산된다. */
+const BLOCK_TYPES={'수면':'#3a3f4b','식사':'#c98a5e','취미':'#9a7fd1','수업':'#5e8ac9','기타':'#5a6072'};
+const KEY='study_planner_v3';                              // localStorage 키 (모델 변경으로 v3)
+const SKIP=new Set(['attachments','images','_assets','.obsidian','.trash','_복습시스템','_인터랙티브']);
+
+function rid(){return Math.random().toString(36).slice(2,9)}
+
+/* 날짜/시간 */
+/* iso(): 반드시 '로컬' 날짜로 포맷. toISOString()은 UTC라 KST(UTC+9) 등
+   양수 시간대에서 하루가 밀리는 버그가 있어 로컬 연·월·일로 직접 만든다. */
+function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function parseISO(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function fmt(d){return `${d.getMonth()+1}/${d.getDate()} (${DOW[d.getDay()]})`}
+function fmtShort(d){return `${d.getMonth()+1}/${d.getDate()}`}
+function dayDiff(a,b){return Math.round((parseISO(b)-parseISO(a))/86400000)}
+function toMin(t){const[h,m]=t.split(':').map(Number);return h*60+(m||0)}
+function toHM(m){m=Math.round(m);const h=Math.floor(m/60),mm=m%60;return `${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}`}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+/* esc(): HTML 속성/본문에 안전하도록 작은따옴표까지 이스케이프.
+   onclick="fn('${esc(x)}')" 처럼 JS 문자열 리터럴에 들어가도 깨지지 않게 함. */
+function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+/* JS 문자열 리터럴(인라인 핸들러 인자)용 — 따옴표·백슬래시·개행 차단 */
+function jsq(s){return(s||'').toString().replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ').replace(/\r/g,'')}
+
+/* 시간(시간 단위) 표시 — 분으로 안 다루도록 */
+function hLabel(min){const h=min/60;return (Math.round(h*10)/10)+'h'}
+
+/* 주(週) 헬퍼 — 월요일 시작 */
+function mondayOf(d){const x=new Date(d);const k=(x.getDay()+6)%7;x.setDate(x.getDate()-k);x.setHours(0,0,0,0);return x}
+function weekLabel(monDate){const end=addDays(monDate,6);return `${fmtShort(monDate)} ~ ${fmtShort(end)}`}
+
+/* 페이지 루트 헬퍼 */
+function pageEl(){return document.getElementById('page')}
