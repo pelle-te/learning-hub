@@ -30,7 +30,7 @@ async function scanVault(){
         if(cn.startsWith('_')||SKIP.has(cn))continue;
         const chap={name:cn,notes:0,verified:0,exported:0};
         for await(const [fn,fh] of ch.entries()){
-          if(fh.kind!=='file'||!fn.endsWith('.md')||fn.includes('MOC'))continue;
+          if(fh.kind!=='file'||!fn.endsWith('.md')||fn.includes('MOC'))continue;  // MOC 제외: 파일명 휴리스틱(빠름·별도 런타임) — 권위 기준은 moc 태그(스타일가이드 §9)
           chap.notes++; const fm=await readFM(fh);
           if((fm.status||'').includes('verified'))chap.verified++;
           if(fm.anki_exported)chap.exported++;
