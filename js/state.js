@@ -44,9 +44,33 @@ function defaults(){
   };
 }
 
-let state=migrate(load())||defaults();
+const CORRUPT_KEY=KEY+'_corrupt';       // 손상 원본 보존(데이터 손실 방지 · 감사 2026-06-23 #5 · P1-7)
+let state=boot();
 
 function load(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null}}
+
+/* 부팅 — 저장된 상태를 살리되, 손상/형식불일치로 기본값으로 떨어질 땐
+   *원본 raw 문자열을 CORRUPT_KEY에 백업한 뒤* 기본값으로 시작한다.
+   (과거: load() 실패 → defaults → 첫 persist()가 복구가능한 원본을 덮어써 영구 손실. 감사 P1-7) */
+function boot(){
+  let raw=null; try{raw=localStorage.getItem(KEY);}catch(e){}
+  let s=null; try{s=migrate(JSON.parse(raw));}catch(e){s=null;}
+  if(!s && raw){                         // 원본은 있는데 못 살림 = 손상/형식불일치
+    try{ if(localStorage.getItem(CORRUPT_KEY)==null) localStorage.setItem(CORRUPT_KEY,raw); }catch(e){}
+    try{ console.warn('상태 손상 감지 — 원본을 "'+CORRUPT_KEY+'"에 보존하고 기본값으로 시작. recoverCorrupt()로 복구 시도 가능.'); }catch(e){}
+  }
+  return s||defaults();
+}
+/* 손상 백업이 있으면 복구 시도(되돌리기) */
+function hasCorrupt(){try{return !!localStorage.getItem(CORRUPT_KEY)}catch(e){return false}}
+function recoverCorrupt(){
+  let raw=null; try{raw=localStorage.getItem(CORRUPT_KEY);}catch(e){}
+  if(!raw){alert('복구할 손상 백업이 없습니다.');return;}
+  let s=null; try{s=migrate(JSON.parse(raw));}catch(e){s=null;}
+  if(!s){alert('손상 백업도 살릴 수 없습니다(여전히 형식 오류). "'+CORRUPT_KEY+'"를 직접 내보내 점검하세요.');return;}
+  backupNow(); state=s; try{localStorage.removeItem(CORRUPT_KEY);}catch(e){}
+  persist(); applyTheme(); render(); alert('손상 직전 상태로 복구했습니다.');
+}
 
 /* 불러온 데이터에 새 필드 채우기(구버전 호환) */
 function migrate(s){
@@ -74,7 +98,12 @@ function persist(){
   try{localStorage.setItem(KEY,JSON.stringify(state));}
   catch(e){alert('저장 실패: 브라우저 저장공간이 가득 찼을 수 있어요. 내보내기로 백업 후 정리하세요.\n'+(e.message||e));}
 }
-function backupNow(){try{localStorage.setItem(BACKUP_KEY,JSON.stringify(state));}catch(e){}}
+function backupNow(){try{localStorage.setItem(BACKUP_KEY,JSON.stringify(state));return true;}catch(e){return false;}}
+/* 파괴적 동작 전 백업 — 실패하면(저장공간 등) 되돌리기 불가를 알리고 사용자에 진행 여부를 묻는다(감사 #5 · P1-7) */
+function backupOrConfirm(){
+  if(backupNow())return true;
+  return confirm('백업 저장 실패(저장공간이 가득 찼을 수 있음) — 지금 진행하면 "되돌리기"가 불가능합니다.\n그래도 계속할까요? (먼저 내보내기로 백업 권장)');
+}
 function hasBackup(){return !!localStorage.getItem(BACKUP_KEY)}
 function undoLast(){
   const b=localStorage.getItem(BACKUP_KEY); if(!b){alert('되돌릴 백업이 없습니다.');return;}
@@ -97,14 +126,15 @@ function importJSON(input){
     try{parsed=JSON.parse(r.result);}catch(e){alert('읽기 실패: JSON 형식이 아닙니다.');return;}
     const s=migrate(parsed);
     if(!s){alert('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).');return;}
-    backupNow();           // 현재 상태를 백업해두고 교체(되돌리기 가능)
+    if(!backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
     state=s; persist(); applyTheme(); render();
   };
   r.readAsText(f);input.value='';
 }
 function resetAll(){
   if(confirm('모든 데이터를 지울까요? (직후 "되돌리기"로 복구 가능)')){
-    backupNow(); state=defaults(); persist(); applyTheme(); render();
+    if(!backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
+    state=defaults(); persist(); applyTheme(); render();
   }
 }
 
