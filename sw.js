@@ -1,5 +1,8 @@
-/* 서비스워커 — 앱 셸 캐시(오프라인 지원). http/https로 서빙될 때만 등록됨. */
-const CACHE='learning-hub-v1';
+/* 서비스워커 — 앱 셸 캐시(오프라인 지원). http/https로 서빙될 때만 등록됨.
+   ⚠️ 배포 규약(감사 2026-06-23 P1): SHELL의 JS/CSS를 고치면 반드시 아래 CACHE 버전을 올려라.
+   activate가 CACHE 키와 다른 옛 캐시를 지우므로, 버전을 올려야 사용자가 새 파일을 받는다.
+   (버전 미증가 → cache-first라 옛 JS가 계속 서빙됨. 빌드 자동 주입은 향후 과제.) */
+const CACHE='learning-hub-v2-20260623';
 const SHELL=[
   './','./index.html','./css/style.css','./manifest.webmanifest','./icon.svg',
   './js/utils.js','./js/state.js','./js/scheduler.js',
