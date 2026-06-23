@@ -60,17 +60,17 @@ function itemCard(s){
   /* ── 펼친 상태: 정돈된 라벨 그리드 + 챕터 + 하단 푸터 ── */
   const body=`<div class="itembody">
     <div class="fieldgrid">
-      <div class="fld wide"><label>과목 이름</label>
-        <input type="text" value="${esc(s.name)}" oninput="updItem('${s.id}','name',this.value)" style="font-weight:600" aria-label="과목 이름" placeholder="과목 이름"></div>
-      <div class="fld"><label>유형</label>
-        <select onchange="updItem('${s.id}','mode',this.value)" aria-label="유형">
+      <div class="fld wide"><label for="it-name-${s.id}">과목 이름</label>
+        <input id="it-name-${s.id}" type="text" value="${esc(s.name)}" oninput="updItem('${s.id}','name',this.value)" style="font-weight:600" placeholder="과목 이름"></div>
+      <div class="fld"><label for="it-mode-${s.id}">유형</label>
+        <select id="it-mode-${s.id}" onchange="updItem('${s.id}','mode',this.value)">
           <option value="weekly"${!daily?' selected':''}>주당 시간</option>
           <option value="daily"${daily?' selected':''}>매일(Anki)</option>
         </select></div>
-      <div class="fld"><label>${daily?'매일 학습 (분)':'주당 목표 시간'}</label>
+      <div class="fld"><label for="st-${s.id}-${daily?'dailyMin':'weeklyHours'}">${daily?'매일 학습 (분)':'주당 목표 시간'}</label>
         ${daily?stepper(s.id,'dailyMin',s.dailyMin||30,5,'분'):stepper(s.id,'weeklyHours',s.weeklyHours||3,0.5,'h')}</div>
-      <div class="fld"><label>마감일 (선택)</label>
-        <input type="date" value="${s.deadline||''}" onchange="updItem('${s.id}','deadline',this.value)"></div>
+      <div class="fld"><label for="it-dl-${s.id}">마감일 (선택)</label>
+        <input id="it-dl-${s.id}" type="date" value="${s.deadline||''}" onchange="updItem('${s.id}','deadline',this.value)"></div>
     </div>
     ${daily?'':chapterEditor(s)}
     <div class="itemfoot">
@@ -84,7 +84,7 @@ function itemCard(s){
 function stepper(id,key,val,step,unit){
   return `<div class="row" style="gap:4px;align-items:center;max-width:170px">
     <button class="sm" onclick="bump('${id}','${key}',${-step})">–</button>
-    <input type="number" step="${step}" min="0" value="${val}" oninput="updItem('${id}','${key}',+this.value)" style="text-align:center">
+    <input id="st-${id}-${key}" type="number" step="${step}" min="0" value="${val}" oninput="updItem('${id}','${key}',+this.value)" style="text-align:center">
     <button class="sm" onclick="bump('${id}','${key}',${step})">+</button>
     <span class="muted tiny">${unit}</span></div>`;
 }
@@ -117,7 +117,7 @@ function chapterEditor(s){
       </div>
       <details class="bulkwrap" style="margin-top:10px">
         <summary class="tiny">⊕ 여러 챕터 한 번에 붙여넣기</summary>
-        <label style="margin-top:6px">한 줄에 하나씩 · "이름 | 시간" 형식도 가능</label>
+        <label for="bulk-${s.id}" style="margin-top:6px">한 줄에 하나씩 · "이름 | 시간" 형식도 가능</label>
         <textarea id="bulk-${s.id}" rows="3" placeholder="2장 미분방정식 | 3&#10;3장 라플라스 변환 | 2"></textarea>
         <button class="sm" style="margin-top:6px" onclick="bulkCh('${s.id}')">붙여넣기 적용</button>
       </details>

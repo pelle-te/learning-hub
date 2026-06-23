@@ -8,9 +8,9 @@ function renderRoutine(p){
   <div class="card">
     <h2>기본 설정</h2>
     <div class="row">
-      <div><label>시작일</label><input type="date" value="${state.startDate}" onchange="setSetting('startDate',this.value)"></div>
-      <div><label>모듈 길이 (시간)</label><input type="number" step="0.5" min="0.5" value="${(state.moduleLen/60)}" onchange="setSetting('moduleLen',Math.round(+this.value*60))"></div>
-      <div><label>복습 시간 비중 (%)</label><input type="number" step="5" min="0" max="60" value="${state.reviewRatio}" onchange="setSetting('reviewRatio',+this.value)"></div>
+      <div><label for="set-start">시작일</label><input id="set-start" type="date" value="${state.startDate}" onchange="setSetting('startDate',this.value)"></div>
+      <div><label for="set-modlen">모듈 길이 (시간)</label><input id="set-modlen" type="number" step="0.5" min="0.5" value="${(state.moduleLen/60)}" onchange="setSetting('moduleLen',Math.round(+this.value*60))"></div>
+      <div><label for="set-revratio">복습 시간 비중 (%)</label><input id="set-revratio" type="number" step="5" min="0" max="60" value="${state.reviewRatio}" onchange="setSetting('reviewRatio',+this.value)"></div>
     </div>
     <div class="foot">모듈 = 한 번에 집중하는 공부 슬롯(기본 2시간). 하루 공부 가능 시간이 이 단위로 과목에 배분됩니다.</div>
   </div>
@@ -70,9 +70,9 @@ function renderBlocks(){
   a.innerHTML=state.routine.filter(b=>b.type!=='수업').slice().sort((x,y)=>toMin(x.start)-toMin(y.start)).map(b=>`
     <div class="blkrow">
       <input type="text" value="${esc(b.name)}" aria-label="블록 이름" oninput="updBlockSilent('${b.id}','name',this.value)" onchange="renderRoutine(pageEl())">
-      <select onchange="updBlock('${b.id}','type',this.value)">${Object.keys(BLOCK_TYPES).filter(t=>t!=='수업').map(t=>`<option ${b.type===t?'selected':''}>${t}</option>`).join('')}</select>
-      <select onchange="updBlock('${b.id}','start',this.value)">${timeOpts(b.start)}</select>
-      <select onchange="updBlock('${b.id}','end',this.value)">${timeOpts(b.end)}</select>
+      <select aria-label="블록 유형" onchange="updBlock('${b.id}','type',this.value)">${Object.keys(BLOCK_TYPES).filter(t=>t!=='수업').map(t=>`<option ${b.type===t?'selected':''}>${t}</option>`).join('')}</select>
+      <select aria-label="시작 시각" onchange="updBlock('${b.id}','start',this.value)">${timeOpts(b.start)}</select>
+      <select aria-label="끝 시각" onchange="updBlock('${b.id}','end',this.value)">${timeOpts(b.end)}</select>
       <div class="days">
         ${DOW.map((d,i)=>`<button type="button" class="daychip ${b.days.includes(i)?'on':''}" onclick="toggleDay('${b.id}',${i})">${d}</button>`).join('')}
         <span class="daysep"></span>

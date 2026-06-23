@@ -48,6 +48,13 @@
 - 화면(탭) → 각 `ui-*.js`만 수정. 스타일 → `css/style.css`(`:root` 변수).
 - `import` 없는 일반 전역 스크립트라 file:// 더블클릭에서 동작. 파일 추가 시 index.html의 로드 순서를 지키세요(utils→state→scheduler→ui→app).
 
+## 테스트
+- 스케줄러 회귀 테스트: `node test/scheduler.test.js` (러닝허브 폴더에서). 의존성 0 · Node 내장만.
+- `utils.js`+`scheduler.js`를 vm으로 로드해 mock state로 `schedule()`을 검증(브라우저 불필요).
+- 타임존을 **Asia/Seoul로 고정(자기 재실행)**해 `iso()` 날짜밀림 회귀를 결정적으로 잡음.
+- 커버: 날짜키/연속성, done 챕터 제외, 용량, 페이스·완료, 복습 배치, 인터리빙, 마감 경고, daily(Anki), 빈 입력, 날짜별 덮어쓰기, 빈 구간 계산. **실패 시 비ZERO 종료**(검사.sh/CI에 물리기 좋음).
+- `scheduler.js`를 고친 뒤엔 반드시 이 테스트를 돌려 회귀를 확인하세요.
+
 ## 데이터
 - localStorage 키 `study_planner_v3`에 자동 저장. 우상단 내보내기/가져오기로 JSON 백업.
 - 모델이 바뀌어 이전(v2) 데이터와 호환되지 않습니다(처음 한 번 새로 입력).

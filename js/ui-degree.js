@@ -19,10 +19,10 @@ function renderDegree(p){
   <div class="card">
     <h2>졸업 요건</h2>
     <div class="row">
-      <div><label>졸업 총 학점</label><input type="number" value="${d.targetTotal}" onchange="setDeg('targetTotal',+this.value)"></div>
-      <div><label>전공필수</label><input type="number" value="${d.reqMajorReq}" onchange="setDeg('reqMajorReq',+this.value)"></div>
-      <div><label>전공선택</label><input type="number" value="${d.reqMajorSel}" onchange="setDeg('reqMajorSel',+this.value)"></div>
-      <div><label>교양</label><input type="number" value="${d.reqLiberal}" onchange="setDeg('reqLiberal',+this.value)"></div>
+      <div><label for="deg-total">졸업 총 학점</label><input id="deg-total" type="number" value="${d.targetTotal}" onchange="setDeg('targetTotal',+this.value)"></div>
+      <div><label for="deg-req">전공필수</label><input id="deg-req" type="number" value="${d.reqMajorReq}" onchange="setDeg('reqMajorReq',+this.value)"></div>
+      <div><label for="deg-sel">전공선택</label><input id="deg-sel" type="number" value="${d.reqMajorSel}" onchange="setDeg('reqMajorSel',+this.value)"></div>
+      <div><label for="deg-lib">교양</label><input id="deg-lib" type="number" value="${d.reqLiberal}" onchange="setDeg('reqLiberal',+this.value)"></div>
     </div>
     <div class="bar" style="margin:12px 0 4px"><i style="width:${Math.min(100,pct)}%;background:var(--good)"></i></div>
     <div class="tiny muted">이수 ${earned} / 목표 ${d.targetTotal} 학점 (${pct}%) · 수강중 ${inprog} · 예정 ${planned} · 남은 ${remain}</div>
@@ -58,8 +58,8 @@ function semCard(s){
 
   const body=`<div class="itembody">
     <div class="fieldgrid" style="margin-bottom:10px">
-      <div class="fld wide"><label>학기 이름</label>
-        <input type="text" value="${esc(s.name)}" onchange="updSem('${s.id}','name',this.value)" style="font-weight:600" placeholder="예: 2026-1학기"></div>
+      <div class="fld wide"><label for="sem-name-${s.id}">학기 이름</label>
+        <input id="sem-name-${s.id}" type="text" value="${esc(s.name)}" onchange="updSem('${s.id}','name',this.value)" style="font-weight:600" placeholder="예: 2026-1학기"></div>
     </div>
     <div class="chaptbl"><table><thead><tr><th style="width:34%">과목</th><th>학점</th><th>구분</th><th>상태</th><th>성적</th><th></th></tr></thead><tbody>
     ${s.courses.map(c=>`<tr>
