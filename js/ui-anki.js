@@ -56,8 +56,11 @@ function renderAnkiFile(v){
   <div class="foot">'+스케줄'은 해당 덱을 '매일 복습' 항목으로 추가합니다(예상 분 = 카드수×0.5, 수정 가능).</div></div>`;
 }
 async function ankiConnect(action,params={}){
-  const res=await fetch('http://localhost:8765',{method:'POST',body:JSON.stringify({action,version:6,params})});
-  const j=await res.json();if(j.error)throw new Error(j.error);return j.result;
+  const ac=new AbortController(), to=setTimeout(()=>ac.abort(),3000);  // Anki 미실행/방화벽 시 무한대기 방지
+  try{
+    const res=await fetch('http://localhost:8765',{method:'POST',body:JSON.stringify({action,version:6,params}),signal:ac.signal});
+    const j=await res.json();if(j.error)throw new Error(j.error);return j.result;
+  }finally{clearTimeout(to);}
 }
 async function ankiLive(){
   const st=document.getElementById('ankiStat');

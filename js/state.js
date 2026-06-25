@@ -47,8 +47,6 @@ function defaults(){
 const CORRUPT_KEY=KEY+'_corrupt';       // 손상 원본 보존(데이터 손실 방지 · 감사 2026-06-23 #5 · P1-7)
 let state=boot();
 
-function load(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null}}
-
 /* 부팅 — 저장된 상태를 살리되, 손상/형식불일치로 기본값으로 떨어질 땐
    *원본 raw 문자열을 CORRUPT_KEY에 백업한 뒤* 기본값으로 시작한다.
    (과거: load() 실패 → defaults → 첫 persist()가 복구가능한 원본을 덮어써 영구 손실. 감사 P1-7) */
