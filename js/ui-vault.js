@@ -35,10 +35,10 @@ function subjectsFromIndex(idx){
     const sj=n.subject||'?';
     const parts=(n.folder||sj).split('/');
     const ch=parts.length>1?parts.slice(1).join('/'):'(과목 루트)';
-    const S=bySubj[sj]||(bySubj[sj]={name:sj,_ch:{},notes:0,verified:0,exported:0,legacy:0});
-    const C=S._ch[ch]||(S._ch[ch]={name:ch,notes:0,verified:0,exported:0,legacy:0});
-    const ver=(n.status||'')==='verified', leg=!n.status, exp=!!n.anki_exported;
-    C.notes++;S.notes++; if(ver){C.verified++;S.verified++;} if(exp){C.exported++;S.exported++;} if(leg){C.legacy++;S.legacy++;}
+    const S=bySubj[sj]||(bySubj[sj]={name:sj,_ch:{},notes:0,verified:0,exported:0,legacy:0,wip:0});
+    const C=S._ch[ch]||(S._ch[ch]={name:ch,notes:0,verified:0,exported:0,legacy:0,wip:0});
+    const st=(n.status||''), ver=st==='verified', leg=!st, wip=st&&!ver, exp=!!n.anki_exported;  // wip=raw/drafted(파이프라인 진행중) — verified도 구버전(null)도 아닌 버킷
+    C.notes++;S.notes++; if(ver){C.verified++;S.verified++;} if(exp){C.exported++;S.exported++;} if(leg){C.legacy++;S.legacy++;} if(wip){C.wip++;S.wip++;}
   }
   return Object.values(bySubj).map(s=>{const c=Object.values(s._ch);delete s._ch;return {...s,chapters:c};});
 }
@@ -47,21 +47,21 @@ async function scanVaultFromFiles(handle){
   const subjects=[];
   for await(const [name,h] of handle.entries()){
     if(h.kind!=='directory'||name.startsWith('_')||SKIP.has(name))continue;
-    const subj={name,chapters:[],notes:0,verified:0,exported:0,legacy:0};
+    const subj={name,chapters:[],notes:0,verified:0,exported:0,legacy:0,wip:0};
     for await(const [cn,ch] of h.entries()){
       if(ch.kind==='directory'){
         if(cn.startsWith('_')||SKIP.has(cn))continue;
-        const chap={name:cn,notes:0,verified:0,exported:0,legacy:0};
+        const chap={name:cn,notes:0,verified:0,exported:0,legacy:0,wip:0};
         for await(const [fn,fh] of ch.entries()){
           if(fh.kind!=='file'||!fn.endsWith('.md')||fn.includes('MOC'))continue;  // MOC 제외: 파일명 휴리스틱 — 권위 기준은 moc 태그(스타일가이드 §9)
           chap.notes++; const fm=await readFM(fh);
-          if((fm.status||'').includes('verified'))chap.verified++; else if(!fm.status)chap.legacy++;
+          if((fm.status||'').includes('verified'))chap.verified++; else if(!fm.status)chap.legacy++; else chap.wip++;  // raw/drafted=진행중
           if(fm.anki_exported)chap.exported++;
         }
-        if(chap.notes){subj.chapters.push(chap);subj.notes+=chap.notes;subj.verified+=chap.verified;subj.exported+=chap.exported;subj.legacy+=chap.legacy;}
+        if(chap.notes){subj.chapters.push(chap);subj.notes+=chap.notes;subj.verified+=chap.verified;subj.exported+=chap.exported;subj.legacy+=chap.legacy;subj.wip+=chap.wip;}
       } else if(ch.kind==='file'&&cn.endsWith('.md')&&!cn.includes('MOC')){
         subj.notes++; const fm=await readFM(ch);
-        if((fm.status||'').includes('verified'))subj.verified++; else if(!fm.status)subj.legacy++;
+        if((fm.status||'').includes('verified'))subj.verified++; else if(!fm.status)subj.legacy++; else subj.wip++;
         if(fm.anki_exported)subj.exported++;
       }
     }
@@ -83,13 +83,13 @@ function renderVaultTree(v){
     return `<div class="sub">
       <div class="sh" onclick="document.getElementById('chs${si}').style.display=document.getElementById('chs${si}').style.display==='none'?'block':'none'">
         <b style="flex:1">${esc(s.name)}</b>
-        <span class="tiny muted">노트 ${s.notes} · 검증 ${s.verified}(${vp}%)${s.legacy?` · 구버전 ${s.legacy}`:''} · Anki ${s.exported}(${ep}%)</span>
+        <span class="tiny muted">노트 ${s.notes} · 검증 ${s.verified}(${vp}%)${s.wip?` · 진행중 ${s.wip}`:''}${s.legacy?` · 구버전 ${s.legacy}`:''} · Anki ${s.exported}(${ep}%)</span>
         <button class="sm" onclick="event.stopPropagation();addSubjFromVault(${si})">+학습항목(챕터 포함)</button>
       </div>
       <div class="bar" style="margin:0 12px 6px"><i style="width:${vp}%;background:var(--good)"></i></div>
       <div class="chs" id="chs${si}" style="display:none">
         ${s.chapters.map((c,ci)=>`<div class="ch"><span class="nm">${esc(c.name)}</span>
-          <span class="tiny muted">${c.notes}노트 · 검증 ${c.verified}${c.legacy?` · 구버전 ${c.legacy}`:''} · Anki ${c.exported}</span>
+          <span class="tiny muted">${c.notes}노트 · 검증 ${c.verified}${c.wip?` · 진행중 ${c.wip}`:''}${c.legacy?` · 구버전 ${c.legacy}`:''} · Anki ${c.exported}</span>
           <button class="sm ghost" onclick="addChapFromVault(${si},${ci})">+단일</button></div>`).join('')||'<div class="muted tiny">하위 챕터 없음</div>'}
       </div></div>`;
   }).join('')}</div>`;
