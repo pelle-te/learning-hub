@@ -32,6 +32,7 @@ async function scanVault(){
 function subjectsFromIndex(idx){
   const bySubj={};
   for(const n of idx.notes){
+    if(n.kind==='실전문제')continue;            // 실전문제는 개념노트 검증%·노트수 분모에서 제외(대시보드 isProb와 정합 · 감사 2026-06-25 1-1)
     const sj=n.subject||'?';
     const parts=(n.folder||sj).split('/');
     const ch=parts.length>1?parts.slice(1).join('/'):'(과목 루트)';
@@ -53,13 +54,13 @@ async function scanVaultFromFiles(handle){
         if(cn.startsWith('_')||SKIP.has(cn))continue;
         const chap={name:cn,notes:0,verified:0,exported:0,legacy:0,wip:0};
         for await(const [fn,fh] of ch.entries()){
-          if(fh.kind!=='file'||!fn.endsWith('.md')||fn.includes('MOC'))continue;  // MOC 제외: 파일명 휴리스틱 — 권위 기준은 moc 태그(스타일가이드 §9)
+          if(fh.kind!=='file'||!fn.endsWith('.md')||fn.includes('MOC')||fn.includes('실전문제'))continue;  // MOC·실전문제 제외: 파일명 휴리스틱(대시보드 isProb 보조와 정합 · 감사 2026-06-25 1-1) — 권위 기준은 moc 태그(스타일가이드 §9)
           chap.notes++; const fm=await readFM(fh);
           if((fm.status||'').includes('verified'))chap.verified++; else if(!fm.status)chap.legacy++; else chap.wip++;  // raw/drafted=진행중
           if(fm.anki_exported)chap.exported++;
         }
         if(chap.notes){subj.chapters.push(chap);subj.notes+=chap.notes;subj.verified+=chap.verified;subj.exported+=chap.exported;subj.legacy+=chap.legacy;subj.wip+=chap.wip;}
-      } else if(ch.kind==='file'&&cn.endsWith('.md')&&!cn.includes('MOC')){
+      } else if(ch.kind==='file'&&cn.endsWith('.md')&&!cn.includes('MOC')&&!cn.includes('실전문제')){
         subj.notes++; const fm=await readFM(ch);
         if((fm.status||'').includes('verified'))subj.verified++; else if(!fm.status)subj.legacy++; else subj.wip++;
         if(fm.anki_exported)subj.exported++;
