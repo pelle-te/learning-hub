@@ -39,3 +39,15 @@ function weekLabel(monDate){const end=addDays(monDate,6);return `${fmtShort(monD
 
 /* 페이지 루트 헬퍼 */
 function pageEl(){return document.getElementById('page')}
+
+/* 볼트 정본 인덱스(_meta/감사/_index.json) 로드 — 러닝허브가 .md/.txt 재스캔 대신
+   메타 시스템 산출(검사.sh --index)을 *소비*한다. 못 찾으면 null(호출부가 파일스캔 폴백).
+   감사 2026-06-24 부록A(A-1·A-2): 소비처가 정본 산출을 안 읽던 정합성 공백 해소. */
+async function loadVaultIndex(handle){
+  try{
+    const meta=await handle.getDirectoryHandle('_meta');
+    const aud=await meta.getDirectoryHandle('감사');
+    const fh=await aud.getFileHandle('_index.json');
+    return JSON.parse(await (await fh.getFile()).text());
+  }catch(e){return null;}
+}

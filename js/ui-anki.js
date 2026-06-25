@@ -6,11 +6,11 @@ function renderAnki(p){
   <div class="card">
     <h2>Anki 현황</h2>
     <div class="row">
-      <button class="sm" onclick="scanAnkiFiles()">📁 볼트 _anki 카드 스캔</button>
+      <button class="sm" onclick="scanAnkiFiles()">📁 볼트 카드 스캔</button>
       <button class="sm" onclick="ankiLive()">🔌 AnkiConnect 실시간 due</button>
       <div style="flex:2"></div>
     </div>
-    <div class="foot">파일 스캔: 볼트의 _anki/*.txt 카드 수 집계(항상 가능). 실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765).</div>
+    <div class="foot">카드 스캔: 정본 _meta/감사/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백. 실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765).</div>
     <div id="ankiStat"></div>
   </div>
   <div id="ankiList"></div>`;
@@ -22,24 +22,30 @@ async function scanAnkiFiles(){
   if(!window.showDirectoryPicker){st.innerHTML='<div class="warnbox">폴더 연결 미지원 브라우저.</div>';return;}
   let h=vaultHandle;
   try{
-    if(!h)h=await window.showDirectoryPicker();
-    let ank=null;
-    for await(const [n,e] of h.entries())if(n==='_anki'&&e.kind==='directory')ank=e;
-    if(!ank){st.innerHTML='<div class="warnbox">_anki 폴더를 못 찾았어요. 전공(볼트) 폴더를 선택하세요.</div>';return;}
-    const decks=[];
-    for await(const [fn,fh] of ank.entries()){
-      if(fh.kind!=='file'||!fn.endsWith('.txt'))continue;
-      const t=await(await fh.getFile()).text();
-      const cards=t.split('\n').filter(l=>l.trim()&&!l.startsWith('#')).length;
-      const subj=fn.split('_')[0];
-      decks.push({file:fn.replace('.txt',''),subj,cards});
+    if(!h){h=await window.showDirectoryPicker();vaultHandle=h;}
+    let decks=[], src='';
+    const idx=await loadVaultIndex(h);                                  // 정본: _index.json의 덱 매니페스트(file·cards)
+    if(idx&&Array.isArray(idx.anki)&&idx.anki.length){
+      decks=idx.anki.map(a=>({file:a.file.replace(/\.txt$/,''),subj:a.file.split('_')[0],cards:a.cards}));
+      src='_index.json';
+    }else{                                                             // 폴백: anki/ 또는 _anki/ 자식 폴더 직접 스캔
+      let ank=null;
+      for await(const [n,e] of h.entries())if((n==='anki'||n==='_anki')&&e.kind==='directory')ank=e;
+      if(!ank){st.innerHTML='<div class="warnbox">정본 _index.json도 anki 폴더도 못 찾았어요. 전공(볼트) 폴더를 선택하세요(카드 목록은 검사.sh --index가 _index.json에 기록).</div>';return;}
+      for await(const [fn,fh] of ank.entries()){
+        if(fh.kind!=='file'||!fn.endsWith('.txt'))continue;
+        const t=await(await fh.getFile()).text();
+        const cards=t.split('\n').filter(l=>l.trim()&&!l.startsWith('#')).length;
+        decks.push({file:fn.replace('.txt',''),subj:fn.split('_')[0],cards});
+      }
+      src='anki/ 폴더';
     }
-    state._ankiFile={at:new Date().toLocaleString('ko'),decks};persist();
+    state._ankiFile={at:new Date().toLocaleString('ko'),src,decks};persist();
     renderAnki(pageEl());
   }catch(e){if(e.name!=='AbortError')st.innerHTML='<div class="warnbox">'+esc(e.message||e)+'</div>';}
 }
 function renderAnkiFile(v){
-  document.getElementById('ankiStat').innerHTML=`<div class="muted tiny" style="margin-top:6px">파일 스캔: ${v.at}</div>`;
+  document.getElementById('ankiStat').innerHTML=`<div class="muted tiny" style="margin-top:6px">카드 스캔: ${v.at}${v.src?' · '+esc(v.src):''}</div>`;
   const bySubj={};v.decks.forEach(d=>{(bySubj[d.subj]=bySubj[d.subj]||[]).push(d);});
   document.getElementById('ankiList').innerHTML=`<div class="card"><h3>볼트 카드(파일 기준)</h3><table><thead><tr><th>과목</th><th>덱</th><th>카드</th><th></th></tr></thead><tbody>
   ${Object.entries(bySubj).map(([s,ds])=>ds.map((d,i)=>`<tr>
