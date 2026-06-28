@@ -15,7 +15,7 @@ const vm = require('vm');
 
 const JS_DIR = path.resolve(__dirname, '..', 'js');
 const ORDER = ['utils', 'ui-kit', 'tabs', 'state', 'data-methodology', 'scheduler', 'ui-today', 'ui-schedule', 'ui-items',
-  'ui-routine', 'ui-stats', 'ui-review', 'ui-vault', 'ui-anki', 'ui-degree', 'app'];
+  'ui-routine', 'ui-stats', 'ui-review', 'ui-vault', 'ui-anki', 'ui-degree', 'ui-command', 'app'];
 const SRC = ORDER.map(n => fs.readFileSync(path.join(JS_DIR, n + '.js'), 'utf8')).join('\n');
 
 /* ── 미니 테스트 프레임워크 ── */
@@ -183,6 +183,28 @@ test('U9 exportICS 신선도 스탬프 + 계획 서명', () => {
   sb.ev('state.items[0].weeklyHours = 9');
   assert(sb.ev('planSignature()') !== sig0, '계획이 바뀌면 서명도 바뀜(재내보내기 신호)');
   assert(sb.ev("Object.keys(exportSnapshot()).indexOf('_icsExport') < 0"), '_icsExport는 백업 JSON에서 제외(런타임 캐시)');
+});
+
+/* U10. 명령 팔레트(⌘K) — paletteCommands가 탭+액션을 제공, filterCmds가 좁히고, run이 동작 */
+test('U10 명령 팔레트 commands/filter/run', () => {
+  const sb = makeSandbox();
+  const cmds = sb.ev('paletteCommands()');
+  assert(Array.isArray(cmds) && cmds.length >= 9, '탭(9) 이상 명령 (len=' + (cmds && cmds.length) + ')');
+  assert(cmds.some(c => /통계/.test(c.label)), '탭 이동 명령(통계) 포함');
+  assert(cmds.some(c => /내보내기/.test(c.label)), '액션 명령(내보내기) 포함');
+  const f = sb.ev("filterCmds('통계')");
+  assert(f.length >= 1 && f.every(c => /통계/.test(c.label)), '필터가 일치 명령만 (got ' + f.length + ')');
+  assert(sb.ev("filterCmds('존재하지않는명령zzz').length") === 0, '무일치 검색은 빈 목록');
+  sb.ev("TAB='today'; paletteCommands().find(c=>c.id==='tab:stats').run()");
+  assert(sb.ev('TAB') === 'stats', 'run이 go(stats) 실행');
+  assert(sb.ev("typeof openPalette") === 'function' && sb.ev("typeof closePalette") === 'function', 'openPalette/closePalette 노출');
+});
+
+/* U11. Undo 토스트 — toastUndo가 액션 버튼 토스트를 만든다(throw 없이) */
+test('U11 toastUndo 액션 토스트 생성', () => {
+  const sb = makeSandbox();
+  assert(sb.ev("typeof toastUndo") === 'function', 'toastUndo 노출');
+  sb.ev("toastUndo('초기화했어요.')");   // throw 없이 동작(requestAnimationFrame 미정의 환경 가드 포함)
 });
 
 /* ── 요약 ── */

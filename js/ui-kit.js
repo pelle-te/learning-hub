@@ -16,8 +16,10 @@
     }
     return h;
   }
-  /* toast(메시지, 종류['ok'|'bad'|'warn'|'info'], 지속ms) */
-  window.toast = function (msg, type, ms) {
+  /* toast(메시지, 종류['ok'|'bad'|'warn'|'info'], 지속ms, action?)
+     action = {label, onAction} 면 우측에 액션 버튼(예: '되돌리기')을 단다 — 클릭 시 onAction 실행 후 닫힘.
+     라벨은 textContent로만 넣어 XSS 안전. onAction은 JS 함수(인라인 문자열 아님). */
+  window.toast = function (msg, type, ms, action) {
     type = type || 'ok'; ms = ms || 2600;
     var host = toastHost();
     var el = document.createElement('div');
@@ -26,12 +28,26 @@
     var i = document.createElement('span'); i.className = 'toast-i'; i.textContent = icon;
     var m = document.createElement('span'); m.className = 'toast-m'; m.textContent = msg; // 텍스트만 → XSS 안전
     el.appendChild(i); el.appendChild(m);
-    host.appendChild(el);
-    requestAnimationFrame(function () { el.classList.add('in'); });
     var kill = function () { el.classList.remove('in'); el.classList.add('out'); setTimeout(function () { el.remove(); }, 220); };
+    if (action && action.label) {
+      var a = document.createElement('button'); a.type = 'button'; a.className = 'toast-act';
+      a.textContent = action.label;
+      a.addEventListener('click', function (e) {
+        e.stopPropagation(); clearTimeout(t); kill();
+        if (typeof action.onAction === 'function') { try { action.onAction(); } catch (er) {} }
+      });
+      el.appendChild(a);
+    }
+    host.appendChild(el);
+    var raf = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : function (f) { f(); };
+    raf(function () { el.classList.add('in'); });
     var t = setTimeout(kill, ms);
     el.addEventListener('click', function () { clearTimeout(t); kill(); });
     return el;
+  };
+  /* 파괴적 동작(초기화·가져오기) 뒤에 '되돌리기' 액션을 단 토스트 — undoLast()로 1단계 복구(축 K 델타). */
+  window.toastUndo = function (msg) {
+    return toast(msg, 'info', 6500, { label: '되돌리기', onAction: function () { if (typeof undoLast === 'function') undoLast(); } });
   };
 
   /* ── 모달(confirm/prompt 공통) → Promise ── */

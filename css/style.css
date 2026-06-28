@@ -510,6 +510,9 @@ tr.dragging{opacity:.4;background:var(--acc-soft)}
 .toast.bad{border-left-color:var(--bad)} .toast.bad .toast-i{color:var(--bad)}
 .toast.warn{border-left-color:var(--warn)} .toast.warn .toast-i{color:var(--warn)}
 .toast.info{border-left-color:var(--acc)} .toast.info .toast-i{color:var(--acc)}
+.toast .toast-act{flex:none;align-self:center;margin-left:2px;padding:5px 11px;font-size:12px;font-weight:600;
+  border-radius:8px;background:var(--acc-soft);border:1px solid color-mix(in srgb,var(--acc) 35%,var(--line));color:var(--acc);cursor:pointer}
+.toast .toast-act:hover{background:var(--acc-glow)}
 @media(max-width:560px){.toast-host{right:12px;left:12px;bottom:12px;max-width:none}}
 
 /* ── 모달(confirm/prompt) ───────────────────────────────── */
@@ -530,6 +533,30 @@ tr.dragging{opacity:.4;background:var(--acc-soft)}
   background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 92%,white 0%),color-mix(in srgb,var(--bad) 82%,black 12%));
   border-color:color-mix(in srgb,var(--bad) 70%,black 18%);color:#fff;box-shadow:0 4px 14px -4px color-mix(in srgb,var(--bad) 50%,transparent)}
 .modal-ok.modal-danger:hover{filter:brightness(1.06)}
+
+/* ── 명령 팔레트(⌘K) ────────────────────────────────────── */
+.cmd-ov{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:14vh 20px 20px;
+  background:color-mix(in srgb,#05070c 58%,transparent);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;transition:opacity .14s var(--ease)}
+.cmd-ov.in{opacity:1}
+.cmd-ov.out{opacity:0}
+.cmd-box{width:min(560px,100%);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);overflow:hidden;transform:translateY(-8px) scale(.99);transition:transform .16s var(--ease)}
+.cmd-ov.in .cmd-box{transform:none}
+.cmd-in{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:15px 16px;font-size:15px}
+.cmd-in:focus{box-shadow:none;background:transparent;border-color:var(--line)}
+.cmd-list{max-height:min(48vh,360px);overflow-y:auto;padding:6px}
+.cmd-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-radius:8px;cursor:pointer}
+.cmd-row .cmd-label{font-size:13.5px;color:var(--txt)}
+.cmd-row .cmd-hint{flex:none;font-size:11px;color:var(--mut);background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.cmd-row.sel,.cmd-row:hover{background:var(--acc-soft)}
+.cmd-row.sel{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc) 40%,transparent)}
+.cmd-empty{padding:18px 12px;text-align:center;color:var(--mut);font-size:13px}
+.cmd-foot{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--line-soft);font-size:11px;color:var(--mut)}
+.cmd-foot b{color:var(--txt);font-weight:600}
+.cmd-brand{font-weight:700;color:var(--acc);letter-spacing:.02em}
+@media(prefers-reduced-motion:reduce){.cmd-ov,.cmd-box{transition:none}}
+@media(max-width:560px){.cmd-ov{padding:8vh 12px 12px}}
 
 /* ── 커스텀 스크롤바 ────────────────────────────────────── */
 *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}

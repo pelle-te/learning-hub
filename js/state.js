@@ -173,7 +173,7 @@ function importJSON(input){
     if(!s){toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).','bad',5000);return;}
     RUNTIME_CACHE_KEYS.forEach(k=>{try{delete s[k];}catch(e){}});  // 가져온 파일의 옛 스캔 캐시는 버린다(F-01)
     if(!await backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
-    state=s; persist(); applyTheme(); render(); toast('데이터를 가져왔어요.','ok');
+    state=s; persist(); applyTheme(); render(); toastUndo('데이터를 가져왔어요.');
   };
   r.readAsText(f);input.value='';
 }
@@ -181,7 +181,7 @@ async function resetAll(){
   if(!await confirmModal('모든 데이터를 지울까요? (직후 [⋯ 메뉴 → 되돌리기]로 복구 가능)',{title:'전체 초기화',okLabel:'초기화',cancelLabel:'취소',danger:true}))return;
   if(!await backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
   state=defaults(); persist(); applyTheme(); render();
-  toast('초기화했어요. 직후 [⋯ 메뉴 → 되돌리기]로 복구 가능.','info',4200);
+  toastUndo('초기화했어요.');
 }
 
 /* 테마 적용 (light/dark) — applyTheme는 부팅 시·토글 시 호출 */

@@ -25,4 +25,5 @@ import './ui-review.js';
 import './ui-vault.js';
 import './ui-anki.js';
 import './ui-degree.js';
+import './ui-command.js';   // ⌘K 명령 팔레트(탭 아님 — registerTab 안 함). app 보다 먼저
 import './app.js';   // 마지막: applyTheme(); render(); 로 부팅
