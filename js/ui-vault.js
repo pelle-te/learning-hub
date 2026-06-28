@@ -26,7 +26,7 @@ async function scanVault(){
   if(idx&&Array.isArray(idx.notes)){ subjects=subjectsFromIndex(idx); src='정본 _index.json'; }
   else { subjects=await scanVaultFromFiles(vaultHandle); src='파일 스캔(.md)'; }
   state._vaultScan={at:new Date().toLocaleString('ko'),src,subjects};persist();
-  renderVault(pageEl());
+  render();   // 통합 탭(연동 현황) 안의 볼트 패널만 갱신되도록 현재 탭 재디스패치
 }
 /* _index.json.notes → 과목→챕터 집계. status=null = 구버전(리팩터링 대기)을 verified와 *구분*해 집계(A-2). */
 function subjectsFromIndex(idx){
@@ -114,7 +114,7 @@ function addChapFromVault(si,ci){
   render(); toast(`"${name}" 추가됨`,'ok');
 }
 
-registerTab({ key:'vault', label:'📚 볼트 현황', group:'main', order:50, render:renderVault });
+/* 탭 등록 안 함 — '🔗 연동 현황'(ui-integrations.js)이 renderVault를 패널로 품는다. */
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용

@@ -31,6 +31,7 @@ function renderDegree(p){
     ${CATS.map(c=>{const req=c==='전공필수'?d.reqMajorReq:c==='전공선택'?d.reqMajorSel:c==='교양'?d.reqLiberal:0;
       return `<div class="kpi"><div class="v">${byCat[c]||0}${req?`<span class="muted tiny"> / ${req}</span>`:''}</div><div class="l">${c}</div></div>`;}).join('')}
   </div>
+  ${earned>0?degreeInsight():''}
   <div class="card">
     <div class="row" style="align-items:center"><h2 style="flex:1;margin:0">학기별 수강 <span class="muted tiny" style="font-weight:400">${d.semesters.length?`(${d.semesters.length})`:''}</span></h2>
       ${d.semesters.length>1?`<button class="sm ghost" onclick="expandAllSems()">모두 펼치기</button>
@@ -78,6 +79,36 @@ function semCard(s){
   </div>`;
   return `<div class="card itemrow open">${header}${body}</div>`;
 }
+/* ── 졸업 인사이트(완료 과목 기준 추정) — GPA · 이수/남은 학점 · 예상 잔여 학기 ── */
+const GRADE_POINTS={'A+':4.5,'A0':4.0,'A':4.0,'A-':3.7,'B+':3.5,'B0':3.0,'B':3.0,'B-':2.7,
+  'C+':2.5,'C0':2.0,'C':2.0,'C-':1.7,'D+':1.5,'D0':1.0,'D':1.0,'D-':0.7,'F':0};
+function degreeInsight(){
+  const d=state.degree;
+  let pts=0,gradedCr=0,doneCr=0,semDone=0;
+  d.semesters.forEach(s=>{
+    let hasDone=false;
+    s.courses.forEach(c=>{
+      if(c.status!=='완료')return;
+      const cr=+c.credits||0; doneCr+=cr; hasDone=true;
+      const g=(c.grade||'').toUpperCase().trim();
+      if(g in GRADE_POINTS){ pts+=GRADE_POINTS[g]*cr; gradedCr+=cr; }
+    });
+    if(hasDone)semDone++;
+  });
+  if(!doneCr)return '';
+  const gpa=gradedCr?pts/gradedCr:null;
+  const remain=Math.max(0,d.targetTotal-doneCr);
+  const avgPerSem=semDone?doneCr/semDone:0;
+  const projSem=avgPerSem>0?Math.ceil(remain/avgPerSem):null;
+  return `<div class="card"><h2>졸업 인사이트 <span class="muted tiny">— 완료 과목 기준 추정</span></h2>
+    <div class="kpis" style="margin-bottom:0">
+      <div class="kpi"><div class="v">${gpa!=null?gpa.toFixed(2):'—'}<span class="muted tiny"> / 4.5</span></div><div class="l">평점(GPA)${gradedCr<doneCr?` · 성적 ${gradedCr}/${doneCr}학점`:''}</div></div>
+      <div class="kpi"><div class="v">${doneCr}</div><div class="l">이수 학점</div></div>
+      <div class="kpi"><div class="v">${remain}</div><div class="l">남은 학점</div></div>
+      <div class="kpi"><div class="v">${projSem!=null?'~'+projSem+'학기':'—'}</div><div class="l">${avgPerSem?`현 페이스(학기당 ${Math.round(avgPerSem)}학점)`:'예상 잔여'}</div></div>
+    </div>
+  </div>`;
+}
 function setDeg(k,v){state.degree[k]=v;persist();renderDegree(pageEl());}
 function addSemester(){const id=rid();state.degree.semesters.push({id,name:'새 학기',courses:[]});openSems.add(id);persist();renderDegree(pageEl());}
 async function delSem(id){if(!await confirmModal('이 학기를 삭제할까요? (소속 과목도 함께 삭제됩니다)',{title:'학기 삭제',okLabel:'삭제',danger:true}))return;state.degree.semesters=state.degree.semesters.filter(s=>s.id!==id);openSems.delete(id);persist();renderDegree(pageEl());toast('학기 삭제됨','info');}
@@ -88,9 +119,9 @@ function updCourse(sid,cid,k,v){const s=state.degree.semesters.find(x=>x.id===si
 function courseToItem(name){if(state.items.some(s=>s.name===name)){toast('이미 학습 항목에 있어요.','warn');return;}addItem(name,{source:'수강',mode:'weekly',weeklyHours:3,chapters:[]});toast(`"${name}" 학습 항목에 추가됨 — 학습 항목 탭에서 주당 시간·챕터를 설정하세요.`,'ok',4200);}
 
 /* degree는 학사(졸업) 영역 — group을 달리해 네비에서 구분선 뒤로(원래 IA 유지) */
-registerTab({ key:'degree', label:'🎓 졸업 계획', group:'degree', order:90, render:renderDegree });
+registerTab({ key:'degree', label:'졸업 계획', group:'degree', order:100, render:renderDegree });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { CATS, openSems, toggleSem, collapseAllSems, expandAllSems, renderDegree, semCard, setDeg, addSemester, delSem, updSem, addCourse, delCourse, updCourse, courseToItem });
+Object.assign(globalThis, { CATS, GRADE_POINTS, openSems, toggleSem, collapseAllSems, expandAllSems, renderDegree, degreeInsight, semCard, setDeg, addSemester, delSem, updSem, addCourse, delCourse, updCourse, courseToItem });

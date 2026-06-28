@@ -42,7 +42,7 @@ async function scanAnkiFiles(){
       src='anki/ 폴더';
     }
     state._ankiFile={at:new Date().toLocaleString('ko'),src,decks};persist();
-    renderAnki(pageEl());
+    render();   // 통합 탭(연동 현황) 재디스패치 — Anki 패널 갱신
   }catch(e){if(e.name!=='AbortError')st.innerHTML='<div class="warnbox">'+esc(e.message||e)+'</div>';}
 }
 function renderAnkiFile(v){
@@ -73,7 +73,7 @@ async function ankiLive(){
     state._ankiLive={at:new Date().toLocaleString('ko'),decks};
     recordRetentionSnapshot(decks);   // 주별 due 스냅샷(유지율 추세 · F-05) — persist 포함
     persist();
-    renderAnki(pageEl());
+    render();   // 통합 탭(연동 현황) 재디스패치 — Anki 패널 갱신
   }catch(e){
     st.innerHTML=`<div class="warnbox">AnkiConnect 연결 실패. Anki가 실행 중이고 AnkiConnect 애드온이 설치됐는지, 설정 webCorsOriginList에 "*" 또는 "null"이 있는지 확인하세요.<br><span class="tiny">${esc(e.message||e)}</span></div>`;
   }
@@ -115,7 +115,7 @@ function addAnki(name,mins){
   render(); toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`,'ok');
 }
 
-registerTab({ key:'anki', label:'🃏 Anki 현황', group:'main', order:60, render:renderAnki });
+/* 탭 등록 안 함 — '🔗 연동 현황'(ui-integrations.js)이 renderAnki를 패널로 품는다. */
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용

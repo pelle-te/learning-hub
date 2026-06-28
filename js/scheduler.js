@@ -45,6 +45,27 @@ function dayStudyMin(ds,wd,capWd){
 }
 function itemTotalHours(it){return (it.chapters||[]).reduce((t,c)=>t+(+c.hours||0),0)}
 
+/* ── 그래프 우선순위(B · 설계 평가): 지식엔진의 과목 숙달도를 배분에 역연동 ──
+   러닝허브 과목명 → 볼트 과목 매칭 → 그 과목 유효숙달(0~1). 없으면 null.
+   subjectMasteryNeed = 1 - 숙달  (약한 과목일수록 큼 → 같은 마감 긴급도면 약한 과목 먼저).
+   설계: 마감은 *하드 제약*이라 1순위 유지, 숙달도는 그 *동률을 깨는* 2순위(폭주 방지).
+   state.graphPriority===true 이고 _knowState가 있을 때만 작동 → 기본 off면 기존 배분과 100% 동일. */
+function subjectMastery(name){
+  const k=state._knowState; if(!k||!Array.isArray(k.subjects))return null;
+  const b=(name||'').replace(/\s/g,'');
+  for(const s of k.subjects){
+    if(!s.subject)continue;
+    const a=s.subject.replace(/\s/g,'');
+    if(a===b||a.indexOf(b)>=0||b.indexOf(a)>=0)return (typeof s.mastery==='number')?s.mastery:null;
+  }
+  return null;
+}
+function masteryNeed(name){
+  if(state.graphPriority!==true)return 0;          // 기본 off → 영향 0(기존 동작 보존)
+  const m=subjectMastery(name);
+  return (m==null)?0:(1-clamp(m,0,1));             // 약할수록 큰 우선순위
+}
+
 /* ── 적응형 용량(방법론 1·10절: "계획은 가설") ──────────────────
    최근 N일의 '실제 완료 분 / 가용 분'으로 *미래* 계획 용량을 보정한다.
    꾸준히 70%만 완료하면 다음 계획도 ~70%로 줄여 "실패할 계획"을 "굴러가는 계획"으로.
@@ -126,6 +147,7 @@ function schedule(){
     s._totalH=s._chs.reduce((t,c)=>t+c.hours,0);
     s._dlIdx=s.deadline?clamp(dayDiff(start,s.deadline),0,days.length-1):horizon;
     s._schedMin=0; s._sessions=[]; s._carry=0;      // _carry: 분수 모듈 캐리오버
+    s._masteryNeed=masteryNeed(s.name);             // 그래프 우선순위(B) — 기본 off면 0
   });
   function advance(s,addMin){                       // 모듈 학습 → 어떤 챕터를 덮는지
     if(!s._chs.length)return [];
@@ -176,9 +198,10 @@ function schedule(){
         let cand=weekly.filter(s=>s._weekDone<s._weekTgt && chaptersLeft(s) && di<=s._dlIdx);
         if(!cand.length)break;
         cand.sort((a,b)=>{
-          const ua=a._dlIdx-di, ub=b._dlIdx-di;                 // 마감 임박 우선
+          const ua=a._dlIdx-di, ub=b._dlIdx-di;                 // ① 마감 임박 우선(하드 제약)
           if(ua!==ub)return ua-ub;
-          return (a._weekDone/a._weekTgt)-(b._weekDone/b._weekTgt); // 덜 채운 과목 우선
+          if(a._masteryNeed!==b._masteryNeed)return b._masteryNeed-a._masteryNeed; // ② 그래프: 약한(숙달↓) 과목 먼저
+          return (a._weekDone/a._weekTgt)-(b._weekDone/b._weekTgt); // ③ 덜 채운 과목 우선
         });
         let pick=cand.find(s=>s.id!==lastSid)||cand[0];           // 같은 과목 연속 회피(인터리빙)
         const covered=advance(pick,ML);
@@ -408,4 +431,4 @@ function planSignature(){
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { blocksForWeekday, awakeBounds, freeWindowsForWeekday, studyMinByWeekday, dayStudyMin, itemTotalHours, ADAPT_WINDOW, adherenceFactor, schedule, peakRange, subtractIntervals, layoutDay, icsEsc, icsDt, buildICS, exportICS, planSignature });
+Object.assign(globalThis, { blocksForWeekday, awakeBounds, freeWindowsForWeekday, studyMinByWeekday, dayStudyMin, itemTotalHours, subjectMastery, masteryNeed, ADAPT_WINDOW, adherenceFactor, schedule, peakRange, subtractIntervals, layoutDay, icsEsc, icsDt, buildICS, exportICS, planSignature });

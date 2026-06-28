@@ -13,30 +13,18 @@ const BLOCK_STAGES=[
   ['④ 3문장 요약', 85, 100, '보지 않고 내 언어로 3줄(What&Why / How / Result&Meaning)'],
 ];
 
-/* itemById는 utils.js로 이동(여러 탭 공용). 과목 선택 <option> 목록 (selSid 선택 유지) */
-function subjectOptions(selSid){
-  const opts=['<option value="">(과목 선택)</option>'];
-  (state.items||[]).filter(i=>i.name).forEach(i=>{
-    opts.push(`<option value="${i.id}"${i.id===selSid?' selected':''}>${esc(i.name)}</option>`);
-  });
-  return opts.join('');
-}
-
 function renderToday(p){
   persist(); RES=schedule();
   const ds=iso(new Date());
   const day=(RES.days||[]).find(d=>d.ds===ds);
   const todayD=new Date();
 
+  // 위계: 오늘의 블록(주인공)을 위로 — 원칙·흐름 가이드는 하단 접이식 참고로 톤다운(화면당 hero 1개).
   p.innerHTML=`
   ${setupGuideCard()}
   ${ritualCard(ds,day)}
-  ${principlesCard()}
   ${todayBlocksCard(ds,day)}
-  ${flowGuideCard()}
-  ${summaryCard(ds)}
-  ${cbmsCard(ds)}
-  ${backlogCard()}`;
+  ${flowGuideCard()}`;
 }
 
 /* ── 첫 실행 셋업 가이드(온보딩) ──
@@ -51,11 +39,11 @@ function setupGuideCard(){
 
   const steps=[
     [hasSubjects,'공부할 과목 추가','볼트(전공 폴더)에서 통째로 불러오거나 직접 입력하세요.',
-      `<button class="sm primary" onclick="go('items')">학습 항목 열기</button> <button class="sm" onclick="go('vault')">볼트에서 불러오기</button>`],
+      `<button class="sm primary" onclick="go('items')">학습 항목 열기</button> <button class="sm" onclick="go('integrations')">볼트에서 불러오기</button>`],
     [hasTargets,'주당 목표 시간·챕터 설정','과목마다 주당 몇 시간 공부할지와 챕터(순서)를 정하면 블록이 배분됩니다.',
       `<button class="sm${hasSubjects?' primary':''}" onclick="go('items')">학습 항목에서 설정</button>`],
     [hasRoutine,'일과·가용 시간 확인','수면·식사·수업을 빼고 남는 빈 시간이 자동으로 공부시간이 됩니다(기본값 제공 — 필요 시 조정).',
-      `<button class="sm" onclick="go('routine')">일과 열기</button>`],
+      `<button class="sm" onclick="go('routine')">가용시간 열기</button>`],
   ];
   const done=steps.filter(s=>s[0]).length;
   const rows=steps.map(([ok,title,desc,actions])=>`
@@ -68,7 +56,7 @@ function setupGuideCard(){
       </div>
     </div>`).join('');
   return `<div class="card setup-card">
-    <h2>👋 시작하기 <span class="muted tiny">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span></h2>
+    <h2>시작하기 <span class="muted tiny">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span></h2>
     <div class="row" style="align-items:center;margin-bottom:6px">
       <span class="pill ${done===3?'good':'warn'}">${done}/3 완료</span>
       <span class="setup-prog"><i style="width:${Math.round(done/3*100)}%"></i></span>
@@ -89,7 +77,7 @@ function ritualCard(ds,day){
   const due=(v&&v.decks)?v.decks.reduce((t,d)=>t+(+d.new||0)+(+d.learn||0)+(+d.review||0),0):null;
   const gl=(val,lab)=>`<div class="gl"><div class="gl-v">${val}</div><div class="gl-l">${lab}</div></div>`;
   return `<div class="card ritual-card">
-    <h2>☀️ 오늘 한눈에 <span class="muted tiny">— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span></h2>
+    <h2>오늘 한눈에 <span class="muted tiny">— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span></h2>
     <div class="glance">
       ${gl((total?done+'/'+total:'—'),'오늘 블록')}
       ${gl('🔥 '+streak,'연속 학습일')}
@@ -104,7 +92,8 @@ function ritualCard(ds,day){
 }
 function toggleRitual(ds,key,on){setRitual(ds,key,on);renderToday(pageEl());toast(on?'기록됨 👍':'해제됨','info',1400);}
 
-/* ── 0절 5원리 + 오늘 한 줄 ── */
+/* ── 0절 5원리 + 오늘 한 줄 ──
+   ⚠️ 현재 미사용: flowGuideCard(접이식 참고)로 통합됨. 호환 위해 정의·노출만 유지. */
 function principlesCard(){
   const pr=[
     ['능동 인출','덮고 떠올린다'],
@@ -173,7 +162,9 @@ function todayBlocksCard(ds,day){
     return `<div class="blk">${head}<div class="blk-note tiny muted">${note}</div></div>`;
   }).join('');
 
-  return `<div class="card"><h2>오늘의 블록 <span class="muted tiny">${fmt(new Date(ds+'T00:00:00'))}</span></h2>${rows}</div>`;
+  // 70% 룰 안내는 카드 상단에 *한 번만*(예전엔 new 블록마다 같은 문장이 반복돼 노이즈였다).
+  const onceNote=`<div class="foot" style="margin:-2px 0 12px">막히면 <b>70% 룰</b> — 씨름 10–15분 → 힌트 한 조각(보고 다시 덮기) → 70%서 멈춰 <i>가정·결과식·의미만</i> + <b>보충 필요</b> 라벨 + 요약은 한다. <span class="muted">단계별 안내는 아래 ‘학습 원칙·블록 흐름’.</span></div>`;
+  return `<div class="card"><h2>오늘의 블록 <span class="muted tiny">${fmt(new Date(ds+'T00:00:00'))}</span></h2>${onceNote}${rows}</div>`;
 }
 /* 완료 토글은 공용 toggleDoneAt(ui-kit)로 일원화 — 별도 toggleDoneToday 제거(F-08) */
 /* 백지 복습 통과/막힘 기록(방법론 9절·E4) — 막힘은 CBMS(C 개념)로 자동 연결 */
@@ -194,166 +185,38 @@ function stageBar(ML){
     return `<div class="stg" style="flex:${w}" title="${esc(nm)} (~${mins}분) — ${esc(act)}">
       <span class="stg-nm">${esc(nm)}</span><span class="stg-mn">~${mins}m</span></div>`;
   }).join('');
-  return `<div class="stagebar">${seg}</div>
-    <div class="blk-note tiny muted">막히면 <b>70% 룰</b>: 씨름 10–15분 → 힌트 한 조각(보고 다시 덮기) → 블록 70%서 멈춰 <i>가정·결과식·의미만</i> + <b>보충 필요</b> 라벨 + 요약은 한다.</div>`;
+  // 단계 비중 막대만 반환 — 70% 룰 안내는 todayBlocksCard 상단에서 한 번만 보여준다(반복 제거).
+  return `<div class="stagebar">${seg}</div>`;
 }
 
 /* ── 블록 흐름 가이드(참고) ── */
+/* 참고(접이식) — 5원리 + 블록 흐름·체크리스트를 한 곳으로 합쳐 톤다운(상시 카드 2개 → 접이식 1개). */
 function flowGuideCard(){
+  const pr=[
+    ['능동 인출','덮고 떠올린다'],
+    ['분산','시간을 벌려 다시 만난다'],
+    ['인터리빙','유형을 섞어 푼다'],
+    ['이중부호화','그림+수식 동시에'],
+    ['메타인지','어디서 왜 막히는지 안다'],
+  ];
   const rows=BLOCK_STAGES.map(([nm,s,e,act])=>`<tr><td><b>${esc(nm)}</b></td><td class="muted tiny">${s}–${e}%</td><td>${esc(act)}</td></tr>`).join('');
   return `<div class="card"><details>
-    <summary>📖 블록 흐름·체크리스트 (방법론 2·5·부록 B)</summary>
-    <table style="margin-top:10px"><thead><tr><th>단계</th><th>비중</th><th>핵심 행동</th></tr></thead><tbody>${rows}</tbody></table>
+    <summary>학습 원칙 · 블록 흐름 (참고 · 방법론 0·2·5·부록 B)</summary>
+    <div class="princ" style="margin-top:12px">${pr.map(([a,b])=>`<span class="princ-chip"><b>${a}</b> ${b}</span>`).join('')}</div>
+    <div class="foot" style="margin:2px 0 12px">"이해했다"는 착각을 "꺼낼 수 있다"는 증거로. 바쁜 날엔 <b>풀이 1~2문제 + 3문장 요약 + Anki 점검</b>만 — <i>작은 일관성 &gt; 완벽한 중단</i>(부록 C).</div>
+    <table><thead><tr><th>단계</th><th>비중</th><th>핵심 행동</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="foot" style="margin-top:10px"><b>주의력:</b> 45~50분마다 5분 휴식(화면·문제에서 눈 떼기). 2h ≈ [50분+5분]×2.</div>
     <div class="foot"><b>블록 종료 체크:</b> ☐ 3문장 요약(보지 않고) ☐ 까다로운 개념만 시각/언어 스케치 ☐ 막힌 곳 CBMS 분류 ☐ Anki ≤5장 점검 ☐ '보충 필요' 회수 시점 정함</div>
   </details></div>`;
 }
 
-/* ── 3문장 요약(3절) ── */
-function summaryCard(ds){
-  const list=summariesFor(ds);
-  const listHtml=list.length?list.map(x=>`
-    <div class="rec">
-      <div class="rec-head"><span class="swatch" style="background:${(itemById(x.sid)||{}).color||'#6ea8fe'}"></span>
-        <b>${esc(x.name||'(과목 없음)')}</b>
-        <button class="sm danger ghost" style="margin-left:auto" onclick="delSummaryUI('${ds}','${x.id}')" title="삭제">✕</button></div>
-      <ol class="rec-3">
-        <li><span class="muted tiny">현상·왜</span> ${esc(x.s1)}</li>
-        <li><span class="muted tiny">도구·어떻게</span> ${esc(x.s2)}</li>
-        <li><span class="muted tiny">결과·의미</span> ${esc(x.s3)}</li>
-      </ol>
-    </div>`).join(''):`<div class="empty tiny">오늘 작성한 요약이 없어요. 블록 끝마다 한 개씩.</div>`;
-  return `<div class="card"><h2>✍ 3문장 요약 <span class="muted tiny">— 압축이 안 되면 이해한 게 아니다(파인만)</span></h2>
-    <div class="fieldgrid">
-      <div class="fld"><label>과목</label><select id="sum-sid">${subjectOptions('')}</select></div>
-    </div>
-    <label>1 — What &amp; Why <span class="muted tiny">해석하려는 핵심 현상·문제</span></label>
-    <textarea id="sum-s1" rows="2" placeholder="예) 시변 환경에서 자기장과 전기장이 어떻게 퍼져 나가는지 해석하려고…"></textarea>
-    <label>2 — How <span class="muted tiny">도입한 핵심 수식·가정·전개</span></label>
-    <textarea id="sum-s2" rows="2" placeholder="예) 변위전류가 든 앙페르 법칙과 패러데이 법칙을 연립해 파동방정식을 세웠고…"></textarea>
-    <label>3 — Result &amp; Meaning <span class="muted tiny">결과와 물리적 직관</span></label>
-    <textarea id="sum-s3" rows="2" placeholder="예) 전자기파가 빛의 속도로 전파됨을 증명 — 무선통신의 근거."></textarea>
-    <div style="margin-top:10px"><button class="primary" onclick="submitSummary('${ds}')">요약 저장</button>
-      <button class="sm ghost" style="margin-left:8px" onclick="exportAnkiCards('today')" title="오늘 요약·오답을 Anki import용 .txt 카드 초안으로">🃏 오늘 → Anki 카드(.txt)</button>
-      <button class="sm ghost" style="margin-left:6px" onclick="exportSummaryNotes('today')" title="오늘 요약을 옵시디언용 마크다운 노트(.md)로 — 카드(인출)에 이은 연결용">📓 오늘 → 노트(.md)</button></div>
-    <div class="foot tiny">카드는 <b>초안</b>입니다 — Anki로 가져온 뒤 ≤5장으로 추리고 "왜?/응용"형으로 손질(큐레이션이 학습 이득). 복습 시점(due)은 FSRS가 소유.</div>
-    <hr>${listHtml}
-  </div>`;
-}
-function submitSummary(ds){
-  const sid=document.getElementById('sum-sid').value;
-  const s1=document.getElementById('sum-s1').value.trim();
-  const s2=document.getElementById('sum-s2').value.trim();
-  const s3=document.getElementById('sum-s3').value.trim();
-  if(!s1&&!s2&&!s3){toast('세 문장 중 최소 하나는 적어주세요.','warn');return;}
-  addSummary(ds,sid,(itemById(sid)||{}).name||'',s1,s2,s3);
-  renderToday(pageEl());
-  toast('요약 저장됨','ok');
-}
-function delSummaryUI(ds,id){delSummary(ds,id);renderToday(pageEl());toast('요약 삭제됨','info');}
-function prefillSummary(sid){
-  const el=document.getElementById('sum-sid'); if(el){el.value=sid; el.scrollIntoView({behavior:'smooth',block:'center'});
-    const t=document.getElementById('sum-s1'); if(t)setTimeout(()=>t.focus(),300);}
-}
-
-/* ── CBMS 오답 분류(6절) ── */
-function cbmsCard(ds){
-  const today=cbmsBetween(ds,ds);
-  const codeOpts=Object.keys(CBMS_INFO).map(c=>`<option value="${c}">${c} — ${CBMS_INFO[c].label}</option>`).join('');
-  const listHtml=today.length?today.map(e=>{
-    const inf=CBMS_INFO[e.code]||{label:'?',tip:''};
-    return `<div class="rec">
-      <div class="rec-head"><span class="cbms-chip" style="--c:${inf.color}">${e.code} ${inf.label}</span>
-        ${e.conf?`<span class="cbms-chip" style="--c:#888" title="확신 없이 맞힘 — 다시 점검 대상">🎯 확신없음</span>`:''}
-        <b>${esc(e.name||'')}</b>${e.chapter?`<span class="muted tiny"> · ${esc(e.chapter)}</span>`:''}
-        <button class="sm danger ghost" style="margin-left:auto" onclick="delCbmsUI('${e.id}')" title="삭제">✕</button></div>
-      ${e.note?`<div class="tiny">${esc(e.note)}</div>`:''}
-      <div class="tiny muted">처방: ${esc(inf.tip)}</div>
-    </div>`;
-  }).join(''):`<div class="empty tiny">오늘 기록한 오답이 없어요. '찍어서 맞은' 문제도 오답으로(확신 없으면 기록).</div>`;
-  return `<div class="card"><h2>✗ 오답 분류 CBMS <span class="muted tiny">— 틀린 이유별로 처방이 다르다</span></h2>
-    <div class="fieldgrid">
-      <div class="fld"><label>과목</label><select id="cb-sid">${subjectOptions('')}</select></div>
-      <div class="fld"><label>챕터/문제</label><input type="text" id="cb-ch" placeholder="예) 3장 변위전류"></div>
-      <div class="fld"><label>유형</label><select id="cb-code">${codeOpts}</select></div>
-      <div class="fld wide"><label>메모 <span class="muted tiny">(어디서 왜 막혔나)</span></label><input type="text" id="cb-note" placeholder="예) 경계조건에서 법선성분 연속을 빠뜨림"></div>
-    </div>
-    <label class="tiny" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" id="cb-conf"> 🎯 <b>찍어서 맞음/확신 없었음</b> <span class="muted">— 맞아도 다시 점검 대상(확신도 보정)</span></label>
-    <div style="margin-top:10px"><button class="primary" onclick="submitCbms('${ds}')">오답 추가</button>
-      <span class="muted tiny" style="margin-left:8px">C 개념 · B 경계 · M 수학 · S 실수 · T 시간부족(모의시험)</span></div>
-    <hr>${listHtml}
-  </div>`;
-}
-function submitCbms(ds){
-  const sid=document.getElementById('cb-sid').value;
-  const ch=document.getElementById('cb-ch').value.trim();
-  const code=document.getElementById('cb-code').value;
-  const note=document.getElementById('cb-note').value.trim();
-  const confEl=document.getElementById('cb-conf'); const conf=!!(confEl&&confEl.checked);
-  if(!sid&&!ch&&!note){toast('과목·챕터·메모 중 최소 하나는 입력하세요.','warn');return;}
-  addCbms(ds,sid,(itemById(sid)||{}).name||'',ch,code,note,conf);
-  renderToday(pageEl());
-  toast('오답 추가됨','ok');
-}
-function delCbmsUI(id){delCbms(id);renderToday(pageEl());toast('오답 삭제됨','info');}
-function prefillCbms(sid){
-  const el=document.getElementById('cb-sid'); if(el){el.value=sid; el.scrollIntoView({behavior:'smooth',block:'center'});
-    const t=document.getElementById('cb-ch'); if(t)setTimeout(()=>t.focus(),300);}
-}
-
-/* ── '보충 필요' 백로그(5절) ── */
-function backlogCard(){
-  const open=openBacklog();
-  const closed=(state.backlog||[]).filter(b=>b.done).length;
-  const listHtml=open.length?open.map(b=>`
-    <div class="rec bl-open">
-      <div class="rec-head">
-        <input type="checkbox" aria-label="회수 완료" onchange="toggleBacklogUI('${b.id}')">
-        <span class="swatch" style="background:${(itemById(b.sid)||{}).color||'#888'}"></span>
-        <b>${esc(b.topic||'(주제 없음)')}</b>
-        ${b.name?`<span class="muted tiny"> · ${esc(b.name)}</span>`:''}
-        <span class="muted tiny" style="margin-left:6px">${esc(b.ds)}</span>
-        <button class="sm danger ghost" style="margin-left:auto" onclick="delBacklogUI('${b.id}')" title="삭제">✕</button>
-      </div>${b.note?`<div class="tiny">${esc(b.note)}</div>`:''}
-    </div>`).join(''):`<div class="empty tiny">열린 '보충 필요' 항목이 없어요. 👍 백로그를 닫아 두는 게 메타인지.</div>`;
-  return `<div class="card"><h2>🏷 보충 필요 백로그 <span class="muted tiny">— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span></h2>
-    <div class="row" style="margin-bottom:6px">
-      <span class="pill ${open.length?'warn':'good'}">열림 ${open.length}</span>
-      <span class="pill good">회수 ${closed}</span>
-      <span style="flex:1"></span>
-    </div>
-    <div class="fieldgrid">
-      <div class="fld"><label>과목</label><select id="bl-sid">${subjectOptions('')}</select></div>
-      <div class="fld wide"><label>막힌 주제</label><input type="text" id="bl-topic" placeholder="예) 3장 변위전류 유도 막힘"></div>
-      <div class="fld wide"><label>메모 <span class="muted tiny">(가정·결과식·물리적 의미만)</span></label><input type="text" id="bl-note" placeholder="예) ∇×H=J+∂D/∂t 까지는 갔는데 파동방정식 유도에서 막힘"></div>
-    </div>
-    <div style="margin-top:10px"><button class="primary" onclick="submitBacklog()">백로그 추가</button>
-      <span class="muted tiny" style="margin-left:8px">회수처: 컨디션 좋은 오전 블록 / 백지 복습 / 질문 목록</span></div>
-    <hr>${listHtml}
-  </div>`;
-}
-function submitBacklog(){
-  const sid=document.getElementById('bl-sid').value;
-  const topic=document.getElementById('bl-topic').value.trim();
-  const note=document.getElementById('bl-note').value.trim();
-  if(!topic){toast('막힌 주제를 적어주세요.','warn');return;}
-  addBacklog(sid,(itemById(sid)||{}).name||'',topic,note);
-  renderToday(pageEl());
-  toast('백로그 추가됨','ok');
-}
-function toggleBacklogUI(id){toggleBacklog(id);renderToday(pageEl());}
-/* 작은 기록(요약·오답·백로그)의 삭제는 모두 즉시+토스트로 통일(확인창 없음).
-   구조적 삭제(과목·학기)만 모달 확인을 둔다 — 위험도에 맞춘 일관 규칙. */
-function delBacklogUI(id){delBacklog(id);renderToday(pageEl());toast('백로그 삭제됨','info');}
-function prefillBacklog(sid){
-  const el=document.getElementById('bl-sid'); if(el){el.value=sid; el.scrollIntoView({behavior:'smooth',block:'center'});
-    const t=document.getElementById('bl-topic'); if(t)setTimeout(()=>t.focus(),300);}
-}
+/* 3문장 요약·오답분류 CBMS·보충필요 백로그(학습 산출물)는 ui-journal.js(📒 학습 기록)로 분리.
+   오늘의 블록 버튼(prefillSummary/prefillCbms/prefillBacklog)은 그 탭으로 이동해 과목을 채운다. */
 
 /* 탭 등록 — tabs.js 레지스트리에 자신을 올린다(추가/삭제 시 app.js 안 건드림) */
-registerTab({ key:'today', label:'🎯 오늘 학습', group:'main', order:10, render:renderToday });
+registerTab({ key:'today', label:'오늘 학습', group:'do', order:10, render:renderToday });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { BLOCK_STAGES, subjectOptions, renderToday, setupGuideCard, ritualCard, toggleRitual, principlesCard, todayBlocksCard, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard, summaryCard, submitSummary, delSummaryUI, prefillSummary, cbmsCard, submitCbms, delCbmsUI, prefillCbms, backlogCard, submitBacklog, toggleBacklogUI, delBacklogUI, prefillBacklog });
+Object.assign(globalThis, { BLOCK_STAGES, renderToday, setupGuideCard, ritualCard, toggleRitual, principlesCard, todayBlocksCard, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard });

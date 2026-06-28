@@ -14,8 +14,8 @@ const path = require('path');
 const vm = require('vm');
 
 const JS_DIR = path.resolve(__dirname, '..', 'js');
-const ORDER = ['utils', 'ui-kit', 'tabs', 'state', 'data-methodology', 'scheduler', 'ui-today', 'ui-schedule', 'ui-items',
-  'ui-routine', 'ui-stats', 'ui-review', 'ui-vault', 'ui-anki', 'ui-degree', 'ui-command', 'app'];
+const ORDER = ['utils', 'ui-kit', 'tabs', 'state', 'data-methodology', 'scheduler', 'ui-today', 'ui-journal', 'ui-schedule', 'ui-items',
+  'ui-routine', 'ui-stats', 'ui-mastery', 'ui-review', 'ui-vault', 'ui-anki', 'ui-integrations', 'ui-control', 'ui-degree', 'ui-degree-req', 'ui-command', 'app'];
 const SRC = ORDER.map(n => fs.readFileSync(path.join(JS_DIR, n + '.js'), 'utf8')).join('\n');
 
 /* ── 미니 테스트 프레임워크 ── */
@@ -52,6 +52,7 @@ function makeSandbox() {
     localStorage: { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) },
     alert() {}, confirm() { return true; }, setTimeout(fn) { return 0; }, clearTimeout() {},
     location: { protocol: 'file:' },
+    fetch() { return Promise.reject(new Error('no api in test')); },   // ui-control: API 미지원 분기
     Blob: function () {}, URL: { createObjectURL() { return 'blob:stub'; }, revokeObjectURL() {} },
     Math, Date, JSON, Object, Array, Set, Map, String, Number, Boolean, Intl,
     parseInt, parseFloat, isNaN, RegExp,
@@ -82,7 +83,7 @@ function seed(sb) {
 
 console.log('\nui-smoke.test.js\n');
 
-const TABS = ['today', 'schedule', 'items', 'routine', 'stats', 'vault', 'anki', 'review', 'degree'];
+const TABS = ['today', 'journal', 'schedule', 'items', 'routine', 'settings', 'stats', 'mastery', 'integrations', 'control', 'review', 'degree', 'degreeReq'];
 
 /* U1. 부팅(기본 상태)에서 app.js가 throw 없이 초기 렌더 */
 test('U1 기본 상태 부팅 렌더 OK', () => {
@@ -264,6 +265,52 @@ test('U16 IndexedDB write-through 안전(no-op)', () => {
   // indexedDB 미정의 → persist(내부 idbMirror)가 throw 없이 동기 저장 유지
   sb.ev("state.moduleLen=99; persist(); idbMirror('{\"x\":1}')");
   assert(sb.ev("JSON.parse(localStorage.getItem('study_planner_v3')).moduleLen") === 99, '동기 localStorage 저장 불변');
+});
+
+/* U17. 🧠 숙달도 지도 — 지식상태 데이터가 있을 때 본문(히트맵·프런티어·갭·캘리브레이션)이 throw 없이 렌더.
+   _knowState는 지식엔진.py _지식상태.json의 형태를 모킹. RUNTIME_CACHE_KEYS라 내보내기에서 제외돼야. */
+test('U17 숙달도 지도 본문 렌더 + 캐시 제외', () => {
+  const sb = makeSandbox();
+  seed(sb);
+  const mock = {
+    generated: '2026-06-29', n_notes: 3, overall: 0.42,
+    states: { mastered: 1, learning: 1, weak: 1, unknown: 0 },
+    subjects: [{ subject: '공업수학', n: 3, mastery: 0.42, weak: 1, unknown: 0,
+      concepts: [{ basename: 'A', title: '개념A', p_eff: 0.2, state: 'weak', frontier: 0, weak: 1, root_cause: 'self', prereq_in: 2 },
+                 { basename: 'B', title: '개념B', p_eff: 0.5, state: 'learning', frontier: 1, weak: 0, root_cause: null, prereq_in: 1 },
+                 { basename: 'C', title: '개념C', p_eff: 0.8, state: 'mastered', frontier: 0, weak: 0, root_cause: null, prereq_in: 0 }] }],
+    frontier: [{ basename: 'B', title: '개념B', subject: '공업수학', p_eff: 0.5, prereq_in: 1 }],
+    gaps: [{ basename: 'A', title: '개념A', subject: '공업수학', p_eff: 0.2, root_cause: 'self' }],
+    calibration: { confident_wrong: 2, unsure_wrong: 1, n_errors: 3, overconfidence_rate: 0.667, blank_pass: 1, blank_total: 2, blank_pass_rate: 0.5 }
+  };
+  sb.ev('state._knowState=' + JSON.stringify(mock) + ';');
+  sb.ev("TAB='mastery'; document.getElementById('page').innerHTML='';");
+  sb.ev('render()');
+  const html = sb.ev("document.getElementById('page').innerHTML");
+  assert(html.indexOf('히트맵') >= 0, '히트맵 섹션 렌더');
+  assert(html.indexOf('다음 배울 개념') >= 0, '프런티어 섹션 렌더');
+  assert(html.indexOf('약점 진단') >= 0, '갭 섹션 렌더');
+  assert(html.indexOf('과신율') >= 0 || html.indexOf('캘리브레이션') >= 0, '캘리브레이션 섹션 렌더');
+  assert(html.indexOf('67%') >= 0, '과신율 67% 표시');
+  // _knowState는 export 스냅샷에서 빠져야(RUNTIME_CACHE_KEYS)
+  assert(sb.ev("typeof exportSnapshot()._knowState === 'undefined'"), '_knowState는 내보내기에서 제외');
+});
+
+/* U18. 🛠 시스템 제어판 — 오프라인(API 없음) 안내 + 온라인(API 있음) 도구 버튼 렌더. */
+test('U18 시스템 제어판 오프라인/온라인 렌더', () => {
+  const sb = makeSandbox();
+  // 오프라인: _ctlApi=false → serve.js 안내
+  sb.ev("_ctlApi=false; TAB='control'; document.getElementById('page').innerHTML='';");
+  sb.ev('render()');
+  let html = sb.ev("document.getElementById('page').innerHTML");
+  assert(html.indexOf('serve.js') >= 0, '오프라인이면 serve.js 안내');
+  // 온라인: _ctlApi={ok,tools} → 도구 카드들
+  sb.ev("_ctlApi={ok:true,tools:['knowledge-build']}; document.getElementById('page').innerHTML='';");
+  sb.ev('render()');
+  html = sb.ev("document.getElementById('page').innerHTML");
+  assert(html.indexOf('지식상태 재빌드') >= 0, '온라인이면 도구 카드 렌더');
+  assert(html.indexOf('탐구') >= 0, '탐구 수집 카드 렌더');
+  assert(sb.ev("typeof runResearch === 'function' && typeof loadKnowledgeFromAPI === 'function'"), '핸들러 노출');
 });
 
 /* ── 요약 ── */

@@ -27,7 +27,7 @@ function defaults(){
   const blk=(name,type,s,e,days)=>({id:rid(),name,type,start:s,end:e,days});
   return {
     schemaVersion:SCHEMA_VERSION,
-    theme:'dark',         // 'dark' | 'light'
+    theme:'light',        // 'light' | 'dark' | 'sepia' — 라이트 기본(긴 글 가독성·브랜드 인디고)
     completions:{},       // 실행 추적: { '2026-06-23': { 'sid|type': {done:true, min:90} } }
     startDate:iso(t),
     moduleLen:120,        // 모듈(공부 슬롯) 분 — 기본 2시간
@@ -61,6 +61,7 @@ function defaults(){
     adaptiveCapacity:true,   // 최근 완료율로 미래 계획 용량 보정(방법론 1·10절 "계획은 가설")
     peakStart:'', peakEnd:'',// 각성도 최고 시간대(HH:MM) — new/mock을 여기 우선 배치(방법론 1절). 빈값=끔
     reviewViaAnki:false,     // 복습을 Anki/FSRS에 위임(합성 간격복습 슬롯 생성 끔 → 시간 이중계상 방지)
+    graphPriority:false,     // 그래프 우선순위(B): 지식엔진 과목 숙달도로 배분 보정. _knowState 있고 켤 때만. 기본 off(기존 배분 보존)
     degree:{ targetTotal:130, reqMajorReq:0, reqMajorSel:0, reqLiberal:0,
       semesters:[ {id:rid(),name:'2026-1학기',courses:[]} ] },
     anki:{ source:'file' }
@@ -119,6 +120,7 @@ function migrate(s){
   if(s.peakStart==null)s.peakStart=d.peakStart;
   if(s.peakEnd==null)s.peakEnd=d.peakEnd;
   if(s.reviewViaAnki==null)s.reviewViaAnki=d.reviewViaAnki;
+  if(s.graphPriority==null)s.graphPriority=d.graphPriority;
   /* _today는 테스트/시뮬레이션 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거). */
   if(s._today!=null)delete s._today;
   /* '공부' 블록 개념 폐지: 남아있던 공부 블록은 제거(그 시간은 자동으로 빈 시간=공부 가능이 됨) */
@@ -194,7 +196,7 @@ function undoLast(){
 
 /* 런타임 스캔 캐시 — 계산 산출물이라 '파일로 나가는' 백업/내보내기에서는 빼낸다(감사 F-01·설계도 §13.2).
    localStorage 영속에는 남겨 로컬 새로고침 시 재스캔을 아끼되, 내보내기 JSON만 가볍게·깨끗하게. */
-const RUNTIME_CACHE_KEYS=['_vaultScan','_ankiFile','_ankiLive','_icsExport'];
+const RUNTIME_CACHE_KEYS=['_vaultScan','_ankiFile','_ankiLive','_icsExport','_knowState'];
 function exportSnapshot(){
   const s={}; for(const k in state) if(RUNTIME_CACHE_KEYS.indexOf(k)<0) s[k]=state[k];
   return s;
@@ -230,11 +232,16 @@ async function resetAll(){
    토큰 기반(css/style.css :root[data-theme=…])이라 새 테마 추가는 CSS 한 블록 + 이 목록 한 줄. */
 const THEME_CYCLE=['dark','light','sepia'];
 function applyTheme(){
-  const t=(state&&state.theme)||'dark';
+  const t=(state&&state.theme)||'light';
   document.documentElement.setAttribute('data-theme',t);
+  // 모바일 브라우저 상단바 색을 테마와 일치(라이트 기본)
+  try{
+    const m=document.querySelector('meta[name=theme-color]');
+    if(m)m.setAttribute('content',({dark:'#0b0d12',light:'#ffffff',sepia:'#f3eadb'}[t])||'#ffffff');
+  }catch(e){}
 }
 function toggleTheme(){
-  const i=THEME_CYCLE.indexOf((state&&state.theme)||'dark');
+  const i=THEME_CYCLE.indexOf((state&&state.theme)||'light');
   state.theme=THEME_CYCLE[(i+1)%THEME_CYCLE.length]||'dark';
   persist();applyTheme();render();
   if(typeof toast==='function')toast('테마: '+({dark:'다크',light:'라이트',sepia:'세피아'}[state.theme]||state.theme),'info',1600);

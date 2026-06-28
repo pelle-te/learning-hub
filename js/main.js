@@ -17,13 +17,18 @@ import './state.js';
 import './data-methodology.js';
 import './scheduler.js';
 import './ui-today.js';
+import './ui-journal.js';      // 📒 학습 기록(요약·오답·보충) — 오늘 학습에서 분리
 import './ui-schedule.js';
 import './ui-items.js';
-import './ui-routine.js';
+import './ui-routine.js';      // ⚙ 설정(기본설정·일과/가용시간·백업) — nav 숨김
 import './ui-stats.js';
+import './ui-mastery.js';      // 🧠 숙달도 지도(지식엔진 _지식상태.json 소비 — A/B/E)
 import './ui-review.js';
-import './ui-vault.js';
-import './ui-anki.js';
+import './ui-vault.js';        // renderVault 정의(탭 등록 X — 연동 현황이 품음)
+import './ui-anki.js';         // renderAnki  정의(탭 등록 X — 연동 현황이 품음)
+import './ui-integrations.js'; // 🔗 연동 현황 = 볼트 + Anki 패널
+import './ui-control.js';      // 🛠 시스템 제어판(serve.js /api 백엔드 — 도구 실행·탐구·지식상태)
 import './ui-degree.js';
+import './ui-degree-req.js';
 import './ui-command.js';   // ⌘K 명령 팔레트(탭 아님 — registerTab 안 함). app 보다 먼저
 import './app.js';   // 마지막: applyTheme(); render(); 로 부팅

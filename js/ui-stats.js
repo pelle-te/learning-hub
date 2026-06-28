@@ -98,7 +98,7 @@ function retrievalCard(r){
   let mockDone=0;(r.days||[]).forEach(d=>d.items.forEach(it=>{if(it.type==='mock'&&isDone(d.ds,it.sid,it.type))mockDone++;}));
   const recallActs=summaryCount()+blankDone+mockDone;
   return `<div class="card">
-    <h2>🎯 인출 증거 <span class="muted tiny">— "이해했다"가 아니라 "꺼낼 수 있다"의 증거(투입 아닌 출력 지표)</span></h2>
+    <h2>인출 증거 <span class="muted tiny">— "이해했다"가 아니라 "꺼낼 수 있다"의 증거(투입 아닌 출력 지표)</span></h2>
     <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi"><div class="v" style="color:${trGood?'var(--ok,#7ee0c0)':'var(--bad,#ff8fa3)'}">${trIcon}</div>
         <div class="l">오답 추세 <span class="muted tiny">(지난주 ${tr.lastW} → 이번주 ${tr.thisW})</span></div></div>
@@ -114,7 +114,7 @@ function retrievalCard(r){
    투입(시간)이 아니라 'FSRS가 청구한 복습 빚(due)'의 주별 추세 — 줄면 기억이 유지되는 중. */
 function retentionSpark(){
   const t=retentionTrend();
-  if(!t.has)return `<div class="card"><h2>📉 유지율 추세 <span class="muted tiny">— 기억 유지의 출력 지표</span></h2>
+  if(!t.has)return `<div class="card"><h2>유지율 추세 <span class="muted tiny">— 기억 유지의 출력 지표</span></h2>
     <div class="empty tiny">아직 데이터가 없어요. <b>Anki 현황</b> 탭에서 <b>🔌 AnkiConnect 실시간 due</b>를 누르면 그 주의 due가 기록돼요(주 1회면 충분). due가 꾸준히 줄면 복습 빚이 닫히는 중.</div></div>`;
   const pts=t.points, max=Math.max(1,...pts.map(p=>p.due));
   const bars=pts.map(p=>`<div title="${esc(p.wk)}: due ${p.due}장${p.cards?' / '+p.cards+'장 중':''}"
@@ -123,7 +123,7 @@ function retentionSpark(){
   const icon=flat?'＝ 유지':good?'▼ 감소':'▲ 증가';
   const col=flat?'var(--muted,#9aa3b2)':good?'var(--ok,#7ee0c0)':'var(--bad,#ff8fa3)';
   return `<div class="card">
-    <h2>📉 유지율 추세 <span class="muted tiny">— Anki 복습 빚(due)의 주별 추세. 투입 아닌 '기억 유지'의 출력 지표</span></h2>
+    <h2>유지율 추세 <span class="muted tiny">— Anki 복습 빚(due)의 주별 추세. 투입 아닌 '기억 유지'의 출력 지표</span></h2>
     <div class="row" style="align-items:center;gap:14px">
       <div style="display:flex;gap:2px;align-items:flex-end;height:50px;flex:1;min-width:120px">${bars}</div>
       <div style="text-align:right;min-width:96px">
@@ -161,7 +161,7 @@ function streakHeatmap(){
     ? `<div class="hm-c hm-future"></div>`
     : `<div class="hm-c hm-l${c.l}" title="${esc(c.ds+': '+(c.v>0?Math.round(c.v)+'분':'학습 없음'))}"></div>`;
   return `<div class="card">
-    <h2>🟩 학습 스트릭 <span class="muted tiny">— 최근 ${WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span></h2>
+    <h2>학습 스트릭 <span class="muted tiny">— 최근 ${WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span></h2>
     <div class="hm-wrap">
       <div class="hm-dow">${['월','','수','','금','','일'].map(x=>`<span>${x}</span>`).join('')}</div>
       <div class="hm-grid">${cols.map(col=>`<div class="hm-col">${col.map(cell).join('')}</div>`).join('')}</div>
@@ -178,7 +178,7 @@ function cbmsRadar(){
   const cnt=cbmsCounts();                          // 전체 기간 집계 {C,B,M,S,T}
   const vals=codes.map(k=>cnt[k]||0);
   const total=vals.reduce((a,b)=>a+b,0);
-  if(!total)return `<div class="card"><h2>🕸 오답 분포(CBMS) <span class="muted tiny">— 약점 유형의 모양</span></h2>
+  if(!total)return `<div class="card"><h2>오답 분포(CBMS) <span class="muted tiny">— 약점 유형의 모양</span></h2>
     <div class="empty tiny">오답을 기록하면(오늘 학습 탭) 유형 분포가 레이더로 보여요. 모양이 작아질수록 약점이 닫히는 중.</div></div>`;
   const max=Math.max(...vals,1), cx=110,cy=104,R=78;
   const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/5;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
@@ -188,10 +188,12 @@ function cbmsRadar(){
   const dots=vals.map((v,i)=>{const[x,y]=pt(i,R*(v/max));return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--acc)"/>`;}).join('');
   const labels=codes.map((k,i)=>{const[x,y]=pt(i,R+15);const c=(CBMS_INFO[k]||{}).color||'var(--mut)';
     return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="${c}" font-size="11" font-weight="700" text-anchor="middle" dominant-baseline="middle">${k}</text>`;}).join('');
-  return `<div class="card"><h2>🕸 오답 분포(CBMS) <span class="muted tiny">— 약점 유형의 모양(전체 ${total}건)</span></h2>
+  return `<div class="card"><h2>오답 분포(CBMS) <span class="muted tiny">— 약점 유형의 모양(전체 ${total}건)</span></h2>
     <div class="row" style="align-items:center;gap:16px;flex-wrap:wrap">
     <svg viewBox="0 0 220 208" width="220" height="208" style="flex:none" aria-label="CBMS 오답 분포 레이더">
-      ${[0.25,0.5,0.75,1].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="var(--line-soft)" stroke-width="1"/>`).join('')}
+      <polygon points="${ring(1)}" fill="color-mix(in srgb,var(--panel2) 70%,transparent)" stroke="none"/>
+      ${[0.25,0.5,0.75].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="var(--line-soft)" stroke-width="1"/>`).join('')}
+      <polygon points="${ring(1)}" fill="none" stroke="var(--line)" stroke-width="1.5"/>
       ${axes}
       <polygon points="${poly}" fill="color-mix(in srgb,var(--acc) 22%,transparent)" stroke="var(--acc)" stroke-width="1.5"/>
       ${dots}${labels}
@@ -242,7 +244,7 @@ function chapterTimeline(r){
   }).join('')}</div>`;
 }
 
-registerTab({ key:'stats', label:'📊 통계', group:'main', order:70, render:renderStats });
+registerTab({ key:'stats', label:'통계', group:'log', order:80, render:renderStats });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용

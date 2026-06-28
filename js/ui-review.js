@@ -61,7 +61,7 @@ function planActualCard(mon){
       <span class="pa-bar"><i class="plan" style="height:${ph}px"></i><i class="done" style="height:${dh}px"></i></span>
       <span class="tiny muted">${DOW_MON[x.k]}</span></div>`;
   }).join('');
-  return `<div class="card"><h2>📊 계획 대비 실제 <span class="muted tiny">— 이번 주</span></h2>
+  return `<div class="card"><h2>계획 대비 실제 <span class="muted tiny">— 이번 주</span></h2>
     <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi"><div class="v">${(w.doneMin/60).toFixed(1)}h<span class="muted tiny"> / ${(w.planMin/60).toFixed(1)}h</span></div><div class="l">완료 / 계획 (${rate}%)</div></div>
       <div class="kpi"><div class="v">${rate}%</div><div class="l">달성률</div></div>
@@ -91,7 +91,7 @@ function cbmsDistCard(ds0,ds6){
       M:'손 연습량 부족 — 도출 단계 백지 연습을 늘려라.',S:'마무리 루틴 부족 — 검산·단위 체크를 습관화.',T:'속도/효율 문제 — 자주 막히는 계산을 손에 익히고 시간 분배 훈련.'};
     hint=`가장 많은 코드 <b>${top}(${CBMS_INFO[top].label})</b> — ${map[top]}`;
   }
-  return `<div class="card"><h2>✗ 오답 CBMS 분포 <span class="muted tiny">— 약점의 분포</span></h2>
+  return `<div class="card"><h2>오답 CBMS 분포 <span class="muted tiny">— 약점의 분포</span></h2>
     ${bars}
     <div class="foot" style="margin-top:10px">${hint}</div>
   </div>`;
@@ -110,7 +110,7 @@ function backlogReviewCard(ds0,ds6){
         <span class="muted tiny" style="margin-left:6px">열린 지 ${dayDiff(b.ds,iso(new Date()))}일</span>
       </div>${b.note?`<div class="tiny">${esc(b.note)}</div>`:''}
     </div>`).join(''):`<div class="empty tiny">열린 백로그가 없어요 👍</div>`;
-  return `<div class="card"><h2>🏷 보충 필요 회수 <span class="muted tiny">— 백로그를 닫는 고리</span></h2>
+  return `<div class="card"><h2>보충 필요 회수 <span class="muted tiny">— 백로그를 닫는 고리</span></h2>
     <div class="row" style="margin-bottom:8px">
       <span class="pill ${open.length?'warn':'good'}">열림 ${open.length}</span>
       <span class="pill good">이번 주 회수 ${closedThisWeek}</span>
@@ -125,7 +125,7 @@ function reviewCloseBacklog(id){toggleBacklog(id);renderReview(pageEl());}
 function checklistCard(wk){
   const w=getWeekly(wk);
   const checks=w.checks||{};
-  return `<div class="card"><h2>✅ 주간 점검 체크리스트</h2>
+  return `<div class="card"><h2>주간 점검 체크리스트</h2>
     ${WEEKLY_CHECKS.map(([k,label])=>`
       <label class="chk-row"><input type="checkbox" ${checks[k]?'checked':''} onchange="onWeeklyCheck('${wk}','${k}',this.checked)">
         <span>${esc(label)}</span></label>`).join('')}
@@ -137,7 +137,7 @@ function checklistCard(wk){
 function onWeeklyCheck(wk,k,on){setWeeklyCheck(wk,k,on);}
 function onWeeklyNote(wk,v){setWeeklyNote(wk,v);}
 
-registerTab({ key:'review', label:'🔄 주간 리뷰', group:'main', order:80, render:renderReview });
+registerTab({ key:'review', label:'주간 리뷰', group:'log', order:70, render:renderReview });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용

@@ -320,6 +320,26 @@ test('T20 백지복습이 단원(챕터) 단위로 생성된다', () => {
   r.days.forEach(d => assert(d.used <= d.studyMin + 1, `용량 이내 @${d.ds}`));
 });
 
+/* T21. 그래프 우선순위(B) — graphPriority 켜고 _knowState 있으면, 같은 마감 긴급도에서
+   *숙달 낮은(약한) 과목*을 먼저 배치. 배열 순서가 아니라 숙달도가 순서를 정함을 증명. */
+function firstNewName(r){
+  for(const d of r.days) for(const it of d.items) if(it.type==='new') return it.name;
+  return null;
+}
+test('T21 그래프 우선순위: 약한 과목을 먼저 배치(배열순서 무관)', () => {
+  const mkItems = () => [
+    weeklyItem('대수', 4, mkChapters([['ch1', 2], ['ch2', 2], ['ch3', 2]])),   // 강함(배열 앞)
+    weeklyItem('미적분', 4, mkChapters([['ch1', 2], ['ch2', 2], ['ch3', 2]])), // 약함(배열 뒤)
+  ];
+  const know = { subjects: [ { subject: '대수', mastery: 0.9 }, { subject: '미적분', mastery: 0.1 } ] };
+  const off = run(baseState(mkItems(), { _knowState: know, graphPriority: false })).r;
+  eq(firstNewName(off), '대수', 'graphPriority off면 기존(배열) 순서 = 대수 먼저');
+  const on = run(baseState(mkItems(), { _knowState: know, graphPriority: true })).r;
+  eq(firstNewName(on), '미적분', 'graphPriority on이면 약한 미적분 먼저');
+  const noKnow = run(baseState(mkItems(), { graphPriority: true })).r;
+  eq(firstNewName(noKnow), '대수', '_knowState 없으면 영향 0(배열 순서)');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

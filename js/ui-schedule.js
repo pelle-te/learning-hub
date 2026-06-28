@@ -192,7 +192,7 @@ function icsFreshnessNote(){
   return `<div class="foot">📅 캘린더(.ics) 최신 상태 · 마지막 내보내기 ${ago}.</div>`;
 }
 
-registerTab({ key:'schedule', label:'📅 주간 스케줄', group:'main', order:20, render:renderSchedule });
+registerTab({ key:'schedule', label:'주간 스케줄', group:'do', order:20, render:renderSchedule });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용

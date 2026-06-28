@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0b0d12">
+<meta name="theme-color" content="#ffffff">
 <title>러닝 허브</title>
 <!-- 인라인 파비콘(file://에서 favicon.ico 404 콘솔 오류 방지) -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
@@ -17,6 +17,7 @@
     <span class="sub">졸업까지 한눈에 · 볼트/Anki 현황을 스케줄로 · 일과 빈 시간 자동 계산</span>
     <span style="flex:1"></span>
     <button class="sm ghost" onclick="openPalette()" id="cmdBtn" title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">⌘K</button>
+    <button class="sm ghost" onclick="go('settings')" id="settingsBtn" title="설정 (기본설정·일과/가용시간·데이터 백업)" aria-label="설정 열기">⚙</button>
     <button class="sm ghost" onclick="toggleTheme()" id="themeBtn" title="테마 전환(다크 → 라이트 → 세피아)" aria-label="테마 전환">🌗</button>
     <div class="menuwrap" id="moreWrap">
       <button class="sm ghost" id="moreBtn" aria-haspopup="true" aria-expanded="false" aria-controls="moreMenu" onclick="toggleMore()" title="데이터·백업 메뉴">⋯ 메뉴</button>

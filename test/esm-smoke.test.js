@@ -62,9 +62,9 @@ console.log('\nesm-smoke.test.js\n');
     assert(typeof globalThis.go === 'function', 'go 노출');
     assert(typeof globalThis.toast === 'function', 'toast(ui-kit) 노출');
     assert(Array.isArray(globalThis.TAB_REGISTRY), 'TAB_REGISTRY 노출');
-    assert(globalThis.TAB_REGISTRY.length === 9, '탭 9개 등록 (got ' + globalThis.TAB_REGISTRY.length + ')');
-    ok('M2 전역 노출(핸들러·레지스트리·9탭) OK');
-  } catch (e) { bad('M2 전역 노출(핸들러·레지스트리·9탭) OK', e); }
+    assert(globalThis.TAB_REGISTRY.length === 13, '탭 13개 등록 (got ' + globalThis.TAB_REGISTRY.length + ')');
+    ok('M2 전역 노출(핸들러·레지스트리·13탭) OK');
+  } catch (e) { bad('M2 전역 노출(핸들러·레지스트리·13탭) OK', e); }
 
   /* M3. 공유 런타임 상태가 globalThis 슬롯에 있고 strict 재할당이 동작 */
   try {
@@ -83,7 +83,7 @@ console.log('\nesm-smoke.test.js\n');
     ];
     globalThis.state.summaries['2026-06-28'] = [{ id: 's1', sid: 'm', name: '전자기학', s1: 'a', s2: 'b', s3: 'c' }];
     globalThis.state.cbms = [{ id: 'cb', ds: '2026-06-28', sid: 'm', name: '전자기학', chapter: '2장', code: 'M', note: '막힘' }];
-    ['today', 'schedule', 'items', 'routine', 'stats', 'vault', 'anki', 'review', 'degree'].forEach(t => {
+    ['today', 'journal', 'schedule', 'items', 'routine', 'settings', 'stats', 'integrations', 'review', 'degree', 'degreeReq'].forEach(t => {
       globalThis.TAB = t;
       const p = globalThis.document.getElementById('page'); p.innerHTML = '';
       globalThis.render();

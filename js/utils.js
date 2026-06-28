@@ -4,7 +4,9 @@
 const DOW=['일','월','화','수','목','금','토'];
 const DOW_MON=['월','화','수','목','금','토','일'];          // 주간뷰(월요일 시작)
 const REVIEW_OFFSETS=[1,3,7,16];                            // 간격반복 복습(일)
-const PALETTE=['#6ea8fe','#7ee0c0','#ffb454','#ff8fa3','#b794f6','#63d2ff','#f6c177','#9ece6a'];
+/* 과목 색 팔레트 — 인디고 브랜드와 경쟁하지 않도록 인디고는 빼고, 명도·채도를 고르게 정돈한
+   큐레이션 세트(작은 스와치로 라이트/다크 양쪽에서 구분되게). */
+const PALETTE=['#4f8ff0','#1eb5a3','#d99a3c','#e76a8b','#9a78ec','#34b3df','#6fae42','#e07a4e'];
 /* 고정 일과 블록 유형(색). '공부' 개념은 폐지 — 가용 공부시간은 '깨어있는 시간 − 이 블록들'로 자동 계산된다. */
 const BLOCK_TYPES={'수면':'#3a3f4b','식사':'#c98a5e','취미':'#9a7fd1','수업':'#5e8ac9','기타':'#5a6072'};
 const KEY='study_planner_v3';                              // localStorage 키 (모델 변경으로 v3)
@@ -64,8 +66,24 @@ async function loadVaultIndex(handle){
     return JSON.parse(await (await fh.getFile()).text());
   }catch(e){return null;}
 }
+/* 지식상태(_meta/감사/_지식상태.json) 로드 — 지식엔진.py 산출(개념별 숙달도·프런티어·갭·캘리브레이션).
+   loadVaultIndex와 같은 경로 규약. 못 찾으면 null(아직 build 안 함 → 숙달도 탭이 안내). */
+async function loadKnowledgeState(handle){
+  try{
+    const meta=await handle.getDirectoryHandle('_meta');
+    const aud=await meta.getDirectoryHandle('감사');
+    const fh=await aud.getFileHandle('_지식상태.json');
+    return JSON.parse(await (await fh.getFile()).text());
+  }catch(e){return null;}
+}
+/* 유효숙달 p∈[0,1] → 색(빨강 낮음→호박→초록). state==='unknown'이면 회색(데이터 없음). */
+function masteryColor(p,state){
+  if(state==='unknown')return 'var(--line,#3a3a3a)';
+  const h=Math.round(clamp(p,0,1)*120);          // 0=빨강 ~ 120=초록
+  return `hsl(${h} 62% ${42+Math.round(p*10)}%)`;
+}
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { DOW, DOW_MON, REVIEW_OFFSETS, PALETTE, BLOCK_TYPES, KEY, SKIP, rid, iso, todayISO, parseISO, addDays, fmt, fmtShort, dayDiff, toMin, toHM, clamp, esc, jsq, hLabel, mondayOf, weekLabel, pageEl, itemById, ddayInfo, loadVaultIndex });
+Object.assign(globalThis, { DOW, DOW_MON, REVIEW_OFFSETS, PALETTE, BLOCK_TYPES, KEY, SKIP, rid, iso, todayISO, parseISO, addDays, fmt, fmtShort, dayDiff, toMin, toHM, clamp, esc, jsq, hLabel, mondayOf, weekLabel, pageEl, itemById, ddayInfo, loadVaultIndex, loadKnowledgeState, masteryColor });

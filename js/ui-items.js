@@ -16,13 +16,47 @@ function renderItems(p){
     <div class="row" style="align-items:center">
       <h2 style="flex:1;margin:0">학습 항목 <span class="muted tiny" style="font-weight:400">${n?`(${n})`:''}</span></h2>
       ${n>1?`<button class="sm ghost" onclick="expandAllItems()" title="모두 펼치기">모두 펼치기</button>
-             <button class="sm ghost" onclick="collapseAllItems()" title="모두 접기">모두 접기</button>`:''}
+             <button class="sm ghost" onclick="collapseAllItems()" title="모두 접기">모두 접기</button>
+             <button class="sm ghost" onclick="recolorAllItems()" title="모든 과목 색을 새 팔레트 순서로 재배정">색 재배정</button>`:''}
       <button class="sm primary" onclick="addItemUI()">+ 과목 추가</button>
     </div>
     <div class="foot">과목 줄을 누르면 펼쳐서 편집할 수 있어요. <b>주당 목표 시간</b>과 <b>챕터(순서·예상시간)</b>를 넣으면 그날 배운 챕터·복습이 자동으로 잡힙니다. 챕터는 볼트 현황 탭에서 가져올 수도 있어요.</div>
   </div>
+  ${itemsInsight()}
   <div id="itemCards"></div>`;
   renderItemCards();
+}
+
+/* ── 요약 인사이트(빈 여백 대신 한눈 지표) — 과목 수·주당 합계·챕터 진행·가장 가까운 마감 ── */
+function itemsInsight(){
+  const items=(state.items||[]).filter(i=>i.name);
+  if(!items.length)return '';
+  let weekly=0,totalCh=0,doneCh=0,nearest=null;
+  const todayDs=iso(new Date());
+  items.forEach(s=>{
+    weekly += s.mode==='daily' ? (+s.dailyMin||0)*7/60 : (+s.weeklyHours||0);
+    (s.chapters||[]).forEach(c=>{ totalCh++; if(c.done)doneCh++; });
+    if(s.deadline){ const dd=dayDiff(todayDs,s.deadline);
+      if(nearest==null||dd<nearest.dd)nearest={dd,name:s.name}; }
+  });
+  const chPct=totalCh?Math.round(doneCh/totalCh*100):0;
+  const ndLab=nearest?(ddayInfo(nearest.dd).lab):'—';
+  return `<div class="kpis">
+    <div class="kpi"><div class="v">${items.length}</div><div class="l">과목</div></div>
+    <div class="kpi"><div class="v">${Math.round(weekly*10)/10}<span class="muted tiny"> h</span></div><div class="l">주당 합계 시간</div></div>
+    <div class="kpi"><div class="v">${doneCh}<span class="muted tiny"> / ${totalCh}</span></div><div class="l">챕터 완료 (${chPct}%)</div></div>
+    <div class="kpi"><div class="v">${ndLab}</div><div class="l">${nearest?esc(nearest.name)+' 마감':'마감 없음'}</div></div>
+  </div>`;
+}
+
+/* 과목 색 일괄 재배정 — 새 팔레트 순서로(되돌리기 토스트 제공). 기존 색이 제각각일 때 톤 정돈. */
+function recolorAllItems(){
+  if(!(state.items||[]).length){toast('재배정할 과목이 없어요.','warn');return;}
+  if(typeof backupNow==='function')backupNow();   // 되돌리기용 1단계 백업
+  state.items.forEach((s,i)=>{ s.color=PALETTE[i%PALETTE.length]; });
+  persist(); renderItems(pageEl());
+  if(typeof toastUndo==='function')toastUndo('과목 색을 새 팔레트로 재배정했어요.');
+  else toast('과목 색을 재배정했어요.','ok');
 }
 function renderItemCards(){
   const a=document.getElementById('itemCards');
@@ -163,9 +197,9 @@ function bulkCh(id){const s=state.items.find(x=>x.id===id);if(!s)return;
   persist();renderItemCards();
 }
 
-registerTab({ key:'items', label:'📝 학습 항목', group:'main', order:30, render:renderItems });
+registerTab({ key:'items', label:'학습 항목', group:'src', order:40, render:renderItems });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { openItems, toggleItem, collapseAllItems, expandAllItems, renderItems, renderItemCards, itemCard, stepper, bump, chapterEditor, addItemUI, addItem, delItem, updItem, addCh, delCh, updCh, moveCh, _chDrag, chDragStart, chDrop, bulkCh });
+Object.assign(globalThis, { openItems, toggleItem, collapseAllItems, expandAllItems, renderItems, renderItemCards, itemsInsight, recolorAllItems, itemCard, stepper, bump, chapterEditor, addItemUI, addItem, delItem, updItem, addCh, delCh, updCh, moveCh, _chDrag, chDragStart, chDrop, bulkCh });

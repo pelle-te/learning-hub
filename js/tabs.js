@@ -35,20 +35,76 @@ function orderedTabs() {
 }
 function tabDef(key) { return TAB_REGISTRY.find(function (t) { return t.key === key; }) || null; }
 
-/* 네비 렌더 — 그룹이 바뀌는 경계에만 구분선(navsep)을 넣어 N개 그룹으로 확장 가능 */
+/* 그룹(상위 탭)의 표시 이름 — group 키 → 라벨(텍스트만; 아이콘은 renderNav가 붙인다).
+   라벨에 이모지/마크업을 넣지 않는 이유: 명령 팔레트가 라벨을 esc()로 출력하므로
+   SVG를 넣으면 코드가 그대로 보인다 → 아이콘은 표시 계층(renderNav)에서만 합성한다. */
+var GROUP_LABELS = { do: '계획', src: '자료', log: '기록·분석', degree: '졸업', settings: '설정' };
+
+/* ── 라인 아이콘 세트(Lucide 스타일·단색·currentColor) ──
+   OS 이모지 혼용(픽셀·색감 제각각)을 걷어내고 네비를 하나의 시각 언어로 통일.
+   감정 전달이 핵심인 곳(🔥 스트릭 등)만 이모지를 남긴다. */
+var ICON_PATHS = {
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  chart: '<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
+  cap: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 3 6 3s6-2 6-3v-5"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M15 13H9M15 17H9M10 9H9"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0L4.43 13.5a5 5 0 0 0 7.07 7.07l1.5-1.5"/>',
+  notebook: '<path d="M2 6h3M2 10h3M2 14h3M2 18h3"/><rect x="5" y="3" width="17" height="18" rx="2"/><path d="M10 3v18"/>',
+  refresh: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
+  clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h6"/>'
+};
+function svgIcon(name){
+  var p = ICON_PATHS[name]; if (!p) return '';
+  return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
+}
+var GROUP_ICONS = { do:'calendar', src:'book', log:'chart', degree:'cap', settings:'gear' };
+var TAB_ICONS = { today:'target', schedule:'calendar', routine:'clock', items:'file',
+  integrations:'link', journal:'notebook', review:'refresh', stats:'chart',
+  degree:'cap', degreeReq:'clipboard', settings:'gear' };
+
+/* 네비 렌더 — 2단 계층: 위(상위 탭=그룹) / 아래(하위 탭=그 그룹의 탭들).
+   상위 탭을 누르면 그 그룹의 첫 탭으로 이동(goGroup). 현재 탭이 속한 그룹이 활성. */
 function renderNav() {
   var nav = document.getElementById('nav');
   if (!nav) return;
-  var prevGroup = null, html = '';
-  orderedTabs().forEach(function (t) {
-    if (prevGroup !== null && t.group !== prevGroup)
-      html += '<span class="navsep" aria-hidden="true"></span>';
-    prevGroup = t.group;
-    html += '<button role="tab" id="tab-' + t.key + '" aria-selected="' + (TAB === t.key) +
-      '" tabindex="' + (TAB === t.key ? '0' : '-1') + '" class="' + (TAB === t.key ? 'active' : '') +
-      '" onclick="go(\'' + t.key + '\')">' + t.label + '</button>';
-  });
-  nav.innerHTML = html;
+  var visible = orderedTabs().filter(function (t) { return !t.hidden; });
+
+  // 상위 탭(그룹) 목록 — 등장 순서대로 중복 제거
+  var groups = [];
+  visible.forEach(function (t) { if (groups.indexOf(t.group) < 0) groups.push(t.group); });
+
+  // 현재 탭이 속한 그룹(숨김 탭이면 그 그룹을 그대로 활성 — 예: 설정)
+  var cur = tabDef(TAB);
+  var curGroup = cur ? cur.group : (groups[0] || null);
+
+  var top = groups.map(function (g) {
+    var active = g === curGroup;
+    return '<button role="tab" class="navparent' + (active ? ' active' : '') + '"' +
+      ' aria-selected="' + active + '" onclick="goGroup(\'' + g + '\')">' +
+      svgIcon(GROUP_ICONS[g]) + '<span>' + (GROUP_LABELS[g] || g) + '</span></button>';
+  }).join('');
+
+  // 하위 탭 — 현재 그룹에 속한 탭들(숨김 탭이 현재 그룹이면 그것도 표시해 길잃음 방지)
+  var subs = orderedTabs().filter(function (t) { return t.group === curGroup && (!t.hidden || TAB === t.key); })
+    .map(function (t) {
+      var active = TAB === t.key;
+      return '<button role="tab" id="tab-' + t.key + '" aria-selected="' + active + '"' +
+        ' tabindex="' + (active ? '0' : '-1') + '" class="navchild' + (active ? ' active' : '') +
+        '" onclick="go(\'' + t.key + '\')">' + svgIcon(TAB_ICONS[t.key]) + '<span>' + t.label + '</span></button>';
+    }).join('');
+
+  nav.innerHTML = '<div class="navtop" role="tablist" aria-label="구역">' + top + '</div>' +
+    '<div class="navsub" role="tablist" aria-label="' + (GROUP_LABELS[curGroup] || '') + ' 메뉴">' + subs + '</div>';
+}
+
+/* 상위 탭 클릭 → 그 그룹의 (보이는) 첫 탭으로 이동 */
+function goGroup(g) {
+  var first = orderedTabs().filter(function (t) { return t.group === g && !t.hidden; })[0];
+  if (first) go(first.key);
 }
 
 /* 탭 전환 */
@@ -80,4 +136,4 @@ function render() {
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { TAB_REGISTRY, registerTab, orderedTabs, tabDef, renderNav, go, navKey, render });
+Object.assign(globalThis, { TAB_REGISTRY, GROUP_LABELS, ICON_PATHS, svgIcon, GROUP_ICONS, TAB_ICONS, registerTab, orderedTabs, tabDef, renderNav, goGroup, go, navKey, render });
