@@ -54,8 +54,33 @@ function renderStats(p){
 
   <div class="card">
     <h2>학습한 내용 (챕터 타임라인)</h2>
-    ${chapterTimeline(r)}
+    <div id="chTimeline">${chapterTimeline(r)}</div>
   </div>`;
+  enhanceTimeline(r);   // 브라우저(진짜 DOM)면 lit-html로 점진 렌더로 교체(A1·F-09). 비DOM은 위 문자열 폴백 유지.
+}
+
+/* lit-html 점진(키드) 렌더 — *브라우저에서만*. 동적 import로 로드하므로 테스트(concat-vm)·SSR엔
+   영향 없다(feature-detect로 빠져나가 문자열 폴백을 그대로 둠). 확장 시 다른 리스트도 이 패턴으로. */
+function enhanceTimeline(r){
+  try{
+    if(typeof document==='undefined'||typeof document.createTreeWalker!=='function')return;  // 진짜 DOM 아님 → 폴백 유지
+    const host=document.getElementById('chTimeline'); if(!host)return;
+    const log=(r&&r.chapterLog)||[]; if(!log.length)return;
+    import('./vendor/lit-html.js').then(({html,render,repeat,nothing})=>{
+      const byDs={}; log.forEach(e=>{(byDs[e.ds]=byDs[e.ds]||[]).push(e);});
+      const all=Object.keys(byDs).sort();
+      const dss=all.length>TIMELINE_CAP?all.slice(-TIMELINE_CAP):all;
+      const hidden=all.length-dss.length;
+      const rows=repeat(dss, ds=>ds, ds=>{
+        const d=parseISO(ds);
+        return html`<div class="tl"><span class="tm">${fmtShort(d)} (${DOW[d.getDay()]})</span>
+          <span class="nm">${repeat(byDs[ds], (e,i)=>ds+'#'+i, e=>html`<span class="swatch" style=${'background:'+e.color}></span>${e.name} <span class="muted tiny">${e.chapters.join(', ')}</span> `)}</span></div>`;
+      });
+      const tpl=html`<div style="max-height:360px;overflow:auto">${hidden>0?html`<div class="tiny muted" style="margin-bottom:6px">⋯ 이전 ${hidden}일은 생략(부분 렌더 — lit-html 키드). 전체 보관은 일과 탭 → 오래된 기록 정리.</div>`:nothing}${rows}</div>`;
+      render(tpl, host);
+      host.dataset.litRendered='1';   // 브라우저 검증용 마커(DevTools에서 확인 가능)
+    }).catch(()=>{});   // 로드 실패 시 문자열 폴백 유지(이미 그려져 있음)
+  }catch(e){}
 }
 
 /* 인출 증거(북극성 지표) — 시간(투입)이 아니라 '꺼낼 수 있게 됐다'는 출력 지표.
@@ -222,4 +247,4 @@ registerTab({ key:'stats', label:'📊 통계', group:'main', order:70, render:r
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { renderStats, retrievalCard, retentionSpark, streakHeatmap, cbmsRadar, weeklyBars, chapterTimeline });
+Object.assign(globalThis, { renderStats, retrievalCard, retentionSpark, streakHeatmap, cbmsRadar, weeklyBars, chapterTimeline, enhanceTimeline });
