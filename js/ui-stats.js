@@ -21,6 +21,8 @@ function renderStats(p){
     <div class="kpi"><div class="v">${revCount}</div><div class="l">복습 세션(계획)</div></div>
   </div>
 
+  ${retrievalCard(r)}
+
   <div class="card">
     <h2>과목별 진행</h2>
     <table><thead><tr><th>과목</th><th>주당</th><th>챕터</th><th>계획시간</th><th>학습 종료(예상)</th><th>마감</th><th>상태</th></tr></thead><tbody>
@@ -50,6 +52,33 @@ function renderStats(p){
   <div class="card">
     <h2>학습한 내용 (챕터 타임라인)</h2>
     ${chapterTimeline(r)}
+  </div>`;
+}
+
+/* 인출 증거(북극성 지표) — 시간(투입)이 아니라 '꺼낼 수 있게 됐다'는 출력 지표.
+   방법론 14절: 진척의 증거(CBMS 분포 축소·인출 활동)가 가장 강한 내적 동기. */
+function retrievalCard(r){
+  const tr=cbmsTrend();
+  const trDelta=tr.lastW-tr.thisW;                  // +면 오답 감소(좋음)
+  const trIcon=tr.lastW===0&&tr.thisW===0?'—':trDelta>0?'▼ 감소':trDelta<0?'▲ 증가':'＝ 유지';
+  const trGood=trDelta>0||(tr.lastW===0&&tr.thisW===0);
+  // 백지 복습: 계획된 blank 중 완료 비율(능동 인출의 가장 깊은 루프)
+  let blankPlan=0,blankDone=0;
+  (r.days||[]).forEach(d=>d.items.forEach(it=>{if(it.type==='blank'){blankPlan++;if(isDone(d.ds,it.sid,it.type))blankDone++;}}));
+  const blankRate=blankPlan?Math.round(blankDone/blankPlan*100):0;
+  // 능동 인출 활동: 3문장 요약 + 완료한 백지·모의(전부 '꺼내기')
+  let mockDone=0;(r.days||[]).forEach(d=>d.items.forEach(it=>{if(it.type==='mock'&&isDone(d.ds,it.sid,it.type))mockDone++;}));
+  const recallActs=summaryCount()+blankDone+mockDone;
+  return `<div class="card">
+    <h2>🎯 인출 증거 <span class="muted tiny">— "이해했다"가 아니라 "꺼낼 수 있다"의 증거(투입 아닌 출력 지표)</span></h2>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi"><div class="v" style="color:${trGood?'var(--ok,#7ee0c0)':'var(--bad,#ff8fa3)'}">${trIcon}</div>
+        <div class="l">오답 추세 <span class="muted tiny">(지난주 ${tr.lastW} → 이번주 ${tr.thisW})</span></div></div>
+      <div class="kpi"><div class="v">${blankPlan?blankRate+'%':'—'}</div>
+        <div class="l">백지 복습 완료 <span class="muted tiny">${blankPlan?'('+blankDone+'/'+blankPlan+')':'(계획 없음)'}</span></div></div>
+      <div class="kpi"><div class="v">${recallActs}</div><div class="l">능동 인출 활동 <span class="muted tiny">요약+백지+모의</span></div></div>
+    </div>
+    <div class="foot">${trGood?'오답이 줄고 있어요 — 약점이 닫히는 방향. 👍':'오답이 늘었어요 — 가장 많은 코드의 처방에 다음 주 시간을 더 주세요(주간 리뷰 탭).'} 백지 복습은 가장 깊은 인출 — 계획되면 꼭 닫기.</div>
   </div>`;
 }
 

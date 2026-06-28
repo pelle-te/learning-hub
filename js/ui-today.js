@@ -141,7 +141,9 @@ function summaryCard(ds){
     <textarea id="sum-s2" rows="2" placeholder="예) 변위전류가 든 앙페르 법칙과 패러데이 법칙을 연립해 파동방정식을 세웠고…"></textarea>
     <label>3 — Result &amp; Meaning <span class="muted tiny">결과와 물리적 직관</span></label>
     <textarea id="sum-s3" rows="2" placeholder="예) 전자기파가 빛의 속도로 전파됨을 증명 — 무선통신의 근거."></textarea>
-    <div style="margin-top:10px"><button class="primary" onclick="submitSummary('${ds}')">요약 저장</button></div>
+    <div style="margin-top:10px"><button class="primary" onclick="submitSummary('${ds}')">요약 저장</button>
+      <button class="sm ghost" style="margin-left:8px" onclick="exportAnkiCards('today')" title="오늘 요약·오답을 Anki import용 .txt 카드 초안으로">🃏 오늘 → Anki 카드(.txt)</button></div>
+    <div class="foot tiny">카드는 <b>초안</b>입니다 — Anki로 가져온 뒤 ≤5장으로 추리고 "왜?/응용"형으로 손질(큐레이션이 학습 이득). 복습 시점(due)은 FSRS가 소유.</div>
     <hr>${listHtml}
   </div>`;
 }

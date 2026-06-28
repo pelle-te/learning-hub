@@ -8,9 +8,10 @@ function renderAnki(p){
     <div class="row">
       <button class="sm" onclick="scanAnkiFiles()">📁 볼트 카드 스캔</button>
       <button class="sm" onclick="ankiLive()">🔌 AnkiConnect 실시간 due</button>
+      <button class="sm ghost" onclick="exportAnkiCards('all')" title="전체 3문장 요약·오답을 Anki import용 .txt 카드 초안으로">🃏 요약·오답 → 카드(.txt)</button>
       <div style="flex:2"></div>
     </div>
-    <div class="foot">카드 스캔: 정본 _meta/감사/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백. 실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765).</div>
+    <div class="foot">카드 스캔: 정본 _meta/감사/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백. 실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765). <b>카드 생성</b>: 그동안 적은 3문장 요약·반복 오답을 import용 초안(.txt)으로 — Anki에서 추리고 손질(큐레이션).</div>
     <div id="ankiStat"></div>
   </div>
   <div id="ankiList"></div>`;

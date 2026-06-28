@@ -16,6 +16,9 @@ function rid(){return Math.random().toString(36).slice(2,9)}
 /* iso(): 반드시 '로컬' 날짜로 포맷. toISOString()은 UTC라 KST(UTC+9) 등
    양수 시간대에서 하루가 밀리는 버그가 있어 로컬 연·월·일로 직접 만든다. */
 function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+/* todayISO(): '오늘'의 단일 출처. 평소엔 실제 오늘이지만, state._today가 있으면 그 값을 쓴다.
+   → 스케줄러의 적응형 용량(과거/미래 구분)을 테스트에서 결정적으로 만들기 위한 시드. */
+function todayISO(){try{if(typeof state!=='undefined'&&state&&state._today)return state._today;}catch(e){}return iso(new Date());}
 function parseISO(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
 function fmt(d){return `${d.getMonth()+1}/${d.getDate()} (${DOW[d.getDay()]})`}

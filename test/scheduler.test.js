@@ -243,6 +243,57 @@ test('T14 mockEveryWeeks=1이면 mock 블록 생성·용량 이내, 0이면 없�
   on.days.forEach(d => assert(d.used <= d.studyMin + 1, `용량 이내 @${d.ds}`));
 });
 
+/* T15. 적응형 용량 — 최근 완료율이 낮으면 미래 용량을 축소(방법론 1·10절) */
+test('T15 적응형 용량: 최근 완료 낮으면 미래 day.studyMin 축소(정확히 factor배)', () => {
+  const items = [weeklyItem('수학', 6, mkChapters([['1', 20], ['2', 20]]))];
+  const comp = {};
+  ['2026-06-29','2026-06-30','2026-07-01','2026-07-02','2026-07-03']
+    .forEach(ds => { comp[ds] = { 'x|new': { done: true, min: 200 } }; });
+  const on  = run(baseState(items, { _today: '2026-07-10', completions: comp })).r;
+  const off = run(baseState(items, { _today: '2026-07-10', completions: comp, adaptiveCapacity: false })).r;
+  assert(on.adapt < 1, 'adapt<1 이어야 (실제 ' + on.adapt + ')');
+  approx(on.adapt, 0.5, 0.001, 'floor 0.5로 클램프');
+  const fut = '2026-07-15';
+  const dOn = on.days.find(d => d.ds === fut), dOff = off.days.find(d => d.ds === fut);
+  assert(dOn && dOff, '미래 날짜 존재');
+  assert(dOn.studyMin < dOff.studyMin, '적응 시 미래 용량이 작아야');
+  eq(dOn.studyMin, Math.round(dOff.studyMin * on.adapt), '정확히 factor배');
+  on.days.forEach(d => assert(d.used <= d.studyMin + 1, '용량 불변식 유지 @' + d.ds));
+});
+
+/* T16. 적응형 용량 — 완료 이력이 없으면 1.0(용량 불변) */
+test('T16 적응형 용량: 이력 없으면 adapt=1, 미래 용량 그대로', () => {
+  const r = run(baseState([weeklyItem('수학', 6, mkChapters([['1', 20]]))], { _today: '2026-07-10' })).r;
+  eq(r.adapt, 1, '이력 없으면 adapt=1');
+  const fut = r.days.find(d => d.ds === '2026-07-15');
+  if (fut) eq(fut.studyMin, 1440, '미래 용량 그대로(1440)');
+});
+
+/* T17. 복습 위임 — reviewViaAnki면 합성 간격복습(rev) 슬롯을 만들지 않음 */
+test('T17 reviewViaAnki=true(+daily)면 rev 슬롯 0, 기본은 생성', () => {
+  const items = [dailyItem('Anki', 20), weeklyItem('수학', 6, mkChapters([['1', 6], ['2', 6]]))];
+  const off = run(baseState(items)).r;
+  const on  = run(baseState(items, { reviewViaAnki: true })).r;
+  const revOff = off.days.flatMap(d => d.items.filter(it => it.type === 'rev')).length;
+  const revOn  = on.days.flatMap(d => d.items.filter(it => it.type === 'rev')).length;
+  assert(revOff > 0, '기본은 rev 생성');
+  eq(revOn, 0, 'reviewViaAnki면 rev 0');
+  eq(on.reviewViaAnki, true, '플래그 결과에 반영');
+});
+
+/* T18. 에너지 인식 배치 — 피크 시간대면 new가 피크 구간에서 시작 */
+test('T18 피크 시간대면 layoutDay가 new를 피크 구간에 우선 배치', () => {
+  const { sb } = run(baseState([weeklyItem('수학', 6, mkChapters([['1', 6]]))],
+    { peakStart: '09:00', peakEnd: '12:00' }));
+  const day = { wd: 3, items: [
+    { type: 'rev', sid: 'r', name: '복습', min: 60 },
+    { type: 'new', sid: 'n', name: '학습', min: 120 },
+  ] };
+  const L = sb.layoutDay(day);
+  const ns = L.sessions.find(s => s.type === 'new');
+  assert(ns && ns.start >= 540 && ns.start < 720, 'new가 피크(09:00~12:00)에서 시작 (start=' + (ns && ns.start) + ')');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

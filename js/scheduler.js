@@ -45,6 +45,28 @@ function dayStudyMin(ds,wd,capWd){
 }
 function itemTotalHours(it){return (it.chapters||[]).reduce((t,c)=>t+(+c.hours||0),0)}
 
+/* ── 적응형 용량(방법론 1·10절: "계획은 가설") ──────────────────
+   최근 N일의 '실제 완료 분 / 가용 분'으로 *미래* 계획 용량을 보정한다.
+   꾸준히 70%만 완료하면 다음 계획도 ~70%로 줄여 "실패할 계획"을 "굴러가는 계획"으로.
+   - today 이전(과거)만 측정. 이력 부족(<ADAPT_MIN_DAYS) 또는 state.adaptiveCapacity===false면 1.0.
+   - [0.5,1.0] 클램프: 과대축소·죽음의 나선 방지 + 상한 1.0(가용 이상으론 안 늘림 → 용량 불변식 유지). */
+const ADAPT_WINDOW=14, ADAPT_MIN_DAYS=3;
+function adherenceFactor(start, horizon, capWd, today){
+  if(state.adaptiveCapacity===false) return 1;
+  const c=state.completions||{};
+  let doneMin=0, capMin=0, activeDays=0;
+  for(let i=0;i<=horizon;i++){
+    const date=addDays(parseISO(start),i), ds=iso(date);
+    if(ds>=today) break;                            // 과거만(날짜 오름차순)
+    if(dayDiff(ds,today)>ADAPT_WINDOW) continue;    // 최근 N일만
+    capMin+=dayStudyMin(ds,date.getDay(),capWd);
+    const m=c[ds]; let dm=0; if(m)for(const k in m)dm+=(+m[k].min||0);
+    doneMin+=dm; if(dm>0)activeDays++;
+  }
+  if(activeDays<ADAPT_MIN_DAYS||capMin<=0) return 1;
+  return clamp(doneMin/capMin, 0.5, 1.0);
+}
+
 function schedule(){
   const start=state.startDate;
   const items=state.items.filter(s=>s.name);
@@ -65,13 +87,17 @@ function schedule(){
   let endDate=lastDL&&lastDL>endByPace?lastDL:endByPace;
   const horizon=Math.max(6,dayDiff(start,endDate));
 
-  /* 2) 일자 생성 + 모듈 용량/복습예산 */
+  /* 2) 일자 생성 + (적응형) 가용 용량 */
+  const today=todayISO();
+  const adapt=adherenceFactor(start,horizon,capWd,today);   // 0.5~1.0 (이력 부족·끄면 1.0)
   const days=[];
   for(let i=0;i<=horizon;i++){
     const date=addDays(parseISO(start),i), ds=iso(date), wd=date.getDay();
-    const sMin=dayStudyMin(ds,wd,capWd);
+    let sMin=dayStudyMin(ds,wd,capWd);
+    if(adapt<1 && ds>=today) sMin=Math.round(sMin*adapt);   // 오늘/미래만 실측 완료율로 축소(과거는 원본 유지)
     days.push({ds,date,wd,studyMin:sMin,used:0,modLeft:0,revLeft:0,items:[]});
   }
+  const adaptApplied=adapt<1;
 
   /* 3) daily(Anki) 먼저 — 매일 고정 분 확보 */
   daily.forEach(s=>{
@@ -120,6 +146,10 @@ function schedule(){
 
   /* 5) 주(週) 단위 학습 모듈 배분 */
   const reviewTasks=[];
+  /* 복습 슬롯 ↔ Anki due 이중 계상 방지(설계도 §3-③·방법론 7·8절):
+     매일 Anki(daily) 항목이 이미 시간을 예약하고 실제 due는 FSRS가 소유하므로,
+     reviewViaAnki=true면 합성 간격복습(rev) 슬롯 생성을 끈다(시간 예산 중복 제거). */
+  const reviewViaAnki = state.reviewViaAnki===true && daily.length>0;
   const firstMon=mondayOf(parseISO(start));
   for(let w=0; w*7<=horizon+6; w++){
     const wStart=addDays(firstMon,w*7);
@@ -156,7 +186,8 @@ function schedule(){
           chapters:covered.slice(),mod:true});
         pick._weekDone++; pick._schedMin+=ML; pick._sessions.push({di,ds:day.ds,chapters:covered});
         lastSid=pick.id; cap--; day.used+=ML;
-        // 복습 예약(그날 배운 챕터 근거)
+        // 복습 예약(그날 배운 챕터 근거) — reviewViaAnki면 Anki/FSRS가 복습을 소유하므로 생략
+        if(!reviewViaAnki)
         REVIEW_OFFSETS.forEach(off=>{const ti=di+off;
           if(ti<days.length && ti<=pick._dlIdx)
             reviewTasks.push({idx:ti,sid:pick.id,name:pick.name,color:pick.color,
@@ -259,24 +290,53 @@ function schedule(){
 
   let capTotal=0,capUsed=0;
   days.forEach(d=>{capTotal+=d.studyMin;capUsed+=d.used;});
-  return {days,itemStat,weekHours,chapterLog,warnings:[...new Set(warnings)],capUsed,capTotal,ML};
+  return {days,itemStat,weekHours,chapterLog,warnings:[...new Set(warnings)],capUsed,capTotal,ML,
+    adapt,adaptApplied,reviewViaAnki};
 }
 
-/* 하루 타임라인: 모듈/복습/Anki에 실제 시각 배정 + 빈 시간 계산 */
+/* 피크 시간대(방법론 1절: "가장 어려운 새 학습을 가장 맑을 때") — [시작분,끝분] 또는 null */
+function peakRange(){
+  const a=state.peakStart, b=state.peakEnd;
+  if(!a||!b) return null;
+  const s=toMin(a), e=toMin(b);
+  return (e>s)?[s,e]:null;
+}
+/* 빈 구간 배열에서 여러 [a,b]를 빼서 새 배열을 만든다(중간을 빼면 둘로 쪼갬). */
+function subtractIntervals(segs,intervals){
+  let res=segs.map(x=>x.slice());
+  intervals.forEach(([a,b])=>{const out=[];res.forEach(([s,e])=>{
+    if(b<=s||a>=e){out.push([s,e]);return;} if(a>s)out.push([s,a]); if(b<e)out.push([b,e]);
+  });res=out.filter(([s,e])=>e>s);});
+  return res;
+}
+
+/* 하루 타임라인: 모듈/복습/Anki에 실제 시각 배정 + 빈 시간 계산.
+   피크 시간대가 설정돼 있으면 고인지부하(new·mock)를 피크 구간에 먼저 배치(방법론 1절).
+   피크 미설정 시엔 입력 순서대로 이른 시각부터 채우는 기존 동작과 동일. */
 function layoutDay(day){
   const blocks=blocksForWeekday(day.wd);
   const {wake0,wake1,windows}=freeWindowsForWeekday(day.wd);   // 공부는 빈 구간에 배치
-  let wi=0,cur=windows.length?windows[0].s:wake0;
+  const peak=peakRange();
+  let segs=windows.map(w=>[w.s,w.e]);                          // 가변 빈 구간
   const sessions=[];
-  day.items.forEach(it=>{
+  const HIGH=it=>it.type==='new'||it.type==='mock';           // 고인지부하 → 피크 우선
+  function take(need,prefer){                                  // 이른 시각부터 need분 할당(여러 구간 쪼갬 허용)
+    const placed=[], cand=[];
+    segs.forEach(seg=>{let[s,e]=seg; if(prefer){s=Math.max(s,prefer[0]);e=Math.min(e,prefer[1]);} if(e>s)cand.push([s,e]);});
+    cand.sort((a,b)=>a[0]-b[0]);
+    for(const [s,e] of cand){ if(need<=0)break; const use=Math.min(e-s,need); placed.push([s,s+use]); need-=use; }
+    if(placed.length)segs=subtractIntervals(segs,placed);
+    return {placed,need};
+  }
+  function placeItem(it,prefer){
     let need=it.min;
-    while(need>0&&wi<windows.length){
-      if(cur>=windows[wi].e){wi++;if(wi<windows.length)cur=windows[wi].s;continue;}
-      const avail=windows[wi].e-cur, use=Math.min(avail,need);
-      sessions.push({...it,start:cur,end:cur+use}); cur+=use; need-=use;
-    }
+    if(prefer){const r=take(need,prefer); r.placed.forEach(([s,e])=>sessions.push({...it,start:s,end:e})); need=r.need;}
+    if(need>0){const r=take(need,null); r.placed.forEach(([s,e])=>sessions.push({...it,start:s,end:e})); need=r.need;}
     if(need>0)sessions.push({...it,start:null,end:null,over:need});
-  });
+  }
+  // 피크가 있으면 고인지부하부터 처리(피크 선점), 없으면 원래 순서 그대로
+  const order = peak ? [...day.items.filter(HIGH), ...day.items.filter(it=>!HIGH(it))] : day.items.slice();
+  order.forEach(it=> placeItem(it, peak&&HIGH(it)?peak:null));
   const tl=[];
   blocks.filter(b=>b.type!=='수면').forEach(b=>tl.push({kind:'block',name:b.name,btype:b.type,start:toMin(b.start),end:toMin(b.end),color:BLOCK_TYPES[b.type]}));
   sessions.forEach(s=>{if(s.start!=null)tl.push({kind:'study',...s});});

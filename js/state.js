@@ -52,6 +52,10 @@ function defaults(){
     weekly:{},            // 주간 리뷰 체크/메모(10절)
     blankReviewWeekly:true,  // 백지 복습(9절) 주 1회 자동 배치
     mockEveryWeeks:0,        // 모의시험(12절) N주마다(0=끔)
+    /* ── 적응·배치 설정(2026-06-28 추가) ── */
+    adaptiveCapacity:true,   // 최근 완료율로 미래 계획 용량 보정(방법론 1·10절 "계획은 가설")
+    peakStart:'', peakEnd:'',// 각성도 최고 시간대(HH:MM) — new/mock을 여기 우선 배치(방법론 1절). 빈값=끔
+    reviewViaAnki:false,     // 복습을 Anki/FSRS에 위임(합성 간격복습 슬롯 생성 끔 → 시간 이중계상 방지)
     degree:{ targetTotal:130, reqMajorReq:0, reqMajorSel:0, reqLiberal:0,
       semesters:[ {id:rid(),name:'2026-1학기',courses:[]} ] },
     anki:{ source:'file' }
@@ -100,6 +104,13 @@ function migrate(s){
   if(s.weekly==null||typeof s.weekly!=='object')s.weekly={};
   if(s.blankReviewWeekly==null)s.blankReviewWeekly=d.blankReviewWeekly;
   if(s.mockEveryWeeks==null)s.mockEveryWeeks=d.mockEveryWeeks;
+  /* 적응·배치 설정 보강(구버전 호환) */
+  if(s.adaptiveCapacity==null)s.adaptiveCapacity=d.adaptiveCapacity;
+  if(s.peakStart==null)s.peakStart=d.peakStart;
+  if(s.peakEnd==null)s.peakEnd=d.peakEnd;
+  if(s.reviewViaAnki==null)s.reviewViaAnki=d.reviewViaAnki;
+  /* _today는 테스트/시뮬레이션 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거). */
+  if(s._today!=null)delete s._today;
   /* '공부' 블록 개념 폐지: 남아있던 공부 블록은 제거(그 시간은 자동으로 빈 시간=공부 가능이 됨) */
   if(Array.isArray(s.routine))s.routine=s.routine.filter(b=>b&&b.type!=='공부');
   return s;
@@ -269,4 +280,104 @@ function setWeeklyNote(wk,note){
   state.weekly=state.weekly||{};
   const w=state.weekly[wk]=state.weekly[wk]||{checks:{},note:''};
   w.note=note||''; persist();
+}
+
+/* ============================================================
+   Anki 카드 초안 생성(방법론 7절) — 3문장 요약·반복 오답을 Anki import용
+   TSV(.txt)로 떨군다. *자동 생성*은 마찰을, *사람 큐레이션*(가져온 뒤 ≤5장 추리고
+   왜/응용형으로 손질)은 학습 이득을 담당한다. 시점(due)은 여전히 FSRS가 소유.
+============================================================ */
+function _cf(s){return (s||'').toString().replace(/\t/g,' ').replace(/\r?\n/g,'<br>');}
+function buildAnkiCards(fromDs,toDs){
+  const lines=[];
+  const sm=state.summaries||{};
+  Object.keys(sm).sort().forEach(ds=>{
+    if(fromDs&&ds<fromDs)return; if(toDs&&ds>toDs)return;
+    (sm[ds]||[]).forEach(x=>{
+      const front=_cf((x.name?'['+x.name+'] ':'')+(x.s1||'핵심 현상·문제는?'));
+      const back=_cf(['How(도구): '+(x.s2||''),'Result(결과·의미): '+(x.s3||'')].join('\n'));
+      const tag='요약'+(x.name?'::'+x.name.replace(/\s+/g,'_'):'');
+      lines.push([front,back,tag].join('\t'));
+    });
+  });
+  (state.cbms||[]).forEach(e=>{
+    if(fromDs&&e.ds<fromDs)return; if(toDs&&e.ds>toDs)return;
+    const inf=CBMS_INFO[e.code]||{label:'',tip:''};
+    const front=_cf((e.name?'['+e.name+'] ':'')+(e.chapter||'')+' — 어디서 왜 막혔나?');
+    const back=_cf((e.note||'(메모 없음)')+'\n처방('+e.code+' '+inf.label+'): '+inf.tip);
+    lines.push([front,back,'오답::'+e.code].join('\t'));
+  });
+  return lines;
+}
+function exportAnkiCards(scope){
+  let fromDs='',toDs='';
+  if(scope==='today'){fromDs=toDs=todayISO();}
+  const lines=buildAnkiCards(fromDs,toDs);
+  if(!lines.length){alert(scope==='today'?'오늘 작성한 요약·오답이 없어요. 블록 끝마다 3문장 요약을 남기면 카드가 됩니다.':'요약·오답 기록이 아직 없어요.');return;}
+  /* Anki 2.1.55+ import 디렉티브(구버전은 첫 줄들을 노트로 보지 않게 #로 시작) */
+  const head=['#separator:Tab','#html:true','#tags column:3'];
+  const blob=new Blob([head.concat(lines).join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='러닝허브_카드_'+(scope==='today'?todayISO():'전체')+'.txt';a.click();
+  alert(lines.length+'장의 카드 초안(.txt)을 내려받았어요.\nAnki에서 "가져오기"로 불러온 뒤 ≤5장으로 추리고 한두 장은 "왜?/응용"형으로 손질하세요(큐레이션이 학습 이득).');
+}
+
+/* ============================================================
+   볼트 폴더로 자동 백업 — localStorage 전소(브라우저 캐시 삭제 등)에 대비.
+   File System Access의 *쓰기*로 볼트 폴더에 러닝허브_백업.json을 떨군다.
+============================================================ */
+async function backupToVault(){
+  if(!window.showDirectoryPicker){alert('이 브라우저는 폴더 쓰기를 지원하지 않아요(Chrome/Edge 권장). 대신 [내보내기]로 파일 백업하세요.');return;}
+  try{
+    let h=(typeof vaultHandle!=='undefined'&&vaultHandle)?vaultHandle:null;
+    if(!h){h=await window.showDirectoryPicker(); try{vaultHandle=h;}catch(e){}}
+    if(h.requestPermission){const perm=await h.requestPermission({mode:'readwrite'}); if(perm!=='granted'){alert('쓰기 권한이 거부됐어요.');return;}}
+    const fh=await h.getFileHandle('러닝허브_백업.json',{create:true});
+    const w=await fh.createWritable(); await w.write(JSON.stringify(state,null,2)); await w.close();
+    state._lastBackupAt=new Date().toISOString(); persist();
+    if(typeof render==='function')render();
+    alert('볼트 폴더에 러닝허브_백업.json 저장 완료.');
+  }catch(e){if(e.name!=='AbortError')alert('볼트 백업 실패: '+(e.message||e));}
+}
+function lastBackupDays(){
+  if(!state._lastBackupAt)return null;
+  const t=new Date(state._lastBackupAt); if(isNaN(t))return null;
+  return Math.floor((Date.now()-t.getTime())/86400000);
+}
+
+/* ============================================================
+   오래된 기록 보관(아카이빙) — '졸업까지 N년' 쌓이는 completions/summaries/cbms가
+   localStorage 쿼터·재렌더 성능을 갉아먹기 전에, 보관 파일로 내려받고 앱에서 비운다.
+============================================================ */
+function dataSizeKB(){try{return Math.round(JSON.stringify(state).length/1024);}catch(e){return 0;}}
+function recordCount(){
+  let n=0; const c=state.completions||{},s=state.summaries||{};
+  for(const k in c)n+=Object.keys(c[k]).length;
+  for(const k in s)n+=s[k].length;
+  return n+(state.cbms||[]).length+(state.backlog||[]).length;
+}
+function archiveOldData(monthsKeep){
+  monthsKeep=monthsKeep||6;
+  const cutoff=iso(addDays(new Date(),-Math.round(monthsKeep*30)));
+  const arch={schemaVersion:SCHEMA_VERSION,archivedAt:new Date().toISOString(),cutoff,
+    completions:{},summaries:{},cbms:[],backlog:[]};
+  let n=0;
+  const c=state.completions||{}; Object.keys(c).forEach(ds=>{if(ds<cutoff){arch.completions[ds]=c[ds];delete c[ds];n+=Object.keys(arch.completions[ds]).length;}});
+  const sm=state.summaries||{}; Object.keys(sm).forEach(ds=>{if(ds<cutoff){arch.summaries[ds]=sm[ds];delete sm[ds];n+=arch.summaries[ds].length;}});
+  arch.cbms=(state.cbms||[]).filter(e=>e.ds&&e.ds<cutoff); state.cbms=(state.cbms||[]).filter(e=>!(e.ds&&e.ds<cutoff)); n+=arch.cbms.length;
+  arch.backlog=(state.backlog||[]).filter(b=>b.done&&b.doneDs&&b.doneDs<cutoff); state.backlog=(state.backlog||[]).filter(b=>!(b.done&&b.doneDs&&b.doneDs<cutoff)); n+=arch.backlog.length;
+  if(n===0){alert(cutoff+' 이전 기록이 없어요. 정리할 것이 없습니다.');return;}
+  const blob=new Blob([JSON.stringify(arch,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='러닝허브_보관_'+cutoff+'.json';a.click();
+  persist(); if(typeof render==='function')render();
+  alert(cutoff+' 이전 기록 '+n+'건을 보관 파일로 내려받고 앱에서 비웠어요. (보관 파일은 따로 두면 나중에 열람 가능)');
+}
+
+/* ── 인출 증거(방법론 14절: 투입 아닌 '나아진 증거') — CBMS 주간 추세 ── */
+function cbmsTrend(){
+  const mon=mondayOf(new Date());
+  const thisW=cbmsBetween(iso(mon),iso(addDays(mon,6))).length;
+  const lastMon=addDays(mon,-7);
+  const lastW=cbmsBetween(iso(lastMon),iso(addDays(lastMon,6))).length;
+  return {thisW,lastW};
 }
