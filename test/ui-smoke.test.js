@@ -242,6 +242,19 @@ test('U14 의식·노트형 내보내기', () => {
   assert(sb.ev("typeof state.rituals === 'object'"), 'rituals 스키마 보강');
 });
 
+/* U15. Stage 4(안전 변형) — 챕터 타임라인 부분 렌더(F-09): 대용량서 최근 N일만 DOM에 */
+test('U15 챕터 타임라인 부분 렌더', () => {
+  const sb = makeSandbox();
+  sb.ev("globalThis.__r={chapterLog:Array.from({length:120},(_,i)=>({ds:'2026-'+String(1+Math.floor(i/28)).padStart(2,'0')+'-'+String(1+(i%28)).padStart(2,'0'),date:null,name:'X',color:'#6ea8fe',chapters:['c']}))}");
+  const html = sb.ev('chapterTimeline(__r)');
+  assert(/부분 렌더/.test(html), '초과분 생략 안내');
+  const rows = (html.match(/class="tl"/g) || []).length;
+  assert(rows <= 60, '렌더 행 ≤ CAP (got ' + rows + ')');
+  // 소량이면 생략 없음
+  sb.ev("globalThis.__r2={chapterLog:[{ds:'2026-06-01',name:'X',color:'#6ea8fe',chapters:['c']}]}");
+  assert(!/부분 렌더/.test(sb.ev('chapterTimeline(__r2)')), '소량은 전부 렌더');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

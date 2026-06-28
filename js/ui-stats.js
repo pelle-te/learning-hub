@@ -201,12 +201,16 @@ function weeklyBars(r){
   <div class="tiny muted" style="margin-top:6px">${r.itemStat.filter(s=>!s.daily||true).map(s=>`<span class="swatch" style="background:${s.color}"></span>${esc(s.name)}`).join('&nbsp;&nbsp;')}</div>`;
 }
 
+const TIMELINE_CAP=60;   // 부분 렌더(F-09): 다년 누적돼도 최근 N일만 DOM에 그려 비용 상한을 둔다.
 function chapterTimeline(r){
   if(!r.chapterLog.length)return `<div class="empty">챕터가 있는 과목을 추가하면 여기에 '며칠에 무엇을 배우는지'가 쌓입니다.</div>`;
   // 날짜별 묶기
   const byDs={}; r.chapterLog.forEach(e=>{(byDs[e.ds]=byDs[e.ds]||[]).push(e);});
-  const dss=Object.keys(byDs).sort();
-  return `<div style="max-height:360px;overflow:auto">${dss.map(ds=>{
+  const all=Object.keys(byDs).sort();
+  const dss=all.length>TIMELINE_CAP?all.slice(-TIMELINE_CAP):all;   // 최근 CAP일만(부분 렌더)
+  const hidden=all.length-dss.length;
+  const note=hidden>0?`<div class="tiny muted" style="margin-bottom:6px">⋯ 이전 ${hidden}일은 생략(부분 렌더 — 대용량서도 가볍게). 전체 보관은 <b>일과 탭 → 오래된 기록 정리</b>로 아카이빙 권장.</div>`:'';
+  return `<div style="max-height:360px;overflow:auto">${note}${dss.map(ds=>{
     const d=parseISO(ds);
     return `<div class="tl"><span class="tm">${fmtShort(d)} (${DOW[d.getDay()]})</span>
       <span class="nm">${byDs[ds].map(e=>`<span class="swatch" style="background:${e.color}"></span>${esc(e.name)} <span class="muted tiny">${e.chapters.map(esc).join(', ')}</span>`).join(' &nbsp;/&nbsp; ')}</span></div>`;
