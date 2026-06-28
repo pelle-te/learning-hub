@@ -227,6 +227,21 @@ test('U13 테마 3종 순환', () => {
   sb.ev('toggleTheme()'); assert(sb.ev('state.theme') === 'dark', 'sepia→dark');
 });
 
+/* U14. Stage 3 — 일일 의식 + 노트형 요약 내보내기 + rituals 마이그레이션 */
+test('U14 의식·노트형 내보내기', () => {
+  const sb = makeSandbox();
+  seed(sb);
+  sb.ev("setRitual('2026-06-28','plan',true)");
+  assert(sb.ev("getRitual('2026-06-28').plan") === true, '의식 plan 기록');
+  const rc = sb.ev("ritualCard('2026-06-28', null)");
+  assert(/오늘 한눈에/.test(rc) && /toggleRitual/.test(rc), '의식 카드 렌더');
+  sb.ev("addSummary('2026-06-28','m','전자기학','현상','도구','결과')");
+  const md = sb.ev("buildSummaryNotes('','')");
+  assert(/요약 노트/.test(md) && /전자기학/.test(md) && /결과/.test(md), '마크다운 노트 생성');
+  assert(sb.ev("buildSummaryNotes('1999-01-01','1999-12-31')") === '', '범위 밖이면 빈 문자열');
+  assert(sb.ev("typeof state.rituals === 'object'"), 'rituals 스키마 보강');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

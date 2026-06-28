@@ -30,6 +30,7 @@ function renderToday(p){
 
   p.innerHTML=`
   ${setupGuideCard()}
+  ${ritualCard(ds,day)}
   ${principlesCard()}
   ${todayBlocksCard(ds,day)}
   ${flowGuideCard()}
@@ -75,6 +76,33 @@ function setupGuideCard(){
     ${rows}
   </div>`;
 }
+
+/* ── 오늘 한눈에 + 일일 의식(아침 계획·저녁 셧다운 · Sunsama 델타) ──
+   '홈 대시보드'(크로스탭 KPI)와 '의식'(계획→셧다운 리듬)을 한 카드로. */
+function ritualCard(ds,day){
+  const r=getRitual(ds);
+  const items=day?day.items:[];
+  const total=items.length, done=items.filter(it=>isDone(ds,it.sid,it.type)).length;
+  const streak=studyStreak();
+  const openBl=openBacklog().length;
+  const v=state._ankiLive;
+  const due=(v&&v.decks)?v.decks.reduce((t,d)=>t+(+d.new||0)+(+d.learn||0)+(+d.review||0),0):null;
+  const gl=(val,lab)=>`<div class="gl"><div class="gl-v">${val}</div><div class="gl-l">${lab}</div></div>`;
+  return `<div class="card ritual-card">
+    <h2>☀️ 오늘 한눈에 <span class="muted tiny">— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span></h2>
+    <div class="glance">
+      ${gl((total?done+'/'+total:'—'),'오늘 블록')}
+      ${gl('🔥 '+streak,'연속 학습일')}
+      ${gl((due==null?'—':due),'Anki due')}
+      ${gl(openBl,'열린 보충')}
+    </div>
+    <div class="ritual-row">
+      <label class="ritual-ck"><input type="checkbox" ${r.plan?'checked':''} onchange="toggleRitual('${ds}','plan',this.checked)"> 🌅 <b>아침 계획</b> <span class="muted tiny">블록 훑고 오늘 가장 중요한 1개 정하기</span></label>
+      <label class="ritual-ck"><input type="checkbox" ${r.shutdown?'checked':''} onchange="toggleRitual('${ds}','shutdown',this.checked)"> 🌙 <b>저녁 셧다운</b> <span class="muted tiny">완료 체크 · 내일 한 줄 · 끝내기</span></label>
+    </div>
+  </div>`;
+}
+function toggleRitual(ds,key,on){setRitual(ds,key,on);renderToday(pageEl());toast(on?'기록됨 👍':'해제됨','info',1400);}
 
 /* ── 0절 5원리 + 오늘 한 줄 ── */
 function principlesCard(){
@@ -206,7 +234,8 @@ function summaryCard(ds){
     <label>3 — Result &amp; Meaning <span class="muted tiny">결과와 물리적 직관</span></label>
     <textarea id="sum-s3" rows="2" placeholder="예) 전자기파가 빛의 속도로 전파됨을 증명 — 무선통신의 근거."></textarea>
     <div style="margin-top:10px"><button class="primary" onclick="submitSummary('${ds}')">요약 저장</button>
-      <button class="sm ghost" style="margin-left:8px" onclick="exportAnkiCards('today')" title="오늘 요약·오답을 Anki import용 .txt 카드 초안으로">🃏 오늘 → Anki 카드(.txt)</button></div>
+      <button class="sm ghost" style="margin-left:8px" onclick="exportAnkiCards('today')" title="오늘 요약·오답을 Anki import용 .txt 카드 초안으로">🃏 오늘 → Anki 카드(.txt)</button>
+      <button class="sm ghost" style="margin-left:6px" onclick="exportSummaryNotes('today')" title="오늘 요약을 옵시디언용 마크다운 노트(.md)로 — 카드(인출)에 이은 연결용">📓 오늘 → 노트(.md)</button></div>
     <div class="foot tiny">카드는 <b>초안</b>입니다 — Anki로 가져온 뒤 ≤5장으로 추리고 "왜?/응용"형으로 손질(큐레이션이 학습 이득). 복습 시점(due)은 FSRS가 소유.</div>
     <hr>${listHtml}
   </div>`;
@@ -327,4 +356,4 @@ registerTab({ key:'today', label:'🎯 오늘 학습', group:'main', order:10, r
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { BLOCK_STAGES, subjectOptions, renderToday, setupGuideCard, principlesCard, todayBlocksCard, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard, summaryCard, submitSummary, delSummaryUI, prefillSummary, cbmsCard, submitCbms, delCbmsUI, prefillCbms, backlogCard, submitBacklog, toggleBacklogUI, delBacklogUI, prefillBacklog });
+Object.assign(globalThis, { BLOCK_STAGES, subjectOptions, renderToday, setupGuideCard, ritualCard, toggleRitual, principlesCard, todayBlocksCard, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard, summaryCard, submitSummary, delSummaryUI, prefillSummary, cbmsCard, submitCbms, delCbmsUI, prefillCbms, backlogCard, submitBacklog, toggleBacklogUI, delBacklogUI, prefillBacklog });

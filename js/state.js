@@ -54,6 +54,7 @@ function defaults(){
     blankResults:[],      // 백지 복습 통과/막힘 결과(9절·E4) — 막힘은 CBMS(C 개념)로 자동 연결
     retentionLog:[],      // 유지율(retention) 추세(E6·F-05) — AnkiConnect due를 주별로 스냅샷 [{wk,at,due,cards}]
     weekly:{},            // 주간 리뷰 체크/메모(10절)
+    rituals:{},           // 일일 의식(아침 계획·저녁 셧다운) { 'YYYY-MM-DD': {plan,shutdown,note} } — Sunsama식
     blankReviewWeekly:true,  // 백지 복습(9절) 주 1회 자동 배치
     mockEveryWeeks:0,        // 모의시험(12절) N주마다(0=끔)
     /* ── 적응·배치 설정(2026-06-28 추가) ── */
@@ -110,6 +111,7 @@ function migrate(s){
   if(!Array.isArray(s.blankResults))s.blankResults=[];
   if(!Array.isArray(s.retentionLog))s.retentionLog=[];
   if(s.weekly==null||typeof s.weekly!=='object')s.weekly={};
+  if(s.rituals==null||typeof s.rituals!=='object')s.rituals={};
   if(s.blankReviewWeekly==null)s.blankReviewWeekly=d.blankReviewWeekly;
   if(s.mockEveryWeeks==null)s.mockEveryWeeks=d.mockEveryWeeks;
   /* 적응·배치 설정 보강(구버전 호환) */

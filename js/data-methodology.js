@@ -150,6 +150,44 @@ function exportAnkiCards(scope){
   toast(lines.length+'장의 카드 초안(.txt)을 내려받았어요. Anki에서 "가져오기" 후 ≤5장으로 추리고 "왜?/응용"형으로 손질하세요.','ok',4600);
 }
 
+/* ── 노트형 내보내기(Stage 3 · Traverse/RemNote 델타) ──
+   3문장 요약을 날짜·과목별로 묶어 마크다운 한 장으로. 카드(.txt)가 '인출'이라면 이건 '연결'용 —
+   옵시디언 볼트에 넣어 손노트·개념 노트와 이으면 이중부호화·지식그래프가 살아난다. */
+function buildSummaryNotes(fromDs,toDs){
+  const sm=state.summaries||{};
+  const dss=Object.keys(sm).sort().filter(ds=>(!fromDs||ds>=fromDs)&&(!toDs||ds<=toDs)&&(sm[ds]||[]).length);
+  if(!dss.length)return '';
+  const md=['# 러닝허브 요약 노트','',`> 생성 ${todayISO()} · ${dss.length}일치 3문장 요약 · #러닝허브/요약`,''];
+  dss.forEach(ds=>{
+    md.push('## '+ds,'');
+    (sm[ds]||[]).forEach(x=>{
+      md.push('### '+((x.name?x.name+' — ':'')+(x.s1||'(핵심 현상·문제)')));
+      if(x.s2)md.push('- **도구·어떻게**: '+x.s2);
+      if(x.s3)md.push('- **결과·의미**: '+x.s3);
+      md.push('');
+    });
+  });
+  return md.join('\n');
+}
+function exportSummaryNotes(scope){
+  let fromDs='',toDs='';
+  if(scope==='today'){fromDs=toDs=todayISO();}
+  const md=buildSummaryNotes(fromDs,toDs);
+  if(!md){toast(scope==='today'?'오늘 작성한 요약이 없어요. 블록 끝마다 3문장을 남기면 노트가 됩니다.':'요약 기록이 아직 없어요.','warn',4000);return;}
+  const blob=new Blob([md],{type:'text/markdown;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='러닝허브_요약노트_'+(scope==='today'?todayISO():'전체')+'.md';a.click();
+  toast('요약 노트(.md)를 내려받았어요. 옵시디언 볼트에 넣어 개념 노트·카드와 연결하세요.','ok',4600);
+}
+
+/* ── 일일 의식(아침 계획·저녁 셧다운 · Sunsama 델타) — rituals[ds] = {plan,shutdown,note} ── */
+function getRitual(ds){state.rituals=state.rituals||{};return state.rituals[ds]||{plan:false,shutdown:false,note:''};}
+function setRitual(ds,key,val){
+  state.rituals=state.rituals||{};
+  const r=state.rituals[ds]||{plan:false,shutdown:false,note:''};
+  r[key]=val; state.rituals[ds]=r; persist();
+}
+
 /* ============================================================
    볼트 폴더로 자동 백업 — localStorage 전소(브라우저 캐시 삭제 등)에 대비.
    File System Access의 *쓰기*로 볼트 폴더에 러닝허브_백업.json을 떨군다.
@@ -237,4 +275,4 @@ function cbmsTrend(){
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { summariesFor, addSummary, delSummary, summaryCount, CBMS_INFO, addCbms, delCbms, cbmsCounts, cbmsBetween, setBlankResult, blankResultFor, clearBlankResult, blankPassRate, addBacklog, toggleBacklog, delBacklog, openBacklog, backlogClosedBetween, weeklyKey, getWeekly, setWeeklyCheck, setWeeklyNote, _cf, buildAnkiCards, exportAnkiCards, backupToVault, lastBackupDays, dataSizeKB, recordCount, archiveOldData, recordRetentionSnapshot, retentionTrend, cbmsTrend });
+Object.assign(globalThis, { summariesFor, addSummary, delSummary, summaryCount, CBMS_INFO, addCbms, delCbms, cbmsCounts, cbmsBetween, setBlankResult, blankResultFor, clearBlankResult, blankPassRate, addBacklog, toggleBacklog, delBacklog, openBacklog, backlogClosedBetween, weeklyKey, getWeekly, setWeeklyCheck, setWeeklyNote, _cf, buildAnkiCards, exportAnkiCards, backupToVault, lastBackupDays, dataSizeKB, recordCount, archiveOldData, recordRetentionSnapshot, retentionTrend, cbmsTrend, buildSummaryNotes, exportSummaryNotes, getRitual, setRitual });
