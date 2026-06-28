@@ -255,6 +255,17 @@ test('U15 챕터 타임라인 부분 렌더', () => {
   assert(!/부분 렌더/.test(sb.ev('chapterTimeline(__r2)')), '소량은 전부 렌더');
 });
 
+/* U16. Stage 5 — IndexedDB write-through: 미지원(테스트) 환경에서 동기 경로·persist 불변(no-op 안전).
+   실제 IDB 라운드트립은 브라우저 검증 대상(여기선 throw 0 + 동기 저장 유지만 확인). */
+test('U16 IndexedDB write-through 안전(no-op)', () => {
+  const sb = makeSandbox();
+  assert(sb.ev("typeof idbMirror === 'function'"), 'idbMirror 노출');
+  assert(sb.ev("typeof restoreFromIDB === 'function' && typeof idbLoad === 'function'"), '복구 API 노출');
+  // indexedDB 미정의 → persist(내부 idbMirror)가 throw 없이 동기 저장 유지
+  sb.ev("state.moduleLen=99; persist(); idbMirror('{\"x\":1}')");
+  assert(sb.ev("JSON.parse(localStorage.getItem('study_planner_v3')).moduleLen") === 99, '동기 localStorage 저장 불변');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

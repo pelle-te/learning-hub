@@ -135,8 +135,48 @@ function validShape(s){
 }
 
 function persist(){
-  try{localStorage.setItem(KEY,JSON.stringify(state));}
-  catch(e){toast('저장 실패: 저장공간이 가득 찼을 수 있어요. [⋯ 메뉴 → 데이터 내보내기]로 백업 후 정리하세요.','bad',5000);}
+  let json;
+  try{json=JSON.stringify(state);localStorage.setItem(KEY,json);}
+  catch(e){toast('저장 실패: 저장공간이 가득 찼을 수 있어요. [⋯ 메뉴 → 데이터 내보내기]로 백업 후 정리하세요.','bad',5000);return;}
+  idbMirror(json);   // IndexedDB write-through 미러(전소 방어 · Stage 5) — 미지원/실패 시 조용히 무시
+}
+
+/* ── IndexedDB write-through 백업(Stage 5 · A3) ──
+   localStorage가 *동기* 1차 저장(코어가 동기 가정 — 그대로 유지). IDB엔 같은 스냅샷을 *비동기*로 미러링 →
+   브라우저 '사이트 데이터 삭제'로 localStorage가 전소해도 IDB가 남으면 restoreFromIDB()로 복구.
+   feature-detect: indexedDB 없으면(테스트/구형) 전부 no-op라 동기 경로·전 테스트 불변(브라우저서만 동작·검증).
+   ※ 'IDB를 1차 저장으로' 전환은 persist/boot의 동기→비동기 리팩터가 선행 — 그건 *방향*으로 남김(설계도 §14). */
+const IDB_NAME='learning_hub', IDB_STORE='kv', IDB_VER=1;
+let _idbConn=null;
+function idbOpen(){
+  if(typeof indexedDB==='undefined')return Promise.reject(new Error('no-idb'));
+  if(_idbConn)return _idbConn;
+  _idbConn=new Promise((res,rej)=>{
+    const r=indexedDB.open(IDB_NAME,IDB_VER);
+    r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE);};
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>{_idbConn=null;rej(r.error);};
+  });
+  return _idbConn;
+}
+function idbMirror(json){               // 비차단: persist마다 호출되나 실패해도 앱 영향 0
+  if(typeof indexedDB==='undefined')return;
+  idbOpen().then(db=>{try{db.transaction(IDB_STORE,'readwrite').objectStore(IDB_STORE).put(json,'state');}catch(e){_idbConn=null;}}).catch(()=>{});
+}
+function idbLoad(){                      // 최신 미러 1건(JSON 문자열|null)
+  return idbOpen().then(db=>new Promise((res,rej)=>{
+    const g=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get('state');
+    g.onsuccess=()=>res(g.result||null); g.onerror=()=>rej(g.error);
+  }));
+}
+async function idbHasBackup(){try{return !!(await idbLoad());}catch(e){return false;}}
+async function restoreFromIDB(){        // localStorage 전소 시 복구(유지보수 카드 버튼)
+  let json=null; try{json=await idbLoad();}catch(e){}
+  if(!json){toast('IndexedDB 백업이 없습니다(이 브라우저에서 저장된 적 없음).','warn',4000);return;}
+  let s=null; try{s=migrate(JSON.parse(json));}catch(e){}
+  if(!s){toast('IndexedDB 백업을 살릴 수 없습니다(형식 오류).','bad',4000);return;}
+  if(!await backupOrConfirm())return;
+  state=s; persist(); applyTheme(); render(); toast('IndexedDB 백업에서 복구했어요.','ok',4000);
 }
 function backupNow(){try{localStorage.setItem(BACKUP_KEY,JSON.stringify(state));return true;}catch(e){return false;}}
 /* 파괴적 동작 전 백업 — 실패하면(저장공간 등) 되돌리기 불가를 알리고 사용자에 진행 여부를 묻는다(감사 #5 · P1-7) */
@@ -229,4 +269,4 @@ function studyStreak(){
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { SCHEMA_VERSION, BACKUP_KEY, defaults, CORRUPT_KEY, boot, hasCorrupt, recoverCorrupt, migrate, validShape, persist, backupNow, backupOrConfirm, hasBackup, undoLast, RUNTIME_CACHE_KEYS, exportSnapshot, exportJSON, importJSON, resetAll, applyTheme, toggleTheme, compMap, isDone, doneMin, setDone, totalDoneHours, studyStreak });
+Object.assign(globalThis, { SCHEMA_VERSION, BACKUP_KEY, defaults, CORRUPT_KEY, boot, hasCorrupt, recoverCorrupt, migrate, validShape, persist, backupNow, backupOrConfirm, hasBackup, undoLast, idbMirror, idbLoad, idbHasBackup, restoreFromIDB, RUNTIME_CACHE_KEYS, exportSnapshot, exportJSON, importJSON, resetAll, applyTheme, toggleTheme, compMap, isDone, doneMin, setDone, totalDoneHours, studyStreak });

@@ -72,10 +72,11 @@ function maintenanceCard(){
     <div class="row">
       <button class="sm" onclick="backupToVault()">📁 볼트 폴더에 백업</button>
       <button class="sm ghost" onclick="exportJSON()">💾 파일로 내보내기</button>
+      <button class="sm ghost" onclick="restoreFromIDB()" title="localStorage가 지워졌을 때 IndexedDB 자동 미러에서 복구">♻ IndexedDB에서 복구</button>
       <button class="sm danger ghost" onclick="archiveOldConfirm()">🗄 오래된 기록 정리(6개월 이전)</button>
     </div>
     ${stale?`<div class="warnbox" style="margin-top:8px">백업이 ${days==null?'아직 없어요':days+'일 지났어요'}. 브라우저 캐시를 지우면 데이터가 사라질 수 있으니 백업하세요.</div>`:''}
-    <div class="foot">볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.</div>
+    <div class="foot">볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 저장 때마다 <b>IndexedDB에 자동 미러</b>되어, 사이트 데이터가 지워져도 <b>♻ 복구</b>로 되살릴 수 있어요(같은 브라우저 한정). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.</div>
   </div>`;
 }
 async function archiveOldConfirm(){
