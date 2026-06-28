@@ -210,3 +210,8 @@ function cbmsTrend(){
   const lastW=cbmsBetween(iso(lastMon),iso(addDays(lastMon,6))).length;
   return {thisW,lastW};
 }
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { summariesFor, addSummary, delSummary, summaryCount, CBMS_INFO, addCbms, delCbms, cbmsCounts, cbmsBetween, setBlankResult, blankResultFor, clearBlankResult, blankPassRate, addBacklog, toggleBacklog, delBacklog, openBacklog, backlogClosedBetween, weeklyKey, getWeekly, setWeeklyCheck, setWeeklyNote, _cf, buildAnkiCards, exportAnkiCards, backupToVault, lastBackupDays, dataSizeKB, recordCount, archiveOldData, cbmsTrend });

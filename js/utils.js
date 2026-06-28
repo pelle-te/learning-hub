@@ -64,3 +64,8 @@ async function loadVaultIndex(handle){
     return JSON.parse(await (await fh.getFile()).text());
   }catch(e){return null;}
 }
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { DOW, DOW_MON, REVIEW_OFFSETS, PALETTE, BLOCK_TYPES, KEY, SKIP, rid, iso, todayISO, parseISO, addDays, fmt, fmtShort, dayDiff, toMin, toHM, clamp, esc, jsq, hLabel, mondayOf, weekLabel, pageEl, itemById, ddayInfo, loadVaultIndex });

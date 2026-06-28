@@ -324,3 +324,8 @@ function prefillBacklog(sid){
 
 /* 탭 등록 — tabs.js 레지스트리에 자신을 올린다(추가/삭제 시 app.js 안 건드림) */
 registerTab({ key:'today', label:'🎯 오늘 학습', group:'main', order:10, render:renderToday });
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { BLOCK_STAGES, subjectOptions, renderToday, setupGuideCard, principlesCard, todayBlocksCard, toggleDoneToday, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard, summaryCard, submitSummary, delSummaryUI, prefillSummary, cbmsCard, submitCbms, delCbmsUI, prefillCbms, backlogCard, submitBacklog, toggleBacklogUI, delBacklogUI, prefillBacklog });

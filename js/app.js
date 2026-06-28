@@ -38,3 +38,8 @@ applyTheme();
   if (nav && nav.addEventListener) nav.addEventListener('keydown', navKey);
 })();
 render();
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { toggleMore, openMore, closeMore, moreOutside, moreEsc });

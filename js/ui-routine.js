@@ -144,3 +144,8 @@ function setDays(id,mode){const b=state.routine.find(x=>x.id===id);if(!b)return;
 /* 요일별 하루 미리보기는 제거됨 (요청) */
 
 registerTab({ key:'routine', label:'⏰ 일과 & 가용시간', group:'main', order:40, render:renderRoutine });
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { classDow, renderRoutine, maintenanceCard, archiveOldConfirm, renderClassList, setClassDow, addClass, updClass, updClassSilent, delClass, setSetting, timeOpts, renderBlocks, addBlock, delBlock, updBlock, updBlockSilent, toggleDay, setDays });

@@ -138,3 +138,8 @@ function onWeeklyCheck(wk,k,on){setWeeklyCheck(wk,k,on);}
 function onWeeklyNote(wk,v){setWeeklyNote(wk,v);}
 
 registerTab({ key:'review', label:'🔄 주간 리뷰', group:'main', order:80, render:renderReview });
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { reviewWeekOffset, WEEKLY_CHECKS, renderReview, reviewNav, reviewToday, weekPlanActual, planActualCard, cbmsDistCard, backlogReviewCard, reviewCloseBacklog, checklistCard, onWeeklyCheck, onWeeklyNote });

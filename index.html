@@ -35,24 +35,10 @@
   <div id="page"></div>
 </div>
 
-<!-- 모듈별 스크립트 (로드 순서 중요: utils → ui-kit → tabs → state → data-methodology → scheduler → ui-* → app)
-     tabs.js는 registerTab을 정의하므로 자신을 등록하는 ui-* 들보다 먼저 와야 한다. -->
-<script src="js/utils.js"></script>
-<script src="js/ui-kit.js"></script>
-<script src="js/tabs.js"></script>
-<script src="js/state.js"></script>
-<script src="js/data-methodology.js"></script>
-<script src="js/scheduler.js"></script>
-<script src="js/ui-today.js"></script>
-<script src="js/ui-schedule.js"></script>
-<script src="js/ui-items.js"></script>
-<script src="js/ui-routine.js"></script>
-<script src="js/ui-stats.js"></script>
-<script src="js/ui-review.js"></script>
-<script src="js/ui-vault.js"></script>
-<script src="js/ui-anki.js"></script>
-<script src="js/ui-degree.js"></script>
-<script src="js/app.js"></script>
+<!-- ES 모듈 단일 진입점. 로컬 서버(http)로 띄워야 동작한다(file:// 더블클릭은 CORS로 막힘):
+       node serve.js  →  http://localhost:8000/
+     모듈 로드 순서·전역 노출은 js/main.js가 관리한다. -->
+<script type="module" src="js/main.js"></script>
 <script>
   /* PWA: http/https로 서빙될 때만 manifest 주입 + 서비스워커 등록(file://에서는 둘 다 오류라 건너뜀). */
   if(location.protocol.startsWith('http')){

@@ -66,7 +66,9 @@ function defaults(){
 }
 
 const CORRUPT_KEY=KEY+'_corrupt';       // 손상 원본 보존(데이터 손실 방지 · 감사 2026-06-23 #5 · P1-7)
-let state=boot();
+/* state는 모든 모듈이 읽고(통계·스케줄러) state.js 안에서만 재할당(boot/undo/import/reset)한다.
+   ESM에서 외부 모듈·테스트가 바로 읽도록 globalThis 슬롯에 둔다(scheduler 테스트가 mock state 주입). */
+globalThis.state=boot();
 
 /* 부팅 — 저장된 상태를 살리되, 손상/형식불일치로 기본값으로 떨어질 땐
    *원본 raw 문자열을 CORRUPT_KEY에 백업한 뒤* 기본값으로 시작한다.
@@ -212,3 +214,8 @@ function studyStreak(){
   if(!has(iso(cur))){cur=addDays(cur,-1); if(!has(iso(cur)))return 0;}
   let n=0; while(has(iso(cur))){n++;cur=addDays(cur,-1);} return n;
 }
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { SCHEMA_VERSION, BACKUP_KEY, defaults, CORRUPT_KEY, boot, hasCorrupt, recoverCorrupt, migrate, validShape, persist, backupNow, backupOrConfirm, hasBackup, undoLast, RUNTIME_CACHE_KEYS, exportSnapshot, exportJSON, importJSON, resetAll, applyTheme, toggleTheme, compMap, isDone, doneMin, setDone, totalDoneHours, studyStreak });

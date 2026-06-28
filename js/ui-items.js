@@ -164,3 +164,8 @@ function bulkCh(id){const s=state.items.find(x=>x.id===id);if(!s)return;
 }
 
 registerTab({ key:'items', label:'📝 학습 항목', group:'main', order:30, render:renderItems });
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { openItems, toggleItem, collapseAllItems, expandAllItems, renderItems, renderItemCards, itemCard, stepper, bump, chapterEditor, addItemUI, addItem, delItem, updItem, addCh, delCh, updCh, moveCh, _chDrag, chDragStart, chDrop, bulkCh });

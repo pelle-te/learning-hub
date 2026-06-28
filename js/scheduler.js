@@ -388,3 +388,8 @@ function exportICS(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='러닝허브_'+state.startDate+'.ics';a.click();
 }
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { blocksForWeekday, awakeBounds, freeWindowsForWeekday, studyMinByWeekday, dayStudyMin, itemTotalHours, ADAPT_WINDOW, adherenceFactor, schedule, peakRange, subtractIntervals, layoutDay, icsEsc, icsDt, buildICS, exportICS });

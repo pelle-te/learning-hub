@@ -115,3 +115,8 @@ function addChapFromVault(si,ci){
 }
 
 registerTab({ key:'vault', label:'📚 볼트 현황', group:'main', order:50, render:renderVault });
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { renderVault, scanVault, subjectsFromIndex, scanVaultFromFiles, readFM, renderVaultTree, estH, addSubjFromVault, addChapFromVault });

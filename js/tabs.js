@@ -8,10 +8,12 @@
    registerTab은 ui-* 로드 전에 정의돼 있어야 하므로 이 파일을 일찍 싣는다.
 ============================================================ */
 
-/* ── 탭 런타임 전역(여러 모듈이 공유) ── */
-let TAB = 'today';        // 현재 탭 (실행 중심 — '오늘 학습'으로 시작)
-let RES = null;           // 마지막 schedule() 결과 (여러 탭이 갱신·참조)
-let vaultHandle = null;   // 옵시디언 폴더 핸들 (세션 동안만 유지)
+/* ── 탭 런타임 전역(여러 모듈이 갱신·참조하는 가변 공유 상태) ──
+   ESM(strict)에서도 여러 모듈이 같은 슬롯을 읽고 쓰도록 globalThis에 직접 둔다.
+   (import 바인딩은 읽기전용이라 ui-*가 RES=… 재할당을 못 하므로 전역으로 공유) */
+globalThis.TAB = 'today';        // 현재 탭 (실행 중심 — '오늘 학습'으로 시작)
+globalThis.RES = null;           // 마지막 schedule() 결과 (여러 탭이 갱신·참조)
+globalThis.vaultHandle = null;   // 옵시디언 폴더 핸들 (세션 동안만 유지)
 
 /* ── 레지스트리 ──
    def = { key, label, group, order, render }
@@ -74,3 +76,8 @@ function render() {
   var t = tabDef(TAB) || orderedTabs()[0];
   if (t && t.render) { TAB = t.key; t.render(pageEl()); }
 }
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { TAB_REGISTRY, registerTab, orderedTabs, tabDef, renderNav, go, navKey, render });

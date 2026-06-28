@@ -89,3 +89,8 @@ function courseToItem(name){if(state.items.some(s=>s.name===name)){toast('이미
 
 /* degree는 학사(졸업) 영역 — group을 달리해 네비에서 구분선 뒤로(원래 IA 유지) */
 registerTab({ key:'degree', label:'🎓 졸업 계획', group:'degree', order:90, render:renderDegree });
+
+/* ESM-AUTO-EXPOSE */
+/* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
+   (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
+Object.assign(globalThis, { CATS, openSems, toggleSem, collapseAllSems, expandAllSems, renderDegree, semCard, setDeg, addSemester, delSem, updSem, addCourse, delCourse, updCourse, courseToItem });
