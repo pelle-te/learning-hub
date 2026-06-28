@@ -100,9 +100,12 @@ function dayParts(curMon,k){
   const studies=items.filter(it=>it.type==='new').length;
   const revs=items.filter(it=>it.type==='rev').length;
   const ankis=items.filter(it=>it.type==='anki').length;
+  const blanks=items.filter(it=>it.type==='blank').length;
+  const mocks=items.filter(it=>it.type==='mock').length;
   const freeTag=L.freeMin>0?`<span class="pill tiny">빈 ${(L.freeMin/60).toFixed(1)}h</span>`:'';
   const doneTag=planMin>0?`<span class="pill tiny ${doneMinTot>=planMin?'good':''}">완료 ${(doneMinTot/60).toFixed(1)}/${(planMin/60).toFixed(1)}h</span>`:'';
-  const foot=`<div class="tl" style="border:none"><span class="nm tiny muted">학습 ${studies}모듈 · 복습 ${revs} · Anki ${ankis}</span>${doneTag}${freeTag}</div>`;
+  const extraCount=(blanks?` · 백지 ${blanks}`:'')+(mocks?` · 모의 ${mocks}`:'');
+  const foot=`<div class="tl" style="border:none"><span class="nm tiny muted">학습 ${studies}모듈 · 복습 ${revs} · Anki ${ankis}${extraCount}</span>${doneTag}${freeTag}</div>`;
   const bar=studyMin?`<div class="bar"><i style="width:${ratio}%;background:${over?'var(--bad)':ratio>90?'var(--warn)':'var(--acc)'}"></i></div>`:'';
 
   return {date,ds,wd,isToday,head,bar,rows,foot,used,studyMin,doneMinTot,planMin};
@@ -143,7 +146,8 @@ function renderWeekBody(curMon){
 }
 /* 학습/복습/Anki 한 줄 — 완료 체크박스 포함 */
 function studyRow(ds,x,timeHtml,durHtml,plannedMin){
-  const tag=x.type==='new'?'<span class="tag new">학습</span>':x.type==='rev'?'<span class="tag rev">복습</span>':'<span class="tag anki">Anki</span>';
+  const tag=x.type==='new'?'<span class="tag new">학습</span>':x.type==='rev'?'<span class="tag rev">복습</span>'
+    :x.type==='blank'?'<span class="tag blank">백지</span>':x.type==='mock'?'<span class="tag mock">모의</span>':'<span class="tag anki">Anki</span>';
   const ch=(x.chapters&&x.chapters.length)?` <span class="muted tiny">· ${x.chapters.map(esc).join(', ')}</span>`:'';
   const done=isDone(ds,x.sid,x.type);
   const cb=`<input type="checkbox" class="donechk" ${done?'checked':''} title="완료 표시"

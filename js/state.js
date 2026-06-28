@@ -189,3 +189,84 @@ function studyStreak(){
   if(!has(iso(cur))){cur=addDays(cur,-1); if(!has(iso(cur)))return 0;}
   let n=0; while(has(iso(cur))){n++;cur=addDays(cur,-1);} return n;
 }
+
+/* ============================================================
+   학습방법론 실행 레이어 — 3문장 요약 · CBMS 오답 · 보충필요 백로그 · 주간리뷰
+   (모두 state에 저장 → 내보내기/가져오기 JSON 백업에 포함)
+============================================================ */
+
+/* ── 3문장 요약(3절) ── */
+function summariesFor(ds){state.summaries=state.summaries||{};return state.summaries[ds]||[];}
+function addSummary(ds,sid,name,s1,s2,s3){
+  state.summaries=state.summaries||{};
+  const arr=state.summaries[ds]=state.summaries[ds]||[];
+  arr.push({id:rid(),sid:sid||'',name:name||'',s1:s1||'',s2:s2||'',s3:s3||''});
+  persist();
+}
+function delSummary(ds,id){
+  const arr=state.summaries&&state.summaries[ds]; if(!arr)return;
+  state.summaries[ds]=arr.filter(x=>x.id!==id);
+  if(!state.summaries[ds].length)delete state.summaries[ds];
+  persist();
+}
+/* 전체 요약 개수(통계용) */
+function summaryCount(){let n=0;const m=state.summaries||{};for(const ds in m)n+=m[ds].length;return n;}
+
+/* ── CBMS 오답 분류(6·12절) — code ∈ C/B/M/S/T ── */
+const CBMS_INFO={
+  C:{label:'개념',  tip:'교재 해당 단원 다시 정독(2절 ①로 복귀)',  color:'#ff8fa3'},
+  B:{label:'경계',  tip:'그 문제 유형의 체크리스트 만들기',          color:'#ffb454'},
+  M:{label:'수학',  tip:'도출 단계 백지 연습(손으로 끝까지)',        color:'#6ea8fe'},
+  S:{label:'실수',  tip:'검산 습관 + 단위 체크 자동화',              color:'#7ee0c0'},
+  T:{label:'시간',  tip:'자주 막히는 계산 손에 익히기 + 시간 분배 훈련',color:'#b794f6'},
+};
+function addCbms(ds,sid,name,chapter,code,note){
+  state.cbms=state.cbms||[];
+  state.cbms.push({id:rid(),ds:ds||iso(new Date()),sid:sid||'',name:name||'',chapter:chapter||'',code:code||'C',note:note||''});
+  persist();
+}
+function delCbms(id){state.cbms=(state.cbms||[]).filter(x=>x.id!==id);persist();}
+/* [fromDs,toDs] 구간(포함) 코드별 카운트. 인자 없으면 전체. */
+function cbmsCounts(fromDs,toDs){
+  const out={C:0,B:0,M:0,S:0,T:0};
+  (state.cbms||[]).forEach(e=>{
+    if(fromDs&&e.ds<fromDs)return; if(toDs&&e.ds>toDs)return;
+    if(out[e.code]!=null)out[e.code]++;
+  });
+  return out;
+}
+function cbmsBetween(fromDs,toDs){
+  return (state.cbms||[]).filter(e=>(!fromDs||e.ds>=fromDs)&&(!toDs||e.ds<=toDs));
+}
+
+/* ── '보충 필요' 백로그(5절) ── */
+function addBacklog(sid,name,topic,note){
+  state.backlog=state.backlog||[];
+  state.backlog.push({id:rid(),ds:iso(new Date()),sid:sid||'',name:name||'',topic:topic||'',note:note||'',done:false,doneDs:''});
+  persist();
+}
+function toggleBacklog(id){
+  const b=(state.backlog||[]).find(x=>x.id===id); if(!b)return;
+  b.done=!b.done; b.doneDs=b.done?iso(new Date()):'';
+  persist();
+}
+function delBacklog(id){state.backlog=(state.backlog||[]).filter(x=>x.id!==id);persist();}
+function openBacklog(){return (state.backlog||[]).filter(b=>!b.done);}
+/* [fromDs,toDs] 구간에 회수(닫힘)된 백로그 수 */
+function backlogClosedBetween(fromDs,toDs){
+  return (state.backlog||[]).filter(b=>b.done&&b.doneDs&&(!fromDs||b.doneDs>=fromDs)&&(!toDs||b.doneDs<=toDs)).length;
+}
+
+/* ── 주간 리뷰(10절) — 키: 그 주 월요일 ISO ── */
+function weeklyKey(d){return iso(mondayOf(d||new Date()));}
+function getWeekly(wk){state.weekly=state.weekly||{};return state.weekly[wk]||{checks:{},note:''};}
+function setWeeklyCheck(wk,k,on){
+  state.weekly=state.weekly||{};
+  const w=state.weekly[wk]=state.weekly[wk]||{checks:{},note:''};
+  w.checks=w.checks||{}; w.checks[k]=!!on; persist();
+}
+function setWeeklyNote(wk,note){
+  state.weekly=state.weekly||{};
+  const w=state.weekly[wk]=state.weekly[wk]||{checks:{},note:''};
+  w.note=note||''; persist();
+}

@@ -13,6 +13,13 @@ function renderRoutine(p){
       <div><label for="set-revratio">복습 시간 비중 (%)</label><input id="set-revratio" type="number" step="5" min="0" max="60" value="${state.reviewRatio}" onchange="setSetting('reviewRatio',+this.value)"></div>
     </div>
     <div class="foot">모듈 = 한 번에 집중하는 공부 슬롯(기본 2시간). 하루 공부 가능 시간이 이 단위로 과목에 배분됩니다.</div>
+    <hr>
+    <div class="row">
+      <div class="fld"><label for="set-blank" style="display:inline">백지 복습 자동 배치 <span class="muted tiny">(방법론 9절 — 주 1회 단원 재구성)</span></label>
+        <div style="margin-top:6px"><label class="chk-row" style="margin:0"><input type="checkbox" id="set-blank" ${state.blankReviewWeekly?'checked':''} onchange="setSetting('blankReviewWeekly',this.checked)"> <span>그 주 배운 과목마다 주말에 백지 복습 한 칸</span></label></div></div>
+      <div><label for="set-mock">모의시험 주기 (주) <span class="muted tiny">0=끔 (방법론 12절)</span></label><input id="set-mock" type="number" step="1" min="0" max="12" value="${state.mockEveryWeeks||0}" onchange="setSetting('mockEveryWeeks',Math.max(0,Math.round(+this.value)))"></div>
+    </div>
+    <div class="foot">백지 복습·모의시험은 여유 있는 날에만 배치되며 가용시간을 넘기지 않아요. <b>오늘 학습</b> 탭에서 절차 가이드를 봅니다.</div>
   </div>
   <div class="card">
     <h2>요일별 공부 가능 시간 <span class="muted tiny">— 깨어있는 시간에서 고정 블록(수면·식사·취미·수업)을 뺀 빈 시간 · 특정 날짜는 스케줄 탭에서 조정</span></h2>

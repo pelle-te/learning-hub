@@ -217,6 +217,32 @@ test('T12 수면/수업 블록 제외한 가용시간이 요일별로 정확', (
   eq(mon.studyMin, 780, '수업일(월) 780분');
 });
 
+/* T13. 백지 복습 — blankReviewWeekly일 때만, 용량 초과 없이, 학습 과목 단위로 생성 */
+test('T13 blankReviewWeekly=true면 blank 블록 생성·용량 이내, 기본(off)이면 없음', () => {
+  const items = [weeklyItem('수학', 6, mkChapters([['1', 6], ['2', 6], ['3', 6]]))];
+  // 기본(플래그 없음) — strict 게이트라 생성되면 안 됨
+  const off = run(baseState(items)).r;
+  eq(off.days.flatMap(d => d.items.filter(it => it.type === 'blank')).length, 0, '플래그 없으면 blank 0');
+  // 켜면 생성
+  const on = run(baseState(items, { blankReviewWeekly: true })).r;
+  const blanks = on.days.flatMap(d => d.items.filter(it => it.type === 'blank'));
+  assert(blanks.length > 0, 'blank가 생성되어야');
+  blanks.forEach(b => assert(b.min >= 30, 'blank min>=30'));
+  on.days.forEach(d => assert(d.used <= d.studyMin + 1, `용량 이내 @${d.ds}`));
+});
+
+/* T14. 모의시험 — mockEveryWeeks>0이면 주기적으로 mock 블록, 용량 이내; 0이면 없음 */
+test('T14 mockEveryWeeks=1이면 mock 블록 생성·용량 이내, 0이면 없음', () => {
+  const items = [weeklyItem('수학', 6, mkChapters([['1', 8], ['2', 8], ['3', 8]]))];
+  const off = run(baseState(items, { mockEveryWeeks: 0 })).r;
+  eq(off.days.flatMap(d => d.items.filter(it => it.type === 'mock')).length, 0, 'mockEveryWeeks=0이면 mock 0');
+  const on = run(baseState(items, { mockEveryWeeks: 1 })).r;
+  const mocks = on.days.flatMap(d => d.items.filter(it => it.type === 'mock'));
+  assert(mocks.length > 0, 'mock이 생성되어야');
+  mocks.forEach(m => eq(m.min, on.ML, 'mock은 1모듈'));
+  on.days.forEach(d => assert(d.used <= d.studyMin + 1, `용량 이내 @${d.ds}`));
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

@@ -181,6 +181,52 @@ function schedule(){
     d.used+=t.min; d.revLeft=Math.max(0,d.revLeft-t.min);
   });
 
+  /* 6.5) 백지 복습(방법론 9절) — 주 1회 단원 통째 재구성.
+     그 주에 학습한 과목마다 1개, 그 주 후반의 여유 있는 날에 배치(용량 초과 금지). */
+  if(state.blankReviewWeekly===true){
+    const blankMin=Math.max(30,Math.round(ML*0.4));
+    const blankTasks=[];
+    weekly.forEach(s=>{
+      const byWk={};
+      (s._sessions||[]).forEach(se=>{
+        const wk=iso(mondayOf(days[se.di].date));
+        const g=byWk[wk]||(byWk[wk]={lastDi:se.di,chs:new Set()});
+        g.lastDi=Math.max(g.lastDi,se.di); (se.chapters||[]).forEach(c=>g.chs.add(c));
+      });
+      Object.keys(byWk).forEach(wk=>{
+        const g=byWk[wk];
+        blankTasks.push({afterIdx:g.lastDi,sid:s.id,name:s.name,color:s.color,chapters:[...g.chs],min:blankMin});
+      });
+    });
+    blankTasks.sort((a,b)=>a.afterIdx-b.afterIdx);
+    blankTasks.forEach(t=>{
+      const end=Math.min(days.length-1,t.afterIdx+6);
+      let tg=-1;                                   // 그 주 후반(여유 큰 날) 우선 — 뒤에서부터
+      for(let j=end;j>=t.afterIdx;j--){if(days[j].studyMin-days[j].used>=t.min){tg=j;break;}}
+      if(tg<0)return;                              // 용량 없으면 건너뜀(과적재 방지)
+      days[tg].items.push({type:'blank',sid:t.sid,name:t.name,color:t.color,min:t.min,chapters:t.chapters.slice()});
+      days[tg].used+=t.min;
+    });
+  }
+
+  /* 6.6) 모의시험(방법론 12절) — N주마다 1회, 그 주말의 여유 날에 1모듈(타이머·누적). */
+  const mockN=+state.mockEveryWeeks||0;
+  if(mockN>0){
+    for(let w=0; w*7<=horizon+6; w++){
+      if((w+1)%mockN!==0)continue;
+      const wStart=addDays(firstMon,w*7);
+      let tg=-1;
+      for(let k=6;k>=0;k--){const di=dayDiff(start,iso(addDays(wStart,k)));
+        if(di<0||di>=days.length)continue;
+        if(days[di].studyMin-days[di].used>=ML){tg=di;break;}}
+      if(tg<0)continue;
+      const learnedBefore=days.slice(0,tg+1).some(d=>d.items.some(it=>it.type==='new'));
+      if(!learnedBefore)continue;                  // 배운 게 있어야 모의시험 의미
+      days[tg].items.push({type:'mock',sid:'mock',name:'모의시험',color:'#b794f6',min:ML,chapters:[]});
+      days[tg].used+=ML;
+    }
+  }
+
   /* 7) 통계 */
   const itemStat=weekly.map(s=>{
     // 전체 챕터 기준 진행 = 이미 완료(_done0) + 이번 계획으로 끝내는 남은 챕터(_idx)
@@ -258,7 +304,7 @@ function buildICS(){
     if(!day.items.length)return;
     const L=layoutDay(day);
     L.tl.filter(x=>x.kind==='study'&&x.start!=null).forEach((x,i)=>{
-      const label=x.type==='new'?'📘 학습':x.type==='rev'?'🔁 복습':'🃏 Anki';
+      const label=x.type==='new'?'📘 학습':x.type==='rev'?'🔁 복습':x.type==='blank'?'📝 백지복습':x.type==='mock'?'🧪 모의시험':'🃏 Anki';
       const ch=(x.chapters&&x.chapters.length)?' — '+x.chapters.join(', '):'';
       lines.push('BEGIN:VEVENT',
         `UID:${day.ds}-${x.sid}-${x.type}-${i}-${rid()}@studyplanner`,
