@@ -104,4 +104,20 @@
     opts = opts || {};
     return openModal({ kind: 'prompt', message: message, title: opts.title, value: opts.value, placeholder: opts.placeholder, okLabel: opts.okLabel || '확인' });
   };
+
+  /* ── 완료 체크박스(공용) — 오늘·스케줄 두 탭이 *같은 렌더·핸들러 경로*를 쓰게(감사 F-08).
+     데이터는 원래도 같은 completions(setDone/isDone)였고, 이제 마크업·토글도 한 곳으로 모은다.
+     esc/isDone/setDone/render는 호출 시점엔 전역에 존재(로드 순서상 ui-kit이 먼저라도 런타임 OK). */
+  window.doneCheckbox = function (ds, sid, type, min, name) {
+    var done = (typeof isDone === 'function') && isDone(ds, sid, type);
+    return '<input type="checkbox" class="donechk"' + (done ? ' checked' : '')
+      + ' title="완료 표시" aria-label="' + esc(name || '') + ' 완료"'
+      + ' onchange="toggleDoneAt(\'' + ds + '\',\'' + sid + '\',\'' + type + '\',' + Math.round(min || 0) + ',this.checked)">';
+  };
+  /* 완료 토글 — 공유 데이터(setDone) 갱신 후 *현재 탭*만 재렌더(tabs 레지스트리 경유).
+     예전엔 탭마다 toggleDoneToday→renderToday / toggleDone→renderSchedule로 갈렸다(렌더 이중화). */
+  window.toggleDoneAt = function (ds, sid, type, min, on) {
+    setDone(ds, sid, type, min, on);
+    if (typeof render === 'function') render();
+  };
 })();

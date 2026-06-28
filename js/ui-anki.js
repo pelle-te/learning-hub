@@ -70,18 +70,43 @@ async function ankiLive(){
     const names=await ankiConnect('deckNames');
     const stats=await ankiConnect('getDeckStats',{decks:names});
     const decks=Object.values(stats).map(d=>({name:d.name,new:d.new_count,learn:d.learn_count,review:d.review_count,total:d.total_in_deck}));
-    state._ankiLive={at:new Date().toLocaleString('ko'),decks};persist();
+    state._ankiLive={at:new Date().toLocaleString('ko'),decks};
+    recordRetentionSnapshot(decks);   // 주별 due 스냅샷(유지율 추세 · F-05) — persist 포함
+    persist();
     renderAnki(pageEl());
   }catch(e){
     st.innerHTML=`<div class="warnbox">AnkiConnect 연결 실패. Anki가 실행 중이고 AnkiConnect 애드온이 설치됐는지, 설정 webCorsOriginList에 "*" 또는 "null"이 있는지 확인하세요.<br><span class="tiny">${esc(e.message||e)}</span></div>`;
   }
 }
 function renderAnkiLive(v){
+  const dueTot=v.decks.reduce((t,d)=>t+d.new+d.learn+d.review,0);
   document.getElementById('ankiStat').innerHTML+=`<div class="muted tiny" style="margin-top:6px">실시간: ${v.at}</div>`;
-  document.getElementById('ankiList').innerHTML+=`<div class="card"><h3>실시간 due (AnkiConnect)</h3><table><thead><tr><th>덱</th><th>신규</th><th>학습</th><th>복습</th><th>오늘 합</th><th></th></tr></thead><tbody>
+  document.getElementById('ankiList').innerHTML+=`<div class="card"><h3>실시간 due (AnkiConnect)</h3>
+  <div class="row" style="margin-bottom:6px;align-items:center">
+    <button class="sm" onclick="ankiDueBudget()" title="오늘 풀 due 합계(${dueTot}장)를 '매일 복습' 분 예산으로 — FSRS due를 시간으로 역연동">📥 오늘 due 합계 → 복습 시간예산</button>
+    <span class="muted tiny">오늘 풀 due 합 <b>${dueTot}</b>장</span>
+  </div>
+  <table><thead><tr><th>덱</th><th>신규</th><th>학습</th><th>복습</th><th>오늘 합</th><th></th></tr></thead><tbody>
   ${v.decks.map(d=>{const due=d.new+d.learn+d.review;return `<tr><td>${esc(d.name)}</td><td>${d.new}</td><td>${d.learn}</td><td>${d.review}</td>
     <td><b>${due}</b></td><td><button class="sm ghost" onclick="addAnki('${jsq(d.name)} (due)',${Math.max(10,Math.round(due*0.5))})">+스케줄</button></td></tr>`;}).join('')}
-  </tbody></table></div>`;
+  </tbody></table>
+  <div class="foot">'+스케줄'은 덱별로 항목을 추가하고, '복습 시간예산'은 <b>전체 due 합</b>을 하나의 매일 복습 항목으로 잡아요(스케줄 용량에 반영). 시점(due)은 FSRS가 소유.</div></div>`;
+}
+/* due → 시간예산 역연동(세계수준 델타: Anki/FSRS) — 오늘 풀 due 합을 '매일 복습' 분 예산으로 upsert.
+   FSRS가 소유한 '오늘 갚을 빚(due)'을 시간(분)으로 환산해 스케줄러 용량에 반영한다(카드당 ~30초). */
+function ankiDueBudget(){
+  const v=state._ankiLive;
+  if(!v||!v.decks||!v.decks.length){toast('먼저 "🔌 AnkiConnect 실시간 due"로 현황을 불러오세요.','warn',3600);return;}
+  const due=v.decks.reduce((t,d)=>t+(+d.new||0)+(+d.learn||0)+(+d.review||0),0);
+  if(due<=0){toast('오늘 풀 due가 0이에요 — 잡을 예산이 없어요. 👍','info',3200);return;}
+  const mins=clamp(Math.round(due*0.5),10,180);   // 카드당 ~30초, 10~180분 클램프
+  const nm='Anki: 오늘 due 복습';
+  const ex=state.items.find(s=>s.name===nm);
+  if(ex){ex.mode='daily';ex.dailyMin=mins;ex.source='Anki';persist();render();
+    toast(`"${nm}" 복습예산을 ${mins}분으로 갱신(due ${due}장).`,'ok',4000);return;}
+  addItem(nm,{source:'Anki',mode:'daily',dailyMin:mins});
+  render();
+  toast(`"${nm}" 매일 ${mins}분 복습예산으로 추가(due ${due}장 → 시간 역연동).`,'ok',4400);
 }
 function addAnki(name,mins){
   const nm='Anki: '+name;
@@ -95,4 +120,4 @@ registerTab({ key:'anki', label:'🃏 Anki 현황', group:'main', order:60, rend
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { renderAnki, scanAnkiFiles, renderAnkiFile, ankiConnect, ankiLive, renderAnkiLive, addAnki });
+Object.assign(globalThis, { renderAnki, scanAnkiFiles, renderAnkiFile, ankiConnect, ankiLive, renderAnkiLive, ankiDueBudget, addAnki });

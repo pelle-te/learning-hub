@@ -22,6 +22,7 @@ function renderStats(p){
   </div>
 
   ${retrievalCard(r)}
+  ${retentionSpark()}
 
   <div class="card">
     <h2>과목별 진행</h2>
@@ -82,6 +83,31 @@ function retrievalCard(r){
   </div>`;
 }
 
+/* 유지율(due) 추세 스파크라인(E6·감사 F-05) — AnkiConnect 스냅샷이 쌓이면 표시.
+   투입(시간)이 아니라 'FSRS가 청구한 복습 빚(due)'의 주별 추세 — 줄면 기억이 유지되는 중. */
+function retentionSpark(){
+  const t=retentionTrend();
+  if(!t.has)return `<div class="card"><h2>📉 유지율 추세 <span class="muted tiny">— 기억 유지의 출력 지표</span></h2>
+    <div class="empty tiny">아직 데이터가 없어요. <b>Anki 현황</b> 탭에서 <b>🔌 AnkiConnect 실시간 due</b>를 누르면 그 주의 due가 기록돼요(주 1회면 충분). due가 꾸준히 줄면 복습 빚이 닫히는 중.</div></div>`;
+  const pts=t.points, max=Math.max(1,...pts.map(p=>p.due));
+  const bars=pts.map(p=>`<div title="${esc(p.wk)}: due ${p.due}장${p.cards?' / '+p.cards+'장 중':''}"
+     style="flex:1;min-width:6px;height:${Math.round(p.due/max*46)+2}px;background:var(--acc,#6ea8fe);border-radius:2px 2px 0 0;align-self:flex-end"></div>`).join('');
+  const flat=t.delta===0||!t.prev, good=t.delta>0;
+  const icon=flat?'＝ 유지':good?'▼ 감소':'▲ 증가';
+  const col=flat?'var(--muted,#9aa3b2)':good?'var(--ok,#7ee0c0)':'var(--bad,#ff8fa3)';
+  return `<div class="card">
+    <h2>📉 유지율 추세 <span class="muted tiny">— Anki 복습 빚(due)의 주별 추세. 투입 아닌 '기억 유지'의 출력 지표</span></h2>
+    <div class="row" style="align-items:center;gap:14px">
+      <div style="display:flex;gap:2px;align-items:flex-end;height:50px;flex:1;min-width:120px">${bars}</div>
+      <div style="text-align:right;min-width:96px">
+        <div style="font-size:20px;font-weight:700;color:${col}">${icon}</div>
+        <div class="muted tiny">이번주 ${t.latest.due} due${t.prev?` · 지난주 ${t.prev.due}`:''}</div>
+      </div>
+    </div>
+    <div class="foot">${flat?'추세를 보려면 매주 한 번 due를 기록하세요(Anki 탭).':good?'복습 빚이 줄고 있어요 — 기억이 유지되는 방향. 👍':'due가 늘었어요 — 밀린 복습을 따라잡을 시간을 확보하세요(due→복습 시간예산 역연동 활용).'}</div>
+  </div>`;
+}
+
 function weeklyBars(r){
   const weeks=Object.keys(r.weekHours).sort();
   if(!weeks.length)return `<div class="empty">데이터 없음</div>`;
@@ -117,4 +143,4 @@ registerTab({ key:'stats', label:'📊 통계', group:'main', order:70, render:r
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { renderStats, retrievalCard, weeklyBars, chapterTimeline });
+Object.assign(globalThis, { renderStats, retrievalCard, retentionSpark, weeklyBars, chapterTimeline });

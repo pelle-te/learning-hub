@@ -168,6 +168,16 @@ test('S10 exportSnapshot이 런타임 스캔 캐시를 제외', () => {
   assert(Array.isArray(snap.items) && typeof snap.startDate === 'string', '실데이터는 유지');
 });
 
+/* S11. migrate가 retentionLog를 보강(F-05) + _icsExport는 export에서 제외(F-10) */
+test('S11 retentionLog 보강 + _icsExport export 제외', () => {
+  const sb = makeSandbox();
+  const m = sb.migrate(oldShape());                 // 구버전엔 retentionLog 없음
+  assert(Array.isArray(m.retentionLog), 'migrate가 retentionLog 배열 보강');
+  sb.ev("state._icsExport={at:'2026-06-28T00:00:00Z',sig:'x'}");
+  const snap = sb.ev('exportSnapshot()');
+  assert(snap._icsExport === undefined, '_icsExport는 백업 JSON에서 제외(런타임 캐시)');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

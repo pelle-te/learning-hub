@@ -202,6 +202,29 @@ function archiveOldData(monthsKeep){
   toast(cutoff+' 이전 기록 '+n+'건을 보관 파일로 내려받고 앱에서 비웠어요.','ok',4200);
 }
 
+/* ── 유지율(retention) 추세(E6·감사 F-05) — AnkiConnect due를 주별로 스냅샷 ──
+   ankiLive() 성공 때 호출. 같은 주(월요일 ISO 키)는 최신값으로 덮고 최근 26주만 보관.
+   due = 오늘 풀 카드(new+learn+review) = 'FSRS가 청구한 기억의 빚'. 시간(투입)이 아니라
+   이 빚의 감소를 본다 → 북극성을 '유지율'로 넓힘. 측정 데이터라 export에 포함(캐시 아님). */
+function recordRetentionSnapshot(decks){
+  if(!Array.isArray(decks))return;
+  const due=decks.reduce((t,d)=>t+(+d.new||0)+(+d.learn||0)+(+d.review||0),0);
+  const cards=decks.reduce((t,d)=>t+(+d.total||0),0);
+  const wk=iso(mondayOf(new Date()));
+  state.retentionLog=(state.retentionLog||[]).filter(x=>x.wk!==wk);   // 같은 주는 덮어씀(중복 누적 금지)
+  state.retentionLog.push({wk,at:new Date().toISOString(),due,cards});
+  state.retentionLog.sort((a,b)=>a.wk<b.wk?-1:(a.wk>b.wk?1:0));
+  if(state.retentionLog.length>26)state.retentionLog=state.retentionLog.slice(-26);
+  persist();
+}
+/* 추세 요약 — 최근/직전 스냅샷과 delta(+면 due 감소=좋음). 기록 없으면 has:false. */
+function retentionTrend(){
+  const pts=(state.retentionLog||[]).slice();
+  if(!pts.length)return {points:[],latest:null,prev:null,delta:0,has:false};
+  const latest=pts[pts.length-1], prev=pts.length>1?pts[pts.length-2]:null;
+  return {points:pts,latest,prev,delta:prev?(prev.due-latest.due):0,has:true};
+}
+
 /* ── 인출 증거(방법론 14절: 투입 아닌 '나아진 증거') — CBMS 주간 추세 ── */
 function cbmsTrend(){
   const mon=mondayOf(new Date());
@@ -214,4 +237,4 @@ function cbmsTrend(){
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { summariesFor, addSummary, delSummary, summaryCount, CBMS_INFO, addCbms, delCbms, cbmsCounts, cbmsBetween, setBlankResult, blankResultFor, clearBlankResult, blankPassRate, addBacklog, toggleBacklog, delBacklog, openBacklog, backlogClosedBetween, weeklyKey, getWeekly, setWeeklyCheck, setWeeklyNote, _cf, buildAnkiCards, exportAnkiCards, backupToVault, lastBackupDays, dataSizeKB, recordCount, archiveOldData, cbmsTrend });
+Object.assign(globalThis, { summariesFor, addSummary, delSummary, summaryCount, CBMS_INFO, addCbms, delCbms, cbmsCounts, cbmsBetween, setBlankResult, blankResultFor, clearBlankResult, blankPassRate, addBacklog, toggleBacklog, delBacklog, openBacklog, backlogClosedBetween, weeklyKey, getWeekly, setWeeklyCheck, setWeeklyNote, _cf, buildAnkiCards, exportAnkiCards, backupToVault, lastBackupDays, dataSizeKB, recordCount, archiveOldData, recordRetentionSnapshot, retentionTrend, cbmsTrend });

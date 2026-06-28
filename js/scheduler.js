@@ -387,9 +387,25 @@ function exportICS(){
   const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='러닝허브_'+state.startDate+'.ics';a.click();
+  /* 신선도 스탬프(F-10): 내보낸 시각 + 그때의 계획 서명. 이후 계획이 바뀌면(서명 불일치)
+     스케줄 탭이 "재내보내기 필요"를 가시화한다. _icsExport는 런타임 캐시라 백업 JSON엔 안 나간다. */
+  try{ state._icsExport={at:new Date().toISOString(),sig:planSignature()}; persist(); }catch(e){}
+}
+
+/* 계획에 영향을 주는 입력의 가벼운 지문 — .ics 신선도 판정용(F-10).
+   이 값이 마지막 내보내기 때와 다르면 계획이 바뀐 것 → 재내보내기 권고. */
+function planSignature(){
+  try{
+    const it=(state.items||[]).map(s=>[s.id,s.name,s.mode,s.weeklyHours,s.dailyMin,s.deadline,
+      (s.chapters||[]).map(c=>[c.name,c.hours,!!c.done])]);
+    const rt=(state.routine||[]).map(b=>[b.name,b.type,b.start,b.end,(b.days||[]).join('')]);
+    return JSON.stringify([it,rt,state.dayOverrides||{},state.moduleLen,state.reviewRatio,
+      state.peakStart,state.peakEnd,state.blankReviewWeekly,state.mockEveryWeeks,
+      state.reviewViaAnki,state.adaptiveCapacity,state.startDate]);
+  }catch(e){return '';}
 }
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { blocksForWeekday, awakeBounds, freeWindowsForWeekday, studyMinByWeekday, dayStudyMin, itemTotalHours, ADAPT_WINDOW, adherenceFactor, schedule, peakRange, subtractIntervals, layoutDay, icsEsc, icsDt, buildICS, exportICS });
+Object.assign(globalThis, { blocksForWeekday, awakeBounds, freeWindowsForWeekday, studyMinByWeekday, dayStudyMin, itemTotalHours, ADAPT_WINDOW, adherenceFactor, schedule, peakRange, subtractIntervals, layoutDay, icsEsc, icsDt, buildICS, exportICS, planSignature });

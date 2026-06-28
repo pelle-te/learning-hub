@@ -52,6 +52,7 @@ function defaults(){
     cbms:[],              // 오답 분류 C/B/M/S/T(6·12절)
     backlog:[],           // '보충 필요' 백로그(5절)
     blankResults:[],      // 백지 복습 통과/막힘 결과(9절·E4) — 막힘은 CBMS(C 개념)로 자동 연결
+    retentionLog:[],      // 유지율(retention) 추세(E6·F-05) — AnkiConnect due를 주별로 스냅샷 [{wk,at,due,cards}]
     weekly:{},            // 주간 리뷰 체크/메모(10절)
     blankReviewWeekly:true,  // 백지 복습(9절) 주 1회 자동 배치
     mockEveryWeeks:0,        // 모의시험(12절) N주마다(0=끔)
@@ -107,6 +108,7 @@ function migrate(s){
   if(!Array.isArray(s.cbms))s.cbms=[];
   if(!Array.isArray(s.backlog))s.backlog=[];
   if(!Array.isArray(s.blankResults))s.blankResults=[];
+  if(!Array.isArray(s.retentionLog))s.retentionLog=[];
   if(s.weekly==null||typeof s.weekly!=='object')s.weekly={};
   if(s.blankReviewWeekly==null)s.blankReviewWeekly=d.blankReviewWeekly;
   if(s.mockEveryWeeks==null)s.mockEveryWeeks=d.mockEveryWeeks;
@@ -150,7 +152,7 @@ function undoLast(){
 
 /* 런타임 스캔 캐시 — 계산 산출물이라 '파일로 나가는' 백업/내보내기에서는 빼낸다(감사 F-01·설계도 §13.2).
    localStorage 영속에는 남겨 로컬 새로고침 시 재스캔을 아끼되, 내보내기 JSON만 가볍게·깨끗하게. */
-const RUNTIME_CACHE_KEYS=['_vaultScan','_ankiFile','_ankiLive'];
+const RUNTIME_CACHE_KEYS=['_vaultScan','_ankiFile','_ankiLive','_icsExport'];
 function exportSnapshot(){
   const s={}; for(const k in state) if(RUNTIME_CACHE_KEYS.indexOf(k)<0) s[k]=state[k];
   return s;

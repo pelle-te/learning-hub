@@ -15,6 +15,7 @@ function renderSchedule(p){
   const warn=r.warnings.length?`<div class="warnbox ${r.warnings.some(w=>w.includes('못')||w.includes('초과'))?'bad':''}">${r.warnings.map(w=>`<div>${w}</div>`).join('')}</div>`:'';
   p.innerHTML=`
   ${warn}
+  ${icsFreshnessNote()}
   ${deadlineCard()}
   <div class="card">
     <div class="row" style="align-items:center">
@@ -150,11 +151,10 @@ function studyRow(ds,x,timeHtml,durHtml,plannedMin){
     :x.type==='blank'?'<span class="tag blank">백지</span>':x.type==='mock'?'<span class="tag mock">모의</span>':'<span class="tag anki">Anki</span>';
   const ch=(x.chapters&&x.chapters.length)?` <span class="muted tiny">· ${x.chapters.map(esc).join(', ')}</span>`:'';
   const done=isDone(ds,x.sid,x.type);
-  const cb=`<input type="checkbox" class="donechk" ${done?'checked':''} title="완료 표시"
-     aria-label="${esc(x.name)} 완료" onchange="toggleDone('${ds}','${x.sid}','${x.type}',${Math.round(plannedMin)},this.checked)">`;
+  const cb=doneCheckbox(ds,x.sid,x.type,plannedMin,x.name);   // 공용 완료 체크박스(F-08)
   return `<div class="tl${done?' rowdone':''}">${cb}<span class="tm">${timeHtml}</span><span class="swatch" style="background:${x.color}"></span>${tag}<span class="nm">${esc(x.name)}${ch}</span><span class="mn">${durHtml}</span></div>`;
 }
-function toggleDone(ds,sid,type,plannedMin,on){setDone(ds,sid,type,plannedMin,on);renderSchedule(pageEl());}
+/* 완료 토글은 공용 toggleDoneAt(ui-kit)로 일원화 — 별도 toggleDone 제거(F-08) */
 
 /* 마감 임박 D-day 카드 */
 function deadlineCard(){
@@ -174,9 +174,27 @@ function setDayOverride(ds,v){
   persist(); renderSchedule(pageEl());
 }
 
+/* ── .ics 신선도(감사 F-10) ──
+   .ics는 *일회성 스냅샷*이라 계획이 바뀌어도 자동 갱신되지 않는다(자동 동기화는 비목표).
+   마지막 내보내기 시각·서명을 현재 계획과 비교해, 어긋났으면 화면에 재내보내기 배지를 띄운다.
+   (한 번도 안 내보냈으면 잔소리하지 않음 — 빈 문자열.) */
+function icsFreshnessNote(){
+  const x=state._icsExport;
+  if(!x||!x.at)return '';
+  const when=new Date(x.at);
+  const days=isNaN(when)?null:Math.floor((Date.now()-when.getTime())/86400000);
+  const ago=days==null?'':(days<=0?'오늘':(days===1?'어제':days+'일 전'));
+  const stale=x.sig!==planSignature();
+  if(stale)
+    return `<div class="warnbox">📅 <b>캘린더(.ics)가 계획과 어긋났어요</b> — 마지막 내보내기(${ago}) 이후 일정이 바뀌었습니다.
+      <button class="sm" style="margin-left:6px" onclick="exportICS();renderSchedule(pageEl())">🔄 .ics 재내보내기</button>
+      <span class="muted tiny">— 일회성 스냅샷이라 자동 동기화되지 않아요.</span></div>`;
+  return `<div class="foot">📅 캘린더(.ics) 최신 상태 · 마지막 내보내기 ${ago}.</div>`;
+}
+
 registerTab({ key:'schedule', label:'📅 주간 스케줄', group:'main', order:20, render:renderSchedule });
 
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { weekOffset, schedView, schedSelDow, setSchedView, schedSelect, renderSchedule, weekNav, weekToday, dayParts, renderWeekBody, studyRow, toggleDone, deadlineCard, setDayOverride });
+Object.assign(globalThis, { weekOffset, schedView, schedSelDow, setSchedView, schedSelect, renderSchedule, weekNav, weekToday, dayParts, renderWeekBody, studyRow, deadlineCard, setDayOverride, icsFreshnessNote });

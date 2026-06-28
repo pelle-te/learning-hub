@@ -106,8 +106,7 @@ function todayBlocksCard(ds,day){
   const rows=items.map(it=>{
     const tm=timeBy[it.sid+'|'+it.type]||'';
     const done=isDone(ds,it.sid,it.type);
-    const cb=`<input type="checkbox" class="donechk" ${done?'checked':''} aria-label="${esc(it.name)} 완료"
-       onchange="toggleDoneToday('${ds}','${it.sid}','${it.type}',${Math.round(it.min)},this.checked)">`;
+    const cb=doneCheckbox(ds,it.sid,it.type,it.min,it.name);   // 공용 완료 체크박스(F-08)
     const ch=(it.chapters&&it.chapters.length)?`<span class="muted tiny"> · ${it.chapters.map(esc).join(', ')}</span>`:'';
     const head=`<div class="blkhead ${done?'rowdone':''}">${cb}<span class="swatch" style="background:${it.color||'#6ea8fe'}"></span>
       <b>${esc(it.name)}</b>${ch}<span class="mn muted tiny">${tm?tm+' · ':''}${hLabel(it.min)}</span></div>`;
@@ -148,7 +147,7 @@ function todayBlocksCard(ds,day){
 
   return `<div class="card"><h2>오늘의 블록 <span class="muted tiny">${fmt(new Date(ds+'T00:00:00'))}</span></h2>${rows}</div>`;
 }
-function toggleDoneToday(ds,sid,type,min,on){setDone(ds,sid,type,min,on);renderToday(pageEl());}
+/* 완료 토글은 공용 toggleDoneAt(ui-kit)로 일원화 — 별도 toggleDoneToday 제거(F-08) */
 /* 백지 복습 통과/막힘 기록(방법론 9절·E4) — 막힘은 CBMS(C 개념)로 자동 연결 */
 function blankPass(ds,sid,name){setBlankResult(ds,sid,name,true,'','');renderToday(pageEl());}
 async function blankBlocked(ds,sid,name,chapters){
@@ -328,4 +327,4 @@ registerTab({ key:'today', label:'🎯 오늘 학습', group:'main', order:10, r
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { BLOCK_STAGES, subjectOptions, renderToday, setupGuideCard, principlesCard, todayBlocksCard, toggleDoneToday, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard, summaryCard, submitSummary, delSummaryUI, prefillSummary, cbmsCard, submitCbms, delCbmsUI, prefillCbms, backlogCard, submitBacklog, toggleBacklogUI, delBacklogUI, prefillBacklog });
+Object.assign(globalThis, { BLOCK_STAGES, subjectOptions, renderToday, setupGuideCard, principlesCard, todayBlocksCard, blankPass, blankBlocked, clearBlankResultUI, stageBar, flowGuideCard, summaryCard, submitSummary, delSummaryUI, prefillSummary, cbmsCard, submitCbms, delCbmsUI, prefillCbms, backlogCard, submitBacklog, toggleBacklogUI, delBacklogUI, prefillBacklog });

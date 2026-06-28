@@ -52,6 +52,7 @@ function makeSandbox() {
     localStorage: { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) },
     alert() {}, confirm() { return true; }, setTimeout(fn) { return 0; }, clearTimeout() {},
     location: { protocol: 'file:' },
+    Blob: function () {}, URL: { createObjectURL() { return 'blob:stub'; }, revokeObjectURL() {} },
     Math, Date, JSON, Object, Array, Set, Map, String, Number, Boolean, Intl,
     parseInt, parseFloat, isNaN, RegExp,
   };
@@ -141,6 +142,47 @@ test('U6 blankPass가 blankResults에 통과 기록', () => {
   sb.ev("blankPass('2026-06-28','m','수학')");
   assert(sb.ev('(state.blankResults||[]).length') === 1, '통과 기록 +1');
   assert(sb.ev('state.blankResults[0].passed') === true, 'passed=true');
+});
+
+/* U7. 완료 토글 일원화(감사 F-08) — 공용 toggleDoneAt/doneCheckbox가 같은 completions 경로 */
+test('U7 공용 toggleDoneAt/doneCheckbox로 완료 일원화', () => {
+  const sb = makeSandbox();
+  seed(sb);
+  sb.ev("TAB='today'; toggleDoneAt('2026-06-28','m','new',120,true)");
+  assert(sb.ev("isDone('2026-06-28','m','new')") === true, '공용 토글이 완료 기록');
+  const mk = sb.ev("doneCheckbox('2026-06-28','m','new',120,'전자기학')");
+  assert(/donechk/.test(mk) && /toggleDoneAt/.test(mk), 'doneCheckbox가 공용 핸들러 마크업 생성');
+  assert(/checked/.test(mk), '완료 상태가 checked로 반영');
+  sb.ev("toggleDoneAt('2026-06-28','m','new',120,false)");
+  assert(sb.ev("isDone('2026-06-28','m','new')") === false, '해제도 공용 경로로 동작');
+  // 옛 탭별 핸들러는 제거됨(중복 렌더 경로 해소)
+  assert(sb.ev("typeof toggleDoneToday") === 'undefined' && sb.ev("typeof toggleDone") === 'undefined', '탭별 토글 핸들러 제거');
+});
+
+/* U8. 유지율 스냅샷(감사 F-05) — recordRetentionSnapshot이 주별 due를 기록(같은 주 덮어씀) */
+test('U8 recordRetentionSnapshot이 retentionLog에 주별 due 기록', () => {
+  const sb = makeSandbox();
+  sb.ev("recordRetentionSnapshot([{name:'d1',new:5,learn:2,review:13,total:200},{name:'d2',new:0,learn:0,review:10,total:50}])");
+  assert(sb.ev('(state.retentionLog||[]).length') === 1, '스냅샷 +1');
+  assert(sb.ev('state.retentionLog[0].due') === 30, 'due 합계=30');
+  assert(sb.ev('state.retentionLog[0].cards') === 250, 'cards 합계=250');
+  sb.ev("recordRetentionSnapshot([{name:'d1',new:1,learn:0,review:4,total:200}])");
+  assert(sb.ev('(state.retentionLog||[]).length') === 1, '같은 주는 덮어씀(중복 누적 금지)');
+  assert(sb.ev('state.retentionLog[0].due') === 5, '덮어쓴 due=5');
+  assert(sb.ev('retentionTrend().has') === true && sb.ev('retentionTrend().latest.due') === 5, '추세 요약 동작');
+});
+
+/* U9. .ics 신선도(감사 F-10) — exportICS가 시각·서명 스탬프, 계획 변경 시 서명 불일치, export에서 제외 */
+test('U9 exportICS 신선도 스탬프 + 계획 서명', () => {
+  const sb = makeSandbox();
+  seed(sb);
+  const sig0 = sb.ev('planSignature()');
+  sb.ev('exportICS()');
+  assert(sb.ev('!!(state._icsExport && state._icsExport.at)'), '내보내기 시각 스탬프');
+  assert(sb.ev('state._icsExport.sig') === sig0, '내보내기 시점 계획 서명 저장');
+  sb.ev('state.items[0].weeklyHours = 9');
+  assert(sb.ev('planSignature()') !== sig0, '계획이 바뀌면 서명도 바뀜(재내보내기 신호)');
+  assert(sb.ev("Object.keys(exportSnapshot()).indexOf('_icsExport') < 0"), '_icsExport는 백업 JSON에서 제외(런타임 캐시)');
 });
 
 /* ── 요약 ── */
