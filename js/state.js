@@ -9,6 +9,13 @@
      deadline: '',             // 선택 (시험일 등)
      chapters: [ {id,name,hours,done:false}, ... ]  // 순서대로 학습. 그날 배운 내용·복습 근거
    }
+   ── 학습방법론 실행 레이어(v3.1에서 추가) ───────────────────
+   summaries : { 'YYYY-MM-DD': [ {id,sid,name,s1,s2,s3} ] }   // 3문장 요약(3절)
+   cbms      : [ {id,ds,sid,name,chapter,code,note} ]          // 오답 분류 C/B/M/S/T(6·12절)
+   backlog   : [ {id,ds,sid,name,topic,note,done,doneDs} ]     // '보충 필요' 백로그(5절)
+   weekly    : { '주_월요일ISO': {checks:{backlog,cbms,plan,anki}, note} } // 주간 리뷰(10절)
+   blankReviewWeekly : true   // 백지 복습(9절) 주 1회 자동 배치
+   mockEveryWeeks    : 0      // 모의시험(12절) N주마다(0=끔)
 ============================================================ */
 const SCHEMA_VERSION=3;                 // 모델 버전 (import 마이그레이션 판단용)
 const BACKUP_KEY=KEY+'_backup';         // 초기화/가져오기 직전 백업(되돌리기용)
@@ -38,6 +45,13 @@ function defaults(){
     ],
     dayOverrides:{},      // {'2026-06-25': 1.5}  특정 날짜 가용시간(시간) 덮어쓰기
     items:[],
+    /* ── 학습방법론 실행 레이어 ── */
+    summaries:{},         // 3문장 요약(3절)
+    cbms:[],              // 오답 분류 C/B/M/S/T(6·12절)
+    backlog:[],           // '보충 필요' 백로그(5절)
+    weekly:{},            // 주간 리뷰 체크/메모(10절)
+    blankReviewWeekly:true,  // 백지 복습(9절) 주 1회 자동 배치
+    mockEveryWeeks:0,        // 모의시험(12절) N주마다(0=끔)
     degree:{ targetTotal:130, reqMajorReq:0, reqMajorSel:0, reqLiberal:0,
       semesters:[ {id:rid(),name:'2026-1학기',courses:[]} ] },
     anki:{ source:'file' }
@@ -79,6 +93,13 @@ function migrate(s){
   if(s.theme==null)s.theme=d.theme;
   if(s.completions==null||typeof s.completions!=='object')s.completions={};
   if(s.dayOverrides==null)s.dayOverrides={};
+  /* 학습방법론 실행 레이어 필드 보강(구버전 호환) */
+  if(s.summaries==null||typeof s.summaries!=='object')s.summaries={};
+  if(!Array.isArray(s.cbms))s.cbms=[];
+  if(!Array.isArray(s.backlog))s.backlog=[];
+  if(s.weekly==null||typeof s.weekly!=='object')s.weekly={};
+  if(s.blankReviewWeekly==null)s.blankReviewWeekly=d.blankReviewWeekly;
+  if(s.mockEveryWeeks==null)s.mockEveryWeeks=d.mockEveryWeeks;
   /* '공부' 블록 개념 폐지: 남아있던 공부 블록은 제거(그 시간은 자동으로 빈 시간=공부 가능이 됨) */
   if(Array.isArray(s.routine))s.routine=s.routine.filter(b=>b&&b.type!=='공부');
   return s;
