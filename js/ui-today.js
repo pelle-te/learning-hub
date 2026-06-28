@@ -13,8 +13,7 @@ const BLOCK_STAGES=[
   ['④ 3문장 요약', 85, 100, '보지 않고 내 언어로 3줄(What&Why / How / Result&Meaning)'],
 ];
 
-function itemById(sid){return (state.items||[]).find(i=>i.id===sid);}
-/* 과목 선택 <option> 목록 (selSid 선택 유지) */
+/* itemById는 utils.js로 이동(여러 탭 공용). 과목 선택 <option> 목록 (selSid 선택 유지) */
 function subjectOptions(selSid){
   const opts=['<option value="">(과목 선택)</option>'];
   (state.items||[]).filter(i=>i.name).forEach(i=>{
@@ -30,12 +29,51 @@ function renderToday(p){
   const todayD=new Date();
 
   p.innerHTML=`
+  ${setupGuideCard()}
   ${principlesCard()}
   ${todayBlocksCard(ds,day)}
   ${flowGuideCard()}
   ${summaryCard(ds)}
   ${cbmsCard(ds)}
   ${backlogCard()}`;
+}
+
+/* ── 첫 실행 셋업 가이드(온보딩) ──
+   콜드 스타트에서 빈 화면만 보이지 않도록, 동작에 필요한 3스텝을 라이브 체크로 안내.
+   과목+목표가 갖춰지면 카드는 자동으로 사라진다. */
+function setupGuideCard(){
+  const items=state.items||[];
+  const hasSubjects=items.some(i=>i.name);
+  const hasTargets=items.some(i=>i.name&&((i.mode==='daily'&&i.dailyMin>0)||(i.weeklyHours>0)||(i.chapters&&i.chapters.length)));
+  const hasRoutine=(state.routine||[]).length>0;
+  if(hasSubjects&&hasTargets) return '';   // 셋업 완료 → 숨김
+
+  const steps=[
+    [hasSubjects,'공부할 과목 추가','볼트(전공 폴더)에서 통째로 불러오거나 직접 입력하세요.',
+      `<button class="sm primary" onclick="go('items')">학습 항목 열기</button> <button class="sm" onclick="go('vault')">볼트에서 불러오기</button>`],
+    [hasTargets,'주당 목표 시간·챕터 설정','과목마다 주당 몇 시간 공부할지와 챕터(순서)를 정하면 블록이 배분됩니다.',
+      `<button class="sm${hasSubjects?' primary':''}" onclick="go('items')">학습 항목에서 설정</button>`],
+    [hasRoutine,'일과·가용 시간 확인','수면·식사·수업을 빼고 남는 빈 시간이 자동으로 공부시간이 됩니다(기본값 제공 — 필요 시 조정).',
+      `<button class="sm" onclick="go('routine')">일과 열기</button>`],
+  ];
+  const done=steps.filter(s=>s[0]).length;
+  const rows=steps.map(([ok,title,desc,actions])=>`
+    <div class="setup-step ${ok?'ok':''}">
+      <span class="setup-ck ${ok?'on':''}" aria-hidden="true">${ok?'✓':''}</span>
+      <div class="setup-body">
+        <div class="setup-title">${ok?'<s>'+esc(title)+'</s>':esc(title)}</div>
+        <div class="muted tiny">${esc(desc)}</div>
+        ${ok?'':`<div class="setup-act">${actions}</div>`}
+      </div>
+    </div>`).join('');
+  return `<div class="card setup-card">
+    <h2>👋 시작하기 <span class="muted tiny">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span></h2>
+    <div class="row" style="align-items:center;margin-bottom:6px">
+      <span class="pill ${done===3?'good':'warn'}">${done}/3 완료</span>
+      <span class="setup-prog"><i style="width:${Math.round(done/3*100)}%"></i></span>
+    </div>
+    ${rows}
+  </div>`;
 }
 
 /* ── 0절 5원리 + 오늘 한 줄 ── */
@@ -83,10 +121,27 @@ function todayBlocksCard(ds,day){
           <button class="sm ghost" onclick="prefillBacklog('${it.sid}')">🏷 보충 필요</button>
         </div></div>`;
     }
+    if(it.type==='blank'){
+      // 백지 복습: 단원 통째 재구성 후 통과/막힘을 *명시 기록*(근사 아닌 실측 · 막힘→CBMS) — 감사 F-04
+      const note='📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크.';
+      const res=blankResultFor(ds,it.sid);
+      const chArg=jsq((it.chapters||[]).join(', '));
+      let resHtml;
+      if(res){
+        resHtml=res.passed
+          ? `<span class="pill good">✅ 통과 기록됨</span>`
+          : `<span class="pill warn">⚠ 막힘 기록됨${res.note?' · '+esc(res.note):''} <span class="muted tiny">→ CBMS(C) 연결</span></span>`;
+        resHtml+=` <button class="sm ghost" onclick="clearBlankResultUI('${ds}','${it.sid}')" title="기록 지우기">기록 지우기</button>`;
+      }else{
+        resHtml=`<button class="sm" onclick="blankPass('${ds}','${it.sid}','${jsq(it.name)}')">✅ 통과</button>
+          <button class="sm" onclick="blankBlocked('${ds}','${it.sid}','${jsq(it.name)}','${chArg}')">⚠ 막힘(→CBMS)</button>`;
+      }
+      return `<div class="blk">${head}<div class="blk-note tiny muted">${note}</div>
+        <div class="blk-actions" style="margin-top:6px">${resHtml}</div></div>`;
+    }
     let note='';
     if(it.type==='rev')   note='🔁 간격 복습 — Anki 카드 인출. 막히면 그 구간을 CBMS로 분류.';
     else if(it.type==='anki') note='🃏 자동 생성 카드 <b>30초 큐레이션</b> — 쓰레기 버리고 ≤5장, 한두 장은 "왜?/응용"형으로.';
-    else if(it.type==='blank')note='📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크(→CBMS).';
     else if(it.type==='mock') note='🧪 모의시험 — 타이머 ON · 노트 닫기 · 혼합/누적 · 끝까지 깔끔히. 끝나면 CBMS(+시간부족 T)로 분류.';
     return `<div class="blk">${head}<div class="blk-note tiny muted">${note}</div></div>`;
   }).join('');
@@ -94,6 +149,16 @@ function todayBlocksCard(ds,day){
   return `<div class="card"><h2>오늘의 블록 <span class="muted tiny">${fmt(new Date(ds+'T00:00:00'))}</span></h2>${rows}</div>`;
 }
 function toggleDoneToday(ds,sid,type,min,on){setDone(ds,sid,type,min,on);renderToday(pageEl());}
+/* 백지 복습 통과/막힘 기록(방법론 9절·E4) — 막힘은 CBMS(C 개념)로 자동 연결 */
+function blankPass(ds,sid,name){setBlankResult(ds,sid,name,true,'','');renderToday(pageEl());}
+async function blankBlocked(ds,sid,name,chapters){
+  const note=await promptModal('어느 구간에서 막혔나요? (이 메모는 CBMS 개념(C) 오답으로 자동 연결됩니다)',{title:'백지 복습 — 막힘 기록',placeholder:'예) 파동방정식 유도에서 막힘'});
+  if(note===null)return;                         // 취소
+  setBlankResult(ds,sid,name,false,(note||'').trim(),chapters||'');
+  renderToday(pageEl());
+  toast('막힘 기록됨 — CBMS(C 개념)로 연결했어요.','ok');
+}
+function clearBlankResultUI(ds,sid){clearBlankResult(ds,sid);renderToday(pageEl());}
 
 /* 블록 4단계 비중 막대(분 추정 포함) */
 function stageBar(ML){
@@ -152,11 +217,12 @@ function submitSummary(ds){
   const s1=document.getElementById('sum-s1').value.trim();
   const s2=document.getElementById('sum-s2').value.trim();
   const s3=document.getElementById('sum-s3').value.trim();
-  if(!s1&&!s2&&!s3){alert('세 문장 중 최소 하나는 적어주세요.');return;}
+  if(!s1&&!s2&&!s3){toast('세 문장 중 최소 하나는 적어주세요.','warn');return;}
   addSummary(ds,sid,(itemById(sid)||{}).name||'',s1,s2,s3);
   renderToday(pageEl());
+  toast('요약 저장됨','ok');
 }
-function delSummaryUI(ds,id){delSummary(ds,id);renderToday(pageEl());}
+function delSummaryUI(ds,id){delSummary(ds,id);renderToday(pageEl());toast('요약 삭제됨','info');}
 function prefillSummary(sid){
   const el=document.getElementById('sum-sid'); if(el){el.value=sid; el.scrollIntoView({behavior:'smooth',block:'center'});
     const t=document.getElementById('sum-s1'); if(t)setTimeout(()=>t.focus(),300);}
@@ -170,6 +236,7 @@ function cbmsCard(ds){
     const inf=CBMS_INFO[e.code]||{label:'?',tip:''};
     return `<div class="rec">
       <div class="rec-head"><span class="cbms-chip" style="--c:${inf.color}">${e.code} ${inf.label}</span>
+        ${e.conf?`<span class="cbms-chip" style="--c:#888" title="확신 없이 맞힘 — 다시 점검 대상">🎯 확신없음</span>`:''}
         <b>${esc(e.name||'')}</b>${e.chapter?`<span class="muted tiny"> · ${esc(e.chapter)}</span>`:''}
         <button class="sm danger ghost" style="margin-left:auto" onclick="delCbmsUI('${e.id}')" title="삭제">✕</button></div>
       ${e.note?`<div class="tiny">${esc(e.note)}</div>`:''}
@@ -183,6 +250,7 @@ function cbmsCard(ds){
       <div class="fld"><label>유형</label><select id="cb-code">${codeOpts}</select></div>
       <div class="fld wide"><label>메모 <span class="muted tiny">(어디서 왜 막혔나)</span></label><input type="text" id="cb-note" placeholder="예) 경계조건에서 법선성분 연속을 빠뜨림"></div>
     </div>
+    <label class="tiny" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" id="cb-conf"> 🎯 <b>찍어서 맞음/확신 없었음</b> <span class="muted">— 맞아도 다시 점검 대상(확신도 보정)</span></label>
     <div style="margin-top:10px"><button class="primary" onclick="submitCbms('${ds}')">오답 추가</button>
       <span class="muted tiny" style="margin-left:8px">C 개념 · B 경계 · M 수학 · S 실수 · T 시간부족(모의시험)</span></div>
     <hr>${listHtml}
@@ -193,11 +261,13 @@ function submitCbms(ds){
   const ch=document.getElementById('cb-ch').value.trim();
   const code=document.getElementById('cb-code').value;
   const note=document.getElementById('cb-note').value.trim();
-  if(!sid&&!ch&&!note){alert('과목·챕터·메모 중 최소 하나는 입력하세요.');return;}
-  addCbms(ds,sid,(itemById(sid)||{}).name||'',ch,code,note);
+  const confEl=document.getElementById('cb-conf'); const conf=!!(confEl&&confEl.checked);
+  if(!sid&&!ch&&!note){toast('과목·챕터·메모 중 최소 하나는 입력하세요.','warn');return;}
+  addCbms(ds,sid,(itemById(sid)||{}).name||'',ch,code,note,conf);
   renderToday(pageEl());
+  toast('오답 추가됨','ok');
 }
-function delCbmsUI(id){delCbms(id);renderToday(pageEl());}
+function delCbmsUI(id){delCbms(id);renderToday(pageEl());toast('오답 삭제됨','info');}
 function prefillCbms(sid){
   const el=document.getElementById('cb-sid'); if(el){el.value=sid; el.scrollIntoView({behavior:'smooth',block:'center'});
     const t=document.getElementById('cb-ch'); if(t)setTimeout(()=>t.focus(),300);}
@@ -238,13 +308,19 @@ function submitBacklog(){
   const sid=document.getElementById('bl-sid').value;
   const topic=document.getElementById('bl-topic').value.trim();
   const note=document.getElementById('bl-note').value.trim();
-  if(!topic){alert('막힌 주제를 적어주세요.');return;}
+  if(!topic){toast('막힌 주제를 적어주세요.','warn');return;}
   addBacklog(sid,(itemById(sid)||{}).name||'',topic,note);
   renderToday(pageEl());
+  toast('백로그 추가됨','ok');
 }
 function toggleBacklogUI(id){toggleBacklog(id);renderToday(pageEl());}
-function delBacklogUI(id){if(confirm('이 백로그 항목을 삭제할까요?')){delBacklog(id);renderToday(pageEl());}}
+/* 작은 기록(요약·오답·백로그)의 삭제는 모두 즉시+토스트로 통일(확인창 없음).
+   구조적 삭제(과목·학기)만 모달 확인을 둔다 — 위험도에 맞춘 일관 규칙. */
+function delBacklogUI(id){delBacklog(id);renderToday(pageEl());toast('백로그 삭제됨','info');}
 function prefillBacklog(sid){
   const el=document.getElementById('bl-sid'); if(el){el.value=sid; el.scrollIntoView({behavior:'smooth',block:'center'});
     const t=document.getElementById('bl-topic'); if(t)setTimeout(()=>t.focus(),300);}
 }
+
+/* 탭 등록 — tabs.js 레지스트리에 자신을 올린다(추가/삭제 시 app.js 안 건드림) */
+registerTab({ key:'today', label:'🎯 오늘 학습', group:'main', order:10, render:renderToday });

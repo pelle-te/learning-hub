@@ -1,5 +1,7 @@
 /* ============================================================
-   state.js — 전역 상태, 기본값, 영속화, 가져오기/내보내기
+   state.js — 핵심 전역 상태: 기본값·영속화·migrate·가져오기/내보내기·완료추적·테마
+   ※ 방법론 데이터(요약·CBMS·백로그·백지·주간리뷰·Anki카드·백업·아카이빙)는
+     data-methodology.js로 분리(이 파일이 만물상이 되지 않게). 모델은 아래 그대로.
    ── 모델 v3 ──────────────────────────────────────────────
    item = {
      id, source, name, color,
@@ -49,6 +51,7 @@ function defaults(){
     summaries:{},         // 3문장 요약(3절)
     cbms:[],              // 오답 분류 C/B/M/S/T(6·12절)
     backlog:[],           // '보충 필요' 백로그(5절)
+    blankResults:[],      // 백지 복습 통과/막힘 결과(9절·E4) — 막힘은 CBMS(C 개념)로 자동 연결
     weekly:{},            // 주간 리뷰 체크/메모(10절)
     blankReviewWeekly:true,  // 백지 복습(9절) 주 1회 자동 배치
     mockEveryWeeks:0,        // 모의시험(12절) N주마다(0=끔)
@@ -81,11 +84,11 @@ function boot(){
 function hasCorrupt(){try{return !!localStorage.getItem(CORRUPT_KEY)}catch(e){return false}}
 function recoverCorrupt(){
   let raw=null; try{raw=localStorage.getItem(CORRUPT_KEY);}catch(e){}
-  if(!raw){alert('복구할 손상 백업이 없습니다.');return;}
+  if(!raw){toast('복구할 손상 백업이 없습니다.','bad');return;}
   let s=null; try{s=migrate(JSON.parse(raw));}catch(e){s=null;}
-  if(!s){alert('손상 백업도 살릴 수 없습니다(여전히 형식 오류). "'+CORRUPT_KEY+'"를 직접 내보내 점검하세요.');return;}
+  if(!s){toast('손상 백업도 살릴 수 없습니다(여전히 형식 오류). "'+CORRUPT_KEY+'"를 직접 내보내 점검하세요.','bad',5000);return;}
   backupNow(); state=s; try{localStorage.removeItem(CORRUPT_KEY);}catch(e){}
-  persist(); applyTheme(); render(); alert('손상 직전 상태로 복구했습니다.');
+  persist(); applyTheme(); render(); toast('손상 직전 상태로 복구했습니다.','ok');
 }
 
 /* 불러온 데이터에 새 필드 채우기(구버전 호환) */
@@ -101,6 +104,7 @@ function migrate(s){
   if(s.summaries==null||typeof s.summaries!=='object')s.summaries={};
   if(!Array.isArray(s.cbms))s.cbms=[];
   if(!Array.isArray(s.backlog))s.backlog=[];
+  if(!Array.isArray(s.blankResults))s.blankResults=[];
   if(s.weekly==null||typeof s.weekly!=='object')s.weekly={};
   if(s.blankReviewWeekly==null)s.blankReviewWeekly=d.blankReviewWeekly;
   if(s.mockEveryWeeks==null)s.mockEveryWeeks=d.mockEveryWeeks;
@@ -126,46 +130,54 @@ function validShape(s){
 
 function persist(){
   try{localStorage.setItem(KEY,JSON.stringify(state));}
-  catch(e){alert('저장 실패: 브라우저 저장공간이 가득 찼을 수 있어요. 내보내기로 백업 후 정리하세요.\n'+(e.message||e));}
+  catch(e){toast('저장 실패: 저장공간이 가득 찼을 수 있어요. [⋯ 메뉴 → 데이터 내보내기]로 백업 후 정리하세요.','bad',5000);}
 }
 function backupNow(){try{localStorage.setItem(BACKUP_KEY,JSON.stringify(state));return true;}catch(e){return false;}}
 /* 파괴적 동작 전 백업 — 실패하면(저장공간 등) 되돌리기 불가를 알리고 사용자에 진행 여부를 묻는다(감사 #5 · P1-7) */
-function backupOrConfirm(){
+async function backupOrConfirm(){
   if(backupNow())return true;
-  return confirm('백업 저장 실패(저장공간이 가득 찼을 수 있음) — 지금 진행하면 "되돌리기"가 불가능합니다.\n그래도 계속할까요? (먼저 내보내기로 백업 권장)');
+  return confirmModal('백업 저장 실패(저장공간이 가득 찼을 수 있음) — 지금 진행하면 "되돌리기"가 불가능합니다. 그래도 계속할까요? (먼저 내보내기로 백업 권장)',{title:'백업 실패',okLabel:'계속',danger:true});
 }
 function hasBackup(){return !!localStorage.getItem(BACKUP_KEY)}
 function undoLast(){
-  const b=localStorage.getItem(BACKUP_KEY); if(!b){alert('되돌릴 백업이 없습니다.');return;}
-  try{const s=migrate(JSON.parse(b)); if(!s){alert('백업이 손상됨');return;}
-    state=s; localStorage.removeItem(BACKUP_KEY); persist(); applyTheme(); render();
-  }catch(e){alert('되돌리기 실패')}
+  const b=localStorage.getItem(BACKUP_KEY); if(!b){toast('되돌릴 백업이 없습니다.','bad');return;}
+  try{const s=migrate(JSON.parse(b)); if(!s){toast('백업이 손상됨','bad');return;}
+    state=s; localStorage.removeItem(BACKUP_KEY); persist(); applyTheme(); render(); toast('직전 상태로 되돌렸어요.','ok');
+  }catch(e){toast('되돌리기 실패','bad')}
 }
 
+/* 런타임 스캔 캐시 — 계산 산출물이라 '파일로 나가는' 백업/내보내기에서는 빼낸다(감사 F-01·설계도 §13.2).
+   localStorage 영속에는 남겨 로컬 새로고침 시 재스캔을 아끼되, 내보내기 JSON만 가볍게·깨끗하게. */
+const RUNTIME_CACHE_KEYS=['_vaultScan','_ankiFile','_ankiLive'];
+function exportSnapshot(){
+  const s={}; for(const k in state) if(RUNTIME_CACHE_KEYS.indexOf(k)<0) s[k]=state[k];
+  return s;
+}
 function exportJSON(){
   persist();
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify(exportSnapshot(),null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='러닝허브_'+state.startDate+'.json';a.click();
 }
 function importJSON(input){
   const f=input.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{
+  r.onload=async()=>{
     let parsed;
-    try{parsed=JSON.parse(r.result);}catch(e){alert('읽기 실패: JSON 형식이 아닙니다.');return;}
+    try{parsed=JSON.parse(r.result);}catch(e){toast('읽기 실패: JSON 형식이 아닙니다.','bad');return;}
     const s=migrate(parsed);
-    if(!s){alert('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).');return;}
-    if(!backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
-    state=s; persist(); applyTheme(); render();
+    if(!s){toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).','bad',5000);return;}
+    RUNTIME_CACHE_KEYS.forEach(k=>{try{delete s[k];}catch(e){}});  // 가져온 파일의 옛 스캔 캐시는 버린다(F-01)
+    if(!await backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
+    state=s; persist(); applyTheme(); render(); toast('데이터를 가져왔어요.','ok');
   };
   r.readAsText(f);input.value='';
 }
-function resetAll(){
-  if(confirm('모든 데이터를 지울까요? (직후 "되돌리기"로 복구 가능)')){
-    if(!backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
-    state=defaults(); persist(); applyTheme(); render();
-  }
+async function resetAll(){
+  if(!await confirmModal('모든 데이터를 지울까요? (직후 [⋯ 메뉴 → 되돌리기]로 복구 가능)',{title:'전체 초기화',okLabel:'초기화',cancelLabel:'취소',danger:true}))return;
+  if(!await backupOrConfirm())return;   // 백업 실패 시 사용자 확인(되돌리기 불가 경고 · #5)
+  state=defaults(); persist(); applyTheme(); render();
+  toast('초기화했어요. 직후 [⋯ 메뉴 → 되돌리기]로 복구 가능.','info',4200);
 }
 
 /* 테마 적용 (light/dark) — applyTheme는 부팅 시·토글 시 호출 */
@@ -199,185 +211,4 @@ function studyStreak(){
   let cur=new Date(); cur.setHours(0,0,0,0);
   if(!has(iso(cur))){cur=addDays(cur,-1); if(!has(iso(cur)))return 0;}
   let n=0; while(has(iso(cur))){n++;cur=addDays(cur,-1);} return n;
-}
-
-/* ============================================================
-   학습방법론 실행 레이어 — 3문장 요약 · CBMS 오답 · 보충필요 백로그 · 주간리뷰
-   (모두 state에 저장 → 내보내기/가져오기 JSON 백업에 포함)
-============================================================ */
-
-/* ── 3문장 요약(3절) ── */
-function summariesFor(ds){state.summaries=state.summaries||{};return state.summaries[ds]||[];}
-function addSummary(ds,sid,name,s1,s2,s3){
-  state.summaries=state.summaries||{};
-  const arr=state.summaries[ds]=state.summaries[ds]||[];
-  arr.push({id:rid(),sid:sid||'',name:name||'',s1:s1||'',s2:s2||'',s3:s3||''});
-  persist();
-}
-function delSummary(ds,id){
-  const arr=state.summaries&&state.summaries[ds]; if(!arr)return;
-  state.summaries[ds]=arr.filter(x=>x.id!==id);
-  if(!state.summaries[ds].length)delete state.summaries[ds];
-  persist();
-}
-/* 전체 요약 개수(통계용) */
-function summaryCount(){let n=0;const m=state.summaries||{};for(const ds in m)n+=m[ds].length;return n;}
-
-/* ── CBMS 오답 분류(6·12절) — code ∈ C/B/M/S/T ── */
-const CBMS_INFO={
-  C:{label:'개념',  tip:'교재 해당 단원 다시 정독(2절 ①로 복귀)',  color:'#ff8fa3'},
-  B:{label:'경계',  tip:'그 문제 유형의 체크리스트 만들기',          color:'#ffb454'},
-  M:{label:'수학',  tip:'도출 단계 백지 연습(손으로 끝까지)',        color:'#6ea8fe'},
-  S:{label:'실수',  tip:'검산 습관 + 단위 체크 자동화',              color:'#7ee0c0'},
-  T:{label:'시간',  tip:'자주 막히는 계산 손에 익히기 + 시간 분배 훈련',color:'#b794f6'},
-};
-function addCbms(ds,sid,name,chapter,code,note){
-  state.cbms=state.cbms||[];
-  state.cbms.push({id:rid(),ds:ds||iso(new Date()),sid:sid||'',name:name||'',chapter:chapter||'',code:code||'C',note:note||''});
-  persist();
-}
-function delCbms(id){state.cbms=(state.cbms||[]).filter(x=>x.id!==id);persist();}
-/* [fromDs,toDs] 구간(포함) 코드별 카운트. 인자 없으면 전체. */
-function cbmsCounts(fromDs,toDs){
-  const out={C:0,B:0,M:0,S:0,T:0};
-  (state.cbms||[]).forEach(e=>{
-    if(fromDs&&e.ds<fromDs)return; if(toDs&&e.ds>toDs)return;
-    if(out[e.code]!=null)out[e.code]++;
-  });
-  return out;
-}
-function cbmsBetween(fromDs,toDs){
-  return (state.cbms||[]).filter(e=>(!fromDs||e.ds>=fromDs)&&(!toDs||e.ds<=toDs));
-}
-
-/* ── '보충 필요' 백로그(5절) ── */
-function addBacklog(sid,name,topic,note){
-  state.backlog=state.backlog||[];
-  state.backlog.push({id:rid(),ds:iso(new Date()),sid:sid||'',name:name||'',topic:topic||'',note:note||'',done:false,doneDs:''});
-  persist();
-}
-function toggleBacklog(id){
-  const b=(state.backlog||[]).find(x=>x.id===id); if(!b)return;
-  b.done=!b.done; b.doneDs=b.done?iso(new Date()):'';
-  persist();
-}
-function delBacklog(id){state.backlog=(state.backlog||[]).filter(x=>x.id!==id);persist();}
-function openBacklog(){return (state.backlog||[]).filter(b=>!b.done);}
-/* [fromDs,toDs] 구간에 회수(닫힘)된 백로그 수 */
-function backlogClosedBetween(fromDs,toDs){
-  return (state.backlog||[]).filter(b=>b.done&&b.doneDs&&(!fromDs||b.doneDs>=fromDs)&&(!toDs||b.doneDs<=toDs)).length;
-}
-
-/* ── 주간 리뷰(10절) — 키: 그 주 월요일 ISO ── */
-function weeklyKey(d){return iso(mondayOf(d||new Date()));}
-function getWeekly(wk){state.weekly=state.weekly||{};return state.weekly[wk]||{checks:{},note:''};}
-function setWeeklyCheck(wk,k,on){
-  state.weekly=state.weekly||{};
-  const w=state.weekly[wk]=state.weekly[wk]||{checks:{},note:''};
-  w.checks=w.checks||{}; w.checks[k]=!!on; persist();
-}
-function setWeeklyNote(wk,note){
-  state.weekly=state.weekly||{};
-  const w=state.weekly[wk]=state.weekly[wk]||{checks:{},note:''};
-  w.note=note||''; persist();
-}
-
-/* ============================================================
-   Anki 카드 초안 생성(방법론 7절) — 3문장 요약·반복 오답을 Anki import용
-   TSV(.txt)로 떨군다. *자동 생성*은 마찰을, *사람 큐레이션*(가져온 뒤 ≤5장 추리고
-   왜/응용형으로 손질)은 학습 이득을 담당한다. 시점(due)은 여전히 FSRS가 소유.
-============================================================ */
-function _cf(s){return (s||'').toString().replace(/\t/g,' ').replace(/\r?\n/g,'<br>');}
-function buildAnkiCards(fromDs,toDs){
-  const lines=[];
-  const sm=state.summaries||{};
-  Object.keys(sm).sort().forEach(ds=>{
-    if(fromDs&&ds<fromDs)return; if(toDs&&ds>toDs)return;
-    (sm[ds]||[]).forEach(x=>{
-      const front=_cf((x.name?'['+x.name+'] ':'')+(x.s1||'핵심 현상·문제는?'));
-      const back=_cf(['How(도구): '+(x.s2||''),'Result(결과·의미): '+(x.s3||'')].join('\n'));
-      const tag='요약'+(x.name?'::'+x.name.replace(/\s+/g,'_'):'');
-      lines.push([front,back,tag].join('\t'));
-    });
-  });
-  (state.cbms||[]).forEach(e=>{
-    if(fromDs&&e.ds<fromDs)return; if(toDs&&e.ds>toDs)return;
-    const inf=CBMS_INFO[e.code]||{label:'',tip:''};
-    const front=_cf((e.name?'['+e.name+'] ':'')+(e.chapter||'')+' — 어디서 왜 막혔나?');
-    const back=_cf((e.note||'(메모 없음)')+'\n처방('+e.code+' '+inf.label+'): '+inf.tip);
-    lines.push([front,back,'오답::'+e.code].join('\t'));
-  });
-  return lines;
-}
-function exportAnkiCards(scope){
-  let fromDs='',toDs='';
-  if(scope==='today'){fromDs=toDs=todayISO();}
-  const lines=buildAnkiCards(fromDs,toDs);
-  if(!lines.length){alert(scope==='today'?'오늘 작성한 요약·오답이 없어요. 블록 끝마다 3문장 요약을 남기면 카드가 됩니다.':'요약·오답 기록이 아직 없어요.');return;}
-  /* Anki 2.1.55+ import 디렉티브(구버전은 첫 줄들을 노트로 보지 않게 #로 시작) */
-  const head=['#separator:Tab','#html:true','#tags column:3'];
-  const blob=new Blob([head.concat(lines).join('\n')],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='러닝허브_카드_'+(scope==='today'?todayISO():'전체')+'.txt';a.click();
-  alert(lines.length+'장의 카드 초안(.txt)을 내려받았어요.\nAnki에서 "가져오기"로 불러온 뒤 ≤5장으로 추리고 한두 장은 "왜?/응용"형으로 손질하세요(큐레이션이 학습 이득).');
-}
-
-/* ============================================================
-   볼트 폴더로 자동 백업 — localStorage 전소(브라우저 캐시 삭제 등)에 대비.
-   File System Access의 *쓰기*로 볼트 폴더에 러닝허브_백업.json을 떨군다.
-============================================================ */
-async function backupToVault(){
-  if(!window.showDirectoryPicker){alert('이 브라우저는 폴더 쓰기를 지원하지 않아요(Chrome/Edge 권장). 대신 [내보내기]로 파일 백업하세요.');return;}
-  try{
-    let h=(typeof vaultHandle!=='undefined'&&vaultHandle)?vaultHandle:null;
-    if(!h){h=await window.showDirectoryPicker(); try{vaultHandle=h;}catch(e){}}
-    if(h.requestPermission){const perm=await h.requestPermission({mode:'readwrite'}); if(perm!=='granted'){alert('쓰기 권한이 거부됐어요.');return;}}
-    const fh=await h.getFileHandle('러닝허브_백업.json',{create:true});
-    const w=await fh.createWritable(); await w.write(JSON.stringify(state,null,2)); await w.close();
-    state._lastBackupAt=new Date().toISOString(); persist();
-    if(typeof render==='function')render();
-    alert('볼트 폴더에 러닝허브_백업.json 저장 완료.');
-  }catch(e){if(e.name!=='AbortError')alert('볼트 백업 실패: '+(e.message||e));}
-}
-function lastBackupDays(){
-  if(!state._lastBackupAt)return null;
-  const t=new Date(state._lastBackupAt); if(isNaN(t))return null;
-  return Math.floor((Date.now()-t.getTime())/86400000);
-}
-
-/* ============================================================
-   오래된 기록 보관(아카이빙) — '졸업까지 N년' 쌓이는 completions/summaries/cbms가
-   localStorage 쿼터·재렌더 성능을 갉아먹기 전에, 보관 파일로 내려받고 앱에서 비운다.
-============================================================ */
-function dataSizeKB(){try{return Math.round(JSON.stringify(state).length/1024);}catch(e){return 0;}}
-function recordCount(){
-  let n=0; const c=state.completions||{},s=state.summaries||{};
-  for(const k in c)n+=Object.keys(c[k]).length;
-  for(const k in s)n+=s[k].length;
-  return n+(state.cbms||[]).length+(state.backlog||[]).length;
-}
-function archiveOldData(monthsKeep){
-  monthsKeep=monthsKeep||6;
-  const cutoff=iso(addDays(new Date(),-Math.round(monthsKeep*30)));
-  const arch={schemaVersion:SCHEMA_VERSION,archivedAt:new Date().toISOString(),cutoff,
-    completions:{},summaries:{},cbms:[],backlog:[]};
-  let n=0;
-  const c=state.completions||{}; Object.keys(c).forEach(ds=>{if(ds<cutoff){arch.completions[ds]=c[ds];delete c[ds];n+=Object.keys(arch.completions[ds]).length;}});
-  const sm=state.summaries||{}; Object.keys(sm).forEach(ds=>{if(ds<cutoff){arch.summaries[ds]=sm[ds];delete sm[ds];n+=arch.summaries[ds].length;}});
-  arch.cbms=(state.cbms||[]).filter(e=>e.ds&&e.ds<cutoff); state.cbms=(state.cbms||[]).filter(e=>!(e.ds&&e.ds<cutoff)); n+=arch.cbms.length;
-  arch.backlog=(state.backlog||[]).filter(b=>b.done&&b.doneDs&&b.doneDs<cutoff); state.backlog=(state.backlog||[]).filter(b=>!(b.done&&b.doneDs&&b.doneDs<cutoff)); n+=arch.backlog.length;
-  if(n===0){alert(cutoff+' 이전 기록이 없어요. 정리할 것이 없습니다.');return;}
-  const blob=new Blob([JSON.stringify(arch,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='러닝허브_보관_'+cutoff+'.json';a.click();
-  persist(); if(typeof render==='function')render();
-  alert(cutoff+' 이전 기록 '+n+'건을 보관 파일로 내려받고 앱에서 비웠어요. (보관 파일은 따로 두면 나중에 열람 가능)');
-}
-
-/* ── 인출 증거(방법론 14절: 투입 아닌 '나아진 증거') — CBMS 주간 추세 ── */
-function cbmsTrend(){
-  const mon=mondayOf(new Date());
-  const thisW=cbmsBetween(iso(mon),iso(addDays(mon,6))).length;
-  const lastMon=addDays(mon,-7);
-  const lastW=cbmsBetween(iso(lastMon),iso(addDays(lastMon,6))).length;
-  return {thisW,lastW};
 }

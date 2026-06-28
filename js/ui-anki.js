@@ -85,7 +85,9 @@ function renderAnkiLive(v){
 }
 function addAnki(name,mins){
   const nm='Anki: '+name;
-  if(state.items.some(s=>s.name===nm)){alert('이미 추가됨');return;}
+  if(state.items.some(s=>s.name===nm)){toast('이미 추가됨','warn');return;}
   addItem(nm,{source:'Anki',mode:'daily',dailyMin:mins});
-  render(); alert(`"${nm}" 매일 ${mins}분 복습으로 추가됨`);
+  render(); toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`,'ok');
 }
+
+registerTab({ key:'anki', label:'🃏 Anki 현황', group:'main', order:60, render:renderAnki });

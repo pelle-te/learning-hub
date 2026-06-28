@@ -294,6 +294,32 @@ test('T18 피크 시간대면 layoutDay가 new를 피크 구간에 우선 배치
   assert(ns && ns.start >= 540 && ns.start < 720, 'new가 피크(09:00~12:00)에서 시작 (start=' + (ns && ns.start) + ')');
 });
 
+/* T19. 복습 미배치/과적 경고 — 용량 대비 복습이 넘치면 침묵하지 않고 경고(감사 F-02, "no silent caps") */
+test('T19 복습 용량 부족 시 경고가 노출된다(미배치/과적)', () => {
+  // 8과목 × 20챕터를 풀가용(빈 routine) 속에 몰아넣고 복습비중을 5%로 깎으면
+  // 학습은 많이 생성되나 복습예산이 부족해 일부 복습이 미배치/과적된다.
+  const subs = [];
+  for (let s = 0; s < 8; s++) {
+    const ch = [];
+    for (let i = 1; i <= 20; i++) ch.push(['s' + s + 'c' + i, 2]);
+    subs.push(weeklyItem('과목' + s, 20, mkChapters(ch)));
+  }
+  const { r } = run(baseState(subs, { reviewRatio: 5 }));
+  assert(r.warnings.some(w => w.includes('복습')), '복습 용량 경고가 있어야: ' + JSON.stringify(r.warnings));
+});
+
+/* T20. 백지 복습 단원(챕터) 단위 — 각 blank은 단원 1개를 다룬다(감사 F-03) */
+test('T20 백지복습이 단원(챕터) 단위로 생성된다', () => {
+  const items = [weeklyItem('수학', 6, mkChapters([['1장', 6], ['2장', 6], ['3장', 6]]))];
+  const r = run(baseState(items, { blankReviewWeekly: true })).r;
+  const blanks = r.days.flatMap(d => d.items.filter(it => it.type === 'blank'));
+  assert(blanks.length > 0, 'blank이 생성되어야');
+  blanks.forEach(b => eq((b.chapters || []).length, 1, '각 백지복습은 단원(챕터) 1개만'));
+  const chs = new Set(blanks.map(b => b.chapters[0]));
+  eq(chs.size, blanks.length, '단원 중복 없이 각 1개');
+  r.days.forEach(d => assert(d.used <= d.studyMin + 1, `용량 이내 @${d.ds}`));
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

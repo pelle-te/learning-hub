@@ -43,6 +43,16 @@ function weekLabel(monDate){const end=addDays(monDate,6);return `${fmtShort(monD
 /* 페이지 루트 헬퍼 */
 function pageEl(){return document.getElementById('page')}
 
+/* ── 탭 공용 헬퍼(여러 탭이 쓰므로 utils에 둔다 — 한 탭이 다른 탭에 의존하지 않게) ── */
+/* 학습 항목 id로 항목 찾기 (오늘·통계·주간리뷰 탭 공용) */
+function itemById(sid){return (state.items||[]).find(i=>i.id===sid);}
+/* D-day 라벨·강조색 — 마감까지 남은 일수(dday) → {lab,cls}. 스케줄·학습항목 탭 공용. */
+function ddayInfo(dday){
+  const lab=dday===0?'D-DAY':dday>0?'D-'+dday:'D+'+(-dday);
+  const cls=dday<0?'bad':dday<=7?'warn':'';
+  return {lab,cls};
+}
+
 /* 볼트 정본 인덱스(_meta/감사/_index.json) 로드 — 러닝허브가 .md/.txt 재스캔 대신
    메타 시스템 산출(검사.sh --index)을 *소비*한다. 못 찾으면 null(호출부가 파일스캔 폴백).
    감사 2026-06-24 부록A(A-1·A-2): 소비처가 정본 산출을 안 읽던 정합성 공백 해소. */

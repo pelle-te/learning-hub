@@ -42,8 +42,7 @@ function itemCard(s){
                       :`<span class="pill tiny">주 ${s.weeklyHours||0}h</span>`;
   const chChip=daily?'':`<span class="muted tiny">${chs.length}챕터·~${totalH}h</span>`;
   let ddChip='';
-  if(s.deadline){const dd=dayDiff(iso(new Date()),s.deadline);
-    const lab=dd===0?'D-DAY':dd>0?'D-'+dd:'D+'+(-dd);const cls=dd<0?'bad':dd<=7?'warn':'';
+  if(s.deadline){const dd=dayDiff(iso(new Date()),s.deadline);const {lab,cls}=ddayInfo(dd);
     ddChip=`<span class="pill tiny ${cls}">${lab}</span>`;}
   const progBar=(!daily&&chs.length)?`<span class="minibar" title="완료 챕터 ${doneCh}/${chs.length}"><i style="width:${prog}%;background:${s.color}"></i></span>`:'';
 
@@ -139,7 +138,7 @@ function addItem(name,opt={}){   // 다른 탭(볼트/Anki/졸업)에서 호출
     deadline:opt.deadline||'',chapters:opt.chapters||[]});
   persist();
 }
-function delItem(id){if(!confirm('이 과목을 삭제할까요?'))return;state.items=state.items.filter(s=>s.id!==id);openItems.delete(id);persist();renderItems(pageEl());}
+async function delItem(id){const it=(state.items||[]).find(s=>s.id===id);if(!await confirmModal('"'+((it&&it.name)||'이 과목')+'"을(를) 삭제할까요? (챕터·진행 기록도 함께 사라집니다)',{title:'과목 삭제',okLabel:'삭제',danger:true}))return;state.items=state.items.filter(s=>s.id!==id);openItems.delete(id);persist();renderItems(pageEl());toast('과목 삭제됨','info');}
 function updItem(id,k,v){const s=state.items.find(x=>x.id===id);if(!s)return;s[k]=v;persist();
   if(k==='mode')renderItemCards();}
 function addCh(id){const s=state.items.find(x=>x.id===id);if(!s)return;(s.chapters=s.chapters||[]).push({id:rid(),name:'새 챕터',hours:2,done:false});persist();renderItemCards();}
@@ -163,3 +162,5 @@ function bulkCh(id){const s=state.items.find(x=>x.id===id);if(!s)return;
   t.forEach(line=>{const[nm,h]=line.split('|').map(x=>x.trim());s.chapters.push({id:rid(),name:nm,hours:h?+h:2,done:false});});
   persist();renderItemCards();
 }
+
+registerTab({ key:'items', label:'📝 학습 항목', group:'main', order:30, render:renderItems });

@@ -136,3 +136,5 @@ function checklistCard(wk){
 }
 function onWeeklyCheck(wk,k,on){setWeeklyCheck(wk,k,on);}
 function onWeeklyNote(wk,v){setWeeklyNote(wk,v);}
+
+registerTab({ key:'review', label:'🔄 주간 리뷰', group:'main', order:80, render:renderReview });

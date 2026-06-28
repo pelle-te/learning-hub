@@ -100,16 +100,18 @@ function estH(notes){return Math.max(1,Math.round(notes*0.5))}
 /* 과목 전체를 학습항목으로 (각 챕터가 챕터 목록이 됨) */
 function addSubjFromVault(si){
   const s=state._vaultScan.subjects[si];
-  if(state.items.some(x=>x.name===s.name)){alert('이미 추가된 항목입니다.');return;}
+  if(state.items.some(x=>x.name===s.name)){toast('이미 추가된 항목입니다.','warn');return;}
   const chapters=s.chapters.map(c=>({id:rid(),name:c.name,hours:estH(c.notes),done:false}));
   addItem(s.name,{source:'볼트',mode:'weekly',weeklyHours:3,chapters});
-  render(); alert(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 학습 항목 탭에서 주당 시간·마감 조정하세요.`);
+  render(); toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 학습 항목 탭에서 주당 시간·마감 조정하세요.`,'ok',4200);
 }
 /* 단일 챕터만 (그 안의 노트를 챕터로) — 간단히 1개 챕터 항목 */
 function addChapFromVault(si,ci){
   const s=state._vaultScan.subjects[si], c=s.chapters[ci];
   const name=`${s.name} · ${c.name}`;
-  if(state.items.some(x=>x.name===name)){alert('이미 추가됨');return;}
+  if(state.items.some(x=>x.name===name)){toast('이미 추가됨','warn');return;}
   addItem(name,{source:'볼트',mode:'weekly',weeklyHours:2,chapters:[{id:rid(),name:c.name,hours:estH(c.notes),done:false}]});
-  render(); alert(`"${name}" 추가됨`);
+  render(); toast(`"${name}" 추가됨`,'ok');
 }
+
+registerTab({ key:'vault', label:'📚 볼트 현황', group:'main', order:50, render:renderVault });

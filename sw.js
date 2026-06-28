@@ -6,9 +6,9 @@
 const CACHE='learning-hub-v3-swr';
 const SHELL=[
   './','./index.html','./css/style.css','./manifest.webmanifest','./icon.svg',
-  './js/utils.js','./js/state.js','./js/scheduler.js',
-  './js/ui-schedule.js','./js/ui-items.js','./js/ui-routine.js','./js/ui-stats.js',
-  './js/ui-vault.js','./js/ui-anki.js','./js/ui-degree.js','./js/app.js'
+  './js/utils.js','./js/ui-kit.js','./js/tabs.js','./js/state.js','./js/data-methodology.js','./js/scheduler.js',
+  './js/ui-today.js','./js/ui-schedule.js','./js/ui-items.js','./js/ui-routine.js','./js/ui-stats.js',
+  './js/ui-review.js','./js/ui-vault.js','./js/ui-anki.js','./js/ui-degree.js','./js/app.js'
 ];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));

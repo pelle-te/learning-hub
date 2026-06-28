@@ -80,9 +80,12 @@ function semCard(s){
 }
 function setDeg(k,v){state.degree[k]=v;persist();renderDegree(pageEl());}
 function addSemester(){const id=rid();state.degree.semesters.push({id,name:'새 학기',courses:[]});openSems.add(id);persist();renderDegree(pageEl());}
-function delSem(id){if(!confirm('학기를 삭제할까요?'))return;state.degree.semesters=state.degree.semesters.filter(s=>s.id!==id);openSems.delete(id);persist();renderDegree(pageEl());}
+async function delSem(id){if(!await confirmModal('이 학기를 삭제할까요? (소속 과목도 함께 삭제됩니다)',{title:'학기 삭제',okLabel:'삭제',danger:true}))return;state.degree.semesters=state.degree.semesters.filter(s=>s.id!==id);openSems.delete(id);persist();renderDegree(pageEl());toast('학기 삭제됨','info');}
 function updSem(id,k,v){const s=state.degree.semesters.find(x=>x.id===id);if(s){s[k]=v;persist();renderDegree(pageEl());}}
 function addCourse(sid){const s=state.degree.semesters.find(x=>x.id===sid);if(!s)return;s.courses.push({id:rid(),name:'새 과목',credits:3,category:'전공선택',status:'예정',grade:''});persist();renderDegree(pageEl());}
 function delCourse(sid,cid){const s=state.degree.semesters.find(x=>x.id===sid);if(!s)return;s.courses=s.courses.filter(c=>c.id!==cid);persist();renderDegree(pageEl());}
 function updCourse(sid,cid,k,v){const s=state.degree.semesters.find(x=>x.id===sid);if(!s)return;const c=s.courses.find(x=>x.id===cid);if(c){c[k]=v;persist();if(k==='credits'||k==='status'||k==='category')renderDegree(pageEl());}}
-function courseToItem(name){if(state.items.some(s=>s.name===name)){alert('이미 학습 항목에 있어요.');return;}addItem(name,{source:'수강',mode:'weekly',weeklyHours:3,chapters:[]});alert(`"${name}" 학습 항목에 추가됨 (학습 항목 탭에서 주당 시간·챕터 설정)`);}
+function courseToItem(name){if(state.items.some(s=>s.name===name)){toast('이미 학습 항목에 있어요.','warn');return;}addItem(name,{source:'수강',mode:'weekly',weeklyHours:3,chapters:[]});toast(`"${name}" 학습 항목에 추가됨 — 학습 항목 탭에서 주당 시간·챕터를 설정하세요.`,'ok',4200);}
+
+/* degree는 학사(졸업) 영역 — group을 달리해 네비에서 구분선 뒤로(원래 IA 유지) */
+registerTab({ key:'degree', label:'🎓 졸업 계획', group:'degree', order:90, render:renderDegree });

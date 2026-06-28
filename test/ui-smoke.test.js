@@ -14,7 +14,7 @@ const path = require('path');
 const vm = require('vm');
 
 const JS_DIR = path.resolve(__dirname, '..', 'js');
-const ORDER = ['utils', 'state', 'scheduler', 'ui-today', 'ui-schedule', 'ui-items',
+const ORDER = ['utils', 'ui-kit', 'tabs', 'state', 'data-methodology', 'scheduler', 'ui-today', 'ui-schedule', 'ui-items',
   'ui-routine', 'ui-stats', 'ui-review', 'ui-vault', 'ui-anki', 'ui-degree', 'app'];
 const SRC = ORDER.map(n => fs.readFileSync(path.join(JS_DIR, n + '.js'), 'utf8')).join('\n');
 
@@ -133,6 +133,14 @@ test('U5 toggleTheme 동작', () => {
   const t0 = sb.ev('state.theme');
   sb.ev('toggleTheme()');
   assert(sb.ev('state.theme') !== t0, '테마가 바뀌어야');
+});
+
+/* U6. 백지 통과 기록(blankPass)이 state.blankResults에 반영(감사 F-04) */
+test('U6 blankPass가 blankResults에 통과 기록', () => {
+  const sb = makeSandbox();
+  sb.ev("blankPass('2026-06-28','m','수학')");
+  assert(sb.ev('(state.blankResults||[]).length') === 1, '통과 기록 +1');
+  assert(sb.ev('state.blankResults[0].passed') === true, 'passed=true');
 });
 
 /* ── 요약 ── */

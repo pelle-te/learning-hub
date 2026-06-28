@@ -163,8 +163,7 @@ function deadlineCard(){
     .sort((a,b)=>a.dday-b.dday);
   if(!dl.length)return '';
   const chip=d=>{
-    const lab=d.dday===0?'D-DAY':d.dday>0?'D-'+d.dday:'D+'+(-d.dday);
-    const cls=d.dday<0?'bad':d.dday<=7?'warn':'';
+    const {lab,cls}=ddayInfo(d.dday);
     return `<span class="ddaychip ${cls}"><span class="swatch" style="background:${d.color}"></span>${esc(d.name)} <b>${lab}</b> <span class="muted tiny">${d.deadline}</span></span>`;
   };
   return `<div class="card"><h2 style="margin-bottom:8px">⏳ 마감 카운트다운</h2><div class="ddrow">${dl.map(chip).join('')}</div></div>`;
@@ -174,3 +173,5 @@ function setDayOverride(ds,v){
   if(v===''||v==null)delete state.dayOverrides[ds]; else state.dayOverrides[ds]=+v;
   persist(); renderSchedule(pageEl());
 }
+
+registerTab({ key:'schedule', label:'📅 주간 스케줄', group:'main', order:20, render:renderSchedule });

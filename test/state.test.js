@@ -16,7 +16,8 @@ const vm = require('vm');
 const JS_DIR = path.resolve(__dirname, '..', 'js');
 const SRC =
   fs.readFileSync(path.join(JS_DIR, 'utils.js'), 'utf8') + '\n' +
-  fs.readFileSync(path.join(JS_DIR, 'state.js'), 'utf8');
+  fs.readFileSync(path.join(JS_DIR, 'state.js'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(JS_DIR, 'data-methodology.js'), 'utf8');   // 방법론 데이터(요약·CBMS·백지·Anki카드)는 분리됨
 
 /* ── 미니 테스트 프레임워크 ── */
 let passed = 0, failed = 0; const fails = [];
@@ -131,6 +132,40 @@ test('S7 buildAnkiCards가 요약·오답을 TSV로 생성', () => {
   eq(lines.length, 2, '요약1 + 오답1 = 2장');
   lines.forEach(l => assert(l.split('\t').length === 3, 'front\\tback\\ttags 3열'));
   assert(lines[0].includes('전자기학'), '과목명 포함');
+});
+
+/* S8. addCbms confidence — '찍어서 맞음' 플래그 기록(감사 F-06) */
+test('S8 addCbms가 확신없음(conf) 플래그를 기록', () => {
+  const sb = makeSandbox();
+  sb.ev("addCbms('2026-06-28','','수학','3장','M','메모',true)");
+  eq(sb.ev('state.cbms[state.cbms.length-1].conf'), true, 'conf=true 기록');
+  sb.ev("addCbms('2026-06-28','','수학','3장','M','메모2')");   // 6인자(미지정)
+  eq(sb.ev('state.cbms[state.cbms.length-1].conf'), false, '미지정 시 false');
+});
+
+/* S9. 백지 결과 — 막힘이면 CBMS(C) 자동 연결 + 통과율 집계(감사 F-04) */
+test('S9 setBlankResult: 막힘→CBMS(C) 연결·통과율 집계', () => {
+  const sb = makeSandbox();
+  const c0 = sb.ev('(state.cbms||[]).length');
+  sb.ev("setBlankResult('2026-06-28','m','수학',false,'변위전류 유도','3장')");
+  eq(sb.ev('(state.cbms||[]).length'), c0 + 1, '막힘이면 CBMS +1');
+  eq(sb.ev('state.cbms[state.cbms.length-1].code'), 'C', '개념(C)로 연결');
+  // 같은 날·과목 재기록은 CBMS 중복 생성 안 함
+  sb.ev("setBlankResult('2026-06-28','m','수학',false,'다시','3장')");
+  eq(sb.ev('(state.cbms||[]).length'), c0 + 1, '중복 막힘은 CBMS 추가 안 함');
+  sb.ev("setBlankResult('2026-06-28','n','물리',true,'','')");
+  const pr = sb.ev("blankPassRate('','')");
+  eq(pr.total, 2, '기록 2(과목 m·n)');
+  eq(pr.passed, 1, '통과 1');
+});
+
+/* S10. 내보내기 스냅샷 — 런타임 스캔 캐시 제외(감사 F-01) */
+test('S10 exportSnapshot이 런타임 스캔 캐시를 제외', () => {
+  const sb = makeSandbox();
+  sb.ev("state._vaultScan={at:1,subjects:[1,2,3]}; state._ankiLive={decks:[]}; state._ankiFile={decks:[]}");
+  const snap = sb.ev('exportSnapshot()');
+  assert(snap._vaultScan === undefined && snap._ankiLive === undefined && snap._ankiFile === undefined, '3개 캐시 제외');
+  assert(Array.isArray(snap.items) && typeof snap.startDate === 'string', '실데이터는 유지');
 });
 
 /* ── 요약 ── */

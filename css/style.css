@@ -90,33 +90,10 @@ a:hover{text-decoration:underline}
 .top h1{display:flex;align-items:center;gap:8px}
 .top .sub{color:var(--mut);font-size:12px;line-height:1.4}
 
-/* ── 상위 섹션 탭 (플래너 / 대학생활) — 세그먼트 컨트롤 ──── */
-.sections{
-  position:sticky;top:0;z-index:21;
-  display:flex;gap:6px;flex-wrap:wrap;margin:0 -20px 0;
-  padding:12px 20px 10px;
-  background:color-mix(in srgb,var(--bg) 80%,transparent);
-  backdrop-filter:saturate(140%) blur(12px);
-  -webkit-backdrop-filter:saturate(140%) blur(12px);
-}
-.sections button{
-  position:relative;background:var(--panel2);border:1px solid var(--line);
-  color:var(--mut);border-radius:12px;padding:9px 18px;cursor:pointer;
-  font-size:14.5px;font-family:inherit;font-weight:600;letter-spacing:-.01em;
-  transition:color .18s var(--ease),background .18s var(--ease),
-             border-color .18s var(--ease),transform .12s var(--ease);
-}
-.sections button:hover{color:var(--txt);border-color:color-mix(in srgb,var(--acc) 30%,var(--line))}
-.sections button:active{transform:translateY(1px)}
-.sections button.active{
-  background:var(--acc);border-color:transparent;color:#fff;
-  box-shadow:0 4px 14px var(--acc-glow);
-}
-
-/* ── 하위 탭 내비 (상단 고정 + 유리 질감) ─────────────────── */
+/* ── 탭 내비 (상단 고정 + 유리 질감) ─────────────────── */
 .nav{
-  position:sticky;top:54px;z-index:20;
-  display:flex;gap:4px;flex-wrap:wrap;margin:0 -20px 18px;
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:0 -20px 18px;
   padding:8px 20px 10px;
   background:color-mix(in srgb,var(--bg) 80%,transparent);
   backdrop-filter:saturate(140%) blur(12px);
@@ -475,6 +452,84 @@ tr.dragging{opacity:.4;background:var(--acc-soft)}
 /* 체크리스트 행 */
 .chk-row{display:flex;align-items:flex-start;gap:9px;margin:9px 0;font-size:13px;color:var(--txt);cursor:pointer}
 .chk-row input[type=checkbox]{margin-top:1px}
+
+/* ── 탭 구분선(졸업 계획 앞) ────────────────────────────── */
+.navsep{width:1px;align-self:stretch;margin:2px 8px;background:var(--line);flex:none}
+@media(max-width:560px){.navsep{display:none}}
+
+/* ── 헤더 오버플로 메뉴(⋯) ─────────────────────────────── */
+.menuwrap{position:relative;display:inline-block}
+.menu{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:230px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);
+  box-shadow:var(--shadow-lg);padding:6px;display:flex;flex-direction:column;gap:2px;
+  animation:menuPop .14s var(--ease);
+}
+.menu[hidden]{display:none}
+@keyframes menuPop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+.menu button[role=menuitem]{
+  display:flex;align-items:center;gap:8px;width:100%;text-align:left;justify-content:flex-start;
+  background:transparent;border:1px solid transparent;border-radius:var(--r-sm);
+  padding:9px 11px;font-size:13px;color:var(--txt);font-weight:500;
+}
+.menu button[role=menuitem]:hover{background:var(--panel2);border-color:var(--line)}
+.menu .menu-sep{height:1px;background:var(--line);margin:4px 2px}
+.menu button.menu-danger{color:var(--bad)}
+.menu button.menu-danger:hover{background:color-mix(in srgb,var(--bad) 12%,transparent);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+/* 좁은 화면에선 부제 숨겨 헤더를 깔끔히 */
+@media(max-width:560px){.top .sub{display:none}}
+
+/* ── 첫 실행 셋업 가이드(온보딩) ─────────────────────────── */
+.setup-card{border-color:color-mix(in srgb,var(--acc) 38%,var(--line));box-shadow:0 0 0 1px var(--acc-soft),var(--shadow-md)}
+.setup-prog{flex:1;height:6px;border-radius:99px;background:var(--panel2);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line-soft);min-width:80px}
+.setup-prog>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .4s var(--ease)}
+.setup-step{display:flex;gap:11px;align-items:flex-start;padding:11px 2px;border-top:1px solid var(--line-soft)}
+.setup-step:first-of-type{border-top:none}
+.setup-ck{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);
+  display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--mut);margin-top:1px}
+.setup-ck.on{background:var(--good);border-color:var(--good);color:#06101f}
+.setup-body{flex:1;min-width:0}
+.setup-title{font-weight:600;font-size:14px;margin-bottom:1px}
+.setup-title s{color:var(--mut);text-decoration-color:color-mix(in srgb,var(--mut) 60%,transparent)}
+.setup-act{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+
+/* ── 토스트(비차단 알림) ─────────────────────────────────── */
+.toast-host{position:fixed;right:18px;bottom:18px;z-index:60;display:flex;flex-direction:column;gap:9px;
+  max-width:min(380px,calc(100vw - 36px));pointer-events:none}
+.toast{
+  pointer-events:auto;display:flex;align-items:flex-start;gap:9px;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-left-width:3px;
+  border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--shadow-lg);
+  font-size:13px;line-height:1.45;color:var(--txt);
+  opacity:0;transform:translateY(8px) scale(.98);transition:opacity .2s var(--ease),transform .2s var(--ease)}
+.toast.in{opacity:1;transform:none}
+.toast.out{opacity:0;transform:translateY(8px) scale(.98)}
+.toast .toast-i{flex:none;font-weight:800;font-size:13px;margin-top:1px}
+.toast .toast-m{flex:1;word-break:break-word}
+.toast.ok{border-left-color:var(--good)} .toast.ok .toast-i{color:var(--good)}
+.toast.bad{border-left-color:var(--bad)} .toast.bad .toast-i{color:var(--bad)}
+.toast.warn{border-left-color:var(--warn)} .toast.warn .toast-i{color:var(--warn)}
+.toast.info{border-left-color:var(--acc)} .toast.info .toast-i{color:var(--acc)}
+@media(max-width:560px){.toast-host{right:12px;left:12px;bottom:12px;max-width:none}}
+
+/* ── 모달(confirm/prompt) ───────────────────────────────── */
+.modal-ov{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:color-mix(in srgb,#05070c 60%,transparent);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;transition:opacity .16s var(--ease)}
+.modal-ov.in{opacity:1}
+.modal-ov.out{opacity:0}
+.modal{width:min(440px,100%);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);padding:20px;transform:translateY(8px) scale(.98);transition:transform .18s var(--ease)}
+.modal-ov.in .modal{transform:none}
+.modal-t{font-size:15px;font-weight:700;margin-bottom:7px;letter-spacing:-.01em}
+.modal-b{font-size:13.5px;line-height:1.6;color:var(--txt);white-space:pre-wrap}
+.modal-in{margin-top:12px;resize:vertical;min-height:64px}
+.modal-a{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.modal-a button{padding:9px 16px}
+.modal-ok.modal-danger{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--bad) 92%,white 0%),color-mix(in srgb,var(--bad) 82%,black 12%));
+  border-color:color-mix(in srgb,var(--bad) 70%,black 18%);color:#fff;box-shadow:0 4px 14px -4px color-mix(in srgb,var(--bad) 50%,transparent)}
+.modal-ok.modal-danger:hover{filter:brightness(1.06)}
 
 /* ── 커스텀 스크롤바 ────────────────────────────────────── */
 *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}

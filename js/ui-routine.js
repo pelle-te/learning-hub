@@ -78,8 +78,8 @@ function maintenanceCard(){
     <div class="foot">볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.</div>
   </div>`;
 }
-function archiveOldConfirm(){
-  if(confirm('6개월 이전의 완료기록·요약·오답·회수된 백로그를 보관 파일(.json)로 내려받고 앱에서 비울까요?\n(통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)')){
+async function archiveOldConfirm(){
+  if(await confirmModal('6개월 이전의 완료기록·요약·오답·회수된 백로그를 보관 파일(.json)로 내려받고 앱에서 비울까요? (통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)',{title:'오래된 기록 정리',okLabel:'정리'})){
     archiveOldData(6);
   }
 }
@@ -142,3 +142,5 @@ function toggleDay(id,d){const b=state.routine.find(x=>x.id===id);if(!b)return;
 function setDays(id,mode){const b=state.routine.find(x=>x.id===id);if(!b)return;
   b.days=mode==='wd'?[1,2,3,4,5]:mode==='we'?[0,6]:[0,1,2,3,4,5,6];persist();renderRoutine(pageEl());}
 /* 요일별 하루 미리보기는 제거됨 (요청) */
+
+registerTab({ key:'routine', label:'⏰ 일과 & 가용시간', group:'main', order:40, render:renderRoutine });

@@ -196,45 +196,48 @@ function schedule(){
     });
   }
 
-  /* 6) 복습 배치 — 복습예산 우선, 없으면 모듈 잔여, 그래도 없으면 여유 큰 날 */
+  /* 6) 복습 배치 — 복습예산 우선, 없으면 모듈 잔여, 그래도 없으면 여유 큰 날.
+        용량이 모자라 *못 끼우거나 억지로 넘겨 끼운* 복습은 침묵하지 말고 경고로 노출(설계 원칙 "no silent caps"·감사 F-02). */
   reviewTasks.sort((a,b)=>a.idx-b.idx);
+  let revMissed=0, revOver=0;
   reviewTasks.forEach(t=>{
     const end=Math.min(days.length-1,t.idx+6);
     let tg=-1;
     for(let j=t.idx;j<=end;j++)if(days[j].revLeft>=t.min){tg=j;break;}
     if(tg<0)for(let j=t.idx;j<=end;j++)if(days[j].studyMin-days[j].used>=t.min){tg=j;break;}
     if(tg<0){let br=-1;for(let j=t.idx;j<=end;j++){const rm=days[j].studyMin-days[j].used;if(rm>br){br=rm;tg=j;}}}
-    if(tg<0)return;
+    if(tg<0){revMissed++;return;}                                  // 창 안 모든 날이 초과 → 미배치(누락)
+    if(days[tg].studyMin-days[tg].used<t.min)revOver++;            // 여유 없는 날에 넘겨 끼움(과적재)
     const d=days[tg];
     let ex=d.items.find(it=>it.type==='rev'&&it.sid===t.sid);
     if(ex){ex.min+=t.min; t.chapters.forEach(c=>{if(!ex.chapters.includes(c))ex.chapters.push(c);});}
     else d.items.push({type:'rev',sid:t.sid,name:t.name,color:t.color,min:t.min,chapters:t.chapters.slice()});
     d.used+=t.min; d.revLeft=Math.max(0,d.revLeft-t.min);
   });
+  if(revMissed>0)warnings.push(`⚠ 복습 ${revMissed}개가 용량 부족으로 미배치됐어요 — 주당 시간↑·복습비중↑ 또는 가용시간 확보를 검토하세요.`);
+  if(revOver>0)warnings.push(`⚠ 복습 ${revOver}개가 여유 없는 날에 끼워졌어요(그날 계획이 가용시간을 초과) — 일부 복습을 줄이거나 날을 비우세요.`);
 
-  /* 6.5) 백지 복습(방법론 9절) — 주 1회 단원 통째 재구성.
-     그 주에 학습한 과목마다 1개, 그 주 후반의 여유 있는 날에 배치(용량 초과 금지). */
+  /* 6.5) 백지 복습(방법론 9절) — *단원(챕터) 단위*로 통째 재구성(감사 F-03: 과목×주 → 단원 단위 정밀화).
+     각 단원을 '마지막으로 학습한 날' 직후의 여유 있는 날에 1개씩 배치(용량 초과 금지). */
   if(state.blankReviewWeekly===true){
     const blankMin=Math.max(30,Math.round(ML*0.4));
     const blankTasks=[];
     weekly.forEach(s=>{
-      const byWk={};
+      // 챕터(단원)별 '마지막 학습 day 인덱스' — 단원을 다 떼고 나서 백지로 점검
+      const lastDiOf={};
       (s._sessions||[]).forEach(se=>{
-        const wk=iso(mondayOf(days[se.di].date));
-        const g=byWk[wk]||(byWk[wk]={lastDi:se.di,chs:new Set()});
-        g.lastDi=Math.max(g.lastDi,se.di); (se.chapters||[]).forEach(c=>g.chs.add(c));
+        (se.chapters||[]).forEach(c=>{ lastDiOf[c]=Math.max(lastDiOf[c]==null?-1:lastDiOf[c], se.di); });
       });
-      Object.keys(byWk).forEach(wk=>{
-        const g=byWk[wk];
-        blankTasks.push({afterIdx:g.lastDi,sid:s.id,name:s.name,color:s.color,chapters:[...g.chs],min:blankMin});
+      Object.keys(lastDiOf).forEach(ch=>{
+        blankTasks.push({afterIdx:lastDiOf[ch],sid:s.id,name:s.name,color:s.color,chapters:[ch],min:blankMin});
       });
     });
     blankTasks.sort((a,b)=>a.afterIdx-b.afterIdx);
     blankTasks.forEach(t=>{
       const end=Math.min(days.length-1,t.afterIdx+6);
-      let tg=-1;                                   // 그 주 후반(여유 큰 날) 우선 — 뒤에서부터
+      let tg=-1;                                   // 학습 직후 며칠 내 여유 큰 날 — 뒤에서부터
       for(let j=end;j>=t.afterIdx;j--){if(days[j].studyMin-days[j].used>=t.min){tg=j;break;}}
-      if(tg<0)return;                              // 용량 없으면 건너뜀(과적재 방지)
+      if(tg<0)return;                              // 용량 없으면 건너뜀(과적재 방지 — 의도된 캡)
       days[tg].items.push({type:'blank',sid:t.sid,name:t.name,color:t.color,min:t.min,chapters:t.chapters.slice()});
       days[tg].used+=t.min;
     });

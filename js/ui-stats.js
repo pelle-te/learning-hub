@@ -111,3 +111,5 @@ function chapterTimeline(r){
       <span class="nm">${byDs[ds].map(e=>`<span class="swatch" style="background:${e.color}"></span>${esc(e.name)} <span class="muted tiny">${e.chapters.map(esc).join(', ')}</span>`).join(' &nbsp;/&nbsp; ')}</span></div>`;
   }).join('')}</div>`;
 }
+
+registerTab({ key:'stats', label:'📊 통계', group:'main', order:70, render:renderStats });
