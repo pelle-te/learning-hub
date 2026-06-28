@@ -23,6 +23,8 @@ function renderStats(p){
 
   ${retrievalCard(r)}
   ${retentionSpark()}
+  ${streakHeatmap()}
+  ${cbmsRadar()}
 
   <div class="card">
     <h2>과목별 진행</h2>
@@ -108,6 +110,79 @@ function retentionSpark(){
   </div>`;
 }
 
+/* 학습 스트릭 히트맵(GitHub식 잔디) — 최근 18주, 하루 완료분에 따라 5단계 농도.
+   '꾸준함'을 한눈에 본다(투입의 리듬). completions의 done.min 합을 일자별로. */
+function streakHeatmap(){
+  const WEEKS=18;
+  const comp=state.completions||{};
+  const today=parseISO(todayISO());
+  const startMon=addDays(mondayOf(today),-7*(WEEKS-1));   // WEEKS주 전 월요일
+  const minOf=ds=>{const m=comp[ds];if(!m)return 0;return Object.values(m).reduce((t,e)=>t+(e&&e.done?(+e.min||0):0),0);};
+  const lvl=v=>v<=0?0:v<30?1:v<60?2:v<120?3:4;            // 분 임계: 0 / ~30 / ~60 / ~120 / 120+
+  let activeDays=0,totalMin=0;
+  const cols=[];
+  for(let w=0;w<WEEKS;w++){
+    const colMon=addDays(startMon,w*7);
+    const cells=[];
+    for(let dow=0;dow<7;dow++){
+      const d=addDays(colMon,dow), ds=iso(d), future=d>today;
+      const v=future?-1:minOf(ds);
+      if(v>0){activeDays++;totalMin+=v;}
+      cells.push({ds,v,l:future?-1:lvl(v)});
+    }
+    cols.push(cells);
+  }
+  const cell=c=>c.l<0
+    ? `<div class="hm-c hm-future"></div>`
+    : `<div class="hm-c hm-l${c.l}" title="${esc(c.ds+': '+(c.v>0?Math.round(c.v)+'분':'학습 없음'))}"></div>`;
+  return `<div class="card">
+    <h2>🟩 학습 스트릭 <span class="muted tiny">— 최근 ${WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span></h2>
+    <div class="hm-wrap">
+      <div class="hm-dow">${['월','','수','','금','','일'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="hm-grid">${cols.map(col=>`<div class="hm-col">${col.map(cell).join('')}</div>`).join('')}</div>
+    </div>
+    <div class="hm-legend muted tiny"><span>적음</span>${[0,1,2,3,4].map(l=>`<div class="hm-c hm-l${l}"></div>`).join('')}<span>많음</span>
+      <span style="flex:1"></span>최근 ${WEEKS}주 ${activeDays}일 학습 · 총 ${Math.round(totalMin/60)}h</div>
+  </div>`;
+}
+
+/* 오답 분포 레이더(CBMS) — 약점 '유형의 모양'. 5축(C/B/M/S/T) 펜타곤 SVG.
+   분포가 작고 고를수록 약점이 닫히는 중(주간 리뷰 처방의 시각 보조). */
+function cbmsRadar(){
+  const codes=['C','B','M','S','T'];
+  const cnt=cbmsCounts();                          // 전체 기간 집계 {C,B,M,S,T}
+  const vals=codes.map(k=>cnt[k]||0);
+  const total=vals.reduce((a,b)=>a+b,0);
+  if(!total)return `<div class="card"><h2>🕸 오답 분포(CBMS) <span class="muted tiny">— 약점 유형의 모양</span></h2>
+    <div class="empty tiny">오답을 기록하면(오늘 학습 탭) 유형 분포가 레이더로 보여요. 모양이 작아질수록 약점이 닫히는 중.</div></div>`;
+  const max=Math.max(...vals,1), cx=110,cy=104,R=78;
+  const pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/5;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+  const ring=f=>codes.map((_,i)=>pt(i,R*f).map(n=>n.toFixed(1)).join(',')).join(' ');
+  const poly=vals.map((v,i)=>pt(i,R*(v/max)).map(n=>n.toFixed(1)).join(',')).join(' ');
+  const axes=codes.map((_,i)=>{const[x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;}).join('');
+  const dots=vals.map((v,i)=>{const[x,y]=pt(i,R*(v/max));return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="var(--acc)"/>`;}).join('');
+  const labels=codes.map((k,i)=>{const[x,y]=pt(i,R+15);const c=(CBMS_INFO[k]||{}).color||'var(--mut)';
+    return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="${c}" font-size="11" font-weight="700" text-anchor="middle" dominant-baseline="middle">${k}</text>`;}).join('');
+  return `<div class="card"><h2>🕸 오답 분포(CBMS) <span class="muted tiny">— 약점 유형의 모양(전체 ${total}건)</span></h2>
+    <div class="row" style="align-items:center;gap:16px;flex-wrap:wrap">
+    <svg viewBox="0 0 220 208" width="220" height="208" style="flex:none" aria-label="CBMS 오답 분포 레이더">
+      ${[0.25,0.5,0.75,1].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="var(--line-soft)" stroke-width="1"/>`).join('')}
+      ${axes}
+      <polygon points="${poly}" fill="color-mix(in srgb,var(--acc) 22%,transparent)" stroke="var(--acc)" stroke-width="1.5"/>
+      ${dots}${labels}
+    </svg>
+    <div style="flex:1;min-width:160px">
+      ${codes.map(k=>{const info=CBMS_INFO[k]||{};const v=cnt[k]||0;const pct=total?Math.round(v/total*100):0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px">
+          <span class="swatch" style="background:${info.color||'#888'}"></span>
+          <span style="width:60px">${k} ${esc(info.label||'')}</span>
+          <div class="bar" style="flex:1;margin:0"><i style="width:${pct}%;background:${info.color||'#888'}"></i></div>
+          <span class="muted tiny" style="width:28px;text-align:right">${v}</span></div>`;}).join('')}
+    </div></div>
+    <div class="foot">가장 큰 축이 지금의 주된 약점 — 주간 리뷰의 처방을 그 유형에 투자하세요(모양이 작고 고를수록 좋음).</div>
+  </div>`;
+}
+
 function weeklyBars(r){
   const weeks=Object.keys(r.weekHours).sort();
   if(!weeks.length)return `<div class="empty">데이터 없음</div>`;
@@ -143,4 +218,4 @@ registerTab({ key:'stats', label:'📊 통계', group:'main', order:70, render:r
 /* ESM-AUTO-EXPOSE */
 /* ESM: 이 모듈의 공개 심볼을 전역에 노출 — 인라인 onclick·타 모듈 호출용
    (모듈 내부 헬퍼는 위에 두면 비공개. 여긴 파일의 공개 표면) */
-Object.assign(globalThis, { renderStats, retrievalCard, retentionSpark, weeklyBars, chapterTimeline });
+Object.assign(globalThis, { renderStats, retrievalCard, retentionSpark, streakHeatmap, cbmsRadar, weeklyBars, chapterTimeline });

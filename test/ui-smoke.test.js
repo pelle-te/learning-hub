@@ -207,6 +207,26 @@ test('U11 toastUndo 액션 토스트 생성', () => {
   sb.ev("toastUndo('초기화했어요.')");   // throw 없이 동작(requestAnimationFrame 미정의 환경 가드 포함)
 });
 
+/* U12. Stage 2 시각화 — 스트릭 히트맵 + CBMS 레이더 */
+test('U12 스트릭 히트맵·CBMS 레이더 렌더', () => {
+  const sb = makeSandbox();
+  seed(sb);
+  const hm = sb.ev('streakHeatmap()');
+  assert(/hm-grid/.test(hm) && /hm-c/.test(hm), '히트맵 그리드 생성');
+  const rd = sb.ev('cbmsRadar()');
+  assert(/<svg/.test(rd) && /polygon/.test(rd), 'CBMS 레이더 SVG(오답 있을 때)');
+  sb.ev('state.cbms = []');
+  assert(/오답을 기록/.test(sb.ev('cbmsRadar()')), '오답 없으면 빈 안내');
+});
+
+/* U13. Stage 2 테마 3종 순환(dark→light→sepia→dark) */
+test('U13 테마 3종 순환', () => {
+  const sb = makeSandbox();
+  sb.ev("state.theme='dark'; toggleTheme()"); assert(sb.ev('state.theme') === 'light', 'dark→light');
+  sb.ev('toggleTheme()'); assert(sb.ev('state.theme') === 'sepia', 'light→sepia');
+  sb.ev('toggleTheme()'); assert(sb.ev('state.theme') === 'dark', 'sepia→dark');
+});
+
 /* ── 요약 ── */
 console.log(`\n결과: ${passed} 통과, ${failed} 실패`);
 if (failed) { console.log('\n실패 상세:'); fails.forEach(([n, e]) => console.log(' - ' + n + ': ' + (e && e.message || e))); process.exit(1); }

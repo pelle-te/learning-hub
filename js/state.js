@@ -184,12 +184,19 @@ async function resetAll(){
   toastUndo('초기화했어요.');
 }
 
-/* 테마 적용 (light/dark) — applyTheme는 부팅 시·토글 시 호출 */
+/* 테마 — 순환(dark→light→sepia). applyTheme는 부팅 시·토글 시 호출.
+   토큰 기반(css/style.css :root[data-theme=…])이라 새 테마 추가는 CSS 한 블록 + 이 목록 한 줄. */
+const THEME_CYCLE=['dark','light','sepia'];
 function applyTheme(){
   const t=(state&&state.theme)||'dark';
   document.documentElement.setAttribute('data-theme',t);
 }
-function toggleTheme(){state.theme=(state.theme==='light')?'dark':'light';persist();applyTheme();render();}
+function toggleTheme(){
+  const i=THEME_CYCLE.indexOf((state&&state.theme)||'dark');
+  state.theme=THEME_CYCLE[(i+1)%THEME_CYCLE.length]||'dark';
+  persist();applyTheme();render();
+  if(typeof toast==='function')toast('테마: '+({dark:'다크',light:'라이트',sepia:'세피아'}[state.theme]||state.theme),'info',1600);
+}
 
 /* ── 실행 추적: 그 날 그 과목의 학습/복습/Anki를 '완료'로 기록 ── */
 function compMap(ds){state.completions=state.completions||{};return (state.completions[ds]=state.completions[ds]||{});}
