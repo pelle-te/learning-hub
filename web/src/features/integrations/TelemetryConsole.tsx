@@ -3,7 +3,7 @@
    라이브 채널 리드아웃으로(● ONLINE/IDLE/OFFLINE). 시스템 폴더 /api 연동의 "조종석".
    상태는 Query 캐시 구독(enabled:false로 fetch 없이 읽기) + usePing. 순수 표현에 가깝되 상태는 store/query에서.
 ============================================================ */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, skipToken } from '@tanstack/react-query';
 import { usePing } from '@/store/queries';
 import { totalDue, type AnkiLive, type AnkiFile } from '@/lib/anki';
 import type { VaultScan } from '@/lib/vault';
@@ -34,10 +34,11 @@ function Channel({ label, status, value, sub }: { label: string; status: Status;
 
 export default function TelemetryConsole() {
   const ping = usePing();
-  // enabled:false → fetch 없이 같은 캐시 키를 구독(패널이 setQueryData하면 콘솔도 갱신).
-  const vault = useQuery<VaultScan>({ queryKey: ['vault'], enabled: false }).data;
-  const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], enabled: false }).data;
-  const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], enabled: false }).data;
+  // skipToken → fetch 없이(쿼리 비활성) 같은 캐시 키만 구독(패널이 setQueryData하면 콘솔도 갱신).
+  //  enabled:false와 달리 queryFn 누락 경고를 내지 않음(읽기전용 캐시 구독의 정석).
+  const vault = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
+  const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], queryFn: skipToken }).data;
+  const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
 
   const serve: Status = ping.isLoading ? 'probing' : ping.isSuccess && ping.data?.ok ? 'online' : 'offline';
   const vaultNotes = vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0;
