@@ -1,0 +1,108 @@
+/* Degree.module.css — 졸업 현황 보드(로드맵 시그니처 아래 진행·카테고리·인사이트 통합). */
+.boardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 카테고리 진행 미니바(전공필수·선택·교양·기타) */
+.cats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.cat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.catTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.catLab {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.catVal {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.catVal small {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 700;
+}
+.catTrack {
+  height: 7px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  overflow: hidden;
+}
+.catTrack i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--acc) 55%, transparent);
+}
+.catTrack i.catDone {
+  background: var(--acc);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+/* 인사이트 리드아웃(GPA·남은·예상 학기) */
+.insight {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line2);
+}
+.ins {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.insV {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.insV small {
+  font-size: 12px;
+  color: var(--mut);
+  font-weight: 700;
+}
+.insL {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 600;
+}
+
+.reqDetails {
+  margin-top: 14px;
+  border-top: 1px solid var(--line2);
+  padding-top: 12px;
+}
+.reqDetails summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.reqDetails summary:hover {
+  color: var(--acc);
+}
+
+@media (max-width: 560px) {
+  .insight {
+    grid-template-columns: 1fr;
+  }
+}

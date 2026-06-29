@@ -6,12 +6,14 @@
    courses는 스키마가 느슨(passthrough)해 로컬 Course 타입으로 좁혀 다룬다.
    스타일: 공유 디자인 시스템은 styles/ds.module.css(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
+import { usePageChrome } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { rid, makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
+import c from './Degree.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
 import DegreeReq from '@/features/degreeReq/DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
@@ -90,43 +92,6 @@ function degreeStats(d: DegreeT): DegreeStats {
     if (hasDone) semDone++;
   });
   return { earned, inprog, planned, byCat, gpa: gradedCr ? pts / gradedCr : null, gradedCr, semDone };
-}
-
-/** 완료 과목 기준 추정 — GPA · 이수/남은 학점 · 예상 잔여 학기. */
-function DegreeInsight({ d, stats }: { d: DegreeT; stats: DegreeStats }) {
-  const { earned: doneCr, gpa, gradedCr, semDone } = stats;
-  if (!doneCr) return null;
-  const remain = Math.max(0, d.targetTotal - doneCr);
-  const avgPerSem = semDone ? doneCr / semDone : 0;
-  const projSem = avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
-  return (
-    <div className={ds.card}>
-      <h2>
-        졸업 인사이트 <span className={`${ds.muted} ${ds.tiny}`}>— 완료 과목 기준 추정</span>
-      </h2>
-      <div className={ds.kpis} style={{ marginBottom: 0 }}>
-        <div className={ds.kpi}>
-          <div className={ds.v}>
-            {gpa != null ? gpa.toFixed(2) : '—'}
-            <span className={`${ds.muted} ${ds.tiny}`}> / 4.5</span>
-          </div>
-          <div className={ds.l}>평점(GPA){gradedCr < doneCr ? ` · 성적 ${gradedCr}/${doneCr}학점` : ''}</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>{doneCr}</div>
-          <div className={ds.l}>이수 학점</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>{remain}</div>
-          <div className={ds.l}>남은 학점</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>{projSem != null ? `~${projSem}학기` : '—'}</div>
-          <div className={ds.l}>{avgPerSem ? `현 페이스(학기당 ${Math.round(avgPerSem)}학점)` : '예상 잔여'}</div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onToggle: (id: string) => void }) {
@@ -359,80 +324,143 @@ function DegreePlan() {
   };
 
   const stats = degreeStats(d);
-  const { earned, inprog, planned, byCat } = stats;
+  const { earned, inprog, planned, byCat, gpa, gradedCr, semDone } = stats;
   const remain = Math.max(0, d.targetTotal - earned);
   const pct = d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
   const list = sems(d);
+  const avgPerSem = semDone ? earned / semDone : 0;
+  const projSem = earned && avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
+
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
+  useEffect(() => {
+    setChrome([
+      {
+        label: '이수',
+        value: (
+          <>
+            {earned}
+            <small> / {d.targetTotal}</small>
+          </>
+        ),
+        accent: true,
+      },
+      { label: '진행', value: `${pct}%` },
+      { label: 'GPA', value: gpa != null ? gpa.toFixed(2) : '—' },
+    ]);
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [earned, d.targetTotal, pct, gpa]);
 
   return (
     <>
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
+      {/* 졸업 현황 — 진행·카테고리·인사이트를 한 보드로(요건 설정은 접어둠) */}
       <div className={ds.card}>
-        <h2>졸업 요건</h2>
-        <div className={ds.row}>
-          <div>
-            <label htmlFor="deg-total">졸업 총 학점</label>
-            <input
-              id="deg-total"
-              type="number"
-              value={d.targetTotal}
-              onChange={(e) => setDeg('targetTotal', +e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="deg-req">전공필수</label>
-            <input
-              id="deg-req"
-              type="number"
-              value={d.reqMajorReq}
-              onChange={(e) => setDeg('reqMajorReq', +e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="deg-sel">전공선택</label>
-            <input
-              id="deg-sel"
-              type="number"
-              value={d.reqMajorSel}
-              onChange={(e) => setDeg('reqMajorSel', +e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="deg-lib">교양</label>
-            <input
-              id="deg-lib"
-              type="number"
-              value={d.reqLiberal}
-              onChange={(e) => setDeg('reqLiberal', +e.target.value)}
-            />
-          </div>
+        <div className={c.boardHead}>
+          <h2 style={{ margin: 0 }}>졸업 현황</h2>
+          <span className={`${ds.muted} ${ds.tiny}`}>
+            이수 {earned} / 목표 {d.targetTotal} · 수강중 {inprog} · 예정 {planned} · 남은 {remain}
+          </span>
         </div>
-        <div className={ds.bar} style={{ margin: '12px 0 4px' }}>
+        <div className={ds.bar} style={{ margin: '12px 0 14px' }}>
           <i style={{ width: `${Math.min(100, pct)}%`, background: 'var(--good)' }} />
         </div>
-        <div className={`${ds.tiny} ${ds.muted}`}>
-          이수 {earned} / 목표 {d.targetTotal} 학점 ({pct}%) · 수강중 {inprog} · 예정 {planned} · 남은 {remain}
-        </div>
-      </div>
 
-      <div className={ds.kpis}>
-        {CATS.map((c) => {
-          const req =
-            c === '전공필수' ? d.reqMajorReq : c === '전공선택' ? d.reqMajorSel : c === '교양' ? d.reqLiberal : 0;
-          return (
-            <div key={c} className={ds.kpi}>
-              <div className={ds.v}>
-                {byCat[c] || 0}
-                {req ? <span className={`${ds.muted} ${ds.tiny}`}> / {req}</span> : null}
+        <div className={c.cats}>
+          {CATS.map((cat) => {
+            const req =
+              cat === '전공필수'
+                ? d.reqMajorReq
+                : cat === '전공선택'
+                  ? d.reqMajorSel
+                  : cat === '교양'
+                    ? d.reqLiberal
+                    : 0;
+            const have = byCat[cat] || 0;
+            const cpct = req ? Math.min(100, Math.round((have / req) * 100)) : have ? 100 : 0;
+            return (
+              <div key={cat} className={c.cat}>
+                <div className={c.catTop}>
+                  <span className={c.catLab}>{cat}</span>
+                  <span className={c.catVal}>
+                    {have}
+                    {req ? <small> / {req}</small> : null}
+                  </span>
+                </div>
+                <div className={c.catTrack}>
+                  <i style={{ width: `${cpct}%` }} className={req && have >= req ? c.catDone : undefined} />
+                </div>
               </div>
-              <div className={ds.l}>{c}</div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {earned > 0 && <DegreeInsight d={d} stats={stats} />}
+        {earned > 0 && (
+          <div className={c.insight}>
+            <div className={c.ins}>
+              <span className={c.insV}>
+                {gpa != null ? gpa.toFixed(2) : '—'}
+                <small> / 4.5</small>
+              </span>
+              <span className={c.insL}>평점(GPA){gradedCr < earned ? ` · ${gradedCr}/${earned}학점` : ''}</span>
+            </div>
+            <div className={c.ins}>
+              <span className={c.insV}>{remain}</span>
+              <span className={c.insL}>남은 학점</span>
+            </div>
+            <div className={c.ins}>
+              <span className={c.insV}>{projSem != null ? `~${projSem}` : '—'}</span>
+              <span className={c.insL}>
+                {avgPerSem ? `예상 잔여 학기(학기당 ${Math.round(avgPerSem)})` : '예상 잔여'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <details className={c.reqDetails}>
+          <summary>졸업 요건 설정</summary>
+          <div className={ds.row} style={{ marginTop: 10 }}>
+            <div>
+              <label htmlFor="deg-total">졸업 총 학점</label>
+              <input
+                id="deg-total"
+                type="number"
+                value={d.targetTotal}
+                onChange={(e) => setDeg('targetTotal', +e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="deg-req">전공필수</label>
+              <input
+                id="deg-req"
+                type="number"
+                value={d.reqMajorReq}
+                onChange={(e) => setDeg('reqMajorReq', +e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="deg-sel">전공선택</label>
+              <input
+                id="deg-sel"
+                type="number"
+                value={d.reqMajorSel}
+                onChange={(e) => setDeg('reqMajorSel', +e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="deg-lib">교양</label>
+              <input
+                id="deg-lib"
+                type="number"
+                value={d.reqLiberal}
+                onChange={(e) => setDeg('reqLiberal', +e.target.value)}
+              />
+            </div>
+          </div>
+        </details>
+      </div>
 
       <div className={ds.card}>
         <div className={ds.row} style={{ alignItems: 'center' }}>
