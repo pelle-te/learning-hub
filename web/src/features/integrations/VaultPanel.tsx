@@ -128,7 +128,7 @@ export function VaultPanel() {
                   </Button>
                 </div>
                 <div className={ds.bar} style={{ margin: '0 12px 6px' }}>
-                  <i style={{ width: `${vp}%`, background: 'var(--good)' }} />
+                  <i style={{ width: `${vp}%`, background: 'var(--acc)', boxShadow: '0 0 8px var(--glow)' }} />
                 </div>
                 {isOpen && (
                   <div className={g.chs}>
