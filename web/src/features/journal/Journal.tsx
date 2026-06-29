@@ -22,6 +22,7 @@ import {
 } from '@/lib/methodology';
 import { fmt, itemById, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import JournalStream from './JournalStream';
 import ds from '@/styles/ds.module.css';
 import type { AppState, CbmsCode } from '@/lib/types';
 
@@ -435,16 +436,10 @@ export default function Journal() {
   const ds2 = todayISO({ _today });
   return (
     <>
-      <div className={ds.card}>
-        <h2>
-          학습 기록{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>
-            — 공부 뒤 남기는 산출물(오늘 {fmt(new Date(ds2 + 'T00:00:00'))})
-          </span>
-        </h2>
-        <div className={`${ds.tiny} ${ds.muted}`}>
-          블록을 끝낼 때마다 한 개씩. 누적 추세·약점 분포는 <b>통계</b>·<b>주간 리뷰</b>에서 봅니다.
-        </div>
+      <JournalStream ds={ds2} />
+      <div className={`${ds.tiny} ${ds.muted}`} style={{ margin: '0 2px 12px' }}>
+        공부 뒤 남기는 산출물(오늘 {fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 한 개씩. 누적 추세·약점
+        분포는 <b>통계</b>·<b>주간 리뷰</b>에서.
       </div>
       <SummaryCard ds={ds2} />
       <CbmsCard ds={ds2} />

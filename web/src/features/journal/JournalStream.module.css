@@ -1,0 +1,148 @@
+/* ============================================================
+   JournalStream — 오늘의 로그(설계도 §2 기록 시그니처). 검정 위 에디토리얼 타임라인.
+   좌측 스파인 + 노드, 요약/오답/보충을 한 줄 행으로. WeekGrid/.board 결 통일.
+============================================================ */
+.board {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+  padding: 16px 18px 16px;
+  margin-bottom: 14px;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.title {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.counts {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--mut);
+}
+.counts b {
+  color: var(--acc);
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin-right: 3px;
+}
+
+.empty {
+  font-size: 12.5px;
+  color: var(--mut);
+  padding: 10px 4px 6px;
+  line-height: 1.6;
+}
+
+/* 스트림 — 좌측 스파인 + 노드 행 */
+.stream {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 6px;
+  position: relative;
+}
+.stream::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--line);
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0 7px 22px;
+  min-height: 30px;
+  border-bottom: 1px dashed var(--line2);
+}
+.row:last-child {
+  border-bottom: none;
+}
+.dim {
+  opacity: 0.5;
+}
+.node {
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ink) 30%, transparent);
+}
+/* 보충 = 네온 다이아 플래그 */
+.flag {
+  border-radius: 1px;
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.kind {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.kSum {
+  color: var(--acc);
+  background: var(--acc-soft);
+}
+.kBl {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.swatch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.name {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--mut);
+}
+.lead {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--mut);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flag {
+    box-shadow: none;
+  }
+}

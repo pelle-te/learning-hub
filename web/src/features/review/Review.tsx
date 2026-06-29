@@ -21,7 +21,44 @@ import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import rv from './Review.module.css';
-import type { CbmsCode, ScheduleResult } from '@/lib/types';
+import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
+
+interface WeekPA {
+  byDay: { ds: string; k: number; pm: number; dm: number }[];
+  planMin: number;
+  doneMin: number;
+  rate: number;
+  maxRef: number;
+}
+/** 한 주의 계획·완료 분 집계 — 디브리프 헤더와 계획대비실제 차트가 공유(이중 순회 제거). */
+function weekPlanActual(state: AppState, res: ScheduleResult, mon: Date): WeekPA {
+  const byDs: Record<string, ScheduleResult['days'][number]> = {};
+  (res.days || []).forEach((d) => (byDs[d.ds] = d));
+  let planMin = 0;
+  let doneMin = 0;
+  const byDay: WeekPA['byDay'] = [];
+  for (let k = 0; k < 7; k++) {
+    const dsk = iso(addDays(mon, k));
+    const d = byDs[dsk];
+    let pm = 0;
+    let dm = 0;
+    if (d)
+      d.items.forEach((it) => {
+        pm += it.min;
+        if (isDone(state, dsk, it.sid, it.type)) dm += it.min;
+      });
+    planMin += pm;
+    doneMin += dm;
+    byDay.push({ ds: dsk, k, pm, dm });
+  }
+  return {
+    byDay,
+    planMin,
+    doneMin,
+    rate: planMin > 0 ? Math.round((doneMin / planMin) * 100) : 0,
+    maxRef: Math.max(1, ...byDay.map((x) => x.pm)),
+  };
+}
 
 const WEEKLY_CHECKS: [string, string][] = [
   ['backlog', '보충 필요 백로그 — 이번 주 몇 개 회수했나? 남은 건 언제 닫을지 정했다.'],
@@ -30,53 +67,63 @@ const WEEKLY_CHECKS: [string, string][] = [
   ['anki', 'Anki 적체 — due가 밀렸으면 큐레이션을 더 빡세게(≤5장/블록).'],
 ];
 
-/** 계획 대비 실제 — RES.days에서 요일별 계획·완료 분 집계. */
-function PlanActualCard({ mon, res }: { mon: Date; res: ScheduleResult }) {
+/** 주간 디브리프 헤더 — "레이스 리포트" 시그니처. 한 주를 큰 리드아웃 3종으로 압축. */
+function DebriefHeader({ pa, ds0, ds6, label }: { pa: WeekPA; ds0: string; ds6: string; label: string }) {
   const state = useApp((s) => s.state);
-  const byDs: Record<string, ScheduleResult['days'][number]> = {};
-  (res.days || []).forEach((d) => (byDs[d.ds] = d));
-  let planMin = 0;
-  let doneMin = 0;
-  const byDay: { ds: string; k: number; pm: number; dm: number }[] = [];
-  for (let k = 0; k < 7; k++) {
-    const ds = iso(addDays(mon, k));
-    const d = byDs[ds];
-    let pm = 0;
-    let dm = 0;
-    if (d)
-      d.items.forEach((it) => {
-        pm += it.min;
-        if (isDone(state, ds, it.sid, it.type)) dm += it.min;
-      });
-    planMin += pm;
-    doneMin += dm;
-    byDay.push({ ds, k, pm, dm });
-  }
-  const rate = planMin > 0 ? Math.round((doneMin / planMin) * 100) : 0;
-  const maxRef = Math.max(1, ...byDay.map((x) => x.pm));
+  const cnt = cbmsCounts(state, ds0, ds6);
+  const codes = Object.keys(CBMS_INFO) as CbmsCode[];
+  const cbmsTotal = codes.reduce((a, c) => a + cnt[c], 0);
+  const top = cbmsTotal ? codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode) : null;
+  const open = openBacklog(state).length;
+  const closed = backlogClosedBetween(state, ds0, ds6);
+  const good = pa.rate >= 80;
+
+  return (
+    <div className={rv.board}>
+      <div className={rv.bHead}>
+        <span className={rv.bTitle}>주간 디브리프 — DEBRIEF</span>
+        <span className={rv.bWeek}>{label}</span>
+      </div>
+      <div className={rv.readouts}>
+        <div className={`${rv.ro} ${good ? rv.roGood : rv.roWarn}`}>
+          <span className={rv.roNum}>
+            {pa.rate}
+            <small>%</small>
+          </span>
+          <span className={rv.roLab}>달성률 · 완료/계획</span>
+          <span className={rv.roSub}>
+            {(pa.doneMin / 60).toFixed(1)}h / {(pa.planMin / 60).toFixed(1)}h ·{' '}
+            {good ? '페이스 양호' : '버퍼 부족 — 목표↓'}
+          </span>
+        </div>
+        <div className={rv.ro}>
+          <span className={rv.roNum} style={top ? ({ color: CBMS_INFO[top].color } as React.CSSProperties) : undefined}>
+            {top ? top : '—'}
+          </span>
+          <span className={rv.roLab}>가장 잦은 오답</span>
+          <span className={rv.roSub}>
+            {top ? `${CBMS_INFO[top].label} · 이번 주 ${cbmsTotal}건` : '기록된 오답 없음'}
+          </span>
+        </div>
+        <div className={rv.ro}>
+          <span className={`${rv.roNum} ${open ? rv.warnNum : ''}`}>{open}</span>
+          <span className={rv.roLab}>보충 백로그 열림</span>
+          <span className={rv.roSub}>이번 주 회수 {closed}건</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 계획 대비 실제 — 요일별 계획·완료 분 막대(weekPlanActual 집계 공유). 헤더 리드아웃의 일자별 분해. */
+function PlanActualCard({ pa }: { pa: WeekPA }) {
+  const { byDay, maxRef } = pa;
 
   return (
     <div className={ds.card}>
       <h2>
-        계획 대비 실제 <span className={`${ds.muted} ${ds.tiny}`}>— 이번 주</span>
+        계획 대비 실제 <span className={`${ds.muted} ${ds.tiny}`}>— 요일별 분해</span>
       </h2>
-      <div className={ds.kpis} style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-        <div className={ds.kpi}>
-          <div className={ds.v}>
-            {(doneMin / 60).toFixed(1)}h
-            <span className={`${ds.muted} ${ds.tiny}`}> / {(planMin / 60).toFixed(1)}h</span>
-          </div>
-          <div className={ds.l}>완료 / 계획 ({rate}%)</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>{rate}%</div>
-          <div className={ds.l}>달성률</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>{rate < 80 ? '⚠️' : '👍'}</div>
-          <div className={ds.l}>{rate < 80 ? '버퍼 부족 — 목표↓ 고려' : '페이스 양호'}</div>
-        </div>
-      </div>
       <div className={rv.paChart}>
         {byDay.map((x) => {
           const ph = Math.round((x.pm / maxRef) * 70);
@@ -232,6 +279,7 @@ function ChecklistCard({ wk }: { wk: string }) {
 
 export default function Review() {
   const res = useSchedule();
+  const state = useApp((s) => s.state);
   const [weekOffset, setWeekOffset] = useState(0);
 
   const mon = addDays(mondayOf(new Date()), weekOffset * 7);
@@ -239,6 +287,7 @@ export default function Review() {
   const ds6 = iso(addDays(mon, 6));
   const wk = ds0;
   const isThis = weekOffset === 0;
+  const pa = weekPlanActual(state, res, mon);
 
   return (
     <>
@@ -266,7 +315,8 @@ export default function Review() {
           증거가 가장 강한 동기.
         </div>
       </div>
-      <PlanActualCard mon={mon} res={res} />
+      <DebriefHeader pa={pa} ds0={ds0} ds6={ds6} label={weekLabel(mon)} />
+      <PlanActualCard pa={pa} />
       <CbmsDistCard ds0={ds0} ds6={ds6} />
       <BacklogReviewCard ds0={ds0} ds6={ds6} />
       <ChecklistCard wk={wk} />
