@@ -1,0 +1,59 @@
+/* ============================================================
+   Journal — 학습 기록 2컬럼 단일화면(데모 v6 사상). HudFrame fill 가득.
+   질문 "오늘 무엇을 남겼나?" → 좌측 발광 로그 스트림(시그니처) + 우측 기록 입력 컬럼.
+   입력이 본질인 탭이라 무스크롤 대신 '같은 감각': 시그니처는 fill, 입력은 우측 온화면 패널.
+============================================================ */
+.wrap {
+  height: 100%;
+  min-width: 0;
+}
+.cols {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  min-height: 0;
+}
+.logCol {
+  min-width: 0;
+  padding: 22px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.logHint {
+  flex: none;
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--mut);
+}
+.inputCol {
+  min-width: 0;
+  border-left: 1px solid var(--line2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 20px 28px;
+}
+.inputHead {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+/* 모바일 — 단일컬럼 스택 + 스크롤 */
+@media (max-width: 900px) {
+  .cols {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .logCol {
+    min-height: 360px;
+  }
+  .inputCol {
+    border-left: none;
+    border-top: 1px solid var(--line2);
+  }
+}

@@ -9,6 +9,20 @@
   padding: 16px 18px 16px;
   margin-bottom: 14px;
 }
+/* fill — 2컬럼 단일화면 좌측에서 컬럼 높이를 가득(스트림 자체 스크롤). */
+.boardFill {
+  height: 100%;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.boardFill .stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
 .head {
   display: flex;
   justify-content: space-between;

@@ -10,7 +10,7 @@ import ds from '@/styles/ds.module.css';
 import s from './JournalStream.module.css';
 import type { CbmsCode } from '@/lib/types';
 
-export default function JournalStream({ ds: dsKey }: { ds: string }) {
+export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: boolean }) {
   const state = useApp((st) => st.state);
   const sums = summariesFor(state, dsKey);
   const cbms = cbmsBetween(state, dsKey, dsKey);
@@ -18,7 +18,7 @@ export default function JournalStream({ ds: dsKey }: { ds: string }) {
   const total = sums.length + cbms.length + backlogToday.length;
 
   return (
-    <div className={s.board}>
+    <div className={`${s.board}${fill ? ' ' + s.boardFill : ''}`}>
       <div className={s.head}>
         <span className={s.title}>오늘의 로그 — LOG</span>
         <span className={s.counts}>
