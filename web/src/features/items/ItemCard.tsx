@@ -1,5 +1,5 @@
 /* ItemCard — 접이식 과목 카드(헤더 요약 + 펼친 편집 영역). 변경은 store.mutate로.
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base(Phase 9 전환). */
+   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
 import { memo, useCallback } from 'react';
 import { iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, Pill, type PillTone } from '@/components/ui';

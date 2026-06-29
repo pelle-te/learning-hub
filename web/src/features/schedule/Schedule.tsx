@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
-import { legacyFns } from '@/shell';
+import { io } from '@/shell';
 import { dayStudyMin, layoutDay } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import {
@@ -367,12 +367,12 @@ function IcsFreshnessNote() {
   const when = new Date(x.at);
   const days = isNaN(when.getTime()) ? null : dayDiff(iso(when), today);
   const ago = days == null ? '' : days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`;
-  const stale = x.sig !== legacyFns.planSignature();
+  const stale = x.sig !== io.planSignature();
   if (stale)
     return (
       <div className={ds.warnbox}>
         📅 <b>캘린더(.ics)가 계획과 어긋났어요</b> — 마지막 내보내기({ago}) 이후 일정이 바뀌었습니다.
-        <Button sm style={{ marginLeft: 6 }} onClick={() => legacyFns.exportICS()}>
+        <Button sm style={{ marginLeft: 6 }} onClick={() => io.exportICS()}>
           🔄 .ics 재내보내기
         </Button>
         <span className={`${ds.muted} ${ds.tiny}`}> — 일회성 스냅샷이라 자동 동기화되지 않아요.</span>

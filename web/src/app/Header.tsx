@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { actions } from '@/shell';
+import { actions, io } from '@/shell';
 
 /* Header — .top 헤더. 데이터 액션은 네이티브 shell/actions를 호출(테마·내보내기·가져오기·되돌리기·초기화).
    ⋯ 메뉴는 바깥 클릭/Esc로 닫힘. ⌘K는 팔레트 열기(전역 단축키는 CommandPalette가 소유). */
@@ -64,7 +64,7 @@ export default function Header({ onOpenPalette }: { onOpenPalette: () => void })
               role="menuitem"
               onClick={() => {
                 close();
-                actions.exportICS();
+                io.exportICS();
               }}
               title="일회성 스냅샷"
             >
@@ -75,7 +75,7 @@ export default function Header({ onOpenPalette }: { onOpenPalette: () => void })
               role="menuitem"
               onClick={() => {
                 close();
-                actions.exportJSON();
+                io.exportJSON();
               }}
             >
               💾 데이터 내보내기(백업)

@@ -2,10 +2,10 @@
    Settings — 탭: ⚙ 설정 (Phase 4 · 앱상태/Zustand · nav 숨김)
    레거시 ui-routine.js의 renderSettings + maintenanceCard를 React로.
    자주 안 바뀌는 기본값(시작일·모듈길이·피크 등) + 데이터 백업·정리.
-   백업/내보내기/복구/아카이빙은 부수효과가 본질이라 legacyFns로 위임(설계도 §3).
+   백업/내보내기/복구/아카이빙은 부수효과가 본질이라 shell/io로 위임(설계도 §3).
 ============================================================ */
 import { useApp } from '@/store/useApp';
-import { ui, legacyFns } from '@/shell';
+import { ui, io } from '@/shell';
 import { dataSizeKB, recordCount } from '@/lib/methodology';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
@@ -38,7 +38,7 @@ export default function Settings() {
       '6개월 이전의 완료기록·요약·오답·회수된 백로그를 보관 파일(.json)로 내려받고 앱에서 비울까요? (통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)',
       { title: '오래된 기록 정리', okLabel: '정리' },
     );
-    if (ok) legacyFns.archiveOldData(6);
+    if (ok) io.archiveOld(6);
   };
 
   return (
@@ -221,16 +221,16 @@ export default function Settings() {
           </span>
         </div>
         <div className={ds.row}>
-          <Button sm onClick={() => legacyFns.backupToVault()}>
+          <Button sm onClick={() => io.backupToVault()}>
             📁 볼트 폴더에 백업
           </Button>
-          <Button sm variant="ghost" onClick={() => legacyFns.exportJSON()}>
+          <Button sm variant="ghost" onClick={() => io.exportJSON()}>
             💾 파일로 내보내기
           </Button>
           <Button
             sm
             variant="ghost"
-            onClick={() => legacyFns.restoreFromIDB()}
+            onClick={() => io.restoreFromIDB()}
             title="localStorage가 지워졌을 때 IndexedDB 자동 미러에서 복구"
           >
             ♻ IndexedDB에서 복구

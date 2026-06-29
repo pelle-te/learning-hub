@@ -1,7 +1,8 @@
 /* ============================================================
-   shell/index.ts — React 셸 서비스 배럴(레거시 어댑터 legacy/load 대체).
-   탭 메타·아이콘·토스트/모달 호스트·명령형 ui/actions를 한 곳에서 노출 — app·features가 여기서 가져온다.
-   (boundaries 무관 디렉터리라 어느 레이어에서도 import 가능 — 옛 legacy/load와 동일한 위치 규약.)
+   shell/index.ts — React 셸 서비스 배럴.
+   탭 메타·아이콘·토스트/모달 호스트·명령형 ui/io/actions를 한 곳에서 노출 — app·features가 여기서 가져온다.
+   (boundaries 무관 디렉터리라 어느 레이어에서도 import 가능.)
+   액션 표면 3분할(각 함수는 정확히 한 곳): ui(토스트·모달·백업) / io(내보내기·FS·복구) / actions(상태 변형).
 ============================================================ */
 import { toast, toastUndo } from './toast';
 import { confirm, prompt } from './modal';
@@ -24,23 +25,21 @@ export const ui = {
   toastUndo: (msg: string) => toastUndo(msg, A.undoLast),
 };
 
-/** 부수효과가 본질인 IO/다운로드/FS 액션(옛 legacy/load.legacyFns). */
-export const legacyFns = {
+/** 부수효과가 본질인 IO/다운로드/FS 액션(내보내기·백업·복구·아카이빙·캘린더 서명). */
+export const io = {
   planSignature: A.planSignature,
   exportICS: A.exportICS,
-  backupToVault: A.backupToVault,
   exportJSON: A.exportJSON,
+  backupToVault: A.backupToVault,
   restoreFromIDB: A.restoreFromIDB,
-  archiveOldData: A.archiveOld,
+  archiveOld: A.archiveOld,
   exportAnkiCards: A.exportAnkiCards,
   exportSummaryNotes: A.exportSummaryNotes,
 };
 
-/** 헤더 ⋯ 메뉴/팔레트가 호출하는 데이터 액션(옛 legacy/load.actions). */
+/** 헤더 ⋯ 메뉴/팔레트가 호출하는 상태 변형 액션. */
 export const actions = {
   toggleTheme: A.toggleTheme,
-  exportICS: A.exportICS,
-  exportJSON: A.exportJSON,
   importJSON: A.importJSON,
   undoLast: A.undoLast,
   resetAll: A.resetAll,

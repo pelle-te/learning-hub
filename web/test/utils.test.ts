@@ -8,7 +8,6 @@ import {
   clamp,
   dayDiff,
   ddayInfo,
-  esc,
   fmt,
   fmtShort,
   hLabel,
@@ -95,14 +94,7 @@ describe('clamp', () => {
   });
 });
 
-describe('esc / jsq — 출력 이스케이프', () => {
-  it('esc는 HTML 5종(& < > " \')을 모두 엔티티화한다', () => {
-    expect(esc(`<a href="x" title='y'>&`)).toBe('&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;');
-  });
-  it('esc는 null/undefined를 빈 문자열로 처리한다', () => {
-    expect(esc(null)).toBe('');
-    expect(esc(undefined)).toBe('');
-  });
+describe('jsq — 출력 이스케이프', () => {
   it('jsq는 백슬래시·작은따옴표·개행/CR을 차단한다', () => {
     expect(jsq("a'b")).toBe("a\\'b");
     expect(jsq('a\\b')).toBe('a\\\\b');

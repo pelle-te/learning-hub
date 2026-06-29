@@ -1,5 +1,5 @@
 /* ChapterEditor — 과목의 챕터 표(추가·삭제·수정·드래그 정렬·일괄 붙여넣기).
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base(Phase 9 전환). */
+   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
 import { useCallback, useState } from 'react';
 import { rid } from '@/lib/utils';
 import { Button } from '@/components/ui';

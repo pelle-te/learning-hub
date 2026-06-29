@@ -218,14 +218,14 @@ export default function Routine() {
           수업 (요일별){' '}
           <span className={`${ds.muted} ${ds.tiny}`}>— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
         </h2>
-        <div className={ds.seg} id="classSeg">
+        <div className={ds.seg}>
           {DOW.map((d, i) => (
             <button key={d} className={i === classDow ? ds.on : ''} onClick={() => setClassDow(i)}>
               {d}
             </button>
           ))}
         </div>
-        <div id="classList" style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 10 }}>
           <ClassList dow={classDow} />
         </div>
         <Button sm style={{ marginTop: 8 }} onClick={() => addClass(classDow)}>
@@ -251,7 +251,7 @@ export default function Routine() {
           <div className={r.days}>요일</div>
           <div />
         </div>
-        <div id="blkList">
+        <div>
           <BlockList />
         </div>
         <Button sm style={{ marginTop: 8 }} onClick={addBlock}>

@@ -1,7 +1,6 @@
 /* ============================================================
    Items — 탭: 학습 항목 (Phase 3 · 앱상태/Zustand)
-   레거시 ui-items.js의 innerHTML 렌더 + globalThis 변형을 React + store.mutate로 이전.
-   구조 레이아웃은 레거시 전역 클래스(card/itemrow/fieldgrid/chaptbl…)를 재사용(Phase 6까지 style.css 유지),
+   구조 레이아웃은 전역 디자인 시스템 클래스(card/itemrow/fieldgrid…)+ds.module을 재사용,
    인터랙티브/칩은 토큰 기반 공용 컴포넌트(Button/Pill/Kpi)로 — 룩 일관·테마 자동 대응.
 ============================================================ */
 import { useCallback, useMemo, useState } from 'react';
@@ -180,7 +179,7 @@ export default function Items() {
         </KpiGrid>
       )}
 
-      <div id="itemCards">
+      <div>
         {items.length === 0 ? (
           <div className={ds.card}>
             <div className={ds.empty}>학습 항목이 없습니다. + 과목 추가 또는 볼트/Anki 탭에서 넣으세요.</div>

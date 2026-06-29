@@ -65,16 +65,6 @@ export function toHM(m: number): string {
 export function clamp(v: number, a: number, b: number): number {
   return Math.max(a, Math.min(b, v));
 }
-/** esc(): HTML 속성/본문에 안전하도록 작은따옴표까지 이스케이프. */
-export function esc(s: unknown): string {
-  return (s ?? '')
-    .toString()
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 /** jsq(): JS 문자열 리터럴용 — 따옴표·백슬래시·개행 차단. */
 export function jsq(s: unknown): string {
   return (s ?? '').toString().replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ').replace(/\r/g, '');

@@ -52,11 +52,3 @@ export function idbLoad(key: string = 'state'): Promise<string | null> {
       }),
   );
 }
-
-export async function idbHasBackup(): Promise<boolean> {
-  try {
-    return !!(await idbLoad());
-  } catch {
-    return false;
-  }
-}

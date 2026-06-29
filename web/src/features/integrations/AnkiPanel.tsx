@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
-import { ui, legacyFns } from '@/shell';
+import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
 import { PALETTE, rid, clamp, jsq } from '@/lib/utils';
@@ -155,7 +155,7 @@ export function AnkiPanel() {
           <Button
             sm
             variant="ghost"
-            onClick={() => legacyFns.exportAnkiCards('all')}
+            onClick={() => io.exportAnkiCards('all')}
             title="전체 3문장 요약·오답을 Anki import용 .txt 카드 초안으로"
           >
             🃏 요약·오답 → 카드(.txt)

@@ -1,5 +1,4 @@
-/* CommandPalette 스타일 — legacy/style.css의 테마 토큰(var)을 참조해 테마 자동 대응.
-   Phase 3에서 토큰 레이어(styles/tokens.css)로 정식 이관 예정. */
+/* CommandPalette 스타일 — styles/tokens.css의 테마 토큰(var)을 참조해 테마 자동 대응. */
 .overlay {
   position: fixed;
   inset: 0;

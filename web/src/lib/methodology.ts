@@ -163,9 +163,6 @@ export function backlogClosedBetween(state: AppState, fromDs?: string, toDs?: st
 }
 
 /* ── 주간 리뷰(10절) — 키: 그 주 월요일 ISO ── */
-export function weeklyKey(d?: Date): string {
-  return iso(mondayOf(d || new Date()));
-}
 export function getWeekly(state: AppState, wk: string): Weekly {
   state.weekly = state.weekly || {};
   return state.weekly[wk] || { checks: {}, note: '' };

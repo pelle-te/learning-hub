@@ -167,7 +167,6 @@ export const AppStateSchema = z
   })
   .passthrough();
 
-export type Theme_ = Theme;
 export type Chapter = z.infer<typeof ChapterSchema>;
 export type Item = z.infer<typeof ItemSchema>;
 export type RoutineBlock = z.infer<typeof RoutineBlockSchema>;

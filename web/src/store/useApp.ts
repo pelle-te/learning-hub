@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { setAutoFreeze } from 'immer';
-import { boot, defaults, persist, setDone } from '@/lib/persistence';
+import { boot, persist, setDone } from '@/lib/persistence';
 import { idbMirror } from '@/lib/idb';
 import { storage } from '@/lib/kv';
 import * as M from '@/lib/methodology';
@@ -39,10 +39,6 @@ export interface AppStore {
     conf?: boolean,
   ) => void;
   setBlankResult: (ds: string, sid: string, name: string, passed: boolean, note: string, chapter: string) => void;
-  /** 전체 초기화 — 호출부가 백업 후 호출(되돌리기). */
-  reset: () => void;
-  /** 저장소에서 다시 부팅(가져오기/복구 후). */
-  reload: () => void;
 }
 
 export const useApp = create<AppStore>()(
@@ -107,17 +103,6 @@ export const useApp = create<AppStore>()(
           M.setBlankResult(s.state, ds, sid, name, passed, note, chapter);
         });
         schedulePersist();
-      },
-      reset() {
-        set((s) => {
-          s.state = defaults();
-        });
-        schedulePersist();
-      },
-      reload() {
-        set((s) => {
-          s.state = boot(storage);
-        });
       },
     };
   }),

@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
-import { ui, legacyFns } from '@/shell';
+import { ui, io } from '@/shell';
 import {
   summariesFor,
   addSummary,
@@ -154,7 +154,7 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
           sm
           variant="ghost"
           style={{ marginLeft: 8 }}
-          onClick={() => legacyFns.exportAnkiCards('today')}
+          onClick={() => io.exportAnkiCards('today')}
           title="오늘 요약·오답을 Anki import용 .txt 카드 초안으로"
         >
           🃏 오늘 → Anki 카드(.txt)
@@ -163,7 +163,7 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
           sm
           variant="ghost"
           style={{ marginLeft: 6 }}
-          onClick={() => legacyFns.exportSummaryNotes('today')}
+          onClick={() => io.exportSummaryNotes('today')}
           title="오늘 요약을 옵시디언용 마크다운 노트(.md)로 — 카드(인출)에 이은 연결용"
         >
           📓 오늘 → 노트(.md)

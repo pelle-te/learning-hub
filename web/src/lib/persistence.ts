@@ -176,14 +176,6 @@ export function persist(storage: KV, state: AppState): string {
   return json;
 }
 
-export function hasCorrupt(storage: KV): boolean {
-  try {
-    return !!storage.getItem(CORRUPT_KEY);
-  } catch {
-    return false;
-  }
-}
-
 /* ── 실행 추적: 그 날 그 과목의 학습/복습/Anki를 '완료'로 기록 ── */
 export function compMap(state: AppState, ds: string): Record<string, CompletionEntry> {
   state.completions = state.completions || {};
