@@ -7,7 +7,7 @@
 ============================================================ */
 import { z } from 'zod';
 
-export const ThemeSchema = z.enum(['light', 'dark', 'sepia']);
+export const ThemeSchema = z.enum(['light', 'dark']);
 export type Theme = z.infer<typeof ThemeSchema>;
 
 export const ChapterSchema = z.object({

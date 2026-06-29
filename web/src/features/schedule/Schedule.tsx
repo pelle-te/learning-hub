@@ -27,6 +27,7 @@ import {
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import { computeDay, type Row, type DayData } from '@/lib/scheduleView';
+import { WeekGrid } from './WeekGrid';
 import type { SessionType } from '@/lib/types';
 
 const TAG: Record<SessionType, { cls: string; label: string }> = {
@@ -293,7 +294,8 @@ export default function Schedule() {
     const ti = parts.findIndex((p) => p.isToday);
     sel = ti >= 0 ? ti : 0;
   }
-  const maxRef = Math.max(1, ...parts.map((p) => Math.max(p.studyMin, p.used)));
+  // 줄마다 마감 플래그 — 그날이 마감인 과목명(네온 위크-그리드에 표시).
+  const deadlines = parts.map((p) => state.items.filter((it) => it.deadline === p.ds).map((it) => it.name));
 
   return (
     <>
@@ -351,38 +353,7 @@ export default function Schedule() {
         </div>
       ) : (
         <div>
-          <div className={ds.wkstrip} role="tablist" aria-label="요일 선택">
-            {parts.map((p, k) => {
-              const doneFrac = Math.round((p.doneMinTot / maxRef) * 100);
-              const usedFrac = Math.round((p.used / maxRef) * 100);
-              const remFrac = Math.max(0, usedFrac - doneFrac);
-              const remColor = p.used > p.studyMin + 1 ? 'var(--bad)' : 'var(--acc)';
-              return (
-                <button
-                  key={p.ds}
-                  className={`${ds.wkcol}${k === sel ? ' ' + ds.sel : ''}${p.isToday ? ' ' + ds.today : ''}`}
-                  role="tab"
-                  aria-selected={k === sel}
-                  onClick={() => setSelDow(k)}
-                  data-tip={`${DOW_MON[k]} ${fmtShort(p.date)} · 배정 ${(p.used / 60).toFixed(1)}h`}
-                >
-                  <span className={ds.wd}>
-                    {DOW_MON[k]}
-                    {p.isToday && <span className={ds.wkdot} />}
-                  </span>
-                  <span className={ds.dd}>{p.date.getDate()}</span>
-                  <span className={ds.colBar}>
-                    <i style={{ height: `${doneFrac}%`, background: 'var(--good)' }} />
-                    <i style={{ height: `${remFrac}%`, background: remColor }} />
-                  </span>
-                  <span className={ds.colH}>
-                    {(p.used / 60).toFixed(1)}
-                    <span className={ds.colSub}>h</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <WeekGrid parts={parts} sel={sel} onSelect={setSelDow} nowMin={nowMin} dows={DOW_MON} deadlines={deadlines} />
           <DayCard d={parts[sel]!} k={sel} agenda />
         </div>
       )}

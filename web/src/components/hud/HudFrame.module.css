@@ -1,0 +1,46 @@
+/* ============================================================
+   HudFrame — 노치 코너 HUD 프레임(설계도 §1-2). 페이지 본문 컨테이너.
+   딥블랙 위 얇은 헤어라인 보더 + 좌상/우하 모서리를 깎은 clip-path(레이싱 텔레메트리 결).
+   내부는 자체 스크롤(셸은 100vh 고정 — 프레임만 흐른다).
+============================================================ */
+.frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+  /* 노치: 좌상단·우하단 22px 사선 컷(데모 v6). clip-path가 보더까지 깎아 HUD 단면을 만든다. */
+  clip-path: polygon(22px 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%, 0 22px);
+  overflow: hidden;
+}
+
+/* 내부 스크롤러 — 프레임은 고정, 콘텐츠만 흐른다. 패딩으로 본문 여백 확보. */
+.scroll {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px 26px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* 모바일: 노치·프레임 보더를 접고 단일 컬럼으로(반응형은 Phase D에서 정교화). */
+@media (max-width: 700px) {
+  .frame {
+    border: none;
+    clip-path: none;
+    background: none;
+  }
+  .scroll {
+    padding: 12px 14px 24px;
+  }
+}

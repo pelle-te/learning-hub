@@ -1,14 +1,54 @@
-/* SubTabs — 섹션 세그먼트 래퍼. .seg 자체는 ds.module이 소유, 여기선 배치·아이콘 정렬만. */
+/* ============================================================
+   SubTabs(Segmented) — 흡수 탭의 '페이지 안 섹션' 세그먼트(설계도 §1-2: Segmented).
+   HUD 스타일(각진 헤어라인 세그먼트, 활성=네온 칩). 호스트 탭(스케줄·기록·통계) 상단에 떠서
+   형제 섹션(가용시간·졸업/리뷰/숙달도)으로 전환.
+============================================================ */
 .wrap {
-  margin: 0 0 16px;
+  margin: 0 0 18px;
 }
-/* 세그 버튼에 아이콘+라벨 정렬(ds.seg button은 기본 inline) */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--panel) 50%, transparent);
+}
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  border: none;
+  border-right: 1px solid var(--line2);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 15px;
+  color: var(--mut);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
-.btn .ic {
+.btn:last-child {
+  border-right: none;
+}
+.btn :global(.ic) {
   width: 14px;
   height: 14px;
+}
+.btn:hover {
+  color: var(--ink);
+  background: var(--panel2);
+}
+.btn.on {
+  color: var(--acc);
+  background: var(--acc-soft);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
 }

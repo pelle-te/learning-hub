@@ -7,7 +7,6 @@
 import { useNavigate } from 'react-router-dom';
 import { subTabGroupOf, Icon } from '@/shell';
 import { prefetchTab } from '@/features/registry';
-import ds from '@/styles/ds.module.css';
 import s from './SubTabs.module.css';
 
 export default function SubTabs({ tabKey }: { tabKey: string }) {
@@ -17,14 +16,14 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
 
   return (
     <div className={s.wrap}>
-      <div className={ds.seg} role="group" aria-label="페이지 섹션">
+      <div className={s.seg} role="group" aria-label="페이지 섹션">
         {group.map((t) => {
           const active = t.key === tabKey;
           return (
             <button
               key={t.key}
               type="button"
-              className={`${s.btn}${active ? ' ' + ds.on : ''}`}
+              className={`${s.btn}${active ? ' ' + s.on : ''}`}
               aria-current={active ? 'page' : undefined}
               onMouseEnter={() => prefetchTab(t.key)}
               onFocus={() => prefetchTab(t.key)}

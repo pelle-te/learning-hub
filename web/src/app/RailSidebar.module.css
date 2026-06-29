@@ -1,0 +1,135 @@
+/* ============================================================
+   RailSidebar — 60px 아이콘 레일(설계도 §1-2). 1차 탭을 평면 아이콘 리스트로.
+   활성 = 네온 글로우. hover 시 우측 플라이아웃 라벨(레이아웃 시프트 없음).
+   현 2단 Nav(.nav/.navparent/.navchild) 대체.
+============================================================ */
+.rail {
+  grid-row: 1 / -1;
+  height: 100vh;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 0 14px;
+  border-right: 1px solid var(--line2);
+  background: var(--bg);
+  z-index: var(--z-nav);
+}
+
+/* 워드마크 로고 — 네온 칩. */
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--acc);
+  color: var(--on-acc);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+  box-shadow: 0 0 24px -4px var(--glow);
+  flex: none;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* 아이콘 버튼 — 라인 아이콘, 활성=네온 칩. */
+.item {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mut);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    color 0.16s var(--ease),
+    background 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.item :global(.ic) {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.7;
+}
+.item:hover {
+  color: var(--ink);
+  background: var(--panel2);
+}
+.item.on {
+  color: var(--acc);
+  background: var(--acc-soft);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+}
+.item:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+/* hover 플라이아웃 라벨 — 아이콘 우측에 떠오름(레일 폭은 그대로). */
+.label {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 6px 11px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.14s var(--ease),
+    transform 0.14s var(--ease);
+  z-index: var(--z-dropdown);
+}
+.item:hover .label,
+.item:focus-visible .label {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* 모바일: 레일을 하단 고정 탭바로 전환(엄지 도달 영역). 반응형 정교화는 Phase D. */
+@media (max-width: 700px) {
+  .rail {
+    grid-row: auto;
+    position: fixed;
+    inset: auto 0 0 0;
+    top: auto;
+    flex-direction: row;
+    width: auto;
+    height: auto;
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-right: none;
+    border-top: 1px solid var(--line);
+    justify-content: space-around;
+    z-index: var(--z-dropdown);
+  }
+  .logo,
+  .spacer {
+    display: none;
+  }
+  .item {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .label {
+    display: none;
+  }
+}

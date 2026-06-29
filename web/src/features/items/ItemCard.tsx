@@ -4,6 +4,7 @@ import { memo, useCallback } from 'react';
 import { iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, Pill, type PillTone } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
+import c from './ItemCard.module.css';
 import type { AppState, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
 
@@ -77,9 +78,9 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps)
   })();
 
   return (
-    <div className={`${ds.card} ${ds.itemrow}${open ? ' ' + ds.open : ''}`}>
+    <div className={`${c.row}${open ? ' ' + c.open : ''}`}>
       <div
-        className={ds.itemhead}
+        className={c.head}
         role="button"
         tabIndex={0}
         aria-expanded={open}
@@ -91,31 +92,42 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps)
           }
         }}
       >
-        <span className={ds.chev}>{open ? '▾' : '▸'}</span>
-        <span className={ds.swatch} style={{ background: item.color, width: 13, height: 13 }} />
-        <span className={ds.itemname}>{item.name || <span className={ds.muted}>(이름 없음)</span>}</span>
-        <span className={ds.itemmeta}>
-          <Pill tiny>{daily ? `매일 ${item.dailyMin || 30}분` : `주 ${item.weeklyHours || 0}h`}</Pill>
-          {!daily && (
-            <span className={`${ds.muted} ${ds.tiny}`}>
-              {chs.length}챕터·~{totalH}h
+        <span className={c.colorRail} style={{ background: item.color || 'var(--acc)' }} />
+        <span className={`${c.name}${item.name ? '' : ' ' + c.nameEmpty}`}>{item.name || '(이름 없음)'}</span>
+        <span className={c.spacer} />
+        <span className={c.meta}>
+          {daily ? (
+            <span className={c.hrs}>
+              매일 {item.dailyMin || 30}
+              <small> 분</small>
             </span>
-          )}
-          {!daily && chs.length > 0 && (
-            <span
-              className={ds.minibar}
-              data-tip={`완료 챕터 ${doneCh}/${chs.length}`}
-              role="img"
-              aria-label={`완료 챕터 ${doneCh}/${chs.length}`}
-            >
-              <i style={{ width: `${prog}%`, background: item.color }} />
-            </span>
+          ) : (
+            <>
+              <span
+                className={c.chWrap}
+                role="img"
+                aria-label={`완료 챕터 ${doneCh}/${chs.length}`}
+                data-tip={`완료 챕터 ${doneCh}/${chs.length} · 약 ${totalH}h`}
+              >
+                <span className={c.chBar}>
+                  <i style={{ width: `${prog}%` }} />
+                </span>
+                <span className={c.chTxt}>
+                  <b>{doneCh}</b>/{chs.length} 챕터
+                </span>
+              </span>
+              <span className={c.hrs}>
+                주 {item.weeklyHours || 0}
+                <small> h</small>
+              </span>
+            </>
           )}
           {item.deadline && (
             <Pill tiny tone={ddTone}>
               {ddayInfo(dayDiff(iso(new Date()), item.deadline)).lab}
             </Pill>
           )}
+          <span className={c.chev}>{open ? '▾' : '▸'}</span>
         </span>
       </div>
 

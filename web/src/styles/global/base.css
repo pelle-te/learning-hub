@@ -9,10 +9,8 @@ body {
   margin: 0;
   color: var(--txt);
   background: var(--bg);
-  /* 은은한 광원 — 우상단/좌하단의 부드러운 그라데이션으로 깊이감 */
-  background-image:
-    radial-gradient(1100px 620px at 88% -8%, var(--acc-soft), transparent 60%),
-    radial-gradient(900px 560px at -6% 108%, color-mix(in srgb, var(--acc2) 12%, transparent), transparent 60%);
+  /* 단일 네온 광원(에디토리얼) — 우상단 한 점만 은은히. 다색 글로우 폐기(설계도 §0-1). */
+  background-image: radial-gradient(1100px 640px at 92% -10%, var(--acc-soft), transparent 58%);
   background-attachment: fixed;
   font-family: var(--font-sans);
   font-size: 15px;

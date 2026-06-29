@@ -31,10 +31,9 @@ test('React 셸이 마운트되고 today(React화) 탭 + 나브 + 팔레트 버�
   // today는 Phase 3에서 React화 → 레거시 #page 대신 React 컨텐츠(대시보드 히어로).
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
 
-  // React Nav: 상위 그룹 탭(계획/자료/기록·분석)이 렌더된다.
-  // (이름은 정확 일치 — '계획'은 '졸업 계획' 하위탭과 부분일치하므로.)
-  expect(screen.getByRole('tab', { name: '계획' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: '자료' })).toBeInTheDocument();
+  // React 레일 사이드바: 1차 탭(오늘 학습/주간 스케줄/학습 항목…)을 평면 리스트로 노출.
+  expect(screen.getByRole('tab', { name: '오늘 학습' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: '학습 항목' })).toBeInTheDocument();
 
   // 헤더 ⌘K 버튼이 있다(팔레트 진입점).
   expect(screen.getByRole('button', { name: /명령 팔레트 열기/ })).toBeInTheDocument();

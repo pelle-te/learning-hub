@@ -35,21 +35,21 @@ test('레거시 globalThis.state 브리지가 제거됐다(단일 원천=Zustand
   expect((globalThis as unknown as { state?: unknown }).state).toBeUndefined();
 });
 
-test('네이티브 나브: 그룹 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
+test('네이티브 레일 나브: 주요 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
   const { container } = renderApp('/today');
-  // '계획'은 정확 일치(하위탭 '졸업 계획'과 부분일치 회피).
-  await waitFor(() => expect(screen.getByRole('tab', { name: '계획' })).toBeInTheDocument());
-  expect(screen.getByRole('tab', { name: /기록·분석/ })).toBeInTheDocument();
+  // 레일 사이드바는 1차 탭을 평면 리스트로 노출(그룹 계층 폐기). 라벨 정확 일치.
+  await waitFor(() => expect(screen.getByRole('tab', { name: '주간 스케줄' })).toBeInTheDocument());
+  expect(screen.getByRole('tab', { name: '통계' })).toBeInTheDocument();
   // 아이콘은 dangerouslySetInnerHTML로 주입한 인라인 svg.ic.
   expect(container.querySelectorAll('svg.ic').length).toBeGreaterThan(0);
 });
 
-test('테마 토글: <html data-theme> 순환 + 토스트', async () => {
+test('테마 토글: <html data-theme> 다크↔라이트 + 토스트', async () => {
   renderApp('/today');
   const btn = await screen.findByRole('button', { name: /테마 전환/ });
-  fireEvent.click(btn); // light → sepia
-  await waitFor(() => expect(document.documentElement.getAttribute('data-theme')).toBe('sepia'));
-  expect(useApp.getState().state.theme).toBe('sepia');
+  fireEvent.click(btn); // light → dark (세피아 폐기 — 2테마 토글)
+  await waitFor(() => expect(document.documentElement.getAttribute('data-theme')).toBe('dark'));
+  expect(useApp.getState().state.theme).toBe('dark');
   // 네이티브 토스트가 떴다.
   await waitFor(() => expect(screen.getByText(/테마:/)).toBeInTheDocument());
 });
@@ -71,7 +71,7 @@ test('확인 모달: 전체 초기화 → 취소하면 데이터가 유지된다
     ];
   });
   renderApp('/today');
-  fireEvent.click(await screen.findByRole('button', { name: '⋯ 메뉴' }));
+  fireEvent.click(await screen.findByRole('button', { name: '데이터·백업 메뉴' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: /전체 초기화/ }));
   // 네이티브 모달이 열린다.
   await screen.findByText(/모든 데이터를 지울까요/);

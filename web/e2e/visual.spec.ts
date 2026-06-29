@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-/* 비주얼 회귀 — 앱상태 탭들을 라이트/다크/세피아 3테마로 스크린샷.
+/* 비주얼 회귀 — 앱상태 탭들을 다크(기본)/라이트 2테마로 스크린샷(에디토리얼 다크 리디자인·세피아 폐기).
    결정성: ① 고정 시드(localStorage) ② 고정 시각(page.clock) — '오늘'·D-day·스트릭이 날짜에 안 흔들리게.
    첫 실행은 `npm run e2e:update`로 베이스라인 생성, 이후 `npm run e2e`로 회귀 비교. */
 
@@ -92,7 +92,7 @@ const TABS = [
   'integrations',
   'review',
 ];
-const THEMES = ['light', 'dark', 'sepia'] as const;
+const THEMES = ['dark', 'light'] as const;
 
 async function boot(page: Page, theme: string) {
   await page.clock.install({ time: FIXED });
@@ -113,11 +113,11 @@ for (const theme of THEMES) {
     test(`${tab} · ${theme}`, async ({ page }) => {
       await boot(page, theme);
       await page.goto('/' + tab);
-      await expect(page.locator('.wrap')).toBeVisible();
+      await expect(page.locator('#main')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       // lazy 탭 청크가 로드돼 실제 콘텐츠가 그려질 때까지 대기(Suspense 폴백/스켈레톤이 아니라
-      // 진짜 화면을 캡처). 탭 본문은 h2 또는 aria-label 섹션을 가짐(헤더 h1·나브엔 없음).
-      await expect(page.locator('.wrap h2, .wrap section[aria-label]').first()).toBeVisible();
+      // 진짜 화면을 캡처). 탭 본문은 h2 또는 aria-label 섹션을 가짐(TopBar h1·레일엔 없음).
+      await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
       await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
     });
   }

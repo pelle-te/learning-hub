@@ -2,13 +2,12 @@ import { test, expect } from '@playwright/test';
 
 /* 스모크 — 실제 빌드물(dist)에서 셸·나브·라우팅·팔레트·폴백이 동작하는지(베이스라인 불필요). */
 
-test('앱이 뜨고 네이티브 나브로 탭 이동 + ⌘K 팔레트가 열린다', async ({ page }) => {
+test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', async ({ page }) => {
   await page.goto('/today');
   await expect(page.getByLabel('오늘 대시보드')).toBeVisible();
 
-  // 2단 나브: 그룹 → 하위 탭으로 통계 이동.
-  await page.getByRole('tab', { name: /기록·분석/ }).click();
-  await page.getByRole('tab', { name: /통계/ }).click();
+  // 레일 사이드바: 1차 탭(통계)으로 직접 이동.
+  await page.getByRole('tab', { name: '통계' }).click();
   await expect(page).toHaveURL(/\/stats$/);
 
   // ⌘K 명령 팔레트.
@@ -17,11 +16,12 @@ test('앱이 뜨고 네이티브 나브로 탭 이동 + ⌘K 팔레트가 열린
   await page.keyboard.press('Escape');
 });
 
-test('테마 토글이 <html data-theme>를 바꾼다', async ({ page }) => {
+test('테마 토글이 <html data-theme>를 바꾼다(다크 기본 → 라이트)', async ({ page }) => {
   await page.goto('/today');
+  // 시드 없는 신규 부팅 → 다크 기본(에디토리얼 다크, 세피아 폐기).
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.getByRole('button', { name: '테마 전환' }).click(); // dark → light
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await page.getByRole('button', { name: '테마 전환' }).click(); // light → sepia
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'sepia');
 });
 
 test('외부 탭(제어판)이 로드되고 연결상태(연결/오프라인)를 표시한다', async ({ page }) => {

@@ -152,15 +152,15 @@ export async function restoreFromIDB(): Promise<void> {
   toast('IndexedDB 백업에서 복구했어요.', 'ok', 4000);
 }
 
-const THEME_CYCLE: Theme[] = ['dark', 'light', 'sepia'];
-const THEME_LABEL: Record<Theme, string> = { dark: '다크', light: '라이트', sepia: '세피아' };
-/** 테마 순환(다크 → 라이트 → 세피아). */
+const THEME_CYCLE: Theme[] = ['dark', 'light'];
+const THEME_LABEL: Record<Theme, string> = { dark: '다크', light: '라이트' };
+/** 테마 토글(다크 ↔ 라이트). 에디토리얼 다크가 기본, 라이트는 대안 1종(세피아 폐기). */
 export function toggleTheme(): void {
-  const cur = st().state.theme || 'light';
+  const cur = st().state.theme || 'dark';
   const next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length] || 'dark';
   setThemeTo(next);
 }
-/** 특정 테마로 직접 전환(팔레트의 '다크/라이트/세피아 모드' 명령). */
+/** 특정 테마로 직접 전환(팔레트의 '다크/라이트 모드' 명령). */
 export function setThemeTo(t: Theme): void {
   st().setTheme(t);
   toast('테마: ' + (THEME_LABEL[t] || t), 'info', 1600);

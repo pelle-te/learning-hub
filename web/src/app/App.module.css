@@ -1,38 +1,48 @@
-/* Phase 0 최소 스타일(CSS Modules 패턴 시드). 토큰 레이어·테마는 Phase 3에서. */
+/* ============================================================
+   App.module.css — 풀폭 HUD 셸 레이아웃(설계도 §1-3).
+   중앙 1200px .wrap 박스 폐기 → [60px 레일 | 1fr 본문] 그리드, 본문 100vh 고정.
+   레일·TopBar는 고정, HudFrame 내부만 스크롤(레이싱 텔레메트리 결).
+============================================================ */
 .shell {
-  max-width: 720px;
-  margin: 3rem auto;
-  padding: 0 1.25rem;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
-  color: #1a1a1a;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  height: 100vh;
 }
 
-.sub {
-  color: #666;
-  font-size: 0.9rem;
+/* 본문 컬럼 — TopBar(고정) + main(흐름). */
+.col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.card {
-  margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid #e2e2e2;
-  border-radius: 12px;
-  background: #fafafa;
+/* main — HudFrame을 감싸는 거터. TopBar의 26px 좌우 패딩과 정렬. */
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 0 26px 26px;
+}
+.main:focus {
+  outline: none;
 }
 
-.card h2 {
-  margin-top: 0;
-  font-size: 1rem;
-}
-
-.ok {
-  color: #0a7c2f;
-}
-
-.warn {
-  color: #b35900;
+/* 모바일: 레일을 하단 고정 탭바로(반응형 정교화는 Phase D). 셸은 일반 흐름. */
+@media (max-width: 700px) {
+  .shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+  .col {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    padding-bottom: 64px;
+  }
+  .main {
+    padding: 0 12px 24px;
+  }
 }

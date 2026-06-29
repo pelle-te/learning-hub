@@ -1,0 +1,110 @@
+/* ============================================================
+   TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
+   워드마크(스택) + 컨텍스트 서브 + 우측 액션 칩(⌘K·테마·⋯ 메뉴).
+   페이지별 컨텍스트 리드아웃(진행률·연속·마감)은 Phase B에서 Readout으로 주입.
+============================================================ */
+.bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+  padding: 22px 26px 16px;
+  flex: none;
+  /* ⋯ 메뉴 드롭다운이 HudFrame 위에 뜨도록 자체 스택 컨텍스트. */
+  position: relative;
+  z-index: var(--z-dropdown);
+}
+
+/* 워드마크 — 스택 대문자, '허브'는 네온. */
+.wordmark {
+  font-weight: 900;
+  font-size: 21px;
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+.wordmark span {
+  display: block;
+}
+.wordmark .accent {
+  color: var(--acc);
+  text-shadow: 0 0 20px var(--glow);
+}
+.sub {
+  font-size: 12px;
+  color: var(--mut);
+  line-height: 1.4;
+  margin-top: 7px;
+  letter-spacing: 0.01em;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* 우측 액션 영역 — 리드아웃 슬롯(Phase B) + 칩 버튼들. */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+}
+
+/* HUD 칩 버튼 — 각진 헤어라인. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.btn :global(.ic) {
+  width: 16px;
+  height: 16px;
+}
+.btn:hover {
+  background: var(--panel2);
+  border-color: color-mix(in srgb, var(--acc) 32%, var(--line));
+}
+.btn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+/* 정사각 아이콘 전용 버튼(테마·설정·메뉴). */
+.icon {
+  padding: 0;
+  width: 34px;
+}
+
+.menuwrap {
+  position: relative;
+}
+
+@media (max-width: 700px) {
+  .bar {
+    gap: 12px;
+    padding: 14px 14px 10px;
+  }
+  .sub {
+    display: none;
+  }
+  .btn {
+    min-height: 40px;
+  }
+  .icon {
+    width: 40px;
+  }
+}

@@ -29,10 +29,9 @@ function baseCommands(): PaletteCommand[] {
       run: () => window.dispatchEvent(new CustomEvent('lh:open-shortcuts')),
     },
     // 테마
-    { id: 'act:theme', kind: 'act', label: '테마 전환(순환)', hint: '설정', run: A.toggleTheme },
+    { id: 'act:theme', kind: 'act', label: '테마 전환(다크↔라이트)', hint: '설정', run: A.toggleTheme },
     { id: 'act:theme-dark', kind: 'act', label: '다크 모드', hint: '테마', run: () => A.setThemeTo('dark') },
     { id: 'act:theme-light', kind: 'act', label: '라이트 모드', hint: '테마', run: () => A.setThemeTo('light') },
-    { id: 'act:theme-sepia', kind: 'act', label: '세피아 모드', hint: '테마', run: () => A.setThemeTo('sepia') },
     // 내보내기
     { id: 'act:ics', kind: 'act', label: '캘린더(.ics) 내보내기', hint: '내보내기', run: A.exportICS },
     {

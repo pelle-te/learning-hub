@@ -43,23 +43,20 @@ test('나브 하위탭: ArrowRight로 다음 탭 자동 활성(today → schedul
   );
 });
 
-test('나브 하위탭: End로 그룹의 마지막 탭으로 이동', async () => {
+test('레일 나브: End로 마지막 1차 탭(통계)으로 이동', async () => {
   renderApp('/today');
   const today = await screen.findByRole('tab', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'End' });
-  // 계획 그룹의 가시 탭은 이제 today·schedule뿐(routine·degree는 섹션 세그먼트로 흡수·숨김) → 마지막은 '주간 스케줄'.
-  await waitFor(() =>
-    expect(screen.getByRole('tab', { name: /주간 스케줄/ })).toHaveAttribute('aria-selected', 'true'),
-  );
+  // 레일은 1차 탭(숨김 제외) 평면 리스트: today·schedule·items·integrations·journal·stats → 마지막은 '통계'.
+  await waitFor(() => expect(screen.getByRole('tab', { name: /통계/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
-test('나브 그룹: ArrowRight로 다음 구역 활성(계획 → 자료)', async () => {
+test('레일 나브: ArrowLeft가 첫 탭에서 마지막(통계)으로 순환', async () => {
   renderApp('/today');
-  // '계획'은 정확 일치(하위탭 '졸업 계획'과 부분일치 회피).
-  const plan = await screen.findByRole('tab', { name: '계획' });
-  expect(plan).toHaveAttribute('aria-selected', 'true');
-  fireEvent.keyDown(plan, { key: 'ArrowRight' });
-  await waitFor(() => expect(screen.getByRole('tab', { name: /자료/ })).toHaveAttribute('aria-selected', 'true'));
+  const today = await screen.findByRole('tab', { name: /오늘 학습/ });
+  expect(today).toHaveAttribute('aria-selected', 'true');
+  fireEvent.keyDown(today, { key: 'ArrowLeft' });
+  await waitFor(() => expect(screen.getByRole('tab', { name: /통계/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
 test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → stats)', async () => {

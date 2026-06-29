@@ -52,8 +52,10 @@ describe('ChapterSchema / RoutineBlockSchema', () => {
 });
 
 describe('ThemeSchema / CompletionsSchema', () => {
-  it('테마는 세 값만 허용', () => {
+  it('테마는 두 값(light·dark)만 허용 — 세피아 폐기', () => {
     expect(ThemeSchema.safeParse('dark').success).toBe(true);
+    expect(ThemeSchema.safeParse('light').success).toBe(true);
+    expect(ThemeSchema.safeParse('sepia').success).toBe(false);
     expect(ThemeSchema.safeParse('neon').success).toBe(false);
   });
   it('completions는 ds→(sid|type)→{done,min} 중첩 레코드', () => {

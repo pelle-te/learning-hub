@@ -1,0 +1,139 @@
+/* ============================================================
+   ItemCard(Roster) — 학습 항목 로스터 행(설계도 §2 학습항목 시그니처).
+   레이싱 그리드 결: 과목명 대형 + 색 레일 + 챕터 진행 네온 바 + 주당 h + 마감.
+   행 클릭 → 펼쳐서 챕터 에디터(본문은 공유 ds.* 유지).
+============================================================ */
+.row {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+.row:hover {
+  border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
+}
+.row.open {
+  border-color: color-mix(in srgb, var(--acc) 50%, var(--line));
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+
+.head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 18px 15px 22px;
+  cursor: pointer;
+  user-select: none;
+}
+.head:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+/* 좌측 색 레일 — 과목 정체성. */
+.colorRail {
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+
+.name {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  min-width: 0;
+  max-width: 44%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nameEmpty {
+  color: var(--mut);
+  font-weight: 700;
+}
+.spacer {
+  flex: 1;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 챕터 진행 네온 바 */
+.chWrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.chBar {
+  width: 116px;
+  height: 6px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+.chBar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+  transition: width 0.4s var(--ease);
+}
+.chTxt {
+  font-size: 12px;
+  color: var(--mut);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+}
+.chTxt b {
+  color: var(--ink);
+}
+
+/* 주당/매일 시간 */
+.hrs {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hrs small {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 600;
+}
+
+.chev {
+  color: var(--mut);
+  font-size: 12px;
+  width: 14px;
+  text-align: center;
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .name {
+    font-size: 18px;
+    max-width: 38%;
+  }
+  .chBar {
+    width: 64px;
+  }
+  .chTxt {
+    display: none;
+  }
+}

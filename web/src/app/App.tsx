@@ -2,16 +2,18 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
-import Header from '@/app/Header';
-import Nav from '@/app/Nav';
+import TopBar from '@/app/TopBar';
+import RailSidebar from '@/app/RailSidebar';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
 import SubTabs from '@/app/SubTabs';
 import ShortcutsHelp from '@/components/ShortcutsHelp';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
+import { HudFrame } from '@/components/hud';
 import { SkeletonCard, Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
+import s from './App.module.css';
 
 /** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시. */
 function isTyping(): boolean {
@@ -109,41 +111,46 @@ export default function App() {
   }, []);
 
   return (
-    <div className="wrap">
+    <div className={s.shell}>
       {/* 스크린리더/키보드 사용자가 매 탭마다 네비를 통과하지 않도록 본문으로 바로 점프(포커스 전엔 시각 숨김). */}
       <a href="#main" className="skip-link">
         본문 바로가기
       </a>
-      <Header onOpenPalette={() => setPaletteOpen(true)} />
-      <Nav />
-      {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
-      <main id="main" tabIndex={-1}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/today" replace />} />
-          {tabs.map((t) => {
-            const ReactTab = getReactTab(t.key);
-            return (
-              <Route
-                key={t.key}
-                path={'/' + t.key}
-                element={
-                  <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
-                    <SubTabs tabKey={t.key} />
-                    {ReactTab ? (
-                      <Suspense fallback={<SkeletonCard />}>
-                        <ReactTab />
-                      </Suspense>
-                    ) : (
-                      <div className={ds.card}>알 수 없는 탭: {t.key}</div>
-                    )}
-                  </ErrorBoundary>
-                }
-              />
-            );
-          })}
-          <Route path="*" element={<Navigate to="/today" replace />} />
-        </Routes>
-      </main>
+      <RailSidebar />
+      {/* 본문 컬럼 — TopBar(고정) + 라우트 본문(HudFrame 안에서 흐름). */}
+      <div className={s.col}>
+        <TopBar onOpenPalette={() => setPaletteOpen(true)} />
+        {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
+        <main id="main" tabIndex={-1} className={s.main}>
+          <HudFrame>
+            <Routes>
+              <Route path="/" element={<Navigate to="/today" replace />} />
+              {tabs.map((t) => {
+                const ReactTab = getReactTab(t.key);
+                return (
+                  <Route
+                    key={t.key}
+                    path={'/' + t.key}
+                    element={
+                      <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
+                        <SubTabs tabKey={t.key} />
+                        {ReactTab ? (
+                          <Suspense fallback={<SkeletonCard />}>
+                            <ReactTab />
+                          </Suspense>
+                        ) : (
+                          <div className={ds.card}>알 수 없는 탭: {t.key}</div>
+                        )}
+                      </ErrorBoundary>
+                    }
+                  />
+                );
+              })}
+              <Route path="*" element={<Navigate to="/today" replace />} />
+            </Routes>
+          </HudFrame>
+        </main>
+      </div>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <OnlineStatus />

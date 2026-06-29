@@ -1,0 +1,292 @@
+/* ============================================================
+   TodaySignature — 오늘 탭 시그니처(설계도 §2 오늘 · 데모 v6).
+   회전 스파인 | 스탯 리드아웃 | 발광 트랙(+다음 콜아웃+주간 미니트랙). 하단 라인 스트립.
+============================================================ */
+.sigWrap {
+  display: block;
+  margin-bottom: 18px;
+}
+.sig {
+  display: grid;
+  grid-template-columns: 90px 232px minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+}
+.sig > div {
+  padding: 22px;
+}
+
+/* ── 회전 스파인 — 한글은 똑바로(vertical-rl) ── */
+.spine {
+  border-right: 1px solid var(--line2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.kickerTag {
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--acc);
+  font-weight: 800;
+  text-shadow: 0 0 16px var(--glow);
+}
+.subjName {
+  writing-mode: vertical-rl;
+  font-weight: 900;
+  font-size: 44px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--ink);
+  overflow: hidden;
+  max-height: 100%;
+}
+.clock {
+  font-size: 13px;
+  color: var(--mut);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 스탯 리드아웃 컬럼 ── */
+.stats {
+  border-right: 1px solid var(--line2);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.cta {
+  margin-top: auto;
+  padding-top: 6px;
+}
+.ctaBtn {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--acc);
+  border-radius: 7px;
+  background: var(--acc);
+  color: var(--on-acc);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 0 28px -6px var(--glow);
+  font-family: inherit;
+  transition:
+    transform 0.12s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.ctaBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 36px -4px var(--glow);
+}
+.ctaBtn:active {
+  transform: translateY(0);
+}
+.ctaGhost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.ctaGhost:hover {
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+  box-shadow: none;
+}
+
+/* ── 트랙 컬럼 ── */
+.track {
+  display: flex;
+  flex-direction: column;
+}
+.trackHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.trackHead .t {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.now {
+  font-size: 12px;
+  color: var(--acc);
+  font-weight: 800;
+  text-shadow: 0 0 16px var(--glow);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.next {
+  margin: 12px 0 16px;
+  font-size: 14px;
+  color: var(--mut);
+  line-height: 1.5;
+}
+.next b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.arr {
+  color: var(--acc);
+  font-weight: 800;
+  margin-right: 8px;
+}
+.trackEmpty {
+  display: grid;
+  place-items: center;
+  min-height: 132px;
+  color: var(--mut);
+  font-size: 13px;
+  text-align: center;
+  border: 1px dashed var(--line2);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+/* ── 주간 미니트랙 ── */
+.week {
+  display: flex;
+  gap: 9px;
+  align-items: flex-end;
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--line2);
+}
+.wlab {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  align-self: center;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.wd {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.wbar {
+  width: 100%;
+  height: 42px;
+  display: flex;
+  align-items: flex-end;
+}
+.wbar i {
+  width: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  transition: height 0.35s var(--ease);
+  min-height: 2px;
+}
+.wd.todayCol .wbar i {
+  background: var(--acc);
+  box-shadow: 0 0 14px var(--glow);
+}
+.wdd {
+  font-size: 10px;
+  color: var(--mut);
+}
+.wd.todayCol .wdd {
+  color: var(--acc);
+  font-weight: 800;
+}
+
+/* ── 하단 라인 스트립 ── */
+.strip {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 2px 4px 0;
+}
+.grp {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+}
+.grpL {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tag {
+  font-size: 13px;
+  font-weight: 800;
+  border: none;
+  background: none;
+  font-family: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tag b {
+  color: var(--acc);
+}
+.tagMut {
+  color: var(--mut);
+  cursor: default;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.vline {
+  width: 1px;
+  height: 24px;
+  background: var(--line2);
+}
+
+@media (max-width: 860px) {
+  .sig {
+    grid-template-columns: 1fr;
+  }
+  .spine {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 16px;
+    border-right: none;
+    border-bottom: 1px solid var(--line2);
+  }
+  .kickerTag,
+  .subjName {
+    writing-mode: horizontal-tb;
+  }
+  .subjName {
+    font-size: 34px;
+  }
+  .stats {
+    border-right: none;
+    border-bottom: 1px solid var(--line2);
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 18px 28px;
+    align-items: flex-start;
+  }
+  .cta {
+    margin-top: 0;
+    flex-basis: 100%;
+  }
+}

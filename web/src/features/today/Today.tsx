@@ -11,11 +11,11 @@ import ds from '@/styles/ds.module.css';
 import t from './Today.module.css';
 import type { Ritual } from '@/lib/types';
 import { SetupGuide } from './SetupGuide';
-import { TodayHero } from './TodayHero';
+import { TodaySignature } from './TodaySignature';
 import { TodayBlocks } from './TodayBlocks';
 import { BLOCK_STAGES, PRINCIPLES } from './consts';
 
-/** 일일 의식(아침 계획·저녁 셧다운) — 핵심 통계는 TodayHero가 보여주고, 여기선 의식 체크만. */
+/** 일일 의식(아침 계획·저녁 셧다운) — 핵심 통계는 TodaySignature가 보여주고, 여기선 의식 체크만. */
 function RitualCard() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -102,7 +102,7 @@ export default function Today() {
   return (
     <>
       <SetupGuide />
-      <TodayHero />
+      <TodaySignature />
       <TodayBlocks />
       <RitualCard />
       <FlowGuide />

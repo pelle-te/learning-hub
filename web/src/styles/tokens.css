@@ -1,19 +1,27 @@
 /* ============================================================
-   tokens.css — 테마 토큰 레이어(전역·단일 원천, 설계도 §2)
+   tokens.css — 테마 토큰 레이어(전역·단일 원천, 에디토리얼 다크 리디자인 설계도 §1-1)
    ── 무엇 ──────────────────────────────────────────────────
-   라이트(기본) + 다크 + 세피아의 CSS 변수만 정의한다. 색/반경/그림자/이징.
+   다크(기본) + 라이트 에디토리얼 2테마의 CSS 변수만 정의한다. 색/반경/그림자/이징/네온.
    ThemeProvider가 <html data-theme>를 토글하면 이 변수들이 통째로 바뀐다.
    React 컴포넌트(*.module.css)는 var(--*)로만 색을 참조 → 테마 자동 대응.
 
+   ── 디자인 언어 ───────────────────────────────────────────
+   순백 검정 + 단일 네온(인디고-바이올렛). 캔버스는 딥 블랙(--bg), 액센트는 단 하나(--acc)
+   + 발광(--glow). 둥근 글래스 폐기 → 얇은 헤어라인(--line/--line2) + 노치 HUD 프레임.
+   기본 테마 = 다크. 라이트는 에디토리얼 대안 1종(세피아 폐기).
+
    ── 왜 별도 파일인가 ──────────────────────────────────────
-   토큰을 *별도 파일*로 분리해, 어떤 스타일 파일이 바뀌어도 테마 토큰이 단일 원천으로 남게 한다.
+   토큰을 별도 파일로 분리해, 어떤 스타일 파일이 바뀌어도 테마 토큰이 단일 원천으로 남게 한다.
    styles/global/*.css·*.module.css 모두 이 변수만 참조한다(드리프트 없음).
 
-   변수명은 일부 인라인 스타일이 참조하므로 보존:
+   변수명 보존(일부 인라인 스타일·기존 모듈이 참조):
      --bg --bg2 --panel --panel2 --line --line-soft --txt --mut
-     --acc --acc2 --warn --bad --good --on-acc
+     --acc --acc2 --warn --bad --good --on-acc --violet
      --acc-soft --acc-glow --hairline --shadow-{sm,md,lg}
      --r --r-lg --r-md --r-sm --ease
+   신규(에디토리얼 다크):
+     --ink(=txt 별칭) --glow(강한 네온) --line2(=line-soft 별칭)
+     --fs-spine --fs-readout --fs-stat (HUD 디스플레이 스케일)
 ============================================================ */
 
 /* ── 비테마 스케일(단일 원천) — 간격·타이포·스태킹 ──────────────────
@@ -57,6 +65,10 @@
   /* 위계용 큰 스케일 — 히어로 제목·디스플레이 숫자. "제일 큰 픽셀 = 제일 중요한 행동". */
   --fs-hero: 30px;
   --fs-display: 44px;
+  /* HUD 에디토리얼 디스플레이 스케일(설계도 §1-1) — 회전 스파인·리드아웃·스탯. */
+  --fs-spine: 72px;
+  --fs-readout: 40px;
+  --fs-stat: 30px;
 
   --z-nav: 20;
   --z-dropdown: 40;
@@ -67,40 +79,45 @@
   --z-palette-top: 1001;
 }
 
-/* ── 다크 모드(opt-in) — 깊은 잉크 블랙 + 밝은 인디고 ── */
+/* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──
+   :root 기본값 = 다크 → JS 부팅 전에도 다크로 렌더(FOUC 방지). data-theme='dark'도 동일. */
+:root,
 :root[data-theme='dark'] {
-  --bg: #0b0d12;
-  --bg2: #0e1117;
-  --panel: #14171f;
-  --panel2: #1b1f29;
-  --line: #262b37;
-  --line-soft: #1e222c;
-  --txt: #e7eaf1;
-  --mut: #9aa6b8;
-  --acc: #8b87f5;
+  --bg: #050506;
+  --bg2: #0a0b0d;
+  --panel: #0e0f13;
+  --panel2: #16171c;
+  --line: rgba(255, 255, 255, 0.13);
+  --line-soft: rgba(255, 255, 255, 0.07);
+  --line2: rgba(255, 255, 255, 0.07);
+  --txt: #f4f5f7;
+  --ink: #f4f5f7;
+  /* muted — 딥블랙 위 WCAG AA(>4.5:1) 충족하도록 상향(데모 #767a85 → 밝게). */
+  --mut: #9298a4;
+  --acc: #9b8cff;
   --acc2: #5fd9bd;
   --warn: #ffb454;
   --bad: #ff6b6b;
   --good: #62d28c;
   --violet: #b794f6;
-  --on-acc: #06101f;
+  --on-acc: #0a0a12;
 
-  --acc-soft: rgba(139, 135, 245, 0.16);
-  --acc-glow: rgba(139, 135, 245, 0.34);
-  --hairline: rgba(255, 255, 255, 0.05);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 6px 22px -8px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 18px 50px -20px rgba(0, 0, 0, 0.65);
+  --acc-soft: rgba(155, 140, 255, 0.14);
+  --acc-glow: rgba(155, 140, 255, 0.4);
+  --glow: rgba(155, 140, 255, 0.55);
+  --hairline: rgba(255, 255, 255, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 30px -10px rgba(0, 0, 0, 0.62);
+  --shadow-lg: 0 24px 60px -22px rgba(0, 0, 0, 0.72);
 
-  --r: 14px;
-  --r-lg: 18px;
-  --r-md: 11px;
-  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 16px;
+  --r-md: 10px;
+  --r-sm: 7px;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* ── 라이트 모드(기본) — 흰 캔버스 · 인디고 브랜드 · 또렷한 그림자 한 겹 ── */
-:root,
+/* ── 라이트 모드(에디토리얼 대안) — 흰 캔버스 · 인디고-바이올렛 브랜드 · 또렷한 그림자 한 겹 ── */
 :root[data-theme='light'] {
   --bg: #fafbfc;
   --bg2: #f1f3f6;
@@ -108,9 +125,11 @@
   --panel2: #f4f6fa;
   --line: #e6e8ee;
   --line-soft: #eef0f4;
-  --txt: #1a1d24;
-  --mut: #697586;
-  --acc: #5b5bd6;
+  --line2: #eef0f4;
+  --txt: #16181f;
+  --ink: #16181f;
+  --mut: #5d6675;
+  --acc: #6a5bd6;
   --acc2: #0ea371;
   --warn: #b26b00;
   --bad: #dc2626;
@@ -118,42 +137,17 @@
   --violet: #7c5cdb;
   --on-acc: #ffffff;
 
-  --acc-soft: rgba(91, 91, 214, 0.08);
-  --acc-glow: rgba(91, 91, 214, 0.2);
+  --acc-soft: rgba(106, 91, 214, 0.08);
+  --acc-glow: rgba(106, 91, 214, 0.22);
+  --glow: rgba(106, 91, 214, 0.32);
   --hairline: rgba(255, 255, 255, 0.85);
   --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
   --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);
   --shadow-lg: 0 22px 50px -22px rgba(20, 22, 45, 0.18);
 
-  --r: 14px;
-  --r-lg: 18px;
-  --r-md: 11px;
-  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 16px;
+  --r-md: 10px;
+  --r-sm: 7px;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-/* ── 세피아 모드(opt-in) — 따뜻한 종이 톤·저블루 ── */
-:root[data-theme='sepia'] {
-  --bg: #f1e7d6;
-  --bg2: #e9dcc6;
-  --panel: #fdf9f1;
-  --panel2: #f1e8d7;
-  --line: #e1d3b9;
-  --line-soft: #ebe0cb;
-  --txt: #3a2f23;
-  --mut: #7e6d56;
-  --acc: #a8662a;
-  --acc2: #3f8f6b;
-  --warn: #b9760c;
-  --bad: #c0492f;
-  --good: #3f8f6b;
-  --violet: #8a6fc0;
-  --on-acc: #fff;
-
-  --acc-soft: rgba(181, 116, 42, 0.12);
-  --acc-glow: rgba(181, 116, 42, 0.26);
-  --hairline: rgba(255, 255, 255, 0.5);
-  --shadow-sm: 0 1px 2px rgba(80, 60, 30, 0.1);
-  --shadow-md: 0 8px 24px -10px rgba(80, 60, 30, 0.2);
-  --shadow-lg: 0 20px 50px -22px rgba(80, 60, 30, 0.26);
 }

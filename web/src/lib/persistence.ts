@@ -33,7 +33,7 @@ export function defaults(): AppState {
   });
   return {
     schemaVersion: SCHEMA_VERSION,
-    theme: 'light', // 라이트 기본(긴 글 가독성·브랜드 인디고)
+    theme: 'dark', // 다크 기본(에디토리얼 다크 리디자인 — 단일 네온·딥블랙)
     completions: {}, // { '2026-06-23': { 'sid|type': {done:true, min:90} } }
     startDate: iso(t),
     moduleLen: 120, // 모듈(공부 슬롯) 분 — 기본 2시간
@@ -100,6 +100,7 @@ export function migrate(input: unknown): AppState | null {
   const d = defaults();
   s.schemaVersion = SCHEMA_VERSION;
   if (s.theme == null) s.theme = d.theme;
+  if (s.theme !== 'light' && s.theme !== 'dark') s.theme = d.theme; // 폐기된 세피아 등 → 다크로 정규화
   if (s.completions == null || typeof s.completions !== 'object') s.completions = {};
   if (s.dayOverrides == null) s.dayOverrides = {};
   /* 학습방법론 실행 레이어 보강 */
