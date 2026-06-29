@@ -7,11 +7,12 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { storage } from '@/lib/kv';
 import { idbMirror } from '@/lib/idb';
-import { bootUI, persistUI, pushRecent, type SchedView, type UIState } from '@/lib/uiState';
+import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
 
 export interface UIStore {
   ui: UIState;
   setSchedView: (v: SchedView) => void;
+  setAccent: (a: Accent) => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
 }
@@ -30,6 +31,12 @@ export const useUI = create<UIStore>()(
       setSchedView(v) {
         set((s) => {
           s.ui.schedView = v;
+        });
+        flush();
+      },
+      setAccent(a) {
+        set((s) => {
+          s.ui.accent = a;
         });
         flush();
       },

@@ -155,6 +155,27 @@ for (const theme of THEMES) {
   }
 }
 
+// 액센트 노브 — UI설정(lh_ui_v1) accent를 바꾸면 네온이 통째로 교체되는지(--acc 파생 cascade).
+test('stats · accent-lime', async ({ page }) => {
+  await page.clock.install({ time: FIXED });
+  await page.addInitScript(
+    ([seed]) => {
+      try {
+        localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: 'dark' }));
+        localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'overview', accent: 'lime', recentCommands: [] }));
+      } catch {
+        /* noop */
+      }
+    },
+    [SEED] as const,
+  );
+  await page.goto('/stats');
+  await expect(page.locator('#main')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'lime');
+  await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+  await expect(page).toHaveScreenshot('stats-accent-lime.png', { fullPage: true });
+});
+
 // 반응형(모바일 390px) — 레일이 하단 탭바로, 시그니처 보드가 단일 컬럼으로 스택되는지(가로 넘침 없이).
 const MOBILE = { width: 390, height: 844 };
 const TABS_MOBILE = ['today', 'schedule', 'stats', 'routine'];

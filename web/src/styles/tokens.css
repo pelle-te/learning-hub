@@ -102,9 +102,10 @@
   --violet: #b794f6;
   --on-acc: #0a0a12;
 
-  --acc-soft: rgba(155, 140, 255, 0.14);
-  --acc-glow: rgba(155, 140, 255, 0.4);
-  --glow: rgba(155, 140, 255, 0.55);
+  /* 액센트 파생 — --acc 하나만 바꾸면 soft/glow가 따라옴(액센트 노브 지원). 기존 rgba와 픽셀 동일. */
+  --acc-soft: color-mix(in srgb, var(--acc) 14%, transparent);
+  --acc-glow: color-mix(in srgb, var(--acc) 40%, transparent);
+  --glow: color-mix(in srgb, var(--acc) 55%, transparent);
   --hairline: rgba(255, 255, 255, 0.06);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 8px 30px -10px rgba(0, 0, 0, 0.62);
@@ -137,9 +138,9 @@
   --violet: #7c5cdb;
   --on-acc: #ffffff;
 
-  --acc-soft: rgba(106, 91, 214, 0.08);
-  --acc-glow: rgba(106, 91, 214, 0.22);
-  --glow: rgba(106, 91, 214, 0.32);
+  --acc-soft: color-mix(in srgb, var(--acc) 8%, transparent);
+  --acc-glow: color-mix(in srgb, var(--acc) 22%, transparent);
+  --glow: color-mix(in srgb, var(--acc) 32%, transparent);
   --hairline: rgba(255, 255, 255, 0.85);
   --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
   --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);
@@ -150,4 +151,31 @@
   --r-md: 10px;
   --r-sm: 7px;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ── 액센트 노브 — data-accent로 네온 색을 교체(soft/glow는 --acc에서 파생).
+   기본(violet)=data-accent 없음. 각 프리셋은 테마별 --acc + 대비용 --on-acc만 지정. ── */
+:root[data-accent='lime'] {
+  --acc: #b6f23a;
+  --on-acc: #0e1605;
+}
+:root[data-theme='light'][data-accent='lime'] {
+  --acc: #4d7c0f;
+  --on-acc: #ffffff;
+}
+:root[data-accent='cyan'] {
+  --acc: #4dd9e8;
+  --on-acc: #04141a;
+}
+:root[data-theme='light'][data-accent='cyan'] {
+  --acc: #0e7490;
+  --on-acc: #ffffff;
+}
+:root[data-accent='amber'] {
+  --acc: #ffb454;
+  --on-acc: #1a1206;
+}
+:root[data-theme='light'][data-accent='amber'] {
+  --acc: #b45309;
+  --on-acc: #ffffff;
 }

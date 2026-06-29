@@ -12,8 +12,8 @@ describe('bootUI — 부팅/복원', () => {
   });
   it('저장된 UIState를 그대로 읽는다', () => {
     const kv = memKV();
-    persistUI(kv, { schedView: 'cards', recentCommands: ['a', 'b'] });
-    expect(bootUI(kv)).toEqual({ schedView: 'cards', recentCommands: ['a', 'b'] });
+    persistUI(kv, { schedView: 'cards', accent: 'lime', recentCommands: ['a', 'b'] });
+    expect(bootUI(kv)).toEqual({ schedView: 'cards', accent: 'lime', recentCommands: ['a', 'b'] });
   });
   it('손상된 JSON은 기본값으로 폴백(throw 없음)', () => {
     const kv = memKV();
@@ -32,7 +32,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
     const kv = memKV();
     kv.setItem('sched_view', 'cards');
     kv.setItem('lh_recent_cmds', JSON.stringify(['x', 'y']));
-    expect(bootUI(kv)).toEqual({ schedView: 'cards', recentCommands: ['x', 'y'] });
+    expect(bootUI(kv)).toEqual({ schedView: 'cards', accent: 'violet', recentCommands: ['x', 'y'] });
   });
   it('흡수 후 persist하면 구 키는 정리되고 단일 키만 남는다', () => {
     const kv = memKV();
@@ -53,9 +53,22 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
 describe('persistUI — 왕복', () => {
   it('persist→boot 왕복이 동일 상태를 보존하고 JSON을 반환한다', () => {
     const kv = memKV();
-    const json = persistUI(kv, { schedView: 'overview', recentCommands: ['cmd'] });
-    expect(JSON.parse(json)).toEqual({ schedView: 'overview', recentCommands: ['cmd'] });
-    expect(bootUI(kv)).toEqual({ schedView: 'overview', recentCommands: ['cmd'] });
+    const json = persistUI(kv, { schedView: 'overview', accent: 'cyan', recentCommands: ['cmd'] });
+    expect(JSON.parse(json)).toEqual({ schedView: 'overview', accent: 'cyan', recentCommands: ['cmd'] });
+    expect(bootUI(kv)).toEqual({ schedView: 'overview', accent: 'cyan', recentCommands: ['cmd'] });
+  });
+});
+
+describe('accent — 액센트 노브 영속', () => {
+  it('기본 액센트는 violet', () => {
+    expect(defaultUI().accent).toBe('violet');
+  });
+  it('저장된 액센트를 읽고, 잘못된 값은 기본 violet으로 폴백', () => {
+    const kv = memKV();
+    persistUI(kv, { schedView: 'overview', accent: 'amber', recentCommands: [] });
+    expect(bootUI(kv).accent).toBe('amber');
+    kv.setItem(UI_KEY, JSON.stringify({ schedView: 'overview', accent: 'turbo', recentCommands: [] }));
+    expect(bootUI(kv).accent).toBe('violet'); // 스키마 미스 → 전체 기본값 폴백
   });
 });
 

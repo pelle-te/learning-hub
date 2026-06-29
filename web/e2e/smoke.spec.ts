@@ -27,8 +27,8 @@ test('테마 토글이 <html data-theme>를 바꾼다(다크 기본 → 라이�
 test('외부 탭(제어판)이 로드되고 연결상태(연결/오프라인)를 표시한다', async ({ page }) => {
   await page.goto('/control');
   await expect(page.getByRole('heading', { name: /시스템 제어판/ })).toBeVisible();
-  // serve.js 가동 여부에 따라 '연결됨' 또는 오프라인 폴백 — 둘 중 하나는 떠야 한다(연결성과 무관한 스모크).
-  await expect(
-    page.locator('text=serve.js 연결됨').or(page.getByText('제어판을 켜려면 serve.js로 띄우세요')),
-  ).toBeVisible({ timeout: 15000 });
+  // serve.js 가동 여부에 따라 'serve.js ONLINE' 상태 리드아웃 또는 오프라인 폴백 — 둘 중 하나는 떠야 한다(연결성 무관 스모크).
+  await expect(page.getByText('serve.js ONLINE').or(page.getByText('제어판을 켜려면 serve.js로 띄우세요'))).toBeVisible(
+    { timeout: 15000 },
+  );
 });

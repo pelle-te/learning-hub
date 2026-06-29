@@ -10,10 +10,16 @@ import type { KV } from './types';
 export const SchedViewSchema = z.enum(['overview', 'cards']);
 export type SchedView = z.infer<typeof SchedViewSchema>;
 
+/** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
+export const AccentSchema = z.enum(['violet', 'lime', 'cyan', 'amber']);
+export type Accent = z.infer<typeof AccentSchema>;
+export const ACCENTS: Accent[] = ['violet', 'lime', 'cyan', 'amber'];
+
 export const RECENT_MAX = 6; // 팔레트 최근 명령 LRU 길이
 
 export const UIStateSchema = z.object({
   schedView: SchedViewSchema.default('overview'),
+  accent: AccentSchema.default('violet'),
   recentCommands: z.array(z.string()).default([]),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
@@ -24,7 +30,7 @@ const LEGACY_VIEW = 'sched_view';
 const LEGACY_RECENT = 'lh_recent_cmds';
 
 export function defaultUI(): UIState {
-  return { schedView: 'overview', recentCommands: [] };
+  return { schedView: 'overview', accent: 'violet', recentCommands: [] };
 }
 
 /** 저장된 UI 설정을 읽는다. 신규 키가 없으면 구 산재 키를 1회 흡수하고, 손상 시 기본값. */

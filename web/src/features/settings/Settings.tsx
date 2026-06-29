@@ -5,11 +5,22 @@
    백업/내보내기/복구/아카이빙은 부수효과가 본질이라 shell/io로 위임(설계도 §3).
 ============================================================ */
 import { useApp } from '@/store/useApp';
+import { useUI } from '@/store/useUI';
 import { ui, io } from '@/shell';
 import { dataSizeKB, recordCount } from '@/lib/methodology';
+import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState } from '@/lib/types';
+
+/** 액센트 스와치 미리보기색(테마 무관 대표 네온) + 라벨. tokens.css [data-accent] 프리셋과 1:1. */
+const ACC_PREVIEW: Record<Accent, string> = {
+  violet: '#9b8cff',
+  lime: '#b6f23a',
+  cyan: '#4dd9e8',
+  amber: '#ffb454',
+};
+const ACC_LABEL: Record<Accent, string> = { violet: '바이올렛', lime: '라임', cyan: '시안', amber: '앰버' };
 
 /** 최근 백업 경과일(state._lastBackupAt) — 렌더 전용(변형 없음). */
 function lastBackupDays(at?: string): number | null {
@@ -23,6 +34,8 @@ function lastBackupDays(at?: string): number | null {
 export default function Settings() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
+  const accent = useUI((s) => s.ui.accent);
+  const setAccent = useUI((s) => s.setAccent);
 
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
   const set = <K extends keyof AppState>(k: K, v: AppState[K]) => mutate((st) => void ((st as AppState)[k] = v));
@@ -49,6 +62,53 @@ export default function Settings() {
         </h2>
         <div className={`${ds.tiny} ${ds.muted}`}>
           요일별 가용시간·수업·일과 편집은 <b>가용시간·수업·일과</b> 탭(계획)에 있어요.
+        </div>
+      </div>
+
+      <div className={ds.card}>
+        <h2>
+          테마 · 액센트{' '}
+          <span className={`${ds.muted} ${ds.tiny}`}>— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
+        </h2>
+        <div className={ds.row} style={{ gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+          {ACCENTS.map((a) => (
+            <button
+              key={a}
+              type="button"
+              aria-pressed={accent === a}
+              aria-label={`액센트 ${ACC_LABEL[a]}`}
+              onClick={() => setAccent(a)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 13px',
+                borderRadius: 10,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontWeight: 700,
+                fontSize: 13,
+                color: 'var(--ink)',
+                border: `1px solid ${accent === a ? 'var(--acc)' : 'var(--line)'}`,
+                background: accent === a ? 'var(--acc-soft)' : 'transparent',
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 5,
+                  background: ACC_PREVIEW[a],
+                  boxShadow: `0 0 8px ${ACC_PREVIEW[a]}`,
+                }}
+              />
+              {ACC_LABEL[a]}
+            </button>
+          ))}
+        </div>
+        <div className={ds.foot}>
+          액센트는 이 기기에 저장돼요(데이터와 별개). 발광·강조·진행 바 전체에 즉시 반영됩니다.
         </div>
       </div>
 
