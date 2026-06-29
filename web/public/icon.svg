@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="러닝 허브">
+  <!-- maskable 안전영역 고려: 모티프를 가운데 ~70%에 배치 -->
+  <rect width="512" height="512" rx="112" fill="#5b5bd6"/>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6d6ef0"/>
+      <stop offset="1" stop-color="#4b46c4"/>
+    </linearGradient>
+  </defs>
+  <!-- 펼친 책 -->
+  <g fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 168 C 220 144, 176 140, 140 150 L 140 348 C 176 338, 220 342, 256 366 C 292 342, 336 338, 372 348 L 372 150 C 336 140, 292 144, 256 168 Z" fill="rgba(255,255,255,0.10)"/>
+    <path d="M256 168 L 256 366"/>
+    <path d="M170 196 C 196 190, 224 192, 246 204" opacity="0.85"/>
+    <path d="M170 246 C 196 240, 224 242, 246 254" opacity="0.7"/>
+    <path d="M342 196 C 316 190, 288 192, 266 204" opacity="0.85"/>
+    <path d="M342 246 C 316 240, 288 242, 266 254" opacity="0.7"/>
+  </g>
+  <!-- 학사모 태슬 점 -->
+  <circle cx="256" cy="138" r="14" fill="#5fd9bd"/>
+</svg>

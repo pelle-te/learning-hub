@@ -1,0 +1,67 @@
+/* Stats.module.css — 통계 탭 전용 스트릭 히트맵(GitHub식 잔디). 다른 feature와 공유 안 함.
+   공유 클래스(card/kpi/tl/pill/bar/swatch/muted/tiny/foot)는 ds.module이 소유.
+   하이픈명은 camelCase로(hm-wrap→hmWrap, hm-l0→hmL0). 값은 원본 features.css와 동일. */
+.hmWrap {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+.hmDow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--mut);
+  flex: none;
+}
+.hmDow span {
+  height: 13px;
+  line-height: 13px;
+}
+.hmGrid {
+  display: flex;
+  gap: 3px;
+}
+.hmCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hmC {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: var(--panel2);
+  border: 1px solid var(--line-soft);
+  flex: none;
+}
+.hmFuture {
+  opacity: 0.25;
+}
+.hmL0 {
+  background: var(--panel2);
+}
+.hmL1 {
+  background: color-mix(in srgb, var(--acc) 28%, var(--panel2));
+}
+.hmL2 {
+  background: color-mix(in srgb, var(--acc) 50%, var(--panel2));
+}
+.hmL3 {
+  background: color-mix(in srgb, var(--acc) 72%, var(--panel2));
+}
+.hmL4 {
+  background: var(--acc);
+}
+.hmLegend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+.hmLegend .hmC {
+  width: 11px;
+  height: 11px;
+}

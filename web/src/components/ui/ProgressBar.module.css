@@ -1,0 +1,16 @@
+/* ProgressBar — 진행 막대. 레거시 .bar 룩 계승. */
+.bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--panel2);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--acc);
+  transition: width 0.4s var(--ease);
+}

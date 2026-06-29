@@ -1,0 +1,74 @@
+/* Mastery.module.css — 숙달도 지도 탭 전용 스타일. 다른 feature와 공유 안 함.
+   공유 클래스(card/chip/muted/tiny/foot/row/kpi)는 ds.module이 소유. 값은 원본 features.css와 동일. */
+.msbar {
+  display: flex;
+  height: 14px;
+  border-radius: 99px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  background: var(--panel2);
+}
+.msbar > div {
+  height: 100%;
+}
+i.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.mssub {
+  margin: 10px 0;
+}
+.msheat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 5px;
+}
+.mscell {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  cursor: default;
+  transition: transform 0.1s;
+}
+.mscell:hover {
+  transform: scale(1.5);
+  outline: 1px solid var(--txt);
+}
+.mscell.fr {
+  box-shadow: 0 0 0 1.5px var(--acc);
+}
+.mslist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.msrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+.msrow:hover {
+  background: var(--panel2);
+}
+.msrow .nm {
+  font-size: 0.92em;
+}
+.msdot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  font-size: 0.7em;
+  color: #fff;
+  flex: none;
+}

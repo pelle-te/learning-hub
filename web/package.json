@@ -1,0 +1,68 @@
+{
+  "name": "learning-hub-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "러닝 허브 React 이전 셸 (Phase 1 — lib 이식 + zod + 스토어)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc -b --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"test/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"test/**/*.{ts,tsx}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage",
+    "e2e": "playwright test",
+    "e2e:update": "playwright test --update-snapshots",
+    "e2e:smoke": "playwright test smoke"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "cmdk": "^1.1.1",
+    "immer": "^10.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-error-boundary": "^6.1.2",
+    "react-router-dom": "^7.18.0",
+    "zod": "^3.24.1",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.61.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.9",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^9.17.0",
+    "eslint-import-resolver-typescript": "^3.7.0",
+    "eslint-plugin-boundaries": "^5.0.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^29.1.1",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.9.1",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vite": "^6.0.5",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.8"
+  }
+}

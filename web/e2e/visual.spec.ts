@@ -1,0 +1,124 @@
+import { test, expect, type Page } from '@playwright/test';
+
+/* 비주얼 회귀 — 앱상태 탭들을 라이트/다크/세피아 3테마로 스크린샷.
+   결정성: ① 고정 시드(localStorage) ② 고정 시각(page.clock) — '오늘'·D-day·스트릭이 날짜에 안 흔들리게.
+   첫 실행은 `npm run e2e:update`로 베이스라인 생성, 이후 `npm run e2e`로 회귀 비교. */
+
+const FIXED = new Date('2026-06-15T09:00:00');
+
+// validShape 충족 최소 시드(나머지 필드는 migrate가 채움). 차트가 보이게 챕터·완료·마감 포함.
+const SEED = {
+  schemaVersion: 3,
+  theme: 'light',
+  startDate: '2026-06-01',
+  moduleLen: 120,
+  reviewRatio: 20,
+  completions: {
+    '2026-06-13': { 'm|new': { done: true, min: 120 } },
+    '2026-06-14': { 'm|new': { done: true, min: 90 } },
+  },
+  items: [
+    {
+      id: 'm',
+      source: '직접',
+      name: '미적분',
+      color: '#4f8ff0',
+      mode: 'weekly',
+      weeklyHours: 6,
+      dailyMin: 30,
+      deadline: '2026-08-15',
+      chapters: [
+        { id: 'c1', name: '극한', hours: 3, done: true },
+        { id: 'c2', name: '미분', hours: 4, done: false },
+      ],
+    },
+    {
+      id: 'p',
+      source: '직접',
+      name: '일반물리',
+      color: '#1eb5a3',
+      mode: 'weekly',
+      weeklyHours: 4,
+      dailyMin: 30,
+      deadline: '',
+      chapters: [{ id: 'c3', name: '역학', hours: 5, done: false }],
+    },
+  ],
+  routine: [
+    { id: 'r1', name: '수면', type: '수면', start: '00:00', end: '07:00', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'r2', name: '수업', type: '수업', start: '09:00', end: '12:00', days: [1, 3] },
+  ],
+  cbms: [
+    {
+      id: 'e1',
+      ds: '2026-06-13',
+      sid: 'm',
+      name: '미적분',
+      chapter: '극한',
+      code: 'C',
+      note: '정의 혼동',
+      conf: false,
+    },
+  ],
+  degree: {
+    targetTotal: 130,
+    reqMajorReq: 60,
+    reqMajorSel: 30,
+    reqLiberal: 30,
+    semesters: [
+      {
+        id: 's1',
+        name: '2026-1학기',
+        courses: [
+          { id: 'co1', name: '미적분학', credits: 3, category: '전공필수', status: '완료', grade: 'A+' },
+          { id: 'co2', name: '일반물리', credits: 3, category: '전공필수', status: '수강중', grade: '' },
+        ],
+      },
+    ],
+  },
+};
+
+const TABS = [
+  'today',
+  'schedule',
+  'items',
+  'journal',
+  'degree',
+  'stats',
+  'routine',
+  'settings',
+  'mastery',
+  'control',
+  'integrations',
+  'review',
+];
+const THEMES = ['light', 'dark', 'sepia'] as const;
+
+async function boot(page: Page, theme: string) {
+  await page.clock.install({ time: FIXED });
+  await page.addInitScript(
+    ([seed, th]) => {
+      try {
+        localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: th }));
+      } catch {
+        /* noop */
+      }
+    },
+    [SEED, theme] as const,
+  );
+}
+
+for (const theme of THEMES) {
+  for (const tab of TABS) {
+    test(`${tab} · ${theme}`, async ({ page }) => {
+      await boot(page, theme);
+      await page.goto('/' + tab);
+      await expect(page.locator('.wrap')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      // lazy 탭 청크가 로드돼 실제 콘텐츠가 그려질 때까지 대기(Suspense 폴백/스켈레톤이 아니라
+      // 진짜 화면을 캡처). 탭 본문은 h2 또는 aria-label 섹션을 가짐(헤더 h1·나브엔 없음).
+      await expect(page.locator('.wrap h2, .wrap section[aria-label]').first()).toBeVisible();
+      await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
+    });
+  }
+}

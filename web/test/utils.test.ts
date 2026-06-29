@@ -1,0 +1,190 @@
+/* ============================================================
+   utils.test.ts — 순수 유틸 함수 회귀(Vitest). 날짜·시간 변환은 TZ에 민감하고
+   여러 탭(오늘·통계·스케줄·캘린더)이 공유하므로, 경계값을 고정해 드리프트를 막는다.
+============================================================ */
+import { describe, expect, it } from 'vitest';
+import {
+  addDays,
+  clamp,
+  dayDiff,
+  ddayInfo,
+  esc,
+  fmt,
+  fmtShort,
+  hLabel,
+  iso,
+  itemById,
+  jsq,
+  masteryColor,
+  mondayOf,
+  parseISO,
+  toHM,
+  toMin,
+  todayISO,
+  weekLabel,
+} from '@/lib/utils';
+import type { AppState } from '@/lib/types';
+
+describe('iso / parseISO — 로컬 날짜(UTC 밀림 방지)', () => {
+  it('iso는 로컬 연·월·일을 0패딩해 YYYY-MM-DD로 만든다', () => {
+    expect(iso(new Date(2026, 0, 5))).toBe('2026-01-05'); // 1월=0, 한 자리 월/일 패딩
+    expect(iso(new Date(2026, 11, 31))).toBe('2026-12-31');
+  });
+  it('자정 직후에도 날짜가 전날로 밀리지 않는다(로컬 기준)', () => {
+    expect(iso(new Date(2026, 5, 29, 0, 30))).toBe('2026-06-29');
+  });
+  it('parseISO ∘ iso 왕복은 같은 날짜를 보존한다', () => {
+    const d = new Date(2026, 5, 29);
+    expect(iso(parseISO(iso(d)))).toBe('2026-06-29');
+  });
+});
+
+describe('todayISO — 오늘의 단일 출처', () => {
+  it('state._today가 있으면 그 시드를 그대로 쓴다', () => {
+    expect(todayISO({ _today: '2026-06-23' } as Pick<AppState, '_today'>)).toBe('2026-06-23');
+  });
+  it('시드가 없으면 실제 오늘(iso(new Date()))로 폴백한다', () => {
+    expect(todayISO(null)).toBe(iso(new Date()));
+    expect(todayISO()).toBe(iso(new Date()));
+  });
+});
+
+describe('addDays — 불변(원본 미변경)', () => {
+  it('양수·음수 이동이 정확하고 월 경계를 넘는다', () => {
+    expect(iso(addDays(new Date(2026, 5, 29), 3))).toBe('2026-07-02');
+    expect(iso(addDays(new Date(2026, 5, 1), -1))).toBe('2026-05-31');
+  });
+  it('원본 Date를 변형하지 않는다', () => {
+    const d = new Date(2026, 5, 29);
+    addDays(d, 10);
+    expect(iso(d)).toBe('2026-06-29');
+  });
+});
+
+describe('dayDiff — 일수 차(부호 포함)', () => {
+  it('미래는 양수, 과거는 음수, 같은 날은 0', () => {
+    expect(dayDiff('2026-06-23', '2026-06-29')).toBe(6);
+    expect(dayDiff('2026-06-29', '2026-06-23')).toBe(-6);
+    expect(dayDiff('2026-06-29', '2026-06-29')).toBe(0);
+  });
+  it('월·연 경계를 정확히 넘는다(DST 무관 반올림)', () => {
+    expect(dayDiff('2026-12-31', '2027-01-01')).toBe(1);
+  });
+});
+
+describe('toMin / toHM — 분↔HH:MM', () => {
+  it('toMin은 HH:MM을 분으로, 분 생략 시 0으로 본다', () => {
+    expect(toMin('09:30')).toBe(570);
+    expect(toMin('00:00')).toBe(0);
+    expect(toMin('9')).toBe(540); // 분 없는 입력
+    expect(toMin('23:59')).toBe(1439);
+  });
+  it('toHM은 분을 0패딩 HH:MM으로, 반올림한다', () => {
+    expect(toHM(570)).toBe('09:30');
+    expect(toHM(0)).toBe('00:00');
+    expect(toHM(1439)).toBe('23:59');
+    expect(toHM(89.6)).toBe('01:30'); // 반올림(90분)
+  });
+});
+
+describe('clamp', () => {
+  it('범위 안은 그대로, 밖은 경계로 자른다', () => {
+    expect(clamp(5, 0, 10)).toBe(5);
+    expect(clamp(-3, 0, 10)).toBe(0);
+    expect(clamp(99, 0, 10)).toBe(10);
+  });
+});
+
+describe('esc / jsq — 출력 이스케이프', () => {
+  it('esc는 HTML 5종(& < > " \')을 모두 엔티티화한다', () => {
+    expect(esc(`<a href="x" title='y'>&`)).toBe('&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;');
+  });
+  it('esc는 null/undefined를 빈 문자열로 처리한다', () => {
+    expect(esc(null)).toBe('');
+    expect(esc(undefined)).toBe('');
+  });
+  it('jsq는 백슬래시·작은따옴표·개행/CR을 차단한다', () => {
+    expect(jsq("a'b")).toBe("a\\'b");
+    expect(jsq('a\\b')).toBe('a\\\\b');
+    expect(jsq('a\nb\rc')).toBe('a bc');
+  });
+});
+
+describe('hLabel — 분→시간 표시', () => {
+  it('소수 첫째 자리로 반올림하고 h를 붙인다', () => {
+    expect(hLabel(120)).toBe('2h');
+    expect(hLabel(90)).toBe('1.5h');
+    expect(hLabel(100)).toBe('1.7h'); // 1.666… → 1.7
+  });
+});
+
+describe('mondayOf / weekLabel — 월요일 시작 주', () => {
+  it('주중 어느 요일이든 그 주 월요일 자정을 돌려준다', () => {
+    // 2026-06-29는 월요일
+    expect(iso(mondayOf(new Date(2026, 5, 29)))).toBe('2026-06-29');
+    // 일요일(2026-07-05)은 같은 주 월요일(06-29)로
+    expect(iso(mondayOf(new Date(2026, 6, 5)))).toBe('2026-06-29');
+    // 토요일(2026-07-04)도 06-29
+    expect(iso(mondayOf(new Date(2026, 6, 4)))).toBe('2026-06-29');
+  });
+  it('자정으로 정규화한다(시각 0)', () => {
+    const m = mondayOf(new Date(2026, 5, 29, 15, 30));
+    expect(m.getHours()).toBe(0);
+    expect(m.getMinutes()).toBe(0);
+  });
+  it('weekLabel은 월~일 범위를 M/D ~ M/D로 표기', () => {
+    expect(weekLabel(new Date(2026, 5, 29))).toBe('6/29 ~ 7/5');
+  });
+});
+
+describe('fmt / fmtShort', () => {
+  it('fmt는 M/D (요일), fmtShort는 M/D', () => {
+    const d = new Date(2026, 5, 29); // 월요일
+    expect(fmt(d)).toBe('6/29 (월)');
+    expect(fmtShort(d)).toBe('6/29');
+  });
+});
+
+describe('itemById', () => {
+  const state = {
+    items: [
+      { id: 'a', name: '수학' },
+      { id: 'b', name: '영어' },
+    ],
+  } as unknown as Pick<AppState, 'items'>;
+  it('id로 항목을 찾고, 없으면 undefined', () => {
+    expect(itemById(state, 'b')?.name).toBe('영어');
+    expect(itemById(state, 'zzz')).toBeUndefined();
+  });
+  it('items가 비어도 throw하지 않는다', () => {
+    expect(itemById({ items: [] } as unknown as Pick<AppState, 'items'>, 'a')).toBeUndefined();
+  });
+});
+
+describe('ddayInfo — 마감 라벨/강조색', () => {
+  it('당일은 D-DAY, 미래는 D-n, 과거는 D+n', () => {
+    expect(ddayInfo(0).lab).toBe('D-DAY');
+    expect(ddayInfo(5).lab).toBe('D-5');
+    expect(ddayInfo(-3).lab).toBe('D+3');
+  });
+  it('cls는 지남=bad, 임박(≤7)=warn, 여유=빈문자', () => {
+    expect(ddayInfo(-1).cls).toBe('bad');
+    expect(ddayInfo(0).cls).toBe('warn');
+    expect(ddayInfo(7).cls).toBe('warn');
+    expect(ddayInfo(8).cls).toBe('');
+  });
+});
+
+describe('masteryColor — 숙달도→색', () => {
+  it("kind가 'unknown'이면 데이터 없음(회색)", () => {
+    expect(masteryColor(0.9, 'unknown')).toContain('--line');
+  });
+  it('p가 낮으면 빨강 계열(h=0), 높으면 초록 계열(h=120)', () => {
+    expect(masteryColor(0)).toBe('hsl(0 62% 42%)');
+    expect(masteryColor(1)).toBe('hsl(120 62% 52%)');
+  });
+  it('범위 밖 p의 색상(h)은 0~120으로 클램프된다', () => {
+    expect(masteryColor(2)).toContain('hsl(120 '); // h가 120을 넘지 않음
+    expect(masteryColor(-1)).toContain('hsl(0 ');
+  });
+});

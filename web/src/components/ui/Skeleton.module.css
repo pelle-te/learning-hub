@@ -1,0 +1,33 @@
+/* Skeleton — 콘텐츠 로딩 자리표시(스켈레톤). 토큰 기반·테마 자동 대응.
+   탭 청크가 로드되는 짧은 순간 "불러오는 중…" 텍스트 대신 레이아웃 형태를 미리 보여줘
+   체감 지연을 줄이고 레이아웃 시프트를 막는다(Linear/Vercel급 로딩 UX). */
+.line {
+  --sk-base: color-mix(in srgb, var(--txt) 8%, var(--panel));
+  --sk-hi: color-mix(in srgb, var(--txt) 14%, var(--panel));
+  height: 13px;
+  border-radius: var(--r-sm);
+  background: var(--sk-base);
+  background-image: linear-gradient(90deg, var(--sk-base) 0%, var(--sk-hi) 50%, var(--sk-base) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s var(--ease) infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 모션 민감 사용자 존중 — 깜빡임 대신 정적 표시 */
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    animation: none;
+  }
+}
+
+.stack > * + * {
+  margin-top: 11px;
+}

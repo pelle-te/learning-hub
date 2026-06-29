@@ -1,0 +1,46 @@
+/* ============================================================
+   motion.css — 탭 전환 모션(View Transitions API).
+   Nav가 navigate(..., {viewTransition:true})로 전환하면 브라우저가 이전/다음 화면을
+   스냅샷해 크로스페이드한다. 헤더/네비는 별도 view-transition-name을 줘 *제자리에 고정*
+   (본문만 부드럽게 교체 — 네비 깜빡임 방지). 미지원 브라우저는 즉시 전환(무해).
+============================================================ */
+
+/* 본문(루트)만 짧게 크로스페이드 + 살짝 떠오름 */
+::view-transition-old(root) {
+  animation: vt-fade-out 140ms var(--ease) both;
+}
+::view-transition-new(root) {
+  animation: vt-fade-in 180ms var(--ease) both;
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 헤더/네비는 전환에서 분리 → 고정(사용자 시선 앵커 유지, 깜빡임 제거) */
+.top {
+  view-transition-name: app-header;
+}
+.nav {
+  view-transition-name: app-nav;
+}
+
+/* 모션 민감 사용자 — 전환 애니메이션 끔(즉시 교체) */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

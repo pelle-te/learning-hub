@@ -1,0 +1,106 @@
+/* ============================================================
+   tokens.css — 테마 토큰 레이어(전역·단일 원천, 설계도 §2)
+   ── 무엇 ──────────────────────────────────────────────────
+   라이트(기본) + 다크 + 세피아의 CSS 변수만 정의한다. 색/반경/그림자/이징.
+   ThemeProvider가 <html data-theme>를 토글하면 이 변수들이 통째로 바뀐다.
+   React 컴포넌트(*.module.css)는 var(--*)로만 색을 참조 → 테마 자동 대응.
+
+   ── 왜 여기로 옮겼나 ──────────────────────────────────────
+   값은 레거시 legacy/style.css의 :root 블록과 동일하다(=드리프트 없음). 다만 토큰을
+   *별도 파일*로 분리해, Phase 6에서 legacy/style.css를 삭제해도 토큰이 살아남게 한다.
+   main.tsx에서 style.css보다 *먼저* 로드하지만, 같은 변수·같은 값이라 충돌이 없다.
+
+   변수명은 레거시 인라인 스타일이 참조하므로 보존:
+     --bg --bg2 --panel --panel2 --line --line-soft --txt --mut
+     --acc --acc2 --warn --bad --good --on-acc
+     --acc-soft --acc-glow --hairline --shadow-{sm,md,lg}
+     --r --r-lg --r-md --r-sm --ease
+============================================================ */
+
+/* ── 다크 모드(opt-in) — 깊은 잉크 블랙 + 밝은 인디고 ── */
+:root[data-theme='dark'] {
+  --bg: #0b0d12;
+  --bg2: #0e1117;
+  --panel: #14171f;
+  --panel2: #1b1f29;
+  --line: #262b37;
+  --line-soft: #1e222c;
+  --txt: #e7eaf1;
+  --mut: #9aa6b8;
+  --acc: #8b87f5;
+  --acc2: #5fd9bd;
+  --warn: #ffb454;
+  --bad: #ff6b6b;
+  --good: #62d28c;
+  --on-acc: #06101f;
+
+  --acc-soft: rgba(139, 135, 245, 0.16);
+  --acc-glow: rgba(139, 135, 245, 0.34);
+  --hairline: rgba(255, 255, 255, 0.05);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 22px -8px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 18px 50px -20px rgba(0, 0, 0, 0.65);
+
+  --r: 14px;
+  --r-lg: 18px;
+  --r-md: 11px;
+  --r-sm: 8px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ── 라이트 모드(기본) — 흰 캔버스 · 인디고 브랜드 · 또렷한 그림자 한 겹 ── */
+:root,
+:root[data-theme='light'] {
+  --bg: #fafbfc;
+  --bg2: #f1f3f6;
+  --panel: #ffffff;
+  --panel2: #f4f6fa;
+  --line: #e6e8ee;
+  --line-soft: #eef0f4;
+  --txt: #1a1d24;
+  --mut: #697586;
+  --acc: #5b5bd6;
+  --acc2: #0ea371;
+  --warn: #b26b00;
+  --bad: #dc2626;
+  --good: #0ea371;
+  --on-acc: #ffffff;
+
+  --acc-soft: rgba(91, 91, 214, 0.08);
+  --acc-glow: rgba(91, 91, 214, 0.2);
+  --hairline: rgba(255, 255, 255, 0.85);
+  --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
+  --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);
+  --shadow-lg: 0 22px 50px -22px rgba(20, 22, 45, 0.18);
+
+  --r: 14px;
+  --r-lg: 18px;
+  --r-md: 11px;
+  --r-sm: 8px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ── 세피아 모드(opt-in) — 따뜻한 종이 톤·저블루 ── */
+:root[data-theme='sepia'] {
+  --bg: #f1e7d6;
+  --bg2: #e9dcc6;
+  --panel: #fdf9f1;
+  --panel2: #f1e8d7;
+  --line: #e1d3b9;
+  --line-soft: #ebe0cb;
+  --txt: #3a2f23;
+  --mut: #7e6d56;
+  --acc: #a8662a;
+  --acc2: #3f8f6b;
+  --warn: #b9760c;
+  --bad: #c0492f;
+  --good: #3f8f6b;
+  --on-acc: #fff;
+
+  --acc-soft: rgba(181, 116, 42, 0.12);
+  --acc-glow: rgba(181, 116, 42, 0.26);
+  --hairline: rgba(255, 255, 255, 0.5);
+  --shadow-sm: 0 1px 2px rgba(80, 60, 30, 0.1);
+  --shadow-md: 0 8px 24px -10px rgba(80, 60, 30, 0.2);
+  --shadow-lg: 0 20px 50px -22px rgba(80, 60, 30, 0.26);
+}

@@ -5,11 +5,15 @@
 **그날 배운 챕터**를 근거로 간격반복 복습까지 잡아주는 로컬 웹앱.
 
 ## 실행
-`index.html`을 **Chrome 또는 Edge로 더블클릭**해서 열면 됩니다.
-(볼트/Anki 폴더 읽기에 File System Access API를 쓰므로 Chrome/Edge 권장. 별도 서버·설치 불필요.)
+**React + Vite 앱**입니다(바닐라 ESM에서 이전 완료 — 설계·이력은 `MIGRATION.md`).
+
+- **개발**: 터미널 2개 — ① 루트에서 `node serve.js`(:8000 · `/api` 제어판 백엔드) ② `cd web && npm run dev`(:5173 · HMR). 브라우저는 **`http://localhost:5173`**.
+- **단일 출처(배포)**: `cd web && npm run build` 후 루트에서 `node serve.js` → `http://localhost:8000` 하나가 **빌드물(web/dist) + `/api` + SPA 딥링크 폴백**을 모두 서빙.
+
+(볼트/Anki 폴더 읽기에 File System Access API를 쓰므로 Chrome/Edge 권장.)
 
 ## 탭
-- **🎯 오늘 학습** — *학습방법론 실행 레이어.* 오늘 배치된 블록 + **블록 내부 4단계 흐름**(개념 정찰→풀이→스케치→3문장 요약, 비중·분 추정)·**70% 룰** 가이드. 블록마다 **3문장 요약**(3절)·**CBMS 오답**(6절)·**보충 필요 백로그**(5절)를 바로 기록. **요약·오답을 Anki 카드 초안(.txt)으로** 내려받기. (`js/ui-today.js`)
+- **🎯 오늘 학습** — *학습방법론 실행 레이어.* 오늘 배치된 블록 + **블록 내부 4단계 흐름**(개념 정찰→풀이→스케치→3문장 요약, 비중·분 추정)·**70% 룰** 가이드. 블록마다 **3문장 요약**(3절)·**CBMS 오답**(6절)·**보충 필요 백로그**(5절)를 바로 기록. **요약·오답을 Anki 카드 초안(.txt)으로** 내려받기.
 - **📅 주간 스케줄** — 한 주씩 넘겨보기(◀▶). 각 날짜의 가용시간을 칸에서 바로 조정(그날만). 모듈·복습·**백지복습·모의시험**·Anki가 시각순으로.
 - **📝 학습 항목** — 과목별 *주당 목표 시간* + *챕터(순서·예상시간)* 편집. +/- 스텝퍼, 챕터 일괄 붙여넣기.
 - **⏰ 일과 & 가용시간** — 시작일/모듈길이/복습비중 설정, 수면·식사·취미·수업 블록 → 요일별 공부시간·빈 시간. (가용 공부시간 = 깨어있는 시간 − 이 블록들. 별도 '공부' 블록 개념은 폐지.) **+ 적응형 용량**(최근 완료율로 다음 계획 자동 보정)·**피크 시간대**(어려운 새 학습을 맑을 때)·**복습 Anki 위임**·**백업/아카이빙** 유지보수.
@@ -17,8 +21,8 @@
 - **📚 볼트 현황** — 전공 폴더 선택 → **정본 `_meta/감사/_index.json` 소비**(검사.sh --index 산출)로 과목→챕터 노트/검증/**구버전**/Anki 상태. 인덱스 없으면 .md 직접 스캔 폴백. 과목을 챕터까지 통째로 학습 항목에 추가.
 - **🃏 Anki 현황** — **정본 `_index.json`의 덱 목록**(file·cards) 집계 + AnkiConnect 실시간 due. '매일' 항목으로 추가. **요약·오답 전체를 카드 초안(.txt)으로 생성**(Anki import → ≤5장 큐레이션·왜/응용형 손질은 사람이, due는 FSRS). ⚠️ `anki/*.txt` 폴더 폴백은 **선택 핸들의 직속 자식**에서 `anki`/`_anki`를 찾으므로, 2026-06-23 4분할 이후 카드 `.txt`는 `전공/`의 *형제* `anki/`에 있어 — 정본대로 `전공/`을 고르면 폴백이 못 찾는다. **폴백을 쓰려면 `작업 폴더` 루트를 고르거나(권장은 `_index.json` 정본 경로).**
 
-> ⚠️ **복습 슬롯 ≠ 실제 Anki due:** `utils.js`의 `REVIEW_OFFSETS=[1,3,7,16]`은 *학습 계획용* 고정 간격 휴리스틱이다. 실제 카드 복습 시점은 **Anki/FSRS가 소유**(시스템 본체는 네이티브 FSRS). 이 앱의 복습 슬롯은 "그날 배운 챕터를 언제 다시 볼지"의 계획 보조일 뿐.
-- **🔄 주간 리뷰** — *메타인지 점검(방법론 10절).* 주 1회: **계획 대비 실제**(요일별 막대)·**CBMS 분포**(약점별 처방 힌트)·**보충 필요 회수**·주간 체크리스트+메모(그 주에 저장). (`js/ui-review.js`)
+> ⚠️ **복습 슬롯 ≠ 실제 Anki due:** `lib/utils.ts`의 `REVIEW_OFFSETS=[1,3,7,16]`은 *학습 계획용* 고정 간격 휴리스틱이다. 실제 카드 복습 시점은 **Anki/FSRS가 소유**(시스템 본체는 네이티브 FSRS). 이 앱의 복습 슬롯은 "그날 배운 챕터를 언제 다시 볼지"의 계획 보조일 뿐.
+- **🔄 주간 리뷰** — *메타인지 점검(방법론 10절).* 주 1회: **계획 대비 실제**(요일별 막대)·**CBMS 분포**(약점별 처방 힌트)·**보충 필요 회수**·주간 체크리스트+메모(그 주에 저장).
 - **🎓 졸업 계획** — 학기별 과목·학점·구분·성적, 졸업요건 대비 진행률.
 
 > 🔗 **방법론 ↔ 앱:** `학습방법론.md`의 절차가 탭과 1:1로 대응한다. 블록 배분/인터리빙(스케줄러) · 1·3·7·16 복습 슬롯 · **블록 4단계·3문장·CBMS·백로그**(오늘 학습) · **주간 메타인지**(주간 리뷰) · 백지복습·모의시험 자동 배치는 *일과 탭 설정*(`blankReviewWeekly`/`mockEveryWeeks`)로 켜고 끈다.
@@ -32,30 +36,27 @@
 ## 폴더 구조
 ```
 러닝허브/
-├─ index.html              진입점 (스크립트/스타일 로드 — 순서 중요)
-├─ css/style.css           전체 스타일
-└─ js/
-   ├─ utils.js             상수 + 날짜/시간/주(週) 유틸
-   ├─ state.js             상태(v3 모델)·기본값·저장/불러오기
-   ├─ scheduler.js         ★ 배분 엔진 + 하루 타임라인 (+ 백지복습·모의시험 생성)
-   ├─ ui-today.js          🎯 오늘 학습(블록 4단계·3문장·CBMS·백로그)
-   ├─ ui-schedule.js       주간 스케줄(주 넘기기·날짜별 가용시간)
-   ├─ ui-items.js          학습 항목(주당시간·챕터)
-   ├─ ui-routine.js        일과 & 가용시간 + 기본 설정
-   ├─ ui-stats.js          통계
-   ├─ ui-review.js         🔄 주간 리뷰(메타인지: 계획대비·CBMS분포·백로그회수)
-   ├─ ui-vault.js          볼트 현황(→ 챕터 자동 주입)
-   ├─ ui-anki.js           Anki 현황
-   ├─ ui-degree.js         졸업 계획
-   └─ app.js               탭 네비 + 부팅(맨 끝 로드)
+├─ serve.js                 백엔드(/api 제어판) + 빌드물(web/dist) 정적 서빙 + SPA 폴백
+└─ web/                     React + Vite 앱
+   ├─ src/
+   │  ├─ main.tsx · app/    셸: App·Nav·Header·ThemeProvider·queryClient
+   │  ├─ shell/             네이티브 셸 서비스: 탭 레지스트리·아이콘·토스트·모달·데이터 액션·팔레트
+   │  ├─ store/             Zustand(앱상태 useApp) · selectors(파생 schedule) · queries(TanStack Query)
+   │  ├─ lib/               ★ 순수 도메인: persistence·scheduler·methodology·ics·vault·anki·knowledge·api·utils (+ zod schema)
+   │  ├─ features/          탭 구현(13) · registry.tsx(key→컴포넌트)
+   │  ├─ components/ui/      공용 프리미티브(Card/Button/Pill/Kpi…, CSS Modules)
+   │  └─ styles/            tokens.css(테마 변수) + global/(전역 디자인 시스템)
+   ├─ test/                 Vitest(lib) · RTL(컴포넌트)  · e2e/  Playwright(스모크 + 비주얼 회귀)
+   └─ package.json          scripts: dev·build·test·lint·typecheck·e2e
 ```
 
 ## 수정 가이드
-- 배분 규칙 → `js/scheduler.js`의 `schedule()`. 복습 주기는 `utils.js`의 `REVIEW_OFFSETS`,
-  모듈 길이/복습비중은 앱의 "일과 & 가용시간" 탭(설정 카드)에서.
-- 화면(탭) → 각 `ui-*.js`만 수정. 스타일 → `css/style.css`(`:root` 변수).
-- 학습 항목의 챕터 순서는 **드래그앤드롭**(`ui-items.js` `draggable`)으로 바꾼다. 볼트/Anki 패널은 정본 `_index.json`을 읽으므로(`utils.js` `loadVaultIndex`), 데이터가 안 보이면 먼저 `검사.sh --index`로 인덱스를 만든다.
-- `import` 없는 일반 전역 스크립트라 file:// 더블클릭에서 동작. 파일 추가 시 index.html의 로드 순서를 지키세요(utils→state→scheduler→ui→app).
+- 배분 규칙 → `web/src/lib/scheduler.ts`의 `schedule()`. 복습 주기는 `lib/utils.ts`의 `REVIEW_OFFSETS`,
+  모듈 길이/복습비중은 앱의 "일과 & 가용시간" 탭(설정)에서.
+- 화면(탭) → `web/src/features/<탭>/`. 스타일 → 토큰은 `styles/tokens.css`, 전역 클래스는 `styles/global/`, 컴포넌트 고유는 `*.module.css`.
+- 도메인 로직(스케줄·방법론·영속·볼트/Anki/지식)은 **프레임워크 무관 `lib/`** 에 모여 Vitest로 검증된다. 앱상태는 Zustand(`store/useApp`), 서버/외부(볼트·Anki·`/api`)는 TanStack Query(`store/queries`)가 소유.
+- 볼트/Anki 패널은 정본 `_index.json`을 읽으므로(`lib/vault.ts`), 데이터가 안 보이면 먼저 `검사.sh --index`로 인덱스를 만든다.
+- 검증: `cd web` 후 `npm run typecheck && npm run lint && npm test` · 비주얼 회귀 `npm run e2e`(베이스라인 갱신 `npm run e2e:update`).
 
 ## 문서·감사
 - 설계(아키텍처): `설계도.md` · 학습 이론: `학습방법론.md` · 졸업 요건: `졸업요건_정리.md`.

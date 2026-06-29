@@ -10,6 +10,10 @@
       그래서 이 서버가 *제어판 백엔드*가 되어, 화이트리스트 도구를 실행하고 산출 JSON을 서빙한다 →
       러닝허브에서 버튼 하나로 돌리고 결과를 바로 본다(옛 홈/app.py·탐구_제어판.py를 러닝허브로 흡수).
 
+   배포(Phase 6 컷오버): 옛 바닐라 앱은 삭제됐고, 이 서버가 **React 빌드물(web/dist)**을 서빙한다.
+   (a) /api (제어판) (b) 정적 dist (c) SPA history 폴백(미매칭 GET → index.html) → 단일 출처·딥링크 새로고침 OK.
+   먼저 `cd web && npm run build`로 web/dist를 만들어야 한다(없으면 안내 표시). 개발은 `npm run dev`(:5173)가 별도.
+
    안전:
    - 127.0.0.1(로컬호스트)에만 바인딩 — 외부 노출 안 함.
    - 정적 경로 역참조(../) 차단(러닝허브 폴더 밖 파일 직접 서빙 금지).
@@ -22,8 +26,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const ROOT = __dirname;                          // 러닝허브 폴더(웹 루트)
+const ROOT = __dirname;                          // 러닝허브 폴더
 const WORK = path.dirname(ROOT);                 // 작업 폴더(시스템·전공·anki의 부모)
+const DIST = path.join(ROOT, 'web', 'dist');     // React 빌드물(정적 서빙 루트)
 const PORT = Number(process.argv[2]) || 8000;
 const PY = process.env.PYTHON || 'python';
 
@@ -135,16 +140,32 @@ const server = http.createServer((req, res) => {
       return sendJSON(res, 404, { ok: false, error: 'API 경로 없음' });
     }
 
-    /* ── 정적 파일 ───────────────────────────────────── */
+    /* ── 정적 파일(web/dist) + SPA history 폴백 ─────────── */
     let urlPath = url;
     if (urlPath === '/' || urlPath.endsWith('/')) urlPath += 'index.html';
-    const filePath = path.normalize(path.join(ROOT, urlPath));
-    if (!filePath.startsWith(ROOT)) { res.writeHead(403); res.end('403 Forbidden'); return; }
+    const filePath = path.normalize(path.join(DIST, urlPath));
+    if (!filePath.startsWith(DIST)) { res.writeHead(403); res.end('403 Forbidden'); return; }
     fs.stat(filePath, (err, st) => {
-      if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('404 Not Found: ' + urlPath); return; }
-      const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
-      fs.createReadStream(filePath).pipe(res);
+      if (!err && st.isFile()) {
+        const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+        res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
+        fs.createReadStream(filePath).pipe(res);
+        return;
+      }
+      // 미매칭 GET(딥링크 /stats 등) → index.html 반환(클라이언트 라우팅). 확장자 있는 자원은 404.
+      if (req.method === 'GET' && !path.extname(path.basename(urlPath))) {
+        return fs.readFile(path.join(DIST, 'index.html'), (e2, data) => {
+          if (e2) {
+            res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('빌드물이 없습니다. `cd web && npm run build` 후 다시 시도하세요. (개발은 `cd web && npm run dev` :5173)');
+          } else {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+            res.end(data);
+          }
+        });
+      }
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found: ' + urlPath);
     });
   } catch (e) {
     res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('500: ' + (e && e.message || e));
@@ -181,7 +202,8 @@ server.on('error', (e) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`러닝허브 + 제어판 실행 중 → http://localhost:${PORT}/`);
+  console.log(`러닝허브(React) + 제어판 실행 중 → http://localhost:${PORT}/`);
+  if (!fs.existsSync(path.join(DIST, 'index.html'))) console.log('  ⚠ web/dist 없음 — `cd web && npm run build` 먼저 실행하세요.');
   console.log(`  제어판 도구: ${Object.keys(TOOLS).join(', ')}, research`);
   console.log('종료: Ctrl+C');
 });

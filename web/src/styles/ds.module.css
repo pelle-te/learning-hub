@@ -1,0 +1,836 @@
+/* ============================================================
+   ds.module.css — 공유 디자인 시스템(CSS Module 전환 · composes 대상).
+   전역 styles/global/*.css의 *클래스 기반 디자인 시스템*을 로컬 스코프로 옮기는 단일 원천.
+   (요소·:root 토큰·리셋은 전역 base 레이어로 유지 — CSS Modules는 클래스/ID만 스코프.)
+
+   사용: import ds from '@/styles/ds.module.css';  <div className={ds.card}>
+        조합: className={`${ds.card} ${ds.muted}`} 또는 컴포넌트 모듈에서 `composes: card from '@/styles/ds.module.css'`.
+
+   ⚠ 클래스 정의 순서 = 원본 components.css → features.css 순서를 그대로 유지한다.
+   CSS Modules에서도 같은 특이도면 *소스 순서*가 승자를 정하므로(예: `pill tiny`는 tiny가
+   pill보다 뒤라 11.5px가 이김), 순서를 보존해야 전역과 픽셀 동일.
+
+   전환 정책: 슬라이스 단위로 소비처를 ds.*로 옮기고, 전역 정의는 모든 소비처 이전 완료 후 제거.
+   값은 styles/global/*.css와 동일(드리프트 0).
+============================================================ */
+
+/* ── 카드 ── */
+.card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 19px 20px;
+  margin-bottom: 17px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r) var(--r) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+.card:hover {
+  border-color: color-mix(in srgb, var(--acc) 28%, var(--line));
+}
+
+/* ── 레이아웃 ── */
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.row > * {
+  flex: 1;
+}
+
+/* ── 작은 시각 요소(원본 순서: swatch → pill → muted → tiny) ── */
+.swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 5px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18) inset;
+}
+.pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+}
+.pill.good {
+  color: var(--good);
+  border-color: color-mix(in srgb, var(--good) 45%, var(--line));
+  background: color-mix(in srgb, var(--good) 10%, transparent);
+}
+.pill.warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+.pill.bad {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+.muted {
+  color: var(--mut);
+}
+.tiny {
+  font-size: 11.5px;
+}
+
+/* ── KPI ── */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 17px;
+}
+@media (max-width: 560px) {
+  .kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.kpi {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 13px 14px 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+  animation: ds-fadeUp 0.4s var(--ease) both;
+}
+.kpi::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(var(--acc), var(--acc2));
+}
+.kpi:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
+  box-shadow: var(--shadow-md);
+}
+.kpi .v {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.kpi .l {
+  font-size: 11.5px;
+  color: var(--mut);
+  margin-top: 1px;
+  word-break: keep-all;
+}
+.kpis .kpi:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.kpis .kpi:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.kpis .kpi:nth-child(4) {
+  animation-delay: 0.15s;
+}
+
+/* ── 경고 박스 ── */
+.warnbox {
+  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  color: var(--warn);
+  border-radius: var(--r-md);
+  padding: 11px 13px 11px 14px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  position: relative;
+}
+.warnbox::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: var(--r-md) 0 0 var(--r-md);
+  background: var(--warn);
+}
+.warnbox.bad {
+  background: color-mix(in srgb, var(--bad) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
+  color: var(--bad);
+}
+.warnbox.bad::before {
+  background: var(--bad);
+}
+
+/* ── 태그 ── */
+.tag {
+  font-size: 10px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.tag.new {
+  color: var(--acc2);
+  border-color: color-mix(in srgb, var(--acc2) 45%, var(--line));
+  background: color-mix(in srgb, var(--acc2) 12%, transparent);
+}
+.tag.rev {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+.tag.anki {
+  color: #63d2ff;
+  border-color: color-mix(in srgb, #63d2ff 45%, var(--line));
+  background: color-mix(in srgb, #63d2ff 12%, transparent);
+}
+.tag.free {
+  color: var(--mut);
+}
+.tag.blank {
+  color: var(--acc);
+  border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+}
+.tag.mock {
+  color: #b794f6;
+  border-color: color-mix(in srgb, #b794f6 45%, var(--line));
+  background: color-mix(in srgb, #b794f6 14%, transparent);
+}
+
+/* ── 진행 막대 ── */
+.bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--panel2);
+  overflow: hidden;
+  margin: 7px 13px;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s var(--ease);
+}
+
+.empty {
+  color: var(--mut);
+  text-align: center;
+  padding: 32px 10px;
+}
+.foot {
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--mut);
+}
+
+/* ── 세그먼트 컨트롤 ── */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--panel2);
+}
+.seg button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 11px;
+  color: var(--mut);
+  font-weight: 500;
+}
+.seg button:hover {
+  background: color-mix(in srgb, var(--acc) 8%, transparent);
+  color: var(--txt);
+}
+.seg button.on {
+  background: var(--acc);
+  color: var(--on-acc);
+  font-weight: 700;
+}
+
+/* ── 스피너 ── */
+.spin {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--line);
+  border-top-color: var(--acc);
+  border-radius: 50%;
+  animation: ds-sp 1s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── 완료 체크박스(today 블록·schedule 타임라인 공유) ── */
+input.donechk {
+  margin: 0 7px 0 0;
+}
+input.donechk:checked {
+  background: var(--good);
+  border-color: var(--good);
+}
+
+/* ── 블록 카드(today 블록·routine 공유) ── */
+.blk {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 11px 13px;
+  margin-bottom: 10px;
+  background: var(--panel2);
+}
+.blk:last-child {
+  margin-bottom: 0;
+}
+
+/* ── 주간/타임라인 그룹 — schedule·stats·review·today 공유(원본 components.css 순서) ── */
+.weekgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+.weekgrid .day {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+.weekgrid .day .body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.weekgrid .day .body > .tl:last-child {
+  margin-top: auto;
+}
+.weekgrid .tl {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+.weekgrid .tl .tm {
+  min-width: 80px;
+  font-size: 11px;
+}
+.weekgrid .tl .mn {
+  font-size: 10.5px;
+}
+
+.day {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+}
+.day:hover {
+  box-shadow: var(--shadow-md);
+}
+.day .dh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 13px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.day .dh .dt {
+  font-weight: 600;
+  font-size: 13px;
+}
+.day .dh .cap {
+  font-size: 12px;
+  color: var(--mut);
+}
+.day .body {
+  padding: 5px 0;
+}
+
+.tl {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 13px;
+  border-bottom: 1px dashed var(--line-soft);
+  font-size: 13px;
+}
+.tl:last-child {
+  border-bottom: none;
+}
+.tl .tm {
+  color: var(--mut);
+  font-size: 11.5px;
+  min-width: 92px;
+  font-variant-numeric: tabular-nums;
+}
+.tl .nm {
+  flex: 1;
+}
+.tl .mn {
+  color: var(--mut);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.tl.free {
+  opacity: 0.55;
+}
+.tl.block {
+  background: color-mix(in srgb, var(--bg) 60%, var(--panel));
+}
+
+.day.today {
+  border-color: var(--acc);
+  box-shadow:
+    0 0 0 1px var(--acc),
+    0 10px 30px -12px var(--acc-glow);
+}
+.day.today .dh {
+  background: color-mix(in srgb, var(--acc) 16%, var(--panel2));
+}
+.todaychip {
+  background: var(--acc);
+  color: var(--on-acc);
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  vertical-align: middle;
+  box-shadow: 0 2px 8px -2px var(--acc-glow);
+}
+.tl.nowline {
+  border-top: 2px solid var(--acc);
+  border-bottom: none;
+  opacity: 1;
+  background: linear-gradient(90deg, var(--acc-soft), transparent 70%);
+}
+.tl.nowline .tm,
+.tl.nowline .nm {
+  color: var(--acc);
+  font-weight: 700;
+}
+.tl.rowdone {
+  opacity: 0.5;
+}
+.tl.rowdone .nm {
+  text-decoration: line-through;
+}
+
+/* 주간 개요 스트립 */
+.wkstrip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.wkcol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 9px 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--txt);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.wkcol:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--acc) 35%, var(--line));
+}
+.wkcol.sel {
+  border-color: var(--acc);
+  box-shadow:
+    0 0 0 1px var(--acc),
+    0 8px 22px -12px var(--acc-glow);
+}
+.wkcol.today .wd {
+  color: var(--acc);
+}
+.wkcol .wd {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.wkdot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--acc);
+  display: inline-block;
+}
+.wkcol .dd {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.wkcol .colBar {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 14px;
+  height: 60px;
+  background: var(--panel2);
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.wkcol .colBar i {
+  display: block;
+  width: 100%;
+  transition: height 0.35s var(--ease);
+}
+.wkcol .colH {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wkcol .colSub {
+  font-size: 10px;
+  color: var(--mut);
+  font-weight: 400;
+  margin-left: 1px;
+}
+.day.agenda {
+  margin-top: 2px;
+}
+@media (max-width: 560px) {
+  .wkcol {
+    padding: 8px 2px;
+    gap: 4px;
+  }
+  .wkcol .dd {
+    font-size: 13px;
+  }
+  .wkcol .colBar {
+    height: 48px;
+  }
+}
+
+/* 마감 D-day 카드 */
+.ddrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ddaychip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 6px 11px;
+  font-size: 12px;
+  transition:
+    transform 0.14s var(--ease),
+    border-color 0.14s var(--ease);
+}
+.ddaychip:hover {
+  transform: translateY(-1px);
+}
+.ddaychip b {
+  font-variant-numeric: tabular-nums;
+}
+.ddaychip.warn {
+  border-color: color-mix(in srgb, var(--warn) 50%, var(--line));
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel2));
+}
+.ddaychip.bad {
+  border-color: color-mix(in srgb, var(--bad) 50%, var(--line));
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 8%, var(--panel2));
+}
+
+/* ── 접이식 목록(아코디언) — items↔degree 공유 (원본 features.css 순서) ── */
+.itemrow {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.itemhead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.14s var(--ease);
+}
+.itemhead:hover {
+  background: var(--panel2);
+}
+.itemrow.open > .itemhead {
+  border-bottom: 1px solid var(--line-soft);
+}
+.chev {
+  color: var(--mut);
+  font-size: 11px;
+  width: 12px;
+  text-align: center;
+  flex: none;
+}
+.itemname {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.itemmeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: none;
+}
+.minibar {
+  display: inline-block;
+  width: 54px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--panel2);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  vertical-align: middle;
+}
+.minibar > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.35s var(--ease);
+}
+.itembody {
+  padding: 14px;
+}
+@media (max-width: 560px) {
+  .itemmeta .muted.tiny {
+    display: none;
+  }
+}
+.fieldgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 11px 12px;
+  align-items: end;
+}
+.fieldgrid .fld.wide {
+  grid-column: 1 / -1;
+}
+.fld label {
+  margin: 0 0 4px;
+}
+.fld > .row {
+  max-width: none;
+}
+.itemfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line-soft);
+}
+.chapwrap {
+  margin-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 12px;
+}
+.chapwrap > summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt);
+  list-style: none;
+}
+.chapwrap > summary::-webkit-details-marker {
+  display: none;
+}
+.chapbody {
+  margin-top: 10px;
+}
+.chaptbl {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.chaptbl table {
+  margin: 0;
+}
+.chaptbl th {
+  padding: 7px 9px;
+  background: var(--panel2);
+}
+.chaptbl td {
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.chaptbl tbody tr:last-child td {
+  border-bottom: none;
+}
+.bulkwrap > summary {
+  color: var(--acc);
+  font-size: 11px;
+}
+
+/* 드래그 핸들(챕터 정렬) — tr[draggable]는 요소/속성이라 전역으로 남고 .draghandle만 스코프 */
+.draghandle {
+  cursor: grab;
+  color: var(--mut);
+  user-select: none;
+}
+.draghandle:hover {
+  color: var(--acc);
+}
+tr[draggable='true']:hover .draghandle {
+  color: var(--acc);
+}
+
+/* ── 기록 카드 + CBMS — journal↔review 공유 (원본 하이픈명을 camelCase로: rec-head→recHead 등) ── */
+.rec {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  margin-bottom: 8px;
+  background: var(--panel2);
+}
+.rec:last-child {
+  margin-bottom: 0;
+}
+.recHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.rec3 {
+  margin: 7px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.rec3 li {
+  margin-bottom: 3px;
+}
+.rec3 .muted {
+  margin-right: 5px;
+}
+.blOpen {
+  border-left: 3px solid var(--warn);
+}
+.cbmsChip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 6px;
+  color: var(--c, #888);
+  border: 1px solid color-mix(in srgb, var(--c, #888) 45%, var(--line));
+  background: color-mix(in srgb, var(--c, #888) 14%, transparent);
+}
+.cbmsRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+}
+.cbmsRow .cbmsChip {
+  min-width: 62px;
+  text-align: center;
+}
+.cbmsTrack {
+  flex: 1;
+  height: 9px;
+  border-radius: 99px;
+  background: var(--panel2);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.cbmsTrack > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s var(--ease);
+}
+
+/* ── 체크리스트 행 — settings↔review 공유 ── */
+.chkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 9px 0;
+  font-size: 13px;
+  color: var(--txt);
+  cursor: pointer;
+}
+.chkRow input[type='checkbox'] {
+  margin-top: 1px;
+}
+
+/* ── 칩 — control·mastery·review 공유 ── */
+.chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-size: 0.78em;
+  color: var(--mut);
+}
+
+@keyframes ds-sp {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ds-fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

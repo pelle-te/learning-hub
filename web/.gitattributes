@@ -1,0 +1,13 @@
+# 러닝허브 웹앱 코드는 LF 고정.
+# Prettier endOfLine:lf 및 CI(리눅스)와 일치시켜, Windows autocrlf=true로 인한
+# CRLF 변환 → format:check 실패(줄바꿈 불일치)를 막는다. (이 폴더에만 적용)
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.cjs   text eol=lf
+*.css   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf

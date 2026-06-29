@@ -1,0 +1,15 @@
+# React 이전(web/) — Node/Vite 산출물
+web/node_modules/
+web/dist/
+web/dev-dist/
+web/.vite/
+node_modules/
+
+# 로그/OS
+*.log
+.DS_Store
+
+# Playwright
+web/test-results/
+web/playwright-report/
+web/playwright/.cache/

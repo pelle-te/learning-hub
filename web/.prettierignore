@@ -1,0 +1,11 @@
+# 생성물·빌드 산출물 — 포매팅 대상 아님
+dist
+dev-dist
+coverage
+node_modules
+playwright-report
+test-results
+package-lock.json
+
+# E2E 시각회귀 스냅샷(바이너리)
+e2e/**/*.png

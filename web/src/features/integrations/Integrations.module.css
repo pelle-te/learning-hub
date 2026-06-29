@@ -1,0 +1,37 @@
+/* Integrations.module.css — 연동 현황(볼트 트리) 전용 스타일. 다른 feature와 공유 안 함.
+   공유 클래스(card/row/spin/foot/warnbox/bar/muted/tiny)는 ds.module이 소유. 값은 원본 components.css와 동일. */
+.tree .sub {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 9px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.tree .sh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  cursor: pointer;
+  transition: background 0.14s var(--ease);
+}
+.tree .sh:hover {
+  background: var(--panel2);
+}
+.tree .chs {
+  padding: 2px 13px 9px 30px;
+}
+.tree .ch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  border-bottom: 1px dashed var(--line-soft);
+}
+.tree .ch:last-child {
+  border-bottom: none;
+}
+.tree .ch .nm {
+  flex: 1;
+}

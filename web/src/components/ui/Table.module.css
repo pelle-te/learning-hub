@@ -1,0 +1,43 @@
+/* Table — 박스형 표(레거시 .chaptbl 룩 계승). 요소 셀렉터는 .box 하위로 스코프되어 누수 없음. */
+.box {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.box table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.box th {
+  padding: 7px 9px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-weight: 600;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.box td {
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.box tbody tr {
+  transition: background 0.12s var(--ease);
+}
+
+.box tbody tr:hover {
+  background: color-mix(in srgb, var(--acc) 5%, transparent);
+}
+
+.box tbody tr:last-child td {
+  border-bottom: none;
+}

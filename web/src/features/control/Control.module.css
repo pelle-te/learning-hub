@@ -1,0 +1,31 @@
+/* Control.module.css — 시스템 제어판 탭 전용 스타일. 다른 feature와 공유 안 함.
+   공유 클래스(card/row/chip/spin/foot/muted/tiny)는 ds.module이 소유. 값은 원본 features.css와 동일. */
+.ctlstats {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-size: 0.9em;
+}
+.ctldetails {
+  margin-top: 8px;
+}
+.ctldetails summary {
+  cursor: pointer;
+  user-select: none;
+}
+.ctlpre {
+  margin-top: 6px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.78em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

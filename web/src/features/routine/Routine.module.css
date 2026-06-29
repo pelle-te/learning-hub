@@ -1,0 +1,127 @@
+/* Routine.module.css — 가용시간·수업·일과 탭 전용 스타일. 다른 feature와 공유 안 함.
+   공유 클래스(card/seg/muted/tiny/foot/empty)는 ds.module이 소유. 값은 원본 components.css와 동일. */
+
+/* 요일별 가용 막대 */
+.wkbars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+  margin-top: 10px;
+}
+.wkbars .wb {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 2px;
+  transition:
+    transform 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.wkbars .wb:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
+}
+.wkbars .wb .h {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.wkbars .wb .d {
+  font-size: 10px;
+  color: var(--mut);
+}
+
+/* 수업(요일별) 편집 행 */
+.classrow {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) 104px 16px 104px 38px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.classrow .csep {
+  text-align: center;
+  color: var(--mut);
+}
+@media (max-width: 560px) {
+  .classrow {
+    grid-template-columns: 1fr 1fr 38px;
+  }
+  .classrow .csep {
+    display: none;
+  }
+}
+
+/* 일과 블록 편집 행 */
+.blkrow {
+  display: grid;
+  grid-template-columns: 1.1fr 0.8fr 92px 92px minmax(280px, 1.4fr) auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+@media (max-width: 700px) {
+  .blkrow {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .blkrow .days {
+    grid-column: 1 / -1;
+  }
+}
+.days {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.days label {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 10px;
+  cursor: pointer;
+}
+.days input {
+  width: auto;
+  margin: 0;
+}
+.daychip {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 32px;
+  transition: all 0.14s var(--ease);
+}
+.daychip:hover {
+  border-color: var(--acc);
+  color: var(--txt);
+}
+.daychip.on {
+  background: var(--acc);
+  color: var(--on-acc);
+  border-color: var(--acc);
+  font-weight: 700;
+  box-shadow: 0 2px 8px -2px var(--acc-glow);
+}
+.daychip.preset {
+  background: transparent;
+  font-size: 11px;
+  color: var(--mut);
+}
+.daychip.preset:hover {
+  color: var(--acc);
+}
+.daysep {
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+  margin: 0 4px;
+}

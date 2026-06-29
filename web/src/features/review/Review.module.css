@@ -1,0 +1,45 @@
+/* Review.module.css — 주간 리뷰 '계획 대비 실제' 미니 차트 전용. 다른 feature와 공유 안 함.
+   공유 클래스(card·kpi·pill·rec·cbms 계열·chkRow·muted·tiny·foot·row·swatch·empty)는 ds.module이 소유.
+   하이픈명은 camelCase로(pa-chart→paChart). 값은 원본 features.css와 동일. */
+.paChart {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: space-around;
+  padding: 8px 4px 2px;
+  min-height: 84px;
+}
+.paCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.paBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 72px;
+}
+.paBar i {
+  display: block;
+  width: 9px;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.4s var(--ease);
+}
+.paBar i.plan,
+.paLg.plan {
+  background: color-mix(in srgb, var(--mut) 55%, transparent);
+}
+.paBar i.done,
+.paLg.done {
+  background: var(--good);
+}
+.paLg {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 2px;
+}

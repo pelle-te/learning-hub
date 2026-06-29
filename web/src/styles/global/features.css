@@ -1,0 +1,286 @@
+/* ============================================================
+   features.css — 전역 base 레이어 중 *앱 셸 싱글턴 크롬*만 남김.
+   feature/디자인 시스템 클래스(itemrow·blk·rec·cbms·pa·hm·ms·ctl·tree·setup·ritual·stagebar…)와
+   공용(seg·spin·tag…)은 Phase 9에서 ds.module + 각 feature 모듈로 이전 완료 → 정의 삭제.
+   여기 남는 건 단 한 번 쓰이는 앱 크롬: ⋯메뉴·토스트·모달·스크롤바·모션 환경설정(전역).
+   (명령 팔레트 cmd-*는 components/CommandPalette.module.css가 소유 → 전역 정의 삭제.)
+============================================================ */
+
+/* ── 모션 환경설정(전역) ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ── 헤더 오버플로 메뉴(⋯) ── */
+.menuwrap {
+  position: relative;
+  display: inline-block;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 230px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: menuPop 0.14s var(--ease);
+}
+.menu[hidden] {
+  display: none;
+}
+@keyframes menuPop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.menu button[role='menuitem'] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  font-size: 13px;
+  color: var(--txt);
+  font-weight: 500;
+}
+.menu button[role='menuitem']:hover {
+  background: var(--panel2);
+  border-color: var(--line);
+}
+.menu .menu-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 2px;
+}
+.menu button.menu-danger {
+  color: var(--bad);
+}
+.menu button.menu-danger:hover {
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
+}
+/* 좁은 화면에선 부제 숨겨 헤더를 깔끔히 */
+@media (max-width: 560px) {
+  .top .sub {
+    display: none;
+  }
+}
+
+/* ── 토스트(비차단 알림) ── */
+.toast-host {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: min(380px, calc(100vw - 36px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--r-md);
+  padding: 11px 13px;
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--txt);
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition:
+    opacity 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+.toast.in {
+  opacity: 1;
+  transform: none;
+}
+.toast.out {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+.toast .toast-i {
+  flex: none;
+  font-weight: 800;
+  font-size: 13px;
+  margin-top: 1px;
+}
+.toast .toast-m {
+  flex: 1;
+  word-break: break-word;
+}
+.toast.ok {
+  border-left-color: var(--good);
+}
+.toast.ok .toast-i {
+  color: var(--good);
+}
+.toast.bad {
+  border-left-color: var(--bad);
+}
+.toast.bad .toast-i {
+  color: var(--bad);
+}
+.toast.warn {
+  border-left-color: var(--warn);
+}
+.toast.warn .toast-i {
+  color: var(--warn);
+}
+.toast.info {
+  border-left-color: var(--acc);
+}
+.toast.info .toast-i {
+  color: var(--acc);
+}
+.toast .toast-act {
+  flex: none;
+  align-self: center;
+  margin-left: 2px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--acc-soft);
+  border: 1px solid color-mix(in srgb, var(--acc) 35%, var(--line));
+  color: var(--acc);
+  cursor: pointer;
+}
+.toast .toast-act:hover {
+  background: var(--acc-glow);
+}
+@media (max-width: 560px) {
+  .toast-host {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    max-width: none;
+  }
+}
+
+/* ── 모달(confirm/prompt · 단축키 도움말) ── */
+.modal-ov {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: color-mix(in srgb, #05070c 60%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.16s var(--ease);
+}
+.modal-ov.in {
+  opacity: 1;
+}
+.modal-ov.out {
+  opacity: 0;
+}
+.modal {
+  width: min(440px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 20px;
+  transform: translateY(8px) scale(0.98);
+  transition: transform 0.18s var(--ease);
+}
+.modal-ov.in .modal {
+  transform: none;
+}
+.modal-t {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 7px;
+  letter-spacing: -0.01em;
+}
+.modal-b {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--txt);
+  white-space: pre-wrap;
+}
+.modal-in {
+  margin-top: 12px;
+  resize: vertical;
+  min-height: 64px;
+}
+.modal-a {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+.modal-a button {
+  padding: 9px 16px;
+}
+.modal-ok.modal-danger {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bad) 92%, white 0%),
+    color-mix(in srgb, var(--bad) 82%, black 12%)
+  );
+  border-color: color-mix(in srgb, var(--bad) 70%, black 18%);
+  color: #fff;
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--bad) 50%, transparent);
+}
+.modal-ok.modal-danger:hover {
+  filter: brightness(1.06);
+}
+
+/* ── 커스텀 스크롤바(전역) ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--acc) 50%, var(--line));
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
