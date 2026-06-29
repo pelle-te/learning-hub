@@ -1,52 +1,50 @@
 /* ============================================================
-   TodaySignature — 오늘 탭 시그니처(설계도 §2 오늘 · 데모 v6).
-   회전 스파인 | 스탯 리드아웃 | 발광 트랙(+다음 콜아웃+주간 미니트랙). 하단 라인 스트립.
+   TodaySignature — 데모 v6 단일 화면 대시보드. 프레임을 가득 채우는 4컬럼 그리드 + 하단 스트립.
+   [회전 스파인 96 | 스탯 268 | 트랙 1fr | 오늘의 블록 276] · 컬럼 사이 헤어라인 디바이더.
 ============================================================ */
-.sigWrap {
-  display: block;
-  margin-bottom: 18px;
+.today {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
-.sig {
+.grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 90px 232px minmax(0, 1fr);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  margin-bottom: 14px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
+  grid-template-columns: 96px 268px 1fr 276px;
 }
-.sig > div {
-  padding: 22px;
+.grid > div {
+  padding: 24px 22px;
+  min-width: 0;
 }
 
-/* ── 회전 스파인 — 한글은 똑바로(vertical-rl) ── */
+/* 1 — 회전 스파인 */
 .spine {
   border-right: 1px solid var(--line2);
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  overflow: hidden;
+  padding: 26px 0 !important;
 }
-.kickerTag {
+.kicker {
   writing-mode: vertical-rl;
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--acc);
   font-weight: 800;
-  text-shadow: 0 0 16px var(--glow);
 }
-.subjName {
+.subj {
   writing-mode: vertical-rl;
   font-weight: 900;
-  font-size: 44px;
+  font-size: 64px;
   letter-spacing: 0.02em;
   line-height: 1;
   white-space: nowrap;
-  color: var(--ink);
   overflow: hidden;
-  max-height: 100%;
 }
 .clock {
   font-size: 13px;
@@ -55,64 +53,52 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── 스탯 리드아웃 컬럼 ── */
+/* 2 — 스탯 */
 .stats {
   border-right: 1px solid var(--line2);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 26px;
+  justify-content: center;
 }
-.cta {
-  margin-top: auto;
-  padding-top: 6px;
+.stL {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 700;
 }
-.ctaBtn {
-  width: 100%;
-  padding: 11px 14px;
-  border: 1px solid var(--acc);
-  border-radius: 7px;
-  background: var(--acc);
-  color: var(--on-acc);
+.stV {
+  font-size: 28px;
   font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  box-shadow: 0 0 28px -6px var(--glow);
-  font-family: inherit;
-  transition:
-    transform 0.12s var(--ease),
-    box-shadow 0.16s var(--ease);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-top: 7px;
+  word-break: keep-all;
 }
-.ctaBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 36px -4px var(--glow);
+.stV small {
+  font-size: 14px;
+  color: var(--mut);
+  font-weight: 700;
 }
-.ctaBtn:active {
-  transform: translateY(0);
-}
-.ctaGhost {
-  background: transparent;
-  color: var(--ink);
-  border-color: var(--line);
-  box-shadow: none;
-}
-.ctaGhost:hover {
-  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
-  box-shadow: none;
+.big .stV {
+  font-size: 46px;
+  color: var(--acc);
+  text-shadow: 0 0 22px var(--glow);
 }
 
-/* ── 트랙 컬럼 ── */
+/* 3 — 발광 트랙 */
 .track {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 .trackHead {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
 }
-.trackHead .t {
+.t {
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -124,11 +110,9 @@
   color: var(--acc);
   font-weight: 800;
   text-shadow: 0 0 16px var(--glow);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 .next {
-  margin: 12px 0 16px;
+  margin-top: 14px;
   font-size: 14px;
   color: var(--mut);
   line-height: 1.5;
@@ -137,30 +121,26 @@
   color: var(--ink);
   font-weight: 700;
 }
-.arr {
+.next .arr {
   color: var(--acc);
   font-weight: 800;
   margin-right: 8px;
 }
 .trackEmpty {
-  display: grid;
-  place-items: center;
-  min-height: 132px;
-  color: var(--mut);
-  font-size: 13px;
+  align-self: center;
   text-align: center;
-  border: 1px dashed var(--line2);
-  border-radius: 8px;
-  padding: 14px;
+  font-size: 13px;
+  color: var(--mut);
+  line-height: 1.6;
+  padding: 20px;
 }
 
-/* ── 주간 미니트랙 ── */
+/* 주간 미니트랙 */
 .week {
   display: flex;
-  gap: 9px;
+  gap: 10px;
   align-items: flex-end;
-  padding-top: 18px;
-  margin-top: 18px;
+  padding-top: 20px;
   border-top: 1px solid var(--line2);
 }
 .wlab {
@@ -170,6 +150,7 @@
   color: var(--mut);
   font-weight: 800;
   align-self: center;
+  margin-right: 6px;
   white-space: nowrap;
   line-height: 1.3;
 }
@@ -178,22 +159,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 .wbar {
   width: 100%;
-  height: 42px;
+  height: 44px;
   display: flex;
   align-items: flex-end;
 }
 .wbar i {
   width: 100%;
+  min-height: 2px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--acc) 22%, transparent);
-  transition: height 0.35s var(--ease);
-  min-height: 2px;
 }
-.wd.todayCol .wbar i {
+.todayCol .wbar i {
   background: var(--acc);
   box-shadow: 0 0 14px var(--glow);
 }
@@ -201,23 +181,139 @@
   font-size: 10px;
   color: var(--mut);
 }
-.wd.todayCol .wdd {
+.todayCol .wdd {
   color: var(--acc);
   font-weight: 800;
 }
 
-/* ── 하단 라인 스트립 ── */
-.strip {
+/* 4 — 오늘의 블록(클릭 = 완료 토글) */
+.sched {
+  border-left: 1px solid var(--line2);
   display: flex;
-  gap: 32px;
+  flex-direction: column;
+}
+.schedT {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.schedRows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.row {
+  display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  padding: 2px 4px 0;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 2px;
+  border: none;
+  border-bottom: 1px solid var(--line2);
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row:hover {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.row:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+.bull {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mut);
+  flex: none;
+}
+.rowCur .bull {
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+}
+.rowDone .bull {
+  background: var(--acc);
+}
+.nm {
+  flex: 1;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nm small {
+  color: var(--mut);
+  font-weight: 400;
+  margin-left: 5px;
+  font-size: 12px;
+}
+.tm {
+  color: var(--mut);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.rowDone {
+  opacity: 0.42;
+}
+.rowDone .nm {
+  text-decoration: line-through;
+}
+.rowCur .nm {
+  color: var(--acc);
+}
+.rowCur .tm {
+  color: var(--acc);
+  text-shadow: 0 0 14px var(--glow);
+}
+.schedEmpty {
+  font-size: 12.5px;
+  color: var(--mut);
+  padding: 14px 2px;
+  line-height: 1.6;
+}
+.more {
+  margin-top: auto;
+  padding: 14px 2px 0;
+  font-size: 12px;
+  color: var(--mut);
+  font-weight: 700;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.more:hover {
+  color: var(--acc);
+}
+
+/* 하단 스트립 — 마감·Anki·보충 */
+.strip {
+  flex: none;
+  display: flex;
+  gap: 40px;
+  align-items: center;
+  padding: 15px 24px;
+  border-top: 1px solid var(--line);
 }
 .grp {
   display: flex;
-  align-items: baseline;
-  gap: 11px;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .grpL {
   font-size: 10px;
@@ -225,43 +321,48 @@
   text-transform: uppercase;
   color: var(--mut);
   font-weight: 700;
-  white-space: nowrap;
 }
 .tag {
-  font-size: 13px;
-  font-weight: 800;
-  border: none;
-  background: none;
-  font-family: inherit;
-  color: var(--ink);
-  cursor: pointer;
-  padding: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 .tag b {
   color: var(--acc);
 }
+.tag:hover {
+  color: var(--acc);
+}
 .tagMut {
   color: var(--mut);
+  font-weight: 600;
   cursor: default;
 }
 .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  flex: none;
 }
 .vline {
   width: 1px;
-  height: 24px;
+  height: 26px;
   background: var(--line2);
+  flex: none;
 }
 
+/* 모바일 — 단일 화면 해제: 세로 스택 + 스크롤(프레임 fill이 모바일선 overflow auto). */
 @media (max-width: 860px) {
-  .sig {
+  .grid {
     grid-template-columns: 1fr;
+    gap: 0;
   }
   .spine {
     flex-direction: row;
@@ -269,24 +370,28 @@
     gap: 16px;
     border-right: none;
     border-bottom: 1px solid var(--line2);
+    padding: 16px 18px !important;
   }
-  .kickerTag,
-  .subjName {
+  .kicker,
+  .subj {
     writing-mode: horizontal-tb;
   }
-  .subjName {
+  .subj {
     font-size: 34px;
   }
   .stats {
     border-right: none;
     border-bottom: 1px solid var(--line2);
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 18px 28px;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
   }
-  .cta {
-    margin-top: 0;
-    flex-basis: 100%;
+  .sched {
+    border-left: none;
+    border-top: 1px solid var(--line2);
+  }
+  .strip {
+    flex-wrap: wrap;
+    gap: 16px 28px;
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { actions, io, Icon } from '@/shell';
 import { useApp } from '@/store/useApp';
+import { usePageChrome } from '@/store/usePageChrome';
 import s from './TopBar.module.css';
 
 /* TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
@@ -13,6 +14,8 @@ const THEME_NAME: Record<string, string> = { light: '라이트', dark: '다크' 
 
 export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const theme = useApp((s) => s.state.theme) || 'dark';
+  const readouts = usePageChrome((s) => s.readouts);
+  const action = usePageChrome((s) => s.action);
   const [moreOpen, setMoreOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const impRef = useRef<HTMLInputElement>(null);
@@ -43,7 +46,22 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
       </h1>
       <span className={s.sub}>오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
       <span className={s.grow} />
+      {readouts.length > 0 && (
+        <div className={s.readouts}>
+          {readouts.map((r, i) => (
+            <div key={i} className={`${s.readout}${r.accent ? ' ' + s.racc : ''}`}>
+              <span className={s.rl}>{r.label}</span>
+              <span className={s.rv}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div className={s.actions}>
+        {action && (
+          <button className={`${s.btn} ${s.fill}`} onClick={action.onClick}>
+            {action.label}
+          </button>
+        )}
         <button className={s.btn} onClick={onOpenPalette} title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">
           ⌘K
         </button>

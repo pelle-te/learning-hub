@@ -44,6 +44,8 @@ test('today: React 카드(대시보드 히어로·오늘의 블록)가 뜨고 #p
 
 test('today: 아침 계획 의식 토글이 store.rituals에 기록된다', async () => {
   renderApp('/today');
+  // 의식·블록 상세는 단일 화면 대시보드의 "＋ 블록 상세 · 일일 의식" 패널 안에 있음 — 먼저 연다.
+  fireEvent.click(await screen.findByRole('button', { name: /일일 의식/ }));
   const cb = await screen.findByRole('checkbox', { name: /아침 계획/ });
   fireEvent.click(cb);
 

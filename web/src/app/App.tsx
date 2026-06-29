@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
 import TopBar from '@/app/TopBar';
@@ -40,6 +40,9 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // 단일 화면 대시보드 탭(데모 v6 today) — 프레임을 가득 채우고 내부 스크롤 없음.
+  const fillFrame = pathname === '/' || pathname === '/today';
   const tabs = orderedTabs();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,7 +125,7 @@ export default function App() {
         <TopBar onOpenPalette={() => setPaletteOpen(true)} />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
         <main id="main" tabIndex={-1} className={s.main}>
-          <HudFrame>
+          <HudFrame fill={fillFrame}>
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
               {tabs.map((t) => {

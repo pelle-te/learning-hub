@@ -6,10 +6,19 @@
 import type { ReactNode } from 'react';
 import s from './HudFrame.module.css';
 
-export default function HudFrame({ children, className }: { children: ReactNode; className?: string }) {
+/** fill=true → 내부 스크롤·패딩 없이 본문이 프레임을 가득 채움(단일 화면 대시보드, 데모 v6 today). */
+export default function HudFrame({
+  children,
+  className,
+  fill,
+}: {
+  children: ReactNode;
+  className?: string;
+  fill?: boolean;
+}) {
   return (
     <section className={`${s.frame}${className ? ' ' + className : ''}`}>
-      <div className={s.scroll}>{children}</div>
+      <div className={fill ? s.fillInner : s.scroll}>{children}</div>
     </section>
   );
 }

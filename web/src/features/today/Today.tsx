@@ -1,8 +1,9 @@
 /* ============================================================
-   Today — 탭: 🎯 오늘 학습 (Phase 3 · 앱상태 + 파생 scheduler)
-   계획(스케줄 탭)이 '언제/무엇'이라면, 이 탭은 '블록 안에서 어떻게'를 굴린다.
-   레거시 ui-today.js를 React로 — 셋업 가이드 / 오늘 한눈에·의식 / 오늘의 블록 / 흐름 가이드.
+   Today — 탭: 🎯 오늘 학습 (데모 v6 단일 화면 대시보드)
+   기본 화면 = TodaySignature(프레임 가득 채우는 4컬럼 대시보드, 무스크롤).
+   세부(블록 액션·일일 의식·흐름 가이드)는 "＋"/"지금 시작" → 오버레이 패널로(필요할 때만).
 ============================================================ */
+import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
@@ -10,7 +11,6 @@ import { iso } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import t from './Today.module.css';
 import type { Ritual } from '@/lib/types';
-import { SetupGuide } from './SetupGuide';
 import { TodaySignature } from './TodaySignature';
 import { TodayBlocks } from './TodayBlocks';
 import { BLOCK_STAGES, PRINCIPLES } from './consts';
@@ -99,13 +99,46 @@ function FlowGuide() {
 }
 
 export default function Today() {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const openMore = useCallback(() => setMoreOpen(true), []);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [moreOpen]);
+
   return (
     <>
-      <SetupGuide />
-      <TodaySignature />
-      <TodayBlocks />
-      <RitualCard />
-      <FlowGuide />
+      <TodaySignature onOpenMore={openMore} />
+      {moreOpen && (
+        <div
+          className={t.overlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label="오늘 상세"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMoreOpen(false);
+          }}
+        >
+          <div className={t.panel}>
+            <div className={t.panelHead}>
+              <b>오늘 상세 — 블록 · 의식 · 흐름</b>
+              <button type="button" className={t.panelX} onClick={() => setMoreOpen(false)} aria-label="닫기">
+                ✕
+              </button>
+            </div>
+            <div className={t.panelBody}>
+              <TodayBlocks />
+              <RitualCard />
+              <FlowGuide />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

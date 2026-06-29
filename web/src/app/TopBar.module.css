@@ -41,12 +41,62 @@
   flex: 1;
 }
 
-/* 우측 액션 영역 — 리드아웃 슬롯(Phase B) + 칩 버튼들. */
+/* 컨텍스트 리드아웃 — 페이지가 주입(진행률·연속·마감). 데모 v6 헤더 큰 네온 수치. */
+.readouts {
+  display: flex;
+  align-items: flex-start;
+  gap: 30px;
+  align-self: center;
+  margin-right: 8px;
+}
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rl {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 700;
+}
+.rv {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.rv small {
+  font-size: 14px;
+  color: var(--mut);
+  font-weight: 700;
+}
+.racc .rv {
+  color: var(--acc);
+  text-shadow: 0 0 22px var(--glow);
+}
+
+/* 우측 액션 영역 — 주 액션(fill) + 칩 버튼들. */
 .actions {
   display: flex;
   align-items: center;
   gap: 8px;
   align-self: center;
+}
+/* 주 액션 — 네온 채움 필(데모 "지금 시작 →"). */
+.fill {
+  background: var(--acc);
+  color: var(--on-acc);
+  border-color: var(--acc);
+  box-shadow: 0 0 30px -6px var(--glow);
+  letter-spacing: 0.04em;
+}
+.fill:hover {
+  background: var(--acc);
+  border-color: var(--acc);
+  filter: brightness(1.06);
 }
 
 /* HUD 칩 버튼 — 각진 헤어라인. */
@@ -99,6 +149,9 @@
     padding: 14px 14px 10px;
   }
   .sub {
+    display: none;
+  }
+  .readouts {
     display: none;
   }
   .btn {

@@ -33,6 +33,17 @@
   background-clip: padding-box;
 }
 
+/* fill 모드 — 본문이 프레임을 가득(단일 화면 대시보드). 스크롤·패딩 없음, 자식이 100% 채움. */
+.fillInner {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+}
+.fillInner > * {
+  flex: 1;
+  min-width: 0;
+}
+
 /* 모바일: 노치·프레임 보더를 접고 단일 컬럼으로(반응형은 Phase D에서 정교화). */
 @media (max-width: 700px) {
   .frame {
@@ -42,5 +53,10 @@
   }
   .scroll {
     padding: 12px 14px 24px;
+  }
+  /* 모바일에선 단일 화면을 풀고 세로 스크롤 허용(콘텐츠 잘림 방지). */
+  .fillInner {
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 }
