@@ -16,11 +16,11 @@
   z-index: var(--z-palette-top);
 }
 .dialog {
-  background: var(--card, #fff);
-  color: var(--fg, #1a1a1a);
-  border: 1px solid var(--line, #e2e2e2);
+  background: var(--panel);
+  color: var(--txt);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 .input {
@@ -29,7 +29,7 @@
   padding: 16px 18px;
   font-size: 16px;
   border: 0;
-  border-bottom: 1px solid var(--line, #e2e2e2);
+  border-bottom: 1px solid var(--line);
   background: transparent;
   color: inherit;
   outline: none;
@@ -50,7 +50,7 @@
   user-select: none;
 }
 .item[data-selected='true'] {
-  background: var(--accent-weak, rgba(79, 143, 240, 0.15));
+  background: var(--acc-soft);
 }
 .label {
   font-size: 14px;
@@ -59,7 +59,7 @@
   font-size: 11px;
   opacity: 0.6;
   padding: 2px 8px;
-  border: 1px solid var(--line, #e2e2e2);
+  border: 1px solid var(--line);
   border-radius: 999px;
 }
 .empty {
@@ -74,7 +74,7 @@
   padding: 8px 14px;
   font-size: 11px;
   opacity: 0.7;
-  border-top: 1px solid var(--line, #e2e2e2);
+  border-top: 1px solid var(--line);
 }
 .brand {
   font-weight: 700;

@@ -109,6 +109,10 @@ main:focus {
   gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+  /* 헤더가 자체 스택 컨텍스트를 만들어 ⋯ 메뉴 드롭다운이 sticky 나브(z-nav) 위에 뜨게 한다.
+     (메뉴만 z를 올려선 부족 — 헤더가 컨텍스트를 안 만들면 sticky 나브 SC에 가림) */
+  position: relative;
+  z-index: var(--z-dropdown);
 }
 .top h1 {
   display: flex;

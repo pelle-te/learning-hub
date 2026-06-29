@@ -56,7 +56,8 @@
 /* 일과 블록 편집 행 */
 .blkrow {
   display: grid;
-  grid-template-columns: 1.1fr 0.8fr 92px 92px minmax(280px, 1.4fr) auto;
+  /* 요일 칸은 칩 7개+프리셋 3개가 한 줄에 들어갈 폭(minmax 338) — 좁으면 '매일'이 줄바꿈돼 행이 어긋났음. */
+  grid-template-columns: 1fr 0.7fr 86px 86px minmax(338px, 1.5fr) auto;
   gap: 6px;
   align-items: center;
   margin-bottom: 8px;
@@ -89,7 +90,7 @@
   margin: 0;
 }
 .daychip {
-  padding: 6px 10px;
+  padding: 5px 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel2);
@@ -97,7 +98,7 @@
   font-size: 12px;
   cursor: pointer;
   font-family: inherit;
-  min-width: 32px;
+  min-width: 28px;
   transition: all 0.14s var(--ease);
 }
 .daychip:hover {
@@ -115,6 +116,8 @@
   background: transparent;
   font-size: 11px;
   color: var(--mut);
+  padding: 5px 7px;
+  min-width: auto;
 }
 .daychip.preset:hover {
   color: var(--acc);
@@ -123,5 +126,5 @@
   width: 1px;
   height: 18px;
   background: var(--line);
-  margin: 0 4px;
+  margin: 0 3px;
 }
