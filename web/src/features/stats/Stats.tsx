@@ -4,8 +4,11 @@
    과목별 진행·주별 학습시간·챕터 타임라인. 차트는 기존 SVG/막대 로직을 컴포넌트화(설계도 §3).
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵은 Stats.module(st.*), 요소·토큰은 전역 base.
 ============================================================ */
+import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
+import { usePageChrome } from '@/store/usePageChrome';
+import DetailDrawer from '@/components/DetailDrawer';
 import { isDone, totalDoneHours, studyStreak } from '@/lib/persistence';
 import { cbmsCounts, cbmsTrend, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
 import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, DOW } from '@/lib/utils';
@@ -153,8 +156,9 @@ function RetentionSpark() {
   );
 }
 
-/** 학습 스트릭 히트맵(GitHub식) — 최근 18주, 하루 완료분 5단계 농도. */
-function StreakHeatmap() {
+/** 학습 스트릭 히트맵(GitHub식) — 최근 18주, 하루 완료분 5단계 농도.
+   bare=true → 카드/제목 없이 잔디 + 범례만(데이터보드 시그니처 컬럼용). */
+function StreakHeatmap({ bare }: { bare?: boolean }) {
   const state = useApp((s) => s.state);
   const WEEKS = 18;
   const comp = state.completions || {};
@@ -185,11 +189,8 @@ function StreakHeatmap() {
     }
     cols.push(cells);
   }
-  return (
-    <div className={ds.card}>
-      <h2>
-        학습 스트릭 <span className={`${ds.muted} ${ds.tiny}`}>— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
-      </h2>
+  const heat = (
+    <>
       <div className={st.hmWrap}>
         <div className={st.hmDow}>
           {['월', '', '수', '', '금', '', '일'].map((x, i) => (
@@ -230,6 +231,15 @@ function StreakHeatmap() {
         <span style={{ flex: 1 }} />
         최근 {WEEKS}주 {activeDays}일 학습 · 총 {Math.round(totalMin / 60)}h
       </div>
+    </>
+  );
+  if (bare) return heat;
+  return (
+    <div className={ds.card}>
+      <h2>
+        학습 스트릭 <span className={`${ds.muted} ${ds.tiny}`}>— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
+      </h2>
+      {heat}
     </div>
   );
 }
@@ -463,16 +473,54 @@ function ChapterTimeline({ r }: { r: ScheduleResult }) {
   );
 }
 
+/** 과목 한 줄(과목별 진행, 컴팩트) — 색 레일 + 진행 네온 바 + 상태 칩. */
+function SubjectRow({ s }: { s: ScheduleResult['itemStat'][number] }) {
+  if (s.daily)
+    return (
+      <div className={st.subj}>
+        <div className={st.subjTop}>
+          <span className={ds.swatch} style={{ background: s.color }} />
+          <span className={st.subjNm}>{s.name}</span>
+          <span className={st.subjPill}>반복</span>
+        </div>
+        <div className={st.subjMeta}>
+          매일 {s.dailyMin}분 · {s.schedH}h / {s.days}일
+        </div>
+      </div>
+    );
+  const prog = s.totalCh ? Math.round((s.doneCh! / s.totalCh) * 100) : 0;
+  const pill = !s.deadline
+    ? { cls: '', lab: '진행' }
+    : !s.finished
+      ? { cls: st.bad, lab: '시간부족' }
+      : (s.late || 0) > 0
+        ? { cls: st.bad, lab: '마감초과' }
+        : { cls: st.good, lab: '정상' };
+  return (
+    <div className={st.subj}>
+      <div className={st.subjTop}>
+        <span className={ds.swatch} style={{ background: s.color }} />
+        <span className={st.subjNm}>{s.name}</span>
+        <span className={`${st.subjPill} ${pill.cls}`}>{pill.lab}</span>
+      </div>
+      <div className={st.subjBar}>
+        <i style={{ width: `${prog}%`, background: s.color }} />
+      </div>
+      <div className={st.subjMeta}>
+        {s.doneCh}/{s.totalCh} 챕터 · {s.schedH}h/{s.totalH}h{s.deadline ? ` · 마감 ${s.deadline}` : ''}
+      </div>
+    </div>
+  );
+}
+
+const CBMS_CODES: CbmsCode[] = ['C', 'B', 'M', 'S', 'T'];
+
 export default function Stats() {
   const state = useApp((s) => s.state);
   const r = useSchedule();
-
-  if (!r.itemStat.length)
-    return (
-      <div className={ds.card}>
-        <div className={ds.empty}>학습 항목을 추가하면 통계가 나타납니다.</div>
-      </div>
-    );
+  const [detailOpen, setDetailOpen] = useState(false);
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
 
   const totalSchedH = r.itemStat.reduce((t, s) => t + (s.schedH || 0), 0);
   const totalCh = r.itemStat.reduce((t, s) => t + (s.totalCh || 0), 0);
@@ -482,15 +530,82 @@ export default function Stats() {
   const streak = studyStreak(state);
   const compRate = totalSchedH > 0 ? Math.min(100, Math.round((doneH / totalSchedH) * 100)) : 0;
 
-  return (
-    <>
-      {/* 시그니처 — 학습 데이터 보드(완료율 히어로 + 보조 리드아웃) */}
-      <div className={st.board}>
-        <div className={st.bHead}>
-          <span className={st.bTitle}>학습 데이터 보드 — DATA</span>
-          <span className={st.bMeta}>{r.itemStat.length}과목 추적</span>
+  // 능동 인출 활동(북극성 출력 지표) = 요약 + 백지 완료 + 모의 완료.
+  let blankDone = 0;
+  let mockDone = 0;
+  r.days.forEach((d) =>
+    d.items.forEach((it) => {
+      if (it.type === 'blank' && isDone(state, d.ds, it.sid, it.type)) blankDone++;
+      if (it.type === 'mock' && isDone(state, d.ds, it.sid, it.type)) mockDone++;
+    }),
+  );
+  const recallActs = summaryCount(state) + blankDone + mockDone;
+
+  // 오답 추세(약점이 닫히는 방향?).
+  const tr = cbmsTrend(state);
+  const trDelta = tr.lastW - tr.thisW;
+  const trGood = trDelta > 0 || (tr.lastW === 0 && tr.thisW === 0);
+  const trIcon =
+    tr.lastW === 0 && tr.thisW === 0 ? '＝ 유지' : trDelta > 0 ? '▼ 감소' : trDelta < 0 ? '▲ 증가' : '＝ 유지';
+
+  // 주된 약점(CBMS 최댓값).
+  const cnt = cbmsCounts(state);
+  const cbmsTotal = CBMS_CODES.reduce((t, k) => t + (cnt[k] || 0), 0);
+  const topCode = CBMS_CODES.slice().sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0))[0]!;
+  const topInfo = CBMS_INFO[topCode];
+  const topVal = cnt[topCode] || 0;
+
+  useEffect(() => {
+    setChrome(
+      [
+        {
+          label: '완료율',
+          value: (
+            <>
+              {compRate}
+              <small>%</small>
+            </>
+          ),
+          accent: true,
+        },
+        {
+          label: '연속',
+          value: (
+            <>
+              {streak}
+              <small> 일</small>
+            </>
+          ),
+        },
+        { label: '인출', value: recallActs },
+      ],
+      { label: '＋ 상세 리포트', onClick: () => setDetailOpen(true) },
+    );
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compRate, streak, recallActs]);
+
+  if (!r.itemStat.length)
+    return (
+      <section aria-label="학습 통계">
+        <div className={ds.card}>
+          <div className={ds.empty}>학습 항목을 추가하면 통계가 나타납니다.</div>
         </div>
-        <div className={st.bGrid}>
+      </section>
+    );
+
+  return (
+    <section className={st.wrap} aria-label="학습 통계">
+      <div className={st.grid}>
+        {/* 1 — 회전 스파인 */}
+        <div className={st.spine}>
+          <div className={st.kicker}>학습 통계</div>
+          <div className={st.spineBig}>DATA</div>
+          <div className={st.spineSub}>{r.itemStat.length}과목</div>
+        </div>
+
+        {/* 2 — 지표 컬럼(완료율 히어로 + 보조 리드아웃) */}
+        <div className={st.metrics}>
           <div className={st.hero}>
             <span className={st.heroNum}>
               {compRate}
@@ -501,109 +616,88 @@ export default function Stats() {
               {doneH.toFixed(1)}h / {Math.round(totalSchedH)}h
             </span>
           </div>
-          <div className={st.cells}>
-            <div className={st.ro}>
-              <span className={st.roNum}>🔥 {streak}</span>
-              <span className={st.roLab}>연속 학습일</span>
-            </div>
-            <div className={st.ro}>
-              <span className={st.roNum}>
-                {doneCh}
-                <small>/{totalCh}</small>
+          <div className={st.ro}>
+            <span className={st.roNum}>🔥 {streak}</span>
+            <span className={st.roLab}>연속 학습일</span>
+          </div>
+          <div className={st.ro}>
+            <span className={st.roNum}>
+              {doneCh}
+              <small>/{totalCh}</small>
+            </span>
+            <span className={st.roLab}>완료 챕터</span>
+          </div>
+          <div className={st.ro}>
+            <span className={st.roNum}>{recallActs}</span>
+            <span className={st.roLab}>능동 인출(요약+백지+모의)</span>
+          </div>
+          <div className={st.ro}>
+            <span className={st.roNum}>{revCount}</span>
+            <span className={st.roLab}>복습 세션(계획)</span>
+          </div>
+        </div>
+
+        {/* 3 — 시그니처(스트릭 발광맵 + 인출 판정) */}
+        <div className={st.signature}>
+          <div className={st.sigHead}>
+            <span className={st.sigTitle}>학습 스트릭 — STREAK</span>
+            <span className={st.sigMeta}>꾸준함의 리듬</span>
+          </div>
+          <StreakHeatmap bare />
+          <div className={st.verdicts}>
+            <div className={st.verdict}>
+              <span className={`${st.vIcon} ${trGood ? st.good : st.bad}`}>{trIcon}</span>
+              <span className={st.vText}>
+                <b>오답 추세</b> — 지난주 {tr.lastW} → 이번주 {tr.thisW}.{' '}
+                {trGood ? '약점이 닫히는 방향. 👍' : '가장 잦은 유형의 처방에 다음 주 시간을 더 주세요.'}
               </span>
-              <span className={st.roLab}>완료 챕터</span>
             </div>
-            <div className={st.ro}>
-              <span className={st.roNum}>{revCount}</span>
-              <span className={st.roLab}>복습 세션(계획)</span>
+            <div className={st.verdict}>
+              <span className={st.vIcon} style={{ color: topInfo?.color }}>
+                {cbmsTotal ? `${topCode} ${topVal}` : '—'}
+              </span>
+              <span className={st.vText} style={{ flex: 1 }}>
+                <b>주된 약점</b> {cbmsTotal ? `${topInfo?.label || ''}(전체 ${cbmsTotal}건)` : '오답 기록 없음'}
+                {cbmsTotal > 0 && (
+                  <div className={st.weakBar}>
+                    <i
+                      style={{
+                        width: `${Math.round((topVal / cbmsTotal) * 100)}%`,
+                        background: topInfo?.color || 'var(--acc)',
+                      }}
+                    />
+                  </div>
+                )}
+              </span>
             </div>
+          </div>
+        </div>
+
+        {/* 4 — 과목별 진행(우측, 스크롤) */}
+        <div className={st.subjects}>
+          <h2>과목별 진행</h2>
+          <div className={st.subjList}>
+            {r.itemStat.map((s) => (
+              <SubjectRow key={s.id} s={s} />
+            ))}
           </div>
         </div>
       </div>
 
-      <RetrievalCard r={r} />
-      <RetentionSpark />
-      <StreakHeatmap />
-      <CbmsRadar />
-
-      <div className={ds.card}>
-        <h2>과목별 진행</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>과목</th>
-              <th>주당</th>
-              <th>챕터</th>
-              <th>계획시간</th>
-              <th>학습 종료(예상)</th>
-              <th>마감</th>
-              <th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.itemStat.map((s) => {
-              if (s.daily)
-                return (
-                  <tr key={s.id}>
-                    <td>
-                      <span className={ds.swatch} style={{ background: s.color }} />
-                      {s.name}
-                    </td>
-                    <td className={`${ds.muted} ${ds.tiny}`}>매일 {s.dailyMin}분</td>
-                    <td className={ds.muted}>-</td>
-                    <td>{s.schedH}h</td>
-                    <td className={ds.muted}>{s.days}일</td>
-                    <td>-</td>
-                    <td>
-                      <span className={ds.pill}>반복</span>
-                    </td>
-                  </tr>
-                );
-              const prog = s.totalCh ? Math.round((s.doneCh! / s.totalCh) * 100) : 0;
-              const pill = !s.deadline ? (
-                <span className={ds.pill}>진행</span>
-              ) : !s.finished ? (
-                <span className={`${ds.pill} ${ds.bad}`}>시간부족</span>
-              ) : (s.late || 0) > 0 ? (
-                <span className={`${ds.pill} ${ds.warn}`}>마감초과</span>
-              ) : (
-                <span className={`${ds.pill} ${ds.good}`}>정상</span>
-              );
-              return (
-                <tr key={s.id}>
-                  <td>
-                    <span className={ds.swatch} style={{ background: s.color }} />
-                    {s.name}
-                  </td>
-                  <td>{s.weeklyHours}h</td>
-                  <td style={{ minWidth: 130 }}>
-                    {s.doneCh}/{s.totalCh}
-                    <div className={ds.bar} style={{ margin: '4px 0 0' }}>
-                      <i style={{ width: `${prog}%`, background: s.color }} />
-                    </div>
-                  </td>
-                  <td>
-                    {s.schedH}h<span className={`${ds.muted} ${ds.tiny}`}> / {s.totalH}h</span>
-                  </td>
-                  <td>{s.finishDate ? fmtShort(parseISO(s.finishDate)) : '-'}</td>
-                  <td>{s.deadline || '-'}</td>
-                  <td>{pill}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className={ds.card}>
-        <h2>주별 학습시간</h2>
-        <WeeklyBars r={r} />
-      </div>
-
-      <div className={ds.card}>
-        <h2>학습한 내용 (챕터 타임라인)</h2>
-        <ChapterTimeline r={r} />
-      </div>
-    </>
+      {/* 깊은 차트는 온디맨드 드로어로 — 인출 증거·유지율·CBMS 레이더·주별 시간·챕터 타임라인 */}
+      <DetailDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title="학습 리포트 — 상세">
+        <RetrievalCard r={r} />
+        <RetentionSpark />
+        <CbmsRadar />
+        <div className={ds.card}>
+          <h2>주별 학습시간</h2>
+          <WeeklyBars r={r} />
+        </div>
+        <div className={ds.card}>
+          <h2>학습한 내용 (챕터 타임라인)</h2>
+          <ChapterTimeline r={r} />
+        </div>
+      </DetailDrawer>
+    </section>
   );
 }
