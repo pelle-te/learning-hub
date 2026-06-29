@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
+import { useNavigate } from 'react-router-dom';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { io } from '@/shell';
 import { isDone } from '@/lib/persistence';
@@ -255,6 +256,7 @@ export default function Schedule() {
   // 뷰 선택은 UI 설정 단일 store(useUI)가 소유 — 영속·IDB미러 일관(localStorage 직접 접근 제거).
   const schedView = useUI((s) => s.ui.schedView);
   const setView = useUI((s) => s.setSchedView);
+  const navigate = useNavigate();
   const [selDow, setSelDow] = useState<number | null>(null);
 
   const baseMon = mondayOf(parseISO(state.startDate));
@@ -296,6 +298,7 @@ export default function Schedule() {
   }
   // 줄마다 마감 플래그 — 그날이 마감인 과목명(네온 위크-그리드에 표시).
   const deadlines = parts.map((p) => state.items.filter((it) => it.deadline === p.ds).map((it) => it.name));
+  const hasStudyItems = state.items.some((it) => it.name);
 
   return (
     <>
@@ -344,6 +347,19 @@ export default function Schedule() {
           <b>가용 시간</b>은 그 칸에서 바로 바꿀 수 있어요(그날만 적용). 모듈 {res.ML / 60}시간 단위.
         </div>
       </div>
+
+      {!hasStudyItems && (
+        <div className={ds.card}>
+          <h2>주간 보드가 비어 있어요</h2>
+          <div className={ds.foot} style={{ marginBottom: 8 }}>
+            학습 항목을 추가하면 이 주간 보드에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본 일과(수면·식사)만
+            보여요.
+          </div>
+          <Button sm variant="primary" onClick={() => navigate('/items')}>
+            학습 항목 추가하기 →
+          </Button>
+        </div>
+      )}
 
       {schedView === 'cards' ? (
         <div className={ds.weekgrid}>

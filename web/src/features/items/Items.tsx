@@ -8,6 +8,7 @@ import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, KpiGrid, Kpi } from '@/components/ui';
+import EmptyState from '@/components/EmptyState';
 import ds from '@/styles/ds.module.css';
 import type { Item } from '@/lib/types';
 import { ItemCard } from './ItemCard';
@@ -172,7 +173,29 @@ export default function Items() {
       <div>
         {items.length === 0 ? (
           <div className={ds.card}>
-            <div className={ds.empty}>학습 항목이 없습니다. + 과목 추가 또는 볼트/Anki 탭에서 넣으세요.</div>
+            <EmptyState
+              glyph="📚"
+              title="아직 학습 항목이 없어요"
+              desc={
+                <>
+                  공부할 과목을 추가하면 <b>주당 목표 시간</b>과 <b>챕터</b>로 스케줄러가 매일 블록을 자동 배치합니다.
+                  옵시디언 볼트나 Anki에서 통째로 불러올 수도 있어요.
+                </>
+              }
+              actions={
+                <>
+                  <Button variant="primary" onClick={addItem}>
+                    + 첫 과목 추가
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => ui.toast('연동 탭에서 볼트 폴더를 스캔해 과목을 불러오세요.', 'info')}
+                  >
+                    볼트/Anki에서 불러오기
+                  </Button>
+                </>
+              }
+            />
           </div>
         ) : (
           items.map((s) => (

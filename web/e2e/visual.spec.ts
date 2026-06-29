@@ -94,19 +94,37 @@ const TABS = [
 ];
 const THEMES = ['dark', 'light'] as const;
 
-async function boot(page: Page, theme: string) {
+async function boot(page: Page, theme: string, seed: object = SEED) {
   await page.clock.install({ time: FIXED });
   await page.addInitScript(
-    ([seed, th]) => {
+    ([s, th]) => {
       try {
-        localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: th }));
+        localStorage.setItem('study_planner_v3', JSON.stringify({ ...(s as object), theme: th }));
       } catch {
         /* noop */
       }
     },
-    [SEED, theme] as const,
+    [seed, theme] as const,
   );
 }
+
+// 신규 사용자(학습 항목·기록 없음) — 빈 상태 1급 설계 검증. 기본 일과(수면·식사)만 가진 새 볼트.
+const SEED_EMPTY = {
+  schemaVersion: 3,
+  theme: 'light',
+  startDate: '2026-06-01',
+  moduleLen: 120,
+  reviewRatio: 20,
+  completions: {},
+  items: [],
+  routine: [
+    { id: 'r1', name: '수면', type: '수면', start: '00:00', end: '07:00', days: [0, 1, 2, 3, 4, 5, 6] },
+    { id: 'r2', name: '점심', type: '식사', start: '12:00', end: '13:00', days: [0, 1, 2, 3, 4, 5, 6] },
+  ],
+  cbms: [],
+  degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
+};
+const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'journal'];
 
 for (const theme of THEMES) {
   for (const tab of TABS) {
@@ -119,6 +137,20 @@ for (const theme of THEMES) {
       // 진짜 화면을 캡처). 탭 본문은 h2 또는 aria-label 섹션을 가짐(TopBar h1·레일엔 없음).
       await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
       await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
+    });
+  }
+}
+
+// 빈 상태(신규 사용자) — 데이터 의존 탭이 텅 비지 않고 의도적으로 보이는지.
+for (const theme of THEMES) {
+  for (const tab of TABS_EMPTY) {
+    test(`${tab} · empty · ${theme}`, async ({ page }) => {
+      await boot(page, theme, SEED_EMPTY);
+      await page.goto('/' + tab);
+      await expect(page.locator('#main')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+      await expect(page).toHaveScreenshot(`${tab}-empty-${theme}.png`, { fullPage: true });
     });
   }
 }
