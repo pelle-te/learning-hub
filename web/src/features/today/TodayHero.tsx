@@ -54,6 +54,7 @@ export function TodayHero() {
     }
   }
   const wkPct = wkTotal ? Math.round((wkDone / wkTotal) * 100) : 0;
+  const planned = wkTotal > 0; // 이번 주 계획 블록이 하나도 없으면 0%는 오해 → '계획 없음'으로 표기
 
   const streak = studyStreak(state);
   const due = ankiDue(state);
@@ -79,15 +80,17 @@ export function TodayHero() {
       <div className={styles.head}>
         <div>
           <div className={styles.greet}>{greeting(today.getHours())}</div>
-          <div className={styles.date}>{fmt(today)} · 이번 주 학습 달성률</div>
+          <div className={styles.date}>
+            {fmt(today)} · {planned ? '이번 주 학습 달성률' : '이번 주 계획 없음'}
+          </div>
         </div>
         <div
           className={styles.ring}
-          style={{ ['--p' as string]: wkPct }}
+          style={{ ['--p' as string]: planned ? wkPct : 0 }}
           role="img"
-          aria-label={`이번 주 달성률 ${wkPct}%`}
+          aria-label={planned ? `이번 주 달성률 ${wkPct}%` : '이번 주 계획 없음'}
         >
-          <span className={styles.ringv}>{wkPct}%</span>
+          <span className={styles.ringv}>{planned ? `${wkPct}%` : '—'}</span>
         </div>
       </div>
 

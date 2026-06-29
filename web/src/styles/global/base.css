@@ -78,6 +78,30 @@ a:hover {
   padding: 26px 22px 104px;
 }
 
+/* 본문 바로가기(스킵 링크) — 포커스 전엔 화면 밖, Tab으로 닿으면 좌상단에 나타남. */
+.skip-link {
+  position: fixed;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  z-index: var(--z-palette-top);
+  padding: 10px var(--sp-4);
+  background: var(--acc);
+  color: var(--on-acc);
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-160%);
+  transition: transform 0.16s var(--ease);
+}
+.skip-link:focus {
+  transform: translateY(0);
+  text-decoration: none;
+}
+/* main은 스킵 링크가 프로그램 포커스를 줄 뿐이라(클릭 포커스 아님) 컨테이너 외곽선은 불필요. */
+main:focus {
+  outline: none;
+}
+
 /* ── 헤더 ───────────────────────────────────────────────── */
 .top {
   display: flex;
@@ -93,15 +117,32 @@ a:hover {
 }
 .top .sub {
   color: var(--mut);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.4;
+}
+/* 헤더 아이콘 버튼 — 라인 아이콘(.ic) 16px·일정한 정사각 타깃(이모지 글리프 편차 제거). */
+.top button.sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+}
+.top button.sm .ic {
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 700px) {
+  .top button.sm {
+    min-height: 40px;
+  }
 }
 
 /* ── 탭 내비 (2단 계층: 상위 그룹 / 하위 탭 · 상단 고정 + 유리 질감) ── */
 .nav {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: var(--z-nav);
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -173,7 +214,7 @@ a:hover {
 /* 하위 탭 — 작게, 활성은 패널 칩 + 밑줄 강조 */
 .navchild {
   padding: 6px 12px;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   font-weight: 500;
 }
 .navchild.active {
@@ -204,7 +245,7 @@ a:hover {
     right: 0;
     bottom: 0;
     top: auto;
-    z-index: 40;
+    z-index: var(--z-dropdown);
     margin: 0;
     gap: 5px;
     padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
@@ -218,6 +259,9 @@ a:hover {
     overflow-x: auto;
     justify-content: flex-start;
     scrollbar-width: none;
+    /* 가로 스크롤 단서 — 양 끝을 페이드해 "더 있다"를 암시(스크롤바 숨김 보완) */
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
   }
   .navsub {
     padding-top: 5px;
@@ -229,6 +273,7 @@ a:hover {
   .nav button {
     flex: none;
     white-space: nowrap;
+    min-height: 44px; /* 엄지 탭 영역 — WCAG 2.5.5 타깃 크기(하단 고정 탭바) */
   }
   .navchild.active::after {
     bottom: -3px;
@@ -237,5 +282,9 @@ a:hover {
 @media (max-width: 700px) {
   .wrap {
     padding-bottom: 140px;
+  }
+  /* 모바일: 고정 배경(background-attachment:fixed)은 스크롤 리페인트 잼을 유발 → 스크롤과 함께 이동. */
+  body {
+    background-attachment: scroll;
   }
 }

@@ -34,7 +34,8 @@ afterEach(() => cleanup());
 test('today: React 카드(대시보드 히어로·오늘의 블록)가 뜨고 #page를 쓰지 않는다', async () => {
   renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
-  expect(screen.getByText(/이번 주 학습 달성률/)).toBeInTheDocument();
+  // 계획 블록이 있으면 '달성률', 없으면 '계획 없음'(빈 상태) — 둘 중 하나로 히어로 부제가 뜬다.
+  expect(screen.getByText(/이번 주 (학습 달성률|계획 없음)/)).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: /^오늘의 블록/ })).toBeInTheDocument();
   expect(document.getElementById('page')).toBeNull();
 });

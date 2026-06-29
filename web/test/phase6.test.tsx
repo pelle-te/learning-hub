@@ -45,7 +45,7 @@ test('네이티브 나브: 그룹 탭 + 라인 아이콘(svg.ic)이 렌더된다
 
 test('테마 토글: <html data-theme> 순환 + 토스트', async () => {
   renderApp('/today');
-  const btn = await screen.findByRole('button', { name: '테마 전환' });
+  const btn = await screen.findByRole('button', { name: /테마 전환/ });
   fireEvent.click(btn); // light → sepia
   await waitFor(() => expect(document.documentElement.getAttribute('data-theme')).toBe('sepia'));
   expect(useApp.getState().state.theme).toBe('sepia');

@@ -2,10 +2,10 @@
    토큰 기반·테마 자동 대응. 기본 숨김이라 레이아웃/스크린샷에 영향 없음. */
 .tip {
   position: fixed;
-  z-index: 80;
+  z-index: var(--z-tooltip);
   max-width: 248px;
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.45;
   color: var(--txt);
   background: var(--panel);

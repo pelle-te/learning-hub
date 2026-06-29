@@ -10,7 +10,7 @@
 label {
   display: block;
   color: var(--mut);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   margin: 9px 0 3px;
   font-weight: 500;
 }
@@ -186,7 +186,7 @@ tbody tr:hover {
 th {
   color: var(--mut);
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -198,7 +198,7 @@ td select {
 details summary {
   cursor: pointer;
   color: var(--acc);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   padding: 4px 0;
 }
 hr {

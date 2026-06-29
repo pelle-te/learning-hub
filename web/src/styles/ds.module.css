@@ -43,7 +43,7 @@
 /* ── 레이아웃 ── */
 .row {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
 }
 .row > * {
@@ -88,14 +88,14 @@
   color: var(--mut);
 }
 .tiny {
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 
 /* ── KPI ── */
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: var(--sp-3);
   margin-bottom: 17px;
 }
 @media (max-width: 560px) {
@@ -139,7 +139,7 @@
   line-height: 1.15;
 }
 .kpi .l {
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   color: var(--mut);
   margin-top: 1px;
   word-break: keep-all;
@@ -162,7 +162,7 @@
   border-radius: var(--r-md);
   padding: 11px 13px 11px 14px;
   margin-bottom: 12px;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   position: relative;
 }
 .warnbox::before {
@@ -312,7 +312,7 @@ input.donechk:checked {
 .weekgrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-  gap: 12px;
+  gap: var(--sp-3);
   align-items: stretch;
 }
 .weekgrid .day {
@@ -330,14 +330,14 @@ input.donechk:checked {
 }
 .weekgrid .tl {
   padding: 5px 12px;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
 }
 .weekgrid .tl .tm {
   min-width: 80px;
   font-size: 11px;
 }
 .weekgrid .tl .mn {
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .day {
@@ -387,7 +387,7 @@ input.donechk:checked {
 }
 .tl .tm {
   color: var(--mut);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   min-width: 92px;
   font-variant-numeric: tabular-nums;
 }
@@ -396,7 +396,7 @@ input.donechk:checked {
 }
 .tl .mn {
   color: var(--mut);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 .tl.free {
@@ -448,7 +448,7 @@ input.donechk:checked {
 .wkstrip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
+  gap: var(--sp-2);
   margin-bottom: 14px;
 }
 .wkcol {
@@ -549,7 +549,7 @@ input.donechk:checked {
 .ddrow {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .ddaychip {
   display: inline-flex;
@@ -621,7 +621,7 @@ input.donechk:checked {
 .itemmeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   flex-wrap: wrap;
   justify-content: flex-end;
   flex: none;
@@ -748,7 +748,7 @@ tr[draggable='true']:hover .draghandle {
 .rec3 {
   margin: 7px 0 0;
   padding-left: 18px;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   line-height: 1.5;
 }
 .rec3 li {

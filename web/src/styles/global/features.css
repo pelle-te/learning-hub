@@ -25,7 +25,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  z-index: 40;
+  z-index: var(--z-dropdown);
   min-width: 230px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -93,7 +93,7 @@
   position: fixed;
   right: 18px;
   bottom: 18px;
-  z-index: 60;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -192,7 +192,7 @@
 .modal-ov {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -229,7 +229,7 @@
   letter-spacing: -0.01em;
 }
 .modal-b {
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   line-height: 1.6;
   color: var(--txt);
   white-space: pre-wrap;

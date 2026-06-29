@@ -109,32 +109,39 @@ export default function App() {
 
   return (
     <div className="wrap">
+      {/* 스크린리더/키보드 사용자가 매 탭마다 네비를 통과하지 않도록 본문으로 바로 점프(포커스 전엔 시각 숨김). */}
+      <a href="#main" className="skip-link">
+        본문 바로가기
+      </a>
       <Header onOpenPalette={() => setPaletteOpen(true)} />
       <Nav />
-      <Routes>
-        <Route path="/" element={<Navigate to="/today" replace />} />
-        {tabs.map((t) => {
-          const ReactTab = getReactTab(t.key);
-          return (
-            <Route
-              key={t.key}
-              path={'/' + t.key}
-              element={
-                <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
-                  {ReactTab ? (
-                    <Suspense fallback={<SkeletonCard />}>
-                      <ReactTab />
-                    </Suspense>
-                  ) : (
-                    <div className={ds.card}>알 수 없는 탭: {t.key}</div>
-                  )}
-                </ErrorBoundary>
-              }
-            />
-          );
-        })}
-        <Route path="*" element={<Navigate to="/today" replace />} />
-      </Routes>
+      {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
+      <main id="main" tabIndex={-1}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/today" replace />} />
+          {tabs.map((t) => {
+            const ReactTab = getReactTab(t.key);
+            return (
+              <Route
+                key={t.key}
+                path={'/' + t.key}
+                element={
+                  <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
+                    {ReactTab ? (
+                      <Suspense fallback={<SkeletonCard />}>
+                        <ReactTab />
+                      </Suspense>
+                    ) : (
+                      <div className={ds.card}>알 수 없는 탭: {t.key}</div>
+                    )}
+                  </ErrorBoundary>
+                }
+              />
+            );
+          })}
+          <Route path="*" element={<Navigate to="/today" replace />} />
+        </Routes>
+      </main>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <OnlineStatus />
