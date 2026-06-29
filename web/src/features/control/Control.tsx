@@ -128,33 +128,41 @@ export default function Control() {
 
   return (
     <>
-      <div className={ds.card}>
-        <div className={ds.row} style={{ alignItems: 'center' }}>
-          <h2 style={{ flex: 1, margin: 0 }}>🛠 시스템 제어판</h2>
+      <div className={cm.board}>
+        <div className={cm.bHead}>
+          <h2 className={cm.bTitle}>
+            🛠 시스템 제어판<span className={cm.bKicker}>OPS CONSOLE</span>
+          </h2>
           {online ? (
-            <span className={ds.chip} style={{ color: 'var(--good)' }}>
-              ● serve.js 연결됨
+            <span className={`${cm.status} ${cm.stOn}`}>
+              <span className={cm.dot} />
+              serve.js ONLINE
             </span>
           ) : offline ? (
-            <span className={ds.chip} style={{ color: 'var(--bad)' }}>
-              ○ API 없음
+            <span className={`${cm.status} ${cm.stOff}`}>
+              <span className={cm.dot} />
+              API OFFLINE
             </span>
           ) : (
-            <span className={ds.spin} />
+            <span className={cm.status}>
+              <span className={ds.spin} /> 연결 확인 중
+            </span>
           )}
         </div>
-        <div className={ds.foot}>
+        <div className={ds.foot} style={{ margin: 0 }}>
           시스템(전공 볼트·메타 도구)을 러닝허브에서 바로 돌리고 결과를 봅니다. CMD로 명령어 칠 필요 없이 버튼 하나로.
         </div>
       </div>
 
       {offline ? (
-        <div className={ds.card}>
-          <h3>제어판을 켜려면 serve.js로 띄우세요</h3>
-          <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
-            <li>
-              러닝허브 폴더에서 <code>node serve.js</code> 실행
-            </li>
+        <div className={cm.offBoard}>
+          <div className={cm.offTitle}>콘솔 오프라인</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: 14, color: 'var(--mut)', fontWeight: 700 }}>
+            제어판을 켜려면 serve.js로 띄우세요
+          </h3>
+          <div className={cm.offBoot}>$ node serve.js</div>
+          <ol className={ds.foot} style={{ lineHeight: 1.9, marginTop: 8 }}>
+            <li>러닝허브 폴더에서 위 명령으로 백엔드 부팅</li>
             <li>
               브라우저로 <code>http://localhost:8000/</code> 열기(지금은 정적/파일 모드라 API가 없음)
             </li>

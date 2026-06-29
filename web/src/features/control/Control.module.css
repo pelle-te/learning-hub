@@ -1,5 +1,110 @@
-/* Control.module.css — 시스템 제어판 탭 전용 스타일. 다른 feature와 공유 안 함.
+/* Control.module.css — 시스템 제어판 탭 전용 스타일(옵스 콘솔 시그니처).
    공유 클래스(card/row/chip/spin/foot/muted/tiny)는 ds.module이 소유. 값은 원본 features.css와 동일. */
+
+/* 옵스 콘솔 헤더 보드 — WeekGrid/.board 결 통일 */
+.board {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+  padding: 16px 18px 14px;
+  margin-bottom: 14px;
+}
+.bHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.bTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.bKicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--mut);
+  margin-left: 8px;
+}
+/* 연결 상태 — 텔레메트리식 라이브 리드아웃 */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.status .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--mut);
+}
+.stOn {
+  color: var(--good);
+}
+.stOn .dot {
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+  animation: ctl-pulse 1.8s infinite;
+}
+.stOff {
+  color: var(--bad);
+}
+.stOff .dot {
+  background: var(--bad);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
+}
+
+/* 콘솔 오프라인 — 에디토리얼 부팅 안내 보드 */
+.offBoard {
+  border: 1px solid color-mix(in srgb, var(--bad) 22%, var(--line));
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+  padding: 22px 20px;
+  margin-bottom: 14px;
+}
+.offTitle {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+}
+.offBoot {
+  display: inline-block;
+  margin: 10px 0 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--acc);
+}
+
+@keyframes ctl-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 50%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stOn .dot {
+    animation: none;
+  }
+}
 .ctlstats {
   margin-top: 8px;
   padding: 8px 10px;
