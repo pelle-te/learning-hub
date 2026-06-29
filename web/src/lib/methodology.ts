@@ -5,7 +5,7 @@
    *순수*하게: reads는 state를 받아 값 반환, 뮤테이터는 받은 state를 변형(Immer draft
    또는 평범한 객체 모두 동작). persist/다운로드/토스트는 store·features가 조립한다.
 ============================================================ */
-import { addDays, iso, mondayOf, rid, todayISO } from './utils';
+import { addDays, iso, mondayOf, parseISO, rid, todayISO } from './utils';
 import { SCHEMA_VERSION } from './persistence';
 import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, Summary, Weekly } from './types';
 
@@ -344,7 +344,8 @@ export function retentionTrend(state: AppState) {
 
 /** 인출 증거(14절) — CBMS 주간 추세. */
 export function cbmsTrend(state: AppState): { thisW: number; lastW: number } {
-  const mon = mondayOf(new Date());
+  const mon = mondayOf(parseISO(todayISO(state))); // 앱의 '오늘' 단일 출처(_today 시드 존중)
+
   const thisW = cbmsBetween(state, iso(mon), iso(addDays(mon, 6))).length;
   const lastMon = addDays(mon, -7);
   const lastW = cbmsBetween(state, iso(lastMon), iso(addDays(lastMon, 6))).length;

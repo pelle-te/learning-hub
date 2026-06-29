@@ -20,7 +20,7 @@ import {
   toggleBacklog,
   delBacklog,
 } from '@/lib/methodology';
-import { iso, fmt, itemById } from '@/lib/utils';
+import { fmt, itemById, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState, CbmsCode } from '@/lib/types';
@@ -431,7 +431,8 @@ function BacklogCard() {
 }
 
 export default function Journal() {
-  const ds2 = iso(new Date());
+  const _today = useApp((s) => s.state._today); // 좁은 구독(런타임 불변) — '오늘' 단일 출처 존중
+  const ds2 = todayISO({ _today });
   return (
     <>
       <div className={ds.card}>

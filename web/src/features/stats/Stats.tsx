@@ -158,7 +158,7 @@ function StreakHeatmap() {
   const state = useApp((s) => s.state);
   const WEEKS = 18;
   const comp = state.completions || {};
-  const today = parseISO(todayISO());
+  const today = parseISO(todayISO(state));
   const startMon = addDays(mondayOf(today), -7 * (WEEKS - 1));
   const minOf = (ds2: string) => {
     const m = comp[ds2];
