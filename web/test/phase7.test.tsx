@@ -47,20 +47,20 @@ test('나브 하위탭: End로 그룹의 마지막 탭으로 이동', async () =
   renderApp('/today');
   const today = await screen.findByRole('tab', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'End' });
-  await waitFor(() =>
-    expect(screen.getByRole('tab', { name: /가용시간·수업·일과/ })).toHaveAttribute('aria-selected', 'true'),
-  );
+  // 계획 그룹의 마지막 탭은 이제 '졸업 계획'(today·schedule·routine·degree 순).
+  await waitFor(() => expect(screen.getByRole('tab', { name: /졸업 계획/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
 test('나브 그룹: ArrowRight로 다음 구역 활성(계획 → 자료)', async () => {
   renderApp('/today');
-  const plan = await screen.findByRole('tab', { name: /계획/ });
+  // '계획'은 정확 일치(하위탭 '졸업 계획'과 부분일치 회피).
+  const plan = await screen.findByRole('tab', { name: '계획' });
   expect(plan).toHaveAttribute('aria-selected', 'true');
   fireEvent.keyDown(plan, { key: 'ArrowRight' });
   await waitFor(() => expect(screen.getByRole('tab', { name: /자료/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
-test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → degree)', async () => {
+test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → mastery)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
   const { unmount } = renderApp('/today');
   await screen.findByRole('tab', { name: /오늘 학습/ });
@@ -73,7 +73,10 @@ test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → 
   renderApp('/today');
   await screen.findByRole('tab', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: '[' });
-  await waitFor(() => expect(screen.getByRole('tab', { name: /졸업 계획/ })).toHaveAttribute('aria-selected', 'true'));
+  // 표시 탭 마지막은 이제 '숙달도 지도'(degree가 계획 그룹으로 이동, 졸업 그룹 제거됨).
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: /숙달도 지도/ })).toHaveAttribute('aria-selected', 'true'),
+  );
 });
 
 test('모달: 포커스 복원 + aria 라벨링(role=dialog)', async () => {

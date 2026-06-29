@@ -1,6 +1,8 @@
 /* ============================================================
-   Degree — 탭: 🎓 졸업 계획 (Phase 4 · 앱상태/Zustand)
-   레거시 ui-degree.js를 React로 — 학기별 수강·학점/요건 추적·GPA 인사이트.
+   Degree — 탭: 🎓 졸업 (Phase 4 · 앱상태/Zustand)
+   세그먼트 토글로 두 뷰를 한 탭에 통합(옛 degreeReq 탭 병합):
+   · 졸업 계획(DegreePlan) — 학기별 수강·학점/요건 추적·GPA 인사이트(앱상태)
+   · 졸업요건 정리(DegreeReq) — 요람 기준 정적 요건표(읽기전용)
    courses는 스키마가 느슨(passthrough)해 로컬 Course 타입으로 좁혀 다룬다.
    스타일: 공유 디자인 시스템은 styles/ds.module.css(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
 ============================================================ */
@@ -11,6 +13,7 @@ import { rid, makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
+import DegreeReq from '@/features/degreeReq/DegreeReq';
 
 const CATS = ['전공필수', '전공선택', '교양', '기타'];
 const STATUSES = ['예정', '수강중', '완료'];
@@ -333,7 +336,7 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
   );
 }
 
-export default function Degree() {
+function DegreePlan() {
   const d = useApp((s) => s.state.degree);
   const mutate = useApp((s) => s.mutate);
   const [openSems, setOpenSems] = useState<Set<string>>(() => new Set());
@@ -455,6 +458,37 @@ export default function Degree() {
       {list.map((s) => (
         <SemCard key={s.id} sem={s} open={openSems.has(s.id)} onToggle={toggle} />
       ))}
+    </>
+  );
+}
+
+/** 졸업 탭 — 계획(편집)과 요건 정리(읽기전용)를 세그먼트로 전환. 기본은 자주 보는 '졸업 계획'. */
+export default function Degree() {
+  const [view, setView] = useState<'plan' | 'req'>('plan');
+  return (
+    <>
+      <div className={ds.card} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className={`${ds.muted} ${ds.tiny}`} style={{ marginRight: 'auto' }}>
+          🎓 졸업
+        </span>
+        <Button
+          sm
+          variant={view === 'plan' ? 'primary' : 'ghost'}
+          aria-pressed={view === 'plan'}
+          onClick={() => setView('plan')}
+        >
+          졸업 계획
+        </Button>
+        <Button
+          sm
+          variant={view === 'req' ? 'primary' : 'ghost'}
+          aria-pressed={view === 'req'}
+          onClick={() => setView('req')}
+        >
+          졸업요건 정리
+        </Button>
+      </div>
+      {view === 'plan' ? <DegreePlan /> : <DegreeReq />}
     </>
   );
 }

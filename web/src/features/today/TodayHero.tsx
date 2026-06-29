@@ -3,6 +3,7 @@
    인사 + 주간 달성률 도넛 + 핵심 통계 타일(블록·연속·Anki·보충) + 마감 임박 과목 스트립.
    '오늘 한눈에'를 더 크게·한 화면에 — 의식 카드(RitualCard)는 체크박스만 남겨 중복 제거.
 ============================================================ */
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { Pill, type PillTone } from '@/components/ui';
@@ -32,6 +33,9 @@ function greeting(hour: number): string {
 export function TodayHero() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
+  const navigate = useNavigate();
+  // 통계 타일/마감 칩 → 해당 탭으로 점프(숫자를 죽은 표시가 아니라 도약대로). 부드러운 전환.
+  const go = (to: string) => navigate(to, { viewTransition: true });
 
   const ds = todayISO(state);
   const today = parseISO(ds);
@@ -68,11 +72,12 @@ export function TodayHero() {
     .sort((a, b) => a.dday - b.dday)
     .slice(0, 5);
 
-  const tiles: [React.ReactNode, string][] = [
-    [todayItems.length ? `${todayDone}/${todayItems.length}` : '—', '오늘 블록'],
-    [`🔥 ${streak}`, '연속 학습일'],
-    [due == null ? '—' : due, 'Anki due'],
-    [openBl, '열린 보충'],
+  // to가 있으면 클릭 시 해당 탭으로 이동(없으면 비대화형 표시 — '오늘 블록'은 이 페이지 하단에 이미 있음).
+  const tiles: { v: React.ReactNode; l: string; to?: string }[] = [
+    { v: todayItems.length ? `${todayDone}/${todayItems.length}` : '—', l: '오늘 블록' },
+    { v: `🔥 ${streak}`, l: '연속 학습일', to: '/stats' },
+    { v: due == null ? '—' : due, l: 'Anki due', to: '/integrations' },
+    { v: openBl, l: '열린 보충', to: '/journal' },
   ];
 
   return (
@@ -95,12 +100,25 @@ export function TodayHero() {
       </div>
 
       <div className={styles.stats}>
-        {tiles.map(([v, l], i) => (
-          <div key={i} className={styles.tile}>
-            <div className={styles.tilev}>{v}</div>
-            <div className={styles.tilel}>{l}</div>
-          </div>
-        ))}
+        {tiles.map(({ v, l, to }, i) =>
+          to ? (
+            <button
+              key={i}
+              type="button"
+              className={`${styles.tile} ${styles.tileLink}`}
+              onClick={() => go(to)}
+              aria-label={`${l} — 자세히 보기`}
+            >
+              <div className={styles.tilev}>{v}</div>
+              <div className={styles.tilel}>{l}</div>
+            </button>
+          ) : (
+            <div key={i} className={styles.tile}>
+              <div className={styles.tilev}>{v}</div>
+              <div className={styles.tilel}>{l}</div>
+            </div>
+          ),
+        )}
       </div>
 
       {soon.length > 0 && (
@@ -110,11 +128,17 @@ export function TodayHero() {
             const { lab, cls } = ddayInfo(s.dday);
             const tone: PillTone = cls === 'bad' ? 'bad' : cls === 'warn' ? 'warn' : 'good';
             return (
-              <span key={s.name} className={styles.dl}>
+              <button
+                key={s.name}
+                type="button"
+                className={`${styles.dl} ${styles.dlLink}`}
+                onClick={() => go('/items')}
+                aria-label={`${s.name} ${lab} — 학습 항목에서 보기`}
+              >
                 <span className={styles.dot} style={{ background: s.color || 'var(--acc)' }} />
                 {s.name}
                 <Pill tone={tone}>{lab}</Pill>
-              </span>
+              </button>
             );
           })}
         </div>

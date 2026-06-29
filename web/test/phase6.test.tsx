@@ -37,7 +37,8 @@ test('레거시 globalThis.state 브리지가 제거됐다(단일 원천=Zustand
 
 test('네이티브 나브: 그룹 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
   const { container } = renderApp('/today');
-  await waitFor(() => expect(screen.getByRole('tab', { name: /계획/ })).toBeInTheDocument());
+  // '계획'은 정확 일치(하위탭 '졸업 계획'과 부분일치 회피).
+  await waitFor(() => expect(screen.getByRole('tab', { name: '계획' })).toBeInTheDocument());
   expect(screen.getByRole('tab', { name: /기록·분석/ })).toBeInTheDocument();
   // 아이콘은 dangerouslySetInnerHTML로 주입한 인라인 svg.ic.
   expect(container.querySelectorAll('svg.ic').length).toBeGreaterThan(0);

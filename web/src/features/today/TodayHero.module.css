@@ -69,6 +69,29 @@
   padding: 11px 12px;
   text-align: center;
 }
+/* 클릭 가능한 타일 — 버튼 기본형 리셋 + 호버/포커스 단서(시각은 비대화형 타일과 동일 출발). */
+.tileLink {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  transition:
+    border-color 0.16s var(--ease),
+    background 0.16s var(--ease),
+    transform 0.12s var(--ease);
+}
+.tileLink:hover {
+  background: var(--panel);
+  border-color: var(--line);
+}
+.tileLink:active {
+  transform: translateY(1px);
+}
+.tileLink:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
 .tilev {
   font-size: 19px;
   font-weight: 700;
@@ -107,6 +130,26 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px 10px;
+}
+/* 클릭 가능한 마감 칩 — 버튼 리셋 + 호버/포커스 단서(→ 학습 항목). */
+.dlLink {
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.16s var(--ease),
+    background 0.16s var(--ease),
+    transform 0.12s var(--ease);
+}
+.dlLink:hover {
+  background: var(--panel);
+  border-color: var(--acc);
+}
+.dlLink:active {
+  transform: translateY(1px);
+}
+.dlLink:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
 }
 .dot {
   width: 8px;
