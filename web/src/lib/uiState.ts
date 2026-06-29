@@ -19,7 +19,7 @@ export const RECENT_MAX = 6; // 팔레트 최근 명령 LRU 길이
 
 export const UIStateSchema = z.object({
   schedView: SchedViewSchema.default('overview'),
-  accent: AccentSchema.default('violet'),
+  accent: AccentSchema.default('lime'),
   recentCommands: z.array(z.string()).default([]),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
@@ -30,7 +30,7 @@ const LEGACY_VIEW = 'sched_view';
 const LEGACY_RECENT = 'lh_recent_cmds';
 
 export function defaultUI(): UIState {
-  return { schedView: 'overview', accent: 'violet', recentCommands: [] };
+  return { schedView: 'overview', accent: 'lime', recentCommands: [] };
 }
 
 /** 저장된 UI 설정을 읽는다. 신규 키가 없으면 구 산재 키를 1회 흡수하고, 손상 시 기본값. */

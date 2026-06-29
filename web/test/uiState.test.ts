@@ -32,7 +32,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
     const kv = memKV();
     kv.setItem('sched_view', 'cards');
     kv.setItem('lh_recent_cmds', JSON.stringify(['x', 'y']));
-    expect(bootUI(kv)).toEqual({ schedView: 'cards', accent: 'violet', recentCommands: ['x', 'y'] });
+    expect(bootUI(kv)).toEqual({ schedView: 'cards', accent: 'lime', recentCommands: ['x', 'y'] });
   });
   it('흡수 후 persist하면 구 키는 정리되고 단일 키만 남는다', () => {
     const kv = memKV();
@@ -60,15 +60,15 @@ describe('persistUI — 왕복', () => {
 });
 
 describe('accent — 액센트 노브 영속', () => {
-  it('기본 액센트는 violet', () => {
-    expect(defaultUI().accent).toBe('violet');
+  it('기본 액센트는 lime(데모 v6)', () => {
+    expect(defaultUI().accent).toBe('lime');
   });
-  it('저장된 액센트를 읽고, 잘못된 값은 기본 violet으로 폴백', () => {
+  it('저장된 액센트를 읽고, 잘못된 값은 기본 lime으로 폴백', () => {
     const kv = memKV();
     persistUI(kv, { schedView: 'overview', accent: 'amber', recentCommands: [] });
     expect(bootUI(kv).accent).toBe('amber');
     kv.setItem(UI_KEY, JSON.stringify({ schedView: 'overview', accent: 'turbo', recentCommands: [] }));
-    expect(bootUI(kv).accent).toBe('violet'); // 스키마 미스 → 전체 기본값 폴백
+    expect(bootUI(kv).accent).toBe('lime'); // 스키마 미스 → 전체 기본값 폴백
   });
 });
 
