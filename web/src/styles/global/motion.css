@@ -43,4 +43,15 @@
   ::view-transition-new(root) {
     animation: none;
   }
+
+  /* 전역 백스톱 — 컴포넌트별 가드(NeonTrack·DayRing·로드맵 펄스 등)가 빠뜨린 애니메이션·트랜지션도
+     사실상 즉시 처리(발광 펄스·드로우·카운트업 무력화). 무한 반복은 1회로. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
