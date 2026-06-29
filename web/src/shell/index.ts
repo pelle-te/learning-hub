@@ -11,7 +11,16 @@ import * as A from './actions';
 export { ToastHost } from './toast';
 export { ModalHost } from './modal';
 export { Icon } from './icons';
-export { orderedTabs, groupOrder, tabByKey, GROUP_LABELS, GROUP_ICONS, type TabMeta } from './tabs';
+export {
+  orderedTabs,
+  groupOrder,
+  tabByKey,
+  subTabGroupOf,
+  hostTabKey,
+  GROUP_LABELS,
+  GROUP_ICONS,
+  type TabMeta,
+} from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
 export { recordRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';

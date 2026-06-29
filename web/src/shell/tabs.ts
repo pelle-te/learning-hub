@@ -16,18 +16,43 @@ export interface TabMeta {
 export const TABS: TabMeta[] = [
   { key: 'today', label: '오늘 학습', group: 'do', order: 10, icon: 'target' },
   { key: 'schedule', label: '주간 스케줄', group: 'do', order: 20, icon: 'calendar' },
-  { key: 'routine', label: '가용시간·수업·일과', group: 'do', order: 30, icon: 'clock' },
-  { key: 'degree', label: '졸업 계획', group: 'do', order: 35, icon: 'cap' },
+  // 아래 흡수 탭들은 나브에서 숨기고, 호스트 탭(스케줄·기록·통계) 상단 섹션 세그먼트(SubTabs)로 전환한다.
+  // 라우트·팔레트·g단축키로는 그대로 진입 가능(SUBTAB_GROUPS 참조).
+  { key: 'routine', label: '가용시간·수업·일과', group: 'do', order: 30, hidden: true, icon: 'clock' },
+  { key: 'degree', label: '졸업 계획', group: 'do', order: 35, hidden: true, icon: 'cap' },
   { key: 'items', label: '학습 항목', group: 'src', order: 40, icon: 'file' },
   { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link' },
   { key: 'journal', label: '학습 기록', group: 'log', order: 60, icon: 'notebook' },
-  { key: 'review', label: '주간 리뷰', group: 'log', order: 70, icon: 'refresh' },
+  { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh' },
   { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart' },
-  { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, icon: 'grid' },
+  { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid' },
   // 저빈도 운영 화면 — 나브에서 숨기고 ⌘K/직접 URL로 진입(설정 이중화 해소: 제어판=설정 계열).
   { key: 'control', label: '시스템 제어판', group: 'settings', order: 190, hidden: true, icon: 'gear' },
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },
 ];
+
+/* ── 섹션 세그먼트(흡수 탭) ─────────────────────────────────────────────
+   한 호스트 탭의 '페이지 안 섹션'으로 묶이는 탭들(첫 항목=나브에 노출되는 호스트).
+   나브 정리: 매일 안 쓰는 계획/분석 화면을 호스트 상단 세그먼트로 접어 1차 나브를 6개로 줄인다.
+   라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
+export const SUBTAB_GROUPS: string[][] = [
+  ['schedule', 'routine', 'degree'],
+  ['journal', 'review'],
+  ['stats', 'mastery'],
+];
+
+/** key가 속한 섹션 그룹의 탭 메타 배열(첫 항목=호스트). 그룹에 없으면 null. */
+export function subTabGroupOf(key: string): TabMeta[] | null {
+  const g = SUBTAB_GROUPS.find((arr) => arr.includes(key));
+  if (!g) return null;
+  return g.map((k) => tabByKey(k)).filter((t): t is TabMeta => !!t);
+}
+
+/** 나브가 1차 활성으로 칠 호스트 key — 흡수 탭이면 그 호스트, 아니면 자기 자신. */
+export function hostTabKey(key: string): string {
+  const g = SUBTAB_GROUPS.find((arr) => arr.includes(key));
+  return g ? g[0]! : key;
+}
 
 export const GROUP_LABELS: Record<string, string> = {
   do: '계획',

@@ -1,0 +1,14 @@
+/* SubTabs — 섹션 세그먼트 래퍼. .seg 자체는 ds.module이 소유, 여기선 배치·아이콘 정렬만. */
+.wrap {
+  margin: 0 0 16px;
+}
+/* 세그 버튼에 아이콘+라벨 정렬(ds.seg button은 기본 inline) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn .ic {
+  width: 14px;
+  height: 14px;
+}

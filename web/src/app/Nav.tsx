@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { orderedTabs, groupOrder, tabByKey, GROUP_LABELS, GROUP_ICONS, Icon } from '@/shell';
+import { orderedTabs, groupOrder, tabByKey, hostTabKey, GROUP_LABELS, GROUP_ICONS, Icon } from '@/shell';
 import { prefetchTab } from '@/features/registry';
 
 /* Nav — 2단 계층 네비(상위=그룹 / 하위=그 그룹의 탭). 레거시 renderNav를 React로 옮긴 것.
@@ -10,7 +10,9 @@ import { prefetchTab } from '@/features/registry';
 export default function Nav() {
   const navigate = useNavigate();
   const loc = useLocation();
-  const curKey = loc.pathname.replace(/^\//, '') || 'today';
+  // 흡수 탭(routine/degree/review/mastery)에 있을 땐 1차 나브는 그 '호스트'(스케줄/기록/통계)를
+  // 활성으로 친다. 섹션 전환은 호스트 상단 SubTabs가 담당(나브는 호스트만 노출).
+  const curKey = hostTabKey(loc.pathname.replace(/^\//, '') || 'today');
 
   // 탭 전환은 View Transitions API로(미지원 브라우저는 라우터가 즉시 폴백).
   const go = (key: string) => navigate('/' + key, { viewTransition: true });

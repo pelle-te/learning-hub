@@ -6,6 +6,7 @@ import Header from '@/app/Header';
 import Nav from '@/app/Nav';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
+import SubTabs from '@/app/SubTabs';
 import ShortcutsHelp from '@/components/ShortcutsHelp';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
@@ -127,6 +128,7 @@ export default function App() {
                 path={'/' + t.key}
                 element={
                   <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
+                    <SubTabs tabKey={t.key} />
                     {ReactTab ? (
                       <Suspense fallback={<SkeletonCard />}>
                         <ReactTab />
