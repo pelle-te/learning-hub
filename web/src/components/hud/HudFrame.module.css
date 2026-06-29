@@ -33,15 +33,21 @@
   background-clip: padding-box;
 }
 
-/* fill 모드 — 본문이 프레임을 가득(단일 화면 대시보드). 스크롤·패딩 없음, 자식이 100% 채움. */
+/* fill 모드 — 본문이 프레임을 가득(단일 화면 대시보드). 스크롤·패딩 없음, 자식이 100% 채움.
+   세로 스택: SubTabs 같은 선행 자식은 자연 높이로 위에, 라우트 본문(마지막 자식)이 남은 높이를 채움.
+   (today는 SubTabs가 null이라 본문이 곧 유일·마지막 자식 → 그대로 가득.) */
 .fillInner {
   height: 100%;
   overflow: hidden;
   display: flex;
+  flex-direction: column;
 }
 .fillInner > * {
-  flex: 1;
   min-width: 0;
+}
+.fillInner > *:last-child {
+  flex: 1;
+  min-height: 0;
 }
 
 /* 모바일: 노치·프레임 보더를 접고 단일 컬럼으로(반응형은 Phase D에서 정교화). */

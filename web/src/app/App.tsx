@@ -41,8 +41,9 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // 단일 화면 대시보드 탭(데모 v6 today) — 프레임을 가득 채우고 내부 스크롤 없음.
-  const fillFrame = pathname === '/' || pathname === '/today';
+  // 단일 화면 대시보드 탭(데모 v6 사상) — 프레임을 가득 채우고 내부 스크롤 없음.
+  const FILL_TABS = ['/', '/today', '/schedule'];
+  const fillFrame = FILL_TABS.includes(pathname);
   const tabs = orderedTabs();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

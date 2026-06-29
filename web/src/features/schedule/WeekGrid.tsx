@@ -40,6 +40,7 @@ export function WeekGrid({
   nowMin,
   dows,
   deadlines,
+  tall,
 }: {
   parts: DayData[];
   sel: number;
@@ -47,6 +48,8 @@ export function WeekGrid({
   nowMin: number;
   dows: string[];
   deadlines: string[][];
+  /** tall=true → 보드가 컨테이너 높이를 가득 채움(스케줄 단일화면 fill). 줄이 균등 분배·레인이 늘어남. */
+  tall?: boolean;
 }) {
   // 모든 줄이 같은 시간 범위를 공유해 열이 정렬되게 — 세그 최소/최대를 3시간 격자로 스냅(기본 06–24).
   const allMins: number[] = [];
@@ -69,7 +72,7 @@ export function WeekGrid({
   for (let m = lo; m <= hi + 1; m += 180) ticks.push(m);
 
   return (
-    <div className={s.board}>
+    <div className={`${s.board}${tall ? ' ' + s.boardTall : ''}`}>
       <div className={s.head}>
         <span className={s.title}>주간 보드 — WEEK</span>
         <span className={s.legend}>

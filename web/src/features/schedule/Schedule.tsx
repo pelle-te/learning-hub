@@ -1,14 +1,15 @@
 /* ============================================================
-   Schedule — 탭: 🗓 주간 스케줄 (Phase 4 · 앱상태 + 파생 scheduler)
-   레거시 ui-schedule.js를 React로 — 한 주씩 넘겨보기(개요/카드 뷰), 날짜별 타임라인,
-   가용시간 인라인 조정, 완료 체크, 마감 카운트다운, .ics 신선도 배지.
-   스타일: 공유 디자인 시스템(주간/타임라인 포함)은 ds.module(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
+   Schedule — 탭: 🗓 주간 스케줄 (데모 v6 사상 단일화면 재설계)
+   질문 "이번 주, 무엇을 언제 공부하나?"에 한 화면으로 답한다.
+   상단 네비(주 이동·개요/카드) · 본문 [스파인 | 위크보드(fill) | 일자 아젠다] · 하단 스트립(마감·.ics).
+   주간 합계·완료율·마감은 상단 바(usePageChrome)로 끌어올리고, 그날 상세는 우측 아젠다로 온디맨드.
 ============================================================ */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { useNavigate } from 'react-router-dom';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
+import { usePageChrome } from '@/store/usePageChrome';
 import { io } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import {
@@ -27,6 +28,7 @@ import {
 } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
+import c from './Schedule.module.css';
 import { computeDay, type Row, type DayData } from '@/lib/scheduleView';
 import { WeekGrid } from './WeekGrid';
 import type { SessionType } from '@/lib/types';
@@ -165,12 +167,12 @@ function DayHeadBar({ d, k }: { d: DayData; k: number }) {
 
 /** 하루 꼬리(요약 칩). */
 function DayFoot({ d }: { d: DayData }) {
-  const { counts: c } = d;
-  const extra = (c.blanks ? ` · 백지 ${c.blanks}` : '') + (c.mocks ? ` · 모의 ${c.mocks}` : '');
+  const { counts: cc } = d;
+  const extra = (cc.blanks ? ` · 백지 ${cc.blanks}` : '') + (cc.mocks ? ` · 모의 ${cc.mocks}` : '');
   return (
     <div className={ds.tl} style={{ border: 'none' }}>
       <span className={`${ds.nm} ${ds.tiny} ${ds.muted}`}>
-        학습 {c.studies}모듈 · 복습 {c.revs} · Anki {c.ankis}
+        학습 {cc.studies}모듈 · 복습 {cc.revs} · Anki {cc.ankis}
         {extra}
       </span>
       {d.planMin > 0 && (
@@ -195,58 +197,25 @@ function DayCard({ d, k, agenda }: { d: DayData; k: number; agenda?: boolean }) 
   );
 }
 
-/** 마감 임박 D-day 카드. */
-function DeadlineCard() {
-  const items = useApp((s) => s.state.items);
-  const today = iso(new Date());
-  const dl = items
-    .filter((s) => s.deadline)
-    .map((s) => ({
-      name: s.name,
-      color: s.color,
-      deadline: s.deadline as string,
-      dday: dayDiff(today, s.deadline as string),
-    }))
-    .sort((a, b) => a.dday - b.dday);
-  if (!dl.length) return null;
-  return (
-    <div className={ds.card}>
-      <h2 style={{ marginBottom: 8 }}>⏳ 마감 카운트다운</h2>
-      <div className={ds.ddrow}>
-        {dl.map((d) => {
-          const { lab, cls } = ddayInfo(d.dday);
-          return (
-            <span key={d.name + d.deadline} className={`${ds.ddaychip}${cls ? ' ' + ds[cls] : ''}`}>
-              <span className={ds.swatch} style={{ background: d.color }} />
-              {d.name} <b>{lab}</b> <span className={`${ds.muted} ${ds.tiny}`}>{d.deadline}</span>
-            </span>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 배지). */
+/** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 안내). 스트립용 컴팩트. */
 function IcsFreshnessNote() {
   const x = useApp((s) => s.state._icsExport) as { at?: string; sig?: string } | undefined;
   const today = useApp((s) => todayISO(s.state)); // 렌더 순수성: Date.now() 대신 앱 정본 '오늘'(테스트 _today 존중)
-  if (!x || !x.at) return null;
+  if (!x || !x.at) return <span className={c.icsNote}>📅 캘린더(.ics) 미내보내기</span>;
   const when = new Date(x.at);
   const days = isNaN(when.getTime()) ? null : dayDiff(iso(when), today);
   const ago = days == null ? '' : days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`;
   const stale = x.sig !== io.planSignature();
   if (stale)
     return (
-      <div className={ds.warnbox}>
-        📅 <b>캘린더(.ics)가 계획과 어긋났어요</b> — 마지막 내보내기({ago}) 이후 일정이 바뀌었습니다.
-        <Button sm style={{ marginLeft: 6 }} onClick={() => io.exportICS()}>
-          🔄 .ics 재내보내기
+      <span className={`${c.icsNote} ${c.stale}`}>
+        📅 .ics 계획과 어긋남({ago})
+        <Button sm onClick={() => io.exportICS()}>
+          🔄 재내보내기
         </Button>
-        <span className={`${ds.muted} ${ds.tiny}`}> — 일회성 스냅샷이라 자동 동기화되지 않아요.</span>
-      </div>
+      </span>
     );
-  return <div className={ds.foot}>📅 캘린더(.ics) 최신 상태 · 마지막 내보내기 {ago}.</div>;
+  return <span className={c.icsNote}>📅 .ics 최신 · 마지막 {ago}</span>;
 }
 
 export default function Schedule() {
@@ -258,6 +227,8 @@ export default function Schedule() {
   const setView = useUI((s) => s.setSchedView);
   const navigate = useNavigate();
   const [selDow, setSelDow] = useState<number | null>(null);
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
 
   const baseMon = mondayOf(parseISO(state.startDate));
   const curMon = addDays(baseMon, weekOffset * 7);
@@ -280,17 +251,6 @@ export default function Schedule() {
     setSelDow(null);
   };
 
-  const warn =
-    res.warnings.length > 0 ? (
-      <div
-        className={`${ds.warnbox}${res.warnings.some((w) => w.includes('못') || w.includes('초과')) ? ' ' + ds.bad : ''}`}
-      >
-        {res.warnings.map((w, i) => (
-          <div key={i}>{w}</div>
-        ))}
-      </div>
-    ) : null;
-
   let sel = selDow;
   if (sel == null || sel < 0 || sel > 6) {
     const ti = parts.findIndex((p) => p.isToday);
@@ -300,79 +260,187 @@ export default function Schedule() {
   const deadlines = parts.map((p) => state.items.filter((it) => it.deadline === p.ds).map((it) => it.name));
   const hasStudyItems = state.items.some((it) => it.name);
 
+  // 주간 합계·완료율(리드아웃) — 이번 화면 주(週) 기준.
+  const weekUsedH = parts.reduce((t, p) => t + p.used, 0) / 60;
+  const weekPlanMin = parts.reduce((t, p) => t + p.planMin, 0);
+  const weekDoneMin = parts.reduce((t, p) => t + p.doneMinTot, 0);
+  const compRate = weekPlanMin > 0 ? Math.round((weekDoneMin / weekPlanMin) * 100) : 0;
+
+  // 마감 카운트다운(스트립 + 가장 가까운 마감 리드아웃).
+  const ddays = state.items
+    .filter((it) => it.deadline)
+    .map((it) => ({
+      name: it.name,
+      color: it.color,
+      deadline: it.deadline as string,
+      dday: dayDiff(todayIso, it.deadline as string),
+    }))
+    .filter((it) => it.dday >= 0)
+    .sort((a, b) => a.dday - b.dday);
+  const nearestDday = ddays.length ? ddays[0]!.dday : null;
+  const soon = ddays.slice(0, 4);
+
+  // 진행률·합계·마감 + 주 액션을 상단 바로(데모 v6 헤더).
+  useEffect(() => {
+    setChrome(
+      [
+        {
+          label: '이번 주',
+          value: (
+            <>
+              {weekUsedH.toFixed(1)}
+              <small> h</small>
+            </>
+          ),
+          accent: true,
+        },
+        { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
+        { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+      ],
+      weekOffset !== 0
+        ? { label: '이번 주로 →', onClick: weekToday }
+        : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
+    );
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekUsedH, compRate, weekPlanMin, nearestDday, weekOffset]);
+
+  const navBar = (
+    <div className={c.nav}>
+      <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
+        ◀ 이전 주
+      </Button>
+      <div className={c.wk}>
+        <b className={c.wkLab}>{weekLabel(curMon)}</b>
+        <span className={c.wkOff}>
+          {weekOffset === 0 ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}
+        </span>
+      </div>
+      <Button sm onClick={() => setWeekOffset((o) => o + 1)}>
+        다음 주 ▶
+      </Button>
+      <Button sm variant="ghost" onClick={weekToday}>
+        오늘
+      </Button>
+      <div className={ds.seg} role="tablist" aria-label="주간 보기 방식" style={{ marginLeft: 6 }}>
+        <button
+          role="tab"
+          aria-selected={schedView === 'overview'}
+          className={schedView === 'overview' ? ds.on : ''}
+          onClick={() => setView('overview')}
+        >
+          개요
+        </button>
+        <button
+          role="tab"
+          aria-selected={schedView === 'cards'}
+          className={schedView === 'cards' ? ds.on : ''}
+          onClick={() => setView('cards')}
+        >
+          카드
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <>
-      {warn}
-      <IcsFreshnessNote />
-      <DeadlineCard />
-      <div className={ds.card}>
-        <div className={ds.row} style={{ alignItems: 'center' }}>
-          <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
-            ◀ 이전 주
-          </Button>
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 120 }}>
-            <b style={{ fontSize: 15 }}>{weekLabel(curMon)}</b>
-            <span className={`${ds.muted} ${ds.tiny}`}>
-              {' '}
-              {weekOffset === 0 ? '· 이번 주' : weekOffset > 0 ? `· +${weekOffset}주` : `· ${weekOffset}주`}
-            </span>
+    <section className={c.wrap} aria-label="주간 스케줄">
+      {navBar}
+
+      <div className={c.body}>
+        {schedView === 'cards' ? (
+          <div className={c.cardsView}>
+            <div className={ds.weekgrid}>
+              {parts.map((d, k) => (
+                <DayCard key={d.ds} d={d} k={k} />
+              ))}
+            </div>
           </div>
-          <Button sm onClick={() => setWeekOffset((o) => o + 1)}>
-            다음 주 ▶
-          </Button>
-          <Button sm variant="ghost" onClick={weekToday}>
-            오늘
-          </Button>
-          <div className={ds.seg} role="tablist" aria-label="주간 보기 방식" style={{ marginLeft: 6 }}>
-            <button
-              role="tab"
-              aria-selected={schedView === 'overview'}
-              className={schedView === 'overview' ? ds.on : ''}
-              onClick={() => setView('overview')}
-            >
-              개요
-            </button>
-            <button
-              role="tab"
-              aria-selected={schedView === 'cards'}
-              className={schedView === 'cards' ? ds.on : ''}
-              onClick={() => setView('cards')}
-            >
-              카드
-            </button>
+        ) : (
+          <div className={c.board3}>
+            {/* 1 — 회전 스파인 */}
+            <div className={c.spine}>
+              <div className={c.kicker}>주간 스케줄</div>
+              <div className={c.spineWk}>{weekLabel(curMon)}</div>
+              <div className={c.spineSum}>{weekUsedH.toFixed(1)}h</div>
+            </div>
+
+            {/* 2 — 위크보드(fill) */}
+            <div className={c.center}>
+              {hasStudyItems ? (
+                <div className={c.boardWrap}>
+                  <WeekGrid
+                    parts={parts}
+                    sel={sel}
+                    onSelect={setSelDow}
+                    nowMin={nowMin}
+                    dows={DOW_MON}
+                    deadlines={deadlines}
+                    tall
+                  />
+                </div>
+              ) : (
+                <div className={c.emptyBoard}>
+                  <h2>주간 보드가 비어 있어요</h2>
+                  <p>
+                    학습 항목을 추가하면 이 보드에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
+                    일과(수면·식사)만 보여요.
+                  </p>
+                  <Button sm variant="primary" onClick={() => navigate('/items')}>
+                    학습 항목 추가하기 →
+                  </Button>
+                </div>
+              )}
+              {res.warnings.length > 0 && (
+                <div
+                  className={`${c.warn}${res.warnings.some((w) => w.includes('못') || w.includes('초과')) ? ' ' + c.bad : ''}`}
+                >
+                  {res.warnings.map((w, i) => (
+                    <div key={i}>{w}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3 — 일자 아젠다(온디맨드 세부) */}
+            <div className={c.agenda}>
+              <div className={c.agendaT}>
+                {DOW_MON[sel]} {fmtShort(parts[sel]!.date)} 일정
+              </div>
+              <div className={c.agendaBody}>
+                <DayCard d={parts[sel]!} k={sel} agenda />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className={ds.foot}>
-          {schedView === 'overview' ? '위 막대에서 요일을 누르면 그날 일정이 아래에 펼쳐져요. ' : ''}각 날짜의{' '}
-          <b>가용 시간</b>은 그 칸에서 바로 바꿀 수 있어요(그날만 적용). 모듈 {res.ML / 60}시간 단위.
-        </div>
+        )}
       </div>
 
-      {!hasStudyItems && (
-        <div className={ds.card}>
-          <h2>주간 보드가 비어 있어요</h2>
-          <div className={ds.foot} style={{ marginBottom: 8 }}>
-            학습 항목을 추가하면 이 주간 보드에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본 일과(수면·식사)만
-            보여요.
-          </div>
-          <Button sm variant="primary" onClick={() => navigate('/items')}>
-            학습 항목 추가하기 →
-          </Button>
+      {/* 하단 스트립 — 마감 카운트다운 + .ics 신선도 */}
+      <div className={c.strip}>
+        <div className={c.grp}>
+          <span className={c.grpL}>마감</span>
+          {soon.length ? (
+            soon.map((d) => {
+              const { lab } = ddayInfo(d.dday);
+              return (
+                <button
+                  key={d.name + d.deadline}
+                  type="button"
+                  className={`${c.dd}${d.dday <= 7 ? ' ' + c.soon : ''}`}
+                  onClick={() => navigate('/items')}
+                >
+                  <span className={c.dot} style={{ background: d.color || 'var(--acc)' }} />
+                  {d.name} <b>{lab}</b>
+                </button>
+              );
+            })
+          ) : (
+            <span className={c.ddMut}>없음</span>
+          )}
         </div>
-      )}
-
-      {schedView === 'cards' ? (
-        <div className={ds.weekgrid}>
-          {parts.map((d, k) => (
-            <DayCard key={d.ds} d={d} k={k} />
-          ))}
-        </div>
-      ) : (
-        <div>
-          <WeekGrid parts={parts} sel={sel} onSelect={setSelDow} nowMin={nowMin} dows={DOW_MON} deadlines={deadlines} />
-          <DayCard d={parts[sel]!} k={sel} agenda />
-        </div>
-      )}
-    </>
+        <div className={c.vline} />
+        <IcsFreshnessNote />
+      </div>
+    </section>
   );
 }
