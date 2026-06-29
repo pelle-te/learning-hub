@@ -38,7 +38,7 @@ export default function Header({ onOpenPalette }: { onOpenPalette: () => void })
   return (
     <div className="top">
       <h1>📚 러닝 허브</h1>
-      <span className="sub">졸업까지 한눈에 · 볼트/Anki 현황을 스케줄로 · 일과 빈 시간 자동 계산</span>
+      <span className="sub">오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
       <span style={{ flex: 1 }} />
       <button className="sm ghost" onClick={onOpenPalette} title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">
         ⌘K

@@ -81,6 +81,16 @@ export function TodayBlocks() {
 
   const ML = state.moduleLen || 120;
 
+  // 블록 완료 순간 작은 보상 — 마지막 블록이면 큰 축하, 아니면 진행을 가볍게 짚어준다(동기 설계).
+  const onToggle = (it: ScheduleItem, on: boolean) => {
+    toggleDone(ds2, it.sid, it.type, it.min, on);
+    if (!on) return;
+    // state는 토글 전 스냅샷 → 이 블록을 제외한 완료 수 + 1 = 토글 후 완료 수.
+    const doneNow = items.filter((x) => isDone(state, ds2, x.sid, x.type)).length + 1;
+    if (doneNow >= items.length) ui.toast('오늘 학습 완료! 🎉 잘했어요', 'ok');
+    else ui.toast(`좋아요 — ${doneNow}/${items.length} 블록 완료`, 'info');
+  };
+
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');
   const blankBlocked = async (it: ScheduleItem) => {
     const note = await ui.prompt('어느 구간에서 막혔나요? (이 메모는 CBMS 개념(C) 오답으로 자동 연결됩니다)', {
@@ -98,10 +108,9 @@ export function TodayBlocks() {
       <h2>
         오늘의 블록 <span className={`${ds.muted} ${ds.tiny}`}>{fmt(new Date(ds2 + 'T00:00:00'))}</span>
       </h2>
-      {/* 70% 룰 안내는 카드 상단에 한 번만(블록마다 반복하면 노이즈). */}
+      {/* 70% 룰 안내는 카드 상단에 한 번만(블록마다 반복하면 노이즈). 자세한 단계는 아래 흐름 가이드로. */}
       <div className={ds.foot} style={{ margin: '-2px 0 12px' }}>
-        막히면 <b>70% 룰</b> — 씨름 10–15분 → 힌트 한 조각(보고 다시 덮기) → 70%서 멈춰 <i>가정·결과식·의미만</i> +{' '}
-        <b>보충 필요</b> 라벨 + 요약은 한다. <span className={ds.muted}>단계별 안내는 아래 ‘학습 원칙·블록 흐름’.</span>
+        막히면 <b>70% 룰</b> — 10~15분만 씨름하고, 힌트는 한 조각씩. 자세한 흐름은 아래 ‘학습 원칙’에 있어요.
       </div>
 
       {items.map((it, idx) => {
@@ -114,7 +123,7 @@ export function TodayBlocks() {
               type="checkbox"
               className={ds.donechk}
               checked={done}
-              onChange={(e) => toggleDone(ds2, it.sid, it.type, it.min, e.target.checked)}
+              onChange={(e) => onToggle(it, e.target.checked)}
               title="완료 표시"
               aria-label={`${it.name} 완료`}
             />

@@ -52,7 +52,7 @@ function FlowGuide() {
   return (
     <div className={ds.card}>
       <details>
-        <summary>학습 원칙 · 블록 흐름 (참고 · 방법론 0·2·5·부록 B)</summary>
+        <summary>학습 원칙 · 블록 흐름 (펼쳐 보기)</summary>
         <div className={t.princ} style={{ marginTop: 12 }}>
           {PRINCIPLES.map(([a, b]) => (
             <span key={a} className={t.princChip}>

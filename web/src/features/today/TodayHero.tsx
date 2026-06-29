@@ -150,7 +150,11 @@ export function TodayHero() {
       )}
 
       {(metaParts || allDone) && (
-        <div className={styles.meta}>{allDone ? `${todayTotal}개 블록 모두 끝냈어요 · 내일도 이대로` : metaParts}</div>
+        <div className={styles.meta}>
+          {allDone
+            ? `${todayTotal}개 블록 모두 끝냈어요${streak > 1 ? ` · 🔥 ${streak}일 연속` : ' · 내일도 이대로'}`
+            : metaParts}
+        </div>
       )}
 
       {todayTotal > 0 && (

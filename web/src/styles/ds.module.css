@@ -184,33 +184,27 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-.tag.new {
-  color: var(--acc2);
-  border-color: color-mix(in srgb, var(--acc2) 45%, var(--line));
-  background: color-mix(in srgb, var(--acc2) 12%, transparent);
-}
-.tag.rev {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
-  background: color-mix(in srgb, var(--warn) 12%, transparent);
-}
-.tag.anki {
-  color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 45%, var(--line));
-  background: color-mix(in srgb, var(--info) 12%, transparent);
-}
-.tag.free {
-  color: var(--mut);
-}
+/* 태그 색은 3개 의미 패밀리로만 — 능동 학습(학습·백지)=acc · 분산 복습(복습·Anki)=acc2 · 모의=violet.
+   정확한 유형 구분은 라벨 텍스트가 담당(색으로 다 인코딩하지 않아 무지개 → 정돈). */
+.tag.new,
 .tag.blank {
   color: var(--acc);
   border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
   background: color-mix(in srgb, var(--acc) 12%, transparent);
 }
+.tag.rev,
+.tag.anki {
+  color: var(--acc2);
+  border-color: color-mix(in srgb, var(--acc2) 45%, var(--line));
+  background: color-mix(in srgb, var(--acc2) 12%, transparent);
+}
 .tag.mock {
   color: var(--violet);
   border-color: color-mix(in srgb, var(--violet) 45%, var(--line));
   background: color-mix(in srgb, var(--violet) 14%, transparent);
+}
+.tag.free {
+  color: var(--mut);
 }
 
 /* ── 진행 막대 ── */
