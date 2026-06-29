@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "description": "러닝 허브 React 이전 셸 (Phase 1 — lib 이식 + zod + 스토어)",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
