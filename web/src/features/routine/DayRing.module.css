@@ -1,0 +1,103 @@
+/* ============================================================
+   DayRing — 24h 가용시간 링(설계도 §2 가용시간·일과 시그니처).
+   수면·고정 블록 = 뮤트 호, 비운 시간 = 네온 발광 호. 중앙 = 공부 가능 시간.
+============================================================ */
+.wrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  flex: none;
+}
+.svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 5%, transparent);
+  stroke-width: 13;
+}
+.sleep {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 7%, transparent);
+  stroke-width: 13;
+  stroke-linecap: butt;
+}
+.block {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 16%, transparent);
+  stroke-width: 13;
+  stroke-linecap: butt;
+}
+.free {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 13;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px var(--glow));
+}
+
+.now {
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px var(--ink));
+}
+.tick {
+  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
+  stroke-width: 1;
+}
+.ticklab {
+  fill: var(--mut);
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 중앙 리드아웃 */
+.center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: none;
+}
+.cnum {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--acc);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.cnum small {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.clab {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  margin-top: 3px;
+}
+.csub {
+  font-size: 9.5px;
+  color: var(--mut);
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .free {
+    filter: none;
+  }
+}

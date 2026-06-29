@@ -5,9 +5,10 @@
 ============================================================ */
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { useStudyMinByWeekday } from '@/store/selectors';
+import { freeWindowsForWeekday, blocksForWeekday } from '@/lib/scheduler';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import DayRing from './DayRing';
 import ds from '@/styles/ds.module.css';
 import r from './Routine.module.css';
 import type { AppState } from '@/lib/types';
@@ -161,9 +162,18 @@ function BlockList() {
 
 export default function Routine() {
   const mutate = useApp((s) => s.mutate);
+  const state = useApp((s) => s.state);
+  const now = new Date();
+  const todayDow = now.getDay(); // 일=0..토=6
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const [ringDow, setRingDow] = useState(todayDow); // 24h 링이 보여주는 요일
   const [classDow, setClassDow] = useState(1); // 수업 편집기에서 보는 요일(일=0..토=6)
 
-  const cap = useStudyMinByWeekday();
+  // 요일별 가용 창(시그니처 링 + 주간 막대 공용). 순수 파생 — freeWindowsForWeekday 단일 출처.
+  const free = DOW.map((_, i) => freeWindowsForWeekday(state, i));
+  const fw = free[ringDow]!;
+  const ringBlocks = blocksForWeekday(state, ringDow);
+  const weekFreeMin = free.reduce((t, f) => t + f.freeMin, 0);
 
   const addClass = (dow: number) =>
     mutate((st) => {
@@ -183,33 +193,71 @@ export default function Routine() {
 
   return (
     <>
-      <div className={ds.card}>
-        <h2>
-          가용시간·수업·일과{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>— 깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간</span>
-        </h2>
-        <div className={`${ds.tiny} ${ds.muted}`}>
-          여기서 정한 빈 시간에 스케줄러가 블록을 배분합니다. 시작일·모듈 길이 같은 값은 <b>설정</b>(우측 상단 ⚙)에서.
-        </div>
-      </div>
-
-      <div className={ds.card}>
-        <h2>
-          요일별 공부 가능 시간{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>
-            — 고정 블록(수면·식사·취미·수업)을 뺀 빈 시간 · 특정 날짜는 스케줄 탭에서 조정
+      {/* 시그니처 — 24h 가용시간 링 + 주간 가용 막대(요일 선택) */}
+      <div className={r.sig}>
+        <div className={r.sigHead}>
+          <span className={r.sigTitle}>가용시간 — AVAILABILITY</span>
+          <span className={r.sigLegend}>
+            <span>
+              <i className={r.lgFree} />
+              공부 가능
+            </span>
+            <span>
+              <i className={r.lgBlock} />
+              일과
+            </span>
+            <span>
+              <i className={r.lgSleep} />
+              수면
+            </span>
           </span>
-        </h2>
-        <div className={r.wkbars}>
-          {DOW.map((d, i) => (
-            <div key={d} className={r.wb}>
-              <div className={r.h}>
-                {(cap[i]! / 60).toFixed(1)}
-                <span className={ds.tiny}>h</span>
-              </div>
-              <div className={r.d}>{d}</div>
+        </div>
+        <div className={r.sigBody}>
+          <DayRing
+            dow={DOW[ringDow]!}
+            blocks={ringBlocks}
+            windows={fw.windows}
+            wake0={fw.wake0}
+            wake1={fw.wake1}
+            freeMin={fw.freeMin}
+            nowMin={ringDow === todayDow ? nowMin : null}
+          />
+          <div className={r.sigSide}>
+            <div className={r.weekTotal}>
+              <span className={r.wtNum}>
+                {(weekFreeMin / 60).toFixed(1)}
+                <small>h</small>
+              </span>
+              <span className={r.wtLab}>주간 공부 가능 · 일 평균 {(weekFreeMin / 7 / 60).toFixed(1)}h</span>
             </div>
-          ))}
+            <div className={r.wkbars} role="tablist" aria-label="요일 선택">
+              {DOW.map((d, i) => {
+                const hrs = free[i]!.freeMin / 60;
+                const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === ringDow}
+                    className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
+                    onClick={() => setRingDow(i)}
+                    title={`${d}요일 ${hrs.toFixed(1)}시간`}
+                  >
+                    <span className={r.wbBarWrap}>
+                      <span className={r.wbBar} style={{ height: `${Math.round((hrs / max) * 100)}%` }} />
+                    </span>
+                    <span className={r.h}>{hrs.toFixed(1)}</span>
+                    <span className={r.d}>{d}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className={`${ds.tiny} ${ds.muted}`} style={{ marginTop: 2 }}>
+              깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다.
+              특정 날짜는 스케줄 탭, 시작일·모듈 길이는 <b>설정</b>(⚙)에서.
+            </div>
+          </div>
         </div>
       </div>
 

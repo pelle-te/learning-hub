@@ -14,6 +14,7 @@ import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
 import DegreeReq from '@/features/degreeReq/DegreeReq';
+import SeasonRoadmap from './SeasonRoadmap';
 
 const CATS = ['전공필수', '전공선택', '교양', '기타'];
 const STATUSES = ['예정', '수강중', '완료'];
@@ -365,6 +366,8 @@ function DegreePlan() {
 
   return (
     <>
+      <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
+
       <div className={ds.card}>
         <h2>졸업 요건</h2>
         <div className={ds.row}>

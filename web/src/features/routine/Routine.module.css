@@ -1,35 +1,159 @@
 /* Routine.module.css — 가용시간·수업·일과 탭 전용 스타일. 다른 feature와 공유 안 함.
    공유 클래스(card/seg/muted/tiny/foot/empty)는 ds.module이 소유. 값은 원본 components.css와 동일. */
 
-/* 요일별 가용 막대 */
+/* 시그니처 보드 — 24h 링 + 주간 가용 막대 (WeekGrid .board 결과 통일) */
+.sig {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+  padding: 16px 18px 14px;
+  margin-bottom: 16px;
+}
+.sigHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+.sigTitle {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.sigLegend {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--mut);
+  font-weight: 700;
+}
+.sigLegend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+.lgFree {
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+}
+.lgBlock {
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.lgSleep {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+
+.sigBody {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+}
+.sigSide {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.weekTotal {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.wtNum {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.wtNum small {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.wtLab {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 600;
+}
+
+/* 주간 가용 막대 — 요일 선택 탭(클릭 → 링 갱신) */
 .wkbars {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  gap: 5px;
   text-align: center;
-  margin-top: 10px;
 }
 .wkbars .wb {
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 8px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 2px 5px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
   transition:
-    transform 0.15s var(--ease),
+    background 0.15s var(--ease),
     border-color 0.15s var(--ease);
 }
 .wkbars .wb:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
+  background: var(--panel2);
+}
+.wkbars .wb:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+.wkbars .wbOn {
+  border-color: color-mix(in srgb, var(--acc) 55%, var(--line));
+  background: var(--acc-soft);
+}
+.wbBarWrap {
+  height: 40px;
+  width: 10px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.wbBar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--acc) 40%, transparent);
+}
+.wkbars .wbOn .wbBar {
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
 }
 .wkbars .wb .h {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .wkbars .wb .d {
   font-size: 10px;
   color: var(--mut);
+}
+.wkbars .wbToday .d {
+  color: var(--acc);
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .sigBody {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
 }
 
 /* 수업(요일별) 편집 행 */
