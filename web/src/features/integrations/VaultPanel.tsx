@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject, type VaultChapter } from '@/lib/vault';
-import { PALETTE, rid } from '@/lib/utils';
+import { makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import g from './Integrations.module.css';
@@ -53,17 +53,7 @@ export function VaultPanel() {
     }
     const chapters = chaptersFromVault(s.chapters);
     mutate((st) => {
-      st.items.push({
-        id: rid(),
-        source: '볼트',
-        name: s.name,
-        color: PALETTE[st.items.length % PALETTE.length],
-        mode: 'weekly',
-        weeklyHours: 3,
-        dailyMin: 30,
-        deadline: '',
-        chapters,
-      });
+      st.items.push(makeItem(st.items.length, { source: '볼트', name: s.name, chapters }));
     });
     ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 학습 항목 탭에서 주당 시간·마감 조정하세요.`, 'ok');
   };
@@ -74,17 +64,9 @@ export function VaultPanel() {
       return;
     }
     mutate((st) => {
-      st.items.push({
-        id: rid(),
-        source: '볼트',
-        name,
-        color: PALETTE[st.items.length % PALETTE.length],
-        mode: 'weekly',
-        weeklyHours: 2,
-        dailyMin: 30,
-        deadline: '',
-        chapters: chaptersFromVault([c]),
-      });
+      st.items.push(
+        makeItem(st.items.length, { source: '볼트', name, weeklyHours: 2, chapters: chaptersFromVault([c]) }),
+      );
     });
     ui.toast(`"${name}" 추가됨`, 'ok');
   };

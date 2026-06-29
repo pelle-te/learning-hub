@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { rid, PALETTE } from '@/lib/utils';
+import { rid, makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
@@ -48,29 +48,50 @@ const sems = (d: DegreeT) => d.semesters as unknown as Semester[];
 
 type DegKey = 'targetTotal' | 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal';
 
-/** 완료 과목 기준 추정 — GPA · 이수/남은 학점 · 예상 잔여 학기. */
-function DegreeInsight({ d }: { d: DegreeT }) {
+interface DegreeStats {
+  earned: number; // 완료(이수) 학점
+  inprog: number;
+  planned: number;
+  byCat: Record<string, number>;
+  gpa: number | null;
+  gradedCr: number;
+  semDone: number;
+}
+/** 학기·과목 전체를 한 번만 순회해 모든 집계를 낸다(요건 요약·졸업 인사이트 공유 · 이중순회 제거). */
+function degreeStats(d: DegreeT): DegreeStats {
+  let earned = 0;
+  let inprog = 0;
+  let planned = 0;
   let pts = 0;
   let gradedCr = 0;
-  let doneCr = 0;
   let semDone = 0;
+  const byCat: Record<string, number> = {};
+  CATS.forEach((c) => (byCat[c] = 0));
   sems(d).forEach((s) => {
     let hasDone = false;
     s.courses.forEach((c) => {
-      if (c.status !== '완료') return;
       const cr = +c.credits || 0;
-      doneCr += cr;
-      hasDone = true;
-      const g = (c.grade || '').toUpperCase().trim();
-      if (g in GRADE_POINTS) {
-        pts += GRADE_POINTS[g]! * cr;
-        gradedCr += cr;
-      }
+      if (c.status === '완료') {
+        earned += cr;
+        byCat[c.category] = (byCat[c.category] || 0) + cr;
+        hasDone = true;
+        const g = (c.grade || '').toUpperCase().trim();
+        if (g in GRADE_POINTS) {
+          pts += GRADE_POINTS[g]! * cr;
+          gradedCr += cr;
+        }
+      } else if (c.status === '수강중') inprog += cr;
+      else planned += cr;
     });
     if (hasDone) semDone++;
   });
+  return { earned, inprog, planned, byCat, gpa: gradedCr ? pts / gradedCr : null, gradedCr, semDone };
+}
+
+/** 완료 과목 기준 추정 — GPA · 이수/남은 학점 · 예상 잔여 학기. */
+function DegreeInsight({ d, stats }: { d: DegreeT; stats: DegreeStats }) {
+  const { earned: doneCr, gpa, gradedCr, semDone } = stats;
   if (!doneCr) return null;
-  const gpa = gradedCr ? pts / gradedCr : null;
   const remain = Math.max(0, d.targetTotal - doneCr);
   const avgPerSem = semDone ? doneCr / semDone : 0;
   const projSem = avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
@@ -152,17 +173,7 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
       return;
     }
     mutate((st) => {
-      st.items.push({
-        id: rid(),
-        source: '수강',
-        name,
-        color: PALETTE[st.items.length % PALETTE.length],
-        mode: 'weekly',
-        weeklyHours: 3,
-        dailyMin: 30,
-        deadline: '',
-        chapters: [],
-      });
+      st.items.push(makeItem(st.items.length, { source: '수강', name }));
     });
     ui.toast(`"${name}" 학습 항목에 추가됨 — 학습 항목 탭에서 주당 시간·챕터를 설정하세요.`, 'ok');
   };
@@ -343,23 +354,10 @@ export default function Degree() {
     setOpenSems((prev) => new Set(prev).add(id));
   };
 
-  let earned = 0;
-  let inprog = 0;
-  let planned = 0;
-  const byCat: Record<string, number> = {};
-  CATS.forEach((c) => (byCat[c] = 0));
-  sems(d).forEach((s) =>
-    s.courses.forEach((c) => {
-      const cr = +c.credits || 0;
-      if (c.status === '완료') {
-        earned += cr;
-        byCat[c.category] = (byCat[c.category] || 0) + cr;
-      } else if (c.status === '수강중') inprog += cr;
-      else planned += cr;
-    }),
-  );
+  const stats = degreeStats(d);
+  const { earned, inprog, planned, byCat } = stats;
   const remain = Math.max(0, d.targetTotal - earned);
-  const pct = Math.round((earned / d.targetTotal) * 100);
+  const pct = d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
   const list = sems(d);
 
   return (
@@ -428,7 +426,7 @@ export default function Degree() {
         })}
       </div>
 
-      {earned > 0 && <DegreeInsight d={d} />}
+      {earned > 0 && <DegreeInsight d={d} stats={stats} />}
 
       <div className={ds.card}>
         <div className={ds.row} style={{ alignItems: 'center' }}>

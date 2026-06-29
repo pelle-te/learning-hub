@@ -10,7 +10,7 @@ import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
-import { PALETTE, rid, clamp, jsq } from '@/lib/utils';
+import { makeItem, clamp, jsq } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 
@@ -66,17 +66,7 @@ export function AnkiPanel() {
       return;
     }
     mutate((st) => {
-      st.items.push({
-        id: rid(),
-        source: 'Anki',
-        name: nm,
-        color: PALETTE[st.items.length % PALETTE.length],
-        mode: 'daily',
-        dailyMin: mins,
-        weeklyHours: 3,
-        deadline: '',
-        chapters: [],
-      });
+      st.items.push(makeItem(st.items.length, { source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
     });
     ui.toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
   };
@@ -101,17 +91,7 @@ export function AnkiPanel() {
         cur.dailyMin = mins;
         cur.source = 'Anki';
       } else {
-        st.items.push({
-          id: rid(),
-          source: 'Anki',
-          name: nm,
-          color: PALETTE[st.items.length % PALETTE.length],
-          mode: 'daily',
-          dailyMin: mins,
-          weeklyHours: 3,
-          deadline: '',
-          chapters: [],
-        });
+        st.items.push(makeItem(st.items.length, { source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
       }
     });
     ui.toast(

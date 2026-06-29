@@ -4,6 +4,7 @@
    데이터 원본 둘: serve.js /api/artifact/knowledge(자동) · 볼트 폴더 FS Access(수동 폴백).
    둘 다 같은 ['knowledge'] Query 캐시로 모여 본문이 렌더(설계도 §1-B). 레거시 _knowState 수동배선 제거.
 ============================================================ */
+import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useKnowledge, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
@@ -111,41 +112,52 @@ function Subjects({ k }: { k: Knowledge }) {
   );
 }
 
-function Frontier({ k }: { k: Knowledge }) {
-  const fr = (k.frontier || []).slice(0, 18);
-  if (!fr.length)
+interface ConceptRow {
+  title?: string;
+  basename?: string;
+  subject?: string;
+}
+/** 프런티어/약점 등 '개념 리스트' 공통 카드 — 점·이름·과목은 동일, 우측 메타만 renderMeta로 주입. */
+function ConceptList<T extends ConceptRow>({
+  heading,
+  subtitle,
+  empty,
+  items,
+  dot,
+  dotColor,
+  renderMeta,
+}: {
+  heading: string;
+  subtitle: string;
+  empty: ReactNode;
+  items: T[];
+  dot: string;
+  dotColor: string;
+  renderMeta: (it: T) => ReactNode;
+}) {
+  if (!items.length)
     return (
       <div className={ds.card}>
-        <h3>🎯 다음 배울 개념</h3>
-        <div className={`${ds.muted} ${ds.tiny}`}>프런티어 없음(선수 미충족 또는 충분 숙달).</div>
+        <h3>{heading}</h3>
+        {empty}
       </div>
     );
   return (
     <div className={ds.card}>
       <h3>
-        🎯 다음 배울 개념{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>
-          (ZPD · 선수 충족·고레버리지순 — 이걸 배우면 가장 많은 게 풀린다)
-        </span>
+        {heading} <span className={`${ds.muted} ${ds.tiny}`}>{subtitle}</span>
       </h3>
       <div className={m.mslist}>
-        {fr.map((f, i) => (
-          <div key={i} className={m.msrow}>
-            <span className={m.msdot} style={{ background: 'hsl(200 60% 50%)' }}>
-              ⬡
+        {items.map((it, i) => (
+          <div key={it.basename ?? i} className={m.msrow}>
+            <span className={m.msdot} style={{ background: dotColor }}>
+              {dot}
             </span>
             <span className={m.nm} style={{ flex: 1 }}>
-              {f.title || f.basename}
+              {it.title || it.basename}
             </span>
-            <span className={`${ds.tiny} ${ds.muted}`}>{f.subject || ''}</span>
-            <span
-              className={ds.chip}
-              data-tip="이 개념을 선수로 삼는 개념 수"
-              role="img"
-              aria-label={`의존 ${f.prereq_in} — 이 개념을 선수로 삼는 개념 수`}
-            >
-              의존 {f.prereq_in}
-            </span>
+            <span className={`${ds.tiny} ${ds.muted}`}>{it.subject || ''}</span>
+            {renderMeta(it)}
           </div>
         ))}
       </div>
@@ -153,45 +165,53 @@ function Frontier({ k }: { k: Knowledge }) {
   );
 }
 
-function Gaps({ k }: { k: Knowledge }) {
-  const g = (k.gaps || []).slice(0, 18);
-  if (!g.length)
-    return (
-      <div className={ds.card}>
-        <h3>🩹 약점 진단</h3>
-        <div className={`${ds.foot} ${ds.muted}`}>증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>
-      </div>
-    );
+function Frontier({ k }: { k: Knowledge }) {
   return (
-    <div className={ds.card}>
-      <h3>
-        🩹 약점 진단{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>(약한 순 · 근본원인을 먼저 메우면 상류가 같이 풀린다)</span>
-      </h3>
-      <div className={m.mslist}>
-        {g.map((x, i) => (
-          <div key={i} className={m.msrow}>
-            <span className={m.msdot} style={{ background: 'var(--bad,#e3564a)' }}>
-              ✗
+    <ConceptList
+      heading="🎯 다음 배울 개념"
+      subtitle="(ZPD · 선수 충족·고레버리지순 — 이걸 배우면 가장 많은 게 풀린다)"
+      empty={<div className={`${ds.muted} ${ds.tiny}`}>프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
+      items={(k.frontier || []).slice(0, 18)}
+      dot="⬡"
+      dotColor="hsl(200 60% 50%)"
+      renderMeta={(f) => (
+        <span
+          className={ds.chip}
+          data-tip="이 개념을 선수로 삼는 개념 수"
+          role="img"
+          aria-label={`의존 ${f.prereq_in} — 이 개념을 선수로 삼는 개념 수`}
+        >
+          의존 {f.prereq_in}
+        </span>
+      )}
+    />
+  );
+}
+
+function Gaps({ k }: { k: Knowledge }) {
+  return (
+    <ConceptList
+      heading="🩹 약점 진단"
+      subtitle="(약한 순 · 근본원인을 먼저 메우면 상류가 같이 풀린다)"
+      empty={<div className={`${ds.foot} ${ds.muted}`}>증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
+      items={(k.gaps || []).slice(0, 18)}
+      dot="✗"
+      dotColor="var(--bad,#e3564a)"
+      renderMeta={(x) => (
+        <>
+          <span className={ds.chip}>{pct(x.p_eff)}</span>{' '}
+          {x.root_cause === 'self' ? (
+            <span className={ds.tiny} style={{ color: 'var(--bad)' }}>
+              본인 개념
             </span>
-            <span className={m.nm} style={{ flex: 1 }}>
-              {x.title || x.basename}
+          ) : x.root_cause ? (
+            <span className={ds.tiny} style={{ color: 'var(--bad)' }}>
+              ← 선수약점: {x.root_cause}
             </span>
-            <span className={`${ds.tiny} ${ds.muted}`}>{x.subject || ''}</span>
-            <span className={ds.chip}>{pct(x.p_eff)}</span>{' '}
-            {x.root_cause === 'self' ? (
-              <span className={ds.tiny} style={{ color: 'var(--bad)' }}>
-                본인 개념
-              </span>
-            ) : x.root_cause ? (
-              <span className={ds.tiny} style={{ color: 'var(--bad)' }}>
-                ← 선수약점: {x.root_cause}
-              </span>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
+          ) : null}
+        </>
+      )}
+    />
   );
 }
 

@@ -6,7 +6,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { PALETTE, rid, iso, dayDiff, ddayInfo } from '@/lib/utils';
+import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, KpiGrid, Kpi } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { Item } from '@/lib/types';
@@ -66,17 +66,7 @@ export default function Items() {
   const addItem = useCallback(() => {
     const id = rid();
     mutate((st) => {
-      st.items.push({
-        id,
-        source: '직접',
-        name: '새 과목',
-        color: PALETTE[st.items.length % PALETTE.length],
-        mode: 'weekly',
-        weeklyHours: 3,
-        dailyMin: 30,
-        deadline: '',
-        chapters: [],
-      });
+      st.items.push(makeItem(st.items.length, { id, source: '직접', name: '새 과목' }));
     });
     setOpen((prev) => new Set(prev).add(id)); // 새 과목은 바로 펼쳐서 편집
   }, [mutate]);

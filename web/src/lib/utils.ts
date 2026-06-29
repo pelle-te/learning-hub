@@ -10,6 +10,22 @@ export const DOW_MON = ['월', '화', '수', '목', '금', '토', '일']; // 주
 export const REVIEW_OFFSETS = [1, 3, 7, 16]; // 간격반복 복습(일)
 /** 과목 색 팔레트(인디고 브랜드와 경쟁 안 하도록 인디고 제외, 명도·채도 정돈). */
 export const PALETTE = ['#4f8ff0', '#1eb5a3', '#d99a3c', '#e76a8b', '#9a78ec', '#34b3df', '#6fae42', '#e07a4e'];
+
+/** 새 학습 항목 생성 — 색은 현재 항목 수로 팔레트 순환. items/degree/anki/vault의 6개 중복 골격 단일화.
+ *  기본은 주간 과목; partial로 source/mode/weeklyHours/dailyMin/chapters 등을 덮어쓴다. */
+export function makeItem(itemCount: number, partial: Partial<Item> & { name: string }): Item {
+  return {
+    id: rid(),
+    source: '직접',
+    color: PALETTE[itemCount % PALETTE.length],
+    mode: 'weekly',
+    weeklyHours: 3,
+    dailyMin: 30,
+    deadline: '',
+    chapters: [],
+    ...partial,
+  };
+}
 /** 고정 일과 블록 유형(색). '공부' 개념은 폐지 — 가용시간은 '깨어있는 시간 − 블록'으로 자동 계산. */
 export const BLOCK_TYPES: Record<string, string> = {
   수면: '#3a3f4b',
