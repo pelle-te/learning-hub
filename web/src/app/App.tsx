@@ -42,7 +42,17 @@ export default function App() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // 단일 화면 대시보드 탭(데모 v6 사상) — 프레임을 가득 채우고 내부 스크롤 없음.
-  const FILL_TABS = ['/', '/today', '/schedule', '/stats', '/journal', '/review', '/routine', '/integrations'];
+  const FILL_TABS = [
+    '/',
+    '/today',
+    '/schedule',
+    '/stats',
+    '/journal',
+    '/review',
+    '/routine',
+    '/integrations',
+    '/control',
+  ];
   const fillFrame = FILL_TABS.includes(pathname);
   const tabs = orderedTabs();
   const gPending = useRef(false);

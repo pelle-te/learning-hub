@@ -5,8 +5,9 @@
    '지식상태 재빌드' 성공 → ['knowledge'] 무효화 → 숙달도 지도·스케줄러 graphPriority 자동 갱신
    (레거시 loadKnowledgeFromAPI 수동 배선 제거 · 설계도 §1-B).
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePageChrome } from '@/store/usePageChrome';
 import { usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { runTool, type RunResult } from '@/lib/api';
 import { ui } from '@/shell';
@@ -101,6 +102,18 @@ export default function Control() {
 
   const online = !!ping?.ok;
   const offline = !isLoading && !online;
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
+
+  // serve.js 연결 상태·도구 수를 상단 바로(데모 v6 헤더).
+  useEffect(() => {
+    setChrome([
+      { label: 'serve.js', value: online ? '● ONLINE' : offline ? 'OFFLINE' : '…', accent: online },
+      { label: '도구', value: online ? (ping?.tools.length ?? 0) : '—' },
+    ]);
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, offline, ping?.tools.length]);
 
   const run = async (key: string, feedsMastery: boolean, body?: Record<string, unknown>, label?: string) => {
     if (busy) return;
@@ -127,126 +140,127 @@ export default function Control() {
   };
 
   return (
-    <>
-      <div className={cm.board}>
-        <div className={cm.bHead}>
-          <h2 className={cm.bTitle}>
-            🛠 시스템 제어판<span className={cm.bKicker}>OPS CONSOLE</span>
-          </h2>
-          {online ? (
-            <span className={`${cm.status} ${cm.stOn}`}>
-              <span className={cm.dot} />
-              serve.js ONLINE
-            </span>
-          ) : offline ? (
-            <span className={`${cm.status} ${cm.stOff}`}>
-              <span className={cm.dot} />
-              API OFFLINE
-            </span>
-          ) : (
-            <span className={cm.status}>
-              <span className={ds.spin} /> 연결 확인 중
-            </span>
-          )}
-        </div>
-        <div className={ds.foot} style={{ margin: 0 }}>
-          시스템(전공 볼트·메타 도구)을 러닝허브에서 바로 돌리고 결과를 봅니다. CMD로 명령어 칠 필요 없이 버튼 하나로.
-        </div>
+    <section className={cm.wrap} aria-label="시스템 제어판">
+      <div className={cm.head}>
+        <h2 className={cm.headTitle}>🛠 시스템 제어판</h2>
+        <span className={cm.headKicker}>OPS CONSOLE</span>
+        {online ? (
+          <span className={`${cm.status} ${cm.stOn}`}>
+            <span className={cm.dot} />
+            serve.js ONLINE
+          </span>
+        ) : offline ? (
+          <span className={`${cm.status} ${cm.stOff}`}>
+            <span className={cm.dot} />
+            API OFFLINE
+          </span>
+        ) : (
+          <span className={cm.status}>
+            <span className={ds.spin} /> 연결 확인 중
+          </span>
+        )}
+        <span className={cm.headHint}>버튼 하나로 시스템 도구를 돌리고 결과를 봅니다 — CMD 불필요.</span>
       </div>
 
       {offline ? (
-        <div className={cm.offBoard}>
-          <div className={cm.offTitle}>콘솔 오프라인</div>
-          <h3 style={{ margin: '0 0 6px', fontSize: 14, color: 'var(--mut)', fontWeight: 700 }}>
-            제어판을 켜려면 serve.js로 띄우세요
-          </h3>
-          <div className={cm.offBoot}>$ node serve.js</div>
-          <ol className={ds.foot} style={{ lineHeight: 1.9, marginTop: 8 }}>
-            <li>러닝허브 폴더에서 위 명령으로 백엔드 부팅</li>
-            <li>
-              브라우저로 <code>http://localhost:8000/</code> 열기(지금은 정적/파일 모드라 API가 없음)
-            </li>
-          </ol>
-          <div className={`${ds.foot} ${ds.muted}`}>
-            그러면 아래 도구들을 버튼으로 실행할 수 있습니다: 지식상태 재빌드 · 볼트 건강검진 · 지시문 품질검사 · Anki
-            학습신호 · 탐구 수집. 파일 모드에서도 숙달도 지도 탭은 폴더 선택으로 동작합니다.
+        <div className={cm.offWrap}>
+          <div className={cm.offBoard}>
+            <div className={cm.offTitle}>콘솔 오프라인</div>
+            <h3 style={{ margin: '0 0 6px', fontSize: 14, color: 'var(--mut)', fontWeight: 700 }}>
+              제어판을 켜려면 serve.js로 띄우세요
+            </h3>
+            <div className={cm.offBoot}>$ node serve.js</div>
+            <ol className={ds.foot} style={{ lineHeight: 1.9, marginTop: 8 }}>
+              <li>러닝허브 폴더에서 위 명령으로 백엔드 부팅</li>
+              <li>
+                브라우저로 <code>http://localhost:8000/</code> 열기(지금은 정적/파일 모드라 API가 없음)
+              </li>
+            </ol>
+            <div className={`${ds.foot} ${ds.muted}`}>
+              그러면 아래 도구들을 버튼으로 실행할 수 있습니다: 지식상태 재빌드 · 볼트 건강검진 · 지시문 품질검사 · Anki
+              학습신호 · 탐구 수집. 파일 모드에서도 숙달도 지도 탭은 폴더 선택으로 동작합니다.
+            </div>
           </div>
         </div>
       ) : online ? (
-        <>
-          {TOOLS.map((t) => {
-            const isBusy = busy === t.key;
-            const r = log[t.key];
-            return (
-              <div key={t.key} className={ds.card}>
-                <div className={ds.row} style={{ alignItems: 'center', gap: 10 }}>
-                  <b style={{ flex: 1 }}>{t.title}</b>
-                  <Button
-                    sm
-                    variant="primary"
-                    disabled={isBusy}
-                    onClick={() => run(t.key, !!t.feedsMastery, undefined, t.label)}
-                  >
-                    {isBusy ? (
-                      <>
-                        <span className={ds.spin} /> 실행 중
-                      </>
-                    ) : (
-                      '실행'
-                    )}
-                  </Button>
+        <div className={cm.scroll}>
+          <div className={cm.toolGrid}>
+            {TOOLS.map((t) => {
+              const isBusy = busy === t.key;
+              const r = log[t.key];
+              return (
+                <div key={t.key} className={ds.card}>
+                  <div className={ds.row} style={{ alignItems: 'center', gap: 10 }}>
+                    <b style={{ flex: 1 }}>{t.title}</b>
+                    <Button
+                      sm
+                      variant="primary"
+                      disabled={isBusy}
+                      onClick={() => run(t.key, !!t.feedsMastery, undefined, t.label)}
+                    >
+                      {isBusy ? (
+                        <>
+                          <span className={ds.spin} /> 실행 중
+                        </>
+                      ) : (
+                        '실행'
+                      )}
+                    </Button>
+                  </div>
+                  <div className={ds.foot}>{t.desc}</div>
+                  {r && <ResultBlock k={t.key} r={r} />}
                 </div>
-                <div className={ds.foot}>{t.desc}</div>
-                {r && <ResultBlock k={t.key} r={r} />}
+              );
+            })}
+            <div className={`${ds.card} ${cm.wide}`}>
+              <div className={ds.row} style={{ alignItems: 'center', gap: 10 }}>
+                <b style={{ flex: 1 }}>🔭 탐구(웹 리서치) 수집</b>
               </div>
-            );
-          })}
-          <div className={ds.card}>
-            <div className={ds.row} style={{ alignItems: 'center', gap: 10 }}>
-              <b style={{ flex: 1 }}>🔭 탐구(웹 리서치) 수집</b>
-            </div>
-            <div className={ds.foot}>
-              교재가 아니라 웹에서 새로 알아보는 학습(지시문11). 주제를 넣으면 <code>탐구_수집.py</code>가 수집해{' '}
-              <code>전공/_탐구/</code>에 원자 노트 초안을 만듭니다.
-            </div>
-            <div className={ds.row} style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              <input
-                placeholder="주제 (예: 반도체 공급망 동향)"
-                style={{ flex: 2, minWidth: 180 }}
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                disabled={busy === 'research'}
-              />
-              <input
-                placeholder="범위(선택)"
-                style={{ flex: 1, minWidth: 120 }}
-                value={scope}
-                onChange={(e) => setScope(e.target.value)}
-                disabled={busy === 'research'}
-              />
-              <Button sm variant="primary" disabled={busy === 'research'} onClick={runResearch}>
-                {busy === 'research' ? (
-                  <>
-                    <span className={ds.spin} /> 수집 중(최대 30분)
-                  </>
-                ) : (
-                  '수집 시작'
-                )}
-              </Button>
-            </div>
-            {busy === 'research' && (
-              <div className={`${ds.foot} ${ds.muted}`} style={{ marginTop: 6 }}>
-                웹 수집·정리는 몇 분~수십 분 걸립니다. 탭을 떠나도 서버에서 계속 돌아요.
+              <div className={ds.foot}>
+                교재가 아니라 웹에서 새로 알아보는 학습(지시문11). 주제를 넣으면 <code>탐구_수집.py</code>가 수집해{' '}
+                <code>전공/_탐구/</code>에 원자 노트 초안을 만듭니다.
               </div>
-            )}
-            {log['research'] && <ResultBlock k="research" r={log['research']} />}
+              <div className={ds.row} style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <input
+                  placeholder="주제 (예: 반도체 공급망 동향)"
+                  style={{ flex: 2, minWidth: 180 }}
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  disabled={busy === 'research'}
+                />
+                <input
+                  placeholder="범위(선택)"
+                  style={{ flex: 1, minWidth: 120 }}
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value)}
+                  disabled={busy === 'research'}
+                />
+                <Button sm variant="primary" disabled={busy === 'research'} onClick={runResearch}>
+                  {busy === 'research' ? (
+                    <>
+                      <span className={ds.spin} /> 수집 중(최대 30분)
+                    </>
+                  ) : (
+                    '수집 시작'
+                  )}
+                </Button>
+              </div>
+              {busy === 'research' && (
+                <div className={`${ds.foot} ${ds.muted}`} style={{ marginTop: 6 }}>
+                  웹 수집·정리는 몇 분~수십 분 걸립니다. 탭을 떠나도 서버에서 계속 돌아요.
+                </div>
+              )}
+              {log['research'] && <ResultBlock k="research" r={log['research']} />}
+            </div>
           </div>
-        </>
+        </div>
       ) : (
-        <div className={ds.card}>
-          <span className={ds.spin} /> 제어판 백엔드 확인 중...
+        <div className={cm.scroll}>
+          <div className={ds.card}>
+            <span className={ds.spin} /> 제어판 백엔드 확인 중...
+          </div>
         </div>
       )}
-    </>
+    </section>
   );
 }

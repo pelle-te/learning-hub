@@ -1,6 +1,70 @@
 /* Control.module.css — 시스템 제어판 탭 전용 스타일(옵스 콘솔 시그니처).
    공유 클래스(card/row/chip/spin/foot/muted/tiny)는 ds.module이 소유. 값은 원본 features.css와 동일. */
 
+/* ============================================================
+   OPS 콘솔 단일화면(데모 v6 사상) — HudFrame fill 가득.
+   온라인=도구 타일 2컬럼 그리드, 오프라인=중앙 부팅 보드. serve.js 상태는 상단 바.
+============================================================ */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 16px 22px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.headTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.headKicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--mut);
+}
+.headHint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--mut);
+}
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 18px 22px 26px;
+}
+.toolGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.toolGrid .wide {
+  grid-column: 1 / -1;
+}
+.offWrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+}
+.offWrap .offBoard {
+  max-width: 560px;
+  margin: 0;
+}
+
 /* 옵스 콘솔 헤더 보드 — WeekGrid/.board 결 통일 */
 .board {
   border: 1px solid var(--line);
