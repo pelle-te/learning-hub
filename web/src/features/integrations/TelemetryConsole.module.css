@@ -33,6 +33,25 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
+
+/* vertical(우측 조종석) — 보드가 컬럼 높이를 가득, 3채널을 세로로 균등 분배. */
+.boardV {
+  height: 100%;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+.boardV .channels {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+.boardV .ch {
+  flex: 1;
+  justify-content: center;
+}
 .ch {
   display: flex;
   flex-direction: column;

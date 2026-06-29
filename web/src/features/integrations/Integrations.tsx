@@ -6,15 +6,24 @@
 import TelemetryConsole from './TelemetryConsole';
 import { VaultPanel } from './VaultPanel';
 import { AnkiPanel } from './AnkiPanel';
+import i from './Integrations.module.css';
 
 export default function Integrations() {
   return (
-    <>
-      <TelemetryConsole />
-      <VaultPanel />
-      <div style={{ marginTop: 6 }}>
-        <AnkiPanel />
+    <section className={i.wrap} aria-label="연동 현황">
+      <div className={i.cols}>
+        {/* 좌 — 가져오기 액션 패널(볼트·Anki) */}
+        <div className={i.actions}>
+          <VaultPanel />
+          <div style={{ marginTop: 6 }}>
+            <AnkiPanel />
+          </div>
+        </div>
+        {/* 우 — 텔레메트리 조종석(serve.js·볼트·Anki 라이브 채널) */}
+        <aside className={i.console}>
+          <TelemetryConsole vertical />
+        </aside>
       </div>
-    </>
+    </section>
   );
 }

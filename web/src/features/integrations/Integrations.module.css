@@ -35,3 +35,43 @@
 .tree .ch .nm {
   flex: 1;
 }
+
+/* ============================================================
+   연동 2컬럼 단일화면(데모 v6 사상) — HudFrame fill 가득.
+   좌측 액션 패널(볼트·Anki) + 우측 텔레메트리 조종석(세로 채널).
+============================================================ */
+.wrap {
+  height: 100%;
+  min-width: 0;
+}
+.cols {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  min-height: 0;
+}
+.actions {
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 22px 28px;
+}
+.console {
+  min-width: 0;
+  border-left: 1px solid var(--line2);
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .cols {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .console {
+    border-left: none;
+    border-top: 1px solid var(--line2);
+    min-height: 280px;
+  }
+}

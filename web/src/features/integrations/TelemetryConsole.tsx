@@ -32,7 +32,7 @@ function Channel({ label, status, value, sub }: { label: string; status: Status;
   );
 }
 
-export default function TelemetryConsole() {
+export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const ping = usePing();
   // skipToken → fetch 없이(쿼리 비활성) 같은 캐시 키만 구독(패널이 setQueryData하면 콘솔도 갱신).
   //  enabled:false와 달리 queryFn 누락 경고를 내지 않음(읽기전용 캐시 구독의 정석).
@@ -46,10 +46,10 @@ export default function TelemetryConsole() {
   const cards = file ? file.decks.reduce((t, d) => t + d.cards, 0) : 0;
 
   return (
-    <div className={s.board}>
+    <div className={`${s.board}${vertical ? ' ' + s.boardV : ''}`}>
       <div className={s.head}>
         <span className={s.title}>연동 텔레메트리 — TELEMETRY</span>
-        <span className={s.hint}>시스템 폴더 /api · 볼트 · Anki 조종석</span>
+        {!vertical && <span className={s.hint}>시스템 폴더 /api · 볼트 · Anki 조종석</span>}
       </div>
       <div className={s.channels}>
         <Channel
