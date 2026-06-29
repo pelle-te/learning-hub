@@ -1,5 +1,75 @@
 /* Mastery.module.css — 숙달도 지도 탭 전용 스타일. 다른 feature와 공유 안 함.
    공유 클래스(card/chip/muted/tiny/foot/row/kpi)는 ds.module이 소유. 값은 원본 features.css와 동일. */
+
+/* ============================================================
+   숙달도 2컬럼 단일화면(데모 v6 사상) — HudFrame fill 가득.
+   좌측 발광 지식맵(분포+히트맵), 우측 다음 행동(프런티어·약점·캘리브레이션). 전체 숙달은 상단 바.
+============================================================ */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.headTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+.headMeta {
+  font-size: 11px;
+  color: var(--mut);
+}
+.cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+.mapCol {
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 18px 22px 24px;
+}
+.actionCol {
+  min-width: 0;
+  border-left: 1px solid var(--line2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 18px 20px 24px;
+}
+.offWrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+}
+.offWrap > * {
+  max-width: 620px;
+}
+
+@media (max-width: 900px) {
+  .cols {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .actionCol {
+    border-left: none;
+    border-top: 1px solid var(--line2);
+  }
+}
 .msbar {
   display: flex;
   height: 14px;

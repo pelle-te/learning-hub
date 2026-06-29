@@ -4,10 +4,11 @@
    데이터 원본 둘: serve.js /api/artifact/knowledge(자동) · 볼트 폴더 FS Access(수동 폴백).
    둘 다 같은 ['knowledge'] Query 캐시로 모여 본문이 렌더(설계도 §1-B). 레거시 _knowState 수동배선 제거.
 ============================================================ */
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useKnowledge, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
+import { usePageChrome } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, type Knowledge } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
@@ -311,6 +312,24 @@ export default function Mastery() {
   const { data: k, isLoading, isFetching } = useKnowledge();
   const qc = useQueryClient();
   const setRuntimeCache = useApp((s) => s.setRuntimeCache);
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
+
+  // 전체 유효숙달·노트·약점 리드아웃을 상단 바로(데모 v6 헤더).
+  const weak = k?.states?.weak;
+  useEffect(() => {
+    if (!k) {
+      setChrome([]);
+      return () => clearChrome();
+    }
+    setChrome([
+      { label: '전체 숙달', value: pct(k.overall), accent: true },
+      { label: '노트', value: k.n_notes ?? 0 },
+      { label: '약점', value: weak ?? 0 },
+    ]);
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [k, weak]);
 
   // 볼트 폴더에서 수동 로드(serve.js 없을 때) → 같은 ['knowledge'] 캐시에 주입 + write-through.
   const loadFromVault = async () => {
@@ -336,41 +355,50 @@ export default function Mastery() {
   };
 
   return (
-    <>
-      <div className={ds.card}>
-        <div className={ds.row} style={{ alignItems: 'center' }}>
-          <h2 style={{ flex: 1, margin: 0 }}>🧠 숙달도 지도</h2>
-          <Button sm variant="primary" onClick={loadFromVault}>
-            📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}
-          </Button>
-        </div>
-        <div className={ds.foot}>
-          개념별 <b>유효숙달</b>(선수 약하면 하락)·<b>프런티어</b>(지금 배울 준비된 것)·<b>약점 근본원인</b>·
-          <b>과신율</b>. 데이터는 <code>python 시스템/_도구/지식엔진.py build</code>가 만드는{' '}
-          <code>_지식상태.json</code>에서 옵니다.
-        </div>
+    <section className={m.wrap} aria-label="숙달도 지도">
+      <div className={m.head}>
+        <h2 className={m.headTitle}>🧠 숙달도 지도</h2>
         {k && (
-          <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
-            생성 {k.generated || ''} · 노트 {k.n_notes}개 · 전체 유효숙달 <b>{pct(k.overall)}</b>
-          </div>
+          <span className={m.headMeta}>
+            생성 {k.generated || ''} · 노트 {k.n_notes}개
+          </span>
         )}
+        <span style={{ flex: 1 }} />
         {(isLoading || isFetching) && !k && (
-          <div style={{ marginTop: 8 }}>
+          <span className={m.headMeta}>
+            <span className={ds.spin} /> 로드 중
+          </span>
+        )}
+        <Button sm variant="primary" onClick={loadFromVault}>
+          📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}
+        </Button>
+      </div>
+
+      {k ? (
+        <div className={m.cols}>
+          {/* 좌 — 발광 지식맵(분포 + 과목별 히트맵) */}
+          <div className={m.mapCol}>
+            <Overview k={k} />
+            <Subjects k={k} />
+          </div>
+          {/* 우 — 다음 행동(프런티어·약점·캘리브레이션) */}
+          <div className={m.actionCol}>
+            <Frontier k={k} />
+            <Gaps k={k} />
+            <Calibration k={k} />
+          </div>
+        </div>
+      ) : isLoading || isFetching ? (
+        <div className={m.offWrap}>
+          <div className={`${ds.muted}`}>
             <span className={ds.spin} /> 지식상태 로드 중...
           </div>
-        )}
-      </div>
-      {k ? (
-        <>
-          <Overview k={k} />
-          <Subjects k={k} />
-          <Frontier k={k} />
-          <Gaps k={k} />
-          <Calibration k={k} />
-        </>
+        </div>
       ) : (
-        !isLoading && !isFetching && <Setup />
+        <div className={m.offWrap}>
+          <Setup />
+        </div>
       )}
-    </>
+    </section>
   );
 }

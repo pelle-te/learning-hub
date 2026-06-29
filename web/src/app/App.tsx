@@ -52,6 +52,7 @@ export default function App() {
     '/routine',
     '/integrations',
     '/control',
+    '/mastery',
   ];
   const fillFrame = FILL_TABS.includes(pathname);
   const tabs = orderedTabs();
