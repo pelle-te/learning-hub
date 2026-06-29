@@ -50,12 +50,14 @@ afterEach(() => cleanup());
 test('오늘 히어로: 대시보드 + 주간 달성률 링 + 마감 임박 과목', async () => {
   renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
-  // 주간 달성률 링(aria-label)
-  expect(screen.getByLabelText(/이번 주 달성률/)).toBeInTheDocument();
-  // 마감 임박 스트립 + D-6 과목(히어로 섹션 내부로 스코프 — 미적분은 다른 카드에도 나옴)
   const hero = screen.getByLabelText('오늘 대시보드');
+  // 단일 초점 히어로 — kicker + 보조 '이번 주' 달성률 지표(링 대체)
+  expect(within(hero).getByText(/^(지금 할 일|다음 할 일|오늘 할 일|오늘 학습)$/)).toBeInTheDocument();
+  expect(within(hero).getByText('이번 주')).toBeInTheDocument();
+  // 마감 임박 스트립 + D-6 과목(히어로 섹션 내부로 스코프 — 미적분은 다른 카드에도 나옴)
   expect(within(hero).getByText(/마감 임박/)).toBeInTheDocument();
-  expect(within(hero).getByText('미적분')).toBeInTheDocument();
+  // 미적분은 초점 블록 이름 + 마감 칩 양쪽에 날 수 있어 getAllByText로(둘 다 히어로 내부).
+  expect(within(hero).getAllByText('미적분').length).toBeGreaterThan(0);
   expect(within(hero).getByText('D-6')).toBeInTheDocument();
 });
 

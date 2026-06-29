@@ -103,8 +103,8 @@ export default function Today() {
     <>
       <SetupGuide />
       <TodayHero />
-      <RitualCard />
       <TodayBlocks />
+      <RitualCard />
       <FlowGuide />
     </>
   );

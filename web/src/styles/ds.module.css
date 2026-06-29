@@ -117,15 +117,6 @@
     box-shadow 0.18s var(--ease);
   animation: ds-fadeUp 0.4s var(--ease) both;
 }
-.kpi::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(var(--acc), var(--acc2));
-}
 .kpi:hover {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
@@ -204,9 +195,9 @@
   background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 .tag.anki {
-  color: #63d2ff;
-  border-color: color-mix(in srgb, #63d2ff 45%, var(--line));
-  background: color-mix(in srgb, #63d2ff 12%, transparent);
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 45%, var(--line));
+  background: color-mix(in srgb, var(--info) 12%, transparent);
 }
 .tag.free {
   color: var(--mut);
@@ -217,9 +208,9 @@
   background: color-mix(in srgb, var(--acc) 12%, transparent);
 }
 .tag.mock {
-  color: #b794f6;
-  border-color: color-mix(in srgb, #b794f6 45%, var(--line));
-  background: color-mix(in srgb, #b794f6 14%, transparent);
+  color: var(--violet);
+  border-color: color-mix(in srgb, var(--violet) 45%, var(--line));
+  background: color-mix(in srgb, var(--violet) 14%, transparent);
 }
 
 /* ── 진행 막대 ── */
@@ -765,9 +756,9 @@ tr[draggable='true']:hover .draghandle {
   font-weight: 700;
   padding: 2px 9px;
   border-radius: 6px;
-  color: var(--c, #888);
-  border: 1px solid color-mix(in srgb, var(--c, #888) 45%, var(--line));
-  background: color-mix(in srgb, var(--c, #888) 14%, transparent);
+  color: var(--c, var(--mut));
+  border: 1px solid color-mix(in srgb, var(--c, var(--mut)) 45%, var(--line));
+  background: color-mix(in srgb, var(--c, var(--mut)) 14%, transparent);
 }
 .cbmsRow {
   display: flex;

@@ -61,7 +61,7 @@ export function TodayBlocks() {
 
   if (!items.length) {
     return (
-      <div className={ds.card}>
+      <div className={ds.card} id="today-blocks">
         <h2>오늘의 블록</h2>
         <div className={ds.empty}>
           오늘 배치된 블록이 없어요. <b>학습 항목</b>·<b>일과</b> 탭에서 과목/가용시간을 설정하면 여기에 블록이
@@ -94,7 +94,7 @@ export function TodayBlocks() {
   const clearBlank = (sid: string) => mutate((st) => clearBlankResult(st, ds2, sid));
 
   return (
-    <div className={ds.card}>
+    <div className={ds.card} id="today-blocks">
       <h2>
         오늘의 블록 <span className={`${ds.muted} ${ds.tiny}`}>{fmt(new Date(ds2 + 'T00:00:00'))}</span>
       </h2>

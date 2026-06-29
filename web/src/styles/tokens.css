@@ -21,7 +21,24 @@
    • --sp-*  : 4의 배수 간격 스케일. 새/리팩터 지점은 리터럴 대신 이 토큰을 쓴다.
    • --fs-*  : 정수 타이포 스케일(반픽셀 금지 — 확대/고DPI 렌더 흔들림 방지).
    • --z-*   : 스태킹 레이어(값이 흩어져 충돌나는 것 방지 — 의미명으로 단일화). */
+/* ── 폰트(자체 호스팅) ──────────────────────────────────────────────
+   Pretendard 가변폰트 — 한글·라틴·숫자를 한 패밀리로(시스템폰트 "기본값 SaaS" 인상 탈피).
+   public/fonts에 두어 오프라인 PWA에서도 동작(vite-plugin-pwa가 woff2를 precache).
+   font-display:swap — 폰트 로드 전엔 시스템 폴백으로 즉시 렌더(FOIT 회피). */
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2-variations');
+}
+
 :root {
+  /* 본문 폰트 단일 원천(SSOT) — Pretendard → 시스템 폴백. */
+  --font-sans:
+    'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic',
+    sans-serif;
+
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -37,6 +54,9 @@
   --fs-lg: 15px;
   --fs-xl: 20px;
   --fs-2xl: 22px;
+  /* 위계용 큰 스케일 — 히어로 제목·디스플레이 숫자. "제일 큰 픽셀 = 제일 중요한 행동". */
+  --fs-hero: 30px;
+  --fs-display: 44px;
 
   --z-nav: 20;
   --z-dropdown: 40;
@@ -62,6 +82,8 @@
   --warn: #ffb454;
   --bad: #ff6b6b;
   --good: #62d28c;
+  --info: #63d2ff;
+  --violet: #b794f6;
   --on-acc: #06101f;
 
   --acc-soft: rgba(139, 135, 245, 0.16);
@@ -94,6 +116,8 @@
   --warn: #b26b00;
   --bad: #dc2626;
   --good: #0ea371;
+  --info: #0e8fb8;
+  --violet: #7c5cdb;
   --on-acc: #ffffff;
 
   --acc-soft: rgba(91, 91, 214, 0.08);
@@ -125,6 +149,8 @@
   --warn: #b9760c;
   --bad: #c0492f;
   --good: #3f8f6b;
+  --info: #2f7d92;
+  --violet: #8a6fc0;
   --on-acc: #fff;
 
   --acc-soft: rgba(181, 116, 42, 0.12);
