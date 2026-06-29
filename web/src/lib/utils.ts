@@ -35,7 +35,7 @@ export function todayISO(state?: Pick<AppState, '_today'> | null): string {
   return iso(new Date());
 }
 export function parseISO(s: string): Date {
-  const [y, m, d] = s.split('-').map(Number);
+  const [y, m, d] = s.split('-').map(Number) as [number, number, number];
   return new Date(y, m - 1, d);
 }
 export function addDays(d: Date, n: number): Date {
@@ -53,7 +53,7 @@ export function dayDiff(a: string, b: string): number {
   return Math.round((parseISO(b).getTime() - parseISO(a).getTime()) / 86400000);
 }
 export function toMin(t: string): number {
-  const [h, m] = t.split(':').map(Number);
+  const [h, m] = t.split(':').map(Number) as [number, number?];
   return h * 60 + (m || 0);
 }
 export function toHM(m: number): string {

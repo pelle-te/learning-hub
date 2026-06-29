@@ -94,7 +94,7 @@ export async function pickAndScanAnki(
   if (idx && Array.isArray(idx.anki) && idx.anki.length) {
     decks = (idx.anki as IndexAnki[]).map((a) => ({
       file: a.file.replace(/\.txt$/, ''),
-      subj: a.file.split('_')[0],
+      subj: a.file.split('_')[0] ?? '',
       cards: a.cards,
     }));
     src = '_index.json';
@@ -109,7 +109,7 @@ export async function pickAndScanAnki(
       if (fh.kind !== 'file' || !fn.endsWith('.txt')) continue;
       const t = await (await (fh as FileSystemFileHandle).getFile()).text();
       const cards = t.split('\n').filter((l) => l.trim() && !l.startsWith('#')).length;
-      decks.push({ file: fn.replace('.txt', ''), subj: fn.split('_')[0], cards });
+      decks.push({ file: fn.replace('.txt', ''), subj: fn.split('_')[0] ?? '', cards });
     }
     src = 'anki/ 폴더';
   }

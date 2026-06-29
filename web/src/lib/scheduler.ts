@@ -72,7 +72,7 @@ export function awakeBounds(blocks: RoutineBlock[]): [number, number] {
   let wake0 = 0;
   let wake1 = 1440;
   if (sleep.length) {
-    const m = sleep[0];
+    const m = sleep[0]!;
     if (toMin(m.start) === 0) wake0 = toMin(m.end);
     if (toMin(m.end) >= 1380) wake1 = toMin(m.start);
   }
@@ -113,7 +113,7 @@ export function studyMinByWeekday(state: AppState): number[] {
 export function dayStudyMin(state: AppState, ds: string, wd: number, capWd: number[]): number {
   const ov = state.dayOverrides && state.dayOverrides[ds];
   if (ov !== undefined && ov !== null && ov !== '') return Math.round(+ov * 60);
-  return capWd[wd];
+  return capWd[wd] ?? 0;
 }
 export function itemTotalHours(it: Item): number {
   return (it.chapters || []).reduce((t, c) => t + (+c.hours || 0), 0);
@@ -160,7 +160,7 @@ export function adherenceFactor(
     capMin += dayStudyMin(state, ds, date.getDay(), capWd);
     const m = c[ds];
     let dm = 0;
-    if (m) for (const k in m) dm += +m[k].min || 0;
+    if (m) for (const k in m) dm += +m[k]!.min || 0;
     doneMin += dm;
     if (dm > 0) activeDays++;
   }
@@ -210,7 +210,7 @@ export function schedule(state: AppState): ScheduleResult {
   daily.forEach((s) => {
     const dlIdx = clamp(s.deadline ? dayDiff(start, s.deadline) : horizon, 0, days.length - 1);
     for (let j = 0; j <= dlIdx; j++) {
-      const d = days[j];
+      const d = days[j]!;
       if (d.studyMin - d.used <= 0) continue;
       const m = Math.min(+(s.dailyMin || 0), d.studyMin - d.used);
       if (m <= 0) continue;
@@ -256,10 +256,11 @@ export function schedule(state: AppState): ScheduleResult {
     const covered: string[] = [];
     let acc = 0;
     for (let k = 0; k < s._chs.length; k++) {
+      const ch = s._chs[k]!;
       const cs = acc;
-      const ce = acc + s._chs[k].hours;
+      const ce = acc + ch.hours;
       if (ce > from + 1e-6 && cs < to - 1e-6) {
-        covered.push(s._chs[k].name);
+        covered.push(ch.name);
         if (to >= ce - 1e-6) s._idx = Math.max(s._idx, k + 1);
       }
       acc = ce;
@@ -310,7 +311,7 @@ export function schedule(state: AppState): ScheduleResult {
     // 슬롯 채우기: 날짜순 → 마감 임박 & (그래프) 약한 & 덜 채운 과목
     let lastSid: string | null = null;
     widx.forEach((di) => {
-      const day = days[di];
+      const day = days[di]!;
       let cap = day.modLeft;
       while (cap > 0) {
         const cand = weekly.filter((s) => s._weekDone < s._weekTgt && chaptersLeft(s) && di <= s._dlIdx);
@@ -322,7 +323,7 @@ export function schedule(state: AppState): ScheduleResult {
           if (a._masteryNeed !== b._masteryNeed) return b._masteryNeed - a._masteryNeed; // ② 약한 과목
           return a._weekDone / a._weekTgt - b._weekDone / b._weekTgt; // ③ 덜 채운 과목
         });
-        const pick = cand.find((s) => s.id !== lastSid) || cand[0]; // 같은 과목 연속 회피
+        const pick = cand.find((s) => s.id !== lastSid) ?? cand[0]!; // 같은 과목 연속 회피
         const covered = advance(pick, ML);
         day.items.push({
           type: 'new',
@@ -365,20 +366,20 @@ export function schedule(state: AppState): ScheduleResult {
     const end = Math.min(days.length - 1, t.idx + 6);
     let tg = -1;
     for (let j = t.idx; j <= end; j++)
-      if (days[j].revLeft >= t.min) {
+      if (days[j]!.revLeft >= t.min) {
         tg = j;
         break;
       }
     if (tg < 0)
       for (let j = t.idx; j <= end; j++)
-        if (days[j].studyMin - days[j].used >= t.min) {
+        if (days[j]!.studyMin - days[j]!.used >= t.min) {
           tg = j;
           break;
         }
     if (tg < 0) {
       let br = -1;
       for (let j = t.idx; j <= end; j++) {
-        const rm = days[j].studyMin - days[j].used;
+        const rm = days[j]!.studyMin - days[j]!.used;
         if (rm > br) {
           br = rm;
           tg = j;
@@ -389,8 +390,8 @@ export function schedule(state: AppState): ScheduleResult {
       revMissed++;
       return;
     } // 창 안 모든 날 초과 → 미배치
-    if (days[tg].studyMin - days[tg].used < t.min) revOver++; // 여유 없는 날에 넘겨 끼움
-    const d = days[tg];
+    if (days[tg]!.studyMin - days[tg]!.used < t.min) revOver++; // 여유 없는 날에 넘겨 끼움
+    const d = days[tg]!;
     const ex = d.items.find((it) => it.type === 'rev' && it.sid === t.sid);
     if (ex) {
       ex.min += t.min;
@@ -433,7 +434,7 @@ export function schedule(state: AppState): ScheduleResult {
       });
       Object.keys(lastDiOf).forEach((ch) => {
         blankTasks.push({
-          afterIdx: lastDiOf[ch],
+          afterIdx: lastDiOf[ch]!,
           sid: s.id,
           name: s.name,
           color: s.color,
@@ -447,13 +448,13 @@ export function schedule(state: AppState): ScheduleResult {
       const end = Math.min(days.length - 1, t.afterIdx + 6);
       let tg = -1; // 학습 직후 며칠 내 여유 큰 날 — 뒤에서부터
       for (let j = end; j >= t.afterIdx; j--) {
-        if (days[j].studyMin - days[j].used >= t.min) {
+        if (days[j]!.studyMin - days[j]!.used >= t.min) {
           tg = j;
           break;
         }
       }
       if (tg < 0) return; // 용량 없으면 건너뜀(과적재 방지)
-      days[tg].items.push({
+      days[tg]!.items.push({
         type: 'blank',
         sid: t.sid,
         name: t.name,
@@ -461,7 +462,7 @@ export function schedule(state: AppState): ScheduleResult {
         min: t.min,
         chapters: t.chapters.slice(),
       });
-      days[tg].used += t.min;
+      days[tg]!.used += t.min;
     });
   }
 
@@ -475,7 +476,7 @@ export function schedule(state: AppState): ScheduleResult {
       for (let k = 6; k >= 0; k--) {
         const di = dayDiff(start, iso(addDays(wStart, k)));
         if (di < 0 || di >= days.length) continue;
-        if (days[di].studyMin - days[di].used >= ML) {
+        if (days[di]!.studyMin - days[di]!.used >= ML) {
           tg = di;
           break;
         }
@@ -483,8 +484,8 @@ export function schedule(state: AppState): ScheduleResult {
       if (tg < 0) continue;
       const learnedBefore = days.slice(0, tg + 1).some((d) => d.items.some((it) => it.type === 'new'));
       if (!learnedBefore) continue; // 배운 게 있어야 모의시험 의미
-      days[tg].items.push({ type: 'mock', sid: 'mock', name: '모의시험', color: '#b794f6', min: ML, chapters: [] });
-      days[tg].used += ML;
+      days[tg]!.items.push({ type: 'mock', sid: 'mock', name: '모의시험', color: '#b794f6', min: ML, chapters: [] });
+      days[tg]!.used += ML;
     }
   }
 
@@ -494,11 +495,11 @@ export function schedule(state: AppState): ScheduleResult {
     const doneCh = Math.min(s._done0 + s._idx, total);
     let lastIdx = -1;
     for (let j = days.length - 1; j >= 0; j--)
-      if (days[j].items.some((it) => it.sid === s.id && it.type === 'new')) {
+      if (days[j]!.items.some((it) => it.sid === s.id && it.type === 'new')) {
         lastIdx = j;
         break;
       }
-    const finishDate = lastIdx >= 0 ? days[lastIdx].ds : null;
+    const finishDate = lastIdx >= 0 ? days[lastIdx]!.ds : null;
     const finished = !chaptersLeft(s);
     const late = finished && finishDate && s.deadline ? Math.max(0, dayDiff(s.deadline, finishDate)) : 0;
     if (s.deadline && !finished)

@@ -113,8 +113,8 @@ export function ModalHost() {
     if (!root) return;
     const f = root.querySelectorAll<HTMLElement>('button, textarea, input, [href], [tabindex]:not([tabindex="-1"])');
     if (!f.length) return;
-    const first = f[0];
-    const last = f[f.length - 1];
+    const first = f[0]!;
+    const last = f[f.length - 1]!;
     const act = document.activeElement;
     if (e.shiftKey && act === first) {
       e.preventDefault();

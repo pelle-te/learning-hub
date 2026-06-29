@@ -34,6 +34,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
     if (from == null || from === to) return;
     upd((it) => {
       const [m] = it.chapters.splice(from, 1);
+      if (!m) return;
       it.chapters.splice(to, 0, m);
     });
   };
@@ -47,7 +48,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
     upd((it) => {
       for (const line of lines) {
         const [nm, h] = line.split('|').map((x) => x.trim());
-        it.chapters.push({ id: rid(), name: nm, hours: h ? +h : 2, done: false });
+        it.chapters.push({ id: rid(), name: nm ?? '', hours: h ? +h : 2, done: false });
       }
     });
     setBulk('');
@@ -93,7 +94,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       <input
                         type="text"
                         value={c.name}
-                        onChange={(e) => upd((it) => void (it.chapters[i].name = e.target.value))}
+                        onChange={(e) => upd((it) => void (it.chapters[i]!.name = e.target.value))}
                         aria-label="챕터 이름"
                       />
                     </td>
@@ -103,7 +104,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                         step={0.5}
                         min={0.5}
                         value={c.hours}
-                        onChange={(e) => upd((it) => void (it.chapters[i].hours = +e.target.value))}
+                        onChange={(e) => upd((it) => void (it.chapters[i]!.hours = +e.target.value))}
                         aria-label="예상시간(시간)"
                       />
                     </td>
@@ -111,7 +112,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       <input
                         type="checkbox"
                         checked={c.done}
-                        onChange={(e) => upd((it) => void (it.chapters[i].done = e.target.checked))}
+                        onChange={(e) => upd((it) => void (it.chapters[i]!.done = e.target.checked))}
                         aria-label="완료"
                       />
                     </td>

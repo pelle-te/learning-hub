@@ -63,7 +63,7 @@ function DegreeInsight({ d }: { d: DegreeT }) {
       hasDone = true;
       const g = (c.grade || '').toUpperCase().trim();
       if (g in GRADE_POINTS) {
-        pts += GRADE_POINTS[g] * cr;
+        pts += GRADE_POINTS[g]! * cr;
         gradedCr += cr;
       }
     });

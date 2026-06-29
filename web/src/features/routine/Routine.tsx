@@ -204,7 +204,7 @@ export default function Routine() {
           {DOW.map((d, i) => (
             <div key={d} className={r.wb}>
               <div className={r.h}>
-                {(cap[i] / 60).toFixed(1)}
+                {(cap[i]! / 60).toFixed(1)}
                 <span className={ds.tiny}>h</span>
               </div>
               <div className={r.d}>{d}</div>

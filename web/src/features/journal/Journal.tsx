@@ -212,7 +212,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
   const codes = Object.keys(CBMS_INFO) as CbmsCode[];
   const [sid, setSid] = useState('');
   const [chapter, setChapter] = useState('');
-  const [code, setCode] = useState<CbmsCode>(codes[0]);
+  const [code, setCode] = useState<CbmsCode>(codes[0]!);
   const [note, setNote] = useState('');
   const [conf, setConf] = useState(false);
   const chRef = useRef<HTMLInputElement>(null);

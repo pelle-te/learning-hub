@@ -74,7 +74,7 @@ export default function App() {
         const n = e.key === ']' ? (i + 1) % visible.length : (i - 1 + visible.length) % visible.length;
         e.preventDefault();
         clearG();
-        navigate('/' + visible[n].key, { viewTransition: true });
+        navigate('/' + visible[n]!.key, { viewTransition: true });
         return;
       }
       if (gPending.current) {

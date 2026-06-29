@@ -36,7 +36,7 @@ export function delSummary(state: AppState, ds: string, id: string): void {
 export function summaryCount(state: AppState): number {
   let n = 0;
   const m = state.summaries || {};
-  for (const ds in m) n += m[ds].length;
+  for (const ds in m) n += m[ds]!.length;
   return n;
 }
 
@@ -261,8 +261,8 @@ export function recordCount(state: AppState): number {
   let n = 0;
   const c = state.completions || {};
   const s = state.summaries || {};
-  for (const k in c) n += Object.keys(c[k]).length;
-  for (const k in s) n += s[k].length;
+  for (const k in c) n += Object.keys(c[k]!).length;
+  for (const k in s) n += s[k]!.length;
   return n + (state.cbms || []).length + (state.backlog || []).length + (state.blankResults || []).length;
 }
 export interface ArchiveResult {
@@ -295,17 +295,17 @@ export function archiveOldData(state: AppState, monthsKeep = 6): ArchiveResult {
   const c = state.completions || {};
   Object.keys(c).forEach((ds) => {
     if (ds < cutoff) {
-      arch.completions[ds] = c[ds];
+      arch.completions[ds] = c[ds]!;
       delete c[ds];
-      n += Object.keys(arch.completions[ds]).length;
+      n += Object.keys(arch.completions[ds]!).length;
     }
   });
   const sm = state.summaries || {};
   Object.keys(sm).forEach((ds) => {
     if (ds < cutoff) {
-      arch.summaries[ds] = sm[ds];
+      arch.summaries[ds] = sm[ds]!;
       delete sm[ds];
-      n += arch.summaries[ds].length;
+      n += arch.summaries[ds]!.length;
     }
   });
   arch.cbms = (state.cbms || []).filter((e) => e.ds && e.ds < cutoff);
@@ -340,7 +340,7 @@ export function recordRetentionSnapshot(state: AppState, decks: DeckLike[]): voi
 export function retentionTrend(state: AppState) {
   const pts = (state.retentionLog || []).slice();
   if (!pts.length) return { points: [], latest: null, prev: null, delta: 0, has: false };
-  const latest = pts[pts.length - 1];
+  const latest = pts[pts.length - 1]!;
   const prev = pts.length > 1 ? pts[pts.length - 2] : null;
   return { points: pts, latest, prev, delta: prev ? prev.due - latest.due : 0, has: true };
 }

@@ -69,7 +69,7 @@ function computeDay(
   const ds2 = iso(date);
   const wd = date.getDay();
   const isToday = ds2 === todayIso;
-  const defMin = capWd[wd];
+  const defMin = capWd[wd] ?? 0;
   const studyMin = dayStudyMin(state, ds2, wd, capWd);
   const ovRaw = state.dayOverrides && state.dayOverrides[ds2] != null ? state.dayOverrides[ds2] : '';
   const planDay = byDs[ds2];
@@ -88,7 +88,7 @@ function computeDay(
   let doneMinTot = 0;
   Object.keys(plannedByKey).forEach((key) => {
     const [sid, type] = key.split('|');
-    if (isDone(state, ds2, sid, type as SessionType)) doneMinTot += plannedByKey[key];
+    if (isDone(state, ds2, sid!, type as SessionType)) doneMinTot += plannedByKey[key]!;
   });
 
   // 일과 블록 + 학습 세션 + 빈 시간(+오늘이면 현재시각)을 시각순으로.
@@ -515,7 +515,7 @@ export default function Schedule() {
               );
             })}
           </div>
-          <DayCard d={parts[sel]} k={sel} agenda />
+          <DayCard d={parts[sel]!} k={sel} agenda />
         </div>
       )}
     </>

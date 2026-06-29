@@ -96,7 +96,7 @@ async function readFM(fh: FileSystemFileHandle): Promise<Record<string, string>>
     const m = t.match(/^---\s*\n([\s\S]*?)\n---/);
     if (!m) return {};
     const o: Record<string, string> = {};
-    m[1].split('\n').forEach((l) => {
+    m[1]!.split('\n').forEach((l) => {
       const i = l.indexOf(':');
       if (i > 0) o[l.slice(0, i).trim()] = l.slice(i + 1).trim();
     });

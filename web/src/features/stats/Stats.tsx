@@ -301,7 +301,7 @@ function CbmsRadar() {
           />
           {vals.map((v, i) => {
             const [x, y] = pt(i, R * (v / max));
-            const lab = `${codes[i]} ${CBMS_INFO[codes[i]]?.label || ''}: ${v}건`;
+            const lab = `${codes[i]} ${CBMS_INFO[codes[i]!]?.label || ''}: ${v}건`;
             return (
               <circle
                 key={i}
@@ -371,14 +371,14 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
   if (!weeks.length) return <div className={ds.empty}>데이터 없음</div>;
   const byId: Record<string, ScheduleResult['itemStat'][number]> = {};
   r.itemStat.forEach((s) => (byId[s.id] = s));
-  const maxH = Math.max(1, ...weeks.map((w) => Object.values(r.weekHours[w]).reduce((t, v) => t + v, 0)));
+  const maxH = Math.max(1, ...weeks.map((w) => Object.values(r.weekHours[w]!).reduce((t, v) => t + v, 0)));
   return (
     <>
       <div
         style={{ display: 'flex', gap: 8, alignItems: 'flex-end', overflowX: 'auto', padding: '6px 0', minHeight: 140 }}
       >
         {weeks.map((w) => {
-          const segs = r.weekHours[w];
+          const segs = r.weekHours[w]!;
           const tot = Object.values(segs).reduce((t, v) => t + v, 0);
           return (
             <div key={w} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 46 }}>
@@ -448,11 +448,11 @@ function ChapterTimeline({ r }: { r: ScheduleResult }) {
               {fmtShort(d)} ({DOW[d.getDay()]})
             </span>
             <span className={ds.nm}>
-              {byDs[dsk].map((e, i) => (
+              {byDs[dsk]!.map((e, i) => (
                 <span key={i}>
                   <span className={ds.swatch} style={{ background: e.color }} />
                   {e.name} <span className={`${ds.muted} ${ds.tiny}`}>{e.chapters.join(', ')}</span>
-                  {i < byDs[dsk].length - 1 ? ' / ' : ''}
+                  {i < byDs[dsk]!.length - 1 ? ' / ' : ''}
                 </span>
               ))}
             </span>

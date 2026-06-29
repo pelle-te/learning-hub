@@ -218,7 +218,10 @@ export function setDone(
 export function totalDoneHours(state: AppState): number {
   let mins = 0;
   const c = state.completions || {};
-  for (const ds in c) for (const k in c[ds]) mins += +c[ds][k].min || 0;
+  for (const ds in c) {
+    const m = c[ds]!;
+    for (const k in m) mins += +m[k]!.min || 0;
+  }
   return mins / 60;
 }
 /** 연속 학습일(스트릭): 오늘(또는 어제)부터 거꾸로 완료기록 연속 카운트. */

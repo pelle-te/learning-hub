@@ -47,7 +47,7 @@ export default function Nav() {
         return;
     }
     e.preventDefault();
-    const tgt = items[next];
+    const tgt = items[next]!;
     go(tgt.nav);
     requestAnimationFrame(() => document.getElementById(tgt.focusId)?.focus());
   };
