@@ -3,8 +3,9 @@
    레거시 ui-routine.js의 renderAvailability를 React로 — 스케줄러 입력(빈 시간 계산):
    요일별 공부 가능 시간(파생) · 수업(요일별) · 그 밖의 일과 블록.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
+import { usePageChrome } from '@/store/usePageChrome';
 import { freeWindowsForWeekday, blocksForWeekday } from '@/lib/scheduler';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -191,12 +192,112 @@ export default function Routine() {
       });
     });
 
+  // 주간/선택 요일 가용 리드아웃을 상단 바로(데모 v6 헤더).
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
+  useEffect(() => {
+    setChrome([
+      {
+        label: '주간 가용',
+        value: (
+          <>
+            {(weekFreeMin / 60).toFixed(1)}
+            <small> h</small>
+          </>
+        ),
+        accent: true,
+      },
+      {
+        label: `${DOW[ringDow]}요일`,
+        value: (
+          <>
+            {(fw.freeMin / 60).toFixed(1)}
+            <small> h</small>
+          </>
+        ),
+      },
+      {
+        label: '일 평균',
+        value: (
+          <>
+            {(weekFreeMin / 7 / 60).toFixed(1)}
+            <small> h</small>
+          </>
+        ),
+      },
+    ]);
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekFreeMin, fw.freeMin, ringDow]);
+
   return (
-    <>
-      {/* 시그니처 — 24h 가용시간 링 + 주간 가용 막대(요일 선택) */}
-      <div className={r.sig}>
-        <div className={r.sigHead}>
-          <span className={r.sigTitle}>가용시간 — AVAILABILITY</span>
+    <section className={r.wrap} aria-label="가용시간·수업·일과">
+      <div className={r.cols}>
+        {/* 좌 — 넓은 편집기(수업·일과) */}
+        <div className={r.editCol}>
+          <div className={ds.card}>
+            <h2>
+              수업 (요일별){' '}
+              <span className={`${ds.muted} ${ds.tiny}`}>— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
+            </h2>
+            <div className={ds.seg}>
+              {DOW.map((d, i) => (
+                <button key={d} className={i === classDow ? ds.on : ''} onClick={() => setClassDow(i)}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <ClassList dow={classDow} />
+            </div>
+            <Button sm style={{ marginTop: 8 }} onClick={() => addClass(classDow)}>
+              + 수업 추가
+            </Button>
+            <div className={ds.foot}>
+              요일마다 수업 시간이 달라도 각각 지정할 수 있어요. 수업 시간은 공부 가능 시간에서 자동으로 빠집니다.
+            </div>
+          </div>
+
+          <div className={ds.card}>
+            <h2>
+              그 밖의 일과 블록{' '}
+              <span className={`${ds.muted} ${ds.tiny}`}>
+                — 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다
+              </span>
+            </h2>
+            <div className={r.blkrow} style={{ color: 'var(--mut)', fontSize: 11 }}>
+              <div>이름</div>
+              <div>유형</div>
+              <div>시작</div>
+              <div>끝</div>
+              <div className={r.days}>요일</div>
+              <div />
+            </div>
+            <div>
+              <BlockList />
+            </div>
+            <Button sm style={{ marginTop: 8 }} onClick={addBlock}>
+              + 블록 추가
+            </Button>
+            <div className={ds.foot}>
+              수면 블록으로 깨어있는 시간을 정하면 빈 시간이 정확해져요. 블록을 지워도 그 시간은 그냥 빈 시간(공부
+              가능)이 될 뿐, 학습 항목은 사라지지 않습니다.
+            </div>
+          </div>
+        </div>
+
+        {/* 우 — 24h 발광 링 시그니처(요일 선택 → 링 갱신) */}
+        <aside className={r.sigCol}>
+          <div className={r.sigColHead}>가용시간 — AVAILABILITY</div>
+          <DayRing
+            dow={DOW[ringDow]!}
+            blocks={ringBlocks}
+            windows={fw.windows}
+            wake0={fw.wake0}
+            wake1={fw.wake1}
+            freeMin={fw.freeMin}
+            nowMin={ringDow === todayDow ? nowMin : null}
+          />
           <span className={r.sigLegend}>
             <span>
               <i className={r.lgFree} />
@@ -211,105 +312,35 @@ export default function Routine() {
               수면
             </span>
           </span>
-        </div>
-        <div className={r.sigBody}>
-          <DayRing
-            dow={DOW[ringDow]!}
-            blocks={ringBlocks}
-            windows={fw.windows}
-            wake0={fw.wake0}
-            wake1={fw.wake1}
-            freeMin={fw.freeMin}
-            nowMin={ringDow === todayDow ? nowMin : null}
-          />
-          <div className={r.sigSide}>
-            <div className={r.weekTotal}>
-              <span className={r.wtNum}>
-                {(weekFreeMin / 60).toFixed(1)}
-                <small>h</small>
-              </span>
-              <span className={r.wtLab}>주간 공부 가능 · 일 평균 {(weekFreeMin / 7 / 60).toFixed(1)}h</span>
-            </div>
-            <div className={r.wkbars} role="tablist" aria-label="요일 선택">
-              {DOW.map((d, i) => {
-                const hrs = free[i]!.freeMin / 60;
-                const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    role="tab"
-                    aria-selected={i === ringDow}
-                    className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
-                    onClick={() => setRingDow(i)}
-                    title={`${d}요일 ${hrs.toFixed(1)}시간`}
-                  >
-                    <span className={r.wbBarWrap}>
-                      <span className={r.wbBar} style={{ height: `${Math.round((hrs / max) * 100)}%` }} />
-                    </span>
-                    <span className={r.h}>{hrs.toFixed(1)}</span>
-                    <span className={r.d}>{d}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className={`${ds.tiny} ${ds.muted}`} style={{ marginTop: 2 }}>
-              깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다.
-              특정 날짜는 스케줄 탭, 시작일·모듈 길이는 <b>설정</b>(⚙)에서.
-            </div>
+          <div className={r.wkbars} role="tablist" aria-label="요일 선택" style={{ width: '100%' }}>
+            {DOW.map((d, i) => {
+              const hrs = free[i]!.freeMin / 60;
+              const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === ringDow}
+                  className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
+                  onClick={() => setRingDow(i)}
+                  title={`${d}요일 ${hrs.toFixed(1)}시간`}
+                >
+                  <span className={r.wbBarWrap}>
+                    <span className={r.wbBar} style={{ height: `${Math.round((hrs / max) * 100)}%` }} />
+                  </span>
+                  <span className={r.h}>{hrs.toFixed(1)}</span>
+                  <span className={r.d}>{d}</span>
+                </button>
+              );
+            })}
           </div>
-        </div>
+          <div className={r.sigHint}>
+            깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다. 특정
+            날짜는 <b>스케줄</b> 탭, 시작일·모듈 길이는 <b>설정</b>(⚙)에서.
+          </div>
+        </aside>
       </div>
-
-      <div className={ds.card}>
-        <h2>
-          수업 (요일별){' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
-        </h2>
-        <div className={ds.seg}>
-          {DOW.map((d, i) => (
-            <button key={d} className={i === classDow ? ds.on : ''} onClick={() => setClassDow(i)}>
-              {d}
-            </button>
-          ))}
-        </div>
-        <div style={{ marginTop: 10 }}>
-          <ClassList dow={classDow} />
-        </div>
-        <Button sm style={{ marginTop: 8 }} onClick={() => addClass(classDow)}>
-          + 수업 추가
-        </Button>
-        <div className={ds.foot}>
-          요일마다 수업 시간이 달라도 각각 지정할 수 있어요. 수업 시간은 공부 가능 시간에서 자동으로 빠집니다.
-        </div>
-      </div>
-
-      <div className={ds.card}>
-        <h2>
-          그 밖의 일과 블록{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>
-            — 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다
-          </span>
-        </h2>
-        <div className={r.blkrow} style={{ color: 'var(--mut)', fontSize: 11 }}>
-          <div>이름</div>
-          <div>유형</div>
-          <div>시작</div>
-          <div>끝</div>
-          <div className={r.days}>요일</div>
-          <div />
-        </div>
-        <div>
-          <BlockList />
-        </div>
-        <Button sm style={{ marginTop: 8 }} onClick={addBlock}>
-          + 블록 추가
-        </Button>
-        <div className={ds.foot}>
-          수면 블록으로 깨어있는 시간을 정하면 빈 시간이 정확해져요. 블록을 지워도 그 시간은 그냥 빈 시간(공부 가능)이
-          될 뿐, 학습 항목은 사라지지 않습니다.
-        </div>
-      </div>
-    </>
+    </section>
   );
 }

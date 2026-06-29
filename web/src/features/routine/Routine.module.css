@@ -1,6 +1,63 @@
 /* Routine.module.css — 가용시간·수업·일과 탭 전용 스타일. 다른 feature와 공유 안 함.
    공유 클래스(card/seg/muted/tiny/foot/empty)는 ds.module이 소유. 값은 원본 components.css와 동일. */
 
+/* ============================================================
+   가용시간 2컬럼 단일화면(데모 v6 사상) — HudFrame fill 가득.
+   넓은 편집기(수업·일과)는 좌측 1fr, 24h 발광 링 시그니처는 우측 340.
+   주간/선택요일 가용 리드아웃은 상단 바(usePageChrome).
+============================================================ */
+.wrap {
+  height: 100%;
+  min-width: 0;
+}
+.cols {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-height: 0;
+}
+.editCol {
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 22px 28px;
+}
+.sigCol {
+  min-width: 0;
+  border-left: 1px solid var(--line2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.sigColHead {
+  width: 100%;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.sigHint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--mut);
+}
+
+@media (max-width: 900px) {
+  .cols {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .sigCol {
+    border-left: none;
+    border-top: 1px solid var(--line2);
+  }
+}
+
 /* 시그니처 보드 — 24h 링 + 주간 가용 막대 (WeekGrid .board 결과 통일) */
 .sig {
   border: 1px solid var(--line);
