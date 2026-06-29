@@ -3,8 +3,9 @@
    레거시 ui-review.js를 React로 — '공부 방식'을 주 1회 점검:
    계획 vs 실제 · CBMS 분포 · 백로그 회수 · 주간 체크리스트.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
+import { usePageChrome } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import {
@@ -66,54 +67,6 @@ const WEEKLY_CHECKS: [string, string][] = [
   ['plan', '계획 vs 실제 — 버퍼(15~20%)가 부족했으면 다음 주 목표시간을 낮춘다.'],
   ['anki', 'Anki 적체 — due가 밀렸으면 큐레이션을 더 빡세게(≤5장/블록).'],
 ];
-
-/** 주간 디브리프 헤더 — "레이스 리포트" 시그니처. 한 주를 큰 리드아웃 3종으로 압축. */
-function DebriefHeader({ pa, ds0, ds6, label }: { pa: WeekPA; ds0: string; ds6: string; label: string }) {
-  const state = useApp((s) => s.state);
-  const cnt = cbmsCounts(state, ds0, ds6);
-  const codes = Object.keys(CBMS_INFO) as CbmsCode[];
-  const cbmsTotal = codes.reduce((a, c) => a + cnt[c], 0);
-  const top = cbmsTotal ? codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode) : null;
-  const open = openBacklog(state).length;
-  const closed = backlogClosedBetween(state, ds0, ds6);
-  const good = pa.rate >= 80;
-
-  return (
-    <div className={rv.board}>
-      <div className={rv.bHead}>
-        <span className={rv.bTitle}>주간 디브리프 — DEBRIEF</span>
-        <span className={rv.bWeek}>{label}</span>
-      </div>
-      <div className={rv.readouts}>
-        <div className={`${rv.ro} ${good ? rv.roGood : rv.roWarn}`}>
-          <span className={rv.roNum}>
-            {pa.rate}
-            <small>%</small>
-          </span>
-          <span className={rv.roLab}>달성률 · 완료/계획</span>
-          <span className={rv.roSub}>
-            {(pa.doneMin / 60).toFixed(1)}h / {(pa.planMin / 60).toFixed(1)}h ·{' '}
-            {good ? '페이스 양호' : '버퍼 부족 — 목표↓'}
-          </span>
-        </div>
-        <div className={rv.ro}>
-          <span className={rv.roNum} style={top ? ({ color: CBMS_INFO[top].color } as React.CSSProperties) : undefined}>
-            {top ? top : '—'}
-          </span>
-          <span className={rv.roLab}>가장 잦은 오답</span>
-          <span className={rv.roSub}>
-            {top ? `${CBMS_INFO[top].label} · 이번 주 ${cbmsTotal}건` : '기록된 오답 없음'}
-          </span>
-        </div>
-        <div className={rv.ro}>
-          <span className={`${rv.roNum} ${open ? rv.warnNum : ''}`}>{open}</span>
-          <span className={rv.roLab}>보충 백로그 열림</span>
-          <span className={rv.roSub}>이번 주 회수 {closed}건</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /** 계획 대비 실제 — 요일별 계획·완료 분 막대(weekPlanActual 집계 공유). 헤더 리드아웃의 일자별 분해. */
 function PlanActualCard({ pa }: { pa: WeekPA }) {
@@ -281,6 +234,8 @@ export default function Review() {
   const res = useSchedule();
   const state = useApp((s) => s.state);
   const [weekOffset, setWeekOffset] = useState(0);
+  const setChrome = usePageChrome((s) => s.setChrome);
+  const clearChrome = usePageChrome((s) => s.clear);
 
   const mon = addDays(mondayOf(new Date()), weekOffset * 7);
   const ds0 = iso(mon);
@@ -289,37 +244,68 @@ export default function Review() {
   const isThis = weekOffset === 0;
   const pa = weekPlanActual(state, res, mon);
 
+  // 디브리프 리드아웃 — 달성률·가장 잦은 오답·보충 열림을 상단 바로(데모 v6 헤더).
+  const cnt = cbmsCounts(state, ds0, ds6);
+  const codes = Object.keys(CBMS_INFO) as CbmsCode[];
+  const cbmsTotal = codes.reduce((a, ci) => a + cnt[ci], 0);
+  const top = cbmsTotal ? codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode) : null;
+  const openN = openBacklog(state).length;
+
+  useEffect(() => {
+    setChrome([
+      {
+        label: '달성률',
+        value: (
+          <>
+            {pa.rate}
+            <small>%</small>
+          </>
+        ),
+        accent: true,
+      },
+      { label: '잦은 오답', value: top ?? '—' },
+      { label: '보충 열림', value: openN },
+    ]);
+    return () => clearChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pa.rate, top, openN]);
+
   return (
-    <>
-      <div className={ds.card}>
-        <div className={ds.row} style={{ alignItems: 'center' }}>
-          <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
-            ◀ 이전 주
-          </Button>
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 120 }}>
-            <b style={{ fontSize: 15 }}>{weekLabel(mon)}</b>
-            <span className={`${ds.muted} ${ds.tiny}`}>
-              {' '}
-              {isThis ? '· 이번 주' : weekOffset > 0 ? `· +${weekOffset}주` : `· ${weekOffset}주`}
-            </span>
-          </div>
-          <Button sm onClick={() => setWeekOffset((o) => o + 1)}>
-            다음 주 ▶
-          </Button>
-          <Button sm variant="ghost" onClick={() => setWeekOffset(0)}>
-            이번 주
-          </Button>
+    <section className={rv.wrap} aria-label="주간 리뷰">
+      <div className={rv.nav}>
+        <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
+          ◀ 이전 주
+        </Button>
+        <div className={rv.wkBox}>
+          <b className={rv.wkLab}>{weekLabel(mon)}</b>
+          <span className={rv.wkOff}>
+            {isThis ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}
+          </span>
         </div>
-        <div className={ds.foot}>
-          주 1회 15~20분, <b>공부 방식</b>을 점검하는 자리. 시간(투입)이 아니라 <i>CBMS 분포 축소·진행률</i> 같은 나아진
-          증거가 가장 강한 동기.
+        <Button sm onClick={() => setWeekOffset((o) => o + 1)}>
+          다음 주 ▶
+        </Button>
+        <Button sm variant="ghost" onClick={() => setWeekOffset(0)}>
+          이번 주
+        </Button>
+      </div>
+
+      <div className={rv.grid}>
+        {/* 좌 — 시그니처 차트(계획 대비 실제 · CBMS 분포) */}
+        <div className={rv.mainCol}>
+          <div className={rv.hint}>
+            주 1회 15~20분, <b>공부 방식</b>을 점검하는 자리. 시간(투입)이 아니라 <i>CBMS 분포 축소·진행률</i> 같은
+            나아진 증거가 가장 강한 동기.
+          </div>
+          <PlanActualCard pa={pa} />
+          <CbmsDistCard ds0={ds0} ds6={ds6} />
+        </div>
+        {/* 우 — 점검·회수(액션) */}
+        <div className={rv.sideCol}>
+          <ChecklistCard wk={wk} />
+          <BacklogReviewCard ds0={ds0} ds6={ds6} />
         </div>
       </div>
-      <DebriefHeader pa={pa} ds0={ds0} ds6={ds6} label={weekLabel(mon)} />
-      <PlanActualCard pa={pa} />
-      <CbmsDistCard ds0={ds0} ds6={ds6} />
-      <BacklogReviewCard ds0={ds0} ds6={ds6} />
-      <ChecklistCard wk={wk} />
-    </>
+    </section>
   );
 }

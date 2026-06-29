@@ -130,3 +130,85 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   주간 리뷰 단일화면(데모 v6 사상) — HudFrame fill 가득.
+   상단 주 네비 · 본문 2컬럼 [시그니처 차트(계획대비실제·CBMS) | 점검·회수(액션)].
+   디브리프 리드아웃(달성률·가장 잦은 오답·보충)은 상단 바(usePageChrome)로.
+============================================================ */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.wkBox {
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
+}
+.wkLab {
+  font-size: 15px;
+  font-weight: 800;
+}
+.wkOff {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+.mainCol {
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 22px;
+}
+.sideCol {
+  min-width: 0;
+  border-left: 1px solid var(--line2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 20px 20px;
+}
+.hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--mut);
+  margin-bottom: 14px;
+}
+
+/* fill 차트는 조금 더 크게 — 시그니처 강조 */
+.mainCol .paChart {
+  min-height: 150px;
+}
+.mainCol .paBar {
+  height: 130px;
+}
+.mainCol .paBar i {
+  width: 14px;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .sideCol {
+    border-left: none;
+    border-top: 1px solid var(--line2);
+  }
+}
