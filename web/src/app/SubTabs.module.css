@@ -27,6 +27,7 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 0.15s var(--ease),
@@ -51,4 +52,17 @@
 .btn:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: -2px;
+}
+
+/* 모바일: 라벨 줄바꿈 대신 세그먼트를 가로 스크롤(엄지로 밀기). */
+@media (max-width: 700px) {
+  .seg {
+    display: flex;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seg::-webkit-scrollbar {
+    display: none;
+  }
 }

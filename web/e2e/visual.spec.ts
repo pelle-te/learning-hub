@@ -154,3 +154,17 @@ for (const theme of THEMES) {
     });
   }
 }
+
+// 반응형(모바일 390px) — 레일이 하단 탭바로, 시그니처 보드가 단일 컬럼으로 스택되는지(가로 넘침 없이).
+const MOBILE = { width: 390, height: 844 };
+const TABS_MOBILE = ['today', 'schedule', 'stats', 'routine'];
+for (const tab of TABS_MOBILE) {
+  test(`${tab} · mobile`, async ({ page }) => {
+    await page.setViewportSize(MOBILE);
+    await boot(page, 'dark');
+    await page.goto('/' + tab);
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+    await expect(page).toHaveScreenshot(`${tab}-mobile.png`, { fullPage: true });
+  });
+}
