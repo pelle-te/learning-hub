@@ -484,30 +484,40 @@ export default function Stats() {
 
   return (
     <>
-      <div className={ds.kpis}>
-        <div className={ds.kpi}>
-          <div className={ds.v}>
-            {doneH.toFixed(1)}h<span className={`${ds.muted} ${ds.tiny}`}> / {Math.round(totalSchedH)}h</span>
-          </div>
-          <div className={ds.l}>실제 완료 / 계획 ({compRate}%)</div>
+      {/* 시그니처 — 학습 데이터 보드(완료율 히어로 + 보조 리드아웃) */}
+      <div className={st.board}>
+        <div className={st.bHead}>
+          <span className={st.bTitle}>학습 데이터 보드 — DATA</span>
+          <span className={st.bMeta}>{r.itemStat.length}과목 추적</span>
         </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>
-            🔥 {streak}
-            <span className={`${ds.muted} ${ds.tiny}`}>일</span>
+        <div className={st.bGrid}>
+          <div className={st.hero}>
+            <span className={st.heroNum}>
+              {compRate}
+              <small>%</small>
+            </span>
+            <span className={st.heroLab}>완료율 · 실제/계획</span>
+            <span className={st.heroSub}>
+              {doneH.toFixed(1)}h / {Math.round(totalSchedH)}h
+            </span>
           </div>
-          <div className={ds.l}>연속 학습일</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>
-            {doneCh}
-            <span className={`${ds.muted} ${ds.tiny}`}> / {totalCh}</span>
+          <div className={st.cells}>
+            <div className={st.ro}>
+              <span className={st.roNum}>🔥 {streak}</span>
+              <span className={st.roLab}>연속 학습일</span>
+            </div>
+            <div className={st.ro}>
+              <span className={st.roNum}>
+                {doneCh}
+                <small>/{totalCh}</small>
+              </span>
+              <span className={st.roLab}>완료 챕터</span>
+            </div>
+            <div className={st.ro}>
+              <span className={st.roNum}>{revCount}</span>
+              <span className={st.roLab}>복습 세션(계획)</span>
+            </div>
           </div>
-          <div className={ds.l}>완료 챕터</div>
-        </div>
-        <div className={ds.kpi}>
-          <div className={ds.v}>{revCount}</div>
-          <div className={ds.l}>복습 세션(계획)</div>
         </div>
       </div>
 

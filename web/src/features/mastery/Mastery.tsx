@@ -88,11 +88,17 @@ function Subjects({ k }: { k: Knowledge }) {
                 const t = `${c.title || c.basename}  ·  유효숙달 ${pct(c.p_eff)} (${c.state})${
                   c.weak && c.root_cause && c.root_cause !== 'self' ? ' ← 선수약점: ' + c.root_cause : ''
                 }`;
+                const col = masteryColor(c.p_eff, c.state);
+                // 발광 지식맵 — 유효숙달 p가 높을수록 글로우 강하게(0.55↑부터 번짐). 미관측/약점은 차분.
+                //  프런티어는 accent 링과 글로우를 함께(인라인이 .fr 클래스 box-shadow를 덮으므로 합성).
+                const ring = c.frontier ? '0 0 0 1.5px var(--acc)' : '';
+                const glow = c.p_eff >= 0.55 ? `0 0 ${Math.round((c.p_eff - 0.4) * 14)}px ${col}` : '';
+                const boxShadow = [ring, glow].filter(Boolean).join(', ') || undefined;
                 return (
                   <i
                     key={i}
                     className={`${m.mscell}${c.frontier ? ' ' + m.fr : ''}`}
-                    style={{ background: masteryColor(c.p_eff, c.state) }}
+                    style={{ background: col, boxShadow }}
                     data-tip={t}
                     role="img"
                     aria-label={t}
