@@ -25,6 +25,9 @@ float noise(vec2 p){
   return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
 float fbm(vec2 p){
+  // 5 octave 고정 — 4로 줄이면 mastery 탭(어두운 빈 영역에 배경이 비침)에서 비주얼 스냅샷이
+  // 4% 틀어진다(2% 게이트 초과). 즉 octave 축소는 "외형 불변"이 아니라 채택 불가. 부담 절감은
+  // fps 캡(24)·포커스 밖 정지로만 — 이 둘은 정지프레임을 안 바꿔 스냅샷 동치(40/40 통과).
   float v = 0.0, amp = 0.5;
   for(int i = 0; i < 5; i++){ v += amp * noise(p); p *= 2.02; amp *= 0.5; }
   return v;
@@ -147,7 +150,11 @@ export default function AmbientCanvas() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
     let last = 0;
-    const FRAME = 1000 / 30; // 30fps 캡.
+    // 24fps 캡 — 드리프트가 매우 느려(t*0.025) 24fps에서도 부드럽다. 30fps 대비 프레임 20%↓.
+    const FRAME = 1000 / 24;
+    // 정지 조건: 모션 비선호 · 탭 숨김 · 창 포커스 밖. 마지막은 앱 모드 창이 다른 창 뒤에 있을 때
+    // (visibilitychange는 최소화/탭전환만 잡고 "뒤에 가림"은 못 잡음) GPU를 계속 태우는 낭비를 막는다.
+    const paused = () => reduce.matches || document.hidden || !document.hasFocus();
     const draw = (ms: number) => {
       raf = requestAnimationFrame(draw);
       if (ms - last < FRAME) return;
@@ -161,7 +168,7 @@ export default function AmbientCanvas() {
     };
     const start = () => {
       cancelAnimationFrame(raf);
-      if (reduce.matches || document.hidden) {
+      if (paused()) {
         drawOnce();
         return;
       }
@@ -171,16 +178,17 @@ export default function AmbientCanvas() {
 
     const onResize = () => {
       resize();
-      if (reduce.matches || document.hidden) drawOnce();
+      if (paused()) drawOnce();
     };
-    const onVisible = () => start();
     const onTheme = () => {
       setColors();
-      if (reduce.matches || document.hidden) drawOnce();
+      if (paused()) drawOnce();
     };
 
     window.addEventListener('resize', onResize);
-    document.addEventListener('visibilitychange', onVisible);
+    document.addEventListener('visibilitychange', start);
+    window.addEventListener('focus', start); // 창 포커스 복귀 → 모션 재개
+    window.addEventListener('blur', start); //  창 포커스 상실 → 일시정지
     reduce.addEventListener('change', start);
     // 테마(data-theme) 변동 → 색 유니폼 갱신.
     const mo = new MutationObserver(onTheme);
@@ -191,7 +199,9 @@ export default function AmbientCanvas() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
-      document.removeEventListener('visibilitychange', onVisible);
+      document.removeEventListener('visibilitychange', start);
+      window.removeEventListener('focus', start);
+      window.removeEventListener('blur', start);
       reduce.removeEventListener('change', start);
       mo.disconnect();
       const lose = gl.getExtension('WEBGL_lose_context');

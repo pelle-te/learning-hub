@@ -13,6 +13,12 @@ function icsEsc(s: unknown): string {
 /** 로컬 시각 → YYYYMMDDTHHMMSS(플로팅 로컬타임). */
 function icsDt(ds: string, min: number): string {
   const d = parseISO(ds);
+  // 자정 종료(min>=1440)는 iCalendar에서 불법인 24:00:00 → 다음날 00:00:00으로 정규화.
+  // (늦은 모듈이 22:00–24:00처럼 wake1=1440까지 차면 DTEND가 T240000이 돼 엄격한 캘린더가 거부했다.)
+  if (min >= 1440) {
+    d.setDate(d.getDate() + Math.floor(min / 1440));
+    min %= 1440;
+  }
   const h = Math.floor(min / 60);
   const m = min % 60;
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(h).padStart(2, '0')}${String(m).padStart(2, '0')}00`;

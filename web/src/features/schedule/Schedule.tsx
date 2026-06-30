@@ -30,7 +30,7 @@ import { Button } from '@/components/ui';
 import { useHeroPointer } from '@/lib/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
-import { computeDay, type Row, type DayData } from '@/lib/scheduleView';
+import { computeDay, indexDays, type Row, type DayData } from '@/lib/scheduleView';
 import { WeekCalendar } from './WeekCalendar';
 import type { SessionType } from '@/lib/types';
 
@@ -243,7 +243,10 @@ export default function Schedule() {
 
   // curMon은 state.startDate+weekOffset로 완전히 결정 → 매 렌더 새 Date여도 memo는 weekOffset(안정 스칼라)에 키잉.
   const parts = useMemo(
-    () => Array.from({ length: 7 }, (_, k) => computeDay(state, res, capWd, nowMin, todayIso, curMon, k)),
+    () => {
+      const byDs = indexDays(res); // ds→Day 인덱스를 7일 루프 밖에서 1회 생성(매 호출 재구축 제거).
+      return Array.from({ length: 7 }, (_, k) => computeDay(state, byDs, capWd, nowMin, todayIso, curMon, k));
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- curMon은 [state,weekOffset] 파생이라 중복 의존 제거
     [state, res, capWd, nowMin, todayIso, weekOffset],
   );

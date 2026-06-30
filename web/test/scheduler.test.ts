@@ -394,4 +394,25 @@ describe('scheduler (T1~T21 parity)', () => {
     const noKnow = schedule(baseState(mkItems(), { graphPriority: true }));
     expect(firstNewName(noKnow)).toBe('대수');
   });
+
+  // ── 버그 회귀(2026-07 코드 점검) ──
+  it('T22 자정 넘는 수면(23:00–07:00) 한 칸이 심야를 공부에서 제외(옛 버그: 1440)', () => {
+    const routine = [blk('수면', '수면', '23:00', '07:00', [0, 1, 2, 3, 4, 5, 6])];
+    const r = schedule(baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], { routine }));
+    expect(r.days[0].studyMin).toBe(960); // 07:00–23:00 = 960분
+  });
+
+  it('T23 두 칸 수면(00:00–07:00 + 23:00–24:00)도 자정 넘김과 동일하게 해석', () => {
+    const routine = [
+      blk('수면', '수면', '00:00', '07:00', [0, 1, 2, 3, 4, 5, 6]),
+      blk('수면', '수면', '23:00', '24:00', [0, 1, 2, 3, 4, 5, 6]),
+    ];
+    const r = schedule(baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], { routine }));
+    expect(r.days[0].studyMin).toBe(960);
+  });
+
+  it('T24 시작일이 빈 값이어도 days가 비지 않는다(오늘로 폴백)', () => {
+    const r = schedule(baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], { startDate: '' }));
+    expect(r.days.length).toBeGreaterThan(0);
+  });
 });

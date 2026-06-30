@@ -70,17 +70,36 @@ export function blocksForWeekday(state: AppState, wd: number): RoutineBlock[] {
     })
     .sort((a, b) => toMin(a.start) - toMin(b.start));
 }
-/** 깨어있는 시간 [wake0,wake1] — 수면 블록으로 결정(없으면 00:00~24:00). */
+/** 깨어있는 시간 [wake0,wake1] — 수면 블록(들)로 결정(없으면 00:00~24:00).
+ *  모델: 수면은 하루의 양 끝을 차지하고 자정을 가로지른다 → 깨어있는 구간은 단일 창 [wake0,wake1],
+ *  수면은 그 여집합 [wake1,1440]∪[0,wake0]. 수면을 어떻게 입력하든 동일하게 해석한다:
+ *  단일 칸 `23:00–07:00`(자정 넘김)이든, `00:00–07:00`+`23:00–24:00` 두 칸이든.
+ *   - wake0 = 하루 시작(0)에 붙은 수면의 끝(= 기상). 그런 수면이 없으면 0.
+ *   - wake1 = 하루 끝(1440)에 붙은 수면의 시작(= 취침). 그런 수면이 없으면 1440.
+ *  자정 넘김(start>end)은 [start,1440]·[0,end] 두 구간으로 분할해 판정한다.
+ *  (옛 구현은 sleep[0]만 보고 start===0 / end>=1380 휴리스틱이라 `23:00–07:00` 한 칸을 통째로
+ *   놓쳐 심야에 공부를 배정하는 버그가 있었다.) */
 export function awakeBounds(blocks: RoutineBlock[]): [number, number] {
-  const sleep = blocks.filter((b) => b.type === '수면');
   let wake0 = 0;
   let wake1 = 1440;
-  if (sleep.length) {
-    const m = sleep[0]!;
-    if (toMin(m.start) === 0) wake0 = toMin(m.end);
-    if (toMin(m.end) >= 1380) wake1 = toMin(m.start);
-  }
-  return [wake0, wake1];
+  blocks
+    .filter((b) => b.type === '수면')
+    .forEach((b) => {
+      const s = toMin(b.start);
+      const e = toMin(b.end);
+      const segs: [number, number][] =
+        s <= e
+          ? [[s, e]]
+          : [
+              [s, 1440],
+              [0, e],
+            ];
+      segs.forEach(([a, c]) => {
+        if (a <= 0 && c > wake0) wake0 = c; // 하루 시작에 붙은 수면 → 기상 시각
+        if (c >= 1440 && a < wake1) wake1 = a; // 하루 끝에 붙은 수면 → 취침 시각
+      });
+    });
+  return wake0 <= wake1 ? [wake0, wake1] : [0, 1440];
 }
 /** 요일의 '공부 가능' 빈 구간 = 깨어있는 시간 − (수면 제외) 모든 고정 블록. */
 export function freeWindowsForWeekday(state: AppState, wd: number): FreeWindows {
@@ -173,7 +192,9 @@ export function adherenceFactor(
 }
 
 export function schedule(state: AppState): ScheduleResult {
-  const start = state.startDate;
+  // 시작일 방어 — 사용자가 시작일을 빈 값으로 지우면 parseISO('')=Invalid → dayDiff=NaN →
+  // horizon=Math.max(6,NaN)=NaN → 루프가 0회 → days=[]로 전 탭이 빈 화면이 됐다. 오늘로 폴백.
+  const start = Number.isNaN(parseISO(state.startDate).getTime()) ? todayISO(state) : state.startDate;
   const items = state.items.filter((s) => s.name);
   const warnings: string[] = [];
   const capWd = studyMinByWeekday(state);

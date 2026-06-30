@@ -31,18 +31,25 @@ export interface DayData {
   counts: { studies: number; revs: number; ankis: number; blanks: number; mocks: number };
 }
 
-/** 하루치 계산(머리글/막대/타임라인 행/꼬리) — 카드뷰·개요뷰 공용. */
+export type DayIndex = Record<string, ScheduleResult['days'][number]>;
+/** ds→Day 인덱스를 한 번만 만든다. computeDay가 7회 호출되며 매번 전체를 재구축하던 것을 호출부로 끌어올려
+ *  렌더당 O(7·horizon)→O(horizon)로 줄인다(horizon은 마감 우선 최대 ~180일). */
+export function indexDays(res: ScheduleResult): DayIndex {
+  const byDs: DayIndex = {};
+  (res.days || []).forEach((d) => (byDs[d.ds] = d));
+  return byDs;
+}
+
+/** 하루치 계산(머리글/막대/타임라인 행/꼬리) — 카드뷰·개요뷰 공용. byDs는 indexDays로 1회 생성해 주입. */
 export function computeDay(
   state: AppState,
-  res: ScheduleResult,
+  byDs: DayIndex,
   capWd: number[],
   nowMin: number,
   todayIso: string,
   curMon: Date,
   k: number,
 ): DayData {
-  const byDs: Record<string, ScheduleResult['days'][number]> = {};
-  (res.days || []).forEach((d) => (byDs[d.ds] = d));
   const date = addDays(curMon, k);
   const ds2 = iso(date);
   const wd = date.getDay();

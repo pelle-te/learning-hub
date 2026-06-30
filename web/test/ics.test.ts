@@ -66,6 +66,14 @@ describe('buildICS — VCALENDAR 구조', () => {
     expect(out).toContain('\\;');
     expect(out).toContain('\\,');
   });
+
+  it('모든 DTSTART/DTEND 시각의 hour가 00~23 — 자정 종료(T240000) 불법 시각 없음', () => {
+    // 가용시간을 가득 채우는 무거운 일정으로 늦은 세션을 유도. 옛 icsDt는 24:00 종료를 T240000으로 직렬화했다.
+    const heavy = buildICS(baseState([weeklyItem('집중', 40, [['대단원', 200]])]));
+    const hours = [...heavy.matchAll(/(?:DTSTART|DTEND):\d{8}T(\d{2})\d{4}/g)].map((m) => Number(m[1]));
+    expect(hours.length).toBeGreaterThan(0);
+    hours.forEach((h) => expect(h).toBeLessThanOrEqual(23));
+  });
 });
 
 describe('planSignature — 계획 지문(.ics 신선도 판정)', () => {
