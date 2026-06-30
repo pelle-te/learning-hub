@@ -18,33 +18,82 @@
   right: 0;
   height: 38px;
   transform: translateY(-50%);
-  border-radius: 5px;
+  border-radius: 13px;
   background: color-mix(in srgb, var(--ink) 3%, transparent);
-  box-shadow: inset 0 0 0 1px var(--line2);
+  box-shadow:
+    inset 0 0 0 1px var(--line2),
+    inset 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 .seg {
   position: absolute;
   top: 50%;
   height: 38px;
+  box-sizing: border-box;
   transform: translateY(-50%);
-  border-radius: 5px;
+  border-radius: 11px;
   opacity: 0;
   animation: nt-seg 0.5s var(--ease) forwards;
   animation-delay: var(--sd, 0.3s);
 }
+/* 학습(집중) — 과목 색 입체 알약: 위 광택→아래 음영 + 상단 하이라이트·드롭섀도 + 은은한 발광. */
 .primary {
-  background: var(--acc);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--seg, var(--acc)) 64%, #fff) 0%,
+    var(--seg, var(--acc)) 58%,
+    color-mix(in srgb, var(--seg, var(--acc)) 95%, #000) 100%
+  );
   box-shadow:
-    0 0 20px var(--glow),
-    0 0 44px var(--glow);
+    0 0 16px color-mix(in srgb, var(--seg, var(--glow)) 48%, transparent),
+    0 2px 5px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent);
 }
+/* 복습·Anki — 같은 색 옅게도 동일한 입체 결 + 약한 발광. */
 .soft {
-  background: color-mix(in srgb, var(--acc) 42%, transparent);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--glow) 55%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--seg, var(--acc)) 58%, transparent) 0%,
+    color-mix(in srgb, var(--seg, var(--acc)) 40%, transparent) 100%
+  );
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--seg, var(--glow)) 24%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 color-mix(in srgb, #fff 20%, transparent);
 }
+/* 일과 블록 — 또렷하되 발광 없이, 학습 세그와 같은 입체 결만. */
 .muted {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--seg, var(--ink)) 70%, transparent) 0%,
+    color-mix(in srgb, var(--seg, var(--ink)) 52%, transparent) 100%
+  );
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 color-mix(in srgb, #fff 13%, transparent);
+}
+/* 빈 시간 — 채우지 않은 빈 칸(점선 윤곽). 과목이 채워지면 위 톤으로 바뀜. */
+.free {
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent);
+  opacity: 0;
+  animation: nt-seg 0.5s var(--ease) forwards;
+  animation-delay: var(--sd, 0.3s);
+}
+
+/* 스크럽 — 호버 가능한 세그(커서) + 활성 강조(살짝 키우고 발광). */
+.segHit {
+  cursor: pointer;
+  transition:
+    transform 0.16s var(--ease),
+    filter 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.segActive {
+  transform: translateY(-50%) scaleY(1.14);
+  filter: brightness(1.1);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--seg, var(--glow)) 45%, transparent);
+  z-index: 4;
 }
 
 /* 주석 — 세그 위/아래 라벨 + 커넥터(겹침 줄이려 폭 충분한 세그만). */
@@ -143,5 +192,8 @@
   }
   .nowdot {
     animation: none;
+  }
+  .segHit {
+    transition: none;
   }
 }

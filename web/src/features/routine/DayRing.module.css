@@ -4,8 +4,9 @@
 ============================================================ */
 .wrap {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  max-width: 460px;
+  aspect-ratio: 1 / 1;
   flex: none;
 }
 .svg {
@@ -38,6 +39,27 @@
   stroke-linecap: round;
   filter: drop-shadow(0 0 5px var(--glow));
 }
+/* 호버 — 호가 두꺼워지고 또렷해지며 정보 툴팁(data-tip) 표시. */
+.sleep,
+.block,
+.free {
+  cursor: pointer;
+  transition:
+    stroke-width 0.14s var(--ease),
+    filter 0.14s var(--ease);
+}
+.block:hover {
+  stroke: color-mix(in srgb, var(--ink) 30%, transparent);
+  stroke-width: 16;
+}
+.sleep:hover {
+  stroke: color-mix(in srgb, var(--ink) 14%, transparent);
+  stroke-width: 16;
+}
+.free:hover {
+  stroke-width: 16;
+  filter: drop-shadow(0 0 9px var(--glow));
+}
 
 .now {
   stroke: var(--ink);
@@ -69,7 +91,7 @@
   pointer-events: none;
 }
 .cnum {
-  font-size: 30px;
+  font-size: 46px;
   font-weight: 800;
   line-height: 1;
   color: var(--acc);
@@ -77,20 +99,20 @@
   letter-spacing: -0.01em;
 }
 .cnum small {
-  font-size: 13px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--mut);
 }
 .clab {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--mut);
-  margin-top: 3px;
+  margin-top: 5px;
 }
 .csub {
-  font-size: 9.5px;
+  font-size: 11px;
   color: var(--mut);
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
@@ -99,5 +121,10 @@
 @media (prefers-reduced-motion: reduce) {
   .free {
     filter: none;
+  }
+  .sleep,
+  .block,
+  .free {
+    transition: none;
   }
 }

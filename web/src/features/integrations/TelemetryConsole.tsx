@@ -14,7 +14,7 @@ type Status = 'online' | 'idle' | 'offline' | 'probing';
 const STATUS_LABEL: Record<Status, string> = {
   online: 'ONLINE',
   idle: 'IDLE',
-  offline: 'SIGNAL LOST',
+  offline: 'OFFLINE',
   probing: '…',
 };
 

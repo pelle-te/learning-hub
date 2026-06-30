@@ -1,200 +1,304 @@
-/* Control.module.css — 시스템 제어판 탭 전용 스타일(옵스 콘솔 시그니처).
-   공유 클래스(card/row/chip/spin/foot/muted/tiny)는 ds.module이 소유. 값은 원본 features.css와 동일. */
-
 /* ============================================================
-   OPS 콘솔 단일화면(데모 v6 사상) — HudFrame fill 가득.
-   온라인=도구 타일 2컬럼 그리드, 오프라인=중앙 부팅 보드. serve.js 상태는 상단 바.
+   Control(탐구 수집) — 검색엔진 느낌의 단일 목적 탭.
+   큰 검색 히어로(주제+범위+수집) + 진행/결과 + 최근 수집 기록(옵시디언 바로가기).
 ============================================================ */
 .wrap {
   height: 100%;
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-.head {
-  flex: none;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 16px 22px 12px;
-  border-bottom: 1px solid var(--line);
-}
-.headTitle {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-.headKicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  color: var(--mut);
-}
-.headHint {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--mut);
-}
-.scroll {
-  flex: 1;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  padding: 18px 22px 26px;
-}
-.toolGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-.toolGrid .wide {
-  grid-column: 1 / -1;
-}
-.offWrap {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 22px;
-}
-.offWrap .offBoard {
-  max-width: 560px;
-  margin: 0;
+  padding: 0 24px 24px;
 }
 
-/* 옵스 콘솔 헤더 보드 — WeekGrid/.board 결 통일 */
-.board {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 16px 18px 14px;
-  margin-bottom: 14px;
-}
-.bHead {
+/* ── 검색 히어로 ── */
+.hero {
+  flex: none;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  text-align: center;
+  padding: clamp(28px, 7vh, 72px) 0 28px;
 }
-.bTitle {
-  margin: 0;
-  font-size: 17px;
+.heroEyebrow {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--acc);
   font-weight: 800;
-  letter-spacing: -0.01em;
 }
-.bKicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+.heroTitle {
+  margin: 12px 0 22px;
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+/* 검색바 — 둥근 알약, 포커스 시 발광 링(검색엔진 결). */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(720px, 100%);
+  padding: 8px 8px 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  transition:
+    border-color 0.18s var(--ease),
+    box-shadow 0.18s var(--ease);
+}
+.searchBar:focus-within {
+  border-color: color-mix(in srgb, var(--acc) 55%, var(--line));
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 3px var(--acc-soft);
+}
+.searchBusy {
+  opacity: 0.75;
+}
+.searchIcon {
+  font-size: 20px;
   color: var(--mut);
-  margin-left: 8px;
+  flex: none;
 }
-/* 연결 상태 — 텔레메트리식 라이브 리드아웃 */
-.status {
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  font-size: 16px;
+  padding: 8px 4px;
+}
+.searchInput:focus {
+  outline: none;
+}
+.searchScope {
+  flex: none;
+  width: 120px;
+  border: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  border-left: 1px solid var(--line2) !important;
+  border-radius: 0 !important;
+  font-size: 14px;
+  padding: 8px 10px;
+  color: var(--mut);
+}
+.searchScope:focus {
+  outline: none;
+}
+.searchGo {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  flex: none;
-  font-size: 10.5px;
+  gap: 6px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 11px;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
+  color: var(--on-acc);
+  font-family: inherit;
   font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 0 28px -8px var(--glow);
+  transition:
+    filter 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+.searchGo:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.searchGo:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.searchGo:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+.heroHint {
+  margin-top: 16px;
+  max-width: 640px;
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--mut);
 }
-.status .dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--mut);
+.heroHint code {
+  font-size: 12px;
 }
-.stOn {
-  color: var(--good);
-}
-.stOn .dot {
-  background: var(--good);
-  box-shadow: 0 0 8px var(--good);
-  animation: ctl-pulse 1.8s infinite;
-}
-.stOff {
-  color: var(--bad);
-}
-.stOff .dot {
-  background: var(--bad);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
+.offHint {
+  color: var(--warn);
+  font-weight: 700;
 }
 
-/* 콘솔 오프라인 — 에디토리얼 부팅 안내 보드 */
-.offBoard {
-  border: 1px solid color-mix(in srgb, var(--bad) 22%, var(--line));
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 22px 20px;
-  margin-bottom: 14px;
-}
-.offTitle {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  margin: 0 0 4px;
-}
-.offBoot {
-  display: inline-block;
-  margin: 10px 0 4px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
-  box-shadow: inset 0 0 0 1px var(--line);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+/* ── 진행/결과 ── */
+.collecting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  margin: 0 auto 16px;
+  padding: 14px 18px;
+  max-width: 720px;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--acc) 30%, var(--line));
+  border-radius: 12px;
+  background: var(--acc-soft);
+  color: var(--ink);
   font-size: 13px;
+  font-weight: 600;
+}
+.resultCard {
+  margin: 0 auto 20px;
+  max-width: 720px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.resultCard summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.resultCard summary:hover {
   color: var(--acc);
 }
-
-@keyframes ctl-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 50%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 7px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .stOn .dot {
-    animation: none;
-  }
-}
-.ctlstats {
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--panel2);
-  box-shadow: inset 0 0 0 1px var(--line-soft);
-  font-size: 0.9em;
-}
-.ctldetails {
-  margin-top: 8px;
-}
-.ctldetails summary {
-  cursor: pointer;
-  user-select: none;
-}
-.ctlpre {
-  margin-top: 6px;
+.pre {
+  margin: 10px 0 0;
   max-height: 280px;
   overflow: auto;
-  padding: 10px;
-  border-radius: 8px;
-  background: var(--panel2);
-  box-shadow: inset 0 0 0 1px var(--line-soft);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 0.78em;
+  font-size: 12px;
   line-height: 1.5;
+  color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── 최근 수집 기록 ── */
+.recent {
+  flex: 1;
+  min-height: 0;
+  width: min(720px, 100%);
+  margin: 0 auto;
+}
+.recentHead {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.recList {
+  display: flex;
+  flex-direction: column;
+}
+.recItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 6px;
+  border-bottom: 1px solid var(--line2);
+}
+.recItem:last-child {
+  border-bottom: none;
+}
+.recDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+}
+.recDot[data-ok='0'] {
+  background: var(--bad);
+  box-shadow: none;
+}
+.recTopic {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+.recMeta {
+  flex: 1;
+  font-size: 12px;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recOpen {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--acc);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 7px;
+  transition: background 0.14s var(--ease);
+}
+.recOpen:hover {
+  background: var(--acc-soft);
+}
+.recAgain {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 0.14s var(--ease),
+    border-color 0.14s var(--ease);
+}
+.recAgain:hover:not(:disabled) {
+  color: var(--acc);
+  border-color: var(--acc);
+}
+.recAgain:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.recEmpty {
+  font-size: 13px;
+  color: var(--mut);
+  line-height: 1.6;
+  padding: 18px 6px;
+}
+
+@media (max-width: 560px) {
+  .searchBar {
+    flex-wrap: wrap;
+  }
+  .searchScope {
+    border-left: none !important;
+    border-top: 1px solid var(--line2) !important;
+    width: 100%;
+  }
+  .searchGo {
+    width: 100%;
+    justify-content: center;
+  }
 }

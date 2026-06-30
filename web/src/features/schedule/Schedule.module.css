@@ -42,57 +42,30 @@
   min-height: 0;
 }
 
-/* 개요 — 3리전 그리드(스파인 | 보드 | 아젠다) */
-.board3 {
+/* 개요 — 전폭 캘린더 단일 무대(요일×시간 그리드). 블록 클릭=완료 → 별도 아젠다 불필요. */
+.board2 {
   height: 100%;
-  display: grid;
-  grid-template-columns: 92px 1fr 340px;
+  display: flex;
+  padding: 14px 22px;
   min-height: 0;
 }
-.board3 > div {
+.board2 > div {
+  flex: 1;
   min-width: 0;
-  padding: 22px 22px;
 }
 
-/* 1 — 회전 스파인 */
-.spine {
-  border-right: 1px solid var(--line2);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  overflow: hidden;
-  padding: 26px 0 !important;
-}
-.kicker {
-  writing-mode: vertical-rl;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--acc);
-  font-weight: 800;
-}
-.spineWk {
-  writing-mode: vertical-rl;
-  font-weight: 900;
-  font-size: 40px;
-  letter-spacing: 0.01em;
-  line-height: 1;
-  white-space: nowrap;
-}
-.spineSum {
-  writing-mode: vertical-rl;
-  font-size: 12px;
-  color: var(--mut);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 2 — 위크보드(가운데, fill) */
-.center {
+/* 위크보드 카드 — 정보의 주인공. 발광 카드 + 스포트라이트(ds.spotHost/glow). */
+.boardCard {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 18px 20px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(78% 70% at 0% 0%, color-mix(in oklab, var(--acc) 7%, transparent), transparent 55%),
+    linear-gradient(165deg, color-mix(in oklab, var(--panel2) 72%, var(--panel)), var(--panel) 60%);
+  box-shadow: var(--shadow-md);
 }
 .boardWrap {
   flex: 1;
@@ -130,12 +103,16 @@
   max-width: 320px;
 }
 
-/* 3 — 일자 아젠다(우측, 온디맨드 세부) */
+/* 일자 아젠다(우측, 온디맨드 세부) — 카드. */
 .agenda {
-  border-left: 1px solid var(--line2);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
 }
 .agendaT {
   flex: none;
@@ -231,29 +208,9 @@
 
 /* 모바일 — 단일화면 해제: 세로 스택 + 스크롤 */
 @media (max-width: 860px) {
-  .board3 {
+  .board2 {
     grid-template-columns: 1fr;
     overflow-y: auto;
-  }
-  .spine {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 14px;
-    border-right: none;
-    border-bottom: 1px solid var(--line2);
-    padding: 14px 18px !important;
-  }
-  .kicker,
-  .spineWk,
-  .spineSum {
-    writing-mode: horizontal-tb;
-  }
-  .spineWk {
-    font-size: 26px;
-  }
-  .agenda {
-    border-left: none;
-    border-top: 1px solid var(--line2);
   }
   .boardWrap {
     min-height: 320px;

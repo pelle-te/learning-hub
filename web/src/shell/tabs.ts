@@ -26,8 +26,8 @@ export const TABS: TabMeta[] = [
   { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh' },
   { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart' },
   { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid' },
-  // 저빈도 운영 화면 — 나브에서 숨기고 ⌘K/직접 URL로 진입(설정 이중화 해소: 제어판=설정 계열).
-  { key: 'control', label: '시스템 제어판', group: 'settings', order: 190, hidden: true, icon: 'gear' },
+  // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
+  { key: 'control', label: '탐구 수집', group: 'settings', order: 190, icon: 'search' },
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },
 ];
 

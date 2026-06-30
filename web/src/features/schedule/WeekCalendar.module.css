@@ -1,0 +1,282 @@
+/* ============================================================
+   WeekCalendar — 요일 7열 × 시간축 세로 그리드(프리미엄 캘린더). 블록=시간 위치 네온 카드.
+   범위(lo–hi)를 열 높이에 매핑 → 세그는 top/height %. 오늘 열 강조 + 지금 라인.
+============================================================ */
+.cal {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 요일 머리글 */
+.head {
+  flex: none;
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  gap: 6px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line2);
+}
+.gutterHead {
+  display: block;
+}
+.dayHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  position: relative;
+  padding: 7px 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.dayHead:hover {
+  background: var(--panel2);
+}
+.dayHead:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+.dayHead.sel {
+  border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
+  background: var(--acc-soft);
+}
+.dayHead.today {
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
+  border-color: var(--acc-glow);
+}
+.dow {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.date {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+.dayHead.today .dow,
+.dayHead.today .date {
+  color: var(--acc);
+}
+.dayH {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+.dayH.over {
+  color: var(--bad);
+}
+.flag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--acc);
+  box-shadow: 0 0 9px var(--glow);
+}
+
+/* 시간 그리드 본문 */
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 6px;
+}
+.gutter {
+  position: relative;
+}
+.tick {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.cols {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  min-height: 0;
+}
+.col {
+  position: relative;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  overflow: hidden;
+  cursor: pointer;
+}
+.col.sel {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 45%, var(--line));
+}
+.col.today {
+  background: color-mix(in srgb, var(--acc) 7%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+}
+/* 지난 요일 — 통째로 흐리게(오늘 기준). */
+.colPast {
+  opacity: 0.45;
+}
+/* 지난 블록(오늘 열에서 이미 끝난 시간) — 개별 디밍. */
+.segPast {
+  opacity: 0.4;
+}
+/* 시간 격자선 */
+.grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--line-soft);
+  pointer-events: none;
+}
+
+/* 블록 카드 — 시간 위치에 떠 있는 네온/뮤트 카드. */
+.seg {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 9px;
+  overflow: hidden;
+  font-family: inherit;
+  text-align: left;
+  color: var(--ink);
+  box-sizing: border-box;
+  transition:
+    filter 0.14s var(--ease),
+    box-shadow 0.14s var(--ease),
+    transform 0.14s var(--ease);
+}
+.segName {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.15;
+}
+.segMeta {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.82;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 학습 — 차분한 캘린더 이벤트(소프트 틴트 + 좌측 컬러 엣지). 꽉 차도 깔끔. 클릭=완료 토글.
+   네온 입체 알약 폐기 → 평면 이벤트. 글로우는 호버·지금에만(오늘의 흐름과 같은 절제). */
+.study {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--seg, var(--acc)) 18%, var(--panel));
+  border-left: 3px solid var(--seg, var(--acc));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 24%, transparent);
+}
+.study:hover {
+  background: color-mix(in srgb, var(--seg, var(--acc)) 28%, var(--panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 50%, transparent),
+    0 0 14px color-mix(in srgb, var(--seg, var(--glow)) 28%, transparent);
+  z-index: 5;
+}
+.study:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+/* 복습·Anki — 더 옅게(같은 색 패밀리). */
+.rev,
+.anki {
+  background: color-mix(in srgb, var(--seg, var(--acc)) 9%, var(--panel));
+  border-left: 3px solid color-mix(in srgb, var(--seg, var(--acc)) 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+.done {
+  opacity: 0.4;
+  filter: saturate(0.6);
+}
+.done .segName {
+  text-decoration: line-through;
+}
+/* 일과 블록 — 중립 뮤트(좌측 엣지). */
+.block {
+  background: color-mix(in srgb, var(--ink) 5%, var(--panel2));
+  border-left: 3px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+.block .segName {
+  color: var(--mut);
+  font-weight: 700;
+}
+
+/* 지금 라인 */
+.now {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+  z-index: 6;
+}
+.now::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seg,
+  .dayHead {
+    transition: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .head {
+    grid-template-columns: 40px repeat(7, 1fr);
+  }
+  .body {
+    grid-template-columns: 40px 1fr;
+  }
+  .segMeta {
+    display: none;
+  }
+}

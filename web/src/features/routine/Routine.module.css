@@ -13,7 +13,9 @@
 .cols {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  /* 두 컬럼이 비례해 함께 커짐(편집기 1 : 그래프 0.85) — 화면이 넓어지면 편집기·그래프·링이
+     같이 자연스럽게 확장. 편집기만 늘고 링이 고정되던 기괴함 제거. 좁은 화면에선 그래프 최소 420 보장. */
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.85fr);
   min-height: 0;
 }
 .editCol {
@@ -24,21 +26,37 @@
 }
 .sigCol {
   min-width: 0;
-  border-left: 1px solid var(--line2);
   overflow-y: auto;
   scrollbar-width: thin;
-  padding: 20px 18px;
+  padding: 20px 22px 20px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 링 카드 — 좌측 편집기 카드(ds.card)와 같은 재질. 내부는 중앙 정렬. */
+.sigCard {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
+  margin-bottom: 0;
 }
 .sigColHead {
   width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--mut);
+  font-weight: 800;
+}
+.sigDow {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--acc);
   font-weight: 800;
 }
 .sigHint {
@@ -53,8 +71,7 @@
     overflow-y: auto;
   }
   .sigCol {
-    border-left: none;
-    border-top: 1px solid var(--line2);
+    padding: 8px 22px 20px;
   }
 }
 
@@ -234,21 +251,47 @@
   }
 }
 
-/* 일과 블록 편집 행 */
-.blkrow {
-  display: grid;
-  /* 요일 칸은 칩 7개+프리셋 3개가 한 줄에 들어갈 폭(minmax 338) — 좁으면 '매일'이 줄바꿈돼 행이 어긋났음. */
-  grid-template-columns: 1fr 0.7fr 86px 86px minmax(338px, 1.5fr) auto;
-  gap: 6px;
-  align-items: center;
+/* 일과 블록 — 2줄 카드(상단: 이름·유형·시간·삭제 / 하단: 요일 칩). 왼쪽 색 띠 = 블록 유형. */
+.blk {
+  border: 1px solid var(--line2);
+  border-left-width: 3px;
+  border-radius: 9px;
+  padding: 10px 12px;
   margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: border-color 0.14s var(--ease);
 }
-@media (max-width: 700px) {
-  .blkrow {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+.blk:hover {
+  border-color: color-mix(in srgb, var(--acc) 30%, var(--line2));
+}
+.blkTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.blkName {
+  min-width: 0;
+  font-weight: 600;
+}
+.blkType {
+  min-width: 0;
+}
+.blkTime {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.blkTime select {
+  width: 76px;
+}
+@media (max-width: 480px) {
+  .blkTop {
+    grid-template-columns: 1fr auto;
   }
-  .blkrow .days {
+  .blkTime {
     grid-column: 1 / -1;
   }
 }
@@ -308,4 +351,69 @@
   height: 18px;
   background: var(--line);
   margin: 0 3px;
+}
+
+/* 요일별 시간 — 일과 블록도 요일마다 다른 시간(times[dow]). */
+.perDay {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.perDayToggle {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mut);
+  cursor: pointer;
+}
+.perDayToggle:hover {
+  color: var(--acc);
+}
+.perDayReset {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 2px 8px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+  cursor: pointer;
+}
+.perDayReset:hover {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+.perDayGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+.perDayRow {
+  display: grid;
+  grid-template-columns: 30px 104px 14px 104px;
+  gap: 6px;
+  align-items: center;
+}
+.perDayDow {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.perDayRowOn .perDayDow {
+  color: var(--acc);
+}
+@media (max-width: 560px) {
+  .perDayRow {
+    grid-template-columns: 30px 1fr 14px 1fr;
+  }
 }

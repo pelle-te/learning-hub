@@ -3,7 +3,7 @@
    수면·고정 블록 = 뮤트 호, 비운 시간(공부 가능 창) = 네온 호로 발광.
    순수 표현(components → lib만): freeWindowsForWeekday가 빚은 창/블록을 받아 그린다.
 ============================================================ */
-import { toHM, toMin } from '@/lib/utils';
+import { toHM, toMin, hLabel } from '@/lib/utils';
 import type { RoutineBlock } from '@/lib/types';
 import s from './DayRing.module.css';
 
@@ -55,15 +55,47 @@ export default function DayRing({
         {/* 트랙 */}
         <circle cx={CX} cy={CY} r={R} className={s.track} />
         {/* 수면(깨어있지 않은) 구간 — 자정 넘어 wake1 → wake0+1440 */}
-        {asleep && <path d={arc(wake1, wake0 + 1440)} className={s.sleep} />}
+        {asleep &&
+          (() => {
+            const tip = `수면\n${toHM(wake1)}–${toHM(wake0)} 취침`;
+            return (
+              <path
+                d={arc(wake1, wake0 + 1440)}
+                className={s.sleep}
+                data-tip={tip}
+                aria-label={tip.replace('\n', ' — ')}
+              />
+            );
+          })()}
         {/* 고정 일과 블록(수업·식사·취미 등) */}
-        {fixed.map((b, i) => (
-          <path key={b.id + i} d={arc(toMin(b.start), toMin(b.end))} className={s.block} />
-        ))}
+        {fixed.map((b, i) => {
+          const bs = toMin(b.start);
+          const be = toMin(b.end);
+          const cat = b.type && b.type !== b.name ? `${b.type} · ` : '';
+          const tip = `${b.name}\n${cat}${toHM(bs)}–${toHM(be)} · ${hLabel(be - bs)}`;
+          return (
+            <path
+              key={b.id + i}
+              d={arc(bs, be)}
+              className={s.block}
+              data-tip={tip}
+              aria-label={tip.replace('\n', ' — ')}
+            />
+          );
+        })}
         {/* 비운 시간 = 공부 가능 창(네온) */}
-        {windows.map((w, i) => (
-          <path key={`w${i}`} d={arc(w.s, w.e)} className={s.free} />
-        ))}
+        {windows.map((w, i) => {
+          const tip = `공부 가능\n${toHM(w.s)}–${toHM(w.e)} · ${hLabel(w.e - w.s)}`;
+          return (
+            <path
+              key={`w${i}`}
+              d={arc(w.s, w.e)}
+              className={s.free}
+              data-tip={tip}
+              aria-label={tip.replace('\n', ' — ')}
+            />
+          );
+        })}
         {/* 지금 마커 */}
         {nowMin != null && <line {...nowLine(nowMin)} className={s.now} />}
         {/* 시각 눈금 */}

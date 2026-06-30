@@ -147,6 +147,7 @@
   .bar {
     gap: 12px;
     padding: 14px 14px 10px;
+    flex-wrap: wrap;
   }
   .sub {
     display: none;

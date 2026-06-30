@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { setAutoFreeze } from 'immer';
 import { boot, persist, setDone } from '@/lib/persistence';
+import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 import { storage } from '@/lib/kv';
 import * as M from '@/lib/methodology';
@@ -59,7 +60,7 @@ export const useApp = create<AppStore>()(
     };
 
     return {
-      state: boot(storage),
+      state: refineItemColors(boot(storage)),
       mutate(recipe) {
         set((s) => {
           recipe(s.state);

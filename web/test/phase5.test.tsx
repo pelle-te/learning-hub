@@ -34,10 +34,12 @@ test('mastery: 지식상태가 없으면(/api 없음) 셋업 안내로 폴백하
   expect(document.getElementById('page')).toBeNull();
 });
 
-test('control: serve.js 미연결이면 오프라인 안내로 폴백한다', async () => {
+test('control(탐구 수집): 검색 히어로가 뜨고 serve.js 미연결이면 오프라인 안내', async () => {
   renderApp('/control');
-  await waitFor(() => expect(screen.getByRole('heading', { name: /시스템 제어판/ })).toBeInTheDocument());
-  await waitFor(() => expect(screen.getByText('제어판을 켜려면 serve.js로 띄우세요')).toBeInTheDocument());
+  // 옛 OPS 콘솔 폐기 → 탐구 수집 검색 탭(검색 히어로 + 최근 기록).
+  await waitFor(() => expect(screen.getByRole('heading', { name: /무엇을 새로 알아볼까요/ })).toBeInTheDocument());
+  expect(screen.getByLabelText('탐구 주제')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText(/serve\.js가 꺼져 있어요/)).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
 });
 

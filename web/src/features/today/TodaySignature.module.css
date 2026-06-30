@@ -1,218 +1,527 @@
 /* ============================================================
-   TodaySignature — 데모 v6 단일 화면 대시보드. 프레임을 가득 채우는 4컬럼 그리드 + 하단 스트립.
-   [회전 스파인 96 | 스탯 268 | 트랙 1fr | 오늘의 블록 276] · 컬럼 사이 헤어라인 디바이더.
+   TodaySignature — 오늘 탭 "FOCUS". 거대 과목명이 곧 행동의 무대(집중 시작 통합),
+   과목색 오로라로 깊이, 하루를 발광하는 강(NeonTrack)으로. 프레임 fill·무스크롤(데스크톱).
+   레이아웃: [히어로 | 오늘의 블록] 상단 밴드 → [발광 흐름] → [스트립].
 ============================================================ */
 .today {
   height: 100%;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px 14px;
   min-width: 0;
-}
-.grid {
-  flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 96px 268px 1fr 276px;
-}
-.grid > div {
-  padding: 24px 22px;
-  min-width: 0;
 }
 
-/* 1 — 회전 스파인 */
-.spine {
-  border-right: 1px solid var(--line2);
+/* ── 상단 밴드 ── */
+.top {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 32%, 420px);
+  gap: 16px;
+}
+
+/* ── HERO ────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  overflow: hidden;
-  padding: 26px 0 !important;
+  justify-content: center;
+  padding: clamp(18px, 2.2vw, 30px) clamp(22px, 3vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  /* 과목색을 패널 베이스에 베이크 — 카드 전체가 그 색으로 은은히 물듦(플랫 블랙 탈피). */
+  background:
+    radial-gradient(
+      90% 70% at 12% 118%,
+      color-mix(in oklab, var(--tint, var(--acc)) 18%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(72% 64% at 102% -12%, color-mix(in oklab, var(--acc) 10%, transparent), transparent 60%),
+    linear-gradient(165deg, color-mix(in oklab, var(--tint, var(--acc)) 8%, var(--panel2)), var(--panel) 60%);
+  box-shadow: var(--shadow-md);
+  isolation: isolate;
+  animation: heroFade 0.5s var(--ease) both;
+  transition: border-color 0.2s var(--ease);
 }
-.kicker {
-  writing-mode: vertical-rl;
-  font-size: 10px;
-  letter-spacing: 0.22em;
+.hero:hover {
+  border-color: color-mix(in srgb, var(--acc) 26%, var(--line));
+}
+@keyframes heroIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes heroFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 3D 틸트 — 커서를 향해 카드가 기욺(모션 허용 시에만). 부드러운 0.25s 추격. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero {
+    transform: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
+    transition:
+      transform 0.25s var(--ease),
+      border-color 0.2s var(--ease);
+    transform-style: preserve-3d;
+  }
+}
+/* 포인터 추적 스포트라이트 — 커서를 따라 발광(호버 시). */
+.spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    440px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklab, var(--acc) 18%, transparent),
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+.hero:hover .spotlight {
+  opacity: 1;
+}
+/* 상단 헤어라인 하이라이트 — "비싼" 유리 결. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+/* 과목색 오로라 — 히어로 하단을 은은히 물들이는 거대 라디얼(과목마다 고유 분위기). */
+.aura {
+  position: absolute;
+  z-index: -1;
+  left: -10%;
+  bottom: -40%;
+  width: 90%;
+  height: 130%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--tint, var(--acc)) 48%, transparent),
+    transparent 72%
+  );
+  opacity: 0.55;
+  filter: blur(6px);
+  pointer-events: none;
+  animation: auraBreathe 9s var(--ease) infinite;
+}
+.heroDone .aura {
+  --tint: var(--acc);
+  opacity: 0.6;
+}
+@keyframes auraBreathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.42;
+  }
+  50% {
+    transform: translateY(-2%) scale(1.05);
+    opacity: 0.56;
+  }
+}
+/* 집중 타이머 진행 — 히어로 바닥을 따라 차오르는 발광 게이지. */
+.heroFill {
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--acc);
+  box-shadow: 0 0 16px var(--glow);
+  transition: width 1s linear;
+}
+
+.heroHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--acc);
   font-weight: 800;
 }
-.subj {
-  writing-mode: vertical-rl;
-  font-weight: 900;
-  font-size: 64px;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
+.live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+  animation: livePulse 1.8s var(--ease) infinite;
 }
-.clock {
-  font-size: 13px;
-  color: var(--mut);
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.82);
+  }
+}
+.heroWhen {
+  font-size: 17px;
   font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-/* 2 — 스탯 */
-.stats {
-  border-right: 1px solid var(--line2);
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-  justify-content: center;
-}
-.stL {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 700;
-}
-.stV {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  margin-top: 7px;
+/* 거대 과목명 — 시그니처 디스플레이. 과목색을 잉크에 섞어 채도만 얹음(가독 유지). */
+.subj {
+  margin: clamp(6px, 1vw, 12px) 0 0;
+  font-weight: 900;
+  font-size: clamp(40px, 5.4vw, 72px);
+  line-height: 0.94;
+  letter-spacing: -0.035em;
   word-break: keep-all;
+  text-wrap: balance;
+  color: var(--ink);
 }
-.stV small {
-  font-size: 14px;
-  color: var(--mut);
-  font-weight: 700;
+.hero[style*='--tint'] .subj {
+  color: color-mix(in oklab, var(--tint) 52%, var(--ink));
 }
-.big .stV {
-  font-size: 46px;
-  color: var(--acc);
-  text-shadow: 0 0 22px var(--glow);
+.heroScrub .subj {
+  opacity: 0.94;
 }
-
-/* 3 — 발광 트랙 */
-.track {
+.heroSub {
+  margin-top: 12px;
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.trackHead {
-  display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: baseline;
-}
-.t {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 800;
-}
-.now {
-  font-size: 12px;
-  color: var(--acc);
-  font-weight: 800;
-  text-shadow: 0 0 16px var(--glow);
-}
-.next {
-  margin-top: 14px;
-  font-size: 14px;
+  gap: 6px 16px;
+  font-size: 15px;
   color: var(--mut);
   line-height: 1.5;
 }
-.next b {
+.chapter {
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 600;
 }
-.next .arr {
-  color: var(--acc);
-  font-weight: 800;
-  margin-right: 8px;
-}
-.trackEmpty {
-  align-self: center;
-  text-align: center;
+.upnext {
   font-size: 13px;
   color: var(--mut);
-  line-height: 1.6;
-  padding: 20px;
 }
 
-/* 주간 미니트랙 */
-.week {
+/* 주 액션 — 히어로에 통합된 집중 시작/타이머. 가장 큰 시각요소 옆 = 가장 강한 행동. */
+.actions {
   display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  padding-top: 20px;
-  border-top: 1px solid var(--line2);
+  align-items: center;
+  gap: 16px;
+  margin-top: clamp(18px, 2.4vw, 28px);
 }
-.wlab {
+.cta {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 15px 26px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
+  color: var(--on-acc);
+  font-family: inherit;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 0 34px -6px var(--glow);
+  transition:
+    filter 0.16s var(--ease),
+    transform 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+/* 시머 스윕 — 호버 시 광택이 한 번 훑고 지나감. */
+.cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, #fff 45%, transparent) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform 0.6s var(--ease);
+  pointer-events: none;
+}
+.cta:hover::after {
+  transform: translateX(130%);
+}
+.cta:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow: 0 0 48px -4px var(--glow);
+}
+.cta > span {
+  position: relative;
+  z-index: 1;
+}
+.cta:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+}
+.ctaGo {
+  font-size: 16px;
+}
+.ctaCap {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.72;
+}
+.ctaNum {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* 정지(타이머 작동 중) — 채움 대신 외곽선, 차분하게. */
+.ctaRun {
+  background: color-mix(in srgb, var(--acc) 16%, var(--panel2));
+  color: var(--acc);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+}
+.ctaRun:hover {
+  filter: none;
+  box-shadow: inset 0 0 0 1px var(--acc);
+}
+/* 완료 상태 — 고스트(액션은 끝났고 "기록 보기"로). */
+.ctaGhost {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.ctaGhost:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 40%, var(--line));
+  filter: none;
+}
+.clock {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* 진행 링 — 오늘의 블록 패널 헤더에서 완료도를 시각화. */
+.ring {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+.ringSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ringTrack {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 6;
+}
+.ringArc {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 7px var(--glow));
+  transition: stroke-dashoffset 0.7s var(--ease);
+}
+.ringNum {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.ringNum small {
+  font-size: 9px;
+  color: var(--mut);
+  font-weight: 700;
+}
+.ringCele {
+  animation: ringCele 1.4s var(--ease);
+}
+@keyframes ringCele {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 18px var(--glow));
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 주간 리듬 스트립 — 흐름(강) 아래, 오늘의 맥락. 클릭 = 주간 보기. */
+.week {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 2px 2px 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.week:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.weekLab {
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--mut);
-  font-weight: 800;
-  align-self: center;
-  margin-right: 6px;
+  font-weight: 700;
   white-space: nowrap;
-  line-height: 1.3;
 }
-.wd {
-  flex: 1;
+.weekBars {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
+  align-items: stretch;
+  gap: 6px;
+  height: 30px;
+  flex: 1;
 }
-.wbar {
-  width: 100%;
-  height: 44px;
+/* 이퀄라이저 슬롯 — 각 날이 자기 자리(빈 날도 의도적으로 보임). 안에서 막대가 차오름. */
+.weekCol {
+  position: relative;
+  flex: 1;
+  max-width: 36px;
   display: flex;
   align-items: flex-end;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  overflow: hidden;
 }
-.wbar i {
+.weekCol i {
   width: 100%;
-  min-height: 2px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  border-radius: 5px 5px 0 0;
+  background: color-mix(in srgb, var(--acc) 34%, transparent);
+  transition:
+    height 0.55s var(--ease),
+    background 0.16s var(--ease);
 }
-.todayCol .wbar i {
-  background: var(--acc);
-  box-shadow: 0 0 14px var(--glow);
+.week:hover .weekCol i {
+  background: color-mix(in srgb, var(--acc) 50%, transparent);
 }
-.wdd {
-  font-size: 10px;
+.weekCol em {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 700;
   color: var(--mut);
+  opacity: 0.55;
+  pointer-events: none;
 }
-.todayCol .wdd {
+.weekToday {
+  box-shadow: inset 0 0 0 1px var(--acc);
+}
+.weekToday i {
+  background: var(--acc) !important;
+  box-shadow: 0 0 12px var(--glow);
+}
+.weekToday em {
   color: var(--acc);
+  opacity: 1;
+}
+.weekSum {
+  font-size: 16px;
   font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.weekSum small {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 700;
+  margin-left: 1px;
 }
 
-/* 4 — 오늘의 블록(클릭 = 완료 토글) */
-.sched {
-  border-left: 1px solid var(--line2);
+/* ── 오늘의 블록 ──────────────────────────────────────────── */
+.blocks {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  padding: 22px 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  animation: heroIn 0.5s var(--ease) 0.08s both;
+  transition: border-color 0.2s var(--ease);
 }
-.schedT {
+.blocks:hover {
+  border-color: color-mix(in srgb, var(--acc) 20%, var(--line));
+}
+.blocksT {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.blocksTitle {
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--mut);
   font-weight: 800;
-  margin-bottom: 6px;
 }
-.schedRows {
+.blockList {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
+  margin: 0 -8px;
+  padding: 0 8px;
 }
 .row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 13px 2px;
+  padding: 13px 8px 13px 12px;
   border: none;
+  border-radius: 9px;
   border-bottom: 1px solid var(--line2);
   background: transparent;
   color: var(--ink);
@@ -220,20 +529,38 @@
   font-size: 14px;
   text-align: left;
   cursor: pointer;
+  transition: background 0.14s var(--ease);
+}
+/* 호버 시 차오르는 액센트 바. */
+.row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+  transform: scaleY(0);
+  transition: transform 0.18s var(--ease);
+}
+.row:hover::before {
+  transform: scaleY(1);
 }
 .row:last-child {
   border-bottom: none;
 }
 .row:hover {
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  background: var(--panel2);
 }
 .row:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: -2px;
 }
 .bull {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--mut);
   flex: none;
@@ -266,32 +593,37 @@
   flex: none;
 }
 .rowDone {
-  opacity: 0.42;
+  opacity: 0.45;
 }
 .rowDone .nm {
   text-decoration: line-through;
+}
+.rowCur {
+  background: color-mix(in srgb, var(--acc) 8%, transparent);
 }
 .rowCur .nm {
   color: var(--acc);
 }
 .rowCur .tm {
   color: var(--acc);
-  text-shadow: 0 0 14px var(--glow);
 }
-.schedEmpty {
+.blockEmpty {
   font-size: 12.5px;
   color: var(--mut);
   padding: 14px 2px;
   line-height: 1.6;
 }
 .more {
-  margin-top: auto;
-  padding: 14px 2px 0;
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line2);
   font-size: 12px;
   color: var(--mut);
   font-weight: 700;
   background: none;
-  border: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
@@ -300,14 +632,246 @@
   color: var(--acc);
 }
 
-/* 하단 스트립 — 마감·Anki·보충 */
+/* ── 하단 밴드: 발광 흐름(강) ─────────────────────────────── */
+/* ── 오늘의 흐름 레일(우측) — now-중심 세로 타임라인(무지개 트랙 폐기). ── */
+.flow {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 18px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--panel2) 70%, transparent), transparent 55%),
+    var(--panel);
+  box-shadow: var(--shadow-sm);
+  animation: heroIn 0.5s var(--ease) 0.08s both;
+  transition: border-color 0.2s var(--ease);
+}
+.flow:hover {
+  border-color: color-mix(in srgb, var(--acc) 18%, var(--line));
+}
+.flowHead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.flowHead .ring {
+  width: 34px;
+  height: 34px;
+}
+.flowT {
+  flex: 1;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.now {
+  font-size: 12px;
+  color: var(--acc);
+  font-weight: 800;
+  text-shadow: 0 0 16px var(--glow);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 레일 — 세로 스크롤 노드 리스트. */
+.rail {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.railEmpty {
+  font-size: 12.5px;
+  color: var(--mut);
+  line-height: 1.6;
+  padding: 14px 4px;
+}
+.railEmpty b {
+  color: var(--ink);
+}
+
+/* 노드 — 시간 + 스파인 점 + 내용. study=버튼(완료 토글), block=정적. */
+.node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 8px 11px 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: default;
+}
+.nStudy {
+  cursor: pointer;
+}
+.nStudy:hover {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border-radius: 10px;
+}
+.nStudy:hover .nName {
+  color: var(--acc);
+}
+.nStudy:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+.nTime {
+  flex: none;
+  width: 42px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+/* 스파인 선 — 점들을 잇는 세로 라인(점 중앙 정렬). */
+.node::before {
+  content: '';
+  position: absolute;
+  left: 59px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-1px);
+  background: var(--line2);
+  pointer-events: none;
+}
+.node:first-child::before {
+  top: 50%;
+}
+.node:last-child::before {
+  bottom: 50%;
+}
+.nDot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mut);
+  box-shadow: 0 0 0 3px var(--panel);
+  position: relative;
+  z-index: 1;
+}
+.nStudy .nDot {
+  background: var(--acc);
+  box-shadow:
+    0 0 0 3px var(--panel),
+    0 0 8px var(--glow);
+}
+.nBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.nName {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nSub {
+  font-size: 11.5px;
+  color: var(--mut);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nNow {
+  flex: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--acc);
+  text-shadow: 0 0 12px var(--glow);
+}
+.nNow small {
+  font-size: 9px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+/* 현재 블록 실시간 진행 바 — 노드 하단을 경과만큼 채움(1초 틱). */
+.nProg {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+  transition: width 1s linear;
+  z-index: 2;
+  pointer-events: none;
+}
+/* 일과 블록 — 뮤트(발광 없음). */
+.nBlock .nName {
+  color: var(--mut);
+  font-weight: 600;
+}
+/* 지나간 — 흐리게. */
+.nPast {
+  opacity: 0.4;
+}
+/* 완료 — 취소선 + 점 채움. */
+.nDone .nName {
+  text-decoration: line-through;
+}
+.nDone .nDot {
+  background: var(--acc);
+}
+/* 지금 — 발광 강조. */
+.nLive {
+  background: color-mix(in srgb, var(--acc) 9%, transparent);
+  border-radius: 10px;
+}
+.nLive .nName {
+  color: var(--acc);
+}
+/* 현재 블록 점 — 레이더 핑처럼 확장 링이 빤짝이며 "여기가 지금"을 강조. */
+.nLive .nDot {
+  background: var(--acc);
+  transform: scale(1.3);
+  animation: dotPing 1.5s var(--ease) infinite;
+}
+@keyframes dotPing {
+  0% {
+    box-shadow:
+      0 0 0 3px var(--panel),
+      0 0 0 0 color-mix(in srgb, var(--acc) 65%, transparent),
+      0 0 14px var(--glow);
+  }
+  70% {
+    box-shadow:
+      0 0 0 3px var(--panel),
+      0 0 0 10px transparent,
+      0 0 20px var(--glow);
+  }
+  100% {
+    box-shadow:
+      0 0 0 3px var(--panel),
+      0 0 0 0 transparent,
+      0 0 14px var(--glow);
+  }
+}
+
+/* ── 하단 스트립 — 마감·Anki·보충 ─────────────────────────── */
 .strip {
   flex: none;
   display: flex;
   gap: 40px;
   align-items: center;
-  padding: 15px 24px;
-  border-top: 1px solid var(--line);
+  padding: 4px 4px 2px;
 }
 .grp {
   display: flex;
@@ -358,40 +922,50 @@
   flex: none;
 }
 
-/* 모바일 — 단일 화면 해제: 세로 스택 + 스크롤(프레임 fill이 모바일선 overflow auto). */
+/* 모션 자제 백스톱. */
+@media (prefers-reduced-motion: reduce) {
+  .aura,
+  .live,
+  .hero,
+  .blocks,
+  .flow,
+  .nLive .nDot {
+    animation: none;
+  }
+  .ringArc,
+  .heroFill,
+  .weekCol i,
+  .cta::after,
+  .row::before,
+  .nProg,
+  .spotlight {
+    transition: none;
+  }
+  .ringCele {
+    animation: none;
+  }
+}
+
+/* ── 모바일 — 세로 스택 + 스크롤 ── */
 @media (max-width: 860px) {
-  .grid {
+  .today {
+    padding: 14px;
+  }
+  .top {
     grid-template-columns: 1fr;
-    gap: 0;
-  }
-  .spine {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 16px;
-    border-right: none;
-    border-bottom: 1px solid var(--line2);
-    padding: 16px 18px !important;
-  }
-  .kicker,
-  .subj {
-    writing-mode: horizontal-tb;
   }
   .subj {
-    font-size: 34px;
+    font-size: clamp(40px, 12vw, 60px);
   }
-  .stats {
-    border-right: none;
-    border-bottom: 1px solid var(--line2);
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+  .gauges {
+    gap: 24px;
+    flex-wrap: wrap;
   }
-  .sched {
-    border-left: none;
-    border-top: 1px solid var(--line2);
+  .flowNote {
+    display: none;
   }
   .strip {
     flex-wrap: wrap;
-    gap: 16px 28px;
+    gap: 14px 28px;
   }
 }

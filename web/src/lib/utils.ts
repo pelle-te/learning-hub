@@ -8,8 +8,22 @@ import type { AppState, Item } from './types';
 export const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 export const DOW_MON = ['월', '화', '수', '목', '금', '토', '일']; // 주간뷰(월요일 시작)
 export const REVIEW_OFFSETS = [1, 3, 7, 16]; // 간격반복 복습(일)
-/** 과목 색 팔레트(인디고 브랜드와 경쟁 안 하도록 인디고 제외, 명도·채도 정돈). */
-export const PALETTE = ['#4f8ff0', '#1eb5a3', '#d99a3c', '#e76a8b', '#9a78ec', '#34b3df', '#6fae42', '#e07a4e'];
+/** 과목 색 팔레트 — ⑧ 라임 가족 네온 비비드(모노크롬·고채도). 라임그린·에메랄드·민트·틸·스프링·시안틸·제이드·딥틸.
+ *  ⑦ 단색 가족을 유지하되 채도를 확 올려 '쨍하게' + WeekGrid 세그에 같은 색 글로우를 입혀 '반짝이게'.
+ *  전부 녹색 한 가족이라 세그를 모두 발광시켜도 무지개처럼 안 싸운다 — 라임 액센트까지 함께 빛나는 네온 통일감.
+ *  ⚠ 순수 라임(#b6f23a)은 액센트 전용으로 비움(과목 0번은 더 초록 쪽 #9be83f). 일과 블록(BLOCK_TYPES)만 발광 제외.
+ *  (스왑: 한 줄만 교체하면 전 탭 반영. 순서를 바꾸면 과목별 배정 색이 바뀜.) */
+export const PALETTE = ['#9be83f', '#22d6a4', '#63f0c8', '#1fb89a', '#3fe06a', '#22cdd6', '#5fe8a8', '#1f9b8a'];
+
+/** 과목 색은 '저장값'이 아니라 팔레트의 파생물 — 부팅마다 항목 인덱스로 다시 유도한다.
+ *  (수동 색 선택 UI가 없으므로 안전.) 이 덕에 PALETTE만 바꾸면 어떤 저장 데이터든 다음 부팅에 전부 갱신된다
+ *  — 옛 색을 hex로 일일이 매핑하던 리맵의 사각지대(저장값이 목록에 없으면 안 바뀜)를 원천 제거. */
+export function refineItemColors(state: AppState): AppState {
+  (state.items || []).forEach((it, i) => {
+    it.color = PALETTE[i % PALETTE.length] as string;
+  });
+  return state;
+}
 
 /** 새 학습 항목 생성 — 색은 현재 항목 수로 팔레트 순환. items/degree/anki/vault의 6개 중복 골격 단일화.
  *  기본은 주간 과목; partial로 source/mode/weeklyHours/dailyMin/chapters 등을 덮어쓴다. */
@@ -27,12 +41,16 @@ export function makeItem(itemCount: number, partial: Partial<Item> & { name: str
   };
 }
 /** 고정 일과 블록 유형(색). '공부' 개념은 폐지 — 가용시간은 '깨어있는 시간 − 블록'으로 자동 계산. */
+/** 일과 블록 색 — 과목 팔레트와 같은 더스티 계열로 통일(타임라인에선 옅은 틴트로 깔림). */
+/** 일과 블록도 종류별 고유색 — 단 '조용한 슬레이트·뉴트럴' 키로(과거 코랄·mauve 등 따뜻한 색 폐기).
+ *  학습=녹색 가족 / 일과=차분한 슬레이트 / 액센트=라임 → 3티어가 hue로 갈려 한눈에 구분되고 딥블랙과 조화.
+ *  타임라인에선 .muted로 발광 없이 깔리므로, 색을 가져도 학습 세그(발광)와 위계가 또렷이 갈린다. */
 export const BLOCK_TYPES: Record<string, string> = {
-  수면: '#3a3f4b',
-  식사: '#c98a5e',
-  취미: '#9a7fd1',
-  수업: '#5e8ac9',
-  기타: '#5a6072',
+  수면: '#586a96',
+  식사: '#9a8676',
+  취미: '#7d7397',
+  수업: '#6f8bb0',
+  기타: '#7a8294',
 };
 export const SKIP = new Set(['attachments', 'images', '_assets', '.obsidian', '.trash', '_복습시스템', '_인터랙티브']);
 

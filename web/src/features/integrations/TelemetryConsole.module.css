@@ -1,6 +1,6 @@
 /* ============================================================
    TelemetryConsole — 연동 텔레메트리(설계도 §2 연동 시그니처). 3채널 라이브 리드아웃.
-   online=네온/그린 라이브, idle=뮤트 대기, offline=레드 "SIGNAL LOST". WeekGrid/.board 결 통일.
+   online=네온/그린 라이브, idle=뮤트 대기, offline=레드 "OFFLINE". WeekGrid/.board 결 통일.
 ============================================================ */
 .board {
   border: 1px solid var(--line);

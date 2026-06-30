@@ -11,6 +11,7 @@ import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import ds from '@/styles/ds.module.css';
+import c from './Items.module.css';
 import type { Item } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 
@@ -148,15 +149,15 @@ export default function Items() {
   const n = items.length;
 
   return (
-    <>
-      <div className={ds.card}>
-        <div className={ds.row} style={{ alignItems: 'center' }}>
-          <h2 style={{ flex: 1, margin: 0 }}>
-            학습 항목{' '}
-            <span className={`${ds.muted} ${ds.tiny}`} style={{ fontWeight: 400 }}>
-              {n ? `(${n})` : ''}
-            </span>
-          </h2>
+    <section className={c.wrap} aria-label="학습 항목">
+      <div className={c.header}>
+        <div className={c.lead}>
+          <h2 className={c.eyebrow}>학습 항목{n ? ` · ${n}과목` : ''}</h2>
+          <div className={c.hint}>
+            카드를 누르면 펼쳐 편집해요. <b>주당 목표·챕터</b>를 넣으면 스케줄러가 매일 블록을 자동 배치합니다.
+          </div>
+        </div>
+        <div className={c.actions}>
           {n > 1 && (
             <>
               <Button sm variant="ghost" onClick={expandAll} title="모두 펼치기">
@@ -174,14 +175,10 @@ export default function Items() {
             + 과목 추가
           </Button>
         </div>
-        <div className={ds.foot}>
-          과목 줄을 누르면 펼쳐서 편집할 수 있어요. <b>주당 목표 시간</b>과 <b>챕터(순서·예상시간)</b>를 넣으면 그날
-          배운 챕터·복습이 자동으로 잡힙니다. 챕터는 볼트 현황 탭에서 가져올 수도 있어요.
-        </div>
       </div>
 
-      <div>
-        {items.length === 0 ? (
+      {items.length === 0 ? (
+        <div className={c.empty}>
           <div className={ds.card}>
             <EmptyState
               glyph="📚"
@@ -207,8 +204,10 @@ export default function Items() {
               }
             />
           </div>
-        ) : (
-          items.map((s) => (
+        </div>
+      ) : (
+        <div className={c.gallery}>
+          {items.map((s) => (
             <ItemCard
               key={s.id}
               item={s}
@@ -217,9 +216,9 @@ export default function Items() {
               onDelete={removeItem}
               mutate={mutate}
             />
-          ))
-        )}
-      </div>
-    </>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

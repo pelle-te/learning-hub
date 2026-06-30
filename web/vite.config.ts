@@ -16,6 +16,11 @@ export default defineConfig({
       },
     }),
     VitePWA({
+      // ⚠ 서비스워커 은퇴(selfDestroying) — 이 앱은 localhost + serve.js /api 백엔드가 떠 있어야만 동작하는
+      //    도구라 오프라인 PWA의 이득이 사실상 0인데, SW precache가 빌드 후에도 옛 번들을 물어 "안 바뀐다"
+      //    마찰만 매일 줬다(수동 unregister 강요). selfDestroying SW를 배포하면 다음 로드 때 기존 등록을
+      //    스스로 해제+캐시 청소하고 사라진다 → 그 뒤론 일반 새로고침만으로 즉시 반영. PWA 복구는 이 한 줄 제거.
+      selfDestroying: true,
       registerType: 'autoUpdate', // 새 빌드 감지 시 SW 자동 교체(현 stale 캐시 문제 해소)
       injectRegister: 'auto', // index.html에 SW 등록 코드 주입
       workbox: {

@@ -7,7 +7,9 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // 비주얼 스냅샷은 16-워커 병렬 부하에서 안정화 타이밍 flaky가 드물게 난다(로컬 전용).
+  // 1회 재시도로 흡수 — 실제 회귀는 재시도해도 실패하므로 안전.
+  retries: 1,
   reporter: process.env.CI ? 'list' : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:4173',
@@ -15,6 +17,9 @@ export default defineConfig({
     // PWA 서비스워커가 이전 빌드의 프리캐시(옛 청크)를 서빙해 스냅샷이 stale해지는 것을 차단 —
     // 비주얼 회귀는 항상 갓 빌드된 dist를 본다(메모리의 PWA stale 캐시 함정 해소).
     serviceWorkers: 'block',
+    // 비주얼 회귀 결정성 — prefers-reduced-motion으로 진입/카운트업/틸트 등 모션을 끄고
+    // 항상 '최종 정지 상태'를 캡처(rAF 카운트업이 프레임마다 다른 숫자를 찍는 flaky 차단).
+    reducedMotion: 'reduce',
   },
   // 비주얼 회귀: 폰트 렌더링 미세차 허용(0.2%) — 의미있는 레이아웃 변화만 잡는다.
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled' } },

@@ -39,6 +39,36 @@
 .card:hover {
   border-color: color-mix(in srgb, var(--acc) 28%, var(--line));
 }
+/* 등장 모션 — 마운트 시 부드럽게 떠오름(스태거). 재렌더가 아니라 마운트에만 1회 실행.
+   reduced-motion은 motion.css 전역 백스톱이 즉시 처리. */
+.card {
+  animation: cardIn 0.44s var(--ease) both;
+}
+.card:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.card:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.card:nth-child(4) {
+  animation-delay: 0.15s;
+}
+.card:nth-child(5) {
+  animation-delay: 0.2s;
+}
+.card:nth-child(n + 6) {
+  animation-delay: 0.24s;
+}
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* ── 레이아웃 ── */
 .row {
@@ -819,5 +849,91 @@ tr[draggable='true']:hover .draghandle {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ── 인터랙션 레이어(공유) — 오늘 탭 "FOCUS"의 살아있는 감각을 전 탭에 일관 적용.
+   useHeroPointer가 --mx/--my(스포트라이트)·--tiltX/Y(틸트)를 주입. 짝: lib/interactions.ts. ── */
+/* 스포트라이트 호스트 — 자식 .spotlight가 커서를 따라 발광. position/overflow/isolation 셋업. */
+.spotHost {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    440px circle at var(--mx, 50%) var(--my, -20%),
+    color-mix(in oklab, var(--acc) 16%, transparent),
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+.spotHost:hover .spotlight {
+  opacity: 1;
+}
+/* 색 오로라 — --tint(없으면 acc)로 패널을 물들이는 거대 라디얼(호흡). 자식 요소로 둔다. */
+.aura {
+  position: absolute;
+  z-index: -1;
+  left: -8%;
+  bottom: -38%;
+  width: 84%;
+  height: 128%;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--tint, var(--acc)) 42%, transparent),
+    transparent 72%
+  );
+  opacity: 0.5;
+  filter: blur(6px);
+  animation: ds-aura 9s var(--ease) infinite;
+}
+@keyframes ds-aura {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-2%) scale(1.05);
+    opacity: 0.54;
+  }
+}
+/* 3D 틸트 — 커서를 향해 카드가 기욺(모션 허용 시에만). useHeroPointer(tilt)와 짝. */
+@media (prefers-reduced-motion: no-preference) {
+  .tiltable {
+    transform: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
+    transition:
+      transform 0.25s var(--ease),
+      border-color 0.2s var(--ease),
+      box-shadow 0.2s var(--ease);
+    transform-style: preserve-3d;
+  }
+}
+/* 호버 글로우 — 카드 테두리가 액센트로 반응 + 살짝 떠오름. */
+.glow {
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+.glow:hover {
+  border-color: color-mix(in srgb, var(--acc) 24%, var(--line));
+  box-shadow: var(--shadow-md);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spotlight,
+  .tiltable,
+  .glow {
+    transition: none;
+  }
+  .aura {
+    animation: none;
   }
 }

@@ -27,10 +27,11 @@ import {
   DOW_MON,
 } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import { useHeroPointer } from '@/lib/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
 import { computeDay, type Row, type DayData } from '@/lib/scheduleView';
-import { WeekGrid } from './WeekGrid';
+import { WeekCalendar } from './WeekCalendar';
 import type { SessionType } from '@/lib/types';
 
 const TAG: Record<SessionType, { cls: string; label: string }> = {
@@ -229,6 +230,8 @@ export default function Schedule() {
   const [selDow, setSelDow] = useState<number | null>(null);
   const setChrome = usePageChrome((s) => s.setChrome);
   const clearChrome = usePageChrome((s) => s.clear);
+  // 보드 위 스포트라이트(틸트 없음 — 큰 패널). 구조분해로 ref-접근 린트 회피.
+  const { ref: boardRef, onMouseMove: boardMove, onMouseLeave: boardLeave } = useHeroPointer(0);
 
   const baseMon = mondayOf(parseISO(state.startDate));
   const curMon = addDays(baseMon, weekOffset * 7);
@@ -357,33 +360,31 @@ export default function Schedule() {
             </div>
           </div>
         ) : (
-          <div className={c.board3}>
-            {/* 1 — 회전 스파인 */}
-            <div className={c.spine}>
-              <div className={c.kicker}>주간 스케줄</div>
-              <div className={c.spineWk}>{weekLabel(curMon)}</div>
-              <div className={c.spineSum}>{weekUsedH.toFixed(1)}h</div>
-            </div>
-
-            {/* 2 — 위크보드(fill) */}
-            <div className={c.center}>
+          <div className={c.board2}>
+            {/* 위크보드 — 정보의 주인공(발광 카드 + 포인터 스포트라이트). */}
+            <div
+              ref={boardRef}
+              onMouseMove={boardMove}
+              onMouseLeave={boardLeave}
+              className={`${c.boardCard} ${ds.spotHost} ${ds.glow}`}
+            >
+              <div className={ds.spotlight} aria-hidden="true" />
               {hasStudyItems ? (
                 <div className={c.boardWrap}>
-                  <WeekGrid
+                  <WeekCalendar
                     parts={parts}
                     sel={sel}
                     onSelect={setSelDow}
                     nowMin={nowMin}
                     dows={DOW_MON}
                     deadlines={deadlines}
-                    tall
                   />
                 </div>
               ) : (
                 <div className={c.emptyBoard}>
                   <h2>주간 보드가 비어 있어요</h2>
                   <p>
-                    학습 항목을 추가하면 이 보드에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
+                    학습 항목을 추가하면 이 캘린더에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
                     일과(수면·식사)만 보여요.
                   </p>
                   <Button sm variant="primary" onClick={() => navigate('/items')}>
@@ -400,16 +401,6 @@ export default function Schedule() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* 3 — 일자 아젠다(온디맨드 세부) */}
-            <div className={c.agenda}>
-              <div className={c.agendaT}>
-                {DOW_MON[sel]} {fmtShort(parts[sel]!.date)} 일정
-              </div>
-              <div className={c.agendaBody}>
-                <DayCard d={parts[sel]!} k={sel} agenda />
-              </div>
             </div>
           </div>
         )}

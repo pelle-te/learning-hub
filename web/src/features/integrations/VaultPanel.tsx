@@ -4,7 +4,7 @@
    과목/챕터를 '+학습항목'으로 넣는 건 앱상태 변경이라 store.mutate.
 ============================================================ */
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject, type VaultChapter } from '@/lib/vault';
@@ -17,7 +17,9 @@ export function VaultPanel() {
   const qc = useQueryClient();
   const mutate = useApp((s) => s.mutate);
   const items = useApp((s) => s.state.items);
-  const scan = qc.getQueryData<VaultScan>(['vault']);
+  // 구독형으로 읽어 연동/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
+  const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
+  const handle = useQuery<FileSystemDirectoryHandle>({ queryKey: ['vaultHandle'], queryFn: skipToken }).data;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<Set<number>>(() => new Set());
@@ -36,6 +38,15 @@ export function VaultPanel() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // 연동 해제 — 스캔 결과·공유 폴더 핸들을 캐시에서 제거(Anki 패널이 재사용하던 핸들도 함께 풀림).
+  const disconnect = () => {
+    qc.removeQueries({ queryKey: ['vault'], exact: true });
+    qc.removeQueries({ queryKey: ['vaultHandle'], exact: true });
+    setOpen(new Set());
+    setErr('');
+    ui.toast('볼트 폴더 연동을 해제했어요.', 'info');
   };
 
   const toggle = (i: number) =>
@@ -81,10 +92,24 @@ export function VaultPanel() {
               <>
                 <span className={ds.spin} /> 스캔 중...
               </>
+            ) : scan ? (
+              '🔄 다시 스캔'
             ) : (
-              `📁 볼트 폴더 ${scan ? '다시 ' : ''}스캔`
+              '📁 볼트 폴더 연동'
             )}
           </Button>
+          {scan && (
+            <Button
+              sm
+              variant="ghost"
+              danger
+              disabled={busy}
+              onClick={disconnect}
+              title="연동 해제 — 스캔 결과와 폴더 연결을 제거"
+            >
+              ✕ 연동 해제
+            </Button>
+          )}
           <div style={{ flex: 3 }} />
         </div>
         <div className={ds.foot}>
@@ -98,7 +123,8 @@ export function VaultPanel() {
         )}
         {scan && (
           <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
-            스캔: {scan.at} · 과목 {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
+            📂 연동됨: <b style={{ color: 'var(--ink)' }}>{handle?.name || '볼트 폴더'}</b> · 스캔 {scan.at} · 과목{' '}
+            {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
           </div>
         )}
       </div>

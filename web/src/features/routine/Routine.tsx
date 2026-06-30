@@ -101,6 +101,24 @@ function BlockList() {
       b.days = mode === 'wd' ? [1, 2, 3, 4, 5] : mode === 'we' ? [0, 6] : [0, 1, 2, 3, 4, 5, 6];
     });
 
+  // 요일별 시간 — times[dow]={start,end} 오버라이드. 펼침 토글은 로컬 상태.
+  const [perDay, setPerDay] = useState<Set<string>>(() => new Set());
+  const togglePerDay = (id: string) =>
+    setPerDay((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const setDayTime = (id: string, d: number, k: 'start' | 'end', v: string) =>
+    upd(id, (b) => {
+      const m = { ...(b.times || {}) };
+      const cur = m[String(d)] || { start: b.start, end: b.end };
+      m[String(d)] = { ...cur, [k]: v };
+      b.times = m;
+    });
+  const clearTimes = (id: string) => upd(id, (b) => void delete b.times);
+
   const blocks = routine
     .filter((b) => b.type !== '수업')
     .slice()
@@ -109,24 +127,35 @@ function BlockList() {
   return (
     <>
       {blocks.map((b) => (
-        <div key={b.id} className={r.blkrow}>
-          <input
-            type="text"
-            value={b.name}
-            aria-label="블록 이름"
-            onChange={(e) => upd(b.id, (x) => void (x.name = e.target.value))}
-          />
-          <select
-            aria-label="블록 유형"
-            value={b.type}
-            onChange={(e) => upd(b.id, (x) => void (x.type = e.target.value))}
-          >
-            {blockTypes.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
-          <TimeSelect value={b.start} onChange={(v) => upd(b.id, (x) => void (x.start = v))} label="시작 시각" />
-          <TimeSelect value={b.end} onChange={(v) => upd(b.id, (x) => void (x.end = v))} label="끝 시각" />
+        <div key={b.id} className={r.blk} style={{ borderLeftColor: BLOCK_TYPES[b.type] || 'var(--line2)' }}>
+          <div className={r.blkTop}>
+            <input
+              type="text"
+              className={r.blkName}
+              value={b.name}
+              aria-label="블록 이름"
+              placeholder="블록 이름"
+              onChange={(e) => upd(b.id, (x) => void (x.name = e.target.value))}
+            />
+            <select
+              className={r.blkType}
+              aria-label="블록 유형"
+              value={b.type}
+              onChange={(e) => upd(b.id, (x) => void (x.type = e.target.value))}
+            >
+              {blockTypes.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+            <div className={r.blkTime}>
+              <TimeSelect value={b.start} onChange={(v) => upd(b.id, (x) => void (x.start = v))} label="시작 시각" />
+              <span className={r.csep}>~</span>
+              <TimeSelect value={b.end} onChange={(v) => upd(b.id, (x) => void (x.end = v))} label="끝 시각" />
+            </div>
+            <Button sm variant="ghost" danger onClick={() => del(b.id)} aria-label="삭제" title="삭제">
+              ✕
+            </Button>
+          </div>
           <div className={r.days}>
             {DOW.map((_, i) => {
               // DOW는 일=0..토=6. 일과 블록 요일도 같은 인덱스(일=0).
@@ -152,9 +181,52 @@ function BlockList() {
               매일
             </button>
           </div>
-          <Button sm variant="ghost" danger onClick={() => del(b.id)}>
-            ✕
-          </Button>
+          <div className={r.perDay}>
+            <button
+              type="button"
+              className={r.perDayToggle}
+              onClick={() => togglePerDay(b.id)}
+              aria-expanded={perDay.has(b.id)}
+            >
+              {perDay.has(b.id) ? '▾' : '▸'} 요일별 시간 다르게{b.times ? ' · 적용 중' : ''}
+            </button>
+            {b.times && (
+              <button type="button" className={r.perDayReset} onClick={() => clearTimes(b.id)}>
+                전 요일 공통으로
+              </button>
+            )}
+          </div>
+          {perDay.has(b.id) &&
+            (b.days.length ? (
+              <div className={r.perDayGrid}>
+                {b.days
+                  .slice()
+                  .sort((a, c) => a - c)
+                  .map((d) => {
+                    const t = b.times?.[String(d)];
+                    return (
+                      <div key={d} className={`${r.perDayRow}${t ? ' ' + r.perDayRowOn : ''}`}>
+                        <span className={r.perDayDow}>{DOW[d]}</span>
+                        <TimeSelect
+                          value={t?.start ?? b.start}
+                          onChange={(v) => setDayTime(b.id, d, 'start', v)}
+                          label={`${DOW[d]}요일 시작`}
+                        />
+                        <span className={r.csep}>~</span>
+                        <TimeSelect
+                          value={t?.end ?? b.end}
+                          onChange={(v) => setDayTime(b.id, d, 'end', v)}
+                          label={`${DOW[d]}요일 끝`}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              <div className={`${ds.empty} ${ds.tiny}`} style={{ padding: '8px 6px' }}>
+                위에서 요일을 먼저 선택하세요.
+              </div>
+            ))}
         </div>
       ))}
     </>
@@ -265,15 +337,7 @@ export default function Routine() {
                 — 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다
               </span>
             </h2>
-            <div className={r.blkrow} style={{ color: 'var(--mut)', fontSize: 11 }}>
-              <div>이름</div>
-              <div>유형</div>
-              <div>시작</div>
-              <div>끝</div>
-              <div className={r.days}>요일</div>
-              <div />
-            </div>
-            <div>
+            <div style={{ marginTop: 10 }}>
               <BlockList />
             </div>
             <Button sm style={{ marginTop: 8 }} onClick={addBlock}>
@@ -286,54 +350,59 @@ export default function Routine() {
           </div>
         </div>
 
-        {/* 우 — 24h 발광 링 시그니처(요일 선택 → 링 갱신) */}
+        {/* 우 — 24h 발광 링 시그니처(요일 선택 → 링 갱신). 좌측과 같은 카드 재질로 통일. */}
         <aside className={r.sigCol}>
-          <div className={r.sigColHead}>가용시간 — AVAILABILITY</div>
-          <DayRing
-            dow={DOW[ringDow]!}
-            blocks={ringBlocks}
-            windows={fw.windows}
-            wake0={fw.wake0}
-            wake1={fw.wake1}
-            freeMin={fw.freeMin}
-            nowMin={ringDow === todayDow ? nowMin : null}
-          />
-          <span className={r.sigLegend}>
-            <span>
-              <i className={r.lgFree} />
-              공부 가능
+          <div className={`${ds.card} ${r.sigCard}`}>
+            <div className={r.sigColHead}>
+              가용시간 — AVAILABILITY
+              <span className={r.sigDow}>{DOW[ringDow]}요일</span>
+            </div>
+            <DayRing
+              dow={DOW[ringDow]!}
+              blocks={ringBlocks}
+              windows={fw.windows}
+              wake0={fw.wake0}
+              wake1={fw.wake1}
+              freeMin={fw.freeMin}
+              nowMin={ringDow === todayDow ? nowMin : null}
+            />
+            <span className={r.sigLegend}>
+              <span>
+                <i className={r.lgFree} />
+                공부 가능
+              </span>
+              <span>
+                <i className={r.lgBlock} />
+                일과
+              </span>
+              <span>
+                <i className={r.lgSleep} />
+                수면
+              </span>
             </span>
-            <span>
-              <i className={r.lgBlock} />
-              일과
-            </span>
-            <span>
-              <i className={r.lgSleep} />
-              수면
-            </span>
-          </span>
-          <div className={r.wkbars} role="tablist" aria-label="요일 선택" style={{ width: '100%' }}>
-            {DOW.map((d, i) => {
-              const hrs = free[i]!.freeMin / 60;
-              const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === ringDow}
-                  className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
-                  onClick={() => setRingDow(i)}
-                  title={`${d}요일 ${hrs.toFixed(1)}시간`}
-                >
-                  <span className={r.wbBarWrap}>
-                    <span className={r.wbBar} style={{ height: `${Math.round((hrs / max) * 100)}%` }} />
-                  </span>
-                  <span className={r.h}>{hrs.toFixed(1)}</span>
-                  <span className={r.d}>{d}</span>
-                </button>
-              );
-            })}
+            <div className={r.wkbars} role="tablist" aria-label="요일 선택" style={{ width: '100%' }}>
+              {DOW.map((d, i) => {
+                const hrs = free[i]!.freeMin / 60;
+                const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === ringDow}
+                    className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
+                    onClick={() => setRingDow(i)}
+                    title={`${d}요일 ${hrs.toFixed(1)}시간`}
+                  >
+                    <span className={r.wbBarWrap}>
+                      <span className={r.wbBar} style={{ height: `${Math.round((hrs / max) * 100)}%` }} />
+                    </span>
+                    <span className={r.h}>{hrs.toFixed(1)}</span>
+                    <span className={r.d}>{d}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className={r.sigHint}>
             깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다. 특정

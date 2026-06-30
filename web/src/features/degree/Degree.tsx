@@ -356,16 +356,57 @@ function DegreePlan() {
     <>
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
-      {/* 졸업 현황 — 진행·카테고리·인사이트를 한 보드로(요건 설정은 접어둠) */}
-      <div className={ds.card}>
-        <div className={c.boardHead}>
-          <h2 style={{ margin: 0 }}>졸업 현황</h2>
-          <span className={`${ds.muted} ${ds.tiny}`}>
-            이수 {earned} / 목표 {d.targetTotal} · 수강중 {inprog} · 예정 {planned} · 남은 {remain}
-          </span>
+      {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
+      <div className={`${ds.card} ${c.statusCard}`}>
+        <div className={c.statusEyebrow}>졸업 현황</div>
+        <div className={c.statusHero}>
+          <div className={c.gradeRing} role="img" aria-label={`졸업 진행 ${pct}%`}>
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+              <circle className={c.grRingTrack} cx="40" cy="40" r="34" />
+              <circle
+                className={c.grRingArc}
+                cx="40"
+                cy="40"
+                r="34"
+                style={{
+                  strokeDasharray: 2 * Math.PI * 34,
+                  strokeDashoffset: 2 * Math.PI * 34 * (1 - Math.min(100, pct) / 100),
+                }}
+              />
+            </svg>
+            <div className={c.grRingNum}>
+              {pct}
+              <small>%</small>
+            </div>
+          </div>
+          <div className={c.gauges}>
+            <div className={c.g}>
+              <span className={c.gV}>
+                {earned}
+                <small> / {d.targetTotal}</small>
+              </span>
+              <span className={c.gL}>이수 학점</span>
+            </div>
+            <div className={c.g}>
+              <span className={c.gV}>
+                {gpa != null ? gpa.toFixed(2) : '—'}
+                <small> / 4.5</small>
+              </span>
+              <span className={c.gL}>평점(GPA)</span>
+            </div>
+            <div className={c.g}>
+              <span className={c.gV}>{remain}</span>
+              <span className={c.gL}>남은 학점</span>
+            </div>
+            <div className={c.g}>
+              <span className={c.gV}>{projSem != null ? `~${projSem}` : '—'}</span>
+              <span className={c.gL}>예상 잔여 학기</span>
+            </div>
+          </div>
         </div>
-        <div className={ds.bar} style={{ margin: '12px 0 14px' }}>
-          <i style={{ width: `${Math.min(100, pct)}%`, background: 'var(--good)' }} />
+        <div className={c.statusMeta}>
+          수강중 {inprog} · 예정 {planned}
+          {gradedCr > 0 && gradedCr < earned ? ` · 성적 입력 ${gradedCr}/${earned}학점` : ''}
         </div>
 
         <div className={c.cats}>
@@ -396,28 +437,6 @@ function DegreePlan() {
             );
           })}
         </div>
-
-        {earned > 0 && (
-          <div className={c.insight}>
-            <div className={c.ins}>
-              <span className={c.insV}>
-                {gpa != null ? gpa.toFixed(2) : '—'}
-                <small> / 4.5</small>
-              </span>
-              <span className={c.insL}>평점(GPA){gradedCr < earned ? ` · ${gradedCr}/${earned}학점` : ''}</span>
-            </div>
-            <div className={c.ins}>
-              <span className={c.insV}>{remain}</span>
-              <span className={c.insL}>남은 학점</span>
-            </div>
-            <div className={c.ins}>
-              <span className={c.insV}>{projSem != null ? `~${projSem}` : '—'}</span>
-              <span className={c.insL}>
-                {avgPerSem ? `예상 잔여 학기(학기당 ${Math.round(avgPerSem)})` : '예상 잔여'}
-              </span>
-            </div>
-          </div>
-        )}
 
         <details className={c.reqDetails}>
           <summary>졸업 요건 설정</summary>
@@ -497,29 +516,29 @@ function DegreePlan() {
 export default function Degree() {
   const [view, setView] = useState<'plan' | 'req'>('plan');
   return (
-    <>
-      <div className={ds.card} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className={`${ds.muted} ${ds.tiny}`} style={{ marginRight: 'auto' }}>
-          🎓 졸업
-        </span>
-        <Button
-          sm
-          variant={view === 'plan' ? 'primary' : 'ghost'}
-          aria-pressed={view === 'plan'}
-          onClick={() => setView('plan')}
-        >
-          졸업 계획
-        </Button>
-        <Button
-          sm
-          variant={view === 'req' ? 'primary' : 'ghost'}
-          aria-pressed={view === 'req'}
-          onClick={() => setView('req')}
-        >
-          졸업요건 정리
-        </Button>
+    <div className={c.wrap}>
+      <div className={c.header}>
+        <h2 className={c.eyebrow}>🎓 졸업</h2>
+        <div className={`${ds.seg} ${c.viewSeg}`}>
+          <button
+            type="button"
+            aria-pressed={view === 'plan'}
+            className={view === 'plan' ? ds.on : ''}
+            onClick={() => setView('plan')}
+          >
+            졸업 계획
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === 'req'}
+            className={view === 'req' ? ds.on : ''}
+            onClick={() => setView('req')}
+          >
+            졸업요건 정리
+          </button>
+        </div>
       </div>
       {view === 'plan' ? <DegreePlan /> : <DegreeReq />}
-    </>
+    </div>
   );
 }

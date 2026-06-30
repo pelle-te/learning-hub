@@ -40,6 +40,9 @@ export const RoutineBlockSchema = z.object({
   start: z.string(),
   end: z.string(),
   days: z.array(z.number()),
+  // 요일별 시간 오버라이드(선택) — 키=요일(일0..토6) 문자열. 없으면 start/end 공통 적용.
+  // 일과 블록도 수업처럼 요일마다 다른 시간을 가질 수 있게(blocksForWeekday가 단일 지점서 해석).
+  times: z.record(z.object({ start: z.string(), end: z.string() })).optional(),
 });
 
 export const CompletionEntrySchema = z.object({ done: z.boolean(), min: z.number() });

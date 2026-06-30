@@ -5,7 +5,7 @@
    앱 데이터라 recordRetentionSnapshot으로 persist(설계도 §1-B).
 ============================================================ */
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, type AnkiFile, type AnkiLive } from '@/lib/anki';
@@ -19,10 +19,22 @@ export function AnkiPanel() {
   const mutate = useApp((s) => s.mutate);
   const setRuntimeCache = useApp((s) => s.setRuntimeCache);
   const items = useApp((s) => s.state.items);
-  const file = qc.getQueryData<AnkiFile>(['ankiFile']);
-  const live = qc.getQueryData<AnkiLive>(['ankiLive']);
+  // 구독형으로 읽어 연결/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
+  const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
+  const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], queryFn: skipToken }).data;
   const [busy, setBusy] = useState<'' | 'file' | 'live'>('');
   const [err, setErr] = useState('');
+
+  // 개별 해제 — 각 연동을 독립적으로 끊는다(다른 채널엔 영향 없음).
+  const clearFile = () => {
+    qc.removeQueries({ queryKey: ['ankiFile'], exact: true });
+    ui.toast('Anki 카드 스캔을 비웠어요.', 'info');
+  };
+  const clearLive = () => {
+    qc.removeQueries({ queryKey: ['ankiLive'], exact: true });
+    setRuntimeCache('_ankiLive', null); // 오늘 탭 due KPI도 초기화
+    ui.toast('실시간 due 연결을 해제했어요.', 'info');
+  };
 
   const scanFiles = async () => {
     setErr('');
@@ -153,14 +165,28 @@ export function AnkiPanel() {
           </div>
         )}
         {file && (
-          <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
-            카드 스캔: {file.at}
-            {file.src ? ' · ' + file.src : ''}
+          <div
+            className={`${ds.muted} ${ds.tiny}`}
+            style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            <span>
+              📂 카드 스캔: {file.at}
+              {file.src ? ' · ' + file.src : ''}
+            </span>
+            <Button sm variant="ghost" danger onClick={clearFile} title="카드 스캔 결과 비우기">
+              ✕ 해제
+            </Button>
           </div>
         )}
         {live && (
-          <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
-            실시간: {live.at}
+          <div
+            className={`${ds.muted} ${ds.tiny}`}
+            style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            <span>🔌 실시간 연결됨: {live.at}</span>
+            <Button sm variant="ghost" danger onClick={clearLive} title="실시간 due 연결 해제">
+              ✕ 해제
+            </Button>
           </div>
         )}
       </div>

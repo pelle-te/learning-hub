@@ -61,9 +61,13 @@ interface SchedSubject extends Item {
 }
 
 export function blocksForWeekday(state: AppState, wd: number): RoutineBlock[] {
+  // 요일별 시간 오버라이드(times[wd])가 있으면 그 시간으로 해석 — 단일 지점이라 링·빈시간·레이아웃 전부 자동 반영.
   return state.routine
     .filter((b) => b.days.includes(wd))
-    .slice()
+    .map((b) => {
+      const t = b.times?.[String(wd)];
+      return t ? { ...b, start: t.start, end: t.end } : b;
+    })
     .sort((a, b) => toMin(a.start) - toMin(b.start));
 }
 /** 깨어있는 시간 [wake0,wake1] — 수면 블록으로 결정(없으면 00:00~24:00). */

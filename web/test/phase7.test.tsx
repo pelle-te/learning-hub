@@ -43,23 +43,23 @@ test('나브 하위탭: ArrowRight로 다음 탭 자동 활성(today → schedul
   );
 });
 
-test('레일 나브: End로 마지막 1차 탭(통계)으로 이동', async () => {
+test('레일 나브: End로 마지막 1차 탭(제어판)으로 이동', async () => {
   renderApp('/today');
   const today = await screen.findByRole('tab', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'End' });
-  // 레일은 1차 탭(숨김 제외) 평면 리스트: today·schedule·items·integrations·journal·stats → 마지막은 '통계'.
-  await waitFor(() => expect(screen.getByRole('tab', { name: /통계/ })).toHaveAttribute('aria-selected', 'true'));
+  // 레일 1차 탭(숨김 제외): today·schedule·items·integrations·journal·stats·control → 마지막은 '탐구 수집'.
+  await waitFor(() => expect(screen.getByRole('tab', { name: /탐구 수집/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
-test('레일 나브: ArrowLeft가 첫 탭에서 마지막(통계)으로 순환', async () => {
+test('레일 나브: ArrowLeft가 첫 탭에서 마지막(제어판)으로 순환', async () => {
   renderApp('/today');
   const today = await screen.findByRole('tab', { name: /오늘 학습/ });
   expect(today).toHaveAttribute('aria-selected', 'true');
   fireEvent.keyDown(today, { key: 'ArrowLeft' });
-  await waitFor(() => expect(screen.getByRole('tab', { name: /통계/ })).toHaveAttribute('aria-selected', 'true'));
+  await waitFor(() => expect(screen.getByRole('tab', { name: /탐구 수집/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
-test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → stats)', async () => {
+test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → control=탐구수집)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
   const { unmount } = renderApp('/today');
   await screen.findByRole('tab', { name: /오늘 학습/ });
@@ -72,8 +72,8 @@ test('단축키: ]는 다음 탭(today → schedule), [는 이전 탭(today → 
   renderApp('/today');
   await screen.findByRole('tab', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: '[' });
-  // 표시(비숨김) 탭 마지막은 이제 '통계'(routine·degree·review·mastery는 섹션 세그먼트로 흡수·숨김).
-  await waitFor(() => expect(screen.getByRole('tab', { name: /통계/ })).toHaveAttribute('aria-selected', 'true'));
+  // 표시(비숨김) 탭 마지막은 이제 '시스템 제어판'(routine·degree·review·mastery는 섹션 세그먼트로 흡수·숨김).
+  await waitFor(() => expect(screen.getByRole('tab', { name: /탐구 수집/ })).toHaveAttribute('aria-selected', 'true'));
 });
 
 test('모달: 포커스 복원 + aria 라벨링(role=dialog)', async () => {

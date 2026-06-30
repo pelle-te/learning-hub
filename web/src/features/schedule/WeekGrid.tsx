@@ -3,7 +3,7 @@
    computeDay가 빚은 DayData[](parts)를 받아 줄마다 세그먼트로 그린다(순수 표현 — 데이터는 Schedule이 준비).
    요일 클릭 → onSelect(그날 상세 DayCard). 오늘=하이라이트+지금 마커, 마감일=네온 플래그.
 ============================================================ */
-import { toHM } from '@/lib/utils';
+import { toHM, hLabel } from '@/lib/utils';
 import type { DayData } from '@/lib/scheduleView';
 import s from './WeekGrid.module.css';
 
@@ -12,8 +12,19 @@ interface Seg {
   start: number;
   end: number;
   tone: Tone;
-  title: string;
+  /** 툴팁(data-tip) — 1줄: 제목, 2줄: 종류·시간·길이. */
+  tip: string;
+  color?: string;
+  free?: boolean;
 }
+
+const STYPE: Record<string, string> = {
+  new: '집중 학습',
+  rev: '간격 복습',
+  anki: 'Anki',
+  blank: '백지 복습',
+  mock: '모의시험',
+};
 
 function hh(min: number): string {
   return String(Math.floor(min / 60)).padStart(2, '0');
@@ -23,11 +34,36 @@ function segsOf(p: DayData): Seg[] {
   const out: Seg[] = [];
   for (const r of p.rows) {
     if (r.kind === 'block' && r.start != null) {
-      out.push({ start: r.start, end: r.end, tone: 'muted', title: `${r.name} ${toHM(r.start)}–${toHM(r.end)}` });
+      const when = `${toHM(r.start)}–${toHM(r.end)}`;
+      // 종류가 이름과 같으면(수업/수업, 점심·식사 등) 중복이라 생략 — 시간·길이만.
+      const cat = r.btype && r.btype !== r.name ? `${r.btype} · ` : '';
+      out.push({
+        start: r.start,
+        end: r.end,
+        tone: 'muted',
+        color: r.color,
+        tip: `${r.name}\n${cat}${when} · ${hLabel(r.end - r.start)}`,
+      });
     } else if (r.kind === 'study' && r.start != null && r.end != null) {
       const t = r.it.type;
       const tone: Tone = t === 'new' ? 'primary' : 'soft';
-      out.push({ start: r.start, end: r.end, tone, title: `${r.it.name} ${toHM(r.start)}–${toHM(r.end)}` });
+      const when = `${toHM(r.start)}–${toHM(r.end)}`;
+      const chs = r.it.chapters?.length ? ` · ${r.it.chapters.join(', ')}` : '';
+      out.push({
+        start: r.start,
+        end: r.end,
+        tone,
+        color: r.it.color,
+        tip: `${r.it.name}\n${STYPE[t] || '학습'} · ${when} · ${hLabel(r.end - r.start)}${chs}`,
+      });
+    } else if (r.kind === 'free' && r.end - r.start >= 5) {
+      out.push({
+        start: r.start,
+        end: r.end,
+        tone: 'muted',
+        free: true,
+        tip: `빈 시간\n${toHM(r.start)}–${toHM(r.end)} · ${hLabel(r.end - r.start)} 비어 있음`,
+      });
     }
   }
   return out;
@@ -56,6 +92,7 @@ export function WeekGrid({
   parts.forEach((p) =>
     p.rows.forEach((r) => {
       if ((r.kind === 'block' || r.kind === 'study') && r.start != null) allMins.push(r.start, r.end as number);
+      else if (r.kind === 'free') allMins.push(r.start, r.end);
     }),
   );
   let lo = 6 * 60;
@@ -88,6 +125,9 @@ export function WeekGrid({
             <i className={s.lgMuted} />
             일과
           </span>
+          <span>
+            <i className={s.lgFree} />빈 시간
+          </span>
         </span>
       </div>
       <div className={s.rows} role="tablist" aria-label="요일 선택">
@@ -112,12 +152,16 @@ export function WeekGrid({
                 {segs.map((g, i) => {
                   const left = pos(g.start);
                   const w = Math.max(0.8, pos(g.end) - left);
+                  const segStyle: Record<string, string> = { left: `${left}%`, width: `${w}%` };
+                  if (g.color) segStyle['--seg'] = g.color;
                   return (
                     <span
                       key={i}
-                      className={`${s.seg} ${s[g.tone]}`}
-                      style={{ left: `${left}%`, width: `${w}%` }}
-                      title={g.title}
+                      className={`${s.seg} ${g.free ? s.free : s[g.tone]}`}
+                      style={segStyle}
+                      data-tip={g.tip}
+                      role="img"
+                      aria-label={g.tip.replace('\n', ' — ')}
                     />
                   );
                 })}

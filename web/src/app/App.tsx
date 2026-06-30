@@ -10,6 +10,7 @@ import SubTabs from '@/app/SubTabs';
 import ShortcutsHelp from '@/components/ShortcutsHelp';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
+import AmbientCanvas from '@/components/AmbientCanvas';
 import { HudFrame } from '@/components/hud';
 import { SkeletonCard, Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
@@ -127,6 +128,9 @@ export default function App() {
 
   return (
     <div className={s.shell}>
+      {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감. */}
+      <AmbientCanvas />
+      <div className={s.ambient} aria-hidden="true" />
       {/* 스크린리더/키보드 사용자가 매 탭마다 네비를 통과하지 않도록 본문으로 바로 점프(포커스 전엔 시각 숨김). */}
       <a href="#main" className="skip-link">
         본문 바로가기

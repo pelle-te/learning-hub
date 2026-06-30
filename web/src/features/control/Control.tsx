@@ -1,266 +1,206 @@
 /* ============================================================
-   Control — 탭: 🛠 시스템 제어판 (Phase 5 · 서버/외부 = serve.js /api)
-   화이트리스트 도구(지식상태 재빌드·볼트 건강검진·품질검사·Anki 신호·통계·탐구)를 버튼으로 실행.
-   연결 여부는 usePing(Query) — file://·정적호스팅이면 우아한 오프라인 안내.
-   '지식상태 재빌드' 성공 → ['knowledge'] 무효화 → 숙달도 지도·스케줄러 graphPriority 자동 갱신
-   (레거시 loadKnowledgeFromAPI 수동 배선 제거 · 설계도 §1-B).
+   Control(탐구 수집) — 탭: 🔭 탐구 수집. (옛 시스템 제어판 OPS 콘솔 폐기 → 탐구 단일 목적)
+   "교재 밖에서 새로 알아보는 학습"을 검색엔진처럼: 큰 검색바로 주제 수집 → serve.js의
+   탐구_수집.py가 전공/_탐구/에 원자 노트 초안 생성. 최근 수집 기록 + 옵시디언 바로가기.
+   serve.js 연결은 usePing(Query) — 오프라인이면 우아한 안내.
 ============================================================ */
 import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { usePageChrome } from '@/store/usePageChrome';
-import { usePing, KNOWLEDGE_KEY } from '@/store/queries';
+import { usePing } from '@/store/queries';
 import { runTool, type RunResult } from '@/lib/api';
 import { ui } from '@/shell';
-import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import cm from './Control.module.css';
 
-interface ToolDef {
-  key: string;
-  title: string;
-  label: string;
-  desc: string;
-  feedsMastery?: boolean;
+interface HistEntry {
+  topic: string;
+  scope?: string;
+  at: string;
+  ok: boolean;
 }
-const TOOLS: ToolDef[] = [
-  {
-    key: 'knowledge-build',
-    title: '🧠 지식상태 재빌드',
-    label: '지식상태 재빌드',
-    feedsMastery: true,
-    desc: '지식엔진 — 선수그래프+관측으로 개념별 숙달도 재계산. 끝나면 숙달도 지도가 갱신됨.',
-  },
-  {
-    key: 'vault-health',
-    title: '🩺 볼트 건강검진',
-    label: '건강검진',
-    desc: '벌트DB — 노트/검증/플래그/고립/데드링크/Anki GUID 한눈에.',
-  },
-  {
-    key: 'eval',
-    title: '📐 지시문 품질 회귀검사',
-    label: '품질검사',
-    desc: '지시문평가 — 검증노트를 루브릭으로 채점, 베이스라인 대비 회귀 게이트.',
-  },
-  {
-    key: 'anki-signal',
-    title: '🃏 Anki 학습신호 갱신',
-    label: '학습신호',
-    desc: '학습신호 — AnkiConnect에서 due/lapse를 읽어 _anki신호.json 갱신(엔진 인출관측 소스).',
-  },
-  { key: 'vault-stats', title: '📊 볼트 통계', label: '통계', desc: '벌트DB — 과목×status×type 분포 표.' },
-];
-
-function StatsLine({ k, stats }: { k: string; stats: Record<string, number | boolean | undefined> }) {
-  const s = stats;
-  if (k === 'knowledge-build')
-    return (
-      <div className={cm.ctlstats}>
-        노트 {(s.notes as number) ?? '?'} · 전체숙달{' '}
-        <b>{s.overall != null ? Math.round((s.overall as number) * 100) + '%' : '?'}</b> · 숙달{' '}
-        {(s.mastered as number) ?? 0}·학습중 {(s.learning as number) ?? 0}·약점 {(s.weak as number) ?? 0}·미관측{' '}
-        {(s.unknown as number) ?? 0} · 프런티어 {(s.frontier as number) ?? 0}
-      </div>
-    );
-  if (k === 'vault-health')
-    return (
-      <div className={cm.ctlstats}>
-        노트 {(s.notes as number) ?? '?'} · 검증 {(s.verified as number) ?? '?'} · 플래그 {(s.flags as number) ?? '?'} ·
-        데드링크 {(s.deadlinks as number) ?? '?'} {s.healthy ? '· ✅양호' : ''}
-      </div>
-    );
-  if (k === 'eval')
-    return (
-      <div className={cm.ctlstats}>
-        노트 {(s.notes as number) ?? '?'} · 코퍼스 평균 <b>{(s.corpus_mean as number) ?? '?'}/5</b>{' '}
-        {s.regressed ? <span style={{ color: 'var(--bad)' }}>· ⚠ 회귀</span> : '· ✅ 회귀없음'}
-      </div>
-    );
-  return null;
+const HKEY = 'lh:research-history';
+function loadHistory(): HistEntry[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(HKEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
 }
-
-function ResultBlock({ k, r }: { k: string; r: RunResult }) {
-  const stats = r.stats as Record<string, number | boolean | undefined> | undefined;
-  return (
-    <>
-      {stats && <StatsLine k={k} stats={stats} />}
-      <details className={cm.ctldetails} open={!r.ok}>
-        <summary className={`${ds.tiny} ${ds.muted}`}>{r.ok ? '출력 보기' : '⚠ 실패 — 출력'}</summary>
-        <pre className={cm.ctlpre}>{r.out || '(출력 없음)'}</pre>
-      </details>
-    </>
-  );
+function saveHistory(h: HistEntry[]) {
+  try {
+    localStorage.setItem(HKEY, JSON.stringify(h.slice(0, 10)));
+  } catch {
+    /* localStorage 불가 — 무시 */
+  }
+}
+/** 옵시디언 바로가기 — 전공/_탐구 폴더에서 주제 검색(마지막 연 볼트 기준). */
+function obsidianLink(topic: string): string {
+  return `obsidian://search?query=${encodeURIComponent('path:_탐구 ' + topic)}`;
+}
+function fmtWhen(at: string): string {
+  const d = new Date(at);
+  if (isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 export default function Control() {
   const { data: ping, isLoading } = usePing();
-  const qc = useQueryClient();
-  const [busy, setBusy] = useState('');
-  const [log, setLog] = useState<Record<string, RunResult>>({});
-  const [topic, setTopic] = useState('');
-  const [scope, setScope] = useState('');
-
   const online = !!ping?.ok;
   const offline = !isLoading && !online;
+  const [topic, setTopic] = useState('');
+  const [scope, setScope] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<RunResult | null>(null);
+  const [history, setHistory] = useState<HistEntry[]>(() => loadHistory());
   const setChrome = usePageChrome((s) => s.setChrome);
   const clearChrome = usePageChrome((s) => s.clear);
 
-  // serve.js 연결 상태·도구 수를 상단 바로(데모 v6 헤더).
   useEffect(() => {
     setChrome([
-      { label: 'serve.js', value: online ? '● ONLINE' : offline ? 'OFFLINE' : '…', accent: online },
-      { label: '도구', value: online ? (ping?.tools.length ?? 0) : '—' },
+      { label: '수집 기록', value: history.length, accent: true },
+      { label: 'serve.js', value: online ? '● ON' : offline ? 'OFF' : '…' },
     ]);
     return () => clearChrome();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online, offline, ping?.tools.length]);
+  }, [history.length, online, offline]);
 
-  const run = async (key: string, feedsMastery: boolean, body?: Record<string, unknown>, label?: string) => {
+  const collect = async (t: string, sc: string) => {
+    const tq = t.trim();
+    if (!tq) {
+      ui.toast('탐구할 주제를 입력하세요.', 'warn');
+      return;
+    }
     if (busy) return;
-    setBusy(key);
+    setBusy(true);
+    setResult(null);
     let res: RunResult;
     try {
-      res = await runTool(key, body);
+      res = await runTool('research', { topic: tq, scope: sc.trim() });
     } catch (e) {
       res = { ok: false, out: '요청 실패: ' + ((e as Error).message || e), code: -1 };
     }
-    setLog((l) => ({ ...l, [key]: res }));
-    setBusy('');
-    if (feedsMastery && res.ok) qc.invalidateQueries({ queryKey: KNOWLEDGE_KEY });
-    ui.toast(`${label || key} ${res.ok ? '완료' : '실패 — 출력 확인'}`, res.ok ? 'ok' : 'bad');
-  };
-
-  const runResearch = () => {
-    if (busy) return;
-    if (!topic.trim()) {
-      ui.toast('주제를 입력하세요.', 'warn');
-      return;
-    }
-    run('research', false, { topic: topic.trim(), scope: scope.trim() }, '탐구 수집');
+    setResult(res);
+    setBusy(false);
+    const next = [
+      { topic: tq, scope: sc.trim() || undefined, at: new Date().toISOString(), ok: res.ok },
+      ...history.filter((h) => h.topic !== tq),
+    ].slice(0, 10);
+    setHistory(next);
+    saveHistory(next);
+    ui.toast(`탐구 수집 ${res.ok ? '완료 — 옵시디언에서 확인' : '실패 — 출력 확인'}`, res.ok ? 'ok' : 'bad');
   };
 
   return (
-    <section className={cm.wrap} aria-label="시스템 제어판">
-      <div className={cm.head}>
-        <h2 className={cm.headTitle}>🛠 시스템 제어판</h2>
-        <span className={cm.headKicker}>OPS CONSOLE</span>
-        {online ? (
-          <span className={`${cm.status} ${cm.stOn}`}>
-            <span className={cm.dot} />
-            serve.js ONLINE
+    <section className={cm.wrap} aria-label="탐구 수집">
+      {/* 검색 히어로 — 검색엔진 느낌. */}
+      <div className={cm.hero}>
+        <div className={cm.heroEyebrow}>🔭 탐구 수집</div>
+        <h1 className={cm.heroTitle}>무엇을 새로 알아볼까요?</h1>
+        <div className={`${cm.searchBar}${busy ? ' ' + cm.searchBusy : ''}`}>
+          <span className={cm.searchIcon} aria-hidden="true">
+            ⌕
           </span>
-        ) : offline ? (
-          <span className={`${cm.status} ${cm.stOff}`}>
-            <span className={cm.dot} />
-            API OFFLINE
-          </span>
-        ) : (
-          <span className={cm.status}>
-            <span className={ds.spin} /> 연결 확인 중
-          </span>
-        )}
-        <span className={cm.headHint}>버튼 하나로 시스템 도구를 돌리고 결과를 봅니다 — CMD 불필요.</span>
+          <input
+            className={cm.searchInput}
+            placeholder="주제 — 예: 반도체 공급망 동향, 트랜스포머 어텐션 직관"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') collect(topic, scope);
+            }}
+            disabled={busy}
+            aria-label="탐구 주제"
+          />
+          <input
+            className={cm.searchScope}
+            placeholder="범위(선택)"
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') collect(topic, scope);
+            }}
+            disabled={busy}
+            aria-label="범위"
+          />
+          <button
+            className={cm.searchGo}
+            type="button"
+            onClick={() => collect(topic, scope)}
+            disabled={busy || offline}
+          >
+            {busy ? (
+              <>
+                <span className={ds.spin} /> 수집 중
+              </>
+            ) : (
+              '수집 시작'
+            )}
+          </button>
+        </div>
+        <div className={cm.heroHint}>
+          웹에서 새로 조사해 <code>전공/_탐구/</code>에 원자 노트 초안을 만듭니다.
+          {offline ? (
+            <b className={cm.offHint}>
+              {' '}
+              ⚠ serve.js가 꺼져 있어요 — <code>node serve.js</code>로 켜면 수집할 수 있어요.
+            </b>
+          ) : (
+            ' 몇 분~수십 분 걸리며, 탭을 떠나도 서버에서 계속 돌아요.'
+          )}
+        </div>
       </div>
 
-      {offline ? (
-        <div className={cm.offWrap}>
-          <div className={cm.offBoard}>
-            <div className={cm.offTitle}>콘솔 오프라인</div>
-            <h3 style={{ margin: '0 0 6px', fontSize: 14, color: 'var(--mut)', fontWeight: 700 }}>
-              제어판을 켜려면 serve.js로 띄우세요
-            </h3>
-            <div className={cm.offBoot}>$ node serve.js</div>
-            <ol className={ds.foot} style={{ lineHeight: 1.9, marginTop: 8 }}>
-              <li>러닝허브 폴더에서 위 명령으로 백엔드 부팅</li>
-              <li>
-                브라우저로 <code>http://localhost:8000/</code> 열기(지금은 정적/파일 모드라 API가 없음)
-              </li>
-            </ol>
-            <div className={`${ds.foot} ${ds.muted}`}>
-              그러면 아래 도구들을 버튼으로 실행할 수 있습니다: 지식상태 재빌드 · 볼트 건강검진 · 지시문 품질검사 · Anki
-              학습신호 · 탐구 수집. 파일 모드에서도 숙달도 지도 탭은 폴더 선택으로 동작합니다.
-            </div>
-          </div>
-        </div>
-      ) : online ? (
-        <div className={cm.scroll}>
-          <div className={cm.toolGrid}>
-            {TOOLS.map((t) => {
-              const isBusy = busy === t.key;
-              const r = log[t.key];
-              return (
-                <div key={t.key} className={ds.card}>
-                  <div className={ds.row} style={{ alignItems: 'center', gap: 10 }}>
-                    <b style={{ flex: 1 }}>{t.title}</b>
-                    <Button
-                      sm
-                      variant="primary"
-                      disabled={isBusy}
-                      onClick={() => run(t.key, !!t.feedsMastery, undefined, t.label)}
-                    >
-                      {isBusy ? (
-                        <>
-                          <span className={ds.spin} /> 실행 중
-                        </>
-                      ) : (
-                        '실행'
-                      )}
-                    </Button>
-                  </div>
-                  <div className={ds.foot}>{t.desc}</div>
-                  {r && <ResultBlock k={t.key} r={r} />}
-                </div>
-              );
-            })}
-            <div className={`${ds.card} ${cm.wide}`}>
-              <div className={ds.row} style={{ alignItems: 'center', gap: 10 }}>
-                <b style={{ flex: 1 }}>🔭 탐구(웹 리서치) 수집</b>
-              </div>
-              <div className={ds.foot}>
-                교재가 아니라 웹에서 새로 알아보는 학습(지시문11). 주제를 넣으면 <code>탐구_수집.py</code>가 수집해{' '}
-                <code>전공/_탐구/</code>에 원자 노트 초안을 만듭니다.
-              </div>
-              <div className={ds.row} style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                <input
-                  placeholder="주제 (예: 반도체 공급망 동향)"
-                  style={{ flex: 2, minWidth: 180 }}
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  disabled={busy === 'research'}
-                />
-                <input
-                  placeholder="범위(선택)"
-                  style={{ flex: 1, minWidth: 120 }}
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value)}
-                  disabled={busy === 'research'}
-                />
-                <Button sm variant="primary" disabled={busy === 'research'} onClick={runResearch}>
-                  {busy === 'research' ? (
-                    <>
-                      <span className={ds.spin} /> 수집 중(최대 30분)
-                    </>
-                  ) : (
-                    '수집 시작'
-                  )}
-                </Button>
-              </div>
-              {busy === 'research' && (
-                <div className={`${ds.foot} ${ds.muted}`} style={{ marginTop: 6 }}>
-                  웹 수집·정리는 몇 분~수십 분 걸립니다. 탭을 떠나도 서버에서 계속 돌아요.
-                </div>
-              )}
-              {log['research'] && <ResultBlock k="research" r={log['research']} />}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className={cm.scroll}>
-          <div className={ds.card}>
-            <span className={ds.spin} /> 제어판 백엔드 확인 중...
-          </div>
+      {/* 진행/결과 */}
+      {busy && (
+        <div className={cm.collecting}>
+          <span className={ds.spin} /> “{topic}” 웹에서 수집·정리 중…
         </div>
       )}
+      {result && (
+        <details className={cm.resultCard} open={!result.ok}>
+          <summary>{result.ok ? '✓ 수집 완료 — 출력 보기' : '⚠ 실패 — 출력'}</summary>
+          <pre className={cm.pre}>{result.out || '(출력 없음)'}</pre>
+        </details>
+      )}
+
+      {/* 최근 수집 기록 */}
+      <div className={cm.recent}>
+        <div className={cm.recentHead}>최근 수집 기록</div>
+        {history.length ? (
+          <div className={cm.recList}>
+            {history.map((h) => (
+              <div key={h.topic + h.at} className={cm.recItem}>
+                <span className={cm.recDot} data-ok={h.ok ? '1' : '0'} aria-hidden="true" />
+                <span className={cm.recTopic}>{h.topic}</span>
+                <span className={cm.recMeta}>
+                  {h.scope ? h.scope + ' · ' : ''}
+                  {fmtWhen(h.at)}
+                  {h.ok ? '' : ' · 실패'}
+                </span>
+                <a className={cm.recOpen} href={obsidianLink(h.topic)} title="옵시디언 _탐구 폴더에서 이 주제 열기">
+                  옵시디언 ↗
+                </a>
+                <button
+                  type="button"
+                  className={cm.recAgain}
+                  onClick={() => {
+                    setTopic(h.topic);
+                    setScope(h.scope || '');
+                    collect(h.topic, h.scope || '');
+                  }}
+                  disabled={busy}
+                >
+                  다시
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={cm.recEmpty}>아직 수집 기록이 없어요. 위에서 주제를 넣어 첫 탐구를 시작해 보세요.</div>
+        )}
+      </div>
     </section>
   );
 }

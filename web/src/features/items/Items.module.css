@@ -1,0 +1,75 @@
+/* ============================================================
+   Items — 학습 항목 "과목 갤러리"(재발명). 설정형 탭의 괴리감 해소:
+   평면 목록 → 과목 현황 카드 갤러리(진행 링·주당·마감). 카드 펼치면 전폭 편집기.
+   공유 재질(스포트라이트·글로우)로 오늘·주간 탭과 한 식구.
+============================================================ */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 확신 있는 헤더 — 아이브로 + 안내 + 액션(다른 탭 헤더와 같은 결). */
+.header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px 14px;
+}
+.lead {
+  min-width: 0;
+}
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--acc);
+  font-weight: 800;
+}
+.hint {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--mut);
+  line-height: 1.4;
+}
+.hint b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* 갤러리 — 반응형 과목 카드 그리드(스크롤). */
+.gallery {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 6px 22px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+.empty {
+  padding: 6px 22px 22px;
+}
+
+@media (max-width: 560px) {
+  .gallery {
+    grid-template-columns: 1fr;
+    padding: 6px 14px 18px;
+  }
+  .header {
+    padding: 14px 14px 10px;
+  }
+}

@@ -4,16 +4,16 @@
    진행률·연속·마감 리드아웃과 "지금 시작" 주 액션은 상단 바(usePageChrome)로 끌어올림.
    세부(블록 액션·일일 의식·흐름 가이드)는 onOpenMore 패널로 — 기본은 한 화면, 무스크롤.
 ============================================================ */
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
-import { NeonTrack, type NeonSeg } from '@/components/hud';
 import { isDone, studyStreak } from '@/lib/persistence';
 import { openBacklog } from '@/lib/methodology';
 import { layoutDay } from '@/lib/scheduler';
-import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM } from '@/lib/utils';
+import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel } from '@/lib/utils';
 import type { AppState } from '@/lib/types';
 import s from './TodaySignature.module.css';
 
@@ -34,6 +34,31 @@ const TYPE_LABEL: Record<string, string> = {
   mock: '모의시험',
 };
 const WD = ['월', '화', '수', '목', '금', '토', '일'];
+const RING_C = 2 * Math.PI * 34; // 진행률 링 둘레(r=34).
+
+/** 마운트 시 0→target으로 부드럽게 카운트업(easeOutCubic). reduced-motion이면 즉시 target. */
+function useCountUp(target: number, ms = 750): number {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || typeof requestAnimationFrame === 'undefined') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 모션 자제 시 애니메이션 없이 즉시 최종값.
+      setV(target);
+      return;
+    }
+    let raf = 0;
+    let startedAt = 0;
+    const step = (now: number) => {
+      if (!startedAt) startedAt = now;
+      const t = Math.min(1, (now - startedAt) / ms);
+      setV(target * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return v;
+}
 
 export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const state = useApp((s) => s.state);
@@ -43,6 +68,36 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const clearChrome = usePageChrome((s) => s.clear);
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
+
+  // 히어로 포인터 추적 — 커서를 따라 스포트라이트(--mx/--my) + 카드 3D 틸트(--tiltX/Y). 프리미엄 인터랙션.
+  const heroRef = useRef<HTMLDivElement>(null);
+  const onHeroMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+    const el = heroRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    el.style.setProperty('--mx', `${px * 100}%`);
+    el.style.setProperty('--my', `${py * 100}%`);
+    el.style.setProperty('--tiltY', `${(px - 0.5) * 7}deg`);
+    el.style.setProperty('--tiltX', `${-(py - 0.5) * 7}deg`);
+  };
+  const onHeroLeave = () => {
+    const el = heroRef.current;
+    if (!el) return;
+    el.style.setProperty('--tiltX', '0deg');
+    el.style.setProperty('--tiltY', '0deg');
+  };
+
+  // 1초 틱 — 시계·현재 블록·집중 타이머를 라이브로 갱신.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => (t + 1) % 86400), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // 집중 타이머(포모도로) — endsAt(ms)·total(초).
+  const [timer, setTimer] = useState<{ endsAt: number; total: number } | null>(null);
 
   const ds = todayISO(state);
   const today = parseISO(ds);
@@ -64,10 +119,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const todayTotal = items.length;
   const pct = todayTotal ? Math.round((todayDone / todayTotal) * 100) : 0;
 
-  const nowMin = (() => {
-    const d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  })();
+  const nowDate = new Date();
+  const nowMin = nowDate.getHours() * 60 + nowDate.getMinutes();
+  const nowMs = nowDate.getTime();
   const startKey = (e: (typeof enriched)[number]) => e.start ?? 9999;
   const pending = enriched.filter((e) => !e.done);
   const current = pending.find((e) => e.start != null && e.end != null && nowMin >= e.start && nowMin < e.end);
@@ -90,8 +144,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     const min = (day?.items || []).reduce((t, it) => t + (it.min || 0), 0);
     return { lab, h: min / 60, today: k === ds };
   });
-  const maxH = Math.max(0.1, ...weekData.map((d) => d.h));
   const weekTotalH = weekData.reduce((t, d) => t + d.h, 0);
+  const weekShown = useCountUp(weekTotalH);
 
   const streak = studyStreak(state);
   const due = ankiDue(state);
@@ -106,51 +160,100 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const soon = ddays.filter((st) => st.dday <= 14).slice(0, 3);
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
 
-  // NeonTrack 세그먼트.
+  // 오늘의 흐름 노드 — 학습(체크 가능)+일과 블록을 시간순 단일 리스트로(무지개 가로 트랙 폐기).
   const tl = L?.tl || [];
-  const segs: NeonSeg[] = tl
-    .filter((e) => e.start != null && e.end != null)
-    .map((e): NeonSeg => {
-      if (e.kind === 'block') {
-        return {
-          start: e.start,
-          end: e.end,
-          tone: 'muted',
-          label: e.name,
-          place: 'up',
-          title: `${e.name} ${toHM(e.start)}–${toHM(e.end)}`,
-        };
-      }
-      const tone = e.type === 'new' ? 'primary' : e.type === 'rev' || e.type === 'anki' ? 'soft' : 'muted';
-      return {
-        start: e.start,
+  type FlowNode = {
+    key: string;
+    kind: 'study' | 'block';
+    start: number;
+    end: number | null;
+    name: string;
+    sub: string;
+    color?: string;
+    done: boolean;
+    e: (typeof enriched)[number] | null;
+  };
+  const flowNodes: FlowNode[] = [
+    ...enriched
+      .filter((e) => e.start != null)
+      .map((e): FlowNode => ({
+        key: 'study|' + e.it.sid + '|' + e.it.type,
+        kind: 'study',
+        start: e.start as number,
         end: e.end,
-        tone,
-        label: e.name,
-        sub: e.chapters?.length ? e.chapters.join(', ') : e.type ? TYPE_LABEL[e.type] : undefined,
-        place: e.type === 'new' ? 'dn' : undefined,
-        accent: e.type === 'new',
-        title: `${e.name} ${toHM(e.start)}–${toHM(e.end)}`,
-      };
-    });
-  const mins = segs.flatMap((g) => [g.start, g.end]);
-  let lo = 6 * 60;
-  let hi = 24 * 60;
-  if (mins.length) {
-    lo = Math.min(lo, Math.min(...mins));
-    hi = Math.max(hi, Math.max(...mins));
-  }
-  lo = Math.max(0, Math.floor(lo / 180) * 180);
-  hi = Math.min(1440, Math.ceil(hi / 180) * 180);
+        name: e.it.name,
+        sub: e.it.chapters?.length ? e.it.chapters.join(', ') : TYPE_LABEL[e.it.type] || '학습',
+        color: e.it.color,
+        done: e.done,
+        e,
+      })),
+    ...tl
+      .filter((t) => t.kind === 'block' && t.start != null)
+      .map((t, i): FlowNode => ({
+        key: 'block|' + i + '|' + String(t.start),
+        kind: 'block',
+        start: t.start as number,
+        end: (t.end ?? null) as number | null,
+        name: t.name || '블록',
+        sub: t.btype && t.btype !== t.name ? t.btype : '일과',
+        color: t.color,
+        done: false,
+        e: null,
+      })),
+  ].sort((a, b) => a.start - b.start);
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
-  const subjName = allDone ? '완료' : focus ? focus.it.name : '—';
+  const subjName = allDone ? '완료' : focus ? focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
+  const focusMin = focus?.it.min && focus.it.min > 0 ? Math.min(focus.it.min, 50) : 25;
   const focusWhen = focus && focus.start != null && focus.end != null ? `${toHM(focus.start)}–${toHM(focus.end)}` : '—';
   const focusChapter = focus
     ? focus.it.chapters?.length
       ? focus.it.chapters.join(', ')
       : TYPE_LABEL[focus.it.type] || '학습'
     : '—';
+
+  const dispKicker = kicker;
+  const dispSubj = subjName;
+  const dispWhen = focusWhen;
+  const dispChapter = focusChapter;
+  const dispColor = !allDone && focus ? focus.it.color : undefined;
+
+  // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신).
+  const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
+  const timerPct = timer && timer.total ? Math.min(100, ((timer.total - timerLeft) / timer.total) * 100) : 0;
+  const mmss = `${String(Math.floor(timerLeft / 60)).padStart(2, '0')}:${String(timerLeft % 60).padStart(2, '0')}`;
+  const startTimer = () => {
+    const mins = focus?.it.min && focus.it.min > 0 ? Math.min(focus.it.min, 50) : 25;
+    setTimer({ endsAt: new Date().getTime() + mins * 60_000, total: mins * 60 });
+    ui.toast(`집중 ${mins}분 시작 — 화이팅 🔥`, 'info');
+  };
+  const stopTimer = () => setTimer(null);
+  // 종료 시점에 정확히 한 번 정리(타임아웃 콜백 내 setState — 동기 호출 회피).
+  useEffect(() => {
+    if (!timer) return;
+    const id = setTimeout(
+      () => {
+        setTimer(null);
+        ui.toast('집중 세션 완료 🎉', 'info');
+      },
+      Math.max(0, timer.endsAt - new Date().getTime()),
+    );
+    return () => clearTimeout(id);
+  }, [timer]);
+
+  // 전부 완료 순간 셀레브레이션(한 번만).
+  const wasDone = useRef(false);
+  const [celebrate, setCelebrate] = useState(false);
+  useEffect(() => {
+    if (allDone && !wasDone.current) {
+      wasDone.current = true;
+      setCelebrate(true);
+      ui.toast('오늘 블록 완료! 🎉', 'info');
+      const id = setTimeout(() => setCelebrate(false), 1400);
+      return () => clearTimeout(id);
+    }
+    if (!allDone) wasDone.current = false;
+  }, [allDone]);
 
   // 진행률·연속·마감 + 주 액션을 상단 바로 끌어올림(데모 v6 헤더).
   useEffect(() => {
@@ -182,144 +285,176 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
 
   return (
     <section className={s.today} aria-label="오늘 대시보드">
-      <div className={s.grid}>
-        {/* 1 — 회전 스파인 */}
-        <div className={s.spine}>
-          <div className={s.kicker}>{kicker}</div>
-          <div className={s.subj} style={focus && !allDone ? { color: focus.it.color || 'var(--ink)' } : undefined}>
-            {subjName}
-          </div>
-          <div className={s.clock}>{toHM(nowMin)}</div>
-        </div>
+      {/* ── 상단 밴드: 포커스 히어로 | 오늘의 블록 ── */}
+      <div className={s.top}>
+        {/* HERO — 거대 과목명 = 행동의 무대. 과목색 오로라 + 통합 집중 시작. */}
+        <div
+          ref={heroRef}
+          onMouseMove={onHeroMove}
+          onMouseLeave={onHeroLeave}
+          className={`${s.hero}${allDone ? ' ' + s.heroDone : ''}`}
+          style={dispColor ? ({ '--tint': dispColor } as CSSProperties) : undefined}
+        >
+          <div className={s.aura} aria-hidden="true" />
+          <div className={s.spotlight} aria-hidden="true" />
+          {timer && <div className={s.heroFill} style={{ width: `${timerPct}%` }} aria-hidden="true" />}
 
-        {/* 2 — 스탯 */}
-        <div className={s.stats}>
-          <div className={s.st}>
-            <div className={s.stL}>When</div>
-            <div className={s.stV}>{focusWhen}</div>
+          <div className={s.heroHead}>
+            <span className={s.eyebrow}>
+              {current && <i className={s.live} />}
+              {dispKicker}
+            </span>
+            <span className={s.heroWhen}>{dispWhen}</span>
           </div>
-          <div className={s.st}>
-            <div className={s.stL}>챕터</div>
-            <div className={s.stV}>{focusChapter}</div>
-          </div>
-          <div className={`${s.st} ${s.big}`}>
-            <div className={s.stL}>오늘 블록</div>
-            <div className={s.stV}>
-              {todayDone}
-              <small> / {todayTotal}</small>
-            </div>
-          </div>
-          <div className={s.st}>
-            <div className={s.stL}>이번 주</div>
-            <div className={s.stV}>
-              {weekTotalH.toFixed(1)}
-              <small> h</small>
-            </div>
-          </div>
-        </div>
 
-        {/* 3 — 발광 트랙 + 다음 콜아웃 + 주간 미니트랙 */}
-        <div className={s.track}>
-          <div>
-            <div className={s.trackHead}>
-              <span className={s.t}>오늘의 흐름 — TRACK</span>
-              <span className={s.now}>● {toHM(nowMin)} LIVE</span>
-            </div>
-            {!allDone && upNext ? (
-              <div className={s.next}>
-                <span className={s.arr}>다음 →</span>
-                <b>
-                  {upNext.it.name}
-                  {upNext.it.chapters?.length ? ` ${upNext.it.chapters.join(', ')}` : ''}
-                </b>{' '}
-                · {TYPE_LABEL[upNext.it.type] || '학습'}
-                {upNext.start != null ? ` · ${toHM(upNext.start)} 시작` : ''}
-              </div>
+          <h2 className={s.subj}>{dispSubj}</h2>
+          <div className={s.heroSub}>
+            {todayTotal === 0 ? (
+              '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
             ) : (
-              <div className={s.next}>
-                {allDone ? (
-                  <>
-                    <span className={s.arr}>✓</span>오늘 블록을 모두 끝냈어요 — 내일도 이대로.
-                  </>
-                ) : todayTotal === 0 ? (
-                  '학습 항목·일과를 설정하면 오늘의 흐름이 여기에 그려져요.'
-                ) : (
-                  '오늘의 마지막 블록이에요.'
+              <>
+                <span className={s.chapter}>{dispChapter}</span>
+                {upNext && !allDone && (
+                  <span className={s.upnext}>
+                    다음 · {upNext.it.name}
+                    {upNext.start != null ? ` ${toHM(upNext.start)}` : ''}
+                  </span>
                 )}
-              </div>
+              </>
             )}
           </div>
 
-          {segs.length ? (
-            <NeonTrack
-              segs={segs}
-              rangeStart={lo}
-              rangeEnd={hi}
-              nowMin={nowMin}
-              ariaLabel={`오늘의 학습 타임라인 — ${todayDone}/${todayTotal} 완료`}
-            />
-          ) : (
-            <div className={s.trackEmpty}>
-              아직 배치된 블록이 없어요. <b>학습 항목</b>·<b>가용시간</b>을 설정하면 트랙이 채워집니다.
-            </div>
-          )}
-
-          <div className={s.week}>
-            <span className={s.wlab}>
-              이번 주
-              <br />
-              {weekTotalH.toFixed(1)}h
-            </span>
-            {weekData.map((d, i) => (
-              <div key={i} className={`${s.wd}${d.today ? ' ' + s.todayCol : ''}`}>
-                <div className={s.wbar}>
-                  <i style={{ height: `${Math.round((d.h / maxH) * 100)}%` }} />
-                </div>
-                <div className={s.wdd}>{d.lab}</div>
-              </div>
-            ))}
+          {/* 주 액션 — 집중 타이머(포모도로). 히어로 안에 통합 = 가장 큰 요소가 곧 행동. */}
+          <div className={s.actions}>
+            {timer ? (
+              <button
+                type="button"
+                className={`${s.cta} ${s.ctaRun}`}
+                onClick={stopTimer}
+                aria-label="집중 타이머 정지"
+              >
+                <span className={s.ctaNum}>{mmss}</span>
+                <span className={s.ctaCap}>■ 정지</span>
+              </button>
+            ) : allDone ? (
+              <button type="button" className={`${s.cta} ${s.ctaGhost}`} onClick={() => go('/journal')}>
+                <span className={s.ctaGo}>✓ 오늘 완료</span>
+                <span className={s.ctaCap}>기록 보기 →</span>
+              </button>
+            ) : focus ? (
+              <button type="button" className={s.cta} onClick={startTimer} aria-label="집중 타이머 시작">
+                <span className={s.ctaGo}>▶ 집중 시작</span>
+                <span className={s.ctaCap}>{focusMin}분</span>
+              </button>
+            ) : (
+              <button type="button" className={s.cta} onClick={() => go('/items')}>
+                <span className={s.ctaGo}>＋ 학습 항목 추가</span>
+                <span className={s.ctaCap}>시작하기 →</span>
+              </button>
+            )}
+            <span className={s.clock}>{toHM(nowMin)}</span>
           </div>
         </div>
 
-        {/* 4 — 오늘의 블록(클릭 = 완료 토글) */}
-        <div className={s.sched}>
-          <h2 className={s.schedT}>
-            오늘의 블록 · {todayDone}/{todayTotal}
+        {/* 오늘의 흐름 — now-중심 세로 레일(학습 체크 + 일과, 색 통일). 무지개 트랙 폐기. */}
+        <aside className={s.flow}>
+          <h2 className={s.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayTotal} 완료`}>
+            <span className={`${s.ring}${celebrate ? ' ' + s.ringCele : ''}`} aria-hidden="true">
+              <svg viewBox="0 0 80 80" className={s.ringSvg} aria-hidden="true">
+                <circle className={s.ringTrack} cx="40" cy="40" r="34" />
+                <circle
+                  className={s.ringArc}
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  style={{ strokeDasharray: RING_C, strokeDashoffset: RING_C * (1 - pct / 100) }}
+                />
+              </svg>
+              <span className={s.ringNum}>
+                {todayDone}
+                <small>/{todayTotal}</small>
+              </span>
+            </span>
+            <span className={s.flowT}>오늘의 흐름</span>
+            <span className={s.now}>● {toHM(nowMin)} LIVE</span>
           </h2>
-          <div className={s.schedRows}>
-            {enriched.length ? (
-              enriched.map((e, i) => {
-                const cur = e === current;
-                return (
-                  <button
-                    key={e.it.sid + '|' + e.it.type + '|' + i}
-                    type="button"
-                    className={`${s.row}${e.done ? ' ' + s.rowDone : ''}${cur ? ' ' + s.rowCur : ''}`}
-                    onClick={() => toggle(e)}
-                    aria-label={`${e.it.name} 완료 토글`}
-                    aria-pressed={e.done}
-                  >
-                    <span className={s.bull} style={!e.done && !cur ? { background: e.it.color } : undefined} />
-                    <span className={s.nm}>
-                      {e.it.name}
-                      {e.it.chapters?.length ? <small> {e.it.chapters.join(', ')}</small> : null}
+          <div className={s.rail}>
+            {flowNodes.length ? (
+              flowNodes.map((nd) => {
+                const live = nd.start <= nowMin && (nd.end == null || nowMin < nd.end);
+                const past = nd.done || (nd.end != null && nowMin >= nd.end);
+                const dur = nd.end != null ? ` · ${hLabel(nd.end - nd.start)}` : '';
+                // 현재 블록 실시간 진행률(경과/길이) — 1초 틱으로 갱신.
+                const prog =
+                  live && nd.end != null && nd.end > nd.start
+                    ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
+                    : 0;
+                const cls = `${s.node} ${nd.kind === 'study' ? s.nStudy : s.nBlock}${live ? ' ' + s.nLive : ''}${past ? ' ' + s.nPast : ''}${nd.done ? ' ' + s.nDone : ''}`;
+                const inner = (
+                  <>
+                    {live && <span className={s.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
+                    <span className={s.nTime}>{toHM(nd.start)}</span>
+                    <span
+                      className={s.nDot}
+                      style={nd.kind === 'study' && nd.color ? { background: nd.color } : undefined}
+                    />
+                    <span className={s.nBody}>
+                      <span className={s.nName}>{nd.name}</span>
+                      <span className={s.nSub}>
+                        {nd.sub}
+                        {dur}
+                      </span>
                     </span>
-                    <span className={s.tm}>{e.start != null ? toHM(e.start) : ''}</span>
+                    {live && (
+                      <span className={s.nNow}>
+                        지금 <small>{prog}%</small>
+                      </span>
+                    )}
+                  </>
+                );
+                return nd.e ? (
+                  <button
+                    key={nd.key}
+                    type="button"
+                    className={cls}
+                    onClick={() => toggle(nd.e!)}
+                    aria-label={`${nd.name} 완료 토글`}
+                    aria-pressed={nd.done}
+                  >
+                    {inner}
                   </button>
+                ) : (
+                  <div key={nd.key} className={cls}>
+                    {inner}
+                  </div>
                 );
               })
             ) : (
-              <div className={s.schedEmpty}>아직 오늘 배치된 블록이 없어요.</div>
+              <div className={s.railEmpty}>
+                아직 배치된 블록이 없어요. <b>학습 항목</b>·<b>가용시간</b>을 설정하면 흐름이 채워집니다.
+              </div>
             )}
           </div>
           <button type="button" className={s.more} onClick={onOpenMore}>
             ＋ 블록 상세 · 일일 의식 · 흐름 가이드
           </button>
-        </div>
+        </aside>
       </div>
 
-      {/* 하단 스트립 — 마감·Anki·보충 */}
+      {/* 하단 스트립 — 이번 주·마감·Anki·보충(이퀄라이저 폐기 → 정돈된 단일 풋바). */}
       <div className={s.strip}>
+        <div className={s.grp}>
+          <span className={s.grpL}>이번 주</span>
+          <button
+            type="button"
+            className={s.tag}
+            onClick={() => go('/schedule')}
+            aria-label={`이번 주 ${weekTotalH.toFixed(1)}시간 — 주간 보기로 이동`}
+          >
+            <b>{weekShown.toFixed(1)}</b> h
+          </button>
+        </div>
+        <div className={s.vline} />
         <div className={s.grp}>
           <span className={s.grpL}>마감 임박</span>
           {soon.length ? (

@@ -31,14 +31,15 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('today: React 카드(대시보드 히어로·오늘의 블록)가 뜨고 #page를 쓰지 않는다', async () => {
+test('today: React 카드(대시보드 히어로·오늘의 흐름)가 뜨고 #page를 쓰지 않는다', async () => {
   renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
   // 단일 초점 히어로 — kicker(지금/다음/오늘 할 일·오늘 학습) + 보조 '이번 주' 지표(히어로로 스코프).
   const hero = screen.getByLabelText('오늘 대시보드');
   expect(within(hero).getByText(/^(지금 할 일|다음 할 일|오늘 할 일|오늘 학습)$/)).toBeInTheDocument();
   expect(within(hero).getByText('이번 주')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: /^오늘의 블록/ })).toBeInTheDocument();
+  // 흐름 레일 헤딩(블록 체크리스트를 흡수한 now-중심 타임라인).
+  expect(screen.getByRole('heading', { name: /^오늘의 흐름/ })).toBeInTheDocument();
   expect(document.getElementById('page')).toBeNull();
 });
 

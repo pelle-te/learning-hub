@@ -4,9 +4,23 @@
    레일·TopBar는 고정, HudFrame 내부만 스크롤(레이싱 텔레메트리 결).
 ============================================================ */
 .shell {
+  position: relative;
+  isolation: isolate; /* 앰비언트(z-1)가 셸 안에서만 콘텐츠 뒤로 — body 배경 위, 콘텐츠 아래. */
   display: grid;
   grid-template-columns: 60px minmax(0, 1fr);
   height: 100vh;
+}
+
+/* ── 필름 그레인 — WebGL 오로라(AmbientCanvas) 위에 미세 노이즈를 overlay로 얹어 밴딩·평면감 제거.
+   콘텐츠 뒤(z-1)·포인터 무시. 캔버스보다 DOM 뒤라 그 위에 그려진다. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  mix-blend-mode: overlay;
 }
 
 /* 본문 컬럼 — TopBar(고정) + main(흐름). */

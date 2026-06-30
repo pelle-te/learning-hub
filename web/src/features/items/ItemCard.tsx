@@ -1,12 +1,15 @@
 /* ItemCard — 접이식 과목 카드(헤더 요약 + 펼친 편집 영역). 변경은 store.mutate로.
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
-import { memo, useCallback } from 'react';
+import { memo, useCallback, type CSSProperties } from 'react';
 import { iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, Pill, type PillTone } from '@/components/ui';
+import { useHeroPointer } from '@/lib/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './ItemCard.module.css';
 import type { AppState, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
+
+const RING_C = 2 * Math.PI * 20; // 진행 링 둘레(r=20).
 
 type Mutate = (recipe: (st: AppState) => void) => void;
 
@@ -77,8 +80,18 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps)
     return cls === 'bad' ? 'bad' : cls === 'warn' ? 'warn' : 'neutral';
   })();
 
+  // 과목색 스포트라이트(틸트 없음 — 갤러리 카드). 구조분해로 ref-접근 린트 회피.
+  const { ref: cardRef, onMouseMove, onMouseLeave } = useHeroPointer(0);
+
   return (
-    <div className={`${c.row}${open ? ' ' + c.open : ''}`}>
+    <div
+      ref={cardRef}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      className={`${c.row}${open ? ' ' + c.open : ''} ${ds.spotHost} ${ds.glow}`}
+      style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
+    >
+      <div className={ds.spotlight} aria-hidden="true" />
       <div
         className={c.head}
         role="button"
@@ -93,42 +106,72 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps)
         }}
       >
         <span className={c.colorRail} style={{ background: item.color || 'var(--acc)' }} />
-        <span className={`${c.name}${item.name ? '' : ' ' + c.nameEmpty}`}>{item.name || '(이름 없음)'}</span>
-        <span className={c.spacer} />
-        <span className={c.meta}>
-          {daily ? (
-            <span className={c.hrs}>
-              매일 {item.dailyMin || 30}
-              <small> 분</small>
-            </span>
-          ) : (
-            <>
-              <span
-                className={c.chWrap}
-                role="img"
-                aria-label={`완료 챕터 ${doneCh}/${chs.length}`}
-                data-tip={`완료 챕터 ${doneCh}/${chs.length} · 약 ${totalH}h`}
-              >
-                <span className={c.chBar}>
-                  <i style={{ width: `${prog}%` }} />
-                </span>
-                <span className={c.chTxt}>
-                  <b>{doneCh}</b>/{chs.length} 챕터
-                </span>
-              </span>
-              <span className={c.hrs}>
-                주 {item.weeklyHours || 0}
-                <small> h</small>
-              </span>
-            </>
-          )}
+        <div className={c.idRow}>
+          <span className={`${c.name}${item.name ? '' : ' ' + c.nameEmpty}`}>{item.name || '(이름 없음)'}</span>
           {item.deadline && (
             <Pill tiny tone={ddTone}>
               {ddayInfo(dayDiff(iso(new Date()), item.deadline)).lab}
             </Pill>
           )}
           <span className={c.chev}>{open ? '▾' : '▸'}</span>
-        </span>
+        </div>
+        <div className={c.statRow}>
+          {daily ? (
+            <div className={c.bigStat}>
+              매일 {item.dailyMin || 30}
+              <small> 분</small>
+            </div>
+          ) : (
+            <>
+              <span
+                className={c.ring}
+                role="img"
+                aria-label={`완료 챕터 ${doneCh}/${chs.length}`}
+                data-tip={`완료 챕터 ${doneCh}/${chs.length} · 약 ${totalH}h`}
+              >
+                <svg viewBox="0 0 48 48" className={c.ringSvg} aria-hidden="true">
+                  <circle className={c.ringTrack} cx="24" cy="24" r="20" />
+                  <circle
+                    className={c.ringArc}
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    style={{ strokeDasharray: RING_C, strokeDashoffset: RING_C * (1 - prog / 100) }}
+                  />
+                </svg>
+                <span className={c.ringNum}>
+                  {prog}
+                  <small>%</small>
+                </span>
+              </span>
+              <div className={c.stats}>
+                <div className={c.stat}>
+                  <span className={c.statV}>
+                    {item.weeklyHours || 0}
+                    <small>h</small>
+                  </span>
+                  <span className={c.statL}>주당</span>
+                </div>
+                <div className={c.stat}>
+                  <span className={c.statV}>
+                    {doneCh}
+                    <small>/{chs.length}</small>
+                  </span>
+                  <span className={c.statL}>챕터</span>
+                </div>
+                {totalH > 0 && (
+                  <div className={c.stat}>
+                    <span className={c.statV}>
+                      {totalH}
+                      <small>h</small>
+                    </span>
+                    <span className={c.statL}>분량</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {open && (

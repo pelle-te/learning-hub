@@ -48,6 +48,10 @@
 .lgMuted {
   background: color-mix(in srgb, var(--ink) 12%, transparent);
 }
+.lgFree {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);
+}
 
 /* tall(fill) 변형 — 보드가 컨테이너 높이를 가득 채우고 7줄을 균등 분배(스케줄 단일화면). */
 .boardTall {
@@ -67,7 +71,7 @@
 .boardTall .row {
   flex: 1;
   align-items: stretch;
-  padding: 8px 12px;
+  padding: 5px 12px;
 }
 .boardTall .label,
 .boardTall .hours {
@@ -76,9 +80,10 @@
 .boardTall .lane {
   height: auto;
 }
+/* 막대는 행 높이의 ~62%만 채우고 위아래 19%씩 여백 — 요일끼리 붙어 보이지 않게(비율이라 화면 높이에 스케일). */
 .boardTall .seg {
-  top: 7px;
-  bottom: 7px;
+  top: 19%;
+  bottom: 19%;
   height: auto;
 }
 .boardTall .axis {
@@ -146,9 +151,11 @@
   position: relative;
   flex: 1;
   height: 22px;
-  border-radius: 5px;
+  border-radius: 9px;
   background: color-mix(in srgb, var(--ink) 3%, transparent);
-  box-shadow: inset 0 0 0 1px var(--line2);
+  box-shadow:
+    inset 0 0 0 1px var(--line2),
+    inset 0 1px 3px rgba(0, 0, 0, 0.28);
 }
 .row.today .lane {
   box-shadow: inset 0 0 0 1px var(--acc-glow);
@@ -157,17 +164,66 @@
   position: absolute;
   top: 3px;
   height: 16px;
-  border-radius: 3px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    filter 0.14s var(--ease),
+    box-shadow 0.14s var(--ease),
+    transform 0.14s var(--ease);
 }
+/* 셀 호버 — 은은히 밝아지고 같은 색 링으로 강조. */
+.seg:hover {
+  filter: brightness(1.12);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 55%, transparent),
+    0 0 10px color-mix(in srgb, var(--seg, var(--glow)) 38%, transparent);
+  z-index: 5;
+}
+.free:hover {
+  filter: none;
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 38%, transparent);
+  box-shadow: none;
+}
+/* 학습 — 과목 색 네온 입체 알약. 위 셰인→아래 음영 그라데이션 + 상단 하이라이트(입체) + 같은 색 글로우(반짝).
+   전 과목이 녹색 한 가족이라 모두 발광시켜도 안 싸운다(라임 액센트와 함께 빛나는 네온 통일감). */
 .primary {
-  background: var(--acc);
-  box-shadow: 0 0 12px var(--glow);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--seg, var(--acc)) 80%, #fff) 0%,
+    var(--seg, var(--acc)) 50%,
+    color-mix(in srgb, var(--seg, var(--acc)) 86%, #000) 100%
+  );
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--seg, var(--glow)) 55%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent);
 }
+/* 복습·Anki — 같은 색 옅게도 동일한 입체 결 + 옅은 글로우. */
 .soft {
-  background: color-mix(in srgb, var(--acc) 40%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--seg, var(--acc)) 54%, transparent) 0%,
+    color-mix(in srgb, var(--seg, var(--acc)) 40%, transparent) 100%
+  );
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--seg, var(--glow)) 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
 }
+/* 일과 블록 — 또렷하되 발광 없이, 학습 세그와 같은 입체 결. */
 .muted {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--seg, var(--ink)) 64%, transparent) 0%,
+    color-mix(in srgb, var(--seg, var(--ink)) 48%, transparent) 100%
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
+/* 빈 시간 — 채워지지 않은 빈 칸(점선). 과목이 채워지면 위 톤으로 바뀜. */
+.free {
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ink) 18%, transparent);
 }
 .now {
   position: absolute;
