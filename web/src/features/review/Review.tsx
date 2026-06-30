@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
+import { useHeroPointer } from '@/lib/interactions';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import {
@@ -68,15 +69,29 @@ const WEEKLY_CHECKS: [string, string][] = [
   ['anki', 'Anki 적체 — due가 밀렸으면 큐레이션을 더 빡세게(≤5장/블록).'],
 ];
 
-/** 계획 대비 실제 — 요일별 계획·완료 분 막대(weekPlanActual 집계 공유). 헤더 리드아웃의 일자별 분해. */
+/** 계획 대비 실제 — 요일별 계획·완료 분 막대(weekPlanActual 집계 공유). 주간 디브리프의 발광 시그니처.
+   액센트 베이크 패널 + 포인터 추적 스포트라이트·오로라(ds.spotHost/spotlight/aura/glow). */
 function PlanActualCard({ pa }: { pa: WeekPA }) {
-  const { byDay, maxRef } = pa;
+  const { byDay, maxRef, rate } = pa;
+  // 포인터 추적 스포트라이트 — 시그니처 차트가 커서를 따라 발광(틸트 없는 큰 보드).
+  const { ref, onMouseMove, onMouseLeave } = useHeroPointer(0);
 
   return (
-    <div className={ds.card}>
-      <h2>
-        계획 대비 실제 <span className={`${ds.muted} ${ds.tiny}`}>— 요일별 분해</span>
-      </h2>
+    <div
+      ref={ref}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      className={`${rv.sigChart} ${ds.spotHost} ${ds.glow}`}
+    >
+      <div className={ds.spotlight} aria-hidden="true" />
+      <div className={ds.aura} aria-hidden="true" />
+      <div className={rv.sigHead}>
+        <span className={rv.sigTitle}>계획 대비 실제 — PLAN vs ACTUAL</span>
+        <span className={rv.sigRate}>
+          달성 {rate}
+          <small>%</small>
+        </span>
+      </div>
       <div className={rv.paChart}>
         {byDay.map((x) => {
           const ph = Math.round((x.pm / maxRef) * 70);
@@ -129,7 +144,7 @@ function CbmsDistCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
     );
   }
   return (
-    <div className={ds.card}>
+    <div className={`${ds.card} ${ds.glow}`}>
       <h2>
         오답 CBMS 분포 <span className={`${ds.muted} ${ds.tiny}`}>— 약점의 분포</span>
       </h2>
@@ -165,7 +180,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   const closedThisWeek = backlogClosedBetween(state, ds0, ds6);
   const close = (id: string) => mutate((st) => toggleBacklog(st, id));
   return (
-    <div className={ds.card}>
+    <div className={`${ds.card} ${ds.glow}`}>
       <h2>
         보충 필요 회수 <span className={`${ds.muted} ${ds.tiny}`}>— 백로그를 닫는 고리</span>
       </h2>
@@ -204,7 +219,7 @@ function ChecklistCard({ wk }: { wk: string }) {
   const mutate = useApp((s) => s.mutate);
   const checks = w.checks || {};
   return (
-    <div className={ds.card}>
+    <div className={`${ds.card} ${ds.glow}`}>
       <h2>주간 점검 체크리스트</h2>
       {WEEKLY_CHECKS.map(([k, label]) => (
         <label key={k} className={ds.chkRow}>

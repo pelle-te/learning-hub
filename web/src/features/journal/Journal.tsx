@@ -111,7 +111,7 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
   };
 
   return (
-    <div className={ds.card}>
+    <div className={`${ds.card} ${ds.glow}`}>
       <h2>
         3문장 요약 <span className={`${ds.muted} ${ds.tiny}`}>— 압축이 안 되면 이해한 게 아니다(파인만)</span>
       </h2>
@@ -239,7 +239,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
   };
 
   return (
-    <div className={ds.card}>
+    <div className={`${ds.card} ${ds.glow}`}>
       <h2>
         오답 분류 CBMS <span className={`${ds.muted} ${ds.tiny}`}>— 틀린 이유별로 처방이 다르다</span>
       </h2>
@@ -360,7 +360,7 @@ function BacklogCard() {
   };
 
   return (
-    <div className={ds.card}>
+    <div className={`${ds.card} ${ds.glow}`}>
       <h2>
         보충 필요 백로그{' '}
         <span className={`${ds.muted} ${ds.tiny}`}>— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>

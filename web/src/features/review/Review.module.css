@@ -45,6 +45,57 @@
   margin-right: 2px;
 }
 
+/* 계획 대비 실제 — 발광 시그니처 차트(액센트 베이크 + 스포트라이트 호스트). */
+.sigChart {
+  position: relative;
+  padding: 18px 20px 16px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 7%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 5%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+  animation: ds-fadeUp 0.46s var(--ease) both;
+}
+.sigChart::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.sigHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.sigTitle {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.sigRate {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--acc);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 18px var(--acc-glow);
+}
+.sigRate small {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--mut);
+  margin-left: 1px;
+}
+
 /* 주간 디브리프 헤더(시그니처) — WeekGrid/.board 결 통일 */
 .board {
   border: 1px solid var(--line);
@@ -210,5 +261,12 @@
   .sideCol {
     border-left: none;
     border-top: 1px solid var(--line2);
+  }
+}
+
+/* 모션 자제 백스톱 — 시그니처 차트 등장 모션 즉시화. */
+@media (prefers-reduced-motion: reduce) {
+  .sigChart {
+    animation: none;
   }
 }

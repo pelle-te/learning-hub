@@ -3,19 +3,38 @@
    좌측 스파인 + 노드, 요약/오답/보충을 한 줄 행으로. WeekGrid/.board 결 통일.
 ============================================================ */
 .board {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--panel) 40%, transparent);
   padding: 16px 18px 16px;
   margin-bottom: 14px;
 }
-/* fill — 2컬럼 단일화면 좌측에서 컬럼 높이를 가득(스트림 자체 스크롤). */
+/* fill — 2컬럼 단일화면 좌측에서 컬럼 높이를 가득(스트림 자체 스크롤).
+   액센트색을 베이크한 발광 시그니처 보드(플랫 블랙 탈피) + 상단 헤어라인. */
 .boardFill {
   height: 100%;
   margin-bottom: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  border-radius: var(--r-lg);
+  padding: 18px 20px 16px;
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 7%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 5%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+  animation: ds-fadeUp 0.46s var(--ease) both;
+}
+.boardFill::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 .boardFill .stream {
   flex: 1;
@@ -158,5 +177,8 @@
 @media (prefers-reduced-motion: reduce) {
   .flag {
     box-shadow: none;
+  }
+  .boardFill {
+    animation: none;
   }
 }

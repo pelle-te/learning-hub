@@ -3,14 +3,19 @@
    레거시 ui-routine.js의 renderSettings + maintenanceCard를 React로.
    자주 안 바뀌는 기본값(시작일·모듈길이·피크 등) + 데이터 백업·정리.
    백업/내보내기/복구/아카이빙은 부수효과가 본질이라 shell/io로 위임(설계도 §3).
+
+   월드클래스 라운드(AmbientCanvas 언어) — 폼이 본질인 유틸 탭의 괴리감 해소: 상단 시네마틱
+   상태 밴드(백업·저장·기록을 카운트업 리드아웃으로)로 제품의 같은 피부·살아있는 감각을 입힘.
 ============================================================ */
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { ui, io } from '@/shell';
+import { useCountUp, useHeroPointer } from '@/lib/interactions';
 import { dataSizeKB, recordCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
+import st from './Settings.module.css';
 import type { AppState } from '@/lib/types';
 
 /** 액센트 스와치 미리보기색(테마 무관 대표 네온) + 라벨. tokens.css [data-accent] 프리셋과 1:1. */
@@ -30,12 +35,38 @@ function lastBackupDays(at?: string): number | null {
   return Math.floor((Date.now() - t.getTime()) / 86400000);
 }
 
+/** 상태 리드아웃 — 마운트 시 0→값 카운트업(reduced-motion이면 즉시). */
+function Readout({
+  value,
+  suffix,
+  lab,
+  tone,
+}: {
+  value: number;
+  suffix?: React.ReactNode;
+  lab: string;
+  tone?: 'ok' | 'warn';
+}) {
+  const shown = useCountUp(value);
+  return (
+    <div className={`${st.ro} ${tone === 'ok' ? st.roOk : tone === 'warn' ? st.roWarn : ''}`}>
+      <span className={st.roNum}>
+        {Math.round(shown)}
+        {suffix}
+      </span>
+      <span className={st.roLab}>{lab}</span>
+    </div>
+  );
+}
+
 /** 기본 설정 + 데이터 백업·정리. */
 export default function Settings() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
   const accent = useUI((s) => s.ui.accent);
   const setAccent = useUI((s) => s.setAccent);
+  // 포인터 추적 스포트라이트 — 상태 밴드가 커서를 따라 발광(틸트 없는 큰 보드).
+  const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
 
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
   const set = <K extends keyof AppState>(k: K, v: AppState[K]) => mutate((st) => void ((st as AppState)[k] = v));
@@ -55,22 +86,41 @@ export default function Settings() {
   };
 
   return (
-    <>
-      <div className={ds.card}>
-        <h2>
-          설정 <span className={`${ds.muted} ${ds.tiny}`}>— 학습 계획의 기본값과 데이터 백업</span>
-        </h2>
-        <div className={`${ds.tiny} ${ds.muted}`}>
-          요일별 가용시간·수업·일과 편집은 <b>가용시간·수업·일과</b> 탭(계획)에 있어요.
+    <section className={st.wrap} aria-label="설정">
+      {/* ── 시네마틱 상태 밴드 — 무엇을 설정하나 + 핵심 상태(백업·저장·기록) ── */}
+      <div
+        ref={heroRef}
+        onMouseMove={heroMove}
+        onMouseLeave={heroLeave}
+        className={`${st.hero} ${ds.spotHost} ${ds.glow}`}
+      >
+        <div className={ds.spotlight} aria-hidden="true" />
+        <div className={ds.aura} aria-hidden="true" />
+        <div className={st.heroLeft}>
+          <span className={st.eyebrow}>환경설정 · SETTINGS</span>
+          <h2 className={st.title}>설정</h2>
+          <span className={st.meta}>
+            학습 계획의 기본값 · 테마 · 데이터 백업. 요일별 가용시간·수업·일과는 <b>가용시간·수업·일과</b> 탭에서.
+          </span>
+        </div>
+        <div className={st.status}>
+          <div className={`${st.ro} ${stale ? st.roWarn : st.roOk}`} title={backupLine}>
+            <span className={st.roNum} style={{ fontSize: 16 }}>
+              {days == null ? '없음' : days === 0 ? '오늘' : `${days}일 전`}
+            </span>
+            <span className={st.roLab}>볼트 백업</span>
+          </div>
+          <Readout value={sizeKB} suffix={<small>KB</small>} lab="저장 크기" />
+          <Readout value={recs} suffix={<small>건</small>} lab="기록 수" />
         </div>
       </div>
 
-      <div className={ds.card}>
+      <div className={`${ds.card} ${ds.glow}`}>
         <h2>
           테마 · 액센트{' '}
           <span className={`${ds.muted} ${ds.tiny}`}>— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
         </h2>
-        <div className={ds.row} style={{ gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+        <div className={st.accRow}>
           {ACCENTS.map((a) => (
             <button
               key={a}
@@ -78,30 +128,12 @@ export default function Settings() {
               aria-pressed={accent === a}
               aria-label={`액센트 ${ACC_LABEL[a]}`}
               onClick={() => setAccent(a)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 13px',
-                borderRadius: 10,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontWeight: 700,
-                fontSize: 13,
-                color: 'var(--ink)',
-                border: `1px solid ${accent === a ? 'var(--acc)' : 'var(--line)'}`,
-                background: accent === a ? 'var(--acc-soft)' : 'transparent',
-              }}
+              className={`${st.accBtn} ${accent === a ? st.accOn : ''}`}
             >
               <span
                 aria-hidden="true"
-                style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: 5,
-                  background: ACC_PREVIEW[a],
-                  boxShadow: `0 0 8px ${ACC_PREVIEW[a]}`,
-                }}
+                className={st.accSwatch}
+                style={{ background: ACC_PREVIEW[a], boxShadow: `0 0 8px ${ACC_PREVIEW[a]}` }}
               />
               {ACC_LABEL[a]}
             </button>
@@ -112,7 +144,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className={ds.card}>
+      <div className={`${ds.card} ${ds.glow}`}>
         <h2>기본 설정</h2>
         <div className={ds.row}>
           <div>
@@ -269,7 +301,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className={ds.card}>
+      <div className={`${ds.card} ${ds.glow}`}>
         <h2>
           데이터 백업·정리{' '}
           <span className={`${ds.muted} ${ds.tiny}`}>— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
@@ -311,6 +343,6 @@ export default function Settings() {
           한정). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.
         </div>
       </div>
-    </>
+    </section>
   );
 }

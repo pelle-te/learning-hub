@@ -2,34 +2,53 @@
    JournalStream — 오늘의 로그(기록 시그니처). 그날 남긴 산출물을 검정 위 에디토리얼
    타임라인으로: 요약=얇은 행, CBMS=진단 칩 행(C/B/M/S/T 색), 보충=네온 플래그.
    순수 파생(읽기 전용 개요) — 입력은 아래 카드들이 소유. 데이터는 기존 selector 그대로.
+
+   월드클래스 라운드(AmbientCanvas 언어) — 패널이 살아있는 발광 보드로: 포인터 추적
+   스포트라이트 + 색 오로라(ds.spotHost/spotlight/aura/glow) + 카운트 카운트업.
 ============================================================ */
 import { useApp } from '@/store/useApp';
+import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import { summariesFor, cbmsBetween, CBMS_INFO } from '@/lib/methodology';
 import { itemById } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import s from './JournalStream.module.css';
 import type { CbmsCode } from '@/lib/types';
 
+/** 헤더 카운트 — 마운트 시 0→값 카운트업(reduced-motion이면 즉시). */
+function Count({ n }: { n: number }) {
+  const v = useCountUp(n);
+  return <b>{Math.round(v)}</b>;
+}
+
 export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: boolean }) {
   const state = useApp((st) => st.state);
+  // 포인터 추적 스포트라이트 — 시그니처 보드가 커서를 따라 발광(틸트 없는 큰 보드).
+  const { ref, onMouseMove, onMouseLeave } = useHeroPointer(0);
   const sums = summariesFor(state, dsKey);
   const cbms = cbmsBetween(state, dsKey, dsKey);
   const backlogToday = (state.backlog || []).filter((b) => b.ds === dsKey);
   const total = sums.length + cbms.length + backlogToday.length;
 
   return (
-    <div className={`${s.board}${fill ? ' ' + s.boardFill : ''}`}>
+    <div
+      ref={ref}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      className={`${s.board}${fill ? ' ' + s.boardFill : ''} ${ds.spotHost} ${ds.glow}`}
+    >
+      <div className={ds.spotlight} aria-hidden="true" />
+      <div className={ds.aura} aria-hidden="true" />
       <div className={s.head}>
         <span className={s.title}>오늘의 로그 — LOG</span>
         <span className={s.counts}>
           <span>
-            <b>{sums.length}</b> 요약
+            <Count n={sums.length} /> 요약
           </span>
           <span>
-            <b>{cbms.length}</b> 오답
+            <Count n={cbms.length} /> 오답
           </span>
           <span>
-            <b>{backlogToday.length}</b> 보충
+            <Count n={backlogToday.length} /> 보충
           </span>
         </span>
       </div>

@@ -1,0 +1,179 @@
+/* ============================================================
+   Settings.module.css — 설정 탭(유틸리티 콕핏). 폼이 본질인 탭이라 무스크롤이 아니라
+   '같은 재질·같은 살아있는 감각'으로: 상단 시네마틱 상태 밴드(백업·저장·기록을 시각 리드아웃으로)
+   + 본문 컨트롤 패널. 살아있는 인터랙션은 ds.module의 spotHost/spotlight/aura/glow + interactions.ts.
+   공유 클래스(card/row/foot/pill/chkRow/muted/tiny/warnbox)는 ds.module이 소유.
+============================================================ */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── 시네마틱 상태 밴드 — '무엇을 설정하나 + 핵심 상태(백업·저장·기록)' ── */
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(16px, 2.6vw, 34px);
+  padding: 20px clamp(20px, 2.6vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
+    radial-gradient(70% 90% at 0% 120%, color-mix(in oklab, var(--violet) 9%, transparent), transparent 64%),
+    linear-gradient(165deg, color-mix(in oklab, var(--acc) 7%, var(--panel2)), var(--panel) 62%);
+  box-shadow: var(--shadow-md);
+  animation: ds-fadeUp 0.46s var(--ease) both;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.heroLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--acc);
+  font-weight: 800;
+}
+.title {
+  margin: 2px 0 0;
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  color: var(--ink);
+}
+.meta {
+  font-size: 11.5px;
+  color: var(--mut);
+  line-height: 1.5;
+}
+.meta b {
+  color: var(--ink);
+}
+
+/* 상태 리드아웃 — 백업·저장·기록을 카운트업 칩으로(살아있는 콕핏). */
+.status {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 96px;
+  padding: 12px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--ink) 2%, var(--panel));
+  box-shadow: var(--shadow-sm);
+}
+.roOk {
+  border-color: color-mix(in srgb, var(--acc) 38%, var(--line));
+  background: var(--acc-soft);
+}
+.roWarn {
+  border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
+}
+.roNum {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.roOk .roNum {
+  color: var(--acc);
+}
+.roWarn .roNum {
+  color: var(--bad);
+}
+.roNum small {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mut);
+  margin-left: 1px;
+}
+.roLab {
+  font-size: 10.5px;
+  color: var(--mut);
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+/* ── 액센트 스와치 ── */
+.accRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.accBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  background: transparent;
+  transition:
+    border-color 0.16s var(--ease),
+    background 0.16s var(--ease),
+    transform 0.16s var(--ease);
+}
+.accBtn:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+}
+.accOn {
+  border-color: var(--acc);
+  background: var(--acc-soft);
+}
+.accSwatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  flex: none;
+}
+
+@media (max-width: 720px) {
+  .status {
+    width: 100%;
+  }
+  .ro {
+    flex: 1;
+  }
+}
+
+/* 모션 자제 백스톱 — 상태 밴드 등장 모션 즉시화. */
+@media (prefers-reduced-motion: reduce) {
+  .hero {
+    animation: none;
+  }
+}
