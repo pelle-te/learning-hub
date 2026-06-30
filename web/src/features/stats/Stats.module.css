@@ -2,112 +2,6 @@
    공유 클래스(card/kpi/tl/pill/bar/swatch/muted/tiny/foot)는 ds.module이 소유.
    하이픈명은 camelCase로(hm-wrap→hmWrap, hm-l0→hmL0). 값은 원본 features.css와 동일. */
 
-/* 데이터 보드(시그니처) — WeekGrid/.board 결 통일 */
-.board {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 16px 18px 16px;
-  margin-bottom: 14px;
-}
-.bHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 14px;
-}
-.bTitle {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 800;
-}
-.bMeta {
-  font-size: 11px;
-  color: var(--mut);
-}
-.bGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr);
-  gap: 14px;
-  align-items: stretch;
-}
-.hero {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--line));
-  border-radius: 9px;
-  background: var(--acc-soft);
-}
-.heroNum {
-  font-size: 46px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--acc);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-.heroNum small {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--mut);
-}
-.heroLab {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  margin-top: 4px;
-}
-.heroSub {
-  font-size: 11px;
-  color: var(--mut);
-  font-variant-numeric: tabular-nums;
-}
-.cells {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.ro {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--ink) 2%, transparent);
-}
-.roNum {
-  font-size: 26px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.roNum small {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--mut);
-}
-.roLab {
-  font-size: 11px;
-  color: var(--mut);
-  font-weight: 600;
-}
-
-@media (max-width: 680px) {
-  .bGrid {
-    grid-template-columns: 1fr;
-  }
-  .cells {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
 .hmWrap {
   display: flex;
   gap: 6px;
@@ -187,7 +81,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 88px 236px 1fr 304px;
+  grid-template-columns: 88px 248px 1fr 312px;
 }
 .grid > div {
   min-width: 0;
@@ -226,19 +120,139 @@
   font-weight: 800;
 }
 
-/* 2 — 지표 컬럼(완료율 히어로 + 보조 리드아웃) */
+/* 2 — 지표 컬럼(완료율 발광 게이지 히어로 + 카운트업 리드아웃) */
 .metrics {
   border-right: 1px solid var(--line2);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   justify-content: center;
 }
-.metrics .hero {
-  margin: 0;
+
+/* 완료율 히어로 — 액센트색을 베이크한 발광 패널(플랫 블랙 탈피) + 원형 게이지 시선집중. */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(90% 70% at 12% 118%, color-mix(in oklab, var(--acc) 16%, transparent), transparent 70%),
+    radial-gradient(72% 64% at 102% -12%, color-mix(in oklab, var(--acc) 10%, transparent), transparent 60%),
+    linear-gradient(165deg, color-mix(in oklab, var(--acc) 8%, var(--panel2)), var(--panel) 60%);
+  box-shadow: var(--shadow-md);
+  animation: ds-fadeUp 0.46s var(--ease) both;
 }
-.metrics .ro {
-  padding: 11px 14px;
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+.gauge {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  flex: none;
+}
+.gaugeSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.gaugeTrack {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 9;
+}
+.gaugeArc {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 9;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px var(--glow));
+  transition: stroke-dashoffset 0.7s var(--ease);
+}
+.gaugeNum {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--acc);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 22px var(--acc-glow);
+}
+.gaugeNum small {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--mut);
+  margin-left: 1px;
+}
+.heroMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.heroLab {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.heroSub {
+  font-size: 11px;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 보조 리드아웃 — 2열 카운트업 칩. */
+.ros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--ink) 2%, var(--panel));
+  box-shadow: var(--shadow-sm);
+}
+.roNum {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.roNum small {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.roLab {
+  font-size: 10.5px;
+  color: var(--mut);
+  font-weight: 600;
+  word-break: keep-all;
+  line-height: 1.3;
 }
 
 /* 3 — 시그니처(스트릭 발광맵 + 인출 판정) */
@@ -252,6 +266,27 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+}
+/* 발광 스트릭 패널 — GitHub 잔디를 네온으로 베이크한 데이터 보드의 주인공(스포트라이트 호스트). */
+.sigMap {
+  position: relative;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in oklab, var(--acc) 7%, transparent), transparent 58%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 5%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+  animation: ds-fadeUp 0.46s var(--ease) 0.06s both;
+}
+.sigMap::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
 }
 .sigTitle {
   font-size: 11px;
@@ -337,17 +372,47 @@
   scrollbar-width: thin;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
+  margin: 0 -4px;
+  padding: 0 4px;
 }
 .subj {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line2);
+  padding: 11px 13px 12px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition:
+    border-color 0.16s var(--ease),
+    transform 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
 }
-.subj:last-child {
-  border-bottom: none;
+/* 호버 시 좌측 액센트 레일이 차오름 — 로스터의 살아있는 감각. */
+.subj::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+  transform: scaleY(0);
+  transition: transform 0.18s var(--ease);
+}
+.subj:hover {
+  border-color: color-mix(in srgb, var(--acc) 28%, var(--line));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.subj:hover::before {
+  transform: scaleY(1);
 }
 .subjTop {
   display: flex;
@@ -428,5 +493,33 @@
   }
   .verdicts {
     margin-top: 14px;
+  }
+  .ros {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .hero {
+    flex-direction: row;
+    justify-content: center;
+    gap: 20px;
+  }
+}
+
+/* 모션 자제 백스톱 — 게이지 채움·등장 모션 즉시화. */
+@media (prefers-reduced-motion: reduce) {
+  .hero,
+  .sigMap {
+    animation: none;
+  }
+  .gaugeArc {
+    transition: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .ros {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hero {
+    flex-direction: column;
   }
 }

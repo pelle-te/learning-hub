@@ -3,12 +3,17 @@
    지식엔진.py 산출(_지식상태.json)을 소비 — 히트맵(A)·프런티어/갭(B)·캘리브레이션(E).
    데이터 원본 둘: serve.js /api/artifact/knowledge(자동) · 볼트 폴더 FS Access(수동 폴백).
    둘 다 같은 ['knowledge'] Query 캐시로 모여 본문이 렌더(설계도 §1-B). 레거시 _knowState 수동배선 제거.
+
+   월드클래스 재설계(데모 v6 사상) — HudFrame fill 가득.
+   상단 시네마틱 히어로 밴드(전체 숙달 발광 링 + 상태 분포 + 로드) → 본문 2컬럼
+   [발광 지식맵(시그니처) | 다음 행동(프런티어·약점·캘리브레이션)]. 살아있는 인터랙션(스포트라이트·오로라·카운트업).
 ============================================================ */
 import { useEffect, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useKnowledge, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
+import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, type Knowledge } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
@@ -18,66 +23,89 @@ import m from './Mastery.module.css';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
 
-function Overview({ k }: { k: Knowledge }) {
-  const s = k.states || {};
-  const tot = k.n_notes || 1;
-  const seg = (n: number | undefined, c: string, lab: string) => {
-    const w = Math.round(((n || 0) / tot) * 100);
-    const t = `${lab} ${n || 0} (${w}%)`;
-    return w ? <div data-tip={t} role="img" aria-label={t} style={{ width: `${w}%`, background: c }} /> : null;
-  };
+const RING_R = 46;
+const RING_C = 2 * Math.PI * RING_R; // 전체 숙달 링 둘레.
+
+/** 전체 숙달 — 발광 원형 링(마운트 시 0→target 카운트업). 히어로의 시선 집중점. */
+function OverallRing({ overall }: { overall: number }) {
+  const target = Math.round((overall || 0) * 100);
+  const shown = useCountUp(target);
   return (
-    <div className={ds.card}>
-      <h3>지식 상태 분포</h3>
-      <div className={m.msbar}>
-        {seg(s.mastered, 'var(--good,#4caf50)', '숙달')}
-        {seg(s.learning, '#d6a72b', '학습중')}
-        {seg(s.weak, 'var(--bad,#e3564a)', '약점')}
-        {seg(s.unknown, 'var(--line,#444)', '미관측')}
-      </div>
-      <div className={`${ds.row} ${ds.foot}`} style={{ gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
-        <span>
-          <i className={m.dot} style={{ background: 'var(--good,#4caf50)' }} />
-          숙달 {s.mastered || 0}
-        </span>
-        <span>
-          <i className={m.dot} style={{ background: '#d6a72b' }} />
-          학습중 {s.learning || 0}
-        </span>
-        <span>
-          <i className={m.dot} style={{ background: 'var(--bad,#e3564a)' }} />
-          약점 {s.weak || 0}
-        </span>
-        <span>
-          <i className={m.dot} style={{ background: 'var(--line,#444)' }} />
-          미관측 {s.unknown || 0}
-        </span>
-      </div>
-      {(s.unknown || 0) > tot * 0.5 && (
-        <div className={`${ds.foot} ${ds.muted}`} style={{ marginTop: 6 }}>
-          ⚠ 미관측이 과반입니다 — 인출 데이터(Anki due·CBMS·백지)가 쌓이면 회색이 색을 찾습니다. 그래프 기반{' '}
-          <b>프런티어</b>는 관측 없이도 작동하니 아래에서 다음 배울 개념을 보세요.
-        </div>
-      )}
+    <div className={m.ring} role="img" aria-label={`전체 숙달 ${target}%`}>
+      <svg viewBox="0 0 120 120" className={m.ringSvg} aria-hidden="true">
+        <circle className={m.ringTrack} cx="60" cy="60" r={RING_R} />
+        <circle
+          className={m.ringArc}
+          cx="60"
+          cy="60"
+          r={RING_R}
+          style={{ strokeDasharray: RING_C, strokeDashoffset: RING_C * (1 - shown / 100) }}
+        />
+      </svg>
+      <span className={m.ringNum}>
+        {Math.round(shown)}
+        <small>%</small>
+      </span>
     </div>
   );
 }
 
-function Subjects({ k }: { k: Knowledge }) {
-  const subs = (k.subjects || []).slice().sort((a, b) => a.mastery - b.mastery);
+const DIST: { key: 'mastered' | 'learning' | 'weak' | 'unknown'; color: string; lab: string }[] = [
+  { key: 'mastered', color: 'var(--good,#4caf50)', lab: '숙달' },
+  { key: 'learning', color: '#d6a72b', lab: '학습중' },
+  { key: 'weak', color: 'var(--bad,#e3564a)', lab: '약점' },
+  { key: 'unknown', color: 'var(--line,#444)', lab: '미관측' },
+];
+
+/** 지식 상태 분포 — 한 줄 세그먼트 바 + 범례 칩(히어로에 베이크). */
+function Distribution({ k }: { k: Knowledge }) {
+  const s = k.states || {};
+  const tot = k.n_notes || 1;
   return (
-    <div className={ds.card}>
-      <h3>
-        과목별 숙달 히트맵{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>
-          — 셀 하나가 개념. 빨강=약점·초록=숙달·회색=미관측 (마우스 올리면 제목)
-        </span>
-      </h3>
+    <div className={m.dist}>
+      <div className={m.msbar}>
+        {DIST.map(({ key, color, lab }) => {
+          const n = s[key] || 0;
+          const w = Math.round((n / tot) * 100);
+          if (!w) return null;
+          const t = `${lab} ${n} (${w}%)`;
+          return <div key={key} data-tip={t} role="img" aria-label={t} style={{ width: `${w}%`, background: color }} />;
+        })}
+      </div>
+      <div className={m.distLegend}>
+        {DIST.map(({ key, color, lab }) => (
+          <span key={key}>
+            <i className={m.dot} style={{ background: color }} />
+            {lab} <b>{s[key] || 0}</b>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 발광 지식맵 — 과목별 히트맵(셀 하나가 개념). 데이터 보드의 immersive 시그니처(카드 래퍼 없이 bare). */
+function KnowledgeMap({ k }: { k: Knowledge }) {
+  const subs = (k.subjects || []).slice().sort((a, b) => a.mastery - b.mastery);
+  const tot = k.n_notes || 1;
+  const manyUnknown = (k.states?.unknown || 0) > tot * 0.5;
+  return (
+    <>
+      <div className={m.mapHead}>
+        <span className={m.mapTitle}>발광 지식맵 — KNOWLEDGE MAP</span>
+        <span className={m.mapMeta}>셀 하나가 개념 · 빨강=약점 · 초록=숙달 · 회색=미관측</span>
+      </div>
+      {manyUnknown && (
+        <div className={m.note}>
+          ⚠ 미관측이 과반 — 인출 데이터(Anki due·CBMS·백지)가 쌓이면 회색이 색을 찾습니다. 그래프 기반 <b>프런티어</b>는
+          관측 없이도 작동하니 우측에서 다음 배울 개념을 보세요.
+        </div>
+      )}
       {subs.length ? (
         subs.map((s) => (
           <div key={s.subject} className={m.mssub}>
-            <div className={ds.row} style={{ alignItems: 'center', gap: 8 }}>
-              <b style={{ flex: 1 }}>{s.subject}</b>
+            <div className={m.subHead}>
+              <b className={m.subNm}>{s.subject}</b>
               <span className={`${ds.tiny} ${ds.muted}`}>
                 {s.n}개 · 숙달 {pct(s.mastery)}
                 {s.weak ? ` · 약점 ${s.weak}` : ''}
@@ -90,8 +118,8 @@ function Subjects({ k }: { k: Knowledge }) {
                   c.weak && c.root_cause && c.root_cause !== 'self' ? ' ← 선수약점: ' + c.root_cause : ''
                 }`;
                 const col = masteryColor(c.p_eff, c.state);
-                // 발광 지식맵 — 유효숙달 p가 높을수록 글로우 강하게(0.55↑부터 번짐). 미관측/약점은 차분.
-                //  프런티어는 accent 링과 글로우를 함께(인라인이 .fr 클래스 box-shadow를 덮으므로 합성).
+                // 유효숙달 p가 높을수록 글로우 강하게(0.55↑부터 번짐). 미관측/약점은 차분.
+                // 프런티어는 accent 링 + 글로우를 함께(인라인이 .fr의 box-shadow를 덮으므로 합성).
                 const ring = c.frontier ? '0 0 0 1.5px var(--acc)' : '';
                 const glow = c.p_eff >= 0.55 ? `0 0 ${Math.round((c.p_eff - 0.4) * 14)}px ${col}` : '';
                 const boxShadow = [ring, glow].filter(Boolean).join(', ') || undefined;
@@ -112,10 +140,8 @@ function Subjects({ k }: { k: Knowledge }) {
       ) : (
         <div className={`${ds.muted} ${ds.tiny}`}>과목 없음</div>
       )}
-      <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
-        테두리 친 셀 ⬡ = 프런티어(지금 배울 준비됨).
-      </div>
-    </div>
+      <div className={m.mapFoot}>테두리 친 셀 ⬡ = 프런티어(지금 배울 준비됨).</div>
+    </>
   );
 }
 
@@ -314,6 +340,9 @@ export default function Mastery() {
   const setRuntimeCache = useApp((s) => s.setRuntimeCache);
   const setChrome = usePageChrome((s) => s.setChrome);
   const clearChrome = usePageChrome((s) => s.clear);
+  // 포인터 추적 스포트라이트 — 히어로 밴드·지식맵 패널이 커서를 따라 발광(틸트 없는 큰 보드).
+  const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
+  const { ref: mapRef, onMouseMove: mapMove, onMouseLeave: mapLeave } = useHeroPointer(0);
 
   // 전체 유효숙달·노트·약점 리드아웃을 상단 바로(데모 v6 헤더).
   const weak = k?.states?.weak;
@@ -354,32 +383,65 @@ export default function Mastery() {
     setRuntimeCache('_knowState', loaded);
   };
 
+  const loading = (isLoading || isFetching) && !k;
+
   return (
     <section className={m.wrap} aria-label="숙달도 지도">
-      <div className={m.head}>
-        <h2 className={m.headTitle}>🧠 숙달도 지도</h2>
+      {/* ── 시네마틱 히어로 밴드 — 전체 숙달 발광 링 + 상태 분포 + 로드 ── */}
+      <div
+        ref={heroRef}
+        onMouseMove={heroMove}
+        onMouseLeave={heroLeave}
+        className={`${m.hero} ${ds.spotHost} ${ds.glow}`}
+      >
+        <div className={ds.spotlight} aria-hidden="true" />
+        <div className={ds.aura} aria-hidden="true" />
+        <div className={m.heroLeft}>
+          <span className={m.eyebrow}>지식 지도</span>
+          <h2 className={m.headTitle}>🧠 숙달도 지도</h2>
+          <span className={m.headMeta}>
+            {k ? (
+              <>
+                생성 {k.generated || '—'} · 노트 {k.n_notes}개
+              </>
+            ) : (
+              '선수개념 그래프로 지금 배울 것을 진단'
+            )}
+          </span>
+        </div>
+        {k && <OverallRing overall={k.overall || 0} />}
         {k && (
-          <span className={m.headMeta}>
-            생성 {k.generated || ''} · 노트 {k.n_notes}개
-          </span>
+          <div className={m.heroDistWrap}>
+            <span className={m.distLab}>지식 상태 분포</span>
+            <Distribution k={k} />
+          </div>
         )}
-        <span style={{ flex: 1 }} />
-        {(isLoading || isFetching) && !k && (
-          <span className={m.headMeta}>
-            <span className={ds.spin} /> 로드 중
-          </span>
-        )}
-        <Button sm variant="primary" onClick={loadFromVault}>
-          📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}
-        </Button>
+        <div className={m.heroAction}>
+          {loading && (
+            <span className={m.headMeta}>
+              <span className={ds.spin} /> 로드 중
+            </span>
+          )}
+          <Button sm variant="primary" onClick={loadFromVault}>
+            📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}
+          </Button>
+        </div>
       </div>
 
       {k ? (
         <div className={m.cols}>
-          {/* 좌 — 발광 지식맵(분포 + 과목별 히트맵) */}
-          <div className={m.mapCol}>
-            <Overview k={k} />
-            <Subjects k={k} />
+          {/* 좌 — 발광 지식맵(immersive 시그니처) */}
+          <div
+            ref={mapRef}
+            onMouseMove={mapMove}
+            onMouseLeave={mapLeave}
+            className={`${m.mapCol} ${ds.spotHost} ${ds.glow}`}
+          >
+            <div className={ds.spotlight} aria-hidden="true" />
+            <div className={ds.aura} aria-hidden="true" />
+            <div className={m.mapScroll}>
+              <KnowledgeMap k={k} />
+            </div>
           </div>
           {/* 우 — 다음 행동(프런티어·약점·캘리브레이션) */}
           <div className={m.actionCol}>
@@ -388,7 +450,7 @@ export default function Mastery() {
             <Calibration k={k} />
           </div>
         </div>
-      ) : isLoading || isFetching ? (
+      ) : loading ? (
         <div className={m.offWrap}>
           <div className={`${ds.muted}`}>
             <span className={ds.spin} /> 지식상태 로드 중...

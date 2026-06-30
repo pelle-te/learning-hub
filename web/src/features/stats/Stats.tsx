@@ -4,10 +4,11 @@
    과목별 진행·주별 학습시간·챕터 타임라인. 차트는 기존 SVG/막대 로직을 컴포넌트화(설계도 §3).
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵은 Stats.module(st.*), 요소·토큰은 전역 base.
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
+import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import DetailDrawer from '@/components/DetailDrawer';
 import { isDone, totalDoneHours, studyStreak } from '@/lib/persistence';
 import { cbmsCounts, cbmsTrend, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
@@ -515,12 +516,66 @@ function SubjectRow({ s }: { s: ScheduleResult['itemStat'][number] }) {
 
 const CBMS_CODES: CbmsCode[] = ['C', 'B', 'M', 'S', 'T'];
 
+const GAUGE_R = 52;
+const GAUGE_C = 2 * Math.PI * GAUGE_R; // 완료율 게이지 둘레.
+
+/** 완료율 — 발광 원형 게이지(마운트 시 0→target 카운트업). 데이터 보드의 시선 집중점. */
+function Gauge({ pct }: { pct: number }) {
+  const shown = useCountUp(pct);
+  return (
+    <div className={st.gauge} role="img" aria-label={`완료율 ${pct}%`}>
+      <svg viewBox="0 0 130 130" className={st.gaugeSvg} aria-hidden="true">
+        <circle className={st.gaugeTrack} cx="65" cy="65" r={GAUGE_R} />
+        <circle
+          className={st.gaugeArc}
+          cx="65"
+          cy="65"
+          r={GAUGE_R}
+          style={{ strokeDasharray: GAUGE_C, strokeDashoffset: GAUGE_C * (1 - shown / 100) }}
+        />
+      </svg>
+      <span className={st.gaugeNum}>
+        {Math.round(shown)}
+        <small>%</small>
+      </span>
+    </div>
+  );
+}
+
+/** 보조 리드아웃 — 큰 숫자가 0→값으로 카운트업하며 살아남(easeOutCubic). */
+function Readout({
+  value,
+  lab,
+  prefix,
+  suffix,
+}: {
+  value: number;
+  lab: ReactNode;
+  prefix?: string;
+  suffix?: ReactNode;
+}) {
+  const shown = useCountUp(value);
+  return (
+    <div className={`${st.ro} ${ds.glow}`}>
+      <span className={st.roNum}>
+        {prefix}
+        {Math.round(shown)}
+        {suffix}
+      </span>
+      <span className={st.roLab}>{lab}</span>
+    </div>
+  );
+}
+
 export default function Stats() {
   const state = useApp((s) => s.state);
   const r = useSchedule();
   const [detailOpen, setDetailOpen] = useState(false);
   const setChrome = usePageChrome((s) => s.setChrome);
   const clearChrome = usePageChrome((s) => s.clear);
+  // 포인터 추적 스포트라이트 — 히어로 게이지 패널·발광 스트릭 시그니처가 커서를 따라 발광(틸트 없는 큰 보드).
+  const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
+  const { ref: mapRef, onMouseMove: mapMove, onMouseLeave: mapLeave } = useHeroPointer(0);
 
   const totalSchedH = r.itemStat.reduce((t, s) => t + (s.schedH || 0), 0);
   const totalCh = r.itemStat.reduce((t, s) => t + (s.totalCh || 0), 0);
@@ -604,36 +659,29 @@ export default function Stats() {
           <div className={st.spineSub}>{r.itemStat.length}과목</div>
         </div>
 
-        {/* 2 — 지표 컬럼(완료율 히어로 + 보조 리드아웃) */}
+        {/* 2 — 지표 컬럼(완료율 발광 게이지 히어로 + 카운트업 리드아웃) */}
         <div className={st.metrics}>
-          <div className={st.hero}>
-            <span className={st.heroNum}>
-              {compRate}
-              <small>%</small>
-            </span>
-            <span className={st.heroLab}>완료율 · 실제/계획</span>
-            <span className={st.heroSub}>
-              {doneH.toFixed(1)}h / {Math.round(totalSchedH)}h
-            </span>
+          <div
+            ref={heroRef}
+            onMouseMove={heroMove}
+            onMouseLeave={heroLeave}
+            className={`${st.hero} ${ds.spotHost} ${ds.glow}`}
+          >
+            <div className={ds.spotlight} aria-hidden="true" />
+            <div className={ds.aura} aria-hidden="true" />
+            <Gauge pct={compRate} />
+            <div className={st.heroMeta}>
+              <span className={st.heroLab}>완료율 · 실제/계획</span>
+              <span className={st.heroSub}>
+                {doneH.toFixed(1)}h / {Math.round(totalSchedH)}h
+              </span>
+            </div>
           </div>
-          <div className={st.ro}>
-            <span className={st.roNum}>🔥 {streak}</span>
-            <span className={st.roLab}>연속 학습일</span>
-          </div>
-          <div className={st.ro}>
-            <span className={st.roNum}>
-              {doneCh}
-              <small>/{totalCh}</small>
-            </span>
-            <span className={st.roLab}>완료 챕터</span>
-          </div>
-          <div className={st.ro}>
-            <span className={st.roNum}>{recallActs}</span>
-            <span className={st.roLab}>능동 인출(요약+백지+모의)</span>
-          </div>
-          <div className={st.ro}>
-            <span className={st.roNum}>{revCount}</span>
-            <span className={st.roLab}>복습 세션(계획)</span>
+          <div className={st.ros}>
+            <Readout value={streak} prefix="🔥 " lab="연속 학습일" />
+            <Readout value={doneCh} suffix={<small>/{totalCh}</small>} lab="완료 챕터" />
+            <Readout value={recallActs} lab="능동 인출(요약+백지+모의)" />
+            <Readout value={revCount} lab="복습 세션(계획)" />
           </div>
         </div>
 
@@ -643,7 +691,16 @@ export default function Stats() {
             <span className={st.sigTitle}>학습 스트릭 — STREAK</span>
             <span className={st.sigMeta}>꾸준함의 리듬</span>
           </div>
-          <StreakHeatmap bare />
+          <div
+            ref={mapRef}
+            onMouseMove={mapMove}
+            onMouseLeave={mapLeave}
+            className={`${st.sigMap} ${ds.spotHost} ${ds.glow}`}
+          >
+            <div className={ds.spotlight} aria-hidden="true" />
+            <div className={ds.aura} aria-hidden="true" />
+            <StreakHeatmap bare />
+          </div>
           <div className={st.verdicts}>
             <div className={st.verdict}>
               <span className={`${st.vIcon} ${trGood ? st.good : st.bad}`}>{trIcon}</span>

@@ -1,53 +1,358 @@
 /* Mastery.module.css — 숙달도 지도 탭 전용 스타일. 다른 feature와 공유 안 함.
-   공유 클래스(card/chip/muted/tiny/foot/row/kpi)는 ds.module이 소유. 값은 원본 features.css와 동일. */
+   공유 클래스(card/chip/muted/tiny/foot/row/kpi)는 ds.module이 소유.
 
-/* ============================================================
-   숙달도 2컬럼 단일화면(데모 v6 사상) — HudFrame fill 가득.
-   좌측 발광 지식맵(분포+히트맵), 우측 다음 행동(프런티어·약점·캘리브레이션). 전체 숙달은 상단 바.
-============================================================ */
+   월드클래스 재설계(데모 v6 사상) — HudFrame fill 가득.
+   상단 시네마틱 히어로 밴드(전체 숙달 발광 링 + 분포 + 로드) → 본문 2컬럼
+   [발광 지식맵(시그니처) | 다음 행동]. 살아있는 인터랙션은 ds.module의 spotHost/spotlight/aura/glow + interactions.ts. */
 .wrap {
   height: 100%;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 14px;
   min-width: 0;
+  min-height: 0;
 }
-.head {
+
+/* ── 시네마틱 히어로 밴드 ── */
+.hero {
   flex: none;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 22px;
-  border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
+  gap: clamp(18px, 3vw, 38px);
+  padding: 18px clamp(20px, 2.6vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
+    radial-gradient(70% 90% at 0% 120%, color-mix(in oklab, var(--violet) 9%, transparent), transparent 64%),
+    linear-gradient(165deg, color-mix(in oklab, var(--acc) 7%, var(--panel2)), var(--panel) 62%);
+  box-shadow: var(--shadow-md);
+  animation: ds-fadeUp 0.46s var(--ease) both;
 }
-.headTitle {
-  margin: 0;
-  font-size: 17px;
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+.heroLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--acc);
   font-weight: 800;
 }
+.headTitle {
+  margin: 2px 0 0;
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  color: var(--ink);
+}
 .headMeta {
-  font-size: 11px;
+  font-size: 11.5px;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 전체 숙달 — 발광 원형 링 */
+.ring {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  flex: none;
+}
+.ringSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ringTrack {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 8;
+}
+.ringArc {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 8;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px var(--glow));
+  transition: stroke-dashoffset 0.7s var(--ease);
+}
+.ringNum {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--acc);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px var(--acc-glow);
+}
+.ringNum small {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--mut);
+  margin-left: 1px;
+}
+
+/* 상태 분포 — 히어로에 베이크한 세그먼트 바 + 범례 */
+.heroDistWrap {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.distLab {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.dist {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.msbar {
+  display: flex;
+  height: 16px;
+  border-radius: 99px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  background: var(--panel2);
+}
+.msbar > div {
+  height: 100%;
+  transition: width 0.5s var(--ease);
+}
+.distLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
   color: var(--mut);
 }
+.distLegend b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+i.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.heroAction {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex: none;
+}
+
+/* ── 본문 2컬럼 ── */
 .cols {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 14px;
 }
+
+/* 좌 — 발광 지식맵(immersive 시그니처 패널) */
 .mapCol {
+  position: relative;
   min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 6%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 4%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+  animation: ds-fadeUp 0.46s var(--ease) 0.06s both;
+}
+.mapCol::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.mapScroll {
+  height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
-  padding: 18px 22px 24px;
+  padding: 18px 20px 20px;
 }
+.mapHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  margin-bottom: 12px;
+}
+.mapTitle {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+}
+.mapMeta {
+  font-size: 11px;
+  color: var(--mut);
+}
+.note {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--warn) 36%, var(--line));
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+  margin-bottom: 14px;
+}
+.note b {
+  color: var(--ink);
+}
+.mssub {
+  margin: 0 0 16px;
+}
+.subHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.subNm {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msheat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.mscell {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  cursor: default;
+  transition:
+    transform 0.1s var(--ease),
+    outline-color 0.1s var(--ease);
+}
+.mscell:hover {
+  transform: scale(1.55);
+  outline: 1px solid var(--txt);
+  z-index: 1;
+}
+.mscell.fr {
+  box-shadow: 0 0 0 1.5px var(--acc);
+}
+.mapFoot {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--mut);
+}
+
+/* 우 — 다음 행동(프런티어·약점·캘리브레이션) */
 .actionCol {
   min-width: 0;
-  border-left: 1px solid var(--line2);
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  padding: 18px 20px 24px;
+  padding-right: 2px;
 }
+.actionCol > :last-child {
+  margin-bottom: 0;
+}
+
+/* 개념 리스트(프런티어·약점) — 살아있는 행 */
+.mslist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.msrow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 11px;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: background 0.14s var(--ease);
+}
+.msrow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+  transform: scaleY(0);
+  transition: transform 0.16s var(--ease);
+}
+.msrow:hover {
+  background: var(--panel2);
+}
+.msrow:hover::before {
+  transform: scaleY(1);
+}
+.msrow .nm {
+  font-size: 0.92em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msdot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  font-size: 0.7em;
+  color: #fff;
+  flex: none;
+}
+
+/* 셋업/로딩 폴백 */
 .offWrap {
   flex: 1;
   min-height: 0;
@@ -65,80 +370,26 @@
     grid-template-columns: 1fr;
     overflow-y: auto;
   }
-  .actionCol {
-    border-left: none;
-    border-top: 1px solid var(--line2);
+  .mapCol {
+    min-height: 360px;
+  }
+  .hero {
+    flex-wrap: wrap;
+    gap: 16px 24px;
+  }
+  .heroAction {
+    align-items: flex-start;
   }
 }
-.msbar {
-  display: flex;
-  height: 14px;
-  border-radius: 99px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px var(--line-soft);
-  background: var(--panel2);
-}
-.msbar > div {
-  height: 100%;
-}
-i.dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 99px;
-  margin-right: 5px;
-  vertical-align: middle;
-}
-.mssub {
-  margin: 10px 0;
-}
-.msheat {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 5px;
-}
-.mscell {
-  width: 13px;
-  height: 13px;
-  border-radius: 3px;
-  cursor: default;
-  transition: transform 0.1s;
-}
-.mscell:hover {
-  transform: scale(1.5);
-  outline: 1px solid var(--txt);
-}
-.mscell.fr {
-  box-shadow: 0 0 0 1.5px var(--acc);
-}
-.mslist {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-}
-.msrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: 8px;
-}
-.msrow:hover {
-  background: var(--panel2);
-}
-.msrow .nm {
-  font-size: 0.92em;
-}
-.msdot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 99px;
-  font-size: 0.7em;
-  color: #fff;
-  flex: none;
+
+/* 모션 자제 백스톱 */
+@media (prefers-reduced-motion: reduce) {
+  .hero,
+  .mapCol {
+    animation: none;
+  }
+  .ringArc,
+  .msbar > div {
+    transition: none;
+  }
 }

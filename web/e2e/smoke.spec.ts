@@ -28,5 +28,5 @@ test('탐구 수집 탭이 로드되고 검색 히어로를 표시한다', async
   await page.goto('/control');
   // 옛 OPS 콘솔 폐기 → 탐구 수집 검색 탭. 검색 히어로 + 주제 입력.
   await expect(page.getByRole('heading', { name: /무엇을 새로 알아볼까요/ })).toBeVisible();
-  await expect(page.getByLabelText('탐구 주제')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByLabel('탐구 주제')).toBeVisible({ timeout: 15000 });
 });
