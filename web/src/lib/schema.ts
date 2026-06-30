@@ -108,7 +108,16 @@ export const RitualSchema = z.object({
   note: z.string(),
 });
 
-export const CourseSchema = z.object({}).passthrough(); // 학기 과목 — Phase 4 졸업 탭에서 정밀화
+// 학기 과목. (이 스키마들은 영속 데이터 검증이 아니라 *타입 출처*로만 쓰인다 — validShape는 손코딩,
+//  AppStateSchema는 어디서도 .parse되지 않음. 그래서 실제 필드로 정밀화해도 기존 데이터 호환에 영향 0.)
+export const CourseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  credits: z.number(),
+  category: z.string(),
+  status: z.string(),
+  grade: z.string().optional(),
+});
 export const SemesterSchema = z.object({
   id: z.string(),
   name: z.string(),

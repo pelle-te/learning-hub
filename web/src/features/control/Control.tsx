@@ -97,7 +97,8 @@ export default function Control() {
       {/* 검색 히어로 — 검색엔진 느낌. */}
       <div className={cm.hero}>
         <div className={cm.heroEyebrow}>🔭 탐구 수집</div>
-        <h1 className={cm.heroTitle}>무엇을 새로 알아볼까요?</h1>
+        {/* h2 — TopBar 워드마크가 페이지 영속 h1이라 본문 최상위는 h2(전 탭 일관). 시각 스타일은 CSS 유지. */}
+        <h2 className={cm.heroTitle}>무엇을 새로 알아볼까요?</h2>
         <div className={`${cm.searchBar}${busy ? ' ' + cm.searchBusy : ''}`}>
           <span className={cm.searchIcon} aria-hidden="true">
             ⌕

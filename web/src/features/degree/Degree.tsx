@@ -49,8 +49,8 @@ interface Course {
   grade?: string;
 }
 type Semester = { id: string; name: string; courses: Course[] };
-/** 느슨한 스키마(courses: {})를 화면 모델로 좁힘. */
-const sems = (d: DegreeT) => d.semesters as unknown as Semester[];
+/** CourseSchema가 실제 필드로 정밀화돼 d.semesters가 이미 Semester[]로 타입됨(구버전 캐스팅 제거). */
+const sems = (d: DegreeT): Semester[] => d.semesters;
 
 type DegKey = 'targetTotal' | 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal';
 
@@ -132,7 +132,7 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
     )
       return;
     mutate((st) => {
-      st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id) as unknown as DegreeT['semesters'];
+      st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id);
     });
     ui.toast('학기 삭제됨', 'info');
   };
@@ -318,7 +318,7 @@ function DegreePlan() {
   const addSemester = () => {
     const id = rid();
     mutate((st) => {
-      st.degree.semesters.push({ id, name: '새 학기', courses: [] } as unknown as DegreeT['semesters'][number]);
+      st.degree.semesters.push({ id, name: '새 학기', courses: [] });
     });
     setOpenSems((prev) => new Set(prev).add(id));
   };

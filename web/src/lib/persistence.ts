@@ -7,7 +7,7 @@
    IDB 미러는 lib/idb.ts, 테마/되돌리기 UI는 store/features가 조립한다.
    부팅/영속은 KV(localStorage 호환)를 주입받아 순수·테스트 가능하게 만든다.
 ============================================================ */
-import { addDays, iso, rid } from './utils';
+import { addDays, iso, parseISO, rid, todayISO } from './utils';
 import type { AppState, CompletionEntry, KV, RoutineBlock, SessionType } from './types';
 
 export const KEY = 'study_planner_v3'; // localStorage 키 (모델 변경으로 v3)
@@ -221,8 +221,7 @@ export function totalDoneHours(state: AppState): number {
 export function studyStreak(state: AppState): number {
   const c = state.completions || {};
   const has = (ds: string) => c[ds] && Object.keys(c[ds]).length;
-  let cur = new Date();
-  cur.setHours(0, 0, 0, 0);
+  let cur = parseISO(todayISO(state)); // 앱의 '오늘' 단일 출처(_today 시드 존중) — new Date() 직접 사용 제거.
   if (!has(iso(cur))) {
     cur = addDays(cur, -1);
     if (!has(iso(cur))) return 0;

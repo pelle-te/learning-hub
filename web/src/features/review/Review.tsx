@@ -18,7 +18,7 @@ import {
   setWeeklyNote,
   toggleBacklog,
 } from '@/lib/methodology';
-import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON } from '@/lib/utils';
+import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
@@ -252,7 +252,7 @@ export default function Review() {
   const setChrome = usePageChrome((s) => s.setChrome);
   const clearChrome = usePageChrome((s) => s.clear);
 
-  const mon = addDays(mondayOf(new Date()), weekOffset * 7);
+  const mon = addDays(mondayOf(parseISO(todayISO(state))), weekOffset * 7); // '오늘' 단일 출처 경유.
   const ds0 = iso(mon);
   const ds6 = iso(addDays(mon, 6));
   const wk = ds0;

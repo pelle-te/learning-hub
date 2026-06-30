@@ -3,11 +3,12 @@
    기본 화면 = TodaySignature(프레임 가득 채우는 4컬럼 대시보드, 무스크롤).
    세부(블록 액션·일일 의식·흐름 가이드)는 "＋"/"지금 시작" → 오버레이 패널로(필요할 때만).
 ============================================================ */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
-import { iso } from '@/lib/utils';
+import { todayISO } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import t from './Today.module.css';
 import type { Ritual } from '@/lib/types';
@@ -20,7 +21,7 @@ function RitualCard() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
 
-  const ds2 = iso(new Date());
+  const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
   const r: Ritual = state.rituals?.[ds2] || { plan: false, shutdown: false, note: '' };
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
     mutate((st) => setRitual(st, ds2, key, on));
@@ -100,6 +101,8 @@ function FlowGuide() {
 
 export default function Today() {
   const [moreOpen, setMoreOpen] = useState(false);
+  const morePanelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(moreOpen, morePanelRef); // '오늘 상세' 오버레이 포커스 트랩 + 복원.
   const openMore = useCallback(() => setMoreOpen(true), []);
 
   useEffect(() => {
@@ -124,7 +127,7 @@ export default function Today() {
             if (e.target === e.currentTarget) setMoreOpen(false);
           }}
         >
-          <div className={t.panel}>
+          <div className={t.panel} ref={morePanelRef} tabIndex={-1}>
             <div className={t.panelHead}>
               <b>오늘 상세 — 블록 · 의식 · 흐름</b>
               <button type="button" className={t.panelX} onClick={() => setMoreOpen(false)} aria-label="닫기">

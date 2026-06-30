@@ -137,7 +137,19 @@ export function VaultPanel() {
             const isOpen = open.has(si);
             return (
               <div key={si} className={g.sub}>
-                <div className={g.sh} onClick={() => toggle(si)}>
+                <div
+                  className={g.sh}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
+                  onClick={() => toggle(si)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggle(si);
+                    }
+                  }}
+                >
                   <b style={{ flex: 1 }}>{s.name}</b>
                   <span className={`${ds.tiny} ${ds.muted}`}>
                     노트 {s.notes} · 검증 {s.verified}({vp}%){s.wip ? ` · 진행중 ${s.wip}` : ''}

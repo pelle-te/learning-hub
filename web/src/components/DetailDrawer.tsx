@@ -3,7 +3,8 @@
    today의 '오늘 상세' 오버레이를 컴포넌트화 — 데이터보드형 탭이 깊은 차트·표를 여기로 뺀다.
    순수 표현(components → lib만): open/onClose/title/children. Esc·바깥 클릭으로 닫힘.
 ============================================================ */
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useFocusTrap } from '@/lib/useFocusTrap';
 import s from './DetailDrawer.module.css';
 
 export default function DetailDrawer({
@@ -17,6 +18,8 @@ export default function DetailDrawer({
   title: string;
   children: ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(open, panelRef); // 포커스 트랩 + 복원(접근성 — aria-modal 선언만 있고 관리가 없던 결함 보완).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -37,7 +40,7 @@ export default function DetailDrawer({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={s.panel}>
+      <div className={s.panel} ref={panelRef} tabIndex={-1}>
         <div className={s.panelHead}>
           <b>{title}</b>
           <button type="button" className={s.panelX} onClick={onClose} aria-label="닫기">

@@ -9,7 +9,7 @@ import { ui } from '@/shell';
 import { layoutDay } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import { blankResultFor, clearBlankResult } from '@/lib/methodology';
-import { iso, toHM, hLabel, fmt } from '@/lib/utils';
+import { toHM, hLabel, fmt, todayISO } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import t from './Today.module.css';
@@ -55,7 +55,7 @@ export function TodayBlocks() {
     navigate('/journal');
   };
 
-  const ds2 = iso(new Date());
+  const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
   const day = (res.days || []).find((d) => d.ds === ds2);
   const items = day ? day.items : [];
 
