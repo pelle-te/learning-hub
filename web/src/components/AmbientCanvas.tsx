@@ -152,9 +152,14 @@ export default function AmbientCanvas() {
     let last = 0;
     // 24fps 캡 — 드리프트가 매우 느려(t*0.025) 24fps에서도 부드럽다. 30fps 대비 프레임 20%↓.
     const FRAME = 1000 / 24;
-    // 정지 조건: 모션 비선호 · 탭 숨김 · 창 포커스 밖. 마지막은 앱 모드 창이 다른 창 뒤에 있을 때
-    // (visibilitychange는 최소화/탭전환만 잡고 "뒤에 가림"은 못 잡음) GPU를 계속 태우는 낭비를 막는다.
-    const paused = () => reduce.matches || document.hidden || !document.hasFocus();
+    // 정지 조건: 모션 비선호 · 탭 숨김 · 창 포커스 밖 · 발광효과끄기(data-fx=lite).
+    // '창 포커스 밖'은 앱 모드 창이 다른 창 뒤에 있을 때(visibilitychange는 최소화/탭전환만 잡고 "뒤에 가림"은
+    // 못 잡음) GPU를 계속 태우는 낭비를 막는다. lite는 사용자가 끈 경우 — 정적 프레임만 그리고 멈춘다.
+    const paused = () =>
+      reduce.matches ||
+      document.hidden ||
+      !document.hasFocus() ||
+      document.documentElement.getAttribute('data-fx') === 'lite';
     const draw = (ms: number) => {
       raf = requestAnimationFrame(draw);
       if (ms - last < FRAME) return;
@@ -182,7 +187,7 @@ export default function AmbientCanvas() {
     };
     const onTheme = () => {
       setColors();
-      if (paused()) drawOnce();
+      start(); // 색 갱신 후 모션 재평가(data-fx 토글 해제 시 재개, 설정 시 정지).
     };
 
     window.addEventListener('resize', onResize);
@@ -190,9 +195,12 @@ export default function AmbientCanvas() {
     window.addEventListener('focus', start); // 창 포커스 복귀 → 모션 재개
     window.addEventListener('blur', start); //  창 포커스 상실 → 일시정지
     reduce.addEventListener('change', start);
-    // 테마(data-theme) 변동 → 색 유니폼 갱신.
+    // data-theme/data-accent → 색 유니폼 갱신, data-fx(발광효과끄기) → 정지/재개.
     const mo = new MutationObserver(onTheme);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-accent'] });
+    mo.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'data-accent', 'data-fx'],
+    });
 
     start();
 

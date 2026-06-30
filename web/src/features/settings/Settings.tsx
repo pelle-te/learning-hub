@@ -65,6 +65,8 @@ export default function Settings() {
   const mutate = useApp((s) => s.mutate);
   const accent = useUI((s) => s.ui.accent);
   const setAccent = useUI((s) => s.setAccent);
+  const fxLite = useUI((s) => s.ui.fxLite);
+  const setFxLite = useUI((s) => s.setFxLite);
   // 포인터 추적 스포트라이트 — 상태 밴드가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
 
@@ -142,6 +144,10 @@ export default function Settings() {
         <div className={ds.foot}>
           액센트는 이 기기에 저장돼요(데이터와 별개). 발광·강조·진행 바 전체에 즉시 반영됩니다.
         </div>
+        <label className={ds.chkRow} style={{ marginTop: 10 }}>
+          <input type="checkbox" checked={fxLite} onChange={(e) => setFxLite(e.target.checked)} />
+          발광 효과 줄이기 (배경 오로라·발광 펄스 정지 — 저사양/노트북에서 가볍게)
+        </label>
       </div>
 
       <div className={`${ds.card} ${ds.glow}`}>

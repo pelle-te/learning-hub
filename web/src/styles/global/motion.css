@@ -55,3 +55,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* 발광 효과 줄이기(설정 토글, data-fx=lite) — reduced-motion과 동일하게 모든 애니/전이를 무력화한다.
+   상시 도는 발광 펄스·블러 오라의 매 프레임 재합성을 멈춰 GPU/페인트 부담을 크게 줄인다(정적 외형은 유지).
+   풀스크린 오로라 셰이더(AmbientCanvas)는 CSS로 못 멈추므로 JS에서 data-fx를 보고 별도로 정지한다. */
+html[data-fx='lite'] *,
+html[data-fx='lite'] *::before,
+html[data-fx='lite'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

@@ -13,6 +13,7 @@ export interface UIStore {
   ui: UIState;
   setSchedView: (v: SchedView) => void;
   setAccent: (a: Accent) => void;
+  setFxLite: (on: boolean) => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
 }
@@ -37,6 +38,12 @@ export const useUI = create<UIStore>()(
       setAccent(a) {
         set((s) => {
           s.ui.accent = a;
+        });
+        flush();
+      },
+      setFxLite(on) {
+        set((s) => {
+          s.ui.fxLite = on;
         });
         flush();
       },

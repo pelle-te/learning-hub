@@ -21,6 +21,9 @@ export const UIStateSchema = z.object({
   schedView: SchedViewSchema.default('overview'),
   accent: AccentSchema.default('lime'),
   recentCommands: z.array(z.string()).default([]),
+  // 발광 효과 줄이기 — 풀스크린 오로라 셰이더 정지 + 발광 오라 무한 애니 정지(상시 GPU/페인트 절감).
+  // 기본 false(현 외형 그대로). 옛 저장본엔 없으니 .default로 호환. data-fx="lite"로 cascade.
+  fxLite: z.boolean().default(false),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 
@@ -30,7 +33,7 @@ const LEGACY_VIEW = 'sched_view';
 const LEGACY_RECENT = 'lh_recent_cmds';
 
 export function defaultUI(): UIState {
-  return { schedView: 'overview', accent: 'lime', recentCommands: [] };
+  return { schedView: 'overview', accent: 'lime', recentCommands: [], fxLite: false };
 }
 
 /** 저장된 UI 설정을 읽는다. 신규 키가 없으면 구 산재 키를 1회 흡수하고, 손상 시 기본값. */

@@ -9,6 +9,7 @@ const META: Record<string, string> = { dark: '#050506', light: '#ffffff' };
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = useApp((s) => s.state.theme);
   const accent = useUI((s) => s.ui.accent);
+  const fxLite = useUI((s) => s.ui.fxLite);
   useEffect(() => {
     const t = theme || 'dark';
     document.documentElement.setAttribute('data-theme', t);
@@ -18,5 +19,10 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     document.documentElement.setAttribute('data-accent', accent || 'violet');
   }, [accent]);
+  useEffect(() => {
+    // 발광 효과 줄이기 — data-fx="lite"면 CSS가 오라 애니를 끄고 AmbientCanvas가 정지(상시 GPU 절감).
+    if (fxLite) document.documentElement.setAttribute('data-fx', 'lite');
+    else document.documentElement.removeAttribute('data-fx');
+  }, [fxLite]);
   return <>{children}</>;
 }
