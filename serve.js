@@ -136,6 +136,22 @@ function readBody(req, cb) {
   req.on('end', () => { try { cb(b ? JSON.parse(b) : {}); } catch (e) { cb({}); } });
 }
 
+/* 동시 도구 실행 캡 — 30분짜리 research 스폰이 무한히 쌓이는 것 방지(DoS 가드). */
+let RUNNING = 0;
+const MAX_RUNNING = 2;
+
+/* 변조 요청 가드 — 다른 사이트가 localhost로 쏘는 단순 POST(CSRF성) 차단.
+   Origin/Referer가 있으면 이 서버(또는 vite dev/preview 프록시)여야 한다.
+   둘 다 없는 요청(curl·같은 창 스크립트)은 로컬 도구 특성상 허용(§감사 CSRF null-Origin 명문화와 동일 원칙). */
+function originOK(req) {
+  const raw = req.headers.origin || req.headers.referer || '';
+  if (!raw) return true;
+  try {
+    const h = new URL(raw).hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+  } catch (e) { return false; }
+}
+
 const server = http.createServer((req, res) => {
   try {
     const url = decodeURIComponent((req.url || '/').split('?')[0]);
@@ -155,14 +171,18 @@ const server = http.createServer((req, res) => {
           catch (e) { sendJSON(res, 200, { ok: true, raw: data }); }
         });
       }
-      // 도구 실행
+      // 도구 실행 — 비-로컬 Origin 거부 + 동시 실행 캡.
       if (url.startsWith('/api/run/') && req.method === 'POST') {
+        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
+        if (RUNNING >= MAX_RUNNING) return sendJSON(res, 429, { ok: false, error: '이미 실행 중인 도구가 많아요 — 잠시 후 다시.' });
         const tool = url.slice('/api/run/'.length);
         return readBody(req, body => {
-          if (tool === 'research') return runResearch(body.topic, body.scope, r => sendJSON(res, 200, r));
+          RUNNING++;
+          const done = r => { RUNNING = Math.max(0, RUNNING - 1); sendJSON(res, 200, r); };
+          if (tool === 'research') return runResearch(body.topic, body.scope, done);
           const extra = [];
           if (body.subject && typeof body.subject === 'string') extra.push(body.subject.slice(0, 60)); // frontier/gaps 과목 필터 등
-          runTool(tool, extra, r => sendJSON(res, r.ok ? 200 : 200, r));
+          runTool(tool, extra, done);
         });
       }
       return sendJSON(res, 404, { ok: false, error: 'API 경로 없음' });
@@ -172,7 +192,8 @@ const server = http.createServer((req, res) => {
     let urlPath = url;
     if (urlPath === '/' || urlPath.endsWith('/')) urlPath += 'index.html';
     const filePath = path.normalize(path.join(DIST, urlPath));
-    if (!filePath.startsWith(DIST)) { res.writeHead(403); res.end('403 Forbidden'); return; }
+    // 접두 검사만으론 형제 폴더(dist-backup 등) 탈출 가능 → 구분자 포함 접두로 봉쇄.
+    if (filePath !== DIST && !filePath.startsWith(DIST + path.sep)) { res.writeHead(403); res.end('403 Forbidden'); return; }
     fs.stat(filePath, (err, st) => {
       if (!err && st.isFile()) {
         const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';

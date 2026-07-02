@@ -107,7 +107,19 @@ export function freeWindowsForWeekday(state: AppState, wd: number): FreeWindows 
   const [wake0, wake1] = awakeBounds(blocks);
   const occ = blocks
     .filter((b) => b.type !== '수면')
-    .map((b): [number, number] => [Math.max(wake0, toMin(b.start)), Math.min(wake1, toMin(b.end))])
+    .flatMap((b): [number, number][] => {
+      // 자정을 걸치는 블록(예: 23:00–01:00)은 두 구간으로 분할 — 안 하면 e<s로 걸러져
+      // 그 시간이 '공부 가능'으로 잘못 남는다(수면과 동일 규칙).
+      const s = toMin(b.start);
+      const e = toMin(b.end);
+      return s <= e
+        ? [[s, e]]
+        : [
+            [s, 1440],
+            [0, e],
+          ];
+    })
+    .map(([s, e]): [number, number] => [Math.max(wake0, s), Math.min(wake1, e)])
     .filter(([s, e]) => e > s)
     .sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
@@ -147,12 +159,24 @@ export function subjectMastery(state: AppState, name: string): number | null {
   const k = state._knowState;
   if (!k || !Array.isArray(k.subjects)) return null;
   const b = (name || '').replace(/\s/g, '');
+  // 정확 일치 우선, 없으면 포함 후보 중 길이차가 가장 작은 것 — 첫-포함 히트는
+  // "물리"↔"물리화학" 같은 오매핑으로 graphPriority 배분을 조용히 오염시킨다.
+  let best: number | null = null;
+  let bestGap = Infinity;
   for (const s of k.subjects) {
     if (!s.subject) continue;
     const a = s.subject.replace(/\s/g, '');
-    if (a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0) return typeof s.mastery === 'number' ? s.mastery : null;
+    const m = typeof s.mastery === 'number' ? s.mastery : null;
+    if (a === b) return m;
+    if (a.indexOf(b) >= 0 || b.indexOf(a) >= 0) {
+      const gap = Math.abs(a.length - b.length);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = m;
+      }
+    }
   }
-  return null;
+  return best;
 }
 export function masteryNeed(state: AppState, name: string): number {
   if (state.graphPriority !== true) return 0; // 기본 off → 영향 0
@@ -215,7 +239,8 @@ export function schedule(state: AppState): ScheduleResult {
   weeksNeed = Math.min(weeksNeed, 26);
   const endByPace = iso(addDays(mondayOf(parseISO(start)), weeksNeed * 7 + 6));
   const endDate = lastDL && lastDL > endByPace ? lastDL : endByPace;
-  const horizon = Math.max(6, dayDiff(start, endDate));
+  // 마감 경로도 상한(18개월) — 먼 미래 마감 하나가 수천 일 배열을 만들어 편집마다 재계산 지연.
+  const horizon = Math.max(6, Math.min(dayDiff(start, endDate), 546));
 
   /* 2) 일자 생성 + (적응형) 가용 용량 */
   const today = todayISO(state);
@@ -350,15 +375,25 @@ export function schedule(state: AppState): ScheduleResult {
         });
         const pick = cand.find((s) => s.id !== lastSid) ?? cand[0]!; // 같은 과목 연속 회피
         const covered = advance(pick, ML);
-        day.items.push({
-          type: 'new',
-          sid: pick.id,
-          name: pick.name,
-          color: pick.color,
-          min: ML,
-          chapters: covered.slice(),
-          mod: true,
-        });
+        // 같은 날 같은 과목 학습 모듈은 병합 — 완료 키가 sid|type이라 행이 2개면
+        // 하나 체크가 다른 하나도 체크되는 충돌(rev 병합과 동일 불변식).
+        const exNew = day.items.find((it) => it.type === 'new' && it.sid === pick.id);
+        if (exNew) {
+          exNew.min += ML;
+          covered.forEach((c) => {
+            if (exNew.chapters && !exNew.chapters.includes(c)) exNew.chapters.push(c);
+          });
+        } else {
+          day.items.push({
+            type: 'new',
+            sid: pick.id,
+            name: pick.name,
+            color: pick.color,
+            min: ML,
+            chapters: covered.slice(),
+            mod: true,
+          });
+        }
         pick._weekDone++;
         pick._schedMin += ML;
         pick._sessions.push({ di, ds: day.ds, chapters: covered });
@@ -670,16 +705,28 @@ export function layoutDay(state: AppState, day: Day): LayoutResult {
   const tl: TimelineEntry[] = [];
   blocks
     .filter((b) => b.type !== '수면')
-    .forEach((b) =>
-      tl.push({
-        kind: 'block',
-        name: b.name,
-        btype: b.type,
-        start: toMin(b.start),
-        end: toMin(b.end),
-        color: BLOCK_TYPES[b.type],
-      }),
-    );
+    .forEach((b) => {
+      const s = toMin(b.start);
+      const e = toMin(b.end);
+      // 자정 걸침 → 두 세그먼트(end<start인 깨진 항목 방지 — freeWindows 분할과 동일 규칙).
+      const segs: [number, number][] =
+        s <= e
+          ? [[s, e]]
+          : [
+              [s, 1440],
+              [0, e],
+            ];
+      segs.forEach(([ss, ee]) =>
+        tl.push({
+          kind: 'block',
+          name: b.name,
+          btype: b.type,
+          start: ss,
+          end: ee,
+          color: BLOCK_TYPES[b.type],
+        }),
+      );
+    });
   sessions.forEach((s) => {
     if (s.start != null)
       tl.push({

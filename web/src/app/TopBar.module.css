@@ -77,6 +77,13 @@
   color: var(--acc);
   text-shadow: 0 0 22px var(--glow);
 }
+/* 값 없음(—) — 어떤 리드아웃이든 뮤트 저대비(액센트/네온 무시). */
+.rv.rnull,
+.racc .rv.rnull {
+  color: var(--mut);
+  opacity: 0.55;
+  text-shadow: none;
+}
 
 /* 우측 액션 영역 — 주 액션(fill) + 칩 버튼들. */
 .actions {
@@ -145,9 +152,18 @@
 
 @media (max-width: 700px) {
   .bar {
-    gap: 12px;
-    padding: 14px 14px 10px;
+    gap: 10px;
+    padding: 12px 14px 10px;
     flex-wrap: wrap;
+    align-items: center;
+  }
+  /* 모바일: 스택 워드마크 → 단일 행(액션과 세로 충돌 없이 한 줄 공존). */
+  .wordmark {
+    font-size: 17px;
+    line-height: 1;
+  }
+  .wordmark span {
+    display: inline;
   }
   .sub {
     display: none;

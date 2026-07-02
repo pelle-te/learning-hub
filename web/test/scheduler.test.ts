@@ -4,7 +4,7 @@
    순수 함수라 state를 인자로 주입(전역·DOM 없음). iso()는 로컬 날짜라 TZ 무관.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { layoutDay, schedule } from '@/lib/scheduler';
+import { layoutDay, schedule, subjectMastery } from '@/lib/scheduler';
 import type { AppState, Day, ScheduleItem, ScheduleResult } from '@/lib/types';
 
 let _id = 0;
@@ -414,5 +414,54 @@ describe('scheduler (T1~T21 parity)', () => {
   it('T24 시작일이 빈 값이어도 days가 비지 않는다(오늘로 폴백)', () => {
     const r = schedule(baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], { startDate: '' }));
     expect(r.days.length).toBeGreaterThan(0);
+  });
+
+  // ── 버그 회귀(2026-07-02 라운드) ──
+  it('T25 자정 넘는 비수면 블록(알바 23:00–01:00)도 공부 가능시간에서 제외(옛 버그: 통째 무시)', () => {
+    const routine = [blk('알바', '활동', '23:00', '01:00', [0, 1, 2, 3, 4, 5, 6])];
+    const r = schedule(baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], { routine }));
+    expect(r.days[0].studyMin).toBe(1320); // 1440 − (23:00–24:00 60 + 00:00–01:00 60)
+  });
+
+  it('T26 layoutDay: 자정 걸침 블록은 두 세그먼트로 분할(end<start인 깨진 항목 없음)', () => {
+    const state = baseState([], { routine: [blk('야근', '활동', '22:00', '02:00', [3])] });
+    const day = { wd: 3, items: [] } as unknown as Day;
+    const L = layoutDay(state, day);
+    const segs = L.tl.filter((t) => t.kind === 'block' && t.name === '야근');
+    expect(segs.map((t) => [t.start, t.end]).sort((a, b) => a[0]! - b[0]!)).toEqual([
+      [0, 120],
+      [1320, 1440],
+    ]);
+    L.tl.forEach((t) => expect(t.end > t.start).toBe(true));
+  });
+
+  it('T27 subjectMastery: 정확 일치 우선·포함은 길이차 최소(옛 버그: 첫-포함 히트 오매핑)', () => {
+    const know = {
+      subjects: [
+        { subject: '물리화학', mastery: 0.2 },
+        { subject: '물리', mastery: 0.8 },
+      ],
+    };
+    const state = baseState([], { _knowState: know });
+    expect(subjectMastery(state, '물리')).toBe(0.8); // 정확 일치가 앞의 포함 히트를 이김
+    const know2 = {
+      subjects: [
+        { subject: '수학과 물리', mastery: 0.3 },
+        { subject: '수학Ⅱ', mastery: 0.6 },
+      ],
+    };
+    expect(subjectMastery(baseState([], { _knowState: know2 }), '수학')).toBe(0.6); // 길이차 최소 후보
+  });
+
+  it('T28 같은 날 같은 과목 학습 모듈은 한 행으로 병합(완료 키 sid|type 충돌 방지)', () => {
+    const ch: ChSpec[] = [];
+    for (let i = 1; i <= 10; i++) ch.push(['ch' + i, 4]);
+    const r = schedule(baseState([weeklyItem('수학', 40, mkChapters(ch))]));
+    r.days.forEach((d) => {
+      const news = d.items.filter((it) => it.type === 'new');
+      expect(new Set(news.map((it) => it.sid)).size).toBe(news.length); // 하루에 같은 sid 학습행 1개
+    });
+    const maxMin = Math.max(...newItems(r).map((it) => it.min));
+    expect(maxMin).toBeGreaterThan(120); // 병합이 실제로 일어남(모듈 2개 이상 합쳐진 날 존재)
   });
 });

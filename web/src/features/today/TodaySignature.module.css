@@ -148,6 +148,23 @@
   transition: width 1s linear;
 }
 
+/* 오버사이즈 고스트 시계 — 우상단 허공을 채우는 워터마크(콘텐츠 뒤, 포인터 통과). */
+.ghostClock {
+  position: absolute;
+  z-index: -1;
+  top: -0.18em;
+  right: clamp(10px, 2vw, 26px);
+  font-size: clamp(72px, 11vw, 148px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--ink) 12%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
 .heroHead {
   display: flex;
   align-items: baseline;
@@ -725,6 +742,19 @@
   outline: 2px solid var(--acc);
   outline-offset: -2px;
   border-radius: 10px;
+}
+/* 종결 캡 고스트 — 마지막 "이후 일정 없음" 행: 저대비·비인터랙티브, 스파인이 여기서 끝났다고 읽히게. */
+.nGhost {
+  opacity: 0.55;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.nGhost .nDot {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+  border: 2px solid var(--line2);
+  box-shadow: 0 0 0 3px var(--panel);
 }
 .nTime {
   flex: none;

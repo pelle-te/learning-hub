@@ -142,9 +142,10 @@
   --violet: #7c5cdb;
   --on-acc: #ffffff;
 
+  /* 라이트 발광 파생 — 흰 패널 위 베이크 오로라가 올리브빛 얼룩으로 번지지 않게 다크보다 크게 낮춤. */
   --acc-soft: color-mix(in srgb, var(--acc) 8%, transparent);
-  --acc-glow: color-mix(in srgb, var(--acc) 22%, transparent);
-  --glow: color-mix(in srgb, var(--acc) 32%, transparent);
+  --acc-glow: color-mix(in srgb, var(--acc) 14%, transparent);
+  --glow: color-mix(in srgb, var(--acc) 18%, transparent);
   --hairline: rgba(255, 255, 255, 0.85);
   --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
   --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);

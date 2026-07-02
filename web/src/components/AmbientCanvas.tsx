@@ -39,11 +39,14 @@ void main(){
   float n1 = fbm(p * 1.15 + vec2(t, t * 0.6));
   float n2 = fbm(p * 1.55 + vec2(-t * 0.7, t * 0.45) + 5.3);
   float n3 = fbm(p * 0.95 + vec2(t * 0.5, -t * 0.55) + 12.7);
-  vec3 col = u_bg;
-  col += u_c1 * smoothstep(0.45, 0.95, n1) * 0.42;
-  col += u_c2 * smoothstep(0.50, 0.97, n2) * 0.34;
-  col += u_c3 * smoothstep(0.45, 0.92, n3) * 0.34;
-  gl_FragColor = vec4(col, 1.0);
+  vec3 glow = u_c1 * smoothstep(0.45, 0.95, n1) * 0.42
+            + u_c2 * smoothstep(0.50, 0.97, n2) * 0.34
+            + u_c3 * smoothstep(0.45, 0.92, n3) * 0.34;
+  // 세로(모바일) 화면 감쇠 — 좁은 뷰포트는 노이즈의 좁은 슬라이스만 보게 돼 글로우장이 겹쳐
+  // 가산 블로우아웃(헤더가 하얗게 타버림). 가로(aspect>=1.15)는 1.0 그대로 = 데스크톱 픽셀 불변.
+  float aspect = u_res.x / u_res.y;
+  glow *= mix(0.30, 1.0, smoothstep(0.75, 1.15, aspect));
+  gl_FragColor = vec4(u_bg + glow, 1.0);
 }`;
 
 function hexToRgb(s: string): [number, number, number] | null {

@@ -54,7 +54,8 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
           {readouts.map((r, i) => (
             <div key={i} className={`${s.readout}${r.accent ? ' ' + s.racc : ''}`}>
               <span className={s.rl}>{r.label}</span>
-              <span className={s.rv}>{r.value}</span>
+              {/* 값 없음(—)은 강조 대신 뮤트 — 액센트 대시가 '검열 바'처럼 읽히는 것 방지. */}
+              <span className={`${s.rv}${r.value === '—' ? ' ' + s.rnull : ''}`}>{r.value}</span>
             </div>
           ))}
         </div>

@@ -324,6 +324,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <div className={s.aura} aria-hidden="true" />
           <div className={s.spotlight} aria-hidden="true" />
           {timer && <div className={s.heroFill} style={{ width: `${timerPct}%` }} aria-hidden="true" />}
+          {/* 오버사이즈 고스트 시계 — 우상단 허공을 채우는 워터마크(콘텐츠 뒤, 포인터 통과). */}
+          <span className={s.ghostClock} aria-hidden="true">
+            {toHM(nowMin)}
+          </span>
 
           <div className={s.heroHead}>
             <span className={s.eyebrow}>
@@ -406,55 +410,65 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           </h2>
           <div className={s.rail}>
             {flowNodes.length ? (
-              flowNodes.map((nd) => {
-                const live = nd.start <= nowMin && (nd.end == null || nowMin < nd.end);
-                const past = nd.done || (nd.end != null && nowMin >= nd.end);
-                const dur = nd.end != null ? ` · ${hLabel(nd.end - nd.start)}` : '';
-                // 현재 블록 실시간 진행률(경과/길이) — 1초 틱으로 갱신.
-                const prog =
-                  live && nd.end != null && nd.end > nd.start
-                    ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
-                    : 0;
-                const cls = `${s.node} ${nd.kind === 'study' ? s.nStudy : s.nBlock}${live ? ' ' + s.nLive : ''}${past ? ' ' + s.nPast : ''}${nd.done ? ' ' + s.nDone : ''}`;
-                const inner = (
-                  <>
-                    {live && <span className={s.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
-                    <span className={s.nTime}>{toHM(nd.start)}</span>
-                    <span
-                      className={s.nDot}
-                      style={nd.kind === 'study' && nd.color ? { background: nd.color } : undefined}
-                    />
-                    <span className={s.nBody}>
-                      <span className={s.nName}>{nd.name}</span>
-                      <span className={s.nSub}>
-                        {nd.sub}
-                        {dur}
+              <>
+                {flowNodes.map((nd) => {
+                  const live = nd.start <= nowMin && (nd.end == null || nowMin < nd.end);
+                  const past = nd.done || (nd.end != null && nowMin >= nd.end);
+                  const dur = nd.end != null ? ` · ${hLabel(nd.end - nd.start)}` : '';
+                  // 현재 블록 실시간 진행률(경과/길이) — 1초 틱으로 갱신.
+                  const prog =
+                    live && nd.end != null && nd.end > nd.start
+                      ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
+                      : 0;
+                  const cls = `${s.node} ${nd.kind === 'study' ? s.nStudy : s.nBlock}${live ? ' ' + s.nLive : ''}${past ? ' ' + s.nPast : ''}${nd.done ? ' ' + s.nDone : ''}`;
+                  const inner = (
+                    <>
+                      {live && <span className={s.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
+                      <span className={s.nTime}>{toHM(nd.start)}</span>
+                      <span
+                        className={s.nDot}
+                        style={nd.kind === 'study' && nd.color ? { background: nd.color } : undefined}
+                      />
+                      <span className={s.nBody}>
+                        <span className={s.nName}>{nd.name}</span>
+                        <span className={s.nSub}>
+                          {nd.sub}
+                          {dur}
+                        </span>
                       </span>
-                    </span>
-                    {live && (
-                      <span className={s.nNow}>
-                        지금 <small>{prog}%</small>
-                      </span>
-                    )}
-                  </>
-                );
-                return nd.e ? (
-                  <button
-                    key={nd.key}
-                    type="button"
-                    className={cls}
-                    onClick={() => toggle(nd.e!)}
-                    aria-label={`${nd.name} 완료 토글`}
-                    aria-pressed={nd.done}
-                  >
-                    {inner}
-                  </button>
-                ) : (
-                  <div key={nd.key} className={cls}>
-                    {inner}
-                  </div>
-                );
-              })
+                      {live && (
+                        <span className={s.nNow}>
+                          지금 <small>{prog}%</small>
+                        </span>
+                      )}
+                    </>
+                  );
+                  return nd.e ? (
+                    <button
+                      key={nd.key}
+                      type="button"
+                      className={cls}
+                      onClick={() => toggle(nd.e!)}
+                      aria-label={`${nd.name} 완료 토글`}
+                      aria-pressed={nd.done}
+                    >
+                      {inner}
+                    </button>
+                  ) : (
+                    <div key={nd.key} className={cls}>
+                      {inner}
+                    </div>
+                  );
+                })}
+                {/* 종결 캡 고스트 — 마지막 노드 뒤 "이후 일정 없음": 스파인이 끝났다고 읽히게(비인터랙티브). */}
+                <div className={`${s.node} ${s.nGhost}`}>
+                  <span className={s.nTime}>—</span>
+                  <span className={s.nDot} />
+                  <span className={s.nBody}>
+                    <span className={s.nSub}>이후 일정 없음</span>
+                  </span>
+                </div>
+              </>
             ) : (
               <div className={s.railEmpty}>
                 아직 배치된 블록이 없어요. <b>학습 항목</b>·<b>가용시간</b>을 설정하면 흐름이 채워집니다.
