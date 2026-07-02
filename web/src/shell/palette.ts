@@ -6,10 +6,13 @@
 import { orderedTabs } from './tabs';
 import { recentIds } from './recent';
 import * as A from './actions';
+import { useFocus } from '@/store/useFocus';
+import { usePrefill } from '@/store/prefill';
 
 export type PaletteCommand =
   | { id: string; kind: 'tab'; key: string; label: string; hint: string }
-  | { id: string; kind: 'act'; label: string; hint: string; run: () => void };
+  /** act — run() 실행 후 to가 있으면 해당 탭으로 이동(팔레트가 navigate). */
+  | { id: string; kind: 'act'; label: string; hint: string; run: () => void; to?: string };
 
 function baseCommands(): PaletteCommand[] {
   const tabs: PaletteCommand[] = orderedTabs().map((t) => ({
@@ -20,6 +23,40 @@ function baseCommands(): PaletteCommand[] {
     hint: '탭',
   }));
   const acts: PaletteCommand[] = [
+    // 오늘 — 가장 잦은 동사를 맨 위로.
+    {
+      id: 'act:focus-start',
+      kind: 'act',
+      label: '▶ 집중 시작 — 지금 블록',
+      hint: '오늘',
+      run: () => void useFocus.getState().startOnCurrent(),
+      to: '/today',
+    },
+    // 기록 빠른 입력 — 프리필 요청 후 기록 탭으로(오늘 탭 블록 버튼과 같은 경로).
+    {
+      id: 'act:add-sum',
+      kind: 'act',
+      label: '기록 · 3문장 요약 남기기',
+      hint: '기록',
+      run: () => usePrefill.getState().request('sum', ''),
+      to: '/journal',
+    },
+    {
+      id: 'act:add-cbms',
+      kind: 'act',
+      label: '기록 · 오답(CBMS) 기록',
+      hint: '기록',
+      run: () => usePrefill.getState().request('cbms', ''),
+      to: '/journal',
+    },
+    {
+      id: 'act:add-bl',
+      kind: 'act',
+      label: '기록 · 보충 필요 추가',
+      hint: '기록',
+      run: () => usePrefill.getState().request('bl', ''),
+      to: '/journal',
+    },
     // 도움말
     {
       id: 'act:shortcuts',

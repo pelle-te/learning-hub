@@ -23,9 +23,16 @@ function RitualCard() {
 
   const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
   const r: Ritual = state.rituals?.[ds2] || { plan: false, shutdown: false, note: '' };
+  const [note, setNote] = useState(r.note || '');
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
     mutate((st) => setRitual(st, ds2, key, on));
     ui.toast(on ? '기록됨 👍' : '해제됨', 'info');
+  };
+  // '내일 한 줄'은 blur 시 저장(키 입력마다 mutate 방지).
+  const saveNote = () => {
+    if (note === (r.note || '')) return;
+    mutate((st) => setRitual(st, ds2, 'note', note.trim()));
+    ui.toast('내일 한 줄 저장됨 🌙', 'info');
   };
 
   return (
@@ -43,6 +50,22 @@ function RitualCard() {
           <input type="checkbox" checked={r.shutdown} onChange={(e) => toggle('shutdown', e.target.checked)} /> 🌙{' '}
           <b>저녁 셧다운</b> <span className={`${ds.muted} ${ds.tiny}`}>완료 체크 · 내일 한 줄 · 끝내기</span>
         </label>
+      </div>
+      <div className={ds.fld} style={{ marginTop: 8 }}>
+        <label htmlFor="ritual-note">
+          내일 한 줄 <span className={`${ds.muted} ${ds.tiny}`}>— 셧다운의 마지막 조각, 내일의 나에게 남기는 메모</span>
+        </label>
+        <input
+          id="ritual-note"
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={saveNote}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+          placeholder="예) 내일은 3장 변위전류부터 — 백지 복습 먼저"
+        />
       </div>
     </div>
   );

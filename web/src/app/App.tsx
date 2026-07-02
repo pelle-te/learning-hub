@@ -4,6 +4,7 @@ import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
+import BootRecovery from '@/app/BootRecovery';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
 import SubTabs from '@/app/SubTabs';
@@ -173,6 +174,7 @@ export default function App() {
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <OnlineStatus />
+      <BootRecovery />
       <ToastHost />
       <ModalHost />
       <TooltipHost />

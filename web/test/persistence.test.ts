@@ -4,7 +4,17 @@
    boot/persist는 주입형 KV(Map 기반)로 검증(브라우저 없이).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { boot, CORRUPT_KEY, defaults, exportSnapshot, KEY, migrate, persist, SCHEMA_VERSION } from '@/lib/persistence';
+import {
+  boot,
+  consumeBootFallback,
+  CORRUPT_KEY,
+  defaults,
+  exportSnapshot,
+  KEY,
+  migrate,
+  persist,
+  SCHEMA_VERSION,
+} from '@/lib/persistence';
 import { addCbms, blankPassRate, buildAnkiCards, setBlankResult } from '@/lib/methodology';
 import type { AppState, KV } from '@/lib/types';
 
@@ -107,6 +117,37 @@ describe('persistence/migrate (S1~S6, S10~S11 parity)', () => {
     s._icsExport = { at: '2026-06-28T00:00:00Z', sig: 'x' };
     const snap = exportSnapshot(s) as Record<string, unknown>;
     expect(snap._icsExport).toBeUndefined();
+  });
+});
+
+/* 부팅 폴백 마커 — IDB 복구 안내(BootRecovery)가 소비. 정상 부팅에선 절대 세팅되지 않아야 한다. */
+describe('boot 폴백 마커(consumeBootFallback)', () => {
+  it('정상 부팅(유효 저장본)에선 마커 없음', () => {
+    const kv = memKV();
+    persist(kv, defaults());
+    boot(kv);
+    expect(consumeBootFallback()).toBeNull();
+  });
+
+  it('저장본 없음 → missing, 소비하면 지워짐(1회성)', () => {
+    boot(memKV());
+    expect(consumeBootFallback()).toBe('missing');
+    expect(consumeBootFallback()).toBeNull(); // StrictMode 이중 이펙트 대비
+  });
+
+  it('저장본 손상 → corrupt', () => {
+    const kv = memKV();
+    kv.setItem(KEY, '{이건 깨진 JSON');
+    boot(kv);
+    expect(consumeBootFallback()).toBe('corrupt');
+  });
+
+  it('초기화 후 재부팅(기본값이 persist됨)은 정상 부팅 — 마커 없음', () => {
+    const kv = memKV();
+    boot(kv); // 첫 부팅: missing
+    persist(kv, defaults()); // resetAll → loadState(defaults()) → 즉시 persist와 동일
+    boot(kv);
+    expect(consumeBootFallback()).toBeNull();
   });
 });
 

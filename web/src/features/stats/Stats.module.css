@@ -270,6 +270,11 @@
 /* 발광 스트릭 패널 — GitHub 잔디를 네온으로 베이크한 데이터 보드의 주인공(스포트라이트 호스트). */
 .sigMap {
   position: relative;
+  /* 컬럼의 남는 높이를 히트맵 패널이 흡수 — 판정 행을 바닥으로 밀어내던 여백 제거. */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: 18px 18px 14px;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
@@ -305,7 +310,6 @@
   flex-direction: column;
   gap: 12px;
   padding-top: 14px;
-  margin-top: auto;
   border-top: 1px solid var(--line2);
 }
 .verdict {
@@ -459,6 +463,9 @@
   font-size: 11px;
   color: var(--mut);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 920px) {

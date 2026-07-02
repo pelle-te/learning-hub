@@ -125,13 +125,17 @@ export async function resetAll(): Promise<void> {
   toastUndo('초기화했어요.', undoLast);
 }
 
-/** IndexedDB 미러에서 복구(localStorage 전소 대비). */
-export async function restoreFromIDB(): Promise<void> {
-  let json: string | null = null;
-  try {
-    json = await idbLoad();
-  } catch {
-    /* noop */
+/** IndexedDB 미러에서 복구(localStorage 전소 대비).
+ *  preloaded: 부팅 복구 안내(BootRecovery)가 미리 읽어둔 스냅샷 — 안내가 떠 있는 사이
+ *  flush가 미러를 기본값으로 덮어도 복구가 안전하도록 캡처본을 우선 사용. */
+export async function restoreFromIDB(preloaded?: string | null): Promise<void> {
+  let json: string | null = preloaded ?? null;
+  if (!json) {
+    try {
+      json = await idbLoad();
+    } catch {
+      /* noop */
+    }
   }
   if (!json) {
     toast('IndexedDB 백업이 없습니다(이 브라우저에서 저장된 적 없음).', 'warn', 4000);

@@ -55,7 +55,13 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
 
       {total === 0 ? (
         <div className={s.empty}>
-          오늘 아직 기록이 없어요. <b>블록을 끝낼 때마다 하나씩</b> — 요약 한 줄, 막힌 곳 한 개.
+          {/* 빈 보드가 의도된 상태로 읽히도록 — 흐릿한 에디토리얼 글리프 + 중앙 정렬(문구는 그대로). */}
+          <span className={s.emptyGlyph} aria-hidden="true">
+            ✎
+          </span>
+          <div>
+            오늘 아직 기록이 없어요. <b>블록을 끝낼 때마다 하나씩</b> — 요약 한 줄, 막힌 곳 한 개.
+          </div>
         </div>
       ) : (
         <ol className={s.stream}>

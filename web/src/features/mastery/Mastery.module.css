@@ -352,17 +352,68 @@ i.dot {
   flex: none;
 }
 
-/* 셋업/로딩 폴백 */
+/* 셋업/로딩/에러 폴백 — mapCol과 같은 발광 패널 언어로 프레임을 가득 채움(콘텐츠는 중앙).
+   margin:auto 중앙 정렬 — overflow 시 justify-content:center처럼 위가 잘리지 않는다. */
 .offWrap {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
+  scrollbar-width: thin;
   padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 6%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 4%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+  animation: ds-fadeUp 0.46s var(--ease) 0.06s both;
+}
+.offWrap::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 .offWrap > * {
+  margin: auto;
   max-width: 620px;
+}
+/* 셋업 본문 — 카드 크롬 없이(패널이 offWrap) 콘텐츠만. */
+.stateBody {
+  padding: 8px 6px;
+}
+.stateBody h3 {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+/* 에러 본문 — 진짜 실패를 드러내는 중앙 정렬 패널 콘텐츠 + 재시도. */
+.errBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 8px 6px;
+}
+.errBody h3 {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.errGlyph {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--bad);
+  opacity: 0.85;
 }
 
 @media (max-width: 900px) {
@@ -385,7 +436,8 @@ i.dot {
 /* 모션 자제 백스톱 */
 @media (prefers-reduced-motion: reduce) {
   .hero,
-  .mapCol {
+  .mapCol,
+  .offWrap {
     animation: none;
   }
   .ringArc,

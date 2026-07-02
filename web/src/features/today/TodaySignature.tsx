@@ -10,7 +10,9 @@ import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
+import { useFocus } from '@/store/useFocus';
 import { isDone, studyStreak } from '@/lib/persistence';
+import { pickFocus, focusMinutes } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { layoutDay } from '@/lib/scheduler';
 import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel } from '@/lib/utils';
@@ -89,15 +91,38 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     el.style.setProperty('--tiltY', '0deg');
   };
 
-  // 1초 틱 — 시계·현재 블록·집중 타이머를 라이브로 갱신.
+  // 1초 틱 — 시계·현재 블록·집중 타이머를 라이브로 갱신(백그라운드에선 정지, 복귀 시 캐치업).
   const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => (t + 1) % 86400), 1000);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setInterval> | null = null;
+    const startTick = () => {
+      if (id == null) id = setInterval(() => setTick((t) => (t + 1) % 86400), 1000);
+    };
+    const stopTick = () => {
+      if (id != null) {
+        clearInterval(id);
+        id = null;
+      }
+    };
+    const onVis = () => {
+      if (document.hidden) stopTick();
+      else {
+        setTick((t) => (t + 1) % 86400); // 복귀 즉시 캐치업
+        startTick();
+      }
+    };
+    startTick();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stopTick();
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, []);
 
-  // 집중 타이머(포모도로) — endsAt(ms)·total(초).
-  const [timer, setTimer] = useState<{ endsAt: number; total: number } | null>(null);
+  // 집중 타이머(포모도로) — 전역 세션(useFocus): 탭 이동·새로고침에도 이어짐. 종료 감지는 FocusChip.
+  const timer = useFocus((st) => st.session);
+  const startSession = useFocus((st) => st.start);
+  const stopSession = useFocus((st) => st.stop);
 
   const ds = todayISO(state);
   const today = parseISO(ds);
@@ -124,10 +149,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const nowMs = nowDate.getTime();
   const startKey = (e: (typeof enriched)[number]) => e.start ?? 9999;
   const pending = enriched.filter((e) => !e.done);
-  const current = pending.find((e) => e.start != null && e.end != null && nowMin >= e.start && nowMin < e.end);
-  const next = pending.filter((e) => startKey(e) >= nowMin).sort((a, b) => startKey(a) - startKey(b))[0];
-  const earliest = pending.slice().sort((a, b) => startKey(a) - startKey(b))[0];
-  const focus = current || next || earliest || null;
+  // '지금 할 일' 선택은 lib/focusState.pickFocus와 공유 — 팔레트·상단 바 시작과 같은 규칙.
+  const { current, focus } = pickFocus(enriched, nowMin);
   const allDone = todayTotal > 0 && pending.length === 0;
 
   const after = focus?.end ?? nowMin;
@@ -204,7 +227,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
   const subjName = allDone ? '완료' : focus ? focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
-  const focusMin = focus?.it.min && focus.it.min > 0 ? Math.min(focus.it.min, 50) : 25;
+  const focusMin = focusMinutes(focus);
   const focusWhen = focus && focus.start != null && focus.end != null ? `${toHM(focus.start)}–${toHM(focus.end)}` : '—';
   const focusChapter = focus
     ? focus.it.chapters?.length
@@ -218,28 +241,22 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const dispChapter = focusChapter;
   const dispColor = !allDone && focus ? focus.it.color : undefined;
 
-  // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신).
+  // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신). 종료 알림·완료 연결은 FocusChip이.
   const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
   const timerPct = timer && timer.total ? Math.min(100, ((timer.total - timerLeft) / timer.total) * 100) : 0;
   const mmss = `${String(Math.floor(timerLeft / 60)).padStart(2, '0')}:${String(timerLeft % 60).padStart(2, '0')}`;
   const startTimer = () => {
-    const mins = focus?.it.min && focus.it.min > 0 ? Math.min(focus.it.min, 50) : 25;
-    setTimer({ endsAt: new Date().getTime() + mins * 60_000, total: mins * 60 });
-    ui.toast(`집중 ${mins}분 시작 — 화이팅 🔥`, 'info');
+    if (!focus) return;
+    startSession({
+      ds,
+      sid: focus.it.sid,
+      type: focus.it.type,
+      name: focus.it.name,
+      min: focusMinutes(focus),
+      blockMin: focus.it.min,
+    });
   };
-  const stopTimer = () => setTimer(null);
-  // 종료 시점에 정확히 한 번 정리(타임아웃 콜백 내 setState — 동기 호출 회피).
-  useEffect(() => {
-    if (!timer) return;
-    const id = setTimeout(
-      () => {
-        setTimer(null);
-        ui.toast('집중 세션 완료 🎉', 'info');
-      },
-      Math.max(0, timer.endsAt - new Date().getTime()),
-    );
-    return () => clearTimeout(id);
-  }, [timer]);
+  const stopTimer = () => stopSession();
 
   // 전부 완료 순간 셀레브레이션(한 번만).
   const wasDone = useRef(false);
@@ -275,7 +292,16 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         ? { label: '학습 항목 설정 →', onClick: () => go('/items') }
         : allDone
           ? { label: '기록 보기', onClick: () => go('/journal') }
-          : { label: '지금 시작 →', onClick: onOpenMore },
+          : {
+              label: '지금 시작 →',
+              // getState로 항상 신선한 세션을 읽음(chrome 이펙트 deps에 안 묶임).
+              // 이미 집중 중이면 재시작 대신 세부 패널을 연다.
+              onClick: () => {
+                const f = useFocus.getState();
+                if (f.session) onOpenMore();
+                else f.startOnCurrent();
+              },
+            },
     );
     return () => clearChrome();
     // eslint-disable-next-line react-hooks/exhaustive-deps

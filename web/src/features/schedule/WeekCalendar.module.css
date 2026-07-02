@@ -170,10 +170,30 @@
   text-align: left;
   color: var(--ink);
   box-sizing: border-box;
+  min-height: 14px;
   transition:
     filter 0.14s var(--ease),
     box-shadow 0.14s var(--ease),
     transform 0.14s var(--ease);
+}
+/* 짧은 세그 — 높이가 라벨을 못 담으면 단계적으로 감춤(겹침·잘림 방지).
+   45분 미만 compact = 메타 숨김 + 세로 패딩 축소 → 이름 한 줄만 생존.
+   25분 미만 micro = 이름까지 숨김 → 컬러 엣지/틴트가 존재를 표현(hover title로 확인). */
+.seg.compact {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  justify-content: center;
+}
+.seg.compact .segMeta {
+  display: none;
+}
+.seg.micro {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.seg.micro .segName,
+.seg.micro .segMeta {
+  display: none;
 }
 .segName {
   font-size: 12px;

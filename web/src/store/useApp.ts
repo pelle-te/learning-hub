@@ -7,16 +7,28 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { setAutoFreeze } from 'immer';
-import { boot, persist, setDone } from '@/lib/persistence';
+import { boot, persist, serialize, setDone } from '@/lib/persistence';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 import { storage } from '@/lib/kv';
+import { toast } from '@/shell/toast';
 import * as M from '@/lib/methodology';
 import type { AppState, CbmsCode, SessionType, Theme } from '@/lib/types';
 
 // 파생 셀렉터(schedule 등)가 인엔진에서 state를 읽는 경로가 동결되면 곤란 → autoFreeze off(레거시도 off였음).
 // 모든 변형은 mutate(immer set) 드래프트 안에서 일어나므로 안전.
 setAutoFreeze(false);
+
+/* 저장 실패 안내 — 편집 중 매 flush(400ms 디바운스)마다 뜨면 소음이라 ~30초에 1번만.
+   (shell/toast는 zustand 단독 모듈이라 store→toast import에 순환 없음 — actions.ts와 무관.) */
+let _lastSaveFailToastAt = 0;
+const SAVE_FAIL_TOAST_GAP_MS = 30_000;
+function warnSaveFailure(): void {
+  const now = Date.now();
+  if (now - _lastSaveFailToastAt < SAVE_FAIL_TOAST_GAP_MS) return;
+  _lastSaveFailToastAt = now;
+  toast('저장 실패 — 저장공간이 가득 찼을 수 있어요. 데이터 내보내기로 백업하세요.', 'bad', 6000);
+}
 
 export interface AppStore {
   state: AppState;
@@ -46,11 +58,18 @@ export const useApp = create<AppStore>()(
   immer((set, get) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
+      let json: string | null = null;
       try {
-        const json = persist(storage, get().state);
-        idbMirror(json);
+        json = persist(storage, get().state);
       } catch {
-        /* 저장공간 초과 등 — 호출부 UI가 안내(Phase 4). 앱은 계속 동작. */
+        // 저장공간 초과 등 — 조용히 삼키지 않고 사용자에게 백업을 안내(스로틀). 앱은 계속 동작.
+        warnSaveFailure();
+      }
+      // localStorage가 실패해도 IDB 미러는 시도(전소 시 복구의 최후 보루 — idbMirror는 자체 비차단).
+      try {
+        idbMirror(json ?? serialize(get().state));
+      } catch {
+        /* 직렬화 자체 실패(비정상 상태) — 미러 불가 */
       }
     };
     /** 텍스트 입력마다 쓰지 않게 디바운스(설계도 §1-A). */

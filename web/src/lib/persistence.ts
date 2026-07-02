@@ -144,9 +144,22 @@ export function serialize(state: AppState): string {
   return JSON.stringify(out);
 }
 
+/* 부팅이 기본값으로 떨어진 사유 마커 — 'missing'(저장본 없음: 첫 방문 또는 localStorage 전소),
+   'corrupt'(저장본은 있는데 못 살림). App 마운트 후 복구 안내(BootRecovery)가 1회 소비한다.
+   정상 부팅·의도적 초기화(초기화는 유효한 기본값을 즉시 persist → 다음 부팅 정상)에선 null. */
+export type BootFallback = 'missing' | 'corrupt';
+let _bootFallback: BootFallback | null = null;
+/** 마커를 읽고 즉시 지운다(1회 소비) — StrictMode 이중 이펙트에도 안내가 한 번만 뜨게. */
+export function consumeBootFallback(): BootFallback | null {
+  const v = _bootFallback;
+  _bootFallback = null;
+  return v;
+}
+
 /* 부팅 — 저장된 상태를 살리되, 손상/형식불일치면 *원본 raw를 CORRUPT_KEY에 보존*한 뒤
    기본값으로 시작(첫 persist가 복구가능한 원본을 덮어 영구손실하는 것 방지 · P1-7). */
 export function boot(storage: KV): AppState {
+  _bootFallback = null;
   let raw: string | null = null;
   try {
     raw = storage.getItem(KEY);
@@ -167,6 +180,7 @@ export function boot(storage: KV): AppState {
       /* ignore */
     }
   }
+  if (!s) _bootFallback = raw == null ? 'missing' : 'corrupt';
   return s || defaults();
 }
 

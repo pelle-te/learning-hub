@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
+import { toastUndo } from '@/shell/toast';
 import { useHeroPointer } from '@/lib/interactions';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
@@ -178,7 +179,11 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   const mutate = useApp((s) => s.mutate);
   const open = openBacklog(state);
   const closedThisWeek = backlogClosedBetween(state, ds0, ds6);
-  const close = (id: string) => mutate((st) => toggleBacklog(st, id));
+  // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트(기록 탭과 동일 문화).
+  const close = (id: string) => {
+    mutate((st) => toggleBacklog(st, id));
+    toastUndo('보충 회수 완료 ✓', () => mutate((st) => toggleBacklog(st, id)));
+  };
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>

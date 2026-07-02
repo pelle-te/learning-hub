@@ -69,11 +69,27 @@
   margin-right: 3px;
 }
 
+/* 빈 상태 — 남은 보드 높이를 채우고 중앙 정렬(한 줄 힌트가 허공 위에 뜨지 않게). */
 .empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
   font-size: 12.5px;
   color: var(--mut);
   padding: 10px 4px 6px;
   line-height: 1.6;
+}
+/* 흐릿한 에디토리얼 글리프 — 빈 보드가 '의도된 여백'으로 읽히게. */
+.emptyGlyph {
+  font-size: 44px;
+  line-height: 1;
+  opacity: 0.14;
+  color: var(--acc);
+  user-select: none;
 }
 
 /* 스트림 — 좌측 스파인 + 노드 행 */

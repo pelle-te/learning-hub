@@ -22,6 +22,10 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
   { seq: 'a', tab: 'stats', label: '통계' },
   { seq: 'm', tab: 'mastery', label: '숙달도 지도' },
   { seq: 'd', tab: 'degree', label: '졸업 계획' },
+  { seq: 'o', tab: 'routine', label: '가용시간·수업·일과' },
+  { seq: 'n', tab: 'integrations', label: '연동' },
+  { seq: 'c', tab: 'control', label: '탐구 수집' },
+  { seq: 'e', tab: 'settings', label: '설정' },
 ];
 
 /** 치트시트에 함께 보일 전역 단축키(시퀀스 외). */

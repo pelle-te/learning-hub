@@ -10,7 +10,7 @@
 ============================================================ */
 import { useEffect, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useKnowledge, KNOWLEDGE_KEY } from '@/store/queries';
+import { useKnowledge, usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
@@ -52,7 +52,7 @@ function OverallRing({ overall }: { overall: number }) {
 
 const DIST: { key: 'mastered' | 'learning' | 'weak' | 'unknown'; color: string; lab: string }[] = [
   { key: 'mastered', color: 'var(--good,#4caf50)', lab: '숙달' },
-  { key: 'learning', color: '#d6a72b', lab: '학습중' },
+  { key: 'learning', color: 'var(--learning,#d6a72b)', lab: '학습중' },
   { key: 'weak', color: 'var(--bad,#e3564a)', lab: '약점' },
   { key: 'unknown', color: 'var(--line,#444)', lab: '미관측' },
 ];
@@ -261,7 +261,7 @@ function Calibration({ k }: { k: Knowledge }) {
       </div>
     );
   const over = c.overconfidence_rate || 0;
-  const overCol = over > 0.5 ? 'var(--bad)' : over > 0.3 ? '#d6a72b' : 'var(--good)';
+  const overCol = over > 0.5 ? 'var(--bad)' : over > 0.3 ? 'var(--learning)' : 'var(--good)';
   return (
     <div className={ds.card}>
       <h3>
@@ -297,7 +297,7 @@ function Calibration({ k }: { k: Knowledge }) {
           data-tip="확신없음+틀림(적정)"
           role="img"
           aria-label="확신없음+틀림(적정)"
-          style={{ width: `${Math.round((1 - over) * 100)}%`, background: '#d6a72b' }}
+          style={{ width: `${Math.round((1 - over) * 100)}%`, background: 'var(--learning)' }}
         />
       </div>
       <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
@@ -308,8 +308,9 @@ function Calibration({ k }: { k: Knowledge }) {
 }
 
 function Setup() {
+  // 카드 크롬은 offWrap(발광 패널)이 제공 — 본문은 투명 콘텐츠만(지식맵 패널과 같은 언어).
   return (
-    <div className={ds.card}>
+    <div className={m.stateBody}>
       <h3>아직 지식상태가 없어요</h3>
       <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
         <li>
@@ -335,7 +336,8 @@ function Setup() {
 }
 
 export default function Mastery() {
-  const { data: k, isLoading, isFetching } = useKnowledge();
+  const { data: k, isLoading, isFetching, isError, error, refetch } = useKnowledge();
+  const ping = usePing(); // serve.js 도달성 — 오프라인(프록시 500 포함)과 진짜 서버 실패를 구분.
   const qc = useQueryClient();
   const setRuntimeCache = useApp((s) => s.setRuntimeCache);
   const setChrome = usePageChrome((s) => s.setChrome);
@@ -384,6 +386,18 @@ export default function Mastery() {
   };
 
   const loading = (isLoading || isFetching) && !k;
+
+  // 쿼리 에러 분류 — '아직 데이터 없음'(산출물 미생성 404·산출물 부재 메시지·서버 미가동)은 정상적인
+  // 무데이터 → 셋업 안내. serve.js가 살아 있는데(ping 성공) 실패한 경우만 에러 패널로 —
+  // 실패를 셋업 뒤에 숨기지 않되, 오프라인(dev/preview 프록시 500 포함)을 장애로 오판하지 않는다.
+  const errMsg = isError ? (error instanceof Error ? error.message : String(error)) : '';
+  const realError =
+    isError &&
+    !k &&
+    ping.isSuccess &&
+    !(error instanceof TypeError) &&
+    errMsg !== 'HTTP 404' &&
+    !errMsg.includes('찾지 못했');
 
   return (
     <section className={m.wrap} aria-label="숙달도 지도">
@@ -454,6 +468,20 @@ export default function Mastery() {
         <div className={m.offWrap}>
           <div className={`${ds.muted}`}>
             <span className={ds.spin} /> 지식상태 로드 중...
+          </div>
+        </div>
+      ) : realError ? (
+        /* 진짜 실패(서버 응답 에러) — 셋업 안내로 위장하지 않고 에러를 드러내고 재시도를 제공. */
+        <div className={m.offWrap}>
+          <div className={m.errBody} role="alert">
+            <span className={m.errGlyph} aria-hidden="true">
+              ⚠
+            </span>
+            <h3>지식상태를 불러오지 못했어요</h3>
+            <div className={`${ds.foot} ${ds.muted}`}>{errMsg}</div>
+            <Button sm variant="primary" onClick={() => refetch()}>
+              다시 시도
+            </Button>
           </div>
         </div>
       ) : (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { actions, io, Icon } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
+import FocusChip from './FocusChip';
 import s from './TopBar.module.css';
 
 /* TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
@@ -46,6 +47,8 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
       </h1>
       <span className={s.sub}>오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
       <span className={s.grow} />
+      {/* 전역 집중 세션 칩 — 어느 탭에서든 진행 중 세션이 보인다(클릭 → 오늘). */}
+      <FocusChip />
       {readouts.length > 0 && (
         <div className={s.readouts}>
           {readouts.map((r, i) => (

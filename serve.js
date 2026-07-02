@@ -24,6 +24,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { spawn } = require('child_process');
 
 const ROOT = __dirname;                          // 러닝허브 폴더
@@ -62,6 +63,33 @@ function sendJSON(res, code, obj) {
   const body = JSON.stringify(obj);
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
+}
+
+/* ── 정적 파일 전송 헬퍼(캐시 정책 + gzip 협상) ──────────────────
+   캐시: Vite가 /assets/ 밑에 콘텐츠 해시 파일명(index-Ab3xYz.js)으로 내놓으므로 1년 immutable.
+         index.html·manifest·sw.js 등 해시 없는 파일은 no-cache(매번 재검증 → 새 빌드 즉시 반영).
+   gzip: 텍스트류(html/js/css/json/svg)만, 클라이언트가 Accept-Encoding: gzip일 때 스트림 압축.
+         압축 시 Content-Length는 생략(chunked). API 응답(sendJSON)은 기존 no-store 유지. */
+function isCompressible(type) {
+  return /^text\/|^application\/(json|javascript|manifest\+json)|^image\/svg\+xml/.test(type);
+}
+function sendFile(req, res, filePath, type, cache) {
+  const headers = { 'Content-Type': type, 'Cache-Control': cache };
+  const gzipOk = isCompressible(type);
+  if (gzipOk) headers['Vary'] = 'Accept-Encoding'; // 압축 여부로 응답이 갈리는 자원만 표시
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', () => {
+    try { res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); } catch (e) {}
+    res.end('500: 파일 읽기 실패');
+  });
+  if (gzipOk && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+    headers['Content-Encoding'] = 'gzip';
+    res.writeHead(200, headers);
+    stream.pipe(zlib.createGzip()).pipe(res);
+  } else {
+    res.writeHead(200, headers);
+    stream.pipe(res);
+  }
 }
 
 /* 도구 실행(spawn · shell 안 씀) → {ok,out,code,stats?} */
@@ -148,19 +176,20 @@ const server = http.createServer((req, res) => {
     fs.stat(filePath, (err, st) => {
       if (!err && st.isFile()) {
         const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
-        fs.createReadStream(filePath).pipe(res);
+        // /assets/(콘텐츠 해시 파일명)은 1년 immutable, 그 외(index.html·manifest·sw.js 등)는 no-cache.
+        const cache = urlPath.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+        sendFile(req, res, filePath, type, cache);
         return;
       }
       // 미매칭 GET(딥링크 /stats 등) → index.html 반환(클라이언트 라우팅). 확장자 있는 자원은 404.
       if (req.method === 'GET' && !path.extname(path.basename(urlPath))) {
-        return fs.readFile(path.join(DIST, 'index.html'), (e2, data) => {
-          if (e2) {
+        const indexPath = path.join(DIST, 'index.html');
+        return fs.stat(indexPath, (e2, st2) => {
+          if (e2 || !st2.isFile()) {
             res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('빌드물이 없습니다. `cd web && npm run build` 후 다시 시도하세요. (개발은 `cd web && npm run dev` :5173)');
           } else {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-            res.end(data);
+            sendFile(req, res, indexPath, MIME['.html'], 'no-cache');
           }
         });
       }

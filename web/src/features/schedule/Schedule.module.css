@@ -206,11 +206,13 @@
   color: var(--warn);
 }
 
-/* 모바일 — 단일화면 해제: 세로 스택 + 스크롤 */
+/* 모바일 — 단일화면 해제: 세로 스택 + 스크롤(.board2는 flex — 세로 전환 후 자신이 스크롤 부모). */
 @media (max-width: 860px) {
   .board2 {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
+    scrollbar-width: thin;
   }
   .boardWrap {
     min-height: 320px;

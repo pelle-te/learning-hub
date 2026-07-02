@@ -23,6 +23,12 @@ function hh(min: number): string {
   return String(Math.floor(min / 60)).padStart(2, '0');
 }
 
+/** 짧은 세그 단계별 라벨 감춤 — 45분 미만 compact(메타 숨김) · 25분 미만 micro(이름까지 숨김).
+ *  높이가 라벨을 못 담아 겹침·잘림이 나던 것을 방지. micro는 컬러 엣지/틴트만 남고 hover(title)로 확인. */
+function sizeCls(dur: number): string {
+  return dur < 25 ? ' ' + s.micro : dur < 45 ? ' ' + s.compact : '';
+}
+
 export function WeekCalendar({
   parts,
   sel,
@@ -113,13 +119,15 @@ export function WeekCalendar({
                   if (r.kind === 'block' && r.start != null) {
                     const top = pos(r.start);
                     const h = Math.max(2.4, pos(r.end) - top);
+                    const dur = r.end - r.start;
                     const cat = r.btype && r.btype !== r.name ? r.btype : '';
                     return (
                       <div
                         key={i}
-                        className={`${s.seg} ${s.block}${segPast(r.end) ? ' ' + s.segPast : ''}`}
+                        className={`${s.seg} ${s.block}${sizeCls(dur)}${segPast(r.end) ? ' ' + s.segPast : ''}`}
                         style={{ top: `${top}%`, height: `${h}%`, ...(r.color ? { ['--seg']: r.color } : {}) }}
                         data-tip={`${r.name}\n${cat ? cat + ' · ' : ''}${toHM(r.start)}–${toHM(r.end)}`}
+                        title={dur < 25 ? r.name : undefined}
                       >
                         <span className={s.segName}>{r.name}</span>
                       </div>
@@ -128,6 +136,7 @@ export function WeekCalendar({
                   if (r.kind === 'study' && r.start != null && r.end != null) {
                     const top = pos(r.start);
                     const h = Math.max(3, pos(r.end) - top);
+                    const dur = r.end - r.start;
                     const x = r.it;
                     const tag = STYPE[x.type];
                     const done = isDone(state, p.ds, x.sid, x.type);
@@ -135,8 +144,9 @@ export function WeekCalendar({
                       <button
                         key={i}
                         type="button"
-                        className={`${s.seg} ${s.study} ${s[tag.cls]}${done ? ' ' + s.done : ''}${segPast(r.end) ? ' ' + s.segPast : ''}`}
+                        className={`${s.seg} ${s.study} ${s[tag.cls]}${sizeCls(dur)}${done ? ' ' + s.done : ''}${segPast(r.end) ? ' ' + s.segPast : ''}`}
                         style={{ top: `${top}%`, height: `${h}%`, ...(x.color ? { ['--seg']: x.color } : {}) }}
+                        title={dur < 25 ? `${x.name} · ${tag.label}` : undefined}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleDone(p.ds, x.sid, x.type, r.plannedMin, !done);

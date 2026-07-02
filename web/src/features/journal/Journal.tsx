@@ -9,6 +9,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { ui, io } from '@/shell';
+import { toastUndo } from '@/shell/toast';
 import {
   summariesFor,
   addSummary,
@@ -106,8 +107,16 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
     ui.toast('요약 저장됨', 'ok');
   };
   const del = (id: string) => {
+    // 삭제 전 스냅샷 → 되돌리기 액션으로 복원(파괴적 동작 언두 문화 일관).
+    const rec = list.find((x) => x.id === id);
     mutate((st) => delSummary(st, dsKey, id));
-    ui.toast('요약 삭제됨', 'info');
+    toastUndo('요약 삭제됨', () => {
+      if (!rec) return;
+      mutate((st) => {
+        st.summaries = st.summaries || {};
+        (st.summaries[dsKey] = st.summaries[dsKey] || []).push({ ...rec });
+      });
+    });
   };
 
   return (
@@ -234,8 +243,15 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
     ui.toast('오답 추가됨', 'ok');
   };
   const del = (id: string) => {
+    const rec = today.find((x) => x.id === id);
     mutate((st) => delCbms(st, id));
-    ui.toast('오답 삭제됨', 'info');
+    toastUndo('오답 삭제됨', () => {
+      if (!rec) return;
+      mutate((st) => {
+        st.cbms = st.cbms || [];
+        st.cbms.push({ ...rec });
+      });
+    });
   };
 
   return (
@@ -353,10 +369,21 @@ function BacklogCard() {
     setNote('');
     ui.toast('백로그 추가됨', 'ok');
   };
-  const toggle = (id: string) => mutate((st) => toggleBacklog(st, id));
+  // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트.
+  const toggle = (id: string) => {
+    mutate((st) => toggleBacklog(st, id));
+    toastUndo('보충 회수 완료 ✓', () => mutate((st) => toggleBacklog(st, id)));
+  };
   const del = (id: string) => {
+    const rec = open.find((x) => x.id === id);
     mutate((st) => delBacklog(st, id));
-    ui.toast('백로그 삭제됨', 'info');
+    toastUndo('백로그 삭제됨', () => {
+      if (!rec) return;
+      mutate((st) => {
+        st.backlog = st.backlog || [];
+        st.backlog.push({ ...rec });
+      });
+    });
   };
 
   return (

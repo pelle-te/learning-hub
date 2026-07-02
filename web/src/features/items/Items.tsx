@@ -4,6 +4,7 @@
    인터랙티브/칩은 토큰 기반 공용 컴포넌트(Button/Pill/Kpi)로 — 룩 일관·테마 자동 대응.
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
 import { ui } from '@/shell';
@@ -51,6 +52,7 @@ function useInsight(items: Item[]) {
 export default function Items() {
   const items = useApp((s) => s.state.items);
   const mutate = useApp((s) => s.mutate);
+  const navigate = useNavigate();
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const insight = useInsight(items);
   const setChrome = usePageChrome((s) => s.setChrome);
@@ -196,9 +198,10 @@ export default function Items() {
                   </Button>
                   <Button
                     variant="ghost"
-                    onClick={() => ui.toast('연동 탭에서 볼트 폴더를 스캔해 과목을 불러오세요.', 'info')}
+                    onClick={() => navigate('/integrations', { viewTransition: true })}
+                    title="연동 탭에서 볼트 폴더를 스캔해 과목을 불러오세요"
                   >
-                    볼트/Anki에서 불러오기
+                    볼트/Anki에서 불러오기 →
                   </Button>
                 </>
               }

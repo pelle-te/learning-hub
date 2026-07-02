@@ -222,7 +222,12 @@ function IcsFreshnessNote() {
 export default function Schedule() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
-  const [weekOffset, setWeekOffset] = useState(0);
+  // '오늘'이 속한 주의 오프셋(시작 주 기준) — 초기 주·'이번 주' 배지·'이번 주로' 액션의 공통 기준.
+  const todayOff = Math.round(
+    dayDiff(iso(mondayOf(parseISO(state.startDate))), iso(mondayOf(parseISO(todayISO(state))))) / 7,
+  );
+  // 시작 주가 아니라 '현재 주'로 연다(리뷰·오늘 탭과 일관) — 오늘은 앱의 단일 출처(_today) 존중.
+  const [weekOffset, setWeekOffset] = useState(todayOff);
   // 뷰 선택은 UI 설정 단일 store(useUI)가 소유 — 영속·IDB미러 일관(localStorage 직접 접근 제거).
   const schedView = useUI((s) => s.ui.schedView);
   const setView = useUI((s) => s.setSchedView);
@@ -252,8 +257,7 @@ export default function Schedule() {
   );
 
   const weekToday = () => {
-    const base = iso(mondayOf(parseISO(state.startDate)));
-    setWeekOffset(Math.round(dayDiff(base, iso(mondayOf(new Date()))) / 7));
+    setWeekOffset(todayOff);
     setSelDow(null);
   };
 
@@ -303,13 +307,13 @@ export default function Schedule() {
         { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
         { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
       ],
-      weekOffset !== 0
+      weekOffset !== todayOff
         ? { label: '이번 주로 →', onClick: weekToday }
         : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
     );
     return () => clearChrome();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekUsedH, compRate, weekPlanMin, nearestDday, weekOffset]);
+  }, [weekUsedH, compRate, weekPlanMin, nearestDday, weekOffset, todayOff]);
 
   const navBar = (
     <div className={c.nav}>
@@ -319,7 +323,11 @@ export default function Schedule() {
       <div className={c.wk}>
         <b className={c.wkLab}>{weekLabel(curMon)}</b>
         <span className={c.wkOff}>
-          {weekOffset === 0 ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}
+          {weekOffset === todayOff
+            ? '이번 주'
+            : weekOffset > todayOff
+              ? `+${weekOffset - todayOff}주`
+              : `${weekOffset - todayOff}주`}
         </span>
       </div>
       <Button sm onClick={() => setWeekOffset((o) => o + 1)}>

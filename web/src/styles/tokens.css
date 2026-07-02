@@ -99,6 +99,8 @@
   --warn: #ffb454;
   --bad: #ff6b6b;
   --good: #62d28c;
+  /* 학습중(숙달도 상태) 앰버 — good/bad 사이의 중간 상태색(하드코딩 #d6a72b의 토큰화). */
+  --learning: #d6a72b;
   --violet: #b794f6;
   --on-acc: #0a0a12;
 
@@ -135,6 +137,8 @@
   --warn: #b26b00;
   --bad: #dc2626;
   --good: #0ea371;
+  /* 학습중 앰버 — 흰 캔버스 대비를 위해 다크보다 어둡게. */
+  --learning: #a16207;
   --violet: #7c5cdb;
   --on-acc: #ffffff;
 

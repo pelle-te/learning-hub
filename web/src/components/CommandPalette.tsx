@@ -34,7 +34,11 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
               recordRecent(c.id); // 최근 명령 LRU — 다음 ⌘K에서 위로.
               try {
                 if (c.kind === 'tab') navigate('/' + c.key, { viewTransition: true });
-                else c.run();
+                else {
+                  c.run();
+                  // 액션이 특정 탭에서 이어지는 경우(집중 시작·기록 프리필) 실행 후 이동.
+                  if (c.to) navigate(c.to, { viewTransition: true });
+                }
               } catch (e) {
                 console.error(e);
               }

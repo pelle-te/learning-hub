@@ -41,12 +41,15 @@
   background-clip: padding-box;
 }
 
-/* fill 모드 — 본문이 프레임을 가득(단일 화면 대시보드). 스크롤·패딩 없음, 자식이 100% 채움.
+/* fill 모드 — 본문이 프레임을 가득(단일 화면 대시보드). 패딩 없음, 자식이 100% 채움.
    세로 스택: SubTabs 같은 선행 자식은 자연 높이로 위에, 라우트 본문(마지막 자식)이 남은 높이를 채움.
-   (today는 SubTabs가 null이라 본문이 곧 유일·마지막 자식 → 그대로 가득.) */
+   (today는 SubTabs가 null이라 본문이 곧 유일·마지막 자식 → 그대로 가득.)
+   overflow-y:auto — 표준 뷰포트에선 콘텐츠가 100%라 스크롤 없음(hidden과 동일), 짧은 높이·
+   스태킹 브레이크포인트 사이에선 잘리는 대신 스크롤(콘텐츠 클리핑 방지). 가로는 계속 숨김. */
 .fillInner {
   height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -68,9 +71,5 @@
   .scroll {
     padding: 12px 14px 24px;
   }
-  /* 모바일에선 단일 화면을 풀고 세로 스크롤 허용(콘텐츠 잘림 방지). */
-  .fillInner {
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
+  /* 모바일 단일 화면 해제(세로 스크롤)는 기본 .fillInner overflow-y:auto가 이미 담당. */
 }
