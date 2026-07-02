@@ -144,6 +144,27 @@ export default function Items() {
     [items, mutate],
   );
 
+  // 드래그 정렬 — HTML5 DnD(닫힌 카드만). 색은 인덱스 파생(PALETTE)이므로 재정렬 즉시 재유도해
+  // 다음 부팅에 색이 바뀌는 서프라이즈를 없앤다(recolorAll·refineItemColors와 동일 규칙).
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const moveItem = useCallback(
+    (fromId: string, toId: string) => {
+      if (fromId === toId) return;
+      mutate((st) => {
+        const from = st.items.findIndex((x) => x.id === fromId);
+        const to = st.items.findIndex((x) => x.id === toId);
+        if (from < 0 || to < 0) return;
+        const [moved] = st.items.splice(from, 1);
+        st.items.splice(to, 0, moved!);
+        st.items.forEach((x, i) => {
+          x.color = PALETTE[i % PALETTE.length];
+        });
+      });
+    },
+    [mutate],
+  );
+
   const n = items.length;
 
   return (
@@ -207,14 +228,32 @@ export default function Items() {
       ) : (
         <div className={c.gallery}>
           {items.map((s) => (
-            <ItemCard
+            <div
               key={s.id}
-              item={s}
-              open={open.has(s.id)}
-              onToggle={toggle}
-              onDelete={removeItem}
-              mutate={mutate}
-            />
+              className={`${c.dragWrap}${overId === s.id && dragId !== s.id ? ' ' + c.dragOver : ''}${dragId === s.id ? ' ' + c.dragging : ''}`}
+              draggable={!open.has(s.id)}
+              onDragStart={(e) => {
+                setDragId(s.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault(); // drop 허용
+                setOverId(s.id);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragId) moveItem(dragId, s.id);
+                setDragId(null);
+                setOverId(null);
+              }}
+            >
+              <ItemCard item={s} open={open.has(s.id)} onToggle={toggle} onDelete={removeItem} mutate={mutate} />
+            </div>
           ))}
         </div>
       )}

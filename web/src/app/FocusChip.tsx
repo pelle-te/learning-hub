@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFocus } from '@/store/useFocus';
 import { useApp } from '@/store/useApp';
 import { toast } from '@/shell/toast';
+import { confirm } from '@/shell/modal';
 import s from './FocusChip.module.css';
 
 const BASE_TITLE = typeof document !== 'undefined' ? document.title : '러닝허브';
@@ -40,24 +41,36 @@ export default function FocusChip() {
 
   const leftSec = session ? Math.max(0, Math.round((session.endsAt - now) / 1000)) : 0;
 
-  // 종료 감지 — 세션당 정확히 한 번: 시스템 알림(백그라운드에서도 보임) + 완료 토글 액션 토스트.
+  // 종료 감지 — 세션당 정확히 한 번. 집중: 알림 + 완료 토글 토스트 + 자동 휴식(5분).
+  // 휴식: 가벼운 알림 + '다음 블록 시작' 액션(완료 토글·재휴식 없음).
   useEffect(() => {
     if (!session || leftSec > 0) return;
     if (doneKey.current === session.startedAt) return;
     doneKey.current = session.startedAt;
-    const { ds, sid, type, name, blockMin } = session;
+    const { ds, sid, type, name, blockMin, kind } = session;
+    const isBreak = kind === 'break';
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
-        new Notification('집중 세션 완료 🎉', { body: `${name} — 수고했어요. 블록을 완료로 표시할까요?` });
+        new Notification(isBreak ? '휴식 끝 ☕' : '집중 세션 완료 🎉', {
+          body: isBreak ? '재충전 완료 — 다음 블록을 시작해볼까요?' : `${name} — 수고했어요. 블록을 완료로 표시할까요?`,
+        });
       } catch {
         /* 알림 실패는 토스트가 커버 */
       }
     }
-    toast(`집중 세션 완료 🎉 — ${name}`, 'info', 10_000, {
-      label: '블록 완료로 표시',
-      onAction: () => useApp.getState().toggleDone(ds, sid, type, blockMin, true),
-    });
+    if (isBreak) {
+      toast('휴식 끝 ☕ — 다음 블록을 시작해볼까요?', 'info', 10_000, {
+        label: '▶ 집중 시작',
+        onAction: () => useFocus.getState().startOnCurrent(),
+      });
+    } else {
+      toast(`집중 세션 완료 🎉 — ${name}`, 'info', 10_000, {
+        label: '블록 완료로 표시',
+        onAction: () => useApp.getState().toggleDone(ds, sid, type, blockMin, true),
+      });
+    }
     clear();
+    if (!isBreak) useFocus.getState().startBreak(5); // 자동 휴식 — 포모도로 회복 구간
   }, [session, leftSec, clear]);
 
   // 문서 제목에 남은 시간 미러 — 다른 앱/탭에 가 있어도 세션이 보인다.
@@ -70,21 +83,40 @@ export default function FocusChip() {
   }, [session, leftSec]);
 
   if (!session) return null;
+  const isBreak = session.kind === 'break';
   const mmss = fmt(leftSec);
+  // 조기중단 confirm — 실수 클릭으로 세션이 날아가는 것 방지(휴식은 부담 없이 즉시 중단).
+  const stopAsk = async () => {
+    if (isBreak) return stop();
+    if (
+      await confirm('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
+        title: '집중 중단',
+        okLabel: '중단',
+        danger: true,
+      })
+    )
+      stop();
+  };
   return (
     <div className={s.chip}>
       <button
         type="button"
         className={s.body}
         onClick={() => navigate('/today', { viewTransition: true })}
-        title="집중 세션 진행 중 — 오늘 탭으로"
-        aria-label={`집중 세션 ${session.name} 남은 시간 ${mmss} — 오늘 탭으로 이동`}
+        title={isBreak ? '휴식 중 — 오늘 탭으로' : '집중 세션 진행 중 — 오늘 탭으로'}
+        aria-label={`${isBreak ? '휴식' : `집중 세션 ${session.name}`} 남은 시간 ${mmss} — 오늘 탭으로 이동`}
       >
         <i className={s.pulse} aria-hidden="true" />
         <b className={s.time}>{mmss}</b>
-        <span className={s.name}>{session.name}</span>
+        <span className={s.name}>{isBreak ? '☕ 휴식' : session.name}</span>
       </button>
-      <button type="button" className={s.stopBtn} onClick={stop} title="집중 중단" aria-label="집중 타이머 정지">
+      <button
+        type="button"
+        className={s.stopBtn}
+        onClick={() => void stopAsk()}
+        title={isBreak ? '휴식 중단' : '집중 중단'}
+        aria-label={isBreak ? '휴식 타이머 정지' : '집중 타이머 정지'}
+      >
         ■
       </button>
     </div>

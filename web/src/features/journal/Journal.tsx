@@ -21,8 +21,9 @@ import {
   addBacklog,
   toggleBacklog,
   delBacklog,
+  activityFeed,
 } from '@/lib/methodology';
-import { fmt, itemById, todayISO } from '@/lib/utils';
+import { addDays, fmt, iso, itemById, parseISO, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import JournalStream from './JournalStream';
 import ds from '@/styles/ds.module.css';
@@ -460,6 +461,32 @@ function BacklogCard() {
   );
 }
 
+/** 최근 활동(7일) — 완료·요약·오답·보충·백지를 시간역순 단일 피드로(온디맨드 <details>). */
+function ActivityFeed({ ds2 }: { ds2: string }) {
+  const state = useApp((s) => s.state);
+  const feed = activityFeed(state, iso(addDays(parseISO(ds2), -6)), ds2);
+  return (
+    <details className={j.feed}>
+      <summary className={j.feedSum}>최근 활동 · 7일{feed.length ? ` (${feed.length})` : ''}</summary>
+      {feed.length ? (
+        <ol className={j.feedList}>
+          {feed.map((e, i) => (
+            <li key={i} className={j.feedRow}>
+              <span className={j.feedDs}>{e.ds.slice(5).replace('-', '/')}</span>
+              <span className={j.feedKind} data-kind={e.kind}>
+                {e.label}
+              </span>
+              <span className={j.feedDetail}>{e.detail}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className={j.feedEmpty}>최근 7일 기록이 없어요 — 오늘 첫 발자취를 남겨보세요.</div>
+      )}
+    </details>
+  );
+}
+
 export default function Journal() {
   const state = useApp((s) => s.state);
   const ds2 = todayISO({ _today: state._today }); // '오늘' 단일 출처 존중
@@ -482,9 +509,10 @@ export default function Journal() {
   return (
     <section className={j.wrap} aria-label="학습 기록">
       <div className={j.cols}>
-        {/* 좌 — 오늘의 로그(시그니처, fill) */}
+        {/* 좌 — 오늘의 로그(시그니처, fill) + 최근 활동(온디맨드) */}
         <div className={j.logCol}>
           <JournalStream ds={ds2} fill />
+          <ActivityFeed ds2={ds2} />
           <div className={j.logHint}>
             공부 뒤 남기는 산출물(오늘 {fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 하나씩. 누적 추세·약점
             분포는 <b>통계</b>·<b>주간 리뷰</b>에서.

@@ -65,6 +65,14 @@ describe('bootFocus — 부팅/복원', () => {
     persistFocus(kv, null);
     expect(kv.getItem(FOCUS_KEY)).toBeNull();
   });
+  it("휴식 세션(kind:'break')도 영속 왕복 — 구버전 저장분(kind 없음)과 공존", () => {
+    const kv = memKV();
+    const b = sess({ kind: 'break', name: '휴식', sid: '', blockMin: 0 });
+    persistFocus(kv, b);
+    expect(bootFocus(kv, NOW)).toEqual(b);
+    persistFocus(kv, sess()); // kind 생략(구버전 형태) — optional이라 그대로 통과
+    expect(bootFocus(kv, NOW)?.kind).toBeUndefined();
+  });
 });
 
 describe('pickFocus — 지금 할 일 선택 규칙', () => {

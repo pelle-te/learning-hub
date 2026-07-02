@@ -5,6 +5,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import {
+  activityFeed,
   addBacklog,
   addCbms,
   addSummary,
@@ -25,6 +26,7 @@ import {
   openBacklog,
   recordCount,
   recordRetentionSnapshot,
+  retentionNudge,
   retentionTrend,
   setBlankResult,
   summariesFor,
@@ -158,6 +160,37 @@ describe('methodology — 규모/아카이빙/유지율', () => {
     expect(s.summaries!['2000-01-01']).toBeUndefined();
     expect(s.cbms!.length).toBe(0);
     expect(s.backlog!.length).toBe(0);
+  });
+
+  it('retentionNudge: 악화(+delta)와 유의미한 절대량(≥20)일 때만 경고 문구', () => {
+    const s = st();
+    expect(retentionNudge(s)).toBeNull(); // 데이터 없음
+    s.retentionLog = [
+      { wk: '2026-06-22', at: '', due: 10, cards: 100 },
+      { wk: '2026-06-29', at: '', due: 8, cards: 100 },
+    ];
+    expect(retentionNudge(s)).toBeNull(); // 감소 방향 — 조용
+    s.retentionLog[1]!.due = 15;
+    expect(retentionNudge(s)).toBeNull(); // 늘었지만 20장 미만 — 조용
+    s.retentionLog[1]!.due = 34;
+    expect(retentionNudge(s)).toContain('34장');
+    expect(retentionNudge(s)).toContain('+24');
+  });
+
+  it('activityFeed: 5종 이벤트를 구간 필터·날짜 내림차순 단일 피드로', () => {
+    const s = st({
+      items: [{ id: 'a', name: '수학' }],
+      completions: { '2026-07-01': { 'a|new': { done: true, min: 120 }, 'a|rev': { done: false, min: 0 } } },
+    });
+    addSummary(s, '2026-07-02', 'a', '수학', '핵심', '', '');
+    addCbms(s, '2026-06-30', 'a', '수학', '1장', 'C', '');
+    addBacklog(s, 'a', '수학', '테일러', '');
+    s.backlog![0]!.done = true;
+    s.backlog![0]!.doneDs = '2026-07-01';
+    setBlankResult(s, '2026-06-20', 'a', '수학', true, '', ''); // 구간 밖
+    const feed = activityFeed(s, '2026-06-26', '2026-07-02');
+    expect(feed.map((e) => e.kind)).toEqual(['summary', 'done', 'backlog', 'cbms']); // 내림차순 + done:false·구간밖 제외
+    expect(feed[1]!.detail).toBe('수학'); // sid→과목명 매핑
   });
 
   it('retention: 주별 스냅샷(같은 주는 교체)과 추세 delta', () => {

@@ -342,6 +342,64 @@ export function retentionTrend(state: AppState) {
   return { points: pts, latest, prev, delta: prev ? prev.due - latest.due : 0, has: true };
 }
 
+/** 유지율 넛지(F-05 능동화) — due가 지난주보다 늘고 절대량도 유의미하면 경고 문구, 아니면 null.
+ *  임계(20장)는 '하루면 지울 수 있는 양'은 조용히 넘어가려는 보수적 기준. */
+export function retentionNudge(state: AppState): string | null {
+  const t = retentionTrend(state);
+  if (!t.has || !t.prev || !t.latest) return null;
+  const delta = t.latest.due - t.prev.due;
+  if (delta <= 0 || t.latest.due < 20) return null;
+  return `복습이 밀리는 중 — Anki 대기 ${t.latest.due}장(지난주보다 +${delta}). 오늘 Anki 블록을 먼저 처리해 보세요.`;
+}
+
+/* ── 활동 피드(기록 탭) — 최근 N일의 학습 발자취를 시간역순 단일 리스트로 ── */
+export interface ActivityEntry {
+  ds: string;
+  kind: 'done' | 'summary' | 'cbms' | 'backlog' | 'blank';
+  label: string;
+  detail: string;
+}
+/** 완료·요약·오답·보충회수·백지결과를 [fromDs, toDs] 구간에서 모아 날짜 내림차순으로. */
+export function activityFeed(state: AppState, fromDs: string, toDs: string, cap = 60): ActivityEntry[] {
+  const inRange = (ds?: string) => !!ds && ds >= fromDs && ds <= toDs;
+  const nameOf = (sid: string) => (state.items || []).find((it) => it.id === sid)?.name || '';
+  const out: ActivityEntry[] = [];
+  const c = state.completions || {};
+  for (const ds in c) {
+    if (!inRange(ds)) continue;
+    for (const key in c[ds]) {
+      const e = c[ds]![key]!;
+      if (!e || e.done !== true) continue;
+      const [sid] = key.split('|');
+      out.push({ ds, kind: 'done', label: '블록 완료', detail: nameOf(sid || '') || key });
+    }
+  }
+  for (const ds in state.summaries || {}) {
+    if (!inRange(ds)) continue;
+    (state.summaries![ds] || []).forEach((x) =>
+      out.push({ ds, kind: 'summary', label: '3문장 요약', detail: (x.name ? x.name + ' — ' : '') + (x.s1 || '') }),
+    );
+  }
+  (state.cbms || []).forEach((e) => {
+    if (!inRange(e.ds)) return;
+    out.push({
+      ds: e.ds,
+      kind: 'cbms',
+      label: `오답(${e.code})`,
+      detail: (e.name ? e.name + ' — ' : '') + (e.chapter || e.note || ''),
+    });
+  });
+  (state.backlog || []).forEach((b) => {
+    if (!b.done || !inRange(b.doneDs)) return;
+    out.push({ ds: b.doneDs, kind: 'backlog', label: '보충 완료', detail: (b.name ? b.name + ' — ' : '') + b.topic });
+  });
+  (state.blankResults || []).forEach((x) => {
+    if (!inRange(x.ds)) return;
+    out.push({ ds: x.ds, kind: 'blank', label: x.passed ? '백지 복습 통과' : '백지 복습 막힘', detail: x.name || '' });
+  });
+  return out.sort((a, b) => (a.ds < b.ds ? 1 : a.ds > b.ds ? -1 : 0)).slice(0, cap);
+}
+
 /** 인출 증거(14절) — CBMS 주간 추세. */
 export function cbmsTrend(state: AppState): { thisW: number; lastW: number } {
   const mon = mondayOf(parseISO(todayISO(state))); // 앱의 '오늘' 단일 출처(_today 시드 존중)

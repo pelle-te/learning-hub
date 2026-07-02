@@ -13,7 +13,7 @@ import DetailDrawer from '@/components/DetailDrawer';
 import { ProgressRing } from '@/components/ProgressRing';
 import { CountReadout } from '@/components/CountReadout';
 import { isDone, totalDoneHours, studyStreak } from '@/lib/persistence';
-import { cbmsCounts, cbmsTrend, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
+import { cbmsCounts, cbmsTrend, retentionNudge, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
 import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, DOW } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import st from './Stats.module.css';
@@ -105,6 +105,7 @@ function RetentionSpark() {
       </div>
     );
   const pts = t.points;
+  const nudge = retentionNudge(state);
   const max = Math.max(1, ...pts.map((p) => p.due));
   const flat = t.delta === 0 || !t.prev;
   const good = t.delta > 0;
@@ -148,6 +149,12 @@ function RetentionSpark() {
           </div>
         </div>
       </div>
+      {/* 능동 넛지 — 방향 표시(색)를 넘어, 악화가 유의미할 때만 경고 박스로 승격. */}
+      {nudge && (
+        <div className={ds.warnbox} role="status">
+          ⚠ {nudge}
+        </div>
+      )}
       <div className={ds.foot}>
         {flat
           ? '추세를 보려면 매주 한 번 due를 기록하세요(Anki 탭).'

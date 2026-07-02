@@ -27,6 +27,72 @@
   line-height: 1.5;
   color: var(--mut);
 }
+/* 최근 활동 피드 — 스트림 아래 온디맨드(접힘 기본). 오늘의 로그와 시각 위계 분리(저대비·컴팩트). */
+.feed {
+  flex: none;
+  margin-top: 10px;
+  border-top: 1px solid var(--line2);
+  padding-top: 8px;
+}
+.feedSum {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--mut);
+  cursor: pointer;
+  user-select: none;
+}
+.feedSum:hover {
+  color: var(--acc);
+}
+.feedList {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.feedRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--line2) 60%, transparent);
+}
+.feedDs {
+  flex: none;
+  width: 38px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+.feedKind {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--acc);
+}
+.feedKind[data-kind='cbms'],
+.feedKind[data-kind='blank'] {
+  color: var(--warn, #ffb454);
+}
+.feedDetail {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+.feedEmpty {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--mut);
+}
 .inputCol {
   min-width: 0;
   border-left: 1px solid var(--line2);

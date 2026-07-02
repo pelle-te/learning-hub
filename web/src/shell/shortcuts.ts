@@ -33,6 +33,7 @@ export const GLOBAL_SHORTCUTS: { keys: string; label: string }[] = [
   { keys: 'Ctrl / ⌘ + K', label: '명령 팔레트' },
   { keys: 'G 그다음 ↑표의 키', label: '탭으로 이동' },
   { keys: '[  /  ]', label: '이전 / 다음 탭' },
+  { keys: ',  /  .', label: '이전 / 다음 주(스케줄·리뷰 탭)' },
   { keys: '← → Home End', label: '탭 사이 이동(나브 포커스 시)' },
   { keys: '?', label: '이 도움말 열기 / 닫기' },
   { keys: 'Esc', label: '팔레트·모달·도움말 닫기' },

@@ -202,18 +202,30 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
   const timerPct = timer && timer.total ? Math.min(100, ((timer.total - timerLeft) / timer.total) * 100) : 0;
   const mmss = `${String(Math.floor(timerLeft / 60)).padStart(2, '0')}:${String(timerLeft % 60).padStart(2, '0')}`;
-  const startTimer = () => {
+  // 포모도로 프리셋 — 기본은 블록 파생(focusMinutes), 25/50은 명시 선택.
+  const startTimer = (min?: number) => {
     if (!focus) return;
     startSession({
       ds,
       sid: focus.it.sid,
       type: focus.it.type,
       name: focus.it.name,
-      min: focusMinutes(focus),
+      min: min ?? focusMinutes(focus),
       blockMin: focus.it.min,
     });
   };
-  const stopTimer = () => stopSession();
+  // 조기중단 confirm — 진행 중 세션이 실수 클릭으로 날아가는 것 방지(휴식은 즉시 중단).
+  const stopTimer = async () => {
+    if (timer?.kind === 'break') return stopSession();
+    if (
+      await ui.confirm('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
+        title: '집중 중단',
+        okLabel: '중단',
+        danger: true,
+      })
+    )
+      stopSession();
+  };
 
   // 전부 완료 순간 셀레브레이션(한 번만).
   const wasDone = useRef(false);
@@ -317,11 +329,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               <button
                 type="button"
                 className={`${s.cta} ${s.ctaRun}`}
-                onClick={stopTimer}
-                aria-label="집중 타이머 정지"
+                onClick={() => void stopTimer()}
+                aria-label={timer.kind === 'break' ? '휴식 타이머 정지' : '집중 타이머 정지'}
               >
                 <span className={s.ctaNum}>{mmss}</span>
-                <span className={s.ctaCap}>■ 정지</span>
+                <span className={s.ctaCap}>{timer.kind === 'break' ? '☕ 휴식 · ■ 정지' : '■ 정지'}</span>
               </button>
             ) : allDone ? (
               <button type="button" className={`${s.cta} ${s.ctaGhost}`} onClick={() => go('/journal')}>
@@ -329,10 +341,28 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 <span className={s.ctaCap}>기록 보기 →</span>
               </button>
             ) : focus ? (
-              <button type="button" className={s.cta} onClick={startTimer} aria-label="집중 타이머 시작">
-                <span className={s.ctaGo}>▶ 집중 시작</span>
-                <span className={s.ctaCap}>{focusMin}분</span>
-              </button>
+              <>
+                <button type="button" className={s.cta} onClick={() => startTimer()} aria-label="집중 타이머 시작">
+                  <span className={s.ctaGo}>▶ 집중 시작</span>
+                  <span className={s.ctaCap}>{focusMin}분</span>
+                </button>
+                {/* 포모도로 프리셋 — 블록 길이 대신 25/50분 명시 시작. */}
+                <span className={s.presets}>
+                  {[25, 50]
+                    .filter((m) => m !== focusMin)
+                    .map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={s.preset}
+                        onClick={() => startTimer(m)}
+                        aria-label={`${m}분 집중 시작`}
+                      >
+                        {m}′
+                      </button>
+                    ))}
+                </span>
+              </>
             ) : (
               <button type="button" className={s.cta} onClick={() => go('/items')}>
                 <span className={s.ctaGo}>＋ 학습 항목 추가</span>

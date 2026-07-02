@@ -24,6 +24,8 @@ export const FocusSessionSchema = z.object({
   name: z.string(),
   /** 블록의 원래 분량(분) — toggleDone에 넘길 값(세션 분과 다를 수 있음) */
   blockMin: z.number(),
+  /** 세션 종류 — 'break'는 완료 알림 후 자동 시작되는 휴식(완료 토글 없음). 생략 = 집중(하위호환). */
+  kind: z.enum(['focus', 'break']).optional(),
 });
 export type FocusSession = z.infer<typeof FocusSessionSchema>;
 

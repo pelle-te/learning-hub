@@ -31,6 +31,8 @@ interface FocusStore {
   startOnCurrent: () => boolean;
   /** 세션 중단(완료 아님). */
   stop: () => void;
+  /** 집중 종료 직후 자동 휴식(포모도로 회복 구간) — 완료 토글 없는 'break' 세션. */
+  startBreak: (min?: number) => void;
   /** 종료 처리 후 정리(FocusChip 전용 — 토스트/알림은 호출부가). */
   clear: () => void;
 }
@@ -81,6 +83,24 @@ export const useFocus = create<FocusStore>((set, get) => ({
   stop() {
     set({ session: null });
     persistFocus(storage, null);
+  },
+
+  startBreak(min = 5) {
+    const now = Date.now();
+    const session: FocusSession = {
+      endsAt: now + min * 60_000,
+      total: min * 60,
+      startedAt: now,
+      ds: '',
+      sid: '',
+      type: 'new', // 자리표시 — kind:'break'라 완료 토글 경로에 안 들어감
+      name: '휴식',
+      blockMin: 0,
+      kind: 'break',
+    };
+    set({ session });
+    persistFocus(storage, session);
+    toast(`☕ ${min}분 휴식 — 끝나면 알려드려요.`, 'info');
   },
 
   clear() {

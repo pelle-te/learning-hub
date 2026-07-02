@@ -31,6 +31,37 @@ export function useCountUp(target: number, ms = 750): number {
   return v;
 }
 
+/** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시 — App·탭 로컬 키가 공유. */
+export function isTyping(): boolean {
+  const el = document.activeElement as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+/** 주(週) 이동 단일키 — ',' 이전 주 / '.' 다음 주(스케줄·리뷰 공용). 입력 중·수정자 조합은 무시.
+ *  콜백은 ref로 최신을 읽어 리스너는 마운트당 1회만 등록. */
+export function useWeekNavKeys(onPrev: () => void, onNext: () => void): void {
+  const cb = useRef({ onPrev, onNext });
+  useEffect(() => {
+    cb.current = { onPrev, onNext }; // 렌더마다 최신 콜백 동기화(렌더 중 ref 쓰기 금지 규칙 준수)
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping()) return;
+      if (e.key === ',') {
+        e.preventDefault();
+        cb.current.onPrev();
+      } else if (e.key === '.') {
+        e.preventDefault();
+        cb.current.onNext();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+}
+
 /** 포인터 추적 — 패널 위 커서 위치를 CSS 변수로(스포트라이트 --mx/--my, 3D 틸트 --tiltX/Y).
     tilt=0이면 틸트 없이 스포트라이트만(큰 보드/편집 패널용). ds.spotHost와 함께 사용. */
 export function useHeroPointer<T extends HTMLElement = HTMLDivElement>(tilt = 6) {

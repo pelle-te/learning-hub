@@ -48,6 +48,22 @@
   justify-content: flex-end;
 }
 
+/* 드래그 정렬 — 닫힌 카드를 끌어 순서 변경(색은 인덱스 파생이라 함께 재유도). */
+.dragWrap {
+  border-radius: 14px;
+  transition: opacity 0.15s var(--ease);
+}
+.dragWrap[draggable='true'] {
+  cursor: grab;
+}
+.dragging {
+  opacity: 0.45;
+}
+.dragOver {
+  outline: 2px dashed var(--acc);
+  outline-offset: 2px;
+}
+
 /* 갤러리 — 반응형 과목 카드 그리드(스크롤). */
 .gallery {
   flex: 1;

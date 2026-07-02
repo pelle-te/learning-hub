@@ -339,6 +339,35 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
+/* 포모도로 프리셋 — 주 CTA 옆 보조 칩(25′/50′). 주 액션과 시각 위계 분리(외곽선·저채도). */
+.presets {
+  display: inline-flex;
+  gap: 6px;
+}
+.preset {
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--mut);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.preset:hover {
+  color: var(--acc);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 45%, var(--line));
+}
+.preset:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
 
 /* 진행 링 — 오늘의 블록 패널 헤더에서 완료도를 시각화. */
 .ring {

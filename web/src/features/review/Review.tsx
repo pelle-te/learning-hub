@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { toastUndo } from '@/shell/toast';
-import { useHeroPointer } from '@/lib/interactions';
+import { useHeroPointer, useWeekNavKeys } from '@/lib/interactions';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import {
@@ -254,6 +254,11 @@ export default function Review() {
   const res = useSchedule();
   const state = useApp((s) => s.state);
   const [weekOffset, setWeekOffset] = useState(0);
+  // , / . — 이전/다음 주(스케줄 탭과 동일 키).
+  useWeekNavKeys(
+    () => setWeekOffset((o) => o - 1),
+    () => setWeekOffset((o) => o + 1),
+  );
 
   const mon = addDays(mondayOf(parseISO(todayISO(state))), weekOffset * 7); // '오늘' 단일 출처 경유.
   const ds0 = iso(mon);

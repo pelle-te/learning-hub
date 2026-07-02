@@ -20,6 +20,10 @@ export default defineConfig({
     // 비주얼 회귀 결정성 — prefers-reduced-motion으로 진입/카운트업/틸트 등 모션을 끄고
     // 항상 '최종 정지 상태'를 캡처(rAF 카운트업이 프레임마다 다른 숫자를 찍는 flaky 차단).
     reducedMotion: 'reduce',
+    // WebGL 렌더러 고정 — 헤드리스가 부하에 따라 하드웨어 GPU ↔ SwiftShader를 오가면
+    // AmbientCanvas(fbm 셰이더) 픽셀이 달라지거나 컨텍스트 생성이 간헐 실패(배경 통짜 diff flaky).
+    // GPU를 꺼서 항상 소프트웨어 렌더러 = 결정적 출력.
+    launchOptions: { args: ['--disable-gpu'] },
   },
   // 비주얼 회귀: 폰트 렌더링 미세차 허용(0.2%) — 의미있는 레이아웃 변화만 잡는다.
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled' } },

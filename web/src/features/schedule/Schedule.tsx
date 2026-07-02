@@ -28,7 +28,7 @@ import {
   DOW_MON,
 } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import { useHeroPointer } from '@/lib/interactions';
+import { useHeroPointer, useWeekNavKeys } from '@/lib/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
 import { computeDay, indexDays, SESSION_TYPE_META as TAG, type Row, type DayData } from '@/lib/scheduleView';
@@ -220,6 +220,11 @@ export default function Schedule() {
   );
   // 시작 주가 아니라 '현재 주'로 연다(리뷰·오늘 탭과 일관) — 오늘은 앱의 단일 출처(_today) 존중.
   const [weekOffset, setWeekOffset] = useState(todayOff);
+  // , / . — 이전/다음 주(버튼과 동일 동작, 리뷰 탭과 같은 키).
+  useWeekNavKeys(
+    () => setWeekOffset((o) => o - 1),
+    () => setWeekOffset((o) => o + 1),
+  );
   // 뷰 선택은 UI 설정 단일 store(useUI)가 소유 — 영속·IDB미러 일관(localStorage 직접 접근 제거).
   const schedView = useUI((s) => s.ui.schedView);
   const setView = useUI((s) => s.setSchedView);

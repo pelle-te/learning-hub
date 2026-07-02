@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
+import { isTyping } from '@/lib/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
@@ -16,14 +17,6 @@ import { HudFrame } from '@/components/hud';
 import { SkeletonCard, Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import s from './App.module.css';
-
-/** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시. */
-function isTyping(): boolean {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
-}
 
 /* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3). */
 function TabFallback({ error, resetErrorBoundary }: FallbackProps) {

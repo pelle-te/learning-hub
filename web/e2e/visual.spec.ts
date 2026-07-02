@@ -95,6 +95,9 @@ const TABS = [
 const THEMES = ['dark', 'light'] as const;
 
 async function boot(page: Page, theme: string, seed: object = SEED) {
+  // reducedMotion을 명시 await — config(use.reducedMotion)만 믿으면 드물게 첫 로드와 레이스해
+  // AmbientCanvas가 애니메이션 프레임으로 돌기 시작(스크린샷 불안정 → flaky). 여기서 확정한다.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install({ time: FIXED });
   await page.addInitScript(
     ([s, th]) => {
@@ -157,6 +160,7 @@ for (const theme of THEMES) {
 
 // 액센트 노브 — UI설정(lh_ui_v1) accent를 바꾸면 네온이 통째로 교체되는지(--acc 파생 cascade).
 test('stats · accent-lime', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' }); // boot()과 동일 — 캔버스 애니메이션 레이스 봉쇄
   await page.clock.install({ time: FIXED });
   await page.addInitScript(
     ([seed]) => {
