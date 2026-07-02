@@ -10,10 +10,11 @@
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { ui, io } from '@/shell';
-import { useCountUp, useHeroPointer } from '@/lib/interactions';
+import { useHeroPointer } from '@/lib/interactions';
 import { dataSizeKB, recordCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button } from '@/components/ui';
+import { CountReadout } from '@/components/CountReadout';
 import ds from '@/styles/ds.module.css';
 import st from './Settings.module.css';
 import type { AppState } from '@/lib/types';
@@ -35,7 +36,7 @@ function lastBackupDays(at?: string): number | null {
   return Math.floor((Date.now() - t.getTime()) / 86400000);
 }
 
-/** 상태 리드아웃 — 마운트 시 0→값 카운트업(reduced-motion이면 즉시). */
+/** 상태 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유). */
 function Readout({
   value,
   suffix,
@@ -47,15 +48,15 @@ function Readout({
   lab: string;
   tone?: 'ok' | 'warn';
 }) {
-  const shown = useCountUp(value);
   return (
-    <div className={`${st.ro} ${tone === 'ok' ? st.roOk : tone === 'warn' ? st.roWarn : ''}`}>
-      <span className={st.roNum}>
-        {Math.round(shown)}
-        {suffix}
-      </span>
-      <span className={st.roLab}>{lab}</span>
-    </div>
+    <CountReadout
+      value={value}
+      suffix={suffix}
+      lab={lab}
+      className={`${st.ro} ${tone === 'ok' ? st.roOk : tone === 'warn' ? st.roWarn : ''}`}
+      numClassName={st.roNum}
+      labClassName={st.roLab}
+    />
   );
 }
 

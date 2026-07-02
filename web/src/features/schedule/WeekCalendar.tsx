@@ -7,17 +7,8 @@
 import { useApp } from '@/store/useApp';
 import { isDone } from '@/lib/persistence';
 import { toHM } from '@/lib/utils';
-import type { DayData } from '@/lib/scheduleView';
-import type { SessionType } from '@/lib/types';
+import { SESSION_TYPE_META as STYPE, type DayData } from '@/lib/scheduleView';
 import s from './WeekCalendar.module.css';
-
-const STYPE: Record<SessionType, { cls: string; label: string }> = {
-  new: { cls: 'new', label: '학습' },
-  rev: { cls: 'rev', label: '복습' },
-  blank: { cls: 'blank', label: '백지' },
-  mock: { cls: 'mock', label: '모의' },
-  anki: { cls: 'anki', label: 'Anki' },
-};
 
 function hh(min: number): string {
   return String(Math.floor(min / 60)).padStart(2, '0');

@@ -4,6 +4,7 @@
    toast/modal UI를 엮는다. 헤더 ⋯ 메뉴·설정 탭·스케줄/기록 탭이 호출.
 ============================================================ */
 import { useApp } from '@/store/useApp';
+import { useRuntime } from '@/store/useRuntime';
 import { BACKUP_KEY, RUNTIME_CACHE_KEYS, migrate, defaults, exportSnapshot } from '@/lib/persistence';
 import { idbLoad } from '@/lib/idb';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
@@ -178,7 +179,8 @@ export function planSignature(): string {
 export function exportICS(): void {
   const s = st().state;
   download(`러닝허브_${s.startDate}.ics`, buildICS(s), 'text/calendar;charset=utf-8');
-  st().setRuntimeCache('_icsExport', { at: new Date().toISOString(), sig: sigOf(s) });
+  // plan-무관 캐시 — useRuntime 소유(state 참조 불변 → selectSchedule 재계산 없음, B1/B3).
+  useRuntime.getState().set('_icsExport', { at: new Date().toISOString(), sig: sigOf(s) });
 }
 
 interface DirPickerWindow {

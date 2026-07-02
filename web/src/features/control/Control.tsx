@@ -4,8 +4,8 @@
    탐구_수집.py가 전공/_탐구/에 원자 노트 초안 생성. 최근 수집 기록 + 옵시디언 바로가기.
    serve.js 연결은 usePing(Query) — 오프라인이면 우아한 안내.
 ============================================================ */
-import { useEffect, useState } from 'react';
-import { usePageChrome } from '@/store/usePageChrome';
+import { useState } from 'react';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePing } from '@/store/queries';
 import { runTool, type RunResult } from '@/lib/api';
 import { ui } from '@/shell';
@@ -54,17 +54,15 @@ export default function Control() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
   const [history, setHistory] = useState<HistEntry[]>(() => loadHistory());
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
-
-  useEffect(() => {
-    setChrome([
-      { label: '수집 기록', value: history.length, accent: true },
-      { label: 'serve.js', value: online ? '● ON' : offline ? 'OFF' : '…' },
-    ]);
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.length, online, offline]);
+  usePageChromeEffect(
+    () => ({
+      readouts: [
+        { label: '수집 기록', value: history.length, accent: true },
+        { label: 'serve.js', value: online ? '● ON' : offline ? 'OFF' : '…' },
+      ],
+    }),
+    [history.length, online, offline],
+  );
 
   const collect = async (t: string, sc: string) => {
     const tq = t.trim();

@@ -4,12 +4,13 @@
    상단 네비(주 이동·개요/카드) · 본문 [스파인 | 위크보드(fill) | 일자 아젠다] · 하단 스트립(마감·.ics).
    주간 합계·완료율·마감은 상단 바(usePageChrome)로 끌어올리고, 그날 상세는 우측 아젠다로 온디맨드.
 ============================================================ */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
+import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
 import { useNavigate } from 'react-router-dom';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import {
@@ -30,17 +31,8 @@ import { Button } from '@/components/ui';
 import { useHeroPointer } from '@/lib/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
-import { computeDay, indexDays, type Row, type DayData } from '@/lib/scheduleView';
+import { computeDay, indexDays, SESSION_TYPE_META as TAG, type Row, type DayData } from '@/lib/scheduleView';
 import { WeekCalendar } from './WeekCalendar';
-import type { SessionType } from '@/lib/types';
-
-const TAG: Record<SessionType, { cls: string; label: string }> = {
-  new: { cls: 'new', label: '학습' },
-  rev: { cls: 'rev', label: '복습' },
-  blank: { cls: 'blank', label: '백지' },
-  mock: { cls: 'mock', label: '모의' },
-  anki: { cls: 'anki', label: 'Anki' },
-};
 
 /** 학습/복습/Anki 한 줄 — 완료 체크박스 포함. */
 function StudyRow({ ds: dsKey, row }: { ds: string; row: Extract<Row, { kind: 'study' }> }) {
@@ -200,7 +192,7 @@ function DayCard({ d, k, agenda }: { d: DayData; k: number; agenda?: boolean }) 
 
 /** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 안내). 스트립용 컴팩트. */
 function IcsFreshnessNote() {
-  const x = useApp((s) => s.state._icsExport) as { at?: string; sig?: string } | undefined;
+  const x = useRuntime((s) => s.cache._icsExport) as { at?: string; sig?: string } | undefined;
   const today = useApp((s) => todayISO(s.state)); // 렌더 순수성: Date.now() 대신 앱 정본 '오늘'(테스트 _today 존중)
   if (!x || !x.at) return <span className={c.icsNote}>📅 캘린더(.ics) 미내보내기</span>;
   const when = new Date(x.at);
@@ -233,8 +225,6 @@ export default function Schedule() {
   const setView = useUI((s) => s.setSchedView);
   const navigate = useNavigate();
   const [selDow, setSelDow] = useState<number | null>(null);
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
   // 보드 위 스포트라이트(틸트 없음 — 큰 패널). 구조분해로 ref-접근 린트 회피.
   const { ref: boardRef, onMouseMove: boardMove, onMouseLeave: boardLeave } = useHeroPointer(0);
 
@@ -291,9 +281,9 @@ export default function Schedule() {
   const soon = ddays.slice(0, 4);
 
   // 진행률·합계·마감 + 주 액션을 상단 바로(데모 v6 헤더).
-  useEffect(() => {
-    setChrome(
-      [
+  usePageChromeEffect(
+    () => ({
+      readouts: [
         {
           label: '이번 주',
           value: (
@@ -307,13 +297,13 @@ export default function Schedule() {
         { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
         { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
       ],
-      weekOffset !== todayOff
-        ? { label: '이번 주로 →', onClick: weekToday }
-        : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
-    );
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekUsedH, compRate, weekPlanMin, nearestDday, weekOffset, todayOff]);
+      action:
+        weekOffset !== todayOff
+          ? { label: '이번 주로 →', onClick: weekToday }
+          : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
+    }),
+    [weekUsedH, compRate, weekPlanMin, nearestDday, weekOffset, todayOff],
+  );
 
   const navBar = (
     <div className={c.nav}>

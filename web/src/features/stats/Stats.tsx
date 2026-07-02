@@ -4,12 +4,14 @@
    과목별 진행·주별 학습시간·챕터 타임라인. 차트는 기존 SVG/막대 로직을 컴포넌트화(설계도 §3).
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵은 Stats.module(st.*), 요소·토큰은 전역 base.
 ============================================================ */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import DetailDrawer from '@/components/DetailDrawer';
+import { ProgressRing } from '@/components/ProgressRing';
+import { CountReadout } from '@/components/CountReadout';
 import { isDone, totalDoneHours, studyStreak } from '@/lib/persistence';
 import { cbmsCounts, cbmsTrend, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
 import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, DOW } from '@/lib/utils';
@@ -516,24 +518,19 @@ function SubjectRow({ s }: { s: ScheduleResult['itemStat'][number] }) {
 
 const CBMS_CODES: CbmsCode[] = ['C', 'B', 'M', 'S', 'T'];
 
-const GAUGE_R = 52;
-const GAUGE_C = 2 * Math.PI * GAUGE_R; // 완료율 게이지 둘레.
-
 /** 완료율 — 발광 원형 게이지(마운트 시 0→target 카운트업). 데이터 보드의 시선 집중점. */
 function Gauge({ pct }: { pct: number }) {
   const shown = useCountUp(pct);
   return (
     <div className={st.gauge} role="img" aria-label={`완료율 ${pct}%`}>
-      <svg viewBox="0 0 130 130" className={st.gaugeSvg} aria-hidden="true">
-        <circle className={st.gaugeTrack} cx="65" cy="65" r={GAUGE_R} />
-        <circle
-          className={st.gaugeArc}
-          cx="65"
-          cy="65"
-          r={GAUGE_R}
-          style={{ strokeDasharray: GAUGE_C, strokeDashoffset: GAUGE_C * (1 - shown / 100) }}
-        />
-      </svg>
+      <ProgressRing
+        size={130}
+        r={52}
+        pct={shown}
+        className={st.gaugeSvg}
+        trackClassName={st.gaugeTrack}
+        arcClassName={st.gaugeArc}
+      />
       <span className={st.gaugeNum}>
         {Math.round(shown)}
         <small>%</small>
@@ -542,37 +539,15 @@ function Gauge({ pct }: { pct: number }) {
   );
 }
 
-/** 보조 리드아웃 — 큰 숫자가 0→값으로 카운트업하며 살아남(easeOutCubic). */
-function Readout({
-  value,
-  lab,
-  prefix,
-  suffix,
-}: {
-  value: number;
-  lab: ReactNode;
-  prefix?: string;
-  suffix?: ReactNode;
-}) {
-  const shown = useCountUp(value);
-  return (
-    <div className={`${st.ro} ${ds.glow}`}>
-      <span className={st.roNum}>
-        {prefix}
-        {Math.round(shown)}
-        {suffix}
-      </span>
-      <span className={st.roLab}>{lab}</span>
-    </div>
-  );
+/** 보조 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유). */
+function Readout(props: { value: number; lab: ReactNode; prefix?: string; suffix?: ReactNode }) {
+  return <CountReadout {...props} className={`${st.ro} ${ds.glow}`} numClassName={st.roNum} labClassName={st.roLab} />;
 }
 
 export default function Stats() {
   const state = useApp((s) => s.state);
   const r = useSchedule();
   const [detailOpen, setDetailOpen] = useState(false);
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
   // 포인터 추적 스포트라이트 — 히어로 게이지 패널·발광 스트릭 시그니처가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
   const { ref: mapRef, onMouseMove: mapMove, onMouseLeave: mapLeave } = useHeroPointer(0);
@@ -610,9 +585,9 @@ export default function Stats() {
   const topInfo = CBMS_INFO[topCode];
   const topVal = cnt[topCode] || 0;
 
-  useEffect(() => {
-    setChrome(
-      [
+  usePageChromeEffect(
+    () => ({
+      readouts: [
         {
           label: '완료율',
           value: (
@@ -634,11 +609,10 @@ export default function Stats() {
         },
         { label: '인출', value: recallActs },
       ],
-      { label: '＋ 상세 리포트', onClick: () => setDetailOpen(true) },
-    );
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compRate, streak, recallActs]);
+      action: { label: '＋ 상세 리포트', onClick: () => setDetailOpen(true) },
+    }),
+    [compRate, streak, recallActs],
+  );
 
   if (!r.itemStat.length)
     return (

@@ -3,9 +3,9 @@
    레거시 ui-routine.js의 renderAvailability를 React로 — 스케줄러 입력(빈 시간 계산):
    요일별 공부 가능 시간(파생) · 수업(요일별) · 그 밖의 일과 블록.
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { freeWindowsForWeekday, blocksForWeekday } from '@/lib/scheduler';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -265,42 +265,41 @@ export default function Routine() {
     });
 
   // 주간/선택 요일 가용 리드아웃을 상단 바로(데모 v6 헤더).
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
-  useEffect(() => {
-    setChrome([
-      {
-        label: '주간 가용',
-        value: (
-          <>
-            {(weekFreeMin / 60).toFixed(1)}
-            <small> h</small>
-          </>
-        ),
-        accent: true,
-      },
-      {
-        label: `${DOW[ringDow]}요일`,
-        value: (
-          <>
-            {(fw.freeMin / 60).toFixed(1)}
-            <small> h</small>
-          </>
-        ),
-      },
-      {
-        label: '일 평균',
-        value: (
-          <>
-            {(weekFreeMin / 7 / 60).toFixed(1)}
-            <small> h</small>
-          </>
-        ),
-      },
-    ]);
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekFreeMin, fw.freeMin, ringDow]);
+  usePageChromeEffect(
+    () => ({
+      readouts: [
+        {
+          label: '주간 가용',
+          value: (
+            <>
+              {(weekFreeMin / 60).toFixed(1)}
+              <small> h</small>
+            </>
+          ),
+          accent: true,
+        },
+        {
+          label: `${DOW[ringDow]}요일`,
+          value: (
+            <>
+              {(fw.freeMin / 60).toFixed(1)}
+              <small> h</small>
+            </>
+          ),
+        },
+        {
+          label: '일 평균',
+          value: (
+            <>
+              {(weekFreeMin / 7 / 60).toFixed(1)}
+              <small> h</small>
+            </>
+          ),
+        },
+      ],
+    }),
+    [weekFreeMin, fw.freeMin, ringDow],
+  );
 
   return (
     <section className={r.wrap} aria-label="가용시간·수업·일과">

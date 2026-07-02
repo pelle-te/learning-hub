@@ -4,12 +4,11 @@ import { memo, useCallback, type CSSProperties } from 'react';
 import { iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/lib/interactions';
+import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './ItemCard.module.css';
 import type { AppState, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
-
-const RING_C = 2 * Math.PI * 20; // 진행 링 둘레(r=20).
 
 type Mutate = (recipe: (st: AppState) => void) => void;
 
@@ -129,16 +128,14 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps)
                 aria-label={`완료 챕터 ${doneCh}/${chs.length}`}
                 data-tip={`완료 챕터 ${doneCh}/${chs.length} · 약 ${totalH}h`}
               >
-                <svg viewBox="0 0 48 48" className={c.ringSvg} aria-hidden="true">
-                  <circle className={c.ringTrack} cx="24" cy="24" r="20" />
-                  <circle
-                    className={c.ringArc}
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    style={{ strokeDasharray: RING_C, strokeDashoffset: RING_C * (1 - prog / 100) }}
-                  />
-                </svg>
+                <ProgressRing
+                  size={48}
+                  r={20}
+                  pct={prog}
+                  className={c.ringSvg}
+                  trackClassName={c.ringTrack}
+                  arcClassName={c.ringArc}
+                />
                 <span className={c.ringNum}>
                   {prog}
                   <small>%</small>

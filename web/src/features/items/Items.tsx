@@ -3,10 +3,10 @@
    구조 레이아웃은 전역 디자인 시스템 클래스(card/itemrow/fieldgrid…)+ds.module을 재사용,
    인터랙티브/칩은 토큰 기반 공용 컴포넌트(Button/Pill/Kpi)로 — 룩 일관·테마 자동 대응.
 ============================================================ */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -55,43 +55,39 @@ export default function Items() {
   const navigate = useNavigate();
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const insight = useInsight(items);
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
-
   // 과목 수·주당 합계·챕터 진행·마감 리드아웃을 상단 바로(데모 v6 헤더).
-  useEffect(() => {
-    if (!insight) {
-      setChrome([]);
-      return () => clearChrome();
-    }
-    setChrome([
-      { label: '과목', value: insight.count, accent: true },
-      {
-        label: '주당 합계',
-        value: (
-          <>
-            {insight.weekly}
-            <small> h</small>
-          </>
-        ),
-      },
-      {
-        label: '챕터',
-        value: (
-          <>
-            {insight.doneCh}
-            <small> / {insight.totalCh}</small>
-          </>
-        ),
-      },
-      {
-        label: insight.nearest ? `${insight.nearest.name} 마감` : '마감',
-        value: insight.nearest ? ddayInfo(insight.nearest.dd).lab : '—',
-      },
-    ]);
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [insight]);
+  usePageChromeEffect(
+    () => ({
+      readouts: !insight
+        ? []
+        : [
+            { label: '과목', value: insight.count, accent: true },
+            {
+              label: '주당 합계',
+              value: (
+                <>
+                  {insight.weekly}
+                  <small> h</small>
+                </>
+              ),
+            },
+            {
+              label: '챕터',
+              value: (
+                <>
+                  {insight.doneCh}
+                  <small> / {insight.totalCh}</small>
+                </>
+              ),
+            },
+            {
+              label: insight.nearest ? `${insight.nearest.name} 마감` : '마감',
+              value: insight.nearest ? ddayInfo(insight.nearest.dd).lab : '—',
+            },
+          ],
+    }),
+    [insight],
+  );
 
   const toggle = useCallback((id: string) => {
     setOpen((prev) => {

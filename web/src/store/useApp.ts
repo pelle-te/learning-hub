@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { setAutoFreeze } from 'immer';
 import { boot, persist, serialize, setDone } from '@/lib/persistence';
+import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 import { storage } from '@/lib/kv';
@@ -36,10 +37,10 @@ export interface AppStore {
   mutate: (recipe: (s: AppState) => void) => void;
   /** 상태 통째 교체(가져오기·되돌리기·복구) + 즉시 영속. */
   loadState: (s: AppState) => void;
-  /** 서버/외부 캐시 write-through — Query가 소유한 결과를 인엔진 소비처(스케줄러 graphPriority·오늘 Anki
-   *  KPI·캘린더 신선도 배지)에 흘려준다. *파일 내보내기*(exportSnapshot)에선 제외하되, *로컬 persist*엔
-   *  남겨 reload 후 즉시 표시한다(낙관적 캐시). 설계도 §1-B. */
-  setRuntimeCache: (key: '_knowState' | '_ankiLive' | '_vaultScan' | '_ankiFile' | '_icsExport', val: unknown) => void;
+  /** 서버/외부 캐시 write-through — schedule() *입력*인 _knowState 전용(graphPriority).
+   *  plan-무관 캐시(_ankiLive·_icsExport 등)는 useRuntime store가 소유 — state 참조를 갈지 않아
+   *  selectSchedule 재계산이 없다(B1/B3). 영속 스코프(내보내기 제외·로컬 유지)는 두 경로 동일. */
+  setRuntimeCache: (key: '_knowState', val: unknown) => void;
   setTheme: (t: Theme) => void;
   toggleDone: (ds: string, sid: string, type: SessionType, plannedMin: number, on: boolean) => void;
   addCbms: (
@@ -58,16 +59,17 @@ export const useApp = create<AppStore>()(
   immer((set, get) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
+      // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
       let json: string | null = null;
       try {
-        json = persist(storage, get().state);
+        json = persist(storage, mergeRuntime(get().state));
       } catch {
         // 저장공간 초과 등 — 조용히 삼키지 않고 사용자에게 백업을 안내(스로틀). 앱은 계속 동작.
         warnSaveFailure();
       }
       // localStorage가 실패해도 IDB 미러는 시도(전소 시 복구의 최후 보루 — idbMirror는 자체 비차단).
       try {
-        idbMirror(json ?? serialize(get().state));
+        idbMirror(json ?? serialize(mergeRuntime(get().state)));
       } catch {
         /* 직렬화 자체 실패(비정상 상태) — 미러 불가 */
       }
@@ -79,7 +81,7 @@ export const useApp = create<AppStore>()(
     };
 
     return {
-      state: refineItemColors(boot(storage)),
+      state: splitRuntime(refineItemColors(boot(storage))),
       mutate(recipe) {
         set((s) => {
           recipe(s.state);
@@ -88,14 +90,13 @@ export const useApp = create<AppStore>()(
       },
       loadState(next) {
         set((s) => {
-          s.state = next;
+          s.state = splitRuntime(next); // 가져온 스냅샷에 남아있던 런타임 캐시도 분리(디스크 왕복 대칭)
         });
         flush(); // 통째 교체는 즉시 영속(디바운스 X) — 가져오기/복구 직후 새로고침해도 안전.
       },
       setRuntimeCache(key, val) {
-        // state 참조만 갱신하고 *저장은 스케줄하지 않는다*(캐시 업데이트마다 디스크 쓰기 churn 방지).
-        // 값은 다음 mutate의 디바운스 flush에 묻어 로컬에 남고(EPHEMERAL_ONLY_KEYS 제외), 다음 부팅 때
-        // 오늘 탭 KPI·캘린더 배지가 즉시 읽는다. 파일 내보내기에선 RUNTIME_CACHE_KEYS로 전부 빠진다.
+        // _knowState는 schedule() 입력 — state 참조를 갈아 selectSchedule 무효화(정확성에 필요).
+        // 저장은 스케줄하지 않는다: 값은 다음 mutate의 디바운스 flush에 묻어 로컬에 남는다.
         set((s) => {
           (s.state as Record<string, unknown>)[key] = val;
         });

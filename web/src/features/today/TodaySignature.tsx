@@ -4,26 +4,27 @@
    진행률·연속·마감 리드아웃과 "지금 시작" 주 액션은 상단 바(usePageChrome)로 끌어올림.
    세부(블록 액션·일일 의식·흐름 가이드)는 onOpenMore 패널로 — 기본은 한 화면, 무스크롤.
 ============================================================ */
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
+import { useRuntime } from '@/store/useRuntime';
 import { useSchedule } from '@/store/selectors';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { isDone, studyStreak } from '@/lib/persistence';
 import { pickFocus, focusMinutes } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { layoutDay } from '@/lib/scheduler';
-import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel } from '@/lib/utils';
-import type { AppState } from '@/lib/types';
+import { ProgressRing } from '@/components/ProgressRing';
+import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
+import { useCountUp, useHeroPointer } from '@/lib/interactions';
 import s from './TodaySignature.module.css';
 
 interface AnkiLive {
   decks?: { new?: number; learn?: number; review?: number }[];
 }
-function ankiDue(state: AppState): number | null {
-  const v = state._ankiLive as AnkiLive | undefined;
+function ankiDue(v: AnkiLive | undefined | null): number | null {
   if (!v?.decks) return null;
   return v.decks.reduce((t, d) => t + +(d.new || 0) + +(d.learn || 0) + +(d.review || 0), 0);
 }
@@ -35,61 +36,17 @@ const TYPE_LABEL: Record<string, string> = {
   anki: 'Anki',
   mock: '모의시험',
 };
-const WD = ['월', '화', '수', '목', '금', '토', '일'];
-const RING_C = 2 * Math.PI * 34; // 진행률 링 둘레(r=34).
-
-/** 마운트 시 0→target으로 부드럽게 카운트업(easeOutCubic). reduced-motion이면 즉시 target. */
-function useCountUp(target: number, ms = 750): number {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || typeof requestAnimationFrame === 'undefined') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 모션 자제 시 애니메이션 없이 즉시 최종값.
-      setV(target);
-      return;
-    }
-    let raf = 0;
-    let startedAt = 0;
-    const step = (now: number) => {
-      if (!startedAt) startedAt = now;
-      const t = Math.min(1, (now - startedAt) / ms);
-      setV(target * (1 - Math.pow(1 - t, 3)));
-      if (t < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [target, ms]);
-  return v;
-}
 
 export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const state = useApp((s) => s.state);
+  const ankiLive = useRuntime((s) => s.cache._ankiLive) as AnkiLive | undefined | null;
   const res = useSchedule();
   const toggleDone = useApp((s) => s.toggleDone);
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
 
-  // 히어로 포인터 추적 — 커서를 따라 스포트라이트(--mx/--my) + 카드 3D 틸트(--tiltX/Y). 프리미엄 인터랙션.
-  const heroRef = useRef<HTMLDivElement>(null);
-  const onHeroMove = (e: ReactMouseEvent<HTMLDivElement>) => {
-    const el = heroRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width;
-    const py = (e.clientY - r.top) / r.height;
-    el.style.setProperty('--mx', `${px * 100}%`);
-    el.style.setProperty('--my', `${py * 100}%`);
-    el.style.setProperty('--tiltY', `${(px - 0.5) * 7}deg`);
-    el.style.setProperty('--tiltX', `${-(py - 0.5) * 7}deg`);
-  };
-  const onHeroLeave = () => {
-    const el = heroRef.current;
-    if (!el) return;
-    el.style.setProperty('--tiltX', '0deg');
-    el.style.setProperty('--tiltY', '0deg');
-  };
+  // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.
+  const { ref: heroRef, onMouseMove: onHeroMove, onMouseLeave: onHeroLeave } = useHeroPointer(7);
 
   // 1초 틱 — 시계·현재 블록·집중 타이머를 라이브로 갱신(백그라운드에선 정지, 복귀 시 캐치업).
   const [, setTick] = useState(0);
@@ -160,7 +117,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     null;
 
   const mon = mondayOf(today);
-  const weekData = WD.map((lab, i) => {
+  const weekData = DOW_MON.map((lab, i) => {
     const date = addDays(mon, i);
     const k = iso(date);
     const day = (res.days || []).find((d) => d.ds === k);
@@ -171,7 +128,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const weekShown = useCountUp(weekTotalH);
 
   const streak = studyStreak(state);
-  const due = ankiDue(state);
+  const due = ankiDue(ankiLive);
   const openBl = openBacklog(state).length;
 
   // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃).
@@ -273,9 +230,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   }, [allDone]);
 
   // 진행률·연속·마감 + 주 액션을 상단 바로 끌어올림(데모 v6 헤더).
-  useEffect(() => {
-    setChrome(
-      [
+  usePageChromeEffect(
+    () => ({
+      readouts: [
         { label: '진행률', value: todayTotal ? `${pct}%` : '—', accent: true },
         {
           label: '연속',
@@ -288,24 +245,24 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         },
         { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
       ],
-      todayTotal === 0
-        ? { label: '학습 항목 설정 →', onClick: () => go('/items') }
-        : allDone
-          ? { label: '기록 보기', onClick: () => go('/journal') }
-          : {
-              label: '지금 시작 →',
-              // getState로 항상 신선한 세션을 읽음(chrome 이펙트 deps에 안 묶임).
-              // 이미 집중 중이면 재시작 대신 세부 패널을 연다.
-              onClick: () => {
-                const f = useFocus.getState();
-                if (f.session) onOpenMore();
-                else f.startOnCurrent();
+      action:
+        todayTotal === 0
+          ? { label: '학습 항목 설정 →', onClick: () => go('/items') }
+          : allDone
+            ? { label: '기록 보기', onClick: () => go('/journal') }
+            : {
+                label: '지금 시작 →',
+                // getState로 항상 신선한 세션을 읽음(chrome 이펙트 deps에 안 묶임).
+                // 이미 집중 중이면 재시작 대신 세부 패널을 연다.
+                onClick: () => {
+                  const f = useFocus.getState();
+                  if (f.session) onOpenMore();
+                  else f.startOnCurrent();
+                },
               },
-            },
-    );
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pct, streak, nearestDday, todayTotal, allDone]);
+    }),
+    [pct, streak, nearestDday, todayTotal, allDone],
+  );
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
 
@@ -390,16 +347,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         <aside className={s.flow}>
           <h2 className={s.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayTotal} 완료`}>
             <span className={`${s.ring}${celebrate ? ' ' + s.ringCele : ''}`} aria-hidden="true">
-              <svg viewBox="0 0 80 80" className={s.ringSvg} aria-hidden="true">
-                <circle className={s.ringTrack} cx="40" cy="40" r="34" />
-                <circle
-                  className={s.ringArc}
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  style={{ strokeDasharray: RING_C, strokeDashoffset: RING_C * (1 - pct / 100) }}
-                />
-              </svg>
+              <ProgressRing
+                size={80}
+                r={34}
+                pct={pct}
+                className={s.ringSvg}
+                trackClassName={s.ringTrack}
+                arcClassName={s.ringArc}
+              />
               <span className={s.ringNum}>
                 {todayDone}
                 <small>/{todayTotal}</small>

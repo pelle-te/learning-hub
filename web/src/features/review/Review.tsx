@@ -3,9 +3,9 @@
    레거시 ui-review.js를 React로 — '공부 방식'을 주 1회 점검:
    계획 vs 실제 · CBMS 분포 · 백로그 회수 · 주간 체크리스트.
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { toastUndo } from '@/shell/toast';
 import { useHeroPointer } from '@/lib/interactions';
 import { useSchedule } from '@/store/selectors';
@@ -19,6 +19,7 @@ import {
   setWeeklyNote,
   toggleBacklog,
 } from '@/lib/methodology';
+import { indexDays } from '@/lib/scheduleView';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -35,8 +36,7 @@ interface WeekPA {
 }
 /** 한 주의 계획·완료 분 집계 — 디브리프 헤더와 계획대비실제 차트가 공유(이중 순회 제거). */
 function weekPlanActual(state: AppState, res: ScheduleResult, mon: Date): WeekPA {
-  const byDs: Record<string, ScheduleResult['days'][number]> = {};
-  (res.days || []).forEach((d) => (byDs[d.ds] = d));
+  const byDs = indexDays(res); // ds→Day 인덱스 정본(scheduleView) 공유
   let planMin = 0;
   let doneMin = 0;
   const byDay: WeekPA['byDay'] = [];
@@ -254,8 +254,6 @@ export default function Review() {
   const res = useSchedule();
   const state = useApp((s) => s.state);
   const [weekOffset, setWeekOffset] = useState(0);
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
 
   const mon = addDays(mondayOf(parseISO(todayISO(state))), weekOffset * 7); // '오늘' 단일 출처 경유.
   const ds0 = iso(mon);
@@ -271,24 +269,25 @@ export default function Review() {
   const top = cbmsTotal ? codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode) : null;
   const openN = openBacklog(state).length;
 
-  useEffect(() => {
-    setChrome([
-      {
-        label: '달성률',
-        value: (
-          <>
-            {pa.rate}
-            <small>%</small>
-          </>
-        ),
-        accent: true,
-      },
-      { label: '잦은 오답', value: top ?? '—' },
-      { label: '보충 열림', value: openN },
-    ]);
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pa.rate, top, openN]);
+  usePageChromeEffect(
+    () => ({
+      readouts: [
+        {
+          label: '달성률',
+          value: (
+            <>
+              {pa.rate}
+              <small>%</small>
+            </>
+          ),
+          accent: true,
+        },
+        { label: '잦은 오답', value: top ?? '—' },
+        { label: '보충 열림', value: openN },
+      ],
+    }),
+    [pa.rate, top, openN],
+  );
 
   return (
     <section className={rv.wrap} aria-label="주간 리뷰">

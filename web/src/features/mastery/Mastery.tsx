@@ -8,23 +8,21 @@
    상단 시네마틱 히어로 밴드(전체 숙달 발광 링 + 상태 분포 + 로드) → 본문 2컬럼
    [발광 지식맵(시그니처) | 다음 행동(프런티어·약점·캘리브레이션)]. 살아있는 인터랙션(스포트라이트·오로라·카운트업).
 ============================================================ */
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useKnowledge, usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, type Knowledge } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import m from './Mastery.module.css';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
-
-const RING_R = 46;
-const RING_C = 2 * Math.PI * RING_R; // 전체 숙달 링 둘레.
 
 /** 전체 숙달 — 발광 원형 링(마운트 시 0→target 카운트업). 히어로의 시선 집중점. */
 function OverallRing({ overall }: { overall: number }) {
@@ -32,16 +30,14 @@ function OverallRing({ overall }: { overall: number }) {
   const shown = useCountUp(target);
   return (
     <div className={m.ring} role="img" aria-label={`전체 숙달 ${target}%`}>
-      <svg viewBox="0 0 120 120" className={m.ringSvg} aria-hidden="true">
-        <circle className={m.ringTrack} cx="60" cy="60" r={RING_R} />
-        <circle
-          className={m.ringArc}
-          cx="60"
-          cy="60"
-          r={RING_R}
-          style={{ strokeDasharray: RING_C, strokeDashoffset: RING_C * (1 - shown / 100) }}
-        />
-      </svg>
+      <ProgressRing
+        size={120}
+        r={46}
+        pct={shown}
+        className={m.ringSvg}
+        trackClassName={m.ringTrack}
+        arcClassName={m.ringArc}
+      />
       <span className={m.ringNum}>
         {Math.round(shown)}
         <small>%</small>
@@ -340,27 +336,24 @@ export default function Mastery() {
   const ping = usePing(); // serve.js 도달성 — 오프라인(프록시 500 포함)과 진짜 서버 실패를 구분.
   const qc = useQueryClient();
   const setRuntimeCache = useApp((s) => s.setRuntimeCache);
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
   // 포인터 추적 스포트라이트 — 히어로 밴드·지식맵 패널이 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
   const { ref: mapRef, onMouseMove: mapMove, onMouseLeave: mapLeave } = useHeroPointer(0);
 
   // 전체 유효숙달·노트·약점 리드아웃을 상단 바로(데모 v6 헤더).
   const weak = k?.states?.weak;
-  useEffect(() => {
-    if (!k) {
-      setChrome([]);
-      return () => clearChrome();
-    }
-    setChrome([
-      { label: '전체 숙달', value: pct(k.overall), accent: true },
-      { label: '노트', value: k.n_notes ?? 0 },
-      { label: '약점', value: weak ?? 0 },
-    ]);
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [k, weak]);
+  usePageChromeEffect(
+    () => ({
+      readouts: !k
+        ? []
+        : [
+            { label: '전체 숙달', value: pct(k.overall), accent: true },
+            { label: '노트', value: k.n_notes ?? 0 },
+            { label: '약점', value: weak ?? 0 },
+          ],
+    }),
+    [k, weak],
+  );
 
   // 볼트 폴더에서 수동 로드(serve.js 없을 때) → 같은 ['knowledge'] 캐시에 주입 + write-through.
   const loadFromVault = async () => {

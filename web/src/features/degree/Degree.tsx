@@ -6,12 +6,14 @@
    courses는 스키마가 느슨(passthrough)해 로컬 Course 타입으로 좁혀 다룬다.
    스타일: 공유 디자인 시스템은 styles/ds.module.css(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { rid, makeItem } from '@/lib/utils';
+import { useCountUp } from '@/lib/interactions';
 import { Button } from '@/components/ui';
+import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './Degree.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
@@ -327,30 +329,30 @@ function DegreePlan() {
   const { earned, inprog, planned, byCat, gpa, gradedCr, semDone } = stats;
   const remain = Math.max(0, d.targetTotal - earned);
   const pct = d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
+  const shownPct = useCountUp(Math.min(100, pct));
   const list = sems(d);
   const avgPerSem = semDone ? earned / semDone : 0;
   const projSem = earned && avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
 
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
-  useEffect(() => {
-    setChrome([
-      {
-        label: '이수',
-        value: (
-          <>
-            {earned}
-            <small> / {d.targetTotal}</small>
-          </>
-        ),
-        accent: true,
-      },
-      { label: '진행', value: `${pct}%` },
-      { label: 'GPA', value: gpa != null ? gpa.toFixed(2) : '—' },
-    ]);
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earned, d.targetTotal, pct, gpa]);
+  usePageChromeEffect(
+    () => ({
+      readouts: [
+        {
+          label: '이수',
+          value: (
+            <>
+              {earned}
+              <small> / {d.targetTotal}</small>
+            </>
+          ),
+          accent: true,
+        },
+        { label: '진행', value: `${pct}%` },
+        { label: 'GPA', value: gpa != null ? gpa.toFixed(2) : '—' },
+      ],
+    }),
+    [earned, d.targetTotal, pct, gpa],
+  );
 
   return (
     <>
@@ -361,21 +363,10 @@ function DegreePlan() {
         <div className={c.statusEyebrow}>졸업 현황</div>
         <div className={c.statusHero}>
           <div className={c.gradeRing} role="img" aria-label={`졸업 진행 ${pct}%`}>
-            <svg viewBox="0 0 80 80" aria-hidden="true">
-              <circle className={c.grRingTrack} cx="40" cy="40" r="34" />
-              <circle
-                className={c.grRingArc}
-                cx="40"
-                cy="40"
-                r="34"
-                style={{
-                  strokeDasharray: 2 * Math.PI * 34,
-                  strokeDashoffset: 2 * Math.PI * 34 * (1 - Math.min(100, pct) / 100),
-                }}
-              />
-            </svg>
+            {/* 카운트업은 다른 링(Stats·Mastery)과 일관 — reduced-motion이면 즉시 최종값. */}
+            <ProgressRing size={80} r={34} pct={shownPct} trackClassName={c.grRingTrack} arcClassName={c.grRingArc} />
             <div className={c.grRingNum}>
-              {pct}
+              {Math.round(shownPct)}
               <small>%</small>
             </div>
           </div>

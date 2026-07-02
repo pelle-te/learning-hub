@@ -6,7 +6,7 @@
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { usePageChrome } from '@/store/usePageChrome';
+import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { ui, io } from '@/shell';
 import { toastUndo } from '@/shell/toast';
@@ -463,25 +463,21 @@ function BacklogCard() {
 export default function Journal() {
   const state = useApp((s) => s.state);
   const ds2 = todayISO({ _today: state._today }); // '오늘' 단일 출처 존중
-  const setChrome = usePageChrome((s) => s.setChrome);
-  const clearChrome = usePageChrome((s) => s.clear);
-
   const sumN = summariesFor(state, ds2).length;
   const cbmsN = cbmsBetween(state, ds2, ds2).length;
   const openN = openBacklog(state).length;
 
-  useEffect(() => {
-    setChrome(
-      [
+  usePageChromeEffect(
+    () => ({
+      readouts: [
         { label: '요약', value: sumN, accent: true },
         { label: '오답', value: cbmsN },
         { label: '열린 보충', value: openN },
       ],
-      { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') },
-    );
-    return () => clearChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sumN, cbmsN, openN]);
+      action: { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') },
+    }),
+    [sumN, cbmsN, openN],
+  );
 
   return (
     <section className={j.wrap} aria-label="학습 기록">

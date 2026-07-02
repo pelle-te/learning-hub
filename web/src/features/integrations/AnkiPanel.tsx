@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
+import { useRuntime } from '@/store/useRuntime';
 import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
@@ -17,7 +18,7 @@ import ds from '@/styles/ds.module.css';
 export function AnkiPanel() {
   const qc = useQueryClient();
   const mutate = useApp((s) => s.mutate);
-  const setRuntimeCache = useApp((s) => s.setRuntimeCache);
+  const setAnkiLive = useRuntime((s) => s.set); // plan-무관 캐시 — state 참조를 갈지 않음(B1/B3)
   const items = useApp((s) => s.state.items);
   // 구독형으로 읽어 연결/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
   const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
@@ -32,7 +33,7 @@ export function AnkiPanel() {
   };
   const clearLive = () => {
     qc.removeQueries({ queryKey: ['ankiLive'], exact: true });
-    setRuntimeCache('_ankiLive', null); // 오늘 탭 due KPI도 초기화
+    setAnkiLive('_ankiLive', null); // 오늘 탭 due KPI도 초기화
     ui.toast('실시간 due 연결을 해제했어요.', 'info');
   };
 
@@ -59,7 +60,7 @@ export function AnkiPanel() {
     try {
       const l = await fetchAnkiLive();
       qc.setQueryData(['ankiLive'], l);
-      setRuntimeCache('_ankiLive', l); // 오늘 탭 Anki due KPI가 소비
+      setAnkiLive('_ankiLive', l); // 오늘 탭 Anki due KPI가 소비
       mutate((st) => recordRetentionSnapshot(st, l.decks)); // 주별 due 스냅샷(유지율 추세) — persist
     } catch (e) {
       setErr(

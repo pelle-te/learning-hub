@@ -31,6 +31,15 @@ export interface DayData {
   counts: { studies: number; revs: number; ankis: number; blanks: number; mocks: number };
 }
 
+/** 세션 타입 → 표시 메타(태그 클래스·짧은 라벨) — Schedule 목록·주간 캘린더 공유 정본. */
+export const SESSION_TYPE_META: Record<SessionType, { cls: string; label: string }> = {
+  new: { cls: 'new', label: '학습' },
+  rev: { cls: 'rev', label: '복습' },
+  blank: { cls: 'blank', label: '백지' },
+  mock: { cls: 'mock', label: '모의' },
+  anki: { cls: 'anki', label: 'Anki' },
+};
+
 export type DayIndex = Record<string, ScheduleResult['days'][number]>;
 /** ds→Day 인덱스를 한 번만 만든다. computeDay가 7회 호출되며 매번 전체를 재구축하던 것을 호출부로 끌어올려
  *  렌더당 O(7·horizon)→O(horizon)로 줄인다(horizon은 마감 우선 최대 ~180일). */
