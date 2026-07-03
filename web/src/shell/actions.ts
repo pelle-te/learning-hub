@@ -5,12 +5,14 @@
 ============================================================ */
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
+import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { BACKUP_KEY, RUNTIME_CACHE_KEYS, migrate, defaults, exportSnapshot } from '@/lib/persistence';
 import { idbLoad } from '@/lib/idb';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData } from '@/lib/methodology';
 import { todayISO } from '@/lib/utils';
 import type { AppState, Theme } from '@/lib/types';
+import type { CaptureResult } from '@/lib/quickCapture';
 import { toast, toastUndo } from './toast';
 import { confirm } from './modal';
 
@@ -277,4 +279,22 @@ export function exportSummaryNotes(scope: 'today' | 'all'): void {
   }
   download(`러닝허브_요약노트_${scope === 'today' ? todayISO() : '전체'}.md`, md, 'text/markdown;charset=utf-8');
   toast('요약 노트(.md)를 내려받았어요. 옵시디언 볼트에 넣어 개념 노트·카드와 연결하세요.', 'ok', 4600);
+}
+
+/* ── 빠른 캡처(⌘K 자연어) ─────────────────────────────────────────
+   순수 파서(lib/quickCapture)는 컴포넌트에서 돌리고, store를 만지는 부분만 여기 shell에 둔다
+   (components→store 금지 경계 준수). 캡처는 기록 프리필 요청 = 오늘탭 블록 버튼과 같은 동선 재사용. */
+
+/** 빠른 캡처가 파서에 넘길 과목 스냅샷(id·name). */
+export function captureSubjects(): { id: string; name: string }[] {
+  return st().state.items.map((i) => ({ id: i.id, name: i.name }));
+}
+
+/** 자연어 캡처 결과 → 기록 프리필 요청 + 확인 토스트. 팔레트는 이후 /journal로 이동한다.
+   세션 유형이 복습/모의/백지면 '보충 필요'(bl), 그 외(새 학습·anki·미지정)는 '요약'(sum) 폼으로. */
+export function runQuickCapture(cap: CaptureResult, summary: string): void {
+  const form: PrefillForm = cap.sessionType && cap.sessionType !== 'new' && cap.sessionType !== 'anki' ? 'bl' : 'sum';
+  const sid = cap.subject ? (st().state.items.find((i) => i.name === cap.subject)?.id ?? '') : '';
+  usePrefill.getState().request(form, sid);
+  toast('📌 기록 탭에 준비했어요 — ' + summary, 'ok', 4500);
 }

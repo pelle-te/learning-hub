@@ -1,0 +1,143 @@
+/* Graph.module.css — 지식맵 탭 전용. 프레임을 가득 채우는 캔버스 대시보드(fill 탭).
+   공유 클래스(card/muted 등)는 ds.module 소유 — 여기는 캔버스 호스트·범례·툴팁·a11y만.
+   색은 전부 토큰(var(--*)) — 캔버스 자체 색은 Graph.tsx가 런타임 해석해 그린다. */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 18px 14px;
+}
+
+/* 캔버스 호스트 — 발광 패널 프레임을 가득 채우고, 캔버스는 그 안을 100% 채운다. */
+.canvasHost {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 6%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 4%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+  animation: ds-fadeUp 0.46s var(--ease) both;
+}
+.canvasHost::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* 드래그 시 스크롤/줌 제스처 가로채기 방지 */
+}
+
+/* 범례 — 좌상단 부유 칩(허브·숙달·학습중·미착수). */
+.legend {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(6px);
+  font-size: 11px;
+  color: var(--mut);
+  pointer-events: none;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+}
+.lHub {
+  background: var(--acc);
+  box-shadow: 0 0 6px var(--glow);
+}
+
+/* 툴팁 — 커서 추종(노드 요약). 포인터 통과(호버 계산 방해 금지). */
+.tip {
+  position: absolute;
+  z-index: 3;
+  transform: translate(14px, -50%);
+  max-width: 240px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--shadow-md);
+  color: var(--ink);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 빈 상태 호스트 — 중앙 정렬. */
+.emptyHost {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 6%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 4%, var(--panel2)), var(--panel) 64%);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 스크린리더 전용(시각적 숨김) — 캔버스 대체 목록. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .wrap {
+    padding: 12px 12px 10px;
+  }
+  .legend {
+    font-size: 10px;
+    gap: 4px 10px;
+    padding: 6px 9px;
+  }
+}
+
+/* 모션 자제 백스톱 — DOM 애니메이션 정지(캔버스 시뮬은 Graph.tsx가 동기 1회 렌더). */
+@media (prefers-reduced-motion: reduce) {
+  .canvasHost {
+    animation: none;
+  }
+}

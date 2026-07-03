@@ -9,6 +9,7 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
 import { useNavigate } from 'react-router-dom';
+import EmptyState from '@/components/EmptyState';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
@@ -388,14 +389,21 @@ export default function Schedule() {
                 </div>
               ) : (
                 <div className={c.emptyBoard}>
-                  <h2>주간 보드가 비어 있어요</h2>
-                  <p>
-                    학습 항목을 추가하면 이 캘린더에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
-                    일과(수면·식사)만 보여요.
-                  </p>
-                  <Button sm variant="primary" onClick={() => navigate('/items')}>
-                    학습 항목 추가하기 →
-                  </Button>
+                  <EmptyState
+                    glyph="🗓"
+                    title="주간 보드가 비어 있어요"
+                    desc={
+                      <>
+                        학습 항목을 추가하면 이 캘린더에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
+                        일과(수면·식사)만 보여요.
+                      </>
+                    }
+                    actions={
+                      <Button sm variant="primary" onClick={() => navigate('/items')}>
+                        학습 항목 추가하기 →
+                      </Button>
+                    }
+                  />
                 </div>
               )}
               {res.warnings.length > 0 && (

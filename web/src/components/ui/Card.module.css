@@ -1,4 +1,6 @@
-/* Card — 콘텐츠 패널(설계도 §3). 토큰만 참조해 테마 자동 대응. 레거시 .card 룩 계승. */
+/* Card — 콘텐츠 패널(설계도 §3). 토큰만 참조해 테마 자동 대응.
+   ⚠ base .card 룩의 SSOT는 styles/ds.module.css(.card 63곳 사용). 이 모듈은 <Card> 컴포넌트 미러이며
+   현재 base 규칙은 ds와 동일 — 바꿀 땐 둘을 함께 고쳐 드리프트를 막는다(.title/.sub는 컴포넌트 고유). */
 .card {
   position: relative;
   background: var(--panel);

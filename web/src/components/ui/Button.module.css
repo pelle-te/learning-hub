@@ -17,13 +17,26 @@
     box-shadow 0.15s var(--ease);
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
   background: color-mix(in srgb, var(--acc) 8%, var(--panel2));
 }
 
-.btn:active {
+.btn:active:not(:disabled) {
   transform: translateY(1px);
+}
+
+/* 비활성 — 비동기 작업(볼트 스캔·Anki 동기화·제어판 실행) 중 disabled 될 때
+   호버가 켜지고 풀 불투명이던 문제를 해소. 클릭 지점에서 "지금은 안 됨"을 명시. */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+  box-shadow: none;
+}
+.primary:disabled:hover,
+.btn:disabled:hover {
+  filter: saturate(0.6);
 }
 
 .sm {

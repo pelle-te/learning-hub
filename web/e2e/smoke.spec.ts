@@ -6,8 +6,8 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
   await page.goto('/today');
   await expect(page.getByLabel('오늘 대시보드')).toBeVisible();
 
-  // 레일 사이드바: 1차 탭(통계)으로 직접 이동.
-  await page.getByRole('tab', { name: '통계' }).click();
+  // 레일 사이드바: 1차 탭(통계)으로 직접 이동(라우트 내비 = button + aria-current, ARIA tablist 아님).
+  await page.getByRole('button', { name: '통계' }).click();
   await expect(page).toHaveURL(/\/stats$/);
 
   // ⌘K 명령 팔레트.

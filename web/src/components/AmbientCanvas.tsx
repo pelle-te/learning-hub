@@ -153,8 +153,9 @@ export default function AmbientCanvas() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
     let last = 0;
-    // 24fps 캡 — 드리프트가 매우 느려(t*0.025) 24fps에서도 부드럽다. 30fps 대비 프레임 20%↓.
-    const FRAME = 1000 / 24;
+    // 12fps 캡 — 드리프트가 극도로 느려(t*0.025) 24fps와 시각적으로 무구분(스냅샷은 단일 프레임이라
+    // 불변). 앱 최대 상시 비용(풀스크린 프래그먼트 셰이더)을 그대로 절반으로 낮춘다.
+    const FRAME = 1000 / 12;
     // 정지 조건: 모션 비선호 · 탭 숨김 · 창 포커스 밖 · 발광효과끄기(data-fx=lite).
     // '창 포커스 밖'은 앱 모드 창이 다른 창 뒤에 있을 때(visibilitychange는 최소화/탭전환만 잡고 "뒤에 가림"은
     // 못 잡음) GPU를 계속 태우는 낭비를 막는다. lite는 사용자가 끈 경우 — 정적 프레임만 그리고 멈춘다.

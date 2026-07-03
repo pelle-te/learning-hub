@@ -22,6 +22,7 @@ const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   integrations: () => import('./integrations/Integrations'),
   control: () => import('./control/Control'),
   mastery: () => import('./mastery/Mastery'),
+  graph: () => import('./graph/Graph'),
 };
 
 /** key → React 탭 컴포넌트(lazy). LOADERS를 1:1로 감싼다. */

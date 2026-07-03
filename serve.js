@@ -152,12 +152,23 @@ function originOK(req) {
   } catch (e) { return false; }
 }
 
+/* Host 허용목록 — DNS 리바인딩 방어. originOK는 Origin이 *없는* 동종출처 요청을 통과시키는데,
+   evil.com이 DNS를 127.0.0.1로 리바인딩하면 그 페이지는 evil.com:PORT와 동종출처가 되어 Origin
+   없이 /api를 때릴 수 있다(도구 원격 트리거·ping의 WORK 경로/산출물 열람). Host 헤더는 브라우저가
+   localhost로 위조할 수 없으므로(리바인딩 시 Host=evil.com:PORT) 이 한 겹이 그 구멍을 닫는다. */
+function hostOK(req) {
+  const h = String(req.headers.host || '');
+  return h === `127.0.0.1:${PORT}` || h === `localhost:${PORT}` || h === `[::1]:${PORT}`;
+}
+
 const server = http.createServer((req, res) => {
   try {
     const url = decodeURIComponent((req.url || '/').split('?')[0]);
 
     /* ── API ─────────────────────────────────────────── */
     if (url.startsWith('/api/')) {
+      // Host 위조 불가 → 리바인딩 페이지의 /api 접근(읽기 포함) 원천 차단. 모든 /api에 선적용.
+      if (!hostOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 Host' });
       // 능력 탐지: 러닝허브가 제어판 사용 가능한지 확인
       if (url === '/api/ping') return sendJSON(res, 200, { ok: true, server: '러닝허브 제어판', tools: Object.keys(TOOLS), work: WORK });
       // 산출물 읽기
@@ -181,7 +192,12 @@ const server = http.createServer((req, res) => {
           const done = r => { RUNNING = Math.max(0, RUNNING - 1); sendJSON(res, 200, r); };
           if (tool === 'research') return runResearch(body.topic, body.scope, done);
           const extra = [];
-          if (body.subject && typeof body.subject === 'string') extra.push(body.subject.slice(0, 60)); // frontier/gaps 과목 필터 등
+          // frontier/gaps 과목 필터 등. dash-접두 값은 파이썬 CLI에서 *플래그*로 오해석될 수 있어 거부
+          // (정상 과목명은 '-'로 시작하지 않음 → 실사용 영향 0. '--' 리터럴 주입은 비-argparse 도구를 깨서 회피).
+          if (body.subject && typeof body.subject === 'string') {
+            const sub = body.subject.slice(0, 60);
+            if (sub && !sub.startsWith('-')) extra.push(sub);
+          }
           runTool(tool, extra, done);
         });
       }

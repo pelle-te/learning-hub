@@ -66,13 +66,14 @@ input[type='number']::-webkit-inner-spin-button {
   appearance: none;
   margin: 0;
 }
-/* 커스텀 체크박스 — 투박한 기본 대신 테마에 맞춘 박스+체크 */
+/* 커스텀 체크박스 — 투박한 기본 대신 테마에 맞춘 박스+체크.
+   완료 체크는 데일리 플래너 최다 동작 → 터치 오탭 방지로 17→20px(폰 히트영역 확대). */
 input[type='checkbox'] {
   -webkit-appearance: none;
   appearance: none;
   flex: none;
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
   margin: 0;
   padding: 0;
   border: 1px solid var(--line);
@@ -96,10 +97,10 @@ input[type='checkbox']:checked {
 input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
-  left: 5px;
-  top: 1.5px;
-  width: 4px;
-  height: 8px;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
   border: solid var(--on-acc);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
@@ -125,13 +126,20 @@ button {
     transform 0.1s var(--ease),
     box-shadow 0.15s var(--ease);
 }
-button:hover {
+button:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
   background: color-mix(in srgb, var(--acc) 8%, var(--panel2));
   color: var(--txt);
 }
-button:active {
+button:active:not(:disabled) {
   transform: translateY(1px);
+}
+/* 비활성 — 비동기 작업 중(스캔·동기화·도구 실행) 버튼이 살아있는 것처럼 보이던 문제.
+   호버 가드(:not(:disabled))와 짝으로, "눌러도 안 되는" 컨트롤임을 시각적으로 명시. */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: saturate(0.6);
 }
 button.primary {
   background: linear-gradient(

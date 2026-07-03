@@ -6,6 +6,15 @@
     <meta name="theme-color" content="#050506" />
     <meta name="description" content="러닝허브 — 오늘 할 일에 집중하는 학습 플래너. 계획·복습·일정은 자동으로." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <!-- 본문 폰트(2MB 가변 Pretendard)를 CSS 파싱 전에 미리 받아 늦은 스왑(리플로우/CLS) 제거.
+         @font-face의 font-display:swap와 짝 — 폴백→Pretendard 전환을 최대한 앞당긴다. -->
+    <link
+      rel="preload"
+      href="/fonts/PretendardVariable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <title>러닝허브</title>
   </head>
   <body>

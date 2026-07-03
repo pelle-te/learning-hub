@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
-import { orderedTabs, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
+import { orderedTabs, tabByKey, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
 import { isTyping } from '@/lib/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
@@ -36,6 +36,8 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // 현재 라우트 라벨은 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목에 쓴다.
+  const routeLabel = tabByKey(pathname.replace(/^\//, '') || 'today')?.label ?? '';
   // 단일 화면 대시보드 탭(데모 v6 사상) — 프레임을 가득 채우고 내부 스크롤 없음.
   const FILL_TABS = [
     '/',
@@ -48,6 +50,7 @@ export default function App() {
     '/integrations',
     '/control',
     '/mastery',
+    '/graph',
   ];
   const fillFrame = FILL_TABS.includes(pathname);
   const tabs = orderedTabs();
@@ -120,6 +123,12 @@ export default function App() {
     return () => window.removeEventListener('lh:open-shortcuts', open);
   }, []);
 
+  // SPA 라우트 전환을 문서 제목에 반영 — 탭마다 별개 '페이지'처럼 동작하는데도 제목이 '러닝허브'
+  // 고정이던 문제(WCAG 2.4.2). document.title은 외부 시스템이라 effect가 적법(아나운서 텍스트는 파생).
+  useEffect(() => {
+    document.title = routeLabel ? `${routeLabel} · 러닝허브` : '러닝허브';
+  }, [routeLabel]);
+
   return (
     <div className={s.shell}>
       {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감. */}
@@ -129,6 +138,10 @@ export default function App() {
       <a href="#main" className="skip-link">
         본문 바로가기
       </a>
+      {/* 라우트 아나운서 — 뷰 전환을 스크린리더에 polite로 알림(시각 숨김). document.title과 짝. */}
+      <div className={s.srLive} role="status" aria-live="polite">
+        {routeLabel}
+      </div>
       <RailSidebar />
       {/* 본문 컬럼 — TopBar(고정) + 라우트 본문(HudFrame 안에서 흐름). */}
       <div className={s.col}>

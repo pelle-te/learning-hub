@@ -179,11 +179,17 @@
 .toast .toast-act:hover {
   background: var(--acc-glow);
 }
+/* 레일이 하단 고정 탭바가 되는 구간(≤700px) — 되돌리기(언두) 등 토스트가 탭바에 가리거나
+   오탭되지 않게 바 위로 띄운다. 탭바 높이 ≈ 44(아이템)+12(패딩)+안전영역. */
+@media (max-width: 700px) {
+  .toast-host {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+}
 @media (max-width: 560px) {
   .toast-host {
     right: 12px;
     left: 12px;
-    bottom: 12px;
     max-width: none;
   }
 }

@@ -26,6 +26,7 @@ export const TABS: TabMeta[] = [
   { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh' },
   { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart' },
   { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid' },
+  { key: 'graph', label: '지식맵', group: 'log', order: 87, icon: 'graph' },
   // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
   { key: 'control', label: '탐구 수집', group: 'settings', order: 190, icon: 'search' },
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },

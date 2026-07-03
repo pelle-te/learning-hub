@@ -11,6 +11,19 @@
   height: 100vh;
 }
 
+/* 시각 숨김 라이브리전(라우트 아나운서) — 화면엔 안 보이되 스크린리더는 읽음. */
+.srLive {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── 필름 그레인 — WebGL 오로라(AmbientCanvas) 위에 미세 노이즈를 overlay로 얹어 밴딩·평면감 제거.
    콘텐츠 뒤(z-1)·포인터 무시. 캔버스보다 DOM 뒤라 그 위에 그려진다. */
 .ambient {

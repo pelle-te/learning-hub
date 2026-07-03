@@ -21,6 +21,9 @@ const ICON_PATHS: Record<string, string> = {
     '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h6"/>',
   // 숙달도 지도(히트맵) — 2×2 격자로 '맵'을 암시(통계 chart와 시각 구분).
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  // 지식맵(그래프) — 노드-링크로 '연결된 지식'을 암시.
+  graph:
+    '<circle cx="5" cy="6" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.2 7.1 10.5 15.8M15.7 6.6 13 15.8M7.4 6.2 15.6 5.2"/>',
   // 시스템 제어판(OPS) — 슬라이더 콘솔. 설정(gear)과 시각 구분(레일 톱니 중복 해소).
   sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   // 탐구 수집 — 돋보기(검색엔진 느낌).

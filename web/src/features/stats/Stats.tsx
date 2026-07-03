@@ -5,10 +5,13 @@
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵은 Stats.module(st.*), 요소·토큰은 전역 base.
 ============================================================ */
 import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
+import EmptyState from '@/components/EmptyState';
+import { Button } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ProgressRing } from '@/components/ProgressRing';
 import { CountReadout } from '@/components/CountReadout';
@@ -554,6 +557,7 @@ function Readout(props: { value: number; lab: ReactNode; prefix?: string; suffix
 export default function Stats() {
   const state = useApp((s) => s.state);
   const r = useSchedule();
+  const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
   // 포인터 추적 스포트라이트 — 히어로 게이지 패널·발광 스트릭 시그니처가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
@@ -625,7 +629,21 @@ export default function Stats() {
     return (
       <section aria-label="학습 통계">
         <div className={ds.card}>
-          <div className={ds.empty}>학습 항목을 추가하면 통계가 나타납니다.</div>
+          <EmptyState
+            glyph="📊"
+            title="아직 통계가 없어요"
+            desc={
+              <>
+                학습 항목을 추가하면 <b>완료율·인출 증거·유지율·스트릭</b>이 여기에 쌓입니다. 매일 블록을 체크할수록
+                지표가 또렷해져요.
+              </>
+            }
+            actions={
+              <Button variant="primary" onClick={() => navigate('/items')}>
+                + 학습 항목 추가
+              </Button>
+            }
+          />
         </div>
       </section>
     );

@@ -22,6 +22,7 @@ export {
   type TabMeta,
 } from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
+export { captureSubjects, runQuickCapture } from './actions';
 export { recordRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';
 

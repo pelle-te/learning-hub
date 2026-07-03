@@ -7,7 +7,9 @@ import s from './RailSidebar.module.css';
    - 1차 탭(숨김 제외)을 평면 아이콘 리스트로. 흡수 탭(routine/degree/review/mastery)에 있을 땐
      그 호스트(스케줄/기록/통계)를 활성으로 친다(섹션 전환은 본문 상단 SubTabs가 담당).
    - hover/focus 시 대상 청크 프리페치 + viewTransition으로 부드러운 전환.
-   - 방향키/Home/End 이동(WAI-ARIA tablist 키보드 계약·roving tabindex).
+   - 방향키/Home/End 이동(roving tabindex) — 단 이건 *라우트 내비*지 ARIA tablist가 아니다.
+     tab/tablist/aria-selected는 tabpanel(aria-controls)을 요구하는데 본문은 <Routes> 아웃렛이라
+     그 계약을 못 지킨다 → 활성 표기는 nav 표준인 aria-current="page"로 통일(하단 ⚙와 동일).
    - 하단 ⚙는 설정으로(저빈도 운영 화면은 ⌘K·직접 URL과 동선 일치). */
 export default function RailSidebar() {
   const navigate = useNavigate();
@@ -52,7 +54,7 @@ export default function RailSidebar() {
       <div className={s.logo} aria-hidden="true">
         L
       </div>
-      <div role="tablist" aria-label="탭" style={{ display: 'contents' }}>
+      <div style={{ display: 'contents' }}>
         {tabs.map((t, i) => {
           const active = cur === t.key;
           return (
@@ -60,8 +62,7 @@ export default function RailSidebar() {
               key={t.key}
               id={'rail-' + t.key}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
               aria-label={t.label}
               tabIndex={active ? 0 : -1}
               className={s.item + (active ? ' ' + s.on : '')}

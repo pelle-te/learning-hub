@@ -38,8 +38,8 @@ test('레거시 globalThis.state 브리지가 제거됐다(단일 원천=Zustand
 test('네이티브 레일 나브: 주요 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
   const { container } = renderApp('/today');
   // 레일 사이드바는 1차 탭을 평면 리스트로 노출(그룹 계층 폐기). 라벨 정확 일치.
-  await waitFor(() => expect(screen.getByRole('tab', { name: '주간 스케줄' })).toBeInTheDocument());
-  expect(screen.getByRole('tab', { name: '통계' })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('button', { name: '주간 스케줄' })).toBeInTheDocument());
+  expect(screen.getByRole('button', { name: '통계' })).toBeInTheDocument();
   // 아이콘은 dangerouslySetInnerHTML로 주입한 인라인 svg.ic.
   expect(container.querySelectorAll('svg.ic').length).toBeGreaterThan(0);
 });
