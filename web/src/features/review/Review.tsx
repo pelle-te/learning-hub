@@ -20,6 +20,10 @@ import {
   toggleBacklog,
 } from '@/lib/methodology';
 import { indexDays } from '@/lib/scheduleView';
+import { weeklyInsights, weakSpots } from '@/lib/insights';
+import { riskChapters } from '@/lib/spacedReview';
+import { reviewCoach, type ReviewCoachResult } from '@/lib/api';
+import { usePing } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -250,6 +254,143 @@ function ChecklistCard({ wk }: { wk: string }) {
   );
 }
 
+/** 회고 코칭(B7) + 반복 약점(C9) — 결정적 인사이트를 항상 보이고, serve.js가 켜져 있으면 AI로 구체화. */
+function CoachCard({ ds0 }: { ds0: string }) {
+  const state = useApp((s) => s.state);
+  const { data: ping } = usePing();
+  const online = !!ping?.ok;
+  const insights = weeklyInsights(state, ds0);
+  const weak = weakSpots(state); // 전 기간 반복 약점(C9) — '반복적으로 막히는 지점' 자각.
+
+  const [aiBusy, setAiBusy] = useState(false);
+  const [ai, setAi] = useState<ReviewCoachResult | null>(null);
+  const [aiErr, setAiErr] = useState<string | null>(null);
+  const askAI = async () => {
+    if (aiBusy) return;
+    setAiBusy(true);
+    setAiErr(null);
+    try {
+      const facts = insights.map((i) => i.text);
+      const weakLines = weak.map((w) => `${w.subject} — ${w.chapter} (${w.count}회, ${w.codes.join('/')})`);
+      const r = await reviewCoach(facts, weakLines);
+      if (r.ok && r.coach) setAi(r.coach);
+      else setAiErr(r.error || 'AI 코칭 실패');
+    } catch (e) {
+      setAiErr((e as Error).message || 'AI 연결 실패');
+    }
+    setAiBusy(false);
+  };
+
+  const hasData = insights.length > 0 || weak.length > 0;
+
+  return (
+    <div className={`${ds.card} ${ds.glow}`}>
+      <h2>
+        회고 코칭 <span className={`${ds.muted} ${ds.tiny}`}>— 이번 주 데이터가 말하는 다음 주 우선순위</span>
+      </h2>
+      {hasData ? (
+        <>
+          {insights.length > 0 && (
+            <ul className={rv.coachList}>
+              {insights.map((ins, i) => (
+                <li key={i} className={rv.coachItem} data-tone={ins.tone}>
+                  <span className={rv.coachDot} aria-hidden="true" />
+                  <span>{ins.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {weak.length > 0 && (
+            <div className={rv.weakBox}>
+              <div className={`${ds.muted} ${ds.tiny}`}>반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
+              <ul className={rv.weakList}>
+                {weak.map((w) => (
+                  <li key={w.key} className={rv.weakItem}>
+                    <b>
+                      {w.subject} — {w.chapter}
+                    </b>
+                    <span className={rv.weakMeta}>
+                      {w.count}회 · {w.codes.map((c) => CBMS_INFO[c].label).join('·')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className={ds.foot}>이번 주 요약·오답·백지 기록이 쌓이면 코칭이 나와요.</div>
+      )}
+      <div className={rv.coachAi}>
+        <Button
+          sm
+          onClick={askAI}
+          disabled={aiBusy || !online || !hasData}
+          title={online ? '' : 'serve.js가 꺼져 있어요'}
+        >
+          {aiBusy ? (
+            <>
+              <span className={ds.spin} /> 코칭 중…
+            </>
+          ) : (
+            '🤖 AI 회고 받기'
+          )}
+        </Button>
+        {aiErr && <span className={`${ds.muted} ${ds.tiny}`}>{aiErr}</span>}
+      </div>
+      {ai && (
+        <div className={rv.aiBox}>
+          {ai.headline && <div className={rv.aiHead}>{ai.headline}</div>}
+          {ai.focus && (
+            <div className={rv.aiFocus}>
+              <b>먼저 손볼 것</b> {ai.focus}
+            </div>
+          )}
+          {Array.isArray(ai.actions) && ai.actions.length > 0 && (
+            <ul className={rv.aiActions}>
+              {ai.actions.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ul>
+          )}
+          {ai.encourage && <div className={ds.foot}>{ai.encourage}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 복습 위험(C8) — 배웠지만 오래 안 본 개념(챕터)을 경과일 순으로. 완료한 학습/복습/백지 기준. */
+function RiskCard() {
+  const state = useApp((s) => s.state);
+  const res = useSchedule();
+  const today = todayISO(state);
+  const risky = riskChapters(state, res.days || [], today, 6);
+  return (
+    <div className={`${ds.card} ${ds.glow}`}>
+      <h2>
+        복습 위험 <span className={`${ds.muted} ${ds.tiny}`}>— 배웠지만 오래 안 본 개념(간격반복)</span>
+      </h2>
+      {risky.length ? (
+        <ul className={rv.riskList}>
+          {risky.map((c) => (
+            <li key={c.sid + '|' + c.chapter} className={rv.riskRow} data-risk={c.risk}>
+              <span className={rv.riskDot} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
+              <span className={rv.riskNm}>
+                {c.subject} <small>{c.chapter}</small>
+              </span>
+              <span className={rv.riskAge}>{c.daysSince}일</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className={ds.foot}>위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요 👍</div>
+      )}
+      <div className={ds.foot}>오래될수록 붉게 — 백지 복습으로 인출하면 초기화됩니다.</div>
+    </div>
+  );
+}
+
 export default function Review() {
   const res = useSchedule();
   const state = useApp((s) => s.state);
@@ -321,12 +462,14 @@ export default function Review() {
             주 1회 15~20분, <b>공부 방식</b>을 점검하는 자리. 시간(투입)이 아니라 <i>CBMS 분포 축소·진행률</i> 같은
             나아진 증거가 가장 강한 동기.
           </div>
+          <CoachCard ds0={ds0} />
           <PlanActualCard pa={pa} />
           <CbmsDistCard ds0={ds0} ds6={ds6} />
         </div>
         {/* 우 — 점검·회수(액션) */}
         <div className={rv.sideCol}>
           <ChecklistCard wk={wk} />
+          <RiskCard />
           <BacklogReviewCard ds0={ds0} ds6={ds6} />
         </div>
       </div>

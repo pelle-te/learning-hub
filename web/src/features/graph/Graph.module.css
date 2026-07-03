@@ -95,6 +95,114 @@
   pointer-events: none;
 }
 
+/* B6 — 노드 클릭 상세 패널(좌하단 고정). 챕터 상태·마지막 학습·점프. */
+.detail {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 4;
+  width: min(280px, calc(100% - 28px));
+  padding: 14px 16px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: var(--shadow-md);
+  animation: detailIn 0.22s var(--ease) both;
+}
+@keyframes detailIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.detailX {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  color: var(--mut);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.detailX:hover {
+  color: var(--ink);
+  background: var(--panel2);
+}
+.detailKind {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--acc);
+}
+.detailName {
+  margin: 3px 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.25;
+  padding-right: 20px;
+  word-break: keep-all;
+}
+.detailRow {
+  font-size: 12.5px;
+  color: var(--mut);
+  line-height: 1.7;
+}
+.detailRow b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.detailMut {
+  opacity: 0.8;
+}
+.detailRow[data-risk='overdue'] {
+  color: var(--bad);
+}
+.detailRow[data-risk='overdue'] b {
+  color: var(--bad);
+}
+.detailRow[data-risk='due'] b {
+  color: var(--learning, var(--acc));
+}
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 11px;
+}
+.detailBtn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+  color: var(--acc);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.14s var(--ease),
+    box-shadow 0.14s var(--ease);
+}
+.detailBtn:hover {
+  background: color-mix(in srgb, var(--acc) 20%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc);
+}
+.detailBtn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
 /* 빈 상태 호스트 — 중앙 정렬. */
 .emptyHost {
   flex: 1;

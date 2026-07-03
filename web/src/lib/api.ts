@@ -112,3 +112,20 @@ export function marketsBrief(
 ): Promise<{ ok: boolean; error?: string; brief?: MarketBriefResult }> {
   return postJSON('/api/markets/brief', { indices, headlines });
 }
+
+/* ── 주간 회고 코치 (로컬 Ollama 프록시 · serve.js) ─────────────────
+   앱이 계산한 결정적 인사이트를 받아 '다음 주에 뭘 바꿀지'로 구체화한다. 숫자를 새로 짓지 않는다. */
+export interface ReviewCoachResult {
+  headline?: string;
+  actions?: string[];
+  focus?: string;
+  encourage?: string;
+}
+
+/** 온디맨드 회고 코칭(Ollama). facts=이번 주 관찰 문장들, weakSpots=반복 약점 문장들. 꺼져 있으면 에러. */
+export function reviewCoach(
+  facts: string[],
+  weakSpots: string[],
+): Promise<{ ok: boolean; error?: string; coach?: ReviewCoachResult }> {
+  return postJSON('/api/review/coach', { facts, weakSpots });
+}

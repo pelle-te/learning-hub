@@ -1,0 +1,51 @@
+/* ============================================================
+   retrieval.ts — 회상(테스팅 효과) 카드 선택 — 순수·무의존(프레임워크 무관).
+   내가 과거에 쓴 3문장 요약(state.summaries)을 '스스로 다시 설명해보는' 인출 연습 재료로 재활용한다.
+   서버·Ollama 불필요: 내 노트가 곧 플래시카드다. 앱의 '오늘'(todayISO)을 주입받아 결정적으로 회전한다.
+
+   설계 원칙:
+   ① 결정적: 같은 날엔 같은 카드(날짜 해시로 인덱스) → 하루 단위로만 회전, 테스트가 벽시계에 안 흔들림.
+   ② 인출다움: 같은 날 쓴 요약은 회상이 아니므로 minAgeDays(기본 2일) 이상만. 없으면 1일↑로 완화.
+============================================================ */
+import { dayDiff } from './utils';
+import type { AppState, Summary } from './types';
+
+export interface RetrievalCard {
+  ds: string; // 요약을 쓴 날(YYYY-MM-DD)
+  ageDays: number; // 오늘로부터 경과일
+  summary: Summary; // {id,sid,name,s1,s2,s3}
+}
+
+/** 안정 해시(문자열→비음수 정수) — 같은 날 같은 카드, 날이 바뀌면 회전. */
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/** 후보 수집 — minAge일 이상 지난 내 요약을 (ds, summary)로 평탄화. 결정적 정렬(ds→id). */
+function candidates(state: AppState, todayDs: string, minAge: number): { ds: string; summary: Summary }[] {
+  const sm = state.summaries || {};
+  const out: { ds: string; summary: Summary }[] = [];
+  for (const ds of Object.keys(sm)) {
+    if (dayDiff(ds, todayDs) < minAge) continue;
+    for (const summary of sm[ds] || []) out.push({ ds, summary });
+  }
+  out.sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : a.summary.id < b.summary.id ? -1 : 1));
+  return out;
+}
+
+/** 회상 연습 카드 1장 — minAgeDays일 이상 지난 내 요약 중 하나(날짜 해시로 하루 단위 회전).
+ *  요약이 아예 없으면 null. 전부 너무 최신이면 1일↑로 완화(첫 며칠 공백 방지). */
+export function pickRetrieval(state: AppState, todayDs: string, minAgeDays = 2): RetrievalCard | null {
+  let cands = candidates(state, todayDs, minAgeDays);
+  if (!cands.length && minAgeDays > 1) cands = candidates(state, todayDs, 1);
+  if (!cands.length) return null;
+  const pick = cands[hashStr(todayDs) % cands.length]!;
+  return { ds: pick.ds, ageDays: dayDiff(pick.ds, todayDs), summary: pick.summary };
+}
+
+/** 인출 가능한(회상 후보) 요약 총수 — 위젯 노출 여부 판단·리드아웃용. */
+export function retrievableCount(state: AppState, todayDs: string, minAgeDays = 1): number {
+  return candidates(state, todayDs, minAgeDays).length;
+}

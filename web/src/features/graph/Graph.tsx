@@ -11,14 +11,28 @@
    • document.hidden → RAF 일시정지. 언마운트 시 RAF·옵서버·리스너 전부 정리(누수 0).
    • 캔버스는 스크린리더에 불투명 → role=img + aria-label 요약 + .srOnly <ul>(항목 done/total) 병행.
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
+import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { chapterReviews, type ChapterReview } from '@/lib/spacedReview';
+import { todayISO } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
 import g from './Graph.module.css';
+
+/** 노드 클릭 시 여는 상세 패널의 최소 정보(시뮬레이션 노드에서 스냅샷). */
+interface SelInfo {
+  id: string;
+  kind: 'hub' | 'leaf';
+  label: string;
+  itemId: string;
+  done?: number;
+  total?: number;
+  tone?: string;
+}
 
 /** 테마/액센트에서 읽어오는 캔버스 색(런타임 해석 — var()는 캔버스에 못 쓴다). */
 interface Palette {
@@ -51,7 +65,9 @@ function leafColor(n: GraphNode, p: Palette): string {
 type SimNode = GraphNode;
 
 export default function Graph() {
-  const items = useApp((s) => s.state.items);
+  const state = useApp((s) => s.state);
+  const items = state.items;
+  const res = useSchedule();
   const navigate = useNavigate();
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -59,6 +75,19 @@ export default function Graph() {
 
   // 툴팁 — 호버 노드 요약(허브=이름·완료/전체, 잎=이름). 위치는 커서 추종.
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  // B6 — 클릭 선택 노드(상세 패널). 챕터 잎이면 간격반복 위험까지 보여준다.
+  const [sel, setSel] = useState<SelInfo | null>(null);
+
+  // 챕터별 복습 위험(C8) — 잎 상세에서 '마지막 학습·경과일'로 재활용.
+  const reviews = useMemo(() => chapterReviews(state, res.days || [], todayISO(state)), [state, res]);
+  const reviewMap = useMemo(() => {
+    const m = new Map<string, ChapterReview>();
+    for (const r of reviews) m.set(r.sid + '|' + r.chapter, r);
+    return m;
+  }, [reviews]);
+  const leafRv = sel && sel.kind === 'leaf' ? reviewMap.get(sel.itemId + '|' + sel.label) : null;
+  const hubRisk =
+    sel && sel.kind === 'hub' ? reviews.filter((r) => r.sid === sel.itemId && r.risk !== 'fresh').length : 0;
 
   // 상단 리드아웃 — 항목·챕터·완료율(Mastery가 usePageChromeEffect를 쓰는 방식과 동일).
   const totalCh = items.reduce((t, it) => t + (it.chapters?.length || 0), 0);
@@ -96,6 +125,11 @@ export default function Graph() {
     // 화면 자동맞춤 변환(월드→스크린) — 히트테스트 역변환에 재사용.
     let tf = { scale: 1, ox: 0, oy: 0 };
     let dragId: string | null = null;
+    // 클릭(선택) vs 드래그 구분 — pointerdown~up 사이 이동이 미미하면 '클릭'으로 상세 패널을 연다.
+    let downId: string | null = null;
+    let downX = 0;
+    let downY = 0;
+    let moved = false;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -298,8 +332,15 @@ export default function Graph() {
     // ── 포인터(호버 툴팁 + 드래그) ─────────────────────────────────────────
     const onDown = (e: PointerEvent) => {
       const n = hit(e.clientX, e.clientY);
-      if (!n) return;
+      if (!n) {
+        setSel(null); // 빈 공간 클릭 → 선택 해제
+        return;
+      }
       dragId = n.id;
+      downId = n.id;
+      downX = e.clientX;
+      downY = e.clientY;
+      moved = false;
       canvas.setPointerCapture(e.pointerId);
       reheat(0.4);
     };
@@ -308,6 +349,7 @@ export default function Graph() {
       if (dragId != null) {
         const n = byId.get(dragId);
         if (n) {
+          if (!moved && Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
           n.x = (e.clientX - rect.left - tf.ox) / tf.scale;
           n.y = (e.clientY - rect.top - tf.oy) / tf.scale;
           n.vx = 0;
@@ -324,6 +366,7 @@ export default function Graph() {
     };
     const onUp = (e: PointerEvent) => {
       if (dragId != null) {
+        const n = byId.get(dragId);
         dragId = null;
         try {
           canvas.releasePointerCapture(e.pointerId);
@@ -331,7 +374,21 @@ export default function Graph() {
           /* 이미 해제됨 */
         }
         reheat(0.3);
+        // 거의 안 움직였으면 클릭 = 상세 패널 열기(드래그 후엔 열지 않음).
+        if (n && !moved && downId === n.id) {
+          setSel({
+            id: n.id,
+            kind: n.kind,
+            label: n.label,
+            itemId: n.itemId,
+            done: n.done,
+            total: n.total,
+            tone: n.tone,
+          });
+        }
       }
+      downId = null;
+      moved = false;
     };
     const onLeave = () => {
       if (dragId == null) setTip(null);
@@ -422,6 +479,64 @@ export default function Graph() {
           {tip && (
             <div className={g.tip} style={{ left: tip.x, top: tip.y }} role="tooltip">
               {tip.text}
+            </div>
+          )}
+          {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
+          {sel && (
+            <div className={g.detail} role="dialog" aria-label={`${sel.label} 상세`}>
+              <button type="button" className={g.detailX} onClick={() => setSel(null)} aria-label="닫기">
+                ✕
+              </button>
+              <div className={g.detailKind}>{sel.kind === 'hub' ? '학습 항목' : '챕터'}</div>
+              <div className={g.detailName}>{sel.label}</div>
+              {sel.kind === 'hub' ? (
+                <>
+                  <div className={g.detailRow}>
+                    진행{' '}
+                    <b>
+                      {sel.done ?? 0}/{sel.total ?? 0}
+                    </b>{' '}
+                    챕터
+                  </div>
+                  {hubRisk > 0 && (
+                    <div className={g.detailRow} data-risk="overdue">
+                      복습 위험 <b>{hubRisk}개</b>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className={g.detailRow}>
+                    상태 <b>{sel.tone === 'done' ? '숙달' : sel.tone === 'learning' ? '학습중' : '미착수'}</b>
+                  </div>
+                  {leafRv ? (
+                    <div className={g.detailRow} data-risk={leafRv.risk}>
+                      마지막 학습 <b>{leafRv.daysSince}일 전</b> ·{' '}
+                      {leafRv.risk === 'overdue' ? '복습 시급' : leafRv.risk === 'due' ? '복습 권장' : '최근'}
+                    </div>
+                  ) : (
+                    <div className={`${g.detailRow} ${g.detailMut}`}>완료된 학습 기록이 아직 없어요</div>
+                  )}
+                </>
+              )}
+              <div className={g.detailActions}>
+                <button
+                  type="button"
+                  className={g.detailBtn}
+                  onClick={() => navigate('/items', { viewTransition: true })}
+                >
+                  학습 항목 열기 →
+                </button>
+                {(hubRisk > 0 || (leafRv && leafRv.risk !== 'fresh')) && (
+                  <button
+                    type="button"
+                    className={g.detailBtn}
+                    onClick={() => navigate('/review', { viewTransition: true })}
+                  >
+                    복습 위험 보기 →
+                  </button>
+                )}
+              </div>
             </div>
           )}
           {/* 스크린리더 대체 — 캔버스는 불투명하므로 항목별 done/total을 목록으로 병행 제공. */}

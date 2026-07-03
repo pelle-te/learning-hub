@@ -148,21 +148,33 @@
   transition: width 1s linear;
 }
 
-/* 오버사이즈 고스트 시계 — 우상단 허공을 채우는 워터마크(콘텐츠 뒤, 포인터 통과). */
-.ghostClock {
+/* 오버사이즈 게이지 — 우상단 허공을 '오늘 남은 가용시간'으로 채움(정보성 워터마크, 포인터 통과). */
+.ghostGauge {
   position: absolute;
   z-index: -1;
-  top: -0.18em;
+  top: 0.04em;
   right: clamp(10px, 2vw, 26px);
-  font-size: clamp(72px, 11vw, 148px);
+  display: flex;
+  align-items: baseline;
+  gap: 0.06em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.ghostGauge b {
+  font-size: clamp(64px, 9.6vw, 132px);
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: transparent;
   -webkit-text-stroke: 1px color-mix(in srgb, var(--ink) 12%, transparent);
-  pointer-events: none;
-  user-select: none;
+}
+.ghostGauge em {
+  font-style: normal;
+  font-size: clamp(13px, 1.4vw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--ink) 22%, transparent);
 }
 
 .heroHead {
@@ -979,6 +991,144 @@
   height: 26px;
   background: var(--line2);
   flex: none;
+}
+
+/* ── A1 어제 한 줄 · A4 완료 동력 · A2 회상 위젯 ─────────────── */
+.yesterday {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--mut);
+  line-height: 1.5;
+  max-width: 62ch;
+}
+.yesterday b {
+  color: color-mix(in oklab, var(--acc) 40%, var(--ink));
+  font-weight: 700;
+}
+.momentum {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.mChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+  color: var(--acc);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    box-shadow 0.16s var(--ease),
+    background 0.16s var(--ease);
+}
+.mChip:hover {
+  background: color-mix(in srgb, var(--acc) 20%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc);
+}
+.mChip:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.recall {
+  flex: none;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line2);
+  background: color-mix(in srgb, var(--acc) 5%, var(--panel2));
+  animation: heroFade 0.4s var(--ease) both;
+}
+.recallTop {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.recallTag {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--acc);
+}
+.recallMeta {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recallQ {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.45;
+}
+.recallBtn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+  color: var(--acc);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    box-shadow 0.16s var(--ease),
+    background 0.16s var(--ease);
+}
+.recallBtn:hover {
+  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--acc);
+}
+.recallBtn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+.recallA {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--mut);
+  line-height: 1.5;
+  animation: heroFade 0.3s var(--ease) both;
+}
+.recallA b {
+  color: var(--ink);
+  font-weight: 700;
+  margin-right: 4px;
+}
+.recallReset {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--mut);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.recallReset:hover {
+  color: var(--acc);
 }
 
 /* 모션 자제 백스톱. */

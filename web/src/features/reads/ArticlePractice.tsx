@@ -10,6 +10,9 @@ import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { runTool, coachSummary, lookupVocab, type CoachFeedback, type VocabResult } from '@/lib/api';
 import { ui } from '@/shell';
+import { useApp } from '@/store/useApp';
+import { addBacklog } from '@/lib/methodology';
+import { backlogFromArticle } from '@/lib/promote';
 import type { Article, ArticleWork, ReadsArtifact } from '@/lib/reads';
 import ds from '@/styles/ds.module.css';
 import r from './Reads.module.css';
@@ -43,6 +46,14 @@ export default function ArticlePractice({
   const [filter, setFilter] = useState<Filter>('all');
   const [selId, setSelId] = useState<string | null>(null);
   const [collecting, setCollecting] = useState(false);
+  const mutate = useApp((s) => s.mutate);
+
+  // B5 — '학습으로 보내기': 읽은 글을 보충 백로그(나중에 학습할 큐)로 승격. 소비→학습 루프를 닫는다.
+  const promote = (a: Article) => {
+    const seed = backlogFromArticle(a);
+    mutate((st) => addBacklog(st, '', seed.name, seed.topic, seed.note));
+    ui.toast('보충 백로그로 보냈어요 — 기록·오늘 탭에서 회수', 'ok');
+  };
 
   // Ollama 코치(내 요약 채점) — serve.js/Ollama 필요. 원문 요약은 하지 않는다.
   const [coachBusy, setCoachBusy] = useState(false);
@@ -386,6 +397,9 @@ export default function ArticlePractice({
                   ) : (
                     '🤖 AI 채점 받기'
                   )}
+                </Button>
+                <Button sm onClick={() => promote(sel)} title="보충 백로그로 보내기">
+                  📥 학습으로 보내기
                 </Button>
               </div>
 

@@ -16,6 +16,9 @@ import { todayISO } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
+import { useApp } from '@/store/useApp';
+import { addBacklog } from '@/lib/methodology';
+import { backlogFromNews } from '@/lib/promote';
 import ds from '@/styles/ds.module.css';
 import m from './Markets.module.css';
 
@@ -30,6 +33,17 @@ export default function Markets() {
   const indices = useMemo(() => markets.data?.indices ?? [], [markets.data]);
   const news = useMemo(() => markets.data?.news ?? [], [markets.data]);
   const st = indexStats(indices);
+  const mutate = useApp((s) => s.mutate);
+
+  // B5 — '학습으로 보내기': 헤드라인을 보충 백로그로 승격. 소비(증시)→학습을 잇는다.
+  const promoteNews = useCallback(
+    (n: NewsItem) => {
+      const seed = backlogFromNews(n);
+      mutate((state) => addBacklog(state, '', seed.name, seed.topic, seed.note));
+      ui.toast('보충 백로그로 보냈어요 — 기록·오늘 탭에서 회수', 'ok');
+    },
+    [mutate],
+  );
   const lead = indices.find((i) => i.symbol === '^KS11') ?? indices[0];
 
   // 리드아웃 — 상단 바에 상승/하락·대표지수·서버상태·수집시각.
@@ -207,7 +221,7 @@ export default function Markets() {
           {news.length ? (
             <ul className={m.newsList}>
               {news.map((n) => (
-                <NewsCard key={n.id} n={n} />
+                <NewsCard key={n.id} n={n} onPromote={promoteNews} />
               ))}
             </ul>
           ) : (
@@ -320,8 +334,8 @@ function Spark({ spark, d }: { spark: number[]; d: 'up' | 'down' | 'flat' }) {
   );
 }
 
-/** 뉴스 1장 — 출처·시각·제목(원문 링크)·발췌. */
-function NewsCard({ n }: { n: NewsItem }) {
+/** 뉴스 1장 — 출처·시각·제목(원문 링크)·발췌 + '학습으로 보내기'(보충 백로그 승격). */
+function NewsCard({ n, onPromote }: { n: NewsItem; onPromote: (n: NewsItem) => void }) {
   return (
     <li className={m.newsItem}>
       <a className={m.newsLink} href={n.url} target="_blank" rel="noreferrer noopener">
@@ -335,6 +349,9 @@ function NewsCard({ n }: { n: NewsItem }) {
         <div className={m.newsTitle}>{n.title}</div>
         {n.summary ? <div className={m.newsSummary}>{n.summary}</div> : null}
       </a>
+      <button type="button" className={m.newsPromote} onClick={() => onPromote(n)} title="보충 백로그로 보내기">
+        📥 학습으로 보내기
+      </button>
     </li>
   );
 }

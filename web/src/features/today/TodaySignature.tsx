@@ -15,7 +15,9 @@ import { useFocus } from '@/store/useFocus';
 import { isDone, studyStreak } from '@/lib/persistence';
 import { pickFocus, focusMinutes } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
-import { layoutDay } from '@/lib/scheduler';
+import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
+import { pickRetrieval } from '@/lib/retrieval';
+import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
 import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
 import { useCountUp, useHeroPointer } from '@/lib/interactions';
@@ -44,6 +46,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const toggleDone = useApp((s) => s.toggleDone);
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
+  const [recallShown, setRecallShown] = useState(false); // A2 — 회상 정답 공개 여부
 
   // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.
   const { ref: heroRef, onMouseMove: onHeroMove, onMouseLeave: onHeroLeave } = useHeroPointer(7);
@@ -130,6 +133,18 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const streak = studyStreak(state);
   const due = ankiDue(ankiLive);
   const openBl = openBacklog(state).length;
+
+  // A1 — 어제 셧다운에서 남긴 '내일 한 줄'을 오늘 아침 다시 보여줌(셧다운→모닝 루프 닫기).
+  const prevNote = (state.rituals?.[iso(addDays(today, -1))]?.note || '').trim();
+  // A3 — 오늘 '일과 블록 뺀' 남은 가용시간(now 이후) — 워터마크를 정보성으로.
+  const freeWins = freeWindowsForWeekday(state, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
+  const freeLeftH = Math.round((freeMinAfter(freeWins, nowMin) / 60) * 10) / 10;
+  // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
+  const recall = pickRetrieval(state, ds);
+  // A4 — 완료 후 다음 동력: 내일 첫 학습 + 복습 위험(개념 간격반복).
+  const tmrNew = (res.days || []).find((d) => d.ds === iso(addDays(today, 1)))?.items.find((it) => it.type === 'new');
+  const risk = riskSummary(state, res.days || [], ds);
+  const riskN = risk.overdue + risk.due;
 
   // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃).
   const ddays = (res.itemStat || [])
@@ -293,9 +308,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <div className={s.aura} aria-hidden="true" />
           <div className={s.spotlight} aria-hidden="true" />
           {timer && <div className={s.heroFill} style={{ width: `${timerPct}%` }} aria-hidden="true" />}
-          {/* 오버사이즈 고스트 시계 — 우상단 허공을 채우는 워터마크(콘텐츠 뒤, 포인터 통과). */}
-          <span className={s.ghostClock} aria-hidden="true">
-            {toHM(nowMin)}
+          {/* 오버사이즈 게이지 — 우상단 허공을 '오늘 남은 가용시간'으로 채움(정보성 워터마크). */}
+          <span className={s.ghostGauge} aria-hidden="true">
+            <b>{freeLeftH}</b>
+            <em>h 남음</em>
           </span>
 
           <div className={s.heroHead}>
@@ -310,10 +326,30 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <div className={s.heroSub}>
             {todayTotal === 0 ? (
               '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
+            ) : allDone ? (
+              // A4 — 완료 후 죽은 화면 대신 '다음 동력'(내일·복습 위험·보충 회수·회상).
+              <span className={s.momentum}>
+                {tmrNew ? (
+                  <span className={s.chapter}>내일 · {tmrNew.name}</span>
+                ) : (
+                  <span>내일 일정은 아직 비어 있어요</span>
+                )}
+                {riskN > 0 && (
+                  <button type="button" className={s.mChip} onClick={() => go('/review')}>
+                    복습 위험 {riskN}
+                  </button>
+                )}
+                {openBl > 0 && (
+                  <button type="button" className={s.mChip} onClick={() => go('/journal')}>
+                    보충 {openBl} 회수
+                  </button>
+                )}
+                {recall && <span className={s.upnext}>회상 1개 대기 ↓</span>}
+              </span>
             ) : (
               <>
                 <span className={s.chapter}>{dispChapter}</span>
-                {upNext && !allDone && (
+                {upNext && (
                   <span className={s.upnext}>
                     다음 · {upNext.it.name}
                     {upNext.start != null ? ` ${toHM(upNext.start)}` : ''}
@@ -322,6 +358,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </>
             )}
           </div>
+          {/* A1 — 어제 남긴 '내일 한 줄'(아직 오늘 진행 중일 때만; 완료 화면은 동력에 집중). */}
+          {prevNote && !allDone && (
+            <div className={s.yesterday}>
+              <span aria-hidden="true">🌙</span> 어제 남긴 한 줄 — <b>{prevNote}</b>
+            </div>
+          )}
 
           {/* 주 액션 — 집중 타이머(포모도로). 히어로 안에 통합 = 가장 큰 요소가 곧 행동. */}
           <div className={s.actions}>
@@ -460,6 +502,39 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </div>
             )}
           </div>
+          {/* A2 — 회상 위젯: 과거에 쓴 내 요약을 '스스로 다시 설명' 인출 연습으로(테스팅 효과). */}
+          {recall && (
+            <div className={s.recall}>
+              <div className={s.recallTop}>
+                <span className={s.recallTag}>🧠 회상</span>
+                <span className={s.recallMeta}>
+                  {recall.ageDays}일 전 · {recall.summary.name || '요약'}
+                </span>
+              </div>
+              <div className={s.recallQ}>{recall.summary.s1 || '이 개념을 스스로 다시 설명할 수 있나요?'}</div>
+              {recallShown ? (
+                <div className={s.recallA}>
+                  {recall.summary.s2 && (
+                    <div>
+                      <b>도구·어떻게</b> {recall.summary.s2}
+                    </div>
+                  )}
+                  {recall.summary.s3 && (
+                    <div>
+                      <b>결과·의미</b> {recall.summary.s3}
+                    </div>
+                  )}
+                  <button type="button" className={s.recallReset} onClick={() => setRecallShown(false)}>
+                    가리기
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className={s.recallBtn} onClick={() => setRecallShown(true)}>
+                  떠올렸다 · 정답 보기
+                </button>
+              )}
+            </div>
+          )}
           <button type="button" className={s.more} onClick={onOpenMore}>
             ＋ 블록 상세 · 일일 의식 · 흐름 가이드
           </button>

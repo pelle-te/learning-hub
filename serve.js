@@ -260,6 +260,27 @@ function marketsBrief(body, cb) {
   }, MARKETS_MODEL);
 }
 
+/* 주간 회고 코치 — 앱이 이미 계산한 결정적 인사이트(오답 쏠림·반복 약점·백지 통과율 등)를 받아
+   '다음 주에 무엇을 어떻게 바꿀지'를 한국어로 구체화한다. 숫자를 새로 지어내지 않는다(주어진 사실만). */
+function reviewCoach(body, cb) {
+  const facts = Array.isArray(body.facts) ? body.facts.slice(0, 20).map((f) => String(f).slice(0, 300)) : [];
+  const weak = Array.isArray(body.weakSpots) ? body.weakSpots.slice(0, 8).map((w) => String(w).slice(0, 120)) : [];
+  if (!facts.length && !weak.length) return cb({ ok: false, error: '회고할 데이터가 없어요 — 이번 주 기록이 필요해요.' });
+  const prompt =
+    '너는 학습 코치다. 아래 [사실]은 이번 주 학습 데이터에서 이미 계산된 관찰이고, [반복약점]은 여러 번 막힌 지점이다.\n'
+    + '주어진 사실만 사용하고 새 수치를 지어내지 마라. 다음 주에 무엇을 어떻게 바꿀지 구체적·실행 가능한 조언을 한국어로 준다.\n'
+    + '아래 키를 가진 JSON 하나만 출력해라:\n'
+    + '- headline: 이번 주를 한 문장으로 요약(문자열)\n'
+    + '- actions: 다음 주 실행 항목 배열(각 항목은 짧고 구체적인 문자열, 2~4개)\n'
+    + '- focus: 가장 먼저 손봐야 할 개념/습관 하나(문자열)\n'
+    + '- encourage: 격려 한 문장(문자열)\n\n'
+    + '[사실]\n' + (facts.join('\n') || '(없음)') + '\n\n[반복약점]\n' + (weak.join('\n') || '(없음)');
+  ollamaChat(prompt, (err, obj) => {
+    if (err) return cb({ ok: false, error: err.message });
+    cb({ ok: true, coach: obj });
+  });
+}
+
 /* 동시 도구 실행 캡 — 30분짜리 research 스폰이 무한히 쌓이는 것 방지(DoS 가드). */
 let RUNNING = 0;
 const MAX_RUNNING = 2;
@@ -342,6 +363,15 @@ const server = http.createServer((req, res) => {
         return readBody(req, body => {
           OLLAMA_RUNNING++;
           marketsBrief(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
+        });
+      }
+      // 주간 회고 코치 — 결정적 인사이트를 받아 실행 조언으로 구체화. 비-로컬 Origin 거부 + 동시 캡 공유.
+      if (url === '/api/review/coach' && req.method === 'POST') {
+        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
+        if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
+        return readBody(req, body => {
+          OLLAMA_RUNNING++;
+          reviewCoach(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
         });
       }
       return sendJSON(res, 404, { ok: false, error: 'API 경로 없음' });

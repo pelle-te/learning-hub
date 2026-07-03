@@ -629,6 +629,12 @@ export function schedule(state: AppState): ScheduleResult {
   };
 }
 
+/** now(자정 기준 분) 이후 남은 '공부 가능' 자유 시간(분) — layoutDay.free 창을 now로 클램프해 합산.
+ *  이미 지난 창은 0, now가 창 중간이면 남은 뒷부분만. 오늘 얼마나 더 할 수 있나(홈 리드아웃)의 단일 계산. */
+export function freeMinAfter(free: [number, number][], nowMin: number): number {
+  return free.reduce((t, [s, e]) => t + Math.max(0, e - Math.max(s, nowMin)), 0);
+}
+
 /* 피크 시간대(방법론 1절) — [시작분,끝분] 또는 null. */
 export function peakRange(state: AppState): [number, number] | null {
   const a = state.peakStart;
