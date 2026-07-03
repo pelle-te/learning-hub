@@ -82,6 +82,8 @@ const TABS = [
   'today',
   'schedule',
   'items',
+  'reads',
+  'markets',
   'journal',
   'degree',
   'stats',

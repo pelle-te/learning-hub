@@ -11,6 +11,8 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 /** key → 동적 import 썽크(단일 원천). lazy 컴포넌트와 프리페치가 같은 썽크를 공유. */
 const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   items: () => import('./items/Items'),
+  reads: () => import('./reads/Reads'),
+  markets: () => import('./markets/Markets'),
   today: () => import('./today/Today'),
   schedule: () => import('./schedule/Schedule'),
   routine: () => import('./routine/Routine'),

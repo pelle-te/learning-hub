@@ -32,6 +32,11 @@ const WORK = path.dirname(ROOT);                 // 작업 폴더(시스템·전
 const DIST = path.join(ROOT, 'web', 'dist');     // React 빌드물(정적 서빙 루트)
 const PORT = Number(process.argv[2]) || 8000;
 const PY = process.env.PYTHON || 'python';
+// 읽을거리 코치·어휘가 부르는 로컬 Ollama(요약은 시키지 않는다 — 내 요약 채점·단어 뜻만).
+const OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.READS_OLLAMA_MODEL || 'qwen3:8b';
+// 증시 브리핑도 같은 로컬 모델(다르게 쓰고 싶으면 MARKETS_OLLAMA_MODEL).
+const MARKETS_MODEL = process.env.MARKETS_OLLAMA_MODEL || OLLAMA_MODEL;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -51,12 +56,16 @@ const TOOLS = {
   'index-build':     { cmd: ['시스템/_도구/벌트DB.py', 'build'],    label: '인덱스/DB 재생성', timeout: 120000 },
   'eval':            { cmd: ['시스템/_도구/지시문평가.py', 'eval'], label: '지시문 품질 회귀검사', timeout: 120000, parse: parseEval },
   'anki-signal':     { cmd: ['시스템/_도구/학습신호.py'],          label: 'Anki 학습신호 갱신', timeout: 60000,  parse: parseAnkiSignal },
+  'reads-collect':   { cmd: ['시스템/_도구/읽을거리_수집.py'],      label: '읽을거리 수집', timeout: 180000, parse: parseReadsCollect },
+  'markets-collect': { cmd: ['시스템/_도구/증시_수집.py'],          label: '증시 동향 수집', timeout: 180000, parse: parseMarketsCollect },
 };
 
 /* 산출물 파일(읽기 전용 서빙) */
 const ARTIFACTS = {
   knowledge: path.join(WORK, '전공', '_meta', '감사', '_지식상태.json'),
   anki:      path.join(WORK, '전공', '_meta', '감사', '_anki신호.json'),
+  reads:     path.join(ROOT, '_읽을거리', 'latest.json'),   // 읽을거리 지문(수집 원문) — 러닝허브 로컬
+  markets:   path.join(ROOT, '_증시', 'latest.json'),       // 증시 동향(지수 등락 + 금융 뉴스) — 러닝허브 로컬
 };
 
 function sendJSON(res, code, obj) {
@@ -136,6 +145,121 @@ function readBody(req, cb) {
   req.on('end', () => { try { cb(b ? JSON.parse(b) : {}); } catch (e) { cb({}); } });
 }
 
+/* ── 읽을거리 코치·어휘 (로컬 Ollama HTTP) ────────────────────────────────
+   ⚠ 이 서버는 원문을 요약/재작성하지 않는다. 코치=내가 쓴 요약을 원문과 대조해 채점, 어휘=단어 뜻만.
+   동시 호출 캡(OLLAMA_RUNNING)으로 8B 생성이 쌓이는 것 방지. format:json으로 구조화 강제. */
+let OLLAMA_RUNNING = 0;
+const MAX_OLLAMA = 2;
+function ollamaChat(prompt, cb, model) {
+  const payload = JSON.stringify({
+    model: model || OLLAMA_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+    stream: false, format: 'json', think: false,   // 사고모드 OFF — 지연↓·JSON 혼동↓(qwen3)
+    options: { temperature: 0.3, num_ctx: 8192 },
+  });
+  let u;
+  try { u = new URL('/api/chat', OLLAMA_URL); } catch (e) { return cb(new Error('OLLAMA_URL 오류')); }
+  const req = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
+    let data = '';
+    r.on('data', d => { data += d; });
+    r.on('end', () => {
+      try {
+        const content = JSON.parse(data).message?.content || '';
+        const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, '');
+        const m = cleaned.match(/\{[\s\S]*\}/);
+        cb(null, m ? JSON.parse(m[0]) : { raw: cleaned.trim() });
+      } catch (e) { cb(new Error('Ollama 응답 파싱 실패')); }
+    });
+  });
+  req.on('error', e => cb(new Error('Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')')));
+  req.setTimeout(120000, () => { req.destroy(); cb(new Error('Ollama 응답 시간 초과')); });
+  req.end(payload);
+}
+
+/* 내 요약 채점 — 원문과 대조. 원문은 참조만, 새 요약을 대신 쓰지 않는다(모범요약은 짧게 예시로만). */
+function coachSummary(body, cb) {
+  const summary = String(body.summary || '').slice(0, 8000).trim();
+  const source = String(body.source || '').slice(0, 6000).trim();
+  const lang = body.lang === 'en' ? 'en' : 'ko';
+  if (!summary) return cb({ ok: false, error: '내 요약이 비어 있어요.' });
+  if (!source) return cb({ ok: false, error: '원문이 없어요.' });
+  // 프롬프트: 스키마를 '값이 든 템플릿'으로 주면 8B가 그 예시 문자열을 그대로 베낀다 →
+  // 키를 산문으로 설명(값 예시 없이)하고 실제 [원문]/[요약]만 뒤에 붙인다.
+  const prompt = lang === 'ko'
+    ? '너는 국어 선생님이다. 학생이 아래 [원문]을 읽고 [학생요약]을 썼다.\n'
+      + '학생요약이 원문의 핵심을 잘 담았는지 채점해라. 원문을 대신 요약하지 말고 학생요약을 평가만 해라.\n'
+      + '아래 키를 가진 JSON 하나만 한국어로 출력해라(각 항목은 원문과 학생요약의 실제 내용으로 채운다):\n'
+      + '- score: 0~100 정수(핵심 반영도)\n'
+      + '- missing: 원문의 핵심인데 학생요약에 빠진 내용들의 배열\n'
+      + '- redundant: 학생요약에서 불필요하거나 늘어진 부분들의 배열(없으면 [])\n'
+      + '- accuracy: 학생요약에서 사실과 다른 부분들의 배열(없으면 [])\n'
+      + '- model_summary: 원문 내용을 한두 문장으로 요약한 모범답안(문자열)\n'
+      + '- comment: 학생에게 주는 격려 한 문장\n\n'
+      + '[원문]\n' + source + '\n\n[학생요약]\n' + summary
+    : 'You are an English tutor. The student read the [SOURCE] and wrote [NOTES] (comprehension/translation notes).\n'
+      + 'Do NOT summarize the source for them. Only evaluate their notes and help them learn.\n'
+      + 'Output ONE JSON object with these keys (fill each from the actual SOURCE and NOTES):\n'
+      + '- score: integer 0-100 (comprehension quality)\n'
+      + '- missing: array of key points from the source the student missed\n'
+      + '- corrections: array of misunderstandings/mistranslations to fix (empty [] if none)\n'
+      + '- key_expressions: array of {"en": useful phrase from the source, "ko": its Korean meaning}\n'
+      + '- model_summary: a 1-2 sentence model summary of the SOURCE, in English (string)\n'
+      + '- comment: one encouraging remark in Korean\n\n'
+      + '[SOURCE]\n' + source + '\n\n[NOTES]\n' + summary;
+  ollamaChat(prompt, (err, obj) => {
+    if (err) return cb({ ok: false, error: err.message });
+    cb({ ok: true, lang, feedback: obj });
+  });
+}
+
+/* 어휘 도우미 — 지문에서 클릭/선택한 단어 하나의 뜻·예문(원문 문맥 반영). */
+function vocabLookup(body, cb) {
+  const word = String(body.word || '').slice(0, 80).trim();
+  const context = String(body.context || '').slice(0, 600).trim();
+  const lang = body.lang === 'en' ? 'en' : 'ko';
+  if (!word) return cb({ ok: false, error: '단어가 없어요.' });
+  const prompt = lang === 'en'
+    ? 'Explain the English word/phrase below to a Korean learner, using the sentence context.\n'
+      + 'Output ONE JSON object with keys: word(the word), pos(품사 in Korean), '
+      + 'meaning(문맥에 맞는 한국어 뜻), example(a natural English example sentence), example_ko(그 예문의 한국어 해석).\n\n'
+      + 'WORD: ' + word + '\nCONTEXT: ' + context
+    : '아래 [문맥]에서 단어 "' + word + '"가 쓰인 의미를 국어사전 뜻에 근거해 정확히 설명해라.\n'
+      + 'JSON 하나만 출력: 키는 word(그 단어), meaning(문맥에 맞는 뜻), '
+      + 'synonyms(그 의미의 유의어 배열), example(그 단어를 같은 의미로 쓴 새 예문 문자열).\n\n'
+      + '단어: ' + word + '\n[문맥]\n' + context;
+  ollamaChat(prompt, (err, obj) => {
+    if (err) return cb({ ok: false, error: err.message });
+    cb({ ok: true, lang, vocab: obj });
+  });
+}
+
+/* 증시 브리핑 — 그날 지수 등락 + 뉴스 헤드라인을 묶어 "왜 이렇게 움직였나"를 해설.
+   ⚠ 숫자를 새로 지어내지 않는다(주어진 등락만 사용). 뉴스와 등락을 잇는 서사만 만든다. */
+function marketsBrief(body, cb) {
+  const indices = Array.isArray(body.indices) ? body.indices.slice(0, 20) : [];
+  const headlines = Array.isArray(body.headlines) ? body.headlines.slice(0, 25) : [];
+  if (!indices.length && !headlines.length) return cb({ ok: false, error: '브리핑할 데이터가 없어요 — 먼저 수집하세요.' });
+  const idxLines = indices
+    .map((i) => `- ${String(i.name || i.symbol || '').slice(0, 30)}: ${Number(i.changePct).toFixed(2)}% (${i.price})`)
+    .join('\n');
+  const newsLines = headlines
+    .map((h, n) => `${n + 1}. ${String(h.title || '').slice(0, 160)}${h.source ? ' [' + String(h.source).slice(0, 20) + ']' : ''}`)
+    .join('\n');
+  const prompt =
+    '너는 금융시장 브리핑 애널리스트다. 아래 [지수]의 오늘 등락과 [뉴스] 헤드라인이 주어진다.\n'
+    + '주어진 숫자만 사용하고 새 수치를 지어내지 마라. 뉴스와 지수 움직임을 연결해 "오늘 왜 이렇게 움직였나"를 한국어로 해설해라.\n'
+    + '아래 키를 가진 JSON 하나만 출력해라(실제 [지수]/[뉴스] 내용으로 채운다):\n'
+    + '- overview: 오늘 시장을 2~3문장으로 요약(문자열)\n'
+    + '- drivers: 오늘 움직임의 동인 배열, 각 항목은 {"title": 짧은 제목, "detail": 한두 문장 설명}\n'
+    + '- watch: 앞으로 지켜볼 포인트들의 배열(문자열 배열)\n'
+    + '- caveat: 이 해설은 지연·요약 데이터 기반 참고용이라는 한 문장 경고\n\n'
+    + '[지수]\n' + (idxLines || '(지수 데이터 없음)') + '\n\n[뉴스]\n' + (newsLines || '(뉴스 없음)');
+  ollamaChat(prompt, (err, obj) => {
+    if (err) return cb({ ok: false, error: err.message });
+    cb({ ok: true, brief: obj });
+  }, MARKETS_MODEL);
+}
+
 /* 동시 도구 실행 캡 — 30분짜리 research 스폰이 무한히 쌓이는 것 방지(DoS 가드). */
 let RUNNING = 0;
 const MAX_RUNNING = 2;
@@ -201,6 +325,25 @@ const server = http.createServer((req, res) => {
           runTool(tool, extra, done);
         });
       }
+      // 읽을거리 코치·어휘 — 로컬 Ollama 프록시(요약 안 함). 비-로컬 Origin 거부 + 동시 캡.
+      if ((url === '/api/reads/coach' || url === '/api/reads/vocab') && req.method === 'POST') {
+        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
+        if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
+        const fn = url.endsWith('coach') ? coachSummary : vocabLookup;
+        return readBody(req, body => {
+          OLLAMA_RUNNING++;
+          fn(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
+        });
+      }
+      // 증시 브리핑 — 로컬 Ollama 프록시("왜 움직였나" 해설). 비-로컬 Origin 거부 + 동시 캡 공유.
+      if (url === '/api/markets/brief' && req.method === 'POST') {
+        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
+        if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
+        return readBody(req, body => {
+          OLLAMA_RUNNING++;
+          marketsBrief(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
+        });
+      }
       return sendJSON(res, 404, { ok: false, error: 'API 경로 없음' });
     }
 
@@ -259,6 +402,14 @@ function parseEval(out) {
 function parseAnkiSignal(out) {
   const m = out.match(/orphan[_\s]*rate[^\d]*([\d.]+)/i) || out.match(/고아[^\d]*(\d+)/);
   return { raw: out.slice(-400) };
+}
+function parseReadsCollect(out) {
+  const m = out.match(/수집 (\d+)편 \(영어 (\d+) · 한국어 (\d+)\)/);
+  return { collected: m ? +m[1] : null, en: m ? +m[2] : null, ko: m ? +m[3] : null };
+}
+function parseMarketsCollect(out) {
+  const m = out.match(/수집 지수 (\d+)종 · 뉴스 (\d+)편/);
+  return { indices: m ? +m[1] : null, news: m ? +m[2] : null };
 }
 
 server.on('error', (e) => {

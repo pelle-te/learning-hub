@@ -28,6 +28,11 @@ const ICON_PATHS: Record<string, string> = {
   sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   // 탐구 수집 — 돋보기(검색엔진 느낌).
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  // 증시 동향 — 상승 추세선+화살촉(trending-up). chart(막대)·graph(노드)와 시각 구분.
+  trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  // 읽을거리 — 신문(칼럼·뉴스 지문 + 독서). file(문서)·book(독서 글리프)와 시각 구분.
+  reads:
+    '<path d="M4 22a2 2 0 0 1-2-2V7h4"/><path d="M6 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4"/><path d="M10 8h8M10 12h8M10 16h5"/>',
   // 헤더 액션·테마(이모지 대체) — 라인 아이콘으로 통일.
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
   moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',

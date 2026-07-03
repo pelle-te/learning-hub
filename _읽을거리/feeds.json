@@ -1,0 +1,17 @@
+{
+  "_설명": "읽을거리 지문 수집 설정. 여기에 내가 고른 RSS 피드를 넣으면 매일 분야별로 최신 글 원문을 가져온다. Ollama는 요약하지 않는다(원문 보존). 아래 feeds는 예시 — 실제로 구독할 매체 RSS로 교체하라.",
+  "per_feed": 1,
+  "max_total": 12,
+  "min_words": 250,
+  "fetch_body": true,
+  "feeds": [
+    { "lang": "en", "field": "과학", "name": "ScienceDaily", "url": "https://www.sciencedaily.com/rss/top/science.xml" },
+    { "lang": "en", "field": "에세이", "name": "Aeon", "url": "https://aeon.co/feed.rss" },
+    { "lang": "en", "field": "사회", "name": "BBC News", "url": "https://feeds.bbci.co.uk/news/world/rss.xml" },
+    { "lang": "en", "field": "경제", "name": "The Economist (Finance)", "url": "https://www.economist.com/finance-and-economics/rss.xml" },
+    { "lang": "ko", "field": "오피니언", "name": "한겨레 칼럼", "url": "https://www.hani.co.kr/rss/opinion/" },
+    { "lang": "ko", "field": "과학", "name": "사이언스타임즈", "url": "https://www.sciencetimes.co.kr/feed/" },
+    { "lang": "ko", "field": "사회", "name": "경향신문", "url": "https://www.khan.co.kr/rss/rssdata/total_news.xml" },
+    { "lang": "ko", "field": "경제", "name": "한국경제 오피니언", "url": "https://www.hankyung.com/feed/opinion" }
+  ]
+}

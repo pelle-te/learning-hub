@@ -46,3 +46,69 @@ export async function runTool(tool: string, body?: Record<string, unknown>): Pro
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return (await r.json()) as RunResult;
 }
+
+/* ── 읽을거리 코치·어휘 (로컬 Ollama 프록시 · serve.js) ─────────────────
+   ⚠ 원문 요약은 서버가 하지 않는다. 코치=내 요약 채점, 어휘=단어 뜻만. */
+export interface CoachFeedback {
+  score?: number;
+  missing?: string[];
+  redundant?: string[];
+  accuracy?: string[];
+  corrections?: string[];
+  key_expressions?: { en: string; ko: string }[];
+  model_summary?: string;
+  comment?: string;
+}
+export interface VocabResult {
+  word?: string;
+  pos?: string;
+  meaning?: string;
+  synonyms?: string[];
+  example?: string;
+  example_ko?: string;
+}
+
+async function postJSON<T>(url: string, body: Record<string, unknown>): Promise<T> {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return (await r.json()) as T;
+}
+
+/** 내가 쓴 요약을 원문과 대조해 채점·피드백(Ollama). serve.js/Ollama 꺼져 있으면 reject. */
+export function coachSummary(
+  source: string,
+  summary: string,
+  lang: 'en' | 'ko',
+): Promise<{ ok: boolean; error?: string; feedback?: CoachFeedback }> {
+  return postJSON('/api/reads/coach', { source, summary, lang });
+}
+
+/** 지문에서 선택한 단어 하나의 뜻·예문(Ollama). */
+export function lookupVocab(
+  word: string,
+  context: string,
+  lang: 'en' | 'ko',
+): Promise<{ ok: boolean; error?: string; vocab?: VocabResult }> {
+  return postJSON('/api/reads/vocab', { word, context, lang });
+}
+
+/* ── 증시 브리핑 (로컬 Ollama 프록시 · serve.js) ─────────────────
+   그날 지수 등락 + 뉴스 헤드라인 → "왜 움직였나" 해설. 숫자를 새로 짓지 않는다. */
+export interface MarketBriefResult {
+  overview?: string;
+  drivers?: { title: string; detail: string }[];
+  watch?: string[];
+  caveat?: string;
+}
+
+/** 온디맨드 증시 해설(Ollama). serve.js/Ollama 꺼져 있으면 reject/에러. */
+export function marketsBrief(
+  indices: { name: string; symbol: string; changePct: number; price: number }[],
+  headlines: { title: string; source: string }[],
+): Promise<{ ok: boolean; error?: string; brief?: MarketBriefResult }> {
+  return postJSON('/api/markets/brief', { indices, headlines });
+}
