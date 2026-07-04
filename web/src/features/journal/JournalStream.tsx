@@ -20,6 +20,15 @@ function Count({ n }: { n: number }) {
   return <b>{Math.round(v)}</b>;
 }
 
+/** 작성 시각 HH:MM — 구버전 기록엔 at이 없어 빈 문자열(타임스탬프 생략). */
+function fmtTime(at?: number): string {
+  if (!at) return '';
+  const d = new Date(at);
+  if (isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: boolean }) {
   const state = useApp((st) => st.state);
   // 포인터 추적 스포트라이트 — 시그니처 보드가 커서를 따라 발광(틸트 없는 큰 보드).
@@ -70,6 +79,7 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
             return (
               <li key={`s-${x.id}`} className={s.row}>
                 <span className={s.node} />
+                {fmtTime(x.at) && <span className={s.time}>{fmtTime(x.at)}</span>}
                 <span className={`${s.kind} ${s.kSum}`}>요약</span>
                 <span className={s.swatch} style={{ background: itemById(state, x.sid)?.color || 'var(--acc)' }} />
                 <span className={s.name}>{x.name || '(과목 없음)'}</span>
@@ -82,6 +92,7 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
             return (
               <li key={`c-${e.id}`} className={s.row}>
                 <span className={s.node} />
+                {fmtTime(e.at) && <span className={s.time}>{fmtTime(e.at)}</span>}
                 <span className={ds.cbmsChip} style={{ '--c': inf.color } as React.CSSProperties}>
                   {e.code} {inf.label}
                 </span>
@@ -94,6 +105,7 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
           {backlogToday.map((b) => (
             <li key={`b-${b.id}`} className={`${s.row}${b.done ? ' ' + s.dim : ''}`}>
               <span className={`${s.node} ${s.flag}`} />
+              {fmtTime(b.at) && <span className={s.time}>{fmtTime(b.at)}</span>}
               <span className={`${s.kind} ${s.kBl}`}>{b.done ? '회수' : '보충'}</span>
               <span className={s.name}>{b.topic || '(주제 없음)'}</span>
               {b.name && <span className={s.meta}>· {b.name}</span>}

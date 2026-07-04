@@ -13,12 +13,15 @@ import { toastUndo } from '@/shell/toast';
 import {
   summariesFor,
   addSummary,
+  editSummary,
   delSummary,
   cbmsBetween,
+  editCbms,
   delCbms,
   CBMS_INFO,
   openBacklog,
   addBacklog,
+  editBacklog,
   toggleBacklog,
   delBacklog,
   activityFeed,
@@ -92,10 +95,36 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
   const [s1, setS1] = useState('');
   const [s2, setS2] = useState('');
   const [s3, setS3] = useState('');
+  // 인라인 편집 — 저장된 요약을 삭제-재작성 없이 제자리에서 고친다.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ sid: '', s1: '', s2: '', s3: '' });
   const firstField = useRef<HTMLTextAreaElement>(null);
   usePrefillForm('sum', setSid, firstField);
 
   const list = summariesFor(state, dsKey);
+  const startEdit = (x: { id: string; sid: string; s1: string; s2: string; s3: string }) => {
+    setEditId(x.id);
+    setDraft({ sid: x.sid, s1: x.s1, s2: x.s2, s3: x.s3 });
+  };
+  const saveEdit = () => {
+    if (!editId) return;
+    if (!draft.s1.trim() && !draft.s2.trim() && !draft.s3.trim()) {
+      ui.toast('세 문장 중 최소 하나는 남겨주세요.', 'warn');
+      return;
+    }
+    const id = editId;
+    mutate((st) =>
+      editSummary(st, dsKey, id, {
+        sid: draft.sid,
+        name: nameOf(st, draft.sid),
+        s1: draft.s1.trim(),
+        s2: draft.s2.trim(),
+        s3: draft.s3.trim(),
+      }),
+    );
+    setEditId(null);
+    ui.toast('요약 수정됨', 'ok');
+  };
   const submit = () => {
     if (!s1.trim() && !s2.trim() && !s3.trim()) {
       ui.toast('세 문장 중 최소 하나는 적어주세요.', 'warn');
@@ -199,28 +228,70 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
       </div>
       <hr />
       {list.length ? (
-        list.map((x) => (
-          <div key={x.id} className={ds.rec}>
-            <div className={ds.recHead}>
-              <span className={ds.swatch} style={{ background: itemById(state, x.sid)?.color || '#6ea8fe' }} />
-              <b>{x.name || '(과목 없음)'}</b>
-              <Button sm variant="ghost" danger style={{ marginLeft: 'auto' }} onClick={() => del(x.id)} title="삭제">
-                ✕
-              </Button>
+        list.map((x) =>
+          editId === x.id ? (
+            <div key={x.id} className={`${ds.rec} ${j.editRec}`}>
+              <div className={ds.fld}>
+                <label>과목</label>
+                <SubjectSelect
+                  id={`sum-edit-${x.id}`}
+                  value={draft.sid}
+                  onChange={(v) => setDraft((d) => ({ ...d, sid: v }))}
+                />
+              </div>
+              <textarea
+                rows={2}
+                value={draft.s1}
+                onChange={(e) => setDraft((d) => ({ ...d, s1: e.target.value }))}
+                placeholder="1 — 현상·왜"
+              />
+              <textarea
+                rows={2}
+                value={draft.s2}
+                onChange={(e) => setDraft((d) => ({ ...d, s2: e.target.value }))}
+                placeholder="2 — 도구·어떻게"
+              />
+              <textarea
+                rows={2}
+                value={draft.s3}
+                onChange={(e) => setDraft((d) => ({ ...d, s3: e.target.value }))}
+                placeholder="3 — 결과·의미"
+              />
+              <div className={j.editActions}>
+                <Button sm variant="primary" onClick={saveEdit}>
+                  저장
+                </Button>
+                <Button sm variant="ghost" onClick={() => setEditId(null)}>
+                  취소
+                </Button>
+              </div>
             </div>
-            <ol className={ds.rec3}>
-              <li>
-                <span className={`${ds.muted} ${ds.tiny}`}>현상·왜</span> {x.s1}
-              </li>
-              <li>
-                <span className={`${ds.muted} ${ds.tiny}`}>도구·어떻게</span> {x.s2}
-              </li>
-              <li>
-                <span className={`${ds.muted} ${ds.tiny}`}>결과·의미</span> {x.s3}
-              </li>
-            </ol>
-          </div>
-        ))
+          ) : (
+            <div key={x.id} className={ds.rec}>
+              <div className={ds.recHead}>
+                <span className={ds.swatch} style={{ background: itemById(state, x.sid)?.color || '#6ea8fe' }} />
+                <b>{x.name || '(과목 없음)'}</b>
+                <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(x)} title="수정">
+                  ✎
+                </Button>
+                <Button sm variant="ghost" danger onClick={() => del(x.id)} title="삭제">
+                  ✕
+                </Button>
+              </div>
+              <ol className={ds.rec3}>
+                <li>
+                  <span className={`${ds.muted} ${ds.tiny}`}>현상·왜</span> {x.s1}
+                </li>
+                <li>
+                  <span className={`${ds.muted} ${ds.tiny}`}>도구·어떻게</span> {x.s2}
+                </li>
+                <li>
+                  <span className={`${ds.muted} ${ds.tiny}`}>결과·의미</span> {x.s3}
+                </li>
+              </ol>
+            </div>
+          ),
+        )
       ) : (
         <div className={`${ds.empty} ${ds.tiny}`}>오늘 작성한 요약이 없어요. 블록 끝마다 한 개씩.</div>
       )}
@@ -239,10 +310,36 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
   const [code, setCode] = useState<CbmsCode>(codes[0]!);
   const [note, setNote] = useState('');
   const [conf, setConf] = useState(false);
+  // 인라인 편집 — 저장된 오답의 챕터·유형·메모·확신플래그를 제자리에서 고친다.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [edraft, setEdraft] = useState<{ chapter: string; code: CbmsCode; note: string; conf: boolean }>({
+    chapter: '',
+    code: codes[0]!,
+    note: '',
+    conf: false,
+  });
   const chRef = useRef<HTMLInputElement>(null);
   usePrefillForm('cbms', setSid, chRef);
 
   const today = cbmsBetween(state, dsKey, dsKey);
+  const startEdit = (e: { id: string; chapter: string; code: CbmsCode; note: string; conf?: boolean }) => {
+    setEditId(e.id);
+    setEdraft({ chapter: e.chapter, code: e.code, note: e.note, conf: !!e.conf });
+  };
+  const saveEdit = () => {
+    if (!editId) return;
+    const id = editId;
+    mutate((st) =>
+      editCbms(st, id, {
+        chapter: edraft.chapter.trim(),
+        code: edraft.code,
+        note: edraft.note.trim(),
+        conf: edraft.conf,
+      }),
+    );
+    setEditId(null);
+    ui.toast('오답 수정됨', 'ok');
+  };
   const submit = () => {
     if (!sid && !chapter.trim() && !note.trim()) {
       ui.toast('과목·챕터·메모 중 최소 하나는 입력하세요.', 'warn');
@@ -326,6 +423,65 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
       {today.length ? (
         today.map((e) => {
           const inf = CBMS_INFO[e.code] || { label: '?', tip: '', color: '#888' };
+          if (editId === e.id) {
+            return (
+              <div key={e.id} className={`${ds.rec} ${j.editRec}`}>
+                <div className={ds.fieldgrid}>
+                  <div className={ds.fld}>
+                    <label>챕터/문제</label>
+                    <input
+                      type="text"
+                      value={edraft.chapter}
+                      onChange={(ev) => setEdraft((d) => ({ ...d, chapter: ev.target.value }))}
+                      placeholder="예) 3장 변위전류"
+                    />
+                  </div>
+                  <div className={ds.fld}>
+                    <label>유형</label>
+                    <select
+                      value={edraft.code}
+                      onChange={(ev) => setEdraft((d) => ({ ...d, code: ev.target.value as CbmsCode }))}
+                    >
+                      {codes.map((c) => (
+                        <option key={c} value={c}>
+                          {c} — {CBMS_INFO[c].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={`${ds.fld} ${ds.wide}`}>
+                    <label>메모</label>
+                    <input
+                      type="text"
+                      value={edraft.note}
+                      onChange={(ev) => setEdraft((d) => ({ ...d, note: ev.target.value }))}
+                      onKeyDown={(ev) => ev.key === 'Enter' && saveEdit()}
+                      placeholder="어디서 왜 막혔나"
+                    />
+                  </div>
+                </div>
+                <label
+                  className={ds.tiny}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={edraft.conf}
+                    onChange={(ev) => setEdraft((d) => ({ ...d, conf: ev.target.checked }))}
+                  />{' '}
+                  🎯 찍어서 맞음/확신 없었음
+                </label>
+                <div className={j.editActions}>
+                  <Button sm variant="primary" onClick={saveEdit}>
+                    저장
+                  </Button>
+                  <Button sm variant="ghost" onClick={() => setEditId(null)}>
+                    취소
+                  </Button>
+                </div>
+              </div>
+            );
+          }
           return (
             <div key={e.id} className={ds.rec}>
               <div className={ds.recHead}>
@@ -343,7 +499,10 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
                 )}
                 <b>{e.name || ''}</b>
                 {e.chapter && <span className={`${ds.muted} ${ds.tiny}`}> · {e.chapter}</span>}
-                <Button sm variant="ghost" danger style={{ marginLeft: 'auto' }} onClick={() => del(e.id)} title="삭제">
+                <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(e)} title="수정">
+                  ✎
+                </Button>
+                <Button sm variant="ghost" danger onClick={() => del(e.id)} title="삭제">
                   ✕
                 </Button>
               </div>
@@ -368,10 +527,28 @@ function BacklogCard() {
   const [sid, setSid] = useState('');
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
+  // 인라인 편집 — 저장된 보충 항목의 주제·메모를 제자리에서 고친다.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [edraft, setEdraft] = useState({ topic: '', note: '' });
   const topicRef = useRef<HTMLInputElement>(null);
   usePrefillForm('bl', setSid, topicRef);
 
   const open = openBacklog(state);
+  const startEdit = (b: { id: string; topic: string; note: string }) => {
+    setEditId(b.id);
+    setEdraft({ topic: b.topic, note: b.note });
+  };
+  const saveEdit = () => {
+    if (!editId) return;
+    if (!edraft.topic.trim()) {
+      ui.toast('막힌 주제는 비울 수 없어요.', 'warn');
+      return;
+    }
+    const id = editId;
+    mutate((st) => editBacklog(st, id, { topic: edraft.topic.trim(), note: edraft.note.trim() }));
+    setEditId(null);
+    ui.toast('보충 항목 수정됨', 'ok');
+  };
   const closed = (state.backlog || []).filter((b) => b.done).length;
   const submit = () => {
     if (!topic.trim()) {
@@ -450,23 +627,57 @@ function BacklogCard() {
       </div>
       <hr />
       {open.length ? (
-        open.map((b) => (
-          <div key={b.id} className={`${ds.rec} ${ds.blOpen}`}>
-            <div className={ds.recHead}>
-              <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => toggle(b.id)} />
-              <span className={ds.swatch} style={{ background: itemById(state, b.sid)?.color || '#888' }} />
-              <b>{b.topic || '(주제 없음)'}</b>
-              {b.name && <span className={`${ds.muted} ${ds.tiny}`}> · {b.name}</span>}
-              <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 6 }}>
-                {b.ds}
-              </span>
-              <Button sm variant="ghost" danger style={{ marginLeft: 'auto' }} onClick={() => del(b.id)} title="삭제">
-                ✕
-              </Button>
+        open.map((b) =>
+          editId === b.id ? (
+            <div key={b.id} className={`${ds.rec} ${ds.blOpen} ${j.editRec}`}>
+              <div className={ds.fld}>
+                <label>막힌 주제</label>
+                <input
+                  type="text"
+                  value={edraft.topic}
+                  onChange={(e) => setEdraft((d) => ({ ...d, topic: e.target.value }))}
+                  onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                />
+              </div>
+              <div className={`${ds.fld} ${ds.wide}`}>
+                <label>메모</label>
+                <input
+                  type="text"
+                  value={edraft.note}
+                  onChange={(e) => setEdraft((d) => ({ ...d, note: e.target.value }))}
+                  onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                />
+              </div>
+              <div className={j.editActions}>
+                <Button sm variant="primary" onClick={saveEdit}>
+                  저장
+                </Button>
+                <Button sm variant="ghost" onClick={() => setEditId(null)}>
+                  취소
+                </Button>
+              </div>
             </div>
-            {b.note && <div className={ds.tiny}>{b.note}</div>}
-          </div>
-        ))
+          ) : (
+            <div key={b.id} className={`${ds.rec} ${ds.blOpen}`}>
+              <div className={ds.recHead}>
+                <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => toggle(b.id)} />
+                <span className={ds.swatch} style={{ background: itemById(state, b.sid)?.color || '#888' }} />
+                <b>{b.topic || '(주제 없음)'}</b>
+                {b.name && <span className={`${ds.muted} ${ds.tiny}`}> · {b.name}</span>}
+                <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 6 }}>
+                  {b.ds}
+                </span>
+                <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(b)} title="수정">
+                  ✎
+                </Button>
+                <Button sm variant="ghost" danger onClick={() => del(b.id)} title="삭제">
+                  ✕
+                </Button>
+              </div>
+              {b.note && <div className={ds.tiny}>{b.note}</div>}
+            </div>
+          ),
+        )
       ) : (
         <div className={`${ds.empty} ${ds.tiny}`}>
           열린 '보충 필요' 항목이 없어요. 👍 백로그를 닫아 두는 게 메타인지.

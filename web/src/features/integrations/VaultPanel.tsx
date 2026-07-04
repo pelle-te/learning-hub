@@ -3,11 +3,20 @@
    폴더 선택 → 정본 _index.json(또는 .md) 스캔. 결과는 Query 캐시(['vault'])에 — persist X.
    과목/챕터를 '+학습항목'으로 넣는 건 앱상태 변경이라 store.mutate.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject, type VaultChapter } from '@/lib/vault';
+import {
+  pickAndScanVault,
+  chaptersFromVault,
+  queryVaultPermission,
+  requestVaultPermission,
+  type VaultScan,
+  type VaultSubject,
+  type VaultChapter,
+} from '@/lib/vault';
+import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
@@ -23,6 +32,40 @@ export function VaultPanel() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<Set<number>>(() => new Set());
+  // 저장된 핸들이 있으나 권한이 만료돼(재시작 후 'prompt') 제스처 재요청이 필요한 상태.
+  const [pending, setPending] = useState<FileSystemDirectoryHandle | null>(null);
+  const initRef = useRef(false);
+
+  // 부팅 재연결 — IDB에 저장한 폴더 핸들을 되살린다. 권한이 아직 살아있으면 조용히 재스캔,
+  // 아니면 '지난 볼트 다시 연결' 버튼으로 한 번의 제스처만 받아 재선택 없이 붙는다.
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+    if (qc.getQueryData(['vault'])) return; // 이번 세션에 이미 연동됨(쿼리 캐시 유지)
+    let alive = true;
+    (async () => {
+      const saved = await idbGet<FileSystemDirectoryHandle>('vaultHandle');
+      if (!alive || !saved) return;
+      const perm = await queryVaultPermission(saved);
+      if (!alive) return;
+      if (perm === 'granted') {
+        try {
+          const r = await pickAndScanVault(saved);
+          if (alive && r) {
+            qc.setQueryData(['vault'], r.scan);
+            qc.setQueryData(['vaultHandle'], r.handle);
+          }
+        } catch {
+          if (alive) setPending(saved); // 스캔 실패 → 수동 재연결 유도
+        }
+      } else {
+        setPending(saved);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [qc]);
 
   const doScan = async () => {
     setErr('');
@@ -32,6 +75,8 @@ export function VaultPanel() {
       if (r) {
         qc.setQueryData(['vault'], r.scan);
         qc.setQueryData(['vaultHandle'], r.handle); // Anki 패널이 같은 폴더 재사용
+        idbPut('vaultHandle', r.handle); // 다음 부팅에 재선택 없이 재연결
+        setPending(null);
       }
     } catch (e) {
       setErr((e as Error).message || String(e));
@@ -40,11 +85,38 @@ export function VaultPanel() {
     }
   };
 
-  // 연동 해제 — 스캔 결과·공유 폴더 핸들을 캐시에서 제거(Anki 패널이 재사용하던 핸들도 함께 풀림).
+  // 저장된 핸들로 재연결 — 제스처 안에서 권한 요청 후 스캔(폴더 재선택 없음).
+  const reconnect = async () => {
+    if (!pending) return;
+    setErr('');
+    setBusy(true);
+    try {
+      const perm = await requestVaultPermission(pending);
+      if (perm !== 'granted') {
+        setErr('폴더 접근 권한이 필요해요 — 허용하거나, 폴더 연동으로 다시 선택하세요.');
+        return;
+      }
+      const r = await pickAndScanVault(pending);
+      if (r) {
+        qc.setQueryData(['vault'], r.scan);
+        qc.setQueryData(['vaultHandle'], r.handle);
+        idbPut('vaultHandle', r.handle);
+        setPending(null);
+      }
+    } catch (e) {
+      setErr((e as Error).message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // 연동 해제 — 스캔 결과·공유 폴더 핸들을 캐시·IDB에서 제거(Anki 패널이 재사용하던 핸들도 함께 풀림).
   const disconnect = () => {
     qc.removeQueries({ queryKey: ['vault'], exact: true });
     qc.removeQueries({ queryKey: ['vaultHandle'], exact: true });
+    idbDel('vaultHandle');
     setOpen(new Set());
+    setPending(null);
     setErr('');
     ui.toast('볼트 폴더 연동을 해제했어요.', 'info');
   };
@@ -98,6 +170,17 @@ export function VaultPanel() {
               '📁 볼트 폴더 연동'
             )}
           </Button>
+          {!scan && pending && (
+            <Button
+              sm
+              variant="primary"
+              disabled={busy}
+              onClick={reconnect}
+              title="지난번 연동한 폴더에 재선택 없이 다시 연결"
+            >
+              🔗 지난 볼트 다시 연결{pending.name ? ` (${pending.name})` : ''}
+            </Button>
+          )}
           {scan && (
             <Button
               sm

@@ -3,7 +3,15 @@
    외부 의존(네트워크)이라 fetch를 stub해 HTTP 오류·네트워크 실패·POST 계약을 검증한다.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getArtifact, getPing, runTool, coachSummary, previewFromJsonStream } from '@/lib/api';
+import {
+  getArtifact,
+  getPing,
+  runTool,
+  coachSummary,
+  previewFromJsonStream,
+  startResearch,
+  listResearchJobs,
+} from '@/lib/api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -58,6 +66,44 @@ describe('runTool — POST 계약 + 오류', () => {
   it('실패 응답(비-2xx)은 throw한다', async () => {
     stubFetch(async () => res(null, { ok: false, status: 500 }));
     await expect(runTool('eval')).rejects.toThrow('HTTP 500');
+  });
+});
+
+describe('탐구 수집 잡 API — 백그라운드 시작 + 재부착 목록', () => {
+  it('startResearch: topic·scope를 POST하고 잡을 반환한다', async () => {
+    const job = {
+      id: 'r1',
+      topic: '반도체',
+      scope: '2026',
+      status: 'running',
+      code: null,
+      startedAt: 1,
+      endedAt: null,
+      out: '',
+    };
+    const f = stubFetch(async () => res({ ok: true, job }));
+    const r = await startResearch('반도체', '2026');
+    expect(r).toMatchObject({ ok: true, job: { id: 'r1', status: 'running' } });
+    const [url, opts] = f.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/research/start');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body as string)).toEqual({ topic: '반도체', scope: '2026' });
+  });
+  it('startResearch: scope 없으면 빈 문자열로 보낸다', async () => {
+    const f = stubFetch(async () => res({ ok: true }));
+    await startResearch('트랜스포머');
+    const [, opts] = f.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(opts.body as string)).toEqual({ topic: '트랜스포머', scope: '' });
+  });
+  it('listResearchJobs: GET으로 잡 목록을 가져온다', async () => {
+    const f = stubFetch(async () => res({ ok: true, jobs: [{ id: 'r1', status: 'done' }] }));
+    const r = await listResearchJobs();
+    expect(r.jobs).toHaveLength(1);
+    expect(f).toHaveBeenCalledWith('/api/research/jobs');
+  });
+  it('listResearchJobs: HTTP 오류는 throw한다', async () => {
+    stubFetch(async () => res(null, { ok: false, status: 500 }));
+    await expect(listResearchJobs()).rejects.toThrow('HTTP 500');
   });
 });
 

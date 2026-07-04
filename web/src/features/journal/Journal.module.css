@@ -130,6 +130,17 @@
   color: var(--ink);
 }
 
+/* 인라인 편집 — 저장된 기록을 제자리에서 고치는 폼(강조 테두리로 편집 중임을 명확히). */
+.editRec {
+  border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
+  background: color-mix(in srgb, var(--acc) 7%, transparent);
+}
+.editActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* 모바일 — 단일컬럼 스택 + 스크롤 */
 @media (max-width: 900px) {
   .cols {

@@ -47,6 +47,34 @@ export async function runTool(tool: string, body?: Record<string, unknown>): Pro
   return (await r.json()) as RunResult;
 }
 
+/* ── 탐구 수집 잡(백그라운드) ─────────────────────────────────────
+   research는 수십 분짜리라 서버가 잡으로 소유한다. 클라이언트는 시작 요청을 즉시 돌려받고,
+   /api/research/jobs를 폴링해 진행/완료를 본다. reload/새 탭도 이 목록으로 in-flight 잡에 재부착. */
+export type ResearchStatus = 'running' | 'done' | 'error';
+export interface ResearchJob {
+  id: string;
+  topic: string;
+  scope: string;
+  status: ResearchStatus;
+  code: number | null;
+  startedAt: number;
+  endedAt: number | null;
+  out: string;
+}
+
+/** 탐구 수집 잡 시작 — 즉시 반환(백그라운드 spawn). 서버 꺼짐/캡이면 ok:false. */
+export function startResearch(
+  topic: string,
+  scope?: string,
+): Promise<{ ok: boolean; error?: string; job?: ResearchJob }> {
+  return postJSON('/api/research/start', { topic, scope: scope || '' });
+}
+
+/** 이 서버가 아는 탐구 잡(진행 중 + 최근 종료) — reload 후 재부착·폴링용. */
+export function listResearchJobs(): Promise<{ ok: boolean; jobs: ResearchJob[] }> {
+  return getJSON('/api/research/jobs');
+}
+
 /* ── 읽을거리 코치·어휘 (로컬 Ollama 프록시 · serve.js) ─────────────────
    ⚠ 원문 요약은 서버가 하지 않는다. 코치=내 요약 채점, 어휘=단어 뜻만. */
 export interface CoachFeedback {

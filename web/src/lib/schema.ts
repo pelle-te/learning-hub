@@ -56,6 +56,7 @@ export const SummarySchema = z.object({
   s1: z.string(),
   s2: z.string(),
   s3: z.string(),
+  at: z.number().optional(), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프·정렬용)
 });
 
 export const CbmsCodeSchema = z.enum(['C', 'B', 'M', 'S', 'T']);
@@ -68,6 +69,7 @@ export const CbmsSchema = z.object({
   code: CbmsCodeSchema,
   note: z.string(),
   conf: z.boolean().optional(), // 구버전엔 없음 — '찍어서 맞음' 플래그(F-06)
+  at: z.number().optional(), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
 });
 
 export const BacklogSchema = z.object({
@@ -79,6 +81,7 @@ export const BacklogSchema = z.object({
   note: z.string(),
   done: z.boolean(),
   doneDs: z.string(),
+  at: z.number().optional(), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
 });
 
 export const BlankResultSchema = z.object({

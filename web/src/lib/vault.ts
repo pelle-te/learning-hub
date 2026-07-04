@@ -179,6 +179,33 @@ export async function pickAndScanVault(
   return { scan: { at: new Date().toLocaleString('ko'), src, subjects }, handle };
 }
 
+/* ── 저장된 핸들 재사용(FS 권한) — IDB에 영속한 폴더 핸들로 재선택 없이 재연결.
+   권한은 재시작 뒤 'prompt'로 돌아갈 수 있어(브라우저 정책), 조회→요청 2단계로 다룬다. */
+type PermCapable = {
+  queryPermission?: (o: { mode: string }) => Promise<PermissionState>;
+  requestPermission?: (o: { mode: string }) => Promise<PermissionState>;
+};
+/** 저장된 핸들의 읽기 권한 상태 — 'granted'면 제스처 없이 스캔 가능. */
+export async function queryVaultPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
+  const h = handle as unknown as PermCapable;
+  if (!h.queryPermission) return 'prompt';
+  try {
+    return await h.queryPermission({ mode: 'read' });
+  } catch {
+    return 'prompt';
+  }
+}
+/** 저장된 핸들에 읽기 권한 요청(사용자 제스처 안에서 호출). */
+export async function requestVaultPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
+  const h = handle as unknown as PermCapable;
+  if (!h.requestPermission) return 'prompt';
+  try {
+    return await h.requestPermission({ mode: 'read' });
+  } catch {
+    return 'denied';
+  }
+}
+
 /** 노트 수 → 예상시간(h). */
 export function estH(notes: number): number {
   return Math.max(1, Math.round(notes * 0.5));

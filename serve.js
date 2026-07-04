@@ -124,21 +124,50 @@ function runTool(toolKey, extraArgs, cb) {
   proc.on('close', code => { clearTimeout(killer); finish(code === 0, code); });
 }
 
-/* 탐구 수집 실행 — topic 필수, scope 선택. 인자는 값으로만 전달(shell 안 씀). */
-function runResearch(topic, scope, cb) {
-  if (!topic || typeof topic !== 'string' || topic.length > 200) { cb({ ok: false, out: 'topic(주제)이 필요합니다.' }); return; }
-  const args = ['시스템/_도구/탐구_수집.py', '--topic', topic];
-  if (scope && typeof scope === 'string') args.push('--scope', scope.slice(0, 200));
-  let out = '', done = false;
-  const fin = (ok, code) => { if (done) return; done = true; cb({ ok, out: out.slice(-20000), code }); };
+/* ── 탐구 수집 잡(백그라운드) ─────────────────────────────────────────
+   탐구_수집.py는 30분까지 걸린다. 예전엔 그 시간 내내 HTTP 요청을 붙들었는데(await),
+   탭을 새로고침/이동하면 진행 상황·결과를 영영 잃었다(spawn은 서버에 살아있는데 화면은 백지).
+   이제는 요청을 즉시 반환하고 잡을 서버가 소유한다 → 새 탭·reload가 /api/research/jobs로 재부착.
+   각 잡: {id, topic, scope, status:'running'|'done'|'error', out, code, startedAt, endedAt}. */
+const RESEARCH_JOBS = new Map();
+let RESEARCH_SEQ = 0;
+const MAX_RESEARCH = 2;              // 동시 running 캡(옛 MAX_RUNNING과 같은 취지)
+function runningResearch() { let n = 0; for (const j of RESEARCH_JOBS.values()) if (j.status === 'running') n++; return n; }
+function publicJob(j) {
+  return { id: j.id, topic: j.topic, scope: j.scope || '', status: j.status, code: j.code,
+    startedAt: j.startedAt, endedAt: j.endedAt, out: (j.out || '').slice(-20000) };
+}
+/* 종료된 잡은 최근 12개만 보관(running은 항상 보존). 메모리 무한증식 방지. */
+function pruneJobs() {
+  const finished = [...RESEARCH_JOBS.values()].filter(j => j.status !== 'running').sort((a, b) => a.startedAt - b.startedAt);
+  while (finished.length > 12) { const old = finished.shift(); RESEARCH_JOBS.delete(old.id); }
+}
+/* 잡 시작 — 즉시 잡 객체 반환. 인자는 값으로만 전달(shell 안 씀). */
+function startResearch(topic, scope) {
+  if (!topic || typeof topic !== 'string' || topic.length > 200) return { error: 'topic(주제)이 필요합니다.' };
+  const tq = topic.slice(0, 200);
+  const sc = (scope && typeof scope === 'string') ? scope.slice(0, 200) : '';
+  const args = ['시스템/_도구/탐구_수집.py', '--topic', tq];
+  if (sc) args.push('--scope', sc);
+  const id = 'r' + Date.now().toString(36) + '-' + (++RESEARCH_SEQ);
+  const job = { id, topic: tq, scope: sc, status: 'running', out: '', code: null, startedAt: Date.now(), endedAt: null, proc: null };
+  RESEARCH_JOBS.set(id, job);
+  const fin = (code) => {
+    if (job.status !== 'running') return;
+    job.status = code === 0 ? 'done' : 'error'; job.code = code; job.endedAt = Date.now();
+    job.proc = null; job.out = (job.out || '').slice(-20000); pruneJobs();
+  };
   let proc;
   try { proc = spawn(PY, args, { cwd: WORK, env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8', RESEARCH_NOOPEN: '1' }) }); }
-  catch (e) { cb({ ok: false, out: 'spawn 실패: ' + (e.message || e) }); return; }
-  const killer = setTimeout(() => { try { proc.kill(); } catch (e) {} fin(false, -2); }, 1800000); // 30분
-  proc.stdout.on('data', d => out += d.toString('utf8'));
-  proc.stderr.on('data', d => out += d.toString('utf8'));
-  proc.on('error', e => { clearTimeout(killer); out += '\n오류: ' + (e.message || e); fin(false, -1); });
-  proc.on('close', code => { clearTimeout(killer); fin(code === 0, code); });
+  catch (e) { job.out = 'spawn 실패: ' + (e.message || e); fin(-1); return { job }; }
+  job.proc = proc;
+  const cap = (d) => { job.out += d.toString('utf8'); if (job.out.length > 40000) job.out = job.out.slice(-20000); };
+  const killer = setTimeout(() => { try { proc.kill(); } catch (e) {} job.out += '\n(30분 초과 — 중단)'; fin(-2); }, 1800000);
+  proc.stdout.on('data', cap);
+  proc.stderr.on('data', cap);
+  proc.on('error', e => { clearTimeout(killer); job.out += '\n오류: ' + (e.message || e); fin(-1); });
+  proc.on('close', code => { clearTimeout(killer); fin(code); });
+  return { job };
 }
 
 function readBody(req, cb) {
@@ -417,7 +446,6 @@ const server = http.createServer((req, res) => {
         return readBody(req, body => {
           RUNNING++;
           const done = r => { RUNNING = Math.max(0, RUNNING - 1); sendJSON(res, 200, r); };
-          if (tool === 'research') return runResearch(body.topic, body.scope, done);
           const extra = [];
           // frontier/gaps 과목 필터 등. dash-접두 값은 파이썬 CLI에서 *플래그*로 오해석될 수 있어 거부
           // (정상 과목명은 '-'로 시작하지 않음 → 실사용 영향 0. '--' 리터럴 주입은 비-argparse 도구를 깨서 회피).
@@ -427,6 +455,21 @@ const server = http.createServer((req, res) => {
           }
           runTool(tool, extra, done);
         });
+      }
+      // 탐구 수집 잡 시작 — 백그라운드로 돌리고 즉시 잡 반환(요청을 30분 붙들지 않음).
+      if (url === '/api/research/start' && req.method === 'POST') {
+        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
+        if (runningResearch() >= MAX_RESEARCH) return sendJSON(res, 429, { ok: false, error: '이미 수집 중인 탐구가 많아요 — 잠시 후 다시.' });
+        return readBody(req, body => {
+          const r = startResearch(body.topic, body.scope);
+          if (r.error) return sendJSON(res, 200, { ok: false, error: r.error });
+          sendJSON(res, 200, { ok: true, job: publicJob(r.job) });
+        });
+      }
+      // 탐구 수집 잡 목록 — reload/새 탭이 in-flight 잡에 재부착 + 폴링(읽기 전용 GET).
+      if (url === '/api/research/jobs' && req.method === 'GET') {
+        const jobs = [...RESEARCH_JOBS.values()].sort((a, b) => b.startedAt - a.startedAt).map(publicJob);
+        return sendJSON(res, 200, { ok: true, jobs });
       }
       // Ollama 프록시 4종(코치·어휘·브리핑·회고) — 비-로컬 Origin 거부 + 동시 캡 공유.
       // body.stream === true면 NDJSON 스트림(토큰 델타 → 최종 JSON), 아니면 기존 단발 JSON.
@@ -541,6 +584,6 @@ server.on('error', (e) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`러닝허브(React) + 제어판 실행 중 → http://localhost:${PORT}/`);
   if (!fs.existsSync(path.join(DIST, 'index.html'))) console.log('  ⚠ web/dist 없음 — `cd web && npm run build` 먼저 실행하세요.');
-  console.log(`  제어판 도구: ${Object.keys(TOOLS).join(', ')}, research`);
+  console.log(`  제어판 도구: ${Object.keys(TOOLS).join(', ')} · 탐구 수집 잡(/api/research)`);
   console.log('종료: Ctrl+C');
 });

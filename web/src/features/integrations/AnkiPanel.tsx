@@ -4,13 +4,14 @@
    ① 오늘 탭 KPI가 읽도록 state._ankiLive로 write-through ② 주별 due 스냅샷(retentionLog)은
    앱 데이터라 recordRetentionSnapshot으로 persist(설계도 §1-B).
 ============================================================ */
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
+import { idbPut } from '@/lib/idb';
 import { makeItem, clamp, jsq } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
@@ -25,6 +26,15 @@ export function AnkiPanel() {
   const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], queryFn: skipToken }).data;
   const [busy, setBusy] = useState<'' | 'file' | 'live'>('');
   const [err, setErr] = useState('');
+  // 실시간 due 자동 새로고침 — 연결돼 있을 때 5분마다 + 탭 복귀 시 재조회(로컬 설정).
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('lh:anki-autorefresh') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [lastAuto, setLastAuto] = useState<string>('');
 
   // 개별 해제 — 각 연동을 독립적으로 끊는다(다른 채널엔 영향 없음).
   const clearFile = () => {
@@ -46,6 +56,7 @@ export function AnkiPanel() {
       if (r) {
         qc.setQueryData(['ankiFile'], r.scan);
         qc.setQueryData(['vaultHandle'], r.handle);
+        idbPut('vaultHandle', r.handle); // 볼트 패널과 공유 — 다음 부팅 재연결
       }
     } catch (e) {
       setErr((e as Error).message || String(e));
@@ -54,14 +65,21 @@ export function AnkiPanel() {
     }
   };
 
+  // 실시간 due 반영 — 쿼리 캐시 + 오늘 탭 KPI(_ankiLive) + 주별 유지율 스냅샷. 수동/자동 공용.
+  const applyLive = useCallback(
+    (l: AnkiLive) => {
+      qc.setQueryData(['ankiLive'], l);
+      setAnkiLive('_ankiLive', l); // 오늘 탭 Anki due KPI가 소비
+      mutate((st) => recordRetentionSnapshot(st, l.decks)); // 주별 due 스냅샷(유지율 추세) — persist
+    },
+    [qc, setAnkiLive, mutate],
+  );
+
   const goLive = async () => {
     setErr('');
     setBusy('live');
     try {
-      const l = await fetchAnkiLive();
-      qc.setQueryData(['ankiLive'], l);
-      setAnkiLive('_ankiLive', l); // 오늘 탭 Anki due KPI가 소비
-      mutate((st) => recordRetentionSnapshot(st, l.decks)); // 주별 due 스냅샷(유지율 추세) — persist
+      applyLive(await fetchAnkiLive());
     } catch (e) {
       setErr(
         'AnkiConnect 연결 실패. Anki가 실행 중이고 AnkiConnect 애드온이 설치됐는지, 설정 webCorsOriginList에 "*" 또는 "null"이 있는지 확인하세요. ' +
@@ -71,6 +89,46 @@ export function AnkiPanel() {
       setBusy('');
     }
   };
+
+  const toggleAuto = () =>
+    setAutoRefresh((v) => {
+      const nv = !v;
+      try {
+        localStorage.setItem('lh:anki-autorefresh', nv ? '1' : '0');
+      } catch {
+        /* localStorage 불가 — 무시 */
+      }
+      return nv;
+    });
+
+  // 자동 새로고침 — 연결(live)돼 있고 켜졌을 때만. 5분 주기 + 탭 복귀 시 즉시. 실패는 조용히(다음 기회에 복구).
+  const connected = !!live;
+  useEffect(() => {
+    if (!autoRefresh || !connected) return;
+    let alive = true;
+    const p = (n: number) => String(n).padStart(2, '0');
+    const refresh = async () => {
+      try {
+        const l = await fetchAnkiLive();
+        if (!alive) return;
+        applyLive(l);
+        const now = new Date();
+        setLastAuto(`${p(now.getHours())}:${p(now.getMinutes())}`);
+      } catch {
+        /* AnkiConnect 순간 단절 — 다음 주기/포커스에 복구 */
+      }
+    };
+    const id = setInterval(refresh, 5 * 60 * 1000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [autoRefresh, connected, applyLive]);
 
   const addAnki = (name: string, mins: number) => {
     const nm = 'Anki: ' + name;
@@ -184,9 +242,13 @@ export function AnkiPanel() {
         {live && (
           <div
             className={`${ds.muted} ${ds.tiny}`}
-            style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
           >
             <span>🔌 실시간 연결됨: {live.at}</span>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoRefresh} onChange={toggleAuto} /> 자동 새로고침(5분)
+            </label>
+            {autoRefresh && lastAuto && <span>↻ {lastAuto} 갱신</span>}
             <Button sm variant="ghost" danger onClick={clearLive} title="실시간 due 연결 해제">
               ✕ 해제
             </Button>

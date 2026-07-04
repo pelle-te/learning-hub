@@ -25,7 +25,23 @@ export function addSummary(
 ): void {
   state.summaries = state.summaries || {};
   const arr = (state.summaries[ds] = state.summaries[ds] || []);
-  arr.push({ id: rid(), sid: sid || '', name: name || '', s1: s1 || '', s2: s2 || '', s3: s3 || '' });
+  arr.push({ id: rid(), sid: sid || '', name: name || '', s1: s1 || '', s2: s2 || '', s3: s3 || '', at: Date.now() });
+}
+/** 요약 인라인 편집 — 세 문장·과목만 갈아끼운다(id·작성시각 보존). 오타 수정을 위해 삭제-재작성이 필요 없게. */
+export function editSummary(
+  state: AppState,
+  ds: string,
+  id: string,
+  patch: { sid?: string; name?: string; s1?: string; s2?: string; s3?: string },
+): void {
+  const arr = state.summaries && state.summaries[ds];
+  const rec = arr && arr.find((x) => x.id === id);
+  if (!rec) return;
+  if (patch.sid !== undefined) rec.sid = patch.sid;
+  if (patch.name !== undefined) rec.name = patch.name;
+  if (patch.s1 !== undefined) rec.s1 = patch.s1;
+  if (patch.s2 !== undefined) rec.s2 = patch.s2;
+  if (patch.s3 !== undefined) rec.s3 = patch.s3;
 }
 export function delSummary(state: AppState, ds: string, id: string): void {
   const arr = state.summaries && state.summaries[ds];
@@ -69,7 +85,21 @@ export function addCbms(
     code: code || 'C',
     note: note || '',
     conf: !!conf,
+    at: Date.now(),
   });
+}
+/** CBMS 오답 인라인 편집 — 챕터·유형·메모·확신플래그를 갈아끼운다(id·날짜·작성시각 보존). */
+export function editCbms(
+  state: AppState,
+  id: string,
+  patch: { chapter?: string; code?: CbmsCode; note?: string; conf?: boolean },
+): void {
+  const rec = (state.cbms || []).find((x) => x.id === id);
+  if (!rec) return;
+  if (patch.chapter !== undefined) rec.chapter = patch.chapter;
+  if (patch.code !== undefined) rec.code = patch.code;
+  if (patch.note !== undefined) rec.note = patch.note;
+  if (patch.conf !== undefined) rec.conf = patch.conf;
 }
 export function delCbms(state: AppState, id: string): void {
   state.cbms = (state.cbms || []).filter((x) => x.id !== id);
@@ -142,7 +172,15 @@ export function addBacklog(state: AppState, sid: string, name: string, topic: st
     note: note || '',
     done: false,
     doneDs: '',
+    at: Date.now(),
   });
+}
+/** 보충 백로그 인라인 편집 — 주제·메모를 갈아끼운다(id·날짜·완료상태 보존). */
+export function editBacklog(state: AppState, id: string, patch: { topic?: string; note?: string }): void {
+  const rec = (state.backlog || []).find((x) => x.id === id);
+  if (!rec) return;
+  if (patch.topic !== undefined) rec.topic = patch.topic;
+  if (patch.note !== undefined) rec.note = patch.note;
 }
 export function toggleBacklog(state: AppState, id: string): void {
   const b = (state.backlog || []).find((x) => x.id === id);

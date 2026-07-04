@@ -23,6 +23,9 @@ import {
   delBacklog,
   delCbms,
   delSummary,
+  editBacklog,
+  editCbms,
+  editSummary,
   openBacklog,
   recordCount,
   recordRetentionSnapshot,
@@ -50,6 +53,18 @@ describe('methodology — 3문장 요약', () => {
     expect(summaryCount(s)).toBe(1);
     delSummary(s, '없는날', 'x'); // 없는 키는 조용히 무시
   });
+  it('at 작성시각을 남기고, 인라인 편집이 세 문장·과목만 갈아끼운다(id·at 보존)', () => {
+    const s = st();
+    addSummary(s, '2026-07-01', 'a', '수학', '핵심', '도구', '의미');
+    const rec = summariesFor(s, '2026-07-01')[0]!;
+    expect(typeof rec.at).toBe('number'); // 타임스탬프 기록
+    const { id, at } = rec;
+    editSummary(s, '2026-07-01', id, { sid: 'b', name: '물리', s1: '고침', s3: '결과만' });
+    const after = summariesFor(s, '2026-07-01')[0]!;
+    expect(after).toMatchObject({ id, at, sid: 'b', name: '물리', s1: '고침', s2: '도구', s3: '결과만' });
+    editSummary(s, '2026-07-01', '없는id', { s1: '무시' }); // 없는 id는 조용히 무시
+    expect(summariesFor(s, '2026-07-01')[0]!.s1).toBe('고침');
+  });
 });
 
 describe('methodology — CBMS 오답', () => {
@@ -63,6 +78,24 @@ describe('methodology — CBMS 오답', () => {
     expect(cbmsBetween(s, '2026-07-01').length).toBe(1);
     delCbms(s, s.cbms![0]!.id);
     expect(s.cbms!.length).toBe(2);
+  });
+
+  it('at 작성시각 + 인라인 편집이 챕터·유형·메모·확신을 갈아끼운다(id·ds 보존)', () => {
+    const s = st();
+    addCbms(s, '2026-06-01', 'a', '수학', '1장', 'C', '개념 구멍');
+    const rec = s.cbms![0]!;
+    expect(typeof rec.at).toBe('number');
+    editCbms(s, rec.id, { chapter: '2장', code: 'M', note: '유도 실수', conf: true });
+    expect(s.cbms![0]).toMatchObject({
+      id: rec.id,
+      ds: '2026-06-01',
+      chapter: '2장',
+      code: 'M',
+      note: '유도 실수',
+      conf: true,
+    });
+    editCbms(s, '없는id', { note: '무시' }); // 없는 id는 조용히 무시
+    expect(s.cbms![0]!.note).toBe('유도 실수');
   });
 
   it('cbmsTrend: 앱의 오늘(_today 시드) 기준 이번 주/지난 주 집계', () => {
@@ -108,6 +141,17 @@ describe('methodology — 보충 백로그', () => {
     toggleBacklog(s, '없는id'); // 조용히 무시
     delBacklog(s, id);
     expect(s.backlog!.length).toBe(1);
+  });
+
+  it('at 작성시각 + 인라인 편집이 주제·메모를 갈아끼운다(id·done 보존)', () => {
+    const s = st();
+    addBacklog(s, 'a', '수학', '테일러 전개', '급수 수렴 조건');
+    const rec = s.backlog![0]!;
+    expect(typeof rec.at).toBe('number');
+    editBacklog(s, rec.id, { topic: '테일러/매클로린', note: '나머지항 평가' });
+    expect(s.backlog![0]).toMatchObject({ id: rec.id, done: false, topic: '테일러/매클로린', note: '나머지항 평가' });
+    editBacklog(s, '없는id', { topic: '무시' }); // 없는 id는 조용히 무시
+    expect(s.backlog![0]!.topic).toBe('테일러/매클로린');
   });
 });
 

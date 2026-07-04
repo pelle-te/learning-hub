@@ -142,6 +142,16 @@
   transform: translateY(-50%) rotate(45deg);
 }
 
+/* 작성 시각 — 로그 타임라인의 시간 컬럼(모노 폭 고정으로 세로 정렬). */
+.time {
+  flex: none;
+  width: 34px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
 .kind {
   flex: none;
   font-size: 9px;
