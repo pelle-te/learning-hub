@@ -21,7 +21,7 @@ import { todayISO } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
-import { semanticChapterEdges, type SemEdge } from '@/lib/semantic';
+import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
 import g from './Graph.module.css';
 
 /** 노드 클릭 시 여는 상세 패널의 최소 정보(시뮬레이션 노드에서 스냅샷). */
@@ -86,14 +86,21 @@ export default function Graph() {
   const [expandedHubs, setExpandedHubs] = useState<ReadonlySet<string>>(() => new Set());
 
   // 킬러 ② — 과목 경계를 넘는 의미 연결(로컬 임베딩). 비동기 보강: Ollama 없으면 조용히 빈 배열.
+  // 상태를 추적해 '왜 의미 연결이 없나'를 범례로 밝힌다(발견가능성 — 없던 기능을 존재하게).
   const [semEdges, setSemEdges] = useState<SemEdge[]>([]);
+  const [semStatus, setSemStatus] = useState<'idle' | 'ok' | 'unavailable'>('idle');
   useEffect(() => {
     let stale = false;
     semanticChapterEdges(items)
       .then((edges) => {
-        if (!stale) setSemEdges(edges);
+        if (stale) return;
+        setSemEdges(edges);
+        // 임베딩 시도 후 비활성이면(Ollama 꺼짐·모델 미설치) 안내, 아니면 정상.
+        setSemStatus(semanticAvailable() ? 'ok' : 'unavailable');
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!stale) setSemStatus('unavailable');
+      });
     return () => {
       stale = true;
     };
@@ -509,9 +516,9 @@ export default function Graph() {
         </div>
       ) : (
         <div className={g.canvasHost} ref={wrapRef}>
-          <div className={g.legend} aria-hidden="true">
+          <div className={g.legend}>
             <span>
-              <i className={g.lHub} /> 항목(허브)
+              <i className={g.lHub} /> 항목(허브·색=과목)
             </span>
             <span>
               <i style={{ background: 'var(--good)' }} /> 숙달
@@ -522,11 +529,18 @@ export default function Graph() {
             <span>
               <i style={{ background: 'var(--mut)' }} /> 미착수
             </span>
-            {semEdges.length > 0 && (
+            {semEdges.length > 0 ? (
               <span>
                 <i className={g.lSem} /> 의미 연결(자동)
               </span>
-            )}
+            ) : semStatus === 'unavailable' ? (
+              <span
+                className={g.legendMut}
+                title="serve.js + Ollama 임베딩 모델이 있으면 과목 경계를 넘는 의미 연결이 자동으로 그려져요"
+              >
+                <i className={g.lSem} /> 의미 연결 — Ollama 필요
+              </span>
+            ) : null}
           </div>
           <canvas ref={canvasRef} className={g.canvas} role="img" aria-label={ariaLabel} />
           {tip && (

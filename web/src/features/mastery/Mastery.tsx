@@ -293,20 +293,31 @@ function Calibration({ k }: { k: Knowledge }) {
           </div>
         ) : null}
       </div>
-      <div className={m.msbar} style={{ marginTop: 10 }}>
-        <div
-          data-tip="확신했는데 틀림(과신)"
-          role="img"
-          aria-label="확신했는데 틀림(과신)"
-          style={{ width: `${Math.round(over * 100)}%`, background: 'var(--bad,#e3564a)' }}
-        />
-        <div
-          data-tip="확신없음+틀림(적정)"
-          role="img"
-          aria-label="확신없음+틀림(적정)"
-          style={{ width: `${Math.round((1 - over) * 100)}%`, background: 'var(--learning)' }}
-        />
-      </div>
+      {/* 실제 오답 개수로 분할 — 추상 비율(1-over) 대신 과신/적정 개수를 직접 보여줘 데이터가 있는 척하지 않게. */}
+      {(() => {
+        const nErr = c.n_errors || 0;
+        const cw = c.confident_wrong || 0;
+        const appropriate = Math.max(0, nErr - cw);
+        return (
+          <div className={m.msbar} style={{ marginTop: 10 }}>
+            <div
+              data-tip={`확신했는데 틀림(과신) ${cw}/${nErr}`}
+              role="img"
+              aria-label={`확신했는데 틀림(과신) ${cw}/${nErr}`}
+              style={{ width: `${nErr ? Math.round((cw / nErr) * 100) : 0}%`, background: 'var(--bad,#e3564a)' }}
+            />
+            <div
+              data-tip={`확신없이 틀림(적정) ${appropriate}/${nErr}`}
+              role="img"
+              aria-label={`확신없이 틀림(적정) ${appropriate}/${nErr}`}
+              style={{
+                width: `${nErr ? Math.round((appropriate / nErr) * 100) : 0}%`,
+                background: 'var(--learning)',
+              }}
+            />
+          </div>
+        );
+      })()}
       <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
         과신 오답 = 다음 복습에서 우선 표적. 백지 통과율 = '꺼낼 수 있는가'의 직접 증거.
       </div>
@@ -367,6 +378,8 @@ export default function Mastery() {
   );
 
   // 볼트 폴더에서 수동 로드(serve.js 없을 때) → 같은 ['knowledge'] 캐시에 주입 + write-through.
+  // 큰 _지식상태.json 파싱은 Query 스피너가 아니라 이 async가 소유 → 자체 로딩상태로 '멈춘 듯'을 없앤다.
+  const [vaultLoading, setVaultLoading] = useState(false);
   const loadFromVault = async () => {
     const picker = (window as unknown as { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> })
       .showDirectoryPicker;
@@ -380,13 +393,18 @@ export default function Mastery() {
     } catch {
       return; // 취소
     }
-    const loaded = await loadKnowledgeStateFromVault(handle);
-    if (!loaded) {
-      ui.toast('_지식상태.json을 못 찾았어요. 전공 폴더를 골랐는지, 지식엔진.py build를 돌렸는지 확인하세요.', 'bad');
-      return;
+    setVaultLoading(true);
+    try {
+      const loaded = await loadKnowledgeStateFromVault(handle);
+      if (!loaded) {
+        ui.toast('_지식상태.json을 못 찾았어요. 전공 폴더를 골랐는지, 지식엔진.py build를 돌렸는지 확인하세요.', 'bad');
+        return;
+      }
+      qc.setQueryData(KNOWLEDGE_KEY, loaded);
+      setRuntimeCache('_knowState', loaded);
+    } finally {
+      setVaultLoading(false);
     }
-    qc.setQueryData(KNOWLEDGE_KEY, loaded);
-    setRuntimeCache('_knowState', loaded);
   };
 
   const loading = (isLoading || isFetching) && !k;
@@ -440,8 +458,14 @@ export default function Mastery() {
               <span className={ds.spin} /> 로드 중
             </span>
           )}
-          <Button sm variant="primary" onClick={loadFromVault}>
-            📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}
+          <Button sm variant="primary" onClick={loadFromVault} disabled={vaultLoading}>
+            {vaultLoading ? (
+              <>
+                <span className={ds.spin} /> 읽는 중…
+              </>
+            ) : (
+              <>📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}</>
+            )}
           </Button>
         </div>
       </div>

@@ -84,6 +84,11 @@
   border-top: 2px dashed var(--acc);
   opacity: 0.7;
 }
+/* 의미 연결 미가용 안내 — 존재하지만 조건 미충족(Ollama)임을 담백하게. */
+.legendMut {
+  opacity: 0.7;
+  font-style: italic;
+}
 
 /* 툴팁 — 커서 추종(노드 요약). 포인터 통과(호버 계산 방해 금지). */
 .tip {
