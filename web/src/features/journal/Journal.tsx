@@ -108,17 +108,22 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
     ui.toast('요약 저장됨', 'ok');
   };
   const del = (id: string) => {
-    // 삭제 전 스냅샷 → 되돌리기 액션으로 복원(파괴적 동작 언두 문화 일관).
+    // 삭제 전 스냅샷 + 원래 위치 → 되돌리기 시 끝이 아니라 제자리로 복원.
     const rec = list.find((x) => x.id === id);
+    const idx = list.findIndex((x) => x.id === id);
     mutate((st) => delSummary(st, dsKey, id));
     toastUndo('요약 삭제됨', () => {
       if (!rec) return;
       mutate((st) => {
         st.summaries = st.summaries || {};
-        (st.summaries[dsKey] = st.summaries[dsKey] || []).push({ ...rec });
+        const arr = (st.summaries[dsKey] = st.summaries[dsKey] || []);
+        arr.splice(Math.min(idx < 0 ? arr.length : idx, arr.length), 0, { ...rec });
       });
     });
   };
+  // 오늘 산출물(요약·오답)이 없으면 내보내기는 빈 파일 = 데드엔드 → 비활성화.
+  const todayIso = todayISO({ _today: state._today });
+  const canExport = summariesFor(state, todayIso).length > 0 || cbmsBetween(state, todayIso, todayIso).length > 0;
 
   return (
     <div className={`${ds.card} ${ds.glow}`}>
@@ -168,7 +173,8 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
           variant="ghost"
           style={{ marginLeft: 8 }}
           onClick={() => io.exportAnkiCards('today')}
-          title="오늘 요약·오답을 Anki import용 .txt 카드 초안으로"
+          disabled={!canExport}
+          title={canExport ? '오늘 요약·오답을 Anki import용 .txt 카드 초안으로' : '오늘 기록한 요약·오답이 없어요'}
         >
           🃏 오늘 → Anki 카드(.txt)
         </Button>
@@ -177,7 +183,12 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
           variant="ghost"
           style={{ marginLeft: 6 }}
           onClick={() => io.exportSummaryNotes('today')}
-          title="오늘 요약을 옵시디언용 마크다운 노트(.md)로 — 카드(인출)에 이은 연결용"
+          disabled={!canExport}
+          title={
+            canExport
+              ? '오늘 요약을 옵시디언용 마크다운 노트(.md)로 — 카드(인출)에 이은 연결용'
+              : '오늘 기록한 요약이 없어요'
+          }
         >
           📓 오늘 → 노트(.md)
         </Button>
@@ -272,6 +283,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
             type="text"
             value={chapter}
             onChange={(e) => setChapter(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder="예) 3장 변위전류"
           />
         </div>
@@ -293,6 +305,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder="예) 경계조건에서 법선성분 연속을 빠뜨림"
           />
         </div>
@@ -410,6 +423,7 @@ function BacklogCard() {
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder="예) 3장 변위전류 유도 막힘"
           />
         </div>
@@ -421,6 +435,7 @@ function BacklogCard() {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder="예) ∇×H=J+∂D/∂t 까지는 갔는데 파동방정식 유도에서 막힘"
           />
         </div>

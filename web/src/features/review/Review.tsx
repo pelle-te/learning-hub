@@ -221,9 +221,15 @@ function ChecklistCard({ wk }: { wk: string }) {
   const w = useApp((s) => s.state.weekly?.[wk]) || { checks: {}, note: '' };
   const mutate = useApp((s) => s.mutate);
   const checks = w.checks || {};
+  const ckDone = WEEKLY_CHECKS.filter(([k]) => !!checks[k]).length;
   return (
     <div className={`${ds.card} ${ds.glow}`}>
-      <h2>주간 점검 체크리스트</h2>
+      <h2>
+        주간 점검 체크리스트{' '}
+        <span className={`${ds.pill} ${ckDone === WEEKLY_CHECKS.length ? ds.good : ''} ${ds.tiny}`}>
+          {ckDone}/{WEEKLY_CHECKS.length}
+        </span>
+      </h2>
       {WEEKLY_CHECKS.map(([k, label]) => (
         <label key={k} className={ds.chkRow}>
           <input
@@ -236,6 +242,7 @@ function ChecklistCard({ wk }: { wk: string }) {
       ))}
       <label htmlFor="wk-note" style={{ marginTop: 10 }}>
         이번 주 메모 <span className={`${ds.muted} ${ds.tiny}`}>(무엇을 바꿀까)</span>
+        {(w.note || '').trim() && <span className={`${ds.pill} ${ds.good} ${ds.tiny}`}> ✓ 자동 저장됨</span>}
       </label>
       <textarea
         id="wk-note"
@@ -336,9 +343,14 @@ function CoachCard({ ds0 }: { ds0: string }) {
           )}
         </Button>
         {aiErr && (
-          <span className={`${ds.muted} ${ds.tiny}`} role="alert">
-            {aiErr}
-          </span>
+          <>
+            <span className={`${ds.muted} ${ds.tiny}`} role="alert">
+              {aiErr}
+            </span>
+            <Button sm variant="ghost" onClick={askAI} disabled={aiBusy || !online}>
+              다시 시도
+            </Button>
+          </>
         )}
       </div>
       {/* 코칭 스트리밍 미리보기 — 완성 문장부터(SR에는 버튼의 '코칭 중…'이 상태). */}
@@ -374,24 +386,35 @@ function RiskCard() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const today = todayISO(state);
-  const risky = riskChapters(state, res.days || [], today, 6);
+  const [expanded, setExpanded] = useState(false);
+  // 조용한 절단 금지 — 전체를 받아 접기/펼치기로 숨은 수를 밝힌다.
+  const all = riskChapters(state, res.days || [], today, 100);
+  const shown = expanded ? all : all.slice(0, 6);
+  const hidden = all.length - shown.length;
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>
         복습 위험 <span className={`${ds.muted} ${ds.tiny}`}>— 배웠지만 오래 안 본 개념(간격반복)</span>
       </h2>
-      {risky.length ? (
-        <ul className={rv.riskList}>
-          {risky.map((c) => (
-            <li key={c.sid + '|' + c.chapter} className={rv.riskRow} data-risk={c.risk}>
-              <span className={rv.riskDot} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
-              <span className={rv.riskNm}>
-                {c.subject} <small>{c.chapter}</small>
-              </span>
-              <span className={rv.riskAge}>{c.daysSince}일</span>
-            </li>
-          ))}
-        </ul>
+      {all.length ? (
+        <>
+          <ul className={rv.riskList}>
+            {shown.map((c) => (
+              <li key={c.sid + '|' + c.chapter} className={rv.riskRow} data-risk={c.risk}>
+                <span className={rv.riskDot} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
+                <span className={rv.riskNm}>
+                  {c.subject} <small>{c.chapter}</small>
+                </span>
+                <span className={rv.riskAge}>{c.daysSince}일</span>
+              </li>
+            ))}
+          </ul>
+          {(hidden > 0 || expanded) && (
+            <button type="button" className={rv.showMore} onClick={() => setExpanded((v) => !v)}>
+              {expanded ? '접기' : `+${hidden}개 더 보기`}
+            </button>
+          )}
+        </>
       ) : (
         <div className={ds.foot}>위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요 👍</div>
       )}
@@ -405,9 +428,10 @@ export default function Review() {
   const state = useApp((s) => s.state);
   const [weekOffset, setWeekOffset] = useState(0);
   // , / . — 이전/다음 주(스케줄 탭과 동일 키).
+  // 회고는 과거·현재만 — 미래 주는 데이터가 없어 전부 '달성 0%' 보드다. 앞으로는 이번 주(0)까지만.
   useWeekNavKeys(
     () => setWeekOffset((o) => o - 1),
-    () => setWeekOffset((o) => o + 1),
+    () => setWeekOffset((o) => Math.min(0, o + 1)),
   );
 
   const mon = addDays(mondayOf(parseISO(todayISO(state))), weekOffset * 7); // '오늘' 단일 출처 경유.
@@ -456,10 +480,10 @@ export default function Review() {
             {isThis ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}
           </span>
         </div>
-        <Button sm onClick={() => setWeekOffset((o) => o + 1)}>
+        <Button sm onClick={() => setWeekOffset((o) => Math.min(0, o + 1))} disabled={weekOffset >= 0}>
           다음 주 ▶
         </Button>
-        <Button sm variant="ghost" onClick={() => setWeekOffset(0)}>
+        <Button sm variant="ghost" onClick={() => setWeekOffset(0)} disabled={weekOffset === 0}>
           이번 주
         </Button>
       </div>

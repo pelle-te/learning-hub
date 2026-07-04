@@ -17,7 +17,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { CountReadout } from '@/components/CountReadout';
 import { isDone, totalDoneHours, studyStreak } from '@/lib/persistence';
 import { cbmsCounts, cbmsTrend, retentionNudge, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
-import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, DOW } from '@/lib/utils';
+import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, dayDiff, ddayInfo, DOW } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import st from './Stats.module.css';
 import type { CbmsCode, ScheduleResult } from '@/lib/types';
@@ -202,37 +202,59 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
     }
     cols.push(cells);
   }
+  // 월 라벨 — 각 주 열의 시작(월요일) 달이 바뀌는 지점에만 표기(언제 공백이 생겼는지 읽히게).
+  let lastMonth = -1;
+  const monthLabels = cols.map((col) => {
+    const mo = new Date((col[0]?.ds || today.toISOString().slice(0, 10)) + 'T00:00:00').getMonth();
+    if (mo !== lastMonth) {
+      lastMonth = mo;
+      return `${mo + 1}월`;
+    }
+    return '';
+  });
   const heat = (
     <>
       <div className={st.hmWrap}>
-        <div className={st.hmDow}>
-          {['월', '', '수', '', '금', '', '일'].map((x, i) => (
-            <span key={i}>{x}</span>
-          ))}
+        <div className={st.hmDowWrap}>
+          <span className={st.hmMonthSpacer} aria-hidden="true" />
+          <div className={st.hmDow}>
+            {['월', '', '수', '', '금', '', '일'].map((x, i) => (
+              <span key={i}>{x}</span>
+            ))}
+          </div>
         </div>
-        <div className={st.hmGrid}>
-          {cols.map((col, ci) => (
-            <div key={ci} className={st.hmCol}>
-              {col.map((c, i) =>
-                c.l < 0 ? (
-                  <div key={i} className={`${st.hmC} ${st.hmFuture}`} />
-                ) : (
-                  (() => {
-                    const lab = `${c.ds}: ${c.v > 0 ? `${Math.round(c.v)}분` : '학습 없음'}`;
-                    return (
-                      <div
-                        key={i}
-                        className={`${st.hmC} ${st['hmL' + c.l]}`}
-                        data-tip={lab}
-                        role="img"
-                        aria-label={lab}
-                      />
-                    );
-                  })()
-                ),
-              )}
-            </div>
-          ))}
+        <div className={st.hmGridWrap}>
+          <div className={st.hmMonths} aria-hidden="true">
+            {monthLabels.map((lab, ci) => (
+              <span key={ci} className={st.hmMonth}>
+                {lab}
+              </span>
+            ))}
+          </div>
+          <div className={st.hmGrid}>
+            {cols.map((col, ci) => (
+              <div key={ci} className={st.hmCol}>
+                {col.map((c, i) =>
+                  c.l < 0 ? (
+                    <div key={i} className={`${st.hmC} ${st.hmFuture}`} />
+                  ) : (
+                    (() => {
+                      const lab = `${c.ds}: ${c.v > 0 ? `${Math.round(c.v)}분` : '학습 없음'}`;
+                      return (
+                        <div
+                          key={i}
+                          className={`${st.hmC} ${st['hmL' + c.l]}`}
+                          data-tip={lab}
+                          role="img"
+                          aria-label={lab}
+                        />
+                      );
+                    })()
+                  ),
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       <div className={`${st.hmLegend} ${ds.muted} ${ds.tiny}`}>
@@ -391,7 +413,10 @@ function CbmsRadar() {
 /** 주별 학습시간 — 과목별 색 스택 막대. */
 function WeeklyBars({ r }: { r: ScheduleResult }) {
   const weeks = Object.keys(r.weekHours).sort();
-  if (!weeks.length) return <div className={ds.empty}>데이터 없음</div>;
+  if (!weeks.length)
+    return (
+      <EmptyState glyph="📊" title="아직 주별 데이터가 없어요" desc="블록을 완료하면 주별 학습시간이 여기 쌓여요." />
+    );
   const byId: Record<string, ScheduleResult['itemStat'][number]> = {};
   r.itemStat.forEach((s) => (byId[s.id] = s));
   const maxH = Math.max(1, ...weeks.map((w) => Object.values(r.weekHours[w]!).reduce((t, v) => t + v, 0)));
@@ -487,7 +512,7 @@ function ChapterTimeline({ r }: { r: ScheduleResult }) {
 }
 
 /** 과목 한 줄(과목별 진행, 컴팩트) — 색 레일 + 진행 네온 바 + 상태 칩. */
-function SubjectRow({ s }: { s: ScheduleResult['itemStat'][number] }) {
+function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today: string }) {
   if (s.daily)
     return (
       <div className={st.subj}>
@@ -520,7 +545,15 @@ function SubjectRow({ s }: { s: ScheduleResult['itemStat'][number] }) {
         <i style={{ width: `${prog}%`, background: s.color }} />
       </div>
       <div className={st.subjMeta}>
-        {s.doneCh}/{s.totalCh} 챕터 · {s.schedH}h/{s.totalH}h{s.deadline ? ` · 마감 ${s.deadline}` : ''}
+        {s.doneCh}/{s.totalCh} 챕터 · {s.schedH}h/{s.totalH}h
+        {s.deadline ? (
+          <>
+            {' · 마감 '}
+            {fmtShort(parseISO(s.deadline))} <b>({ddayInfo(dayDiff(today, s.deadline)).lab})</b>
+          </>
+        ) : (
+          ''
+        )}
       </div>
     </div>
   );
@@ -734,7 +767,7 @@ export default function Stats() {
           <h2>과목별 진행</h2>
           <div className={st.subjList}>
             {r.itemStat.map((s) => (
-              <SubjectRow key={s.id} s={s} />
+              <SubjectRow key={s.id} s={s} today={todayISO(state)} />
             ))}
           </div>
         </div>

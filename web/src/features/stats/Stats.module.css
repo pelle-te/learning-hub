@@ -25,6 +25,35 @@
   display: flex;
   gap: 3px;
 }
+/* 월 라벨 정렬 — dow 열 위 스페이서 + 그리드 위 월 라벨 행(같은 열 폭·간격). */
+.hmDowWrap {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+.hmGridWrap {
+  display: flex;
+  flex-direction: column;
+}
+.hmMonthSpacer {
+  height: 13px;
+  margin-bottom: 3px;
+}
+.hmMonths {
+  display: flex;
+  gap: 3px;
+  height: 13px;
+  margin-bottom: 3px;
+}
+.hmMonth {
+  width: 13px;
+  flex: none;
+  font-size: 9px;
+  line-height: 13px;
+  color: var(--mut);
+  white-space: nowrap;
+  overflow: visible;
+}
 .hmCol {
   display: flex;
   flex-direction: column;

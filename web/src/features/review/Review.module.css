@@ -379,6 +379,24 @@
   flex-direction: column;
   gap: 2px;
 }
+.showMore {
+  margin: 2px 0 6px;
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.18s var(--ease),
+    color 0.18s var(--ease);
+}
+.showMore:hover {
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+  color: var(--ink);
+}
 .riskRow {
   display: flex;
   align-items: center;
