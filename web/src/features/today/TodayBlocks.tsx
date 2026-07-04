@@ -87,8 +87,9 @@ export function TodayBlocks() {
     if (!on) return;
     // state는 토글 전 스냅샷 → 이 블록을 제외한 완료 수 + 1 = 토글 후 완료 수.
     const doneNow = items.filter((x) => isDone(state, ds2, x.sid, x.type)).length + 1;
-    if (doneNow >= items.length) ui.toast('오늘 학습 완료! 🎉 잘했어요', 'ok');
-    else ui.toast(`좋아요 — ${doneNow}/${items.length} 블록 완료`, 'info');
+    // 마지막 블록의 축하 토스트는 TodaySignature의 allDone 이펙트가 단독 소유(이중 토스트 방지).
+    // 여기선 중간 진행만 가볍게 짚는다.
+    if (doneNow < items.length) ui.toast(`좋아요 — ${doneNow}/${items.length} 블록 완료`, 'info');
   };
 
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');

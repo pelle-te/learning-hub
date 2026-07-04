@@ -32,7 +32,8 @@ function Stepper({
   unit: string;
   onChange: (v: number) => void;
 }) {
-  const bump = (d: number) => onChange(Math.max(0, Math.round((value + d) * 10) / 10));
+  const clamp = (v: number) => Math.max(0, Math.round(v * 10) / 10);
+  const bump = (d: number) => onChange(clamp(value + d));
   return (
     <div className={ds.row} style={{ gap: 4, alignItems: 'center', maxWidth: 170 }}>
       <Button sm onClick={() => bump(-step)} aria-label={`${unit} 줄이기`}>
@@ -43,7 +44,7 @@ function Stepper({
         step={step}
         min={0}
         value={value}
-        onChange={(e) => onChange(+e.target.value)}
+        onChange={(e) => onChange(clamp(+e.target.value || 0))}
         style={{ textAlign: 'center' }}
       />
       <Button sm onClick={() => bump(step)} aria-label={`${unit} 늘리기`}>

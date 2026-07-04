@@ -2,6 +2,7 @@
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
 import { useCallback, useState } from 'react';
 import { rid } from '@/lib/utils';
+import { ui } from '@/shell';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState, Item } from '@/lib/types';
@@ -26,7 +27,13 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   );
 
   const addCh = () => upd((it) => void it.chapters.push({ id: rid(), name: '새 챕터', hours: 2, done: false }));
-  const delCh = (i: number) => upd((it) => void it.chapters.splice(i, 1));
+  // 챕터 삭제 — 진행 기록도 함께 사라지므로 1단계 백업 + 되돌리기 토스트(과목 삭제·색 재배정과 동일 언두 관용).
+  const delCh = (i: number) => {
+    const nm = chs[i]?.name || '이 챕터';
+    ui.backupNow();
+    upd((it) => void it.chapters.splice(i, 1));
+    ui.toastUndo(`"${nm}" 챕터 삭제됨`);
+  };
 
   const drop = (to: number) => {
     const from = drag;

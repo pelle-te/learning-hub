@@ -82,6 +82,8 @@ export default function Graph() {
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   // B6 — 클릭 선택 노드(상세 패널). 챕터 잎이면 간격반복 위험까지 보여준다.
   const [sel, setSel] = useState<SelInfo | null>(null);
+  // '+N개 더' 오버플로 노드를 눌러 펼친 허브(itemId) — 캡을 풀어 숨은 챕터를 실제로 드러낸다.
+  const [expandedHubs, setExpandedHubs] = useState<ReadonlySet<string>>(() => new Set());
 
   // 킬러 ② — 과목 경계를 넘는 의미 연결(로컬 임베딩). 비동기 보강: Ollama 없으면 조용히 빈 배열.
   const [semEdges, setSemEdges] = useState<SemEdge[]>([]);
@@ -132,7 +134,7 @@ export default function Graph() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return; // getContext 실패 — 조용히 무동작(throw 금지)
 
-    const { nodes, links } = buildGraph(items);
+    const { nodes, links } = buildGraph(items, expandedHubs);
     if (!nodes.length) return;
     const byId = new Map<string, SimNode>(nodes.map((n) => [n.id, n]));
     const idxById = new Map<string, number>(nodes.map((n, i) => [n.id, i]));
@@ -412,15 +414,25 @@ export default function Graph() {
         reheat(0.3);
         // 거의 안 움직였으면 클릭 = 상세 패널 열기(드래그 후엔 열지 않음).
         if (n && !moved && downId === n.id) {
-          setSel({
-            id: n.id,
-            kind: n.kind,
-            label: n.label,
-            itemId: n.itemId,
-            done: n.done,
-            total: n.total,
-            tone: n.tone,
-          });
+          if (n.overflow) {
+            // 오버플로 노드 = 빈 상세 데드엔드였던 것 → 그 허브를 펼쳐 숨은 챕터를 드러낸다.
+            setExpandedHubs((prev) => {
+              const next = new Set(prev);
+              next.add(n.itemId);
+              return next;
+            });
+            setSel(null);
+          } else {
+            setSel({
+              id: n.id,
+              kind: n.kind,
+              label: n.label,
+              itemId: n.itemId,
+              done: n.done,
+              total: n.total,
+              tone: n.tone,
+            });
+          }
         }
       }
       downId = null;
@@ -471,7 +483,7 @@ export default function Graph() {
       document.removeEventListener('visibilitychange', onVis);
       reduce.removeEventListener('change', onTheme);
     };
-  }, [items, semEdges]);
+  }, [items, semEdges, expandedHubs]);
 
   const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
 

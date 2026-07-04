@@ -50,6 +50,12 @@ export default function DegreeReq() {
 
   return (
     <>
+      {/* 이 화면은 고정 참조 예시(전자공학과 2020 요람) — 내 실제 이수/성적은 '졸업 계획'에서 관리한다.
+          하드코딩 데이터를 개인 데이터로 오인하지 않도록 상단에 명시. */}
+      <div className={styles.sampleNote} role="note">
+        📋 <b>참조 예시</b> — 전자공학과 2020 요람 기준의 <b>고정 샘플</b>입니다. 내 실제 이수·성적·GPA는{' '}
+        <b>졸업 계획</b> 탭에서 관리하세요(이 표는 요건 읽는 법을 보여주는 예시).
+      </div>
       <Card title="전자공학과 졸업요건 정리">
         <div className={styles.intro}>
           2020학년도 요람 · 공학인증(ABEEK) <b>인증과정</b> 기준. 졸업에 꼭 재수강할 과목은 <b>반도체공학1(F)</b> 하나뿐

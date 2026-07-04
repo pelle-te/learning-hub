@@ -4,7 +4,15 @@
    아티팩트 페치 성공/실패 · 지수 집계 · 지역 그룹핑 · 등락 표기 헬퍼.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchMarketsArtifact, indexStats, groupByRegion, fmtPct, dir, type IndexQuote } from '@/lib/markets';
+import {
+  fetchMarketsArtifact,
+  indexStats,
+  groupByRegion,
+  fmtPct,
+  dir,
+  fmtPublished,
+  type IndexQuote,
+} from '@/lib/markets';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -73,5 +81,28 @@ describe('fmtPct / dir — 등락 표기(색 비의존)', () => {
     expect(dir(0.1)).toBe('up');
     expect(dir(-0.1)).toBe('down');
     expect(dir(0)).toBe('flat');
+  });
+});
+
+describe('fmtPublished — 발행시각 상대표기(now 주입)', () => {
+  const now = Date.parse('2026-07-04T12:00:00Z');
+  it('빈 값은 빈 문자열', () => {
+    expect(fmtPublished('', now)).toBe('');
+    expect(fmtPublished('   ', now)).toBe('');
+  });
+  it('파싱 불가한 날짜는 원문 그대로', () => {
+    expect(fmtPublished('지난 화요일', now)).toBe('지난 화요일');
+  });
+  it('분/시간/일 경계로 표기', () => {
+    expect(fmtPublished('2026-07-04T11:58:00Z', now)).toBe('2분 전');
+    expect(fmtPublished('2026-07-04T09:00:00Z', now)).toBe('3시간 전');
+    expect(fmtPublished('2026-07-03T12:00:00Z', now)).toBe('어제');
+    expect(fmtPublished('2026-07-01T12:00:00Z', now)).toBe('3일 전');
+  });
+  it('일주일 이상이면 월/일', () => {
+    expect(fmtPublished('2026-06-20T12:00:00Z', now)).toBe('6/20');
+  });
+  it('미래 타임스탬프(시계 오차)는 방금', () => {
+    expect(fmtPublished('2026-07-04T13:00:00Z', now)).toBe('방금');
   });
 });

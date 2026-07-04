@@ -250,6 +250,10 @@
   border-radius: 5px;
   padding: 0 5px;
 }
+.newsTime {
+  color: var(--mut);
+  font-weight: 500;
+}
 .newsGo {
   margin-left: auto;
   color: var(--mut);

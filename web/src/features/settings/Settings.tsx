@@ -74,6 +74,17 @@ export default function Settings() {
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
   const set = <K extends keyof AppState>(k: K, v: AppState[K]) => mutate((st) => void ((st as AppState)[k] = v));
 
+  // 숫자 설정 — 빈 필드/NaN을 min으로 방어하고 [min,max]로 클램프.
+  // (HTML min/max·step은 스피너 힌트일 뿐, 직접 타이핑한 값이나 지운 필드(NaN)를 막지 못한다.)
+  const clampNum = (raw: number, min: number, max: number, round = false) => {
+    let v = round ? Math.round(raw) : raw;
+    if (!Number.isFinite(v)) v = min;
+    return Math.min(max, Math.max(min, v));
+  };
+
+  // 피크 시간대 역전 감지 — 끝이 시작보다 이르면 스케줄러 피크 우선배치가 조용히 깨진다.
+  const peakInverted = !!state.peakStart && !!state.peakEnd && state.peakEnd <= state.peakStart;
+
   const days = lastBackupDays(state._lastBackupAt as string | undefined);
   const stale = days == null || days >= 7;
   const sizeKB = dataSizeKB(state);
@@ -171,7 +182,7 @@ export default function Settings() {
               step="0.5"
               min="0.5"
               value={state.moduleLen / 60}
-              onChange={(e) => set('moduleLen', Math.round(+e.target.value * 60))}
+              onChange={(e) => set('moduleLen', Math.round(clampNum(+e.target.value, 0.5, 12) * 60))}
             />
           </div>
           <div>
@@ -183,7 +194,7 @@ export default function Settings() {
               min="0"
               max="60"
               value={state.reviewRatio}
-              onChange={(e) => set('reviewRatio', +e.target.value)}
+              onChange={(e) => set('reviewRatio', clampNum(+e.target.value, 0, 60, true))}
             />
           </div>
         </div>
@@ -302,6 +313,11 @@ export default function Settings() {
           </div>
           <div style={{ flex: 1 }} />
         </div>
+        {peakInverted && (
+          <div className={ds.foot} style={{ color: 'var(--bad)' }}>
+            ⚠ 끝 시각이 시작보다 빨라요 — 피크 구간이 비어 우선 배치가 동작하지 않습니다.
+          </div>
+        )}
         <div className={ds.foot}>
           피크 시간대를 정하면 <b>새 학습(new)·모의시험</b>을 그 구간에 우선 배치하고, 복습·Anki는 나머지 시간에.
           비워두면 끔(이른 시각부터 순서대로).

@@ -109,6 +109,27 @@
   margin-bottom: 12px;
 }
 
+/* 날짜 스테퍼 — 과거 보충 진입점. 오늘이면 담백, 과거면 경고색 강조. */
+.dateNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel2);
+}
+.dateNavPast {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+}
+.dateLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
 /* 모바일 — 단일컬럼 스택 + 스크롤 */
 @media (max-width: 900px) {
   .cols {

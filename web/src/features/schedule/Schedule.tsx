@@ -4,7 +4,7 @@
    상단 네비(주 이동·개요/카드) · 본문 [스파인 | 위크보드(fill) | 일자 아젠다] · 하단 스트립(마감·.ics).
    주간 합계·완료율·마감은 상단 바(usePageChrome)로 끌어올리고, 그날 상세는 우측 아젠다로 온디맨드.
 ============================================================ */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
@@ -238,8 +238,26 @@ export default function Schedule() {
   const curMon = addDays(baseMon, weekOffset * 7);
 
   const capWd = useStudyMinByWeekday();
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // '지금' 라인·⏱ 지금 행이 로드 시각에 멈추지 않도록 분 단위로 갱신(Today 탭과 동일 감각).
+  const [nowMin, setNowMin] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMin(d.getHours() * 60 + d.getMinutes());
+    };
+    const id = setInterval(tick, 60_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick(); // 백그라운드 복귀 시 즉시 캐치업.
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
   const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 날짜비교 결정성.
 
   // curMon은 state.startDate+weekOffset로 완전히 결정 → 매 렌더 새 Date여도 memo는 weekOffset(안정 스칼라)에 키잉.

@@ -8,7 +8,7 @@
    상단 시네마틱 히어로 밴드(전체 숙달 발광 링 + 상태 분포 + 로드) → 본문 2컬럼
    [발광 지식맵(시그니처) | 다음 행동(프런티어·약점·캘리브레이션)]. 살아있는 인터랙션(스포트라이트·오로라·카운트업).
 ============================================================ */
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useKnowledge, usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
@@ -155,6 +155,7 @@ function ConceptList<T extends ConceptRow>({
   dot,
   dotColor,
   renderMeta,
+  cap = 18,
 }: {
   heading: string;
   subtitle: string;
@@ -163,7 +164,11 @@ function ConceptList<T extends ConceptRow>({
   dot: string;
   dotColor: string;
   renderMeta: (it: T) => ReactNode;
+  cap?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? items : items.slice(0, cap);
+  const hidden = items.length - shown.length;
   if (!items.length)
     return (
       <div className={ds.card}>
@@ -177,7 +182,7 @@ function ConceptList<T extends ConceptRow>({
         {heading} <span className={`${ds.muted} ${ds.tiny}`}>{subtitle}</span>
       </h3>
       <div className={m.mslist}>
-        {items.map((it, i) => (
+        {shown.map((it, i) => (
           <div key={it.basename ?? i} className={m.msrow}>
             <span className={m.msdot} style={{ background: dotColor }}>
               {dot}
@@ -190,6 +195,12 @@ function ConceptList<T extends ConceptRow>({
           </div>
         ))}
       </div>
+      {/* 조용한 절단 금지 — 숨은 개념 수를 밝히고 펼칠 수 있게. */}
+      {(hidden > 0 || expanded) && (
+        <button type="button" className={m.msMore} onClick={() => setExpanded((v) => !v)}>
+          {expanded ? '접기' : `+${hidden}개 더 보기`}
+        </button>
+      )}
     </div>
   );
 }
@@ -200,7 +211,7 @@ function Frontier({ k }: { k: Knowledge }) {
       heading="🎯 다음 배울 개념"
       subtitle="(ZPD · 선수 충족·고레버리지순 — 이걸 배우면 가장 많은 게 풀린다)"
       empty={<div className={`${ds.muted} ${ds.tiny}`}>프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
-      items={(k.frontier || []).slice(0, 18)}
+      items={k.frontier || []}
       dot="⬡"
       dotColor="hsl(200 60% 50%)"
       renderMeta={(f) => (
@@ -223,7 +234,7 @@ function Gaps({ k }: { k: Knowledge }) {
       heading="🩹 약점 진단"
       subtitle="(약한 순 · 근본원인을 먼저 메우면 상류가 같이 풀린다)"
       empty={<div className={`${ds.foot} ${ds.muted}`}>증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
-      items={(k.gaps || []).slice(0, 18)}
+      items={k.gaps || []}
       dot="✗"
       dotColor="var(--bad,#e3564a)"
       renderMeta={(x) => (

@@ -128,8 +128,18 @@ export default function ArticlePractice({
         signal: ac.signal,
         onDelta: (t) => setCoachPreview(previewFromJsonStream(t)),
       });
-      if (res.ok && res.feedback) setCoach({ id: target.id, fb: res.feedback });
-      else ui.toast(res.error || '채점 실패', 'bad');
+      if (res.ok && res.feedback) {
+        setCoach({ id: target.id, fb: res.feedback });
+        // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존(레이스는 target 고정으로 이미 안전).
+        const cur = work[target.id];
+        setWork(target.id, {
+          summary: cur?.summary ?? draft,
+          done: cur?.done ?? false,
+          updatedAt: new Date().toISOString(),
+          coach: res.feedback,
+          coachAt: new Date().toISOString(),
+        });
+      } else ui.toast(res.error || '채점 실패', 'bad');
     } catch (e) {
       if ((e as Error).name !== 'AbortError') ui.toast('AI 채점 실패: ' + ((e as Error).message || e), 'bad');
     }
@@ -442,42 +452,47 @@ export default function ArticlePractice({
                 </p>
               )}
 
-              {/* 결과는 그 지문의 것일 때만 — 늦게 도착한 응답이 다른 지문 아래 붙는 오표시 방지. */}
-              {coach && coach.id === sel.id && (
-                <div className={r.coach} role="status">
-                  <div className={r.coachTop}>
-                    {typeof coach.fb.score === 'number' && (
-                      <span className={r.coachScore} data-good={coach.fb.score >= 70}>
-                        {coach.fb.score}점
-                      </span>
-                    )}
-                    {coach.fb.comment && <span className={r.coachComment}>{coach.fb.comment}</span>}
-                  </div>
-                  {coach.fb.missing?.length ? (
-                    <CoachList label="빠진 핵심" items={coach.fb.missing} tone="miss" />
-                  ) : null}
-                  {coach.fb.redundant?.length ? (
-                    <CoachList label="군더더기" items={coach.fb.redundant} tone="mut" />
-                  ) : null}
-                  {coach.fb.accuracy?.length ? <CoachList label="정확성" items={coach.fb.accuracy} tone="bad" /> : null}
-                  {coach.fb.corrections?.length ? (
-                    <CoachList label="바로잡기" items={coach.fb.corrections} tone="bad" />
-                  ) : null}
-                  {coach.fb.key_expressions?.length ? (
-                    <CoachList
-                      label="핵심 표현"
-                      items={coach.fb.key_expressions.map((k) => `${k.en} — ${k.ko}`)}
-                      tone="mut"
-                    />
-                  ) : null}
-                  {coach.fb.model_summary && (
-                    <div className={r.coachModel}>
-                      <span className={r.coachModelLabel}>모범 요약</span>
-                      {coach.fb.model_summary}
+              {/* 결과는 그 지문의 것만 — 방금 채점(transient, 늦게 온 응답 오표시 방지)이 우선,
+                  없으면 저장된 채점(work[id].coach)을 폴백해 이탈·새로고침 후에도 보인다. */}
+              {(() => {
+                const fb = coach && coach.id === sel.id ? coach.fb : work[sel.id]?.coach;
+                const savedAt = coach && coach.id === sel.id ? undefined : work[sel.id]?.coachAt;
+                if (!fb) return null;
+                return (
+                  <div className={r.coach} role="status">
+                    <div className={r.coachTop}>
+                      {typeof fb.score === 'number' && (
+                        <span className={r.coachScore} data-good={fb.score >= 70}>
+                          {fb.score}점
+                        </span>
+                      )}
+                      {fb.comment && <span className={r.coachComment}>{fb.comment}</span>}
+                      {savedAt && (
+                        <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 'auto' }}>
+                          저장된 채점
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                    {fb.missing?.length ? <CoachList label="빠진 핵심" items={fb.missing} tone="miss" /> : null}
+                    {fb.redundant?.length ? <CoachList label="군더더기" items={fb.redundant} tone="mut" /> : null}
+                    {fb.accuracy?.length ? <CoachList label="정확성" items={fb.accuracy} tone="bad" /> : null}
+                    {fb.corrections?.length ? <CoachList label="바로잡기" items={fb.corrections} tone="bad" /> : null}
+                    {fb.key_expressions?.length ? (
+                      <CoachList
+                        label="핵심 표현"
+                        items={fb.key_expressions.map((k) => `${k.en} — ${k.ko}`)}
+                        tone="mut"
+                      />
+                    ) : null}
+                    {fb.model_summary && (
+                      <div className={r.coachModel}>
+                        <span className={r.coachModelLabel}>모범 요약</span>
+                        {fb.model_summary}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </>
         ) : (

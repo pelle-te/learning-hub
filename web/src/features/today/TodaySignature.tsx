@@ -145,6 +145,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
   const recallN = recall ? retrievableCount(state, ds) : 0; // '회상 N개 대기' — 실제 대기 수량
+  // 회상 카드가 바뀌면(새 날짜·다른 요약) 정답 공개를 초기화 — 다음 카드가 답이 열린 채 뜨는 인출연습 무력화 방지.
+  // effect 대신 렌더 중 조건부 setState(React 권장 · 이 코드베이스의 draftFor 관용과 동일).
+  const recallKey = recall ? `${ds}|${recall.summary.name || ''}` : '';
+  const [recallKeyShown, setRecallKeyShown] = useState(recallKey);
+  if (recallKey !== recallKeyShown) {
+    setRecallKeyShown(recallKey);
+    setRecallShown(false);
+  }
   // A4 — 완료 후 다음 동력: 내일 첫 학습 + 복습 위험(개념 간격반복).
   const tmrNew = (res.days || []).find((d) => d.ds === iso(addDays(today, 1)))?.items.find((it) => it.type === 'new');
   const risk = riskSummary(state, res.days || [], ds);

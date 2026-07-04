@@ -70,6 +70,11 @@ export default function Control() {
       ui.toast('탐구할 주제를 입력하세요.', 'warn');
       return;
     }
+    // 버튼은 offline이면 disabled지만 Enter 키는 그 게이트를 우회한다 — collect에서 단일 가드.
+    if (offline) {
+      ui.toast('serve.js가 꺼져 있어요 — node serve.js로 켜면 수집할 수 있어요.', 'warn');
+      return;
+    }
     if (busy) return;
     setBusy(true);
     setResult(null);

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useMarkets, usePing } from '@/store/queries';
 import { marketsBrief, previewFromJsonStream, type MarketBriefResult } from '@/lib/api';
-import { indexStats, groupByRegion, fmtPct, dir, type IndexQuote, type NewsItem } from '@/lib/markets';
+import { indexStats, groupByRegion, fmtPct, dir, fmtPublished, type IndexQuote, type NewsItem } from '@/lib/markets';
 import { todayISO } from '@/lib/utils';
 import ArtifactGate from '@/components/ArtifactGate';
 import DetailDrawer from '@/components/DetailDrawer';
@@ -344,6 +344,7 @@ function NewsCard({ n, onPromote }: { n: NewsItem; onPromote: (n: NewsItem) => v
         <div className={m.newsMeta}>
           <span className={m.newsSource}>{n.source}</span>
           {n.field ? <span className={m.newsField}>{n.field}</span> : null}
+          {fmtPublished(n.published) ? <span className={m.newsTime}>{fmtPublished(n.published)}</span> : null}
           <span className={m.newsGo} aria-hidden="true">
             ↗
           </span>

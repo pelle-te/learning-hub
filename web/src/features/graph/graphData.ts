@@ -79,8 +79,9 @@ function hubRadius(hours: number, chapters: number): number {
 /**
  * 로컬 항목 배열 → 지식맵 그래프(노드/링크). 순수·결정론적.
  * 빈 입력 → 빈 그래프. 총 노드가 MAX_NODES를 넘으면 허브당 잎을 캡하고 오버플로 노드로 표시.
+ * expandedHubs: 사용자가 '+N개 더'를 눌러 펼친 허브(itemId) — 이 허브는 캡을 풀어 전 챕터를 보인다.
  */
-export function buildGraph(items: Item[]): Graph {
+export function buildGraph(items: Item[], expandedHubs?: ReadonlySet<string>): Graph {
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
   if (!items.length) return { nodes, links };
@@ -118,7 +119,9 @@ export function buildGraph(items: Item[]): Graph {
       hours,
     });
 
-    const shown = chapters.slice(0, Number.isFinite(perHubCap) ? perHubCap : chapters.length);
+    // 이 허브를 펼쳤으면 캡 해제 — '+N개 더' 클릭이 숨은 챕터를 실제로 드러낸다(빈 상세 데드엔드 해소).
+    const cap = expandedHubs?.has(it.id) ? chapters.length : Number.isFinite(perHubCap) ? perHubCap : chapters.length;
+    const shown = chapters.slice(0, cap);
     shown.forEach((c) => {
       const tone: LeafTone = c.done ? 'done' : c.hours > 0 ? 'learning' : 'idle';
       const p = seedPos(c.id);

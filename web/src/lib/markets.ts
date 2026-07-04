@@ -45,6 +45,26 @@ export async function fetchMarketsArtifact(): Promise<MarketsArtifact> {
   return r.data;
 }
 
+/** 뉴스 발행시각을 짧은 상대표기로("방금·3시간 전·어제·M/D"). 파싱 불가면 원문 문자열 그대로(빈 문자열은 '').
+    now는 테스트 결정성을 위해 주입 가능(기본=현재). */
+export function fmtPublished(published: string, now: number = Date.now()): string {
+  const s = (published || '').trim();
+  if (!s) return '';
+  const t = Date.parse(s);
+  if (Number.isNaN(t)) return s; // RSS의 비표준 날짜 등 — 원문 노출이 무표기보다 낫다.
+  const mins = Math.round((now - t) / 60000);
+  if (mins < 0) return '방금'; // 미래 타임스탬프(시계 오차)는 방금으로.
+  if (mins < 1) return '방금';
+  if (mins < 60) return `${mins}분 전`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}시간 전`;
+  const days = Math.round(hrs / 24);
+  if (days === 1) return '어제';
+  if (days < 7) return `${days}일 전`;
+  const d = new Date(t);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 /** 지수 집계(리드아웃용) — 상승/하락/보합 개수. changePct 부호로 분류. */
 export function indexStats(indices: IndexQuote[]) {
   let up = 0;

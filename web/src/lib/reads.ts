@@ -6,7 +6,7 @@
       (localStorage 동기 1차 + IDB 미러 — idb.ts와 동형). 서버 불필요·오프라인 완결.
    순수 계산 + fetch/저장만 — 앱 상태(useApp)에 복제하지 않는다(설계도 §1-B, api.ts와 동일 원칙).
 ============================================================ */
-import { getArtifact } from './api';
+import { getArtifact, type CoachFeedback } from './api';
 import { idbMirror, idbLoad } from './idb';
 import { announce } from './sync';
 import { rid } from './utils';
@@ -29,11 +29,14 @@ export interface ReadsArtifact {
   articles: Article[];
 }
 
-/** 지문 위 내 연습 — 내가 직접 쓴 요약(en=영어공부 메모, ko=요약 연습) + 완료 표시. */
+/** 지문 위 내 연습 — 내가 직접 쓴 요약(en=영어공부 메모, ko=요약 연습) + 완료 표시.
+    coach: AI 채점 결과(수십 초 걸림) — 이탈·새로고침에도 보존하도록 여기 함께 저장. */
 export interface ArticleWork {
   summary: string;
   done: boolean;
   updatedAt: string;
+  coach?: CoachFeedback;
+  coachAt?: string;
 }
 
 /** 독서 1권 — 책 읽고 직접 쓰는 독후감(AI 없음). */

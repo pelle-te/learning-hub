@@ -132,8 +132,9 @@ export function VaultPanel() {
       {scan && (
         <div className={`${ds.card} ${g.tree}`}>
           {scan.subjects.map((s, si) => {
-            const vp = Math.round((s.verified / s.notes) * 100);
-            const ep = Math.round((s.exported / s.notes) * 100);
+            // 노트 0개면 0/0=NaN → 헤더·진행바가 'NaN%'가 된다. 0%로 가드.
+            const vp = s.notes ? Math.round((s.verified / s.notes) * 100) : 0;
+            const ep = s.notes ? Math.round((s.exported / s.notes) * 100) : 0;
             const isOpen = open.has(si);
             return (
               <div key={si} className={g.sub}>

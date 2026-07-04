@@ -489,9 +489,17 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
 
 export default function Journal() {
   const state = useApp((s) => s.state);
-  const ds2 = todayISO({ _today: state._today }); // '오늘' 단일 출처 존중
-  const sumN = summariesFor(state, ds2).length;
-  const cbmsN = cbmsBetween(state, ds2, ds2).length;
+  const today = todayISO({ _today: state._today }); // '오늘' 단일 출처 존중
+  // 기록 대상 날짜 — 기본 오늘, 과거로 이동해 어제 놓친 블록을 백필할 수 있다(미래로는 못 감).
+  const [ds2, setDs2] = useState(today);
+  const isToday = ds2 === today;
+  const stepDay = (d: number) => {
+    const next = iso(addDays(parseISO(ds2), d));
+    if (next > today) return; // 미래 금지
+    setDs2(next);
+  };
+  const sumN = summariesFor(state, today).length;
+  const cbmsN = cbmsBetween(state, today, today).length;
   const openN = openBacklog(state).length;
 
   usePageChromeEffect(
@@ -509,18 +517,36 @@ export default function Journal() {
   return (
     <section className={j.wrap} aria-label="학습 기록">
       <div className={j.cols}>
-        {/* 좌 — 오늘의 로그(시그니처, fill) + 최근 활동(온디맨드) */}
+        {/* 좌 — 로그(시그니처, fill) + 최근 활동(온디맨드). 선택 날짜를 따라간다. */}
         <div className={j.logCol}>
           <JournalStream ds={ds2} fill />
           <ActivityFeed ds2={ds2} />
           <div className={j.logHint}>
-            공부 뒤 남기는 산출물(오늘 {fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 하나씩. 누적 추세·약점
-            분포는 <b>통계</b>·<b>주간 리뷰</b>에서.
+            공부 뒤 남기는 산출물({fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 하나씩. 누적 추세·약점 분포는{' '}
+            <b>통계</b>·<b>주간 리뷰</b>에서.
           </div>
         </div>
         {/* 우 — 기록 입력(온화면 패널, 스크롤) */}
         <div className={j.inputCol}>
           <div className={j.inputHead}>기록 입력 — 요약 · 오답 · 보충</div>
+          {/* 날짜 스테퍼 — 과거 보충 진입점. 오늘이면 담백하게, 과거면 강조 배너. */}
+          <div className={`${j.dateNav}${isToday ? '' : ' ' + j.dateNavPast}`}>
+            <Button sm variant="ghost" onClick={() => stepDay(-1)} aria-label="이전 날">
+              ◀
+            </Button>
+            <span className={j.dateLabel}>
+              {fmt(new Date(ds2 + 'T00:00:00'))}
+              {isToday ? <span className={`${ds.muted} ${ds.tiny}`}> · 오늘</span> : <b> · 과거 보충</b>}
+            </span>
+            <Button sm variant="ghost" onClick={() => stepDay(1)} disabled={isToday} aria-label="다음 날">
+              ▶
+            </Button>
+            {!isToday && (
+              <Button sm variant="ghost" onClick={() => setDs2(today)} style={{ marginLeft: 'auto' }}>
+                오늘로
+              </Button>
+            )}
+          </div>
           <SummaryCard ds={ds2} />
           <CbmsCard ds={ds2} />
           <BacklogCard />
