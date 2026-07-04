@@ -122,7 +122,7 @@ function DayHeadBar({ d, k }: { d: DayData; k: number }) {
     mutate((st) => {
       st.dayOverrides = st.dayOverrides || {};
       if (v === '' || v == null) delete st.dayOverrides[d.ds];
-      else st.dayOverrides[d.ds] = +v;
+      else st.dayOverrides[d.ds] = Math.min(24, Math.max(0, +v || 0)); // 하루는 24h — 99 같은 값 차단.
     });
   const barColor = d.over ? 'var(--bad)' : d.ratio > 90 ? 'var(--warn)' : 'var(--acc)';
   return (
@@ -142,6 +142,7 @@ function DayHeadBar({ d, k }: { d: DayData; k: number }) {
             step="0.5"
             min="0"
             value={d.ovVal}
+            max="24"
             placeholder={String(d.defMin / 60)}
             aria-label={`${fmtShort(d.date)} 가용시간(시간)`}
             onChange={(e) => setOverride(e.target.value)}
@@ -395,14 +396,24 @@ export default function Schedule() {
               <div className={ds.spotlight} aria-hidden="true" />
               {hasStudyItems ? (
                 <div className={c.boardWrap}>
-                  <WeekCalendar
-                    parts={parts}
-                    sel={sel}
-                    onSelect={setSelDow}
-                    nowMin={nowMin}
-                    dows={DOW_MON}
-                    deadlines={deadlines}
-                  />
+                  {weekPlanMin === 0 && (
+                    // 과목은 있는데 이 주에 학습 블록이 하나도 안 잡힌 경우(모두 완료·마감 지남·가용 없음) —
+                    // 일과만 뜬 캘린더가 왜 비었는지 조용히 두지 않고 짚어준다.
+                    <div className={c.weekEmptyNote}>
+                      이 주에는 배치된 <b>학습 블록</b>이 없어요 — 마감이 지났거나 가용시간이 부족할 수 있어요.
+                      일과(수면·수업)만 표시됩니다.
+                    </div>
+                  )}
+                  <div className={c.calHost}>
+                    <WeekCalendar
+                      parts={parts}
+                      sel={sel}
+                      onSelect={setSelDow}
+                      nowMin={nowMin}
+                      dows={DOW_MON}
+                      deadlines={deadlines}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className={c.emptyBoard}>

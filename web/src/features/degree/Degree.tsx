@@ -41,6 +41,8 @@ const GRADE_POINTS: Record<string, number> = {
   'D-': 0.7,
   F: 0,
 };
+// 성적 드롭다운 순서(정규 키) — P(이수)는 GRADE_POINTS에 없어 GPA에서 자동 제외(Pass/Fail).
+const GRADE_KEYS = ['A+', 'A0', 'A-', 'B+', 'B0', 'B-', 'C+', 'C0', 'C-', 'D+', 'D0', 'D-', 'F', 'P'];
 
 interface Course {
   id: string;
@@ -255,17 +257,23 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
                       </select>
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        value={c.grade || ''}
-                        placeholder="A+"
+                      {/* 자유입력은 오타(P/S 등)가 GPA에서 조용히 누락됐다 → GRADE_POINTS 키 선택으로 고정. */}
+                      <select
+                        value={c.grade && GRADE_KEYS.includes(c.grade) ? c.grade : ''}
                         onChange={(e) => updCourse(c.id, 'grade', e.target.value)}
-                        style={{ width: 60 }}
+                        style={{ width: 68 }}
                         aria-label="성적"
-                      />
+                      >
+                        <option value="">—</option>
+                        {GRADE_KEYS.map((g) => (
+                          <option key={g} value={g}>
+                            {g}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      {c.status === '수강중' && (
+                      {(c.status === '수강중' || c.status === '예정') && (
                         <Button sm variant="ghost" title="학습 항목으로" onClick={() => courseToItem(c.name)}>
                           📥
                         </Button>
@@ -319,8 +327,18 @@ function DegreePlan() {
   const setDeg = (k: DegKey, v: number) => mutate((st) => void (st.degree[k] = v));
   const addSemester = () => {
     const id = rid();
+    // 이름 자동 증가 — 직전 학기가 'YYYY-N학기'면 같은 해 다음 학기(1→2) 또는 다음 해 1학기로 제안(수기 개명 감소).
+    const suggestName = (): string => {
+      const last = d.semesters[d.semesters.length - 1]?.name || '';
+      const mm = last.match(/(\d{4})\s*-\s*([12])\s*학기/);
+      if (!mm) return '새 학기';
+      const yr = +mm[1]!;
+      const term = +mm[2]!;
+      return term === 1 ? `${yr}-2학기` : `${yr + 1}-1학기`;
+    };
+    const name = suggestName();
     mutate((st) => {
-      st.degree.semesters.push({ id, name: '새 학기', courses: [] });
+      st.degree.semesters.push({ id, name, courses: [] });
     });
     setOpenSems((prev) => new Set(prev).add(id));
   };
@@ -398,6 +416,9 @@ function DegreePlan() {
         <div className={c.statusMeta}>
           수강중 {inprog} · 예정 {planned}
           {gradedCr > 0 && gradedCr < earned ? ` · 성적 입력 ${gradedCr}/${earned}학점` : ''}
+          {earned > 0 && gradedCr === 0 ? (
+            <span style={{ color: 'var(--warn)' }}> · 성적을 입력하면 GPA가 계산돼요</span>
+          ) : null}
         </div>
 
         <div className={c.cats}>

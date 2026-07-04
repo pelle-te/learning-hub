@@ -136,6 +136,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const streak = studyStreak(state);
   const due = ankiDue(ankiLive);
   const openBl = openBacklog(state).length;
+  // 셋업은 됐지만(과목 있음) 오늘 배치가 0인 경우를 콜드스타트와 구분 — 빈 메시지가 이미 설정한 사용자에게
+  // 또 "설정하라"고 말하지 않도록. 마감 지남·가용시간 없음 등이면 스케줄로 안내.
+  const hasItems = state.items.some((it) => it.name);
 
   // A1 — 어제 셧다운에서 남긴 '내일 한 줄'을 오늘 아침 다시 보여줌(셧다운→모닝 루프 닫기).
   const prevNote = (state.rituals?.[iso(addDays(today, -1))]?.note || '').trim();
@@ -337,7 +340,16 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <h2 className={s.subj}>{dispSubj}</h2>
           <div className={s.heroSub}>
             {todayTotal === 0 ? (
-              '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
+              hasItems ? (
+                <span className={s.momentum}>
+                  <span>오늘은 배치된 블록이 없어요</span>
+                  <button type="button" className={s.mChip} onClick={() => go('/schedule')}>
+                    주간 스케줄 확인
+                  </button>
+                </span>
+              ) : (
+                '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
+              )
             ) : allDone ? (
               // A4 — 완료 후 죽은 화면 대신 '다음 동력'(내일·복습 위험·보충 회수·회상).
               <span className={s.momentum}>
@@ -510,7 +522,18 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </>
             ) : (
               <div className={s.railEmpty}>
-                아직 배치된 블록이 없어요. <b>학습 항목</b>·<b>가용시간</b>을 설정하면 흐름이 채워집니다.
+                {hasItems ? (
+                  <>
+                    오늘은 배치된 블록이 없어요 — 마감이 지났거나 오늘 가용시간이 없을 수 있어요.{' '}
+                    <button type="button" className={s.mChip} onClick={() => go('/schedule')}>
+                      주간 스케줄 확인
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    아직 배치된 블록이 없어요. <b>학습 항목</b>·<b>가용시간</b>을 설정하면 흐름이 채워집니다.
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -586,8 +609,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         <div className={s.vline} />
         <div className={s.grp}>
           <span className={s.grpL}>Anki 대기</span>
-          <button type="button" className={s.tag} onClick={() => go('/integrations')}>
-            <b>{due == null ? '—' : due}</b> 장
+          <button
+            type="button"
+            className={s.tag}
+            onClick={() => go('/integrations')}
+            title={due == null ? 'Anki 미연결 — 연동 탭에서 실시간 연결' : `복습 대기 ${due}장`}
+            aria-label={due == null ? 'Anki 미연결 — 연동 탭으로' : `Anki 복습 대기 ${due}장 — 연동 탭으로`}
+          >
+            <b>{due == null ? '연결' : due}</b> {due == null ? '필요' : '장'}
           </button>
         </div>
         <div className={s.vline} />

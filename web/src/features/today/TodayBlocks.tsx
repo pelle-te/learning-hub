@@ -99,7 +99,9 @@ export function TodayBlocks() {
       placeholder: '예) 파동방정식 유도에서 막힘',
     });
     if (note === null) return; // 취소
-    setBlankResult(ds2, it.sid, it.name, false, note.trim(), (it.chapters || []).join(', '));
+    // 빈 메모여도 CBMS 맥락이 남도록 챕터명으로 폴백(무맥락 '막힘' 방지).
+    const finalNote = note.trim() || (it.chapters || []).join(', ') || '구간 미기재';
+    setBlankResult(ds2, it.sid, it.name, false, finalNote, (it.chapters || []).join(', '));
     ui.toast('막힘 기록됨 — CBMS(C 개념)로 연결했어요.', 'ok');
   };
   const clearBlank = (sid: string) => mutate((st) => clearBlankResult(st, ds2, sid));
@@ -206,10 +208,19 @@ export function TodayBlocks() {
               : it.type === 'mock'
                 ? '🧪 모의시험 — 타이머 ON · 노트 닫기 · 혼합/누적 · 끝까지 깔끔히. 끝나면 CBMS(+시간부족 T)로 분류.'
                 : '';
+        // rev·anki 블록은 설명만 있던 액션 데드엔드였다 → Anki(연동 탭) 바로가기로 실행 가능하게.
+        const ankiLinked = it.type === 'rev' || it.type === 'anki';
         return (
           <div key={key} className={ds.blk}>
             {head}
             {note && <div className={`${t.blkNote} ${ds.tiny} ${ds.muted}`}>{note}</div>}
+            {ankiLinked && (
+              <div className={t.blkActions} style={{ marginTop: 6 }}>
+                <Button sm variant="ghost" onClick={() => navigate('/integrations')}>
+                  🃏 Anki 열기 →
+                </Button>
+              </div>
+            )}
           </div>
         );
       })}

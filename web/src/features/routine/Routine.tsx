@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { ui } from '@/shell';
 import { freeWindowsForWeekday, blocksForWeekday } from '@/lib/scheduler';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -14,22 +15,27 @@ import ds from '@/styles/ds.module.css';
 import r from './Routine.module.css';
 import type { AppState } from '@/lib/types';
 
-/** 15분 단위 시간 옵션(00:00~24:00) — 드롭다운 공용. */
-const TIME_OPTS: string[] = (() => {
-  const o: string[] = [];
-  for (let m = 0; m <= 1440; m += 15)
-    o.push(`${String((m / 60) | 0).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
-  return o;
-})();
+/** 시각 입력 — 네이티브 time(15분 스텝). 옛 97개 <option> 셀렉트를 대체(가볍고 키보드·모바일 친화).
+    빈 값(지움)은 이전 값을 유지해 무효 상태를 만들지 않는다. */
 function TimeSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
-      {TIME_OPTS.map((v) => (
-        <option key={v} value={v}>
-          {v}
-        </option>
-      ))}
-    </select>
+    <input
+      type="time"
+      step={900}
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value || value)}
+    />
+  );
+}
+
+/** 시작~끝 역전 경고(한 줄) — start>=end면 창이 0/음수라 스케줄러가 조용히 무시한다. */
+function BadRange({ start, end }: { start: string; end: string }) {
+  if (toMin(start) < toMin(end)) return null;
+  return (
+    <div className={`${ds.tiny}`} style={{ color: 'var(--bad)', marginTop: 4 }}>
+      ⚠ 끝 시각이 시작보다 빨라요 — 이 블록은 무시됩니다.
+    </div>
   );
 }
 
@@ -42,10 +48,13 @@ function ClassList({ dow }: { dow: number }) {
       const b = st.routine.find((x) => x.id === id);
       if (b) (b as Record<string, unknown>)[k] = v;
     });
-  const del = (id: string) =>
+  const del = (id: string, name: string) => {
+    ui.backupNow();
     mutate((st) => {
       st.routine = st.routine.filter((b) => b.id !== id);
     });
+    ui.toastUndo(`"${name || '수업'}" 삭제됨`);
+  };
 
   const cls = routine
     .filter((b) => b.type === '수업' && b.days.includes(dow))
@@ -59,20 +68,23 @@ function ClassList({ dow }: { dow: number }) {
   return (
     <>
       {cls.map((b) => (
-        <div key={b.id} className={r.classrow}>
-          <input
-            type="text"
-            value={b.name}
-            aria-label="수업 이름"
-            placeholder="수업 이름"
-            onChange={(e) => upd(b.id, 'name', e.target.value)}
-          />
-          <TimeSelect value={b.start} onChange={(v) => upd(b.id, 'start', v)} label="시작 시각" />
-          <span className={r.csep}>~</span>
-          <TimeSelect value={b.end} onChange={(v) => upd(b.id, 'end', v)} label="끝 시각" />
-          <Button sm variant="ghost" danger onClick={() => del(b.id)} aria-label="삭제" title="삭제">
-            ✕
-          </Button>
+        <div key={b.id}>
+          <div className={r.classrow}>
+            <input
+              type="text"
+              value={b.name}
+              aria-label="수업 이름"
+              placeholder="수업 이름"
+              onChange={(e) => upd(b.id, 'name', e.target.value)}
+            />
+            <TimeSelect value={b.start} onChange={(v) => upd(b.id, 'start', v)} label="시작 시각" />
+            <span className={r.csep}>~</span>
+            <TimeSelect value={b.end} onChange={(v) => upd(b.id, 'end', v)} label="끝 시각" />
+            <Button sm variant="ghost" danger onClick={() => del(b.id, b.name)} aria-label="삭제" title="삭제">
+              ✕
+            </Button>
+          </div>
+          <BadRange start={b.start} end={b.end} />
         </div>
       ))}
     </>
@@ -88,10 +100,13 @@ function BlockList() {
       const b = st.routine.find((x) => x.id === id);
       if (b) recipe(b);
     });
-  const del = (id: string) =>
+  const del = (id: string, name: string) => {
+    ui.backupNow();
     mutate((st) => {
       st.routine = st.routine.filter((b) => b.id !== id);
     });
+    ui.toastUndo(`"${name || '블록'}" 삭제됨`);
+  };
   const toggleDay = (id: string, d: number) =>
     upd(id, (b) => {
       b.days = b.days.includes(d) ? b.days.filter((x) => x !== d) : [...b.days, d].sort((a, c) => a - c);
@@ -152,10 +167,11 @@ function BlockList() {
               <span className={r.csep}>~</span>
               <TimeSelect value={b.end} onChange={(v) => upd(b.id, (x) => void (x.end = v))} label="끝 시각" />
             </div>
-            <Button sm variant="ghost" danger onClick={() => del(b.id)} aria-label="삭제" title="삭제">
+            <Button sm variant="ghost" danger onClick={() => del(b.id, b.name)} aria-label="삭제" title="삭제">
               ✕
             </Button>
           </div>
+          <BadRange start={b.start} end={b.end} />
           <div className={r.days}>
             {DOW.map((_, i) => {
               // DOW는 일=0..토=6. 일과 블록 요일도 같은 인덱스(일=0).
@@ -247,6 +263,13 @@ export default function Routine() {
   const fw = free[ringDow]!;
   const ringBlocks = blocksForWeekday(state, ringDow);
   const weekFreeMin = free.reduce((t, f) => t + f.freeMin, 0);
+  // 가용 vs 목표 — 주당 목표(주간시간 + 매일과목×7)를 합쳐 가용시간이 담을 수 있는지 짚어준다.
+  const requiredH = state.items.reduce((t, it) => {
+    if (!it.name) return t;
+    return t + (it.mode === 'daily' ? ((it.dailyMin || 0) * 7) / 60 : it.weeklyHours || 0);
+  }, 0);
+  const availH = weekFreeMin / 60;
+  const shortfall = requiredH > 0 && availH < requiredH;
 
   const addClass = (dow: number) =>
     mutate((st) => {
@@ -403,6 +426,14 @@ export default function Routine() {
               })}
             </div>
           </div>
+          {requiredH > 0 && (
+            <div className={r.sigHint} style={shortfall ? { color: 'var(--warn)' } : undefined}>
+              주간 가용 <b>{availH.toFixed(1)}h</b> {shortfall ? '<' : '≥'} 학습 목표 <b>{requiredH.toFixed(1)}h</b>
+              {shortfall
+                ? ' — 가용시간이 목표에 못 미쳐요. 일과를 줄이거나 학습 항목의 목표를 조정하세요.'
+                : ' — 목표를 담을 여유가 있어요.'}
+            </div>
+          )}
           <div className={r.sigHint}>
             깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다. 특정
             날짜는 <b>스케줄</b> 탭, 시작일·모듈 길이는 <b>설정</b>(⚙)에서.

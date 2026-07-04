@@ -25,6 +25,7 @@ function RitualCard() {
   const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
   const r: Ritual = state.rituals?.[ds2] || { plan: false, shutdown: false, note: '' };
   const [note, setNote] = useState(r.note || '');
+  const [justSaved, setJustSaved] = useState(false); // blur 저장이 조용해서 반영 여부를 인라인으로 표시.
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
     mutate((st) => setRitual(st, ds2, key, on));
     ui.toast(on ? '기록됨 👍' : '해제됨', 'info');
@@ -33,6 +34,7 @@ function RitualCard() {
   const saveNote = () => {
     if (note === (r.note || '')) return;
     mutate((st) => setRitual(st, ds2, 'note', note.trim()));
+    setJustSaved(true);
     ui.toast('내일 한 줄 저장됨 🌙', 'info');
   };
 
@@ -55,12 +57,20 @@ function RitualCard() {
       <div className={ds.fld} style={{ marginTop: 8 }}>
         <label htmlFor="ritual-note">
           내일 한 줄 <span className={`${ds.muted} ${ds.tiny}`}>— 셧다운의 마지막 조각, 내일의 나에게 남기는 메모</span>
+          {justSaved && note.trim() === (r.note || '').trim() && (
+            <span className={`${ds.pill} ${ds.good} ${ds.tiny}`} style={{ marginLeft: 8 }}>
+              ✓ 저장됨
+            </span>
+          )}
         </label>
         <input
           id="ritual-note"
           type="text"
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(e) => {
+            setNote(e.target.value);
+            setJustSaved(false);
+          }}
           onBlur={saveNote}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
