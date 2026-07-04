@@ -120,6 +120,8 @@ export function AnkiPanel() {
   (file?.decks || []).forEach((d) => {
     (bySubj[d.subj] = bySubj[d.subj] || []).push(d);
   });
+  const grandDecks = (file?.decks || []).length;
+  const grandCards = (file?.decks || []).reduce((t, d) => t + d.cards, 0);
   const dueTot = live ? totalDue(live.decks) : 0;
 
   return (
@@ -230,6 +232,17 @@ export function AnkiPanel() {
                 )),
               )}
             </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={2}>
+                  <b>합계</b> · {grandDecks}덱
+                </td>
+                <td>
+                  <b>{grandCards}</b>
+                </td>
+                <td />
+              </tr>
+            </tfoot>
           </table>
           <div className={ds.foot}>
             '+스케줄'은 해당 덱을 '매일 복습' 항목으로 추가합니다(예상 분 = 카드수×0.5, 수정 가능).

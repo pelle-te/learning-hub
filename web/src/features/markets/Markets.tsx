@@ -121,6 +121,14 @@ export default function Markets() {
   }, []);
 
   const regions = useMemo(() => groupByRegion(indices), [indices]);
+  // 뉴스 분야 필터 — 피드가 길어지면 관심 분야만. 등장 순서로 고유 분야 수집.
+  const [newsField, setNewsField] = useState('');
+  const newsFields = useMemo(() => {
+    const seen: string[] = [];
+    for (const n of news) if (n.field && !seen.includes(n.field)) seen.push(n.field);
+    return seen;
+  }, [news]);
+  const shownNews = newsField ? news.filter((n) => n.field === newsField) : news;
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!indices.length && !news.length) {
@@ -210,15 +218,32 @@ export default function Markets() {
 
         {/* 뉴스 피드 — "왜 움직였나" 칼럼·뉴스 */}
         <aside className={m.feed} aria-label="금융 뉴스">
-          <h3 className={m.feedTitle}>왜 이렇게 움직였나 · 뉴스·칼럼</h3>
-          {news.length ? (
+          <div className={m.feedHead}>
+            <h3 className={m.feedTitle}>왜 이렇게 움직였나 · 뉴스·칼럼</h3>
+            {newsFields.length > 1 && (
+              <select
+                className={m.feedFilter}
+                value={newsField}
+                onChange={(e) => setNewsField(e.target.value)}
+                aria-label="뉴스 분야 필터"
+              >
+                <option value="">전체 분야</option>
+                {newsFields.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {shownNews.length ? (
             <ul className={m.newsList}>
-              {news.map((n) => (
+              {shownNews.map((n) => (
                 <NewsCard key={n.id} n={n} onPromote={promoteNews} />
               ))}
             </ul>
           ) : (
-            <div className={m.boardEmpty}>수집된 뉴스가 없어요.</div>
+            <div className={m.boardEmpty}>{news.length ? '이 분야의 뉴스가 없어요.' : '수집된 뉴스가 없어요.'}</div>
           )}
         </aside>
       </div>
@@ -267,6 +292,19 @@ export default function Markets() {
             {markets.data?.at && (
               <p className={m.briefStamp}>기준 데이터: {markets.data.at.slice(0, 16).replace('T', ' ')} 수집</p>
             )}
+            {/* 최신 데이터로 다시 해설 — 드로어를 닫지 않고 재생성(옛 전면 재수집 없이). */}
+            <Button
+              sm
+              variant="ghost"
+              disabled={briefBusy || !online}
+              onClick={() => {
+                setBrief(null);
+                setBriefErr(null);
+                void askBrief();
+              }}
+            >
+              🔄 다시 생성
+            </Button>
           </div>
         ) : (
           <div className={m.panelBusy} role="alert">
@@ -298,13 +336,16 @@ function IndexCard({ q }: { q: IndexQuote }) {
       data-dir={d}
       /* role 없는 div의 aria-label은 무시된다(ARIA 1.2) — group으로 유효화 */
       role="group"
-      aria-label={`${q.name}, ${DIR_WORD[d]} ${Math.abs(q.changePct).toFixed(2)}퍼센트, 현재 ${price}`}
+      aria-label={`${q.name}, ${DIR_WORD[d]} ${Math.abs(q.changePct).toFixed(2)}퍼센트, 현재 ${price}${q.currency ? ' ' + q.currency : ''}`}
     >
       <div className={m.cardTop}>
         <span className={m.cardName}>{q.name}</span>
         <Spark spark={q.spark} d={d} />
       </div>
-      <div className={m.cardPrice}>{price}</div>
+      <div className={m.cardPrice}>
+        {price}
+        {q.currency ? <span className={m.cardCurrency}> {q.currency}</span> : null}
+      </div>
       <div className={m.cardPct} data-dir={d}>
         <span aria-hidden="true">{DIR_GLYPH[d]}</span> {fmtPct(q.changePct)}
       </div>

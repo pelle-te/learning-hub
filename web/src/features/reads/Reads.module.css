@@ -193,6 +193,47 @@
   font-weight: 900;
   color: var(--good);
 }
+.draftMark {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--acc);
+}
+.listEmpty {
+  padding: 18px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--mut);
+  text-align: center;
+}
+/* 독서 상태 필터 세그먼트 */
+.bookFilter {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.bookFilterBtn {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
+}
+.bookFilterBtn:hover {
+  color: var(--ink);
+}
+.bookFilterOn {
+  border-color: color-mix(in srgb, var(--acc) 50%, var(--line));
+  color: var(--ink);
+  background: color-mix(in srgb, var(--acc) 12%, var(--panel2));
+}
 .itemTitle {
   font-size: 14px;
   font-weight: 700;

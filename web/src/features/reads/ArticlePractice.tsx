@@ -52,9 +52,13 @@ export default function ArticlePractice({
   const { collecting, collect } = useCollectTool('reads-collect', refetch, '읽을거리 수집 완료');
 
   // B5 — '학습으로 보내기': 읽은 글을 보충 백로그(나중에 학습할 큐)로 승격. 소비→학습 루프를 닫는다.
+  // 중복 승격 방지 — 이 세션에 이미 보낸 지문은 버튼을 '보냄'으로 잠근다(반복 클릭=중복 백로그).
+  const [promoted, setPromoted] = useState<ReadonlySet<string>>(() => new Set());
   const promote = (a: Article) => {
+    if (promoted.has(a.id)) return;
     const seed = backlogFromArticle(a);
     mutate((st) => addBacklog(st, '', seed.name, seed.topic, seed.note));
+    setPromoted((prev) => new Set(prev).add(a.id));
     ui.toast('보충 백로그로 보냈어요 — 기록·오늘 탭에서 회수', 'ok');
   };
 
@@ -272,36 +276,45 @@ export default function ArticlePractice({
           </Button>
         </div>
         <ul className={r.list}>
-          {list.map((a) => {
-            const w = work[a.id];
-            return (
-              <li key={a.id}>
-                <button
-                  type="button"
-                  className={a.id === effId ? `${r.listItem} ${r.itemOn}` : r.listItem}
-                  onClick={() => setSelId(a.id)}
-                  aria-current={a.id === effId}
-                >
-                  <span className={r.itemTop}>
-                    <span className={r.langTag} data-lang={a.lang}>
-                      {a.lang === 'en' ? 'EN' : 'KO'}
-                    </span>
-                    <span className={r.itemField}>{a.field}</span>
-                    {w?.done && (
-                      <span className={r.doneMark} title="요약 완료">
-                        ✓
+          {list.length ? (
+            list.map((a) => {
+              const w = work[a.id];
+              const hasDraft = !w?.done && !!w?.summary?.trim();
+              return (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    className={a.id === effId ? `${r.listItem} ${r.itemOn}` : r.listItem}
+                    onClick={() => setSelId(a.id)}
+                    aria-current={a.id === effId}
+                  >
+                    <span className={r.itemTop}>
+                      <span className={r.langTag} data-lang={a.lang}>
+                        {a.lang === 'en' ? 'EN' : 'KO'}
                       </span>
-                    )}
-                  </span>
-                  <span className={r.itemTitle}>{a.title}</span>
-                  <span className={r.itemMeta}>
-                    {a.source} · {a.words}
-                    {a.lang === 'en' ? ' words' : '자'}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+                      <span className={r.itemField}>{a.field}</span>
+                      {w?.done ? (
+                        <span className={r.doneMark} title="요약 완료">
+                          ✓
+                        </span>
+                      ) : hasDraft ? (
+                        <span className={r.draftMark} title="작성 중인 초안 있음">
+                          ✎
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className={r.itemTitle}>{a.title}</span>
+                    <span className={r.itemMeta}>
+                      {a.source} · {a.words}
+                      {a.lang === 'en' ? ' words' : '자'}
+                    </span>
+                  </button>
+                </li>
+              );
+            })
+          ) : (
+            <li className={r.listEmpty}>이 언어의 지문이 없어요 — 필터를 바꾸거나 수집해 보세요.</li>
+          )}
         </ul>
       </aside>
 
@@ -440,8 +453,13 @@ export default function ArticlePractice({
                     '🤖 AI 채점 받기'
                   )}
                 </Button>
-                <Button sm onClick={() => promote(sel)} title="보충 백로그로 보내기">
-                  📥 학습으로 보내기
+                <Button
+                  sm
+                  onClick={() => promote(sel)}
+                  disabled={promoted.has(sel.id)}
+                  title={promoted.has(sel.id) ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}
+                >
+                  {promoted.has(sel.id) ? '✓ 보냄' : '📥 학습으로 보내기'}
                 </Button>
               </div>
 

@@ -9,10 +9,19 @@ import { ui } from '@/shell';
 import { newBook, type Book } from '@/lib/reads';
 import r from './Reads.module.css';
 
+/** ISO 일시 → 'M/D'(없으면 ''). 독서 시작·완독일 표기용. */
+function shortDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks: (b: Book[]) => void }) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [selId, setSelId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'reading' | 'done'>('all');
+  const shown = statusFilter === 'all' ? books : books.filter((b) => b.status === statusFilter);
 
   // 유효 선택 파생 — 저장 selId가 목록에 없으면 첫 책으로(효과 없이 렌더에서 계산).
   const effId = selId && books.some((b) => b.id === selId) ? selId : (books[0]?.id ?? null);
@@ -87,33 +96,59 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
             + 책 추가
           </Button>
         </div>
-        {books.length ? (
-          <ul className={r.list}>
-            {books.map((b) => (
-              <li key={b.id}>
-                <button
-                  type="button"
-                  className={b.id === effId ? `${r.listItem} ${r.itemOn}` : r.listItem}
-                  onClick={() => setSelId(b.id)}
-                  aria-current={b.id === effId}
-                >
-                  <span className={r.itemTop}>
-                    <span className={r.statusTag} data-done={b.status === 'done'}>
-                      {b.status === 'done' ? '완독' : '읽는 중'}
-                    </span>
-                    {b.rating > 0 && <span className={r.stars}>{'★'.repeat(b.rating)}</span>}
-                    {b.review.trim() && (
-                      <span className={r.doneMark} title="독후감 있음">
-                        ✎
-                      </span>
-                    )}
-                  </span>
-                  <span className={r.itemTitle}>{b.title}</span>
-                  {b.author && <span className={r.itemMeta}>{b.author}</span>}
-                </button>
-              </li>
+        {books.length > 0 && (
+          <div className={r.bookFilter} role="group" aria-label="독서 상태 필터">
+            {(['all', 'reading', 'done'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={statusFilter === f}
+                className={statusFilter === f ? `${r.bookFilterBtn} ${r.bookFilterOn}` : r.bookFilterBtn}
+                onClick={() => setStatusFilter(f)}
+              >
+                {f === 'all' ? '전체' : f === 'reading' ? '읽는 중' : '완독'}
+              </button>
             ))}
-          </ul>
+          </div>
+        )}
+        {books.length ? (
+          shown.length ? (
+            <ul className={r.list}>
+              {shown.map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    className={b.id === effId ? `${r.listItem} ${r.itemOn}` : r.listItem}
+                    onClick={() => setSelId(b.id)}
+                    aria-current={b.id === effId}
+                  >
+                    <span className={r.itemTop}>
+                      <span className={r.statusTag} data-done={b.status === 'done'}>
+                        {b.status === 'done' ? '완독' : '읽는 중'}
+                      </span>
+                      {b.rating > 0 && <span className={r.stars}>{'★'.repeat(b.rating)}</span>}
+                      {b.review.trim() && (
+                        <span className={r.doneMark} title="독후감 있음">
+                          ✎
+                        </span>
+                      )}
+                    </span>
+                    <span className={r.itemTitle}>{b.title}</span>
+                    <span className={r.itemMeta}>
+                      {b.author ? `${b.author} · ` : ''}
+                      {b.status === 'done' && shortDate(b.finishedAt)
+                        ? `완독 ${shortDate(b.finishedAt)}`
+                        : shortDate(b.startedAt)
+                          ? `시작 ${shortDate(b.startedAt)}`
+                          : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className={r.listEmpty}>이 상태의 책이 없어요.</div>
+          )
         ) : (
           <div className={r.listEmpty}>왼쪽 위에서 첫 책을 추가해 보세요.</div>
         )}
@@ -125,7 +160,11 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
           <div className={r.bookEditor}>
             <header className={r.bookHead}>
               <h2 className={r.readerTitle}>{sel.title}</h2>
-              {sel.author && <div className={r.readerMeta}>{sel.author}</div>}
+              <div className={r.readerMeta}>
+                {sel.author ? sel.author + ' · ' : ''}
+                시작 {shortDate(sel.startedAt) || '—'}
+                {sel.status === 'done' && shortDate(sel.finishedAt) ? ` · 완독 ${shortDate(sel.finishedAt)}` : ''}
+              </div>
               <div className={r.bookControls}>
                 <div className={r.rating} role="group" aria-label="별점">
                   {[1, 2, 3, 4, 5].map((n) => (
