@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { paletteCommands, recordRecent, captureSubjects, runQuickCapture } from '@/shell';
+import { paletteCommands, recordRecent, captureSubjects, runQuickCapture, semanticPalette } from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
+import type { SemHit, SemKind } from '@/lib/semantic';
 import styles from './CommandPalette.module.css';
+
+const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥' };
 
 const TYPE_LABEL: Record<NonNullable<CaptureResult['sessionType']>, string> = {
   anki: 'Anki',
@@ -61,6 +64,28 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
   );
   const showCapture = meaningful(cap);
 
+  // 의미 검색(로컬 임베딩) — 350ms 디바운스, 늦은 응답은 버림. Ollama 불가면 조용히 빈 목록.
+  // 짧은 질의는 렌더에서 걸러낸다(이펙트 내 동기 setState 회피 — 상태는 마지막 결과만 유지).
+  const [semHits, setSemHits] = useState<SemHit[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    const q = search.trim();
+    if (q.length < 2) return;
+    let stale = false;
+    const t = setTimeout(() => {
+      semanticPalette(q)
+        .then((hits) => {
+          if (!stale) setSemHits(hits);
+        })
+        .catch(() => {});
+    }, 350);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [open, search]);
+  const shownSem = search.trim().length >= 2 ? semHits : [];
+
   const runCapture = () => {
     if (!cap) return;
     runQuickCapture(cap, summarize(cap));
@@ -103,6 +128,28 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
             <span className={styles.label}>📌 빠른 캡처 — 기록에 남기기</span>
             <span className={styles.hint}>{summarize(cap)}</span>
           </Command.Item>
+        )}
+        {/* 의미 검색 결과 — cmdk 부분문자열 필터를 우회(forceMount): 임베딩 유사도가 매칭 기준. */}
+        {shownSem.length > 0 && (
+          <Command.Group heading="의미 검색 — 내 학습 자산" className={styles.semGroup} forceMount>
+            {shownSem.map((h) => (
+              <Command.Item
+                key={'sem:' + h.id}
+                forceMount
+                value={'semantic ' + h.id + ' ' + search}
+                className={styles.item}
+                onSelect={() => {
+                  close();
+                  navigate(h.to, { viewTransition: true });
+                }}
+              >
+                <span className={styles.label}>
+                  {SEM_ICON[h.kind]} {h.label}
+                </span>
+                <span className={styles.hint}>{Math.round(h.sim * 100)}% 유사</span>
+              </Command.Item>
+            ))}
+          </Command.Group>
         )}
         {cmds.map((c) => (
           <Command.Item

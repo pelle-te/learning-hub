@@ -72,7 +72,7 @@ test('확인 모달: 전체 초기화 → 취소하면 데이터가 유지된다
   });
   renderApp('/today');
   fireEvent.click(await screen.findByRole('button', { name: '데이터·백업 메뉴' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: /전체 초기화/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /전체 초기화/ })); // menu role 제거(디스클로저 패턴)
   // 네이티브 모달이 열린다.
   await screen.findByText(/모든 데이터를 지울까요/);
   fireEvent.click(screen.getByRole('button', { name: '취소' }));

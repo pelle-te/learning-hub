@@ -36,36 +36,13 @@
   margin: 0;
 }
 .headNote {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--mut);
 }
 .headActions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-.collectBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--mut);
-  padding: 7px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.14s var(--ease);
-}
-.collectBtn:hover:not(:disabled) {
-  color: var(--acc);
-  border-color: var(--acc);
-}
-.collectBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* ── 2-pane(보드 · 피드) ── */
@@ -301,78 +278,55 @@
   place-items: center;
   padding: 24px;
 }
-.loading {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  color: var(--mut);
-  font-size: 14px;
+/* 스크린리더 전용(표준 클립 패턴) — 스켈레톤 로딩의 상태 문구. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
-
-/* ── AI 브리핑 다이얼로그 ── */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: color-mix(in srgb, #000 55%, transparent);
-  backdrop-filter: blur(3px);
-}
-.panel {
-  width: min(560px, 100%);
-  max-height: 82vh;
+/* 첫 로딩 스켈레톤 — 지수 카드 형상 그대로(팝인 점프 방지). */
+.skeleBoard {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
-  box-shadow: var(--shadow-md);
+  gap: 12px;
+  margin-top: clamp(12px, 2.4vh, 22px);
 }
-.panelHead {
-  flex: none;
+.skeleCard {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--line2);
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
 }
-.panelTitle {
-  font-size: 15px;
-  font-weight: 900;
-  color: var(--ink);
-}
-.panelClose {
-  border: none;
-  background: none;
-  color: var(--mut);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
-}
-.panelClose:hover {
-  color: var(--ink);
-}
-.panelClose:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: 2px;
-  border-radius: 5px;
-}
+
+/* ── AI 브리핑(DetailDrawer 내부) ── */
 .panelBusy {
-  padding: 28px 18px;
+  padding: 28px 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
   color: var(--mut);
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
-.panelBody {
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  padding: 16px 18px;
+/* 스트리밍 미리보기 — 완성 문장이 이어붙는 라이브 텍스트(디밍으로 '진행 중' 신호). */
+.briefStream {
+  margin: 0;
+  padding: 0 4px 12px;
+  font-size: var(--fs-md);
+  line-height: 1.65;
+  color: var(--mut);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .briefOverview {
   font-size: 15px;
@@ -395,7 +349,7 @@
 .driverList {
   margin: 0;
   padding-left: 18px;
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   line-height: 1.6;
   color: var(--ink);
 }
@@ -405,7 +359,7 @@
 .watchList {
   margin: 0;
   padding-left: 18px;
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   line-height: 1.6;
   color: var(--ink);
 }
@@ -413,13 +367,19 @@
   margin: 14px 0 0;
   padding-top: 10px;
   border-top: 1px solid var(--line2);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--mut);
   line-height: 1.5;
 }
+.briefStamp {
+  margin: 8px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
 
-/* ── 반응형 — 좁으면 세로 스택(보드 위·뉴스 아래) ── */
-@media (max-width: 760px) {
+/* ── 반응형 — 좁으면 세로 스택(보드 위·뉴스 아래). 전환점은 셸 하단탭과 동일한 700(혼혈 구간 방지). ── */
+@media (max-width: 700px) {
   .wrap {
     padding: 0 14px 14px;
   }

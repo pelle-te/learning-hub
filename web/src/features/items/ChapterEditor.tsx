@@ -32,7 +32,12 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
     const from = drag;
     setDrag(null);
     if (from == null || from === to) return;
+    move(from, to);
+  };
+
+  const move = (from: number, to: number) => {
     upd((it) => {
+      if (to < 0 || to >= it.chapters.length) return;
       const [m] = it.chapters.splice(from, 1);
       if (!m) return;
       it.chapters.splice(to, 0, m);
@@ -83,9 +88,15 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                     onDragStart={() => setDrag(i)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => drop(i)}
+                    onKeyDown={(e) => {
+                      // 키보드 재정렬(WCAG 2.1.1) — 행 안 어디에 포커스가 있든 Alt+↑↓(드래그 대안).
+                      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                      e.preventDefault();
+                      move(i, i + (e.key === 'ArrowDown' ? 1 : -1));
+                    }}
                   >
                     <td className={`${ds.muted} ${ds.tiny}`} style={{ whiteSpace: 'nowrap' }}>
-                      <span className={ds.draghandle} title="드래그로 순서 변경">
+                      <span className={ds.draghandle} title="드래그 또는 Alt+↑↓로 순서 변경">
                         ⠿
                       </span>{' '}
                       {i + 1}

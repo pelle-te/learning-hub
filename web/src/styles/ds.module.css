@@ -461,141 +461,10 @@ input.donechk:checked {
   text-decoration: line-through;
 }
 
-/* 주간 개요 스트립 */
-.wkstrip {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--sp-2);
-  margin-bottom: 14px;
-}
-.wkcol {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  padding: 9px 4px 10px;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--txt);
-  box-shadow: var(--shadow-sm);
-  transition:
-    transform 0.15s var(--ease),
-    border-color 0.15s var(--ease),
-    box-shadow 0.15s var(--ease);
-}
-.wkcol:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--acc) 35%, var(--line));
-}
-.wkcol.sel {
-  border-color: var(--acc);
-  box-shadow:
-    0 0 0 1px var(--acc),
-    0 8px 22px -12px var(--acc-glow);
-}
-.wkcol.today .wd {
-  color: var(--acc);
-}
-.wkcol .wd {
-  font-size: 11px;
-  color: var(--mut);
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-.wkdot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--acc);
-  display: inline-block;
-}
-.wkcol .dd {
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
-.wkcol .colBar {
-  display: flex;
-  flex-direction: column-reverse;
-  width: 14px;
-  height: 60px;
-  background: var(--panel2);
-  border-radius: 7px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px var(--line-soft);
-}
-.wkcol .colBar i {
-  display: block;
-  width: 100%;
-  transition: height 0.35s var(--ease);
-}
-.wkcol .colH {
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.wkcol .colSub {
-  font-size: 10px;
-  color: var(--mut);
-  font-weight: 400;
-  margin-left: 1px;
-}
+/* (옛 주간 개요 스트립 wkstrip/wkcol·마감 D-day ddrow/ddaychip 계열은 재설계에서
+   마크업이 사라진 뒤 CSS만 남아 있던 잔재 — 소비처 0 확인 후 제거.) */
 .day.agenda {
   margin-top: 2px;
-}
-@media (max-width: 560px) {
-  .wkcol {
-    padding: 8px 2px;
-    gap: 4px;
-  }
-  .wkcol .dd {
-    font-size: 13px;
-  }
-  .wkcol .colBar {
-    height: 48px;
-  }
-}
-
-/* 마감 D-day 카드 */
-.ddrow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-}
-.ddaychip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 6px 11px;
-  font-size: 12px;
-  transition:
-    transform 0.14s var(--ease),
-    border-color 0.14s var(--ease);
-}
-.ddaychip:hover {
-  transform: translateY(-1px);
-}
-.ddaychip b {
-  font-variant-numeric: tabular-nums;
-}
-.ddaychip.warn {
-  border-color: color-mix(in srgb, var(--warn) 50%, var(--line));
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 8%, var(--panel2));
-}
-.ddaychip.bad {
-  border-color: color-mix(in srgb, var(--bad) 50%, var(--line));
-  color: var(--bad);
-  background: color-mix(in srgb, var(--bad) 8%, var(--panel2));
 }
 
 /* ── 접이식 목록(아코디언) — items↔degree 공유 (원본 features.css 순서) ── */
@@ -642,22 +511,6 @@ input.donechk:checked {
   flex-wrap: wrap;
   justify-content: flex-end;
   flex: none;
-}
-.minibar {
-  display: inline-block;
-  width: 54px;
-  height: 5px;
-  border-radius: 99px;
-  background: var(--panel2);
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px var(--line-soft);
-  vertical-align: middle;
-}
-.minibar > i {
-  display: block;
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.35s var(--ease);
 }
 .itembody {
   padding: 14px;
@@ -905,17 +758,6 @@ tr[draggable='true']:hover .draghandle {
     opacity: 0.54;
   }
 }
-/* 3D 틸트 — 커서를 향해 카드가 기욺(모션 허용 시에만). useHeroPointer(tilt)와 짝. */
-@media (prefers-reduced-motion: no-preference) {
-  .tiltable {
-    transform: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
-    transition:
-      transform 0.25s var(--ease),
-      border-color 0.2s var(--ease),
-      box-shadow 0.2s var(--ease);
-    transform-style: preserve-3d;
-  }
-}
 /* 호버 글로우 — 카드 테두리가 액센트로 반응 + 살짝 떠오름. */
 .glow {
   transition:
@@ -929,7 +771,6 @@ tr[draggable='true']:hover .draghandle {
 }
 @media (prefers-reduced-motion: reduce) {
   .spotlight,
-  .tiltable,
   .glow {
     transition: none;
   }

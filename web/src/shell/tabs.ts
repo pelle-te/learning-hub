@@ -57,31 +57,10 @@ export function hostTabKey(key: string): string {
   return g ? g[0]! : key;
 }
 
-export const GROUP_LABELS: Record<string, string> = {
-  do: '계획',
-  src: '자료',
-  log: '기록·분석',
-  settings: '설정',
-};
-export const GROUP_ICONS: Record<string, string> = {
-  do: 'calendar',
-  src: 'book',
-  log: 'chart',
-  settings: 'gear',
-};
-
 /** 표시 순서대로 정렬된 탭. */
 export function orderedTabs(): TabMeta[] {
   return TABS.slice().sort((a, b) => a.order - b.order);
 }
 export function tabByKey(key: string): TabMeta | undefined {
   return TABS.find((t) => t.key === key);
-}
-/** 등장 순서대로의 그룹 키(중복 제거). */
-export function groupOrder(): string[] {
-  const gs: string[] = [];
-  orderedTabs().forEach((t) => {
-    if (!t.hidden && gs.indexOf(t.group) < 0) gs.push(t.group);
-  });
-  return gs;
 }

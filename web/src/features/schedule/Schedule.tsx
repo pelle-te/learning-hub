@@ -332,18 +332,17 @@ export default function Schedule() {
       <Button sm variant="ghost" onClick={weekToday}>
         오늘
       </Button>
-      <div className={ds.seg} role="tablist" aria-label="주간 보기 방식" style={{ marginLeft: 6 }}>
+      {/* tablist 계약(화살표 이동·tabpanel) 미이행 → group+aria-pressed가 정직(WCAG 4.1.2). */}
+      <div className={ds.seg} role="group" aria-label="주간 보기 방식" style={{ marginLeft: 6 }}>
         <button
-          role="tab"
-          aria-selected={schedView === 'overview'}
+          aria-pressed={schedView === 'overview'}
           className={schedView === 'overview' ? ds.on : ''}
           onClick={() => setView('overview')}
         >
           개요
         </button>
         <button
-          role="tab"
-          aria-selected={schedView === 'cards'}
+          aria-pressed={schedView === 'cards'}
           className={schedView === 'cards' ? ds.on : ''}
           onClick={() => setView('cards')}
         >

@@ -201,11 +201,6 @@ export function isDone(state: AppState, ds: string, sid: string, type: SessionTy
   const e = m && m[sid + '|' + type];
   return !!(e && e.done);
 }
-export function doneMin(state: AppState, ds: string, sid: string, type: SessionType): number {
-  const m = state.completions && state.completions[ds];
-  const e = m && m[sid + '|' + type];
-  return e && e.done ? +e.min || 0 : 0;
-}
 /** 완료 토글(스토어 액션이 호출 후 persist). on=false면 기록 제거. */
 export function setDone(
   state: AppState,

@@ -16,7 +16,7 @@ import { isDone, studyStreak } from '@/lib/persistence';
 import { pickFocus, focusMinutes } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
-import { pickRetrieval } from '@/lib/retrieval';
+import { pickRetrieval, retrievableCount } from '@/lib/retrieval';
 import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
 import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
@@ -51,12 +51,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.
   const { ref: heroRef, onMouseMove: onHeroMove, onMouseLeave: onHeroLeave } = useHeroPointer(7);
 
-  // 1초 틱 — 시계·현재 블록·집중 타이머를 라이브로 갱신(백그라운드에선 정지, 복귀 시 캐치업).
+  // 집중 타이머(포모도로) — 전역 세션(useFocus): 탭 이동·새로고침에도 이어짐. 종료 감지는 FocusChip.
+  const timer = useFocus((st) => st.session);
+  const startSession = useFocus((st) => st.start);
+  const stopSession = useFocus((st) => st.stop);
+
+  // 적응형 틱 — 초 단위 표시는 포모도로(mmss)뿐이므로 세션 중에만 1초, 평시엔 30초(FocusChip과 동일 패턴).
+  // 무조건 1초는 방치된 대시보드를 초당 리렌더하는 60배 과잉이었다. 백그라운드 정지·복귀 캐치업 유지.
   const [, setTick] = useState(0);
+  const tickPeriod = timer ? 1000 : 30_000;
   useEffect(() => {
     let id: ReturnType<typeof setInterval> | null = null;
     const startTick = () => {
-      if (id == null) id = setInterval(() => setTick((t) => (t + 1) % 86400), 1000);
+      if (id == null) id = setInterval(() => setTick((t) => (t + 1) % 86400), tickPeriod);
     };
     const stopTick = () => {
       if (id != null) {
@@ -71,18 +78,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         startTick();
       }
     };
+    // 주기 전환(세션 시작/종료) 자체가 리렌더를 동반하므로 즉시 캐치업은 불필요 — 틱만 재설정.
     startTick();
     document.addEventListener('visibilitychange', onVis);
     return () => {
       stopTick();
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, []);
-
-  // 집중 타이머(포모도로) — 전역 세션(useFocus): 탭 이동·새로고침에도 이어짐. 종료 감지는 FocusChip.
-  const timer = useFocus((st) => st.session);
-  const startSession = useFocus((st) => st.start);
-  const stopSession = useFocus((st) => st.stop);
+  }, [tickPeriod]);
 
   const ds = todayISO(state);
   const today = parseISO(ds);
@@ -141,6 +144,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const freeLeftH = Math.round((freeMinAfter(freeWins, nowMin) / 60) * 10) / 10;
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
+  const recallN = recall ? retrievableCount(state, ds) : 0; // '회상 N개 대기' — 실제 대기 수량
   // A4 — 완료 후 다음 동력: 내일 첫 학습 + 복습 위험(개념 간격반복).
   const tmrNew = (res.days || []).find((d) => d.ds === iso(addDays(today, 1)))?.items.find((it) => it.type === 'new');
   const risk = riskSummary(state, res.days || [], ds);
@@ -344,7 +348,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                     보충 {openBl} 회수
                   </button>
                 )}
-                {recall && <span className={s.upnext}>회상 1개 대기 ↓</span>}
+                {recall && <span className={s.upnext}>회상 {recallN}개 대기 ↓</span>}
               </span>
             ) : (
               <>

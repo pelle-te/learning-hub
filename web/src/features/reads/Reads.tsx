@@ -17,6 +17,7 @@ import {
   type ArticleWork,
   type Book,
 } from '@/lib/reads';
+import { onSync } from '@/lib/sync';
 import { ui } from '@/shell';
 import ArticlePractice from './ArticlePractice';
 import BookShelf from './BookShelf';
@@ -34,6 +35,9 @@ export default function Reads() {
       if (rec) setLocal(rec);
     });
   }, []);
+
+  // 멀티탭·가져오기 동기화 — 다른 경로가 저장한 읽을거리 블롭을 라이브로 채택.
+  useEffect(() => onSync((m) => m.kind === 'reads' && setLocal(loadReads())), []);
 
   // 단일 저장 경로 — 두 패널이 같은 블롭을 공유(work + books). 저장 실패는 안내.
   const update = useCallback((fn: (prev: ReadsLocal) => ReadsLocal) => {
@@ -82,11 +86,12 @@ export default function Reads() {
 
   return (
     <section className={r.wrap} aria-label="읽을거리">
-      <div className={r.seg} role="tablist" aria-label="읽을거리 모드">
+      {/* 세그먼트 — tablist 계약(화살표 이동·tabpanel 연결)을 이행하지 않으므로 role은 group +
+          aria-pressed가 정직하다(언어 필터와 동일 패턴 · WCAG 4.1.2). */}
+      <div className={r.seg} role="group" aria-label="읽을거리 모드">
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'article'}
+          aria-pressed={mode === 'article'}
           className={mode === 'article' ? `${r.segBtn} ${r.segOn}` : r.segBtn}
           onClick={() => setMode('article')}
         >
@@ -94,8 +99,7 @@ export default function Reads() {
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'book'}
+          aria-pressed={mode === 'book'}
           className={mode === 'book' ? `${r.segBtn} ${r.segOn}` : r.segBtn}
           onClick={() => setMode('book')}
         >
@@ -110,7 +114,8 @@ export default function Reads() {
           setWork={setWork}
           online={online}
           pingLoading={pingLoading}
-          query={reads}
+          loading={reads.isLoading}
+          refetch={reads.refetch}
         />
       ) : (
         <BookShelf books={local.books} setBooks={setBooks} />

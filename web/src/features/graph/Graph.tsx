@@ -21,6 +21,7 @@ import { todayISO } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
+import { semanticChapterEdges, type SemEdge } from '@/lib/semantic';
 import g from './Graph.module.css';
 
 /** 노드 클릭 시 여는 상세 패널의 최소 정보(시뮬레이션 노드에서 스냅샷). */
@@ -43,6 +44,7 @@ interface Palette {
   good: string;
   learning: string;
   acc: string;
+  font: string;
 }
 function readPalette(): Palette {
   const cs = getComputedStyle(document.documentElement);
@@ -55,6 +57,9 @@ function readPalette(): Palette {
     good: v('--good', '#62d28c'),
     learning: v('--learning', '#d6a72b'),
     acc: v('--acc', '#9b8cff'),
+    // 캔버스 font는 var()를 해석하지 못한다(무효값 → 10px 시스템 폰트로 조용히 폴백) —
+    // 색과 마찬가지로 여기서 런타임 해석해 넣는다(테마 변경 시 onTheme이 함께 갱신).
+    font: `600 12px ${v('--font-sans', 'sans-serif')}`,
   };
 }
 function leafColor(n: GraphNode, p: Palette): string {
@@ -77,6 +82,20 @@ export default function Graph() {
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   // B6 — 클릭 선택 노드(상세 패널). 챕터 잎이면 간격반복 위험까지 보여준다.
   const [sel, setSel] = useState<SelInfo | null>(null);
+
+  // 킬러 ② — 과목 경계를 넘는 의미 연결(로컬 임베딩). 비동기 보강: Ollama 없으면 조용히 빈 배열.
+  const [semEdges, setSemEdges] = useState<SemEdge[]>([]);
+  useEffect(() => {
+    let stale = false;
+    semanticChapterEdges(items)
+      .then((edges) => {
+        if (!stale) setSemEdges(edges);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [items]);
 
   // 챕터별 복습 위험(C8) — 잎 상세에서 '마지막 학습·경과일'로 재활용.
   const reviews = useMemo(() => chapterReviews(state, res.days || [], todayISO(state)), [state, res]);
@@ -240,6 +259,23 @@ export default function Graph() {
         ctx.lineTo(sx(t.x), sy(t.y));
         ctx.stroke();
       }
+      // 의미 연결(자동) — 과목 경계를 넘는 점선(액센트, 그리기 전용 — 힘에는 불참).
+      if (semEdges.length) {
+        ctx.strokeStyle = palette.acc;
+        ctx.globalAlpha = 0.4;
+        ctx.setLineDash([5, 5]);
+        for (const l of semEdges) {
+          const s = byId.get(l.source);
+          const t = byId.get(l.target);
+          if (!s || !t) continue;
+          ctx.beginPath();
+          ctx.moveTo(sx(s.x), sy(s.y));
+          ctx.lineTo(sx(t.x), sy(t.y));
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
       // 노드
       for (const n of nodes) {
         const r = n.radius * Math.min(1.4, Math.max(0.7, tf.scale));
@@ -262,7 +298,7 @@ export default function Graph() {
       }
       // 허브 라벨(잎은 툴팁으로 — 라벨 폭주 방지)
       ctx.fillStyle = palette.txt;
-      ctx.font = '600 12px var(--font-sans, sans-serif)';
+      ctx.font = palette.font;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       for (const n of nodes) {
@@ -435,9 +471,9 @@ export default function Graph() {
       document.removeEventListener('visibilitychange', onVis);
       reduce.removeEventListener('change', onTheme);
     };
-  }, [items]);
+  }, [items, semEdges]);
 
-  const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료`;
+  const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
 
   return (
     <section className={g.wrap} aria-label="지식맵">
@@ -474,6 +510,11 @@ export default function Graph() {
             <span>
               <i style={{ background: 'var(--mut)' }} /> 미착수
             </span>
+            {semEdges.length > 0 && (
+              <span>
+                <i className={g.lSem} /> 의미 연결(자동)
+              </span>
+            )}
           </div>
           <canvas ref={canvasRef} className={g.canvas} role="img" aria-label={ariaLabel} />
           {tip && (

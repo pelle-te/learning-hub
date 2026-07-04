@@ -234,9 +234,6 @@
 .hero[style*='--tint'] .subj {
   color: color-mix(in oklab, var(--tint) 52%, var(--ink));
 }
-.heroScrub .subj {
-  opacity: 0.94;
-}
 .heroSub {
   margin-top: 12px;
   display: flex;
@@ -437,239 +434,6 @@
   100% {
     transform: scale(1);
   }
-}
-
-/* 주간 리듬 스트립 — 흐름(강) 아래, 오늘의 맥락. 클릭 = 주간 보기. */
-.week {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  margin: 0;
-  padding: 2px 2px 0;
-  border: none;
-  background: none;
-  font-family: inherit;
-  cursor: pointer;
-}
-.week:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: 3px;
-  border-radius: 6px;
-}
-.weekLab {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 700;
-  white-space: nowrap;
-}
-.weekBars {
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-  height: 30px;
-  flex: 1;
-}
-/* 이퀄라이저 슬롯 — 각 날이 자기 자리(빈 날도 의도적으로 보임). 안에서 막대가 차오름. */
-.weekCol {
-  position: relative;
-  flex: 1;
-  max-width: 36px;
-  display: flex;
-  align-items: flex-end;
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
-  box-shadow: inset 0 0 0 1px var(--line2);
-  overflow: hidden;
-}
-.weekCol i {
-  width: 100%;
-  border-radius: 5px 5px 0 0;
-  background: color-mix(in srgb, var(--acc) 34%, transparent);
-  transition:
-    height 0.55s var(--ease),
-    background 0.16s var(--ease);
-}
-.week:hover .weekCol i {
-  background: color-mix(in srgb, var(--acc) 50%, transparent);
-}
-.weekCol em {
-  position: absolute;
-  top: 2px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-style: normal;
-  font-size: 8px;
-  font-weight: 700;
-  color: var(--mut);
-  opacity: 0.55;
-  pointer-events: none;
-}
-.weekToday {
-  box-shadow: inset 0 0 0 1px var(--acc);
-}
-.weekToday i {
-  background: var(--acc) !important;
-  box-shadow: 0 0 12px var(--glow);
-}
-.weekToday em {
-  color: var(--acc);
-  opacity: 1;
-}
-.weekSum {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.weekSum small {
-  font-size: 11px;
-  color: var(--mut);
-  font-weight: 700;
-  margin-left: 1px;
-}
-
-/* ── 오늘의 블록 ──────────────────────────────────────────── */
-.blocks {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 22px 20px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-  animation: heroIn 0.5s var(--ease) 0.08s both;
-  transition: border-color 0.2s var(--ease);
-}
-.blocks:hover {
-  border-color: color-mix(in srgb, var(--acc) 20%, var(--line));
-}
-.blocksT {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 14px;
-}
-.blocksTitle {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 800;
-}
-.blockList {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  margin: 0 -8px;
-  padding: 0 8px;
-}
-.row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  width: 100%;
-  padding: 13px 8px 13px 12px;
-  border: none;
-  border-radius: 9px;
-  border-bottom: 1px solid var(--line2);
-  background: transparent;
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.14s var(--ease);
-}
-/* 호버 시 차오르는 액센트 바. */
-.row::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--acc);
-  box-shadow: 0 0 10px var(--glow);
-  transform: scaleY(0);
-  transition: transform 0.18s var(--ease);
-}
-.row:hover::before {
-  transform: scaleY(1);
-}
-.row:last-child {
-  border-bottom: none;
-}
-.row:hover {
-  background: var(--panel2);
-}
-.row:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: -2px;
-}
-.bull {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--mut);
-  flex: none;
-}
-.rowCur .bull {
-  background: var(--acc);
-  box-shadow: 0 0 10px var(--glow);
-}
-.rowDone .bull {
-  background: var(--acc);
-}
-.nm {
-  flex: 1;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.nm small {
-  color: var(--mut);
-  font-weight: 400;
-  margin-left: 5px;
-  font-size: 12px;
-}
-.tm {
-  color: var(--mut);
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  flex: none;
-}
-.rowDone {
-  opacity: 0.45;
-}
-.rowDone .nm {
-  text-decoration: line-through;
-}
-.rowCur {
-  background: color-mix(in srgb, var(--acc) 8%, transparent);
-}
-.rowCur .nm {
-  color: var(--acc);
-}
-.rowCur .tm {
-  color: var(--acc);
-}
-.blockEmpty {
-  font-size: 12.5px;
-  color: var(--mut);
-  padding: 14px 2px;
-  line-height: 1.6;
 }
 .more {
   margin-top: 12px;
@@ -1136,16 +900,13 @@
   .aura,
   .live,
   .hero,
-  .blocks,
   .flow,
   .nLive .nDot {
     animation: none;
   }
   .ringArc,
   .heroFill,
-  .weekCol i,
   .cta::after,
-  .row::before,
   .nProg,
   .spotlight {
     transition: none;
@@ -1165,13 +926,6 @@
   }
   .subj {
     font-size: clamp(40px, 12vw, 60px);
-  }
-  .gauges {
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-  .flowNote {
-    display: none;
   }
   .strip {
     flex-wrap: wrap;

@@ -106,30 +106,6 @@
   color: var(--on-acc);
   background: var(--acc);
 }
-.collectBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--mut);
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.14s var(--ease);
-}
-.collectBtn:hover:not(:disabled) {
-  color: var(--acc);
-  border-color: var(--acc);
-}
-.collectBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* ── 목록(지문/책 공용) ── */
 .list {
   flex: 1;
@@ -171,20 +147,22 @@
   align-items: center;
   gap: 7px;
 }
+/* 언어 태그 — 오프-팔레트 고정색(#3b82f6/#10b981) 대신 액센트 시스템에 정박:
+   EN=액센트, KO=good 토큰. 라이트 테마·액센트 노브(라임/시안/앰버)와 함께 움직인다. */
 .langTag {
   flex: none;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 900;
   letter-spacing: 0.04em;
   padding: 1px 6px;
   border-radius: 5px;
-  color: #fff;
+  color: var(--on-acc);
 }
 .langTag[data-lang='en'] {
-  background: #3b82f6;
+  background: var(--acc);
 }
 .langTag[data-lang='ko'] {
-  background: #10b981;
+  background: var(--good);
 }
 .itemField {
   font-size: 11px;
@@ -282,7 +260,7 @@
 }
 .readerBody {
   position: relative; /* 어휘 팝오버 앵커 */
-  font-size: 15.5px;
+  font-size: var(--fs-lg);
   line-height: 1.75;
   color: var(--ink);
 }
@@ -293,7 +271,7 @@
 /* ── 어휘 팝오버(선택한 단어 뜻 · Ollama) ── */
 .vocabPop {
   position: absolute;
-  z-index: 20;
+  z-index: var(--z-dropdown); /* 층위 SSOT(tokens.css) — 매직넘버 금지 */
   transform: translateX(-50%);
   min-width: 190px;
   max-width: 300px;
@@ -352,7 +330,7 @@
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--line2);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--ink);
   font-style: italic;
 }
@@ -468,9 +446,18 @@
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--line2);
-  font-size: 13.5px;
+  font-size: var(--fs-md);
   line-height: 1.6;
   color: var(--ink);
+}
+/* 채점 스트리밍 미리보기 — 완성 문장이 이어붙는 라이브 텍스트. */
+.coachStream {
+  margin: 12px 0 0;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  color: var(--mut);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .coachModelLabel {
   display: block;
@@ -615,8 +602,8 @@
   font-size: 14px;
 }
 
-/* ── 반응형 — 좁으면 세로 스택(목록 위·리더 아래) ── */
-@media (max-width: 720px) {
+/* ── 반응형 — 좁으면 세로 스택(목록 위·리더 아래). 전환점은 셸 하단탭과 동일한 700. ── */
+@media (max-width: 700px) {
   .wrap {
     padding: 0 14px 14px;
   }

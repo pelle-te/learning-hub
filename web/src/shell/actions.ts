@@ -7,6 +7,8 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { BACKUP_KEY, RUNTIME_CACHE_KEYS, migrate, defaults, exportSnapshot } from '@/lib/persistence';
+import { loadReads, importReads } from '@/lib/reads';
+import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad } from '@/lib/idb';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData } from '@/lib/methodology';
@@ -47,10 +49,12 @@ async function backupOrConfirm(): Promise<boolean> {
   );
 }
 
-/** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷. */
+/** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 읽을거리 저작물(_reads: 내 요약·독후감).
+    _reads가 없으면 "내보내기로 백업하세요" 안내(저장실패 토스트)와 실제 백업 범위가 어긋난다. */
 export function exportJSON(): void {
   const s = st().state;
-  download(`러닝허브_${s.startDate}.json`, JSON.stringify(exportSnapshot(s), null, 2), 'application/json');
+  const payload = { ...exportSnapshot(s), _reads: loadReads() };
+  download(`러닝허브_${s.startDate}.json`, JSON.stringify(payload, null, 2), 'application/json');
 }
 
 /** 데이터 가져오기 — 파일 → migrate → (백업 후) 통째 교체. */
@@ -66,6 +70,8 @@ export function importJSON(input: HTMLInputElement): void {
       toast('읽기 실패: JSON 형식이 아닙니다.', 'bad');
       return;
     }
+    // _reads(내 요약·독후감)는 앱 상태가 아니라 별도 블롭 — 분리해 각자 복원한다.
+    const reads = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>)._reads : undefined;
     const s = migrate(parsed);
     if (!s) {
       toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).', 'bad', 5000);
@@ -78,9 +84,11 @@ export function importJSON(input: HTMLInputElement): void {
         /* noop */
       }
     });
+    delete (s as Record<string, unknown>)._reads;
     if (!(await backupOrConfirm())) return;
     st().loadState(s);
-    toastUndo('데이터를 가져왔어요.', undoLast);
+    const restored = reads ? importReads(reads) : null;
+    toastUndo(restored ? '데이터를 가져왔어요(읽을거리 요약·독후감 포함).' : '데이터를 가져왔어요.', undoLast);
   };
   r.readAsText(f);
   input.value = '';
@@ -208,7 +216,7 @@ export async function backupToVault(): Promise<void> {
     }
     const fh = await h.getFileHandle('러닝허브_백업.json', { create: true });
     const w = await fh.createWritable();
-    await w.write(JSON.stringify(exportSnapshot(st().state), null, 2));
+    await w.write(JSON.stringify({ ...exportSnapshot(st().state), _reads: loadReads() }, null, 2));
     await w.close();
     st().mutate((s) => void ((s as AppState)._lastBackupAt = new Date().toISOString()));
     toast('볼트 폴더에 러닝허브_백업.json 저장 완료.', 'ok');
@@ -288,6 +296,13 @@ export function exportSummaryNotes(scope: 'today' | 'all'): void {
 /** 빠른 캡처가 파서에 넘길 과목 스냅샷(id·name). */
 export function captureSubjects(): { id: string; name: string }[] {
   return st().state.items.map((i) => ({ id: i.id, name: i.name }));
+}
+
+/** ⌘K 의미 검색 — store 스냅샷 + 읽을거리 블롭을 모아 lib/semantic에 위임
+   (components→store 금지 경계: 팔레트는 이 shell 표면만 부른다). Ollama 불가면 []. */
+export function semanticPalette(query: string): Promise<SemHit[]> {
+  if (!semanticAvailable()) return Promise.resolve([]);
+  return semanticSearch(query, st().state, loadReads());
 }
 
 /** 자연어 캡처 결과 → 기록 프리필 요청 + 확인 토스트. 팔레트는 이후 /journal로 이동한다.

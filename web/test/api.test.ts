@@ -3,7 +3,7 @@
    외부 의존(네트워크)이라 fetch를 stub해 HTTP 오류·네트워크 실패·POST 계약을 검증한다.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getArtifact, getPing, runTool } from '@/lib/api';
+import { getArtifact, getPing, runTool, coachSummary, previewFromJsonStream } from '@/lib/api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -58,5 +58,56 @@ describe('runTool — POST 계약 + 오류', () => {
   it('실패 응답(비-2xx)은 throw한다', async () => {
     stubFetch(async () => res(null, { ok: false, status: 500 }));
     await expect(runTool('eval')).rejects.toThrow('HTTP 500');
+  });
+});
+
+describe('previewFromJsonStream — 스트리밍 미리보기(값만, 키 제외)', () => {
+  it('완성된 문자열 값만 이어붙인다(키·미완성 리터럴 제외)', () => {
+    expect(previewFromJsonStream('{"overview": "시장이 올랐다", "drivers": ["반도체 강세", "환율 안')).toBe(
+      '시장이 올랐다 · 반도체 강세',
+    );
+  });
+  it('빈 입력·값 없음이면 빈 문자열', () => {
+    expect(previewFromJsonStream('')).toBe('');
+    expect(previewFromJsonStream('{"score": 87')).toBe('');
+  });
+  it('이스케이프를 해석한다', () => {
+    expect(previewFromJsonStream('{"comment": "잘했어요\\n다음도"')).toBe('잘했어요\n다음도');
+  });
+});
+
+describe('postStream — NDJSON 스트리밍/단발 JSON 폴백', () => {
+  function ndjsonRes(lines: string[]) {
+    const enc = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        lines.forEach((l) => c.enqueue(enc.encode(l + '\n')));
+        c.close();
+      },
+    });
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/x-ndjson; charset=utf-8' },
+      body,
+    } as unknown as Response;
+  }
+  it('델타를 누적해 onDelta로 주고 마지막 done 줄을 결과로 반환한다', async () => {
+    stubFetch(async () =>
+      ndjsonRes(['{"d":"{\\"sc"}', '{"d":"ore\\": 90}"}', '{"done":true,"ok":true,"feedback":{"score":90}}']),
+    );
+    const deltas: string[] = [];
+    const r = await coachSummary('원문', '요약', 'ko', { onDelta: (t) => deltas.push(t) });
+    expect(r).toMatchObject({ ok: true, feedback: { score: 90 } });
+    expect(deltas.at(-1)).toBe('{"score": 90}');
+  });
+  it('스트림이 아닌 단발 JSON(가드 폴백)도 같은 자리로 수렴한다', async () => {
+    stubFetch(async () => res({ ok: false, error: '허용되지 않은 출처' }));
+    const r = await coachSummary('원문', '요약', 'ko');
+    expect(r).toMatchObject({ ok: false, error: '허용되지 않은 출처' });
+  });
+  it('결과 없이 끝난 스트림은 throw한다', async () => {
+    stubFetch(async () => ndjsonRes(['{"d":"x"}']));
+    await expect(coachSummary('원문', '요약', 'ko')).rejects.toThrow('스트림이 결과 없이 끝났어요');
   });
 });

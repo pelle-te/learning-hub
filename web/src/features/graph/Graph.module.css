@@ -76,6 +76,14 @@
   background: var(--acc);
   box-shadow: 0 0 6px var(--glow);
 }
+/* 의미 연결(자동) 스와치 — 캔버스의 점선과 짝(가는 선 형태). */
+.lSem {
+  width: 14px;
+  height: 0;
+  border-radius: 0;
+  border-top: 2px dashed var(--acc);
+  opacity: 0.7;
+}
 
 /* 툴팁 — 커서 추종(노드 요약). 포인터 통과(호버 계산 방해 금지). */
 .tip {

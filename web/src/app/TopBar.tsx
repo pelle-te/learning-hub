@@ -77,10 +77,11 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
         >
           <Icon name={THEME_ICON[theme]} />
         </button>
+        {/* ⋯ 메뉴 — 디스클로저(aria-expanded)로만 선언. role=menu는 화살표 내비·포커스 이동(APG)
+            계약을 요구하는데 이 목록은 Tab 이동이라 role이 SR 기대만 깨뜨렸다(제거가 정확). */}
         <div className={s.menuwrap} ref={wrapRef}>
           <button
             className={`${s.btn} ${s.icon}`}
-            aria-haspopup="true"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((v) => !v)}
             title="데이터·백업 메뉴"
@@ -89,10 +90,9 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
             ⋯
           </button>
           {moreOpen && (
-            <div className="menu" role="menu">
+            <div className="menu">
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => {
                   close();
                   io.exportICS();
@@ -103,7 +103,6 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
               </button>
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => {
                   close();
                   io.exportJSON();
@@ -113,7 +112,6 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
               </button>
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => {
                   close();
                   impRef.current?.click();
@@ -123,7 +121,6 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
               </button>
               <button
                 type="button"
-                role="menuitem"
                 onClick={() => {
                   close();
                   actions.undoLast();
@@ -132,10 +129,9 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
               >
                 <Icon name="undo" /> 되돌리기
               </button>
-              <div className="menu-sep" role="separator" />
+              <div className="menu-sep" />
               <button
                 type="button"
-                role="menuitem"
                 className="menu-danger"
                 onClick={() => {
                   close();

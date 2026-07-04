@@ -11,15 +11,12 @@ export type {
   CompletionEntry,
   Summary,
   CbmsCode,
-  Cbms,
   Backlog,
   BlankResult,
-  Retention,
   Weekly,
   Ritual,
   Degree,
   AppState,
-  KnowState,
 } from './schema';
 
 /** localStorage 호환 최소 인터페이스 — 부팅/영속을 주입형으로(테스트는 Map 기반 KV). */

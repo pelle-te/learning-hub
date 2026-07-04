@@ -8,6 +8,7 @@
 ============================================================ */
 import { getArtifact } from './api';
 import { idbMirror, idbLoad } from './idb';
+import { announce } from './sync';
 import { rid } from './utils';
 
 /** 수집된 지문 1편(읽을거리_수집.py의 JSON과 1:1). 원문 그대로 — 가공 없음. */
@@ -98,10 +99,21 @@ export function saveReads(r: ReadsLocal): boolean {
   idbMirror(json, IDB_KEY);
   try {
     localStorage.setItem(LKEY, json);
+    announce({ kind: 'reads' }); // 다른 탭의 읽을거리 화면 라이브 갱신
     return true;
   } catch {
     return false; // 저장공간 가득 — 호출부가 안내
   }
+}
+
+/** 백업 파일에 동봉된 읽을거리 블롭(_reads) 복원 — 내 요약·독후감은 사용자의 유일한 저작물이라
+    내보내기/가져오기 계약에 반드시 포함된다. 형태가 아니면 무시(null). */
+export function importReads(v: unknown): ReadsLocal | null {
+  if (!v || typeof v !== 'object') return null;
+  const r = coerce(v);
+  saveReads(r);
+  announce({ kind: 'reads' }, true); // 같은 탭의 읽을거리 화면도 갱신(가져오기는 화면 밖 경로)
+  return r;
 }
 
 /** 지문 아티팩트 페치(serve.js 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내. */

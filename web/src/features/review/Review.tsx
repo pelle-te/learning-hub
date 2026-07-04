@@ -22,7 +22,7 @@ import {
 import { indexDays } from '@/lib/scheduleView';
 import { weeklyInsights, weakSpots } from '@/lib/insights';
 import { riskChapters } from '@/lib/spacedReview';
-import { reviewCoach, type ReviewCoachResult } from '@/lib/api';
+import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
 import { itemById } from '@/lib/utils';
@@ -131,20 +131,14 @@ function CbmsDistCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   let hint: React.ReactNode = '이번 주 기록된 오답이 없어요. 막힌 곳을 CBMS로 남기면 약점 분포가 보입니다.';
   if (total) {
     const top = codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode);
-    const map: Record<string, string> = {
-      C: '이해 단계가 부족 — 교재 정독·개념 정리에 시간 더.',
-      B: '조건 설정이 약점 — 문제 유형별 체크리스트를 만들자.',
-      M: '손 연습량 부족 — 도출 단계 백지 연습을 늘려라.',
-      S: '마무리 루틴 부족 — 검산·단위 체크를 습관화.',
-      T: '속도/효율 문제 — 자주 막히는 계산을 손에 익히고 시간 분배 훈련.',
-    };
+    // 처방 문구는 CBMS_INFO.tip이 단일 원천 — 로컬 사본은 CoachCard·Anki 카드와 어긋나게 드리프트했다.
     hint = (
       <>
         가장 많은 코드{' '}
         <b>
           {top}({CBMS_INFO[top].label})
         </b>{' '}
-        — {map[top]}
+        — {CBMS_INFO[top].tip}
       </>
     );
   }
@@ -206,7 +200,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
               <b>{b.topic || '(주제 없음)'}</b>
               {b.name && <span className={`${ds.muted} ${ds.tiny}`}> · {b.name}</span>}
               <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 6 }}>
-                열린 지 {dayDiff(b.ds, iso(new Date()))}일
+                열린 지 {dayDiff(b.ds, todayISO(state))}일
               </span>
             </div>
             {b.note && <div className={ds.tiny}>{b.note}</div>}
@@ -240,10 +234,11 @@ function ChecklistCard({ wk }: { wk: string }) {
           <span>{label}</span>
         </label>
       ))}
-      <label style={{ marginTop: 10 }}>
+      <label htmlFor="wk-note" style={{ marginTop: 10 }}>
         이번 주 메모 <span className={`${ds.muted} ${ds.tiny}`}>(무엇을 바꿀까)</span>
       </label>
       <textarea
+        id="wk-note"
         rows={3}
         value={w.note || ''}
         onChange={(e) => mutate((st) => setWeeklyNote(st, wk, e.target.value))}
@@ -263,16 +258,20 @@ function CoachCard({ ds0 }: { ds0: string }) {
   const weak = weakSpots(state); // 전 기간 반복 약점(C9) — '반복적으로 막히는 지점' 자각.
 
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiPreview, setAiPreview] = useState('');
   const [ai, setAi] = useState<ReviewCoachResult | null>(null);
   const [aiErr, setAiErr] = useState<string | null>(null);
   const askAI = async () => {
     if (aiBusy) return;
     setAiBusy(true);
     setAiErr(null);
+    setAiPreview('');
     try {
       const facts = insights.map((i) => i.text);
       const weakLines = weak.map((w) => `${w.subject} — ${w.chapter} (${w.count}회, ${w.codes.join('/')})`);
-      const r = await reviewCoach(facts, weakLines);
+      const r = await reviewCoach(facts, weakLines, {
+        onDelta: (t) => setAiPreview(previewFromJsonStream(t)),
+      });
       if (r.ok && r.coach) setAi(r.coach);
       else setAiErr(r.error || 'AI 코칭 실패');
     } catch (e) {
@@ -336,10 +335,20 @@ function CoachCard({ ds0 }: { ds0: string }) {
             '🤖 AI 회고 받기'
           )}
         </Button>
-        {aiErr && <span className={`${ds.muted} ${ds.tiny}`}>{aiErr}</span>}
+        {aiErr && (
+          <span className={`${ds.muted} ${ds.tiny}`} role="alert">
+            {aiErr}
+          </span>
+        )}
       </div>
+      {/* 코칭 스트리밍 미리보기 — 완성 문장부터(SR에는 버튼의 '코칭 중…'이 상태). */}
+      {aiBusy && aiPreview && (
+        <p className={rv.aiStream} aria-hidden="true">
+          {aiPreview}
+        </p>
+      )}
       {ai && (
-        <div className={rv.aiBox}>
+        <div className={rv.aiBox} role="status">
           {ai.headline && <div className={rv.aiHead}>{ai.headline}</div>}
           {ai.focus && (
             <div className={rv.aiFocus}>
@@ -462,7 +471,8 @@ export default function Review() {
             주 1회 15~20분, <b>공부 방식</b>을 점검하는 자리. 시간(투입)이 아니라 <i>CBMS 분포 축소·진행률</i> 같은
             나아진 증거가 가장 강한 동기.
           </div>
-          <CoachCard ds0={ds0} />
+          {/* key=주 — 주를 이동하면 AI 코칭(ai/aiErr/aiBusy)이 리셋된다(이전 주 코칭이 그대로 남던 오표시 방지). */}
+          <CoachCard key={ds0} ds0={ds0} />
           <PlanActualCard pa={pa} />
           <CbmsDistCard ds0={ds0} ds6={ds6} />
         </div>

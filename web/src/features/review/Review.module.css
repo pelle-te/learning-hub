@@ -333,6 +333,15 @@
   background: color-mix(in srgb, var(--acc) 5%, var(--panel2));
   animation: ds-fadeUp 0.3s var(--ease) both;
 }
+/* 코칭 스트리밍 미리보기 — 완성 문장이 이어붙는 라이브 텍스트. */
+.aiStream {
+  margin: 10px 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--mut);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .aiHead {
   font-size: 13.5px;
   font-weight: 800;

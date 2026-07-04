@@ -19,6 +19,9 @@ export default function RailSidebar() {
 
   const tabs = orderedTabs().filter((t) => !t.hidden);
   const settingsActive = cur === 'settings' || cur === 'control';
+  // roving tabindex 폴백 — 활성 탭이 목록에 없으면(/settings 등 숨김 탭) 모든 버튼이 -1이 되어
+  // 레일 전체가 키보드 도달 불가가 됐다. 그 경우 첫 버튼을 tab stop으로 남긴다.
+  const hasActive = tabs.some((t) => t.key === cur);
 
   // roving tabindex: ↑↓/←→/Home/End로 탭 이동(자동 활성) + 렌더 후 포커스.
   const onKey = (idx: number) => (e: React.KeyboardEvent) => {
@@ -64,7 +67,7 @@ export default function RailSidebar() {
               type="button"
               aria-current={active ? 'page' : undefined}
               aria-label={t.label}
-              tabIndex={active ? 0 : -1}
+              tabIndex={active || (!hasActive && i === 0) ? 0 : -1}
               className={s.item + (active ? ' ' + s.on : '')}
               onKeyDown={onKey(i)}
               onMouseEnter={() => prefetchTab(t.key)}

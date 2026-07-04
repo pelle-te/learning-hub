@@ -12,6 +12,7 @@ import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 import { storage } from '@/lib/kv';
+import { announce, onSync } from '@/lib/sync';
 import { toast } from '@/shell/toast';
 import * as M from '@/lib/methodology';
 import type { AppState, CbmsCode, SessionType, Theme } from '@/lib/types';
@@ -73,6 +74,8 @@ export const useApp = create<AppStore>()(
       } catch {
         /* 직렬화 자체 실패(비정상 상태) — 미러 불가 */
       }
+      // 멀티탭 동기화 — 다른 탭이 이 스냅샷을 채택하게 방송(상호 덮어쓰기 유실 방지 + 대시보드 모드).
+      if (json != null) announce({ kind: 'app' });
     };
     /** 텍스트 입력마다 쓰지 않게 디바운스(설계도 §1-A). */
     const schedulePersist = () => {
@@ -94,6 +97,16 @@ export const useApp = create<AppStore>()(
       window.addEventListener('pagehide', flushNow);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') flushNow();
+      });
+
+      /* 멀티탭 동기화(수신) — 다른 탭이 저장하면 그 스냅샷을 채택한다. 단, 내 편집이 디바운스
+         대기 중이면 건너뜀(곧 내 flush가 방송된다 — 마지막 편집자 우선). 채택은 영속하지 않아
+         메아리 루프가 없다(BroadcastChannel은 발신 탭에 배달되지 않음). */
+      onSync((m) => {
+        if (m.kind !== 'app' || timer) return;
+        set((s) => {
+          s.state = splitRuntime(refineItemColors(boot(storage)));
+        });
       });
     }
 

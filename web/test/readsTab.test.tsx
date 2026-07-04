@@ -37,7 +37,7 @@ test('독서: 책 추가·별점·독후감·상태 토글이 로컬에 저장�
   renderApp('/reads');
 
   // 독서 모드로 전환
-  fireEvent.click(await screen.findByRole('tab', { name: /독서/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /독서/ })); // 세그먼트 group+aria-pressed 정직화
 
   fireEvent.change(await screen.findByLabelText('책 제목'), { target: { value: '사피엔스' } });
   fireEvent.change(screen.getByLabelText('저자'), { target: { value: '유발 하라리' } });

@@ -1,0 +1,49 @@
+/* ============================================================
+   ArtifactGate — 수집형 탭의 오프라인/미수집 빈 상태 공용 분기.
+   (serve.js OFF → 켜는 법 안내 / 미수집 → 수집 시작 버튼) — reads/markets가 공유.
+   로딩 표시는 탭마다 형상이 달라(스켈레톤 등) 호출부에 남긴다.
+============================================================ */
+import type { ReactNode } from 'react';
+import EmptyState from './EmptyState';
+import { Button } from './ui';
+import ds from '@/styles/ds.module.css';
+
+export default function ArtifactGate({
+  online,
+  glyph,
+  offlineDesc,
+  emptyTitle,
+  emptyDesc,
+  collecting,
+  onCollect,
+  collectLabel,
+}: {
+  online: boolean;
+  glyph: string;
+  offlineDesc: ReactNode;
+  emptyTitle: string;
+  emptyDesc: ReactNode;
+  collecting: boolean;
+  onCollect: () => void;
+  collectLabel: string;
+}) {
+  if (!online) return <EmptyState glyph={glyph} title="serve.js가 꺼져 있어요" desc={offlineDesc} />;
+  return (
+    <EmptyState
+      glyph={glyph}
+      title={emptyTitle}
+      desc={emptyDesc}
+      actions={
+        <Button variant="primary" onClick={onCollect} disabled={collecting}>
+          {collecting ? (
+            <>
+              <span className={ds.spin} /> 수집 중…
+            </>
+          ) : (
+            collectLabel
+          )}
+        </Button>
+      }
+    />
+  );
+}

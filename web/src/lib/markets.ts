@@ -37,15 +37,8 @@ export interface MarketsArtifact {
   news: NewsItem[];
 }
 
-/** 온디맨드 AI 브리핑 결과(serve.js /api/markets/brief). */
-export interface MarketBrief {
-  overview?: string;
-  drivers?: { title: string; detail: string }[];
-  watch?: string[];
-  caveat?: string;
-}
-
-/** 증시 아티팩트 페치(serve.js 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내. */
+/** 증시 아티팩트 페치(serve.js 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내.
+    (브리핑 응답 타입은 api.ts MarketBriefResult가 단일 원천 — 필드까지 같은 중복 사본을 두지 않는다.) */
 export async function fetchMarketsArtifact(): Promise<MarketsArtifact> {
   const r = await getArtifact<MarketsArtifact>('markets');
   if (!r.ok || !r.data) throw new Error(r.error || '아직 수집된 증시 데이터가 없어요');

@@ -379,7 +379,8 @@ export default function Routine() {
                 수면
               </span>
             </span>
-            <div className={r.wkbars} role="tablist" aria-label="요일 선택" style={{ width: '100%' }}>
+            {/* tablist 계약(화살표 이동·tabpanel) 미이행 → group+aria-pressed가 정직(WCAG 4.1.2). */}
+            <div className={r.wkbars} role="group" aria-label="요일 선택" style={{ width: '100%' }}>
               {DOW.map((d, i) => {
                 const hrs = free[i]!.freeMin / 60;
                 const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
@@ -387,8 +388,7 @@ export default function Routine() {
                   <button
                     key={d}
                     type="button"
-                    role="tab"
-                    aria-selected={i === ringDow}
+                    aria-pressed={i === ringDow}
                     className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
                     onClick={() => setRingDow(i)}
                     title={`${d}요일 ${hrs.toFixed(1)}시간`}

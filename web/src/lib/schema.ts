@@ -139,7 +139,6 @@ export const KnowStateSchema = z
     subjects: z.array(z.object({ subject: z.string(), mastery: z.number() }).passthrough()).optional(),
   })
   .passthrough();
-export type KnowState = z.infer<typeof KnowStateSchema>;
 
 export const AppStateSchema = z
   .object({
@@ -185,10 +184,8 @@ export type RoutineBlock = z.infer<typeof RoutineBlockSchema>;
 export type CompletionEntry = z.infer<typeof CompletionEntrySchema>;
 export type Summary = z.infer<typeof SummarySchema>;
 export type CbmsCode = z.infer<typeof CbmsCodeSchema>;
-export type Cbms = z.infer<typeof CbmsSchema>;
 export type Backlog = z.infer<typeof BacklogSchema>;
 export type BlankResult = z.infer<typeof BlankResultSchema>;
-export type Retention = z.infer<typeof RetentionSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;
 export type Ritual = z.infer<typeof RitualSchema>;
 export type Degree = z.infer<typeof DegreeSchema>;

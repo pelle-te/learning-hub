@@ -13,6 +13,7 @@ import ds from '@/styles/ds.module.css';
 import t from './Today.module.css';
 import type { Ritual } from '@/lib/types';
 import { TodaySignature } from './TodaySignature';
+import { SetupGuide, setupComplete } from './SetupGuide';
 import { TodayBlocks } from './TodayBlocks';
 import { BLOCK_STAGES, PRINCIPLES } from './consts';
 
@@ -123,6 +124,7 @@ function FlowGuide() {
 }
 
 export default function Today() {
+  const items = useApp((s) => s.state.items);
   const [moreOpen, setMoreOpen] = useState(false);
   const morePanelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(moreOpen, morePanelRef); // '오늘 상세' 오버레이 포커스 트랩 + 복원.
@@ -138,8 +140,14 @@ export default function Today() {
   }, [moreOpen]);
 
   return (
-    <>
+    <div className={t.todayHost}>
       <TodaySignature onOpenMore={openMore} />
+      {/* 콜드 스타트 — 과목·목표가 없으면 빈 대시보드 위에 3스텝 온보딩을 띄운다(셋업되면 자동 소멸). */}
+      {!setupComplete(items) && (
+        <div className={t.setupHost}>
+          <SetupGuide />
+        </div>
+      )}
       {moreOpen && (
         <div
           className={t.overlay}
@@ -165,6 +173,6 @@ export default function Today() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

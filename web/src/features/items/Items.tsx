@@ -173,7 +173,8 @@ export default function Items() {
         <div className={c.lead}>
           <h2 className={c.eyebrow}>학습 항목{n ? ` · ${n}과목` : ''}</h2>
           <div className={c.hint}>
-            카드를 누르면 펼쳐 편집해요. <b>주당 목표·챕터</b>를 넣으면 스케줄러가 매일 블록을 자동 배치합니다.
+            카드를 누르면 펼쳐 편집해요. <b>주당 목표·챕터</b>를 넣으면 스케줄러가 매일 블록을 자동 배치합니다. 순서는
+            드래그 또는 <b>Alt+↑↓</b>(키보드).
           </div>
         </div>
         <div className={c.actions}>
@@ -250,6 +251,15 @@ export default function Items() {
                 if (dragId) moveItem(dragId, s.id);
                 setDragId(null);
                 setOverId(null);
+              }}
+              onKeyDown={(e) => {
+                // 키보드 재정렬(WCAG 2.1.1) — 카드 안 어디에 포커스가 있든 Alt+↑↓로 순서 이동
+                // (드래그의 키보드 대안 · 새 tab stop을 만들지 않아 탐색 소음 없음).
+                if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                e.preventDefault();
+                const idx = items.findIndex((x) => x.id === s.id);
+                const tgt = items[idx + (e.key === 'ArrowDown' ? 1 : -1)];
+                if (tgt) moveItem(s.id, tgt.id);
               }}
             >
               <ItemCard item={s} open={open.has(s.id)} onToggle={toggle} onDelete={removeItem} mutate={mutate} />

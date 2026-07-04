@@ -136,7 +136,7 @@ test('AI 브리핑 버튼 → 다이얼로그에 해설이 뜬다', async () => 
   fireEvent.click(screen.getByRole('button', { name: /오늘 왜 움직였나/ }));
 
   await waitFor(() => expect(screen.getByText('반도체 강세가 지수를 끌어올렸다.')).toBeInTheDocument());
-  expect(screen.getByRole('dialog', { name: '오늘의 증시 브리핑' })).toBeInTheDocument();
+  expect(screen.getByRole('dialog', { name: /오늘의 증시 브리핑/ })).toBeInTheDocument(); // 공용 DetailDrawer(제목에 🤖 프리픽스)
   expect(screen.getByText('외국인 순매수')).toBeInTheDocument();
   expect(screen.getByText('미 고용지표')).toBeInTheDocument();
 });

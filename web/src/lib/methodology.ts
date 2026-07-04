@@ -7,7 +7,7 @@
 ============================================================ */
 import { addDays, iso, mondayOf, parseISO, rid, todayISO } from './utils';
 import { SCHEMA_VERSION } from './persistence';
-import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, Summary, Weekly } from './types';
+import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, Summary } from './types';
 
 /* ── 3문장 요약(3절) ── */
 export function summariesFor(state: AppState, ds: string): Summary[] {
@@ -135,7 +135,7 @@ export function addBacklog(state: AppState, sid: string, name: string, topic: st
   state.backlog = state.backlog || [];
   state.backlog.push({
     id: rid(),
-    ds: iso(new Date()),
+    ds: todayISO(state), // '오늘' 단일 출처(_today 시드 존중) — 벽시계 직접 참조 금지
     sid: sid || '',
     name: name || '',
     topic: topic || '',
@@ -163,10 +163,6 @@ export function backlogClosedBetween(state: AppState, fromDs?: string, toDs?: st
 }
 
 /* ── 주간 리뷰(10절) — 키: 그 주 월요일 ISO ── */
-export function getWeekly(state: AppState, wk: string): Weekly {
-  state.weekly = state.weekly || {};
-  return state.weekly[wk] || { checks: {}, note: '' };
-}
 export function setWeeklyCheck(state: AppState, wk: string, k: string, on: boolean): void {
   state.weekly = state.weekly || {};
   const w = (state.weekly[wk] = state.weekly[wk] || { checks: {}, note: '' });
@@ -180,10 +176,6 @@ export function setWeeklyNote(state: AppState, wk: string, note: string): void {
 }
 
 /* ── 일일 의식(아침 계획·저녁 셧다운) ── */
-export function getRitual(state: AppState, ds: string): Ritual {
-  state.rituals = state.rituals || {};
-  return state.rituals[ds] || { plan: false, shutdown: false, note: '' };
-}
 export function setRitual(state: AppState, ds: string, key: keyof Ritual, val: boolean | string): void {
   state.rituals = state.rituals || {};
   const r: Ritual = state.rituals[ds] || { plan: false, shutdown: false, note: '' };

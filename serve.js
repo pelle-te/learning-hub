@@ -69,6 +69,7 @@ const ARTIFACTS = {
 };
 
 function sendJSON(res, code, obj) {
+  if (res.headersSent) return; // 이중 콜백 회귀 안전망 — 닫힌 응답 재기록(ERR_HTTP_HEADERS_SENT) 시 프로세스가 죽는다
   const body = JSON.stringify(obj);
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
@@ -150,7 +151,16 @@ function readBody(req, cb) {
    동시 호출 캡(OLLAMA_RUNNING)으로 8B 생성이 쌓이는 것 방지. format:json으로 구조화 강제. */
 let OLLAMA_RUNNING = 0;
 const MAX_OLLAMA = 2;
+function parseModelJSON(content) {
+  const cleaned = String(content || '').replace(/<think>[\s\S]*?<\/think>/g, '');
+  const m = cleaned.match(/\{[\s\S]*\}/);
+  try { return m ? JSON.parse(m[0]) : { raw: cleaned.trim() }; } catch (e) { return null; }
+}
 function ollamaChat(prompt, cb, model) {
+  // ⚠ 타임아웃→destroy→'error'(ECONNRESET) 순서로 콜백이 2번 불릴 수 있다. 두 번째 sendJSON이
+  //   닫힌 응답에 writeHead를 시도하면 프로세스 전체가 죽으므로(실증) done 플래그로 1회 호출을 보장한다.
+  let done = false;
+  const fin = (err, obj) => { if (done) return; done = true; cb(err, obj); };
   const payload = JSON.stringify({
     model: model || OLLAMA_MODEL,
     messages: [{ role: 'user', content: prompt }],
@@ -158,31 +168,107 @@ function ollamaChat(prompt, cb, model) {
     options: { temperature: 0.3, num_ctx: 8192 },
   });
   let u;
-  try { u = new URL('/api/chat', OLLAMA_URL); } catch (e) { return cb(new Error('OLLAMA_URL 오류')); }
+  try { u = new URL('/api/chat', OLLAMA_URL); } catch (e) { return fin(new Error('OLLAMA_URL 오류')); }
+  const req = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
+    let data = '';
+    r.on('data', d => { data += d; });
+    r.on('end', () => {
+      let content = '';
+      try { content = JSON.parse(data).message?.content || ''; } catch (e) { return fin(new Error('Ollama 응답 파싱 실패')); }
+      const obj = parseModelJSON(content);
+      if (obj) fin(null, obj); else fin(new Error('Ollama 응답 파싱 실패'));
+    });
+  });
+  req.on('error', e => fin(new Error('Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')')));
+  req.setTimeout(120000, () => { req.destroy(); fin(new Error('Ollama 응답 시간 초과')); });
+  req.end(payload);
+}
+
+/* 스트리밍 채팅 — Ollama NDJSON을 그대로 중계한다: 토큰 델타는 {d:"…"} 줄, 마지막에 {done:true, …wrap} 줄.
+   총 시간 대신 '무소식 90초'를 타임아웃으로 삼는다(콜드 로드·긴 생성에도 안전 — 120초 벽시계 한도 제거).
+   클라이언트가 끊으면(res close) 업스트림도 끊어 생성 자체를 중단시킨다(취소가 실제로 동작). */
+function ollamaChatStream(spec, res, release) {
+  let u;
+  try { u = new URL('/api/chat', OLLAMA_URL); } catch (e) { release(); return sendJSON(res, 200, { ok: false, error: 'OLLAMA_URL 오류' }); }
+  const payload = JSON.stringify({
+    model: spec.model || OLLAMA_MODEL,
+    messages: [{ role: 'user', content: spec.prompt }],
+    stream: true, format: 'json', think: false,
+    options: { temperature: 0.3, num_ctx: 8192 },
+  });
+  res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
+  let full = '', buf = '', ended = false, idle = null;
+  const finish = (obj) => {
+    if (ended) return; ended = true;
+    clearTimeout(idle); release();
+    try { res.end(JSON.stringify(Object.assign({ done: true }, obj)) + '\n'); } catch (e) {}
+  };
+  const bump = (up) => {
+    clearTimeout(idle);
+    idle = setTimeout(() => { try { up.destroy(); } catch (e) {} finish({ ok: false, error: 'Ollama 응답 시간 초과(90초 무소식)' }); }, 90000);
+  };
+  const up = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
+    bump(up);
+    r.on('data', chunk => {
+      bump(up);
+      buf += chunk.toString('utf8');
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        if (!line.trim()) continue;
+        try {
+          const j = JSON.parse(line);
+          const d = (j.message && j.message.content) || '';
+          if (d) { full += d; if (!ended) res.write(JSON.stringify({ d }) + '\n'); }
+        } catch (e) {}
+      }
+    });
+    r.on('end', () => {
+      const obj = parseModelJSON(full);
+      finish(obj ? spec.wrap(obj) : { ok: false, error: 'Ollama 응답 파싱 실패' });
+    });
+  });
+  bump(up);
+  up.on('error', e => finish({ ok: false, error: 'Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')' }));
+  res.on('close', () => { if (!ended) { ended = true; clearTimeout(idle); try { up.destroy(); } catch (e) {} release(); } });
+  up.end(payload);
+}
+
+/* 임베딩 프록시 — 의미 검색·지식맵 자동 연결용. 텍스트만 받아 벡터만 돌려준다(모델·대상 URL은 서버 고정 → SSRF 불가).
+   임베딩 모델은 생성 모델과 별개: `ollama pull bge-m3`(다국어) 권장. */
+const EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || 'bge-m3';
+let EMBED_RUNNING = 0;
+function ollamaEmbed(texts, cb) {
+  let done = false;
+  const fin = (err, vecs) => { if (done) return; done = true; cb(err, vecs); };
+  let u;
+  try { u = new URL('/api/embed', OLLAMA_URL); } catch (e) { return fin(new Error('OLLAMA_URL 오류')); }
   const req = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
     let data = '';
     r.on('data', d => { data += d; });
     r.on('end', () => {
       try {
-        const content = JSON.parse(data).message?.content || '';
-        const cleaned = content.replace(/<think>[\s\S]*?<\/think>/g, '');
-        const m = cleaned.match(/\{[\s\S]*\}/);
-        cb(null, m ? JSON.parse(m[0]) : { raw: cleaned.trim() });
-      } catch (e) { cb(new Error('Ollama 응답 파싱 실패')); }
+        const j = JSON.parse(data);
+        if (Array.isArray(j.embeddings)) return fin(null, j.embeddings);
+        fin(new Error(j.error ? String(j.error).slice(0, 200) : '임베딩 응답 형식 오류'));
+      } catch (e) { fin(new Error('임베딩 응답 파싱 실패')); }
     });
   });
-  req.on('error', e => cb(new Error('Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')')));
-  req.setTimeout(120000, () => { req.destroy(); cb(new Error('Ollama 응답 시간 초과')); });
-  req.end(payload);
+  req.on('error', e => fin(new Error('Ollama 연결 실패 (' + (e.code || e.message) + ')')));
+  req.setTimeout(60000, () => { req.destroy(); fin(new Error('임베딩 시간 초과')); });
+  req.end(JSON.stringify({ model: EMBED_MODEL, input: texts }));
 }
 
+/* ── 프롬프트 빌더 4종 — 각 라우트의 입력 검증 + 프롬프트 조립 + 응답 포장을 한 곳에.
+   반환: { error } 또는 { prompt, model, wrap }. 스트림/논스트림 두 경로가 같은 빌더를 쓴다. */
+
 /* 내 요약 채점 — 원문과 대조. 원문은 참조만, 새 요약을 대신 쓰지 않는다(모범요약은 짧게 예시로만). */
-function coachSummary(body, cb) {
+function buildCoach(body) {
   const summary = String(body.summary || '').slice(0, 8000).trim();
   const source = String(body.source || '').slice(0, 6000).trim();
   const lang = body.lang === 'en' ? 'en' : 'ko';
-  if (!summary) return cb({ ok: false, error: '내 요약이 비어 있어요.' });
-  if (!source) return cb({ ok: false, error: '원문이 없어요.' });
+  if (!summary) return { error: '내 요약이 비어 있어요.' };
+  if (!source) return { error: '원문이 없어요.' };
   // 프롬프트: 스키마를 '값이 든 템플릿'으로 주면 8B가 그 예시 문자열을 그대로 베낀다 →
   // 키를 산문으로 설명(값 예시 없이)하고 실제 [원문]/[요약]만 뒤에 붙인다.
   const prompt = lang === 'ko'
@@ -206,18 +292,15 @@ function coachSummary(body, cb) {
       + '- model_summary: a 1-2 sentence model summary of the SOURCE, in English (string)\n'
       + '- comment: one encouraging remark in Korean\n\n'
       + '[SOURCE]\n' + source + '\n\n[NOTES]\n' + summary;
-  ollamaChat(prompt, (err, obj) => {
-    if (err) return cb({ ok: false, error: err.message });
-    cb({ ok: true, lang, feedback: obj });
-  });
+  return { prompt, model: OLLAMA_MODEL, wrap: obj => ({ ok: true, lang, feedback: obj }) };
 }
 
 /* 어휘 도우미 — 지문에서 클릭/선택한 단어 하나의 뜻·예문(원문 문맥 반영). */
-function vocabLookup(body, cb) {
+function buildVocab(body) {
   const word = String(body.word || '').slice(0, 80).trim();
   const context = String(body.context || '').slice(0, 600).trim();
   const lang = body.lang === 'en' ? 'en' : 'ko';
-  if (!word) return cb({ ok: false, error: '단어가 없어요.' });
+  if (!word) return { error: '단어가 없어요.' };
   const prompt = lang === 'en'
     ? 'Explain the English word/phrase below to a Korean learner, using the sentence context.\n'
       + 'Output ONE JSON object with keys: word(the word), pos(품사 in Korean), '
@@ -227,18 +310,15 @@ function vocabLookup(body, cb) {
       + 'JSON 하나만 출력: 키는 word(그 단어), meaning(문맥에 맞는 뜻), '
       + 'synonyms(그 의미의 유의어 배열), example(그 단어를 같은 의미로 쓴 새 예문 문자열).\n\n'
       + '단어: ' + word + '\n[문맥]\n' + context;
-  ollamaChat(prompt, (err, obj) => {
-    if (err) return cb({ ok: false, error: err.message });
-    cb({ ok: true, lang, vocab: obj });
-  });
+  return { prompt, model: OLLAMA_MODEL, wrap: obj => ({ ok: true, lang, vocab: obj }) };
 }
 
 /* 증시 브리핑 — 그날 지수 등락 + 뉴스 헤드라인을 묶어 "왜 이렇게 움직였나"를 해설.
    ⚠ 숫자를 새로 지어내지 않는다(주어진 등락만 사용). 뉴스와 등락을 잇는 서사만 만든다. */
-function marketsBrief(body, cb) {
+function buildBrief(body) {
   const indices = Array.isArray(body.indices) ? body.indices.slice(0, 20) : [];
   const headlines = Array.isArray(body.headlines) ? body.headlines.slice(0, 25) : [];
-  if (!indices.length && !headlines.length) return cb({ ok: false, error: '브리핑할 데이터가 없어요 — 먼저 수집하세요.' });
+  if (!indices.length && !headlines.length) return { error: '브리핑할 데이터가 없어요 — 먼저 수집하세요.' };
   const idxLines = indices
     .map((i) => `- ${String(i.name || i.symbol || '').slice(0, 30)}: ${Number(i.changePct).toFixed(2)}% (${i.price})`)
     .join('\n');
@@ -254,18 +334,15 @@ function marketsBrief(body, cb) {
     + '- watch: 앞으로 지켜볼 포인트들의 배열(문자열 배열)\n'
     + '- caveat: 이 해설은 지연·요약 데이터 기반 참고용이라는 한 문장 경고\n\n'
     + '[지수]\n' + (idxLines || '(지수 데이터 없음)') + '\n\n[뉴스]\n' + (newsLines || '(뉴스 없음)');
-  ollamaChat(prompt, (err, obj) => {
-    if (err) return cb({ ok: false, error: err.message });
-    cb({ ok: true, brief: obj });
-  }, MARKETS_MODEL);
+  return { prompt, model: MARKETS_MODEL, wrap: obj => ({ ok: true, brief: obj }) };
 }
 
 /* 주간 회고 코치 — 앱이 이미 계산한 결정적 인사이트(오답 쏠림·반복 약점·백지 통과율 등)를 받아
    '다음 주에 무엇을 어떻게 바꿀지'를 한국어로 구체화한다. 숫자를 새로 지어내지 않는다(주어진 사실만). */
-function reviewCoach(body, cb) {
+function buildReview(body) {
   const facts = Array.isArray(body.facts) ? body.facts.slice(0, 20).map((f) => String(f).slice(0, 300)) : [];
   const weak = Array.isArray(body.weakSpots) ? body.weakSpots.slice(0, 8).map((w) => String(w).slice(0, 120)) : [];
-  if (!facts.length && !weak.length) return cb({ ok: false, error: '회고할 데이터가 없어요 — 이번 주 기록이 필요해요.' });
+  if (!facts.length && !weak.length) return { error: '회고할 데이터가 없어요 — 이번 주 기록이 필요해요.' };
   const prompt =
     '너는 학습 코치다. 아래 [사실]은 이번 주 학습 데이터에서 이미 계산된 관찰이고, [반복약점]은 여러 번 막힌 지점이다.\n'
     + '주어진 사실만 사용하고 새 수치를 지어내지 마라. 다음 주에 무엇을 어떻게 바꿀지 구체적·실행 가능한 조언을 한국어로 준다.\n'
@@ -275,11 +352,16 @@ function reviewCoach(body, cb) {
     + '- focus: 가장 먼저 손봐야 할 개념/습관 하나(문자열)\n'
     + '- encourage: 격려 한 문장(문자열)\n\n'
     + '[사실]\n' + (facts.join('\n') || '(없음)') + '\n\n[반복약점]\n' + (weak.join('\n') || '(없음)');
-  ollamaChat(prompt, (err, obj) => {
-    if (err) return cb({ ok: false, error: err.message });
-    cb({ ok: true, coach: obj });
-  });
+  return { prompt, model: OLLAMA_MODEL, wrap: obj => ({ ok: true, coach: obj }) };
 }
+
+/* Ollama 라우트 테이블 — 4개 엔드포인트가 같은 가드(Origin·동시캡)와 스트림/논스트림 분기를 공유. */
+const OLLAMA_ROUTES = {
+  '/api/reads/coach': buildCoach,
+  '/api/reads/vocab': buildVocab,
+  '/api/markets/brief': buildBrief,
+  '/api/review/coach': buildReview,
+};
 
 /* 동시 도구 실행 캡 — 30분짜리 research 스폰이 무한히 쌓이는 것 방지(DoS 가드). */
 let RUNNING = 0;
@@ -346,32 +428,38 @@ const server = http.createServer((req, res) => {
           runTool(tool, extra, done);
         });
       }
-      // 읽을거리 코치·어휘 — 로컬 Ollama 프록시(요약 안 함). 비-로컬 Origin 거부 + 동시 캡.
-      if ((url === '/api/reads/coach' || url === '/api/reads/vocab') && req.method === 'POST') {
+      // Ollama 프록시 4종(코치·어휘·브리핑·회고) — 비-로컬 Origin 거부 + 동시 캡 공유.
+      // body.stream === true면 NDJSON 스트림(토큰 델타 → 최종 JSON), 아니면 기존 단발 JSON.
+      if (OLLAMA_ROUTES[url] && req.method === 'POST') {
         if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
         if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
-        const fn = url.endsWith('coach') ? coachSummary : vocabLookup;
         return readBody(req, body => {
+          const spec = OLLAMA_ROUTES[url](body);
+          if (spec.error) return sendJSON(res, 200, { ok: false, error: spec.error });
           OLLAMA_RUNNING++;
-          fn(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
+          let released = false;
+          const release = () => { if (released) return; released = true; OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); };
+          if (body.stream === true) return ollamaChatStream(spec, res, release);
+          ollamaChat(spec.prompt, (err, obj) => {
+            release();
+            if (err) return sendJSON(res, 200, { ok: false, error: err.message });
+            sendJSON(res, 200, spec.wrap(obj));
+          }, spec.model);
         });
       }
-      // 증시 브리핑 — 로컬 Ollama 프록시("왜 움직였나" 해설). 비-로컬 Origin 거부 + 동시 캡 공유.
-      if (url === '/api/markets/brief' && req.method === 'POST') {
+      // 임베딩 — 의미 검색·지식맵 자동 연결. 텍스트→벡터만(모델·대상은 서버 고정). 배치 32×3000자 캡.
+      if (url === '/api/embed' && req.method === 'POST') {
         if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
-        if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
+        if (EMBED_RUNNING >= 1) return sendJSON(res, 429, { ok: false, error: '임베딩이 이미 처리 중이에요 — 잠시 후 다시.' });
         return readBody(req, body => {
-          OLLAMA_RUNNING++;
-          marketsBrief(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
-        });
-      }
-      // 주간 회고 코치 — 결정적 인사이트를 받아 실행 조언으로 구체화. 비-로컬 Origin 거부 + 동시 캡 공유.
-      if (url === '/api/review/coach' && req.method === 'POST') {
-        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
-        if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
-        return readBody(req, body => {
-          OLLAMA_RUNNING++;
-          reviewCoach(body, r => { OLLAMA_RUNNING = Math.max(0, OLLAMA_RUNNING - 1); sendJSON(res, 200, r); });
+          const texts = Array.isArray(body.texts) ? body.texts.slice(0, 32).map(t => String(t).slice(0, 3000)) : [];
+          if (!texts.length) return sendJSON(res, 200, { ok: false, error: '임베딩할 텍스트가 없어요.' });
+          EMBED_RUNNING++;
+          ollamaEmbed(texts, (err, vectors) => {
+            EMBED_RUNNING = Math.max(0, EMBED_RUNNING - 1);
+            if (err) return sendJSON(res, 200, { ok: false, error: err.message });
+            sendJSON(res, 200, { ok: true, model: EMBED_MODEL, vectors });
+          });
         });
       }
       return sendJSON(res, 404, { ok: false, error: 'API 경로 없음' });
@@ -386,8 +474,10 @@ const server = http.createServer((req, res) => {
     fs.stat(filePath, (err, st) => {
       if (!err && st.isFile()) {
         const type = MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
-        // /assets/(콘텐츠 해시 파일명)은 1년 immutable, 그 외(index.html·manifest·sw.js 등)는 no-cache.
-        const cache = urlPath.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+        // /assets/(콘텐츠 해시 파일명)은 1년 immutable. /fonts/도 사실상 불변(교체 시 파일명 변경 관례)이라
+        // 장기 캐시 — 없으면 2MB 폰트가 검증자 부재로 매 로드 전체 재전송된다. 그 외(index.html 등)는 no-cache.
+        const cache = urlPath.startsWith('/assets/') || urlPath.startsWith('/fonts/')
+          ? 'public, max-age=31536000, immutable' : 'no-cache';
         sendFile(req, res, filePath, type, cache);
         return;
       }

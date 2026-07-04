@@ -53,8 +53,9 @@ test('schedule: React 탭으로 렌더되고 개요/카드 뷰를 전환한다(#
   renderApp('/schedule');
   await waitFor(() => expect(screen.getByRole('button', { name: '◀ 이전 주' })).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
-  fireEvent.click(screen.getByRole('tab', { name: '카드' }));
-  await waitFor(() => expect(screen.getByRole('tab', { name: '카드' })).toHaveAttribute('aria-selected', 'true'));
+  // 세그먼트는 tablist 계약 미이행이라 group+aria-pressed로 정직화됨(WCAG 4.1.2)
+  fireEvent.click(screen.getByRole('button', { name: '카드' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '카드' })).toHaveAttribute('aria-pressed', 'true'));
 });
 
 test('routine: + 블록 추가가 store.routine에 들어간다', async () => {

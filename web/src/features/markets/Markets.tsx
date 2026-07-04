@@ -9,12 +9,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useMarkets, usePing } from '@/store/queries';
-import { runTool, marketsBrief, type MarketBriefResult } from '@/lib/api';
+import { marketsBrief, previewFromJsonStream, type MarketBriefResult } from '@/lib/api';
 import { indexStats, groupByRegion, fmtPct, dir, type IndexQuote, type NewsItem } from '@/lib/markets';
-import { useFocusTrap } from '@/lib/useFocusTrap';
 import { todayISO } from '@/lib/utils';
-import EmptyState from '@/components/EmptyState';
-import { Button } from '@/components/ui';
+import ArtifactGate from '@/components/ArtifactGate';
+import DetailDrawer from '@/components/DetailDrawer';
+import { useCollectTool } from '@/components/useCollectTool';
+import { Button, Skeleton } from '@/components/ui';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { addBacklog } from '@/lib/methodology';
@@ -59,26 +60,22 @@ export default function Markets() {
     [st.up, st.down, lead?.name, lead?.changePct, online, pingLoading, markets.data?.at],
   );
 
-  const [collecting, setCollecting] = useState(false);
+  // ── 온디맨드 AI 브리핑 상태(스트리밍) ──────────────────────────
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefErr, setBriefErr] = useState<string | null>(null);
+  const [briefPreview, setBriefPreview] = useState('');
+  const [brief, setBrief] = useState<MarketBriefResult | null>(null);
+  const briefAbort = useRef<AbortController | null>(null);
+
   // silent=자동 수집(탭 열 때 오늘 데이터가 없으면) — 성공 토스트를 띄우지 않는다.
+  const { collecting, collect: collectRaw } = useCollectTool('markets-collect', markets.refetch, '증시 동향 수집 완료');
   const collect = useCallback(
     async (silent = false) => {
-      if (collecting) return;
-      setCollecting(true);
-      try {
-        const res = await runTool('markets-collect', {});
-        if (res.ok) {
-          await markets.refetch();
-          if (!silent) ui.toast('증시 동향 수집 완료', 'ok');
-        } else if (!silent) {
-          ui.toast('수집 실패 — serve.js 출력 확인', 'bad');
-        }
-      } catch (e) {
-        if (!silent) ui.toast('수집 요청 실패: ' + ((e as Error).message || e), 'bad');
-      }
-      setCollecting(false);
+      // 수집이 데이터를 갈면 옛 브리핑은 다른 날의 해설 — 무효화해 다음 열람 때 새로 받는다.
+      if (await collectRaw(silent)) setBrief(null);
     },
-    [collecting, markets],
+    [collectRaw],
   );
 
   // 자동 수집 — 탭을 열었을 때 온라인인데 데이터가 없거나 '오늘 것'이 아니면 알아서 채운다(대시보드처럼
@@ -94,82 +91,79 @@ export default function Markets() {
     void collect(true);
   }, [online, markets.isLoading, markets.data, collecting, collect]);
 
-  // ── 온디맨드 AI 브리핑(오버레이 다이얼로그) ──────────────────────
-  const [briefOpen, setBriefOpen] = useState(false);
-  const [briefBusy, setBriefBusy] = useState(false);
-  const [brief, setBrief] = useState<MarketBriefResult | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(briefOpen, panelRef);
-
-  useEffect(() => {
-    if (!briefOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setBriefOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [briefOpen]);
-
+  // AI 브리핑 요청 — 스트리밍(토큰 미리보기) + 취소 가능. 이미 받은 브리핑은 재사용(수집이 무효화).
   const askBrief = useCallback(async () => {
     setBriefOpen(true);
-    if (briefBusy || brief) return; // 이미 받았으면 재사용(자동 재호출 안 함)
+    if (briefBusy || brief) return;
     setBriefBusy(true);
+    setBriefErr(null);
+    setBriefPreview('');
+    const ac = new AbortController();
+    briefAbort.current = ac;
     try {
       const res = await marketsBrief(
         indices.map((i) => ({ name: i.name, symbol: i.symbol, changePct: i.changePct, price: i.price })),
         news.map((n) => ({ title: n.title, source: n.source })),
+        { signal: ac.signal, onDelta: (t) => setBriefPreview(previewFromJsonStream(t)) },
       );
       if (res.ok && res.brief) setBrief(res.brief);
-      else ui.toast(res.error || '브리핑 실패', 'bad');
+      else setBriefErr(res.error || '브리핑 실패');
     } catch (e) {
-      ui.toast('AI 브리핑 실패: ' + ((e as Error).message || e), 'bad');
+      if ((e as Error).name !== 'AbortError') setBriefErr('AI 브리핑 실패: ' + ((e as Error).message || e));
     }
     setBriefBusy(false);
   }, [briefBusy, brief, indices, news]);
+
+  // 닫으면 진행 중 생성도 중단(서버가 업스트림을 끊어 Ollama 생성 자체가 멈춘다).
+  const closeBrief = useCallback(() => {
+    briefAbort.current?.abort();
+    setBriefOpen(false);
+  }, []);
 
   const regions = useMemo(() => groupByRegion(indices), [indices]);
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!indices.length && !news.length) {
-    if (markets.isLoading || pingLoading) {
+    if (markets.isLoading || pingLoading || (collecting && online)) {
+      // 지수 카드 형상 스켈레톤 — 무엇이 올지 예고하고 팝인 레이아웃 점프를 없앤다.
       return (
         <section className={m.wrap} aria-label="증시 동향">
-          <div className={m.loading}>증시 동향 불러오는 중…</div>
+          <span className={m.srOnly} role="status">
+            증시 동향 불러오는 중…
+          </span>
+          <div className={m.skeleBoard} aria-hidden="true">
+            <Skeleton width={120} height={14} />
+            <div className={m.grid}>
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className={m.skeleCard}>
+                  <Skeleton width="55%" height={13} />
+                  <Skeleton width="70%" height={20} />
+                  <Skeleton width="38%" height={13} />
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       );
     }
     return (
       <section className={m.wrap} aria-label="증시 동향">
         <div className={m.emptyHost}>
-          {!online ? (
-            <EmptyState
-              glyph="📈"
-              title="serve.js가 꺼져 있어요"
-              desc={
-                <>
-                  증시 동향은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 전세계 지수
-                  등락과 금융 뉴스를 가져옵니다. 피드 설정: <code>러닝허브/_증시/feeds.json</code>
-                </>
-              }
-            />
-          ) : (
-            <EmptyState
-              glyph="📈"
-              title="아직 수집된 증시 데이터가 없어요"
-              desc="전세계 주요 지수의 오늘 등락과, 왜 그렇게 움직였는지 다루는 금융 뉴스·칼럼을 가져올게요."
-              actions={
-                <Button variant="primary" onClick={() => collect()} disabled={collecting}>
-                  {collecting ? (
-                    <>
-                      <span className={ds.spin} /> 수집 중…
-                    </>
-                  ) : (
-                    '증시 동향 수집 시작'
-                  )}
-                </Button>
-              }
-            />
-          )}
+          <ArtifactGate
+            online={online}
+            glyph="📈"
+            offlineDesc={
+              <>
+                증시 동향은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 전세계 지수 등락과
+                금융 뉴스를 가져옵니다. 피드 설정: <code>러닝허브/_증시/feeds.json</code>
+              </>
+            }
+            emptyTitle="아직 수집된 증시 데이터가 없어요"
+            emptyDesc="전세계 주요 지수의 오늘 등락과, 왜 그렇게 움직였는지 다루는 금융 뉴스·칼럼을 가져올게요."
+            collecting={collecting}
+            onCollect={() => void collect()}
+            collectLabel="증시 동향 수집 시작"
+          />
         </div>
       </section>
     );
@@ -184,15 +178,14 @@ export default function Markets() {
           <span className={m.headNote}>지수는 지연·최근 종가 기준일 수 있어요 · 뉴스는 원문 링크</span>
         </div>
         <div className={m.headActions}>
-          <button
-            type="button"
-            className={m.collectBtn}
-            onClick={() => collect()}
+          <Button
+            sm
+            onClick={() => void collect()}
             disabled={collecting || !online}
             title={online ? '새로 수집' : 'serve.js가 꺼져 있어요'}
           >
             {collecting ? <span className={ds.spin} /> : '↻'} 수집
-          </button>
+          </Button>
           <Button variant="primary" sm onClick={askBrief} disabled={!online || !indices.length}>
             🤖 오늘 왜 움직였나
           </Button>
@@ -230,62 +223,67 @@ export default function Markets() {
         </aside>
       </div>
 
-      {/* 온디맨드 AI 브리핑 다이얼로그 */}
-      {briefOpen && (
-        <div
-          className={m.overlay}
-          role="dialog"
-          aria-modal="true"
-          aria-label="오늘의 증시 브리핑"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setBriefOpen(false);
-          }}
-        >
-          <div className={m.panel} ref={panelRef}>
-            <div className={m.panelHead}>
-              <span className={m.panelTitle}>🤖 오늘의 증시 브리핑</span>
-              <button type="button" className={m.panelClose} onClick={() => setBriefOpen(false)} aria-label="닫기">
-                ✕
-              </button>
+      {/* 온디맨드 AI 브리핑 — 공용 DetailDrawer(포커스 트랩·Esc·바깥클릭·복원 일원화) */}
+      <DetailDrawer open={briefOpen} onClose={closeBrief} title="🤖 오늘의 증시 브리핑">
+        {briefBusy ? (
+          <>
+            <div className={m.panelBusy} role="status">
+              <span className={ds.spin} /> {briefPreview ? '해설을 쓰는 중…' : '그날 지수와 뉴스를 엮는 중…'}
             </div>
-            {briefBusy ? (
-              <div className={m.panelBusy}>
-                <span className={ds.spin} /> 그날 지수와 뉴스를 엮는 중…
+            {/* 스트리밍 미리보기 — 완성된 문장부터 타이핑되듯 나타난다(SR에는 위 status만 공지). */}
+            {briefPreview && (
+              <p className={m.briefStream} aria-hidden="true">
+                {briefPreview}
+              </p>
+            )}
+          </>
+        ) : brief ? (
+          <div role="status">
+            {brief.overview && <p className={m.briefOverview}>{brief.overview}</p>}
+            {brief.drivers?.length ? (
+              <div className={m.briefGroup}>
+                <span className={m.briefLabel}>오늘의 동인</span>
+                <ul className={m.driverList}>
+                  {brief.drivers.map((d, i) => (
+                    <li key={i}>
+                      <b>{d.title}</b>
+                      {d.detail ? <span> — {d.detail}</span> : null}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ) : brief ? (
-              <div className={m.panelBody}>
-                {brief.overview && <p className={m.briefOverview}>{brief.overview}</p>}
-                {brief.drivers?.length ? (
-                  <div className={m.briefGroup}>
-                    <span className={m.briefLabel}>오늘의 동인</span>
-                    <ul className={m.driverList}>
-                      {brief.drivers.map((d, i) => (
-                        <li key={i}>
-                          <b>{d.title}</b>
-                          {d.detail ? <span> — {d.detail}</span> : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {brief.watch?.length ? (
-                  <div className={m.briefGroup}>
-                    <span className={m.briefLabel}>지켜볼 점</span>
-                    <ul className={m.watchList}>
-                      {brief.watch.map((w, i) => (
-                        <li key={i}>{w}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {brief.caveat && <p className={m.briefCaveat}>{brief.caveat}</p>}
+            ) : null}
+            {brief.watch?.length ? (
+              <div className={m.briefGroup}>
+                <span className={m.briefLabel}>지켜볼 점</span>
+                <ul className={m.watchList}>
+                  {brief.watch.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
               </div>
-            ) : (
-              <div className={m.panelBusy}>브리핑을 불러오지 못했어요.</div>
+            ) : null}
+            {brief.caveat && <p className={m.briefCaveat}>{brief.caveat}</p>}
+            {markets.data?.at && (
+              <p className={m.briefStamp}>기준 데이터: {markets.data.at.slice(0, 16).replace('T', ' ')} 수집</p>
             )}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className={m.panelBusy} role="alert">
+            <span>{briefErr || '브리핑을 불러오지 못했어요.'}</span>
+            <Button
+              sm
+              onClick={() => {
+                setBrief(null);
+                setBriefErr(null);
+                void askBrief();
+              }}
+            >
+              다시 시도
+            </Button>
+          </div>
+        )}
+      </DetailDrawer>
     </section>
   );
 }
@@ -298,6 +296,8 @@ function IndexCard({ q }: { q: IndexQuote }) {
     <div
       className={m.card}
       data-dir={d}
+      /* role 없는 div의 aria-label은 무시된다(ARIA 1.2) — group으로 유효화 */
+      role="group"
       aria-label={`${q.name}, ${DIR_WORD[d]} ${Math.abs(q.changePct).toFixed(2)}퍼센트, 현재 ${price}`}
     >
       <div className={m.cardTop}>
@@ -336,9 +336,11 @@ function Spark({ spark, d }: { spark: number[]; d: 'up' | 'down' | 'flat' }) {
 
 /** 뉴스 1장 — 출처·시각·제목(원문 링크)·발췌 + '학습으로 보내기'(보충 백로그 승격). */
 function NewsCard({ n, onPromote }: { n: NewsItem; onPromote: (n: NewsItem) => void }) {
+  // 피드 유래 URL은 신뢰경계 밖 — javascript: 등 비-http 스킴은 링크로 만들지 않는다.
+  const safeUrl = /^https?:\/\//i.test(n.url) ? n.url : undefined;
   return (
     <li className={m.newsItem}>
-      <a className={m.newsLink} href={n.url} target="_blank" rel="noreferrer noopener">
+      <a className={m.newsLink} href={safeUrl} target="_blank" rel="noreferrer noopener">
         <div className={m.newsMeta}>
           <span className={m.newsSource}>{n.source}</span>
           {n.field ? <span className={m.newsField}>{n.field}</span> : null}

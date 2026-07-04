@@ -4,16 +4,16 @@
    원문은 절대 가공하지 않는다(요약은 사용자 몫). 왼쪽 목록 · 오른쪽 리더+내 요약 에디터.
    serve.js가 꺼져 있으면 우아 안내, 수집 0편이면 '수집 시작'(reads-collect 도구).
 ============================================================ */
-import { useMemo, useRef, useState } from 'react';
-import type { UseQueryResult } from '@tanstack/react-query';
-import EmptyState from '@/components/EmptyState';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import ArtifactGate from '@/components/ArtifactGate';
+import { useCollectTool } from '@/components/useCollectTool';
 import { Button } from '@/components/ui';
-import { runTool, coachSummary, lookupVocab, type CoachFeedback, type VocabResult } from '@/lib/api';
+import { coachSummary, lookupVocab, previewFromJsonStream, type CoachFeedback, type VocabResult } from '@/lib/api';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromArticle } from '@/lib/promote';
-import type { Article, ArticleWork, ReadsArtifact } from '@/lib/reads';
+import type { Article, ArticleWork } from '@/lib/reads';
 import ds from '@/styles/ds.module.css';
 import r from './Reads.module.css';
 
@@ -34,19 +34,22 @@ export default function ArticlePractice({
   setWork,
   online,
   pingLoading,
-  query,
+  loading,
+  refetch,
 }: {
   articles: Article[];
   work: Record<string, ArticleWork>;
   setWork: (id: string, w: ArticleWork) => void;
   online: boolean;
   pingLoading: boolean;
-  query: UseQueryResult<ReadsArtifact>;
+  /* 쿼리 표면 전체(UseQueryResult) 대신 필요한 두 조각만 — 데이터 레이어 누수 차단. */
+  loading: boolean;
+  refetch: () => Promise<unknown>;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [selId, setSelId] = useState<string | null>(null);
-  const [collecting, setCollecting] = useState(false);
   const mutate = useApp((s) => s.mutate);
+  const { collecting, collect } = useCollectTool('reads-collect', refetch, '읽을거리 수집 완료');
 
   // B5 — '학습으로 보내기': 읽은 글을 보충 백로그(나중에 학습할 큐)로 승격. 소비→학습 루프를 닫는다.
   const promote = (a: Article) => {
@@ -56,8 +59,12 @@ export default function ArticlePractice({
   };
 
   // Ollama 코치(내 요약 채점) — serve.js/Ollama 필요. 원문 요약은 하지 않는다.
+  // 결과에 지문 id를 태깅한다: 응답(수십 초)이 오기 전 다른 지문으로 옮기면
+  // 옛 지문의 채점이 새 지문 아래 붙는 오표시(레이스)가 났었다 — 현재 지문일 때만 렌더.
   const [coachBusy, setCoachBusy] = useState(false);
-  const [coach, setCoach] = useState<CoachFeedback | null>(null);
+  const [coachPreview, setCoachPreview] = useState('');
+  const [coach, setCoach] = useState<{ id: string; fb: CoachFeedback } | null>(null);
+  const coachAbort = useRef<AbortController | null>(null);
   // Ollama 어휘(선택한 단어 뜻) — 리더 위 팝오버.
   const [vocab, setVocab] = useState<VocabState | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
@@ -76,9 +83,10 @@ export default function ArticlePractice({
   if (effId !== draftFor) {
     setDraftFor(effId);
     setDraft(effId ? (work[effId]?.summary ?? '') : '');
-    setCoach(null); // 지문 바뀌면 이전 채점 결과 감춤
     setVocab(null);
   }
+  // 지문이 바뀌거나 떠나면 진행 중 채점을 중단(생성 낭비 방지 — 오표시는 id 태깅이 이미 막는다).
+  useEffect(() => () => coachAbort.current?.abort(), [effId]);
 
   const commit = (done?: boolean) => {
     if (!effId) return;
@@ -90,45 +98,47 @@ export default function ArticlePractice({
     });
   };
 
-  const collect = async () => {
-    if (collecting) return;
-    setCollecting(true);
-    try {
-      const res = await runTool('reads-collect', {});
-      if (res.ok) {
-        await query.refetch();
-        ui.toast('읽을거리 수집 완료', 'ok');
-      } else {
-        ui.toast('수집 실패 — serve.js 출력 확인', 'bad');
-      }
-    } catch (e) {
-      ui.toast('수집 요청 실패: ' + ((e as Error).message || e), 'bad');
+  // 언마운트 안전망 — g키 라우트 이동 등 blur 없이 떠나면 미커밋 초안이 유실됐다.
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!effId) return;
+    const cur = work[effId];
+    if ((cur?.summary ?? '') !== draft) {
+      setWork(effId, { summary: draft, done: cur?.done ?? false, updatedAt: new Date().toISOString() });
     }
-    setCollecting(false);
   };
+  useEffect(() => () => flushRef.current(), []);
 
-  // 내 요약 채점 — 현재 초안을 원문과 대조(Ollama). 원문 요약은 시키지 않는다.
+  // 내 요약 채점 — 현재 초안을 원문과 대조(Ollama 스트리밍). 원문 요약은 시키지 않는다.
   const askCoach = async () => {
     if (!sel || coachBusy) return;
     if (!draft.trim()) {
       ui.toast('먼저 요약을 써 보세요.', 'warn');
       return;
     }
+    const target = sel; // 요청 시점의 지문 고정 — 응답 도착 시점의 선택과 무관하게 태깅
     commit(); // 채점 전 현재 초안 저장
     setCoachBusy(true);
     setCoach(null);
+    setCoachPreview('');
+    const ac = new AbortController();
+    coachAbort.current = ac;
     try {
-      const res = await coachSummary(sel.text, draft, sel.lang);
-      if (res.ok && res.feedback) setCoach(res.feedback);
+      const res = await coachSummary(target.text, draft, target.lang, {
+        signal: ac.signal,
+        onDelta: (t) => setCoachPreview(previewFromJsonStream(t)),
+      });
+      if (res.ok && res.feedback) setCoach({ id: target.id, fb: res.feedback });
       else ui.toast(res.error || '채점 실패', 'bad');
     } catch (e) {
-      ui.toast('AI 채점 실패: ' + ((e as Error).message || e), 'bad');
+      if ((e as Error).name !== 'AbortError') ui.toast('AI 채점 실패: ' + ((e as Error).message || e), 'bad');
     }
     setCoachBusy(false);
   };
 
   // 리더에서 단어/구를 선택하면 위치를 잡아 어휘 팝오버 준비(뜻은 버튼 눌러 조회).
-  const onReaderMouseUp = () => {
+  // pointerup — 마우스뿐 아니라 터치(long-press 선택)에서도 뜬다.
+  const onReaderSelect = () => {
     const s = window.getSelection();
     const text = s?.toString().trim() ?? '';
     const host = readerRef.current;
@@ -138,8 +148,11 @@ export default function ArticlePractice({
     const rect = s.getRangeAt(0).getBoundingClientRect();
     const box = host.getBoundingClientRect();
     if (!rect.width) return;
+    // 팝오버는 translateX(-50%)라 문단 좌우 끝 단어에서 리더 밖으로 잘렸다 — x를 클램프.
+    const rawX = rect.left - box.left + rect.width / 2;
+    const x = Math.max(100, Math.min(rawX, Math.max(100, box.width - 100)));
     setVocab({
-      x: rect.left - box.left + rect.width / 2,
+      x,
       y: rect.bottom - box.top + 6,
       word: text,
       loading: false,
@@ -148,62 +161,72 @@ export default function ArticlePractice({
     });
   };
 
+  // 팝오버 닫기 — Esc + 바깥 클릭(기존엔 ✕ 또는 지문 전환뿐이었다).
+  const vocabPopRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!vocab) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setVocab(null);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (vocabPopRef.current && !vocabPopRef.current.contains(e.target as Node)) setVocab(null);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [vocab]);
+
   const doVocab = async () => {
     if (!sel || !vocab) return;
+    const reqWord = vocab.word; // 응답 도착 시 다른 단어가 선택돼 있으면 버린다(레이스 가드)
     setVocab({ ...vocab, loading: true, error: null });
     try {
-      const res = await lookupVocab(vocab.word, sel.text.slice(0, 600), sel.lang);
+      const res = await lookupVocab(reqWord, sel.text.slice(0, 600), sel.lang);
       setVocab((v) =>
-        v ? { ...v, loading: false, result: res.vocab ?? null, error: res.ok ? null : (res.error ?? '실패') } : v,
+        v && v.word === reqWord
+          ? { ...v, loading: false, result: res.vocab ?? null, error: res.ok ? null : (res.error ?? '실패') }
+          : v,
       );
     } catch (e) {
-      setVocab((v) => (v ? { ...v, loading: false, error: (e as Error).message || '조회 실패' } : v));
+      setVocab((v) =>
+        v && v.word === reqWord ? { ...v, loading: false, error: (e as Error).message || '조회 실패' } : v,
+      );
     }
   };
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!articles.length) {
-    if (query.isLoading || pingLoading) {
-      return <div className={r.loading}>지문 불러오는 중…</div>;
-    }
-    if (!online) {
+    if (loading || pingLoading) {
       return (
-        <div className={r.emptyHost}>
-          <EmptyState
-            glyph="📰"
-            title="serve.js가 꺼져 있어요"
-            desc={
-              <>
-                읽을거리 지문은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 내 RSS
-                피드에서 원문을 가져옵니다. 피드 설정: <code>러닝허브/_읽을거리/feeds.json</code>
-              </>
-            }
-          />
+        <div className={r.loading} role="status">
+          지문 불러오는 중…
         </div>
       );
     }
     return (
       <div className={r.emptyHost}>
-        <EmptyState
+        <ArtifactGate
+          online={online}
           glyph="📰"
-          title="아직 수집된 지문이 없어요"
-          desc={
+          offlineDesc={
+            <>
+              읽을거리 지문은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 내 RSS 피드에서
+              원문을 가져옵니다. 피드 설정: <code>러닝허브/_읽을거리/feeds.json</code>
+            </>
+          }
+          emptyTitle="아직 수집된 지문이 없어요"
+          emptyDesc={
             <>
               내 RSS 피드에서 오늘의 칼럼·뉴스 원문을 가져올게요. 영어는 영어 공부, 한국어는 어휘력·요약 연습용 지문으로
               쌓입니다.
             </>
           }
-          actions={
-            <Button variant="primary" onClick={collect} disabled={collecting}>
-              {collecting ? (
-                <>
-                  <span className={ds.spin} /> 수집 중…
-                </>
-              ) : (
-                '지문 수집 시작'
-              )}
-            </Button>
-          }
+          collecting={collecting}
+          onCollect={() => void collect()}
+          collectLabel="지문 수집 시작"
         />
       </div>
     );
@@ -229,15 +252,14 @@ export default function ArticlePractice({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className={r.collectBtn}
-            onClick={collect}
+          <Button
+            sm
+            onClick={() => void collect()}
             disabled={collecting || !online}
             title={online ? '새 지문 수집' : 'serve.js가 꺼져 있어요'}
           >
             {collecting ? <span className={ds.spin} /> : '↻'} 수집
-          </button>
+          </Button>
         </div>
         <ul className={r.list}>
           {list.map((a) => {
@@ -277,20 +299,26 @@ export default function ArticlePractice({
       <div className={r.readerPane}>
         {sel ? (
           <>
-            <article className={r.reader}>
+            {/* lang — 영어 지문은 SR이 영어 음성으로 낭독하도록 부분 언어 전환(WCAG 3.1.2). */}
+            <article className={r.reader} lang={sel.lang === 'en' ? 'en' : undefined}>
               <header className={r.readerHead}>
-                <div className={r.readerMeta}>
+                <div className={r.readerMeta} lang="ko">
                   <span className={r.langTag} data-lang={sel.lang}>
                     {sel.lang === 'en' ? 'EN' : 'KO'}
                   </span>
                   {sel.field} · {sel.source}
-                  <a className={r.srcLink} href={sel.url} target="_blank" rel="noreferrer noopener">
+                  <a
+                    className={r.srcLink}
+                    href={/^https?:\/\//i.test(sel.url) ? sel.url : undefined}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
                     원문 ↗
                   </a>
                 </div>
                 <h2 className={r.readerTitle}>{sel.title}</h2>
               </header>
-              <div className={r.readerBody} ref={readerRef} onMouseUp={onReaderMouseUp}>
+              <div className={r.readerBody} ref={readerRef} onPointerUp={onReaderSelect}>
                 {sel.text.split(/\n\n+/).map((p, i) => (
                   <p key={i}>{p}</p>
                 ))}
@@ -300,6 +328,8 @@ export default function ArticlePractice({
                     style={{ left: vocab.x, top: vocab.y }}
                     role="dialog"
                     aria-label="어휘 뜻"
+                    lang="ko"
+                    ref={vocabPopRef}
                   >
                     <div className={r.vocabHead}>
                       <b className={r.vocabWord}>{vocab.word}</b>
@@ -318,13 +348,15 @@ export default function ArticlePractice({
                         📖 국어사전에서 보기 ↗
                       </a>
                     ) : vocab.loading ? (
-                      <div className={r.vocabBody}>
+                      <div className={r.vocabBody} role="status">
                         <span className={ds.spin} /> 뜻 찾는 중…
                       </div>
                     ) : vocab.error ? (
-                      <div className={r.vocabBody}>{vocab.error}</div>
+                      <div className={r.vocabBody} role="alert">
+                        {vocab.error}
+                      </div>
                     ) : vocab.result ? (
-                      <div className={r.vocabBody}>
+                      <div className={r.vocabBody} role="status">
                         {vocab.result.pos && <span className={r.vocabPos}>{vocab.result.pos}</span>}
                         <div className={r.vocabMean}>{vocab.result.meaning}</div>
                         {vocab.result.synonyms?.length ? (
@@ -403,33 +435,45 @@ export default function ArticlePractice({
                 </Button>
               </div>
 
-              {coach && (
-                <div className={r.coach}>
+              {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 버튼의 '채점 중…'이 상태). */}
+              {coachBusy && coachPreview && (
+                <p className={r.coachStream} aria-hidden="true">
+                  {coachPreview}
+                </p>
+              )}
+
+              {/* 결과는 그 지문의 것일 때만 — 늦게 도착한 응답이 다른 지문 아래 붙는 오표시 방지. */}
+              {coach && coach.id === sel.id && (
+                <div className={r.coach} role="status">
                   <div className={r.coachTop}>
-                    {typeof coach.score === 'number' && (
-                      <span className={r.coachScore} data-good={coach.score >= 70}>
-                        {coach.score}점
+                    {typeof coach.fb.score === 'number' && (
+                      <span className={r.coachScore} data-good={coach.fb.score >= 70}>
+                        {coach.fb.score}점
                       </span>
                     )}
-                    {coach.comment && <span className={r.coachComment}>{coach.comment}</span>}
+                    {coach.fb.comment && <span className={r.coachComment}>{coach.fb.comment}</span>}
                   </div>
-                  {coach.missing?.length ? <CoachList label="빠진 핵심" items={coach.missing} tone="miss" /> : null}
-                  {coach.redundant?.length ? <CoachList label="군더더기" items={coach.redundant} tone="mut" /> : null}
-                  {coach.accuracy?.length ? <CoachList label="정확성" items={coach.accuracy} tone="bad" /> : null}
-                  {coach.corrections?.length ? (
-                    <CoachList label="바로잡기" items={coach.corrections} tone="bad" />
+                  {coach.fb.missing?.length ? (
+                    <CoachList label="빠진 핵심" items={coach.fb.missing} tone="miss" />
                   ) : null}
-                  {coach.key_expressions?.length ? (
+                  {coach.fb.redundant?.length ? (
+                    <CoachList label="군더더기" items={coach.fb.redundant} tone="mut" />
+                  ) : null}
+                  {coach.fb.accuracy?.length ? <CoachList label="정확성" items={coach.fb.accuracy} tone="bad" /> : null}
+                  {coach.fb.corrections?.length ? (
+                    <CoachList label="바로잡기" items={coach.fb.corrections} tone="bad" />
+                  ) : null}
+                  {coach.fb.key_expressions?.length ? (
                     <CoachList
                       label="핵심 표현"
-                      items={coach.key_expressions.map((k) => `${k.en} — ${k.ko}`)}
+                      items={coach.fb.key_expressions.map((k) => `${k.en} — ${k.ko}`)}
                       tone="mut"
                     />
                   ) : null}
-                  {coach.model_summary && (
+                  {coach.fb.model_summary && (
                     <div className={r.coachModel}>
                       <span className={r.coachModelLabel}>모범 요약</span>
-                      {coach.model_summary}
+                      {coach.fb.model_summary}
                     </div>
                   )}
                 </div>

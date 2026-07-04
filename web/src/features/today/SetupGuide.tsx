@@ -1,16 +1,14 @@
 /* SetupGuide — 첫 실행 온보딩(콜드 스타트 빈 화면 방지). 3스텝 라이브 체크.
-   과목+목표가 갖춰지면 자동으로 숨는다. */
+   과목+목표가 갖춰지면 자동으로 숨는다(Today가 setupComplete로 대시보드와 스위칭). */
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { Button, Pill } from '@/components/ui';
+import type { AppState } from '@/lib/types';
 import ds from '@/styles/ds.module.css';
 import t from './Today.module.css';
 
-export function SetupGuide() {
-  const navigate = useNavigate();
-  const items = useApp((s) => s.state.items);
-  const routine = useApp((s) => s.state.routine);
-
+/** 셋업 완료 판정 — 과목 1개 이상 + 목표(일일분/주당시간/챕터) 1개 이상. Today와 공유(단일 원천). */
+export function setupComplete(items: AppState['items']): boolean {
   const hasSubjects = items.some((i) => i.name);
   const hasTargets = items.some(
     (i) =>
@@ -19,8 +17,18 @@ export function SetupGuide() {
         (i.weeklyHours || 0) > 0 ||
         (i.chapters && i.chapters.length > 0)),
   );
+  return hasSubjects && hasTargets;
+}
+
+export function SetupGuide() {
+  const navigate = useNavigate();
+  const items = useApp((s) => s.state.items);
+  const routine = useApp((s) => s.state.routine);
+
+  const hasSubjects = items.some((i) => i.name);
+  const hasTargets = setupComplete(items);
   const hasRoutine = (routine || []).length > 0;
-  if (hasSubjects && hasTargets) return null; // 셋업 완료 → 숨김
+  if (hasSubjects && hasTargets) return null; // 셋업 완료 → 숨김(안전망 — Today가 이미 스위칭)
 
   const steps: { ok: boolean; title: string; desc: string; actions: React.ReactNode }[] = [
     {

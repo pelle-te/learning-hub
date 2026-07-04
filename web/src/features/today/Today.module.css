@@ -111,6 +111,26 @@
 }
 
 /* ── 첫 실행 셋업 가이드(온보딩) ── */
+/* 콜드 스타트 — 빈 대시보드 위에 가이드 카드를 중앙 오버레이(셋업되면 소멸). */
+.todayHost {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+.setupHost {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--bg, #000) 45%, transparent);
+  backdrop-filter: blur(2px);
+}
+.setupHost > * {
+  width: min(560px, 100%);
+}
 .setupCard {
   border-color: color-mix(in srgb, var(--acc) 38%, var(--line));
   box-shadow:
