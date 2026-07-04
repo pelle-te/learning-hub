@@ -90,6 +90,66 @@
   font-style: italic;
 }
 
+/* 검색 + 줌 컨트롤 — 우상단 오버레이. */
+.controls {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 3;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.search {
+  width: 150px;
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  transition: border-color 0.16s var(--ease);
+}
+.search:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--acc) 55%, var(--line));
+}
+.ctrlBtn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: var(--mut);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition:
+    border-color 0.16s var(--ease),
+    color 0.16s var(--ease);
+}
+.ctrlBtn:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
+}
+.searchMiss {
+  position: absolute;
+  top: 46px;
+  right: 14px;
+  z-index: 3;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+
 /* 툴팁 — 커서 추종(노드 요약). 포인터 통과(호버 계산 방해 금지). */
 .tip {
   position: absolute;

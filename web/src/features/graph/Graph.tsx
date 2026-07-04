@@ -77,6 +77,10 @@ export default function Graph() {
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // 캔버스 뷰 제어(줌/팬/노드검색) — 명령형 핸들. 캔버스 이펙트가 채우고, 검색바·버튼이 호출한다.
+  const viewApi = useRef<{ focus: (q: string) => boolean; reset: () => void; zoom: (f: number) => void } | null>(null);
+  const [query, setQuery] = useState('');
+  const [noHit, setNoHit] = useState(false);
 
   // 툴팁 — 호버 노드 요약(허브=이름·완료/전체, 잎=이름). 위치는 커서 추종.
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -152,6 +156,14 @@ export default function Graph() {
     let dpr = 1;
     // 화면 자동맞춤 변환(월드→스크린) — 히트테스트 역변환에 재사용.
     let tf = { scale: 1, ox: 0, oy: 0 };
+    // 사용자 뷰(줌/팬) — auto-fit 위에 얹는 스크린-공간 오버레이. userView가 켜지면 auto-fit을 동결(뷰 안정).
+    const view = { k: 1, x: 0, y: 0 };
+    let userView = false;
+    let panning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panOrigX = 0;
+    let panOrigY = 0;
     let dragId: string | null = null;
     // 클릭(선택) vs 드래그 구분 — pointerdown~up 사이 이동이 미미하면 '클릭'으로 상세 패널을 연다.
     let downId: string | null = null;
@@ -250,10 +262,12 @@ export default function Graph() {
       const cy = (minY + maxY) / 2;
       tf = { scale, ox: cw / 2 - cx * scale, oy: ch / 2 - cy * scale };
     };
-    const sx = (x: number) => tf.ox + x * tf.scale;
-    const sy = (y: number) => tf.oy + y * tf.scale;
+    // 최종 스크린 좌표 = 사용자 뷰(view) ∘ auto-fit(tf). 노드 크기·라벨 임계도 유효 배율(effScale)을 따른다.
+    const sx = (x: number) => view.x + view.k * (tf.ox + x * tf.scale);
+    const sy = (y: number) => view.y + view.k * (tf.oy + y * tf.scale);
+    const effScale = () => tf.scale * view.k;
     const draw = () => {
-      computeTransform();
+      if (!userView) computeTransform(); // 사용자가 줌/팬하면 auto-fit 동결(프레이밍 유지).
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
       // 링크
@@ -286,8 +300,9 @@ export default function Graph() {
         ctx.globalAlpha = 1;
       }
       // 노드
+      const nodeScale = Math.min(1.6, Math.max(0.7, effScale()));
       for (const n of nodes) {
-        const r = n.radius * Math.min(1.4, Math.max(0.7, tf.scale));
+        const r = n.radius * nodeScale;
         const px = sx(n.x);
         const py = sy(n.y);
         ctx.beginPath();
@@ -305,15 +320,22 @@ export default function Graph() {
           ctx.globalAlpha = 1;
         }
       }
-      // 허브 라벨(잎은 툴팁으로 — 라벨 폭주 방지)
+      // 허브 라벨(항상) + 잎 라벨(충분히 확대했을 때만 — 평소엔 툴팁으로 폭주 방지).
       ctx.fillStyle = palette.txt;
       ctx.font = palette.font;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
+      const showLeafLabels = effScale() > 1.35; // 줌인하면 챕터 이름도 드러난다(터치·탐색 지원).
       for (const n of nodes) {
-        if (n.kind !== 'hub') continue;
-        const r = n.radius * Math.min(1.4, Math.max(0.7, tf.scale));
-        ctx.fillText(n.label, sx(n.x), sy(n.y) + r + 3);
+        if (n.kind !== 'hub' && !(showLeafLabels && !n.overflow)) continue;
+        const r = n.radius * nodeScale;
+        if (n.kind === 'hub') {
+          ctx.fillStyle = palette.txt;
+          ctx.fillText(n.label, sx(n.x), sy(n.y) + r + 3);
+        } else {
+          ctx.fillStyle = palette.mut;
+          ctx.fillText(n.label, sx(n.x), sy(n.y) + r + 2);
+        }
       }
     };
 
@@ -356,8 +378,11 @@ export default function Graph() {
     // ── 히트테스트(스크린→월드 역변환) ─────────────────────────────────────
     const hit = (clientX: number, clientY: number): SimNode | null => {
       const rect = canvas.getBoundingClientRect();
-      const wx = (clientX - rect.left - tf.ox) / tf.scale;
-      const wy = (clientY - rect.top - tf.oy) / tf.scale;
+      // 스크린 → auto-fit(base) → 월드: view를 먼저 풀고(tf.ox 기준으로), 그다음 tf를 푼다.
+      const bx = (clientX - rect.left - view.x) / view.k;
+      const by = (clientY - rect.top - view.y) / view.k;
+      const wx = (bx - tf.ox) / tf.scale;
+      const wy = (by - tf.oy) / tf.scale;
       let best: SimNode | null = null;
       let bestD = Infinity;
       for (const n of nodes) {
@@ -378,7 +403,15 @@ export default function Graph() {
     const onDown = (e: PointerEvent) => {
       const n = hit(e.clientX, e.clientY);
       if (!n) {
-        setSel(null); // 빈 공간 클릭 → 선택 해제
+        // 빈 공간 = 캔버스 팬(뷰 이동) + 선택 해제.
+        panning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panOrigX = view.x;
+        panOrigY = view.y;
+        canvas.setPointerCapture(e.pointerId);
+        canvas.style.cursor = 'grabbing';
+        setSel(null);
         return;
       }
       dragId = n.id;
@@ -391,12 +424,22 @@ export default function Graph() {
     };
     const onMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
+      if (panning) {
+        userView = true;
+        view.x = panOrigX + (e.clientX - panStartX);
+        view.y = panOrigY + (e.clientY - panStartY);
+        draw();
+        return;
+      }
       if (dragId != null) {
         const n = byId.get(dragId);
         if (n) {
           if (!moved && Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
-          n.x = (e.clientX - rect.left - tf.ox) / tf.scale;
-          n.y = (e.clientY - rect.top - tf.oy) / tf.scale;
+          // 스크린 → auto-fit → 월드(줌/팬 반영).
+          const bx = (e.clientX - rect.left - view.x) / view.k;
+          const by = (e.clientY - rect.top - view.y) / view.k;
+          n.x = (bx - tf.ox) / tf.scale;
+          n.y = (by - tf.oy) / tf.scale;
           n.vx = 0;
           n.vy = 0;
           if (reduce.matches) draw();
@@ -410,6 +453,16 @@ export default function Graph() {
       setTip(n ? { x: e.clientX - rect.left, y: e.clientY - rect.top, text: tipText(n) } : null);
     };
     const onUp = (e: PointerEvent) => {
+      if (panning) {
+        panning = false;
+        try {
+          canvas.releasePointerCapture(e.pointerId);
+        } catch {
+          /* 이미 해제됨 */
+        }
+        canvas.style.cursor = 'default';
+        return;
+      }
       if (dragId != null) {
         const n = byId.get(dragId);
         dragId = null;
@@ -449,6 +502,59 @@ export default function Graph() {
       if (dragId == null) setTip(null);
     };
 
+    // ── 줌(휠) — 커서 아래 지점을 고정한 채 확대/축소 ──────────────────────
+    const K_MIN = 0.4;
+    const K_MAX = 6;
+    const zoomAt = (mx: number, my: number, factor: number) => {
+      const newK = Math.max(K_MIN, Math.min(K_MAX, view.k * factor));
+      if (newK === view.k) return;
+      userView = true;
+      // 커서 아래 점 고정: mx = view.x + view.k*base  →  base 불변 → view.x 보정.
+      view.x = mx - ((mx - view.x) * newK) / view.k;
+      view.y = my - ((my - view.y) * newK) / view.k;
+      view.k = newK;
+      draw();
+    };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-e.deltaY * 0.0012));
+    };
+
+    // 명령형 뷰 API — 검색바·버튼이 호출(노드로 이동/센터·리셋·버튼 줌).
+    viewApi.current = {
+      focus: (q: string): boolean => {
+        const needle = q.trim().toLowerCase();
+        if (!needle) return false;
+        const target = nodes.find((n) => !n.overflow && n.label.toLowerCase().includes(needle));
+        if (!target) return false;
+        userView = true;
+        const k = 1.9;
+        view.k = k;
+        view.x = cw / 2 - k * (tf.ox + target.x * tf.scale);
+        view.y = ch / 2 - k * (tf.oy + target.y * tf.scale);
+        setSel({
+          id: target.id,
+          kind: target.kind,
+          label: target.label,
+          itemId: target.itemId,
+          done: target.done,
+          total: target.total,
+          tone: target.tone,
+        });
+        draw();
+        return true;
+      },
+      reset: () => {
+        userView = false;
+        view.k = 1;
+        view.x = 0;
+        view.y = 0;
+        draw();
+      },
+      zoom: (factor: number) => zoomAt(cw / 2, ch / 2, factor),
+    };
+
     // ── 테마/가시성/리사이즈 리스너 ────────────────────────────────────────
     const onTheme = () => {
       palette = readPalette();
@@ -466,6 +572,7 @@ export default function Graph() {
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onUp);
     canvas.addEventListener('pointerleave', onLeave);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
     document.addEventListener('visibilitychange', onVis);
     reduce.addEventListener('change', onTheme);
 
@@ -487,10 +594,18 @@ export default function Graph() {
       canvas.removeEventListener('pointerup', onUp);
       canvas.removeEventListener('pointercancel', onUp);
       canvas.removeEventListener('pointerleave', onLeave);
+      canvas.removeEventListener('wheel', onWheel);
       document.removeEventListener('visibilitychange', onVis);
       reduce.removeEventListener('change', onTheme);
+      viewApi.current = null;
     };
   }, [items, semEdges, expandedHubs]);
+
+  // 검색 실행 — 라벨 부분일치 노드로 이동/센터. 없으면 잠깐 '없음' 표시.
+  const runSearch = (q: string) => {
+    const ok = viewApi.current?.focus(q) ?? false;
+    setNoHit(!ok && q.trim().length > 0);
+  };
 
   const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
 
@@ -516,6 +631,54 @@ export default function Graph() {
         </div>
       ) : (
         <div className={g.canvasHost} ref={wrapRef}>
+          {/* 검색 + 줌 컨트롤 — 우상단 오버레이. 캔버스는 SR 불투명이라 여기 컨트롤이 접근 경로. */}
+          <div className={g.controls}>
+            <input
+              className={g.search}
+              type="search"
+              value={query}
+              placeholder="개념·챕터 찾기…"
+              aria-label="지식맵 노드 검색"
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setNoHit(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') runSearch(query);
+              }}
+            />
+            <button type="button" className={g.ctrlBtn} aria-label="찾기" onClick={() => runSearch(query)}>
+              ⌕
+            </button>
+            <button type="button" className={g.ctrlBtn} aria-label="확대" onClick={() => viewApi.current?.zoom(1.3)}>
+              ＋
+            </button>
+            <button
+              type="button"
+              className={g.ctrlBtn}
+              aria-label="축소"
+              onClick={() => viewApi.current?.zoom(1 / 1.3)}
+            >
+              －
+            </button>
+            <button
+              type="button"
+              className={g.ctrlBtn}
+              aria-label="전체 보기로 초기화"
+              onClick={() => {
+                setQuery('');
+                setNoHit(false);
+                viewApi.current?.reset();
+              }}
+            >
+              ⤢
+            </button>
+          </div>
+          {noHit && (
+            <div className={g.searchMiss} role="status">
+              “{query}” 노드를 못 찾았어요
+            </div>
+          )}
           <div className={g.legend}>
             <span>
               <i className={g.lHub} /> 항목(허브·색=과목)
