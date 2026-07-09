@@ -37,6 +37,7 @@ npm run build    # tsc -b && vite build — serve.js가 서빙할 dist 재생성
 | "(기능) 추가 / 로직 붙여줘" | `web/docs/protocols/기능추가.md` |
 | "(탭) 재설계 / 다시 디자인" | `web/docs/protocols/탭재설계.md` — **today 재설계 사상**(단일목적 한화면·상단 리드아웃·fill 프레임·온디맨드 세부) 준수 |
 | "(feature) 리뷰 / 검토" | `web-reviewer` 서브에이전트 팬아웃 (또는 `/리뷰 <feature>`) |
+| "(탭/모듈) 평가 / 점수 / 벤치마크" | `web/docs/평가루브릭.md` + `/평가 <대상>` (독립 채점·다각도·추세 → `평가기록.md`) |
 | 색·토큰·컴포넌트 규격 | `web/docs/디자인시스템.md` |
 | "왜 X를 이렇게?" 결정 근거 | `web/docs/결정로그.md` |
 
@@ -66,4 +67,5 @@ serve.js      /api/{ping,artifact,run,research/start,research/jobs,embed} — st
 - `web/docs/디자인시스템.md` — 토큰·액센트·컴포넌트 규격
 - `web/docs/protocols/` — 반복작업 절차서
 - `web/docs/골든/` — 레퍼런스 feature(스타일 앵커)
+- `web/docs/평가루브릭.md`·`평가기록.md` — 다각도 채점 SSOT + 추세 (게이트=통과/실패, 리뷰=결함, 평가=점수 3층 분업)
 - `README.md` · `설계도.md` · `MIGRATION.md` — 배경·이전 이력
