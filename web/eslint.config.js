@@ -2,6 +2,7 @@
 //   app → features → components → store → lib   (역방향 import 금지)
 // eslint-plugin-boundaries가 src/ 하위 폴더를 '레이어'로 보고 위반을 error로 잡는다.
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -52,5 +53,10 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  // web/scripts/*.mjs — Node 도구(gate·scaffold-tab·bundle-budget). Node 전역 허용.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
   },
 );

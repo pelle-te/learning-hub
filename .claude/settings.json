@@ -1,0 +1,61 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(node scripts/*)",
+      "Bash(npx --no-install eslint *)",
+      "Bash(git -c core.quotepath=false diff *)",
+      "Bash(git -c core.quotepath=false status *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -fd*)",
+      "PowerShell(Remove-Item -Recurse -Force*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"C:/작업 폴더/러닝허브/.claude/hooks/commit-guard.sh\"",
+            "if": "Bash(git commit*)",
+            "timeout": 15,
+            "statusMessage": "인덱스 위생 검사"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"C:/작업 폴더/러닝허브/.claude/hooks/lint-changed.sh\"",
+            "asyncRewake": true,
+            "timeout": 60,
+            "statusMessage": "eslint(변경 파일)"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"C:/작업 폴더/러닝허브/.claude/hooks/rebuild-reminder.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
