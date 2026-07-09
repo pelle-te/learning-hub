@@ -6,8 +6,52 @@
    또는 평범한 객체 모두 동작). persist/다운로드/토스트는 store·features가 조립한다.
 ============================================================ */
 import { addDays, iso, mondayOf, parseISO, rid, todayISO } from './utils';
-import { SCHEMA_VERSION } from './persistence';
-import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, Summary } from './types';
+import { SCHEMA_VERSION, isDone } from './persistence';
+import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, ScheduleResult, Summary } from './types';
+
+/* ── 인출 증거·추세 파생(통계 리드아웃·인출카드 공용 · 중복 제거 SSOT) ── */
+
+export interface RecallEvidence {
+  blankPlan: number; // 계획된 백지복습 수
+  blankDone: number; // 완료된 백지복습 수
+  mockDone: number; // 완료된 모의 수
+  blankRate: number; // 백지복습 완료율(%)
+  recallActs: number; // 능동 인출 활동 총수 = 요약 + 백지완료 + 모의완료
+}
+
+/** 능동 인출 증거 — 요약·백지·모의 완료를 집계(북극성 출력 지표). Stats 리드아웃·인출카드가 공유. */
+export function recallEvidence(state: AppState, r: ScheduleResult): RecallEvidence {
+  let blankPlan = 0;
+  let blankDone = 0;
+  let mockDone = 0;
+  (r.days || []).forEach((d) =>
+    d.items.forEach((it) => {
+      if (it.type === 'blank') {
+        blankPlan++;
+        if (isDone(state, d.ds, it.sid, it.type)) blankDone++;
+      }
+      if (it.type === 'mock' && isDone(state, d.ds, it.sid, it.type)) mockDone++;
+    }),
+  );
+  const blankRate = blankPlan ? Math.round((blankDone / blankPlan) * 100) : 0;
+  const recallActs = summaryCount(state) + blankDone + mockDone;
+  return { blankPlan, blankDone, mockDone, blankRate, recallActs };
+}
+
+export interface TrendGlyph {
+  delta: number; // lastW - thisW (양수 = 감소 = 개선)
+  icon: string; // '▼ 감소' | '▲ 증가' | '＝ 유지'
+  good: boolean; // 개선 방향(감소) 또는 둘 다 0
+}
+
+/** CBMS 오답 주간 추세를 아이콘/판정으로 — 인출카드·리드아웃의 중복 파생을 하나로. */
+export function cbmsTrendGlyph(tr: { thisW: number; lastW: number }): TrendGlyph {
+  const delta = tr.lastW - tr.thisW;
+  const bothZero = tr.lastW === 0 && tr.thisW === 0;
+  const good = delta > 0 || bothZero;
+  const icon = bothZero ? '＝ 유지' : delta > 0 ? '▼ 감소' : delta < 0 ? '▲ 증가' : '＝ 유지';
+  return { delta, icon, good };
+}
 
 /* ── 3문장 요약(3절) ── */
 export function summariesFor(state: AppState, ds: string): Summary[] {

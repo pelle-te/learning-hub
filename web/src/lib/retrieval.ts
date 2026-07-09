@@ -28,7 +28,10 @@ function candidates(state: AppState, todayDs: string, minAge: number): { ds: str
   const sm = state.summaries || {};
   const out: { ds: string; summary: Summary }[] = [];
   for (const ds of Object.keys(sm)) {
-    if (dayDiff(ds, todayDs) < minAge) continue;
+    const age = dayDiff(ds, todayDs);
+    // 손상된 날짜 키(형식 위반→NaN)는 건너뛴다. NaN<minAge는 false라 가드 없이는
+    // 모든 요약이 필터를 통과하고 ageDays=NaN 카드가 무음으로 새어나간다(견고성 방어).
+    if (!Number.isFinite(age) || age < minAge) continue;
     for (const summary of sm[ds] || []) out.push({ ds, summary });
   }
   out.sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : a.summary.id < b.summary.id ? -1 : 1));

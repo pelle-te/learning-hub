@@ -44,6 +44,25 @@ describe('retrieval — pickRetrieval', () => {
     expect(pickRetrieval(st({}), TODAY, 2)).toBeNull();
     expect(pickRetrieval({ items: [] } as unknown as AppState, TODAY)).toBeNull();
   });
+
+  it('손상된 날짜 키는 무음 통과 없이 제외(NaN 가드 회귀)', () => {
+    // 'not-a-date' → dayDiff NaN. 가드 없으면 NaN<minAge=false로 필터를 통과해 ageDays=NaN 카드가 샜다.
+    const s = st({ 'not-a-date': [sum('손상')], '2026-07-01': [sum('정상')] });
+    const card = pickRetrieval(s, TODAY, 2);
+    expect(card!.summary.name).toBe('정상'); // 손상 키는 후보에서 빠짐
+    expect(Number.isFinite(card!.ageDays)).toBe(true);
+    // 손상 키만 있으면 후보 0 → null(무음 NaN 카드 아님)
+    expect(pickRetrieval(st({ 'not-a-date': [sum('x')] }), TODAY, 2)).toBeNull();
+  });
+
+  it('날이 바뀌면 회전(cross-day) — 여러 날에 걸쳐 1장 이상 순환', () => {
+    const s = st({ '2026-06-20': [sum('a')], '2026-06-21': [sum('b')], '2026-06-22': [sum('c')] });
+    const picks = new Set<string>();
+    for (let d = 10; d < 25; d++) {
+      picks.add(pickRetrieval(s, `2026-07-${String(d).padStart(2, '0')}`, 2)!.summary.name);
+    }
+    expect(picks.size).toBeGreaterThan(1); // 하루 단위로 다른 카드(고정 아님)
+  });
 });
 
 describe('retrieval — retrievableCount', () => {

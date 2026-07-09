@@ -15,8 +15,16 @@ import { Button } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ProgressRing } from '@/components/ProgressRing';
 import { CountReadout } from '@/components/CountReadout';
-import { isDone, totalDoneHours, studyStreak } from '@/lib/persistence';
-import { cbmsCounts, cbmsTrend, retentionNudge, retentionTrend, summaryCount, CBMS_INFO } from '@/lib/methodology';
+import { totalDoneHours, studyStreak } from '@/lib/persistence';
+import {
+  cbmsCounts,
+  cbmsTrend,
+  cbmsTrendGlyph,
+  recallEvidence,
+  retentionNudge,
+  retentionTrend,
+  CBMS_INFO,
+} from '@/lib/methodology';
 import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, dayDiff, ddayInfo, DOW } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import st from './Stats.module.css';
@@ -28,23 +36,8 @@ const TIMELINE_CAP = 60; // 최근 N일만 그려 다년 누적에도 비용 상
 function RetrievalCard({ r }: { r: ScheduleResult }) {
   const state = useApp((s) => s.state);
   const tr = cbmsTrend(state);
-  const trDelta = tr.lastW - tr.thisW;
-  const trIcon = tr.lastW === 0 && tr.thisW === 0 ? '—' : trDelta > 0 ? '▼ 감소' : trDelta < 0 ? '▲ 증가' : '＝ 유지';
-  const trGood = trDelta > 0 || (tr.lastW === 0 && tr.thisW === 0);
-  let blankPlan = 0;
-  let blankDone = 0;
-  let mockDone = 0;
-  (r.days || []).forEach((d) =>
-    d.items.forEach((it) => {
-      if (it.type === 'blank') {
-        blankPlan++;
-        if (isDone(state, d.ds, it.sid, it.type)) blankDone++;
-      }
-      if (it.type === 'mock' && isDone(state, d.ds, it.sid, it.type)) mockDone++;
-    }),
-  );
-  const blankRate = blankPlan ? Math.round((blankDone / blankPlan) * 100) : 0;
-  const recallActs = summaryCount(state) + blankDone + mockDone;
+  const { icon: trIcon, good: trGood } = cbmsTrendGlyph(tr);
+  const { blankPlan, blankDone, blankRate, recallActs } = recallEvidence(state, r);
   return (
     <div className={ds.card}>
       <h2>
@@ -440,9 +433,10 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
                       data-tip={lab}
                       role="img"
                       aria-label={lab}
+                      tabIndex={0}
                       style={{
                         height: (h / maxH) * 110,
-                        background: byId[sid]?.color || '#6ea8fe',
+                        background: byId[sid]?.color || 'var(--acc)',
                         borderRadius: '3px 3px 0 0',
                       }}
                     />
@@ -604,23 +598,12 @@ export default function Stats() {
   const streak = studyStreak(state);
   const compRate = totalSchedH > 0 ? Math.min(100, Math.round((doneH / totalSchedH) * 100)) : 0;
 
-  // 능동 인출 활동(북극성 출력 지표) = 요약 + 백지 완료 + 모의 완료.
-  let blankDone = 0;
-  let mockDone = 0;
-  r.days.forEach((d) =>
-    d.items.forEach((it) => {
-      if (it.type === 'blank' && isDone(state, d.ds, it.sid, it.type)) blankDone++;
-      if (it.type === 'mock' && isDone(state, d.ds, it.sid, it.type)) mockDone++;
-    }),
-  );
-  const recallActs = summaryCount(state) + blankDone + mockDone;
+  // 능동 인출 활동(북극성 출력 지표) = 요약 + 백지 완료 + 모의 완료. (인출카드와 공용 헬퍼 · SSOT)
+  const { recallActs } = recallEvidence(state, r);
 
   // 오답 추세(약점이 닫히는 방향?).
   const tr = cbmsTrend(state);
-  const trDelta = tr.lastW - tr.thisW;
-  const trGood = trDelta > 0 || (tr.lastW === 0 && tr.thisW === 0);
-  const trIcon =
-    tr.lastW === 0 && tr.thisW === 0 ? '＝ 유지' : trDelta > 0 ? '▼ 감소' : trDelta < 0 ? '▲ 증가' : '＝ 유지';
+  const { icon: trIcon, good: trGood } = cbmsTrendGlyph(tr);
 
   // 주된 약점(CBMS 최댓값).
   const cnt = cbmsCounts(state);
