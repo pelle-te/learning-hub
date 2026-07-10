@@ -314,6 +314,7 @@
   position: absolute;
   z-index: var(--z-dropdown); /* 층위 SSOT(tokens.css) — 매직넘버 금지 */
   transform: translateX(-50%);
+  outline: none; /* tabIndex=-1 프로그램 포커스 — 링은 표시하지 않는다(키보드 진입 아님) */
   min-width: 190px;
   max-width: 300px;
   border: 1px solid var(--line);
@@ -323,6 +324,10 @@
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.5;
+}
+/* 뷰포트 하단 근처면 단어 위로 뒤집어 띄운다(top=단어 상단, translateY(-100%)로 위로 올림). */
+.vocabPop[data-flip='true'] {
+  transform: translate(-50%, -100%);
 }
 .vocabHead {
   display: flex;

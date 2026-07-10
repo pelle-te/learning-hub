@@ -4,10 +4,12 @@
    ② 독서 — 책 읽고 직접 독후감(AI 없음). 둘 다 내 요약/독후감은 로컬-퍼스트 저장(lib/reads).
    지문 페치는 useReads(Query)·serve.js 상태는 usePing — 오프라인이어도 독서는 항상 동작.
 ============================================================ */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useReads } from '@/store/queries';
 import { usePing } from '@/store/queries';
+import { useCollectTool } from '@/components/useCollectTool';
+import { todayISO } from '@/lib/utils';
 import {
   loadReads,
   saveReads,
@@ -58,10 +60,34 @@ export default function Reads() {
   const { data: ping, isLoading: pingLoading, refetch: refetchPing } = usePing();
   const online = !!ping?.ok;
 
+  // E-1 크로스데이 자동갱신 — Markets와 동일 패턴. 탭 열 때 온라인인데 수집 데이터가 없거나 '오늘 것'이
+  // 아니면 마운트당 1회 자동 수집(어제 지문이 조용히 남는 문제). 장중 갱신은 목록 헤더의 '수집' 버튼.
+  // 오프라인이면 수집하지 않는다(!online 가드). 실패해도 didAuto로 루프 안 돎.
+  const { collecting: autoCollecting, collect: autoCollect } = useCollectTool(
+    'reads-collect',
+    reads.refetch,
+    '읽을거리 수집 완료',
+  );
+  const didAuto = useRef(false);
+  useEffect(() => {
+    if (didAuto.current || !online || reads.isLoading || autoCollecting) return;
+    const d = reads.data;
+    const fresh = !!d && d.date === todayISO() && d.articles.length > 0;
+    if (fresh) return;
+    didAuto.current = true;
+
+    void autoCollect(true);
+  }, [online, reads.isLoading, reads.data, autoCollecting, autoCollect]);
+
   const articles = reads.data?.articles ?? [];
   const st = articleStats(articles, local.work);
   const booksReading = local.books.filter((b) => b.status === 'reading').length;
   const booksDone = local.books.length - booksReading;
+
+  // 신선도 — 수집 날짜가 오늘이 아니면 '지남' 배지(자동갱신 실패·오프라인 등으로 어제 지문일 때 표시).
+  const collectedDate = reads.data?.date;
+  const readsStale = !!collectedDate && collectedDate !== todayISO();
+  const collectedMD = collectedDate ? collectedDate.slice(5).replace('-', '/') : '';
 
   // 리드아웃 — 모드별로 다른 지표를 상단 바에 주입.
   usePageChromeEffect(
@@ -72,6 +98,7 @@ export default function Reads() {
               { label: '요약 완료', value: `${st.done}/${st.total}`, accent: true },
               { label: '영어·한국어', value: `${st.en}·${st.ko}` },
               { label: 'serve.js', value: online ? '● ON' : pingLoading ? '…' : 'OFF' },
+              ...(collectedDate ? [{ label: '수집', value: readsStale ? `${collectedMD} · 지남` : collectedMD }] : []),
             ],
           }
         : {
@@ -81,7 +108,21 @@ export default function Reads() {
               { label: '독후감', value: local.books.filter((b) => b.review.trim()).length },
             ],
           },
-    [mode, st.done, st.total, st.en, st.ko, online, pingLoading, booksReading, booksDone, local.books],
+    [
+      mode,
+      st.done,
+      st.total,
+      st.en,
+      st.ko,
+      online,
+      pingLoading,
+      booksReading,
+      booksDone,
+      local.books,
+      collectedDate,
+      readsStale,
+      collectedMD,
+    ],
   );
 
   return (

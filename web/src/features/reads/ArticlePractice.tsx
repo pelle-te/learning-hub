@@ -23,6 +23,7 @@ type Filter = 'all' | 'en' | 'ko';
 interface VocabState {
   x: number;
   y: number;
+  flip: boolean; // 뷰포트 하단 근처면 단어 위로 뒤집어 띄운다(리더 바닥에서 잘림 방지).
   word: string;
   loading: boolean;
   result: VocabResult | null;
@@ -82,6 +83,13 @@ export default function ArticlePractice({
   // Ollama 어휘(선택한 단어 뜻) — 리더 위 팝오버.
   const [vocab, setVocab] = useState<VocabState | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
+
+  // 채점(수십 초)이 도는 동안 사용자가 요약을 편집·완료토글할 수 있다 — 완료 시점에 클릭시점 캡처값이 아닌
+  // '지금 저장된' work를 읽어 coach 필드만 병합하려고 최신 work를 ref로 미러(캡처값으로 덮으면 편집이 되돌려짐).
+  const workRef = useRef(work);
+  useEffect(() => {
+    workRef.current = work;
+  }, [work]);
 
   const list = useMemo(
     () => (filter === 'all' ? articles : articles.filter((a) => a.lang === filter)),
@@ -149,12 +157,13 @@ export default function ArticlePractice({
       });
       if (res.ok && res.feedback) {
         setCoach({ id: target.id, fb: res.feedback });
-        // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존(레이스는 target 고정으로 이미 안전).
-        const cur = work[target.id];
+        // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존. ⚠ 클릭시점 캡처(work/draft)로 덮으면
+        // 채점 중 한 편집·완료토글이 되돌려진다(X-6) → 최신 work를 ref로 읽어 coach 필드만 병합한다.
+        const cur = workRef.current[target.id];
         setWork(target.id, {
           summary: cur?.summary ?? draft,
           done: cur?.done ?? false,
-          updatedAt: new Date().toISOString(),
+          updatedAt: cur?.updatedAt ?? new Date().toISOString(),
           coach: res.feedback,
           coachAt: new Date().toISOString(),
         });
@@ -180,9 +189,12 @@ export default function ArticlePractice({
     // 팝오버는 translateX(-50%)라 문단 좌우 끝 단어에서 리더 밖으로 잘렸다 — x를 클램프.
     const rawX = rect.left - box.left + rect.width / 2;
     const x = Math.max(100, Math.min(rawX, Math.max(100, box.width - 100)));
+    // 뷰포트 하단 근처(아래 공간 부족)면 위로 뒤집어 단어 위에 띄운다 — 리더 바닥에서 잘리던 문제.
+    const flip = rect.bottom + 220 > window.innerHeight;
     setVocab({
       x,
-      y: rect.bottom - box.top + 6,
+      y: flip ? rect.top - box.top - 6 : rect.bottom - box.top + 6,
+      flip,
       word: text,
       loading: false,
       result: null,
@@ -208,12 +220,23 @@ export default function ArticlePractice({
     };
   }, [vocab]);
 
+  // 팝오버가 새로 열리면(단어 선택) role=dialog로 포커스 이동 — 기존엔 포커스를 받지 못했다(a11y).
+  // word가 바뀔 때만 발화 → loading·result 갱신 시 포커스를 훔치지 않는다. preventScroll로 리더 점프 방지.
+  useEffect(() => {
+    if (vocab?.word) vocabPopRef.current?.focus({ preventScroll: true });
+  }, [vocab?.word]);
+
   const doVocab = async () => {
     if (!sel || !vocab) return;
     const reqWord = vocab.word; // 응답 도착 시 다른 단어가 선택돼 있으면 버린다(레이스 가드)
     setVocab({ ...vocab, loading: true, error: null });
     try {
-      const res = await lookupVocab(reqWord, sel.text.slice(0, 600), sel.lang);
+      // ⚠ lookupVocab(api.ts)은 아직 signal을 받지 않아 fetch 자체는 취소하지 못한다(진짜 abort는
+      //   api.ts에 signal 배선 필요) — 여기선 UI가 무한 스피너에 갇히지 않도록 15s 타임아웃만 건다.
+      const res = await Promise.race([
+        lookupVocab(reqWord, sel.text.slice(0, 600), sel.lang),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('시간 초과')), 15000)),
+      ]);
       setVocab((v) =>
         v && v.word === reqWord
           ? { ...v, loading: false, result: res.vocab ?? null, error: res.ok ? null : (res.error ?? '실패') }
@@ -388,6 +411,8 @@ export default function ArticlePractice({
                     role="dialog"
                     aria-label="어휘 뜻"
                     lang="ko"
+                    tabIndex={-1}
+                    data-flip={vocab.flip}
                     ref={vocabPopRef}
                   >
                     <div className={r.vocabHead}>

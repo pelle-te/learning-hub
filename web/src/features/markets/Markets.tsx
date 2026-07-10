@@ -26,6 +26,9 @@ import m from './Markets.module.css';
 
 const DIR_GLYPH = { up: '▲', down: '▼', flat: '＝' } as const;
 const DIR_WORD = { up: '상승', down: '하락', flat: '보합' } as const;
+// 리드 지표 심볼 — 상단 리드아웃의 대표 지수(국내 투자자 기준 KOSPI). 수집 피드(_증시/feeds.json)에
+// 이 심볼이 있어야 표시되고, 피드에서 빠지면 첫 지수로 무음 폴백한다(피드↔리드아웃 커플링).
+const LEAD_SYMBOL = '^KS11';
 
 export default function Markets() {
   const markets = useMarkets();
@@ -46,7 +49,7 @@ export default function Markets() {
     },
     [mutate],
   );
-  const lead = indices.find((i) => i.symbol === '^KS11') ?? indices[0];
+  const lead = indices.find((i) => i.symbol === LEAD_SYMBOL) ?? indices[0];
 
   // 리드아웃 — 상단 바에 상승/하락·대표지수·서버상태·수집시각.
   usePageChromeEffect(
