@@ -12,6 +12,8 @@
   /* ⋯ 메뉴 드롭다운이 HudFrame 위에 뜨도록 자체 스택 컨텍스트. */
   position: relative;
   z-index: var(--z-dropdown);
+  /* 탭 전환(View Transitions) 시 헤더는 스냅샷에서 분리해 제자리 고정(깜빡임 방지). */
+  view-transition-name: app-header;
 }
 
 /* 워드마크 — 스택 대문자, '허브'는 네온. */

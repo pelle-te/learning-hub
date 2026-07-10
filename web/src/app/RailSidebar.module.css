@@ -15,6 +15,8 @@
   border-right: 1px solid var(--line2);
   background: var(--bg);
   z-index: var(--z-nav);
+  /* 탭 전환(View Transitions) 시 네비는 스냅샷에서 분리해 제자리 고정(깜빡임 방지). */
+  view-transition-name: app-nav;
 }
 
 /* 워드마크 로고 — 네온 칩. */

@@ -29,13 +29,9 @@
   }
 }
 
-/* 헤더/네비는 전환에서 분리 → 고정(사용자 시선 앵커 유지, 깜빡임 제거) */
-.top {
-  view-transition-name: app-header;
-}
-.nav {
-  view-transition-name: app-nav;
-}
+/* 헤더/네비는 전환에서 분리 → 고정(사용자 시선 앵커 유지, 깜빡임 제거).
+   view-transition-name은 각 컴포넌트 모듈이 소유(TopBar.module .bar=app-header,
+   RailSidebar.module .rail=app-nav) — 전역 .top/.nav 클래스는 CSS Module 전환 후 마크업에서 사라졌다. */
 
 /* 모션 민감 사용자 — 전환 애니메이션 끔(즉시 교체) */
 @media (prefers-reduced-motion: reduce) {
