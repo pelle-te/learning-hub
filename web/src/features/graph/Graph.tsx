@@ -828,6 +828,24 @@ export default function Graph() {
                     복습 위험 보기 →
                   </button>
                 )}
+                {/* E-5: 볼트 딥링크 — obsidian://search는 볼트명 없이도 동작(설치돼 있으면). */}
+                <button
+                  type="button"
+                  className={g.detailBtn}
+                  onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(sel.label))}
+                  title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
+                >
+                  🔎 볼트에서 찾기
+                </button>
+                {/* E-5: Anki는 신뢰 가능한 데스크톱 URL 스킴이 없어 연동 탭(덱 상태·내보내기)으로 안내. */}
+                <button
+                  type="button"
+                  className={g.detailBtn}
+                  onClick={() => navigate('/integrations', { viewTransition: true })}
+                  title="Anki 덱 상태·카드 내보내기"
+                >
+                  📇 Anki 연동 →
+                </button>
               </div>
             </div>
           )}
