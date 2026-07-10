@@ -36,12 +36,22 @@ export function getArtifact<T = unknown>(
   return getJSON(`/api/artifact/${encodeURIComponent(name)}`);
 }
 
-/** 화이트리스트 도구 실행(지식상태 재빌드·볼트 건강검진 등). */
-export async function runTool(tool: string, body?: Record<string, unknown>): Promise<RunResult> {
+/** 화이트리스트 도구 실행(지식상태 재빌드·볼트 건강검진 등).
+ *  ⚠ 서버는 180s에서 잘라내지만 클라 fetch엔 상한이 없다 — 물린 연결이면 무한 대기(취소 못 하는 스피너).
+ *  185s 타임아웃(서버 캡 직후)을 항상 걸고, 선택적 caller signal로 UI가 "취소"를 걸 수 있게 한다(X-5).
+ *  opts는 선택 — 기존 호출부(2인자)는 그대로 동작한다. */
+export async function runTool(
+  tool: string,
+  body?: Record<string, unknown>,
+  opts?: { signal?: AbortSignal },
+): Promise<RunResult> {
+  const timeout = AbortSignal.timeout(185000); // 서버 캡(180s)보다 살짝 뒤 — 서버가 먼저 응답하도록.
+  const signal = opts?.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   const r = await fetch(`/api/run/${encodeURIComponent(tool)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}),
+    signal,
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return (await r.json()) as RunResult;
