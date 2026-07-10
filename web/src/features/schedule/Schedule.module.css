@@ -42,16 +42,23 @@
   min-height: 0;
 }
 
-/* 개요 — 전폭 캘린더 단일 무대(요일×시간 그리드). 블록 클릭=완료 → 별도 아젠다 불필요. */
+/* 개요 — 위크보드(fill) + 일자 아젠다(온디맨드 세부). 요일 선택 시 우측 아젠다에 그날 상세. */
 .board2 {
   height: 100%;
   display: flex;
+  gap: 14px;
   padding: 14px 22px;
   min-height: 0;
 }
 .board2 > div {
   flex: 1;
   min-width: 0;
+}
+/* 아젠다는 고정폭 사이드 컬럼(보드가 주인공) — .board2 > div 보다 높은 특이도로 flex를 덮는다. */
+.board2 > .agenda {
+  flex: none;
+  width: 340px;
+  max-width: 38%;
 }
 
 /* 위크보드 카드 — 정보의 주인공. 발광 카드 + 스포트라이트(ds.spotHost/glow). */
@@ -234,5 +241,11 @@
   }
   .boardWrap {
     min-height: 320px;
+  }
+  /* 세로 스택에선 아젠다도 전폭 — 고정폭 해제. */
+  .board2 > .agenda {
+    width: auto;
+    max-width: none;
+    min-height: 280px;
   }
 }

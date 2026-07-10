@@ -180,9 +180,9 @@ function DayFoot({ d }: { d: DayData }) {
   );
 }
 
-function DayCard({ d, k, agenda }: { d: DayData; k: number; agenda?: boolean }) {
+function DayCard({ d, k }: { d: DayData; k: number }) {
   return (
-    <div className={`${ds.day}${agenda ? ' ' + ds.agenda : ''}${d.isToday ? ' ' + ds.today : ''}`}>
+    <div className={`${ds.day}${d.isToday ? ' ' + ds.today : ''}`}>
       <DayHeadBar d={d} k={k} />
       <div className={ds.body}>
         <DayBody d={d} />
@@ -281,6 +281,7 @@ export default function Schedule() {
     const ti = parts.findIndex((p) => p.isToday);
     sel = ti >= 0 ? ti : 0;
   }
+  const selDay = parts[sel]!; // 개요 아젠다(온디맨드 세부)가 그릴 선택 요일 — 기본은 오늘.
   // 줄마다 마감 플래그 — 그날이 마감인 과목명(네온 위크-그리드에 표시).
   const deadlines = parts.map((p) => state.items.filter((it) => it.deadline === p.ds).map((it) => it.name));
   const hasStudyItems = state.items.some((it) => it.name);
@@ -292,15 +293,16 @@ export default function Schedule() {
   const compRate = weekPlanMin > 0 ? Math.round((weekDoneMin / weekPlanMin) * 100) : 0;
 
   // 마감 카운트다운(스트립 + 가장 가까운 마감 리드아웃).
-  const ddays = state.items
-    .filter((it) => it.deadline)
-    .map((it) => ({
-      name: it.name,
-      color: it.color,
-      deadline: it.deadline as string,
-      dday: dayDiff(todayIso, it.deadline as string),
+  // 완료된 과목은 제외(Today 탭과 동일 의미) — 다 끝낸 과목이 살아있는 D-n으로 남지 않도록 itemStat.finished 반영.
+  const ddays = (res.itemStat || [])
+    .filter((st) => st.deadline && !st.finished)
+    .map((st) => ({
+      name: st.name,
+      color: st.color,
+      deadline: st.deadline as string,
+      dday: dayDiff(todayIso, st.deadline as string),
     }))
-    .filter((it) => it.dday >= 0)
+    .filter((st) => st.dday >= 0)
     .sort((a, b) => a.dday - b.dday);
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
   const soon = ddays.slice(0, 4);
@@ -444,6 +446,20 @@ export default function Schedule() {
                 </div>
               )}
             </div>
+
+            {/* 일자 아젠다 — 선택 요일의 온디맨드 세부. 미배치(start==null) 학습 행도 여기서 체크(캘린더 세그엔 안 뜸). */}
+            {hasStudyItems && (
+              <div className={c.agenda} aria-label={`${DOW_MON[sel]} 아젠다`}>
+                <div className={c.agendaT}>
+                  {DOW_MON[sel]} {fmtShort(selDay.date)}
+                  {selDay.isToday && ' · 오늘'}
+                </div>
+                <div className={c.agendaBody}>
+                  <DayBody d={selDay} />
+                  <DayFoot d={selDay} />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
