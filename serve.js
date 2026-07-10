@@ -25,6 +25,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { pipeline } = require('node:stream');
 const { spawn } = require('child_process');
 
 const ROOT = __dirname;                          // 러닝허브 폴더
@@ -89,16 +90,26 @@ function sendFile(req, res, filePath, type, cache) {
   if (gzipOk) headers['Vary'] = 'Accept-Encoding'; // 압축 여부로 응답이 갈리는 자원만 표시
   const stream = fs.createReadStream(filePath);
   stream.on('error', () => {
+    // 헤더 전송 전(파일 열기 실패)만 500 응답. 이미 스트리밍 중이면 pipeline이 res를 정리하므로 재기록 금지.
+    if (res.headersSent) return;
     try { res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); } catch (e) {}
     res.end('500: 파일 읽기 실패');
   });
+  // pipeline은 소스·(gzip)·res의 에러/조기종료를 한 곳에서 정리한다. 클라이언트가 다운로드 도중
+  // 이탈(reload·이동)하면 res가 EPIPE/premature-close를 내는데, 콜백에서 로깅만 하고 스트림을 정돈해
+  // 프로세스가 죽지 않게 한다(옛 .pipe() 체인은 res/gzip 에러 핸들러가 없어 진행 중 리서치 잡까지 날렸다).
+  const onDone = (err) => {
+    if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE' && err.code !== 'EPIPE') {
+      console.error('sendFile 파이프 오류:', err.code || err.message || err);
+    }
+  };
   if (gzipOk && /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
     headers['Content-Encoding'] = 'gzip';
     res.writeHead(200, headers);
-    stream.pipe(zlib.createGzip()).pipe(res);
+    pipeline(stream, zlib.createGzip(), res, onDone);
   } else {
     res.writeHead(200, headers);
-    stream.pipe(res);
+    pipeline(stream, res, onDone);
   }
 }
 
@@ -580,6 +591,11 @@ server.on('error', (e) => {
   else console.error(e.message || e);
   process.exit(1);
 });
+
+// 최후 백스톱 — 어느 콜백/스트림이 빠뜨린 예외·거부라도 프로세스를 죽이지 않는다(진행 중 리서치 잡 보존).
+// 정적 파이프의 EPIPE 등 클라이언트 조기 이탈이 서버 전체를 내리던 회귀를 원천 차단.
+process.on('uncaughtException', (e) => console.error('uncaught', e));
+process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`러닝허브(React) + 제어판 실행 중 → http://localhost:${PORT}/`);
