@@ -116,11 +116,14 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
         grade: '',
       });
     });
-  const delCourse = (cid: string) =>
+  const delCourse = (cid: string, name: string) => {
+    ui.backupNow(); // 되돌리기용 1단계 백업 — 형제 삭제(학기·수업·블록)와 동일한 안전장치
     mutate((st) => {
       const s = findSem(st, sem.id);
       if (s) s.courses = s.courses.filter((c) => c.id !== cid);
     });
+    ui.toastUndo(`"${name || '과목'}" 삭제됨`);
+  };
   const updCourse = (cid: string, k: keyof Course, v: string | number) =>
     mutate((st) => {
       const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
@@ -278,7 +281,7 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
                           📥
                         </Button>
                       )}
-                      <Button sm variant="ghost" danger onClick={() => delCourse(c.id)} aria-label="과목 삭제">
+                      <Button sm variant="ghost" danger onClick={() => delCourse(c.id, c.name)} aria-label="과목 삭제">
                         ✕
                       </Button>
                     </td>
