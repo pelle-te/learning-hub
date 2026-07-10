@@ -17,6 +17,7 @@ export default function ArtifactGate({
   collecting,
   onCollect,
   collectLabel,
+  onRetry,
 }: {
   online: boolean;
   glyph: string;
@@ -26,8 +27,24 @@ export default function ArtifactGate({
   collecting: boolean;
   onCollect: () => void;
   collectLabel: string;
+  /* 오프라인 재확인 — serve.js를 켠 뒤 페이지를 떠나지 않고 즉시 재프로브(ping+아티팩트 refetch). */
+  onRetry?: () => void;
 }) {
-  if (!online) return <EmptyState glyph={glyph} title="serve.js가 꺼져 있어요" desc={offlineDesc} />;
+  if (!online)
+    return (
+      <EmptyState
+        glyph={glyph}
+        title="serve.js가 꺼져 있어요"
+        desc={offlineDesc}
+        actions={
+          onRetry ? (
+            <Button variant="primary" onClick={onRetry}>
+              다시 확인
+            </Button>
+          ) : undefined
+        }
+      />
+    );
   return (
     <EmptyState
       glyph={glyph}

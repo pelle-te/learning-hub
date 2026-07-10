@@ -55,7 +55,7 @@ export default function Reads() {
   const setBooks = useCallback((books: Book[]) => update((p) => ({ ...p, books })), [update]);
 
   const reads = useReads();
-  const { data: ping, isLoading: pingLoading } = usePing();
+  const { data: ping, isLoading: pingLoading, refetch: refetchPing } = usePing();
   const online = !!ping?.ok;
 
   const articles = reads.data?.articles ?? [];
@@ -115,7 +115,10 @@ export default function Reads() {
           online={online}
           pingLoading={pingLoading}
           loading={reads.isLoading}
+          isError={reads.isError}
+          errorMessage={reads.error instanceof Error ? reads.error.message : undefined}
           refetch={reads.refetch}
+          refetchPing={refetchPing}
         />
       ) : (
         <BookShelf books={local.books} setBooks={setBooks} />

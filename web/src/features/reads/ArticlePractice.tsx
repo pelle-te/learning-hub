@@ -6,6 +6,7 @@
 ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ArtifactGate from '@/components/ArtifactGate';
+import EmptyState from '@/components/EmptyState';
 import { useCollectTool } from '@/components/useCollectTool';
 import { Button } from '@/components/ui';
 import { coachSummary, lookupVocab, previewFromJsonStream, type CoachFeedback, type VocabResult } from '@/lib/api';
@@ -35,16 +36,22 @@ export default function ArticlePractice({
   online,
   pingLoading,
   loading,
+  isError,
+  errorMessage,
   refetch,
+  refetchPing,
 }: {
   articles: Article[];
   work: Record<string, ArticleWork>;
   setWork: (id: string, w: ArticleWork) => void;
   online: boolean;
   pingLoading: boolean;
-  /* 쿼리 표면 전체(UseQueryResult) 대신 필요한 두 조각만 — 데이터 레이어 누수 차단. */
+  /* 쿼리 표면 전체(UseQueryResult) 대신 필요한 조각만 — 데이터 레이어 누수 차단. */
   loading: boolean;
+  isError: boolean;
+  errorMessage?: string;
   refetch: () => Promise<unknown>;
+  refetchPing: () => Promise<unknown>;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [selId, setSelId] = useState<string | null>(null);
@@ -69,6 +76,9 @@ export default function ArticlePractice({
   const [coachPreview, setCoachPreview] = useState('');
   const [coach, setCoach] = useState<{ id: string; fb: CoachFeedback } | null>(null);
   const coachAbort = useRef<AbortController | null>(null);
+  // 채점 결과가 도착하면 결과 카드로 포커스를 옮긴다 — 전체를 role=status로 장황하게 읽지 않고
+  // 간결히 '결과가 왔다'만 알린다(막 채점한 transient 결과일 때만; 지문 전환 시엔 옮기지 않음).
+  const coachResultRef = useRef<HTMLDivElement>(null);
   // Ollama 어휘(선택한 단어 뜻) — 리더 위 팝오버.
   const [vocab, setVocab] = useState<VocabState | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
@@ -112,6 +122,11 @@ export default function ArticlePractice({
     }
   };
   useEffect(() => () => flushRef.current(), []);
+
+  // 채점이 방금 도착하면(현재 지문의 transient 결과) 결과 카드로 포커스 이동 — SR에 간결히 알림.
+  useEffect(() => {
+    if (coach && sel && coach.id === sel.id) coachResultRef.current?.focus();
+  }, [coach, sel]);
 
   // 내 요약 채점 — 현재 초안을 원문과 대조(Ollama 스트리밍). 원문 요약은 시키지 않는다.
   const askCoach = async () => {
@@ -220,10 +235,31 @@ export default function ArticlePractice({
         </div>
       );
     }
+    // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출.
+    if (isError && online) {
+      return (
+        <div className={r.emptyHost}>
+          <EmptyState
+            glyph="⚠️"
+            title="지문을 불러오지 못했어요"
+            desc={<>serve.js는 켜져 있지만 응답에 문제가 있어요{errorMessage ? ` — ${errorMessage}` : '.'}</>}
+            actions={
+              <Button variant="primary" onClick={() => void refetch()}>
+                다시 시도
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
     return (
       <div className={r.emptyHost}>
         <ArtifactGate
           online={online}
+          onRetry={() => {
+            void refetchPing();
+            void refetch();
+          }}
           glyph="📰"
           offlineDesc={
             <>
@@ -463,7 +499,24 @@ export default function ArticlePractice({
                 </Button>
               </div>
 
-              {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 버튼의 '채점 중…'이 상태). */}
+              {/* 진행 상태만 간결히 공지(sr-only) — 스트리밍 토큰은 장황해 읽지 않는다. */}
+              {coachBusy && (
+                <span
+                  role="status"
+                  style={{
+                    position: 'absolute',
+                    width: 1,
+                    height: 1,
+                    overflow: 'hidden',
+                    clip: 'rect(0 0 0 0)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  채점 중…
+                </span>
+              )}
+
+              {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 위 상태만 공지). */}
               {coachBusy && coachPreview && (
                 <p className={r.coachStream} aria-hidden="true">
                   {coachPreview}
@@ -477,7 +530,7 @@ export default function ArticlePractice({
                 const savedAt = coach && coach.id === sel.id ? undefined : work[sel.id]?.coachAt;
                 if (!fb) return null;
                 return (
-                  <div className={r.coach} role="status">
+                  <div className={r.coach} ref={coachResultRef} tabIndex={-1} aria-label="AI 채점 결과">
                     <div className={r.coachTop}>
                       {typeof fb.score === 'number' && (
                         <span className={r.coachScore} data-good={fb.score >= 70}>

@@ -221,7 +221,7 @@ export function AnkiPanel() {
           오답을 import용 초안(.txt)으로 — Anki에서 추리고 손질(큐레이션).
         </div>
         {err && (
-          <div className={ds.warnbox} style={{ marginTop: 8 }}>
+          <div className={ds.warnbox} role="alert" style={{ marginTop: 8 }}>
             {err}
           </div>
         )}

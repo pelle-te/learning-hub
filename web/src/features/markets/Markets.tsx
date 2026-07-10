@@ -13,6 +13,7 @@ import { marketsBrief, previewFromJsonStream, type MarketBriefResult } from '@/l
 import { indexStats, groupByRegion, fmtPct, dir, fmtPublished, type IndexQuote, type NewsItem } from '@/lib/markets';
 import { todayISO } from '@/lib/utils';
 import ArtifactGate from '@/components/ArtifactGate';
+import EmptyState from '@/components/EmptyState';
 import DetailDrawer from '@/components/DetailDrawer';
 import { useCollectTool } from '@/components/useCollectTool';
 import { Button, Skeleton } from '@/components/ui';
@@ -28,7 +29,7 @@ const DIR_WORD = { up: '상승', down: '하락', flat: '보합' } as const;
 
 export default function Markets() {
   const markets = useMarkets();
-  const { data: ping, isLoading: pingLoading } = usePing();
+  const { data: ping, isLoading: pingLoading, refetch: refetchPing } = usePing();
   const online = !!ping?.ok;
 
   const indices = useMemo(() => markets.data?.indices ?? [], [markets.data]);
@@ -67,6 +68,8 @@ export default function Markets() {
   const [briefPreview, setBriefPreview] = useState('');
   const [brief, setBrief] = useState<MarketBriefResult | null>(null);
   const briefAbort = useRef<AbortController | null>(null);
+  // 브리핑이 도착하면 결과 카드로 포커스 이동 — 전체를 role=status로 장황하게 읽지 않고 간결히 알림.
+  const briefResultRef = useRef<HTMLDivElement>(null);
 
   // silent=자동 수집(탭 열 때 오늘 데이터가 없으면) — 성공 토스트를 띄우지 않는다.
   const { collecting, collect: collectRaw } = useCollectTool('markets-collect', markets.refetch, '증시 동향 수집 완료');
@@ -120,6 +123,11 @@ export default function Markets() {
     setBriefOpen(false);
   }, []);
 
+  // 브리핑 결과가 오면 결과 카드로 포커스 이동(드로어가 열려 있을 때만).
+  useEffect(() => {
+    if (brief && briefOpen) briefResultRef.current?.focus();
+  }, [brief, briefOpen]);
+
   const regions = useMemo(() => groupByRegion(indices), [indices]);
   // 뉴스 분야 필터 — 피드가 길어지면 관심 분야만. 등장 순서로 고유 분야 수집.
   const [newsField, setNewsField] = useState('');
@@ -154,11 +162,39 @@ export default function Markets() {
         </section>
       );
     }
+    // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출.
+    if (markets.isError && online) {
+      return (
+        <section className={m.wrap} aria-label="증시 동향">
+          <div className={m.emptyHost}>
+            <EmptyState
+              glyph="⚠️"
+              title="증시 데이터를 불러오지 못했어요"
+              desc={
+                <>
+                  serve.js는 켜져 있지만 응답에 문제가 있어요
+                  {markets.error instanceof Error ? ` — ${markets.error.message}` : '.'}
+                </>
+              }
+              actions={
+                <Button variant="primary" onClick={() => void markets.refetch()}>
+                  다시 시도
+                </Button>
+              }
+            />
+          </div>
+        </section>
+      );
+    }
     return (
       <section className={m.wrap} aria-label="증시 동향">
         <div className={m.emptyHost}>
           <ArtifactGate
             online={online}
+            onRetry={() => {
+              void refetchPing();
+              void markets.refetch();
+            }}
             glyph="📈"
             offlineDesc={
               <>
@@ -263,7 +299,7 @@ export default function Markets() {
             )}
           </>
         ) : brief ? (
-          <div role="status">
+          <div ref={briefResultRef} tabIndex={-1} aria-label="오늘의 증시 브리핑 결과">
             {brief.overview && <p className={m.briefOverview}>{brief.overview}</p>}
             {brief.drivers?.length ? (
               <div className={m.briefGroup}>

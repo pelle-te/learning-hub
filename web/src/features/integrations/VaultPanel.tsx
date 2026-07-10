@@ -200,7 +200,7 @@ export function VaultPanel() {
           넣어요. (Chrome/Edge)
         </div>
         {err && (
-          <div className={ds.warnbox} style={{ marginTop: 8 }}>
+          <div className={ds.warnbox} role="alert" style={{ marginTop: 8 }}>
             {err}
           </div>
         )}
