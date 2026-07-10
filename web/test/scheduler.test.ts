@@ -484,4 +484,47 @@ describe('scheduler (T1~T21 parity)', () => {
     );
     expect(r.warnings.some((w) => w.includes('빡센과목') && w.includes('다 못 끝내요'))).toBe(true);
   });
+
+  // ── 버그 회귀(2026-07-10 · X-2·X-10·L-9·L-10) ──
+  it('T31 한낮 수면(낮잠)은 공부 가능시간에서 차감(이중계상 방지)', () => {
+    // 낮잠 13:00–14:00은 가장자리 수면이 아니라 awakeBounds에 안 잡히고, 옛 코드는 수면을 점유에서
+    // 제외해 학습시간으로 제공(초과편성). 이제 한낮 수면 60분만큼 studyMin이 줄어야 한다(X-2).
+    const withNap = schedule(
+      baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], {
+        routine: [blk('낮잠', '수면', '13:00', '14:00', [0, 1, 2, 3, 4, 5, 6])],
+      }),
+    );
+    const without = schedule(baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))]));
+    expect(withNap.days[0].studyMin).toBeLessThan(without.days[0].studyMin);
+    expect(withNap.days[0].studyMin).toBe(without.days[0].studyMin - 60); // 1440 → 1380
+  });
+
+  it('T32 경과한 과거 startDate·짧은 계획도 오늘 이후 일자를 만든다(빈 앱 방지)', () => {
+    // startDate가 몇 달 전이고 계획이 가벼우면 endDate(페이스)가 오늘 이전이라 표시창이 오늘 미포함 →
+    // 복귀 사용자에게 빈 Today/Schedule. 이제 표시창이 오늘까지 전방 확장돼야 한다(X-10).
+    const r = schedule(
+      baseState([weeklyItem('수학', 6, mkChapters([['1', 2]]))], { startDate: '2026-01-01', _today: '2026-07-10' }),
+    );
+    expect(r.days.length).toBeGreaterThan(0);
+    expect(r.days.some((d) => d.ds >= '2026-07-10')).toBe(true);
+    expect(r.days[r.days.length - 1].ds >= '2026-07-10').toBe(true);
+  });
+
+  it('T33 subjectMastery: 빈 질의는 전과목 매칭 대신 null(indexOf 오염 방지)', () => {
+    // b=''이면 a.indexOf('')===0이 모든 과목에 히트 → 첫 과목 숙달도를 아무 이름에나 붙이는 오염(L-9).
+    const know = { subjects: [{ subject: '물리', mastery: 0.8 }] };
+    const state = baseState([], { _knowState: know });
+    expect(subjectMastery(state, '')).toBeNull();
+    expect(subjectMastery(state, '   ')).toBeNull(); // 공백만도 정규화하면 빈 질의
+  });
+
+  it('T34 dayStudyMin: 비수치 오버라이드는 NaN 대신 요일 기본값으로 폴백', () => {
+    // +('abc')=NaN이 그날 studyMin을 오염시켜 하루 전체 배분을 망가뜨리던 버그(L-10).
+    const r = schedule(
+      baseState([weeklyItem('수학', 6, mkChapters([['1', 10]]))], { dayOverrides: { '2026-06-25': 'abc' } }),
+    );
+    const d = r.days.find((x) => x.ds === '2026-06-25')!;
+    expect(Number.isNaN(d.studyMin)).toBe(false);
+    expect(d.studyMin).toBe(1440); // 빈 routine → 요일 기본값(1440)으로 폴백
+  });
 });

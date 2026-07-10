@@ -101,12 +101,13 @@ export function awakeBounds(blocks: RoutineBlock[]): [number, number] {
     });
   return wake0 <= wake1 ? [wake0, wake1] : [0, 1440];
 }
-/** 요일의 '공부 가능' 빈 구간 = 깨어있는 시간 − (수면 제외) 모든 고정 블록. */
+/** 요일의 '공부 가능' 빈 구간 = 깨어있는 시간 − 모든 고정 블록(수면 포함).
+ *  가장자리 수면은 awakeBounds가 [wake0,wake1] 밖으로 밀어 클램프 시 폭0으로 사라지고,
+ *  한낮 수면(낮잠, 예: 13:00–14:00)만 점유로 남아 공부시간 이중계상을 막는다(X-2). */
 export function freeWindowsForWeekday(state: AppState, wd: number): FreeWindows {
   const blocks = blocksForWeekday(state, wd);
   const [wake0, wake1] = awakeBounds(blocks);
   const occ = blocks
-    .filter((b) => b.type !== '수면')
     .flatMap((b): [number, number][] => {
       // 자정을 걸치는 블록(예: 23:00–01:00)은 두 구간으로 분할 — 안 하면 e<s로 걸러져
       // 그 시간이 '공부 가능'으로 잘못 남는다(수면과 동일 규칙).
@@ -147,7 +148,11 @@ export function studyMinByWeekday(state: AppState): number[] {
 /** 특정 날짜의 가용 공부 분 (덮어쓰기 우선). */
 export function dayStudyMin(state: AppState, ds: string, wd: number, capWd: number[]): number {
   const ov = state.dayOverrides && state.dayOverrides[ds];
-  if (ov !== undefined && ov !== null && ov !== '') return Math.round(+ov * 60);
+  if (ov !== undefined && ov !== null && ov !== '') {
+    // 비수치 오버라이드(+ov=NaN)가 그날 studyMin을 오염시키지 않게 가드 — 부적합하면 요일 기본값으로 폴백(L-10).
+    const n = +ov;
+    if (Number.isFinite(n)) return Math.round(n * 60);
+  }
   return capWd[wd] ?? 0;
 }
 export function itemTotalHours(it: Item): number {
@@ -159,6 +164,7 @@ export function subjectMastery(state: AppState, name: string): number | null {
   const k = state._knowState;
   if (!k || !Array.isArray(k.subjects)) return null;
   const b = (name || '').replace(/\s/g, '');
+  if (!b) return null; // 빈 질의 — a.indexOf('')가 전 과목을 매칭해 배분을 오염(L-9). 매칭 불가로 취급.
   // 정확 일치 우선, 없으면 포함 후보 중 길이차가 가장 작은 것 — 첫-포함 히트는
   // "물리"↔"물리화학" 같은 오매핑으로 graphPriority 배분을 조용히 오염시킨다.
   let best: number | null = null;
@@ -166,6 +172,7 @@ export function subjectMastery(state: AppState, name: string): number | null {
   for (const s of k.subjects) {
     if (!s.subject) continue;
     const a = s.subject.replace(/\s/g, '');
+    if (!a) continue; // 공백뿐인 과목명 — b.indexOf('')=0 역오염 방지(L-9).
     const m = typeof s.mastery === 'number' ? s.mastery : null;
     if (a === b) return m;
     if (a.indexOf(b) >= 0 || b.indexOf(a) >= 0) {
@@ -239,11 +246,14 @@ export function schedule(state: AppState): ScheduleResult {
   weeksNeed = Math.min(weeksNeed, 26);
   const endByPace = iso(addDays(mondayOf(parseISO(start)), weeksNeed * 7 + 6));
   const endDate = lastDL && lastDL > endByPace ? lastDL : endByPace;
+  const today = todayISO(state);
   // 마감 경로도 상한(18개월) — 먼 미래 마감 하나가 수천 일 배열을 만들어 편집마다 재계산 지연.
-  const horizon = Math.max(6, Math.min(dayDiff(start, endDate), 546));
+  // X-10: 경과한 startDate/짧은·과거 계획(가벼운 콘텐츠·마감없음)이어도 표시창이 오늘을 포함하도록
+  //       전방 확장 — 없으면 lastDay가 오늘 이전에서 끝나 복귀 사용자에게 빈 앱이 된다. 세 번째 항이
+  //       오늘까지 보장하며(동일 546 상한), 페이스 계산엔 개입하지 않는 표시-only 확장이다.
+  const horizon = Math.max(6, Math.min(dayDiff(start, endDate), 546), Math.min(dayDiff(start, today), 546));
 
   /* 2) 일자 생성 + (적응형) 가용 용량 */
-  const today = todayISO(state);
   const adapt = adherenceFactor(state, start, horizon, capWd, today);
   const days: Day[] = [];
   for (let i = 0; i <= horizon; i++) {
