@@ -78,7 +78,12 @@ export default function Graph() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // 캔버스 뷰 제어(줌/팬/노드검색) — 명령형 핸들. 캔버스 이펙트가 채우고, 검색바·버튼이 호출한다.
-  const viewApi = useRef<{ focus: (q: string) => boolean; reset: () => void; zoom: (f: number) => void } | null>(null);
+  const viewApi = useRef<{
+    focus: (q: string) => boolean;
+    reset: () => void;
+    zoom: (f: number) => void;
+    redraw: () => void;
+  } | null>(null);
   const [query, setQuery] = useState('');
   const [noHit, setNoHit] = useState(false);
 
@@ -92,6 +97,10 @@ export default function Graph() {
   // 킬러 ② — 과목 경계를 넘는 의미 연결(로컬 임베딩). 비동기 보강: Ollama 없으면 조용히 빈 배열.
   // 상태를 추적해 '왜 의미 연결이 없나'를 범례로 밝힌다(발견가능성 — 없던 기능을 존재하게).
   const [semEdges, setSemEdges] = useState<SemEdge[]>([]);
+  // 의미 연결은 그리기 전용(힘 시뮬레이션 불참)이라, 무거운 캔버스 이펙트의 의존성에서 떼어낸다.
+  // ref로 draw()가 최신 값을 읽고, 아래 얇은 이펙트가 값 변경 시 재시뮬레이션 없이 draw만 다시 부른다.
+  // (semEdges가 새 배열 참조로 바뀔 때마다 힘 시뮬레이션이 alpha=1로 리셋되며 드래그 위치가 날아가던 버그 차단.)
+  const semEdgesRef = useRef<SemEdge[]>([]);
   const [semStatus, setSemStatus] = useState<'idle' | 'ok' | 'unavailable'>('idle');
   useEffect(() => {
     let stale = false;
@@ -283,11 +292,13 @@ export default function Graph() {
         ctx.stroke();
       }
       // 의미 연결(자동) — 과목 경계를 넘는 점선(액센트, 그리기 전용 — 힘에는 불참).
-      if (semEdges.length) {
+      // ref에서 최신 값을 읽는다(무거운 이펙트를 재실행하지 않고 얇은 이펙트가 draw만 갱신).
+      const sem = semEdgesRef.current;
+      if (sem.length) {
         ctx.strokeStyle = palette.acc;
         ctx.globalAlpha = 0.4;
         ctx.setLineDash([5, 5]);
-        for (const l of semEdges) {
+        for (const l of sem) {
           const s = byId.get(l.source);
           const t = byId.get(l.target);
           if (!s || !t) continue;
@@ -553,6 +564,8 @@ export default function Graph() {
         draw();
       },
       zoom: (factor: number) => zoomAt(cw / 2, ch / 2, factor),
+      // 의미 연결이 도착/변경되면 얇은 이펙트가 호출 — 재시뮬레이션 없이 현재 프레임만 다시 그린다.
+      redraw: () => draw(),
     };
 
     // ── 테마/가시성/리사이즈 리스너 ────────────────────────────────────────
@@ -599,7 +612,14 @@ export default function Graph() {
       reduce.removeEventListener('change', onTheme);
       viewApi.current = null;
     };
-  }, [items, semEdges, expandedHubs]);
+  }, [items, expandedHubs]);
+
+  // 얇은 이펙트 — 의미 연결(그리기 전용)이 바뀌면 ref만 갱신하고 현재 프레임을 다시 그린다.
+  // 무거운 시뮬레이션 이펙트를 재실행하지 않으므로 드래그한 노드 위치·냉각 상태가 보존된다.
+  useEffect(() => {
+    semEdgesRef.current = semEdges;
+    viewApi.current?.redraw();
+  }, [semEdges]);
 
   // 검색 실행 — 라벨 부분일치 노드로 이동/센터. 없으면 잠깐 '없음' 표시.
   const runSearch = (q: string) => {
