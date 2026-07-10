@@ -67,17 +67,19 @@ describe('buildGraph — 지식맵 노드/링크 구성', () => {
 
   it('총 노드 > MAX_NODES면 허브당 잎을 캡하고 오버플로 노드로 표시(조용한 절단 금지)', () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => {});
-    const many: Chapter[] = Array.from({ length: 500 }, (_, i) => ch(`c${i}`, i < 10));
+    // Barnes–Hut로 캡을 2000으로 올렸으므로(SD-3), 캡 발동을 보려면 그보다 큰 입력이 필요.
+    const N = MAX_NODES + 500;
+    const many: Chapter[] = Array.from({ length: N }, (_, i) => ch(`c${i}`, i < 10));
     const g = buildGraph([item('big', many)]);
     const leaves = g.nodes.filter((n) => n.kind === 'leaf');
     const overflow = leaves.filter((n) => n.overflow);
-    // 캡으로 잎이 500개보다 적게 남는다
-    expect(leaves.length).toBeLessThan(500);
+    // 캡으로 잎이 입력 전체(N)보다 적게 남는다
+    expect(leaves.length).toBeLessThan(N);
     expect(overflow).toHaveLength(1);
     expect(overflow[0]?.label).toMatch(/개 더$/);
-    // 허브 집계는 캡과 무관하게 실제 전체(500) 반영
+    // 허브 집계는 캡과 무관하게 실제 전체(N) 반영
     const hub = g.nodes.find((n) => n.kind === 'hub');
-    expect(hub?.total).toBe(500);
+    expect(hub?.total).toBe(N);
     expect(hub?.done).toBe(10);
     // 링크 수 = 표시된 잎 수(오버플로 포함)
     expect(g.links).toHaveLength(leaves.length);

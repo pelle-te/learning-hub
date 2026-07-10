@@ -1,270 +1,181 @@
 /* ============================================================
-   DegreeReq — 탭: 졸업요건 정리 (Phase 3 첫 React 조각 · 정적/읽기전용)
-   레거시 ui-degree-req.js의 innerHTML 렌더를 공용 컴포넌트 + JSX로 이전.
-   상태(state)를 건드리지 않는 순수 표시 — 데이터는 ./data.ts.
+   DegreeReq — 졸업 탭의 '졸업요건 정리' 세그먼트 뷰(읽기전용 분석).
+   SD-2: 옛 전자공학과 2020 하드코딩 샘플을 폐기하고 내 실제 state.degree(졸업 계획 탭의
+   학기·과목·성적)로 구동한다. '요건 대비 얼마나 충족했나'와 '재수강 후보'를 자동 계산 —
+   편성/편집은 '졸업 계획' 뷰, 여기는 요건 충족도 진단에 집중(역할 분담).
+   집계 로직은 lib/degree(순수·테스트 대상)가 단일 출처.
 ============================================================ */
-import { Card, KpiGrid, Kpi, Pill, ProgressBar, Table, type PillTone, type KpiTone } from '@/components/ui';
-import {
-  DR_OVERVIEW,
-  DR_KPI,
-  DR_REQUIRED,
-  DR_RETAKE,
-  DR_REMAINING,
-  DR_CHECKLIST,
-  DR_PROGRESS,
-  type Tone,
-  type Done,
-} from './data';
+import { useApp } from '@/store/useApp';
+import { Card, KpiGrid, Kpi, Pill, ProgressBar, Table } from '@/components/ui';
+import EmptyState from '@/components/EmptyState';
+import { degreeStats, requirementRows, retakeCandidates } from '@/lib/degree';
 import styles from './DegreeReq.module.css';
 
-/** 총괄/분류 상태(ok·warn·bad)를 Pill 톤으로 — ok는 good으로 매핑. */
-function pillTone(t: Exclude<Tone, ''>): PillTone {
-  return t === 'ok' ? 'good' : t;
-}
-
-/** 인증필수 이수 현황 셀(✓ 이수 · ↻ 재수강 · ★ 미수강). */
-function DoneCell({ grade, done }: { grade: string; done: Done }) {
-  if (done === 'done')
-    return (
-      <Pill tone="good" tiny>
-        ✓ {grade}
-      </Pill>
-    );
-  if (done === 'redo')
-    return (
-      <Pill tone="bad" tiny>
-        ↻ {grade}
-      </Pill>
-    );
-  return (
-    <Pill tone="warn" tiny>
-      ★ {grade}
-    </Pill>
-  );
-}
-
 export default function DegreeReq() {
-  const { earned, total } = DR_PROGRESS;
-  const remain = total - earned;
-  const pct = Math.round((earned / total) * 100);
+  const d = useApp((s) => s.state.degree);
+  const stats = degreeStats(d);
+  const rows = requirementRows(d);
+  const retakes = retakeCandidates(d);
+  const totalCourses = d.semesters.reduce((n, s) => n + s.courses.length, 0);
+
+  const earned = stats.earned;
+  const remain = Math.max(0, d.targetTotal - earned);
+  const pct = d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
+  const unmet = rows.filter((r) => r.req && !r.met).length;
+  const mustRetake = retakes.some((r) => r.mandatory);
+
+  // 과목이 하나도 없으면 계산할 게 없다 — 졸업 계획 탭으로 안내(1급 빈 상태).
+  if (totalCourses === 0) {
+    return (
+      <EmptyState
+        glyph="🎓"
+        title="아직 등록된 과목이 없어요"
+        desc={
+          <>
+            <b>졸업 계획</b> 뷰에서 학기·과목·성적을 입력하면, 여기서 <b>요건 대비 충족도</b>와 <b>재수강 후보</b>를
+            자동으로 정리해 드려요.
+          </>
+        }
+      />
+    );
+  }
 
   return (
     <>
-      {/* 이 화면은 고정 참조 예시(전자공학과 2020 요람) — 내 실제 이수/성적은 '졸업 계획'에서 관리한다.
-          하드코딩 데이터를 개인 데이터로 오인하지 않도록 상단에 명시. */}
-      <div className={styles.sampleNote} role="note">
-        📋 <b>참조 예시</b> — 전자공학과 2020 요람 기준의 <b>고정 샘플</b>입니다. 내 실제 이수·성적·GPA는{' '}
-        <b>졸업 계획</b> 탭에서 관리하세요(이 표는 요건 읽는 법을 보여주는 예시).
-      </div>
-      <Card title="전자공학과 졸업요건 정리">
+      <Card title="졸업요건 충족 현황">
         <div className={styles.intro}>
-          2020학년도 요람 · 공학인증(ABEEK) <b>인증과정</b> 기준. 졸업에 꼭 재수강할 과목은 <b>반도체공학1(F)</b> 하나뿐
-          — 나머지 C+ 이하는 평점용 선택 재수강.
+          내 <b>졸업 계획</b> 데이터로 계산한 요건 대비 이수 현황입니다. 학기·과목·성적을 수정하면 즉시 반영돼요.
         </div>
         <div className={styles.barWrap}>
           <ProgressBar pct={pct} color="var(--good)" />
         </div>
         <div className={styles.meta}>
-          이수 {earned} / 졸업 {total}학점 ({pct}%) · 남은 {remain}학점
+          이수 {earned} / 졸업 {d.targetTotal}학점 ({pct}%) · 남은 {remain}학점
+          {stats.gpa != null ? ` · 평점 ${stats.gpa.toFixed(2)}` : ''}
         </div>
       </Card>
 
       <KpiGrid>
-        {DR_KPI.map((k) => (
-          <Kpi key={k.label} value={k.value} label={k.label} tone={(k.tone || undefined) as KpiTone | undefined} />
-        ))}
+        <Kpi value={remain} label="남은 졸업학점" tone={remain > 0 ? 'warn' : 'good'} />
+        <Kpi value={stats.gpa != null ? stats.gpa.toFixed(2) : '—'} label="평점(GPA)" />
+        <Kpi value={unmet} label="미충족 요건" tone={unmet > 0 ? 'warn' : 'good'} />
+        <Kpi value={retakes.length} label="재수강 후보" tone={mustRetake ? 'bad' : retakes.length ? 'warn' : 'good'} />
       </KpiGrid>
 
-      <Card title="1 · 졸업요건 총괄">
+      <Card title="1 · 카테고리별 요건 충족">
         <Table>
           <thead>
             <tr>
-              <th style={{ width: '24%' }}>항목</th>
+              <th style={{ width: '26%' }}>구분</th>
               <th>요건</th>
-              <th>내 현황</th>
+              <th>이수</th>
+              <th>남은</th>
+              <th>상태</th>
             </tr>
           </thead>
           <tbody>
-            {DR_OVERVIEW.map((r) => (
-              <tr key={r.item}>
-                <td style={{ fontWeight: 600 }}>{r.item}</td>
-                <td className={`${styles.tiny} ${styles.muted}`}>{r.req}</td>
+            {rows.map((r) => (
+              <tr key={r.cat}>
+                <td style={{ fontWeight: 600 }}>{r.cat}</td>
+                <td className={`${styles.tiny} ${styles.muted}`}>{r.req ? `${r.req}학점` : '—'}</td>
+                <td className={styles.tiny}>{r.have}학점</td>
+                <td className={styles.tiny}>{r.req ? (r.gap > 0 ? `${r.gap}학점` : '충족') : '—'}</td>
                 <td>
-                  {r.tone ? (
-                    <Pill tone={pillTone(r.tone)} tiny>
-                      {r.cur}
+                  {r.req ? (
+                    <Pill tone={r.met ? 'good' : 'warn'} tiny>
+                      {r.met ? '충족' : `부족 ${r.gap}`}
                     </Pill>
                   ) : (
-                    <span className={styles.tiny}>{r.cur}</span>
+                    <span className={`${styles.tiny} ${styles.muted}`}>요건 없음</span>
                   )}
                 </td>
               </tr>
             ))}
-          </tbody>
-        </Table>
-      </Card>
-
-      <Card title="2 · 남은 졸업학점 = 34학점">
-        <div className={styles.split}>
-          <div className={styles.inset}>
-            <div className={styles.v}>26</div>
-            <div className={styles.l}>전공 (인증필수 11 + 인증선택 15)</div>
-          </div>
-          <div className={styles.inset}>
-            <div className={styles.v}>8</div>
-            <div className={styles.l}>비전공 (영역별교양 보충 + 자유선택)</div>
-          </div>
-        </div>
-        <div className={styles.splitNote}>
-          자유선택 9학점 중 심리학개론 3 사용 → 앞으로 약 6학점 자유. 영역별교양 1과목을 더 들어야 하면 그만큼 빠져{' '}
-          <b>실제 자유 채움은 5~6학점 수준</b>.
-        </div>
-      </Card>
-
-      <Card title="3 · 전공 인증필수 41학점">
-        <div className={styles.legend}>
-          ✓ 이수 · ↻ 재수강 · ★ 미수강 &nbsp;|&nbsp; 캡스톤은 융합전자연구 또는 융합캡스톤디자인 한 세트만(1→2 순서).
-        </div>
-        <Table>
-          <thead>
             <tr>
-              <th style={{ width: '42%' }}>과목</th>
-              <th>학점</th>
-              <th>개설학기</th>
-              <th>이수현황</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DR_REQUIRED.map((r) => (
-              <tr key={r.name}>
-                <td>{r.name}</td>
-                <td className={styles.tiny}>{r.credit}</td>
-                <td className={`${styles.tiny} ${styles.muted}`}>{r.term}</td>
-                <td>
-                  <DoneCell grade={r.grade} done={r.done} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </Card>
-
-      <Card title="4 · 인증선택 27학점">
-        <div className={styles.group4}>
-          <div>
-            <b>1그룹</b> (택1 이상) — 확률및랜덤변수로{' '}
-            <Pill tone="good" tiny>
-              충족
-            </Pill>{' '}
-            <span className={styles.muted}>
-              / 통신시스템·자동제어·디지털시스템설계·컴퓨터네트워크·전파공학(1학기), 반도체공학2(2학기)
-            </span>
-          </div>
-          <div>
-            <b>2그룹 실험</b> (택1 필수, 전부 2학기){' '}
-            <span className={styles.muted}>— 자동제어·전파·통신·임베디드·반도체실험</span>
-          </div>
-          <div>
-            <b>그 외</b>{' '}
-            <span className={styles.muted}>
-              1·2학기 다수 개설 (컴퓨터구조·임베디드·VLSI·아날로그IC·RF회로·로봇공학 등). 졸업요건_정리.md 4절 목록
-              참고.
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      <Card title="5 · 앞으로 더 들어야 할 전공 26학점">
-        <Table>
-          <thead>
-            <tr>
-              <th style={{ width: '18%' }}>분류</th>
-              <th>과목</th>
-              <th>학점</th>
-              <th>개설학기</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DR_REMAINING.map((r) => (
-              <tr key={r.name}>
-                <td>
-                  <Pill tone={r.cat === '인증필수' ? 'bad' : 'warn'} tiny>
-                    {r.cat}
+              <td style={{ fontWeight: 700 }}>총 졸업학점</td>
+              <td className={`${styles.tiny} ${styles.muted}`}>{d.targetTotal}학점</td>
+              <td className={styles.tiny}>{earned}학점</td>
+              <td className={styles.tiny}>{remain > 0 ? `${remain}학점` : '충족'}</td>
+              <td>
+                {earned >= d.targetTotal ? (
+                  <Pill tone="good" tiny>
+                    충족
                   </Pill>
-                </td>
-                <td>{r.name}</td>
-                <td className={styles.tiny}>{r.credit}</td>
-                <td className={`${styles.tiny} ${styles.muted}`}>{r.term}</td>
-              </tr>
-            ))}
+                ) : (
+                  <Pill tone="warn" tiny>
+                    부족 {remain}
+                  </Pill>
+                )}
+              </td>
+            </tr>
           </tbody>
         </Table>
-      </Card>
-
-      <Card title="6 · 재수강 대상 (C+ 이하) — 17과목 · 50학점">
-        <div className={styles.tiny + ' ' + styles.muted}>
-          졸업엔 반도체공학1(F)만 필수. 나머지는 학점 인정됨 → 평점 향상 목적 선택 재수강.
-        </div>
-      </Card>
-
-      {DR_RETAKE.map((g) => (
-        <Card key={g.title}>
-          <div className={styles.cardHead}>
-            <h3>{g.title}</h3>
-            <span className={`${styles.tiny} ${styles.muted}`}>{g.sub}</span>
+        {unmet > 0 && (
+          <div className={styles.legend}>
+            부족한 카테고리는 <b>졸업 계획</b>에서 해당 구분 과목을 더 이수하세요. (요건 학점은 졸업 계획 → 졸업 요건
+            설정에서 조정)
           </div>
-          <Table>
-            <thead>
-              <tr>
-                <th>과목</th>
-                <th>성적</th>
-                <th>학점</th>
-                <th>개설학기</th>
-                <th>비고</th>
-              </tr>
-            </thead>
-            <tbody>
-              {g.rows.map((r) => (
-                <tr key={r.name}>
-                  <td>{r.name}</td>
-                  <td>
-                    {r.grade === 'F' ? (
-                      <Pill tone="bad" tiny>
-                        {r.grade}
-                      </Pill>
-                    ) : (
-                      <span className={styles.tiny}>{r.grade}</span>
-                    )}
-                  </td>
-                  <td className={styles.tiny}>{r.credit}</td>
-                  <td className={`${styles.tiny} ${styles.muted}`}>{r.term}</td>
-                  <td className={styles.tiny}>
-                    {r.note ? (
-                      r.note.includes('필수') ? (
+        )}
+      </Card>
+
+      <Card title="2 · 재수강 후보 (C+ 이하)">
+        {retakes.length ? (
+          <>
+            <div className={styles.legend}>
+              성적 C+ 이하 이수 과목. <b>F</b>는 학점 미취득 → <b>졸업 위해 재수강 필수</b>. 그 외는 평점 향상용 선택
+              재수강.
+            </div>
+            <Table>
+              <thead>
+                <tr>
+                  <th style={{ width: '38%' }}>과목</th>
+                  <th>성적</th>
+                  <th>학점</th>
+                  <th>구분</th>
+                  <th>학기</th>
+                </tr>
+              </thead>
+              <tbody>
+                {retakes.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      {r.name}{' '}
+                      {r.mandatory && (
                         <Pill tone="bad" tiny>
-                          {r.note}
+                          재수강 필수
+                        </Pill>
+                      )}
+                    </td>
+                    <td>
+                      {r.grade === 'F' ? (
+                        <Pill tone="bad" tiny>
+                          F
                         </Pill>
                       ) : (
-                        <span className={styles.muted}>{r.note}</span>
-                      )
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-      ))}
-
-      <Card title="7 · 추가 확인 필요">
-        <ul className={styles.checklist}>
-          {DR_CHECKLIST.map((t, i) => (
-            <li key={i}>{t}</li>
-          ))}
-        </ul>
+                        <span className={styles.tiny}>{r.grade}</span>
+                      )}
+                    </td>
+                    <td className={styles.tiny}>{r.credit}</td>
+                    <td className={`${styles.tiny} ${styles.muted}`}>{r.category}</td>
+                    <td className={`${styles.tiny} ${styles.muted}`}>{r.semester}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </>
+        ) : (
+          <div className={styles.intro}>
+            재수강 후보가 없어요 — 이수한 과목이 모두 <b>C+ 초과</b>입니다. 👍
+          </div>
+        )}
       </Card>
+
+      <div className={styles.meta}>
+        수강중 {stats.inprog}학점 · 예정 {stats.planned}학점 · 완료 학기 {stats.semDone}개
+        {stats.earned > 0 && stats.gradedCr < stats.earned
+          ? ` · 성적 미입력 ${stats.earned - stats.gradedCr}학점(GPA 제외)`
+          : ''}
+      </div>
     </>
   );
 }

@@ -21,6 +21,7 @@ import { todayISO } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
+import { accumulateRepulsion } from './barnesHut';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
 import g from './Graph.module.css';
 
@@ -200,28 +201,9 @@ export default function Graph() {
     const step = (alpha: number): number => {
       fx.fill(0);
       fy.fill(0);
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i]!;
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j]!;
-          let dx = a.x - b.x;
-          let dy = a.y - b.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 < 0.01) {
-            dx = (i - j) * 0.1 + 0.1;
-            dy = 0.1;
-            d2 = dx * dx + dy * dy;
-          }
-          const d = Math.sqrt(d2);
-          const f = REP / d2;
-          const ux = (dx / d) * f;
-          const uy = (dy / d) * f;
-          fx[i]! += ux;
-          fy[i]! += uy;
-          fx[j]! -= ux;
-          fy[j]! -= uy;
-        }
-      }
+      // 반발(repulsion): 소형 그래프는 정확 O(N²), 대형은 Barnes–Hut Θ(N log N)로 자동 전환.
+      // 프레임당 N² 연산이 MAX_NODES 캡의 근본 원인이었다(SD-3).
+      accumulateRepulsion(nodes, fx, fy, REP);
       for (const l of links) {
         const s = byId.get(l.source);
         const t = byId.get(l.target);

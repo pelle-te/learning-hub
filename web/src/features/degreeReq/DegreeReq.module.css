@@ -1,4 +1,4 @@
-/* degreeReq 탭 전용 스타일 — 공용 컴포넌트로 안 되는 자투리만. 토큰 참조. */
+/* degreeReq(졸업요건 정리) 뷰 전용 스타일 — 공용 컴포넌트로 안 되는 자투리만. 토큰 참조. */
 .muted {
   color: var(--mut);
 }
@@ -12,17 +12,6 @@
   line-height: 1.6;
 }
 
-.sampleNote {
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--warn) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
-  border-radius: var(--r);
-  padding: 11px 14px;
-  margin-bottom: 15px;
-}
-
 .meta {
   font-size: var(--fs-sm);
   color: var(--mut);
@@ -33,83 +22,9 @@
   margin: 14px 0 4px;
 }
 
-/* 섹션 2 — 두 개의 인셋 숫자 박스 */
-.split {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.inset {
-  flex: 1;
-  min-width: 200px;
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  padding: 13px 14px;
-}
-
-.inset .v {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-}
-
-.inset .l {
-  font-size: var(--fs-sm);
-  color: var(--mut);
-  margin-top: 1px;
-  word-break: keep-all;
-}
-
-.splitNote {
-  font-size: var(--fs-sm);
-  color: var(--mut);
-  margin-top: 10px;
-  line-height: 1.6;
-}
-
 .legend {
   font-size: var(--fs-sm);
   color: var(--mut);
-  margin-bottom: 8px;
-}
-
-/* 섹션 4 — 자유 텍스트 */
-.group4 {
-  font-size: var(--fs-md);
-  line-height: 1.8;
-}
-
-.group4 > div + div {
-  margin-top: 6px;
-}
-
-/* 섹션 7 — 체크리스트 */
-.checklist {
-  margin: 0;
-  padding-left: 18px;
-  line-height: 1.75;
-  font-size: var(--fs-sm);
-}
-
-.checklist li {
-  margin-bottom: 4px;
-}
-
-/* 카드 안 소제목 줄(재수강 그룹) */
-.cardHead {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.cardHead h3 {
-  flex: 1;
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  margin-top: 8px;
+  line-height: 1.6;
 }

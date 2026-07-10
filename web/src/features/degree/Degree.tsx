@@ -17,32 +17,9 @@ import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './Degree.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
+import { CATS, STATUSES, GRADE_KEYS, degreeStats } from '@/lib/degree';
 import DegreeReq from '@/features/degreeReq/DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
-
-const CATS = ['전공필수', '전공선택', '교양', '기타'];
-const STATUSES = ['예정', '수강중', '완료'];
-const GRADE_POINTS: Record<string, number> = {
-  'A+': 4.5,
-  A0: 4.0,
-  A: 4.0,
-  'A-': 3.7,
-  'B+': 3.5,
-  B0: 3.0,
-  B: 3.0,
-  'B-': 2.7,
-  'C+': 2.5,
-  C0: 2.0,
-  C: 2.0,
-  'C-': 1.7,
-  'D+': 1.5,
-  D0: 1.0,
-  D: 1.0,
-  'D-': 0.7,
-  F: 0,
-};
-// 성적 드롭다운 순서(정규 키) — P(이수)는 GRADE_POINTS에 없어 GPA에서 자동 제외(Pass/Fail).
-const GRADE_KEYS = ['A+', 'A0', 'A-', 'B+', 'B0', 'B-', 'C+', 'C0', 'C-', 'D+', 'D0', 'D-', 'F', 'P'];
 
 interface Course {
   id: string;
@@ -57,46 +34,6 @@ type Semester = { id: string; name: string; courses: Course[] };
 const sems = (d: DegreeT): Semester[] => d.semesters;
 
 type DegKey = 'targetTotal' | 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal';
-
-interface DegreeStats {
-  earned: number; // 완료(이수) 학점
-  inprog: number;
-  planned: number;
-  byCat: Record<string, number>;
-  gpa: number | null;
-  gradedCr: number;
-  semDone: number;
-}
-/** 학기·과목 전체를 한 번만 순회해 모든 집계를 낸다(요건 요약·졸업 인사이트 공유 · 이중순회 제거). */
-function degreeStats(d: DegreeT): DegreeStats {
-  let earned = 0;
-  let inprog = 0;
-  let planned = 0;
-  let pts = 0;
-  let gradedCr = 0;
-  let semDone = 0;
-  const byCat: Record<string, number> = {};
-  CATS.forEach((c) => (byCat[c] = 0));
-  sems(d).forEach((s) => {
-    let hasDone = false;
-    s.courses.forEach((c) => {
-      const cr = +c.credits || 0;
-      if (c.status === '완료') {
-        earned += cr;
-        byCat[c.category] = (byCat[c.category] || 0) + cr;
-        hasDone = true;
-        const g = (c.grade || '').toUpperCase().trim();
-        if (g in GRADE_POINTS) {
-          pts += GRADE_POINTS[g]! * cr;
-          gradedCr += cr;
-        }
-      } else if (c.status === '수강중') inprog += cr;
-      else planned += cr;
-    });
-    if (hasDone) semDone++;
-  });
-  return { earned, inprog, planned, byCat, gpa: gradedCr ? pts / gradedCr : null, gradedCr, semDone };
-}
 
 function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onToggle: (id: string) => void }) {
   const mutate = useApp((s) => s.mutate);

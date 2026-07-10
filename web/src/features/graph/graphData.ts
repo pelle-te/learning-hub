@@ -10,8 +10,11 @@
 import { PALETTE } from '@/lib/utils';
 import type { Item } from '@/lib/types';
 
-/** 총 노드 상한(허브+잎). 초과 시 허브당 잎을 캡한다. */
-export const MAX_NODES = 400;
+/** 총 노드 상한(허브+잎). 초과 시 허브당 잎을 캡한다.
+ *  힘 시뮬이 Barnes–Hut(Θ(N log N), features/graph/barnesHut.ts)로 바뀌어 옛 O(N²) 병목이
+ *  사라졌다 — 이 캡을 400→2000으로 올려 대형 볼트도 그린다(SD-3). 그래도 캔버스 렌더·라벨
+ *  가독성 한계가 있어 상한 자체는 유지하고, 초과분은 '+N개 더' 오버플로 노드로 명시한다. */
+export const MAX_NODES = 2000;
 
 /** 잎(챕터) 상태 색조 — Graph.tsx가 토큰(--good/--learning/--mut)으로 해석. */
 export type LeafTone = 'done' | 'learning' | 'idle';

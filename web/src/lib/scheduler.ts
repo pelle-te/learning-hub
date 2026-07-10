@@ -354,14 +354,18 @@ export function schedule(state: AppState): ScheduleResult {
       if (di >= 0 && di < days.length) widx.push(di);
     }
     if (!widx.length) continue;
-    // 과목별 이번 주 목표 모듈 — 분수 모듈을 캐리오버해 과/미배정 방지
+    // 과목별 이번 주 목표 모듈 — 분수 모듈을 캐리오버해 과/미배정 방지.
+    // SD-4: 시작일이 월요일이 아니면 첫 주(w===0)는 부분주 — 7일치 목표를 짧은 첫 주에 통째로
+    //       잡으면 미달충(정수 모듈 유실)되던 것을, 실제 가용 일수 비중(widx.length/7)만큼만
+    //       앵커하고 나머지는 _carry로 이월한다. 온전한 주(widx.length===7)는 wkFrac=1로 무변경.
+    const wkFrac = w === 0 ? widx.length / 7 : 1;
     weekly.forEach((s) => {
       if (!chaptersLeft(s)) {
         s._weekTgt = 0;
         s._weekDone = 0;
         return;
       }
-      const perWeek = (+(s.weeklyHours || 0) * 60) / ML;
+      const perWeek = ((+(s.weeklyHours || 0) * 60) / ML) * wkFrac;
       const avail = s._carry + perWeek;
       const tgt = Math.floor(avail + 1e-9);
       s._carry = avail - tgt;

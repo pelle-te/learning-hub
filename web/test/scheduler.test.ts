@@ -527,4 +527,21 @@ describe('scheduler (T1~T21 parity)', () => {
     expect(Number.isNaN(d.studyMin)).toBe(false);
     expect(d.studyMin).toBe(1440); // 빈 routine → 요일 기본값(1440)으로 폴백
   });
+
+  it('T35 부분주 앵커(SD-4): 화요일 시작이면 첫 주 목표를 가용 6/7일 비중으로 축소', () => {
+    // ML=120 → weeklyHours 8 = 주당 4모듈. 넉넉한 용량(빈 routine)이라 주간 목표=실배치.
+    // 화요일 시작(2026-06-23)은 첫 주가 화~일 6일 → 4*6/7≈3.43 → 첫 주 3모듈(앵커).
+    // 같은 날 같은 과목 모듈은 한 행으로 병합(min += ML)되므로 모듈 수 = min/ML로 센다.
+    const wk0Modules = (r: ScheduleResult, name: string, cut: number) =>
+      r.days
+        .slice(0, cut + 1)
+        .flatMap((d) => d.items)
+        .filter((it) => it.type === 'new' && it.name === name)
+        .reduce((n, it) => n + Math.round(it.min / 120), 0);
+    const tue = schedule(baseState([weeklyItem('물리', 8, mkChapters([['C', 40]]))], { startDate: '2026-06-23' }));
+    expect(wk0Modules(tue, '물리', 5)).toBe(3); // di 0..5 = 화~일(부분주) → 4*6/7 앵커 → 3
+    // 대조군: 월요일 시작(2026-06-22)은 온전한 첫 주(월~일 7일) → wkFrac=1 → 4모듈 그대로.
+    const mon = schedule(baseState([weeklyItem('물리', 8, mkChapters([['C', 40]]))], { startDate: '2026-06-22' }));
+    expect(wk0Modules(mon, '물리', 6)).toBe(4); // di 0..6 = 월~일 → 4
+  });
 });
