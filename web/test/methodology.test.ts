@@ -123,6 +123,16 @@ describe('methodology — 백지 복습 결과', () => {
     expect(blankResultFor(s, '2026-07-01', 'a')).toBeNull();
     expect(blankPassRate(s)).toBeNull(); // 기록 없음 = null('미측정')
   });
+
+  it('X-3: ds 미지정 시 _today 시드로 기록(벽시계 아님) — addCbms·setBlankResult·파생 CBMS 모두', () => {
+    const s = st({ _today: '2026-07-01' });
+    addCbms(s, '', 'a', '수학', '1장', 'C', '메모'); // ds 미지정 → 앱의 '오늘' 단일 출처
+    expect(s.cbms![0]!.ds).toBe('2026-07-01');
+    setBlankResult(s, '', 'a', '수학', false, '유도 막힘', '2장'); // ds 미지정 → 시드 날짜
+    expect(s.blankResults![0]!.ds).toBe('2026-07-01');
+    // 막힘 → 자동 연결된 CBMS도 같은 시드 날짜(벽시계 자정 경계 off-by-one 무력화)
+    expect(s.cbms!.find((e) => e.note.includes('백지복습 막힘'))!.ds).toBe('2026-07-01');
+  });
 });
 
 describe('methodology — 보충 백로그', () => {

@@ -1,28 +1,34 @@
 /* ============================================================
    interactions.ts — 탭 공유 인터랙션 프리미티브(오늘 탭 "FOCUS"에서 추출).
    세계적 수준의 "살아있는" 감각을 전 탭에 일관 적용하기 위한 단일 원천.
-   • useCountUp — 마운트 시 0→target 카운트업(reduced-motion이면 즉시).
+   • useCountUp — 현재 표시값→target 카운트업(reduced-motion이면 즉시).
    • useHeroPointer — 포인터 추적: --mx/--my(스포트라이트) + --tiltX/Y(3D 틸트) CSS 변수 주입.
    짝이 되는 CSS는 ds.module.css의 .spotHost/.spotlight/.tiltable/.glow.
 ============================================================ */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 
-/** 마운트 시 0→target으로 부드럽게 카운트업(easeOutCubic). reduced-motion·SSR이면 즉시 target. */
+/** 현재 표시값→target으로 부드럽게 카운트업/다운(easeOutCubic). reduced-motion·SSR이면 즉시 target.
+ *  target 변경 시 0이 아니라 *현재값*에서 트윈 — 데이터 갱신마다 KPI가 0으로 튀는 깜빡임 방지(L-8). */
 export function useCountUp(target: number, ms = 750): number {
   const [v, setV] = useState(0);
+  const vRef = useRef(0); // 현재 표시값 미러(deps에 넣지 않고 애니메이션 시작점으로 읽기 위함)
   useEffect(() => {
     const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce || typeof requestAnimationFrame === 'undefined') {
+      vRef.current = target;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 모션 자제 시 애니메이션 없이 즉시 최종값.
       setV(target);
       return;
     }
+    const from = vRef.current; // 이번 트윈의 출발점 = 현재 화면에 보이는 값
     let raf = 0;
     let startedAt = 0;
     const step = (now: number) => {
       if (!startedAt) startedAt = now;
       const t = Math.min(1, (now - startedAt) / ms);
-      setV(target * (1 - Math.pow(1 - t, 3)));
+      const val = from + (target - from) * (1 - Math.pow(1 - t, 3));
+      vRef.current = val;
+      setV(val);
       if (t < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);

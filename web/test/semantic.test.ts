@@ -2,11 +2,18 @@
    semantic.test.ts — 시맨틱 레이어의 순수 계산(해시·코사인·topK·코퍼스·자동 엣지).
    IO(임베딩 fetch·IDB 캐시)는 여기서 다루지 않는다 — Ollama 없인 조용히 비활성이 계약.
 ============================================================ */
-import { describe, expect, it } from 'vitest';
-import { hashText, cosine, topK, buildCorpus, crossChapterEdges, type SemEntry } from '@/lib/semantic';
+import { describe, expect, it, vi } from 'vitest';
+import { hashText, cosine, topK, buildCorpus, crossChapterEdges, vectorsFor, type SemEntry } from '@/lib/semantic';
 import { defaults } from '@/lib/persistence';
 import type { AppState } from '@/lib/types';
 import type { ReadsLocal } from '@/lib/reads';
+
+// vectorsFor(IO) 검증용 — 임베딩·IDB를 목킹(모델명은 mock 접두 변수로 런타임 제어).
+let mockModel = 'model-A';
+vi.mock('@/lib/idb', () => ({ idbLoad: vi.fn(async () => null), idbMirror: vi.fn(() => {}) }));
+vi.mock('@/lib/api', () => ({
+  embedTexts: vi.fn(async (texts: string[]) => ({ ok: true, model: mockModel, vectors: texts.map(() => [1, 0, 0]) })),
+}));
 
 describe('hashText — 증분 캐시 키', () => {
   it('같은 입력은 같은 해시, 다른 입력은 (사실상) 다른 해시', () => {
@@ -149,5 +156,20 @@ describe('crossChapterEdges — 지식맵 자동 연결(과목 경계만)', () =
   });
   it('입력 2개 미만이면 빈 배열', () => {
     expect(crossChapterEdges([{ itemId: 'A', chapterId: 'a1', vec: [1, 0] }])).toEqual([]);
+  });
+});
+
+describe('vectorsFor — 모델 변경 시 spurious null 없음(L-11)', () => {
+  it('모델이 바뀌면 기캐시 텍스트도 전량 재임베딩해 null이 섞이지 않는다', async () => {
+    mockModel = 'model-A';
+    const r1 = await vectorsFor(['x', 'y']); // 모델 A로 x·y 캐시
+    expect(r1).not.toBeNull();
+    expect(r1!.every((v) => v !== null)).toBe(true);
+
+    mockModel = 'model-B'; // 임베딩 모델 교체
+    const r2 = await vectorsFor(['x', 'z']); // x는 옛 모델 캐시·z는 신규 — 모델 변경 → 전량 재계산
+    expect(r2).not.toBeNull();
+    expect(r2).toHaveLength(2);
+    expect(r2!.every((v) => v !== null)).toBe(true); // 옛 버그: x가 캐시삭제로 null 반환
   });
 });

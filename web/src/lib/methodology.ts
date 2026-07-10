@@ -122,7 +122,7 @@ export function addCbms(
   state.cbms = state.cbms || [];
   state.cbms.push({
     id: rid(),
-    ds: ds || iso(new Date()),
+    ds: ds || todayISO(state), // '오늘' 단일 출처(_today 시드 존중) — 벽시계 직접 참조 금지
     sid: sid || '',
     name: name || '',
     chapter: chapter || '',
@@ -178,7 +178,7 @@ export function setBlankResult(
   state.blankResults = state.blankResults.filter((x) => !(x.ds === ds && x.sid === (sid || '')));
   state.blankResults.push({
     id: rid(),
-    ds: ds || iso(new Date()),
+    ds: ds || todayISO(state), // '오늘' 단일 출처(_today 시드 존중) — 벽시계 직접 참조 금지
     sid: sid || '',
     name: name || '',
     passed: !!passed,
@@ -230,7 +230,7 @@ export function toggleBacklog(state: AppState, id: string): void {
   const b = (state.backlog || []).find((x) => x.id === id);
   if (!b) return;
   b.done = !b.done;
-  b.doneDs = b.done ? iso(new Date()) : '';
+  b.doneDs = b.done ? todayISO(state) : ''; // '오늘' 단일 출처(_today 시드 존중) — 벽시계 직접 참조 금지
 }
 export function delBacklog(state: AppState, id: string): void {
   state.backlog = (state.backlog || []).filter((x) => x.id !== id);
@@ -351,7 +351,7 @@ export interface ArchiveResult {
 }
 /** cutoff(기본 6개월) 이전 기록을 archive로 분리하고 state에서 비운다(다운로드는 호출부). */
 export function archiveOldData(state: AppState, monthsKeep = 6): ArchiveResult {
-  const cutoff = iso(addDays(new Date(), -Math.round(monthsKeep * 30)));
+  const cutoff = iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30))); // '오늘' 단일 출처(_today 시드 존중)
   const arch: ArchiveResult['archive'] = {
     schemaVersion: SCHEMA_VERSION,
     archivedAt: new Date().toISOString(),
@@ -402,7 +402,7 @@ export function recordRetentionSnapshot(state: AppState, decks: DeckLike[]): voi
   if (!Array.isArray(decks)) return;
   const due = decks.reduce((t, d) => t + +(d.new || 0) + +(d.learn || 0) + +(d.review || 0), 0);
   const cards = decks.reduce((t, d) => t + +(d.total || 0), 0);
-  const wk = iso(mondayOf(new Date()));
+  const wk = iso(mondayOf(parseISO(todayISO(state)))); // 그 주 월요일 — '오늘' 단일 출처(_today 시드 존중)
   state.retentionLog = (state.retentionLog || []).filter((x) => x.wk !== wk);
   state.retentionLog.push({ wk, at: new Date().toISOString(), due, cards });
   state.retentionLog.sort((a, b) => (a.wk < b.wk ? -1 : a.wk > b.wk ? 1 : 0));

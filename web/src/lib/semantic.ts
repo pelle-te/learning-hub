@@ -176,7 +176,8 @@ export async function vectorsFor(texts: string[]): Promise<(number[] | null)[] |
   if (_disabled) return null;
   const cache = await loadCache();
   const hashes = texts.map(hashText);
-  const missIdx = hashes.map((h, i) => (cache.vecs[h] ? -1 : i)).filter((i) => i >= 0);
+  let missIdx = hashes.map((h, i) => (cache.vecs[h] ? -1 : i)).filter((i) => i >= 0);
+  let modelChecked = false;
   for (let off = 0; off < missIdx.length; off += BATCH) {
     const slice = missIdx.slice(off, off + BATCH);
     try {
@@ -185,9 +186,19 @@ export async function vectorsFor(texts: string[]): Promise<(number[] | null)[] |
         _disabled = true; // 모델 미설치·Ollama 꺼짐 — 이 세션은 조용히 비활성
         return null;
       }
-      // 모델이 바뀌었으면 캐시 전체가 다른 공간 — 비우고 다시 시작.
-      if (cache.model && cache.model !== (res.model || '')) cache.vecs = {};
-      cache.model = res.model || cache.model;
+      const model = res.model || '';
+      // 모델 변경 선감지(L-11): 임베드 모델이 캐시와 다르면 옛 벡터는 다른 임베딩 공간이라 전부 폐기하고
+      // 전 인덱스를 미스로 재산정해 처음부터 다시 임베딩한다. 예전엔 배치 도중 캐시를 비우되 미스만
+      // 다시 채워, 이번 호출에서 기캐시(옛 모델) 텍스트가 최종 반환 배열에 spurious null로 남았다.
+      if (!modelChecked && cache.model && model && cache.model !== model) {
+        cache.vecs = {};
+        missIdx = hashes.map((_, i) => i);
+        modelChecked = true;
+        off = -BATCH; // 다음 반복에서 off=0부터 — 전 인덱스 재임베딩
+        continue;
+      }
+      modelChecked = true;
+      cache.model = model || cache.model;
       slice.forEach((i, j) => {
         const v = res.vectors![j];
         if (v) cache.vecs[hashes[i]!] = v;
