@@ -464,4 +464,24 @@ describe('scheduler (T1~T21 parity)', () => {
     const maxMin = Math.max(...newItems(r).map((it) => it.min));
     expect(maxMin).toBeGreaterThan(120); // 병합이 실제로 일어남(모듈 2개 이상 합쳐진 날 존재)
   });
+
+  // ── 버그 회귀(2026-07-10 · N-6) ──
+  it('T29 챕터 없는 과목은 마감이 있어도 "다 못 끝내요" 경고를 내지 않는다', () => {
+    // _hadChapters=false면 chaptersLeft()가 늘 true → finished가 영영 false라 옛 코드는 경고를 영구 오탐.
+    const r = schedule(baseState([weeklyItem('무챕터과목', 5, [], { deadline: '2027-01-01' })]));
+    expect(r.warnings.some((w) => w.includes('다 못 끝내요'))).toBe(false);
+    expect(r.warnings.some((w) => w.includes('무챕터과목'))).toBe(false);
+  });
+
+  it('T30 챕터가 있는데 주당 시간 부족하면 마감 경고는 그대로 뜬다', () => {
+    // 가드가 정상 경고(T7 계열)까지 삼키지 않는지 — 챕터 있는 과목은 여전히 경고.
+    const r = schedule(
+      baseState([
+        weeklyItem('빡센과목', 1, mkChapters(Array.from({ length: 20 }, (_, i) => ['c' + i, 2] as ChSpec)), {
+          deadline: '2026-06-30',
+        }),
+      ]),
+    );
+    expect(r.warnings.some((w) => w.includes('빡센과목') && w.includes('다 못 끝내요'))).toBe(true);
+  });
 });

@@ -562,7 +562,9 @@ export function schedule(state: AppState): ScheduleResult {
     const finishDate = lastIdx >= 0 ? days[lastIdx]!.ds : null;
     const finished = !chaptersLeft(s);
     const late = finished && finishDate && s.deadline ? Math.max(0, dayDiff(s.deadline, finishDate)) : 0;
-    if (s.deadline && !finished)
+    // _hadChapters 가드 — 챕터 없는 과목은 chaptersLeft()가 늘 true라 finished가 영영 false다.
+    // 그 상태에서 마감만 있으면 "다 못 끝내요" 경고가 영구히 뜨는 오탐이라 실제 챕터가 있던 과목만 경고.
+    if (s.deadline && s._hadChapters && !finished)
       warnings.push(`⚠ "${s.name}": 마감(${s.deadline})까지 주 ${s.weeklyHours}h로는 챕터를 다 못 끝내요. 주당 시간↑.`);
     else if (late > 0) warnings.push(`⚠ "${s.name}": 학습 종료(${finishDate})가 마감(${s.deadline}) 초과.`);
     return {
