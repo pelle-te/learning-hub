@@ -3,12 +3,12 @@
    레거시 ui-routine.js의 renderAvailability를 React로 — 스케줄러 입력(빈 시간 계산):
    요일별 공부 가능 시간(파생) · 수업(요일별) · 그 밖의 일과 블록.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { freeWindowsForWeekday, blocksForWeekday } from '@/lib/scheduler';
-import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
+import { DOW, BLOCK_TYPES, rid, toMin, parseISO, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import DayRing from './DayRing';
 import ds from '@/styles/ds.module.css';
@@ -252,9 +252,28 @@ function BlockList() {
 export default function Routine() {
   const mutate = useApp((s) => s.mutate);
   const state = useApp((s) => s.state);
-  const now = new Date();
-  const todayDow = now.getDay(); // 일=0..토=6
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // 오늘 요일은 앱 정본 '오늘'(_today 시드 존중)에서 파생 — 벽시계 new Date() 대신.
+  const todayDow = parseISO(todayISO(state)).getDay(); // 일=0..토=6
+  // '지금' 마커가 로드 시각에 얼어붙지 않도록 분 단위 갱신(+ 백그라운드 복귀 즉시 캐치업, Schedule 탭과 동일 패턴).
+  const [nowMin, setNowMin] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMin(d.getHours() * 60 + d.getMinutes());
+    };
+    const id = setInterval(tick, 60_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
   const [ringDow, setRingDow] = useState(todayDow); // 24h 링이 보여주는 요일
   const [classDow, setClassDow] = useState(1); // 수업 편집기에서 보는 요일(일=0..토=6)
 

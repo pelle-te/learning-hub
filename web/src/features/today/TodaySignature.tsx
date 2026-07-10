@@ -142,9 +142,13 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
 
   // A1 — 어제 셧다운에서 남긴 '내일 한 줄'을 오늘 아침 다시 보여줌(셧다운→모닝 루프 닫기).
   const prevNote = (state.rituals?.[iso(addDays(today, -1))]?.note || '').trim();
-  // A3 — 오늘 '일과 블록 뺀' 남은 가용시간(now 이후) — 워터마크를 정보성으로.
-  const freeWins = freeWindowsForWeekday(state, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
-  const freeLeftH = Math.round((freeMinAfter(freeWins, nowMin) / 60) * 10) / 10;
+  // A3 — 오늘 '일과 블록·이미 배치된 학습 뺀' 남은 가용시간(now 이후) — 워터마크를 정보성으로.
+  // 배치된 날이면 layoutDay의 잔여 free(학습 세션·일과 차감 + 당일 오버라이드 캡 반영)를 쓰고,
+  // 빈 날(L 없음)이면 순수 루틴 창으로 폴백. now 이후로 클램프해 빡빡한 날 과대표시를 막는다.
+  const freeIntervals: [number, number][] = L
+    ? L.free
+    : freeWindowsForWeekday(state, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
+  const freeLeftH = Math.round((freeMinAfter(freeIntervals, nowMin) / 60) * 10) / 10;
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
   const recallN = recall ? retrievableCount(state, ds) : 0; // '회상 N개 대기' — 실제 대기 수량

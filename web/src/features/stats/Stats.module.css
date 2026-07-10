@@ -96,6 +96,46 @@
   height: 11px;
 }
 
+/* L-1 — 스트릭 히트맵 키보드/스크린리더 대안(접이식 표). 비침습: 기본 접힘·뮤트 요약. */
+.hmTable {
+  margin-top: 8px;
+}
+.hmTable > summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.hmTableScroll {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 8px;
+  scrollbar-width: thin;
+}
+.hmTable table {
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.hmTable th,
+.hmTable td {
+  padding: 3px 8px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--mut);
+}
+.hmTable thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 700;
+}
+.hmTable th[scope='row'] {
+  text-align: left;
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* ============================================================
    데이터 보드 단일화면(데모 v6 사상) — fill 프레임 가득.
    [스파인 | 지표 컬럼 | 시그니처(스트릭 발광맵) | 과목별 진행] · 깊은 차트는 DetailDrawer로.

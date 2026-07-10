@@ -99,6 +99,9 @@
   --warn: #ffb454;
   --bad: #ff6b6b;
   --good: #62d28c;
+  /* 인출/유지율 지표 표시색 — Stats의 firing/retention 폴백 hex(--ok/--muted)를 토큰화(테마 무관 대표색). */
+  --ok: #7ee0c0;
+  --muted: #9aa3b2;
   /* 학습중(숙달도 상태) 앰버 — good/bad 사이의 중간 상태색(하드코딩 #d6a72b의 토큰화). */
   --learning: #d6a72b;
   --violet: #b794f6;
@@ -137,6 +140,9 @@
   --warn: #b26b00;
   --bad: #dc2626;
   --good: #0ea371;
+  /* 인출/유지율 지표 표시색 — 현재 렌더(폴백 hex)와 동일 유지해 시각 변화 없음(테마 무관 대표색). */
+  --ok: #7ee0c0;
+  --muted: #9aa3b2;
   /* 학습중 앰버 — 흰 캔버스 대비를 위해 다크보다 어둡게. */
   --learning: #a16207;
   --violet: #7c5cdb;

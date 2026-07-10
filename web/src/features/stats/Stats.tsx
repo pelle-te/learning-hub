@@ -48,7 +48,7 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
       </h2>
       <div className={ds.kpis} style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <div className={ds.kpi}>
-          <div className={ds.v} style={{ color: trGood ? 'var(--ok,#7ee0c0)' : 'var(--bad,#ff8fa3)' }}>
+          <div className={ds.v} style={{ color: trGood ? 'var(--ok)' : 'var(--bad)' }}>
             {trIcon}
           </div>
           <div className={ds.l}>
@@ -106,7 +106,7 @@ function RetentionSpark() {
   const flat = t.delta === 0 || !t.prev;
   const good = t.delta > 0;
   const icon = flat ? '＝ 유지' : good ? '▼ 감소' : '▲ 증가';
-  const col = flat ? 'var(--muted,#9aa3b2)' : good ? 'var(--ok,#7ee0c0)' : 'var(--bad,#ff8fa3)';
+  const col = flat ? 'var(--muted)' : good ? 'var(--ok)' : 'var(--bad)';
   return (
     <div className={ds.card}>
       <h2>
@@ -130,7 +130,7 @@ function RetentionSpark() {
                   flex: 1,
                   minWidth: 6,
                   height: Math.round((p.due / max) * 46) + 2,
-                  background: 'var(--acc,#6ea8fe)',
+                  background: 'var(--acc)',
                   borderRadius: '2px 2px 0 0',
                   alignSelf: 'flex-end',
                 }}
@@ -259,6 +259,35 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
         <span style={{ flex: 1 }} />
         최근 {WEEKS}주 {activeDays}일 학습 · 총 {Math.round(totalMin / 60)}h
       </div>
+      {/* 잔디 셀은 탭스톱 폭주 방지로 비포커스(role=img+aria-label) — 대신 키보드/스크린리더용
+          접이식 표(주 × 요일 · 분)로 동일 정보를 순회 없이 읽게. 기본 접힘·비침습. */}
+      <details className={st.hmTable}>
+        <summary className={`${ds.muted} ${ds.tiny}`}>표로 보기 — 주 × 요일(분)</summary>
+        <div className={st.hmTableScroll}>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">주 시작</th>
+                {['월', '화', '수', '목', '금', '토', '일'].map((d) => (
+                  <th key={d} scope="col">
+                    {d}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cols.map((col, ci) => (
+                <tr key={ci}>
+                  <th scope="row">{fmtShort(parseISO(col[0]!.ds))}</th>
+                  {col.map((c, i) => (
+                    <td key={i}>{c.l < 0 ? '' : c.v > 0 ? Math.round(c.v) : '·'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </>
   );
   if (bare) return heat;

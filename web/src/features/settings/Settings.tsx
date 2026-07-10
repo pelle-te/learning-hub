@@ -19,13 +19,32 @@ import ds from '@/styles/ds.module.css';
 import st from './Settings.module.css';
 import type { AppState } from '@/lib/types';
 
-/** 액센트 스와치 미리보기색(테마 무관 대표 네온) + 라벨. tokens.css [data-accent] 프리셋과 1:1. */
-const ACC_PREVIEW: Record<Accent, string> = {
-  violet: '#9b8cff',
-  lime: '#b6f23a',
-  cyan: '#4dd9e8',
-  amber: '#ffb454',
-};
+/** 액센트 스와치 미리보기색 — tokens.css [data-accent] 프리셋의 --acc를 직접 읽어 파생(하드코딩 SSOT 위반 제거).
+    '테마 무관 대표 네온'을 위해 다크 테마 기준으로 계산한다(라이트에서도 스와치는 같은 네온).
+    프리셋 규칙이 :root를 겨냥하므로 documentElement 속성을 잠깐 바꿔 읽고 즉시 원복 — 동기 실행이라
+    중간 프레임은 페인트되지 않아 깜빡임이 없다. 향후 토큰 재튜닝이 스와치에 자동 반영된다. */
+function readAccentPreviews(): Record<Accent, string> {
+  const fallback: Record<Accent, string> = { violet: '#9b8cff', lime: '#b6f23a', cyan: '#4dd9e8', amber: '#ffb454' };
+  if (typeof document === 'undefined') return fallback;
+  const root = document.documentElement;
+  const prevTheme = root.getAttribute('data-theme');
+  const prevAccent = root.getAttribute('data-accent');
+  root.setAttribute('data-theme', 'dark');
+  const out = {} as Record<Accent, string>;
+  for (const a of ACCENTS) {
+    // 기본(violet)은 전용 프리셋이 없어 data-accent를 비운다(베이스 --acc).
+    if (a === 'violet') root.removeAttribute('data-accent');
+    else root.setAttribute('data-accent', a);
+    out[a] = getComputedStyle(root).getPropertyValue('--acc').trim() || fallback[a];
+  }
+  if (prevTheme == null) root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', prevTheme);
+  if (prevAccent == null) root.removeAttribute('data-accent');
+  else root.setAttribute('data-accent', prevAccent);
+  return out;
+}
+/** 액센트 스와치 미리보기색 + 라벨. tokens.css [data-accent] 프리셋과 1:1(파생). */
+const ACC_PREVIEW: Record<Accent, string> = readAccentPreviews();
 const ACC_LABEL: Record<Accent, string> = { violet: '바이올렛', lime: '라임', cyan: '시안', amber: '앰버' };
 
 /** 최근 백업 경과일(state._lastBackupAt) — 렌더 전용(변형 없음). */
