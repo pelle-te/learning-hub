@@ -20,7 +20,7 @@ export default defineConfig({
       reporter: ['text-summary', 'html'],
       // 게이트: 현재값(stmt/line 71.5 · branch 74.7 · func 53.1) 바로 아래로 고정.
       // 통과는 보장하되 하락은 막는 래칫 — 테스트 늘릴 때마다 한 단 올린다.
-      thresholds: { lines: 69, statements: 69, branches: 72, functions: 51 },
+      thresholds: { lines: 69, statements: 69, branches: 72, functions: 52 },
     },
   },
 });

@@ -14,6 +14,7 @@ import {
   migrate,
   persist,
   SCHEMA_VERSION,
+  studyStreak,
 } from '@/lib/persistence';
 import { addCbms, blankPassRate, buildAnkiCards, setBlankResult } from '@/lib/methodology';
 import type { AppState, KV } from '@/lib/types';
@@ -219,5 +220,47 @@ describe('methodology 데이터 (S7~S9 parity)', () => {
     const pr = blankPassRate(s)!;
     expect(pr.total).toBe(2);
     expect(pr.passed).toBe(1);
+  });
+});
+
+/* 연속 학습일(스트릭) — todayISO(state)를 읽으므로 state._today를 시드해 '오늘'을 고정한다.
+   완료기록이 있는 날(맵에 항목이 하나라도) = 스트릭 카운트, 빈 맵({})은 미완료로 취급. */
+describe('studyStreak — 연속 학습일(오늘/어제 폴백/끊김/빈맵)', () => {
+  /** 지정한 날들에 완료기록을 심은 상태(_today 시드). */
+  function streakState(today: string, doneDays: string[]): AppState {
+    const s = defaults() as AppState;
+    s._today = today;
+    s.completions = {};
+    doneDays.forEach((ds) => (s.completions![ds] = { 'x|new': { done: true, min: 30 } }));
+    return s;
+  }
+
+  it('오늘만 완료 → 스트릭 1', () => {
+    expect(studyStreak(streakState('2026-06-28', ['2026-06-28']))).toBe(1);
+  });
+
+  it('연속 3일(오늘 포함) → 3, 그 앞이 비면 멈춘다', () => {
+    const s = streakState('2026-06-28', ['2026-06-26', '2026-06-27', '2026-06-28']); // 06-25는 없음
+    expect(studyStreak(s)).toBe(3);
+  });
+
+  it('오늘은 공백이나 어제 있으면 어제부터 카운트(폴백)', () => {
+    const s = streakState('2026-06-28', ['2026-06-26', '2026-06-27']); // 오늘(28) 없음
+    expect(studyStreak(s)).toBe(2);
+  });
+
+  it('오늘·어제 모두 공백 → 끊긴 스트릭은 0', () => {
+    const s = streakState('2026-06-28', ['2026-06-25']); // 28·27 둘 다 없음
+    expect(studyStreak(s)).toBe(0);
+  });
+
+  it('빈 완료맵({}) 날은 미완료로 취급 — 오늘이 빈맵이면 어제로 폴백', () => {
+    const s = streakState('2026-06-28', ['2026-06-27']);
+    s.completions!['2026-06-28'] = {}; // 키만 있고 항목 0
+    expect(studyStreak(s)).toBe(1);
+  });
+
+  it('완료기록이 전혀 없으면 0', () => {
+    expect(studyStreak(streakState('2026-06-28', []))).toBe(0);
   });
 });
