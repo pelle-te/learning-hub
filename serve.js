@@ -113,6 +113,9 @@ function sendFile(req, res, filePath, type, cache) {
   }
 }
 
+/* 살아있는 자식 프로세스 추적(runTool + research). SIGINT/SIGTERM 시 트리킬용(SD-1). */
+const CHILDREN = new Set();
+
 /* 도구 실행(spawn · shell 안 씀) → {ok,out,code,stats?} */
 function runTool(toolKey, extraArgs, cb) {
   const t = TOOLS[toolKey];
@@ -128,11 +131,14 @@ function runTool(toolKey, extraArgs, cb) {
   let proc;
   try { proc = spawn(PY, args, { cwd: WORK, env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }) }); }
   catch (e) { cb({ ok: false, out: 'spawn 실패: ' + (e.message || e), code: -1 }); return; }
+  CHILDREN.add(proc);
   const killer = setTimeout(() => { try { proc.kill(); } catch (e) {} finish(false, -2); }, t.timeout || 60000);
-  proc.stdout.on('data', d => out += d.toString('utf8'));
-  proc.stderr.on('data', d => out += d.toString('utf8'));
-  proc.on('error', e => { clearTimeout(killer); out += '\n실행 오류: ' + (e.message || e); finish(false, -1); });
-  proc.on('close', code => { clearTimeout(killer); finish(code === 0, code); });
+  // 라이브 캡 — 리서치 경로와 동일하게 stdout 무한 누적 방지(종료시 slice에만 의존하지 않음).
+  const cap = (d) => { out += d.toString('utf8'); if (out.length > 40000) out = out.slice(-20000); };
+  proc.stdout.on('data', cap);
+  proc.stderr.on('data', cap);
+  proc.on('error', e => { CHILDREN.delete(proc); clearTimeout(killer); out += '\n실행 오류: ' + (e.message || e); finish(false, -1); });
+  proc.on('close', code => { CHILDREN.delete(proc); clearTimeout(killer); finish(code === 0, code); });
 }
 
 /* ── 탐구 수집 잡(백그라운드) ─────────────────────────────────────────
@@ -172,18 +178,30 @@ function startResearch(topic, scope) {
   try { proc = spawn(PY, args, { cwd: WORK, env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8', RESEARCH_NOOPEN: '1' }) }); }
   catch (e) { job.out = 'spawn 실패: ' + (e.message || e); fin(-1); return { job }; }
   job.proc = proc;
+  CHILDREN.add(proc);
   const cap = (d) => { job.out += d.toString('utf8'); if (job.out.length > 40000) job.out = job.out.slice(-20000); };
   const killer = setTimeout(() => { try { proc.kill(); } catch (e) {} job.out += '\n(30분 초과 — 중단)'; fin(-2); }, 1800000);
   proc.stdout.on('data', cap);
   proc.stderr.on('data', cap);
-  proc.on('error', e => { clearTimeout(killer); job.out += '\n오류: ' + (e.message || e); fin(-1); });
-  proc.on('close', code => { clearTimeout(killer); fin(code); });
+  proc.on('error', e => { CHILDREN.delete(proc); clearTimeout(killer); job.out += '\n오류: ' + (e.message || e); fin(-1); });
+  proc.on('close', code => { CHILDREN.delete(proc); clearTimeout(killer); fin(code); });
   return { job };
 }
 
-function readBody(req, cb) {
-  let b = ''; req.on('data', d => { b += d; if (b.length > 1e6) req.destroy(); });
-  req.on('end', () => { try { cb(b ? JSON.parse(b) : {}); } catch (e) { cb({}); } });
+function readBody(req, res, cb) {
+  let b = '', aborted = false;
+  req.on('data', d => {
+    if (aborted) return;
+    b += d;
+    if (b.length > 1e6) {
+      // 초과 시 소켓을 그냥 파괴하면 'end'가 안 와 콜백이 영영 안 불려 클라가 무한대기(L-13).
+      // 413을 먼저 보내 라우트가 깔끔히 닫히게 한다(sendJSON의 headersSent 가드로 이중전송 방지).
+      aborted = true;
+      sendJSON(res, 413, { ok: false, error: '요청 본문이 너무 큽니다.' });
+      req.destroy();
+    }
+  });
+  req.on('end', () => { if (aborted) return; try { cb(b ? JSON.parse(b) : {}); } catch (e) { cb({}); } });
 }
 
 /* ── 읽을거리 코치·어휘 (로컬 Ollama HTTP) ────────────────────────────────
@@ -196,6 +214,20 @@ function parseModelJSON(content) {
   const m = cleaned.match(/\{[\s\S]*\}/);
   try { return m ? JSON.parse(m[0]) : { raw: cleaned.trim() }; } catch (e) { return null; }
 }
+/* ── Ollama HTTP 공통 골격 ─────────────────────────────────────────────
+   세 함수(chat·chatStream·embed)가 공유하던 `new URL(path, OLLAMA_URL)` + http.request(POST/JSON)
+   + error 배선 + payload 전송을 한 곳에. 응답 처리(버퍼 vs NDJSON 스트림)와 타임아웃/취소는 경로마다
+   달라 호출자에 남긴다. URL 오류면 콜백을 부르지 않고 null을 반환(호출자가 자기 방식대로 처리 —
+   기존 각 함수의 URL-오류 응답 형태를 그대로 보존한다). onResponse(r)·onError(e)는 각 1회 배선. */
+function ollamaRequest(apiPath, payload, onResponse, onError) {
+  let u;
+  try { u = new URL(apiPath, OLLAMA_URL); } catch (e) { return null; }
+  const req = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => onResponse(r));
+  req.on('error', onError);
+  req.end(payload);
+  return req;
+}
+
 function ollamaChat(prompt, cb, model) {
   // ⚠ 타임아웃→destroy→'error'(ECONNRESET) 순서로 콜백이 2번 불릴 수 있다. 두 번째 sendJSON이
   //   닫힌 응답에 writeHead를 시도하면 프로세스 전체가 죽으므로(실증) done 플래그로 1회 호출을 보장한다.
@@ -207,71 +239,72 @@ function ollamaChat(prompt, cb, model) {
     stream: false, format: 'json', think: false,   // 사고모드 OFF — 지연↓·JSON 혼동↓(qwen3)
     options: { temperature: 0.3, num_ctx: 8192 },
   });
-  let u;
-  try { u = new URL('/api/chat', OLLAMA_URL); } catch (e) { return fin(new Error('OLLAMA_URL 오류')); }
-  const req = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
-    let data = '';
-    r.on('data', d => { data += d; });
-    r.on('end', () => {
-      let content = '';
-      try { content = JSON.parse(data).message?.content || ''; } catch (e) { return fin(new Error('Ollama 응답 파싱 실패')); }
-      const obj = parseModelJSON(content);
-      if (obj) fin(null, obj); else fin(new Error('Ollama 응답 파싱 실패'));
-    });
-  });
-  req.on('error', e => fin(new Error('Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')')));
+  const req = ollamaRequest('/api/chat', payload,
+    r => {
+      let data = '';
+      r.on('data', d => { data += d; });
+      r.on('end', () => {
+        let content = '';
+        try { content = JSON.parse(data).message?.content || ''; } catch (e) { return fin(new Error('Ollama 응답 파싱 실패')); }
+        const obj = parseModelJSON(content);
+        if (obj) fin(null, obj); else fin(new Error('Ollama 응답 파싱 실패'));
+      });
+    },
+    e => fin(new Error('Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')')));
+  if (!req) return fin(new Error('OLLAMA_URL 오류'));
   req.setTimeout(120000, () => { req.destroy(); fin(new Error('Ollama 응답 시간 초과')); });
-  req.end(payload);
 }
 
 /* 스트리밍 채팅 — Ollama NDJSON을 그대로 중계한다: 토큰 델타는 {d:"…"} 줄, 마지막에 {done:true, …wrap} 줄.
    총 시간 대신 '무소식 90초'를 타임아웃으로 삼는다(콜드 로드·긴 생성에도 안전 — 120초 벽시계 한도 제거).
    클라이언트가 끊으면(res close) 업스트림도 끊어 생성 자체를 중단시킨다(취소가 실제로 동작). */
 function ollamaChatStream(spec, res, release) {
-  let u;
-  try { u = new URL('/api/chat', OLLAMA_URL); } catch (e) { release(); return sendJSON(res, 200, { ok: false, error: 'OLLAMA_URL 오류' }); }
   const payload = JSON.stringify({
     model: spec.model || OLLAMA_MODEL,
     messages: [{ role: 'user', content: spec.prompt }],
     stream: true, format: 'json', think: false,
     options: { temperature: 0.3, num_ctx: 8192 },
   });
-  res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
-  let full = '', buf = '', ended = false, idle = null;
+  let full = '', buf = '', ended = false, idle = null, up = null;
   const finish = (obj) => {
     if (ended) return; ended = true;
     clearTimeout(idle); release();
     try { res.end(JSON.stringify(Object.assign({ done: true }, obj)) + '\n'); } catch (e) {}
   };
-  const bump = (up) => {
+  // 총 시간이 아닌 '무소식 90초'를 타임아웃으로 — 데이터가 올 때마다 리셋(콜드 로드·긴 생성 안전).
+  const bump = () => {
     clearTimeout(idle);
-    idle = setTimeout(() => { try { up.destroy(); } catch (e) {} finish({ ok: false, error: 'Ollama 응답 시간 초과(90초 무소식)' }); }, 90000);
+    idle = setTimeout(() => { try { if (up) up.destroy(); } catch (e) {} finish({ ok: false, error: 'Ollama 응답 시간 초과(90초 무소식)' }); }, 90000);
   };
-  const up = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
-    bump(up);
-    r.on('data', chunk => {
-      bump(up);
-      buf += chunk.toString('utf8');
-      let i;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i); buf = buf.slice(i + 1);
-        if (!line.trim()) continue;
-        try {
-          const j = JSON.parse(line);
-          const d = (j.message && j.message.content) || '';
-          if (d) { full += d; if (!ended) res.write(JSON.stringify({ d }) + '\n'); }
-        } catch (e) {}
-      }
-    });
-    r.on('end', () => {
-      const obj = parseModelJSON(full);
-      finish(obj ? spec.wrap(obj) : { ok: false, error: 'Ollama 응답 파싱 실패' });
-    });
-  });
-  bump(up);
-  up.on('error', e => finish({ ok: false, error: 'Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')' }));
-  res.on('close', () => { if (!ended) { ended = true; clearTimeout(idle); try { up.destroy(); } catch (e) {} release(); } });
-  up.end(payload);
+  up = ollamaRequest('/api/chat', payload,
+    r => {
+      bump();
+      r.on('data', chunk => {
+        bump();
+        buf += chunk.toString('utf8');
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i); buf = buf.slice(i + 1);
+          if (!line.trim()) continue;
+          try {
+            const j = JSON.parse(line);
+            const d = (j.message && j.message.content) || '';
+            if (d) { full += d; if (!ended) res.write(JSON.stringify({ d }) + '\n'); }
+          } catch (e) {}
+        }
+      });
+      r.on('end', () => {
+        const obj = parseModelJSON(full);
+        finish(obj ? spec.wrap(obj) : { ok: false, error: 'Ollama 응답 파싱 실패' });
+      });
+    },
+    e => finish({ ok: false, error: 'Ollama 연결 실패 — 켜져 있나요? (' + (e.code || e.message) + ')' }));
+  if (!up) { release(); return sendJSON(res, 200, { ok: false, error: 'OLLAMA_URL 오류' }); }
+  // 요청은 이미 나갔다(payload 전송) — 여기서 NDJSON 헤더를 열고 무소식 타이머를 무장한다.
+  res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
+  bump();
+  // 클라이언트가 끊으면(res close) 업스트림도 끊어 생성 자체를 중단(취소가 실제로 동작).
+  res.on('close', () => { if (!ended) { ended = true; clearTimeout(idle); try { if (up) up.destroy(); } catch (e) {} release(); } });
 }
 
 /* 임베딩 프록시 — 의미 검색·지식맵 자동 연결용. 텍스트만 받아 벡터만 돌려준다(모델·대상 URL은 서버 고정 → SSRF 불가).
@@ -281,22 +314,21 @@ let EMBED_RUNNING = 0;
 function ollamaEmbed(texts, cb) {
   let done = false;
   const fin = (err, vecs) => { if (done) return; done = true; cb(err, vecs); };
-  let u;
-  try { u = new URL('/api/embed', OLLAMA_URL); } catch (e) { return fin(new Error('OLLAMA_URL 오류')); }
-  const req = http.request(u, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, r => {
-    let data = '';
-    r.on('data', d => { data += d; });
-    r.on('end', () => {
-      try {
-        const j = JSON.parse(data);
-        if (Array.isArray(j.embeddings)) return fin(null, j.embeddings);
-        fin(new Error(j.error ? String(j.error).slice(0, 200) : '임베딩 응답 형식 오류'));
-      } catch (e) { fin(new Error('임베딩 응답 파싱 실패')); }
-    });
-  });
-  req.on('error', e => fin(new Error('Ollama 연결 실패 (' + (e.code || e.message) + ')')));
+  const req = ollamaRequest('/api/embed', JSON.stringify({ model: EMBED_MODEL, input: texts }),
+    r => {
+      let data = '';
+      r.on('data', d => { data += d; });
+      r.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          if (Array.isArray(j.embeddings)) return fin(null, j.embeddings);
+          fin(new Error(j.error ? String(j.error).slice(0, 200) : '임베딩 응답 형식 오류'));
+        } catch (e) { fin(new Error('임베딩 응답 파싱 실패')); }
+      });
+    },
+    e => fin(new Error('Ollama 연결 실패 (' + (e.code || e.message) + ')')));
+  if (!req) return fin(new Error('OLLAMA_URL 오류'));
   req.setTimeout(60000, () => { req.destroy(); fin(new Error('임베딩 시간 초과')); });
-  req.end(JSON.stringify({ model: EMBED_MODEL, input: texts }));
 }
 
 /* ── 프롬프트 빌더 4종 — 각 라우트의 입력 검증 + 프롬프트 조립 + 응답 포장을 한 곳에.
@@ -454,7 +486,7 @@ const server = http.createServer((req, res) => {
         if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
         if (RUNNING >= MAX_RUNNING) return sendJSON(res, 429, { ok: false, error: '이미 실행 중인 도구가 많아요 — 잠시 후 다시.' });
         const tool = url.slice('/api/run/'.length);
-        return readBody(req, body => {
+        return readBody(req, res, body => {
           RUNNING++;
           const done = r => { RUNNING = Math.max(0, RUNNING - 1); sendJSON(res, 200, r); };
           const extra = [];
@@ -471,7 +503,7 @@ const server = http.createServer((req, res) => {
       if (url === '/api/research/start' && req.method === 'POST') {
         if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
         if (runningResearch() >= MAX_RESEARCH) return sendJSON(res, 429, { ok: false, error: '이미 수집 중인 탐구가 많아요 — 잠시 후 다시.' });
-        return readBody(req, body => {
+        return readBody(req, res, body => {
           const r = startResearch(body.topic, body.scope);
           if (r.error) return sendJSON(res, 200, { ok: false, error: r.error });
           sendJSON(res, 200, { ok: true, job: publicJob(r.job) });
@@ -487,7 +519,7 @@ const server = http.createServer((req, res) => {
       if (OLLAMA_ROUTES[url] && req.method === 'POST') {
         if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
         if (OLLAMA_RUNNING >= MAX_OLLAMA) return sendJSON(res, 429, { ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
-        return readBody(req, body => {
+        return readBody(req, res, body => {
           const spec = OLLAMA_ROUTES[url](body);
           if (spec.error) return sendJSON(res, 200, { ok: false, error: spec.error });
           OLLAMA_RUNNING++;
@@ -505,7 +537,7 @@ const server = http.createServer((req, res) => {
       if (url === '/api/embed' && req.method === 'POST') {
         if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
         if (EMBED_RUNNING >= 1) return sendJSON(res, 429, { ok: false, error: '임베딩이 이미 처리 중이에요 — 잠시 후 다시.' });
-        return readBody(req, body => {
+        return readBody(req, res, body => {
           const texts = Array.isArray(body.texts) ? body.texts.slice(0, 32).map(t => String(t).slice(0, 3000)) : [];
           if (!texts.length) return sendJSON(res, 200, { ok: false, error: '임베딩할 텍스트가 없어요.' });
           EMBED_RUNNING++;
@@ -574,7 +606,6 @@ function parseEval(out) {
   return { notes: m ? +m[1] : null, corpus_mean: m ? +m[2] : null, regressed: /✗ (?:회귀|코퍼스|구조)/.test(out) };
 }
 function parseAnkiSignal(out) {
-  const m = out.match(/orphan[_\s]*rate[^\d]*([\d.]+)/i) || out.match(/고아[^\d]*(\d+)/);
   return { raw: out.slice(-400) };
 }
 function parseReadsCollect(out) {
@@ -596,6 +627,30 @@ server.on('error', (e) => {
 // 정적 파이프의 EPIPE 등 클라이언트 조기 이탈이 서버 전체를 내리던 회귀를 원천 차단.
 process.on('uncaughtException', (e) => console.error('uncaught', e));
 process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
+
+/* ── 우아한 종료(SD-1) ─────────────────────────────────────────────────
+   Ctrl+C(SIGINT)/SIGTERM 시 자식 프로세스를 정리하고 서버를 닫는다. Windows에선 proc.kill()이
+   직속 자식만 죽여 손자(python이 띄운 하위)가 남으므로 taskkill /T(트리)로 최선-노력 정리한다.
+   전부 방어적(에러 스왈로) — 종료 자체는 어떤 경우에도 진행한다. */
+let SHUTTING_DOWN = false;
+function shutdown(sig) {
+  if (SHUTTING_DOWN) return; SHUTTING_DOWN = true;
+  console.log(`\n${sig} 수신 — 자식 프로세스 정리 후 종료합니다.`);
+  for (const child of CHILDREN) {
+    try {
+      if (process.platform === 'win32' && child.pid) {
+        spawn('taskkill', ['/pid', String(child.pid), '/T', '/F']);   // 트리 강제종료(best-effort)
+      } else {
+        child.kill();
+      }
+    } catch (e) {}
+  }
+  try { server.close(); } catch (e) {}
+  // 소켓이 즉시 안 닫혀도 매달리지 않도록 짧은 유예 후 강제 종료.
+  setTimeout(() => process.exit(0), 300).unref();
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`러닝허브(React) + 제어판 실행 중 → http://localhost:${PORT}/`);
