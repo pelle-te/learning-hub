@@ -280,6 +280,28 @@ i.dot {
 .mscell.fr {
   box-shadow: 0 0 0 1.5px var(--acc);
 }
+/* X-7 B — 히트맵 셀 캡 오버플로 어포던스("+N개"/"접기"). 셀 높이에 맞춘 작은 칩. */
+.heatMore {
+  align-self: center;
+  height: 14px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    border-color 0.18s var(--ease),
+    color 0.18s var(--ease);
+}
+.heatMore:hover {
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+  color: var(--ink);
+}
 .mapFoot {
   margin-top: 4px;
   font-size: 11px;

@@ -15,7 +15,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import { ui } from '@/shell';
-import { loadKnowledgeStateFromVault, type Knowledge } from '@/lib/knowledge';
+import { loadKnowledgeStateFromVault, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -80,6 +80,47 @@ function Distribution({ k }: { k: Knowledge }) {
   );
 }
 
+/** 히트맵 셀 캡 — 과목당 개념 셀을 상한(HEAT_CAP)까지만 그리고 "+N개"로 나머지를 펼친다.
+   X-7 B — 무제한 <i> 셀은 대형 과목에서 DOM 폭주(형제 ConceptList는 캡18) → 같은 캡+펼침 패턴을 미러. */
+const HEAT_CAP = 60;
+function SubjectHeat({ s }: { s: KnowledgeSubject }) {
+  const [expanded, setExpanded] = useState(false);
+  const concepts = s.concepts || [];
+  const shown = expanded ? concepts : concepts.slice(0, HEAT_CAP);
+  const hidden = concepts.length - shown.length;
+  return (
+    <div className={m.msheat}>
+      {shown.map((c, i) => {
+        const t = `${c.title || c.basename}  ·  유효숙달 ${pct(c.p_eff)} (${c.state})${
+          c.weak && c.root_cause && c.root_cause !== 'self' ? ' ← 선수약점: ' + c.root_cause : ''
+        }`;
+        const col = masteryColor(c.p_eff, c.state);
+        // 유효숙달 p가 높을수록 글로우 강하게(0.55↑부터 번짐). 미관측/약점은 차분.
+        // 프런티어는 accent 링 + 글로우를 함께(인라인이 .fr의 box-shadow를 덮으므로 합성).
+        const ring = c.frontier ? '0 0 0 1.5px var(--acc)' : '';
+        const glow = c.p_eff >= 0.55 ? `0 0 ${Math.round((c.p_eff - 0.4) * 14)}px ${col}` : '';
+        const boxShadow = [ring, glow].filter(Boolean).join(', ') || undefined;
+        return (
+          <i
+            key={i}
+            className={`${m.mscell}${c.frontier ? ' ' + m.fr : ''}`}
+            style={{ background: col, boxShadow }}
+            data-tip={t}
+            role="img"
+            aria-label={t}
+          />
+        );
+      })}
+      {/* 조용한 절단 금지 — 숨은 셀 수를 밝히고 펼칠 수 있게(ConceptList와 동형). */}
+      {(hidden > 0 || expanded) && (
+        <button type="button" className={m.heatMore} onClick={() => setExpanded((v) => !v)}>
+          {expanded ? '접기' : `+${hidden}개`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** 발광 지식맵 — 과목별 히트맵(셀 하나가 개념). 데이터 보드의 immersive 시그니처(카드 래퍼 없이 bare). */
 function KnowledgeMap({ k }: { k: Knowledge }) {
   const subs = (k.subjects || []).slice().sort((a, b) => a.mastery - b.mastery);
@@ -108,29 +149,7 @@ function KnowledgeMap({ k }: { k: Knowledge }) {
                 {s.unknown ? ` · 미관측 ${s.unknown}` : ''}
               </span>
             </div>
-            <div className={m.msheat}>
-              {(s.concepts || []).map((c, i) => {
-                const t = `${c.title || c.basename}  ·  유효숙달 ${pct(c.p_eff)} (${c.state})${
-                  c.weak && c.root_cause && c.root_cause !== 'self' ? ' ← 선수약점: ' + c.root_cause : ''
-                }`;
-                const col = masteryColor(c.p_eff, c.state);
-                // 유효숙달 p가 높을수록 글로우 강하게(0.55↑부터 번짐). 미관측/약점은 차분.
-                // 프런티어는 accent 링 + 글로우를 함께(인라인이 .fr의 box-shadow를 덮으므로 합성).
-                const ring = c.frontier ? '0 0 0 1.5px var(--acc)' : '';
-                const glow = c.p_eff >= 0.55 ? `0 0 ${Math.round((c.p_eff - 0.4) * 14)}px ${col}` : '';
-                const boxShadow = [ring, glow].filter(Boolean).join(', ') || undefined;
-                return (
-                  <i
-                    key={i}
-                    className={`${m.mscell}${c.frontier ? ' ' + m.fr : ''}`}
-                    style={{ background: col, boxShadow }}
-                    data-tip={t}
-                    role="img"
-                    aria-label={t}
-                  />
-                );
-              })}
-            </div>
+            <SubjectHeat s={s} />
           </div>
         ))
       ) : (

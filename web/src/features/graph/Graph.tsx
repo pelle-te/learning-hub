@@ -79,16 +79,20 @@ export default function Graph() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // 캔버스 뷰 제어(줌/팬/노드검색) — 명령형 핸들. 캔버스 이펙트가 채우고, 검색바·버튼이 호출한다.
   const viewApi = useRef<{
-    focus: (q: string) => boolean;
+    focus: (q: string) => { i: number; n: number } | null;
     reset: () => void;
     zoom: (f: number) => void;
     redraw: () => void;
   } | null>(null);
   const [query, setQuery] = useState('');
   const [noHit, setNoHit] = useState(false);
+  // L-4 — 검색 매치 순회 힌트(k/N). Enter 반복 시 다음 매치로 순회하며 위치를 표시.
+  const [matchHint, setMatchHint] = useState<{ i: number; n: number } | null>(null);
 
   // 툴팁 — 호버 노드 요약(허브=이름·완료/전체, 잎=이름). 위치는 커서 추종.
-  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  // X-7 A — 포인터마다 setState 리렌더(60/s)를 피하려 DOM 노드를 ref로 직접 갱신한다
+  // (위치·텍스트·표시를 명령형으로). React가 style을 관리하지 않으므로 재렌더에도 유지된다.
+  const tipRef = useRef<HTMLDivElement>(null);
   // B6 — 클릭 선택 노드(상세 패널). 챕터 잎이면 간격반복 위험까지 보여준다.
   const [sel, setSel] = useState<SelInfo | null>(null);
   // '+N개 더' 오버플로 노드를 눌러 펼친 허브(itemId) — 캡을 풀어 숨은 챕터를 실제로 드러낸다.
@@ -179,6 +183,9 @@ export default function Graph() {
     let downX = 0;
     let downY = 0;
     let moved = false;
+    // L-4 — 검색 매치 순회 상태(같은 검색어로 Enter 반복 시 다음 매치로).
+    let searchNeedle = '';
+    let searchIdx = -1;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -394,13 +401,18 @@ export default function Graph() {
       const by = (clientY - rect.top - view.y) / view.k;
       const wx = (bx - tf.ox) / tf.scale;
       const wy = (by - tf.oy) / tf.scale;
+      // L-3 — 렌더 반경과 히트 반경 일치: draw가 쓰는 nodeScale/effScale를 그대로 반영한다.
+      // 화면 반경 = n.radius * nodeScale, 여기에 6px 여유를 더해 월드로 환산(줌 무관 일관).
+      const eff = effScale();
+      const ns = Math.min(1.6, Math.max(0.7, eff));
       let best: SimNode | null = null;
       let bestD = Infinity;
       for (const n of nodes) {
         const dx = n.x - wx;
         const dy = n.y - wy;
         const d = dx * dx + dy * dy;
-        const rr = (n.radius + 6) * (n.radius + 6);
+        const worldR = (n.radius * ns + 6) / eff;
+        const rr = worldR * worldR;
         if (d <= rr && d < bestD) {
           bestD = d;
           best = n;
@@ -409,6 +421,19 @@ export default function Graph() {
       return best;
     };
     const tipText = (n: SimNode) => (n.kind === 'hub' ? `${n.label} · ${n.done ?? 0}/${n.total ?? 0} 챕터` : n.label);
+    // X-7 A — 툴팁을 명령형으로 갱신(포인터마다 리렌더 방지). 위치는 좌상단 기준(CSS transform이 오프셋 담당).
+    const showTip = (x: number, y: number, text: string) => {
+      const el = tipRef.current;
+      if (!el) return;
+      if (el.textContent !== text) el.textContent = text;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.display = 'block';
+    };
+    const hideTip = () => {
+      const el = tipRef.current;
+      if (el) el.style.display = 'none';
+    };
 
     // ── 포인터(호버 툴팁 + 드래그) ─────────────────────────────────────────
     const onDown = (e: PointerEvent) => {
@@ -455,13 +480,14 @@ export default function Graph() {
           n.vy = 0;
           if (reduce.matches) draw();
           else ensureLoop();
-          setTip({ x: e.clientX - rect.left, y: e.clientY - rect.top, text: tipText(n) });
+          showTip(e.clientX - rect.left, e.clientY - rect.top, tipText(n));
         }
         return;
       }
       const n = hit(e.clientX, e.clientY);
       canvas.style.cursor = n ? 'grab' : 'default';
-      setTip(n ? { x: e.clientX - rect.left, y: e.clientY - rect.top, text: tipText(n) } : null);
+      if (n) showTip(e.clientX - rect.left, e.clientY - rect.top, tipText(n));
+      else hideTip();
     };
     const onUp = (e: PointerEvent) => {
       if (panning) {
@@ -510,7 +536,7 @@ export default function Graph() {
       moved = false;
     };
     const onLeave = () => {
-      if (dragId == null) setTip(null);
+      if (dragId == null) hideTip();
     };
 
     // ── 줌(휠) — 커서 아래 지점을 고정한 채 확대/축소 ──────────────────────
@@ -534,11 +560,18 @@ export default function Graph() {
 
     // 명령형 뷰 API — 검색바·버튼이 호출(노드로 이동/센터·리셋·버튼 줌).
     viewApi.current = {
-      focus: (q: string): boolean => {
+      focus: (q: string) => {
         const needle = q.trim().toLowerCase();
-        if (!needle) return false;
-        const target = nodes.find((n) => !n.overflow && n.label.toLowerCase().includes(needle));
-        if (!target) return false;
+        if (!needle) return null;
+        // L-4 — 첫 매치만이 아니라 전체 매치를 모아 Enter 반복 시 순회한다.
+        const matches = nodes.filter((n) => !n.overflow && n.label.toLowerCase().includes(needle));
+        if (!matches.length) return null;
+        if (needle === searchNeedle) searchIdx = (searchIdx + 1) % matches.length;
+        else {
+          searchNeedle = needle;
+          searchIdx = 0;
+        }
+        const target = matches[searchIdx]!;
         userView = true;
         const k = 1.9;
         view.k = k;
@@ -554,7 +587,7 @@ export default function Graph() {
           tone: target.tone,
         });
         draw();
-        return true;
+        return { i: searchIdx + 1, n: matches.length };
       },
       reset: () => {
         userView = false;
@@ -592,7 +625,10 @@ export default function Graph() {
     // 초기화 — 모션 비선호면 동기로 정착시킨 뒤 1회 그림. 아니면 RAF 루프.
     resize();
     if (reduce.matches) {
-      for (let i = 0; i < 320; i++) step(0.9 * Math.pow(0.99, i));
+      // L-2 — step은 O(N²)라 N=400에서 320회면 ~25M 연산(수백ms 메인스레드 프리즈).
+      // 반복수를 노드 수에 반비례로 캡해 모션민감 사용자의 초기화 프리즈를 막는다(정착 품질은 유지).
+      const iters = Math.min(320, Math.floor(40000 / Math.max(1, nodes.length)));
+      for (let i = 0; i < iters; i++) step(0.9 * Math.pow(0.99, i));
       draw();
     } else {
       ensureLoop();
@@ -621,10 +657,11 @@ export default function Graph() {
     viewApi.current?.redraw();
   }, [semEdges]);
 
-  // 검색 실행 — 라벨 부분일치 노드로 이동/센터. 없으면 잠깐 '없음' 표시.
+  // 검색 실행 — 라벨 부분일치 노드로 이동/센터. 없으면 '없음', 있으면 순회 위치(k/N) 표시.
   const runSearch = (q: string) => {
-    const ok = viewApi.current?.focus(q) ?? false;
-    setNoHit(!ok && q.trim().length > 0);
+    const r = viewApi.current?.focus(q) ?? null;
+    setNoHit(!r && q.trim().length > 0);
+    setMatchHint(r);
   };
 
   const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
@@ -662,6 +699,7 @@ export default function Graph() {
               onChange={(e) => {
                 setQuery(e.target.value);
                 setNoHit(false);
+                setMatchHint(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') runSearch(query);
@@ -688,6 +726,7 @@ export default function Graph() {
               onClick={() => {
                 setQuery('');
                 setNoHit(false);
+                setMatchHint(null);
                 viewApi.current?.reset();
               }}
             >
@@ -697,6 +736,12 @@ export default function Graph() {
           {noHit && (
             <div className={g.searchMiss} role="status">
               “{query}” 노드를 못 찾았어요
+            </div>
+          )}
+          {matchHint && (
+            <div className={g.searchHint} role="status" aria-label={`매치 ${matchHint.i} / ${matchHint.n}`}>
+              {matchHint.i}/{matchHint.n}
+              {matchHint.n > 1 ? <span className={g.searchHintTip}> · Enter로 다음</span> : null}
             </div>
           )}
           <div className={g.legend}>
@@ -726,11 +771,8 @@ export default function Graph() {
             ) : null}
           </div>
           <canvas ref={canvasRef} className={g.canvas} role="img" aria-label={ariaLabel} />
-          {tip && (
-            <div className={g.tip} style={{ left: tip.x, top: tip.y }} role="tooltip">
-              {tip.text}
-            </div>
-          )}
+          {/* 툴팁 — 항상 마운트, 위치·텍스트·표시는 포인터 핸들러가 ref로 직접 갱신(리렌더 없음). */}
+          <div ref={tipRef} className={g.tip} role="tooltip" aria-hidden="true" />
           {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
           {sel && (
             <div className={g.detail} role="dialog" aria-label={`${sel.label} 상세`}>
