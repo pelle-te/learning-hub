@@ -9,9 +9,8 @@ import { useFocus } from '@/store/useFocus';
 import { useApp } from '@/store/useApp';
 import { toast } from '@/shell/toast';
 import { confirm } from '@/shell/modal';
+import { routeTitle } from './docTitle';
 import s from './FocusChip.module.css';
-
-const BASE_TITLE = typeof document !== 'undefined' ? document.title : '러닝허브';
 
 function fmt(sec: number): string {
   return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
@@ -78,7 +77,9 @@ export default function FocusChip() {
     if (!session) return;
     document.title = `${fmt(leftSec)} ⏱ ${session.name} — 러닝허브`;
     return () => {
-      document.title = BASE_TITLE;
+      // 모듈로드 스냅샷이 아니라 종료 시점의 *현재* 라우트로 재계산 — App의 제목 이펙트는
+      // 라우트 변경에만 발화하므로 여기서 복원하지 않으면 stale 제목이 남는다(X-9).
+      document.title = routeTitle();
     };
   }, [session, leftSec]);
 

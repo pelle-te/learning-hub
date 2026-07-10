@@ -6,6 +6,7 @@ import { isTyping } from '@/lib/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
+import { routeTitle } from '@/app/docTitle';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
 import SubTabs from '@/app/SubTabs';
@@ -36,23 +37,12 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // 현재 라우트 라벨은 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목에 쓴다.
-  const routeLabel = tabByKey(pathname.replace(/^\//, '') || 'today')?.label ?? '';
-  // 단일 화면 대시보드 탭(데모 v6 사상) — 프레임을 가득 채우고 내부 스크롤 없음.
-  const FILL_TABS = [
-    '/',
-    '/today',
-    '/schedule',
-    '/stats',
-    '/journal',
-    '/review',
-    '/routine',
-    '/integrations',
-    '/control',
-    '/mastery',
-    '/graph',
-  ];
-  const fillFrame = FILL_TABS.includes(pathname);
+  // 현재 라우트 메타는 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목/프레임에 쓴다.
+  const routeKey = pathname.replace(/^\//, '') || 'today';
+  const routeLabel = tabByKey(routeKey)?.label ?? '';
+  // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
+  // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
+  const fillFrame = tabByKey(routeKey)?.fill ?? false;
   const tabs = orderedTabs();
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,8 +116,8 @@ export default function App() {
   // SPA 라우트 전환을 문서 제목에 반영 — 탭마다 별개 '페이지'처럼 동작하는데도 제목이 '러닝허브'
   // 고정이던 문제(WCAG 2.4.2). document.title은 외부 시스템이라 effect가 적법(아나운서 텍스트는 파생).
   useEffect(() => {
-    document.title = routeLabel ? `${routeLabel} · 러닝허브` : '러닝허브';
-  }, [routeLabel]);
+    document.title = routeTitle(pathname); // FocusChip 세션 종료 복원과 공유하는 단일 출처(X-9).
+  }, [pathname]);
 
   return (
     <div className={s.shell}>

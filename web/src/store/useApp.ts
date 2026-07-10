@@ -17,8 +17,12 @@ import { toast } from '@/shell/toast';
 import * as M from '@/lib/methodology';
 import type { AppState, CbmsCode, SessionType, Theme } from '@/lib/types';
 
-// 파생 셀렉터(schedule 등)가 인엔진에서 state를 읽는 경로가 동결되면 곤란 → autoFreeze off(레거시도 off였음).
-// 모든 변형은 mutate(immer set) 드래프트 안에서 일어나므로 안전.
+// 파생 셀렉터(schedule 등)의 읽기경로가 캐시된 객체를 제자리 변형하는데, immer autoFreeze가 켜져
+// state를 동결하면 그 변형이 TypeError로 터진다 → autoFreeze off(레거시도 off였음). 모든 변형은
+// mutate(immer set) 드래프트 안에서 일어나므로 우리 쓰기경로는 이것 없이도 안전하다.
+// ⚠ setAutoFreeze는 immer 모듈 전역(프로세스 단위)이라 useUI 등 *다른 모든* immer 스토어의 dev 동결
+//   검사까지 함께 끈다(SD-5). 정당화는 오직 위 useApp 읽기경로 하나 — 다른 스토어의 우발적 변형은
+//   더는 잡히지 않으니 새 스토어 작성자는 주의. 근본 해소는 읽기경로 격리인데 리스크가 커 유보한다.
 setAutoFreeze(false);
 
 /* 저장 실패 안내 — 편집 중 매 flush(400ms 디바운스)마다 뜨면 소음이라 ~30초에 1번만.

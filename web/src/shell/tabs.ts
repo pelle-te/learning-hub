@@ -9,28 +9,31 @@ export interface TabMeta {
   order: number;
   hidden?: boolean;
   icon: string;
+  /** 단일 화면 대시보드 탭(데모 v6 사상) — HudFrame을 가득 채우고 내부 스크롤 없음.
+     App의 fillFrame 판정 단일 원천(옛 하드코딩 FILL_TABS 목록 대체, L-15). */
+  fill?: boolean;
 }
 
 /** 모든 탭(표시 순서·그룹·아이콘). hidden은 나브에서 숨김(헤더 ⚙·⌘K로 진입).
    빈도 위계: 매일(계획) > 주간(자료·기록) > 드묾(졸업은 계획 끝에, 제어판/설정은 숨김·⌘K 진입). */
 export const TABS: TabMeta[] = [
-  { key: 'today', label: '오늘 학습', group: 'do', order: 10, icon: 'target' },
-  { key: 'schedule', label: '주간 스케줄', group: 'do', order: 20, icon: 'calendar' },
+  { key: 'today', label: '오늘 학습', group: 'do', order: 10, icon: 'target', fill: true },
+  { key: 'schedule', label: '주간 스케줄', group: 'do', order: 20, icon: 'calendar', fill: true },
   // 아래 흡수 탭들은 나브에서 숨기고, 호스트 탭(스케줄·기록·통계) 상단 섹션 세그먼트(SubTabs)로 전환한다.
   // 라우트·팔레트·g단축키로는 그대로 진입 가능(SUBTAB_GROUPS 참조).
-  { key: 'routine', label: '가용시간·수업·일과', group: 'do', order: 30, hidden: true, icon: 'clock' },
+  { key: 'routine', label: '가용시간·수업·일과', group: 'do', order: 30, hidden: true, icon: 'clock', fill: true },
   { key: 'degree', label: '졸업 계획', group: 'do', order: 35, hidden: true, icon: 'cap' },
   { key: 'items', label: '학습 항목', group: 'src', order: 40, icon: 'file' },
   { key: 'reads', label: '읽을거리', group: 'src', order: 45, icon: 'reads' },
   { key: 'markets', label: '증시 동향', group: 'src', order: 47, icon: 'trend' },
-  { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link' },
-  { key: 'journal', label: '학습 기록', group: 'log', order: 60, icon: 'notebook' },
-  { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh' },
-  { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart' },
-  { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid' },
-  { key: 'graph', label: '지식맵', group: 'log', order: 87, icon: 'graph' },
+  { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link', fill: true },
+  { key: 'journal', label: '학습 기록', group: 'log', order: 60, icon: 'notebook', fill: true },
+  { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh', fill: true },
+  { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart', fill: true },
+  { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid', fill: true },
+  { key: 'graph', label: '지식맵', group: 'log', order: 87, icon: 'graph', fill: true },
   // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
-  { key: 'control', label: '탐구 수집', group: 'settings', order: 190, icon: 'search' },
+  { key: 'control', label: '탐구 수집', group: 'settings', order: 190, icon: 'search', fill: true },
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },
 ];
 
