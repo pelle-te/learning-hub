@@ -259,10 +259,24 @@ function ChecklistCard({ wk }: { wk: string }) {
 /** 회고 코칭(B7) + 반복 약점(C9) — 결정적 인사이트를 항상 보이고, serve.js가 켜져 있으면 AI로 구체화. */
 function CoachCard({ ds0 }: { ds0: string }) {
   const state = useApp((s) => s.state);
+  const mutate = useApp((s) => s.mutate);
   const { data: ping } = usePing();
   const online = !!ping?.ok;
   const insights = weeklyInsights(state, ds0);
   const weak = weakSpots(state); // 전 기간 반복 약점(C9) — '반복적으로 막히는 지점' 자각.
+
+  // E-4: 리뷰→계획 되먹임 — 약점 과목의 주간 배정시간(weeklyHours, 스케줄러가 소비하는 레버)을
+  // 한 번의 클릭으로 +1h. 정확한 역연산(-1h)으로 언두 제공. daily 모드는 이 레버가 없어 버튼 미표시.
+  const leverFor = (subject: string) => state.items.find((it) => it.name === subject && it.mode !== 'daily');
+  const bumpWeekly = (id: string, delta: number) =>
+    mutate((st) => {
+      const t = st.items.find((x) => x.id === id);
+      if (t) t.weeklyHours = Math.max(0, Math.round((+(t.weeklyHours || 0) + delta + Number.EPSILON) * 10) / 10);
+    });
+  const allotMore = (subject: string, id: string) => {
+    bumpWeekly(id, 1);
+    toastUndo(`"${subject}" 주간 배정 +1h`, () => bumpWeekly(id, -1));
+  };
 
   const [aiBusy, setAiBusy] = useState(false);
   const [aiPreview, setAiPreview] = useState('');
@@ -310,16 +324,30 @@ function CoachCard({ ds0 }: { ds0: string }) {
             <div className={rv.weakBox}>
               <div className={`${ds.muted} ${ds.tiny}`}>반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
               <ul className={rv.weakList}>
-                {weak.map((w) => (
-                  <li key={w.key} className={rv.weakItem}>
-                    <b>
-                      {w.subject} — {w.chapter}
-                    </b>
-                    <span className={rv.weakMeta}>
-                      {w.count}회 · {w.codes.map((c) => CBMS_INFO[c].label).join('·')}
-                    </span>
-                  </li>
-                ))}
+                {weak.map((w) => {
+                  const lever = leverFor(w.subject);
+                  return (
+                    <li key={w.key} className={rv.weakItem}>
+                      <b>
+                        {w.subject} — {w.chapter}
+                      </b>
+                      <span className={rv.weakMeta}>
+                        {w.count}회 · {w.codes.map((c) => CBMS_INFO[c].label).join('·')}
+                      </span>
+                      {lever && (
+                        <button
+                          type="button"
+                          className={rv.weakAllot}
+                          onClick={() => allotMore(w.subject, lever.id)}
+                          title={`"${w.subject}" 주간 배정시간 +1h (현재 ${lever.weeklyHours || 0}h)`}
+                          aria-label={`${w.subject} 다음 주 배정시간 1시간 늘리기`}
+                        >
+                          +1h 배정
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

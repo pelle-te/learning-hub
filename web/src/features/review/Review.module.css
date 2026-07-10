@@ -319,6 +319,30 @@
   font-weight: 700;
   white-space: nowrap;
 }
+/* E-4: 약점 과목 다음 주 배정시간 +1h(리뷰→계획 되먹임). */
+.weakAllot {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--acc);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.weakAllot:hover {
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
+  border-color: var(--acc);
+}
+.weakAllot:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
 .coachAi {
   display: flex;
   align-items: center;
