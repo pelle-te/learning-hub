@@ -289,7 +289,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             </>
           ),
         },
-        { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+        {
+          label: '마감',
+          // E-2: D-day만이 아니라 '어느 과목을 우선할지' 이름까지 리드아웃(가장 가까운 마감).
+          value: nearestDday == null ? '—' : `D-${nearestDday}${ddays[0]?.name ? ` · ${ddays[0]!.name}` : ''}`,
+        },
       ],
       action:
         todayTotal === 0
