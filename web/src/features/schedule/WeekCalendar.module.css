@@ -142,6 +142,41 @@
 .segPast {
   opacity: 0.4;
 }
+/* 미배치 칩 — 시각 못 잡은 학습(초과용량)이 컬럼 상단에 핀 고정. 클릭=그날 선택(아젠다 오픈). */
+.unplaced {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: calc(100% - 8px);
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 16%, var(--panel));
+  color: var(--warn);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.14s var(--ease);
+}
+.unplaced:hover {
+  background: color-mix(in srgb, var(--warn) 26%, var(--panel));
+}
+.unplaced:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+
 /* 시간 격자선 */
 .grid {
   position: absolute;

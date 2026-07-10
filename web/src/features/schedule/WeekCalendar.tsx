@@ -94,6 +94,8 @@ export function WeekCalendar({
         <div className={s.cols}>
           {parts.map((p, k) => {
             const isPast = todayIdx >= 0 && k < todayIdx;
+            // 시각 못 잡은 학습 행(초과용량 → start:null) 개수. 타임라인엔 안 그려지므로 이중계상 아님.
+            const unplaced = p.rows.reduce((n, r) => n + (r.kind === 'study' && r.start == null ? 1 : 0), 0);
             return (
               <div
                 key={p.ds}
@@ -104,6 +106,20 @@ export function WeekCalendar({
                 {ticks.map((m) => (
                   <span key={m} className={s.grid} style={{ top: `${pos(m)}%` }} />
                 ))}
+                {unplaced > 0 && (
+                  <button
+                    type="button"
+                    className={s.unplaced}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelect(k);
+                    }}
+                    title={`미배치 학습 ${unplaced}개 — 아젠다에서 확인·체크`}
+                    aria-label={`${dows[k]} 미배치 학습 ${unplaced}개 — 아젠다 열기`}
+                  >
+                    미배치 {unplaced}
+                  </button>
+                )}
                 {p.rows.map((r, i) => {
                   // 지난 블록(과거 요일 전체 · 오늘이면 이미 끝난 시간)은 흐리게.
                   const segPast = (end: number) => isPast || (p.isToday && nowMin >= end);
@@ -119,6 +135,7 @@ export function WeekCalendar({
                         style={{ top: `${top}%`, height: `${h}%`, ...(r.color ? { ['--seg']: r.color } : {}) }}
                         data-tip={`${r.name}\n${cat ? cat + ' · ' : ''}${toHM(r.start)}–${toHM(r.end)}`}
                         title={dur < 25 ? r.name : undefined}
+                        aria-label={`${r.name}${cat ? ' · ' + cat : ''} ${toHM(r.start)}–${toHM(r.end)}`}
                       >
                         <span className={s.segName}>{r.name}</span>
                       </div>

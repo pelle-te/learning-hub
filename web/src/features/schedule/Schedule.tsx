@@ -118,11 +118,28 @@ function DayBody({ d }: { d: DayData }) {
 /** 하루 머리글(요일·날짜·가용시간 인라인 입력) + 막대. */
 function DayHeadBar({ d, k }: { d: DayData; k: number }) {
   const mutate = useApp((s) => s.mutate);
+  // 입력 중엔 클램프/0-강제 없이 그대로 반영 — 빈 값은 삭제(0으로 강제 안 함), 전이적 무효 입력은 무시.
   const setOverride = (v: string) =>
     mutate((st) => {
       st.dayOverrides = st.dayOverrides || {};
-      if (v === '' || v == null) delete st.dayOverrides[d.ds];
-      else st.dayOverrides[d.ds] = Math.min(24, Math.max(0, +v || 0)); // 하루는 24h — 99 같은 값 차단.
+      if (v === '' || v == null) {
+        delete st.dayOverrides[d.ds];
+        return;
+      }
+      const n = Number(v);
+      if (Number.isFinite(n)) st.dayOverrides[d.ds] = n;
+    });
+  // 클램프는 이탈(blur) 시점에만 — 하루는 24h(99 같은 값 차단), 음수 방지.
+  const clampOverride = () =>
+    mutate((st) => {
+      const cur = st.dayOverrides?.[d.ds];
+      if (cur == null) return;
+      const n = Number(cur);
+      if (!Number.isFinite(n)) {
+        delete st.dayOverrides![d.ds];
+        return;
+      }
+      st.dayOverrides![d.ds] = Math.min(24, Math.max(0, n));
     });
   const barColor = d.over ? 'var(--bad)' : d.ratio > 90 ? 'var(--warn)' : 'var(--acc)';
   return (
@@ -143,9 +160,10 @@ function DayHeadBar({ d, k }: { d: DayData; k: number }) {
             min="0"
             value={d.ovVal}
             max="24"
-            placeholder={String(d.defMin / 60)}
+            placeholder={(d.defMin / 60).toFixed(1)}
             aria-label={`${fmtShort(d.date)} 가용시간(시간)`}
             onChange={(e) => setOverride(e.target.value)}
+            onBlur={clampOverride}
             style={{ width: 54, display: 'inline-block', padding: '3px 6px', textAlign: 'center' }}
           />
           h<span className={`${ds.muted} ${ds.tiny}`}> · 배정 {(d.used / 60).toFixed(1)}h</span>
