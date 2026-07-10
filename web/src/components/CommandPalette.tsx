@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Command } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
-import { paletteCommands, recordRecent, captureSubjects, runQuickCapture, semanticPalette } from '@/shell';
+import {
+  paletteCommands,
+  recordRecent,
+  captureSubjects,
+  runQuickCapture,
+  semanticPalette,
+  contentSearch,
+  type ContentHit,
+} from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import type { SemHit, SemKind } from '@/lib/semantic';
 import styles from './CommandPalette.module.css';
 
 const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥' };
+const CONTENT_ICON: Record<ContentHit['kind'], string> = { subject: '📗', chapter: '📚', book: '📖' };
 
 const TYPE_LABEL: Record<NonNullable<CaptureResult['sessionType']>, string> = {
   anki: 'Anki',
@@ -63,6 +72,9 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     [open, search, subjects],
   );
   const showCapture = meaningful(cap);
+
+  // E-6: 오프라인 통합 검색 — 메모리 내 학습 항목·독서를 부분문자열로(Ollama 불필요, 항상 동작).
+  const content = useMemo(() => (open && search.trim() ? contentSearch(search) : []), [open, search]);
 
   // 의미 검색(로컬 임베딩) — 350ms 디바운스, 늦은 응답은 버림. Ollama 불가면 조용히 빈 목록.
   // 짧은 질의는 렌더에서 걸러낸다(이펙트 내 동기 setState 회피 — 상태는 마지막 결과만 유지).
@@ -128,6 +140,28 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
             <span className={styles.label}>📌 빠른 캡처 — 기록에 남기기</span>
             <span className={styles.hint}>{summarize(cap)}</span>
           </Command.Item>
+        )}
+        {/* E-6 오프라인 통합 검색 — 학습 항목·독서 부분문자열(forceMount: 자체 매칭이 기준). */}
+        {content.length > 0 && (
+          <Command.Group heading="빠른 검색 — 학습 항목·독서" className={styles.semGroup} forceMount>
+            {content.map((h) => (
+              <Command.Item
+                key={h.id}
+                forceMount
+                value={'content ' + h.id + ' ' + search}
+                className={styles.item}
+                onSelect={() => {
+                  close();
+                  navigate(h.to, { viewTransition: true });
+                }}
+              >
+                <span className={styles.label}>
+                  {CONTENT_ICON[h.kind]} {h.label}
+                </span>
+                <span className={styles.hint}>{h.kind === 'book' ? '읽을거리' : '학습 항목'}</span>
+              </Command.Item>
+            ))}
+          </Command.Group>
         )}
         {/* 의미 검색 결과 — cmdk 부분문자열 필터를 우회(forceMount): 임베딩 유사도가 매칭 기준. */}
         {shownSem.length > 0 && (

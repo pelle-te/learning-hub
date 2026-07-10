@@ -305,6 +305,41 @@ export function semanticPalette(query: string): Promise<SemHit[]> {
   return semanticSearch(query, st().state, loadReads());
 }
 
+export type ContentHit = { id: string; kind: 'subject' | 'chapter' | 'book'; label: string; to: string };
+
+/** E-6: ⌘K 오프라인 통합 검색 — Ollama 불필요. 메모리에 이미 있는 학습 항목(과목·챕터)·독서(책)를
+   부분문자열로 찾아 해당 탭으로 이동. 의미검색(semanticPalette)의 오프라인 보완(임베딩 없이 항상 동작).
+   수집 지문(articles)은 react-query 캐시라 여기서 안 닿음 → 온라인 의미검색이 담당. */
+export function contentSearch(query: string, limit = 8): ContentHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const hits: ContentHit[] = [];
+  for (const it of st().state.items) {
+    if (it.name.toLowerCase().includes(q))
+      hits.push({ id: 'c-subj:' + it.id, kind: 'subject', label: it.name, to: '/items' });
+    for (const c of it.chapters || []) {
+      if (hits.length >= limit * 3) break;
+      if (c.name.toLowerCase().includes(q))
+        hits.push({
+          id: 'c-chap:' + it.id + ':' + c.id,
+          kind: 'chapter',
+          label: `${it.name} · ${c.name}`,
+          to: '/items',
+        });
+    }
+  }
+  for (const b of loadReads().books) {
+    if (b.title.toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q))
+      hits.push({
+        id: 'c-book:' + b.id,
+        kind: 'book',
+        label: b.author ? `${b.title} — ${b.author}` : b.title,
+        to: '/reads',
+      });
+  }
+  return hits.slice(0, limit);
+}
+
 /** 자연어 캡처 결과 → 기록 프리필 요청 + 확인 토스트. 팔레트는 이후 /journal로 이동한다.
    세션 유형이 복습/모의/백지면 '보충 필요'(bl), 그 외(새 학습·anki·미지정)는 '요약'(sum) 폼으로. */
 export function runQuickCapture(cap: CaptureResult, summary: string): void {

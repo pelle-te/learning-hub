@@ -13,7 +13,7 @@ export { ModalHost } from './modal';
 export { Icon } from './icons';
 export { orderedTabs, tabByKey, subTabGroupOf, hostTabKey, type TabMeta } from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
-export { captureSubjects, runQuickCapture, semanticPalette } from './actions';
+export { captureSubjects, runQuickCapture, semanticPalette, contentSearch, type ContentHit } from './actions';
 export { recordRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';
 
