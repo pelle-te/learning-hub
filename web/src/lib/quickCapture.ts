@@ -324,3 +324,16 @@ export function parseCapture(raw: string, now: Date, subjects?: string[]): Captu
 
   return result;
 }
+
+/**
+ * 여러 줄 → 다건 캡처(I-11). 각 줄을 parseCapture로 독립 파싱, 빈 줄·파싱 실패는 조용히 제외.
+ * 배치 프리필(usePrefill.requestBatch)의 입력. now 주입으로 결정적.
+ */
+export function parseCaptureBatch(raw: string, now: Date, subjects?: string[]): CaptureResult[] {
+  return (raw || '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => parseCapture(l, now, subjects))
+    .filter((x): x is CaptureResult => x !== null);
+}

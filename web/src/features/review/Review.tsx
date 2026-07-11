@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { toastUndo } from '@/shell/toast';
+import { toast, toastUndo } from '@/shell/toast';
 import { useToggleBacklogUndo } from '@/shell/useBacklog';
 import { useHeroPointer, useWeekNavKeys, useFlushOnUnmount } from '@/lib/interactions';
 import { useSchedule } from '@/store/selectors';
@@ -19,14 +19,17 @@ import {
   CBMS_CODES,
   openBacklog,
   backlogClosedBetween,
+  addBacklog,
   setWeeklyCheck,
   setWeeklyNote,
 } from '@/lib/methodology';
 import { indexDays } from '@/lib/scheduleView';
 import { weeklyInsights, weakSpots } from '@/lib/insights';
 import { riskChapters } from '@/lib/spacedReview';
+import { rootCauseRollup } from '@/lib/knowledge';
+import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TOAST } from '@/lib/promote';
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
-import { usePing } from '@/store/queries';
+import { usePing, useKnowledge } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -285,6 +288,14 @@ function CoachCard({ ds0 }: { ds0: string }) {
   const online = !!ping?.ok;
   const insights = weeklyInsights(state, ds0);
   const weak = weakSpots(state); // 전 기간 반복 약점(C9) — '반복적으로 막히는 지점' 자각.
+  const { data: k } = useKnowledge();
+  const roots = rootCauseRollup(k); // 여러 약점의 공통 뿌리(선수개념). k 없거나 오프라인이면 [].
+
+  // I-1: 진단→행동 — 반복약점/근본원인을 원클릭으로 보충 백로그(소비 승격과 같은 그릇)로 시드.
+  const seedBacklog = (seed: BacklogSeed) => {
+    mutate((s) => addBacklog(s, '', seed.name, seed.topic, seed.note));
+    toast(PROMOTE_TOAST);
+  };
 
   // E-4: 리뷰→계획 되먹임 — 약점 과목의 주간 배정시간(weeklyHours, 스케줄러가 소비하는 레버)을
   // 한 번의 클릭으로 +1h. 정확한 역연산(-1h)으로 언두 제공. daily 모드는 이 레버가 없어 버튼 미표시.
@@ -322,7 +333,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
     setAiBusy(false);
   };
 
-  const hasData = insights.length > 0 || weak.length > 0;
+  const hasData = insights.length > 0 || weak.length > 0 || roots.length > 0;
 
   return (
     <div className={`${ds.card} ${ds.glow}`}>
@@ -355,20 +366,57 @@ function CoachCard({ ds0 }: { ds0: string }) {
                       <span className={rv.weakMeta}>
                         {w.count}회 · {w.codes.map((c) => CBMS_INFO[c].label).join('·')}
                       </span>
-                      {lever && (
+                      <span className={rv.weakActions}>
                         <button
                           type="button"
-                          className={rv.weakAllot}
-                          onClick={() => allotMore(w.subject, lever.id)}
-                          title={`"${w.subject}" 주간 배정시간 +1h (현재 ${lever.weeklyHours || 0}h)`}
-                          aria-label={`${w.subject} 다음 주 배정시간 1시간 늘리기`}
+                          className={rv.weakSeed}
+                          onClick={() => seedBacklog(backlogFromWeakSpot(w))}
+                          title={`"${w.subject} — ${w.chapter}"를 보충 백로그로 보내기`}
+                          aria-label={`${w.subject} ${w.chapter} 보충 백로그로 보내기`}
                         >
-                          +1h 배정
+                          ＋보충
                         </button>
-                      )}
+                        {lever && (
+                          <button
+                            type="button"
+                            className={rv.weakAllot}
+                            onClick={() => allotMore(w.subject, lever.id)}
+                            title={`"${w.subject}" 주간 배정시간 +1h (현재 ${lever.weeklyHours || 0}h)`}
+                            aria-label={`${w.subject} 다음 주 배정시간 1시간 늘리기`}
+                          >
+                            +1h 배정
+                          </button>
+                        )}
+                      </span>
                     </li>
                   );
                 })}
+              </ul>
+            </div>
+          )}
+          {roots.length > 0 && (
+            <div className={rv.weakBox}>
+              <div className={`${ds.muted} ${ds.tiny}`}>
+                약점의 뿌리 — 한 선수개념이 여러 약점의 공통 근본원인(먼저 메우면 상류가 함께 풀림)
+              </div>
+              <ul className={rv.weakList}>
+                {roots.map((c) => (
+                  <li key={c.cause} className={rv.weakItem}>
+                    <b>🌱 {c.cause}</b>
+                    <span className={rv.weakMeta}>{c.count}개 약점의 뿌리</span>
+                    <span className={rv.weakActions}>
+                      <button
+                        type="button"
+                        className={rv.weakSeed}
+                        onClick={() => seedBacklog(backlogFromRootCause(c))}
+                        title={`"${c.cause}"(선수개념)를 보충 백로그로 보내기`}
+                        aria-label={`${c.cause} 보충 백로그로 보내기`}
+                      >
+                        ＋보충
+                      </button>
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
@@ -430,45 +478,111 @@ function CoachCard({ ds0 }: { ds0: string }) {
   );
 }
 
-/** 복습 위험(C8) — 배웠지만 오래 안 본 개념(챕터)을 경과일 순으로. 완료한 학습/복습/백지 기준. */
-function RiskCard() {
+/** I-14 약점 워크벤치(RiskCard 승격) — 복습 위험(C8: 배웠지만 오래 안 본 개념)을 '식별'에서 끝내지 않고
+   각 행을 식별→행동 전환대로: [＋보충 큐][+1h 배정][🔎 볼트][↻ 복습 실행]. weakSpots는 좌측 코칭 카드가,
+   여기선 riskChapters·openBacklog 신호를 소비(전부 이 파일 스코프에 이미 있어 재페치 0). */
+function WorkbenchCard() {
   const state = useApp((s) => s.state);
+  const mutate = useApp((s) => s.mutate);
   const res = useSchedule();
+  const navigate = useNavigate();
   const today = todayISO(state);
   const [expanded, setExpanded] = useState(false);
   // 조용한 절단 금지 — 전체를 받아 접기/펼치기로 숨은 수를 밝힌다.
   const all = riskChapters(state, res.days || [], today, 100);
   const shown = expanded ? all : all.slice(0, 6);
   const hidden = all.length - shown.length;
+  const openN = openBacklog(state).length; // 워크벤치가 채우는 큐의 현재 깊이(맥락).
+
+  // E-4 레버 재사용 — 약점/위험 과목의 주간 배정시간 +1h(정확한 -1h 언두). daily 모드는 레버가 없어 미표시.
+  const leverFor = (subject: string) => state.items.find((it) => it.name === subject && it.mode !== 'daily');
+  const bumpWeekly = (id: string, delta: number) =>
+    mutate((st) => {
+      const t = st.items.find((x) => x.id === id);
+      if (t) t.weeklyHours = Math.max(0, Math.round((+(t.weeklyHours || 0) + delta + Number.EPSILON) * 10) / 10);
+    });
+  const allotMore = (subject: string, id: string) => {
+    bumpWeekly(id, 1);
+    toastUndo(`"${subject}" 주간 배정 +1h`, () => bumpWeekly(id, -1));
+  };
+  // I-1과 동일 경로(addBacklog→toast) — 방치된 개념을 보충 큐로 넣어 백지 복습을 예약한다.
+  const seedRisk = (c: { subject: string; chapter: string; daysSince: number }) => {
+    const seed: BacklogSeed = {
+      name: '복습 위험',
+      topic: `${c.subject} — ${c.chapter}`,
+      note: `${c.daysSince}일 방치된 개념 — 백지 복습으로 인출`,
+    };
+    mutate((s) => addBacklog(s, '', seed.name, seed.topic, seed.note));
+    toast(PROMOTE_TOAST);
+  };
+  const openVault = (c: { subject: string; chapter: string }) =>
+    window.open('obsidian://search?query=' + encodeURIComponent(c.subject + ' ' + c.chapter));
+
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>
-        복습 위험 <span className={`${ds.muted} ${ds.tiny}`}>— 배웠지만 오래 안 본 개념(간격반복)</span>
+        약점 워크벤치 <span className={`${ds.muted} ${ds.tiny}`}>— 오래 안 본 개념을 식별에서 행동으로</span>
       </h2>
+      <div className={ds.row} style={{ marginBottom: 8 }}>
+        <span className={`${ds.pill} ${all.length ? ds.warn : ds.good}`}>복습 위험 {all.length}</span>
+        <span className={`${ds.pill} ${openN ? ds.warn : ds.good}`}>보충 열림 {openN}</span>
+      </div>
       {all.length ? (
         <>
           <ul className={rv.riskList}>
-            {shown.map((c) => (
-              <li key={c.sid + '|' + c.chapter} className={rv.riskRow} data-risk={c.risk}>
-                <span className={rv.riskDot} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
-                <span className={rv.riskNm}>
-                  {c.subject} <small>{c.chapter}</small>
-                </span>
-                <span className={rv.riskAge}>{c.daysSince}일</span>
-                {/* 백지 복습 유도의 손잡이 — 볼트 딥링크(Graph E-5 미러). obsidian://search는 볼트명 없이도 동작. */}
-                <button
-                  type="button"
-                  className={rv.riskFind}
-                  onClick={() =>
-                    window.open('obsidian://search?query=' + encodeURIComponent(c.subject + ' ' + c.chapter))
-                  }
-                  title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
-                  aria-label={`${c.subject} ${c.chapter} 볼트에서 검색`}
-                >
-                  🔎
-                </button>
-              </li>
-            ))}
+            {shown.map((c) => {
+              const lever = leverFor(c.subject);
+              return (
+                <li key={c.sid + '|' + c.chapter} className={rv.riskRow} data-risk={c.risk}>
+                  <span className={rv.riskDot} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
+                  <span className={rv.riskNm}>
+                    {c.subject} <small>{c.chapter}</small>
+                  </span>
+                  <span className={rv.riskAge}>{c.daysSince}일</span>
+                  <span className={rv.benchActions}>
+                    {lever && (
+                      <button
+                        type="button"
+                        className={rv.weakAllot}
+                        onClick={() => allotMore(c.subject, lever.id)}
+                        title={`"${c.subject}" 주간 배정시간 +1h (현재 ${lever.weeklyHours || 0}h)`}
+                        aria-label={`${c.subject} 다음 주 배정시간 1시간 늘리기`}
+                      >
+                        +1h
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={rv.benchBtn}
+                      onClick={() => seedRisk(c)}
+                      title={`"${c.subject} — ${c.chapter}"를 보충 백로그로 보내기`}
+                      aria-label={`${c.subject} ${c.chapter} 보충 백로그로 보내기`}
+                    >
+                      ＋
+                    </button>
+                    {/* 백지 복습 유도의 손잡이 — 볼트 딥링크(Graph E-5 미러). obsidian://search는 볼트명 없이도 동작. */}
+                    <button
+                      type="button"
+                      className={rv.benchBtn}
+                      onClick={() => openVault(c)}
+                      title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
+                      aria-label={`${c.subject} ${c.chapter} 볼트에서 검색`}
+                    >
+                      🔎
+                    </button>
+                    <button
+                      type="button"
+                      className={rv.benchBtn}
+                      onClick={() => navigate('/review-run', { viewTransition: true })}
+                      title="지금 복습 실행(백지 인출)"
+                      aria-label={`${c.subject} ${c.chapter} 복습 실행`}
+                    >
+                      ↻
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
           </ul>
           {(hidden > 0 || expanded) && (
             <button type="button" className={rv.showMore} onClick={() => setExpanded((v) => !v)}>
@@ -479,7 +593,9 @@ function RiskCard() {
       ) : (
         <div className={ds.foot}>위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요 👍</div>
       )}
-      <div className={ds.foot}>오래될수록 붉게 — 백지 복습으로 인출하면 초기화됩니다.</div>
+      <div className={ds.foot}>
+        오래될수록 붉게 — 배정으로 시간을 주거나 · 보충 큐로 넣거나 · 볼트에서 찾아 · 복습 실행으로 인출.
+      </div>
     </div>
   );
 }
@@ -564,7 +680,7 @@ export default function Review() {
         <div className={rv.sideCol}>
           {/* key=주 — 주 이동 시 리마운트해 메모 draft를 그 주 note로 재동기화(+언마운트 flush). */}
           <ChecklistCard key={wk} wk={wk} />
-          <RiskCard />
+          <WorkbenchCard />
           <BacklogReviewCard ds0={ds0} ds6={ds6} />
         </div>
       </div>

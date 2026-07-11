@@ -18,6 +18,7 @@ const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   routine: () => import('./routine/Routine'),
   journal: () => import('./journal/Journal'),
   review: () => import('./review/Review'),
+  'review-run': () => import('./review-run/ReviewRun'),
   stats: () => import('./stats/Stats'),
   degree: () => import('./degree/Degree'),
   settings: () => import('./settings/Settings'),

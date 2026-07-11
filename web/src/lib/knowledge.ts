@@ -71,6 +71,14 @@ export function rootCauseRollup(k: Knowledge | undefined, cap = 5): { cause: str
     .slice(0, cap);
 }
 
+/** 다음에 배울 프런티어 1개(I-8) — prereq_in('이걸 배우면 N개가 풀린다') 최대인 개념. 매몰자산 최대 해제.
+   frontier 배열은 지식엔진이 이미 산출(신규 IO 0). 후보 없으면 null. */
+export function frontierNext(k: Knowledge | undefined): KnowledgeFrontier | null {
+  const f = (k?.frontier || []).filter((x) => x.title || x.basename);
+  if (!f.length) return null;
+  return [...f].sort((a, b) => (b.prereq_in || 0) - (a.prereq_in || 0))[0]!;
+}
+
 /** serve.js 산출물(읽기 전용) — 없으면 throw(Query isError로 폴백 안내). */
 export async function fetchKnowledgeArtifact(): Promise<Knowledge> {
   const j = await getArtifact<Knowledge>('knowledge');

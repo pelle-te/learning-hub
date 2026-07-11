@@ -6,7 +6,15 @@
    Ollama는 선택적 살(enrichment)일 뿐, 뼈대는 여기 결정적 계산이 소유한다(오프라인 완결·테스트가능).
 ============================================================ */
 import { addDays, iso, parseISO } from './utils';
-import { CBMS_INFO, blankPassRate, cbmsCounts, openBacklog, retentionNudge } from './methodology';
+import {
+  CBMS_INFO,
+  backlogClosedBetween,
+  blankPassRate,
+  cbmsBetween,
+  cbmsCounts,
+  openBacklog,
+  retentionNudge,
+} from './methodology';
 import type { AppState, CbmsCode } from './types';
 
 export type InsightKind = 'cbms' | 'blank' | 'weakspot' | 'backlog' | 'retention' | 'praise';
@@ -133,4 +141,50 @@ export function weeklyInsights(state: AppState, weekMonDs: string): Insight[] {
   }
 
   return out.sort((a, b) => TONE_W[a.tone] - TONE_W[b.tone]);
+}
+
+export interface WeeklyRecap {
+  weekMon: string;
+  doneSessions: number; // 그 주 완료 학습 세션 수
+  focusMin: number; // 그 주 완료 학습 분 합
+  summaries: number; // 그 주 작성한 3문장 요약 수
+  backlogClosed: number; // 그 주 회수한 보충 수
+  wins: string[]; // '해낸 것' 격려 문구(빈 배열 = 조용한 주)
+}
+
+/** 주간 리캡(I-12) — review(처방)와 톤 분리한 '이번 주 해낸 것' 성취 회수. weekMonDs(그 주 월요일) 기준.
+   completions/summaries/backlog를 그 주 범위로 집계하고, 임계 넘은 성취만 격려 문구로. */
+export function weeklyRecap(state: AppState, weekMonDs: string): WeeklyRecap {
+  const mon = parseISO(weekMonDs);
+  const ds0 = weekMonDs;
+  const ds6 = iso(addDays(mon, 6));
+
+  const comp = state.completions || {};
+  let doneSessions = 0;
+  let focusMin = 0;
+  for (const ds of Object.keys(comp)) {
+    if (ds < ds0 || ds > ds6) continue;
+    for (const k of Object.keys(comp[ds] || {})) {
+      const e = comp[ds]![k];
+      if (e?.done) {
+        doneSessions++;
+        focusMin += e.min || 0;
+      }
+    }
+  }
+
+  const sm = state.summaries || {};
+  let summaries = 0;
+  for (const ds of Object.keys(sm)) if (ds >= ds0 && ds <= ds6) summaries += (sm[ds] || []).length;
+
+  const backlogClosed = backlogClosedBetween(state, ds0, ds6);
+  const errors = cbmsBetween(state, ds0, ds6).length; // 성취 문구에 '오답도 마주함' 톤으로만
+
+  const wins: string[] = [];
+  if (doneSessions > 0) wins.push(`학습 세션 ${doneSessions}개 · ${Math.round(focusMin / 60)}시간 집중`);
+  if (summaries > 0) wins.push(`내 말로 정리한 요약 ${summaries}개`);
+  if (backlogClosed > 0) wins.push(`밀린 보충 ${backlogClosed}개 회수`);
+  if (errors > 0) wins.push(`오답 ${errors}개를 회피 않고 기록 — 약점을 마주함`);
+
+  return { weekMon: weekMonDs, doneSessions, focusMin, summaries, backlogClosed, wins };
 }

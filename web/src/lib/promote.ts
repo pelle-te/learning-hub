@@ -41,3 +41,24 @@ export function backlogFromNews(n: NewsItem): BacklogSeed {
     note: `[증시·${n.source}] ${n.url}${ex ? '\n' + ex : ''}`,
   };
 }
+
+/* ── 진단→학습 승격(I-1): 소비뿐 아니라 '내 약점'도 같은 백로그 그릇으로. 진단(반복약점·근본원인)을
+   원클릭으로 보충 큐에 넣어 식별→행동을 잇는다. WeakSpot 타입에 결합하지 않으려 구조만 받는다. ── */
+
+/** 반복 약점(과목·챕터·막힘 횟수) → 백로그 씨앗. */
+export function backlogFromWeakSpot(w: { subject: string; chapter: string; count: number }): BacklogSeed {
+  return {
+    name: '반복 약점',
+    topic: `${w.subject} — ${w.chapter}`,
+    note: `이 지점에서 ${w.count}번 막힘 — 교재로 되돌아가 다시 인출`,
+  };
+}
+
+/** 약점의 근본원인(선수개념) → 백로그 씨앗. 이 뿌리를 메우면 상류 N개가 함께 풀린다. */
+export function backlogFromRootCause(c: { cause: string; count: number }): BacklogSeed {
+  return {
+    name: '근본원인',
+    topic: c.cause,
+    note: `${c.count}개 약점의 뿌리(선수개념) — 먼저 메우면 상류가 함께 풀림`,
+  };
+}

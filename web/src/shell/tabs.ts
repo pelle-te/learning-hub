@@ -29,6 +29,9 @@ export const TABS: TabMeta[] = [
   { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link', fill: true },
   { key: 'journal', label: '학습 기록', group: 'log', order: 60, icon: 'notebook', fill: true },
   { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh', fill: true },
+  // I-9: 복습 세션 러너 — 오늘 인출할 것(밀린 챕터·회상·착각 재확인)을 한 흐름으로 굴리는 doing surface.
+  // hidden(나브 숨김) · 오늘탭 복습칩(I-2)·⌘K·기록 세그먼트로 진입 · fill(단일 화면).
+  { key: 'review-run', label: '복습 실행', group: 'log', order: 72, hidden: true, icon: 'refresh', fill: true },
   { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart', fill: true },
   { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid', fill: true },
   // 지식맵은 통계 호스트의 섹션으로 접는다(숙달도 지도와 함께 '내가 뭘 아는가' 맵 묶음). 라우트·⌘K·g단축키는 유지.
@@ -49,7 +52,7 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
    라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
 export const SUBTAB_GROUPS: string[][] = [
   ['schedule', 'routine', 'degree'],
-  ['journal', 'review'],
+  ['journal', 'review', 'review-run'],
   ['stats', 'mastery', 'graph'],
 ];
 

@@ -39,6 +39,15 @@ function baseCommands(): PaletteCommand[] {
       run: () => void useFocus.getState().startOnCurrent(),
       to: '/today',
     },
+    // I-9: 복습 세션 러너 진입(오늘 인출할 것을 한 흐름으로).
+    {
+      id: 'act:review-run',
+      kind: 'act',
+      label: '↻ 복습 세션 — 밀린 챕터·회상·착각 재확인',
+      hint: '복습',
+      run: () => {},
+      to: '/review-run',
+    },
     // 기록 빠른 입력 — 프리필 요청 후 기록 탭으로(오늘 탭 블록 버튼과 같은 경로).
     {
       id: 'act:add-sum',
@@ -120,6 +129,8 @@ function baseCommands(): PaletteCommand[] {
       hint: '내보내기',
       run: () => A.exportSummaryNotes('all'),
     },
+    // I-3: 하루 마감 원커맨드 — 백업+요약+카드+정리 체이닝.
+    { id: 'act:closeout', kind: 'act', label: '오늘 마감 — 백업·요약·카드·정리', hint: '오늘', run: A.runCloseout },
     // 데이터·백업
     { id: 'act:export', kind: 'act', label: '데이터 내보내기(백업)', hint: '데이터', run: A.exportJSON },
     {

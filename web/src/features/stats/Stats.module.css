@@ -152,6 +152,24 @@
   filter: brightness(1.16);
   box-shadow: 0 0 8px var(--glow);
 }
+/* 표본 없는 주(I-5 confTrend rate=null) — 데이터 막대와 구분되는 흐린 빈 슬롯. 0%로 오도 금지. */
+.sparkBarNull {
+  flex: 1;
+  min-width: 6px;
+  height: 4px;
+  align-self: flex-end;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--mut) 42%, transparent);
+  opacity: 0.6;
+}
+/* 시즌 페이스(I-7) — 지난주들은 은은히, 이번 주는 발광 액센트로 초점. */
+.sparkBarPast {
+  background: color-mix(in srgb, var(--acc) 52%, var(--panel2));
+}
+.sparkBarNow {
+  background: var(--acc);
+  box-shadow: 0 0 7px var(--glow);
+}
 .wkSeg {
   border-radius: 3px 3px 0 0;
   transition:

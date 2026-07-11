@@ -291,6 +291,16 @@ export function exportSummaryNotes(scope: ExportScope): void {
   toast('요약 노트(.md)를 내려받았어요. 옵시디언 볼트에 넣어 개념 노트·카드와 연결하세요.', 'ok', 4600);
 }
 
+/** 하루 마감 원커맨드 매크로(I-3) — 백업 → 오늘 요약(.md) → 오늘 카드(.txt) → 오래된 기록 정리를
+   한 번에. 기존 액션을 순서대로 조합(각자 대상 없으면 조용히 건너뜀). 흩어진 마감 동작을 한 클릭 리추얼로. */
+export function runCloseout(): void {
+  backupNow();
+  exportSummaryNotes('today');
+  exportAnkiCards('today');
+  archiveOld();
+  toast('오늘 마감 — 백업·요약·카드·정리를 실행했어요. 내려받은 파일을 확인하세요.', 'ok', 4600);
+}
+
 /* ── 빠른 캡처(⌘K 자연어) ─────────────────────────────────────────
    순수 파서(lib/quickCapture)는 컴포넌트에서 돌리고, store를 만지는 부분만 여기 shell에 둔다
    (components→store 금지 경계 준수). 캡처는 기록 프리필 요청 = 오늘탭 블록 버튼과 같은 동선 재사용. */

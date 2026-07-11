@@ -8,7 +8,7 @@
    ② 인출다움: 같은 날 쓴 요약은 회상이 아니므로 minAgeDays(기본 2일) 이상만. 없으면 1일↑로 완화.
 ============================================================ */
 import { dayDiff } from './utils';
-import type { AppState, Summary } from './types';
+import type { AppState, Cbms, Summary } from './types';
 
 export interface RetrievalCard {
   ds: string; // 요약을 쓴 날(YYYY-MM-DD)
@@ -51,4 +51,34 @@ export function pickRetrieval(state: AppState, todayDs: string, minAgeDays = 2):
 /** 인출 가능한(회상 후보) 요약 총수 — 위젯 노출 여부 판단·리드아웃용. */
 export function retrievableCount(state: AppState, todayDs: string, minAgeDays = 1): number {
   return candidates(state, todayDs, minAgeDays).length;
+}
+
+export interface ConfidentWrongCard {
+  cbms: Cbms; // conf 플래그가 선 오답 1건
+  ageDays: number; // 그 오답을 기록한 날로부터 경과일
+}
+
+/** '착각 재확인' 카드(I-10) — conf('찍었는데/확신 없이'=착각의 신호)가 선 과거 오답 1건을 골라
+   오늘 다시 인출하게 한다. pickRetrieval과 같은 결정적 하루 회전(날짜 해시). minAge일↑만(당일 제외).
+   후보 없으면 null. */
+export function pickConfidentWrong(state: AppState, todayDs: string, minAgeDays = 1): ConfidentWrongCard | null {
+  const rows = (state.cbms || [])
+    .filter((e) => {
+      if (!e.conf) return false;
+      const age = dayDiff(e.ds, todayDs);
+      return Number.isFinite(age) && age >= minAgeDays;
+    })
+    .sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : a.id < b.id ? -1 : 1));
+  if (!rows.length) return null;
+  const pick = rows[hashStr(todayDs) % rows.length]!;
+  return { cbms: pick, ageDays: dayDiff(pick.ds, todayDs) };
+}
+
+/** 착각 재확인 후보 총수 — 위젯 노출 판단용. */
+export function confidentWrongCount(state: AppState, todayDs: string, minAgeDays = 1): number {
+  return (state.cbms || []).filter((e) => {
+    if (!e.conf) return false;
+    const age = dayDiff(e.ds, todayDs);
+    return Number.isFinite(age) && age >= minAgeDays;
+  }).length;
 }

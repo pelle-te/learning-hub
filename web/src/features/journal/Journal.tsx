@@ -30,8 +30,12 @@ import {
   delBacklog,
   restoreBacklog,
   activityFeed,
+  setRitual,
 } from '@/lib/methodology';
-import { addDays, fmt, iso, itemById, parseISO, todayISO } from '@/lib/utils';
+import { weeklyRecap } from '@/lib/insights';
+import { shutdownChain } from '@/lib/records';
+import { parseCaptureBatch } from '@/lib/quickCapture';
+import { addDays, fmt, hLabel, iso, itemById, mondayOf, parseISO, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import JournalStream from './JournalStream';
 import ds from '@/styles/ds.module.css';
@@ -705,6 +709,108 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
   );
 }
 
+/** I-11 배치 캡처 — 여러 줄을 한 번에 파싱해 요약 폼 다건 프리필(우 컬럼 상단, 접이식). */
+function BatchCapture() {
+  const state = useApp((s) => s.state);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  // 파싱 미리보기 — 줄 수만큼 CaptureResult(빈 줄·실패 제외). subjects=이름 있는 항목명.
+  const subjects = state.items.map((i) => i.name).filter(Boolean) as string[];
+  const parsed = text.trim() ? parseCaptureBatch(text, new Date(), subjects) : [];
+  const apply = () => {
+    if (!parsed.length) return; // 빈 파싱이면 no-op
+    const reqs = parsed.map((r) => {
+      // 정확 name 일치만 id로 매핑(스케줄러 오염 방지) — 없으면 ''.
+      const item = r.subject ? state.items.find((i) => i.name === r.subject) : undefined;
+      return { form: 'sum' as const, sid: item?.id || '', ds: r.dateISO || '' };
+    });
+    usePrefill.getState().requestBatch(reqs);
+    setText('');
+    setOpen(false);
+    ui.toast(`${reqs.length}건 프리필 — 요약 폼이 순차로 채워져요`, 'ok');
+  };
+
+  return (
+    <details className={j.capture} open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary className={j.captureSum}>여러 줄 한 번에 — 배치 캡처</summary>
+      <div className={j.captureBody}>
+        <textarea
+          className={j.captureTa}
+          rows={4}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={'한 줄에 하나씩 — 예)\n미적분 7장 부분적분 요약\n어제 선형대수 고윳값 정리'}
+        />
+        <div className={j.captureFoot}>
+          <span className={`${ds.muted} ${ds.tiny}`}>
+            {parsed.length ? `${parsed.length}건 인식 — 요약 폼으로 순차 프리필` : '한 줄씩 적으면 요약 폼을 채워요'}
+          </span>
+          <Button sm variant="primary" onClick={apply} disabled={!parsed.length}>
+            {parsed.length ? `${parsed.length}건 프리필` : '프리필'}
+          </Button>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/** I-12 주간 리캡 — '이번 주 해낸 것'(격려 톤). review(처방)와 분리. 좌 컬럼. */
+function WeeklyRecapCard() {
+  const state = useApp((s) => s.state);
+  const weekMon = iso(mondayOf(parseISO(todayISO(state))));
+  const recap = weeklyRecap(state, weekMon);
+  return (
+    <div className={j.recap}>
+      <div className={j.recapHead}>
+        <span className={j.recapTitle}>이번 주 해낸 것</span>
+        {recap.focusMin > 0 && <span className={j.recapStat}>{hLabel(recap.focusMin)} 집중</span>}
+      </div>
+      {recap.wins.length ? (
+        <ul className={j.recapWins}>
+          {recap.wins.map((w, i) => (
+            <li key={i} className={j.recapWin}>
+              {w}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className={j.recapEmpty}>이번 주 기록이 쌓이면 여기 성취가 모여요.</div>
+      )}
+    </div>
+  );
+}
+
+/** I-13 셧다운 체인 — 최근 14일 연속성 도트 + 'N일 연속' 배지 + 오늘 토글. "Don't break the chain". */
+function ShutdownChain() {
+  const state = useApp((s) => s.state);
+  const mutate = useApp((s) => s.mutate);
+  const chain = shutdownChain(state, 14);
+  const today = todayISO(state);
+  const todayDone = chain.days[chain.days.length - 1]?.done ?? false;
+  const doneN = chain.days.filter((d) => d.done).length;
+  const toggle = () => mutate((st) => setRitual(st, today, 'shutdown', !todayDone));
+  return (
+    <div className={j.chain}>
+      <div className={j.chainHead}>
+        <span className={j.chainTitle}>셧다운 체인</span>
+        {chain.streak > 0 && <span className={j.chainStreak}>🔥 {chain.streak}일 연속</span>}
+      </div>
+      <div className={j.chainDots} role="img" aria-label={`최근 14일 중 ${doneN}일 셧다운 완료`}>
+        {chain.days.map((d) => (
+          <span
+            key={d.ds}
+            className={`${j.dot}${d.done ? ' ' + j.dotDone : ''}`}
+            title={`${d.ds}${d.done ? ' · 셧다운 완료' : ''}`}
+          />
+        ))}
+      </div>
+      <button type="button" className={j.chainToggle} onClick={toggle} aria-pressed={todayDone}>
+        {todayDone ? '오늘 셧다운 완료 ✓ — 취소' : '오늘 하루를 닫기 — 셧다운 완료'}
+      </button>
+    </div>
+  );
+}
+
 export default function Journal() {
   const state = useApp((s) => s.state);
   const navigate = useNavigate();
@@ -750,7 +856,9 @@ export default function Journal() {
         {/* 좌 — 로그(시그니처, fill) + 최근 활동(온디맨드). 선택 날짜를 따라간다. */}
         <div className={j.logCol}>
           <JournalStream ds={ds2} isToday={isToday} fill />
+          <WeeklyRecapCard />
           <ActivityFeed ds2={ds2} />
+          <ShutdownChain />
           <div className={j.logHint}>
             공부 뒤 남기는 산출물({fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 하나씩. 누적 추세·약점 분포는{' '}
             <button type="button" className={j.inlineLink} onClick={() => navigate('/stats', { viewTransition: true })}>
@@ -788,6 +896,7 @@ export default function Journal() {
               </Button>
             )}
           </div>
+          <BatchCapture />
           <SummaryCard ds={ds2} />
           <CbmsCard ds={ds2} />
           <BacklogCard />

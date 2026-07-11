@@ -392,6 +392,37 @@
   outline: 2px solid var(--acc);
   outline-offset: 1px;
 }
+/* I-1: 약점/근본원인 행의 액션 묶음(＋보충 · +1h) */
+.weakActions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* I-1: 반복약점·근본원인 → 보충 백로그 원클릭 시드(액센트 필). */
+.weakSeed {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--acc) 45%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--acc) 12%, transparent);
+  color: var(--acc);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.weakSeed:hover {
+  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  border-color: var(--acc);
+}
+.weakSeed:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
 .coachAi {
   display: flex;
   align-items: center;
@@ -540,6 +571,42 @@
 }
 .riskFind:focus-visible {
   opacity: 1;
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+
+/* I-14 약점 워크벤치 — 위험 행의 식별→행동 버튼 묶음(+1h · ＋보충 · 🔎 · ↻). */
+.benchActions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.benchBtn {
+  flex: none;
+  width: 26px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.benchBtn:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+}
+.benchBtn:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: 1px;
 }

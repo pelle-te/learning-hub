@@ -559,3 +559,22 @@ export function cbmsTrend(state: AppState): { thisW: number; lastW: number } {
   const lastW = cbmsBetween(state, iso(lastMon), iso(addDays(lastMon, 6))).length;
   return { thisW, lastW };
 }
+
+/** 과신(conf) 오답률 주별 시계열(I-5) — 최근 weeks주(오래된→최신). confRate는 단일 구간 스냅샷,
+   이건 주 단위로 쪼갠 스파크라인용 시리즈. 표본게이트: 그 주 오답 0이면 rate=null(0%로 오도 금지).
+   cbmsTrend와 같은 mondayOf(_today) 정렬. */
+export function confTrend(
+  state: AppState,
+  weeks = 6,
+): { weekMon: string; conf: number; total: number; rate: number | null }[] {
+  const mon0 = mondayOf(parseISO(todayISO(state)));
+  const out: { weekMon: string; conf: number; total: number; rate: number | null }[] = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const mon = addDays(mon0, -7 * i);
+    const rows = cbmsBetween(state, iso(mon), iso(addDays(mon, 6)));
+    const total = rows.length;
+    const conf = rows.filter((e) => e.conf).length;
+    out.push({ weekMon: iso(mon), conf, total, rate: total ? Math.round((conf / total) * 100) : null });
+  }
+  return out;
+}

@@ -22,13 +22,15 @@ import {
   cbmsTrendGlyph,
   cbmsTop,
   confRate,
+  confTrend,
   recallEvidence,
   retentionNudge,
   retentionTrend,
   CBMS_INFO,
   CBMS_CODES,
 } from '@/lib/methodology';
-import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, dayDiff, ddayInfo, DOW } from '@/lib/utils';
+import { personalBests, seasonPace } from '@/lib/records';
+import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, dayDiff, ddayInfo, hLabel, DOW } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import st from './Stats.module.css';
 import type { ScheduleResult } from '@/lib/types';
@@ -100,6 +102,48 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
           확신 없이 처리한 오답 {cal.conf}건(전체 {cal.total}건 중 {cal.rate}%) — 다시 점검 대상.
         </div>
       )}
+      {/* 과신율 추세(I-5) — 단일시점 confRate에 '최근 N주' 문맥 부여. 표본 없는 주는 흐린 빈 슬롯. */}
+      <ConfSpark />
+    </div>
+  );
+}
+
+/** 과신율 추세 스파크라인(I-5) — 주별 과신 오답 비율. rate=null(표본 없음)은 0%로 오도하지 않고 흐린 빈 슬롯. */
+function ConfSpark() {
+  const state = useApp((s) => s.state);
+  const weeks = confTrend(state, 6);
+  const withData = weeks.filter((w) => w.rate !== null);
+  if (!withData.length) return null; // 오답 표본이 한 주도 없으면 노출 안 함(빈 막대 벽 방지).
+  const latest = withData[withData.length - 1]!;
+  return (
+    <div className={ds.foot}>
+      <div className={ds.row} style={{ alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 46, flex: 1, minWidth: 120 }}>
+          {weeks.map((w, i) => {
+            if (w.rate === null) {
+              const lab = `${w.weekMon}: 표본 없음`;
+              return <div key={i} className={st.sparkBarNull} data-tip={lab} role="img" aria-label={lab} />;
+            }
+            const lab = `${w.weekMon}: 과신 ${w.rate}% (${w.conf}/${w.total}건)`;
+            return (
+              <div
+                key={i}
+                className={st.sparkBar}
+                data-tip={lab}
+                tabIndex={0}
+                role="img"
+                aria-label={lab}
+                style={{ height: Math.round((w.rate / 100) * 42) + 4 }}
+              />
+            );
+          })}
+        </div>
+        <div className={`${ds.muted} ${ds.tiny}`} style={{ minWidth: 96, textAlign: 'right' }}>
+          최근 {withData.length}주 과신율
+          <br />
+          최근 {latest.rate}%
+        </div>
+      </div>
     </div>
   );
 }
@@ -510,6 +554,63 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
   );
 }
 
+/** 시즌 페이스(I-7) — '완료율' 아닌 '리듬': 이번 주 학습량 vs 직전 4주 평균. weeks로 미니 스파크. */
+function SeasonPaceCard() {
+  const state = useApp((s) => s.state);
+  const p = seasonPace(state, 4);
+  const hasHist = p.avgWeekMin > 0;
+  const max = Math.max(1, ...p.weeks.map((w) => w.min));
+  const flat = hasHist && p.deltaPct === 0;
+  const good = p.ahead;
+  const arrow = flat ? '＝' : good ? '▲' : '▼';
+  const col = flat ? 'var(--muted)' : good ? 'var(--ok)' : 'var(--bad)';
+  return (
+    <div className={ds.card}>
+      <h2>
+        시즌 페이스{' '}
+        <span className={`${ds.muted} ${ds.tiny}`}>— 이번 주 학습량 vs 직전 4주 평균(완료율 아닌 '리듬')</span>
+      </h2>
+      <div className={ds.row} style={{ alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 50, flex: 1, minWidth: 120 }}>
+          {p.weeks.map((w, i) => {
+            const now = i === p.weeks.length - 1;
+            const lab = `${w.weekMon}${now ? '(이번주)' : ''}: ${hLabel(w.min)}`;
+            return (
+              <div
+                key={i}
+                className={`${st.sparkBar} ${now ? st.sparkBarNow : st.sparkBarPast}`}
+                data-tip={lab}
+                tabIndex={0}
+                role="img"
+                aria-label={lab}
+                style={{ height: Math.round((w.min / max) * 46) + 2 }}
+              />
+            );
+          })}
+        </div>
+        <div style={{ textAlign: 'right', minWidth: 110 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: col }}>
+            {hasHist ? `${arrow} ${Math.abs(p.deltaPct)}%` : hLabel(p.thisWeekMin)}
+          </div>
+          <div className={`${ds.muted} ${ds.tiny}`}>
+            이번주 {hLabel(p.thisWeekMin)}
+            {hasHist ? ` · 평균 ${hLabel(p.avgWeekMin)}` : ''}
+          </div>
+        </div>
+      </div>
+      <div className={ds.foot}>
+        {!hasHist
+          ? '직전 주 이력이 쌓이면 평소 대비 페이스를 보여줘요 — 이번 주는 기준선을 만드는 중.'
+          : flat
+            ? '평소와 같은 페이스예요 — 리듬을 유지하는 중. 👍'
+            : good
+              ? `평소보다 ${p.deltaPct}% 앞서 있어요 — 리듬이 살아있는 방향. 👍`
+              : `평소보다 ${Math.abs(p.deltaPct)}% 뒤처져 있어요 — 짧게라도 매일 이어가면 리듬이 회복돼요.`}
+      </div>
+    </div>
+  );
+}
+
 /** 챕터 타임라인 — 날짜별 '무엇을 배웠나'(최근 CAP일). */
 function ChapterTimeline({ r }: { r: ScheduleResult }) {
   if (!r.chapterLog.length)
@@ -654,6 +755,9 @@ export default function Stats() {
   const cnt = cbmsCounts(state);
   const top = cbmsTop(cnt); // {code,n,total}|null
 
+  // 개인 기록(I-6) — 성취 회수: 최장 연속·최고 집중일. 기록 없으면(totalDays 0) 숨겨 0의 벽 방지.
+  const pb = personalBests(state);
+
   usePageChromeEffect(
     () => ({
       readouts: [
@@ -739,6 +843,18 @@ export default function Stats() {
             <Readout value={doneCh} suffix={<small>/{totalCh}</small>} lab="완료 챕터" />
             <Readout value={recallActs} lab="능동 인출(요약+백지+모의)" />
             <Readout value={revCount} lab="복습 세션(계획)" />
+            {/* 개인 기록(I-6) — 기록이 있을 때만(과장 금지). 최고 집중일은 hLabel(분→시간)로 정적 표기. */}
+            {pb.totalDays > 0 && (
+              <>
+                <Readout value={pb.longestStreak} prefix="🏆 " lab="최장 연속(개인 기록)" />
+                <div className={`${st.ro} ${ds.glow}`}>
+                  <span className={st.roNum}>{hLabel(pb.bestFocusMin)}</span>
+                  <span className={st.roLab}>
+                    최고 집중일{pb.bestFocusDs ? ` · ${fmtShort(parseISO(pb.bestFocusDs))}` : ''}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -816,6 +932,7 @@ export default function Stats() {
           <h2>주별 학습시간</h2>
           <WeeklyBars r={r} />
         </div>
+        <SeasonPaceCard />
         <div className={ds.card}>
           <h2>학습한 내용 (챕터 타임라인)</h2>
           <ChapterTimeline r={r} />

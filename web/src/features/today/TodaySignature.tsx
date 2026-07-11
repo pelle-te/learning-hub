@@ -12,13 +12,16 @@ import { useRuntime } from '@/store/useRuntime';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
+import { usePrefill } from '@/store/prefill';
+import { usePing, useKnowledge } from '@/store/queries';
 import { isDone, studyStreak } from '@/lib/persistence';
 import { pickFocus, focusMinutes } from '@/lib/focusState';
-import { openBacklog, setRitual } from '@/lib/methodology';
+import { openBacklog, setRitual, CBMS_INFO } from '@/lib/methodology';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter, sessionTimeMap } from '@/lib/scheduler';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue, type AnkiLive } from '@/lib/anki';
-import { pickRetrieval, retrievableCount } from '@/lib/retrieval';
+import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
+import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
 import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
@@ -42,6 +45,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
   const [recallShown, setRecallShown] = useState(false); // A2 — 회상 정답 공개 여부
+  // I-4 — 흐름 레일 키보드 흐름(j/k 이동·Enter 집중·s 기록). 선택 노드 key + DOM 참조맵.
+  const [selKey, setSelKey] = useState<string | null>(null);
+  const nodeRefs = useRef(new Map<string, HTMLElement>());
 
   // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.
   const { ref: heroRef, onMouseMove: onHeroMove, onMouseLeave: onHeroLeave } = useHeroPointer(7);
@@ -157,6 +163,15 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const tmrNew = byDs[iso(addDays(today, 1))]?.items.find((it) => it.type === 'new');
   const risk = riskSummary(state, res.days || [], ds);
   const riskN = risk.overdue + risk.due;
+  // I-8 — 프런티어 다음 추천(지식엔진 frontier). serve.js 도달 시에만 페치(mastery와 KNOWLEDGE_KEY 캐시 공유,
+  // 신규 IO 최소). 후보 없거나 미연결이면 frontier=null → 렌더 안 함.
+  const ping = usePing();
+  const know = useKnowledge(ping.isSuccess).data;
+  const frontier = frontierNext(know);
+  const frontierTitle = frontier?.title || frontier?.basename || '';
+  // I-10 — 착각 재확인 카드: conf('확신했지만 틀림') 선 과거 오답 1건(날짜 해시로 하루 회전). 후보 없으면 null.
+  const confWrong = pickConfidentWrong(state, ds);
+  const confWrongN = confWrong ? confidentWrongCount(state, ds) : 0;
 
   // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃). 파생 로직은 lib/scheduleView.deadlineDdays로 위임.
   const ddays = deadlineDdays(res.itemStat, ds);
@@ -204,6 +219,54 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         e: null,
       })),
   ].sort((a, b) => a.start - b.start);
+
+  // I-4 — 흐름 레일 키보드 흐름: j/k 노드 이동(활성 하이라이트+스크롤) · Enter 현재 노드 집중 시작 · s 기록 프리필.
+  // Today.tsx 오버레이 키처리와 같은 window keydown+cleanup 패턴. 입력 포커스 시엔 무시(타이핑 보호).
+  const startNodeFocus = (e: (typeof enriched)[number]) => {
+    startSession({ ds, sid: e.it.sid, type: e.it.type, name: e.it.name, min: focusMinutes(e), blockMin: e.it.min });
+  };
+  useEffect(() => {
+    if (!flowNodes.length) return;
+    const keys = flowNodes.map((n) => n.key);
+    const reveal = (key: string) => {
+      const el = nodeRefs.current.get(key);
+      const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el?.scrollIntoView({ block: 'nearest', behavior: rm ? 'auto' : 'smooth' });
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const idx = selKey ? keys.indexOf(selKey) : -1;
+      if (e.key === 'j') {
+        e.preventDefault();
+        const next = keys[Math.min(keys.length - 1, idx + 1)] ?? keys[0]!;
+        setSelKey(next);
+        reveal(next);
+      } else if (e.key === 'k') {
+        e.preventDefault();
+        const prev = idx <= 0 ? keys[0]! : keys[idx - 1]!;
+        setSelKey(prev);
+        reveal(prev);
+      } else if (e.key === 'Enter') {
+        const nd = flowNodes.find((n) => n.key === selKey);
+        if (nd?.e) {
+          e.preventDefault();
+          startNodeFocus(nd.e);
+        }
+      } else if (e.key === 's' || e.key === 'S') {
+        const nd = flowNodes.find((n) => n.key === selKey);
+        if (nd?.e) {
+          e.preventDefault();
+          usePrefill.getState().request('sum', nd.e.it.sid, ds);
+          ui.toast(`${nd.e.it.name} — 기록 프리필됨 ✍`, 'info');
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowNodes, selKey, ds]);
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
   const subjName = allDone ? '완료' : focus ? focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
@@ -376,6 +439,17 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 ) : (
                   <span>내일 일정은 아직 비어 있어요</span>
                 )}
+                {/* I-8 — 지식엔진 프런티어: '이걸 배우면 N개가 풀린다' 최대 개념 경량 추천(→ 숙달도). */}
+                {frontierTitle && (
+                  <button
+                    type="button"
+                    className={s.mChip}
+                    onClick={() => go('/mastery')}
+                    aria-label={`다음 추천 개념 ${frontierTitle} — 숙달도로 이동`}
+                  >
+                    다음에 이거 · {frontierTitle}
+                  </button>
+                )}
                 {riskN > 0 && (
                   <button type="button" className={s.mChip} onClick={() => go('/review')}>
                     복습 위험 {riskN}
@@ -495,7 +569,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                     live && nd.end != null && nd.end > nd.start
                       ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
                       : 0;
-                  const cls = `${s.node} ${nd.kind === 'study' ? s.nStudy : s.nBlock}${live ? ' ' + s.nLive : ''}${past ? ' ' + s.nPast : ''}${nd.done ? ' ' + s.nDone : ''}`;
+                  const cls = `${s.node} ${nd.kind === 'study' ? s.nStudy : s.nBlock}${live ? ' ' + s.nLive : ''}${past ? ' ' + s.nPast : ''}${nd.done ? ' ' + s.nDone : ''}${selKey === nd.key ? ' ' + s.nSel : ''}`;
+                  const setNodeRef = (el: HTMLElement | null) => {
+                    const m = nodeRefs.current;
+                    if (el) m.set(nd.key, el);
+                    else m.delete(nd.key);
+                  };
                   const inner = (
                     <>
                       {live && <span className={s.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
@@ -521,16 +600,23 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                   return nd.e ? (
                     <button
                       key={nd.key}
+                      ref={setNodeRef}
                       type="button"
                       className={cls}
                       onClick={() => toggle(nd.e!)}
                       aria-label={`${nd.name} 완료 토글`}
                       aria-pressed={nd.done}
+                      aria-current={selKey === nd.key ? true : undefined}
                     >
                       {inner}
                     </button>
                   ) : (
-                    <div key={nd.key} className={cls}>
+                    <div
+                      key={nd.key}
+                      ref={setNodeRef}
+                      className={cls}
+                      aria-current={selKey === nd.key ? true : undefined}
+                    >
                       {inner}
                     </div>
                   );
@@ -543,6 +629,18 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                     <span className={s.nSub}>이후 일정 없음</span>
                   </span>
                 </div>
+                {/* I-2 — 밀린 복습이 있으면 종결 캡 뒤에 은은한 딥링크 칩(스케줄 쓰기 아님 → 복습 실행으로). */}
+                {riskN > 0 && (
+                  <button
+                    type="button"
+                    className={s.reviewCta}
+                    onClick={() => go('/review-run')}
+                    aria-label={`밀린 복습 ${riskN}개 — 복습 세션으로 이동`}
+                  >
+                    <span className={s.reviewDot} aria-hidden="true" />
+                    복습 {riskN}개 밀림 <b>복습 세션 →</b>
+                  </button>
+                )}
               </>
             ) : (
               <div className={s.railEmpty}>
@@ -592,6 +690,26 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                   떠올렸다 · 정답 보기
                 </button>
               )}
+            </div>
+          )}
+          {/* I-10 — 착각 재확인 카드: 확신했지만 틀렸던 개념을 지금 다시 인출(회상과 같은 언어·시각). */}
+          {confWrong && (
+            <div className={`${s.recall} ${s.confWrong}`}>
+              <div className={s.recallTop}>
+                <span className={`${s.recallTag} ${s.confWrongTag}`}>⚠ 착각 재확인</span>
+                <span className={s.recallMeta}>
+                  {confWrong.ageDays}일 전 · {CBMS_INFO[confWrong.cbms.code].label}
+                  {confWrongN > 1 ? ` · 외 ${confWrongN - 1}` : ''}
+                </span>
+              </div>
+              <div className={s.recallQ}>
+                {confWrong.cbms.name}
+                {confWrong.cbms.chapter ? ` · ${confWrong.cbms.chapter}` : ''}
+              </div>
+              <div className={s.confWrongNote}>확신했지만 틀렸던 것 — 지금 다시 인출</div>
+              <button type="button" className={s.recallBtn} onClick={() => go('/review-run')}>
+                다시 확인 · 복습 세션 →
+              </button>
             </div>
           )}
           <button type="button" className={s.more} onClick={onOpenMore}>
