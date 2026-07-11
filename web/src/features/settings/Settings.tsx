@@ -166,14 +166,14 @@ export default function Settings() {
   const stale = days == null || days >= 7;
   // 데이터 슬라이스가 바뀔 때만 재직렬화/재집계 — 스칼라 설정 타이핑마다 전체 JSON.stringify를 돌지 않도록.
   // (state 전체를 넘기지만 데이터 5슬라이스가 바뀔 때만 무효화 — exhaustive-deps는 그래서 명시 억제.)
-
   const sizeKB = useMemo(
     () => dataSizeKB(state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.completions, state.summaries, state.cbms, state.backlog, state.blankResults],
   );
-
   const bd = useMemo(
     () => recordBreakdown(state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.completions, state.summaries, state.cbms, state.backlog, state.blankResults],
   );
   const recs = bd.done + bd.summaries + bd.cbms + bd.backlog + bd.blank;
