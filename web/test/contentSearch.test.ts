@@ -27,6 +27,11 @@ vi.mock('@/lib/reads', async (orig) => {
 import { useApp } from '@/store/useApp';
 import { defaults } from '@/lib/persistence';
 import { contentSearch } from '@/shell/actions';
+import { loadReads } from '@/lib/reads';
+
+// C-1: contentSearch는 팔레트가 열릴 때 1회 스냅샷한 reads를 주입받는다(타이핑 매 키 재파싱 제거).
+//      테스트도 목킹된 loadReads() 스냅샷을 그 계약대로 넘긴다.
+const reads = loadReads();
 
 beforeEach(() => {
   const base = defaults();
@@ -48,27 +53,27 @@ beforeEach(() => {
 
 describe('contentSearch (E-6)', () => {
   it('과목명 매칭 → subject 히트(/items)', () => {
-    const hits = contentSearch('선형');
+    const hits = contentSearch('선형', reads);
     expect(hits.some((h) => h.kind === 'subject' && h.label === '선형대수' && h.to === '/items')).toBe(true);
   });
 
   it('챕터명 매칭 → chapter 히트(과목 · 챕터 라벨)', () => {
-    const hits = contentSearch('벡터');
+    const hits = contentSearch('벡터', reads);
     expect(hits.some((h) => h.kind === 'chapter' && h.label.includes('벡터공간'))).toBe(true);
   });
 
   it('책 제목/저자 매칭 → book 히트(/reads)', () => {
-    expect(contentSearch('딥러닝').some((h) => h.kind === 'book' && h.to === '/reads')).toBe(true);
-    expect(contentSearch('김철수').some((h) => h.kind === 'book')).toBe(true);
+    expect(contentSearch('딥러닝', reads).some((h) => h.kind === 'book' && h.to === '/reads')).toBe(true);
+    expect(contentSearch('김철수', reads).some((h) => h.kind === 'book')).toBe(true);
   });
 
   it('빈 질의 → 빈 배열', () => {
-    expect(contentSearch('')).toEqual([]);
-    expect(contentSearch('   ')).toEqual([]);
+    expect(contentSearch('', reads)).toEqual([]);
+    expect(contentSearch('   ', reads)).toEqual([]);
   });
 
   it('대소문자 무시 + limit 상한 준수', () => {
-    expect(contentSearch('벡터'.toUpperCase()).length).toBeGreaterThanOrEqual(0);
-    expect(contentSearch('공', 1).length).toBeLessThanOrEqual(1);
+    expect(contentSearch('벡터'.toUpperCase(), reads).length).toBeGreaterThanOrEqual(0);
+    expect(contentSearch('공', reads, 1).length).toBeLessThanOrEqual(1);
   });
 });

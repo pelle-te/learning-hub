@@ -246,6 +246,17 @@ export function consumeBootFallback(): BootFallback | null {
   return v;
 }
 
+/** 직렬화 문자열을 파싱→마이그레이션. 손상/형식불일치면 null(throw 안 함).
+   `migrate(JSON.parse(raw))`+try/catch 관용구가 boot·undoLast·restoreFromIDB·BootRecovery에
+   복제돼 있던 것을 단일 가드로 수렴 — migrate SSOT를 소유한 이 모듈이 파싱 가드도 소유. */
+export function parseState(raw: string): AppState | null {
+  try {
+    return migrate(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
 /* 부팅 — 저장된 상태를 살리되, 손상/형식불일치면 *원본 raw를 CORRUPT_KEY에 보존*한 뒤
    기본값으로 시작(첫 persist가 복구가능한 원본을 덮어 영구손실하는 것 방지 · P1-7). */
 export function boot(storage: KV): AppState {
@@ -256,12 +267,7 @@ export function boot(storage: KV): AppState {
   } catch {
     /* ignore */
   }
-  let s: AppState | null = null;
-  try {
-    s = raw == null ? null : migrate(JSON.parse(raw));
-  } catch {
-    s = null;
-  }
+  const s: AppState | null = raw == null ? null : parseState(raw);
   if (!s && raw) {
     // 원본은 있는데 못 살림 = 손상/형식불일치
     try {

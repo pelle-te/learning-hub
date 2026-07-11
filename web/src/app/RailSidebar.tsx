@@ -2,7 +2,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { navGroups, hostTabKey, Icon, type TabMeta } from '@/shell';
 import { prefetchTab } from '@/features/registry';
 import { useUI } from '@/store/useUI';
+import { useApp } from '@/store/useApp';
+import { selectSchedule } from '@/store/selectors';
+import { riskSummary } from '@/lib/spacedReview';
+import { openBacklog } from '@/lib/methodology';
+import { todayISO } from '@/lib/utils';
 import s from './RailSidebar.module.css';
+
+// C-9: 복습 밀림·열린 보충은 review/mastery 탭 안에서만 보여 다른 탭에 있으면 알 길이 없었다.
+// 로그 그룹 진입점(학습 기록=review 호스트)에 은은한 카운트 배지로 어디서든 신호(발광·펄스 금지).
+const NAV_BADGE_TAB = 'journal';
 
 /* RailSidebar — 라벨+그룹 접이식 사이드바(설계도 §1-2 확장).
    - 펼침(기본): 그룹 헤더(계획·자료·분석·설정) 아래 아이콘+라벨 행. 탭이 늘어도 청킹으로 스캔 가능.
@@ -15,6 +24,12 @@ export default function RailSidebar() {
   const loc = useLocation();
   const collapsed = useUI((st) => st.ui.navCollapsed);
   const toggleNav = useUI((st) => st.toggleNav);
+  // 숫자만 구독 — selectSchedule은 메모(16-슬라이스 캐시)라 값이 바뀔 때만 나브가 리렌더(무관 재계산 회피).
+  const reviewBadge = useApp((st) => {
+    const state = st.state;
+    const r = riskSummary(state, selectSchedule(state).days || [], todayISO(state));
+    return r.overdue + openBacklog(state).length;
+  });
   const cur = hostTabKey(loc.pathname.replace(/^\//, '') || 'today');
   const go = (key: string) => navigate('/' + key, { viewTransition: true });
 
@@ -57,13 +72,14 @@ export default function RailSidebar() {
   const renderBtn = (t: TabMeta) => {
     const i = idxOf(t.key);
     const active = cur === t.key;
+    const badge = t.key === NAV_BADGE_TAB ? reviewBadge : 0;
     return (
       <button
         key={t.key}
         id={'rail-' + t.key}
         type="button"
         aria-current={active ? 'page' : undefined}
-        aria-label={t.label}
+        aria-label={badge > 0 ? `${t.label} — 복습·보충 ${badge}건 대기` : t.label}
         tabIndex={active || (!hasActive && i === 0) ? 0 : -1}
         className={s.item + (active ? ' ' + s.on : '')}
         onKeyDown={onKey(i)}
@@ -73,6 +89,11 @@ export default function RailSidebar() {
       >
         <Icon name={t.icon} />
         <span className={s.label}>{t.label}</span>
+        {badge > 0 && (
+          <span className={s.badge} aria-hidden="true">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </button>
     );
   };

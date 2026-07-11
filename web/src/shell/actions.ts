@@ -6,13 +6,14 @@
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
-import { BACKUP_KEY, RUNTIME_CACHE_KEYS, migrate, defaults, exportSnapshot } from '@/lib/persistence';
+import { BACKUP_KEY, RUNTIME_CACHE_KEYS, migrate, parseState, defaults, exportSnapshot } from '@/lib/persistence';
 import { loadReads, importReads } from '@/lib/reads';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad } from '@/lib/idb';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
-import { buildAnkiCards, buildSummaryNotes, archiveOldData } from '@/lib/methodology';
-import { todayISO } from '@/lib/utils';
+import { buildAnkiCards, buildSummaryNotes, archiveOldData, openBacklog } from '@/lib/methodology';
+import { weakSpots } from '@/lib/insights';
+import { iso, mondayOf, todayISO } from '@/lib/utils';
 import type { AppState, Theme } from '@/lib/types';
 import type { CaptureResult } from '@/lib/quickCapture';
 import { toast, toastUndo } from './toast';
@@ -102,12 +103,7 @@ export function undoLast(): void {
     toast('되돌릴 백업이 없습니다.', 'bad');
     return;
   }
-  let s: AppState | null = null;
-  try {
-    s = migrate(JSON.parse(b));
-  } catch {
-    s = null;
-  }
+  const s = parseState(b);
   if (!s) {
     toast('백업이 손상됨', 'bad');
     return;
@@ -152,12 +148,7 @@ export async function restoreFromIDB(preloaded?: string | null): Promise<void> {
     toast('IndexedDB 백업이 없습니다(이 브라우저에서 저장된 적 없음).', 'warn', 4000);
     return;
   }
-  let s: AppState | null = null;
-  try {
-    s = migrate(JSON.parse(json));
-  } catch {
-    s = null;
-  }
+  const s = parseState(json);
   if (!s) {
     toast('IndexedDB 백업을 살릴 수 없습니다(형식 오류).', 'bad', 4000);
     return;
@@ -242,16 +233,27 @@ export function archiveOld(monthsKeep = 6): void {
   toast(`${count}건을 보관 파일로 내려받고 앱에서 비웠어요.`, 'ok', 4200);
 }
 
-/** 오늘/전체 요약·오답 → Anki import용 .txt 카드 초안. */
-export function exportAnkiCards(scope: 'today' | 'all'): void {
+/** 내보내기 범위 → [from, to] ds. 'week'=이번 주 월요일~오늘(리뷰 주간 케이던스와 정렬),
+   'today'=당일, 'all'=무제한(''). buildAnkiCards/buildSummaryNotes가 임의 범위를 이미 수용. */
+export type ExportScope = 'today' | 'week' | 'all';
+function exportRange(scope: ExportScope): [string, string] {
+  if (scope === 'all') return ['', ''];
+  if (scope === 'week') return [iso(mondayOf(new Date())), todayISO()];
+  const t = todayISO();
+  return [t, t];
+}
+const SCOPE_TAG: Record<ExportScope, string> = { today: '오늘', week: '이번주', all: '전체' };
+
+/** 오늘/이번주/전체 요약·오답 → Anki import용 .txt 카드 초안. */
+export function exportAnkiCards(scope: ExportScope): void {
   const s = st().state;
-  const range = scope === 'today' ? todayISO() : '';
-  const lines = buildAnkiCards(s, range, range);
+  const [from, to] = exportRange(scope);
+  const lines = buildAnkiCards(s, from, to);
   if (!lines.length) {
     toast(
-      scope === 'today'
-        ? '오늘 작성한 요약·오답이 없어요. 블록 끝마다 3문장 요약을 남기면 카드가 됩니다.'
-        : '요약·오답 기록이 아직 없어요.',
+      scope === 'all'
+        ? '요약·오답 기록이 아직 없어요.'
+        : `${SCOPE_TAG[scope]} 작성한 요약·오답이 없어요. 블록 끝마다 3문장 요약을 남기면 카드가 됩니다.`,
       'warn',
       4000,
     );
@@ -259,7 +261,7 @@ export function exportAnkiCards(scope: 'today' | 'all'): void {
   }
   const head = ['#separator:Tab', '#html:true', '#tags column:3'];
   download(
-    `러닝허브_카드_${scope === 'today' ? todayISO() : '전체'}.txt`,
+    `러닝허브_카드_${scope === 'all' ? '전체' : SCOPE_TAG[scope]}.txt`,
     head.concat(lines).join('\n'),
     'text/plain;charset=utf-8',
   );
@@ -270,22 +272,22 @@ export function exportAnkiCards(scope: 'today' | 'all'): void {
   );
 }
 
-/** 오늘/전체 요약 → 옵시디언용 .md 노트. */
-export function exportSummaryNotes(scope: 'today' | 'all'): void {
+/** 오늘/이번주/전체 요약 → 옵시디언용 .md 노트. */
+export function exportSummaryNotes(scope: ExportScope): void {
   const s = st().state;
-  const range = scope === 'today' ? todayISO() : '';
-  const md = buildSummaryNotes(s, range, range);
+  const [from, to] = exportRange(scope);
+  const md = buildSummaryNotes(s, from, to);
   if (!md) {
     toast(
-      scope === 'today'
-        ? '오늘 작성한 요약이 없어요. 블록 끝마다 3문장을 남기면 노트가 됩니다.'
-        : '요약 기록이 아직 없어요.',
+      scope === 'all'
+        ? '요약 기록이 아직 없어요.'
+        : `${SCOPE_TAG[scope]} 작성한 요약이 없어요. 블록 끝마다 3문장을 남기면 노트가 됩니다.`,
       'warn',
       4000,
     );
     return;
   }
-  download(`러닝허브_요약노트_${scope === 'today' ? todayISO() : '전체'}.md`, md, 'text/markdown;charset=utf-8');
+  download(`러닝허브_요약노트_${scope === 'all' ? '전체' : SCOPE_TAG[scope]}.md`, md, 'text/markdown;charset=utf-8');
   toast('요약 노트(.md)를 내려받았어요. 옵시디언 볼트에 넣어 개념 노트·카드와 연결하세요.', 'ok', 4600);
 }
 
@@ -305,20 +307,28 @@ export function semanticPalette(query: string): Promise<SemHit[]> {
   return semanticSearch(query, st().state, loadReads());
 }
 
-export type ContentHit = { id: string; kind: 'subject' | 'chapter' | 'book'; label: string; to: string };
+export type ContentHit = {
+  id: string;
+  kind: 'subject' | 'chapter' | 'book' | 'backlog' | 'weak';
+  label: string;
+  to: string;
+};
 
-/** E-6: ⌘K 오프라인 통합 검색 — Ollama 불필요. 메모리에 이미 있는 학습 항목(과목·챕터)·독서(책)를
-   부분문자열로 찾아 해당 탭으로 이동. 의미검색(semanticPalette)의 오프라인 보완(임베딩 없이 항상 동작).
-   수집 지문(articles)은 react-query 캐시라 여기서 안 닿음 → 온라인 의미검색이 담당. */
-export function contentSearch(query: string, limit = 8): ContentHit[] {
+/** E-6/C-3: ⌘K 오프라인 통합 검색 — Ollama 불필요. 메모리에 이미 있는 학습 항목(과목·챕터)·독서(책)·
+   열린 보충(backlog)·반복 약점(weak)을 부분문자열로 찾아 해당 탭으로 이동. 의미검색(semanticPalette)의
+   오프라인 보완(임베딩 없이 항상 동작). 수집 지문(articles)은 react-query 캐시라 여기서 안 닿음(온라인 담당).
+   C-1: reads는 팔레트가 열릴 때 1회 스냅샷해 주입 — 타이핑 매 키마다 localStorage 재파싱을 피한다. */
+export function contentSearch(query: string, reads: ReturnType<typeof loadReads>, limit = 8): ContentHit[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
+  const s = st().state;
+  const cap = limit * 3;
   const hits: ContentHit[] = [];
-  for (const it of st().state.items) {
+  for (const it of s.items) {
     if (it.name.toLowerCase().includes(q))
       hits.push({ id: 'c-subj:' + it.id, kind: 'subject', label: it.name, to: '/items' });
     for (const c of it.chapters || []) {
-      if (hits.length >= limit * 3) break;
+      if (hits.length >= cap) break;
       if (c.name.toLowerCase().includes(q))
         hits.push({
           id: 'c-chap:' + it.id + ':' + c.id,
@@ -328,7 +338,8 @@ export function contentSearch(query: string, limit = 8): ContentHit[] {
         });
     }
   }
-  for (const b of loadReads().books) {
+  for (const b of reads.books) {
+    if (hits.length >= cap) break;
     if (b.title.toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q))
       hits.push({
         id: 'c-book:' + b.id,
@@ -336,6 +347,18 @@ export function contentSearch(query: string, limit = 8): ContentHit[] {
         label: b.author ? `${b.title} — ${b.author}` : b.title,
         to: '/reads',
       });
+  }
+  // C-3: 열린 보충 — topic/과목/근거 텍스트를 이미 메모리에 들고 있으나 ⌘K서 못 찾던 것.
+  for (const bl of openBacklog(s)) {
+    if (hits.length >= cap) break;
+    if ((bl.topic + ' ' + bl.name + ' ' + bl.note).toLowerCase().includes(q))
+      hits.push({ id: 'c-bl:' + bl.id, kind: 'backlog', label: bl.topic || bl.name || '보충', to: '/journal' });
+  }
+  // C-3: 반복 약점(2회+ 막힌 과목·챕터) → 리뷰 탭.
+  for (const w of weakSpots(s)) {
+    if (hits.length >= cap) break;
+    if ((w.subject + ' ' + w.chapter).toLowerCase().includes(q))
+      hits.push({ id: 'c-weak:' + w.key, kind: 'weak', label: `${w.subject} · ${w.chapter}`, to: '/review' });
   }
   return hits.slice(0, limit);
 }
@@ -345,6 +368,7 @@ export function contentSearch(query: string, limit = 8): ContentHit[] {
 export function runQuickCapture(cap: CaptureResult, summary: string): void {
   const form: PrefillForm = cap.sessionType && cap.sessionType !== 'new' && cap.sessionType !== 'anki' ? 'bl' : 'sum';
   const sid = cap.subject ? (st().state.items.find((i) => i.name === cap.subject)?.id ?? '') : '';
-  usePrefill.getState().request(form, sid);
+  // C-10: 파서가 뽑은 날짜(미래는 기록 탭이 무시)도 넘긴다 — "어제 …" 캡처가 오늘로 잘못 기록되던 것 해소.
+  usePrefill.getState().request(form, sid, cap.dateISO);
   toast('📌 기록 탭에 준비했어요 — ' + summary, 'ok', 4500);
 }

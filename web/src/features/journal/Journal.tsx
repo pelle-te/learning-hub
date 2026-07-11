@@ -712,6 +712,16 @@ export default function Journal() {
   // 기록 대상 날짜 — 기본 오늘, 과거로 이동해 어제 놓친 블록을 백필할 수 있다(미래로는 못 감).
   const [ds2, setDs2] = useState(today);
   const isToday = ds2 === today;
+  // C-10: 빠른 캡처가 파싱한 날짜로 기록 탭을 이동(백필). nonce 변화 시점에만 반응(usePrefillForm과 같은 규율).
+  // 로컬 setState는 컴파일러 set-state-in-effect에 걸려(usePrefillForm의 prop setter는 불투명해 통과) setTimeout 비동기 커밋으로 회피.
+  const prefillNonce = usePrefill((s) => s.nonce);
+  const prefillDs = usePrefill((s) => s.ds);
+  useEffect(() => {
+    if (!(prefillDs && prefillDs <= today)) return;
+    const t = setTimeout(() => setDs2(prefillDs), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillNonce]);
   const stepDay = (d: number) => {
     const next = iso(addDays(parseISO(ds2), d));
     if (next > today) return; // 미래 금지

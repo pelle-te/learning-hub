@@ -12,9 +12,11 @@ export type PrefillForm = 'sum' | 'cbms' | 'bl';
 interface PrefillStore {
   form: PrefillForm | null;
   sid: string;
+  /** C-10: 빠른 캡처가 파싱한 날짜('YYYY-MM-DD') — 기록 탭이 그 날짜로 이동해 백필. 없으면 ''(오늘 유지). */
+  ds: string;
   /** 매 요청마다 증가 — 같은 (form,sid) 재요청도 effect가 감지하게. */
   nonce: number;
-  request: (form: PrefillForm, sid: string) => void;
+  request: (form: PrefillForm, sid: string, ds?: string) => void;
   /** 해당 폼이 소비 완료(중복 적용 방지). */
   consume: (form: PrefillForm) => void;
 }
@@ -22,7 +24,8 @@ interface PrefillStore {
 export const usePrefill = create<PrefillStore>((set) => ({
   form: null,
   sid: '',
+  ds: '',
   nonce: 0,
-  request: (form, sid) => set((s) => ({ form, sid, nonce: s.nonce + 1 })),
+  request: (form, sid, ds = '') => set((s) => ({ form, sid, ds, nonce: s.nonce + 1 })),
   consume: (form) => set((s) => (s.form === form ? { form: null } : {})),
 }));

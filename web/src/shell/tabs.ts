@@ -38,6 +38,11 @@ export const TABS: TabMeta[] = [
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },
 ];
 
+/* TABS는 런타임 불변 상수 → 표시순 정렬·key 조회를 모듈 로드 시 1회만 계산하고 재사용(C-8).
+   매 내비게이션마다 slice().sort()/find 선형스캔이 헛돌던 것 제거. 반환 배열은 읽기 전용으로 다룬다(제자리 변형 금지). */
+export const ORDERED_TABS: TabMeta[] = [...TABS].sort((a, b) => a.order - b.order);
+const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
+
 /* ── 섹션 세그먼트(흡수 탭) ─────────────────────────────────────────────
    한 호스트 탭의 '페이지 안 섹션'으로 묶이는 탭들(첫 항목=나브에 노출되는 호스트).
    나브 정리: 매일 안 쓰는 계획/분석 화면을 호스트 상단 세그먼트로 접어 1차 나브를 6개로 줄인다.
@@ -66,8 +71,8 @@ export interface NavGroup {
 
 /** 나브에 노출되는 탭을 그룹 순서대로 묶는다(첫 등장=order 최소). settings 탭은 hidden이라도
    하단 설정 그룹에 포함(레일 하단 진입점). 나머지 hidden(흡수 탭)은 SubTabs로만 진입. */
-export function navGroups(): NavGroup[] {
-  const visible = orderedTabs().filter((t) => !t.hidden || t.key === 'settings');
+function buildNavGroups(): NavGroup[] {
+  const visible = ORDERED_TABS.filter((t) => !t.hidden || t.key === 'settings');
   const groups: NavGroup[] = [];
   for (const t of visible) {
     let g = groups.find((x) => x.key === t.group);
@@ -78,6 +83,11 @@ export function navGroups(): NavGroup[] {
     g.tabs.push(t);
   }
   return groups;
+}
+/** 나브 그룹 — TABS 불변이라 1회 계산해 재사용(RailSidebar가 매 렌더 재빌드하던 것 제거, C-8). */
+export const NAV_GROUPS: NavGroup[] = buildNavGroups();
+export function navGroups(): NavGroup[] {
+  return NAV_GROUPS;
 }
 
 /** key가 속한 섹션 그룹의 탭 메타 배열(첫 항목=호스트). 그룹에 없으면 null. */
@@ -93,10 +103,10 @@ export function hostTabKey(key: string): string {
   return g ? g[0]! : key;
 }
 
-/** 표시 순서대로 정렬된 탭. */
+/** 표시 순서대로 정렬된 탭(모듈 로드 시 1회 계산된 상수 반환 — 제자리 변형 금지). */
 export function orderedTabs(): TabMeta[] {
-  return TABS.slice().sort((a, b) => a.order - b.order);
+  return ORDERED_TABS;
 }
 export function tabByKey(key: string): TabMeta | undefined {
-  return TABS.find((t) => t.key === key);
+  return TAB_BY_KEY.get(key);
 }

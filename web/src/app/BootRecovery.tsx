@@ -6,7 +6,7 @@
    스냅샷은 여기서 캡처해 넘긴다 — 안내가 떠 있는 사이 flush가 미러를 덮어도 안전.
 ============================================================ */
 import { useEffect } from 'react';
-import { consumeBootFallback, migrate } from '@/lib/persistence';
+import { consumeBootFallback, parseState } from '@/lib/persistence';
 import { idbLoad } from '@/lib/idb';
 import { ui, io } from '@/shell';
 
@@ -17,13 +17,7 @@ export default function BootRecovery() {
     idbLoad()
       .then((json) => {
         if (!json) return; // 미러 없음(진짜 첫 방문) — 조용히 기본값 사용
-        let ok = false;
-        try {
-          ok = !!migrate(JSON.parse(json));
-        } catch {
-          ok = false;
-        }
-        if (!ok) return; // 미러도 손상 — 안내해봐야 복구 불가
+        if (!parseState(json)) return; // 미러도 손상 — 안내해봐야 복구 불가
         ui.toast('저장된 백업(IDB)을 찾았어요 — 이전 데이터를 복구할까요?', 'warn', 12000, {
           label: '복구하기',
           onAction: () => void io.restoreFromIDB(json),

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, tabByKey, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
@@ -45,6 +45,33 @@ export default function App() {
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;
   const tabs = orderedTabs();
+  // C-8: 라우트 엘리먼트 트리는 불변 TABS의 순수 파생 → 1회만 생성(⌘K 토글·매 내비마다 15개 재구축 방지).
+  // tabs 참조는 모듈 상수(ORDERED_TABS)라 안정 — deps에 둬도 재생성 안 함.
+  const routeEls = useMemo(
+    () =>
+      tabs.map((t) => {
+        const ReactTab = getReactTab(t.key);
+        return (
+          <Route
+            key={t.key}
+            path={'/' + t.key}
+            element={
+              <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
+                <SubTabs tabKey={t.key} />
+                {ReactTab ? (
+                  <Suspense fallback={<SkeletonCard />}>
+                    <ReactTab />
+                  </Suspense>
+                ) : (
+                  <div className={ds.card}>알 수 없는 탭: {t.key}</div>
+                )}
+              </ErrorBoundary>
+            }
+          />
+        );
+      }),
+    [tabs],
+  );
   const navCollapsed = useUI((st) => st.ui.navCollapsed);
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,30 +167,10 @@ export default function App() {
         <TopBar onOpenPalette={() => setPaletteOpen(true)} />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
         <main id="main" tabIndex={-1} className={s.main}>
-          <HudFrame fill={fillFrame}>
+          <HudFrame fill={fillFrame} scrollResetKey={routeKey}>
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
-              {tabs.map((t) => {
-                const ReactTab = getReactTab(t.key);
-                return (
-                  <Route
-                    key={t.key}
-                    path={'/' + t.key}
-                    element={
-                      <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
-                        <SubTabs tabKey={t.key} />
-                        {ReactTab ? (
-                          <Suspense fallback={<SkeletonCard />}>
-                            <ReactTab />
-                          </Suspense>
-                        ) : (
-                          <div className={ds.card}>알 수 없는 탭: {t.key}</div>
-                        )}
-                      </ErrorBoundary>
-                    }
-                  />
-                );
-              })}
+              {routeEls}
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </HudFrame>

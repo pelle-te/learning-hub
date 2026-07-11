@@ -6,26 +6,24 @@
 export interface NavShortcut {
   /** 'g' 다음에 누르는 키 */
   seq: string;
-  /** 이동할 탭 key(shell/tabs.ts) */
+  /** 이동할 탭 key(shell/tabs.ts) — 치트시트 라벨은 TabMeta.label에서 파생(SSOT, C-13). */
   tab: string;
-  /** 치트시트 표시 라벨 */
-  label: string;
 }
 
 /** g-시퀀스 네비게이션(가장 자주 쓰는 탭). 충돌 없는 단일 문자. */
 export const NAV_SHORTCUTS: NavShortcut[] = [
-  { seq: 't', tab: 'today', label: '오늘 학습' },
-  { seq: 's', tab: 'schedule', label: '주간 스케줄' },
-  { seq: 'i', tab: 'items', label: '학습 항목' },
-  { seq: 'j', tab: 'journal', label: '학습 기록' },
-  { seq: 'r', tab: 'review', label: '주간 리뷰' },
-  { seq: 'a', tab: 'stats', label: '통계' },
-  { seq: 'm', tab: 'mastery', label: '숙달도 지도' },
-  { seq: 'd', tab: 'degree', label: '졸업 계획' },
-  { seq: 'o', tab: 'routine', label: '가용시간·수업·일과' },
-  { seq: 'n', tab: 'integrations', label: '연동' },
-  { seq: 'c', tab: 'control', label: '탐구 수집' },
-  { seq: 'e', tab: 'settings', label: '설정' },
+  { seq: 't', tab: 'today' },
+  { seq: 's', tab: 'schedule' },
+  { seq: 'i', tab: 'items' },
+  { seq: 'j', tab: 'journal' },
+  { seq: 'r', tab: 'review' },
+  { seq: 'a', tab: 'stats' },
+  { seq: 'm', tab: 'mastery' },
+  { seq: 'd', tab: 'degree' },
+  { seq: 'o', tab: 'routine' },
+  { seq: 'n', tab: 'integrations' },
+  { seq: 'c', tab: 'control' },
+  { seq: 'e', tab: 'settings' },
 ];
 
 /** 치트시트에 함께 보일 전역 단축키(시퀀스 외). */

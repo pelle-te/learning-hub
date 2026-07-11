@@ -4,10 +4,14 @@
    act는 run() 호출. 최근 실행한 명령(recent.ts)을 위로 끌어올려 재실행이 빠르다.
 ============================================================ */
 import { orderedTabs } from './tabs';
+import { NAV_SHORTCUTS } from './shortcuts';
 import { recentIds } from './recent';
 import * as A from './actions';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
+
+// C-5: 탭 → g-시퀀스 매핑(치트시트가 이미 정의). 팔레트 hint에 노출해 사용 중 키보드 내비를 학습시킨다.
+const SEQ_BY_TAB = new Map(NAV_SHORTCUTS.map((s) => [s.tab, s.seq]));
 
 export type PaletteCommand =
   | { id: string; kind: 'tab'; key: string; label: string; hint: string }
@@ -15,13 +19,16 @@ export type PaletteCommand =
   | { id: string; kind: 'act'; label: string; hint: string; run: () => void; to?: string };
 
 function baseCommands(): PaletteCommand[] {
-  const tabs: PaletteCommand[] = orderedTabs().map((t) => ({
-    id: 'tab:' + t.key,
-    kind: 'tab',
-    key: t.key,
-    label: '이동 · ' + t.label,
-    hint: '탭',
-  }));
+  const tabs: PaletteCommand[] = orderedTabs().map((t) => {
+    const seq = SEQ_BY_TAB.get(t.key);
+    return {
+      id: 'tab:' + t.key,
+      kind: 'tab',
+      key: t.key,
+      label: '이동 · ' + t.label,
+      hint: seq ? 'G ' + seq.toUpperCase() : '탭',
+    };
+  });
   const acts: PaletteCommand[] = [
     // 오늘 — 가장 잦은 동사를 맨 위로.
     {
@@ -79,6 +86,13 @@ function baseCommands(): PaletteCommand[] {
       run: () => A.exportAnkiCards('today'),
     },
     {
+      id: 'act:anki-week',
+      kind: 'act',
+      label: 'Anki 카드 초안 — 이번 주',
+      hint: '내보내기',
+      run: () => A.exportAnkiCards('week'),
+    },
+    {
       id: 'act:anki-all',
       kind: 'act',
       label: 'Anki 카드 초안 — 전체',
@@ -91,6 +105,13 @@ function baseCommands(): PaletteCommand[] {
       label: '요약 노트(.md) — 오늘',
       hint: '내보내기',
       run: () => A.exportSummaryNotes('today'),
+    },
+    {
+      id: 'act:summary-week',
+      kind: 'act',
+      label: '요약 노트(.md) — 이번 주',
+      hint: '내보내기',
+      run: () => A.exportSummaryNotes('week'),
     },
     {
       id: 'act:summary-all',

@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { NAV_SHORTCUTS, GLOBAL_SHORTCUTS } from '@/shell';
+import { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, tabByKey, paletteCommands } from '@/shell';
 import { useFocusTrap } from '@/lib/useFocusTrap';
 import styles from './ShortcutsHelp.module.css';
+
+// C-12: 팔레트 액션 카탈로그 — ⌘K를 열어 검색해야만 발견되던 강력 액션들을 치트시트에 노출.
+// 카테고리(hint) 순으로 묶어 스캔성 확보. 단일 원천(palette.ts) 재사용이라 표류 없음.
+const CAT_ORDER = ['오늘', '기록', '내보내기', '데이터', '백업', '테마', '설정', '도움말', '위험'];
 
 /* ShortcutsHelp — '?' 키로 여는 단축키 치트시트(읽기 전용 오버레이).
    목록은 shell/shortcuts.ts 단일 원천. 표시/숨김은 부모(App)가 소유. Esc/클릭으로 닫힘.
@@ -24,6 +28,12 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
 
   if (!open) return null;
 
+  // 액션 명령만(탭 이동은 위 '이동' 섹션이 이미 커버) 카테고리 순으로 정렬해 카탈로그로.
+  const acts = paletteCommands()
+    .filter((c) => c.kind === 'act')
+    .slice()
+    .sort((a, b) => CAT_ORDER.indexOf(a.hint) - CAT_ORDER.indexOf(b.hint));
+
   return (
     <div className="modal-ov in" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
@@ -40,10 +50,10 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
               이동 — <kbd className={styles.kbd}>G</kbd> 누른 뒤
             </h3>
             <ul className={styles.list}>
-              {NAV_SHORTCUTS.map((s) => (
-                <li key={s.seq}>
-                  <kbd className={styles.kbd}>{s.seq.toUpperCase()}</kbd>
-                  <span>{s.label}</span>
+              {NAV_SHORTCUTS.map((sc) => (
+                <li key={sc.seq}>
+                  <kbd className={styles.kbd}>{sc.seq.toUpperCase()}</kbd>
+                  <span>{tabByKey(sc.tab)?.label ?? sc.tab}</span>
                 </li>
               ))}
             </ul>
@@ -51,10 +61,21 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
           <section>
             <h3 className={styles.h}>전역</h3>
             <ul className={styles.list}>
-              {GLOBAL_SHORTCUTS.map((s) => (
-                <li key={s.label}>
-                  <kbd className={styles.kbd}>{s.keys}</kbd>
-                  <span>{s.label}</span>
+              {GLOBAL_SHORTCUTS.map((sc) => (
+                <li key={sc.label}>
+                  <kbd className={styles.kbd}>{sc.keys}</kbd>
+                  <span>{sc.label}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <h3 className={styles.h}>⌘K 명령 팔레트</h3>
+            <ul className={styles.list}>
+              {acts.map((c) => (
+                <li key={c.id}>
+                  <kbd className={styles.kbd}>{c.hint}</kbd>
+                  <span>{c.label}</span>
                 </li>
               ))}
             </ul>

@@ -69,6 +69,16 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
         <button className={s.btn} onClick={onOpenPalette} title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">
           ⌘K
         </button>
+        {/* C-12: 단축키 치트시트는 '?' 키·팔레트로만 열려 발견성이 낮았다 — 눈에 보이는 진입점.
+            App이 이미 리스닝하는 이벤트로 위임(배선 재사용). */}
+        <button
+          className={`${s.btn} ${s.icon}`}
+          onClick={() => window.dispatchEvent(new CustomEvent('lh:open-shortcuts'))}
+          title="키보드 단축키 (?)"
+          aria-label="키보드 단축키 보기"
+        >
+          ?
+        </button>
         <button
           className={`${s.btn} ${s.icon}`}
           onClick={() => actions.toggleTheme()}

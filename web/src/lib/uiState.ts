@@ -13,7 +13,8 @@ export type SchedView = z.infer<typeof SchedViewSchema>;
 /** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
 export const AccentSchema = z.enum(['violet', 'lime', 'cyan', 'amber']);
 export type Accent = z.infer<typeof AccentSchema>;
-export const ACCENTS: Accent[] = ['violet', 'lime', 'cyan', 'amber'];
+// enum이 선언순 tuple을 보존 → 목록 재기입 없이 스키마에서 파생(SSOT). 소비처 타입 유지 위해 spread.
+export const ACCENTS: Accent[] = [...AccentSchema.options];
 
 export const RECENT_MAX = 6; // 팔레트 최근 명령 LRU 길이
 
@@ -34,8 +35,10 @@ export const UI_KEY = 'lh_ui_v1'; // 단일 저장 키
 const LEGACY_VIEW = 'sched_view';
 const LEGACY_RECENT = 'lh_recent_cmds';
 
+// 전 필드가 .default()를 가지므로 빈 객체 parse가 완전한 기본 UIState를 만든다 —
+// 기본값을 손으로 재나열하지 않고 스키마를 단일 원천으로.
 export function defaultUI(): UIState {
-  return { schedView: 'overview', accent: 'lime', recentCommands: [], fxLite: false, navCollapsed: false };
+  return UIStateSchema.parse({});
 }
 
 /** 저장된 UI 설정을 읽는다. 신규 키가 없으면 구 산재 키를 1회 흡수하고, 손상 시 기본값. */

@@ -11,11 +11,25 @@ import {
   type ContentHit,
 } from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
+import { loadReads } from '@/lib/reads';
 import type { SemHit, SemKind } from '@/lib/semantic';
 import styles from './CommandPalette.module.css';
 
 const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥' };
-const CONTENT_ICON: Record<ContentHit['kind'], string> = { subject: '📗', chapter: '📚', book: '📖' };
+const CONTENT_ICON: Record<ContentHit['kind'], string> = {
+  subject: '📗',
+  chapter: '📚',
+  book: '📖',
+  backlog: '📥',
+  weak: '⚠️',
+};
+const CONTENT_HINT: Record<ContentHit['kind'], string> = {
+  subject: '학습 항목',
+  chapter: '학습 항목',
+  book: '읽을거리',
+  backlog: '보충',
+  weak: '반복 약점',
+};
 
 const TYPE_LABEL: Record<NonNullable<CaptureResult['sessionType']>, string> = {
   anki: 'Anki',
@@ -51,6 +65,8 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
   const cmds = useMemo(() => (open ? paletteCommands() : []), [open]);
   // 과목 스냅샷(파서 입력) — 열릴 때만. store 접근은 shell(captureSubjects)에 위임(components→store 금지).
   const subjects = useMemo(() => (open ? captureSubjects() : []), [open]);
+  // C-1: 읽을거리 스냅샷도 열릴 때 1회만 — contentSearch가 타이핑 매 키마다 localStorage 재파싱하던 것 제거.
+  const readsSnap = useMemo(() => (open ? loadReads() : null), [open]);
 
   // 닫힐 때 입력 초기화(이벤트 핸들러에서 — effect 내 setState 회피). 캡처 실행/Esc 모두 이 경로로.
   const close = () => {
@@ -73,8 +89,11 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
   );
   const showCapture = meaningful(cap);
 
-  // E-6: 오프라인 통합 검색 — 메모리 내 학습 항목·독서를 부분문자열로(Ollama 불필요, 항상 동작).
-  const content = useMemo(() => (open && search.trim() ? contentSearch(search) : []), [open, search]);
+  // E-6/C-3: 오프라인 통합 검색 — 학습 항목·독서·보충·반복약점을 부분문자열로(Ollama 불필요, 항상 동작).
+  const content = useMemo(
+    () => (open && readsSnap && search.trim() ? contentSearch(search, readsSnap) : []),
+    [open, search, readsSnap],
+  );
 
   // 의미 검색(로컬 임베딩) — 350ms 디바운스, 늦은 응답은 버림. Ollama 불가면 조용히 빈 목록.
   // 짧은 질의는 렌더에서 걸러낸다(이펙트 내 동기 setState 회피 — 상태는 마지막 결과만 유지).
@@ -158,7 +177,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 <span className={styles.label}>
                   {CONTENT_ICON[h.kind]} {h.label}
                 </span>
-                <span className={styles.hint}>{h.kind === 'book' ? '읽을거리' : '학습 항목'}</span>
+                <span className={styles.hint}>{CONTENT_HINT[h.kind]}</span>
               </Command.Item>
             ))}
           </Command.Group>
