@@ -14,6 +14,7 @@ export interface UIStore {
   setSchedView: (v: SchedView) => void;
   setAccent: (a: Accent) => void;
   setFxLite: (on: boolean) => void;
+  toggleNav: () => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
 }
@@ -44,6 +45,12 @@ export const useUI = create<UIStore>()(
       setFxLite(on) {
         set((s) => {
           s.ui.fxLite = on;
+        });
+        flush();
+      },
+      toggleNav() {
+        set((s) => {
+          s.ui.navCollapsed = !s.ui.navCollapsed;
         });
         flush();
       },

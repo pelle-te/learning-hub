@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, tabByKey, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
+import { useUI } from '@/store/useUI';
 import { isTyping } from '@/lib/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
@@ -44,6 +45,7 @@ export default function App() {
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;
   const tabs = orderedTabs();
+  const navCollapsed = useUI((st) => st.ui.navCollapsed);
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -120,7 +122,7 @@ export default function App() {
   }, [pathname]);
 
   return (
-    <div className={s.shell}>
+    <div className={s.shell + (navCollapsed ? ' ' + s.navCollapsed : '')}>
       {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감. */}
       <AmbientCanvas />
       <div className={s.ambient} aria-hidden="true" />

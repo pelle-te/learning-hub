@@ -31,7 +31,8 @@ export const TABS: TabMeta[] = [
   { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh', fill: true },
   { key: 'stats', label: '통계', group: 'log', order: 80, icon: 'chart', fill: true },
   { key: 'mastery', label: '숙달도 지도', group: 'log', order: 85, hidden: true, icon: 'grid', fill: true },
-  { key: 'graph', label: '지식맵', group: 'log', order: 87, icon: 'graph', fill: true },
+  // 지식맵은 통계 호스트의 섹션으로 접는다(숙달도 지도와 함께 '내가 뭘 아는가' 맵 묶음). 라우트·⌘K·g단축키는 유지.
+  { key: 'graph', label: '지식맵', group: 'log', order: 87, hidden: true, icon: 'graph', fill: true },
   // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
   { key: 'control', label: '탐구 수집', group: 'settings', order: 190, icon: 'search', fill: true },
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },
@@ -44,8 +45,40 @@ export const TABS: TabMeta[] = [
 export const SUBTAB_GROUPS: string[][] = [
   ['schedule', 'routine', 'degree'],
   ['journal', 'review'],
-  ['stats', 'mastery'],
+  ['stats', 'mastery', 'graph'],
 ];
+
+/* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
+   TabMeta.group(do/src/log/settings) → 사이드바 섹션 헤더 라벨. 빈도 위계를 시각적 청킹으로.
+   settings 그룹은 하단(스페이서 아래)에 렌더 — 저빈도 운영/설정. */
+export const GROUP_LABELS: Record<string, string> = {
+  do: '계획',
+  src: '자료',
+  log: '분석',
+  settings: '설정',
+};
+
+export interface NavGroup {
+  key: string;
+  label: string;
+  tabs: TabMeta[];
+}
+
+/** 나브에 노출되는 탭을 그룹 순서대로 묶는다(첫 등장=order 최소). settings 탭은 hidden이라도
+   하단 설정 그룹에 포함(레일 하단 진입점). 나머지 hidden(흡수 탭)은 SubTabs로만 진입. */
+export function navGroups(): NavGroup[] {
+  const visible = orderedTabs().filter((t) => !t.hidden || t.key === 'settings');
+  const groups: NavGroup[] = [];
+  for (const t of visible) {
+    let g = groups.find((x) => x.key === t.group);
+    if (!g) {
+      g = { key: t.group, label: GROUP_LABELS[t.group] ?? t.group, tabs: [] };
+      groups.push(g);
+    }
+    g.tabs.push(t);
+  }
+  return groups;
+}
 
 /** key가 속한 섹션 그룹의 탭 메타 배열(첫 항목=호스트). 그룹에 없으면 null. */
 export function subTabGroupOf(key: string): TabMeta[] | null {

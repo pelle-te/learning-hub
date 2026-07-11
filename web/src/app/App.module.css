@@ -7,8 +7,14 @@
   position: relative;
   isolation: isolate; /* 앰비언트(z-1)가 셸 안에서만 콘텐츠 뒤로 — body 배경 위, 콘텐츠 아래. */
   display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
+  /* 나브 폭 단일 원천 — 펼침 216px(라벨+그룹) / 접힘 60px(아이콘 레일). RailSidebar는 100%로 채움. */
+  --nav-w: 216px;
+  grid-template-columns: var(--nav-w) minmax(0, 1fr);
   height: 100vh;
+  transition: grid-template-columns 0.2s var(--ease);
+}
+.shell.navCollapsed {
+  --nav-w: 60px;
 }
 
 /* 시각 숨김 라이브리전(라우트 아나운서) — 화면엔 안 보이되 스크린리더는 읽음. */
@@ -58,7 +64,8 @@
 
 /* 모바일: 레일을 하단 고정 탭바로(반응형 정교화는 Phase D). 셸은 일반 흐름. */
 @media (max-width: 700px) {
-  .shell {
+  .shell,
+  .shell.navCollapsed {
     grid-template-columns: 1fr;
     height: auto;
     min-height: 100vh;

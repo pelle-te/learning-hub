@@ -28,6 +28,8 @@ const ICON_PATHS: Record<string, string> = {
   sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   // 탐구 수집 — 돋보기(검색엔진 느낌).
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  // 사이드바 접기/펼치기 토글 — 좌측 패널 글리프.
+  panelLeft: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
   // 증시 동향 — 상승 추세선+화살촉(trending-up). chart(막대)·graph(노드)와 시각 구분.
   trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
   // 읽을거리 — 신문(칼럼·뉴스 지문 + 독서). file(문서)·book(독서 글리프)와 시각 구분.

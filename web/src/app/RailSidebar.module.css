@@ -1,67 +1,141 @@
 /* ============================================================
-   RailSidebar — 60px 아이콘 레일(설계도 §1-2). 1차 탭을 평면 아이콘 리스트로.
-   활성 = 네온 글로우. hover 시 우측 플라이아웃 라벨(레이아웃 시프트 없음).
-   현 2단 Nav(.nav/.navparent/.navchild) 대체.
+   RailSidebar — 라벨+그룹 접이식 사이드바.
+   펼침(기본): 그룹 헤더(계획·자료·분석·설정) + 아이콘·라벨 행.
+   접힘(.collapsed): 60px 아이콘 레일 + 그룹 구분선 + hover 플라이아웃 라벨.
+   폭은 App.module.css의 --nav-w(그리드 컬럼)가 단일 원천 — 레일은 100%로 채운다.
 ============================================================ */
 .rail {
   grid-row: 1 / -1;
   height: 100vh;
-  width: 60px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 16px 0 14px;
+  gap: 2px;
+  padding: 14px 10px 12px;
   border-right: 1px solid var(--line2);
   background: var(--bg);
   z-index: var(--z-nav);
+  overflow-y: auto;
+  overflow-x: hidden;
   /* 탭 전환(View Transitions) 시 네비는 스냅샷에서 분리해 제자리 고정(깜빡임 방지). */
   view-transition-name: app-nav;
 }
+.rail.collapsed {
+  align-items: center;
+  gap: 4px;
+  padding: 16px 0 14px;
+}
 
-/* 워드마크 로고 — 네온 칩. */
+/* 브랜드 — 접힘 시 L 칩만, 펼침 시 워드마크 동반. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 8px 12px;
+}
+.rail.collapsed .brand {
+  padding: 0 0 12px;
+  justify-content: center;
+}
 .logo {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   background: var(--acc);
   color: var(--on-acc);
   display: grid;
   place-items: center;
   font-weight: 900;
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: -0.04em;
-  margin-bottom: 12px;
   box-shadow: 0 0 24px -4px var(--glow);
+  flex: none;
+}
+.word {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* 그룹 컨테이너 + 개별 그룹. */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail.collapsed .groups {
+  align-items: center;
+  gap: 4px;
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail.collapsed .group {
+  align-items: center;
+}
+
+/* 그룹 헤더(펼침 전용) — 소문자 캡스, 저채도. */
+.head {
+  padding: 10px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+/* 그룹 경계 구분선(접힘 전용). */
+.divider {
+  width: 24px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line2);
   flex: none;
 }
 
 .spacer {
   flex: 1;
+  min-height: 8px;
 }
 
-/* 아이콘 버튼 — 라인 아이콘, 활성=네온 칩. */
+/* 탭 버튼 — 펼침=아이콘+라벨 행, 접힘=42px 아이콘 칩. */
 .item {
   position: relative;
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 9px;
   background: transparent;
   color: var(--mut);
   cursor: pointer;
   font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
   transition:
     color 0.16s var(--ease),
     background 0.16s var(--ease),
     box-shadow 0.16s var(--ease);
 }
+.rail.collapsed .item {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
 .item :global(.ic) {
   width: 20px;
   height: 20px;
   stroke-width: 1.7;
+  flex: none;
 }
 .item:hover {
   color: var(--ink);
@@ -77,14 +151,19 @@
   outline-offset: 2px;
 }
 
-/* hover 플라이아웃 라벨 — 아이콘 우측에 떠오름(레일 폭은 그대로). */
+/* 라벨 — 펼침=흐름 텍스트(생략표), 접힘=hover 플라이아웃. */
 .label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rail.collapsed .label {
   position: absolute;
   left: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
   padding: 6px 11px;
-  white-space: nowrap;
+  overflow: visible;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -100,20 +179,65 @@
     transform 0.14s var(--ease);
   z-index: var(--z-dropdown);
 }
-.item:hover .label,
-.item:focus-visible .label {
+.rail.collapsed .item:hover .label,
+.rail.collapsed .item:focus-visible .label {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
 
-/* 모바일: 레일을 하단 고정 탭바로 전환(엄지 도달 영역). 반응형 정교화는 Phase D. */
+/* 접기/펼치기 토글 — 하단. */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--mut);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    color 0.16s var(--ease),
+    background 0.16s var(--ease);
+}
+.rail.collapsed .toggle {
+  width: 42px;
+  height: 42px;
+  margin-top: 6px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+.toggle:hover {
+  color: var(--ink);
+  background: var(--panel2);
+}
+.toggle:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+.toggle :global(.ic) {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.7;
+  flex: none;
+}
+
+/* 모바일: 레일을 하단 고정 탭바로(엄지 도달). 헤더·라벨·토글 숨기고 아이콘만 한 줄로. */
 @media (max-width: 700px) {
-  .rail {
+  .rail,
+  .rail.collapsed {
     grid-row: auto;
     position: fixed;
     inset: auto 0 0 0;
     top: auto;
     flex-direction: row;
+    align-items: center;
     width: auto;
     height: auto;
     gap: 2px;
@@ -121,17 +245,32 @@
     border-right: none;
     border-top: 1px solid var(--line);
     justify-content: space-around;
+    overflow: visible;
     z-index: var(--z-dropdown);
   }
-  .logo,
-  .spacer {
+  .brand,
+  .spacer,
+  .head,
+  .divider,
+  .toggle {
     display: none;
   }
-  .item {
+  .groups,
+  .group {
+    display: contents;
+  }
+  .item,
+  .rail.collapsed .item {
+    width: auto;
+    height: auto;
     min-width: 44px;
     min-height: 44px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
   }
-  .label {
+  .label,
+  .rail.collapsed .label {
     display: none;
   }
 }

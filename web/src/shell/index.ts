@@ -11,7 +11,16 @@ import * as A from './actions';
 export { ToastHost } from './toast';
 export { ModalHost } from './modal';
 export { Icon } from './icons';
-export { orderedTabs, tabByKey, subTabGroupOf, hostTabKey, type TabMeta } from './tabs';
+export {
+  orderedTabs,
+  tabByKey,
+  subTabGroupOf,
+  hostTabKey,
+  navGroups,
+  GROUP_LABELS,
+  type TabMeta,
+  type NavGroup,
+} from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
 export { captureSubjects, runQuickCapture, semanticPalette, contentSearch, type ContentHit } from './actions';
 export { recordRecent } from './recent';

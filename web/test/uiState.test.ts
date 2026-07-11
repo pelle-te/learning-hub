@@ -13,7 +13,13 @@ describe('bootUI — 부팅/복원', () => {
   it('저장된 UIState를 그대로 읽는다', () => {
     const kv = memKV();
     persistUI(kv, { schedView: 'cards', accent: 'lime', recentCommands: ['a', 'b'], fxLite: false });
-    expect(bootUI(kv)).toEqual({ schedView: 'cards', accent: 'lime', recentCommands: ['a', 'b'], fxLite: false });
+    expect(bootUI(kv)).toEqual({
+      schedView: 'cards',
+      accent: 'lime',
+      recentCommands: ['a', 'b'],
+      fxLite: false,
+      navCollapsed: false,
+    });
   });
   it('손상된 JSON은 기본값으로 폴백(throw 없음)', () => {
     const kv = memKV();
@@ -32,7 +38,13 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
     const kv = memKV();
     kv.setItem('sched_view', 'cards');
     kv.setItem('lh_recent_cmds', JSON.stringify(['x', 'y']));
-    expect(bootUI(kv)).toEqual({ schedView: 'cards', accent: 'lime', recentCommands: ['x', 'y'], fxLite: false });
+    expect(bootUI(kv)).toEqual({
+      schedView: 'cards',
+      accent: 'lime',
+      recentCommands: ['x', 'y'],
+      fxLite: false,
+      navCollapsed: false,
+    });
   });
   it('흡수 후 persist하면 구 키는 정리되고 단일 키만 남는다', () => {
     const kv = memKV();
@@ -55,7 +67,13 @@ describe('persistUI — 왕복', () => {
     const kv = memKV();
     const json = persistUI(kv, { schedView: 'overview', accent: 'cyan', recentCommands: ['cmd'], fxLite: true });
     expect(JSON.parse(json)).toEqual({ schedView: 'overview', accent: 'cyan', recentCommands: ['cmd'], fxLite: true });
-    expect(bootUI(kv)).toEqual({ schedView: 'overview', accent: 'cyan', recentCommands: ['cmd'], fxLite: true });
+    expect(bootUI(kv)).toEqual({
+      schedView: 'overview',
+      accent: 'cyan',
+      recentCommands: ['cmd'],
+      fxLite: true,
+      navCollapsed: false,
+    });
   });
 });
 
