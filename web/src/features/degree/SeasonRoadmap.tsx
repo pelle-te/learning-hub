@@ -1,40 +1,10 @@
 /* ============================================================
    SeasonRoadmap — 졸업 로드맵(졸업 시그니처). 학기를 가로 진행 트랙(시즌 캘린더 결)으로,
    학점 진행을 네온 바로. 완료=발광 노드, 수강중=펄스, 예정=뮤트. 노드 클릭 → 그 학기 펼침.
-   순수 표현: 화면 모델(Semester[])과 집계를 받아 그린다.
+   순수 표현: 화면 모델(DegreeSemester[])을 받아 lib/degree.semesterStat로 집계해 그린다.
 ============================================================ */
+import { semesterGpa, semesterStat, type DegreeSemester } from '@/lib/degree';
 import s from './SeasonRoadmap.module.css';
-
-interface Course {
-  id: string;
-  name: string;
-  credits: number;
-  category: string;
-  status: string;
-  grade?: string;
-}
-interface Sem {
-  id: string;
-  name: string;
-  courses: Course[];
-}
-type Phase = 'done' | 'current' | 'future';
-
-function stat(sem: Sem): { tot: number; done: number; inprog: number; phase: Phase; pct: number } {
-  let tot = 0;
-  let done = 0;
-  let inprog = 0;
-  let planned = 0;
-  sem.courses.forEach((c) => {
-    const cr = +c.credits || 0;
-    tot += cr;
-    if (c.status === '완료') done += cr;
-    else if (c.status === '수강중') inprog += cr;
-    else planned += cr;
-  });
-  const phase: Phase = inprog > 0 ? 'current' : done > 0 && planned === 0 ? 'done' : 'future';
-  return { tot, done, inprog, phase, pct: tot > 0 ? Math.round((done / tot) * 100) : 0 };
-}
 
 export default function SeasonRoadmap({
   list,
@@ -43,7 +13,7 @@ export default function SeasonRoadmap({
   openIds,
   onToggle,
 }: {
-  list: Sem[];
+  list: DegreeSemester[];
   targetTotal: number;
   earned: number;
   openIds: Set<string>;
@@ -51,7 +21,7 @@ export default function SeasonRoadmap({
 }) {
   const pct = targetTotal > 0 ? Math.min(100, Math.round((earned / targetTotal) * 100)) : 0;
   // 진행 노드 비율 — 완료 학기까지 스파인을 채움(시각적 "어디까지 왔나").
-  const doneCount = list.filter((sm) => stat(sm).phase === 'done').length;
+  const doneCount = list.filter((sm) => semesterStat(sm).phase === 'done').length;
   const fillPct = list.length > 1 ? (doneCount / (list.length - 1)) * 100 : doneCount ? 100 : 0;
 
   return (
@@ -75,15 +45,17 @@ export default function SeasonRoadmap({
             <i className={s.spineFill} style={{ width: `${fillPct}%` }} />
           </span>
           {list.map((sm) => {
-            const { tot, done, inprog, phase, pct: spct } = stat(sm);
+            const { tot, done, inprog, phase, pct: spct } = semesterStat(sm);
             const open = openIds.has(sm.id);
+            // PL-8 — 학기 GPA(완료·점수 성적만). null이면 병기 생략(성적 없는 학기).
+            const g = semesterGpa(sm);
             return (
               <button
                 key={sm.id}
                 type="button"
                 className={`${s.station} ${s[phase]}${open ? ' ' + s.open : ''}`}
                 aria-expanded={open}
-                aria-label={`${sm.name || '이름 없는 학기'} · ${done}/${tot}학점${inprog ? ` · 수강중 ${inprog}` : ''}`}
+                aria-label={`${sm.name || '이름 없는 학기'} · ${done}/${tot}학점${inprog ? ` · 수강중 ${inprog}` : ''}${g != null ? ` · GPA ${g.toFixed(1)}` : ''}`}
                 onClick={() => onToggle(sm.id)}
               >
                 <span className={s.dot} />
@@ -94,6 +66,7 @@ export default function SeasonRoadmap({
                 <span className={s.cr}>
                   {done}
                   <span className={s.crtot}>/{tot}</span>
+                  {g != null && <span className={s.gpa}>· {g.toFixed(1)}</span>}
                 </span>
                 <span className={s.tag}>{phase === 'done' ? '완료' : phase === 'current' ? '수강중' : '예정'}</span>
               </button>

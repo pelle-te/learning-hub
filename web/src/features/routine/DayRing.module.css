@@ -61,6 +61,15 @@
   filter: drop-shadow(0 0 9px var(--glow));
 }
 
+/* 피크 시간대 밴드 — 메인 링 안쪽 얇은 아크. 발광 없이(절제) 액센트만 옅게. */
+.peak {
+  fill: none;
+  stroke: var(--acc);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.5;
+  cursor: pointer;
+}
 .now {
   stroke: var(--ink);
   stroke-width: 2;
@@ -116,6 +125,32 @@
   color: var(--mut);
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
+}
+/* '지금 무슨 구간' 라이브 라벨(오늘 선택 시만) — 중앙 리드아웃 아래 한 줄. */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+.dotFree {
+  background: var(--acc);
+}
+.dotBlock {
+  background: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.dotSleep {
+  background: var(--mut);
 }
 
 @media (prefers-reduced-motion: reduce) {

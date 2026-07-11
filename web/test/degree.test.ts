@@ -3,7 +3,15 @@
    학점/GPA/요건 충족/재수강 후보를 state.degree만으로 파생 — DegreeReq·Degree 공유 출처.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { degreeStats, requirementRows, retakeCandidates, categoryReq } from '@/lib/degree';
+import {
+  degreeStats,
+  requirementRows,
+  retakeCandidates,
+  categoryReq,
+  semesterGpa,
+  semesterStat,
+  gpaForecast,
+} from '@/lib/degree';
 import type { Degree } from '@/lib/types';
 
 function deg(over?: Partial<Degree>): Degree {
@@ -113,5 +121,113 @@ describe('retakeCandidates', () => {
       ],
     });
     expect(retakeCandidates(clean)).toEqual([]);
+  });
+});
+
+describe('semesterGpa', () => {
+  it('완료·점수 있는 성적만 가중평균(P·수강중·예정 제외)', () => {
+    const sem = deg().semesters[0]!;
+    // (4.5*3 + 0*3 + 2.5*3) / 9 — P(2학점)·수강중·예정 제외, 전체 GPA와 동일 규칙.
+    expect(semesterGpa(sem)).toBeCloseTo(21 / 9, 5);
+  });
+
+  it('성적 매겨진 완료 과목이 없으면 null(성적 없는 학기)', () => {
+    expect(semesterGpa({ id: 'x', name: 'x', courses: [] })).toBeNull();
+    // 이수(P)만 있는 학기도 gradedCr=0 → null.
+    expect(
+      semesterGpa({
+        id: 'y',
+        name: 'y',
+        courses: [{ id: 'a', name: 'A', credits: 2, category: '교양', status: '완료', grade: 'P' }],
+      }),
+    ).toBeNull();
+    // 수강중만 있는 학기도 null.
+    expect(
+      semesterGpa({
+        id: 'z',
+        name: 'z',
+        courses: [{ id: 'b', name: 'B', credits: 3, category: '교양', status: '수강중', grade: '' }],
+      }),
+    ).toBeNull();
+  });
+
+  it('학기 GPA는 전체 GPA와 독립(학기별 추세 신호)', () => {
+    const a = semesterGpa({
+      id: 'a',
+      name: 'a',
+      courses: [{ id: 'c1', name: 'X', credits: 3, category: '교양', status: '완료', grade: 'A+' }],
+    });
+    const b = semesterGpa({
+      id: 'b',
+      name: 'b',
+      courses: [{ id: 'c2', name: 'Y', credits: 3, category: '교양', status: '완료', grade: 'B0' }],
+    });
+    expect(a).toBeCloseTo(4.5, 5);
+    expect(b).toBeCloseTo(3.0, 5);
+  });
+});
+
+describe('semesterStat', () => {
+  it('상태별 학점 롤업 + 수강중 과목수 + phase', () => {
+    const st = semesterStat(deg().semesters[0]!);
+    expect(st.tot).toBe(17); // 3+3+3+2+3+3
+    expect(st.done).toBe(11); // 완료 4과목
+    expect(st.inprog).toBe(3); // 수강중 학점
+    expect(st.planned).toBe(3);
+    expect(st.inprogCount).toBe(1); // 수강중 과목 수(SemCard 헤더)
+    expect(st.phase).toBe('current'); // 수강중 있음
+    expect(st.pct).toBe(Math.round((11 / 17) * 100));
+  });
+
+  it('phase: 완료만(예정 없음)=done, 예정만=future', () => {
+    const done = semesterStat({
+      id: 'd',
+      name: 'd',
+      courses: [{ id: 'a', name: 'A', credits: 3, category: '교양', status: '완료', grade: 'A0' }],
+    });
+    expect(done.phase).toBe('done');
+    const future = semesterStat({
+      id: 'f',
+      name: 'f',
+      courses: [{ id: 'b', name: 'B', credits: 3, category: '교양', status: '예정', grade: '' }],
+    });
+    expect(future.phase).toBe('future');
+  });
+});
+
+describe('gpaForecast', () => {
+  it('목표 미달 시 필요 평균 평점 역산(불가능=feasible false)', () => {
+    // 현재 gpa=21/9, gradedCr=9, 남은(수강중3+예정3)=6. 목표 3.5 → (3.5*15-21)/6 = 5.25 > 4.5.
+    const f = gpaForecast(deg(), 3.5);
+    expect(f.futureCr).toBe(6);
+    expect(f.neededAvg).toBeCloseTo(5.25, 5);
+    expect(f.feasible).toBe(false);
+    expect(f.alreadyMet).toBe(false);
+  });
+
+  it('달성 가능한 목표는 feasible true', () => {
+    const f = gpaForecast(deg(), 2.5); // (2.5*15-21)/6 = 2.75 ≤ 4.5
+    expect(f.neededAvg).toBeCloseTo(2.75, 5);
+    expect(f.feasible).toBe(true);
+  });
+
+  it('이미 목표 이상이면 alreadyMet true', () => {
+    const f = gpaForecast(deg(), 2.0); // 현재 2.333 ≥ 2.0
+    expect(f.alreadyMet).toBe(true);
+  });
+
+  it('남은 성적학점 0이면 neededAvg=null(더 못 바꿈)', () => {
+    const allDone = deg({
+      semesters: [
+        {
+          id: 's',
+          name: 's',
+          courses: [{ id: 'a', name: 'A', credits: 3, category: '교양', status: '완료', grade: 'A0' }],
+        },
+      ],
+    });
+    const f = gpaForecast(allDone, 4.0);
+    expect(f.futureCr).toBe(0);
+    expect(f.neededAvg).toBeNull();
   });
 });

@@ -3,10 +3,10 @@
    세그먼트 토글로 두 뷰를 한 탭에 통합(옛 degreeReq 탭 병합):
    · 졸업 계획(DegreePlan) — 학기별 수강·학점/요건 추적·GPA 인사이트(앱상태)
    · 졸업요건 정리(DegreeReq) — 요람 기준 정적 요건표(읽기전용)
-   courses는 스키마가 느슨(passthrough)해 로컬 Course 타입으로 좁혀 다룬다.
+   학기·과목 타입과 집계는 lib/degree(DegreeSemester·semesterStat 등)를 단일 출처로 공유한다.
    스타일: 공유 디자인 시스템은 styles/ds.module.css(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
@@ -17,31 +17,31 @@ import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './Degree.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
-import { CATS, STATUSES, GRADE_KEYS, degreeStats } from '@/lib/degree';
+import {
+  CATS,
+  STATUSES,
+  GRADE_KEYS,
+  degreeStats,
+  semesterGpa,
+  semesterStat,
+  gpaForecast,
+  type DegreeSemester,
+  type DegreeCourse,
+} from '@/lib/degree';
 import DegreeReq from '@/features/degreeReq/DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
 
-interface Course {
-  id: string;
-  name: string;
-  credits: number;
-  category: string;
-  status: string;
-  grade?: string;
-}
-type Semester = { id: string; name: string; courses: Course[] };
-/** CourseSchema가 실제 필드로 정밀화돼 d.semesters가 이미 Semester[]로 타입됨(구버전 캐스팅 제거). */
-const sems = (d: DegreeT): Semester[] => d.semesters;
+/** 학기·과목 타입은 lib/degree가 SSOT(DegreeSemester/DegreeCourse). d.semesters가 이미 그 타입. */
+const sems = (d: DegreeT): DegreeSemester[] => d.semesters;
 
-type DegKey = 'targetTotal' | 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal';
+type DegKey = 'targetTotal' | 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal' | 'targetGpa';
 
-function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onToggle: (id: string) => void }) {
+function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; onToggle: (id: string) => void }) {
   const mutate = useApp((s) => s.mutate);
-  const items = useApp((s) => s.state.items);
 
   const findSem = (st: AppState, id: string) => sems(st.degree).find((x) => x.id === id);
-  const updSem = (k: keyof Semester, v: string) =>
-    mutate((st) => void (((findSem(st, sem.id) as Semester)[k] as string) = v));
+  const updSem = (k: keyof DegreeSemester, v: string) =>
+    mutate((st) => void (((findSem(st, sem.id) as DegreeSemester)[k] as string) = v));
   const addCourse = () =>
     mutate((st) => {
       findSem(st, sem.id)?.courses.push({
@@ -61,7 +61,7 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
     });
     ui.toastUndo(`"${name || '과목'}" 삭제됨`);
   };
-  const updCourse = (cid: string, k: keyof Course, v: string | number) =>
+  const updCourse = (cid: string, k: keyof DegreeCourse, v: string | number) =>
     mutate((st) => {
       const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
       if (c) (c as unknown as Record<string, string | number>)[k] = v;
@@ -81,7 +81,8 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
     ui.toast('학기 삭제됨', 'info');
   };
   const courseToItem = (name: string) => {
-    if (items.some((s) => s.name === name)) {
+    // PL-15 — items를 구독하지 않고 핸들러 시점에 스냅샷 조회(무관한 items 편집에 카드 재렌더 방지).
+    if (useApp.getState().state.items.some((s) => s.name === name)) {
       ui.toast('이미 학습 항목에 있어요.', 'warn');
       return;
     }
@@ -91,9 +92,13 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
     ui.toast(`"${name}" 학습 항목에 추가됨 — 학습 항목 탭에서 주당 시간·챕터를 설정하세요.`, 'ok');
   };
 
-  const cr = sem.courses.reduce((t, c) => t + (+c.credits || 0), 0);
-  const doneCr = sem.courses.filter((c) => c.status === '완료').reduce((t, c) => t + (+c.credits || 0), 0);
-  const inprog = sem.courses.filter((c) => c.status === '수강중').length;
+  // PL-14 — 학기 집계는 lib/degree.semesterStat 단일 출처. cr=총학점·doneCr=완료학점·inprog=수강중 과목 수.
+  const st = semesterStat(sem);
+  const cr = st.tot;
+  const doneCr = st.done;
+  const inprog = st.inprogCount;
+  // PL-8 — 학기 GPA(완료·점수 성적만). 성적 없는 학기는 null → pill 미표시(노이즈 방지).
+  const g = semesterGpa(sem);
 
   const header = (
     <div
@@ -117,6 +122,7 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
         </span>
         {doneCr > 0 && <span className={`${ds.pill} ${ds.tiny} ${ds.good}`}>완료 {doneCr}</span>}
         {inprog > 0 && <span className={`${ds.pill} ${ds.tiny}`}>수강중 {inprog}</span>}
+        {g != null && <span className={`${ds.pill} ${ds.tiny}`}>GPA {g.toFixed(2)}</span>}
       </span>
     </div>
   );
@@ -255,7 +261,10 @@ function SemCard({ sem, open, onToggle }: { sem: Semester; open: boolean; onTogg
 function DegreePlan() {
   const d = useApp((s) => s.state.degree);
   const mutate = useApp((s) => s.mutate);
+  const degreeCele = useApp((s) => s.state._degreeCele);
   const [openSems, setOpenSems] = useState<Set<string>>(() => new Set());
+  const [celeFlash, setCeleFlash] = useState(false);
+  const celebrated = useRef(false);
 
   const toggle = (id: string) =>
     setOpenSems((prev) => {
@@ -291,6 +300,29 @@ function DegreePlan() {
   const list = sems(d);
   const avgPerSem = semDone ? earned / semDone : 0;
   const projSem = earned && avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
+  // PL-17 — 목표 GPA 역산. 기본값은 현재 GPA를 0.5 단위 올림(없으면 4.0). 저장은 d.targetGpa(옵셔널).
+  const defaultTargetGpa = gpa != null ? Math.min(4.5, Math.ceil(gpa * 2) / 2) : 4.0;
+  const targetGpa = d.targetGpa ?? defaultTargetGpa;
+  const fc = gpaForecast(d, targetGpa);
+
+  // PL-10 — 졸업 요건 100% 최초 충족 축하(1회). 영속 마커 _degreeCele로 재로드 재발화 방지.
+  // 재하락(pct<100)해도 마커는 리셋하지 않는다(1회성 모먼트). 링은 짧게 발광 플래시(≤1.4s, reduced-motion 백스톱).
+  useEffect(() => {
+    if (pct >= 100 && !degreeCele && !celebrated.current) {
+      celebrated.current = true; // 마운트당 1회 가드(TodaySignature wasDone 패턴).
+      ui.toast('🎓 졸업 요건 충족 — 축하해요!', 'info');
+      mutate((st) => {
+        st._degreeCele = true;
+      });
+      // 플래시 on/off는 setTimeout으로 비동기 발화 — 이펙트 본문 동기 setState 캐스케이드를 회피.
+      const on = setTimeout(() => setCeleFlash(true), 0);
+      const off = setTimeout(() => setCeleFlash(false), 1400);
+      return () => {
+        clearTimeout(on);
+        clearTimeout(off);
+      };
+    }
+  }, [pct, degreeCele, mutate]);
 
   usePageChromeEffect(
     () => ({
@@ -320,7 +352,11 @@ function DegreePlan() {
       <div className={`${ds.card} ${c.statusCard}`}>
         <div className={c.statusEyebrow}>졸업 현황</div>
         <div className={c.statusHero}>
-          <div className={c.gradeRing} role="img" aria-label={`졸업 진행 ${pct}%`}>
+          <div
+            className={`${c.gradeRing}${celeFlash ? ' ' + c.ringCele : ''}`}
+            role="img"
+            aria-label={`졸업 진행 ${pct}%`}
+          >
             {/* 카운트업은 다른 링(Stats·Mastery)과 일관 — reduced-motion이면 즉시 최종값. */}
             <ProgressRing size={80} r={34} pct={shownPct} trackClassName={c.grRingTrack} arcClassName={c.grRingArc} />
             <div className={c.grRingNum}>
@@ -361,6 +397,39 @@ function DegreePlan() {
           ) : null}
         </div>
 
+        {/* PL-17 — 목표 GPA 역산 계산기: 남은 학점을 평균 몇 점으로 채워야 목표에 닿는지. */}
+        <div className={c.gpaGoal}>
+          <div className={c.ggHead}>
+            <label htmlFor="deg-target-gpa">목표 평점</label>
+            <input
+              id="deg-target-gpa"
+              type="number"
+              min="0"
+              max="4.5"
+              step="0.1"
+              value={targetGpa}
+              onChange={(e) => setDeg('targetGpa', Math.max(0, Math.min(4.5, +e.target.value)))}
+            />
+            <span className={c.ggSlash}>/ 4.5</span>
+          </div>
+          <div className={c.ggReadout}>
+            {gpa == null ? (
+              <span className={ds.muted}>성적을 입력하면 목표까지 필요한 평점을 계산해요.</span>
+            ) : fc.alreadyMet ? (
+              <span style={{ color: 'var(--good)' }}>이미 목표 달성 ✓</span>
+            ) : fc.neededAvg == null ? (
+              <span className={ds.muted}>남은 과목이 없어요.</span>
+            ) : (
+              <>
+                남은 <b>{fc.futureCr}</b>학점을 평균{' '}
+                <b style={{ color: fc.feasible ? 'var(--good)' : 'var(--bad)' }}>{fc.neededAvg.toFixed(2)}</b>
+                점으로 이수하면 목표 달성
+                {!fc.feasible && <span style={{ color: 'var(--bad)' }}> · 만점으로도 도달 어려움</span>}
+              </>
+            )}
+          </div>
+        </div>
+
         <div className={c.cats}>
           {CATS.map((cat) => {
             const req =
@@ -372,18 +441,28 @@ function DegreePlan() {
                     ? d.reqLiberal
                     : 0;
             const have = byCat[cat] || 0;
-            const cpct = req ? Math.min(100, Math.round((have / req) * 100)) : have ? 100 : 0;
+            // PL-6 — 요건 없는 카테고리(req=0, '기타')는 진행바를 채우지 않는다: 학점이 있어도
+            // 100%로 가득 차 '충족'처럼 오도되던 문제 제거 → 중립 트랙 + '요건 없음' 라벨.
+            const met = req > 0 && have >= req;
+            const cpct = req > 0 ? Math.min(100, Math.round((have / req) * 100)) : 0;
             return (
               <div key={cat} className={c.cat}>
                 <div className={c.catTop}>
                   <span className={c.catLab}>{cat}</span>
                   <span className={c.catVal}>
                     {have}
-                    {req ? <small> / {req}</small> : null}
+                    {req > 0 ? <small> / {req}</small> : <small className={c.catNoreq}> · 요건 없음</small>}
+                    {/* SD-2 requirementRows().met과 동일 의미 — 충족 시 ✓(var(--good)). */}
+                    {met && (
+                      <span className={c.catMet} aria-label="충족">
+                        {' '}
+                        ✓
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className={c.catTrack}>
-                  <i style={{ width: `${cpct}%` }} className={req && have >= req ? c.catDone : undefined} />
+                  {req > 0 && <i style={{ width: `${cpct}%` }} className={met ? c.catDone : undefined} />}
                 </div>
               </div>
             );

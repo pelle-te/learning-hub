@@ -181,6 +181,13 @@
   font-weight: 700;
   color: var(--mut);
 }
+/* PL-8 — 학기 GPA 병기(cr 옆, 뮤트) */
+.gpa {
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mut);
+}
 .tag {
   font-size: 9.5px;
   font-weight: 800;

@@ -163,6 +163,39 @@
   scrollbar-width: thin;
 }
 
+/* 예상 완료 스트립 — 과목별 스케줄러 산출 완료일(컴팩트 리드아웃) */
+.finStrip {
+  flex: none;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 22px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.fin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mut);
+}
+.fin b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.finDday {
+  color: var(--mut);
+  font-weight: 600;
+}
+.fin.finLate b {
+  color: var(--bad);
+}
+.finDone {
+  color: var(--acc);
+}
+
 /* 하단 스트립 — 마감 카운트다운 + .ics 신선도 */
 .strip {
   flex: none;

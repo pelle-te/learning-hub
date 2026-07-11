@@ -316,6 +316,24 @@
   background: var(--acc);
   box-shadow: 0 0 10px var(--glow);
 }
+/* 지금 시각 캡 — now 라인 좌측 micro 캡슐(now 토큰 재사용). "지금 어디" 즉시 앵커. */
+.nowCap {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: var(--bg);
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+  white-space: nowrap;
+  z-index: 7;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .seg,

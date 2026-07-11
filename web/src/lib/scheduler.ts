@@ -652,6 +652,19 @@ export function freeMinAfter(free: [number, number][], nowMin: number): number {
 }
 
 /* 피크 시간대(방법론 1절) — [시작분,끝분] 또는 null. */
+/** 세션 배열 → 'sid|type' → 첫 세션의 {start,end} 맵(첫-세션-우선). layoutDay 결과를 소비하는
+ *  Today·focusState가 각자 인라인으로 짜던 축약을 하나로(중복 제거 · 규칙 변경 시 단일 수정). */
+export function sessionTimeMap(
+  sessions: LayoutSession[],
+): Record<string, { start: number | null; end: number | null }> {
+  const by: Record<string, { start: number | null; end: number | null }> = {};
+  sessions.forEach((se) => {
+    const k = se.sid + '|' + se.type;
+    if (by[k] == null) by[k] = { start: se.start, end: se.end };
+  });
+  return by;
+}
+
 export function peakRange(state: AppState): [number, number] | null {
   const a = state.peakStart;
   const b = state.peakEnd;

@@ -14,22 +14,16 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { isDone, studyStreak } from '@/lib/persistence';
 import { pickFocus, focusMinutes } from '@/lib/focusState';
-import { openBacklog } from '@/lib/methodology';
-import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
+import { openBacklog, setRitual } from '@/lib/methodology';
+import { layoutDay, freeWindowsForWeekday, freeMinAfter, sessionTimeMap } from '@/lib/scheduler';
+import { deadlineDdays, indexDays } from '@/lib/scheduleView';
+import { totalDue, type AnkiLive } from '@/lib/anki';
 import { pickRetrieval, retrievableCount } from '@/lib/retrieval';
 import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
-import { todayISO, parseISO, mondayOf, addDays, iso, dayDiff, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
+import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
 import { useCountUp, useHeroPointer } from '@/lib/interactions';
 import s from './TodaySignature.module.css';
-
-interface AnkiLive {
-  decks?: { new?: number; learn?: number; review?: number }[];
-}
-function ankiDue(v: AnkiLive | undefined | null): number | null {
-  if (!v?.decks) return null;
-  return v.decks.reduce((t, d) => t + +(d.new || 0) + +(d.learn || 0) + +(d.review || 0), 0);
-}
 
 const TYPE_LABEL: Record<string, string> = {
   new: '집중 학습',
@@ -44,6 +38,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const ankiLive = useRuntime((s) => s.cache._ankiLive) as AnkiLive | undefined | null;
   const res = useSchedule();
   const toggleDone = useApp((s) => s.toggleDone);
+  const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
   const [recallShown, setRecallShown] = useState(false); // A2 — 회상 정답 공개 여부
@@ -89,15 +84,13 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
 
   const ds = todayISO(state);
   const today = parseISO(ds);
+  // 날짜→Day 인덱스 1회 생성(선형 find 제거) — Schedule과 동일 패턴, O(1) 조회.
+  const byDs = indexDays(res);
 
-  const todayDay = (res.days || []).find((d) => d.ds === ds);
+  const todayDay = byDs[ds];
   const items = todayDay?.items || [];
   const L = items.length ? layoutDay(state, todayDay!) : null;
-  const timeBy: Record<string, { start: number | null; end: number | null }> = {};
-  L?.sessions.forEach((se) => {
-    const k = se.sid + '|' + se.type;
-    if (timeBy[k] == null) timeBy[k] = { start: se.start, end: se.end };
-  });
+  const timeBy: ReturnType<typeof sessionTimeMap> = L ? sessionTimeMap(L.sessions) : {};
 
   const enriched = items.map((it) => {
     const tm = timeBy[it.sid + '|' + it.type] || { start: null, end: null };
@@ -126,7 +119,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const weekData = DOW_MON.map((lab, i) => {
     const date = addDays(mon, i);
     const k = iso(date);
-    const day = (res.days || []).find((d) => d.ds === k);
+    const day = byDs[k];
     const min = (day?.items || []).reduce((t, it) => t + (it.min || 0), 0);
     return { lab, h: min / 60, today: k === ds };
   });
@@ -134,7 +127,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const weekShown = useCountUp(weekTotalH);
 
   const streak = studyStreak(state);
-  const due = ankiDue(ankiLive);
+  const due = ankiLive?.decks ? totalDue(ankiLive.decks) : null;
   const openBl = openBacklog(state).length;
   // 셋업은 됐지만(과목 있음) 오늘 배치가 0인 경우를 콜드스타트와 구분 — 빈 메시지가 이미 설정한 사용자에게
   // 또 "설정하라"고 말하지 않도록. 마감 지남·가용시간 없음 등이면 스케줄로 안내.
@@ -161,16 +154,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     setRecallShown(false);
   }
   // A4 — 완료 후 다음 동력: 내일 첫 학습 + 복습 위험(개념 간격반복).
-  const tmrNew = (res.days || []).find((d) => d.ds === iso(addDays(today, 1)))?.items.find((it) => it.type === 'new');
+  const tmrNew = byDs[iso(addDays(today, 1))]?.items.find((it) => it.type === 'new');
   const risk = riskSummary(state, res.days || [], ds);
   const riskN = risk.overdue + risk.due;
 
-  // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃).
-  const ddays = (res.itemStat || [])
-    .filter((st) => st.deadline && !st.finished)
-    .map((st) => ({ name: st.name, color: st.color, dday: dayDiff(ds, st.deadline as string) }))
-    .filter((st) => st.dday >= 0)
-    .sort((a, b) => a.dday - b.dday);
+  // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃). 파생 로직은 lib/scheduleView.deadlineDdays로 위임.
+  const ddays = deadlineDdays(res.itemStat, ds);
   const soon = ddays.filter((st) => st.dday <= 14).slice(0, 3);
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
 
@@ -226,11 +215,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
       : TYPE_LABEL[focus.it.type] || '학습'
     : '—';
 
-  const dispKicker = kicker;
-  const dispSubj = subjName;
-  const dispWhen = focusWhen;
-  const dispChapter = focusChapter;
   const dispColor = !allDone && focus ? focus.it.color : undefined;
+
+  // PL-19 — 오늘 일일 의식 상태(아침 계획·셧다운) 리드아웃용. 세부 입력은 온디맨드 RitualCard 소유.
+  const ritual = state.rituals?.[ds];
 
   // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신). 종료 알림·완료 연결은 FocusChip이.
   const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
@@ -275,6 +263,21 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     if (!allDone) wasDone.current = false;
   }, [allDone]);
 
+  // PL-9 — streak 마일스톤 최초 돌파 축하(임계별 1회). 영속 마커 _lastStreakCele로 재로드 재발화 방지.
+  useEffect(() => {
+    const MILE = [7, 14, 30, 50, 100];
+    const last = state._lastStreakCele ?? 0;
+    const hit = MILE.filter((m) => streak >= m && last < m);
+    if (hit.length) {
+      const top = Math.max(...hit);
+      ui.toast(`🔥 ${top}일 연속 — 불씨 살아있어요`, 'info');
+      mutate((st) => {
+        st._lastStreakCele = top;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streak]);
+
   // 진행률·연속·마감 + 주 액션을 상단 바로 끌어올림(데모 v6 헤더).
   usePageChromeEffect(
     () => ({
@@ -282,8 +285,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         { label: '진행률', value: todayTotal ? `${pct}%` : '—', accent: true },
         {
           label: '연속',
+          // PL-9: streak≥2면 🔥 프리픽스(Stats 탭 prefix="🔥 "와 통일 — 불씨 살아있음 시각화).
           value: (
             <>
+              {streak >= 2 && '🔥 '}
               {streak}
               <small> 일</small>
             </>
@@ -294,10 +299,15 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           // E-2: D-day만이 아니라 '어느 과목을 우선할지' 이름까지 리드아웃(가장 가까운 마감).
           value: nearestDday == null ? '—' : `D-${nearestDday}${ddays[0]?.name ? ` · ${ddays[0]!.name}` : ''}`,
         },
+        // PL-5: 적응형 용량이 적용된 날만(최근 이행률 저조 → 오늘 가용 축소) 감축률을 노출 — 비가시 해소.
+        ...(res.adaptApplied ? [{ label: '용량', value: `−${Math.round((1 - (res.adapt ?? 1)) * 100)}%` }] : []),
       ],
       action:
         todayTotal === 0
-          ? { label: '학습 항목 설정 →', onClick: () => go('/items') }
+          ? // PL-1: 이미 과목이 있는 사용자(hasItems)에게 "항목 설정"은 모순 — 오늘만 빈 것이므로 스케줄로 안내.
+            hasItems
+            ? { label: '주간 스케줄 확인 →', onClick: () => go('/schedule') }
+            : { label: '학습 항목 설정 →', onClick: () => go('/items') }
           : allDone
             ? { label: '기록 보기', onClick: () => go('/journal') }
             : {
@@ -311,7 +321,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 },
               },
     }),
-    [pct, streak, nearestDday, todayTotal, allDone],
+    [pct, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
@@ -340,12 +350,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <div className={s.heroHead}>
             <span className={s.eyebrow}>
               {current && <i className={s.live} />}
-              {dispKicker}
+              {kicker}
             </span>
-            <span className={s.heroWhen}>{dispWhen}</span>
+            <span className={s.heroWhen}>{focusWhen}</span>
           </div>
 
-          <h2 className={s.subj}>{dispSubj}</h2>
+          <h2 className={s.subj}>{subjName}</h2>
           <div className={s.heroSub}>
             {todayTotal === 0 ? (
               hasItems ? (
@@ -380,7 +390,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </span>
             ) : (
               <>
-                <span className={s.chapter}>{dispChapter}</span>
+                <span className={s.chapter}>{focusChapter}</span>
                 {upNext && (
                   <span className={s.upnext}>
                     다음 · {upNext.it.name}
@@ -437,6 +447,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                     ))}
                 </span>
               </>
+            ) : hasItems ? (
+              // PL-1: 과목은 있으나 오늘 포커스가 없음 → "항목 추가"가 아니라 스케줄 점검이 옳은 목적지.
+              <button type="button" className={s.cta} onClick={() => go('/schedule')}>
+                <span className={s.ctaGo}>주간 스케줄 확인</span>
+                <span className={s.ctaCap}>일정 점검 →</span>
+              </button>
             ) : (
               <button type="button" className={s.cta} onClick={() => go('/items')}>
                 <span className={s.ctaGo}>＋ 학습 항목 추가</span>
@@ -632,6 +648,29 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <span className={s.grpL}>열린 보충</span>
           <button type="button" className={s.tag} onClick={() => go('/journal')}>
             <b>{openBl}</b> 건
+          </button>
+        </div>
+        <div className={s.vline} />
+        {/* PL-19 — 일일 의식 리드아웃+토글(상태 표시 수준; 노트 등 세부는 온디맨드 RitualCard). */}
+        <div className={s.grp}>
+          <span className={s.grpL}>의식</span>
+          <button
+            type="button"
+            className={s.tag}
+            onClick={() => mutate((st) => setRitual(st, ds, 'plan', !ritual?.plan))}
+            aria-pressed={!!ritual?.plan}
+            aria-label={`아침 계획 ${ritual?.plan ? '완료' : '미완료'} — 토글`}
+          >
+            🌅 아침 <b>{ritual?.plan ? '☑' : '☐'}</b>
+          </button>
+          <button
+            type="button"
+            className={s.tag}
+            onClick={() => mutate((st) => setRitual(st, ds, 'shutdown', !ritual?.shutdown))}
+            aria-pressed={!!ritual?.shutdown}
+            aria-label={`셧다운 ${ritual?.shutdown ? '완료' : '미완료'} — 토글`}
+          >
+            🌙 셧다운 <b>{ritual?.shutdown ? '☑' : '☐'}</b>
           </button>
         </div>
       </div>

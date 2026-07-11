@@ -7,7 +7,7 @@
 ============================================================ */
 import { z } from 'zod';
 import type { AppState, KV, ScheduleItem, ScheduleResult, SessionType } from './types';
-import { layoutDay } from './scheduler';
+import { layoutDay, sessionTimeMap } from './scheduler';
 import { isDone } from './persistence';
 import { todayISO } from './utils';
 
@@ -71,11 +71,7 @@ export function todayEntries(state: AppState, res: ScheduleResult): FocusEntry[]
   const items = todayDay?.items || [];
   if (!items.length) return [];
   const L = layoutDay(state, todayDay!);
-  const timeBy: Record<string, { start: number | null; end: number | null }> = {};
-  L.sessions.forEach((se) => {
-    const k = se.sid + '|' + se.type;
-    if (timeBy[k] == null) timeBy[k] = { start: se.start, end: se.end };
-  });
+  const timeBy = sessionTimeMap(L.sessions);
   return items.map((it) => {
     const tm = timeBy[it.sid + '|' + it.type] || { start: null, end: null };
     return { it, start: tm.start, end: tm.end, done: isDone(state, ds, it.sid, it.type) };

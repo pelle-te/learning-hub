@@ -4,7 +4,7 @@
    순수 함수라 state를 인자로 주입(전역·DOM 없음). iso()는 로컬 날짜라 TZ 무관.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { layoutDay, schedule, subjectMastery } from '@/lib/scheduler';
+import { layoutDay, schedule, subjectMastery, sessionTimeMap } from '@/lib/scheduler';
 import type { AppState, Day, ScheduleItem, ScheduleResult } from '@/lib/types';
 
 let _id = 0;
@@ -543,5 +543,23 @@ describe('scheduler (T1~T21 parity)', () => {
     // 대조군: 월요일 시작(2026-06-22)은 온전한 첫 주(월~일 7일) → wkFrac=1 → 4모듈 그대로.
     const mon = schedule(baseState([weeklyItem('물리', 8, mkChapters([['C', 40]]))], { startDate: '2026-06-22' }));
     expect(wk0Modules(mon, '물리', 6)).toBe(4); // di 0..6 = 월~일 → 4
+  });
+});
+
+describe('sessionTimeMap — sid|type → 첫 세션 시각(첫-세션-우선)', () => {
+  it('같은 키의 첫 세션 시각만 취하고 이후 세션은 무시', () => {
+    const ss = [
+      { sid: 'A', type: 'new', start: 540, end: 600 },
+      { sid: 'A', type: 'new', start: 700, end: 760 }, // 같은 키 → 무시
+      { sid: 'B', type: 'rev', start: null, end: null }, // 미배치도 키는 등록
+    ] as unknown as Parameters<typeof sessionTimeMap>[0];
+    const m = sessionTimeMap(ss);
+    expect(m['A|new']).toEqual({ start: 540, end: 600 });
+    expect(m['B|rev']).toEqual({ start: null, end: null });
+    expect(Object.keys(m).sort()).toEqual(['A|new', 'B|rev']);
+  });
+
+  it('빈 세션은 빈 맵', () => {
+    expect(sessionTimeMap([])).toEqual({});
   });
 });

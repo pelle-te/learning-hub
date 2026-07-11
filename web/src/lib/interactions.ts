@@ -37,6 +37,31 @@ export function useCountUp(target: number, ms = 750): number {
   return v;
 }
 
+/** 현재 시각을 '자정 이후 분(0~1439)'으로 — 분단위 틱(60s)으로 갱신, 백그라운드 복귀 시 즉시 캐치업.
+ *  '지금' 라인·⏱ 지금 행이 로드 시각에 멈추지 않도록(스케줄·일과 공유 · 3중 중복 이펙트 제거). */
+export function useNowMin(): number {
+  const [nowMin, setNowMin] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMin(d.getHours() * 60 + d.getMinutes());
+    };
+    const id = setInterval(tick, 60_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick(); // 백그라운드 복귀 시 즉시 캐치업.
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+  return nowMin;
+}
+
 /** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시 — App·탭 로컬 키가 공유. */
 export function isTyping(): boolean {
   const el = document.activeElement as HTMLElement | null;

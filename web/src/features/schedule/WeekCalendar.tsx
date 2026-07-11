@@ -5,6 +5,7 @@
    순수 표현 — DayData[]는 Schedule이 준비. 시간 범위는 주 전체 세그를 3시간 격자로 스냅.
 ============================================================ */
 import { useApp } from '@/store/useApp';
+import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import { toHM } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, type DayData } from '@/lib/scheduleView';
@@ -157,7 +158,10 @@ export function WeekCalendar({
                         title={dur < 25 ? `${x.name} · ${tag.label}` : undefined}
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleDone(p.ds, x.sid, x.type, r.plannedMin, !done);
+                          const next = !done;
+                          toggleDone(p.ds, x.sid, x.type, r.plannedMin, next);
+                          // 완료로 바뀔 때만 확인 토스트(해제는 무음 — 스팸 방지).
+                          if (next) ui.toast(`${x.name} · ${tag.label} 완료`, 'ok');
                         }}
                         aria-label={`${x.name} ${tag.label} ${toHM(r.start)} 완료 토글`}
                         aria-pressed={done}
@@ -173,7 +177,9 @@ export function WeekCalendar({
                   return null;
                 })}
                 {p.isToday && nowMin >= lo && nowMin <= hi && (
-                  <span className={s.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true" />
+                  <span className={s.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true">
+                    <span className={s.nowCap}>{toHM(nowMin)}</span>
+                  </span>
                 )}
               </div>
             );

@@ -4,7 +4,7 @@
    상단 네비(주 이동·개요/카드) · 본문 [스파인 | 위크보드(fill) | 일자 아젠다] · 하단 스트립(마감·.ics).
    주간 합계·완료율·마감은 상단 바(usePageChrome)로 끌어올리고, 그날 상세는 우측 아젠다로 온디맨드.
 ============================================================ */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
@@ -29,10 +29,17 @@ import {
   DOW_MON,
 } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import { useHeroPointer, useWeekNavKeys } from '@/lib/interactions';
+import { useHeroPointer, useWeekNavKeys, useNowMin } from '@/lib/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
-import { computeDay, indexDays, SESSION_TYPE_META as TAG, type Row, type DayData } from '@/lib/scheduleView';
+import {
+  computeDay,
+  indexDays,
+  deadlineDdays,
+  SESSION_TYPE_META as TAG,
+  type Row,
+  type DayData,
+} from '@/lib/scheduleView';
 import { WeekCalendar } from './WeekCalendar';
 
 /** 학습/복습/Anki 한 줄 — 완료 체크박스 포함. */
@@ -257,26 +264,8 @@ export default function Schedule() {
   const curMon = addDays(baseMon, weekOffset * 7);
 
   const capWd = useStudyMinByWeekday();
-  // '지금' 라인·⏱ 지금 행이 로드 시각에 멈추지 않도록 분 단위로 갱신(Today 탭과 동일 감각).
-  const [nowMin, setNowMin] = useState(() => {
-    const d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  });
-  useEffect(() => {
-    const tick = () => {
-      const d = new Date();
-      setNowMin(d.getHours() * 60 + d.getMinutes());
-    };
-    const id = setInterval(tick, 60_000);
-    const onVis = () => {
-      if (document.visibilityState === 'visible') tick(); // 백그라운드 복귀 시 즉시 캐치업.
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, []);
+  // '지금' 라인·⏱ 지금 행이 로드 시각에 멈추지 않도록 분 단위로 갱신(Today 탭과 동일 감각) — 공유 훅.
+  const nowMin = useNowMin();
   const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 날짜비교 결정성.
 
   // curMon은 state.startDate+weekOffset로 완전히 결정 → 매 렌더 새 Date여도 memo는 weekOffset(안정 스칼라)에 키잉.
@@ -310,20 +299,23 @@ export default function Schedule() {
   const weekDoneMin = parts.reduce((t, p) => t + p.doneMinTot, 0);
   const compRate = weekPlanMin > 0 ? Math.round((weekDoneMin / weekPlanMin) * 100) : 0;
 
-  // 마감 카운트다운(스트립 + 가장 가까운 마감 리드아웃).
-  // 완료된 과목은 제외(Today 탭과 동일 의미) — 다 끝낸 과목이 살아있는 D-n으로 남지 않도록 itemStat.finished 반영.
-  const ddays = (res.itemStat || [])
-    .filter((st) => st.deadline && !st.finished)
-    .map((st) => ({
-      name: st.name,
-      color: st.color,
-      deadline: st.deadline as string,
-      dday: dayDiff(todayIso, st.deadline as string),
-    }))
-    .filter((st) => st.dday >= 0)
-    .sort((a, b) => a.dday - b.dday);
+  // 마감 카운트다운(스트립 + 가장 가까운 마감 리드아웃) — Today 탭과 공유 헬퍼(가까운순·미완료·미래만).
+  const ddays = deadlineDdays(res.itemStat, todayIso);
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
   const soon = ddays.slice(0, 4);
+
+  // 과목별 예상 완료일(스케줄러 산출 finishDate) — 하단 리드아웃. finishDate/완료 표식 있는 과목만.
+  const finishes = (res.itemStat || [])
+    .filter((st) => st.name && (st.finishDate || st.finished))
+    .map((st) => ({
+      id: st.id,
+      name: st.name,
+      color: st.color,
+      finished: !!st.finished,
+      late: st.late || 0,
+      md: st.finishDate ? fmtShort(parseISO(st.finishDate)) : null,
+      dday: st.deadline ? dayDiff(todayIso, st.deadline) : null,
+    }));
 
   // 진행률·합계·마감 + 주 액션을 상단 바로(데모 v6 헤더).
   usePageChromeEffect(
@@ -395,6 +387,17 @@ export default function Schedule() {
     <section className={c.wrap} aria-label="주간 스케줄">
       {navBar}
 
+      {/* 편성 경고 — 뷰(개요/카드) 무관 공통 스트립(카드뷰에서 소실되지 않도록 분기 밖으로 승격). */}
+      {res.warnings.length > 0 && (
+        <div
+          className={`${c.warn}${res.warnings.some((w) => w.includes('못') || w.includes('초과')) ? ' ' + c.bad : ''}`}
+        >
+          {res.warnings.map((w, i) => (
+            <div key={i}>{w}</div>
+          ))}
+        </div>
+      )}
+
       <div className={c.body}>
         {schedView === 'cards' ? (
           <div className={c.cardsView}>
@@ -454,15 +457,6 @@ export default function Schedule() {
                   />
                 </div>
               )}
-              {res.warnings.length > 0 && (
-                <div
-                  className={`${c.warn}${res.warnings.some((w) => w.includes('못') || w.includes('초과')) ? ' ' + c.bad : ''}`}
-                >
-                  {res.warnings.map((w, i) => (
-                    <div key={i}>{w}</div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* 일자 아젠다 — 선택 요일의 온디맨드 세부. 미배치(start==null) 학습 행도 여기서 체크(캘린더 세그엔 안 뜸). */}
@@ -481,6 +475,27 @@ export default function Schedule() {
           </div>
         )}
       </div>
+
+      {/* 예상 완료 스트립 — 과목별 스케줄러 산출 완료일(온디맨드 리드아웃, 완료/지연 표식). */}
+      {finishes.length > 0 && (
+        <div className={c.finStrip}>
+          <span className={c.grpL}>예상 완료</span>
+          {finishes.map((f) => (
+            <span key={f.id} className={`${c.fin}${f.late > 0 ? ' ' + c.finLate : ''}`}>
+              <span className={c.dot} style={{ background: f.color || 'var(--acc)' }} />
+              {f.name}{' '}
+              {f.finished ? (
+                <b className={c.finDone}>✓ 완료</b>
+              ) : (
+                <b>
+                  {f.md ?? '—'}
+                  {f.dday != null && f.dday >= 0 && <span className={c.finDday}> · D-{f.dday}</span>}
+                </b>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 하단 스트립 — 마감 카운트다운 + .ics 신선도 */}
       <div className={c.strip}>

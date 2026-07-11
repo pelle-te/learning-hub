@@ -132,6 +132,7 @@ export const DegreeSchema = z.object({
   reqMajorSel: z.number(),
   reqLiberal: z.number(),
   semesters: z.array(SemesterSchema),
+  targetGpa: z.number().optional(), // 목표 졸업 GPA(역산 계산기) — 옵셔널이라 기존 저장 상태 무마이그레이션.
 });
 
 export const AnkiSchema = z.object({ source: z.string() });
@@ -178,6 +179,9 @@ export const AppStateSchema = z
     _ankiLive: z.unknown().optional(),
     _icsExport: z.unknown().optional(),
     _lastBackupAt: z.string().optional(),
+    // 축하 모먼트 중복발화 방지 마커 — 영속(RUNTIME_CACHE_KEYS 아님)이라 재로드해도 재발화 안 함.
+    _lastStreakCele: z.number().optional(), // 마지막으로 축하한 연속 학습일 임계(7·14·30·50·100)
+    _degreeCele: z.boolean().optional(), // 졸업요건 100% 축하 완료 플래그
   })
   .passthrough();
 

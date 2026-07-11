@@ -77,6 +77,28 @@
   color: var(--mut);
   font-weight: 700;
 }
+/* PL-10 — 졸업 요건 100% 최초 충족 순간의 발광 플래시(Today .ringCele 미러, ≤1.4s·1회성). */
+.ringCele {
+  animation: gr-cele 1.4s var(--ease);
+}
+@keyframes gr-cele {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 18px var(--glow));
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+/* 발광 남발 금지 규약 — reduced-motion이면 플래시 정지(백스톱). */
+@media (prefers-reduced-motion: reduce) {
+  .ringCele {
+    animation: none;
+  }
+}
 .gauges {
   flex: 1;
   min-width: 0;
@@ -114,6 +136,46 @@
   font-size: 12px;
   color: var(--mut);
 }
+/* PL-17 — 목표 GPA 역산 계산기 */
+.gpaGoal {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line2);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.ggHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ggHead label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 700;
+}
+.ggHead input {
+  width: 72px;
+  font-variant-numeric: tabular-nums;
+}
+.ggSlash {
+  font-size: 12px;
+  color: var(--mut);
+  font-weight: 700;
+}
+.ggReadout {
+  font-size: 13px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ggReadout b {
+  font-weight: 800;
+}
+
 .statusCard .cats {
   margin-top: 16px;
 }
@@ -156,6 +218,15 @@
   font-size: 11px;
   color: var(--mut);
   font-weight: 700;
+}
+/* PL-6 — 요건 없는 카테고리 라벨(중립) */
+.catNoreq {
+  font-weight: 600;
+}
+/* PL-6 — 요건 충족 배지(SD-2 met 의미). 새 색 금지 — var(--good) 재사용. */
+.catMet {
+  color: var(--good);
+  font-weight: 800;
 }
 .catTrack {
   height: 7px;

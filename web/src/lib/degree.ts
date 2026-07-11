@@ -36,6 +36,27 @@ export const GRADE_KEYS = ['A+', 'A0', 'A-', 'B+', 'B0', 'B-', 'C+', 'C0', 'C-',
 /** 재수강 판정 임계 — 이 평점 이하(C+ 포함)면 재수강 후보. */
 export const RETAKE_MAX_POINTS = GRADE_POINTS['C+']!; // 2.5
 
+/** 학기·과목 타입(state.degree 파생) — 컴포넌트 로컬 재정의 대신 lib에서 공유(SSOT). */
+export type DegreeSemester = Degree['semesters'][number];
+export type DegreeCourse = DegreeSemester['courses'][number];
+
+/** 한 학기 GPA(완료·점수 있는 성적만 가중평균). P/미입력은 제외, 성적 없는 학기는 null.
+ *  전체 GPA(degreeStats.gpa)와 동일 규칙을 학기 단위로 — SeasonRoadmap·SemCard가 공유. */
+export function semesterGpa(sem: DegreeSemester): number | null {
+  let pts = 0;
+  let cr = 0;
+  sem.courses.forEach((c) => {
+    if (c.status !== '완료') return;
+    const g = (c.grade || '').toUpperCase().trim();
+    if (g in GRADE_POINTS) {
+      const w = +c.credits || 0;
+      pts += GRADE_POINTS[g]! * w;
+      cr += w;
+    }
+  });
+  return cr ? pts / cr : null;
+}
+
 export interface DegreeStats {
   earned: number; // 완료(이수) 학점
   inprog: number;
@@ -75,6 +96,56 @@ export function degreeStats(d: Degree): DegreeStats {
     if (hasDone) semDone++;
   });
   return { earned, inprog, planned, byCat, gpa: gradedCr ? pts / gradedCr : null, gradedCr, semDone };
+}
+
+export interface SemesterStat {
+  tot: number; // 총 학점
+  done: number; // 완료 학점
+  inprog: number; // 수강중 학점
+  planned: number; // 예정 학점
+  inprogCount: number; // 수강중 과목 수(SemCard 헤더용)
+  phase: 'done' | 'current' | 'future';
+  pct: number; // 완료 비율 0~100
+}
+
+/** 한 학기의 상태별 학점 롤업 — SeasonRoadmap(로드맵 노드)·SemCard(학기 카드)가 공유(3중 재구현 제거). */
+export function semesterStat(sem: DegreeSemester): SemesterStat {
+  let tot = 0;
+  let done = 0;
+  let inprog = 0;
+  let planned = 0;
+  let inprogCount = 0;
+  sem.courses.forEach((c) => {
+    const cr = +c.credits || 0;
+    tot += cr;
+    if (c.status === '완료') done += cr;
+    else if (c.status === '수강중') {
+      inprog += cr;
+      inprogCount++;
+    } else planned += cr;
+  });
+  const phase: SemesterStat['phase'] = inprog > 0 ? 'current' : done > 0 && planned === 0 ? 'done' : 'future';
+  return { tot, done, inprog, planned, inprogCount, phase, pct: tot > 0 ? Math.round((done / tot) * 100) : 0 };
+}
+
+export interface GpaForecast {
+  targetGpa: number;
+  futureCr: number; // 앞으로 성적이 매겨질 학점(수강중+예정)
+  neededAvg: number | null; // 목표 달성에 필요한 남은 평균 평점(null=남은 학점 0)
+  feasible: boolean; // neededAvg가 만점(4.5) 이내라 달성 가능
+  alreadyMet: boolean; // 현재 GPA가 이미 목표 이상
+}
+
+/** 목표 졸업 GPA 달성에 필요한 '남은 학점 평균 평점' 역산 — 학위 플래너 표준 역량.
+ *  남은 성적학점=수강중+예정(P는 알 수 없어 근사). 필요평점 = (목표*(기성적학점+남은) − 현재점수) / 남은. */
+export function gpaForecast(d: Degree, targetGpa: number): GpaForecast {
+  const { gpa, gradedCr, inprog, planned } = degreeStats(d);
+  const curPts = (gpa ?? 0) * gradedCr;
+  const futureCr = inprog + planned;
+  const alreadyMet = gpa != null && gpa >= targetGpa;
+  if (futureCr <= 0) return { targetGpa, futureCr: 0, neededAvg: null, feasible: alreadyMet, alreadyMet };
+  const neededAvg = (targetGpa * (gradedCr + futureCr) - curPts) / futureCr;
+  return { targetGpa, futureCr, neededAvg, feasible: neededAvg <= 4.5, alreadyMet };
 }
 
 /** 카테고리별 졸업요건 학점(설정값). '기타'는 별도 요건 없음(0). */

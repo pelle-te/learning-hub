@@ -6,10 +6,10 @@
    여기선 최소 Day를 직접 빚어 주입한다(엔진 결합 없이 뷰 로직만 겨눔).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { computeDay, indexDays, SESSION_TYPE_META, type DayIndex, type Row } from '@/lib/scheduleView';
+import { computeDay, deadlineDdays, indexDays, SESSION_TYPE_META, type DayIndex, type Row } from '@/lib/scheduleView';
 import { studyMinByWeekday } from '@/lib/scheduler';
 import { parseISO } from '@/lib/utils';
-import type { AppState, Day, ScheduleItem, ScheduleResult, SessionType } from '@/lib/types';
+import type { AppState, Day, ItemStat, ScheduleItem, ScheduleResult, SessionType } from '@/lib/types';
 
 const DS = '2026-06-23'; // 기준일. curMon=이 날, k=0 → date=DS.
 const MON = parseISO(DS);
@@ -149,5 +149,42 @@ describe('scheduleView/computeDay — 배치·미배치·세그먼트·빈입력
     );
     const d = computeDay(state, byDs, capWd, 600, '2099-01-01', MON, 0);
     expect(d.counts).toEqual({ studies: 1, revs: 1, ankis: 1, blanks: 1, mocks: 1 });
+  });
+});
+
+describe('scheduleView/deadlineDdays — Today·Schedule 공유 마감 D-day', () => {
+  const stat = (over: Partial<ItemStat>): ItemStat =>
+    ({ id: over.name || 'x', name: 'X', schedH: 0, ...over }) as ItemStat;
+
+  it('가까운 순 정렬 + dday 계산(오늘 기준)', () => {
+    const rows = deadlineDdays(
+      [
+        stat({ name: '먼과목', deadline: '2026-06-30' }), // D-7
+        stat({ name: '가까운과목', deadline: '2026-06-25' }), // D-2
+      ],
+      DS, // 2026-06-23
+    );
+    expect(rows.map((r) => r.name)).toEqual(['가까운과목', '먼과목']);
+    expect(rows[0]!.dday).toBe(2);
+    expect(rows[1]!.dday).toBe(7);
+  });
+
+  it('완료(finished)·마감 지남(dday<0)·마감 없는 과목은 제외', () => {
+    const rows = deadlineDdays(
+      [
+        stat({ name: '완료', deadline: '2026-06-25', finished: true }),
+        stat({ name: '지남', deadline: '2026-06-20' }), // dday<0
+        stat({ name: '마감없음' }),
+        stat({ name: '유효', deadline: '2026-06-28' }),
+      ],
+      DS,
+    );
+    expect(rows.map((r) => r.name)).toEqual(['유효']);
+    expect(rows[0]!.dday).toBe(5);
+  });
+
+  it('itemStat 부재도 빈 배열로 견딘다', () => {
+    expect(deadlineDdays(undefined, DS)).toEqual([]);
+    expect(deadlineDdays([], DS)).toEqual([]);
   });
 });

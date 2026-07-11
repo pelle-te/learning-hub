@@ -6,7 +6,7 @@ import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePrefill } from '@/store/prefill';
 import { ui } from '@/shell';
-import { layoutDay } from '@/lib/scheduler';
+import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import { blankResultFor, clearBlankResult } from '@/lib/methodology';
 import { toHM, hLabel, fmt, todayISO } from '@/lib/utils';
@@ -71,13 +71,9 @@ export function TodayBlocks() {
     );
   }
 
-  // 시각 배정(빈 시간 기준) — sid|type → "HH:MM–HH:MM".
+  // 시각 배정(빈 시간 기준) — sid|type → {start,end}. 포맷은 아래 호출부에서 toHM으로.
   const L = layoutDay(state, day!);
-  const timeBy: Record<string, string> = {};
-  L.sessions.forEach((s) => {
-    const k = s.sid + '|' + s.type;
-    if (s.start != null && s.end != null && timeBy[k] == null) timeBy[k] = toHM(s.start) + '–' + toHM(s.end);
-  });
+  const timeBy = sessionTimeMap(L.sessions);
 
   const ML = state.moduleLen || 120;
 
@@ -118,7 +114,8 @@ export function TodayBlocks() {
 
       {items.map((it, idx) => {
         const key = it.sid + '|' + it.type + '|' + idx;
-        const tm = timeBy[it.sid + '|' + it.type] || '';
+        const tb = timeBy[it.sid + '|' + it.type];
+        const tm = tb && tb.start != null && tb.end != null ? toHM(tb.start) + '–' + toHM(tb.end) : '';
         const done = isDone(state, ds2, it.sid, it.type);
         const head = (
           <div className={`${t.blkhead}${done ? ' ' + t.rowdone : ''}`}>
@@ -210,6 +207,8 @@ export function TodayBlocks() {
                 : '';
         // rev·anki 블록은 설명만 있던 액션 데드엔드였다 → Anki(연동 탭) 바로가기로 실행 가능하게.
         const ankiLinked = it.type === 'rev' || it.type === 'anki';
+        // PL-3: mock도 설명만 있던 데드엔드였다 → 시험 후 오답·시간부족을 CBMS로 바로 분류(모의→CBMS 회고 루프 폐합).
+        const isMock = it.type === 'mock';
         return (
           <div key={key} className={ds.blk}>
             {head}
@@ -218,6 +217,13 @@ export function TodayBlocks() {
               <div className={t.blkActions} style={{ marginTop: 6 }}>
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>
                   🃏 Anki 열기 →
+                </Button>
+              </div>
+            )}
+            {isMock && (
+              <div className={t.blkActions} style={{ marginTop: 6 }}>
+                <Button sm onClick={() => prefill('cbms', it.sid)}>
+                  ✗ 오답/시간부족 기록 →
                 </Button>
               </div>
             )}

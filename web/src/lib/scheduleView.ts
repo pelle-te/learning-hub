@@ -4,8 +4,30 @@
 ============================================================ */
 import { dayStudyMin, layoutDay } from './scheduler';
 import { isDone } from './persistence';
-import { iso, addDays } from './utils';
-import type { AppState, ScheduleItem, ScheduleResult, SessionType } from './types';
+import { iso, addDays, dayDiff } from './utils';
+import type { AppState, ItemStat, ScheduleItem, ScheduleResult, SessionType } from './types';
+
+export interface DeadlineDday {
+  name: string;
+  color?: string;
+  deadline: string;
+  dday: number;
+}
+/** 마감 있고 미완료인 과목의 D-day 목록(가까운 순 정렬) — Today·Schedule 공유 SSOT.
+ *  dday<0(마감 지남)·finished(다 끝낸 과목)는 제외해 두 탭이 항상 같은 '가장 가까운 마감'을 본다
+ *  (N-9의 두 탭 복붙 파생을 하나로 수렴 → 규칙 변경 시 재드리프트 예방). */
+export function deadlineDdays(itemStat: ItemStat[] | undefined, todayIso: string): DeadlineDday[] {
+  return (itemStat || [])
+    .filter((st) => st.deadline && !st.finished)
+    .map((st) => ({
+      name: st.name,
+      color: st.color,
+      deadline: st.deadline as string,
+      dday: dayDiff(todayIso, st.deadline as string),
+    }))
+    .filter((st) => st.dday >= 0)
+    .sort((a, b) => a.dday - b.dday);
+}
 
 export type Row =
   | { kind: 'now'; start: number }
