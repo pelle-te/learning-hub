@@ -15,7 +15,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import { ui } from '@/shell';
-import { loadKnowledgeStateFromVault, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
+import { loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -23,6 +23,24 @@ import ds from '@/styles/ds.module.css';
 import m from './Mastery.module.css';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
+
+/** AN-12 — 볼트 딥링크 아이콘 버튼. obsidian://search는 볼트명 없이도 동작(설치돼 있으면).
+   Graph 탭 E-5 패턴 미러 — 죽은 개념 텍스트를 "볼트에서 이 개념 열기"로 살린다. */
+function VaultLink({ query, label }: { query: string; label?: string }) {
+  const q = (query || '').trim();
+  if (!q) return null; // 검색어 없으면 링크 무의미(basename조차 없는 행).
+  return (
+    <button
+      type="button"
+      className={m.deep}
+      onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(q))}
+      title={`Obsidian에서 ${label || `"${q}"`} 검색 (설치돼 있어야 함)`}
+      aria-label={`Obsidian에서 ${label || q} 검색`}
+    >
+      🔎
+    </button>
+  );
+}
 
 /** 전체 숙달 — 발광 원형 링(마운트 시 0→target 카운트업). 히어로의 시선 집중점. */
 function OverallRing({ overall }: { overall: number }) {
@@ -211,6 +229,8 @@ function ConceptList<T extends ConceptRow>({
             </span>
             <span className={`${ds.tiny} ${ds.muted}`}>{it.subject || ''}</span>
             {renderMeta(it)}
+            {/* AN-12 — 개념명으로 볼트 딥링크(행 자체는 비대화형이라 명시 아이콘 버튼). */}
+            <VaultLink query={it.title || it.basename || ''} />
           </div>
         ))}
       </div>
@@ -264,13 +284,60 @@ function Gaps({ k }: { k: Knowledge }) {
               본인 개념
             </span>
           ) : x.root_cause ? (
-            <span className={ds.tiny} style={{ color: 'var(--bad)' }}>
-              ← 선수약점: {x.root_cause}
-            </span>
+            /* AN-12 — 선수약점(root_cause)도 볼트에서 열 수 있게 텍스트 딥링크로. */
+            <button
+              type="button"
+              className={`${ds.tiny} ${m.rcLink}`}
+              onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(x.root_cause!))}
+              title={`Obsidian에서 선수약점 "${x.root_cause}" 검색 (설치돼 있어야 함)`}
+            >
+              ← 선수약점: {x.root_cause} 🔎
+            </button>
           ) : null}
         </>
       )}
     />
+  );
+}
+
+/** AN-2 — 약점 '근본원인 롤업' 카드. 개별 행의 '← 선수약점: X'는 약점마다 뿔뿔이 흩어져 있어
+   어떤 선수개념이 *몇 개* 약점의 공통 뿌리인지 안 보인다 → 여기서 root_cause를 집계·랭크한다.
+   프런티어의 prereq_in('이걸 배우면 N개가 풀린다')의 약점판 미러: 가장 많은 약점의 뿌리를 먼저 메우면
+   상류가 함께 풀린다. 이미 페치된 k.gaps만 소비(신규 IO 0) · 롤업이 비면 카드 자체를 접는다. */
+function RootCauses({ k }: { k: Knowledge }) {
+  const roll = rootCauseRollup(k); // 상위 5개(self·무근원 제외, count 내림차순).
+  if (!roll.length) return null;
+  return (
+    <div className={ds.card}>
+      <h3>
+        🌱 약점의 뿌리{' '}
+        <span className={`${ds.muted} ${ds.tiny}`}>
+          (한 선수개념이 여러 약점의 공통 근본원인 — 먼저 메우면 상류가 같이 풀린다)
+        </span>
+      </h3>
+      <div className={m.mslist}>
+        {roll.map(({ cause, count }) => (
+          <div key={cause} className={m.msrow}>
+            <span className={m.msdot} style={{ background: 'var(--bad,#e3564a)' }}>
+              🌱
+            </span>
+            <span className={m.nm} style={{ flex: 1 }}>
+              {cause}
+            </span>
+            <span
+              className={ds.chip}
+              data-tip="이 뿌리를 메우면 함께 풀릴 약점 수"
+              role="img"
+              aria-label={`${count}개 약점의 뿌리`}
+            >
+              {count}개 약점의 뿌리
+            </span>
+            {/* AN-12 정합 — 원인 개념도 볼트에서 바로 열 수 있게. */}
+            <VaultLink query={cause} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -508,6 +575,7 @@ export default function Mastery() {
           <div className={m.actionCol}>
             <Frontier k={k} />
             <Gaps k={k} />
+            <RootCauses k={k} />
             <Calibration k={k} />
           </div>
         </div>

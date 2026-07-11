@@ -3,8 +3,8 @@
    구조 레이아웃은 전역 디자인 시스템 클래스(card/itemrow/fieldgrid…)+ds.module을 재사용,
    인터랙티브/칩은 토큰 기반 공용 컴포넌트(Button/Pill/Kpi)로 — 룩 일관·테마 자동 대응.
 ============================================================ */
-import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
@@ -55,6 +55,7 @@ export default function Items() {
   const cbms = useApp((s) => s.state.cbms);
   const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   // sid(=item.id)별 반복 약점 총합 — cbms가 바뀔 때만 롤업 재계산(SR-2). weakCountBySid는 state.cbms만 읽으므로
   // 반응형 cbms 슬라이스를 넘겨 재계산을 그 변화에 묶는다(전체 state 구독으로 인한 불필요 리렌더 회피).
   const weakBySid = useMemo(() => weakCountBySid({ ...useApp.getState().state, cbms }), [cbms]);
@@ -170,6 +171,48 @@ export default function Items() {
     [mutate],
   );
 
+  // AN-17 — 지식맵 등에서 `?focus=<itemId>`로 진입하면 그 항목 카드로 스크롤 + 짧은 하이라이트.
+  // 캔버스(지식맵)의 "학습 항목 열기"가 목록 최상단이 아니라 특정 항목에 정확히 착지하게 한다.
+  // focus는 1회 소비(URL 정리) — 하이라이트는 인라인 스타일로 명령형 적용, 모션 자제 시 트랜지션만 생략.
+  useEffect(() => {
+    const focus = searchParams.get('focus');
+    if (!focus) return;
+    // 없는 id여도 URL은 정리(재하이라이트 방지). replace로 히스토리 오염 없이 param만 제거.
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('focus');
+        return next;
+      },
+      { replace: true },
+    );
+    const card = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(focus)}"]`);
+    if (!card) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    card.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    // 1.5s 하이라이트 펄스 후 소멸 — 이전 값을 저장해 원복(CSS 모듈 미변경, 인라인만).
+    const prev = {
+      outline: card.style.outline,
+      outlineOffset: card.style.outlineOffset,
+      boxShadow: card.style.boxShadow,
+      borderRadius: card.style.borderRadius,
+      transition: card.style.transition,
+    };
+    card.style.transition = reduce ? 'none' : 'box-shadow 0.35s ease, outline-color 0.35s ease';
+    card.style.borderRadius = 'var(--r-lg)';
+    card.style.outline = '2px solid var(--acc)';
+    card.style.outlineOffset = '3px';
+    card.style.boxShadow = '0 0 0 4px var(--acc-glow, color-mix(in srgb, var(--acc) 30%, transparent))';
+    const t = window.setTimeout(() => {
+      card.style.outline = prev.outline;
+      card.style.outlineOffset = prev.outlineOffset;
+      card.style.boxShadow = prev.boxShadow;
+      card.style.borderRadius = prev.borderRadius;
+      card.style.transition = prev.transition;
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [searchParams, setSearchParams]);
+
   const n = items.length;
 
   return (
@@ -236,6 +279,7 @@ export default function Items() {
           {items.map((s) => (
             <div
               key={s.id}
+              data-item-id={s.id}
               className={`${c.dragWrap}${overId === s.id && dragId !== s.id ? ' ' + c.dragOver : ''}${dragId === s.id ? ' ' + c.dragging : ''}`}
               draggable={!open.has(s.id)}
               onDragStart={(e) => {

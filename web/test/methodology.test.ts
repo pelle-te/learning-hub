@@ -17,8 +17,14 @@ import {
   buildSummaryNotes,
   cbmsBetween,
   cbmsCounts,
+  cbmsTop,
   cbmsTrend,
+  CBMS_CODES,
   clearBlankResult,
+  confRate,
+  restoreBacklog,
+  restoreCbms,
+  restoreSummary,
   dataSizeKB,
   delBacklog,
   delCbms,
@@ -263,5 +269,74 @@ describe('methodology — 규모/아카이빙/유지율', () => {
     expect(t.delta).toBe(7); // 지난 주 9 → 이번 주 2 = 밀린 카드 7 감소
     recordRetentionSnapshot(s, 'not-array' as unknown as never); // 방어: 무시
     expect(s.retentionLog!.length).toBe(2);
+  });
+});
+
+describe('CBMS_CODES / cbmsTop — 최다코드 argmax SSOT (AN-6·7)', () => {
+  it('CBMS_CODES는 CBMS_INFO 5코드 집합', () => {
+    expect([...CBMS_CODES].sort()).toEqual(['B', 'C', 'M', 'S', 'T']);
+  });
+  it('cbmsTop: 오답 0이면 null', () => {
+    expect(cbmsTop({ C: 0, B: 0, M: 0, S: 0, T: 0 })).toBeNull();
+  });
+  it('cbmsTop: 최다 코드·개수·전체합', () => {
+    const r = cbmsTop({ C: 1, B: 4, M: 2, S: 0, T: 3 });
+    expect(r).toEqual({ code: 'B', n: 4, total: 10 });
+  });
+  it('cbmsTop: 동점이면 코드 순서(C→B→M→S→T)상 먼저를 유지', () => {
+    // C와 M이 3으로 동점 — 먼저 만난 C가 top(> 비교라 뒤 동점은 교체 안 함).
+    expect(cbmsTop({ C: 3, B: 0, M: 3, S: 0, T: 0 })?.code).toBe('C');
+  });
+});
+
+describe('confRate — 과신 오답률 (AN-8)', () => {
+  it('오답 없으면 null', () => {
+    expect(confRate(st())).toBeNull();
+  });
+  it('conf 플래그 비율(%)을 반올림', () => {
+    const s = st();
+    addCbms(s, '2026-07-01', '', '', 'ch1', 'C', 'x', true);
+    addCbms(s, '2026-07-01', '', '', 'ch2', 'M', 'y', false);
+    addCbms(s, '2026-07-01', '', '', 'ch3', 'B', 'z', true);
+    expect(confRate(s)).toEqual({ conf: 2, total: 3, rate: 67 });
+  });
+  it('구간 필터를 존중', () => {
+    const s = st();
+    addCbms(s, '2026-06-01', '', '', 'a', 'C', '', true);
+    addCbms(s, '2026-07-05', '', '', 'b', 'C', '', false);
+    expect(confRate(s, '2026-07-01', '2026-07-31')).toEqual({ conf: 0, total: 1, rate: 0 });
+  });
+});
+
+describe('restore* — 삭제 되돌리기 복원 (AN-15)', () => {
+  it('restoreSummary: 원위치 idx에 삽입', () => {
+    const s = st();
+    addSummary(s, '2026-07-01', '', 'A', '1', '', '');
+    addSummary(s, '2026-07-01', '', 'C', '3', '', '');
+    const removed = s.summaries!['2026-07-01']![0]!;
+    delSummary(s, '2026-07-01', removed.id);
+    restoreSummary(s, '2026-07-01', 0, removed);
+    expect(s.summaries!['2026-07-01']!.map((x) => x.name)).toEqual(['A', 'C']);
+  });
+  it('restoreSummary: idx 음수/초과는 끝에 안전 삽입', () => {
+    const s = st();
+    restoreSummary(s, '2026-07-01', -1, { id: 'z', sid: '', name: 'Z', s1: '', s2: '', s3: '', at: 0 } as never);
+    expect(s.summaries!['2026-07-01']!.length).toBe(1);
+  });
+  it('restoreCbms / restoreBacklog: 배열에 push', () => {
+    const s = st();
+    restoreCbms(s, { id: 'c1', ds: '2026-07-01', sid: '', name: '', chapter: '', code: 'C', note: '' } as never);
+    restoreBacklog(s, {
+      id: 'b1',
+      ds: '2026-07-01',
+      sid: '',
+      name: '',
+      topic: 't',
+      note: '',
+      done: false,
+      doneDs: '',
+    } as never);
+    expect(s.cbms!.length).toBe(1);
+    expect(s.backlog!.length).toBe(1);
   });
 });

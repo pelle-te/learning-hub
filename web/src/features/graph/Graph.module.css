@@ -112,8 +112,10 @@
   backdrop-filter: blur(6px);
   transition: border-color 0.16s var(--ease);
 }
-.search:focus {
-  outline: none;
+/* AN-4 — 키보드 포커스링 승계: 전역 input:focus-visible{outline:2px solid var(--acc)} 백스톱을
+   삭제하지 않는다. 캔버스가 SR 불투명이라 이 입력이 유일 접근 경로 → 포커스 표시가 최우선.
+   :focus-visible라 마우스 클릭엔 링이 안 뜨고 키보드 탭 진입 시만 뜬다. */
+.search:focus-visible {
   border-color: color-mix(in srgb, var(--acc) 55%, var(--line));
 }
 .ctrlBtn {

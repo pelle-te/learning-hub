@@ -169,6 +169,15 @@
   color: var(--ink);
   background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
+/* 백지 복습 결과 — 통과=양호색, 막힘=경고색으로 색만 갈라 한눈에. */
+.kBlank[data-passed='1'] {
+  color: var(--good, #22c55e);
+  background: color-mix(in srgb, var(--good, #22c55e) 12%, transparent);
+}
+.kBlank[data-passed='0'] {
+  color: var(--warn, #ffb454);
+  background: color-mix(in srgb, var(--warn, #ffb454) 12%, transparent);
+}
 
 .swatch {
   flex: none;

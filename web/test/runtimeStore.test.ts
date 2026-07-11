@@ -32,6 +32,20 @@ describe('useRuntime — selectSchedule 비무효화(B1/B3)', () => {
     expect(selectSchedule(after)).toBe(resBefore); // schedule() 재계산 없음(동일 객체)
   });
 
+  it('AN-16: plan-무관 state 슬라이스(summaries) 변경은 루트가 갈려도 schedule을 재계산하지 않는다', () => {
+    vi.useFakeTimers(); // mutate가 거는 디바운스 flush를 흡수(localStorage 잔여 방지)
+    const before = useApp.getState().state;
+    const resBefore = selectSchedule(before);
+    useApp.getState().mutate((s) => {
+      s.summaries = s.summaries || {};
+      s.summaries['2026-07-01'] = [{ id: 'x', sid: '', name: '', s1: 'a', s2: '', s3: '', at: 0 }];
+    });
+    const after = useApp.getState().state;
+    expect(after).not.toBe(before); // immer가 새 루트를 만든다(루트 참조 캐시라면 여기서 헛돌았음)
+    expect(selectSchedule(after)).toBe(resBefore); // 그러나 schedule 입력 슬라이스는 불변 → 캐시 히트
+    vi.advanceTimersByTime(600);
+  });
+
   it('plan 입력(_knowState) 갱신은 여전히 state 참조를 갈아 재계산한다(정확성)', () => {
     const before = useApp.getState().state;
     const resBefore = selectSchedule(before);

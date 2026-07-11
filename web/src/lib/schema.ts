@@ -191,6 +191,7 @@ export type RoutineBlock = z.infer<typeof RoutineBlockSchema>;
 export type CompletionEntry = z.infer<typeof CompletionEntrySchema>;
 export type Summary = z.infer<typeof SummarySchema>;
 export type CbmsCode = z.infer<typeof CbmsCodeSchema>;
+export type Cbms = z.infer<typeof CbmsSchema>;
 export type Backlog = z.infer<typeof BacklogSchema>;
 export type BlankResult = z.infer<typeof BlankResultSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;

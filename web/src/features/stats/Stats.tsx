@@ -20,24 +20,30 @@ import {
   cbmsCounts,
   cbmsTrend,
   cbmsTrendGlyph,
+  cbmsTop,
+  confRate,
   recallEvidence,
   retentionNudge,
   retentionTrend,
   CBMS_INFO,
+  CBMS_CODES,
 } from '@/lib/methodology';
 import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, dayDiff, ddayInfo, DOW } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
 import st from './Stats.module.css';
-import type { CbmsCode, ScheduleResult } from '@/lib/types';
+import type { ScheduleResult } from '@/lib/types';
 
 const TIMELINE_CAP = 60; // 최근 N일만 그려 다년 누적에도 비용 상한.
 
 /** 인출 증거(북극성 지표) — 투입 아닌 출력. */
 function RetrievalCard({ r }: { r: ScheduleResult }) {
   const state = useApp((s) => s.state);
+  const navigate = useNavigate();
   const tr = cbmsTrend(state);
   const { icon: trIcon, good: trGood } = cbmsTrendGlyph(tr);
   const { blankPlan, blankDone, blankRate, recallActs } = recallEvidence(state, r);
+  // 과신 오답률(메타인지 캘리브레이션 · 방법론 E5) — 지식엔진 미빌드에도 실시간 집계. 오답 0이면 null.
+  const cal = confRate(state);
   return (
     <div className={ds.card}>
       <h2>
@@ -75,11 +81,25 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
         </div>
       </div>
       <div className={ds.foot}>
-        {trGood
-          ? '오답이 줄고 있어요 — 약점이 닫히는 방향. 👍'
-          : '오답이 늘었어요 — 가장 많은 코드의 처방에 다음 주 시간을 더 주세요(주간 리뷰 탭).'}{' '}
+        {trGood ? (
+          '오답이 줄고 있어요 — 약점이 닫히는 방향. 👍'
+        ) : (
+          <>
+            오답이 늘었어요 — 가장 많은 코드의 처방에 다음 주 시간을 더 주세요.
+            <button type="button" className={st.navLink} onClick={() => navigate('/review', { viewTransition: true })}>
+              주간 리뷰로 →
+            </button>
+          </>
+        )}{' '}
         백지 복습은 가장 깊은 인출 — 계획되면 꼭 닫기.
       </div>
+      {/* 과신 오답 표면화 — '찍어서 맞음/확신 없었음'으로 처리한 오답 비율(캘리브레이션 신호).
+          점검할 오답이 실제 있을 때만(conf>0) 노출, 비율 높으면 주의색으로 승격. */}
+      {cal && cal.conf > 0 && (
+        <div className={ds.foot} style={cal.rate >= 40 ? { color: 'var(--bad)' } : undefined}>
+          확신 없이 처리한 오답 {cal.conf}건(전체 {cal.total}건 중 {cal.rate}%) — 다시 점검 대상.
+        </div>
+      )}
     </div>
   );
 }
@@ -122,18 +142,12 @@ function RetentionSpark() {
             return (
               <div
                 key={i}
+                className={st.sparkBar}
                 data-tip={lab}
                 tabIndex={0}
                 role="img"
                 aria-label={lab}
-                style={{
-                  flex: 1,
-                  minWidth: 6,
-                  height: Math.round((p.due / max) * 46) + 2,
-                  background: 'var(--acc)',
-                  borderRadius: '2px 2px 0 0',
-                  alignSelf: 'flex-end',
-                }}
+                style={{ height: Math.round((p.due / max) * 46) + 2 }}
               />
             );
           })}
@@ -166,6 +180,8 @@ function RetentionSpark() {
    bare=true → 카드/제목 없이 잔디 + 범례만(데이터보드 시그니처 컬럼용). */
 function StreakHeatmap({ bare }: { bare?: boolean }) {
   const state = useApp((s) => s.state);
+  // 126개 <td>는 접힌 채로도 상시 렌더됐음 — 열렸을 때만 표를 만들어(lazy) 유휴 비용 제거.
+  const [tableOpen, setTableOpen] = useState(false);
   const WEEKS = 18;
   const comp = state.completions || {};
   const today = parseISO(todayISO(state));
@@ -261,32 +277,34 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
       </div>
       {/* 잔디 셀은 탭스톱 폭주 방지로 비포커스(role=img+aria-label) — 대신 키보드/스크린리더용
           접이식 표(주 × 요일 · 분)로 동일 정보를 순회 없이 읽게. 기본 접힘·비침습. */}
-      <details className={st.hmTable}>
+      <details className={st.hmTable} onToggle={(e) => setTableOpen(e.currentTarget.open)}>
         <summary className={`${ds.muted} ${ds.tiny}`}>표로 보기 — 주 × 요일(분)</summary>
-        <div className={st.hmTableScroll}>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">주 시작</th>
-                {['월', '화', '수', '목', '금', '토', '일'].map((d) => (
-                  <th key={d} scope="col">
-                    {d}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {cols.map((col, ci) => (
-                <tr key={ci}>
-                  <th scope="row">{fmtShort(parseISO(col[0]!.ds))}</th>
-                  {col.map((c, i) => (
-                    <td key={i}>{c.l < 0 ? '' : c.v > 0 ? Math.round(c.v) : '·'}</td>
+        {tableOpen && (
+          <div className={st.hmTableScroll}>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">주 시작</th>
+                  {['월', '화', '수', '목', '금', '토', '일'].map((d) => (
+                    <th key={d} scope="col">
+                      {d}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {cols.map((col, ci) => (
+                  <tr key={ci}>
+                    <th scope="row">{fmtShort(parseISO(col[0]!.ds))}</th>
+                    {col.map((c, i) => (
+                      <td key={i}>{c.l < 0 ? '' : c.v > 0 ? Math.round(c.v) : '·'}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </details>
     </>
   );
@@ -304,7 +322,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
 /** 오답 분포 레이더(CBMS) — 5축 펜타곤 SVG. */
 function CbmsRadar() {
   const state = useApp((s) => s.state);
-  const codes: CbmsCode[] = ['C', 'B', 'M', 'S', 'T'];
+  const codes = CBMS_CODES; // 방법론 SSOT — 하드코딩 축 배열 제거(드리프트 위험 차단).
   const cnt = cbmsCounts(state);
   const vals = codes.map((k) => cnt[k] || 0);
   const total = vals.reduce((a, b) => a + b, 0);
@@ -459,6 +477,7 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
                   return (
                     <div
                       key={sid}
+                      className={st.wkSeg}
                       data-tip={lab}
                       role="img"
                       aria-label={lab}
@@ -466,7 +485,6 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
                       style={{
                         height: (h / maxH) * 110,
                         background: byId[sid]?.color || 'var(--acc)',
-                        borderRadius: '3px 3px 0 0',
                       }}
                     />
                   );
@@ -582,8 +600,6 @@ function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today
   );
 }
 
-const CBMS_CODES: CbmsCode[] = ['C', 'B', 'M', 'S', 'T'];
-
 /** 완료율 — 발광 원형 게이지(마운트 시 0→target 카운트업). 데이터 보드의 시선 집중점. */
 function Gauge({ pct }: { pct: number }) {
   const shown = useCountUp(pct);
@@ -634,12 +650,9 @@ export default function Stats() {
   const tr = cbmsTrend(state);
   const { icon: trIcon, good: trGood } = cbmsTrendGlyph(tr);
 
-  // 주된 약점(CBMS 최댓값).
+  // 주된 약점(CBMS 최댓값) — 방법론 SSOT의 argmax 헬퍼로 위임(오답 0이면 null).
   const cnt = cbmsCounts(state);
-  const cbmsTotal = CBMS_CODES.reduce((t, k) => t + (cnt[k] || 0), 0);
-  const topCode = CBMS_CODES.slice().sort((a, b) => (cnt[b] || 0) - (cnt[a] || 0))[0]!;
-  const topInfo = CBMS_INFO[topCode];
-  const topVal = cnt[topCode] || 0;
+  const top = cbmsTop(cnt); // {code,n,total}|null
 
   usePageChromeEffect(
     () => ({
@@ -754,20 +767,29 @@ export default function Stats() {
               </span>
             </div>
             <div className={st.verdict}>
-              <span className={st.vIcon} style={{ color: topInfo?.color }}>
-                {cbmsTotal ? `${topCode} ${topVal}` : '—'}
+              <span className={st.vIcon} style={{ color: top ? CBMS_INFO[top.code]?.color : undefined }}>
+                {top ? `${top.code} ${top.n}` : '—'}
               </span>
               <span className={st.vText} style={{ flex: 1 }}>
-                <b>주된 약점</b> {cbmsTotal ? `${topInfo?.label || ''}(전체 ${cbmsTotal}건)` : '오답 기록 없음'}
-                {cbmsTotal > 0 && (
-                  <div className={st.weakBar}>
-                    <i
-                      style={{
-                        width: `${Math.round((topVal / cbmsTotal) * 100)}%`,
-                        background: topInfo?.color || 'var(--acc)',
-                      }}
-                    />
-                  </div>
+                <b>주된 약점</b> {top ? `${CBMS_INFO[top.code]?.label || ''}(전체 ${top.total}건)` : '오답 기록 없음'}
+                {top && (
+                  <>
+                    <div className={st.weakBar}>
+                      <i
+                        style={{
+                          width: `${Math.round((top.n / top.total) * 100)}%`,
+                          background: CBMS_INFO[top.code]?.color || 'var(--acc)',
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={st.navLink}
+                      onClick={() => navigate('/review', { viewTransition: true })}
+                    >
+                      가장 잦은 유형의 처방에 다음 주 시간을 더 주세요 — 주간 리뷰로 →
+                    </button>
+                  </>
                 )}
               </span>
             </div>

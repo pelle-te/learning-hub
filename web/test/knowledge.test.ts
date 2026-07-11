@@ -5,7 +5,7 @@
    외부 의존(fetch·FS Access)이라 fetch는 stub, 디렉터리 핸들은 최소 페이크로 주입한다.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchKnowledgeArtifact, loadKnowledgeStateFromVault, type Knowledge } from '@/lib/knowledge';
+import { fetchKnowledgeArtifact, loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge } from '@/lib/knowledge';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -87,5 +87,38 @@ describe('loadKnowledgeStateFromVault — 볼트 FS 로더', () => {
   });
   it('깨진 JSON이면 throw하지 않고 null', async () => {
     expect(await loadKnowledgeStateFromVault(fakeVault('{깨진'))).toBeNull();
+  });
+});
+
+describe('rootCauseRollup — 약점 근본원인 롤업 (AN-2)', () => {
+  it('self·무근원은 제외하고 같은 원인의 약점 수를 내림차순으로', () => {
+    const k: Knowledge = {
+      gaps: [
+        { root_cause: '미분', p_eff: 0.2 },
+        { root_cause: '극한', p_eff: 0.3 },
+        { root_cause: '미분', p_eff: 0.1 },
+        { root_cause: 'self', p_eff: 0.2 }, // 본인 개념 → 제외
+        { root_cause: '미분', p_eff: 0.25 },
+        { p_eff: 0.4 }, // 근원 없음 → 제외
+      ],
+    };
+    expect(rootCauseRollup(k)).toEqual([
+      { cause: '미분', count: 3 },
+      { cause: '극한', count: 1 },
+    ]);
+  });
+  it('gaps 없음/undefined면 빈 배열', () => {
+    expect(rootCauseRollup(undefined)).toEqual([]);
+    expect(rootCauseRollup({})).toEqual([]);
+  });
+  it('cap으로 상위 N만', () => {
+    const k: Knowledge = {
+      gaps: [
+        { root_cause: 'a', p_eff: 0 },
+        { root_cause: 'b', p_eff: 0 },
+        { root_cause: 'c', p_eff: 0 },
+      ],
+    };
+    expect(rootCauseRollup(k, 2).length).toBe(2);
   });
 });

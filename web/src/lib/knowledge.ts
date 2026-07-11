@@ -55,6 +55,22 @@ export interface Knowledge {
   calibration?: KnowledgeCalibration;
 }
 
+/** 약점의 근본원인(선수개념) 롤업 — 같은 root_cause가 몇 개 약점의 뿌리인지 내림차순(self·무근원 제외).
+   프런티어의 prereq_in('이걸 배우면 N개가 풀린다')의 약점판 미러 — 가장 많은 약점의 뿌리를 먼저 메우면
+   상류가 함께 풀린다(지식엔진 설계 B). 이미 페치된 k.gaps만 사용(신규 IO 0). */
+export function rootCauseRollup(k: Knowledge | undefined, cap = 5): { cause: string; count: number }[] {
+  const m = new Map<string, number>();
+  (k?.gaps || []).forEach((g) => {
+    const rc = g.root_cause;
+    if (!rc || rc === 'self') return;
+    m.set(rc, (m.get(rc) || 0) + 1);
+  });
+  return [...m.entries()]
+    .map(([cause, count]) => ({ cause, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, cap);
+}
+
 /** serve.js 산출물(읽기 전용) — 없으면 throw(Query isError로 폴백 안내). */
 export async function fetchKnowledgeArtifact(): Promise<Knowledge> {
   const j = await getArtifact<Knowledge>('knowledge');

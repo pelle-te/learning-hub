@@ -4,20 +4,23 @@
    계획 vs 실제 · CBMS 분포 · 백로그 회수 · 주간 체크리스트.
 ============================================================ */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { toastUndo } from '@/shell/toast';
-import { useHeroPointer, useWeekNavKeys } from '@/lib/interactions';
+import { useToggleBacklogUndo } from '@/shell/useBacklog';
+import { useHeroPointer, useWeekNavKeys, useFlushOnUnmount } from '@/lib/interactions';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import {
   cbmsCounts,
+  cbmsTop,
   CBMS_INFO,
+  CBMS_CODES,
   openBacklog,
   backlogClosedBetween,
   setWeeklyCheck,
   setWeeklyNote,
-  toggleBacklog,
 } from '@/lib/methodology';
 import { indexDays } from '@/lib/scheduleView';
 import { weeklyInsights, weakSpots } from '@/lib/insights';
@@ -77,9 +80,12 @@ const WEEKLY_CHECKS: [string, string][] = [
 /** 계획 대비 실제 — 요일별 계획·완료 분 막대(weekPlanActual 집계 공유). 주간 디브리프의 발광 시그니처.
    액센트 베이크 패널 + 포인터 추적 스포트라이트·오로라(ds.spotHost/spotlight/aura/glow). */
 function PlanActualCard({ pa }: { pa: WeekPA }) {
-  const { byDay, maxRef, rate } = pa;
+  const { byDay, maxRef, rate, planMin } = pa;
+  const navigate = useNavigate();
   // 포인터 추적 스포트라이트 — 시그니처 차트가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref, onMouseMove, onMouseLeave } = useHeroPointer(0);
+  // 과거 무계획·미래 주는 planMin=0 → 높이0 막대7개+"달성0%"가 '고장난 듯'. 인라인 빈상태로 교체.
+  const empty = planMin === 0;
 
   return (
     <div
@@ -92,53 +98,60 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
       <div className={ds.aura} aria-hidden="true" />
       <div className={rv.sigHead}>
         <span className={rv.sigTitle}>계획 대비 실제 — PLAN vs ACTUAL</span>
-        <span className={rv.sigRate}>
-          달성 {rate}
-          <small>%</small>
-        </span>
+        {!empty && (
+          <span className={rv.sigRate}>
+            달성 {rate}
+            <small>%</small>
+          </span>
+        )}
       </div>
-      <div className={rv.paChart}>
-        {byDay.map((x) => {
-          const ph = Math.round((x.pm / maxRef) * 70);
-          const dh = Math.round((x.dm / maxRef) * 70);
-          const paLab = `${DOW_MON[x.k]} ${fmtShort(parseISO(x.ds))} · 계획 ${(x.pm / 60).toFixed(1)}h / 완료 ${(x.dm / 60).toFixed(1)}h`;
-          return (
-            <div key={x.k} className={rv.paCol} data-tip={paLab} role="img" aria-label={paLab}>
-              <span className={rv.paBar}>
-                <i className={rv.plan} style={{ height: ph }} />
-                <i className={rv.done} style={{ height: dh }} />
-              </span>
-              <span className={`${ds.tiny} ${ds.muted}`}>{DOW_MON[x.k]}</span>
-            </div>
-          );
-        })}
-      </div>
+      {empty ? (
+        <div className={rv.paEmpty}>이 주엔 계획된 블록이 없어요 — 계획 탭에서 배정하면 채워집니다.</div>
+      ) : (
+        <div className={rv.paChart}>
+          {byDay.map((x) => {
+            const ph = Math.round((x.pm / maxRef) * 70);
+            const dh = Math.round((x.dm / maxRef) * 70);
+            const paLab = `${DOW_MON[x.k]} ${fmtShort(parseISO(x.ds))} · 계획 ${(x.pm / 60).toFixed(1)}h / 완료 ${(x.dm / 60).toFixed(1)}h`;
+            // 인덱스 기반 소량 stagger — 막대가 요일 순서대로 밑에서 차오른다(표현만, 데이터 불변).
+            return (
+              <div key={x.k} className={rv.paCol} data-tip={paLab} role="img" aria-label={paLab}>
+                <span className={rv.paBar}>
+                  <i className={rv.plan} style={{ height: ph, animationDelay: `${x.k * 45}ms` }} />
+                  <i className={rv.done} style={{ height: dh, animationDelay: `${x.k * 45 + 80}ms` }} />
+                </span>
+                <span className={`${ds.tiny} ${ds.muted}`}>{DOW_MON[x.k]}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className={ds.foot}>
         <span className={`${rv.paLg} ${rv.plan}`} /> 계획 &nbsp; <span className={`${rv.paLg} ${rv.done}`} /> 완료
-        &nbsp;· 막대는 요일별 시간. 자세한 추세는 <b>통계</b> 탭.
+        &nbsp;· 막대는 요일별 시간. 자세한 추세는{' '}
+        <button type="button" className={rv.inlineLink} onClick={() => navigate('/stats', { viewTransition: true })}>
+          통계
+        </button>{' '}
+        탭.
       </div>
     </div>
   );
 }
 
-/** CBMS 분포(6·10절). */
-function CbmsDistCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
-  const state = useApp((s) => s.state);
-  const cnt = cbmsCounts(state, ds0, ds6);
-  const codes = Object.keys(CBMS_INFO) as CbmsCode[];
-  const total = codes.reduce((a, c) => a + cnt[c], 0);
-  const maxc = Math.max(1, ...codes.map((c) => cnt[c]));
+/** CBMS 분포(6·10절). 카운트는 본체가 이미 리드아웃용으로 집계한 걸 주입받아 이중 순회를 없앤다. */
+function CbmsDistCard({ cnt }: { cnt: Record<CbmsCode, number> }) {
+  const maxc = Math.max(1, ...CBMS_CODES.map((c) => cnt[c]));
+  const top = cbmsTop(cnt); // 최다코드 + 합 — argmax/합 관용구는 methodology 단일 출처.
   let hint: React.ReactNode = '이번 주 기록된 오답이 없어요. 막힌 곳을 CBMS로 남기면 약점 분포가 보입니다.';
-  if (total) {
-    const top = codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode);
+  if (top) {
     // 처방 문구는 CBMS_INFO.tip이 단일 원천 — 로컬 사본은 CoachCard·Anki 카드와 어긋나게 드리프트했다.
     hint = (
       <>
         가장 많은 코드{' '}
         <b>
-          {top}({CBMS_INFO[top].label})
+          {top.code}({CBMS_INFO[top.code].label})
         </b>{' '}
-        — {CBMS_INFO[top].tip}
+        — {CBMS_INFO[top.code].tip}
       </>
     );
   }
@@ -147,7 +160,7 @@ function CbmsDistCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
       <h2>
         오답 CBMS 분포 <span className={`${ds.muted} ${ds.tiny}`}>— 약점의 분포</span>
       </h2>
-      {codes.map((c) => {
+      {CBMS_CODES.map((c) => {
         const inf = CBMS_INFO[c];
         const n = cnt[c];
         return (
@@ -174,14 +187,11 @@ function CbmsDistCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
 /** 백로그 회수(5·10절). */
 function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   const state = useApp((s) => s.state);
-  const mutate = useApp((s) => s.mutate);
+  const navigate = useNavigate();
   const open = openBacklog(state);
   const closedThisWeek = backlogClosedBetween(state, ds0, ds6);
-  // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트(기록 탭과 동일 문화).
-  const close = (id: string) => {
-    mutate((st) => toggleBacklog(st, id));
-    toastUndo('보충 회수 완료 ✓', () => mutate((st) => toggleBacklog(st, id)));
-  };
+  // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트(Journal과 단일 출처).
+  const close = useToggleBacklogUndo();
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>
@@ -210,7 +220,11 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
         <div className={`${ds.empty} ${ds.tiny}`}>열린 백로그가 없어요 👍</div>
       )}
       <div className={ds.foot} style={{ marginTop: 8 }}>
-        오래 열린 항목일수록 위로. 더 안 중요하면 과감히 버린다(재시작 루틴). 추가는 <b>오늘 학습</b> 탭에서.
+        오래 열린 항목일수록 위로. 더 안 중요하면 과감히 버린다(재시작 루틴). 추가는{' '}
+        <button type="button" className={rv.inlineLink} onClick={() => navigate('/today', { viewTransition: true })}>
+          오늘 학습
+        </button>{' '}
+        탭에서.
       </div>
     </div>
   );
@@ -222,6 +236,12 @@ function ChecklistCard({ wk }: { wk: string }) {
   const mutate = useApp((s) => s.mutate);
   const checks = w.checks || {};
   const ckDone = WEEKLY_CHECKS.filter(([k]) => !!checks[k]).length;
+  // 메모는 로컬 draft로 미러링 — 키 입력마다 전역 mutate(→schedule 전체 재계산 캐스케이드)를 피하고
+  // onBlur(및 언마운트 flush)에서만 커밋한다(Journal 텍스트 필드와 동일 패턴).
+  // draft 초기값=이번 주 note. 주(wk)가 바뀌면 이 카드는 부모 key={wk}로 리마운트돼 자동 재동기화된다.
+  const [draft, setDraft] = useState(w.note || '');
+  const commit = () => mutate((st) => setWeeklyNote(st, wk, draft));
+  useFlushOnUnmount(commit); // 마지막 편집 유실 방지 — 탭 이탈/주 이동으로 언마운트될 때 draft 커밋.
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>
@@ -242,13 +262,14 @@ function ChecklistCard({ wk }: { wk: string }) {
       ))}
       <label htmlFor="wk-note" style={{ marginTop: 10 }}>
         이번 주 메모 <span className={`${ds.muted} ${ds.tiny}`}>(무엇을 바꿀까)</span>
-        {(w.note || '').trim() && <span className={`${ds.pill} ${ds.good} ${ds.tiny}`}> ✓ 자동 저장됨</span>}
+        {draft.trim() && <span className={`${ds.pill} ${ds.good} ${ds.tiny}`}> ✓ 자동 저장됨</span>}
       </label>
       <textarea
         id="wk-note"
         rows={3}
-        value={w.note || ''}
-        onChange={(e) => mutate((st) => setWeeklyNote(st, wk, e.target.value))}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
         placeholder="예) M 오답이 많았다 → 다음 주 통신 도출 백지연습 +1블록. 보충필요 2개 남음, 토요일 오전에 닫기."
       />
       <div className={ds.foot}>체크/메모는 그 주에 저장돼요(주를 넘기면 각각 따로 보관).</div>
@@ -434,6 +455,18 @@ function RiskCard() {
                   {c.subject} <small>{c.chapter}</small>
                 </span>
                 <span className={rv.riskAge}>{c.daysSince}일</span>
+                {/* 백지 복습 유도의 손잡이 — 볼트 딥링크(Graph E-5 미러). obsidian://search는 볼트명 없이도 동작. */}
+                <button
+                  type="button"
+                  className={rv.riskFind}
+                  onClick={() =>
+                    window.open('obsidian://search?query=' + encodeURIComponent(c.subject + ' ' + c.chapter))
+                  }
+                  title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
+                  aria-label={`${c.subject} ${c.chapter} 볼트에서 검색`}
+                >
+                  🔎
+                </button>
               </li>
             ))}
           </ul>
@@ -470,10 +503,9 @@ export default function Review() {
   const pa = weekPlanActual(state, res, mon);
 
   // 디브리프 리드아웃 — 달성률·가장 잦은 오답·보충 열림을 상단 바로(데모 v6 헤더).
+  // cnt는 여기서 한 번 집계해 CbmsDistCard에도 주입한다(이중 cbmsCounts 순회 제거).
   const cnt = cbmsCounts(state, ds0, ds6);
-  const codes = Object.keys(CBMS_INFO) as CbmsCode[];
-  const cbmsTotal = codes.reduce((a, ci) => a + cnt[ci], 0);
-  const top = cbmsTotal ? codes.reduce((a, b) => (cnt[b] > cnt[a] ? b : a), 'C' as CbmsCode) : null;
+  const cbmsT = cbmsTop(cnt); // 최다 오답 코드 + 합 — 리드아웃·분포 카드가 공유.
   const openN = openBacklog(state).length;
 
   usePageChromeEffect(
@@ -489,11 +521,11 @@ export default function Review() {
           ),
           accent: true,
         },
-        { label: '잦은 오답', value: top ?? '—' },
+        { label: '잦은 오답', value: cbmsT?.code ?? '—' },
         { label: '보충 열림', value: openN },
       ],
     }),
-    [pa.rate, top, openN],
+    [pa.rate, cbmsT?.code, openN],
   );
 
   return (
@@ -526,11 +558,12 @@ export default function Review() {
           {/* key=주 — 주를 이동하면 AI 코칭(ai/aiErr/aiBusy)이 리셋된다(이전 주 코칭이 그대로 남던 오표시 방지). */}
           <CoachCard key={ds0} ds0={ds0} />
           <PlanActualCard pa={pa} />
-          <CbmsDistCard ds0={ds0} ds6={ds6} />
+          <CbmsDistCard cnt={cnt} />
         </div>
         {/* 우 — 점검·회수(액션) */}
         <div className={rv.sideCol}>
-          <ChecklistCard wk={wk} />
+          {/* key=주 — 주 이동 시 리마운트해 메모 draft를 그 주 note로 재동기화(+언마운트 flush). */}
+          <ChecklistCard key={wk} wk={wk} />
           <RiskCard />
           <BacklogReviewCard ds0={ds0} ds6={ds6} />
         </div>

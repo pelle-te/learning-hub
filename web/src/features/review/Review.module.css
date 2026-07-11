@@ -26,6 +26,31 @@
   width: 9px;
   border-radius: 3px 3px 0 0;
   transition: height 0.4s var(--ease);
+  /* 마운트 리빌 — 막대가 밑에서 차오른다(그룹 유일 정적 시그니처였음). 지연은 인라인 style로 stagger.
+     height 트랜지션과 공존: scaleY는 등장, height는 주 이동 시 값 변화 담당. */
+  transform-origin: bottom;
+  animation: rv-barRise 0.4s var(--ease) both;
+}
+@keyframes rv-barRise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* AN-13: planMin=0(무계획 주) 인라인 빈상태 — 높이0 막대 대신 안내(CbmsDistCard 힌트와 정합). */
+.paEmpty {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--mut);
+  text-align: center;
 }
 .paBar i.plan,
 .paLg.plan {
@@ -43,6 +68,30 @@
   border-radius: 3px;
   vertical-align: middle;
   margin-right: 2px;
+}
+
+/* AN-9: 인라인 텍스트 참조를 내비 링크로 — 얇은 밑줄 링크(푸터 문장에 자연스럽게 녹임). */
+.inlineLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--acc);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--acc) 45%, transparent);
+  transition: text-decoration-color 0.15s var(--ease);
+}
+.inlineLink:hover {
+  text-decoration-color: var(--acc);
+}
+.inlineLink:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 /* 계획 대비 실제 — 발광 시그니처 차트(액센트 베이크 + 스포트라이트 호스트). */
@@ -463,6 +512,37 @@
 .riskRow[data-risk='overdue'] .riskAge {
   color: var(--bad);
 }
+/* AN-18: 볼트 딥링크 손잡이 — 각 위험 행에서 백지 복습할 개념을 Obsidian에서 바로 검색(데드엔드 해소). */
+.riskFind {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.55;
+  cursor: pointer;
+  transition:
+    opacity 0.15s var(--ease),
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.riskFind:hover {
+  opacity: 1;
+  background: var(--panel2);
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+}
+.riskFind:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
 
 @media (max-width: 900px) {
   .grid {
@@ -475,9 +555,12 @@
   }
 }
 
-/* 모션 자제 백스톱 — 시그니처 차트 등장 모션 즉시화. */
+/* 모션 자제 백스톱 — 시그니처 차트 등장 모션·막대 리빌 즉시화. */
 @media (prefers-reduced-motion: reduce) {
   .sigChart {
+    animation: none;
+  }
+  .paBar i {
     animation: none;
   }
 }

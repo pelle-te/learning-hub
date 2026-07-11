@@ -27,6 +27,23 @@
   line-height: 1.5;
   color: var(--mut);
 }
+/* 힌트 문장 안 인라인 링크 — <b> 강조를 실제 내비 버튼으로(통계·주간 리뷰로 점프). */
+.inlineLink {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: var(--acc);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--acc) 40%, transparent);
+  text-underline-offset: 2px;
+}
+.inlineLink:hover {
+  text-decoration-color: var(--acc);
+}
 /* 최근 활동 피드 — 스트림 아래 온디맨드(접힘 기본). 오늘의 로그와 시각 위계 분리(저대비·컴팩트). */
 .feed {
   flex: none;

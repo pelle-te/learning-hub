@@ -136,6 +136,34 @@
   font-weight: 600;
 }
 
+/* 상세 드로어 차트 막대 — 형태·전이는 클래스로(색·높이는 동적 인라인). 게이지/스트릭 수준의 마감. */
+.sparkBar {
+  flex: 1;
+  min-width: 6px;
+  align-self: flex-end;
+  background: var(--acc);
+  border-radius: 2px 2px 0 0;
+  transition:
+    filter 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.sparkBar:hover,
+.sparkBar:focus-visible {
+  filter: brightness(1.16);
+  box-shadow: 0 0 8px var(--glow);
+}
+.wkSeg {
+  border-radius: 3px 3px 0 0;
+  transition:
+    filter 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+.wkSeg:hover,
+.wkSeg:focus-visible {
+  filter: brightness(1.14);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
 /* ============================================================
    데이터 보드 단일화면(데모 v6 사상) — fill 프레임 가득.
    [스파인 | 지표 컬럼 | 시그니처(스트릭 발광맵) | 과목별 진행] · 깊은 차트는 DetailDrawer로.
@@ -420,6 +448,26 @@
   display: block;
   height: 100%;
   border-radius: 99px;
+}
+
+/* 얇은 인라인 내비 링크 — 판정/인출 처방을 실제 주간 리뷰 탭으로 잇는다(텍스트에 녹아드는 액센트). */
+.navLink {
+  display: inline;
+  padding: 0;
+  margin-left: 5px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--acc);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: text-shadow 0.16s var(--ease);
+}
+.navLink:hover,
+.navLink:focus-visible {
+  text-decoration: underline;
+  text-shadow: 0 0 12px var(--glow);
 }
 
 /* 4 — 과목별 진행(우측, 스크롤) */

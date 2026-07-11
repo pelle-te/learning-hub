@@ -5,25 +5,30 @@
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { ui, io } from '@/shell';
 import { toastUndo } from '@/shell/toast';
+import { useToggleBacklogUndo } from '@/shell/useBacklog';
 import {
   summariesFor,
   addSummary,
   editSummary,
   delSummary,
+  restoreSummary,
   cbmsBetween,
   editCbms,
   delCbms,
+  restoreCbms,
   CBMS_INFO,
+  CBMS_CODES,
   openBacklog,
   addBacklog,
   editBacklog,
-  toggleBacklog,
   delBacklog,
+  restoreBacklog,
   activityFeed,
 } from '@/lib/methodology';
 import { addDays, fmt, iso, itemById, parseISO, todayISO } from '@/lib/utils';
@@ -143,11 +148,7 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
     mutate((st) => delSummary(st, dsKey, id));
     toastUndo('요약 삭제됨', () => {
       if (!rec) return;
-      mutate((st) => {
-        st.summaries = st.summaries || {};
-        const arr = (st.summaries[dsKey] = st.summaries[dsKey] || []);
-        arr.splice(Math.min(idx < 0 ? arr.length : idx, arr.length), 0, { ...rec });
-      });
+      mutate((st) => restoreSummary(st, dsKey, idx, rec));
     });
   };
   // 오늘 산출물(요약·오답)이 없으면 내보내기는 빈 파일 = 데드엔드 → 비활성화.
@@ -269,7 +270,7 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
           ) : (
             <div key={x.id} className={ds.rec}>
               <div className={ds.recHead}>
-                <span className={ds.swatch} style={{ background: itemById(state, x.sid)?.color || '#6ea8fe' }} />
+                <span className={ds.swatch} style={{ background: itemById(state, x.sid)?.color || 'var(--acc)' }} />
                 <b>{x.name || '(과목 없음)'}</b>
                 <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(x)} title="수정">
                   ✎
@@ -304,17 +305,16 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
   const state = useApp((s) => s.state);
   const addCbms = useApp((s) => s.addCbms);
   const mutate = useApp((s) => s.mutate);
-  const codes = Object.keys(CBMS_INFO) as CbmsCode[];
   const [sid, setSid] = useState('');
   const [chapter, setChapter] = useState('');
-  const [code, setCode] = useState<CbmsCode>(codes[0]!);
+  const [code, setCode] = useState<CbmsCode>(CBMS_CODES[0]!);
   const [note, setNote] = useState('');
   const [conf, setConf] = useState(false);
   // 인라인 편집 — 저장된 오답의 챕터·유형·메모·확신플래그를 제자리에서 고친다.
   const [editId, setEditId] = useState<string | null>(null);
   const [edraft, setEdraft] = useState<{ chapter: string; code: CbmsCode; note: string; conf: boolean }>({
     chapter: '',
-    code: codes[0]!,
+    code: CBMS_CODES[0]!,
     note: '',
     conf: false,
   });
@@ -356,10 +356,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
     mutate((st) => delCbms(st, id));
     toastUndo('오답 삭제됨', () => {
       if (!rec) return;
-      mutate((st) => {
-        st.cbms = st.cbms || [];
-        st.cbms.push({ ...rec });
-      });
+      mutate((st) => restoreCbms(st, rec));
     });
   };
 
@@ -387,7 +384,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
         <div className={ds.fld}>
           <label>유형</label>
           <select value={code} onChange={(e) => setCode(e.target.value as CbmsCode)}>
-            {codes.map((c) => (
+            {CBMS_CODES.map((c) => (
               <option key={c} value={c}>
                 {c} — {CBMS_INFO[c].label}
               </option>
@@ -442,7 +439,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
                       value={edraft.code}
                       onChange={(ev) => setEdraft((d) => ({ ...d, code: ev.target.value as CbmsCode }))}
                     >
-                      {codes.map((c) => (
+                      {CBMS_CODES.map((c) => (
                         <option key={c} value={c}>
                           {c} — {CBMS_INFO[c].label}
                         </option>
@@ -524,6 +521,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
 function BacklogCard() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
+  const toggleUndo = useToggleBacklogUndo();
   const [sid, setSid] = useState('');
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
@@ -560,20 +558,12 @@ function BacklogCard() {
     setNote('');
     ui.toast('백로그 추가됨', 'ok');
   };
-  // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트.
-  const toggle = (id: string) => {
-    mutate((st) => toggleBacklog(st, id));
-    toastUndo('보충 회수 완료 ✓', () => mutate((st) => toggleBacklog(st, id)));
-  };
   const del = (id: string) => {
     const rec = open.find((x) => x.id === id);
     mutate((st) => delBacklog(st, id));
     toastUndo('백로그 삭제됨', () => {
       if (!rec) return;
-      mutate((st) => {
-        st.backlog = st.backlog || [];
-        st.backlog.push({ ...rec });
-      });
+      mutate((st) => restoreBacklog(st, rec));
     });
   };
 
@@ -660,8 +650,8 @@ function BacklogCard() {
           ) : (
             <div key={b.id} className={`${ds.rec} ${ds.blOpen}`}>
               <div className={ds.recHead}>
-                <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => toggle(b.id)} />
-                <span className={ds.swatch} style={{ background: itemById(state, b.sid)?.color || '#888' }} />
+                <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => toggleUndo(b.id)} />
+                <span className={ds.swatch} style={{ background: itemById(state, b.sid)?.color || 'var(--mut)' }} />
                 <b>{b.topic || '(주제 없음)'}</b>
                 {b.name && <span className={`${ds.muted} ${ds.tiny}`}> · {b.name}</span>}
                 <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 6 }}>
@@ -691,10 +681,12 @@ function BacklogCard() {
 function ActivityFeed({ ds2 }: { ds2: string }) {
   const state = useApp((s) => s.state);
   const feed = activityFeed(state, iso(addDays(parseISO(ds2), -6)), ds2);
+  // 접힌 <details> 안 목록을 항상 렌더하지 않고 열렸을 때만(onToggle로 open 추적) 렌더 — lazy.
+  const [open, setOpen] = useState(false);
   return (
-    <details className={j.feed}>
+    <details className={j.feed} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
       <summary className={j.feedSum}>최근 활동 · 7일{feed.length ? ` (${feed.length})` : ''}</summary>
-      {feed.length ? (
+      {!open ? null : feed.length ? (
         <ol className={j.feedList}>
           {feed.map((e, i) => (
             <li key={i} className={j.feedRow}>
@@ -715,6 +707,7 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
 
 export default function Journal() {
   const state = useApp((s) => s.state);
+  const navigate = useNavigate();
   const today = todayISO({ _today: state._today }); // '오늘' 단일 출처 존중
   // 기록 대상 날짜 — 기본 오늘, 과거로 이동해 어제 놓친 블록을 백필할 수 있다(미래로는 못 감).
   const [ds2, setDs2] = useState(today);
@@ -735,7 +728,8 @@ export default function Journal() {
         { label: '오답', value: cbmsN },
         { label: '열린 보충', value: openN },
       ],
-      action: { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') },
+      // 무데이터면 빈 파일 데드엔드 → 상단바 액션 자체를 미노출(카드 내부 버튼은 canExport로 별도 가드).
+      action: sumN || cbmsN ? { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') } : undefined,
     }),
     [sumN, cbmsN, openN],
   );
@@ -745,11 +739,22 @@ export default function Journal() {
       <div className={j.cols}>
         {/* 좌 — 로그(시그니처, fill) + 최근 활동(온디맨드). 선택 날짜를 따라간다. */}
         <div className={j.logCol}>
-          <JournalStream ds={ds2} fill />
+          <JournalStream ds={ds2} isToday={isToday} fill />
           <ActivityFeed ds2={ds2} />
           <div className={j.logHint}>
             공부 뒤 남기는 산출물({fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 하나씩. 누적 추세·약점 분포는{' '}
-            <b>통계</b>·<b>주간 리뷰</b>에서.
+            <button type="button" className={j.inlineLink} onClick={() => navigate('/stats', { viewTransition: true })}>
+              통계
+            </button>
+            ·
+            <button
+              type="button"
+              className={j.inlineLink}
+              onClick={() => navigate('/review', { viewTransition: true })}
+            >
+              주간 리뷰
+            </button>
+            에서.
           </div>
         </div>
         {/* 우 — 기록 입력(온화면 패널, 스크롤) */}

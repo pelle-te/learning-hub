@@ -7,7 +7,7 @@
 ============================================================ */
 import { addDays, iso, mondayOf, parseISO, rid, todayISO } from './utils';
 import { SCHEMA_VERSION, isDone } from './persistence';
-import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, ScheduleResult, Summary } from './types';
+import type { AppState, Backlog, BlankResult, Cbms, CbmsCode, Ritual, ScheduleResult, Summary } from './types';
 
 /* ── 인출 증거·추세 파생(통계 리드아웃·인출카드 공용 · 중복 제거 SSOT) ── */
 
@@ -108,6 +108,22 @@ export const CBMS_INFO: Record<CbmsCode, { label: string; tip: string; color: st
   S: { label: '실수', tip: '검산 습관 + 단위 체크 자동화', color: '#7ee0c0' },
   T: { label: '시간', tip: '자주 막히는 계산 손에 익히기 + 시간 분배 훈련', color: '#b794f6' },
 };
+/** CBMS 코드 순서·집합의 단일 원천(SSOT) — CBMS_INFO에서 파생. Stats·Review·Journal이 각자
+   `['C','B','M','S','T']`/`Object.keys(CBMS_INFO)`를 재선언하던 드리프트 위험을 봉쇄. */
+export const CBMS_CODES = Object.keys(CBMS_INFO) as CbmsCode[];
+
+/** 코드별 카운트에서 최다 코드 + 전체합 — 임계 없는 argmax(문턱이 있는 dominantCbms와 별개).
+   Stats(sort)·Review(reduce)가 각자 인라인하던 두 관용구를 하나로. 오답 0이면 null. */
+export function cbmsTop(counts: Record<CbmsCode, number>): { code: CbmsCode; n: number; total: number } | null {
+  let total = 0;
+  let top: CbmsCode = CBMS_CODES[0]!;
+  for (const c of CBMS_CODES) {
+    const n = counts[c] || 0;
+    total += n;
+    if (n > (counts[top] || 0)) top = c;
+  }
+  return total ? { code: top, n: counts[top] || 0, total } : null;
+}
 /** conf: '찍어서 맞음/확신 없었음' 플래그(6절·E5). */
 export function addCbms(
   state: AppState,
@@ -160,6 +176,33 @@ export function cbmsCounts(state: AppState, fromDs?: string, toDs?: string): Rec
 }
 export function cbmsBetween(state: AppState, fromDs?: string, toDs?: string) {
   return (state.cbms || []).filter((e) => (!fromDs || e.ds >= fromDs) && (!toDs || e.ds <= toDs));
+}
+/** 과신 오답률(E5) — [fromDs,toDs] 구간에서 conf('찍어서 맞음/확신 없었음') 플래그 비율.
+   지식엔진 캘리브레이션 산출물과 달리 앱 상태(cbms[].conf)만으로 실시간. 오답 없으면 null. */
+export function confRate(
+  state: AppState,
+  fromDs?: string,
+  toDs?: string,
+): { conf: number; total: number; rate: number } | null {
+  const rows = cbmsBetween(state, fromDs, toDs);
+  if (!rows.length) return null;
+  const conf = rows.filter((e) => e.conf).length;
+  return { conf, total: rows.length, rate: Math.round((conf / rows.length) * 100) };
+}
+/* ── 삭제 되돌리기 복원 — feature가 state 내부구조(배열 형태·원위치 idx)를 알지 않게 삭제와 대칭.
+   스냅샷 rec만 넘기면 lib이 복원 위치를 소유(단방향 레이어 경계). ── */
+export function restoreSummary(state: AppState, ds: string, idx: number, rec: Summary): void {
+  state.summaries = state.summaries || {};
+  const arr = (state.summaries[ds] = state.summaries[ds] || []);
+  arr.splice(Math.min(idx < 0 ? arr.length : idx, arr.length), 0, { ...rec });
+}
+export function restoreCbms(state: AppState, rec: Cbms): void {
+  state.cbms = state.cbms || [];
+  state.cbms.push({ ...rec });
+}
+export function restoreBacklog(state: AppState, rec: Backlog): void {
+  state.backlog = state.backlog || [];
+  state.backlog.push({ ...rec });
 }
 
 /* ── 백지 복습 결과(9절·E4) — 통과/막힘 실측. 하루·과목당 1개(중복 갱신).

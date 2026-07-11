@@ -29,14 +29,27 @@ function fmtTime(at?: number): string {
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: boolean }) {
+export default function JournalStream({
+  ds: dsKey,
+  isToday = true,
+  fill,
+}: {
+  ds: string;
+  isToday?: boolean;
+  fill?: boolean;
+}) {
   const state = useApp((st) => st.state);
   // 포인터 추적 스포트라이트 — 시그니처 보드가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref, onMouseMove, onMouseLeave } = useHeroPointer(0);
   const sums = summariesFor(state, dsKey);
   const cbms = cbmsBetween(state, dsKey, dsKey);
   const backlogToday = (state.backlog || []).filter((b) => b.ds === dsKey);
-  const total = sums.length + cbms.length + backlogToday.length;
+  // 백지 복습 결과(통과/막힘) — 7일 활동피드엔 이미 들지만 일일 로그엔 빠져 불일치였다.
+  const blanks = (state.blankResults || []).filter((b) => b.ds === dsKey);
+  const total = sums.length + cbms.length + blanks.length + backlogToday.length;
+  // 날짜 스테퍼로 과거일 백필 시 '오늘의 로그'는 모호 → 오늘이 아니면 날짜 표기.
+  const [, mm, dd] = dsKey.split('-');
+  const titleLabel = isToday ? '오늘의 로그' : `${Number(mm)}/${Number(dd)} 로그`;
 
   return (
     <div
@@ -48,7 +61,7 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
       <div className={ds.spotlight} aria-hidden="true" />
       <div className={ds.aura} aria-hidden="true" />
       <div className={s.head}>
-        <span className={s.title}>오늘의 로그 — LOG</span>
+        <span className={s.title}>{titleLabel} — LOG</span>
         <span className={s.counts}>
           <span>
             <Count n={sums.length} /> 요약
@@ -56,6 +69,11 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
           <span>
             <Count n={cbms.length} /> 오답
           </span>
+          {blanks.length > 0 && (
+            <span>
+              <Count n={blanks.length} /> 백지
+            </span>
+          )}
           <span>
             <Count n={backlogToday.length} /> 보충
           </span>
@@ -102,6 +120,17 @@ export default function JournalStream({ ds: dsKey, fill }: { ds: string; fill?: 
               </li>
             );
           })}
+          {blanks.map((b) => (
+            <li key={`bl-${b.id}`} className={s.row}>
+              <span className={s.node} />
+              <span className={`${s.kind} ${s.kBlank}`} data-passed={b.passed ? '1' : '0'}>
+                {b.passed ? '백지 통과' : '백지 막힘'}
+              </span>
+              <span className={s.swatch} style={{ background: itemById(state, b.sid)?.color || 'var(--acc)' }} />
+              <span className={s.name}>{b.name || '(과목 없음)'}</span>
+              {b.note && <span className={s.lead}>{b.note}</span>}
+            </li>
+          ))}
           {backlogToday.map((b) => (
             <li key={`b-${b.id}`} className={`${s.row}${b.done ? ' ' + s.dim : ''}`}>
               <span className={`${s.node} ${s.flag}`} />

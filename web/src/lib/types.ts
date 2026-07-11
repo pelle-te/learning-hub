@@ -11,6 +11,7 @@ export type {
   CompletionEntry,
   Summary,
   CbmsCode,
+  Cbms,
   Backlog,
   BlankResult,
   Weekly,

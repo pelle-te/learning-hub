@@ -34,7 +34,12 @@ interface SelInfo {
   done?: number;
   total?: number;
   tone?: string;
+  /** AN-23 — 허브 총 학습시간(graphData가 이미 계산). 상세에 '총 학습 X.Xh'로 노출. */
+  hours?: number;
 }
+
+// AN-11 — sel이 없을 때 reviews를 스킵하기 위한 안정 빈 배열(memo 참조 고정 → reviewMap도 안정).
+const EMPTY_REVIEWS: ChapterReview[] = [];
 
 /** 테마/액센트에서 읽어오는 캔버스 색(런타임 해석 — var()는 캔버스에 못 쓴다). */
 interface Palette {
@@ -96,6 +101,8 @@ export default function Graph() {
   const tipRef = useRef<HTMLDivElement>(null);
   // B6 — 클릭 선택 노드(상세 패널). 챕터 잎이면 간격반복 위험까지 보여준다.
   const [sel, setSel] = useState<SelInfo | null>(null);
+  // AN-5 — 상세 dialog가 열릴 때 닫기 버튼으로 포커스를 옮겨 키보드 사용자가 진입/탈출 가능하게(ref는 이펙트에서만 사용).
+  const detailCloseRef = useRef<HTMLButtonElement>(null);
   // '+N개 더' 오버플로 노드를 눌러 펼친 허브(itemId) — 캡을 풀어 숨은 챕터를 실제로 드러낸다.
   const [expandedHubs, setExpandedHubs] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -125,7 +132,12 @@ export default function Graph() {
   }, [items]);
 
   // 챕터별 복습 위험(C8) — 잎 상세에서 '마지막 학습·경과일'로 재활용.
-  const reviews = useMemo(() => chapterReviews(state, res.days || [], todayISO(state)), [state, res]);
+  // AN-11 — 소비처(leafRv/hubRisk)는 노드를 클릭해 sel이 있을 때만 쓴다. 지도만 보는 대다수 세션엔
+  // 전수 스캔이 순수 낭비 → sel이 truthy일 때만 계산(온디맨드 세부). sel 없을 때 둘 다 미사용이라 동작 보존.
+  const reviews = useMemo(
+    () => (sel ? chapterReviews(state, res.days || [], todayISO(state)) : EMPTY_REVIEWS),
+    [sel, state, res.days],
+  );
   const reviewMap = useMemo(() => {
     const m = new Map<string, ChapterReview>();
     for (const r of reviews) m.set(r.sid + '|' + r.chapter, r);
@@ -134,6 +146,21 @@ export default function Graph() {
   const leafRv = sel && sel.kind === 'leaf' ? reviewMap.get(sel.itemId + '|' + sel.label) : null;
   const hubRisk =
     sel && sel.kind === 'hub' ? reviews.filter((r) => r.sid === sel.itemId && r.risk !== 'fresh').length : 0;
+
+  // AN-5 — role="dialog" 상세 패널의 키보드 닫기. sel이 있을 때만 document keydown Esc→닫기
+  // (캔버스 상호작용과 충돌 없게 게이트, cleanup 필수).
+  useEffect(() => {
+    if (!sel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSel(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [sel]);
+  // AN-5 — 열릴 때(또는 선택 노드가 바뀔 때) 닫기 버튼으로 포커스 1회 이동. React Compiler: 이펙트 내에서만 ref 접근.
+  useEffect(() => {
+    if (sel) detailCloseRef.current?.focus();
+  }, [sel]);
 
   // 상단 리드아웃 — 항목·챕터·완료율(Mastery가 usePageChromeEffect를 쓰는 방식과 동일).
   const totalCh = items.reduce((t, it) => t + (it.chapters?.length || 0), 0);
@@ -510,6 +537,7 @@ export default function Graph() {
               done: n.done,
               total: n.total,
               tone: n.tone,
+              hours: n.hours,
             });
           }
         }
@@ -567,6 +595,7 @@ export default function Graph() {
           done: target.done,
           total: target.total,
           tone: target.tone,
+          hours: target.hours,
         });
         draw();
         return { i: searchIdx + 1, n: matches.length };
@@ -758,7 +787,13 @@ export default function Graph() {
           {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
           {sel && (
             <div className={g.detail} role="dialog" aria-label={`${sel.label} 상세`}>
-              <button type="button" className={g.detailX} onClick={() => setSel(null)} aria-label="닫기">
+              <button
+                ref={detailCloseRef}
+                type="button"
+                className={g.detailX}
+                onClick={() => setSel(null)}
+                aria-label="닫기"
+              >
                 ✕
               </button>
               <div className={g.detailKind}>{sel.kind === 'hub' ? '학습 항목' : '챕터'}</div>
@@ -772,6 +807,12 @@ export default function Graph() {
                     </b>{' '}
                     챕터
                   </div>
+                  {/* AN-23 — graphData가 이미 집계한 챕터 학습시간 합을 노출(0이면 생략). */}
+                  {sel.hours != null && sel.hours > 0 && (
+                    <div className={g.detailRow}>
+                      총 학습 <b>{sel.hours.toFixed(1)}h</b>
+                    </div>
+                  )}
                   {hubRisk > 0 && (
                     <div className={g.detailRow} data-risk="overdue">
                       복습 위험 <b>{hubRisk}개</b>
@@ -797,7 +838,8 @@ export default function Graph() {
                 <button
                   type="button"
                   className={g.detailBtn}
-                  onClick={() => navigate('/items', { viewTransition: true })}
+                  // AN-17 — 목록 최상단이 아니라 이 항목 카드로 딥링크(허브=자기 항목 id, 잎=부모 항목 id 둘 다 sel.itemId).
+                  onClick={() => navigate('/items?focus=' + encodeURIComponent(sel.itemId), { viewTransition: true })}
                 >
                   학습 항목 열기 →
                 </button>
