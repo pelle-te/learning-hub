@@ -9,7 +9,9 @@ import {
   addBacklog,
   addCbms,
   addSummary,
+  archivableCount,
   archiveOldData,
+  recordBreakdown,
   backlogClosedBetween,
   blankPassRate,
   blankResultFor,
@@ -338,5 +340,45 @@ describe('restore* — 삭제 되돌리기 복원 (AN-15)', () => {
     } as never);
     expect(s.cbms!.length).toBe(1);
     expect(s.backlog!.length).toBe(1);
+  });
+});
+
+describe('recordBreakdown / archivableCount — 설정 진단 (ST-5·4)', () => {
+  const seed = () =>
+    st({
+      _today: '2026-07-15',
+      completions: {
+        '2026-01-01': { 'a|new': { done: true, min: 60 } },
+        '2026-07-10': { 'b|new': { done: true, min: 30 } },
+      },
+      summaries: {
+        '2026-01-02': [{ id: 's1', sid: '', name: '', s1: 'x', s2: '', s3: '', at: 0 }],
+        '2026-07-11': [{ id: 's2', sid: '', name: '', s1: 'y', s2: '', s3: '', at: 0 }],
+      },
+      cbms: [
+        { id: 'c1', ds: '2026-01-03', sid: '', name: '', chapter: '', code: 'C', note: '' },
+        { id: 'c2', ds: '2026-07-12', sid: '', name: '', chapter: '', code: 'M', note: '' },
+      ],
+      backlog: [
+        { id: 'b1', ds: '2026-01-04', sid: '', name: '', topic: 't', note: '', done: true, doneDs: '2026-01-05' },
+        { id: 'b2', ds: '2026-07-13', sid: '', name: '', topic: 'u', note: '', done: false, doneDs: '' },
+      ],
+      blankResults: [{ id: 'k1', ds: '2026-01-06', sid: '', name: '', passed: true, note: '' }],
+    });
+  it('recordBreakdown: 범주별 카운트 + recordCount는 그 합', () => {
+    const s = seed();
+    const b = recordBreakdown(s);
+    expect(b).toEqual({ done: 2, summaries: 2, cbms: 2, backlog: 2, blank: 1 });
+    expect(recordCount(s)).toBe(2 + 2 + 2 + 2 + 1);
+  });
+  it('archivableCount: 6개월 이전 항목만 카운트 + archiveOldData(mutate)의 count와 일치', () => {
+    const s = seed();
+    const n = archivableCount(s, 6); // cutoff ≈ 2026-01-16 → 1월 항목들만(완료1·요약1·오답1·회수백로그1·백지1) = 5
+    expect(n).toBe(5);
+    const s2 = seed();
+    expect(archiveOldData(s2, 6).count).toBe(n); // mutate 버전과 사전 카운트가 동일(SSOT parity)
+  });
+  it('archivableCount: 오래된 기록 없으면 0', () => {
+    expect(archivableCount(st({ _today: '2026-07-15' }), 6)).toBe(0);
   });
 });

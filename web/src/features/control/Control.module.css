@@ -87,6 +87,11 @@
   border-radius: 0 !important;
   font-size: 14px;
   padding: 8px 10px;
+  color: var(
+    --ink
+  ); /* 입력값은 --ink(활성) — placeholder만 흐리게(아래). 옛 --mut는 입력값도 회색이라 비활성처럼 보였다. */
+}
+.searchScope::placeholder {
   color: var(--mut);
 }
 .searchScope:focus {
@@ -205,6 +210,30 @@
   color: var(--acc);
   border-color: var(--acc);
 }
+/* 진행 중 잡 중단 — jobPeek와 같은 알약이되 위험색 호버(데드엔드·동시캡 회복). */
+.jobCancel {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 0.14s var(--ease),
+    border-color 0.14s var(--ease);
+}
+.jobCancel:hover:not(:disabled) {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.jobCancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .pre {
   flex-basis: 100%;
   margin: 10px 0 0;
@@ -312,6 +341,26 @@
 .recAgain:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+/* 기록 개별 삭제(×) — 형제 탭과 같은 어포던스. */
+.recDel {
+  flex: none;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--mut);
+  background: none;
+  border: none;
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color 0.14s var(--ease),
+    background 0.14s var(--ease);
+}
+.recDel:hover {
+  color: var(--bad);
+  background: var(--acc-soft);
 }
 .recEmpty {
   font-size: 13px;

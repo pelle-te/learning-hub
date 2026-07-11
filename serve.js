@@ -171,7 +171,7 @@ function startResearch(topic, scope) {
   RESEARCH_JOBS.set(id, job);
   const fin = (code) => {
     if (job.status !== 'running') return;
-    job.status = code === 0 ? 'done' : 'error'; job.code = code; job.endedAt = Date.now();
+    job.status = job._canceled ? 'canceled' : (code === 0 ? 'done' : 'error'); job.code = code; job.endedAt = Date.now();
     job.proc = null; job.out = (job.out || '').slice(-20000); pruneJobs();
   };
   let proc;
@@ -186,6 +186,24 @@ function startResearch(topic, scope) {
   proc.on('error', e => { CHILDREN.delete(proc); clearTimeout(killer); job.out += '\n오류: ' + (e.message || e); fin(-1); });
   proc.on('close', code => { CHILDREN.delete(proc); clearTimeout(killer); fin(code); });
   return { job };
+}
+
+/* 진행 중 잡 사용자 중단 — 프로세스 트리킬(best-effort, 종료 정리와 동일 taskkill /T).
+   _canceled 플래그로 fin이 'canceled' 상태를 부여(실패와 구분). 이미 끝난 잡은 거절. */
+function cancelResearch(id) {
+  const job = RESEARCH_JOBS.get(id);
+  if (!job) return { error: '잡을 찾을 수 없어요.' };
+  if (job.status !== 'running') return { error: '이미 끝난 잡이에요.' };
+  job._canceled = true;
+  job.out = (job.out || '') + '\n(사용자 중단됨)';
+  const proc = job.proc;
+  if (proc) {
+    try {
+      if (process.platform === 'win32') spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F']); // 트리 강제종료
+      else proc.kill();
+    } catch (e) { /* best-effort — close 핸들러가 fin으로 정리 */ }
+  }
+  return { ok: true };
 }
 
 function readBody(req, res, cb) {
@@ -513,6 +531,15 @@ const server = http.createServer((req, res) => {
       if (url === '/api/research/jobs' && req.method === 'GET') {
         const jobs = [...RESEARCH_JOBS.values()].sort((a, b) => b.startedAt - a.startedAt).map(publicJob);
         return sendJSON(res, 200, { ok: true, jobs });
+      }
+      // 진행 중 탐구 잡 중단 — 프로세스 트리킬(오탈자 주제·동시캡 점유 회복).
+      if (url === '/api/research/cancel' && req.method === 'POST') {
+        if (!originOK(req)) return sendJSON(res, 403, { ok: false, error: '허용되지 않은 출처' });
+        return readBody(req, res, body => {
+          const r = cancelResearch(body && typeof body.id === 'string' ? body.id : '');
+          if (r.error) return sendJSON(res, 200, { ok: false, error: r.error });
+          sendJSON(res, 200, { ok: true });
+        });
       }
       // Ollama 프록시 4종(코치·어휘·브리핑·회고) — 비-로컬 Origin 거부 + 동시 캡 공유.
       // body.stream === true면 NDJSON 스트림(토큰 델타 → 최종 JSON), 아니면 기존 단발 JSON.

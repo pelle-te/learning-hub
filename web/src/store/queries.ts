@@ -5,7 +5,7 @@
    store 레이어에 두는 이유: features(mastery·control·integrations)·app이 공유, store→lib 허용.
 ============================================================ */
 import { useQuery } from '@tanstack/react-query';
-import { getPing, type PingResponse } from '@/lib/api';
+import { getPing, listResearchJobs, type PingResponse, type ResearchJob } from '@/lib/api';
 import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
 import { fetchReadsArtifact, type ReadsArtifact } from '@/lib/reads';
 import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
@@ -15,6 +15,7 @@ export const KNOWLEDGE_KEY = ['knowledge'] as const;
 export const PING_KEY = ['ping'] as const;
 export const READS_KEY = ['reads'] as const;
 export const MARKETS_KEY = ['markets'] as const;
+export const RESEARCH_JOBS_KEY = ['research-jobs'] as const;
 
 /** serve.js(/api) 연결 여부·도구 목록 — 제어판 헤더 상태. retry 없이 빠르게 isError(file:// 폴백). */
 export function usePing() {
@@ -40,6 +41,24 @@ export function useMarkets() {
     queryFn: fetchMarketsArtifact,
     retry: false,
     staleTime: 60_000,
+  });
+}
+
+/** 탐구(리서치) 잡 목록(/api/research/jobs) — serve.js가 잡으로 소유(수십 분짜리 백그라운드).
+ *  running 잡이 있으면 3초 폴링, 없으면 멈춘다(react-query가 폴링·재부착·구조공유를 소유 → 손폴링 제거).
+ *  전이감지(완료 토스트·히스토리)는 소비처(Control)가 data 변화를 보고 소유. enabled=serve.js 온라인일 때만. */
+export function useResearchJobs(enabled: boolean) {
+  return useQuery<ResearchJob[]>({
+    queryKey: RESEARCH_JOBS_KEY,
+    enabled,
+    retry: false,
+    queryFn: async () => {
+      const r = await listResearchJobs();
+      if (!r.ok) throw new Error('탐구 잡 목록을 가져오지 못했어요.');
+      return r.jobs;
+    },
+    // running 잡이 있을 때만 3초 폴링 — 끝나면 스스로 멈춘다(다음 start가 무효화로 재기동).
+    refetchInterval: (q) => (q.state.data?.some((j) => j.status === 'running') ? 3000 : false),
   });
 }
 

@@ -371,13 +371,46 @@ export function dataSizeKB(state: AppState): number {
     return 0;
   }
 }
+/** 기록 수 범주별 분해(완료·요약·오답·백로그·백지) — recordCount의 중간값을 버리지 않고 반환.
+   Settings가 "무엇이 저장을 지배하나"를 진단(막연한 총합 → 구성비). */
+export function recordBreakdown(state: AppState): {
+  done: number;
+  summaries: number;
+  cbms: number;
+  backlog: number;
+  blank: number;
+} {
+  let done = 0;
+  const c = state.completions || {};
+  for (const k in c) done += Object.keys(c[k]!).length;
+  let summaries = 0;
+  const s = state.summaries || {};
+  for (const k in s) summaries += s[k]!.length;
+  return {
+    done,
+    summaries,
+    cbms: (state.cbms || []).length,
+    backlog: (state.backlog || []).length,
+    blank: (state.blankResults || []).length,
+  };
+}
 export function recordCount(state: AppState): number {
+  const b = recordBreakdown(state);
+  return b.done + b.summaries + b.cbms + b.backlog + b.blank;
+}
+/** 아카이브 가능량(mutation 없는 사전 카운트) — archiveOldData와 동일 cutoff·필터를 count-only로.
+   블라인드 위험버튼(정리)을 "6개월 이전 N건 보관 가능"으로 승격(N=0이면 정리할 것 없음). */
+export function archivableCount(state: AppState, monthsKeep = 6): number {
+  const cutoff = iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30)));
   let n = 0;
   const c = state.completions || {};
-  const s = state.summaries || {};
-  for (const k in c) n += Object.keys(c[k]!).length;
-  for (const k in s) n += s[k]!.length;
-  return n + (state.cbms || []).length + (state.backlog || []).length + (state.blankResults || []).length;
+  for (const ds in c) if (ds < cutoff) n += Object.keys(c[ds]!).length;
+  const sm = state.summaries || {};
+  for (const ds in sm) if (ds < cutoff) n += sm[ds]!.length;
+  n += (state.cbms || []).filter((e) => e.ds && e.ds < cutoff).length;
+  n += (state.backlog || []).filter((b) => b.done && b.doneDs && b.doneDs < cutoff).length;
+  n += (state.blankResults || []).filter((x) => x.ds && x.ds < cutoff).length;
+  return n;
 }
 export interface ArchiveResult {
   archive: {

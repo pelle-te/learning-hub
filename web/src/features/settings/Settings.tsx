@@ -7,11 +7,12 @@
    월드클래스 라운드(AmbientCanvas 언어) — 폼이 본질인 유틸 탭의 괴리감 해소: 상단 시네마틱
    상태 밴드(백업·저장·기록을 카운트업 리드아웃으로)로 제품의 같은 피부·살아있는 감각을 입힘.
 ============================================================ */
+import { useMemo, useRef } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
-import { ui, io } from '@/shell';
+import { ui, io, actions } from '@/shell';
 import { useHeroPointer } from '@/lib/interactions';
-import { dataSizeKB, recordCount } from '@/lib/methodology';
+import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
@@ -55,27 +56,89 @@ function lastBackupDays(at?: string): number | null {
   return Math.floor((Date.now() - t.getTime()) / 86400000);
 }
 
-/** 상태 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유). */
+/** 상태 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유).
+    display가 주어지면 카운트업 대신 그 노드를 그대로 렌더(숫자가 아닌 상태 텍스트용 — tone/클래스 분기 수렴). */
 function Readout({
   value,
   suffix,
   lab,
   tone,
+  display,
 }: {
-  value: number;
+  value?: number;
   suffix?: React.ReactNode;
   lab: string;
   tone?: 'ok' | 'warn';
+  display?: React.ReactNode;
 }) {
+  const cls = `${st.ro} ${tone === 'ok' ? st.roOk : tone === 'warn' ? st.roWarn : ''}`;
+  if (display != null) {
+    return (
+      <div className={cls} title={lab}>
+        <span className={`${st.roNum} ${st.roNumText}`}>{display}</span>
+        <span className={st.roLab}>{lab}</span>
+      </div>
+    );
+  }
   return (
     <CountReadout
-      value={value}
+      value={value ?? 0}
       suffix={suffix}
       lab={lab}
-      className={`${st.ro} ${tone === 'ok' ? st.roOk : tone === 'warn' ? st.roWarn : ''}`}
+      className={cls}
       numClassName={st.roNum}
       labClassName={st.roLab}
     />
+  );
+}
+
+/** 숫자 설정 — 빈 필드/NaN을 min으로 방어하고 [min,max]로 클램프(모듈 밖으로 승격해 Stepper와 공유).
+    (HTML min/max·step은 스피너 힌트일 뿐, 직접 타이핑한 값이나 지운 필드(NaN)를 막지 못한다.) */
+function clampNum(raw: number, min: number, max: number, round = false) {
+  let v = round ? Math.round(raw) : raw;
+  if (!Number.isFinite(v)) v = min;
+  return Math.min(max, Math.max(min, v));
+}
+
+/** –/+ 스텝퍼 — components.css:58이 약속한 어포던스. 클릭 증감(step 상수·clampNum·min/max 재사용).
+    직접 타이핑도 그대로 보존(input onChange도 같은 clamp 경유). */
+function Stepper({
+  id,
+  value,
+  step,
+  min,
+  max,
+  round = false,
+  onChange,
+}: {
+  id: string;
+  value: number;
+  step: number;
+  min: number;
+  max: number;
+  round?: boolean;
+  onChange: (v: number) => void;
+}) {
+  const commit = (raw: number) => onChange(clampNum(raw, min, max, round));
+  return (
+    <div className={st.stepper}>
+      <button type="button" className={st.stepBtn} aria-label={`${step} 감소`} onClick={() => commit(value - step)}>
+        –
+      </button>
+      <input
+        id={id}
+        type="number"
+        step={step}
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => commit(+e.target.value)}
+        className={st.stepInput}
+      />
+      <button type="button" className={st.stepBtn} aria-label={`${step} 증가`} onClick={() => commit(value + step)}>
+        +
+      </button>
+    </div>
   );
 }
 
@@ -89,25 +152,32 @@ export default function Settings() {
   const setFxLite = useUI((s) => s.setFxLite);
   // 포인터 추적 스포트라이트 — 상태 밴드가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
+  // 파일에서 복원 — 숨은 파일 인풋을 버튼이 대리 클릭(importJSON은 HTMLInputElement를 받는다).
+  const impRef = useRef<HTMLInputElement>(null);
 
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
-  const set = <K extends keyof AppState>(k: K, v: AppState[K]) => mutate((st) => void ((st as AppState)[k] = v));
-
-  // 숫자 설정 — 빈 필드/NaN을 min으로 방어하고 [min,max]로 클램프.
-  // (HTML min/max·step은 스피너 힌트일 뿐, 직접 타이핑한 값이나 지운 필드(NaN)를 막지 못한다.)
-  const clampNum = (raw: number, min: number, max: number, round = false) => {
-    let v = round ? Math.round(raw) : raw;
-    if (!Number.isFinite(v)) v = min;
-    return Math.min(max, Math.max(min, v));
-  };
+  // (draft 파라미터는 d — CSS 모듈 import `st` 섀도잉 방지, store 셀렉터 `s`와 결.)
+  const set = <K extends keyof AppState>(k: K, v: AppState[K]) => mutate((d) => void ((d as AppState)[k] = v));
 
   // 피크 시간대 역전 감지 — 끝이 시작보다 이르면 스케줄러 피크 우선배치가 조용히 깨진다.
   const peakInverted = !!state.peakStart && !!state.peakEnd && state.peakEnd <= state.peakStart;
 
   const days = lastBackupDays(state._lastBackupAt as string | undefined);
   const stale = days == null || days >= 7;
-  const sizeKB = dataSizeKB(state);
-  const recs = recordCount(state);
+  // 데이터 슬라이스가 바뀔 때만 재직렬화/재집계 — 스칼라 설정 타이핑마다 전체 JSON.stringify를 돌지 않도록.
+  // (state 전체를 넘기지만 데이터 5슬라이스가 바뀔 때만 무효화 — exhaustive-deps는 그래서 명시 억제.)
+
+  const sizeKB = useMemo(
+    () => dataSizeKB(state),
+    [state.completions, state.summaries, state.cbms, state.backlog, state.blankResults],
+  );
+
+  const bd = useMemo(
+    () => recordBreakdown(state),
+    [state.completions, state.summaries, state.cbms, state.backlog, state.blankResults],
+  );
+  const recs = bd.done + bd.summaries + bd.cbms + bd.backlog + bd.blank;
+  const archN = archivableCount(state);
   const backupLine = days == null ? '볼트 백업 기록 없음' : days === 0 ? '볼트 백업: 오늘' : `볼트 백업: ${days}일 전`;
 
   const archiveOldConfirm = async () => {
@@ -137,12 +207,11 @@ export default function Settings() {
           </span>
         </div>
         <div className={st.status}>
-          <div className={`${st.ro} ${stale ? st.roWarn : st.roOk}`} title={backupLine}>
-            <span className={st.roNum} style={{ fontSize: 16 }}>
-              {days == null ? '없음' : days === 0 ? '오늘' : `${days}일 전`}
-            </span>
-            <span className={st.roLab}>볼트 백업</span>
-          </div>
+          <Readout
+            display={days == null ? '없음' : days === 0 ? '오늘' : `${days}일 전`}
+            lab="볼트 백업"
+            tone={stale ? 'warn' : 'ok'}
+          />
           <Readout value={sizeKB} suffix={<small>KB</small>} lab="저장 크기" />
           <Readout value={recs} suffix={<small>건</small>} lab="기록 수" />
         </div>
@@ -175,7 +244,7 @@ export default function Settings() {
         <div className={ds.foot}>
           액센트는 이 기기에 저장돼요(데이터와 별개). 발광·강조·진행 바 전체에 즉시 반영됩니다.
         </div>
-        <label className={ds.chkRow} style={{ marginTop: 10 }}>
+        <label className={`${ds.chkRow} ${st.chkTop}`}>
           <input type="checkbox" checked={fxLite} onChange={(e) => setFxLite(e.target.checked)} />
           발광 효과 줄이기 (배경 오로라·발광 펄스 정지 — 저사양/노트북에서 가볍게)
         </label>
@@ -195,25 +264,25 @@ export default function Settings() {
           </div>
           <div>
             <label htmlFor="set-modlen">모듈 길이 (시간)</label>
-            <input
+            <Stepper
               id="set-modlen"
-              type="number"
-              step="0.5"
-              min="0.5"
               value={state.moduleLen / 60}
-              onChange={(e) => set('moduleLen', Math.round(clampNum(+e.target.value, 0.5, 12) * 60))}
+              step={0.5}
+              min={0.5}
+              max={12}
+              onChange={(v) => set('moduleLen', Math.round(v * 60))}
             />
           </div>
           <div>
             <label htmlFor="set-revratio">복습 시간 비중 (%)</label>
-            <input
+            <Stepper
               id="set-revratio"
-              type="number"
-              step="5"
-              min="0"
-              max="60"
               value={state.reviewRatio}
-              onChange={(e) => set('reviewRatio', clampNum(+e.target.value, 0, 60, true))}
+              step={5}
+              min={0}
+              max={60}
+              round
+              onChange={(v) => set('reviewRatio', v)}
             />
           </div>
         </div>
@@ -223,11 +292,11 @@ export default function Settings() {
         <hr />
         <div className={ds.row}>
           <div className={ds.fld}>
-            <label htmlFor="set-blank" style={{ display: 'inline' }}>
+            <label htmlFor="set-blank" className={st.subLabel}>
               백지 복습 자동 배치 <span className={`${ds.muted} ${ds.tiny}`}>(방법론 9절 — 주 1회 단원 재구성)</span>
             </label>
-            <div style={{ marginTop: 6 }}>
-              <label className={ds.chkRow} style={{ margin: 0 }}>
+            <div className={st.fldBody}>
+              <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"
                   id="set-blank"
@@ -242,14 +311,14 @@ export default function Settings() {
             <label htmlFor="set-mock">
               모의시험 주기 (주) <span className={`${ds.muted} ${ds.tiny}`}>0=끔 (방법론 12절)</span>
             </label>
-            <input
+            <Stepper
               id="set-mock"
-              type="number"
-              step="1"
-              min="0"
-              max="12"
               value={state.mockEveryWeeks || 0}
-              onChange={(e) => set('mockEveryWeeks', Math.max(0, Math.round(+e.target.value)))}
+              step={1}
+              min={0}
+              max={12}
+              round
+              onChange={(v) => set('mockEveryWeeks', v)}
             />
           </div>
         </div>
@@ -260,11 +329,11 @@ export default function Settings() {
         <hr />
         <div className={ds.row}>
           <div className={ds.fld}>
-            <label style={{ display: 'inline' }}>
+            <label className={st.subLabel}>
               적응형 용량 <span className={`${ds.muted} ${ds.tiny}`}>(방법론 1·10절 — "계획은 가설")</span>
             </label>
-            <div style={{ marginTop: 6 }}>
-              <label className={ds.chkRow} style={{ margin: 0 }}>
+            <div className={st.fldBody}>
+              <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"
                   checked={state.adaptiveCapacity !== false}
@@ -275,11 +344,11 @@ export default function Settings() {
             </div>
           </div>
           <div className={ds.fld}>
-            <label style={{ display: 'inline' }}>
+            <label className={st.subLabel}>
               복습은 Anki에 위임 <span className={`${ds.muted} ${ds.tiny}`}>(시간 이중계상 방지)</span>
             </label>
-            <div style={{ marginTop: 6 }}>
-              <label className={ds.chkRow} style={{ margin: 0 }}>
+            <div className={st.fldBody}>
+              <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"
                   checked={state.reviewViaAnki}
@@ -290,11 +359,11 @@ export default function Settings() {
             </div>
           </div>
           <div className={ds.fld}>
-            <label style={{ display: 'inline' }}>
+            <label className={st.subLabel}>
               그래프 우선순위 <span className={`${ds.muted} ${ds.tiny}`}>(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
             </label>
-            <div style={{ marginTop: 6 }}>
-              <label className={ds.chkRow} style={{ margin: 0 }}>
+            <div className={st.fldBody}>
+              <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"
                   checked={state.graphPriority}
@@ -330,10 +399,10 @@ export default function Settings() {
               onChange={(e) => set('peakEnd', e.target.value)}
             />
           </div>
-          <div style={{ flex: 1 }} />
+          <div className={st.spacer} />
         </div>
         {peakInverted && (
-          <div className={ds.foot} style={{ color: 'var(--bad)' }}>
+          <div className={`${ds.warnbox} ${ds.bad}`}>
             ⚠ 끝 시각이 시작보다 빨라요 — 피크 구간이 비어 우선 배치가 동작하지 않습니다.
           </div>
         )}
@@ -348,11 +417,15 @@ export default function Settings() {
           데이터 백업·정리{' '}
           <span className={`${ds.muted} ${ds.tiny}`}>— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
         </h2>
-        <div className={ds.row} style={{ marginBottom: 6 }}>
+        <div className={`${ds.row} ${st.pillRow}`}>
           <span className={`${ds.pill} ${stale ? ds.warn : ds.good}`}>{backupLine}</span>
           <span className={ds.pill}>
             저장 크기 {sizeKB}KB · 기록 {recs}건
           </span>
+        </div>
+        {/* 기록 구성비 — 어느 데이터가 저장을 지배하는지 진단(막연한 총합 → 범주별). */}
+        <div className={`${ds.foot} ${st.bdLine}`}>
+          완료 {bd.done} · 요약 {bd.summaries} · 오답 {bd.cbms} · 백로그 {bd.backlog} · 백지 {bd.blank}
         </div>
         <div className={ds.row}>
           <Button sm onClick={() => io.backupToVault()}>
@@ -361,6 +434,21 @@ export default function Settings() {
           <Button sm variant="ghost" onClick={() => io.exportJSON()}>
             💾 파일로 내보내기
           </Button>
+          <Button sm variant="ghost" onClick={() => impRef.current?.click()}>
+            📂 파일에서 복원
+          </Button>
+          {/* 숨은 파일 인풋 — importJSON이 HTMLInputElement를 받으므로 버튼이 대리 클릭(백업가드·언두 토스트는 내장). */}
+          <input
+            type="file"
+            accept="application/json"
+            ref={impRef}
+            onChange={(e) => {
+              const el = e.target;
+              if (el.files?.length) actions.importJSON(el);
+              el.value = '';
+            }}
+            className={st.fileInput}
+          />
           <Button
             sm
             variant="ghost"
@@ -369,20 +457,54 @@ export default function Settings() {
           >
             ♻ IndexedDB에서 복구
           </Button>
-          <Button sm variant="ghost" danger onClick={archiveOldConfirm}>
+          <Button
+            sm
+            variant="ghost"
+            disabled={archN === 0}
+            onClick={archiveOldConfirm}
+            title={
+              archN === 0
+                ? '정리할 오래된 기록이 없습니다'
+                : `6개월 이전 ${archN}건을 보관 파일로 내려받고 앱에서 비웁니다`
+            }
+          >
             🗄 오래된 기록 정리(6개월 이전)
           </Button>
         </div>
+        {/* 아카이브 사전 미리보기 — 블라인드 위험버튼을 "N건 보관 가능" 정보형으로 승격. */}
+        <div className={`${ds.foot} ${st.bdLine}`}>
+          {archN === 0 ? (
+            '정리할 오래된 기록 없음'
+          ) : (
+            <>
+              6개월 이전 <b>{archN}건</b> 보관 가능
+            </>
+          )}
+        </div>
         {stale && (
-          <div className={ds.warnbox} style={{ marginTop: 8 }}>
-            백업이 {days == null ? '아직 없어요' : `${days}일 지났어요`}. 브라우저 캐시를 지우면 데이터가 사라질 수
-            있으니 백업하세요.
+          <div className={`${ds.warnbox} ${st.warnAction}`}>
+            <span>
+              백업이 {days == null ? '아직 없어요' : `${days}일 지났어요`}. 브라우저 캐시를 지우면 데이터가 사라질 수
+              있으니 백업하세요.
+            </span>
+            <Button sm onClick={() => io.backupToVault()}>
+              지금 볼트에 백업
+            </Button>
           </div>
         )}
         <div className={ds.foot}>
           볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 저장 때마다{' '}
           <b>IndexedDB에 자동 미러</b>되어, 사이트 데이터가 지워져도 <b>♻ 복구</b>로 되살릴 수 있어요(같은 브라우저
           한정). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.
+        </div>
+        {/* 위험구역 — 되돌리기(직전 백업본 복원)·전체 초기화. TopBar ⋯메뉴에만 있던 걸 설정탭에도. */}
+        <div className={`${ds.row} ${st.dangerRow}`}>
+          <Button sm variant="ghost" onClick={() => actions.undoLast()}>
+            ↩ 되돌리기
+          </Button>
+          <Button sm danger onClick={() => actions.resetAll()}>
+            전체 초기화…
+          </Button>
         </div>
       </div>
     </section>
