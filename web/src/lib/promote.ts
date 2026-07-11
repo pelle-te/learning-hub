@@ -13,6 +13,9 @@ export interface BacklogSeed {
   note: string; // 근거(출처·링크·발췌)
 }
 
+/** 승격 성공 토스트 문안 — reads·markets 두 탭이 하드코딩 복제하던 것 SSOT화(SR-10). */
+export const PROMOTE_TOAST = '보충 백로그로 보냈어요 — 기록·오늘 탭에서 회수';
+
 /** 공백 정리 + 길이 제한. */
 function excerpt(s: string, max = 180): string {
   const t = (s || '').replace(/\s+/g, ' ').trim();

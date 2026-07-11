@@ -3,7 +3,7 @@
    폴더 선택(미지원·취소)의 우아한 실패를 검증 — 외부 의존이라 fetch·window를 stub.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ankiConnect, fetchAnkiLive, pickAndScanAnki, totalDue } from '@/lib/anki';
+import { ankiConnect, fetchAnkiLive, pickAndScanAnki, totalCards, totalDue } from '@/lib/anki';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -17,6 +17,21 @@ describe('totalDue — 순수 합산', () => {
   });
   it('숫자가 아닌 값은 0으로 본다(방어적)', () => {
     expect(totalDue([{ name: 'a', new: undefined as unknown as number, learn: 1, review: 2, total: 3 }])).toBe(3);
+  });
+});
+
+describe('totalCards — 파일덱 카드 합', () => {
+  it('덱들의 cards를 더한다', () => {
+    expect(
+      totalCards([
+        { file: 'a', subj: '수학', cards: 12 },
+        { file: 'b', subj: '물리', cards: 8 },
+      ]),
+    ).toBe(20);
+    expect(totalCards([])).toBe(0);
+  });
+  it('숫자가 아닌 값은 0으로 본다(방어적)', () => {
+    expect(totalCards([{ file: 'a', subj: '수학', cards: undefined as unknown as number }])).toBe(0);
   });
 });
 

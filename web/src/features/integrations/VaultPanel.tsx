@@ -218,6 +218,8 @@ export function VaultPanel() {
             // 노트 0개면 0/0=NaN → 헤더·진행바가 'NaN%'가 된다. 0%로 가드.
             const vp = s.notes ? Math.round((s.verified / s.notes) * 100) : 0;
             const ep = s.notes ? Math.round((s.exported / s.notes) * 100) : 0;
+            // Anki 미출력 = 노트는 있으나 아직 카드가 안 만들어진 것(볼트↔Anki 커버리지 갭). 파생 산술만.
+            const uncovered = Math.max(0, s.notes - s.exported);
             const isOpen = open.has(si);
             return (
               <div key={si} className={g.sub}>
@@ -238,6 +240,7 @@ export function VaultPanel() {
                   <span className={`${ds.tiny} ${ds.muted}`}>
                     노트 {s.notes} · 검증 {s.verified}({vp}%){s.wip ? ` · 진행중 ${s.wip}` : ''}
                     {s.legacy ? ` · 구버전 ${s.legacy}` : ''} · Anki {s.exported}({ep}%)
+                    {uncovered > 0 ? ` · 🃏 미출력 ${uncovered}` : ''}
                   </span>
                   <Button
                     sm

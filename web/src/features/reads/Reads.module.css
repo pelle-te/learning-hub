@@ -77,6 +77,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .langFilter {
@@ -101,6 +102,10 @@
 }
 .langBtn:hover {
   color: var(--ink);
+}
+.langBtn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
 }
 .langOn {
   color: var(--on-acc);
@@ -137,6 +142,10 @@
 }
 .listItem:hover {
   border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+}
+.listItem:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
 }
 .itemOn {
   border-color: var(--acc);
@@ -228,6 +237,10 @@
 }
 .bookFilterBtn:hover {
   color: var(--ink);
+}
+.bookFilterBtn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
 }
 .bookFilterOn {
   border-color: color-mix(in srgb, var(--acc) 50%, var(--line));
@@ -646,6 +659,44 @@
   place-items: center;
   color: var(--mut);
   font-size: 14px;
+}
+
+/* ── 로딩 스켈레톤(2-pane · markets 미러 · SR-17) ── */
+/* position:absolute라 그리드 셀을 차지하지 않아 좌/우 pane 배치를 흩뜨리지 않는다. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.skeleList {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.skeleItem {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+}
+.skeleReader {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 22px 26px;
 }
 
 /* ── 반응형 — 좁으면 세로 스택(목록 위·리더 아래). 전환점은 셸 하단탭과 동일한 700. ── */

@@ -62,6 +62,16 @@ export function useNowMin(): number {
   return nowMin;
 }
 
+/** 언마운트 시 미커밋 초안 flush — fn을 이펙트에서 ref에 담아(렌더 중 ref쓰기 금지·React Compiler refs 준수)
+ *  언마운트 클린업에서 1회 호출. ArticlePractice·BookShelf의 상이한 두 구현을 한 방식으로 통일(SR-16). */
+export function useFlushOnUnmount(fn: () => void): void {
+  const ref = useRef(fn);
+  useEffect(() => {
+    ref.current = fn; // 렌더마다 최신 콜백 동기화(이펙트서 할당)
+  });
+  useEffect(() => () => ref.current(), []);
+}
+
 /** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시 — App·탭 로컬 키가 공유. */
 export function isTyping(): boolean {
   const el = document.activeElement as HTMLElement | null;

@@ -5,7 +5,7 @@
 ============================================================ */
 import { useQuery, skipToken } from '@tanstack/react-query';
 import { usePing } from '@/store/queries';
-import { totalDue, type AnkiLive, type AnkiFile } from '@/lib/anki';
+import { totalDue, totalCards, type AnkiLive, type AnkiFile } from '@/lib/anki';
 import type { VaultScan } from '@/lib/vault';
 import type { ReactNode } from 'react';
 import s from './TelemetryConsole.module.css';
@@ -43,7 +43,7 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const serve: Status = ping.isLoading ? 'probing' : ping.isSuccess && ping.data?.ok ? 'online' : 'offline';
   const vaultNotes = vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0;
   const due = live ? totalDue(live.decks) : 0;
-  const cards = file ? file.decks.reduce((t, d) => t + d.cards, 0) : 0;
+  const cards = file ? totalCards(file.decks) : 0;
 
   return (
     <div className={`${s.board}${vertical ? ' ' + s.boardV : ''}`}>

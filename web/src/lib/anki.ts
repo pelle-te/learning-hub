@@ -120,3 +120,8 @@ export async function pickAndScanAnki(
 export function totalDue(decks: AnkiDeck[]): number {
   return decks.reduce((t, d) => t + (+d.new || 0) + (+d.learn || 0) + (+d.review || 0), 0);
 }
+
+/** 볼트 카드 파일덱들의 총 카드 수 합 — totalDue와 대칭. 인라인 reduce 3중복 수렴(SR-11). */
+export function totalCards(decks: AnkiFileDeck[]): number {
+  return decks.reduce((t, d) => t + (+d.cards || 0), 0);
+}

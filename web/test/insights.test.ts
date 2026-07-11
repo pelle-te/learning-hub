@@ -2,7 +2,7 @@
    insights.test.ts — 회고 코칭 & 반복 약점(순수·결정적) 회귀.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { dominantCbms, weakSpots, weeklyInsights } from '@/lib/insights';
+import { dominantCbms, weakCountBySid, weakSpots, weeklyInsights } from '@/lib/insights';
 import type { AppState, CbmsCode } from '@/lib/types';
 
 let _n = 0;
@@ -61,6 +61,26 @@ describe('insights — weakSpots', () => {
   it('빈 chapter는 무시', () => {
     const s = st({ cbms: [cbms('2026-07-01', '수학', '', 'C'), cbms('2026-07-02', '수학', '', 'C')] });
     expect(weakSpots(s)).toHaveLength(0);
+  });
+});
+
+describe('insights — weakCountBySid', () => {
+  it('sid별로 2회+ 막힌 지점의 count를 롤업한다', () => {
+    const s = st({
+      cbms: [
+        cbms('2026-06-30', '수학', '미적분', 'C'), // m|미적분 (2회 → 포함)
+        cbms('2026-07-01', '수학', '미적분', 'M'),
+        cbms('2026-07-02', '수학', '선형대수', 'C'), // m|선형대수 (2회 → 포함)
+        cbms('2026-07-03', '수학', '선형대수', 'C'),
+        cbms('2026-07-02', '물리', '역학', 'C'), // p|역학 1회 → 제외
+      ],
+    });
+    const by = weakCountBySid(s);
+    expect(by['m']).toBe(4); // 미적분 2 + 선형대수 2
+    expect(by['p']).toBeUndefined(); // 1회뿐이라 weakSpots에서 탈락
+  });
+  it('데이터 없으면 빈 객체', () => {
+    expect(weakCountBySid(st({}))).toEqual({});
   });
 });
 

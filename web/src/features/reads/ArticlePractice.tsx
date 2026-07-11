@@ -6,19 +6,21 @@
 ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ArtifactGate from '@/components/ArtifactGate';
-import EmptyState from '@/components/EmptyState';
-import { useCollectTool } from '@/components/useCollectTool';
-import { Button } from '@/components/ui';
-import { coachSummary, lookupVocab, previewFromJsonStream, type CoachFeedback, type VocabResult } from '@/lib/api';
+import ArtifactError from '@/components/ArtifactError';
+import { useAiStream } from '@/components/useAiStream';
+import { Button, Skeleton } from '@/components/ui';
+import { coachSummary, lookupVocab, type CoachFeedback, type VocabResult } from '@/lib/api';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
+import { useFlushOnUnmount } from '@/lib/interactions';
 import { addBacklog } from '@/lib/methodology';
-import { backlogFromArticle } from '@/lib/promote';
+import { backlogFromArticle, PROMOTE_TOAST } from '@/lib/promote';
 import type { Article, ArticleWork } from '@/lib/reads';
 import ds from '@/styles/ds.module.css';
 import r from './Reads.module.css';
 
 type Filter = 'all' | 'en' | 'ko';
+type Progress = 'all' | 'todo' | 'done';
 
 interface VocabState {
   x: number;
@@ -41,6 +43,8 @@ export default function ArticlePractice({
   errorMessage,
   refetch,
   refetchPing,
+  collecting,
+  collect,
 }: {
   articles: Article[];
   work: Record<string, ArticleWork>;
@@ -53,11 +57,15 @@ export default function ArticlePractice({
   errorMessage?: string;
   refetch: () => Promise<unknown>;
   refetchPing: () => Promise<unknown>;
+  /* 수집 상태·트리거 — 부모(Reads)가 소유한 단일 useCollectTool('reads-collect') 인스턴스에서
+     주입(SR-13). 자식이 별도 인스턴스를 만들면 collecting 상태가 둘로 갈렸다. */
+  collecting: boolean;
+  collect: (silent?: boolean) => Promise<boolean>;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
+  const [progress, setProgress] = useState<Progress>('all');
   const [selId, setSelId] = useState<string | null>(null);
   const mutate = useApp((s) => s.mutate);
-  const { collecting, collect } = useCollectTool('reads-collect', refetch, '읽을거리 수집 완료');
 
   // B5 — '학습으로 보내기': 읽은 글을 보충 백로그(나중에 학습할 큐)로 승격. 소비→학습 루프를 닫는다.
   // 중복 승격 방지 — 이 세션에 이미 보낸 지문은 버튼을 '보냄'으로 잠근다(반복 클릭=중복 백로그).
@@ -67,16 +75,15 @@ export default function ArticlePractice({
     const seed = backlogFromArticle(a);
     mutate((st) => addBacklog(st, '', seed.name, seed.topic, seed.note));
     setPromoted((prev) => new Set(prev).add(a.id));
-    ui.toast('보충 백로그로 보냈어요 — 기록·오늘 탭에서 회수', 'ok');
+    ui.toast(PROMOTE_TOAST, 'ok');
   };
 
   // Ollama 코치(내 요약 채점) — serve.js/Ollama 필요. 원문 요약은 하지 않는다.
+  // busy·preview·abort 수명은 useAiStream이 소유(SR-15); 결과 상태·id 태깅·work 병합은 아래 호출부에 남긴다.
   // 결과에 지문 id를 태깅한다: 응답(수십 초)이 오기 전 다른 지문으로 옮기면
   // 옛 지문의 채점이 새 지문 아래 붙는 오표시(레이스)가 났었다 — 현재 지문일 때만 렌더.
-  const [coachBusy, setCoachBusy] = useState(false);
-  const [coachPreview, setCoachPreview] = useState('');
+  const grader = useAiStream();
   const [coach, setCoach] = useState<{ id: string; fb: CoachFeedback } | null>(null);
-  const coachAbort = useRef<AbortController | null>(null);
   // 채점 결과가 도착하면 결과 카드로 포커스를 옮긴다 — 전체를 role=status로 장황하게 읽지 않고
   // 간결히 '결과가 왔다'만 알린다(막 채점한 transient 결과일 때만; 지문 전환 시엔 옮기지 않음).
   const coachResultRef = useRef<HTMLDivElement>(null);
@@ -91,10 +98,12 @@ export default function ArticlePractice({
     workRef.current = work;
   }, [work]);
 
-  const list = useMemo(
-    () => (filter === 'all' ? articles : articles.filter((a) => a.lang === filter)),
-    [articles, filter],
-  );
+  const list = useMemo(() => {
+    let xs = filter === 'all' ? articles : articles.filter((a) => a.lang === filter);
+    // 진행 필터 — 요약 완료(work[id].done) 기준 한 겹(BookShelf 상태필터 미러 · SR-3).
+    if (progress !== 'all') xs = xs.filter((a) => (progress === 'done' ? !!work[a.id]?.done : !work[a.id]?.done));
+    return xs;
+  }, [articles, filter, progress, work]);
   // 유효 선택 파생 — 저장 selId가 목록에 없으면(필터 변경·수집) 첫 지문으로(효과 없이 렌더에서 계산).
   const effId = selId && list.some((a) => a.id === selId) ? selId : (list[0]?.id ?? null);
   const sel = articles.find((a) => a.id === effId) ?? null;
@@ -108,7 +117,8 @@ export default function ArticlePractice({
     setVocab(null);
   }
   // 지문이 바뀌거나 떠나면 진행 중 채점을 중단(생성 낭비 방지 — 오표시는 id 태깅이 이미 막는다).
-  useEffect(() => () => coachAbort.current?.abort(), [effId]);
+  const cancelGrade = grader.cancel;
+  useEffect(() => () => cancelGrade(), [effId, cancelGrade]);
 
   const commit = (done?: boolean) => {
     if (!effId) return;
@@ -120,16 +130,14 @@ export default function ArticlePractice({
     });
   };
 
-  // 언마운트 안전망 — g키 라우트 이동 등 blur 없이 떠나면 미커밋 초안이 유실됐다.
-  const flushRef = useRef<() => void>(() => {});
-  flushRef.current = () => {
+  // 언마운트 안전망 — g키 라우트 이동 등 blur 없이 떠나면 미커밋 초안이 유실됐다(SR-16 통일).
+  useFlushOnUnmount(() => {
     if (!effId) return;
     const cur = work[effId];
     if ((cur?.summary ?? '') !== draft) {
       setWork(effId, { summary: draft, done: cur?.done ?? false, updatedAt: new Date().toISOString() });
     }
-  };
-  useEffect(() => () => flushRef.current(), []);
+  });
 
   // 채점이 방금 도착하면(현재 지문의 transient 결과) 결과 카드로 포커스 이동 — SR에 간결히 알림.
   useEffect(() => {
@@ -137,41 +145,38 @@ export default function ArticlePractice({
   }, [coach, sel]);
 
   // 내 요약 채점 — 현재 초안을 원문과 대조(Ollama 스트리밍). 원문 요약은 시키지 않는다.
+  // busy/preview/abort는 grader(useAiStream)가 소유 — 여기선 성공·실패 처리와 지문 id 태깅만.
   const askCoach = async () => {
-    if (!sel || coachBusy) return;
+    if (!sel || grader.busy) return;
     if (!draft.trim()) {
       ui.toast('먼저 요약을 써 보세요.', 'warn');
       return;
     }
     const target = sel; // 요청 시점의 지문 고정 — 응답 도착 시점의 선택과 무관하게 태깅
     commit(); // 채점 전 현재 초안 저장
-    setCoachBusy(true);
     setCoach(null);
-    setCoachPreview('');
-    const ac = new AbortController();
-    coachAbort.current = ac;
-    try {
-      const res = await coachSummary(target.text, draft, target.lang, {
-        signal: ac.signal,
-        onDelta: (t) => setCoachPreview(previewFromJsonStream(t)),
-      });
-      if (res.ok && res.feedback) {
-        setCoach({ id: target.id, fb: res.feedback });
-        // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존. ⚠ 클릭시점 캡처(work/draft)로 덮으면
-        // 채점 중 한 편집·완료토글이 되돌려진다(X-6) → 최신 work를 ref로 읽어 coach 필드만 병합한다.
-        const cur = workRef.current[target.id];
-        setWork(target.id, {
-          summary: cur?.summary ?? draft,
-          done: cur?.done ?? false,
-          updatedAt: cur?.updatedAt ?? new Date().toISOString(),
-          coach: res.feedback,
-          coachAt: new Date().toISOString(),
-        });
-      } else ui.toast(res.error || '채점 실패', 'bad');
-    } catch (e) {
-      if ((e as Error).name !== 'AbortError') ui.toast('AI 채점 실패: ' + ((e as Error).message || e), 'bad');
+    const res = await grader.run(({ signal, onDelta }) =>
+      coachSummary(target.text, draft, target.lang, { signal, onDelta }),
+    );
+    if (!res.ok) {
+      // aborted(지문 전환·언마운트로 인한 취소)는 조용히, 그 외만 오류 토스트.
+      if (!res.aborted) ui.toast('AI 채점 실패: ' + res.error, 'bad');
+      return;
     }
-    setCoachBusy(false);
+    const cs = res.value;
+    if (cs.ok && cs.feedback) {
+      setCoach({ id: target.id, fb: cs.feedback });
+      // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존. ⚠ 클릭시점 캡처(work/draft)로 덮으면
+      // 채점 중 한 편집·완료토글이 되돌려진다(X-6) → 최신 work를 ref로 읽어 coach 필드만 병합한다.
+      const cur = workRef.current[target.id];
+      setWork(target.id, {
+        summary: cur?.summary ?? draft,
+        done: cur?.done ?? false,
+        updatedAt: cur?.updatedAt ?? new Date().toISOString(),
+        coach: cs.feedback,
+        coachAt: new Date().toISOString(),
+      });
+    } else ui.toast(cs.error || '채점 실패', 'bad');
   };
 
   // 리더에서 단어/구를 선택하면 위치를 잡아 어휘 팝오버 준비(뜻은 버튼 눌러 조회).
@@ -252,26 +257,42 @@ export default function ArticlePractice({
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!articles.length) {
     if (loading || pingLoading) {
+      // 2-pane 스켈레톤(markets 미러 · SR-17) — 목록 행 + 리더 라인 형상을 예고해 팝인 레이아웃 점프를 없앤다.
       return (
-        <div className={r.loading} role="status">
-          지문 불러오는 중…
+        <div className={r.cols}>
+          <span className={r.srOnly} role="status">
+            지문 불러오는 중…
+          </span>
+          <aside className={r.listPane} aria-hidden="true">
+            <div className={r.skeleList}>
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className={r.skeleItem}>
+                  <Skeleton width="42%" height={12} />
+                  <Skeleton width="86%" height={14} />
+                  <Skeleton width="55%" height={11} />
+                </div>
+              ))}
+            </div>
+          </aside>
+          <div className={r.readerPane} aria-hidden="true">
+            <div className={r.skeleReader}>
+              <Skeleton width="30%" height={12} />
+              <Skeleton width="78%" height={24} />
+              <Skeleton width="100%" height={14} />
+              <Skeleton width="100%" height={14} />
+              <Skeleton width="93%" height={14} />
+              <Skeleton width="97%" height={14} />
+              <Skeleton width="60%" height={14} />
+            </div>
+          </div>
         </div>
       );
     }
-    // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출.
+    // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출(SR-9).
     if (isError && online) {
       return (
         <div className={r.emptyHost}>
-          <EmptyState
-            glyph="⚠️"
-            title="지문을 불러오지 못했어요"
-            desc={<>serve.js는 켜져 있지만 응답에 문제가 있어요{errorMessage ? ` — ${errorMessage}` : '.'}</>}
-            actions={
-              <Button variant="primary" onClick={() => void refetch()}>
-                다시 시도
-              </Button>
-            }
-          />
+          <ArtifactError label="지문을" detail={errorMessage} onRetry={() => void refetch()} />
         </div>
       );
     }
@@ -305,7 +326,9 @@ export default function ArticlePractice({
     );
   }
 
-  const myWords = draft.trim() ? draft.trim().split(/\s+/).length : 0;
+  // 요약 분량 표기 — KO 지문은 글자수 '자', EN 지문은 어절수 '단어'(지문 길이·독후감 단위와 정렬 · SR-7).
+  const isKoSel = sel?.lang === 'ko';
+  const myCount = isKoSel ? draft.trim().length : draft.trim() ? draft.trim().split(/\s+/).length : 0;
 
   return (
     <div className={r.cols}>
@@ -325,6 +348,20 @@ export default function ArticlePractice({
               </button>
             ))}
           </div>
+          {/* 진행 필터 — 요약 완료 기준(전체/미완료/완료). 언어 필터와 독립(SR-3). */}
+          <div className={r.langFilter} role="group" aria-label="진행 필터">
+            {(['all', 'todo', 'done'] as Progress[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={progress === f ? `${r.langBtn} ${r.langOn}` : r.langBtn}
+                aria-pressed={progress === f}
+                onClick={() => setProgress(f)}
+              >
+                {f === 'all' ? '전체' : f === 'todo' ? '미완료' : '완료'}
+              </button>
+            ))}
+          </div>
           <Button
             sm
             onClick={() => void collect()}
@@ -339,6 +376,8 @@ export default function ArticlePractice({
             list.map((a) => {
               const w = work[a.id];
               const hasDraft = !w?.done && !!w?.summary?.trim();
+              // 예상 읽기시간 — en≈200어절/분, ko≈500자/분(words 필드 재사용 · SR-18).
+              const mins = Math.max(1, Math.ceil(a.words / (a.lang === 'en' ? 200 : 500)));
               return (
                 <li key={a.id}>
                   <button
@@ -365,7 +404,7 @@ export default function ArticlePractice({
                     <span className={r.itemTitle}>{a.title}</span>
                     <span className={r.itemMeta}>
                       {a.source} · {a.words}
-                      {a.lang === 'en' ? ' words' : '자'}
+                      {a.lang === 'en' ? ' words' : '자'} · 약 {mins}분
                     </span>
                   </button>
                 </li>
@@ -478,7 +517,10 @@ export default function ArticlePractice({
                 <span className={r.editorLabel}>
                   {sel.lang === 'en' ? '내 정리 (영어 공부 — 핵심 표현·해석)' : '내 요약 (직접 요약해 보기)'}
                 </span>
-                <span className={r.editorCount}>{myWords} 단어</span>
+                <span className={r.editorCount}>
+                  {myCount}
+                  {isKoSel ? '자' : ' 단어'}
+                </span>
               </div>
               <textarea
                 className={r.editorArea}
@@ -503,10 +545,10 @@ export default function ArticlePractice({
                 <Button
                   sm
                   onClick={askCoach}
-                  disabled={coachBusy || !online}
+                  disabled={grader.busy || !online}
                   title={online ? '' : 'serve.js가 꺼져 있어요'}
                 >
-                  {coachBusy ? (
+                  {grader.busy ? (
                     <>
                       <span className={ds.spin} /> 채점 중…
                     </>
@@ -525,7 +567,7 @@ export default function ArticlePractice({
               </div>
 
               {/* 진행 상태만 간결히 공지(sr-only) — 스트리밍 토큰은 장황해 읽지 않는다. */}
-              {coachBusy && (
+              {grader.busy && (
                 <span
                   role="status"
                   style={{
@@ -542,9 +584,9 @@ export default function ArticlePractice({
               )}
 
               {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 위 상태만 공지). */}
-              {coachBusy && coachPreview && (
+              {grader.busy && grader.preview && (
                 <p className={r.coachStream} aria-hidden="true">
-                  {coachPreview}
+                  {grader.preview}
                 </p>
               )}
 

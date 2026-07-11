@@ -18,6 +18,8 @@ export interface ItemCardProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   mutate: Mutate;
+  /** 이 과목(sid=item.id)의 반복 약점 총합 — ≥2면 ⚠반복 배지 표시(SR-2). */
+  weakCount?: number;
 }
 
 /** +/- 스텝퍼 — 분/시간 직관 입력(0 미만 방지·소수 첫째자리 반올림). */
@@ -55,9 +57,11 @@ function Stepper({
   );
 }
 
-function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps) {
+function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: ItemCardProps) {
   const id = item.id;
   const daily = item.mode === 'daily';
+  // 스케줄러 입력 부재 — 시간이 0이면 매일 블록이 잡히지 않아 오늘 탭에 뜨지 않는다(조용한 데드엔드 경고, SR-1).
+  const noSchedule = daily ? !item.dailyMin : !item.weeklyHours;
   const chs = item.chapters || [];
   const totalH = chs.reduce((t, c) => t + (+c.hours || 0), 0);
   const doneCh = chs.filter((c) => c.done).length;
@@ -111,6 +115,16 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate }: ItemCardProps)
           {item.deadline && (
             <Pill tiny tone={ddTone}>
               {ddayInfo(dayDiff(iso(new Date()), item.deadline)).lab}
+            </Pill>
+          )}
+          {noSchedule && (
+            <Pill tiny tone="warn">
+              시간 없음 · 스케줄 안 됨
+            </Pill>
+          )}
+          {weakCount != null && weakCount >= 2 && (
+            <Pill tiny tone="bad">
+              ⚠ 반복 {weakCount}
             </Pill>
           )}
           <span className={c.chev}>{open ? '▾' : '▸'}</span>

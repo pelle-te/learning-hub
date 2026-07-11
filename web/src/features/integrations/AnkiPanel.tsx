@@ -9,7 +9,7 @@ import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { ui, io } from '@/shell';
-import { pickAndScanAnki, fetchAnkiLive, totalDue, type AnkiFile, type AnkiLive } from '@/lib/anki';
+import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
 import { makeItem, clamp, jsq } from '@/lib/utils';
@@ -179,7 +179,7 @@ export function AnkiPanel() {
     (bySubj[d.subj] = bySubj[d.subj] || []).push(d);
   });
   const grandDecks = (file?.decks || []).length;
-  const grandCards = (file?.decks || []).reduce((t, d) => t + d.cards, 0);
+  const grandCards = totalCards(file?.decks ?? []);
   const dueTot = live ? totalDue(live.decks) : 0;
 
   return (
@@ -262,10 +262,10 @@ export function AnkiPanel() {
           <table>
             <thead>
               <tr>
-                <th>과목</th>
-                <th>덱</th>
-                <th>카드</th>
-                <th />
+                <th scope="col">과목</th>
+                <th scope="col">덱</th>
+                <th scope="col">카드</th>
+                <th scope="col" />
               </tr>
             </thead>
             <tbody>
@@ -273,13 +273,15 @@ export function AnkiPanel() {
                 dks.map((d, i) => (
                   <tr key={d.file}>
                     {i === 0 && (
-                      <td rowSpan={dks.length}>
+                      <td rowSpan={dks.length} scope="rowgroup">
                         <b>{s}</b>
                         <br />
-                        <span className={`${ds.tiny} ${ds.muted}`}>{dks.reduce((t, x) => t + x.cards, 0)}장</span>
+                        <span className={`${ds.tiny} ${ds.muted}`}>{totalCards(dks)}장</span>
                       </td>
                     )}
-                    <td className={ds.tiny}>{d.file}</td>
+                    <td className={ds.tiny} scope="row">
+                      {d.file}
+                    </td>
                     <td>{d.cards}</td>
                     <td>
                       <Button
@@ -330,12 +332,12 @@ export function AnkiPanel() {
           <table>
             <thead>
               <tr>
-                <th>덱</th>
-                <th>신규</th>
-                <th>학습</th>
-                <th>복습</th>
-                <th>오늘 합</th>
-                <th />
+                <th scope="col">덱</th>
+                <th scope="col">신규</th>
+                <th scope="col">학습</th>
+                <th scope="col">복습</th>
+                <th scope="col">오늘 합</th>
+                <th scope="col" />
               </tr>
             </thead>
             <tbody>
@@ -343,7 +345,7 @@ export function AnkiPanel() {
                 const due = d.new + d.learn + d.review;
                 return (
                   <tr key={d.name}>
-                    <td>{d.name}</td>
+                    <td scope="row">{d.name}</td>
                     <td>{d.new}</td>
                     <td>{d.learn}</td>
                     <td>{d.review}</td>

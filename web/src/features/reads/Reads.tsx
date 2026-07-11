@@ -4,11 +4,11 @@
    ② 독서 — 책 읽고 직접 독후감(AI 없음). 둘 다 내 요약/독후감은 로컬-퍼스트 저장(lib/reads).
    지문 페치는 useReads(Query)·serve.js 상태는 usePing — 오프라인이어도 독서는 항상 동작.
 ============================================================ */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useReads } from '@/store/queries';
 import { usePing } from '@/store/queries';
-import { useCollectTool } from '@/components/useCollectTool';
+import { useCollectTool, useAutoCollect } from '@/components/useCollectTool';
 import { todayISO } from '@/lib/utils';
 import {
   loadReads,
@@ -62,22 +62,12 @@ export default function Reads() {
 
   // E-1 크로스데이 자동갱신 — Markets와 동일 패턴. 탭 열 때 온라인인데 수집 데이터가 없거나 '오늘 것'이
   // 아니면 마운트당 1회 자동 수집(어제 지문이 조용히 남는 문제). 장중 갱신은 목록 헤더의 '수집' 버튼.
-  // 오프라인이면 수집하지 않는다(!online 가드). 실패해도 didAuto로 루프 안 돎.
-  const { collecting: autoCollecting, collect: autoCollect } = useCollectTool(
-    'reads-collect',
-    reads.refetch,
-    '읽을거리 수집 완료',
-  );
-  const didAuto = useRef(false);
-  useEffect(() => {
-    if (didAuto.current || !online || reads.isLoading || autoCollecting) return;
-    const d = reads.data;
-    const fresh = !!d && d.date === todayISO() && d.articles.length > 0;
-    if (fresh) return;
-    didAuto.current = true;
-
-    void autoCollect(true);
-  }, [online, reads.isLoading, reads.data, autoCollecting, autoCollect]);
+  // 오프라인이면 수집하지 않는다(!online 가드). 자동수집 이펙트는 useAutoCollect로 수렴(SR-13).
+  // 이 단일 인스턴스가 collect/collecting의 SSOT — ArticlePractice(수동 '수집' 버튼·빈상태)에 prop으로 전달.
+  const { collecting, collect } = useCollectTool('reads-collect', reads.refetch, '읽을거리 수집 완료');
+  const d = reads.data;
+  const fresh = !!d && d.date === todayISO() && d.articles.length > 0;
+  useAutoCollect(collect, { online, isLoading: reads.isLoading, collecting, fresh });
 
   const articles = reads.data?.articles ?? [];
   const st = articleStats(articles, local.work);
@@ -160,6 +150,8 @@ export default function Reads() {
           errorMessage={reads.error instanceof Error ? reads.error.message : undefined}
           refetch={reads.refetch}
           refetchPing={refetchPing}
+          collecting={collecting}
+          collect={collect}
         />
       ) : (
         <BookShelf books={local.books} setBooks={setBooks} />

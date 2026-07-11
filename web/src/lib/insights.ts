@@ -44,6 +44,17 @@ export function weakSpots(state: AppState, fromDs?: string, toDs?: string, cap =
     .slice(0, cap);
 }
 
+/** sid별 '반복 약점' 총합 — 학습 항목 카드의 ⚠반복 배지용. weakSpots(2회+ 막힌 지점)를 sid로 롤업(SR-2). */
+export function weakCountBySid(state: AppState): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const w of weakSpots(state, undefined, undefined, Infinity)) {
+    const sid = w.key.split('|')[0] ?? '';
+    if (!sid) continue;
+    out[sid] = (out[sid] || 0) + w.count;
+  }
+  return out;
+}
+
 /** 지배적 오답 유형 — 최다 코드가 2건 이상이고 전체의 40%↑면 반환(한쪽으로 쏠린 약점). 아니면 null. */
 export function dominantCbms(counts: Record<CbmsCode, number>): { code: CbmsCode; n: number; total: number } | null {
   const entries = (Object.entries(counts) as [CbmsCode, number][]).filter(([, n]) => n > 0);

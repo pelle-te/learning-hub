@@ -9,6 +9,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo } from '@/lib/utils';
+import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import ds from '@/styles/ds.module.css';
@@ -51,8 +52,12 @@ function useInsight(items: Item[]) {
 
 export default function Items() {
   const items = useApp((s) => s.state.items);
+  const cbms = useApp((s) => s.state.cbms);
   const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
+  // sid(=item.id)별 반복 약점 총합 — cbms가 바뀔 때만 롤업 재계산(SR-2). weakCountBySid는 state.cbms만 읽으므로
+  // 반응형 cbms 슬라이스를 넘겨 재계산을 그 변화에 묶는다(전체 state 구독으로 인한 불필요 리렌더 회피).
+  const weakBySid = useMemo(() => weakCountBySid({ ...useApp.getState().state, cbms }), [cbms]);
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const insight = useInsight(items);
   // 과목 수·주당 합계·챕터 진행·마감 리드아웃을 상단 바로(데모 v6 헤더).
@@ -262,7 +267,14 @@ export default function Items() {
                 if (tgt) moveItem(s.id, tgt.id);
               }}
             >
-              <ItemCard item={s} open={open.has(s.id)} onToggle={toggle} onDelete={removeItem} mutate={mutate} />
+              <ItemCard
+                item={s}
+                open={open.has(s.id)}
+                onToggle={toggle}
+                onDelete={removeItem}
+                mutate={mutate}
+                weakCount={weakBySid[s.id]}
+              />
             </div>
           ))}
         </div>

@@ -2,10 +2,11 @@
    BookShelf — 독서(읽을거리 ②). 책 읽고 *직접* 독후감을 쓴다. AI 없음·로컬 저장.
    왼쪽 책 목록(추가·읽는 중/완독) · 오른쪽 선택한 책의 독후감 에디터 + 별점 + 상태.
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
+import { useFlushOnUnmount } from '@/lib/interactions';
 import { newBook, type Book } from '@/lib/reads';
 import r from './Reads.module.css';
 
@@ -55,17 +56,12 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
     if (effId) patch(effId, { review: draft });
   };
 
-  // 언마운트 안전망 — g키 라우트 이동·모드 전환 등 blur 없이 떠나면 미커밋 독후감 초안이 유실됐다.
-  // (ref 할당은 렌더 중이 아닌 이펙트에서 — react-hooks/refs 준수. 매 렌더 후 최신 클로저로 갱신.)
-  const flushRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    flushRef.current = () => {
-      if (!effId) return;
-      const cur = books.find((b) => b.id === effId);
-      if ((cur?.review ?? '') !== draft) patch(effId, { review: draft });
-    };
+  // 언마운트 안전망 — g키 라우트 이동·모드 전환 등 blur 없이 떠나면 미커밋 독후감 초안이 유실됐다(SR-16 통일).
+  useFlushOnUnmount(() => {
+    if (!effId) return;
+    const cur = books.find((b) => b.id === effId);
+    if ((cur?.review ?? '') !== draft) patch(effId, { review: draft });
   });
-  useEffect(() => () => flushRef.current(), []);
 
   const toggleStatus = (b: Book) =>
     patch(b.id, {

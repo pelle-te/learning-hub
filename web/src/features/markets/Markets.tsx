@@ -6,21 +6,22 @@
    데이터는 serve.js가 수집(지연·EOD일 수 있음). 꺼져 있거나 미수집이면 우아 안내.
    ⚠ 상승=초록/하락=빨강(글로벌 관례)이되, 방향은 ▲▼ 글리프+부호+aria-label로도 표기(색 비의존).
 ============================================================ */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useMarkets, usePing } from '@/store/queries';
-import { marketsBrief, previewFromJsonStream, type MarketBriefResult } from '@/lib/api';
+import { marketsBrief, type MarketBriefResult } from '@/lib/api';
 import { indexStats, groupByRegion, fmtPct, dir, fmtPublished, type IndexQuote, type NewsItem } from '@/lib/markets';
 import { todayISO } from '@/lib/utils';
 import ArtifactGate from '@/components/ArtifactGate';
-import EmptyState from '@/components/EmptyState';
+import ArtifactError from '@/components/ArtifactError';
 import DetailDrawer from '@/components/DetailDrawer';
-import { useCollectTool } from '@/components/useCollectTool';
+import { useCollectTool, useAutoCollect } from '@/components/useCollectTool';
+import { useAiStream } from '@/components/useAiStream';
 import { Button, Skeleton } from '@/components/ui';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { addBacklog } from '@/lib/methodology';
-import { backlogFromNews } from '@/lib/promote';
+import { backlogFromNews, PROMOTE_TOAST } from '@/lib/promote';
 import ds from '@/styles/ds.module.css';
 import m from './Markets.module.css';
 
@@ -29,6 +30,8 @@ const DIR_WORD = { up: '상승', down: '하락', flat: '보합' } as const;
 // 리드 지표 심볼 — 상단 리드아웃의 대표 지수(국내 투자자 기준 KOSPI). 수집 피드(_증시/feeds.json)에
 // 이 심볼이 있어야 표시되고, 피드에서 빠지면 첫 지수로 무음 폴백한다(피드↔리드아웃 커플링).
 const LEAD_SYMBOL = '^KS11';
+// 승격 중복방지 안정 키 — 뉴스 고유 id, 없으면 url/title로 폴백(promoteNews와 NewsCard 잠금이 공유).
+const newsKey = (n: NewsItem) => n.id || n.url || n.title;
 
 export default function Markets() {
   const markets = useMarkets();
@@ -37,17 +40,22 @@ export default function Markets() {
 
   const indices = useMemo(() => markets.data?.indices ?? [], [markets.data]);
   const news = useMemo(() => markets.data?.news ?? [], [markets.data]);
-  const st = indexStats(indices);
+  const st = useMemo(() => indexStats(indices), [indices]);
   const mutate = useApp((s) => s.mutate);
 
   // B5 — '학습으로 보내기': 헤드라인을 보충 백로그로 승격. 소비(증시)→학습을 잇는다.
+  // 중복 승격 방지 — 이 세션에 이미 보낸 헤드라인은 버튼을 '보냄'으로 잠근다(반복 클릭=중복 백로그).
+  const [promoted, setPromoted] = useState<ReadonlySet<string>>(() => new Set());
   const promoteNews = useCallback(
     (n: NewsItem) => {
+      const key = newsKey(n);
+      if (promoted.has(key)) return;
       const seed = backlogFromNews(n);
       mutate((state) => addBacklog(state, '', seed.name, seed.topic, seed.note));
-      ui.toast('보충 백로그로 보냈어요 — 기록·오늘 탭에서 회수', 'ok');
+      setPromoted((prev) => new Set(prev).add(key));
+      ui.toast(PROMOTE_TOAST, 'ok');
     },
-    [mutate],
+    [mutate, promoted],
   );
   const lead = indices.find((i) => i.symbol === LEAD_SYMBOL) ?? indices[0];
 
@@ -55,22 +63,21 @@ export default function Markets() {
   usePageChromeEffect(
     () => ({
       readouts: [
-        { label: '상승·하락', value: `${st.up}↑ ${st.down}↓`, accent: true },
+        { label: '상승·하락·보합', value: `${st.up}↑ ${st.down}↓ ${st.flat}＝`, accent: true },
         ...(lead ? [{ label: lead.name, value: fmtPct(lead.changePct) }] : []),
         { label: 'serve.js', value: online ? '● ON' : pingLoading ? '…' : 'OFF' },
         ...(markets.data?.at ? [{ label: '수집', value: markets.data.at.slice(5, 16).replace('T', ' ') }] : []),
       ],
     }),
-    [st.up, st.down, lead?.name, lead?.changePct, online, pingLoading, markets.data?.at],
+    [st.up, st.down, st.flat, lead?.name, lead?.changePct, online, pingLoading, markets.data?.at],
   );
 
   // ── 온디맨드 AI 브리핑 상태(스트리밍) ──────────────────────────
+  // busy·preview·AbortController·onDelta 수명은 useAiStream이 소유(SR-15). 결과·열림·오류는 여기 유지(누수 방지).
+  const brief = useAiStream();
   const [briefOpen, setBriefOpen] = useState(false);
-  const [briefBusy, setBriefBusy] = useState(false);
   const [briefErr, setBriefErr] = useState<string | null>(null);
-  const [briefPreview, setBriefPreview] = useState('');
-  const [brief, setBrief] = useState<MarketBriefResult | null>(null);
-  const briefAbort = useRef<AbortController | null>(null);
+  const [briefResult, setBriefResult] = useState<MarketBriefResult | null>(null);
   // 브리핑이 도착하면 결과 카드로 포커스 이동 — 전체를 role=status로 장황하게 읽지 않고 간결히 알림.
   const briefResultRef = useRef<HTMLDivElement>(null);
 
@@ -79,57 +86,43 @@ export default function Markets() {
   const collect = useCallback(
     async (silent = false) => {
       // 수집이 데이터를 갈면 옛 브리핑은 다른 날의 해설 — 무효화해 다음 열람 때 새로 받는다.
-      if (await collectRaw(silent)) setBrief(null);
+      if (await collectRaw(silent)) setBriefResult(null);
     },
     [collectRaw],
   );
 
   // 자동 수집 — 탭을 열었을 때 온라인인데 데이터가 없거나 '오늘 것'이 아니면 알아서 채운다(대시보드처럼
-  // 늘 최신으로 떠 있게). 장중 갱신은 상단 '수집' 버튼. 마운트당 1회만 시도(실패해도 루프 안 돎).
-  const didAuto = useRef(false);
-  useEffect(() => {
-    if (didAuto.current || !online || markets.isLoading || collecting) return;
-    const d = markets.data;
-    const fresh = !!d && d.date === todayISO() && d.indices.length > 0;
-    if (fresh) return;
-    didAuto.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭 열 때 오늘 데이터 없으면 1회 자동 수집(의도적).
-    void collect(true);
-  }, [online, markets.isLoading, markets.data, collecting, collect]);
+  // 늘 최신으로 떠 있게). 장중 갱신은 상단 '수집' 버튼. 마운트당 1회만 시도(useAutoCollect가 didAuto 소유, SR-13).
+  const d = markets.data;
+  const fresh = !!d && d.date === todayISO() && d.indices.length > 0;
+  useAutoCollect(collect, { online, isLoading: markets.isLoading, collecting, fresh });
 
   // AI 브리핑 요청 — 스트리밍(토큰 미리보기) + 취소 가능. 이미 받은 브리핑은 재사용(수집이 무효화).
   const askBrief = useCallback(async () => {
     setBriefOpen(true);
-    if (briefBusy || brief) return;
-    setBriefBusy(true);
+    if (brief.busy || briefResult) return;
     setBriefErr(null);
-    setBriefPreview('');
-    const ac = new AbortController();
-    briefAbort.current = ac;
-    try {
-      const res = await marketsBrief(
-        indices.map((i) => ({ name: i.name, symbol: i.symbol, changePct: i.changePct, price: i.price })),
-        news.map((n) => ({ title: n.title, source: n.source })),
-        { signal: ac.signal, onDelta: (t) => setBriefPreview(previewFromJsonStream(t)) },
-      );
-      if (res.ok && res.brief) setBrief(res.brief);
-      else setBriefErr(res.error || '브리핑 실패');
-    } catch (e) {
-      if ((e as Error).name !== 'AbortError') setBriefErr('AI 브리핑 실패: ' + ((e as Error).message || e));
+    const idxArgs = indices.map((i) => ({ name: i.name, symbol: i.symbol, changePct: i.changePct, price: i.price }));
+    const newsArgs = news.map((n) => ({ title: n.title, source: n.source }));
+    const res = await brief.run((o) => marketsBrief(idxArgs, newsArgs, o));
+    if (res.ok) {
+      if (res.value.ok && res.value.brief) setBriefResult(res.value.brief);
+      else setBriefErr(res.value.error || '브리핑 실패');
+    } else if (!res.aborted) {
+      setBriefErr('AI 브리핑 실패: ' + res.error);
     }
-    setBriefBusy(false);
-  }, [briefBusy, brief, indices, news]);
+  }, [brief, briefResult, indices, news]);
 
   // 닫으면 진행 중 생성도 중단(서버가 업스트림을 끊어 Ollama 생성 자체가 멈춘다).
   const closeBrief = useCallback(() => {
-    briefAbort.current?.abort();
+    brief.cancel();
     setBriefOpen(false);
-  }, []);
+  }, [brief]);
 
   // 브리핑 결과가 오면 결과 카드로 포커스 이동(드로어가 열려 있을 때만).
   useEffect(() => {
-    if (brief && briefOpen) briefResultRef.current?.focus();
-  }, [brief, briefOpen]);
+    if (briefResult && briefOpen) briefResultRef.current?.focus();
+  }, [briefResult, briefOpen]);
 
   const regions = useMemo(() => groupByRegion(indices), [indices]);
   // 뉴스 분야 필터 — 피드가 길어지면 관심 분야만. 등장 순서로 고유 분야 수집.
@@ -139,7 +132,7 @@ export default function Markets() {
     for (const n of news) if (n.field && !seen.includes(n.field)) seen.push(n.field);
     return seen;
   }, [news]);
-  const shownNews = newsField ? news.filter((n) => n.field === newsField) : news;
+  const shownNews = useMemo(() => (newsField ? news.filter((n) => n.field === newsField) : news), [news, newsField]);
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!indices.length && !news.length) {
@@ -167,24 +160,11 @@ export default function Markets() {
     }
     // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출.
     if (markets.isError && online) {
+      const errorMessage = markets.error instanceof Error ? markets.error.message : undefined;
       return (
         <section className={m.wrap} aria-label="증시 동향">
           <div className={m.emptyHost}>
-            <EmptyState
-              glyph="⚠️"
-              title="증시 데이터를 불러오지 못했어요"
-              desc={
-                <>
-                  serve.js는 켜져 있지만 응답에 문제가 있어요
-                  {markets.error instanceof Error ? ` — ${markets.error.message}` : '.'}
-                </>
-              }
-              actions={
-                <Button variant="primary" onClick={() => void markets.refetch()}>
-                  다시 시도
-                </Button>
-              }
-            />
+            <ArtifactError label="증시 데이터를" detail={errorMessage} onRetry={() => void markets.refetch()} />
           </div>
         </section>
       );
@@ -278,7 +258,7 @@ export default function Markets() {
           {shownNews.length ? (
             <ul className={m.newsList}>
               {shownNews.map((n) => (
-                <NewsCard key={n.id} n={n} onPromote={promoteNews} />
+                <NewsCard key={n.id} n={n} onPromote={promoteNews} promoted={promoted} />
               ))}
             </ul>
           ) : (
@@ -289,26 +269,26 @@ export default function Markets() {
 
       {/* 온디맨드 AI 브리핑 — 공용 DetailDrawer(포커스 트랩·Esc·바깥클릭·복원 일원화) */}
       <DetailDrawer open={briefOpen} onClose={closeBrief} title="🤖 오늘의 증시 브리핑">
-        {briefBusy ? (
+        {brief.busy ? (
           <>
             <div className={m.panelBusy} role="status">
-              <span className={ds.spin} /> {briefPreview ? '해설을 쓰는 중…' : '그날 지수와 뉴스를 엮는 중…'}
+              <span className={ds.spin} /> {brief.preview ? '해설을 쓰는 중…' : '그날 지수와 뉴스를 엮는 중…'}
             </div>
             {/* 스트리밍 미리보기 — 완성된 문장부터 타이핑되듯 나타난다(SR에는 위 status만 공지). */}
-            {briefPreview && (
+            {brief.preview && (
               <p className={m.briefStream} aria-hidden="true">
-                {briefPreview}
+                {brief.preview}
               </p>
             )}
           </>
-        ) : brief ? (
+        ) : briefResult ? (
           <div ref={briefResultRef} tabIndex={-1} aria-label="오늘의 증시 브리핑 결과">
-            {brief.overview && <p className={m.briefOverview}>{brief.overview}</p>}
-            {brief.drivers?.length ? (
+            {briefResult.overview && <p className={m.briefOverview}>{briefResult.overview}</p>}
+            {briefResult.drivers?.length ? (
               <div className={m.briefGroup}>
                 <span className={m.briefLabel}>오늘의 동인</span>
                 <ul className={m.driverList}>
-                  {brief.drivers.map((d, i) => (
+                  {briefResult.drivers.map((d, i) => (
                     <li key={i}>
                       <b>{d.title}</b>
                       {d.detail ? <span> — {d.detail}</span> : null}
@@ -317,17 +297,17 @@ export default function Markets() {
                 </ul>
               </div>
             ) : null}
-            {brief.watch?.length ? (
+            {briefResult.watch?.length ? (
               <div className={m.briefGroup}>
                 <span className={m.briefLabel}>지켜볼 점</span>
                 <ul className={m.watchList}>
-                  {brief.watch.map((w, i) => (
+                  {briefResult.watch.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
               </div>
             ) : null}
-            {brief.caveat && <p className={m.briefCaveat}>{brief.caveat}</p>}
+            {briefResult.caveat && <p className={m.briefCaveat}>{briefResult.caveat}</p>}
             {markets.data?.at && (
               <p className={m.briefStamp}>기준 데이터: {markets.data.at.slice(0, 16).replace('T', ' ')} 수집</p>
             )}
@@ -335,9 +315,9 @@ export default function Markets() {
             <Button
               sm
               variant="ghost"
-              disabled={briefBusy || !online}
+              disabled={brief.busy || !online}
               onClick={() => {
-                setBrief(null);
+                setBriefResult(null);
                 setBriefErr(null);
                 void askBrief();
               }}
@@ -351,7 +331,7 @@ export default function Markets() {
             <Button
               sm
               onClick={() => {
-                setBrief(null);
+                setBriefResult(null);
                 setBriefErr(null);
                 void askBrief();
               }}
@@ -365,10 +345,14 @@ export default function Markets() {
   );
 }
 
-/** 지수 카드 1장 — 현재가 + ▲▼ + 부호% + 스파크라인. 색은 방향, 정보는 색 비의존. */
-function IndexCard({ q }: { q: IndexQuote }) {
+/** 지수 카드 1장 — 현재가 + ▲▼ + 절대등락 + 부호% + 스파크라인. 색은 방향, 정보는 색 비의존.
+    memo — 브리핑 스트리밍 중 토큰마다 보드 전체가 재조정되지 않게(SR-14, 표시 순수). */
+const IndexCard = memo(function IndexCard({ q }: { q: IndexQuote }) {
   const d = dir(q.changePct);
   const price = q.price.toLocaleString('ko-KR', { maximumFractionDigits: 2 });
+  // 절대 등락폭 — 부호(유니코드 마이너스) + 절대값. changePct 옆에 병기(SR-19).
+  const chSign = q.change > 0 ? '+' : q.change < 0 ? '−' : '';
+  const chAbs = `${chSign}${Math.abs(q.change).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}`;
   return (
     <div
       className={m.card}
@@ -386,11 +370,11 @@ function IndexCard({ q }: { q: IndexQuote }) {
         {q.currency ? <span className={m.cardCurrency}> {q.currency}</span> : null}
       </div>
       <div className={m.cardPct} data-dir={d}>
-        <span aria-hidden="true">{DIR_GLYPH[d]}</span> {fmtPct(q.changePct)}
+        <span aria-hidden="true">{DIR_GLYPH[d]}</span> {chAbs} ({fmtPct(q.changePct)})
       </div>
     </div>
   );
-}
+});
 
 /** 미니 스파크라인(최근 종가) — 의존성 없는 인라인 SVG polyline. */
 function Spark({ spark, d }: { spark: number[]; d: 'up' | 'down' | 'flat' }) {
@@ -414,10 +398,20 @@ function Spark({ spark, d }: { spark: number[]; d: 'up' | 'down' | 'flat' }) {
   );
 }
 
-/** 뉴스 1장 — 출처·시각·제목(원문 링크)·발췌 + '학습으로 보내기'(보충 백로그 승격). */
-function NewsCard({ n, onPromote }: { n: NewsItem; onPromote: (n: NewsItem) => void }) {
+/** 뉴스 1장 — 출처·시각·제목(원문 링크)·발췌 + '학습으로 보내기'(보충 백로그 승격).
+    memo — 브리핑 스트리밍 중 토큰마다 피드 전체가 재조정되지 않게(SR-14, 표시 순수). */
+const NewsCard = memo(function NewsCard({
+  n,
+  onPromote,
+  promoted,
+}: {
+  n: NewsItem;
+  onPromote: (n: NewsItem) => void;
+  promoted: ReadonlySet<string>;
+}) {
   // 피드 유래 URL은 신뢰경계 밖 — javascript: 등 비-http 스킴은 링크로 만들지 않는다.
   const safeUrl = /^https?:\/\//i.test(n.url) ? n.url : undefined;
+  const done = promoted.has(newsKey(n)); // 이미 승격했으면 버튼 잠금(중복 백로그 방지, SR-4)
   return (
     <li className={m.newsItem}>
       <a className={m.newsLink} href={safeUrl} target="_blank" rel="noreferrer noopener">
@@ -432,9 +426,15 @@ function NewsCard({ n, onPromote }: { n: NewsItem; onPromote: (n: NewsItem) => v
         <div className={m.newsTitle}>{n.title}</div>
         {n.summary ? <div className={m.newsSummary}>{n.summary}</div> : null}
       </a>
-      <button type="button" className={m.newsPromote} onClick={() => onPromote(n)} title="보충 백로그로 보내기">
-        📥 학습으로 보내기
+      <button
+        type="button"
+        className={m.newsPromote}
+        onClick={() => onPromote(n)}
+        disabled={done}
+        title={done ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}
+      >
+        {done ? '✓ 보냄' : '📥 학습으로 보내기'}
       </button>
     </li>
   );
-}
+});
