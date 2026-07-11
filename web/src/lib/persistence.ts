@@ -21,6 +21,90 @@ export const RUNTIME_CACHE_KEYS = ['_vaultScan', '_ankiFile', '_ankiLive', '_ics
  *  로컬엔 남겨 즉시 부팅한다(낙관적 캐시). → 제외는 키별이 아니라 '스코프(내보내기 vs 로컬)'별. */
 export const EPHEMERAL_ONLY_KEYS = ['_vaultScan', '_ankiFile'];
 
+/** 졸업 계획 시드 — 졸업요건_정리.md(전자공학과 2020 요람·ABEEK 인증과정)에서 옮긴 실제 수강 이력·요건.
+ *  SD-2에서 하드코딩 참조표(degreeReq/data.ts)를 폐기하고 state.degree 구동으로 바꾸며 비었던 데이터를 복원.
+ *  · 요건: 총 128 / 전공필수(인증필수) 41 · 전공선택(인증선택) 27 · 교양(학과기초31+전문교양18+대학필수2) 51.
+ *  · F 과목(반도체공학1·디지털신호처리)은 '완료'로 두어 재수강 후보로 표면화(집계상 학점엔 포함 — 모델 한계).
+ *  · 완료분은 성적·구분 검산 완료(GPA≈2.71로 요람 대조 일치). 남은 필수는 '예정'으로 편성. */
+export function degreeSeed(): AppState['degree'] {
+  type C = { id: string; name: string; credits: number; category: string; status: string; grade: string };
+  const mk = (name: string, credits: number, category: string, status: string, grade: string): C => ({
+    id: rid(),
+    name,
+    credits,
+    category,
+    status,
+    grade,
+  });
+  const done = (rows: [string, number, string, string][]): C[] =>
+    rows.map(([n, cr, cat, g]) => mk(n, cr, cat, '완료', g));
+
+  const completed = done([
+    // ── 전공 인증필수 ──
+    ['어드벤처디자인', 3, '전공필수', 'B+'],
+    ['회로이론', 3, '전공필수', 'B0'],
+    ['전자기학', 3, '전공필수', 'C+'],
+    ['기초전기실험', 2, '전공필수', 'C+'],
+    ['논리회로', 3, '전공필수', 'C+'],
+    ['전자회로1', 3, '전공필수', 'C+'],
+    ['전자장론', 3, '전공필수', 'C+'],
+    ['신호 및 시스템', 3, '전공필수', 'C+'],
+    ['자료구조및알고리즘이해', 3, '전공필수', 'C+'],
+    ['논리회로실험', 2, '전공필수', 'B+'],
+    ['전자회로실험', 2, '전공필수', 'B+'],
+    ['반도체공학1', 3, '전공필수', 'F'], // 재수강 필수(졸업)
+    // ── 인증선택(전공선택) ──
+    ['디지털신호처리', 3, '전공선택', 'F'],
+    ['확률 및 랜덤변수', 3, '전공선택', 'D+'],
+    ['통신의기초', 3, '전공선택', 'C0'],
+    ['디지털통신', 3, '전공선택', 'C+'],
+    ['인터넷프로토콜', 3, '전공선택', 'C+'],
+    // ── 학과기초(수학·과학·전산) + 전문교양 + 대학필수 → 교양 ──
+    ['화학실험', 1, '교양', 'A0'],
+    ['아주희망', 1, '교양', 'P'],
+    ['융합프로그래밍', 4, '교양', 'B+'],
+    ['물리학1', 3, '교양', 'B+'],
+    ['물리학실험1', 1, '교양', 'P'],
+    ['수학1', 3, '교양', 'A0'],
+    ['영어2', 3, '교양', 'A0'],
+    ['화학', 3, '교양', 'B+'],
+    ['공업수학G', 3, '교양', 'C+'],
+    ['물리학실험2', 1, '교양', 'B0'],
+    ['공업수학A', 3, '교양', 'B+'],
+    ['물리학2', 3, '교양', 'B0'],
+    ['수학2', 3, '교양', 'B+'],
+    ['영어1', 3, '교양', 'B+'],
+    ['대학글쓰기', 3, '교양', 'B+'],
+    ['생명과학', 3, '교양', 'B0'],
+    ['과학기술과 법', 3, '교양', 'C+'],
+    ['서양사상과 지성사', 3, '교양', 'D0'],
+    ['아주인을 위한 마중물', 1, '교양', 'P'],
+    // ── 자유선택 → 기타(요건 없음) ──
+    ['심리학개론', 3, '기타', 'C+'],
+    ['아주강좌2', 1, '기타', 'P'],
+  ]);
+
+  const planned: C[] = [
+    mk('전자회로2', 3, '전공필수', '예정', ''),
+    mk('4차 산업혁명 Connecting Minds', 1, '전공필수', '예정', ''),
+    mk('융합캡스톤디자인1', 2, '전공필수', '예정', ''),
+    mk('융합캡스톤디자인2', 2, '전공필수', '예정', ''),
+    mk('인증선택 2그룹 실험(택1)', 3, '전공선택', '예정', ''),
+    mk('추가 인증선택(약 4과목)', 12, '전공선택', '예정', ''),
+  ];
+
+  return {
+    targetTotal: 128,
+    reqMajorReq: 41,
+    reqMajorSel: 27,
+    reqLiberal: 51,
+    semesters: [
+      { id: rid(), name: '이수 완료', courses: completed },
+      { id: rid(), name: '남은 과목(예정)', courses: planned },
+    ],
+  };
+}
+
 export function defaults(): AppState {
   const t = new Date();
   const blk = (name: string, type: string, s: string, e: string, days: number[]): RoutineBlock => ({
@@ -67,13 +151,7 @@ export function defaults(): AppState {
     peakEnd: '',
     reviewViaAnki: false,
     graphPriority: false,
-    degree: {
-      targetTotal: 130,
-      reqMajorReq: 0,
-      reqMajorSel: 0,
-      reqLiberal: 0,
-      semesters: [{ id: rid(), name: '2026-1학기', courses: [] }],
-    },
+    degree: degreeSeed(),
     anki: { source: 'file' },
   };
 }
@@ -119,6 +197,18 @@ export function migrate(input: unknown): AppState | null {
   if (s.peakEnd == null) s.peakEnd = d.peakEnd;
   if (s.reviewViaAnki == null) s.reviewViaAnki = d.reviewViaAnki;
   if (s.graphPriority == null) s.graphPriority = d.graphPriority;
+  /* 졸업 계획 시드 백필 — SD-2에서 state.degree 구동으로 바뀌며 비어 있던 기존 데이터를 복원.
+     '손대지 않은 기본값'(과목 0 + 요건 3값 모두 0=옛 defaults)일 때만 1회 채운다.
+     과목을 하나라도 편성했거나 요건을 설정한 사용자는 절대 건드리지 않는다(빈 상태 존중). */
+  const dg = s.degree as
+    | { reqMajorReq?: number; reqMajorSel?: number; reqLiberal?: number; semesters?: { courses?: unknown[] }[] }
+    | undefined;
+  const hasCourses =
+    !!dg &&
+    Array.isArray(dg.semesters) &&
+    dg.semesters.some((se) => Array.isArray(se.courses) && se.courses.length > 0);
+  const untouchedReqs = !!dg && !dg.reqMajorReq && !dg.reqMajorSel && !dg.reqLiberal;
+  if (!hasCourses && untouchedReqs) s.degree = d.degree;
   /* _today는 테스트 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거). */
   if (s._today != null) delete s._today;
   /* '공부' 블록 개념 폐지: 잔존 공부 블록 제거(그 시간은 자동으로 빈 시간=공부 가능). */
