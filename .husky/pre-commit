@@ -1,0 +1,15 @@
+# web/ 변경이 스테이징됐을 때만 품질 게이트를 돈다.
+# (문서·serve.js·수집물만 커밋하면 통과 — web 무관 커밋을 막지 않는다.)
+changed=$(git diff --cached --name-only --diff-filter=ACM)
+if printf '%s\n' "$changed" | grep -q '^web/'; then
+  echo "[pre-commit] web 변경 감지 → lint-staged · typecheck · test"
+  (
+    cd web &&
+    npx --no-install lint-staged &&
+    npm run typecheck &&
+    npm run test
+  ) || {
+    echo "[pre-commit] ✗ 검증 실패 — 커밋 중단 (수정 후 다시 커밋하세요)"
+    exit 1
+  }
+fi

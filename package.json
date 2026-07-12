@@ -1,0 +1,12 @@
+{
+  "name": "learning-hub",
+  "private": true,
+  "version": "0.0.0",
+  "description": "러닝허브 — 학습 대시보드 앱(React web/ + serve.js 제어판). cowork 워크스페이스의 서브모듈. 이 루트 package.json은 git 훅(품질 게이트)만 관리; 앱 코드는 web/.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

@@ -1,0 +1,37 @@
+# 러닝허브 웹앱 품질 게이트 (GitHub Actions).
+# web/ 경로 변경 push/PR에 트리거 + 수동 실행(workflow_dispatch).
+# (2026-07-12 워크스페이스 재구조화 P1: cowork 모노레포에서 서브모듈로 분리 →
+#  경로가 러닝허브/web → web 로 바뀜. 부모 repo의 web-ci를 이관.)
+name: web-ci
+
+on:
+  push:
+    paths: ['web/**', '.github/workflows/ci.yml']
+  pull_request:
+    paths: ['web/**', '.github/workflows/ci.yml']
+  workflow_dispatch: {}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build
+      # 번들 예산 게이트 — 빌드 직후 dist/assets를 gzip으로 재어 청크/총합 상한 초과를 잡는다.
+      - run: npm run budget
+      # Playwright 스모크(시각 비교 없음 → OS 독립적, 안정). 빌드물(dist)을 preview로 띄워 검사.
+      # 비주얼 회귀(visual.spec)는 win32 베이스라인이라 CI(ubuntu)서 제외 — 로컬/수동 유지.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:smoke
