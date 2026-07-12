@@ -10,6 +10,17 @@ export const CATS = ['전공필수', '전공선택', '교양', '기타'];
 /** 수강 상태. */
 export const STATUSES = ['예정', '수강중', '완료'];
 
+/** 졸업요건 임계(전자공학과 2020 요람·ABEEK 인증과정) — 웹 단일 출처(1벌화).
+ *  볼트 `졸업요건_정리.md`의 미러이자 `degreeSeed()`가 참조하는 유일한 정의.
+ *  숫자를 바꿀 땐 여기 한 곳만 — 과거엔 seed 리터럴과 문서에 흩어져 드리프트 위험이 있었다.
+ *  · 총 128 / 전공필수(인증필수) 41 · 전공선택(인증선택) 27 · 교양(학과기초31+전문교양18+대학필수2) 51. */
+export const DEGREE_REQ = {
+  targetTotal: 128,
+  reqMajorReq: 41,
+  reqMajorSel: 27,
+  reqLiberal: 51,
+} as const;
+
 /** 성적 → 평점(4.5 만점). P(이수)는 없음 → GPA에서 자동 제외(Pass/Fail). */
 export const GRADE_POINTS: Record<string, number> = {
   'A+': 4.5,

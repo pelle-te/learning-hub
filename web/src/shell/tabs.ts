@@ -28,6 +28,9 @@ export const TABS: TabMeta[] = [
   { key: 'markets', label: '증시 동향', group: 'src', order: 47, icon: 'trend' },
   { key: 'atlas', label: '진로 지도', group: 'src', order: 48, icon: 'radio' },
   { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link', fill: true },
+  // 정본 원장 — 과목×챕터 5단계 파이프라인 진척(통합 4단계 소비). 연동 현황 호스트의 세그먼트로 접는다
+  // (자료 생산·연결 상태 묶음). 나브 숨김 · 라우트·⌘K·g단축키·세그먼트로 진입 · fill(단일 화면).
+  { key: 'ledger', label: '정본 원장', group: 'src', order: 52, hidden: true, icon: 'grid', fill: true },
   { key: 'journal', label: '학습 기록', group: 'log', order: 60, icon: 'notebook', fill: true },
   { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh', fill: true },
   // I-9: 복습 세션 러너 — 오늘 인출할 것(밀린 챕터·회상·착각 재확인)을 한 흐름으로 굴리는 doing surface.
@@ -53,6 +56,7 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
    라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
 export const SUBTAB_GROUPS: string[][] = [
   ['schedule', 'routine', 'degree'],
+  ['integrations', 'ledger'],
   ['journal', 'review', 'review-run'],
   ['stats', 'mastery', 'graph'],
 ];

@@ -14,11 +14,13 @@ import {
   type ResearchJob,
 } from '@/lib/api';
 import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
+import { fetchLedgerArtifact, type Ledger } from '@/lib/ledger';
 import { fetchReadsArtifact, type ReadsArtifact } from '@/lib/reads';
 import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
 import { useApp } from './useApp';
 
 export const KNOWLEDGE_KEY = ['knowledge'] as const;
+export const LEDGER_KEY = ['ledger'] as const;
 export const PING_KEY = ['ping'] as const;
 export const READS_KEY = ['reads'] as const;
 export const MARKETS_KEY = ['markets'] as const;
@@ -83,6 +85,17 @@ export function useAtlasNews(query: string, enabled: boolean) {
       if (!r.ok) throw new Error(r.error || '동향을 가져오지 못했어요');
       return r.items;
     },
+  });
+}
+
+/** 챕터 원장(/api/artifact/ledger) — 과목×챕터 5단계 파이프라인 진척(정본 축). serve.js 꺼짐/미생성이면
+ *  isError(우아 안내는 소비처). 캐시만 소유(persist X) — 원본은 볼트 빌드 산출물이라 읽기전용. */
+export function useLedger() {
+  return useQuery<Ledger>({
+    queryKey: LEDGER_KEY,
+    queryFn: fetchLedgerArtifact,
+    retry: false,
+    staleTime: 60_000,
   });
 }
 

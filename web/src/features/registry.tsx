@@ -26,6 +26,7 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   degree: () => import('./degree/Degree'),
   settings: () => import('./settings/Settings'),
   integrations: () => import('./integrations/Integrations'),
+  ledger: () => import('./ledger/Ledger'),
   control: () => import('./control/Control'),
   mastery: () => import('./mastery/Mastery'),
   graph: () => import('./graph/Graph'),

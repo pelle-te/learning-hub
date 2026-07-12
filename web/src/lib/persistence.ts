@@ -8,6 +8,7 @@
    부팅/영속은 KV(localStorage 호환)를 주입받아 순수·테스트 가능하게 만든다.
 ============================================================ */
 import { addDays, iso, parseISO, rid, todayISO } from './utils';
+import { DEGREE_REQ } from './degree';
 import type { AppState, CompletionEntry, KV, RoutineBlock, SessionType } from './types';
 
 export const KEY = 'study_planner_v3'; // localStorage 키 (모델 변경으로 v3)
@@ -94,10 +95,8 @@ export function degreeSeed(): AppState['degree'] {
   ];
 
   return {
-    targetTotal: 128,
-    reqMajorReq: 41,
-    reqMajorSel: 27,
-    reqLiberal: 51,
+    // 요건 임계는 lib/degree.DEGREE_REQ가 단일 출처(볼트 졸업요건_정리.md 미러) — 여기 리터럴 재기입 금지.
+    ...DEGREE_REQ,
     semesters: [
       { id: rid(), name: '이수 완료', courses: completed },
       { id: rid(), name: '남은 과목(예정)', courses: planned },
