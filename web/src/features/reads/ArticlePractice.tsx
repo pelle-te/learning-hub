@@ -317,7 +317,7 @@ export default function ArticlePractice({
           offlineDesc={
             <>
               읽을거리 지문은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 내 RSS 피드에서
-              원문을 가져옵니다. 피드 설정: <code>러닝허브/_읽을거리/feeds.json</code>
+              원문을 가져옵니다. 피드 설정: <code>hub/_읽을거리/feeds.json</code>
             </>
           }
           emptyTitle="아직 수집된 지문이 없어요"

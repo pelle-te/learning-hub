@@ -190,7 +190,7 @@ export default function Markets() {
             offlineDesc={
               <>
                 증시 동향은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 전세계 지수 등락과
-                금융 뉴스를 가져옵니다. 피드 설정: <code>러닝허브/_증시/feeds.json</code>
+                금융 뉴스를 가져옵니다. 피드 설정: <code>hub/_증시/feeds.json</code>
               </>
             }
             emptyTitle="아직 수집된 증시 데이터가 없어요"

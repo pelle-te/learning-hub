@@ -419,14 +419,14 @@ function Setup() {
       <h3>아직 지식상태가 없어요</h3>
       <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
         <li>
-          볼트 인덱스 최신화: <code>python 시스템/_도구/벌트DB.py build</code>
+          볼트 인덱스 최신화: <code>python pipeline/_도구/벌트DB.py build</code>
         </li>
         <li>
           (선택) 러닝허브 데이터 먹이기: 설정 탭에서 <b>볼트 백업</b>(<code>러닝허브_백업.json</code>) → 엔진이
           CBMS·백지를 인제스트
         </li>
         <li>
-          지식상태 빌드: <code>python 시스템/_도구/지식엔진.py build --export 러닝허브_백업.json</code>
+          지식상태 빌드: <code>python pipeline/_도구/지식엔진.py build --export 러닝허브_백업.json</code>
         </li>
         <li>
           위 <b>📁 볼트에서 불러오기</b> 클릭 → 전공 폴더 선택
