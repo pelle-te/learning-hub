@@ -55,8 +55,9 @@ export function cbmsTrendGlyph(tr: { thisW: number; lastW: number }): TrendGlyph
 
 /* ── 3문장 요약(3절) ── */
 export function summariesFor(state: AppState, ds: string): Summary[] {
-  state.summaries = state.summaries || {};
-  return state.summaries[ds] || [];
+  // 순수 읽기 — 예전엔 `state.summaries = state.summaries || {}`로 지연초기화하며 state를 제자리 변형했다.
+  // 이 함수는 렌더(동결 state)에서 불려 immer autoFreeze를 못 켜게 한 SD-5 주범 → 변형 없이 읽기만 한다.
+  return (state.summaries && state.summaries[ds]) || [];
 }
 export function addSummary(
   state: AppState,

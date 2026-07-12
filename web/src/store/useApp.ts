@@ -17,13 +17,12 @@ import { toast } from '@/shell/toast';
 import * as M from '@/lib/methodology';
 import type { AppState, CbmsCode, SessionType, Theme } from '@/lib/types';
 
-// 파생 셀렉터(schedule 등)의 읽기경로가 캐시된 객체를 제자리 변형하는데, immer autoFreeze가 켜져
-// state를 동결하면 그 변형이 TypeError로 터진다 → autoFreeze off(레거시도 off였음). 모든 변형은
-// mutate(immer set) 드래프트 안에서 일어나므로 우리 쓰기경로는 이것 없이도 안전하다.
-// ⚠ setAutoFreeze는 immer 모듈 전역(프로세스 단위)이라 useUI 등 *다른 모든* immer 스토어의 dev 동결
-//   검사까지 함께 끈다(SD-5). 정당화는 오직 위 useApp 읽기경로 하나 — 다른 스토어의 우발적 변형은
-//   더는 잡히지 않으니 새 스토어 작성자는 주의. 근본 해소는 읽기경로 격리인데 리스크가 커 유보한다.
-setAutoFreeze(false);
+// immer autoFreeze ON(기본값 복원) — 모든 immer 스토어(useApp·useUI·useFocus·toast·modal·chrome)의
+// state를 동결해 드래프트 밖 우발적 변형을 즉시 TypeError로 잡는다(6개 스토어 공통 안전망 회복).
+// 예전엔 OFF였다(SD-5): 읽기 함수 summariesFor가 state를 렌더 중 제자리 변형(지연초기화)해 동결과 충돌했다.
+// 그 read-path 변형을 순수화(methodology.summariesFor)해 근본 해소 → 이제 안전하게 켠다.
+// 쓰기경로(add*/set*/restore*)의 지연초기화는 전부 mutate 드래프트 안이라 동결 대상이 아니다(무해).
+setAutoFreeze(true);
 
 /* 저장 실패 안내 — 편집 중 매 flush(400ms 디바운스)마다 뜨면 소음이라 ~30초에 1번만.
    (shell/toast는 zustand 단독 모듈이라 store→toast import에 순환 없음 — actions.ts와 무관.) */

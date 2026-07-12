@@ -382,3 +382,13 @@ describe('recordBreakdown / archivableCount — 설정 진단 (ST-5·4)', () => 
     expect(archivableCount(st({ _today: '2026-07-15' }), 6)).toBe(0);
   });
 });
+
+describe('summariesFor — 순수 읽기(SD-5 회귀 가드)', () => {
+  it('동결(frozen) state에서도 변형 없이 읽는다(autoFreeze 하위호환)', () => {
+    const frozen = Object.freeze({}) as unknown as AppState;
+    expect(() => summariesFor(frozen, '2026-07-01')).not.toThrow();
+    expect(summariesFor(frozen, '2026-07-01')).toEqual([]);
+    // state에 summaries 키를 심지 않는다(예전 지연초기화 부작용 제거).
+    expect((frozen as Record<string, unknown>).summaries).toBeUndefined();
+  });
+});
