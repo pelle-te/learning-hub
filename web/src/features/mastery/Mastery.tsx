@@ -289,7 +289,9 @@ function Sequencing() {
     <div className={ds.card}>
       <h3>
         🧭 다음 학습 순서{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>(커리큘럼 arc · 선수게이트+약점+ZPD 결합 랭크)</span>
+        <span className={`${ds.muted} ${ds.tiny}`}>
+          (커리큘럼 arc 단위 — 개념 단위는 위 🎯 · 선수게이트+약점+ZPD 결합 랭크)
+        </span>
       </h3>
       <div className={ds.row} style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         <span className={ds.chip} data-tip={SEQ_REASON_META.remediate.hint}>
@@ -302,6 +304,13 @@ function Sequencing() {
           프론티어 {counts.frontier}
         </span>
       </div>
+      {counts.remediate === 0 && (
+        /* 콜드스타트 정직성 — '보강 0'을 '약점 없음'으로 오해하지 않게(KnowledgeMap의 미관측 배너와 대칭). */
+        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginBottom: 8 }}>
+          보강 0 — 약점이 없다기보다 인출 관측(Anki·CBMS)이 아직 없어서일 수 있어요. 관측이 쌓이면 약점 arc가 보강으로
+          올라옵니다.
+        </div>
+      )}
       <div className={m.mslist}>
         {seq.map((it) => {
           const meta = SEQ_REASON_META[it.reason];
