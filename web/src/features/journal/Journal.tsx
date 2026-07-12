@@ -10,8 +10,8 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { ui, io } from '@/shell';
-import { toastUndo } from '@/shell/toast';
 import { useToggleBacklogUndo } from '@/shell/useBacklog';
+import { useRecordEditor } from '@/shell/useRecordEditor';
 import {
   summariesFor,
   addSummary,
@@ -104,36 +104,29 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
   const [s1, setS1] = useState('');
   const [s2, setS2] = useState('');
   const [s3, setS3] = useState('');
-  // 인라인 편집 — 저장된 요약을 삭제-재작성 없이 제자리에서 고친다.
-  const [editId, setEditId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ sid: '', s1: '', s2: '', s3: '' });
   const firstField = useRef<HTMLTextAreaElement>(null);
   usePrefillForm('sum', setSid, firstField);
 
   const list = summariesFor(state, dsKey);
-  const startEdit = (x: { id: string; sid: string; s1: string; s2: string; s3: string }) => {
-    setEditId(x.id);
-    setDraft({ sid: x.sid, s1: x.s1, s2: x.s2, s3: x.s3 });
-  };
-  const saveEdit = () => {
-    if (!editId) return;
-    if (!draft.s1.trim() && !draft.s2.trim() && !draft.s3.trim()) {
-      ui.toast('세 문장 중 최소 하나는 남겨주세요.', 'warn');
-      return;
-    }
-    const id = editId;
-    mutate((st) =>
+  // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). 요약은 되돌리기 시 원래 위치(idx)로 복원.
+  const { editId, draft, setDraft, startEdit, cancel, saveEdit, del } = useRecordEditor({
+    list,
+    emptyDraft: { sid: '', s1: '', s2: '', s3: '' },
+    toDraft: (x) => ({ sid: x.sid, s1: x.s1, s2: x.s2, s3: x.s3 }),
+    validate: (d) => (!d.s1.trim() && !d.s2.trim() && !d.s3.trim() ? '세 문장 중 최소 하나는 남겨주세요.' : null),
+    save: (st, id, d) =>
       editSummary(st, dsKey, id, {
-        sid: draft.sid,
-        name: nameOf(st, draft.sid),
-        s1: draft.s1.trim(),
-        s2: draft.s2.trim(),
-        s3: draft.s3.trim(),
+        sid: d.sid,
+        name: nameOf(st, d.sid),
+        s1: d.s1.trim(),
+        s2: d.s2.trim(),
+        s3: d.s3.trim(),
       }),
-    );
-    setEditId(null);
-    ui.toast('요약 수정됨', 'ok');
-  };
+    remove: (st, id) => delSummary(st, dsKey, id),
+    restore: (st, rec, idx) => restoreSummary(st, dsKey, idx, rec),
+    deleteLabel: '요약 삭제됨',
+    savedToast: '요약 수정됨',
+  });
   const submit = () => {
     if (!s1.trim() && !s2.trim() && !s3.trim()) {
       ui.toast('세 문장 중 최소 하나는 적어주세요.', 'warn');
@@ -144,16 +137,6 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
     setS2('');
     setS3('');
     ui.toast('요약 저장됨', 'ok');
-  };
-  const del = (id: string) => {
-    // 삭제 전 스냅샷 + 원래 위치 → 되돌리기 시 끝이 아니라 제자리로 복원.
-    const rec = list.find((x) => x.id === id);
-    const idx = list.findIndex((x) => x.id === id);
-    mutate((st) => delSummary(st, dsKey, id));
-    toastUndo('요약 삭제됨', () => {
-      if (!rec) return;
-      mutate((st) => restoreSummary(st, dsKey, idx, rec));
-    });
   };
   // 오늘 산출물(요약·오답)이 없으면 내보내기는 빈 파일 = 데드엔드 → 비활성화.
   const todayIso = todayISO({ _today: state._today });
@@ -266,7 +249,7 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
                 <Button sm variant="primary" onClick={saveEdit}>
                   저장
                 </Button>
-                <Button sm variant="ghost" onClick={() => setEditId(null)}>
+                <Button sm variant="ghost" onClick={cancel}>
                   취소
                 </Button>
               </div>
@@ -308,42 +291,35 @@ function SummaryCard({ ds: dsKey }: { ds: string }) {
 function CbmsCard({ ds: dsKey }: { ds: string }) {
   const state = useApp((s) => s.state);
   const addCbms = useApp((s) => s.addCbms);
-  const mutate = useApp((s) => s.mutate);
   const [sid, setSid] = useState('');
   const [chapter, setChapter] = useState('');
   const [code, setCode] = useState<CbmsCode>(CBMS_CODES[0]!);
   const [note, setNote] = useState('');
   const [conf, setConf] = useState(false);
-  // 인라인 편집 — 저장된 오답의 챕터·유형·메모·확신플래그를 제자리에서 고친다.
-  const [editId, setEditId] = useState<string | null>(null);
-  const [edraft, setEdraft] = useState<{ chapter: string; code: CbmsCode; note: string; conf: boolean }>({
-    chapter: '',
-    code: CBMS_CODES[0]!,
-    note: '',
-    conf: false,
-  });
   const chRef = useRef<HTMLInputElement>(null);
   usePrefillForm('cbms', setSid, chRef);
 
   const today = cbmsBetween(state, dsKey, dsKey);
-  const startEdit = (e: { id: string; chapter: string; code: CbmsCode; note: string; conf?: boolean }) => {
-    setEditId(e.id);
-    setEdraft({ chapter: e.chapter, code: e.code, note: e.note, conf: !!e.conf });
-  };
-  const saveEdit = () => {
-    if (!editId) return;
-    const id = editId;
-    mutate((st) =>
-      editCbms(st, id, {
-        chapter: edraft.chapter.trim(),
-        code: edraft.code,
-        note: edraft.note.trim(),
-        conf: edraft.conf,
-      }),
-    );
-    setEditId(null);
-    ui.toast('오답 수정됨', 'ok');
-  };
+  // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
+  const {
+    editId,
+    draft: edraft,
+    setDraft: setEdraft,
+    startEdit,
+    cancel,
+    saveEdit,
+    del,
+  } = useRecordEditor<(typeof today)[number], { chapter: string; code: CbmsCode; note: string; conf: boolean }>({
+    list: today,
+    emptyDraft: { chapter: '', code: CBMS_CODES[0]!, note: '', conf: false },
+    toDraft: (e) => ({ chapter: e.chapter, code: e.code, note: e.note, conf: !!e.conf }),
+    save: (st, id, d) =>
+      editCbms(st, id, { chapter: d.chapter.trim(), code: d.code, note: d.note.trim(), conf: d.conf }),
+    remove: (st, id) => delCbms(st, id),
+    restore: (st, rec) => restoreCbms(st, rec),
+    deleteLabel: '오답 삭제됨',
+    savedToast: '오답 수정됨',
+  });
   const submit = () => {
     if (!sid && !chapter.trim() && !note.trim()) {
       ui.toast('과목·챕터·메모 중 최소 하나는 입력하세요.', 'warn');
@@ -355,15 +331,6 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
     setConf(false);
     ui.toast('오답 추가됨', 'ok');
   };
-  const del = (id: string) => {
-    const rec = today.find((x) => x.id === id);
-    mutate((st) => delCbms(st, id));
-    toastUndo('오답 삭제됨', () => {
-      if (!rec) return;
-      mutate((st) => restoreCbms(st, rec));
-    });
-  };
-
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>
@@ -476,7 +443,7 @@ function CbmsCard({ ds: dsKey }: { ds: string }) {
                   <Button sm variant="primary" onClick={saveEdit}>
                     저장
                   </Button>
-                  <Button sm variant="ghost" onClick={() => setEditId(null)}>
+                  <Button sm variant="ghost" onClick={cancel}>
                     취소
                   </Button>
                 </div>
@@ -529,28 +496,30 @@ function BacklogCard() {
   const [sid, setSid] = useState('');
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
-  // 인라인 편집 — 저장된 보충 항목의 주제·메모를 제자리에서 고친다.
-  const [editId, setEditId] = useState<string | null>(null);
-  const [edraft, setEdraft] = useState({ topic: '', note: '' });
   const topicRef = useRef<HTMLInputElement>(null);
   usePrefillForm('bl', setSid, topicRef);
 
   const open = openBacklog(state);
-  const startEdit = (b: { id: string; topic: string; note: string }) => {
-    setEditId(b.id);
-    setEdraft({ topic: b.topic, note: b.note });
-  };
-  const saveEdit = () => {
-    if (!editId) return;
-    if (!edraft.topic.trim()) {
-      ui.toast('막힌 주제는 비울 수 없어요.', 'warn');
-      return;
-    }
-    const id = editId;
-    mutate((st) => editBacklog(st, id, { topic: edraft.topic.trim(), note: edraft.note.trim() }));
-    setEditId(null);
-    ui.toast('보충 항목 수정됨', 'ok');
-  };
+  // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
+  const {
+    editId,
+    draft: edraft,
+    setDraft: setEdraft,
+    startEdit,
+    cancel,
+    saveEdit,
+    del,
+  } = useRecordEditor({
+    list: open,
+    emptyDraft: { topic: '', note: '' },
+    toDraft: (b) => ({ topic: b.topic, note: b.note }),
+    validate: (d) => (!d.topic.trim() ? '막힌 주제는 비울 수 없어요.' : null),
+    save: (st, id, d) => editBacklog(st, id, { topic: d.topic.trim(), note: d.note.trim() }),
+    remove: (st, id) => delBacklog(st, id),
+    restore: (st, rec) => restoreBacklog(st, rec),
+    deleteLabel: '백로그 삭제됨',
+    savedToast: '보충 항목 수정됨',
+  });
   const closed = (state.backlog || []).filter((b) => b.done).length;
   const submit = () => {
     if (!topic.trim()) {
@@ -562,15 +531,6 @@ function BacklogCard() {
     setNote('');
     ui.toast('백로그 추가됨', 'ok');
   };
-  const del = (id: string) => {
-    const rec = open.find((x) => x.id === id);
-    mutate((st) => delBacklog(st, id));
-    toastUndo('백로그 삭제됨', () => {
-      if (!rec) return;
-      mutate((st) => restoreBacklog(st, rec));
-    });
-  };
-
   return (
     <div className={`${ds.card} ${ds.glow}`}>
       <h2>
@@ -646,7 +606,7 @@ function BacklogCard() {
                 <Button sm variant="primary" onClick={saveEdit}>
                   저장
                 </Button>
-                <Button sm variant="ghost" onClick={() => setEditId(null)}>
+                <Button sm variant="ghost" onClick={cancel}>
                   취소
                 </Button>
               </div>
