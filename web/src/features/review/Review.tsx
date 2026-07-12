@@ -281,6 +281,25 @@ function ChecklistCard({ wk }: { wk: string }) {
 }
 
 /** 회고 코칭(B7) + 반복 약점(C9) — 결정적 인사이트를 항상 보이고, serve.js가 켜져 있으면 AI로 구체화. */
+/* E-4 레버 SSOT — 약점/위험 과목의 주간 배정시간(weeklyHours, 스케줄러 입력)을 +1h/정확한 -1h 언두로
+   조정. CoachCard·WorkbenchCard가 바이트 동일 복붙하던 것(반올림 로직 드리프트=실버그 위험)을 한 곳으로.
+   daily 모드는 이 레버가 없어(leverFor가 undefined) 버튼이 미표시된다. */
+function useWeeklyAllot() {
+  const items = useApp((s) => s.state.items);
+  const mutate = useApp((s) => s.mutate);
+  const leverFor = (subject: string) => items.find((it) => it.name === subject && it.mode !== 'daily');
+  const bumpWeekly = (id: string, delta: number) =>
+    mutate((st) => {
+      const t = st.items.find((x) => x.id === id);
+      if (t) t.weeklyHours = Math.max(0, Math.round((+(t.weeklyHours || 0) + delta + Number.EPSILON) * 10) / 10);
+    });
+  const allotMore = (subject: string, id: string) => {
+    bumpWeekly(id, 1);
+    toastUndo(`"${subject}" 주간 배정 +1h`, () => bumpWeekly(id, -1));
+  };
+  return { leverFor, allotMore };
+}
+
 function CoachCard({ ds0 }: { ds0: string }) {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -297,18 +316,8 @@ function CoachCard({ ds0 }: { ds0: string }) {
     toast(PROMOTE_TOAST);
   };
 
-  // E-4: 리뷰→계획 되먹임 — 약점 과목의 주간 배정시간(weeklyHours, 스케줄러가 소비하는 레버)을
-  // 한 번의 클릭으로 +1h. 정확한 역연산(-1h)으로 언두 제공. daily 모드는 이 레버가 없어 버튼 미표시.
-  const leverFor = (subject: string) => state.items.find((it) => it.name === subject && it.mode !== 'daily');
-  const bumpWeekly = (id: string, delta: number) =>
-    mutate((st) => {
-      const t = st.items.find((x) => x.id === id);
-      if (t) t.weeklyHours = Math.max(0, Math.round((+(t.weeklyHours || 0) + delta + Number.EPSILON) * 10) / 10);
-    });
-  const allotMore = (subject: string, id: string) => {
-    bumpWeekly(id, 1);
-    toastUndo(`"${subject}" 주간 배정 +1h`, () => bumpWeekly(id, -1));
-  };
+  // E-4: 리뷰→계획 되먹임 — 약점 과목의 주간 배정시간 +1h(정확한 -1h 언두). SSOT는 useWeeklyAllot.
+  const { leverFor, allotMore } = useWeeklyAllot();
 
   const [aiBusy, setAiBusy] = useState(false);
   const [aiPreview, setAiPreview] = useState('');
@@ -494,17 +503,8 @@ function WorkbenchCard() {
   const hidden = all.length - shown.length;
   const openN = openBacklog(state).length; // 워크벤치가 채우는 큐의 현재 깊이(맥락).
 
-  // E-4 레버 재사용 — 약점/위험 과목의 주간 배정시간 +1h(정확한 -1h 언두). daily 모드는 레버가 없어 미표시.
-  const leverFor = (subject: string) => state.items.find((it) => it.name === subject && it.mode !== 'daily');
-  const bumpWeekly = (id: string, delta: number) =>
-    mutate((st) => {
-      const t = st.items.find((x) => x.id === id);
-      if (t) t.weeklyHours = Math.max(0, Math.round((+(t.weeklyHours || 0) + delta + Number.EPSILON) * 10) / 10);
-    });
-  const allotMore = (subject: string, id: string) => {
-    bumpWeekly(id, 1);
-    toastUndo(`"${subject}" 주간 배정 +1h`, () => bumpWeekly(id, -1));
-  };
+  // E-4 레버 재사용 — 약점/위험 과목의 주간 배정시간 +1h(정확한 -1h 언두). SSOT는 useWeeklyAllot.
+  const { leverFor, allotMore } = useWeeklyAllot();
   // I-1과 동일 경로(addBacklog→toast) — 방치된 개념을 보충 큐로 넣어 백지 복습을 예약한다.
   const seedRisk = (c: { subject: string; chapter: string; daysSince: number }) => {
     const seed: BacklogSeed = {

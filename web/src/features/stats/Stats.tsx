@@ -30,7 +30,8 @@ import {
   CBMS_CODES,
 } from '@/lib/methodology';
 import { personalBests, seasonPace } from '@/lib/records';
-import { parseISO, fmtShort, addDays, mondayOf, iso, todayISO, dayDiff, ddayInfo, hLabel, DOW } from '@/lib/utils';
+import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel, DOW } from '@/lib/utils';
+import { buildStreakGrid } from '@/lib/statsView';
 import ds from '@/styles/ds.module.css';
 import st from './Stats.module.css';
 import type { ScheduleResult } from '@/lib/types';
@@ -227,44 +228,8 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
   // 126개 <td>는 접힌 채로도 상시 렌더됐음 — 열렸을 때만 표를 만들어(lazy) 유휴 비용 제거.
   const [tableOpen, setTableOpen] = useState(false);
   const WEEKS = 18;
-  const comp = state.completions || {};
-  const today = parseISO(todayISO(state));
-  const startMon = addDays(mondayOf(today), -7 * (WEEKS - 1));
-  const minOf = (ds2: string) => {
-    const m = comp[ds2];
-    if (!m) return 0;
-    return Object.values(m).reduce((acc, e) => acc + (e && e.done ? +e.min || 0 : 0), 0);
-  };
-  const lvl = (v: number) => (v <= 0 ? 0 : v < 30 ? 1 : v < 60 ? 2 : v < 120 ? 3 : 4);
-  let activeDays = 0;
-  let totalMin = 0;
-  const cols: { ds: string; v: number; l: number }[][] = [];
-  for (let w = 0; w < WEEKS; w++) {
-    const colMon = addDays(startMon, w * 7);
-    const cells: { ds: string; v: number; l: number }[] = [];
-    for (let dow = 0; dow < 7; dow++) {
-      const d = addDays(colMon, dow);
-      const ds2 = iso(d);
-      const future = d > today;
-      const v = future ? -1 : minOf(ds2);
-      if (v > 0) {
-        activeDays++;
-        totalMin += v;
-      }
-      cells.push({ ds: ds2, v, l: future ? -1 : lvl(v) });
-    }
-    cols.push(cells);
-  }
-  // 월 라벨 — 각 주 열의 시작(월요일) 달이 바뀌는 지점에만 표기(언제 공백이 생겼는지 읽히게).
-  let lastMonth = -1;
-  const monthLabels = cols.map((col) => {
-    const mo = new Date((col[0]?.ds || today.toISOString().slice(0, 10)) + 'T00:00:00').getMonth();
-    if (mo !== lastMonth) {
-      lastMonth = mo;
-      return `${mo + 1}월`;
-    }
-    return '';
-  });
+  // 그리드 파생(임계값·미래 마스킹·월 라벨)은 순수 lib(buildStreakGrid) — 이 컴포넌트는 마크업만.
+  const { cols, monthLabels, activeDays, totalMin } = buildStreakGrid(state, WEEKS);
   const heat = (
     <>
       <div className={st.hmWrap}>
