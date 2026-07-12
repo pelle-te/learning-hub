@@ -21,7 +21,7 @@ import { todayISO } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
-import { accumulateRepulsion } from './barnesHut';
+import { createGraphSim, type FocusResult } from './graphSim';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
 import g from './Graph.module.css';
 
@@ -72,8 +72,19 @@ function leafColor(n: GraphNode, p: Palette): string {
   return n.tone === 'done' ? p.good : n.tone === 'learning' ? p.learning : p.mut;
 }
 
-/** 활성 노드(드래그 대상)를 포함하는 가변 시뮬레이션 노드. */
-type SimNode = GraphNode;
+/** 그래프 노드 → 상세 패널 스냅샷(클릭·검색 진입 공용). */
+function selFrom(n: GraphNode): SelInfo {
+  return {
+    id: n.id,
+    kind: n.kind,
+    label: n.label,
+    itemId: n.itemId,
+    done: n.done,
+    total: n.total,
+    tone: n.tone,
+    hours: n.hours,
+  };
+}
 
 export default function Graph() {
   const state = useApp((s) => s.state);
@@ -85,7 +96,7 @@ export default function Graph() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // 캔버스 뷰 제어(줌/팬/노드검색) — 명령형 핸들. 캔버스 이펙트가 채우고, 검색바·버튼이 호출한다.
   const viewApi = useRef<{
-    focus: (q: string) => { i: number; n: number } | null;
+    focus: (q: string) => FocusResult | null;
     reset: () => void;
     zoom: (f: number) => void;
     redraw: () => void;
@@ -186,125 +197,44 @@ export default function Graph() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return; // getContext 실패 — 조용히 무동작(throw 금지)
 
-    const { nodes, links } = buildGraph(items, expandedHubs);
-    if (!nodes.length) return;
-    const byId = new Map<string, SimNode>(nodes.map((n) => [n.id, n]));
-    const idxById = new Map<string, number>(nodes.map((n, i) => [n.id, i]));
+    const graph = buildGraph(items, expandedHubs);
+    if (!graph.nodes.length) return;
+    // 힘 시뮬·좌표기하·뷰 상태의 명령형 코어(DOM 무관, features/graph/graphSim.ts) —
+    // 이 이펙트는 캔버스·팔레트·draw·RAF·포인터 리스너만 배선하고 나머지는 코어에 위임한다.
+    const sim = createGraphSim(graph, wrap.clientWidth || 1, wrap.clientHeight || 1);
 
     let palette = readPalette();
     let cw = 0;
     let ch = 0;
     let dpr = 1;
-    // 화면 자동맞춤 변환(월드→스크린) — 히트테스트 역변환에 재사용.
-    let tf = { scale: 1, ox: 0, oy: 0 };
-    // 사용자 뷰(줌/팬) — auto-fit 위에 얹는 스크린-공간 오버레이. userView가 켜지면 auto-fit을 동결(뷰 안정).
-    const view = { k: 1, x: 0, y: 0 };
-    let userView = false;
+    // 클릭(선택) vs 드래그·팬 구분은 포인터 제스처(DOM)라 컴포넌트가 소유한다.
     let panning = false;
     let panStartX = 0;
     let panStartY = 0;
     let panOrigX = 0;
     let panOrigY = 0;
-    let dragId: string | null = null;
-    // 클릭(선택) vs 드래그 구분 — pointerdown~up 사이 이동이 미미하면 '클릭'으로 상세 패널을 연다.
     let downId: string | null = null;
     let downX = 0;
     let downY = 0;
     let moved = false;
-    // L-4 — 검색 매치 순회 상태(같은 검색어로 Enter 반복 시 다음 매치로).
-    let searchNeedle = '';
-    let searchIdx = -1;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    // ── 힘 시뮬레이션 1스텝(스프링-반발-중력, alpha 냉각) ──────────────────
-    const REP = 5200; // 반발 상수
-    const SPRING = 0.045; // 링크 스프링
-    const REST = 74; // 링크 자연 길이
-    const GRAV = 0.012; // 중심 인력
-    const DAMP = 0.85; // 감쇠
-    const fx = new Float64Array(nodes.length);
-    const fy = new Float64Array(nodes.length);
-    const step = (alpha: number): number => {
-      fx.fill(0);
-      fy.fill(0);
-      // 반발(repulsion): 소형 그래프는 정확 O(N²), 대형은 Barnes–Hut Θ(N log N)로 자동 전환.
-      // 프레임당 N² 연산이 MAX_NODES 캡의 근본 원인이었다(SD-3).
-      accumulateRepulsion(nodes, fx, fy, REP);
-      for (const l of links) {
-        const s = byId.get(l.source);
-        const t = byId.get(l.target);
-        if (!s || !t) continue;
-        const dx = t.x - s.x;
-        const dy = t.y - s.y;
-        const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        const f = SPRING * (d - REST);
-        const ux = (dx / d) * f;
-        const uy = (dy / d) * f;
-        const si = idxById.get(l.source)!;
-        const ti = idxById.get(l.target)!;
-        fx[si]! += ux;
-        fy[si]! += uy;
-        fx[ti]! -= ux;
-        fy[ti]! -= uy;
-      }
-      let ke = 0;
-      for (let i = 0; i < nodes.length; i++) {
-        const n = nodes[i]!;
-        if (n.id === dragId) {
-          n.vx = 0;
-          n.vy = 0;
-          continue;
-        }
-        const ax = (fx[i]! - n.x * GRAV) * alpha;
-        const ay = (fy[i]! - n.y * GRAV) * alpha;
-        n.vx = (n.vx + ax) * DAMP;
-        n.vy = (n.vy + ay) * DAMP;
-        n.x += n.vx;
-        n.y += n.vy;
-        ke += n.vx * n.vx + n.vy * n.vy;
-      }
-      return ke / nodes.length;
-    };
-
-    // ── 그리기 ────────────────────────────────────────────────────────────
-    const computeTransform = () => {
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxX = -Infinity;
-      let maxY = -Infinity;
-      for (const n of nodes) {
-        minX = Math.min(minX, n.x - n.radius);
-        minY = Math.min(minY, n.y - n.radius);
-        maxX = Math.max(maxX, n.x + n.radius);
-        maxY = Math.max(maxY, n.y + n.radius);
-      }
-      const pad = 48;
-      const bw = Math.max(1, maxX - minX);
-      const bh = Math.max(1, maxY - minY);
-      const scale = Math.min((cw - pad * 2) / bw, (ch - pad * 2) / bh, 1.6);
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      tf = { scale, ox: cw / 2 - cx * scale, oy: ch / 2 - cy * scale };
-    };
-    // 최종 스크린 좌표 = 사용자 뷰(view) ∘ auto-fit(tf). 노드 크기·라벨 임계도 유효 배율(effScale)을 따른다.
-    const sx = (x: number) => view.x + view.k * (tf.ox + x * tf.scale);
-    const sy = (y: number) => view.y + view.k * (tf.oy + y * tf.scale);
-    const effScale = () => tf.scale * view.k;
+    // ── 그리기(코어의 nodes/transform/view/sx·sy만 읽어 그림 — 상태 되쓰기 없음) ──────
     const draw = () => {
-      if (!userView) computeTransform(); // 사용자가 줌/팬하면 auto-fit 동결(프레이밍 유지).
+      sim.refit(); // 사용자가 줌/팬하지 않았으면 auto-fit 재계산(프레이밍 유지).
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
       // 링크
       ctx.strokeStyle = palette.line;
       ctx.lineWidth = 1;
-      for (const l of links) {
-        const s = byId.get(l.source);
-        const t = byId.get(l.target);
+      for (const l of sim.links) {
+        const s = sim.node(l.source);
+        const t = sim.node(l.target);
         if (!s || !t) continue;
         ctx.beginPath();
-        ctx.moveTo(sx(s.x), sy(s.y));
-        ctx.lineTo(sx(t.x), sy(t.y));
+        ctx.moveTo(sim.sx(s.x), sim.sy(s.y));
+        ctx.lineTo(sim.sx(t.x), sim.sy(t.y));
         ctx.stroke();
       }
       // 의미 연결(자동) — 과목 경계를 넘는 점선(액센트, 그리기 전용 — 힘에는 불참).
@@ -315,23 +245,23 @@ export default function Graph() {
         ctx.globalAlpha = 0.4;
         ctx.setLineDash([5, 5]);
         for (const l of sem) {
-          const s = byId.get(l.source);
-          const t = byId.get(l.target);
+          const s = sim.node(l.source);
+          const t = sim.node(l.target);
           if (!s || !t) continue;
           ctx.beginPath();
-          ctx.moveTo(sx(s.x), sy(s.y));
-          ctx.lineTo(sx(t.x), sy(t.y));
+          ctx.moveTo(sim.sx(s.x), sim.sy(s.y));
+          ctx.lineTo(sim.sx(t.x), sim.sy(t.y));
           ctx.stroke();
         }
         ctx.setLineDash([]);
         ctx.globalAlpha = 1;
       }
       // 노드
-      const nodeScale = Math.min(1.6, Math.max(0.7, effScale()));
-      for (const n of nodes) {
+      const nodeScale = Math.min(1.6, Math.max(0.7, sim.effScale()));
+      for (const n of sim.nodes) {
         const r = n.radius * nodeScale;
-        const px = sx(n.x);
-        const py = sy(n.y);
+        const px = sim.sx(n.x);
+        const py = sim.sy(n.y);
         ctx.beginPath();
         ctx.arc(px, py, r, 0, Math.PI * 2);
         if (n.kind === 'hub') {
@@ -352,16 +282,16 @@ export default function Graph() {
       ctx.font = palette.font;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      const showLeafLabels = effScale() > 1.35; // 줌인하면 챕터 이름도 드러난다(터치·탐색 지원).
-      for (const n of nodes) {
+      const showLeafLabels = sim.effScale() > 1.35; // 줌인하면 챕터 이름도 드러난다(터치·탐색 지원).
+      for (const n of sim.nodes) {
         if (n.kind !== 'hub' && !(showLeafLabels && !n.overflow)) continue;
         const r = n.radius * nodeScale;
         if (n.kind === 'hub') {
           ctx.fillStyle = palette.txt;
-          ctx.fillText(n.label, sx(n.x), sy(n.y) + r + 3);
+          ctx.fillText(n.label, sim.sx(n.x), sim.sy(n.y) + r + 3);
         } else {
           ctx.fillStyle = palette.mut;
-          ctx.fillText(n.label, sx(n.x), sy(n.y) + r + 2);
+          ctx.fillText(n.label, sim.sx(n.x), sim.sy(n.y) + r + 2);
         }
       }
     };
@@ -374,11 +304,11 @@ export default function Graph() {
     const loop = () => {
       raf = 0;
       if (paused()) return; // 재개는 visibilitychange가
-      const ke = step(alpha);
+      const ke = sim.step(alpha);
       alpha *= 0.98;
       draw();
       // 정착(alpha 소진 & 운동에너지≈0)하면 정지 — 드래그 중이면 계속.
-      if (dragId != null || (alpha > ALPHA_MIN && ke > 0.02)) {
+      if (sim.isDragging() || (alpha > ALPHA_MIN && ke > 0.02)) {
         raf = requestAnimationFrame(loop);
       }
     };
@@ -399,38 +329,12 @@ export default function Graph() {
       canvas.height = Math.max(1, Math.floor(ch * dpr));
       canvas.style.width = `${cw}px`;
       canvas.style.height = `${ch}px`;
+      sim.resize(cw, ch);
       draw();
     };
 
-    // ── 히트테스트(스크린→월드 역변환) ─────────────────────────────────────
-    const hit = (clientX: number, clientY: number): SimNode | null => {
-      const rect = canvas.getBoundingClientRect();
-      // 스크린 → auto-fit(base) → 월드: view를 먼저 풀고(tf.ox 기준으로), 그다음 tf를 푼다.
-      const bx = (clientX - rect.left - view.x) / view.k;
-      const by = (clientY - rect.top - view.y) / view.k;
-      const wx = (bx - tf.ox) / tf.scale;
-      const wy = (by - tf.oy) / tf.scale;
-      // L-3 — 렌더 반경과 히트 반경 일치: draw가 쓰는 nodeScale/effScale를 그대로 반영한다.
-      // 화면 반경 = n.radius * nodeScale, 여기에 6px 여유를 더해 월드로 환산(줌 무관 일관).
-      const eff = effScale();
-      const ns = Math.min(1.6, Math.max(0.7, eff));
-      let best: SimNode | null = null;
-      let bestD = Infinity;
-      for (const n of nodes) {
-        const dx = n.x - wx;
-        const dy = n.y - wy;
-        const d = dx * dx + dy * dy;
-        const worldR = (n.radius * ns + 6) / eff;
-        const rr = worldR * worldR;
-        if (d <= rr && d < bestD) {
-          bestD = d;
-          best = n;
-        }
-      }
-      return best;
-    };
-    const tipText = (n: SimNode) => (n.kind === 'hub' ? `${n.label} · ${n.done ?? 0}/${n.total ?? 0} 챕터` : n.label);
-    // X-7 A — 툴팁을 명령형으로 갱신(포인터마다 리렌더 방지). 위치는 좌상단 기준(CSS transform이 오프셋 담당).
+    // ── 툴팁(호버 요약) — 명령형 갱신(포인터마다 리렌더 방지) ─────────────────
+    const tipText = (n: GraphNode) => (n.kind === 'hub' ? `${n.label} · ${n.done ?? 0}/${n.total ?? 0} 챕터` : n.label);
     const showTip = (x: number, y: number, text: string) => {
       const el = tipRef.current;
       if (!el) return;
@@ -444,22 +348,24 @@ export default function Graph() {
       if (el) el.style.display = 'none';
     };
 
-    // ── 포인터(호버 툴팁 + 드래그) ─────────────────────────────────────────
+    // ── 포인터(호버 툴팁 + 드래그 + 팬) — 좌표를 캔버스-로컬로 환산해 코어에 위임 ──────
     const onDown = (e: PointerEvent) => {
-      const n = hit(e.clientX, e.clientY);
+      const rect = canvas.getBoundingClientRect();
+      const n = sim.hitTest(e.clientX - rect.left, e.clientY - rect.top);
       if (!n) {
         // 빈 공간 = 캔버스 팬(뷰 이동) + 선택 해제.
         panning = true;
         panStartX = e.clientX;
         panStartY = e.clientY;
-        panOrigX = view.x;
-        panOrigY = view.y;
+        const v = sim.view();
+        panOrigX = v.x;
+        panOrigY = v.y;
         canvas.setPointerCapture(e.pointerId);
         canvas.style.cursor = 'grabbing';
         setSel(null);
         return;
       }
-      dragId = n.id;
+      sim.beginDrag(n.id);
       downId = n.id;
       downX = e.clientX;
       downY = e.clientY;
@@ -469,33 +375,25 @@ export default function Graph() {
     };
     const onMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
       if (panning) {
-        userView = true;
-        view.x = panOrigX + (e.clientX - panStartX);
-        view.y = panOrigY + (e.clientY - panStartY);
+        sim.pan(panOrigX + (e.clientX - panStartX), panOrigY + (e.clientY - panStartY));
         draw();
         return;
       }
-      if (dragId != null) {
-        const n = byId.get(dragId);
-        if (n) {
-          if (!moved && Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
-          // 스크린 → auto-fit → 월드(줌/팬 반영).
-          const bx = (e.clientX - rect.left - view.x) / view.k;
-          const by = (e.clientY - rect.top - view.y) / view.k;
-          n.x = (bx - tf.ox) / tf.scale;
-          n.y = (by - tf.oy) / tf.scale;
-          n.vx = 0;
-          n.vy = 0;
-          if (reduce.matches) draw();
-          else ensureLoop();
-          showTip(e.clientX - rect.left, e.clientY - rect.top, tipText(n));
-        }
+      if (sim.isDragging()) {
+        if (!moved && Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
+        sim.dragTo(px, py);
+        if (reduce.matches) draw();
+        else ensureLoop();
+        const dn = downId ? sim.node(downId) : undefined;
+        if (dn) showTip(px, py, tipText(dn));
         return;
       }
-      const n = hit(e.clientX, e.clientY);
+      const n = sim.hitTest(px, py);
       canvas.style.cursor = n ? 'grab' : 'default';
-      if (n) showTip(e.clientX - rect.left, e.clientY - rect.top, tipText(n));
+      if (n) showTip(px, py, tipText(n));
       else hideTip();
     };
     const onUp = (e: PointerEvent) => {
@@ -509,9 +407,9 @@ export default function Graph() {
         canvas.style.cursor = 'default';
         return;
       }
-      if (dragId != null) {
-        const n = byId.get(dragId);
-        dragId = null;
+      if (sim.isDragging()) {
+        const n = downId ? sim.node(downId) : undefined;
+        sim.endDrag();
         try {
           canvas.releasePointerCapture(e.pointerId);
         } catch {
@@ -529,16 +427,7 @@ export default function Graph() {
             });
             setSel(null);
           } else {
-            setSel({
-              id: n.id,
-              kind: n.kind,
-              label: n.label,
-              itemId: n.itemId,
-              done: n.done,
-              total: n.total,
-              tone: n.tone,
-              hours: n.hours,
-            });
+            setSel(selFrom(n));
           }
         }
       }
@@ -546,68 +435,30 @@ export default function Graph() {
       moved = false;
     };
     const onLeave = () => {
-      if (dragId == null) hideTip();
+      if (!sim.isDragging()) hideTip();
     };
 
-    // ── 줌(휠) — 커서 아래 지점을 고정한 채 확대/축소 ──────────────────────
-    const K_MIN = 0.4;
-    const K_MAX = 6;
-    const zoomAt = (mx: number, my: number, factor: number) => {
-      const newK = Math.max(K_MIN, Math.min(K_MAX, view.k * factor));
-      if (newK === view.k) return;
-      userView = true;
-      // 커서 아래 점 고정: mx = view.x + view.k*base  →  base 불변 → view.x 보정.
-      view.x = mx - ((mx - view.x) * newK) / view.k;
-      view.y = my - ((my - view.y) * newK) / view.k;
-      view.k = newK;
-      draw();
-    };
+    // ── 줌(휠) — 커서 아래 지점을 고정한 채 확대/축소(코어가 뷰 계산, 변화 시 draw) ──────
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
-      zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-e.deltaY * 0.0012));
+      if (sim.zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-e.deltaY * 0.0012))) draw();
     };
 
-    // 명령형 뷰 API — 검색바·버튼이 호출(노드로 이동/센터·리셋·버튼 줌).
+    // 명령형 뷰 API — 검색바·버튼이 호출(노드로 이동/센터·리셋·버튼 줌). 코어에 위임하고 draw만 배선.
     viewApi.current = {
-      focus: (q: string) => {
-        const needle = q.trim().toLowerCase();
-        if (!needle) return null;
-        // L-4 — 첫 매치만이 아니라 전체 매치를 모아 Enter 반복 시 순회한다.
-        const matches = nodes.filter((n) => !n.overflow && n.label.toLowerCase().includes(needle));
-        if (!matches.length) return null;
-        if (needle === searchNeedle) searchIdx = (searchIdx + 1) % matches.length;
-        else {
-          searchNeedle = needle;
-          searchIdx = 0;
-        }
-        const target = matches[searchIdx]!;
-        userView = true;
-        const k = 1.9;
-        view.k = k;
-        view.x = cw / 2 - k * (tf.ox + target.x * tf.scale);
-        view.y = ch / 2 - k * (tf.oy + target.y * tf.scale);
-        setSel({
-          id: target.id,
-          kind: target.kind,
-          label: target.label,
-          itemId: target.itemId,
-          done: target.done,
-          total: target.total,
-          tone: target.tone,
-          hours: target.hours,
-        });
-        draw();
-        return { i: searchIdx + 1, n: matches.length };
+      focus: (q) => {
+        const r = sim.focus(q);
+        if (r) draw();
+        return r;
       },
       reset: () => {
-        userView = false;
-        view.k = 1;
-        view.x = 0;
-        view.y = 0;
+        sim.reset();
         draw();
       },
-      zoom: (factor: number) => zoomAt(cw / 2, ch / 2, factor),
+      zoom: (factor) => {
+        if (sim.zoomAt(cw / 2, ch / 2, factor)) draw();
+      },
       // 의미 연결이 도착/변경되면 얇은 이펙트가 호출 — 재시뮬레이션 없이 현재 프레임만 다시 그린다.
       redraw: () => draw(),
     };
@@ -636,10 +487,10 @@ export default function Graph() {
     // 초기화 — 모션 비선호면 동기로 정착시킨 뒤 1회 그림. 아니면 RAF 루프.
     resize();
     if (reduce.matches) {
-      // L-2 — step은 O(N²)라 N=400에서 320회면 ~25M 연산(수백ms 메인스레드 프리즈).
-      // 반복수를 노드 수에 반비례로 캡해 모션민감 사용자의 초기화 프리즈를 막는다(정착 품질은 유지).
-      const iters = Math.min(320, Math.floor(40000 / Math.max(1, nodes.length)));
-      for (let i = 0; i < iters; i++) step(0.9 * Math.pow(0.99, i));
+      // L-2 — step은 대형에서 무겁다. 반복수를 노드 수에 반비례로 캡해 모션민감 사용자의
+      // 초기화 프리즈를 막는다(정착 품질은 유지).
+      const iters = Math.min(320, Math.floor(40000 / Math.max(1, sim.nodes.length)));
+      for (let i = 0; i < iters; i++) sim.step(0.9 * Math.pow(0.99, i));
       draw();
     } else {
       ensureLoop();
@@ -669,10 +520,12 @@ export default function Graph() {
   }, [semEdges]);
 
   // 검색 실행 — 라벨 부분일치 노드로 이동/센터. 없으면 '없음', 있으면 순회 위치(k/N) 표시.
+  // 코어(sim.focus)는 뷰만 옮기고 React 상태엔 손대지 않으므로, 매치된 노드의 상세·힌트는 여기서 반영.
   const runSearch = (q: string) => {
     const r = viewApi.current?.focus(q) ?? null;
+    if (r) setSel(selFrom(r.target));
     setNoHit(!r && q.trim().length > 0);
-    setMatchHint(r);
+    setMatchHint(r ? { i: r.i, n: r.n } : null);
   };
 
   const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
