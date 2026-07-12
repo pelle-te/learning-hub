@@ -268,8 +268,8 @@
   gap: 10px;
   padding: 15px 26px;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
+  border-radius: var(--r);
+  background: var(--acc-fill);
   color: var(--on-acc);
   font-family: inherit;
   font-weight: 800;
@@ -356,7 +356,7 @@
 .preset {
   padding: 9px 12px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--line);
   color: var(--mut);
@@ -522,7 +522,7 @@
 }
 .nStudy:hover {
   background: color-mix(in srgb, var(--ink) 3%, transparent);
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 .nStudy:hover .nName {
   color: var(--acc);
@@ -530,7 +530,7 @@
 .nStudy:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: -2px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 /* 종결 캡 고스트 — 마지막 "이후 일정 없음" 행: 저대비·비인터랙티브, 스파인이 여기서 끝났다고 읽히게. */
 .nGhost {
@@ -652,7 +652,7 @@
 /* 지금 — 발광 강조. */
 .nLive {
   background: color-mix(in srgb, var(--acc) 9%, transparent);
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 .nLive .nName {
   color: var(--acc);
@@ -789,7 +789,7 @@
   flex: none;
   margin-top: 10px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: var(--r);
   border: 1px solid var(--line2);
   background: color-mix(in srgb, var(--acc) 5%, var(--panel2));
   animation: heroFade 0.4s var(--ease) both;
@@ -882,7 +882,7 @@
 /* ── I-4 키보드 흐름 · I-2 복습 딥링크 · I-10 착각 재확인 ─────────── */
 /* 선택 노드(j/k 이동) — 은은한 활성 하이라이트(발광 없음). */
 .nSel {
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: color-mix(in srgb, var(--ink) 5%, transparent);
   box-shadow: inset 0 0 0 1px var(--line2);
 }
@@ -898,7 +898,7 @@
   margin: 6px 0 2px;
   padding: 8px 12px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: color-mix(in srgb, var(--warn) 8%, transparent);
   box-shadow: inset 0 0 0 1px var(--line2);
   color: var(--ink);

@@ -138,7 +138,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 13px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   cursor: pointer;
   font-family: inherit;
   font-weight: 700;

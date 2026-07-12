@@ -90,7 +90,7 @@
 .reveal {
   margin: 0;
   padding: 14px 16px 14px 34px;
-  border-radius: 12px;
+  border-radius: var(--r);
   background: color-mix(in srgb, var(--acc) 7%, transparent);
   border: 1px solid var(--line, rgba(127, 127, 127, 0.16));
   display: grid;

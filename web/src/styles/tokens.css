@@ -111,6 +111,8 @@
   --acc-soft: color-mix(in srgb, var(--acc) 14%, transparent);
   --acc-glow: color-mix(in srgb, var(--acc) 40%, transparent);
   --glow: color-mix(in srgb, var(--acc) 55%, transparent);
+  /* 액센트 채움 그라데이션 — 활성 세그/토글/링 등 "칠해진" 표면 SSOT(--acc에서 파생). */
+  --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
   --hairline: rgba(255, 255, 255, 0.06);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 8px 30px -10px rgba(0, 0, 0, 0.62);
@@ -152,6 +154,8 @@
   --acc-soft: color-mix(in srgb, var(--acc) 8%, transparent);
   --acc-glow: color-mix(in srgb, var(--acc) 14%, transparent);
   --glow: color-mix(in srgb, var(--acc) 18%, transparent);
+  /* 액센트 채움 그라데이션 — 다크와 동일 공식(--acc에서 파생). */
+  --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
   --hairline: rgba(255, 255, 255, 0.85);
   --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
   --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);

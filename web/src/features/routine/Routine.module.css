@@ -321,7 +321,7 @@
 .perDayReset {
   background: none;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   padding: 2px 8px;
   font-family: inherit;
   font-size: 10px;

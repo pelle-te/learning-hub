@@ -683,6 +683,20 @@ tr[draggable='true']:hover .draghandle {
   color: var(--mut);
 }
 
+/* ── 스크린리더 전용(시각적 숨김) 표준 클립 패턴 — graph·markets·reads 공유 ── */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @keyframes ds-sp {
   to {
     transform: rotate(360deg);

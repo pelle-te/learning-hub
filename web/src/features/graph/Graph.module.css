@@ -315,16 +315,7 @@
 
 /* 스크린리더 전용(시각적 숨김) — 캔버스 대체 목록. */
 .srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
+  composes: srOnly from '@/styles/ds.module.css';
 }
 
 @media (max-width: 640px) {

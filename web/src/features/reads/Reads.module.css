@@ -20,7 +20,7 @@
   margin: clamp(14px, 3vh, 28px) 0 16px;
   padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r);
   background: var(--panel);
 }
 .segBtn {
@@ -42,7 +42,7 @@
 }
 .segOn {
   color: var(--on-acc);
-  background: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
+  background: var(--acc-fill);
   box-shadow: 0 0 22px -8px var(--glow);
 }
 .segBtn:focus-visible {
@@ -225,7 +225,7 @@
   flex: 1;
   padding: 4px 8px;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--panel2);
   color: var(--mut);
   font-size: 11px;
@@ -331,7 +331,7 @@
   min-width: 190px;
   max-width: 300px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r);
   background: var(--panel);
   box-shadow: var(--shadow-md);
   padding: 10px 12px;
@@ -447,7 +447,7 @@
 .coach {
   margin-top: 12px;
   border: 1px solid color-mix(in srgb, var(--acc) 30%, var(--line));
-  border-radius: 12px;
+  border-radius: var(--r);
   background: var(--acc-soft);
   padding: 12px 14px;
 }
@@ -557,7 +557,7 @@
   min-height: 96px;
   resize: vertical;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--bg, var(--panel));
   padding: 11px 13px;
   font-family: inherit;
@@ -664,12 +664,7 @@
 /* ── 로딩 스켈레톤(2-pane · markets 미러 · SR-17) ── */
 /* position:absolute라 그리드 셀을 차지하지 않아 좌/우 pane 배치를 흩뜨리지 않는다. */
 .srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  composes: srOnly from '@/styles/ds.module.css';
 }
 .skeleList {
   flex: 1;

@@ -1,48 +1,26 @@
 /* KPI — 핵심 숫자 카드 그리드.
-   ⚠ 기하/룩의 단일 원천(SSOT)은 styles/ds.module.css의 .kpis/.kpi다(앱 전역 KPI가 그걸 씀).
-   이 모듈은 <Kpi> 컴포넌트 전용 미러 — base 룩을 바꿀 땐 ds.module.css와 함께 고쳐 드리프트를 막는다.
-   (과거 여기만 좌측 액센트 바(::before)가 있어 같은 .kpi가 화면마다 달라 보였다 → ds에 맞춰 제거·통일.) */
+   기하/룩의 단일 원천(SSOT)은 styles/ds.module.css의 .kpis/.kpi다(앱 전역 KPI가 그걸 씀).
+   이 모듈은 그 클래스를 compose로 재사용하고, <Kpi> 전용 tone별 값 색만 로컬로 얹는다.
+   (과거 여기 기하를 손으로 미러링해 드리프트가 났다 → ds를 compose해 미러 제거·단일화.) */
 .kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 17px;
-}
-
-@media (max-width: 560px) {
-  .kpis {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  composes: kpis from '@/styles/ds.module.css';
 }
 
 .kpi {
-  position: relative;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  padding: 13px 14px 12px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition:
-    transform 0.18s var(--ease),
-    border-color 0.18s var(--ease),
-    box-shadow 0.18s var(--ease);
+  composes: kpi from '@/styles/ds.module.css';
 }
 
-.kpi:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
-  box-shadow: var(--shadow-md);
-}
-
+/* ds의 값/라벨은 `.kpi .v` / `.kpi .l` 후손 선택자 → 로컬 클래스에 ds 클래스를 compose로 얹어
+   부모(.kpi에도 ds kpi가 compose됨) 밑에서 그 후손 규칙이 그대로 적용되게 한다. */
 .v {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  composes: v from '@/styles/ds.module.css';
 }
 
+.l {
+  composes: l from '@/styles/ds.module.css';
+}
+
+/* tone별 값 색 — ds에는 없는 <Kpi> 전용. 로컬 .v에 얹는다(색만 지정, 기하는 ds가 소유). */
 .v[data-tone='warn'] {
   color: var(--warn);
 }
@@ -53,9 +31,10 @@
   color: var(--good);
 }
 
-.l {
+/* 값 뒤 작은 단위(옵션 suffix) — 소비처가 넘길 때만 렌더. */
+.suf {
+  margin-left: 3px;
   font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--mut);
-  margin-top: 1px;
-  word-break: keep-all;
 }
