@@ -18,10 +18,14 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
   );
 }
 
-/** 탭 청크 로딩용 카드형 스켈레톤(Suspense 폴백 표준). */
+/** 탭 청크 로딩용 카드형 스켈레톤(Suspense 폴백 표준).
+ *  스켈레톤 줄은 aria-hidden(장식)이라 스크린리더엔 침묵 → role="status" SR 안내로 로딩을 알린다. */
 export function SkeletonCard({ lines = 4 }: { lines?: number }) {
   return (
     <Card>
+      <span role="status" className={styles.srOnly}>
+        불러오는 중…
+      </span>
       <SkeletonText lines={lines} />
     </Card>
   );
