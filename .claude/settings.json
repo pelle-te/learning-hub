@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"C:/작업 폴더/hub/.claude/hooks/commit-guard.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/commit-guard.sh\"",
             "if": "Bash(git commit*)",
             "timeout": 15,
             "statusMessage": "인덱스 위생 검사"
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"C:/작업 폴더/hub/.claude/hooks/lint-changed.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-changed.sh\"",
             "asyncRewake": true,
             "timeout": 60,
             "statusMessage": "eslint(변경 파일)"
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"C:/작업 폴더/hub/.claude/hooks/rebuild-reminder.sh\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/rebuild-reminder.sh\"",
             "timeout": 15
           }
         ]

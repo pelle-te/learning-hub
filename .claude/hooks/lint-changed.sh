@@ -10,7 +10,8 @@ case "$norm" in
   */hub/web/src/*.ts|*/hub/web/src/*.tsx) ;;
   *) exit 0 ;;
 esac
-out=$(cd "C:/작업 폴더/hub/web" && npx --no-install eslint "$f" 2>&1)
+# 훅 파일(hub/.claude/hooks/) 기준 자기상대 — 워크스페이스 루트 개명·이동에 불변.
+out=$(cd "$(dirname "$0")/../../web" && npx --no-install eslint "$f" 2>&1)
 if [ $? -ne 0 ]; then
   printf 'eslint 위반 — %s\n%s\n' "$norm" "$out"
   exit 2
