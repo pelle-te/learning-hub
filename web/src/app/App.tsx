@@ -39,7 +39,8 @@ export default function App() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // 현재 라우트 메타는 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목/프레임에 쓴다.
-  const routeKey = pathname.replace(/^\//, '') || 'today';
+  // 첫 경로 세그먼트 = 기저 탭 key(중첩 라우트 /atlas/:key 대응 — 라벨·fill·나브 활성이 기저 탭을 따르게).
+  const routeKey = pathname.split('/')[1] || 'today';
   const routeLabel = tabByKey(routeKey)?.label ?? '';
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
@@ -54,7 +55,7 @@ export default function App() {
         return (
           <Route
             key={t.key}
-            path={'/' + t.key}
+            path={t.key === 'atlas' ? '/atlas/*' : '/' + t.key}
             element={
               <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
                 <SubTabs tabKey={t.key} />
@@ -167,7 +168,7 @@ export default function App() {
         <TopBar onOpenPalette={() => setPaletteOpen(true)} />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
         <main id="main" tabIndex={-1} className={s.main}>
-          <HudFrame fill={fillFrame} scrollResetKey={routeKey}>
+          <HudFrame fill={fillFrame} scrollResetKey={pathname}>
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
               {routeEls}

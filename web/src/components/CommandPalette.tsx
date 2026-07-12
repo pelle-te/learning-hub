@@ -12,6 +12,7 @@ import {
 } from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
+import { FIELDS, categoryOf } from '@/lib/atlas';
 import type { SemHit, SemKind } from '@/lib/semantic';
 import styles from './CommandPalette.module.css';
 
@@ -200,6 +201,25 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                   {SEM_ICON[h.kind]} {h.label}
                 </span>
                 <span className={styles.hint}>{Math.round(h.sim * 100)}% 유사</span>
+              </Command.Item>
+            ))}
+          </Command.Group>
+        )}
+        {/* 진로 지도 분야 바로가기 — 검색어가 있을 때만(빈 상태 28개 홍수 방지). cmdk 부분문자열 필터가 좁힌다. */}
+        {search.trim() && (
+          <Command.Group heading="진로 지도 — 분야" className={styles.semGroup}>
+            {FIELDS.map((f) => (
+              <Command.Item
+                key={'atlas:' + f.key}
+                value={`atlas ${f.name} ${categoryOf(f)?.name ?? ''}`}
+                className={styles.item}
+                onSelect={() => {
+                  close();
+                  navigate(`/atlas/${f.key}`, { viewTransition: true });
+                }}
+              >
+                <span className={styles.label}>📡 {f.name}</span>
+                <span className={styles.hint}>진로 지도</span>
               </Command.Item>
             ))}
           </Command.Group>

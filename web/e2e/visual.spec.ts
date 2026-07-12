@@ -84,6 +84,7 @@ const TABS = [
   'items',
   'reads',
   'markets',
+  'atlas',
   'journal',
   'degree',
   'stats',
@@ -181,6 +182,17 @@ test('stats · accent-lime', async ({ page }) => {
   await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
   await expect(page).toHaveScreenshot('stats-accent-lime.png', { fullPage: true });
 });
+
+// 진로 지도 상세(딥링크 /atlas/<key>) — 전체폭 상세 라우트가 그리드가 아닌 상세 화면을 그리는지.
+for (const theme of THEMES) {
+  test(`atlas-detail · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/atlas/ran');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.locator('#main h1')).toBeVisible(); // 상세 표제(그리드엔 h1 없음)
+    await expect(page).toHaveScreenshot(`atlas-detail-${theme}.png`, { fullPage: true });
+  });
+}
 
 // 반응형(모바일 390px) — 레일이 하단 탭바로, 시그니처 보드가 단일 컬럼으로 스택되는지(가로 넘침 없이).
 const MOBILE = { width: 390, height: 844 };

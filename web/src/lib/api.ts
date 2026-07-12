@@ -36,6 +36,22 @@ export function getArtifact<T = unknown>(
   return getJSON(`/api/artifact/${encodeURIComponent(name)}`);
 }
 
+/* ── 진로 지도 동향(Google 뉴스 RSS 프록시 · serve.js) ─────────────────
+   분야 상세를 열 때 온디맨드로 최신 소식을 가져온다. serve.js 꺼짐/네트워크 실패면 items 빈 목록
+   또는 fetch reject → 호출부(useAtlasNews)가 시드 동향으로 우아 폴백. */
+export interface AtlasNewsItem {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  published: string;
+}
+
+/** 분야 검색어로 최신 동향 뉴스. serve.js가 200+{ok:false}로 실패를 알리거나(꺼짐이면 fetch reject). */
+export function fetchAtlasNews(query: string): Promise<{ ok: boolean; items: AtlasNewsItem[]; error?: string }> {
+  return getJSON(`/api/atlas/news?q=${encodeURIComponent(query)}`);
+}
+
 /** 화이트리스트 도구 실행(지식상태 재빌드·볼트 건강검진 등).
  *  ⚠ 서버는 180s에서 잘라내지만 클라 fetch엔 상한이 없다 — 물린 연결이면 무한 대기(취소 못 하는 스피너).
  *  185s 타임아웃(서버 캡 직후)을 항상 걸고, 선택적 caller signal로 UI가 "취소"를 걸 수 있게 한다(X-5).

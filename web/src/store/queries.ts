@@ -5,7 +5,14 @@
    store 레이어에 두는 이유: features(mastery·control·integrations)·app이 공유, store→lib 허용.
 ============================================================ */
 import { useQuery } from '@tanstack/react-query';
-import { getPing, listResearchJobs, type PingResponse, type ResearchJob } from '@/lib/api';
+import {
+  fetchAtlasNews,
+  getPing,
+  listResearchJobs,
+  type AtlasNewsItem,
+  type PingResponse,
+  type ResearchJob,
+} from '@/lib/api';
 import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
 import { fetchReadsArtifact, type ReadsArtifact } from '@/lib/reads';
 import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
@@ -16,6 +23,7 @@ export const PING_KEY = ['ping'] as const;
 export const READS_KEY = ['reads'] as const;
 export const MARKETS_KEY = ['markets'] as const;
 export const RESEARCH_JOBS_KEY = ['research-jobs'] as const;
+export const ATLAS_NEWS_KEY = ['atlas-news'] as const;
 
 /** serve.js(/api) 연결 여부·도구 목록 — 제어판 헤더 상태. retry 없이 빠르게 isError(file:// 폴백). */
 export function usePing() {
@@ -59,6 +67,22 @@ export function useResearchJobs(enabled: boolean) {
     },
     // running 잡이 있을 때만 3초 폴링 — 끝나면 스스로 멈춘다(다음 start가 무효화로 재기동).
     refetchInterval: (q) => (q.state.data?.some((j) => j.status === 'running') ? 3000 : false),
+  });
+}
+
+/** 진로 지도 분야 동향(/api/atlas/news) — Google 뉴스 RSS 라이브. 상세를 열 때만(enabled) 온디맨드로.
+ *  serve.js 꺼짐/실패면 isError → 상세가 시드 동향으로 폴백. 5분 캐시(같은 분야 재방문 재호출 흡수). */
+export function useAtlasNews(query: string, enabled: boolean) {
+  return useQuery<AtlasNewsItem[]>({
+    queryKey: [...ATLAS_NEWS_KEY, query],
+    enabled: enabled && !!query,
+    retry: false,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await fetchAtlasNews(query);
+      if (!r.ok) throw new Error(r.error || '동향을 가져오지 못했어요');
+      return r.items;
+    },
   });
 }
 

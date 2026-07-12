@@ -8,6 +8,6 @@ import { tabByKey } from '@/shell';
 
 /** pathname(기본: 현재 URL) → `<라벨> · 러닝허브`. 라벨을 못 찾으면 '러닝허브'. */
 export function routeTitle(pathname: string = window.location.pathname): string {
-  const label = tabByKey(pathname.replace(/^\//, '') || 'today')?.label ?? '';
+  const label = tabByKey(pathname.split('/')[1] || 'today')?.label ?? '';
   return label ? `${label} · 러닝허브` : '러닝허브';
 }

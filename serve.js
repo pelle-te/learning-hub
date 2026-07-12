@@ -22,6 +22,7 @@
 ============================================================ */
 'use strict';
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -478,6 +479,87 @@ function hostOK(req) {
   return h === `127.0.0.1:${PORT}` || h === `localhost:${PORT}` || h === `[::1]:${PORT}`;
 }
 
+/* ── 진로 지도(atlas) 동향 자동수집 — Google 뉴스 RSS 라이브 프록시 ─────────────
+   고정 호스트(news.google.com)에 q만 바꿔 붙는다(SSRF 불가). 분야 상세를 열 때 온디맨드로 부르고
+   5분 캐시로 재호출을 흡수한다. 서버/네트워크 문제면 빈 목록 → 프런트가 시드 동향으로 우아 폴백. */
+const NEWS_CACHE = new Map(); // q → { at, items }
+const NEWS_TTL = 5 * 60 * 1000;
+const NEWS_MAX = 8;
+
+function decodeXML(s) {
+  return String(s)
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, '') // 잔여 인라인 태그 제거(설명 HTML 등)
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .trim();
+}
+
+function hashId(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return 'n' + (h >>> 0).toString(36);
+}
+
+/* RSS <item>들을 정규화 — 의존성 없이 문자열 파싱(feed 구조는 안정적). title이 "헤드라인 - 출처"면 출처 접미 제거. */
+function parseNewsRSS(xml) {
+  const items = [];
+  const blocks = String(xml).split('<item>').slice(1);
+  for (const b of blocks) {
+    if (items.length >= NEWS_MAX) break;
+    const seg = b.split('</item>')[0];
+    const pick = (tag) => {
+      const m = seg.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`));
+      return m ? decodeXML(m[1]) : '';
+    };
+    let title = pick('title');
+    const url = pick('link');
+    const source = pick('source');
+    const published = pick('pubDate');
+    if (source && title.endsWith(' - ' + source)) title = title.slice(0, -(source.length + 3)).trim();
+    if (title && url) items.push({ id: hashId(url), title, url, source: source || 'Google 뉴스', published });
+  }
+  return items;
+}
+
+function fetchAtlasNews(query, cb) {
+  const q = String(query || '').slice(0, 120).trim();
+  if (!q) return cb(null, []);
+  const cached = NEWS_CACHE.get(q);
+  if (cached && Date.now() - cached.at < NEWS_TTL) return cb(null, cached.items);
+  const target = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=ko&gl=KR&ceid=KR:ko`;
+  let done = false;
+  const finish = (err, items) => {
+    if (done) return;
+    done = true;
+    cb(err, items);
+  };
+  const req = https.get(target, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0 (LearningHub)' } }, (r) => {
+    if (r.statusCode !== 200) {
+      r.resume();
+      return finish(new Error('news ' + r.statusCode));
+    }
+    let data = '';
+    r.setEncoding('utf8');
+    r.on('data', (c) => {
+      data += c;
+      if (data.length > 800000) req.destroy(); // 폭주 방어
+    });
+    r.on('end', () => {
+      try {
+        const items = parseNewsRSS(data);
+        NEWS_CACHE.set(q, { at: Date.now(), items });
+        finish(null, items);
+      } catch (e) {
+        finish(e);
+      }
+    });
+  });
+  req.on('timeout', () => req.destroy(new Error('timeout')));
+  req.on('error', (e) => finish(e));
+}
+
 const server = http.createServer((req, res) => {
   try {
     const url = decodeURIComponent((req.url || '/').split('?')[0]);
@@ -531,6 +613,19 @@ const server = http.createServer((req, res) => {
       if (url === '/api/research/jobs' && req.method === 'GET') {
         const jobs = [...RESEARCH_JOBS.values()].sort((a, b) => b.startedAt - a.startedAt).map(publicJob);
         return sendJSON(res, 200, { ok: true, jobs });
+      }
+      // 진로 지도 동향 — 분야 검색어로 Google 뉴스 RSS를 라이브 프록시(읽기 전용 GET). 실패면 빈 목록(프런트 시드 폴백).
+      if (url === '/api/atlas/news' && req.method === 'GET') {
+        let q = '';
+        try {
+          q = new URL(req.url, 'http://localhost').searchParams.get('q') || '';
+        } catch (e) {
+          q = '';
+        }
+        return fetchAtlasNews(q, (err, items) => {
+          if (err) return sendJSON(res, 200, { ok: false, error: '뉴스를 가져오지 못했어요', items: [] });
+          sendJSON(res, 200, { ok: true, items });
+        });
       }
       // 진행 중 탐구 잡 중단 — 프로세스 트리킬(오탈자 주제·동시캡 점유 회복).
       if (url === '/api/research/cancel' && req.method === 'POST') {

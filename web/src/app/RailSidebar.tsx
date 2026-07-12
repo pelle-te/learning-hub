@@ -30,7 +30,7 @@ export default function RailSidebar() {
     const r = riskSummary(state, selectSchedule(state).days || [], todayISO(state));
     return r.overdue + openBacklog(state).length;
   });
-  const cur = hostTabKey(loc.pathname.replace(/^\//, '') || 'today');
+  const cur = hostTabKey(loc.pathname.split('/')[1] || 'today');
   const go = (key: string) => navigate('/' + key, { viewTransition: true });
 
   const groups = navGroups();

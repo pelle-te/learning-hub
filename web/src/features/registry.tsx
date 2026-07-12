@@ -13,6 +13,7 @@ const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   items: () => import('./items/Items'),
   reads: () => import('./reads/Reads'),
   markets: () => import('./markets/Markets'),
+  atlas: () => import('./atlas/Atlas'),
   today: () => import('./today/Today'),
   schedule: () => import('./schedule/Schedule'),
   routine: () => import('./routine/Routine'),

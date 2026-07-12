@@ -26,6 +26,7 @@ export const TABS: TabMeta[] = [
   { key: 'items', label: '학습 항목', group: 'src', order: 40, icon: 'file' },
   { key: 'reads', label: '읽을거리', group: 'src', order: 45, icon: 'reads' },
   { key: 'markets', label: '증시 동향', group: 'src', order: 47, icon: 'trend' },
+  { key: 'atlas', label: '진로 지도', group: 'src', order: 48, icon: 'radio' },
   { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link', fill: true },
   { key: 'journal', label: '학습 기록', group: 'log', order: 60, icon: 'notebook', fill: true },
   { key: 'review', label: '주간 리뷰', group: 'log', order: 70, hidden: true, icon: 'refresh', fill: true },
