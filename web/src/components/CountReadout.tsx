@@ -4,7 +4,7 @@
    호출부 CSS 모듈이 소유(픽셀 불변). 카운트업은 정본 useCountUp.
 ============================================================ */
 import type { ReactNode } from 'react';
-import { useCountUp } from '@/lib/interactions';
+import { useCountUp } from '@/hooks/interactions';
 
 export function CountReadout({
   value,

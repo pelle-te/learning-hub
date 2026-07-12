@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useKnowledge, usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useHeroPointer, useCountUp } from '@/lib/interactions';
+import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
 import { classifyArtifact } from '@/lib/artifactState';

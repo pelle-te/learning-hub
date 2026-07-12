@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, tabByKey, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
 import { useUI } from '@/store/useUI';
-import { isTyping } from '@/lib/interactions';
+import { isTyping } from '@/hooks/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';

@@ -4,7 +4,7 @@
    순수 표현(components → lib만): open/onClose/title/children. Esc·바깥 클릭으로 닫힘.
 ============================================================ */
 import { useEffect, useRef, type ReactNode } from 'react';
-import { useFocusTrap } from '@/lib/useFocusTrap';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import s from './DetailDrawer.module.css';
 
 export default function DetailDrawer({

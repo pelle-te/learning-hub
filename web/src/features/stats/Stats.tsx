@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useHeroPointer, useCountUp } from '@/lib/interactions';
+import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';

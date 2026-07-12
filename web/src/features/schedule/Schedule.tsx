@@ -29,7 +29,7 @@ import {
   DOW_MON,
 } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import { useHeroPointer, useWeekNavKeys, useNowMin } from '@/lib/interactions';
+import { useHeroPointer, useWeekNavKeys, useNowMin } from '@/hooks/interactions';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
 import {

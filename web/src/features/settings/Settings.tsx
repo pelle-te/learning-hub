@@ -11,7 +11,7 @@ import { useMemo, useRef } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { ui, io, actions } from '@/shell';
-import { useHeroPointer } from '@/lib/interactions';
+import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button } from '@/components/ui';

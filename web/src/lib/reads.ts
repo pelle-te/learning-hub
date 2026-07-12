@@ -8,6 +8,7 @@
 ============================================================ */
 import { getArtifact, type CoachFeedback } from './api';
 import { idbMirror, idbLoad } from './idb';
+import { storage } from './kv';
 import { announce } from './sync';
 import { rid } from './utils';
 
@@ -76,7 +77,7 @@ function coerce(v: unknown): ReadsLocal {
 /** 로컬 연습/독서 로드(동기) — localStorage 1차. 파싱 실패해도 빈 값(throw X). */
 export function loadReads(): ReadsLocal {
   try {
-    return coerce(JSON.parse(localStorage.getItem(LKEY) || 'null'));
+    return coerce(JSON.parse(storage.getItem(LKEY) || 'null'));
   } catch {
     return empty();
   }
@@ -84,12 +85,12 @@ export function loadReads(): ReadsLocal {
 
 /** localStorage가 비었을 때 IDB 미러에서 복구(사이트 데이터 삭제 후 부팅). 없으면 null. */
 export async function recoverReadsFromIDB(): Promise<ReadsLocal | null> {
-  if (localStorage.getItem(LKEY)) return null;
+  if (storage.getItem(LKEY)) return null;
   try {
     const json = await idbLoad(IDB_KEY);
     if (!json) return null;
     const r = coerce(JSON.parse(json));
-    localStorage.setItem(LKEY, JSON.stringify(r));
+    storage.setItem(LKEY, JSON.stringify(r));
     return r;
   } catch {
     return null;
@@ -101,7 +102,7 @@ export function saveReads(r: ReadsLocal): boolean {
   const json = JSON.stringify(r);
   idbMirror(json, IDB_KEY);
   try {
-    localStorage.setItem(LKEY, json);
+    storage.setItem(LKEY, json);
     announce({ kind: 'reads' }); // 다른 탭의 읽을거리 화면 라이브 갱신
     return true;
   } catch {

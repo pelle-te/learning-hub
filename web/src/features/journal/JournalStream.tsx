@@ -7,7 +7,7 @@
    스포트라이트 + 색 오로라(ds.spotHost/spotlight/aura/glow) + 카운트 카운트업.
 ============================================================ */
 import { useApp } from '@/store/useApp';
-import { useHeroPointer, useCountUp } from '@/lib/interactions';
+import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { summariesFor, cbmsBetween, CBMS_INFO } from '@/lib/methodology';
 import { itemById } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';

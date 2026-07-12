@@ -5,7 +5,7 @@
 ============================================================ */
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { useNowMin } from '@/lib/interactions';
+import { useNowMin } from '@/hooks/interactions';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { freeWindowsForWeekday, blocksForWeekday, peakRange } from '@/lib/scheduler';

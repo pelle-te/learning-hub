@@ -5,7 +5,7 @@
 ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { useFocusTrap } from '@/lib/useFocusTrap';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
 import { todayISO } from '@/lib/utils';

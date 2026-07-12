@@ -12,7 +12,7 @@
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
 
 1. **serve.js는 prebuilt `web/dist/`를 서빙한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.)
-2. **레이어 경계는 단방향**(`app → features → components → store → lib`, 역방향 import 금지). `eslint-plugin-boundaries`가 **error**로 막는다. 새 코드가 상위를 import하면 린트가 깨진다 → 세부는 `web/docs/아키텍처.md`.
+2. **레이어 경계는 단방향**(`app → features → components → {hooks, store} → lib`, 역방향 import 금지). `eslint-plugin-boundaries`가 **error**로 막는다. 새 코드가 상위를 import하면 린트가 깨진다 → 세부는 `web/docs/아키텍처.md`.
 3. **과목 색 = `PALETTE` 인덱스 파생**(한 줄 교체로 전탭 반영). 임의 하드코딩 금지.
 4. **명시 지시 임의변경 금지.** 사용자가 못박은 결정(예 "블록도 색 있어야")을 내 판단으로 뒤집지 않는다. 대담한 재설계는 **새 영역에만**, 기존 제약은 유지.
 5. **커밋 전 `git -c core.quotepath=false diff --cached --stat` 확인.** 이 저장소는 web/시스템/전공 세션이 **동시 작업**한다 — 스테이징에 `전공/`·`시스템/` 파일이 섞이면 그 커밋에서 빼고 web 변경만 담는다(인덱스 위생 재발 이력 다수). git user=`jin`, 기본 브랜치=`master`.
@@ -54,9 +54,10 @@ npm run build    # tsc -b && vite build — serve.js가 서빙할 dist 재생성
 web/src/
   app/        셸 크롬(App·TopBar·RailSidebar·SubTabs·ThemeProvider·라우팅). 최상위.
   features/   탭 1개 = 폴더 1개. registry.tsx가 key→lazy 컴포넌트. tabs.ts가 탭 메타 원천.
-  components/ 재사용 프리미티브(무상태에 가깝게). lib만 import 가능.
+  components/ 재사용 프리미티브(무상태에 가깝게). hooks·lib import 가능.
+  hooks/      공유 React 훅(interactions·useFocusTrap). lib만 import. app/features/components가 소비.
   store/      zustand: useApp(앱 데이터)·useUI(설정)·useRuntime(plan-무관 캐시)·useFocus.
-  lib/        순수 로직·IO(api·scheduler·anki·vault·schema…). 최하위, 위를 모른다.
+  lib/        순수 로직·IO(api·scheduler·anki·vault·schema…). 최하위, React 무관(훅은 hooks/).
   shell/      탭 레지스트리(tabs.ts)·팔레트·단축키·토스트·액션.
   styles/     ds.module(전역 디자인시스템) + feature별 *.module.css.
 serve.js      /api/{ping,artifact,run,research/start,research/jobs,embed} — stdlib.

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
-import { useFlushOnUnmount } from '@/lib/interactions';
+import { useFlushOnUnmount } from '@/hooks/interactions';
 import { newBook, type Book } from '@/lib/reads';
 import r from './Reads.module.css';
 

@@ -1,5 +1,6 @@
 // Flat config (ESLint 9). FSD식 단방향 의존을 강제한다:
-//   app → features → components → store → lib   (역방향 import 금지)
+//   app → features → components → {hooks, store} → lib   (역방향 import 금지)
+//   hooks = React 훅 레이어(lib만 import). app/features/components가 소비.
 // eslint-plugin-boundaries가 src/ 하위 폴더를 '레이어'로 보고 위반을 error로 잡는다.
 import js from '@eslint/js';
 import globals from 'globals';
@@ -9,7 +10,17 @@ import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
   // e2e(Playwright)는 별도 러너·tsconfig 밖 → 앱 lint에서 제외(Playwright가 자체 처리).
-  { ignores: ['dist', 'dev-dist', 'node_modules', 'e2e/**', 'playwright.config.ts', 'test-results/**', 'playwright-report/**'] },
+  {
+    ignores: [
+      'dist',
+      'dev-dist',
+      'node_modules',
+      'e2e/**',
+      'playwright.config.ts',
+      'test-results/**',
+      'playwright-report/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   // React Hooks 규칙(rules-of-hooks·exhaustive-deps) + react-compiler 규칙.
@@ -31,6 +42,7 @@ export default tseslint.config(
         { type: 'app', pattern: '**/src/app/**' },
         { type: 'features', pattern: '**/src/features/**' },
         { type: 'components', pattern: '**/src/components/**' },
+        { type: 'hooks', pattern: '**/src/hooks/**' },
         { type: 'store', pattern: '**/src/store/**' },
         { type: 'lib', pattern: '**/src/lib/**' },
       ],
@@ -44,9 +56,10 @@ export default tseslint.config(
         {
           default: 'disallow',
           rules: [
-            { from: 'app', allow: ['features', 'components', 'store', 'lib'] },
-            { from: 'features', allow: ['components', 'store', 'lib'] },
-            { from: 'components', allow: ['lib'] },
+            { from: 'app', allow: ['features', 'components', 'hooks', 'store', 'lib'] },
+            { from: 'features', allow: ['components', 'hooks', 'store', 'lib'] },
+            { from: 'components', allow: ['hooks', 'lib'] },
+            { from: 'hooks', allow: ['lib'] },
             { from: 'store', allow: ['lib'] },
             { from: 'lib', allow: ['lib'] },
           ],

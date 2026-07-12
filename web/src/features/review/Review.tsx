@@ -9,7 +9,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { toast, toastUndo } from '@/shell/toast';
 import { useToggleBacklogUndo } from '@/shell/useBacklog';
-import { useHeroPointer, useWeekNavKeys, useFlushOnUnmount } from '@/lib/interactions';
+import { useHeroPointer, useWeekNavKeys, useFlushOnUnmount } from '@/hooks/interactions';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import {

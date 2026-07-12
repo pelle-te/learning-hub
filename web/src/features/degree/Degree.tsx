@@ -11,7 +11,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { rid, makeItem } from '@/lib/utils';
-import { useCountUp } from '@/lib/interactions';
+import { useCountUp } from '@/hooks/interactions';
 import { Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';

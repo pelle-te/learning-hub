@@ -25,7 +25,7 @@ import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
 import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
-import { useCountUp, useHeroPointer } from '@/lib/interactions';
+import { useCountUp, useHeroPointer } from '@/hooks/interactions';
 import dsm from '@/styles/ds.module.css'; // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 import s from './TodaySignature.module.css';
 

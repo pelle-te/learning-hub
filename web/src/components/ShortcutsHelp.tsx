@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, tabByKey, paletteCommands } from '@/shell';
-import { useFocusTrap } from '@/lib/useFocusTrap';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import styles from './ShortcutsHelp.module.css';
 
 // C-12: 팔레트 액션 카탈로그 — ⌘K를 열어 검색해야만 발견되던 강력 액션들을 치트시트에 노출.

@@ -13,7 +13,7 @@ import { coachSummary, lookupVocab, type CoachFeedback, type VocabResult } from 
 import { classifyArtifact } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
-import { useFlushOnUnmount } from '@/lib/interactions';
+import { useFlushOnUnmount } from '@/hooks/interactions';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromArticle, PROMOTE_TOAST } from '@/lib/promote';
 import type { Article, ArticleWork } from '@/lib/reads';

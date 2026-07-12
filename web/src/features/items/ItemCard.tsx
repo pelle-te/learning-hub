@@ -3,7 +3,7 @@
 import { memo, useCallback, type CSSProperties } from 'react';
 import { iso, dayDiff, ddayInfo } from '@/lib/utils';
 import { Button, Pill, type PillTone } from '@/components/ui';
-import { useHeroPointer } from '@/lib/interactions';
+import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './ItemCard.module.css';

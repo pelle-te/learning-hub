@@ -714,7 +714,7 @@ tr[draggable='true']:hover .draghandle {
 }
 
 /* ── 인터랙션 레이어(공유) — 오늘 탭 "FOCUS"의 살아있는 감각을 전 탭에 일관 적용.
-   useHeroPointer가 --mx/--my(스포트라이트)·--tiltX/Y(틸트)를 주입. 짝: lib/interactions.ts. ── */
+   useHeroPointer가 --mx/--my(스포트라이트)·--tiltX/Y(틸트)를 주입. 짝: hooks/interactions.ts. ── */
 /* 스포트라이트 호스트 — 자식 .spotlight가 커서를 따라 발광. position/overflow/isolation 셋업. */
 .spotHost {
   position: relative;
