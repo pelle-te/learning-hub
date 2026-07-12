@@ -1,6 +1,6 @@
 /* ============================================================
    knowledge.test.ts — 지식상태(_지식상태.json) 로더 파싱/모양 회귀(Vitest).
-   knowledge.ts는 두 출처(① serve.js /api/artifact/knowledge ② 볼트 FS _meta/감사/_지식상태.json)에서
+   knowledge.ts는 두 출처(① serve.js /api/artifact/knowledge ② 볼트 FS _meta/cache/_지식상태.json)에서
    같은 Knowledge 모양을 돌려준다 — 이 모양(subjects[].mastery)이 스케줄러 graphPriority(subjectMastery)를 먹인다.
    외부 의존(fetch·FS Access)이라 fetch는 stub, 디렉터리 핸들은 최소 페이크로 주입한다.
 ============================================================ */
@@ -50,8 +50,8 @@ describe('fetchKnowledgeArtifact — serve.js 산출물 파싱', () => {
   });
 });
 
-/** _meta → 감사 → _지식상태.json 경로를 흉내내는 최소 디렉터리 핸들. missAt로 특정 단계 실패를 주입. */
-function fakeVault(text: string | null, missAt?: 'meta' | '감사' | 'file'): FileSystemDirectoryHandle {
+/** _meta → cache → _지식상태.json 경로를 흉내내는 최소 디렉터리 핸들. missAt로 특정 단계 실패를 주입. */
+function fakeVault(text: string | null, missAt?: 'meta' | 'cache' | 'file'): FileSystemDirectoryHandle {
   const fileHandle = { getFile: async () => ({ text: async () => text }) };
   const audDir = {
     getFileHandle: async () => {
@@ -61,7 +61,7 @@ function fakeVault(text: string | null, missAt?: 'meta' | '감사' | 'file'): Fi
   };
   const metaDir = {
     getDirectoryHandle: async () => {
-      if (missAt === '감사') throw new Error('no 감사');
+      if (missAt === 'cache') throw new Error('no cache');
       return audDir;
     },
   };
@@ -75,14 +75,14 @@ function fakeVault(text: string | null, missAt?: 'meta' | '감사' | 'file'): Fi
 }
 
 describe('loadKnowledgeStateFromVault — 볼트 FS 로더', () => {
-  it('_meta/감사/_지식상태.json을 파싱해 Knowledge를 반환한다', async () => {
+  it('_meta/cache/_지식상태.json을 파싱해 Knowledge를 반환한다', async () => {
     const k = await loadKnowledgeStateFromVault(fakeVault(JSON.stringify(SAMPLE)));
     expect(k).not.toBeNull();
     expect(k!.subjects?.[0]).toMatchObject({ subject: '전자기학', mastery: 0.71 });
   });
   it('경로 부재(아직 build 안 함)면 null', async () => {
     expect(await loadKnowledgeStateFromVault(fakeVault(null, 'meta'))).toBeNull();
-    expect(await loadKnowledgeStateFromVault(fakeVault(null, '감사'))).toBeNull();
+    expect(await loadKnowledgeStateFromVault(fakeVault(null, 'cache'))).toBeNull();
     expect(await loadKnowledgeStateFromVault(fakeVault(null, 'file'))).toBeNull();
   });
   it('깨진 JSON이면 throw하지 않고 null', async () => {

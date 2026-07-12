@@ -1,7 +1,7 @@
 /* ============================================================
    Ledger — 탭: 📒 정본 원장 (자료 그룹 · 연동 현황과 세그먼트 페어)
    과목×챕터의 5단계 파이프라인(sourced→noted→verified→carded→reviewed) 진척을 한 화면에.
-   원본: serve.js /api/artifact/ledger ← knowledge/_meta/감사/_챕터원장.json (챕터원장.py). 통합 4단계 소비.
+   원본: serve.js /api/artifact/ledger ← knowledge/_meta/cache/_챕터원장.json (챕터원장.py). 통합 4단계 소비.
    흩어져 있던 볼트 생산 진척(진척 14곳)을 단일 출처로 모은다 — "각 과목이 파이프라인 어디까지 왔나".
 
    today 재설계 사상: 상단 리드아웃(챕터·검증·카드) · fill 프레임 · 히어로 퍼널 · 온디맨드 챕터 세부.

@@ -216,7 +216,7 @@ export function AnkiPanel() {
           <div style={{ flex: 2 }} />
         </div>
         <div className={ds.foot}>
-          카드 스캔: 정본 _meta/감사/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백.
+          카드 스캔: 정본 _meta/cache/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백.
           실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765). <b>카드 생성</b>: 그동안 적은 3문장 요약·반복
           오답을 import용 초안(.txt)으로 — Anki에서 추리고 손질(큐레이션).
         </div>

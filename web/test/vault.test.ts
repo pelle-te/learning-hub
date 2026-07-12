@@ -104,8 +104,8 @@ describe('estH / chaptersFromVault — 순수 변환', () => {
 });
 
 describe('loadVaultIndex — 정본 인덱스 로드/폴백', () => {
-  it('_meta/감사/_index.json을 찾으면 파싱해 반환', async () => {
-    const tree = dir({ _meta: dir({ 감사: dir({ '_index.json': file('{"notes":[{"subject":"수학"}]}') }) }) });
+  it('_meta/cache/_index.json을 찾으면 파싱해 반환', async () => {
+    const tree = dir({ _meta: dir({ cache: dir({ '_index.json': file('{"notes":[{"subject":"수학"}]}') }) }) });
     const idx = await loadVaultIndex(asHandle(tree));
     expect(idx?.notes).toEqual([{ subject: '수학' }]);
   });
@@ -114,7 +114,7 @@ describe('loadVaultIndex — 정본 인덱스 로드/폴백', () => {
     await expect(loadVaultIndex(asHandle(tree))).resolves.toBeNull();
   });
   it('인덱스 JSON이 손상돼도 null로 폴백', async () => {
-    const tree = dir({ _meta: dir({ 감사: dir({ '_index.json': file('{깨진') }) }) });
+    const tree = dir({ _meta: dir({ cache: dir({ '_index.json': file('{깨진') }) }) });
     await expect(loadVaultIndex(asHandle(tree))).resolves.toBeNull();
   });
 });
@@ -162,7 +162,9 @@ describe('pickAndScanVault — 폴더 선택/분기', () => {
     vi.stubGlobal('window', {});
     const tree = dir({
       _meta: dir({
-        감사: dir({ '_index.json': file('{"notes":[{"subject":"수학","folder":"수학/미적분","status":"verified"}]}') }),
+        cache: dir({
+          '_index.json': file('{"notes":[{"subject":"수학","folder":"수학/미적분","status":"verified"}]}'),
+        }),
       }),
     });
     const r = await pickAndScanVault(asHandle(tree));

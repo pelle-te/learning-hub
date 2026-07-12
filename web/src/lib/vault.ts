@@ -1,9 +1,10 @@
 /* ============================================================
    vault.ts — 옵시디언 볼트 현황(File System Access API) — 서버/외부 데이터.
-   정본 _meta/감사/_index.json(검사.sh --index 산출)을 우선 소비하고, 없으면 .md 직접 스캔.
+   정본 _meta/cache/_index.json(검사.sh --index 산출)을 우선 소비하고, 없으면 .md 직접 스캔.
    순수 계산 + FS 읽기만(앱 상태에 복제 X). TanStack Query가 스캔 결과를 캐시(설계도 §1-B).
 ============================================================ */
 import { SKIP, rid } from './utils';
+import { checkSchemaVersion } from './artifacts';
 import type { Chapter } from './types';
 
 export interface VaultChapter {
@@ -23,15 +24,17 @@ export interface VaultScan {
   subjects: VaultSubject[];
 }
 
-/** 정본 인덱스(_meta/감사/_index.json) 로드 — 없으면 null(호출부가 파일스캔 폴백). */
+/** 정본 인덱스(_meta/cache/_index.json) 로드 — 없으면 null(호출부가 파일스캔 폴백). */
 export async function loadVaultIndex(
   handle: FileSystemDirectoryHandle,
 ): Promise<{ notes?: unknown[]; anki?: unknown[] } | null> {
   try {
     const meta = await handle.getDirectoryHandle('_meta');
-    const aud = await meta.getDirectoryHandle('감사');
+    const aud = await meta.getDirectoryHandle('cache'); // P7 Phase 3: 감사→cache(파생)
     const fh = await aud.getFileHandle('_index.json');
-    return JSON.parse(await (await fh.getFile()).text());
+    const idx = JSON.parse(await (await fh.getFile()).text());
+    checkSchemaVersion('index', idx); // P7 Bet 1: parent↔hub 스키마 버전 드리프트 경고
+    return idx;
   } catch {
     return null;
   }

@@ -65,9 +65,9 @@ const TOOLS = {
 
 /* 산출물 파일(읽기 전용 서빙) */
 const ARTIFACTS = {
-  knowledge: path.join(WORK, 'knowledge', '_meta', '감사', '_지식상태.json'),
-  anki:      path.join(WORK, 'knowledge', '_meta', '감사', '_anki신호.json'),
-  ledger:    path.join(WORK, 'knowledge', '_meta', '감사', '_챕터원장.json'),  // 과목×챕터 5단계 롤업(챕터원장.py)
+  knowledge: path.join(WORK, 'knowledge', '_meta', 'cache', '_지식상태.json'),  // P7 Phase 3: 감사→cache(파생)
+  anki:      path.join(WORK, 'knowledge', '_meta', 'cache', '_anki신호.json'),
+  ledger:    path.join(WORK, 'knowledge', '_meta', 'cache', '_챕터원장.json'),  // 과목×챕터 5단계 롤업(챕터원장.py)
 
   reads:     path.join(ROOT, '_읽을거리', 'latest.json'),   // 읽을거리 지문(수집 원문) — 러닝허브 로컬
   markets:   path.join(ROOT, '_증시', 'latest.json'),       // 증시 동향(지수 등락 + 금융 뉴스) — 러닝허브 로컬

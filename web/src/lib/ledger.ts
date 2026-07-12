@@ -1,11 +1,12 @@
 /* ============================================================
    ledger — 정본 축(과목×챕터 원장)의 웹 소비 레이어. 순수·IO 분리.
-   원본: pipeline/_도구/챕터원장.py → knowledge/_meta/감사/_챕터원장.json (serve.js /api/artifact/ledger).
+   원본: pipeline/_도구/챕터원장.py → knowledge/_meta/cache/_챕터원장.json (serve.js /api/artifact/ledger).
    원장은 각 챕터가 5단계 생애(sourced→noted→verified→carded→reviewed)에서 "얼마나 멀리 갔나"를
    집계한다 — 흩어져 있던 볼트 파이프라인 진척을 한 화면에 모으는 단일 출처(통합 4단계).
    이 파일은 타입·페치·순수 파생만. 렌더는 features/ledger가 소유(React 무관).
 ============================================================ */
 import { getArtifact } from './api';
+import { checkSchemaVersion } from './artifacts';
 
 /** 챕터 생애 5단계 — 이 순서가 furthest(가장 멀리 간 단계)를 정한다(챕터원장.py STAGES와 동일). */
 export const LEDGER_STAGES = ['sourced', 'noted', 'verified', 'carded', 'reviewed'] as const;
@@ -139,5 +140,6 @@ export function bottleneckStage(l: Ledger): { stage: LedgerStage; passed: number
 export async function fetchLedgerArtifact(): Promise<Ledger> {
   const j = await getArtifact<Ledger>('ledger');
   if (!j || !j.ok || !j.data) throw new Error('챕터 원장 산출물(ledger)을 찾지 못했어요.');
+  checkSchemaVersion('ledger', j.data); // P7 Bet 1: 버전 드리프트 경고
   return j.data;
 }
