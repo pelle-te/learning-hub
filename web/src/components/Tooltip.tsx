@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { clamp } from '@/lib/utils';
 import styles from './Tooltip.module.css';
 
 /* TooltipHost — 앱 루트에 1개. 문서 전역에 위임 리스너를 달아 `data-tip` 속성을 가진 어떤
@@ -14,8 +15,6 @@ interface TipState {
   top: number;
   below: boolean;
 }
-
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 export default function TooltipHost() {
   const [tip, setTip] = useState<TipState | null>(null);

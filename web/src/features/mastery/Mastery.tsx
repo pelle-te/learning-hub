@@ -52,9 +52,9 @@ function OverallRing({ overall }: { overall: number }) {
         size={120}
         r={46}
         pct={shown}
-        className={m.ringSvg}
-        trackClassName={m.ringTrack}
-        arcClassName={m.ringArc}
+        className={ds.ringSvg}
+        trackClassName={ds.ringTrack}
+        arcClassName={ds.ringArc}
       />
       <span className={m.ringNum}>
         {Math.round(shown)}

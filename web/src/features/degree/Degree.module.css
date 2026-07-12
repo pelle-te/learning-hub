@@ -179,14 +179,6 @@
 .statusCard .cats {
   margin-top: 16px;
 }
-.boardHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 /* 카테고리 진행 미니바(전공필수·선택·교양·기타) */
 .cats {
   display: grid;
@@ -243,36 +235,6 @@
 .catTrack i.catDone {
   background: var(--acc);
   box-shadow: 0 0 12px var(--glow);
-}
-
-/* 인사이트 리드아웃(GPA·남은·예상 학기) */
-.insight {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line2);
-}
-.ins {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.insV {
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.insV small {
-  font-size: 12px;
-  color: var(--mut);
-  font-weight: 700;
-}
-.insL {
-  font-size: 11px;
-  color: var(--mut);
-  font-weight: 600;
 }
 
 .reqDetails {

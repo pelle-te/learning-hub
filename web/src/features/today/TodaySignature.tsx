@@ -26,6 +26,7 @@ import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
 import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
 import { useCountUp, useHeroPointer } from '@/lib/interactions';
+import dsm from '@/styles/ds.module.css'; // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 import s from './TodaySignature.module.css';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -545,9 +546,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 size={80}
                 r={34}
                 pct={pct}
-                className={s.ringSvg}
-                trackClassName={s.ringTrack}
-                arcClassName={s.ringArc}
+                className={dsm.ringSvg}
+                trackClassName={dsm.ringTrack}
+                arcClassName={dsm.ringArc}
               />
               <span className={s.ringNum}>
                 {todayDone}

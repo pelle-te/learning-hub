@@ -147,9 +147,9 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: Ite
                   size={48}
                   r={20}
                   pct={prog}
-                  className={c.ringSvg}
-                  trackClassName={c.ringTrack}
-                  arcClassName={c.ringArc}
+                  className={ds.ringSvg}
+                  trackClassName={ds.ringTrack}
+                  arcClassName={ds.ringArc}
                 />
                 <span className={c.ringNum}>
                   {prog}

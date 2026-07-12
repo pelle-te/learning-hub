@@ -461,12 +461,6 @@ input.donechk:checked {
   text-decoration: line-through;
 }
 
-/* (옛 주간 개요 스트립 wkstrip/wkcol·마감 D-day ddrow/ddaychip 계열은 재설계에서
-   마크업이 사라진 뒤 CSS만 남아 있던 잔재 — 소비처 0 확인 후 제거.) */
-.day.agenda {
-  margin-top: 2px;
-}
-
 /* ── 접이식 목록(아코디언) — items↔degree 공유 (원본 features.css 순서) ── */
 .itemrow {
   padding: 0;
@@ -769,9 +763,32 @@ tr[draggable='true']:hover .draghandle {
   border-color: color-mix(in srgb, var(--acc) 24%, var(--line));
   box-shadow: var(--shadow-md);
 }
+/* ── 원형 진행 링(radial progress) 공용 스켈레톤 ──
+   구조(SVG·원 지오메트리)는 <ProgressRing> 컴포넌트가, 외형(굵기·색·글로우·전이)은 이 클래스가 소유.
+   소비처는 컨테이너 .ring에 커스텀 속성으로 값만 지정한다(크기 .ring·중앙 숫자 .ringNum은
+   시각 비중이 사이트마다 달라 feature 모듈에 남긴다). items/mastery/today가 공유. */
+.ringSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ringTrack {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: var(--ring-w, 6);
+}
+.ringArc {
+  fill: none;
+  stroke: var(--ring-tint, var(--acc));
+  stroke-width: var(--ring-w, 6);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 var(--ring-glow-r, 7px) var(--ring-glow, var(--glow)));
+  transition: stroke-dashoffset var(--ring-dur, 0.7s) var(--ease);
+}
 @media (prefers-reduced-motion: reduce) {
   .spotlight,
-  .glow {
+  .glow,
+  .ringArc {
     transition: none;
   }
   .aura {

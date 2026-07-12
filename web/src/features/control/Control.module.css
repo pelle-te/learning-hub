@@ -362,12 +362,6 @@
   color: var(--bad);
   background: var(--acc-soft);
 }
-.recEmpty {
-  font-size: 13px;
-  color: var(--mut);
-  line-height: 1.6;
-  padding: 18px 6px;
-}
 
 @media (max-width: 560px) {
   .searchBar {

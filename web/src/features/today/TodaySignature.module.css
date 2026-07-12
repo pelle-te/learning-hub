@@ -385,24 +385,8 @@
   width: 44px;
   height: 44px;
   flex: none;
-}
-.ringSvg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-.ringTrack {
-  fill: none;
-  stroke: var(--line2);
-  stroke-width: 6;
-}
-.ringArc {
-  fill: none;
-  stroke: var(--acc);
-  stroke-width: 6;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 7px var(--glow));
-  transition: stroke-dashoffset 0.7s var(--ease);
+  /* ds .ringTrack/.ringArc 스켈레톤 조정(6px — 글로우·전이는 기본값 사용) */
+  --ring-w: 6;
 }
 .ringNum {
   position: absolute;
@@ -970,7 +954,6 @@
   .nLive .nDot {
     animation: none;
   }
-  .ringArc,
   .heroFill,
   .cta::after,
   .nProg,

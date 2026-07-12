@@ -145,92 +145,6 @@
   margin-left: 1px;
 }
 
-/* 주간 디브리프 헤더(시그니처) — WeekGrid/.board 결 통일 */
-.board {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 16px 18px 16px;
-  margin-bottom: 14px;
-}
-.bHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 14px;
-}
-.bTitle {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 800;
-}
-.bWeek {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-}
-.readouts {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.ro {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--ink) 2%, transparent);
-}
-.roGood {
-  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
-  background: var(--acc-soft);
-}
-.roWarn {
-  border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
-}
-.roNum {
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.roGood .roNum {
-  color: var(--acc);
-}
-.roNum small {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--mut);
-}
-.warnNum {
-  color: var(--bad);
-}
-.roLab {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink);
-  margin-top: 4px;
-}
-.roSub {
-  font-size: 10.5px;
-  color: var(--mut);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (max-width: 620px) {
-  .readouts {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ============================================================
    주간 리뷰 단일화면(데모 v6 사상) — HudFrame fill 가득.
    상단 주 네비 · 본문 2컬럼 [시그니처 차트(계획대비실제·CBMS) | 점검·회수(액션)].
@@ -543,38 +457,6 @@
 .riskRow[data-risk='overdue'] .riskAge {
   color: var(--bad);
 }
-/* AN-18: 볼트 딥링크 손잡이 — 각 위험 행에서 백지 복습할 개념을 Obsidian에서 바로 검색(데드엔드 해소). */
-.riskFind {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: none;
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.55;
-  cursor: pointer;
-  transition:
-    opacity 0.15s var(--ease),
-    background 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-}
-.riskFind:hover {
-  opacity: 1;
-  background: var(--panel2);
-  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
-}
-.riskFind:focus-visible {
-  opacity: 1;
-  outline: 2px solid var(--acc);
-  outline-offset: 1px;
-}
-
 /* I-14 약점 워크벤치 — 위험 행의 식별→행동 버튼 묶음(+1h · ＋보충 · 🔎 · ↻). */
 .benchActions {
   flex: none;
