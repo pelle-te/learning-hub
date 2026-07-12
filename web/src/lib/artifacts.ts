@@ -6,21 +6,16 @@
    (knowledge/_meta/contract/schemas/*)를 세우고 각 아티팩트에 `_schemaVersion` 을 주입한다. hub 는
    read 시 기대 버전과 대조해 불일치면 콘솔 경고를 낸다(조용한 깨짐 → 시끄러운 경고).
 
-   버전 진화(INV-2): 부모가 파괴적 스키마 변경으로 버전을 올리면, 이 상수를 함께 올리고 소비 코드를
-   새 shape 에 맞춘다. 미스매치 경고가 "서브모듈/재빌드 동기가 필요하다"를 개발자에게 알린다.
-   (부모 SSOT = pipeline/_도구/artifact_schema.py ARTIFACTS — 여기 값과 짝을 이룬다.)
+   버전 진화(INV-2): 부모가 파괴적 스키마 변경으로 버전을 올리면 스키마 `_schemaVersion.const` 을
+   올린다 → `npm run codegen` 이 아래 EXPECTED_SCHEMA_VERSION 을 재생성한다(손유지 아님). 미스매치
+   경고가 "서브모듈/재빌드 동기가 필요하다"를 개발자에게 알린다.
+   (SSOT = 부모 JSON Schema. artifacts.gen.ts 가 그로부터 생성 · 여기선 재노출만.)
 ============================================================ */
 
-export const EXPECTED_SCHEMA_VERSION = {
-  index: 1,
-  knowledge: 1,
-  ledger: 1,
-  anki: 1,
-  reads: 1,
-  markets: 1,
-} as const;
-
-export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
+// 버전 상수·이름 타입은 부모 스키마에서 생성된다(artifacts.gen). 하위호환 위해 여기서 재노출 —
+// 기존 소비처(`from './artifacts'`)를 안 건드린다.
+import { EXPECTED_SCHEMA_VERSION, type ArtifactName } from './artifacts.gen';
+export { EXPECTED_SCHEMA_VERSION, type ArtifactName };
 
 /** 아티팩트의 `_schemaVersion` 을 기대치와 대조 — 불일치/부재면 콘솔 경고(비차단 · 소비는 계속). */
 export function checkSchemaVersion(name: ArtifactName, data: unknown): void {

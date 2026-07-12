@@ -16,7 +16,7 @@ export default defineConfig({
       provider: 'v8',
       // 앱 소스만 계측(엔트리·타입선언·CSS모듈 제외 → 분모 왜곡 방지).
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx', 'src/**/*.d.ts', 'src/vite-env.d.ts'],
+      exclude: ['src/main.tsx', 'src/**/*.d.ts', 'src/vite-env.d.ts', 'src/lib/artifacts.gen.ts'],
       reporter: ['text-summary', 'html'],
       // 게이트: 현재값 바로 아래로 고정 — 통과는 보장하되 하락은 막는 래칫.
       // func는 51(E-6 등 확장이 신규 UI 클로저를 다수 더해 분모가 커진 뒤 baseline). 테스트 늘리면 상향.

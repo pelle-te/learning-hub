@@ -7,10 +7,9 @@
 ============================================================ */
 import { getArtifact } from './api';
 import { checkSchemaVersion } from './artifacts';
-
-/** 챕터 생애 5단계 — 이 순서가 furthest(가장 멀리 간 단계)를 정한다(챕터원장.py STAGES와 동일). */
-export const LEDGER_STAGES = ['sourced', 'noted', 'verified', 'carded', 'reviewed'] as const;
-export type LedgerStage = (typeof LEDGER_STAGES)[number];
+// 5단계(furthest 순서)는 부모 ledger 스키마에서 생성 — 손유지 복제 제거(챕터원장.py STAGES와 동일 SSOT).
+import { LEDGER_STAGES, type LedgerStage } from './artifacts.gen';
+export { LEDGER_STAGES, type LedgerStage };
 /** 어떤 마일스톤도 못 밟은 챕터(furthest 없음). */
 export type Furthest = LedgerStage | 'planned';
 
