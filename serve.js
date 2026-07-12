@@ -30,7 +30,7 @@ const { pipeline } = require('node:stream');
 const { spawn } = require('child_process');
 
 const ROOT = __dirname;                          // 러닝허브 폴더
-const WORK = path.dirname(ROOT);                 // 작업 폴더(시스템·전공·anki의 부모)
+const WORK = path.dirname(ROOT);                 // 워크스페이스 루트(pipeline·knowledge·exports의 부모)
 const DIST = path.join(ROOT, 'web', 'dist');     // React 빌드물(정적 서빙 루트)
 const PORT = Number(process.argv[2]) || 8000;
 const PY = process.env.PYTHON || 'python';
@@ -52,22 +52,22 @@ const MIME = {
    key → { cmd:[python, 스크립트, ...고정인자], label, timeout, parse? }
    parse: stdout을 구조화 JSON으로(있으면 응답에 .stats로). 없으면 텍스트만. */
 const TOOLS = {
-  'knowledge-build': { cmd: ['시스템/_도구/지식엔진.py', 'build'], label: '지식상태 재빌드', timeout: 120000, parse: parseKnowledgeBuild },
-  'vault-health':    { cmd: ['시스템/_도구/벌트DB.py', 'health'],   label: '볼트 건강검진', timeout: 60000,  parse: parseVaultHealth },
-  'vault-stats':     { cmd: ['시스템/_도구/벌트DB.py', 'stats'],    label: '볼트 통계',     timeout: 60000 },
-  'index-build':     { cmd: ['시스템/_도구/벌트DB.py', 'build'],    label: '인덱스/DB 재생성', timeout: 120000 },
-  'eval':            { cmd: ['시스템/_도구/지시문평가.py', 'eval'], label: '지시문 품질 회귀검사', timeout: 120000, parse: parseEval },
-  'anki-signal':     { cmd: ['시스템/_도구/학습신호.py'],          label: 'Anki 학습신호 갱신', timeout: 60000,  parse: parseAnkiSignal },
-  'ledger-build':    { cmd: ['시스템/_도구/챕터원장.py', '--quiet'], label: '챕터 원장 재빌드', timeout: 60000 },
-  'reads-collect':   { cmd: ['시스템/_도구/읽을거리_수집.py'],      label: '읽을거리 수집', timeout: 180000, parse: parseReadsCollect },
-  'markets-collect': { cmd: ['시스템/_도구/증시_수집.py'],          label: '증시 동향 수집', timeout: 180000, parse: parseMarketsCollect },
+  'knowledge-build': { cmd: ['pipeline/_도구/지식엔진.py', 'build'], label: '지식상태 재빌드', timeout: 120000, parse: parseKnowledgeBuild },
+  'vault-health':    { cmd: ['pipeline/_도구/벌트DB.py', 'health'],   label: '볼트 건강검진', timeout: 60000,  parse: parseVaultHealth },
+  'vault-stats':     { cmd: ['pipeline/_도구/벌트DB.py', 'stats'],    label: '볼트 통계',     timeout: 60000 },
+  'index-build':     { cmd: ['pipeline/_도구/벌트DB.py', 'build'],    label: '인덱스/DB 재생성', timeout: 120000 },
+  'eval':            { cmd: ['pipeline/_도구/지시문평가.py', 'eval'], label: '지시문 품질 회귀검사', timeout: 120000, parse: parseEval },
+  'anki-signal':     { cmd: ['pipeline/_도구/학습신호.py'],          label: 'Anki 학습신호 갱신', timeout: 60000,  parse: parseAnkiSignal },
+  'ledger-build':    { cmd: ['pipeline/_도구/챕터원장.py', '--quiet'], label: '챕터 원장 재빌드', timeout: 60000 },
+  'reads-collect':   { cmd: ['pipeline/_도구/읽을거리_수집.py'],      label: '읽을거리 수집', timeout: 180000, parse: parseReadsCollect },
+  'markets-collect': { cmd: ['pipeline/_도구/증시_수집.py'],          label: '증시 동향 수집', timeout: 180000, parse: parseMarketsCollect },
 };
 
 /* 산출물 파일(읽기 전용 서빙) */
 const ARTIFACTS = {
-  knowledge: path.join(WORK, '전공', '_meta', '감사', '_지식상태.json'),
-  anki:      path.join(WORK, '전공', '_meta', '감사', '_anki신호.json'),
-  ledger:    path.join(WORK, '전공', '_meta', '감사', '_챕터원장.json'),  // 과목×챕터 5단계 롤업(챕터원장.py)
+  knowledge: path.join(WORK, 'knowledge', '_meta', '감사', '_지식상태.json'),
+  anki:      path.join(WORK, 'knowledge', '_meta', '감사', '_anki신호.json'),
+  ledger:    path.join(WORK, 'knowledge', '_meta', '감사', '_챕터원장.json'),  // 과목×챕터 5단계 롤업(챕터원장.py)
 
   reads:     path.join(ROOT, '_읽을거리', 'latest.json'),   // 읽을거리 지문(수집 원문) — 러닝허브 로컬
   markets:   path.join(ROOT, '_증시', 'latest.json'),       // 증시 동향(지수 등락 + 금융 뉴스) — 러닝허브 로컬
@@ -168,7 +168,7 @@ function startResearch(topic, scope) {
   if (!topic || typeof topic !== 'string' || topic.length > 200) return { error: 'topic(주제)이 필요합니다.' };
   const tq = topic.slice(0, 200);
   const sc = (scope && typeof scope === 'string') ? scope.slice(0, 200) : '';
-  const args = ['시스템/_도구/탐구_수집.py', '--topic', tq];
+  const args = ['pipeline/_도구/탐구_수집.py', '--topic', tq];
   if (sc) args.push('--scope', sc);
   const id = 'r' + Date.now().toString(36) + '-' + (++RESEARCH_SEQ);
   const job = { id, topic: tq, scope: sc, status: 'running', out: '', code: null, startedAt: Date.now(), endedAt: null, proc: null };

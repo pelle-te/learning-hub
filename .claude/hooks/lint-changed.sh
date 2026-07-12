@@ -7,10 +7,10 @@ f=$(printf '%s' "$input" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on
 [ -z "$f" ] && exit 0
 norm=$(printf '%s' "$f" | tr '\\' '/')
 case "$norm" in
-  */러닝허브/web/src/*.ts|*/러닝허브/web/src/*.tsx) ;;
+  */hub/web/src/*.ts|*/hub/web/src/*.tsx) ;;
   *) exit 0 ;;
 esac
-out=$(cd "C:/작업 폴더/러닝허브/web" && npx --no-install eslint "$f" 2>&1)
+out=$(cd "C:/작업 폴더/hub/web" && npx --no-install eslint "$f" 2>&1)
 if [ $? -ne 0 ]; then
   printf 'eslint 위반 — %s\n%s\n' "$norm" "$out"
   exit 2
