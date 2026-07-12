@@ -10,11 +10,13 @@
    사용자 오버레이(관심 별·메모)는 lib이 순수하게 계산만 하고, 영속(localStore)은 feature가 담당.
 ============================================================ */
 
+import { parseISO } from './utils';
+
 export interface TrendItem {
   id: string;
   text: string;
   source: string; // 출처 태그(3GPP·ITU-R·KICS·전파연구원 …)
-  daysAgo: number; // 시드 기준 상대일(자동수집 전 임시). NEW 판정에 사용.
+  daysAgo: number; // SEED_EPOCH 기준 상대일(자동수집 전 임시). 실제 경과일 = daysAgo + (오늘 − SEED_EPOCH).
 }
 
 /** 학습 리소스 — 종류(교재·강의·표준·커뮤니티·도구)로 분류. */
@@ -854,9 +856,23 @@ export const FIELDS: AtlasField[] = [
 
 /* ── 순수 로직 ──────────────────────────────────────────── */
 
-/** 필드의 NEW(최근 within일) 동향 개수. */
-export function newTrendCount(f: AtlasField, within = NEW_TREND_DAYS): number {
-  return f.trends.filter((t) => t.daysAgo <= within).length;
+/** 시드 동향(daysAgo)의 작성 기준일 — daysAgo는 이 날로부터 며칠 전인지를 뜻한다. */
+export const SEED_EPOCH = '2026-07-12';
+
+/** SEED_EPOCH 이후 흐른 일수(음수 클램프). 시드가 시간에 따라 늙게 만드는 축. */
+function daysSinceEpoch(now: Date): number {
+  return Math.max(0, Math.floor((now.getTime() - parseISO(SEED_EPOCH).getTime()) / 86_400_000));
+}
+
+/** 동향의 현재 경과일 = 시드 상대일 + 에폭 이후 흐른 일수. 예전엔 daysAgo가 고정이라 특정 시드가
+    영원히 NEW였다(배지 무의미) — 이제 실시간으로 늙는다(now 주입, 자동수집 배선 전까지의 임시 노화). */
+export function trendAgeDays(t: TrendItem, now: Date): number {
+  return t.daysAgo + daysSinceEpoch(now);
+}
+
+/** 필드의 NEW(최근 within일) 동향 개수. now는 주입점(기본 현재시각) — 테스트/미래시점 노화 검증 가능. */
+export function newTrendCount(f: AtlasField, now: Date = new Date(), within = NEW_TREND_DAYS): number {
+  return f.trends.filter((t) => trendAgeDays(t, now) <= within).length;
 }
 
 export interface CategoryGroup {
@@ -882,9 +898,9 @@ export interface AtlasSummary {
   newTrends: number; // 최근 within일 신규 동향 총수
 }
 
-/** 상단 리드아웃 요약. stars(관심 필드 key 집합)를 받아 관심 수를 센다. */
-export function atlasSummary(fields: AtlasField[], stars: ReadonlySet<string>): AtlasSummary {
-  const newTrends = fields.reduce((t, f) => t + newTrendCount(f), 0);
+/** 상단 리드아웃 요약. stars(관심 필드 key 집합)를 받아 관심 수를 센다. now는 NEW 동향 노화 기준(주입점). */
+export function atlasSummary(fields: AtlasField[], stars: ReadonlySet<string>, now: Date = new Date()): AtlasSummary {
+  const newTrends = fields.reduce((t, f) => t + newTrendCount(f, now), 0);
   let starred = 0;
   for (const f of fields) if (stars.has(f.key)) starred++;
   return {

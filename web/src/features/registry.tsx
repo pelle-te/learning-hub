@@ -8,8 +8,10 @@
 ============================================================ */
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-/** key → 동적 import 썽크(단일 원천). lazy 컴포넌트와 프리페치가 같은 썽크를 공유. */
-const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
+/** key → 동적 import 썽크(단일 원천). lazy 컴포넌트와 프리페치가 같은 썽크를 공유.
+    export하는 이유: `test/invariants.test.ts`가 LOADERS 키 === TABS 키(shell/tabs.ts) 패리티를 검증한다.
+    "탭 추가 = 2곳 한 줄"의 두 원천 사이 이음매를 자동으로 잠근다(한쪽만 추가 시 런타임 '알 수 없는 탭' 방지). */
+export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   items: () => import('./items/Items'),
   reads: () => import('./reads/Reads'),
   markets: () => import('./markets/Markets'),

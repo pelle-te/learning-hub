@@ -13,6 +13,7 @@ import {
   KEY,
   migrate,
   persist,
+  sanitizeImported,
   SCHEMA_VERSION,
   studyStreak,
 } from '@/lib/persistence';
@@ -262,5 +263,43 @@ describe('studyStreak — 연속 학습일(오늘/어제 폴백/끊김/빈맵)',
 
   it('완료기록이 전혀 없으면 0', () => {
     expect(studyStreak(streakState('2026-06-28', []))).toBe(0);
+  });
+});
+
+describe('sanitizeImported — 가져오기 방어선(크래시 유발 레코드만 제거)', () => {
+  it('잘못된 cbms.code는 제거하고 유효 레코드는 보존', () => {
+    const s = {
+      cbms: [
+        { id: 'a', code: 'C', label: 'ok' },
+        { id: 'b', code: 'Z', label: 'bad-code' }, // 열거 밖
+        { id: 'c', code: 'M', label: 'ok2' },
+      ],
+    } as unknown as AppState;
+    sanitizeImported(s);
+    expect((s.cbms as { id: string }[]).map((c) => c.id)).toEqual(['a', 'c']);
+  });
+
+  it('completions의 비수치 min 엔트리만 제거', () => {
+    const s = {
+      completions: {
+        s1: { '2026-06-01': { done: true, min: 60 }, '2026-06-02': { done: true, min: 'x' } },
+      },
+    } as unknown as AppState;
+    sanitizeImported(s);
+    const days = (s.completions as Record<string, Record<string, unknown>>).s1;
+    expect(Object.keys(days)).toEqual(['2026-06-01']);
+  });
+
+  it('dayOverrides의 비string/number 값 제거, 정상 유지', () => {
+    const s = {
+      dayOverrides: { '2026-06-01': 120, '2026-06-02': 'rest', '2026-06-03': { bad: 1 } },
+    } as unknown as AppState;
+    sanitizeImported(s);
+    expect(Object.keys(s.dayOverrides as object)).toEqual(['2026-06-01', '2026-06-02']);
+  });
+
+  it('필드가 없으면 무해(no-op)', () => {
+    const s = { items: [], routine: [] } as unknown as AppState;
+    expect(() => sanitizeImported(s)).not.toThrow();
   });
 });

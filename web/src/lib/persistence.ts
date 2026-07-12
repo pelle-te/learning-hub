@@ -15,7 +15,7 @@ export const SCHEMA_VERSION = 3;
 export const BACKUP_KEY = KEY + '_backup'; // 초기화/가져오기 직전 백업(되돌리기용)
 export const CORRUPT_KEY = KEY + '_corrupt'; // 손상 원본 보존(영구손실 방지 · P1-7)
 /** 런타임 캐시 — 기기-로컬 산출물이라 *파일 내보내기(백업) JSON*에서 제외(F-01·F-10). */
-export const RUNTIME_CACHE_KEYS = ['_vaultScan', '_ankiFile', '_ankiLive', '_icsExport', '_knowState'];
+export const RUNTIME_CACHE_KEYS = ['_vaultScan', '_ankiFile', '_ankiLive', '_icsExport', '_knowState'] as const;
 /** 그중 *로컬 persist에서도* 제외하는 순수 휘발 캐시 — 읽는 소비처가 없어 다음 부팅 때 재계산하면 됨.
  *  나머지(_ankiLive·_knowState·_icsExport)는 reload 후 오늘 탭 KPI·캘린더 신선도 배지가 읽으므로
  *  로컬엔 남겨 즉시 부팅한다(낙관적 캐시). → 제외는 키별이 아니라 '스코프(내보내기 vs 로컬)'별. */
@@ -216,11 +216,43 @@ export function migrate(input: unknown): AppState | null {
   return s as unknown as AppState;
 }
 
+/** 가져오기(신뢰 불가 파일) 전용 방어선 — migrate가 구조를 갖춘 뒤, 다운스트림 feature를 깨뜨릴 수 있는
+    *크래시 유발 필드*만 레코드 단위로 검증해 제거한다. migrate는 회귀로 동결(byte-exact)이고 boot(로컬 데이터)는
+    신뢰하므로, 이 함수는 오직 importJSON 경로에서만 호출한다.
+    ⚠ 전체 zod 스키마 필터를 쓰지 않는 이유: schema.ts의 element 스키마는 '타입 출처'로만 유지돼 실제 영속
+    데이터와 정밀히 대조된 적이 없다(schema.ts:114 주석) — 필터로 쓰면 정상 레코드를 오폭 삭제할 위험이 있다.
+    그래서 실제로 소비처를 깨는 필드(cbms.code 열거·completions.min 수치·dayOverrides 타입)만 좁게 검사한다. */
+export function sanitizeImported(state: AppState): AppState {
+  const s = state as unknown as Record<string, unknown>;
+  const CBMS = new Set(['C', 'B', 'M', 'S', 'T']); // CBMS_CODES 롤업이 이 열거를 가정 — 이탈 code는 집계를 깬다.
+  if (Array.isArray(s.cbms))
+    s.cbms = (s.cbms as Record<string, unknown>[]).filter(
+      (c) => !!c && typeof c === 'object' && CBMS.has(c.code as string),
+    );
+  // completions: sid → ds → {done, min}. min은 학습분 합산의 입력 — 비수치면 NaN 전파.
+  if (s.completions && typeof s.completions === 'object') {
+    for (const days of Object.values(s.completions as Record<string, Record<string, unknown>>)) {
+      if (!days || typeof days !== 'object') continue;
+      for (const [ds, e] of Object.entries(days)) {
+        const ent = e as { min?: unknown } | null;
+        if (!ent || typeof ent !== 'object' || typeof ent.min !== 'number' || !Number.isFinite(ent.min))
+          delete days[ds];
+      }
+    }
+  }
+  // dayOverrides: ds → 분(number) | 프리셋(string). 그 외 타입은 가용시간 계산을 깬다.
+  if (s.dayOverrides && typeof s.dayOverrides === 'object') {
+    const ov = s.dayOverrides as Record<string, unknown>;
+    for (const [ds, v] of Object.entries(ov)) if (typeof v !== 'number' && typeof v !== 'string') delete ov[ds];
+  }
+  return state;
+}
+
 /** 내보내기 스냅샷 — 런타임 스캔 캐시 제외(파일 백업은 가볍게·깨끗하게). */
 export function exportSnapshot(state: AppState): Partial<AppState> {
   const src = state as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const k in src) if (!RUNTIME_CACHE_KEYS.includes(k)) out[k] = src[k];
+  for (const k in src) if (!(RUNTIME_CACHE_KEYS as readonly string[]).includes(k)) out[k] = src[k];
   return out as Partial<AppState>;
 }
 

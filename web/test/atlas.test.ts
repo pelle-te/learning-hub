@@ -6,6 +6,7 @@ import {
   CATEGORIES,
   FIELDS,
   NEW_TREND_DAYS,
+  SEED_EPOCH,
   atlasSummary,
   categoryOf,
   fieldByKey,
@@ -14,6 +15,7 @@ import {
   newsQuery,
   type AtlasField,
 } from '@/lib/atlas';
+import { addDays, parseISO } from '@/lib/utils';
 
 /** 테스트용 최소 필드 — 순수함수 검증용(실데이터와 분리). */
 function mkField(partial: Partial<AtlasField>): AtlasField {
@@ -37,6 +39,7 @@ function mkField(partial: Partial<AtlasField>): AtlasField {
 }
 
 describe('newTrendCount', () => {
+  const AT_EPOCH = parseISO(SEED_EPOCH); // now=에폭 → daysSinceEpoch=0 → daysAgo 원값 그대로(결정적)
   it('within일 이내 동향만 센다(경계 포함)', () => {
     const f = mkField({
       trends: [
@@ -45,7 +48,13 @@ describe('newTrendCount', () => {
         { id: 't3', text: '', source: '', daysAgo: NEW_TREND_DAYS + 1 }, // 제외
       ],
     });
-    expect(newTrendCount(f)).toBe(2);
+    expect(newTrendCount(f, AT_EPOCH)).toBe(2);
+  });
+  it('시간이 흐르면 NEW가 자연히 빠진다(실시간 노화)', () => {
+    const f = mkField({ trends: [{ id: 't1', text: '', source: '', daysAgo: 2 }] });
+    expect(newTrendCount(f, AT_EPOCH)).toBe(1); // 에폭 당일: age 2 ≤ 7
+    const plus8 = addDays(AT_EPOCH, 8); // 8일 뒤: age 2+8=10 > 7 → 빠짐
+    expect(newTrendCount(f, plus8)).toBe(0);
   });
 });
 

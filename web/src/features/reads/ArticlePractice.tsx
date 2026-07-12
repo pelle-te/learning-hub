@@ -10,6 +10,7 @@ import ArtifactError from '@/components/ArtifactError';
 import { useAiStream } from '@/components/useAiStream';
 import { Button, Skeleton } from '@/components/ui';
 import { coachSummary, lookupVocab, type CoachFeedback, type VocabResult } from '@/lib/api';
+import { classifyArtifact } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useFlushOnUnmount } from '@/lib/interactions';
@@ -256,7 +257,15 @@ export default function ArticlePractice({
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!articles.length) {
-    if (loading || pingLoading) {
+    // 표시 단계는 공용 SSOT(classifyArtifact) — markets·mastery와 같은 규칙.
+    // 이 컴포넌트는 error 객체 대신 errorMessage 문자열만 받으므로 합성 Error로 넘긴다(미생성 계열 판정용).
+    const phase = classifyArtifact({
+      hasData: false,
+      loading: loading || pingLoading,
+      query: { isError, error: errorMessage ? new Error(errorMessage) : undefined },
+      ping: { ok: online },
+    });
+    if (phase === 'loading') {
       // 2-pane 스켈레톤(markets 미러 · SR-17) — 목록 행 + 리더 라인 형상을 예고해 팝인 레이아웃 점프를 없앤다.
       return (
         <div className={r.cols}>
@@ -288,8 +297,8 @@ export default function ArticlePractice({
         </div>
       );
     }
-    // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출(SR-9).
-    if (isError && online) {
+    // 서버는 살아 있는데 진짜 실패(미생성 계열 아님) — '미수집'과 구분해 실제 오류를 노출(SR-9).
+    if (phase === 'error') {
       return (
         <div className={r.emptyHost}>
           <ArtifactError label="지문을" detail={errorMessage} onRetry={() => void refetch()} />

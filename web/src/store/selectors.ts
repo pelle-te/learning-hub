@@ -14,26 +14,33 @@ import { useApp } from './useApp';
    무관한 쓰기(summaries·cbms·backlog·weekly·rituals — schedule과 무관)마다 immer가 새 루트를 만들어 캐시가
    깨지고 무거운 schedule()이 헛돌았다(AN-16). immer는 안 바뀐 슬라이스의 참조를 보존하므로, 무관 슬라이스만
    바뀌면 튜플이 동일 → 캐시 히트. **불변식: 이 목록은 scheduler.ts가 읽는 state.* 슬라이스 전량과 일치해야
-   한다** — scheduler가 새 슬라이스를 읽으면 여기에도 추가할 것(누락 시 그 슬라이스 변경에 stale). */
+   한다** — scheduler가 새 슬라이스를 읽으면 여기에도 추가할 것(누락 시 그 슬라이스 변경에 stale).
+
+   ⚠ 이 불변식은 예전엔 주석으로만 지켜졌다(누락 시 조용히 stale 스케줄 → 전탭 오작동, 무증상). 이제
+   `test/invariants.test.ts`가 schedule()이 실제 읽는 최상위 슬라이스 ⊆ SCHEDULE_INPUT_KEYS를 Proxy로
+   검증한다 — scheduler가 새 슬라이스를 읽는데 여기 없으면 테스트가 즉시 실패한다(불변식의 기계적 잠금). */
+export const SCHEDULE_INPUT_KEYS = [
+  'items',
+  'routine',
+  'dayOverrides',
+  '_knowState',
+  'graphPriority',
+  'adaptiveCapacity',
+  'completions',
+  'startDate',
+  'moduleLen',
+  'reviewRatio',
+  'reviewViaAnki',
+  'blankReviewWeekly',
+  'mockEveryWeeks',
+  'peakStart',
+  'peakEnd',
+  '_today',
+] as const;
+
 function scheduleInputs(s: AppState): readonly unknown[] {
-  return [
-    s.items,
-    s.routine,
-    s.dayOverrides,
-    s._knowState,
-    s.graphPriority,
-    s.adaptiveCapacity,
-    s.completions,
-    s.startDate,
-    s.moduleLen,
-    s.reviewRatio,
-    s.reviewViaAnki,
-    s.blankReviewWeekly,
-    s.mockEveryWeeks,
-    s.peakStart,
-    s.peakEnd,
-    s._today,
-  ];
+  const r = s as unknown as Record<string, unknown>;
+  return SCHEDULE_INPUT_KEYS.map((k) => r[k]);
 }
 let cache: { keys: readonly unknown[]; result: ScheduleResult } | null = null;
 

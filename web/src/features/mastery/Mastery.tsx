@@ -16,6 +16,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/lib/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
+import { classifyArtifact } from '@/lib/artifactState';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -499,13 +500,8 @@ export default function Mastery() {
   // 무데이터 → 셋업 안내. serve.js가 살아 있는데(ping 성공) 실패한 경우만 에러 패널로 —
   // 실패를 셋업 뒤에 숨기지 않되, 오프라인(dev/preview 프록시 500 포함)을 장애로 오판하지 않는다.
   const errMsg = isError ? (error instanceof Error ? error.message : String(error)) : '';
-  const realError =
-    isError &&
-    !k &&
-    ping.isSuccess &&
-    !(error instanceof TypeError) &&
-    errMsg !== 'HTTP 404' &&
-    !errMsg.includes('찾지 못했');
+  // 산출물 상태 분류는 공용 SSOT(classifyArtifact) — reads·markets와 같은 규칙(오프라인/미생성/진짜에러 구분).
+  const realError = classifyArtifact({ hasData: !!k, loading, query: { isError, error }, ping }) === 'error';
 
   return (
     <section className={m.wrap} aria-label="숙달도 지도">

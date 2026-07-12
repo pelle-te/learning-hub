@@ -6,7 +6,15 @@
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
-import { BACKUP_KEY, RUNTIME_CACHE_KEYS, migrate, parseState, defaults, exportSnapshot } from '@/lib/persistence';
+import {
+  BACKUP_KEY,
+  RUNTIME_CACHE_KEYS,
+  migrate,
+  sanitizeImported,
+  parseState,
+  defaults,
+  exportSnapshot,
+} from '@/lib/persistence';
 import { loadReads, importReads } from '@/lib/reads';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad } from '@/lib/idb';
@@ -73,11 +81,13 @@ export function importJSON(input: HTMLInputElement): void {
     }
     // _reads(내 요약·독후감)는 앱 상태가 아니라 별도 블롭 — 분리해 각자 복원한다.
     const reads = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>)._reads : undefined;
-    const s = migrate(parsed);
-    if (!s) {
+    const migrated = migrate(parsed);
+    if (!migrated) {
       toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).', 'bad', 5000);
       return;
     }
+    // 신뢰 불가 파일 방어선 — 크래시 유발 레코드(잘못된 cbms code·비수치 min 등)를 걸러낸다(import 경로 전용).
+    const s = sanitizeImported(migrated);
     RUNTIME_CACHE_KEYS.forEach((k) => {
       try {
         delete (s as Record<string, unknown>)[k];

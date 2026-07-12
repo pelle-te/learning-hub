@@ -9,11 +9,14 @@
    boot/loadState 직후 splitRuntime으로 뽑아온다 — persist 2계층(내보내기/로컬) 계약·테스트 그대로.
 ============================================================ */
 import { create } from 'zustand';
+import { RUNTIME_CACHE_KEYS } from '@/lib/persistence';
 import type { AppState } from '@/lib/types';
 
-/** state에서 분리해 이 store가 소유하는 키 — RUNTIME_CACHE_KEYS 중 _knowState 제외 전부. */
-export const RUNTIME_SPLIT_KEYS = ['_ankiLive', '_icsExport', '_vaultScan', '_ankiFile'] as const;
-export type RuntimeKey = (typeof RUNTIME_SPLIT_KEYS)[number];
+/** state에서 분리해 이 store가 소유하는 키 — RUNTIME_CACHE_KEYS 중 _knowState(스케줄러 입력) 제외 전부.
+    SSOT는 persistence.RUNTIME_CACHE_KEYS 하나 — 여기서 파생해 두 목록이 손으로 갈리는 드리프트를 없앤다
+    (새 런타임 캐시 키를 persistence에만 추가하고 여기 누락 시 그 키가 state에 남아 B1/B3 성능 회귀 재발). */
+export type RuntimeKey = Exclude<(typeof RUNTIME_CACHE_KEYS)[number], '_knowState'>;
+export const RUNTIME_SPLIT_KEYS = RUNTIME_CACHE_KEYS.filter((k) => k !== '_knowState') as readonly RuntimeKey[];
 
 interface RuntimeStore {
   cache: Partial<Record<RuntimeKey, unknown>>;

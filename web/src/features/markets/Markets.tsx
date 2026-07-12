@@ -11,6 +11,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useMarkets, usePing } from '@/store/queries';
 import { marketsBrief, type MarketBriefResult } from '@/lib/api';
 import { indexStats, groupByRegion, fmtPct, dir, fmtPublished, type IndexQuote, type NewsItem } from '@/lib/markets';
+import { classifyArtifact, artifactErrorMessage } from '@/lib/artifactState';
 import { todayISO } from '@/lib/utils';
 import ArtifactGate from '@/components/ArtifactGate';
 import ArtifactError from '@/components/ArtifactError';
@@ -136,7 +137,14 @@ export default function Markets() {
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!indices.length && !news.length) {
-    if (markets.isLoading || pingLoading || (collecting && online)) {
+    // 표시 단계는 공용 SSOT(classifyArtifact) — reads·mastery와 같은 규칙.
+    const phase = classifyArtifact({
+      hasData: false,
+      loading: markets.isLoading || pingLoading || (collecting && online),
+      query: { isError: markets.isError, error: markets.error },
+      ping: { ok: online },
+    });
+    if (phase === 'loading') {
       // 지수 카드 형상 스켈레톤 — 무엇이 올지 예고하고 팝인 레이아웃 점프를 없앤다.
       return (
         <section className={m.wrap} aria-label="증시 동향">
@@ -158,9 +166,9 @@ export default function Markets() {
         </section>
       );
     }
-    // serve.js는 켜져 있으나 아티팩트 쿼리가 실패(500·깨진 JSON 등) — '미수집'과 구분해 실제 오류를 노출.
-    if (markets.isError && online) {
-      const errorMessage = markets.error instanceof Error ? markets.error.message : undefined;
+    // 서버는 살아 있는데 진짜 실패(미생성 계열 아님) — '미수집'과 구분해 실제 오류를 노출.
+    if (phase === 'error') {
+      const errorMessage = artifactErrorMessage(markets.error);
       return (
         <section className={m.wrap} aria-label="증시 동향">
           <div className={m.emptyHost}>
