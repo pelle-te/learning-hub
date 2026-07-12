@@ -58,6 +58,7 @@ const TOOLS = {
   'index-build':     { cmd: ['시스템/_도구/벌트DB.py', 'build'],    label: '인덱스/DB 재생성', timeout: 120000 },
   'eval':            { cmd: ['시스템/_도구/지시문평가.py', 'eval'], label: '지시문 품질 회귀검사', timeout: 120000, parse: parseEval },
   'anki-signal':     { cmd: ['시스템/_도구/학습신호.py'],          label: 'Anki 학습신호 갱신', timeout: 60000,  parse: parseAnkiSignal },
+  'ledger-build':    { cmd: ['시스템/_도구/챕터원장.py', '--quiet'], label: '챕터 원장 재빌드', timeout: 60000 },
   'reads-collect':   { cmd: ['시스템/_도구/읽을거리_수집.py'],      label: '읽을거리 수집', timeout: 180000, parse: parseReadsCollect },
   'markets-collect': { cmd: ['시스템/_도구/증시_수집.py'],          label: '증시 동향 수집', timeout: 180000, parse: parseMarketsCollect },
 };
@@ -66,6 +67,8 @@ const TOOLS = {
 const ARTIFACTS = {
   knowledge: path.join(WORK, '전공', '_meta', '감사', '_지식상태.json'),
   anki:      path.join(WORK, '전공', '_meta', '감사', '_anki신호.json'),
+  ledger:    path.join(WORK, '전공', '_meta', '감사', '_챕터원장.json'),  // 과목×챕터 5단계 롤업(챕터원장.py)
+
   reads:     path.join(ROOT, '_읽을거리', 'latest.json'),   // 읽을거리 지문(수집 원문) — 러닝허브 로컬
   markets:   path.join(ROOT, '_증시', 'latest.json'),       // 증시 동향(지수 등락 + 금융 뉴스) — 러닝허브 로컬
 };
