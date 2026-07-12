@@ -10,12 +10,13 @@
 ============================================================ */
 import { type ReactNode, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useKnowledge, usePing, KNOWLEDGE_KEY } from '@/store/queries';
+import { useKnowledge, useCurriculum, usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
+import { topSequencing, seqReasonCounts, SEQ_REASON_META, type SeqReason } from '@/lib/curriculum';
 import { classifyArtifact } from '@/lib/artifactState';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -265,6 +266,81 @@ function Frontier({ k }: { k: Knowledge }) {
         </span>
       )}
     />
+  );
+}
+
+/** reason 버킷 점 색(디자인시스템 변수 · 프런티어 셀/약점 점과 같은 언어). */
+const SEQ_DOT: Record<SeqReason, string> = {
+  remediate: 'var(--bad,#e3564a)',
+  zpd: 'hsl(200 60% 50%)',
+  frontier: 'var(--line,#666)',
+};
+
+/** 🧭 다음 학습 순서 — 커리큘럼(단계③ 적응형 시퀀싱) arc 랭크. 개념-레벨 프런티어(Frontier)의 arc-레벨 짝:
+   선수 게이트 위에서 약점(보강)·ZPD·커버리지를 결합해 커리큘럼.py 가 이미 정렬한 순서를 그대로 보여준다.
+   서버 없음/산출물 미생성이면 데이터가 없어 조용히 생략(패널 자체를 접음 · Frontier·Gaps와 동형). */
+function Sequencing() {
+  const { data: cur } = useCurriculum();
+  const seq = topSequencing(cur, 8);
+  if (!cur || !seq.length) return null;
+  const counts = seqReasonCounts(cur.sequencing);
+  const total = cur.overall?.sequencing ?? cur.sequencing?.length ?? seq.length;
+  return (
+    <div className={ds.card}>
+      <h3>
+        🧭 다음 학습 순서{' '}
+        <span className={`${ds.muted} ${ds.tiny}`}>(커리큘럼 arc · 선수게이트+약점+ZPD 결합 랭크)</span>
+      </h3>
+      <div className={ds.row} style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+        <span className={ds.chip} data-tip={SEQ_REASON_META.remediate.hint}>
+          보강 {counts.remediate}
+        </span>
+        <span className={ds.chip} data-tip={SEQ_REASON_META.zpd.hint}>
+          ZPD {counts.zpd}
+        </span>
+        <span className={ds.chip} data-tip={SEQ_REASON_META.frontier.hint}>
+          프론티어 {counts.frontier}
+        </span>
+      </div>
+      <div className={m.mslist}>
+        {seq.map((it) => {
+          const meta = SEQ_REASON_META[it.reason];
+          return (
+            <div key={it.arc_id} className={m.msrow}>
+              <span
+                className={m.msdot}
+                style={{ background: SEQ_DOT[it.reason] }}
+                title={meta.hint}
+                role="img"
+                aria-label={meta.label}
+              >
+                {meta.icon}
+              </span>
+              <span className={m.nm} style={{ flex: 1 }}>
+                {it.arc || it.arc_id}
+              </span>
+              <span className={`${ds.tiny} ${ds.muted}`}>{it.slug || ''}</span>
+              {typeof it.mastery === 'number' ? (
+                <span className={ds.chip} data-tip="arc 노트 평균 유효숙달">
+                  {pct(it.mastery)}
+                </span>
+              ) : null}
+              {it.unlocks ? (
+                <span className={ds.chip} data-tip="이 arc를 선수로 삼는 arc 수 — 먼저 익히면 이만큼 풀린다">
+                  푼다 {it.unlocks}
+                </span>
+              ) : null}
+              <VaultLink query={it.arc || it.arc_id} />
+            </div>
+          );
+        })}
+      </div>
+      {total > seq.length ? (
+        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`}>
+          +{total - seq.length}개 더 (커리큘럼 시퀀싱 전체 {total})
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -570,6 +646,7 @@ export default function Mastery() {
           {/* 우 — 다음 행동(프런티어·약점·캘리브레이션) */}
           <div className={m.actionCol}>
             <Frontier k={k} />
+            <Sequencing />
             <Gaps k={k} />
             <RootCauses k={k} />
             <Calibration k={k} />

@@ -14,6 +14,7 @@ export const EXPECTED_SCHEMA_VERSION = {
   anki: 1,
   reads: 1,
   markets: 1,
+  curriculum: 3,
 } as const;
 
 export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
@@ -215,6 +216,100 @@ export const marketsArtifactSchema = z
   .passthrough();
 export type MarketsArtifact = z.infer<typeof marketsArtifactSchema>;
 
+/** `curriculum.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
+export const curriculumArtifactSchema = z
+  .object({
+    _schemaVersion: z.literal(3),
+    generated: z.string(),
+    generated_by: z.string().optional(),
+    overall: z
+      .object({
+        planned_arcs: z.number(),
+        atomized_arcs: z.number(),
+        coverage: z.number(),
+        legacy_arcs: z.number().optional(),
+        in_progress_arcs: z.number().optional(),
+        todo_arcs: z.number().optional(),
+        authored_edges: z.number().optional(),
+        suggested_edges: z.number().optional(),
+        next_up: z.number().optional(),
+        sequencing: z.number().optional(),
+      })
+      .passthrough(),
+    backlog: z
+      .object({ unprocessed_src: z.array(z.string()).optional(), subjects_without_src: z.array(z.string()).optional() })
+      .passthrough()
+      .optional(),
+    edges: z
+      .array(z.object({ from: z.string(), to: z.string(), reason: z.string().optional() }).passthrough())
+      .optional(),
+    suggested_edges: z
+      .array(z.object({ from: z.string(), to: z.string(), weight: z.number() }).passthrough())
+      .optional(),
+    next_up: z
+      .array(
+        z
+          .object({ arc_id: z.string(), slug: z.string().optional(), arc: z.string().optional(), status: z.string() })
+          .passthrough(),
+      )
+      .optional(),
+    sequencing: z
+      .array(
+        z
+          .object({
+            arc_id: z.string(),
+            slug: z.string().optional(),
+            arc: z.string().optional(),
+            status: z.string().optional(),
+            reason: z.enum(['remediate', 'zpd', 'frontier']),
+            score: z.number(),
+            mastery: z.number().nullable().optional(),
+            weak_notes: z.number().optional(),
+            zpd_notes: z.number().optional(),
+            note_count: z.number().optional(),
+            unlocks: z.number().optional(),
+          })
+          .passthrough(),
+      )
+      .optional(),
+    subjects: z.array(
+      z
+        .object({
+          slug: z.string().nullable(),
+          folder: z.string().optional(),
+          abbr: z.string().nullable().optional(),
+          domain: z.string().nullable().optional(),
+          src: z.string().nullable().optional(),
+          src_present: z.boolean().optional(),
+          planned_arcs: z.number(),
+          atomized_arcs: z.number(),
+          legacy_arcs: z.number().optional(),
+          in_progress_arcs: z.number().optional(),
+          todo_arcs: z.number().optional(),
+          coverage: z.number(),
+          arcs: z.array(
+            z
+              .object({
+                arc: z.string(),
+                arc_no: z.string().optional(),
+                arc_id: z.string().optional(),
+                status: z.enum(['done', 'legacy', 'in_progress', 'todo']),
+                chapter_id: z.string().nullable().optional(),
+                furthest: z.string().nullable().optional(),
+                notes: z.number().optional(),
+                verified_ratio: z.number().optional(),
+                prereqs: z.array(z.string()).optional(),
+                prereqs_met: z.boolean().optional(),
+              })
+              .passthrough(),
+          ),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+export type CurriculumArtifact = z.infer<typeof curriculumArtifactSchema>;
+
 /** 이름 → 경계 zod 스키마(런타임 검증·소비처 선택 사용). */
 export const ARTIFACT_SCHEMAS = {
   index: indexArtifactSchema,
@@ -223,4 +318,5 @@ export const ARTIFACT_SCHEMAS = {
   anki: ankiArtifactSchema,
   reads: readsArtifactSchema,
   markets: marketsArtifactSchema,
+  curriculum: curriculumArtifactSchema,
 } as const;

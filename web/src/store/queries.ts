@@ -17,9 +17,11 @@ import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
 import { fetchLedgerArtifact, type Ledger } from '@/lib/ledger';
 import { fetchReadsArtifact, type ReadsArtifact } from '@/lib/reads';
 import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
+import { fetchCurriculumArtifact, type Curriculum } from '@/lib/curriculum';
 import { useApp } from './useApp';
 
 export const KNOWLEDGE_KEY = ['knowledge'] as const;
+export const CURRICULUM_KEY = ['curriculum'] as const;
 export const LEDGER_KEY = ['ledger'] as const;
 export const PING_KEY = ['ping'] as const;
 export const READS_KEY = ['reads'] as const;
@@ -111,5 +113,17 @@ export function useKnowledge(enabled = true) {
       useApp.getState().setRuntimeCache('_knowState', k);
       return k;
     },
+  });
+}
+
+/** 커리큘럼 프론티어(/api/artifact/curriculum) — 숙달도 지도의 '다음 학습 순서'(단계③ 적응형 시퀀싱).
+ *  serve.js 없거나 산출물 미생성이면 isError(retry 없음) → 소비처가 조용히 생략(패널 렌더 skip). */
+export function useCurriculum(enabled = true) {
+  return useQuery<Curriculum>({
+    queryKey: CURRICULUM_KEY,
+    enabled,
+    queryFn: fetchCurriculumArtifact,
+    retry: false,
+    staleTime: 60_000,
   });
 }
