@@ -6,6 +6,120 @@ import { test, expect, type Page } from '@playwright/test';
 
 const FIXED = new Date('2026-06-15T09:00:00');
 
+/* P8 E-3 — reads/markets 결정론화: 두 탭은 변동 수집데이터(_읽을거리/latest·_증시/latest)에 그려져
+   매 수집마다 스냅샷이 RED였다(vite preview는 /api 프록시 없음 · 로컬 serve.js면 실데이터 유입).
+   고정 fixture 를 page.route 로 mock 해 수집 상태·serve.js 유무와 무관하게 '데이터 상태'를 안정 캡처.
+   date=오늘(고정시계)로 두어 useAutoCollect 재수집을 막고, published는 TZ 없는 로컬시각(고정시계 기준
+   상대표기 결정론). */
+const MARKETS_FIXTURE = {
+  at: '2026-06-15T08:30:00',
+  date: '2026-06-15',
+  indices: [
+    {
+      symbol: 'KOSPI',
+      name: '코스피',
+      region: '국내',
+      currency: 'KRW',
+      price: 2712.34,
+      prevClose: 2698.1,
+      change: 14.24,
+      changePct: 0.53,
+      spark: [2680, 2690, 2685, 2700, 2695, 2712],
+    },
+    {
+      symbol: 'KOSDAQ',
+      name: '코스닥',
+      region: '국내',
+      currency: 'KRW',
+      price: 861.2,
+      prevClose: 867.55,
+      change: -6.35,
+      changePct: -0.73,
+      spark: [872, 869, 865, 868, 863, 861],
+    },
+    {
+      symbol: 'SPX',
+      name: 'S&P 500',
+      region: '미국',
+      currency: 'USD',
+      price: 5431.6,
+      prevClose: 5405.0,
+      change: 26.6,
+      changePct: 0.49,
+      spark: [5390, 5400, 5395, 5410, 5420, 5431],
+    },
+    {
+      symbol: 'IXIC',
+      name: '나스닥',
+      region: '미국',
+      currency: 'USD',
+      price: 17689.36,
+      prevClose: 17650.2,
+      change: 39.16,
+      changePct: 0.22,
+      spark: [17600, 17620, 17640, 17610, 17670, 17689],
+    },
+  ],
+  news: [
+    {
+      id: 'n1',
+      source: '한국경제',
+      field: '증시',
+      title: '반도체株 강세에 코스피 상승 마감',
+      url: 'https://example.com/n1',
+      published: '2026-06-15T06:00:00',
+      summary: '외국인 순매수가 이어지며 지수가 0.5% 올랐다.',
+    },
+    {
+      id: 'n2',
+      source: 'Reuters',
+      field: '글로벌',
+      title: 'Fed officials signal patience on rate cuts',
+      url: 'https://example.com/n2',
+      published: '2026-06-14T21:00:00',
+      summary: 'Policymakers reiterated a data-dependent stance ahead of the next meeting.',
+    },
+    {
+      id: 'n3',
+      source: '연합뉴스',
+      field: '환율',
+      title: '원/달러 환율 소폭 하락',
+      url: 'https://example.com/n3',
+      published: '2026-06-13T09:00:00',
+      summary: '달러 약세에 환율이 4원 내렸다.',
+    },
+  ],
+};
+
+const READS_FIXTURE = {
+  at: '2026-06-15T08:30:00',
+  date: '2026-06-15',
+  articles: [
+    {
+      id: 'a1',
+      lang: 'ko',
+      field: '경제',
+      source: '한겨레',
+      title: '금리 인하 논쟁, 무엇이 쟁점인가',
+      url: 'https://example.com/a1',
+      published: '2026-06-15T06:00:00',
+      words: 820,
+      text: '중앙은행의 통화정책을 둘러싼 논쟁이 다시 뜨겁다. 물가와 고용이라는 두 목표 사이에서 정책 결정자들은 신중한 태도를 유지하고 있다.',
+    },
+    {
+      id: 'a2',
+      lang: 'en',
+      field: 'science',
+      source: 'Nature',
+      title: 'How mRNA vaccines are being adapted for new targets',
+      url: 'https://example.com/a2',
+      published: '2026-06-14T21:00:00',
+      words: 1140,
+      text: 'Researchers are extending the mRNA platform beyond infectious disease toward oncology and rare genetic disorders, adapting delivery and stability along the way.',
+    },
+  ],
+};
+
 // validShape 충족 최소 시드(나머지 필드는 migrate가 채움). 차트가 보이게 챕터·완료·마감 포함.
 const SEED = {
   schemaVersion: 3,
@@ -101,6 +215,10 @@ async function boot(page: Page, theme: string, seed: object = SEED) {
   // reducedMotion을 명시 await — config(use.reducedMotion)만 믿으면 드물게 첫 로드와 레이스해
   // AmbientCanvas가 애니메이션 프레임으로 돌기 시작(스크린샷 불안정 → flaky). 여기서 확정한다.
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  // P8 E-3: reads/markets 수집 아티팩트를 고정 fixture로 mock(수집 상태·serve.js 유무와 무관하게
+  // '데이터 상태'를 결정론 캡처). 다른 탭은 이 경로를 안 부르므로 무영향.
+  await page.route('**/api/artifact/reads', (route) => route.fulfill({ json: { ok: true, data: READS_FIXTURE } }));
+  await page.route('**/api/artifact/markets', (route) => route.fulfill({ json: { ok: true, data: MARKETS_FIXTURE } }));
   await page.clock.install({ time: FIXED });
   await page.addInitScript(
     ([s, th]) => {
