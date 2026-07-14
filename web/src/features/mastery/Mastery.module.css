@@ -377,6 +377,32 @@ i.dot {
   flex: none;
 }
 
+/* P9 Wave③ 운전석 배지 — 역할(내 길 쓸모)·깊이(복습 강도)를 시퀀싱 행에 1급으로. flex none 으로 안 줄어듦. */
+.seqbadge {
+  flex: none;
+  font-size: 0.72em;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  color: var(--mut);
+  background: var(--panel2);
+  white-space: nowrap;
+}
+/* 역할 = 액센트 틴트(삶-연관 축) · 깊이 = 중립(복습 강도 축)으로 두 축을 색으로 분리. */
+.seqbadge.role {
+  border-color: color-mix(in srgb, var(--acc) 34%, var(--line));
+  color: color-mix(in srgb, var(--acc) 62%, var(--tx));
+  background: color-mix(in srgb, var(--acc) 8%, var(--panel2));
+}
+/* 미룸(예산·quota) 행 = 흐리게 + 이번 주기 배분 아님을 시각화(트레이드오프 명시). */
+.deferred {
+  opacity: 0.55;
+}
+.deferred:hover {
+  opacity: 0.85;
+}
+
 /* AN-12 — 개념 행 볼트 딥링크 아이콘 버튼(🔎). 평소 은은하게, 행 hover 시 또렷(Graph E-5 미러). */
 .deep {
   flex: none;

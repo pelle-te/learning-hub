@@ -16,7 +16,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
-import { topSequencing, seqReasonCounts, SEQ_REASON_META, type SeqReason } from '@/lib/curriculum';
+import { topSequencing, seqReasonCounts, SEQ_REASON_META, depthMeta, roleMeta, type SeqReason } from '@/lib/curriculum';
 import { classifyArtifact } from '@/lib/artifactState';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -285,12 +285,15 @@ function Sequencing() {
   if (!cur || !seq.length) return null;
   const counts = seqReasonCounts(cur.sequencing);
   const total = cur.overall?.sequencing ?? cur.sequencing?.length ?? seq.length;
+  const o = cur.overall || {};
+  // 단계④ 연관성 배분이 켜졌나(노트 goals: 링크 존재). 콜드면 역할=파생기본·relevance 0 이라 배분항 무영향.
+  const relActive = !!o.relevance_active;
   return (
     <div className={ds.card}>
       <h3>
         🧭 다음 학습 순서{' '}
         <span className={`${ds.muted} ${ds.tiny}`}>
-          (커리큘럼 arc 단위 — 개념 단위는 위 🎯 · 선수게이트+약점+ZPD 결합 랭크)
+          (커리큘럼 arc 단위 — 개념 단위는 위 🎯 · 선수게이트+약점+ZPD+삶연관성 결합 랭크)
         </span>
       </h3>
       <div className={ds.row} style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -303,6 +306,16 @@ function Sequencing() {
         <span className={ds.chip} data-tip={SEQ_REASON_META.frontier.hint}>
           프론티어 {counts.frontier}
         </span>
+        {/* 단계④ 유한 예산(#2) 배분 요약 — 주당 시간 상한 안에서 몇 arc 배분/미룸. */}
+        {typeof o.allocated_arcs === 'number' ? (
+          <span
+            className={ds.chip}
+            data-tip={`주당 ${o.time_budget_hours ?? '?'}h 예산 내 배분 ${o.allocated_arcs}개 · 초과 미룸 ${o.deferred_arcs ?? 0}개 (약 ${o.allocated_hours ?? '?'}h)`}
+          >
+            배분 {o.allocated_arcs}
+            {o.deferred_arcs ? ` · 미룸 ${o.deferred_arcs}` : ''}
+          </span>
+        ) : null}
       </div>
       {counts.remediate === 0 && (
         /* 콜드스타트 정직성 — '보강 0'을 '약점 없음'으로 오해하지 않게(KnowledgeMap의 미관측 배너와 대칭). */
@@ -311,11 +324,22 @@ function Sequencing() {
           올라옵니다.
         </div>
       )}
+      {!relActive && (
+        /* 연관성 콜드 정직성 — 역할/깊이는 파생 기본값(중심·숙련)이고 삶연관성 가중은 아직 0. */
+        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginBottom: 8 }}>
+          역할·깊이 배지는 지금 <b>파생 기본값</b>(핵심=중심·숙련)이에요. 핵심 노트에 <code>goals:</code> 링크를 달면
+          삶-연관성이 켜지고(relevance) 순서가 목표 그래디언트로 갈립니다.
+        </div>
+      )}
       <div className={m.mslist}>
         {seq.map((it) => {
           const meta = SEQ_REASON_META[it.reason];
+          const role = roleMeta(it.역할);
+          const depth = depthMeta(it.target_depth);
+          const deferred = it.allocated === false;
+          const rel = relActive && typeof it.relevance === 'number' && it.relevance > 0 ? it.relevance : null;
           return (
-            <div key={it.arc_id} className={m.msrow}>
+            <div key={it.arc_id} className={`${m.msrow}${deferred ? ' ' + m.deferred : ''}`}>
               <span
                 className={m.msdot}
                 style={{ background: SEQ_DOT[it.reason] }}
@@ -329,6 +353,27 @@ function Sequencing() {
                 {it.arc || it.arc_id}
               </span>
               <span className={`${ds.tiny} ${ds.muted}`}>{it.slug || ''}</span>
+              {/* 역할 배지(삶-연관 축 · 액센트 틴트) — 콜드면 파생기본 중심. */}
+              {role ? (
+                <span className={`${m.seqbadge} ${m.role}`} data-tip={role.hint}>
+                  {role.label}
+                </span>
+              ) : null}
+              {/* 깊이 배지(복습 강도 축 · 중립) — target_depth 롤업. */}
+              {depth ? (
+                <span className={m.seqbadge} data-tip={depth.hint}>
+                  {depth.label}
+                </span>
+              ) : null}
+              {/* 삶-연관성 — 활성 & >0 일 때만(콜드=0 은 숨겨 노이즈 방지). goal 은 tip 에. */}
+              {rel != null ? (
+                <span
+                  className={ds.chip}
+                  data-tip={`삶-연관성 ${pct(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
+                >
+                  연관 {pct(rel)}
+                </span>
+              ) : null}
               {typeof it.mastery === 'number' ? (
                 <span className={ds.chip} data-tip="arc 노트 평균 유효숙달">
                   {pct(it.mastery)}
@@ -337,6 +382,19 @@ function Sequencing() {
               {it.unlocks ? (
                 <span className={ds.chip} data-tip="이 arc를 선수로 삼는 arc 수 — 먼저 익히면 이만큼 풀린다">
                   푼다 {it.unlocks}
+                </span>
+              ) : null}
+              {/* 미룸(예산·quota) — 이번 주기 배분 아님을 명시(트레이드오프). */}
+              {deferred ? (
+                <span
+                  className={ds.chip}
+                  data-tip={
+                    it.defer_reason === 'quota'
+                      ? '소양·지평 quota 초과 — 과점 방지로 이번 주기 미룸'
+                      : '주당 시간 예산 초과 — "이걸 파려면 상위 arc를 미룸" 트레이드오프'
+                  }
+                >
+                  미룸{it.defer_reason ? `·${it.defer_reason === 'quota' ? 'quota' : '예산'}` : ''}
                 </span>
               ) : null}
               <VaultLink query={it.arc || it.arc_id} />

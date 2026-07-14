@@ -279,6 +279,7 @@ export const curriculumArtifactSchema = z
             target_depth: z.string().nullable().optional(),
             priority: z.number().optional(),
             goal: z.string().nullable().optional(),
+            역할: z.string().nullable().optional(),
             est_effort: z.number().optional(),
             allocated: z.boolean().optional(),
             defer_reason: z.string().nullable().optional(),

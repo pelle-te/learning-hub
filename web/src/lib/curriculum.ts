@@ -11,6 +11,11 @@ import { checkSchemaVersion } from './artifacts';
 /** 시퀀싱 항목의 우선 버킷 — SSOT = 커리큘럼.py build_sequencing(remediate>zpd>frontier). */
 export type SeqReason = 'remediate' | 'zpd' | 'frontier';
 
+/** 삶-연관 목표 깊이(#7 복습 강도) — SSOT = note_schema.VALID_깊이(숙련/활용/인지). */
+export type Depth = '숙련' | '활용' | '인지';
+/** 삶-연관 주역할(내 길에서의 쓸모) — SSOT = note_schema.VALID_역할. 운전석 배지 축. */
+export type Role = '중심' | '보조' | '맥락' | '소양' | '지평';
+
 export interface CurriculumSeqItem {
   arc_id: string;
   slug?: string;
@@ -25,6 +30,23 @@ export interface CurriculumSeqItem {
   note_count?: number;
   /** 이 arc 를 선수로 삼는 downstream arc 수(레버리지 — 먼저 익히면 N개가 풀린다). */
   unlocks?: number;
+  // ── P9 Phase 4·6(단계④·Wave③) 삶-연관성 배분 필드(v4 additive · 콜드=0/null) ──
+  /** 삶-연관성 0~1(결정론·설명가능 · 콜드=0). goals: 링크·개념그래프 홉거리로 계산(연관성.py). */
+  relevance?: number;
+  /** 목표 깊이(숙련/활용/인지 · 연관성 없으면 null) — 최댓값 노트 유효깊이 롤업. */
+  target_depth?: Depth | string | null;
+  /** 연관성 × gap(목표깊이−숙달) 배분 그래디언트(예산 순위 근거). */
+  priority?: number;
+  /** 이 arc 를 당기는 목표 id(설명가능 · null=콜드/flat). */
+  goal?: string | null;
+  /** 삶-연관 역할(중심/보조/맥락/소양/지평 · Wave③ 운전석 배지 · null=콜드) — 최댓값 노트 주역할. */
+  역할?: Role | string | null;
+  /** 추정 소요(시간 · 목표깊이 기본 + 약점 보강 부담). */
+  est_effort?: number;
+  /** 주당 시간 예산(#2) 내 배분 여부 — false = 이번 주기 미룸. */
+  allocated?: boolean;
+  /** 미룸 사유(budget|quota · allocated=true 면 null) — "A 깊이 파려면 B 미룸" 트레이드오프. */
+  defer_reason?: string | null;
 }
 export interface CurriculumOverall {
   planned_arcs?: number;
@@ -32,6 +54,17 @@ export interface CurriculumOverall {
   coverage?: number;
   next_up?: number;
   sequencing?: number;
+  // ── 단계④ 배분 요약(v4) ──
+  /** 연관성 앵커(노트 goals: 링크) 존재 여부. false=콜드(핵심 노트에 목표 링크 달면 가동). */
+  relevance_active?: boolean;
+  /** 주당 학습 시간 예산(#2 · 이 상한 안에서 배분). */
+  time_budget_hours?: number;
+  /** 예산 내 배분된 arc 수. */
+  allocated_arcs?: number;
+  /** 예산·quota 초과로 미룬 arc 수. */
+  deferred_arcs?: number;
+  /** 배분 소요 합(시간). */
+  allocated_hours?: number;
 }
 export interface Curriculum {
   generated?: string;
@@ -45,6 +78,31 @@ export const SEQ_REASON_META: Record<SeqReason, { label: string; icon: string; h
   zpd: { label: 'ZPD', icon: '⬡', hint: '선수 충족 · 지금 배울 준비됨' },
   frontier: { label: '프론티어', icon: '○', hint: '선수 충족 미완 arc(커버리지 프론티어)' },
 };
+
+/** 목표 깊이 배지 메타 — 라벨·힌트(#7 복습 강도 · 색은 소비처 디자인시스템). SSOT=note_schema.DEPTH_REVIEW. */
+export const DEPTH_META: Record<Depth, { label: string; hint: string }> = {
+  숙련: { label: '숙련', hint: '씹어 삼킴 — 능동 인출(자유회상·문제풀이)+확장간격+인터리빙' },
+  활용: { label: '활용', hint: '쓸 줄 앎 — 단서 인출+응용문제' },
+  인지: { label: '인지', hint: '존재 앎 — 간격 재노출(재인 수준)+핵심 1링크' },
+};
+
+/** 삶-연관 역할 배지 메타 — 라벨·힌트(내 길에서의 쓸모 · D2 역할분기). SSOT=note_schema.VALID_역할. */
+export const ROLE_META: Record<Role, { label: string; hint: string }> = {
+  중심: { label: '중심', hint: '내 길의 중심 — 목표 그래디언트로 배분(교재 source 필수)' },
+  보조: { label: '보조', hint: '중심을 받치는 보조 — 목표 근접 배분(교재 source 필수)' },
+  맥락: { label: '맥락', hint: '중심에 닿는 맥락(산업·동향) — 목표 근접 배분(시사)' },
+  소양: { label: '소양', hint: '중심 무관하나 삶에 널리 유용 — flat 베이스라인+quota' },
+  지평: { label: '지평', hint: '넓히는 지평 — 가벼운 인지 스텁(flat+quota)' },
+};
+
+/** 깊이 문자열 → 배지 메타(미상/콜드 null 은 undefined = 배지 생략). */
+export function depthMeta(d: string | null | undefined) {
+  return d && d in DEPTH_META ? DEPTH_META[d as Depth] : undefined;
+}
+/** 역할 문자열 → 배지 메타(미상/콜드 null 은 undefined = 배지 생략). */
+export function roleMeta(r: string | null | undefined) {
+  return r && r in ROLE_META ? ROLE_META[r as Role] : undefined;
+}
 
 /** reason 버킷별 개수 — 커리큘럼.py 요약과 동형(remediate/zpd/frontier). 빈/undefined 입력은 0맵. */
 export function seqReasonCounts(items: CurriculumSeqItem[] | undefined): Record<SeqReason, number> {
