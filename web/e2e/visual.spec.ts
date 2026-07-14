@@ -308,6 +308,7 @@ const TABS = [
   'control',
   'integrations',
   'review',
+  'guide',
 ];
 const THEMES = ['dark', 'light'] as const;
 

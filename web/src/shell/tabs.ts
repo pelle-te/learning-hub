@@ -119,6 +119,8 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // ── 전역(설정) — surface 미지정 → 학습·자료 두 표면 하단에 공통 노출 ──
+  // 안내(guide) — 이 시스템이 할 수 있는 것 + 하는 법 매뉴얼(전역 참조). 스크롤 페이지라 fill 없음.
+  { key: 'guide', label: '안내', group: 'settings', order: 185, icon: 'book' },
   // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
   { key: 'control', label: '탐구 수집', group: 'settings', order: 190, icon: 'search', fill: true },
   { key: 'settings', label: '설정', group: 'settings', order: 200, hidden: true, icon: 'gear' },
