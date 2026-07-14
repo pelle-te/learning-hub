@@ -13,6 +13,11 @@ export type SchedView = z.infer<typeof SchedViewSchema>;
 /** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
 export const AccentSchema = z.enum(['violet', 'lime', 'cyan', 'amber']);
 export type Accent = z.infer<typeof AccentSchema>;
+
+/** 나브 표면(P9 Phase 6 Wave⑥) — 학습(핵심·숙련) vs 자료(수집·발견) 두 표면 스위처.
+    라우트가 1차 원천(현재 탭의 surface)이고, 전역 탭(설정)에선 이 영속값으로 폴백. 기본 학습. */
+export const NavSurfaceSchema = z.enum(['study', 'materials']);
+export type NavSurface = z.infer<typeof NavSurfaceSchema>;
 // enum이 선언순 tuple을 보존 → 목록 재기입 없이 스키마에서 파생(SSOT). 소비처 타입 유지 위해 spread.
 export const ACCENTS: Accent[] = [...AccentSchema.options];
 
@@ -27,6 +32,8 @@ export const UIStateSchema = z.object({
   fxLite: z.boolean().default(false),
   // 사이드바 접힘 — false=라벨+그룹 펼침(기본), true=60px 아이콘 레일. 옛 저장본 호환 위해 .default.
   navCollapsed: z.boolean().default(false),
+  // 나브 표면(Wave⑥) — 스위처 클릭·전역 탭 폴백용 영속값. 라우트가 우선. 옛 저장본은 .default로 학습.
+  navSurface: NavSurfaceSchema.default('study'),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

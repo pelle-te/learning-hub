@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { navGroups, hostTabKey, Icon, type TabMeta } from '@/shell';
+import { navGroups, hostTabKey, surfaceOf, surfaceHome, SURFACES, Icon, type TabMeta, type Surface } from '@/shell';
 import { prefetchTab } from '@/features/registry';
 import { useUI } from '@/store/useUI';
 import { useApp } from '@/store/useApp';
@@ -24,16 +24,29 @@ export default function RailSidebar() {
   const loc = useLocation();
   const collapsed = useUI((st) => st.ui.navCollapsed);
   const toggleNav = useUI((st) => st.toggleNav);
+  const persistedSurface = useUI((st) => st.ui.navSurface);
+  const setNavSurface = useUI((st) => st.setNavSurface);
   // 숫자만 구독 — selectSchedule은 메모(16-슬라이스 캐시)라 값이 바뀔 때만 나브가 리렌더(무관 재계산 회피).
   const reviewBadge = useApp((st) => {
     const state = st.state;
     const r = riskSummary(state, selectSchedule(state).days || [], todayISO(state));
     return r.overdue + openBacklog(state).length;
   });
-  const cur = hostTabKey(loc.pathname.split('/')[1] || 'today');
+  const curKey = loc.pathname.split('/')[1] || 'today';
+  const cur = hostTabKey(curKey);
   const go = (key: string) => navigate('/' + key, { viewTransition: true });
 
-  const groups = navGroups();
+  // 활성 표면 = 현재 라우트 탭의 surface(1차 원천). 전역 탭(설정)이면 영속값으로 폴백.
+  // 라우트가 이기므로 ⌘K·딥링크로 다른 표면 탭에 가면 나브가 자동으로 그 표면으로 따라간다(desync 없음).
+  const activeSurface: Surface = surfaceOf(curKey) ?? persistedSurface;
+  // 스위처 클릭 — 영속값 갱신 + 그 표면 홈으로 이동(라우트가 activeSurface를 확정).
+  const switchSurface = (target: Surface) => {
+    if (target === activeSurface) return;
+    setNavSurface(target);
+    go(surfaceHome(target));
+  };
+
+  const groups = navGroups(activeSurface);
   const topGroups = groups.filter((g) => g.key !== 'settings');
   const bottomGroup = groups.find((g) => g.key === 'settings');
 
@@ -118,6 +131,29 @@ export default function RailSidebar() {
         <div className={s.logo}>L</div>
         {!collapsed && <span className={s.word}>러닝 허브</span>}
       </div>
+
+      {/* 표면 스위처(Wave⑥) — 학습(핵심·숙련) ↔ 자료(수집·발견). 펼침=세그먼트, 접힘=아이콘 토글. */}
+      <div className={s.surfaces} role="tablist" aria-label="표면 전환">
+        {SURFACES.map((sf) => {
+          const on = sf.key === activeSurface;
+          return (
+            <button
+              key={sf.key}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              aria-label={sf.label}
+              title={sf.label}
+              className={s.surfaceBtn + (on ? ' ' + s.surfaceOn : '')}
+              onClick={() => switchSurface(sf.key)}
+            >
+              <Icon name={sf.icon} />
+              {!collapsed && <span className={s.surfaceLabel}>{sf.label}</span>}
+            </button>
+          );
+        })}
+      </div>
+
       <div className={s.groups}>{topGroups.map((g, i) => renderGroup(g, i > 0))}</div>
       <div className={s.spacer} />
       {bottomGroup && renderGroup(bottomGroup, true)}

@@ -17,9 +17,14 @@ export {
   subTabGroupOf,
   hostTabKey,
   navGroups,
+  surfaceOf,
+  surfaceHome,
+  SURFACES,
   GROUP_LABELS,
   type TabMeta,
   type NavGroup,
+  type Surface,
+  type SurfaceMeta,
 } from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
 export { captureSubjects, runQuickCapture, semanticPalette, contentSearch, type ContentHit } from './actions';

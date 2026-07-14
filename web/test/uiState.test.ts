@@ -19,6 +19,7 @@ describe('bootUI — 부팅/복원', () => {
       recentCommands: ['a', 'b'],
       fxLite: false,
       navCollapsed: false,
+      navSurface: 'study',
     });
   });
   it('손상된 JSON은 기본값으로 폴백(throw 없음)', () => {
@@ -44,6 +45,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
       recentCommands: ['x', 'y'],
       fxLite: false,
       navCollapsed: false,
+      navSurface: 'study',
     });
   });
   it('흡수 후 persist하면 구 키는 정리되고 단일 키만 남는다', () => {
@@ -73,6 +75,7 @@ describe('persistUI — 왕복', () => {
       recentCommands: ['cmd'],
       fxLite: true,
       navCollapsed: false,
+      navSurface: 'study',
     });
   });
 });

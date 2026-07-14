@@ -7,7 +7,15 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { storage } from '@/lib/kv';
 import { idbMirror } from '@/lib/idb';
-import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
+import {
+  bootUI,
+  persistUI,
+  pushRecent,
+  type Accent,
+  type NavSurface,
+  type SchedView,
+  type UIState,
+} from '@/lib/uiState';
 
 export interface UIStore {
   ui: UIState;
@@ -15,6 +23,7 @@ export interface UIStore {
   setAccent: (a: Accent) => void;
   setFxLite: (on: boolean) => void;
   toggleNav: () => void;
+  setNavSurface: (s: NavSurface) => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
 }
@@ -51,6 +60,12 @@ export const useUI = create<UIStore>()(
       toggleNav() {
         set((s) => {
           s.ui.navCollapsed = !s.ui.navCollapsed;
+        });
+        flush();
+      },
+      setNavSurface(surface) {
+        set((s) => {
+          s.ui.navSurface = surface;
         });
         flush();
       },

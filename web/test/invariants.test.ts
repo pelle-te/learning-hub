@@ -13,7 +13,7 @@ import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
-import { TABS } from '@/shell/tabs';
+import { TABS, GROUP_LABELS, navGroups, surfaceOf, SURFACES } from '@/shell/tabs';
 import type { AppState } from '@/lib/types';
 
 /* Proxy 내부 접근·상속 프로퍼티 등 슬라이스가 아닌 잡음 키(캐시 입력이 아님). */
@@ -75,5 +75,33 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
     const loaderKeys = Object.keys(LOADERS).sort();
     const tabKeys = TABS.map((t) => t.key).sort();
     expect(loaderKeys).toEqual(tabKeys);
+  });
+});
+
+// ── 불변식 ③ 표면 스위처(Wave⑥) — 표면·그룹 정합 ──
+describe('불변식 ③ 나브 표면(Wave⑥) 정합', () => {
+  it('모든 탭 group은 GROUP_LABELS에 라벨이 있다(고아 헤더 방지)', () => {
+    for (const t of TABS) expect(GROUP_LABELS[t.group], `group '${t.group}' (${t.key})`).toBeTruthy();
+  });
+  it('surface 미지정 탭(전역)은 설정 그룹뿐 — 표면 소속은 study|materials로만', () => {
+    for (const t of TABS) {
+      if (t.surface === undefined) expect(t.group, t.key).toBe('settings');
+      else expect(['study', 'materials']).toContain(t.surface);
+    }
+  });
+  it('navGroups(surface)는 그 표면 탭 + 전역(설정)만 — 다른 표면은 누출 없음', () => {
+    for (const surface of ['study', 'materials'] as const) {
+      const keys = navGroups(surface).flatMap((g) => g.tabs.map((t) => t.key));
+      for (const key of keys) {
+        const s = surfaceOf(key);
+        expect(s === surface || s === undefined, `${key} in ${surface} nav`).toBe(true);
+      }
+      // 전역 진입점(control·settings)은 두 표면 모두에 있어야 한다(항상 도달).
+      expect(keys).toContain('control');
+      expect(keys).toContain('settings');
+    }
+  });
+  it('surfaceHome은 그 표면 소속 탭을 가리킨다(스위처 착지점 정합)', () => {
+    for (const sf of SURFACES) expect(surfaceOf(sf.home)).toBe(sf.key);
   });
 });
