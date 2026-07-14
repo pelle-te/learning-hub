@@ -7,20 +7,29 @@ import { describe, expect, it } from 'vitest';
 import {
   discoveryStatusCounts,
   pendingEntries,
+  entryTitle,
+  entryGoals,
   DISCOVERY_KIND_META,
+  DISCOVERY_DECISION_TOOL,
   type DiscoveryArtifact,
   type DiscoveryEntry,
   type DiscoveryKind,
   type DiscoveryStatus,
 } from '@/lib/discovery';
 
-const e = (id: string, kind: DiscoveryKind, score: number, status: DiscoveryStatus): DiscoveryEntry => ({
+const e = (
+  id: string,
+  kind: DiscoveryKind,
+  score: number,
+  status: DiscoveryStatus,
+  detail: Record<string, unknown> = {},
+): DiscoveryEntry => ({
   id,
   kind,
   source: 'test',
   score,
   status,
-  detail: {},
+  detail,
 });
 
 const artifact = (entries: DiscoveryEntry[]): DiscoveryArtifact => ({ _schemaVersion: 1, entries });
@@ -62,5 +71,26 @@ describe('discovery — DISCOVERY_KIND_META', () => {
       expect(DISCOVERY_KIND_META[k].label).toBeTruthy();
       expect(DISCOVERY_KIND_META[k].hint).toBeTruthy();
     }
+  });
+});
+
+// ── Wave④ triage 렌더/쓰기 헬퍼 ──
+describe('discovery — entryTitle/entryGoals (Wave④ 표시)', () => {
+  it('detail.title 우선, 없으면 id 폴백(빈 화면 방지)', () => {
+    expect(entryTitle(e('uncovered::ofdm', 'uncovered', 1, 'pending', { title: 'OFDM 대칭성' }))).toBe('OFDM 대칭성');
+    expect(entryTitle(e('bridge::x', 'bridge', 1, 'pending'))).toBe('bridge::x');
+    expect(entryTitle(e('bridge::y', 'bridge', 1, 'pending', { title: '   ' }))).toBe('bridge::y'); // 공백=폴백
+  });
+  it('bridge detail.goals → 잇는 목표 id 배열(비-문자열/부재는 빈 배열)', () => {
+    expect(entryGoals(e('bridge::a', 'bridge', 1, 'pending', { goals: ['g1', 'g2'] }))).toEqual(['g1', 'g2']);
+    expect(entryGoals(e('bridge::b', 'bridge', 1, 'pending', { goals: ['g1', 3, null] }))).toEqual(['g1']);
+    expect(entryGoals(e('uncovered::c', 'uncovered', 1, 'pending'))).toEqual([]);
+  });
+});
+
+describe('discovery — DISCOVERY_DECISION_TOOL (serve.js SSOT)', () => {
+  it('promote/dismiss → serve.js TOOLS 키', () => {
+    expect(DISCOVERY_DECISION_TOOL.promote).toBe('discovery-promote');
+    expect(DISCOVERY_DECISION_TOOL.dismiss).toBe('discovery-dismiss');
   });
 });

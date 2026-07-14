@@ -47,3 +47,19 @@ export function pendingEntries(d: DiscoveryArtifact | null | undefined): Discove
     .sort((a, b) => b[0].score - a[0].score || a[1] - b[1])
     .map(([e]) => e);
 }
+
+/** 후보 표시 제목 — detail.title(승격.py enqueue 가 심음) 우선, 없으면 id(kind::key)로 폴백(빈 화면 방지). */
+export function entryTitle(e: DiscoveryEntry): string {
+  const t = (e.detail as { title?: unknown } | null | undefined)?.title;
+  return typeof t === 'string' && t.trim() ? t.trim() : e.id;
+}
+
+/** bridge 후보가 잇는 활성 하위목표 id들(detail.goals · 다목적 다리개념일수록 여럿). 없으면 빈 배열. */
+export function entryGoals(e: DiscoveryEntry): string[] {
+  const g = (e.detail as { goals?: unknown } | null | undefined)?.goals;
+  return Array.isArray(g) ? g.filter((x): x is string => typeof x === 'string') : [];
+}
+
+/** 사람 결정 → serve.js /api/run 도구 키(SSOT = serve.js TOOLS discovery-promote/dismiss). */
+export const DISCOVERY_DECISION_TOOL = { promote: 'discovery-promote', dismiss: 'discovery-dismiss' } as const;
+export type DiscoveryDecision = keyof typeof DISCOVERY_DECISION_TOOL;

@@ -15,10 +15,38 @@ const FIXED = new Date('2026-06-15T09:00:00');
 const GOALS_FIXTURE = {
   _schemaVersion: 1,
   nodes: [
-    { id: 'research-independence', kind: 'goal', title: '전파통신 분야 연구원으로 자립', weight: 1.0, active: true, parent: null },
-    { id: 'communication-theory', kind: 'goal', title: '통신이론', weight: 1.0, active: true, parent: 'research-independence' },
-    { id: 'signal-processing', kind: 'goal', title: '신호처리', weight: 0.95, active: true, parent: 'research-independence' },
-    { id: 'research-skills', kind: 'goal', title: '논문·실험 역량', weight: 0.9, active: true, parent: 'research-independence' },
+    {
+      id: 'research-independence',
+      kind: 'goal',
+      title: '전파통신 분야 연구원으로 자립',
+      weight: 1.0,
+      active: true,
+      parent: null,
+    },
+    {
+      id: 'communication-theory',
+      kind: 'goal',
+      title: '통신이론',
+      weight: 1.0,
+      active: true,
+      parent: 'research-independence',
+    },
+    {
+      id: 'signal-processing',
+      kind: 'goal',
+      title: '신호처리',
+      weight: 0.95,
+      active: true,
+      parent: 'research-independence',
+    },
+    {
+      id: 'research-skills',
+      kind: 'goal',
+      title: '논문·실험 역량',
+      weight: 0.9,
+      active: true,
+      parent: 'research-independence',
+    },
     { id: 'rf-circuits', kind: 'goal', title: 'RF회로', weight: 0.85, active: true, parent: 'research-independence' },
     { id: 'antennas', kind: 'goal', title: '안테나', weight: 0.8, active: true, parent: 'research-independence' },
     {
@@ -214,9 +242,49 @@ const SEED = {
   },
 };
 
+// P9 Phase 6 Wave④: 발견 triage 큐 fixture(pending 후보 세 유형 · 결정 버튼 렌더 결정론 캡처).
+const DISCOVERY_FIXTURE = {
+  _schemaVersion: 1,
+  entries: [
+    {
+      id: 'bridge::ofdm-symmetry',
+      kind: 'bridge',
+      source: '매개중심성',
+      score: 1.42,
+      status: 'pending',
+      detail: { title: 'OFDM 대칭성', goals: ['communication-theory', 'signal-processing'] },
+    },
+    {
+      id: 'uncovered::channel-coding',
+      kind: 'uncovered',
+      source: 'surface_uncovered',
+      score: 0.88,
+      status: 'pending',
+      detail: { title: '채널 부호화' },
+    },
+    {
+      id: 'survey_context::rf-noise',
+      kind: 'survey_context',
+      source: 'surface_survey_context',
+      score: 0.61,
+      status: 'pending',
+      detail: { title: 'RF 잡음 개론' },
+    },
+    {
+      id: 'uncovered::already-dismissed',
+      kind: 'uncovered',
+      source: 'surface_uncovered',
+      score: 0.4,
+      status: 'dismissed',
+      detail: { title: '기각됨' },
+    },
+  ],
+};
+
 const TABS = [
   'today',
   'goals',
+  'discovery',
   'schedule',
   'items',
   'reads',
@@ -243,6 +311,9 @@ async function boot(page: Page, theme: string, seed: object = SEED) {
   await page.route('**/api/artifact/reads', (route) => route.fulfill({ json: { ok: true, data: READS_FIXTURE } }));
   await page.route('**/api/artifact/markets', (route) => route.fulfill({ json: { ok: true, data: MARKETS_FIXTURE } }));
   await page.route('**/api/artifact/goals', (route) => route.fulfill({ json: { ok: true, data: GOALS_FIXTURE } }));
+  await page.route('**/api/artifact/discovery', (route) =>
+    route.fulfill({ json: { ok: true, data: DISCOVERY_FIXTURE } }),
+  );
   await page.clock.install({ time: FIXED });
   await page.addInitScript(
     ([s, th]) => {

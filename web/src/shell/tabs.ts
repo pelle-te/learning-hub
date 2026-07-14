@@ -29,6 +29,8 @@ export const TABS: TabMeta[] = [
   { key: 'reads', label: '읽을거리', group: 'src', order: 45, icon: 'reads' },
   { key: 'markets', label: '증시 동향', group: 'src', order: 47, icon: 'trend' },
   { key: 'atlas', label: '진로 지도', group: 'src', order: 48, icon: 'radio' },
+  // 발견 큐(discovery) — 축 C '발견 루프'(P9 Phase 6 Wave④). 수집·surface·다리개념 후보를 사람이 승격/기각(D5).
+  { key: 'discovery', label: '발견', group: 'src', order: 49, icon: 'discovery' },
   { key: 'integrations', label: '연동 현황', group: 'src', order: 50, icon: 'link', fill: true },
   // 정본 원장 — 과목×챕터 5단계 파이프라인 진척(통합 4단계 소비). 연동 현황 호스트의 세그먼트로 접는다
   // (자료 생산·연결 상태 묶음). 나브 숨김 · 라우트·⌘K·g단축키·세그먼트로 진입 · fill(단일 화면).

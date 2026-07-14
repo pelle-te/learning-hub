@@ -61,6 +61,9 @@ const TOOLS = {
   'ledger-build':    { cmd: ['pipeline/_도구/챕터원장.py', '--quiet'], label: '챕터 원장 재빌드', timeout: 60000 },
   'reads-collect':   { cmd: ['pipeline/_도구/읽을거리_수집.py'],      label: '읽을거리 수집', timeout: 180000, parse: parseReadsCollect },
   'markets-collect': { cmd: ['pipeline/_도구/증시_수집.py'],          label: '증시 동향 수집', timeout: 180000, parse: parseMarketsCollect },
+  // P9 Phase 6 Wave④ — 발견 triage inbox 사람 결정(D5 승격). subject=후보 id(kind::key) → 승격.py 가 --promote/--dismiss 뒤 위치인자로 받는다.
+  'discovery-promote': { cmd: ['pipeline/_도구/승격.py', '--promote'], label: '발견 후보 승격', timeout: 60000 },
+  'discovery-dismiss': { cmd: ['pipeline/_도구/승격.py', '--dismiss'], label: '발견 후보 기각', timeout: 60000 },
 };
 
 /* 산출물 파일(읽기 전용 서빙) */
@@ -596,10 +599,11 @@ const server = http.createServer((req, res) => {
           RUNNING++;
           const done = r => { RUNNING = Math.max(0, RUNNING - 1); sendJSON(res, 200, r); };
           const extra = [];
-          // frontier/gaps 과목 필터 등. dash-접두 값은 파이썬 CLI에서 *플래그*로 오해석될 수 있어 거부
-          // (정상 과목명은 '-'로 시작하지 않음 → 실사용 영향 0. '--' 리터럴 주입은 비-argparse 도구를 깨서 회피).
+          // frontier/gaps 과목 필터 · 발견 후보 id(kind::key) 등 단일 위치인자. dash-접두 값은 파이썬 CLI에서
+          // *플래그*로 오해석될 수 있어 거부(정상 과목명·후보 id 는 '-'로 시작 안 함 → 실사용 영향 0 · '--' 리터럴
+          // 주입은 비-argparse 도구를 깨서 회피). 200자 상한 = 발견 id(kind::긴개념명)도 안 잘리게(shell 안 씀 → 길이만 방어).
           if (body.subject && typeof body.subject === 'string') {
-            const sub = body.subject.slice(0, 60);
+            const sub = body.subject.slice(0, 200);
             if (sub && !sub.startsWith('-')) extra.push(sub);
           }
           runTool(tool, extra, done);

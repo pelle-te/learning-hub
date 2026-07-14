@@ -17,6 +17,7 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   reads: () => import('./reads/Reads'),
   markets: () => import('./markets/Markets'),
   atlas: () => import('./atlas/Atlas'),
+  discovery: () => import('./discovery/Discovery'),
   today: () => import('./today/Today'),
   schedule: () => import('./schedule/Schedule'),
   routine: () => import('./routine/Routine'),
