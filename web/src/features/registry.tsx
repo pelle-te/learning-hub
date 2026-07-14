@@ -13,6 +13,7 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
     "탭 추가 = 2곳 한 줄"의 두 원천 사이 이음매를 자동으로 잠근다(한쪽만 추가 시 런타임 '알 수 없는 탭' 방지). */
 export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   items: () => import('./items/Items'),
+  goals: () => import('./goals/Goals'),
   reads: () => import('./reads/Reads'),
   markets: () => import('./markets/Markets'),
   atlas: () => import('./atlas/Atlas'),

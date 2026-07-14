@@ -11,6 +11,28 @@ const FIXED = new Date('2026-06-15T09:00:00');
    고정 fixture 를 page.route 로 mock 해 수집 상태·serve.js 유무와 무관하게 '데이터 상태'를 안정 캡처.
    date=오늘(고정시계)로 두어 useAutoCollect 재수집을 막고, published는 TZ 없는 로컬시각(고정시계 기준
    상대표기 결정론). */
+// 내 길(goals) — 손저작 goals.json 을 고정 fixture 로(P9 Phase 6 · 실 계약과 동형 · 결정론 캡처).
+const GOALS_FIXTURE = {
+  _schemaVersion: 1,
+  nodes: [
+    { id: 'research-independence', kind: 'goal', title: '전파통신 분야 연구원으로 자립', weight: 1.0, active: true, parent: null },
+    { id: 'communication-theory', kind: 'goal', title: '통신이론', weight: 1.0, active: true, parent: 'research-independence' },
+    { id: 'signal-processing', kind: 'goal', title: '신호처리', weight: 0.95, active: true, parent: 'research-independence' },
+    { id: 'research-skills', kind: 'goal', title: '논문·실험 역량', weight: 0.9, active: true, parent: 'research-independence' },
+    { id: 'rf-circuits', kind: 'goal', title: 'RF회로', weight: 0.85, active: true, parent: 'research-independence' },
+    { id: 'antennas', kind: 'goal', title: '안테나', weight: 0.8, active: true, parent: 'research-independence' },
+    {
+      id: 'degree-requirement',
+      kind: 'goal',
+      title: '전자공학 학위요건 충족',
+      weight: 0.5,
+      active: true,
+      parent: 'research-independence',
+      degree_req: { targetTotal: 128, reqMajorReq: 41, reqMajorSel: 27, reqLiberal: 51 },
+    },
+  ],
+};
+
 const MARKETS_FIXTURE = {
   at: '2026-06-15T08:30:00',
   date: '2026-06-15',
@@ -194,6 +216,7 @@ const SEED = {
 
 const TABS = [
   'today',
+  'goals',
   'schedule',
   'items',
   'reads',
@@ -219,6 +242,7 @@ async function boot(page: Page, theme: string, seed: object = SEED) {
   // '데이터 상태'를 결정론 캡처). 다른 탭은 이 경로를 안 부르므로 무영향.
   await page.route('**/api/artifact/reads', (route) => route.fulfill({ json: { ok: true, data: READS_FIXTURE } }));
   await page.route('**/api/artifact/markets', (route) => route.fulfill({ json: { ok: true, data: MARKETS_FIXTURE } }));
+  await page.route('**/api/artifact/goals', (route) => route.fulfill({ json: { ok: true, data: GOALS_FIXTURE } }));
   await page.clock.install({ time: FIXED });
   await page.addInitScript(
     ([s, th]) => {

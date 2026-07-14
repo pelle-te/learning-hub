@@ -32,6 +32,8 @@ const ICON_PATHS: Record<string, string> = {
   panelLeft: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
   // 증시 동향 — 상승 추세선+화살촉(trending-up). chart(막대)·graph(노드)와 시각 구분.
   trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  // 내 길 지도(goals) — 나침반(방향·목표). target(과녁)·radio(신호)와 시각 구분.
+  compass: '<circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88"/>',
   // 진로 지도(전파·통신 아틀라스) — 방송 신호(양측 동심호 + 중심점). trend(추세)·graph(노드)와 시각 구분.
   radio:
     '<circle cx="12" cy="12" r="2"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/>',

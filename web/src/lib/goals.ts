@@ -63,3 +63,23 @@ export function activeGoals(g: GoalsArtifact | null | undefined): GoalNode[] {
 export function projectNodes(g: GoalsArtifact | null | undefined): GoalNode[] {
   return (g?.nodes ?? []).filter((n) => n.kind === 'project');
 }
+
+/** 형제 노드를 weight 내림차순으로(동률=원 순서 안정정렬) — 내 길 지도 표시순(배분 그래디언트 상대값). */
+export function byWeightDesc(children: GoalTreeNode[]): GoalTreeNode[] {
+  return children
+    .map((c, i) => [c, i] as const)
+    .sort((a, b) => b[0].weight - a[0].weight || a[1] - b[1])
+    .map(([c]) => c);
+}
+
+/** degree_req(학위요건 노드 흡수 · 단위=학점)를 표시용 항목 배열로. 없으면 null. degree.ts DEGREE_REQ 동형. */
+export function degreeReqRows(node: GoalNode): { label: string; credits: number }[] | null {
+  const d = node.degree_req;
+  if (!d || typeof d !== 'object') return null;
+  const rows: { label: string; credits: number }[] = [];
+  if (typeof d.targetTotal === 'number') rows.push({ label: '졸업 총', credits: d.targetTotal });
+  if (typeof d.reqMajorReq === 'number') rows.push({ label: '전공필수', credits: d.reqMajorReq });
+  if (typeof d.reqMajorSel === 'number') rows.push({ label: '전공선택', credits: d.reqMajorSel });
+  if (typeof d.reqLiberal === 'number') rows.push({ label: '교양', credits: d.reqLiberal });
+  return rows.length ? rows : null;
+}

@@ -1,0 +1,184 @@
+/* Goals.module.css — '내 길 지도' 전용(P9 Phase 6). 전역 토큰(ds/tokens) 위에 얹는다.
+   루트 성취목표 히어로 + 하위목표 카드(상대 중요도 바 --acc · 학위요건 롤업 · kind 배지). */
+
+.root {
+  padding: 16px 20px 48px;
+}
+.muted {
+  color: var(--mut);
+  font-size: var(--fs-sm);
+  padding: 12px 0;
+}
+
+/* ── 루트 성취목표 히어로 ── */
+.hero {
+  border: 1px solid color-mix(in srgb, var(--acc) 30%, var(--line));
+  background: linear-gradient(180deg, var(--acc-soft), transparent);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+.heroKicker {
+  font-family: ui-monospace, monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  color: var(--acc);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.heroTitle {
+  font-size: var(--fs-xl, 1.5rem);
+  margin: 6px 0 8px;
+  letter-spacing: -0.02em;
+}
+.heroDesc {
+  color: var(--mut);
+  font-size: var(--fs-sm);
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* ── 하위목표 카드 그리드 ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 14px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cardOff {
+  opacity: 0.55;
+}
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cardTitle {
+  font-size: var(--fs-md);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.kind {
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.kindGoal {
+  background: var(--acc-soft);
+  color: var(--acc);
+}
+.kindProject {
+  background: color-mix(in srgb, var(--acc2) 18%, transparent);
+  color: var(--acc2);
+}
+
+/* ── 상대 중요도 바(배분 그래디언트 상대값) ── */
+.wRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.wbar {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--line2);
+  overflow: hidden;
+}
+.wbarFill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--acc);
+}
+.wVal {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  color: var(--mut);
+  min-width: 2.5em;
+  text-align: right;
+}
+
+/* ── 학위요건(degree_req 흡수) 롤업 ── */
+.degGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin: 0;
+}
+.degItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--bg, transparent);
+  border: 1px solid var(--line2);
+}
+.degK {
+  font-size: var(--fs-xs);
+  color: var(--mut);
+}
+.degV {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin: 0;
+}
+.degU {
+  font-size: var(--fs-xs);
+  color: var(--mut);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+.offTag {
+  font-size: var(--fs-xs);
+  color: var(--mut);
+  align-self: flex-start;
+}
+
+/* 중첩 자식(프로젝트 등 · 현재 콜드) */
+.subGrid {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line2);
+}
+
+/* ── 노트→목표 연관 하이브리드 안내 ── */
+.relNote {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 13px 15px;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  background: var(--panel);
+  color: var(--mut);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.relNote b {
+  color: var(--txt);
+}
+.relDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: var(--acc);
+}

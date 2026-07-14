@@ -18,6 +18,8 @@ export interface TabMeta {
    빈도 위계: 매일(계획) > 주간(자료·기록) > 드묾(졸업은 계획 끝에, 제어판/설정은 숨김·⌘K 진입). */
 export const TABS: TabMeta[] = [
   { key: 'today', label: '오늘 학습', group: 'do', order: 10, icon: 'target', fill: true },
+  // 내 길(goals) — 축 A '내 길 지도'(P9 Phase 6). 전략 앵커(전파통신 연구원 자립 트리)라 오늘 다음, 계획 그룹 상단.
+  { key: 'goals', label: '내 길', group: 'do', order: 15, icon: 'compass' },
   { key: 'schedule', label: '주간 스케줄', group: 'do', order: 20, icon: 'calendar', fill: true },
   // 아래 흡수 탭들은 나브에서 숨기고, 호스트 탭(스케줄·기록·통계) 상단 섹션 세그먼트(SubTabs)로 전환한다.
   // 라우트·팔레트·g단축키로는 그대로 진입 가능(SUBTAB_GROUPS 참조).

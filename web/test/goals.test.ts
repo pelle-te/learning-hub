@@ -4,7 +4,15 @@
    순수 변환을 못박는다. IO(fetch)는 대상 아님(경계는 artifactsGen.test 가 zod 로 커버).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { buildGoalTree, activeGoals, projectNodes, type GoalsArtifact, type GoalNode } from '@/lib/goals';
+import {
+  buildGoalTree,
+  activeGoals,
+  projectNodes,
+  byWeightDesc,
+  degreeReqRows,
+  type GoalsArtifact,
+  type GoalNode,
+} from '@/lib/goals';
 
 const g = (id: string, parent: string | null, weight = 1, extra: Partial<GoalNode> = {}): GoalNode => ({
   id,
@@ -96,5 +104,30 @@ describe('goals — projectNodes', () => {
       },
     ]);
     expect(projectNodes(withProj).map((n) => n.id)).toEqual(['proj']);
+  });
+});
+
+describe('goals — byWeightDesc', () => {
+  it('weight 내림차순 · 동률=원 순서 안정정렬', () => {
+    const roots = buildGoalTree(artifact([g('r', null), g('a', 'r', 0.5), g('b', 'r', 0.9), g('c', 'r', 0.5)]));
+    // 원 순서: a(0.5) b(0.9) c(0.5) → 정렬: b(0.9) a(0.5) c(0.5 · 동률 원순서)
+    expect(byWeightDesc(roots[0].children).map((n) => n.id)).toEqual(['b', 'a', 'c']);
+  });
+});
+
+describe('goals — degreeReqRows', () => {
+  it('degree_req 있으면 학점 항목 배열(총·전공필수·전공선택·교양)', () => {
+    const node = g('deg', 'r', 0.5, {
+      degree_req: { targetTotal: 128, reqMajorReq: 41, reqMajorSel: 27, reqLiberal: 51 },
+    });
+    expect(degreeReqRows(node)).toEqual([
+      { label: '졸업 총', credits: 128 },
+      { label: '전공필수', credits: 41 },
+      { label: '전공선택', credits: 27 },
+      { label: '교양', credits: 51 },
+    ]);
+  });
+  it('degree_req 없으면 null(대부분 노드)', () => {
+    expect(degreeReqRows(g('x', 'r'))).toBeNull();
   });
 });
