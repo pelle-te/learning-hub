@@ -13,12 +13,32 @@ import {
   ROLE_META,
   depthMeta,
   roleMeta,
+  engineHealthTiers,
+  isHealthCold,
+  isRelevanceMonotone,
   type SeqReason,
   type Curriculum,
   type CurriculumSeqItem,
+  type EngineHealth,
 } from '@/lib/curriculum';
 
 const item = (arc_id: string, reason: SeqReason, score: number): CurriculumSeqItem => ({ arc_id, reason, score });
+
+const health = (
+  status: string,
+  evidenced: number,
+  hi: number | null,
+  mid: number | null,
+  lo: number | null,
+): EngineHealth => ({
+  status,
+  evidenced_notes: evidenced,
+  by_relevance: {
+    high: { n: hi == null ? 0 : 3, mean_mastery: hi },
+    mid: { n: mid == null ? 0 : 3, mean_mastery: mid },
+    low: { n: lo == null ? 0 : 3, mean_mastery: lo },
+  },
+});
 
 describe('curriculum — seqReasonCounts', () => {
   it('버킷별 개수 집계(remediate/zpd/frontier)', () => {
@@ -77,5 +97,46 @@ describe('curriculum — depthMeta/roleMeta (Wave③ 배지)', () => {
     expect(depthMeta('없는깊이')).toBeUndefined();
     expect(roleMeta(null)).toBeUndefined();
     expect(roleMeta('없는역할')).toBeUndefined();
+  });
+});
+
+// ── P9 Wave⑤ 엔진 건강 지표(D11) 헬퍼 ──
+describe('curriculum — engineHealthTiers', () => {
+  it('by_relevance 를 상→하 순서 tier 행으로(라벨·힌트·버킷)', () => {
+    const t = engineHealthTiers(health('ok', 9, 0.8, 0.6, 0.4));
+    expect(t?.map((x) => x.label)).toEqual(['상', '중', '하']);
+    expect(t?.map((x) => x.bucket.mean_mastery)).toEqual([0.8, 0.6, 0.4]);
+    for (const row of t!) expect(row.hint).toBeTruthy(); // 비-vacuous
+  });
+  it('by_relevance 없으면 null(패널 접음)', () => {
+    expect(engineHealthTiers(null)).toBeNull();
+    expect(engineHealthTiers(undefined)).toBeNull();
+  });
+});
+
+describe('curriculum — isHealthCold', () => {
+  it('status:cold 또는 증거 노트 0 → 콜드(판정 유예)', () => {
+    expect(isHealthCold(health('cold', 0, null, null, null))).toBe(true);
+    expect(isHealthCold(health('ok', 0, 0.8, 0.6, 0.4))).toBe(true); // 증거 0
+    expect(isHealthCold(null)).toBe(true);
+    expect(isHealthCold(undefined)).toBe(true);
+  });
+  it('status!=cold & 증거>0 → 콜드 아님(라이브)', () => {
+    expect(isHealthCold(health('ok', 9, 0.8, 0.6, 0.4))).toBe(false);
+  });
+});
+
+describe('curriculum — isRelevanceMonotone', () => {
+  it('상≥중≥하 평균숙달 → true(연관성↑→숙달↑ 성립)', () => {
+    expect(isRelevanceMonotone(health('ok', 9, 0.8, 0.6, 0.4))).toBe(true);
+    expect(isRelevanceMonotone(health('ok', 9, 0.6, 0.6, 0.6))).toBe(true); // 동률 허용(≥)
+  });
+  it('하위 분위가 더 높으면 false(단조 아님)', () => {
+    expect(isRelevanceMonotone(health('ok', 9, 0.4, 0.6, 0.8))).toBe(false);
+  });
+  it('콜드(비교값 2개 미만) → null(판정 불가 · 정직 유예)', () => {
+    expect(isRelevanceMonotone(health('cold', 0, null, null, null))).toBeNull();
+    expect(isRelevanceMonotone(health('ok', 3, 0.7, null, null))).toBeNull(); // 값 1개
+    expect(isRelevanceMonotone(null)).toBeNull();
   });
 });

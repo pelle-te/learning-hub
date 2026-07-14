@@ -66,10 +66,30 @@ export interface CurriculumOverall {
   /** 배분 소요 합(시간). */
   allocated_hours?: number;
 }
+/** 연관성 3분위(상/중/하) 회고 버킷 — n(노트 수)·평균 유효숙달(신호 없으면 null=콜드). */
+export interface EngineHealthBucket {
+  n: number;
+  mean_mastery: number | null;
+}
+/** 엔진 건강 지표(D11 · 준-필수 R4) — "연관성↑ 노트가 실제 더 숙달됐나"의 최소 회고.
+    SSOT = 커리큘럼.py engine_health. status:cold = 라이브 인출 신호 0(P8 콜드) → 유효성 *판정 유예*
+    (스캐폴드만 켜고 데이터 도착 즉시 측정 · Wave F 패턴 · 과설계 금지). */
+export interface EngineHealth {
+  status: 'cold' | 'ok' | string;
+  /** 인출 증거가 있는 노트 수(0 = 콜드). */
+  evidenced_notes: number;
+  by_relevance: {
+    high: EngineHealthBucket;
+    mid: EngineHealthBucket;
+    low: EngineHealthBucket;
+  };
+}
 export interface Curriculum {
   generated?: string;
   overall?: CurriculumOverall;
   sequencing?: CurriculumSeqItem[];
+  /** 엔진 건강 회고(D11 · v4 additive · 콜드=status:cold) — 숙달도 지도가 소비. */
+  engine_health?: EngineHealth;
 }
 
 /** 시퀀싱 버킷 표시 메타 — 라벨·아이콘·힌트(색은 소비처가 디자인시스템 변수로). reason SSOT 는 커리큘럼.py. */
@@ -116,6 +136,40 @@ export function seqReasonCounts(items: CurriculumSeqItem[] | undefined): Record<
 /** 표시용 상위 N — 커리큘럼.py 가 이미 (버킷, score, arc_id) 로 정렬해 두었으므로 순서 보존 슬라이스. */
 export function topSequencing(cur: Curriculum | null | undefined, n = 8): CurriculumSeqItem[] {
   return (cur?.sequencing || []).slice(0, n);
+}
+
+/** 연관성 분위 표시 메타 — 순서 상→하 고정(회고 렌더용 · 색은 소비처 디자인시스템). */
+export const HEALTH_TIER_META = [
+  { key: 'high' as const, label: '상', hint: '삶-연관성 상위 1/3 노트' },
+  { key: 'mid' as const, label: '중', hint: '삶-연관성 중위 1/3 노트' },
+  { key: 'low' as const, label: '하', hint: '삶-연관성 하위 1/3 노트' },
+];
+export type HealthTier = { label: string; hint: string; bucket: EngineHealthBucket };
+
+/** engine_health 를 상→하 순서 tier 행으로 — 없으면 null(패널 접음). */
+export function engineHealthTiers(h: EngineHealth | null | undefined): HealthTier[] | null {
+  if (!h?.by_relevance) return null;
+  return HEALTH_TIER_META.map((t) => ({ label: t.label, hint: t.hint, bucket: h.by_relevance[t.key] }));
+}
+
+/** 콜드 판정 — status==='cold' 또는 증거 노트 0(둘 중 하나면 아직 유효성 미판정 · 정직 배너). */
+export function isHealthCold(h: EngineHealth | null | undefined): boolean {
+  return !h || h.status === 'cold' || !h.evidenced_notes;
+}
+
+/** 연관성↑→숙달↑ 단조성 — 라이브 판정용(상≥중≥하 평균숙달, null 버킷은 건너뜀).
+    콜드(null 다수)면 판단 불가라 null 반환(소비처가 '판정 유예'로 정직 표시). */
+export function isRelevanceMonotone(h: EngineHealth | null | undefined): boolean | null {
+  const t = engineHealthTiers(h);
+  if (!t) return null;
+  const ms = t.map((x) => x.bucket.mean_mastery).filter((v): v is number => typeof v === 'number');
+  if (ms.length < 2) return null; // 비교할 값 2개 미만 = 판정 불가(콜드).
+  for (let i = 1; i < ms.length; i++) {
+    const prev = ms[i - 1];
+    const cur = ms[i];
+    if (prev != null && cur != null && prev < cur) return false;
+  }
+  return true;
 }
 
 export async function fetchCurriculumArtifact(): Promise<Curriculum> {

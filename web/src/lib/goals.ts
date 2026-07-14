@@ -64,6 +64,35 @@ export function projectNodes(g: GoalsArtifact | null | undefined): GoalNode[] {
   return (g?.nodes ?? []).filter((n) => n.kind === 'project');
 }
 
+/** 프로젝트 뷰(D10) — 원 노드 + 표시 파생(분야·산출물=done·필요지식 칩·capability임계)
+    + 앵커 목표(parent · 상향: 축적→"가능해짐" / 하향: 프로젝트→필요지식 분해 = 양방향). */
+export interface ProjectView {
+  node: GoalNode;
+  분야?: string;
+  /** done 정의 — 이 프로젝트가 '완료'라 부를 산출물. */
+  산출물?: string;
+  /** 필요지식 개념들(하향 분해 — 관계성이 학습을 견인). */
+  필요지식: string[];
+  /** capability-unlock 임계(축적 숙달이 이 값 도달 시 "이제 가능"). */
+  capability임계?: number;
+  /** 앵커 목표 노드(상향 — 이 목표의 축적이 프로젝트를 가능케 함). 미상이면 undefined. */
+  anchor?: GoalNode;
+}
+
+/** 프로젝트 노드들을 뷰로(앵커 목표 해소 포함) — 내 길 지도의 프로젝트 섹션이 소비. 콜드면 빈 배열. */
+export function projectViews(g: GoalsArtifact | null | undefined): ProjectView[] {
+  const nodes = g?.nodes ?? [];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  return projectNodes(g).map((n) => ({
+    node: n,
+    분야: n.분야,
+    산출물: n.산출물,
+    필요지식: n.필요지식 ?? [],
+    capability임계: n.capability임계,
+    anchor: n.parent && n.parent !== n.id ? byId.get(n.parent) : undefined,
+  }));
+}
+
 /** 형제 노드를 weight 내림차순으로(동률=원 순서 안정정렬) — 내 길 지도 표시순(배분 그래디언트 상대값). */
 export function byWeightDesc(children: GoalTreeNode[]): GoalTreeNode[] {
   return children

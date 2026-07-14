@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   discoveryStatusCounts,
   pendingEntries,
+  capabilitySignals,
   entryTitle,
   entryGoals,
   DISCOVERY_KIND_META,
@@ -62,6 +63,22 @@ describe('discovery — pendingEntries', () => {
   });
   it('빈 입력 → 빈 배열', () => {
     expect(pendingEntries(null)).toEqual([]);
+  });
+});
+
+describe('discovery — capabilitySignals (D10 · Wave⑤ 양방향)', () => {
+  it('kind=capability & pending 만 우선순위순(내 길 프로젝트 섹션 참조)', () => {
+    const a = artifact([
+      e('capability::sdr', 'capability', 2, 'pending', { title: 'SDR 수신기 가능' }),
+      e('capability::radar', 'capability', 5, 'pending', { title: '레이더 가능' }),
+      e('bridge::x', 'bridge', 9, 'pending'), // 다른 kind 제외
+      e('capability::old', 'capability', 9, 'promoted'), // pending 아님 제외
+    ]);
+    expect(capabilitySignals(a).map((x) => x.id)).toEqual(['capability::radar', 'capability::sdr']);
+  });
+  it('가능신호 없으면 빈 배열(콜드 · 발견큐 미가동)', () => {
+    expect(capabilitySignals(artifact([e('bridge::x', 'bridge', 1, 'pending')]))).toEqual([]);
+    expect(capabilitySignals(null)).toEqual([]);
   });
 });
 

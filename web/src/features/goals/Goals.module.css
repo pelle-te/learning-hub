@@ -158,6 +158,129 @@
   border-left: 2px solid var(--line2);
 }
 
+/* ── 프로젝트·활용 표면(D10) ── */
+.projWrap {
+  margin-top: 26px;
+}
+.projHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.projTitle {
+  font-size: var(--fs-lg, 1.15rem);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.projMeta {
+  color: var(--mut);
+  font-size: var(--fs-xs);
+}
+.projCold {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--acc2) 40%, var(--line));
+  background: color-mix(in srgb, var(--acc2) 6%, var(--panel));
+  color: var(--mut);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.projCold b {
+  color: var(--txt);
+}
+
+/* 프로젝트 카드 세부 행(분야·산출물·앵커) */
+.projRow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: var(--fs-sm);
+}
+.projK {
+  flex: none;
+  min-width: 4.5em;
+  color: var(--mut);
+  font-size: var(--fs-xs);
+}
+.projV {
+  color: var(--txt);
+}
+
+/* 필요지식 칩(하향 분해) */
+.needWrap {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.needList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.needChip {
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--line2);
+  color: var(--txt);
+}
+
+/* capability 임계 행 */
+.capRow {
+  font-size: var(--fs-xs);
+  color: var(--mut);
+  padding-top: 2px;
+  border-top: 1px solid var(--line2);
+}
+.capRow b {
+  color: var(--acc2);
+  font-variant-numeric: tabular-nums;
+}
+.capPend {
+  color: var(--mut);
+  margin-left: 4px;
+}
+
+/* capability-unlock 가능신호(발견 큐 참조) */
+.signals {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--acc2) 25%, var(--line));
+  background: var(--panel);
+}
+.signalsHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  margin-bottom: 8px;
+}
+.signalsHead b {
+  color: var(--txt);
+}
+.signalDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--acc2);
+}
+.signalList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.signalChip {
+  font-size: var(--fs-xs);
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--acc2) 14%, transparent);
+  color: var(--acc2);
+}
+
 /* ── 노트→목표 연관 하이브리드 안내 ── */
 .relNote {
   display: flex;

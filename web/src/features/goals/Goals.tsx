@@ -7,8 +7,18 @@
 ============================================================ */
 import { useMemo } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useGoals } from '@/store/queries';
-import { buildGoalTree, byWeightDesc, degreeReqRows, activeGoals, projectNodes, type GoalTreeNode } from '@/lib/goals';
+import { useGoals, useDiscovery } from '@/store/queries';
+import {
+  buildGoalTree,
+  byWeightDesc,
+  degreeReqRows,
+  activeGoals,
+  projectNodes,
+  projectViews,
+  type GoalTreeNode,
+  type ProjectView,
+} from '@/lib/goals';
+import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
 import EmptyState from '@/components/EmptyState';
 import s from './Goals.module.css';
 
@@ -16,9 +26,14 @@ export default function Goals() {
   const goals = useGoals();
   const data = goals.data;
 
+  // 발견 큐(capability-unlock 가능신호 · D10 양방향). 콜드면 404→undefined(내 길 렌더 무영향).
+  const disc = useDiscovery();
+
   const roots = useMemo(() => buildGoalTree(data), [data]);
   const active = useMemo(() => activeGoals(data), [data]);
   const projects = useMemo(() => projectNodes(data), [data]);
+  const projViews = useMemo(() => projectViews(data), [data]);
+  const capSignals = useMemo(() => capabilitySignals(disc.data), [disc.data]);
 
   // 상단 리드아웃 — 목표 수·활성·프로젝트·명시 링크(하이브리드 콜드 정직).
   usePageChromeEffect(
@@ -27,9 +42,10 @@ export default function Goals() {
         { label: '목표 노드', value: data?.nodes.length ?? 0 },
         { label: '활성', value: active.length },
         { label: '프로젝트', value: projects.length },
+        { label: '가능신호', value: capSignals.length },
       ],
     }),
-    [data?.nodes.length, active.length, projects.length],
+    [data?.nodes.length, active.length, projects.length, capSignals.length],
   );
 
   if (goals.isLoading) {
@@ -64,6 +80,9 @@ export default function Goals() {
         <GoalBranch key={root.id} node={root} maxWeight={maxChildWeight(root)} isRoot />
       ))}
 
+      {/* 프로젝트·활용 표면(D10) — 선언 프로젝트(진행 중) + capability-unlock 가능신호(양방향). */}
+      <ProjectsSection projects={projViews} signals={capSignals} />
+
       {/* 노트→목표 연관 — 하이브리드 모델 안내(핵심만 명시링크·나머지 개념그래프 거리 Phase 4). */}
       <div className={s.relNote}>
         <span className={s.relDot} />
@@ -74,6 +93,111 @@ export default function Goals() {
         </div>
       </div>
     </section>
+  );
+}
+
+/** 프로젝트·활용 표면(D10) — 학습을 응용에 붙이는 앵커. 두 축을 한 화면에:
+   ① 선언된 프로젝트(kind:project · 진행 중) = 앵커목표↑·필요지식↓·산출물(done)·capability임계.
+   ② capability-unlock 가능신호 = 발견 큐가 "이제 이 프로젝트 가능"으로 surface 한 후보(승격은 발견 탭).
+   둘 다 콜드(프로젝트 미명시·신호 없음)면 억지 시드 없이 D10 모델을 정직하게 안내(과설계 금지). */
+function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signals: DiscoveryEntry[] }) {
+  const cold = projects.length === 0 && signals.length === 0;
+  return (
+    <section className={s.projWrap} aria-label="프로젝트·활용 표면">
+      <div className={s.projHead}>
+        <h2 className={s.projTitle}>프로젝트 · 활용 표면</h2>
+        <span className={s.projMeta}>학습을 응용에 잇는 앵커 — 관계성이 학습을 견인(D10)</span>
+      </div>
+
+      {cold ? (
+        <div className={s.projCold}>
+          <b>아직 선언된 프로젝트가 없어요.</b> 분야 개론이 임계에 도달하면 “이제 이 프로젝트 가능”(capability-unlock)이
+          <b> 발견 큐</b>에 가능신호로 뜨고, 여기 <code>kind:project</code> 노드(분야·산출물·필요지식·capability임계)를
+          더하면 진행 중 프로젝트가 그려집니다. 상향(축적→가능) · 하향(프로젝트→필요지식 분해)의 양방향 앵커예요.
+        </div>
+      ) : (
+        <>
+          {projects.length > 0 && (
+            <div className={s.grid}>
+              {projects.map((p) => (
+                <ProjectCard key={p.node.id} p={p} />
+              ))}
+            </div>
+          )}
+
+          {/* capability-unlock 가능신호 — 발견 큐가 surface. 여기선 읽기만(승격은 발견 탭). */}
+          {signals.length > 0 && (
+            <div className={s.signals}>
+              <div className={s.signalsHead}>
+                <span className={s.signalDot} />
+                <b>가능신호</b> <span className={s.projMeta}>필요지식이 임계 도달 — 발견 큐에서 승격</span>
+              </div>
+              <div className={s.signalList}>
+                {signals.map((e) => (
+                  <span key={e.id} className={s.signalChip} title="발견 큐에서 승격/기각(사람 결정)">
+                    {entryTitle(e)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+/** 프로젝트 카드 — 앵커목표(상향)·산출물(done)·필요지식 칩(하향)·capability임계.
+   capability '가능/잠김' 판정은 라이브 숙련 신호 축적 후(콜드 정직 · 시퀀싱과 대칭)라 임계값만 표시. */
+function ProjectCard({ p }: { p: ProjectView }) {
+  return (
+    <article className={`${s.card} ${p.node.active ? '' : s.cardOff}`}>
+      <div className={s.cardHead}>
+        <h3 className={s.cardTitle}>{p.node.title}</h3>
+        <span className={`${s.kind} ${s.kindProject}`}>프로젝트</span>
+      </div>
+
+      {p.분야 && (
+        <div className={s.projRow}>
+          <span className={s.projK}>분야</span>
+          <span className={s.projV}>{p.분야}</span>
+        </div>
+      )}
+      {p.산출물 && (
+        <div className={s.projRow}>
+          <span className={s.projK}>산출물</span>
+          <span className={s.projV}>{p.산출물}</span>
+        </div>
+      )}
+      {p.anchor && (
+        <div className={s.projRow}>
+          <span className={s.projK}>앵커 목표</span>
+          <span className={s.projV}>↑ {p.anchor.title}</span>
+        </div>
+      )}
+
+      {p.필요지식.length > 0 && (
+        <div className={s.needWrap}>
+          <span className={s.projK}>필요지식</span>
+          <div className={s.needList}>
+            {p.필요지식.map((n) => (
+              <span key={n} className={s.needChip}>
+                ↓ {n}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {typeof p.capability임계 === 'number' && (
+        <div className={s.capRow} title="축적 숙달이 이 임계에 도달하면 '가능' — 판정은 라이브 신호 후">
+          capability 임계 <b>{Math.round(p.capability임계 * 100)}%</b>
+          <span className={s.capPend}>· 판정 대기(신호 콜드)</span>
+        </div>
+      )}
+
+      {!p.node.active && <div className={s.offTag}>비활성</div>}
+    </article>
   );
 }
 

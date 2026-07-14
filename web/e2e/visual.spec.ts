@@ -271,6 +271,15 @@ const DISCOVERY_FIXTURE = {
       detail: { title: 'RF 잡음 개론' },
     },
     {
+      // P9 Wave⑤: capability-unlock 가능신호(D10) — 발견 inbox 렌더 + 내 길 프로젝트 섹션 양방향 참조 결정론 캡처.
+      id: 'capability::sdr-rx',
+      kind: 'capability',
+      source: 'capability_unlock',
+      score: 0.72,
+      status: 'pending',
+      detail: { title: 'SDR 수신기 — 필요지식 임계 도달' },
+    },
+    {
       id: 'uncovered::already-dismissed',
       kind: 'uncovered',
       source: 'surface_uncovered',

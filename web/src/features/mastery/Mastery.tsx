@@ -16,7 +16,17 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { ui } from '@/shell';
 import { loadKnowledgeStateFromVault, rootCauseRollup, type Knowledge, type KnowledgeSubject } from '@/lib/knowledge';
-import { topSequencing, seqReasonCounts, SEQ_REASON_META, depthMeta, roleMeta, type SeqReason } from '@/lib/curriculum';
+import {
+  topSequencing,
+  seqReasonCounts,
+  SEQ_REASON_META,
+  depthMeta,
+  roleMeta,
+  engineHealthTiers,
+  isHealthCold,
+  isRelevanceMonotone,
+  type SeqReason,
+} from '@/lib/curriculum';
 import { classifyArtifact } from '@/lib/artifactState';
 import { masteryColor } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -411,6 +421,70 @@ function Sequencing() {
   );
 }
 
+/** 📈 엔진 건강 — 연관성 3분위(상/중/하)별 평균 숙달 회고(D11 · 준-필수 R4). Sequencing(전방 배분)의
+   후방 짝: "연관성↑ 노트가 실제 더 숙달됐나"를 되돌아본다. 라이브 인출 신호 0(P8 콜드)이면 평균숙달 null →
+   판정 유예를 정직하게 배너로(Wave F 패턴 · Sequencing 콜드 배너와 대칭). 데이터 없으면 패널 접음. */
+function EngineHealth() {
+  const { data: cur } = useCurriculum();
+  const health = cur?.engine_health;
+  const tiers = engineHealthTiers(health);
+  if (!cur || !tiers) return null;
+  const cold = isHealthCold(health);
+  const monotone = isRelevanceMonotone(health);
+  return (
+    <div className={ds.card}>
+      <h3>
+        📈 엔진 건강{' '}
+        <span className={`${ds.muted} ${ds.tiny}`}>(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
+      </h3>
+      {cold ? (
+        /* 콜드 정직성 — 라이브 인출 신호 0(P8 콜드)이라 평균숙달이 없음. 스캐폴드만 켜고 판정은 신호 축적 후. */
+        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginBottom: 8 }}>
+          라이브 인출 신호가 아직 없어요(P8 콜드) — 연관성↑ 노트가 더 숙달됐는지는 <b>판정 유예</b>. 인출 관측이 쌓이는
+          순간 아래 분위별 평균 숙달로 배분 논지가 검증됩니다.
+        </div>
+      ) : monotone != null ? (
+        /* 라이브 판정 — 상≥중≥하 평균숙달이면 배분 논지 성립. */
+        <div className={ds.row} style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+          <span
+            className={ds.chip}
+            style={{ color: monotone ? 'var(--good)' : 'var(--learning)' }}
+            data-tip="연관성 상위 노트일수록 평균 숙달이 높으면 배분(연관성×gap) 논지 성립"
+          >
+            {monotone ? '연관성↑ → 숙달↑ 성립' : '아직 단조 아님'}
+          </span>
+          <span className={`${ds.tiny} ${ds.muted}`}>증거 노트 {health?.evidenced_notes ?? 0}</span>
+        </div>
+      ) : null}
+      <div className={m.mslist}>
+        {tiers.map((t) => {
+          const mm = t.bucket.mean_mastery;
+          return (
+            <div key={t.label} className={m.msrow}>
+              <span className={m.msdot} style={{ background: 'var(--line2,#555)' }} title={t.hint}>
+                {t.label}
+              </span>
+              <span className={m.nm} style={{ flex: 1 }} title={t.hint}>
+                연관성 {t.label}위
+              </span>
+              <span className={`${ds.tiny} ${ds.muted}`}>{t.bucket.n}개 노트</span>
+              {typeof mm === 'number' ? (
+                <span className={ds.chip} style={{ color: masteryColor(mm) }} data-tip="이 분위 노트의 평균 유효숙달">
+                  {pct(mm)}
+                </span>
+              ) : (
+                <span className={ds.chip} data-tip="인출 신호 없음 — 평균 숙달 미산출(콜드)">
+                  —
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Gaps({ k }: { k: Knowledge }) {
   return (
     <ConceptList
@@ -714,6 +788,7 @@ export default function Mastery() {
           <div className={m.actionCol}>
             <Frontier k={k} />
             <Sequencing />
+            <EngineHealth />
             <Gaps k={k} />
             <RootCauses k={k} />
             <Calibration k={k} />

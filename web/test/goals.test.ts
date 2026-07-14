@@ -8,6 +8,7 @@ import {
   buildGoalTree,
   activeGoals,
   projectNodes,
+  projectViews,
   byWeightDesc,
   degreeReqRows,
   type GoalsArtifact,
@@ -104,6 +105,42 @@ describe('goals — projectNodes', () => {
       },
     ]);
     expect(projectNodes(withProj).map((n) => n.id)).toEqual(['proj']);
+  });
+});
+
+describe('goals — projectViews (D10 · Wave⑤)', () => {
+  const proj = (extra: Partial<GoalNode> = {}): GoalNode => ({
+    id: 'sdr-rx',
+    kind: 'project',
+    title: 'SDR 수신기',
+    weight: 1,
+    active: true,
+    parent: 'communication-theory',
+    분야: '통신이론',
+    산출물: '동작하는 FM 수신기',
+    필요지식: ['샘플링', '복조'],
+    capability임계: 0.7,
+    ...extra,
+  });
+  it('표시 파생(분야·산출물·필요지식·capability임계) + 앵커 목표 해소(parent)', () => {
+    const a = artifact([g('communication-theory', null), proj()]);
+    const v = projectViews(a);
+    expect(v).toHaveLength(1);
+    expect(v[0].분야).toBe('통신이론');
+    expect(v[0].산출물).toBe('동작하는 FM 수신기');
+    expect(v[0].필요지식).toEqual(['샘플링', '복조']);
+    expect(v[0].capability임계).toBe(0.7);
+    expect(v[0].anchor?.id).toBe('communication-theory'); // 상향 앵커
+  });
+  it('앵커 미상/자기참조·필요지식 부재는 graceful(undefined·빈배열)', () => {
+    const a = artifact([proj({ parent: 'ghost', 필요지식: undefined })]);
+    const v = projectViews(a);
+    expect(v[0].anchor).toBeUndefined();
+    expect(v[0].필요지식).toEqual([]);
+  });
+  it('프로젝트 없으면 빈 배열(콜드 · 과설계 금지)', () => {
+    expect(projectViews(artifact([g('r', null)]))).toEqual([]);
+    expect(projectViews(null)).toEqual([]);
   });
 });
 

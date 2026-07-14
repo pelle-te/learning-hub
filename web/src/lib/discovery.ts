@@ -48,6 +48,13 @@ export function pendingEntries(d: DiscoveryArtifact | null | undefined): Discove
     .map(([e]) => e);
 }
 
+/** capability-unlock 가능신호(kind='capability')만 — 미결 우선순위순. 프로젝트 필요지식이 임계 도달해
+    "이제 이 프로젝트 가능"으로 surface 된 후보(D10 · 발견.py). 내 길 지도의 프로젝트 섹션이 양방향으로 참조.
+    (승격/기각 사람 결정은 발견 큐에서 · 여기선 읽기만.) */
+export function capabilitySignals(d: DiscoveryArtifact | null | undefined): DiscoveryEntry[] {
+  return pendingEntries(d).filter((e) => e.kind === 'capability');
+}
+
 /** 후보 표시 제목 — detail.title(승격.py enqueue 가 심음) 우선, 없으면 id(kind::key)로 폴백(빈 화면 방지). */
 export function entryTitle(e: DiscoveryEntry): string {
   const t = (e.detail as { title?: unknown } | null | undefined)?.title;
