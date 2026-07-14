@@ -14,7 +14,7 @@ import {
 } from '@/lib/artifacts.gen';
 
 describe('artifacts.gen — 생성 상수', () => {
-  it('EXPECTED_SCHEMA_VERSION 은 7 아티팩트(부모 스키마 const 파생 · curriculum v3=단계①②③)', () => {
+  it('EXPECTED_SCHEMA_VERSION 은 9 아티팩트(부모 스키마 const 파생 · curriculum v4=P9 Phase4 연관성 · goals/discovery=P9 Phase6)', () => {
     expect(EXPECTED_SCHEMA_VERSION).toEqual({
       index: 1,
       knowledge: 1,
@@ -22,7 +22,9 @@ describe('artifacts.gen — 생성 상수', () => {
       anki: 1,
       reads: 1,
       markets: 1,
-      curriculum: 3,
+      curriculum: 4,
+      goals: 1,
+      discovery: 1,
     });
   });
 

@@ -69,6 +69,8 @@ const ARTIFACTS = {
   anki:      path.join(WORK, 'knowledge', '_meta', 'cache', '_anki신호.json'),
   ledger:    path.join(WORK, 'knowledge', '_meta', 'cache', '_챕터원장.json'),  // 과목×챕터 5단계 롤업(챕터원장.py)
   curriculum: path.join(WORK, 'knowledge', '_meta', 'cache', '_커리큘럼.json'),  // 과목×arc 커버리지+선수+적응형 시퀀싱(커리큘럼.py · P7 Bet 2)
+  goals:     path.join(WORK, 'knowledge', '_meta', 'contract', 'goals.json'),   // P9 Phase 6: 손저작 '내 길' 계약(contract/) — 내 길 지도 뷰
+  discovery: path.join(WORK, 'knowledge', '_meta', 'state', '_발견큐.json'),     // P9 Phase 6: 발견 triage 큐(state/ · 승격.py 산출 · 콜드 시 부재→404→빈 inbox)
 
   reads:     path.join(ROOT, '_읽을거리', 'latest.json'),   // 읽을거리 지문(수집 원문) — 러닝허브 로컬
   markets:   path.join(ROOT, '_증시', 'latest.json'),       // 증시 동향(지수 등락 + 금융 뉴스) — 러닝허브 로컬

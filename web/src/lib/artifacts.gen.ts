@@ -14,7 +14,9 @@ export const EXPECTED_SCHEMA_VERSION = {
   anki: 1,
   reads: 1,
   markets: 1,
-  curriculum: 3,
+  curriculum: 4,
+  goals: 1,
+  discovery: 1,
 } as const;
 
 export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
@@ -219,7 +221,7 @@ export type MarketsArtifact = z.infer<typeof marketsArtifactSchema>;
 /** `curriculum.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
 export const curriculumArtifactSchema = z
   .object({
-    _schemaVersion: z.literal(3),
+    _schemaVersion: z.literal(4),
     generated: z.string(),
     generated_by: z.string().optional(),
     overall: z
@@ -234,6 +236,11 @@ export const curriculumArtifactSchema = z
         suggested_edges: z.number().optional(),
         next_up: z.number().optional(),
         sequencing: z.number().optional(),
+        relevance_active: z.boolean().optional(),
+        time_budget_hours: z.number().optional(),
+        allocated_arcs: z.number().optional(),
+        deferred_arcs: z.number().optional(),
+        allocated_hours: z.number().optional(),
       })
       .passthrough(),
     backlog: z
@@ -268,9 +275,29 @@ export const curriculumArtifactSchema = z
             zpd_notes: z.number().optional(),
             note_count: z.number().optional(),
             unlocks: z.number().optional(),
+            relevance: z.number().optional(),
+            target_depth: z.string().nullable().optional(),
+            priority: z.number().optional(),
+            goal: z.string().nullable().optional(),
+            est_effort: z.number().optional(),
+            allocated: z.boolean().optional(),
+            defer_reason: z.string().nullable().optional(),
           })
           .passthrough(),
       )
+      .optional(),
+    engine_health: z
+      .object({
+        status: z.enum(['cold', 'measuring']),
+        evidenced_notes: z.number().optional(),
+        by_relevance: z
+          .record(
+            z.string(),
+            z.object({ n: z.number().optional(), mean_mastery: z.number().nullable().optional() }).passthrough(),
+          )
+          .optional(),
+      })
+      .passthrough()
       .optional(),
     subjects: z.array(
       z
@@ -310,6 +337,59 @@ export const curriculumArtifactSchema = z
   .passthrough();
 export type CurriculumArtifact = z.infer<typeof curriculumArtifactSchema>;
 
+/** `goals.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
+export const goalsArtifactSchema = z
+  .object({
+    _schemaVersion: z.literal(1),
+    nodes: z.array(
+      z
+        .object({
+          id: z.string(),
+          kind: z.enum(['goal', 'project']),
+          title: z.string(),
+          weight: z.number(),
+          active: z.boolean(),
+          parent: z.string().nullable(),
+          degree_req: z
+            .object({
+              targetTotal: z.number().optional(),
+              reqMajorReq: z.number().optional(),
+              reqMajorSel: z.number().optional(),
+              reqLiberal: z.number().optional(),
+            })
+            .passthrough()
+            .optional(),
+          분야: z.string().optional(),
+          산출물: z.string().optional(),
+          필요지식: z.array(z.string()).optional(),
+          capability임계: z.number().optional(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+export type GoalsArtifact = z.infer<typeof goalsArtifactSchema>;
+
+/** `discovery.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
+export const discoveryArtifactSchema = z
+  .object({
+    _schemaVersion: z.literal(1),
+    entries: z.array(
+      z
+        .object({
+          id: z.string(),
+          kind: z.enum(['uncovered', 'bridge', 'survey_context', 'capability']),
+          source: z.string(),
+          score: z.number(),
+          status: z.enum(['pending', 'promoted', 'dismissed']),
+          detail: z.record(z.string(), z.unknown()),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+export type DiscoveryArtifact = z.infer<typeof discoveryArtifactSchema>;
+
 /** 이름 → 경계 zod 스키마(런타임 검증·소비처 선택 사용). */
 export const ARTIFACT_SCHEMAS = {
   index: indexArtifactSchema,
@@ -319,4 +399,6 @@ export const ARTIFACT_SCHEMAS = {
   reads: readsArtifactSchema,
   markets: marketsArtifactSchema,
   curriculum: curriculumArtifactSchema,
+  goals: goalsArtifactSchema,
+  discovery: discoveryArtifactSchema,
 } as const;

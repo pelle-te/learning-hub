@@ -18,6 +18,8 @@ import { fetchLedgerArtifact, type Ledger } from '@/lib/ledger';
 import { fetchReadsArtifact, type ReadsArtifact } from '@/lib/reads';
 import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
 import { fetchCurriculumArtifact, type Curriculum } from '@/lib/curriculum';
+import { fetchGoalsArtifact, type GoalsArtifact } from '@/lib/goals';
+import { fetchDiscoveryArtifact, type DiscoveryArtifact } from '@/lib/discovery';
 import { useApp } from './useApp';
 
 export const KNOWLEDGE_KEY = ['knowledge'] as const;
@@ -28,6 +30,8 @@ export const READS_KEY = ['reads'] as const;
 export const MARKETS_KEY = ['markets'] as const;
 export const RESEARCH_JOBS_KEY = ['research-jobs'] as const;
 export const ATLAS_NEWS_KEY = ['atlas-news'] as const;
+export const GOALS_KEY = ['goals'] as const;
+export const DISCOVERY_KEY = ['discovery'] as const;
 
 /** serve.js(/api) 연결 여부·도구 목록 — 제어판 헤더 상태. retry 없이 빠르게 isError(file:// 폴백). */
 export function usePing() {
@@ -125,5 +129,29 @@ export function useCurriculum(enabled = true) {
     queryFn: fetchCurriculumArtifact,
     retry: false,
     staleTime: 60_000,
+  });
+}
+
+/** 내 길(goals · /api/artifact/goals) — 목표 트리(내 길 지도) · 노트→목표 연관성 앵커(P9 Phase 6).
+ *  손저작 계약이라 항상 실재 · serve.js 없으면 isError(retry 없음) → 소비처가 조용히 생략. */
+export function useGoals(enabled = true) {
+  return useQuery<GoalsArtifact>({
+    queryKey: GOALS_KEY,
+    enabled,
+    queryFn: fetchGoalsArtifact,
+    retry: false,
+    staleTime: 60_000,
+  });
+}
+
+/** 발견 큐(discovery · /api/artifact/discovery) — triage inbox(P9 Phase 6 · 사람 승격).
+ *  콜드(수집·발견 미가동)면 파일 부재→404→isError → 소비처가 빈 inbox 우아 안내. */
+export function useDiscovery(enabled = true) {
+  return useQuery<DiscoveryArtifact>({
+    queryKey: DISCOVERY_KEY,
+    enabled,
+    queryFn: fetchDiscoveryArtifact,
+    retry: false,
+    staleTime: 30_000,
   });
 }

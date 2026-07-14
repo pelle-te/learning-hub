@@ -46,6 +46,8 @@ const ARTIFACTS = [
   ['reads', 'reads.schema.json'],
   ['markets', 'markets.schema.json'],
   ['curriculum', 'curriculum.schema.json'],
+  ['goals', 'goals.schema.json'],
+  ['discovery', 'discovery.schema.json'],
 ];
 
 function die(msg) {
