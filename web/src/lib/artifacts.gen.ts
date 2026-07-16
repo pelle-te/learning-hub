@@ -25,6 +25,15 @@ export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
 export const LEDGER_STAGES = ['sourced', 'noted', 'verified', 'carded', 'reviewed'] as const;
 export type LedgerStage = (typeof LEDGER_STAGES)[number];
 
+/** 졸업요건 임계(전자공학 2020 요람·ABEEK) — 부모 goals.json 'degree-requirement' 노드
+ *  `degree_req` 파생(감사 2026-07-16 #7 · 3중화 해소). 숫자 변경은 goals.json 한 곳 → npm run codegen. */
+export const DEGREE_REQ = {
+  targetTotal: 128,
+  reqMajorReq: 41,
+  reqMajorSel: 27,
+  reqLiberal: 51,
+} as const;
+
 /** `index.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
 export const indexArtifactSchema = z
   .object({

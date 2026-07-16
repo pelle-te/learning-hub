@@ -152,6 +152,20 @@ for (const [name, file] of ARTIFACTS) {
 }
 if (!ledgerStages) die('ledger 스키마를 처리하지 못함.');
 
+// ── DEGREE_REQ 생성물화 (감사 2026-07-16 #7 · 졸업요건 임계 3중화 해소) ──────────
+// SSOT = 부모 goals.json 'degree-requirement' 노드의 degree_req(P9 Phase 2 데이터 흡수의 완성).
+// 과거: degree.ts 리터럴 + goals.json + 졸업요건_정리.md 3중 → 여기서 생성해 hub 소비를 리와이어.
+// 숫자 변경은 goals.json 한 곳 → npm run codegen (드리프트는 codegen:check 가 게이트 RED).
+const goalsPath = join(schemasDir, '..', 'goals.json');
+if (!existsSync(goalsPath)) die(`goals.json 없음(${goalsPath}) — DEGREE_REQ 생성 불가.`);
+const goalsData = JSON.parse(readFileSync(goalsPath, 'utf-8'));
+const degreeNode = (goalsData.nodes || []).find((n) => n && typeof n.degree_req === 'object');
+if (!degreeNode) die('goals.json 에 degree_req 보유 노드 없음 — DEGREE_REQ 생성 불가.');
+const DEGREE_KEYS = ['targetTotal', 'reqMajorReq', 'reqMajorSel', 'reqLiberal'];
+for (const k of DEGREE_KEYS)
+  if (typeof degreeNode.degree_req[k] !== 'number') die(`goals.json degree_req.${k} 가 숫자가 아님.`);
+const degreeLines = DEGREE_KEYS.map((k) => `  ${k}: ${degreeNode.degree_req[k]},`).join('\n');
+
 // ── 파일 조립 ────────────────────────────────────────────────────────────────
 const versionLines = ARTIFACTS.map(([n]) => `  ${n}: ${versions[n]},`).join('\n');
 const registryLines = ARTIFACTS.map(([n]) => `  ${n}: ${n}ArtifactSchema,`).join('\n');
@@ -174,6 +188,12 @@ export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
 /** 챕터 생애 5단계(ledger 스키마 stage_counts.propertyNames.enum 파생 · 챕터원장.py STAGES 와 동일 SSOT). */
 export const LEDGER_STAGES = [${ledgerStages.map((s) => JSON.stringify(s)).join(', ')}] as const;
 export type LedgerStage = (typeof LEDGER_STAGES)[number];
+
+/** 졸업요건 임계(전자공학 2020 요람·ABEEK) — 부모 goals.json 'degree-requirement' 노드
+ *  \`degree_req\` 파생(감사 2026-07-16 #7 · 3중화 해소). 숫자 변경은 goals.json 한 곳 → npm run codegen. */
+export const DEGREE_REQ = {
+${degreeLines}
+} as const;
 
 ${zodDecls.join('\n\n')}
 
