@@ -8,10 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 
 vi.mock('@/shell/toast', () => ({ toast: vi.fn(), toastUndo: vi.fn(), ToastHost: () => null }));
-vi.mock('@/lib/idb', () => ({ idbMirror: vi.fn(), idbLoad: vi.fn() }));
+vi.mock('@/lib/idb', () => ({ idbMirror: vi.fn(), idbLoad: vi.fn(), idbPreserveBackup: vi.fn(async () => {}) }));
 
 import { toast } from '@/shell/toast';
-import { idbLoad } from '@/lib/idb';
+import { idbLoad, idbPreserveBackup } from '@/lib/idb';
 import { memKV } from '@/lib/kv';
 import { boot, defaults, persist } from '@/lib/persistence';
 import BootRecovery from '@/app/BootRecovery';
@@ -21,6 +21,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 beforeEach(() => {
   vi.mocked(toast).mockClear();
   vi.mocked(idbLoad).mockReset();
+  vi.mocked(idbPreserveBackup).mockClear();
 });
 
 describe('BootRecovery — IDB 미러 복구 안내', () => {
@@ -61,5 +62,30 @@ describe('BootRecovery — IDB 미러 복구 안내', () => {
     render(<BootRecovery />);
     await tick();
     expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('폴백 부팅 시 미러를 세대 백업으로 보존한다 — 첫 flush의 미러 파괴 대비(감사 #21)', async () => {
+    boot(memKV());
+    const json = JSON.stringify(defaults());
+    vi.mocked(idbLoad).mockResolvedValue(json);
+    render(<BootRecovery />);
+    await waitFor(() => expect(idbPreserveBackup).toHaveBeenCalledWith(json));
+  });
+
+  it('손상 미러도 보존은 한다(수동 복구 여지) — 토스트만 안 뜸', async () => {
+    boot(memKV());
+    vi.mocked(idbLoad).mockResolvedValue('{깨진 JSON');
+    render(<BootRecovery />);
+    await waitFor(() => expect(idbPreserveBackup).toHaveBeenCalledWith('{깨진 JSON'));
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('정상 부팅에선 백업 보존도 안 한다(미러 조회 자체가 없음)', async () => {
+    const kv = memKV();
+    persist(kv, defaults());
+    boot(kv);
+    render(<BootRecovery />);
+    await tick();
+    expect(idbPreserveBackup).not.toHaveBeenCalled();
   });
 });

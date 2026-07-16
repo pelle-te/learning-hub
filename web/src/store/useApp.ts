@@ -63,6 +63,12 @@ export const useApp = create<AppStore>()(
   immer((set, get) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const flush = () => {
+      // 대기/만료 타이머 정리 — 만료된 핸들이 남으면 onSync의 '내 편집 대기 중' 가드가 영구 참이 돼
+      // 첫 편집 이후 외부 스냅샷 채택(대시보드 모드)이 조용히 죽는다(감사 추가#3에서 테스트로 발견).
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
       // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
       let json: string | null = null;
       try {
@@ -90,16 +96,10 @@ export const useApp = create<AppStore>()(
        pagehide(데스크톱 닫기/새로고침) + visibilitychange=hidden(모바일 스와이프 종료·앱 전환)에서
        대기 타이머를 즉시 비우고 동기 flush. 여러 번 불려도 flush는 멱등(같은 상태를 다시 쓸 뿐). */
     if (typeof window !== 'undefined') {
-      const flushNow = () => {
-        if (timer) {
-          clearTimeout(timer);
-          timer = null;
-        }
-        flush();
-      };
-      window.addEventListener('pagehide', flushNow);
+      // 타이머 정리는 flush 자신이 한다(위) — 여기선 대기 중이든 아니든 즉시 영속만.
+      window.addEventListener('pagehide', flush);
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') flushNow();
+        if (document.visibilityState === 'hidden') flush();
       });
 
       /* 멀티탭 동기화(수신) — 다른 탭이 저장하면 그 스냅샷을 채택한다. 단, 내 편집이 디바운스

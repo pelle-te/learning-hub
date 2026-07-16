@@ -171,6 +171,9 @@ export const AppStateSchema = z
     graphPriority: z.boolean(),
     degree: DegreeSchema,
     anki: AnkiSchema,
+    /** reviewTouches[`${sid}|${chapter}`] = ds(YYYY-MM-DD) — ReviewRun의 챕터 단위 인출 기록.
+     *  위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22). 구버전엔 없음. */
+    reviewTouches: z.record(z.string()).optional(),
     // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
     _today: z.string().optional(),
     _knowState: KnowStateSchema.optional(),

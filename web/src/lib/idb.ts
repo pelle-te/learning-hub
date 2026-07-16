@@ -41,6 +41,18 @@ export function idbMirror(json: string, key: string = 'state'): void {
     .catch(() => {});
 }
 
+/* ── 세대 백업(감사 #21) — fallback 부팅 직후 '마지막 미러'를 별도 키로 보존.
+   미러('state')는 단일 키 덮어쓰기라, defaults로 부팅한 탭의 첫 flush가 마지막 백업을
+   영구 파괴했다(복구 창=12초 토스트뿐). 부팅 복구 안내(BootRecovery)가 미러를 읽은 즉시
+   여기로 넘겨 2세대(직전·그 전)로 보존 → 토스트를 놓쳐도 설정/⌘K '복구'가 살릴 수 있다. */
+export const IDB_BACKUP_KEY = 'state_backup';
+export const IDB_BACKUP2_KEY = 'state_backup2';
+export async function idbPreserveBackup(json: string): Promise<void> {
+  const prev = await idbGet<string>(IDB_BACKUP_KEY);
+  if (prev != null && prev !== json) await idbPut(IDB_BACKUP2_KEY, prev); // 기존 백업은 한 세대 밀어 보존
+  await idbPut(IDB_BACKUP_KEY, json);
+}
+
 /** 최신 미러 1건(JSON 문자열|null). key 기본 'state'(앱상태). */
 export function idbLoad(key: string = 'state'): Promise<string | null> {
   return open().then(

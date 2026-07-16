@@ -251,6 +251,7 @@ export default function ReviewRun() {
                   name: item.ch.subject,
                   min: 25,
                   blockMin: 25,
+                  chapter: item.ch.chapter, // 완료 시 챕터 터치 → 위험모델 lastDs 갱신(감사 #22)
                 });
                 advance(true);
               }}

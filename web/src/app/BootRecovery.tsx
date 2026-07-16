@@ -7,7 +7,7 @@
 ============================================================ */
 import { useEffect } from 'react';
 import { consumeBootFallback, parseState } from '@/lib/persistence';
-import { idbLoad } from '@/lib/idb';
+import { idbLoad, idbPreserveBackup } from '@/lib/idb';
 import { ui, io } from '@/shell';
 
 export default function BootRecovery() {
@@ -17,6 +17,9 @@ export default function BootRecovery() {
     idbLoad()
       .then((json) => {
         if (!json) return; // 미러 없음(진짜 첫 방문) — 조용히 기본값 사용
+        // 첫 flush가 유일한 미러를 defaults로 덮기 전에 세대 백업으로 보존(감사 #21) —
+        // 토스트(12초)를 놓쳐도 설정/⌘K '복구'가 이 보존본을 살린다. 손상 미러도 보존(수동 복구 여지).
+        void idbPreserveBackup(json);
         if (!parseState(json)) return; // 미러도 손상 — 안내해봐야 복구 불가
         ui.toast('저장된 백업(IDB)을 찾았어요 — 이전 데이터를 복구할까요?', 'warn', 12000, {
           label: '복구하기',

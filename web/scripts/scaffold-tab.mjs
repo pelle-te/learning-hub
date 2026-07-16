@@ -3,7 +3,7 @@
    scaffold-tab.mjs — 새 탭 보일러플레이트를 아키텍처 규약대로 결정적으로 생성.
    ① shell/tabs.ts TABS 등록  ② features/registry.tsx LOADERS 등록
    ③ features/<key>/<Key>.tsx + .module.css  ④ test/<key>.test.tsx 스텁
-   사용: cd web && node scripts/scaffold-tab.mjs <key> [label] [--group=src] [--icon=file] [--dry]
+   사용: cd web && node scripts/scaffold-tab.mjs <key> [label] [--group=plan] [--surface=study] [--icon=file] [--dry]
    본 기능 구현·레이아웃은 하지 않는다(스텁만). 이후 protocols/새탭추가.md의 나머지 단계를 사람이 진행.
 ============================================================ */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -20,11 +20,25 @@ const opt = (name, def) => {
 const positional = args.filter((a) => !a.startsWith('--'));
 const key = positional[0];
 if (!key || !/^[a-z][a-zA-Z0-9]*$/.test(key)) {
-  console.error('사용: node scripts/scaffold-tab.mjs <key: camelCase> [label] [--group=src] [--icon=file] [--dry]');
+  console.error(
+    '사용: node scripts/scaffold-tab.mjs <key: camelCase> [label] [--group=plan] [--surface=study] [--icon=file] [--dry]',
+  );
   process.exit(1);
 }
 const label = positional[1] || key;
-const group = opt('group', 'src'); // do | src | log | settings
+// group → 기본 surface (tabs.ts GROUP_LABELS·불변식 ③과 정합 — 감사 #24: 옛 do/src/log 택소노미로
+// 생성된 탭이 invariants.test를 즉시 깨던 것). settings 그룹만 전역(surface 미지정).
+const GROUP_SURFACE = { plan: 'study', train: 'study', collect: 'materials', discover: 'materials', settings: null };
+const group = opt('group', 'plan'); // plan | train | collect | discover | settings
+if (!(group in GROUP_SURFACE)) {
+  console.error(`❌ 잘못된 group: ${group} (plan|train|collect|discover|settings — tabs.ts GROUP_LABELS)`);
+  process.exit(1);
+}
+const surface = group === 'settings' ? null : opt('surface', GROUP_SURFACE[group]); // study | materials
+if (surface !== null && surface !== 'study' && surface !== 'materials') {
+  console.error(`❌ 잘못된 surface: ${surface} (study|materials — settings 그룹만 생략)`);
+  process.exit(1);
+}
 const icon = opt('icon', 'file');
 const Comp = key[0].toUpperCase() + key.slice(1);
 
@@ -44,7 +58,7 @@ if (!tabs.includes(tabsAnchor)) {
   console.error('❌ tabs.ts 앵커를 못 찾음 — 수동 등록 필요.');
   process.exit(1);
 }
-const tabLine = `  { key: '${key}', label: '${label}', group: '${group}', order: ${order}, icon: '${icon}' },`;
+const tabLine = `  { key: '${key}', label: '${label}', group: '${group}',${surface ? ` surface: '${surface}',` : ''} order: ${order}, icon: '${icon}' },`;
 changes.push({
   path: 'src/shell/tabs.ts',
   action: `TABS에 등록 (order ${order})`,

@@ -61,6 +61,67 @@ const GOALS_FIXTURE = {
   ],
 };
 
+/* 지식상태(knowledge) — 숙달도 지도·주간리뷰가 소비. 로컬 serve.js 가 켜진 채 기록하면 라이브 볼트
+   데이터(노트 수·생성일)가 스냅샷에 새어들어 다음 환경에서 RED(mastery 회귀의 실제 원인이었음).
+   reads/markets 와 동일하게 고정 fixture 로 봉인 — 데이터 있는 상태를 결정론 캡처. */
+const KNOWLEDGE_FIXTURE = {
+  _schemaVersion: 1,
+  generated: '2026-06-15T08:00:00',
+  n_notes: 42,
+  overall: 0.55,
+  states: { mastered: 12, learning: 18, weak: 6, unknown: 6 },
+  subjects: [
+    {
+      subject: '기초 수학',
+      mastery: 0.62,
+      n: 18,
+      weak: 2,
+      unknown: 2,
+      concepts: [
+        { title: '극한과 연속', basename: '극한과 연속', p_eff: 0.9, state: 'mastered' },
+        { title: '도함수의 응용', basename: '도함수의 응용', p_eff: 0.7, state: 'learning', frontier: true },
+        { title: '적분 기법', basename: '적분 기법', p_eff: 0.35, state: 'weak', weak: true, root_cause: '부분적분' },
+        { title: '급수 수렴판정', basename: '급수 수렴판정', p_eff: 0.1, state: 'unknown' },
+      ],
+    },
+    {
+      subject: '선형대수',
+      mastery: 0.48,
+      n: 14,
+      weak: 3,
+      unknown: 2,
+      concepts: [
+        { title: '가우스 소거', basename: '가우스 소거', p_eff: 0.85, state: 'mastered' },
+        { title: '벡터공간', basename: '벡터공간', p_eff: 0.55, state: 'learning' },
+        {
+          title: '고유값 분해',
+          basename: '고유값 분해',
+          p_eff: 0.3,
+          state: 'weak',
+          weak: true,
+          root_cause: '벡터공간',
+        },
+      ],
+    },
+  ],
+  frontier: [
+    { basename: '도함수의 응용', title: '도함수의 응용', subject: '기초 수학', p_eff: 0.7, prereq_in: 4 },
+    { basename: '벡터공간', title: '벡터공간', subject: '선형대수', p_eff: 0.55, prereq_in: 3 },
+  ],
+  gaps: [
+    { title: '적분 기법', basename: '적분 기법', subject: '기초 수학', p_eff: 0.35, root_cause: '부분적분' },
+    { title: '고유값 분해', basename: '고유값 분해', subject: '선형대수', p_eff: 0.3, root_cause: '벡터공간' },
+  ],
+  calibration: {
+    n_errors: 9,
+    confident_wrong: 2,
+    overconfidence_rate: 0.22,
+    blank_total: 10,
+    blank_pass: 7,
+    blank_pass_rate: 0.7,
+  },
+};
+
 const MARKETS_FIXTURE = {
   at: '2026-06-15T08:30:00',
   date: '2026-06-15',
@@ -323,6 +384,9 @@ async function boot(page: Page, theme: string, seed: object = SEED) {
   await page.route('**/api/artifact/goals', (route) => route.fulfill({ json: { ok: true, data: GOALS_FIXTURE } }));
   await page.route('**/api/artifact/discovery', (route) =>
     route.fulfill({ json: { ok: true, data: DISCOVERY_FIXTURE } }),
+  );
+  await page.route('**/api/artifact/knowledge', (route) =>
+    route.fulfill({ json: { ok: true, data: KNOWLEDGE_FIXTURE } }),
   );
   await page.clock.install({ time: FIXED });
   await page.addInitScript(

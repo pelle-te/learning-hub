@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFocus } from '@/store/useFocus';
 import { useApp } from '@/store/useApp';
+import { touchReview } from '@/lib/persistence';
 import { toast } from '@/shell/toast';
 import { confirm } from '@/shell/modal';
 import { routeTitle } from './docTitle';
@@ -46,7 +47,7 @@ export default function FocusChip() {
     if (!session || leftSec > 0) return;
     if (doneKey.current === session.startedAt) return;
     doneKey.current = session.startedAt;
-    const { ds, sid, type, name, blockMin, kind } = session;
+    const { ds, sid, type, name, blockMin, kind, chapter } = session;
     const isBreak = kind === 'break';
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
@@ -65,7 +66,12 @@ export default function FocusChip() {
     } else {
       toast(`집중 세션 완료 🎉 — ${name}`, 'info', 10_000, {
         label: '블록 완료로 표시',
-        onAction: () => useApp.getState().toggleDone(ds, sid, type, blockMin, true),
+        onAction: () => {
+          const app = useApp.getState();
+          app.toggleDone(ds, sid, type, blockMin, true);
+          // ReviewRun發 세션은 챕터를 아니까 챕터 터치도 기록 — 위험모델 lastDs 갱신(감사 #22).
+          if (chapter) app.mutate((st) => touchReview(st, sid, chapter, ds));
+        },
       });
     }
     clear();

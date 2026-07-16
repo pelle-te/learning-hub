@@ -27,7 +27,7 @@ npm run build    # tsc -b && vite build — serve.js가 서빙할 dist 재생성
 ```
 
 - **e2e 스냅샷 함정:** `--update-snapshots`의 기본은 `changed`(2% 내 신규 UI가 안 박힘) → 신규 스냅샷은 `npm run e2e:update`(=all)로. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
-- 슬래시 명령 `/게이트`가 verify+e2e를 돌려 압축 리포트만 반환한다.
+- 슬래시 명령 `/게이트`가 verify+build+budget(번들 예산)+e2e를 돌려 압축 리포트만 반환한다(quick=verify만).
 
 ## 트리거 라우팅 (요청 유형 → 읽을 프로토콜)
 

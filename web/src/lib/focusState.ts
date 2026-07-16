@@ -24,6 +24,8 @@ export const FocusSessionSchema = z.object({
   name: z.string(),
   /** 블록의 원래 분량(분) — toggleDone에 넘길 값(세션 분과 다를 수 있음) */
   blockMin: z.number(),
+  /** 복습이 겨냥한 챕터(ReviewRun 전용) — 완료 시 챕터 터치 로그(위험모델 lastDs 갱신 · 감사 #22). 생략 = 챕터 무관 블록. */
+  chapter: z.string().optional(),
   /** 세션 종류 — 'break'는 완료 알림 후 자동 시작되는 휴식(완료 토글 없음). 생략 = 집중(하위호환). */
   kind: z.enum(['focus', 'break']).optional(),
 });

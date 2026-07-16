@@ -51,6 +51,15 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       }
     }
   }
+  // ReviewRun 챕터 터치(계획 밖 인출) 병합 — 계획 파생 lastDs와 max(감사 #22: 밀린 챕터를
+  // 복습해도 overdue가 안 풀리던 루프). 스캔에 없는 키는 과목 메타를 몰라 건너뜀 — 위험으로
+  // 뜨는 챕터는 완료 이력이 있어 항상 스캔에 존재한다. 미래 ds는 스캔과 동일하게 무시.
+  const touches = state.reviewTouches || {};
+  for (const k in touches) {
+    const ds = touches[k]!;
+    const cur = last.get(k);
+    if (cur && ds > cur.ds && ds <= todayDs) cur.ds = ds;
+  }
   const out: ChapterReview[] = [];
   for (const e of last.values()) {
     const daysSince = dayDiff(e.ds, todayDs);

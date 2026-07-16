@@ -21,6 +21,8 @@ export interface FocusTarget {
   min: number;
   /** 블록 원래 분량(분) — 완료 토글에 전달 */
   blockMin: number;
+  /** 복습이 겨냥한 챕터(ReviewRun 전용) — 완료 시 챕터 터치 기록(감사 #22) */
+  chapter?: string;
 }
 
 interface FocusStore {
@@ -54,6 +56,7 @@ export const useFocus = create<FocusStore>((set, get) => ({
       type: t.type,
       name: t.name,
       blockMin: t.blockMin,
+      chapter: t.chapter,
     };
     set({ session });
     persistFocus(storage, session);

@@ -343,6 +343,16 @@ export function setDone(
   else delete m[k];
   if (!Object.keys(m).length) delete state.completions[ds];
 }
+/** ReviewRun 챕터 인출 기록 — 위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22).
+ *  완료(completions)는 `sid|type` 키라 챕터 무구분 — 밀린 챕터를 복습해도 '망각곡선 리셋'이
+ *  모델에 반영되지 않던 루프를 챕터 단위 터치 로그로 닫는다. 최신 ds만 유지(단조 증가). */
+export function touchReview(state: AppState, sid: string, chapter: string, ds: string): void {
+  const m = (state.reviewTouches = state.reviewTouches || {});
+  const k = sid + '|' + chapter;
+  const cur = m[k];
+  if (!cur || ds > cur) m[k] = ds;
+}
+
 /** 총 완료 학습시간(시간). */
 export function totalDoneHours(state: AppState): number {
   let mins = 0;

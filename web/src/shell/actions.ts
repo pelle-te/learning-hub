@@ -17,7 +17,7 @@ import {
 } from '@/lib/persistence';
 import { loadReads, importReads } from '@/lib/reads';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
-import { idbLoad } from '@/lib/idb';
+import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData, openBacklog } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
@@ -154,18 +154,27 @@ export async function restoreFromIDB(preloaded?: string | null): Promise<void> {
       /* noop */
     }
   }
-  if (!json) {
-    toast('IndexedDB 백업이 없습니다(이 브라우저에서 저장된 적 없음).', 'warn', 4000);
-    return;
-  }
-  const s = parseState(json);
+  let s = json ? parseState(json) : null;
+  let fromBackup = false;
+  // 라이브 미러가 없거나 손상 — 세대 백업(fallback 부팅 시 idbPreserveBackup이 보존)에서 시도(감사 #21).
   if (!s) {
-    toast('IndexedDB 백업을 살릴 수 없습니다(형식 오류).', 'bad', 4000);
+    for (const k of [IDB_BACKUP_KEY, IDB_BACKUP2_KEY]) {
+      const b = await idbGet<string>(k).catch(() => null);
+      s = typeof b === 'string' ? parseState(b) : null;
+      if (s) {
+        fromBackup = true;
+        break;
+      }
+    }
+  }
+  if (!s) {
+    if (json) toast('IndexedDB 백업을 살릴 수 없습니다(형식 오류).', 'bad', 4000);
+    else toast('IndexedDB 백업이 없습니다(이 브라우저에서 저장된 적 없음).', 'warn', 4000);
     return;
   }
   if (!(await backupOrConfirm())) return;
   st().loadState(s);
-  toast('IndexedDB 백업에서 복구했어요.', 'ok', 4000);
+  toast(fromBackup ? 'IndexedDB 세대 백업(보존본)에서 복구했어요.' : 'IndexedDB 백업에서 복구했어요.', 'ok', 4000);
 }
 
 const THEME_CYCLE: Theme[] = ['dark', 'light'];

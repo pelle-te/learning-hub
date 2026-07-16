@@ -3,6 +3,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { chapterReviews, riskChapters, riskOf, riskSummary } from '@/lib/spacedReview';
+import { touchReview } from '@/lib/persistence';
 import { freeMinAfter } from '@/lib/scheduler';
 import type { AppState, Day, ScheduleItem } from '@/lib/types';
 
@@ -73,6 +74,34 @@ describe('spacedReview — chapterReviews', () => {
     const risky = riskChapters(state, days, TODAY);
     expect(risky.map((r) => r.chapter)).toEqual(['1장', '5장']);
     expect(riskSummary(state, days, TODAY)).toEqual({ overdue: 1, due: 1 });
+  });
+
+  it('reviewTouches(ReviewRun 챕터 터치)가 lastDs를 갱신해 overdue를 푼다 — 감사 #22', () => {
+    // 계획상 마지막 완료가 16일 전(overdue)인 챕터를 오늘 ReviewRun으로 인출한 시나리오.
+    const days2 = [day('2026-06-18', [newIt('m', '수학', ['1장'])])];
+    const s2 = stateWith([['2026-06-18', 'm', 'new']]);
+    expect(chapterReviews(s2, days2, TODAY)[0]!.risk).toBe('overdue');
+    touchReview(s2, 'm', '1장', TODAY);
+    const rev = chapterReviews(s2, days2, TODAY)[0]!;
+    expect(rev.lastDs).toBe(TODAY);
+    expect(rev.daysSince).toBe(0);
+    expect(rev.risk).toBe('fresh');
+  });
+
+  it('터치는 최신만 유지(과거 터치가 최신 완료를 되감지 않음) · 미래 터치는 무시', () => {
+    const days2 = [day('2026-07-02', [newIt('m', '수학', ['1장'])])];
+    const s2 = stateWith([['2026-07-02', 'm', 'new']]);
+    touchReview(s2, 'm', '1장', '2026-06-20'); // 계획 완료(07-02)보다 과거
+    expect(chapterReviews(s2, days2, TODAY)[0]!.lastDs).toBe('2026-07-02');
+    touchReview(s2, 'm', '1장', '2026-08-01'); // 미래 ds — 스캔과 동일하게 무시
+    expect(chapterReviews(s2, days2, TODAY)[0]!.lastDs).toBe('2026-07-02');
+  });
+
+  it('touchReview는 단조 증가(같은 키에 과거 ds를 써도 되돌아가지 않음)', () => {
+    const s2 = stateWith([]);
+    touchReview(s2, 'm', '1장', '2026-07-03');
+    touchReview(s2, 'm', '1장', '2026-07-01');
+    expect(s2.reviewTouches!['m|1장']).toBe('2026-07-03');
   });
 
   it('마지막으로 만진 날 = 여러 세션 중 최신', () => {
