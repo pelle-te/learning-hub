@@ -62,6 +62,10 @@ export interface AppStore {
 export const useApp = create<AppStore>()(
   immer((set, get) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    /* 미저장 편집 recipe 큐(감사 2026-07-16 ②#24) — 디바운스 창에서 외부 스냅샷이 오면
+       '건너뛰기(스냅샷 단위 LWW · 상대 탭 편집 통째 소실)' 대신 '채택 후 내 recipe 재적용(rebase)'.
+       recipe는 상태 변형 의도(semantic op)라 새 베이스 위 재적용이 곧 필드 단위 병합이 된다. */
+    let pending: Array<(s: AppState) => void> = [];
     const flush = () => {
       // 대기/만료 타이머 정리 — 만료된 핸들이 남으면 onSync의 '내 편집 대기 중' 가드가 영구 참이 돼
       // 첫 편집 이후 외부 스냅샷 채택(대시보드 모드)이 조용히 죽는다(감사 추가#3에서 테스트로 발견).
@@ -69,6 +73,7 @@ export const useApp = create<AppStore>()(
         clearTimeout(timer);
         timer = null;
       }
+      pending = []; // 이 시점 상태가 영속·방송되므로 재적용 큐 소진(실패 시에도 종전 LWW 의미론 유지)
       // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
       let json: string | null = null;
       try {
@@ -94,34 +99,48 @@ export const useApp = create<AppStore>()(
 
     /* 언로드 안전망 — 디바운스(400ms) 대기 중 탭이 닫히면 마지막 편집이 유실됐다.
        pagehide(데스크톱 닫기/새로고침) + visibilitychange=hidden(모바일 스와이프 종료·앱 전환)에서
-       대기 타이머를 즉시 비우고 동기 flush. 여러 번 불려도 flush는 멱등(같은 상태를 다시 쓸 뿐). */
+       대기 타이머를 즉시 비우고 동기 flush. 여러 번 불려도 flush는 멱등(같은 상태를 다시 쓸 뿐).
+       dirty 조건(감사 2026-07-16 ②#27): 대기 편집이 없으면 이미 영속된 상태라 flush가 순수 낭비 —
+       무편집 탭 전환마다 전체 직렬화+기록+방송(수신 탭 전체 re-boot)이 반복되던 것을 차단.
+       안전망 목적은 그대로: 유실될 수 있는 건 '대기 중(timer)' 편집뿐이다. */
     if (typeof window !== 'undefined') {
-      // 타이머 정리는 flush 자신이 한다(위) — 여기선 대기 중이든 아니든 즉시 영속만.
-      window.addEventListener('pagehide', flush);
+      window.addEventListener('pagehide', () => {
+        if (timer) flush();
+      });
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') flush();
+        if (document.visibilityState === 'hidden' && timer) flush();
       });
 
-      /* 멀티탭 동기화(수신) — 다른 탭이 저장하면 그 스냅샷을 채택한다. 단, 내 편집이 디바운스
-         대기 중이면 건너뜀(곧 내 flush가 방송된다 — 마지막 편집자 우선). 채택은 영속하지 않아
-         메아리 루프가 없다(BroadcastChannel은 발신 탭에 배달되지 않음). */
+      /* 멀티탭 동기화(수신) — 다른 탭이 저장하면 그 스냅샷을 채택한다. 내 편집이 디바운스 대기
+         중이면 '건너뛰기(스냅샷 LWW — 상대 편집 필드 무관 통째 소실 · ②#24)' 대신 **채택 후 내
+         recipe 재적용(rebase)** — 서로 다른 필드의 동시 편집이 둘 다 살아남고, 곧 내 flush가
+         병합 결과를 방송한다. 채택 자체는 영속하지 않아 메아리 루프가 없다(BroadcastChannel은
+         발신 탭에 배달되지 않음 · 재적용분은 진행 중인 내 디바운스가 영속). */
       onSync((m) => {
-        if (m.kind !== 'app' || timer) return;
+        if (m.kind !== 'app') return;
         set((s) => {
           s.state = splitRuntime(refineItemColors(boot(storage)));
+          for (const r of pending) r(s.state);
         });
       });
     }
 
+    /** 편집 공통 경로 — 적용 + rebase 큐 기록(②#24) + 디바운스 영속. */
+    const commit = (recipe: (s: AppState) => void) => {
+      set((s) => {
+        recipe(s.state);
+      });
+      pending.push(recipe);
+      schedulePersist();
+    };
+
     return {
       state: splitRuntime(refineItemColors(boot(storage))),
       mutate(recipe) {
-        set((s) => {
-          recipe(s.state);
-        });
-        schedulePersist();
+        commit(recipe);
       },
       loadState(next) {
+        pending = []; // 통째 교체 — 이전 편집 의도는 무효(가져오기/복구가 새 정본)
         set((s) => {
           s.state = splitRuntime(next); // 가져온 스냅샷에 남아있던 런타임 캐시도 분리(디스크 왕복 대칭)
         });
@@ -130,33 +149,30 @@ export const useApp = create<AppStore>()(
       setRuntimeCache(key, val) {
         // _knowState는 schedule() 입력 — state 참조를 갈아 selectSchedule 무효화(정확성에 필요).
         // 저장은 스케줄하지 않는다: 값은 다음 mutate의 디바운스 flush에 묻어 로컬에 남는다.
+        // rebase 큐에도 안 넣는다(재-fetch 가능한 write-through 캐시 — 편집 의도 아님).
         set((s) => {
           (s.state as Record<string, unknown>)[key] = val;
         });
       },
       setTheme(t) {
-        set((s) => {
-          s.state.theme = t;
+        commit((s) => {
+          s.theme = t;
         });
-        schedulePersist();
       },
       toggleDone(ds, sid, type, plannedMin, on) {
-        set((s) => {
-          setDone(s.state, ds, sid, type, plannedMin, on);
+        commit((s) => {
+          setDone(s, ds, sid, type, plannedMin, on);
         });
-        schedulePersist();
       },
       addCbms(ds, sid, name, chapter, code, note, conf) {
-        set((s) => {
-          M.addCbms(s.state, ds, sid, name, chapter, code, note, conf);
+        commit((s) => {
+          M.addCbms(s, ds, sid, name, chapter, code, note, conf);
         });
-        schedulePersist();
       },
       setBlankResult(ds, sid, name, passed, note, chapter) {
-        set((s) => {
-          M.setBlankResult(s.state, ds, sid, name, passed, note, chapter);
+        commit((s) => {
+          M.setBlankResult(s, ds, sid, name, passed, note, chapter);
         });
-        schedulePersist();
       },
     };
   }),

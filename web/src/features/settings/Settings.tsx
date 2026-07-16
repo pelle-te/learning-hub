@@ -7,7 +7,7 @@
    월드클래스 라운드(AmbientCanvas 언어) — 폼이 본질인 유틸 탭의 괴리감 해소: 상단 시네마틱
    상태 밴드(백업·저장·기록을 카운트업 리드아웃으로)로 제품의 같은 피부·살아있는 감각을 입힘.
 ============================================================ */
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { ui, io, actions } from '@/shell';
@@ -154,6 +154,8 @@ export default function Settings() {
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
   // 파일에서 복원 — 숨은 파일 인풋을 버튼이 대리 클릭(importJSON은 HTMLInputElement를 받는다).
   const impRef = useRef<HTMLInputElement>(null);
+  // 손상 원본 보존본(CORRUPT_KEY · 감사 ③#9) — 있을 때만 회수 버튼 노출, 내려받으면 정리돼 사라진다.
+  const [hasCorrupt, setHasCorrupt] = useState(() => io.hasCorruptSnapshot());
 
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
   // (draft 파라미터는 d — CSS 모듈 import `st` 섀도잉 방지, store 셀렉터 `s`와 결.)
@@ -457,6 +459,19 @@ export default function Settings() {
           >
             ♻ IndexedDB에서 복구
           </Button>
+          {hasCorrupt && (
+            <Button
+              sm
+              variant="ghost"
+              onClick={() => {
+                io.downloadCorruptSnapshot();
+                setHasCorrupt(io.hasCorruptSnapshot());
+              }}
+              title="부팅이 살리지 못해 보존해 둔 손상 원본(raw)을 파일로 회수합니다 — 내려받으면 보존 키를 정리(감사 ③#9)"
+            >
+              🧯 손상 원본 내려받기
+            </Button>
+          )}
           <Button
             sm
             variant="ghost"

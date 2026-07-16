@@ -13,7 +13,15 @@ import { ui, io } from '@/shell';
 export default function BootRecovery() {
   useEffect(() => {
     // 마커는 1회 소비(읽으면 지워짐) — StrictMode 이중 이펙트에도 안내는 한 번만.
-    if (!consumeBootFallback()) return;
+    const fallback = consumeBootFallback();
+    if (!fallback) return;
+    // 손상 부팅(감사 ③#9): 원본 raw가 CORRUPT_KEY에 보존됐음을 알린다 — 설정 탭에서 파일로 회수 가능.
+    if (fallback === 'corrupt')
+      ui.toast(
+        '저장 데이터가 손상돼 기본값으로 시작했어요 — 손상 원본은 보존됨(설정 → 데이터에서 내려받기).',
+        'warn',
+        12000,
+      );
     idbLoad()
       .then((json) => {
         if (!json) return; // 미러 없음(진짜 첫 방문) — 조용히 기본값 사용

@@ -8,6 +8,7 @@ import { useRuntime } from '@/store/useRuntime';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import {
   BACKUP_KEY,
+  CORRUPT_KEY,
   RUNTIME_CACHE_KEYS,
   migrate,
   sanitizeImported,
@@ -56,6 +57,38 @@ async function backupOrConfirm(): Promise<boolean> {
     '백업 저장 실패(저장공간이 가득 찼을 수 있음) — 지금 진행하면 "되돌리기"가 불가능합니다. 그래도 계속할까요? (먼저 내보내기로 백업 권장)',
     { title: '백업 실패', okLabel: '계속', danger: true },
   );
+}
+
+/** 손상 원본 보존본 존재 여부(감사 2026-07-16 ③#9) — 설정 탭이 버튼 노출을 게이팅. */
+export function hasCorruptSnapshot(): boolean {
+  try {
+    return safeLS()?.getItem(CORRUPT_KEY) != null;
+  } catch {
+    return false;
+  }
+}
+
+/** 손상 원본 내려받기(③#9) — boot이 CORRUPT_KEY에 보존한 '살릴 수 없던 raw'를 devtools 없이
+ *  파일로 회수. 내려받기 성공 시 키를 정리한다(쓰기만 있고 읽기/삭제 경로가 없어 영구 잔존하던 층). */
+export function downloadCorruptSnapshot(): void {
+  const ls = safeLS();
+  let raw: string | null = null;
+  try {
+    raw = ls?.getItem(CORRUPT_KEY) ?? null;
+  } catch {
+    /* 접근 불가 */
+  }
+  if (!raw) {
+    toast('보존된 손상 원본이 없습니다.', 'warn');
+    return;
+  }
+  download('러닝허브_손상원본.json', raw, 'application/json');
+  try {
+    ls?.removeItem(CORRUPT_KEY);
+  } catch {
+    /* 정리 실패는 치명 아님 — 다음 시도에서 재정리 */
+  }
+  toast('손상 원본을 내려받았어요 — 보존 키는 정리했습니다.', 'ok');
 }
 
 /** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 읽을거리 저작물(_reads: 내 요약·독후감).

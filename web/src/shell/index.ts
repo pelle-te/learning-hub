@@ -50,6 +50,8 @@ export const io = {
   archiveOld: A.archiveOld,
   exportAnkiCards: A.exportAnkiCards,
   exportSummaryNotes: A.exportSummaryNotes,
+  hasCorruptSnapshot: A.hasCorruptSnapshot,
+  downloadCorruptSnapshot: A.downloadCorruptSnapshot,
 };
 
 /** 헤더 ⋯ 메뉴/팔레트가 호출하는 상태 변형 액션. */

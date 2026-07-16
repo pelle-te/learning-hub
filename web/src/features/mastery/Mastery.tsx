@@ -29,6 +29,7 @@ import {
 } from '@/lib/curriculum';
 import { classifyArtifact } from '@/lib/artifactState';
 import { masteryColor } from '@/lib/utils';
+import { slimKnowState } from '@/lib/scheduler';
 import { Button } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
@@ -705,7 +706,7 @@ export default function Mastery() {
         return;
       }
       qc.setQueryData(KNOWLEDGE_KEY, loaded);
-      setRuntimeCache('_knowState', loaded);
+      setRuntimeCache('_knowState', slimKnowState(loaded)); // 슬림 write-through(감사 ②#25 · queries.useKnowledge와 대칭)
     } finally {
       setVaultLoading(false);
     }

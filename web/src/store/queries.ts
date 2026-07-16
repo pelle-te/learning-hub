@@ -14,6 +14,7 @@ import {
   type ResearchJob,
 } from '@/lib/api';
 import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
+import { slimKnowState } from '@/lib/scheduler';
 import { fetchLedgerArtifact, type Ledger } from '@/lib/ledger';
 import { fetchReadsArtifact, type ReadsArtifact } from '@/lib/reads';
 import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
@@ -114,7 +115,9 @@ export function useKnowledge(enabled = true) {
     retry: false,
     queryFn: async () => {
       const k = await fetchKnowledgeArtifact();
-      useApp.getState().setRuntimeCache('_knowState', k);
+      // 슬림 write-through(감사 ②#25) — state엔 스케줄러 입력({subject,mastery})만.
+      // 전체 아티팩트(개념 배열 포함)는 이 Query 캐시가 소유(매 flush 직렬화·쿼터 잠식 방지).
+      useApp.getState().setRuntimeCache('_knowState', slimKnowState(k));
       return k;
     },
   });

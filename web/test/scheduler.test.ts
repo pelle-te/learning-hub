@@ -563,3 +563,76 @@ describe('sessionTimeMap — sid|type → 첫 세션 시각(첫-세션-우선)',
     expect(sessionTimeMap([])).toEqual({});
   });
 });
+
+/* ── ②#23(감사 2026-07-16) — 복습 사다리 적응: 완료일 앵커·백지 성과 반영 ── */
+describe('복습 사다리 적응(②#23)', () => {
+  /** 단일 세션(챕터 2h = 모듈 1개) 과목 헬퍼 — 복습 오프셋을 결정적으로 관찰. */
+  function oneSession(over?: Record<string, unknown>) {
+    const it = weeklyItem('적응과목', 6, mkChapters([['ch', 2]]));
+    const r = schedule(baseState([it], over));
+    const news = newItems(r);
+    const revDis = r.days
+      .flatMap((d, di) => d.items.filter((x) => x.type === 'rev' && x.sid === it.id).map(() => di))
+      .sort((a, b) => a - b);
+    return { it, r, news, revDis };
+  }
+
+  it('기본(기록 없음): 계획일 앵커 + 1·3·7·16 사다리(무회귀)', () => {
+    const { news, revDis } = oneSession();
+    expect(news.length).toBe(1);
+    const di0 = news[0]!.di;
+    expect(revDis).toEqual([di0 + 1, di0 + 3, di0 + 7, di0 + 16]);
+  });
+
+  it('완료일 앵커: doneDs가 계획일보다 늦으면 사다리가 실제 완료일에서 시작한다', () => {
+    const base = oneSession();
+    const di0 = base.news[0]!.di;
+    const ds0 = base.news[0]!.ds;
+    // 같은 계획을 5일 늦게 완료했다고 기록(doneDs) — 재스케줄 시 복습이 완료일 기준으로 밀려야 한다.
+    const doneDs = base.r.days[di0 + 5]!.ds;
+    const it = base.it;
+    const r2 = schedule(
+      baseState([it], { completions: { [ds0]: { [it.id + '|new']: { done: true, min: 120, doneDs } } } }),
+    );
+    const revDis2 = r2.days
+      .flatMap((d, di) => d.items.filter((x) => x.type === 'rev' && x.sid === it.id).map(() => di))
+      .sort((a, b) => a - b);
+    expect(revDis2).toEqual([di0 + 5 + 1, di0 + 5 + 3, di0 + 5 + 7, di0 + 5 + 16]);
+  });
+
+  it('백지 실패 과목: 단축 사다리 1·2·4·8·16', () => {
+    const it = weeklyItem('약한과목', 6, mkChapters([['ch', 2]]));
+    const blank = { id: 'b1', ds: '2026-06-20', sid: it.id, name: '약한과목', passed: false, note: '' };
+    const r = schedule(baseState([it], { blankResults: [blank] }));
+    const di0 = r.days.findIndex((d) => d.items.some((x) => x.type === 'new' && x.sid === it.id));
+    const revDis = r.days
+      .flatMap((d, di) => d.items.filter((x) => x.type === 'rev' && x.sid === it.id).map(() => di))
+      .sort((a, b) => a - b);
+    expect(revDis).toEqual([di0 + 1, di0 + 2, di0 + 4, di0 + 8, di0 + 16]);
+  });
+
+  it('백지 통과 과목: 기본 사다리 + 34일 꼬리 1회', () => {
+    const it = weeklyItem('강한과목', 6, mkChapters([['ch', 2]]));
+    const blank = { id: 'b2', ds: '2026-06-20', sid: it.id, name: '강한과목', passed: true, note: '' };
+    const r = schedule(baseState([it], { blankResults: [blank] }));
+    const di0 = r.days.findIndex((d) => d.items.some((x) => x.type === 'new' && x.sid === it.id));
+    const revDis = r.days
+      .flatMap((d, di) => d.items.filter((x) => x.type === 'rev' && x.sid === it.id).map(() => di))
+      .sort((a, b) => a - b);
+    expect(revDis).toEqual([di0 + 1, di0 + 3, di0 + 7, di0 + 16, di0 + 34]);
+  });
+
+  it('최신 백지 결과가 이긴다(실패→통과 갱신 시 꼬리 사다리)', () => {
+    const it = weeklyItem('갱신과목', 6, mkChapters([['ch', 2]]));
+    const blanks = [
+      { id: 'b3', ds: '2026-06-18', sid: it.id, name: '갱신과목', passed: false, note: '' },
+      { id: 'b4', ds: '2026-06-21', sid: it.id, name: '갱신과목', passed: true, note: '' },
+    ];
+    const r = schedule(baseState([it], { blankResults: blanks }));
+    const di0 = r.days.findIndex((d) => d.items.some((x) => x.type === 'new' && x.sid === it.id));
+    const revDis = r.days
+      .flatMap((d, di) => d.items.filter((x) => x.type === 'rev' && x.sid === it.id).map(() => di))
+      .sort((a, b) => a - b);
+    expect(revDis).toEqual([di0 + 1, di0 + 3, di0 + 7, di0 + 16, di0 + 34]);
+  });
+});

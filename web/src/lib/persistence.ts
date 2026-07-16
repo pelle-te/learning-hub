@@ -339,7 +339,9 @@ export function setDone(
 ): void {
   const m = compMap(state, ds);
   const k = sid + '|' + type;
-  if (on) m[k] = { done: true, min: Math.round(plannedMin) };
+  // doneDs = 실제 완료일(②#23 · todayISO는 _today 시드 존중) — 복습 사다리가 계획일이 아니라
+  // 이 날을 앵커한다(늦게 완료해도 복습이 앞당겨진 채 고정되지 않게 · 망각곡선 정합).
+  if (on) m[k] = { done: true, min: Math.round(plannedMin), doneDs: todayISO(state) };
   else delete m[k];
   if (!Object.keys(m).length) delete state.completions[ds];
 }

@@ -5,11 +5,15 @@
 
    핵심: 하루 가용시간(일과 빈 구간/덮어쓰기)을 모듈(기본 2h)로 쪼개고, 과목의
    '주당 목표 시간'만큼 모듈을 그 주에 인터리빙·마감 우선으로 분배. 챕터 포인터가
-   전진하고, 복습은 그날 배운 챕터를 +1·3·7·16일에 생성. daily(Anki)는 매일 먼저 확보.
+   전진하고, 복습은 배운 챕터를 +1·3·7·16일에 생성 — 앵커는 실제 완료일(doneDs · ②#23),
+   백지복습 최근 실패 과목은 단축 사다리(1·2·4·8·16)·통과 과목은 +34일 꼬리 1회로 적응.
+   daily(Anki)는 매일 먼저 확보.
 ============================================================ */
 import {
   BLOCK_TYPES,
   REVIEW_OFFSETS,
+  REVIEW_OFFSETS_WEAK,
+  REVIEW_TAIL_OFFSET,
   addDays,
   clamp,
   dayDiff,
@@ -160,6 +164,36 @@ export function itemTotalHours(it: Item): number {
 }
 
 /* ── 그래프 우선순위(B): 지식엔진 과목 숙달도를 배분에 역연동(약한 과목 먼저) ── */
+/** _knowState write-through 슬림화(감사 2026-07-16 ②#25) — 스케줄러(subjectMastery)가 읽는 건
+ *  subjects[].{subject,mastery}뿐인데 전체 Knowledge(노트별 concepts 배열 포함)를 state에 넣으면
+ *  매 400ms flush 직렬화 비용 + localStorage 5MB 쿼터를 잠식한다(볼트 수천 노트 시 수백 KB~MB).
+ *  전체 아티팩트는 react-query 캐시(['knowledge'])가 소유 — state엔 스케줄 입력만. */
+export function slimKnowState(k: unknown): { subjects: { subject: string; mastery: number }[] } {
+  const subjects = (k as { subjects?: unknown })?.subjects;
+  if (!Array.isArray(subjects)) return { subjects: [] };
+  const out: { subject: string; mastery: number }[] = [];
+  for (const s of subjects) {
+    const subject = (s as { subject?: unknown })?.subject;
+    const mastery = (s as { mastery?: unknown })?.mastery;
+    if (typeof subject === 'string' && typeof mastery === 'number') out.push({ subject, mastery });
+  }
+  return { subjects: out };
+}
+
+/** 과목의 최신 백지복습 결과(②#23) — true=통과 · false=실패 · null=기록 없음(ds 사전순 최신). */
+export function latestBlank(state: AppState, sid: string): boolean | null {
+  let bestDs = '';
+  let passed: boolean | null = null;
+  for (const r of state.blankResults || []) {
+    if (r.sid !== sid) continue;
+    if (r.ds >= bestDs) {
+      bestDs = r.ds;
+      passed = !!r.passed;
+    }
+  }
+  return passed;
+}
+
 export function subjectMastery(state: AppState, name: string): number | null {
   const k = state._knowState;
   if (!k || !Array.isArray(k.subjects)) return null;
@@ -415,9 +449,23 @@ export function schedule(state: AppState): ScheduleResult {
         cap--;
         day.used += ML;
         // 복습 예약(그날 배운 챕터 근거) — reviewViaAnki면 Anki/FSRS가 소유하므로 생략
-        if (!reviewViaAnki)
-          REVIEW_OFFSETS.forEach((off) => {
-            const ti = di + off;
+        if (!reviewViaAnki) {
+          // ②#23 최소 적응(감사 2026-07-16 · 카드 레벨은 Anki/FSRS 소유 — 여긴 개념 레벨):
+          // ① 앵커 = 실제 완료일(doneDs) — 늦게 완료해도 복습이 계획일 기준으로 앞당겨 고정되지 않게.
+          //    미완료/구버전 기록(doneDs 없음)은 종전대로 계획일 앵커(무마이그레이션).
+          // ② 사다리 = 백지복습 성과 반영 — 최근 실패 과목은 단축(1·2·4·8·16), 통과 과목은
+          //    16일 종결 뒤 +34일 꼬리 1회(엔진이 영영 복습을 안 만들던 창을 연장).
+          const comp = state.completions?.[day.ds]?.[pick.id + '|new'];
+          const anchor = comp?.done && comp.doneDs ? clamp(dayDiff(start, comp.doneDs), 0, days.length - 1) : di;
+          const blank = latestBlank(state, pick.id);
+          const offsets =
+            blank === false
+              ? REVIEW_OFFSETS_WEAK
+              : blank === true
+                ? [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET]
+                : REVIEW_OFFSETS;
+          offsets.forEach((off) => {
+            const ti = anchor + off;
             if (ti < days.length && ti <= pick._dlIdx)
               reviewTasks.push({
                 idx: ti,
@@ -428,6 +476,7 @@ export function schedule(state: AppState): ScheduleResult {
                 min: Math.max(15, Math.round(ML * 0.25)),
               });
           });
+        }
       }
     });
   }

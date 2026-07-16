@@ -36,6 +36,7 @@ export const SCHEDULE_INPUT_KEYS = [
   'peakStart',
   'peakEnd',
   '_today',
+  'blankResults', // ②#23 복습 사다리 적응 — latestBlank가 읽는다(백지 결과 갱신 시 재스케줄)
 ] as const;
 
 function scheduleInputs(s: AppState): readonly unknown[] {

@@ -45,7 +45,9 @@ export const RoutineBlockSchema = z.object({
   times: z.record(z.object({ start: z.string(), end: z.string() })).optional(),
 });
 
-export const CompletionEntrySchema = z.object({ done: z.boolean(), min: z.number() });
+/** doneDs = 실제 완료 날짜(감사 2026-07-16 ②#23) — 복습 사다리 앵커. 옵셔널이라 기존 저장 무마이그레이션
+ *  (없으면 계획일 앵커 = 종전 동작). 계획일(completions 키)과 다르면 '늦게 완료'를 뜻한다. */
+export const CompletionEntrySchema = z.object({ done: z.boolean(), min: z.number(), doneDs: z.string().optional() });
 /** completions[ds][`${sid}|${type}`] = {done,min} */
 export const CompletionsSchema = z.record(z.record(CompletionEntrySchema));
 

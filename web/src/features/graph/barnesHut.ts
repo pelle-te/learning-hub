@@ -141,6 +141,12 @@ class BHTree {
     this.childFor(b).insert(b, depth + 1);
   }
 
+  /** (x,y)가 이 셀 영역 안인가 — 겹침 버킷의 자기-질량 제외 판정(②#28). 삽입은 좌표 결정론이라
+   *  버킷 영역 안 좌표의 바디는 반드시 이 버킷에 삽입됐다(멤버십 리스트 불요). */
+  private containsPoint(x: number, y: number): boolean {
+    return x >= this.x0 && x < this.x0 + this.size && y >= this.y0 && y < this.y0 + this.size;
+  }
+
   /** 바디가 속한 자식 4분면을 (없으면 생성해) 반환. */
   private childFor(b: Body): BHTree {
     const half = this.size / 2;
@@ -171,7 +177,18 @@ class BHTree {
     const d2 = dx * dx + dy * dy;
     // size/d < θ  ⇔  size² < θ²·d² → 충분히 멀어 집합체로 근사.
     if (this.kids === null || this.size * this.size < theta * theta * d2) {
-      accum(b, i, this.cx, this.cy, this.mass, fx, fy, rep);
+      let m = this.mass;
+      let cx = this.cx;
+      let cy = this.cy;
+      // 겹침 버킷(MIN_CELL 집합·kids=null)에 b 자신이 속하면 질량·COM에서 자신을 뺀다 —
+      // 자신 포함 질량 근사는 동일좌표 군집에서 매 프레임 결정론적 자기-반발 킥을 가산했다(감사 ②#28).
+      if (this.kids === null && this.containsPoint(b.x, b.y)) {
+        m -= 1;
+        if (m <= 0) return; // 버킷 구성원이 나뿐 — 남는 반발원 없음
+        cx = (this.cx * this.mass - b.x) / m;
+        cy = (this.cy * this.mass - b.y) / m;
+      }
+      accum(b, i, cx, cy, m, fx, fy, rep);
       return;
     }
     // 가까움 → 자식 재귀.
