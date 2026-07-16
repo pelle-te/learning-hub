@@ -128,8 +128,11 @@ const CHILDREN = new Set();
 
 /* 도구 실행(spawn · shell 안 씀) → {ok,out,code,stats?} */
 function runTool(toolKey, extraArgs, cb) {
-  const t = TOOLS[toolKey];
-  if (!t) { cb({ ok: false, out: '알 수 없는 도구: ' + toolKey, code: -1 }); return; }
+  // 소유 속성만 조회(감사 2026-07-16 ①#45): TOOLS['constructor'] 같은 프로토타입 키가 truthy 로
+  // 통과하면 t.cmd.concat 이 readBody 소비 콜백 안에서 throw → 콜백 재실행 → RUNNING 이중 증가로
+  // /api/run 전체가 429 영구 마비됐다. cmd 배열 검증까지 이중 가드.
+  const t = Object.hasOwn(TOOLS, toolKey) ? TOOLS[toolKey] : undefined;
+  if (!t || !Array.isArray(t.cmd)) { cb({ ok: false, out: '알 수 없는 도구: ' + toolKey, code: -1 }); return; }
   const args = t.cmd.concat(extraArgs || []);
   let out = '', done = false;
   const finish = (ok, code) => {
@@ -229,7 +232,14 @@ function readBody(req, res, cb) {
       req.destroy();
     }
   });
-  req.on('end', () => { if (aborted) return; try { cb(b ? JSON.parse(b) : {}); } catch (e) { cb({}); } });
+  req.on('end', () => {
+    if (aborted) return;
+    // 파싱만 try 안에서 — 옛 코드는 cb 자체를 try 로 감싸 *cb 내부* 예외가 catch 로 새서
+    // cb({}) 를 두 번째로 실행했다(소비 콜백 이중 호출 · 감사 2026-07-16 ①#45의 증폭 경로).
+    let parsed = {};
+    if (b) { try { parsed = JSON.parse(b); } catch (e) { parsed = {}; } }
+    cb(parsed);
+  });
 }
 
 /* ── 읽을거리 코치·어휘 (로컬 Ollama HTTP) ────────────────────────────────
@@ -582,7 +592,8 @@ const server = http.createServer((req, res) => {
       // 산출물 읽기
       if (url.startsWith('/api/artifact/')) {
         const name = url.slice('/api/artifact/'.length);
-        const f = ARTIFACTS[name];
+        // 소유 속성 가드(감사 2026-07-16 ①#45) — '__proto__'·'toString' 류가 fs.readFile 에 비문자열로 새는 것 차단.
+        const f = Object.hasOwn(ARTIFACTS, name) ? ARTIFACTS[name] : undefined;
         if (!f) return sendJSON(res, 404, { ok: false, error: '알 수 없는 산출물' });
         return fs.readFile(f, 'utf8', (err, data) => {
           if (err) return sendJSON(res, 404, { ok: false, error: '아직 생성 안 됨(도구를 먼저 실행)' });

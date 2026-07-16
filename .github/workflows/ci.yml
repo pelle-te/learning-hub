@@ -27,6 +27,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # format:check — verify 구성요소인데 CI 에만 빠져 있던 비대칭(감사 2026-07-16 ②#29):
+      # 포맷 위반이 --no-verify·웹UI 커밋으로 들어오면 CI 가 통과시켰다. codegen:check 는
+      # hub 단독 체크아웃엔 부모 스키마가 없어 graceful skip 이라 CI 추가 실익 없음(의도적 제외).
+      - run: npm run format:check
       - run: npm run test:coverage
       - run: npm run build
       # 번들 예산 게이트 — 빌드 직후 dist/assets를 gzip으로 재어 청크/총합 상한 초과를 잡는다.

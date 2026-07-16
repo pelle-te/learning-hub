@@ -55,7 +55,7 @@
   모듈 길이/복습비중은 앱의 "일과 & 가용시간" 탭(설정)에서.
 - 화면(탭) → `web/src/features/<탭>/`. 스타일 → 토큰은 `styles/tokens.css`, 전역 클래스는 `styles/global/`, 컴포넌트 고유는 `*.module.css`.
 - 도메인 로직(스케줄·방법론·영속·볼트/Anki/지식)은 **프레임워크 무관 `lib/`** 에 모여 Vitest로 검증된다. 앱상태는 Zustand(`store/useApp`), 서버/외부(볼트·Anki·`/api`)는 TanStack Query(`store/queries`)가 소유.
-- 볼트/Anki 패널은 정본 `_index.json`을 읽으므로(`lib/vault.ts`), 데이터가 안 보이면 먼저 `검사.sh --index`로 인덱스를 만든다.
+- 볼트/Anki 패널은 정본 `_index.json`을 읽으므로(`lib/vault.ts`), 데이터가 안 보이면 먼저 부모 파이프라인 도구로 인덱스를 만든다(`bash ../pipeline/_도구/검사.sh --index` — pipeline 소관 · 정본 산출물 = `../knowledge/_meta/cache/_index.json`).
 - 검증: `cd web` 후 `npm run typecheck && npm run lint && npm test` · 비주얼 회귀 `npm run e2e`(베이스라인 갱신 `npm run e2e:update`).
 
 ## 문서·감사
@@ -63,12 +63,11 @@
 - **시스템 전수 평가:** 감사 템플릿·리포트는 atelier `../docs/감사/`로 이관됨 — `감사요청_템플릿_전체.md`의 **클러스터 E(러닝 허브 웹앱)**로 무결성·데이터·스케줄러·방법론 정합·학습효과·UX·연동·코드·보안·문서 축을 점검(옛 12축 흡수) → `감사_리포트.md`에 *개선/추가/수정/방향* 갱신. 옛 결과(종합 48/60·열린 P0/P1 0): `../docs/감사/_아카이브/hub_감사_리포트_2026-06-28.md`.
 
 ## 테스트
-의존성 0 · Node 내장(`vm`)만 · 실패 시 비ZERO 종료(검사.sh/CI에 물리기 좋음). 총 30개.
-- **스케줄러**: `node test/scheduler.test.js` — `utils.js`+`scheduler.js`를 mock state로 `schedule()` 검증. 타임존을 **Asia/Seoul로 고정(자기 재실행)**해 `iso()` 날짜밀림을 결정적으로. (T1~T18: 날짜키·done제외·용량·페이스·복습·인터리빙·마감경고·daily·빈입력·덮어쓰기·빈구간·blank·mock·**적응형용량·복습위임·피크배치**)
-- **상태/마이그레이션**: `node test/state.test.js` — migrate 보강·무효 거부·persist↔boot 라운드트립·손상 보존·카드 생성.
-- **UI 스모크**: `node test/ui-smoke.test.js` — 9개 탭 render*가 throw 없이 HTML 생성 + 핸들러가 state 갱신.
+정본 스위트 = **`web/` Vitest + Playwright**(옛 node-vm `test/` 30개는 React 전환으로 삭제 — 감사 2026-07-16 #46 정정).
+- **단위/컴포넌트**: `cd web && npm run test`(Vitest — lib·store·features · 커버리지 게이트는 `test:coverage`).
+- **e2e/비주얼**: `npm run e2e`(Playwright 스모크+시각 스냅샷 · 신규 스냅샷은 `e2e:update`).
+- **원커맨드**: `node scripts/gate.mjs`(verify+build+budget+e2e — CLAUDE.md '게이트' 절이 SSOT).
 - 해당 레이어를 고친 뒤엔 그 테스트를 돌려 회귀를 확인하세요.
-
 ## 데이터
 - localStorage 키 `study_planner_v3`에 자동 저장. 우상단 내보내기/가져오기로 JSON 백업. **일과 탭 유지보수**에서 볼트 폴더 백업(`러닝허브_백업.json`)·오래된 기록 아카이빙(6개월 이전 → 보관 파일로 비움).
 - ⚠️ **백업은 정기적으로**: localStorage 한 곳에만 있어 브라우저 캐시를 지우면 전소됩니다(7일 미백업 시 경고 표시).
