@@ -155,6 +155,36 @@ export function defaults(): AppState {
   };
 }
 
+/* ── defaults-동형(무활동) 판정(감사 재검증 ⑩#1·#2) ──
+   fallback 부팅한 탭의 첫 flush가 IDB 미러를 defaults로 덮으면 그 미러는 '유효한 JSON'이라
+   parse 검사를 통과한다 — 복구·백업 링이 실데이터 대신 defaults를 잡는 원인. 사용자 활동
+   흔적이 전혀 없는 상태를 판정해 (a) restoreFromIDB가 세대 백업을 우선하고 (b) 백업 링에
+   defaults를 밀어넣지 않게 한다. routine/설정 커스터마이즈만 있고 활동 0인 상태도 pristine으로
+   보는 보수적 판정(활동 데이터 보존이 우선). */
+const ACTIVITY_KEYS = [
+  'completions',
+  'dayOverrides',
+  'items',
+  'summaries',
+  'cbms',
+  'backlog',
+  'blankResults',
+  'retentionLog',
+  'weekly',
+  'rituals',
+  'reviewTouches',
+] as const;
+export function isPristineState(s: AppState): boolean {
+  const src = s as unknown as Record<string, unknown>;
+  return ACTIVITY_KEYS.every((k) => {
+    const v = src[k];
+    if (v == null) return true;
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') return Object.keys(v).length === 0;
+    return false;
+  });
+}
+
 /** 최소 구조 검증 — 엉뚱한 JSON을 그대로 덮어써 앱이 깨지는 것 방지. */
 export function validShape(s: unknown): boolean {
   if (!s || typeof s !== 'object') return false;

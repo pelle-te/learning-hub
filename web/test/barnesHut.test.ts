@@ -115,7 +115,7 @@ describe('accumulateRepulsion — 반발 누적', () => {
     expect(fy.every((v) => Number.isFinite(v))).toBe(true);
   });
 
-  it('겹침 버킷 근사가 자기 질량을 제외한다 — 동일좌표 군집 자기-반발 킥 없음(감사 ②#24 옆 ②#28)', () => {
+  it('겹침 버킷 근사가 자기 질량을 제외한다 — 동일좌표 군집 자기-반발 킥 없음(감사 ②#28)', () => {
     const n = EXACT_MAX + 44; // BH 경로 강제 · 전 노드 동일좌표 → 단일 겹침 버킷(MIN_CELL)
     const nodes: Body[] = Array.from({ length: n }, () => ({ x: 10, y: 10 }));
     const fx = new Float64Array(n);

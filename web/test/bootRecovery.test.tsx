@@ -8,26 +8,45 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 
 vi.mock('@/shell/toast', () => ({ toast: vi.fn(), toastUndo: vi.fn(), ToastHost: () => null }));
-vi.mock('@/lib/idb', () => ({ idbMirror: vi.fn(), idbLoad: vi.fn(), idbPreserveBackup: vi.fn(async () => {}) }));
+vi.mock('@/lib/idb', () => ({
+  idbMirror: vi.fn(),
+  idbLoad: vi.fn(),
+  idbGet: vi.fn(async () => null),
+  idbPut: vi.fn(async () => {}),
+  idbDel: vi.fn(async () => {}),
+  idbPreserveBackup: vi.fn(async () => {}),
+  IDB_BACKUP_KEY: 'state_backup',
+  IDB_BACKUP2_KEY: 'state_backup2',
+}));
 
 import { toast } from '@/shell/toast';
-import { idbLoad, idbPreserveBackup } from '@/lib/idb';
+import { idbGet, idbLoad, idbPreserveBackup } from '@/lib/idb';
 import { memKV } from '@/lib/kv';
 import { boot, defaults, persist } from '@/lib/persistence';
+import type { AppState } from '@/lib/types';
 import BootRecovery from '@/app/BootRecovery';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+/** 활동 흔적이 있는 상태 — defaults-동형(pristine) 가드(재검증 ⑩#1·#2)에 걸리지 않는 미러. */
+const active = (): AppState => {
+  const s = defaults() as AppState & { completions: Record<string, Record<string, { done: boolean }>> };
+  s.completions['2026-07-01'] = { 'sub|study': { done: true } };
+  return s;
+};
+
 beforeEach(() => {
   vi.mocked(toast).mockClear();
   vi.mocked(idbLoad).mockReset();
+  vi.mocked(idbGet).mockReset();
+  vi.mocked(idbGet).mockResolvedValue(null);
   vi.mocked(idbPreserveBackup).mockClear();
 });
 
 describe('BootRecovery — IDB 미러 복구 안내', () => {
-  it('폴백 부팅 + 유효한 IDB 미러 → 복구하기 액션 토스트(warn·long)', async () => {
+  it('폴백 부팅 + 유효한 IDB 미러(활동 있음) → 복구하기 액션 토스트(warn·long)', async () => {
     boot(memKV()); // 저장본 없음 → 폴백 마커 세팅
-    vi.mocked(idbLoad).mockResolvedValue(JSON.stringify(defaults()));
+    vi.mocked(idbLoad).mockResolvedValue(JSON.stringify(active()));
     render(<BootRecovery />);
     await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
     const [msg, type, ms, action] = vi.mocked(toast).mock.calls[0]!;
@@ -66,10 +85,37 @@ describe('BootRecovery — IDB 미러 복구 안내', () => {
 
   it('폴백 부팅 시 미러를 세대 백업으로 보존한다 — 첫 flush의 미러 파괴 대비(감사 #21)', async () => {
     boot(memKV());
-    const json = JSON.stringify(defaults());
+    const json = JSON.stringify(active());
     vi.mocked(idbLoad).mockResolvedValue(json);
     render(<BootRecovery />);
     await waitFor(() => expect(idbPreserveBackup).toHaveBeenCalledWith(json));
+  });
+
+  it('defaults-동형(무활동) 미러는 백업 링에 밀어넣지 않는다 — 연쇄 fallback의 실데이터 축출 방지(재검증 ⑩#2)', async () => {
+    boot(memKV());
+    vi.mocked(idbLoad).mockResolvedValue(JSON.stringify(defaults()));
+    render(<BootRecovery />);
+    await tick();
+    await tick();
+    expect(idbPreserveBackup).not.toHaveBeenCalled();
+  });
+
+  it('defaults-동형 미러 + 실데이터 세대 백업 존재 → 토스트는 뜬다(복구 액션이 백업을 자동 우선 · 재검증 ⑩#1)', async () => {
+    boot(memKV());
+    vi.mocked(idbLoad).mockResolvedValue(JSON.stringify(defaults()));
+    vi.mocked(idbGet).mockResolvedValue(JSON.stringify(active()));
+    render(<BootRecovery />);
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(String(vi.mocked(toast).mock.calls[0]![0])).toContain('복구할까요');
+  });
+
+  it('defaults-동형 미러 + 백업도 없음 → 안 뜸(복구 가치 0 — 안내는 소음)', async () => {
+    boot(memKV());
+    vi.mocked(idbLoad).mockResolvedValue(JSON.stringify(defaults()));
+    render(<BootRecovery />);
+    await tick();
+    await tick();
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it('손상 미러도 보존은 한다(수동 복구 여지) — 토스트만 안 뜸', async () => {

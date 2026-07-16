@@ -6,8 +6,8 @@
    스냅샷은 여기서 캡처해 넘긴다 — 안내가 떠 있는 사이 flush가 미러를 덮어도 안전.
 ============================================================ */
 import { useEffect } from 'react';
-import { consumeBootFallback, parseState } from '@/lib/persistence';
-import { idbLoad, idbPreserveBackup } from '@/lib/idb';
+import { consumeBootFallback, parseState, isPristineState } from '@/lib/persistence';
+import { idbGet, idbLoad, idbPreserveBackup, IDB_BACKUP_KEY } from '@/lib/idb';
 import { ui, io } from '@/shell';
 
 export default function BootRecovery() {
@@ -23,12 +23,19 @@ export default function BootRecovery() {
         12000,
       );
     idbLoad()
-      .then((json) => {
+      .then(async (json) => {
         if (!json) return; // 미러 없음(진짜 첫 방문) — 조용히 기본값 사용
+        const parsed = parseState(json);
+        const pristine = parsed ? isPristineState(parsed) : false;
         // 첫 flush가 유일한 미러를 defaults로 덮기 전에 세대 백업으로 보존(감사 #21) —
         // 토스트(12초)를 놓쳐도 설정/⌘K '복구'가 이 보존본을 살린다. 손상 미러도 보존(수동 복구 여지).
-        void idbPreserveBackup(json);
-        if (!parseState(json)) return; // 미러도 손상 — 안내해봐야 복구 불가
+        // 단 defaults-동형(무활동) 미러는 링에 밀어넣지 않는다 — fallback 부팅이 연쇄될 때
+        // 실데이터 세대가 defaults에 밀려 링 밖으로 축출되는 것 방지(재검증 ⑩#2).
+        if (!pristine) void idbPreserveBackup(json);
+        if (!parsed) return; // 미러도 손상 — 안내해봐야 복구 불가
+        // 무활동 미러는 그 자체론 복구 가치 0 — 실데이터 세대 백업이 있을 때만 안내
+        // (복구 액션(restoreFromIDB)이 백업을 자동 우선한다 · 재검증 ⑩#1).
+        if (pristine && !(await idbGet<string>(IDB_BACKUP_KEY).catch(() => null))) return;
         ui.toast('저장된 백업(IDB)을 찾았어요 — 이전 데이터를 복구할까요?', 'warn', 12000, {
           label: '복구하기',
           onAction: () => void io.restoreFromIDB(json),

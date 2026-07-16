@@ -15,6 +15,7 @@ import {
   parseState,
   defaults,
   exportSnapshot,
+  isPristineState,
 } from '@/lib/persistence';
 import { loadReads, importReads } from '@/lib/reads';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
@@ -189,14 +190,21 @@ export async function restoreFromIDB(preloaded?: string | null): Promise<void> {
   }
   let s = json ? parseState(json) : null;
   let fromBackup = false;
-  // 라이브 미러가 없거나 손상 — 세대 백업(fallback 부팅 시 idbPreserveBackup이 보존)에서 시도(감사 #21).
-  if (!s) {
+  // 라이브 미러가 없거나 손상, 또는 defaults-동형(무활동 — fallback 부팅 후 flush가 덮은 잔해)이면
+  // 세대 백업(fallback 부팅 시 idbPreserveBackup이 보존)을 우선한다(감사 #21 · 재검증 ⑩#1).
+  if (!s || isPristineState(s)) {
     for (const k of [IDB_BACKUP_KEY, IDB_BACKUP2_KEY]) {
       const b = await idbGet<string>(k).catch(() => null);
-      s = typeof b === 'string' ? parseState(b) : null;
-      if (s) {
+      const bs = typeof b === 'string' ? parseState(b) : null;
+      if (!bs) continue;
+      if (!isPristineState(bs)) {
+        s = bs; // 활동 데이터가 있는 백업 — 즉시 채택
         fromBackup = true;
         break;
+      }
+      if (!s) {
+        s = bs; // 백업도 무활동 — 미러 부재/손상일 때만 채택하고, 더 나은 세대를 계속 탐색
+        fromBackup = true;
       }
     }
   }
