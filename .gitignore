@@ -13,3 +13,17 @@ node_modules/
 web/test-results/
 web/playwright-report/
 web/playwright/.cache/
+
+# 빌드 캐시
+web/coverage/
+*.tsbuildinfo
+test-results/
+
+# 수집 콘텐츠(저작권 원문) — 추적 제외. 부모 .gitignore 의 hub/* 규칙은 서브모듈
+# 경계 때문에 무효라, 실효 지점은 여기(hub repo)다. (감사 2026-07-16)
+_읽을거리/latest.json
+_읽을거리/daily/
+_읽을거리/seen.json
+_증시/latest.json
+_증시/daily/
+_증시/seen.json

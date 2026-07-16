@@ -1,3 +1,4 @@
+#!/usr/bin/env sh
 # web/ 변경이 스테이징됐을 때만 품질 게이트를 돈다.
 # (문서·serve.js·수집물만 커밋하면 통과 — web 무관 커밋을 막지 않는다.)
 changed=$(git diff --cached --name-only --diff-filter=ACM)
