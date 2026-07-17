@@ -13,6 +13,7 @@ import {
   resizeBlock,
   togglePin,
   addBlock,
+  addOrMergeBlock,
   removeBlock,
   resetDay,
   snap,
@@ -199,6 +200,25 @@ describe('dayPlans CRUD(§6) — 자동초안 스냅샷·시간박기·핀·리�
     resetDay(s, DS);
     expect(s.dayPlans![DS]!.blocks).toHaveLength(1);
     expect(s.dayPlans![DS]!.blocks[0]!.pinned).toBe(true);
+  });
+
+  it('addOrMergeBlock: 같은 sid|type 없으면 추가, 있으면 min·챕터 병합(§6-3)', () => {
+    const s = seed();
+    const res = schedule(s);
+    // 자동초안에 없는 유형(백지)으로 — 첫 add는 신규, 둘째는 병합.
+    const r1 = addOrMergeBlock(s, res, DS, { type: 'blank', sid: 's1', name: '물리', min: 60, chapters: ['1장'] });
+    expect(r1.merged).toBe(false);
+    const r2 = addOrMergeBlock(s, res, DS, { type: 'blank', sid: 's1', name: '물리', min: 30, chapters: ['2장'] });
+    expect(r2.merged).toBe(true);
+    expect(r2.block.id).toBe(r1.block.id); // 같은 블록에 병합
+    expect(r2.block.min).toBe(90); // 60+30
+    expect(r2.block.chapters).toEqual(['1장', '2장']);
+    // 다른 type은 별도 블록
+    const r3 = addOrMergeBlock(s, res, DS, { type: 'mock', sid: 'mock', name: '모의', min: 20 });
+    expect(r3.merged).toBe(false);
+    // 자동초안이 이미 배치한 유형(집중/new)에 add하면 그 블록에 병합된다(완료 충돌 방지).
+    const r4 = addOrMergeBlock(s, res, DS, { type: 'new', sid: 's1', name: '물리', min: 30 });
+    expect(r4.merged).toBe(true);
   });
 
   it('removeBlock: auto 모드 날엔 무동작(수동만 삭제)', () => {

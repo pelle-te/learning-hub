@@ -20,6 +20,7 @@ import {
   unplaceBlock,
   resizeBlock,
   togglePin,
+  addOrMergeBlock,
   removeBlock,
   resetDay,
   SNAP,
@@ -76,6 +77,9 @@ export function DayPlanner({
   const [draft, setDraft] = useState('');
   const [inboxDraft, setInboxDraft] = useState('');
   const [repeatMode, setRepeatMode] = useState<'none' | 'daily' | 'weekly'>('none'); // +할일 반복 모드
+  const [taskSid, setTaskSid] = useState(''); // +할일 과목 링크(선택)
+  const [blockSid, setBlockSid] = useState(''); // +블록 대상 과목
+  const [blockType, setBlockType] = useState<'new' | 'rev' | 'anki' | 'blank' | 'mock'>('new');
 
   const date = parseISO(ds);
   const wd = date.getDay();
@@ -162,11 +166,57 @@ export function DayPlanner({
     ui.toast(`${toHM(at)}에 배치`, 'ok');
   };
 
+  // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 과목·유형 픽 → addOrMergeBlock(같은 sid|type 병합).
+  const namedItems = state.items.filter((it) => it.name);
+  const ML = state.moduleLen || 120;
+  const BLOCK_MIN: Record<string, number> = {
+    new: ML,
+    rev: Math.max(15, Math.round(ML * 0.25)),
+    anki: 20,
+    blank: Math.max(30, Math.round(ML * 0.4)),
+    mock: ML,
+  };
+  const BLOCK_TYPES = [
+    { t: 'new', label: '집중' },
+    { t: 'rev', label: '복습' },
+    { t: 'anki', label: 'Anki' },
+    { t: 'blank', label: '백지' },
+    { t: 'mock', label: '모의' },
+  ] as const;
+
   const addFreeTask = () => {
     const title = draft.trim();
     if (!title) return;
-    mutate((st) => addTask(st, { title, ds, repeat: repeatMode === 'none' ? undefined : repeatMode }));
+    const linked = taskSid ? namedItems.find((it) => it.id === taskSid) : undefined;
+    mutate((st) =>
+      addTask(st, {
+        title,
+        ds,
+        sid: taskSid || undefined,
+        color: linked?.color,
+        repeat: repeatMode === 'none' ? undefined : repeatMode,
+      }),
+    );
     setDraft('');
+  };
+  const addStudyBlock = () => {
+    const isMock = blockType === 'mock';
+    const sid = isMock ? 'mock' : blockSid || namedItems[0]?.id;
+    if (!isMock && !sid) return;
+    const item = namedItems.find((it) => it.id === sid);
+    const name = isMock ? '모의시험' : item?.name || '과목';
+    const merged = blocksForDay(state, res, ds).some((b) => b.sid === sid && b.type === blockType);
+    mutate((st) =>
+      addOrMergeBlock(st, res, ds, {
+        type: blockType,
+        sid: sid!,
+        name,
+        color: isMock ? '#b794f6' : item?.color,
+        min: BLOCK_MIN[blockType]!,
+        chapters: [],
+      }),
+    );
+    ui.toast(`${name} · ${BLOCK_TYPES.find((x) => x.t === blockType)!.label} 블록 ${merged ? '병합' : '추가'}`, 'ok');
   };
   const REPEAT_NEXT = { none: 'daily', daily: 'weekly', weekly: 'none' } as const;
   const REPEAT_LABEL = { none: '🔁', daily: '🔁일', weekly: '🔁주' } as const;
@@ -184,27 +234,78 @@ export function DayPlanner({
   const pullToDay = (id: string) => mutate((st) => updateTask(st, id, { ds })); // 인박스 → 이 날 트레이
 
   const trayAdder = (
-    <div className={s.addRow}>
-      <input
-        className={s.addInput}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && addFreeTask()}
-        placeholder="+ 할 일 (예: 과제 제출)"
-        aria-label="자유 할 일 추가"
-      />
-      <button
-        type="button"
-        className={`${s.addBtn}${repeatMode !== 'none' ? ' ' + s.repeatOn : ''}`}
-        onClick={() => setRepeatMode((m) => REPEAT_NEXT[m])}
-        title={REPEAT_TITLE[repeatMode]}
-        aria-label={`반복: ${repeatMode === 'none' ? '없음' : repeatMode === 'daily' ? '매일' : '매주'}`}
-      >
-        {REPEAT_LABEL[repeatMode]}
-      </button>
-      <button type="button" className={s.addBtn} onClick={addFreeTask} aria-label="할 일 추가">
-        ＋
-      </button>
+    <div className={s.addWrap}>
+      <div className={s.addRow}>
+        <input
+          className={s.addInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addFreeTask()}
+          placeholder="+ 할 일 (예: 과제 제출)"
+          aria-label="자유 할 일 추가"
+        />
+        {namedItems.length > 0 && (
+          <select
+            className={s.addSel}
+            value={taskSid}
+            onChange={(e) => setTaskSid(e.target.value)}
+            aria-label="할 일 연결 과목(선택)"
+            title="연결 과목(선택) — 색·필터용"
+          >
+            <option value="">과목—</option>
+            {namedItems.map((it) => (
+              <option key={it.id} value={it.id}>
+                {it.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          type="button"
+          className={`${s.addBtn}${repeatMode !== 'none' ? ' ' + s.repeatOn : ''}`}
+          onClick={() => setRepeatMode((m) => REPEAT_NEXT[m])}
+          title={REPEAT_TITLE[repeatMode]}
+          aria-label={`반복: ${repeatMode === 'none' ? '없음' : repeatMode === 'daily' ? '매일' : '매주'}`}
+        >
+          {REPEAT_LABEL[repeatMode]}
+        </button>
+        <button type="button" className={s.addBtn} onClick={addFreeTask} aria-label="할 일 추가">
+          ＋
+        </button>
+      </div>
+      {namedItems.length > 0 && (
+        <div className={s.addRow}>
+          {blockType !== 'mock' && (
+            <select
+              className={s.addSel}
+              value={blockSid || namedItems[0]!.id}
+              onChange={(e) => setBlockSid(e.target.value)}
+              aria-label="공부 블록 과목"
+            >
+              {namedItems.map((it) => (
+                <option key={it.id} value={it.id}>
+                  {it.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <select
+            className={s.addSel}
+            value={blockType}
+            onChange={(e) => setBlockType(e.target.value as typeof blockType)}
+            aria-label="공부 블록 유형"
+          >
+            {BLOCK_TYPES.map((x) => (
+              <option key={x.t} value={x.t}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+          <button type="button" className={s.addBlockBtn} onClick={addStudyBlock} title="공부 블록 추가(트레이로)">
+            + 블록
+          </button>
+        </div>
+      )}
     </div>
   );
 

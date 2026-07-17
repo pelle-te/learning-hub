@@ -106,6 +106,27 @@ export function addBlock(
   dp.blocks.push(b);
   return b;
 }
+
+/** 공부 블록 추가하되 같은 sid|type 블록이 이미 있으면 min·챕터 병합(§6-3 완료 충돌 방지 —
+ *  완료 키가 sid|type이라 같은 날 2블록이면 한 체크가 둘 다 토글되는 충돌이 난다). 반환=대상 블록. */
+export function addOrMergeBlock(
+  state: AppState,
+  res: ScheduleResult,
+  ds: string,
+  block: Omit<PlacedBlock, 'id'>,
+): { block: PlacedBlock; merged: boolean } {
+  const dp = ensureManual(state, res, ds);
+  const ex = dp.blocks.find((b) => b.sid === block.sid && b.type === block.type);
+  if (ex) {
+    ex.min += block.min;
+    if (block.chapters) {
+      ex.chapters = ex.chapters || [];
+      for (const c of block.chapters) if (!ex.chapters.includes(c)) ex.chapters.push(c);
+    }
+    return { block: ex, merged: true };
+  }
+  return { block: addBlock(state, res, ds, block), merged: false };
+}
 /** 블록 삭제 — 수동인 날만. */
 export function removeBlock(state: AppState, ds: string, id: string): void {
   const dp = state.dayPlans?.[ds];
