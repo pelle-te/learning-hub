@@ -415,6 +415,60 @@
   outline-offset: -2px;
   z-index: 8;
 }
+.card.cardSel {
+  outline: 2px solid var(--acc);
+  outline-offset: -1px;
+  z-index: 9;
+}
+
+/* 인라인 편집 바(§6-2) — 선택 카드의 시각/분 정밀 입력. 타임라인 아래 한 줄. */
+.editBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--acc-glow);
+}
+.editName {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-right: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+.editField {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.editField input {
+  padding: 5px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.editField input[type='number'] {
+  width: 62px;
+}
+.editField input:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
 .cardStudy {
   background: color-mix(in srgb, var(--seg, var(--acc)) 20%, var(--panel));
   border-left: 3px solid var(--seg, var(--acc));

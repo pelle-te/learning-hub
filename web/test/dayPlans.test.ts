@@ -16,6 +16,7 @@ import {
   addOrMergeBlock,
   removeBlock,
   resetDay,
+  resolveSlot,
   snap,
 } from '@/lib/dayPlans';
 import type { AppState, Day } from '@/lib/types';
@@ -118,6 +119,28 @@ describe('dayPlans CRUD(§6) — 자동초안 스냅샷·시간박기·핀·리�
   it('snap: 15분 격자로 반올림', () => {
     expect(snap(547)).toBe(540);
     expect(snap(548)).toBe(555);
+  });
+
+  it('resolveSlot: 안 겹치면 그대로, 겹치면 다음 빈칸으로 밀기, 안 들어가면 null', () => {
+    // 빈 날 → 요청 그대로(스냅).
+    expect(resolveSlot([], 547, 60)).toBe(540);
+    // 09:00–12:00 수업 점유, 09:30에 60분 드롭 → 12:00로 밀림.
+    expect(resolveSlot([[540, 720]], 570, 60)).toBe(720);
+    // 두 점유 사이를 연쇄로 밀기: 09–10, 10–11 점유, 09:00에 60분 → 11:00.
+    expect(
+      resolveSlot(
+        [
+          [540, 600],
+          [600, 660],
+        ],
+        540,
+        60,
+      ),
+    ).toBe(660);
+    // 하루 끝(23:30)에 60분 → 마지막 가능 슬롯(23:00)으로 클램프(fit).
+    expect(resolveSlot([], 1410, 60)).toBe(1380);
+    // 23:00–24:00 점유 상태에서 60분 → 밀면 자정 넘겨 거부(null).
+    expect(resolveSlot([[1380, 1440]], 1380, 60)).toBeNull();
   });
 
   it('snapshotAutoDraft: 그날 자동 items를 결정론 id의 블록으로 굳힌다(start 미부여)', () => {

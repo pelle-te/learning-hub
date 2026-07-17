@@ -23,6 +23,7 @@ import {
   addOrMergeBlock,
   removeBlock,
   resetDay,
+  resolveSlot,
   SNAP,
 } from '@/lib/dayPlans';
 import {
@@ -80,6 +81,7 @@ export function DayPlanner({
   const [taskSid, setTaskSid] = useState(''); // +할일 과목 링크(선택)
   const [blockSid, setBlockSid] = useState(''); // +블록 대상 과목
   const [blockType, setBlockType] = useState<'new' | 'rev' | 'anki' | 'blank' | 'mock'>('new');
+  const [selId, setSelId] = useState<string | null>(null); // 인라인 편집 대상 카드(시각/분 입력)
 
   const date = parseISO(ds);
   const wd = date.getDay();
@@ -122,19 +124,25 @@ export function DayPlanner({
   const over = capMin > 0 && planMin > capMin + 1;
 
   /* ── 드래그 시간박기 ─────────────────────────────────────────────── */
-  const onDragStart = (kind: DragKind, id: string) => (e: React.DragEvent) => {
-    e.dataTransfer.setData(MIME, JSON.stringify({ kind, id }));
+  const onDragStart = (kind: DragKind, id: string, dur: number) => (e: React.DragEvent) => {
+    e.dataTransfer.setData(MIME, JSON.stringify({ kind, id, dur }));
     e.dataTransfer.effectAllowed = 'move';
   };
-  const readDrag = (e: React.DragEvent): { kind: DragKind; id: string } | null => {
+  const readDrag = (e: React.DragEvent): { kind: DragKind; id: string; dur: number } | null => {
     const raw = e.dataTransfer.getData(MIME);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as { kind: DragKind; id: string };
+      return JSON.parse(raw) as { kind: DragKind; id: string; dur: number };
     } catch {
       return null;
     }
   };
+  // 점유 구간(고정 일과 + 타임박스 카드) — 겹침 해소용. excludeId=드래그/이동 대상은 제외(자기와 안 겹침).
+  const occupiedExcept = (excludeId?: string): [number, number][] => [
+    ...timed.filter((b) => b.id !== excludeId).map((b): [number, number] => [b.start!, b.start! + b.min]),
+    ...timedTasks.filter((t) => t.id !== excludeId).map((t): [number, number] => [t.start!, t.start! + (t.min || 30)]),
+    ...routine.map((b): [number, number] => [toMinLocal(b.start), toMinLocal(b.end)]),
+  ];
   const onTimelineDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const d = readDrag(e);
@@ -142,9 +150,13 @@ export function DayPlanner({
     if (!d || !el) return;
     const rect = el.getBoundingClientRect();
     const frac = clamp((e.clientY - rect.top) / rect.height, 0, 1);
-    const min = lo + frac * span;
-    if (d.kind === 'block') mutate((st) => placeBlock(st, res, ds, d.id, min));
-    else mutate((st) => placeTask(st, d.id, ds, Math.round(min / SNAP) * SNAP));
+    const at = resolveSlot(occupiedExcept(d.id), lo + frac * span, d.dur, 1440); // §6-2 밀거나 거부
+    if (at == null) {
+      ui.toast('그 시간대에 빈 자리가 없어요 — 다른 시간에 놓아보세요.', 'warn');
+      return;
+    }
+    if (d.kind === 'block') mutate((st) => placeBlock(st, res, ds, d.id, at));
+    else mutate((st) => placeTask(st, d.id, ds, at));
   };
   const onTrayDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -157,12 +169,16 @@ export function DayPlanner({
     if (e.dataTransfer.types.includes(MIME)) e.preventDefault();
   };
 
-  // 키보드 시간박기 대안(§6-4) — 트레이 항목을 첫 가용창 시작에 박는다(드래그 없이).
+  // 키보드 시간박기 대안(§6-4) — 트레이 항목을 첫 가용창 시작에 박되 겹침 해소로 빈칸을 찾는다.
   const placeFirstFree = (kind: DragKind, id: string, min: number) => {
     const win = windows.find((w) => w.e - w.s >= Math.min(min, SNAP)) ?? windows[0];
-    const at = win ? win.s : wake0;
+    const at = resolveSlot(occupiedExcept(id), win ? win.s : wake0, min, 1440);
+    if (at == null) {
+      ui.toast('빈 시간이 없어요 — 가용시간을 늘리거나 다른 걸 옮기세요.', 'warn');
+      return;
+    }
     if (kind === 'block') mutate((st) => placeBlock(st, res, ds, id, at));
-    else mutate((st) => placeTask(st, id, ds, Math.round(at / SNAP) * SNAP));
+    else mutate((st) => placeTask(st, id, ds, at));
     ui.toast(`${toHM(at)}에 배치`, 'ok');
   };
 
@@ -309,6 +325,56 @@ export function DayPlanner({
     </div>
   );
 
+  // 인라인 시각/분 편집(§6-2) — 타임박스 카드 클릭 시 하단 편집 바로 정밀 입력(드래그/키보드 대안).
+  const selBlock = selId ? timed.find((b) => b.id === selId) : undefined;
+  const selTask = selId && !selBlock ? timedTasks.find((t) => t.id === selId) : undefined;
+  const selStart = selBlock ? selBlock.start! : selTask ? selTask.start! : 0;
+  const selMin = selBlock ? selBlock.min : selTask ? selTask.min || 30 : 30;
+  const setSelStart = (m: number) => {
+    if (selBlock) mutate((st) => placeBlock(st, res, ds, selBlock.id, m));
+    else if (selTask) mutate((st) => placeTask(st, selTask.id, ds, Math.round(m / SNAP) * SNAP));
+  };
+  const setSelMin = (m: number) => {
+    const mm = Math.max(SNAP, Math.round(m / SNAP) * SNAP);
+    if (selBlock) mutate((st) => resizeBlock(st, res, ds, selBlock.id, mm));
+    else if (selTask) mutate((st) => updateTaskMin(st, selTask.id, mm));
+  };
+  const editBar = (selBlock || selTask) && (
+    <div className={s.editBar}>
+      <span className={s.editName}>{selBlock ? selBlock.name : selTask!.title}</span>
+      <label className={s.editField}>
+        시작
+        <input
+          type="time"
+          value={toHM(selStart)}
+          onChange={(e) => {
+            const [h, m] = e.target.value.split(':').map(Number);
+            if (Number.isFinite(h) && Number.isFinite(m)) setSelStart(h! * 60 + m!);
+          }}
+          aria-label="시작 시각"
+        />
+      </label>
+      <label className={s.editField}>
+        길이
+        <input
+          type="number"
+          min={15}
+          step={15}
+          value={selMin}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) setSelMin(n);
+          }}
+          aria-label="길이(분)"
+        />
+        분
+      </label>
+      <Button sm variant="ghost" onClick={() => setSelId(null)}>
+        닫기
+      </Button>
+    </div>
+  );
+
   return (
     <section className={s.wrap} aria-label={`${DOW_MON[(wd + 6) % 7]} 일일 계획`}>
       <div className={s.head}>
@@ -353,189 +419,196 @@ export function DayPlanner({
           actions={trayAdder}
         />
       ) : (
-        <div className={s.grid2}>
-          {/* ── 좌: 투두 트레이 ── */}
-          <div className={s.tray} onDragOver={allowDrop} onDrop={onTrayDrop} aria-label="미지정 트레이">
-            <div className={s.trayHead}>미지정 · 끌어서 시간박기</div>
-            {trayAdder}
-            <div className={s.trayList}>
-              {untimed.length === 0 && trayTasks.length === 0 && (
-                <div className={s.trayEmpty}>모두 시간박기 완료 🎉</div>
-              )}
-              {untimed.map((b) => (
-                <TrayRow
-                  key={b.id}
-                  title={b.name}
-                  meta={TAG[b.type].label}
-                  color={b.color}
-                  min={b.min}
-                  done={isDone(state, ds, b.sid, b.type)}
-                  onToggle={(on) => toggleDone(ds, b.sid, b.type, b.min, on)}
-                  onPlace={() => placeFirstFree('block', b.id, b.min)}
-                  onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
-                  onDragStart={onDragStart('block', b.id)}
-                />
-              ))}
-              {trayTasks.map((t) => (
-                <TrayRow
-                  key={t.id}
-                  title={t.title}
-                  meta="할 일"
-                  color={t.color}
-                  min={t.min}
-                  free
-                  repeat={t.repeat}
-                  done={!!t.done}
-                  onToggle={(on) => mutate((st) => toggleTaskDone(st, t.id, on))}
-                  onPlace={() => placeFirstFree('task', t.id, t.min || 30)}
-                  onDelete={() => mutate((st) => removeTask(st, t.id))}
-                  onDragStart={onDragStart('task', t.id)}
-                />
-              ))}
-            </div>
-
-            {/* 언젠가(인박스) 서랍 — 날짜 미정 할 일. 이 날로 끌어오거나 배정. */}
-            <details className={s.inbox} open={inbox.length > 0}>
-              <summary className={s.inboxHead}>언젠가 {inbox.length > 0 && <b>{inbox.length}</b>}</summary>
-              <div className={s.addRow}>
-                <input
-                  className={s.addInput}
-                  value={inboxDraft}
-                  onChange={(e) => setInboxDraft(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addInboxTask()}
-                  placeholder="+ 날짜 미정 할 일"
-                  aria-label="언젠가 할 일 추가"
-                />
-                <button type="button" className={s.addBtn} onClick={addInboxTask} aria-label="언젠가 할 일 추가">
-                  ＋
-                </button>
-              </div>
-              <div className={s.inboxList}>
-                {inbox.map((t) => (
-                  <div
+        <>
+          <div className={s.grid2}>
+            {/* ── 좌: 투두 트레이 ── */}
+            <div className={s.tray} onDragOver={allowDrop} onDrop={onTrayDrop} aria-label="미지정 트레이">
+              <div className={s.trayHead}>미지정 · 끌어서 시간박기</div>
+              {trayAdder}
+              <div className={s.trayList}>
+                {untimed.length === 0 && trayTasks.length === 0 && (
+                  <div className={s.trayEmpty}>모두 시간박기 완료 🎉</div>
+                )}
+                {untimed.map((b) => (
+                  <TrayRow
+                    key={b.id}
+                    title={b.name}
+                    meta={TAG[b.type].label}
+                    color={b.color}
+                    min={b.min}
+                    done={isDone(state, ds, b.sid, b.type)}
+                    onToggle={(on) => toggleDone(ds, b.sid, b.type, b.min, on)}
+                    onPlace={() => placeFirstFree('block', b.id, b.min)}
+                    onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
+                    onDragStart={onDragStart('block', b.id, b.min)}
+                  />
+                ))}
+                {trayTasks.map((t) => (
+                  <TrayRow
                     key={t.id}
-                    className={s.trayRow}
-                    draggable
-                    onDragStart={onDragStart('task', t.id)}
-                    style={t.color ? ({ ['--seg']: t.color } as React.CSSProperties) : undefined}
-                  >
-                    <span className={s.grabDot} aria-hidden="true" />
-                    <span className={s.rowName}>{t.title}</span>
-                    <button
-                      type="button"
-                      className={s.tool}
-                      onClick={() => pullToDay(t.id)}
-                      title="이 날로 가져오기"
-                      aria-label={`${t.title} 이 날로 가져오기`}
-                    >
-                      ↙
-                    </button>
-                    <button
-                      type="button"
-                      className={s.tool}
-                      onClick={() => mutate((st) => removeTask(st, t.id))}
-                      title="삭제"
-                      aria-label={`${t.title} 삭제`}
-                    >
-                      ✕
-                    </button>
-                  </div>
+                    title={t.title}
+                    meta="할 일"
+                    color={t.color}
+                    min={t.min}
+                    free
+                    repeat={t.repeat}
+                    done={!!t.done}
+                    onToggle={(on) => mutate((st) => toggleTaskDone(st, t.id, on))}
+                    onPlace={() => placeFirstFree('task', t.id, t.min || 30)}
+                    onDelete={() => mutate((st) => removeTask(st, t.id))}
+                    onDragStart={onDragStart('task', t.id, t.min || 30)}
+                  />
                 ))}
               </div>
-            </details>
-          </div>
 
-          {/* ── 우: 하루 타임라인 ── */}
-          <div className={s.timeline}>
-            <div className={s.gutter}>
-              {ticks.map((m) => (
-                <span key={m} className={s.tick} style={{ top: `${pos(m)}%` }}>
-                  {toHM(m)}
-                </span>
-              ))}
+              {/* 언젠가(인박스) 서랍 — 날짜 미정 할 일. 이 날로 끌어오거나 배정. */}
+              <details className={s.inbox} open={inbox.length > 0}>
+                <summary className={s.inboxHead}>언젠가 {inbox.length > 0 && <b>{inbox.length}</b>}</summary>
+                <div className={s.addRow}>
+                  <input
+                    className={s.addInput}
+                    value={inboxDraft}
+                    onChange={(e) => setInboxDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addInboxTask()}
+                    placeholder="+ 날짜 미정 할 일"
+                    aria-label="언젠가 할 일 추가"
+                  />
+                  <button type="button" className={s.addBtn} onClick={addInboxTask} aria-label="언젠가 할 일 추가">
+                    ＋
+                  </button>
+                </div>
+                <div className={s.inboxList}>
+                  {inbox.map((t) => (
+                    <div
+                      key={t.id}
+                      className={s.trayRow}
+                      draggable
+                      onDragStart={onDragStart('task', t.id, t.min || 30)}
+                      style={t.color ? ({ ['--seg']: t.color } as React.CSSProperties) : undefined}
+                    >
+                      <span className={s.grabDot} aria-hidden="true" />
+                      <span className={s.rowName}>{t.title}</span>
+                      <button
+                        type="button"
+                        className={s.tool}
+                        onClick={() => pullToDay(t.id)}
+                        title="이 날로 가져오기"
+                        aria-label={`${t.title} 이 날로 가져오기`}
+                      >
+                        ↙
+                      </button>
+                      <button
+                        type="button"
+                        className={s.tool}
+                        onClick={() => mutate((st) => removeTask(st, t.id))}
+                        title="삭제"
+                        aria-label={`${t.title} 삭제`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </details>
             </div>
-            <div
-              ref={colRef}
-              className={`${s.col} ${COL_CLASS}`}
-              onDragOver={allowDrop}
-              onDrop={onTimelineDrop}
-              aria-label="타임라인 — 여기로 끌어 시간박기"
-            >
-              {ticks.map((m) => (
-                <span key={m} className={s.grid} style={{ top: `${pos(m)}%` }} />
-              ))}
-              {windows.map((w, i) => (
-                <span
-                  key={i}
-                  className={s.win}
-                  style={{ top: `${pos(w.s)}%`, height: `${Math.max(0, pos(w.e) - pos(w.s))}%` }}
-                  aria-hidden="true"
-                />
-              ))}
-              {routine.map((b, i) => {
-                const bs = toMinLocal(b.start);
-                const be = toMinLocal(b.end);
-                if (be <= lo || bs >= hi || be <= bs) return null;
-                return (
-                  <div
+
+            {/* ── 우: 하루 타임라인 ── */}
+            <div className={s.timeline}>
+              <div className={s.gutter}>
+                {ticks.map((m) => (
+                  <span key={m} className={s.tick} style={{ top: `${pos(m)}%` }}>
+                    {toHM(m)}
+                  </span>
+                ))}
+              </div>
+              <div
+                ref={colRef}
+                className={`${s.col} ${COL_CLASS}`}
+                onDragOver={allowDrop}
+                onDrop={onTimelineDrop}
+                aria-label="타임라인 — 여기로 끌어 시간박기"
+              >
+                {ticks.map((m) => (
+                  <span key={m} className={s.grid} style={{ top: `${pos(m)}%` }} />
+                ))}
+                {windows.map((w, i) => (
+                  <span
                     key={i}
-                    className={s.occ}
-                    style={{ top: `${pos(bs)}%`, height: `${Math.max(1.6, pos(be) - pos(bs))}%` }}
-                  >
-                    <span className={s.occName}>{b.name}</span>
-                  </div>
-                );
-              })}
-              {timed.map((b) => (
-                <TimedCard
-                  key={b.id}
-                  kind="block"
-                  title={b.name}
-                  meta={TAG[b.type].label}
-                  color={b.color}
-                  start={b.start!}
-                  min={b.min}
-                  spanMin={span}
-                  pinned={b.pinned}
-                  done={isDone(state, ds, b.sid, b.type)}
-                  pos={pos}
-                  onDragStart={onDragStart('block', b.id)}
-                  onMove={(delta) => mutate((st) => placeBlock(st, res, ds, b.id, b.start! + delta))}
-                  onSetMin={(m) => mutate((st) => resizeBlock(st, res, ds, b.id, m))}
-                  onUnplace={() => mutate((st) => unplaceBlock(st, res, ds, b.id))}
-                  onPin={() => mutate((st) => togglePin(st, res, ds, b.id))}
-                  onToggle={(on) => toggleDone(ds, b.sid, b.type, b.min, on)}
-                  onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
-                />
-              ))}
-              {timedTasks.map((t) => (
-                <TimedCard
-                  key={t.id}
-                  kind="task"
-                  title={t.title}
-                  meta="할 일"
-                  color={t.color}
-                  start={t.start!}
-                  min={t.min || 30}
-                  spanMin={span}
-                  done={!!t.done}
-                  pos={pos}
-                  onDragStart={onDragStart('task', t.id)}
-                  onMove={(delta) => mutate((st) => placeTask(st, t.id, ds, (t.start || 0) + delta))}
-                  onSetMin={(m) => mutate((st) => updateTaskMin(st, t.id, Math.max(SNAP, m)))}
-                  onUnplace={() => mutate((st) => unplaceTask(st, t.id))}
-                  onToggle={(on) => mutate((st) => toggleTaskDone(st, t.id, on))}
-                  onDelete={() => mutate((st) => removeTask(st, t.id))}
-                />
-              ))}
-              {isToday && nowMin >= lo && nowMin <= hi && (
-                <span className={s.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true">
-                  <span className={s.nowCap}>{toHM(nowMin)}</span>
-                </span>
-              )}
+                    className={s.win}
+                    style={{ top: `${pos(w.s)}%`, height: `${Math.max(0, pos(w.e) - pos(w.s))}%` }}
+                    aria-hidden="true"
+                  />
+                ))}
+                {routine.map((b, i) => {
+                  const bs = toMinLocal(b.start);
+                  const be = toMinLocal(b.end);
+                  if (be <= lo || bs >= hi || be <= bs) return null;
+                  return (
+                    <div
+                      key={i}
+                      className={s.occ}
+                      style={{ top: `${pos(bs)}%`, height: `${Math.max(1.6, pos(be) - pos(bs))}%` }}
+                    >
+                      <span className={s.occName}>{b.name}</span>
+                    </div>
+                  );
+                })}
+                {timed.map((b) => (
+                  <TimedCard
+                    key={b.id}
+                    kind="block"
+                    title={b.name}
+                    meta={TAG[b.type].label}
+                    color={b.color}
+                    start={b.start!}
+                    min={b.min}
+                    spanMin={span}
+                    pinned={b.pinned}
+                    done={isDone(state, ds, b.sid, b.type)}
+                    pos={pos}
+                    selected={selId === b.id}
+                    onSelect={() => setSelId((v) => (v === b.id ? null : b.id))}
+                    onDragStart={onDragStart('block', b.id, b.min)}
+                    onMove={(delta) => mutate((st) => placeBlock(st, res, ds, b.id, b.start! + delta))}
+                    onSetMin={(m) => mutate((st) => resizeBlock(st, res, ds, b.id, m))}
+                    onUnplace={() => mutate((st) => unplaceBlock(st, res, ds, b.id))}
+                    onPin={() => mutate((st) => togglePin(st, res, ds, b.id))}
+                    onToggle={(on) => toggleDone(ds, b.sid, b.type, b.min, on)}
+                    onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
+                  />
+                ))}
+                {timedTasks.map((t) => (
+                  <TimedCard
+                    key={t.id}
+                    kind="task"
+                    title={t.title}
+                    meta="할 일"
+                    color={t.color}
+                    start={t.start!}
+                    min={t.min || 30}
+                    spanMin={span}
+                    done={!!t.done}
+                    pos={pos}
+                    selected={selId === t.id}
+                    onSelect={() => setSelId((v) => (v === t.id ? null : t.id))}
+                    onDragStart={onDragStart('task', t.id, t.min || 30)}
+                    onMove={(delta) => mutate((st) => placeTask(st, t.id, ds, (t.start || 0) + delta))}
+                    onSetMin={(m) => mutate((st) => updateTaskMin(st, t.id, Math.max(SNAP, m)))}
+                    onUnplace={() => mutate((st) => unplaceTask(st, t.id))}
+                    onToggle={(on) => mutate((st) => toggleTaskDone(st, t.id, on))}
+                    onDelete={() => mutate((st) => removeTask(st, t.id))}
+                  />
+                ))}
+                {isToday && nowMin >= lo && nowMin <= hi && (
+                  <span className={s.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true">
+                    <span className={s.nowCap}>{toHM(nowMin)}</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+          {editBar}
+        </>
       )}
     </section>
   );
@@ -619,7 +692,9 @@ function TimedCard({
   spanMin,
   pinned,
   done,
+  selected,
   pos,
+  onSelect,
   onDragStart,
   onMove,
   onSetMin,
@@ -637,7 +712,9 @@ function TimedCard({
   spanMin: number;
   pinned?: boolean;
   done: boolean;
+  selected?: boolean;
   pos: (m: number) => number;
+  onSelect?: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onMove: (delta: number) => void;
   onSetMin: (min: number) => void;
@@ -690,14 +767,16 @@ function TimedCard({
 
   return (
     <div
-      className={`${s.card} ${kind === 'task' ? s.cardTask : s.cardStudy}${done ? ' ' + s.cardDone : ''}${compact ? ' ' + s.compact : ''}`}
+      className={`${s.card} ${kind === 'task' ? s.cardTask : s.cardStudy}${done ? ' ' + s.cardDone : ''}${compact ? ' ' + s.compact : ''}${selected ? ' ' + s.cardSel : ''}`}
       style={{ top: `${top}%`, height: `${height}%`, ...(color ? ({ ['--seg']: color } as React.CSSProperties) : {}) }}
       draggable
       onDragStart={onDragStart}
+      onClick={() => onSelect?.()}
       tabIndex={0}
       role="group"
+      aria-pressed={selected}
       onKeyDown={onKeyDown}
-      aria-label={`${title} · ${meta} ${toHM(start)}–${toHM(start + min)}. Alt+화살표로 이동, Alt+Shift로 길이.`}
+      aria-label={`${title} · ${meta} ${toHM(start)}–${toHM(start + min)}. 클릭=시각/분 편집, Alt+화살표로 이동, Alt+Shift로 길이.`}
       data-tip={`${title}\n${meta} · ${toHM(start)}–${toHM(start + min)}`}
     >
       <div className={s.cardMain}>
@@ -711,7 +790,7 @@ function TimedCard({
           </span>
         )}
       </div>
-      <div className={s.cardTools}>
+      <div className={s.cardTools} onClick={(e) => e.stopPropagation()}>
         <button type="button" className={s.tool} onClick={() => onToggle(!done)} title="완료" aria-label="완료 토글">
           {done ? '↺' : '✓'}
         </button>

@@ -277,9 +277,9 @@ export default function Items() {
                   <Button
                     variant="ghost"
                     onClick={() => setShowImport(true)}
-                    title="옵시디언 볼트 폴더를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
+                    title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
                   >
-                    📁 볼트에서 불러오기
+                    📁 볼트/Anki에서 불러오기
                   </Button>
                 </>
               }

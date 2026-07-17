@@ -1,16 +1,17 @@
 /* ============================================================
-   VaultImport — 과목 세그먼트 인라인 '볼트에서 불러오기'(계획개편 §5-2).
-   연동 탭 VaultPanel과 같은 lib(pickAndScanVault·chaptersFromVault·makeItem)·같은 쿼리 캐시(['vault'])를
-   호출한다(코드 이동 아님 · 두 곳에서 같은 훅 호출). 여기선 '연결→과목 추가'만 — 해제/트리 상세는 연동 탭 소유.
-   탭 이동 없이 과목 세그먼트에서 바로 볼트 과목을 학습 항목으로 넣는다(빈 상태 /integrations 유도 대체).
+   VaultImport — 과목 세그먼트 인라인 '볼트/Anki에서 불러오기'(계획개편 §5-2).
+   연동 탭 VaultPanel·AnkiPanel과 같은 lib(pickAndScanVault·pickAndScanAnki·chaptersFromVault·makeItem)·
+   같은 쿼리 캐시(['vault']·['ankiFile']·['vaultHandle'])를 호출한다(코드 이동 아님 · 두 곳에서 같은 훅).
+   여기선 '연결→항목 추가'만 — 해제/실시간 due/트리 상세는 연동 탭 소유. 탭 이동 없이 과목을 넣는다.
 ============================================================ */
 import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject } from '@/lib/vault';
+import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
-import { makeItem } from '@/lib/utils';
+import { makeItem, jsq } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import c from './Items.module.css';
@@ -20,12 +21,13 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   const mutate = useApp((s) => s.mutate);
   const items = useApp((s) => s.state.items);
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
-  const [busy, setBusy] = useState(false);
+  const anki = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
+  const [busy, setBusy] = useState<'' | 'vault' | 'anki'>('');
   const [err, setErr] = useState('');
 
-  const doScan = async () => {
+  const doScanVault = async () => {
     setErr('');
-    setBusy(true);
+    setBusy('vault');
     try {
       const r = await pickAndScanVault();
       if (r) {
@@ -36,7 +38,24 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     } catch (e) {
       setErr((e as Error).message || String(e));
     } finally {
-      setBusy(false);
+      setBusy('');
+    }
+  };
+  const doScanAnki = async () => {
+    setErr('');
+    setBusy('anki');
+    try {
+      const handle = qc.getQueryData<FileSystemDirectoryHandle>(['vaultHandle']);
+      const r = await pickAndScanAnki(handle);
+      if (r) {
+        qc.setQueryData(['ankiFile'], r.scan);
+        qc.setQueryData(['vaultHandle'], r.handle);
+        idbPut('vaultHandle', r.handle);
+      }
+    } catch (e) {
+      setErr((e as Error).message || String(e));
+    } finally {
+      setBusy('');
     }
   };
 
@@ -51,20 +70,40 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     });
     ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 주당 시간·마감을 조정하세요.`, 'ok');
   };
+  const addAnki = (name: string, mins: number) => {
+    const nm = 'Anki: ' + name;
+    if (items.some((x) => x.name === nm)) {
+      ui.toast('이미 추가됨', 'warn');
+      return;
+    }
+    mutate((st) => {
+      st.items.push(makeItem(st.items.length, { source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
+    });
+    ui.toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
+  };
 
   return (
     <div className={ds.card} style={{ marginBottom: 14 }}>
-      <div className={ds.row} style={{ alignItems: 'center' }}>
-        <b style={{ flex: 1 }}>📁 볼트에서 불러오기</b>
-        <Button sm variant="primary" disabled={busy} onClick={doScan}>
-          {busy ? (
+      <div className={ds.row} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <b style={{ flex: 1 }}>📁 볼트 / Anki에서 불러오기</b>
+        <Button sm variant="primary" disabled={!!busy} onClick={doScanVault}>
+          {busy === 'vault' ? (
             <>
               <span className={ds.spin} /> 스캔 중…
             </>
           ) : scan ? (
-            '🔄 다시 스캔'
+            '🔄 볼트 다시 스캔'
           ) : (
             '볼트 폴더 연동'
+          )}
+        </Button>
+        <Button sm disabled={!!busy} onClick={doScanAnki}>
+          {busy === 'anki' ? (
+            <>
+              <span className={ds.spin} /> 스캔 중…
+            </>
+          ) : (
+            '🃏 Anki 카드 스캔'
           )}
         </Button>
         {onClose && (
@@ -74,7 +113,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
         )}
       </div>
       <div className={ds.foot}>
-        전공 폴더를 고르면 과목→챕터를 읽어 바로 학습 항목으로 넣어요. 검증/Anki 상태 상세·연동 해제는 연동 탭에서.
+        볼트=전공 폴더의 과목→챕터. Anki=덱을 '매일 복습' 항목으로. 검증/실시간 due 상세·연동 해제는 연동 탭에서.
         (Chrome/Edge)
       </div>
       {err && (
@@ -102,6 +141,33 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
               );
             })
           )}
+        </div>
+      )}
+      {anki && anki.decks.length > 0 && (
+        <div className={c.vaultList}>
+          {anki.decks.map((d) => {
+            const nm = 'Anki: ' + jsq(d.file);
+            const added = items.some((x) => x.name === nm);
+            return (
+              <div key={d.file} className={c.vaultRow}>
+                <span className={c.vaultName}>🃏 {d.file}</span>
+                <span className={`${ds.tiny} ${ds.muted}`}>{d.cards}장</span>
+                <Button
+                  sm
+                  variant={added ? 'ghost' : 'primary'}
+                  disabled={added}
+                  onClick={() => addAnki(jsq(d.file), Math.max(15, Math.round(d.cards * 0.5)))}
+                >
+                  {added ? '추가됨' : '+ 매일복습'}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {anki && anki.decks.length === 0 && (
+        <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
+          스캔된 Anki 덱이 없어요 — 정본 인덱스나 anki/*.txt 폴더를 확인하세요.
         </div>
       )}
     </div>

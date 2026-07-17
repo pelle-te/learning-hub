@@ -15,6 +15,32 @@ export function snap(min: number): number {
   return Math.round(min / SNAP) * SNAP;
 }
 
+/** 드롭 충돌 해소(§6-2 "겹치면 밀거나 거부") — 요청 시각에서 occupied 구간과 겹치면 그 구간 끝으로 밀고,
+ *  그래도 dayMax를 넘겨 못 들어가면 null(거부). occupied=[start,end][](고정 일과·타임박스 카드, 드래그 대상 제외).
+ *  순수 함수라 단위 테스트 가능 — 컴포넌트는 occupied를 빚어 넘기고 결과 시각으로 placeBlock/placeTask. */
+export function resolveSlot(
+  occupied: [number, number][],
+  requested: number,
+  dur: number,
+  dayMax = 1440,
+): number | null {
+  let s = clamp(snap(requested), 0, Math.max(0, dayMax - dur));
+  const sorted = [...occupied].filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
+  let moved = true;
+  let guard = 0;
+  while (moved && guard++ < 500) {
+    moved = false;
+    for (const [os, oe] of sorted) {
+      if (s < oe && s + dur > os) {
+        // 겹침 → 그 구간 끝으로 밀기
+        s = snap(oe);
+        moved = true;
+      }
+    }
+  }
+  return s + dur <= dayMax ? s : null; // 끝까지 밀어도 안 들어가면 거부
+}
+
 /* ── 자동초안 스냅샷 ──────────────────────────────────────────────────────
    그날 자동 산출(res.days[ds].items)을 PlacedBlock[]로 굳힌다. start 미부여(미지정=트레이) —
    승격 직후엔 layoutDay가 auto-pack하므로 화면 무변, 사용자가 시간박기하면 그 블록만 고정된다.
