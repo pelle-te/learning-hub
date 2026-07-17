@@ -72,4 +72,36 @@ describe('tasks — 자유 할 일 CRUD·선택자(§4-4)', () => {
     expect(openTasksForDay(s, '2026-06-23')).toHaveLength(1); // 미완만
     expect(inboxTasks(s)).toHaveLength(1);
   });
+
+  it('반복(repeat): 완료 시 다음 occurrence를 spawn(daily=+1·weekly=+7)', () => {
+    const s = seed();
+    const d = addTask(s, { title: '매일 스트레칭', ds: '2026-06-23', repeat: 'daily', start: 540 });
+    toggleTaskDone(s, d.id, true);
+    // 원본 완료 + 다음날(06-24) 미완 인스턴스가 생김(시각·반복 승계).
+    const next = s.tasks!.filter((t) => t.title === '매일 스트레칭' && !t.done);
+    expect(next).toHaveLength(1);
+    expect(next[0]!.ds).toBe('2026-06-24');
+    expect(next[0]!.start).toBe(540);
+    expect(next[0]!.repeat).toBe('daily');
+
+    const w = addTask(s, { title: '도서 반납', ds: '2026-06-23', repeat: 'weekly' });
+    toggleTaskDone(s, w.id, true);
+    expect(s.tasks!.some((t) => t.title === '도서 반납' && t.ds === '2026-06-30' && !t.done)).toBe(true);
+  });
+
+  it('반복 멱등: 같은 날 미완 인스턴스가 이미 있으면 중복 spawn 안 함', () => {
+    const s = seed();
+    const d = addTask(s, { title: 'X', ds: '2026-06-23', repeat: 'daily' });
+    toggleTaskDone(s, d.id, true);
+    toggleTaskDone(s, d.id, false);
+    toggleTaskDone(s, d.id, true); // 재완료 — 06-24 인스턴스가 이미 있어 중복 생성 안 함
+    expect(s.tasks!.filter((t) => t.title === 'X' && t.ds === '2026-06-24')).toHaveLength(1);
+  });
+
+  it('비반복 완료는 spawn 없음(회귀)', () => {
+    const s = seed();
+    const t = addTask(s, { title: '일회성', ds: '2026-06-23' });
+    toggleTaskDone(s, t.id, true);
+    expect(s.tasks).toHaveLength(1);
+  });
 });

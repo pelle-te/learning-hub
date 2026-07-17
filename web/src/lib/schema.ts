@@ -173,6 +173,7 @@ export const TaskSchema = z.object({
   done: z.boolean().optional(),
   doneDs: z.string().optional(),
   at: z.number().optional(), // 생성 시각(로그·정렬)
+  repeat: z.enum(['daily', 'weekly']).optional(), // 반복(선택) — 완료 시 다음 occurrence를 새 task로 spawn
 });
 
 /** 지식상태(_지식상태.json) — graphPriority 보정에 쓰는 과목 숙달도(서버/외부 캐시). */

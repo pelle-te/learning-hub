@@ -4,7 +4,7 @@
    스토어 액션이 mutate 안에서 변형 헬퍼를 호출(→ persist), 컴포넌트는 선택자로 파생만 읽는다.
    완료 규칙은 공부 블록의 completions와 분리 — task.done(단순 체크). doneDs는 앱의 '오늘'(todayISO, _today 시드 존중).
 ============================================================ */
-import { rid, todayISO } from './utils';
+import { rid, todayISO, iso, addDays, parseISO } from './utils';
 import type { AppState, Task } from './types';
 
 /** state.tasks 보장(없으면 초기화) — 무마이그레이션 옵셔널 필드라 첫 쓰기 때 생성. */
@@ -28,6 +28,7 @@ export function addTask(state: AppState, input: Partial<Task> & { title: string 
     done: input.done,
     doneDs: input.doneDs,
     at: input.at ?? Date.now(),
+    repeat: input.repeat,
   };
   ensure(state).push(task);
   return task;
@@ -44,17 +45,39 @@ export function removeTask(state: AppState, id: string): void {
   state.tasks = ensure(state).filter((t) => t.id !== id);
 }
 
-/** 완료 토글 — on이면 done + doneDs(오늘), 아니면 미완으로 되돌림(doneDs 제거). */
+/** 완료 토글 — on이면 done + doneDs(오늘), 아니면 미완으로 되돌림(doneDs 제거).
+ *  반복(repeat) 할일은 완료 시 다음 occurrence를 새 task로 spawn한다(원 cadence=ds+간격 유지).
+ *  가상 인스턴스·별도 state 없이 concrete task 체인으로 굴려 완료 상태가 occurrence별로 독립적이다. */
 export function toggleTaskDone(state: AppState, id: string, on: boolean): void {
   const t = ensure(state).find((x) => x.id === id);
   if (!t) return;
   if (on) {
     t.done = true;
     t.doneDs = todayISO(state);
+    if (t.repeat && t.ds) spawnNext(state, t);
   } else {
     t.done = false;
     delete t.doneDs;
   }
+}
+
+/** 반복 할일의 다음 occurrence 생성 — daily=+1일·weekly=+7일. 같은 날 미완 중복이 있으면 생략(멱등). */
+function spawnNext(state: AppState, t: Task): void {
+  const nextDs = iso(addDays(parseISO(t.ds as string), t.repeat === 'daily' ? 1 : 7));
+  const dup = (state.tasks || []).some(
+    (x) => x.ds === nextDs && x.title === t.title && x.repeat === t.repeat && !x.done,
+  );
+  if (dup) return;
+  addTask(state, {
+    title: t.title,
+    sid: t.sid,
+    color: t.color,
+    ds: nextDs,
+    start: t.start,
+    min: t.min,
+    deadline: t.deadline,
+    repeat: t.repeat,
+  });
 }
 
 /** 시간박기 — 그날(ds) 특정 시각(분)에 배치. ds도 함께 확정(트레이→캘린더). */

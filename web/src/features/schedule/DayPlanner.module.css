@@ -138,6 +138,11 @@
 .addBtn:hover {
   background: var(--acc-soft);
 }
+.addBtn.repeatOn {
+  background: var(--acc-soft);
+  border-color: var(--acc-glow);
+  color: var(--acc);
+}
 .trayList {
   flex: 1;
   min-height: 0;

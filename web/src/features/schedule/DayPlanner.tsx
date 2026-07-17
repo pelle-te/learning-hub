@@ -75,6 +75,7 @@ export function DayPlanner({
   const colRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState('');
   const [inboxDraft, setInboxDraft] = useState('');
+  const [repeatMode, setRepeatMode] = useState<'none' | 'daily' | 'weekly'>('none'); // +할일 반복 모드
 
   const date = parseISO(ds);
   const wd = date.getDay();
@@ -164,9 +165,16 @@ export function DayPlanner({
   const addFreeTask = () => {
     const title = draft.trim();
     if (!title) return;
-    mutate((st) => addTask(st, { title, ds }));
+    mutate((st) => addTask(st, { title, ds, repeat: repeatMode === 'none' ? undefined : repeatMode }));
     setDraft('');
   };
+  const REPEAT_NEXT = { none: 'daily', daily: 'weekly', weekly: 'none' } as const;
+  const REPEAT_LABEL = { none: '🔁', daily: '🔁일', weekly: '🔁주' } as const;
+  const REPEAT_TITLE = {
+    none: '반복 없음 — 눌러 매일',
+    daily: '매일 반복 — 눌러 매주',
+    weekly: '매주 반복 — 눌러 끔',
+  } as const;
   const addInboxTask = () => {
     const title = inboxDraft.trim();
     if (!title) return;
@@ -185,6 +193,15 @@ export function DayPlanner({
         placeholder="+ 할 일 (예: 과제 제출)"
         aria-label="자유 할 일 추가"
       />
+      <button
+        type="button"
+        className={`${s.addBtn}${repeatMode !== 'none' ? ' ' + s.repeatOn : ''}`}
+        onClick={() => setRepeatMode((m) => REPEAT_NEXT[m])}
+        title={REPEAT_TITLE[repeatMode]}
+        aria-label={`반복: ${repeatMode === 'none' ? '없음' : repeatMode === 'daily' ? '매일' : '매주'}`}
+      >
+        {REPEAT_LABEL[repeatMode]}
+      </button>
       <button type="button" className={s.addBtn} onClick={addFreeTask} aria-label="할 일 추가">
         ＋
       </button>
@@ -266,6 +283,7 @@ export function DayPlanner({
                   color={t.color}
                   min={t.min}
                   free
+                  repeat={t.repeat}
                   done={!!t.done}
                   onToggle={(on) => mutate((st) => toggleTaskDone(st, t.id, on))}
                   onPlace={() => placeFirstFree('task', t.id, t.min || 30)}
@@ -429,6 +447,7 @@ function TrayRow({
   color,
   min,
   free,
+  repeat,
   done,
   onToggle,
   onPlace,
@@ -440,6 +459,7 @@ function TrayRow({
   color?: string;
   min?: number;
   free?: boolean;
+  repeat?: 'daily' | 'weekly';
   done: boolean;
   onToggle: (on: boolean) => void;
   onPlace: () => void;
@@ -463,6 +483,7 @@ function TrayRow({
       <span className={s.grabDot} aria-hidden="true" />
       <span className={s.rowName}>{title}</span>
       <span className={s.rowMeta}>
+        {repeat && <span title={repeat === 'daily' ? '매일 반복' : '매주 반복'}>🔁 </span>}
         {meta}
         {min ? ` · ${hLabel(min)}` : ''}
       </span>

@@ -263,29 +263,79 @@ export default function Schedule() {
       dday: st.deadline ? dayDiff(todayIso, st.deadline) : null,
     }));
 
-  // 진행률·합계·마감 + 주 액션을 상단 바로(데모 v6 헤더).
+  // 배치 전용 리드아웃(뷰별 스왑) — 일=그날, 주=이번 주(週), 월=그 달. 탭재설계 '상단 리드아웃' 사상.
+  const anchorDate = parseISO(anchorDs);
+  const anchorDay = computeDay(state, indexDays(res), capWd, nowMin, todayIso, anchorDate, 0); // anchorDs 하루치
+  const dayCompRate = anchorDay.planMin > 0 ? Math.round((anchorDay.doneMinTot / anchorDay.planMin) * 100) : 0;
+  const anchorY = anchorDate.getFullYear();
+  const anchorM = anchorDate.getMonth();
+  const monthDays = res.days.filter((d) => {
+    const dt = parseISO(d.ds);
+    return dt.getFullYear() === anchorY && dt.getMonth() === anchorM;
+  });
+  const monthUsedH = monthDays.reduce((t, d) => t + d.used, 0) / 60;
+  const monthOpenTasks = (state.tasks || []).filter((t) => {
+    if (!t.ds || t.done) return false;
+    const dt = parseISO(t.ds);
+    return dt.getFullYear() === anchorY && dt.getMonth() === anchorM;
+  }).length;
+
+  const readouts =
+    schedView === 'day'
+      ? [
+          {
+            label: `${fmtShort(anchorDate)} 계획`,
+            value: (
+              <>
+                {(anchorDay.planMin / 60).toFixed(1)}
+                <small> h</small>
+              </>
+            ),
+            accent: true,
+          },
+          { label: '완료', value: anchorDay.planMin ? `${dayCompRate}%` : '—' },
+          { label: '가용', value: `${(anchorDay.studyMin / 60).toFixed(1)}h` },
+        ]
+      : schedView === 'month'
+        ? [
+            {
+              label: `${anchorM + 1}월`,
+              value: (
+                <>
+                  {monthUsedH.toFixed(1)}
+                  <small> h</small>
+                </>
+              ),
+              accent: true,
+            },
+            { label: '미완 할일', value: monthOpenTasks ? String(monthOpenTasks) : '—' },
+            { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+          ]
+        : [
+            {
+              label: '이번 주',
+              value: (
+                <>
+                  {weekUsedH.toFixed(1)}
+                  <small> h</small>
+                </>
+              ),
+              accent: true,
+            },
+            { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
+            { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+          ];
+
+  // 주 뷰에서 다른 주를 보는 중이면 "이번 주로", 그 외엔 .ics 내보내기.
   usePageChromeEffect(
     () => ({
-      readouts: [
-        {
-          label: '이번 주',
-          value: (
-            <>
-              {weekUsedH.toFixed(1)}
-              <small> h</small>
-            </>
-          ),
-          accent: true,
-        },
-        { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
-        { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
-      ],
+      readouts,
       action:
-        weekOffset !== todayOff
+        schedView === 'week' && weekOffset !== todayOff
           ? { label: '이번 주로 →', onClick: weekToday }
           : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
     }),
-    [weekUsedH, compRate, weekPlanMin, nearestDday, weekOffset, todayOff],
+    [schedView, readouts, weekOffset, todayOff],
   );
 
   // 뷰 스위치 [일·주·월] — 타임블로킹 3뷰(카드뷰 제거, §1-2). tablist 계약 미이행 → group+aria-pressed(WCAG 4.1.2).
