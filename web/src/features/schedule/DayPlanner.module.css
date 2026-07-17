@@ -1,0 +1,488 @@
+/* ============================================================
+   DayPlanner — 배치 '일' 뷰(타임블로킹). 좌 트레이 | 우 타임라인.
+   토큰(--panel·--acc·--seg…) 재사용, 과목색=--seg. WeekCalendar와 시각 언어 통일.
+============================================================ */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 12px;
+}
+
+/* 헤더 — 날짜 스텝퍼 + 모드/가용 */
+.head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dnav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dlabel {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 92px;
+  text-align: center;
+}
+.dlabel b {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.dow {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.headRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mode {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--mut);
+  border: 1px solid var(--line2);
+  background: var(--panel2);
+}
+.modeManual {
+  color: var(--acc);
+  border-color: var(--acc-glow);
+  background: var(--acc-soft);
+}
+.cap {
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.capMut {
+  color: var(--mut);
+  font-weight: 700;
+}
+.cap.over {
+  color: var(--bad);
+}
+
+/* 본문 — 트레이 | 타임라인 */
+.grid2 {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 288px 1fr;
+  gap: 14px;
+}
+
+/* ── 트레이 ── */
+.tray {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--r);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+.trayHead {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.addRow {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+.addInput {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+}
+.addInput:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+.addBtn {
+  flex: none;
+  width: 34px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--acc);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.14s var(--ease);
+}
+.addBtn:hover {
+  background: var(--acc-soft);
+}
+.trayList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trayEmpty {
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 24px 8px;
+}
+.trayRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--seg, var(--acc)) 12%, var(--panel2));
+  border-left: 3px solid var(--seg, var(--acc));
+  box-shadow: inset 0 0 0 1px var(--line2);
+  cursor: grab;
+}
+.trayRow:active {
+  cursor: grabbing;
+}
+.rowFree {
+  --seg: var(--mut);
+}
+.rowDone {
+  opacity: 0.5;
+}
+.rowDone .rowName {
+  text-decoration: line-through;
+}
+.chk {
+  flex: none;
+  accent-color: var(--acc);
+  cursor: pointer;
+}
+.grabDot {
+  flex: none;
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(var(--line), var(--line) 2px, transparent 2px, transparent 4px);
+  opacity: 0.7;
+}
+.rowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rowMeta {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+  white-space: nowrap;
+}
+
+/* 언젠가(인박스) 서랍 */
+.inbox {
+  flex: none;
+  border-top: 1px solid var(--line2);
+  padding-top: 8px;
+}
+.inboxHead {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mut);
+  cursor: pointer;
+  padding: 2px 0 8px;
+  list-style: none;
+}
+.inboxHead::-webkit-details-marker {
+  display: none;
+}
+.inboxHead b {
+  color: var(--acc);
+  margin-left: 4px;
+}
+.inboxList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 26vh;
+  overflow-y: auto;
+}
+
+/* 공통 툴 버튼(트레이·카드) */
+.tool {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mut);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background 0.12s var(--ease),
+    color 0.12s var(--ease);
+}
+.tool:hover {
+  background: var(--panel);
+  color: var(--ink);
+}
+.tool:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+.toolOn {
+  color: var(--acc);
+}
+
+/* ── 타임라인 ── */
+.timeline {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 6px;
+}
+.gutter {
+  position: relative;
+}
+.tick {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.col {
+  position: relative;
+  min-height: 0;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  overflow: hidden;
+}
+.grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform: translateY(-50%);
+  background: var(--line-soft);
+  pointer-events: none;
+}
+/* 가용창 드롭존 — 옅은 초록 밴드(끌어놓을 곳). */
+.win {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--good, #48d17a) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good, #48d17a) 18%, transparent);
+  pointer-events: none;
+}
+/* 고정 일과 점유(수업·식사) — 중립 회색. */
+.occ {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  display: flex;
+  align-items: flex-start;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 6%, var(--panel2));
+  box-shadow: inset 0 0 0 1px var(--line2);
+  color: var(--mut);
+  overflow: hidden;
+  pointer-events: none;
+}
+.occName {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 타임박스 카드 */
+.card {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  overflow: hidden;
+  box-sizing: border-box;
+  min-height: 16px;
+  cursor: grab;
+  color: var(--ink);
+  transition:
+    box-shadow 0.14s var(--ease),
+    filter 0.14s var(--ease);
+}
+.card:active {
+  cursor: grabbing;
+}
+.card:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+  z-index: 8;
+}
+.cardStudy {
+  background: color-mix(in srgb, var(--seg, var(--acc)) 20%, var(--panel));
+  border-left: 3px solid var(--seg, var(--acc));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 26%, transparent);
+}
+.cardTask {
+  background: color-mix(in srgb, var(--seg, var(--acc)) 12%, var(--panel));
+  border-left: 3px dashed var(--seg, var(--acc));
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+.card:hover {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 48%, transparent),
+    0 0 14px color-mix(in srgb, var(--seg, var(--glow)) 26%, transparent);
+  z-index: 6;
+}
+.cardDone {
+  opacity: 0.42;
+  filter: saturate(0.6);
+}
+.cardDone .cardName {
+  text-decoration: line-through;
+}
+.cardMain {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cardName {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.15;
+}
+.cardMeta {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.82;
+  white-space: nowrap;
+}
+.compact {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+/* 카드 툴바 — hover/focus에서만 노출(평상시 깔끔). */
+.cardTools {
+  flex: none;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.12s var(--ease);
+}
+.card:hover .cardTools,
+.card:focus-within .cardTools {
+  opacity: 1;
+}
+.resizeHandle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.resizeHandle:hover {
+  background: color-mix(in srgb, var(--seg, var(--acc)) 40%, transparent);
+}
+
+/* 지금 라인(WeekCalendar와 동일 언어) */
+.now {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--glow);
+  z-index: 7;
+}
+.nowCap {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--bg);
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .cardTools,
+  .tool,
+  .addBtn {
+    transition: none;
+  }
+}
+
+/* 반응형 — 모바일 세로 스택(트레이 위, 타임라인 아래). */
+@media (max-width: 720px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .tray {
+    max-height: 42vh;
+  }
+}

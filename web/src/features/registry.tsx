@@ -20,6 +20,7 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   atlas: () => import('./atlas/Atlas'),
   discovery: () => import('./discovery/Discovery'),
   today: () => import('./today/Today'),
+  'plan-host': () => import('./plan-host/PlanHost'),
   schedule: () => import('./schedule/Schedule'),
   routine: () => import('./routine/Routine'),
   journal: () => import('./journal/Journal'),

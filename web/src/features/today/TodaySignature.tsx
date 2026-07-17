@@ -370,7 +370,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         todayTotal === 0
           ? // PL-1: 이미 과목이 있는 사용자(hasItems)에게 "항목 설정"은 모순 — 오늘만 빈 것이므로 스케줄로 안내.
             hasItems
-            ? { label: '주간 스케줄 확인 →', onClick: () => go('/schedule') }
+            ? { label: '오늘 계획 짜기 →', onClick: () => go('/plan-host') }
             : { label: '학습 항목 설정 →', onClick: () => go('/items') }
           : allDone
             ? { label: '기록 보기', onClick: () => go('/journal') }
@@ -423,12 +423,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <div className={s.heroSub}>
             {todayTotal === 0 ? (
               hasItems ? (
-                <span className={s.momentum}>
-                  <span>오늘은 배치된 블록이 없어요</span>
-                  <button type="button" className={s.mChip} onClick={() => go('/schedule')}>
-                    주간 스케줄 확인
-                  </button>
-                </span>
+                // §7: 히어로 중복 CTA(.mChip) 제거 — 안내 텍스트만. '오늘 계획 짜기'는 아래 큰 버튼 단일.
+                <span>오늘은 배치된 블록이 없어요</span>
               ) : (
                 '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
               )
@@ -523,10 +519,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 </span>
               </>
             ) : hasItems ? (
-              // PL-1: 과목은 있으나 오늘 포커스가 없음 → "항목 추가"가 아니라 스케줄 점검이 옳은 목적지.
-              <button type="button" className={s.cta} onClick={() => go('/schedule')}>
-                <span className={s.ctaGo}>주간 스케줄 확인</span>
-                <span className={s.ctaCap}>일정 점검 →</span>
+              // §7: 과목은 있으나 오늘 포커스가 없음 → 오늘 계획을 직접 짜는 단일 목적지(plan-host 배치 세그먼트).
+              <button type="button" className={s.cta} onClick={() => go('/plan-host')}>
+                <span className={s.ctaGo}>오늘 계획 짜기</span>
+                <span className={s.ctaCap}>배치 세그먼트 →</span>
               </button>
             ) : (
               <button type="button" className={s.cta} onClick={() => go('/items')}>
@@ -647,9 +643,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               <div className={s.railEmpty}>
                 {hasItems ? (
                   <>
-                    오늘은 배치된 블록이 없어요 — 마감이 지났거나 오늘 가용시간이 없을 수 있어요.{' '}
-                    <button type="button" className={s.mChip} onClick={() => go('/schedule')}>
-                      주간 스케줄 확인
+                    오늘은 배치된 블록이 없어요 — 오늘 계획을 직접 짜보세요.{' '}
+                    <button type="button" className={s.mChip} onClick={() => go('/plan-host')}>
+                      오늘 계획 짜기
                     </button>
                   </>
                 ) : (

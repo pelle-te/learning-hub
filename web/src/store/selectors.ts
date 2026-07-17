@@ -37,6 +37,7 @@ export const SCHEDULE_INPUT_KEYS = [
   'peakEnd',
   '_today',
   'blankResults', // ②#23 복습 사다리 적응 — latestBlank가 읽는다(백지 결과 갱신 시 재스케줄)
+  'dayPlans', // §4-2 일일 배치 오버라이드 — applyDayPlans가 읽어 manual인 날 items를 치환(변경 시 재스케줄)
 ] as const;
 
 function scheduleInputs(s: AppState): readonly unknown[] {

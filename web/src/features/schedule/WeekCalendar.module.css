@@ -281,6 +281,12 @@
 .done .segName {
   text-decoration: line-through;
 }
+/* 자유 할일(§5-3 오버레이) — 점선 좌엣지로 공부 블록과 구분(같은 색 패밀리). */
+.task {
+  background: color-mix(in srgb, var(--seg, var(--acc)) 11%, var(--panel));
+  border-left: 3px dashed var(--seg, var(--acc));
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
 /* 일과 블록 — 중립 뮤트(좌측 엣지). */
 .block {
   background: color-mix(in srgb, var(--ink) 5%, var(--panel2));

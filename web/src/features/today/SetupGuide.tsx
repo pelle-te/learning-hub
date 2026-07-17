@@ -34,16 +34,11 @@ export function SetupGuide() {
     {
       ok: hasSubjects,
       title: '공부할 과목 추가',
-      desc: '볼트(전공 폴더)에서 통째로 불러오거나 직접 입력하세요.',
+      desc: '계획 › 과목에서 직접 입력하거나 헤더 “📁 불러오기”로 볼트(전공 폴더)를 통째로 가져오세요.',
       actions: (
-        <>
-          <Button sm variant="primary" onClick={() => navigate('/items')}>
-            학습 항목 열기
-          </Button>{' '}
-          <Button sm onClick={() => navigate('/integrations')}>
-            볼트에서 불러오기
-          </Button>
-        </>
+        <Button sm variant="primary" onClick={() => navigate('/items')}>
+          과목 추가·불러오기 열기
+        </Button>
       ),
     },
     {
@@ -59,10 +54,10 @@ export function SetupGuide() {
     {
       ok: hasRoutine,
       title: '일과·가용 시간 확인',
-      desc: '수면·식사·수업을 빼고 남는 빈 시간이 자동으로 공부시간이 됩니다(기본값 제공 — 필요 시 조정).',
+      desc: '수면·식사·수업을 빼고 남는 빈 시간이 자동으로 공부시간이 됩니다(기본값 제공 — 필요 시 조정). 계획 › 뼈대.',
       actions: (
         <Button sm onClick={() => navigate('/routine')}>
-          가용시간 열기
+          가용시간(뼈대) 열기
         </Button>
       ),
     },

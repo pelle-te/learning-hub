@@ -13,6 +13,7 @@ export interface NavShortcut {
 /** g-시퀀스 네비게이션(가장 자주 쓰는 탭). 충돌 없는 단일 문자. */
 export const NAV_SHORTCUTS: NavShortcut[] = [
   { seq: 't', tab: 'today' },
+  { seq: 'p', tab: 'plan-host' }, // 계획 호스트(배치로 진입). g s/i/o 는 세그먼트 딥링크로 유지.
   { seq: 's', tab: 'schedule' },
   { seq: 'i', tab: 'items' },
   { seq: 'j', tab: 'journal' },

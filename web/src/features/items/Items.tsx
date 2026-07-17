@@ -4,7 +4,7 @@
    인터랙티브/칩은 토큰 기반 공용 컴포넌트(Button/Pill/Kpi)로 — 룩 일관·테마 자동 대응.
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
@@ -16,6 +16,7 @@ import ds from '@/styles/ds.module.css';
 import c from './Items.module.css';
 import type { Item } from '@/lib/types';
 import { ItemCard } from './ItemCard';
+import { VaultImport } from './VaultImport';
 
 /** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감. */
 function useInsight(items: Item[]) {
@@ -54,12 +55,12 @@ export default function Items() {
   const items = useApp((s) => s.state.items);
   const cbms = useApp((s) => s.state.cbms);
   const mutate = useApp((s) => s.mutate);
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // sid(=item.id)별 반복 약점 총합 — cbms가 바뀔 때만 롤업 재계산(SR-2). weakCountBySid는 state.cbms만 읽으므로
   // 반응형 cbms 슬라이스를 넘겨 재계산을 그 변화에 묶는다(전체 state 구독으로 인한 불필요 리렌더 회피).
   const weakBySid = useMemo(() => weakCountBySid({ ...useApp.getState().state, cbms }), [cbms]);
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const [showImport, setShowImport] = useState(false); // 인라인 볼트 불러오기 토글(§5-2)
   const insight = useInsight(items);
   // 과목 수·주당 합계·챕터 진행·마감 리드아웃을 상단 바로(데모 v6 헤더).
   usePageChromeEffect(
@@ -239,11 +240,22 @@ export default function Items() {
               </Button>
             </>
           )}
+          <Button
+            sm
+            variant="ghost"
+            onClick={() => setShowImport((v) => !v)}
+            aria-pressed={showImport}
+            title="옵시디언 볼트에서 과목을 불러와요(탭 이동 없이)"
+          >
+            📁 불러오기
+          </Button>
           <Button sm variant="primary" onClick={addItem}>
             + 과목 추가
           </Button>
         </div>
       </div>
+
+      {showImport && <VaultImport onClose={() => setShowImport(false)} />}
 
       {items.length === 0 ? (
         <div className={c.empty}>
@@ -264,10 +276,10 @@ export default function Items() {
                   </Button>
                   <Button
                     variant="ghost"
-                    onClick={() => navigate('/integrations', { viewTransition: true })}
-                    title="연동 탭에서 볼트 폴더를 스캔해 과목을 불러오세요"
+                    onClick={() => setShowImport(true)}
+                    title="옵시디언 볼트 폴더를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
                   >
-                    볼트/Anki에서 불러오기 →
+                    📁 볼트에서 불러오기
                   </Button>
                 </>
               }

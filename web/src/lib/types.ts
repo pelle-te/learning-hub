@@ -17,6 +17,9 @@ export type {
   Weekly,
   Ritual,
   Degree,
+  PlacedBlock,
+  DayPlan,
+  Task,
   AppState,
 } from './schema';
 
@@ -38,6 +41,9 @@ export interface ScheduleItem {
   min: number;
   chapters?: string[];
   mod?: boolean;
+  /** 명시 배치 시각(자정 기준 분 · §4-2) — dayPlans 수동 오버라이드가 실어보내면 layoutDay가 그 시각에 고정.
+   *  없으면(자동초안) layoutDay가 빈 창에 자동 패킹(종전 동작). */
+  start?: number;
 }
 
 export interface Day {
@@ -91,8 +97,9 @@ export interface ScheduleResult {
   reviewViaAnki?: boolean;
 }
 
-/** layoutDay 산출 — 실제 시각이 배정된 세션·빈 시간. */
-export interface LayoutSession extends ScheduleItem {
+/** layoutDay 산출 — 실제 시각이 배정된 세션·빈 시간. start는 배치 후 확정값(미배치=null)이라
+ *  ScheduleItem.start(옵셔널 입력 힌트)를 Omit하고 number|null로 재선언한다. */
+export interface LayoutSession extends Omit<ScheduleItem, 'start'> {
   start: number | null;
   end: number | null;
   over?: number;

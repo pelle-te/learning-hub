@@ -49,13 +49,17 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('schedule: React 탭으로 렌더되고 개요/카드 뷰를 전환한다(#page 미사용)', async () => {
+test('schedule: 배치 세그먼트가 일/주/월 뷰를 전환한다(#page 미사용)', async () => {
   renderApp('/schedule');
-  await waitFor(() => expect(screen.getByRole('button', { name: '◀ 이전 주' })).toBeInTheDocument());
+  // 기본 = 일 뷰(계획개편 §5-3 — 오늘 계획 짜기 진입점)
+  await waitFor(() => expect(screen.getByRole('button', { name: '일' })).toHaveAttribute('aria-pressed', 'true'));
   expect(document.getElementById('page')).toBeNull();
-  // 세그먼트는 tablist 계약 미이행이라 group+aria-pressed로 정직화됨(WCAG 4.1.2)
-  fireEvent.click(screen.getByRole('button', { name: '카드' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: '카드' })).toHaveAttribute('aria-pressed', 'true'));
+  // 주 뷰로 전환 → 주간 네비 등장(세그먼트는 tablist 미이행 → group+aria-pressed, WCAG 4.1.2)
+  fireEvent.click(screen.getByRole('button', { name: '주' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '◀ 이전 주' })).toBeInTheDocument());
+  // 월 뷰로 전환 → aria-pressed 이동
+  fireEvent.click(screen.getByRole('button', { name: '월' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '월' })).toHaveAttribute('aria-pressed', 'true'));
 });
 
 test('routine: + 블록 추가가 store.routine에 들어간다', async () => {

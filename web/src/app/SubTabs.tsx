@@ -14,14 +14,16 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
   const navigate = useNavigate();
   const group = subTabGroupOf(tabKey);
   const btns = useRef<Array<HTMLButtonElement | null>>([]);
-  if (!group || group.length < 2) return null;
+  // 셸 호스트(plan-host 등)는 세그먼트 버튼으로 렌더하지 않는다 — 나브·라우트엔 있지만 자식 세그먼트만 바에 노출.
+  const segs = (group ?? []).filter((t) => !t.shell);
+  if (segs.length < 2) return null;
 
-  const activeIdx = group.findIndex((t) => t.key === tabKey);
+  const activeIdx = segs.findIndex((t) => t.key === tabKey);
 
   // 방향키 roving — 세그먼트를 관련 버튼 묶음(WAI)으로: ←/→(및 ↑/↓)로 포커스 이동, Home/End로 양끝.
   // 활성화는 네이티브 버튼(Enter/Space)·클릭이 소유(수동 활성 — 라우트 전환은 명시 동작으로).
   const onKeyDown = (e: React.KeyboardEvent) => {
-    const n = group.length;
+    const n = segs.length;
     const cur = btns.current.findIndex((b) => b === document.activeElement);
     const from = cur < 0 ? Math.max(0, activeIdx) : cur;
     let to = -1;
@@ -38,7 +40,7 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
     <div className={s.wrap}>
       {/* roving tabindex: 활성 버튼만 Tab 순서에 두고(0), 나머지는 -1 — 그룹을 한 정거장으로. */}
       <div className={s.seg} role="group" aria-label="페이지 섹션" onKeyDown={onKeyDown}>
-        {group.map((t, i) => {
+        {segs.map((t, i) => {
           const active = t.key === tabKey;
           return (
             <button
@@ -55,7 +57,7 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
               onClick={() => navigate('/' + t.key, { viewTransition: true })}
             >
               <Icon name={t.icon} />
-              <span>{t.label}</span>
+              <span>{t.segLabel ?? t.label}</span>
             </button>
           );
         })}

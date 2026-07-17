@@ -17,6 +17,11 @@ export interface TabMeta {
   /** 단일 화면 대시보드 탭(데모 v6 사상) — HudFrame을 가득 채우고 내부 스크롤 없음.
      App의 fillFrame 판정 단일 원천(옛 하드코딩 FILL_TABS 목록 대체, L-15). */
   fill?: boolean;
+  /** 세그먼트 셸 호스트(예: plan-host) — 나브·라우트엔 존재하되 SubTabs 버튼으론 렌더하지 않는다
+     (자체 화면 없이 기본 세그먼트로 리다이렉트, 자식 세그먼트만 세그먼트 바에 노출). */
+  shell?: boolean;
+  /** SubTabs 세그먼트 버튼에 쓸 짧은 라벨(없으면 label). 나브·⌘K·문서 제목은 그대로 label을 쓴다. */
+  segLabel?: string;
 }
 
 /** 모든 탭(표시 순서·그룹·표면·아이콘). hidden은 나브에서 숨김(헤더 ⚙·⌘K로 진입).
@@ -26,9 +31,32 @@ export interface TabMeta {
 export const TABS: TabMeta[] = [
   // ── 학습 표면 · 계획(plan) ──
   { key: 'today', label: '오늘 학습', group: 'plan', surface: 'study', order: 10, icon: 'target', fill: true },
+  // 계획 호스트(plan-host) — 뼈대(routine)·과목(items)·배치(schedule)를 세그먼트로 묶는 셸.
+  // 나브엔 '계획' 한 줄로 노출(today 다음·goals 앞, §3-2). 자체 화면 없이 배치(배치=주간 스케줄)로 리다이렉트.
+  {
+    key: 'plan-host',
+    label: '계획',
+    group: 'plan',
+    surface: 'study',
+    order: 12,
+    icon: 'calendar',
+    fill: true,
+    shell: true,
+  },
   // 내 길(goals) — 축 A '내 길 지도'(P9 Phase 6). 전략 앵커(전파통신 연구원 자립 트리)라 오늘 다음, 계획 상단.
   { key: 'goals', label: '내 길', group: 'plan', surface: 'study', order: 15, icon: 'compass' },
-  { key: 'schedule', label: '주간 스케줄', group: 'plan', surface: 'study', order: 20, icon: 'calendar', fill: true },
+  // 배치 세그먼트(주간 스케줄) — 계획 호스트로 흡수(hidden). 라우트·⌘K·g s·딥링크는 유지. 세그먼트 라벨='배치'.
+  {
+    key: 'schedule',
+    label: '주간 스케줄',
+    group: 'plan',
+    surface: 'study',
+    order: 20,
+    hidden: true,
+    segLabel: '배치',
+    icon: 'calendar',
+    fill: true,
+  },
   // 아래 흡수 탭들은 나브에서 숨기고, 호스트 탭(스케줄·기록·통계) 상단 섹션 세그먼트(SubTabs)로 전환한다.
   // 라우트·팔레트·g단축키로는 그대로 진입 가능(SUBTAB_GROUPS 참조).
   {
@@ -38,12 +66,23 @@ export const TABS: TabMeta[] = [
     surface: 'study',
     order: 30,
     hidden: true,
+    segLabel: '뼈대',
     icon: 'clock',
     fill: true,
   },
-  { key: 'degree', label: '졸업 계획', group: 'plan', surface: 'study', order: 35, hidden: true, icon: 'cap' },
-  // 학습 항목(items) — 전공 과목·챕터 = 학습 대상 카탈로그(앱상태 · 수집 자료 아님)라 학습 표면.
-  { key: 'items', label: '학습 항목', group: 'plan', surface: 'study', order: 40, icon: 'file' },
+  // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
+  { key: 'degree', label: '졸업 계획', group: 'plan', surface: 'study', order: 35, icon: 'cap' },
+  // 학습 항목(items) — 전공 과목·챕터 = 학습 대상 카탈로그. 계획 호스트로 흡수(hidden). 세그먼트 라벨='과목'.
+  {
+    key: 'items',
+    label: '학습 항목',
+    group: 'plan',
+    surface: 'study',
+    order: 40,
+    hidden: true,
+    segLabel: '과목',
+    icon: 'file',
+  },
   // ── 학습 표면 · 숙련(train) — '내가 뭘 아는가·무엇을 익힐까' ──
   { key: 'journal', label: '학습 기록', group: 'train', surface: 'study', order: 60, icon: 'notebook', fill: true },
   {
@@ -136,7 +175,9 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
    나브 정리: 매일 안 쓰는 계획/분석 화면을 호스트 상단 세그먼트로 접어 1차 나브를 6개로 줄인다.
    라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
 export const SUBTAB_GROUPS: string[][] = [
-  ['schedule', 'routine', 'degree'],
+  // 계획 호스트: plan-host(셸·나브 노출) 아래 뼈대(routine)·과목(items)·배치(schedule) 3세그먼트.
+  // host=첫 항목=plan-host → hostTabKey가 세 세그먼트를 '계획'으로 하이라이트. SubTabs는 셸을 버튼에서 제외.
+  ['plan-host', 'routine', 'items', 'schedule'],
   ['integrations', 'ledger'],
   ['journal', 'review', 'review-run'],
   ['stats', 'mastery', 'graph'],

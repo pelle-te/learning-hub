@@ -9,6 +9,7 @@ import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import { toHM } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, type DayData } from '@/lib/scheduleView';
+import type { Task } from '@/lib/types';
 import s from './WeekCalendar.module.css';
 
 function hh(min: number): string {
@@ -28,6 +29,7 @@ export function WeekCalendar({
   nowMin,
   dows,
   deadlines,
+  tasksByDay,
 }: {
   parts: DayData[];
   sel: number;
@@ -35,18 +37,23 @@ export function WeekCalendar({
   nowMin: number;
   dows: string[];
   deadlines: string[][];
+  /** 요일별 타임박스된 자유 할일(계획개편 §5-3 오버레이) — 각 컬럼에 점선 카드로. 미지정은 여기 없음. */
+  tasksByDay?: Task[][];
 }) {
   const toggleDone = useApp((st) => st.toggleDone);
   const state = useApp((st) => st.state);
 
   // 주 전체 세그 시간 범위 → 3시간 격자 스냅(기본 06–24). 모든 열이 같은 축을 공유.
   const mins: number[] = [];
-  parts.forEach((p) =>
+  parts.forEach((p, k) => {
     p.rows.forEach((r) => {
       if (r.kind === 'block' && r.start != null) mins.push(r.start, r.end);
       else if (r.kind === 'study' && r.start != null && r.end != null) mins.push(r.start, r.end);
-    }),
-  );
+    });
+    (tasksByDay?.[k] ?? []).forEach((t) => {
+      if (t.start != null) mins.push(t.start, t.start + (t.min || 30));
+    });
+  });
   let lo = 6 * 60;
   let hi = 24 * 60;
   if (mins.length) {
@@ -175,6 +182,27 @@ export function WeekCalendar({
                     );
                   }
                   return null;
+                })}
+                {/* 타임박스 자유 할일 오버레이(§5-3) — 점선 카드(과목색 또는 중립). 미지정은 트레이(일 뷰)에만. */}
+                {(tasksByDay?.[k] ?? []).map((t) => {
+                  if (t.start == null) return null;
+                  const dur = t.min || 30;
+                  const top = pos(t.start);
+                  const h = Math.max(3, pos(t.start + dur) - top);
+                  const past = isPast || (p.isToday && nowMin >= t.start + dur);
+                  return (
+                    <div
+                      key={t.id}
+                      className={`${s.seg} ${s.task}${sizeCls(dur)}${t.done ? ' ' + s.done : ''}${past ? ' ' + s.segPast : ''}`}
+                      style={{ top: `${top}%`, height: `${h}%`, ...(t.color ? { ['--seg']: t.color } : {}) }}
+                      title={dur < 25 ? t.title : undefined}
+                      data-tip={`${t.title}\n할 일 · ${toHM(t.start)}–${toHM(t.start + dur)}`}
+                      aria-label={`${t.title} 할 일 ${toHM(t.start)}–${toHM(t.start + dur)}`}
+                    >
+                      <span className={s.segName}>{t.title}</span>
+                      <span className={s.segMeta}>할 일 · {toHM(t.start)}</span>
+                    </div>
+                  );
                 })}
                 {p.isToday && nowMin >= lo && nowMin <= hi && (
                   <span className={s.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true">

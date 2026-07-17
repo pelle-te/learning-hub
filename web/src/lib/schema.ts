@@ -139,6 +139,42 @@ export const DegreeSchema = z.object({
 
 export const AnkiSchema = z.object({ source: z.string() });
 
+/* ── 일일 배치 오버라이드(계획 개편 §4-1) ─────────────────────────────
+   자동초안 위에 얹는 수동 배치. 옵셔널·passthrough라 기존 저장 100% 호환(무마이그레이션).
+   dayOverrides(그날 가용 *시간 수*)와 직교 — 이건 그날 *배치*의 진리다. */
+export const PlacedBlockSchema = z.object({
+  id: z.string(),
+  type: z.enum(['anki', 'new', 'rev', 'blank', 'mock']), // SessionType
+  sid: z.string(), // 과목 id('mock'은 모의)
+  name: z.string(),
+  color: z.string().optional(),
+  start: z.number().optional(), // 자정 기준 분(명시 배치) — layoutDay가 존중. 없으면 미지정(트레이).
+  min: z.number(),
+  chapters: z.array(z.string()).optional(),
+  pinned: z.boolean().optional(), // 자동 재계산에서 보존
+});
+export const DayPlanSchema = z.object({
+  mode: z.enum(['auto', 'manual']), // manual = 그날 배치의 진리는 사용자
+  blocks: z.array(PlacedBlockSchema),
+});
+
+/* ── 자유 할 일(계획 개편 §4-4) ────────────────────────────────────────
+   과목에 안 묶인 할 일(과제 제출·도서 반납). 공부 블록(스케줄러 소유)과 별개 독립 리스트(저위험 분리).
+   신규·옵셔널·무마이그레이션. */
+export const TaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  sid: z.string().optional(), // 연결 과목(선택) — 색·필터용. 없으면 순수 자유 할 일
+  color: z.string().optional(),
+  ds: z.string().optional(), // 배정 날짜(YYYY-MM-DD). 없으면 '언젠가'(인박스)
+  start: z.number().optional(), // 시각(분). 없으면 그날 미지정 트레이
+  min: z.number().optional(), // 소요(선택) — 캘린더 블록 높이
+  deadline: z.string().optional(), // ⏰ 마감(선택)
+  done: z.boolean().optional(),
+  doneDs: z.string().optional(),
+  at: z.number().optional(), // 생성 시각(로그·정렬)
+});
+
 /** 지식상태(_지식상태.json) — graphPriority 보정에 쓰는 과목 숙달도(서버/외부 캐시). */
 export const KnowStateSchema = z
   .object({
@@ -176,6 +212,11 @@ export const AppStateSchema = z
     /** reviewTouches[`${sid}|${chapter}`] = ds(YYYY-MM-DD) — ReviewRun의 챕터 단위 인출 기록.
      *  위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22). 구버전엔 없음. */
     reviewTouches: z.record(z.string()).optional(),
+    /** 일일 배치 오버라이드(§4-1) — 키=ds(YYYY-MM-DD). manual인 날은 그날 배치의 진리=사용자.
+     *  옵셔널·무마이그레이션(구버전 저장 무손상 로드). RUNTIME_CACHE_KEYS 아님 → 영속·백업·.ics 대상. */
+    dayPlans: z.record(DayPlanSchema).optional(),
+    /** 자유 할 일(§4-4) — 과목 무관 할 일(과제·심부름). 공부 블록과 별개 독립 리스트. 신규·옵셔널·무마이그레이션. */
+    tasks: z.array(TaskSchema).optional(),
     // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
     _today: z.string().optional(),
     _knowState: KnowStateSchema.optional(),
@@ -202,4 +243,7 @@ export type BlankResult = z.infer<typeof BlankResultSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;
 export type Ritual = z.infer<typeof RitualSchema>;
 export type Degree = z.infer<typeof DegreeSchema>;
+export type PlacedBlock = z.infer<typeof PlacedBlockSchema>;
+export type DayPlan = z.infer<typeof DayPlanSchema>;
+export type Task = z.infer<typeof TaskSchema>;
 export type AppState = z.infer<typeof AppStateSchema>;

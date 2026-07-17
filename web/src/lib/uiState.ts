@@ -7,8 +7,14 @@
 import { z } from 'zod';
 import type { KV } from './types';
 
-export const SchedViewSchema = z.enum(['overview', 'cards']);
+// 배치 세그먼트 뷰(계획개편 §5-3) — [일·주·월] 타임블로킹 3뷰. 구 값(overview·cards)은 주(week)로 흡수.
+export const SchedViewSchema = z.enum(['day', 'week', 'month']);
 export type SchedView = z.infer<typeof SchedViewSchema>;
+/** 레거시 뷰명(overview/cards) → week 매핑. 저장본·딥링크·구 fixture 호환(무마이그레이션). */
+export function migrateSchedView(v: unknown): SchedView | undefined {
+  if (v === 'overview' || v === 'cards') return 'week';
+  return v === 'day' || v === 'week' || v === 'month' ? v : undefined;
+}
 
 /** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
 export const AccentSchema = z.enum(['violet', 'lime', 'cyan', 'amber']);
@@ -24,7 +30,9 @@ export const ACCENTS: Accent[] = [...AccentSchema.options];
 export const RECENT_MAX = 6; // 팔레트 최근 명령 LRU 길이
 
 export const UIStateSchema = z.object({
-  schedView: SchedViewSchema.default('overview'),
+  // preprocess로 구 값을 흡수하고, 그래도 못 맞추면 .catch로 week 폴백 — schedView 하나가
+  // 전체 UIState parse를 깨 accent·최근명령까지 기본값으로 되돌리던 것을 방지(부분 손상 격리).
+  schedView: z.preprocess((v) => migrateSchedView(v) ?? v, SchedViewSchema).catch('day'),
   accent: AccentSchema.default('lime'),
   recentCommands: z.array(z.string()).default([]),
   // 발광 효과 줄이기 — 풀스크린 오로라 셰이더 정지 + 발광 오라 무한 애니 정지(상시 GPU/페인트 절감).
@@ -66,8 +74,8 @@ export function bootUI(storage: KV): UIState {
 function absorbLegacy(storage: KV): UIState {
   const ui = defaultUI();
   try {
-    const v = storage.getItem(LEGACY_VIEW);
-    if (v === 'overview' || v === 'cards') ui.schedView = v;
+    const mapped = migrateSchedView(storage.getItem(LEGACY_VIEW));
+    if (mapped) ui.schedView = mapped;
   } catch {
     /* noop */
   }

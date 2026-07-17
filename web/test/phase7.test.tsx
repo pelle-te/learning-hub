@@ -34,13 +34,13 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('나브 하위탭: ArrowRight로 다음 탭 자동 활성(today → goals)', async () => {
-  // P9 Phase 6: 계획 그룹에 '내 길(goals)'이 today(10)와 schedule(20) 사이 order 15로 삽입 → 다음 탭=goals.
+test('나브 하위탭: ArrowRight로 다음 탭 자동 활성(today → 계획)', async () => {
+  // 계획 개편: today(10) 다음 order 12에 '계획'(plan-host) 호스트 삽입 → 다음 탭=계획(rail-plan-host).
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   expect(today).toHaveAttribute('aria-current', 'page');
   fireEvent.keyDown(today, { key: 'ArrowRight' });
-  await waitFor(() => expect(document.getElementById('rail-goals')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.getElementById('rail-plan-host')).toHaveAttribute('aria-current', 'page'));
 });
 
 test('레일 나브: End로 마지막 나브 항목(설정)으로 이동', async () => {
@@ -59,13 +59,13 @@ test('레일 나브: ArrowLeft가 첫 항목에서 마지막(설정)으로 순�
   await waitFor(() => expect(document.getElementById('rail-settings')).toHaveAttribute('aria-current', 'page'));
 });
 
-test('단축키: ]는 다음 탭(today → goals), [는 이전 탭(today → control=탐구수집)', async () => {
+test('단축키: ]는 다음 탭(today → 계획), [는 이전 탭(today → control=탐구수집)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
-  // P9 Phase 6: today 다음 표시탭 = 내 길(goals · order 15).
+  // 계획 개편: today 다음 표시탭 = 계획(plan-host · order 12).
   const { unmount } = renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: ']' });
-  await waitFor(() => expect(document.getElementById('rail-goals')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.getElementById('rail-plan-host')).toHaveAttribute('aria-current', 'page'));
   unmount();
 
   renderApp('/today');

@@ -456,7 +456,7 @@ test('stats · accent-lime', async ({ page }) => {
     ([seed]) => {
       try {
         localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: 'dark' }));
-        localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'overview', accent: 'lime', recentCommands: [] }));
+        localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'week', accent: 'lime', recentCommands: [] }));
       } catch {
         /* noop */
       }
