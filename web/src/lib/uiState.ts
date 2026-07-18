@@ -31,9 +31,10 @@ export const ACCENTS: Accent[] = [...AccentSchema.options];
 export const RECENT_MAX = 6; // 팔레트 최근 명령 LRU 길이
 
 export const UIStateSchema = z.object({
-  // preprocess로 구 값을 흡수하고, 그래도 못 맞추면 .catch로 week 폴백 — schedView 하나가
+  // preprocess로 구 값을 흡수하고, 그래도 못 맞추면 .catch로 폴백 — schedView 하나가
   // 전체 UIState parse를 깨 accent·최근명령까지 기본값으로 되돌리던 것을 방지(부분 손상 격리).
-  schedView: z.preprocess((v) => migrateSchedView(v) ?? v, SchedViewSchema).catch('day'),
+  // 기본=alloc(주간 배분 보드 · 계획의 중심 · 재개편 v2 §12-5). 저장된 값이 있으면 그게 우선.
+  schedView: z.preprocess((v) => migrateSchedView(v) ?? v, SchedViewSchema).catch('alloc'),
   accent: AccentSchema.default('lime'),
   recentCommands: z.array(z.string()).default([]),
   // 발광 효과 줄이기 — 풀스크린 오로라 셰이더 정지 + 발광 오라 무한 애니 정지(상시 GPU/페인트 절감).

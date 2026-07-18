@@ -49,12 +49,17 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('schedule: 배치 세그먼트가 일/주/월 뷰를 전환한다(#page 미사용)', async () => {
+test('schedule: 배치 세그먼트가 배분/일/주/월 뷰를 전환한다(#page 미사용)', async () => {
   renderApp('/schedule');
-  // 기본 = 일 뷰(계획개편 §5-3 — 오늘 계획 짜기 진입점)
-  await waitFor(() => expect(screen.getByRole('button', { name: '일' })).toHaveAttribute('aria-pressed', 'true'));
+  // 기본 = 배분 뷰(재개편 v2 §12-5 — 계획의 중심 · 주간 배분 보드에 착지)
+  await waitFor(() => expect(screen.getByRole('button', { name: '배분' })).toHaveAttribute('aria-pressed', 'true'));
   expect(document.getElementById('page')).toBeNull();
-  // 주 뷰로 전환 → 주간 네비 등장(세그먼트는 tablist 미이행 → group+aria-pressed, WCAG 4.1.2)
+  // 배분 보드(과목×요일 그리드)가 뜬다
+  await waitFor(() => expect(screen.getByRole('grid', { name: '주간 배분 보드' })).toBeInTheDocument());
+  // 일 뷰로 전환 → aria-pressed 이동(세그먼트는 tablist 미이행 → group+aria-pressed, WCAG 4.1.2)
+  fireEvent.click(screen.getByRole('button', { name: '일' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '일' })).toHaveAttribute('aria-pressed', 'true'));
+  // 주 뷰로 전환 → 주간 네비 등장
   fireEvent.click(screen.getByRole('button', { name: '주' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '◀ 이전 주' })).toBeInTheDocument());
   // 월 뷰로 전환 → aria-pressed 이동
