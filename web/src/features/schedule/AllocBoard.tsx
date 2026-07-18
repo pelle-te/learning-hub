@@ -92,6 +92,12 @@ export function AllocBoard({
   // 열(요일) 합 vs 가용 — 초과 경고용.
   const colMins = cols.map((c) => colSumMin(alloc, c.wd));
 
+  // efficacy 안내 — 계획상 챕터를 다 배우게 된 과목(finished)에 배분해도 '새 학습' 블록은 더 안 생긴다
+  // (엔진이 챕터 소진으로 판단 · 복습·Anki만 자동). 배분했는데 왜 안 굴러가는지 조용히 두지 않고 짚어준다.
+  const inertFinished = rows.filter(
+    (it) => res.itemStat.find((st) => st.id === it.id)?.finished && rowSumMin(alloc[it.id]) > 0,
+  );
+
   if (!hasSubjects) {
     return (
       <div className={s.wrap}>
@@ -138,6 +144,13 @@ export function AllocBoard({
       {!hasCap && (
         <div className={s.note}>
           이번 주 <b>가용시간</b>이 0이에요 — 뼈대(일과)에서 수업·수면을 확인하면 배분 여력이 생겨요.
+        </div>
+      )}
+
+      {inertFinished.length > 0 && (
+        <div className={s.noteInfo}>
+          완료 과목 <b>{inertFinished.map((it) => it.name).join(', ')}</b>에는 배분해도 계획상 챕터를 다 배우게 돼 있어{' '}
+          <b>새 학습</b>은 안 생겨요 — 복습·Anki만 자동으로 얹혀요.
         </div>
       )}
 

@@ -58,6 +58,21 @@
   border: 1px solid color-mix(in srgb, var(--warn) 38%, var(--line));
   border-radius: var(--r);
 }
+/* efficacy 안내(중립·정보 톤) — 완료 과목 배분이 새 학습을 못 만드는 이유 짚기. */
+.noteInfo {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--acc-glow);
+  border: 1px solid color-mix(in srgb, var(--acc) 32%, var(--line));
+  border-radius: var(--r);
+}
+.noteInfo b {
+  color: var(--acc);
+  font-weight: 700;
+}
 
 /* 스크롤 호스트 — 매트릭스가 좁을 땐 그대로, 넓으면 가로/세로 스크롤(모바일 대응) */
 .scroll {
