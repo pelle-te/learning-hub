@@ -78,4 +78,5 @@ serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천**
 - `web/docs/골든/` — 레퍼런스 feature(스타일 앵커)
 - `web/docs/평가루브릭.md`·`평가기록.md` — 다각도 채점 SSOT + 추세
 - `web/docs/개선루브릭.md`·`로드맵.md` — 개선 우선순위 채점 + 백로그 SSOT("다음 뭐")
+- `web/docs/플랫폼개편-설계.md` — **진행 중**: Tauri 2 셸 + SQLite 데이터 모델 이행(4단계) SSOT
 - `README.md` · `설계도.md` · `MIGRATION.md` — 배경·이전 이력
