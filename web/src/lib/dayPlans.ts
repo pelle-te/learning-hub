@@ -88,8 +88,42 @@ export function ensureManual(state: AppState, res: ScheduleResult, ds: string): 
   let dp = plans[ds];
   if (!dp || dp.mode !== 'manual') {
     dp = plans[ds] = { mode: 'manual', blocks: snapshotAutoDraft(res, ds) };
+    // 승격 시점에 sid|type 완료가 있으면 그 블록의 done을 시딩(승격 직후 체크가 풀려 보이지 않게).
+    // 승격 시엔 sid|type당 블록이 1개(자동 스냅샷)라 매핑이 모호하지 않다.
+    const day = state.completions?.[ds];
+    if (day) for (const b of dp.blocks) if (day[b.sid + '|' + b.type]?.done) b.done = true;
   }
   return dp;
+}
+
+/** sid|type 집계 완료(completions) 재계산 — 그날 같은 sid|type 블록들의 done을 OR/합으로 미러링.
+ *  하류(스케줄러 복습씨앗·통계·.ics)는 이 집계만 읽으므로 블록별 done을 두고도 무변경으로 굴러간다. */
+function syncBlockCompletion(state: AppState, ds: string, sid: string, type: string, todayIso: string): void {
+  const dp = state.dayPlans?.[ds];
+  if (!dp || dp.mode !== 'manual') return;
+  const done = dp.blocks.filter((b) => b.sid === sid && b.type === type && b.done);
+  const comps = (state.completions = state.completions || {});
+  const day = (comps[ds] = comps[ds] || {});
+  const key = sid + '|' + type;
+  if (done.length) {
+    const min = done.reduce((t, b) => t + b.min, 0);
+    day[key] = { done: true, min: Math.round(min), doneDs: todayIso };
+  } else {
+    delete day[key];
+    if (!Object.keys(day).length) delete comps[ds];
+  }
+}
+
+/** 블록별 완료 토글(수동 날) — 그 블록의 done을 세팅하고 sid|type 집계를 재계산.
+ *  같은 과목·유형 여러 블록을 독립으로 체크할 수 있다(병합 제거의 짝 · §6-3 충돌 해소). */
+export function setBlockDone(state: AppState, ds: string, id: string, on: boolean, todayIso: string): void {
+  const dp = state.dayPlans?.[ds];
+  if (!dp || dp.mode !== 'manual') return;
+  const b = findBlock(dp, id);
+  if (!b) return;
+  if (on) b.done = true;
+  else delete b.done;
+  syncBlockCompletion(state, ds, b.sid, b.type, todayIso);
 }
 
 function findBlock(dp: DayPlan, id: string): PlacedBlock | undefined {

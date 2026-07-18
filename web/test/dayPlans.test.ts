@@ -14,6 +14,7 @@ import {
   togglePin,
   addBlock,
   addOrMergeBlock,
+  setBlockDone,
   removeBlock,
   resetDay,
   resolveSlot,
@@ -242,6 +243,47 @@ describe('dayPlans CRUD(§6) — 자동초안 스냅샷·시간박기·핀·리�
     // 자동초안이 이미 배치한 유형(집중/new)에 add하면 그 블록에 병합된다(완료 충돌 방지).
     const r4 = addOrMergeBlock(s, res, DS, { type: 'new', sid: 's1', name: '물리', min: 30 });
     expect(r4.merged).toBe(true);
+  });
+
+  it('addBlock: 같은 sid|type 여러 번 추가하면 병합 없이 별도 블록', () => {
+    const s = seed();
+    const res = schedule(s);
+    const base = snapshotAutoDraft(res, DS).filter((x) => x.sid === 's1' && x.type === 'new').length;
+    const b1 = addBlock(s, res, DS, { type: 'new', sid: 's1', name: '테스트 과목', min: 120 });
+    const b2 = addBlock(s, res, DS, { type: 'new', sid: 's1', name: '테스트 과목', min: 120 });
+    expect(b1.id).not.toBe(b2.id);
+    const same = s.dayPlans![DS]!.blocks.filter((x) => x.sid === 's1' && x.type === 'new');
+    expect(same.length).toBe(base + 2); // 별도 2블록 추가(병합이면 base 그대로·min만 누적)
+    expect(same.filter((x) => x.min === 120).length).toBeGreaterThanOrEqual(2); // 내 2블록은 120 유지(240으로 안 뭉침)
+  });
+
+  it('setBlockDone: 같은 sid|type 여러 블록 독립 체크 + completions 집계(OR/합) 미러링', () => {
+    const s = seed();
+    const res = schedule(s);
+    const b1 = addBlock(s, res, DS, { type: 'blank', sid: 's1', name: '백지', min: 60 });
+    const b2 = addBlock(s, res, DS, { type: 'blank', sid: 's1', name: '백지', min: 30 });
+    // b1만 완료 → 그 블록만 done, 집계 min=60
+    setBlockDone(s, DS, b1.id, true, DS);
+    expect(s.dayPlans![DS]!.blocks.find((x) => x.id === b1.id)!.done).toBe(true);
+    expect(s.dayPlans![DS]!.blocks.find((x) => x.id === b2.id)!.done).toBeUndefined();
+    expect(s.completions![DS]!['s1|blank']).toEqual({ done: true, min: 60, doneDs: DS });
+    // b2도 완료 → 집계 합 90
+    setBlockDone(s, DS, b2.id, true, DS);
+    expect(s.completions![DS]!['s1|blank']!.min).toBe(90);
+    // 둘 다 해제 → 집계 키 제거(하류가 '미완'으로 읽음)
+    setBlockDone(s, DS, b1.id, false, DS);
+    setBlockDone(s, DS, b2.id, false, DS);
+    expect(s.completions![DS]?.['s1|blank']).toBeUndefined();
+  });
+
+  it('ensureManual: 승격 시 기존 sid|type 완료를 블록 done으로 시딩(체크 유실 방지)', () => {
+    const s = seed();
+    const res = schedule(s);
+    const draft = snapshotAutoDraft(res, DS)[0]!;
+    s.completions = { [DS]: { [draft.sid + '|' + draft.type]: { done: true, min: 120, doneDs: DS } } };
+    const dp = ensureManual(s, res, DS);
+    const seeded = dp.blocks.find((b) => b.sid === draft.sid && b.type === draft.type)!;
+    expect(seeded.done).toBe(true);
   });
 
   it('removeBlock: auto 모드 날엔 무동작(수동만 삭제)', () => {

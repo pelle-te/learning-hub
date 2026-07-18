@@ -152,6 +152,9 @@ export const PlacedBlockSchema = z.object({
   min: z.number(),
   chapters: z.array(z.string()).optional(),
   pinned: z.boolean().optional(), // 자동 재계산에서 보존
+  // 블록별 완료(수동 날 · 같은 sid|type 여러 블록을 독립 체크). completions[ds][sid|type] 집계는
+  // setBlockDone이 이 플래그들의 OR/합으로 미러링해 하류(스케줄러 복습씨앗·통계·.ics)는 무변경.
+  done: z.boolean().optional(),
 });
 export const DayPlanSchema = z.object({
   mode: z.enum(['auto', 'manual']), // manual = 그날 배치의 진리는 사용자

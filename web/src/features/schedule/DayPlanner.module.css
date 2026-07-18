@@ -253,6 +253,54 @@
   color: var(--mut);
   white-space: nowrap;
 }
+/* 길이 표시(읽기) — 편집 불가 컨텍스트(자동 미승격 블록 등). */
+.rowDur {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 길이 스테퍼(편집) — −/＋ 30분. draggable 행과 충돌 없게 버튼 기반. */
+.durStep {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: default;
+}
+.durBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--line2);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.durBtn:hover {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+.durBtn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+.durVal {
+  min-width: 34px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
 
 /* 언젠가(인박스) 서랍 */
 .inbox {

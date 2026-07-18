@@ -20,7 +20,8 @@ import {
   unplaceBlock,
   resizeBlock,
   togglePin,
-  addOrMergeBlock,
+  addBlock,
+  setBlockDone,
   removeBlock,
   resetDay,
   resolveSlot,
@@ -91,6 +92,22 @@ export function DayPlanner({
   const blocks = blocksForDay(state, res, ds);
   const untimed = untimedBlocks(blocks);
   const timed = timedBlocks(blocks);
+
+  // 공부 블록 완료 — 수동 날은 블록별(setBlockDone: block.done + sid|type 집계 미러링),
+  // 자동(미승격) 날은 sid|type 단일 블록이라 종전 completions 경로 그대로(가벼운 체크, 승격 강제 안 함).
+  const blockDone = (b: {
+    id: string;
+    sid: string;
+    type: 'anki' | 'new' | 'rev' | 'blank' | 'mock';
+    done?: boolean;
+  }) => (manual ? !!b.done : isDone(state, ds, b.sid, b.type));
+  const toggleBlock = (
+    b: { id: string; sid: string; type: 'anki' | 'new' | 'rev' | 'blank' | 'mock'; min: number },
+    on: boolean,
+  ) => {
+    if (manual) mutate((st) => setBlockDone(st, ds, b.id, on, todayIso));
+    else toggleDone(ds, b.sid, b.type, b.min, on);
+  };
   const trayTasks = untimedTasksForDay(state, ds);
   const timedTasks = timedTasksForDay(state, ds);
   const inbox = inboxTasks(state); // '언젠가'(날짜 미정) 서랍 — 이 날로 끌어오거나 배정.
@@ -182,7 +199,8 @@ export function DayPlanner({
     ui.toast(`${toHM(at)}에 배치`, 'ok');
   };
 
-  // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 과목·유형 픽 → addOrMergeBlock(같은 sid|type 병합).
+  // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 누를 때마다 별도 블록(같은 과목이어도 병합 안 함).
+  // 완료는 블록별(setBlockDone)이라 같은 sid|type 여러 블록을 독립 체크할 수 있다.
   const namedItems = state.items.filter((it) => it.name);
   const ML = state.moduleLen || 120;
   const BLOCK_MIN: Record<string, number> = {
@@ -221,9 +239,8 @@ export function DayPlanner({
     if (!isMock && !sid) return;
     const item = namedItems.find((it) => it.id === sid);
     const name = isMock ? '모의시험' : item?.name || '과목';
-    const merged = blocksForDay(state, res, ds).some((b) => b.sid === sid && b.type === blockType);
     mutate((st) =>
-      addOrMergeBlock(st, res, ds, {
+      addBlock(st, res, ds, {
         type: blockType,
         sid: sid!,
         name,
@@ -232,7 +249,7 @@ export function DayPlanner({
         chapters: [],
       }),
     );
-    ui.toast(`${name} · ${BLOCK_TYPES.find((x) => x.t === blockType)!.label} 블록 ${merged ? '병합' : '추가'}`, 'ok');
+    ui.toast(`${name} · ${BLOCK_TYPES.find((x) => x.t === blockType)!.label} 블록 추가`, 'ok');
   };
   const REPEAT_NEXT = { none: 'daily', daily: 'weekly', weekly: 'none' } as const;
   const REPEAT_LABEL = { none: '🔁', daily: '🔁일', weekly: '🔁주' } as const;
@@ -436,8 +453,9 @@ export function DayPlanner({
                     meta={TAG[b.type].label}
                     color={b.color}
                     min={b.min}
-                    done={isDone(state, ds, b.sid, b.type)}
-                    onToggle={(on) => toggleDone(ds, b.sid, b.type, b.min, on)}
+                    done={blockDone(b)}
+                    onToggle={(on) => toggleBlock(b, on)}
+                    onSetMin={manual ? (m) => mutate((st) => resizeBlock(st, res, ds, b.id, m)) : undefined}
                     onPlace={() => placeFirstFree('block', b.id, b.min)}
                     onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
                     onDragStart={onDragStart('block', b.id, b.min)}
@@ -449,11 +467,12 @@ export function DayPlanner({
                     title={t.title}
                     meta="할 일"
                     color={t.color}
-                    min={t.min}
+                    min={t.min ?? 30}
                     free
                     repeat={t.repeat}
                     done={!!t.done}
                     onToggle={(on) => mutate((st) => toggleTaskDone(st, t.id, on))}
+                    onSetMin={(m) => mutate((st) => updateTaskMin(st, t.id, Math.max(SNAP, m)))}
                     onPlace={() => placeFirstFree('task', t.id, t.min || 30)}
                     onDelete={() => mutate((st) => removeTask(st, t.id))}
                     onDragStart={onDragStart('task', t.id, t.min || 30)}
@@ -564,7 +583,7 @@ export function DayPlanner({
                     min={b.min}
                     spanMin={span}
                     pinned={b.pinned}
-                    done={isDone(state, ds, b.sid, b.type)}
+                    done={blockDone(b)}
                     pos={pos}
                     selected={selId === b.id}
                     onSelect={() => setSelId((v) => (v === b.id ? null : b.id))}
@@ -573,7 +592,7 @@ export function DayPlanner({
                     onSetMin={(m) => mutate((st) => resizeBlock(st, res, ds, b.id, m))}
                     onUnplace={() => mutate((st) => unplaceBlock(st, res, ds, b.id))}
                     onPin={() => mutate((st) => togglePin(st, res, ds, b.id))}
-                    onToggle={(on) => toggleDone(ds, b.sid, b.type, b.min, on)}
+                    onToggle={(on) => toggleBlock(b, on)}
                     onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
                   />
                 ))}
@@ -624,6 +643,7 @@ function TrayRow({
   repeat,
   done,
   onToggle,
+  onSetMin,
   onPlace,
   onDelete,
   onDragStart,
@@ -636,6 +656,7 @@ function TrayRow({
   repeat?: 'daily' | 'weekly';
   done: boolean;
   onToggle: (on: boolean) => void;
+  onSetMin?: (min: number) => void;
   onPlace: () => void;
   onDelete?: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -659,8 +680,38 @@ function TrayRow({
       <span className={s.rowMeta}>
         {repeat && <span title={repeat === 'daily' ? '매일 반복' : '매주 반복'}>🔁 </span>}
         {meta}
-        {min ? ` · ${hLabel(min)}` : ''}
       </span>
+      {/* 길이 편집(§6-2 인라인) — 스테퍼로 30분 단위(입력창은 draggable 행과 충돌해 버튼으로). */}
+      {onSetMin && min != null ? (
+        <span
+          className={s.durStep}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          draggable={false}
+        >
+          <button
+            type="button"
+            className={s.durBtn}
+            onClick={() => onSetMin(Math.max(SNAP, min - 30))}
+            title="길이 30분 줄이기"
+            aria-label={`${title} 길이 30분 줄이기`}
+          >
+            −
+          </button>
+          <span className={s.durVal}>{hLabel(min)}</span>
+          <button
+            type="button"
+            className={s.durBtn}
+            onClick={() => onSetMin(min + 30)}
+            title="길이 30분 늘리기"
+            aria-label={`${title} 길이 30분 늘리기`}
+          >
+            ＋
+          </button>
+        </span>
+      ) : (
+        min != null && <span className={s.rowDur}>{hLabel(min)}</span>
+      )}
       <button
         type="button"
         className={s.tool}
