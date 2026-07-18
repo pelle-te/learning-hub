@@ -49,6 +49,11 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    /* delay도 0으로 — duration만 죽이면 스태거 진입 애니(ds.card nth-child 0.05~0.24s,
+       .kpi 등)가 fill-mode:both 때문에 지연 구간 내내 from 상태(opacity:0)에 머문다.
+       모션 자제 사용자에게 요소가 최대 240ms 투명하게 비는 건 '즉시'가 아니다. */
+    animation-delay: 0s !important;
+    transition-delay: 0s !important;
   }
 }
 
@@ -61,4 +66,7 @@ html[data-fx='lite'] *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+  /* reduced-motion과 같은 이유로 delay도 0(스태거 진입이 fill:both로 투명하게 비는 것 방지). */
+  animation-delay: 0s !important;
+  transition-delay: 0s !important;
 }

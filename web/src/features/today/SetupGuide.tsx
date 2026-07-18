@@ -54,9 +54,9 @@ export function SetupGuide() {
     {
       ok: hasRoutine,
       title: '일과·가용 시간 확인',
-      desc: '수면·식사·수업을 빼고 남는 빈 시간이 자동으로 공부시간이 됩니다(기본값 제공 — 필요 시 조정). 계획 › 뼈대.',
+      desc: '수면·식사·수업을 빼고 남는 빈 시간이 자동으로 공부시간이 됩니다(기본값 제공 — 필요 시 조정). 계획 › 과목 › 뼈대.',
       actions: (
-        <Button sm onClick={() => navigate('/routine')}>
+        <Button sm onClick={() => navigate('/items')}>
           가용시간(뼈대) 열기
         </Button>
       ),

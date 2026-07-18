@@ -363,7 +363,8 @@ const TABS = [
   'journal',
   'degree',
   'stats',
-  'routine',
+  // 'routine' 제거 — 계획 재개편 v3에서 '뼈대'가 '과목'으로 병합돼 /routine은 /items 리다이렉트다.
+  // 남겨두면 items와 픽셀 동일한 스냅샷이 두 벌 생겨 리뷰 노이즈만 는다.
   'settings',
   'mastery',
   'control',
@@ -494,6 +495,42 @@ for (const theme of THEMES) {
   });
 }
 
+// 과목 상세 시트(계획 재개편 v3) — 과목 탭의 핵심 신규 UI. 카드를 누르면 탭 프레임보다 작은 중앙 시트가
+// 뜨고, 그 안에서 과목 정의 + 이번 주 요일 배분을 함께 정한다(옛 아코디언 대체). 뒤 갤러리가 살아 있는지도 함께 잠근다.
+for (const theme of THEMES) {
+  test(`subject-sheet · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/items');
+    await expect(page.locator('#main')).toBeVisible();
+    await page
+      .getByRole('button', { name: /미적분/ })
+      .first()
+      .click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '이번 주 요일 배분' })).toBeVisible();
+    // 뷰포트 캡처 — fullPage는 position:fixed 오버레이를 스크롤 오프셋만큼 어긋나게 그려(헤더 누락·좌측 잘림)
+    // 실제 렌더와 다른 상을 박는다. 시트는 뷰포트에 고정된 물건이라 뷰포트로 잡는 게 정직하다.
+    await expect(page).toHaveScreenshot(`subject-sheet-${theme}.png`);
+  });
+}
+
+// 뼈대 스트립 펼침 — 병합으로 흡수한 수업·일과 편집기가 과목 탭 안에서 열리는지(옛 routine 탭의 회귀 자리).
+for (const theme of THEMES) {
+  test(`skeleton-open · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/items');
+    await expect(page.locator('#main')).toBeVisible();
+    await page.getByRole('button', { name: /수업·일과 편집/ }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('button', { name: '+ 블록 추가' })).toBeVisible();
+    // ds.card 진입 애니(cardIn, fill-mode:both)는 첫 프레임 전까지 from 상태(opacity:0)를 유지한다.
+    // toBeVisible은 opacity를 보지 않으므로 그냥 찍으면 두 번째 카드가 투명한 상을 박는다 — 불투명해질 때까지 대기.
+    await expect(page.getByRole('dialog').locator('h2').nth(1).locator('..')).toHaveCSS('opacity', '1');
+    // 시트는 뷰포트 고정물 → 뷰포트 캡처(fullPage는 fixed 오버레이를 어긋나게 그린다).
+    await expect(page).toHaveScreenshot(`skeleton-open-${theme}.png`);
+  });
+}
+
 // 진로 지도 상세(딥링크 /atlas/<key>) — 전체폭 상세 라우트가 그리드가 아닌 상세 화면을 그리는지.
 for (const theme of THEMES) {
   test(`atlas-detail · ${theme}`, async ({ page }) => {
@@ -507,7 +544,8 @@ for (const theme of THEMES) {
 
 // 반응형(모바일 390px) — 레일이 하단 탭바로, 시그니처 보드가 단일 컬럼으로 스택되는지(가로 넘침 없이).
 const MOBILE = { width: 390, height: 844 };
-const TABS_MOBILE = ['today', 'schedule', 'stats', 'routine'];
+// 모바일 — routine 자리를 items가 잇는다(병합 탭은 900px에서 레일이 갤러리 아래로 접히므로 회귀 가치가 크다).
+const TABS_MOBILE = ['today', 'schedule', 'stats', 'items'];
 for (const tab of TABS_MOBILE) {
   test(`${tab} · mobile`, async ({ page }) => {
     await page.setViewportSize(MOBILE);

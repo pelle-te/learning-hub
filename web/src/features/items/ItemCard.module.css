@@ -14,9 +14,9 @@
   box-shadow: var(--shadow-sm);
   align-self: start;
 }
-.row.open {
-  grid-column: 1 / -1; /* 펼치면 갤러리 전폭 차지(편집기 공간). */
-  border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
+/* 이번 주 배분 요약 — 카드에서 "이 과목 채워졌나"를 시트 들어가기 전에 읽는다(계획 재개편 v3). */
+.allocRow {
+  display: flex;
 }
 
 .head {

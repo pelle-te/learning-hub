@@ -1,81 +1,35 @@
-/* ItemCard — 접이식 과목 카드(헤더 요약 + 펼친 편집 영역). 변경은 store.mutate로.
+/* ItemCard — 과목 현황 카드(요약 전용). 계획 재개편 v3에서 아코디언을 걷어냈다:
+   제자리 펼침은 뒤 카드를 밀어 갤러리 조망을 깨뜨렸다 → 클릭하면 SubjectSheet(중앙 시트)가 열린다.
+   그래서 이 카드는 '읽는' 물건이고, 편집은 전부 시트가 소유한다.
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
-import { memo, useCallback, type CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { iso, dayDiff, ddayInfo } from '@/lib/utils';
-import { Button, Pill, type PillTone } from '@/components/ui';
+import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './ItemCard.module.css';
-import type { AppState, Item } from '@/lib/types';
-import { ChapterEditor } from './ChapterEditor';
-
-type Mutate = (recipe: (st: AppState) => void) => void;
+import type { Item } from '@/lib/types';
 
 export interface ItemCardProps {
   item: Item;
-  open: boolean;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  mutate: Mutate;
+  /** 카드 클릭 → 과목 상세 시트 열기. */
+  onOpen: (id: string) => void;
   /** 이 과목(sid=item.id)의 반복 약점 총합 — ≥2면 ⚠반복 배지 표시(SR-2). */
   weakCount?: number;
+  /** 이번 주 이 과목에 배분된 분(요일 합) — 배분 보드/시트와 같은 출처. 미배분이면 undefined. */
+  allocMin?: number;
 }
 
-/** +/- 스텝퍼 — 분/시간 직관 입력(0 미만 방지·소수 첫째자리 반올림). */
-function Stepper({
-  value,
-  step,
-  unit,
-  onChange,
-}: {
-  value: number;
-  step: number;
-  unit: string;
-  onChange: (v: number) => void;
-}) {
-  const clamp = (v: number) => Math.max(0, Math.round(v * 10) / 10);
-  const bump = (d: number) => onChange(clamp(value + d));
-  return (
-    <div className={ds.row} style={{ gap: 4, alignItems: 'center', maxWidth: 170 }}>
-      <Button sm onClick={() => bump(-step)} aria-label={`${unit} 줄이기`}>
-        –
-      </Button>
-      <input
-        type="number"
-        step={step}
-        min={0}
-        value={value}
-        onChange={(e) => onChange(clamp(+e.target.value || 0))}
-        style={{ textAlign: 'center' }}
-      />
-      <Button sm onClick={() => bump(step)} aria-label={`${unit} 늘리기`}>
-        +
-      </Button>
-      <span className={`${ds.muted} ${ds.tiny}`}>{unit}</span>
-    </div>
-  );
-}
-
-function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: ItemCardProps) {
+function ItemCardImpl({ item, onOpen, weakCount, allocMin }: ItemCardProps) {
   const id = item.id;
   const daily = item.mode === 'daily';
   // 스케줄러 입력 부재 — 시간이 0이면 매일 블록이 잡히지 않아 오늘 탭에 뜨지 않는다(조용한 데드엔드 경고, SR-1).
   const noSchedule = daily ? !item.dailyMin : !item.weeklyHours;
   const chs = item.chapters || [];
-  const totalH = chs.reduce((t, c) => t + (+c.hours || 0), 0);
-  const doneCh = chs.filter((c) => c.done).length;
+  const totalH = chs.reduce((t, ch) => t + (+ch.hours || 0), 0);
+  const doneCh = chs.filter((ch) => ch.done).length;
   const prog = chs.length ? Math.round((doneCh / chs.length) * 100) : 0;
-
-  /** 이 과목만 변형. */
-  const upd = useCallback(
-    (fn: (it: Item) => void) =>
-      mutate((st) => {
-        const it = st.items.find((x) => x.id === id);
-        if (it) fn(it);
-      }),
-    [mutate, id],
-  );
 
   // ── 헤더 요약 칩 ──
   const ddTone: PillTone = (() => {
@@ -83,6 +37,17 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: Ite
     const { cls } = ddayInfo(dayDiff(iso(new Date()), item.deadline));
     return cls === 'bad' ? 'bad' : cls === 'warn' ? 'warn' : 'neutral';
   })();
+
+  // 이번 주 배분 vs 주당 예산 — 카드에서 "이 과목 이번 주 채워졌나"를 바로 읽는다(시트 들어가기 전).
+  const budgetMin = Math.round((item.weeklyHours || 0) * 60);
+  const allocTone: PillTone | null =
+    daily || allocMin == null || budgetMin === 0
+      ? null
+      : allocMin === budgetMin
+        ? 'good'
+        : allocMin > budgetMin
+          ? 'bad'
+          : 'warn';
 
   // 과목색 스포트라이트(틸트 없음 — 갤러리 카드). 구조분해로 ref-접근 린트 회피.
   const { ref: cardRef, onMouseMove, onMouseLeave } = useHeroPointer(0);
@@ -92,7 +57,7 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: Ite
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`${c.row}${open ? ' ' + c.open : ''} ${ds.spotHost} ${ds.glow}`}
+      className={`${c.row} ${ds.spotHost} ${ds.glow}`}
       style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
     >
       <div className={ds.spotlight} aria-hidden="true" />
@@ -100,12 +65,12 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: Ite
         className={c.head}
         role="button"
         tabIndex={0}
-        aria-expanded={open}
-        onClick={() => onToggle(id)}
+        aria-haspopup="dialog"
+        onClick={() => onOpen(id)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onToggle(id);
+            onOpen(id);
           }
         }}
       >
@@ -127,7 +92,9 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: Ite
               ⚠ 반복 {weakCount}
             </Pill>
           )}
-          <span className={c.chev}>{open ? '▾' : '▸'}</span>
+          <span className={c.chev} aria-hidden="true">
+            ›
+          </span>
         </div>
         <div className={c.statRow}>
           {daily ? (
@@ -184,75 +151,15 @@ function ItemCardImpl({ item, open, onToggle, onDelete, mutate, weakCount }: Ite
             </>
           )}
         </div>
+        {allocTone && (
+          <div className={c.allocRow}>
+            <Pill tiny tone={allocTone}>
+              이번 주 {Number.isInteger(allocMin! / 60) ? allocMin! / 60 : (allocMin! / 60).toFixed(1)}h /{' '}
+              {item.weeklyHours}h
+            </Pill>
+          </div>
+        )}
       </div>
-
-      {open && (
-        <div className={ds.itembody}>
-          <div className={ds.fieldgrid}>
-            <div className={`${ds.fld} ${ds.wide}`}>
-              <label htmlFor={`it-name-${id}`}>과목 이름</label>
-              <input
-                id={`it-name-${id}`}
-                type="text"
-                value={item.name}
-                onChange={(e) => upd((it) => void (it.name = e.target.value))}
-                style={{ fontWeight: 600 }}
-                placeholder="과목 이름"
-              />
-            </div>
-            <div className={ds.fld}>
-              <label htmlFor={`it-mode-${id}`}>유형</label>
-              <select
-                id={`it-mode-${id}`}
-                value={item.mode}
-                onChange={(e) => upd((it) => void (it.mode = e.target.value as Item['mode']))}
-              >
-                <option value="weekly">주당 시간</option>
-                <option value="daily">매일(Anki)</option>
-              </select>
-            </div>
-            <div className={ds.fld}>
-              <label>{daily ? '매일 학습 (분)' : '주당 목표 시간'}</label>
-              {daily ? (
-                <Stepper
-                  value={item.dailyMin || 30}
-                  step={5}
-                  unit="분"
-                  onChange={(v) => upd((it) => void (it.dailyMin = v))}
-                />
-              ) : (
-                <Stepper
-                  value={item.weeklyHours || 3}
-                  step={0.5}
-                  unit="h"
-                  onChange={(v) => upd((it) => void (it.weeklyHours = v))}
-                />
-              )}
-            </div>
-            <div className={ds.fld}>
-              <label htmlFor={`it-dl-${id}`}>마감일 (선택)</label>
-              <input
-                id={`it-dl-${id}`}
-                type="date"
-                value={item.deadline || ''}
-                onChange={(e) => upd((it) => void (it.deadline = e.target.value))}
-              />
-            </div>
-          </div>
-
-          {!daily && <ChapterEditor item={item} mutate={mutate} />}
-
-          <div className={ds.itemfoot}>
-            <span className={`${ds.tiny} ${ds.muted}`}>
-              출처 {item.source || '직접'}
-              {!daily && chs.length ? ` · ${chs.length}챕터 · 약 ${totalH}h` : ''}
-            </span>
-            <Button sm variant="ghost" danger onClick={() => onDelete(id)}>
-              과목 삭제
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

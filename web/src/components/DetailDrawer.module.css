@@ -19,17 +19,66 @@
   flex-direction: column;
   animation: dd-slide 0.22s var(--ease);
 }
+/* 중앙 시트 — 탭 프레임보다 작은 '새 페이지'. 뒤 목록이 그대로 보여 맥락이 유지된다(과목 상세). */
+.overlayCenter {
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 5vh, 56px) clamp(12px, 4vw, 48px);
+}
+.overlayCenter .panel {
+  /* 시트 폭이 곧 내부 격자의 열 수를 정한다 — 880에선 어느 카드도 2열을 못 만들어 목록이 세로로만 길어졌다.
+     1200이면 좌우 카드가 각각 ~570을 받아 블록이 2열로 흐른다(그 아래 폭에선 자연히 1열로 접힘). */
+  width: min(1200px, 100%);
+  height: auto;
+  max-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  animation: dd-pop 0.2s var(--ease);
+}
+@keyframes dd-pop {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlayCenter .panel {
+    animation: none;
+  }
+}
+@media (max-width: 700px) {
+  .overlayCenter {
+    padding: 0;
+  }
+  .overlayCenter .panel {
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+  }
+}
+
 .panelHead {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--line);
   font-size: 13px;
   letter-spacing: 0.02em;
 }
+/* 제목은 줄어들고 넘치면 말줄임 — min-width:0이 없으면 flex 항목이 콘텐츠 폭 아래로 못 줄어
+   좁은 시트에서 닫기 버튼을 패널 밖으로 밀어낸다. */
+.panelTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .panelX {
+  flex: none;
   width: 32px;
   height: 32px;
   border-radius: 8px;

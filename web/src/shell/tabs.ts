@@ -59,29 +59,32 @@ export const TABS: TabMeta[] = [
   },
   // 아래 흡수 탭들은 나브에서 숨기고, 호스트 탭(스케줄·기록·통계) 상단 섹션 세그먼트(SubTabs)로 전환한다.
   // 라우트·팔레트·g단축키로는 그대로 진입 가능(SUBTAB_GROUPS 참조).
+  // routine — '뼈대' 세그먼트는 '과목' 탭으로 병합됐다(계획 재개편 v3). 이 키는 리다이렉트 shim만 남아
+  // `g o`·⌘K·기존 `/routine` 딥링크를 '/items'로 넘긴다. SUBTAB_GROUPS에는 더 이상 없다(세그먼트 소멸).
   {
     key: 'routine',
-    label: '가용시간·수업·일과',
+    label: '가용시간·수업·일과 (→ 과목)',
     group: 'plan',
     surface: 'study',
     order: 30,
     hidden: true,
-    segLabel: '뼈대',
     icon: 'clock',
-    fill: true,
   },
   // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
   { key: 'degree', label: '졸업 계획', group: 'plan', surface: 'study', order: 35, icon: 'cap' },
-  // 학습 항목(items) — 전공 과목·챕터 = 학습 대상 카탈로그. 계획 호스트로 흡수(hidden). 세그먼트 라벨='과목'.
+  // 과목(items) — 전공 과목·챕터 카탈로그 + 뼈대(가용시간·수업·일과) + 과목별 요일 배분(계획 재개편 v3).
+  // 계획 호스트로 흡수(hidden). 세그먼트 라벨='과목' — 계획은 이제 [과목 · 배치] 2세그먼트다.
+  // fill: 좌 갤러리 / 우 가용 레일이 화면을 꽉 채우는 프레임이라 여백 래퍼 없이 붙인다.
   {
     key: 'items',
-    label: '학습 항목',
+    label: '과목',
     group: 'plan',
     surface: 'study',
     order: 40,
     hidden: true,
     segLabel: '과목',
     icon: 'file',
+    fill: true,
   },
   // ── 학습 표면 · 숙련(train) — '내가 뭘 아는가·무엇을 익힐까' ──
   { key: 'journal', label: '학습 기록', group: 'train', surface: 'study', order: 60, icon: 'notebook', fill: true },
@@ -177,7 +180,7 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
 export const SUBTAB_GROUPS: string[][] = [
   // 계획 호스트: plan-host(셸·나브 노출) 아래 뼈대(routine)·과목(items)·배치(schedule) 3세그먼트.
   // host=첫 항목=plan-host → hostTabKey가 세 세그먼트를 '계획'으로 하이라이트. SubTabs는 셸을 버튼에서 제외.
-  ['plan-host', 'routine', 'items', 'schedule'],
+  ['plan-host', 'items', 'schedule'],
   ['integrations', 'ledger'],
   ['journal', 'review', 'review-run'],
   ['stats', 'mastery', 'graph'],

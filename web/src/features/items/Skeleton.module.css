@@ -6,23 +6,17 @@
    넓은 편집기(수업·일과)는 좌측 1fr, 24h 발광 링 시그니처는 우측 340.
    주간/선택요일 가용 리드아웃은 상단 바(usePageChrome).
 ============================================================ */
-.wrap {
-  height: 100%;
-  min-width: 0;
-}
-.cols {
-  height: 100%;
-  display: grid;
-  /* 두 컬럼이 비례해 함께 커짐(편집기 1 : 그래프 0.85) — 화면이 넓어지면 편집기·그래프·링이
-     같이 자연스럽게 확장. 편집기만 늘고 링이 고정되던 기괴함 제거. 좁은 화면에선 그래프 최소 420 보장. */
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.85fr);
-  min-height: 0;
-}
+/* 뼈대 편집 본문 — 이제 과목 탭의 접이식 스트립 안에 산다(스크롤은 스트립이 소유).
+   옛 routine 탭의 2컬럼 프레임(.wrap/.cols)은 병합으로 소멸 — Items.module.css의 .cols가 대신한다. */
+/* 두 카드를 좌우로 가르지 않고 세로로 쌓는다 — 갈라놓으면 각 열이 절반이 돼 내부 목록이 1열로 눌리고
+   (짧은 수업 카드 옆이 비는 동안 긴 일과 카드만 아래로 길어진다), 결국 폭을 못 쓴다.
+   세로로 쌓으면 각 목록이 시트 전폭에서 auto-fill로 흘러 열 수가 폭에 맞춰 늘어난다. */
 .editCol {
   min-width: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  padding: 20px 22px 28px;
+  padding: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .sigCol {
   min-width: 0;
@@ -66,10 +60,6 @@
 }
 
 @media (max-width: 900px) {
-  .cols {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-  }
   .sigCol {
     padding: 8px 22px 20px;
   }
@@ -143,15 +133,49 @@
   align-items: flex-end;
   justify-content: center;
 }
+/* 막대 = 그 요일 '가용'(용량 틀). 안쪽 .wbLoad = 이번 주 '배분'(적재).
+   용량을 중립 틀로, 배분을 액센트 채움으로 분리해야 "얼마나 찼나"가 한눈에 읽힌다(계획 재개편 v3). */
 .wbBar {
+  position: relative;
   width: 100%;
   min-height: 2px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--acc) 40%, transparent);
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
 }
 .wkbars .wbOn .wbBar {
+  background: color-mix(in srgb, var(--ink) 24%, transparent);
+}
+.wbLoad {
+  width: 100%;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--acc) 65%, transparent);
+}
+.wkbars .wbOn .wbLoad {
   background: var(--acc);
   box-shadow: 0 0 10px var(--glow);
+}
+/* 배분 > 가용 — 그 요일은 담을 수 없는 양이 잡혀 있다. */
+.wbLoadOver {
+  background: var(--bad);
+}
+.wkbars .wbOn .wbLoadOver {
+  background: var(--bad);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--bad) 55%, transparent);
+}
+/* 레일 하단 주간 합계 — 배분/가용 한 줄. */
+.allocSum {
+  width: 100%;
+  font-size: 11px;
+  color: var(--mut);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.allocSum b {
+  color: var(--ink);
+  font-weight: 800;
 }
 .wkbars .wb .h {
   font-size: 13px;
@@ -178,7 +202,8 @@
 /* 수업(요일별) 편집 행 */
 .classrow {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) 104px 16px 104px 38px;
+  /* 시간 열 104 → 120: 네이티브 time 입력이 "오전 09:00 🕐"를 담으려면 104로는 모자라 글자가 잘렸다. */
+  grid-template-columns: minmax(90px, 1fr) 120px 16px 120px 38px;
   gap: 6px;
   align-items: center;
   margin-bottom: 6px;
@@ -194,6 +219,31 @@
   .classrow .csep {
     display: none;
   }
+}
+
+/* 목록을 시트 폭에 맞춰 자동 열 분할 — 수업·블록이 늘수록 세로로만 길어지면 시트가 스크롤 지옥이 된다.
+   폭이 남으면 2·3열로 흐르고, 좁으면 1열로 접힌다(내용이 배치를 정하게 두는 auto-fill).
+   margin-bottom 대신 gap이 간격을 소유해야 격자가 어긋나지 않으므로 아래에서 margin을 0으로 덮는다. */
+.clsGrid,
+.blkGrid {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  align-items: start;
+}
+/* 최소폭은 '내용이 실제로 요구하는 폭'이어야 한다 — 이보다 낮추면 열이 하나 더 생기는 대신
+   내부 고정폭(시간 입력·삭제 버튼)이 셀을 넘쳐 이름 칸이 사라진다(열 수보다 읽히는 게 먼저다).
+   수업 행 = 이름90 + 120 + ~16 + 120 + 삭제38 + 간격24 ≈ 408 / 블록 = 이름 + 유형84 + 시간 + 삭제 ≈ 420. */
+.clsGrid {
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+}
+.blkGrid {
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+}
+.clsGrid > *,
+.blkGrid > * {
+  margin-bottom: 0;
+  min-width: 0; /* 격자 항목 기본 min-width:auto가 내부 고정폭(시간 입력·삭제)을 셀 밖으로 밀어낸다. */
 }
 
 /* 일과 블록 — 2줄 카드(상단: 이름·유형·시간·삭제 / 하단: 요일 칩). 왼쪽 색 띠 = 블록 유형. */

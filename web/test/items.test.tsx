@@ -32,9 +32,10 @@ afterEach(() => cleanup());
 
 test('items: React 탭으로 렌더되고 #page를 쓰지 않는다', async () => {
   renderApp('/items');
-  await waitFor(() => expect(screen.getByRole('heading', { name: /학습 항목/ })).toBeInTheDocument());
+  // 계획 재개편 v3 — 탭 이름이 '학습 항목' → '과목'(뼈대 병합).
+  await waitFor(() => expect(screen.getByRole('heading', { name: /^과목/ })).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
-  expect(screen.getByText(/아직 학습 항목이 없어요/)).toBeInTheDocument();
+  expect(screen.getByText(/아직 과목이 없어요/)).toBeInTheDocument();
 });
 
 test('items: 과목 추가가 store(앱상태)에 반영된다', async () => {

@@ -67,8 +67,11 @@ test('schedule: 배치 세그먼트가 배분/일/주/월 뷰를 전환한다(#p
   await waitFor(() => expect(screen.getByRole('button', { name: '월' })).toHaveAttribute('aria-pressed', 'true'));
 });
 
+// 계획 재개편 v3 — '뼈대'는 '과목' 탭의 접이식 스트립으로 병합됐다(/routine은 /items 리다이렉트).
+// 편집기는 온디맨드라 스트립을 먼저 펼쳐야 '+ 블록 추가'가 나온다.
 test('routine: + 블록 추가가 store.routine에 들어간다', async () => {
   renderApp('/routine');
+  fireEvent.click(await screen.findByRole('button', { name: /수업·일과 편집/ }));
   const add = await screen.findByRole('button', { name: '+ 블록 추가' });
   fireEvent.click(add);
   await waitFor(() => expect(useApp.getState().state.routine.some((b) => b.type !== '수업')).toBe(true));

@@ -1,22 +1,37 @@
 /* ============================================================
-   Items — 탭: 학습 항목 (Phase 3 · 앱상태/Zustand)
-   구조 레이아웃은 전역 디자인 시스템 클래스(card/itemrow/fieldgrid…)+ds.module을 재사용,
-   인터랙티브/칩은 토큰 기반 공용 컴포넌트(Button/Pill/Kpi)로 — 룩 일관·테마 자동 대응.
+   Items — 계획 › '과목' 탭. 계획 재개편 v3에서 옛 '뼈대'(가용시간·수업·일과) 세그먼트를 흡수했다.
+   단일 질문: **"무엇을, 주당 얼마나, 어느 요일에 — 그리고 그럴 시간이 있나?"**
+
+   층 구성(사용자 확정 안):
+     · 상단 = 뼈대 요약 스트립(접힘 기본) → 펼치면 SkeletonPanel(수업·일과 편집)
+     · 좌   = 과목 갤러리 + 볼트 불러오기
+     · 우   = AvailRail(24h 링·요일 막대 = 가용 위에 배분 적재)
+     · 클릭 = SubjectSheet 중앙 시트(과목 정의 + 그 과목의 이번 주 요일 배분)
+
+   배분은 '흡수'가 아니라 '미러' — 전 과목 교차 조망(요일 열 합계)은 배치 탭의 배분 보드가 계속 소유하고,
+   여기선 lib/weekAlloc 같은 출처로 한 과목의 행만 편집한다. 두 입구, 한 진실.
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { useSchedule } from '@/store/selectors';
 import { ui } from '@/shell';
-import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo } from '@/lib/utils';
+import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo, DOW, todayISO } from '@/lib/utils';
+import { freeWindowsForWeekday } from '@/lib/scheduler';
+import { allocView, rowSumMin, weekMonOf } from '@/lib/weekAlloc';
 import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
+import DetailDrawer from '@/components/DetailDrawer';
 import ds from '@/styles/ds.module.css';
 import c from './Items.module.css';
 import type { Item } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 import { VaultImport } from './VaultImport';
+import { SkeletonPanel } from './SkeletonPanel';
+import { AvailRail } from './AvailRail';
+import { SubjectSheet } from './SubjectSheet';
 
 /** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감. */
 function useInsight(items: Item[]) {
@@ -30,9 +45,9 @@ function useInsight(items: Item[]) {
     let nearest: { dd: number; name: string } | null = null;
     for (const s of named) {
       weekly += s.mode === 'daily' ? ((s.dailyMin || 0) * 7) / 60 : s.weeklyHours || 0;
-      for (const c of s.chapters || []) {
+      for (const ch of s.chapters || []) {
         totalCh++;
-        if (c.done) doneCh++;
+        if (ch.done) doneCh++;
       }
       if (s.deadline) {
         const dd = dayDiff(todayDs, s.deadline);
@@ -54,15 +69,30 @@ function useInsight(items: Item[]) {
 export default function Items() {
   const items = useApp((s) => s.state.items);
   const cbms = useApp((s) => s.state.cbms);
+  const routine = useApp((s) => s.state.routine);
+  const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
+  const res = useSchedule();
   const [searchParams, setSearchParams] = useSearchParams();
   // sid(=item.id)별 반복 약점 총합 — cbms가 바뀔 때만 롤업 재계산(SR-2). weakCountBySid는 state.cbms만 읽으므로
   // 반응형 cbms 슬라이스를 넘겨 재계산을 그 변화에 묶는다(전체 state 구독으로 인한 불필요 리렌더 회피).
   const weakBySid = useMemo(() => weakCountBySid({ ...useApp.getState().state, cbms }), [cbms]);
-  const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const [sheetId, setSheetId] = useState<string | null>(null); // 열려 있는 과목 상세 시트
+  const [showSkeleton, setShowSkeleton] = useState(false); // 뼈대 편집 스트립 펼침(온디맨드 세부)
   const [showImport, setShowImport] = useState(false); // 인라인 볼트 불러오기 토글(§5-2)
   const insight = useInsight(items);
-  // 과목 수·주당 합계·챕터 진행·마감 리드아웃을 상단 바로(데모 v6 헤더).
+
+  // 이번 주 배분(과목별 합) — 카드 배지·리드아웃 공용. 보드/시트와 같은 출처(lib/weekAlloc).
+  const wk = weekMonOf(todayISO(state));
+  const alloc = allocView(state, res, wk);
+  const allocWeekMin = items.reduce((t, it) => t + rowSumMin(alloc[it.id]), 0);
+
+  // 뼈대 요약 — 스트립이 접혀 있어도 "가용이 얼마고 뭐가 잡혀 있나"는 항상 보인다.
+  const weekFreeMin = DOW.reduce((t, _, i) => t + freeWindowsForWeekday(state, i).freeMin, 0);
+  const classCount = routine.filter((b) => b.type === '수업').length;
+  const blockCount = routine.length - classCount;
+
+  // 과목 수·주당 목표·이번 주 배분/가용·마감 리드아웃을 상단 크롬으로.
   usePageChromeEffect(
     () => ({
       readouts: !insight
@@ -70,7 +100,7 @@ export default function Items() {
         : [
             { label: '과목', value: insight.count, accent: true },
             {
-              label: '주당 합계',
+              label: '주당 목표',
               value: (
                 <>
                   {insight.weekly}
@@ -79,11 +109,11 @@ export default function Items() {
               ),
             },
             {
-              label: '챕터',
+              label: '이번 주 배분',
               value: (
                 <>
-                  {insight.doneCh}
-                  <small> / {insight.totalCh}</small>
+                  {(allocWeekMin / 60).toFixed(1)}
+                  <small> / {(weekFreeMin / 60).toFixed(1)} h</small>
                 </>
               ),
             },
@@ -93,27 +123,15 @@ export default function Items() {
             },
           ],
     }),
-    [insight],
+    [insight, allocWeekMin, weekFreeMin],
   );
-
-  const toggle = useCallback((id: string) => {
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const collapseAll = useCallback(() => setOpen(new Set()), []);
-  const expandAll = useCallback(() => setOpen(new Set(items.map((i) => i.id))), [items]);
 
   const addItem = useCallback(() => {
     const id = rid();
     mutate((st) => {
       st.items.push(makeItem(st.items.length, { id, source: '직접', name: '새 과목' }));
     });
-    setOpen((prev) => new Set(prev).add(id)); // 새 과목은 바로 펼쳐서 편집
+    setSheetId(id); // 새 과목은 바로 시트를 열어 편집
   }, [mutate]);
 
   const recolorAll = useCallback(() => {
@@ -141,17 +159,13 @@ export default function Items() {
       mutate((st) => {
         st.items = st.items.filter((s) => s.id !== id);
       });
-      setOpen((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      setSheetId((cur) => (cur === id ? null : cur)); // 삭제한 과목의 시트는 닫는다
       ui.toast('과목 삭제됨', 'info');
     },
     [items, mutate],
   );
 
-  // 드래그 정렬 — HTML5 DnD(닫힌 카드만). 색은 인덱스 파생(PALETTE)이므로 재정렬 즉시 재유도해
+  // 드래그 정렬 — HTML5 DnD. 색은 인덱스 파생(PALETTE)이므로 재정렬 즉시 재유도해
   // 다음 부팅에 색이 바뀌는 서프라이즈를 없앤다(recolorAll·refineItemColors와 동일 규칙).
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -215,30 +229,23 @@ export default function Items() {
   }, [searchParams, setSearchParams]);
 
   const n = items.length;
+  const sheetItem = sheetId ? items.find((i) => i.id === sheetId) : null;
 
   return (
-    <section className={c.wrap} aria-label="학습 항목">
+    <section className={c.wrap} aria-label="과목">
       <div className={c.header}>
         <div className={c.lead}>
-          <h2 className={c.eyebrow}>학습 항목{n ? ` · ${n}과목` : ''}</h2>
+          <h2 className={c.eyebrow}>과목{n ? ` · ${n}과목` : ''}</h2>
           <div className={c.hint}>
-            카드를 누르면 펼쳐 편집해요. <b>주당 목표·챕터</b>를 넣으면 스케줄러가 매일 블록을 자동 배치합니다. 순서는
-            드래그 또는 <b>Alt+↑↓</b>(키보드).
+            카드를 누르면 <b>그 과목의 목표·챕터·요일 배분</b>을 한 창에서 정해요. 순서는 드래그 또는 <b>Alt+↑↓</b>
+            (키보드).
           </div>
         </div>
         <div className={c.actions}>
           {n > 1 && (
-            <>
-              <Button sm variant="ghost" onClick={expandAll} title="모두 펼치기">
-                모두 펼치기
-              </Button>
-              <Button sm variant="ghost" onClick={collapseAll} title="모두 접기">
-                모두 접기
-              </Button>
-              <Button sm variant="ghost" onClick={recolorAll} title="모든 과목 색을 새 팔레트 순서로 재배정">
-                색 재배정
-              </Button>
-            </>
+            <Button sm variant="ghost" onClick={recolorAll} title="모든 과목 색을 새 팔레트 순서로 재배정">
+              색 재배정
+            </Button>
           )}
           <Button
             sm
@@ -255,85 +262,123 @@ export default function Items() {
         </div>
       </div>
 
-      {showImport && <VaultImport onClose={() => setShowImport(false)} />}
+      {/* 뼈대 스트립 — 상시로는 요약만(가용·수업·일과). 누르면 과목과 **같은 중앙 시트**로 편집기가 뜬다.
+          제자리 펼침을 쓰지 않는 이유는 ItemCard 아코디언을 걷어낸 이유와 같다: 뒤 갤러리가 아래로 밀려
+          조망이 깨진다. 같은 탭 안에서 '펼침'과 '시트' 두 어휘를 섞지 않는다(일관성). */}
+      <div className={c.skeleton}>
+        <button type="button" className={c.skelBar} onClick={() => setShowSkeleton(true)} aria-haspopup="dialog">
+          <span className={c.skelChev} aria-hidden="true">
+            ›
+          </span>
+          <span className={c.skelTitle}>뼈대</span>
+          <span className={c.skelStat}>
+            가용 <b>{(weekFreeMin / 60).toFixed(1)}h</b>/주
+          </span>
+          <span className={c.skelSep} aria-hidden="true" />
+          <span className={c.skelStat}>
+            수업 <b>{classCount}</b>
+          </span>
+          <span className={c.skelSep} aria-hidden="true" />
+          <span className={c.skelStat}>
+            일과 <b>{blockCount}</b>
+          </span>
+          <span className={c.skelHint}>수업·일과 편집</span>
+        </button>
+      </div>
 
-      {items.length === 0 ? (
-        <div className={c.empty}>
-          <div className={ds.card}>
-            <EmptyState
-              glyph="📚"
-              title="아직 학습 항목이 없어요"
-              desc={
-                <>
-                  공부할 과목을 추가하면 <b>주당 목표 시간</b>과 <b>챕터</b>로 스케줄러가 매일 블록을 자동 배치합니다.
-                  옵시디언 볼트나 Anki에서 통째로 불러올 수도 있어요.
-                </>
-              }
-              actions={
-                <>
-                  <Button variant="primary" onClick={addItem}>
-                    + 첫 과목 추가
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowImport(true)}
-                    title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
-                  >
-                    📁 볼트/Anki에서 불러오기
-                  </Button>
-                </>
-              }
-            />
-          </div>
+      <DetailDrawer
+        open={showSkeleton}
+        onClose={() => setShowSkeleton(false)}
+        title="뼈대 — 가용시간·수업·일과"
+        placement="center"
+      >
+        <SkeletonPanel />
+      </DetailDrawer>
+
+      {showImport && (
+        <div className={c.importWrap}>
+          <VaultImport onClose={() => setShowImport(false)} />
         </div>
-      ) : (
-        <div className={c.gallery}>
-          {items.map((s) => (
-            <div
-              key={s.id}
-              data-item-id={s.id}
-              className={`${c.dragWrap}${overId === s.id && dragId !== s.id ? ' ' + c.dragOver : ''}${dragId === s.id ? ' ' + c.dragging : ''}`}
-              draggable={!open.has(s.id)}
-              onDragStart={(e) => {
-                setDragId(s.id);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-              onDragEnd={() => {
-                setDragId(null);
-                setOverId(null);
-              }}
-              onDragOver={(e) => {
-                if (!dragId) return;
-                e.preventDefault(); // drop 허용
-                setOverId(s.id);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragId) moveItem(dragId, s.id);
-                setDragId(null);
-                setOverId(null);
-              }}
-              onKeyDown={(e) => {
-                // 키보드 재정렬(WCAG 2.1.1) — 카드 안 어디에 포커스가 있든 Alt+↑↓로 순서 이동
-                // (드래그의 키보드 대안 · 새 tab stop을 만들지 않아 탐색 소음 없음).
-                if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-                e.preventDefault();
-                const idx = items.findIndex((x) => x.id === s.id);
-                const tgt = items[idx + (e.key === 'ArrowDown' ? 1 : -1)];
-                if (tgt) moveItem(s.id, tgt.id);
-              }}
-            >
-              <ItemCard
-                item={s}
-                open={open.has(s.id)}
-                onToggle={toggle}
-                onDelete={removeItem}
-                mutate={mutate}
-                weakCount={weakBySid[s.id]}
+      )}
+
+      <div className={c.cols}>
+        {items.length === 0 ? (
+          <div className={c.empty}>
+            <div className={ds.card}>
+              <EmptyState
+                glyph="📚"
+                title="아직 과목이 없어요"
+                desc={
+                  <>
+                    공부할 과목을 추가하면 <b>주당 목표 시간</b>과 <b>챕터</b>로 스케줄러가 매일 블록을 자동 배치합니다.
+                    옵시디언 볼트나 Anki에서 통째로 불러올 수도 있어요.
+                  </>
+                }
+                actions={
+                  <>
+                    <Button variant="primary" onClick={addItem}>
+                      + 첫 과목 추가
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowImport(true)}
+                      title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
+                    >
+                      📁 볼트/Anki에서 불러오기
+                    </Button>
+                  </>
+                }
               />
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className={c.gallery}>
+            {items.map((s) => (
+              <div
+                key={s.id}
+                data-item-id={s.id}
+                className={`${c.dragWrap}${overId === s.id && dragId !== s.id ? ' ' + c.dragOver : ''}${dragId === s.id ? ' ' + c.dragging : ''}`}
+                draggable
+                onDragStart={(e) => {
+                  setDragId(s.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                onDragOver={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault(); // drop 허용
+                  setOverId(s.id);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragId) moveItem(dragId, s.id);
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                onKeyDown={(e) => {
+                  // 키보드 재정렬(WCAG 2.1.1) — 카드 안 어디에 포커스가 있든 Alt+↑↓로 순서 이동
+                  // (드래그의 키보드 대안 · 새 tab stop을 만들지 않아 탐색 소음 없음).
+                  if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                  e.preventDefault();
+                  const idx = items.findIndex((x) => x.id === s.id);
+                  const tgt = items[idx + (e.key === 'ArrowDown' ? 1 : -1)];
+                  if (tgt) moveItem(s.id, tgt.id);
+                }}
+              >
+                <ItemCard item={s} onOpen={setSheetId} weakCount={weakBySid[s.id]} allocMin={rowSumMin(alloc[s.id])} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <AvailRail />
+      </div>
+
+      {sheetItem && (
+        <SubjectSheet item={sheetItem} mutate={mutate} onClose={() => setSheetId(null)} onDelete={removeItem} />
       )}
     </section>
   );
