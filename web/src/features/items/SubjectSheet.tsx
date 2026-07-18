@@ -75,6 +75,10 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   const monday = parseISO(wk);
   const todayIso = todayISO(state);
 
+  // 고아 방어 — 삭제된 과목의 잔여 배분이 요일 '여유' 계산을 오염시키지 않게 유효 sid만 센다
+  // (정상 경로 청소는 removeSidFromAlloc가 하지만, 이미 오염된 저장본에 대한 표시 단계 방어선).
+  const validSids = new Set(state.items.map((it) => it.id));
+
   const budgetMin = Math.round((item.weeklyHours || 0) * 60);
   const usedMin = rowSumMin(vec);
   const diff = usedMin - budgetMin;
@@ -111,7 +115,7 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
           const mine = vec?.[wd] || 0;
           const capMin = capWd[wd] || 0;
           // 그 요일 '남은 여유' = 가용 − (전 과목 배분). 내 칸을 늘릴 여지를 여기서 읽는다(열 맥락 최소 이식).
-          const freeMin = capMin - colSumMin(alloc, wd);
+          const freeMin = capMin - colSumMin(alloc, wd, validSids);
           const over = capMin > 0 && freeMin < 0;
           return (
             <label key={i} className={`${c.day}${iso(date) === todayIso ? ' ' + c.dayToday : ''}`}>
@@ -158,6 +162,8 @@ export function SubjectSheet({
   onDelete: (id: string) => void;
 }) {
   const id = item.id;
+  // 마감 D-day도 앱 정본 '오늘'에서 — 벽시계 new Date()를 쓰면 `_today` 시드 주입 시 값이 갈렸다.
+  const todayIso = useApp((s) => todayISO(s.state));
   const daily = item.mode === 'daily';
   const chs = item.chapters || [];
   const totalH = chs.reduce((t, ch) => t + (+ch.hours || 0), 0);
@@ -228,7 +234,7 @@ export function SubjectSheet({
             />
             {item.deadline && (
               <span className={`${ds.tiny} ${ds.muted}`} style={{ marginTop: 4 }}>
-                {ddayInfo(dayDiff(iso(new Date()), item.deadline)).lab}
+                {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
               </span>
             )}
           </div>

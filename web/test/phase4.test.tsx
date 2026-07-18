@@ -61,9 +61,10 @@ test('schedule: 캘린더 세그먼트가 일/주/월 뷰를 전환한다(#page 
   // 일 뷰로 전환 → aria-pressed 이동(세그먼트는 tablist 미이행 → group+aria-pressed, WCAG 4.1.2)
   fireEvent.click(screen.getByRole('button', { name: '일' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '일' })).toHaveAttribute('aria-pressed', 'true'));
-  // 주 뷰로 전환 → 주간 네비 등장
+  // 주 뷰로 전환 → 주간 네비 등장. 이름은 aria-label이 고정한다("◀" 같은 장식 문자 없이) —
+  // 좁은 폭에서 버튼의 서술 텍스트가 접혀도 접근가능한 이름은 그대로여야 한다.
   fireEvent.click(screen.getByRole('button', { name: '주' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: '◀ 이전 주' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('button', { name: '이전 주' })).toBeInTheDocument());
   // 월 뷰로 전환 → aria-pressed 이동
   fireEvent.click(screen.getByRole('button', { name: '월' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '월' })).toHaveAttribute('aria-pressed', 'true'));
@@ -79,9 +80,17 @@ test('routine: + 블록 추가가 store.routine에 들어간다', async () => {
   await waitFor(() => expect(useApp.getState().state.routine.some((b) => b.type !== '수업')).toBe(true));
 });
 
-test('alloc: 배분 세그먼트가 과목×요일 보드를 렌더한다', async () => {
+// 보드의 role은 grid가 아니라 table이다 — grid는 화살표 이동·단일 tab stop 계약을 약속하는데
+// 이 보드는 셀마다 입력이 tab stop인 평범한 표라 그 계약을 이행하지 않는다(거짓 계약 제거).
+// 단언도 "표가 있다"에서 "요일 열머리글과 편집 가능한 셀이 있다"로 승격한다.
+test('alloc: 배분 세그먼트가 과목×요일 보드를 표 시맨틱으로 렌더한다', async () => {
   renderApp('/alloc');
-  await waitFor(() => expect(screen.getByRole('grid', { name: '주간 배분 보드' })).toBeInTheDocument());
+  const board = await screen.findByRole('table', { name: '주간 배분 보드' });
+  expect(board).toBeInTheDocument();
+  // 요일 헤더는 열머리글이자 일 편집기를 여는 버튼(role 오버라이드로 버튼 의미를 덮지 않는다).
+  const heads = within(board).getAllByRole('columnheader');
+  expect(heads.length).toBe(9); // 과목·요일 + 7요일 + 주당
+  expect(within(board).getAllByRole('button').length).toBe(7);
   expect(document.getElementById('page')).toBeNull();
 });
 

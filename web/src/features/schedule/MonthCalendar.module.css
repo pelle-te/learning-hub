@@ -79,48 +79,49 @@
 
 /* 칸 = [날짜 / 칩(가변·잘림) / +N(바닥 고정)] 3행.
    단순 flex+overflow면 칩이 넘칠 때 "+N"까지 함께 잘려, 더 있다는 사실 자체가 사라진다. */
+/* 칸 전체가 버튼 — 예전엔 날짜 줄만 눌려 "어디를 눌러야 하지"가 됐다. */
 .cell {
   position: relative;
+  border: none;
+  font-family: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
   min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   border-radius: 8px;
   padding: 4px 4px 3px;
-  background: var(--fill, transparent);
+  background: transparent;
   box-shadow: inset 0 0 0 1px var(--line2);
   overflow: hidden;
+}
+.cell:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 45%, var(--line2));
+}
+.cell:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
 }
 /* 이번 달이 아닌 날 — 지우지 않고 물러나게(주 경계 감각은 유지돼야 한다). */
 .out {
   opacity: 0.42;
 }
-.weekend {
-  background: color-mix(in srgb, var(--ink) 3%, var(--fill, transparent));
+/* 주말 — 바탕을 칠하는 대신 날짜 숫자만 물러나게(바탕 틴트는 칩 대비를 깎는다). */
+.weekend .dnum {
+  color: var(--mut);
 }
 .today {
   box-shadow: inset 0 0 0 1.5px var(--acc);
 }
 
-.dayBtn {
-  flex: none;
+.dayRow {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 4px;
-  border: none;
-  background: transparent;
-  color: var(--ink);
-  font-family: inherit;
-  cursor: pointer;
   padding: 0 2px 3px;
-  width: 100%;
-  text-align: left;
-}
-.dayBtn:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: -2px;
-  border-radius: 5px;
 }
 .dnum {
   font-size: 12px;
@@ -169,11 +170,29 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
+  background: var(--acc);
+}
+/* 일정 칩 — 마감(빨강 🚩)·할 일(중립 바탕)과 세 번째로 갈리는 색이 필요한데, 과목색 PALETTE가
+   초록–시안 대역을, 세션 다섯이 acc/acc2/warn/violet/bad를 이미 물고 있다(절대규칙 3).
+   마젠타(violet↔bad 중간)가 유일하게 빈 대역 — 리터럴 hex 없이 두 토큰에서 유도하므로
+   data-theme 분기 없이 다크/라이트가 함께 성립한다. 주 뷰의 일정 조각(--ev)과 같은 공식. */
+.chipEvent {
+  --ev: var(--event);
+  background: color-mix(in srgb, var(--ev) 16%, transparent);
+  color: color-mix(in srgb, var(--ev) 55%, var(--ink));
+  font-weight: 700;
+}
+.chipEvent .dot {
+  background: var(--ev);
 }
 .chipDeadline {
   background: color-mix(in srgb, var(--bad) 15%, transparent);
   color: var(--bad);
   font-weight: 700;
+}
+.chipDone {
+  opacity: 0.5;
+  text-decoration: line-through;
 }
 .more {
   border: none;

@@ -1,30 +1,34 @@
 /* ============================================================
-   MonthCalendar — 캘린더 '월' 뷰(재개편 v4). 옛 MonthHeatmap을 진짜 월 캘린더로 교체.
-   히트맵은 "얼마나 했나"만 답했다 — 색농도 한 겹이라 **그날 뭘 하는지**를 못 보여줬다.
-   TickTick 규약대로 칸마다 **일정 칩**(과목 색점 + 이름)을 얹고, 넘치면 "+N".
-   히트맵의 가치(주/달 부하 리듬)는 버리지 않고 칸 배경의 옅은 틴트로 남겼다 — 칩은 '무엇', 틴트는 '얼마나'.
+   MonthCalendar — 캘린더 '월' 뷰(재개편 v5 · 피드백 반영).
+   월은 '멀리서 보는 달력'이다 → **반복되는 것은 빼고 특이한 것만** 띄운다.
+   매일 도는 학습·복습·Anki와 고정 생활 패턴(수업·수면·식사)은 어차피 매 칸에 있어 정보가 아니다
+   (모든 칸이 같은 모양이 되면 아무것도 안 읽힌다). 남기는 건 **마감**과 **그날만의 할 일**.
+   부하 히트맵 틴트도 걷어냈다 — 칸 바탕이 물들면 정작 강조할 칩의 대비가 깎인다.
+   v5-wave5: **일정(events)** 추가 — 반복되지 않는 단발 사건이라 '그날만의 것' 원칙에 정확히 부합한다
+   (오히려 월 뷰가 답해야 할 바로 그 질문: "이 달에 뭐 있지"). 할 일과 같은 칩 줄·같은 MAX_CHIPS
+   상한을 쓰되 **일정을 앞에 둔다** — 시각이 못 박힌 것이 체크리스트보다 먼저 읽혀야 한다.
    순수 파생 read(useSchedule 결과 + tasks 집계)라 저비용. 6주 격자(월요일 시작).
 ============================================================ */
-import { iso, addDays, mondayOf, fmtShort, hLabel, toHM } from '@/lib/utils';
-import { indexDays, SESSION_TYPE_META as STYPE } from '@/lib/scheduleView';
-import { openTasksForDay, timedTasksForDay } from '@/lib/tasks';
+import { iso, addDays, mondayOf, fmtShort, hLabel, toHM, DOW_MON } from '@/lib/utils';
+import { indexDays } from '@/lib/scheduleView';
+import { openTasksForDay, tasksForDay } from '@/lib/tasks';
+import { eventsForDay } from '@/lib/events';
 import { useApp } from '@/store/useApp';
 import type { ScheduleResult } from '@/lib/types';
 import s from './MonthCalendar.module.css';
 
-const DOW = ['월', '화', '수', '목', '금', '토', '일'];
 /** 한 칸에 보일 칩 최대 개수. 넘으면 "+N". 칸 최소 높이 76px 기준 2개가 온전히 들어가는 한계 —
  *  이보다 늘리면 마지막 칩이 잘려 "있는데 안 읽히는" 상태가 된다. */
 const MAX_CHIPS = 2;
-/** 칩 표시 우선순위 — 낮을수록 먼저. 새 학습이 최우선, 매일 도는 Anki가 최하위. */
-const TYPE_RANK: Record<string, number> = { new: 0, mock: 1, blank: 2, rev: 3, anki: 4 };
-const rank = (t: string): number => TYPE_RANK[t] ?? 9;
 
 interface Chip {
   key: string;
   name: string;
   color?: string;
   tip: string;
+  done?: boolean;
+  /** 추가 클래스(일정 칩 등) — 칩 렌더는 한 벌만 두고 종류 차이는 클래스로만 준다. */
+  cls?: string;
 }
 
 export function MonthCalendar({
@@ -50,30 +54,26 @@ export function MonthCalendar({
     const day = byDs[dsKey];
     const used = day ? Math.round(day.used) : 0;
 
-    // 칩 — 학습 세션(과목색·타입)을 먼저, 그다음 시각 잡힌 할 일. 같은 과목·타입은 한 칩으로 접는다
-    // (하루 3모듈이 같은 과목이면 칩 3개는 정보가 아니라 소음).
-    const seen = new Set<string>();
+    // 칩 = 그날만의 일정. 학습 세션(new/rev/anki)은 매일 반복돼 월 뷰에선 소음이라 넣지 않는다
+    // — 그날 뭘 공부하는지는 주/일 뷰가 답한다. 여기선 '이 날 특별한 게 있나'만.
     const chips: Chip[] = [];
-    // 칸이 낮아 앞의 2~3개만 보인다 → 순서가 곧 정보 우선순위. 새 학습이 Anki·복습보다 먼저 와야 한다
-    // (매일 반복되는 Anki가 매 칸 첫 줄을 차지하면 달 전체가 같은 모양이 돼 아무것도 안 읽힌다).
-    const ordered = [...(day?.items ?? [])].sort((a, b) => rank(a.type) - rank(b.type));
-    for (const it of ordered) {
-      const k = `${it.sid}|${it.type}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
+    const evs = eventsForDay(state, dsKey);
+    for (const ev of evs) {
       chips.push({
-        key: k,
-        name: it.name,
-        color: it.color,
-        tip: `${it.name} · ${STYPE[it.type].label} ${hLabel(it.min)}`,
+        key: `e${ev.id}`,
+        name: ev.title,
+        color: ev.color,
+        tip: `${ev.title} · 일정 ${toHM(ev.start)}–${toHM(ev.start + ev.min)}`,
+        cls: s.chipEvent,
       });
     }
-    for (const t of timedTasksForDay(state, dsKey)) {
+    for (const t of tasksForDay(state, dsKey)) {
       chips.push({
         key: `t${t.id}`,
         name: t.title,
         color: t.color,
-        tip: `${t.title} · 할 일 ${t.start != null ? toHM(t.start) : ''}`,
+        tip: `${t.title} · 할 일${t.start != null ? ' ' + toHM(t.start) : ''}${t.done ? ' · 완료' : ''}`,
+        done: !!t.done,
       });
     }
 
@@ -87,17 +87,16 @@ export function MonthCalendar({
       chips,
       deadlines: state.items.filter((it) => it.deadline === dsKey && it.name).map((it) => it.name),
       open: openTasksForDay(state, dsKey).length,
+      events: evs.map((e) => e.title),
     };
   });
 
-  // 그 달 최대 학습량으로 정규화(상대 농도) — 데이터 없으면 240분 기준.
-  const peak = Math.max(240, ...cells.filter((cl) => cl.inMonth).map((cl) => cl.used));
   const monthLabel = `${y}년 ${mo + 1}월`;
 
   return (
     <section className={s.wrap} aria-label={`${monthLabel} 캘린더`}>
       <div className={s.dowRow} aria-hidden="true">
-        {DOW.map((d) => (
+        {DOW_MON.map((d) => (
           <span key={d} className={s.dowCell}>
             {d}
           </span>
@@ -106,30 +105,21 @@ export function MonthCalendar({
 
       <div className={s.grid}>
         {cells.map((cl) => {
-          // 부하 틴트 — 히트맵의 계승. 칩을 가리지 않게 상한을 낮게(0.30) 잡는다.
-          const alpha = cl.used > 0 ? 0.06 + 0.24 * Math.min(1, cl.used / peak) : 0;
           const overflow = cl.chips.length - MAX_CHIPS;
           return (
-            <div
+            <button
               key={cl.ds}
+              type="button"
+              onClick={() => onPick(cl.ds)}
+              // 오늘을 색(.today)만으로 전하면 스크린리더·색각 사용자에겐 아무것도 아니다 — 의미를 DOM에 싣는다.
+              aria-current={cl.isToday ? 'date' : undefined}
+              aria-label={`${fmtShort(cl.date)} · 학습 ${hLabel(cl.used)}${cl.deadlines.length ? ' · 마감 ' + cl.deadlines.join(', ') : ''}${cl.events.length ? ' · 일정 ' + cl.events.join(', ') : ''}${cl.open ? ` · 미완 할일 ${cl.open}` : ''} — 이 날 계획 열기`}
               className={`${s.cell}${cl.inMonth ? '' : ' ' + s.out}${cl.isToday ? ' ' + s.today : ''}${cl.isWeekend ? ' ' + s.weekend : ''}`}
-              style={
-                alpha
-                  ? ({
-                      ['--fill']: `color-mix(in srgb, var(--acc) ${Math.round(alpha * 100)}%, transparent)`,
-                    } as React.CSSProperties)
-                  : undefined
-              }
             >
-              <button
-                type="button"
-                className={s.dayBtn}
-                onClick={() => onPick(cl.ds)}
-                aria-label={`${fmtShort(cl.date)} · 학습 ${hLabel(cl.used)}${cl.deadlines.length ? ' · 마감 ' + cl.deadlines.join(', ') : ''}${cl.open ? ` · 미완 할일 ${cl.open}` : ''} — 일 뷰 열기`}
-              >
+              <span className={s.dayRow}>
                 <span className={s.dnum}>{cl.date.getDate()}</span>
                 {cl.used > 0 && <span className={s.load}>{(cl.used / 60).toFixed(1)}h</span>}
-              </button>
+              </span>
 
               <div className={s.chips}>
                 {cl.deadlines.map((name) => (
@@ -138,18 +128,19 @@ export function MonthCalendar({
                   </span>
                 ))}
                 {cl.chips.slice(0, MAX_CHIPS).map((ch) => (
-                  <span key={ch.key} className={s.chip} title={ch.tip}>
-                    <i className={s.dot} style={{ background: ch.color || 'var(--acc)' }} aria-hidden="true" />
+                  <span
+                    key={ch.key}
+                    className={`${s.chip}${ch.cls ? ' ' + ch.cls : ''}${ch.done ? ' ' + s.chipDone : ''}`}
+                    title={ch.tip}
+                  >
+                    {/* 색점의 기본값은 CSS가 갖는다(칩 종류마다 다름) — 인라인은 실제 색이 있을 때만. */}
+                    <i className={s.dot} style={ch.color ? { background: ch.color } : undefined} aria-hidden="true" />
                     {ch.name}
                   </span>
                 ))}
               </div>
-              {overflow > 0 && (
-                <button type="button" className={s.more} onClick={() => onPick(cl.ds)}>
-                  +{overflow}개 더
-                </button>
-              )}
-            </div>
+              {overflow > 0 && <span className={s.more}>+{overflow}개 더</span>}
+            </button>
           );
         })}
       </div>

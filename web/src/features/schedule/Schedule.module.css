@@ -1,8 +1,8 @@
 /* ============================================================
    Schedule — 주간 스케줄 단일화면(데모 v6 사상). HudFrame fill 안에서 프레임을 가득 채움.
    질문: "이번 주, 무엇을 언제 공부하나?" → 한 화면.
-   상단 네비(주 이동·뷰 토글) · 본문 3리전[스파인 | 위크보드(fill) | 일자 아젠다] · 하단 스트립(마감·.ics).
-   카드 뷰는 7일 카드 스크롤(대안 뷰) — 같은 네비/스트립 공유.
+   상단 네비(날짜/주/달 이동 + 뷰 토글) · 본문(뷰별 fill) · 하단 스트립(예상 완료·마감·.ics).
+   우측 일자 아젠다·카드 뷰는 v5에서 제거됐다(요일 클릭 = 일 뷰 진입) — 관련 CSS도 함께 걷어냈다.
 ============================================================ */
 .wrap {
   height: 100%;
@@ -11,7 +11,11 @@
   min-width: 0;
 }
 
-/* 상단 네비 — 주 이동 + 뷰 토글(헤어라인 하단 구분). 좁으면 뷰 세그가 다음 줄로 줄바꿈(모바일 붕괴 방지). */
+/* 상단 네비 — 날짜/주/달 이동 + 뷰 토글(헤어라인 하단 구분).
+   **줄바꿈 금지**가 핵심이다. 예전엔 `flex-wrap: wrap`이라 좁은 폭에서 뷰 세그만 다음 줄로 흘렀고,
+   그 줄은 `margin-left:auto` 때문에 왼쪽이 통째로 비어 **빈 띠**가 됐다 — 결정로그가 "뷰 본문이 자체
+   네비를 그리면 nav 줄이 빈 띠가 된다"며 닫은 바로 그 증상이 랩으로 재발한 것. 한 줄을 강제하고,
+   좁아지면 대신 **버튼의 서술 텍스트(.navLong)를 접어** 화살표만 남긴다(기능·타깃 크기는 유지). */
 .nav {
   flex: none;
   display: flex;
@@ -19,23 +23,28 @@
   gap: 10px;
   padding: 14px 22px;
   border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
-/* 주 이동 클러스터 — 한 덩어리로 유지(버튼 텍스트 세로 붕괴 방지), 뷰 세그만 다음 줄로 흐른다. */
+/* 이동 클러스터 — 한 덩어리로 유지(버튼 텍스트 세로 붕괴 방지). 남는 폭은 라벨이 먹고, 모자라면 라벨이 줄어든다. */
 .wknav {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1 1 260px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 .wknav button {
   white-space: nowrap;
+  flex: none;
 }
+/* 라벨+배지는 한 줄 유지 — 폭이 모자라면 줄바꿈이 아니라 말줄임(줄이 늘면 nav 높이가 튄다). */
 .wk {
-  flex: 1;
-  min-width: 90px;
+  flex: 1 1 auto;
+  min-width: 0;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .wkLab {
   font-size: 15px;
@@ -50,29 +59,43 @@
   margin-left: 6px;
   white-space: nowrap;
 }
+/* 버튼의 서술 텍스트("이전 주"…) — 좁아지면 화면에서 접혀 화살표만 남는다.
+   ⚠ `display:none`이 아니라 **시각적 숨김**이다: none은 접근가능한 이름에서까지 글자를 빼서
+   좁은 화면 스크린리더에는 버튼 이름이 "◀"만 남는다. clip 패턴이면 레이아웃 폭은 0이면서
+   이름은 "◀ 이전 주" 그대로다(별도 aria-label로 이름을 이중 관리할 필요도 없다). */
+.navLong {
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .navLong {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
 
 .body {
   flex: 1;
   min-height: 0;
 }
 
-/* 개요 — 위크보드(fill) + 일자 아젠다(온디맨드 세부). 요일 선택 시 우측 아젠다에 그날 상세. */
+/* 주 뷰 — 위크보드가 프레임을 가득 채운다(우측 아젠다는 v5에서 제거, 요일 클릭 = 일 뷰 진입). */
 .board2 {
   height: 100%;
   display: flex;
   gap: 14px;
-  padding: 14px 22px;
+  padding: 8px 16px 10px;
   min-height: 0;
 }
 .board2 > div {
   flex: 1;
   min-width: 0;
-}
-/* 아젠다는 고정폭 사이드 컬럼(보드가 주인공) — .board2 > div 보다 높은 특이도로 flex를 덮는다. */
-.board2 > .agenda {
-  flex: none;
-  width: 340px;
-  max-width: 38%;
 }
 
 /* 위크보드 카드 — 정보의 주인공. 발광 카드 + 스포트라이트(ds.spotHost/glow). */
@@ -80,7 +103,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 18px 20px 14px;
+  padding: 10px 12px 10px;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background:
@@ -142,52 +165,13 @@
   max-width: 320px;
 }
 
-/* 일자 아젠다(우측, 온디맨드 세부) — 카드. */
-.agenda {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 18px 18px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-}
-.agendaT {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--mut);
-  font-weight: 800;
-  margin-bottom: 10px;
-}
-.agendaBody {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-/* 카드 뷰(대안) — 7일 카드 스크롤 */
-.cardsView {
-  height: 100%;
-  overflow-y: auto;
-  padding: 20px 22px;
-  scrollbar-width: thin;
-}
-
 /* 예상 완료 스트립 — 과목별 스케줄러 산출 완료일(컴팩트 리드아웃) */
 .finStrip {
   flex: none;
   display: flex;
   gap: 16px;
   align-items: center;
-  padding: 10px 22px;
+  padding: 6px 22px;
   border-top: 1px solid var(--line);
   flex-wrap: wrap;
 }
@@ -292,11 +276,5 @@
   }
   .boardWrap {
     min-height: 320px;
-  }
-  /* 세로 스택에선 아젠다도 전폭 — 고정폭 해제. */
-  .board2 > .agenda {
-    width: auto;
-    max-width: none;
-    min-height: 280px;
   }
 }

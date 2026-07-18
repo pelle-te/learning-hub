@@ -3,8 +3,8 @@
    질문 "오늘/이번 주, 무엇을 언제 할까?"에 한 화면으로 답한다.
    상단 네비(뷰 스위치 일/주/월 + 주 뷰 이동) · 본문:
      · 일 = DayPlanner(트레이 + 하루 타임라인 드래그 시간박기)
-     · 주 = 위크보드(WeekCalendar) + 일자 아젠다(온디맨드 세부)
-     · 월 = MonthCalendar(일정 칩 + 부하 틴트 · 마감 · 클릭→일 뷰)
+     · 주 = 주간 캘린더(WeekCalendar) — 요일 클릭 시 일 뷰로 드릴다운
+     · 월 = MonthCalendar(마감 + 그날만의 할 일 칩 · 칸 클릭→일 뷰)
    주간 합계·완료율·마감은 상단 바(usePageChrome)로 끌어올린다. 하단 스트립(예상 완료·마감·.ics)은 공통.
 ============================================================ */
 import { useMemo, useState } from 'react';
@@ -16,137 +16,17 @@ import EmptyState from '@/components/EmptyState';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
-import { isDone } from '@/lib/persistence';
-import {
-  iso,
-  toHM,
-  hLabel,
-  mondayOf,
-  parseISO,
-  addDays,
-  dayDiff,
-  weekLabel,
-  fmtShort,
-  ddayInfo,
-  todayISO,
-  DOW_MON,
-} from '@/lib/utils';
+import { iso, parseISO, addDays, dayDiff, weekLabel, fmtShort, ddayInfo, todayISO, DOW_MON } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import { useHeroPointer, useWeekNavKeys, useNowMin } from '@/hooks/interactions';
+import { useHeroPointer, useNowMin } from '@/hooks/interactions';
+import { useWeekOffset } from '@/hooks/useWeekOffset';
 import ds from '@/styles/ds.module.css';
 import c from './Schedule.module.css';
-import {
-  computeDay,
-  indexDays,
-  deadlineDdays,
-  SESSION_TYPE_META as TAG,
-  type Row,
-  type DayData,
-} from '@/lib/scheduleView';
+import { computeDay, indexDays, deadlineDdays } from '@/lib/scheduleView';
 import { timedTasksForDay } from '@/lib/tasks';
 import { WeekCalendar } from './WeekCalendar';
 import { DayPlanner } from './DayPlanner';
 import { MonthCalendar } from './MonthCalendar';
-
-/** 학습/복습/Anki 한 줄 — 완료 체크박스 포함. */
-function StudyRow({ ds: dsKey, row }: { ds: string; row: Extract<Row, { kind: 'study' }> }) {
-  const toggleDone = useApp((s) => s.toggleDone);
-  const done = useApp((s) => isDone(s.state, dsKey, row.it.sid, row.it.type));
-  const x = row.it;
-  const tag = TAG[x.type];
-  const timeHtml = row.start != null && row.end != null ? `${toHM(row.start)}–${toHM(row.end)}` : '미배치';
-  const dur = row.start != null && row.end != null ? hLabel(row.end - row.start) : hLabel(x.min);
-  return (
-    <div className={`${ds.tl}${done ? ' ' + ds.rowdone : ''}`}>
-      <input
-        type="checkbox"
-        className={ds.donechk}
-        checked={done}
-        onChange={(e) => toggleDone(dsKey, x.sid, x.type, row.plannedMin, e.target.checked)}
-        title="완료 표시"
-        aria-label={`${x.name} 완료`}
-      />
-      <span className={ds.tm}>{row.start == null ? <span className={ds.muted}>미배치</span> : timeHtml}</span>
-      <span className={ds.swatch} style={{ background: x.color || '#6ea8fe' }} />
-      <span className={`${ds.tag} ${ds[tag.cls]}`}>{tag.label}</span>
-      <span className={ds.nm}>
-        {x.name}
-        {x.chapters && x.chapters.length > 0 && (
-          <span className={`${ds.muted} ${ds.tiny}`}> · {x.chapters.join(', ')}</span>
-        )}
-      </span>
-      <span className={ds.mn}>{dur}</span>
-    </div>
-  );
-}
-
-/** 하루 본문(타임라인 행들). */
-function DayBody({ d }: { d: DayData }) {
-  if (!d.rows.length)
-    return (
-      <div className={`${ds.tl} ${ds.free}`}>
-        <span className={`${ds.nm} ${ds.muted}`}>일과 블록 없음</span>
-      </div>
-    );
-  return (
-    <>
-      {d.rows.map((row, i) => {
-        if (row.kind === 'now')
-          return (
-            <div key={i} className={`${ds.tl} ${ds.nowline}`}>
-              <span className={ds.tm}>{toHM(row.start)}</span>
-              <span className={ds.nm}>⏱ 지금</span>
-              <span className={ds.mn} />
-            </div>
-          );
-        if (row.kind === 'free') {
-          if (row.end - row.start < 5) return null;
-          return (
-            <div key={i} className={`${ds.tl} ${ds.free}`}>
-              <span className={ds.tm}>
-                {toHM(row.start)}–{toHM(row.end)}
-              </span>
-              <span className={`${ds.nm} ${ds.muted}`}>🟢 빈 시간</span>
-              <span className={ds.mn}>{hLabel(row.end - row.start)}</span>
-            </div>
-          );
-        }
-        if (row.kind === 'block')
-          return (
-            <div key={i} className={`${ds.tl} ${ds.block}`}>
-              <span className={ds.tm}>
-                {toHM(row.start)}–{toHM(row.end)}
-              </span>
-              <span className={ds.swatch} style={{ background: row.color }} />
-              <span className={`${ds.nm} ${ds.muted}`}>{row.name}</span>
-              <span className={ds.mn}>{row.btype}</span>
-            </div>
-          );
-        return <StudyRow key={i} ds={d.ds} row={row} />;
-      })}
-    </>
-  );
-}
-
-/** 하루 꼬리(요약 칩). */
-function DayFoot({ d }: { d: DayData }) {
-  const { counts: cc } = d;
-  const extra = (cc.blanks ? ` · 백지 ${cc.blanks}` : '') + (cc.mocks ? ` · 모의 ${cc.mocks}` : '');
-  return (
-    <div className={ds.tl} style={{ border: 'none' }}>
-      <span className={`${ds.nm} ${ds.tiny} ${ds.muted}`}>
-        학습 {cc.studies}모듈 · 복습 {cc.revs} · Anki {cc.ankis}
-        {extra}
-      </span>
-      {d.planMin > 0 && (
-        <span className={`${ds.pill} ${ds.tiny}${d.doneMinTot >= d.planMin ? ' ' + ds.good : ''}`}>
-          완료 {(d.doneMinTot / 60).toFixed(1)}/{(d.planMin / 60).toFixed(1)}h
-        </span>
-      )}
-      {d.freeMin > 0 && <span className={`${ds.pill} ${ds.tiny}`}>빈 {(d.freeMin / 60).toFixed(1)}h</span>}
-    </div>
-  );
-}
 
 /** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 안내). 스트립용 컴팩트. */
 function IcsFreshnessNote() {
@@ -172,28 +52,21 @@ function IcsFreshnessNote() {
 export default function Schedule() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
-  // '오늘'이 속한 주의 오프셋(시작 주 기준) — 초기 주·'이번 주' 배지·'이번 주로' 액션의 공통 기준.
-  const todayOff = Math.round(
-    dayDiff(iso(mondayOf(parseISO(state.startDate))), iso(mondayOf(parseISO(todayISO(state))))) / 7,
-  );
-  // 시작 주가 아니라 '현재 주'로 연다(리뷰·오늘 탭과 일관) — 오늘은 앱의 단일 출처(_today) 존중.
-  const [weekOffset, setWeekOffset] = useState(todayOff);
-  // , / . — 이전/다음 주(버튼과 동일 동작, 리뷰 탭과 같은 키).
-  useWeekNavKeys(
-    () => setWeekOffset((o) => o - 1),
-    () => setWeekOffset((o) => o + 1),
-  );
+  // 주(週) 네비는 공용 기계가 소유 — todayOff 산식·useState·`,`/`.` 단축키·오프셋 배지가
+  // Alloc과 글자까지 같은 복제였다(useWeekOffset이 단일 출처). 내부 상태가 '오늘 기준 상대 주'라
+  // startDate/_today가 바뀌어도 자동 리베이스된다.
+  const { prev: weekPrev, next: weekNext, weekToday, isThisWeek, offsetLabel, weekMon } = useWeekOffset(state);
   // 뷰 선택은 UI 설정 단일 store(useUI)가 소유 — 영속·IDB미러 일관(localStorage 직접 접근 제거).
   const schedView = useUI((s) => s.ui.schedView);
   const setView = useUI((s) => s.setSchedView);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [selDow, setSelDow] = useState<number | null>(null);
   // 보드 위 스포트라이트(틸트 없음 — 큰 패널). 구조분해로 ref-접근 린트 회피.
   const { ref: boardRef, onMouseMove: boardMove, onMouseLeave: boardLeave } = useHeroPointer(0);
 
-  const baseMon = mondayOf(parseISO(state.startDate));
-  const curMon = addDays(baseMon, weekOffset * 7);
+  // 현재 주 월요일 — 훅의 `curMon`은 매 렌더 새 Date라 memo 키로 쓰면 매번 깨진다.
+  // 안정 스칼라인 `weekMon`(ISO 문자열)에 키잉해 identity를 고정한다 → parts memo deps를 정직하게(억제 주석 없이) 쓴다.
+  const curMon = useMemo(() => parseISO(weekMon), [weekMon]);
 
   const capWd = useStudyMinByWeekday();
   // '지금' 라인·⏱ 지금 행이 로드 시각에 멈추지 않도록 분 단위로 갱신(Today 탭과 동일 감각) — 공유 훅.
@@ -222,27 +95,14 @@ export default function Schedule() {
     setView('day');
   };
 
-  // curMon은 state.startDate+weekOffset로 완전히 결정 → 매 렌더 새 Date여도 memo는 weekOffset(안정 스칼라)에 키잉.
-  const parts = useMemo(
-    () => {
-      const byDs = indexDays(res); // ds→Day 인덱스를 7일 루프 밖에서 1회 생성(매 호출 재구축 제거).
-      return Array.from({ length: 7 }, (_, k) => computeDay(state, byDs, capWd, nowMin, todayIso, curMon, k));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- curMon은 [state,weekOffset] 파생이라 중복 의존 제거
-    [state, res, capWd, nowMin, todayIso, weekOffset],
-  );
+  // deps는 전부 정직하게 — 억제 주석 한 줄이 컴포넌트 전체의 React 컴파일러 최적화를 끈다
+  // ("skipped optimizing this component because one or more React ESLint rules were disabled").
+  // 이 저장소는 수동 memo를 안 쓰므로 bail = 메모 전무 → 자식 prop identity까지 매 렌더 갈린다.
+  const parts = useMemo(() => {
+    const byDs = indexDays(res); // ds→Day 인덱스를 7일 루프 밖에서 1회 생성(매 호출 재구축 제거).
+    return Array.from({ length: 7 }, (_, k) => computeDay(state, byDs, capWd, nowMin, todayIso, curMon, k));
+  }, [state, res, capWd, nowMin, todayIso, curMon]);
 
-  const weekToday = () => {
-    setWeekOffset(todayOff);
-    setSelDow(null);
-  };
-
-  let sel = selDow;
-  if (sel == null || sel < 0 || sel > 6) {
-    const ti = parts.findIndex((p) => p.isToday);
-    sel = ti >= 0 ? ti : 0;
-  }
-  const selDay = parts[sel]!; // 개요 아젠다(온디맨드 세부)가 그릴 선택 요일 — 기본은 오늘.
   // 줄마다 마감 플래그 — 그날이 마감인 과목명(네온 위크-그리드에 표시).
   const deadlines = parts.map((p) => state.items.filter((it) => it.deadline === p.ds).map((it) => it.name));
   const hasStudyItems = state.items.some((it) => it.name);
@@ -317,7 +177,8 @@ export default function Schedule() {
               accent: true,
             },
             { label: '미완 할일', value: monthOpenTasks ? String(monthOpenTasks) : '—' },
-            { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+            // 라벨은 정본 헬퍼로 — 직접 조립하면 오늘 마감이 "D-0"으로 뜬다(정본은 "D-DAY").
+            { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
           ]
         : [
             {
@@ -331,7 +192,7 @@ export default function Schedule() {
               accent: true,
             },
             { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
-            { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+            { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
           ];
 
   // 주 뷰에서 다른 주를 보는 중이면 "이번 주로", 그 외엔 .ics 내보내기.
@@ -339,11 +200,11 @@ export default function Schedule() {
     () => ({
       readouts,
       action:
-        schedView === 'week' && weekOffset !== todayOff
+        schedView === 'week' && !isThisWeek
           ? { label: '이번 주로 →', onClick: weekToday }
           : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
     }),
-    [schedView, readouts, weekOffset, todayOff],
+    [schedView, readouts, isThisWeek],
   );
 
   // 뷰 스위치 [일·주·월] — 배분은 독립 세그먼트로 승격돼 여기서 빠졌다(재개편 v4).
@@ -365,12 +226,35 @@ export default function Schedule() {
   );
   const navBar = (
     <div className={c.nav}>
+      {/* 일 뷰 — 날짜 이동도 여기가 소유(주·월과 대칭). 뷰 본문이 자체 네비를 또 그리면
+          같은 기능이 두 줄에 흩어지고, 이 줄은 뷰 스위치만 남아 빈 띠가 된다. */}
+      {schedView === 'day' && (
+        <div className={c.wknav}>
+          <Button sm onClick={() => dayNav(-1)} aria-label="이전 날">
+            ◀<span className={c.navLong}> 이전 날</span>
+          </Button>
+          <div className={c.wk}>
+            <b className={c.wkLab}>{fmtShort(anchorDate)}</b>
+            <span className={c.wkOff}>
+              {DOW_MON[(anchorDate.getDay() + 6) % 7]}요일{anchorDs === todayIso && ' · 오늘'}
+            </span>
+          </div>
+          <Button sm onClick={() => dayNav(1)} aria-label="다음 날">
+            <span className={c.navLong}>다음 날 </span>▶
+          </Button>
+          {anchorDs !== todayIso && (
+            <Button sm variant="ghost" onClick={() => dayNav(0, true)}>
+              오늘
+            </Button>
+          )}
+        </div>
+      )}
       {/* 월 뷰 — 달 이동을 여기(공통 nav)가 소유한다. 뷰 본문이 자체 헤더를 또 그리면 헤더가 두 줄이 되고,
           정작 이 줄은 뷰 스위치만 남아 빈 띠가 된다. 주 뷰의 주 이동과 같은 자리·같은 문법. */}
       {schedView === 'month' && (
         <div className={c.wknav}>
           <Button sm onClick={() => monthNav(-1)} aria-label="이전 달">
-            ◀ 이전 달
+            ◀<span className={c.navLong}> 이전 달</span>
           </Button>
           <div className={c.wk}>
             <b className={c.wkLab}>
@@ -379,7 +263,7 @@ export default function Schedule() {
             <span className={c.wkOff}>{monthUsedH.toFixed(1)}h</span>
           </div>
           <Button sm onClick={() => monthNav(1)} aria-label="다음 달">
-            다음 달 ▶
+            <span className={c.navLong}>다음 달 </span>▶
           </Button>
           <Button sm variant="ghost" onClick={() => monthNav(0, true)}>
             오늘
@@ -388,21 +272,17 @@ export default function Schedule() {
       )}
       {schedView === 'week' && (
         <div className={c.wknav}>
-          <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
-            ◀ 이전 주
+          {/* aria-label로 이름을 고정한다 — 라벨을 span으로 쪼개면 접근가능한 이름 계산이 조각 사이 공백을
+              버려 "◀이전 주"가 된다(폭에 따라 이름이 흔들리는 것도 곤란). 일·월 네비와 같은 문법. */}
+          <Button sm onClick={weekPrev} aria-label="이전 주">
+            ◀<span className={c.navLong}> 이전 주</span>
           </Button>
           <div className={c.wk}>
             <b className={c.wkLab}>{weekLabel(curMon)}</b>
-            <span className={c.wkOff}>
-              {weekOffset === todayOff
-                ? '이번 주'
-                : weekOffset > todayOff
-                  ? `+${weekOffset - todayOff}주`
-                  : `${weekOffset - todayOff}주`}
-            </span>
+            <span className={c.wkOff}>{offsetLabel}</span>
           </div>
-          <Button sm onClick={() => setWeekOffset((o) => o + 1)}>
-            다음 주 ▶
+          <Button sm onClick={weekNext} aria-label="다음 주">
+            <span className={c.navLong}>다음 주 </span>▶
           </Button>
           <Button sm variant="ghost" onClick={weekToday}>
             오늘
@@ -430,7 +310,7 @@ export default function Schedule() {
 
       <div className={c.body}>
         {schedView === 'day' ? (
-          <DayPlanner ds={anchorDs} res={res} nowMin={nowMin} todayIso={todayIso} onNav={dayNav} />
+          <DayPlanner ds={anchorDs} res={res} nowMin={nowMin} todayIso={todayIso} />
         ) : schedView === 'month' ? (
           <MonthCalendar anchor={parseISO(anchorDs)} res={res} todayIso={todayIso} onPick={monthPick} />
         ) : (
@@ -456,12 +336,16 @@ export default function Schedule() {
                   <div className={c.calHost}>
                     <WeekCalendar
                       parts={parts}
-                      sel={sel}
-                      onSelect={setSelDow}
                       nowMin={nowMin}
                       dows={DOW_MON}
                       deadlines={deadlines}
                       tasksByDay={parts.map((p) => timedTasksForDay(state, p.ds))}
+                      // 요일 클릭 = 그날 일 계획 창으로. 옛 우측 아젠다(선택 요일 세부)를 대체한다 —
+                      // 같은 화면에 요약을 또 그리느니 편집까지 되는 일 뷰로 보내는 게 낫다.
+                      onOpenDay={(dsPick) => {
+                        setAnchorDs(dsPick);
+                        setView('day');
+                      }}
                     />
                   </div>
                 </div>
@@ -485,33 +369,6 @@ export default function Schedule() {
                 </div>
               )}
             </div>
-
-            {/* 일자 아젠다 — 선택 요일의 온디맨드 세부. 미배치(start==null) 학습 행도 여기서 체크(캘린더 세그엔 안 뜸). */}
-            {hasStudyItems && (
-              <div className={c.agenda} aria-label={`${DOW_MON[sel]} 아젠다`}>
-                <div className={c.agendaT}>
-                  <span>
-                    {DOW_MON[sel]} {fmtShort(selDay.date)}
-                    {selDay.isToday && ' · 오늘'}
-                  </span>
-                  {/* 이 날을 직접 편성(§5-3 요일→일 뷰 진입) */}
-                  <Button
-                    sm
-                    variant="ghost"
-                    onClick={() => {
-                      setAnchorDs(selDay.ds);
-                      setView('day');
-                    }}
-                  >
-                    이 날 계획 짜기 →
-                  </Button>
-                </div>
-                <div className={c.agendaBody}>
-                  <DayBody d={selDay} />
-                  <DayFoot d={selDay} />
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

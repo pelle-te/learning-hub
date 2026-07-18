@@ -17,9 +17,17 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { ui } from '@/shell';
-import { PALETTE, rid, makeItem, iso, dayDiff, ddayInfo, DOW, todayISO } from '@/lib/utils';
+import { PALETTE, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
-import { allocView, rowSumMin, weekMonOf } from '@/lib/weekAlloc';
+import {
+  allocView,
+  rowSumMin,
+  weekMonOf,
+  removeSidFromAlloc,
+  weekAllocTotalMin,
+  weekBudgetMin as weekBudgetMinOf,
+} from '@/lib/weekAlloc';
+import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
@@ -33,12 +41,13 @@ import { SkeletonPanel } from './SkeletonPanel';
 import { AvailRail } from './AvailRail';
 import { SubjectSheet } from './SubjectSheet';
 
-/** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감. */
-function useInsight(items: Item[]) {
+/** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감.
+ *  '오늘'은 벽시계가 아니라 **앱 정본**(todayISO, `_today` 시드 존중)을 호출부에서 받는다 —
+ *  AvailRail/Alloc이 못박은 계약(단일 출처)을 마감 D-day만 우회하면 시드 주입 시 값이 갈렸다. */
+function useInsight(items: Item[], todayDs: string) {
   return useMemo(() => {
     const named = items.filter((i) => i.name);
     if (!named.length) return null;
-    const todayDs = iso(new Date());
     let weekly = 0;
     let totalCh = 0;
     let doneCh = 0;
@@ -63,7 +72,7 @@ function useInsight(items: Item[]) {
       chPct,
       nearest,
     };
-  }, [items]);
+  }, [items, todayDs]);
 }
 
 export default function Items() {
@@ -80,19 +89,28 @@ export default function Items() {
   const [sheetId, setSheetId] = useState<string | null>(null); // 열려 있는 과목 상세 시트
   const [showSkeleton, setShowSkeleton] = useState(false); // 뼈대 편집 스트립 펼침(온디맨드 세부)
   const [showImport, setShowImport] = useState(false); // 인라인 볼트 불러오기 토글(§5-2)
-  const insight = useInsight(items);
+  const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 파일 전체가 이것만 쓴다.
+  const insight = useInsight(items, todayIso);
 
-  // 이번 주 배분(과목별 합) — 카드 배지·리드아웃 공용. 보드/시트와 같은 출처(lib/weekAlloc).
-  const wk = weekMonOf(todayISO(state));
+  // 이번 주 배분(과목별 합) — 카드 배지 공용. 보드/시트와 같은 출처(lib/weekAlloc).
+  const wk = weekMonOf(todayIso);
   const alloc = allocView(state, res, wk);
-  const allocWeekMin = items.reduce((t, it) => t + rowSumMin(alloc[it.id]), 0);
+  // 리드아웃 분자·분모는 lib/weekAlloc의 집계를 그대로 쓴다 — 배분 세그먼트(Alloc)와 **같은 문법**
+  // (분자=배분 합, 분모=주당 예산 합)이라야 "같은 라벨이면 같은 의미"가 성립한다.
+  const allocWeekMin = weekAllocTotalMin(state, res, wk);
+  const weekBudgetMin = weekBudgetMinOf(state);
 
   // 뼈대 요약 — 스트립이 접혀 있어도 "가용이 얼마고 뭐가 잡혀 있나"는 항상 보인다.
   const weekFreeMin = DOW.reduce((t, _, i) => t + freeWindowsForWeekday(state, i).freeMin, 0);
   const classCount = routine.filter((b) => b.type === '수업').length;
   const blockCount = routine.length - classCount;
 
-  // 과목 수·주당 목표·이번 주 배분/가용·마감 리드아웃을 상단 크롬으로.
+  // 과목 수·이번 주 배분·챕터 진행·마감 리드아웃을 상단 크롬으로.
+  // ⚠ 문법 통일(결정로그 "오해 소지 '가용 113h' 제거"): 예전엔 같은 라벨 '이번 주 배분'인데 분모가
+  //   여기선 주간 가용 총량(113h), 인접 배분 세그먼트에선 주당 예산(10h)이라 같은 이름·다른 의미였다.
+  //   → 분모를 배분 세그먼트와 동일한 **주당 예산**으로 맞췄다. 그러면 옛 '주당 목표' 리드아웃은
+  //   그 분모와 거의 같은 수라 중복 → 이 탭 고유 관심사인 **챕터 진행**으로 갈음한다.
+  //   주간 가용 총량은 사라지지 않고 '뼈대' 스트립에 `가용 Nh/주`라는 **다른 라벨**로 남는다.
   usePageChromeEffect(
     () => ({
       readouts: !insight
@@ -100,21 +118,23 @@ export default function Items() {
         : [
             { label: '과목', value: insight.count, accent: true },
             {
-              label: '주당 목표',
-              value: (
-                <>
-                  {insight.weekly}
-                  <small> h</small>
-                </>
-              ),
-            },
-            {
               label: '이번 주 배분',
               value: (
                 <>
                   {(allocWeekMin / 60).toFixed(1)}
-                  <small> / {(weekFreeMin / 60).toFixed(1)} h</small>
+                  <small> / {(weekBudgetMin / 60).toFixed(1)} h</small>
                 </>
+              ),
+            },
+            {
+              label: '챕터',
+              value: insight.totalCh ? (
+                <>
+                  {insight.doneCh}
+                  <small> / {insight.totalCh}</small>
+                </>
+              ) : (
+                '—'
               ),
             },
             {
@@ -123,7 +143,7 @@ export default function Items() {
             },
           ],
     }),
-    [insight, allocWeekMin, weekFreeMin],
+    [insight, allocWeekMin, weekBudgetMin],
   );
 
   const addItem = useCallback(() => {
@@ -158,6 +178,12 @@ export default function Items() {
       if (!okConfirm) return;
       mutate((st) => {
         st.items = st.items.filter((s) => s.id !== id);
+        // 참조 무결성 — weekAlloc은 sid 맵이라 과목만 지우면 배분이 전 주에 고아로 남고,
+        // 그 잔재가 요일 열 합·가용 초과 경고를 부풀린다("보이는 행 합 1h인데 푸터는 4h").
+        removeSidFromAlloc(st, id);
+        // dayPlans도 같은 이유(sid 참조 무결성 없음) — 남으면 배치·캘린더에 유령 블록이 뜨고
+        // 미러링된 completions[ds]['sid|type'] 집계가 완료 분을 계속 부풀린다.
+        removeSidFromDayPlans(st, id);
       });
       setSheetId((cur) => (cur === id ? null : cur)); // 삭제한 과목의 시트는 닫는다
       ui.toast('과목 삭제됨', 'info');
@@ -368,7 +394,13 @@ export default function Items() {
                   if (tgt) moveItem(s.id, tgt.id);
                 }}
               >
-                <ItemCard item={s} onOpen={setSheetId} weakCount={weakBySid[s.id]} allocMin={rowSumMin(alloc[s.id])} />
+                <ItemCard
+                  item={s}
+                  onOpen={setSheetId}
+                  weakCount={weakBySid[s.id]}
+                  allocMin={rowSumMin(alloc[s.id])}
+                  todayIso={todayIso}
+                />
               </div>
             ))}
           </div>

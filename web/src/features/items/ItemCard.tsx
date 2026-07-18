@@ -3,7 +3,7 @@
    그래서 이 카드는 '읽는' 물건이고, 편집은 전부 시트가 소유한다.
    스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
 import { memo, type CSSProperties } from 'react';
-import { iso, dayDiff, ddayInfo } from '@/lib/utils';
+import { dayDiff, ddayInfo } from '@/lib/utils';
 import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -19,9 +19,11 @@ export interface ItemCardProps {
   weakCount?: number;
   /** 이번 주 이 과목에 배분된 분(요일 합) — 배분 보드/시트와 같은 출처. 미배분이면 undefined. */
   allocMin?: number;
+  /** 앱 정본 '오늘'(todayISO, `_today` 시드 존중). D-day 계산이 벽시계로 새지 않게 호출부가 주입한다. */
+  todayIso: string;
 }
 
-function ItemCardImpl({ item, onOpen, weakCount, allocMin }: ItemCardProps) {
+function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardProps) {
   const id = item.id;
   const daily = item.mode === 'daily';
   // 스케줄러 입력 부재 — 시간이 0이면 매일 블록이 잡히지 않아 오늘 탭에 뜨지 않는다(조용한 데드엔드 경고, SR-1).
@@ -34,7 +36,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin }: ItemCardProps) {
   // ── 헤더 요약 칩 ──
   const ddTone: PillTone = (() => {
     if (!item.deadline) return 'neutral';
-    const { cls } = ddayInfo(dayDiff(iso(new Date()), item.deadline));
+    const { cls } = ddayInfo(dayDiff(todayIso, item.deadline));
     return cls === 'bad' ? 'bad' : cls === 'warn' ? 'warn' : 'neutral';
   })();
 
@@ -79,7 +81,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin }: ItemCardProps) {
           <span className={`${c.name}${item.name ? '' : ' ' + c.nameEmpty}`}>{item.name || '(이름 없음)'}</span>
           {item.deadline && (
             <Pill tiny tone={ddTone}>
-              {ddayInfo(dayDiff(iso(new Date()), item.deadline)).lab}
+              {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
             </Pill>
           )}
           {noSchedule && (

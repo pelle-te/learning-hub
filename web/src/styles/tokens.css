@@ -74,6 +74,10 @@
   --z-dropdown: 40;
   --z-toast: 60;
   --z-modal: 70;
+  /* 결정을 요구하는 대화상자(confirm/prompt)는 시트·드로어(--z-modal)보다 **위**여야 한다.
+     같은 값이면 DOM 순서가 승패를 가르는데, DetailDrawer는 body 포털이라 나중에 붙어 confirm을 덮었다
+     (시트를 닫아야 삭제 확인이 보이는 결함). 위계를 값으로 못박는다. */
+  --z-dialog: 90;
   --z-tooltip: 80;
   --z-palette: 1000;
   --z-palette-top: 1001;
@@ -105,6 +109,10 @@
   /* 학습중(숙달도 상태) 앰버 — good/bad 사이의 중간 상태색(하드코딩 #d6a72b의 토큰화). */
   --learning: #d6a72b;
   --violet: #b794f6;
+  /* 일정(event) — 과목·세션·마감 어느 것도 아닌 '그 시각에 일어나는 일'. 주·월·일 세 뷰가 이 하나를 쓴다
+     (한때 뷰마다 따로 유도해 같은 일정이 다른 색으로 보였다). violet↔bad 사이 마젠타를 고른 이유:
+     PALETTE가 초록–민트–시안을 통째로 쓰고 세션 다섯이 acc/acc2/warn/violet/bad를 물어 남은 대역이 여기뿐. */
+  --event: color-mix(in srgb, var(--violet) 55%, var(--bad));
   --on-acc: #0a0a12;
 
   /* 액센트 파생 — --acc 하나만 바꾸면 soft/glow가 따라옴(액센트 노브 지원). 기존 rgba와 픽셀 동일. */

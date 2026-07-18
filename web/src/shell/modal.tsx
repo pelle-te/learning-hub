@@ -4,6 +4,7 @@
    CSS는 .modal-ov/.modal/.modal-*(전역) 재사용. Esc=취소, Enter=확인(prompt는 Ctrl/⌘+Enter).
 ============================================================ */
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { create } from 'zustand';
 
 export interface ConfirmOpts {
@@ -138,7 +139,10 @@ export function ModalHost() {
     }
   };
 
-  return (
+  // body로 포털 — 앱 트리 안에 두면 조상이 만든 스태킹 컨텍스트에 갇혀 z-index가 무의미해진다.
+  // DetailDrawer(시트)는 body 직속 포털이라, 확인창이 트리 안에 있으면 z-index를 아무리 올려도
+  // 시트가 위를 덮었다(시트에서 '과목 삭제' → 확인창이 뒤에 떠 클릭이 안 되던 결함).
+  return createPortal(
     <div
       className="modal-ov in"
       onMouseDown={(e) => e.target === e.currentTarget && finish(cancelVal)}
@@ -183,6 +187,7 @@ export function ModalHost() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

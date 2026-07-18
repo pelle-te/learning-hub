@@ -11,11 +11,12 @@
 }
 
 /* 헤더 — 날짜 스텝퍼 + 모드/가용 */
+/* 날짜 네비가 공통 nav로 올라가 이 줄엔 상태(모드·가용·되돌리기)만 남는다 → 오른쪽 정렬. */
 .head {
   flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -61,18 +62,17 @@
   border-color: var(--acc-glow);
   background: var(--acc-soft);
 }
-.cap {
-  font-size: 12px;
+/* 초과 경보 — 계획/가용 '수치'는 상단 크롬 리드아웃이 정본이라 여기선 안 찍고,
+   리드아웃에 없는 '가용을 넘었다'는 사실만 칩으로 남긴다. */
+.over {
+  font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-.capMut {
-  color: var(--mut);
-  font-weight: 700;
-}
-.cap.over {
+  padding: 3px 9px;
+  border-radius: 999px;
   color: var(--bad);
+  border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent);
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
 }
 
 /* 본문 — 트레이 | 타임라인 */
@@ -80,7 +80,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 288px 1fr;
+  grid-template-columns: 340px 1fr;
   gap: 14px;
 }
 
@@ -109,15 +109,32 @@
   flex-direction: column;
   gap: 6px;
 }
-.addRow {
+/* 할 일 추가 줄 — 입력이 늘어나고 과목 셀렉트·아이콘 버튼(반복·추가)은 고정폭.
+   한때 아래 .addRow(2열 격자)를 같이 썼는데, 이 줄은 자식이 4개(입력·과목·반복·＋)라
+   2×2로 접히고 `.addInput{flex:1}`·`.addBtn{width:34px}`이 격자에선 무력화돼
+   두 버튼이 반폭 사각형으로 찌그러졌다(사용자 지적: "플러스하고 순환 블럭" 크기가 이상하다).
+   nowrap이라 좁아져도 줄이 안 접힌다 — 대신 입력이 줄어든다(버튼이 밖으로 밀리던 옛 문제도 방지). */
+.addRowTask {
   flex: none;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: stretch; /* 셀렉트·버튼 높이를 입력에 맞춘다 — 찌그러짐의 직접 원인이었다 */
+  gap: 6px;
+}
+.addRowTask .addSel {
+  flex: 0 1 84px;
+}
+
+/* 과목·유형 셀렉트 2열 + 버튼 전폭. flex-wrap이면 288px 트레이에서 버튼이 줄 밖으로 밀렸다
+   (셀렉트 96+96 + 버튼 64 + 여백 > 트레이 폭). 격자로 자리를 못박는다. */
+.addRow {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 .addSel {
-  flex: none;
-  max-width: 96px;
+  min-width: 0;
   padding: 6px 4px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
@@ -131,8 +148,7 @@
   outline-offset: 1px;
 }
 .addBlockBtn {
-  flex: 1;
-  min-width: 64px;
+  grid-column: 1 / -1;
   padding: 6px 8px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
@@ -148,6 +164,56 @@
   background: var(--acc-soft);
 }
 .addBlockBtn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+/* 액션 줄 — '+ 블록' | '+ 일정'. 위 .addRow의 둘째 줄이던 자리를 그대로 2열로 쓴다(줄 수 불변).
+   auto-columns라 버튼이 하나뿐이면(과목 없는 날) 전폭이 된다. */
+.addRowBtns {
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.addRowBtns > .addBlockBtn {
+  grid-column: auto;
+}
+.addBtnOn {
+  background: var(--acc-soft);
+  border-color: var(--acc-glow);
+}
+/* 일정 컴포저(온디맨드) — 제목 한 줄 + [시작 | 길이 | ＋] 한 줄.
+   폭 예산(트레이 340 − padding 24 = 316): 둘째 줄은 ＋34 + gap12 = 46 고정, 남은 270을 1.2:1로
+   나눠 시각 ≈147 · 길이 ≈123. type=time의 크롬 최소폭(~110)을 넘겨 뭉개지지 않는다.
+   컨트롤 규격(높이·radius·폰트)은 .addSel/.addInput/.addBtn과 동일 스케일 유지. */
+.evForm {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.evForm .addInput {
+  flex: none;
+}
+.evFormRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 34px;
+  align-items: stretch;
+  gap: 6px;
+}
+.evTime {
+  min-width: 0;
+  padding: 6px 4px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.evTime:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: 1px;
 }
@@ -217,6 +283,12 @@
 }
 .rowFree {
   --seg: var(--mut);
+}
+/* 모의시험 — 연결 과목이 없어 팔레트 색을 못 받는 유일한 블록. 색 리터럴을 상태에 저장하는 대신
+   타입 플래그 + 토큰으로 칠한다(절대규칙 3). WeekCalendar의 .mock과 같은 --bad로 맞춰
+   같은 블록이 주·일 뷰에서 다른 색으로 보이지 않게 한다. */
+.mock {
+  --seg: var(--bad);
 }
 .rowDone {
   opacity: 0.5;
@@ -402,14 +474,15 @@
   background: var(--line-soft);
   pointer-events: none;
 }
-/* 가용창 드롭존 — 옅은 초록 밴드(끌어놓을 곳). */
+/* 가용창 드롭존 — 바탕을 칠하지 않고 **점선 윤곽**만. 초록 밴드로 채우면 하루 대부분이 물들어
+   정작 강조해야 할 블록의 대비가 깎였다(사용자 지적: "시간마다 초록색 바탕"). 빈 시간은 '비어 보여야' 한다. */
 .win {
   position: absolute;
   left: 3px;
   right: 3px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--good, #48d17a) 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good, #48d17a) 18%, transparent);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 22%, transparent);
   pointer-events: none;
 }
 /* 고정 일과 점유(수업·식사) — 중립 회색. */
@@ -421,7 +494,7 @@
   align-items: flex-start;
   padding: 3px 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ink) 6%, var(--panel2));
+  background: transparent;
   box-shadow: inset 0 0 0 1px var(--line2);
   color: var(--mut);
   overflow: hidden;
@@ -458,7 +531,9 @@
 .card:active {
   cursor: grabbing;
 }
-.card:focus-visible {
+/* 포커스 링 — 포커스를 받는 건 이제 카드 자신이 아니라 카드 **안의 버튼**이라 focus-within으로.
+   (카드 컨테이너의 tabIndex를 없애 탭 스톱 중복을 제거한 짝.) */
+.card:focus-within {
   outline: 2px solid var(--acc);
   outline-offset: -2px;
   z-index: 8;
@@ -492,7 +567,30 @@
   text-overflow: ellipsis;
   max-width: 40%;
 }
+/* 일정 제목 인라인 수정 — 일정만 편집 바에서 이름을 고친다(블록=과목 파생, 할 일=트레이 소관). */
+.editTitle {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 40%;
+  margin-right: auto;
+  padding: 5px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--panel2);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+.editTitle:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
 .editField {
+  /* flex:none + nowrap — 라벨('시작'·'길이')이 세로로 쪼개지지 않게 고정한다. 자유 폭은 앞의
+     이름/제목이 margin-right:auto로 다 먹으므로 여기서 줄어들 이유가 없다. */
+  flex: none;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -526,6 +624,57 @@
   background: color-mix(in srgb, var(--seg, var(--acc)) 12%, var(--panel));
   border-left: 3px dashed var(--seg, var(--acc));
   box-shadow: inset 0 0 0 1px var(--line2);
+}
+/* ── 일정 밴드 ──
+   공부 블록(과목색 채움)·할 일(점선 테두리)과 한눈에 구분돼야 한다 → 일정 토큰(--event)에
+   왼쪽 굵은 실선. 과목 PALETTE가 아니라 의미론 토큰이라 액센트/과목 색이 바뀌어도 '일정은 일정'이다. */
+.ev {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  overflow: hidden;
+  box-sizing: border-box;
+  min-height: 16px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--event) 20%, var(--panel));
+  border-left: 3px solid var(--event);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--event) 30%, transparent);
+  z-index: 5;
+  transition: box-shadow 0.14s var(--ease);
+}
+.ev:hover {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--event) 55%, transparent),
+    0 0 14px color-mix(in srgb, var(--event) 26%, transparent);
+  z-index: 6;
+}
+.ev:focus-within {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+  z-index: 8;
+}
+.evSel {
+  outline: 2px solid var(--acc);
+  outline-offset: -1px;
+  z-index: 9;
+}
+/* 툴바 노출 규칙은 카드와 동일(.cardTools는 .card 후손 선택자라 여기서 따로 열어준다). */
+.ev:hover .cardTools,
+.ev:focus-within .cardTools {
+  opacity: 1;
+}
+/* 겹침 2레인 — 일정은 왼쪽 절반, 같은 시간대의 공부/할일 카드는 오른쪽 절반(서로 안 가린다). */
+.evHalf {
+  right: 52%;
+}
+.cardHalf {
+  left: 52%;
 }
 .card:hover {
   box-shadow:
@@ -619,6 +768,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .card,
+  .ev,
   .cardTools,
   .tool,
   .addBtn {

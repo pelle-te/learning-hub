@@ -37,7 +37,10 @@ export function AvailRail() {
   // 이번 주 배분(과목×요일) — 보드와 같은 뷰. managed면 명시값, 아니면 자동 파생 스냅샷.
   const wk = weekMonOf(todayISO(state));
   const alloc = allocView(state, res, wk);
-  const allocWd = DOW.map((_, i) => colSumMin(alloc, i));
+  // 고아 방어 — 삭제된 과목의 잔여 배분이 요일 적재율·초과 경고를 부풀리지 않게 유효 sid만 센다
+  // (정상 경로 청소는 삭제 시 removeSidFromAlloc가 하고, 이건 오염된 저장본에 대한 표시 단계 방어선).
+  const validSids = new Set(state.items.map((it) => it.id));
+  const allocWd = DOW.map((_, i) => colSumMin(alloc, i, validSids));
   const allocWeekMin = allocWd.reduce((t, m) => t + m, 0);
 
   // 가용 vs 목표 — 주당 목표(주간시간 + 매일과목×7)를 합쳐 가용시간이 담을 수 있는지 짚어준다.

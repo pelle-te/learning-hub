@@ -171,13 +171,17 @@ function BlockList() {
             </Button>
           </div>
           <BadRange start={b.start} end={b.end} />
-          <div className={r.days}>
+          {/* 선택 상태를 색(.on)만으로 전하면 AT가 못 읽는다 → aria-pressed로 이중화(AvailRail 요일 막대와 같은 패턴).
+              요일 토글은 다중 선택이라 tablist가 아니라 group+토글 버튼이 정직하다(WCAG 1.4.1·4.1.2). */}
+          <div className={r.days} role="group" aria-label="반복 요일">
             {DOW.map((_, i) => {
               // DOW는 일=0..토=6. 일과 블록 요일도 같은 인덱스(일=0).
               return (
                 <button
                   key={i}
                   type="button"
+                  aria-pressed={b.days.includes(i)}
+                  aria-label={`${DOW[i]}요일`}
                   className={`${r.daychip}${b.days.includes(i) ? ' ' + r.on : ''}`}
                   onClick={() => toggleDay(b.id, i)}
                 >
@@ -275,9 +279,18 @@ export function SkeletonPanel() {
           수업 (요일별){' '}
           <span className={`${ds.muted} ${ds.tiny}`}>— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
         </h2>
-        <div className={ds.seg}>
+        {/* 편집 중인 요일 = 단일 선택. tablist 계약(화살표 이동·tabpanel)을 이행하지 않으므로
+            group+aria-pressed가 정직하다(AvailRail 요일 막대와 동일 · WCAG 1.4.1 색 단독 금지). */}
+        <div className={ds.seg} role="group" aria-label="수업 편집 요일">
           {DOW.map((d, i) => (
-            <button key={d} className={i === classDow ? ds.on : ''} onClick={() => setClassDow(i)}>
+            <button
+              key={d}
+              type="button"
+              aria-pressed={i === classDow}
+              aria-label={`${d}요일`}
+              className={i === classDow ? ds.on : ''}
+              onClick={() => setClassDow(i)}
+            >
               {d}
             </button>
           ))}

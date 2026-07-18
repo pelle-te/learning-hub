@@ -73,10 +73,29 @@
   color: var(--acc);
   font-weight: 700;
 }
+/* 주당 시간 0 과목 안내(경고 톤) — inertFinished와 같은 자리·같은 문법, 색만 warn 계열. */
+.noteWarn {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 38%, var(--line));
+  border-radius: var(--r);
+}
+.noteWarn b {
+  color: var(--warn);
+  font-weight: 700;
+}
 
-/* 스크롤 호스트 — 매트릭스가 좁을 땐 그대로, 넓으면 가로/세로 스크롤(모바일 대응) */
+/* 스크롤 호스트 — 매트릭스가 좁을 땐 그대로, 넓으면 가로/세로 스크롤(모바일 대응).
+   `flex:1`이 아니라 `0 1 auto`인 이유: 이 보드는 **매트릭스**라 행이 이산 항목이다(캘린더의
+   시간축처럼 연속량이 아니다). 호스트를 늘리고 행을 1fr로 나눠 가지면 과목을 추가할수록 기존 행이
+   갈라져 빈 셀만 커진다 — 명백히 틀린 거동. 보드는 제 높이(고정 행)만 차지하고, 프레임보다 짧으면
+   아래는 그냥 여백으로 둔다. 넘칠 때만 shrink 되어 세로 스크롤이 걸린다(min-height:0). */
 .scroll {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
@@ -92,6 +111,14 @@
   /* overflow:hidden 제거 — 그게 있으면 sticky의 컨테이닝 블록을 .grid가 가로채 .scroll 기준 고정이 깨진다.
      대신 네 모서리 셀에 라운딩을 줘 둥근 테두리 유지. */
   min-width: 560px; /* 모바일에서 눌리지 않게 — .scroll이 가로 스크롤 */
+  /* grid-template-rows를 두지 않는다(암묵 auto 행). 행 높이는 `.cell{min-height:48px}` 하나가
+     결정하고 **과목 수와 무관하게 일정**하다. 한때 `minmax(--rowmin,1fr)`로 남는 공간을 나눠
+     갖게 했다가, 과목을 추가할 때마다 기존 행이 갈라지는 잘못된 거동이 나 되돌렸다. */
+}
+/* display:contents 행 — 셀을 그리드에 평탄화(행 자체는 박스가 없다). role="row"는 유지된다. */
+.rowContents,
+.slot {
+  display: contents;
 }
 /* 모서리 셀 라운딩(overflow:hidden 대체) */
 .corner {
@@ -244,6 +271,33 @@
   background: var(--sub, var(--acc));
   pointer-events: none;
 }
+/* 값 있는 셀 좌측 색 띠 — 캘린더 v5에서 확정한 "바탕은 비우고 블록만 세운다" 어휘를 그대로 쓴다.
+   0 셀은 아무것도 칠하지 않고(빈 칸은 비어 보여야 한다), 값 있는 칸만 채움+띠로 주인공이 된다. */
+.hasVal::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--sub, var(--acc));
+  pointer-events: none;
+  z-index: 1;
+}
+/* 빈 칸은 호버에서만 '+'를 흘린다(온디맨드) — 상시 '·'처럼 표를 덮지 않으면서 편집 가능함은 알린다. */
+.inputCell:not(.hasVal):not(.dropOver):hover::after {
+  content: '+';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--mut) 60%, transparent);
+  pointer-events: none;
+}
+
 .cellInput {
   position: relative;
   z-index: 1;
