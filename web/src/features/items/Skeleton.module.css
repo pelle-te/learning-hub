@@ -191,14 +191,6 @@
   font-weight: 800;
 }
 
-@media (max-width: 620px) {
-  .sigBody {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-}
-
 /* 수업(요일별) 편집 행 */
 .classrow {
   display: grid;
@@ -282,7 +274,7 @@
 .blkTime select {
   width: 76px;
 }
-@media (max-width: 480px) {
+@media (max-width: 560px) {
   .blkTop {
     grid-template-columns: 1fr auto;
   }

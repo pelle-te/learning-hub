@@ -5,6 +5,7 @@
    순수 fetch만 — 앱 상태에 복제 X. TanStack Query가 캐시/로딩/에러 소유(설계도 §1-B).
 ============================================================ */
 import { loadVaultIndex } from './vault';
+import { dirEntries, pickDirectory } from './fsAccess';
 
 export interface AnkiDeck {
   name: string;
@@ -77,16 +78,11 @@ export async function fetchAnkiLive(): Promise<AnkiLive> {
 export async function pickAndScanAnki(
   existing?: FileSystemDirectoryHandle,
 ): Promise<{ scan: AnkiFile; handle: FileSystemDirectoryHandle } | null> {
-  const picker = (window as unknown as { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> })
-    .showDirectoryPicker;
   let handle = existing;
   if (!handle) {
-    if (!picker) throw new Error('이 브라우저는 폴더 연결을 지원하지 않아요(Chrome/Edge).');
-    try {
-      handle = await picker();
-    } catch {
-      return null;
-    }
+    const picked = await pickDirectory(); // 미지원이면 FsUnsupportedError, 취소면 null
+    if (!picked) return null;
+    handle = picked;
   }
   let decks: AnkiFileDeck[] = [];
   let src = '';
@@ -99,13 +95,11 @@ export async function pickAndScanAnki(
     }));
     src = '_index.json';
   } else {
-    const entries = (h: FileSystemDirectoryHandle) =>
-      (h as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries();
     let ank: FileSystemDirectoryHandle | null = null;
-    for await (const [n, e] of entries(handle))
+    for await (const [n, e] of dirEntries(handle))
       if ((n === 'anki' || n === '_anki') && e.kind === 'directory') ank = e as FileSystemDirectoryHandle;
     if (!ank) throw new Error('정본 _index.json도 anki 폴더도 못 찾았어요. 전공(볼트) 폴더를 선택하세요.');
-    for await (const [fn, fh] of entries(ank)) {
+    for await (const [fn, fh] of dirEntries(ank)) {
       if (fh.kind !== 'file' || !fn.endsWith('.txt')) continue;
       const t = await (await (fh as FileSystemFileHandle).getFile()).text();
       const cards = t.split('\n').filter((l) => l.trim() && !l.startsWith('#')).length;

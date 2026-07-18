@@ -23,19 +23,11 @@ export interface CaptureResult {
   chapter?: string; // '2챕터' · '3장' · 'ch 5' (매칭된 형태 보존)
 }
 
-/* ── 로컬 날짜 헬퍼(utils와 동일 규약: toISOString은 UTC라 하루 밀림 → 로컬 조립) ── */
-function isoLocal(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() + n);
-  return x;
-}
-/** now의 '오늘'(시분 절삭) — 상대·절대 날짜 비교의 기준점. */
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
+/* 날짜 헬퍼는 utils가 단일 원천 — 이 파일은 한때 iso/addDays/startOfDay/mondayOf 넷을 자체
+   재구현했다(주석이 "utils와 동일 규약"이라 자인까지 했다). 같은 lib 계층이라 import에 제약도 없다.
+   ⚠ 옛 로컬 addDays는 인자를 자정으로 절삭했지만 utils.addDays는 시각을 보존한다 — 여기 호출부는
+   전부 이미 절삭된 base(startOfDay·mondayOf 산출)를 넘기므로 동작은 동일하다. */
+import { iso, addDays, mondayOf, startOfDay } from './utils';
 
 /** raw에서 needle(대소문자 무시) 첫 등장을 공백으로 치환 — title 걷어내기용. */
 function stripOnce(hay: string, needle: string): string {
@@ -49,14 +41,6 @@ function stripOnce(hay: string, needle: string): string {
 const WEEKDAY_DAYIDX: Record<string, number> = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
 /* 월요일 시작 주 인덱스(월=0..일=6) — '이번주/다음주 X요일' 계산용 */
 const WEEK_MON_ORDER = '월화수목금토일';
-
-/** now가 속한 주의 월요일(시분 절삭). */
-function mondayOf(d: Date): Date {
-  const x = startOfDay(d);
-  const k = (x.getDay() + 6) % 7; // 월=0
-  x.setDate(x.getDate() - k);
-  return x;
-}
 
 interface DateHit {
   dateISO: string;
@@ -79,7 +63,7 @@ function matchDate(raw: string, now: Date): DateHit | null {
   ];
   for (const [re, off, label] of rel) {
     const m = raw.match(re);
-    if (m) return { dateISO: isoLocal(addDays(base, off)), label, strip: m[0] };
+    if (m) return { dateISO: iso(addDays(base, off)), label, strip: m[0] };
   }
 
   // ② 절대 N월 N일 — 올해 기준, 이미 지났으면 내년으로 롤.
@@ -90,7 +74,7 @@ function matchDate(raw: string, now: Date): DateHit | null {
     if (mo >= 1 && mo <= 12 && dy >= 1 && dy <= 31) {
       let cand = new Date(base.getFullYear(), mo - 1, dy);
       if (cand.getTime() < base.getTime()) cand = new Date(base.getFullYear() + 1, mo - 1, dy);
-      return { dateISO: isoLocal(cand), label: `${mo}월 ${dy}일`, strip: mAbs[0] };
+      return { dateISO: iso(cand), label: `${mo}월 ${dy}일`, strip: mAbs[0] };
     }
   }
 
@@ -102,7 +86,7 @@ function matchDate(raw: string, now: Date): DateHit | null {
     if (mo >= 1 && mo <= 12 && dy >= 1 && dy <= 31) {
       let cand = new Date(base.getFullYear(), mo - 1, dy);
       if (cand.getTime() < base.getTime()) cand = new Date(base.getFullYear() + 1, mo - 1, dy);
-      return { dateISO: isoLocal(cand), label: `${mo}/${dy}`, strip: mSlash[0] };
+      return { dateISO: iso(cand), label: `${mo}/${dy}`, strip: mSlash[0] };
     }
   }
 
@@ -136,7 +120,7 @@ function matchDate(raw: string, now: Date): DateHit | null {
       target = addDays(base, ahead);
     }
     const label = (prefix ? `${prefix} ` : '') + `${ch}요일`;
-    return { dateISO: isoLocal(target), label, strip: m[0] };
+    return { dateISO: iso(target), label, strip: m[0] };
   }
 
   return null;

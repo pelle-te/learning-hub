@@ -286,7 +286,12 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, #fff 45%, transparent) 50%, transparent 70%);
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    color-mix(in srgb, var(--txt) 30%, transparent) 50%,
+    transparent 70%
+  );
   transform: translateX(-130%);
   transition: transform 0.6s var(--ease);
   pointer-events: none;
@@ -966,7 +971,7 @@
 }
 
 /* ── 모바일 — 세로 스택 + 스크롤 ── */
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .today {
     padding: 14px;
   }

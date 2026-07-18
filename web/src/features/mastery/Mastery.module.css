@@ -373,7 +373,11 @@ i.dot {
   height: 18px;
   border-radius: 99px;
   font-size: 0.7em;
-  color: #fff;
+  /* 배경은 여기가 소유한다 — 예전엔 호출부가 인라인으로 var(--line2)를 넣었는데, 라이트에서 --line2가
+     거의 흰색(#eef0f4)이라 고정 흰 글자와 1.14:1로 완전히 사라졌다. 중립 표면 + 본문색 쌍은 두 테마 모두 통과. */
+  background: var(--panel2);
+  color: var(--txt);
+  border: 1px solid var(--line);
   flex: none;
 }
 

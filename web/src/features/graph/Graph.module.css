@@ -318,7 +318,7 @@
   composes: srOnly from '@/styles/ds.module.css';
 }
 
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .wrap {
     padding: 12px 12px 10px;
   }

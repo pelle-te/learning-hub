@@ -23,7 +23,8 @@ import {
   weeklyItems,
   zeroVec,
 } from '@/lib/weekAlloc';
-import { Button } from '@/components/ui';
+import { dayStudyMin } from '@/lib/scheduler';
+import { Button, NumberField } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import type { ScheduleResult } from '@/lib/types';
 import s from './AllocBoard.module.css';
@@ -73,7 +74,13 @@ export function AllocBoard({
   const cols = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(monday, i);
     const ds = iso(date);
-    return { i, date, ds, wd: date.getDay(), label: DOW_MON[i]!, isToday: ds === todayIso };
+    const wd = date.getDay();
+    // ⚠ 열 가용은 capWd(요일 기본값)가 아니라 **그 날짜의 실제 가용**이어야 한다.
+    // capWd는 routine만 반영하지만 스케줄러는 dayStudyMin으로 dayOverrides와 그날 events까지 뺀다.
+    // 예전엔 보드가 capWd를 그대로 써서, 수요일에 4시간 일정을 넣어도 "가용 6.0h"를 표시하고
+    // 5h 배분에 초과 배지를 안 띄웠다 — 실제로는 layoutDay가 남는 분을 start:null(over)로 떨궈
+    // 캘린더에서 조용히 사라진다. "한눈에 조망"이 정확히 틀리던 지점.
+    return { i, date, ds, wd, label: DOW_MON[i]!, isToday: ds === todayIso, cap: dayStudyMin(state, ds, wd, capWd) };
   });
 
   const setCell = (sid: string, wd: number, hours: number) => {
@@ -285,19 +292,19 @@ export function AllocBoard({
                       {cellMin > 0 && (
                         <span className={s.fill} style={{ opacity: fillAlpha(cellMin) }} aria-hidden="true" />
                       )}
-                      <input
-                        type="number"
+                      {/* NumberField — 미완 입력(빈값·"1.")을 커밋하지 않는다. 예전엔 1.5를 치는 도중
+                          '.' 시점의 빈값이 0으로 확정됐고, 그 0이 setAllocCell→ensureWeekAlloc을 타고
+                          이 주를 managed로 승격시켜 자동 제안을 영구 대체했다(그리고 최종값도 5h가 됐다). */}
+                      <NumberField
                         className={s.cellInput}
                         min={0}
                         step={0.5}
-                        value={cellMin ? +toH(cellMin) : ''}
+                        value={cellMin ? +toH(cellMin) : 0}
+                        emptyValue={0} // 칸을 비우는 건 "이 요일엔 배분 안 함"이라는 뜻
                         // 0 셀은 '·'로 채우지 않는다 — 전 칸에 깔린 점이 소음이 돼 "읽을 것 없는 표"로 보였다.
                         // 빈 칸은 비어 보이고(바탕 틴트 없음 · 캘린더 v5 사상), 값 있는 칸만 채움+색띠로 주인공이 된다.
                         placeholder=""
-                        onChange={(e) => {
-                          const v = e.target.value === '' ? 0 : parseFloat(e.target.value);
-                          if (Number.isFinite(v)) setCell(it.id, c.wd, v);
-                        }}
+                        onCommit={(v) => setCell(it.id, c.wd, v)}
                         aria-label={`${it.name} · ${c.label}요일 배분(시간)`}
                         title={`${it.name} · ${c.label} — 시간 입력(0.5 단위)`}
                       />
@@ -327,7 +334,7 @@ export function AllocBoard({
               가용
             </div>
             {cols.map((c, i) => {
-              const cap = capWd[c.wd] || 0;
+              const cap = c.cap; // 그 날짜의 실제 가용(일정·override 반영) — capWd 요일 기본값이 아님
               const over = cap > 0 && colMins[i]! > cap + 5;
               return (
                 <div

@@ -126,6 +126,18 @@ function sendFile(req, res, filePath, type, cache) {
 /* 살아있는 자식 프로세스 추적(runTool + research). SIGINT/SIGTERM 시 트리킬용(SD-1). */
 const CHILDREN = new Set();
 
+/* 자식 프로세스 트리 강제종료(best-effort) — Windows에서 proc.kill()은 *직속 자식만* 죽인다.
+   python이 띄운 손자(크롤러 등)는 살아남아 CPU·네트워크를 계속 쓰는데, 서버는 잡을 error로
+   정리해버려 그 존재조차 모른다. 타임아웃 킬러·사용자 중단·서버 종료가 모두 이 한 경로를 쓴다
+   (예전엔 종료/중단만 taskkill /T였고 타임아웃 두 곳은 proc.kill()이라 손자가 샜다). */
+function killTree(proc) {
+  if (!proc) return;
+  try {
+    if (process.platform === 'win32' && proc.pid) spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F']);
+    else proc.kill();
+  } catch (e) { /* best-effort — close 핸들러가 정리를 마친다 */ }
+}
+
 /* 도구 실행(spawn · shell 안 씀) → {ok,out,code,stats?} */
 function runTool(toolKey, extraArgs, cb) {
   // 소유 속성만 조회(감사 2026-07-16 ①#45): TOOLS['constructor'] 같은 프로토타입 키가 truthy 로
@@ -145,7 +157,7 @@ function runTool(toolKey, extraArgs, cb) {
   try { proc = spawn(PY, args, { cwd: WORK, env: Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8' }) }); }
   catch (e) { cb({ ok: false, out: 'spawn 실패: ' + (e.message || e), code: -1 }); return; }
   CHILDREN.add(proc);
-  const killer = setTimeout(() => { try { proc.kill(); } catch (e) {} finish(false, -2); }, t.timeout || 60000);
+  const killer = setTimeout(() => { killTree(proc); finish(false, -2); }, t.timeout || 60000);
   // 라이브 캡 — 리서치 경로와 동일하게 stdout 무한 누적 방지(종료시 slice에만 의존하지 않음).
   const cap = (d) => { out += d.toString('utf8'); if (out.length > 40000) out = out.slice(-20000); };
   proc.stdout.on('data', cap);
@@ -193,7 +205,7 @@ function startResearch(topic, scope) {
   job.proc = proc;
   CHILDREN.add(proc);
   const cap = (d) => { job.out += d.toString('utf8'); if (job.out.length > 40000) job.out = job.out.slice(-20000); };
-  const killer = setTimeout(() => { try { proc.kill(); } catch (e) {} job.out += '\n(30분 초과 — 중단)'; fin(-2); }, 1800000);
+  const killer = setTimeout(() => { killTree(proc); job.out += '\n(30분 초과 — 중단)'; fin(-2); }, 1800000);
   proc.stdout.on('data', cap);
   proc.stderr.on('data', cap);
   proc.on('error', e => { CHILDREN.delete(proc); clearTimeout(killer); job.out += '\n오류: ' + (e.message || e); fin(-1); });
@@ -201,7 +213,7 @@ function startResearch(topic, scope) {
   return { job };
 }
 
-/* 진행 중 잡 사용자 중단 — 프로세스 트리킬(best-effort, 종료 정리와 동일 taskkill /T).
+/* 진행 중 잡 사용자 중단 — 프로세스 트리킬(best-effort, 종료 정리와 동일 killTree).
    _canceled 플래그로 fin이 'canceled' 상태를 부여(실패와 구분). 이미 끝난 잡은 거절. */
 function cancelResearch(id) {
   const job = RESEARCH_JOBS.get(id);
@@ -209,22 +221,20 @@ function cancelResearch(id) {
   if (job.status !== 'running') return { error: '이미 끝난 잡이에요.' };
   job._canceled = true;
   job.out = (job.out || '') + '\n(사용자 중단됨)';
-  const proc = job.proc;
-  if (proc) {
-    try {
-      if (process.platform === 'win32') spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F']); // 트리 강제종료
-      else proc.kill();
-    } catch (e) { /* best-effort — close 핸들러가 fin으로 정리 */ }
-  }
+  if (job.proc) killTree(job.proc);
   return { ok: true };
 }
 
 function readBody(req, res, cb) {
-  let b = '', aborted = false;
+  // ⚠ 청크를 문자열로 누적하면(b += d) 청크마다 독립적으로 toString('utf8')이 걸려, 한글처럼
+  //   멀티바이트 문자가 청크 경계에 걸치면 U+FFFD로 깨진다(64KB 넘는 한국어 원문을 reads/coach에
+  //   POST하면 프롬프트가 오염돼 채점이 틀어졌다). 바이트로 모아 마지막에 한 번만 디코드한다.
+  //   상한도 UTF-16 코드유닛이 아닌 실제 바이트 기준이 된다.
+  const chunks = []; let size = 0, aborted = false;
   req.on('data', d => {
     if (aborted) return;
-    b += d;
-    if (b.length > 1e6) {
+    chunks.push(d); size += d.length;
+    if (size > 1e6) {
       // 초과 시 소켓을 그냥 파괴하면 'end'가 안 와 콜백이 영영 안 불려 클라가 무한대기(L-13).
       // 413을 먼저 보내 라우트가 깔끔히 닫히게 한다(sendJSON의 headersSent 가드로 이중전송 방지).
       aborted = true;
@@ -236,6 +246,7 @@ function readBody(req, res, cb) {
     if (aborted) return;
     // 파싱만 try 안에서 — 옛 코드는 cb 자체를 try 로 감싸 *cb 내부* 예외가 catch 로 새서
     // cb({}) 를 두 번째로 실행했다(소비 콜백 이중 호출 · 감사 2026-07-16 ①#45의 증폭 경로).
+    const b = Buffer.concat(chunks).toString('utf8');
     let parsed = {};
     if (b) { try { parsed = JSON.parse(b); } catch (e) { parsed = {}; } }
     cb(parsed);
@@ -563,7 +574,9 @@ function fetchAtlasNews(query, cb) {
     r.setEncoding('utf8');
     r.on('data', (c) => {
       data += c;
-      if (data.length > 800000) req.destroy(); // 폭주 방어
+      // 인자 없는 destroy()는 'error'를 보장 발생시키지 않는다 → 'end'도 'error'도 안 와 finish가
+      // 영영 안 불리고 클라가 무한 스피너(진로 지도 상세). 아래 timeout 경로와 동일하게 이유를 실어 보낸다.
+      if (data.length > 800000) req.destroy(new Error('news too-large')); // 폭주 방어
     });
     r.on('end', () => {
       try {

@@ -32,8 +32,8 @@ import {
   removeBlock,
   resetDay,
   resolveSlot,
-  snap as snapMin,
   SNAP,
+  blockMinPresets,
 } from '@/lib/dayPlans';
 import {
   untimedTasksForDay,
@@ -47,14 +47,14 @@ import {
   unplaceTask,
 } from '@/lib/tasks';
 import { SESSION_TYPE_META as TAG } from '@/lib/scheduleView';
-import { Button } from '@/components/ui';
+// 타임라인 시간↔좌표 변환·겹침 판정은 lib이 소유(순수 · 단위 테스트 대상).
+import { minToPct, timelineSpan, overlaps } from '@/lib/dayPlanGeometry';
+import { TrayRow, EventBand, TimedCard } from './DayPlannerCards';
+import { COL_CLASS, EDIT_BAR_ID, MIME, type DragKind } from './dayPlannerShared';
+import { Button, NumberField } from '@/components/ui';
 import type { AppState, ScheduleResult } from '@/lib/types';
 import s from './DayPlanner.module.css';
 
-type DragKind = 'block' | 'task';
-const MIME = 'application/x-plan-item';
-const COL_CLASS = 'planTimelineCol'; // 타임라인 컬럼 식별용(포인터 리사이즈 시 높이 측정).
-const EDIT_BAR_ID = 'dayPlannerEditBar'; // 카드 안 편집 버튼이 aria-controls로 가리키는 편집 바(동시 1개).
 const EV_FORM_ID = 'dayPlannerEventForm'; // '+ 일정'이 aria-controls로 가리키는 온디맨드 컴포저.
 /** 일정 길이 프리셋 — 자유 입력 대신 셀렉트로 받는다(340px 트레이에서 숫자 입력 하나를 더 끼우면 제목이 뭉개진다).
  *  세밀 조정은 추가 후 편집 바(분 단위)에서 한다 — 추가는 빠르게, 정밀은 온디맨드. */
@@ -65,14 +65,6 @@ function toMinLocal(t: string): number {
   const [h, m] = t.split(':').map(Number);
   return (h || 0) * 60 + (m || 0);
 }
-/* 타임라인 시간↔픽셀 환산 SSOT — 트랙 전체가 span(분)이고 그 안의 '비율'이 곧 좌표다.
-   전엔 같은 변환이 두 표현으로 갈라져 있었다(부모 pos()=%, TimedCard 리사이즈=pxPerMin) —
-   한쪽만 고치면 조용히 어긋나는 형태라 비율 하나로 모은다. */
-const ratio = (part: number, whole: number) => (whole > 0 ? part / whole : 0);
-/** 분 길이 → 트랙 높이 %(눈금·카드 top/height). */
-const minToPct = (min: number, spanMin: number) => ratio(min, spanMin) * 100;
-/** 드래그 픽셀 → 분(리사이즈). colH=타임라인 컬럼 높이(px). */
-const pxToMin = (px: number, colH: number, spanMin: number) => ratio(px, colH) * spanMin;
 
 /** 자유 할일 소요(min) 갱신 — 리사이즈용(placeTask는 start만 다룸). */
 function updateTaskMin(st: AppState, id: string, min: number): void {
@@ -177,10 +169,7 @@ export function DayPlanner({
     ms.push(toMinLocal(b.start), toMinLocal(b.end));
   });
   // 창 **밖**의 일정(새벽 블록 등)은 union해 잘리지 않게 한다 — 안 그러면 화면 밖으로 사라진다.
-  const lo = clamp(Math.floor(Math.min(wake0, ...ms) / 60) * 60, 0, 1440);
-  const hiRaw = clamp(Math.ceil(Math.max(wake1, ...ms) / 60) * 60, 0, 1440);
-  const hi = hiRaw > lo ? hiRaw : Math.min(1440, lo + 60); // 창이 비정상(0폭)이어도 최소 1시간
-  const span = Math.max(1, hi - lo);
+  const { lo, hi, span } = timelineSpan(wake0, wake1, ms);
   const pos = (m: number) => minToPct(clamp(m, lo, hi) - lo, span);
   const ticks: number[] = [];
   for (let m = Math.ceil(lo / 60) * 60; m <= hi; m += 60) ticks.push(m);
@@ -217,7 +206,6 @@ export function DayPlanner({
   // 일정 ↔ 카드 겹침 — 드롭·⤵는 일정을 점유로 보고 피하지만, 편집 바에서 시각을 직접 고치면 겹칠 수 있다.
   // 그때 서로 가리지 않게 **반폭 2레인**으로 쪼갠다(일정=왼쪽, 겹친 카드=오른쪽). 겹치지 않으면 둘 다 전폭이라
   // 평상시 레이아웃은 그대로다 — packLanes(주간 캘린더)처럼 일반 N레인까지 갈 필요가 없는 예외 경로다.
-  const overlaps = (rs: [number, number][], s: number, m: number) => rs.some(([a, b]) => s < b && a < s + m);
   const evRanges = events.map((e): [number, number] => [e.start, e.start + e.min]);
   const cardRanges: [number, number][] = [
     ...timed.map((b): [number, number] => [b.start!, b.start! + b.min]),
@@ -265,14 +253,10 @@ export function DayPlanner({
   // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 누를 때마다 별도 블록(같은 과목이어도 병합 안 함).
   // 완료는 블록별(setBlockDone)이라 같은 sid|type 여러 블록을 독립 체크할 수 있다.
   const namedItems = state.items.filter((it) => it.name);
-  const ML = state.moduleLen || 120;
-  const BLOCK_MIN: Record<string, number> = {
-    new: ML,
-    rev: Math.max(15, Math.round(ML * 0.25)),
-    anki: 20,
-    blank: Math.max(30, Math.round(ML * 0.4)),
-    mock: ML,
-  };
+  const BLOCK_MIN = blockMinPresets(state.moduleLen); // 길이 프리셋은 lib/dayPlans가 소유(도메인 규칙)
+  // ⚠ 라벨은 scheduleView.SESSION_TYPE_META와 **의도적으로 다르다**(new: 여기 '집중' vs 저기 '학습').
+  //   저기는 스케줄 표의 유형 태그, 여기는 "지금 뭘 추가할까" 버튼이라 어휘가 갈린다.
+  //   순서·집합이 어긋나면 곤란하니 바꿀 땐 둘을 함께 볼 것.
   const BLOCK_TYPES = [
     { t: 'new', label: '집중' },
     { t: 'rev', label: '복습' },
@@ -519,18 +503,8 @@ export function DayPlanner({
       </label>
       <label className={s.editField}>
         길이
-        <input
-          type="number"
-          min={15}
-          step={15}
-          value={selMin}
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            if (Number.isFinite(n)) setSelMin(n);
-          }}
-          aria-label="길이(분)"
-        />
-        분
+        {/* emptyValue 없음 — 비우면 길이 0분 블록이 확정돼 그 블록이 사실상 사라진다. 직전 값 유지. */}
+        <NumberField min={15} step={15} value={selMin} onCommit={setSelMin} aria-label="길이(분)" />분
       </label>
       <Button sm variant="ghost" onClick={() => setSelId(null)}>
         닫기
@@ -795,343 +769,5 @@ export function DayPlanner({
       </div>
       {editBar}
     </section>
-  );
-}
-
-/* ── 트레이 한 줄 ────────────────────────────────────────────────────── */
-function TrayRow({
-  title,
-  meta,
-  color,
-  mock,
-  min,
-  free,
-  repeat,
-  done,
-  onToggle,
-  onSetMin,
-  onPlace,
-  onDelete,
-  onDragStart,
-}: {
-  title: string;
-  meta: string;
-  color?: string;
-  /** 모의시험 블록 — 연결된 과목이 없어 팔레트 색이 없다. 색 리터럴 대신 CSS 토큰(.mock)으로 구분. */
-  mock?: boolean;
-  min?: number;
-  free?: boolean;
-  repeat?: 'daily' | 'weekly';
-  done: boolean;
-  onToggle: (on: boolean) => void;
-  onSetMin?: (min: number) => void;
-  onPlace: () => void;
-  onDelete?: () => void;
-  onDragStart: (e: React.DragEvent) => void;
-}) {
-  return (
-    <div
-      className={`${s.trayRow}${done ? ' ' + s.rowDone : ''}${free ? ' ' + s.rowFree : ''}${mock ? ' ' + s.mock : ''}`}
-      draggable
-      onDragStart={onDragStart}
-      style={color ? ({ ['--seg']: color } as React.CSSProperties) : undefined}
-    >
-      <input
-        type="checkbox"
-        className={s.chk}
-        checked={done}
-        onChange={(e) => onToggle(e.target.checked)}
-        aria-label={`${title} 완료`}
-      />
-      <span className={s.grabDot} aria-hidden="true" />
-      <span className={s.rowName}>{title}</span>
-      <span className={s.rowMeta}>
-        {repeat && <span title={repeat === 'daily' ? '매일 반복' : '매주 반복'}>🔁 </span>}
-        {meta}
-      </span>
-      {/* 길이 편집(§6-2 인라인) — 스테퍼로 30분 단위(입력창은 draggable 행과 충돌해 버튼으로). */}
-      {onSetMin && min != null ? (
-        <span
-          className={s.durStep}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          draggable={false}
-        >
-          <button
-            type="button"
-            className={s.durBtn}
-            onClick={() => onSetMin(Math.max(SNAP, min - 30))}
-            title="길이 30분 줄이기"
-            aria-label={`${title} 길이 30분 줄이기`}
-          >
-            −
-          </button>
-          <span className={s.durVal}>{hLabel(min)}</span>
-          <button
-            type="button"
-            className={s.durBtn}
-            onClick={() => onSetMin(min + 30)}
-            title="길이 30분 늘리기"
-            aria-label={`${title} 길이 30분 늘리기`}
-          >
-            ＋
-          </button>
-        </span>
-      ) : (
-        min != null && <span className={s.rowDur}>{hLabel(min)}</span>
-      )}
-      <button
-        type="button"
-        className={s.tool}
-        onClick={onPlace}
-        title="첫 빈 시간에 배치"
-        aria-label={`${title} 시간박기`}
-      >
-        ⤵
-      </button>
-      {onDelete && (
-        <button type="button" className={s.tool} onClick={onDelete} title="삭제" aria-label={`${title} 삭제`}>
-          ✕
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* ── 일정 밴드(캘린더) ──────────────────────────────────────────────────
-   약속·시험·행사 = 과목과 무관한 단발 사건. 공부 블록/할 일과 **의도적으로 다르게** 생겼다:
-   완료 토글도 핀도 트레이 되돌리기도 없고(그 시각에 '일어나는' 것이지 해치우는 게 아니다),
-   색도 과목 팔레트가 아니라 의미론 토큰(--event)이다(절대규칙 3 — 색 리터럴·팔레트 오용 금지).
-   드래그를 붙이지 않았으므로 WCAG 2.1.1 키보드 대안 부담이 없다 — 시각·길이는 편집 바(✎)에서 고친다. */
-function EventBand({
-  title,
-  start,
-  min,
-  half,
-  selected,
-  pos,
-  onSelect,
-  onDelete,
-}: {
-  title: string;
-  start: number;
-  min: number;
-  half?: boolean;
-  selected?: boolean;
-  pos: (m: number) => number;
-  onSelect: () => void;
-  onDelete: () => void;
-}) {
-  const top = pos(start);
-  const height = Math.max(3, pos(start + min) - top);
-  const compact = min < 45;
-  const range = `${toHM(start)}–${toHM(start + min)}`;
-  return (
-    <div
-      className={`${s.ev}${compact ? ' ' + s.compact : ''}${selected ? ' ' + s.evSel : ''}${half ? ' ' + s.evHalf : ''}`}
-      style={{ top: `${top}%`, height: `${height}%` }}
-      role="group"
-      aria-label={`일정 ${title} ${range}`}
-      data-tip={`${title}\n일정 · ${range}`}
-    >
-      <div className={s.cardMain}>
-        <span className={s.cardName}>{title}</span>
-        {!compact && <span className={s.cardMeta}>일정 · {range}</span>}
-      </div>
-      <div className={s.cardTools}>
-        <button
-          type="button"
-          className={`${s.tool}${selected ? ' ' + s.toolOn : ''}`}
-          onClick={onSelect}
-          title="시각·길이 편집"
-          aria-label={`${title} 시각·길이 편집`}
-          aria-expanded={!!selected}
-          aria-controls={selected ? EDIT_BAR_ID : undefined}
-        >
-          ✎
-        </button>
-        <button type="button" className={s.tool} onClick={onDelete} title="일정 삭제" aria-label={`${title} 일정 삭제`}>
-          ✕
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ── 타임박스 카드(캘린더) ──────────────────────────────────────────────
-   드래그로 이동, Alt+↑↓ 시간(±15), Alt+Shift+↑↓ 길이(±15), 하단 핸들 포인터 리사이즈,
-   툴바로 완료·핀·트레이·삭제(§6-4 키보드 대안). */
-function TimedCard({
-  kind,
-  title,
-  meta,
-  color,
-  mock,
-  start,
-  min,
-  spanMin,
-  pinned,
-  done,
-  selected,
-  half,
-  pos,
-  onSelect,
-  onDragStart,
-  onMove,
-  onSetMin,
-  onUnplace,
-  onPin,
-  onToggle,
-  onDelete,
-}: {
-  kind: DragKind;
-  title: string;
-  meta: string;
-  color?: string;
-  /** 모의시험 블록 — 과목색이 없으므로 CSS 토큰(.mock)으로 구분(색 리터럴 금지 · 절대규칙 3). */
-  mock?: boolean;
-  start: number;
-  min: number;
-  spanMin: number;
-  pinned?: boolean;
-  done: boolean;
-  selected?: boolean;
-  /** 같은 시간대에 일정이 있어 오른쪽 반폭으로 물러난 상태(일정이 왼쪽 레인). */
-  half?: boolean;
-  pos: (m: number) => number;
-  onSelect?: () => void;
-  onDragStart: (e: React.DragEvent) => void;
-  onMove: (delta: number) => void;
-  onSetMin: (min: number) => void;
-  onUnplace: () => void;
-  onPin?: () => void;
-  onToggle: (on: boolean) => void;
-  onDelete?: () => void;
-}) {
-  const top = pos(start);
-  const height = Math.max(3, pos(start + min) - top);
-  const compact = min < 45;
-
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!e.altKey) return;
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (e.shiftKey) onSetMin(min - SNAP);
-      else onMove(-SNAP);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (e.shiftKey) onSetMin(min + SNAP);
-      else onMove(SNAP);
-    } else if (e.key === 'Backspace' || e.key === 'Delete') {
-      e.preventDefault();
-      onUnplace();
-    }
-  };
-
-  // 포인터 리사이즈 — 하단 핸들에서 아래로 끌면 길이 증가. px→분은 공용 pxToMin(변환 SSOT).
-  const startResize = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const col = (e.currentTarget as HTMLElement).closest('.' + COL_CLASS) as HTMLElement | null;
-    const colH = col?.getBoundingClientRect().height ?? 0;
-    if (!colH) return;
-    const y0 = e.clientY;
-    const min0 = min;
-    // 값 변화 가드 — pointermove는 60~120 Hz로 오는데 결과는 SNAP(15분) 격자라 대부분 같은 값이다.
-    // 가드가 없으면 드래그 내내 매 이벤트가 store 커밋이 되고, persist가 400ms 디바운스라
-    // 그 사이 recipe가 무제한 누적된다(드래그 1회에 수백 건 → 리베이스 시 일괄 재생).
-    // 이제 커밋은 '실제로 다른 길이가 됐을 때'만 = 드래그 중 격자 칸을 넘은 횟수만큼.
-    let lastMin = min0;
-    const onMoveP = (ev: PointerEvent) => {
-      const nm = Math.max(SNAP, snapMin(min0 + pxToMin(ev.clientY - y0, colH, spanMin)));
-      if (nm === lastMin) return;
-      lastMin = nm;
-      onSetMin(nm);
-    };
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMoveP);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMoveP);
-    window.addEventListener('pointerup', onUp);
-  };
-
-  /* 카드는 '누를 수 있는 것'이 아니라 여러 조작(편집·완료·핀·삭제)을 담는 **묶음**이다.
-     전엔 role="group"에 aria-pressed(그 role이 갖지 않는 무효 속성)를 달고 tabIndex로 포커스만 받되
-     onKeyDown이 Alt 키만 처리해 Enter/Space로는 편집 바를 열 수 없었다(키보드로 유일하게 막힌 경로).
-     → 이름 있는 group은 유지하되 무효 상태 속성은 떼고, 편집은 툴바의 **진짜 버튼**(✎)이 맡는다.
-     Enter/Space·펼침 상태(aria-expanded/controls)를 네이티브로 얻고, Alt+화살표는 그 버튼에서
-     컨테이너로 버블링돼 그대로 동작한다 → 컨테이너 tabIndex(중복 탭 스톱)는 없앴다.
-     본문을 button으로 감싸지 않은 건 의도적이다: 본문이 곧 드래그 손잡이라 폼 컨트롤로 바꾸면
-     시간박기 드래그가 브라우저별로 흔들린다(핵심 상호작용을 건드리지 않는 쪽을 택함). */
-  return (
-    <div
-      className={`${s.card} ${kind === 'task' ? s.cardTask : s.cardStudy}${done ? ' ' + s.cardDone : ''}${compact ? ' ' + s.compact : ''}${selected ? ' ' + s.cardSel : ''}${mock ? ' ' + s.mock : ''}${half ? ' ' + s.cardHalf : ''}`}
-      style={{ top: `${top}%`, height: `${height}%`, ...(color ? ({ ['--seg']: color } as React.CSSProperties) : {}) }}
-      draggable
-      onDragStart={onDragStart}
-      onClick={() => onSelect?.()}
-      role="group"
-      onKeyDown={onKeyDown}
-      aria-label={`${title} · ${meta} ${toHM(start)}–${toHM(start + min)}. Alt+화살표로 이동, Alt+Shift+화살표로 길이, Alt+Backspace로 트레이로.`}
-      data-tip={`${title}\n${meta} · ${toHM(start)}–${toHM(start + min)}`}
-    >
-      <div className={s.cardMain}>
-        <span className={s.cardName}>
-          {pinned && '📌 '}
-          {title}
-        </span>
-        {!compact && (
-          <span className={s.cardMeta}>
-            {meta} · {toHM(start)}–{toHM(start + min)}
-          </span>
-        )}
-      </div>
-      <div className={s.cardTools} onClick={(e) => e.stopPropagation()}>
-        {/* 편집 바 여는 진짜 버튼 — 키보드로 카드에 들어오면 첫 탭 스톱이 여기고, Enter/Space가
-            네이티브로 동작한다(마우스의 '카드 클릭'과 같은 일). 툴바는 focus-within에서 드러난다. */}
-        <button
-          type="button"
-          className={`${s.tool}${selected ? ' ' + s.toolOn : ''}`}
-          onClick={() => onSelect?.()}
-          title="시각·길이 편집"
-          aria-label={`${title} 시각·길이 편집`}
-          aria-expanded={!!selected}
-          aria-controls={selected ? EDIT_BAR_ID : undefined}
-        >
-          ✎
-        </button>
-        <button type="button" className={s.tool} onClick={() => onToggle(!done)} title="완료" aria-label="완료 토글">
-          {done ? '↺' : '✓'}
-        </button>
-        {onPin && (
-          <button
-            type="button"
-            className={`${s.tool}${pinned ? ' ' + s.toolOn : ''}`}
-            onClick={onPin}
-            title="핀(재초안에서 보존)"
-            aria-label="핀 토글"
-            aria-pressed={!!pinned}
-          >
-            📌
-          </button>
-        )}
-        <button
-          type="button"
-          className={s.tool}
-          onClick={onUnplace}
-          title="트레이로(미지정)"
-          aria-label="트레이로 되돌리기"
-        >
-          ⤴
-        </button>
-        {onDelete && (
-          <button type="button" className={s.tool} onClick={onDelete} title="삭제" aria-label="삭제">
-            ✕
-          </button>
-        )}
-      </div>
-      <span className={s.resizeHandle} onPointerDown={startResize} aria-hidden="true" />
-    </div>
   );
 }

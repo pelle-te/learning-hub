@@ -93,7 +93,7 @@
   cursor: pointer;
 }
 .stopBtn:hover {
-  color: var(--bad, #ff5470);
+  color: var(--bad);
   background: color-mix(in srgb, var(--acc) 8%, transparent);
 }
 

@@ -20,7 +20,8 @@ import r from './Skeleton.module.css';
 export function AvailRail() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
-  const capWd = useStudyMinByWeekday(); // 요일별 학습 가능 분 — 배분 보드의 열 상한과 같은 출처
+  const capWd = useStudyMinByWeekday(); // 요일별 학습 가능 분(요일 기본값). 이 레일은 '요일' 단위 뷰라
+  // 날짜별 차감(일정·override)은 의도적으로 반영하지 않는다 — 배분 보드 열은 날짜 단위라 값이 다를 수 있다.
   // 오늘 요일은 앱 정본 '오늘'(_today 시드 존중)에서 파생 — 벽시계 new Date() 대신.
   const todayDow = parseISO(todayISO(state)).getDay(); // 일=0..토=6
   // '지금' 마커가 로드 시각에 얼어붙지 않도록 분 단위 갱신(+ 백그라운드 복귀 즉시 캐치업).

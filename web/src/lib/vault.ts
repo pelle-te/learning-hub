@@ -4,6 +4,7 @@
    순수 계산 + FS 읽기만(앱 상태에 복제 X). TanStack Query가 스캔 결과를 캐시(설계도 §1-B).
 ============================================================ */
 import { SKIP, rid } from './utils';
+import { dirEntries, pickDirectory, queryPermission, requestPermission } from './fsAccess';
 import { checkSchemaVersion } from './artifacts';
 import type { Chapter } from './types';
 
@@ -112,17 +113,14 @@ async function readFM(fh: FileSystemFileHandle): Promise<Record<string, string>>
 /** 폴백: 정본 인덱스가 없을 때 .md 직접 스캔(구버전 status 없음도 집계). */
 export async function scanVaultFromFiles(handle: FileSystemDirectoryHandle): Promise<VaultSubject[]> {
   const subjects: VaultSubject[] = [];
-  // FS Access의 비표준 async iterator(entries) — lib.dom 타입에 없어 좁힘.
-  const entries = (h: FileSystemDirectoryHandle) =>
-    (h as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries();
-  for await (const [name, h] of entries(handle)) {
+  for await (const [name, h] of dirEntries(handle)) {
     if (h.kind !== 'directory' || name.startsWith('_') || SKIP.has(name)) continue;
     const subj: VaultSubject = { name, chapters: [], notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0 };
-    for await (const [cn, ch] of entries(h as FileSystemDirectoryHandle)) {
+    for await (const [cn, ch] of dirEntries(h as FileSystemDirectoryHandle)) {
       if (ch.kind === 'directory') {
         if (cn.startsWith('_') || SKIP.has(cn)) continue;
         const chap: VaultChapter = { name: cn, notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0 };
-        for await (const [fn, fh] of entries(ch as FileSystemDirectoryHandle)) {
+        for await (const [fn, fh] of dirEntries(ch as FileSystemDirectoryHandle)) {
           if (fh.kind !== 'file' || !fn.endsWith('.md') || fn.includes('MOC') || fn.includes('실전문제')) continue;
           chap.notes++;
           const fm = await readFM(fh as FileSystemFileHandle);
@@ -158,16 +156,11 @@ export async function scanVaultFromFiles(handle: FileSystemDirectoryHandle): Pro
 export async function pickAndScanVault(
   existing?: FileSystemDirectoryHandle,
 ): Promise<{ scan: VaultScan; handle: FileSystemDirectoryHandle } | null> {
-  const picker = (window as unknown as { showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle> })
-    .showDirectoryPicker;
   let handle = existing;
   if (!handle) {
-    if (!picker) throw new Error('이 브라우저는 폴더 연결을 지원하지 않아요(Chrome/Edge에서 열어주세요).');
-    try {
-      handle = await picker();
-    } catch {
-      return null; // 사용자 취소
-    }
+    const picked = await pickDirectory(); // 미지원이면 FsUnsupportedError, 취소면 null
+    if (!picked) return null;
+    handle = picked;
   }
   const idx = await loadVaultIndex(handle);
   let subjects: VaultSubject[];
@@ -184,29 +177,13 @@ export async function pickAndScanVault(
 
 /* ── 저장된 핸들 재사용(FS 권한) — IDB에 영속한 폴더 핸들로 재선택 없이 재연결.
    권한은 재시작 뒤 'prompt'로 돌아갈 수 있어(브라우저 정책), 조회→요청 2단계로 다룬다. */
-type PermCapable = {
-  queryPermission?: (o: { mode: string }) => Promise<PermissionState>;
-  requestPermission?: (o: { mode: string }) => Promise<PermissionState>;
-};
 /** 저장된 핸들의 읽기 권한 상태 — 'granted'면 제스처 없이 스캔 가능. */
 export async function queryVaultPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
-  const h = handle as unknown as PermCapable;
-  if (!h.queryPermission) return 'prompt';
-  try {
-    return await h.queryPermission({ mode: 'read' });
-  } catch {
-    return 'prompt';
-  }
+  return queryPermission(handle, 'read');
 }
 /** 저장된 핸들에 읽기 권한 요청(사용자 제스처 안에서 호출). */
 export async function requestVaultPermission(handle: FileSystemDirectoryHandle): Promise<PermissionState> {
-  const h = handle as unknown as PermCapable;
-  if (!h.requestPermission) return 'prompt';
-  try {
-    return await h.requestPermission({ mode: 'read' });
-  } catch {
-    return 'denied';
-  }
+  return requestPermission(handle, 'read');
 }
 
 /** 노트 수 → 예상시간(h). */

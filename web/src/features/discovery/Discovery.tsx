@@ -136,21 +136,42 @@ function Candidate({
     <li className={`${s.card} ${busy ? s.cardBusy : ''}`}>
       <div className={s.cardMain}>
         <div className={s.cardHead}>
-          <span className={`${s.kind} ${s['kind_' + entry.kind]}`} data-tip={meta?.hint}>
+          {/* 툴팁 설명은 aria-label로도 실어야 스크린리더에 닿는다(TooltipHost가 네이티브 title 대체). */}
+          <span
+            className={`${s.kind} ${s['kind_' + entry.kind]}`}
+            data-tip={meta?.hint}
+            role="img"
+            aria-label={`${meta?.label ?? entry.kind}${meta?.hint ? ` — ${meta.hint}` : ''}`}
+          >
             {meta?.label ?? entry.kind}
           </span>
           <h2 className={s.cardTitle}>{entryTitle(entry)}</h2>
         </div>
         <div className={s.meta}>
           {goals.length > 0 && (
-            <span className={s.goals} data-tip="이 개념이 잇는 활성 하위목표">
+            <span
+              className={s.goals}
+              data-tip="이 개념이 잇는 활성 하위목표"
+              role="img"
+              aria-label={`이 개념이 잇는 활성 하위목표: ${goals.join(', ')}`}
+            >
               🎯 {goals.join(' · ')}
             </span>
           )}
-          <span className={s.src} data-tip="후보를 낸 표면(발견.py 함수)">
+          <span
+            className={s.src}
+            data-tip="후보를 낸 표면(발견.py 함수)"
+            role="img"
+            aria-label={`후보를 낸 표면: ${entry.source}`}
+          >
             {entry.source}
           </span>
-          <span className={s.score} data-tip="랭킹 점수(목표 근접·중심성 등)">
+          <span
+            className={s.score}
+            data-tip="랭킹 점수(목표 근접·중심성 등)"
+            role="img"
+            aria-label={`랭킹 점수 ${entry.score.toFixed(2)} — 목표 근접·중심성 등`}
+          >
             {entry.score.toFixed(2)}
           </span>
         </div>

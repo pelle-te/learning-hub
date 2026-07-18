@@ -337,37 +337,16 @@
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+/* 리드아웃 타일 기하·타이포는 ds가 소유(SSOT) — 여기선 그대로 쓴다(델타 없음). */
 .ro {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 12px 13px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--ink) 2%, var(--panel));
-  box-shadow: var(--shadow-sm);
+  composes: ro from '@/styles/ds.module.css';
 }
 .roNum {
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  composes: roNum from '@/styles/ds.module.css';
 }
-.roNum small {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--mut);
-}
+
 .roLab {
-  font-size: 10.5px;
-  color: var(--mut);
-  font-weight: 600;
-  word-break: keep-all;
-  line-height: 1.3;
+  composes: roLab from '@/styles/ds.module.css';
 }
 
 /* 3 — 시그니처(스트릭 발광맵 + 인출 판정) */
@@ -603,7 +582,7 @@
   text-overflow: ellipsis;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
     overflow-y: auto;

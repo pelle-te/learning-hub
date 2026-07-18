@@ -282,7 +282,8 @@
 }
 /* 일과 블록 = 학습이 아닌 고정 일정. 채도를 낮춰 학습이 앞에 오게. */
 /* 일과 블록(수면·수업·식사) = 배경 맥락이지 주인공이 아니다. 학습보다 조용하되 형태는 또렷하게. */
-/* --seg 폴백은 --mut — 일과 블록의 '무채색 기본'은 DayPlanner(.blockRow{--seg:var(--mut)})와 같은 어휘다. */
+/* --seg 폴백은 --mut — 일과 블록의 '무채색 기본'. (예전엔 DayPlanner의 .blockRow를 참조했으나
+   그 규칙은 사라졌다 — 어휘만 공유하고 정의는 각 뷰가 소유한다.) */
 .block {
   background: color-mix(in srgb, var(--seg, var(--mut)) 16%, var(--panel));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--mut)) 34%, transparent);

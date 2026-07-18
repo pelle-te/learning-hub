@@ -162,16 +162,8 @@ button.ghost {
 button.ghost:hover {
   background: var(--panel2);
 }
-button.sm {
-  padding: 5px 10px;
-  font-size: 12px;
-  border-radius: 7px;
-}
-button.danger:hover {
-  border-color: var(--bad);
-  color: var(--bad);
-  background: color-mix(in srgb, var(--bad) 10%, transparent);
-}
+/* (button.sm / button.danger:hover는 제거 — 두 변형 모두 components/ui/Button.module.css가
+   styles.sm/styles.danger로 소유하고, 전역판을 참조하는 className="sm|danger"는 0건이었다.) */
 
 /* ── 표(요소) ── */
 table {

@@ -3,11 +3,7 @@
    online=네온/그린 라이브, idle=뮤트 대기, offline=레드 "OFFLINE". WeekGrid/.board 결 통일.
 ============================================================ */
 .board {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 16px 18px 16px;
-  margin-bottom: 14px;
+  composes: board from '@/styles/ds.module.css';
 }
 .head {
   display: flex;
@@ -150,7 +146,7 @@
     animation: none;
   }
 }
-@media (max-width: 620px) {
+@media (max-width: 700px) {
   .channels {
     grid-template-columns: 1fr;
   }

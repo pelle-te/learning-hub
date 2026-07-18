@@ -136,7 +136,7 @@
 }
 
 /* 좁은 화면 — 7열은 유지하되(주 리듬이 깨지면 배분 감각이 사라짐) 여유 힌트는 숨긴다. */
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   .day {
     padding: 6px 2px;
   }

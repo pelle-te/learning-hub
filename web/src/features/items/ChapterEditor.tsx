@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { rid } from '@/lib/utils';
 import { ui } from '@/shell';
-import { Button } from '@/components/ui';
+import { Button, NumberField } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
 import type { AppState, Item } from '@/lib/types';
 
@@ -117,12 +117,13 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       />
                     </td>
                     <td>
-                      <input
-                        type="number"
+                      {/* emptyValue 없음 — 예상시간을 비운 채 떠나면 0h가 아니라 직전 값이 남아야 한다
+                          (0h 챕터는 스케줄러가 즉시 완료로 넘겨 계획에서 사라진다). */}
+                      <NumberField
                         step={0.5}
                         min={0.5}
                         value={c.hours}
-                        onChange={(e) => upd((it) => void (it.chapters[i]!.hours = +e.target.value))}
+                        onCommit={(v) => upd((it) => void (it.chapters[i]!.hours = v))}
                         aria-label="예상시간(시간)"
                       />
                     </td>

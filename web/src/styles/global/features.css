@@ -16,11 +16,8 @@
   }
 }
 
-/* ── 헤더 오버플로 메뉴(⋯) ── */
-.menuwrap {
-  position: relative;
-  display: inline-block;
-}
+/* ── 헤더 오버플로 메뉴(⋯) — 드롭다운 패널만 전역(TopBar.tsx가 className="menu"로 직접 사용).
+   래퍼(.menuwrap)는 TopBar.module.css가 소유하므로 전역판은 제거됨. */
 .menu {
   position: absolute;
   right: 0;
@@ -203,7 +200,8 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: color-mix(in srgb, #05070c 60%, transparent);
+  /* 스크림은 캔버스 토큰에서 — 리터럴 딥블랙이면 라이트 테마에서도 검은 장막이 깔린다. */
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   /* C-2: 마운트부터 .in이 붙어 페이드가 안 뜨던 것 → keyframe으로. 기본은 보임(reduced-motion 안전). */
@@ -270,6 +268,9 @@
     color-mix(in srgb, var(--bad) 82%, black 12%)
   );
   border-color: color-mix(in srgb, var(--bad) 70%, black 18%);
+  /* stylelint-disable-next-line color-no-hex --
+     포화된 위험색(--bad) 채움 위의 글자다. 흰색이 두 테마 모두에서 옳은 유일한 값이라
+     토큰으로 뺄 대상이 아니다(--on-acc는 액센트 채움 전용이라 여기 쓰면 의미가 어긋난다). */
   color: #fff;
   box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--bad) 50%, transparent);
 }

@@ -76,6 +76,35 @@ describe('useApp — 멀티탭 스냅샷 채택 정책(마지막 편집자 우�
     expect(saved.reviewRatio).toBe(0.42);
   });
 
+  it('저장이 실패하면 rebase 큐를 비우지 않는다 — 미저장 편집이 외부 스냅샷에 지워지지 않게', async () => {
+    // 회귀 원본: flush가 persist() *앞에서* pending을 비웠다. 쿼터 초과로 저장이 실패하면
+    // 토스트만 뜨고 큐는 이미 빈 상태 → 그 뒤 다른 탭 방송이 오면 onSync가 디스크의 옛 스냅샷을
+    // 채택하는데 재적용할 recipe가 없어, 저장 실패한 편집이 화면에서도 조용히 사라졌다.
+    useApp.getState().mutate((s) => {
+      s.reviewRatio = 0.77; // 디바운스 대기 중인 내 편집
+    });
+    // 그 편집의 flush를 쿼터 초과로 실패시킨다.
+    const setItem = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      k: string,
+      v: string,
+    ) {
+      if (k === KEY) throw new DOMException('QuotaExceededError');
+      return setItem.call(this, k, v);
+    });
+    await sleep(500); // flush 발화 → persist throw → 큐는 살아 있어야 한다
+    spy.mockRestore();
+
+    // 이제 다른 탭이 저장·방송 → 채택하되 살아남은 recipe가 재적용돼야 한다.
+    otherTabPersists(64);
+    announce({ kind: 'app' }, true);
+    await tick();
+    const st = useApp.getState().state;
+    expect(st.moduleLen).toBe(64); // 상대 편집 채택
+    expect(st.reviewRatio).toBe(0.77); // 저장 실패했던 내 편집도 생존(예전엔 여기서 사라졌다)
+  });
+
   it('flush 직후(타이머 없음)에는 다시 외부 스냅샷을 채택한다 — 가드는 대기 중에만', async () => {
     useApp.getState().mutate((s) => {
       s.moduleLen = 60;

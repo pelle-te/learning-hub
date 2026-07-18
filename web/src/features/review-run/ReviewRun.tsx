@@ -125,7 +125,16 @@ export default function ReviewRun() {
 
   return (
     <div className={rr.wrap}>
-      <div className={rr.progress} aria-hidden="true">
+      {/* 진행바에 정직한 의미를 준다 — 예전엔 aria-hidden인데 대체 수단도 없어 SR에는 진행이 통째로 없었다.
+          (숫자 자체는 카드 안 "n / 총" 텍스트에도 있지만, 그건 카드가 바뀔 때만 읽힌다.) */}
+      <div
+        className={rr.progress}
+        role="progressbar"
+        aria-valuenow={idx}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-label={`복습 진행 ${idx + 1} / ${total}`}
+      >
         <span className={rr.progressFill} style={{ width: `${(idx / total) * 100}%` }} />
       </div>
 

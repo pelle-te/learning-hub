@@ -216,6 +216,13 @@ export default function Atlas() {
             ) : field.trends.length ? (
               // 폴백(오프라인·서버꺼짐·수집실패) — 시드 동향.
               <ul className={s.tl}>
+                {/* 왜 시드를 보고 있는지 밝힌다 — 예전엔 수집 실패를 조용히 삼켜 사용자가
+                    낡은 시드를 '최신 소식'으로 오인했다(실패와 오프라인이 구분되지 않았다). */}
+                <li className={`${s.tlItem} ${s.muted}`}>
+                  {news.isError
+                    ? '⚠ 최신 소식을 못 불러왔어요 — 아래는 저장된 참고 동향이에요.'
+                    : '· 서버 미연결 — 아래는 저장된 참고 동향이에요(최신 아님).'}
+                </li>
                 {[...field.trends]
                   .sort((a, b) => a.daysAgo - b.daysAgo)
                   .map((t) => (

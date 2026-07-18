@@ -3,6 +3,8 @@
    입력(state)이 바뀔 때만 재계산한다(설계도 §1-A).
 ============================================================ */
 import { schedule, studyMinByWeekday } from '@/lib/scheduler';
+import { riskSummary } from '@/lib/spacedReview';
+import { todayISO } from '@/lib/utils';
 import type { AppState, ScheduleResult } from '@/lib/types';
 import { useApp } from './useApp';
 
@@ -76,4 +78,20 @@ export function selectStudyMinByWeekday(state: AppState): number[] {
 export function useStudyMinByWeekday(): number[] {
   const state = useApp((s) => s.state);
   return selectStudyMinByWeekday(state);
+}
+
+/* 복습 위험 요약(연체·임박) — 사이드바 배지가 **모든 스토어 알림마다** 부르는 자리다.
+   riskSummary 안의 chapterReviews는 days × items × chapters를 순회하고 Map을 할당하고 정렬까지 한다.
+   메모가 없던 시절엔 기록 탭 textarea에 한 글자 칠 때마다 그 전수 스캔이 통째로 돌았다
+   (zustand는 셀렉터를 알림마다 실행하고 mutate는 디바운스 없이 즉시 set한다).
+   Graph 탭은 같은 함수에 대해 이미 "전수 스캔이 순수 낭비"라며 호출을 회피하고 있었다 —
+   사이드바가 유일한 무조건 호출부였다. selectSchedule과 같은 참조-캐시로 state 버전당 1회로 묶는다. */
+let riskCache: { state: AppState; result: { overdue: number; due: number } } | null = null;
+
+/** 복습 위험 요약을 state 참조로 메모이즈(연체/임박 개수). */
+export function selectRiskSummary(state: AppState): { overdue: number; due: number } {
+  if (!riskCache || riskCache.state !== state) {
+    riskCache = { state, result: riskSummary(state, selectSchedule(state).days || [], todayISO(state)) };
+  }
+  return riskCache.result;
 }

@@ -170,11 +170,11 @@
 }
 .warn {
   color: var(--txt);
-  background: color-mix(in srgb, var(--learning, #d6a72b) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--learning, #d6a72b) 35%, var(--line));
+  background: color-mix(in srgb, var(--learning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--learning) 35%, var(--line));
 }
 .warn b {
-  color: var(--learning, #d6a72b);
+  color: var(--learning);
 }
 
 /* ── 도구 표 ── */

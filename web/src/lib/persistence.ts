@@ -284,6 +284,21 @@ export function sanitizeImported(state: AppState): AppState {
         Number.isFinite(e.start as number) &&
         Number.isFinite(e.min as number),
     );
+  // items: 비객체 원소는 refineItemColors(부팅 경로·렌더 밖)에서 throw해 앱을 영구 백지로 만든다.
+  // 여기서 걸러야 손상 백업이 localStorage에 영속되는 것 자체를 막는다.
+  if (Array.isArray(s.items)) s.items = (s.items as unknown[]).filter((it) => !!it && typeof it === 'object');
+  // routine: 요일 블록은 **스케줄 입력**이다. days가 배열이 아니면 blocksForWeekday의 .includes에서,
+  // start/end가 문자열이 아니면 toMin의 .split에서 TypeError → schedule() 전체가 throw하고
+  // 스케줄을 읽는 모든 탭이 폴백으로 떨어진다.
+  if (Array.isArray(s.routine))
+    s.routine = (s.routine as Record<string, unknown>[]).filter(
+      (b) =>
+        !!b &&
+        typeof b === 'object' &&
+        Array.isArray(b.days) &&
+        typeof b.start === 'string' &&
+        typeof b.end === 'string',
+    );
   // dayOverrides: ds → 분(number) | 프리셋(string). 그 외 타입은 가용시간 계산을 깬다.
   if (s.dayOverrides && typeof s.dayOverrides === 'object') {
     const ov = s.dayOverrides as Record<string, unknown>;

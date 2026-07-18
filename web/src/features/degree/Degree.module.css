@@ -251,9 +251,3 @@
 .reqDetails summary:hover {
   color: var(--acc);
 }
-
-@media (max-width: 560px) {
-  .insight {
-    grid-template-columns: 1fr;
-  }
-}

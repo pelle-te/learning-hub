@@ -20,7 +20,7 @@ import { pickFocus, focusMinutes } from '@/lib/focusState';
 import { openBacklog, setRitual, CBMS_INFO } from '@/lib/methodology';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter, sessionTimeMap } from '@/lib/scheduler';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
-import { totalDue, type AnkiLive } from '@/lib/anki';
+import { totalDue } from '@/lib/anki';
 import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
@@ -40,7 +40,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const state = useApp((s) => s.state);
-  const ankiLive = useRuntime((s) => s.cache._ankiLive) as AnkiLive | undefined | null;
+  const ankiLive = useRuntime((s) => s.cache._ankiLive);
   const res = useSchedule();
   const toggleDone = useApp((s) => s.toggleDone);
   const mutate = useApp((s) => s.mutate);
@@ -239,15 +239,24 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const startNodeFocus = (e: (typeof enriched)[number]) => {
     startSession({ ds, sid: e.it.sid, type: e.it.type, name: e.it.name, min: focusMinutes(e), blockMin: e.it.min });
   };
+  // 핸들러가 읽는 최신 값 — 리스너를 재등록하지 않고도 최신 상태를 보게 하는 통로.
+  // (deps에 flowNodes를 넣던 시절엔 그게 매 렌더 새 배열이라 window keydown이 **매 렌더 제거→재등록**됐다.)
+  const keyCtx = useRef({ flowNodes, selKey, ds, startNodeFocus });
+  // deps 없는 effect = 매 렌더 후 갱신. 렌더 중 ref 쓰기는 컴파일러가 막으므로(정당하다) 여기서 민다.
   useEffect(() => {
-    if (!flowNodes.length) return;
-    const keys = flowNodes.map((n) => n.key);
+    keyCtx.current = { flowNodes, selKey, ds, startNodeFocus };
+  });
+
+  useEffect(() => {
     const reveal = (key: string) => {
       const el = nodeRefs.current.get(key);
       const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       el?.scrollIntoView({ block: 'nearest', behavior: rm ? 'auto' : 'smooth' });
     };
     const onKey = (e: KeyboardEvent) => {
+      const { flowNodes, selKey, ds, startNodeFocus } = keyCtx.current;
+      if (!flowNodes.length) return;
+      const keys = flowNodes.map((n) => n.key);
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -279,8 +288,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowNodes, selKey, ds]);
+    // deps 빈 배열이 이제 정직하다 — 핸들러가 참조하는 값은 전부 keyCtx.current에서 읽으므로
+    // 마운트/언마운트에 각 1회만 등록/해제된다(exhaustive-deps 억제도 함께 제거).
+  }, []);
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
   const subjName = allDone ? '완료' : focus ? focus.it.name : todayTotal === 0 ? '비어 있음' : '—';

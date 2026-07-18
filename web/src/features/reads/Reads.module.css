@@ -208,13 +208,6 @@
   font-weight: 700;
   color: var(--acc);
 }
-.listEmpty {
-  padding: 18px 12px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--mut);
-  text-align: center;
-}
 /* 독서 상태 필터 세그먼트 */
 .bookFilter {
   display: flex;
@@ -262,11 +255,14 @@
   color: var(--mut);
   font-variant-numeric: tabular-nums;
 }
+/* 한때 이 클래스가 파일 안에 두 번 정의돼(앞의 것이 죽고 뒤가 이김) 앞쪽이 의도한 가운데 정렬이
+   조용히 버려졌다 — 빈 상태만 혼자 좌측 정렬로 렌더됐다. 중복을 제거하며 그 의도를 복원한다. */
 .listEmpty {
   font-size: 13px;
   color: var(--mut);
   line-height: 1.6;
-  padding: 14px 4px;
+  padding: 18px 12px;
+  text-align: center;
 }
 
 /* ── 리더(원문) ── */

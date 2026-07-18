@@ -103,11 +103,13 @@ export function summaryCount(state: AppState): number {
 
 /* ── CBMS 오답 분류(6·12절) — code ∈ C/B/M/S/T ── */
 export const CBMS_INFO: Record<CbmsCode, { label: string; tip: string; color: string }> = {
-  C: { label: '개념', tip: '교재 해당 단원 다시 정독(2절 ①로 복귀)', color: '#ff8fa3' },
-  B: { label: '경계', tip: '그 문제 유형의 체크리스트 만들기', color: '#ffb454' },
-  M: { label: '수학', tip: '도출 단계 백지 연습(손으로 끝까지)', color: '#6ea8fe' },
-  S: { label: '실수', tip: '검산 습관 + 단위 체크 자동화', color: '#7ee0c0' },
-  T: { label: '시간', tip: '자주 막히는 계산 손에 익히기 + 시간 분배 훈련', color: '#b794f6' },
+  // 색은 의미론 토큰으로 — 예전엔 다크 전용 생 hex라 흰 패널 위에서 1.58~2.42:1로 읽히지 않았다
+  // (칩이 코드 구분의 유일한 시각 단서인데). 토큰은 테마별로 갈리므로 두 테마 모두 통과한다.
+  C: { label: '개념', tip: '교재 해당 단원 다시 정독(2절 ①로 복귀)', color: 'var(--bad)' },
+  B: { label: '경계', tip: '그 문제 유형의 체크리스트 만들기', color: 'var(--warn)' },
+  M: { label: '수학', tip: '도출 단계 백지 연습(손으로 끝까지)', color: 'var(--info)' },
+  S: { label: '실수', tip: '검산 습관 + 단위 체크 자동화', color: 'var(--ok)' },
+  T: { label: '시간', tip: '자주 막히는 계산 손에 익히기 + 시간 분배 훈련', color: 'var(--violet)' },
 };
 /** CBMS 코드 순서·집합의 단일 원천(SSOT) — CBMS_INFO에서 파생. Stats·Review·Journal이 각자
    `['C','B','M','S','T']`/`Object.keys(CBMS_INFO)`를 재선언하던 드리프트 위험을 봉쇄. */

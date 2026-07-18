@@ -30,7 +30,7 @@ import { MonthCalendar } from './MonthCalendar';
 
 /** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 안내). 스트립용 컴팩트. */
 function IcsFreshnessNote() {
-  const x = useRuntime((s) => s.cache._icsExport) as { at?: string; sig?: string } | undefined;
+  const x = useRuntime((s) => s.cache._icsExport);
   const today = useApp((s) => todayISO(s.state)); // 렌더 순수성: Date.now() 대신 앱 정본 '오늘'(테스트 _today 존중)
   if (!x || !x.at) return <span className={c.icsNote}>📅 캘린더(.ics) 미내보내기</span>;
   const when = new Date(x.at);

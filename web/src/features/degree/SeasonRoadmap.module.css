@@ -3,10 +3,8 @@
    완료=발광 노드, 수강중=펄스, 예정=뮤트. WeekGrid/.board 결과 통일.
 ============================================================ */
 .board {
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 16px 18px 14px;
+  composes: board from '@/styles/ds.module.css';
+  padding-bottom: 14px; /* 시즌 트랙은 하단 여백을 조금 줄인다 */
   margin-bottom: 16px;
 }
 .head {

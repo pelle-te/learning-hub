@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/app/ThemeProvider';
 import App from '@/app/App';
 import { useApp } from '@/store/useApp';
-import { iso } from '@/lib/utils';
+import { iso, mondayOf } from '@/lib/utils';
 
 /* Phase 4 — 앱상태 탭 7개(schedule·routine·journal·review·stats·degree·settings)가
    React로 동작하고 변경이 store(앱상태)에 반영되는지. 모두 #page(레거시 노드)를 쓰지 않음. */
@@ -45,6 +45,7 @@ beforeEach(() => {
     st.backlog = [];
     st.weekly = {};
     st.degree = { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] };
+    st.events = [];
   });
 });
 afterEach(() => cleanup());
@@ -92,6 +93,28 @@ test('alloc: 배분 세그먼트가 과목×요일 보드를 표 시맨틱으로
   expect(heads.length).toBe(9); // 과목·요일 + 7요일 + 주당
   expect(within(board).getAllByRole('button').length).toBe(7);
   expect(document.getElementById('page')).toBeNull();
+});
+
+test('alloc: 열 "가용"이 그날 일정을 차감한 실제 가용을 보여준다(스케줄러와 동일 출처)', async () => {
+  // 보드가 capWd(요일 기본값·routine만 반영)를 쓰면 일정을 넣어도 가용이 그대로라 초과를 못 잡는다.
+  // 실제로는 스케줄러가 dayStudyMin으로 그 구간을 깎고, 넘치는 분은 layoutDay가 start:null로 떨궈
+  // 캘린더에서 사라진다 → 보드의 "한눈에 조망"이 틀린다. 두 출처가 같아야 한다.
+  const mon = mondayOf(new Date());
+  const evDs = iso(mon); // 이 주 월요일에만 8시간짜리 일정
+  useApp.getState().mutate((st) => {
+    st.events = [{ id: 'ev1', ds: evDs, name: '종일 워크숍', start: 9 * 60, min: 8 * 60 }];
+  });
+  renderApp('/alloc');
+  const board = await screen.findByRole('table', { name: '주간 배분 보드' });
+  const caps = within(board)
+    .getAllByRole('cell')
+    .map((el) => el.getAttribute('title') || '')
+    .filter((t) => t.includes('가용'));
+  const parse = (t: string) => Number(/가용 ([\d.]+)h/.exec(t)?.[1] ?? NaN);
+  const monCap = parse(caps.find((t) => t.startsWith('월')) || '');
+  const tueCap = parse(caps.find((t) => t.startsWith('화')) || '');
+  expect(Number.isNaN(monCap)).toBe(false);
+  expect(monCap).toBeLessThan(tueCap); // 일정이 있는 월요일만 가용이 깎여야 한다
 });
 
 test('journal: 3문장 요약 저장이 store.summaries에 기록된다', async () => {

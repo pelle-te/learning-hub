@@ -354,7 +354,7 @@
 /* 코칭 스트리밍 미리보기 — 완성 문장이 이어붙는 라이브 텍스트. */
 .aiStream {
   margin: 10px 0 0;
-  font-size: var(--fs-sm);
+  font-size: 11.5px;
   line-height: 1.6;
   color: var(--mut);
   white-space: pre-wrap;
@@ -445,7 +445,7 @@
   color: var(--mut);
   font-weight: 500;
   margin-left: 5px;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 .riskAge {
   flex: none;

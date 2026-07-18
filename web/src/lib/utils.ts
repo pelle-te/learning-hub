@@ -24,9 +24,15 @@ export const PALETTE = ['#9be83f', '#22d6a4', '#63f0c8', '#1fb89a', '#3fe06a', '
  *  (수동 색 선택 UI가 없으므로 안전.) 이 덕에 PALETTE만 바꾸면 어떤 저장 데이터든 다음 부팅에 전부 갱신된다
  *  — 옛 색을 hex로 일일이 매핑하던 리맵의 사각지대(저장값이 목록에 없으면 안 바뀜)를 원천 제거. */
 export function refineItemColors(state: AppState): AppState {
-  (state.items || []).forEach((it, i) => {
-    it.color = PALETTE[i % PALETTE.length] as string;
-  });
+  // 비객체 원소(null·문자열 등) 방어 — 손상 백업 한 건이 부팅 자체를 throw시켜 앱을 영구 백지로
+  // 만들던 경로였다(store 초기화는 렌더 밖이라 어떤 ErrorBoundary도 못 잡는다). 여기서 걸러낸 뒤
+  // 색을 파생해야 인덱스도 연속이 된다.
+  if (Array.isArray(state.items)) {
+    state.items = state.items.filter((it): it is (typeof state.items)[number] => !!it && typeof it === 'object');
+    state.items.forEach((it, i) => {
+      it.color = PALETTE[i % PALETTE.length] as string;
+    });
+  }
   return state;
 }
 
@@ -81,6 +87,10 @@ export function addDays(d: Date, n: number): Date {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
   return x;
+}
+/** 그 날의 자정(시분 절삭) — 상대·절대 날짜 비교의 기준점. */
+export function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 export function fmt(d: Date): string {
   return `${d.getMonth() + 1}/${d.getDate()} (${DOW[d.getDay()]})`;
@@ -137,9 +147,13 @@ export function ddayInfo(dday: number): { lab: string; cls: string } {
   const cls = dday < 0 ? 'bad' : dday <= 7 ? 'warn' : '';
   return { lab, cls };
 }
-/** 유효숙달 p∈[0,1] → 색(빨강 낮음→호박→초록). kind==='unknown'이면 회색(데이터 없음). */
+/** 유효숙달 p∈[0,1] → 색(빨강 낮음→호박→초록). kind==='unknown'이면 회색(데이터 없음).
+ *  명도는 토큰(--mastery-l0/--mastery-l1)에서 읽어 테마별로 갈린다 — 예전엔 42~52%로 고정이라
+ *  다크에선 저숙달 빨강이(2.84:1), 라이트에선 고숙달 초록이(2.05:1) 각각 묻혔다. 램프 자체(빨강→초록)는
+ *  색각이상에 취약하므로 호출부는 색만으로 정보를 전달하지 말 것(툴팁·수치 병기 — 현재 두 곳 다 준수). */
 export function masteryColor(p: number, kind?: string): string {
   if (kind === 'unknown') return 'var(--line,#3a3a3a)';
-  const h = Math.round(clamp(p, 0, 1) * 120);
-  return `hsl(${h} 62% ${42 + Math.round(p * 10)}%)`;
+  const t = clamp(p, 0, 1);
+  const h = Math.round(t * 120);
+  return `hsl(${h} 62% calc(var(--mastery-l0) + (var(--mastery-l1) - var(--mastery-l0)) * ${t.toFixed(3)}))`;
 }

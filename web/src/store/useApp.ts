@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { setAutoFreeze } from 'immer';
-import { boot, persist, serialize, setDone } from '@/lib/persistence';
+import { boot, persist, serialize, setDone, defaults, CORRUPT_KEY, KEY } from '@/lib/persistence';
 import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
@@ -35,6 +35,30 @@ function warnSaveFailure(): void {
   toast('저장 실패 — 저장공간이 가득 찼을 수 있어요. 데이터 내보내기로 백업하세요.', 'bad', 6000);
 }
 
+/* 부팅 최후 방어선 — boot()는 JSON 파싱 실패를 이미 CORRUPT_KEY 보존 + defaults()로 덮지만,
+   그 뒤의 refineItemColors/splitRuntime이 throw하면(예: items에 비객체 원소) 여기서 터진다.
+   이 코드는 zustand create() 안, 즉 *모듈 평가 시점*이라 렌더 트리 밖이다 — main.tsx의 ShellFallback도
+   App.tsx의 TabFallback도 못 잡아 앱이 영구 백지가 되고, 사용자가 localStorage를 손으로 지우기 전까지
+   자가 복구 경로가 0이었다. 원본을 보존한 뒤 기본 상태로 부팅해 최소한 앱은 뜨게 한다. */
+function bootSafely(): AppState {
+  try {
+    return splitRuntime(refineItemColors(boot(storage)));
+  } catch (e) {
+    try {
+      const raw = storage.getItem(KEY);
+      if (raw != null && storage.getItem(CORRUPT_KEY) == null) storage.setItem(CORRUPT_KEY, raw);
+    } catch {
+      /* 보존 실패해도 부팅은 계속 — 백지보다 낫다. */
+    }
+    console.error('[러닝허브] 저장 데이터 복원 실패 — 기본 상태로 부팅합니다.', e);
+    setTimeout(
+      () => toast('저장 데이터가 손상돼 기본 상태로 시작했어요. 원본은 보존돼 있습니다(⋯ 메뉴 → 복구).', 'bad', 8000),
+      0,
+    );
+    return splitRuntime(refineItemColors(defaults()));
+  }
+}
+
 export interface AppStore {
   state: AppState;
   /** 임의 변형 + 영속 — 얇은 오케스트레이션(features가 lib 순수함수를 recipe로 넘김). */
@@ -44,7 +68,7 @@ export interface AppStore {
   /** 서버/외부 캐시 write-through — schedule() *입력*인 _knowState 전용(graphPriority).
    *  plan-무관 캐시(_ankiLive·_icsExport 등)는 useRuntime store가 소유 — state 참조를 갈지 않아
    *  selectSchedule 재계산이 없다(B1/B3). 영속 스코프(내보내기 제외·로컬 유지)는 두 경로 동일. */
-  setRuntimeCache: (key: '_knowState', val: unknown) => void;
+  setRuntimeCache: (key: '_knowState', val: AppState['_knowState']) => void;
   setTheme: (t: Theme) => void;
   toggleDone: (ds: string, sid: string, type: SessionType, plannedMin: number, on: boolean) => void;
   addCbms: (
@@ -73,11 +97,16 @@ export const useApp = create<AppStore>()(
         clearTimeout(timer);
         timer = null;
       }
-      pending = []; // 이 시점 상태가 영속·방송되므로 재적용 큐 소진(실패 시에도 종전 LWW 의미론 유지)
       // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
       let json: string | null = null;
       try {
         json = persist(storage, mergeRuntime(get().state));
+        // ⚠ 큐 소진은 **저장이 성공한 뒤에만**. 예전엔 persist 앞에서 비웠는데, 쿼터 초과로 저장이
+        //   실패하면 토스트만 뜨고 큐는 이미 빈 상태였다 → 그 뒤 다른 탭 방송이 오면 onSync가
+        //   디스크의 *옛* 스냅샷을 채택하고 재적용할 recipe가 없어, 저장 실패한 편집이 화면에서도
+        //   조용히 사라졌다("저장 실패" 토스트 + 편집 롤백 = 이중 손실).
+        //   실패 시 큐를 남기면 다음 flush나 onSync 재적용에서 그 편집이 다시 실린다.
+        pending = [];
       } catch {
         // 저장공간 초과 등 — 조용히 삼키지 않고 사용자에게 백업을 안내(스로틀). 앱은 계속 동작.
         warnSaveFailure();
@@ -135,7 +164,7 @@ export const useApp = create<AppStore>()(
     };
 
     return {
-      state: splitRuntime(refineItemColors(boot(storage))),
+      state: bootSafely(),
       mutate(recipe) {
         commit(recipe);
       },
@@ -151,7 +180,9 @@ export const useApp = create<AppStore>()(
         // 저장은 스케줄하지 않는다: 값은 다음 mutate의 디바운스 flush에 묻어 로컬에 남는다.
         // rebase 큐에도 안 넣는다(재-fetch 가능한 write-through 캐시 — 편집 의도 아님).
         set((s) => {
-          (s.state as Record<string, unknown>)[key] = val;
+          // 키가 '_knowState' 하나로 좁혀져 있어 동적 인덱싱 캐스트가 필요 없다
+          // (예전엔 val이 unknown이라 state를 Record<string, unknown>으로 낮춰야 했다).
+          s.state[key] = val;
         });
       },
       setTheme(t) {

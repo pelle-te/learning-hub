@@ -103,16 +103,16 @@
   color: var(--acc);
 }
 .kind_bridge {
-  background: color-mix(in srgb, var(--acc2, #b98cff) 18%, transparent);
-  color: var(--acc2, #b98cff);
+  background: color-mix(in srgb, var(--acc2) 18%, transparent);
+  color: var(--acc2);
 }
 .kind_survey_context {
-  background: color-mix(in srgb, var(--good, #4caf50) 15%, transparent);
-  color: var(--good, #4caf50);
+  background: color-mix(in srgb, var(--good) 15%, transparent);
+  color: var(--good);
 }
 .kind_capability {
-  background: color-mix(in srgb, var(--learning, #d6a72b) 18%, transparent);
-  color: var(--learning, #d6a72b);
+  background: color-mix(in srgb, var(--learning) 18%, transparent);
+  color: var(--learning);
 }
 
 /* 메타 줄 — 잇는 목표 · source · score. */

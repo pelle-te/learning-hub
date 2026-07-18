@@ -172,8 +172,14 @@ describe('masteryColor — 숙달도→색', () => {
     expect(masteryColor(0.9, 'unknown')).toContain('--line');
   });
   it('p가 낮으면 빨강 계열(h=0), 높으면 초록 계열(h=120)', () => {
-    expect(masteryColor(0)).toBe('hsl(0 62% 42%)');
-    expect(masteryColor(1)).toBe('hsl(120 62% 52%)');
+    expect(masteryColor(0)).toContain('hsl(0 62%');
+    expect(masteryColor(1)).toContain('hsl(120 62%');
+  });
+  it('명도는 하드코딩이 아니라 테마 토큰(--mastery-l0/l1)에서 온다', () => {
+    // 예전엔 42~52%로 고정이라 다크에선 저숙달 빨강이, 라이트에선 고숙달 초록이 각각 묻혔다.
+    // 이제 두 끝점을 토큰이 소유하고 p로 보간한다 → 테마별로 명도 방향이 갈린다.
+    expect(masteryColor(0)).toContain('var(--mastery-l0)');
+    expect(masteryColor(1)).toContain('var(--mastery-l1)');
   });
   it('범위 밖 p의 색상(h)은 0~120으로 클램프된다', () => {
     expect(masteryColor(2)).toContain('hsl(120 '); // h가 120을 넘지 않음

@@ -4,11 +4,10 @@
 
 .root {
   padding: 16px 20px 48px;
-  --sig: #4dd9e8;
+  /* 동향=신호 시안, 전망=앰버. 둘 다 tokens.css가 테마별로 소유하므로
+     여기서 data-theme 분기를 들고 있을 필요가 없다(이 파일이 앱에서 마지막 남은 라이트 재정의였다). */
+  --sig: var(--signal);
   --fut: var(--warn);
-}
-:global([data-theme='light']) .root {
-  --sig: #0e7490;
 }
 
 /* ── 대분류 필터 ── */
@@ -523,7 +522,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 700px) {
   .dGrid {
     grid-template-columns: 1fr;
   }

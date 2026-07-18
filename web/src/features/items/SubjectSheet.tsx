@@ -13,7 +13,8 @@ import { useApp } from '@/store/useApp';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { allocView, colSumMin, rowSumMin, setAllocCell, isWeekManaged, weekMonOf } from '@/lib/weekAlloc';
 import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo } from '@/lib/utils';
-import { Button, Pill, type PillTone } from '@/components/ui';
+import { dayStudyMin } from '@/lib/scheduler';
+import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import ds from '@/styles/ds.module.css';
 import c from './SubjectSheet.module.css';
@@ -24,11 +25,13 @@ type Mutate = (recipe: (st: AppState) => void) => void;
 
 /** +/- 스텝퍼 — 분/시간 직관 입력(0 미만 방지·소수 첫째자리 반올림). 옛 ItemCard에서 승계. */
 function Stepper({
+  id,
   value,
   step,
   unit,
   onChange,
 }: {
+  id?: string; // 바깥 <label htmlFor>와 잇기 위한 통로(감싸는 래퍼라 id가 안쪽까지 내려와야 한다)
   value: number;
   step: number;
   unit: string;
@@ -41,12 +44,13 @@ function Stepper({
       <Button sm onClick={() => bump(-step)} aria-label={`${unit} 줄이기`}>
         –
       </Button>
-      <input
-        type="number"
+      <NumberField
+        id={id}
         step={step}
         min={0}
         value={value}
-        onChange={(e) => onChange(clamp(+e.target.value || 0))}
+        emptyValue={0}
+        onCommit={(v) => onChange(clamp(v))}
         style={{ textAlign: 'center' }}
       />
       <Button sm onClick={() => bump(step)} aria-label={`${unit} 늘리기`}>
@@ -67,7 +71,7 @@ function toH(min: number): string {
 function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   const state = useApp((s) => s.state);
   const res = useSchedule();
-  const capWd = useStudyMinByWeekday(); // 요일별 가용 학습분 — 보드 열 상한과 같은 출처
+  const capWd = useStudyMinByWeekday(); // 요일 기본값 — 날짜별 실제 가용은 아래 dayStudyMin이 유도(보드와 동일)
   const wk = weekMonOf(todayISO(state));
   const alloc = allocView(state, res, wk);
   const managed = isWeekManaged(state, wk);
@@ -113,20 +117,22 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
           const date = addDays(monday, i);
           const wd = date.getDay();
           const mine = vec?.[wd] || 0;
-          const capMin = capWd[wd] || 0;
+          // 보드 열과 같은 출처여야 한다 — capWd(요일 기본값)가 아니라 그 날짜의 실제 가용.
+          // 드릴다운인데 상위 보드와 다른 수를 보이면 "여기선 여유 있다는데 보드는 초과"가 된다.
+          const capMin = dayStudyMin(state, iso(date), wd, capWd);
           // 그 요일 '남은 여유' = 가용 − (전 과목 배분). 내 칸을 늘릴 여지를 여기서 읽는다(열 맥락 최소 이식).
           const freeMin = capMin - colSumMin(alloc, wd, validSids);
           const over = capMin > 0 && freeMin < 0;
           return (
             <label key={i} className={`${c.day}${iso(date) === todayIso ? ' ' + c.dayToday : ''}`}>
               <span className={c.dayDow}>{lab}</span>
-              <input
-                type="number"
+              <NumberField
                 className={c.dayInput}
                 step={0.5}
                 min={0}
                 value={mine / 60 || 0}
-                onChange={(e) => setCell(wd, +e.target.value || 0)}
+                emptyValue={0} // 비우기 = 그 요일 배분 없음
+                onCommit={(v) => setCell(wd, v)}
                 aria-label={`${lab}요일 배분 시간`}
               />
               <span className={`${c.dayFree}${over ? ' ' + c.dayFreeOver : ''}`}>
@@ -207,9 +213,10 @@ export function SubjectSheet({
             </select>
           </div>
           <div className={ds.fld}>
-            <label>{daily ? '매일 학습 (분)' : '주당 목표 시간'}</label>
+            <label htmlFor={`it-amount-${id}`}>{daily ? '매일 학습 (분)' : '주당 목표 시간'}</label>
             {daily ? (
               <Stepper
+                id={`it-amount-${id}`}
                 value={item.dailyMin || 30}
                 step={5}
                 unit="분"
@@ -217,6 +224,7 @@ export function SubjectSheet({
               />
             ) : (
               <Stepper
+                id={`it-amount-${id}`}
                 value={item.weeklyHours || 3}
                 step={0.5}
                 unit="h"

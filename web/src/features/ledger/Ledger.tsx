@@ -7,9 +7,10 @@
    today 재설계 사상: 상단 리드아웃(챕터·검증·카드) · fill 프레임 · 히어로 퍼널 · 온디맨드 챕터 세부.
    데이터 원본은 볼트 빌드 산출물(읽기전용) — serve.js 온라인이면 자동, 오프라인이면 안내(mastery와 동형).
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { classifyArtifact } from '@/lib/artifactState';
 import {
   LEDGER_STAGES,
@@ -47,7 +48,13 @@ function Funnel({ l: led }: { l: Ledger }) {
         const w = Math.round((n / total) * 100);
         const m = STAGE_META[st];
         return (
-          <div key={st} className={l.funStage} data-tip={`${m.label} — ${m.desc}: ${n}/${led.n_chapters}챕터`}>
+          <div
+            key={st}
+            className={l.funStage}
+            data-tip={`${m.label} — ${m.desc}: ${n}/${led.n_chapters}챕터`}
+            role="img"
+            aria-label={`${m.label} — ${m.desc}: ${n}/${led.n_chapters}챕터`}
+          >
             <div className={l.funBar}>
               <div className={l.funFill} style={{ height: `${w}%`, background: m.color }} />
             </div>
@@ -101,8 +108,27 @@ function SubjectRow({
 /** 챕터 상세 — 5단계 체크리스트 + 노트/검증/카드/복습 수치 + 볼트 딥링크. 온디맨드 세부. */
 function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
   const { ch } = sel;
+  // role="dialog"를 선언하면 포커스 관리도 함께 약속하는 것이다 — 예전엔 트랩도 Esc도 없어
+  // 키보드 사용자가 열고 나면 배경으로 새고 닫을 방법이 없었다(DetailDrawer·ShortcutsHelp·Today는
+  // 전부 트랩을 붙였는데 여기만 이탈). 같은 훅으로 계약을 이행한다.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useFocusTrap(true, panelRef);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
-    <div className={l.detail} role="dialog" aria-label={`${ch.arc} 상세`}>
+    <div
+      className={l.detail}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${ch.arc} 상세`}
+      ref={panelRef}
+      tabIndex={-1}
+    >
       <button type="button" className={l.detailX} onClick={onClose} aria-label="닫기">
         ✕
       </button>

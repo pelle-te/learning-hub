@@ -56,12 +56,12 @@
   white-space: nowrap;
 }
 .badge[data-kind='confident'] {
-  background: color-mix(in srgb, #f0a63f 20%, transparent);
-  color: #f0a63f;
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: var(--warn);
 }
 .badge[data-kind='chapter'][data-risk='overdue'] {
-  background: color-mix(in srgb, #e5484d 20%, transparent);
-  color: #e5484d;
+  background: color-mix(in srgb, var(--bad) 20%, transparent);
+  color: var(--bad);
 }
 
 .prompt {
@@ -117,7 +117,7 @@
 .skip {
   background: none;
   border: 1px solid var(--line, rgba(127, 127, 127, 0.22));
-  color: var(--muted, #888);
+  color: var(--muted);
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 0.85rem;

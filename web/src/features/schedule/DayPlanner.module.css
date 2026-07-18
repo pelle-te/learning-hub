@@ -20,23 +20,8 @@
   gap: 12px;
   flex-wrap: wrap;
 }
-.dnav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.dlabel {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  min-width: 92px;
-  text-align: center;
-}
-.dlabel b {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
+/* (.dnav/.dlabel 제거 — 날짜 네비가 공통 nav로 올라가며 소비처가 사라졌다. 위 주석이 그 이관을
+   기록하고 있는데 정작 스타일만 남아 있었다.) */
 .dow {
   font-size: 11px;
   font-weight: 700;
@@ -777,7 +762,7 @@
 }
 
 /* 반응형 — 모바일 세로 스택(트레이 위, 타임라인 아래). */
-@media (max-width: 720px) {
+@media (max-width: 700px) {
   .grid2 {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;

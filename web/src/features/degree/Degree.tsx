@@ -12,7 +12,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { rid, makeItem } from '@/lib/utils';
 import { useCountUp } from '@/hooks/interactions';
-import { Button } from '@/components/ui';
+import { Button, NumberField } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
 import c from './Degree.module.css';
@@ -28,7 +28,7 @@ import {
   type DegreeSemester,
   type DegreeCourse,
 } from '@/lib/degree';
-import DegreeReq from '@/features/degreeReq/DegreeReq';
+import DegreeReq from './DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
 
 /** 학기·과목 타입은 lib/degree가 SSOT(DegreeSemester/DegreeCourse). d.semesters가 이미 그 타입. */
@@ -171,11 +171,11 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
                       />
                     </td>
                     <td>
-                      <input
-                        type="number"
-                        min="0"
+                      <NumberField
+                        min={0}
                         value={c.credits}
-                        onChange={(e) => updCourse(c.id, 'credits', +e.target.value)}
+                        emptyValue={0} // 학점을 비우면 0학점(청강 등) — 의미 있는 값
+                        onCommit={(v) => updCourse(c.id, 'credits', v)}
                         style={{ width: 60 }}
                         aria-label="학점"
                       />
@@ -401,14 +401,15 @@ function DegreePlan() {
         <div className={c.gpaGoal}>
           <div className={c.ggHead}>
             <label htmlFor="deg-target-gpa">목표 평점</label>
-            <input
+            {/* 클램프는 NumberField가 min/max로 수행 — 비운 채 떠나면 직전 목표가 살아남는다
+                (예전엔 '3.5'를 고쳐 치는 도중 빈값이 목표 평점 0으로 확정됐다). */}
+            <NumberField
               id="deg-target-gpa"
-              type="number"
-              min="0"
-              max="4.5"
-              step="0.1"
+              min={0}
+              max={4.5}
+              step={0.1}
               value={targetGpa}
-              onChange={(e) => setDeg('targetGpa', Math.max(0, Math.min(4.5, +e.target.value)))}
+              onCommit={(v) => setDeg('targetGpa', v)}
             />
             <span className={c.ggSlash}>/ 4.5</span>
           </div>
@@ -474,39 +475,19 @@ function DegreePlan() {
           <div className={ds.row} style={{ marginTop: 10 }}>
             <div>
               <label htmlFor="deg-total">졸업 총 학점</label>
-              <input
-                id="deg-total"
-                type="number"
-                value={d.targetTotal}
-                onChange={(e) => setDeg('targetTotal', +e.target.value)}
-              />
+              <NumberField id="deg-total" min={0} value={d.targetTotal} onCommit={(v) => setDeg('targetTotal', v)} />
             </div>
             <div>
               <label htmlFor="deg-req">전공필수</label>
-              <input
-                id="deg-req"
-                type="number"
-                value={d.reqMajorReq}
-                onChange={(e) => setDeg('reqMajorReq', +e.target.value)}
-              />
+              <NumberField id="deg-req" min={0} value={d.reqMajorReq} onCommit={(v) => setDeg('reqMajorReq', v)} />
             </div>
             <div>
               <label htmlFor="deg-sel">전공선택</label>
-              <input
-                id="deg-sel"
-                type="number"
-                value={d.reqMajorSel}
-                onChange={(e) => setDeg('reqMajorSel', +e.target.value)}
-              />
+              <NumberField id="deg-sel" min={0} value={d.reqMajorSel} onCommit={(v) => setDeg('reqMajorSel', v)} />
             </div>
             <div>
               <label htmlFor="deg-lib">교양</label>
-              <input
-                id="deg-lib"
-                type="number"
-                value={d.reqLiberal}
-                onChange={(e) => setDeg('reqLiberal', +e.target.value)}
-              />
+              <NumberField id="deg-lib" min={0} value={d.reqLiberal} onCommit={(v) => setDeg('reqLiberal', v)} />
             </div>
           </div>
         </details>

@@ -66,7 +66,7 @@
 .navLong {
   white-space: nowrap;
 }
-@media (max-width: 720px) {
+@media (max-width: 700px) {
   .navLong {
     position: absolute;
     width: 1px;
@@ -123,15 +123,8 @@
   min-height: 0;
 }
 .weekEmptyNote {
-  flex: none;
+  composes: note from '@/styles/ds.module.css';
   margin-bottom: 10px;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--warn) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warn) 38%, var(--line));
-  border-radius: var(--r);
 }
 .warn {
   flex: none;
@@ -267,7 +260,7 @@
 }
 
 /* 모바일 — 단일화면 해제: 세로 스택 + 스크롤(.board2는 flex — 세로 전환 후 자신이 스크롤 부모). */
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .board2 {
     display: flex;
     flex-direction: column;

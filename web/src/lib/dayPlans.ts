@@ -254,3 +254,17 @@ export function removeSidFromDayPlans(state: AppState, sid: string): number {
   }
   return n;
 }
+
+/** 블록 유형별 기본 길이(분) — 모듈 길이에서 파생. '+ 블록 추가'가 쓰는 프리셋.
+ *  왜 lib인가: 이건 화면 장식이 아니라 도메인 규칙(복습=모듈의 1/4, 백지=2/5 …)이라
+ *  블록 CRUD 옆이 제자리다. 예전엔 DayPlanner 컴포넌트 본문에 인라인이라 테스트도 재사용도 불가했다. */
+export function blockMinPresets(moduleLen: number): Record<string, number> {
+  const ML = moduleLen || 120;
+  return {
+    new: ML,
+    rev: Math.max(15, Math.round(ML * 0.25)),
+    anki: 20,
+    blank: Math.max(30, Math.round(ML * 0.4)),
+    mock: ML,
+  };
+}

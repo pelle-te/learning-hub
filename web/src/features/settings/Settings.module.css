@@ -75,18 +75,12 @@
   gap: 10px;
   flex-wrap: wrap;
 }
+/* 리드아웃 타일 기하·타이포는 ds가 소유(SSOT) — 설정 탭은 가로 줄 배치라 최소폭·좌우 여백만 얹는다. */
 .ro {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+  composes: ro from '@/styles/ds.module.css';
   min-width: 96px;
-  padding: 12px 15px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--ink) 2%, var(--panel));
-  box-shadow: var(--shadow-sm);
+  padding-left: 15px;
+  padding-right: 15px;
 }
 .roOk {
   border-color: color-mix(in srgb, var(--acc) 38%, var(--line));
@@ -96,12 +90,7 @@
   border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
 }
 .roNum {
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  composes: roNum from '@/styles/ds.module.css';
 }
 .roOk .roNum {
   color: var(--acc);
@@ -110,16 +99,10 @@
   color: var(--bad);
 }
 .roNum small {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--mut);
-  margin-left: 1px;
+  margin-left: 1px; /* 단위 글리프가 숫자에 붙지 않게(설정 탭만의 델타) */
 }
 .roLab {
-  font-size: 10.5px;
-  color: var(--mut);
-  font-weight: 600;
-  word-break: keep-all;
+  composes: roLab from '@/styles/ds.module.css';
 }
 /* 상태 텍스트 리드아웃(볼트 백업 '오늘/N일 전') — 큰 카운트 숫자가 아니라 짧은 문구라 16px. */
 .roNumText {
@@ -166,7 +149,7 @@
   flex: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 700px) {
   .status {
     width: 100%;
   }

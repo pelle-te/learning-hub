@@ -40,6 +40,10 @@ export default tseslint.config(
       // 정규화된 경로(슬래시) 불일치로 상대경로 변환에 실패해, 패턴이 절대경로와 대조되기 때문.
       'boundaries/elements': [
         { type: 'app', pattern: '**/src/app/**' },
+        // ⚠ feature끼리의 결합은 이 규칙이 못 잡는다 — 모든 feature 폴더가 한 element라
+        //   'features → features'로 통과한다. capture로 폴더명을 잡으려 했으나 위 '**/' 접두
+        //   (Windows 절대경로 우회)와 함께 쓰면 캡처가 바인딩되지 않는다. 대신 아래
+        //   no-restricted-imports가 '@/features/*' 별칭을 막아 같은 경계를 강제한다.
         { type: 'features', pattern: '**/src/features/**' },
         { type: 'components', pattern: '**/src/components/**' },
         { type: 'hooks', pattern: '**/src/hooks/**' },
@@ -66,6 +70,32 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  /* feature↔feature 결합 금지 — boundaries가 못 보는 경계를 여기서 막는다.
+     cross-feature import는 전부 '@/features/...' 별칭을 쓰고 같은 feature 안은 './'를 쓰므로,
+     features 폴더 안에서 그 별칭을 금지하면 정확히 교차 결합만 걸린다.
+     공유가 필요하면 components/hooks/lib으로 승격할 것(그래야 재사용 계약이 명시된다). */
+  {
+    files: ['src/features/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/features/*'],
+              message:
+                'feature끼리 직접 import 금지 — 같은 feature는 상대경로(./), 공유물은 components/hooks/lib으로 승격하세요.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // registry.tsx는 모든 feature를 lazy 로드하는 *레지스트리*라 이 금지의 유일한 정당한 예외.
+  {
+    files: ['src/features/registry.tsx'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   // web/scripts/*.mjs — Node 도구(gate·scaffold-tab·bundle-budget). Node 전역 허용.
   {

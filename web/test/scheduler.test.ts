@@ -510,6 +510,17 @@ describe('scheduler (T1~T21 parity)', () => {
     expect(r.days[r.days.length - 1].ds >= '2026-07-10').toBe(true);
   });
 
+  it('T32b startDate가 546일보다 더 과거여도 오늘이 창 안에 들어온다(상한이 보장을 깨지 않음)', () => {
+    // T32의 전방 확장 항에 페이스 경로와 같은 546 상한이 걸려 있어, 간격이 그보다 크면(929일)
+    // 창이 오늘 *이전*에서 끝났다 → 오늘 탭이 비고, 그 상태의 편집이 빈 자동초안을 manual로
+    // 승격시켜 그날이 영구히 빈 계획이 되는 경로. 오늘 항은 별도의 넉넉한 상한을 쓴다.
+    const r = schedule(
+      baseState([weeklyItem('수학', 6, mkChapters([['1', 2]]))], { startDate: '2024-01-01', _today: '2026-07-18' }),
+    );
+    expect(r.days.some((d) => d.ds === '2026-07-18')).toBe(true);
+    expect(r.days[r.days.length - 1]!.ds >= '2026-07-18').toBe(true);
+  });
+
   it('T33 subjectMastery: 빈 질의는 전과목 매칭 대신 null(indexOf 오염 방지)', () => {
     // b=''이면 a.indexOf('')===0이 모든 과목에 히트 → 첫 과목 숙달도를 아무 이름에나 붙이는 오염(L-9).
     const know = { subjects: [{ subject: '물리', mastery: 0.8 }] };

@@ -7,3 +7,4 @@ export { Kpi, KpiGrid, type KpiTone } from './Kpi';
 export { ProgressBar } from './ProgressBar';
 export { Table } from './Table';
 export { Skeleton, SkeletonText, SkeletonCard } from './Skeleton';
+export { NumberField } from './NumberField';

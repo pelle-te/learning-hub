@@ -14,7 +14,7 @@ import { ui, io, actions } from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
-import { Button } from '@/components/ui';
+import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import ds from '@/styles/ds.module.css';
 import st from './Settings.module.css';
@@ -125,16 +125,9 @@ function Stepper({
       <button type="button" className={st.stepBtn} aria-label={`${step} 감소`} onClick={() => commit(value - step)}>
         –
       </button>
-      <input
-        id={id}
-        type="number"
-        step={step}
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => commit(+e.target.value)}
-        className={st.stepInput}
-      />
+      {/* 미완 입력을 확정하지 않는다 — 예전엔 값을 고쳐 치는 도중 빈값이 0으로 저장돼
+          모듈 길이 0분 같은 설정이 잠깐 확정됐다(스케줄러 입력이라 파급이 크다). */}
+      <NumberField id={id} step={step} min={min} max={max} value={value} onCommit={commit} className={st.stepInput} />
       <button type="button" className={st.stepBtn} aria-label={`${step} 증가`} onClick={() => commit(value + step)}>
         +
       </button>

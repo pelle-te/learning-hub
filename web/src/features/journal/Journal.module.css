@@ -94,7 +94,7 @@
 }
 .feedKind[data-kind='cbms'],
 .feedKind[data-kind='blank'] {
-  color: var(--warn, #ffb454);
+  color: var(--warn);
 }
 .feedDetail {
   flex: 1;

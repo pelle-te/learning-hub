@@ -3,10 +3,8 @@ import { navGroups, hostTabKey, surfaceOf, surfaceHome, SURFACES, Icon, type Tab
 import { prefetchTab } from '@/features/registry';
 import { useUI } from '@/store/useUI';
 import { useApp } from '@/store/useApp';
-import { selectSchedule } from '@/store/selectors';
-import { riskSummary } from '@/lib/spacedReview';
+import { selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
-import { todayISO } from '@/lib/utils';
 import s from './RailSidebar.module.css';
 
 // C-9: 복습 밀림·열린 보충은 review/mastery 탭 안에서만 보여 다른 탭에 있으면 알 길이 없었다.
@@ -26,11 +24,11 @@ export default function RailSidebar() {
   const toggleNav = useUI((st) => st.toggleNav);
   const persistedSurface = useUI((st) => st.ui.navSurface);
   const setNavSurface = useUI((st) => st.setNavSurface);
-  // 숫자만 구독 — selectSchedule은 메모(16-슬라이스 캐시)라 값이 바뀔 때만 나브가 리렌더(무관 재계산 회피).
+  // 숫자만 구독 — selectRiskSummary도 state 참조 캐시라 이 셀렉터가 알림마다 불려도 전수 스캔은
+  // state 버전당 1회다(예전엔 riskSummary가 매 알림마다 days×items×chapters를 통째로 순회했다).
   const reviewBadge = useApp((st) => {
     const state = st.state;
-    const r = riskSummary(state, selectSchedule(state).days || [], todayISO(state));
-    return r.overdue + openBacklog(state).length;
+    return selectRiskSummary(state).overdue + openBacklog(state).length;
   });
   const curKey = loc.pathname.split('/')[1] || 'today';
   const cur = hostTabKey(curKey);
@@ -133,15 +131,17 @@ export default function RailSidebar() {
       </div>
 
       {/* 표면 스위처(Wave⑥) — 학습(핵심·숙련) ↔ 자료(수집·발견). 펼침=세그먼트, 접힘=아이콘 토글. */}
-      <div className={s.surfaces} role="tablist" aria-label="표면 전환">
+      {/* role="tablist"/"tab"은 화살표 이동·roving tabindex·aria-controls→tabpanel까지 약속하는 계약인데
+          이 스위처는 그 어느 것도 이행하지 않았다 — SR 사용자는 탭 탐색을 시도했다가 아무 반응도 못 얻는다.
+          Schedule 세그먼트가 이미 같은 이유로 내린 판단(group + aria-pressed)을 여기에도 적용한다. */}
+      <div className={s.surfaces} role="group" aria-label="표면 전환">
         {SURFACES.map((sf) => {
           const on = sf.key === activeSurface;
           return (
             <button
               key={sf.key}
               type="button"
-              role="tab"
-              aria-selected={on}
+              aria-pressed={on}
               aria-label={sf.label}
               title={sf.label}
               className={s.surfaceBtn + (on ? ' ' + s.surfaceOn : '')}

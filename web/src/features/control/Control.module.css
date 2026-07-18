@@ -74,8 +74,12 @@
   font-size: 16px;
   padding: 8px 4px;
 }
-.searchInput:focus {
-  outline: none;
+/* 바 전체(.searchBar:focus-within)만으론 입력과 범위 select 중 *어디*에 포커스가 있는지 알 수 없다.
+   바 안쪽에 링을 그려 개별 컨트롤을 짚어준다(outline-offset 음수 = 바 테두리를 넘지 않음). */
+.searchInput:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+  border-radius: var(--r-sm);
 }
 .searchScope {
   flex: none;
@@ -94,8 +98,9 @@
 .searchScope::placeholder {
   color: var(--mut);
 }
-.searchScope:focus {
-  outline: none;
+.searchScope:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
 }
 .searchGo {
   flex: none;

@@ -3,12 +3,8 @@
    좌측 스파인 + 노드, 요약/오답/보충을 한 줄 행으로. WeekGrid/.board 결 통일.
 ============================================================ */
 .board {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 40%, transparent);
-  padding: 16px 18px 16px;
-  margin-bottom: 14px;
+  composes: board from '@/styles/ds.module.css';
+  position: relative; /* 좌측 스파인(::before)의 기준 */
 }
 /* fill — 2컬럼 단일화면 좌측에서 컬럼 높이를 가득(스트림 자체 스크롤).
    액센트색을 베이크한 발광 시그니처 보드(플랫 블랙 탈피) + 상단 헤어라인. */
@@ -171,12 +167,12 @@
 }
 /* 백지 복습 결과 — 통과=양호색, 막힘=경고색으로 색만 갈라 한눈에. */
 .kBlank[data-passed='1'] {
-  color: var(--good, #22c55e);
-  background: color-mix(in srgb, var(--good, #22c55e) 12%, transparent);
+  color: var(--good);
+  background: color-mix(in srgb, var(--good) 12%, transparent);
 }
 .kBlank[data-passed='0'] {
-  color: var(--warn, #ffb454);
-  background: color-mix(in srgb, var(--warn, #ffb454) 12%, transparent);
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 
 .swatch {

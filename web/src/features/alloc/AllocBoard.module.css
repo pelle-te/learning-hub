@@ -48,46 +48,9 @@
   gap: 8px;
 }
 
-.note {
-  flex: none;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--warn) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warn) 38%, var(--line));
-  border-radius: var(--r);
-}
 /* efficacy 안내(중립·정보 톤) — 완료 과목 배분이 새 학습을 못 만드는 이유 짚기. */
-.noteInfo {
-  flex: none;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink);
-  background: var(--acc-glow);
-  border: 1px solid color-mix(in srgb, var(--acc) 32%, var(--line));
-  border-radius: var(--r);
-}
-.noteInfo b {
-  color: var(--acc);
-  font-weight: 700;
-}
+
 /* 주당 시간 0 과목 안내(경고 톤) — inertFinished와 같은 자리·같은 문법, 색만 warn 계열. */
-.noteWarn {
-  flex: none;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--warn) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warn) 38%, var(--line));
-  border-radius: var(--r);
-}
-.noteWarn b {
-  color: var(--warn);
-  font-weight: 700;
-}
 
 /* 스크롤 호스트 — 매트릭스가 좁을 땐 그대로, 넓으면 가로/세로 스크롤(모바일 대응).
    `flex:1`이 아니라 `0 1 auto`인 이유: 이 보드는 **매트릭스**라 행이 이산 항목이다(캘린더의
@@ -463,8 +426,20 @@
   background: var(--panel2);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .wrap {
     padding: 12px 14px;
   }
+}
+
+/* 인라인 노트 골격은 ds가 소유(SSOT). .noteWarn은 .note와 완전히 동일했어서 별칭으로 남긴다
+   — 호출부의 의도(경고 톤)를 이름으로 읽히게 하되 값은 한 곳에서만 관리한다. */
+.note {
+  composes: note from '@/styles/ds.module.css';
+}
+.noteWarn {
+  composes: note from '@/styles/ds.module.css';
+}
+.noteInfo {
+  composes: noteInfo from '@/styles/ds.module.css';
 }

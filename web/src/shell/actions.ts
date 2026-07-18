@@ -24,6 +24,7 @@ import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData, openBacklog } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
 import { iso, mondayOf, todayISO } from '@/lib/utils';
+import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
 import type { CaptureResult } from '@/lib/quickCapture';
 import { toast, toastUndo } from './toast';
@@ -244,13 +245,9 @@ export function exportICS(): void {
   useRuntime.getState().set('_icsExport', { at: new Date().toISOString(), sig: sigOf(s) });
 }
 
-interface DirPickerWindow {
-  showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
-}
 /** 볼트 폴더에 러닝허브_백업.json 쓰기(FS Access). */
 export async function backupToVault(): Promise<void> {
-  const picker = (window as unknown as DirPickerWindow).showDirectoryPicker;
-  if (!picker) {
+  if (!isFsAccessSupported()) {
     toast(
       '이 브라우저는 폴더 쓰기를 지원하지 않아요(Chrome/Edge 권장). 대신 [⋯ 메뉴 → 데이터 내보내기]로 파일 백업하세요.',
       'warn',
@@ -259,9 +256,11 @@ export async function backupToVault(): Promise<void> {
     return;
   }
   try {
-    const h = await picker();
-    const perm = (h as unknown as { requestPermission?: (o: { mode: string }) => Promise<string> }).requestPermission;
-    if (perm && (await perm.call(h, { mode: 'readwrite' })) !== 'granted') {
+    const h = await pickDirectory();
+    if (!h) return; // 사용자 취소
+    // 'prompt'는 requestPermission 미구현 브라우저의 값이기도 하다 — 여기서 막으면
+    // 그 브라우저는 백업 자체가 불가능해진다. 명시적 거부만 차단하고, 나머지는 쓰기 시도가 판정한다.
+    if ((await requestPermission(h, 'readwrite')) === 'denied') {
       toast('쓰기 권한이 거부됐어요.', 'bad');
       return;
     }
