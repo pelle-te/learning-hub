@@ -31,8 +31,8 @@ export interface TabMeta {
 export const TABS: TabMeta[] = [
   // ── 학습 표면 · 계획(plan) ──
   { key: 'today', label: '오늘 학습', group: 'plan', surface: 'study', order: 10, icon: 'target', fill: true },
-  // 계획 호스트(plan-host) — 뼈대(routine)·과목(items)·배치(schedule)를 세그먼트로 묶는 셸.
-  // 나브엔 '계획' 한 줄로 노출(today 다음·goals 앞, §3-2). 자체 화면 없이 배치(배치=주간 스케줄)로 리다이렉트.
+  // 계획 호스트(plan-host) — 캘린더(schedule)·배분(alloc)·과목(items)을 세그먼트로 묶는 셸(재개편 v4).
+  // 나브엔 '계획' 한 줄로 노출(today 다음·goals 앞, §3-2). 자체 화면 없이 첫 세그먼트=캘린더로 리다이렉트.
   {
     key: 'plan-host',
     label: '계획',
@@ -86,7 +86,7 @@ export const TABS: TabMeta[] = [
   // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
   { key: 'degree', label: '졸업 계획', group: 'plan', surface: 'study', order: 35, icon: 'cap' },
   // 과목(items) — 전공 과목·챕터 카탈로그 + 뼈대(가용시간·수업·일과) + 과목별 요일 배분(계획 재개편 v3).
-  // 계획 호스트로 흡수(hidden). 세그먼트 라벨='과목' — 계획은 이제 [과목 · 배치] 2세그먼트다.
+  // 계획 호스트로 흡수(hidden). 세그먼트 라벨='과목' — 계획은 [캘린더 · 배분 · 과목] 3세그먼트다(v4).
   // fill: 좌 갤러리 / 우 가용 레일이 화면을 꽉 채우는 프레임이라 여백 래퍼 없이 붙인다.
   {
     key: 'items',
@@ -191,7 +191,8 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
    나브 정리: 매일 안 쓰는 계획/분석 화면을 호스트 상단 세그먼트로 접어 1차 나브를 6개로 줄인다.
    라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
 export const SUBTAB_GROUPS: string[][] = [
-  // 계획 호스트: plan-host(셸·나브 노출) 아래 뼈대(routine)·과목(items)·배치(schedule) 3세그먼트.
+  // 계획 호스트: plan-host(셸·나브 노출) 아래 캘린더(schedule)·배분(alloc)·과목(items) 3세그먼트(v4).
+  // 뼈대(routine)는 과목으로 병합돼(v3) 이 그룹에 없다 — 리다이렉트 shim만 남았다.
   // host=첫 항목=plan-host → hostTabKey가 세 세그먼트를 '계획'으로 하이라이트. SubTabs는 셸을 버튼에서 제외.
   // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대).
   ['plan-host', 'schedule', 'alloc', 'items'],

@@ -127,7 +127,13 @@ export function TodayBlocks() {
               title="완료 표시"
               aria-label={`${it.name} 완료`}
             />
-            <span className={ds.swatch} style={{ background: it.color || '#6ea8fe' }} />
+            {/* 모의(mock)는 과목이 없어 색을 파생할 수 없다 → 타입 토큰(--bad)으로.
+                DayPlanner `.mock`·WeekCalendar `.mock`과 같은 어휘라 세 뷰의 모의 색이 일치한다
+                (옛 scheduler의 저장 리터럴 '#b794f6' 제거에 따른 정합 — 절대규칙 3). */}
+            <span
+              className={ds.swatch}
+              style={{ background: it.type === 'mock' ? 'var(--bad)' : it.color || '#6ea8fe' }}
+            />
             <b>{it.name}</b>
             {it.chapters && it.chapters.length > 0 && (
               <span className={`${ds.muted} ${ds.tiny}`}> · {it.chapters.join(', ')}</span>

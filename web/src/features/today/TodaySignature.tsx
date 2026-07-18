@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
+import { useUI } from '@/store/useUI';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
@@ -45,6 +46,18 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
+  const setSchedView = useUI((st) => st.setSchedView);
+  // "오늘 계획 짜기" — 목적지를 **결정론적으로** 고정한다. 예전엔 `/plan-host`로만 보내 캘린더의
+  // 영속 뷰(schedView·기본 week)에 그대로 떨어졌다 → '오늘'을 요청했는데 주 격자(혹은 지난번 아무 뷰)가
+  // 열려 첫 화면이 매번 달랐다(재설계 사상 "0.5초에 요지" 위반).
+  // 탭 경계를 넘는 드릴다운 규약(v4)을 그대로 따른다: 날짜는 딥링크(?ds=), **뷰 전환은 보내는 쪽에서 먼저**
+  // — 받는 쪽 effect에서 setState로 되받으면 캐스케이드 렌더가 된다(린트가 막는 패턴 · Alloc.onOpenDay와 동형).
+  // 일반 진입(나브 '계획'·⌘K·g p)은 여전히 영속 뷰를 존중한다(v4 "기본 착지=캘린더 주 뷰") — 결정론은
+  // 의도가 '오늘'로 명시된 이 경로에만 건다.
+  const goPlanToday = () => {
+    setSchedView('day');
+    go(`/schedule?ds=${todayISO(state)}`); // '오늘'은 앱 단일 출처(_today 시드 존중) — new Date() 금지
+  };
   const [recallShown, setRecallShown] = useState(false); // A2 — 회상 정답 공개 여부
   // I-4 — 흐름 레일 키보드 흐름(j/k 이동·Enter 집중·s 기록). 선택 노드 key + DOM 참조맵.
   const [selKey, setSelKey] = useState<string | null>(null);
@@ -370,7 +383,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
         todayTotal === 0
           ? // PL-1: 이미 과목이 있는 사용자(hasItems)에게 "항목 설정"은 모순 — 오늘만 빈 것이므로 스케줄로 안내.
             hasItems
-            ? { label: '오늘 계획 짜기 →', onClick: () => go('/plan-host') }
+            ? { label: '오늘 계획 짜기 →', onClick: goPlanToday }
             : { label: '학습 항목 설정 →', onClick: () => go('/items') }
           : allDone
             ? { label: '기록 보기', onClick: () => go('/journal') }
@@ -519,10 +532,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 </span>
               </>
             ) : hasItems ? (
-              // §7: 과목은 있으나 오늘 포커스가 없음 → 오늘 계획을 직접 짜는 단일 목적지(plan-host 배치 세그먼트).
-              <button type="button" className={s.cta} onClick={() => go('/plan-host')}>
+              // §7: 과목은 있으나 오늘 포커스가 없음 → 오늘 계획을 직접 짜는 단일 목적지(계획 › 캘린더 일 뷰).
+              <button type="button" className={s.cta} onClick={goPlanToday}>
                 <span className={s.ctaGo}>오늘 계획 짜기</span>
-                <span className={s.ctaCap}>배치 세그먼트 →</span>
+                <span className={s.ctaCap}>캘린더 · 오늘 →</span>
               </button>
             ) : (
               <button type="button" className={s.cta} onClick={() => go('/items')}>
@@ -644,7 +657,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 {hasItems ? (
                   <>
                     오늘은 배치된 블록이 없어요 — 오늘 계획을 직접 짜보세요.{' '}
-                    <button type="button" className={s.mChip} onClick={() => go('/plan-host')}>
+                    <button type="button" className={s.mChip} onClick={goPlanToday}>
                       오늘 계획 짜기
                     </button>
                   </>
@@ -722,7 +735,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <button
             type="button"
             className={s.tag}
-            onClick={() => go('/schedule')}
+            // 라벨이 '주간 보기'를 약속하므로 뷰도 주(週)로 고정한다(영속 schedView가 day/month면 말과 다른 곳에 착지).
+            // 위 goPlanToday와 같은 규약 — 뷰 전환은 보내는 쪽이 먼저.
+            onClick={() => {
+              setSchedView('week');
+              go('/schedule');
+            }}
             aria-label={`이번 주 ${weekTotalH.toFixed(1)}시간 — 주간 보기로 이동`}
           >
             <b>{weekShown.toFixed(1)}</b> h
