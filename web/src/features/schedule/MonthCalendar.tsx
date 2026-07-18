@@ -27,6 +27,8 @@ interface Chip {
   color?: string;
   tip: string;
   done?: boolean;
+  /** 색점 생략(마감 칩은 🚩 글리프가 그 역할을 한다 — 점까지 붙으면 좁은 칸에서 글자만 밀린다). */
+  noDot?: boolean;
   /** 추가 클래스(일정 칩 등) — 칩 렌더는 한 벌만 두고 종류 차이는 클래스로만 준다. */
   cls?: string;
 }
@@ -57,6 +59,13 @@ export function MonthCalendar({
     // 칩 = 그날만의 일정. 학습 세션(new/rev/anki)은 매일 반복돼 월 뷰에선 소음이라 넣지 않는다
     // — 그날 뭘 공부하는지는 주/일 뷰가 답한다. 여기선 '이 날 특별한 게 있나'만.
     const chips: Chip[] = [];
+    // ⚠ 마감은 예전에 캡 밖에서 따로 렌더됐다 — MAX_CHIPS는 아래 chips에만 걸리고 "+N개 더"도
+    //   그 초과분만 셌다. 그래서 마감 3개인 날은 4줄을 48px 칸에 그려 2줄이 **표시도 없이 잘렸다**
+    //   (사용자는 숨은 게 있다는 사실조차 알 수 없다). 같은 목록의 맨 앞에 넣어 캡과 +N이 전부를 센다.
+    //   순서: 마감(가장 시급) → 일정 → 할 일.
+    for (const name of state.items.filter((it) => it.deadline === dsKey && it.name).map((it) => it.name)) {
+      chips.push({ key: `d${name}`, name: `🚩 ${name}`, tip: `마감: ${name}`, cls: s.chipDeadline, noDot: true });
+    }
     const evs = eventsForDay(state, dsKey);
     for (const ev of evs) {
       chips.push({
@@ -122,11 +131,6 @@ export function MonthCalendar({
               </span>
 
               <div className={s.chips}>
-                {cl.deadlines.map((name) => (
-                  <span key={`d${name}`} className={`${s.chip} ${s.chipDeadline}`} title={`마감: ${name}`}>
-                    🚩 {name}
-                  </span>
-                ))}
                 {cl.chips.slice(0, MAX_CHIPS).map((ch) => (
                   <span
                     key={ch.key}
@@ -134,7 +138,9 @@ export function MonthCalendar({
                     title={ch.tip}
                   >
                     {/* 색점의 기본값은 CSS가 갖는다(칩 종류마다 다름) — 인라인은 실제 색이 있을 때만. */}
-                    <i className={s.dot} style={ch.color ? { background: ch.color } : undefined} aria-hidden="true" />
+                    {!ch.noDot && (
+                      <i className={s.dot} style={ch.color ? { background: ch.color } : undefined} aria-hidden="true" />
+                    )}
                     {ch.name}
                   </span>
                 ))}
