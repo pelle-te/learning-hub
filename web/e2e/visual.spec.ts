@@ -490,7 +490,7 @@ for (const theme of THEMES) {
     );
     await page.goto('/alloc');
     await expect(page.locator('#main')).toBeVisible();
-    await expect(page.getByRole('grid', { name: '주간 배분 보드' })).toBeVisible();
+    await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
     await expect(page).toHaveScreenshot(`alloc-board-${theme}.png`, { fullPage: true });
   });
 }
