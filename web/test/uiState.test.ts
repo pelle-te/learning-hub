@@ -7,9 +7,10 @@ import { bootUI, defaultUI, persistUI, pushRecent, UI_KEY } from '@/lib/uiState'
 import { memKV } from '@/lib/kv';
 
 describe('bootUI — 부팅/복원', () => {
-  it('저장된 게 없으면 기본값(alloc·빈 최근)', () => {
+  it('저장된 게 없으면 기본값(week·빈 최근)', () => {
     expect(bootUI(memKV())).toEqual(defaultUI());
-    expect(defaultUI().schedView).toBe('alloc'); // 재개편 v2 §12-5 — 새 사용자 기본 = 주간 배분 보드(중심)
+    // 재개편 v4 — 배분이 독립 세그먼트로 빠지며 캘린더가 계획의 첫 착지가 됐다(기본 주 뷰).
+    expect(defaultUI().schedView).toBe('week');
   });
   it('저장된 UIState를 그대로 읽는다', () => {
     const kv = memKV();
@@ -28,7 +29,7 @@ describe('bootUI — 부팅/복원', () => {
     kv.setItem(UI_KEY, '{not json');
     expect(bootUI(kv)).toEqual(defaultUI());
   });
-  it('구 뷰명(overview·cards)은 week로, 미지의 값은 alloc로 흡수(부분 손상 격리)', () => {
+  it('구 뷰명(overview·cards·alloc)은 week로, 미지의 값도 week로 흡수(부분 손상 격리)', () => {
     const kv = memKV();
     // 레거시 값이 schedView 하나만 깨도 accent 등 나머지는 보존돼야 한다(.catch·preprocess).
     kv.setItem(UI_KEY, JSON.stringify({ schedView: 'overview', accent: 'cyan', recentCommands: ['a'] }));
@@ -36,8 +37,11 @@ describe('bootUI — 부팅/복원', () => {
     expect(bootUI(kv).accent).toBe('cyan'); // schedView 폴백이 accent를 되돌리지 않음
     kv.setItem(UI_KEY, JSON.stringify({ schedView: 'cards', recentCommands: [] }));
     expect(bootUI(kv).schedView).toBe('week');
+    // alloc은 이제 캘린더의 뷰가 아니라 별도 세그먼트(/alloc) → 주 뷰로 착지시킨다.
+    kv.setItem(UI_KEY, JSON.stringify({ schedView: 'alloc', recentCommands: [] }));
+    expect(bootUI(kv).schedView).toBe('week');
     kv.setItem(UI_KEY, JSON.stringify({ schedView: 'grid', accent: 'amber', recentCommands: [] }));
-    expect(bootUI(kv).schedView).toBe('alloc'); // 미지의 값 → 기본 alloc
+    expect(bootUI(kv).schedView).toBe('week'); // 미지의 값 → 기본 week
     expect(bootUI(kv).accent).toBe('amber');
   });
 });

@@ -9,12 +9,14 @@ import type { KV } from './types';
 
 // 배치 세그먼트 뷰(계획개편 §12-5) — [배분·주·일·월]. 배분(alloc)=주간 배분 보드(계획의 중심 · v2).
 // 구 값(overview·cards)은 주(week)로 흡수.
-export const SchedViewSchema = z.enum(['alloc', 'day', 'week', 'month']);
+export const SchedViewSchema = z.enum(['day', 'week', 'month']);
 export type SchedView = z.infer<typeof SchedViewSchema>;
-/** 레거시 뷰명(overview/cards) → week 매핑. 저장본·딥링크·구 fixture 호환(무마이그레이션). */
+/** 레거시 뷰명 → 현행 매핑. 저장본·딥링크·구 fixture 호환(무마이그레이션).
+    overview/cards = 옛 주 뷰 이름 · alloc = 옛 '배분' 뷰(재개편 v4에서 독립 세그먼트로 승격돼
+    캘린더의 뷰가 아니게 됐다 → 주 뷰로 착지시킨다. 배분을 보려면 /alloc 세그먼트로). */
 export function migrateSchedView(v: unknown): SchedView | undefined {
-  if (v === 'overview' || v === 'cards') return 'week';
-  return v === 'alloc' || v === 'day' || v === 'week' || v === 'month' ? v : undefined;
+  if (v === 'overview' || v === 'cards' || v === 'alloc') return 'week';
+  return v === 'day' || v === 'week' || v === 'month' ? v : undefined;
 }
 
 /** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
@@ -33,8 +35,8 @@ export const RECENT_MAX = 6; // 팔레트 최근 명령 LRU 길이
 export const UIStateSchema = z.object({
   // preprocess로 구 값을 흡수하고, 그래도 못 맞추면 .catch로 폴백 — schedView 하나가
   // 전체 UIState parse를 깨 accent·최근명령까지 기본값으로 되돌리던 것을 방지(부분 손상 격리).
-  // 기본=alloc(주간 배분 보드 · 계획의 중심 · 재개편 v2 §12-5). 저장된 값이 있으면 그게 우선.
-  schedView: z.preprocess((v) => migrateSchedView(v) ?? v, SchedViewSchema).catch('alloc'),
+  // 기본=week(캘린더 주 뷰). 재개편 v4에서 배분이 독립 세그먼트로 빠지며 캘린더가 계획의 첫 착지가 됐다.
+  schedView: z.preprocess((v) => migrateSchedView(v) ?? v, SchedViewSchema).catch('week'),
   accent: AccentSchema.default('lime'),
   recentCommands: z.array(z.string()).default([]),
   // 발광 효과 줄이기 — 풀스크린 오로라 셰이더 정지 + 발광 오라 무한 애니 정지(상시 GPU/페인트 절감).

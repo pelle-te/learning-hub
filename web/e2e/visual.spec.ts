@@ -481,16 +481,16 @@ for (const theme of THEMES) {
       ([seed, th]) => {
         try {
           localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: th }));
-          localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'alloc', accent: 'lime', recentCommands: [] }));
+          localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'week', accent: 'lime', recentCommands: [] }));
         } catch {
           /* noop */
         }
       },
       [SEED, theme] as const,
     );
-    await page.goto('/schedule');
+    await page.goto('/alloc');
     await expect(page.locator('#main')).toBeVisible();
-    await expect(page.locator('#main [role="grid"], #main section[aria-label]').first()).toBeVisible();
+    await expect(page.getByRole('grid', { name: '주간 배분 보드' })).toBeVisible();
     await expect(page).toHaveScreenshot(`alloc-board-${theme}.png`, { fullPage: true });
   });
 }
@@ -528,6 +528,30 @@ for (const theme of THEMES) {
     await expect(page.getByRole('dialog').locator('h2').nth(1).locator('..')).toHaveCSS('opacity', '1');
     // 시트는 뷰포트 고정물 → 뷰포트 캡처(fullPage는 fixed 오버레이를 어긋나게 그린다).
     await expect(page).toHaveScreenshot(`skeleton-open-${theme}.png`);
+  });
+}
+
+// 캘린더 월/일 뷰(재개편 v4) — 주 뷰는 TABS 루프가 이미 찍는다. 월=일정 칩 격자, 일=타임블로킹 판.
+// 뷰는 useUI(lh_ui_v1)가 소유하므로 시드로 고정해 결정론 캡처.
+for (const view of ['month', 'day'] as const) {
+  test(`calendar-${view} · dark`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.clock.install({ time: FIXED });
+    await page.addInitScript(
+      ([seed, v]) => {
+        try {
+          localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: 'dark' }));
+          localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: v, accent: 'lime', recentCommands: [] }));
+        } catch {
+          /* noop */
+        }
+      },
+      [SEED, view] as const,
+    );
+    await page.goto('/schedule');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.locator('#main section[aria-label]').first()).toBeVisible();
+    await expect(page).toHaveScreenshot(`calendar-${view}-dark.png`, { fullPage: true });
   });
 }
 

@@ -178,3 +178,55 @@ export function computeDay(
     counts,
   };
 }
+
+/* ── 캘린더 겹침 배치(lane packing) ───────────────────────────────────────
+   시간이 겹치는 일정을 나란한 세로 레인으로 나눠 서로 가리지 않게 한다(TickTick·Google 캘린더 규약).
+   순수 함수라 캘린더 뷰(주/일)가 공유하고 테스트로 잠근다 — 픽셀·DOM 무관.
+
+   규칙: ① 시작 시각 오름차순(같으면 긴 일정 먼저 — 큰 덩어리가 왼쪽) ② 시간이 이어지는 동안 한 '클러스터'
+   ③ 클러스터 안에서 비어 있는 가장 왼쪽 레인에 배정 ④ 폭은 그 **클러스터의 레인 수**로 나눈다.
+   폭을 전역 최대 레인 수로 나누지 않는 게 핵심 — 하루 중 한 번 3중 겹침이 났다고 나머지가 다 1/3로
+   쪼그라들면 안 된다. */
+export interface LaneItem<T> {
+  item: T;
+  start: number;
+  end: number;
+}
+export interface PlacedItem<T> extends LaneItem<T> {
+  /** 0부터. 이 일정이 앉은 레인. */
+  lane: number;
+  /** 이 일정이 속한 클러스터의 총 레인 수(=폭 분모). */
+  lanes: number;
+}
+
+export function packLanes<T>(items: LaneItem<T>[]): PlacedItem<T>[] {
+  const sorted = items
+    .filter((e) => e.end > e.start)
+    .slice()
+    .sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const out: PlacedItem<T>[] = [];
+  let cluster: PlacedItem<T>[] = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    if (!cluster.length) return;
+    const lanes = Math.max(...cluster.map((p) => p.lane)) + 1;
+    for (const p of cluster) p.lanes = lanes;
+    out.push(...cluster);
+    cluster = [];
+    clusterEnd = -Infinity;
+  };
+
+  for (const e of sorted) {
+    if (e.start >= clusterEnd) flush(); // 앞 클러스터와 안 겹침 → 끊는다
+    // 이 클러스터에서 비어 있는(=끝난) 가장 왼쪽 레인
+    const laneEnds: number[] = [];
+    for (const p of cluster) laneEnds[p.lane] = Math.max(laneEnds[p.lane] ?? -Infinity, p.end);
+    let lane = 0;
+    while (lane < laneEnds.length && (laneEnds[lane] ?? -Infinity) > e.start) lane++;
+    cluster.push({ ...e, lane, lanes: 1 });
+    clusterEnd = Math.max(clusterEnd, e.end);
+  }
+  flush();
+  return out;
+}

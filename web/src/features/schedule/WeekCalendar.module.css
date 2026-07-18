@@ -1,23 +1,29 @@
 /* ============================================================
-   WeekCalendar — 요일 7열 × 시간축 세로 그리드(프리미엄 캘린더). 블록=시간 위치 네온 카드.
-   범위(lo–hi)를 열 높이에 매핑 → 세그는 top/height %. 오늘 열 강조 + 지금 라인.
+   WeekCalendar — 주간 캘린더(재개편 v4). 1시간=고정 픽셀 스크롤 격자.
+   레이아웃: [머리글 고정] / [종일 행] / [스크롤 시간축]. 좌측 거터(시각 라벨) 폭은 --gut 하나로 공유해
+   세 층의 열이 정확히 정렬된다(따로 두면 헤더와 격자가 어긋난다).
 ============================================================ */
 .cal {
+  --gut: 44px;
+  --colgap: 1px;
   height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line2);
 }
 
-/* 요일 머리글 */
+/* ── 요일 머리글(고정) ── */
 .head {
   flex: none;
   display: grid;
-  grid-template-columns: 52px repeat(7, 1fr);
-  gap: 6px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--line2);
+  grid-template-columns: var(--gut) repeat(7, minmax(0, 1fr));
+  gap: var(--colgap);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
 }
 .gutterHead {
   display: block;
@@ -27,333 +33,314 @@
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  position: relative;
-  padding: 7px 4px;
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
+  padding: 8px 2px 7px;
+  border: none;
   background: transparent;
   color: var(--ink);
   font-family: inherit;
   cursor: pointer;
-  transition:
-    background 0.15s var(--ease),
-    border-color 0.15s var(--ease);
+  border-top: 2px solid transparent;
 }
 .dayHead:hover {
-  background: var(--panel2);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 .dayHead:focus-visible {
   outline: 2px solid var(--acc);
-  outline-offset: 2px;
-}
-.dayHead.sel {
-  border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
-  background: var(--acc-soft);
-}
-.dayHead.today {
-  background: color-mix(in srgb, var(--acc) 14%, transparent);
-  border-color: var(--acc-glow);
+  outline-offset: -2px;
 }
 .dow {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--mut);
+  letter-spacing: 0.04em;
 }
 .date {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
-}
-.dayHead.today .dow,
-.dayHead.today .date {
-  color: var(--acc);
 }
 .dayH {
   font-size: 10px;
-  font-weight: 700;
   color: var(--mut);
   font-variant-numeric: tabular-nums;
 }
 .dayH.over {
   color: var(--bad);
+  font-weight: 800;
 }
-.flag {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 7px;
-  height: 7px;
-  transform: rotate(45deg);
+/* 오늘 = 날짜 숫자에 액센트 알약(캘린더 관용구). 선택 = 상단 액센트 바. */
+.dayHead.today .date {
   background: var(--acc);
-  box-shadow: 0 0 9px var(--glow);
+  color: var(--bg);
+  border-radius: 999px;
+  min-width: 26px;
+  padding: 0 6px;
+}
+.dayHead.today .dow {
+  color: var(--acc);
+}
+.dayHead.sel {
+  border-top-color: var(--acc);
+  background: color-mix(in srgb, var(--acc) 7%, transparent);
 }
 
-/* 시간 그리드 본문 */
-.body {
+/* ── 종일 행 — 시각 없는 것(마감·미배치)만. 시간축을 오염시키지 않는다. ── */
+.allday {
+  flex: none;
+  display: grid;
+  grid-template-columns: var(--gut) repeat(7, minmax(0, 1fr));
+  gap: var(--colgap);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
+  max-height: 84px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.alldayLab {
+  font-size: 9.5px;
+  color: var(--mut);
+  text-align: right;
+  padding: 6px 6px 0 0;
+  white-space: nowrap;
+}
+.alldayCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 3px;
+  min-width: 0;
+}
+.alldayCell.today {
+  background: color-mix(in srgb, var(--acc) 6%, transparent);
+}
+.alldayCell.sel {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 30%, transparent);
+}
+.chipDeadline,
+.chipUnplaced {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+}
+.chipDeadline {
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+  color: var(--bad);
+}
+.chipUnplaced {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+  cursor: pointer;
+}
+.chipUnplaced:hover {
+  background: color-mix(in srgb, var(--warn) 26%, transparent);
+}
+
+/* ── 스크롤 시간축 ── */
+.scroll {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.grid {
+  position: relative;
   display: grid;
-  grid-template-columns: 52px 1fr;
-  gap: 6px;
+  grid-template-columns: var(--gut) minmax(0, 1fr);
 }
 .gutter {
   position: relative;
 }
-.tick {
+/* 시각 라벨은 격자선 중심에 걸치게 반 줄 올린다. */
+.hourLab {
   position: absolute;
-  right: 8px;
+  right: 6px;
   transform: translateY(-50%);
   font-size: 10px;
-  font-weight: 700;
   color: var(--mut);
-  opacity: 0.7;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
 }
 .cols {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  min-height: 0;
-}
-.col {
-  position: relative;
-  border-radius: var(--r);
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
-  box-shadow: inset 0 0 0 1px var(--line2);
-  overflow: hidden;
-  cursor: pointer;
-}
-.col.sel {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 45%, var(--line));
-}
-.col.today {
-  background: color-mix(in srgb, var(--acc) 7%, transparent);
-  box-shadow: inset 0 0 0 1px var(--acc-glow);
-}
-/* 지난 요일 — 통째로 흐리게(오늘 기준). */
-.colPast {
-  opacity: 0.45;
-}
-/* 지난 블록(오늘 열에서 이미 끝난 시간) — 개별 디밍. */
-.segPast {
-  opacity: 0.4;
-}
-/* 미배치 칩 — 시각 못 잡은 학습(초과용량)이 컬럼 상단에 핀 고정. 클릭=그날 선택(아젠다 오픈). */
-.unplaced {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  right: 4px;
-  z-index: 7;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  max-width: calc(100% - 8px);
-  padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--warn) 16%, var(--panel));
-  color: var(--warn);
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: background 0.14s var(--ease);
-}
-.unplaced:hover {
-  background: color-mix(in srgb, var(--warn) 26%, var(--panel));
-}
-.unplaced:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: 1px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--colgap);
 }
 
-/* 시간 격자선 */
-.grid {
+/* 격자선 — 열 뒤 한 벌. 정시=실선, 30분=더 옅게(시간 위계를 눈으로). */
+.lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  grid-column: 1 / -1;
+}
+.lineH,
+.lineHalf {
   position: absolute;
   left: 0;
   right: 0;
   height: 1px;
-  transform: translateY(-50%);
-  background: var(--line-soft);
-  pointer-events: none;
+}
+.lineH {
+  background: var(--line2);
+}
+.lineHalf {
+  background: color-mix(in srgb, var(--line2) 45%, transparent);
 }
 
-/* 블록 카드 — 시간 위치에 떠 있는 네온/뮤트 카드. */
+.col {
+  position: relative;
+  min-width: 0;
+}
+.col.today {
+  background: color-mix(in srgb, var(--acc) 5%, transparent);
+}
+.col.sel {
+  background: color-mix(in srgb, var(--acc) 8%, transparent);
+}
+/* 지난 요일은 물러나게 — 시선이 남은 날에 가도록. */
+.colPast {
+  opacity: 0.55;
+}
+
+/* ── 일정 카드 ── */
 .seg {
   position: absolute;
-  left: 4px;
-  right: 4px;
+  border-radius: 6px;
+  padding: 3px 6px 3px 8px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   gap: 1px;
-  padding: 5px 8px;
-  border: none;
-  border-radius: 9px;
   overflow: hidden;
-  font-family: inherit;
   text-align: left;
+  font-family: inherit;
+  border: none;
+  cursor: default;
+  /* 좌측 색 띠 = 과목/블록 정체성(전 탭 공통 어휘). */
+  border-left: 3px solid var(--seg, var(--acc));
+  background: color-mix(in srgb, var(--seg, var(--acc)) 16%, var(--panel));
   color: var(--ink);
-  box-sizing: border-box;
-  min-height: 14px;
-  transition:
-    filter 0.14s var(--ease),
-    box-shadow 0.14s var(--ease),
-    transform 0.14s var(--ease);
-}
-/* 짧은 세그 — 높이가 라벨을 못 담으면 단계적으로 감춤(겹침·잘림 방지).
-   45분 미만 compact = 메타 숨김 + 세로 패딩 축소 → 이름 한 줄만 생존.
-   25분 미만 micro = 이름까지 숨김 → 컬러 엣지/틴트가 존재를 표현(hover title로 확인). */
-.seg.compact {
-  padding-top: 1px;
-  padding-bottom: 1px;
-  justify-content: center;
-}
-.seg.compact .segMeta {
-  display: none;
-}
-.seg.micro {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-.seg.micro .segName,
-.seg.micro .segMeta {
-  display: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
 }
 .segName {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.15;
+  white-space: nowrap;
 }
 .segMeta {
-  font-size: 10px;
-  font-weight: 700;
-  opacity: 0.82;
-  white-space: nowrap;
+  font-size: 9.5px;
+  color: var(--mut);
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 높이가 라벨을 못 담을 때 단계적으로 감춘다 — 그리면 겹치고 잘린다. */
+.compact .segMeta {
+  display: none;
+}
+.micro {
+  padding: 1px 4px 1px 6px;
+}
+.micro .segMeta {
+  display: none;
+}
+.micro .segName {
+  font-size: 10px;
 }
 
-/* 학습 — 차분한 캘린더 이벤트(소프트 틴트 + 좌측 컬러 엣지). 꽉 차도 깔끔. 클릭=완료 토글.
-   네온 입체 알약 폐기 → 평면 이벤트. 글로우는 호버·지금에만(오늘의 흐름과 같은 절제). */
 .study {
   cursor: pointer;
-  background: color-mix(in srgb, var(--seg, var(--acc)) 18%, var(--panel));
-  border-left: 3px solid var(--seg, var(--acc));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 24%, transparent);
 }
 .study:hover {
-  background: color-mix(in srgb, var(--seg, var(--acc)) 28%, var(--panel));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 50%, transparent),
-    0 0 14px color-mix(in srgb, var(--seg, var(--glow)) 28%, transparent);
-  z-index: 5;
+  filter: brightness(1.08);
 }
 .study:focus-visible {
   outline: 2px solid var(--acc);
-  outline-offset: -2px;
+  outline-offset: 1px;
 }
-/* 복습·Anki — 더 옅게(같은 색 패밀리). */
-.rev,
-.anki {
+/* 일과 블록 = 학습이 아닌 고정 일정. 채도를 낮춰 학습이 앞에 오게. */
+.block {
+  background: color-mix(in srgb, var(--seg, var(--line2)) 10%, var(--panel));
+  border-left-color: color-mix(in srgb, var(--seg, var(--line2)) 70%, transparent);
+}
+.block .segName {
+  font-weight: 600;
+  color: var(--mut);
+}
+/* 할 일 = 점선 테두리(계획된 학습과 구분). */
+.task {
+  border: 1px dashed color-mix(in srgb, var(--seg, var(--acc)) 55%, transparent);
+  border-left: 3px solid var(--seg, var(--acc));
   background: color-mix(in srgb, var(--seg, var(--acc)) 9%, var(--panel));
-  border-left: 3px solid color-mix(in srgb, var(--seg, var(--acc)) 55%, transparent);
-  box-shadow: inset 0 0 0 1px var(--line2);
 }
 .done {
-  opacity: 0.4;
-  filter: saturate(0.6);
+  opacity: 0.5;
 }
 .done .segName {
   text-decoration: line-through;
 }
-/* 자유 할일(§5-3 오버레이) — 점선 좌엣지로 공부 블록과 구분(같은 색 패밀리). */
-.task {
-  background: color-mix(in srgb, var(--seg, var(--acc)) 11%, var(--panel));
-  border-left: 3px dashed var(--seg, var(--acc));
-  box-shadow: inset 0 0 0 1px var(--line2);
-}
-/* 일과 블록 — 중립 뮤트(좌측 엣지). */
-.block {
-  background: color-mix(in srgb, var(--ink) 5%, var(--panel2));
-  border-left: 3px solid color-mix(in srgb, var(--ink) 20%, transparent);
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--line2);
-}
-.block .segName {
-  color: var(--mut);
-  font-weight: 700;
+.segPast {
+  opacity: 0.5;
 }
 
-/* 지금 라인 */
+/* 세션 타입 색 — 과목색(--seg 인라인)이 없을 때의 폴백. 있으면 인라인이 이긴다. */
+.new {
+  --seg: var(--acc);
+}
+.rev {
+  --seg: #48c9d9;
+}
+.anki {
+  --seg: #e0a33e;
+}
+.blank {
+  --seg: #8b7ff0;
+}
+.mock {
+  --seg: var(--bad);
+}
+
+/* ── 현재 시각 라인 ── */
 .now {
   position: absolute;
-  left: -1px;
-  right: -1px;
-  height: 2px;
-  transform: translateY(-50%);
-  background: var(--acc);
-  box-shadow: 0 0 10px var(--glow);
-  z-index: 6;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--bad);
+  z-index: 3;
+  pointer-events: none;
+  grid-column: 1 / -1;
 }
-.now::before {
-  content: '';
-  position: absolute;
-  left: -3px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  transform: translateY(-50%);
-  background: var(--acc);
-  box-shadow: 0 0 10px var(--glow);
-}
-/* 지금 시각 캡 — now 라인 좌측 micro 캡슐(now 토큰 재사용). "지금 어디" 즉시 앵커. */
 .nowCap {
   position: absolute;
-  left: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 1px 5px;
-  border-radius: 999px;
+  left: 2px;
+  top: -8px;
+  background: var(--bad);
+  color: #fff;
   font-size: 9px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  color: var(--bg);
-  background: var(--acc);
-  box-shadow: 0 0 8px var(--glow);
-  white-space: nowrap;
-  z-index: 7;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .seg,
-  .dayHead {
-    transition: none;
+@media (max-width: 700px) {
+  .cal {
+    --gut: 34px;
   }
-}
-
-@media (max-width: 560px) {
-  .head {
-    grid-template-columns: 40px repeat(7, 1fr);
-  }
-  .body {
-    grid-template-columns: 40px 1fr;
+  .date {
+    font-size: 15px;
   }
   .segMeta {
     display: none;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -49,13 +49,15 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('schedule: 배치 세그먼트가 배분/일/주/월 뷰를 전환한다(#page 미사용)', async () => {
+// 계획 재개편 v4 — 캘린더 세그먼트는 [일·주·월]만 소유하고, 배분은 /alloc 독립 세그먼트로 승격됐다.
+test('schedule: 캘린더 세그먼트가 일/주/월 뷰를 전환한다(#page 미사용)', async () => {
   renderApp('/schedule');
-  // 기본 = 배분 뷰(재개편 v2 §12-5 — 계획의 중심 · 주간 배분 보드에 착지)
-  await waitFor(() => expect(screen.getByRole('button', { name: '배분' })).toHaveAttribute('aria-pressed', 'true'));
+  // 기본 = 주 뷰(배분이 빠지며 캘린더가 계획의 첫 착지)
+  await waitFor(() => expect(screen.getByRole('button', { name: '주' })).toHaveAttribute('aria-pressed', 'true'));
   expect(document.getElementById('page')).toBeNull();
-  // 배분 보드(과목×요일 그리드)가 뜬다
-  await waitFor(() => expect(screen.getByRole('grid', { name: '주간 배분 보드' })).toBeInTheDocument());
+  // 배분은 뷰 스위치에서 빠졌다 — 세그먼트 나브의 '배분' 버튼과 헷갈리지 않게 그룹 안으로 범위를 좁혀 확인.
+  const viewSwitch = within(screen.getByRole('group', { name: '캘린더 보기 방식' }));
+  expect(viewSwitch.queryByRole('button', { name: '배분' })).toBeNull();
   // 일 뷰로 전환 → aria-pressed 이동(세그먼트는 tablist 미이행 → group+aria-pressed, WCAG 4.1.2)
   fireEvent.click(screen.getByRole('button', { name: '일' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '일' })).toHaveAttribute('aria-pressed', 'true'));
@@ -75,6 +77,12 @@ test('routine: + 블록 추가가 store.routine에 들어간다', async () => {
   const add = await screen.findByRole('button', { name: '+ 블록 추가' });
   fireEvent.click(add);
   await waitFor(() => expect(useApp.getState().state.routine.some((b) => b.type !== '수업')).toBe(true));
+});
+
+test('alloc: 배분 세그먼트가 과목×요일 보드를 렌더한다', async () => {
+  renderApp('/alloc');
+  await waitFor(() => expect(screen.getByRole('grid', { name: '주간 배분 보드' })).toBeInTheDocument());
+  expect(document.getElementById('page')).toBeNull();
 });
 
 test('journal: 3문장 요약 저장이 store.summaries에 기록된다', async () => {

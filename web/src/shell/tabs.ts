@@ -45,15 +45,28 @@ export const TABS: TabMeta[] = [
   },
   // 내 길(goals) — 축 A '내 길 지도'(P9 Phase 6). 전략 앵커(전파통신 연구원 자립 트리)라 오늘 다음, 계획 상단.
   { key: 'goals', label: '내 길', group: 'plan', surface: 'study', order: 15, icon: 'compass' },
-  // 배치 세그먼트(주간 스케줄) — 계획 호스트로 흡수(hidden). 라우트·⌘K·g s·딥링크는 유지. 세그먼트 라벨='배치'.
+  // 캘린더 세그먼트(일·주·월 타임블로킹) — 계획 호스트로 흡수(hidden). 라우트·⌘K·g s·딥링크 유지.
+  // 재개편 v4에서 '배치'→'캘린더'로 개명하고 배분 뷰를 alloc 세그먼트로 떼냈다(계획 첫 착지).
   {
     key: 'schedule',
-    label: '주간 스케줄',
+    label: '캘린더',
     group: 'plan',
     surface: 'study',
     order: 20,
     hidden: true,
-    segLabel: '배치',
+    segLabel: '캘린더',
+    icon: 'calendar',
+    fill: true,
+  },
+  // 배분 세그먼트(주간 배분 보드) — 옛 배치 탭의 alloc 뷰를 승격(재개편 v4). 캘린더 바로 뒤.
+  {
+    key: 'alloc',
+    label: '주간 배분',
+    group: 'plan',
+    surface: 'study',
+    order: 22,
+    hidden: true,
+    segLabel: '배분',
     icon: 'calendar',
     fill: true,
   },
@@ -180,7 +193,8 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
 export const SUBTAB_GROUPS: string[][] = [
   // 계획 호스트: plan-host(셸·나브 노출) 아래 뼈대(routine)·과목(items)·배치(schedule) 3세그먼트.
   // host=첫 항목=plan-host → hostTabKey가 세 세그먼트를 '계획'으로 하이라이트. SubTabs는 셸을 버튼에서 제외.
-  ['plan-host', 'items', 'schedule'],
+  // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대).
+  ['plan-host', 'schedule', 'alloc', 'items'],
   ['integrations', 'ledger'],
   ['journal', 'review', 'review-run'],
   ['stats', 'mastery', 'graph'],
