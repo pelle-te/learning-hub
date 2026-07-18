@@ -138,6 +138,10 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         onValueChange={setSearch}
         className={styles.input}
         placeholder="명령·탭 검색, 또는 빠른 캡처 (예: 내일 오후 3시 알고리즘 복습)"
+        /* 팔레트가 열리는 유일한 경로는 사용자의 명시적 ⌘K 다. 열릴 때 입력에 포커스가 가는 건
+           combobox/팔레트의 표준 동작이고, 없으면 오히려 키보드 사용자가 아무 데도 못 간다.
+           no-autofocus 의 원래 대상은 '페이지 로드 시 강제 포커스'라 여기엔 해당 없음. */
+        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
       />
       <Command.List className={styles.list}>

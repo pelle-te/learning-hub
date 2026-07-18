@@ -159,6 +159,9 @@ export default function Today() {
         </div>
       )}
       {moreOpen && (
+        /* 오버레이 클릭-닫기 = 마우스 편의(target===currentTarget 가드). 키보드는 ESC ·
+           useFocusTrap(진입·순환·복원) · 패널의 진짜 닫기 버튼이 담당한다. */
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
         <div
           className={t.overlay}
           role="dialog"

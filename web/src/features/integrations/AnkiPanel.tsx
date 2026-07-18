@@ -273,15 +273,15 @@ export function AnkiPanel() {
                 dks.map((d, i) => (
                   <tr key={d.file}>
                     {i === 0 && (
-                      <td rowSpan={dks.length} scope="rowgroup">
+                      <th rowSpan={dks.length} scope="rowgroup">
                         <b>{s}</b>
                         <br />
                         <span className={`${ds.tiny} ${ds.muted}`}>{totalCards(dks)}장</span>
-                      </td>
+                      </th>
                     )}
-                    <td className={ds.tiny} scope="row">
+                    <th className={ds.tiny} scope="row">
                       {d.file}
-                    </td>
+                    </th>
                     <td>{d.cards}</td>
                     <td>
                       <Button
@@ -345,7 +345,7 @@ export function AnkiPanel() {
                 const due = d.new + d.learn + d.review;
                 return (
                   <tr key={d.name}>
-                    <td scope="row">{d.name}</td>
+                    <th scope="row">{d.name}</th>
                     <td>{d.new}</td>
                     <td>{d.learn}</td>
                     <td>{d.review}</td>

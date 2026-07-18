@@ -65,6 +65,10 @@ export function TrayRow({
       </span>
       {/* 길이 편집(§6-2 인라인) — 스테퍼로 30분 단위(입력창은 draggable 행과 충돌해 버튼으로). */}
       {onSetMin && min != null ? (
+        /* 핸들러가 stopPropagation 뿐이다 — 상태를 바꾸지 않는 순수 드래그 차단 가드다.
+           실제 조작은 안쪽 진짜 버튼 2개가 하고, 키보드로는 부모 드래그가 애초에 발동하지
+           않으므로 이 가드가 없어도 무해하다. */
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <span
           className={s.durStep}
           onClick={(e) => e.stopPropagation()}
@@ -279,6 +283,11 @@ export function TimedCard({
      본문을 button으로 감싸지 않은 건 의도적이다: 본문이 곧 드래그 손잡이라 폼 컨트롤로 바꾸면
      시간박기 드래그가 브라우저별로 흔들린다(핵심 상호작용을 건드리지 않는 쪽을 택함). */
   return (
+    /* 위 주석의 계약대로 키보드 대안이 전부 같은 요소 위에 있다 — onKeyDown 의 Alt+↑↓(이동) ·
+       Alt+Shift+↑↓(길이, 포인터 리사이즈 핸들의 대안) · Alt+Backspace(트레이 복귀), 그리고
+       aria-label 이 그 키들을 스크린리더에 직접 안내한다. onClick 은 툴바 ✎ 버튼과 완전히
+       같은 onSelect 를 부르는 마우스 중복 경로다. */
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={`${s.card} ${kind === 'task' ? s.cardTask : s.cardStudy}${done ? ' ' + s.cardDone : ''}${compact ? ' ' + s.compact : ''}${selected ? ' ' + s.cardSel : ''}${mock ? ' ' + s.mock : ''}${half ? ' ' + s.cardHalf : ''}`}
       style={{ top: `${top}%`, height: `${height}%`, ...(color ? ({ ['--seg']: color } as React.CSSProperties) : {}) }}
@@ -301,6 +310,9 @@ export function TimedCard({
           </span>
         )}
       </div>
+      {/* stopPropagation 뿐 — 툴바 버튼 클릭이 카드 onClick 으로 새지 않게 막는 마우스 전용
+          가드다(키보드 경로엔 영향 없음). */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className={s.cardTools} onClick={(e) => e.stopPropagation()}>
         {/* 편집 바 여는 진짜 버튼 — 키보드로 카드에 들어오면 첫 탭 스톱이 여기고, Enter/Space가
             네이티브로 동작한다(마우스의 '카드 클릭'과 같은 일). 툴바는 focus-within에서 드러난다. */}

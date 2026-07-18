@@ -35,6 +35,9 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
     .sort((a, b) => CAT_ORDER.indexOf(a.hint) - CAT_ORDER.indexOf(b.hint));
 
   return (
+    /* 오버레이 클릭-닫기 = 마우스 편의. 키보드는 ESC(및 `?` 토글, capture 단계 등록) ·
+       useFocusTrap · 진짜 닫기 버튼이 담당한다. */
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className="modal-ov in" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={panelRef}

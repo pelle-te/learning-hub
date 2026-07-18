@@ -190,6 +190,17 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+/* 행 머리글(<th scope="row">)은 본문 데이터처럼 보여야 한다 — 위 th 스타일(대문자·muted·
+   작은 글자)은 thead 의 *열* 머리글용 라벨 어휘다. 본문 th 는 스크린리더에 "이 행이 무엇인지"를
+   알리는 의미만 지고 겉모습은 td 와 같게 둔다. 이 리셋이 없으면 행 머리글을 의미대로 th 로
+   쓰는 순간 덱 이름·과목명이 대문자로 뒤집힌다(그래서 예전엔 td 에 무효한 scope 를 달았다). */
+tbody th {
+  color: inherit;
+  font-weight: inherit;
+  font-size: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
 td input,
 td select {
   padding: 6px 8px;

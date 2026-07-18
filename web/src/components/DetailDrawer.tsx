@@ -39,6 +39,10 @@ export default function DetailDrawer({
   // 그 조상 박스를 기준으로 잡히고 z-index도 그 안에 갇힌다(헤더·사이드바가 오버레이를 덮고 패널 헤드가 잘림).
   // 모달은 뷰포트에 고정돼야 하는 물건이라 문서 최상위에서 그린다.
   return createPortal(
+    /* 오버레이 클릭-닫기는 마우스 편의 레이어다. 키보드 경로는 셋 다 갖춰져 있다 —
+       ESC(아래 useEffect) · useFocusTrap(진입 포커스 + Tab 순환 + 닫을 때 복원) · 헤더의
+       진짜 닫기 버튼(aria-label="닫기"). 린트는 그 셋을 볼 수 없다. */
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
       className={`${s.overlay}${placement === 'center' ? ' ' + s.overlayCenter : ''}`}
       role="dialog"

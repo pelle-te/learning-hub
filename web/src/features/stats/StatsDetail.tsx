@@ -6,7 +6,15 @@
    Stats.tsx 안에 있으면 메인 청크에 통째로 실렸다. lazy 경계를 여기 두어 첫 화면 비용에서 뺀다.
    (겸사겸사 908줄짜리 Stats.tsx가 화면 구성 단위로 갈라진다.)
    레이더 기하는 lib/statsView가 소유 — 여기선 좌표를 받아 그리기만 한다.
+
+   [a11y] 이 파일의 막대·세그먼트는 `role="img" + aria-label + data-tip + tabIndex={0}` 규약을
+   따른다. tabIndex 의 목적은 **툴팁 도달성**이다 — components/Tooltip 이 문서 전역 focusin 으로
+   `[data-tip]` 에 툴팁을 띄우므로, tabIndex 가 없으면 호버 전용 정보가 키보드 사용자에게만
+   사라진다(스크린리더는 같은 문자열의 aria-label 로 이미 받는다 → 정보 손실 없음, 시각+키보드
+   사용자에게 순이익). jsx-a11y/no-noninteractive-tabindex 는 이 '툴팁 타깃' 예외를 표현할
+   수 없어 파일 단위로 끈다 — 이 파일은 차트 전용이라 여기 생길 tabIndex 는 전부 같은 패턴이다.
 ============================================================ */
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 import { useApp } from '@/store/useApp';
 import { useNavigate } from 'react-router-dom';
 import {

@@ -39,6 +39,10 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
   return (
     <div className={s.wrap}>
       {/* roving tabindex: 활성 버튼만 Tab 순서에 두고(0), 나머지는 -1 — 그룹을 한 정거장으로. */}
+      {/* onKeyDown 은 ←/→/Home/End 포커스 이동만 한다(활성화는 자식 <button> 의 Enter/Space 가
+          소유). WAI 세그먼트 패턴 그대로이고, 린트는 컨테이너 role=group 만 보고 '비대화형에
+          핸들러'라 읽는다. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div className={s.seg} role="group" aria-label="페이지 섹션" onKeyDown={onKeyDown}>
         {segs.map((t, i) => {
           const active = t.key === tabKey;

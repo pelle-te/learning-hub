@@ -143,6 +143,10 @@ export function ModalHost() {
   // DetailDrawer(시트)는 body 직속 포털이라, 확인창이 트리 안에 있으면 z-index를 아무리 올려도
   // 시트가 위를 덮었다(시트에서 '과목 삭제' → 확인창이 뒤에 떠 클릭이 안 되던 결함).
   return createPortal(
+    /* 오버레이 mousedown-닫기 = 마우스 편의이고, 결과는 취소 버튼과 동일하다. 키보드 경로는
+       위 onKey(ESC 취소 · Enter 확인, prompt 는 Ctrl/⌘+Enter) · trapTab(포커스 순환) ·
+       열기 전 포커스 복원 · 취소/확인 진짜 버튼이 전부 갖고 있다. */
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className="modal-ov in"
       onMouseDown={(e) => e.target === e.currentTarget && finish(cancelVal)}

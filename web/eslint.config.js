@@ -7,6 +7,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default tseslint.config(
   // e2e(Playwright)는 별도 러너·tsconfig 밖 → 앱 lint에서 제외(Playwright가 자체 처리).
@@ -27,6 +28,12 @@ export default tseslint.config(
   // 컴파일러는 Rules of React를 지킨 컴포넌트만 메모이즈하므로(위반 시 조용히 bail),
   // 이 린트가 위반을 빌드 전에 잡아 자동최적화 적용률을 보장한다(Phase 7 컴파일러 채택 완성).
   reactHooks.configs.flat['recommended-latest'],
+  /* 접근성 회귀 방어(2026-07-19 플랫폼 감사 ⑥) — aria-* 406회·role= 132회를 전부 수작업으로
+     관리하면서 자동 검증이 0이었다. SPA 접근성의 어려운 부분(라우트 아나운서·문서 제목 동기화·
+     포커스 복원)은 이미 손으로 제대로 해놨는데, 정작 값싼 린트가 빠져 있어 신규 코드의 퇴행을
+     못 잡았다. jsx-a11y 는 aria 속성명 오타·role 대비 필수 속성 누락·상호작용 요소의 키보드
+     핸들러 부재 같은 '기계가 잡을 수 있는 것'만 담당한다(나머지는 여전히 사람 몫). */
+  { ...jsxA11y.flatConfigs.recommended, files: ['src/**/*.tsx'] },
   {
     files: ['src/**/*.{ts,tsx}'],
     plugins: { boundaries },

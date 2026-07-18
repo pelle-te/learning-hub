@@ -324,10 +324,14 @@ export default function Settings() {
         <hr />
         <div className={ds.row}>
           <div className={ds.fld}>
-            <label className={st.subLabel}>
+            {/* 그룹 캡션은 <label>이 아니다 — label 은 '하나의 컨트롤'에 묶이는 것이고, 여기서
+                실제 label 역할은 아래 ds.chkRow 가 이미 하고 있다(input 을 감싼다). 캡션은 div +
+                role=group/aria-labelledby 로 묶어야 스크린리더가 "적응형 용량 그룹"으로 읽는다.
+                .subLabel 이 display:inline 을 명시하므로 div 로 바꿔도 픽셀은 동일. */}
+            <div className={st.subLabel} id="set-adaptive-cap">
               적응형 용량 <span className={`${ds.muted} ${ds.tiny}`}>(방법론 1·10절 — "계획은 가설")</span>
-            </label>
-            <div className={st.fldBody}>
+            </div>
+            <div className={st.fldBody} role="group" aria-labelledby="set-adaptive-cap">
               <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"
@@ -339,10 +343,10 @@ export default function Settings() {
             </div>
           </div>
           <div className={ds.fld}>
-            <label className={st.subLabel}>
+            <div className={st.subLabel} id="set-review-anki">
               복습은 Anki에 위임 <span className={`${ds.muted} ${ds.tiny}`}>(시간 이중계상 방지)</span>
-            </label>
-            <div className={st.fldBody}>
+            </div>
+            <div className={st.fldBody} role="group" aria-labelledby="set-review-anki">
               <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"
@@ -354,10 +358,10 @@ export default function Settings() {
             </div>
           </div>
           <div className={ds.fld}>
-            <label className={st.subLabel}>
+            <div className={st.subLabel} id="set-graph-prio">
               그래프 우선순위 <span className={`${ds.muted} ${ds.tiny}`}>(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
-            </label>
-            <div className={st.fldBody}>
+            </div>
+            <div className={st.fldBody} role="group" aria-labelledby="set-graph-prio">
               <label className={`${ds.chkRow} ${st.chkFlush}`}>
                 <input
                   type="checkbox"

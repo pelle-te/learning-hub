@@ -360,6 +360,11 @@ export default function Items() {
         ) : (
           <div className={c.gallery}>
             {items.map((s) => (
+              /* 드래그 재정렬의 키보드 대안이 같은 요소에 있다 — 아래 onKeyDown 의 Alt+↑↓.
+                 이 래퍼는 일부러 포커스를 안 받는다(카드마다 탭 스톱을 늘리지 않으려고);
+                 키 이벤트는 자식 ItemCard 의 포커스 가능한 헤드(role=button·tabIndex=0)에서
+                 버블링돼 도달한다. */
+              // eslint-disable-next-line jsx-a11y/no-static-element-interactions
               <div
                 key={s.id}
                 data-item-id={s.id}

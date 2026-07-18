@@ -245,6 +245,12 @@ export function AllocBoard({
             const subColor = it.color || 'var(--acc)';
             return (
               <div key={it.id} className={s.rowContents} role="row" style={{ ['--sub' as string]: subColor }}>
+                {/* 린트가 draggable 을 상호작용 신호로 읽어 'rowheader 는 포커스 가능해야'라고
+                    하지만, 이 행 머리글은 조작 대상이 아니다 — 드래그는 순수 마우스 편의 레이어이고
+                    접근성 정본은 셀의 NumberField(step 0.5 · aria-label "과목 · 요일 배분(시간)")라
+                    ↑↓·타이핑으로 동일하게 달성된다(결정로그: "드래그 배분은 순수 편의 레이어").
+                    tabIndex 를 주면 조작할 수 없는 탭 스톱만 과목 수만큼 늘어난다. */}
+                {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
                 <div
                   className={`${s.cell} ${s.rowHead}${dragSid === it.id ? ' ' + s.rowGrabbing : ''}`}
                   role="rowheader"
