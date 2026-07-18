@@ -1,4 +1,7 @@
-/* Table — 박스형 표(레거시 .chaptbl 룩 계승). 요소 셀렉터는 .box 하위로 스코프되어 누수 없음. */
+/* Table — 박스형 표. 요소 셀렉터는 .box 하위로 스코프되어 누수 없음.
+   ⚠ ds.chaptbl에서 출발했지만 **의도적으로 갈라진** 뒤다(머리글 대문자·트래킹, 행 hover, td 패딩 6 vs 5).
+   그래서 형제 프리미티브(Card·Pill·ProgressBar)와 달리 composes로 묶지 않는다 —
+   지금 합치면 개선분이 되레 퇴행한다. ds.chaptbl은 챕터 표 전용으로 남는다. */
 .box {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);

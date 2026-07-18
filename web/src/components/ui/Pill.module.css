@@ -1,13 +1,7 @@
-/* Pill — 상태 칩(중립/good/warn/bad). 레거시 .pill 룩 계승. */
+/* Pill — 상태 칩(중립/good/warn/bad). 룩의 SSOT는 ds.pill — 여기선 컴포넌트 델타만 얹는다. */
 .pill {
-  display: inline-block;
-  padding: 2px 9px;
-  border-radius: 99px;
-  font-size: 11px;
-  font-weight: 500;
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  white-space: nowrap;
+  composes: pill from '@/styles/ds.module.css';
+  white-space: nowrap; /* 컴포넌트 델타: 상태 라벨은 줄바꿈하지 않는다 */
 }
 
 .tiny {

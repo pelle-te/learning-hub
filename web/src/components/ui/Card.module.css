@@ -1,17 +1,10 @@
-/* Card — 콘텐츠 패널(설계도 §3). 토큰만 참조해 테마 자동 대응.
-   ⚠ base .card 룩의 SSOT는 styles/ds.module.css(.card 63곳 사용). 이 모듈은 <Card> 컴포넌트 미러이며
-   현재 base 규칙은 ds와 동일 — 바꿀 땐 둘을 함께 고쳐 드리프트를 막는다(.title은 컴포넌트 고유). */
+/* Card — 콘텐츠 패널(설계도 §3).
+   룩의 SSOT는 styles/ds.module.css의 .card(앱 전역이 그걸 쓴다). 예전엔 이 파일이 그 규칙을
+   **손으로 미러링**했고 주석이 "바꿀 땐 둘을 함께 고쳐 드리프트를 막는다"고 적혀 있었다 —
+   손 동기화 계약은 반드시 깨진다. composes로 실제 재사용해 미러 자체를 없앤다(Kpi가 먼저 쓴 패턴).
+   .title만 이 컴포넌트 고유. */
 .card {
-  position: relative;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 19px 20px;
-  margin-bottom: 17px;
-  box-shadow: var(--shadow-sm);
-  transition:
-    border-color 0.2s var(--ease),
-    box-shadow 0.2s var(--ease);
+  composes: card from '@/styles/ds.module.css';
 }
 
 /* 상단 미세 하이라이트 라인 */
