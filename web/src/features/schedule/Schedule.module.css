@@ -11,7 +11,7 @@
   min-width: 0;
 }
 
-/* 상단 네비 — 주 이동 + 뷰 토글(헤어라인 하단 구분) */
+/* 상단 네비 — 주 이동 + 뷰 토글(헤어라인 하단 구분). 좁으면 뷰 세그가 다음 줄로 줄바꿈(모바일 붕괴 방지). */
 .nav {
   flex: none;
   display: flex;
@@ -19,22 +19,36 @@
   gap: 10px;
   padding: 14px 22px;
   border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+/* 주 이동 클러스터 — 한 덩어리로 유지(버튼 텍스트 세로 붕괴 방지), 뷰 세그만 다음 줄로 흐른다. */
+.wknav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.wknav button {
+  white-space: nowrap;
 }
 .wk {
   flex: 1;
-  min-width: 120px;
+  min-width: 90px;
   text-align: center;
 }
 .wkLab {
   font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 .wkOff {
   color: var(--mut);
   font-size: 12px;
   font-weight: 600;
   margin-left: 6px;
+  white-space: nowrap;
 }
 
 .body {

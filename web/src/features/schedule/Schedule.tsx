@@ -208,7 +208,12 @@ export default function Schedule() {
     (t, it) => (it.name && it.mode !== 'daily' ? t + rowSumMin(allocMap[it.id]) : t),
     0,
   );
-  const weekCapMin = capWd.reduce((t, m) => t + m, 0);
+  // 주당 예산 합(주간 과목 weeklyHours) — 배분이 채워가는 목표. '가용 총량'(수십 h)보다 배분과 직접 관계돼 리드아웃에 적합.
+  const weekBudgetMin = state.items.reduce(
+    (t, it) => (it.name && it.mode !== 'daily' ? t + Math.round((it.weeklyHours || 0) * 60) : t),
+    0,
+  );
+  const allocPct = weekBudgetMin > 0 ? Math.round((weekAllocMin / weekBudgetMin) * 100) : 0;
 
   // 일/월 뷰의 앵커 날짜(ISO) — 일 뷰=그날, 월 뷰=그 달. 주 뷰는 weekOffset이 독립 소유.
   const [anchorDs, setAnchorDs] = useState(() => todayISO(state));
@@ -299,12 +304,12 @@ export default function Schedule() {
             value: (
               <>
                 {(weekAllocMin / 60).toFixed(1)}
-                <small> h</small>
+                <small> / {(weekBudgetMin / 60).toFixed(1)}h</small>
               </>
             ),
             accent: true,
           },
-          { label: '가용', value: `${(weekCapMin / 60).toFixed(1)}h` },
+          { label: '예산 달성', value: weekBudgetMin ? `${allocPct}%` : '—' },
           { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
         ]
       : schedView === 'day'
@@ -383,7 +388,7 @@ export default function Schedule() {
   const navBar = (
     <div className={c.nav}>
       {(schedView === 'week' || schedView === 'alloc') && (
-        <>
+        <div className={c.wknav}>
           <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
             ◀ 이전 주
           </Button>
@@ -403,7 +408,7 @@ export default function Schedule() {
           <Button sm variant="ghost" onClick={weekToday}>
             오늘
           </Button>
-        </>
+        </div>
       )}
       {viewSeg}
     </div>

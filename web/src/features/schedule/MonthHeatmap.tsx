@@ -62,6 +62,14 @@ export function MonthHeatmap({
         <Button sm variant="ghost" onClick={() => onNav(0, true)}>
           오늘
         </Button>
+        {/* 색농도 범례 — 모바일에선 칸 안 시간(hL)이 숨겨져 색이 유일 신호라 디코드 aid가 필수. */}
+        <div className={s.legend} aria-hidden="true">
+          <span>적음</span>
+          {[16, 34, 52, 72].map((pct) => (
+            <i key={pct} style={{ background: `color-mix(in srgb, var(--acc) ${pct}%, transparent)` }} />
+          ))}
+          <span>많음</span>
+        </div>
       </div>
 
       <div className={s.dowRow} aria-hidden="true">

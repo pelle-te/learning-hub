@@ -6,6 +6,7 @@
    자동엔진은 복습/Anki/모의를 그 위에 자동으로 얹으므로 여기선 '새 학습(new)' 요일 분배만 사용자가 정한다.
    (React Compiler ON — 수동 메모 없이 파생 인라인.)
 ============================================================ */
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
@@ -31,6 +32,13 @@ function toH(min: number): string {
   return Number.isInteger(h) ? String(h) : h.toFixed(1);
 }
 
+/** 셀 채움 농도(0.16~0.5) — 배분 분량에 비례. 2.5h(150분)에서 포화.
+ *  작은 배분도 즉시 보이게 하한 0.16에서 출발, 무거운 날은 진하게 → 주(週) 부하를 색농도로 읽는다. */
+function fillAlpha(min: number): number {
+  if (min <= 0) return 0;
+  return Math.min(0.5, 0.16 + (min / 150) * 0.34);
+}
+
 export function AllocBoard({
   weekMon,
   res,
@@ -47,6 +55,11 @@ export function AllocBoard({
   const state = useApp((st) => st.state);
   const mutate = useApp((st) => st.mutate);
   const navigate = useNavigate();
+
+  // 드래그 배분(§12-2 예산 칩) — 과목 행을 잡아 요일 칸에 놓으면 그날 +1h. 숫자 입력은 키보드 접근 경로로 병존(WCAG 2.1.1).
+  const [dragSid, setDragSid] = useState<string | null>(null);
+  const [overCell, setOverCell] = useState<string | null>(null); // `${sid}:${wd}`
+  const DROP_STEP = 60; // 드롭 1회 = +1h
 
   const rows = state.items.filter((it) => it.name && it.mode !== 'daily'); // 배분 대상=주간(new) 과목
   const managed = isWeekManaged(state, weekMon);
@@ -78,7 +91,6 @@ export function AllocBoard({
 
   // 열(요일) 합 vs 가용 — 초과 경고용.
   const colMins = cols.map((c) => colSumMin(alloc, c.wd));
-  const totalAllocMin = rows.reduce((t, it) => t + rowSumMin(alloc[it.id]), 0);
 
   if (!hasSubjects) {
     return (
@@ -103,11 +115,13 @@ export function AllocBoard({
 
   return (
     <div className={s.wrap}>
-      {/* 툴바 — 모드 배지 + 이번 주 배분 합 + 이전주복사/자동으로 */}
+      {/* 툴바 — 모드 배지(+상태 안내) + 이전주복사/자동으로. 배분 합계는 상단 크롬 리드아웃이 소유(중복 제거). */}
       <div className={s.toolbar}>
         <span className={`${s.mode}${managed ? ' ' + s.modeManual : ''}`}>{managed ? '내 배분' : '자동 제안'}</span>
-        <span className={s.toolSum}>
-          이번 주 배분 <b>{toH(totalAllocMin)}h</b>
+        <span className={s.toolHint}>
+          {managed
+            ? '내가 정한 배분으로 이번 주가 굴러가요.'
+            : '엔진이 제안한 배분이에요 — 칸을 고치면 내 배분으로 바뀌어요.'}
         </span>
         <div className={s.toolBtns}>
           <Button sm variant="ghost" onClick={onCopyPrev} title="지난 주 배분을 이번 주로 복사">
@@ -169,20 +183,61 @@ export function AllocBoard({
                   : diff < 0
                     ? 'under'
                     : 'over';
+            const subColor = it.color || 'var(--acc)';
             return (
-              <div key={it.id} className={s.rowContents} role="row" style={{ display: 'contents' }}>
-                <div className={`${s.cell} ${s.rowHead}`} role="rowheader" title={it.name}>
-                  <span className={s.swatch} style={{ background: it.color || 'var(--acc)' }} />
+              <div
+                key={it.id}
+                className={s.rowContents}
+                role="row"
+                style={{ display: 'contents', ['--sub' as string]: subColor }}
+              >
+                <div
+                  className={`${s.cell} ${s.rowHead}${dragSid === it.id ? ' ' + s.rowGrabbing : ''}`}
+                  role="rowheader"
+                  title={`${it.name} — 요일 칸으로 끌면 그날 +1h`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', it.id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    setDragSid(it.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragSid(null);
+                    setOverCell(null);
+                  }}
+                >
+                  <span className={s.grab} aria-hidden="true" />
+                  <span className={s.swatch} style={{ background: subColor }} />
                   <span className={s.rowName}>{it.name}</span>
                 </div>
                 {cols.map((c) => {
                   const cellMin = vec[c.wd] || 0;
+                  const cellKey = `${it.id}:${c.wd}`;
+                  const dropOn = dragSid === it.id; // 잡은 과목 행에만 드롭 허용(과목→요일 의미 유지)
                   return (
                     <div
                       key={c.i}
-                      className={`${s.cell} ${s.inputCell}${c.isToday ? ' ' + s.todayCol : ''}${cellMin > 0 ? ' ' + s.filled : ''}`}
+                      className={`${s.cell} ${s.inputCell}${c.isToday ? ' ' + s.todayCol : ''}${overCell === cellKey ? ' ' + s.dropOver : ''}`}
                       role="gridcell"
+                      onDragOver={(e) => {
+                        if (!dropOn) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                        setOverCell(cellKey);
+                      }}
+                      onDragLeave={() => setOverCell((o) => (o === cellKey ? null : o))}
+                      onDrop={(e) => {
+                        if (!dropOn) return;
+                        e.preventDefault();
+                        setCell(it.id, c.wd, (cellMin + DROP_STEP) / 60);
+                        setOverCell(null);
+                        setDragSid(null);
+                      }}
                     >
+                      {/* 비례 시각 채움 — 배분 분량에 따라 과목색 농도가 진해져 주(週) 부하가 한눈에 읽힌다. */}
+                      {cellMin > 0 && (
+                        <span className={s.fill} style={{ opacity: fillAlpha(cellMin) }} aria-hidden="true" />
+                      )}
                       <input
                         type="number"
                         className={s.cellInput}
@@ -204,8 +259,9 @@ export function AllocBoard({
                   <b>{toH(rowMin)}</b>
                   {budgetMin > 0 && <span className={s.budgetOf}> / {toH(budgetMin)}h</span>}
                   <span className={s.badge}>
-                    {state_ === 'done' && '완료 ✓'}
-                    {state_ === 'ok' && '✓'}
+                    {/* 챕터를 다 끝낸 과목은 중립 라벨(배분 충족 초록 ✓와 구분 — 오독 방지). */}
+                    {state_ === 'done' && '챕터 완료'}
+                    {state_ === 'ok' && '충족 ✓'}
                     {state_ === 'under' && `${toH(-diff)}h 남음`}
                     {state_ === 'over' && `+${toH(diff)}h`}
                   </span>
@@ -233,13 +289,13 @@ export function AllocBoard({
               </div>
             );
           })}
-          <div className={`${s.cell} ${s.footHead}`} aria-hidden="true" />
+          <div className={`${s.cell} ${s.footEnd}`} aria-hidden="true" />
         </div>
       </div>
 
       <div className={s.hint}>
-        칸에 시간을 넣으면 그 요일에 <b>새 학습(new)</b>이 배치돼요. 복습·Anki·모의는 엔진이 자동으로 얹어요. 요일
-        헤더를 누르면 그날을 <b>시간표까지</b> 짤 수 있어요.
+        과목 이름을 <b>요일 칸으로 끌면</b> 그날 +1h(숫자를 직접 넣어도 돼요). 배분한 요일엔 <b>새 학습(new)</b>이
+        놓이고, 복습·Anki·모의는 엔진이 자동으로 얹어요. 요일 헤더를 누르면 그날을 <b>시간표까지</b> 짤 수 있어요.
       </div>
     </div>
   );

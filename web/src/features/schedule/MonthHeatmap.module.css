@@ -30,11 +30,33 @@
   font-weight: 700;
   color: var(--mut);
 }
+/* 색농도 범례 — 헤더 오른쪽. 학습량 색 스케일 디코드. */
+.legend {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mut);
+}
+.legend i {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 1px solid var(--line2);
+}
+
 .dowRow {
   flex: none;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
+}
+@media (max-width: 560px) {
+  .legend {
+    display: none;
+  }
 }
 .dowCell {
   text-align: center;
@@ -148,7 +170,8 @@
   .cell {
     padding: 5px 5px;
   }
+  /* 모바일은 범례가 숨으니(공간) 칸 안 시간을 유지해 색 대신 숫자로 디코드되게 한다. */
   .load {
-    display: none;
+    font-size: 9px;
   }
 }
