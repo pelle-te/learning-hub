@@ -470,6 +470,30 @@ test('stats · accent-lime', async ({ page }) => {
   await expect(page).toHaveScreenshot('stats-accent-lime.png', { fullPage: true });
 });
 
+// 주간 배분 보드(재개편 v2 §12) — 계획의 중심. schedView='alloc' 시드로 배치 세그먼트가 과목×요일 매트릭스를
+// 렌더하는지(리드아웃·주 네비 공유·자동 파생 배분 표시). 배분 뷰가 기본이 되는 Phase C 전에 시각 앵커를 잠근다.
+for (const theme of THEMES) {
+  test(`alloc-board · ${theme}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.clock.install({ time: FIXED });
+    await page.addInitScript(
+      ([seed, th]) => {
+        try {
+          localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: th }));
+          localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'alloc', accent: 'lime', recentCommands: [] }));
+        } catch {
+          /* noop */
+        }
+      },
+      [SEED, theme] as const,
+    );
+    await page.goto('/schedule');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.locator('#main [role="grid"], #main section[aria-label]').first()).toBeVisible();
+    await expect(page).toHaveScreenshot(`alloc-board-${theme}.png`, { fullPage: true });
+  });
+}
+
 // 진로 지도 상세(딥링크 /atlas/<key>) — 전체폭 상세 라우트가 그리드가 아닌 상세 화면을 그리는지.
 for (const theme of THEMES) {
   test(`atlas-detail · ${theme}`, async ({ page }) => {

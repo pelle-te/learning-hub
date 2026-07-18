@@ -460,14 +460,74 @@ export function schedule(state: AppState): ScheduleResult {
   const reviewTasks: ReviewTask[] = [];
   const reviewViaAnki = state.reviewViaAnki === true && daily.length > 0;
   const firstMon = mondayOf(parseISO(start));
+  // 복습 씨앗(그날 배운 챕터 근거) — 자동·배분 두 경로가 **같은 코드**로 예약해 산출 동형(회귀 안전).
+  // reviewViaAnki면 Anki/FSRS 소유라 무동작(자동 경로의 기존 가드와 동일). 앵커=완료일(doneDs)·백지 성과 사다리 보존(②#23).
+  const pushReviewTasks = (s: SchedSubject, di: number, covered: string[]): void => {
+    if (reviewViaAnki) return;
+    const comp = state.completions?.[days[di]!.ds]?.[s.id + '|new'];
+    const anchor = comp?.done && comp.doneDs ? clamp(dayDiff(start, comp.doneDs), 0, days.length - 1) : di;
+    const blank = latestBlank(state, s.id);
+    const offsets =
+      blank === false ? REVIEW_OFFSETS_WEAK : blank === true ? [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET] : REVIEW_OFFSETS;
+    offsets.forEach((off) => {
+      const ti = anchor + off;
+      if (ti < days.length && ti <= s._dlIdx)
+        reviewTasks.push({
+          idx: ti,
+          sid: s.id,
+          name: s.name,
+          color: s.color,
+          chapters: covered.slice(),
+          min: Math.max(15, Math.round(ML * 0.25)),
+        });
+    });
+  };
   for (let w = 0; w * 7 <= horizon + 6; w++) {
     const wStart = addDays(firstMon, w * 7);
+    const wk = iso(wStart);
     const widx: number[] = [];
     for (let k = 0; k < 7; k++) {
       const di = dayDiff(start, iso(addDays(wStart, k)));
       if (di >= 0 && di < days.length) widx.push(di);
     }
     if (!widx.length) continue;
+    // ── 배분 주도(managed week, §12-4) — 그 주 weekAlloc가 있으면 사용자 요일 벡터로 new 블록을 구동. ──
+    // 배분에 없는 sid는 그 주 0. 챕터 소진/마감 초과 셀은 스킵(경고는 보드 소관). 복습은 배치된 covered에서 자동(동일 헬퍼).
+    // ⚠ weekAlloc 부재 시 이 분기 자체가 실행 안 됨 → 아래 else(자동)가 종전과 100% 동일(회귀 불변식).
+    const alloc = state.weekAlloc?.[wk];
+    if (alloc) {
+      widx.forEach((di) => {
+        const day = days[di]!;
+        weekly.forEach((s) => {
+          const mins = alloc[s.id]?.[day.wd] || 0;
+          if (mins <= 0 || !chaptersLeft(s) || di > s._dlIdx) return;
+          const covered = advance(s, mins);
+          // 같은 날 같은 과목 new는 한 행으로(완료 키 sid|type 충돌 방지 — 자동 경로 T28과 동일 불변식).
+          const exNew = day.items.find((it) => it.type === 'new' && it.sid === s.id);
+          if (exNew) {
+            exNew.min += mins;
+            covered.forEach((c) => {
+              if (exNew.chapters && !exNew.chapters.includes(c)) exNew.chapters.push(c);
+            });
+          } else {
+            day.items.push({
+              type: 'new',
+              sid: s.id,
+              name: s.name,
+              color: s.color,
+              min: mins,
+              chapters: covered.slice(),
+              mod: true,
+            });
+          }
+          s._schedMin += mins;
+          s._sessions.push({ di, ds: day.ds, chapters: covered });
+          day.used += mins;
+          pushReviewTasks(s, di, covered);
+        });
+      });
+      continue; // 이 주는 배분 구동 완료 — 자동 분배 스킵.
+    }
     // 과목별 이번 주 목표 모듈 — 분수 모듈을 캐리오버해 과/미배정 방지.
     // SD-4: 시작일이 월요일이 아니면 첫 주(w===0)는 부분주 — 7일치 목표를 짧은 첫 주에 통째로
     //       잡으면 미달충(정수 모듈 유실)되던 것을, 실제 가용 일수 비중(widx.length/7)만큼만
@@ -528,35 +588,8 @@ export function schedule(state: AppState): ScheduleResult {
         lastSid = pick.id;
         cap--;
         day.used += ML;
-        // 복습 예약(그날 배운 챕터 근거) — reviewViaAnki면 Anki/FSRS가 소유하므로 생략
-        if (!reviewViaAnki) {
-          // ②#23 최소 적응(감사 2026-07-16 · 카드 레벨은 Anki/FSRS 소유 — 여긴 개념 레벨):
-          // ① 앵커 = 실제 완료일(doneDs) — 늦게 완료해도 복습이 계획일 기준으로 앞당겨 고정되지 않게.
-          //    미완료/구버전 기록(doneDs 없음)은 종전대로 계획일 앵커(무마이그레이션).
-          // ② 사다리 = 백지복습 성과 반영 — 최근 실패 과목은 단축(1·2·4·8·16), 통과 과목은
-          //    16일 종결 뒤 +34일 꼬리 1회(엔진이 영영 복습을 안 만들던 창을 연장).
-          const comp = state.completions?.[day.ds]?.[pick.id + '|new'];
-          const anchor = comp?.done && comp.doneDs ? clamp(dayDiff(start, comp.doneDs), 0, days.length - 1) : di;
-          const blank = latestBlank(state, pick.id);
-          const offsets =
-            blank === false
-              ? REVIEW_OFFSETS_WEAK
-              : blank === true
-                ? [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET]
-                : REVIEW_OFFSETS;
-          offsets.forEach((off) => {
-            const ti = anchor + off;
-            if (ti < days.length && ti <= pick._dlIdx)
-              reviewTasks.push({
-                idx: ti,
-                sid: pick.id,
-                name: pick.name,
-                color: pick.color,
-                chapters: covered.slice(),
-                min: Math.max(15, Math.round(ML * 0.25)),
-              });
-          });
-        }
+        // 복습 예약(그날 배운 챕터 근거) — 배분 경로와 공유하는 pushReviewTasks(reviewViaAnki 가드·완료일 앵커·백지 사다리 내장).
+        pushReviewTasks(pick, di, covered);
       }
     });
   }

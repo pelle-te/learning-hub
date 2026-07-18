@@ -175,6 +175,7 @@ const ACTIVITY_KEYS = [
   'reviewTouches',
   'dayPlans', // 일일 배치 오버라이드(§4-1) — 사용자 소유 활동
   'tasks', // 자유 할 일(§4-4) — 사용자 소유 활동
+  'weekAlloc', // 주간 배분(§12-3) — 사용자 소유 활동
 ] as const;
 export function isPristineState(s: AppState): boolean {
   const src = s as unknown as Record<string, unknown>;

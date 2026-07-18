@@ -38,6 +38,7 @@ export const SCHEDULE_INPUT_KEYS = [
   '_today',
   'blankResults', // ②#23 복습 사다리 적응 — latestBlank가 읽는다(백지 결과 갱신 시 재스케줄)
   'dayPlans', // §4-2 일일 배치 오버라이드 — applyDayPlans가 읽어 manual인 날 items를 치환(변경 시 재스케줄)
+  'weekAlloc', // §12-4 주간 배분 — 배분 있는 주는 new 블록을 요일 벡터로 구동(배분 변경 시 재스케줄)
 ] as const;
 
 function scheduleInputs(s: AppState): readonly unknown[] {

@@ -176,6 +176,12 @@ export const TaskSchema = z.object({
   repeat: z.enum(['daily', 'weekly']).optional(), // 반복(선택) — 완료 시 다음 occurrence를 새 task로 spawn
 });
 
+/* ── 주간 배분(재개편 v2 §12-3) ─────────────────────────────────────────
+   weekMon(ISO 월요일) → sid → 7요일[분](index=wd, 0=일..6=토). '이번 주 어느 과목을 어느 요일에 얼마씩'.
+   **매주 새로**(반복 템플릿 아님) · dayPlans(그날 시각 배치)와 직교(이건 그 주 요일 분배 예산).
+   옵셔널·passthrough라 기존 저장 100% 호환(무마이그레이션). 배분 있는 주만 스케줄러가 배분 구동, 없으면 자동 불변(§12-4). */
+export const WeekAllocSchema = z.record(z.record(z.array(z.number())));
+
 /** 지식상태(_지식상태.json) — graphPriority 보정에 쓰는 과목 숙달도(서버/외부 캐시). */
 export const KnowStateSchema = z
   .object({
@@ -218,6 +224,9 @@ export const AppStateSchema = z
     dayPlans: z.record(DayPlanSchema).optional(),
     /** 자유 할 일(§4-4) — 과목 무관 할 일(과제·심부름). 공부 블록과 별개 독립 리스트. 신규·옵셔널·무마이그레이션. */
     tasks: z.array(TaskSchema).optional(),
+    /** 주간 배분(§12-3) — 키=weekMon(ISO). 배분 있는 주는 스케줄러 new 블록을 이 요일 벡터로 구동(§12-4).
+     *  없는 주는 자동(종전 100% 불변). 옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
+    weekAlloc: WeekAllocSchema.optional(),
     // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
     _today: z.string().optional(),
     _knowState: KnowStateSchema.optional(),
@@ -247,4 +256,5 @@ export type Degree = z.infer<typeof DegreeSchema>;
 export type PlacedBlock = z.infer<typeof PlacedBlockSchema>;
 export type DayPlan = z.infer<typeof DayPlanSchema>;
 export type Task = z.infer<typeof TaskSchema>;
+export type WeekAlloc = z.infer<typeof WeekAllocSchema>;
 export type AppState = z.infer<typeof AppStateSchema>;

@@ -44,9 +44,11 @@ import {
   type DayData,
 } from '@/lib/scheduleView';
 import { timedTasksForDay } from '@/lib/tasks';
+import { allocView, rowSumMin } from '@/lib/weekAlloc';
 import { WeekCalendar } from './WeekCalendar';
 import { DayPlanner } from './DayPlanner';
 import { MonthHeatmap } from './MonthHeatmap';
+import { AllocBoard } from './AllocBoard';
 
 /** 학습/복습/Anki 한 줄 — 완료 체크박스 포함. */
 function StudyRow({ ds: dsKey, row }: { ds: string; row: Extract<Row, { kind: 'study' }> }) {
@@ -199,6 +201,15 @@ export default function Schedule() {
   const nowMin = useNowMin();
   const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 날짜비교 결정성.
 
+  // 배분 뷰(§12-2) — 이 화면 주(週)의 월요일 + 배분 합/가용(리드아웃). 주 네비(weekOffset)를 주 뷰와 공유.
+  const weekMon = iso(curMon);
+  const allocMap = allocView(state, res, weekMon);
+  const weekAllocMin = state.items.reduce(
+    (t, it) => (it.name && it.mode !== 'daily' ? t + rowSumMin(allocMap[it.id]) : t),
+    0,
+  );
+  const weekCapMin = capWd.reduce((t, m) => t + m, 0);
+
   // 일/월 뷰의 앵커 날짜(ISO) — 일 뷰=그날, 월 뷰=그 달. 주 뷰는 weekOffset이 독립 소유.
   const [anchorDs, setAnchorDs] = useState(() => todayISO(state));
   const dayNav = (delta: number, toToday?: boolean) =>
@@ -281,68 +292,83 @@ export default function Schedule() {
   }).length;
 
   const readouts =
-    schedView === 'day'
+    schedView === 'alloc'
       ? [
           {
-            label: `${fmtShort(anchorDate)} 계획`,
+            label: '이번 주 배분',
             value: (
               <>
-                {(anchorDay.planMin / 60).toFixed(1)}
+                {(weekAllocMin / 60).toFixed(1)}
                 <small> h</small>
               </>
             ),
             accent: true,
           },
-          { label: '완료', value: anchorDay.planMin ? `${dayCompRate}%` : '—' },
-          { label: '가용', value: `${(anchorDay.studyMin / 60).toFixed(1)}h` },
+          { label: '가용', value: `${(weekCapMin / 60).toFixed(1)}h` },
+          { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
         ]
-      : schedView === 'month'
+      : schedView === 'day'
         ? [
             {
-              label: `${anchorM + 1}월`,
+              label: `${fmtShort(anchorDate)} 계획`,
               value: (
                 <>
-                  {monthUsedH.toFixed(1)}
+                  {(anchorDay.planMin / 60).toFixed(1)}
                   <small> h</small>
                 </>
               ),
               accent: true,
             },
-            { label: '미완 할일', value: monthOpenTasks ? String(monthOpenTasks) : '—' },
-            { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+            { label: '완료', value: anchorDay.planMin ? `${dayCompRate}%` : '—' },
+            { label: '가용', value: `${(anchorDay.studyMin / 60).toFixed(1)}h` },
           ]
-        : [
-            {
-              label: '이번 주',
-              value: (
-                <>
-                  {weekUsedH.toFixed(1)}
-                  <small> h</small>
-                </>
-              ),
-              accent: true,
-            },
-            { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
-            { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
-          ];
+        : schedView === 'month'
+          ? [
+              {
+                label: `${anchorM + 1}월`,
+                value: (
+                  <>
+                    {monthUsedH.toFixed(1)}
+                    <small> h</small>
+                  </>
+                ),
+                accent: true,
+              },
+              { label: '미완 할일', value: monthOpenTasks ? String(monthOpenTasks) : '—' },
+              { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+            ]
+          : [
+              {
+                label: '이번 주',
+                value: (
+                  <>
+                    {weekUsedH.toFixed(1)}
+                    <small> h</small>
+                  </>
+                ),
+                accent: true,
+              },
+              { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
+              { label: '마감', value: nearestDday == null ? '—' : `D-${nearestDday}` },
+            ];
 
   // 주 뷰에서 다른 주를 보는 중이면 "이번 주로", 그 외엔 .ics 내보내기.
   usePageChromeEffect(
     () => ({
       readouts,
       action:
-        schedView === 'week' && weekOffset !== todayOff
+        (schedView === 'week' || schedView === 'alloc') && weekOffset !== todayOff
           ? { label: '이번 주로 →', onClick: weekToday }
           : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
     }),
     [schedView, readouts, weekOffset, todayOff],
   );
 
-  // 뷰 스위치 [일·주·월] — 타임블로킹 3뷰(카드뷰 제거, §1-2). tablist 계약 미이행 → group+aria-pressed(WCAG 4.1.2).
-  const VIEW_LABEL = { day: '일', week: '주', month: '월' } as const;
+  // 뷰 스위치 [배분·주·일·월] — 배분(alloc)=주간 배분 보드(계획 중심 · §12-5). tablist 미이행 → group+aria-pressed(WCAG 4.1.2).
+  const VIEW_LABEL = { alloc: '배분', day: '일', week: '주', month: '월' } as const;
   const viewSeg = (
     <div className={ds.seg} role="group" aria-label="배치 보기 방식" style={{ marginLeft: 'auto' }}>
-      {(['day', 'week', 'month'] as const).map((v) => (
+      {(['alloc', 'day', 'week', 'month'] as const).map((v) => (
         <button
           key={v}
           aria-pressed={schedView === v}
@@ -356,7 +382,7 @@ export default function Schedule() {
   );
   const navBar = (
     <div className={c.nav}>
-      {schedView === 'week' && (
+      {(schedView === 'week' || schedView === 'alloc') && (
         <>
           <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
             ◀ 이전 주
@@ -399,7 +425,18 @@ export default function Schedule() {
       )}
 
       <div className={c.body}>
-        {schedView === 'day' ? (
+        {schedView === 'alloc' ? (
+          <AllocBoard
+            weekMon={weekMon}
+            res={res}
+            capWd={capWd}
+            todayIso={todayIso}
+            onOpenDay={(dsPick) => {
+              setAnchorDs(dsPick);
+              setView('day');
+            }}
+          />
+        ) : schedView === 'day' ? (
           <DayPlanner ds={anchorDs} res={res} nowMin={nowMin} todayIso={todayIso} onNav={dayNav} />
         ) : schedView === 'month' ? (
           <MonthHeatmap anchor={parseISO(anchorDs)} res={res} todayIso={todayIso} onPick={monthPick} onNav={monthNav} />

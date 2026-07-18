@@ -1,0 +1,294 @@
+/* ============================================================
+   AllocBoard — 주간 배분 보드(재개편 v2 §12). 과목(행) × 요일(열) 매트릭스 + 주당 예산 열 + 가용 푸터.
+   1px 그리드선은 grid gap + 배경색 기법(cell=panel, gap=line). display:contents 행이 셀을 그리드에 평탄화.
+============================================================ */
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 22px 12px;
+  gap: 12px;
+}
+
+/* 툴바 — 모드 배지 + 배분 합 + 액션 */
+.toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.mode {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--mut);
+  background: color-mix(in srgb, var(--mut) 12%, transparent);
+  border: 1px solid var(--line);
+}
+.modeManual {
+  color: var(--acc);
+  background: var(--acc-glow);
+  border-color: color-mix(in srgb, var(--acc) 40%, var(--line));
+}
+.toolSum {
+  font-size: 13px;
+  color: var(--mut);
+}
+.toolSum b {
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 15px;
+}
+.toolBtns {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.note {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--warn) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 38%, var(--line));
+  border-radius: var(--r);
+}
+
+/* 스크롤 호스트 — 매트릭스가 좁을 땐 그대로, 넓으면 가로/세로 스크롤(모바일 대응) */
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(104px, 1.1fr) repeat(7, minmax(54px, 1fr)) minmax(104px, 0.95fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  min-width: 560px; /* 모바일에서 눌리지 않게 — .scroll이 가로 스크롤 */
+}
+
+.cell {
+  background: var(--panel);
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  font-size: 13px;
+}
+
+/* 헤더 행 */
+.corner {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  background: var(--panel2);
+}
+.colHead {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  cursor: pointer;
+  background: var(--panel2);
+  text-align: center;
+}
+.colHead:hover {
+  background: color-mix(in srgb, var(--acc) 10%, var(--panel2));
+}
+.dow {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.date {
+  font-size: 10px;
+  color: var(--mut);
+  font-weight: 600;
+}
+.budgetHead {
+  justify-content: flex-end;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  background: var(--panel2);
+}
+
+/* 오늘 열 강조 */
+.todayCol {
+  background: color-mix(in srgb, var(--acc) 8%, var(--panel));
+}
+.colHead.todayCol {
+  background: color-mix(in srgb, var(--acc) 16%, var(--panel2));
+}
+
+/* 과목 행 헤더(이름) */
+.rowHead {
+  gap: 8px;
+  font-weight: 700;
+  color: var(--ink);
+  min-width: 0;
+  background: var(--panel2);
+}
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
+}
+.rowName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 입력 셀 */
+.inputCell {
+  padding: 0;
+}
+.filled {
+  background: color-mix(in srgb, var(--acc) 12%, var(--panel));
+}
+.filled.todayCol {
+  background: color-mix(in srgb, var(--acc) 18%, var(--panel));
+}
+.cellInput {
+  width: 100%;
+  height: 100%;
+  min-height: 42px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  cursor: text;
+}
+.cellInput::placeholder {
+  color: color-mix(in srgb, var(--mut) 55%, transparent);
+  font-weight: 400;
+}
+.cellInput:focus {
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+  background: var(--acc-glow);
+}
+/* 숫자 스피너 제거 — 셀이 좁아 방해 */
+.cellInput::-webkit-outer-spin-button,
+.cellInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.cellInput[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 주당 예산 셀(행 합/예산 + 상태 배지) */
+.budgetCell {
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+  background: var(--panel2);
+  text-align: right;
+}
+.budgetCell b {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.budgetOf {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 600;
+}
+.badge {
+  font-size: 10px;
+  font-weight: 800;
+}
+.budgetCell.ok .badge,
+.budgetCell.done .badge {
+  color: var(--good);
+}
+/* 완료 과목 행 — 예산이 남아도 조르지 않게 살짝 뮤트 */
+.budgetCell.done {
+  opacity: 0.75;
+}
+.budgetCell.under .badge {
+  color: var(--warn);
+}
+.budgetCell.over {
+  background: color-mix(in srgb, var(--bad) 9%, var(--panel2));
+}
+.budgetCell.over .badge {
+  color: var(--bad);
+}
+
+/* 가용 푸터 행 */
+.footHead {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mut);
+  font-weight: 800;
+  background: var(--panel2);
+}
+.footCell {
+  justify-content: center;
+  gap: 3px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-size: 12px;
+}
+.footCell b {
+  color: var(--ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.footCap {
+  color: var(--mut);
+  font-weight: 600;
+}
+.footOver {
+  background: color-mix(in srgb, var(--bad) 12%, var(--panel2));
+}
+.footOver b {
+  color: var(--bad);
+}
+
+.hint {
+  flex: none;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--mut);
+}
+.hint b {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+@media (max-width: 860px) {
+  .wrap {
+    padding: 12px 14px;
+  }
+}

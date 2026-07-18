@@ -20,6 +20,7 @@ export type {
   PlacedBlock,
   DayPlan,
   Task,
+  WeekAlloc,
   AppState,
 } from './schema';
 

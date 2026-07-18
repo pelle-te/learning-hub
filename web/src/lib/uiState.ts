@@ -7,13 +7,14 @@
 import { z } from 'zod';
 import type { KV } from './types';
 
-// 배치 세그먼트 뷰(계획개편 §5-3) — [일·주·월] 타임블로킹 3뷰. 구 값(overview·cards)은 주(week)로 흡수.
-export const SchedViewSchema = z.enum(['day', 'week', 'month']);
+// 배치 세그먼트 뷰(계획개편 §12-5) — [배분·주·일·월]. 배분(alloc)=주간 배분 보드(계획의 중심 · v2).
+// 구 값(overview·cards)은 주(week)로 흡수.
+export const SchedViewSchema = z.enum(['alloc', 'day', 'week', 'month']);
 export type SchedView = z.infer<typeof SchedViewSchema>;
 /** 레거시 뷰명(overview/cards) → week 매핑. 저장본·딥링크·구 fixture 호환(무마이그레이션). */
 export function migrateSchedView(v: unknown): SchedView | undefined {
   if (v === 'overview' || v === 'cards') return 'week';
-  return v === 'day' || v === 'week' || v === 'month' ? v : undefined;
+  return v === 'alloc' || v === 'day' || v === 'week' || v === 'month' ? v : undefined;
 }
 
 /** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
