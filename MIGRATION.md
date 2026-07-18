@@ -1,5 +1,7 @@
 # 러닝 허브 → React 이전 설계도 (v2)
 
+> ⚠️ **레거시 아카이브 (이전 완료 · 계획 문서)** — 이전은 Phase 6에서 컷오버로 끝났고, 이 문서는 **그때의 계획**을 기록한 스냅샷이다. 현행과 다른 대표적인 것: 목표 스택의 **React 18 → 실제 19**, **Radix → 채택 안 함**(의존성에 없음), 탭 인벤토리(§ 아래 13개 목록 → 현행은 `web/src/shell/tabs.ts`가 원천이며 `degreeReq`는 독립 탭이 아니라 degree 내부 세그먼트). **현행 정본은 `web/docs/아키텍처.md` + `CLAUDE.md`** — 구조·스택·탭 목록을 여기서 인용하지 말 것. 이전 *전략*(Strangler·상태 목적별 분리·경계 zod)은 유효해 근거 문서로 보존한다.
+
 > v1 → v2: 세계적 시스템/2026 표준과 대조해 **9개 결함을 교정**. 핵심은 **상태를 목적별로 분리**(로컬-퍼스트 앱 상태 ≠ 서버/외부 상태)와 **경계의 데이터 계약(zod)**.
 > 목표 스택: **React 18 + Vite + TypeScript + Zustand(+Immer,persist) + TanStack Query + React Router + CSS Modules + Radix/cmdk + zod + Vitest/RTL/Playwright**.
 > 방식: 빅뱅 금지. 도메인 로직은 살리고 뷰만 탭 단위 교체(Strangler) — 단일 상태 원천 공유로 동기화 위험 제거.

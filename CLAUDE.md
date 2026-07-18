@@ -6,7 +6,7 @@
 러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 두 프로세스로 동작한다:
 
 - **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
-- **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 볼트 스캔·Anki·리서치·임베드 제공. **prebuilt `web/dist/`를 서빙**한다.
+- **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 파이썬 도구 실행·산출물 서빙·리서치 잡·LLM 프록시 제공. **prebuilt `web/dist/`를 서빙**한다. (볼트 스캔은 백엔드가 아니라 **프런트의 File System Access**(`web/src/lib/vault.ts`)가 한다 — 서버 없이도 동작하는 게 설계 의도.)
 - dev에선 Vite(:5173)가 `/api`를 :8000으로 프록시해 동일출처처럼 동작. 실행 진입점은 `러닝허브_실행.bat`.
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
@@ -21,13 +21,14 @@
 ## 게이트 (원커맨드 · `cd web` 후)
 
 ```
-npm run verify   # typecheck + lint + format:check + test:coverage (커버리지 게이트 포함)
+npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + test:coverage (커버리지 게이트 포함)
 npm run e2e      # Playwright 시각/동작 스냅샷 (serve.js OFF 상태로 돈다)
 npm run build    # tsc -b && vite build — serve.js가 서빙할 dist 재생성
 ```
 
 - **e2e 스냅샷 함정:** `--update-snapshots`의 기본은 `changed`(2% 내 신규 UI가 안 박힘) → 신규 스냅샷은 `npm run e2e:update`(=all)로. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
 - 슬래시 명령 `/게이트`가 verify+build+budget(번들 예산)+e2e를 돌려 압축 리포트만 반환한다(quick=verify만).
+- **`lint:css`(stylelint)가 CSS 규약을 강제한다** — 생 hex 금지(색은 tokens.css 토큰만) · 브레이크포인트 3종(560/700/900)만. 설정 근거는 `stylelint.config.js` 주석. 규약을 '관습'에 두면 흘러내린다는 게 감사 결론이었다.
 
 ## 트리거 라우팅 (요청 유형 → 읽을 프로토콜)
 
@@ -55,12 +56,14 @@ web/src/
   app/        셸 크롬(App·TopBar·RailSidebar·SubTabs·ThemeProvider·라우팅). 최상위.
   features/   탭 1개 = 폴더 1개. registry.tsx가 key→lazy 컴포넌트. tabs.ts가 탭 메타 원천.
   components/ 재사용 프리미티브(무상태에 가깝게). hooks·lib import 가능.
-  hooks/      공유 React 훅(interactions·useFocusTrap). lib만 import. app/features/components가 소비.
-  store/      zustand: useApp(앱 데이터)·useUI(설정)·useRuntime(plan-무관 캐시)·useFocus.
+  hooks/      공유 React 훅(interactions·useFocusTrap·useWeekOffset). lib만 import. app/features/components가 소비.
+  store/      zustand 스토어(useApp=앱 데이터·useUI=설정·useRuntime=plan-무관 캐시·useFocus·usePageChrome=상단
+              리드아웃·prefill) + 비-스토어 데이터 접근(queries=TanStack·selectors=파생 캐시).
   lib/        순수 로직·IO(api·scheduler·anki·vault·schema…). 최하위, React 무관(훅은 hooks/).
   shell/      탭 레지스트리(tabs.ts)·팔레트·단축키·토스트·액션.
   styles/     ds.module(전역 디자인시스템) + feature별 *.module.css.
-serve.js      /api/{ping,artifact,run,research/start,research/jobs,embed} — stdlib.
+serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천** — 여기 열거하지 않는다
+              (열거본 4벌이 전부 서로 다르게 낡았던 이력. `grep "'/api/" serve.js`로 확인).
 ```
 
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.
