@@ -5,7 +5,7 @@
    여기선 페치 + 순수 트리 파생만(설계도 §1-B). 무결성은 부모 goals.py 게이트가 소유.
 ============================================================ */
 import { getArtifact } from './api';
-import { checkSchemaVersion } from './artifacts';
+import { parseArtifact } from './artifacts';
 import type { GoalsArtifact } from './artifacts.gen';
 
 export type { GoalsArtifact };
@@ -23,7 +23,7 @@ export interface GoalTreeNode extends GoalNode {
 export async function fetchGoalsArtifact(): Promise<GoalsArtifact> {
   const j = await getArtifact<GoalsArtifact>('goals');
   if (!j || !j.ok || !j.data) throw new Error("'내 길(goals)' 계약을 찾지 못했어요.");
-  checkSchemaVersion('goals', j.data); // P7 Bet 1: 버전 드리프트 경고
+  parseArtifact('goals', j.data); // 버전 + 모양 드리프트 경고(비차단)
   return j.data;
 }
 

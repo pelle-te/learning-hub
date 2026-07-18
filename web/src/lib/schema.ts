@@ -42,14 +42,14 @@ export const RoutineBlockSchema = z.object({
   days: z.array(z.number()),
   // 요일별 시간 오버라이드(선택) — 키=요일(일0..토6) 문자열. 없으면 start/end 공통 적용.
   // 일과 블록도 수업처럼 요일마다 다른 시간을 가질 수 있게(blocksForWeekday가 단일 지점서 해석).
-  times: z.record(z.object({ start: z.string(), end: z.string() })).optional(),
+  times: z.record(z.string(), z.object({ start: z.string(), end: z.string() })).optional(),
 });
 
 /** doneDs = 실제 완료 날짜(감사 2026-07-16 ②#23) — 복습 사다리 앵커. 옵셔널이라 기존 저장 무마이그레이션
  *  (없으면 계획일 앵커 = 종전 동작). 계획일(completions 키)과 다르면 '늦게 완료'를 뜻한다. */
 export const CompletionEntrySchema = z.object({ done: z.boolean(), min: z.number(), doneDs: z.string().optional() });
 /** completions[ds][`${sid}|${type}`] = {done,min} */
-export const CompletionsSchema = z.record(z.record(CompletionEntrySchema));
+export const CompletionsSchema = z.record(z.string(), z.record(z.string(), CompletionEntrySchema));
 
 export const SummarySchema = z.object({
   id: z.string(),
@@ -103,7 +103,7 @@ export const RetentionSchema = z.object({
 });
 
 export const WeeklySchema = z.object({
-  checks: z.record(z.boolean()),
+  checks: z.record(z.string(), z.boolean()),
   note: z.string(),
 });
 
@@ -203,7 +203,7 @@ export const PlanEventSchema = z.object({
    weekMon(ISO 월요일) → sid → 7요일[분](index=wd, 0=일..6=토). '이번 주 어느 과목을 어느 요일에 얼마씩'.
    **매주 새로**(반복 템플릿 아님) · dayPlans(그날 시각 배치)와 직교(이건 그 주 요일 분배 예산).
    옵셔널·passthrough라 기존 저장 100% 호환(무마이그레이션). 배분 있는 주만 스케줄러가 배분 구동, 없으면 자동 불변(§12-4). */
-export const WeekAllocSchema = z.record(z.record(z.array(z.number())));
+export const WeekAllocSchema = z.record(z.string(), z.record(z.string(), z.array(z.number())));
 
 /** 지식상태(_지식상태.json) — graphPriority 보정에 쓰는 과목 숙달도(서버/외부 캐시). */
 export const KnowStateSchema = z
@@ -221,15 +221,15 @@ export const AppStateSchema = z
     moduleLen: z.number(),
     reviewRatio: z.number(),
     routine: z.array(RoutineBlockSchema),
-    dayOverrides: z.record(z.union([z.number(), z.string()])),
+    dayOverrides: z.record(z.string(), z.union([z.number(), z.string()])),
     items: z.array(ItemSchema),
-    summaries: z.record(z.array(SummarySchema)),
+    summaries: z.record(z.string(), z.array(SummarySchema)),
     cbms: z.array(CbmsSchema),
     backlog: z.array(BacklogSchema),
     blankResults: z.array(BlankResultSchema),
     retentionLog: z.array(RetentionSchema),
-    weekly: z.record(WeeklySchema),
-    rituals: z.record(RitualSchema),
+    weekly: z.record(z.string(), WeeklySchema),
+    rituals: z.record(z.string(), RitualSchema),
     blankReviewWeekly: z.boolean(),
     mockEveryWeeks: z.number(),
     adaptiveCapacity: z.boolean(),
@@ -241,10 +241,10 @@ export const AppStateSchema = z
     anki: AnkiSchema,
     /** reviewTouches[`${sid}|${chapter}`] = ds(YYYY-MM-DD) — ReviewRun의 챕터 단위 인출 기록.
      *  위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22). 구버전엔 없음. */
-    reviewTouches: z.record(z.string()).optional(),
+    reviewTouches: z.record(z.string(), z.string()).optional(),
     /** 일일 배치 오버라이드(§4-1) — 키=ds(YYYY-MM-DD). manual인 날은 그날 배치의 진리=사용자.
      *  옵셔널·무마이그레이션(구버전 저장 무손상 로드). RUNTIME_CACHE_KEYS 아님 → 영속·백업·.ics 대상. */
-    dayPlans: z.record(DayPlanSchema).optional(),
+    dayPlans: z.record(z.string(), DayPlanSchema).optional(),
     /** 자유 할 일(§4-4) — 과목 무관 할 일(과제·심부름). 공부 블록과 별개 독립 리스트. 신규·옵셔널·무마이그레이션. */
     tasks: z.array(TaskSchema).optional(),
     /** 일정(Wave 5) — 과목 무관 단발 일정(약속·시험·행사). **스케줄 입력**이다(그 시간만큼 가용시간을 깎는다)

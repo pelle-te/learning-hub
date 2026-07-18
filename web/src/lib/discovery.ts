@@ -6,7 +6,7 @@
    승인/기각(사람 결정)은 serve.js /api/run 으로 승격.py 를 호출(쓰기 경로는 Wave④).
 ============================================================ */
 import { getArtifact } from './api';
-import { checkSchemaVersion } from './artifacts';
+import { parseArtifact } from './artifacts';
 import type { DiscoveryArtifact } from './artifacts.gen';
 
 export type { DiscoveryArtifact };
@@ -26,7 +26,7 @@ export const DISCOVERY_KIND_META: Record<DiscoveryKind, { label: string; hint: s
 export async function fetchDiscoveryArtifact(): Promise<DiscoveryArtifact> {
   const j = await getArtifact<DiscoveryArtifact>('discovery');
   if (!j || !j.ok || !j.data) throw new Error('발견 큐가 아직 비어 있어요(수집·발견 미가동).');
-  checkSchemaVersion('discovery', j.data); // P7 Bet 1: 버전 드리프트 경고
+  parseArtifact('discovery', j.data); // 버전 + 모양 드리프트 경고(비차단)
   return j.data;
 }
 

@@ -6,7 +6,7 @@
    TanStack Query가 캐시/로딩/에러를 소유(설계도 §1-B). 서버 JSON이라 필드는 느슨(경계 계약과 정합).
 ============================================================ */
 import { getArtifact } from './api';
-import { checkSchemaVersion } from './artifacts';
+import { parseArtifact } from './artifacts';
 
 /** 시퀀싱 항목의 우선 버킷 — SSOT = 커리큘럼.py build_sequencing(remediate>zpd>frontier). */
 export type SeqReason = 'remediate' | 'zpd' | 'frontier';
@@ -175,6 +175,6 @@ export function isRelevanceMonotone(h: EngineHealth | null | undefined): boolean
 export async function fetchCurriculumArtifact(): Promise<Curriculum> {
   const j = await getArtifact<Curriculum>('curriculum');
   if (!j || !j.ok || !j.data) throw new Error('커리큘럼 산출물(curriculum)을 찾지 못했어요.');
-  checkSchemaVersion('curriculum', j.data); // P7 Bet 1: 버전 드리프트 경고
+  parseArtifact('curriculum', j.data); // 버전 + 모양 드리프트 경고(비차단)
   return j.data;
 }

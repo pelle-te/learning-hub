@@ -5,7 +5,7 @@
    TanStack Query가 캐시/로딩/에러를 소유(설계도 §1-B). 서버 JSON이라 필드는 느슨(전부 옵셔널).
 ============================================================ */
 import { getArtifact } from './api';
-import { checkSchemaVersion } from './artifacts';
+import { parseArtifact } from './artifacts';
 
 export interface KnowledgeConcept {
   title?: string;
@@ -84,7 +84,7 @@ export function frontierNext(k: Knowledge | undefined): KnowledgeFrontier | null
 export async function fetchKnowledgeArtifact(): Promise<Knowledge> {
   const j = await getArtifact<Knowledge>('knowledge');
   if (!j || !j.ok || !j.data) throw new Error('지식상태 산출물(knowledge)을 찾지 못했어요.');
-  checkSchemaVersion('knowledge', j.data); // P7 Bet 1: 버전 드리프트 경고
+  parseArtifact('knowledge', j.data); // 버전 + 모양 드리프트 경고(비차단)
   return j.data;
 }
 
@@ -95,7 +95,7 @@ export async function loadKnowledgeStateFromVault(handle: FileSystemDirectoryHan
     const aud = await meta.getDirectoryHandle('cache'); // P7 Phase 3: 감사→cache(파생)
     const fh = await aud.getFileHandle('_지식상태.json');
     const k = JSON.parse(await (await fh.getFile()).text()) as Knowledge;
-    checkSchemaVersion('knowledge', k); // P7 Bet 1: 버전 드리프트 경고
+    parseArtifact('knowledge', k); // 버전 + 모양 드리프트 경고(비차단)
     return k;
   } catch {
     return null;

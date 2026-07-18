@@ -284,6 +284,18 @@ export function sanitizeImported(state: AppState): AppState {
         Number.isFinite(e.start as number) &&
         Number.isFinite(e.min as number),
     );
+  // tasks(§4-4): events 와 같은 위험인데 방어가 빠져 있었다(2026-07-19 감사 ⑤ — ACTIVITY_KEYS·
+  // TaskSchema 에는 들어갔는데 여기만 누락). start/min 이 문자열이면 캘린더 배치 산술이 NaN 이 된다.
+  // ⚠ events 와 달리 **레코드를 지우지 않는다** — start/min 이 옵셔널이라 그 필드만 떼면 할 일이
+  //   '미지정 트레이 항목'으로 살아남는다. 사용자 저작물이라 최소 파괴가 옳다(events 는 시각이 필수라
+  //   시각 없는 일정이 성립하지 않아 레코드째 걸렀다).
+  if (Array.isArray(s.tasks)) {
+    s.tasks = (s.tasks as unknown[]).filter((t) => !!t && typeof t === 'object');
+    for (const t of s.tasks as Record<string, unknown>[]) {
+      if (t.start !== undefined && !Number.isFinite(t.start as number)) delete t.start;
+      if (t.min !== undefined && !Number.isFinite(t.min as number)) delete t.min;
+    }
+  }
   // items: 비객체 원소는 refineItemColors(부팅 경로·렌더 밖)에서 throw해 앱을 영구 백지로 만든다.
   // 여기서 걸러야 손상 백업이 localStorage에 영속되는 것 자체를 막는다.
   if (Array.isArray(s.items)) s.items = (s.items as unknown[]).filter((it) => !!it && typeof it === 'object');

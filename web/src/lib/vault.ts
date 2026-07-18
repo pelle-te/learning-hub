@@ -5,7 +5,7 @@
 ============================================================ */
 import { SKIP, rid } from './utils';
 import { dirEntries, pickDirectory, queryPermission, requestPermission } from './fsAccess';
-import { checkSchemaVersion } from './artifacts';
+import { parseArtifact } from './artifacts';
 import type { Chapter } from './types';
 
 export interface VaultChapter {
@@ -34,7 +34,7 @@ export async function loadVaultIndex(
     const aud = await meta.getDirectoryHandle('cache'); // P7 Phase 3: 감사→cache(파생)
     const fh = await aud.getFileHandle('_index.json');
     const idx = JSON.parse(await (await fh.getFile()).text());
-    checkSchemaVersion('index', idx); // P7 Bet 1: parent↔hub 스키마 버전 드리프트 경고
+    parseArtifact('index', idx); // parent↔hub 버전 + 모양 드리프트 경고(비차단)
     return idx;
   } catch {
     return null;

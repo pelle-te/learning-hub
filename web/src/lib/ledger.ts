@@ -6,7 +6,7 @@
    이 파일은 타입·페치·순수 파생만. 렌더는 features/ledger가 소유(React 무관).
 ============================================================ */
 import { getArtifact } from './api';
-import { checkSchemaVersion } from './artifacts';
+import { parseArtifact } from './artifacts';
 // 5단계(furthest 순서)는 부모 ledger 스키마에서 생성 — 손유지 복제 제거(챕터원장.py STAGES와 동일 SSOT).
 import { LEDGER_STAGES, type LedgerStage } from './artifacts.gen';
 export { LEDGER_STAGES, type LedgerStage };
@@ -139,6 +139,6 @@ export function bottleneckStage(l: Ledger): { stage: LedgerStage; passed: number
 export async function fetchLedgerArtifact(): Promise<Ledger> {
   const j = await getArtifact<Ledger>('ledger');
   if (!j || !j.ok || !j.data) throw new Error('챕터 원장 산출물(ledger)을 찾지 못했어요.');
-  checkSchemaVersion('ledger', j.data); // P7 Bet 1: 버전 드리프트 경고
+  parseArtifact('ledger', j.data); // 버전 + 모양 드리프트 경고(비차단)
   return j.data;
 }
