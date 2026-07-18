@@ -3,12 +3,14 @@ import path from 'node:path';
 
 // Vitest 전용 설정(플러그인 없음 → vite.config.ts의 react/pwa 플러그인 타입과 분리).
 // 순수 lib 로직은 node 환경(기본). 컴포넌트 테스트(RTL·.test.tsx)는 파일 상단
-// `// @vitest-environment jsdom` 프라그마로 jsdom에서 돈다. JSX는 esbuild automatic 변환.
+// `// @vitest-environment jsdom` 프라그마로 jsdom에서 돈다.
+//
+// JSX 변환: 옛 `esbuild: { jsx: 'automatic' }` 를 제거했다(vite 6→8). Vite 8 은 트랜스포머가
+// esbuild→oxc 로 바뀌어 그 키 자체가 없어졌고, automatic 이 기본이라 명시가 불필요하다.
 export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },
-  esbuild: { jsx: 'automatic' },
   test: {
     environment: 'node',
     include: ['test/**/*.test.{ts,tsx}'],
@@ -18,9 +20,21 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/main.tsx', 'src/**/*.d.ts', 'src/vite-env.d.ts', 'src/lib/artifacts.gen.ts'],
       reporter: ['text-summary', 'html'],
-      // 게이트: 현재값 바로 아래로 고정 — 통과는 보장하되 하락은 막는 래칫.
-      // func는 51(E-6 등 확장이 신규 UI 클로저를 다수 더해 분모가 커진 뒤 baseline). 테스트 늘리면 상향.
-      thresholds: { lines: 69, statements: 69, branches: 72, functions: 51 },
+      /* 게이트: 현재값 바로 아래로 고정 — 통과는 보장하되 하락은 막는 래칫.
+
+         ⚠ 2026-07-19 vitest 2→4 재기준선. **테스트가 줄어서가 아니라 계측 방식이 바뀌었다** —
+         같은 752개 테스트에서 분모가 크게 이동했다(statements 21443→9405, branches 5042→7230,
+         functions 1329→2809). 즉 옛 임계값(69/69/72/51)은 더 이상 같은 양을 가리키지 않는다.
+         새 실측(2회 관측): st 68.66~68.78 · br 55.68~56.29 · fn 59.91~60.87 · ln 69.89~69.91.
+         branches 가 72→55 로 내려간 건 커버리지 후퇴가 아니라 분모가 43% 늘어난 결과이고,
+         functions 는 오히려 51→59 로 **올렸다**(같은 이유로 분자 비율이 개선됨).
+         착시 주의: 두 러너의 %는 서로 비교하면 안 된다 — 비교는 이 기준선 이후로만.
+
+         ⚠ 임계는 관측 *최저치* 아래로 잡는다(평균·최고치가 아니라). 같은 커밋을 두 번 돌렸는데
+         fn 60.87→59.91, br 56.29→55.68 로 흔들렸다 — 타이머·인터벌처럼 실행 타이밍에 따라
+         타는 경로가 갈리는 코드가 있다는 뜻이다. 최고치에 붙여 고정하면 코드 변경 없이도
+         CI 가 빨간불이 되는 flaky 게이트가 된다. */
+      thresholds: { lines: 69, statements: 68, branches: 55, functions: 59 },
     },
   },
 });

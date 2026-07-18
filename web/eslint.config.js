@@ -62,17 +62,42 @@ export default tseslint.config(
       // 진입점(main.tsx 등 레이어 미매칭 파일)·CSS import는 검사 제외
       'boundaries/no-unknown-files': 'off',
       'boundaries/no-unknown': 'off',
-      'boundaries/element-types': [
+      /* v5→v7 마이그레이션(2026-07-19): `boundaries/element-types` → `boundaries/dependencies`,
+         `rules` → `policies`, 그리고 from/allow 가 문자열이 아니라 **엔티티 셀렉터**
+         (`{ element: { type } }`)를 받는다. 옛 표기도 아직 돌지만 deprecation 경고를 내고
+         다음 메이저에서 제거된다 — 레이어 강제는 절대규칙(CLAUDE.md #2)이라 조용히 무력화될
+         자리에 낡은 API를 두지 않는다. */
+      'boundaries/dependencies': [
         'error',
         {
           default: 'disallow',
-          rules: [
-            { from: 'app', allow: ['features', 'components', 'hooks', 'store', 'lib'] },
-            { from: 'features', allow: ['components', 'hooks', 'store', 'lib'] },
-            { from: 'components', allow: ['hooks', 'lib'] },
-            { from: 'hooks', allow: ['lib'] },
-            { from: 'store', allow: ['lib'] },
-            { from: 'lib', allow: ['lib'] },
+          policies: [
+            {
+              from: { element: { type: 'app' } },
+              allow: [
+                { to: { element: { type: 'features' } } },
+                { to: { element: { type: 'components' } } },
+                { to: { element: { type: 'hooks' } } },
+                { to: { element: { type: 'store' } } },
+                { to: { element: { type: 'lib' } } },
+              ],
+            },
+            {
+              from: { element: { type: 'features' } },
+              allow: [
+                { to: { element: { type: 'components' } } },
+                { to: { element: { type: 'hooks' } } },
+                { to: { element: { type: 'store' } } },
+                { to: { element: { type: 'lib' } } },
+              ],
+            },
+            {
+              from: { element: { type: 'components' } },
+              allow: [{ to: { element: { type: 'hooks' } } }, { to: { element: { type: 'lib' } } }],
+            },
+            { from: { element: { type: 'hooks' } }, allow: [{ to: { element: { type: 'lib' } } }] },
+            { from: { element: { type: 'store' } }, allow: [{ to: { element: { type: 'lib' } } }] },
+            { from: { element: { type: 'lib' } }, allow: [{ to: { element: { type: 'lib' } } }] },
           ],
         },
       ],

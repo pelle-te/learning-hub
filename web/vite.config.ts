@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
@@ -8,13 +9,15 @@ import path from 'node:path';
 // dev에선 SW 비활성(HMR 간섭 회피) — 프로덕션 빌드에서만 SW 생성/등록.
 export default defineConfig({
   plugins: [
+    react(),
     // React Compiler(React 19) — 컴포넌트를 빌드타임에 자동 메모이제이션.
     // 수동 memo/useMemo/useCallback 없이도 불필요한 리렌더를 제거(프레임워크 최대 활용).
-    react({
-      babel: {
-        plugins: [['babel-plugin-react-compiler', { target: '19' }]],
-      },
-    }),
+    //
+    // ⚠ vite 6→8 배선 변경(2026-07-19): plugin-react 6 은 `babel` 옵션을 없앴다. Vite 8 이
+    //   esbuild→Rolldown 으로 갈아타면서 babel 통로가 별도 플러그인(@rolldown/plugin-babel)으로
+    //   분리됐고, 컴파일러는 plugin-react 가 내보내는 `reactCompilerPreset` 로 얹는다.
+    //   옛 `target: '19'` 는 뺐다 — 그 옵션은 17/18(구버전 React) 지정용이고 19 가 기본이다.
+    babel({ presets: [reactCompilerPreset()] }),
     VitePWA({
       // ⚠ 서비스워커 은퇴(selfDestroying) — 이 앱은 localhost + serve.js /api 백엔드가 떠 있어야만 동작하는
       //    도구라 오프라인 PWA의 이득이 사실상 0인데, SW precache가 빌드 후에도 옛 번들을 물어 "안 바뀐다"
