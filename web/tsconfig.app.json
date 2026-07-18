@@ -23,9 +23,9 @@
     "noUncheckedSideEffectImports": true,
     "noUncheckedIndexedAccess": true,
 
-    /* 경로 별칭 (@/* → src/*) */
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    /* 경로 별칭 (@/* → src/*)
+       TS 7 은 `baseUrl` 을 제거했다(비상대 paths 도 금지) → 상대 경로로 명시. 해석 결과는 동일. */
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"]
 }
