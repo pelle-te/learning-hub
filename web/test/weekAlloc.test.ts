@@ -12,11 +12,17 @@ import {
   copyPrevWeekAlloc,
   deriveAutoAlloc,
   ensureWeekAlloc,
+  isUnschedulable,
   isWeekManaged,
+  pruneAlloc,
+  removeSidFromAlloc,
   resetWeekAlloc,
   rowSumMin,
   setAllocCell,
+  weekAllocTotalMin,
+  weekBudgetMin,
   weekMonOf,
+  weeklyItems,
   zeroVec,
 } from '@/lib/weekAlloc';
 import type { AppState } from '@/lib/types';
@@ -202,5 +208,140 @@ describe('lib/weekAlloc — 순수 CRUD', () => {
 
   it('zeroVec: 길이 7 0벡터', () => {
     expect(zeroVec()).toEqual([0, 0, 0, 0, 0, 0, 0]);
+  });
+});
+
+/* ============================================================
+   아래는 평가웨이브(2026-07) 결함 회귀 고정. 653개 테스트가 못 잡은 이유는
+   기존 불변식이 `weekAlloc = {}`(최상위 빈 맵)만 잠그고 `weekAlloc[wk] = {}`(주 단위 빈 객체)를
+   미커버였기 때문 — 그 한 칸이 세 결함(무음 전멸·첫 주 복사·고아 sid)의 공통 뿌리였다.
+============================================================ */
+
+describe('주간 배분 — 빈 주 객체 계약(치명 회귀)', () => {
+  const items = () => [weeklyItem('수학', 6, mkChapters([['M', 40]]))];
+
+  it('weekAlloc[wk] = {} 는 managed가 아니다 — 자동 산출이 그대로 살아야', () => {
+    const its = items();
+    const a = schedule(baseState(its));
+    // 빈 주 객체도 truthy라 예전 스케줄러는 이 주를 '전 과목 0분 배분'으로 돌려 new를 통째로 지웠다.
+    const b = schedule(baseState(its, { weekAlloc: { [WK0]: {} } }));
+    expect(JSON.stringify(b.days)).toBe(JSON.stringify(a.days));
+    const wk0New = b.days
+      .filter((d) => weekMonOf(d.ds) === WK0)
+      .flatMap((d) => d.items.filter((it) => it.type === 'new'));
+    expect(wk0New.length).toBeGreaterThan(0); // 무음 전멸 금지
+  });
+
+  it('isWeekManaged/allocView: 빈 주 객체는 managed 아님 → 자동 파생을 보여준다', () => {
+    const its = items();
+    const st = baseState(its, { weekAlloc: { [WK0]: {} } });
+    const r = schedule(st);
+    expect(isWeekManaged(st, WK0)).toBe(false); // 배지가 '내 배분'으로 거짓말하지 않게
+    expect(JSON.stringify(allocView(st, r, WK0))).toBe(JSON.stringify(deriveAutoAlloc(r, WK0)));
+  });
+
+  it('과목 키가 있고 값이 전부 0인 주는 managed 존중(의도적 쉬는 주)', () => {
+    const its = items();
+    const sid = (its[0] as { id: string }).id;
+    const st = baseState(its, { weekAlloc: { [WK0]: { [sid]: zeroVec() } } });
+    expect(isWeekManaged(st, WK0)).toBe(true);
+    const r = schedule(st);
+    const wk0New = r.days
+      .filter((d) => weekMonOf(d.ds) === WK0)
+      .flatMap((d) => d.items.filter((it) => it.type === 'new'));
+    expect(wk0New.length).toBe(0); // 사용자가 비운 주는 비워둔다
+  });
+});
+
+describe('주간 배분 — 첫 주 지난주복사(무음 전멸 재현 경로)', () => {
+  it('소스가 지평 밖(첫 주)이면 no-op — 0을 반환하고 그 주 블록이 보존된다', () => {
+    const math = weeklyItem('수학', 6, mkChapters([['M', 40]]));
+    const st = baseState([math]); // startDate=2026-06-23 → 첫 주 = WK0, 그 이전 주는 지평 밖
+    const r = schedule(st);
+    const before = schedule(st)
+      .days.filter((d) => weekMonOf(d.ds) === WK0)
+      .flatMap((d) => d.items.filter((it) => it.type === 'new')).length;
+    expect(before).toBeGreaterThan(0);
+
+    const copied = copyPrevWeekAlloc(st, r, WK0);
+    expect(copied).toBe(0); // 호출부는 이 0으로 '복사할 지난 주 배분이 없어요' 신호를 준다
+    expect(st.weekAlloc?.[WK0]).toBeUndefined(); // 빈 managed 주를 만들지 않았다
+    const after = schedule(st)
+      .days.filter((d) => weekMonOf(d.ds) === WK0)
+      .flatMap((d) => d.items.filter((it) => it.type === 'new')).length;
+    expect(after).toBe(before);
+  });
+
+  it('소스가 있으면 복사한 과목 수를 반환', () => {
+    const phys = weeklyItem('물리', 8, mkChapters([['C', 200]]));
+    const st = baseState([phys]);
+    const r = schedule(st);
+    const WK1 = '2026-06-29';
+    setAllocCell(st, r, WK0, phys.id, 2, 120);
+    expect(copyPrevWeekAlloc(st, r, WK1)).toBe(1);
+  });
+});
+
+describe('주간 배분 — 고아 sid(삭제된 과목 잔재)', () => {
+  it('colSumMin: 유효 sid 집합을 주면 고아 배분이 열 합을 부풀리지 않는다', () => {
+    const map: Record<string, number[]> = {
+      alive: [0, 60, 0, 0, 0, 0, 0], // 월(wd=1) 1h
+      ghost: [0, 180, 0, 0, 0, 0, 0], // 삭제된 과목의 잔재 3h
+    };
+    expect(colSumMin(map, 1)).toBe(240); // 방어 없이는 푸터가 4h(보이는 행 합은 1h)
+    expect(colSumMin(map, 1, new Set(['alive']))).toBe(60);
+  });
+
+  it('removeSidFromAlloc: 전 주에서 그 과목을 지우고, 빈 주는 키째 정리(auto 복귀)', () => {
+    const st = baseState([], {
+      weekAlloc: {
+        [WK0]: { alive: [0, 60, 0, 0, 0, 0, 0], ghost: [0, 180, 0, 0, 0, 0, 0] },
+        '2026-06-29': { ghost: [0, 120, 0, 0, 0, 0, 0] },
+      },
+    });
+    expect(removeSidFromAlloc(st, 'ghost')).toBe(2);
+    expect(colSumMin(st.weekAlloc![WK0]!, 1)).toBe(60);
+    expect(st.weekAlloc!['2026-06-29']).toBeUndefined(); // 빈 주 객체를 남기면 그게 곧 §12-4 결함
+    expect(isWeekManaged(st, '2026-06-29')).toBe(false);
+  });
+
+  it('pruneAlloc: 유효 sid 집합 밖 배분을 일괄 제거', () => {
+    const st = baseState([], {
+      weekAlloc: { [WK0]: { a: [0, 60, 0, 0, 0, 0, 0], b: [0, 30, 0, 0, 0, 0, 0], c: [0, 30, 0, 0, 0, 0, 0] } },
+    });
+    expect(pruneAlloc(st, ['a'])).toBe(2);
+    expect(Object.keys(st.weekAlloc![WK0]!)).toEqual(['a']);
+    expect(pruneAlloc(st, ['a'])).toBe(0); // 멱등
+  });
+});
+
+describe('주간 배분 — 주당 0시간 과목(리드아웃 오염)', () => {
+  it('isUnschedulable: 주당 목표 0/미입력 = 엔진이 new를 만들지 않는 과목', () => {
+    const zero = weeklyItem('영어', 0) as unknown as import('@/lib/types').Item;
+    const ok = weeklyItem('수학', 6) as unknown as import('@/lib/types').Item;
+    expect(isUnschedulable(zero)).toBe(true);
+    expect(isUnschedulable(ok)).toBe(false);
+  });
+
+  it('분자·분모가 같은 집합 — 0시간 과목에 배분해도 200% 같은 값이 안 나온다', () => {
+    const math = weeklyItem('수학', 2, mkChapters([['M', 40]])); // 예산 2h
+    const zero = weeklyItem('영어', 0, mkChapters([['E', 20]])); // 예산 0h — 엔진 무시
+    const st = baseState([math, zero]);
+    const r = schedule(st);
+    setAllocCell(st, r, WK0, math.id, 1, 120); // 월 2h
+    setAllocCell(st, r, WK0, zero.id, 2, 120); // 화 2h — 배분해도 안 굴러감
+
+    expect(weekBudgetMin(st)).toBe(120);
+    expect(weekAllocTotalMin(st, r, WK0)).toBe(120); // 예전 산식이면 240 → 200%
+    expect(weeklyItems(st).length).toBe(2); // 행에서 사라지진 않는다(경고 배지 대상)
+  });
+
+  it('weeklyItems: 이름 없는 자리표시자·daily(Anki)는 배분 대상이 아니다', () => {
+    const st = baseState([
+      weeklyItem('수학', 6),
+      { id: 'x', name: '', mode: 'weekly', weeklyHours: 3, chapters: [] },
+      { id: 'y', name: 'Anki', mode: 'daily', dailyMin: 20, chapters: [] },
+    ]);
+    expect(weeklyItems(st).map((it) => it.name)).toEqual(['수학']);
   });
 });

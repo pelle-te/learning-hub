@@ -179,6 +179,26 @@ export const TaskSchema = z.object({
   repeat: z.enum(['daily', 'weekly']).optional(), // 반복(선택) — 완료 시 다음 occurrence를 새 task로 spawn
 });
 
+/* ── 일정(Wave 5) ──────────────────────────────────────────────────────
+   과목과 무관하고 반복도 아닌 **단발 일정**(약속·시험·행사). tasks(할 일: 체크해서 완료)와
+   의미가 다르다 — 일정은 '그 시각에 일어나는 일'이라 완료 개념이 없고, 대신 **그 시간만큼
+   공부 가용시간을 깎는다**(scheduler.dayStudyMin·freeWindowsForDay).
+   반복 일과는 routine(요일 기반), 과목 파생 블록은 dayPlans — 셋과 직교한다.
+   이름이 PlanEvent인 이유: `Event`는 DOM 전역과 충돌한다.
+   ⚠ allDay는 일부러 없다 — '종일'의 가용시간 의미가 모호해(하루 전체를 0으로?) 과설계가 된다.
+     종일이 필요하면 start=0·min=1440으로 표현되며, 그 해석은 산술 하나로 일관된다.
+   신규·옵셔널·무마이그레이션(기존 저장본은 필드 부재 → 빈 배열로 동작). */
+export const PlanEventSchema = z.object({
+  id: z.string(),
+  ds: z.string(), // 날짜(YYYY-MM-DD) — 일정은 반드시 날짜를 가진다(인박스 없음. 그게 할 일과의 차이)
+  start: z.number(), // 자정 기준 분(0~1439)
+  min: z.number(), // 길이(분) — start+min<=1440 클램프(events.ts)
+  title: z.string(),
+  note: z.string().optional(),
+  color: z.string().optional(), // 캘린더 칩 색(선택) — Task와 같은 관례
+  at: z.number().optional(), // 생성 시각(로그·정렬)
+});
+
 /* ── 주간 배분(재개편 v2 §12-3) ─────────────────────────────────────────
    weekMon(ISO 월요일) → sid → 7요일[분](index=wd, 0=일..6=토). '이번 주 어느 과목을 어느 요일에 얼마씩'.
    **매주 새로**(반복 템플릿 아님) · dayPlans(그날 시각 배치)와 직교(이건 그 주 요일 분배 예산).
@@ -227,6 +247,9 @@ export const AppStateSchema = z
     dayPlans: z.record(DayPlanSchema).optional(),
     /** 자유 할 일(§4-4) — 과목 무관 할 일(과제·심부름). 공부 블록과 별개 독립 리스트. 신규·옵셔널·무마이그레이션. */
     tasks: z.array(TaskSchema).optional(),
+    /** 일정(Wave 5) — 과목 무관 단발 일정(약속·시험·행사). **스케줄 입력**이다(그 시간만큼 가용시간을 깎는다)
+     *  → SCHEDULE_INPUT_KEYS에 반드시 포함. 신규·옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
+    events: z.array(PlanEventSchema).optional(),
     /** 주간 배분(§12-3) — 키=weekMon(ISO). 배분 있는 주는 스케줄러 new 블록을 이 요일 벡터로 구동(§12-4).
      *  없는 주는 자동(종전 100% 불변). 옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
     weekAlloc: WeekAllocSchema.optional(),
@@ -259,5 +282,6 @@ export type Degree = z.infer<typeof DegreeSchema>;
 export type PlacedBlock = z.infer<typeof PlacedBlockSchema>;
 export type DayPlan = z.infer<typeof DayPlanSchema>;
 export type Task = z.infer<typeof TaskSchema>;
+export type PlanEvent = z.infer<typeof PlanEventSchema>;
 export type WeekAlloc = z.infer<typeof WeekAllocSchema>;
 export type AppState = z.infer<typeof AppStateSchema>;

@@ -201,3 +201,56 @@ export function resetDay(state: AppState, ds: string): void {
   if (pinned.length) plans[ds] = { mode: 'manual', blocks: pinned };
   else delete plans[ds];
 }
+
+/* ── 고아 sid 청소(과목 삭제 경로) ────────────────────────────────────────
+   과목을 지워도 dayPlans[ds].blocks[].sid는 승격된 모든 날에 그대로 남는다(참조 무결성 없는 구조).
+   그 잔재는 blocksForDay를 타고 배치·캘린더에 '연결된 과목이 없는 유령 블록'으로 뜨고,
+   applyDayPlans가 그걸 day.items로 되돌려 used·주별시간·통계까지 오염시킨다.
+   weekAlloc의 removeSidFromAlloc와 대칭 — 삭제 경로에서 둘을 함께 부른다. */
+
+/** 한 과목의 블록을 전 dayPlans에서 제거하고 그 sid의 completions 고아 키까지 정리 — 과목 삭제 경로 전용.
+ *
+ *  **빈 날은 키째 삭제(auto 복귀).** 이 청소로 블록이 하나도 안 남은 날에 `{mode:'manual',blocks:[]}`를
+ *  남기면 applyDayPlans가 그날 `d.items=[]`·`d.used=0`으로 치환해 **자동 스케줄이 죽는다**
+ *  — "manual 날이 없으면 자동 산출 100% 불변"(결정로그 §계획개편)의 정반대. weekAlloc이 빈 주 객체를
+ *  키째 지우는 것(removeSidFromAlloc)과 같은 판단이다. 단 **원래부터 비어 있던 날은 손대지 않는다**:
+ *  그건 사용자가 손수 비운 '쉬는 날' 의사표시라 이 과목 삭제와 무관하다(실제로 지운 날만 정리).
+ *
+ *  **completions는 전 날짜에서 그 sid의 키를 지운다.** setBlockDone→syncBlockCompletion이 블록 done을
+ *  `completions[ds]['sid|type']`로 미러링하므로, 블록만 지우면 그 집계 키가 고아로 남아
+ *  완료 분(adherenceFactor·통계·연속일수)을 계속 부풀린다. 과목이 사라진 이상 그 sid의 완료는 manual/auto
+ *  어느 날에서도 의미가 없으므로 날짜 전체를 훑어 지우고, 빈 날 객체는 syncBlockCompletion과 같은 규칙으로
+ *  키째 정리한다. 남는 다른 sid의 집계는 sid|type로 분리돼 있어 재계산이 필요 없다.
+ *
+ *  @returns 정리한 개수(지운 블록 수 + 지운 완료 키 수). state 변형. */
+export function removeSidFromDayPlans(state: AppState, sid: string): number {
+  let n = 0;
+  const plans = state.dayPlans;
+  if (plans) {
+    for (const ds in plans) {
+      const dp = plans[ds];
+      if (!dp || dp.mode !== 'manual' || !dp.blocks.length) continue;
+      const before = dp.blocks.length;
+      dp.blocks = dp.blocks.filter((b) => b.sid !== sid);
+      const removed = before - dp.blocks.length;
+      if (!removed) continue;
+      n += removed;
+      if (!dp.blocks.length) delete plans[ds]; // 빈 manual 날 = 자동 스케줄 사망 → 키째 정리
+    }
+  }
+  const comps = state.completions;
+  if (comps) {
+    const prefix = sid + '|';
+    for (const ds in comps) {
+      const day = comps[ds];
+      if (!day) continue;
+      for (const key in day)
+        if (key.startsWith(prefix)) {
+          delete day[key];
+          n++;
+        }
+      if (!Object.keys(day).length) delete comps[ds];
+    }
+  }
+  return n;
+}

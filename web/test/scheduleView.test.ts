@@ -6,7 +6,15 @@
    여기선 최소 Day를 직접 빚어 주입한다(엔진 결합 없이 뷰 로직만 겨눔).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { computeDay, deadlineDdays, indexDays, SESSION_TYPE_META, type DayIndex, type Row } from '@/lib/scheduleView';
+import {
+  computeDay,
+  deadlineDdays,
+  indexDays,
+  timeSpan,
+  SESSION_TYPE_META,
+  type DayIndex,
+  type Row,
+} from '@/lib/scheduleView';
 import { studyMinByWeekday } from '@/lib/scheduler';
 import { parseISO } from '@/lib/utils';
 import type { AppState, Day, ItemStat, ScheduleItem, ScheduleResult, SessionType } from '@/lib/types';
@@ -186,5 +194,64 @@ describe('scheduleView/deadlineDdays — Today·Schedule 공유 마감 D-day', (
   it('itemStat 부재도 빈 배열로 견딘다', () => {
     expect(deadlineDdays(undefined, DS)).toEqual([]);
     expect(deadlineDdays([], DS)).toEqual([]);
+  });
+});
+
+/* ============================================================
+   timeSpan — 주간 캘린더 spanOf()와 일 편집기 인라인 lo/hi가 동형 복제였던 것을 lib로 이주하며
+   잠근다(뷰 안에 있어 단위테스트가 못 닿던 순수 함수 · 평가웨이브 2026-07).
+   두 호출처의 인자 차이(스냅 60/30, 최소폭 9h/8h, 폴백, 클램프 창)를 옵션으로 흡수했으므로
+   여기선 **각 호출처의 실제 인자로** 기존 산출과 같은지까지 확인한다.
+============================================================ */
+describe('timeSpan — 타임라인 표시 범위', () => {
+  // WeekCalendar 호출 형태: snap 60 · minSpan 9h · fallback 08–20 · 클램프 0~1440(기본).
+  const week = (mins: number[]) => timeSpan(mins, { snap: 60, minSpan: 9 * 60, fallback: { lo: 8 * 60, hi: 20 * 60 } });
+
+  it('빈 배열 → 폴백 창(주간=08–20)', () => {
+    expect(week([])).toEqual({ lo: 8 * 60, hi: 20 * 60 });
+  });
+
+  it('±1시간 여유 + 정시 스냅', () => {
+    expect(week([9 * 60 + 30, 20 * 60])).toEqual({ lo: 8 * 60, hi: 21 * 60 }); // 8:30→8시, 21:00→21시
+  });
+
+  it('단일 값도 최소폭(9h)까지 벌린다', () => {
+    const { lo, hi } = week([12 * 60]);
+    expect(hi - lo).toBe(9 * 60);
+    expect(lo).toBe(11 * 60); // 11시에서 시작해 아래로 벌림
+  });
+
+  it('0/1440 경계에서 최소폭을 반대쪽으로 흡수', () => {
+    expect(week([5])).toEqual({ lo: 0, hi: 9 * 60 }); // 자정 직후 → lo가 0에 걸려 hi로 확장
+    expect(week([1439])).toEqual({ lo: 1440 - 9 * 60, hi: 1440 }); // 자정 직전 → hi가 1440에 걸려 lo로 확장
+  });
+
+  it('일 편집기 형태(snap 30 · minSpan 8h · wake 창 클램프)', () => {
+    const wake0 = 7 * 60;
+    const wake1 = 23 * 60;
+    const day = (mins: number[]) =>
+      timeSpan(mins, {
+        snap: 30,
+        minSpan: 8 * 60,
+        min: wake0,
+        max: wake1,
+        fallback: { lo: wake0, hi: wake0 + 8 * 60 },
+      });
+    expect(day([])).toEqual({ lo: wake0, hi: wake0 + 8 * 60 }); // 일정 없음 → 기상~+8h
+    expect(day([9 * 60 + 40, 10 * 60 + 10])).toEqual({ lo: 8 * 60 + 30, hi: 16 * 60 + 30 }); // 8:40→8:30, 11:10→11:30 후 8h로 확장
+    expect(day([22 * 60])).toEqual({ lo: 15 * 60, hi: 23 * 60 }); // 상한(wake1)에 걸려 lo로 흡수
+  });
+
+  it('클램프 창이 뒤집혀 hi<=lo가 되면 폴백으로 되돌린다(일 편집기의 마지막 방어선)', () => {
+    // 밤샘 일과로 wake0(22시) > wake1(6시)이면 클램프 창이 역전된다 — 예전 인라인 코드의 `if (hi<=lo)` 가드와 동형.
+    const r = timeSpan([12 * 60], {
+      snap: 30,
+      minSpan: 8 * 60,
+      min: 22 * 60,
+      max: 6 * 60,
+      fallback: { lo: 600, hi: 1080 },
+    });
+    expect(r).toEqual({ lo: 600, hi: 1080 });
+    expect(r.hi).toBeGreaterThan(r.lo);
   });
 });

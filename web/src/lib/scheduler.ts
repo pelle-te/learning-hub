@@ -23,6 +23,10 @@ import {
   toMin,
   todayISO,
 } from './utils';
+// managed 주 판정의 단일 술어(§12-4). weekAlloc은 utils/types만 의존하므로 순환 없음.
+import { isWeekManaged } from './weekAlloc';
+// 일정 점유 구간(Wave 5) — events도 utils/types만 의존하므로 순환 없음.
+import { eventIntervals } from './events';
 import type {
   AppState,
   Day,
@@ -143,21 +147,61 @@ export function freeWindowsForWeekday(state: AppState, wd: number): FreeWindows 
   const freeMin = windows.reduce((t, w) => t + (w.e - w.s), 0);
   return { wake0, wake1, windows, freeMin };
 }
+/** **날짜**의 공부 가능 빈 구간 — 요일 창(freeWindowsForWeekday)에서 **그날 일정(events)을 점유로 뺀** 결과.
+ *  요일 창은 반복(routine) 기반이라 날짜별 단발 일정을 담을 수 없다 → 날짜를 아는 변형을 얹는다.
+ *  ⚠ 기존 freeWindowsForWeekday의 시그니처·거동은 **불변**(호출처 다수 · 회귀 위험) — 여기서 재사용만 한다.
+ *  일정이 없는 날은 요일 창을 **그대로 반환**(추가 계산 0) → 거동 100% 종전(자동 불변식).
+ *  wake0/wake1(깨어있는 경계)은 일정이 바꾸지 않는다 — 일정은 창 안의 점유일 뿐 기상/취침이 아니다. */
+export function freeWindowsForDay(state: AppState, ds: string, wd: number): FreeWindows {
+  const base = freeWindowsForWeekday(state, wd);
+  const occ = eventIntervals(state, ds);
+  if (!occ.length) return base;
+  const segs = subtractIntervals(
+    base.windows.map((w): [number, number] => [w.s, w.e]),
+    occ,
+  );
+  const windows = segs.map(([s, e]) => ({ s, e }));
+  return { wake0: base.wake0, wake1: base.wake1, windows, freeMin: windows.reduce((t, w) => t + (w.e - w.s), 0) };
+}
+
+/** 그날 일정이 '공부 가능 시간'에서 **실제로** 깎는 분 = 요일 자유창 총합 − 일정 뺀 창 총합.
+ *  ⚠ 이중 차감 방지의 핵심: 일정 길이를 그냥 빼지 않고 **창과의 교집합**만 뺀다. 그래서
+ *   · 수업/일과와 겹치는 일정(이미 공부시간이 아님) → 추가 차감 0
+ *   · 수면 등 깨어있는 창 밖의 일정 → 차감 0
+ *   · 겹치는 두 일정(이중 약속) → 합집합만큼만 1회 차감(subtractIntervals 멱등)
+ *  이 유도 방식이 "가장 정직한" 경로다 — (a)총량과 (b)구간이 같은 창 계산에서 파생돼 서로 어긋날 수 없다. */
+export function eventStudyLossMin(state: AppState, ds: string, wd: number): number {
+  if (!eventIntervals(state, ds).length) return 0; // 일정 없는 날 = 창 계산 자체를 생략(핫패스 비용 0)
+  return Math.max(0, freeWindowsForWeekday(state, wd).freeMin - freeWindowsForDay(state, ds, wd).freeMin);
+}
+
 /** 요일별 공부 가능 시간(분). */
 export function studyMinByWeekday(state: AppState): number[] {
   const arr = [0, 0, 0, 0, 0, 0, 0];
   for (let wd = 0; wd < 7; wd++) arr[wd] = freeWindowsForWeekday(state, wd).freeMin;
   return arr;
 }
-/** 특정 날짜의 가용 공부 분 (덮어쓰기 우선). */
+/** 특정 날짜의 가용 공부 분 (덮어쓰기 우선 · 그날 일정만큼 차감).
+ *  기준선 = dayOverrides[ds](있으면) 아니면 capWd[wd]. 거기서 **그날 일정이 실제로 먹는 분**을 뺀다.
+ *
+ *  ⚠ 왜 dayOverrides에도 일정을 빼는가(설계 판단): dayOverrides는 "이 날은 N시간 공부하겠다"는
+ *   *공부 가능 시간의 선언*이지 '일정 포함 총량'이 아니다. 일정은 그 선언과 **직교한 사건**이므로
+ *   똑같이 깎는 게 일관된다 — 안 그러면 오버라이드를 준 날만 3시 약속이 공부시간으로 계상돼
+ *   그날만 과편성되는 비대칭이 생긴다. (사용자가 일정을 감안한 값을 넣고 싶다면 오버라이드를 그만큼
+ *   더 크게 적으면 되고, 그 조작은 관찰 가능하다. 반대는 불가능 — 무음 과편성이라 안 보인다.)
+ *
+ *  ⚠ 이중 차감: eventStudyLossMin이 '요일 자유창과의 교집합'만 돌려주므로 수업/일과·수면과 겹치는
+ *   일정은 여기서 추가로 깎이지 않는다(그 시간은 애초에 capWd에 없다). 근거는 그 함수 주석 참조.
+ *  ⚠ 음수 방지 — 종일 일정이 오버라이드보다 길어도 0 아래로 내려가지 않는다. */
 export function dayStudyMin(state: AppState, ds: string, wd: number, capWd: number[]): number {
+  const loss = eventStudyLossMin(state, ds, wd);
   const ov = state.dayOverrides && state.dayOverrides[ds];
   if (ov !== undefined && ov !== null && ov !== '') {
     // 비수치 오버라이드(+ov=NaN)가 그날 studyMin을 오염시키지 않게 가드 — 부적합하면 요일 기본값으로 폴백(L-10).
     const n = +ov;
-    if (Number.isFinite(n)) return Math.round(n * 60);
+    if (Number.isFinite(n)) return Math.max(0, Math.round(n * 60) - loss);
   }
-  return capWd[wd] ?? 0;
+  return Math.max(0, (capWd[wd] ?? 0) - loss);
 }
 export function itemTotalHours(it: Item): number {
   return (it.chapters || []).reduce((t, c) => t + (+c.hours || 0), 0);
@@ -494,8 +538,10 @@ export function schedule(state: AppState): ScheduleResult {
     // ── 배분 주도(managed week, §12-4) — 그 주 weekAlloc가 있으면 사용자 요일 벡터로 new 블록을 구동. ──
     // 배분에 없는 sid는 그 주 0. 챕터 소진/마감 초과 셀은 스킵(경고는 보드 소관). 복습은 배치된 covered에서 자동(동일 헬퍼).
     // ⚠ weekAlloc 부재 시 이 분기 자체가 실행 안 됨 → 아래 else(자동)가 종전과 100% 동일(회귀 불변식).
+    // managed 판정은 lib/weekAlloc.isWeekManaged 단일 술어 — 빈 주 객체(`weekAlloc[wk]={}`)는 managed가
+    // 아니다. 예전엔 `{}`도 truthy라 이 분기가 전 과목 0분으로 돌며 그 주 new 블록을 무음 전멸시켰다.
     const alloc = state.weekAlloc?.[wk];
-    if (alloc) {
+    if (alloc && isWeekManaged(state, wk)) {
       widx.forEach((di) => {
         const day = days[di]!;
         weekly.forEach((s) => {
@@ -720,7 +766,10 @@ export function schedule(state: AppState): ScheduleResult {
       if (tg < 0) continue;
       const learnedBefore = days.slice(0, tg + 1).some((d) => d.items.some((it) => it.type === 'new'));
       if (!learnedBefore) continue; // 배운 게 있어야 모의시험 의미
-      days[tg]!.items.push({ type: 'mock', sid: 'mock', name: '모의시험', color: '#b794f6', min: ML, chapters: [] });
+      // color 없음 — 모의는 연결된 과목이 없어 팔레트 색이 없다. 색 리터럴을 산출물에 굳히면
+      // 인라인 --seg가 뷰의 .mock 토큰(var(--bad))을 덮어 절대규칙 3(색=PALETTE 파생)을 깬다.
+      // 표시는 type==='mock' 플래그 → CSS 토큰이 담당(DayPlanner·WeekCalendar 동일 규약).
+      days[tg]!.items.push({ type: 'mock', sid: 'mock', name: '모의시험', min: ML, chapters: [] });
       days[tg]!.used += ML;
     }
   }
@@ -863,7 +912,10 @@ export function subtractIntervals(segs: [number, number][], intervals: [number, 
    피크 시간대가 있으면 고인지부하(new·mock)를 피크 구간에 먼저 배치(방법론 1절). */
 export function layoutDay(state: AppState, day: Day): LayoutResult {
   const blocks = blocksForWeekday(state, day.wd);
-  const { wake0, wake1, windows } = freeWindowsForWeekday(state, day.wd);
+  // 날짜 창(Wave 5) — 그날 일정 구간이 이미 빠진 창. 자동초안(아래 take/placeItem)이 여기서만 자리를 잡으므로
+  // 일정 시간대에는 블록이 놓이지 않는다. 일정 없는 날은 freeWindowsForWeekday와 동일 객체(거동 불변).
+  const { wake0, wake1, windows } = freeWindowsForDay(state, day.ds, day.wd);
+  const evOcc = eventIntervals(state, day.ds);
   const peak = peakRange(state);
   let segs: [number, number][] = windows.map((w) => [w.s, w.e]);
   const sessions: LayoutSession[] = [];
@@ -959,13 +1011,17 @@ export function layoutDay(state: AppState, day: Day): LayoutResult {
     .filter((x) => x.start != null)
     .map((x): [number, number] => [x.start, x.end])
     .sort((a, b) => a[0] - b[0]);
-  const free: [number, number][] = [];
+  const raw: [number, number][] = [];
   let p = wake0;
   occ.forEach(([s, e]) => {
-    if (s > p) free.push([p, s]);
+    if (s > p) raw.push([p, s]);
     p = Math.max(p, e);
   });
-  if (p < wake1) free.push([p, wake1]);
+  if (p < wake1) raw.push([p, wake1]);
+  // 일정 구간을 빈 시간에서 제외(Wave 5) — 일정은 tl에 넣지 않는다(TimelineEntry.kind 계약을 건드리면
+  // 소비처가 일정을 'study'로 오독한다). 대신 free에서만 빼 "지금 더 할 수 있는 시간"(freeMinAfter·
+  // 오늘 리드아웃)이 약속 시간을 공부 가능으로 세지 않게 한다. 일정 없는 날은 무동작(종전 100% 동일).
+  const free = evOcc.length ? subtractIntervals(raw, evOcc) : raw;
   const freeMin = free.reduce((t, [s, e]) => t + (e - s), 0);
   return { tl, free, freeMin, sessions };
 }

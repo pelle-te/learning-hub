@@ -16,6 +16,7 @@ import {
   addOrMergeBlock,
   setBlockDone,
   removeBlock,
+  removeSidFromDayPlans,
   resetDay,
   resolveSlot,
   snap,
@@ -337,5 +338,154 @@ describe('§4-3 복습 재씨앗 — 수동 new 블록의 하류 복습', () => 
     const rev = res.days.reduce((n, d) => n + d.items.filter((it) => it.type === 'rev').length, 0);
     // manual이 하루 치환하며 그날 auto rev가 사라질 순 있어도, 재씨앗이 '1장'을 중복 추가하진 않는다.
     expect(rev).toBeLessThanOrEqual(autoRev + 3); // 오프셋(1·3·7·16) 내 소폭, 폭증 없음
+  });
+});
+
+/* ── 회귀 고정: 과목 삭제 시 dayPlans 고아 청소 ────────────────────────────
+   weekAlloc과 같은 구멍이 dayPlans에도 있었다 — 과목만 지우면 승격된 모든 날에 그 sid 블록이
+   남아 배치·캘린더에 유령 블록으로 뜨고, setBlockDone이 미러링한 completions['sid|type'] 집계가
+   완료 분을 계속 부풀린다. 그리고 그 청소가 빈 manual 날을 남기면 applyDayPlans가 그날을
+   items=[]로 치환해 **자동 스케줄이 죽는다**(Wave 1이 weekAlloc 빈 주에서 잡은 것과 같은 종류). */
+describe('dayPlans 고아 sid 청소(과목 삭제 경로)', () => {
+  const DS = '2026-06-23';
+
+  /** s1(seed) 옆에 두 번째 과목을 붙인 시드 — s1을 지워도 그날 자동 산출이 살아 있는지 볼 수 있게. */
+  const seed2 = (): AppState => {
+    const s = seed();
+    s.items = [
+      ...s.items,
+      {
+        id: 's2',
+        name: '두번째 과목',
+        color: '#4f8ff0',
+        mode: 'weekly',
+        weeklyHours: 6,
+        chapters: [
+          { id: 'd1', name: 'A장', hours: 2, done: false },
+          { id: 'd2', name: 'B장', hours: 2, done: false },
+        ],
+      } as unknown as AppState['items'][number],
+    ];
+    return s;
+  };
+
+  it('그 sid의 블록이 전 dayPlans에서 사라진다(다른 과목 블록은 보존)', () => {
+    const s = seed2();
+    s.dayPlans = {
+      [DS]: {
+        mode: 'manual',
+        blocks: [
+          { id: 'b1', type: 'new', sid: 's1', name: '테스트 과목', min: 120 },
+          { id: 'b2', type: 'new', sid: 's2', name: '두번째 과목', min: 60 },
+        ],
+      },
+      '2026-06-24': {
+        mode: 'manual',
+        blocks: [{ id: 'b3', type: 'rev', sid: 's1', name: '테스트 과목', min: 30 }],
+      },
+    };
+    s.items = s.items.filter((it) => it.id !== 's1'); // 삭제 경로가 하는 일(Items.removeItem과 같은 순서)
+    expect(removeSidFromDayPlans(s, 's1')).toBe(2); // b1 + b3
+    expect(s.dayPlans![DS]!.blocks.map((b) => b.id)).toEqual(['b2']);
+    expect(blocksForDay(s, schedule(s), DS).some((b) => b.sid === 's1')).toBe(false);
+  });
+
+  it('미러링된 completions 고아 키도 함께 정리된다(완료 분이 어긋나지 않는다)', () => {
+    const s = seed2();
+    s.dayPlans = {
+      [DS]: {
+        mode: 'manual',
+        blocks: [
+          { id: 'b1', type: 'new', sid: 's1', name: '테스트 과목', min: 120 },
+          { id: 'b2', type: 'new', sid: 's2', name: '두번째 과목', min: 60 },
+        ],
+      },
+    };
+    // setBlockDone의 미러링 규약 그대로 완료를 만든다(직접 리터럴이 아니라 실제 경로로).
+    const res = schedule(s);
+    setBlockDone(s, DS, 'b1', true, DS);
+    setBlockDone(s, DS, 'b2', true, DS);
+    expect(s.completions[DS]).toEqual({
+      's1|new': { done: true, min: 120, doneDs: DS },
+      's2|new': { done: true, min: 60, doneDs: DS },
+    });
+    const doneMin = (st: AppState) => Object.values(st.completions[DS] || {}).reduce((t, e) => t + (e.min || 0), 0);
+    expect(doneMin(s)).toBe(180);
+
+    s.items = s.items.filter((it) => it.id !== 's1');
+    removeSidFromDayPlans(s, 's1');
+    expect(s.completions[DS]).toEqual({ 's2|new': { done: true, min: 60, doneDs: DS } });
+    expect(doneMin(s)).toBe(60); // 청소 없이는 180 — 고아 120분이 통계·연속일수를 부풀린다
+    void res;
+  });
+
+  it('전 날짜의 고아 완료 키를 지운다(auto 날 포함) + 빈 날 객체는 키째 정리', () => {
+    const s = seed2();
+    s.completions = {
+      [DS]: { 's1|new': { done: true, min: 120 }, 's2|new': { done: true, min: 60 } },
+      '2026-06-30': { 's1|rev': { done: true, min: 30 } }, // 승격 안 된 auto 날의 완료
+    };
+    expect(removeSidFromDayPlans(s, 's1')).toBe(2); // 완료 키 2건(블록 0건)
+    expect(s.completions[DS]).toEqual({ 's2|new': { done: true, min: 60 } });
+    expect(s.completions['2026-06-30']).toBeUndefined(); // syncBlockCompletion과 같은 빈 날 정리 규칙
+  });
+
+  it('★ 블록이 전부 사라진 날이 자동 스케줄을 죽이지 않는다(빈 manual 날 금지)', () => {
+    const s = seed2();
+    s.dayPlans = {
+      [DS]: { mode: 'manual', blocks: [{ id: 'b1', type: 'new', sid: 's1', name: '테스트 과목', min: 120 }] },
+    };
+    s.items = s.items.filter((it) => it.id !== 's1');
+    removeSidFromDayPlans(s, 's1');
+
+    // 빈 {mode:'manual',blocks:[]}를 남기면 applyDayPlans가 그날을 items=[]로 치환해 자동이 죽는다.
+    expect(s.dayPlans![DS]).toBeUndefined();
+    expect(isManual(s, DS)).toBe(false);
+
+    // 불변식: 남은 산출이 'dayPlans가 애초에 없던' 상태와 100% 동일해야 한다.
+    const bare = seed2();
+    bare.items = bare.items.filter((it) => it.id !== 's1');
+    expect(strip(schedule(s))).toEqual(strip(schedule(bare)));
+    // 그리고 그날은 실제로 비어 있지 않다(자동 산출 생존).
+    const day = schedule(s).days.find((d) => d.ds === DS);
+    expect(day!.items.length).toBeGreaterThan(0);
+  });
+
+  it('원래부터 빈 manual 날(사용자가 비운 쉬는 날)은 건드리지 않는다', () => {
+    const s = seed2();
+    s.dayPlans = { [DS]: { mode: 'manual', blocks: [] } };
+    expect(removeSidFromDayPlans(s, 's1')).toBe(0);
+    expect(s.dayPlans![DS]).toEqual({ mode: 'manual', blocks: [] }); // 이 과목 삭제와 무관한 의사표시
+  });
+
+  it('멱등 — 두 번째 호출은 아무것도 지우지 않는다', () => {
+    const s = seed2();
+    s.dayPlans = {
+      [DS]: { mode: 'manual', blocks: [{ id: 'b1', type: 'new', sid: 's1', name: '테스트 과목', min: 120 }] },
+    };
+    s.completions = { [DS]: { 's1|new': { done: true, min: 120 } } };
+    expect(removeSidFromDayPlans(s, 's1')).toBe(2);
+    expect(removeSidFromDayPlans(s, 's1')).toBe(0);
+  });
+
+  it('dayPlans·completions가 없어도 안전(무동작)', () => {
+    const s = seed();
+    delete (s as { dayPlans?: unknown }).dayPlans;
+    s.completions = {};
+    expect(removeSidFromDayPlans(s, 's1')).toBe(0);
+  });
+});
+
+/* ── 회귀 고정: 절대규칙 3(색 = PALETTE 파생) ──────────────────────────────
+   스케줄러가 모의 아이템에 '#b794f6'을 박아 넣던 게 오래 남아 있었다. 그 값이 산출물에 실리면
+   WeekCalendar가 인라인 --seg로 깔아 .mock 토큰(var(--bad))을 덮는다 → 팔레트 밖 색이 화면에 산다. */
+describe('모의시험 아이템 — 색 리터럴 금지(절대규칙 3)', () => {
+  it('자동 산출 mock 아이템에 color가 없다(표시는 type 플래그 → CSS 토큰)', () => {
+    const s = seed();
+    s.mockEveryWeeks = 1;
+    const res = schedule(s);
+    const mocks = res.days.flatMap((d) => d.items.filter((it) => it.type === 'mock'));
+    expect(mocks.length).toBeGreaterThan(0); // 시드가 실제로 모의를 만드는지 먼저 보장
+    for (const m of mocks) expect(m.color).toBeUndefined();
   });
 });

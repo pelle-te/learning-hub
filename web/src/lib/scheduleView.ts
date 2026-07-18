@@ -29,6 +29,52 @@ export function deadlineDdays(itemStat: ItemStat[] | undefined, todayIso: string
     .sort((a, b) => a.dday - b.dday);
 }
 
+/* ── 타임라인 표시 범위 ───────────────────────────────────────────────────
+   "일정이 있는 구간 ±여유"로 하루를 좁히는 계산 — 주간 캘린더(spanOf)와 일 편집기(인라인 lo/hi)에
+   같은 알고리즘이 두 벌 있었다(스냅 60 vs 30, 폴백만 다름). number[] → {lo,hi} 순수함수인데 뷰
+   안에 있어 테스트가 못 닿았다 → 여기로 이주하고 차이는 옵션으로 흡수한다. */
+export interface TimeSpanOpts {
+  /** 정시/반시 스냅 단위(분). 주간=60, 일 편집기=30. */
+  snap?: number;
+  /** 앞뒤 여유(분) — 첫/끝 일정이 화면 가장자리에 붙지 않게. */
+  pad?: number;
+  /** 최소 표시 폭(분) — 일정 하나뿐인 날 타임라인이 납작해지지 않게. */
+  minSpan?: number;
+  /** 일정이 하나도 없을 때의 창(분). 기본 08:00–(08:00+minSpan). */
+  fallback?: { lo: number; hi: number };
+  /** 하한/상한 클램프(분) — 일 편집기는 깨어있는 창(wake0~wake1)으로 조인다. 기본 0/1440. */
+  min?: number;
+  max?: number;
+}
+
+/** 일정 시각 목록(분)에서 표시 범위 [lo, hi]를 계산한다. mins가 비면 fallback 창.
+ *  ±pad → snap 격자로 확장 → [min,max] 클램프 → minSpan 이중 클램프(hi 먼저, 그래도 좁으면 lo) 순.
+ *  마지막 방어: 클램프 창 자체가 minSpan보다 좁아 hi<=lo가 되면 fallback으로 되돌린다. */
+export function timeSpan(mins: number[], opts: TimeSpanOpts = {}): { lo: number; hi: number } {
+  const snap = opts.snap ?? 60;
+  const pad = opts.pad ?? 60;
+  const minSpan = opts.minSpan ?? 9 * 60;
+  const min = opts.min ?? 0;
+  const max = opts.max ?? 1440;
+  const fb = opts.fallback ?? { lo: 8 * 60, hi: 8 * 60 + minSpan };
+
+  let lo: number;
+  let hi: number;
+  if (mins.length) {
+    lo = Math.floor((Math.min(...mins) - pad) / snap) * snap;
+    hi = Math.ceil((Math.max(...mins) + pad) / snap) * snap;
+  } else {
+    lo = fb.lo;
+    hi = fb.hi;
+  }
+  lo = Math.max(min, lo);
+  hi = Math.min(max, hi);
+  if (hi - lo < minSpan) hi = Math.min(max, lo + minSpan);
+  if (hi - lo < minSpan) lo = Math.max(min, hi - minSpan);
+  if (hi <= lo) return { lo: fb.lo, hi: Math.min(1440, fb.hi) };
+  return { lo, hi };
+}
+
 export type Row =
   | { kind: 'now'; start: number }
   | { kind: 'free'; start: number; end: number }

@@ -6,7 +6,7 @@
    ⚠ state 변형 함수(ensure/set/copy/reset)는 store.mutate(immer draft) 안에서만 호출한다.
 ============================================================ */
 import { addDays, iso, mondayOf, parseISO } from './utils';
-import type { AppState, ScheduleResult } from './types';
+import type { AppState, Item, ScheduleResult } from './types';
 
 /** 7요일 0벡터(분) — index=wd(0=일..6=토). */
 export function zeroVec(): number[] {
@@ -33,21 +33,30 @@ export function deriveAutoAlloc(res: ScheduleResult, wk: string): Record<string,
   return out;
 }
 
-/** 그 주가 managed(사용자 배분 확정)인가. */
+/** 그 주가 managed(사용자 배분 확정)인가 — **배분 계약의 단일 술어**.
+ *  ⚠ `weekAlloc[wk] = {}`(과목 키가 하나도 없는 빈 주 객체)는 **managed가 아니다**.
+ *  왜: 빈 객체도 truthy라 예전 `!!state.weekAlloc?.[wk]`는 스케줄러(§12-4 managed 분기)에서
+ *  "전 과목 0분 배분"으로 해석돼 그 주 new 블록이 통째로 사라졌다(무음 전멸 — 배지는 '내 배분',
+ *  토스트는 '복사했어요'로 성공 신호만 떴다). 스케줄러·보드·시트가 **이 함수 하나로** 같은 판정을 쓴다.
+ *  단, 과목 키가 있고 값이 전부 0인 주(사용자가 의도적으로 비운 '쉬는 주')는 managed로 존중한다 —
+ *  키 유무가 '사용자가 이 주를 손댔다'의 신호이고, 합 0을 auto로 되돌리면 의도를 뒤집는다. */
 export function isWeekManaged(state: AppState, wk: string): boolean {
-  return !!state.weekAlloc?.[wk];
+  const map = state.weekAlloc?.[wk];
+  return !!map && Object.keys(map).length > 0;
 }
 
-/** 그 주 표시용 배분(읽기 전용) — managed면 명시값, 아니면 자동 파생 스냅샷. */
+/** 그 주 표시용 배분(읽기 전용) — managed면 명시값, 아니면 자동 파생 스냅샷.
+ *  판정은 isWeekManaged 하나로 — 빈 주 객체를 '명시값'으로 보면 보드는 텅 비고 엔진은 auto로 도는 괴리가 난다. */
 export function allocView(state: AppState, res: ScheduleResult, wk: string): Record<string, number[]> {
-  return state.weekAlloc?.[wk] ?? deriveAutoAlloc(res, wk);
+  const map = state.weekAlloc?.[wk];
+  return isWeekManaged(state, wk) ? map! : deriveAutoAlloc(res, wk);
 }
 
-/** managed 승격 — 없으면 자동 파생을 스냅샷해 weekAlloc[wk]에 심고 반환(dayPlans ensureManual 동형). state 변형. */
+/** managed 승격 — 없으면(또는 빈 주 객체면) 자동 파생을 스냅샷해 weekAlloc[wk]에 심고 반환(dayPlans ensureManual 동형). state 변형. */
 export function ensureWeekAlloc(state: AppState, res: ScheduleResult, wk: string): Record<string, number[]> {
   state.weekAlloc = state.weekAlloc || {};
-  if (!state.weekAlloc[wk]) state.weekAlloc[wk] = deriveAutoAlloc(res, wk);
-  return state.weekAlloc[wk];
+  if (!isWeekManaged(state, wk)) state.weekAlloc[wk] = deriveAutoAlloc(res, wk);
+  return state.weekAlloc[wk]!;
 }
 
 /** 셀 배분 설정(분) — 승격 후 (sid,wd) 칸을 mins로(음수는 0). state 변형. */
@@ -65,14 +74,21 @@ export function setAllocCell(
   vec[wd] = Math.max(0, Math.round(mins));
 }
 
-/** 이전 주 배분(명시 or 자동)을 이 주로 스냅샷 복사 — per-week지만 되풀이 편의(§12-2). state 변형. */
-export function copyPrevWeekAlloc(state: AppState, res: ScheduleResult, wk: string): void {
+/** 이전 주 배분(명시 or 자동)을 이 주로 스냅샷 복사 — per-week지만 되풀이 편의(§12-2). state 변형.
+ *  @returns 복사한 과목 수(0 = **아무것도 쓰지 않음**). 호출부는 0이면 실패 신호를 줘야 한다.
+ *  왜 no-op 경로가 필요한가: 계획 **첫 주**에서 누르면 이전 주는 지평 밖이라 allocView가 `{}`를 준다.
+ *  예전엔 그 `{}`를 그대로 써서 그 주를 '빈 managed'로 만들었고 → 스케줄러가 전 과목 0분으로 돌아
+ *  그 주 new 블록이 조용히 사라졌다. 복사할 게 없으면 **기존 상태를 손대지 않는다**. */
+export function copyPrevWeekAlloc(state: AppState, res: ScheduleResult, wk: string): number {
   const prev = iso(addDays(parseISO(wk), -7)); // wk=월요일 → -7일 = 지난 주 월요일
   const src = allocView(state, res, prev);
   const copy: Record<string, number[]> = {};
   for (const sid in src) copy[sid] = (src[sid] || zeroVec()).slice(0, 7);
+  const n = Object.keys(copy).length;
+  if (n === 0) return 0; // 소스가 비었다 → 쓰지 않는다(빈 managed 주 생성 금지).
   state.weekAlloc = state.weekAlloc || {};
   state.weekAlloc[wk] = copy;
+  return n;
 }
 
 /** 그 주를 자동으로 되돌리기 — weekAlloc[wk] 삭제(auto 복귀). state 변형. */
@@ -85,9 +101,86 @@ export function rowSumMin(vec: number[] | undefined): number {
   return (vec || []).reduce((t, m) => t + (m || 0), 0);
 }
 
-/** 요일 열 합(분) — 그 wd의 전 과목 배분 합. */
-export function colSumMin(map: Record<string, number[]>, wd: number): number {
+/** 요일 열 합(분) — 그 wd의 전 과목 배분 합.
+ *  validSids를 주면 **그 집합에 있는 sid만** 센다 — 삭제된 과목의 고아 배분이 열 합·초과 경고를
+ *  부풀리는 것을 호출부에서 방어할 수 있게(옵셔널이라 기존 호출부는 무변경). 정상 경로의 청소는
+ *  pruneAlloc/removeSidFromAlloc가 담당하고, 이건 이미 오염된 저장본에 대한 표시 단계 방어선이다. */
+export function colSumMin(map: Record<string, number[]>, wd: number, validSids?: ReadonlySet<string>): number {
   let t = 0;
-  for (const sid in map) t += map[sid]?.[wd] || 0;
+  for (const sid in map) {
+    if (validSids && !validSids.has(sid)) continue;
+    t += map[sid]?.[wd] || 0;
+  }
   return t;
+}
+
+/* ── 고아 배분 청소 ──────────────────────────────────────────────────────
+   과목을 지워도 weekAlloc[wk][sid]는 전 주에 남는다(참조 무결성 없는 맵). 그 잔재는
+   colSumMin(열 합)·가용 초과 경고를 부풀려 "보이는 행 합 1h인데 푸터는 4h" 같은 유령을 만든다.
+   삭제 경로에서 removeSidFromAlloc를, 부팅/복구 같은 일괄 지점에선 pruneAlloc를 부른다. */
+
+/** 한 과목의 배분을 전 주에서 제거 — 과목 삭제 경로 전용. 빈 주 객체는 키째 지운다(auto 복귀).
+ *  @returns 실제로 지운 (주, 과목) 쌍 수. state 변형. */
+export function removeSidFromAlloc(state: AppState, sid: string): number {
+  const all = state.weekAlloc;
+  if (!all) return 0;
+  let n = 0;
+  for (const wk in all) {
+    const map = all[wk];
+    if (!map || !(sid in map)) continue;
+    delete map[sid];
+    n++;
+    if (Object.keys(map).length === 0) delete all[wk]; // 빈 주는 managed가 아니다 → 키 자체를 정리.
+  }
+  return n;
+}
+
+/** 유효 sid 집합에 없는 모든 배분을 제거(일괄 청소·복구용). @returns 지운 (주, 과목) 쌍 수. state 변형. */
+export function pruneAlloc(state: AppState, validSids: Iterable<string>): number {
+  const keep = validSids instanceof Set ? (validSids as Set<string>) : new Set(validSids);
+  const all = state.weekAlloc;
+  if (!all) return 0;
+  let n = 0;
+  for (const wk in all) {
+    const map = all[wk];
+    if (!map) continue;
+    for (const sid in map) {
+      if (keep.has(sid)) continue;
+      delete map[sid];
+      n++;
+    }
+    if (Object.keys(map).length === 0) delete all[wk];
+  }
+  return n;
+}
+
+/* ── 배분 대상 과목·집계 단일화 ───────────────────────────────────────────
+   `it.name && it.mode !== 'daily'` 파생이 Alloc·AllocBoard 3곳에 복붙돼 있었고, 리드아웃의
+   분자(배분 합)와 분모(예산 합)가 각자 필터를 굴려 집합이 어긋날 수 있었다(주당 0h 과목이
+   분자엔 들어가고 분모엔 안 들어가 "4.0 / 2.0h · 200%"). 술어와 집계를 여기 한 곳에 둔다. */
+
+/** 배분 보드에 행으로 서는 과목(=주간 과목). daily(Anki)와 이름 없는 자리표시자는 제외. */
+export function weeklyItems(state: AppState): Item[] {
+  return (state.items || []).filter((it) => it.name && it.mode !== 'daily');
+}
+
+/** 배분해도 엔진이 **새 학습(new) 블록을 만들지 않는** 과목인가 — 주당 목표시간이 0/미입력.
+ *  scheduler의 weeklyRaw 필터(`mode!=='daily' && weeklyHours>0`)와 같은 판정이다. 보드는 이걸로
+ *  "배분해도 안 굴러가요" 배지를 띄우고, 아래 집계들은 이 과목을 분자·분모 **양쪽에서 함께** 뺀다. */
+export function isUnschedulable(it: Item): boolean {
+  return it.mode !== 'daily' && +(it.weeklyHours || 0) <= 0;
+}
+
+/** 이번 주 예산 합(분) = 스케줄 가능한 주간 과목들의 weeklyHours 합. 리드아웃 분모. */
+export function weekBudgetMin(state: AppState): number {
+  return weeklyItems(state).reduce(
+    (t, it) => (isUnschedulable(it) ? t : t + Math.round((it.weeklyHours || 0) * 60)),
+    0,
+  );
+}
+
+/** 그 주 배분 합(분) — 분모(weekBudgetMin)와 **같은 과목 집합**을 순회한다(비율 오염 방지). 리드아웃 분자. */
+export function weekAllocTotalMin(state: AppState, res: ScheduleResult, wk: string): number {
+  const map = allocView(state, res, wk);
+  return weeklyItems(state).reduce((t, it) => (isUnschedulable(it) ? t : t + rowSumMin(map[it.id])), 0);
 }

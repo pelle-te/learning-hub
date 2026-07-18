@@ -175,6 +175,7 @@ const ACTIVITY_KEYS = [
   'reviewTouches',
   'dayPlans', // 일일 배치 오버라이드(§4-1) — 사용자 소유 활동
   'tasks', // 자유 할 일(§4-4) — 사용자 소유 활동
+  'events', // 일정(Wave 5) — 사용자 소유 활동
   'weekAlloc', // 주간 배분(§12-3) — 사용자 소유 활동
 ] as const;
 export function isPristineState(s: AppState): boolean {
@@ -272,6 +273,17 @@ export function sanitizeImported(state: AppState): AppState {
       }
     }
   }
+  // events(Wave 5): 일정은 **스케줄 입력**(가용시간 차감)이라 비수치 start/min이 NaN 구간을 만들어
+  // 그날 studyMin 전체를 오염시킨다. ds(문자열)·start/min(유한수)만 통과시킨다.
+  if (Array.isArray(s.events))
+    s.events = (s.events as Record<string, unknown>[]).filter(
+      (e) =>
+        !!e &&
+        typeof e === 'object' &&
+        typeof e.ds === 'string' &&
+        Number.isFinite(e.start as number) &&
+        Number.isFinite(e.min as number),
+    );
   // dayOverrides: ds → 분(number) | 프리셋(string). 그 외 타입은 가용시간 계산을 깬다.
   if (s.dayOverrides && typeof s.dayOverrides === 'object') {
     const ov = s.dayOverrides as Record<string, unknown>;
