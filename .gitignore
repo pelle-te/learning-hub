@@ -23,6 +23,11 @@ test-results/
 # Cargo.lock 은 **추적한다**(앱 바이너리라 재현 가능한 빌드가 필요).
 src-tauri/target/
 src-tauri/gen/
+# `tauri icon` 은 데스크톱 아이콘과 함께 iOS·Android 세트도 뱉는다. 모바일은 5단계이고
+# **방식이 아직 미결정**(PWA 캐시 vs 클라우드 스냅샷)이라, 지금 커밋하면 쓰지도 않는 자산
+# 40여 개가 저장소에 남아 규격이 정해지기도 전에 낡는다. 5단계에서 필요해지면 그때 재생성.
+src-tauri/icons/android/
+src-tauri/icons/ios/
 
 # 수집 콘텐츠(저작권 원문) — 추적 제외. 부모 .gitignore 의 hub/* 규칙은 서브모듈
 # 경계 때문에 무효라, 실효 지점은 여기(hub repo)다. (감사 2026-07-16)

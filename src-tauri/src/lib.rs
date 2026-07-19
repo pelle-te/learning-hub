@@ -71,8 +71,12 @@ pub fn run() {
         })
         .on_window_event(|_window, event| {
             // 창이 닫히면 sidecar 도 함께 내린다(좀비 node 가 포트를 물고 남는 것 방지).
-            // ⚠ 2단계에서 여기에 **비동기 flush 완료 대기**가 추가돼야 한다 —
-            //    Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 디바운스 대기 중 편집이 유실된다.
+            // ⚠ 이 경로는 **정상 종료에만** 탄다. 강제 종료·크래시에선 안 불려 고아 node 가
+            //    포트 8000 을 물고 남는다(실측) → 그쪽은 `sidecar::spawn` 의 선점 처리가 받는다.
+            //
+            // 프런트의 미저장 편집은 여기서 따로 챙기지 않는다 — WebView2 가 창 닫기에서
+            // `pagehide`/`unload` 를 정상 발화해 `useApp` 의 기존 언로드 안전망이 그대로 걸린다
+            // (2026-07-19 실측). 2단계에서 flush 가 비동기가 되면 그때 CloseRequested 훅이 필요해진다.
             if let tauri::WindowEvent::Destroyed = event {
                 sidecar::shutdown();
             }

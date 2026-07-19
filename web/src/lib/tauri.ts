@@ -41,6 +41,19 @@ export async function workspaceStatus(): Promise<WorkspaceStatus | null> {
   }
 }
 
+/* 창 닫기 훅(`onCloseRequested`)은 **일부러 두지 않는다** — 근거는 실측이다(2026-07-19).
+   설계 §8 은 "Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 `useApp` 의 언로드 안전망이
+   안 걸린다"고 보고 1단계에 셸 전용 훅을 요구했다. **재보니 발화한다**: WM_CLOSE 로 창을 닫으면
+   WebView2 가 `beforeunload`·`visibilitychange:hidden`·`pagehide`·`unload` 를 **전부** 쏜다.
+   즉 기존 브라우저 안전망이 셸에서도 그대로 동작하고, 훅은 1단계에서 순수 잉여였다.
+   (한 번 넣어 봤다가 되돌린 이유: 훅을 쓰려면 `core:window:allow-destroy` 를 열어야 하는데,
+   그게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 **창이 영영 안 닫힌다**.
+   측정되지 않은 이득을 위해 "앱이 안 닫힐 수 있는" 실패 경로를 새로 만드는 거래였다.)
+
+   ⚠ **2단계에서는 다시 필요해진다.** 그때 flush 가 비동기(Rust invoke)가 되는데 `pagehide` 는
+   **동기 핸들러만** 보장하므로 await 가 잘린다. 그때 이 훅을 되살리되 `capabilities/default.json`
+   에 `core:window:allow-destroy` 를 함께 켜야 한다 — 안 켜면 앱이 안 닫힌다. */
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

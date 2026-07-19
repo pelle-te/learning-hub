@@ -27,6 +27,7 @@
     "e2e": "playwright test",
     "e2e:update": "playwright test --update-snapshots",
     "e2e:smoke": "playwright test smoke",
+    "e2e:shell": "playwright test -c playwright.shell.config.ts",
     "gate": "node scripts/gate.mjs",
     "scaffold-tab": "node scripts/scaffold-tab.mjs",
     "budget": "node scripts/bundle-budget.mjs"

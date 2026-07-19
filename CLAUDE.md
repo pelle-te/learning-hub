@@ -3,15 +3,18 @@
 > **폴더 기준점** — git 루트는 `atelier/`(형제: `knowledge/`·`pipeline/`·`exports/`·`sources/`·**`hub/`**). 이 문서·경로는 **`hub/` 기준**이다(폴더는 hub, 앱 브랜드명은 여전히 "러닝허브"). 웹앱 소스는 전부 `web/`.
 > **이 문서는 웹앱(러닝허브) 전용**이다. 볼트 노트 파이프라인 규약은 `../knowledge/CLAUDE.md`가 단일 진리 — 혼동 금지.
 
-러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 두 프로세스로 동작한다:
+러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 구성:
 
 - **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
 - **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 파이썬 도구 실행·산출물 서빙·리서치 잡·LLM 프록시 제공. **prebuilt `web/dist/`를 서빙**한다. (볼트 스캔은 백엔드가 아니라 **프런트의 File System Access**(`web/src/lib/vault.ts`)가 한다 — 서버 없이도 동작하는 게 설계 의도.)
-- dev에선 Vite(:5173)가 `/api`를 :8000으로 프록시해 동일출처처럼 동작. 실행 진입점은 `러닝허브_실행.bat`.
+- **`src-tauri/`** — Tauri 2 데스크톱 셸(플랫폼 개편 1단계). `web/dist` 를 WebView2 로 띄우고 `serve.js` 를 sidecar 로 spawn·정리한다. `npm run tauri:dev|build`.
+- dev에선 Vite(:5173)가 `/api`를 :8000으로 프록시해 동일출처처럼 동작.
+
+> **실행 경로가 지금 둘이다** — 브라우저 경로(`러닝허브_실행.bat` = serve.js + Chrome `--app`)와 Tauri 셸. 1단계는 **웹 실행 경로를 죽이지 않는 것**이 계약이라(`lib/tauri.ts` 의 `isTauri()` 분기) 둘 다 동작해야 한다. 셸이 정식 진입점이 되는 시점은 수동 데이터 이관 플로우 검증 이후다 — ⚠ **WebView2 는 Chrome 과 별개 저장소 오리진이라 데이터가 자동으로 안 넘어간다**(실측: 셸 첫 실행이 빈 상태로 뜬다). 반드시 기존 앱에서 내보내기 → 셸에서 가져오기.
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
 
-1. **serve.js는 prebuilt `web/dist/`를 서빙한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.)
+1. **serve.js·Tauri 셸 둘 다 prebuilt `web/dist/`를 서빙한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.) `npm run tauri:build` 는 `web` 빌드를 **자동으로 먼저 돌린다**(`beforeBuildCommand`)지만, **트랙 B(`npm run e2e:shell`)는 exe 를 검사하므로 앞서 `tauri:build` 가 필요**하다 — 안 하면 옛 exe 를 검사한다.
 2. **레이어 경계는 단방향**(`app → features → components → {hooks, store} → lib`, 역방향 import 금지). `eslint-plugin-boundaries`가 **error**로 막는다. 새 코드가 상위를 import하면 린트가 깨진다 → 세부는 `web/docs/아키텍처.md`.
 3. **과목 색 = `PALETTE` 파생물**(저장값 아님 — 한 줄 교체로 전탭 반영). 임의 하드코딩 금지.
    - 파생 키는 **`item.id` 해시**(`lib/utils.ts` `colorForId`)다. 0단계-G에서 배열 인덱스에서 옮겼다 — 인덱스는 *위치*라 삭제·재정렬 때 뒤 과목 색이 전부 밀렸고 보정 코드가 파생을 4곳으로 불렸다. id는 *정체성*이라 불변이고 파생이 1곳이다.
@@ -25,9 +28,12 @@
 
 ```
 npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + knip + test:coverage
-npm run e2e      # Playwright 시각/동작 스냅샷 (serve.js OFF 상태로 돈다)
-npm run build    # tsc -b && vite build — serve.js가 서빙할 dist 재생성
+npm run e2e      # 트랙 A — Playwright 시각/동작 스냅샷 (serve.js OFF 상태로 돈다)
+npm run build    # tsc -b && vite build — serve.js·Tauri 셸이 서빙할 dist 재생성
+npm run e2e:shell # 트랙 B — 빌드된 exe 를 띄워 WebView2 안을 검사(사전 `npm run tauri:build` 필요)
 ```
+
+- **트랙 A/B 를 나눈 이유**: A 는 Chromium 으로 `vite preview` 를 찍으므로 **WebView2 에서만 깨지는 것을 원리적으로 못 잡는다**("무효화되는 도구로 무효화되지 않았음을 증명"하는 순환). B 는 진짜 exe 를 띄워 창·라우팅·IPC 왕복·종료 시 flush 만 본다(**스냅샷은 안 찍는다** — 베이스라인 두 벌 방지). 구현은 `tauri-driver` 가 아니라 **CDP + 기존 Playwright**다(WebView2 가 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 를 존중 · 디버그 포트는 하네스만 켬 → 배포본 노출 0).
 
 - **Tauri 셸(`src-tauri/`, 플랫폼 개편 1단계~)**: 루트에서 `npm run tauri:check|fmt|clippy|dev|build`. `/게이트`가 **cargo가 있으면** `tauri:check`도 돈다(없으면 건너뜀 — web만 만지는 작업에 Rust 툴체인을 요구하지 않는다). ⚠ cargo가 "없다"고 나오면 대개 **셸이 rustup 설치보다 오래된 것** — 새 터미널을 열면 잡힌다.
 - **`npm run report:debt`** — 인지복잡도·파일 크기·features:lib 비율을 **강제 없이** 출력(추세 관찰용). 하드 게이트는 래칫 2개(`cognitive-complexity` 77 · `max-lines` 730)뿐이고 "더 나빠지지 않는다"만 보장한다.
@@ -72,7 +78,10 @@ serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천**
               (열거본 4벌이 전부 서로 다르게 낡았던 이력. `grep "'/api/" serve.js`로 확인).
               동작 계약은 `web/test/serve.test.ts`(0단계-A)가 잠근다 = 4단계 Rust 포팅의 동등성 명세.
 src-tauri/    Tauri 2 셸(플랫폼 개편 1단계~). workspace.rs=워크스페이스 경로 설정 · sidecar.rs=serve.js
-              spawn/헬스체크/정리. 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
+              spawn/헬스체크/**고아 선점**/정리. 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
+              ⚠ 고아 선점: 앱이 강제 종료되면 node가 8000을 물고 남는다(Destroyed 미발화) — 재실행 시
+              /api/ping으로 우리 서버인지 + 워크스페이스가 같은지 보고 **같으면 입양, 다르면 교체**한다.
+              `single-instance`는 *정상* 중복 실행만 막지 이 경우를 못 덮는다.
 ```
 
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.
