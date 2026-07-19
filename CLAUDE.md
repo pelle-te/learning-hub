@@ -73,6 +73,7 @@ cd server && npm run verify   # 클라우드 백엔드 — typecheck + format + 
 - **e2e 스냅샷 함정:** `--update-snapshots`의 기본은 `changed`(2% 내 신규 UI가 안 박힘) → 신규 스냅샷은 `npm run e2e:update`(=all)로. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
 - 슬래시 명령 `/게이트`가 verify+build+budget(번들 예산)+e2e(+cargo 있으면 tauri:check·tauri:build·e2e:shell)를 돌려 압축 리포트만 반환한다(quick=verify만).
 - **Tailwind 규약의 집행자는 `eslint-plugin-better-tailwindcss`다**(C-6~ · 현재 `src/phone/**` 만 대상). 클래스가 CSS→JSX 로 옮겨가면 stylelint 검사 범위 밖으로 나가므로 **집행자만 교체**한 것이다. 임의값(`w-[137px]`)은 `no-restricted-classes` 패턴으로 막는다 — ⚠ 설계서가 말한 "임의값 룰"은 **그 플러그인에 없다**(v4.7.0 실측). C-7 이 feature 를 옮길 때마다 `files` 목록을 넓히고, **예외 둘**(반픽셀 font-size · 런타임 CSS 변수 주입)을 그때 판다(근거는 클라우드전환-설계 §14-3).
+- ⚠ **C-7 이식 규약 6종의 SSOT 는 클라우드전환-설계 §15 다** — 전부 실사고에서 나왔다(추측 항목 0). 특히 **§15-4: feature 당 최소 1회 실렌더 확인**. 이식 2건에서 사고가 2건 났고 **둘 다 정적 검사 전량 녹색**이었다(존재하지 않는 토큰이 회색으로 렌더 · 카드가 1글자 폭으로 붕괴). `--update-snapshots` 는 **깨진 결과를 정답으로 굳힌다** → 순서는 "이식 → 눈으로 확인 → 스냅샷 재생성"이고, **커버리지 0인 화면은 이식 *전에* 스냅샷부터 만든다**.
 - ⚠ **게이트는 병렬 작업(다른 세션·서브에이전트)이 멈춘 뒤에 돌린다.** 동시에 파일이 쓰이면 게이트가 시점에 의존해 **flaky 를 결함으로, 결함을 flaky 로** 읽는다(실측: `verify` 4건 실패 → 재실행 전량 통과, 원인은 코드가 아니었다).
 - **`lint:css`(stylelint)가 CSS 규약을 강제한다** — 생 hex 금지(색은 tokens.css 토큰만) · 브레이크포인트 3종(560/700/900)만. 설정 근거는 `stylelint.config.js` 주석. 규약을 '관습'에 두면 흘러내린다는 게 감사 결론이었다.
 
