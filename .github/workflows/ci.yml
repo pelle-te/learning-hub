@@ -42,6 +42,34 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e:smoke
 
+  # 시크릿 스캔 — 설계서 §5-2 가 "인증 자료를 다루기 시작하는데 시크릿 스캔이 없다"고 적은 항목.
+  # C-4 로 실제로 그 자료가 생겼다(HUB_SIGNING_KEY·HUB_ADMIN_KEY·리프레시 토큰). 이 저장소가
+  # 지키는 규약은 "비밀은 `wrangler secret` 과 `.dev.vars`(gitignore)에만 둔다"인데, 규약을
+  # 관습에 두면 흘러내린다는 게 이 저장소의 반복된 결론이다(stylelint 도입 근거와 같다).
+  #
+  # ⚠ 마켓플레이스 액션(`gitleaks/gitleaks-action`)을 쓰지 않는다 — 시크릿을 보겠다고
+  #   저장소 전체를 읽는 서드파티 액션에 권한을 주는 것은 방어와 방향이 반대다. 대신
+  #   **버전을 핀 고정한 릴리스 바이너리**를 받아 돈다(체크섬까지 대조). 신뢰면이 늘지 않는다.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 전 이력을 본다 — 지금 지웠어도 과거 커밋에 남아 있으면 유출이다
+      - name: gitleaks 설치(버전 핀 + 체크섬 대조)
+        run: |
+          set -euo pipefail
+          VER=8.28.0
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${VER}"
+          curl -sSL --fail -o gitleaks.tar.gz "${BASE}/gitleaks_${VER}_linux_x64.tar.gz"
+          curl -sSL --fail -o checksums.txt "${BASE}/gitleaks_${VER}_checksums.txt"
+          # ⚠ 대조를 **실제로** 한다. 안 하면 "핀 고정했다"는 말이 태그만 고정한 것이 된다.
+          grep "gitleaks_${VER}_linux_x64.tar.gz" checksums.txt | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+      - name: 스캔
+        run: ./gitleaks detect --source . --redact --verbose --exit-code 1
+
   # 클라우드 백엔드(Cloudflare Worker) — **종전까지 CI 가 전혀 안 돌던 폴더다**(2026-07-20 감사).
   # 워크플로 상단 paths 에 `server/**` 가 없었고 잡도 없어서, 인터넷에 노출되는 코드가
   # 로컬에서만 검증됐다. 인증·입력검증을 다루는 층이라 그 비대칭이 가장 위험한 곳에 있었다.
