@@ -280,3 +280,41 @@ export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (typeof picked !== 'string') return null; // 취소
   return call<WorkspaceStatus>('set_workspace', { path: picked });
 }
+
+/* ── 5단계-A — LAN 읽기 전용 모바일 뷰 서버 ─────────────────────────────────
+   ⚠ 이 서버는 **기본 OFF** 다. 4단계-G 가 "앱이 여는 포트 0"을 성과로 기록했으므로,
+   포트를 다시 여는 것은 사용자가 명시적으로 켤 때만 일어나야 한다(설계 §5-0-5).
+   토큰은 서버를 켤 때마다 새로 생성되고 `url` 에 이미 박혀 온다 — 프런트가 토큰을
+   따로 조립하지 않는다(조립 지점이 둘이면 한쪽이 낡는다). */
+
+/** Rust `ServerInfo` 와 1:1. */
+export interface MobileServerInfo {
+  running: boolean;
+  port: number;
+  /** 폰 주소창에 그대로 칠 수 있는 형태(토큰 포함). 꺼져 있거나 LAN IP 를 못 찾으면 null. */
+  url: string | null;
+  /** null 이면 LAN 에 붙어 있지 않다는 뜻 — UI 가 "서버는 켜졌지만 주소가 없다"를 구분해서 말한다. */
+  lan_ip: string | null;
+}
+
+const SERVER_OFF: MobileServerInfo = { running: false, port: 0, url: null, lan_ip: null };
+
+/** 현재 서버 상태. 브라우저에선 꺼진 것으로 취급(포트 개념이 셸 전용). */
+export async function mobileServerStatus(): Promise<MobileServerInfo> {
+  if (!isTauri()) return SERVER_OFF;
+  try {
+    return await call<MobileServerInfo>('server_status');
+  } catch {
+    return SERVER_OFF;
+  }
+}
+
+/** 서버 시작. 바인딩 실패(포트 점유 등)는 **삼키지 않고 throw** 한다 — 규율 11-3. */
+export function mobileServerStart(port?: number): Promise<MobileServerInfo> {
+  return call<MobileServerInfo>('server_start', { port: port ?? null });
+}
+
+/** 서버 정지. 멱등이다(꺼져 있어도 안전). */
+export function mobileServerStop(): Promise<MobileServerInfo> {
+  return call<MobileServerInfo>('server_stop');
+}

@@ -1,9 +1,13 @@
-/*! 러닝허브 Tauri 셸 — 플랫폼 개편 1~4단계.
+/*! 러닝허브 Tauri 셸 — 플랫폼 개편 1~5단계.
 
 **백엔드가 여기 하나다.** 1단계는 셸만 이사하고 `serve.js`(Node HTTP)를 sidecar 로 유지했지만,
 4단계가 그 라우트 12종을 전부 Rust 커맨드로 옮기고 `serve.js` 를 삭제했다 — 이제 이 프로세스가
-곧 백엔드이고, **리슨하는 포트가 없다**(HTTP 공격면 소멸: Host 위조·CSRF·경로 traversal 이
-전부 "그런 표면이 없다"로 닫혔다 — 4단계-G 대조표 참조).
+곧 백엔드다.
+
+⚠ **4단계의 "리슨하는 포트가 0"은 5단계-A 에서 조건부로 깨졌다.** `server.rs` 가 LAN 읽기 전용
+모바일 뷰용 HTTP 서버를 들여왔기 때문이다. 다만 **기본은 여전히 포트 0** 이다 — 서버는 사용자가
+설정에서 켤 때만 뜬다. 켠 동안에는 4단계-G 대조표가 "불필요"로 닫았던 방어 일부가 되살아나며,
+무엇이 되살아나고 무엇이 토큰 설계로 상쇄되는지는 `server.rs` 머리주석과 설계 §5단계-0 에 있다.
 
 레이어 계약(I2): 프런트에서 `invoke` 를 부르는 쪽은 `web/src/lib/tauri.ts` 하나다.
 여기 등록한 커맨드가 그 유일한 대응면이다.
@@ -16,6 +20,7 @@ mod files;
 mod news;
 mod ollama;
 mod research;
+mod server;
 mod tools;
 mod vault;
 mod workspace;
@@ -69,6 +74,10 @@ pub fn run() {
             files::save_text_file,
             // 4단계-I — 볼트 Anki 카드 스캔(폴더 선택 없이).
             anki_scan::anki_scan,
+            // 5단계-A — LAN 읽기 전용 모바일 뷰 서버. **기본 OFF** — 사용자가 켤 때만 뜬다.
+            server::server_status,
+            server::server_start,
+            server::server_stop,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -92,9 +101,13 @@ pub fn run() {
                그게 "고아 node 가 포트 8000 을 물고 남는" 문제였고 `sidecar::spawn` 이 선점으로
                받아냈지만, **serve.js 가 사라지면서 그 실패 모드 자체가 없어졌다**(포트를 여는
                프로세스가 없다). 남은 건 탐구 잡의 python 뿐이고, 그건 앱이 죽으면 부모가 없어져
-               대개 함께 죽는다 — 부팅 시 `research::restore` 가 잔여 'running' 을 정리한다. */
+               대개 함께 죽는다 — 부팅 시 `research::restore` 가 잔여 'running' 을 정리한다.
+            ⚠ 5단계-A 로 **포트를 여는 프로세스가 다시 생겼다**(우리 자신). 강제 종료되면 소켓은
+               OS 가 회수하므로 고아 서버는 안 남지만, 정상 종료에서는 여기서 명시적으로 내려야
+               graceful shutdown 이 돌아 곧바로 재시작할 때 EADDRINUSE 를 피한다. */
             if let tauri::WindowEvent::Destroyed = event {
                 research::shutdown();
+                server::shutdown();
             }
         })
         .run(tauri::generate_context!())

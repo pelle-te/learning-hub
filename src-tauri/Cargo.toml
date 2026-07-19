@@ -37,8 +37,19 @@ notify = "8"
 #   native-tls 가 아니라 rustls 를 쓰는 이유는 Windows 빌드에 openssl 툴체인을 들이지 않기 위함.
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 futures-util = "0.3"
-# 스트림의 '무소식 90초' 타임아웃 — 총 시간이 아니라 유휴로 재는 게 serve.js 의 계약이다.
-tokio = { version = "1", features = ["time"] }
+# 스트림의 '무소식 90초' 타임아웃(4-E) + 5단계 모바일 서버의 런타임.
+# ⚠ 5단계-A 에서 피처가 늘었다: 서버가 자체 멀티스레드 런타임을 전용 스레드에 세우고
+#   (`server.rs`), graceful shutdown 신호에 oneshot 을 쓴다.
+tokio = { version = "1", features = ["time", "rt-multi-thread", "net", "sync"] }
+# 5단계-A — LAN 읽기 전용 모바일 뷰의 HTTP 서버.
+# ⚠ 4단계-G 가 "리슨하는 포트 0"을 성과로 기록했고 이건 그 결정을 부분적으로 되돌린다.
+#   근거와 대가는 `server.rs` 머리주석 · 설계 §5단계-0 참조(기본 OFF · 쿠키 없음 · 쓰기 라우트 없음).
+# tiny_http 가 아니라 axum 인 이유: 착수 전 결정 1(sqlx 직접 읽기)이 어차피 tokio 런타임을
+#   끌고 오므로, 블로킹 서버를 쓰면 **런타임이 둘로 갈린다**. SSE 라이브 갱신과 뒤의
+#   클라우드 푸시(reqwest 보유)까지 같은 스택에서 처리된다.
+axum = "0.8"
+# 토큰 생성용 CSPRNG. rustls 가 이미 끌고 오는 크레이트라 새 트리가 생기지 않는다.
+getrandom = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # 러닝허브_실행.bat 의 "포트 8000 stale 서버 강제종료"를 대체 — 두 번째 실행은 기존 창을 깨운다.

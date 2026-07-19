@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>러닝허브 — 모바일</title>
+    <style>
+      /* ⚠ 5단계-A 스모크 전용. 여기 색을 늘리지 말 것 —
+         5-B 가 이 파일을 web/ 의 토큰(tokens.css)을 쓰는 진짜 번들로 대체한다.
+         지금 팔레트를 키우면 절대규칙 #3(색은 PALETTE 파생물)을 우회하는 두 번째 색 원천이 된다. */
+      :root {
+        --bg: #050506;
+        --fg: #e8e8ea;
+        --dim: #8b8b93;
+        --acc: #9b8cff;
+        --line: #24242a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.6 system-ui,
+          -apple-system,
+          sans-serif;
+        padding: max(24px, env(safe-area-inset-top)) 20px
+          max(24px, env(safe-area-inset-bottom));
+      }
+      h1 {
+        font-size: 19px;
+        margin: 0 0 4px;
+      }
+      .sub {
+        color: var(--dim);
+        font-size: 13px;
+        margin-bottom: 24px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+      }
+      .k {
+        color: var(--dim);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .v {
+        font-size: 15px;
+        margin-top: 4px;
+        word-break: break-all;
+      }
+      .ok {
+        color: var(--acc);
+      }
+      .err {
+        color: #ff8b8b;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>러닝허브</h1>
+    <div class="sub">LAN 읽기 전용 뷰 · 5단계-A 스모크</div>
+    <div class="card">
+      <div class="k">연결</div>
+      <div class="v" id="state">확인 중…</div>
+    </div>
+    <div class="card">
+      <div class="k">워크스페이스</div>
+      <div class="v" id="work">—</div>
+    </div>
+    <div class="card">
+      <div class="k">앱 버전</div>
+      <div class="v" id="ver">—</div>
+    </div>
+    <script>
+      // 토큰은 URL 로만 들어온다(쿠키 없음 → 주변 권한 없음 → CSRF·리바인딩의 이빨이 빠진다).
+      // 주소창에 남지 않게 즉시 history 에서 지우고 메모리에만 들고 있는다.
+      const t = new URLSearchParams(location.search).get('t') || '';
+      if (t) history.replaceState(null, '', location.pathname);
+      const $ = (id) => document.getElementById(id);
+      fetch('api/health', { headers: { Authorization: 'Bearer ' + t } })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+        .then((d) => {
+          $('state').textContent = '연결됨';
+          $('state').className = 'v ok';
+          $('work').textContent = d.workspace || '(설정 안 됨)';
+          $('ver').textContent = d.version;
+        })
+        .catch((e) => {
+          $('state').textContent = '실패 — ' + e.message;
+          $('state').className = 'v err';
+        });
+    </script>
+  </body>
+</html>

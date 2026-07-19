@@ -594,3 +594,61 @@ test('4단계-J — 사용자 저작물이 SQLite 에 남고 재시작을 넘는
     await closeShell(shell);
   }
 });
+
+test('5단계-A — 모바일 서버를 켜면 WebView 밖에서 진짜 HTTP 로 닿고, 토큰 없이는 막힌다', async () => {
+  const shell = await launchShell();
+  try {
+    const invoke = async <T>(cmd: string, args?: unknown): Promise<T> =>
+      shell.page.evaluate(
+        async ([c, a]) => {
+          const w = window as unknown as {
+            __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+          };
+          return (await w.__TAURI_INTERNALS__.invoke(c as string, a)) as unknown;
+        },
+        [cmd, args] as const,
+      ) as Promise<T>;
+
+    /* 기본이 OFF 여야 한다 — 이게 5단계가 4-G 의 "포트 0"을 되돌리는 범위의 전부다.
+       여기가 true 로 뒤집히면 사용자 동의 없이 포트가 열린 것이므로 실패해야 한다. */
+    const before = await invoke<{ running: boolean }>('server_status');
+    expect(before.running).toBe(false);
+
+    /* 포트 0 = OS 에 임시 포트 위임. 고정 포트를 쓰면 개발자가 앱을 켜 둔 채 게이트를 돌릴 때
+       EADDRINUSE 로 실패한다(규율 11-7: 검증이 검증 대상을 망가뜨리지 않게 한다). */
+    const info = await invoke<{ running: boolean; port: number; url: string | null }>('server_start', { port: 0 });
+    expect(info.running).toBe(true);
+    expect(info.port).toBeGreaterThan(0);
+    expect(info.url).toBeTruthy();
+
+    const url = new URL(info.url as string);
+    // 폰이 볼 주소가 아니라 **이 테스트 프로세스에서** 닿는 주소로 바꾼다(러너가 LAN 밖일 수 있다).
+    const base = `http://127.0.0.1:${info.port}`;
+    const token = url.searchParams.get('t') as string;
+    expect(token).toMatch(/^[0-9a-f]{48}$/);
+
+    /* ⚠ 여기가 이 케이스의 핵심 — **Node 에서** 요청한다. WebView 안에서 fetch 하면
+       같은 프로세스라 "포트가 정말 밖으로 열렸는가"를 증명하지 못한다. */
+    const denied = await fetch(base);
+    expect(denied.status).toBe(401);
+
+    const allowed = await fetch(`${base}/?t=${token}`);
+    expect(allowed.status).toBe(200);
+    expect(await allowed.text()).toContain('러닝허브');
+
+    const health = await fetch(`${base}/api/health`, { headers: { Authorization: `Bearer ${token}` } });
+    expect(health.status).toBe(200);
+    const body = (await health.json()) as { ok: boolean; workspace: string | null };
+    expect(body.ok).toBe(true);
+    // 서버도 커맨드와 같은 워크스페이스를 본다 — 여기가 갈리면 5-B 가 엉뚱한 DB 를 읽는다.
+    const ws = await invoke<{ path: string | null }>('workspace_status');
+    expect(body.workspace).toBe(ws.path);
+
+    const after = await invoke<{ running: boolean }>('server_stop');
+    expect(after.running).toBe(false);
+    // 정지 후에는 실제로 연결이 거부돼야 한다(graceful shutdown 이 끝났다는 관측).
+    await expect(fetch(base)).rejects.toThrow();
+  } finally {
+    await closeShell(shell);
+  }
+});
