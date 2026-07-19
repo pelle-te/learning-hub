@@ -185,7 +185,7 @@ export default tseslint.config(
      v4.7.0 에 그런 룰은 **없다**(룰 15개 전량 확인). 대신 `no-restricted-classes` 의
      `restrict` 패턴으로 막는다 — 결과는 같고 수단이 다르다. */
   {
-    files: ['src/phone/**/*.tsx', 'src/features/discovery/**/*.tsx', 'src/features/review-run/**/*.tsx'],
+    files: ['src/phone/**/*.tsx', 'src/features/discovery/**/*.tsx', 'src/features/review-run/**/*.tsx', 'src/features/guide/**/*.tsx'],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },
     rules: {

@@ -6,19 +6,43 @@
 ============================================================ */
 import type { ReactNode } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import s from './Guide.module.css';
+
+/* ── C-7 세 번째 이식 ────────────────────────────────────────────────────
+   규약은 설계서 §15 가 SSOT. 이 파일에서 처음 만난 것 둘:
+   ① **표**(`.table th/td`, `td:first-child`, `td:nth-child(2)`) — 구조 의사클래스를
+      쓰던 자리다. th/td 가 전부 JSX 에 있으므로 **직접 클래스**를 준다(규약 4).
+   ② **`li::marker`** — Tailwind 의 `marker:` 변형이 그대로 대응한다.
+   그리고 `<b>` 자손 규칙(`.heroDesc b`·`.note b`·`.warn b`)도 규약 4대로 각 `<b>` 에
+   클래스를 준다 — 그 넷은 "muted 문단 안에서 굵은 글자는 본문색"이라는 타이포 규칙이었다. */
+const ROOT = 'max-w-guide px-5 pt-4 pb-6';
+const HERO = 'mb-4 rounded-lg border border-line-acc bg-linear-to-b from-acc-soft to-transparent p-5';
+const CARD = 'mb-3 rounded-md border border-line bg-panel px-4 py-4';
+const HOW =
+  'grid grid-cols-guide items-baseline gap-3 rounded-sm border border-line2 bg-bg px-2 py-2 max-narrow:grid-cols-1 max-narrow:gap-1';
+/* 인라인 토큰 — 말로 시키기/명령/참조/키/탭. 전부 같은 골격에 색만 다르다. */
+const TOKEN = 'rounded-sm px-1 py-px text-token font-mono whitespace-nowrap';
+const SAY = `${TOKEN} border border-line-acc-soft bg-acc-soft text-acc`;
+const CMD = `${TOKEN} bg-line2 text-txt`;
+const REF = 'rounded-sm bg-tint-line2 px-1 py-px text-token font-mono text-mut';
+const K = `${REF} text-acc2`;
+const TAB = 'inline-block rounded-full bg-tint-acc2 px-2 py-px text-token font-semibold text-acc2 whitespace-nowrap';
+const NOTE = 'mt-1 rounded-sm border border-dashed border-line bg-bg px-3 py-2 text-xs leading-relaxed text-mut';
+const WARN =
+  'mt-1 rounded-sm border border-line-learning bg-tint-learning-soft px-3 py-2 text-xs leading-relaxed text-txt';
+const TH = 'border-b border-line2 px-2 py-2 text-left align-top text-xs font-bold tracking-wide text-mut uppercase';
+const TD = 'border-b border-line2 px-2 py-2 text-left align-top';
 
 /** Claude에게 말로 시키는 트리거(지시문을 읽고 실행). */
 function Say({ children }: { children: ReactNode }) {
-  return <code className={s.say}>{children}</code>;
+  return <code className={SAY}>{children}</code>;
 }
 /** 터미널에서 돌리는 명령. */
 function Cmd({ children }: { children: ReactNode }) {
-  return <code className={s.cmd}>{children}</code>;
+  return <code className={CMD}>{children}</code>;
 }
 /** 허브 탭 이름(운전석 내 위치 안내). */
 function Tab({ children }: { children: ReactNode }) {
-  return <span className={s.tab}>{children}</span>;
+  return <span className={TAB}>{children}</span>;
 }
 
 function Section({
@@ -35,20 +59,20 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className={s.card}>
-      <header className={s.cardHead}>
-        <span className={s.glyph} aria-hidden="true">
+    <section className={CARD}>
+      <header className="mb-3 flex items-start gap-3">
+        <span className="flex-none text-xl leading-tight" aria-hidden="true">
           {glyph}
         </span>
         <div>
-          <h2 className={s.cardTitle}>
-            {n && <span className={s.n}>{n}</span>}
+          <h2 className="m-0 mb-1 text-lg tracking-tight">
+            {n && <span className="text-acc tabular-nums">{n}</span>}
             {title}
           </h2>
-          <p className={s.what}>{what}</p>
+          <p className="m-0 text-sm leading-relaxed text-mut">{what}</p>
         </div>
       </header>
-      <div className={s.body}>{children}</div>
+      <div className="flex flex-col gap-2">{children}</div>
     </section>
   );
 }
@@ -56,9 +80,9 @@ function Section({
 /** '어떻게' 한 줄 — 라벨 + 방법(트리거/명령/탭). */
 function How({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className={s.how}>
-      <div className={s.howLabel}>{label}</div>
-      <div className={s.howBody}>{children}</div>
+    <div className={HOW}>
+      <div className="text-xs font-bold tracking-tight text-acc">{label}</div>
+      <div className="text-sm leading-relaxed text-txt">{children}</div>
     </div>
   );
 }
@@ -76,15 +100,16 @@ export default function Guide() {
   );
 
   return (
-    <section className={s.root}>
+    <section className={ROOT}>
       {/* ── 히어로 ── */}
-      <header className={s.hero}>
-        <div className={s.heroKicker}>러닝 허브 · 안내</div>
-        <h1 className={s.heroTitle}>이 시스템이 할 수 있는 것 · 하는 법</h1>
-        <p className={s.heroDesc}>
-          <b>삶-연관 개인 지식 엔진</b> — 교재를 노트로 만들어(<b>학습</b>), 세상을 모아(<b>수집</b>), 내 목표에 맞춰 (
-          <b>연관성</b>) 배운다. 세 축이 한 운전석에서 돈다. 각 작업은 <b>Claude에게 말로</b> 시키거나 (지시문을 읽고
-          실행), 터미널 명령/허브 탭에서 실행한다.
+      <header className={HERO}>
+        <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">러닝 허브 · 안내</div>
+        <h1 className="mt-1 mb-2 text-xl tracking-tight">이 시스템이 할 수 있는 것 · 하는 법</h1>
+        <p className="m-0 max-w-prose text-sm leading-relaxed text-mut">
+          <b className="text-txt">삶-연관 개인 지식 엔진</b> — 교재를 노트로 만들어(<b className="text-txt">학습</b>),
+          세상을 모아(<b className="text-txt">수집</b>), 내 목표에 맞춰 (<b className="text-txt">연관성</b>) 배운다. 세
+          축이 한 운전석에서 돈다. 각 작업은 <b className="text-txt">Claude에게 말로</b> 시키거나 (지시문을 읽고 실행),
+          터미널 명령/허브 탭에서 실행한다.
         </p>
       </header>
 
@@ -102,25 +127,26 @@ export default function Guide() {
       >
         <How label="한 챕터 통째">
           <Say>"(과목) (챕터) 돌려줘"</Say> → 재작성→검증→시각화→출제→Anki→링크패스를 단계별 격리로 실행(
-          <code className={s.ref}>지시문_파이프라인</code>).
+          <code className={REF}>지시문_파이프라인</code>).
         </How>
         <How label="개별 단계만">
-          <Say>"(과목) (챕터) Anki만"</Say> 처럼 → 해당 <code className={s.ref}>지시문N</code> 단독 실행.
+          <Say>"(과목) (챕터) Anki만"</Say> 처럼 → 해당 <code className={REF}>지시문N</code> 단독 실행.
         </How>
         <How label="기존 노트 개선">
           <Say>"(과목) (챕터) 리팩터링"</Say> → 갭 분석 리포트 → <b>내 승인</b> → 패치(
-          <code className={s.ref}>지시문7</code> · 승인 전엔 노트 안 건드림).
+          <code className={REF}>지시문7</code> · 승인 전엔 노트 안 건드림).
         </How>
         <How label="품질 점수">
-          <Say>"(과목) (챕터) 평가"</Say> → 6차원 루브릭 채점(<code className={s.ref}>지시문8</code> · 읽기전용 · 지시문
+          <Say>"(과목) (챕터) 평가"</Say> → 6차원 루브릭 채점(<code className={REF}>지시문8</code> · 읽기전용 · 지시문
           바꾸기 전후 델타 측정).
         </How>
         <How label="교재 없이 웹으로">
           <Say>"(주제) 리서치"</Say> → 출처 신뢰도 분류·교차검증 → <Cmd>knowledge/_탐구/</Cmd>(
-          <code className={s.ref}>지시문11</code> · 교재 볼트와 분리).
+          <code className={REF}>지시문11</code> · 교재 볼트와 분리).
         </How>
-        <p className={s.note}>
-          규칙: <code className={s.k}>status: verified</code> 노트만 카드·출제 대상. 검증 최종판정은 <b>나</b>
+        <p className={NOTE}>
+          규칙: <code className={K}>status: verified</code> 노트만 카드·출제 대상. 검증 최종판정은{' '}
+          <b className="text-txt">나</b>
           (에이전트가 임의로 해소하지 않음).
         </p>
       </Section>
@@ -138,7 +164,7 @@ export default function Guide() {
         }
       >
         <How label="카드 생성">
-          <Say>"(과목) (챕터) Anki"</Say>(<code className={s.ref}>지시문4</code>) → <Cmd>exports/*.txt</Cmd> →{' '}
+          <Say>"(과목) (챕터) Anki"</Say>(<code className={REF}>지시문4</code>) → <Cmd>exports/*.txt</Cmd> →{' '}
           <b>Anki에 import</b>(사람). 카드는 필수/보조 2티어 태깅.
         </How>
         <How label="신호 갱신">
@@ -148,9 +174,10 @@ export default function Guide() {
           약점큐(오답·leech) · 파인만(설명으로 이해 점검) · 모의고사(실전문제). 허브 <Tab>복습 실행</Tab>·
           <Tab>숙달도 지도</Tab>에서 확인.
         </How>
-        <p className={s.warn}>
-          ⚠ 지금 <b>콜드</b> — Anki 컬렉션 0카드라 인출 신호가 없음. <b>카드 재연결(사람 + Anki)</b>이 신호의 출발점이다
-          (자동화 불가). <code className={s.ref}>pipeline/안내/카드_재연결_런북.md</code> 참고.
+        <p className={WARN}>
+          ⚠ 지금 <b className="text-learning">콜드</b> — Anki 컬렉션 0카드라 인출 신호가 없음.{' '}
+          <b className="text-learning">카드 재연결(사람 + Anki)</b>이 신호의 출발점이다 (자동화 불가).{' '}
+          <code className={REF}>pipeline/안내/카드_재연결_런북.md</code> 참고.
         </p>
       </Section>
 
@@ -199,7 +226,7 @@ export default function Guide() {
           허브 <Tab>내 길</Tab> 탭 — 전파통신 연구원 자립 트리(<Cmd>goals.json</Cmd> · 손저작).
         </How>
         <How label="연관성 켜기">
-          핵심 노트 frontmatter에 <code className={s.k}>goals: [signal-processing, communication-theory]</code> 링크 →
+          핵심 노트 frontmatter에 <code className={K}>goals: [signal-processing, communication-theory]</code> 링크 →
           시퀀싱이 목표 그래디언트로 재정렬(하이브리드 = 핵심만 손 링크 · 나머지는 개념그래프 거리).
         </How>
         <How label="다음 학습 순서">
@@ -220,69 +247,69 @@ export default function Guide() {
         title="허브 도구 (제어판)"
         what={<>산출물을 다시 만들거나 신호를 갱신하는 운영 도구. 일부는 허브 탭 버튼, 일부는 터미널.</>}
       >
-        <div className={s.tableWrap}>
-          <table className={s.table}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th>도구</th>
-                <th>무엇</th>
-                <th>어디서</th>
+                <th className={TH}>도구</th>
+                <th className={TH}>무엇</th>
+                <th className={TH}>어디서</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>지식상태 재빌드</td>
-                <td>선수그래프·ZPD·숙달 재계산</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>지식상태 재빌드</td>
+                <td className={`${TD} text-mut`}>선수그래프·ZPD·숙달 재계산</td>
+                <td className={TD}>
                   <Cmd>지식엔진.py build</Cmd>
                 </td>
               </tr>
               <tr>
-                <td>인덱스/DB 재생성</td>
-                <td>볼트 스캔 → _vault.db</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>인덱스/DB 재생성</td>
+                <td className={`${TD} text-mut`}>볼트 스캔 → _vault.db</td>
+                <td className={TD}>
                   <Cmd>벌트DB.py build</Cmd>
                 </td>
               </tr>
               <tr>
-                <td>볼트 건강검진</td>
-                <td>고아·죽은링크·stale 진단</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>볼트 건강검진</td>
+                <td className={`${TD} text-mut`}>고아·죽은링크·stale 진단</td>
+                <td className={TD}>
                   <Cmd>벌트DB.py health</Cmd>
                 </td>
               </tr>
               <tr>
-                <td>Anki 학습신호</td>
-                <td>인출 신호 갱신</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>Anki 학습신호</td>
+                <td className={`${TD} text-mut`}>인출 신호 갱신</td>
+                <td className={TD}>
                   <Cmd>학습신호.py</Cmd>
                 </td>
               </tr>
               <tr>
-                <td>챕터 원장 재빌드</td>
-                <td>과목×챕터 진척</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>챕터 원장 재빌드</td>
+                <td className={`${TD} text-mut`}>과목×챕터 진척</td>
+                <td className={TD}>
                   <Tab>정본 원장</Tab>
                 </td>
               </tr>
               <tr>
-                <td>지시문 품질검사</td>
-                <td>노트 6차원 회귀</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>지시문 품질검사</td>
+                <td className={`${TD} text-mut`}>노트 6차원 회귀</td>
+                <td className={TD}>
                   <Tab>복습 실행</Tab>
                 </td>
               </tr>
               <tr>
-                <td>읽을거리·증시 수집</td>
-                <td>피드 갱신</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>읽을거리·증시 수집</td>
+                <td className={`${TD} text-mut`}>피드 갱신</td>
+                <td className={TD}>
                   <Tab>읽을거리</Tab>·<Tab>증시</Tab>(자동)
                 </td>
               </tr>
               <tr>
-                <td>발견 승격·기각</td>
-                <td>후보 처리</td>
-                <td>
+                <td className={`${TD} font-semibold whitespace-nowrap`}>발견 승격·기각</td>
+                <td className={`${TD} text-mut`}>후보 처리</td>
+                <td className={TD}>
                   <Tab>발견</Tab>
                 </td>
               </tr>
@@ -297,7 +324,7 @@ export default function Guide() {
         title="바꾼 뒤 재빌드 순서"
         what={<>노트나 frontmatter(역할·깊이·goals 링크)를 바꿨으면 산출물을 다시 만들어야 허브에 반영된다.</>}
       >
-        <ol className={s.steps}>
+        <ol className="m-0 flex flex-col gap-1 pl-5 text-sm leading-relaxed marker:font-bold marker:text-acc">
           <li>
             <Cmd>벌트DB.py build</Cmd> — 인덱스/DB 재생성
           </li>
@@ -306,14 +333,14 @@ export default function Guide() {
           </li>
           <li>연관성·커리큘럼 재생성 — 시퀀싱(다음 학습 순서)</li>
         </ol>
-        <p className={s.note}>
+        <p className={NOTE}>
           게이트: <Cmd>검사.sh --fast</Cmd>(단일 진입점). 허브는 산출물을 읽어 자동 반영 — 빌드 후 탭 새로고침.
         </p>
       </Section>
 
-      <p className={s.foot}>
-        이 안내는 정적 참조입니다 — 상세 규약은 <code className={s.ref}>pipeline/스타일가이드.md</code> ·{' '}
-        <code className={s.ref}>knowledge/CLAUDE.md</code> · <code className={s.ref}>docs/북극성-비전.md</code>.
+      <p className="mt-4 text-xs leading-relaxed text-mut">
+        이 안내는 정적 참조입니다 — 상세 규약은 <code className={REF}>pipeline/스타일가이드.md</code> ·{' '}
+        <code className={REF}>knowledge/CLAUDE.md</code> · <code className={REF}>docs/북극성-비전.md</code>.
       </p>
     </section>
   );
