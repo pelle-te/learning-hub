@@ -98,6 +98,20 @@
      `[data-theme]` 이 그 둘을 바꾸면 여기도 **자동으로 다시 계산된다** — `:root` 와
      `<html data-theme>` 가 같은 요소이기 때문이다(Tailwind 브리지와 같은 원리).
      복사했다면 라이트 테마에서 조용히 틀렸을 것이다. */
+  /* ── 유동(fluid) 스케일(C-7) ─────────────────────────────────────────────
+     `clamp()` 는 **사다리 반올림의 예외**다. 고정 px 로 바꾸면 "픽셀이 조금 움직인다"가
+     아니라 전체화면 러너의 반응형이 통째로 사라진다 — 그건 이식이 아니라 동작 변경이다.
+     색을 반올림하지 않고 이름을 준 것과 같은 논리로, 유동값도 이름을 준다. */
+  --pad-runner: clamp(16px, 4vw, 48px);
+  --fs-runner-prompt: clamp(1.05rem, 2.4vw, 1.4rem);
+  --fs-runner-mark: clamp(2.6rem, 8vw, 4rem);
+
+  /* 배지·강조 배경 틴트 — `color-mix()` 결과에 이름을 준다(위 파생 의미론 색과 같은 규율). */
+  --tint-acc: color-mix(in srgb, var(--acc) 16%, transparent);
+  --tint-acc-faint: color-mix(in srgb, var(--acc) 7%, transparent);
+  --tint-warn: color-mix(in srgb, var(--warn) 20%, transparent);
+  --tint-bad: color-mix(in srgb, var(--bad) 20%, transparent);
+
   --line-acc: color-mix(in srgb, var(--acc) 30%, var(--line));
   --line-acc-strong: color-mix(in srgb, var(--acc) 32%, var(--line));
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));

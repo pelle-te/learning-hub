@@ -511,6 +511,37 @@ for (const theme of THEMES) {
   });
 }
 
+/* 복습 러너(C-7 Tailwind 이식) — **이 화면은 시각 커버리지가 0이었다.** 그 상태에서 이식했더니
+   카드가 1글자 폭으로 무너졌는데(토큰 이름이 `--spacing-*` 와 `--container-*` 두 네임스페이스에
+   겹쳐 `max-w-runner` 가 48px 으로 풀렸다) **린트·빌드·유닛이 전량 녹색**이었다. 띄워 봐야만
+   보이는 부류라 여기에 잠근다.
+
+   ⚠ 시계를 SEED 기준일보다 한참 뒤로 민다 — 그래야 챕터가 "밀린" 상태가 되어 빈 화면이 아니라
+   **실제 카드**가 렌더된다(빈 상태만 찍으면 이식의 대부분을 안 재는 것이다). */
+for (const theme of THEMES) {
+  test(`review-run · ${theme}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.clock.install({ time: new Date('2026-09-01T09:00:00') });
+    await page.addInitScript(
+      ([seed, th]) => {
+        try {
+          const s = seed as { cbms?: { conf?: boolean }[] };
+          // conf=true 여야 '착각 재확인' 카드가 뜬다(배지 data-kind 변형을 함께 잠근다).
+          for (const e of s.cbms ?? []) e.conf = true;
+          localStorage.setItem('study_planner_v3', JSON.stringify({ ...(seed as object), theme: th }));
+        } catch {
+          /* noop */
+        }
+      },
+      [SEED, theme] as const,
+    );
+    await page.goto('/review-run');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.getByRole('progressbar')).toBeVisible();
+    await expect(page).toHaveScreenshot(`review-run-${theme}.png`, { fullPage: true });
+  });
+}
+
 // 과목 상세 시트(계획 재개편 v3) — 과목 탭의 핵심 신규 UI. 카드를 누르면 탭 프레임보다 작은 중앙 시트가
 // 뜨고, 그 안에서 과목 정의 + 이번 주 요일 배분을 함께 정한다(옛 아코디언 대체). 뒤 갤러리가 살아 있는지도 함께 잠근다.
 for (const theme of THEMES) {

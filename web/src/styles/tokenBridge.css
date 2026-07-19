@@ -43,6 +43,10 @@
   --color-tint-good: var(--tint-good);
   --color-tint-learning: var(--tint-learning);
   --color-acc-soft: var(--acc-soft);
+  --color-tint-acc: var(--tint-acc);
+  --color-tint-acc-faint: var(--tint-acc-faint);
+  --color-tint-warn: var(--tint-warn);
+  --color-tint-bad: var(--tint-bad);
 
   --spacing-1: var(--sp-1);
   --spacing-2: var(--sp-2);
@@ -50,6 +54,15 @@
   --spacing-4: var(--sp-4);
   --spacing-5: var(--sp-5);
   --spacing-6: var(--sp-6);
+  /* ⚠ 이름이 `--container-*` 와 겹치면 안 된다. `--spacing-runner` 와 `--container-runner` 를
+     둘 다 두었더니 `max-w-runner` 가 **spacing 쪽(clamp 패딩 = 48px)** 으로 풀려 카드가
+     1글자 폭으로 무너졌다. 린트·빌드는 전량 녹색이었고 화면을 띄워서야 보였다.
+     → **토큰 이름은 Tailwind 네임스페이스 전체에서 유일해야 한다.** */
+  --spacing-runner-pad: var(--pad-runner);
+
+  /* 폭 상한 — `min(720px, 100%)` 는 `w-full max-w-runner` 로 표현된다. */
+  --container-runner: 720px;
+  --container-runner-narrow: 560px;
 
   --text-2xs: var(--fs-2xs);
   --text-xs: var(--fs-xs);
@@ -57,6 +70,9 @@
   --text-md: var(--fs-md);
   --text-lg: var(--fs-lg);
   --text-xl: var(--fs-xl);
+  /* 유동 스케일 — 사다리 칸이 아니라 **이름 붙은 반응형 크기**다(tokens.css 참조). */
+  --text-runner-prompt: var(--fs-runner-prompt);
+  --text-runner-mark: var(--fs-runner-mark);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
