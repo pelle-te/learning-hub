@@ -15,10 +15,20 @@ if (!quick) steps.push(['build', ['run', 'build']], ['budget', ['run', 'budget']
 
 /* Tauri 셸(1단계~) — Rust 쪽도 게이트에 든다(불변식 I4).
    ⚠ **없으면 건너뛴다**: web 만 만지는 작업까지 Rust 툴체인을 요구하면 게이트가 진입장벽이 된다.
-   cargo 가 있는 환경에서는 반드시 돈다(그래야 셸 회귀가 조용히 지나가지 않는다). */
+   cargo 가 있는 환경에서는 반드시 돈다(그래야 셸 회귀가 조용히 지나가지 않는다).
+
+   `tauri:check` 만으로는 **부족하다**(설계 §6): 컴파일만 보므로 번들·설정 오류를 못 잡는다.
+   실제로 1단계에서 `cargo check` 가 녹색인데 `tauri build` 가 WiX 코드페이지로 죽었고,
+   그건 **번들 단계에서만** 나타났다. 그래서 `tauri:build` 까지 돌린다.
+   그리고 트랙 B(`e2e:shell`)는 **빌드된 exe 를 검사 대상으로 삼으므로 반드시 그 뒤**다 —
+   순서가 뒤집히면 옛 exe 를 검사해 "통과"가 거짓이 된다. */
 const hasCargo = spawnSync('cargo', ['--version'], { encoding: 'utf8', shell: true }).status === 0;
 if (!quick && hasCargo) {
-  steps.push(['tauri:check', ['run', 'tauri:check', '--prefix', '..']]);
+  steps.push(
+    ['tauri:check', ['run', 'tauri:check', '--prefix', '..']],
+    ['tauri:build', ['run', 'tauri:build', '--prefix', '..']],
+    ['e2e:shell', ['run', 'e2e:shell']],
+  );
 }
 
 const results = [];
@@ -41,6 +51,7 @@ for (const r of results) {
   console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.firstErr ? '  — ' + r.firstErr : ''}`);
 }
 if (quick) console.log('(quick 모드 — build·budget·e2e 생략)');
-else if (!hasCargo) console.log('(cargo 없음 — tauri:check 생략. 셸을 만졌다면 Rust 툴체인 환경에서 재실행할 것)');
+else if (!hasCargo)
+  console.log('(cargo 없음 — tauri:check·tauri:build·e2e:shell 생략. 셸을 만졌다면 Rust 툴체인 환경에서 재실행할 것)');
 console.log(allOk ? 'RESULT: ✅ all green' : 'RESULT: ❌ 위 실패 참조');
 process.exit(allOk ? 0 : 1);

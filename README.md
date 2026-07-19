@@ -7,10 +7,13 @@
 ## 실행
 **React + Vite 앱**입니다(바닐라 ESM에서 이전 완료 — 설계·이력은 `MIGRATION.md`).
 
-- **개발**: 터미널 2개 — ① 루트에서 `node serve.js`(:8000 · `/api` 제어판 백엔드) ② `cd web && npm run dev`(:5173 · HMR). 브라우저는 **`http://localhost:5173`**.
-- **단일 출처(배포)**: `cd web && npm run build` 후 루트에서 `node serve.js` → `http://localhost:8000` 하나가 **빌드물(web/dist) + `/api` + SPA 딥링크 폴백**을 모두 서빙.
+- **데스크톱 앱(Tauri 셸)**: 루트에서 `npm run tauri:dev`(개발) · `npm run tauri:build`(배포본 + NSIS 설치프로그램). 셸이 `serve.js` 를 sidecar 로 알아서 띄우고 종료 시 정리한다 — 터미널·브라우저가 필요 없다.
+- **개발(브라우저)**: 터미널 2개 — ① 루트에서 `node serve.js`(:8000 · `/api` 제어판 백엔드) ② `cd web && npm run dev`(:5173 · HMR). 브라우저는 **`http://localhost:5173`**.
+- **단일 출처(브라우저 배포)**: `cd web && npm run build` 후 루트에서 `node serve.js` → `http://localhost:8000` 하나가 **빌드물(web/dist) + `/api` + SPA 딥링크 폴백**을 모두 서빙.
 
-(볼트/Anki 폴더 읽기에 File System Access API를 쓰므로 Chrome/Edge 권장.)
+(브라우저로 볼트/Anki 폴더를 읽을 땐 File System Access API를 쓰므로 Chrome/Edge 권장. Tauri 셸은 WebView2 라 해당 없음.)
+
+> ⚠ **브라우저 → 셸로 옮길 땐 데이터를 손으로 이관해야 한다.** WebView2 는 Chrome 과 **별개 저장소 오리진**이라 자동으로 넘어가지 않는다(셸 첫 실행이 빈 상태로 뜬다). 기존 앱에서 `⋯` → **데이터 내보내기(백업)** → 셸에서 `⋯` → **데이터 가져오기**. 가져오기는 현재 상태를 덮어쓰므로 셸을 쓰기 **전에** 할 것.
 
 ## 탭
 

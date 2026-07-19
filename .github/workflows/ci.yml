@@ -6,12 +6,14 @@ name: web-ci
 
 on:
   push:
-    paths: ['web/**', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'serve.js', 'package.json', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['web/**', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'serve.js', 'package.json', '.github/workflows/ci.yml']
   workflow_dispatch: {}
 
 jobs:
+  # 웹 게이트 — OS 무관이라 ubuntu(저렴). 아래 shell 잡과 **일부러 분리**한다(설계 §6):
+  # 린트·타입·테스트는 Rust 툴체인이 필요 없고, windows 러너는 2배 과금이다.
   build-test:
     runs-on: ubuntu-latest
     defaults:
@@ -39,3 +41,41 @@ jobs:
       # 비주얼 회귀(visual.spec)는 win32 베이스라인이라 CI(ubuntu)서 제외 — 로컬/수동 유지.
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e:smoke
+
+  # Tauri 셸 — **windows 전용**. ubuntu 에서는 검증이 원리적으로 불가한 것들이 있다:
+  # `killTree`(손자 taskkill /T) · `port_owner_pid`(netstat 파싱) · WebView2 자체가 Windows API 다.
+  # 배포 매트릭스는 두지 않는다 — 이 앱은 Windows 단일 타깃이다(설계 §6).
+  # ⚠ windows 러너는 2배 과금이라 비용 억제가 설계의 일부다:
+  #   · rust-cache 로 의존성 재컴파일을 없앤다(없으면 매번 ~90초 풀빌드)
+  #   · ⚠ GitHub 은 **잡별 paths 필터가 없다** — 워크플로 상단 paths 는 워크플로 전체에 걸리므로
+  #     `web/**` 만 바뀌어도 이 잡이 돈다. 낭비만은 아니다(번들이 web/dist 를 품으므로 web
+  #     변경도 셸 산출물을 바꾼다). 과금이 부담되면 `dorny/paths-filter` 로 잡을 게이팅할 것.
+  #   · 트랙 B(e2e:shell)는 **여기서 돌리지 않는다** — 창을 띄우고 sidecar 를 spawn 하는
+  #     통합 테스트라 헤드리스 러너에서 flaky 해지기 쉽고, 그 대가로 얻는 신호를 로컬
+  #     `/게이트`가 이미 준다. CI 는 "컴파일·린트·번들이 되는가"까지만 책임진다.
+  shell-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      # windows 러너 과금이 2배라 캐시가 선택이 아니다(설계 §6 명시).
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # 루트와 web 양쪽 설치가 필요하다: `tauri:*` 는 **루트 스크립트**라 루트의 @tauri-apps/cli 를
+      # 쓰고, `tauri:build` 의 beforeBuildCommand(`npm --prefix web run build`)는 web 의존성을 쓴다.
+      - run: npm ci
+      - run: npm ci
+        working-directory: web
+      - run: npm run tauri:fmt
+      - run: npm run tauri:clippy
+      # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
+      # `cargo check` 만으로는 1단계에서 겪은 WiX/NSIS 번들 실패를 못 잡는다.
+      - run: npm run tauri:build
