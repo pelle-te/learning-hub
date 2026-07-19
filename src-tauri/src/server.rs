@@ -38,6 +38,8 @@ use axum::{
 use serde::Serialize;
 use tauri::AppHandle;
 
+use crate::rows;
+
 /// 5-B 가 이 파일을 진짜 모바일 번들로 대체한다. 그때까지의 스모크 화면.
 const PAGE: &str = include_str!("mobile/index.html");
 
@@ -187,14 +189,13 @@ async fn connect_ro(path: Option<&std::path::Path>) -> Result<Option<sqlx::Sqlit
 된다 — 진단이 가장 어려운 부류다. 여기는 SQL 만 안다(`sqlite.ts` 가 스스로에게 건 규약과
 같은 규약이다). */
 
-/// `key, value` 2열 테이블을 `[{key, json}]` 로.
-async fn kv(pool: &sqlx::SqlitePool, table: &str) -> Result<Vec<serde_json::Value>, sqlx::Error> {
+/// `key, value` 2열 테이블을 `KvRow` 목록으로.
+async fn kv(pool: &sqlx::SqlitePool, table: &str) -> Result<Vec<rows::KvRow>, sqlx::Error> {
     // table 은 아래 호출부의 **리터럴만** 온다(사용자 입력이 닿지 않는다) — SQL 주입 표면 없음.
     let q = format!("SELECT key, value FROM {table}");
-    let rows: Vec<(String, String)> = sqlx::query_as(&q).fetch_all(pool).await?;
-    Ok(rows
-        .into_iter()
-        .map(|(key, json)| serde_json::json!({ "key": key, "json": json }))
+    let r: Vec<(String, String)> = sqlx::query_as(&q).fetch_all(pool).await?;
+    Ok(r.into_iter()
+        .map(|(key, json)| rows::KvRow { key, json })
         .collect())
 }
 
@@ -211,11 +212,10 @@ async fn read_rows(pool: &sqlx::SqlitePool) -> Result<serde_json::Value, sqlx::E
         return Ok(serde_json::Value::Null);
     }
 
-    let present: serde_json::Value = meta
+    let present = meta
         .iter()
         .find(|(k, _)| k == "present")
-        .and_then(|(_, v)| serde_json::from_str(v).ok())
-        .unwrap_or_else(|| serde_json::json!([]));
+        .map_or("[]", |(_, v)| v.as_str());
 
     let completions: Vec<(String, String, String)> =
         sqlx::query_as("SELECT ds, k, value FROM completions")
@@ -238,41 +238,39 @@ async fn read_rows(pool: &sqlx::SqlitePool) -> Result<serde_json::Value, sqlx::E
             .fetch_all(pool)
             .await?;
 
-    /* 빈 버킷을 **미리 만들어 둔다** — `rows.ts` 가 키의 존재를 전제하고, 없는 슬라이스는
-    "빈 배열"이 아니라 `undefined` 가 돼 매퍼가 조용히 다르게 동작한다(`sqlite.ts:117-118`
-    이 같은 이유로 리터럴을 먼저 깐다). 슬라이스 이름도 거기서 그대로 가져왔다. */
-    let mut ds_maps = serde_json::json!({ "dayOverrides": [], "dayPlans": [], "rituals": [] });
+    /* ⚠ 버킷을 `json!` 리터럴로 짓지 않는다(5단계-C 정정). 그렇게 하면 행 모양이 여기와
+    `rows.rs` 두 곳에 정의되고, 둘이 갈리는 순간 "폰에서만 값이 다르다"가 된다 — 5-B 가
+    매퍼를 Rust 로 복제하지 않기로 한 것과 같은 이유다. **타입이 유일한 정의**이고,
+    "빈 버킷이 키로 존재한다"는 계약도 구조체 필드라 컴파일러가 보장한다. */
+    let mut out = rows::DbRows {
+        present: serde_json::from_str(present).unwrap_or_default(),
+        settings,
+        runtime,
+        completions: completions
+            .into_iter()
+            .map(|(ds, k, json)| rows::CompletionRow { ds, k, json })
+            .collect(),
+        summaries: summaries
+            .into_iter()
+            .map(|(sid, ord, json)| rows::SummaryRow { sid, ord, json })
+            .collect(),
+        week_alloc: week_alloc
+            .into_iter()
+            .map(|(wk, sid, json)| rows::WeekAllocRow { wk, sid, json })
+            .collect(),
+        ..Default::default()
+    };
     for (slice, ds, json) in ds_map {
-        if let Some(b) = ds_maps.get_mut(&slice).and_then(|v| v.as_array_mut()) {
-            b.push(serde_json::json!({ "ds": ds, "json": json }));
+        if let Some(b) = out.ds_maps.bucket_mut(&slice) {
+            b.push(rows::DsRow { ds, json });
         }
     }
-    let mut arrays = serde_json::json!({
-        "cbms": [], "backlog": [], "blankResults": [],
-        "retentionLog": [], "events": [], "tasks": []
-    });
     for (slice, id, ord, json) in records {
-        if let Some(b) = arrays.get_mut(&slice).and_then(|v| v.as_array_mut()) {
-            b.push(serde_json::json!({ "id": id, "ord": ord, "json": json }));
+        if let Some(b) = out.arrays.bucket_mut(&slice) {
+            b.push(rows::OrdRow { id, ord, json });
         }
     }
-
-    Ok(serde_json::json!({
-        "present": present,
-        "settings": settings,
-        "runtime": runtime,
-        "completions": completions.into_iter()
-            .map(|(ds, k, json)| serde_json::json!({ "ds": ds, "k": k, "json": json }))
-            .collect::<Vec<_>>(),
-        "dsMaps": ds_maps,
-        "arrays": arrays,
-        "summaries": summaries.into_iter()
-            .map(|(sid, ord, json)| serde_json::json!({ "sid": sid, "ord": ord, "json": json }))
-            .collect::<Vec<_>>(),
-        "weekAlloc": week_alloc.into_iter()
-            .map(|(wk, sid, json)| serde_json::json!({ "wk": wk, "sid": sid, "json": json }))
-            .collect::<Vec<_>>(),
-    }))
+    Ok(serde_json::to_value(out).unwrap_or(serde_json::Value::Null))
 }
 
 /// `docs` 테이블(4단계-J — AppState 밖 사용자 저작물: 내 요약·독후감·진로 메모).

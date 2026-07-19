@@ -20,6 +20,10 @@ mod files;
 mod news;
 mod ollama;
 mod research;
+/* 5단계-C — AppState ↔ 행 표현 매퍼(rows.ts 의 Rust 이식). 아직 **아무도 안 부른다** —
+5-D 가 이중 대조로, 5-E 가 실제 쓰기 경로로 배선한다. 단계가 독립 릴리스 가능해야 하므로
+이식과 배선을 나눴다(§5단계 재범위 v6). */
+mod rows;
 mod server;
 mod tools;
 mod vault;

@@ -17,9 +17,16 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
-serde_json = "1.0"
+# ⚠ preserve_order 필수(5단계-C). 기본 BTreeMap 은 객체 키를 사전순으로 재배열하는데,
+#   `rows.rs` 의 `present` 배열이 AppState 키 순회 순서를 그대로 싣고 그게 meta 에 JSON
+#   문자열로 저장된다 → 순서가 달라지면 diff 가 매번 "변경됨"으로 판정해 쓸데없는 쓰기가 난다.
+#   왕복 동형(I1)도 키 순서 보존에 기댄다.
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
+# 5단계-C — 매퍼가 TS 의 `Map`(삽입 순서)과 같은 순서를 내야 5-D 대조가 단순해진다.
+# serde_json 의 preserve_order 가 이미 끌고 오는 크레이트라 새 트리가 생기지 않는다.
+indexmap = "2"
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 # 폴더 선택(워크스페이스 경로 설정) — 1단계 신설 작업의 UI 진입점.
