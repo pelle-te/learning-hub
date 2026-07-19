@@ -30,7 +30,12 @@ const { pipeline } = require('node:stream');
 const { spawn } = require('child_process');
 
 const ROOT = __dirname;                          // 러닝허브 폴더
-const WORK = path.dirname(ROOT);                 // 워크스페이스 루트(pipeline·knowledge·exports의 부모)
+/* 워크스페이스 루트(pipeline·knowledge·exports의 부모).
+   ⚠ 원래는 `path.dirname(ROOT)` 로 **실행 위치에서 추론**했다. Tauri 셸(플랫폼 개편 1단계)은 앱을
+   설치 경로에 놓으므로 그 추론이 깨진다 — sidecar 로 도는 이 파일의 __dirname 이 설치 경로가 된다.
+   그래서 셸이 설정값(사용자가 고른 워크스페이스)을 LH_WORKSPACE 로 주입하고, 그게 있으면 이긴다.
+   환경변수가 없으면 기존 추론 그대로 → `node serve.js` 단독 실행·기존 .bat 경로는 동작이 동일하다. */
+const WORK = path.dirname(ROOT);
 const DIST = path.join(ROOT, 'web', 'dist');     // React 빌드물(정적 서빙 루트)
 const PORT = Number(process.argv[2]) || 8000;
 const PY = process.env.PYTHON || 'python';
@@ -136,6 +141,20 @@ function killTree(proc) {
     if (process.platform === 'win32' && proc.pid) spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F']);
     else proc.kill();
   } catch (e) { /* best-effort — close 핸들러가 정리를 마친다 */ }
+}
+
+/* 도구에 넘길 추가 위치인자 산출(순수) — 라우터 안에 인라인돼 테스트가 닿지 않던 것을 분리(0단계-A).
+   frontier/gaps 과목 필터 · 발견 후보 id(kind::key) 등 단일 위치인자만 허용한다.
+   dash 접두 값은 파이썬 argparse에서 *플래그*로 오해석될 수 있어 거부(정상 과목명·후보 id는
+   '-'로 시작하지 않으므로 실사용 영향 0 · '--' 리터럴 주입은 비-argparse 도구를 깨서 회피).
+   200자 상한 = 발견 id(kind::긴개념명)도 안 잘리는 길이(shell을 안 쓰므로 길이만 방어하면 된다). */
+function toolExtraArgs(body) {
+  if (!body || typeof body !== 'object') return [];
+  const raw = Object.hasOwn(body, 'subject') ? body.subject : undefined;
+  if (!raw || typeof raw !== 'string') return [];
+  const sub = raw.slice(0, 200);
+  if (!sub || sub.startsWith('-')) return [];
+  return [sub];
 }
 
 /* 도구 실행(spawn · shell 안 씀) → {ok,out,code,stats?} */
@@ -622,15 +641,7 @@ const server = http.createServer((req, res) => {
         return readBody(req, res, body => {
           RUNNING++;
           const done = r => { RUNNING = Math.max(0, RUNNING - 1); sendJSON(res, 200, r); };
-          const extra = [];
-          // frontier/gaps 과목 필터 · 발견 후보 id(kind::key) 등 단일 위치인자. dash-접두 값은 파이썬 CLI에서
-          // *플래그*로 오해석될 수 있어 거부(정상 과목명·후보 id 는 '-'로 시작 안 함 → 실사용 영향 0 · '--' 리터럴
-          // 주입은 비-argparse 도구를 깨서 회피). 200자 상한 = 발견 id(kind::긴개념명)도 안 잘리게(shell 안 씀 → 길이만 방어).
-          if (body.subject && typeof body.subject === 'string') {
-            const sub = body.subject.slice(0, 200);
-            if (sub && !sub.startsWith('-')) extra.push(sub);
-          }
-          runTool(tool, extra, done);
+          runTool(tool, toolExtraArgs(body), done);
         });
       }
       // 탐구 수집 잡 시작 — 백그라운드로 돌리고 즉시 잡 반환(요청을 30분 붙들지 않음).
@@ -808,9 +819,38 @@ function shutdown(sig) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`러닝허브(React) + 제어판 실행 중 → http://localhost:${PORT}/`);
-  if (!fs.existsSync(path.join(DIST, 'index.html'))) console.log('  ⚠ web/dist 없음 — `cd web && npm run build` 먼저 실행하세요.');
-  console.log(`  제어판 도구: ${Object.keys(TOOLS).join(', ')} · 탐구 수집 잡(/api/research)`);
-  console.log('종료: Ctrl+C');
-});
+/* 직접 실행일 때만 리슨한다(0단계-A). `require('./serve.js')`로 불러도 포트를 잡지 않아야
+   회귀 테스트가 내부 함수를 직접 검증하고, 라우터는 임의 포트로 따로 띄울 수 있다.
+   이 테스트가 곧 4단계 Rust 포팅의 **동등성 명세**다 — 지금까지 주석에만 있던 방어를 잠근다. */
+if (require.main === module) {
+  server.listen(PORT, '127.0.0.1', () => {
+    console.log(`러닝허브(React) + 제어판 실행 중 → http://localhost:${PORT}/`);
+    if (!fs.existsSync(path.join(DIST, 'index.html'))) console.log('  ⚠ web/dist 없음 — `cd web && npm run build` 먼저 실행하세요.');
+    console.log(`  제어판 도구: ${Object.keys(TOOLS).join(', ')} · 탐구 수집 잡(/api/research)`);
+    console.log('종료: Ctrl+C');
+  });
+}
+
+/* 테스트 표면 — 프로덕션 동작에 영향 없음(직접 실행 경로는 위에서 이미 리슨했다).
+   여기 열거된 것이 4단계에서 Rust로 옮겨야 할 **동작 계약**의 목록이기도 하다. */
+module.exports = {
+  server,
+  TOOLS,
+  ARTIFACTS,
+  DIST,
+  PORT, // hostOK가 Host 헤더를 이 포트로 검사한다 — 임의 포트로 띄우는 테스트가 헤더를 맞춰야 함
+
+  readBody,
+  runTool,
+  toolExtraArgs,
+  killTree,
+  startResearch,
+  cancelResearch,
+  publicJob,
+  pruneJobs,
+  parseKnowledgeBuild,
+  parseVaultHealth,
+  parseEval,
+  parseReadsCollect,
+  parseMarketsCollect,
+};

@@ -8,6 +8,7 @@ import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 export default tseslint.config(
   // e2e(Playwright)는 별도 러너·tsconfig 밖 → 앱 lint에서 제외(Playwright가 자체 처리).
@@ -34,6 +35,41 @@ export default tseslint.config(
      못 잡았다. jsx-a11y 는 aria 속성명 오타·role 대비 필수 속성 누락·상호작용 요소의 키보드
      핸들러 부재 같은 '기계가 잡을 수 있는 것'만 담당한다(나머지는 여전히 사람 몫). */
   { ...jsxA11y.flatConfigs.recommended, files: ['src/**/*.tsx'] },
+  /* 코드 품질 게이트(0단계-F) — sonarjs를 **recommended 없이** 규칙 2개만 켠다.
+     recommended는 217규칙이고 실측 위반 249건 중 181건이 스타일 취향
+     (no-nested-conditional 130 · no-nested-assignment 20 · void-use 18 ·
+     no-nested-template-literals 13)이다. 그 노이즈가 신호(cognitive-complexity 34 ·
+     super-linear-regex 2)를 묻는 게 정적분석 도구 도입의 주 실패 모드라, 신호만 취한다.
+     recommended가 jsx-a11y·react-hooks 규칙 사본까지 물고 오는 것도 피한다(위에서 이미 켬).
+     ※ 이 목록을 늘리려면 먼저 실측하고 "노이즈:신호" 비율을 근거로 남길 것. */
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { sonarjs },
+    rules: {
+      /* 인지복잡도 **래칫** — 임계는 현재 최댓값(77 · TodaySignature)에 맞춰져 있고
+         **내려가기만 한다**. 기본값 15로 조이면 즉시 34건이 터져 0-F가 리팩터 작업이 되는데,
+         0단계는 "플랫폼 무관 선행"이지 리팩터 단계가 아니다. 지금 막는 건 *새로 생기는* 괴물뿐.
+         ⚠ 6단계(Tailwind)는 CSS를 JSX로 옮겨 이 수치를 밀어올린다 → max-lines와 함께 재기준선.
+         현황은 `npm run report:debt`. */
+      'sonarjs/cognitive-complexity': ['error', 77],
+      // ReDoS — 실측 2건을 0단계-F에서 제거했고(vault 프론트매터·quickCapture 챕터) 재발을 막는다.
+      // 이건 취향이 아니라 입력이 커지면 멈추는 버그라 임계 없이 error.
+      'sonarjs/super-linear-regex': 'error',
+    },
+  },
+  /* 파일 크기 래칫 — 임계는 현재 최댓값(729 · TodaySignature)이고 내려가기만 한다.
+     주석·빈 줄 제외: 이 저장소는 "왜"를 주석으로 남기는 걸 규약으로 삼는데(결정로그와 짝),
+     주석을 줄 수에 세면 규약을 지킬수록 게이트가 조여지는 역인센티브가 된다. */
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: { 'max-lines': ['error', { max: 730, skipBlankLines: true, skipComments: true }] },
+  },
+  // atlasData.ts는 진로 아틀라스 시드 **데이터**(779줄)다 — 분할해도 복잡도가 줄지 않는 상수 테이블이라
+  // 크기 래칫의 대상이 아니다(코드가 아니라 데이터라는 것이 예외 사유).
+  {
+    files: ['src/lib/atlasData.ts'],
+    rules: { 'max-lines': 'off' },
+  },
   {
     files: ['src/**/*.{ts,tsx}'],
     plugins: { boundaries },

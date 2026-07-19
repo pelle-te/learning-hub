@@ -1,0 +1,27 @@
+{
+  // knip — 죽은 코드/의존성 게이트(0단계-F). `npm run knip`, verify에 포함.
+  // 규약: 여기 예외를 늘릴 땐 **왜 오탐인지**를 주석으로 남긴다(stylelint.config.js와 같은 규약).
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+
+  // main.tsx·playwright.config.ts는 knip이 자동 인식하므로 열거하지 않는다(중복 패턴 경고).
+  // e2e/test/scripts는 러너가 부르는 진입점 — 여기 없으면 그들이 쓰는 파일이 전부 '미사용'이 된다.
+  "entry": ["e2e/**/*.ts", "scripts/*.mjs", "test/**/*.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs"],
+
+  // lint-staged: husky/git 훅이 package.json 설정으로만 부른다(import 없음).
+  // stylelint-config-standard: stylelint.config.js가 문자열로 extends 한다(import 없음).
+  "ignoreDependencies": ["lint-staged", "stylelint-config-standard"],
+
+  "ignoreExportsUsedInFile": true,
+
+  // artifacts.gen.ts는 gen-artifacts.mjs가 만드는 **생성물**이다 — 아티팩트마다 타입을 일괄
+  // 방출하므로 일부가 미소비인 게 정상이고, 소유자는 codegen:check이지 knip이 아니다.
+  "ignore": ["src/lib/artifacts.gen.ts"],
+
+  "rules": {
+    // 미사용 *타입* 내보내기는 끈다 — schema.ts의 20개 스키마가 같은 파일에서 `z.infer`로
+    // 타입을 파생시키는 게 이 저장소의 규약이고(타입 SSOT), 런타임 비용도 0이라 신호가 아니다.
+    // 파일/런타임 export/의존성 미사용은 그대로 error로 남는다(그게 knip을 넣은 이유).
+    "types": "off"
+  }
+}

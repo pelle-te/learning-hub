@@ -97,7 +97,10 @@ async function readFM(fh: FileSystemFileHandle): Promise<Record<string, string>>
   try {
     const f = await fh.getFile();
     const t = (await f.slice(0, 1600).text()) as string;
-    const m = t.match(/^---\s*\n([\s\S]*?)\n---/);
+    // `\s*\n`이 아니라 `[ \t]*\r?\n` — `\s`가 개행을 포함해 `\s*\n`과 뒤따르는 lazy `[\s\S]*?`가
+    // 같은 문자를 두고 겹치면서 백트래킹이 초선형이 된다(sonarjs/super-linear-regex).
+    // 문자 클래스를 겹치지 않게 가르면 모호성이 사라지고, 덤으로 CRLF 볼트도 인식한다.
+    const m = t.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---/);
     if (!m) return {};
     const o: Record<string, string> = {};
     m[1]!.split('\n').forEach((l) => {

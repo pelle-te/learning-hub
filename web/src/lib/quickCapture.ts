@@ -203,9 +203,11 @@ function matchSession(raw: string): { type: CaptureSessionType; strip: string } 
 
 /** 챕터 인식 — 'N챕터' · 'N장' · 'ch N' · 'chapter N'. 매칭된 형태를 그대로 라벨로. */
 function matchChapter(raw: string): { chapter: string; strip: string } | null {
-  let m = raw.match(/\d+\s*(?:챕터|장)/);
+  // 수량자를 상한 있는 형태로 — 무한 `\d+`/`\s*`는 매칭 실패 시 시작위치마다 재스캔해
+  // 초선형이 된다(sonarjs/super-linear-regex). 챕터 번호가 4자리를 넘을 일은 없으므로 의미 손실 0.
+  let m = raw.match(/\d{1,4}[ \t]{0,4}(?:챕터|장)/);
   if (m) return { chapter: m[0].trim(), strip: m[0] };
-  m = raw.match(/(?:chapter|ch)\s*\d+/i);
+  m = raw.match(/(?:chapter|ch)[ \t]{0,4}\d{1,4}/i);
   if (m) return { chapter: m[0].trim(), strip: m[0] };
   return null;
 }
