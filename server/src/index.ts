@@ -57,6 +57,27 @@ const TABLE_COLS: Record<string, { key: string[]; data: string[] }> = Object.fro
 
 const nowSec = (): number => Math.floor(Date.now() / 1000);
 
+/* ⚠⚠ **평문을 거부한다(P0-1).** `*.workers.dev` 는 https 인증서가 자동으로 붙지만 **http 를
+   막아 주지는 않는다** — 배포 후 실측했더니 `http://…/api/token` 이 그대로 응답했다(런북 §7-3
+   이 "200 이 평문으로 오면 P0-1 위반"이라 적어 둔 바로 그 조건).
+
+   데스크톱은 Rust 중계가 https 를 강제하므로 이미 안전하다(`cloud.rs`). 위험한 쪽은 **C-6 폰
+   웹앱**이다 — 진짜 브라우저라 사용자가 주소에 `http://` 를 치면 리프레시 토큰이 평문으로
+   나간다. 클라이언트 쪽 규율에만 기대면 언젠가 새므로 **서버가 거절**한다.
+
+   리다이렉트가 아니라 **거부**인 이유: 3xx 는 POST 본문을 잃고 클라이언트마다 따라가는 방식이
+   달라 조용히 반쯤 동작한다. 여기선 실패가 즉시 드러나는 편이 낫다.
+
+   ⚠ 루프백은 예외다 — `wrangler dev` 가 http://localhost 로 돈다(`cloud.rs` 와 같은 판단). */
+app.use('/api/*', async (c, next) => {
+  const u = new URL(c.req.url);
+  const loopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+  if (u.protocol !== 'https:' && !loopback) {
+    return c.json({ error: 'https required' }, 403);
+  }
+  await next();
+});
+
 /* ⚠ CORS 를 **명시**한다(P1-6). 설계서가 axum 기본값을 두고 "지금 유리하게 작동하지만 그건
    의도가 아니라 우연"이라 지적했다 — Workers 도 같다. 허용목록이 비면 아무 오리진도 안 연다
    (와일드카드로 여는 것보다 폰 앱이 안 붙는 편이 안전하다. 후자는 즉시 드러난다). */
