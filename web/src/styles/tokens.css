@@ -47,6 +47,12 @@
     'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic',
     sans-serif;
 
+  /* 고정폭 단일 원천(C-7) — 지금까지 `ui-monospace, monospace` 가 CSS 7곳에 하드코딩돼
+     있었다(폰트 스택에는 토큰이 없었다). Tailwind 의 기본 `font-mono` 스택은 이것과 달라서,
+     이식하면 같은 글자가 다른 폭으로 렌더된다 — 반올림이 아니라 **의도치 않은 치환**이라
+     첫 이식(discovery)에서 되돌렸다. 남은 6곳은 그 feature 를 옮길 때 이 토큰으로 모은다. */
+  --font-mono: ui-monospace, monospace;
+
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -81,6 +87,23 @@
   --z-tooltip: 80;
   --z-palette: 1000;
   --z-palette-top: 1001;
+
+  /* ── 파생 의미론 색(C-7) ────────────────────────────────────────────────
+     `color-mix()` 결과에 **이름을 준다.** C-7 이 CSS Module 을 Tailwind 로 옮기면서
+     생긴 요구다: 클래스가 JSX 로 가면 `color-mix(...)` 를 그 자리에 적을 수 없고
+     (임의값 금지 규약 · `phone.css` 규약 3), 그렇다고 계산 결과를 hex 로 굳히면
+     **절대규칙 #3(색은 저장값이 아니라 파생물)이 깨진다.** 이름을 주는 것이 답이다.
+
+     ⚠ **테마 블록에 복사하지 않는다.** `var(--acc)`·`var(--line)` 을 참조하므로
+     `[data-theme]` 이 그 둘을 바꾸면 여기도 **자동으로 다시 계산된다** — `:root` 와
+     `<html data-theme>` 가 같은 요소이기 때문이다(Tailwind 브리지와 같은 원리).
+     복사했다면 라이트 테마에서 조용히 틀렸을 것이다. */
+  --line-acc: color-mix(in srgb, var(--acc) 30%, var(--line));
+  --line-acc-strong: color-mix(in srgb, var(--acc) 32%, var(--line));
+  --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
+  --tint-acc2: color-mix(in srgb, var(--acc2) 18%, transparent);
+  --tint-good: color-mix(in srgb, var(--good) 15%, transparent);
+  --tint-learning: color-mix(in srgb, var(--learning) 18%, transparent);
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

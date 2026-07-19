@@ -24,7 +24,26 @@ import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
-import s from './Discovery.module.css';
+
+/* ── C-7 Tailwind 이식(첫 feature) ───────────────────────────────────────
+   `Discovery.module.css` 를 없앴다. 규약은 `styles/tokenBridge.css` + `phone/phone.css`
+   머리주석이 소유한다(색은 tokens.css 파생 · 임의값 금지 · 사다리로 반올림).
+
+   ⚠ **픽셀이 조금 움직인다 — 의도된 것이다.** 사다리 밖 값(48/22/18/14/9/6/5/2px 간격,
+   14/12px 반경 등)을 가장 가까운 사다리 칸으로 반올림했다. 사용자 결정(2026-07-20):
+   사다리를 수백 칸으로 불리는 대신 흘러내린 임의 값을 정리하는 쪽. 스냅샷은 이 이식과
+   함께 **의도적으로** 재생성했고 diff 를 눈으로 확인했다.
+
+   ⚠ kind 배지 색은 **정적 맵**이다. 옛 코드는 `s['kind_' + entry.kind]` 로 클래스명을
+   런타임에 조립했는데, Tailwind 는 소스를 문자열로 훑으므로 **그렇게 만든 클래스는
+   생성되지 않는다**(조용히 스타일 없음). 린터도 못 본다. 조립 금지가 규약이다. */
+const KIND_CLASS: Record<string, string> = {
+  uncovered: 'bg-acc-soft text-acc',
+  bridge: 'bg-tint-acc2 text-acc2',
+  survey_context: 'bg-tint-good text-good',
+  capability: 'bg-tint-learning text-learning',
+};
+const ROOT = 'px-5 pt-4 pb-6';
 
 export default function Discovery() {
   const disc = useDiscovery();
@@ -67,8 +86,8 @@ export default function Discovery() {
 
   if (disc.isLoading) {
     return (
-      <section className={s.root}>
-        <p className={s.muted}>발견 큐를 불러오는 중…</p>
+      <section className={ROOT}>
+        <p className="py-3 text-sm text-mut">발견 큐를 불러오는 중…</p>
       </section>
     );
   }
@@ -76,7 +95,7 @@ export default function Discovery() {
   // 콜드 정직성 — 파일 부재(404)나 pending 0. 발견 루프가 아직 안 돌았을 뿐(약점 없음 아님과 동형).
   if (disc.isError || !data || pending.length === 0) {
     return (
-      <section className={s.root}>
+      <section className={ROOT}>
         <EmptyState
           glyph="✦"
           title={counts.promoted + counts.dismissed > 0 ? '미결 후보가 없어요' : '발견 큐가 아직 비어 있어요'}
@@ -99,17 +118,17 @@ export default function Discovery() {
   }
 
   return (
-    <section className={s.root}>
-      <header className={s.hero}>
-        <div className={s.kicker}>발견 · 축 C</div>
-        <h1 className={s.title}>✦ 발견 큐</h1>
-        <p className={s.desc}>
+    <section className={ROOT}>
+      <header className="mb-4 rounded-lg border border-line-acc bg-linear-to-b from-acc-soft to-transparent p-5">
+        <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">발견 · 축 C</div>
+        <h1 className="mt-1 mb-2 text-xl tracking-tight">✦ 발견 큐</h1>
+        <p className="m-0 max-w-prose text-sm leading-normal text-mut">
           기계가 표면화한 후보를 <b>사람이 승격/기각</b>합니다 — 승격은 개론 섹션을 atomic 노트로 분해하는 핸드오프(핵심
           지시문 파이프라인), 기각은 큐에서 내림. 결정은 재실행에도 보존됩니다(멱등).
         </p>
       </header>
 
-      <ul className={s.list}>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {pending.map((e) => (
           <Candidate key={e.id} entry={e} busy={busy === e.id} disabled={busy != null} onDecide={decide} />
         ))}
@@ -133,24 +152,26 @@ function Candidate({
   const meta = DISCOVERY_KIND_META[entry.kind];
   const goals = entryGoals(entry);
   return (
-    <li className={`${s.card} ${busy ? s.cardBusy : ''}`}>
-      <div className={s.cardMain}>
-        <div className={s.cardHead}>
+    <li
+      className={`flex items-center gap-3 rounded-md border border-line bg-panel px-3 py-3 transition-colors hover:border-line-acc-strong ${busy ? 'pointer-events-none opacity-50' : ''}`}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 items-baseline gap-2">
           {/* 툴팁 설명은 aria-label로도 실어야 스크린리더에 닿는다(TooltipHost가 네이티브 title 대체). */}
           <span
-            className={`${s.kind} ${s['kind_' + entry.kind]}`}
+            className={`flex-none rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap ${KIND_CLASS[entry.kind] ?? ''}`}
             data-tip={meta?.hint}
             role="img"
             aria-label={`${meta?.label ?? entry.kind}${meta?.hint ? ` — ${meta.hint}` : ''}`}
           >
             {meta?.label ?? entry.kind}
           </span>
-          <h2 className={s.cardTitle}>{entryTitle(entry)}</h2>
+          <h2 className="m-0 truncate text-md tracking-tight">{entryTitle(entry)}</h2>
         </div>
-        <div className={s.meta}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mut">
           {goals.length > 0 && (
             <span
-              className={s.goals}
+              className="text-acc-on-txt"
               data-tip="이 개념이 잇는 활성 하위목표"
               role="img"
               aria-label={`이 개념이 잇는 활성 하위목표: ${goals.join(', ')}`}
@@ -159,7 +180,7 @@ function Candidate({
             </span>
           )}
           <span
-            className={s.src}
+            className="font-mono"
             data-tip="후보를 낸 표면(발견.py 함수)"
             role="img"
             aria-label={`후보를 낸 표면: ${entry.source}`}
@@ -167,7 +188,7 @@ function Candidate({
             {entry.source}
           </span>
           <span
-            className={s.score}
+            className="ml-auto font-semibold text-txt tabular-nums"
             data-tip="랭킹 점수(목표 근접·중심성 등)"
             role="img"
             aria-label={`랭킹 점수 ${entry.score.toFixed(2)} — 목표 근접·중심성 등`}
@@ -176,7 +197,7 @@ function Candidate({
           </span>
         </div>
       </div>
-      <div className={s.actions}>
+      <div className="flex flex-none gap-1">
         <Button sm variant="primary" disabled={disabled} onClick={() => onDecide(entry.id, 'promote')}>
           {busy ? '…' : '승격'}
         </Button>

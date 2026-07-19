@@ -35,6 +35,14 @@
   --color-bad: var(--bad);
   --color-good: var(--good);
   --color-learning: var(--learning);
+  /* 파생 의미론 색 — 계산은 tokens.css 가 하고 여기는 이름만 잇는다(C-7). */
+  --color-line-acc: var(--line-acc);
+  --color-line-acc-strong: var(--line-acc-strong);
+  --color-acc-on-txt: var(--acc-on-txt);
+  --color-tint-acc2: var(--tint-acc2);
+  --color-tint-good: var(--tint-good);
+  --color-tint-learning: var(--tint-learning);
+  --color-acc-soft: var(--acc-soft);
 
   --spacing-1: var(--sp-1);
   --spacing-2: var(--sp-2);
@@ -47,10 +55,13 @@
   --text-xs: var(--fs-xs);
   --text-sm: var(--fs-sm);
   --text-md: var(--fs-md);
+  --text-lg: var(--fs-lg);
+  --text-xl: var(--fs-xl);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
 
   --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
