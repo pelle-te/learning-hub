@@ -6,6 +6,7 @@
 레이어 계약(I2): 프런트에서 `invoke` 를 부르는 쪽은 `web/src/lib/` 가 소유한다.
 여기 등록한 커맨드가 그 유일한 대응면이다.
 */
+mod db;
 mod sidecar;
 mod workspace;
 
@@ -44,6 +45,12 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_dialog::init())
+        // 2단계 — SQLite. 스키마는 db.rs 가 단일 원천이고 프런트는 데이터만 넣고 뺀다.
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(db::DB_URL, db::migrations())
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             workspace::workspace_status,
             workspace::set_workspace,

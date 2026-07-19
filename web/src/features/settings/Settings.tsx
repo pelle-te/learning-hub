@@ -17,9 +17,24 @@ import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
+import { lastParity } from '@/lib/db/dual';
 import ds from '@/styles/ds.module.css';
 import st from './Settings.module.css';
 import type { AppState } from '@/lib/types';
+
+/** 2단계-D 양방향 검증 구간의 진단 한 줄 — SQL 경로가 JSON 정본과 일치하는가.
+    이 구간에서 정본은 여전히 localStorage 라 **사용자가 할 일은 없다**. 그래서 토스트가 아니라
+    설정 탭의 조용한 리드아웃이고, 브라우저(SQL 경로 없음)에선 렌더 자체를 안 한다.
+    2단계-E 에서 정본이 SQLite 로 뒤집히면 이 줄은 사라진다(구간의 수명이 곧 이 줄의 수명). */
+function ParityLine() {
+  const p = lastParity();
+  if (p.skipped) return null;
+  return (
+    <div className={`${ds.foot} ${st.bdLine}`}>
+      {p.ok ? '✓ SQLite 경로 일치(이행 검증 중)' : `⚠ SQLite 경로 불일치: ${p.mismatched.join(', ')}`}
+    </div>
+  );
+}
 
 /** 액센트 스와치 미리보기색 — tokens.css [data-accent] 프리셋의 --acc를 직접 읽어 파생(하드코딩 SSOT 위반 제거).
     '테마 무관 대표 네온'을 위해 다크 테마 기준으로 계산한다(라이트에서도 스와치는 같은 네온).
@@ -430,6 +445,7 @@ export default function Settings() {
         <div className={`${ds.foot} ${st.bdLine}`}>
           완료 {bd.done} · 요약 {bd.summaries} · 오답 {bd.cbms} · 백로그 {bd.backlog} · 백지 {bd.blank}
         </div>
+        <ParityLine />
         <div className={ds.row}>
           <Button sm onClick={() => io.backupToVault()}>
             📁 볼트 폴더에 백업

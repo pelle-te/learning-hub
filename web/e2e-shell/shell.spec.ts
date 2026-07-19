@@ -62,6 +62,52 @@ test('라우팅 — 탭 이동이 셸 안에서 동작한다(해시/히스토리
   }
 });
 
+/* 2단계-D — SQLite 경로가 **진짜 WebView2 안에서** JSON 정본과 일치하는가.
+
+   왜 여기서만 검증 가능한가: `dbRows.test.ts` 는 매퍼 왕복을 순수 함수로 잠갔지만, 그 사이의
+   SQL 층(타입 강제 변환·NULL 처리·트랜잭션·마이그레이션 적용)은 **실제 디스크를 왕복해야만**
+   드러난다. `cargo check` 도 `tauri build` 도 이걸 원리적으로 못 잡는다 — 1단계에서 "빌드
+   녹색인데 앱이 죽어 있던" 결함 3건이 나온 것과 정확히 같은 자리다. */
+test('2단계-D — SQLite 경로가 JSON 정본과 일치한다(양방향 대조)', async () => {
+  const shell = await launchShell();
+  try {
+    // 편집을 한 번 일으켜 flush → mirrorAndVerify 를 태운다(테마 토글 = 실제 사용자 제스처).
+    await shell.page.getByRole('button', { name: /테마 전환/ }).click();
+    await shell.page.waitForTimeout(1200); // 디바운스 400ms + SQL 왕복
+
+    // 프런트가 들고 있는 상태를 SQLite 가 그대로 되돌려주는지 **DB 를 직접 읽어** 확인한다.
+    const parity = await shell.page.evaluate(async () => {
+      const w = window as unknown as {
+        __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+      };
+      const sel = (query: string) =>
+        w.__TAURI_INTERNALS__.invoke('plugin:sql|select', { db: 'sqlite:learning-hub.db', query, values: [] });
+      const settings = (await sel('SELECT key, value FROM settings')) as { key: string; value: string }[];
+      const meta = (await sel('SELECT key, value FROM meta')) as { key: string; value: string }[];
+      const live = JSON.parse(localStorage.getItem('study_planner_v3') || '{}') as Record<string, unknown>;
+      const theme = settings.find((r) => r.key === 'theme');
+      return {
+        rows: settings.length,
+        present: meta.length,
+        themeMatches: !!theme && JSON.parse(theme.value) === live.theme,
+        // 행 슬라이스로 안 간 스칼라들이 실제로 settings 에 있는가(스키마가 붙었다는 증거).
+        hasStartDate: settings.some((r) => r.key === 'startDate'),
+      };
+    });
+
+    expect(parity.rows, 'settings 행이 0 = 마이그레이션이나 쓰기가 안 돌았다').toBeGreaterThan(0);
+    expect(parity.present, "meta['present'] 이 없으면 빈 슬라이스 구분이 깨진다").toBeGreaterThan(0);
+    expect(parity.hasStartDate).toBe(true);
+    expect(parity.themeMatches, 'SQLite 의 theme 이 localStorage 정본과 다르다').toBe(true);
+
+    // 원복 — 이 테스트는 실제 앱 저장소를 쓴다.
+    await shell.page.getByRole('button', { name: /테마 전환/ }).click();
+    await shell.page.waitForTimeout(700);
+  } finally {
+    await closeShell(shell);
+  }
+});
+
 /* 이 파일의 핵심 — 설계 §8 "동기 flush 계약 파괴"가 가리키던 자리.
 
    설계는 "Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 `useApp` 언로드 안전망이 안 걸린다"고

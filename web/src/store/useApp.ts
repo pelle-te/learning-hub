@@ -11,6 +11,7 @@ import { boot, persist, serialize, setDone, defaults, CORRUPT_KEY, KEY } from '@
 import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
+import { mirrorAndVerify } from '@/lib/db/dual';
 import { storage } from '@/lib/kv';
 import { announce, onSync } from '@/lib/sync';
 import { toast } from '@/shell/toast';
@@ -119,6 +120,11 @@ export const useApp = create<AppStore>()(
       }
       // 멀티탭 동기화 — 다른 탭이 이 스냅샷을 채택하게 방송(상호 덮어쓰기 유실 방지 + 대시보드 모드).
       if (json != null) announce({ kind: 'app' });
+      // 2단계-D 양방향 검증 구간 — 같은 상태를 SQLite 에도 기록하고 되읽어 대조한다.
+      // **정본은 아직 위의 localStorage** 이고 이건 나란히 도는 그림자 경로다. 그래서
+      // (a) await 하지 않고 (b) 실패해도 flush 를 실패로 만들지 않는다. 브라우저에선 no-op.
+      // 2단계-E 에서 정본이 뒤집히면 이 호출은 사라지고 위쪽이 그림자가 된다.
+      void mirrorAndVerify(mergeRuntime(get().state));
     };
     /** 텍스트 입력마다 쓰지 않게 디바운스(설계도 §1-A). */
     const schedulePersist = () => {
