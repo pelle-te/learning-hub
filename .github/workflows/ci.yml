@@ -76,6 +76,11 @@ jobs:
         working-directory: web
       - run: npm run tauri:fmt
       - run: npm run tauri:clippy
+      # Windows 전용 계약을 여기서 검증한다 — serve.js 의 `killTree`(taskkill /T 손자 정리)는
+      # win32 분기라 ubuntu 잡에서는 skip 된다. 여기서 안 돌리면 skip 이 "통과"로 위장돼
+      # 계약이 **아무데서도** 검증되지 않는다(0단계-A 가 4단계 포팅의 동등성 명세인데도).
+      - run: npm run test -- serve
+        working-directory: web
       # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
       # `cargo check` 만으로는 1단계에서 겪은 WiX/NSIS 번들 실패를 못 잡는다.
       - run: npm run tauri:build

@@ -207,59 +207,74 @@ describe('killTree — 트리 종료', () => {
     expect(() => srv.killTree(undefined)).not.toThrow();
   });
 
-  it('자식이 띄운 **손자**까지 정리한다 (실제 프로세스)', async () => {
-    // 회귀: proc.kill()은 직속 자식만 죽인다 — python이 띄운 크롤러(손자)는 살아남아 CPU·네트워크를
-    // 계속 쓰는데 서버는 잡을 error로 정리해 그 존재조차 몰랐다. 그래서 Windows는 taskkill /T.
-    // 목(mock)이 아니라 진짜 프로세스 트리로 검증한다 — serve.js가 로드 시 spawn을 구조분해로
-    // 캡처하므로 모듈 스파이가 닿지 않기도 하고, 실제로 죽는지가 이 계약의 전부이기도 하다.
-    const cp = require_('child_process') as typeof import('child_process');
-    const parent = cp.spawn(
-      process.execPath,
-      [
-        '-e',
-        // 손자를 띄우고 그 pid를 stdout으로 알린 뒤, 부모도 계속 살아 있는다.
-        "const{spawn}=require('child_process');" +
-          "const g=spawn(process.execPath,['-e','setInterval(()=>{},1000)']);" +
-          'console.log(g.pid);setInterval(()=>{},1000);',
-      ],
-      { stdio: ['ignore', 'pipe', 'ignore'] },
-    );
-    const grandPid = await new Promise<number>((resolve, reject) => {
-      let buf = '';
-      parent.stdout.on('data', (d) => {
-        buf += String(d);
-        const n = parseInt(buf.trim(), 10);
-        if (n) resolve(n);
+  /* ⚠ **Windows 전용 계약이라 win32에서만 돈다.**
+     `serve.js:141,808`이 `taskkill /T`를 **`process.platform === 'win32'`일 때만** 부르고,
+     POSIX 경로는 `proc.kill()`(직속 자식만)이다 → 리눅스에서 이 단언은 **원리적으로 항상 실패**한다.
+     실제로 CI(ubuntu)에서 이 테스트 하나만 실패했다(2026-07-19 · 79 passed / 1 failed).
+
+     POSIX에도 트리 킬(프로세스 그룹)을 넣지 않는 이유: 이 앱은 **Windows 단일 타깃**이고
+     (설계 §6 "배포 매트릭스는 불필요"), serve.js 자체가 **4단계에서 삭제**된다 —
+     버려질 코드에 미검증 동작을 새로 넣는 거래가 된다.
+
+     대신 **커버리지를 잃지 않게** ci.yml의 windows 잡(`shell-build`)이 이 파일을 실제로 돌린다.
+     그게 없으면 skip이 "통과"로 위장돼 계약이 아무데서도 검증되지 않는다. */
+  it.skipIf(process.platform !== 'win32')(
+    '자식이 띄운 **손자**까지 정리한다 (실제 프로세스)',
+    async () => {
+      // 회귀: proc.kill()은 직속 자식만 죽인다 — python이 띄운 크롤러(손자)는 살아남아 CPU·네트워크를
+      // 계속 쓰는데 서버는 잡을 error로 정리해 그 존재조차 몰랐다. 그래서 Windows는 taskkill /T.
+      // 목(mock)이 아니라 진짜 프로세스 트리로 검증한다 — serve.js가 로드 시 spawn을 구조분해로
+      // 캡처하므로 모듈 스파이가 닿지 않기도 하고, 실제로 죽는지가 이 계약의 전부이기도 하다.
+      const cp = require_('child_process') as typeof import('child_process');
+      const parent = cp.spawn(
+        process.execPath,
+        [
+          '-e',
+          // 손자를 띄우고 그 pid를 stdout으로 알린 뒤, 부모도 계속 살아 있는다.
+          "const{spawn}=require('child_process');" +
+            "const g=spawn(process.execPath,['-e','setInterval(()=>{},1000)']);" +
+            'console.log(g.pid);setInterval(()=>{},1000);',
+        ],
+        { stdio: ['ignore', 'pipe', 'ignore'] },
+      );
+      const grandPid = await new Promise<number>((resolve, reject) => {
+        let buf = '';
+        parent.stdout.on('data', (d) => {
+          buf += String(d);
+          const n = parseInt(buf.trim(), 10);
+          if (n) resolve(n);
+        });
+        parent.on('error', reject);
+        setTimeout(() => reject(new Error('손자 pid를 못 받음')), 10000);
       });
-      parent.on('error', reject);
-      setTimeout(() => reject(new Error('손자 pid를 못 받음')), 10000);
-    });
 
-    const alive = (pid: number) => {
-      try {
-        process.kill(pid, 0);
-        return true;
-      } catch {
-        return false;
+      const alive = (pid: number) => {
+        try {
+          process.kill(pid, 0);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      expect(alive(grandPid)).toBe(true); // 전제: 손자가 실제로 떠 있다
+
+      srv.killTree(parent);
+
+      // taskkill은 비동기(별도 프로세스)라 폴링으로 수렴을 기다린다.
+      const deadline = Date.now() + 15000;
+      while (alive(grandPid) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
+      const grandAlive = alive(grandPid);
+      if (grandAlive) {
+        try {
+          process.kill(grandPid, 'SIGKILL');
+        } catch {
+          /* 정리 실패는 무시 */
+        }
       }
-    };
-    expect(alive(grandPid)).toBe(true); // 전제: 손자가 실제로 떠 있다
-
-    srv.killTree(parent);
-
-    // taskkill은 비동기(별도 프로세스)라 폴링으로 수렴을 기다린다.
-    const deadline = Date.now() + 15000;
-    while (alive(grandPid) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
-    const grandAlive = alive(grandPid);
-    if (grandAlive) {
-      try {
-        process.kill(grandPid, 'SIGKILL');
-      } catch {
-        /* 정리 실패는 무시 */
-      }
-    }
-    expect(grandAlive, '손자 프로세스가 살아남았다 — killTree가 트리를 못 잡는다').toBe(false);
-  }, 30000);
+      expect(grandAlive, '손자 프로세스가 살아남았다 — killTree가 트리를 못 잡는다').toBe(false);
+    },
+    30000,
+  );
 });
 
 /* ── HTTP 라우터 (실제 서버를 임의 포트로) ────────────────────────── */
