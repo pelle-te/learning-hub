@@ -141,7 +141,58 @@ describe('scanVaultFromFiles — .md 직접 스캔(폴백)', () => {
     expect(s.legacy).toBe(1);
     expect(s.wip).toBe(1);
     expect(s.exported).toBe(1);
-    expect(s.chapters.map((c) => c.name)).toEqual(['미적분']);
+    // 과목 루트 노트는 이제 인덱스 경로와 **같이** '(과목 루트)' 챕터로 잡힌다.
+    // 예전 폴백은 챕터 없이 과목 합계에만 더해 두 경로의 챕터 목록이 달랐다(수렴).
+    expect(s.chapters.map((c) => c.name)).toEqual(['미적분', '(과목 루트)']);
+  });
+
+  /* ⚠ 이 파일에서 가장 중요한 케이스 — 예전 폴백은 깊이 2단 고정이라 여기 노트를 통째로 버렸다.
+     실측(2026-07-19 · 실제 볼트): 519개 중 280개만 보이고 **239개(46%)가 누락**됐다.
+     사용자에겐 "노트 수가 좀 적네"로만 보여 진단이 원리적으로 불가능한 종류의 결함이었다. */
+  it('⚠ 챕터 하위 폴더(깊이 3단+)의 노트도 집계한다', async () => {
+    const tree = dir({
+      '기초 수학': dir({
+        미적분: dir({
+          '01 극한과 연속': dir({ 'a.md': file(fm('verified')), 'b.md': file(fm('verified')) }),
+          '02 미분': dir({ '더 깊이': dir({ 'c.md': file(fm('drafted')) }) }),
+          '개요.md': file(fm('verified')),
+        }),
+      }),
+    });
+    const subs = await scanVaultFromFiles(asHandle(tree));
+    expect(subs[0]!.notes).toBe(4); // 예전 구현은 1(개요.md)만 셌다
+    expect(subs[0]!.chapters.map((c) => c.name).sort()).toEqual(
+      ['미적분', '미적분/01 극한과 연속', '미적분/02 미분/더 깊이'].sort(),
+    );
+  });
+
+  it('⚠ 스킵 폴더는 모든 깊이에서 걸러진다(깊은 .trash·_리포트가 실재한다)', async () => {
+    const tree = dir({
+      '기초 수학': dir({
+        미적분: dir({
+          '.trash': dir({ 'deleted.md': file(fm('verified')) }),
+          _리포트: dir({ 'r.md': file(fm('verified')) }),
+          '01 극한': dir({ 'a.md': file(fm('verified')) }),
+        }),
+      }),
+    });
+    const subs = await scanVaultFromFiles(asHandle(tree));
+    expect(subs[0]!.notes).toBe(1); // 휴지통·파생 리포트는 안 센다
+  });
+
+  it('두 경로가 같은 볼트에서 같은 숫자를 낸다(집계 함수 단일화)', async () => {
+    const tree = dir({
+      수학: dir({ 미적분: dir({ '01장': dir({ 'a.md': file(fm('verified')) }) }), 'root.md': file(fm('')) }),
+    });
+    const fromFiles = await scanVaultFromFiles(asHandle(tree));
+    // 같은 볼트를 파이프라인이 인덱싱했다면 나왔을 레코드.
+    const fromIndex = subjectsFromIndex({
+      notes: [
+        { subject: '수학', folder: '수학/미적분/01장', status: 'verified' },
+        { subject: '수학', folder: '수학', status: '' },
+      ],
+    });
+    expect(fromFiles).toEqual(fromIndex);
   });
 });
 

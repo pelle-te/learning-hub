@@ -113,45 +113,64 @@ async function readFM(fh: FileSystemFileHandle): Promise<Record<string, string>>
   }
 }
 
-/** 폴백: 정본 인덱스가 없을 때 .md 직접 스캔(구버전 status 없음도 집계). */
-export async function scanVaultFromFiles(handle: FileSystemDirectoryHandle): Promise<VaultSubject[]> {
-  const subjects: VaultSubject[] = [];
-  for await (const [name, h] of dirEntries(handle)) {
-    if (h.kind !== 'directory' || name.startsWith('_') || SKIP.has(name)) continue;
-    const subj: VaultSubject = { name, chapters: [], notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0 };
-    for await (const [cn, ch] of dirEntries(h as FileSystemDirectoryHandle)) {
-      if (ch.kind === 'directory') {
-        if (cn.startsWith('_') || SKIP.has(cn)) continue;
-        const chap: VaultChapter = { name: cn, notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0 };
-        for await (const [fn, fh] of dirEntries(ch as FileSystemDirectoryHandle)) {
-          if (fh.kind !== 'file' || !fn.endsWith('.md') || fn.includes('MOC') || fn.includes('실전문제')) continue;
-          chap.notes++;
-          const fm = await readFM(fh as FileSystemFileHandle);
-          if ((fm.status || '').includes('verified')) chap.verified++;
-          else if (!fm.status) chap.legacy++;
-          else chap.wip++;
-          if (fm.anki_exported) chap.exported++;
-        }
-        if (chap.notes) {
-          subj.chapters.push(chap);
-          subj.notes += chap.notes;
-          subj.verified += chap.verified;
-          subj.exported += chap.exported;
-          subj.legacy += chap.legacy;
-          subj.wip += chap.wip;
-        }
-      } else if (ch.kind === 'file' && cn.endsWith('.md') && !cn.includes('MOC') && !cn.includes('실전문제')) {
-        subj.notes++;
-        const fm = await readFM(ch as FileSystemFileHandle);
-        if ((fm.status || '').includes('verified')) subj.verified++;
-        else if (!fm.status) subj.legacy++;
-        else subj.wip++;
-        if (fm.anki_exported) subj.exported++;
+/** 순회에서 통째로 건너뛸 폴더인가 — `_`/`.` 접두(파생·시스템)와 SKIP 목록.
+    ⚠ **모든 깊이에서** 적용해야 한다. 실제 볼트에 `기초 수학/미적분/.trash`·`.../_리포트` 처럼
+    깊은 곳에도 있어서, 최상위에서만 거르면 휴지통 노트가 집계에 섞인다. */
+function skipDir(name: string): boolean {
+  return name.startsWith('_') || name.startsWith('.') || SKIP.has(name);
+}
+/** 집계에서 뺄 노트 파일인가(파일명 기준). 정본 인덱스는 파이프라인이 생성 시점에 걸러 주므로
+    이 필터는 **폴백 경로가 인덱스의 분모를 흉내내는** 장치다.
+    ⚠ 흉내에는 원리적 한계가 있다 — 인덱스는 `kind`(개념노트·집합체·실전문제)로 분류하는데
+    폴백엔 그 정보가 없어 파일명으로만 유추한다. 실측(실제 볼트): 이 차이로 남는 오차는
+    **노트 1개**(`기초 수학/🏠 수학노트 홈.md` — 이름에 MOC 가 없지만 파이프라인은 제외).
+    깊이 결함을 고치기 전엔 오차가 **239개**였으니, 남은 1개는 감수한다. */
+function skipNote(fn: string): boolean {
+  return !fn.endsWith('.md') || fn.includes('MOC') || fn.includes('실전문제');
+}
+
+/** 볼트 트리를 **임의 깊이**로 순회해 정본 인덱스와 같은 모양의 노트 레코드를 만든다.
+ *
+ *  ⚠ **깊이 2단 고정이 실제로 46%를 버리고 있었다.** 예전 구현은 `과목/챕터/` 안에서 파일만
+ *  집계하고 디렉터리는 조용히 `continue` 했다 — 실측(2026-07-19, 실제 볼트): 전체 519개 중
+ *  폴백이 보는 건 280개, **239개(46%)가 누락**. `기초 수학/미적분/01 극한과 연속/*.md` 처럼
+ *  3단 구조가 실재하는데, 사용자에겐 "노트 수가 좀 적네"로만 보여 진단이 불가능했다.
+ *
+ *  인덱스 경로(`subjectsFromIndex`)는 `folder` 문자열을 쪼개 임의 깊이를 이미 지원했다 —
+ *  즉 두 경로가 **서로 다른 볼트 구조를 지원**하고 있었고 그게 문서화된 적도 없었다.
+ *  이제 폴백도 같은 레코드를 만들어 **같은 집계 함수**에 넣는다(분기 자체를 없앤다). */
+async function notesFromFiles(handle: FileSystemDirectoryHandle): Promise<IndexNote[]> {
+  const out: IndexNote[] = [];
+  const walk = async (dir: FileSystemDirectoryHandle, subject: string, folder: string): Promise<void> => {
+    for await (const [name, h] of dirEntries(dir)) {
+      if (h.kind === 'directory') {
+        if (skipDir(name)) continue;
+        await walk(h as FileSystemDirectoryHandle, subject, `${folder}/${name}`);
+      } else if (h.kind === 'file' && !skipNote(name)) {
+        const fm = await readFM(h as FileSystemFileHandle);
+        out.push({
+          subject,
+          folder,
+          status: fm.status,
+          // ⚠ 값은 boolean 이 아니라 **날짜 문자열**이다(실측: `anki_exported: 2026-07-11`).
+          //    존재 자체가 "내보냄"이므로 truthy 판정이 맞다 — boolean 으로 파싱하려 들면 안 된다.
+          anki_exported: !!fm.anki_exported,
+        });
       }
     }
-    if (subj.notes) subjects.push(subj);
+  };
+  for await (const [name, h] of dirEntries(handle)) {
+    if (h.kind !== 'directory' || skipDir(name)) continue;
+    await walk(h as FileSystemDirectoryHandle, name, name);
   }
-  return subjects;
+  return out;
+}
+
+/** 폴백: 정본 인덱스가 없을 때 .md 직접 스캔(구버전 status 없음도 집계).
+    집계는 **인덱스 경로와 같은 함수**를 쓴다 — 예전엔 별도 구현이라 깊이·verified 판정이
+    서로 달랐다(같은 볼트에서 숫자가 갈렸다). */
+export async function scanVaultFromFiles(handle: FileSystemDirectoryHandle): Promise<VaultSubject[]> {
+  return subjectsFromIndex({ notes: await notesFromFiles(handle) });
 }
 
 /** 폴더 선택 → 스캔(정본 인덱스 우선·.md 폴백). 사용자가 취소하면 null.
