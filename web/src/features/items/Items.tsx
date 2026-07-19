@@ -17,7 +17,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { ui } from '@/shell';
-import { PALETTE, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO } from '@/lib/utils';
+import { colorForId, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
   allocView,
@@ -149,7 +149,7 @@ export default function Items() {
   const addItem = useCallback(() => {
     const id = rid();
     mutate((st) => {
-      st.items.push(makeItem(st.items.length, { id, source: '직접', name: '새 과목' }));
+      st.items.push(makeItem({ id, source: '직접', name: '새 과목' }));
     });
     setSheetId(id); // 새 과목은 바로 시트를 열어 편집
   }, [mutate]);
@@ -160,12 +160,15 @@ export default function Items() {
       return;
     }
     ui.backupNow(); // 되돌리기용 1단계 백업
+    // 0단계-G 이후 색은 id 파생이라 '순서 재배정'이라는 개념이 없다 — 이 버튼은 이제
+    // **저장된 색을 현재 PALETTE로 다시 맞추는** 복구 동작이다(옛 팔레트로 내보낸 백업을
+    // 가져왔을 때처럼 저장값이 낡은 경우). 부팅 시 refineItemColors가 하는 일과 같다.
     mutate((st) => {
-      st.items.forEach((s, i) => {
-        s.color = PALETTE[i % PALETTE.length];
+      st.items.forEach((s) => {
+        s.color = colorForId(s.id);
       });
     });
-    ui.toastUndo('과목 색을 새 팔레트로 재배정했어요.');
+    ui.toastUndo('과목 색을 현재 팔레트로 다시 맞췄어요.');
   }, [items.length, mutate]);
 
   const removeItem = useCallback(
@@ -191,8 +194,9 @@ export default function Items() {
     [items, mutate],
   );
 
-  // 드래그 정렬 — HTML5 DnD. 색은 인덱스 파생(PALETTE)이므로 재정렬 즉시 재유도해
-  // 다음 부팅에 색이 바뀌는 서프라이즈를 없앤다(recolorAll·refineItemColors와 동일 규칙).
+  // 드래그 정렬 — HTML5 DnD. 색은 **id 파생**이라 순서와 무관하다(0단계-G) → 재정렬 후
+  // 색을 다시 유도하던 보정이 필요 없어졌다. 그 보정이 있던 이유(인덱스 파생 → 순서가 색을 바꿈)
+  // 자체가 사라졌다.
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const moveItem = useCallback(
@@ -204,9 +208,6 @@ export default function Items() {
         if (from < 0 || to < 0) return;
         const [moved] = st.items.splice(from, 1);
         st.items.splice(to, 0, moved!);
-        st.items.forEach((x, i) => {
-          x.color = PALETTE[i % PALETTE.length];
-        });
       });
     },
     [mutate],

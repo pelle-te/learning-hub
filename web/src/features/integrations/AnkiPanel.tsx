@@ -137,7 +137,7 @@ export function AnkiPanel() {
       return;
     }
     mutate((st) => {
-      st.items.push(makeItem(st.items.length, { source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
+      st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
     });
     ui.toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
   };
@@ -162,7 +162,7 @@ export function AnkiPanel() {
         cur.dailyMin = mins;
         cur.source = 'Anki';
       } else {
-        st.items.push(makeItem(st.items.length, { source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
+        st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
       }
     });
     ui.toast(

@@ -87,7 +87,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
       return;
     }
     mutate((st) => {
-      st.items.push(makeItem(st.items.length, { source: '수강', name }));
+      st.items.push(makeItem({ source: '수강', name }));
     });
     ui.toast(`"${name}" 학습 항목에 추가됨 — 학습 항목 탭에서 주당 시간·챕터를 설정하세요.`, 'ok');
   };

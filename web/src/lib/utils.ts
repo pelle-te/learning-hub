@@ -20,7 +20,32 @@ export const REVIEW_TAIL_OFFSET = 34;
  *  (스왑: 한 줄만 교체하면 전 탭 반영. 순서를 바꾸면 과목별 배정 색이 바뀜.) */
 export const PALETTE = ['#9be83f', '#22d6a4', '#63f0c8', '#1fb89a', '#3fe06a', '#22cdd6', '#5fe8a8', '#1f9b8a'];
 
-/** 과목 색은 '저장값'이 아니라 팔레트의 파생물 — 부팅마다 항목 인덱스로 다시 유도한다.
+/* 과목 색 파생 키 = **item.id 해시**(0단계-G · 2026-07-19 결정).
+   이전엔 배열 인덱스였다. 인덱스는 위치 정보라 삭제·재정렬 시 뒤따르는 모든 과목 색이 한 칸씩
+   밀렸고(Items.tsx가 이동 직후 재유도로 덮어 가리고 있었다), 그 보정 코드가 파생 로직을 4곳으로
+   불렸다. id는 과목의 정체성이라 위치가 바뀌어도 불변 → 파생이 1곳으로 모이고 보정이 사라진다.
+
+   ⚠ 알려진 트레이드오프(결정 시 감수):
+   ① 목록의 '순서 있는 색 그라데이션'을 잃는다(팔레트 주석 ⑦⑧이 의도했던 것).
+   ② 해시는 충돌한다 — 8색이므로 과목 5개면 두 과목이 같은 색일 확률이 약 80%다(생일 문제).
+      인덱스 방식은 8개까지 색 중복이 없었다. 충돌 없이 완전 불변은 8칸에선 원리적으로 불가능
+      (충돌 회피는 '다른 과목의 존재'에 의존 → 삭제 시 색이 바뀜 = 불변성 포기).
+      중복이 실사용에서 거슬리면 PALETTE를 늘리는 게 정공법이다(색을 늘리면 확률이 급감).
+   원칙(절대규칙 #3)은 그대로다: **색은 저장값이 아니라 PALETTE의 파생물**이고, PALETTE 한 줄을
+   바꾸면 전 탭에 반영된다. 바뀐 건 '무엇으로부터 파생하는가'(위치 → 정체성)뿐이다. */
+export function colorForId(id: string): string {
+  // FNV-1a 32비트 — 짧고 결정적이며 rid() 같은 짧은 문자열에서도 분포가 고르다.
+  // >>> 0으로 부호 없는 32비트를 유지(자바스크립트 비트연산은 부호 있는 32비트라 음수 인덱스 방지).
+  let h = 0x811c9dc5;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return PALETTE[h % PALETTE.length] as string;
+}
+
+/** 과목 색은 '저장값'이 아니라 팔레트의 파생물 — 부팅마다 id 해시로 다시 유도한다.
  *  (수동 색 선택 UI가 없으므로 안전.) 이 덕에 PALETTE만 바꾸면 어떤 저장 데이터든 다음 부팅에 전부 갱신된다
  *  — 옛 색을 hex로 일일이 매핑하던 리맵의 사각지대(저장값이 목록에 없으면 안 바뀜)를 원천 제거. */
 export function refineItemColors(state: AppState): AppState {
@@ -29,27 +54,31 @@ export function refineItemColors(state: AppState): AppState {
   // 색을 파생해야 인덱스도 연속이 된다.
   if (Array.isArray(state.items)) {
     state.items = state.items.filter((it): it is (typeof state.items)[number] => !!it && typeof it === 'object');
-    state.items.forEach((it, i) => {
-      it.color = PALETTE[i % PALETTE.length] as string;
+    state.items.forEach((it) => {
+      it.color = colorForId(it.id);
     });
   }
   return state;
 }
 
-/** 새 학습 항목 생성 — 색은 현재 항목 수로 팔레트 순환. items/degree/anki/vault의 6개 중복 골격 단일화.
- *  기본은 주간 과목; partial로 source/mode/weeklyHours/dailyMin/chapters 등을 덮어쓴다. */
-export function makeItem(itemCount: number, partial: Partial<Item> & { name: string }): Item {
-  return {
+/** 새 학습 항목 생성 — items/degree/anki/vault의 6개 중복 골격 단일화.
+ *  기본은 주간 과목; partial로 source/mode/weeklyHours/dailyMin/chapters 등을 덮어쓴다.
+ *  ⚠ 색은 인자로 받지 않는다(0단계-G) — id의 파생물이라 **병합 후** 유도해야 한다.
+ *  호출부가 partial.id로 id를 지정하는 경우가 있어(Items.tsx: 시트를 바로 열려고 id를 미리 만든다)
+ *  spread 뒤의 최종 id로 계산하지 않으면 저장 색과 부팅 시 재유도 색이 어긋난다. */
+export function makeItem(partial: Partial<Item> & { name: string }): Item {
+  const merged = {
     id: rid(),
     source: '직접',
-    color: PALETTE[itemCount % PALETTE.length],
     mode: 'weekly',
     weeklyHours: 3,
     dailyMin: 30,
     deadline: '',
     chapters: [],
     ...partial,
-  };
+  } as Item;
+  merged.color = colorForId(merged.id);
+  return merged;
 }
 /** 고정 일과 블록 유형(색). '공부' 개념은 폐지 — 가용시간은 '깨어있는 시간 − 블록'으로 자동 계산. */
 /** 일과 블록 색 — 과목 팔레트와 같은 더스티 계열로 통일(타임라인에선 옅은 틴트로 깔림). */

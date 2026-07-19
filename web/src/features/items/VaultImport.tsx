@@ -66,7 +66,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     }
     const chapters = chaptersFromVault(s.chapters);
     mutate((st) => {
-      st.items.push(makeItem(st.items.length, { source: '볼트', name: s.name, chapters }));
+      st.items.push(makeItem({ source: '볼트', name: s.name, chapters }));
     });
     ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 주당 시간·마감을 조정하세요.`, 'ok');
   };
@@ -77,7 +77,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
       return;
     }
     mutate((st) => {
-      st.items.push(makeItem(st.items.length, { source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
+      st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
     });
     ui.toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
   };
