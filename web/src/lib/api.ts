@@ -6,7 +6,15 @@
    4단계(serve.js 해체) 진행 중 — 라우트가 하나씩 Rust 커맨드로 옮겨간다. **소비처는 무변경**이
    판정 기준이라, 전송 분기는 전부 이 파일 안에 가둔다(`isTauri()` 분기 · 에러 분류 번역).
 ============================================================ */
-import { ARTIFACT_NOT_FOUND, artifactRead, isTauri, shellRunTool } from './tauri';
+import {
+  ARTIFACT_NOT_FOUND,
+  artifactRead,
+  isTauri,
+  shellResearchCancel,
+  shellResearchJobs,
+  shellResearchStart,
+  shellRunTool,
+} from './tauri';
 
 export interface PingResponse {
   ok: boolean;
@@ -127,21 +135,47 @@ export interface ResearchJob {
   out: string;
 }
 
-/** 탐구 수집 잡 시작 — 즉시 반환(백그라운드 spawn). 서버 꺼짐/캡이면 ok:false. */
-export function startResearch(
+/* 셸(4단계-D)에선 Rust 가 잡을 소유한다. **반환 계약은 그대로 `{ok, …}` 봉투**를 유지한다 —
+   소비처(`Control.tsx`)가 `ok`/`error` 로 분기하고 있어서, 여기서 throw 로 바꾸면 그 분기가
+   전부 깨진다. Rust 는 실패를 `Err(String)` 으로 주므로 **경계에서 봉투로 되싼다**. */
+
+/** 탐구 수집 잡 시작 — 즉시 반환(백그라운드 spawn). 캡이 차 있거나 실패면 ok:false. */
+export async function startResearch(
   topic: string,
   scope?: string,
 ): Promise<{ ok: boolean; error?: string; job?: ResearchJob }> {
+  if (isTauri()) {
+    try {
+      return { ok: true, job: await shellResearchStart(topic, scope) };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  }
   return postJSON('/api/research/start', { topic, scope: scope || '' });
 }
 
-/** 이 서버가 아는 탐구 잡(진행 중 + 최근 종료) — reload 후 재부착·폴링용. */
-export function listResearchJobs(): Promise<{ ok: boolean; jobs: ResearchJob[] }> {
+/** 아는 탐구 잡(진행 중 + 최근 종료) — reload 후 재부착용. */
+export async function listResearchJobs(): Promise<{ ok: boolean; jobs: ResearchJob[] }> {
+  if (isTauri()) {
+    try {
+      return { ok: true, jobs: await shellResearchJobs() };
+    } catch {
+      return { ok: false, jobs: [] };
+    }
+  }
   return getJSON('/api/research/jobs');
 }
 
-/** 진행 중 탐구 잡 중단 — 서버가 프로세스를 트리킬하고 'canceled'로 전이. */
-export function cancelResearch(id: string): Promise<{ ok: boolean; error?: string }> {
+/** 진행 중 탐구 잡 중단 — 프로세스를 트리킬하고 'canceled'로 전이. */
+export async function cancelResearch(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (isTauri()) {
+    try {
+      await shellResearchCancel(id);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: String(e) };
+    }
+  }
   return postJSON('/api/research/cancel', { id });
 }
 

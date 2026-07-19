@@ -8,6 +8,7 @@
 */
 mod artifact;
 mod db;
+mod research;
 mod sidecar;
 mod tools;
 mod vault;
@@ -62,6 +63,10 @@ pub fn run() {
             artifact::artifact_read,
             // 4단계-C — serve.js /api/run/:tool 대체(파이썬 도구 11종).
             tools::run_tool,
+            // 4단계-D — serve.js /api/research/{start,jobs,cancel} 대체.
+            research::research_start,
+            research::research_jobs,
+            research::research_cancel,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -73,6 +78,9 @@ pub fn run() {
             }
             // 볼트 파일 감시(3단계) — 실패해도 앱은 뜬다(감시가 없으면 수동 갱신으로 돌아갈 뿐).
             vault::start_watch(app.handle().clone());
+            // 탐구 잡 이력 복원(4단계-D). running 이던 잡은 '중단됨'으로 내린다 —
+            // 앱이 죽으면 자식 python 도 죽으므로 그 잡은 실제로 안 돈다.
+            research::restore(app.handle());
             let dir = app_dir();
             let handle = app.handle().clone();
             let ws = workspace::resolve(&handle);
@@ -96,6 +104,9 @@ pub fn run() {
             // (2026-07-19 실측). 2단계에서 flush 가 비동기가 되면 그때 CloseRequested 훅이 필요해진다.
             if let tauri::WindowEvent::Destroyed = event {
                 sidecar::shutdown();
+                // 진행 중이던 탐구 잡의 python 도 함께 내린다 — 안 그러면 고아로 남아
+                // 볼트를 계속 건드린다(sidecar 고아 문제와 같은 부류).
+                research::shutdown();
             }
         })
         .run(tauri::generate_context!())

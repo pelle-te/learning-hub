@@ -156,6 +156,42 @@ export function shellRunTool(tool: string, subject?: string): Promise<RunToolOut
   return call<RunToolOut>('run_tool', { tool, subject: subject ?? null });
 }
 
+/** 탐구 잡 — Rust `research::Job` 과 1:1(필드명 camelCase 까지). `api.ts` 의 `ResearchJob` 과 같다. */
+export interface ShellResearchJob {
+  id: string;
+  topic: string;
+  scope: string;
+  status: 'running' | 'done' | 'error' | 'canceled';
+  code: number | null;
+  startedAt: number;
+  endedAt: number | null;
+  out: string;
+}
+
+export function shellResearchStart(topic: string, scope?: string): Promise<ShellResearchJob> {
+  return call<ShellResearchJob>('research_start', { topic, scope: scope ?? null });
+}
+
+export function shellResearchJobs(): Promise<ShellResearchJob[]> {
+  return call<ShellResearchJob[]>('research_jobs');
+}
+
+export function shellResearchCancel(id: string): Promise<void> {
+  return call<void>('research_cancel', { id });
+}
+
+/** 탐구 잡이 바뀌면(진행 출력·상태 전이) 부르는 구독. 해제 함수를 돌려준다(브라우저면 no-op).
+ *  **이게 3초 폴링을 대체한다** — 바뀐 게 없으면 아무것도 오지 않는다(설계 갭 ⑤). */
+export async function onResearchChanged(cb: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    return await listen('research:changed', () => cb()); // src-tauri/src/research.rs RESEARCH_CHANGED
+  } catch {
+    return () => {};
+  }
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

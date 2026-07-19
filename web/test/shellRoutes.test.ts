@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
-import { getArtifact, runTool } from '@/lib/api';
+import { cancelResearch, getArtifact, listResearchJobs, runTool, startResearch } from '@/lib/api';
 import { isNotYetError } from '@/lib/artifactState';
 
 /** 셸 안에서 도는 척한다 — `isTauri()` 가 보는 것은 이 전역 하나뿐. */
@@ -122,6 +122,61 @@ describe('runTool — 셸(Rust 커맨드) 경로 · 4단계-C', () => {
     vi.stubGlobal('fetch', f);
     await runTool('vault-stats');
     expect(f.mock.calls[0]![0]).toBe('/api/run/vault-stats');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('탐구 잡 — 셸(Rust 커맨드) 경로 · 4단계-D', () => {
+  it('시작 성공은 {ok:true, job} 봉투로 되싼다', async () => {
+    enterShell();
+    const job = {
+      id: 'r1',
+      topic: '위상수학',
+      scope: '',
+      status: 'running',
+      code: null,
+      startedAt: 1,
+      endedAt: null,
+      out: '',
+    };
+    invoke.mockResolvedValue(job);
+
+    const r = await startResearch('위상수학');
+
+    expect(invoke).toHaveBeenCalledWith('research_start', { topic: '위상수학', scope: null });
+    expect(r).toEqual({ ok: true, job });
+  });
+
+  /* 이 두 케이스가 4-D 의 진짜 위험이다. Rust 는 실패를 reject 로 주는데 소비처(Control)는
+     `ok`/`error` 로 분기한다 — 되싸기를 빠뜨리면 캡 초과가 **처리되지 않은 rejection** 이 되어
+     "시작 버튼을 눌렀는데 아무 반응이 없다"가 된다(에러 토스트조차 안 뜬다). */
+  it('캡 초과는 throw 가 아니라 {ok:false, error} 로 온다', async () => {
+    enterShell();
+    invoke.mockRejectedValue('이미 수집 중인 탐구가 많아요 — 잠시 후 다시.');
+
+    const r = await startResearch('주제');
+
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('이미 수집 중인');
+  });
+
+  it('중단 실패도 봉투로 온다(이미 끝난 잡)', async () => {
+    enterShell();
+    invoke.mockRejectedValue('이미 끝난 잡이에요.');
+    await expect(cancelResearch('r1')).resolves.toMatchObject({ ok: false });
+  });
+
+  it('목록 조회 실패는 빈 목록으로 접는다(잡 없음과 같은 화면)', async () => {
+    enterShell();
+    invoke.mockRejectedValue('boom');
+    await expect(listResearchJobs()).resolves.toEqual({ ok: false, jobs: [] });
+  });
+
+  it('셸이 아니면 기존 /api 를 탄다', async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, jobs: [] }) }));
+    vi.stubGlobal('fetch', f);
+    await listResearchJobs();
+    expect(f).toHaveBeenCalledWith('/api/research/jobs');
     expect(invoke).not.toHaveBeenCalled();
   });
 });

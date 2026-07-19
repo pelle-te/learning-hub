@@ -236,15 +236,21 @@ pub struct RunOut {
 
 /// 프로세스 트리 강제종료. Windows 의 `kill()` 은 **직속 자식만** 죽여, python 이 띄운
 /// 손자(크롤러 등)가 살아남아 CPU·네트워크를 계속 쓴다(serve.js `killTree` L134-144 와 같은 이유).
-fn kill_tree(child: &mut Child) {
+pub fn kill_tree_pid(pid: u32) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         let _ = Command::new("taskkill")
-            .args(["/F", "/T", "/PID", &child.id().to_string()])
+            .args(["/F", "/T", "/PID", &pid.to_string()])
             .creation_flags(0x0800_0000)
             .output();
     }
+    #[cfg(not(windows))]
+    let _ = pid;
+}
+
+fn kill_tree(child: &mut Child) {
+    kill_tree_pid(child.id());
     let _ = child.kill();
 }
 

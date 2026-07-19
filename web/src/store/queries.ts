@@ -4,7 +4,8 @@
    결과만 setRuntimeCache로 write-through.
    store 레이어에 두는 이유: features(mastery·control·integrations)·app이 공유, store→lib 허용.
 ============================================================ */
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchAtlasNews,
   getPing,
@@ -21,6 +22,7 @@ import { fetchMarketsArtifact, type MarketsArtifact } from '@/lib/markets';
 import { fetchCurriculumArtifact, type Curriculum } from '@/lib/curriculum';
 import { fetchGoalsArtifact, type GoalsArtifact } from '@/lib/goals';
 import { fetchDiscoveryArtifact, type DiscoveryArtifact } from '@/lib/discovery';
+import { isTauri, onResearchChanged } from '@/lib/tauri';
 import { useApp } from './useApp';
 
 export const KNOWLEDGE_KEY = ['knowledge'] as const;
@@ -61,10 +63,34 @@ export function useMarkets() {
   });
 }
 
-/** 탐구(리서치) 잡 목록(/api/research/jobs) — serve.js가 잡으로 소유(수십 분짜리 백그라운드).
- *  running 잡이 있으면 3초 폴링, 없으면 멈춘다(react-query가 폴링·재부착·구조공유를 소유 → 손폴링 제거).
- *  전이감지(완료 토스트·히스토리)는 소비처(Control)가 data 변화를 보고 소유. enabled=serve.js 온라인일 때만. */
+/** 탐구(리서치) 잡 목록 — 백엔드가 잡으로 소유한다(수십 분짜리 백그라운드).
+ *  셸에선 **Rust 가 소유하고 이벤트로 알린다**(4단계-D · 폴링 없음), 브라우저에선 serve.js + 3초 폴링.
+ *  재부착·구조공유는 react-query 가 소유하고, 전이감지(완료 토스트·히스토리)는 소비처(Control) 몫. */
 export function useResearchJobs(enabled: boolean) {
+  const qc = useQueryClient();
+
+  /* 셸(4단계-D)에선 **폴링을 안 한다** — Rust 가 출력·상태가 바뀔 때만 이벤트를 쏜다(설계 갭 ⑤).
+     폴링은 "바뀐 게 없어도 3초마다 잡 전체(각 20,000자)를 다시 실어 나르는" 비용이었고,
+     그 비용이 변화량이 아니라 시간에 비례했다. 이벤트는 변화가 있을 때만 온다.
+     ⚠ 브라우저(dev·트랙 A)엔 이벤트가 없으므로 **폴링을 남겨 둔다** — `onResearchChanged` 가
+     no-op 을 돌려주고 아래 refetchInterval 이 그 경로를 계속 받친다(2·3단계와 같은 폴백 규율). */
+  useEffect(() => {
+    if (!enabled || !isTauri()) return;
+    let stop: (() => void) | undefined;
+    let dead = false;
+    void onResearchChanged(() => {
+      void qc.invalidateQueries({ queryKey: RESEARCH_JOBS_KEY });
+    }).then((un) => {
+      // 구독이 붙기 전에 언마운트됐으면 즉시 해제한다(누수 방지).
+      if (dead) un();
+      else stop = un;
+    });
+    return () => {
+      dead = true;
+      stop?.();
+    };
+  }, [enabled, qc]);
+
   return useQuery<ResearchJob[]>({
     queryKey: RESEARCH_JOBS_KEY,
     enabled,
@@ -74,8 +100,8 @@ export function useResearchJobs(enabled: boolean) {
       if (!r.ok) throw new Error('탐구 잡 목록을 가져오지 못했어요.');
       return r.jobs;
     },
-    // running 잡이 있을 때만 3초 폴링 — 끝나면 스스로 멈춘다(다음 start가 무효화로 재기동).
-    refetchInterval: (q) => (q.state.data?.some((j) => j.status === 'running') ? 3000 : false),
+    // 브라우저 전용 폴백 — 셸에선 위 구독이 대신하므로 끈다.
+    refetchInterval: (q) => (!isTauri() && q.state.data?.some((j) => j.status === 'running') ? 3000 : false),
   });
 }
 

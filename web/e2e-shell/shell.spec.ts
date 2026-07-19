@@ -303,3 +303,71 @@ test('4단계-C — 파이썬 도구를 셸이 직접 실행한다(cwd·인코�
     await closeShell(shell);
   }
 });
+
+/* 4단계-D — 탐구 잡을 셸이 소유하고, 이력이 앱 재시작을 넘어 남는가.
+
+   ⚠ 실제 수집기(`탐구_수집.py`)를 띄우되 **곧바로 중단**한다. 시작 직후 수 초는 무거운 import
+   구간이라 네트워크 수집·파일 쓰기 전에 죽고, `RESEARCH_NOOPEN=1` 이 결과 열기도 막는다.
+   여기서만 드러나는 것: PID 추적이 실제로 되는가(중단이 먹히는가) · 이력 JSON 이 진짜로 쓰이고
+   다음 부팅에 복원되는가. 단위 테스트는 prune·직렬화 같은 순수 부분만 본다. */
+type Job = { id: string; topic: string; status: string; out: string };
+
+test('4단계-D — 탐구 잡을 시작·중단하고 이력이 재시작 후에도 남는다', async () => {
+  const TOPIC = 'e2e 셸 검증용 주제';
+  let shell: Shell = await launchShell();
+  const ipc = (s: Shell, cmd: string, args: unknown = {}) =>
+    s.page.evaluate(
+      async ([c, a]) => {
+        const w = window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        };
+        try {
+          return { threw: false, out: await w.__TAURI_INTERNALS__.invoke(c as string, a) };
+        } catch (e) {
+          return { threw: true, err: String(e) };
+        }
+      },
+      [cmd, args] as const,
+    );
+
+  try {
+    const started = await ipc(shell, 'research_start', { topic: TOPIC, scope: null });
+    expect(started.threw, `잡 시작 실패: ${started.err}`).toBe(false);
+    const job = started.out as Job;
+    expect(job.status).toBe('running');
+
+    // 목록에 잡힌다(프런트가 재부착에 쓰는 경로).
+    const listed = ((await ipc(shell, 'research_jobs')).out as Job[]).find((j) => j.id === job.id);
+    expect(listed, '시작한 잡이 목록에 없다 — 재부착이 깨진다').toBeTruthy();
+
+    // 중단 — PID 추적이 실제로 되는지가 여기서 드러난다.
+    const canceled = await ipc(shell, 'research_cancel', { id: job.id });
+    expect(canceled.threw, `중단 실패: ${canceled.err}`).toBe(false);
+
+    await expect
+      .poll(async () => ((await ipc(shell, 'research_jobs')).out as Job[]).find((j) => j.id === job.id)?.status, {
+        timeout: 20_000,
+      })
+      .toBe('canceled');
+
+    // 앱을 껐다 켠다 — 이력 JSON 이 실제로 쓰이고 복원되는가(갭 ④ 의 실제 몫).
+    await closeShell(shell);
+    shell = await launchShell();
+    const after = ((await ipc(shell, 'research_jobs')).out as Job[]).find((j) => j.id === job.id);
+    expect(after, '재시작 후 잡 이력이 사라졌다 — 영속이 안 걸렸다').toBeTruthy();
+    expect(after!.status, '재시작 후 상태가 뒤집혔다').toBe('canceled');
+    expect(after!.topic).toBe(TOPIC);
+  } finally {
+    await closeShell(shell);
+    /* 자기 흔적을 치운다. 이력은 12칸이라, 안 치우면 e2e 를 열두 번 돌린 시점에 **테스트 잡이
+       실제 수집 기록을 전부 밀어낸다**(검증하려던 기능을 검증이 망가뜨리는 자리).
+       앱이 닫힌 뒤에 손대는 이유는 실행 중이면 종료 시 저장이 이 편집을 덮기 때문이다. */
+    const store = path.join(process.env.APPDATA ?? '', 'dev.jin.learninghub', 'research-jobs.json');
+    try {
+      const kept = (JSON.parse(readFileSync(store, 'utf8')) as Job[]).filter((j) => j.topic !== TOPIC);
+      writeFileSync(store, JSON.stringify(kept));
+    } catch {
+      /* 파일이 없으면 치울 것도 없다 */
+    }
+  }
+});
