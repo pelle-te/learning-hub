@@ -1,0 +1,33 @@
+/* ============================================================
+   StorageGuard.tsx — 저장소 내구성 부팅 훅(0단계-E ①② · UI 없음).
+   ① persist() 승격 요청 — best-effort 등급이면 브라우저가 디스크 압박 시 앱 데이터와
+      IDB 미러를 *함께* 축출할 수 있다(같은 오리진 → 복구층이 동시 증발).
+   ② estimate() 80% 초과 시 1회 경고 — 5MB 절벽에 부딪히기 *전에* 내보내기를 유도한다.
+   BootRecovery와 분리한 이유: 저기는 "부팅이 기본값으로 떨어졌을 때만" 도는 계약이라
+   정상 부팅에서 즉시 return한다. 내구성은 매 정상 부팅에 확인해야 한다.
+============================================================ */
+import { useEffect } from 'react';
+import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
+import { ui, io } from '@/shell';
+
+export default function StorageGuard() {
+  useEffect(() => {
+    let alive = true;
+    void ensureDurableStorage().then((r) => {
+      if (!alive) return;
+      // 승격 실패는 조용히 넘어간다 — 사용자가 할 수 있는 일이 없고(브라우저 참여도 휴리스틱),
+      // 매 부팅 경고하면 무시하는 법만 학습시킨다. 실제 행동이 필요한 건 쿼터 압박뿐.
+      if (!isQuotaTight(r)) return;
+      const pct = Math.round((r.ratio ?? 0) * 100);
+      const detail = r.usage != null && r.quota != null ? ` (${fmtBytes(r.usage)}/${fmtBytes(r.quota)})` : '';
+      ui.toast(`저장공간이 ${pct}% 찼어요${detail} — 지금 내보내기로 백업해 두세요.`, 'warn', 12000, {
+        label: '내보내기',
+        onAction: () => io.exportJSON(),
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return null;
+}

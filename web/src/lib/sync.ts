@@ -7,7 +7,10 @@
    조용히 no-op. 순수 pub/sub만 — 상태 채택 정책(미저장 편집 우선 등)은 구독자(useApp)가 정한다.
 ============================================================ */
 
-export type SyncMsg = { kind: 'app' } | { kind: 'reads' };
+/** 'local' = 사이드카 KV(아틀라스 메모·리서치 이력·UI 설정)가 밖에서 교체됨(가져오기 복원).
+    구독자는 메모리 상태를 KV에서 다시 읽어야 한다 — 안 하면 다음 편집이 복원본을 덮는다. */
+export type SyncMsg = { kind: 'app' } | { kind: 'reads' } | { kind: 'local' };
+const KINDS: readonly SyncMsg['kind'][] = ['app', 'reads', 'local'];
 
 const CHANNEL = 'lh-sync';
 const listeners = new Set<(m: SyncMsg) => void>();
@@ -27,7 +30,7 @@ function ensure(): void {
 }
 
 function emit(m: SyncMsg): void {
-  if (!m || (m.kind !== 'app' && m.kind !== 'reads')) return;
+  if (!m || !KINDS.includes(m.kind)) return;
   listeners.forEach((fn) => {
     try {
       fn(m);

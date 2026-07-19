@@ -26,6 +26,9 @@ export interface UIStore {
   setNavSurface: (s: NavSurface) => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
+  /** KV에서 다시 부팅(가져오기 복원 등 화면 밖 경로가 lh_ui_v1을 교체했을 때).
+   *  flush 없음 — 방금 KV에 쓰인 값을 읽는 것이라 되쓰면 왕복만 늘어난다. */
+  reloadUI: () => void;
 }
 
 export const useUI = create<UIStore>()(
@@ -77,6 +80,12 @@ export const useUI = create<UIStore>()(
       },
       recentIds() {
         return get().ui.recentCommands;
+      },
+      reloadUI() {
+        const next = bootUI(storage);
+        set((s) => {
+          s.ui = next;
+        });
       },
     };
   }),

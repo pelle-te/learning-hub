@@ -5,6 +5,7 @@
 ============================================================ */
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
+import { useUI } from '@/store/useUI';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import {
   BACKUP_KEY,
@@ -18,6 +19,7 @@ import {
   isPristineState,
 } from '@/lib/persistence';
 import { loadReads, importReads } from '@/lib/reads';
+import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
@@ -93,12 +95,18 @@ export function downloadCorruptSnapshot(): void {
   toast('손상 원본을 내려받았어요 — 보존 키는 정리했습니다.', 'ok');
 }
 
-/** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 읽을거리 저작물(_reads: 내 요약·독후감).
-    _reads가 없으면 "내보내기로 백업하세요" 안내(저장실패 토스트)와 실제 백업 범위가 어긋난다. */
+/** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 읽을거리 저작물(_reads: 내 요약·독후감)
+    + 앱 상태 밖 로컬 키(_local: 아틀라스 메모·관심·리서치 이력·UI 설정 · 0단계-E ③).
+    사이드카가 없으면 "내보내기로 백업하세요" 안내(저장실패 토스트)와 실제 백업 범위가 어긋난다. */
 export function exportJSON(): void {
   const s = st().state;
-  const payload = { ...exportSnapshot(s), _reads: loadReads() };
-  download(`러닝허브_${s.startDate}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  download(`러닝허브_${s.startDate}.json`, JSON.stringify(backupPayload(s), null, 2), 'application/json');
+}
+
+/** 백업 페이로드 SSOT — 파일 내보내기와 볼트 백업이 **같은 범위**를 쓰게 한다.
+    (두 곳이 각자 조립하던 탓에 사이드카 추가가 한쪽에만 반영될 수 있었다.) */
+function backupPayload(s: AppState): Record<string, unknown> {
+  return { ...exportSnapshot(s), _reads: loadReads(), [LOCAL_EXTRAS_FIELD]: exportLocalExtras() };
 }
 
 /** 데이터 가져오기 — 파일 → migrate → (백업 후) 통째 교체. */
@@ -114,8 +122,11 @@ export function importJSON(input: HTMLInputElement): void {
       toast('읽기 실패: JSON 형식이 아닙니다.', 'bad');
       return;
     }
-    // _reads(내 요약·독후감)는 앱 상태가 아니라 별도 블롭 — 분리해 각자 복원한다.
-    const reads = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>)._reads : undefined;
+    // _reads(내 요약·독후감)·_local(아틀라스 메모·리서치 이력·UI 설정)은 앱 상태가 아니라
+    // 별도 블롭 — 분리해 각자 복원한다. 구 백업엔 없으므로 undefined면 조용히 건너뛴다.
+    const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
+    const reads = obj?._reads;
+    const localExtras = obj?.[LOCAL_EXTRAS_FIELD];
     const migrated = migrate(parsed);
     if (!migrated) {
       toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).', 'bad', 5000);
@@ -131,10 +142,19 @@ export function importJSON(input: HTMLInputElement): void {
       }
     });
     delete (s as Record<string, unknown>)._reads;
+    delete (s as Record<string, unknown>)[LOCAL_EXTRAS_FIELD];
     if (!(await backupOrConfirm())) return;
     st().loadState(s);
     const restored = reads ? importReads(reads) : null;
-    toastUndo(restored ? '데이터를 가져왔어요(읽을거리 요약·독후감 포함).' : '데이터를 가져왔어요.', undoLast);
+    // 사이드카 KV 복원 → announce({kind:'local'})가 아틀라스·리서치·UI의 메모리 상태를 되읽게 한다.
+    const localCount = localExtras ? importLocalExtras(localExtras).length : 0;
+    // UI 스토어는 sync 구독자가 아니다(부팅 시 1회 read) → 복원 후 명시적으로 되읽어야
+    // 다음 설정 변경의 flush가 복원된 lh_ui_v1을 메모리 기본값으로 덮지 않는다.
+    if (localCount) useUI.getState().reloadUI();
+    const extras = [restored ? '읽을거리 요약·독후감' : '', localCount ? '아틀라스 메모·설정' : '']
+      .filter(Boolean)
+      .join(' · ');
+    toastUndo(extras ? `데이터를 가져왔어요(${extras} 포함).` : '데이터를 가져왔어요.', undoLast);
   };
   r.readAsText(f);
   input.value = '';
@@ -266,7 +286,7 @@ export async function backupToVault(): Promise<void> {
     }
     const fh = await h.getFileHandle('러닝허브_백업.json', { create: true });
     const w = await fh.createWritable();
-    await w.write(JSON.stringify({ ...exportSnapshot(st().state), _reads: loadReads() }, null, 2));
+    await w.write(JSON.stringify(backupPayload(st().state), null, 2));
     await w.close();
     st().mutate((s) => void ((s as AppState)._lastBackupAt = new Date().toISOString()));
     toast('볼트 폴더에 러닝허브_백업.json 저장 완료.', 'ok');

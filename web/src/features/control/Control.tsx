@@ -14,6 +14,8 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePing, useResearchJobs, RESEARCH_JOBS_KEY } from '@/store/queries';
 import { startResearch, cancelResearch, type ResearchJob } from '@/lib/api';
 import { readJSON, writeJSON } from '@/lib/localStore';
+import { onSync } from '@/lib/sync';
+import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import EmptyState from '@/components/EmptyState';
 import { ui } from '@/shell';
 import ds from '@/styles/ds.module.css';
@@ -26,7 +28,7 @@ interface HistEntry {
   ok: boolean;
   durMs?: number; // 소요시간(완료 잡의 endedAt-startedAt) — 메타 표기·평균 기대치용
 }
-const HKEY = 'lh:research-history';
+const HKEY = RESEARCH_HISTORY_KEY;
 const EMPTY_JOBS: ResearchJob[] = []; // undefined 폴백을 안정 참조로 — 전이감지 이펙트가 매 렌더 헛돌지 않게
 function loadHistory(): HistEntry[] {
   const v = readJSON<HistEntry[]>(HKEY, []);
@@ -81,6 +83,8 @@ export default function Control() {
   const [openJob, setOpenJob] = useState<string | null>(null); // 출력 펼친 잡 id
   const [history, setHistory] = useState<HistEntry[]>(() => loadHistory());
   const [cancelling, setCancelling] = useState<Set<string>>(() => new Set()); // 이중클릭 방지(중단 중인 잡 id)
+  // 가져오기 복원(_local) → 이력을 KV에서 되읽는다(낡은 메모리가 saveHistory에서 복원본을 덮는 것 방지).
+  useEffect(() => onSync((m) => m.kind === 'local' && setHistory(loadHistory())), []);
   // 잡별 마지막 관측 상태 — running→done/error/canceled 전이만 토스트/히스토리에 반영(reload 재부착 시 중복 방지).
   const seen = useRef<Record<string, ResearchJob['status']>>({});
 

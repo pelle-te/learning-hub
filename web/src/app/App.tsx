@@ -7,6 +7,7 @@ import { isTyping } from '@/hooks/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
+import StorageGuard from '@/app/StorageGuard';
 import { routeTitle } from '@/app/docTitle';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
@@ -181,6 +182,7 @@ export default function App() {
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <OnlineStatus />
       <BootRecovery />
+      <StorageGuard />
       <ToastHost />
       <ModalHost />
       <TooltipHost />

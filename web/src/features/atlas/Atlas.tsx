@@ -5,11 +5,13 @@
    데이터 골격은 lib/atlas(시드) — 관심 별·메모만 로컬 영속(localStore). 동향 자동수집은 후속 단계.
    레이어: store(usePageChrome)·lib(atlas·localStore)만 소비. app/다른 feature import 금지(boundaries).
 ============================================================ */
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useAtlasNews, usePing } from '@/store/queries';
 import { readJSON, writeJSON } from '@/lib/localStore';
+import { onSync } from '@/lib/sync';
+import { ATLAS_STARS_KEY as STARS_KEY, ATLAS_NOTES_KEY as NOTES_KEY } from '@/lib/sidecars';
 import {
   CATEGORIES,
   FIELDS,
@@ -23,9 +25,6 @@ import {
 } from '@/lib/atlas';
 import { fmtPublished } from '@/lib/markets';
 import s from './Atlas.module.css';
-
-const STARS_KEY = 'atlas.stars';
-const NOTES_KEY = 'atlas.notes';
 
 /** 상대일 라벨 — 0=오늘, 1=어제, 그 외 'N일 전'. */
 function agoLabel(days: number): string {
@@ -42,6 +41,18 @@ export default function Atlas() {
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [stars, setStars] = useState<Set<string>>(() => new Set(readJSON<string[]>(STARS_KEY, [])));
   const [notes, setNotes] = useState<Record<string, string>>(() => readJSON<Record<string, string>>(NOTES_KEY, {}));
+
+  // 가져오기 복원(_local)·다른 탭 편집 → KV에서 되읽는다. 없으면 낡은 메모리 상태가
+  // 다음 편집의 writeJSON에서 복원본을 통째로 덮어쓴다(메모 영구 유실 · 0단계-E ③).
+  useEffect(
+    () =>
+      onSync((m) => {
+        if (m.kind !== 'local') return;
+        setStars(new Set(readJSON<string[]>(STARS_KEY, [])));
+        setNotes(readJSON<Record<string, string>>(NOTES_KEY, {}));
+      }),
+    [],
+  );
 
   const toggleStar = useCallback((k: string) => {
     setStars((prev) => {
