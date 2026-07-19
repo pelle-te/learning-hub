@@ -36,50 +36,31 @@
    삭제가 전파되지 않는다" 하나이고, 저작물 삭제는 드물어 지금은 실害가 없다.
    ⚠ **C-5(병합) 전에 `TableSpec` 편입 또는 전용 삭제 경로를 정해야 한다.**
 ============================================================ */
-import { TABLES, type TableSpec } from '../db/rows';
+import {
+  MAX_BATCH_ITEMS,
+  OUTBOX_TABLES,
+  tableCols,
+  type OutboxBatch,
+  type OutboxRow,
+  type OutboxTomb,
+} from './contract';
 import { execDb, selectDb } from '../db/sqlite';
 import { nextStamp } from '../db/stamp';
 
-/** 밀어올릴 행 하나. `key` 는 기본키 열 값, `data` 는 나머지 열 값(테이블 정의 순서). */
-export interface OutboxRow {
-  tbl: string;
-  key: string[];
-  data: unknown[];
-  updatedAt: number;
-}
-
-/** 밀어올릴 삭제 하나. `k2` 는 단일키 테이블에서 빈 문자열(db.rs v3 규약). */
-export interface OutboxTomb {
-  tbl: string;
-  k1: string;
-  k2: string;
-  deletedAt: number;
-}
-
-export interface OutboxBatch {
-  /** 이 배치가 이어받은 워터마크(배타적 하한). */
-  since: number;
-  /** 이 배치의 상한선. 전송 성공 시 워터마크가 될 값. */
-  upto: number;
-  rows: OutboxRow[];
-  tombstones: OutboxTomb[];
-}
-
-/** 배치에 실린 변경 건수(호출부가 "보낼 게 있나"를 묻는 표준 방법). */
-export function batchSize(b: OutboxBatch): number {
-  return b.rows.length + b.tombstones.length;
-}
+/* ⚠ 계약(타입·테이블 명세·상한)은 **`contract.ts` 가 소유한다.** 여기서 다시 정의하지
+   않고 재수출만 한다 — 이 파일은 DB IO 를 하므로 서버가 import 할 수 없고, 계약이 여기 있으면
+   서버가 딸려오는 런타임 의존 때문에 공유가 불가능해진다(`contract.ts` 머리주석 참조). */
+export {
+  batchSize,
+  MAX_BATCH_ITEMS,
+  OUTBOX_TABLES,
+  tableCols,
+  type OutboxBatch,
+  type OutboxRow,
+  type OutboxTomb,
+} from './contract';
 
 const WATERMARK_KEY = 'watermark';
-
-/* 동기화 대상 테이블 명세를 **`rows.ts` 에서 파생**한다. 손으로 다시 쓰지 않는 이유:
-   이 저장소는 "행 모양 이중 정의"에 이미 두 번 물렸고(rows.ts ↔ rows.rs 쌍둥이), 세 번째
-   사본을 만들면 열 하나가 추가될 때 조용히 안 실려 나가는 필드가 생긴다.
-   `TableSpec` 은 `cols`(전체 열)와 `keyLen`(앞쪽 몇 개가 키인가)을 이미 갖고 있어 그대로 쓴다. */
-const DOCS_SPEC: TableSpec = { name: 'docs', cols: ['key', 'value'], keyLen: 1, sync: true };
-
-/** 밀어올림 대상 테이블. `docs` 는 `TABLES` 밖이라 명시적으로 덧붙인다(위 머리주석 참조). */
-export const OUTBOX_TABLES: TableSpec[] = [...TABLES.filter((t) => t.sync), DOCS_SPEC];
 
 /** 현재 워터마크. 없거나 DB 미가용이면 0 = "아무것도 안 보냈다"(전량이 대상). */
 export async function readWatermark(): Promise<number> {
@@ -100,15 +81,6 @@ export async function commitWatermark(upto: number): Promise<boolean> {
     [WATERMARK_KEY, String(upto)],
   );
 }
-
-/**
- * 배치 하나에 담을 변경 건수 상한(C-2).
- *
- * VM 이었다면 없었을 제약이다. Workers 무료 플랜은 **요청당 CPU 10ms** 이고, 통상 인증·큰
- * 페이로드 파싱이 10~20ms 를 쓴다 — 전량 동기화를 한 요청에 담으면 검증에서 넘긴다.
- * D1 일일 행 쓰기 한도도 같은 방향으로 작은 배치를 요구한다.
- */
-export const MAX_BATCH_ITEMS = 500;
 
 /**
  * 배치를 상한 이하로 자르고 그에 맞는 워터마크를 정한다.
@@ -180,11 +152,14 @@ export async function collectOutbox(since?: number): Promise<OutboxBatch | null>
       [from, fence],
     );
     if (got == null) return null; // DB 미가용 — 부분 배치를 만들지 않는다(불완전을 완전으로 착각시킨다)
+    /* 키/데이터 열 가르기는 **공유 계약이 소유한다**(`contract.ts`) — 서버의 SQL 생성이
+       같은 함수를 쓰므로, 여기서 인라인으로 다시 자르면 둘이 갈릴 수 있다. */
+    const { key, data } = tableCols(spec);
     for (const r of got) {
       rows.push({
         tbl: spec.name,
-        key: spec.cols.slice(0, spec.keyLen).map((c) => String(r[c] ?? '')),
-        data: spec.cols.slice(spec.keyLen).map((c) => r[c]),
+        key: key.map((c) => String(r[c] ?? '')),
+        data: data.map((c) => r[c]),
         updatedAt: Number(r['updated_at'] ?? 0),
       });
     }

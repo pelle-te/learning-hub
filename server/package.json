@@ -8,15 +8,23 @@
     "typecheck": "tsc --noEmit",
     "migrate:local": "wrangler d1 migrations apply learning-hub --local",
     "migrate:remote": "wrangler d1 migrations apply learning-hub --remote",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "verify": "npm run typecheck && npm run test"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260714.1",
     "typescript": "^5.9.2",
+    "vitest": "^4.1.10",
     "wrangler": "^4.28.0"
   },
   "dependencies": {
     "hono": "^4.9.0",
     "zod": "^4.4.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "sharp@0.34.5": true,
+    "workerd@1.20260714.1": true
   }
 }

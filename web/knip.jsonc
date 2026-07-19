@@ -5,6 +5,13 @@
 
   // main.tsx·playwright.config.ts는 knip이 자동 인식하므로 열거하지 않는다(중복 패턴 경고).
   // e2e/test/scripts는 러너가 부르는 진입점 — 여기 없으면 그들이 쓰는 파일이 전부 '미사용'이 된다.
+  // ⚠ knip 은 `web/` **밖(= `server/`)을 보지 못한다.** 그래서 Worker 만 쓰는 export 는 죽은
+  // 코드로 오진된다(C-4 에서 `tableCols` 가 그렇게 걸렸다). `../server/**` 을 entry 에 넣어
+  // 봤지만 프로젝트 루트 밖이라 무시된다.
+  // → **예외로 덮지 않는다.** 대신 규칙을 둔다: **공유 계약(`lib/cloud/`)은 web 쪽에서도
+  //   실제로 쓰이게 한다.** `tableCols` 가 그 사례였다 — `collectOutbox` 가 같은 slice 를
+  //   인라인으로 하고 있어서, 그걸 쓰게 바꾸니 중복도 사라지고 오진도 사라졌다.
+  //   web 이 안 쓰는데 서버만 쓰는 것이 생기면 그건 **`server/` 안에 있어야 한다는 신호**다.
   "entry": ["e2e/**/*.ts", "scripts/*.mjs", "test/**/*.{ts,tsx}"],
   "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs"],
 

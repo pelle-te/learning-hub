@@ -31,7 +31,7 @@
    · fence 계약 위반 → 클라이언트가 `since`~`upto` 밖의 행을 보내면 워터마크 전진이 거짓이 된다.
 ============================================================ */
 import { z } from 'zod';
-import { MAX_BATCH_ITEMS, OUTBOX_TABLES, type OutboxBatch } from './outbox';
+import { MAX_BATCH_ITEMS, OUTBOX_TABLES, type OutboxBatch } from './contract';
 
 /** 테이블 이름 → 명세. 길이 검사가 이걸 참조한다. */
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));

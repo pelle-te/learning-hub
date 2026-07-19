@@ -101,5 +101,18 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: include_str!("../migrations/004_outbox.sql"),
         },
+        /* v5(C-4) — **인증(기기 단위 주체 · 토큰 회전)**.
+
+        ⚠ 이 두 테이블은 **서버(D1) 전용**이고 데스크톱 DB 에선 비어 있는 채로 남는다.
+        마이그레이션 폴더가 로컬·서버 공유(§C-3)라 양쪽에 다 생기는데, 그걸 피하려면
+        스키마를 갈래내야 한다 — 이 저장소가 두 번 물린 divergence 를 사는 것보다
+        **잉여 테이블 두 개가 싸다**는 판단이다(런북 §3-2 가 meta·runtime_cache 를 두고
+        내린 판정과 같은 사상: 필터하지 말고 전부 만들고 소비 측에서 거른다). */
+        Migration {
+            version: 5,
+            description: "C-4 인증 — 기기 레코드 + 등록 코드",
+            kind: MigrationKind::Up,
+            sql: include_str!("../migrations/005_auth.sql"),
+        },
     ]
 }

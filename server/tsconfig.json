@@ -1,0 +1,39 @@
+{
+  /* server/tsconfig.json — Worker 전용. `web/` 의 tsconfig 와 **완전히 분리**한다.
+     같이 두면 `tsc -b` 가 Worker 소스를 브라우저 타깃으로 컴파일하려 들고
+     `@cloudflare/workers-types` 와 DOM 타입이 충돌한다(런북 §4-1). */
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["@cloudflare/workers-types"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx"
+  },
+  /* ⚠ **`web/src/lib/` 전체를 열지 않는다.** 거기엔 Tauri·브라우저 런타임을 요구하는 모듈이
+     섞여 있다(`lib/tauri.ts` invoke · `lib/db/sqlite.ts` tauri-plugin-sql · `lib/api.ts` 전송
+     분기). Worker 에서 import 하면 **타입은 통과하고 런타임에 죽는다** — 가장 나쁜 실패 모드다.
+
+     그래서 파일 단위로 골라 넣는다. 여기 없는 파일은 `include` 밖이라 참조하면 컴파일이
+     실패한다. 관습에 두면 흘러내린다는 게 이 저장소가 `lint:css` 를 도입하며 내린 결론이고
+     (CLAUDE.md), 같은 규율을 여기에도 적용한다. */
+  /* ⚠ **`cloud/outbox.ts` 는 여기 없다 — 일부러다.** 저 파일은 DB IO 를 해서
+     `db/sqlite.ts` → `lib/tauri.ts` → `window` 로 이어지고, Worker 에는 `window` 가 없다.
+     실제로 처음엔 넣었다가 이 화이트리스트가 컴파일 에러로 잡아 줬고, 그 결과 순수 계약을
+     `cloud/contract.ts` 로 분리했다. **다시 넣지 마라.** */
+  "include": [
+    "src/**/*.ts",
+    "../web/src/lib/cloud/contract.ts",
+    "../web/src/lib/cloud/schema.ts",
+    "../web/src/lib/db/rows.ts",
+    "../web/src/lib/persistence.ts"
+  ]
+}
