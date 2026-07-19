@@ -124,7 +124,7 @@
   cursor: pointer;
 }
 .skip:hover {
-  color: var(--fg);
+  color: var(--txt);
   border-color: var(--acc);
 }
 

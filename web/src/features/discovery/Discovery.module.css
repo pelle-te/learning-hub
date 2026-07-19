@@ -125,7 +125,7 @@
   color: var(--mut);
 }
 .goals {
-  color: color-mix(in srgb, var(--acc) 70%, var(--tx));
+  color: color-mix(in srgb, var(--acc) 70%, var(--txt));
 }
 .src {
   font-family: ui-monospace, monospace;
@@ -133,7 +133,7 @@
 .score {
   font-variant-numeric: tabular-nums;
   margin-left: auto;
-  color: var(--tx);
+  color: var(--txt);
   font-weight: 600;
 }
 

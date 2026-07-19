@@ -173,3 +173,69 @@ describe('불변식 ④ JS 에서 읽는 CSS 토큰이 tokens.css 에 정의돼 
     expect(missing, `tokens.css 에 없는 토큰:\n${missing.join('\n')}`).toEqual([]);
   });
 });
+
+/* ============================================================
+   불변식 ⑤ — **CSS 가 참조하는 --토큰은 실제로 정의돼 있다** (④의 거울상)
+
+   ④가 "JS 가 읽는 토큰"을 잠갔는데, **CSS 쪽에는 같은 방어가 없었다.** 그래서 이 구멍이
+   실제로 뚫려 있었다: `var(--tx)` 가 3곳에서 쓰이는데 그런 토큰은 **없다**(진짜 이름은
+   `--txt`). C-7 첫 feature 이식(discovery) 중에 발견했다.
+
+   ## 왜 아무도 못 봤나 — 이게 이 불변식의 존재 이유다
+
+   CSS 커스텀 프로퍼티는 **없는 이름을 참조해도 에러가 아니다.** 값이 무효가 되고
+   `color` 는 상속으로 떨어진다. 그래서:
+
+   - 빌드 통과 · 린트 통과 · 타입 통과 (CSS 에는 이름 검사가 없다)
+   - **시각 스냅샷도 통과** — 상속된 색이 그럴듯해 보이고, `maxDiffPixelRatio: 0.02` +
+     단일 계열 팔레트라 애초에 색 회귀를 못 잡는다(0단계-G 실증)
+
+   즉 "전량 녹색인데 틀린 색으로 렌더 중"이었다. `stylelint` 의 `color-no-hex` 는 색의
+   **출처**를 강제했지만 그 출처가 **실재하는지**는 아무도 안 봤다.
+
+   ⚠ 이게 C-7 에서 특히 위험한 이유: 전환은 토큰 참조를 대량으로 옮겨 적는 작업이고,
+   오타 하나가 정확히 이 형태로 조용히 통과한다.
+============================================================ */
+describe('불변식 ⑤ CSS 가 참조하는 --토큰이 정의돼 있다', () => {
+  const SRC = join(process.cwd(), 'src') + '/';
+
+  /** 런타임에 JS 가 인라인으로 주입하는 변수 — CSS 에 정의가 없는 것이 **정상**이다.
+   *  동적 색이라 정적 선언이 불가능하다(절대규칙 #3 의 구현 · 설계서 §4-6단계). */
+  const RUNTIME_INJECTED = new Set(['--seg', '--sub', '--tint']);
+
+  function cssFiles(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith('.css')) out.push(p);
+      }
+    };
+    walk(SRC);
+    return out;
+  }
+
+  const files = cssFiles();
+  const all = files.map((f) => readFileSync(f, 'utf8')).join('\n');
+  // 정의된 것 전부(tokens.css 든 feature 모듈이든 — 지역 변수도 정당한 정의다).
+  const defined = new Set([...all.matchAll(/(--[a-z][\w-]*)\s*:/gi)].map((m) => m[1]!));
+
+  it('CSS 파일을 찾았다(0개면 이 불변식이 아무것도 안 잰다)', () => {
+    expect(files.length).toBeGreaterThan(10);
+  });
+
+  it('폴백 없는 var(--x) 참조가 전부 정의를 갖는다', () => {
+    const missing: string[] = [];
+    for (const f of files) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/var\(\s*(--[a-z][\w-]*)\s*\)/gi)) {
+        const name = m[1]!;
+        if (defined.has(name) || RUNTIME_INJECTED.has(name)) continue;
+        missing.push(`${f.replace(SRC, '')} → var(${name})`);
+      }
+    }
+    /* ⚠ 폴백이 있는 참조(`var(--x, 1rem)`)는 검사하지 않는다 — 그건 "없을 수 있다"를
+       작성자가 **명시한** 것이라 조용한 실패가 아니다. 폴백 없는 것만이 사고다. */
+    expect([...new Set(missing)], `정의 없는 토큰:\n${[...new Set(missing)].join('\n')}`).toEqual([]);
+  });
+});
