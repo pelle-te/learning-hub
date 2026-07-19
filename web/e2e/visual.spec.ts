@@ -378,16 +378,32 @@ async function boot(page: Page, theme: string, seed: object = SEED) {
   // reducedMotion을 명시 await — config(use.reducedMotion)만 믿으면 드물게 첫 로드와 레이스해
   // AmbientCanvas가 애니메이션 프레임으로 돌기 시작(스크린샷 불안정 → flaky). 여기서 확정한다.
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  // P8 E-3: reads/markets 수집 아티팩트를 고정 fixture로 mock(수집 상태·serve.js 유무와 무관하게
-  // '데이터 상태'를 결정론 캡처). 다른 탭은 이 경로를 안 부르므로 무영향.
-  await page.route('**/api/artifact/reads', (route) => route.fulfill({ json: { ok: true, data: READS_FIXTURE } }));
-  await page.route('**/api/artifact/markets', (route) => route.fulfill({ json: { ok: true, data: MARKETS_FIXTURE } }));
-  await page.route('**/api/artifact/goals', (route) => route.fulfill({ json: { ok: true, data: GOALS_FIXTURE } }));
-  await page.route('**/api/artifact/discovery', (route) =>
-    route.fulfill({ json: { ok: true, data: DISCOVERY_FIXTURE } }),
-  );
-  await page.route('**/api/artifact/knowledge', (route) =>
-    route.fulfill({ json: { ok: true, data: KNOWLEDGE_FIXTURE } }),
+  /* P8 E-3: 수집 아티팩트 5종을 고정 fixture 로 mock — '데이터 상태'를 결정론적으로 캡처한다.
+     ▶ 4단계-G 에서 `page.route` 를 **`__TAURI_INTERNALS__.invoke` 스텁**으로 바꿨다.
+     serve.js 가 사라져 `/api` 라는 것이 더는 없기 때문이고, **IPC 는 `page.route` 로 못 가로챈다**
+     (네트워크가 아니다 — 설계 §6 이 예고한 재작성). 스텁을 심으면 `isTauri()` 가 참이 되어
+     `api.ts` 가 셸 경로를 타고, 그 경로를 여기서 답해 준다.
+     ⚠ 다른 커맨드는 **의도적으로 reject** 한다 — 그래야 mock 하지 않은 탭이 지금까지처럼
+     '백엔드 없음' 화면을 찍는다(스냅샷 59장이 원래 그 상태를 담고 있다). */
+  await page.addInitScript(
+    (fixtures: Record<string, unknown>) => {
+      (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+        invoke: (cmd: string, args?: { name?: string }) => {
+          if (cmd === 'artifact_read' && args?.name && args.name in fixtures) {
+            return Promise.resolve({ ok: true, data: fixtures[args.name] });
+          }
+          return Promise.reject(new Error('NOT_FOUND e2e 스텁 — 이 커맨드는 목업되지 않았습니다'));
+        },
+        transformCallback: (cb: unknown) => cb,
+      };
+    },
+    {
+      reads: READS_FIXTURE,
+      markets: MARKETS_FIXTURE,
+      goals: GOALS_FIXTURE,
+      discovery: DISCOVERY_FIXTURE,
+      knowledge: KNOWLEDGE_FIXTURE,
+    } as Record<string, unknown>,
   );
   await page.clock.install({ time: FIXED });
   await page.addInitScript(

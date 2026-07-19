@@ -177,7 +177,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const tmrNew = byDs[iso(addDays(today, 1))]?.items.find((it) => it.type === 'new');
   const risk = riskSummary(state, res.days || [], ds);
   const riskN = risk.overdue + risk.due;
-  // I-8 — 프런티어 다음 추천(지식엔진 frontier). serve.js 도달 시에만 페치(mastery와 KNOWLEDGE_KEY 캐시 공유,
+  // I-8 — 프런티어 다음 추천(지식엔진 frontier). 백엔드 사용 가능 시에만 페치(mastery와 KNOWLEDGE_KEY 캐시 공유,
   // 신규 IO 최소). 후보 없거나 미연결이면 frontier=null → 렌더 안 함.
   const ping = usePing();
   const know = useKnowledge(ping.isSuccess).data;

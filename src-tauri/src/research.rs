@@ -156,6 +156,31 @@ fn emit(app: &tauri::AppHandle) {
     let _ = app.emit(RESEARCH_CHANGED, ());
 }
 
+/// 주제 정제·검증(serve.js `startResearch` L208-210). **순수 함수로 뺀 이유**는 4단계-G 의
+/// 대조표 때문이다 — `serve.test.ts` 가 이 계약("빈/200자 초과 topic 은 spawn 전에 거부")을
+/// 잠그고 있었는데, 커맨드 안에 인라인으로 두면 `AppHandle` 없이는 검증할 수 없어
+/// **그 테스트를 지우는 순간 계약이 아무 데서도 안 지켜진다.**
+pub fn validate_topic(raw: &str) -> Result<String, String> {
+    let t: String = raw.trim().chars().take(200).collect();
+    if t.is_empty() {
+        return Err("topic(주제)이 필요합니다.".into());
+    }
+    Ok(t)
+}
+
+/// 취소 가능한 잡인지 — 없거나 이미 끝났으면 사유를 돌려준다(serve.js `cancelResearch` L238-240).
+fn ensure_cancelable(id: &str) -> Result<(), String> {
+    let g = jobs().lock().map_err(|e| e.to_string())?;
+    let j = g
+        .iter()
+        .find(|j| j.id == id)
+        .ok_or("잡을 찾을 수 없어요.")?;
+    if j.status != "running" {
+        return Err("이미 끝난 잡이에요.".into());
+    }
+    Ok(())
+}
+
 /* ── 커맨드 ───────────────────────────────────────────────────── */
 
 #[tauri::command]
@@ -172,11 +197,7 @@ pub fn research_start(
     topic: String,
     scope: Option<String>,
 ) -> Result<Job, String> {
-    // 인자 정제는 serve.js L208-210 그대로 — 값으로만 전달하고 shell 을 쓰지 않는다.
-    let topic: String = topic.trim().chars().take(200).collect();
-    if topic.is_empty() {
-        return Err("topic(주제)이 필요합니다.".into());
-    }
+    let topic = validate_topic(&topic)?;
     let scope: String = scope.unwrap_or_default().trim().chars().take(200).collect();
 
     let cwd = crate::workspace::resolve(&app)
@@ -357,16 +378,7 @@ pub fn research_start(
 
 #[tauri::command]
 pub fn research_cancel(app: tauri::AppHandle, id: String) -> Result<(), String> {
-    {
-        let g = jobs().lock().map_err(|e| e.to_string())?;
-        let j = g
-            .iter()
-            .find(|j| j.id == id)
-            .ok_or("잡을 찾을 수 없어요.")?;
-        if j.status != "running" {
-            return Err("이미 끝난 잡이에요.".into());
-        }
-    }
+    ensure_cancelable(&id)?;
     // 먼저 표시하고 죽인다 — 순서가 반대면 종료 핸들러가 '실패'로 확정한 뒤 표시가 도착한다.
     if let Ok(mut c) = canceled().lock() {
         c.insert(id.clone());
@@ -442,6 +454,37 @@ mod tests {
         assert!(text.contains("\"startedAt\":42"), "{text}");
         assert!(text.contains("\"endedAt\":null"), "{text}");
         assert!(!text.contains("started_at"));
+    }
+
+    #[test]
+    fn 빈_주제는_spawn_전에_거부한다() {
+        // serve.test.ts 가 잠그던 계약 — 빈 주제로 30분짜리 수집기를 띄우면 안 된다.
+        assert!(validate_topic("").is_err());
+        assert!(validate_topic("   ").is_err());
+        assert_eq!(validate_topic("  위상수학 ").unwrap(), "위상수학");
+    }
+
+    #[test]
+    fn 주제는_200자에서_잘린다() {
+        assert_eq!(
+            validate_topic(&"가".repeat(500)).unwrap().chars().count(),
+            200
+        );
+    }
+
+    #[test]
+    fn 없는_잡_취소는_프로세스를_건드리지_않고_거부한다() {
+        assert!(ensure_cancelable("존재하지-않는-잡").is_err());
+        // 이미 끝난 잡도 거부 — 안 그러면 남의 PID 를 죽일 수 있다(PID 재사용).
+        if let Ok(mut g) = jobs().lock() {
+            g.push(job("끝난잡-테스트", "done", 1));
+        }
+        assert!(ensure_cancelable("끝난잡-테스트")
+            .unwrap_err()
+            .contains("이미 끝난"));
+        if let Ok(mut g) = jobs().lock() {
+            g.retain(|j| j.id != "끝난잡-테스트");
+        }
     }
 
     #[test]

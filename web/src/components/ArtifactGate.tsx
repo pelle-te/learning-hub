@@ -1,6 +1,6 @@
 /* ============================================================
    ArtifactGate — 수집형 탭의 오프라인/미수집 빈 상태 공용 분기.
-   (serve.js OFF → 켜는 법 안내 / 미수집 → 수집 시작 버튼) — reads/markets가 공유.
+   (워크스페이스 미설정 → 설정 안내 / 미수집 → 수집 시작 버튼) — reads/markets가 공유.
    로딩 표시는 탭마다 형상이 달라(스켈레톤 등) 호출부에 남긴다.
 ============================================================ */
 import type { ReactNode } from 'react';
@@ -27,7 +27,7 @@ export default function ArtifactGate({
   collecting: boolean;
   onCollect: () => void;
   collectLabel: string;
-  /* 오프라인 재확인 — serve.js를 켠 뒤 페이지를 떠나지 않고 즉시 재프로브(ping+아티팩트 refetch). */
+  /* 오프라인 재확인 — 워크스페이스를 설정한 뒤 페이지를 떠나지 않고 즉시 재프로브(ping+아티팩트 refetch). */
   onRetry?: () => void;
 }) {
   if (!online)

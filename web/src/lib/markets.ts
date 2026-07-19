@@ -1,6 +1,6 @@
 /* ============================================================
    markets.ts — '증시 동향' 데이터 레이어(읽기 전용 브리핑).
-   serve.js가 서빙하는 수집 산출(/api/artifact/markets)을 페치만 한다 — 지수 등락 + 금융 뉴스.
+   수집 산출물 `markets` 를 읽기만 한다 — 지수 등락 + 금융 뉴스.
    사용자 작성물이 없어 로컬 저장층(localStorage/idb)은 없다(reads와 다른 점).
    순수 계산 + fetch만 — 앱 상태(useApp)에 복제하지 않는다(설계도 §1-B, api.ts와 동일 원칙).
 ============================================================ */
@@ -37,7 +37,7 @@ export interface MarketsArtifact {
   news: NewsItem[];
 }
 
-/** 증시 아티팩트 페치(serve.js 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내.
+/** 증시 아티팩트 페치(워크스페이스 설정 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내.
     (브리핑 응답 타입은 api.ts MarketBriefResult가 단일 원천 — 필드까지 같은 중복 사본을 두지 않는다.) */
 export async function fetchMarketsArtifact(): Promise<MarketsArtifact> {
   const r = await getArtifact<MarketsArtifact>('markets');

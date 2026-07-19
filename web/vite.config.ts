@@ -69,10 +69,10 @@ export default defineConfig({
       },
     },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-    },
-  },
+  /* ⚠ `/api` 프록시를 제거했다(4단계-G) — 프록시할 대상(`serve.js`)이 없어졌다.
+     그래서 **브라우저 `npm run dev` 에는 백엔드가 없다**: 산출물·도구·AI·볼트가 전부 셸 전용이다.
+     개발 중 그 기능을 만지려면 `npm run tauri:dev` 로 띄운다(같은 Vite dev 서버를 셸 안에서
+     로드하므로 HMR 은 그대로다). 이 문장이 없으면 다음 세션이 "dev 에서 아티팩트가 안 뜬다"를
+     결함으로 오진한다. */
+  server: { port: 5173 },
 });

@@ -2,7 +2,7 @@
    Discovery(발견) — 탭: ✦ 발견 큐(P9 Phase 6 Wave④ · 축 C · D5 사람=승격).
    승격.py 발견큐(state/_발견큐.json)를 소비 — surface(미개척)·다리개념·수집맥락·가능신호 후보를
    사람이 승격/기각한다. "기계가 firehose(다량 수집·발견), 사람이 승격(희소·고가치)"의 사람 절반.
-   승인/기각 = serve.js /api/run 으로 승격.py --promote/--dismiss 호출 → 큐 재페치.
+   승인/기각 = `run_tool` 로 승격.py --promote/--dismiss 호출 → 큐 재페치.
    콜드(수집·발견 미가동 · goals: 링크 0)면 파일 부재→404→빈 inbox 정직 안내.
    레이어: store(queries·usePageChrome)·lib(discovery·api)만 소비. app/다른 feature import 금지(boundaries).
 ============================================================ */
@@ -46,7 +46,7 @@ export default function Discovery() {
     [counts.pending, counts.promoted, counts.dismissed],
   );
 
-  // 사람 결정 — serve.js 온라인이면 승격.py 를 호출하고 큐를 재페치(낙관 갱신 대신 SSOT 재조회 = 멱등 규율 존중).
+  // 사람 결정 — 백엔드가 살아 있으면 승격.py 를 호출하고 큐를 재페치(낙관 갱신 대신 SSOT 재조회 = 멱등 규율 존중).
   const decide = async (id: string, decision: DiscoveryDecision) => {
     if (busy) return;
     setBusy(id);

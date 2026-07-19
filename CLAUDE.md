@@ -6,19 +6,19 @@
 러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 구성:
 
 - **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
-- **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 파이썬 도구 실행·산출물 서빙·리서치 잡·LLM 프록시 제공. **prebuilt `web/dist/`를 서빙**한다. (볼트는 serve.js가 안 읽는다 — 3단계부터 **셸의 Rust**(`src-tauri/src/vault.rs`)가 읽고 감시한다. 브라우저에선 프런트의 File System Access가 폴백.)
-- **`src-tauri/`** — Tauri 2 데스크톱 셸. **유일한 배포 진입점**(2단계-E). `web/dist` 를 WebView2 로 띄우고 `serve.js` 를 sidecar 로 spawn·정리하며, **앱 데이터의 정본인 SQLite**(`learning-hub.db`)를 소유한다. `npm run tauri:dev|build`.
-- dev에선 Vite(:5173)가 `/api`를 :8000으로 프록시해 동일출처처럼 동작.
+- ~~**`serve.js`** — Node stdlib HTTP 백엔드(:8000)~~ → **4단계에서 삭제됐다.** 라우트 12종(파이썬 도구·산출물·리서치 잡·Ollama·뉴스)이 전부 셸의 Rust 커맨드가 됐고, **앱이 여는 포트는 이제 하나도 없다**(HTTP 공격면 소멸).
+- **`src-tauri/`** — Tauri 2 데스크톱 셸. **유일한 배포 진입점**(2단계-E). `web/dist` 를 WebView2 로 띄우고 **백엔드 전부**(파이썬 도구·산출물·AI·잡·볼트)를 직접 소유하며, **앱 데이터의 정본인 SQLite**(`learning-hub.db`)도 여기 있다. `npm run tauri:dev|build`.
+- ⚠ **브라우저 `npm run dev` 에는 백엔드가 없다**(4단계에서 `/api` 프록시 제거). 산출물·도구·AI·볼트를 만지려면 `npm run tauri:dev` — 같은 Vite dev 서버를 셸 안에서 로드하므로 HMR 은 그대로다.
 
 > **실행 경로 = 셸 하나, 저장 백엔드 = 둘.** 이 둘을 헷갈리지 말 것.
 >
-> - **배포**는 Tauri 셸뿐이다. `러닝허브_실행.bat`(serve.js + Chrome `--app`)은 2단계-E에서 **은퇴**했다(안내 스텁만 남김) — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
-> - **`npm run dev` 와 트랙 A(스냅샷 59장)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`).
+> - **배포**는 Tauri 셸뿐이다. `러닝허브_실행.bat`(옛 serve.js + Chrome `--app`)은 2단계-E에서 **은퇴**했다(안내 스텁만 남김) — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
+> - **`npm run dev` 와 트랙 A(스냅샷 59장)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 산출물 5종만 invoke 스텁으로 목업한다.
 > - ⚠ **오리진이 갈려 데이터는 자동 이관되지 않는다.** Chrome에서 쓰던 데이터가 있으면 반드시 기존 앱에서 내보내기 → 셸에서 가져오기. 셸 자신의 localStorage(1단계에 쓰던 것)는 **첫 부팅에 SQLite로 1회 자동 이관**된다(`initAppStore`).
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
 
-1. **serve.js·Tauri 셸 둘 다 prebuilt `web/dist/`를 서빙한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.) `npm run tauri:build` 는 `web` 빌드를 **자동으로 먼저 돌린다**(`beforeBuildCommand`)지만, **트랙 B(`npm run e2e:shell`)는 exe 를 검사하므로 앞서 `tauri:build` 가 필요**하다 — 안 하면 옛 exe 를 검사한다.
+1. **Tauri 셸이 prebuilt `web/dist/`를 로드한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.) `npm run tauri:build` 는 `web` 빌드를 **자동으로 먼저 돌린다**(`beforeBuildCommand`)지만, **트랙 B(`npm run e2e:shell`)는 exe 를 검사하므로 앞서 `tauri:build` 가 필요**하다 — 안 하면 옛 exe 를 검사한다.
 2. **레이어 경계는 단방향**(`app → features → components → {hooks, store} → lib`, 역방향 import 금지). `eslint-plugin-boundaries`가 **error**로 막는다. 새 코드가 상위를 import하면 린트가 깨진다 → 세부는 `web/docs/아키텍처.md`.
 3. **과목 색 = `PALETTE` 파생물**(저장값 아님 — 한 줄 교체로 전탭 반영). 임의 하드코딩 금지.
    - 파생 키는 **`item.id` 해시**(`lib/utils.ts` `colorForId`)다. 0단계-G에서 배열 인덱스에서 옮겼다 — 인덱스는 *위치*라 삭제·재정렬 때 뒤 과목 색이 전부 밀렸고 보정 코드가 파생을 4곳으로 불렸다. id는 *정체성*이라 불변이고 파생이 1곳이다.
@@ -32,8 +32,8 @@
 
 ```
 npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + knip + test:coverage
-npm run e2e      # 트랙 A — Playwright 시각/동작 스냅샷 (serve.js OFF 상태로 돈다)
-npm run build    # tsc -b && vite build — serve.js·Tauri 셸이 서빙할 dist 재생성
+npm run e2e      # 트랙 A — Playwright 시각/동작 스냅샷 (백엔드 없이 · 산출물은 invoke 스텁으로 목업)
+npm run build    # tsc -b && vite build — Tauri 셸이 로드할 dist 재생성
 npm run e2e:shell # 트랙 B — 빌드된 exe 를 띄워 WebView2 안을 검사(사전 `npm run tauri:build` 필요)
 ```
 
@@ -48,18 +48,18 @@ npm run e2e:shell # 트랙 B — 빌드된 exe 를 띄워 WebView2 안을 검사
 
 ## 트리거 라우팅 (요청 유형 → 읽을 프로토콜)
 
-| 사용자 요청 | 읽고 따를 것 |
-|---|---|
-| "새 탭 추가 / (탭) 만들어줘" | `web/docs/protocols/새탭추가.md` (또는 `/새탭 <key>`) |
-| "(기능) 추가 / 로직 붙여줘" | `web/docs/protocols/기능추가.md` |
-| "(탭) 재설계 / 다시 디자인" | `web/docs/protocols/탭재설계.md` — **today 재설계 사상**(단일목적 한화면·상단 리드아웃·fill 프레임·온디맨드 세부) 준수 |
-| "(feature) 리뷰 / 검토" | `web-reviewer` 서브에이전트 팬아웃 (또는 `/리뷰 <feature>`) |
-| "(탭/모듈) 평가 / 점수 / 벤치마크" | `web/docs/평가루브릭.md` + `/평가 <대상>` (독립 채점·다각도·추세 → `평가기록.md`) |
-| "(대상) 개선 / 향상" | `web/docs/개선루브릭.md` + `/개선 <대상>` (향상 발굴·랭크 → `로드맵.md`) |
-| "새 기능/탭 아이디어 / 확장" | `/아이디어 [주제]` (발산→심사→shortlist → `로드맵.md`) |
-| "다음 뭐 / 백로그 / 로드맵" | `web/docs/로드맵.md` |
-| 색·토큰·컴포넌트 규격 | `web/docs/디자인시스템.md` |
-| "왜 X를 이렇게?" 결정 근거 | `web/docs/결정로그.md` |
+| 사용자 요청                        | 읽고 따를 것                                                                                                           |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| "새 탭 추가 / (탭) 만들어줘"       | `web/docs/protocols/새탭추가.md` (또는 `/새탭 <key>`)                                                                  |
+| "(기능) 추가 / 로직 붙여줘"        | `web/docs/protocols/기능추가.md`                                                                                       |
+| "(탭) 재설계 / 다시 디자인"        | `web/docs/protocols/탭재설계.md` — **today 재설계 사상**(단일목적 한화면·상단 리드아웃·fill 프레임·온디맨드 세부) 준수 |
+| "(feature) 리뷰 / 검토"            | `web-reviewer` 서브에이전트 팬아웃 (또는 `/리뷰 <feature>`)                                                            |
+| "(탭/모듈) 평가 / 점수 / 벤치마크" | `web/docs/평가루브릭.md` + `/평가 <대상>` (독립 채점·다각도·추세 → `평가기록.md`)                                      |
+| "(대상) 개선 / 향상"               | `web/docs/개선루브릭.md` + `/개선 <대상>` (향상 발굴·랭크 → `로드맵.md`)                                               |
+| "새 기능/탭 아이디어 / 확장"       | `/아이디어 [주제]` (발산→심사→shortlist → `로드맵.md`)                                                                 |
+| "다음 뭐 / 백로그 / 로드맵"        | `web/docs/로드맵.md`                                                                                                   |
+| 색·토큰·컴포넌트 규격              | `web/docs/디자인시스템.md`                                                                                             |
+| "왜 X를 이렇게?" 결정 근거         | `web/docs/결정로그.md`                                                                                                 |
 
 > **작업 3단계 수명주기:** **만들기**(protocols) → **검증**(게이트=통과/실패·리뷰=결함·평가=점수) → **발전**(개선·아이디어·로드맵). 발전이 다음 만들기를 먹인다.
 
@@ -83,15 +83,15 @@ web/src/
               스키마 DDL의 단일 원천은 **`src-tauri/src/db.rs`**(프런트가 DDL을 들면 배포본마다 갈린다).
   shell/      탭 레지스트리(tabs.ts)·팔레트·단축키·토스트·액션.
   styles/     ds.module(전역 디자인시스템) + feature별 *.module.css.
-serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천** — 여기 열거하지 않는다
-              (열거본 4벌이 전부 서로 다르게 낡았던 이력. `grep "'/api/" serve.js`로 확인).
-              동작 계약은 `web/test/serve.test.ts`(0단계-A)가 잠근다 = 4단계 Rust 포팅의 동등성 명세.
+(백엔드 없음)  4단계에서 serve.js 를 삭제했다. 백엔드는 아래 src-tauri/ 의 커맨드가 전부다.
+              프런트에서 그 커맨드를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2)이고,
+              전송 분기(셸/브라우저)는 **`web/src/lib/api.ts` 안에만** 있다.
 src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
-              **vault.rs=볼트 읽기+notify 감시(3단계)** · sidecar.rs=serve.js
-              spawn/헬스체크/**고아 선점**/정리. 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
-              ⚠ 고아 선점: 앱이 강제 종료되면 node가 8000을 물고 남는다(Destroyed 미발화) — 재실행 시
-              /api/ping으로 우리 서버인지 + 워크스페이스가 같은지 보고 **같으면 입양, 다르면 교체**한다.
-              `single-instance`는 *정상* 중복 실행만 막지 이 경우를 못 덮는다.
+              **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 11종+RAII 동시성 캡 ·
+              research.rs=탐구 잡(이벤트 진행·JSON 이력) · ollama.rs=AI 5종(Channel 스트리밍) ·
+              artifact.rs=산출물 8종 · news.rs=뉴스 RSS · files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
+              ⚠ **여는 포트가 없다**(4단계). 1단계의 '고아 sidecar 선점' 로직은 serve.js 와 함께
+              사라졌다 — 포트를 물고 남을 프로세스 자체가 없어졌기 때문. `single-instance`는 유지.
 ```
 
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.

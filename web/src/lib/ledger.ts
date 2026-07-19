@@ -1,6 +1,6 @@
 /* ============================================================
    ledger — 정본 축(과목×챕터 원장)의 웹 소비 레이어. 순수·IO 분리.
-   원본: pipeline/_도구/챕터원장.py → knowledge/_meta/cache/_챕터원장.json (serve.js /api/artifact/ledger).
+   원본: pipeline/_도구/챕터원장.py → knowledge/_meta/cache/_챕터원장.json (산출물 `ledger` /api/artifact/ledger).
    원장은 각 챕터가 5단계 생애(sourced→noted→verified→carded→reviewed)에서 "얼마나 멀리 갔나"를
    집계한다 — 흩어져 있던 볼트 파이프라인 진척을 한 화면에 모으는 단일 출처(통합 4단계).
    이 파일은 타입·페치·순수 파생만. 렌더는 features/ledger가 소유(React 무관).

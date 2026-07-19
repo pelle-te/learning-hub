@@ -280,7 +280,7 @@ function ChecklistCard({ wk }: { wk: string }) {
   );
 }
 
-/** 회고 코칭(B7) + 반복 약점(C9) — 결정적 인사이트를 항상 보이고, serve.js가 켜져 있으면 AI로 구체화. */
+/** 회고 코칭(B7) + 반복 약점(C9) — 결정적 인사이트를 항상 보이고, Ollama 가 있으면 AI로 구체화. */
 /* E-4 레버 SSOT — 약점/위험 과목의 주간 배정시간(weeklyHours, 스케줄러 입력)을 +1h/정확한 -1h 언두로
    조정. CoachCard·WorkbenchCard가 바이트 동일 복붙하던 것(반올림 로직 드리프트=실버그 위험)을 한 곳으로.
    daily 모드는 이 레버가 없어(leverFor가 undefined) 버튼이 미표시된다. */

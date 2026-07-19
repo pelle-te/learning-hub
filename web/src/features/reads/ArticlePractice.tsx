@@ -2,7 +2,7 @@
    ArticlePractice — 지문 연습(읽을거리 ①). 수집 원문을 읽고 *내가 직접* 요약을 쓴다.
    영어 지문 = 영어 공부(원문 독해) / 한국어 지문 = 어휘력 + 요약 연습.
    원문은 절대 가공하지 않는다(요약은 사용자 몫). 왼쪽 목록 · 오른쪽 리더+내 요약 에디터.
-   serve.js가 꺼져 있으면 우아 안내, 수집 0편이면 '수집 시작'(reads-collect 도구).
+   워크스페이스가 없으면 우아 안내, 수집 0편이면 '수집 시작'(reads-collect 도구).
 ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ArtifactGate from '@/components/ArtifactGate';
@@ -79,7 +79,7 @@ export default function ArticlePractice({
     ui.toast(PROMOTE_TOAST, 'ok');
   };
 
-  // Ollama 코치(내 요약 채점) — serve.js/Ollama 필요. 원문 요약은 하지 않는다.
+  // Ollama 코치(내 요약 채점) — Ollama 필요. 원문 요약은 하지 않는다.
   // busy·preview·abort 수명은 useAiStream이 소유(SR-15); 결과 상태·id 태깅·work 병합은 아래 호출부에 남긴다.
   // 결과에 지문 id를 태깅한다: 응답(수십 초)이 오기 전 다른 지문으로 옮기면
   // 옛 지문의 채점이 새 지문 아래 붙는 오표시(레이스)가 났었다 — 현재 지문일 때만 렌더.

@@ -1,12 +1,13 @@
 /* ============================================================
    WorkspaceCard — 워크스페이스 폴더 설정(플랫폼 개편 1단계).
 
-   왜 이게 생겼나: serve.js 는 워크스페이스를 **실행 위치에서 추론**했다(`path.dirname(__dirname)`).
+   왜 이게 생겼나: 옛 `serve.js` 는 워크스페이스를 **실행 위치에서 추론**했다(`path.dirname(__dirname)`).
+   그 추론은 설치 경로에 놓이는 배포본에서 깨진다 → 경로를 설정값으로 승격한 것이 이 카드다.
    Tauri 셸은 앱을 설치 경로에 놓으므로 그 추론이 깨진다 → 경로를 설정값으로 승격한다.
    파이썬 도구 11종과 아티팩트 6종 경로가 전부 이 값 기준이라, 틀리면 도구들이 **조용히 빈 결과**를
    낸다(진단이 가장 어려운 실패) — 그래서 Rust 쪽이 knowledge/·pipeline/ 표지를 검사해 거부한다.
 
-   브라우저(dev·serve.js 직접 실행)에선 경로 개념이 없으므로 **카드 자체를 렌더하지 않는다**.
+   브라우저(dev·트랙 A)에선 경로 개념이 없으므로 **카드 자체를 렌더하지 않는다**.
 ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { isTauri, pickWorkspace, workspaceStatus, type WorkspaceStatus } from '@/lib/tauri';

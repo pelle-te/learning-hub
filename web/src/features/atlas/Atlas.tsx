@@ -87,7 +87,7 @@ export default function Atlas() {
     [summary.total, summary.categories, summary.starred, summary.newTrends],
   );
 
-  // 동향 자동수집 — 상세를 열 때만(serve.js 온라인 && 필드 선택) Google 뉴스 라이브를 가져온다.
+  // 동향 자동수집 — 상세를 열 때만(백엔드 사용 가능 && 필드 선택) Google 뉴스 라이브를 가져온다.
   // 훅은 조건 없이 최상위에서 호출(enabled로 게이트) — 그리드에선 enabled=false로 무동작.
   const online = usePing().data?.ok === true;
   const news = useAtlasNews(field ? newsQuery(field) : '', online);
@@ -201,7 +201,7 @@ export default function Atlas() {
 
           <Panel tick="var(--sig)" label="현재 동향 · 자동 수집" wide>
             {news.data && news.data.length > 0 ? (
-              // 라이브(serve.js 온라인) — Google 뉴스 최신 소식.
+              // 라이브(백엔드 사용 가능) — Google 뉴스 최신 소식.
               <>
                 <div className={s.tlHead}>
                   <span className={s.live}>● 실시간 · Google 뉴스</span>

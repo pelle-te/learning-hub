@@ -43,7 +43,7 @@ export default function Integrations() {
             <AnkiPanel />
           </div>
         </div>
-        {/* 우 — 텔레메트리 조종석(serve.js·볼트·Anki 라이브 채널) */}
+        {/* 우 — 텔레메트리 조종석(백엔드·볼트·Anki 라이브 채널) */}
         <aside className={i.console}>
           <TelemetryConsole vertical />
         </aside>

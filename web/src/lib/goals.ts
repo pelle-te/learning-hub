@@ -1,6 +1,6 @@
 /* ============================================================
    goals.ts — '내 길(goals)' 데이터 레이어 (P9 Phase 6 · D2/D10).
-   원천: serve.js GET /api/artifact/goals (손저작 knowledge/_meta/contract/goals.json).
+   원천: 산출물 `goals`(셸이 워크스페이스에서 읽는다) (손저작 knowledge/_meta/contract/goals.json).
    타입은 부모 스키마에서 생성(artifacts.gen · goalsArtifactSchema) — 손유지 파서 0.
    여기선 페치 + 순수 트리 파생만(설계도 §1-B). 무결성은 부모 goals.py 게이트가 소유.
 ============================================================ */

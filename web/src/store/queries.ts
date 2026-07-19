@@ -36,12 +36,12 @@ export const ATLAS_NEWS_KEY = ['atlas-news'] as const;
 export const GOALS_KEY = ['goals'] as const;
 export const DISCOVERY_KEY = ['discovery'] as const;
 
-/** serve.js(/api) 연결 여부·도구 목록 — 제어판 헤더 상태. retry 없이 빠르게 isError(file:// 폴백). */
+/** 백엔드 사용 가능 여부·도구 목록 — 제어판 헤더 상태. retry 없이 빠르게 isError(file:// 폴백). */
 export function usePing() {
   return useQuery<PingResponse>({ queryKey: PING_KEY, queryFn: getPing, retry: false, staleTime: 30_000 });
 }
 
-/** 읽을거리 지문(/api/artifact/reads) — 수집 원문. serve.js 꺼져 있거나 미수집이면 isError(우아 안내).
+/** 읽을거리 지문(/api/artifact/reads) — 수집 원문. 워크스페이스 미설정·미수집이면 isError(우아 안내).
  *  캐시만 소유(persist X) — 내 요약·독서는 lib/reads 로컬 저장이 따로 소유. */
 export function useReads() {
   return useQuery<ReadsArtifact>({
@@ -52,7 +52,7 @@ export function useReads() {
   });
 }
 
-/** 증시 동향(/api/artifact/markets) — 지수 등락 + 금융 뉴스. serve.js 꺼져 있거나 미수집이면
+/** 증시 동향(/api/artifact/markets) — 지수 등락 + 금융 뉴스. 워크스페이스 미설정·미수집이면
  *  isError(우아 안내). 캐시만 소유(persist X) — 브리핑은 온디맨드 호출이라 캐시 안 함. */
 export function useMarkets() {
   return useQuery<MarketsArtifact>({
@@ -64,7 +64,7 @@ export function useMarkets() {
 }
 
 /** 탐구(리서치) 잡 목록 — 백엔드가 잡으로 소유한다(수십 분짜리 백그라운드).
- *  셸에선 **Rust 가 소유하고 이벤트로 알린다**(4단계-D · 폴링 없음), 브라우저에선 serve.js + 3초 폴링.
+ *  셸에선 **Rust 가 소유하고 이벤트로 알린다**(4단계-D · 폴링 없음), 브라우저(dev·트랙 A)엔 이벤트가 없어 3초 폴링을 폴백으로 남겼다.
  *  재부착·구조공유는 react-query 가 소유하고, 전이감지(완료 토스트·히스토리)는 소비처(Control) 몫. */
 export function useResearchJobs(enabled: boolean) {
   const qc = useQueryClient();
@@ -106,7 +106,7 @@ export function useResearchJobs(enabled: boolean) {
 }
 
 /** 진로 지도 분야 동향(/api/atlas/news) — Google 뉴스 RSS 라이브. 상세를 열 때만(enabled) 온디맨드로.
- *  serve.js 꺼짐/실패면 isError → 상세가 시드 동향으로 폴백. 5분 캐시(같은 분야 재방문 재호출 흡수). */
+ *  실패면 isError → 상세가 시드 동향으로 폴백. 5분 캐시(같은 분야 재방문 재호출 흡수). */
 export function useAtlasNews(query: string, enabled: boolean) {
   return useQuery<AtlasNewsItem[]>({
     queryKey: [...ATLAS_NEWS_KEY, query],
@@ -121,7 +121,7 @@ export function useAtlasNews(query: string, enabled: boolean) {
   });
 }
 
-/** 챕터 원장(/api/artifact/ledger) — 과목×챕터 5단계 파이프라인 진척(정본 축). serve.js 꺼짐/미생성이면
+/** 챕터 원장(/api/artifact/ledger) — 과목×챕터 5단계 파이프라인 진척(정본 축). 미설정/미생성이면
  *  isError(우아 안내는 소비처). 캐시만 소유(persist X) — 원본은 볼트 빌드 산출물이라 읽기전용. */
 export function useLedger() {
   return useQuery<Ledger>({
@@ -150,7 +150,7 @@ export function useKnowledge(enabled = true) {
 }
 
 /** 커리큘럼 프론티어(/api/artifact/curriculum) — 숙달도 지도의 '다음 학습 순서'(단계③ 적응형 시퀀싱).
- *  serve.js 없거나 산출물 미생성이면 isError(retry 없음) → 소비처가 조용히 생략(패널 렌더 skip). */
+ *  워크스페이스가 없거나 산출물 미생성이면 isError(retry 없음) → 소비처가 조용히 생략(패널 렌더 skip). */
 export function useCurriculum(enabled = true) {
   return useQuery<Curriculum>({
     queryKey: CURRICULUM_KEY,
@@ -162,7 +162,7 @@ export function useCurriculum(enabled = true) {
 }
 
 /** 내 길(goals · /api/artifact/goals) — 목표 트리(내 길 지도) · 노트→목표 연관성 앵커(P9 Phase 6).
- *  손저작 계약이라 항상 실재 · serve.js 없으면 isError(retry 없음) → 소비처가 조용히 생략. */
+ *  손저작 계약이라 항상 실재 · 워크스페이스가 없으면 isError(retry 없음) → 소비처가 조용히 생략. */
 export function useGoals(enabled = true) {
   return useQuery<GoalsArtifact>({
     queryKey: GOALS_KEY,

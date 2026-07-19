@@ -1,6 +1,6 @@
 /* ============================================================
    knowledge.ts — 지식상태(_지식상태.json) 소비 — 서버/외부 데이터(프레임워크 무관).
-   원본 둘: ① serve.js GET /api/artifact/knowledge(지식엔진.py 산출) ② 볼트 폴더의
+   원본 둘: ① 산출물 `knowledge`(지식엔진.py 산출 · 셸이 읽는다) ② 볼트 폴더의
    _meta/cache/_지식상태.json(FS Access). 둘 다 같은 Knowledge 모양을 돌려준다.
    TanStack Query가 캐시/로딩/에러를 소유(설계도 §1-B). 서버 JSON이라 필드는 느슨(전부 옵셔널).
 ============================================================ */
@@ -80,7 +80,7 @@ export function frontierNext(k: Knowledge | undefined): KnowledgeFrontier | null
   return [...f].sort((a, b) => (b.prereq_in || 0) - (a.prereq_in || 0))[0]!;
 }
 
-/** serve.js 산출물(읽기 전용) — 없으면 throw(Query isError로 폴백 안내). */
+/** 산출물(읽기 전용) — 없으면 throw(Query isError로 폴백 안내). */
 export async function fetchKnowledgeArtifact(): Promise<Knowledge> {
   const j = await getArtifact<Knowledge>('knowledge');
   if (!j || !j.ok || !j.data) throw new Error('지식상태 산출물(knowledge)을 찾지 못했어요.');

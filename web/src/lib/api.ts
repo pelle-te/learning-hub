@@ -1,10 +1,12 @@
 /* ============================================================
-   api.ts — serve.js 백엔드(/api) 타입드 fetch 래퍼(프레임워크 무관).
+   api.ts — 백엔드 호출 래퍼(프레임워크 무관). **셸의 Rust 커맨드가 백엔드다**(4단계).
    서버/외부 상태라 TanStack Query가 캐시/무효화를 소유한다(Phase 5에서 훅 추가).
    여기선 순수 호출만 — 앱 상태에 복제하지 않는다(설계도 §1-B).
 
-   4단계(serve.js 해체) 진행 중 — 라우트가 하나씩 Rust 커맨드로 옮겨간다. **소비처는 무변경**이
-   판정 기준이라, 전송 분기는 전부 이 파일 안에 가둔다(`isTauri()` 분기 · 에러 분류 번역).
+   4단계에서 serve.js(Node HTTP · 라우트 12종)를 Rust 커맨드로 옮기고 삭제했다. **소비처 무변경**이
+   판정 기준이었고 충족했다 — 전송 분기는 전부 이 파일 안에 있다(`isTauri()` · 에러 분류 번역).
+   ⚠ `isTauri()` 가 거짓인 경로(브라우저 `npm run dev`·트랙 A)엔 **백엔드가 없다.** 남아 있는
+   `/api` fetch 는 트랙 A 가 invoke 스텁으로 대체하며, 실사용에서 이 가지는 도달하지 않는다.
 ============================================================ */
 import {
   ARTIFACT_NOT_FOUND,
@@ -80,8 +82,8 @@ export async function getArtifact<T = unknown>(
   return getJSON(`/api/artifact/${encodeURIComponent(name)}`);
 }
 
-/* ── 진로 지도 동향(Google 뉴스 RSS 프록시 · serve.js) ─────────────────
-   분야 상세를 열 때 온디맨드로 최신 소식을 가져온다. serve.js 꺼짐/네트워크 실패면 items 빈 목록
+/* ── 진로 지도 동향(Google 뉴스 RSS · 셸 커맨드) ─────────────────
+   분야 상세를 열 때 온디맨드로 최신 소식을 가져온다. 네트워크 실패면 items 빈 목록
    또는 fetch reject → 호출부(useAtlasNews)가 시드 동향으로 우아 폴백. */
 export interface AtlasNewsItem {
   id: string;
@@ -91,7 +93,7 @@ export interface AtlasNewsItem {
   published: string;
 }
 
-/** 분야 검색어로 최신 동향 뉴스. serve.js가 200+{ok:false}로 실패를 알리거나(꺼짐이면 fetch reject). */
+/** 분야 검색어로 최신 동향 뉴스. 실패는 {ok:false} 봉투로 온다. */
 export function fetchAtlasNews(query: string): Promise<{ ok: boolean; items: AtlasNewsItem[]; error?: string }> {
   if (isTauri()) return shellAtlasNews(query);
   return getJSON(`/api/atlas/news?q=${encodeURIComponent(query)}`);
@@ -188,7 +190,7 @@ export async function cancelResearch(id: string): Promise<{ ok: boolean; error?:
   return postJSON('/api/research/cancel', { id });
 }
 
-/* ── 읽을거리 코치·어휘 (로컬 Ollama 프록시 · serve.js) ─────────────────
+/* ── 읽을거리 코치·어휘 (로컬 Ollama · 셸 커맨드) ─────────────────
    ⚠ 원문 요약은 서버가 하지 않는다. 코치=내 요약 채점, 어휘=단어 뜻만. */
 export interface CoachFeedback {
   score?: number;
@@ -220,7 +222,7 @@ async function postJSON<T>(url: string, body: Record<string, unknown>): Promise<
 }
 
 /* ── Ollama 스트리밍 ────────────────────────────────────────────
-   serve.js가 body.stream=true면 NDJSON을 중계한다: 토큰 델타 {d:"…"} 줄들 → 최종 {done:true, …결과} 줄.
+   셸에선 Rust 가 Channel 로 토큰 델타를 밀어 넣고 최종 결과는 커맨드 반환값으로 온다(4단계-E).
    첫 토큰이 2~3초면 도착하므로 "수십 초 침묵"이 사라지고, AbortSignal로 생성 자체를 중단할 수 있다. */
 export interface StreamOpts {
   /** 누적 원문이 갱신될 때마다 호출(미리보기용). */
@@ -315,7 +317,7 @@ export function lookupVocab(
   return aiCall('reads/vocab', { word, context, lang }, undefined, false);
 }
 
-/* ── 증시 브리핑 (로컬 Ollama 프록시 · serve.js) ─────────────────
+/* ── 증시 브리핑 (로컬 Ollama · 셸 커맨드) ─────────────────
    그날 지수 등락 + 뉴스 헤드라인 → "왜 움직였나" 해설. 숫자를 새로 짓지 않는다. */
 export interface MarketBriefResult {
   overview?: string;
@@ -324,7 +326,7 @@ export interface MarketBriefResult {
   caveat?: string;
 }
 
-/** 온디맨드 증시 해설(Ollama 스트리밍). serve.js/Ollama 꺼져 있으면 reject/에러. */
+/** 온디맨드 증시 해설(Ollama 스트리밍). Ollama 꺼져 있으면 reject/에러. */
 export function marketsBrief(
   indices: { name: string; symbol: string; changePct: number; price: number }[],
   headlines: { title: string; source: string }[],
@@ -333,7 +335,7 @@ export function marketsBrief(
   return aiCall('markets/brief', { indices, headlines }, opts);
 }
 
-/* ── 주간 회고 코치 (로컬 Ollama 프록시 · serve.js) ─────────────────
+/* ── 주간 회고 코치 (로컬 Ollama · 셸 커맨드) ─────────────────
    앱이 계산한 결정적 인사이트를 받아 '다음 주에 뭘 바꿀지'로 구체화한다. 숫자를 새로 짓지 않는다. */
 export interface ReviewCoachResult {
   headline?: string;
@@ -351,7 +353,7 @@ export function reviewCoach(
   return aiCall('review/coach', { facts, weakSpots }, opts);
 }
 
-/* ── 임베딩 (로컬 Ollama 프록시 · serve.js) ─────────────────────
+/* ── 임베딩 (로컬 Ollama · 셸 커맨드) ─────────────────────
    의미 검색·지식맵 자동 연결용. 모델·대상은 서버가 고정한다(`ollama pull bge-m3` 필요). */
 export function embedTexts(
   texts: string[],

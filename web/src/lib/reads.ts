@@ -1,6 +1,6 @@
 /* ============================================================
    reads.ts — '읽을거리' 데이터 레이어.
-   ① 지문(Article): serve.js가 서빙하는 수집 원문(/api/artifact/reads) — 읽기 전용·원문 보존.
+   ① 지문(Article): 수집 원문 산출물 `reads` — 읽기 전용·원문 보존.
       요약은 절대 서버가 하지 않는다(사용자가 직접 하는 연습). 여기선 페치만.
    ② 연습/독서(로컬): 내 요약(ArticleWork)·독서 독후감(Book)은 로컬-퍼스트로 저장
       (localStorage 동기 1차 + IDB 미러 — idb.ts와 동형). 서버 불필요·오프라인 완결.
@@ -120,7 +120,7 @@ export function importReads(v: unknown): ReadsLocal | null {
   return r;
 }
 
-/** 지문 아티팩트 페치(serve.js 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내. */
+/** 지문 아티팩트 페치(워크스페이스 설정 필요). 미수집/오프라인이면 throw → 호출부가 우아 안내. */
 export async function fetchReadsArtifact(): Promise<ReadsArtifact> {
   const r = await getArtifact<ReadsArtifact>('reads');
   if (!r.ok || !r.data) throw new Error(r.error || '아직 수집된 지문이 없어요');

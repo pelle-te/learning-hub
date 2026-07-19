@@ -6,12 +6,12 @@
    유일한 통로가 된다. 새 커맨드가 생기면 여기에 얇은 함수를 하나 더 두고, 나머지 층은
    그 함수만 본다(Rust 시그니처 변경의 파급을 한 파일로 가둔다).
 
-   ⚠ 앱은 **브라우저에서도 그대로 돌아야 한다** — 1단계는 셸만 이사하고 웹 실행 경로를 죽이지
-   않는다(`npm run dev` · `node serve.js` 둘 다 유지). 그래서 모든 함수가 "Tauri 아님"을
-   1급 상태로 다룬다: 감지 실패는 예외가 아니라 `null`/기본값이다.
+   ⚠ 함수들이 여전히 "Tauri 아님"을 1급 상태로 다룬다(감지 실패는 예외가 아니라 `null`/기본값).
+   4단계에서 serve.js 가 사라져 **브라우저엔 백엔드가 없지만**, `npm run dev` 와 트랙 A 는 여전히
+   Chromium 이라 이 분기가 없으면 UI 개발과 시각 검증망이 함께 죽는다(2·3단계와 같은 판단).
 ============================================================ */
 
-/** Tauri WebView 안에서 실행 중인가. 브라우저(dev·serve.js)에선 false. */
+/** Tauri WebView 안에서 실행 중인가. 브라우저(dev·트랙 A)에선 false. */
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }

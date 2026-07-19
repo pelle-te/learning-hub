@@ -1,9 +1,9 @@
 /* ============================================================
    discovery.ts — 발견 triage 큐 데이터 레이어 (P9 Phase 6 · D5 사람=승격).
-   원천: serve.js GET /api/artifact/discovery (state/_발견큐.json · 승격.py 산출).
-   콜드(수집·발견 미가동)면 파일 부재 → serve.js 404 → fetch throw → 호출부가 빈 inbox 우아 안내.
+   원천: 산출물 `discovery` (state/_발견큐.json · 승격.py 산출).
+   콜드(수집·발견 미가동)면 파일 부재 → NOT_FOUND → throw → 호출부가 빈 inbox 우아 안내.
    타입은 부모 스키마에서 생성(artifacts.gen · discoveryArtifactSchema) — 손유지 파서 0.
-   승인/기각(사람 결정)은 serve.js /api/run 으로 승격.py 를 호출(쓰기 경로는 Wave④).
+   승인/기각(사람 결정)은 `run_tool` 로 승격.py 를 호출(쓰기 경로는 Wave④).
 ============================================================ */
 import { getArtifact } from './api';
 import { parseArtifact } from './artifacts';
@@ -67,6 +67,6 @@ export function entryGoals(e: DiscoveryEntry): string[] {
   return Array.isArray(g) ? g.filter((x): x is string => typeof x === 'string') : [];
 }
 
-/** 사람 결정 → serve.js /api/run 도구 키(SSOT = serve.js TOOLS discovery-promote/dismiss). */
+/** 사람 결정 → 도구 키(SSOT = Rust tools.rs TOOLS discovery-promote/dismiss). */
 export const DISCOVERY_DECISION_TOOL = { promote: 'discovery-promote', dismiss: 'discovery-dismiss' } as const;
 export type DiscoveryDecision = keyof typeof DISCOVERY_DECISION_TOOL;

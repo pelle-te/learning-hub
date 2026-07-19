@@ -1,9 +1,11 @@
-/*! 러닝허브 Tauri 셸 — 플랫폼 개편 1단계.
+/*! 러닝허브 Tauri 셸 — 플랫폼 개편 1~4단계.
 
-목표: Tauri 2 셸이 현 `web/dist` 를 로드하고, `serve.js` 는 sidecar 로 유지한다.
-**프런트 회귀 0 + 셸/경로 설정 신규**("기능 변화 0"이 아니다 — 워크스페이스 경로가 설정으로 승격됐다).
+**백엔드가 여기 하나다.** 1단계는 셸만 이사하고 `serve.js`(Node HTTP)를 sidecar 로 유지했지만,
+4단계가 그 라우트 12종을 전부 Rust 커맨드로 옮기고 `serve.js` 를 삭제했다 — 이제 이 프로세스가
+곧 백엔드이고, **리슨하는 포트가 없다**(HTTP 공격면 소멸: Host 위조·CSRF·경로 traversal 이
+전부 "그런 표면이 없다"로 닫혔다 — 4단계-G 대조표 참조).
 
-레이어 계약(I2): 프런트에서 `invoke` 를 부르는 쪽은 `web/src/lib/` 가 소유한다.
+레이어 계약(I2): 프런트에서 `invoke` 를 부르는 쪽은 `web/src/lib/tauri.ts` 하나다.
 여기 등록한 커맨드가 그 유일한 대응면이다.
 */
 mod anki;
@@ -13,27 +15,11 @@ mod files;
 mod news;
 mod ollama;
 mod research;
-mod sidecar;
 mod tools;
 mod vault;
 mod workspace;
 
-use std::time::Duration;
 use tauri::Manager;
-
-/// 앱 폴더(hub/) — serve.js 가 있는 곳. 개발 중엔 저장소 루트, 배포본에선 리소스 폴더.
-/// serve.js 의 **존재**로 판정한다(경로 추측을 이 함수 하나에 가둔다).
-fn app_dir() -> std::path::PathBuf {
-    let exe = std::env::current_exe().ok();
-    let mut cur = exe.as_deref().and_then(|p| p.parent());
-    while let Some(dir) = cur {
-        if dir.join("serve.js").is_file() {
-            return dir.to_path_buf();
-        }
-        cur = dir.parent();
-    }
-    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -94,31 +80,17 @@ pub fn run() {
             // 탐구 잡 이력 복원(4단계-D). running 이던 잡은 '중단됨'으로 내린다 —
             // 앱이 죽으면 자식 python 도 죽으므로 그 잡은 실제로 안 돈다.
             research::restore(app.handle());
-            let dir = app_dir();
-            let handle = app.handle().clone();
-            let ws = workspace::resolve(&handle);
-            match sidecar::spawn(&dir, ws.as_deref()) {
-                Ok(()) => {
-                    // 창은 이미 떠 있으므로 대기는 짧게 — 실패해도 프런트가 오프라인 UI 로 폴백한다(usePing).
-                    let ready = sidecar::wait_until_ready(Duration::from_secs(10));
-                    log::info!("sidecar 준비: {ready} (workspace={ws:?})");
-                }
-                Err(e) => log::error!("sidecar 실행 실패: {e}"),
-            }
+            log::info!("워크스페이스: {:?}", workspace::resolve(app.handle()));
             Ok(())
         })
         .on_window_event(|_window, event| {
-            // 창이 닫히면 sidecar 도 함께 내린다(좀비 node 가 포트를 물고 남는 것 방지).
-            // ⚠ 이 경로는 **정상 종료에만** 탄다. 강제 종료·크래시에선 안 불려 고아 node 가
-            //    포트 8000 을 물고 남는다(실측) → 그쪽은 `sidecar::spawn` 의 선점 처리가 받는다.
-            //
-            // 프런트의 미저장 편집은 여기서 따로 챙기지 않는다 — WebView2 가 창 닫기에서
-            // `pagehide`/`unload` 를 정상 발화해 `useApp` 의 기존 언로드 안전망이 그대로 걸린다
-            // (2026-07-19 실측). 2단계에서 flush 가 비동기가 되면 그때 CloseRequested 훅이 필요해진다.
+            /* 창이 닫히면 우리가 띄운 자식 프로세스도 함께 내린다.
+            ⚠ 이 경로는 **정상 종료에만** 탄다 — 강제 종료·크래시에선 안 불린다. 4단계 이전엔
+               그게 "고아 node 가 포트 8000 을 물고 남는" 문제였고 `sidecar::spawn` 이 선점으로
+               받아냈지만, **serve.js 가 사라지면서 그 실패 모드 자체가 없어졌다**(포트를 여는
+               프로세스가 없다). 남은 건 탐구 잡의 python 뿐이고, 그건 앱이 죽으면 부모가 없어져
+               대개 함께 죽는다 — 부팅 시 `research::restore` 가 잔여 'running' 을 정리한다. */
             if let tauri::WindowEvent::Destroyed = event {
-                sidecar::shutdown();
-                // 진행 중이던 탐구 잡의 python 도 함께 내린다 — 안 그러면 고아로 남아
-                // 볼트를 계속 건드린다(sidecar 고아 문제와 같은 부류).
                 research::shutdown();
             }
         })

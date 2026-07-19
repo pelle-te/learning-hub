@@ -15,7 +15,6 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 // ESM 스코프라 __dirname 이 없다 — 설정(testDir)이 web/ 기준으로 도므로 cwd 에서 잡는다.
 const EXE = path.resolve(process.cwd(), '../src-tauri/target/release/learning-hub.exe');
 const CDP_PORT = 9222;
-const SIDECAR_PORT = 8000;
 
 export interface Shell {
   page: Page;
@@ -47,7 +46,7 @@ export async function launchShell(): Promise<Shell> {
     stdio: 'ignore',
   });
 
-  // WebView2 가 CDP 를 열 때까지 대기(부팅 + sidecar 헬스체크가 앞에 있어 몇 초 걸린다).
+  // WebView2 가 CDP 를 열 때까지 대기(부팅이 앞에 있어 몇 초 걸린다).
   const browser = await connectWithRetry(30_000);
   const page = await resolveAppPage(browser, 30_000);
 
@@ -110,12 +109,6 @@ export async function closeShell(shell: Shell): Promise<void> {
 
 export function isAlive(pid: number): boolean {
   return ps(`[bool](Get-Process -Id ${pid} -ErrorAction SilentlyContinue)`) === 'True';
-}
-
-/** 포트 8000 을 물고 있는 node 가 남았는가(고아 sidecar 검사). */
-export function sidecarAlive(): boolean {
-  const out = ps(`[bool](Get-NetTCPConnection -LocalPort ${SIDECAR_PORT} -State Listen -ErrorAction SilentlyContinue)`);
-  return out === 'True';
 }
 
 /** 이전 테스트의 잔존물 정리 — 남아 있으면 single-instance 가 새 창을 안 띄워 테스트가 헛돈다. */

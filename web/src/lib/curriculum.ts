@@ -1,6 +1,6 @@
 /* ============================================================
    curriculum.ts — 커리큘럼 프론티어(_커리큘럼.json) 소비 — 서버/외부 데이터(프레임워크 무관).
-   원천: serve.js GET /api/artifact/curriculum (pipeline 커리큘럼.py 산출 · P7 Bet 2).
+   원천: 산출물 `curriculum`(셸이 워크스페이스에서 읽는다) (pipeline 커리큘럼.py 산출 · P7 Bet 2).
    숙달도 지도의 '다음 학습 순서'로 단계③ 적응형 시퀀싱(sequencing 배열)을 렌더한다 —
    선수 게이트·약점큐·ZPD·레버리지를 결합해 커리큘럼.py 가 이미 랭크해 둔 arc 순서.
    TanStack Query가 캐시/로딩/에러를 소유(설계도 §1-B). 서버 JSON이라 필드는 느슨(경계 계약과 정합).

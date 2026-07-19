@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeShell, ensureNoStrayShell, launchShell, sidecarAlive, type Shell } from './shellApp';
+import { closeShell, ensureNoStrayShell, launchShell, type Shell } from './shellApp';
 
 test.afterAll(async () => {
   await ensureNoStrayShell();
@@ -19,8 +19,9 @@ test('창이 뜨고 WebView2 가 앱을 렌더한다', async () => {
     // 백지(JS 에러로 부팅 실패)가 아니라 실제 셸 크롬이 그려졌는가.
     await expect(shell.page.locator('nav, [role="navigation"]').first()).toBeVisible();
     await expect(shell.page).toHaveTitle(/러닝허브/);
-    // sidecar 가 실제로 떴는가 — .bat 의 헬스체크 폴링을 Rust 가 승계한 자리.
-    expect(sidecarAlive()).toBe(true);
+    /* ⚠ 4단계-G 에서 "sidecar 가 떴는가" 확인을 지웠다 — **sidecar 가 없다.**
+       serve.js 가 삭제되면서 앱이 여는 포트가 하나도 없어졌고, 그게 이 단계의 성과다
+       (HTTP 공격면 소멸). 백엔드가 사는지는 이제 아래 4단계 케이스들이 커맨드로 직접 확인한다. */
   } finally {
     await closeShell(shell);
   }

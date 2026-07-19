@@ -511,6 +511,19 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_가_도구_키를_그대로_알린다() {
+        /* serve.test.ts 의 "/api/ping — 도구 목록과 워크스페이스 경로를 알린다" 를 이어받는다.
+        프런트(`Control`·`Integrations`)가 이 목록으로 실행 가능한 도구를 그리므로,
+        키가 바뀌면 버튼이 조용히 사라진다. */
+        let keys: Vec<String> = TOOLS.iter().map(|(k, _)| (*k).to_string()).collect();
+        assert_eq!(keys.len(), 11);
+        assert!(keys.contains(&"knowledge-build".to_string()));
+        // 발견 triage 는 프런트의 DISCOVERY_DECISION_TOOL 이 이 두 키를 그대로 쓴다.
+        assert!(keys.contains(&"discovery-promote".to_string()));
+        assert!(keys.contains(&"discovery-dismiss".to_string()));
+    }
+
+    #[test]
     fn dash_접두_인자는_거부한다() {
         // argparse 가 플래그로 오해석하는 것을 막는다(0단계-A 가 잠근 계약).
         assert_eq!(tool_extra_args(Some("--help")), Vec::<String>::new());

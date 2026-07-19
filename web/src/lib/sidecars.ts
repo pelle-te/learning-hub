@@ -57,7 +57,7 @@ export function importLocalExtras(v: unknown): LocalExtraKey[] {
   const src = v as Record<string, unknown>;
   const restored: LocalExtraKey[] = [];
   for (const k of LOCAL_EXTRA_KEYS) {
-    // hasOwn: 프로토타입 오염된 파일이 상속 속성으로 값을 흘리는 것 차단(serve.js 가드와 동형).
+    // hasOwn: 프로토타입 오염된 파일이 상속 속성으로 값을 흘리는 것 차단(경계 입력에 늘 쓰는 가드와 동형).
     if (!Object.hasOwn(src, k)) continue;
     const val = src[k];
     if (val === undefined) continue;

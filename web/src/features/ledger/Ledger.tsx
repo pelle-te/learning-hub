@@ -1,11 +1,11 @@
 /* ============================================================
    Ledger — 탭: 📒 정본 원장 (자료 그룹 · 연동 현황과 세그먼트 페어)
    과목×챕터의 5단계 파이프라인(sourced→noted→verified→carded→reviewed) 진척을 한 화면에.
-   원본: serve.js /api/artifact/ledger ← knowledge/_meta/cache/_챕터원장.json (챕터원장.py). 통합 4단계 소비.
+   원본: 산출물 `ledger` ← knowledge/_meta/cache/_챕터원장.json (챕터원장.py). 통합 4단계 소비.
    흩어져 있던 볼트 생산 진척(진척 14곳)을 단일 출처로 모은다 — "각 과목이 파이프라인 어디까지 왔나".
 
    today 재설계 사상: 상단 리드아웃(챕터·검증·카드) · fill 프레임 · 히어로 퍼널 · 온디맨드 챕터 세부.
-   데이터 원본은 볼트 빌드 산출물(읽기전용) — serve.js 온라인이면 자동, 오프라인이면 안내(mastery와 동형).
+   데이터 원본은 볼트 빌드 산출물(읽기전용) — 워크스페이스가 설정돼 있으면 자동, 오프라인이면 안내(mastery와 동형).
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { useLedger, usePing } from '@/store/queries';
@@ -295,7 +295,7 @@ export default function Ledger() {
   const errMsg = isError ? (error instanceof Error ? error.message : String(error)) : '';
   const realError = classifyArtifact({ hasData: !!led, loading, query: { isError, error }, ping }) === 'error';
 
-  // serve.js 온라인이면 원장을 재빌드(챕터원장.py)하고 다시 페치 — "단일 출처, 한 명령" 이야기의 실행부.
+  // 백엔드가 살아 있으면 원장을 재빌드(챕터원장.py)하고 다시 페치 — "단일 출처, 한 명령" 이야기의 실행부.
   const rebuild = async () => {
     setRebuilding(true);
     try {

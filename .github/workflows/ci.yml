@@ -6,9 +6,9 @@ name: web-ci
 
 on:
   push:
-    paths: ['web/**', 'src-tauri/**', 'serve.js', 'package.json', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'package.json', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['web/**', 'src-tauri/**', 'serve.js', 'package.json', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'package.json', '.github/workflows/ci.yml']
   workflow_dispatch: {}
 
 jobs:
@@ -50,8 +50,8 @@ jobs:
   #   · ⚠ GitHub 은 **잡별 paths 필터가 없다** — 워크플로 상단 paths 는 워크플로 전체에 걸리므로
   #     `web/**` 만 바뀌어도 이 잡이 돈다. 낭비만은 아니다(번들이 web/dist 를 품으므로 web
   #     변경도 셸 산출물을 바꾼다). 과금이 부담되면 `dorny/paths-filter` 로 잡을 게이팅할 것.
-  #   · 트랙 B(e2e:shell)는 **여기서 돌리지 않는다** — 창을 띄우고 sidecar 를 spawn 하는
-  #     통합 테스트라 헤드리스 러너에서 flaky 해지기 쉽고, 그 대가로 얻는 신호를 로컬
+  #   · 트랙 B(e2e:shell)는 **여기서 돌리지 않는다** — 창을 띄우고 python·Ollama 를 실제로
+  #     부르는 통합 테스트라 헤드리스 러너에서 flaky 해지기 쉽고, 그 대가로 얻는 신호를 로컬
   #     `/게이트`가 이미 준다. CI 는 "컴파일·린트·번들이 되는가"까지만 책임진다.
   shell-build:
     runs-on: windows-latest
@@ -76,11 +76,10 @@ jobs:
         working-directory: web
       - run: npm run tauri:fmt
       - run: npm run tauri:clippy
-      # Windows 전용 계약을 여기서 검증한다 — serve.js 의 `killTree`(taskkill /T 손자 정리)는
-      # win32 분기라 ubuntu 잡에서는 skip 된다. 여기서 안 돌리면 skip 이 "통과"로 위장돼
-      # 계약이 **아무데서도** 검증되지 않는다(0단계-A 가 4단계 포팅의 동등성 명세인데도).
-      - run: npm run test -- serve
-        working-directory: web
+      # Windows 전용 계약(taskkill /T 손자 정리 · WebView2)은 이제 **Rust 쪽에 있다** —
+      # `cargo test` 가 위 tauri:clippy 와 같은 잡에서 돈다. 4단계-G 에서 serve.js 와 함께
+      # `npm run test -- serve` 를 지웠다(그 26케이스의 처지는 설계 문서 대조표 참조).
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
       # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
       # `cargo check` 만으로는 1단계에서 겪은 WiX/NSIS 번들 실패를 못 잡는다.
       - run: npm run tauri:build

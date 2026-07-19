@@ -56,7 +56,7 @@ export default function Goals() {
     );
   }
 
-  // serve.js 꺼짐/계약 부재 → 빈 상태(goals.json 은 손저작이라 실전에선 항상 실재 · 서버 없을 때만).
+  // 워크스페이스 미설정/계약 부재 → 빈 상태(goals.json 은 손저작이라 실전에선 항상 실재 · 서버 없을 때만).
   if (goals.isError || !data || roots.length === 0) {
     return (
       <section className={s.root}>

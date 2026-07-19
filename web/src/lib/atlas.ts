@@ -130,7 +130,7 @@ export function categoryOf(field: AtlasField): AtlasCategory | undefined {
   return CATEGORIES.find((c) => c.key === field.cat);
 }
 
-/** 분야 → 뉴스 검색어(동향 자동수집용) — 분야명 + 상위 토픽 2개 결합. serve.js가 Google 뉴스 RSS에 넘긴다.
+/** 분야 → 뉴스 검색어(동향 자동수집용) — 분야명 + 상위 토픽 2개 결합. 셸이 Google 뉴스 RSS에 넘긴다.
     데이터에 별도 저장하지 않고 파생(SSOT는 name·topics). 필요하면 여기 규칙만 바꿔 전 분야 반영. */
 export function newsQuery(f: AtlasField): string {
   const name = f.name.replace(/·/g, ' ').replace(/\s+/g, ' ').trim();

@@ -1,5 +1,5 @@
 /* ============================================================
-   ArtifactError — serve.js는 켜졌으나 /api/artifact 쿼리가 실패(500·깨진 JSON)한 상태를
+   ArtifactError — 백엔드는 살아 있으나 /api/artifact 쿼리가 실패(500·깨진 JSON)한 상태를
    '미수집'과 구분해 노출하는 빈상태. reads·markets가 주석까지 복제하던 동일 블록 수렴(SR-9, N-5 산물).
 ============================================================ */
 import EmptyState from './EmptyState';

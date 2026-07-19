@@ -2,7 +2,7 @@
   "name": "learning-hub",
   "private": true,
   "version": "0.0.0",
-  "description": "러닝허브 — 학습 대시보드 앱(React web/ + serve.js 제어판 + Tauri 셸 src-tauri/). cowork 워크스페이스의 서브모듈. 앱 코드는 web/.",
+  "description": "러닝허브 — 학습 대시보드 앱(React web/ + Tauri 셸 src-tauri/ · 백엔드는 셸의 Rust). cowork 워크스페이스의 서브모듈. 앱 코드는 web/.",
   "scripts": {
     "prepare": "husky",
     "tauri": "tauri",
