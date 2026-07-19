@@ -27,6 +27,9 @@ tauri-plugin-dialog = "2"
 # SQLite 데이터 모델(2단계). sqlite 피처만 — mysql/postgres 는 이 앱에 값이 0이고
 # 링크 부피만 늘린다. 마이그레이션은 Rust 쪽에서 선언한다(프런트가 DDL 을 못 바꾸게).
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+# 볼트 파일 감시(3단계). File System Access API 엔 watch 가 없어 브라우저에선 원리적으로
+# 불가능했던 기능이고, 설계 §10 이 OPFS 대안을 탈락시킨 근거이기도 하다.
+notify = "8"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # 러닝허브_실행.bat 의 "포트 8000 stale 서버 강제종료"를 대체 — 두 번째 실행은 기존 창을 깨운다.

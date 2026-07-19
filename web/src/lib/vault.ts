@@ -5,6 +5,7 @@
 ============================================================ */
 import { SKIP, rid } from './utils';
 import { dirEntries, pickDirectory, queryPermission, requestPermission } from './fsAccess';
+import { vaultScan } from './tauri';
 import { parseArtifact } from './artifacts';
 import type { Chapter } from './types';
 
@@ -195,6 +196,23 @@ export async function pickAndScanVault(
     src = '파일 스캔(.md)';
   }
   return { scan: { at: new Date().toLocaleString('ko'), src, subjects }, handle };
+}
+
+/** 셸(Tauri)에서 볼트를 읽는다 — **폴더 선택도 권한도 없다.**
+ *  `workspace.rs` 가 이미 워크스페이스를 알고 볼트는 `<workspace>/knowledge` 라, 사용자에게
+ *  폴더를 물을 이유가 자체가 없다. 브라우저에선 null → 호출부가 기존 FSA 경로로 간다.
+ *
+ *  ⚠ Rust 는 **노트 레코드까지만** 만든다. 집계는 여기 `subjectsFromIndex` 하나가 소유한다 —
+ *  3단계-B 에서 집계가 두 벌이라 같은 볼트에서 숫자가 갈리던 결함을 고쳤으니, 언어를 바꿔
+ *  세 번째 구현을 만들지 않는다. */
+export async function scanVaultViaShell(): Promise<VaultScan | null> {
+  const res = await vaultScan();
+  if (!res) return null;
+  return {
+    at: new Date().toLocaleString('ko'),
+    src: res.src,
+    subjects: subjectsFromIndex({ notes: res.notes as IndexNote[] }),
+  };
 }
 
 /* ── 저장된 핸들 재사용(FS 권한) — IDB에 영속한 폴더 핸들로 재선택 없이 재연결.

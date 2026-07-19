@@ -12,10 +12,12 @@ import {
   chaptersFromVault,
   queryVaultPermission,
   requestVaultPermission,
+  scanVaultViaShell,
   type VaultScan,
   type VaultSubject,
   type VaultChapter,
 } from '@/lib/vault';
+import { isTauri, onVaultChanged } from '@/lib/tauri';
 import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -36,9 +38,33 @@ export function VaultPanel() {
   const [pending, setPending] = useState<FileSystemDirectoryHandle | null>(null);
   const initRef = useRef(false);
 
-  // 부팅 재연결 — IDB에 저장한 폴더 핸들을 되살린다. 권한이 아직 살아있으면 조용히 재스캔,
-  // 아니면 '지난 볼트 다시 연결' 버튼으로 한 번의 제스처만 받아 재선택 없이 붙는다.
+  /* 셸(3단계) — 볼트는 `<워크스페이스>/knowledge` 라 **묻지 않고 그냥 읽는다.**
+     폴더 선택도, 권한 조회/요청도, IDB 핸들 영속도 여기선 존재하지 않는다.
+     그리고 파일이 바뀌면 Rust 가 알려 주므로 "다시 스캔" 버튼을 누를 이유도 없다 —
+     FSA 엔 watch 가 없어 브라우저에선 원리적으로 불가능했던 동작이다. */
   useEffect(() => {
+    if (!isTauri()) return;
+    let alive = true;
+    let un: (() => void) | undefined;
+    const load = async () => {
+      const s = await scanVaultViaShell();
+      if (alive && s) qc.setQueryData(['vault'], s);
+    };
+    void load();
+    void onVaultChanged(() => void load()).then((u) => {
+      if (alive) un = u;
+      else u(); // 구독이 붙기 전에 언마운트됐다면 즉시 해제(누수 방지)
+    });
+    return () => {
+      alive = false;
+      un?.();
+    };
+  }, [qc]);
+
+  // 부팅 재연결(브라우저 전용) — IDB에 저장한 폴더 핸들을 되살린다. 권한이 아직 살아있으면
+  // 조용히 재스캔, 아니면 '지난 볼트 다시 연결' 버튼으로 한 번의 제스처만 받아 재선택 없이 붙는다.
+  useEffect(() => {
+    if (isTauri()) return; // 셸은 위 이펙트가 담당
     if (initRef.current) return;
     initRef.current = true;
     if (qc.getQueryData(['vault'])) return; // 이번 세션에 이미 연동됨(쿼리 캐시 유지)
@@ -157,18 +183,21 @@ export function VaultPanel() {
       <div className={ds.card}>
         <h2>옵시디언 볼트 현황</h2>
         <div className={ds.row}>
-          <Button sm variant="primary" disabled={busy} onClick={doScan}>
-            {busy ? (
-              <>
-                <span className={ds.spin} /> 스캔 중...
-              </>
-            ) : scan ? (
-              '🔄 다시 스캔'
-            ) : (
-              '📁 볼트 폴더 연동'
-            )}
-          </Button>
-          {!scan && pending && (
+          {/* 셸에선 폴더 연동·해제 버튼이 없다 — 볼트 위치를 앱이 알고, 변경은 감시가 알려 준다. */}
+          {!isTauri() && (
+            <Button sm variant="primary" disabled={busy} onClick={doScan}>
+              {busy ? (
+                <>
+                  <span className={ds.spin} /> 스캔 중...
+                </>
+              ) : scan ? (
+                '🔄 다시 스캔'
+              ) : (
+                '📁 볼트 폴더 연동'
+              )}
+            </Button>
+          )}
+          {!isTauri() && !scan && pending && (
             <Button
               sm
               variant="primary"
@@ -179,7 +208,7 @@ export function VaultPanel() {
               🔗 지난 볼트 다시 연결{pending.name ? ` (${pending.name})` : ''}
             </Button>
           )}
-          {scan && (
+          {!isTauri() && scan && (
             <Button
               sm
               variant="ghost"
@@ -194,8 +223,9 @@ export function VaultPanel() {
           <div style={{ flex: 3 }} />
         </div>
         <div className={ds.foot}>
-          전공 폴더를 고르면 과목→챕터→노트 수와 검증/Anki 상태(YAML)를 읽습니다. 항목 옆 '+스케줄'로 바로 학습 항목에
-          넣어요. (Chrome/Edge)
+          {isTauri()
+            ? '워크스페이스의 knowledge 폴더를 읽습니다 — 파일이 바뀌면 자동으로 갱신돼요. 항목 옆 ‘+스케줄’로 바로 학습 항목에 넣어요.'
+            : "전공 폴더를 고르면 과목→챕터→노트 수와 검증/Anki 상태(YAML)를 읽습니다. 항목 옆 '+스케줄'로 바로 학습 항목에 넣어요. (Chrome/Edge)"}
         </div>
         {err && (
           <div className={ds.warnbox} role="alert" style={{ marginTop: 8 }}>
@@ -204,8 +234,8 @@ export function VaultPanel() {
         )}
         {scan && (
           <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
-            📂 연동됨: <b style={{ color: 'var(--ink)' }}>{handle?.name || '볼트 폴더'}</b> · 스캔 {scan.at} · 과목{' '}
-            {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
+            📂 {isTauri() ? '감시 중' : '연동됨'}: <b style={{ color: 'var(--ink)' }}>{handle?.name || 'knowledge'}</b>{' '}
+            · 스캔 {scan.at} · 과목 {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
           </div>
         )}
       </div>

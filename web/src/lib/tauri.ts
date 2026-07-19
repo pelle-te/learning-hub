@@ -84,6 +84,40 @@ export async function installCloseGuard(beforeClose: () => Promise<void>, timeou
   }
 }
 
+/** Rust 가 읽어 준 볼트 노트 레코드 — 정본 인덱스의 `notes[]` 와 같은 모양.
+ *  ⚠ **집계된 결과가 아니다.** 집계는 `lib/vault.ts` 의 `subjectsFromIndex` 하나가 소유한다
+ *  (3단계-B 에서 집계 구현이 두 벌이라 같은 볼트에서 숫자가 갈리던 결함을 고쳤다 —
+ *  Rust 로 또 한 벌을 만들면 같은 실수를 언어만 바꿔 반복하는 셈이다). */
+export interface VaultNotesFromRust {
+  notes: { subject?: string; folder?: string; kind?: string; status?: string; anki_exported?: boolean }[];
+  /** UI 에 표시하는 출처 문구('정본 _index.json' | '파일 스캔(.md)'). */
+  src: string;
+  path: string;
+}
+
+/** 셸에서 볼트를 읽는다. 브라우저면 null(호출부가 File System Access 폴백으로 간다). */
+export async function vaultScan(): Promise<VaultNotesFromRust | null> {
+  if (!isTauri()) return null;
+  try {
+    return await call<VaultNotesFromRust>('vault_scan');
+  } catch {
+    // 볼트 폴더를 못 찾는 경우 등 — 호출부가 "연결 안 됨"으로 다루게 null.
+    return null;
+  }
+}
+
+/** 볼트 파일이 바뀌면 부르는 구독. 해제 함수를 돌려준다(브라우저면 no-op).
+ *  FSA 엔 watch 가 없어 브라우저에선 **원리적으로** 불가능했던 것이라, 이 구독은 셸 전용이다. */
+export async function onVaultChanged(cb: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    return await listen('vault:changed', () => cb()); // 이름은 src-tauri/src/vault.rs 의 VAULT_CHANGED
+  } catch {
+    return () => {};
+  }
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

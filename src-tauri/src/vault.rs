@@ -1,0 +1,350 @@
+/*! 볼트 읽기 + 파일 감시 — 플랫폼 개편 3단계.
+
+왜 Rust 로 옮기는가(설계 §4-3단계):
+- **파일 감시**가 진짜 새 능력이다. File System Access API 에는 watch 가 없어 브라우저에선
+  원리적으로 불가능했고(§10 이 OPFS 대안을 탈락시킨 근거), 그래서 갱신이 항상 "사용자가 버튼을
+  누를 때"였다. `notify` 로 볼트가 바뀌면 앱이 스스로 안다.
+- **폴더 선택·권한이 통째로 사라진다.** `workspace.rs` 가 이미 워크스페이스를 알고 볼트는
+  `<workspace>/knowledge` 이므로, 사용자에게 폴더를 물을 이유가 없다.
+
+⚠ **집계는 여기서 하지 않는다.** 노트 레코드만 만들어 프런트의 `subjectsFromIndex` 에 넘긴다.
+   3단계-B 에서 "집계 구현이 두 벌이라 같은 볼트에서 숫자가 갈리던" 결함을 고쳤는데, 여기서
+   Rust 로 또 한 벌을 만들면 같은 실수를 언어만 바꿔 반복하게 된다. 이 파일의 책임은
+   **파일에서 노트 레코드를 뽑는 것**까지다.
+
+⚠ rayon 은 안 쓴다. 설계가 `walkdir`+`rayon` 을 적었지만 실측 볼트가 519개 노트라 순차 순회로
+   충분하고, 병렬화는 스레드풀·순서 비결정성을 들여올 뿐이다. 느려지면 그때 넣는다.
+*/
+use serde::Serialize;
+use std::path::{Path, PathBuf};
+
+/// 순회에서 통째로 건너뛸 폴더 — 프런트 `lib/utils.ts` 의 `SKIP` 과 같은 목록이어야 한다.
+const SKIP: [&str; 7] = [
+    "attachments",
+    "images",
+    "_assets",
+    ".obsidian",
+    ".trash",
+    "_복습시스템",
+    "_인터랙티브",
+];
+
+/// 정본 인덱스와 같은 모양의 노트 레코드. 프런트 `IndexNote` 와 1:1.
+#[derive(Debug, Clone, Serialize)]
+pub struct Note {
+    pub subject: String,
+    /// 볼트 루트 기준 노트가 든 폴더(과목부터 시작). 프런트가 `split('/')` 로 챕터명을 만든다.
+    pub folder: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    pub anki_exported: bool,
+}
+
+/// 스캔 결과. `src` 는 UI 가 "어디서 온 숫자인지" 보여주는 데 쓴다(기존 문구 승계).
+#[derive(Debug, Clone, Serialize)]
+pub struct VaultNotes {
+    pub notes: Vec<Note>,
+    pub src: String,
+    pub path: String,
+}
+
+/// `<workspace>/knowledge`. 워크스페이스를 모르거나 볼트가 없으면 None.
+pub fn vault_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let ws = crate::workspace::resolve(app)?;
+    let v = ws.join("knowledge");
+    v.is_dir().then_some(v)
+}
+
+fn skip_dir(name: &str) -> bool {
+    name.starts_with('_') || name.starts_with('.') || SKIP.contains(&name)
+}
+
+/// 집계에서 뺄 노트 파일인가(파일명 기준). 정본 인덱스는 파이프라인이 `kind` 로 거르므로
+/// 이건 **폴백이 인덱스의 분모를 흉내내는** 장치이고, 흉내에는 한계가 있다(프런트 주석 참고).
+fn skip_note(name: &str) -> bool {
+    !name.ends_with(".md") || name.contains("MOC") || name.contains("실전문제")
+}
+
+/// 프론트매터 선두만 읽어 `key: value` 를 뽑는다. YAML 파서가 아니다 —
+/// 프런트 `readFM` 과 같은 수준(첫 콜론 split)이어야 두 경로가 같은 답을 낸다.
+fn read_front_matter(path: &Path) -> (Option<String>, bool) {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return (None, false);
+    };
+    // 선두 1600바이트만 보는 프런트와 동형. char 경계로 잘라 UTF-8 을 깨지 않는다.
+    let head: String = text.chars().take(1600).collect();
+    let mut lines = head.lines();
+    if lines.next().map(str::trim) != Some("---") {
+        return (None, false);
+    }
+    let (mut status, mut exported) = (None, false);
+    for line in lines {
+        if line.trim() == "---" {
+            break;
+        }
+        let Some(i) = line.find(':') else { continue };
+        let (k, v) = (line[..i].trim(), line[i + 1..].trim());
+        match k {
+            "status" => status = Some(v.to_string()),
+            // ⚠ 값은 boolean 이 아니라 **날짜 문자열**이다(실측: `anki_exported: 2026-07-11`).
+            //    존재 자체가 "내보냄"이므로 비어 있지 않으면 true.
+            "anki_exported" => exported = !v.is_empty() && v != "null",
+            _ => {}
+        }
+    }
+    (status, exported)
+}
+
+/// 볼트 트리를 **임의 깊이**로 순회한다. 깊이 2단 고정이 노트 46%를 버리던 것이 3단계-B 의 결함이다.
+fn walk_notes(vault: &Path) -> Vec<Note> {
+    let mut out = Vec::new();
+    let Ok(top) = std::fs::read_dir(vault) else {
+        return out;
+    };
+    for subj in top.flatten() {
+        let name = subj.file_name().to_string_lossy().into_owned();
+        if !subj.path().is_dir() || skip_dir(&name) {
+            continue;
+        }
+        walk_dir(&subj.path(), &name, &name, &mut out);
+    }
+    out
+}
+
+fn walk_dir(dir: &Path, subject: &str, folder: &str, out: &mut Vec<Note>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let p = e.path();
+        if p.is_dir() {
+            if skip_dir(&name) {
+                continue;
+            }
+            walk_dir(&p, subject, &format!("{folder}/{name}"), out);
+        } else if !skip_note(&name) {
+            let (status, anki_exported) = read_front_matter(&p);
+            out.push(Note {
+                subject: subject.to_string(),
+                folder: folder.to_string(),
+                kind: None,
+                status,
+                anki_exported,
+            });
+        }
+    }
+}
+
+/// 정본 인덱스(`_meta/cache/_index.json`)의 `notes[]` 를 그대로 넘긴다.
+/// 파싱만 하고 해석하지 않는다 — 해석은 프런트 집계 함수 하나가 소유한다.
+fn notes_from_index(vault: &Path) -> Option<Vec<Note>> {
+    let raw = std::fs::read_to_string(vault.join("_meta/cache/_index.json")).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let arr = v.get("notes")?.as_array()?;
+    Some(
+        arr.iter()
+            .map(|n| Note {
+                subject: n
+                    .get("subject")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
+                folder: n
+                    .get("folder")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                kind: n.get("kind").and_then(|x| x.as_str()).map(str::to_string),
+                status: n.get("status").and_then(|x| x.as_str()).map(str::to_string),
+                // 인덱스에선 날짜 문자열이거나 null 이다 — null 이 아니면 내보낸 것.
+                anki_exported: n.get("anki_exported").is_some_and(|x| !x.is_null()),
+            })
+            .collect(),
+    )
+}
+
+/// 볼트 스캔 — 정본 인덱스 우선, 없으면 직접 순회. 프런트의 폴백 관계와 같은 순서다.
+#[tauri::command]
+pub fn vault_scan(app: tauri::AppHandle) -> Result<VaultNotes, String> {
+    let vault = vault_dir(&app).ok_or("볼트 폴더를 찾지 못했습니다(워크스페이스/knowledge).")?;
+    let path = vault.to_string_lossy().into_owned();
+    match notes_from_index(&vault) {
+        Some(notes) => Ok(VaultNotes {
+            notes,
+            src: "정본 _index.json".into(),
+            path,
+        }),
+        None => Ok(VaultNotes {
+            notes: walk_notes(&vault),
+            src: "파일 스캔(.md)".into(),
+            path,
+        }),
+    }
+}
+
+/// 프런트가 구독하는 이벤트 이름 — `lib/tauri.ts` 의 상수와 일치해야 한다.
+pub const VAULT_CHANGED: &str = "vault:changed";
+
+/// 볼트 파일 감시를 시작한다(앱 부팅 시 1회). 실패는 치명적이지 않다 —
+/// 감시가 없으면 예전처럼 사용자가 버튼을 눌러 갱신할 뿐이므로, 앱을 못 뜨게 하지 않는다.
+pub fn start_watch(app: tauri::AppHandle) {
+    let Some(dir) = vault_dir(&app) else {
+        log::info!("볼트 감시 생략 — 볼트 폴더를 찾지 못했습니다.");
+        return;
+    };
+    std::thread::spawn(move || {
+        if let Err(e) = watch_loop(&app, &dir) {
+            log::error!("볼트 감시 실패: {e}");
+        }
+    });
+}
+
+fn watch_loop(app: &tauri::AppHandle, dir: &Path) -> Result<(), String> {
+    use notify::{RecursiveMode, Watcher};
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    let (tx, rx) = mpsc::channel::<()>();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+        // 내용이 아니라 **변화가 있었다는 사실만** 보낸다 — 프런트는 어차피 전체를 다시 읽는다.
+        // 이벤트 종류로 분기하면 플랫폼별 차이(윈도우의 중복 발화 등)를 떠안게 된다.
+        if let Ok(ev) = res {
+            // 파생·시스템 폴더 변경은 무시 — 파이프라인이 `_meta/` 를 자주 건드려서
+            // 그대로 두면 감시가 사실상 상시 발화가 된다. 단 정본 인덱스만은 예외다.
+            let interesting = ev.paths.iter().any(|p| {
+                let s = p.to_string_lossy();
+                s.ends_with("_index.json") || !s.contains("\\_") && !s.contains("\\.")
+            });
+            if interesting {
+                let _ = tx.send(());
+            }
+        }
+    })
+    .map_err(|e| e.to_string())?;
+    watcher
+        .watch(dir, RecursiveMode::Recursive)
+        .map_err(|e| e.to_string())?;
+    log::info!("볼트 감시 시작: {}", dir.display());
+
+    /* 디바운스 — 에디터 한 번 저장에 notify 는 여러 번 운다(임시파일 생성·rename·mtime 갱신).
+    그대로 흘리면 프런트가 저장 한 번에 스캔을 여러 번 돈다. 마지막 이벤트로부터
+    조용해질 때까지 기다렸다가 **한 번만** 알린다. */
+    const QUIET: Duration = Duration::from_millis(700);
+    loop {
+        // 첫 이벤트까지는 무한 대기(폴링 없음).
+        if rx.recv().is_err() {
+            return Ok(()); // 송신부가 사라졌다 = 앱 종료
+        }
+        let mut last = Instant::now();
+        while last.elapsed() < QUIET {
+            match rx.recv_timeout(QUIET) {
+                Ok(()) => last = Instant::now(), // 아직 쓰는 중 — 조용해질 때까지 더 기다린다
+                Err(mpsc::RecvTimeoutError::Timeout) => break,
+                Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+            }
+        }
+        use tauri::Emitter;
+        let _ = app.emit(VAULT_CHANGED, ());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write(root: &Path, rel: &str, body: &str) {
+        let p = root.join(rel);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, body).unwrap();
+    }
+
+    /// ⚠ 테스트마다 **다른** 폴더를 준다. 처음엔 PID 로만 이름을 지었는데, 같은 바이너리 안의
+    /// 테스트들이 병렬로 도는 데다 PID 가 같아 서로의 파일을 세고 있었다(셋 다 6개를 봤다).
+    fn tmp() -> PathBuf {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static N: AtomicUsize = AtomicUsize::new(0);
+        let d = std::env::temp_dir().join(format!(
+            "lh-vault-test-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn 임의_깊이의_노트를_전부_찾는다() {
+        let d = tmp();
+        write(
+            &d,
+            "기초 수학/미적분/01 극한/a.md",
+            "---\nstatus: verified\n---\n",
+        );
+        write(
+            &d,
+            "기초 수학/미적분/02 미분/더 깊이/b.md",
+            "---\nstatus: drafted\n---\n",
+        );
+        write(&d, "기초 수학/개요.md", "---\nstatus: verified\n---\n");
+        let notes = walk_notes(&d);
+        assert_eq!(notes.len(), 3, "깊이 2단 고정이면 1개만 잡힌다");
+        let mut folders: Vec<_> = notes.iter().map(|n| n.folder.clone()).collect();
+        folders.sort();
+        assert_eq!(
+            folders,
+            vec![
+                "기초 수학",
+                "기초 수학/미적분/01 극한",
+                "기초 수학/미적분/02 미분/더 깊이"
+            ]
+        );
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn 스킵_폴더는_모든_깊이에서_걸러진다() {
+        let d = tmp();
+        write(
+            &d,
+            "수학/미적분/.trash/x.md",
+            "---\nstatus: verified\n---\n",
+        );
+        write(
+            &d,
+            "수학/미적분/_리포트/y.md",
+            "---\nstatus: verified\n---\n",
+        );
+        write(&d, "수학/미적분/01장/z.md", "---\nstatus: verified\n---\n");
+        assert_eq!(walk_notes(&d).len(), 1);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn moc와_실전문제는_제외하고_프론트매터를_읽는다() {
+        let d = tmp();
+        write(&d, "수학/1장/MOC.md", "---\nstatus: verified\n---\n");
+        write(
+            &d,
+            "수학/1장/실전문제 모음.md",
+            "---\nstatus: verified\n---\n",
+        );
+        write(
+            &d,
+            "수학/1장/n.md",
+            "---\nstatus: verified\nanki_exported: 2026-07-11\n---\n본문",
+        );
+        write(&d, "수학/1장/m.md", "본문만 있고 프론트매터 없음");
+        let notes = walk_notes(&d);
+        assert_eq!(notes.len(), 2);
+        let n = notes.iter().find(|n| n.status.is_some()).unwrap();
+        assert_eq!(n.status.as_deref(), Some("verified"));
+        assert!(n.anki_exported, "날짜 문자열은 '내보냄'을 뜻한다");
+        let m = notes.iter().find(|n| n.status.is_none()).unwrap();
+        assert!(!m.anki_exported);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+}

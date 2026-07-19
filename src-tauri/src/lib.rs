@@ -8,6 +8,7 @@
 */
 mod db;
 mod sidecar;
+mod vault;
 mod workspace;
 
 use std::time::Duration;
@@ -54,6 +55,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace::workspace_status,
             workspace::set_workspace,
+            vault::vault_scan,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -63,6 +65,8 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            // 볼트 파일 감시(3단계) — 실패해도 앱은 뜬다(감시가 없으면 수동 갱신으로 돌아갈 뿐).
+            vault::start_watch(app.handle().clone());
             let dir = app_dir();
             let handle = app.handle().clone();
             let ws = workspace::resolve(&handle);

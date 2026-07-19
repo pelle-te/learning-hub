@@ -4,6 +4,8 @@
    여기 있는 건 전부 **트랙 A 가 원리적으로 못 잡는 것**이다. A 는 Chromium 으로 `vite preview` 를
    찍으므로 WebView2 렌더·Tauri IPC·창 종료 같은 건 존재하지도 않는다.
 ============================================================ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { closeShell, ensureNoStrayShell, launchShell, sidecarAlive, type Shell } from './shellApp';
 
@@ -105,6 +107,49 @@ test('2단계-D — SQLite 경로가 JSON 정본과 일치한다(양방향 대�
     // 원복 — 이 테스트는 실제 앱 저장소를 쓴다.
     await shell.page.getByRole('button', { name: /테마 전환/ }).click();
     await shell.page.waitForTimeout(700);
+  } finally {
+    await closeShell(shell);
+  }
+});
+
+/* 3단계 — 볼트를 **묻지 않고 읽고**, 파일이 바뀌면 **스스로 갱신되는가.**
+
+   트랙 A 가 원리적으로 못 잡는 것: 브라우저엔 파일 감시(watch)가 없다. 이건 FSA 의 한계라
+   폴리필도 없고, 설계 §10 이 OPFS 대안을 탈락시킨 근거이기도 하다. 즉 이 기능의 존재 자체가
+   셸에서만 검증 가능하다. */
+test('3단계 — 볼트를 폴더 선택 없이 읽고, 파일 변경에 자동 갱신된다', async () => {
+  const shell = await launchShell();
+  try {
+    await shell.page
+      .getByRole('button', { name: /통합|연동/ })
+      .first()
+      .click();
+
+    // ① 폴더를 고르지 않았는데도 스캔 결과가 뜬다 — workspace.rs 가 볼트 위치를 알기 때문.
+    const line = shell.page.getByText(/감시 중/);
+    await expect(line, '폴더 선택 없이 자동으로 읽지 못했다').toBeVisible({ timeout: 15_000 });
+
+    // 실제 볼트를 읽었는지 — 노트가 0이면 경로만 맞고 내용은 못 읽은 것이다.
+    const info = await shell.page.evaluate(async () => {
+      const w = window as unknown as {
+        __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+      };
+      const r = (await w.__TAURI_INTERNALS__.invoke('vault_scan')) as { notes: unknown[]; src: string; path: string };
+      return { count: r.notes.length, src: r.src, path: r.path };
+    });
+    expect(info.count, '볼트에서 노트를 하나도 못 읽었다').toBeGreaterThan(0);
+    expect(info.path).toContain('knowledge');
+
+    /* ② 파일이 바뀌면 **버튼을 누르지 않아도** 갱신된다 — 이 단계의 핵심이자, 브라우저에선
+       원리적으로 불가능한 동작(FSA 에 watch 가 없다).
+       ⚠ 사용자의 실제 볼트를 쓰므로 **내용을 바꾸지 않는다**: 정본 인덱스를 읽어 **같은 바이트로
+       다시 쓴다**. mtime 만 갱신돼 notify 가 울고, 데이터는 한 글자도 변하지 않는다. */
+    const before = (await line.textContent()) ?? '';
+    await new Promise((r) => setTimeout(r, 1100)); // 표시 시각이 '초' 단위라 같은 초면 구분이 안 된다
+    const idx = path.join(info.path, '_meta', 'cache', '_index.json');
+    writeFileSync(idx, readFileSync(idx)); // 동일 내용 재기록 = 무해한 변경 이벤트
+
+    await expect.poll(async () => (await line.textContent()) ?? '', { timeout: 20_000 }).not.toBe(before);
   } finally {
     await closeShell(shell);
   }
