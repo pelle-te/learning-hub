@@ -107,6 +107,8 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - `web/docs/골든/` — 레퍼런스 feature(스타일 앵커)
 - `web/docs/평가루브릭.md`·`평가기록.md` — 다각도 채점 SSOT + 추세
 - `web/docs/개선루브릭.md`·`로드맵.md` — 개선 우선순위 채점 + 백로그 SSOT("다음 뭐")
-- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반
+- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반. C-1(오프라인 큐) 완료 · 다음 C-2(경계 zod)
+- `web/docs/cloudflare-런북.md` — **호스트 실행 절차서**(Cloudflare Workers + D1). 설계는 위 문서 §9-3b 가 SSOT, 여기는 "손으로 뭘 치는가"
+- `web/docs/oracle-런북.md` — ⚠ **보류**: 호스트를 Oracle 로 정했다가 뒤집었다(§9-3b). 실행하지 말 것 — 설계서가 인용하는 조사(한도 반토막·회수 임계값) 때문에 남겨 둔 이력 문서
 - `web/docs/플랫폼개편-설계.md` — **이력**: 0~5단계(Tauri 셸·SQLite·볼트 Rust·serve.js 해체) 결정 근거. ⚠ §10·§2 N4 는 새 문서가 정정했다 — 그대로 읽으면 오도된다(문서 상단 경고 참조)
 - `README.md` · `설계도.md` · `MIGRATION.md` — 배경·이전 이력
