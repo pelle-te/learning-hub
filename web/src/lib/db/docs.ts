@@ -37,6 +37,18 @@ const isDocKey = (k: string): k is DocKey => (DOC_KEYS as readonly string[]).inc
 /** 부팅에 채우는 메모리 사본. `null` = 아직 안 읽음(브라우저이거나 초기화 전). */
 let _cache: Map<string, string> | null = null;
 
+/* ⚠ `updated_at` 을 **반드시 함께 쓴다**(5단계-D 결함 정정).
+   `INSERT OR REPLACE` 는 행을 지우고 다시 넣으므로, 이 열을 빼면 매 저장마다
+   `DEFAULT 0` 으로 되돌아간다. `db.rs` v3 이 **0 = "아주 오래된 것 = 상대가 이긴다"** 로
+   규정했으니, 그대로 두면 LWW 병합에서 **PC 가 쓴 저작물이 폰 사본에게 항상 진다.**
+   내 요약·독후감·진로 메모는 정본이 따로 없는 사용자 저작물이라 유실이 곧 소실이다.
+
+   ⚠ 남은 갭 — `docs` 는 `rows.ts` 의 `TABLES` 에 없어 `diffRows` 가 손대지 않는다.
+   즉 **툼스톤이 없다**(키를 지워도 삭제 사실이 안 남는다). 저작물 삭제는 드물고 지금은
+   병합 엔진 자체가 없어 실害가 없지만, 5-F 전에 `TableSpec` 편입 또는 전용 동기화 경로를
+   명시해야 한다. 이 파일이 `AppState` 매퍼와 분리된 이유는 `db.rs:76-78` 참조. */
+const DOC_UPSERT = 'INSERT OR REPLACE INTO docs (key, value, updated_at) VALUES (?1, ?2, ?3)';
+
 /** 부팅 시 1회 — DB 의 저작물을 메모리로 끌어올린다. 실패는 조용히 넘긴다(호출부가 localStorage 로 폴백). */
 export async function initDocs(): Promise<void> {
   if (!isTauri()) return;
@@ -52,7 +64,7 @@ export async function initDocs(): Promise<void> {
       const v = storage.getItem(k);
       if (v != null) {
         map.set(k, v);
-        void execDb('INSERT OR REPLACE INTO docs (key, value) VALUES (?1, ?2)', [k, v]);
+        void execDb(DOC_UPSERT, [k, v, Date.now()]);
       }
     }
   }
@@ -73,7 +85,7 @@ export function docSet(key: string, value: string): boolean {
     _cache.set(key, value);
     /* ⚠ DB 쓰기 실패를 삼키지 않는다 — 정본을 쥔 층의 침묵이 2단계-E 에서 원인 추적을 막았다.
        사용자 토스트까지 띄우진 않는다: 메모리엔 있어 화면은 정상이고, 다음 저장이 다시 시도한다. */
-    void execDb('INSERT OR REPLACE INTO docs (key, value) VALUES (?1, ?2)', [key, value]).then((ok) => {
+    void execDb(DOC_UPSERT, [key, value, Date.now()]).then((ok) => {
       if (!ok) console.error('[docs] 저장 실패:', key);
     });
     return true;

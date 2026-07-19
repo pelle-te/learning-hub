@@ -6,7 +6,8 @@
 러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 구성:
 
 - **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
-- ~~**`serve.js`** — Node stdlib HTTP 백엔드(:8000)~~ → **4단계에서 삭제됐다.** 라우트 12종(파이썬 도구·산출물·리서치 잡·Ollama·뉴스)이 전부 셸의 Rust 커맨드가 됐고, **앱이 여는 포트는 이제 하나도 없다**(HTTP 공격면 소멸).
+- ~~**`serve.js`** — Node stdlib HTTP 백엔드(:8000)~~ → **4단계에서 삭제됐다.** 라우트 12종(파이썬 도구·산출물·리서치 잡·Ollama·뉴스)이 전부 셸의 Rust 커맨드가 됐다.
+  - ⚠ **"앱이 여는 포트가 0"은 5단계-A 에서 조건부로 깨졌다.** `src-tauri/src/server.rs` 가 모바일 뷰용 axum 서버를 들여왔다. **기본은 여전히 OFF** — 설정의 "모바일에서 보기"에서 켤 때만 뜨고, 켠 동안에만 포트가 열린다. 근거·방어는 `server.rs` 머리주석과 설계 §5단계-0.
 - **`src-tauri/`** — Tauri 2 데스크톱 셸. **유일한 배포 진입점**(2단계-E). `web/dist` 를 WebView2 로 띄우고 **백엔드 전부**(파이썬 도구·산출물·AI·잡·볼트)를 직접 소유하며, **앱 데이터의 정본인 SQLite**(`learning-hub.db`)도 여기 있다. `npm run tauri:dev|build`.
 - ⚠ **브라우저 `npm run dev` 에는 백엔드가 없다**(4단계에서 `/api` 프록시 제거). 산출물·도구·AI·볼트를 만지려면 `npm run tauri:dev` — 같은 Vite dev 서버를 셸 안에서 로드하므로 HMR 은 그대로다.
 
@@ -106,5 +107,6 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - `web/docs/골든/` — 레퍼런스 feature(스타일 앵커)
 - `web/docs/평가루브릭.md`·`평가기록.md` — 다각도 채점 SSOT + 추세
 - `web/docs/개선루브릭.md`·`로드맵.md` — 개선 우선순위 채점 + 백로그 SSOT("다음 뭐")
-- `web/docs/플랫폼개편-설계.md` — **진행 중**: Tauri 2 셸 + SQLite 데이터 모델 이행(4단계) SSOT
+- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반
+- `web/docs/플랫폼개편-설계.md` — **이력**: 0~5단계(Tauri 셸·SQLite·볼트 Rust·serve.js 해체) 결정 근거. ⚠ §10·§2 N4 는 새 문서가 정정했다 — 그대로 읽으면 오도된다(문서 상단 경고 참조)
 - `README.md` · `설계도.md` · `MIGRATION.md` — 배경·이전 이력
