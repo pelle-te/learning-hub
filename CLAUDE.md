@@ -7,10 +7,14 @@
 
 - **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
 - **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 파이썬 도구 실행·산출물 서빙·리서치 잡·LLM 프록시 제공. **prebuilt `web/dist/`를 서빙**한다. (볼트 스캔은 백엔드가 아니라 **프런트의 File System Access**(`web/src/lib/vault.ts`)가 한다 — 서버 없이도 동작하는 게 설계 의도.)
-- **`src-tauri/`** — Tauri 2 데스크톱 셸(플랫폼 개편 1단계). `web/dist` 를 WebView2 로 띄우고 `serve.js` 를 sidecar 로 spawn·정리한다. `npm run tauri:dev|build`.
+- **`src-tauri/`** — Tauri 2 데스크톱 셸. **유일한 배포 진입점**(2단계-E). `web/dist` 를 WebView2 로 띄우고 `serve.js` 를 sidecar 로 spawn·정리하며, **앱 데이터의 정본인 SQLite**(`learning-hub.db`)를 소유한다. `npm run tauri:dev|build`.
 - dev에선 Vite(:5173)가 `/api`를 :8000으로 프록시해 동일출처처럼 동작.
 
-> **실행 경로가 지금 둘이다** — 브라우저 경로(`러닝허브_실행.bat` = serve.js + Chrome `--app`)와 Tauri 셸. 1단계는 **웹 실행 경로를 죽이지 않는 것**이 계약이라(`lib/tauri.ts` 의 `isTauri()` 분기) 둘 다 동작해야 한다. 셸이 정식 진입점이 되는 시점은 수동 데이터 이관 플로우 검증 이후다 — ⚠ **WebView2 는 Chrome 과 별개 저장소 오리진이라 데이터가 자동으로 안 넘어간다**(실측: 셸 첫 실행이 빈 상태로 뜬다). 반드시 기존 앱에서 내보내기 → 셸에서 가져오기.
+> **실행 경로 = 셸 하나, 저장 백엔드 = 둘.** 이 둘을 헷갈리지 말 것.
+>
+> - **배포**는 Tauri 셸뿐이다. `러닝허브_실행.bat`(serve.js + Chrome `--app`)은 2단계-E에서 **은퇴**했다(안내 스텁만 남김) — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
+> - **`npm run dev` 와 트랙 A(스냅샷 59장)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`).
+> - ⚠ **오리진이 갈려 데이터는 자동 이관되지 않는다.** Chrome에서 쓰던 데이터가 있으면 반드시 기존 앱에서 내보내기 → 셸에서 가져오기. 셸 자신의 localStorage(1단계에 쓰던 것)는 **첫 부팅에 SQLite로 1회 자동 이관**된다(`initAppStore`).
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
 
@@ -72,12 +76,17 @@ web/src/
   store/      zustand 스토어(useApp=앱 데이터·useUI=설정·useRuntime=plan-무관 캐시·useFocus·usePageChrome=상단
               리드아웃·prefill) + 비-스토어 데이터 접근(queries=TanStack·selectors=파생 캐시).
   lib/        순수 로직·IO(api·scheduler·anki·vault·schema…). 최하위, React 무관(훅은 hooks/).
+  lib/db/     **앱 데이터 정본(SQLite · 2단계~)**. rows.ts=AppState↔행 **순수** 매퍼(Tauri 없이 전량
+              테스트) · sqlite.ts=SQL만(로직 없음) · boot.ts=부팅 읽기+localStorage 1회 이관 · dual.ts=대조.
+              ⚠ **트랜잭션 금지** — sqlx 커넥션 풀이라 별도 execute로 부른 BEGIN이 다른 커넥션의 쓰기를
+              막아 `database is locked`로 죽는다(실측). 증분 upsert가 대신 안전을 준다(DB가 비는 창이 없다).
+              스키마 DDL의 단일 원천은 **`src-tauri/src/db.rs`**(프런트가 DDL을 들면 배포본마다 갈린다).
   shell/      탭 레지스트리(tabs.ts)·팔레트·단축키·토스트·액션.
   styles/     ds.module(전역 디자인시스템) + feature별 *.module.css.
 serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천** — 여기 열거하지 않는다
               (열거본 4벌이 전부 서로 다르게 낡았던 이력. `grep "'/api/" serve.js`로 확인).
               동작 계약은 `web/test/serve.test.ts`(0단계-A)가 잠근다 = 4단계 Rust 포팅의 동등성 명세.
-src-tauri/    Tauri 2 셸(플랫폼 개편 1단계~). workspace.rs=워크스페이스 경로 설정 · sidecar.rs=serve.js
+src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** · sidecar.rs=serve.js
               spawn/헬스체크/**고아 선점**/정리. 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
               ⚠ 고아 선점: 앱이 강제 종료되면 node가 8000을 물고 남는다(Destroyed 미발화) — 재실행 시
               /api/ping으로 우리 서버인지 + 워크스페이스가 같은지 보고 **같으면 입양, 다르면 교체**한다.
