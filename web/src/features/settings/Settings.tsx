@@ -16,6 +16,7 @@ import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology'
 import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
+import WorkspaceCard from './WorkspaceCard';
 import ds from '@/styles/ds.module.css';
 import st from './Settings.module.css';
 import type { AppState } from '@/lib/types';
@@ -410,6 +411,9 @@ export default function Settings() {
           비워두면 끔(이른 시각부터 순서대로).
         </div>
       </div>
+
+      {/* Tauri 셸에서만 렌더(브라우저에선 null) — 1단계에서 승격된 워크스페이스 경로 설정. */}
+      <WorkspaceCard />
 
       <div className={`${ds.card} ${ds.glow}`}>
         <h2>

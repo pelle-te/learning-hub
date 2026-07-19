@@ -13,6 +13,14 @@ const quick = process.argv.includes('quick');
 const steps = [['verify', ['run', 'verify']]];
 if (!quick) steps.push(['build', ['run', 'build']], ['budget', ['run', 'budget']], ['e2e', ['run', 'e2e']]);
 
+/* Tauri 셸(1단계~) — Rust 쪽도 게이트에 든다(불변식 I4).
+   ⚠ **없으면 건너뛴다**: web 만 만지는 작업까지 Rust 툴체인을 요구하면 게이트가 진입장벽이 된다.
+   cargo 가 있는 환경에서는 반드시 돈다(그래야 셸 회귀가 조용히 지나가지 않는다). */
+const hasCargo = spawnSync('cargo', ['--version'], { encoding: 'utf8', shell: true }).status === 0;
+if (!quick && hasCargo) {
+  steps.push(['tauri:check', ['run', 'tauri:check', '--prefix', '..']]);
+}
+
 const results = [];
 for (const [name, args] of steps) {
   const r = spawnSync('npm', args, { cwd: process.cwd(), encoding: 'utf8', shell: true });
@@ -33,5 +41,6 @@ for (const r of results) {
   console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.firstErr ? '  — ' + r.firstErr : ''}`);
 }
 if (quick) console.log('(quick 모드 — build·budget·e2e 생략)');
+else if (!hasCargo) console.log('(cargo 없음 — tauri:check 생략. 셸을 만졌다면 Rust 툴체인 환경에서 재실행할 것)');
 console.log(allOk ? 'RESULT: ✅ all green' : 'RESULT: ❌ 위 실패 참조');
 process.exit(allOk ? 0 : 1);

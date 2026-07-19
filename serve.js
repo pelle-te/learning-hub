@@ -35,7 +35,7 @@ const ROOT = __dirname;                          // 러닝허브 폴더
    설치 경로에 놓으므로 그 추론이 깨진다 — sidecar 로 도는 이 파일의 __dirname 이 설치 경로가 된다.
    그래서 셸이 설정값(사용자가 고른 워크스페이스)을 LH_WORKSPACE 로 주입하고, 그게 있으면 이긴다.
    환경변수가 없으면 기존 추론 그대로 → `node serve.js` 단독 실행·기존 .bat 경로는 동작이 동일하다. */
-const WORK = path.dirname(ROOT);
+const WORK = process.env.LH_WORKSPACE || path.dirname(ROOT);
 const DIST = path.join(ROOT, 'web', 'dist');     // React 빌드물(정적 서빙 루트)
 const PORT = Number(process.argv[2]) || 8000;
 const PY = process.env.PYTHON || 'python';

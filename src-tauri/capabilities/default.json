@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계에서 fs/notification/http 가 추가된다).",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open"]
+}

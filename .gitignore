@@ -19,6 +19,11 @@ web/coverage/
 *.tsbuildinfo
 test-results/
 
+# Tauri 셸(플랫폼 개편 1단계) — Rust 빌드 산출물·코드생성물.
+# Cargo.lock 은 **추적한다**(앱 바이너리라 재현 가능한 빌드가 필요).
+src-tauri/target/
+src-tauri/gen/
+
 # 수집 콘텐츠(저작권 원문) — 추적 제외. 부모 .gitignore 의 hub/* 규칙은 서브모듈
 # 경계 때문에 무효라, 실효 지점은 여기(hub repo)다. (감사 2026-07-16)
 _읽을거리/latest.json

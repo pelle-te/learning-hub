@@ -13,7 +13,9 @@
 
 1. **serve.js는 prebuilt `web/dist/`를 서빙한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.)
 2. **레이어 경계는 단방향**(`app → features → components → {hooks, store} → lib`, 역방향 import 금지). `eslint-plugin-boundaries`가 **error**로 막는다. 새 코드가 상위를 import하면 린트가 깨진다 → 세부는 `web/docs/아키텍처.md`.
-3. **과목 색 = `PALETTE` 인덱스 파생**(한 줄 교체로 전탭 반영). 임의 하드코딩 금지.
+3. **과목 색 = `PALETTE` 파생물**(저장값 아님 — 한 줄 교체로 전탭 반영). 임의 하드코딩 금지.
+   - 파생 키는 **`item.id` 해시**(`lib/utils.ts` `colorForId`)다. 0단계-G에서 배열 인덱스에서 옮겼다 — 인덱스는 *위치*라 삭제·재정렬 때 뒤 과목 색이 전부 밀렸고 보정 코드가 파생을 4곳으로 불렸다. id는 *정체성*이라 불변이고 파생이 1곳이다.
+   - 원칙이 규칙이고 메커니즘은 그 구현이다: 색을 **저장값처럼 다루지 말 것**(입력으로 받거나 하드코딩 금지). 파생 키를 또 바꾸더라도 이 원칙은 유지된다.
 4. **명시 지시 임의변경 금지.** 사용자가 못박은 결정(예 "블록도 색 있어야")을 내 판단으로 뒤집지 않는다. 대담한 재설계는 **새 영역에만**, 기존 제약은 유지.
 5. **커밋 전 `git -c core.quotepath=false diff --cached --stat` 확인.** 이 저장소는 web/시스템/전공 세션이 **동시 작업**한다 — 스테이징에 `전공/`·`시스템/` 파일이 섞이면 그 커밋에서 빼고 **앱 저장소 범위(`web/` + `src-tauri/` + `docs/` + 루트 설정)** 만 담는다(인덱스 위생 재발 이력 다수). git user=`jin`, 기본 브랜치=`master`.
    - ⚠ 범위를 "web 변경만"에서 넓힌 이유(2026-07-19): 플랫폼 개편 1단계에서 `src-tauri/`(Rust·`Cargo.lock`)가 생기는데 이건 `web/` 밖이다. 옛 문구를 문자 그대로 지키면 **규칙이 자기 마이그레이션의 첫 커밋을 막는다.** 막으려던 것은 *다른 세션의 산출물 혼입*이지 앱 자체의 새 폴더가 아니다.
@@ -22,10 +24,13 @@
 ## 게이트 (원커맨드 · `cd web` 후)
 
 ```
-npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + test:coverage (커버리지 게이트 포함)
+npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + knip + test:coverage
 npm run e2e      # Playwright 시각/동작 스냅샷 (serve.js OFF 상태로 돈다)
 npm run build    # tsc -b && vite build — serve.js가 서빙할 dist 재생성
 ```
+
+- **Tauri 셸(`src-tauri/`, 플랫폼 개편 1단계~)**: 루트에서 `npm run tauri:check|fmt|clippy|dev|build`. `/게이트`가 **cargo가 있으면** `tauri:check`도 돈다(없으면 건너뜀 — web만 만지는 작업에 Rust 툴체인을 요구하지 않는다). ⚠ cargo가 "없다"고 나오면 대개 **셸이 rustup 설치보다 오래된 것** — 새 터미널을 열면 잡힌다.
+- **`npm run report:debt`** — 인지복잡도·파일 크기·features:lib 비율을 **강제 없이** 출력(추세 관찰용). 하드 게이트는 래칫 2개(`cognitive-complexity` 77 · `max-lines` 730)뿐이고 "더 나빠지지 않는다"만 보장한다.
 
 - **e2e 스냅샷 함정:** `--update-snapshots`의 기본은 `changed`(2% 내 신규 UI가 안 박힘) → 신규 스냅샷은 `npm run e2e:update`(=all)로. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
 - 슬래시 명령 `/게이트`가 verify+build+budget(번들 예산)+e2e를 돌려 압축 리포트만 반환한다(quick=verify만).
@@ -65,6 +70,9 @@ web/src/
   styles/     ds.module(전역 디자인시스템) + feature별 *.module.css.
 serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천** — 여기 열거하지 않는다
               (열거본 4벌이 전부 서로 다르게 낡았던 이력. `grep "'/api/" serve.js`로 확인).
+              동작 계약은 `web/test/serve.test.ts`(0단계-A)가 잠근다 = 4단계 Rust 포팅의 동등성 명세.
+src-tauri/    Tauri 2 셸(플랫폼 개편 1단계~). workspace.rs=워크스페이스 경로 설정 · sidecar.rs=serve.js
+              spawn/헬스체크/정리. 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
 ```
 
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.
