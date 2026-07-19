@@ -2,7 +2,12 @@
    api.ts — serve.js 백엔드(/api) 타입드 fetch 래퍼(프레임워크 무관).
    서버/외부 상태라 TanStack Query가 캐시/무효화를 소유한다(Phase 5에서 훅 추가).
    여기선 순수 호출만 — 앱 상태에 복제하지 않는다(설계도 §1-B).
+
+   4단계(serve.js 해체) 진행 중 — 라우트가 하나씩 Rust 커맨드로 옮겨간다. **소비처는 무변경**이
+   판정 기준이라, 전송 분기는 전부 이 파일 안에 가둔다(`isTauri()` 분기 · 에러 분류 번역).
 ============================================================ */
+import { ARTIFACT_NOT_FOUND, artifactRead, isTauri } from './tauri';
+
 export interface PingResponse {
   ok: boolean;
   server: string;
@@ -29,10 +34,26 @@ export function getPing(): Promise<PingResponse> {
   return getJSON<PingResponse>('/api/ping');
 }
 
-/** 산출물(읽기 전용) — knowledge | anki. */
-export function getArtifact<T = unknown>(
+/** 산출물(읽기 전용) — knowledge | anki | ledger | curriculum | goals | discovery | reads | markets.
+ *
+ *  4단계-B 부터 **셸에선 Rust 커맨드**(`artifact_read`)가 읽고, 브라우저에선 기존 `/api` 를 탄다.
+ *  전송이 갈렸어도 **반환 계약과 에러 분류는 하나로 유지**한다 — 미생성·알 수 없는 이름은
+ *  양쪽 모두 `HTTP 404` 로 수렴시켜 `artifactState.ts:31` `isNotYetError` 가 그대로 '미생성'으로
+ *  분류하게 한다. 이 번역을 여기서 하는 이유: 소비처 7개 lib 래퍼와 10개 탭이 분류 규칙을
+ *  각자 알면 전송을 바꿀 때마다 그 수만큼 갈라진다. */
+export async function getArtifact<T = unknown>(
   name: string,
 ): Promise<{ ok: boolean; data?: T; raw?: string; error?: string }> {
+  if (isTauri()) {
+    try {
+      const r = await artifactRead<T>(name);
+      if (r) return r;
+    } catch (e) {
+      // invoke 는 문자열로 reject 한다(Error 가 아니다) → 접두 검사 전에 문자열로 정규화.
+      const msg = e instanceof Error ? e.message : String(e ?? '');
+      throw new Error(msg.startsWith(ARTIFACT_NOT_FOUND) ? 'HTTP 404' : msg);
+    }
+  }
   return getJSON(`/api/artifact/${encodeURIComponent(name)}`);
 }
 

@@ -6,6 +6,7 @@
 레이어 계약(I2): 프런트에서 `invoke` 를 부르는 쪽은 `web/src/lib/` 가 소유한다.
 여기 등록한 커맨드가 그 유일한 대응면이다.
 */
+mod artifact;
 mod db;
 mod sidecar;
 mod vault;
@@ -56,6 +57,8 @@ pub fn run() {
             workspace::workspace_status,
             workspace::set_workspace,
             vault::vault_scan,
+            // 4단계-B — serve.js /api/artifact/:name 대체.
+            artifact::artifact_read,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

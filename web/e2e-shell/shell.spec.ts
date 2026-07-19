@@ -215,3 +215,45 @@ test('2단계-C — 디바운스 대기 중 창을 닫아도 비동기 SQL 쓰�
     await closeShell(shell);
   }
 });
+
+/* 4단계-B — 산출물 8종을 **serve.js 없이** 셸이 직접 읽는가.
+
+   왜 여기서만 검증 가능한가: `artifact.rs` 의 단위 테스트는 임시 폴더에 내가 만든 파일을 읽는다
+   — 즉 "코드가 시키는 대로 하는가"만 본다. 정작 이 단계가 고친 결함은 **경로 기준이 파일을 쓰는
+   쪽(파이썬)과 갈려 있던 것**이라, 진짜 워크스페이스의 진짜 산출물을 읽어야만 드러난다.
+   (serve.js 는 `reads`·`markets` 를 자기 폴더 기준으로 찾아 배포본에서 늘 빈손이었다.) */
+test('4단계-B — 산출물을 셸이 직접 읽는다(워크스페이스 기준 경로)', async () => {
+  const shell = await launchShell();
+  try {
+    const read = (name: string) =>
+      shell.page.evaluate(async (n) => {
+        const w = window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        };
+        try {
+          return { ok: true, out: await w.__TAURI_INTERNALS__.invoke('artifact_read', { name: n }) };
+        } catch (e) {
+          return { ok: false, err: String(e) };
+        }
+      }, name);
+
+    // 볼트 파생물 — 워크스페이스 기준. serve.js 도 여기는 맞게 보고 있었다.
+    const knowledge = await read('knowledge');
+    expect(knowledge.ok, `knowledge 읽기 실패: ${knowledge.err}`).toBe(true);
+    expect((knowledge.out as { ok: boolean; data?: unknown }).data).toBeTruthy();
+
+    // ⚠ 이 두 줄이 이 케이스의 존재 이유다 — serve.js 기준(자기 폴더)이었으면 배포본에서 빈손이다.
+    for (const name of ['reads', 'markets']) {
+      const r = await read(name);
+      expect(r.ok, `${name} 읽기 실패(경로 기준이 수집기와 갈렸다): ${r.err}`).toBe(true);
+      expect((r.out as { ok: boolean; data?: unknown }).data).toBeTruthy();
+    }
+
+    // 화이트리스트 밖·미생성은 같은 접두로 거부한다(프런트가 '미생성'으로 분류하는 키).
+    const bogus = await read('../../etc/passwd');
+    expect(bogus.ok).toBe(false);
+    expect(bogus.err).toContain('NOT_FOUND');
+  } finally {
+    await closeShell(shell);
+  }
+});

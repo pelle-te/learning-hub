@@ -118,6 +118,30 @@ export async function onVaultChanged(cb: () => void): Promise<() => void> {
   }
 }
 
+/** 산출물 읽기 결과 — Rust `artifact::ArtifactOut` 과 1:1.
+ *  `data`(JSON 파싱 성공) 또는 `raw`(파싱 실패 원문) 중 하나만 실린다. */
+export interface ArtifactOut<T = unknown> {
+  ok: boolean;
+  data?: T;
+  raw?: string;
+}
+
+/** Rust 가 '미생성·알 수 없는 이름'에 붙이는 접두(`artifact.rs` `NOT_FOUND` 와 같은 값).
+ *  한국어 메시지 본문이 아니라 이 접두를 분류 키로 쓴다 — 문구를 다듬어도 분류가 안 깨지게. */
+export const ARTIFACT_NOT_FOUND = 'NOT_FOUND';
+
+/** 산출물 1종을 셸에서 읽는다(4단계-B). 브라우저면 null → 호출부가 `/api` 폴백.
+ *
+ *  ⚠ **이 함수는 `vaultScan` 과 달리 에러를 삼키지 않는다.** 저기는 "볼트 연결 안 됨"이
+ *  정상 상태라 null 로 접는 게 맞지만, 여기선 *왜* 실패했는지가 화면을 가른다 —
+ *  '미생성(수집 안내)'과 '진짜 실패(에러 패널)'를 `artifactState.ts` 가 구분해야 하는데
+ *  null 로 접으면 그 정보가 사라진다. 2단계-E 에서 "정본을 쥔 층의 침묵은 그 자체가 결함"을
+ *  실사고로 배운 것과 같은 이유다. */
+export async function artifactRead<T = unknown>(name: string): Promise<ArtifactOut<T> | null> {
+  if (!isTauri()) return null;
+  return call<ArtifactOut<T>>('artifact_read', { name });
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;
