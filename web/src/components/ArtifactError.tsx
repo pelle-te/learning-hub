@@ -18,7 +18,7 @@ export default function ArtifactError({
     <EmptyState
       glyph="⚠️"
       title={`${label} 불러오지 못했어요`}
-      desc={<>serve.js는 켜져 있지만 응답에 문제가 있어요{detail ? ` — ${detail}` : '.'}</>}
+      desc={<>워크스페이스는 연결됐지만 응답에 문제가 있어요{detail ? ` — ${detail}` : '.'}</>}
       actions={
         <Button variant="primary" onClick={onRetry}>
           다시 시도

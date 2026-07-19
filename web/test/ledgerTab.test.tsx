@@ -81,7 +81,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('오프라인(serve.js OFF): 셋업 안내로 폴백한다', async () => {
+test('오프라인(워크스페이스 미설정): 셋업 안내로 폴백한다', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {

@@ -56,10 +56,10 @@ export default function Discovery() {
         ui.toast(decision === 'promote' ? '후보를 승격했어요(→ 개론 분해 핸드오프).' : '후보를 기각했어요.', 'ok');
         await qc.invalidateQueries({ queryKey: DISCOVERY_KEY });
       } else {
-        ui.toast((r.out || '').slice(0, 140) || '결정을 반영하지 못했어요(serve.js 필요).', 'bad');
+        ui.toast((r.out || '').slice(0, 140) || '결정을 반영하지 못했어요(워크스페이스 설정 필요).', 'bad');
       }
     } catch {
-      ui.toast('결정을 반영하지 못했어요(serve.js 필요).', 'bad');
+      ui.toast('결정을 반영하지 못했어요(워크스페이스 설정 필요).', 'bad');
     } finally {
       setBusy(null);
     }

@@ -61,7 +61,7 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
               ? `도구 · ${ping.data?.work || '/api'}`
               : serve === 'probing'
                 ? '연결 확인 중'
-                : 'node serve.js 필요(localhost:8000)'
+                : '워크스페이스 설정 필요(설정 탭)'
           }
         />
         <Channel

@@ -65,8 +65,8 @@ export default function Goals() {
           title="내 길이 아직 안 보여요"
           desc={
             <>
-              손저작 계약 <code>knowledge/_meta/contract/goals.json</code> 을 serve.js 가 서빙합니다. 제어판이 켜지면
-              목표 트리가 여기 그려집니다.
+              손저작 계약 <code>knowledge/_meta/contract/goals.json</code> 을 읽어 옵니다. 설정 탭에서 워크스페이스를
+              지정하면 목표 트리가 여기 그려집니다.
             </>
           }
         />

@@ -6,6 +6,7 @@
 ============================================================ */
 import { loadVaultIndex } from './vault';
 import { dirEntries, pickDirectory } from './fsAccess';
+import { isTauri, shellAnkiConnect } from './tauri';
 
 export interface AnkiDeck {
   name: string;
@@ -36,6 +37,16 @@ interface IndexAnki {
 
 /** AnkiConnect 단일 호출 — Anki 미실행/방화벽 시 3초 타임아웃(무한대기 방지). */
 export async function ankiConnect<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+  /* 셸(4단계-F)에선 Rust 가 중계한다 — AnkiConnect 가 `Origin` 을 검사하는데 셸 오리진
+     `http://tauri.localhost` 는 기본 화이트리스트(`http://localhost`)에 없다. Rust 요청엔
+     Origin 이 안 붙고, AnkiConnect 는 오리진 없는 요청(비-브라우저)을 허용한다.
+     ⚠ 이 근거는 AnkiConnect 의 문서화된 동작이지 이 기계에서의 관측이 아니다 — 프로브를 돌린
+        시점에 Anki 가 꺼져 있었고, 브라우저는 CORS 거부와 연결 거부를 같은 오류로 준다. */
+  if (isTauri()) {
+    const j = await shellAnkiConnect<{ error?: string; result?: T }>(action, params);
+    if (j.error) throw new Error(j.error);
+    return j.result as T;
+  }
   const ac = new AbortController();
   const to = setTimeout(() => ac.abort(), 3000);
   try {

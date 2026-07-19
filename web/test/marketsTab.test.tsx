@@ -70,7 +70,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('오프라인(serve.js OFF): 안내 EmptyState가 뜬다', async () => {
+test('오프라인(워크스페이스 미설정): 안내 EmptyState가 뜬다', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
@@ -79,7 +79,7 @@ test('오프라인(serve.js OFF): 안내 EmptyState가 뜬다', async () => {
     }),
   );
   renderApp('/markets');
-  await waitFor(() => expect(screen.getByText('serve.js가 꺼져 있어요')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText('워크스페이스가 설정되지 않았어요')).toBeInTheDocument());
 });
 
 test('지수 보드가 등락(▲▼+부호)과 뉴스를 렌더한다', async () => {

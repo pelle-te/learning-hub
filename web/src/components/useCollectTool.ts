@@ -36,7 +36,7 @@ export function useCollectTool(
           ok = true;
           if (!silent) ui.toast(doneMsg, 'ok');
         } else if (!silent) {
-          ui.toast('수집 실패 — serve.js 출력 확인', 'bad');
+          ui.toast('수집 실패 — 아래 실행 로그를 확인하세요', 'bad');
         }
       } catch (e) {
         // 사용자 취소/타임아웃(AbortError)은 실패 토스트로 겁주지 않는다.

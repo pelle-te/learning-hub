@@ -98,7 +98,7 @@ export default function Control() {
       readouts: [
         { label: '진행 중', value: running.length, accent: running.length > 0 },
         { label: '수집 기록', value: history.length },
-        { label: 'serve.js', value: online ? '● ON' : offline ? 'OFF' : '…' },
+        { label: '워크스페이스', value: online ? '● 연결됨' : offline ? '미설정' : '…' },
       ],
     }),
     [running.length, history.length, online, offline],
@@ -164,7 +164,7 @@ export default function Control() {
     }
     // 버튼은 offline이면 disabled지만 Enter 키는 그 게이트를 우회한다 — collect에서 단일 가드.
     if (offline) {
-      ui.toast('serve.js가 꺼져 있어요 — node serve.js로 켜면 수집할 수 있어요.', 'warn');
+      ui.toast('워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 지정하면 수집할 수 있어요.', 'warn');
       return;
     }
     if (starting) return;
@@ -267,7 +267,7 @@ export default function Control() {
           {offline ? (
             <b className={cm.offHint}>
               {' '}
-              ⚠ serve.js가 꺼져 있어요 — <code>node serve.js</code>로 켜면 수집할 수 있어요.
+              ⚠ 워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 지정하면 수집할 수 있어요.
             </b>
           ) : (
             ` 몇 분~수십 분 걸리며, 탭을 떠나거나 새로고침해도 서버에서 계속 돌아가요(다시 열면 자동 재부착).${

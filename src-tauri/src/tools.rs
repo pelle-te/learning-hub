@@ -191,6 +191,40 @@ pub fn lookup(key: &str) -> Option<&'static Tool> {
     TOOLS.iter().find(|(k, _)| *k == key).map(|(_, t)| t)
 }
 
+/* ── 능력 탐지 ─────────────────────────────────────────────────── */
+
+/// `serve.js` `/api/ping`(L623)의 자리. 프런트 `PingResponse` 와 필드가 같다.
+#[derive(Debug, Serialize)]
+pub struct Capabilities {
+    /// **백엔드를 실제로 쓸 수 있는가.** 셸에선 프로세스가 곧 백엔드라 "떠 있는가"는 늘 참이고,
+    /// 그걸 그대로 `true` 로 두면 상수가 되어 **10개 탭의 에러 UI 가 통째로 무력화된다**
+    /// (설계 §4-4단계가 경고한 것). 그래서 의미를 **"워크스페이스가 유효한가"** 로 옮겼다 —
+    /// 그게 거짓이면 도구 11종과 산출물 8종이 전부 조용히 빈 결과를 낸다. 즉 이 값이 거짓인 순간이
+    /// 정확히 프런트가 셋업 안내를 띄워야 하는 순간이다.
+    pub ok: bool,
+    pub server: String,
+    pub tools: Vec<String>,
+    pub work: String,
+}
+
+/// ⚠ **python·Ollama 살아있음 플래그는 일부러 넣지 않았다.**
+/// 설계는 `useCapabilities(Ollama up? python up? …)` 를 적었지만, 그 값을 **읽을 소비처가 없다** —
+/// AI 실패는 이미 `{ok:false, error:"Ollama 연결 실패…"}` 봉투로 화면에 도달하고, 도구 실패는
+/// `RunResult.ok` 로 도달한다. 읽히지 않는 값을 미리 만드는 건 4단계-C 에서 지운 `stats` 와 같은
+/// 부류다(아무도 안 읽어서 틀린 줄도 몰랐던 필드). 필요해지는 소비처가 생기면 그때 넣는다.
+#[tauri::command]
+pub fn capabilities(app: tauri::AppHandle) -> Capabilities {
+    let ws = crate::workspace::resolve(&app);
+    Capabilities {
+        ok: ws.is_some(),
+        server: "러닝허브 제어판".into(),
+        tools: TOOLS.iter().map(|(k, _)| (*k).to_string()).collect(),
+        work: ws
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    }
+}
+
 /* ── 인자 정제(순수) ───────────────────────────────────────────── */
 
 /// 도구에 넘길 추가 **위치인자** 산출 — serve.js `toolExtraArgs`(L151-158) 이식.

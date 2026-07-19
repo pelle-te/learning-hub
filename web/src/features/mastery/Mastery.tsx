@@ -85,7 +85,7 @@ export default function Mastery() {
   const [vaultLoading, setVaultLoading] = useState(false);
   const loadFromVault = async () => {
     if (!isFsAccessSupported()) {
-      ui.toast('이 브라우저는 폴더 연결 미지원(Chrome/Edge). 또는 node serve.js로 띄우면 자동 로드됩니다.', 'warn');
+      ui.toast('이 브라우저는 폴더 연결 미지원(Chrome/Edge). 러닝허브 앱으로 열면 자동 로드됩니다.', 'warn');
       return;
     }
     const handle = await pickDirectory();

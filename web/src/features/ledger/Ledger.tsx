@@ -255,7 +255,7 @@ function Setup() {
       <h3>아직 챕터 원장이 없어요</h3>
       <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
         <li>
-          serve.js 실행 상태에서 원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
+          원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
           <span className={ds.muted}> (또는 아래 “원장 재빌드” 버튼)</span>
         </li>
         <li>
@@ -264,7 +264,7 @@ function Setup() {
       </ol>
       <div className={`${ds.foot} ${ds.muted}`}>
         원장은 <code>subjects.json</code>(정본 slug·src) + 볼트 인덱스 + Anki 신호를 조인해 과목×챕터의 5단계 진척을
-        집계합니다. serve.js가 켜져 있으면 자동으로 불러옵니다.
+        집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
       </div>
     </div>
   );
@@ -304,10 +304,10 @@ export default function Ledger() {
         ui.toast('챕터 원장을 다시 빌드했어요.', 'ok');
         await refetch();
       } else {
-        ui.toast((r.out || '').slice(0, 140) || '원장 재빌드에 실패했어요(serve.js 필요).', 'bad');
+        ui.toast((r.out || '').slice(0, 140) || '원장 재빌드에 실패했어요(워크스페이스 설정 필요).', 'bad');
       }
     } catch {
-      ui.toast('원장 재빌드에 실패했어요(serve.js 필요).', 'bad');
+      ui.toast('원장 재빌드에 실패했어요(워크스페이스 설정 필요).', 'bad');
     } finally {
       setRebuilding(false);
     }

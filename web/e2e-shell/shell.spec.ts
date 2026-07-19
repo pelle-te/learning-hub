@@ -4,7 +4,7 @@
    여기 있는 건 전부 **트랙 A 가 원리적으로 못 잡는 것**이다. A 는 Chromium 으로 `vite preview` 를
    찍으므로 WebView2 렌더·Tauri IPC·창 종료 같은 건 존재하지도 않는다.
 ============================================================ */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { closeShell, ensureNoStrayShell, launchShell, sidecarAlive, type Shell } from './shellApp';
@@ -431,5 +431,43 @@ test('4단계-E — Ollama 생성이 델타를 흘리고 봉투로 끝난다', a
     expect(r.joined).toContain('{');
   } finally {
     await closeShell(shell);
+  }
+});
+
+/* 4단계-F — 내보내기가 **실제로 파일을 남기는가.**
+
+   ▶ 이 케이스는 실측이 만든 것이다. 프로브로 재보니 `<a download>` 는 WebView2 에서 **예외 없이
+   클릭되지만 파일이 어디에도 생기지 않았다**(다운로드 폴더·사용자 프로필·앱 폴더 전역 탐색).
+   내보내기 6경로가 전부 그 한 함수에 수렴하고 그중 하나가 **백업**이라, 2단계-E 로 배포 경로를
+   셸 하나로 좁힌 뒤 줄곧 백업이 안 되고 있었다 — 그리고 실패가 조용해서 아무도 몰랐다.
+
+   저장 대화상자는 자동화가 못 누르므로, UI 대신 **경계 함수(`save_text_file`)를 직접 호출**해
+   "쓰기가 실제로 되는가"를 잠근다. 대화상자 자체는 플러그인 몫이라 우리 회귀 대상이 아니다. */
+test('4단계-F — 내보내기가 실제로 파일을 남긴다', async () => {
+  const shell = await launchShell();
+  const target = path.join(process.env.TEMP ?? '.', `lh-e2e-export-${process.pid}.json`);
+  try {
+    const r = await shell.page.evaluate(async (p) => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      try {
+        await w.invoke('save_text_file', { path: p, contents: '{"과목":"미적분"}' });
+        return { threw: false };
+      } catch (e) {
+        return { threw: true, err: String(e) };
+      }
+    }, target);
+
+    expect(r.threw, `저장이 거부됐다: ${r.err}`).toBe(false);
+    // ⚠ 여기가 핵심 — `<a download>` 는 예외를 안 던지고도 파일을 안 만들었다.
+    //    "호출이 성공했다"가 아니라 **디스크에 있다**를 확인해야 같은 결함을 다시 안 놓친다.
+    expect(existsSync(target), '호출은 성공했는데 파일이 없다 — <a download> 와 같은 조용한 실패다').toBe(true);
+    expect(readFileSync(target, 'utf8')).toBe('{"과목":"미적분"}');
+  } finally {
+    await closeShell(shell);
+    if (existsSync(target)) rmSync(target);
   }
 });

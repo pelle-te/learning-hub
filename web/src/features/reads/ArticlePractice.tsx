@@ -316,8 +316,8 @@ export default function ArticlePractice({
           glyph="📰"
           offlineDesc={
             <>
-              읽을거리 지문은 로컬 서버가 수집해요. 러닝허브 폴더에서 <code>node serve.js</code>로 켜면 내 RSS 피드에서
-              원문을 가져옵니다. 피드 설정: <code>hub/_읽을거리/feeds.json</code>
+              읽을거리 지문은 러닝허브가 직접 수집해요. 설정 탭에서 워크스페이스 폴더를 지정하면 내 RSS 피드에서 원문을
+              가져옵니다. 피드 설정: <code>hub/_읽을거리/feeds.json</code>
             </>
           }
           emptyTitle="아직 수집된 지문이 없어요"
@@ -375,7 +375,7 @@ export default function ArticlePractice({
             sm
             onClick={() => void collect()}
             disabled={collecting || !online}
-            title={online ? '새 지문 수집' : 'serve.js가 꺼져 있어요'}
+            title={online ? '새 지문 수집' : '워크스페이스가 설정되지 않았어요'}
           >
             {collecting ? <span className={ds.spin} /> : '↻'} 수집
           </Button>
@@ -513,7 +513,7 @@ export default function ArticlePractice({
                       </div>
                     ) : (
                       <button className={r.vocabGo} type="button" onClick={doVocab} disabled={!online}>
-                        {online ? '🔍 뜻 보기' : 'serve.js 꺼짐'}
+                        {online ? '🔍 뜻 보기' : '워크스페이스 미설정'}
                       </button>
                     )}
                   </div>
@@ -555,7 +555,7 @@ export default function ArticlePractice({
                   sm
                   onClick={askCoach}
                   disabled={grader.busy || !online}
-                  title={online ? '' : 'serve.js가 꺼져 있어요'}
+                  title={online ? '' : '워크스페이스가 설정되지 않았어요'}
                 >
                   {grader.busy ? (
                     <>

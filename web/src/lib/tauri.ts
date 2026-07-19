@@ -234,6 +234,39 @@ export async function shellOllamaEmbed<T>(texts: string[]): Promise<T> {
   return call<T>('ollama_embed', { texts });
 }
 
+/** 능력 탐지(4단계-F) — `serve.js` `/api/ping` 의 자리. `PingResponse` 와 필드가 같다.
+ *  ⚠ `ok` 의 의미가 **"서버가 떠 있는가"에서 "워크스페이스가 유효한가"로 옮겨졌다.** 셸에선
+ *  프로세스가 곧 백엔드라 전자는 항상 참인 상수가 되고, 그러면 10개 탭의 에러 UI 가 통째로
+ *  무력화된다(설계 §4-4단계 경고). 워크스페이스가 무효면 도구 11종·산출물 8종이 전부 조용히
+ *  빈 결과를 내므로, 그 순간이 정확히 셋업 안내를 띄워야 하는 순간이다. */
+export function shellCapabilities<T>(): Promise<T> {
+  return call<T>('capabilities');
+}
+
+/** 진로 지도 동향(Google 뉴스 RSS) — 5분 캐시는 Rust 가 소유한다. */
+export function shellAtlasNews<T>(query: string): Promise<T> {
+  return call<T>('atlas_news', { query });
+}
+
+/** 파일 내보내기 — 저장 위치를 묻고 쓴다(4단계-F). 저장했으면 true, 사용자가 취소하면 false.
+ *
+ *  ⚠ **`<a download>` 를 대체한다.** WebView2 에선 그게 **예외 없이 아무 파일도 만들지 않는다**
+ *  (트랙 B 프로브로 실측 — 다운로드 폴더·프로필·앱 폴더 어디에도 안 생긴다). 내보내기 6경로가
+ *  전부 그 한 함수에 수렴하고 그중 하나가 **백업**이라, 2단계-E 로 배포 경로를 셸로 좁힌 뒤
+ *  줄곧 백업이 안 되고 있었다. 실패가 조용했던 게 이 결함의 본질이다. */
+export async function shellSaveFile(filename: string, contents: string): Promise<boolean> {
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const path = await save({ defaultPath: filename });
+  if (!path) return false; // 사용자 취소 — 실패가 아니다
+  await call<void>('save_text_file', { path, contents });
+  return true;
+}
+
+/** AnkiConnect 액션 중계(4단계-F). 브라우저 직통은 셸 오리진이 CORS 화이트리스트에 없어 막힌다. */
+export function shellAnkiConnect<T>(action: string, params: Record<string, unknown>): Promise<T> {
+  return call<T>('anki_connect', { action, params });
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

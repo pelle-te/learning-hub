@@ -27,7 +27,7 @@ export default function Integrations() {
       readouts: [
         { label: '볼트', value: vault ? `${subjects}과목` : '—', accent: true },
         { label: 'Anki due', value: live ? due : '—' },
-        { label: 'serve.js', value: online ? '● ON' : ping.isLoading ? '…' : 'OFF' },
+        { label: '워크스페이스', value: online ? '● 연결됨' : ping.isLoading ? '…' : '미설정F' },
       ],
     }),
     [vault, subjects, live, due, online, ping.isLoading],

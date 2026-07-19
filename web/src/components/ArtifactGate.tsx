@@ -34,7 +34,7 @@ export default function ArtifactGate({
     return (
       <EmptyState
         glyph={glyph}
-        title="serve.js가 꺼져 있어요"
+        title="워크스페이스가 설정되지 않았어요"
         desc={offlineDesc}
         actions={
           onRetry ? (

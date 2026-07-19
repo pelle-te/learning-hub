@@ -87,7 +87,7 @@ export default function Reads() {
             readouts: [
               { label: '요약 완료', value: `${st.done}/${st.total}`, accent: true },
               { label: '영어·한국어', value: `${st.en}·${st.ko}` },
-              { label: 'serve.js', value: online ? '● ON' : pingLoading ? '…' : 'OFF' },
+              { label: '워크스페이스', value: online ? '● 연결됨' : pingLoading ? '…' : '미설정' },
               ...(collectedDate ? [{ label: '수집', value: readsStale ? `${collectedMD} · 지남` : collectedMD }] : []),
             ],
           }

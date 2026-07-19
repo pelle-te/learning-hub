@@ -249,7 +249,7 @@ export default function Atlas() {
               <p className={s.muted}>
                 {online
                   ? '관련 소식을 찾지 못했어요.'
-                  : '수집된 동향이 아직 없어요 — serve.js가 켜지면 실시간으로 채워집니다.'}
+                  : '수집된 동향이 아직 없어요 — 워크스페이스를 설정하면 실시간으로 채워집니다.'}
               </p>
             )}
           </Panel>

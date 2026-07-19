@@ -628,7 +628,7 @@ export default function Graph() {
             ) : semStatus === 'unavailable' ? (
               <span
                 className={g.legendMut}
-                title="serve.js + Ollama 임베딩 모델이 있으면 과목 경계를 넘는 의미 연결이 자동으로 그려져요"
+                title="Ollama 임베딩 모델이 있으면 과목 경계를 넘는 의미 연결이 자동으로 그려져요"
               >
                 <i className={g.lSem} /> 의미 연결 — Ollama 필요
               </span>

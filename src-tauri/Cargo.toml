@@ -30,10 +30,12 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 # 볼트 파일 감시(3단계). File System Access API 엔 watch 가 없어 브라우저에선 원리적으로
 # 불가능했던 기능이고, 설계 §10 이 OPFS 대안을 탈락시킨 근거이기도 하다.
 notify = "8"
-# 로컬 Ollama HTTP(4단계-E). **TLS 피처를 끈다** — 대상이 127.0.0.1:11434 고정이라 필요가 없고,
-# 켜면 openssl/rustls 가 통째로 링크돼 빌드 시간과 바이너리만 커진다. serve.js 도 `http` 모듈만
-# 썼으므로(https 아님) 동등하다. stream = NDJSON 을 청크 단위로 받기 위한 것.
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
+# HTTP — 로컬 Ollama(4단계-E)와 Google 뉴스 RSS(4단계-F).
+# ⚠ 4-E 에선 TLS 를 껐다("대상이 127.0.0.1:11434 고정이라 필요 없다"). **4-F 에서 되살렸다** —
+#   뉴스 프록시 대상이 `https://news.google.com` 이라 TLS 없이는 원리적으로 못 붙는다
+#   (serve.js 도 이것 때문에 `http` 와 `https` 를 둘 다 require 했다 — L24-25).
+#   native-tls 가 아니라 rustls 를 쓰는 이유는 Windows 빌드에 openssl 툴체인을 들이지 않기 위함.
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
 futures-util = "0.3"
 # 스트림의 '무소식 90초' 타임아웃 — 총 시간이 아니라 유휴로 재는 게 serve.js 의 계약이다.
 tokio = { version = "1", features = ["time"] }

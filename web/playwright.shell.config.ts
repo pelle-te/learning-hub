@@ -24,7 +24,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  /* 1회 재시도 — 트랙 A 와 같은 근거다(실제 회귀는 재시도해도 실패한다).
+     ⚠ 근거가 추측이 아니라 실측이다: 4단계-F 게이트에서 **앱 기동 경합**이 한 번 관측됐다
+     (직전 케이스가 Ollama 생성으로 프로세스를 오래 물고 있다 내려간 뒤, 다음 launch 가
+     `tauri.localhost` 문서를 못 찾고 "백지" 로 실패 → 단독 재실행·전체 재실행 모두 통과).
+     원인은 앱 종료와 다음 기동 사이의 전역 자원(포트 8000·9222 · single-instance) 반납 지연이고,
+     테스트 대상의 결함이 아니다. 재시도를 켜되 **원인을 여기 적어 두어** 나중에 진짜 회귀를
+     "또 그 플레이크"로 넘기지 않게 한다. */
+  retries: 1,
   reporter: [['list']],
   // 앱 부팅(WebView2 + sidecar 헬스체크)이 있어 기본 30초로는 빠듯하다.
   timeout: 90_000,

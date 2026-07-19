@@ -34,12 +34,12 @@ test('mastery: 지식상태가 없으면(/api 없음) 셋업 안내로 폴백하
   expect(document.getElementById('page')).toBeNull();
 });
 
-test('control(탐구 수집): 검색 히어로가 뜨고 serve.js 미연결이면 오프라인 안내', async () => {
+test('control(탐구 수집): 검색 히어로가 뜨고 워크스페이스 미설정이면 오프라인 안내', async () => {
   renderApp('/control');
   // 옛 OPS 콘솔 폐기 → 탐구 수집 검색 탭(검색 히어로 + 최근 기록).
   await waitFor(() => expect(screen.getByRole('heading', { name: /무엇을 새로 알아볼까요/ })).toBeInTheDocument());
   expect(screen.getByLabelText('탐구 주제')).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByText(/serve\.js가 꺼져 있어요/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/워크스페이스가 설정되지 않았어요/)).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
 });
 

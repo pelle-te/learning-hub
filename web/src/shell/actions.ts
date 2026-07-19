@@ -29,14 +29,30 @@ import { iso, mondayOf, todayISO } from '@/lib/utils';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
 import type { CaptureResult } from '@/lib/quickCapture';
+import { isTauri, shellSaveFile } from '@/lib/tauri';
 import { toast, toastUndo } from './toast';
 import { confirm } from './modal';
 
 const st = () => useApp.getState();
 const safeLS = (): Storage | null => (typeof localStorage !== 'undefined' ? localStorage : null);
 
-/** 브라우저 다운로드 트리거(Blob → <a download>). */
+/** 파일 내보내기 — 셸은 저장 대화상자, 브라우저는 `<a download>`.
+ *
+ *  ⚠ **셸에서 `<a download>` 는 예외 없이 아무 파일도 만들지 않는다**(4단계-F 트랙 B 프로브로
+ *  실측 — 다운로드 폴더·프로필·앱 폴더 어디에도 안 생긴다). 내보내기 6경로가 전부 이 함수에
+ *  수렴하고 그중 하나가 **백업**이라, 2단계-E 로 배포 경로를 셸 하나로 좁힌 뒤 줄곧 백업이
+ *  안 되는 상태였다. 실패가 조용했던 것이 이 결함의 본질이라, 이제 결과를 토스트로 알린다. */
 function download(filename: string, text: string, mime: string): void {
+  if (isTauri()) {
+    void shellSaveFile(filename, text)
+      .then((saved) => {
+        if (saved) toast(`${filename} 을 저장했어요.`, 'ok');
+      })
+      .catch((e: unknown) => {
+        toast(`저장하지 못했어요 — ${e instanceof Error ? e.message : String(e)}`, 'bad');
+      });
+    return;
+  }
   const blob = new Blob([text], { type: mime });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

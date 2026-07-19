@@ -6,8 +6,11 @@
 레이어 계약(I2): 프런트에서 `invoke` 를 부르는 쪽은 `web/src/lib/` 가 소유한다.
 여기 등록한 커맨드가 그 유일한 대응면이다.
 */
+mod anki;
 mod artifact;
 mod db;
+mod files;
+mod news;
 mod ollama;
 mod research;
 mod sidecar;
@@ -72,6 +75,11 @@ pub fn run() {
             ollama::ollama_run,
             ollama::ollama_cancel,
             ollama::ollama_embed,
+            // 4단계-F — serve.js /api/atlas/news · /api/ping 대체.
+            news::atlas_news,
+            tools::capabilities,
+            anki::anki_connect,
+            files::save_text_file,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

@@ -10,6 +10,8 @@ import {
   ARTIFACT_NOT_FOUND,
   artifactRead,
   isTauri,
+  shellAtlasNews,
+  shellCapabilities,
   shellOllamaEmbed,
   shellOllamaRun,
   shellResearchCancel,
@@ -46,8 +48,12 @@ async function getJSON<T>(url: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** 능력 탐지 — 제어판(serve.js) 연결 여부·도구 목록. */
+/** 능력 탐지 — 백엔드를 쓸 수 있는지와 도구 목록.
+ *  셸(4단계-F)에선 `capabilities` 커맨드가 답한다. **이름을 `getPing` 으로 둔 것은 의도적이다** —
+ *  소비 8곳이 이 값을 "백엔드를 지금 쓸 수 있는가"로 읽고 있고 그 의미는 안 바뀌었다. 바뀐 건
+ *  *무엇이 그 답을 결정하는가*(서버 프로세스 → 워크스페이스 유효성)이고, 그건 `tauri.ts` 에 적었다. */
 export function getPing(): Promise<PingResponse> {
+  if (isTauri()) return shellCapabilities<PingResponse>();
   return getJSON<PingResponse>('/api/ping');
 }
 
@@ -87,6 +93,7 @@ export interface AtlasNewsItem {
 
 /** 분야 검색어로 최신 동향 뉴스. serve.js가 200+{ok:false}로 실패를 알리거나(꺼짐이면 fetch reject). */
 export function fetchAtlasNews(query: string): Promise<{ ok: boolean; items: AtlasNewsItem[]; error?: string }> {
+  if (isTauri()) return shellAtlasNews(query);
   return getJSON(`/api/atlas/news?q=${encodeURIComponent(query)}`);
 }
 
