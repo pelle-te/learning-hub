@@ -100,32 +100,32 @@ export function fetchAtlasNews(query: string): Promise<{ ok: boolean; items: Atl
 }
 
 /** 화이트리스트 도구 실행(지식상태 재빌드·볼트 건강검진 등).
- *  ⚠ 서버는 180s에서 잘라내지만 클라 fetch엔 상한이 없다 — 물린 연결이면 무한 대기(취소 못 하는 스피너).
- *  185s 타임아웃(서버 캡 직후)을 항상 걸고, 선택적 caller signal로 UI가 "취소"를 걸 수 있게 한다(X-5).
- *  opts는 선택 — 기존 호출부(2인자)는 그대로 동작한다. */
+ *
+ *  **타임아웃은 백엔드가 소유한다** — Rust `tools.rs` 의 도구별 상한(60~180s)이 프로세스를
+ *  트리째 죽이므로 "영원히 도는 스피너"가 원리적으로 없다. 클라이언트 쪽 벽시계는 두지 않는다:
+ *  그건 *기다리기를 그만두는* 것일 뿐 프로세스를 멈추지 못해, 실제로는 "화면만 포기하고 CPU 는
+ *  계속 도는" 상태를 만든다(옛 185s `AbortSignal` 이 그랬다 — 서버 캡 180s 를 뒤따르는 값이라
+ *  백엔드가 사라진 지금은 근거 자체가 없어졌다).
+ *
+ *  ⚠ **`opts.signal` 은 도구 실행을 중단시키지 않는다.** `invoke` 가 `AbortSignal` 을 안 받는다.
+ *  받아 두는 이유는 호출부(`useCollectTool`)가 이미 넘기고 있어서이고, 진짜 중단이 필요해지면
+ *  `ollama_cancel`(4단계-E) 과 같은 관용구로 취소 커맨드를 붙인다. */
 export async function runTool(
   tool: string,
   body?: Record<string, unknown>,
   opts?: { signal?: AbortSignal },
 ): Promise<RunResult> {
-  const timeout = AbortSignal.timeout(185000); // 서버 캡(180s)보다 살짝 뒤 — 서버가 먼저 응답하도록.
-  const signal = opts?.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
-
-  /* 셸 경로(4단계-C) — Rust `run_tool` 이 spawn·타임아웃·동시성 캡·프로세스 트리 종료를 소유한다.
-     ⚠ **취소 신호는 아직 안 넘어간다.** `invoke` 는 AbortSignal 을 안 받는다. 도구별 Rust
-     타임아웃(60~180s)이 있어 "영원히 도는 스피너"는 없지만, 취소 버튼은 *기다리기를 그만두는*
-     것이지 프로세스를 죽이지는 않는다. 4-D 에서 잡 모델의 취소 커맨드와 같은 관용구로 붙인다.
-     (기존 fetch 경로도 abort 가 연결을 끊을 뿐 서버의 python 은 계속 돌았다 — 동등하다.) */
   if (isTauri()) {
     const subject = typeof body?.subject === 'string' ? body.subject : undefined;
     return shellRunTool(tool, subject);
   }
 
+  // 브라우저 폴백 — 4단계 이후 이 경로엔 백엔드가 없다(트랙 A 는 invoke 스텁을 쓴다).
   const r = await fetch(`/api/run/${encodeURIComponent(tool)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}),
-    signal,
+    signal: opts?.signal,
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return (await r.json()) as RunResult;

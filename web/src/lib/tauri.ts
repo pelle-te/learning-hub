@@ -267,6 +267,11 @@ export function shellAnkiConnect<T>(action: string, params: Record<string, unkno
   return call<T>('anki_connect', { action, params });
 }
 
+/** 볼트 Anki 카드 스캔(4단계-I) — 폴더를 묻지 않는다(워크스페이스를 이미 안다). */
+export function shellAnkiScan<T>(): Promise<T> {
+  return call<T>('anki_scan');
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

@@ -270,7 +270,11 @@ export default function Control() {
               ⚠ 워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 지정하면 수집할 수 있어요.
             </b>
           ) : (
-            ` 몇 분~수십 분 걸리며, 탭을 떠나거나 새로고침해도 서버에서 계속 돌아가요(다시 열면 자동 재부착).${
+            /* ⚠ 잡 소유 모델이 4단계에서 바뀌었다 — **앱이 곧 잡 소유자**다(별도 서버가 없다).
+               화면을 떠나거나 새로고침해도 계속되지만, **앱을 닫으면 수집도 멈춘다**.
+               옛 문구("서버에서 계속 돌아가요")는 셸에서 거짓이고, 그 거짓을 믿고 앱을 끄면
+               수십 분짜리 수집을 잃는다 — 사용자가 알아야 하는 차이다. */
+            ` 몇 분~수십 분 걸리며, 다른 탭으로 가거나 새로고침해도 계속돼요(돌아오면 자동 재부착). 다만 앱을 닫으면 수집도 멈춰요.${
               avgMin > 0 ? ` 지난 수집은 보통 ~${avgMin}분 걸렸어요.` : ''
             }`
           )}
@@ -282,7 +286,7 @@ export default function Control() {
         <div className={cm.jobs}>
           <div className={cm.jobsHead}>
             진행 중 · {running.length}
-            <span className={`${ds.muted} ${ds.tiny}`}> — 새로고침해도 계속돼요</span>
+            <span className={`${ds.muted} ${ds.tiny}`}> — 새로고침해도 계속돼요(앱을 닫으면 멈춤)</span>
           </div>
           {running.map((j) => (
             <div key={j.id} className={cm.job}>

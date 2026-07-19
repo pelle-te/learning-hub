@@ -6,7 +6,7 @@
 ============================================================ */
 import { loadVaultIndex } from './vault';
 import { dirEntries, pickDirectory } from './fsAccess';
-import { isTauri, shellAnkiConnect } from './tauri';
+import { isTauri, shellAnkiConnect, shellAnkiScan } from './tauri';
 
 export interface AnkiDeck {
   name: string;
@@ -85,10 +85,20 @@ export async function fetchAnkiLive(): Promise<AnkiLive> {
   return { at: new Date().toLocaleString('ko'), decks };
 }
 
-/** 볼트 카드 스캔 — _index.json.anki 우선, 없으면 anki/ 폴더 .txt 폴백. 취소 시 null. */
+/** 볼트 카드 스캔 — `_index.json` 의 anki 매니페스트 우선, 없으면 `anki/` 폴더 `.txt` 폴백.
+ *  취소 시 null.
+ *
+ *  ⚠ **셸에선 폴더를 묻지 않는다**(4단계-I) — 워크스페이스를 이미 알기 때문이다. 3단계가 볼트
+ *  노트 읽기에서 없앤 마찰을 여기서도 없앤 것이고, FSA 가 깨져서가 아니다(WebView2 에서
+ *  `showDirectoryPicker` 는 실제로 동작한다 — 트랙 B 프로브로 확인). 그래서 셸 경로는
+ *  `handle` 이 **null** 이다: 되물을 핸들이라는 개념 자체가 없다. */
 export async function pickAndScanAnki(
   existing?: FileSystemDirectoryHandle,
-): Promise<{ scan: AnkiFile; handle: FileSystemDirectoryHandle } | null> {
+): Promise<{ scan: AnkiFile; handle: FileSystemDirectoryHandle | null } | null> {
+  if (isTauri()) {
+    const r = await shellAnkiScan<{ src: string; decks: AnkiFileDeck[] }>();
+    return { scan: { at: new Date().toLocaleString('ko'), src: r.src, decks: r.decks }, handle: null };
+  }
   let handle = existing;
   if (!handle) {
     const picked = await pickDirectory(); // 미지원이면 FsUnsupportedError, 취소면 null

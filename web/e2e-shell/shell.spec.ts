@@ -472,3 +472,38 @@ test('4단계-F — 내보내기가 실제로 파일을 남긴다', async () => 
     if (existsSync(target)) rmSync(target);
   }
 });
+
+/* 4단계-I — Anki 카드 스캔이 **폴더를 묻지 않고** 실제 볼트를 읽는가.
+
+   ⚠ 이 케이스가 옮긴 근거를 함께 기록한다: FSA 가 셸에서 깨져서가 아니다. 프로브로 재보니
+   `showDirectoryPicker` 는 존재하고(`isSecureContext: true`) 대화상자도 실제로 열린다
+   (호출했더니 모달이 창 종료를 막았다). 옮긴 이유는 **앱이 아는 경로를 다시 묻지 않는다**는
+   3단계의 결정을 이 표면에도 적용한 것이다. */
+test('4단계-I — Anki 카드 스캔이 폴더 선택 없이 볼트를 읽는다', async () => {
+  const shell = await launchShell();
+  try {
+    const r = await shell.page.evaluate(async () => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      try {
+        return { threw: false, out: await w.invoke('anki_scan') };
+      } catch (e) {
+        return { threw: true, err: String(e) };
+      }
+    });
+
+    expect(r.threw, `스캔 실패: ${r.err}`).toBe(false);
+    const scan = r.out as { src: string; decks: { file: string; subj: string; cards: number }[] };
+    // 출처 문구는 프런트가 그대로 보여준다 — 둘 중 하나여야 한다.
+    expect(['_index.json', 'anki/ 폴더']).toContain(scan.src);
+    expect(scan.decks.length, '실제 볼트에서 덱을 하나도 못 읽었다').toBeGreaterThan(0);
+    // 파싱이 됐다는 증거 — 이름과 카드 수가 실제로 채워졌는가.
+    expect(scan.decks[0]!.file.length).toBeGreaterThan(0);
+    expect(scan.decks.some((d) => d.cards > 0)).toBe(true);
+  } finally {
+    await closeShell(shell);
+  }
+});

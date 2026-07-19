@@ -9,6 +9,7 @@
 여기 등록한 커맨드가 그 유일한 대응면이다.
 */
 mod anki;
+mod anki_scan;
 mod artifact;
 mod db;
 mod files;
@@ -66,6 +67,8 @@ pub fn run() {
             tools::capabilities,
             anki::anki_connect,
             files::save_text_file,
+            // 4단계-I — 볼트 Anki 카드 스캔(폴더 선택 없이).
+            anki_scan::anki_scan,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

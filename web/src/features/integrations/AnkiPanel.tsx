@@ -53,8 +53,11 @@ export function AnkiPanel() {
       const r = await pickAndScanAnki(handle);
       if (r) {
         qc.setQueryData(['ankiFile'], r.scan);
-        qc.setQueryData(['vaultHandle'], r.handle);
-        idbPut('vaultHandle', r.handle); // 볼트 패널과 공유 — 다음 부팅 재연결
+        // 셸엔 핸들 개념이 없다(폴더를 안 물으므로) — 브라우저에서만 공유·영속한다.
+        if (r.handle) {
+          qc.setQueryData(['vaultHandle'], r.handle);
+          idbPut('vaultHandle', r.handle); // 볼트 패널과 공유 — 다음 부팅 재연결
+        }
       }
     } catch (e) {
       setErr((e as Error).message || String(e));

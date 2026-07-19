@@ -1,7 +1,8 @@
 /* ============================================================
    Mastery — 탭: 🧠 숙달도 지도 (Phase 5 · 서버/외부 = TanStack Query)
    지식엔진.py 산출(_지식상태.json)을 소비 — 히트맵(A)·프런티어/갭(B)·캘리브레이션(E).
-   데이터 원본 둘: 산출물 `knowledge`(자동) · 볼트 폴더 FS Access(수동 폴백).
+   데이터 원본 둘: 산출물 `knowledge`(자동) · 수동 새로고침. 셸은 둘 다 워크스페이스에서 읽고,
+   브라우저는 후자가 FS Access 폴더 선택이다(4단계-I).
    둘 다 같은 ['knowledge'] Query 캐시로 모여 본문이 렌더(설계도 §1-B). 레거시 _knowState 수동배선 제거.
 
    월드클래스 재설계(데모 v6 사상) — HudFrame fill 가득.
@@ -15,9 +16,10 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ui } from '@/shell';
-import { loadKnowledgeStateFromVault } from '@/lib/knowledge';
+import { fetchKnowledgeArtifact, loadKnowledgeStateFromVault } from '@/lib/knowledge';
 import { classifyArtifact } from '@/lib/artifactState';
 import { isFsAccessSupported, pickDirectory } from '@/lib/fsAccess';
+import { isTauri } from '@/lib/tauri';
 import { slimKnowState } from '@/lib/scheduler';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
@@ -84,14 +86,24 @@ export default function Mastery() {
   // 큰 _지식상태.json 파싱은 Query 스피너가 아니라 이 async가 소유 → 자체 로딩상태로 '멈춘 듯'을 없앤다.
   const [vaultLoading, setVaultLoading] = useState(false);
   const loadFromVault = async () => {
-    if (!isFsAccessSupported()) {
-      ui.toast('이 브라우저는 폴더 연결 미지원(Chrome/Edge). 러닝허브 앱으로 열면 자동 로드됩니다.', 'warn');
-      return;
-    }
-    const handle = await pickDirectory();
-    if (!handle) return; // 취소
+    /* ⚠ **셸에선 폴더를 묻지 않는다**(4단계-I). 워크스페이스를 이미 알고, 같은 파일을
+       `artifact_read('knowledge')` 가 읽어 준다 — 사용자에게 경로를 다시 물을 이유가 없다.
+       (FSA 가 셸에서 깨진 게 아니다. 트랙 B 프로브로 재보니 `showDirectoryPicker` 는
+        실제로 동작한다 — 3단계가 볼트 노트에서 없앤 마찰을 여기서도 없애는 것이다.) */
     setVaultLoading(true);
     try {
+      if (isTauri()) {
+        const loaded = await fetchKnowledgeArtifact();
+        qc.setQueryData(KNOWLEDGE_KEY, loaded);
+        setRuntimeCache('_knowState', slimKnowState(loaded));
+        return;
+      }
+      if (!isFsAccessSupported()) {
+        ui.toast('이 브라우저는 폴더 연결 미지원(Chrome/Edge). 러닝허브 앱으로 열면 자동 로드됩니다.', 'warn');
+        return;
+      }
+      const handle = await pickDirectory();
+      if (!handle) return; // 취소
       const loaded = await loadKnowledgeStateFromVault(handle);
       if (!loaded) {
         ui.toast('_지식상태.json을 못 찾았어요. 전공 폴더를 골랐는지, 지식엔진.py build를 돌렸는지 확인하세요.', 'bad');
@@ -99,6 +111,10 @@ export default function Mastery() {
       }
       qc.setQueryData(KNOWLEDGE_KEY, loaded);
       setRuntimeCache('_knowState', slimKnowState(loaded)); // 슬림 write-through(감사 ②#25 · queries.useKnowledge와 대칭)
+    } catch (e) {
+      // 셸 경로는 산출물 미생성이면 throw 한다 — 조용히 넘기면 버튼이 먹통처럼 보인다.
+      ui.toast('지식상태를 불러오지 못했어요 — 지식엔진.py build 를 먼저 돌려주세요.', 'bad');
+      void e;
     } finally {
       setVaultLoading(false);
     }
@@ -156,7 +172,7 @@ export default function Mastery() {
                 <span className={ds.spin} /> 읽는 중…
               </>
             ) : (
-              <>📁 볼트에서 {k ? '새로고침' : '지식상태 불러오기'}</>
+              <>📁 {isTauri() ? '볼트에서 새로고침' : `볼트에서 ${k ? '새로고침' : '지식상태 불러오기'}`}</>
             )}
           </Button>
         </div>
