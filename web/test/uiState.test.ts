@@ -22,6 +22,7 @@ describe('bootUI — 부팅/복원', () => {
       fxLite: false,
       navCollapsed: false,
       navSurface: 'study',
+      ankiAutoRefresh: false,
     });
   });
   it('손상된 JSON은 기본값으로 폴백(throw 없음)', () => {
@@ -58,6 +59,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
       fxLite: false,
       navCollapsed: false,
       navSurface: 'study',
+      ankiAutoRefresh: false,
     });
   });
   it('흡수 후 persist하면 구 키는 정리되고 단일 키만 남는다', () => {
@@ -88,7 +90,53 @@ describe('persistUI — 왕복', () => {
       fxLite: true,
       navCollapsed: false,
       navSurface: 'study',
+      ankiAutoRefresh: false,
     });
+  });
+});
+
+/* 2단계-A4 — AnkiPanel이 localStorage를 직접 만지던 유일한 kv SSOT 우회를 흡수했다.
+   그 키는 어떤 백업에도 안 들어가서 Tauri 이관 때 조용히 사라지는 값이었다.
+   ⚠ 여기서 가장 위험한 케이스는 "UI_KEY가 이미 있는 기존 사용자"다 — 흡수를 UI_KEY 부재
+   경로에만 걸면 .default(false)가 사용자의 '1' 설정을 조용히 지운다. */
+describe('bootUI — anki 자동새로고침 흡수(2단계-A4)', () => {
+  it('UI_KEY가 없으면 구 anki 키를 흡수한다', () => {
+    const kv = memKV();
+    kv.setItem('lh:anki-autorefresh', '1');
+    expect(bootUI(kv).ankiAutoRefresh).toBe(true);
+  });
+
+  it('⚠ UI_KEY가 이미 있어도 흡수한다(기존 사용자의 설정이 조용히 지워지지 않는다)', () => {
+    const kv = memKV();
+    // 진짜 구 저장본 — 신규 필드가 **없는** UI_KEY. (defaultUI()로 만들면 필드가 이미 들어 있어
+    // 레거시 상황이 아니게 된다.)
+    const legacyShape: Record<string, unknown> = { ...defaultUI() };
+    delete legacyShape.ankiAutoRefresh;
+    kv.setItem(UI_KEY, JSON.stringify(legacyShape));
+    kv.setItem('lh:anki-autorefresh', '1');
+    expect(bootUI(kv).ankiAutoRefresh).toBe(true);
+  });
+
+  it('신규 필드가 이미 저장돼 있으면 그 값이 이긴다(흡수 완료 후 구 키가 되살아나지 않는다)', () => {
+    const kv = memKV();
+    kv.setItem(UI_KEY, JSON.stringify({ ...defaultUI(), ankiAutoRefresh: false }));
+    kv.setItem('lh:anki-autorefresh', '1');
+    expect(bootUI(kv).ankiAutoRefresh).toBe(false);
+  });
+
+  it("'0'·미저장은 false", () => {
+    const kv = memKV();
+    kv.setItem('lh:anki-autorefresh', '0');
+    expect(bootUI(kv).ankiAutoRefresh).toBe(false);
+    expect(bootUI(memKV()).ankiAutoRefresh).toBe(false);
+  });
+
+  it('흡수 후 persist하면 구 anki 키도 정리된다', () => {
+    const kv = memKV();
+    kv.setItem('lh:anki-autorefresh', '1');
+    persistUI(kv, bootUI(kv));
+    expect(kv.getItem('lh:anki-autorefresh')).toBeNull();
+    expect(bootUI(kv).ankiAutoRefresh).toBe(true); // 정리해도 값은 신규 키에 살아 있다
   });
 });
 

@@ -46,6 +46,10 @@ export const UIStateSchema = z.object({
   navCollapsed: z.boolean().default(false),
   // 나브 표면(Wave⑥) — 스위처 클릭·전역 탭 폴백용 영속값. 라우트가 우선. 옛 저장본은 .default로 학습.
   navSurface: NavSurfaceSchema.default('study'),
+  // Anki 실시간 due 자동 새로고침(2단계-A4) — 원래 AnkiPanel이 'lh:anki-autorefresh' 평문 키를
+  // localStorage에 **직접** 쓰던 유일한 kv SSOT 우회였다. 계층 밖이라 백업에도 안 들어갔다
+  // (0단계-E가 고친 결함과 같은 부류인데 그때 누락됨) → UI 설정으로 흡수해 _local 사이드카에 편입.
+  ankiAutoRefresh: z.boolean().default(false),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 
@@ -53,6 +57,8 @@ export const UI_KEY = 'lh_ui_v1'; // 단일 저장 키
 // 단일화 이전 산재 키 — 부팅 시 1회 흡수 후 제거.
 const LEGACY_VIEW = 'sched_view';
 const LEGACY_RECENT = 'lh_recent_cmds';
+/** AnkiPanel이 직접 쓰던 평문 키('1'/'0') — 2단계-A4에서 흡수. */
+const LEGACY_ANKI_AUTO = 'lh:anki-autorefresh';
 
 // 전 필드가 .default()를 가지므로 빈 객체 parse가 완전한 기본 UIState를 만든다 —
 // 기본값을 손으로 재나열하지 않고 스키마를 단일 원천으로.
@@ -65,8 +71,17 @@ export function bootUI(storage: KV): UIState {
   try {
     const raw = storage.getItem(UI_KEY);
     if (raw) {
-      const parsed = UIStateSchema.safeParse(JSON.parse(raw));
-      return parsed.success ? parsed.data : defaultUI();
+      const obj: unknown = JSON.parse(raw);
+      const parsed = UIStateSchema.safeParse(obj);
+      if (!parsed.success) return defaultUI();
+      // ⚠ anki 흡수는 UI_KEY가 **있어도** 해야 한다 — 기존 사용자는 UI_KEY와 구 anki 키를 둘 다
+      // 가지고 있고, 여기서 안 읽으면 .default(false)가 사용자의 '1' 설정을 조용히 지운다.
+      // 이미 신규 필드가 저장돼 있으면(=흡수 완료) 그 값이 이긴다.
+      if (!hasOwn(obj, 'ankiAutoRefresh')) {
+        const legacy = readLegacyAnki(storage);
+        if (legacy !== undefined) parsed.data.ankiAutoRefresh = legacy;
+      }
+      return parsed.data;
     }
     return absorbLegacy(storage);
   } catch {
@@ -74,9 +89,26 @@ export function bootUI(storage: KV): UIState {
   }
 }
 
-/** 구 키(sched_view·lh_recent_cmds)를 단일 UIState로 흡수(있을 때만). */
+/** 신뢰 불가 파싱 결과에서 자기 소유 속성만 확인(프로토타입 오염 차단 — sidecars.ts와 동형). */
+function hasOwn(o: unknown, k: string): boolean {
+  return !!o && typeof o === 'object' && Object.hasOwn(o, k);
+}
+
+/** 구 anki 자동새로고침 키를 boolean으로. 저장된 적 없으면 undefined(= 흡수할 게 없음). */
+function readLegacyAnki(storage: KV): boolean | undefined {
+  try {
+    const raw = storage.getItem(LEGACY_ANKI_AUTO);
+    return raw == null ? undefined : raw === '1';
+  } catch {
+    return undefined;
+  }
+}
+
+/** 구 키(sched_view·lh_recent_cmds·lh:anki-autorefresh)를 단일 UIState로 흡수(있을 때만). */
 function absorbLegacy(storage: KV): UIState {
   const ui = defaultUI();
+  const anki = readLegacyAnki(storage);
+  if (anki !== undefined) ui.ankiAutoRefresh = anki;
   try {
     const mapped = migrateSchedView(storage.getItem(LEGACY_VIEW));
     if (mapped) ui.schedView = mapped;
@@ -101,6 +133,7 @@ export function persistUI(storage: KV, ui: UIState): string {
     // 흡수 완료된 구 키 정리 — 다음 부팅부턴 단일 출처만 본다.
     storage.removeItem(LEGACY_VIEW);
     storage.removeItem(LEGACY_RECENT);
+    storage.removeItem(LEGACY_ANKI_AUTO);
   } catch {
     /* private mode 등 — 메모리 상태는 계속 동작 */
   }

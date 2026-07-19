@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
+import { useUI } from '@/store/useUI';
 import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
@@ -27,13 +28,10 @@ export function AnkiPanel() {
   const [busy, setBusy] = useState<'' | 'file' | 'live'>('');
   const [err, setErr] = useState('');
   // 실시간 due 자동 새로고침 — 연결돼 있을 때 5분마다 + 탭 복귀 시 재조회(로컬 설정).
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('lh:anki-autorefresh') === '1';
-    } catch {
-      return false;
-    }
-  });
+  // 2단계-A4: 예전엔 여기서 localStorage를 **직접** 만졌다(유일한 kv SSOT 우회 · 백업 누락).
+  // 이제 useUI가 소유하므로 lh_ui_v1에 담기고 _local 사이드카를 타고 이관·백업된다.
+  const autoRefresh = useUI((s) => s.ui.ankiAutoRefresh);
+  const setAutoRefresh = useUI((s) => s.setAnkiAutoRefresh);
   const [lastAuto, setLastAuto] = useState<string>('');
 
   // 개별 해제 — 각 연동을 독립적으로 끊는다(다른 채널엔 영향 없음).
@@ -90,16 +88,7 @@ export function AnkiPanel() {
     }
   };
 
-  const toggleAuto = () =>
-    setAutoRefresh((v) => {
-      const nv = !v;
-      try {
-        localStorage.setItem('lh:anki-autorefresh', nv ? '1' : '0');
-      } catch {
-        /* localStorage 불가 — 무시 */
-      }
-      return nv;
-    });
+  const toggleAuto = () => setAutoRefresh(!autoRefresh);
 
   // 자동 새로고침 — 연결(live)돼 있고 켜졌을 때만. 5분 주기 + 탭 복귀 시 즉시. 실패는 조용히(다음 기회에 복구).
   const connected = !!live;
