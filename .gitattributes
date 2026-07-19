@@ -1,0 +1,16 @@
+# ⚠ Rust·SQL 은 **LF 고정**이어야 한다 — 취향이 아니라 정확성 문제다.
+#
+# `db.rs` 의 마이그레이션 SQL 은 sqlx 마이그레이터가 **SHA-384 체크섬**으로 추적한다
+# (`_sqlx_migrations.checksum`, 실 DB 에서 확인). 텍스트가 1바이트라도 달라지면 sqlx 는
+# "이미 적용된 마이그레이션이 수정됐다"로 판정해 **기존 DB 를 열지 못한다.**
+#
+# 이 저장소는 `core.autocrlf=true` 이고 `web/.gitattributes` 는 자기 폴더에만 적용된다.
+# 즉 이 파일이 없으면 **새로 클론할 때 `src-tauri/` 의 .rs 가 CRLF 로 체크아웃되어**
+# 같은 커밋에서 만든 빌드끼리 체크섬이 갈린다. 개발자 본인 머신에선 재현되지 않고
+# (작업 트리가 이미 LF 다) 새 클론에서만 터지는 부류라, 규칙으로 못박아 둔다.
+#
+# ⚠ 마이그레이션 SQL 을 옮기거나 다시 들여쓰지 말 것. `dbMigrations.test.ts` 가
+#   체크섬을 핀 고정해 이 사고를 CI 에서 잡는다.
+*.rs    text eol=lf
+*.sql   text eol=lf
+*.toml  text eol=lf

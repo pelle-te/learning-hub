@@ -27,19 +27,32 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const DB_RS = fileURLToPath(new URL('../../src-tauri/src/db.rs', import.meta.url));
+const MIGRATIONS_DIR = fileURLToPath(new URL('../../src-tauri/migrations/', import.meta.url));
 
 interface Mig {
   version: number;
+  file: string;
   sql: string;
 }
 
-/** `db.rs` 의 `Migration { version: N, … sql: "…" }` 블록을 순서대로 뽑는다. */
+/**
+ * `db.rs` 가 `include_str!` 로 가리키는 `.sql` 파일들을 **선언 순서대로** 읽는다.
+ *
+ * ⚠ 폴더를 직접 글롭하지 않고 **`db.rs` 를 거쳐 간다.** 파일이 있어도 `db.rs` 가 안 가리키면
+ * 앱은 그걸 실행하지 않기 때문이다 — 글롭하면 "테스트는 통과하는데 앱은 적용 안 하는"
+ * 마이그레이션이 생길 수 있다. 검사 대상은 폴더 내용이 아니라 **앱이 실제로 도는 목록**이다.
+ *
+ * ⚠ 파일을 **바이트 그대로** 읽는다(`utf8`, 가공 없음). 다듬으면 체크섬 핀이 무의미해진다.
+ */
 function migrations(): Mig[] {
   const src = readFileSync(DB_RS, 'utf8');
   const out: Mig[] = [];
-  const re = /version:\s*(\d+),[\s\S]*?sql:\s*"([\s\S]*?)",\s*\n\s*\}/g;
+  const re = /version:\s*(\d+),[\s\S]*?include_str!\("\.\.\/migrations\/([\w.]+)"\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(src)) !== null) out.push({ version: Number(m[1]), sql: m[2]! });
+  while ((m = re.exec(src)) !== null) {
+    const file = m[2]!;
+    out.push({ version: Number(m[1]), file, sql: readFileSync(MIGRATIONS_DIR + file, 'utf8') });
+  }
   return out.sort((a, b) => a.version - b.version);
 }
 
@@ -66,6 +79,44 @@ const cols = (db: DatabaseSync, table: string): string[] =>
 let all: Mig[];
 beforeEach(() => {
   all = migrations();
+});
+
+/* ⚠⚠ **체크섬 핀** — 이 파일에서 가장 중요한 검사다.
+
+   sqlx 마이그레이터는 적용한 마이그레이션의 **SHA-384 를 `_sqlx_migrations.checksum` 에
+   저장하고 매 부팅에 대조**한다(실 DB 에서 확인). 텍스트가 **1바이트라도** 달라지면
+   "이미 적용된 마이그레이션이 수정됐다"로 판정해 **DB 를 아예 열지 못한다** — 즉 앱이
+   기존 사용자에게 죽는다.
+
+   무서운 점은 **새 DB 에선 절대 재현되지 않는다**는 것이다. 개발자는 멀쩡히 돌아가는 걸
+   보고 커밋하고, 터지는 건 데이터를 가진 사람뿐이다. 들여쓰기 한 칸·줄바꿈 CRLF 변환·
+   주석 한 줄이면 충분하다.
+
+   아래 값은 **실제 DB 에 저장된 체크섬**이다(2026-07-19 대조 확인). 이 테스트가 깨졌다면
+   둘 중 하나다:
+   ① 기존 마이그레이션 텍스트를 건드렸다 → **되돌려라.** 스키마를 바꾸려면 **새 버전을 추가**한다.
+   ② 줄바꿈이 CRLF 로 변환됐다 → `.gitattributes` 의 `*.rs text eol=lf` 를 확인해라. */
+const PINNED_CHECKSUMS: Record<number, string> = {
+  1: '535af917e2ef9ca17a1c872f',
+  2: 'f598f3f3bd83d6bf758ae56a',
+  3: 'de83cf7ed0adad247f491ef6',
+  4: '4499ebd2ce19b8897811af59',
+};
+
+describe('⚠⚠ 체크섬 핀 — 기존 마이그레이션은 불변이다', () => {
+  it('적용된 마이그레이션의 SHA-384 가 실 DB 의 값과 일치한다', async () => {
+    const { createHash } = await import('node:crypto');
+    for (const m of all) {
+      const pinned = PINNED_CHECKSUMS[m.version];
+      if (!pinned) continue; // 새로 추가된 버전 — 아직 배포 전이라 핀이 없다
+      const got = createHash('sha384').update(m.sql, 'utf8').digest('hex').slice(0, 24);
+      expect(got, `v${m.version} 의 SQL 이 바뀌었다 — 기존 DB 가 안 열린다. 위 주석을 읽어라.`).toBe(pinned);
+    }
+  });
+
+  it('줄바꿈이 LF 다 — CRLF 로 변환되면 위 체크섬이 전부 깨진다', () => {
+    for (const m of all) expect(m.sql, `v${m.version} 에 CRLF 가 섞였다`).not.toContain('\r');
+  });
 });
 
 describe('마이그레이션 — 파싱 자체', () => {

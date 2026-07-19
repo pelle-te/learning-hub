@@ -1,7 +1,25 @@
-//! db.rs — SQLite 스키마 선언(플랫폼 개편 2단계).
+//! db.rs — SQLite 스키마 선언(플랫폼 개편 2단계 · C-3 에서 SQL 을 파일로 분리).
 //!
 //! 마이그레이션을 **Rust 에 두는 이유**: 프런트가 DDL 을 좌우하면 배포본마다 스키마가 갈릴 수
 //! 있다. 여기 선언된 버전만이 진리이고, 프런트(`web/src/lib/db/`)는 데이터만 넣고 뺀다.
+//!
+//! ## ⚠ SQL 본문은 `../migrations/*.sql` 에 있다 — **그 파일이 SSOT 다**
+//!
+//! 호스트가 Cloudflare D1 로 정해지면서(설계서 §9-3b) **같은 스키마를 서버도 쓴다.** D1 이
+//! SQLite 라 스키마가 그대로 가는데, 그러면 "로컬용 한 벌 · 서버용 한 벌"이 생길 자리가 만들어
+//! 진다 — 이 저장소가 `rows.ts` ↔ `rows.rs` 로 이미 두 번 물린 병이다.
+//! 그래서 SQL 을 파일로 내리고 **양쪽이 같은 파일을 가리키게** 한다(wrangler 는
+//! `migrations_dir` 로 이 폴더를 본다). 생성기·`codegen:check` 를 쓰지 않은 이유는
+//! **원본을 공유할 수 있으면 생성하지 않는다**는 것 — 생성은 원본 공유가 불가능할 때의 차선책
+//! 이다(`gen-artifacts.mjs` 가 그 경우다. 원본이 부모 저장소에 있어 공유가 안 된다).
+//!
+//! ## ⚠⚠ 이미 적용된 마이그레이션의 SQL 은 **절대 수정하지 마라**
+//!
+//! sqlx 마이그레이터가 **SHA-384 체크섬**을 `_sqlx_migrations` 에 저장하고 매 부팅에 대조한다.
+//! 1바이트만 달라져도 "적용된 마이그레이션이 수정됐다"로 판정해 **기존 DB 를 못 연다.**
+//! 들여쓰기 한 칸·CRLF 변환·주석 한 줄이면 충분하고, **새 DB 에선 재현되지 않아** 개발자는
+//! 정상으로 보고 커밋한다. 스키마를 바꾸려면 **새 버전을 추가**한다.
+//! 방어 2겹: `.gitattributes` 의 `*.sql text eol=lf` · `web/test/dbMigrations.test.ts` 의 체크섬 핀.
 //!
 //! 설계 계약(§4-2단계 A-1): **성장 무제한 슬라이스만 행**으로 쪼갠다. 유계·저빈도(items·
 //! routine·degree·weekly)와 스칼라·마커는 `settings` 에 JSON 값 한 행씩.
@@ -21,48 +39,7 @@ pub fn migrations() -> Vec<Migration> {
             version: 1,
             description: "2단계 초기 스키마 — 행 슬라이스 + settings/runtime KV",
             kind: MigrationKind::Up,
-            sql: "
-            -- 행 슬라이스 중 '실제로 존재했던' 것들. 비어 있음과 없음을 구분하려면 필요하다
-            -- (completions:{} 는 행을 0개 만든다 → 이게 없으면 undefined 로 되살아난다).
-            CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-
-            -- 내보내기에 **포함**되는 스칼라·마커·유계 문서(items·routine·degree·weekly).
-            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-
-            -- 로컬 저장은 하되 내보내기에서 **빠지는** 층(RUNTIME_CACHE_KEYS).
-            -- persistence.ts 의 2계층 스코프를 테이블 경계로 직역한 것.
-            CREATE TABLE runtime_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-
-            -- completions[ds][sid|type] — 2단 중첩이라 전용 테이블.
-            CREATE TABLE completions (
-                ds TEXT NOT NULL, k TEXT NOT NULL, value TEXT NOT NULL,
-                PRIMARY KEY (ds, k)
-            );
-
-            -- 날짜 키 맵(dayOverrides·dayPlans·rituals) — slice 로 구분.
-            CREATE TABLE ds_map (
-                slice TEXT NOT NULL, ds TEXT NOT NULL, value TEXT NOT NULL,
-                PRIMARY KEY (slice, ds)
-            );
-
-            -- id 배열 슬라이스(cbms·backlog·blankResults·retentionLog·events·tasks).
-            -- ord 는 순서가 의미를 갖는 슬라이스(로그·정렬) 때문에 필수.
-            CREATE TABLE records (
-                slice TEXT NOT NULL, id TEXT NOT NULL, ord INTEGER NOT NULL, value TEXT NOT NULL,
-                PRIMARY KEY (slice, id)
-            );
-            CREATE INDEX idx_records_slice_ord ON records (slice, ord);
-
-            CREATE TABLE summaries (
-                sid TEXT NOT NULL, ord INTEGER NOT NULL, value TEXT NOT NULL,
-                PRIMARY KEY (sid, ord)
-            );
-
-            CREATE TABLE week_alloc (
-                wk TEXT NOT NULL, sid TEXT NOT NULL, value TEXT NOT NULL,
-                PRIMARY KEY (wk, sid)
-            );
-        ",
+            sql: include_str!("../migrations/001_initial.sql"),
         },
         /* v2(4단계-J) — **AppState 에 속하지 않는 사용자 저작물**.
 
@@ -80,7 +57,7 @@ pub fn migrations() -> Vec<Migration> {
             version: 2,
             description: "user_docs",
             kind: MigrationKind::Up,
-            sql: "CREATE TABLE docs (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+            sql: include_str!("../migrations/002_user_docs.sql"),
         },
         /* v3(5단계-D) — **동기화 가능한 데이터 모델**.
 
@@ -104,28 +81,7 @@ pub fn migrations() -> Vec<Migration> {
             version: 3,
             description: "sync — updated_at + tombstones",
             kind: MigrationKind::Up,
-            sql: "
-            ALTER TABLE settings    ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE completions ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE ds_map      ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE records     ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE summaries   ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE week_alloc  ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-            ALTER TABLE docs        ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
-
-            -- 기본키 열 수가 테이블마다 1~2개라 k1·k2 로 편다(k2='' = 단일키).
-            -- 공백으로 이어붙인 합성 키를 쓰지 않는 이유: 값에 공백이 들어가면
-            -- 서로 다른 행이 같은 키로 뭉갠다(id·ds 는 우리가 만드는 값이 아니다).
-            CREATE TABLE tombstones (
-                tbl TEXT NOT NULL,
-                k1 TEXT NOT NULL,
-                k2 TEXT NOT NULL DEFAULT '',
-                deleted_at INTEGER NOT NULL,
-                PRIMARY KEY (tbl, k1, k2)
-            );
-            -- 동기화는 '마지막 동기화 이후 지워진 것'을 묻는다 — 그 질의를 위한 인덱스.
-            CREATE INDEX idx_tombstones_deleted ON tombstones (deleted_at);
-        ",
+            sql: include_str!("../migrations/003_sync.sql"),
         },
         /* v4(C-1) — **오프라인 큐가 물어볼 질문을 대답 가능하게 만든다.**
 
@@ -143,18 +99,7 @@ pub fn migrations() -> Vec<Migration> {
             version: 4,
             description: "C-1 오프라인 큐 — updated_at 인덱스 + 기기 로컬 동기화 상태",
             kind: MigrationKind::Up,
-            sql: "
-            CREATE INDEX idx_settings_updated    ON settings    (updated_at);
-            CREATE INDEX idx_completions_updated ON completions (updated_at);
-            CREATE INDEX idx_ds_map_updated      ON ds_map      (updated_at);
-            CREATE INDEX idx_records_updated     ON records     (updated_at);
-            CREATE INDEX idx_summaries_updated   ON summaries   (updated_at);
-            CREATE INDEX idx_week_alloc_updated  ON week_alloc  (updated_at);
-            CREATE INDEX idx_docs_updated        ON docs        (updated_at);
-
-            -- 기기 로컬 동기화 상태. 지금 쓰는 키는 'watermark' 하나(= 여기까지 밀어올렸다).
-            CREATE TABLE sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        ",
+            sql: include_str!("../migrations/004_outbox.sql"),
         },
     ]
 }
