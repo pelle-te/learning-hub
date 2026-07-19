@@ -1,0 +1,28 @@
+{
+  // 러닝허브 클라우드 백엔드 — 설계서 §9-3b(호스트=Cloudflare Workers + D1).
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "learning-hub",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-19",
+
+  // ⚠ 관측 가능성은 선택이 아니다 — 설계서 §6 P2-9 가 "침해를 알아차릴 수단이 현재 0"이라
+  //   적었다. 무료 플랜에도 포함된다.
+  "observability": { "enabled": true },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "learning-hub",
+      "database_id": "c523aecf-2360-4c7c-8662-0f8d12320e3b",
+
+      /* ⚠⚠ **여기가 이 파일에서 가장 중요한 줄이다.**
+         `src-tauri/migrations/` 는 로컬 SQLite(Tauri)와 D1 이 **공유하는 단일 원천**이다
+         (`src-tauri/migrations/README.md`). 여기에 사본 폴더를 만들면 이 저장소가
+         `rows.ts` ↔ `rows.rs` 로 이미 두 번 물린 divergence 를 세 번째로 사는 것이다.
+
+         ⚠ 이 폴더의 `.sql` 은 sqlx 체크섬으로 **불변**이다. 기존 파일을 고치면 데스크톱
+         앱이 기존 DB 를 못 연다 — D1 쪽 사정으로 손대지 말 것. 스키마 변경은 새 버전 추가로. */
+      "migrations_dir": "../src-tauri/migrations"
+    }
+  ]
+}

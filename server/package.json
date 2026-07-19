@@ -1,0 +1,22 @@
+{
+  "name": "learning-hub-server",
+  "private": true,
+  "type": "module",
+  "description": "러닝허브 클라우드 백엔드(Cloudflare Workers + D1). web/ 과 분리된 별도 패키지 — 근거는 web/docs/cloudflare-런북.md §4-1.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "migrate:local": "wrangler d1 migrations apply learning-hub --local",
+    "migrate:remote": "wrangler d1 migrations apply learning-hub --remote",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260714.1",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.28.0"
+  },
+  "dependencies": {
+    "hono": "^4.9.0",
+    "zod": "^4.4.3"
+  }
+}

@@ -37,3 +37,14 @@ _읽을거리/seen.json
 _증시/latest.json
 _증시/daily/
 _증시/seen.json
+
+# 클라우드 백엔드(server/, C-4~) — Cloudflare Workers + D1.
+# node_modules 는 위 전역 규칙이 이미 덮는다. package-lock.json 은 **추적한다**(재현 빌드).
+# 로컬 D1 상태·빌드 캐시(기기별 · 용량 큼). ⚠ gitignore 는 행 끝 주석을 지원하지 않는다 —
+# 패턴 뒤에 주석을 붙이면 주석까지 패턴의 일부가 되어 조용히 아무것도 안 걸린다(실제로 겪음).
+server/.wrangler/
+# ⚠ 시크릿은 **절대 커밋 금지**. `.dev.vars` 는 wrangler 의 로컬 비밀 파일이고,
+#    운영 비밀은 `wrangler secret put` 으로 Cloudflare 에만 둔다(저장소엔 값이 없다).
+#    설계서 §5-2 가 CI 에 secret scan 을 요구한 것과 같은 이유 — 인증 자료를 다루기 시작했다.
+server/.dev.vars
+server/.dev.vars.*
