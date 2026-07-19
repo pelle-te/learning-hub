@@ -25,6 +25,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { MIGRATIONS } from '../src/lib/db/migrations';
 
 const DB_RS = fileURLToPath(new URL('../../src-tauri/src/db.rs', import.meta.url));
 const MIGRATIONS_DIR = fileURLToPath(new URL('../../src-tauri/migrations/', import.meta.url));
@@ -143,6 +144,18 @@ describe('마이그레이션 — 파싱 자체', () => {
 
   it('버전이 1부터 빠짐없이 이어진다 — 건너뛴 번호는 sqlx 가 조용히 무시한다', () => {
     expect(all.map((m) => m.version)).toEqual(all.map((_, i) => i + 1));
+  });
+});
+
+/* ⚠ C-6a — 폰은 `db.rs` 를 런타임에 읽을 수 없어(파일시스템이 없다) 순서를 `db/migrations.ts`
+   에 한 번 적는다. 본문은 `?raw` 로 같은 파일에서 오므로 사본이 아니지만, **목록은 갈릴 수
+   있다**: `db.rs` 에 007 을 넣고 여기를 빼먹으면 폰만 옛 스키마로 돌고 조용히 틀린다.
+   관습에 맡기지 않고 대조한다 — 이 저장소가 쌍둥이 구현으로 두 번 물린 부류라서. */
+describe('⚠ 폰 마이그레이션 목록이 db.rs 와 갈리지 않는다(C-6a)', () => {
+  it('버전·파일명·본문이 db.rs 선언과 정확히 일치한다', () => {
+    expect(MIGRATIONS.map((m) => ({ version: m.version, file: m.file, sql: m.sql }))).toEqual(
+      all.map((m) => ({ version: m.version, file: m.file, sql: m.sql })),
+    );
   });
 });
 

@@ -5,7 +5,7 @@
 
 러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 구성:
 
-- **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
+- **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173). **엔트리가 둘이다**(C-6): `index.html`=데스크톱 셸 · `phone.html`=**폰 웹앱**(`src/phone/`). 폰은 Workers 오리진에서 서빙되고 `lib/` 만 공유하며 화면은 따로다 — 이유는 클라우드전환-설계 §13-0(설계서의 "하위 컴포넌트 선별 재사용"이 실제로는 성립하지 않았다).
 - ~~**`serve.js`** — Node stdlib HTTP 백엔드(:8000)~~ → **4단계에서 삭제됐다.** 라우트 12종(파이썬 도구·산출물·리서치 잡·Ollama·뉴스)이 전부 셸의 Rust 커맨드가 됐다.
   - ✅ **"앱이 여는 포트가 0"이 복원됐다**(2026-07-20). 5단계-A 의 LAN 모바일 뷰 서버(`server.rs` 845줄)가 **은퇴**했다 — 클라우드가 같은 요구를 더 잘 채우고, 남겨 두면 C-6 폰 번들이 백엔드 둘·인증 두 벌을 상대해야 했다(LAN 쪽은 **만료 없는 PSK 를 URL 에 싣는** 방식이라 P0-2 가 금지한 형태다). 근거는 클라우드전환-설계 §9-1.
 - **`server/`** — **Cloudflare Workers + D1 클라우드 백엔드**(C-4~). 앱 데이터의 정본을 쥔다(불변식 I7). `web/src/lib/cloud/` 와 **zod 스키마·테이블 계약을 문자 그대로 공유**한다(서버도 TS 인 것이 Cloudflare 를 고른 실익). 게이트는 `cd server && npm run verify`.
@@ -15,6 +15,7 @@
 > **실행 경로 = 셸 하나, 저장 백엔드 = 둘.** 이 둘을 헷갈리지 말 것.
 >
 > - **배포**는 Tauri 셸뿐이다. `러닝허브_실행.bat`(옛 serve.js + Chrome `--app`)은 2단계-E에서 **은퇴**했다(안내 스텁만 남김) — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
+> - ⚠ **저장 백엔드가 셋이다**(C-6): 셸=SQLite(plugin-sql) · **폰=SQLite(wasm+OPFS, 워커)** · dev/트랙 A=localStorage. 폰 것은 **`enableBrowserDb()` 로 명시 opt-in** 이고 폰 진입점만 부른다 — 무조건 켜면 dev 와 스냅샷 59장이 통째로 백엔드를 갈아탄다. 그래서 저장 경로의 조건은 `isTauri()` 가 아니라 **`isSqlitePrimary()`** 다(폰은 Tauri 가 아닌데 SQLite 가 정본 — 이걸 틀리면 폰 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**).
 > - **`npm run dev` 와 트랙 A(스냅샷 59장)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 산출물 5종만 invoke 스텁으로 목업한다.
 > - ⚠ **오리진이 갈려 데이터는 자동 이관되지 않는다.** Chrome에서 쓰던 데이터가 있으면 반드시 기존 앱에서 내보내기 → 셸에서 가져오기. 셸 자신의 localStorage(1단계에 쓰던 것)는 **첫 부팅에 SQLite로 1회 자동 이관**된다(`initAppStore`).
 
@@ -35,6 +36,11 @@
 ```
 npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + knip + test:coverage
 npm run e2e      # 트랙 A — Playwright 시각/동작 스냅샷 (백엔드 없이 · 산출물은 invoke 스텁으로 목업)
+                 #   ⚠ C-6 에서 `phone.spec.ts` 가 붙었다 — 폰이 진짜 크로미움에서 뜨는지 +
+                 #   OPFS 저장소가 실제로 생기는지(wasm·워커가 살았다는 관측 가능한 증거).
+                 #   스냅샷은 안 찍는다. 정적 검사가 원리적으로 못 보는 층이라 여기 있다.
+npm run budget   # 번들 예산 — **엔트리별**(데스크톱/폰 초기 로드) + 전체 총합 2축.
+                 #   ⚠ 총합 축은 폴더를 직접 훑는다(매니페스트엔 워커·wasm 이 없다).
 npm run build    # tsc -b && vite build — Tauri 셸이 로드할 dist 재생성
 npm run e2e:shell # 트랙 B — 빌드된 exe 를 띄워 WebView2 안을 검사(사전 `npm run tauri:build:fast` 필요)
 ```
@@ -66,6 +72,8 @@ cd server && npm run verify   # 클라우드 백엔드 — typecheck + format + 
 
 - **e2e 스냅샷 함정:** `--update-snapshots`의 기본은 `changed`(2% 내 신규 UI가 안 박힘) → 신규 스냅샷은 `npm run e2e:update`(=all)로. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
 - 슬래시 명령 `/게이트`가 verify+build+budget(번들 예산)+e2e(+cargo 있으면 tauri:check·tauri:build·e2e:shell)를 돌려 압축 리포트만 반환한다(quick=verify만).
+- **Tailwind 규약의 집행자는 `eslint-plugin-better-tailwindcss`다**(C-6~ · 현재 `src/phone/**` 만 대상). 클래스가 CSS→JSX 로 옮겨가면 stylelint 검사 범위 밖으로 나가므로 **집행자만 교체**한 것이다. 임의값(`w-[137px]`)은 `no-restricted-classes` 패턴으로 막는다 — ⚠ 설계서가 말한 "임의값 룰"은 **그 플러그인에 없다**(v4.7.0 실측). C-7 이 feature 를 옮길 때마다 `files` 목록을 넓히고, **예외 둘**(반픽셀 font-size · 런타임 CSS 변수 주입)을 그때 판다(근거는 클라우드전환-설계 §14-3).
+- ⚠ **게이트는 병렬 작업(다른 세션·서브에이전트)이 멈춘 뒤에 돌린다.** 동시에 파일이 쓰이면 게이트가 시점에 의존해 **flaky 를 결함으로, 결함을 flaky 로** 읽는다(실측: `verify` 4건 실패 → 재실행 전량 통과, 원인은 코드가 아니었다).
 - **`lint:css`(stylelint)가 CSS 규약을 강제한다** — 생 hex 금지(색은 tokens.css 토큰만) · 브레이크포인트 3종(560/700/900)만. 설정 근거는 `stylelint.config.js` 주석. 규약을 '관습'에 두면 흘러내린다는 게 감사 결론이었다.
 
 ## 트리거 라우팅 (요청 유형 → 읽을 프로토콜)
@@ -128,7 +136,7 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - `web/docs/골든/` — 레퍼런스 feature(스타일 앵커)
 - `web/docs/평가루브릭.md`·`평가기록.md` — 다각도 채점 SSOT + 추세
 - `web/docs/개선루브릭.md`·`로드맵.md` — 개선 우선순위 채점 + 백로그 SSOT("다음 뭐")
-- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반. C-1(오프라인 큐) 완료 · 다음 C-2(경계 zod)
+- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반. **C-0~C-6 완료 · 다음 C-7(Tailwind 본편)**. ⚠ §13 이 C-6 이행 결과이고 **§9-4·§4 를 정정한다** — 그 두 절을 문자 그대로 읽으면 오도된다. Tailwind 규약 3가지의 SSOT 는 `src/phone/phone.css` 머리주석
 - `web/docs/cloudflare-런북.md` — **호스트 실행 절차서**(Cloudflare Workers + D1). 설계는 위 문서 §9-3b 가 SSOT, 여기는 "손으로 뭘 치는가"
 - `web/docs/oracle-런북.md` — ⚠ **보류**: 호스트를 Oracle 로 정했다가 뒤집었다(§9-3b). 실행하지 말 것 — 설계서가 인용하는 조사(한도 반토막·회수 임계값) 때문에 남겨 둔 이력 문서
 - `web/docs/플랫폼개편-설계.md` — **이력**: 0~5단계(Tauri 셸·SQLite·볼트 Rust·serve.js 해체) 결정 근거. ⚠ §10·§2 N4 는 새 문서가 정정했다 — 그대로 읽으면 오도된다(문서 상단 경고 참조)

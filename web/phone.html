@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- ⚠ `viewport-fit=cover` + `user-scalable` 미지정이 의도다. 확대를 막지 않는다 —
+         a11y 회귀이고, 이 앱은 성적·일정처럼 자세히 봐야 하는 데이터를 띄운다. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#050506" />
+    <meta name="description" content="러닝허브 — 폰에서 일정을 보고 할 일을 편집합니다." />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <title>러닝허브</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/phone/main.tsx"></script>
+  </body>
+</html>

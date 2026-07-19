@@ -25,9 +25,43 @@ const DB_URL = 'sqlite:learning-hub.db'; // src-tauri/src/db.rs 의 DB_URL 과 �
 
 let _db: Promise<Db> | null = null;
 
-/** DB 핸들(지연 로드·1회). 브라우저에선 null — 셸 전용 경로다. */
+/* ── 폰 백엔드(C-6a) ─────────────────────────────────────────────
+
+   ⚠ **기본은 꺼져 있고, 폰 진입점만 켠다.** 브라우저에서 무조건 SQLite 를 열면
+   `npm run dev` 와 **트랙 A 스냅샷 59장**이 통째로 저장 백엔드를 갈아탄다 — 그 둘은
+   localStorage 경로를 쓰도록 **의도적으로 남겨 둔 것**이고(`db/boot.ts` 가 계약으로 명시),
+   여기서 조용히 뒤집으면 시각 검증망과 개발 경로가 함께 죽는다.
+
+   그래서 스위치를 둔다: `phone.tsx` 만 `enableBrowserDb()` 를 부른다. 켜지 않으면
+   `getDb()` 의 거동은 C-6 이전과 **한 글자도 다르지 않다**. */
+let _browserDbEnabled = false;
+
+/** 폰 진입점 전용 — 이 실행 경로에서 브라우저 SQLite 를 쓰겠다고 선언한다. */
+export function enableBrowserDb(): void {
+  _browserDbEnabled = true;
+}
+
+/**
+ * 이 실행 경로에서 **SQLite 가 정본인가**(= 셸이거나 폰이다).
+ *
+ * ⚠ `isTauri()` 를 저장 경로의 조건으로 쓰던 자리를 이걸로 바꿔야 한다. 그 둘은 C-6 전까지
+ * 같은 뜻이었지만 이제 아니다 — 폰은 Tauri 가 아닌데 SQLite 가 정본이다. 조건을 안 바꾸면
+ * 폰의 편집이 localStorage 로 가고, **아웃박스는 SQLite 만 훑으므로 그 편집은 영원히
+ * 동기화되지 않는다**(= 조용한 유실. C-1·§12-1 이 두 번 물린 실패 모드와 같은 형태).
+ *
+ * 동기 함수인 것이 의도다 — 호출부(`useApp` 의 `flush`)가 동기 경로다.
+ */
+export function isSqlitePrimary(): boolean {
+  return isTauri() || _browserDbEnabled;
+}
+
+/** DB 핸들(지연 로드·1회). 셸이면 plugin-sql, 폰이면 wasm, 그 외 브라우저는 null. */
 export async function getDb(): Promise<Db | null> {
-  if (!isTauri()) return null;
+  if (!isTauri()) {
+    if (!_browserDbEnabled) return null;
+    const { getBrowserDb } = await import('./browserDb');
+    return getBrowserDb();
+  }
   _db ??= import('@tauri-apps/plugin-sql')
     .then((m) => m.default.load(DB_URL) as Promise<Db>)
     .then(async (db) => {

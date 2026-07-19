@@ -11,6 +11,10 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },
+  /* ⚠ `db/migrations.ts` 가 `../../src-tauri/migrations/*.sql` 를 `?raw` 로 든다 — 루트(web/)
+     **밖**이라 기본 fs 허용목록에 안 걸린다. 마이그레이션 SQL 을 web/ 으로 복사하는 대신
+     허용목록을 넓히는 이유는 단순하다: 복사본이 곧 이 저장소가 두 번 물린 divergence 다. */
+  server: { fs: { allow: [path.resolve(import.meta.dirname, '..')] } },
   test: {
     environment: 'node',
     include: ['test/**/*.test.{ts,tsx}'],

@@ -50,6 +50,31 @@ export function resetBootState(): void {
  * 어떤 실패도 앱을 못 뜨게 하지 않는다 — 실패하면 `_preloaded` 가 null 로 남아
  * 기존 localStorage 경로로 부팅한다(정본이 아직 거기 있으므로 안전한 폴백).
  */
+/**
+ * 폰 웹앱의 부팅 읽기(C-6). `phone/main.tsx` 가 `await` 한다.
+ *
+ * `initAppStore` 와 **한 가지가 결정적으로 다르다**: localStorage → SQLite 1회 이관을
+ * 하지 않는다. 폰에는 옮길 레거시 정본이 없고, 있다면 그건 **다른 오리진에서 온 남의
+ * 데이터**다. 빈 DB 는 여기서 "새 기기 — 아직 클라우드에서 안 받았다"로 읽히고, 진입점이
+ * 곧이어 `syncOnce()` 로 받아온다.
+ *
+ * ⚠ 그래서 빈 DB 에 `defaults()` 를 **쓰지 않는다**. 썼다면 그 기본값이 `updated_at` 을
+ * 달고 아웃박스에 실려 **클라우드의 진짜 데이터를 LWW 로 덮을** 수 있다 — 첫 부팅이
+ * 사용자의 전 데이터를 지우는 경로다. 빈 채로 두고 pull 을 기다리는 것이 유일하게 안전하다.
+ */
+export async function initPhoneStore(): Promise<void> {
+  try {
+    if (!(await isDbAvailable())) return;
+    seedStamp(await readMaxStamp()); // 어떤 쓰기보다 먼저 — 이유는 `initAppStore` 주석 참조
+    await initDocs();
+    const rows = await readRows();
+    setDiffBaseline(rows);
+    if (rows) _preloaded = rowsToState(rows);
+  } catch {
+    _preloaded = null; // 빈 화면으로 뜨고 동기화가 채운다. 부팅 실패보다 낫다.
+  }
+}
+
 export async function initAppStore(): Promise<void> {
   if (!isTauri()) return;
   try {

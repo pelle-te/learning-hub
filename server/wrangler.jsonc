@@ -9,6 +9,48 @@
   //   적었다. 무료 플랜에도 포함된다.
   "observability": { "enabled": true },
 
+  /* ── 정적 자산: 폰 웹앱을 **같은 오리진**에서 서빙한다(C-6) ──────────────────
+     wrangler 4.112.0 스키마(`node_modules/wrangler/config-schema.json`)로 확인한 필드만 쓴다.
+
+     ## 세 줄의 역할 — **실측**으로 확정했다(추측 아님)
+
+     `run_worker_first` 를 뺀 설정과 넣은 설정을 각각 실 workerd(Miniflare)에 올려 재 봤다:
+
+         경로            | run_worker_first 있음 | 없음
+         /               | 200 index.html        | 200 index.html
+         /plan           | 200 index.html        | **418 사용자 워커**
+         /api/health     | 418 사용자 워커       | 418 사용자 워커
+         /nope.js        | 200 index.html        | **418 사용자 워커**
+
+     읽어야 할 것 두 가지다:
+
+     ① **`run_worker_first` 가 없으면 SPA 폴백이 안 산다.** 사용자 워커가 있으면 자산 워커는
+        *존재하는 자산*만 내주고 나머지는 전부 워커로 흘려보낸다 — `not_found_handling` 이
+        발동하지 않는다. 그러면 폰에서 `/plan` 을 **새로고침하는 순간 Hono 의 404** 다.
+        `react-router` 를 쓰는 한 이건 선택이 아니라 요구다.
+
+     ② **`/api/*` 는 어느 쪽이든 워커에 닿지만, 이유가 다르다.** 없을 때는 "자산이 없어서 흘러온"
+        것이고(= 우연), 있을 때는 "그렇게 라우팅하라고 적어서"다(= 의도). 설계서 §6 P1-6 이
+        _"지금 유리하게 작동하지만 그건 의도가 아니라 우연"_ 이라 지적한 바로 그 구분이다.
+        우연에 기대면 **`web/dist` 안에 `/api/…` 이름의 파일이 하나 생기는 순간 API 가 가려진다**
+        (빌드 산출물은 우리가 매번 눈으로 확인하는 물건이 아니다). 여기선 그 경로가 원천 차단된다.
+
+     ⚠ 뒤집어 말하면 **`/api/*` 밖의 워커 라우트는 이제 자산 워커가 삼킨다.** 새 라우트를
+        `/api/` 밖에 만들 거면 이 배열에 같이 넣어야 한다 — 안 그러면 200 + index.html 이 온다.
+
+     검사는 `test/assets.test.ts` 가 실 workerd 로 잠근다(왜 roundtrip 이 아닌지는 그 파일 머리주석).
+
+     ⚠ `directory` 는 **빌드 산출물**이고 경로는 **이 파일 기준**으로 풀린다. 저장소에 없을 수
+        있으니 배포 전에 `cd web && npm run build` 가 선행해야 한다(런북 §7-6). ⚠ 폴더가 없거나
+        비면 wrangler/miniflare 는 **조용히 자산 0개로 동작**한다(실측) — 즉 배포가 "성공"하고
+        폰만 안 뜬다. 런북 §7-6 이 배포 후 확인을 요구하는 이유가 이것이다. */
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+    // binding 은 두지 않는다 — 사용자 워커가 자산을 직접 꺼내 줄 일이 없다(자산 워커가 전담).
+  },
+
   "d1_databases": [
     {
       "binding": "DB",

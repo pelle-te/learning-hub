@@ -9,6 +9,7 @@ import boundaries from 'eslint-plugin-boundaries';
 import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import sonarjs from 'eslint-plugin-sonarjs';
+import betterTailwind from 'eslint-plugin-better-tailwindcss';
 
 export default tseslint.config(
   // e2e(Playwright)는 별도 러너·tsconfig 밖 → 앱 lint에서 제외(Playwright가 자체 처리).
@@ -169,5 +170,50 @@ export default tseslint.config(
   {
     files: ['scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
+  },
+
+  /* ── Tailwind 규약 집행자(C-6 파일럿 → C-7 본편) ─────────────────────────────
+     `stylelint` 이 CSS 에서 강제하던 2가지(브레이크포인트 허용목록 · 생 hex 금지)는
+     클래스가 JSX 로 옮겨가면 **검사 대상 밖으로 나간다.** 결정로그가 그 사실을 짚어 뒀다:
+     _"규율은 소멸이 아니라 `better-tailwindcss` 로 **집행자만 교체**된다."_ 여기가 그 교체다.
+
+     ⚠ 지금은 `src/phone/**` 만 대상이다. C-7 이 feature 를 하나씩 옮길 때마다 이 목록을
+     넓힌다 — 한 번에 전체를 켜면 아직 CSS Modules 인 파일에서 오탐만 쏟아진다.
+
+     ⚠⚠ **설계서의 가정 하나가 틀렸다**: `플랫폼개편-설계.md` §4-6단계는 _"`[max-width:820px]`
+     임의값은 better-tailwindcss 의 **임의값 룰**을 명시적으로 켜야 막힌다"_ 고 적었는데,
+     v4.7.0 에 그런 룰은 **없다**(룰 15개 전량 확인). 대신 `no-restricted-classes` 의
+     `restrict` 패턴으로 막는다 — 결과는 같고 수단이 다르다. */
+  {
+    files: ['src/phone/**/*.tsx'],
+    plugins: { 'better-tailwindcss': betterTailwind },
+    settings: { 'better-tailwindcss': { entryPoint: 'src/phone/phone.css' } },
+    rules: {
+      'better-tailwindcss/no-unknown-classes': 'error',
+      'better-tailwindcss/no-conflicting-classes': 'error',
+      'better-tailwindcss/no-duplicate-classes': 'error',
+      'better-tailwindcss/enforce-consistent-class-order': 'error',
+      /* 임의값 금지 — 토큰 사다리를 우회하는 통로를 막는다(`phone.css` 규약 3).
+         ⚠ **C-7 이 예외를 둘 갖게 된다. 지금 미리 적어 둔다 — 그때 발견하면 이미 늦다:**
+         ① **반픽셀 font-size**(9.5/10.5/11.5px) — `stylelint.config.js:17-22` 가 왜 반픽셀
+            금지를 일부러 안 넣었는지 기록한다: 월 캘린더 `.cell` 이 고정 행 높이 +
+            `overflow:hidden` 이라 0.5px 상향이 **과목 칩을 통째로 잘라먹은** 실사고가 있다.
+            Tailwind `text-*` 는 정수 사다리라 그 값들이 전부 임의값이 된다.
+         ② **런타임 CSS 변수 인라인 주입** — `--seg` 4곳 · `--sub` · `--tint` 2곳. 동적 색은
+            **정의상 정적 클래스로 표현 불가**다. 이건 절대규칙 #3(색은 파생물)의 구현이라
+            없앨 수 없다. 예외로 파야 한다. */
+      'better-tailwindcss/no-restricted-classes': [
+        'error',
+        {
+          restrict: [
+            {
+              pattern: '.*\\[.*\\].*',
+              message:
+                '임의값 금지 — 간격은 --sp-*, 타이포는 --fs-* 토큰 사다리에서 온다. 필요하면 tokens.css 를 먼저 늘리세요(phone.css 규약 3).',
+            },
+          ],
+        },
+      ],
+    },
   },
 );

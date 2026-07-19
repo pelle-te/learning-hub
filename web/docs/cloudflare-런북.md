@@ -386,6 +386,7 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 - **평문 폴백 확인**: `http://…/health` 가 **HTTPS 로 리다이렉트되거나 거부**돼야 한다. ⚠ 200 이 평문으로 오면 P0-1 위반이다 — Oracle 런북 §5-4 의 그 검증은 호스트가 바뀌어도 **그대로 유효하다**
 - `deployments list` 에 두 환경이 **분리돼** 보인다
 - prod D1 에 dev 데이터가 **없다** ← 이걸 꼭 확인해라. 바인딩 이름이 같아서 섞기 쉽다
+- **정적 자산(C-6)** — `/` 와 `/plan` 이 200 `text/html`, `/api/health` 가 JSON. 절차와 함정은 **§7-6**
 
 ### 7-4. 왕복 검증은 **자동화돼 있다**(2026-07-20 신설)
 
@@ -406,6 +407,84 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 4. ⚠ `/api/sync/*` 에는 **걸지 말 것.** 이미 토큰이 필요하고, 여기 걸면 첫 전량 동기화(여러 배치로 나뉜다)가 자기 규칙에 막힌다.
 
 D1 카운터로 만들지 않은 이유: 공격받는 동안 **카운터 쓰기가 그 자체로 D1 일일 한도를 태운다** — 막으려던 것을 방어가 대신 하게 된다(§8-2 가 지목한 실패 모드).
+
+### 7-6. 정적 자산(폰 웹앱) 배포 — **같은 오리진**에서 나간다 (C-6)
+
+C-6 부터 폰 웹앱을 **API 와 같은 Workers 오리진**에서 서빙한다. 별도 호스팅(Pages·Netlify)을 두지 않는 이유는 설계서 §9-1 과 같다 — 오리진이 갈리면 **CORS·인증·배포가 두 벌**이 되고, 그 둘을 동기화하는 일이 새 작업으로 남는다.
+
+**설정은 `server/wrangler.jsonc` 의 `assets` 블록 하나다**(wrangler 4.112.0 스키마 기준):
+
+```jsonc
+"assets": {
+  "directory": "../web/dist",
+  "not_found_handling": "single-page-application",
+  "run_worker_first": ["/api/*"],
+}
+```
+
+#### 배포 절차 — ⚠ **순서가 있다**
+
+```powershell
+cd web;    npm run build       # ① dist 재생성 — 이게 실제로 배포되는 물건이다
+cd ..\server; npm run verify   # ② 게이트(자산 라우팅 검사 포함)
+npx wrangler deploy            # → dev   (자산은 wrangler 가 함께 올린다)
+npx wrangler deploy --env prod # → prod
+```
+
+> ⚠ **①을 빼먹으면 옛 화면이 배포된다.** CLAUDE.md 절대규칙 1("Tauri 셸이 prebuilt `web/dist/` 를 로드한다 → 소스 수정 후 반드시 빌드")이 **클라우드에도 그대로 적용된다** — 이제 같은 `dist` 를 데스크톱 셸과 폰이 **함께** 본다. `wrangler deploy` 는 `web` 빌드를 자동으로 돌려 주지 않는다(`npm run tauri:build` 와 다른 점이다).
+>
+> ⚠⚠ **`../web/dist` 가 없거나 비어도 배포는 "성공"한다**(실측). wrangler·miniflare 는 조용히 자산 0개로 동작한다 — 즉 API 는 멀쩡한데 **폰만 안 뜬다**. 아래 확인을 건너뛰지 마라.
+
+#### `/api/*` 가 SPA 폴백에 삼켜지지 않는 이유 — `run_worker_first`
+
+`not_found_handling: "single-page-application"` 은 "매치되는 자산이 없으면 `index.html` 을 준다"는 뜻이다. 그 규칙과 API 라우트가 **같은 오리진에서 충돌**한다. 실 workerd 로 두 설정을 재 봤다:
+
+| 경로          | `run_worker_first` 있음 | 없음                |
+| ------------- | ----------------------- | ------------------- |
+| `/`           | 200 `index.html`        | 200 `index.html`    |
+| `/plan`       | 200 `index.html`        | **404 (워커로 샘)** |
+| `/api/health` | 200 (워커)              | 200 (워커)          |
+| `/nope.js`    | 200 `index.html`        | **404 (워커로 샘)** |
+
+읽어야 할 것 둘:
+
+1. **그 줄이 없으면 SPA 폴백이 안 산다** — 폰에서 `/plan` 을 **새로고침하는 순간 404** 다. 사용자 워커가 있으면 자산 워커는 *존재하는 자산*만 내주고 나머지를 워커로 흘려보내기 때문이다.
+2. **`/api/*` 는 어느 쪽이든 워커에 닿지만 이유가 다르다** — 없을 때는 "자산이 없어서 흘러온" 것(우연)이고, 있을 때는 "그렇게 적어서"(의도)다. 설계서 §6 **P1-6** 이 지목한 구분이 정확히 이것이다. 우연에 기대면 `web/dist` 안에 `/api/…` 이름의 파일이 하나 생기는 순간 API 가 가려진다.
+
+> ⚠ 뒤집어 말하면 **`/api/*` 밖의 워커 라우트는 이제 자산 워커가 삼킨다.** 새 라우트를 `/api/` 밖에 만들 거면 `run_worker_first` 배열에 같이 넣어라 — 안 그러면 200 + `index.html` 이 온다.
+
+이 라우팅은 **`server/test/assets.test.ts` 가 실 workerd 로 잠근다**(`npm run verify` 에 포함). ⚠ `roundtrip.test.ts` 에는 넣을 수 없다 — `vitest-pool-workers` 0.18.6 의 `SELF` 는 자산 라우터를 건너뛴다(실측·그 파일 머리주석).
+
+#### CORS 는 이제 **아무도 안 쓴다**
+
+같은 오리진이 되면서 교차 출처 호출자가 **0** 이 됐다:
+
+| 호출자            | 어떻게 오나                              | CORS 관여                       |
+| ----------------- | ---------------------------------------- | ------------------------------- |
+| 폰 웹앱           | 같은 Workers 오리진                      | **없음 — 동일 출처**            |
+| 데스크톱 Tauri 셸 | 웹뷰가 아니라 **Rust(`reqwest`)가 중계** | **없음 — `Origin` 헤더가 없다** |
+
+데스크톱 쪽은 오해하기 쉬우니 근거를 적어 둔다: `web/src/lib/cloud/client.ts` 의 `send()` 가 `isTauri()` 면 IPC(`cloudHttp`)로 내려가고 그 끝이 `src-tauri/src/cloud.rs` 다(C-3 의 CSP 가 웹뷰 fetch 를 막아서 그렇게 만들어졌다). 따라서 `tauri://localhost` 라는 Origin 은 **애초에 발생하지 않는다.**
+
+그래도 허용목록 코드는 **지우지 않았다.** 지우면 "브라우저가 알아서 막아 주는" 상태로 돌아가는데 그건 다시 *우연히 안전*이다(P1-6 이 지적한 그 형태). 서버가 명시적으로 "허용목록이 비면 어떤 교차 출처도 열지 않는다"고 말하는 편이 낫고, 비용은 0 이다.
+
+> ⚠ **`HUB_ALLOWED_ORIGINS` 는 비워 두는 것이 정상 운영 상태다.** 설정할 이유는 폰 웹앱을 다른 오리진에 따로 올릴 때뿐이고, 그건 C-6 이 **일부러 택하지 않은** 구성이다. 와일드카드(`*`)는 넣지 마라 — 허용목록이 비어 폰이 안 붙는 실패는 즉시 드러나지만, 와일드카드로 열린 채 도는 것은 드러나지 않는다.
+
+#### 캐시 헤더
+
+- **API(`/api/*`)** — `no-store`. `index.ts` 의 미들웨어가 붙인다. 전부 개인 데이터라 캐시할 것이 없다.
+- **정적 자산** — 자산 워커가 전담하며 **Hono 를 아예 거치지 않는다.** 그래서 위 `no-store` 가 번들에 새어 붙지 않는다(붙으면 폰이 앱을 열 때마다 번들 전량을 셀룰러로 다시 받는다).
+- **HTML 진입점** — 자산 워커가 `public, max-age=0, must-revalidate` 를 붙인다(실측). `no-store` 는 아니지만 **재검증을 강제**하므로 옛 번들에 고착되지 않는다. `no-store` 로 바꾸려면 `_headers` 파일이나 자산을 워커로 끌어와 직접 서빙하는 코드가 필요한데, 얻는 것(304 대신 200)보다 대가가 크다 → **바꾸지 않는다.** 그 *성질*은 `assets.test.ts` 가 단언한다.
+
+#### 배포 후 확인
+
+```powershell
+curl.exe -I https://<워커>.workers.dev/            # 200 · content-type: text/html
+curl.exe -I https://<워커>.workers.dev/plan        # 200 · text/html  ← SPA 폴백
+curl.exe -s  https://<워커>.workers.dev/api/health # {"ok":true}      ← 자산에 안 삼켜짐
+```
+
+> ⚠ 세 번째가 `<!DOCTYPE html>` 을 뱉으면 `run_worker_first` 가 안 먹은 것이다. 두 번째가 404 면 `not_found_handling` 이 안 먹은 것이다. **폰으로 직접 열어 보기 전에 이 세 줄을 먼저 쳐라.**
 
 ---
 

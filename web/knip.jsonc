@@ -12,12 +12,23 @@
   //   실제로 쓰이게 한다.** `tableCols` 가 그 사례였다 — `collectOutbox` 가 같은 slice 를
   //   인라인으로 하고 있어서, 그걸 쓰게 바꾸니 중복도 사라지고 오진도 사라졌다.
   //   web 이 안 쓰는데 서버만 쓰는 것이 생기면 그건 **`server/` 안에 있어야 한다는 신호**다.
-  "entry": ["e2e/**/*.ts", "scripts/*.mjs", "test/**/*.{ts,tsx}"],
+  // ⚠ `src/phone/main.tsx` 는 명시한다(C-6). knip 은 `index.html` 의 진입점만 자동 인식하는데
+  // 폰은 두 번째 HTML 엔트리(`phone.html`)로 들어오므로 그 그래프를 통째로 못 본다 →
+  // 화면 5개가 전부 '미사용 파일'로 오진됐다. 워커도 같은 이유다(`new Worker(new URL(...))`).
+  "entry": [
+    "e2e/**/*.ts",
+    "scripts/*.mjs",
+    "test/**/*.{ts,tsx}",
+    "src/phone/main.tsx",
+    "src/lib/db/sqlite.worker.ts",
+  ],
   "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs"],
 
   // lint-staged: husky/git 훅이 package.json 설정으로만 부른다(import 없음).
   // stylelint-config-standard: stylelint.config.js가 문자열로 extends 한다(import 없음).
-  "ignoreDependencies": ["lint-staged", "stylelint-config-standard"],
+  // tailwindcss: `@tailwindcss/vite` 플러그인의 피어이고, 소스에서의 참조는 CSS 의
+  // `@import 'tailwindcss'`(src/phone/phone.css) 하나다 — knip 은 CSS 를 안 판다.
+  "ignoreDependencies": ["lint-staged", "stylelint-config-standard", "tailwindcss"],
 
   "ignoreExportsUsedInFile": true,
 

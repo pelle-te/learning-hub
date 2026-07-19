@@ -13,7 +13,7 @@ import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 import { writeAndVerify } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
-import { isTauri } from '@/lib/tauri';
+import { isSqlitePrimary } from '@/lib/db/sqlite';
 import { storage } from '@/lib/kv';
 import { announce, onSync } from '@/lib/sync';
 import { toast } from '@/shell/toast';
@@ -115,8 +115,11 @@ export const useApp = create<AppStore>()(
          생기는데(2단계-0 실측 ≈3.04MB), 가장 크고 항상 있는 KEY 가 빠지면 절벽에서 멀어진다.
          IDB 미러도 안 건다 — 그 층의 존재 이유가 "사이트 데이터 삭제로 localStorage 전소"인데
          셸에는 그 위협이 없다. (브라우저 경로에선 아래 else 로 그대로 유지된다.) */
-      if (isTauri()) {
-        pending = []; // 셸은 단일 윈도우 — rebase 상대가 없으므로 큐를 들고 있을 이유가 없다
+      /* ⚠ C-6 — 조건이 `isTauri()` 에서 `isSqlitePrimary()` 로 바뀌었다. 폰은 Tauri 가
+         아니지만 SQLite 가 정본이다. 여기를 안 바꾸면 폰 편집이 localStorage 로 가는데
+         **아웃박스는 SQLite 만 훑으므로 그 편집은 영원히 동기화되지 않는다**(조용한 유실). */
+      if (isSqlitePrimary()) {
+        pending = []; // 셸·폰 모두 단일 윈도우 — rebase 상대가 없으므로 큐를 들고 있을 이유가 없다
         void writeAndVerify(merged).then((r) => {
           if (!r.ok && !r.skipped) warnSaveFailure();
         });

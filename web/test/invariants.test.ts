@@ -9,6 +9,8 @@
       한쪽만 추가 시 런타임 "알 수 없는 탭" 카드 or 죽은 로더.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
@@ -103,5 +105,71 @@ describe('불변식 ③ 나브 표면(Wave⑥) 정합', () => {
   });
   it('surfaceHome은 그 표면 소속 탭을 가리킨다(스위처 착지점 정합)', () => {
     for (const sf of SURFACES) expect(surfaceOf(sf.home)).toBe(sf.key);
+  });
+});
+
+/* ============================================================
+   불변식 ④ — **JS 가 읽는 CSS 토큰은 실제로 정의돼 있다** (6단계/C-7 선행조건)
+
+   왜 이게 불변식이 되어야 하는가: `플랫폼개편-설계.md` §4-6단계가 "조용히 깨지는 것 3종"
+   으로 지목한 항목이다. Tailwind 의 `@theme` 는 **미사용으로 보이는 토큰을 트리셰이킹**
+   하는데, 아래 파일들은 토큰을 **JS 에서만** 읽으므로 Tailwind 눈에는 안 쓰이는 것으로 보인다.
+
+   그리고 그 셋은 **전부 폴백값을 갖고 있다**(`Graph.tsx` 의 `|| fb` · `AmbientCanvas` 의
+   `|| [0.02,…]`). 즉 토큰이 사라져도 **에러가 안 나고 틀린 색으로 렌더된다.**
+
+   더 나쁜 것은 시각 게이트가 이걸 못 잡는다는 점이다 — 0단계-G 에서 실증됐다:
+   `maxDiffPixelRatio: 0.02` + 단일 계열 팔레트라 **과목 색 전량 교체가 스냅샷 59장을
+   통과했다.** 6단계는 정의상 스냅샷을 대량 재생성하므로 그때 이 축은 완전히 무방비가 된다.
+
+   ⚠ 파일 목록을 손으로 적지 않는다 — `getComputedStyle` 을 쓰는 파일을 **찾아서** 판다.
+   네 번째 파일이 생겨도 자동으로 걸린다(손 목록은 반드시 드리프트한다).
+
+   ## ⚠ 이 테스트가 못 잡는 것 (과대평가 금지)
+
+   여기서 보는 것은 **원천(`tokens.css`)에 선언돼 있는가**이지 **빌드된 CSS 에 살아남았는가**가
+   아니다. 후자는 실제 번들을 봐야 하고 그건 e2e 의 몫이다. 그래도 이 테스트가 값이 있는 이유:
+   C-7 이 토큰을 `@theme` 로 **옮기면** 여기가 즉시 빨간불이 된다 — "토큰의 집이 바뀌었으니
+   JS 로 읽는 3곳을 손보라"는 신호가 정확히 그 시점에 온다. 조용히 지나가지 않는 것이 목적이다.
+============================================================ */
+describe('불변식 ④ JS 에서 읽는 CSS 토큰이 tokens.css 에 정의돼 있다', () => {
+  /* ⚠ `import.meta.url` 을 안 쓴다 — 이 파일은 jsdom 환경이라 그 값이 `http:` 스킴이고
+     `fileURLToPath` 가 던진다(실제로 물렸다). vitest 는 `web/` 에서 도므로 cwd 가 안전하다. */
+  const SRC = join(process.cwd(), 'src') + '/';
+
+  /** `src/` 전체에서 `getComputedStyle` 을 쓰는 파일 경로. */
+  function readersOfCssVars(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(e.name) && readFileSync(p, 'utf8').includes('getComputedStyle')) out.push(p);
+      }
+    };
+    walk(SRC);
+    return out;
+  }
+
+  const tokensCss = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8');
+  const readers = readersOfCssVars();
+
+  it('토큰을 JS 에서 읽는 파일이 존재한다(0개면 이 불변식이 아무것도 안 잰다)', () => {
+    // ⚠ 조용한 통과 방지 — 정규식이 망가지거나 경로가 바뀌면 0개가 되고, 그건 녹색이 아니라 고장이다.
+    expect(readers.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('그 파일들이 참조하는 --토큰이 전부 tokens.css 에 정의돼 있다', () => {
+    const missing: string[] = [];
+    for (const file of readers) {
+      const src = readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/'(--[a-z][\w-]*)'/g)) {
+        const name = m[1]!;
+        // 정규식을 안 쓴다 — 토큰명에 `-` 가 많아 이스케이프 실수가 나기 쉽고, 실제로 한 번
+        // 물렸다(전부 '없음'으로 나왔다). `--acc:` 는 `--acc2:` 에 안 걸리므로 문자열이면 충분하다.
+        if (!tokensCss.includes(`${name}:`)) missing.push(`${file.replace(SRC, '')} → ${name}`);
+      }
+    }
+    expect(missing, `tokens.css 에 없는 토큰:\n${missing.join('\n')}`).toEqual([]);
   });
 });

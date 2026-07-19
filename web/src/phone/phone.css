@@ -1,0 +1,83 @@
+/* ============================================================
+   phone/phone.css — 폰 웹앱의 스타일 진입점 · **Tailwind 파일럿**(C-6 · 설계서 §5-3).
+
+   ## 왜 여기가 파일럿인가
+
+   폰 웹앱은 스냅샷 베이스라인도 CSS Modules 레거시도 픽셀 결정도 없는 **그린필드**라
+   기존 59장을 한 장도 건드리지 않는다. 여기서 굳힌 규약이 C-7(본편)로 간다.
+
+   ## ⚠ 규약 1 — 색은 여전히 `tokens.css` 에서 온다
+
+   절대규칙 #3 은 "색은 저장값이 아니라 파생물"이다. Tailwind 를 들이면서 팔레트를 여기에
+   다시 적으면 **색의 원천이 둘이 되고**, 그건 규칙이 막으려던 바로 그 상태다. 그래서
+   `@theme` 는 팔레트를 *정의하지 않고* 토큰을 **가리킨다** — `--color-bg: var(--bg)`.
+
+   이게 성립하는 이유: `ThemeProvider` 가 `<html data-theme>` 를 토글하는데 `:root` 와
+   `<html>` 이 **같은 요소**라, 그 요소에서 `--bg` 가 바뀌면 같은 요소에 선언된
+   `--color-bg` 의 `var(--bg)` 도 함께 다시 계산된다. 즉 **테마 전환이 공짜로 따라온다**.
+   팔레트를 복사했다면 라이트 테마에서 조용히 틀렸을 것이다(이 저장소가 이미 겪은 결함:
+   다크 전용 hex 가 흰 패널 위에 그대로 놓여 대비 1.58:1).
+
+   ## ⚠ 규약 2 — 브레이크포인트는 안 쓴다
+
+   `stylelint.config.js` 가 560/700/900 3종만 허용하는데 그건 **데스크톱 셸**의 경계다.
+   폰 앱은 단일 폭이라 반응형 분기가 필요 없다 — 필요해지는 순간이 오면 그때 토큰을 먼저
+   정하고 여기에 추가한다(규약을 관습에 두면 흘러내린다는 게 감사 결론이었다).
+
+   ## ⚠ 규약 3 — 임의값(arbitrary value)은 기본 금지
+
+   `w-[137px]` 같은 값은 토큰 사다리를 우회한다. 간격은 `--sp-*`, 타이포는 `--fs-*` 에서
+   온 스케일만 쓴다. 예외가 필요하면 **토큰을 먼저 늘린다**.
+============================================================ */
+@import 'tailwindcss';
+
+@theme {
+  /* 색 — 정의가 아니라 **참조**다(머리주석 규약 1). tokens.css 가 단일 원천으로 남는다. */
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-txt: var(--txt);
+  --color-mut: var(--mut);
+  --color-acc: var(--acc);
+  --color-acc2: var(--acc2);
+  --color-on-acc: var(--on-acc);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-good: var(--good);
+
+  /* 간격·타이포·반경도 같은 규율 — 사다리는 tokens.css 가 소유한다. */
+  --spacing-1: var(--sp-1);
+  --spacing-2: var(--sp-2);
+  --spacing-3: var(--sp-3);
+  --spacing-4: var(--sp-4);
+  --spacing-5: var(--sp-5);
+  --spacing-6: var(--sp-6);
+
+  --text-2xs: var(--fs-2xs);
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-md: var(--fs-md);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --font-sans: var(--font-sans);
+}
+
+/* 폰 전용 바탕 — 셸의 크롬(레일·상단바)이 없으므로 여기가 앱 프레임이다.
+   ⚠ `min-height: 100dvh` — 모바일 브라우저 주소창이 접힐 때 `100vh` 는 실제 뷰포트보다
+   커서 바닥이 잘린다. dvh 가 그 축을 따라간다. */
+html,
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  margin: 0;
+  /* 폰에서 당겨서 새로고침·고무줄 스크롤이 앱 프레임을 흔드는 것을 막는다. */
+  overscroll-behavior-y: none;
+}

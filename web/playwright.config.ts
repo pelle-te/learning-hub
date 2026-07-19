@@ -28,10 +28,21 @@ export default defineConfig({
   // 비주얼 회귀: 폰트 렌더링 미세차 허용(0.2%) — 의미있는 레이아웃 변화만 잡는다.
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled' } },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  /* ⚠ **`reuseExistingServer` 를 껐다**(C-7 선행조건 · 설계서 §4-6단계 "조용히 깨지는 것" ④).
+     켜져 있으면 별도 터미널에 preview 가 떠 있을 때 Playwright 가 그걸 재사용하는데, 그
+     preview 는 **그때의 `dist` 를 물고 있다** — 즉 방금 빌드한 코드가 아니라 **옛 산출물에
+     스냅샷을 찍는다.** 같은 파일 위쪽이 SW stale 캐시(`serviceWorkers: 'block'`)는 막아 놨는데
+     stale dist 는 안 막혀 있었다. 두 함정이 같은 종류인데 하나만 막혀 있던 것이다.
+
+     이게 6단계에서 특히 위험한 이유: 전환의 유일한 안전망이 "feature 1개 → 그 스냅샷만
+     재생성 → diff 를 눈으로 확인"인데, stale dist 를 보면 **아무것도 안 바뀐 것처럼 통과**한다.
+     녹색이 "회귀 없음"이 아니라 "안 쟀음"을 뜻하게 된다.
+
+     대가는 회당 preview 기동 몇 초다. 검증망이 거짓말하는 것보다 싸다. */
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',
     url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

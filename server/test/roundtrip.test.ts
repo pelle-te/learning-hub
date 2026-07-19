@@ -12,6 +12,14 @@
 
    ⚠ 여기서 잡히는 부류는 전부 **정적 검사가 전량 녹색인 상태에서** 터진다. 그게 이 층의
    존재 이유다 — 설계서가 세 번 _"띄워보지 않으면 모른다"_ 고 적고도 만들지 않았던 층.
+
+   ## ⚠ 여기가 **못** 보는 것: 정적 자산 라우팅(C-6) → `test/assets.test.ts`
+
+   C-6 부터 같은 오리진에서 폰 웹앱(`web/dist`)이 함께 나간다. 그 라우팅(`/api/*` 우선 ·
+   SPA 폴백)은 **이 파일에서 잴 수 없다** — `vitest-pool-workers` 0.18.6 의 `SELF` 는
+   `miniflare.assets` 를 줘도 자산 라우터를 건너뛰고 사용자 워커로 곧장 들어간다(실측).
+   그래서 `test/assets.test.ts` 가 Miniflare 를 직접 띄워 그 층을 맡는다. 근거와 실측 표는
+   그 파일과 `wrangler.jsonc` 의 `assets` 주석에 있다.
 ============================================================ */
 import { applyD1Migrations, env, SELF } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
