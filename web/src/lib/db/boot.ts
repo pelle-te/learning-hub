@@ -16,7 +16,8 @@ import { isTauri } from '../tauri';
 import { initDocs } from './docs';
 import type { AppState } from '../types';
 import { rowsToState, stateToRows } from './rows';
-import { isDbAvailable, readRows, setDiffBaseline, writeRows } from './sqlite';
+import { isDbAvailable, readMaxStamp, readRows, setDiffBaseline, writeRows } from './sqlite';
+import { seedStamp } from './stamp';
 
 let _preloaded: AppState | null = null;
 let _migrated = false;
@@ -53,6 +54,11 @@ export async function initAppStore(): Promise<void> {
   if (!isTauri()) return;
   try {
     if (!(await isDbAvailable())) return;
+    /* ⚠ **어떤 쓰기보다 먼저** 타임스탬프 발급기에 씨앗을 심는다(C-1). 모듈 지역 변수라
+       재시작하면 0 으로 돌아가는데, 그 상태에서 시계가 뒤로 가 있으면 **이미 DB 에 쓴 값보다
+       작은 타임스탬프를 발급**해 그 편집이 워터마크 질의에 영영 안 걸린다(`stamp.ts` 참조).
+       아래 `initDocs` 의 1회 이관도 쓰기이므로 그보다 앞에 있어야 한다. */
+    seedStamp(await readMaxStamp());
     /* AppState 밖 사용자 저작물(내 요약·독후감·진로 메모)을 메모리로 끌어올린다(4단계-J).
        ⚠ **`readRows` 보다 먼저** 부른다 — `loadReads()` 는 동기이고 렌더 경로에서 불리므로,
        첫 렌더보다 늦게 채워지면 사용자에겐 "요약이 사라졌다"로 보인다. */

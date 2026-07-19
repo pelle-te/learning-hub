@@ -13,6 +13,7 @@
 ============================================================ */
 import { isTauri } from '../tauri';
 import { diffRows, type DbRows } from './rows';
+import { nextStamp } from './stamp';
 
 /** plugin-sql 의 Database 인스턴스(타입만 최소로 — 전체 타입을 끌어오면 브라우저 번들에 샌다). */
 interface Db {
@@ -130,6 +131,29 @@ export async function readRows(): Promise<DbRows | null> {
   return rows;
 }
 
+/**
+ * DB 에 이미 존재하는 **가장 큰 동기화 타임스탬프**(부팅 시 `seedStamp` 의 씨앗).
+ * 없거나 DB 미가용이면 0.
+ *
+ * ⚠ 툼스톤의 `deleted_at` 도 함께 본다 — 삭제도 같은 발급기를 쓰므로 여기서 빼면 재시작
+ * 직후에 **이미 쓴 값을 다시 발급**할 수 있다(단조성이 끊긴다).
+ */
+export async function readMaxStamp(): Promise<number> {
+  const rows = await selectDb<{ m: number | null }>(
+    `SELECT MAX(m) AS m FROM (
+        SELECT MAX(updated_at) AS m FROM settings
+        UNION ALL SELECT MAX(updated_at) FROM completions
+        UNION ALL SELECT MAX(updated_at) FROM ds_map
+        UNION ALL SELECT MAX(updated_at) FROM records
+        UNION ALL SELECT MAX(updated_at) FROM summaries
+        UNION ALL SELECT MAX(updated_at) FROM week_alloc
+        UNION ALL SELECT MAX(updated_at) FROM docs
+        UNION ALL SELECT MAX(deleted_at) FROM tombstones
+     )`,
+  );
+  return Number(rows?.[0]?.m ?? 0) || 0;
+}
+
 /** 마지막으로 DB 에 반영된 행 표현 — 증분 diff 의 기준. 읽기/쓰기 성공 때마다 갱신된다. */
 let _last: DbRows | null = null;
 
@@ -152,7 +176,9 @@ export async function writeRows(rows: DbRows): Promise<boolean> {
   // 기준선이 없으면(첫 쓰기·이관 직후) DB 를 한 번 읽어 세운다 — 없다고 전량 삭제하면
   // 위에 적은 안전 속성이 그대로 깨진다.
   if (!_last) _last = await readRows();
-  const stmts = diffRows(_last, rows);
+  /* ⚠ `diffRows` 의 기본값(`Date.now()`)에 맡기지 않는다 — 시계가 뒤로 점프하면 그 뒤 편집이
+     워터마크에 영영 안 걸린다(`stamp.ts` 머리주석). 발급을 한 지점으로 모으는 게 그 방어다. */
+  const stmts = diffRows(_last, rows, nextStamp());
   try {
     for (const s of stmts) await db.execute(s.sql, s.args);
     _last = rows;

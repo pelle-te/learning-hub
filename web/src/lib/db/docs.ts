@@ -25,6 +25,7 @@
 import { storage } from '../kv';
 import { isTauri } from '../tauri';
 import { execDb, selectDb } from './sqlite';
+import { nextStamp } from './stamp';
 
 /** SQLite 로 옮긴 키. 여기 없는 키는 `docGet`/`docSet` 이 localStorage 로 그대로 흘린다 —
  *  `lh_ui_v1`(테마·액센트)은 **기기별 설정**이라 일부러 안 옮겼다(폰은 폰의 설정을 쓴다).
@@ -64,7 +65,7 @@ export async function initDocs(): Promise<void> {
       const v = storage.getItem(k);
       if (v != null) {
         map.set(k, v);
-        void execDb(DOC_UPSERT, [k, v, Date.now()]);
+        void execDb(DOC_UPSERT, [k, v, nextStamp()]);
       }
     }
   }
@@ -85,7 +86,7 @@ export function docSet(key: string, value: string): boolean {
     _cache.set(key, value);
     /* ⚠ DB 쓰기 실패를 삼키지 않는다 — 정본을 쥔 층의 침묵이 2단계-E 에서 원인 추적을 막았다.
        사용자 토스트까지 띄우진 않는다: 메모리엔 있어 화면은 정상이고, 다음 저장이 다시 시도한다. */
-    void execDb(DOC_UPSERT, [key, value, Date.now()]).then((ok) => {
+    void execDb(DOC_UPSERT, [key, value, nextStamp()]).then((ok) => {
       if (!ok) console.error('[docs] 저장 실패:', key);
     });
     return true;

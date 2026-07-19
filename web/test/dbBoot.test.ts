@@ -25,6 +25,9 @@ vi.mock('@/lib/db/sqlite', () => ({
   // 그 실패가 AppState 프리로드까지 끌고 내려가면 안 된다(boot.ts 가 자체 try 로 끊는다).
   selectDb: vi.fn(async () => null),
   execDb: vi.fn(async () => true),
+  // C-1 — 타임스탬프 발급기의 씨앗(DB 의 최대 updated_at). 부팅의 **첫 쓰기보다 앞**에서
+  // 불리므로 여기서 빠지면 이관 경로 전체가 조용히 폴백으로 떨어진다(실제로 그렇게 깨졌다).
+  readMaxStamp: vi.fn(async () => 0),
 }));
 
 import { initAppStore, preloadedState, didMigrate, resetBootState } from '@/lib/db/boot';

@@ -127,5 +127,34 @@ pub fn migrations() -> Vec<Migration> {
             CREATE INDEX idx_tombstones_deleted ON tombstones (deleted_at);
         ",
         },
+        /* v4(C-1) — **오프라인 큐가 물어볼 질문을 대답 가능하게 만든다.**
+
+        v3 이 `updated_at` 을 심었지만 **그걸로 질의할 수단은 안 만들었다.** 오프라인 큐의
+        유일한 질문은 "마지막으로 보낸 뒤 바뀐 게 뭔가"(`updated_at > ?`)인데, 인덱스가
+        툼스톤에만 있어 나머지 7테이블은 **전체 스캔**이었다. 지금 데이터가 작아 체감이 없는
+        것이지 설계가 맞아서가 아니다 — 그리고 이 질의는 앞으로 **주기적으로** 돈다.
+
+        `sync_state` 를 **별도 테이블로** 두는 이유는 `docs`(v2)와 똑같다: `settings` 는
+        `rows.ts` 매퍼가 통째로 소유해 **모르는 키를 지운다**(전량 대조가 그 계약). 워터마크를
+        거기 얹으면 매퍼가 남의 데이터를 청소한다. 게다가 워터마크는 **기기 로컬**이라
+        (내 PC 가 어디까지 보냈나) 내보내기·동기화 대상이 되어선 안 된다 — 별도 테이블이면
+        그 배제가 **구조적으로** 보장된다(`runtime_cache` 에 넣으면 매퍼가 다시 소유한다). */
+        Migration {
+            version: 4,
+            description: "C-1 오프라인 큐 — updated_at 인덱스 + 기기 로컬 동기화 상태",
+            kind: MigrationKind::Up,
+            sql: "
+            CREATE INDEX idx_settings_updated    ON settings    (updated_at);
+            CREATE INDEX idx_completions_updated ON completions (updated_at);
+            CREATE INDEX idx_ds_map_updated      ON ds_map      (updated_at);
+            CREATE INDEX idx_records_updated     ON records     (updated_at);
+            CREATE INDEX idx_summaries_updated   ON summaries   (updated_at);
+            CREATE INDEX idx_week_alloc_updated  ON week_alloc  (updated_at);
+            CREATE INDEX idx_docs_updated        ON docs        (updated_at);
+
+            -- 기기 로컬 동기화 상태. 지금 쓰는 키는 'watermark' 하나(= 여기까지 밀어올렸다).
+            CREATE TABLE sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        ",
+        },
     ]
 }
