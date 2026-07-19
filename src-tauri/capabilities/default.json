@@ -1,7 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계에서 fs/notification/http 가 추가된다). ⚠ core:window:default 는 조회 전용이라 allow-destroy/allow-close 가 없다 — 프런트에서 onCloseRequested 를 쓰는 순간(2단계 비동기 flush) allow-destroy 를 함께 켜야 하고, 안 켜면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 창이 영영 안 닫힌다(2026-07-19 실측).",
+  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계에서 fs/notification/http 가 추가된다). ⚠ core:window:allow-destroy 는 2단계-C 에서 켰다 — 프런트가 onCloseRequested 로 닫기를 보류하고 비동기 SQL 쓰기를 기다린 뒤 직접 destroy 하기 때문. core:window:default 는 조회 전용이라 이게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 창이 영영 안 닫힌다(1단계 실측). 이 둘은 **항상 같이 간다** — 훅을 지우면 이 권한도 지울 것.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open", "sql:allow-load", "sql:allow-execute", "sql:allow-select"]
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "core:window:allow-destroy"
+  ]
 }

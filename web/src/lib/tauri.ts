@@ -50,9 +50,39 @@ export async function workspaceStatus(): Promise<WorkspaceStatus | null> {
    그게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 **창이 영영 안 닫힌다**.
    측정되지 않은 이득을 위해 "앱이 안 닫힐 수 있는" 실패 경로를 새로 만드는 거래였다.)
 
-   ⚠ **2단계에서는 다시 필요해진다.** 그때 flush 가 비동기(Rust invoke)가 되는데 `pagehide` 는
-   **동기 핸들러만** 보장하므로 await 가 잘린다. 그때 이 훅을 되살리되 `capabilities/default.json`
-   에 `core:window:allow-destroy` 를 함께 켜야 한다 — 안 켜면 앱이 안 닫힌다. */
+   ▶ **2단계에서 되살렸다(아래 `installCloseGuard`).** 근거는 이번에도 추론이 아니라 실측이다 —
+   트랙 B `2단계-C` 케이스가 "디바운스 대기 중 창을 닫으면 비동기 SQL 쓰기가 잘린다"를 실제로
+   보여줬다(설계의 예측이 이번엔 맞았다. 1단계와 반대 결과라, 재본 것 자체가 값을 했다).
+   `core:window:allow-destroy` 를 함께 켰다 — 안 켜면 Tauri 가 닫기를 보류한 채 destroy 가
+   ACL 에 막혀 **창이 영영 안 닫힌다**(1단계 실측). */
+
+/** 창 닫기 가드 — 닫기를 잠깐 보류하고 `beforeClose` 를 끝낸 뒤 창을 파괴한다.
+ *
+ *  ⚠ 이 함수는 **반드시 창을 닫아야 한다.** `beforeClose` 가 던지든 늦든 destroy 는 불린다
+ *  (1단계에서 "앱이 안 닫히는" 실패를 실제로 만든 적이 있어, 저장보다 닫힘을 우선한다).
+ *  타임아웃을 두는 이유도 같다 — 저장이 걸리면 사용자는 앱을 끌 수 없게 된다.
+ *
+ *  브라우저에선 no-op(창 개념이 셸 전용). 해제 함수를 돌려준다. */
+export async function installCloseGuard(beforeClose: () => Promise<void>, timeoutMs = 3000): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const win = getCurrentWindow();
+    const un = await win.onCloseRequested(async (e) => {
+      e.preventDefault(); // 우리가 destroy 할 때까지 보류
+      try {
+        await Promise.race([beforeClose(), new Promise((r) => setTimeout(r, timeoutMs))]);
+      } catch {
+        /* 저장 실패가 앱을 못 닫게 만들지는 않는다 */
+      }
+      await win.destroy();
+    });
+    return un;
+  } catch {
+    // 훅 등록 자체가 실패하면 **가드 없이 평소대로 닫히게** 둔다(닫힘 > 저장).
+    return () => {};
+  }
+}
 
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {

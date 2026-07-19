@@ -108,6 +108,58 @@ test('2단계-D — SQLite 경로가 JSON 정본과 일치한다(양방향 대�
   }
 });
 
+/* 2단계-C 측정 — **비동기 쓰기가 창 닫기에서 살아남는가.**
+
+   설계 §8 은 "flush 가 비동기(invoke)가 되면 `pagehide` 는 동기 핸들러만 보장하므로 await 가
+   잘린다"며 `onCloseRequested` 훅 + `core:window:allow-destroy` 를 요구한다. 그건 **명세의
+   진술**이지 관측이 아니다 — 1단계에서 똑같은 형태의 추론("pagehide 발화가 보장되지 않는다")이
+   실측에서 뒤집혀 훅 하나를 만들었다가 되돌린 이력이 있다. 그때 그 훅은 창이 영영 안 닫히는
+   실패 경로를 실제로 만들었다.
+
+   그래서 훅을 짓기 **전에** 잰다. 지금은 정본이 아직 localStorage 라 이 테스트가 빨간불이어도
+   사용자 데이터는 안전하다 — 측정하기에 정확히 좋은 시점이고, 2단계-E 에서 정본이 뒤집히면
+   이 계약이 곧 데이터 보존 계약이 된다. */
+test('2단계-C — 디바운스 대기 중 창을 닫아도 비동기 SQL 쓰기가 살아남는가', async () => {
+  let shell: Shell = await launchShell();
+  const readSqlTheme = (s: Shell) =>
+    s.page.evaluate(async () => {
+      const w = window as unknown as {
+        __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+      };
+      // ⚠ 먼저 연결을 연다 — `getDb()` 는 지연 로드라 편집이 한 번도 없던 세션에선 DB 가
+      // 아직 안 열려 있고, 그 상태로 select 하면 "database not loaded" 로 죽는다.
+      // (2단계-E 에서 부팅 읽기 경로가 생기면 앱이 이걸 먼저 하게 된다.)
+      await w.__TAURI_INTERNALS__.invoke('plugin:sql|load', { db: 'sqlite:learning-hub.db' });
+      const rows = (await w.__TAURI_INTERNALS__.invoke('plugin:sql|select', {
+        db: 'sqlite:learning-hub.db',
+        query: "SELECT value FROM settings WHERE key = 'theme'",
+        values: [],
+      })) as { value: string }[];
+      const ls = JSON.parse(localStorage.getItem('study_planner_v3') || '{}') as { theme?: string };
+      return { sql: rows[0] ? (JSON.parse(rows[0].value) as string) : undefined, ls: ls.theme };
+    });
+
+  try {
+    const before = await readSqlTheme(shell);
+    await shell.page.getByRole('button', { name: /테마 전환/ }).click();
+    // 디바운스(400ms)가 끝나기 전에 닫는다 — 이게 이 측정의 전부다.
+    await closeShell(shell);
+
+    shell = await launchShell();
+    const after = await readSqlTheme(shell);
+    // localStorage 를 함께 보는 이유: 둘 다 안 바뀌었으면 flush 자체가 안 돈 것이고,
+    // localStorage 만 바뀌었으면 **비동기 SQL 쓰기만** 잘린 것이다. 원인이 갈린다.
+    expect(after.ls, '동기 localStorage 조차 안 저장됐다 — flush 경로가 아예 안 돌았다').not.toBe(before.ls);
+    expect(after.sql, '비동기 SQL 쓰기가 창 닫기에서 잘렸다 → 닫기 가드가 안 걸렸다').not.toBe(before.sql);
+
+    // 원복.
+    await shell.page.getByRole('button', { name: /테마 전환/ }).click();
+    await shell.page.waitForTimeout(900);
+  } finally {
+    await closeShell(shell);
+  }
+});
+
 /* 이 파일의 핵심 — 설계 §8 "동기 flush 계약 파괴"가 가리키던 자리.
 
    설계는 "Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 `useApp` 언로드 안전망이 안 걸린다"고

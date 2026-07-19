@@ -25,10 +25,22 @@ export interface ParityReport {
 }
 
 let _last: ParityReport = { ok: true, mismatched: [], skipped: true };
+let _inflight: Promise<unknown> | null = null;
 
 /** 마지막 대조 결과(설정 탭 진단·테스트가 읽는다). */
 export function lastParity(): ParityReport {
   return _last;
+}
+
+/** 진행 중인 SQL 쓰기가 끝날 때까지 기다린다(없으면 즉시 resolve).
+    창 닫기 가드가 쓴다 — **실측(2026-07-19)**: 디바운스 대기 중 창을 닫으면 비동기 SQL 쓰기가
+    통째로 잘린다(트랙 B `2단계-C` 케이스). 동기 localStorage 는 `pagehide` 로 지켜지지만
+    `await` 가 걸린 경로는 못 지켜지므로, 정본이 SQLite 로 뒤집히는 2단계-E 전에 이 대기가 필요하다. */
+export function whenSettled(): Promise<void> {
+  return Promise.resolve(_inflight).then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 /** 최상위 슬라이스별로 갈린 곳을 찾는다 — 통짜 비교는 "다르다"까지만 알려줘 진단이 안 된다. */
@@ -49,7 +61,17 @@ function diffSlices(a: AppState, b: AppState): string[] {
  * SQLite 에 같은 상태를 기록하고 되읽어 대조한다.
  * 호출부(useApp.flush)를 **막지 않는다** — 실패해도 localStorage 정본은 이미 저장됐다.
  */
-export async function mirrorAndVerify(state: AppState): Promise<ParityReport> {
+export function mirrorAndVerify(state: AppState): Promise<ParityReport> {
+  // 체인으로 이어 붙인다 — 동시 실행하면 두 스냅샷 쓰기가 서로 섞여 마지막 것이 정본이 아닐 수 있다.
+  // 그리고 `whenSettled()` 가 기다릴 대상이 하나로 모인다.
+  const next = Promise.resolve(_inflight)
+    .catch(() => undefined)
+    .then(() => runMirror(state));
+  _inflight = next;
+  return next;
+}
+
+async function runMirror(state: AppState): Promise<ParityReport> {
   if (!(await isDbAvailable())) {
     _last = { ok: true, mismatched: [], skipped: true };
     return _last;

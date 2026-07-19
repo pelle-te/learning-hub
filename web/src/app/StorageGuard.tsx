@@ -8,9 +8,27 @@
 ============================================================ */
 import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
+import { installCloseGuard } from '@/lib/tauri';
+import { whenSettled } from '@/lib/db/dual';
+import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 
 export default function StorageGuard() {
+  /* 창 닫기 가드(2단계-C) — 셸에서만. 디바운스 대기 중 창을 닫으면 동기 localStorage 는
+     `pagehide` 로 지켜지지만 **비동기 SQL 쓰기는 잘린다**(트랙 B 실측). 닫기를 잠깐 보류하고
+     지금 저장 → SQL 왕복 완료까지 기다린 뒤 창을 파괴한다.
+     여기 두는 이유: StorageGuard 가 이미 "매 정상 부팅 1회 도는 내구성 관심사"라 결이 같다. */
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    void installCloseGuard(async () => {
+      useApp.getState().flushNow(); // 디바운스 건너뛰고 동기 정본부터 확정
+      await whenSettled(); // 그 flush 가 띄운 SQL 쓰기까지 대기
+    }).then((u) => {
+      un = u;
+    });
+    return () => un?.();
+  }, []);
+
   useEffect(() => {
     let alive = true;
     void ensureDurableStorage().then((r) => {

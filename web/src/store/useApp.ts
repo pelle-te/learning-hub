@@ -66,6 +66,10 @@ export interface AppStore {
   mutate: (recipe: (s: AppState) => void) => void;
   /** 상태 통째 교체(가져오기·되돌리기·복구) + 즉시 영속. */
   loadState: (s: AppState) => void;
+  /** 디바운스를 건너뛰고 지금 저장한다(창 닫기 가드 전용).
+   *  `pagehide` 안전망과 달리 **호출 시점을 밖에서 정할 수 있어야** 닫기를 보류한 채
+   *  비동기 SQL 쓰기까지 끝낼 수 있다(2단계-C 실측: 안 그러면 그 쓰기가 잘린다). */
+  flushNow: () => void;
   /** 서버/외부 캐시 write-through — schedule() *입력*인 _knowState 전용(graphPriority).
    *  plan-무관 캐시(_ankiLive·_icsExport 등)는 useRuntime store가 소유 — state 참조를 갈지 않아
    *  selectSchedule 재계산이 없다(B1/B3). 영속 스코프(내보내기 제외·로컬 유지)는 두 경로 동일. */
@@ -173,6 +177,9 @@ export const useApp = create<AppStore>()(
       state: bootSafely(),
       mutate(recipe) {
         commit(recipe);
+      },
+      flushNow() {
+        flush();
       },
       loadState(next) {
         pending = []; // 통째 교체 — 이전 편집 의도는 무효(가져오기/복구가 새 정본)
