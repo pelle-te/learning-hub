@@ -4,11 +4,12 @@
    같은 쿼리 캐시(['vault']·['ankiFile']·['vaultHandle'])를 호출한다(코드 이동 아님 · 두 곳에서 같은 훅).
    여기선 '연결→항목 추가'만 — 해제/실시간 due/트리 상세는 연동 탭 소유. 탭 이동 없이 과목을 넣는다.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject } from '@/lib/vault';
+import { pickAndScanVault, chaptersFromVault, scanVaultViaShell, type VaultScan, type VaultSubject } from '@/lib/vault';
+import { isTauri } from '@/lib/tauri';
 import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
 import { makeItem, jsq } from '@/lib/utils';
@@ -25,6 +26,22 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   const [busy, setBusy] = useState<'' | 'vault' | 'anki'>('');
   const [err, setErr] = useState('');
 
+  /* 셸에선 통합 탭을 거치지 않고 여기로 바로 올 수 있다 — 그때 `['vault']` 가 비어 있으면
+     "볼트가 없다"처럼 보인다. 캐시가 비었을 때만 읽는다(있으면 그게 더 최신이거나 같다). */
+  useEffect(() => {
+    if (!isTauri() || qc.getQueryData(['vault'])) return;
+    let alive = true;
+    void scanVaultViaShell().then((s) => {
+      if (alive && s) qc.setQueryData(['vault'], s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [qc]);
+
+  /* 셸(3단계)에선 볼트가 `<워크스페이스>/knowledge` 라 폴더를 묻지 않는다. 부팅에 이미 읽혀
+     있고 감시가 갱신하므로 이 버튼 자체가 필요 없다 — 아래 렌더에서 숨긴다.
+     여기 남은 경로는 브라우저(dev·트랙 A)용이다. */
   const doScanVault = async () => {
     setErr('');
     setBusy('vault');
@@ -86,17 +103,19 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     <div className={ds.card} style={{ marginBottom: 14 }}>
       <div className={ds.row} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
         <b style={{ flex: 1 }}>📁 볼트 / Anki에서 불러오기</b>
-        <Button sm variant="primary" disabled={!!busy} onClick={doScanVault}>
-          {busy === 'vault' ? (
-            <>
-              <span className={ds.spin} /> 스캔 중…
-            </>
-          ) : scan ? (
-            '🔄 볼트 다시 스캔'
-          ) : (
-            '볼트 폴더 연동'
-          )}
-        </Button>
+        {!isTauri() && (
+          <Button sm variant="primary" disabled={!!busy} onClick={doScanVault}>
+            {busy === 'vault' ? (
+              <>
+                <span className={ds.spin} /> 스캔 중…
+              </>
+            ) : scan ? (
+              '🔄 볼트 다시 스캔'
+            ) : (
+              '볼트 폴더 연동'
+            )}
+          </Button>
+        )}
         <Button sm disabled={!!busy} onClick={doScanAnki}>
           {busy === 'anki' ? (
             <>

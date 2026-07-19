@@ -6,7 +6,7 @@
 러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 구성:
 
 - **`web/`** — React 19 + Vite 6 + TS SPA(프런트). `npm run dev`(:5173).
-- **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 파이썬 도구 실행·산출물 서빙·리서치 잡·LLM 프록시 제공. **prebuilt `web/dist/`를 서빙**한다. (볼트 스캔은 백엔드가 아니라 **프런트의 File System Access**(`web/src/lib/vault.ts`)가 한다 — 서버 없이도 동작하는 게 설계 의도.)
+- **`serve.js`** — Node stdlib HTTP 백엔드(:8000). `/api/*`로 파이썬 도구 실행·산출물 서빙·리서치 잡·LLM 프록시 제공. **prebuilt `web/dist/`를 서빙**한다. (볼트는 serve.js가 안 읽는다 — 3단계부터 **셸의 Rust**(`src-tauri/src/vault.rs`)가 읽고 감시한다. 브라우저에선 프런트의 File System Access가 폴백.)
 - **`src-tauri/`** — Tauri 2 데스크톱 셸. **유일한 배포 진입점**(2단계-E). `web/dist` 를 WebView2 로 띄우고 `serve.js` 를 sidecar 로 spawn·정리하며, **앱 데이터의 정본인 SQLite**(`learning-hub.db`)를 소유한다. `npm run tauri:dev|build`.
 - dev에선 Vite(:5173)가 `/api`를 :8000으로 프록시해 동일출처처럼 동작.
 
@@ -86,7 +86,8 @@ web/src/
 serve.js      /api/* (stdlib). 라우트 목록은 **serve.js가 단일 원천** — 여기 열거하지 않는다
               (열거본 4벌이 전부 서로 다르게 낡았던 이력. `grep "'/api/" serve.js`로 확인).
               동작 계약은 `web/test/serve.test.ts`(0단계-A)가 잠근다 = 4단계 Rust 포팅의 동등성 명세.
-src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** · sidecar.rs=serve.js
+src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
+              **vault.rs=볼트 읽기+notify 감시(3단계)** · sidecar.rs=serve.js
               spawn/헬스체크/**고아 선점**/정리. 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
               ⚠ 고아 선점: 앱이 강제 종료되면 node가 8000을 물고 남는다(Destroyed 미발화) — 재실행 시
               /api/ping으로 우리 서버인지 + 워크스페이스가 같은지 보고 **같으면 입양, 다르면 교체**한다.
