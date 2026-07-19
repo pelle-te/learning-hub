@@ -8,7 +8,7 @@
 ============================================================ */
 import { getArtifact, type CoachFeedback } from './api';
 import { idbMirror, idbLoad } from './idb';
-import { storage } from './kv';
+import { docGet, docSet } from './db/docs';
 import { announce } from './sync';
 import { rid } from './utils';
 
@@ -74,10 +74,11 @@ function coerce(v: unknown): ReadsLocal {
   };
 }
 
-/** 로컬 연습/독서 로드(동기) — localStorage 1차. 파싱 실패해도 빈 값(throw X). */
+/** 내 요약·독서 로드(**동기**) — 셸은 부팅에 올린 메모리, 브라우저는 localStorage(`db/docs.ts`).
+ *  파싱 실패해도 빈 값(throw X). 동기여야 하는 이유: 팔레트·Reads 탭이 렌더 경로에서 부른다. */
 export function loadReads(): ReadsLocal {
   try {
-    return coerce(JSON.parse(storage.getItem(LKEY) || 'null'));
+    return coerce(JSON.parse(docGet(LKEY) || 'null'));
   } catch {
     return empty();
   }
@@ -85,29 +86,26 @@ export function loadReads(): ReadsLocal {
 
 /** localStorage가 비었을 때 IDB 미러에서 복구(사이트 데이터 삭제 후 부팅). 없으면 null. */
 export async function recoverReadsFromIDB(): Promise<ReadsLocal | null> {
-  if (storage.getItem(LKEY)) return null;
+  if (docGet(LKEY)) return null;
   try {
     const json = await idbLoad(IDB_KEY);
     if (!json) return null;
     const r = coerce(JSON.parse(json));
-    storage.setItem(LKEY, JSON.stringify(r));
+    docSet(LKEY, JSON.stringify(r));
     return r;
   } catch {
     return null;
   }
 }
 
-/** 저장 — localStorage(동기) + IDB 미러(비차단). 저장 성공 여부 반환. */
+/** 저장 — 셸은 메모리 즉시 + SQLite 비동기, 브라우저는 localStorage(동기) + IDB 미러.
+ *  분기는 `db/docs.ts` 가 흡수한다 — 이 파일은 어디에 저장되는지 모른다. */
 export function saveReads(r: ReadsLocal): boolean {
   const json = JSON.stringify(r);
-  idbMirror(json, IDB_KEY);
-  try {
-    storage.setItem(LKEY, json);
-    announce({ kind: 'reads' }); // 다른 탭의 읽을거리 화면 라이브 갱신
-    return true;
-  } catch {
-    return false; // 저장공간 가득 — 호출부가 안내
-  }
+  idbMirror(json, IDB_KEY); // 브라우저 전용 방어층(셸엔 '사이트 데이터 삭제' 위협이 없다)
+  const ok = docSet(LKEY, json);
+  if (ok) announce({ kind: 'reads' }); // 다른 탭의 읽을거리 화면 라이브 갱신
+  return ok;
 }
 
 /** 백업 파일에 동봉된 읽을거리 블롭(_reads) 복원 — 내 요약·독후감은 사용자의 유일한 저작물이라

@@ -15,7 +15,17 @@ const { readRows, writeRows, isDbAvailable, setDiffBaseline } = vi.hoisted(() =>
   isDbAvailable: vi.fn(),
   setDiffBaseline: vi.fn(),
 }));
-vi.mock('@/lib/db/sqlite', () => ({ readRows, writeRows, isDbAvailable, setDiffBaseline, getDb: vi.fn() }));
+vi.mock('@/lib/db/sqlite', () => ({
+  readRows,
+  writeRows,
+  isDbAvailable,
+  setDiffBaseline,
+  getDb: vi.fn(),
+  // 4단계-J — 저작물 저장소(db/docs.ts)가 쓰는 통로. 모킹에서 빠지면 initDocs 가 터지는데,
+  // 그 실패가 AppState 프리로드까지 끌고 내려가면 안 된다(boot.ts 가 자체 try 로 끊는다).
+  selectDb: vi.fn(async () => null),
+  execDb: vi.fn(async () => true),
+}));
 
 import { initAppStore, preloadedState, didMigrate, resetBootState } from '@/lib/db/boot';
 import { stateToRows } from '@/lib/db/rows';

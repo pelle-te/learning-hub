@@ -13,6 +13,7 @@
 import { boot } from '../persistence';
 import { storage } from '../kv';
 import { isTauri } from '../tauri';
+import { initDocs } from './docs';
 import type { AppState } from '../types';
 import { rowsToState, stateToRows } from './rows';
 import { isDbAvailable, readRows, setDiffBaseline, writeRows } from './sqlite';
@@ -52,6 +53,10 @@ export async function initAppStore(): Promise<void> {
   if (!isTauri()) return;
   try {
     if (!(await isDbAvailable())) return;
+    /* AppState 밖 사용자 저작물(내 요약·독후감·진로 메모)을 메모리로 끌어올린다(4단계-J).
+       ⚠ **`readRows` 보다 먼저** 부른다 — `loadReads()` 는 동기이고 렌더 경로에서 불리므로,
+       첫 렌더보다 늦게 채워지면 사용자에겐 "요약이 사라졌다"로 보인다. */
+    await initDocs();
     const rows = await readRows();
     if (rows) {
       // 증분 diff 의 기준선 — 세우지 않으면 첫 쓰기가 DB 를 한 번 더 읽는다(불필요한 왕복).

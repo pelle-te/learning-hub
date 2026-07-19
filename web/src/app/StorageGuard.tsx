@@ -9,7 +9,7 @@
 import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
 import { installCloseGuard } from '@/lib/tauri';
-import { whenSettled } from '@/lib/db/dual';
+import { whenSettled } from '@/lib/db/write';
 import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 

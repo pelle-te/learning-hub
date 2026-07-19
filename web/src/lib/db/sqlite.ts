@@ -52,6 +52,36 @@ export async function getDb(): Promise<Db | null> {
   }
 }
 
+/* ── 범용 1문장 실행/조회(4단계-J) ────────────────────────────────
+   `docs` 테이블(AppState 밖 사용자 저작물)이 쓰는 얇은 통로다. 아래 `readRows`/`writeRows` 는
+   `AppState` 전용 매퍼와 짝이라 재사용할 수 없어서, **SQL 만 아는 층**의 규약(이 파일은 로직을
+   두지 않는다)을 지킨 채 두 함수를 더 둔다. */
+
+/** 1문장 실행. 성공 여부만 돌려주고 **실패를 삼키지 않는다**(로그를 남긴다). */
+export async function execDb(query: string, values: unknown[] = []): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    await db.execute(query, values);
+    return true;
+  } catch (e) {
+    console.error('[db] execute 실패:', query, e);
+    return false;
+  }
+}
+
+/** 1문장 조회. DB 미가용·실패는 **null**(빈 배열과 구분해야 한다 — 전자는 "모름", 후자는 "없음"). */
+export async function selectDb<T>(query: string, values: unknown[] = []): Promise<T[] | null> {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    return await db.select<T[]>(query, values);
+  } catch (e) {
+    console.error('[db] select 실패:', query, e);
+    return null;
+  }
+}
+
 /** SQLite 가 이 실행 경로에서 쓸 수 있는가(브라우저면 false). */
 export async function isDbAvailable(): Promise<boolean> {
   return (await getDb()) !== null;

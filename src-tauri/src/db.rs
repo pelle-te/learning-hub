@@ -16,11 +16,12 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 pub const DB_URL: &str = "sqlite:learning-hub.db";
 
 pub fn migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "2단계 초기 스키마 — 행 슬라이스 + settings/runtime KV",
-        kind: MigrationKind::Up,
-        sql: "
+    vec![
+        Migration {
+            version: 1,
+            description: "2단계 초기 스키마 — 행 슬라이스 + settings/runtime KV",
+            kind: MigrationKind::Up,
+            sql: "
             -- 행 슬라이스 중 '실제로 존재했던' 것들. 비어 있음과 없음을 구분하려면 필요하다
             -- (completions:{} 는 행을 0개 만든다 → 이게 없으면 undefined 로 되살아난다).
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -62,5 +63,24 @@ pub fn migrations() -> Vec<Migration> {
                 PRIMARY KEY (wk, sid)
             );
         ",
-    }]
+        },
+        /* v2(4단계-J) — **AppState 에 속하지 않는 사용자 저작물**.
+
+        내 요약·독후감(`lh:reads`)과 진로 메모·즐겨찾기(`atlas.*`)는 앱 상태가 아니라서 위 테이블
+        어디에도 안 들어가고, 2단계까지 localStorage 에 남아 있었다. 2단계가 "사용자 저작물이라
+        정본과 같은 곳에 있는 게 맞다"고 적고 4단계로 미뤄 둔 항목이다.
+
+        지금 갚는 이유는 5단계다: 모바일 뷰는 **폰이 PC 의 SQLite 를 직접 읽는** 모델이라,
+        localStorage 에 남은 저작물은 폰에서 **원리적으로 안 보인다**.
+
+        `settings` 를 재사용하지 않고 테이블을 나눈 이유: 저기는 `AppState` 매퍼(`rows.ts`)가
+        통째로 소유해서 **모르는 키를 지운다**(전량 대조가 그 계약이다). 성격이 다른 값을 얹으면
+        매퍼가 남의 데이터를 청소하게 된다. */
+        Migration {
+            version: 2,
+            description: "user_docs",
+            kind: MigrationKind::Up,
+            sql: "CREATE TABLE docs (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+        },
+    ]
 }

@@ -14,7 +14,7 @@
    `_reads`(lib/reads.ts)와 같은 사이드카 관용구지만, 저기는 IDB 미러·전용 스키마를 가진
    독립 데이터 레이어고 여기는 **평문 JSON KV 값의 통짜 보존**이라 층을 나눈다.
 ============================================================ */
-import { storage } from './kv';
+import { docGet, docSet } from './db/docs';
 import { announce } from './sync';
 import { UI_KEY } from './uiState';
 
@@ -40,7 +40,7 @@ export function exportLocalExtras(): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of LOCAL_EXTRA_KEYS) {
     try {
-      const raw = storage.getItem(k);
+      const raw = docGet(k);
       if (raw == null) continue;
       out[k] = JSON.parse(raw);
     } catch {
@@ -61,12 +61,8 @@ export function importLocalExtras(v: unknown): LocalExtraKey[] {
     if (!Object.hasOwn(src, k)) continue;
     const val = src[k];
     if (val === undefined) continue;
-    try {
-      storage.setItem(k, JSON.stringify(val));
-      restored.push(k);
-    } catch {
-      /* 저장공간 가득 등 — 이 키만 실패 */
-    }
+    // docSet: 셸이면 SQLite(`atlas.*`), 아니면 localStorage — 저장 위치 분기는 db/docs.ts 소유.
+    if (docSet(k, JSON.stringify(val))) restored.push(k);
   }
   // 복원값은 메모리에 이미 로드된 소비자(Atlas useState·Control useState·useUI)보다 새롭다.
   // 알리지 않으면 다음 편집이 **낡은 메모리 상태로 복원본을 덮어써 방금 되살린 데이터를 지운다**.

@@ -17,7 +17,7 @@ import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
-import { lastParity } from '@/lib/db/dual';
+import { lastParity } from '@/lib/db/write';
 import ds from '@/styles/ds.module.css';
 import st from './Settings.module.css';
 import type { AppState } from '@/lib/types';

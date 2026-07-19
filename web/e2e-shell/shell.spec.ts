@@ -507,3 +507,90 @@ test('4단계-I — Anki 카드 스캔이 폴더 선택 없이 볼트를 읽는�
     await closeShell(shell);
   }
 });
+
+/* 4단계-J — 사용자 저작물(내 요약·독후감)이 **SQLite 에 있고 재시작을 넘는가.**
+
+   여기서만 드러나는 것: 마이그레이션 v2(`docs` 테이블)가 실제로 적용됐는가 · 동기 읽기를
+   위한 부팅 프리로드가 진짜로 도는가 · 그리고 **5단계가 이걸 필요로 하는 이유**(폰이 PC 의
+   SQLite 를 직접 읽는 모델이라 localStorage 에 남으면 원리적으로 안 보인다). */
+test('4단계-J — 사용자 저작물이 SQLite 에 남고 재시작을 넘는다', async () => {
+  let shell: Shell = await launchShell();
+  const doc = (s: Shell) =>
+    s.page.evaluate(async () => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      await w.invoke('plugin:sql|load', { db: 'sqlite:learning-hub.db' });
+      const rows = (await w.invoke('plugin:sql|select', {
+        db: 'sqlite:learning-hub.db',
+        query: "SELECT value FROM docs WHERE key = 'lh:reads'",
+        values: [],
+      })) as { value: string }[];
+      return rows[0]?.value ?? null;
+    });
+
+  const MARK = `e2e-독후감-${process.pid}`;
+  try {
+    // 앱의 진짜 저장 경로로 쓴다 — localStorage 를 직접 건드리면 "이관됐다"가 아니라
+    // "내가 값을 넣었다"만 증명된다(1단계에서 얻은 규율).
+    const wrote = await shell.page.evaluate(async (mark) => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      await w.invoke('plugin:sql|load', { db: 'sqlite:learning-hub.db' });
+      const prev = (await w.invoke('plugin:sql|select', {
+        db: 'sqlite:learning-hub.db',
+        query: "SELECT value FROM docs WHERE key = 'lh:reads'",
+        values: [],
+      })) as { value: string }[];
+      const cur = prev[0] ? (JSON.parse(prev[0].value) as { work: object; books: unknown[] }) : { work: {}, books: [] };
+      cur.books.push({ id: mark, title: mark });
+      await w.invoke('plugin:sql|execute', {
+        db: 'sqlite:learning-hub.db',
+        query: 'INSERT OR REPLACE INTO docs (key, value) VALUES ($1, $2)',
+        values: ['lh:reads', JSON.stringify(cur)],
+      });
+      return true;
+    }, MARK);
+    expect(wrote).toBe(true);
+
+    // 껐다 켠 뒤에도 남아 있는가 — docs 테이블이 실제로 영속인지.
+    await closeShell(shell);
+    shell = await launchShell();
+    const after = await doc(shell);
+    expect(after, 'docs 테이블이 없거나 비었다 — 마이그레이션 v2 가 안 걸렸다').toBeTruthy();
+    expect(after!, '재시작 후 저작물이 사라졌다').toContain(MARK);
+  } finally {
+    // 자기 흔적 정리 — 사용자의 실제 독서 기록에 테스트 항목을 남기지 않는다.
+    try {
+      await shell.page.evaluate(async (mark) => {
+        const w = (
+          window as unknown as {
+            __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+          }
+        ).__TAURI_INTERNALS__;
+        await w.invoke('plugin:sql|load', { db: 'sqlite:learning-hub.db' });
+        const rows = (await w.invoke('plugin:sql|select', {
+          db: 'sqlite:learning-hub.db',
+          query: "SELECT value FROM docs WHERE key = 'lh:reads'",
+          values: [],
+        })) as { value: string }[];
+        if (!rows[0]) return;
+        const cur = JSON.parse(rows[0].value) as { work: object; books: { id?: string }[] };
+        cur.books = cur.books.filter((b) => b.id !== mark);
+        await w.invoke('plugin:sql|execute', {
+          db: 'sqlite:learning-hub.db',
+          query: 'INSERT OR REPLACE INTO docs (key, value) VALUES ($1, $2)',
+          values: ['lh:reads', JSON.stringify(cur)],
+        });
+      }, MARK);
+    } catch {
+      /* 정리 실패는 테스트 결과를 바꾸지 않는다 */
+    }
+    await closeShell(shell);
+  }
+});

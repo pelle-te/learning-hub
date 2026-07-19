@@ -1,15 +1,25 @@
 /* ============================================================
-   db/dual.ts — 양방향 검증 구간(플랫폼 개편 2단계-D).
+   db/write.ts — **셸의 앱 상태 정본 쓰기 경로** + 되읽기 자기검증.
 
-   계약: **localStorage 가 아직 정본이고, SQLite 는 같은 상태를 나란히 기록한다.**
-   매 flush 마다 SQL 로 쓴 뒤 되읽어 JSON 경로와 대조한다. 불일치는 조용히 넘기지 않고
-   개발 콘솔에 슬라이스 단위로 보고한다 — "언젠가 봤더니 데이터가 달랐다"를 막는 게 이 구간의 존재 이유다.
+   ⚠ **이 파일은 2단계-D 에 `dual.ts`("양방향 검증 구간")로 태어났고, 그 헤더는 "localStorage 가
+   아직 정본이고 SQLite 는 나란히 기록한다 · 이 층은 2단계-E 에서 통째로 사라진다"고 적고 있었다.
+   둘 다 거짓이 됐다.** 2단계-E 에서 사라지기는커녕 **정본 쓰기 그 자체**가 됐다(`useApp.flush`
+   가 셸에서 부르는 유일한 저장 경로 · `useApp.ts` 참조). 4단계-J 에서 이름과 문서를 실제에 맞췄다.
+
+   그 드리프트가 위험했던 이유: 옛 주석이 "실패해도 localStorage 정본은 이미 저장됐다",
+   "사용자가 할 수 있는 일이 없다"고 적고 있었다. 셸에선 **실패가 곧 데이터 유실**이라
+   정반대다 — 이 파일을 고치러 온 사람이 그 문장을 믿으면 경고를 지우는 쪽으로 판단한다.
+
+   ## 지금의 계약
+
+   · **셸**: `writeAndVerify` 가 정본을 쓴다. 실패는 `useApp` 이 사용자에게 경고한다(무시 금지).
+   · **브라우저(dev·트랙 A)**: `isDbAvailable()` 이 거짓 → `skipped` 로 즉시 반환하고
+     localStorage 경로가 저장을 맡는다(2·3단계와 같은 폴백 규율).
 
    왜 쓰기만 하지 않고 **되읽어** 대조하는가: `stateToRows`/`rowsToState` 왕복은
-   `dbRows.test.ts` 가 이미 잠갔다. 여기서 남은 미지는 그 사이의 **SQL 층**(타입 강제 변환·
-   NULL 처리·트랜잭션)이고, 그건 실제로 디스크를 왕복해 봐야만 드러난다.
-
-   이 층은 2단계-E 에서 통째로 사라진다(JSON 경로 제거 = SQLite 가 정본). 그때까지만 산다.
+   `dbRows.test.ts` 가 이미 잠갔다. 남은 미지는 그 사이의 **SQL 층**(타입 강제 변환·NULL 처리)이고,
+   그건 실제로 디스크를 왕복해 봐야만 드러난다. 2단계-E 의 `SQLITE_BUSY`·WAL 사고가 정확히
+   거기서 나왔다 — 검증을 떼면 그 부류가 다시 조용해진다.
 ============================================================ */
 import { stateToRows, rowsToState } from './rows';
 import { readRows, writeRows, isDbAvailable } from './sqlite';
@@ -35,7 +45,7 @@ export function lastParity(): ParityReport {
 /** 진행 중인 SQL 쓰기가 끝날 때까지 기다린다(없으면 즉시 resolve).
     창 닫기 가드가 쓴다 — **실측(2026-07-19)**: 디바운스 대기 중 창을 닫으면 비동기 SQL 쓰기가
     통째로 잘린다(트랙 B `2단계-C` 케이스). 동기 localStorage 는 `pagehide` 로 지켜지지만
-    `await` 가 걸린 경로는 못 지켜지므로, 정본이 SQLite 로 뒤집히는 2단계-E 전에 이 대기가 필요하다. */
+    `await` 가 걸린 경로는 못 지켜진다. 정본이 SQLite 인 지금 이 대기는 **데이터 보존 계약**이다. */
 export function whenSettled(): Promise<void> {
   return Promise.resolve(_inflight).then(
     () => undefined,
@@ -58,20 +68,22 @@ function diffSlices(a: AppState, b: AppState): string[] {
 }
 
 /**
- * SQLite 에 같은 상태를 기록하고 되읽어 대조한다.
- * 호출부(useApp.flush)를 **막지 않는다** — 실패해도 localStorage 정본은 이미 저장됐다.
+ * 상태를 SQLite 에 쓰고 되읽어 대조한다. **셸에선 이것이 정본 저장이다.**
+ * 호출부(`useApp.flush`)를 막지 않지만(그래야 UI 가 안 멈춘다), **실패를 삼키지도 않는다** —
+ * `ParityReport.ok` 가 거짓이면 호출부가 사용자에게 경고한다. 옛 이름 `mirrorAndVerify` 의
+ * "mirror" 는 부차적 사본을 뜻해 오해를 불렀다(정본을 미러라 부르면 실패를 가볍게 다루게 된다).
  */
-export function mirrorAndVerify(state: AppState): Promise<ParityReport> {
+export function writeAndVerify(state: AppState): Promise<ParityReport> {
   // 체인으로 이어 붙인다 — 동시 실행하면 두 스냅샷 쓰기가 서로 섞여 마지막 것이 정본이 아닐 수 있다.
   // 그리고 `whenSettled()` 가 기다릴 대상이 하나로 모인다.
   const next = Promise.resolve(_inflight)
     .catch(() => undefined)
-    .then(() => runMirror(state));
+    .then(() => runWrite(state));
   _inflight = next;
   return next;
 }
 
-async function runMirror(state: AppState): Promise<ParityReport> {
+async function runWrite(state: AppState): Promise<ParityReport> {
   if (!(await isDbAvailable())) {
     _last = { ok: true, mismatched: [], skipped: true };
     return _last;
@@ -90,13 +102,14 @@ async function runMirror(state: AppState): Promise<ParityReport> {
     const mismatched = diffSlices(state, rowsToState(back));
     _last = { ok: !mismatched.length, mismatched, skipped: false };
     if (mismatched.length) {
-      // 개발 중에만 시끄럽게 — 사용자에게 토스트를 띄우진 않는다(이 구간에서 정본은 여전히
-      // localStorage 라 사용자가 할 수 있는 일이 없고, 매 저장 경고는 무시를 학습시킨다).
-      console.warn('[2단계 양방향 대조] SQL 경로가 JSON 경로와 다릅니다:', mismatched);
+      /* ⚠ 셸에선 이 불일치가 **정본이 의도와 다르게 저장됐다**는 뜻이다. 콘솔 경고는 진단용이고,
+         사용자에게 알리는 책임은 호출부(`useApp` → `warnSaveFailure`)에 있다 — 여기서 토스트를
+         띄우면 같은 사건을 두 층이 각자 알리게 된다. */
+      console.warn('[db] 저장한 상태가 되읽은 것과 다릅니다:', mismatched);
     }
     return _last;
   } catch (e) {
-    console.error('[db] 대조 중 예외', e);
+    console.error('[db] 저장/대조 중 예외', e);
     _last = { ok: false, mismatched: [`<예외: ${(e as Error).message}>`], skipped: false };
     return _last;
   }

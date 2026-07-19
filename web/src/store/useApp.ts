@@ -11,7 +11,7 @@ import { boot, persist, serialize, setDone, defaults, CORRUPT_KEY, KEY } from '@
 import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
-import { mirrorAndVerify } from '@/lib/db/dual';
+import { writeAndVerify } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
 import { isTauri } from '@/lib/tauri';
 import { storage } from '@/lib/kv';
@@ -117,7 +117,7 @@ export const useApp = create<AppStore>()(
          셸에는 그 위협이 없다. (브라우저 경로에선 아래 else 로 그대로 유지된다.) */
       if (isTauri()) {
         pending = []; // 셸은 단일 윈도우 — rebase 상대가 없으므로 큐를 들고 있을 이유가 없다
-        void mirrorAndVerify(merged).then((r) => {
+        void writeAndVerify(merged).then((r) => {
           if (!r.ok && !r.skipped) warnSaveFailure();
         });
         return;
