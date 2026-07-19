@@ -142,6 +142,20 @@ export async function artifactRead<T = unknown>(name: string): Promise<ArtifactO
   return call<ArtifactOut<T>>('artifact_read', { name });
 }
 
+/** 파이썬 도구 실행 결과 — Rust `tools::RunOut` 과 1:1. `stats` 는 프런트가 붙인다(`toolStats.ts`). */
+export interface RunToolOut {
+  ok: boolean;
+  out: string;
+  code: number;
+  label: string;
+}
+
+/** 화이트리스트 도구 1종을 셸에서 실행한다(4단계-C).
+ *  동시성 캡·타임아웃·프로세스 트리 종료는 전부 Rust 가 소유한다 — 캡이 차 있으면 throw. */
+export function shellRunTool(tool: string, subject?: string): Promise<RunToolOut> {
+  return call<RunToolOut>('run_tool', { tool, subject: subject ?? null });
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

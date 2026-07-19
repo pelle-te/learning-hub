@@ -6,7 +6,7 @@
    4단계(serve.js 해체) 진행 중 — 라우트가 하나씩 Rust 커맨드로 옮겨간다. **소비처는 무변경**이
    판정 기준이라, 전송 분기는 전부 이 파일 안에 가둔다(`isTauri()` 분기 · 에러 분류 번역).
 ============================================================ */
-import { ARTIFACT_NOT_FOUND, artifactRead, isTauri } from './tauri';
+import { ARTIFACT_NOT_FOUND, artifactRead, isTauri, shellRunTool } from './tauri';
 
 export interface PingResponse {
   ok: boolean;
@@ -19,9 +19,16 @@ export interface RunResult {
   ok: boolean;
   out: string;
   code: number;
-  stats?: unknown;
   label?: string;
 }
+/* ⚠ **`stats` 를 뺐다(4단계-C).** serve.js 는 도구 stdout 을 정규식 6종으로 파싱해 `stats` 를
+   실어 보냈는데, **프런트에서 이 필드를 읽는 곳이 하나도 없다** — 소비처 3곳(`useCollectTool`
+   `Discovery`·`Ledger`)이 전부 `ok`·`code`·`out` 만 쓴다. 실제 도구 출력에 대보니 파서 2개가
+   이미 틀린 값을 내고 있었고(볼트 건강검진의 `deadlinks` 는 문구가 "죽은 위키링크"로 바뀌어 늘
+   null · `healthy` 는 개별 항목의 ✅ 하나만 걸려도 true 라 점검 439건인 볼트를 '양호'로 본다),
+   **아무도 안 읽었기 때문에 그 오류가 드러난 적이 없다.** 읽히지 않는 값을 언어를 바꿔 옮기면
+   같은 결함을 새 코드에 심는 것이라 이식하지 않는다. 필요해지면 `out` 에서 언제든 다시 뽑을 수
+   있고, 그때는 실제 출력을 보고 쓰게 된다. */
 
 async function getJSON<T>(url: string): Promise<T> {
   const r = await fetch(url);
@@ -84,6 +91,17 @@ export async function runTool(
 ): Promise<RunResult> {
   const timeout = AbortSignal.timeout(185000); // 서버 캡(180s)보다 살짝 뒤 — 서버가 먼저 응답하도록.
   const signal = opts?.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
+
+  /* 셸 경로(4단계-C) — Rust `run_tool` 이 spawn·타임아웃·동시성 캡·프로세스 트리 종료를 소유한다.
+     ⚠ **취소 신호는 아직 안 넘어간다.** `invoke` 는 AbortSignal 을 안 받는다. 도구별 Rust
+     타임아웃(60~180s)이 있어 "영원히 도는 스피너"는 없지만, 취소 버튼은 *기다리기를 그만두는*
+     것이지 프로세스를 죽이지는 않는다. 4-D 에서 잡 모델의 취소 커맨드와 같은 관용구로 붙인다.
+     (기존 fetch 경로도 abort 가 연결을 끊을 뿐 서버의 python 은 계속 돌았다 — 동등하다.) */
+  if (isTauri()) {
+    const subject = typeof body?.subject === 'string' ? body.subject : undefined;
+    return shellRunTool(tool, subject);
+  }
+
   const r = await fetch(`/api/run/${encodeURIComponent(tool)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

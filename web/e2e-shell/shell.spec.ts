@@ -257,3 +257,49 @@ test('4단계-B — 산출물을 셸이 직접 읽는다(워크스페이스 기�
     await closeShell(shell);
   }
 });
+
+/* 4단계-C — 파이썬 도구를 셸이 직접 spawn 하는가.
+
+   Rust 단위 테스트는 캡·인자 정제·출력 절단 같은 **순수 부분**만 잠근다. 정작 여기서만
+   드러나는 것들이 있다: python 이 PATH 에서 잡히는가 · cwd 가 워크스페이스인가(틀리면 도구가
+   조용히 빈 결과를 낸다 — 이 앱에서 가장 진단하기 어려운 실패) · PYTHONIOENCODING 이 실제로
+   한글 stdout 을 지키는가 · 파이프를 양쪽 다 읽어 교착하지 않는가.
+
+   읽기 전용 도구(`vault-stats`)를 고른 이유는 사용자 볼트를 훼손하지 않기 위해서다. */
+test('4단계-C — 파이썬 도구를 셸이 직접 실행한다(cwd·인코딩·파이프)', async () => {
+  const shell = await launchShell();
+  try {
+    const run = (tool: string, subject: string | null = null) =>
+      shell.page.evaluate(
+        async ([t, s]) => {
+          const w = window as unknown as {
+            __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+          };
+          try {
+            return { threw: false, out: await w.__TAURI_INTERNALS__.invoke('run_tool', { tool: t, subject: s }) };
+          } catch (e) {
+            return { threw: true, err: String(e) };
+          }
+        },
+        [tool, subject] as const,
+      );
+
+    const r = await run('vault-stats');
+    expect(r.threw, `도구 실행이 거부됐다: ${r.err}`).toBe(false);
+    const out = r.out as { ok: boolean; out: string; code: number; label: string };
+    expect(out.label).toBe('볼트 통계');
+    // cwd 가 워크스페이스가 아니면 python 이 스크립트를 못 찾아 code≠0 + 빈 stdout 이 된다.
+    expect(out.code, `도구가 실패했다(cwd 가 워크스페이스가 아닐 수 있다): ${out.out}`).toBe(0);
+    expect(out.out.length).toBeGreaterThan(0);
+    // PYTHONIOENCODING 이 안 걸리면 한글이 ?/mojibake 로 깨지거나 python 이 UnicodeEncodeError 로 죽는다.
+    expect(out.out).not.toContain('�');
+    expect(out.out).toMatch(/[가-힣]/);
+
+    // 화이트리스트 밖은 spawn 자체를 안 한다.
+    const bogus = await run('rm-rf');
+    expect(bogus.threw).toBe(true);
+    expect(bogus.err).toContain('알 수 없는 도구');
+  } finally {
+    await closeShell(shell);
+  }
+});

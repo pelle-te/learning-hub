@@ -9,6 +9,7 @@
 mod artifact;
 mod db;
 mod sidecar;
+mod tools;
 mod vault;
 mod workspace;
 
@@ -59,6 +60,8 @@ pub fn run() {
             vault::vault_scan,
             // 4단계-B — serve.js /api/artifact/:name 대체.
             artifact::artifact_read,
+            // 4단계-C — serve.js /api/run/:tool 대체(파이썬 도구 11종).
+            tools::run_tool,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

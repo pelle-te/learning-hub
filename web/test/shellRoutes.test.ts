@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /* ============================================================
-   artifactRoute.test.ts — 산출물 읽기의 **전송 분기와 에러 분류 계약**(4단계-B).
+   shellRoutes.test.ts — 4단계에서 Rust 로 옮긴 라우트의 **전송 분기와 계약 유지**.
 
    4단계는 라우트를 하나씩 Rust 로 옮긴다. 옮기는 것 자체는 Rust 테스트(`artifact.rs`)가 잠그고,
    여기서 잠그는 건 그보다 조용히 깨지는 쪽이다 — **전송이 바뀌어도 소비처가 보는 것은 같은가.**
@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
-import { getArtifact } from '@/lib/api';
+import { getArtifact, runTool } from '@/lib/api';
 import { isNotYetError } from '@/lib/artifactState';
 
 /** 셸 안에서 도는 척한다 — `isTauri()` 가 보는 것은 이 전역 하나뿐. */
@@ -83,6 +83,45 @@ describe('getArtifact — 브라우저 폴백', () => {
     await getArtifact('goals');
 
     expect(f).toHaveBeenCalledWith('/api/artifact/goals');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('runTool — 셸(Rust 커맨드) 경로 · 4단계-C', () => {
+  it('invoke 로 실행하고 subject 를 넘긴다', async () => {
+    enterShell();
+    const f = vi.fn();
+    vi.stubGlobal('fetch', f);
+    invoke.mockResolvedValue({ ok: true, out: '완료', code: 0, label: '발견 후보 승격' });
+
+    const r = await runTool('discovery-promote', { subject: '개념::미적분' });
+
+    expect(invoke).toHaveBeenCalledWith('run_tool', {
+      tool: 'discovery-promote',
+      subject: '개념::미적분',
+    });
+    expect(f).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ ok: true, code: 0 });
+  });
+
+  it('subject 가 없으면 null 로 넘긴다(Rust Option<String>)', async () => {
+    enterShell();
+    invoke.mockResolvedValue({ ok: true, out: '', code: 0, label: '챕터 원장 재빌드' });
+    await runTool('ledger-build');
+    expect(invoke).toHaveBeenCalledWith('run_tool', { tool: 'ledger-build', subject: null });
+  });
+
+  it('실패한 도구도 throw 가 아니라 ok:false 로 온다(소비처가 out 을 토스트에 쓴다)', async () => {
+    enterShell();
+    invoke.mockResolvedValue({ ok: false, out: '파이썬 오류', code: 1, label: '볼트 건강검진' });
+    await expect(runTool('vault-health')).resolves.toMatchObject({ ok: false, code: 1 });
+  });
+
+  it('셸이 아니면 기존 /api 를 탄다', async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, out: '', code: 0 }) }));
+    vi.stubGlobal('fetch', f);
+    await runTool('vault-stats');
+    expect(f.mock.calls[0]![0]).toBe('/api/run/vault-stats');
     expect(invoke).not.toHaveBeenCalled();
   });
 });
