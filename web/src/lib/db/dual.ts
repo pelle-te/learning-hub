@@ -96,6 +96,7 @@ async function runMirror(state: AppState): Promise<ParityReport> {
     }
     return _last;
   } catch (e) {
+    console.error('[db] 대조 중 예외', e);
     _last = { ok: false, mismatched: [`<예외: ${(e as Error).message}>`], skipped: false };
     return _last;
   }

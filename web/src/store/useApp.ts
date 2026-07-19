@@ -12,6 +12,8 @@ import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 import { mirrorAndVerify } from '@/lib/db/dual';
+import { preloadedState } from '@/lib/db/boot';
+import { isTauri } from '@/lib/tauri';
 import { storage } from '@/lib/kv';
 import { announce, onSync } from '@/lib/sync';
 import { toast } from '@/shell/toast';
@@ -43,7 +45,10 @@ function warnSaveFailure(): void {
    자가 복구 경로가 0이었다. 원본을 보존한 뒤 기본 상태로 부팅해 최소한 앱은 뜨게 한다. */
 function bootSafely(): AppState {
   try {
-    return splitRuntime(refineItemColors(boot(storage)));
+    // 2단계-E: 셸에선 `initAppStore()`(main.tsx가 마운트 전에 await)가 SQLite에서 읽어 둔다.
+    // 없으면(브라우저·dev·트랙 A·이관 실패) 기존 localStorage 경로 — 폴백을 남기는 게 계약이다.
+    const pre = preloadedState();
+    return splitRuntime(refineItemColors(pre ?? boot(storage)));
   } catch (e) {
     try {
       const raw = storage.getItem(KEY);
@@ -103,9 +108,24 @@ export const useApp = create<AppStore>()(
         timer = null;
       }
       // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
+      const merged = mergeRuntime(get().state);
+
+      /* 2단계-E — 셸에선 **SQLite 가 정본**이다. 여기서 localStorage 를 안 쓰는 것이 이 단계의
+         전부다: 5MB 절벽은 "상태 1벌"이 아니라 KEY + BACKUP_KEY + reads 가 동시에 상주해서
+         생기는데(2단계-0 실측 ≈3.04MB), 가장 크고 항상 있는 KEY 가 빠지면 절벽에서 멀어진다.
+         IDB 미러도 안 건다 — 그 층의 존재 이유가 "사이트 데이터 삭제로 localStorage 전소"인데
+         셸에는 그 위협이 없다. (브라우저 경로에선 아래 else 로 그대로 유지된다.) */
+      if (isTauri()) {
+        pending = []; // 셸은 단일 윈도우 — rebase 상대가 없으므로 큐를 들고 있을 이유가 없다
+        void mirrorAndVerify(merged).then((r) => {
+          if (!r.ok && !r.skipped) warnSaveFailure();
+        });
+        return;
+      }
+
       let json: string | null = null;
       try {
-        json = persist(storage, mergeRuntime(get().state));
+        json = persist(storage, merged);
         // ⚠ 큐 소진은 **저장이 성공한 뒤에만**. 예전엔 persist 앞에서 비웠는데, 쿼터 초과로 저장이
         //   실패하면 토스트만 뜨고 큐는 이미 빈 상태였다 → 그 뒤 다른 탭 방송이 오면 onSync가
         //   디스크의 *옛* 스냅샷을 채택하고 재적용할 recipe가 없어, 저장 실패한 편집이 화면에서도
@@ -124,11 +144,6 @@ export const useApp = create<AppStore>()(
       }
       // 멀티탭 동기화 — 다른 탭이 이 스냅샷을 채택하게 방송(상호 덮어쓰기 유실 방지 + 대시보드 모드).
       if (json != null) announce({ kind: 'app' });
-      // 2단계-D 양방향 검증 구간 — 같은 상태를 SQLite 에도 기록하고 되읽어 대조한다.
-      // **정본은 아직 위의 localStorage** 이고 이건 나란히 도는 그림자 경로다. 그래서
-      // (a) await 하지 않고 (b) 실패해도 flush 를 실패로 만들지 않는다. 브라우저에선 no-op.
-      // 2단계-E 에서 정본이 뒤집히면 이 호출은 사라지고 위쪽이 그림자가 된다.
-      void mirrorAndVerify(mergeRuntime(get().state));
     };
     /** 텍스트 입력마다 쓰지 않게 디바운스(설계도 §1-A). */
     const schedulePersist = () => {

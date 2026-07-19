@@ -12,7 +12,7 @@
    있으면 배포본마다 스키마가 갈릴 수 있다.
 ============================================================ */
 import { isTauri } from '../tauri';
-import { ARRAY_SLICES, type DbRows, type KvRow } from './rows';
+import { diffRows, type DbRows } from './rows';
 
 /** plugin-sql 의 Database 인스턴스(타입만 최소로 — 전체 타입을 끌어오면 브라우저 번들에 샌다). */
 interface Db {
@@ -27,10 +27,26 @@ let _db: Promise<Db> | null = null;
 /** DB 핸들(지연 로드·1회). 브라우저에선 null — 셸 전용 경로다. */
 export async function getDb(): Promise<Db | null> {
   if (!isTauri()) return null;
-  _db ??= import('@tauri-apps/plugin-sql').then((m) => m.default.load(DB_URL) as Promise<Db>);
+  _db ??= import('@tauri-apps/plugin-sql')
+    .then((m) => m.default.load(DB_URL) as Promise<Db>)
+    .then(async (db) => {
+      /* WAL 로 올린다 — 기본 롤백 저널에선 **읽는 중엔 쓸 수 없어** `database is locked` 가 난다.
+         plugin-sql 은 sqlx 커넥션 **풀**이라 읽기와 쓰기가 서로 다른 커넥션에서 겹치는 게 정상
+         동작이고, 실제로 "닫기 직전에 상태를 읽으면 그 다음 쓰기가 통째로 실패"하는 형태로
+         드러났다(트랙 B 에서 잡음). WAL 은 DB 파일에 영속되는 설정이라 한 번만 걸면 된다. */
+      try {
+        await db.execute('PRAGMA journal_mode=WAL');
+      } catch (e) {
+        console.error('[db] WAL 전환 실패 — 동시 읽기/쓰기에서 잠금 오류가 날 수 있습니다.', e);
+      }
+      return db;
+    });
   try {
     return await _db;
-  } catch {
+  } catch (e) {
+    // ⚠ 조용히 삼키지 않는다 — 정본이 SQLite 인데 연결 실패가 무음이면 앱은 "저장되는 것처럼"
+    //   보이면서 아무것도 안 쓴다(2단계-E 에서 실제로 이 침묵 때문에 원인을 못 찾았다).
+    console.error('[db] SQLite 연결 실패 — 저장이 되지 않습니다.', e);
     _db = null; // 다음 호출에서 재시도 — 한 번 실패가 영구 불능이 되지 않게
     return null;
   }
@@ -84,83 +100,36 @@ export async function readRows(): Promise<DbRows | null> {
   return rows;
 }
 
-/** 다중 행 INSERT 를 한 문장으로 — 행마다 왕복하면 대용량(수천 행)에서 눈에 띄게 느리다. */
-function bulk(table: string, cols: string[], values: unknown[][]): { sql: string; args: unknown[] } | null {
-  if (!values.length) return null;
-  const ph = `(${cols.map(() => '?').join(',')})`;
-  return {
-    sql: `INSERT INTO ${table} (${cols.join(',')}) VALUES ${values.map(() => ph).join(',')}`,
-    args: values.flat(),
-  };
+/** 마지막으로 DB 에 반영된 행 표현 — 증분 diff 의 기준. 읽기/쓰기 성공 때마다 갱신된다. */
+let _last: DbRows | null = null;
+
+/** 부팅 읽기가 끝난 뒤 기준선을 세운다(그래야 첫 쓰기가 전량 쓰기가 되지 않는다). */
+export function setDiffBaseline(rows: DbRows | null): void {
+  _last = rows;
 }
 
-const kv = (rows: readonly KvRow[]): unknown[][] => rows.map((r) => [r.key, r.json]);
-
-/** 전체 상태를 통째로 쓴다(스냅샷 교체).
-    ⚠ 이건 **정확성 우선**의 1차 구현이다 — 편집당 증분 쓰기(변경 행만 UPSERT)는 2단계-D 가
-    양방향 대조로 동등성을 증명한 뒤에 얹는다. 순서를 뒤집으면 "빨라졌는데 맞는지 모르는"
-    상태가 되고, 그때 회귀를 잡을 대조 장치가 아직 없다. */
+/**
+ * 상태를 DB 에 반영한다 — **변경된 행만** upsert 하고 사라진 행만 삭제한다.
+ *
+ * ⚠ 트랜잭션을 쓰지 않는 것이 의도다. `tauri-plugin-sql` 은 sqlx **커넥션 풀**이라 별도
+ * `execute` 로 부른 `BEGIN` 은 다른 커넥션의 쓰기를 막아 `database is locked` 로 죽는다(실측).
+ * 대신 diff 방식이 트랜잭션 없이도 안전하다 — DELETE-후-INSERT 와 달리 **DB 가 비는 순간이
+ * 없고**, 중간에 죽어도 남는 건 "여분의 옛 행"이지 "사라진 행"이 아니다(다음 쓰기가 정리한다).
+ */
 export async function writeRows(rows: DbRows): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
-
-  const stmts: { sql: string; args: unknown[] }[] = [];
-  const push = (s: { sql: string; args: unknown[] } | null): void => void (s && stmts.push(s));
-
-  for (const t of ['meta', 'settings', 'runtime_cache', 'completions', 'ds_map', 'records', 'summaries', 'week_alloc'])
-    stmts.push({ sql: `DELETE FROM ${t}`, args: [] });
-
-  stmts.push({ sql: 'INSERT INTO meta (key, value) VALUES (?, ?)', args: ['present', JSON.stringify(rows.present)] });
-  push(bulk('settings', ['key', 'value'], kv(rows.settings)));
-  push(bulk('runtime_cache', ['key', 'value'], kv(rows.runtime)));
-  push(
-    bulk(
-      'completions',
-      ['ds', 'k', 'value'],
-      rows.completions.map((r) => [r.ds, r.k, r.json]),
-    ),
-  );
-  push(
-    bulk(
-      'ds_map',
-      ['slice', 'ds', 'value'],
-      Object.entries(rows.dsMaps).flatMap(([slice, rs]) => rs.map((r) => [slice, r.ds, r.json])),
-    ),
-  );
-  push(
-    bulk(
-      'records',
-      ['slice', 'id', 'ord', 'value'],
-      ARRAY_SLICES.flatMap((slice) => rows.arrays[slice].map((r) => [slice, r.id, r.ord, r.json])),
-    ),
-  );
-  push(
-    bulk(
-      'summaries',
-      ['sid', 'ord', 'value'],
-      rows.summaries.map((r) => [r.sid, r.ord, r.json]),
-    ),
-  );
-  push(
-    bulk(
-      'week_alloc',
-      ['wk', 'sid', 'value'],
-      rows.weekAlloc.map((r) => [r.wk, r.sid, r.json]),
-    ),
-  );
-
+  // 기준선이 없으면(첫 쓰기·이관 직후) DB 를 한 번 읽어 세운다 — 없다고 전량 삭제하면
+  // 위에 적은 안전 속성이 그대로 깨진다.
+  if (!_last) _last = await readRows();
+  const stmts = diffRows(_last, rows);
   try {
-    // 트랜잭션으로 감싼다 — 중간에 죽으면 DELETE 만 적용돼 **데이터가 통째로 사라진다**.
-    await db.execute('BEGIN');
     for (const s of stmts) await db.execute(s.sql, s.args);
-    await db.execute('COMMIT');
+    _last = rows;
     return true;
-  } catch {
-    try {
-      await db.execute('ROLLBACK');
-    } catch {
-      /* 이미 끊긴 트랜잭션 — 롤백 실패는 원 오류를 가리지 않게 삼킨다 */
-    }
+  } catch (e) {
+    console.error('[db] 쓰기 실패', e);
+    _last = null; // 부분 적용됐을 수 있다 — 다음 쓰기가 DB 를 다시 읽어 기준선을 세우게 한다
     return false;
   }
 }

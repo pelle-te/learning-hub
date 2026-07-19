@@ -2,56 +2,29 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
-rem === Always launch the LATEST build ===
-rem serve.js (Node) does not pick up code changes until restarted, and the old
-rem version of this launcher skipped starting it when port 8000 was already up,
-rem so a stale server kept running. Now we always stop the old server and start
-rem fresh, and rebuild web/dist only when the React source changed.
-
-rem --- 1) Stop any old serve.js on port 8000 (so the newest backend code runs) ---
-for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING"') do (
-  echo Stopping old server, PID %%p ...
-  taskkill /PID %%p /F >nul 2>&1
-)
-rem give the port a moment to free before binding again
-timeout /t 1 /nobreak >nul
-
-rem --- 2) Rebuild web/dist only if the React source is newer than the last build ---
-powershell -NoProfile -Command "$s=(Get-ChildItem -Recurse -File 'web\src','web\index.html','web\vite.config.ts' -ErrorAction SilentlyContinue | Measure-Object LastWriteTime -Maximum).Maximum; $d=(Get-Item 'web\dist\index.html' -ErrorAction SilentlyContinue).LastWriteTime; if(-not $d -or $s -gt $d){exit 1}else{exit 0}"
-if not errorlevel 1 goto startserver
+rem ============================================================
+rem  은퇴한 실행기 (플랫폼 개편 2단계-E · 2026-07-19)
+rem
+rem  삭제하지 않고 안내로 남긴 이유: 이 파일을 바탕화면·작업표시줄에 걸어 뒀다면
+rem  그냥 지웠을 때 "더블클릭했는데 아무 일도 안 일어난다"가 된다. 왜 사라졌고
+rem  무엇을 대신 써야 하는지는 그 자리에서 말해 주는 게 맞다.
+rem
+rem  왜 은퇴했나: 2단계에서 앱 데이터의 정본이 localStorage(JSON 블롭 1개)에서
+rem  SQLite 로 옮겨졌다. 브라우저에는 SQLite 가 없으므로 이 경로로 띄우면
+rem  **옛 데이터를 그대로 둔 채 갈라진 상태**가 된다 — 가장 나쁜 실패 방식이다.
+rem  (개발용 `npm run dev` 와 트랙 A 테스트는 localStorage 폴백으로 계속 동작한다.
+rem   그건 개발·검증 경로이지 사용자 실행 경로가 아니다.)
+rem ============================================================
 
 echo.
-echo React source changed - building latest UI (about 5-10 sec)...
-pushd web
-call npm run build
-set "BUILD_ERR=%errorlevel%"
-popd
-if not "%BUILD_ERR%"=="0" (
-  echo.
-  echo [WARN] Build failed - launching the previous build. See errors above.
-  echo.
-  pause
-)
-
-:startserver
-echo Starting Learning Hub server...
-start "Learning Hub Server" /min cmd /c "node serve.js"
-
-rem --- wait up to 15s for port 8000 to come up ---
-for /l %%i in (1,1,15) do (
-  timeout /t 1 /nobreak >nul
-  netstat -ano | findstr ":8000" | findstr "LISTENING" >nul 2>&1
-  if not errorlevel 1 goto openapp
-)
-
-:openapp
-set "CHROME="
-if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
-if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
-if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME=%LocalAppData%\Google\Chrome\Application\chrome.exe"
-
-if defined CHROME (
-  start "" "%CHROME%" --app=http://localhost:8000
-) else (
-  start "" "http://localhost:8000"
-)
+echo  이 실행기는 은퇴했습니다 (2026-07-19).
+echo.
+echo  러닝허브는 이제 데스크톱 앱으로 실행합니다.
+echo    · 설치본: src-tauri\target\release\bundle\nsis\러닝허브_0.1.0_x64-setup.exe
+echo    · 소스에서: npm run tauri:dev  (개발)  /  npm run tauri:build  (배포본)
+echo.
+echo  [중요] 이 브라우저 경로로 쓰던 데이터는 자동으로 넘어가지 않습니다.
+echo         Chrome 과 데스크톱 앱은 저장소 오리진이 달라 서로를 못 읽습니다.
+echo         옮기려면: 기존 앱에서 [내보내기] -^> 데스크톱 앱에서 [파일에서 복원]
+echo.
+pause

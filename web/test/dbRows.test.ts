@@ -8,7 +8,7 @@
    매퍼를 IO 에서 분리한 이유가 여기 있다 — Tauri 런타임 없이 대용량 표본까지 전량 검증한다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { stateToRows, rowsToState, ARRAY_SLICES } from '@/lib/db/rows';
+import { stateToRows, rowsToState, ARRAY_SLICES, diffRows } from '@/lib/db/rows';
 import { defaults, exportSnapshot, RUNTIME_CACHE_KEYS, EPHEMERAL_ONLY_KEYS } from '@/lib/persistence';
 import type { AppState } from '@/lib/types';
 
@@ -167,6 +167,50 @@ describe('대용량 표본 — 규모에서도 동형', () => {
     expect(rows.completions).toHaveLength(1000);
     expect(rows.arrays.cbms).toHaveLength(800);
     expect(roundTrip(s as AppState)).toEqual(s);
+  });
+
+  it('⚠ 증분 diff — 한 건만 바뀌면 문장도 한 건이다(편집당 전량 재직렬화 해소)', () => {
+    const s = defaults() as AppState & Record<string, unknown>;
+    const ds = (n: number): string => new Date(Date.UTC(2026, 0, 1 + n)).toISOString().slice(0, 10);
+    const comp: Record<string, Record<string, unknown>> = {};
+    for (let d = 0; d < 500; d++) comp[ds(d)] = { 'a|new': { done: true, min: 60 } };
+    s.completions = comp;
+    const before = stateToRows(s as AppState);
+
+    // 완료 한 건만 바꾼다.
+    (s.completions as Record<string, Record<string, unknown>>)[ds(3)]!['a|new'] = { done: true, min: 120 };
+    const after = stateToRows(s as AppState);
+
+    const stmts = diffRows(before, after);
+    expect(stmts).toHaveLength(1); // 500일치를 다시 쓰지 않는다
+    expect(stmts[0]!.sql).toContain('INSERT OR REPLACE INTO completions');
+  });
+
+  it('⚠ upsert 가 삭제보다 먼저 나온다(중간에 죽어도 "여분"이지 "유실"이 아니다)', () => {
+    const s = defaults() as AppState & Record<string, unknown>;
+    s.cbms = [
+      { id: 'c1', ds: 'd', sid: 's', name: 'n', chapter: 'c', code: 'C', note: '' },
+      { id: 'c2', ds: 'd', sid: 's', name: 'n', chapter: 'c', code: 'B', note: '' },
+    ];
+    const before = stateToRows(s as AppState);
+    s.cbms = [{ id: 'c3', ds: 'd', sid: 's', name: 'n', chapter: 'c', code: 'M', note: '' }];
+    const stmts = diffRows(before, stateToRows(s as AppState));
+
+    const firstDelete = stmts.findIndex((x) => x.sql.startsWith('DELETE'));
+    const lastUpsert = stmts.map((x) => x.sql.startsWith('INSERT')).lastIndexOf(true);
+    expect(firstDelete).toBeGreaterThan(lastUpsert);
+    expect(stmts.filter((x) => x.sql.startsWith('DELETE'))).toHaveLength(2); // c1·c2 제거
+  });
+
+  it('변경 없으면 문장도 없다', () => {
+    const rows = stateToRows(defaults());
+    expect(diffRows(rows, rows)).toEqual([]);
+  });
+
+  it('기준선이 없으면 전량 upsert(삭제는 없다 — DB 를 비우지 않는다)', () => {
+    const stmts = diffRows(null, stateToRows(defaults()));
+    expect(stmts.length).toBeGreaterThan(0);
+    expect(stmts.every((s) => s.sql.startsWith('INSERT OR REPLACE'))).toBe(true);
   });
 
   it('행 슬라이스 목록에 배열 슬라이스가 전부 들어 있다(신규 슬라이스 누락 감지)', () => {

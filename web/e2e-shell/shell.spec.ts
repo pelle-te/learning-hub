@@ -84,12 +84,14 @@ test('2단계-D — SQLite 경로가 JSON 정본과 일치한다(양방향 대�
         w.__TAURI_INTERNALS__.invoke('plugin:sql|select', { db: 'sqlite:learning-hub.db', query, values: [] });
       const settings = (await sel('SELECT key, value FROM settings')) as { key: string; value: string }[];
       const meta = (await sel('SELECT key, value FROM meta')) as { key: string; value: string }[];
-      const live = JSON.parse(localStorage.getItem('study_planner_v3') || '{}') as Record<string, unknown>;
+      // 2단계-E 이후 셸에선 localStorage 를 안 쓴다 — 살아 있는 정본은 화면에 반영된 테마다
+      // (ThemeProvider 가 data-theme 로 내린다). "저장된 값 = 보이는 값"이 곧 정본 일치.
+      const live = document.documentElement.getAttribute('data-theme');
       const theme = settings.find((r) => r.key === 'theme');
       return {
         rows: settings.length,
         present: meta.length,
-        themeMatches: !!theme && JSON.parse(theme.value) === live.theme,
+        themeMatches: !!theme && JSON.parse(theme.value) === live,
         // 행 슬라이스로 안 간 스칼라들이 실제로 settings 에 있는가(스키마가 붙었다는 증거).
         hasStartDate: settings.some((r) => r.key === 'startDate'),
       };
@@ -108,7 +110,11 @@ test('2단계-D — SQLite 경로가 JSON 정본과 일치한다(양방향 대�
   }
 });
 
-/* 2단계-C 측정 — **비동기 쓰기가 창 닫기에서 살아남는가.**
+/* 2단계-C — **비동기 쓰기가 창 닫기에서 살아남는가.**
+
+   ▶ 이 케이스가 1단계의 "종료 시 flush" 테스트를 **대체**한다. 그쪽은 같은 계약("디바운스 대기 중
+   창을 닫아도 마지막 편집이 산다")을 localStorage 에서 확인했는데, 2단계-E 로 정본이 SQLite 가
+   되면서 확인 대상도 여기로 옮겨졌다. 둘을 다 두면 같은 계약을 두 벌로 재는 것이라 합쳤다.
 
    설계 §8 은 "flush 가 비동기(invoke)가 되면 `pagehide` 는 동기 핸들러만 보장하므로 await 가
    잘린다"며 `onCloseRequested` 훅 + `core:window:allow-destroy` 를 요구한다. 그건 **명세의
@@ -135,78 +141,31 @@ test('2단계-C — 디바운스 대기 중 창을 닫아도 비동기 SQL 쓰�
         query: "SELECT value FROM settings WHERE key = 'theme'",
         values: [],
       })) as { value: string }[];
-      const ls = JSON.parse(localStorage.getItem('study_planner_v3') || '{}') as { theme?: string };
-      return { sql: rows[0] ? (JSON.parse(rows[0].value) as string) : undefined, ls: ls.theme };
+      return rows[0] ? (JSON.parse(rows[0].value) as string) : undefined;
     });
 
   try {
     const before = await readSqlTheme(shell);
     await shell.page.getByRole('button', { name: /테마 전환/ }).click();
-    // 디바운스(400ms)가 끝나기 전에 닫는다 — 이게 이 측정의 전부다.
+    // 편집 직후 곧바로 닫는다 — 저장이 아직 진행 중일 때 창이 죽는 상황을 만든다.
     await closeShell(shell);
+
+    /* ⚠ "저장이 아직 진행 중이었다"를 **관측으로는 증명하지 않는다.** 두 시도 다 실패했다:
+       ① 닫기 직전에 저장소를 읽으면 그 읽기(플러그인 로드 + select)가 디바운스보다 오래 걸려
+          *관측 행위가 관측 대상을 바꾼다*. ② 클릭→닫기 경과를 재 봤더니 `closeShell` 자체가
+          400ms 를 넘어 항상 실패한다. 애초에 취약 구간은 디바운스가 아니라 **SQL 쓰기 소요시간**이라
+          시간으로 가둘 대상이 아니었다.
+       대신 이 테스트의 판별력은 **경험적으로 확인됐다**: 닫기 가드가 없던 빌드에서 이 케이스는
+       실제로 빨간불이었고(비동기 쓰기가 잘렸다), 가드를 넣자 녹색이 됐다. 다시 빨간불이 되면
+       그건 가드가 깨졌다는 뜻이다. */
 
     shell = await launchShell();
     const after = await readSqlTheme(shell);
-    // localStorage 를 함께 보는 이유: 둘 다 안 바뀌었으면 flush 자체가 안 돈 것이고,
-    // localStorage 만 바뀌었으면 **비동기 SQL 쓰기만** 잘린 것이다. 원인이 갈린다.
-    expect(after.ls, '동기 localStorage 조차 안 저장됐다 — flush 경로가 아예 안 돌았다').not.toBe(before.ls);
-    expect(after.sql, '비동기 SQL 쓰기가 창 닫기에서 잘렸다 → 닫기 가드가 안 걸렸다').not.toBe(before.sql);
+    expect(after, '비동기 SQL 쓰기가 창 닫기에서 잘렸다 → 닫기 가드가 안 걸렸다').not.toBe(before);
 
     // 원복.
     await shell.page.getByRole('button', { name: /테마 전환/ }).click();
     await shell.page.waitForTimeout(900);
-  } finally {
-    await closeShell(shell);
-  }
-});
-
-/* 이 파일의 핵심 — 설계 §8 "동기 flush 계약 파괴"가 가리키던 자리.
-
-   설계는 "Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 `useApp` 언로드 안전망이 안 걸린다"고
-   봤지만, 실측하니 WebView2 는 창 닫기에서 4개 이벤트를 **전부** 쏜다 → 기존 안전망이 그대로 산다
-   (그래서 셸 전용 훅은 넣었다가 되돌렸다 · `lib/tauri.ts` 주석).
-
-   그렇다고 이 테스트가 무의미한 건 아니다. **메커니즘이 아니라 계약을 잠근다** — "디바운스 대기 중
-   창을 닫아도 마지막 편집이 살아남는다". 그 계약이 어느 이벤트로 지켜지는지는 구현 자유고,
-   2단계에서 flush 가 비동기가 되면 `pagehide` 로는 못 지켜져 여기서 **빨간불이 켜져야 한다**.
-   그때 이 테스트가 "훅이 이제 필요하다"를 알려주는 신호가 된다. */
-test('종료 시 flush — 디바운스 대기 중 창을 닫아도 마지막 편집이 살아남는다', async () => {
-  let shell: Shell = await launchShell();
-  const KEY = 'study_planner_v3';
-
-  const readTheme = async (s: Shell) =>
-    s.page.evaluate((k) => {
-      const raw = localStorage.getItem(k);
-      return raw ? (JSON.parse(raw) as { theme?: string }).theme : undefined;
-    }, KEY);
-
-  // 편집은 **실제 사용자 제스처**로 만든다 — 테스트용 훅을 프로덕션에 심으면 그 훅이 곧
-  // 검사 대상과 다른 경로가 된다. 테마 토글은 useApp.mutate → 400ms 디바운스를 그대로 탄다.
-  const toggleTheme = (s: Shell) => s.page.getByRole('button', { name: /테마 전환/ }).click();
-
-  try {
-    const before = await readTheme(shell);
-    await toggleTheme(shell);
-
-    // 저장 전인지 확인 — 이미 영속됐다면 이 테스트는 안전망이 없어도 통과해 의미가 없다.
-    const midflight = await shell.page.evaluate((k) => {
-      const raw = localStorage.getItem(k);
-      return raw ? (JSON.parse(raw) as { theme?: string }).theme : undefined;
-    }, KEY);
-    expect(midflight, '토글 직후엔 아직 디바운스 대기 중이어야 한다').toBe(before);
-
-    // ⚠ 디바운스가 끝나기 전에 닫아야 이 테스트가 의미가 있다.
-    await closeShell(shell);
-
-    // 다시 띄워서 디스크에 남았는지 확인 — 안전망이 없으면 여기서 `before` 가 나온다.
-    shell = await launchShell();
-    const after = await readTheme(shell);
-    expect(after, '창 닫기에서 flush 되지 않아 마지막 편집이 유실됐다').not.toBe(before);
-
-    // 사용자 데이터를 건드렸으니 되돌린다(이 테스트는 실제 앱 저장소를 쓴다).
-    await toggleTheme(shell);
-    await shell.page.waitForTimeout(700); // 디바운스 소진까지 대기
-    expect(await readTheme(shell)).toBe(before);
   } finally {
     await closeShell(shell);
   }

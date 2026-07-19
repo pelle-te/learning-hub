@@ -11,7 +11,7 @@ import '@/styles/global/index.css';
 
 import { queryClient } from '@/app/queryClient';
 import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { initAppStore } from '@/lib/db/boot';
 import ds from '@/styles/ds.module.css';
 
 function ShellFallback() {
@@ -25,16 +25,28 @@ function ShellFallback() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary FallbackComponent={ShellFallback}>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <ThemeProvider>
-            <App />
-          </ThemeProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </StrictMode>,
-);
+/* 2단계-E — 스토어를 **마운트 전에** 준비한다.
+   셸에선 SQLite 가 정본이라 읽기가 비동기인데, 하이드레이션 게이트(기본값으로 먼저 렌더 후 교체)를
+   쓰면 "하이드레이션 전 쓰기가 기본값으로 실데이터를 덮는" 실패 모드가 새로 생긴다(0단계-E에서
+   물린 부류). 마운트 전 await 는 그 창 자체를 없앤다.
+   ⚠ `initAppStore()` 는 어떤 이유로도 throw 하지 않는다 — 실패하면 localStorage 폴백으로 뜬다.
+   그래도 방어적으로 catch 한다: 여기서 던지면 앱이 영구 백지가 되고 ShellFallback 도 못 잡는다.
+   `useApp` 은 이 시점 이후에 import 돼야 한다(모듈 평가 시점에 부팅값을 읽으므로 순서가 계약). */
+void initAppStore()
+  .catch(() => {})
+  .then(async () => {
+    const { default: App } = await import('@/app/App');
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <ErrorBoundary FallbackComponent={ShellFallback}>
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+              <ThemeProvider>
+                <App />
+              </ThemeProvider>
+            </BrowserRouter>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </StrictMode>,
+    );
+  });
