@@ -10,6 +10,8 @@ import {
   ARTIFACT_NOT_FOUND,
   artifactRead,
   isTauri,
+  shellOllamaEmbed,
+  shellOllamaRun,
   shellResearchCancel,
   shellResearchJobs,
   shellResearchStart,
@@ -278,14 +280,23 @@ export function previewFromJsonStream(text: string): string {
   return out.join(' · ');
 }
 
-/** 내가 쓴 요약을 원문과 대조해 채점·피드백(Ollama 스트리밍). serve.js/Ollama 꺼져 있으면 reject. */
+/* ── Ollama 라우트 5종의 전송 분기(4단계-E) ────────────────────────
+   셸이면 Rust 커맨드, 브라우저면 기존 /api. **분기를 이 한 함수에 가둔다** — 아래 네 개의
+   공개 함수와 소비 3곳(ArticlePractice·Markets·Review)은 전송을 모른다.
+   `kind` 가 곧 경로 조각이라 브라우저 경로는 `/api/${kind}` 로 그대로 재구성된다. */
+async function aiCall<T>(kind: string, body: Record<string, unknown>, opts?: StreamOpts, streaming = true): Promise<T> {
+  if (isTauri()) return shellOllamaRun<T>(kind, body, opts);
+  return streaming ? postStream<T>(`/api/${kind}`, body, opts) : postJSON<T>(`/api/${kind}`, body);
+}
+
+/** 내가 쓴 요약을 원문과 대조해 채점·피드백(Ollama 스트리밍). Ollama 꺼져 있으면 ok:false. */
 export function coachSummary(
   source: string,
   summary: string,
   lang: 'en' | 'ko',
   opts?: StreamOpts,
 ): Promise<{ ok: boolean; error?: string; feedback?: CoachFeedback }> {
-  return postStream('/api/reads/coach', { source, summary, lang }, opts);
+  return aiCall('reads/coach', { source, summary, lang }, opts);
 }
 
 /** 지문에서 선택한 단어 하나의 뜻·예문(Ollama). */
@@ -294,7 +305,7 @@ export function lookupVocab(
   context: string,
   lang: 'en' | 'ko',
 ): Promise<{ ok: boolean; error?: string; vocab?: VocabResult }> {
-  return postJSON('/api/reads/vocab', { word, context, lang });
+  return aiCall('reads/vocab', { word, context, lang }, undefined, false);
 }
 
 /* ── 증시 브리핑 (로컬 Ollama 프록시 · serve.js) ─────────────────
@@ -312,7 +323,7 @@ export function marketsBrief(
   headlines: { title: string; source: string }[],
   opts?: StreamOpts,
 ): Promise<{ ok: boolean; error?: string; brief?: MarketBriefResult }> {
-  return postStream('/api/markets/brief', { indices, headlines }, opts);
+  return aiCall('markets/brief', { indices, headlines }, opts);
 }
 
 /* ── 주간 회고 코치 (로컬 Ollama 프록시 · serve.js) ─────────────────
@@ -330,7 +341,7 @@ export function reviewCoach(
   weakSpots: string[],
   opts?: StreamOpts,
 ): Promise<{ ok: boolean; error?: string; coach?: ReviewCoachResult }> {
-  return postStream('/api/review/coach', { facts, weakSpots }, opts);
+  return aiCall('review/coach', { facts, weakSpots }, opts);
 }
 
 /* ── 임베딩 (로컬 Ollama 프록시 · serve.js) ─────────────────────
@@ -338,5 +349,6 @@ export function reviewCoach(
 export function embedTexts(
   texts: string[],
 ): Promise<{ ok: boolean; error?: string; model?: string; vectors?: number[][] }> {
+  if (isTauri()) return shellOllamaEmbed(texts);
   return postJSON('/api/embed', { texts });
 }

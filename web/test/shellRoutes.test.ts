@@ -13,9 +13,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const invoke = vi.fn();
-vi.mock('@tauri-apps/api/core', () => ({ invoke }));
+class FakeChannel {
+  onmessage?: (m: unknown) => void;
+}
+vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: FakeChannel }));
 
-import { cancelResearch, getArtifact, listResearchJobs, runTool, startResearch } from '@/lib/api';
+import {
+  cancelResearch,
+  coachSummary,
+  embedTexts,
+  getArtifact,
+  listResearchJobs,
+  lookupVocab,
+  marketsBrief,
+  previewFromJsonStream,
+  runTool,
+  startResearch,
+} from '@/lib/api';
 import { isNotYetError } from '@/lib/artifactState';
 
 /** 셸 안에서 도는 척한다 — `isTauri()` 가 보는 것은 이 전역 하나뿐. */
@@ -177,6 +191,93 @@ describe('탐구 잡 — 셸(Rust 커맨드) 경로 · 4단계-D', () => {
     vi.stubGlobal('fetch', f);
     await listResearchJobs();
     expect(f).toHaveBeenCalledWith('/api/research/jobs');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
+describe('Ollama — 셸(Rust 커맨드 + Channel) 경로 · 4단계-E', () => {
+  /** Rust 가 Channel 로 증분을 밀어 넣는 것을 흉내낸다. */
+  function streamDeltas(chunks: string[], final: unknown) {
+    invoke.mockImplementation(async (cmd: string, args: { onDelta?: { onmessage?: (m: unknown) => void } }) => {
+      if (cmd !== 'ollama_run') return undefined;
+      for (const d of chunks) args.onDelta?.onmessage?.({ d });
+      return final;
+    });
+  }
+
+  it('델타는 증분으로 오지만 onDelta 에는 누적으로 전달된다', async () => {
+    enterShell();
+    streamDeltas(['{"sco', 're": 8', '0}'], { ok: true, feedback: { score: 80 } });
+
+    const seen: string[] = [];
+    const r = await coachSummary('원문', '내 요약', 'ko', { onDelta: (acc) => seen.push(acc) });
+
+    /* ⚠ 이게 4-E 의 핵심 계약이다. Rust 는 증분만 보내는데 `StreamOpts.onDelta` 의 계약은
+       **누적 원문**이다(previewFromJsonStream 이 누적을 전제로 값만 뽑는다). 여기서 누적을
+       안 하면 미리보기가 매번 조각 하나만 보고 깜빡인다 — 에러 없이 UX 만 망가지는 부류. */
+    expect(seen).toEqual(['{"sco', '{"score": 8', '{"score": 80}']);
+    expect(r).toMatchObject({ ok: true, feedback: { score: 80 } });
+  });
+
+  it('누적본이 previewFromJsonStream 과 그대로 맞물린다', async () => {
+    enterShell();
+    streamDeltas(['{"overview": "오늘 시', '장은 상승"}'], { ok: true, brief: {} });
+
+    let last = '';
+    await marketsBrief([], [], { onDelta: (acc) => (last = acc) });
+
+    expect(previewFromJsonStream(last)).toBe('오늘 시장은 상승');
+  });
+
+  it('스트리밍을 안 쓰는 어휘 조회는 onDelta 없이 부른다(단발 경로)', async () => {
+    enterShell();
+    invoke.mockResolvedValue({ ok: true, vocab: { meaning: '사과' } });
+
+    await lookupVocab('apple', '문맥', 'ko');
+
+    const args = invoke.mock.calls[0]![1] as { kind: string; onDelta?: unknown };
+    expect(args.kind).toBe('reads/vocab');
+    expect(args.onDelta, '단발 경로인데 채널이 붙었다 — Rust 가 스트림 모드로 돈다').toBeUndefined();
+  });
+
+  it('실패는 throw 가 아니라 봉투로 온다(소비처가 .ok 로 분기한다)', async () => {
+    enterShell();
+    invoke.mockResolvedValue({ ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
+    await expect(coachSummary('a', 'b', 'ko')).resolves.toMatchObject({ ok: false });
+  });
+
+  it('취소 신호는 ollama_cancel 을 같은 requestId 로 부른다', async () => {
+    enterShell();
+    const ctrl = new AbortController();
+    let capturedId = '';
+    invoke.mockImplementation(async (cmd: string, args: { requestId?: string }) => {
+      if (cmd === 'ollama_run') {
+        capturedId = args.requestId ?? '';
+        ctrl.abort(); // 생성 도중 사용자가 중단
+        return { ok: false, error: '사용자가 중단했어요.' };
+      }
+      return undefined;
+    });
+
+    await marketsBrief([], [], { signal: ctrl.signal });
+
+    const cancel = invoke.mock.calls.find(([c]) => c === 'ollama_cancel');
+    expect(cancel, '취소가 Rust 까지 안 갔다 — 생성이 계속 돈다').toBeTruthy();
+    expect((cancel![1] as { requestId: string }).requestId).toBe(capturedId);
+  });
+
+  it('임베딩은 텍스트 배열만 넘긴다', async () => {
+    enterShell();
+    invoke.mockResolvedValue({ ok: true, vectors: [[0.1]] });
+    await embedTexts(['가', '나']);
+    expect(invoke).toHaveBeenCalledWith('ollama_embed', { texts: ['가', '나'] });
+  });
+
+  it('셸이 아니면 기존 /api 를 탄다', async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+    vi.stubGlobal('fetch', f);
+    await lookupVocab('apple', 'ctx', 'ko');
+    expect(f.mock.calls[0]![0]).toBe('/api/reads/vocab');
     expect(invoke).not.toHaveBeenCalled();
   });
 });

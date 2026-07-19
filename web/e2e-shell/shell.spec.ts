@@ -371,3 +371,65 @@ test('4단계-D — 탐구 잡을 시작·중단하고 이력이 재시작 후�
     }
   }
 });
+
+/* 4단계-E — Ollama 생성이 **진짜 모델**을 태우고, 델타가 실제로 흘러오는가.
+
+   여기서만 드러나는 것: reqwest 가 Ollama 와 실제로 말하는가 · NDJSON 을 줄 단위로 제대로 가르는가 ·
+   **Tauri Channel 배선이 맞는가**. 마지막 항목이 이 케이스의 존재 이유다 — vitest 는 Channel 을
+   스텁으로 대체하므로 "실제 IPC 채널이 붙는가"는 원리적으로 못 본다.
+
+   ⚠ Ollama 가 꺼져 있으면 생성 단언은 건너뛰되, **연결 실패가 봉투로 오는지는 반드시 확인**한다
+   (그건 우리 코드의 계약이고, 소비처가 .ok 로 분기하는 근거다). */
+test('4단계-E — Ollama 생성이 델타를 흘리고 봉투로 끝난다', async () => {
+  test.setTimeout(180_000); // 8B 콜드 로드까지 감안
+  const shell = await launchShell();
+  try {
+    const r = await shell.page.evaluate(async () => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: {
+            invoke: (c: string, a?: unknown) => Promise<unknown>;
+            transformCallback: (cb: (m: unknown) => void, once?: boolean) => number;
+          };
+        }
+      ).__TAURI_INTERNALS__;
+
+      // Channel 을 손으로 만든다 — @tauri-apps/api 의 Channel 은 결국
+      // `__CHANNEL__:{transformCallback id}` 로 직렬화된다(core.js SERIALIZE_TO_IPC_FN).
+      const deltas: string[] = [];
+      const id = w.transformCallback((raw) => {
+        const m = raw as { message?: { d?: string } };
+        if (m?.message?.d) deltas.push(m.message.d);
+      });
+
+      const out = (await w.invoke('ollama_run', {
+        kind: 'reads/coach',
+        body: {
+          source: '고양이는 포유류이고 밤에 잘 본다.',
+          summary: '고양이는 밤눈이 밝은 포유류다.',
+          lang: 'ko',
+        },
+        requestId: 'e2e-ollama-1',
+        onDelta: `__CHANNEL__:${id}`,
+      })) as { ok: boolean; error?: string; feedback?: unknown };
+
+      return { out, deltaCount: deltas.length, joined: deltas.join('') };
+    });
+
+    // 연결 실패도 **봉투**여야 한다 — throw 로 새면 소비처의 .ok 분기가 통째로 죽는다.
+    expect(typeof r.out.ok, '실패가 봉투가 아니다').toBe('boolean');
+
+    test.skip(
+      !r.out.ok && (r.out.error ?? '').includes('연결 실패'),
+      'Ollama 가 꺼져 있음 — 생성 단언은 건너뛴다(연결 실패가 봉투로 온 것은 위에서 확인)',
+    );
+
+    expect(r.out.ok, `생성 실패: ${r.out.error}`).toBe(true);
+    expect(r.out.feedback, '봉투의 feedback 키가 비었다 — wrap 키가 틀리면 화면이 조용히 빈다').toBeTruthy();
+    // Channel 이 안 붙었으면 여기가 0 이 된다(생성은 성공하는데 미리보기만 죽는 형태).
+    expect(r.deltaCount, 'Channel 로 델타가 하나도 안 왔다 — 스트리밍 배선이 끊겼다').toBeGreaterThan(0);
+    expect(r.joined).toContain('{');
+  } finally {
+    await closeShell(shell);
+  }
+});

@@ -192,6 +192,48 @@ export async function onResearchChanged(cb: () => void): Promise<() => void> {
   }
 }
 
+/** 로컬 Ollama 생성 5종(4단계-E). `onDelta` 를 주면 스트리밍, 안 주면 단발.
+ *
+ *  ⚠ **반환은 항상 봉투**(`{ok, error?, …}`)다 — Rust 가 실패도 값으로 준다. 소비처가 `.ok` 로
+ *  분기하고 있어서 throw 로 바꾸면 그 분기가 전부 죽는다(4-D 와 같은 규율).
+ *  ⚠ `signal` 은 **실제로 생성을 멈춘다** — `ollama_cancel` 이 업스트림 연결을 끊는다.
+ *  4단계-C 에서 "취소가 아직 안 넘어간다"고 미뤄 둔 자리를 여기서 갚았다. */
+export async function shellOllamaRun<T>(
+  kind: string,
+  body: Record<string, unknown>,
+  opts?: { onDelta?: (accumulated: string) => void; signal?: AbortSignal },
+): Promise<T> {
+  const core = await import('@tauri-apps/api/core');
+  // 요청 식별자 — 취소가 이 값으로 자기 스트림을 찾는다. crypto.randomUUID 는 WebView2 에 있다.
+  const requestId = crypto.randomUUID();
+
+  let onDelta: unknown;
+  if (opts?.onDelta) {
+    const chan = new core.Channel<{ d: string }>();
+    let acc = '';
+    chan.onmessage = (m) => {
+      // Rust 는 **증분**만 보낸다. 누적은 여기서 — `StreamOpts.onDelta(accumulated)` 계약이
+      // "누적 원문"이라 그대로 유지해야 `previewFromJsonStream` 이 안 깨진다.
+      acc += m.d;
+      opts.onDelta?.(acc);
+    };
+    onDelta = chan;
+  }
+
+  const abort = () => void core.invoke('ollama_cancel', { requestId });
+  opts?.signal?.addEventListener('abort', abort, { once: true });
+  try {
+    return await core.invoke<T>('ollama_run', { kind, body, requestId, onDelta });
+  } finally {
+    opts?.signal?.removeEventListener('abort', abort);
+  }
+}
+
+/** 텍스트 배열 → 임베딩 벡터(의미 검색·지식맵 자동 연결). 반환은 봉투. */
+export async function shellOllamaEmbed<T>(texts: string[]): Promise<T> {
+  return call<T>('ollama_embed', { texts });
+}
+
 /** 폴더 선택 → 확정 저장. 취소하면 null, 잘못된 폴더면 Rust 가 사유를 담아 throw 한다. */
 export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;

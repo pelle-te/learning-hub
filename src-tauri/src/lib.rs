@@ -8,6 +8,7 @@
 */
 mod artifact;
 mod db;
+mod ollama;
 mod research;
 mod sidecar;
 mod tools;
@@ -67,6 +68,10 @@ pub fn run() {
             research::research_start,
             research::research_jobs,
             research::research_cancel,
+            // 4단계-E — serve.js Ollama 5종(코치·어휘·브리핑·회고·임베딩) 대체.
+            ollama::ollama_run,
+            ollama::ollama_cancel,
+            ollama::ollama_embed,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
