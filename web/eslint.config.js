@@ -205,11 +205,25 @@ export default tseslint.config(
       'better-tailwindcss/no-restricted-classes': [
         'error',
         {
+          /* ⚠ 패턴을 셋으로 갈랐다(C-7 review-run 이식에서 발견). 처음엔 대괄호를 **전부**
+             막았는데, 그러면 `data-[kind=confident]:bg-warn` 같은 **변형 셀렉터**까지 걸린다 —
+             그건 임의값이 아니라 관계형 스타일을 표현하는 정공법이고, 이 저장소가 CSS 에서
+             속성 셀렉터로 하던 것의 Tailwind 대응물이다. 막으면 `.badge[data-kind]` 류를
+             옮길 방법이 사라진다. 막아야 할 것은 **값**이지 셀렉터가 아니다. */
           restrict: [
             {
-              pattern: '.*\\[.*\\].*',
+              pattern: '.*[[].*?[0-9](?:px|rem|em|%|vw|vh|ch|deg).*',
               message:
-                '임의값 금지 — 간격은 --sp-*, 타이포는 --fs-* 토큰 사다리에서 온다. 필요하면 tokens.css 를 먼저 늘리세요(phone.css 규약 3).',
+                '임의 수치 금지 — 간격은 --sp-*, 타이포는 --fs-* 사다리에서 온다. 유동값(clamp 등)은 tokens.css 에 이름을 주고 브리지에 연결하세요.',
+            },
+            {
+              pattern: '.*[[]#.*',
+              message: '임의 색 금지 — 색은 tokens.css 의 의미론 토큰에서만 온다(절대규칙 #3).',
+            },
+            {
+              pattern: '.*[[]&.*',
+              message:
+                '임의 변형(`[&_em]:`) 금지 — 자손 셀렉터를 되살리는 통로다. 자식에 직접 클래스를 주도록 JSX 를 고치세요(그게 6단계가 요구하는 구조 변경이다).',
             },
           ],
         },
