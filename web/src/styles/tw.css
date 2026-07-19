@@ -1,0 +1,23 @@
+/* ============================================================
+   tw.css — **데스크톱 셸의** Tailwind 진입점(C-7).
+
+   ## ⚠⚠ preflight 를 넣지 않는다 — 이게 이 파일의 존재 이유 전부다
+
+   폰(`phone/phone.css`)은 `@import 'tailwindcss'` 를 통째로 쓴다. 그린필드라 리셋이
+   와도 잃을 베이스라인이 없기 때문이다. **데스크톱은 정반대다.**
+
+   `@import 'tailwindcss'` 는 **preflight(전역 CSS 리셋)** 를 함께 싣는다 — `margin: 0`,
+   `border-style: solid`, 제목 크기 초기화, 리스트 마커 제거 같은 것들을 `*` 와 요소
+   선택자에 건다. 데스크톱에는 `styles/global/` 4파일 + CSS Module 54개가 그 기본값 위에
+   얹혀 있고, 그 아래를 갈아끼우면 **스냅샷 59장이 전부 흔들린다.**
+
+   그러면 C-7 의 안전망 전략("feature 1개씩 → 그 스냅샷만 재생성 → diff 를 눈으로 확인")이
+   **첫 걸음에서 죽는다** — 첫 feature 를 옮기는데 59장이 함께 움직이면 어느 변화가
+   이식 때문이고 어느 것이 리셋 때문인지 구분할 수단이 사라진다.
+
+   그래서 theme + utilities 만 가져온다. 이식이 끝난 뒤에도 preflight 를 켤 이유는 없다 —
+   이 앱은 이미 자기 리셋을 갖고 있다(`styles/global/base.css`). 두 벌은 충돌이지 개선이 아니다.
+============================================================ */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import './tokenBridge.css';

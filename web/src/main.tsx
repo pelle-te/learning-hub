@@ -8,6 +8,10 @@ import { ErrorBoundary } from 'react-error-boundary';
 // 전역 디자인 시스템(.card/.kpi/.tl/.nav…)은 styles/global/(theme·base·components·features)로 분해.
 import '@/styles/tokens.css';
 import '@/styles/global/index.css';
+/* Tailwind(C-7) — **preflight 없이** theme + utilities 만. 왜 없이인지는 `tw.css` 머리주석이
+   소유한다(한 줄 요약: 리셋이 들어오면 스냅샷 59장이 전부 흔들려 "feature 단위 diff"
+   전략이 첫 걸음에서 죽는다). 전역 CSS **뒤에** 온다 — 유틸리티가 이겨야 한다. */
+import '@/styles/tw.css';
 
 import { queryClient } from '@/app/queryClient';
 import ThemeProvider from '@/app/ThemeProvider';

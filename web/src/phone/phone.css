@@ -30,43 +30,9 @@
    온 스케일만 쓴다. 예외가 필요하면 **토큰을 먼저 늘린다**.
 ============================================================ */
 @import 'tailwindcss';
-
-@theme {
-  /* 색 — 정의가 아니라 **참조**다(머리주석 규약 1). tokens.css 가 단일 원천으로 남는다. */
-  --color-bg: var(--bg);
-  --color-bg2: var(--bg2);
-  --color-panel: var(--panel);
-  --color-panel2: var(--panel2);
-  --color-line: var(--line);
-  --color-line2: var(--line2);
-  --color-txt: var(--txt);
-  --color-mut: var(--mut);
-  --color-acc: var(--acc);
-  --color-acc2: var(--acc2);
-  --color-on-acc: var(--on-acc);
-  --color-warn: var(--warn);
-  --color-bad: var(--bad);
-  --color-good: var(--good);
-
-  /* 간격·타이포·반경도 같은 규율 — 사다리는 tokens.css 가 소유한다. */
-  --spacing-1: var(--sp-1);
-  --spacing-2: var(--sp-2);
-  --spacing-3: var(--sp-3);
-  --spacing-4: var(--sp-4);
-  --spacing-5: var(--sp-5);
-  --spacing-6: var(--sp-6);
-
-  --text-2xs: var(--fs-2xs);
-  --text-xs: var(--fs-xs);
-  --text-sm: var(--fs-sm);
-  --text-md: var(--fs-md);
-
-  --radius-sm: var(--r-sm);
-  --radius-md: var(--r-md);
-  --radius-lg: var(--r-lg);
-
-  --font-sans: var(--font-sans);
-}
+/* ⚠ 브리지는 **`styles/tokenBridge.css` 하나**다. 폰과 데스크톱이 각각 Tailwind 엔트리를
+   갖는데 `@theme` 를 양쪽에 복사하면 그게 곧 divergence 다(이 저장소가 세 번 물린 부류). */
+@import '../styles/tokenBridge.css';
 
 /* 폰 전용 바탕 — 셸의 크롬(레일·상단바)이 없으므로 여기가 앱 프레임이다.
    ⚠ `min-height: 100dvh` — 모바일 브라우저 주소창이 접힐 때 `100vh` 는 실제 뷰포트보다

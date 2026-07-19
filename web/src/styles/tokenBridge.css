@@ -1,0 +1,56 @@
+/* ============================================================
+   tokenBridge.css — Tailwind 테마 ↔ `tokens.css` 를 잇는 **단일 지점**(C-6 파일럿 → C-7).
+
+   ## ⚠ 이 파일이 따로 있는 이유
+
+   폰(`phone/phone.css`)과 데스크톱(`styles/tw.css`)이 **각각 Tailwind 엔트리**를 갖는다.
+   두 곳에 `@theme` 를 복사해 두면 그 순간 이 저장소가 세 번째로 divergence 를 사는 것이다
+   (`rows.ts`↔`rows.rs` · 경계 파서 2종 · 그리고 C-6 이 피한 동기화 층). 브리지는 여기 하나다.
+
+   ## 규약 — 색은 여기서 **정의되지 않는다**
+
+   절대규칙 #3: 색은 저장값이 아니라 파생물이다. 그래서 `@theme` 는 팔레트를 정의하지 않고
+   **가리킨다**(`--color-bg: var(--bg)`). `tokens.css` 가 단일 원천으로 남고, 테마 전환도
+   공짜로 따라온다 — `:root` 와 `<html data-theme>` 가 같은 요소라 `--bg` 가 바뀌면
+   `var(--bg)` 도 다시 계산된다.
+
+   ⚠ **`@theme static` 인 것이 필수다.** 기본 `@theme` 는 미사용 토큰을 트리셰이킹하는데,
+   토큰을 **JS 에서만** 읽는 곳이 3군데 있고(`AmbientCanvas`·`Graph`·`Settings`) 셋 다
+   폴백값이 있어 **사라져도 에러 없이 틀린 색으로 렌더된다**. `invariants.test.ts` 불변식
+   ④가 이 축을 잠근다.
+============================================================ */
+@theme static {
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-txt: var(--txt);
+  --color-mut: var(--mut);
+  --color-acc: var(--acc);
+  --color-acc2: var(--acc2);
+  --color-on-acc: var(--on-acc);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-good: var(--good);
+  --color-learning: var(--learning);
+
+  --spacing-1: var(--sp-1);
+  --spacing-2: var(--sp-2);
+  --spacing-3: var(--sp-3);
+  --spacing-4: var(--sp-4);
+  --spacing-5: var(--sp-5);
+  --spacing-6: var(--sp-6);
+
+  --text-2xs: var(--fs-2xs);
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-md: var(--fs-md);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --font-sans: var(--font-sans);
+}
