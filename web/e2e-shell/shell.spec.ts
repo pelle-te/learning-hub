@@ -735,3 +735,40 @@ test('5단계-B — 앱이 DB 를 쥔 채 쓰는 동안 서버가 같은 DB 를 
     await closeShell(shell);
   }
 });
+
+/* ⚠ 이 케이스가 트랙 B 에 있어야 하는 이유가 실사고로 증명됐다(C-5 후속).
+
+   C-5 는 웹뷰에서 생 `fetch` 로 워커를 불렀고 **셸에선 한 요청도 못 나갔다** — C-3 의 CSP
+   (`connect-src 'self' ipc:`)가 막았기 때문이다. 트랙 A 는 Chromium(CSP 없음), 유닛 테스트는
+   전송을 목으로 대체하므로 **둘 다 원리적으로 못 잡는다.** 게이트 전량 녹색으로 통과했다.
+
+   여기선 네트워크에 나가지 않는다(오프라인·CI 에서 흔들리면 안 된다). 잠그는 것은 둘:
+   ① 커맨드가 실제로 등록돼 있는가 ② 평문 원격을 거부하는가(토큰을 나르는 중계다). */
+test('C-5 — 클라우드 중계 커맨드가 살아 있고 평문 원격을 거부한다', async () => {
+  const shell = await launchShell();
+  try {
+    const r = await shell.page.evaluate(async () => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      try {
+        await w.invoke('cloud_http', {
+          url: 'http://example.com/api/health',
+          method: 'GET',
+          headers: {},
+          body: null,
+        });
+        return 'ALLOWED';
+      } catch (e) {
+        return String((e as Error)?.message || e);
+      }
+    });
+    // 커맨드 자체가 없으면 Tauri 가 "not found" 계열로 답한다 — 그것과 거부를 구분한다.
+    expect(r, 'cloud_http 가 등록되지 않았다(배선 회귀)').not.toMatch(/not found|not allowed/i);
+    expect(r, '평문 원격이 허용됐다 — 토큰이 평문으로 나갈 수 있다').toContain('허용되지 않는 주소');
+  } finally {
+    await closeShell(shell);
+  }
+});

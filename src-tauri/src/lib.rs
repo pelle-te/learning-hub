@@ -15,6 +15,7 @@
 mod anki;
 mod anki_scan;
 mod artifact;
+mod cloud;
 mod db;
 mod files;
 mod news;
@@ -82,6 +83,9 @@ pub fn run() {
             server::server_status,
             server::server_start,
             server::server_stop,
+            /* C-5 후속 — 클라우드 HTTP 중계. 웹뷰가 직접 fetch 하면 CSP(C-3)에 막힌다(실측).
+               뉴스·Ollama·Anki 와 같은 규약: 외부로 나가는 연결은 전부 Rust 가 소유한다. */
+            cloud::cloud_http,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

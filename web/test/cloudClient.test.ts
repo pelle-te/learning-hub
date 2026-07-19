@@ -44,24 +44,43 @@ import { isPermanent } from '@/lib/cloud/push';
 const CFG: CloudConfig = { baseUrl: 'https://hub.example', deviceId: 'dev1', refreshToken: 'ref1' };
 const okBatch = { since: 0, upto: 100, rows: [], tombstones: [] };
 
-/** 응답 큐 — 순서대로 하나씩 돌려준다. */
+/** 응답 큐 — 순서대로 하나씩 돌려준다. **두 전송이 공유한다**(아래). */
 let queue: { status: number; body?: unknown }[] = [];
-const fetchMock = vi.fn(async () => {
-  const n = queue.shift() ?? { status: 200, body: {} };
+
+/* ⚠ 전송 경로가 둘이다(C-5 후속): 셸은 Rust 중계(`cloud_http`), 브라우저·폰은 `fetch`.
+   큐를 공유시켜 **같은 케이스가 양쪽에서 그대로 돈다** — 한쪽만 검증하면 다른 쪽이 조용히
+   갈린다. 실제로 이 분기가 생긴 계기가 "셸에서만 CSP 에 막히는" 결함이었다. */
+let calls: { url: string; method: string }[] = [];
+const next = () => queue.shift() ?? { status: 200, body: {} };
+
+const fetchMock = vi.fn(async (url: string, init?: { method?: string }) => {
+  calls.push({ url: String(url), method: init?.method ?? 'GET' });
+  const n = next();
   return {
     ok: n.status >= 200 && n.status < 300,
     status: n.status,
-    json: async () => n.body ?? {},
+    text: async () => JSON.stringify(n.body ?? {}),
   } as unknown as Response;
+});
+
+/** Rust `cloud_http` 응답 — 본문은 **문자열**이다(파싱은 프런트가 소유한다). */
+invoke.mockImplementation(async (cmd: string, args: Record<string, unknown>) => {
+  if (cmd !== 'cloud_http') return undefined;
+  calls.push({ url: String(args.url), method: String(args.method) });
+  const n = next();
+  return { status: n.status, body: JSON.stringify(n.body ?? {}) };
 });
 
 beforeEach(() => {
   (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
   store.clear();
   queue = [];
+  calls = [];
   exec.mockClear();
   select.mockClear();
   fetchMock.mockClear();
+  invoke.mockClear(); // ⚠ 호출 이력이 케이스 간 누적되면 "몇 번 불렸나" 단정이 전부 거짓이 된다
+
   _resetToken();
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -119,7 +138,7 @@ describe('토큰 수명', () => {
     ];
     await pullChanges(CFG, 0);
     await pullChanges(CFG, 0);
-    const tokenCalls = fetchMock.mock.calls.filter((c) => String(c[0]).includes('/api/token'));
+    const tokenCalls = calls.filter((c) => c.url.includes('/api/token'));
     expect(tokenCalls).toHaveLength(1);
   });
 
@@ -211,5 +230,50 @@ describe('받아온 것도 검증한다', () => {
     const b = await pullChanges(CFG, 0);
     expect(b.rows).toHaveLength(1);
     expect(b.upto).toBe(600);
+  });
+});
+
+/* ============================================================
+   전송 경로 — 이 파일에서 가장 중요한 블록이다.
+
+   C-5 는 처음에 웹뷰에서 생 `fetch` 로 워커를 불렀고, **셸에선 한 요청도 못 나갔다** —
+   C-3 의 CSP(`connect-src 'self' ipc:`)가 막았기 때문이다. 트랙 A 는 Chromium 이라 CSP 가
+   없고 트랙 B 는 클라우드 경로를 안 타서, 게이트가 전부 녹색인 채로 통과했다.
+
+   그래서 여기서 잠그는 것은 **"어느 쪽에서 도느냐에 따라 나가는 문이 달라진다"** 이다.
+   ⚠ 셸에서 `fetch` 가 한 번이라도 불리면 그건 CSP 에 막힌다는 뜻이다.
+============================================================ */
+describe('전송 경로 분기', () => {
+  it('⚠ 셸에선 fetch 를 쓰지 않는다 — CSP 가 막는다(실측). Rust 중계로 나간다', async () => {
+    queue = [{ status: 200, body: { deviceId: 'd', refreshToken: 'r' } }];
+    await enrollDevice('https://hub.example', 'C', 'PC');
+
+    expect(fetchMock, '셸에서 fetch 가 불렸다 — CSP 에 막혀 실사용에서 죽는다').not.toHaveBeenCalled();
+    const relayed = invoke.mock.calls.filter((c) => c[0] === 'cloud_http');
+    expect(relayed).toHaveLength(1);
+    expect(String((relayed[0][1] as Record<string, unknown>).url)).toContain('/api/enroll/claim');
+  });
+
+  it('브라우저(폰·dev)에선 fetch 로 나간다 — 거긴 CSP 도 IPC 도 없다', async () => {
+    // C-6 폰 웹앱이 도는 조건. 같은 client.ts 가 반대편 분기를 탄다.
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+    queue = [{ status: 200, body: { deviceId: 'd', refreshToken: 'r' } }];
+    await enrollDevice('https://hub.example', 'C', '폰');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(invoke.mock.calls.filter((c) => c[0] === 'cloud_http')).toHaveLength(0);
+  });
+
+  it('두 경로가 같은 결과를 낸다 — 분기가 의미를 바꾸면 안 된다', async () => {
+    queue = [{ status: 200, body: { deviceId: 'd', refreshToken: 'r' } }];
+    const viaShell = await enrollDevice('https://hub.example', 'C', 'x');
+
+    store.clear();
+    _resetToken();
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+    queue = [{ status: 200, body: { deviceId: 'd', refreshToken: 'r' } }];
+    const viaBrowser = await enrollDevice('https://hub.example', 'C', 'x');
+
+    expect(viaShell).toEqual(viaBrowser);
   });
 });

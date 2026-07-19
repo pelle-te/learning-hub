@@ -403,3 +403,30 @@ export function mobileServerStart(port?: number): Promise<MobileServerInfo> {
 export function mobileServerStop(): Promise<MobileServerInfo> {
   return call('server_stop', undefined, MobileServerInfoSchema);
 }
+
+/* ── 클라우드 HTTP 중계(C-5 후속) ─────────────────────────────── */
+
+/** Rust `cloud_http` 의 응답. 본문은 문자열 그대로 — 파싱·검증은 `cloud/schema.ts` 가 소유한다. */
+export interface CloudHttpResponse {
+  status: number;
+  body: string;
+}
+
+const CloudHttpResponseSchema = z
+  .object({ status: z.number(), body: z.string() })
+  .passthrough() as z.ZodType<CloudHttpResponse>;
+
+/**
+ * 클라우드 워커에 요청한다 — **셸 전용**. 브라우저(폰·dev)는 `client.ts` 가 `fetch` 로 간다.
+ *
+ * ⚠ 웹뷰에서 직접 `fetch` 하면 CSP(`connect-src 'self' ipc:`)에 막힌다. 실측으로 확인했고,
+ * CSP 를 푸는 대신 요청을 Rust 로 내렸다 — 뉴스·Ollama·Anki 와 같은 규약이다(`cloud.rs`).
+ */
+export function cloudHttp(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body?: string,
+): Promise<CloudHttpResponse> {
+  return call('cloud_http', { url, method, headers, body: body ?? null }, CloudHttpResponseSchema);
+}
