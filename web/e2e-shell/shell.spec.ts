@@ -652,3 +652,86 @@ test('5단계-A — 모바일 서버를 켜면 WebView 밖에서 진짜 HTTP 로
     await closeShell(shell);
   }
 });
+
+test('5단계-B — 앱이 DB 를 쥔 채 쓰는 동안 서버가 같은 DB 를 읽는다(WAL 동시성)', async () => {
+  const shell = await launchShell();
+  const MARK = `e2e-모바일-${process.pid}`;
+  const sql = async (query: string, values: unknown[] = []) =>
+    shell.page.evaluate(
+      async ([q, v]) => {
+        const w = (
+          window as unknown as {
+            __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+          }
+        ).__TAURI_INTERNALS__;
+        await w.invoke('plugin:sql|load', { db: 'sqlite:learning-hub.db' });
+        return (await w.invoke('plugin:sql|execute', {
+          db: 'sqlite:learning-hub.db',
+          query: q as string,
+          values: v as unknown[],
+        })) as unknown;
+      },
+      [query, values] as const,
+    );
+
+  try {
+    /* 앱 쪽에서 **먼저 쓴다** — 이 쓰기가 성공한 뒤 서버가 읽어야 "쓰는 중에도 읽힌다"가 된다.
+       결정 1(두 번째 풀)의 유일한 실질 위험이 database is locked 이고, 그게 실재하면
+       여기 아니면 사용자 폰에서 처음 드러난다. */
+    await sql('INSERT OR REPLACE INTO docs (key, value) VALUES ($1, $2)', ['e2e:mobile', MARK]);
+
+    const info = (await shell.page.evaluate(async () => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      return (await w.invoke('server_start', { port: 0 })) as { port: number; url: string };
+    })) as { port: number; url: string };
+
+    const token = new URL(info.url).searchParams.get('t') as string;
+    const base = `http://127.0.0.1:${info.port}`;
+
+    const res = await fetch(`${base}/api/state`, { headers: { Authorization: `Bearer ${token}` } });
+    expect(res.status, '/api/state 가 200 이 아니다 — 503 이면 서버가 DB 경로를 못 찾은 것').toBe(200);
+    const body = (await res.json()) as {
+      rows: { present: string[]; settings: { key: string; json: string }[] } | null;
+      docs: Record<string, string>;
+    };
+
+    // 방금 앱이 쓴 값이 서버 쪽 읽기 전용 풀에서 보인다 = 같은 파일 + WAL 동시성 OK.
+    expect(body.docs['e2e:mobile'], '서버가 앱의 쓰기를 못 봤다(다른 DB 를 열었거나 잠김)').toBe(MARK);
+
+    // 실제 앱 상태가 행 표현으로 나온다 — rows 가 null 이면 DB 가 비었다는 뜻이라 실패.
+    expect(body.rows, 'rows 가 null — 서버가 빈 DB 를 열었을 가능성').not.toBeNull();
+    expect(Array.isArray(body.rows!.present)).toBe(true);
+    expect(body.rows!.settings.length).toBeGreaterThan(0);
+    // 값은 레코드 통째 JSON **문자열**이어야 한다(db.rs:9-11) — 파싱해 보내면 rows.ts 계약이 깨진다.
+    expect(typeof body.rows!.settings[0]!.json).toBe('string');
+
+    /* 읽기 전용이 진짜인가 — 서버가 여는 풀은 read_only(true) 다. 라우트로는 확인할 수
+       없으므로(쓰기 라우트가 없다) 여기서는 "쓰기 라우트가 존재하지 않는다"만 잠근다. */
+    const write = await fetch(`${base}/api/state`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect([404, 405], 'POST 가 처리됐다 — 쓰기 표면이 생겼다').toContain(write.status);
+
+    await shell.page.evaluate(async () => {
+      const w = (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__;
+      await w.invoke('server_stop');
+    });
+  } finally {
+    // 자기 흔적 정리(규율 11-7) — 사용자의 실제 DB 에 테스트 행을 남기지 않는다.
+    try {
+      await sql('DELETE FROM docs WHERE key = $1', ['e2e:mobile']);
+    } catch {
+      /* 창이 이미 죽었으면 어쩔 수 없다 */
+    }
+    await closeShell(shell);
+  }
+});

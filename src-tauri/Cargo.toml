@@ -50,6 +50,12 @@ tokio = { version = "1", features = ["time", "rt-multi-thread", "net", "sync"] }
 axum = "0.8"
 # 토큰 생성용 CSPRNG. rustls 가 이미 끌고 오는 크레이트라 새 트리가 생기지 않는다.
 getrandom = "0.2"
+# 5단계-B — 모바일 서버가 앱 DB 를 **읽기 전용**으로 연다.
+# ⚠ tauri-plugin-sql 이 이미 sqlx 0.8 을 쓰지만 그 풀은 **프런트가 소유**한다(Rust 에서 못 꺼낸다)
+#   → 같은 파일을 여는 두 번째 풀이 된다. 안전한 이유는 실측이다: 앱 실행 중 `-wal`·`-shm` 이
+#   존재해 DB 가 WAL 모드이고(설계 §5-0-4), WAL 은 읽기가 쓰기를 막지 않는다.
+#   버전을 0.8 로 맞춰 플러그인과 **같은 sqlx 를 공유**한다(둘로 갈리면 링크 부피가 두 배).
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # 러닝허브_실행.bat 의 "포트 8000 stale 서버 강제종료"를 대체 — 두 번째 실행은 기존 창을 깨운다.
