@@ -104,8 +104,10 @@ export function exportJSON(): void {
 }
 
 /** 백업 페이로드 SSOT — 파일 내보내기와 볼트 백업이 **같은 범위**를 쓰게 한다.
-    (두 곳이 각자 조립하던 탓에 사이드카 추가가 한쪽에만 반영될 수 있었다.) */
-function backupPayload(s: AppState): Record<string, unknown> {
+    (두 곳이 각자 조립하던 탓에 사이드카 추가가 한쪽에만 반영될 수 있었다.)
+    export인 이유: `test/importRoundtripLarge.test.ts`가 **진짜 내보내기 범위**로 왕복을 검증한다.
+    테스트가 페이로드를 자기 손으로 조립하면 "내가 값을 복사했다"만 증명하게 된다(1단계 교훈). */
+export function backupPayload(s: AppState): Record<string, unknown> {
   return { ...exportSnapshot(s), _reads: loadReads(), [LOCAL_EXTRAS_FIELD]: exportLocalExtras() };
 }
 
