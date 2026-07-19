@@ -219,3 +219,61 @@ describe('대용량 표본 — 규모에서도 동형', () => {
     );
   });
 });
+
+/* ── 5단계-D — 동기화 가능한 데이터 모델 ─────────────────────────────────────
+   클라우드로 가면 폰과 PC 가 각자 편집하고 나중에 합쳐진다. 그때 필요한 두 가지를
+   diff 가 실제로 내는지 잠근다. 여기가 비면 "삭제가 부활하는" 버그를 사용자 데이터에서
+   처음 만나게 된다(설계 §5단계 재범위 v7). */
+describe('5단계-D — updated_at 과 툼스톤', () => {
+  const now = 1_700_000_000_000;
+
+  it('동기화 대상 테이블만 updated_at 을 싣는다', () => {
+    const rows = stateToRows({ theme: 'dark', _knowState: { c: 1 }, tasks: [{ id: 't1' }] } as never);
+    const stmts = diffRows(null, rows, now);
+
+    const settings = stmts.find((s) => s.sql.includes('INTO settings'))!;
+    expect(settings.sql).toContain('updated_at');
+    expect(settings.args.at(-1)).toBe(now);
+
+    // runtime_cache 는 내보내기에서 빠지는 로컬 캐시라 유선으로 나를 이유가 없다.
+    const runtime = stmts.find((s) => s.sql.includes('INTO runtime_cache'))!;
+    expect(runtime.sql).not.toContain('updated_at');
+    // meta.present 는 상태에서 파생된다 — 파생을 LWW 로 병합하면 원본과 어긋난다.
+    const meta = stmts.find((s) => s.sql.includes('INTO meta'))!;
+    expect(meta.sql).not.toContain('updated_at');
+  });
+
+  it('⚠ 삭제는 툼스톤을 남긴다 — 없으면 다른 기기가 지운 행을 되살린다', () => {
+    const prev = stateToRows({ tasks: [{ id: 't1' }, { id: 't2' }] } as never);
+    const next = stateToRows({ tasks: [{ id: 't1' }] } as never);
+    const stmts = diffRows(prev, next, now);
+
+    const tomb = stmts.find((s) => s.sql.includes('INTO tombstones'));
+    expect(tomb, 't2 를 지웠는데 툼스톤이 없다').toBeDefined();
+    // (tbl, k1, k2, deleted_at) — records 는 2열 키라 k2 가 실제 id 다.
+    expect(tomb!.args).toEqual(['records', 'tasks', 't2', now]);
+  });
+
+  it('⚠ 툼스톤이 데이터 삭제보다 먼저 나온다(중간에 죽어도 "지워진 것"으로 판정되게)', () => {
+    const prev = stateToRows({ tasks: [{ id: 't1' }] } as never);
+    const next = stateToRows({} as never);
+    const stmts = diffRows(prev, next, now);
+
+    const tombAt = stmts.findIndex((s) => s.sql.includes('INTO tombstones'));
+    const delAt = stmts.findIndex((s) => s.sql.startsWith('DELETE FROM records'));
+    expect(tombAt).toBeGreaterThanOrEqual(0);
+    expect(delAt).toBeGreaterThan(tombAt);
+  });
+
+  it('단일키 테이블의 툼스톤은 k2 가 빈 문자열이다(db.rs v3 규약)', () => {
+    const prev = stateToRows({ theme: 'dark', startDate: '2026-01-01' } as never);
+    const next = stateToRows({ theme: 'dark' } as never);
+    const tomb = diffRows(prev, next, now).find((s) => s.sql.includes('INTO tombstones'))!;
+    expect(tomb.args).toEqual(['settings', 'startDate', '', now]);
+  });
+
+  it('안 바뀐 행은 updated_at 도 안 찍는다 — 아니면 증분이 전량 쓰기로 퇴화한다', () => {
+    const rows = stateToRows({ theme: 'dark', tasks: [{ id: 't1' }] } as never);
+    expect(diffRows(rows, rows, now)).toEqual([]);
+  });
+});

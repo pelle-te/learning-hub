@@ -185,47 +185,58 @@ struct TableSpec {
     cols: &'static [&'static str],
     /// 앞쪽 n개 열이 기본키 — diff 의 동일성 판정 키.
     key_len: usize,
+    /// 동기화 대상인가(5단계-D) — `updated_at` 을 싣고 삭제 시 툼스톤을 남긴다.
+    /// `meta` 는 파생값(`present`)이라, `runtime_cache` 는 로컬 전용 캐시라 제외.
+    sync: bool,
 }
 const TABLES: [TableSpec; 8] = [
     TableSpec {
         name: "meta",
         cols: &["key", "value"],
         key_len: 1,
+        sync: false,
     },
     TableSpec {
         name: "settings",
         cols: &["key", "value"],
         key_len: 1,
+        sync: true,
     },
     TableSpec {
         name: "runtime_cache",
         cols: &["key", "value"],
         key_len: 1,
+        sync: false,
     },
     TableSpec {
         name: "completions",
         cols: &["ds", "k", "value"],
         key_len: 2,
+        sync: true,
     },
     TableSpec {
         name: "ds_map",
         cols: &["slice", "ds", "value"],
         key_len: 2,
+        sync: true,
     },
     TableSpec {
         name: "records",
         cols: &["slice", "id", "ord", "value"],
         key_len: 2,
+        sync: true,
     },
     TableSpec {
         name: "summaries",
         cols: &["sid", "ord", "value"],
         key_len: 2,
+        sync: true,
     },
     TableSpec {
         name: "week_alloc",
         cols: &["wk", "sid", "value"],
         key_len: 2,
+        sync: true,
     },
 ];
 
@@ -305,11 +316,12 @@ fn to_table_data(rows: &DbRows) -> TableData {
 /// 이전 상태 → 다음 상태의 최소 문장 목록.
 ///
 /// ⚠ **upsert 를 먼저, 삭제를 나중에** 낸다(원본 `rows.ts:129-131` 의 계약).
-pub fn diff_rows(prev: Option<&DbRows>, next: &DbRows) -> Vec<Stmt> {
+pub fn diff_rows(prev: Option<&DbRows>, next: &DbRows, now: i64) -> Vec<Stmt> {
     let a = prev.map(to_table_data);
     let b = to_table_data(next);
     let empty = IndexMap::new();
     let mut upserts = Vec::new();
+    let mut tombs = Vec::new();
     let mut deletes = Vec::new();
 
     for spec in &TABLES {
@@ -317,23 +329,54 @@ pub fn diff_rows(prev: Option<&DbRows>, next: &DbRows) -> Vec<Stmt> {
         let after = b.get(spec.name).expect("선언된 테이블");
 
         for (key, vals) in after {
+            /* ⚠ 비교는 **데이터 열만** 본다. `updated_at` 은 매번 새로 찍는 값이라
+            비교에 넣으면 모든 행이 항상 "변경됨"이 되어 증분이 전량 쓰기로 퇴화한다. */
             if before.get(key).is_some_and(|old| old == vals) {
                 continue;
             }
-            let placeholders = vec!["?"; spec.cols.len()].join(",");
+            let mut cols: Vec<&str> = spec.cols.to_vec();
+            let mut args = vals.clone();
+            if spec.sync {
+                cols.push("updated_at");
+                args.push(json!(now));
+            }
             upserts.push(Stmt {
                 sql: format!(
                     "INSERT OR REPLACE INTO {} ({}) VALUES ({})",
                     spec.name,
-                    spec.cols.join(","),
-                    placeholders
+                    cols.join(","),
+                    vec!["?"; cols.len()].join(",")
                 ),
-                args: vals.clone(),
+                args,
             });
+            /* 부활(지웠다가 같은 키로 다시 만들기)은 여기서 처리하지 않는다 — 병합이
+            `updated_at` vs `deleted_at` 을 비교하므로 다시 만든 행이 이긴다(5-E).
+            "정리 문장이 실행돼야만 맞는" 설계를 피한다. 근거는 `rows.ts` 의 같은 자리. */
         }
         for (key, vals) in before {
             if after.contains_key(key) {
                 continue;
+            }
+            /* 툼스톤을 데이터 삭제보다 **먼저** 낸다: 중간에 죽으면 "행은 남았는데 툼스톤이
+            있는" 상태가 되고 병합이 deleted_at > updated_at 으로 올바르게 판정한다.
+            반대 순서면 "행은 지웠는데 툼스톤이 없는" 상태 — 상대 기기가 되살린다. */
+            if spec.sync {
+                tombs.push(Stmt {
+                    sql:
+                        "INSERT OR REPLACE INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)"
+                            .to_string(),
+                    args: vec![
+                        json!(spec.name),
+                        vals[0].clone(),
+                        // 단일키 테이블은 k2 를 빈 문자열로(db.rs v3 규약).
+                        if spec.key_len == 2 {
+                            vals[1].clone()
+                        } else {
+                            json!("")
+                        },
+                        json!(now),
+                    ],
+                });
             }
             let where_ = spec.cols[..spec.key_len]
                 .iter()
@@ -346,6 +389,7 @@ pub fn diff_rows(prev: Option<&DbRows>, next: &DbRows) -> Vec<Stmt> {
             });
         }
     }
+    upserts.extend(tombs);
     upserts.extend(deletes);
     upserts
 }
@@ -668,7 +712,7 @@ mod tests {
     fn diff_는_바뀐_행만_내고_upsert_가_삭제보다_먼저다() {
         let prev = state_to_rows(&json!({ "theme": "dark", "tasks": [{"id": "t1"}] }));
         let next = state_to_rows(&json!({ "theme": "light" }));
-        let stmts = diff_rows(Some(&prev), &next);
+        let stmts = diff_rows(Some(&prev), &next, 1_700_000_000_000);
 
         let first_delete = stmts.iter().position(|s| s.sql.starts_with("DELETE"));
         let last_upsert = stmts.iter().rposition(|s| s.sql.starts_with("INSERT"));
@@ -694,7 +738,7 @@ mod tests {
     fn 안_바뀌면_문장이_하나도_안_나온다() {
         let rows = state_to_rows(&sample());
         assert!(
-            diff_rows(Some(&rows), &rows).is_empty(),
+            diff_rows(Some(&rows), &rows, 1_700_000_000_000).is_empty(),
             "동일 상태인데 쓰기가 발생한다 — preserve_order 가 꺼졌거나 직렬화가 불안정하다"
         );
     }
@@ -717,5 +761,74 @@ mod tests {
             ..Default::default()
         };
         assert!(rows_to_state(&rows).is_err(), "파싱 실패가 조용히 삼켜졌다");
+    }
+
+    /* ── 5단계-D — 동기화 가능한 데이터 모델 ─────────────────────────────
+    `rows.ts` 의 같은 이름 케이스들과 **짝**이다. 두 구현이 갈리면 폰과 PC 가 서로
+    다른 규칙으로 병합해 "한쪽에서만 삭제가 부활하는" 형태가 된다. */
+    const NOW: i64 = 1_700_000_000_000;
+
+    #[test]
+    fn 동기화_대상_테이블만_updated_at_을_싣는다() {
+        let rows = state_to_rows(&json!({ "theme": "dark", "_knowState": {"c": 1} }));
+        let stmts = diff_rows(None, &rows, NOW);
+
+        let settings = stmts
+            .iter()
+            .find(|s| s.sql.contains("INTO settings"))
+            .unwrap();
+        assert!(settings.sql.contains("updated_at"));
+        assert_eq!(settings.args.last().unwrap(), &json!(NOW));
+
+        // 내보내기에서 빠지는 로컬 캐시라 유선으로 나를 이유가 없다.
+        let runtime = stmts
+            .iter()
+            .find(|s| s.sql.contains("INTO runtime_cache"))
+            .unwrap();
+        assert!(!runtime.sql.contains("updated_at"));
+        // meta.present 는 파생값 — LWW 로 병합하면 원본과 어긋난다.
+        let meta = stmts.iter().find(|s| s.sql.contains("INTO meta")).unwrap();
+        assert!(!meta.sql.contains("updated_at"));
+    }
+
+    #[test]
+    fn 삭제는_툼스톤을_남기고_데이터_삭제보다_먼저_나온다() {
+        let prev = state_to_rows(&json!({ "tasks": [{"id": "t1"}, {"id": "t2"}] }));
+        let next = state_to_rows(&json!({ "tasks": [{"id": "t1"}] }));
+        let stmts = diff_rows(Some(&prev), &next, NOW);
+
+        let tomb_at = stmts.iter().position(|s| s.sql.contains("INTO tombstones"));
+        let del_at = stmts
+            .iter()
+            .position(|s| s.sql.starts_with("DELETE FROM records"));
+        assert!(
+            tomb_at.is_some(),
+            "t2 를 지웠는데 툼스톤이 없다 — 다른 기기가 되살린다"
+        );
+        assert!(
+            del_at.unwrap() > tomb_at.unwrap(),
+            "툼스톤이 데이터 삭제보다 뒤에 있다"
+        );
+
+        let tomb = &stmts[tomb_at.unwrap()];
+        assert_eq!(
+            tomb.args,
+            vec![json!("records"), json!("tasks"), json!("t2"), json!(NOW)]
+        );
+    }
+
+    #[test]
+    fn 단일키_테이블의_툼스톤은_k2_가_빈_문자열이다() {
+        let prev = state_to_rows(&json!({ "theme": "dark", "startDate": "2026-01-01" }));
+        let next = state_to_rows(&json!({ "theme": "dark" }));
+        let stmts = diff_rows(Some(&prev), &next, NOW);
+        let tomb = stmts
+            .iter()
+            .find(|s| s.sql.contains("INTO tombstones"))
+            .unwrap();
+        assert_eq!(
+            tomb.args,
+            vec![json!("settings"), json!("startDate"), json!(""), json!(NOW)]
+        );
     }
 }

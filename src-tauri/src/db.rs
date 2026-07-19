@@ -82,5 +82,50 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: "CREATE TABLE docs (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
         },
+        /* v3(5단계-D) — **동기화 가능한 데이터 모델**.
+
+        5단계 재범위 v7: 앱 데이터가 클라우드로 가고 폰과 PC 가 각자 편집한다. 그러려면
+        레코드마다 "언제 바뀌었나"와 "지워졌나"를 알아야 한다.
+
+        ⚠ **툼스톤이 없으면 삭제가 부활한다.** 행을 그냥 지우면 다른 기기 입장에서
+        "없는 행"과 "지워진 행"이 구분되지 않아, 병합할 때 상대가 아직 들고 있는
+        옛 행을 되살린다 — 폰에서 지운 할일이 PC 동기화 때 돌아오는 형태다.
+        v6 이 "툼스톤 불필요"라고 적은 것은 **집 안 전용(단일 writer) 전제에서만** 참이었다.
+
+        **동기화 대상이 아닌 두 테이블**:
+        · `runtime_cache` — 내보내기에서 빠지는 로컬 낙관적 캐시다(persistence.ts 2계층
+          스코프). 기기마다 다시 계산하면 되므로 유선으로 나를 이유가 없다.
+        · `meta` — `present` 는 상태에서 **파생**된다(rows 매퍼가 매번 다시 만든다).
+          파생값을 LWW 로 병합하면 원본과 어긋날 수 있다.
+
+        `updated_at`·`deleted_at` 은 **epoch 밀리초**다. 기존 행에 0 이 들어가는 것은
+        의도다 — "아주 오래된 것"으로 취급돼 첫 동기화에서 상대 값이 이긴다. */
+        Migration {
+            version: 3,
+            description: "sync — updated_at + tombstones",
+            kind: MigrationKind::Up,
+            sql: "
+            ALTER TABLE settings    ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE completions ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE ds_map      ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE records     ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE summaries   ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE week_alloc  ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE docs        ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0;
+
+            -- 기본키 열 수가 테이블마다 1~2개라 k1·k2 로 편다(k2='' = 단일키).
+            -- 공백으로 이어붙인 합성 키를 쓰지 않는 이유: 값에 공백이 들어가면
+            -- 서로 다른 행이 같은 키로 뭉갠다(id·ds 는 우리가 만드는 값이 아니다).
+            CREATE TABLE tombstones (
+                tbl TEXT NOT NULL,
+                k1 TEXT NOT NULL,
+                k2 TEXT NOT NULL DEFAULT '',
+                deleted_at INTEGER NOT NULL,
+                PRIMARY KEY (tbl, k1, k2)
+            );
+            -- 동기화는 '마지막 동기화 이후 지워진 것'을 묻는다 — 그 질의를 위한 인덱스.
+            CREATE INDEX idx_tombstones_deleted ON tombstones (deleted_at);
+        ",
+        },
     ]
 }
