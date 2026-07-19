@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
 import { installCloseGuard } from '@/lib/tauri';
 import { whenSettled } from '@/lib/db/write';
+import { syncOnce } from '@/lib/cloud/run';
 import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 
@@ -27,6 +28,38 @@ export default function StorageGuard() {
       un = u;
     });
     return () => un?.();
+  }, []);
+
+  /* 클라우드 동기화(C-5) — 부팅 1회 + 주기적으로. 클라우드에 연결돼 있지 않으면
+     `syncOnce` 가 즉시 `disconnected` 로 빠지므로 **연결 전에는 비용이 0**이다.
+
+     ⚠ 여기 두는 이유: 이 컴포넌트가 이미 "저장 수명주기"를 소유하고, `loadState` 를 부를
+     위치가 필요하기 때문이다 — `lib/` 은 zustand 를 모른다(I2). 병합 결과를 메모리에
+     싣는 것이 **이 층의 책임**이고, 안 하면 낡은 메모리가 다음 flush 에서 병합을 덮는다
+     (0단계-E 에서 물린 *낡은 메모리가 복원본을 덮는다* 그 자체).
+
+     ⚠ 주기는 보수적으로 잡는다(5분). Workers 무료 플랜은 **일일 요청 한도**가 있고
+     (VM 엔 없던 축), 공격적으로 잡으면 한도가 먼저 터진다 — 설계서 §9-3b 의 새 위험. */
+  useEffect(() => {
+    let alive = true;
+    const tick = (): void => {
+      void syncOnce().then((r) => {
+        if (!alive) return;
+        // 병합된 것이 있으면 메모리에 싣는다. 없으면 건드리지 않는다(불필요한 재렌더 방지).
+        if (r.state) useApp.getState().loadState(r.state);
+        /* 실패는 조용히 넘긴다 — 로컬은 멀쩡히 동작하고 다음 시도가 재개한다.
+           ⚠ 단 `blocked`(기기 폐기·한도 소진)는 사용자가 조치해야 풀리므로 알린다. */
+        if (r.push?.status === 'blocked') {
+          ui.toast(`클라우드 동기화가 중단됐어요 — ${r.push.error ?? ''}`, 'warn', 12000);
+        }
+      });
+    };
+    tick();
+    const id = setInterval(tick, 5 * 60 * 1000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, []);
 
   useEffect(() => {
