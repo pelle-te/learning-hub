@@ -102,9 +102,70 @@ export async function commitWatermark(upto: number): Promise<boolean> {
 }
 
 /**
+ * 배치 하나에 담을 변경 건수 상한(C-2).
+ *
+ * VM 이었다면 없었을 제약이다. Workers 무료 플랜은 **요청당 CPU 10ms** 이고, 통상 인증·큰
+ * 페이로드 파싱이 10~20ms 를 쓴다 — 전량 동기화를 한 요청에 담으면 검증에서 넘긴다.
+ * D1 일일 행 쓰기 한도도 같은 방향으로 작은 배치를 요구한다.
+ */
+export const MAX_BATCH_ITEMS = 500;
+
+/**
+ * 배치를 상한 이하로 자르고 그에 맞는 워터마크를 정한다.
+ *
+ * ## ⚠ 스탬프 경계에서만 자른다 — 여기가 이 함수의 존재 이유다
+ *
+ * 순진하게 "앞에서 N개"로 자르면 **조용한 유실**이 난다. `diffRows` 는 한 번의 flush 가 만든
+ * 행·툼스톤 **전부에 같은 스탬프**를 찍는다. 그 그룹 한가운데를 자르고 `upto` 를 그 스탬프로
+ * 잡으면, 빠진 나머지는 `updated_at > since` 에서 **같은 값이라 제외**되어 영영 안 올라간다.
+ *
+ * 그래서 자를 수 있는 곳은 **스탬프가 바뀌는 지점**뿐이다. 행과 툼스톤이 스탬프 공간을
+ * 공유하므로(같은 flush 가 둘 다 낸다) **합쳐서** 그룹을 센다.
+ *
+ * ⚠ **한 그룹이 혼자 상한을 넘으면 그 그룹은 통째로 보낸다.** 상한을 지키려다 그룹을 쪼개면
+ * 위의 유실이 나기 때문이다 — **정확성이 상한보다 우선**이고, 상한은 성능 장치이지 안전
+ * 장치가 아니다. 이 경우를 호출부가 알 수 있도록 `oversized` 로 알린다.
+ */
+export function capBatch(
+  rows: OutboxRow[],
+  tombstones: OutboxTomb[],
+  fence: number,
+  max: number = MAX_BATCH_ITEMS,
+): { rows: OutboxRow[]; tombstones: OutboxTomb[]; upto: number; oversized: boolean } {
+  if (rows.length + tombstones.length <= max) return { rows, tombstones, upto: fence, oversized: false };
+
+  // 스탬프별 건수(행·툼스톤 합산) → 오름차순으로 누적하며 상한을 넘기 직전까지만 취한다.
+  const counts = new Map<number, number>();
+  for (const r of rows) counts.set(r.updatedAt, (counts.get(r.updatedAt) ?? 0) + 1);
+  for (const t of tombstones) counts.set(t.deletedAt, (counts.get(t.deletedAt) ?? 0) + 1);
+
+  const stamps = [...counts.keys()].sort((a, b) => a - b);
+  let taken = 0;
+  let cut = 0; // 포함할 마지막 스탬프
+  for (const s of stamps) {
+    const n = counts.get(s)!;
+    if (taken > 0 && taken + n > max) break; // 이 그룹부터는 다음 배치로
+    taken += n;
+    cut = s;
+  }
+  /* `taken > 0` 가드가 첫 그룹을 보호한다 — 첫 그룹이 혼자 상한을 넘어도 통째로 취한다.
+     안 그러면 cut 이 0 이 되어 빈 배치가 나오고, 그 상태로 워터마크가 안 움직여 **영구 교착**이다. */
+
+  return {
+    rows: rows.filter((r) => r.updatedAt <= cut),
+    tombstones: tombstones.filter((t) => t.deletedAt <= cut),
+    upto: cut,
+    oversized: taken > max,
+  };
+}
+
+/**
  * 마지막 워터마크 이후 바뀐 행·삭제를 모은다. DB 미가용(브라우저)이면 **null**.
  *
  * `since` 를 넘기면 그 값을 쓰고, 없으면 DB 의 워터마크를 읽는다(테스트·부분 재전송용).
+ *
+ * ⚠ 상한을 넘으면 **스탬프 경계에서 잘라** 앞부분만 담는다(`capBatch`). 나머지는 워터마크가
+ * 전진한 뒤 다음 호출이 가져간다 — 즉 큰 동기화는 여러 배치로 나뉘어 **자연히 재개**된다.
  */
 export async function collectOutbox(since?: number): Promise<OutboxBatch | null> {
   const from = since ?? (await readWatermark());
@@ -135,15 +196,13 @@ export async function collectOutbox(since?: number): Promise<OutboxBatch | null>
   );
   if (tombs == null) return null;
 
-  return {
-    since: from,
-    upto: fence,
-    rows,
-    tombstones: tombs.map((t) => ({
-      tbl: String(t['tbl'] ?? ''),
-      k1: String(t['k1'] ?? ''),
-      k2: String(t['k2'] ?? ''),
-      deletedAt: Number(t['deleted_at'] ?? 0),
-    })),
-  };
+  const tombstones: OutboxTomb[] = tombs.map((t) => ({
+    tbl: String(t['tbl'] ?? ''),
+    k1: String(t['k1'] ?? ''),
+    k2: String(t['k2'] ?? ''),
+    deletedAt: Number(t['deleted_at'] ?? 0),
+  }));
+
+  const capped = capBatch(rows, tombstones, fence);
+  return { since: from, upto: capped.upto, rows: capped.rows, tombstones: capped.tombstones };
 }

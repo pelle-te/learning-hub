@@ -23,6 +23,7 @@
    반대 방향(성공 확신 없이 전진)은 조용한 유실이라 복구가 없다.
 ============================================================ */
 import { batchSize, collectOutbox, commitWatermark, type OutboxBatch } from './outbox';
+import { parseOutboxBatch } from './schema';
 
 /** 배치 하나를 서버로 보낸다. 실패는 **throw** 로 알린다(반환값으로 삼키지 않는다). */
 export interface CloudTransport {
@@ -121,6 +122,15 @@ export async function pushOutbox(transport: CloudTransport, opts: PushOptions = 
        그 구간에 보낼 것이 실제로 없었기 때문이다. */
     await commitWatermark(batch.upto);
     return { status: 'idle', sent: 0, attempts: 0 };
+  }
+
+  /* ⚠ **보내기 전에 자기 페이로드를 검증한다**(C-2). 서버가 어차피 검증하는데 왜 여기서도
+     하냐면 — 깨진 배치는 재시도해도 계속 깨져 있다. 서버까지 갔다 오면 그 왕복이 5번 반복되고
+     원인은 "서버가 400 을 준다"로만 보인다. 여기서 걸면 **어느 행의 무엇이 틀렸는지**가 나온다.
+     그리고 서버와 클라이언트가 같은 스키마를 본다는 것을 테스트가 보장하게 된다. */
+  const checked = parseOutboxBatch(batch);
+  if (!checked.ok) {
+    return { status: 'blocked', sent: 0, attempts: 0, error: `배치가 계약을 위반한다 — ${checked.error}` };
   }
 
   const maxAttempts = opts.maxAttempts ?? 5;

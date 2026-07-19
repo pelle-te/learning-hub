@@ -16,11 +16,46 @@ export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-/** invoke 를 지연 로드한다 — 브라우저 번들에 Tauri API 가 섞여 들어가 초기 로드를 늘리지 않게. */
-async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<T>(cmd, args);
+/* ── 경계 파싱(C-2) ──────────────────────────────────────────────
+   `invoke<T>` 의 `<T>` 는 **주장일 뿐 검증이 아니다.** Rust 쪽 시그니처가 바뀌면 TS 는 아무것도
+   모르고, 잘못된 모양이 앱 안쪽으로 그대로 흘러 한참 뒤 엉뚱한 곳에서 터진다. 5-C 가 이미 같은
+   형태(행 모양 이중 정의)에 물렸다.
+
+   ## ⚠ 여기는 **비차단**이다 — `cloud/schema.ts` 와 정책이 정반대인 이유
+
+   이 경계 반대편은 **우리가 배포한 Rust 바이너리**다. 신뢰할 수 없는 입력이 아니라 *같은
+   릴리스의 다른 절반*이다. 그래서 목적이 방어가 아니라 **드리프트 탐지**이고, 어긋났다고
+   거부하면 필드 하나 이름이 바뀐 것 때문에 기능이 통째로 죽는다 — 그건 결함보다 나쁜 처방이다.
+   `artifacts.ts:49` 의 관용구를 그대로 쓴다: **경고하고 원본을 돌려준다.**
+
+   반대로 `cloud/schema.ts` 는 네트워크를 건너온 페이로드라 거부가 목적 그 자체다.
+   **두 경계를 같은 정책으로 다루면 한쪽은 반드시 틀린다.** */
+import { z } from 'zod';
+
+/** 모양이 계약과 다르면 경고만 남기고 원본을 통과시킨다(비차단). */
+function checkShape<T>(cmd: string, data: unknown, schema: z.ZodType<T>): T {
+  const r = schema.safeParse(data);
+  if (r.success) return r.data;
+  const issues = r.error.issues
+    .slice(0, 5) // 전량을 늘어놓으면 로그가 페이로드만큼 커진다
+    .map((i) => `  · ${i.path.join('.') || '(루트)'}: ${i.message}`)
+    .join('\n');
+  console.warn(`[tauri:${cmd}] Rust 응답이 계약과 다릅니다 — 프런트 타입과 갈렸을 수 있습니다.\n${issues}`);
+  return data as T;
 }
+
+/** invoke 를 지연 로드한다 — 브라우저 번들에 Tauri API 가 섞여 들어가 초기 로드를 늘리지 않게.
+ *  `schema` 를 주면 응답 모양을 검사한다(비차단 — 위 주석 참조). */
+async function call<T>(cmd: string, args?: Record<string, unknown>, schema?: z.ZodType<T>): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  const out = await invoke<T>(cmd, args);
+  return schema ? checkShape(cmd, out, schema) : out;
+}
+
+/* 스키마는 인터페이스 **바로 옆**에 둔다 — 떨어뜨리면 한쪽만 고치는 일이 생긴다.
+   ⚠ 전부 `.passthrough()` 가 기본이다: Rust 가 필드를 **추가**하는 것은 계약 위반이 아니라
+   호환되는 확장이고, 그걸 경고로 띄우면 매 릴리스마다 거짓 경보가 난다. 우리가 잡으려는 것은
+   **필드가 사라지거나 타입이 바뀌는** 쪽이다. */
 
 /** 워크스페이스(knowledge·pipeline 의 부모) 상태. Rust `workspace_status` 와 1:1. */
 export interface WorkspaceStatus {
@@ -31,11 +66,15 @@ export interface WorkspaceStatus {
   inferred: boolean;
 }
 
+const WorkspaceStatusSchema = z
+  .object({ path: z.string().nullable(), valid: z.boolean(), inferred: z.boolean() })
+  .passthrough() as z.ZodType<WorkspaceStatus>;
+
 /** 현재 워크스페이스 상태. 브라우저에선 null(경로 개념이 셸 전용이라 설정 UI 자체를 숨긴다). */
 export async function workspaceStatus(): Promise<WorkspaceStatus | null> {
   if (!isTauri()) return null;
   try {
-    return await call<WorkspaceStatus>('workspace_status');
+    return await call('workspace_status', undefined, WorkspaceStatusSchema);
   } catch {
     return null;
   }
@@ -95,11 +134,21 @@ export interface VaultNotesFromRust {
   path: string;
 }
 
+const VaultNotesSchema = z
+  .object({
+    /* 노트 원소는 **전 필드가 옵셔널**이다(인터페이스 그대로) — 볼트 노트는 사용자가 손으로
+       쓰는 파일이라 필드 누락이 정상이다. 여기서 잡으려는 건 `notes` 가 배열이 아닌 경우다. */
+    notes: z.array(z.object({}).passthrough()),
+    src: z.string(),
+    path: z.string(),
+  })
+  .passthrough() as z.ZodType<VaultNotesFromRust>;
+
 /** 셸에서 볼트를 읽는다. 브라우저면 null(호출부가 File System Access 폴백으로 간다). */
 export async function vaultScan(): Promise<VaultNotesFromRust | null> {
   if (!isTauri()) return null;
   try {
-    return await call<VaultNotesFromRust>('vault_scan');
+    return await call('vault_scan', undefined, VaultNotesSchema);
   } catch {
     // 볼트 폴더를 못 찾는 경우 등 — 호출부가 "연결 안 됨"으로 다루게 null.
     return null;
@@ -130,6 +179,12 @@ export interface ArtifactOut<T = unknown> {
  *  한국어 메시지 본문이 아니라 이 접두를 분류 키로 쓴다 — 문구를 다듬어도 분류가 안 깨지게. */
 export const ARTIFACT_NOT_FOUND = 'NOT_FOUND';
 
+/* 봉투(`ok`/`data`/`raw`)만 검사한다 — `data` 안쪽은 산출물 종류마다 달라서 여기가 알 수 없고,
+   그건 이미 `artifacts.ts` 의 `parseArtifact` 가 종류별 zod 로 검사한다(중복 방어 금지). */
+const ArtifactEnvelopeSchema = z
+  .object({ ok: z.boolean(), data: z.unknown().optional(), raw: z.string().optional() })
+  .passthrough();
+
 /** 산출물 1종을 셸에서 읽는다(4단계-B). 브라우저면 null → 호출부가 `/api` 폴백.
  *
  *  ⚠ **이 함수는 `vaultScan` 과 달리 에러를 삼키지 않는다.** 저기는 "볼트 연결 안 됨"이
@@ -139,7 +194,7 @@ export const ARTIFACT_NOT_FOUND = 'NOT_FOUND';
  *  실사고로 배운 것과 같은 이유다. */
 export async function artifactRead<T = unknown>(name: string): Promise<ArtifactOut<T> | null> {
   if (!isTauri()) return null;
-  return call<ArtifactOut<T>>('artifact_read', { name });
+  return call('artifact_read', { name }, ArtifactEnvelopeSchema as z.ZodType<ArtifactOut<T>>);
 }
 
 /** 파이썬 도구 실행 결과 — Rust `tools::RunOut` 과 1:1. `stats` 는 프런트가 붙인다(`toolStats.ts`). */
@@ -150,10 +205,14 @@ export interface RunToolOut {
   label: string;
 }
 
+const RunToolOutSchema = z
+  .object({ ok: z.boolean(), out: z.string(), code: z.number(), label: z.string() })
+  .passthrough() as z.ZodType<RunToolOut>;
+
 /** 화이트리스트 도구 1종을 셸에서 실행한다(4단계-C).
  *  동시성 캡·타임아웃·프로세스 트리 종료는 전부 Rust 가 소유한다 — 캡이 차 있으면 throw. */
 export function shellRunTool(tool: string, subject?: string): Promise<RunToolOut> {
-  return call<RunToolOut>('run_tool', { tool, subject: subject ?? null });
+  return call('run_tool', { tool, subject: subject ?? null }, RunToolOutSchema);
 }
 
 /** 탐구 잡 — Rust `research::Job` 과 1:1(필드명 camelCase 까지). `api.ts` 의 `ResearchJob` 과 같다. */
@@ -168,8 +227,23 @@ export interface ShellResearchJob {
   out: string;
 }
 
+const ShellResearchJobSchema = z
+  .object({
+    id: z.string(),
+    topic: z.string(),
+    scope: z.string(),
+    /* ⚠ `status` 만 enum 이다 — 이 값으로 UI 가 분기하므로, Rust 가 새 상태를 추가하면
+       프런트는 조용히 "모르는 상태"를 렌더한다. 그게 여기서 잡고 싶은 드리프트다. */
+    status: z.enum(['running', 'done', 'error', 'canceled']),
+    code: z.number().nullable(),
+    startedAt: z.number(),
+    endedAt: z.number().nullable(),
+    out: z.string(),
+  })
+  .passthrough() as z.ZodType<ShellResearchJob>;
+
 export function shellResearchStart(topic: string, scope?: string): Promise<ShellResearchJob> {
-  return call<ShellResearchJob>('research_start', { topic, scope: scope ?? null });
+  return call('research_start', { topic, scope: scope ?? null }, ShellResearchJobSchema);
 }
 
 export function shellResearchJobs(): Promise<ShellResearchJob[]> {
@@ -297,13 +371,24 @@ export interface MobileServerInfo {
   lan_ip: string | null;
 }
 
+const MobileServerInfoSchema = z
+  .object({
+    running: z.boolean(),
+    port: z.number(),
+    url: z.string().nullable(),
+    /* ⚠ `lan_ip` 는 snake_case 다 — Rust 가 이 필드만 rename 을 안 걸었다. 여기서 검사하는
+       값이 바로 그 종류의 드리프트다(다른 필드는 camelCase 인데 이것만 다르다). */
+    lan_ip: z.string().nullable(),
+  })
+  .passthrough() as z.ZodType<MobileServerInfo>;
+
 const SERVER_OFF: MobileServerInfo = { running: false, port: 0, url: null, lan_ip: null };
 
 /** 현재 서버 상태. 브라우저에선 꺼진 것으로 취급(포트 개념이 셸 전용). */
 export async function mobileServerStatus(): Promise<MobileServerInfo> {
   if (!isTauri()) return SERVER_OFF;
   try {
-    return await call<MobileServerInfo>('server_status');
+    return await call('server_status', undefined, MobileServerInfoSchema);
   } catch {
     return SERVER_OFF;
   }
@@ -311,10 +396,10 @@ export async function mobileServerStatus(): Promise<MobileServerInfo> {
 
 /** 서버 시작. 바인딩 실패(포트 점유 등)는 **삼키지 않고 throw** 한다 — 규율 11-3. */
 export function mobileServerStart(port?: number): Promise<MobileServerInfo> {
-  return call<MobileServerInfo>('server_start', { port: port ?? null });
+  return call('server_start', { port: port ?? null }, MobileServerInfoSchema);
 }
 
 /** 서버 정지. 멱등이다(꺼져 있어도 안전). */
 export function mobileServerStop(): Promise<MobileServerInfo> {
-  return call<MobileServerInfo>('server_stop');
+  return call('server_stop', undefined, MobileServerInfoSchema);
 }
