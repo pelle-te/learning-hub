@@ -355,54 +355,14 @@ export async function pickWorkspace(): Promise<WorkspaceStatus | null> {
   return call<WorkspaceStatus>('set_workspace', { path: picked });
 }
 
-/* ── 5단계-A — LAN 읽기 전용 모바일 뷰 서버 ─────────────────────────────────
-   ⚠ 이 서버는 **기본 OFF** 다. 4단계-G 가 "앱이 여는 포트 0"을 성과로 기록했으므로,
-   포트를 다시 여는 것은 사용자가 명시적으로 켤 때만 일어나야 한다(설계 §5-0-5).
-   토큰은 서버를 켤 때마다 새로 생성되고 `url` 에 이미 박혀 온다 — 프런트가 토큰을
-   따로 조립하지 않는다(조립 지점이 둘이면 한쪽이 낡는다). */
+/* ⚠ **LAN 모바일 뷰 서버(5단계-A)는 은퇴했다**(§9-1 결정, 2026-07-20).
 
-/** Rust `ServerInfo` 와 1:1. */
-export interface MobileServerInfo {
-  running: boolean;
-  port: number;
-  /** 폰 주소창에 그대로 칠 수 있는 형태(토큰 포함). 꺼져 있거나 LAN IP 를 못 찾으면 null. */
-  url: string | null;
-  /** null 이면 LAN 에 붙어 있지 않다는 뜻 — UI 가 "서버는 켜졌지만 주소가 없다"를 구분해서 말한다. */
-  lan_ip: string | null;
-}
+   근거: 클라우드(C-4·C-5)가 같은 요구를 더 잘 채우고, C-6 폰 웹앱이 로컬 캐시를 갖게 되면
+   "인터넷 없을 때 집 안에서 조회"조차 캐시가 커버한다. 남겨 두면 폰 번들이 **백엔드 둘**을
+   상대해야 하고 인증이 두 벌이 되는데, LAN 쪽 모델은 **만료 없는 PSK 를 URL 에 싣는** 방식
+   이라 설계서 P0-2 가 명시적으로 금지한 바로 그 형태다.
 
-const MobileServerInfoSchema = z
-  .object({
-    running: z.boolean(),
-    port: z.number(),
-    url: z.string().nullable(),
-    /* ⚠ `lan_ip` 는 snake_case 다 — Rust 가 이 필드만 rename 을 안 걸었다. 여기서 검사하는
-       값이 바로 그 종류의 드리프트다(다른 필드는 camelCase 인데 이것만 다르다). */
-    lan_ip: z.string().nullable(),
-  })
-  .passthrough() as z.ZodType<MobileServerInfo>;
-
-const SERVER_OFF: MobileServerInfo = { running: false, port: 0, url: null, lan_ip: null };
-
-/** 현재 서버 상태. 브라우저에선 꺼진 것으로 취급(포트 개념이 셸 전용). */
-export async function mobileServerStatus(): Promise<MobileServerInfo> {
-  if (!isTauri()) return SERVER_OFF;
-  try {
-    return await call('server_status', undefined, MobileServerInfoSchema);
-  } catch {
-    return SERVER_OFF;
-  }
-}
-
-/** 서버 시작. 바인딩 실패(포트 점유 등)는 **삼키지 않고 throw** 한다 — 규율 11-3. */
-export function mobileServerStart(port?: number): Promise<MobileServerInfo> {
-  return call('server_start', { port: port ?? null }, MobileServerInfoSchema);
-}
-
-/** 서버 정지. 멱등이다(꺼져 있어도 안전). */
-export function mobileServerStop(): Promise<MobileServerInfo> {
-  return call('server_stop', undefined, MobileServerInfoSchema);
-}
+   그 결과 이 앱은 다시 **여는 포트가 0** 이다(4단계-G 가 세운 성질의 복원). */
 
 /* ── 클라우드 HTTP 중계(C-5 후속) ─────────────────────────────── */
 

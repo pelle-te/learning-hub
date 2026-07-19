@@ -11,29 +11,29 @@
 
 설계서 §9-3 이 Oracle 을 고르고 Workers+D1 을 탈락시킨 근거는 셋이었다. 지금 남은 건 하나뿐이다.
 
-| 원래 근거                                                                | 현재 상태                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **① 성장 여지** (ARM 4 OCPU/24 GB 에 파이썬 도구·Ollama 도 나중에)      | ❌ **소멸.** 2026-06-15 자 한도 반토막(2 OCPU/12 GB)으로 이미 취소됐고, 애초에 **I8 이 금지**하던 선택지였다(로컬 자원 기능은 인터넷에 의존하지 않는다). `oracle-런북.md` §0 이 자기 손으로 이 칸을 지웠다      |
-| **② 락인 없음** (Rust 단일 바이너리 + SQLite 파일 → 이식성 최대)        | ✅ **유효.** 이게 유일하게 살아남은 근거이고, Workers 로 가면 **실제로 지불한다.** §9 에서 정면으로 다룬다 — 축소해 적지 않는다                                                                              |
-| **③ `rows.rs`(5-C)가 서버 매퍼로 재사용된다**                           | ❌ **소멸.** 서버가 TS 가 되면 `rows.ts` 를 **문자 그대로** 공유한다. `rows.rs` 는 다시 사장품이 된다(§6-4)                                                                                                  |
-| **(추가) 가입 가능성**                                                  | ❌ **Oracle 은 실패했다.** 사용자가 카드 심사에서 반복적으로 막혔다. **가입되지 않는 호스트는 무료 티어가 아무리 커도 값이 0이다.** 이게 실질적 결정 사유다                                                  |
+| 원래 근거                                                          | 현재 상태                                                                                                                                                                                                  |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **① 성장 여지** (ARM 4 OCPU/24 GB 에 파이썬 도구·Ollama 도 나중에) | ❌ **소멸.** 2026-06-15 자 한도 반토막(2 OCPU/12 GB)으로 이미 취소됐고, 애초에 **I8 이 금지**하던 선택지였다(로컬 자원 기능은 인터넷에 의존하지 않는다). `oracle-런북.md` §0 이 자기 손으로 이 칸을 지웠다 |
+| **② 락인 없음** (Rust 단일 바이너리 + SQLite 파일 → 이식성 최대)   | ✅ **유효.** 이게 유일하게 살아남은 근거이고, Workers 로 가면 **실제로 지불한다.** §9 에서 정면으로 다룬다 — 축소해 적지 않는다                                                                            |
+| **③ `rows.rs`(5-C)가 서버 매퍼로 재사용된다**                      | ❌ **소멸.** 서버가 TS 가 되면 `rows.ts` 를 **문자 그대로** 공유한다. `rows.rs` 는 다시 사장품이 된다(§6-4)                                                                                                |
+| **(추가) 가입 가능성**                                             | ❌ **Oracle 은 실패했다.** 사용자가 카드 심사에서 반복적으로 막혔다. **가입되지 않는 호스트는 무료 티어가 아무리 커도 값이 0이다.** 이게 실질적 결정 사유다                                                |
 
 **즉 이 전환은 "더 좋아 보여서"가 아니라 원래 근거가 무너져서다.** 그리고 대가는 §9(락인) 하나에 몰려 있다.
 
 ### 0-1. 이 전환이 **없애는** 작업 — `oracle-런북.md` 의 절 단위 소멸
 
-| Oracle 런북 절                         | Cloudflare 에서                                                                     |
-| -------------------------------------- | ----------------------------------------------------------------------------------- |
-| §1-1 홈 리전(**영구 변경 불가**)       | **없다.** 전역 엣지 배포. 되돌릴 수 없는 결정 자체가 사라진다                       |
-| §1-2 신용카드 · $1 승인 · 카드 거부    | **없다.** 무료 플랜은 카드 불요(§1)                                                 |
-| §1-4 · §5 도메인 구매 + Caddy + TLS    | **없다.** `*.workers.dev` 에 신뢰되는 인증서가 자동(§10 표)                          |
-| §3-3 "Out of host capacity" 재시도 루프 | **없다.** 프로비저닝할 호스트가 없다                                                |
-| §4 방화벽 **두 겹**(Security List + iptables) | **없다.** 이 런북 최대의 시간 함정이 통째로 사라진다                          |
-| §6 aarch64 크로스컴파일 · systemd 유닛 | **없다.** `wrangler deploy` 한 줄                                                    |
-| §7-1 OS 자동 패치 · §7-2 SSH·fail2ban  | **없다.** 관리할 OS 가 없다                                                          |
-| §7-3 인증서 갱신 확인                  | **없다.** 갱신 주체가 우리가 아니다                                                  |
-| §8-1·8-2 **유휴 회수 방지**            | **없다.** ⚠ 이게 가장 큰 이득이다 — Oracle 런북 §8 은 "사용자 1명 앱은 회수 판정에 정확히 걸린다"고 자백했고, 그 대응책 전부가 **인위적 노동**이었다 |
-| §8-3 예산 알림                         | 남지만 성격이 다르다(§8)                                                             |
+| Oracle 런북 절                                | Cloudflare 에서                                                                                                                                      |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §1-1 홈 리전(**영구 변경 불가**)              | **없다.** 전역 엣지 배포. 되돌릴 수 없는 결정 자체가 사라진다                                                                                        |
+| §1-2 신용카드 · $1 승인 · 카드 거부           | **없다.** 무료 플랜은 카드 불요(§1)                                                                                                                  |
+| §1-4 · §5 도메인 구매 + Caddy + TLS           | **없다.** `*.workers.dev` 에 신뢰되는 인증서가 자동(§10 표)                                                                                          |
+| §3-3 "Out of host capacity" 재시도 루프       | **없다.** 프로비저닝할 호스트가 없다                                                                                                                 |
+| §4 방화벽 **두 겹**(Security List + iptables) | **없다.** 이 런북 최대의 시간 함정이 통째로 사라진다                                                                                                 |
+| §6 aarch64 크로스컴파일 · systemd 유닛        | **없다.** `wrangler deploy` 한 줄                                                                                                                    |
+| §7-1 OS 자동 패치 · §7-2 SSH·fail2ban         | **없다.** 관리할 OS 가 없다                                                                                                                          |
+| §7-3 인증서 갱신 확인                         | **없다.** 갱신 주체가 우리가 아니다                                                                                                                  |
+| §8-1·8-2 **유휴 회수 방지**                   | **없다.** ⚠ 이게 가장 큰 이득이다 — Oracle 런북 §8 은 "사용자 1명 앱은 회수 판정에 정확히 걸린다"고 자백했고, 그 대응책 전부가 **인위적 노동**이었다 |
+| §8-3 예산 알림                                | 남지만 성격이 다르다(§8)                                                                                                                             |
 
 **남는 것은 §7-4(백업)와 §9(탈출)뿐이고, 그 둘은 호스트와 무관하게 G4 가 요구하던 것이다.**
 
@@ -111,10 +111,10 @@ npx wrangler d1 create hub-dev
 
 **손으로 두 벌 쓰면 세 번째로 물린다. 세 안을 놓고 판정한다.**
 
-| 안                                                        | 드리프트 방지                             | 대가                                                              |
-| --------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------- |
-| ⓐ `migrations/*.sql` 을 손으로 작성                       | ❌ **없음.** 사람의 기억에 의존           | 0                                                                 |
-| ⓑ `db.rs` → `.sql` **생성 스크립트** + `codegen:check`    | 🔶 검사로 **감지**(방지는 아님)           | 스크립트 + Rust 문자열 파싱. ⚠ 파서가 또 하나의 갈릴 수 있는 것   |
+| 안                                                          | 드리프트 방지                                  | 대가                                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| ⓐ `migrations/*.sql` 을 손으로 작성                         | ❌ **없음.** 사람의 기억에 의존                | 0                                                                       |
+| ⓑ `db.rs` → `.sql` **생성 스크립트** + `codegen:check`      | 🔶 검사로 **감지**(방지는 아님)                | 스크립트 + Rust 문자열 파싱. ⚠ 파서가 또 하나의 갈릴 수 있는 것         |
 | **ⓒ `.sql` 파일을 SSOT 로 승격, `db.rs` 는 `include_str!`** | ✅ **원리적으로 불가능해진다** — 파일이 하나다 | `db.rs` 를 한 번 리팩터(⚠ 저장소 파일 수정 — 이 문서 범위 밖, C-4 작업) |
 
 **판정: ⓒ.** 근거는 이 저장소의 기존 규율과 정확히 같다 — `gen-artifacts.mjs` 는 부모 저장소 JSON Schema 가 **원본이라 생성이 필요했지만**, 여기는 원본을 **양쪽이 공유할 수 있다.** 생성·검사는 원본을 공유할 수 없을 때 쓰는 차선책이지 목표가 아니다. 그리고 ⓑ 의 파서는 "드리프트를 막으려고 드리프트할 수 있는 물건을 하나 더 만드는" 구조다.
@@ -144,10 +144,10 @@ src-tauri/migrations/
 
 `db.rs` 의 8테이블 중 서버에 **필요 없는 것이 셋**이다:
 
-| 테이블          | 서버에 불필요한 이유                                                      |
-| --------------- | ------------------------------------------------------------------------- |
-| `meta`          | `present` 는 **파생값**(`rows.ts` 가 매번 재생성). `TableSpec.sync: false` |
-| `runtime_cache` | 내보내기에서 빠지는 로컬 낙관적 캐시. `sync: false`                        |
+| 테이블          | 서버에 불필요한 이유                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| `meta`          | `present` 는 **파생값**(`rows.ts` 가 매번 재생성). `TableSpec.sync: false`                    |
+| `runtime_cache` | 내보내기에서 빠지는 로컬 낙관적 캐시. `sync: false`                                           |
 | `sync_state`    | **기기 로컬** 워터마크. `db.rs` v4 주석이 _"내보내기·동기화 대상이 되어선 안 된다"_ 고 못박음 |
 
 **판정: D1 에도 8테이블을 전부 만들고, 서버는 `sync: true` 인 것만 건드린다.**
@@ -206,13 +206,13 @@ hub/
 
 **`web/` 안에 두면 안 되는 이유**(전부 절대규칙 위반 또는 게이트 오염):
 
-| 넣었을 때 깨지는 것        | 어떻게                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------- |
-| `npm run build`            | `tsc -b` 가 Worker 소스를 브라우저 타깃으로 컴파일하려 든다(`@cloudflare/workers-types` 충돌) |
-| `npm run budget`           | 번들 예산(393.9KB gzip)에 서버 코드가 섞인다                                              |
-| `knip`                     | Worker 전용 export 를 "미사용"으로 잡거나, 반대로 잡아주지 못한다                          |
+| 넣었을 때 깨지는 것        | 어떻게                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `npm run build`            | `tsc -b` 가 Worker 소스를 브라우저 타깃으로 컴파일하려 든다(`@cloudflare/workers-types` 충돌)  |
+| `npm run budget`           | 번들 예산(393.9KB gzip)에 서버 코드가 섞인다                                                   |
+| `knip`                     | Worker 전용 export 를 "미사용"으로 잡거나, 반대로 잡아주지 못한다                              |
 | `eslint-plugin-boundaries` | Worker 는 `app/features/components/hooks/store/lib` 어느 층도 아니다 → 룰에 구멍을 뚫어야 한다 |
-| **절대규칙 #1**            | Tauri 셸이 로드할 `web/dist` 에 서버 코드가 섞일 여지                                     |
+| **절대규칙 #1**            | Tauri 셸이 로드할 `web/dist` 에 서버 코드가 섞일 여지                                          |
 
 **`src-tauri/` 안도 아니다** — 저긴 Rust 크레이트다.
 
@@ -238,12 +238,12 @@ I2 는 _"`app → features → components → {hooks, store} → lib`, 역방향
 
 ### 5-1. 무엇을 어디에 두나
 
-| 무엇                        | 어디                     | 왜                                                                                                   |
-| --------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
-| **서명 비밀키**             | **Workers Secret**       | `wrangler secret put HUB_SIGNING_KEY`. 코드·저장소에 없고 대시보드에서도 다시 못 읽는다              |
-| **기기 레코드**(id·이름·등록시각·마지막사용·폐기여부) | **D1** | 열거·폐기가 가능해야 한다(P1-4: _"폰을 잃었을 때 모든 기기를 끊는 것 외에 방법이 없다"_ 를 푸는 것이 목적) |
-| **액세스 토큰**             | **어디에도 저장 안 함**  | HMAC 서명된 자기기술 토큰. 짧은 수명(예 15분). 서버가 상태를 안 들면 검증이 CPU 예산 안에 들어온다   |
-| **폐기 목록**               | D1(기기 레코드의 플래그) | ⚠ KV 를 쓰지 마라 — 아래                                                                             |
+| 무엇                                                  | 어디                     | 왜                                                                                                         |
+| ----------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **서명 비밀키**                                       | **Workers Secret**       | `wrangler secret put HUB_SIGNING_KEY`. 코드·저장소에 없고 대시보드에서도 다시 못 읽는다                    |
+| **기기 레코드**(id·이름·등록시각·마지막사용·폐기여부) | **D1**                   | 열거·폐기가 가능해야 한다(P1-4: _"폰을 잃었을 때 모든 기기를 끊는 것 외에 방법이 없다"_ 를 푸는 것이 목적) |
+| **액세스 토큰**                                       | **어디에도 저장 안 함**  | HMAC 서명된 자기기술 토큰. 짧은 수명(예 15분). 서버가 상태를 안 들면 검증이 CPU 예산 안에 들어온다         |
+| **폐기 목록**                                         | D1(기기 레코드의 플래그) | ⚠ KV 를 쓰지 마라 — 아래                                                                                   |
 
 > ⚠ **KV 를 인증 경로에 쓰지 마라.** 무료 KV 는 **쓰기 1,000/일**(서로 다른 키 기준)이다(§10). "마지막 사용 시각 갱신" 같은 걸 KV 에 하면 **하루 1,000회에 인증이 멈춘다.** D1 쓰기는 100,000/일이라 두 자릿수 여유가 있다. KV 는 이 설계에서 **필요 없다.**
 
@@ -259,7 +259,8 @@ I2 는 _"`app → features → components → {hooks, store} → lib`, 역방향
 1. PC(Tauri 앱)에서 **1회용 등록 코드**를 발급 → 서버가 D1 에 짧은 수명으로 저장
 2. 폰이 그 코드를 제출 → 서버가 **기기 레코드 생성** + 장기 리프레시 토큰 발급(기기당 하나)
 3. 이후 폰은 리프레시 토큰으로 **짧은 수명 액세스 토큰**을 받아 쓴다
-4. **폐기** = D1 의 기기 레코드에 플래그 → 리프레시가 즉시 막히고, 액세스 토큰은 수명(15분) 내에 자연 소멸
+4. **폐기** = D1 의 기기 레코드에 플래그 → 리프레시가 즉시 막힌다. ⚠ **액세스 토큰도 즉시 막힌다** — `requireDevice` 가 매 요청 폐기 여부를 확인하기 때문이다(무상태 서명에만 기대면 최대 15분간 계속 통과한다. 도난 시점에 15분은 짧지 않다). 라우트는 `GET /api/devices` · `POST /api/devices/revoke`, UI 는 설정 탭 `CloudCard`.
+   > ⚠ 이 문서는 C-4 시점에 폐기를 **구현된 것처럼** 서술했지만, 실제로는 `revoked_at` 열과 검사만 있고 **쓰는 코드가 없었다**(2026-07-20 감사). 2026-07-20 에 실제로 넣었다.
 
 > ⚠ **토큰을 URL 에 싣지 마라.** P0-2 가 지목한 현 모델(`server.rs:330`, URL PSK)의 재현을 막는 것이 이 절의 존재 이유다. `Authorization: Bearer` 헤더만 쓴다. `oracle-런북.md` §5-3 의 `Referrer-Policy` 는 **완화책이었고 여기선 필요 없다** — 애초에 URL 에 없으면 샐 곳이 없다.
 
@@ -289,13 +290,13 @@ Worker 는 TypeScript 다. `web/src/lib/schema.ts` 의 zod 를 **import 해서 �
 
 ### 6-2. 그렇다고 C-2 가 작아지지는 않는다 — **범위가 이동한다**
 
-| C-2 항목                                          | 호스트 변경 후                                                                                                                             |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `lib/tauri.ts` 무검증 `invoke<T>` 에 런타임 파싱   | **변동 없음.** 로컬 IPC 계약이라 호스트와 무관                                                                                             |
-| `.strict()` **수신 전용 파생**                    | **변동 없음, 오히려 더 중요해진다.** `ItemSchema`·`AppStateSchema` 가 `.passthrough()` 인 것은 I1(백업 호환)용 **의도**이고, 신뢰 경계에선 정반대로 작동한다 |
-| 마이그레이션 테스트(v1→v2→v3→v4 순차 이행)        | **변동 없음.** ⚠ §3-2 ⓒ가 `.sql` 을 **양쪽 공용**으로 만들면 이 테스트의 값이 **올라간다** — 잘못된 이행이 이제 전 기기 + 서버로 복제된다  |
-| ~~JSON Schema SSOT + Rust 생성기~~                | ❌ **삭제.** 이게 C-2 에서 빠지는 유일한 항목이다                                                                                          |
-| **`OutboxBatch` 의 zod 스키마** ← **신설**        | ⚠ **새로 들어온다.** `outbox.ts:59-66` 의 `OutboxBatch` 는 지금 **TS 인터페이스일 뿐 런타임 검증이 0** 이다. 그런데 이게 **서버가 받는 바로 그 페이로드**다 |
+| C-2 항목                                         | 호스트 변경 후                                                                                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/tauri.ts` 무검증 `invoke<T>` 에 런타임 파싱 | **변동 없음.** 로컬 IPC 계약이라 호스트와 무관                                                                                                               |
+| `.strict()` **수신 전용 파생**                   | **변동 없음, 오히려 더 중요해진다.** `ItemSchema`·`AppStateSchema` 가 `.passthrough()` 인 것은 I1(백업 호환)용 **의도**이고, 신뢰 경계에선 정반대로 작동한다 |
+| 마이그레이션 테스트(v1→v2→v3→v4 순차 이행)       | **변동 없음.** ⚠ §3-2 ⓒ가 `.sql` 을 **양쪽 공용**으로 만들면 이 테스트의 값이 **올라간다** — 잘못된 이행이 이제 전 기기 + 서버로 복제된다                    |
+| ~~JSON Schema SSOT + Rust 생성기~~               | ❌ **삭제.** 이게 C-2 에서 빠지는 유일한 항목이다                                                                                                            |
+| **`OutboxBatch` 의 zod 스키마** ← **신설**       | ⚠ **새로 들어온다.** `outbox.ts:59-66` 의 `OutboxBatch` 는 지금 **TS 인터페이스일 뿐 런타임 검증이 0** 이다. 그런데 이게 **서버가 받는 바로 그 페이로드**다  |
 
 **`OutboxBatchSchema` 가 C-2 의 새 핵심이다.** 근거:
 
@@ -337,14 +338,21 @@ Worker 는 TypeScript 다. `web/src/lib/schema.ts` 의 zod 를 **import 해서 �
   "name": "hub-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-19",
-  "d1_databases": [{ "binding": "DB", "database_name": "hub-dev", "database_id": "…",
-                     "migrations_dir": "../src-tauri/migrations" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "hub-dev", "database_id": "…", "migrations_dir": "../src-tauri/migrations" },
+  ],
   "env": {
     "prod": {
-      "d1_databases": [{ "binding": "DB", "database_name": "hub-prod", "database_id": "…",
-                         "migrations_dir": "../src-tauri/migrations" }]
-    }
-  }
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "hub-prod",
+          "database_id": "…",
+          "migrations_dir": "../src-tauri/migrations",
+        },
+      ],
+    },
+  },
 }
 ```
 
@@ -379,6 +387,26 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 - `deployments list` 에 두 환경이 **분리돼** 보인다
 - prod D1 에 dev 데이터가 **없다** ← 이걸 꼭 확인해라. 바인딩 이름이 같아서 섞기 쉽다
 
+### 7-4. 왕복 검증은 **자동화돼 있다**(2026-07-20 신설)
+
+`cd server && npm run verify` 가 typecheck·format·계약(SQL 의미론)에 더해 **`test:roundtrip`** 을 돌린다 — `@cloudflare/vitest-pool-workers` 로 **진짜 workerd + 진짜 D1** 을 인프로세스로 띄워 온보딩 → 토큰 → push → pull → **폐기**를 왕복한다(12케이스 1.7초). CI 의 `cloud-server` 잡이 같은 것을 돈다.
+
+> ⚠ **§7-3 의 수동 확인을 대체하지 않는다.** 왕복 테스트는 *우리 코드*를 검증하고, §7-3 은 _배포된 실물과 Cloudflare 의 동작_(평문 폴백·환경 분리·D1 격리)을 검증한다. 후자는 로컬에서 재현할 수 없다.
+
+### 7-5. ⚠ 레이트 리밋 — **주 방어는 코드가 아니라 대시보드다**
+
+`server/src/index.ts` 의 카운터는 **아이솔레이트 로컬**이라 분산 요청은 그대로 통과한다(그 사실을 코드 주석이 명시한다). 실수·폭주 루프를 싸게 끊는 보조 방어일 뿐이다.
+
+**진짜 방어는 Cloudflare WAF 레이트 리밋 규칙**(무료 플랜 1개 제공):
+
+1. 대시보드 → 해당 도메인/Worker → **Security → WAF → Rate limiting rules**
+2. 규칙 생성 — 매칭: `URI Path` starts with `/api/enroll` **또는** `/api/token`
+3. 임계값: **10 requests / 1 minute / IP**, 동작 **Block**, 지속 **10분**
+   - 근거: 정상 사용은 등록 1회 + 15분마다 토큰 1회다. 10/분이면 정상 사용의 100배 이상 여유다.
+4. ⚠ `/api/sync/*` 에는 **걸지 말 것.** 이미 토큰이 필요하고, 여기 걸면 첫 전량 동기화(여러 배치로 나뉜다)가 자기 규칙에 막힌다.
+
+D1 카운터로 만들지 않은 이유: 공격받는 동안 **카운터 쓰기가 그 자체로 D1 일일 한도를 태운다** — 막으려던 것을 방어가 대신 하게 된다(§8-2 가 지목한 실패 모드).
+
 ---
 
 ## 8. 한도 모니터링 — **무엇이 먼저 터지는가**
@@ -387,14 +415,14 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 
 설계서 §2-1: 앱 DB **106 KB**, 이관 대상 총 **800 KB**. 사용자 **1명**.
 
-| 무료 한도                          | 값             | 러닝허브 예상          | 여유          |
-| ---------------------------------- | -------------- | ---------------------- | ------------- |
-| Workers 요청                       | 100,000/일     | 폴링 30초여도 ~2,900/일 | **34배**      |
-| D1 스토리지(계정)                  | 5 GB           | ~0.001 GB              | **5,000배**   |
-| D1 스토리지(DB 1개)                | 500 MB         | ~0.1 MB                | **5,000배**   |
-| D1 **행 읽기**                     | 5,000,000/일   | 인덱스 사용 시 수천     | 크다          |
-| **D1 행 쓰기**                     | **100,000/일** | 편집당 수 행           | ⚠ **1순위 병목** |
-| **Worker CPU**                     | **10 ms/요청** | 배치 크기에 비례        | ⚠ **2순위 병목** |
+| 무료 한도           | 값             | 러닝허브 예상           | 여유             |
+| ------------------- | -------------- | ----------------------- | ---------------- |
+| Workers 요청        | 100,000/일     | 폴링 30초여도 ~2,900/일 | **34배**         |
+| D1 스토리지(계정)   | 5 GB           | ~0.001 GB               | **5,000배**      |
+| D1 스토리지(DB 1개) | 500 MB         | ~0.1 MB                 | **5,000배**      |
+| D1 **행 읽기**      | 5,000,000/일   | 인덱스 사용 시 수천     | 크다             |
+| **D1 행 쓰기**      | **100,000/일** | 편집당 수 행            | ⚠ **1순위 병목** |
+| **Worker CPU**      | **10 ms/요청** | 배치 크기에 비례        | ⚠ **2순위 병목** |
 
 ### 8-2. ⚠ 먼저 터지는 것 둘 — 둘 다 Oracle 에는 없던 실패 모드다
 
@@ -437,11 +465,11 @@ sqlite3 hub-restored.db < hub-prod.sql     # 평범한 SQLite 파일이 나온�
 
 **그러나 이게 백업의 본체는 아니다.** 설계서 I1·G4 가 정한 본체는 여전히 **`exportSnapshot` JSON** 이다:
 
-| 층                 | 수단                                     | 값                                                     |
-| ------------------ | ---------------------------------------- | ------------------------------------------------------ |
-| **① 정본 JSON**    | 앱에서 `exportSnapshot` → **PC 로 회수** | ⚠ **이게 진짜 백업.** 호스트·스키마·벤더 전부에 독립     |
-| ② D1 `.sql` 덤프   | 위 명령                                  | 빠른 복구. SQLite 라 이식 가능                         |
-| ③ Time Travel      | D1 내장, 무료 **7일**                    | 실수 되돌리기. ⚠ **Cloudflare 밖으로는 못 나온다**      |
+| 층               | 수단                                     | 값                                                   |
+| ---------------- | ---------------------------------------- | ---------------------------------------------------- |
+| **① 정본 JSON**  | 앱에서 `exportSnapshot` → **PC 로 회수** | ⚠ **이게 진짜 백업.** 호스트·스키마·벤더 전부에 독립 |
+| ② D1 `.sql` 덤프 | 위 명령                                  | 빠른 복구. SQLite 라 이식 가능                       |
+| ③ Time Travel    | D1 내장, 무료 **7일**                    | 실수 되돌리기. ⚠ **Cloudflare 밖으로는 못 나온다**   |
 
 > ⚠ **①이 없으면 ②③은 Cloudflare 에 종속된 백업**이다 — Oracle 런북 §7-4 의 결론이 호스트가 바뀌어도 **한 글자도 안 바뀐다.** _"PC 로 내려오지 않는 백업은 백업이 아니다."_
 >
@@ -453,11 +481,11 @@ sqlite3 hub-restored.db < hub-prod.sql     # 평범한 SQLite 파일이 나온�
 
 **정직한 판정: 그 지적은 3분의 1만 맞다.**
 
-| 원래 지적한 이사 비용 | 실제                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------- |
-| **D1 스키마**         | ❌ **비용 0.** SQLite 그 자체다. `.sql` 이 어느 SQLite 에나 그대로 들어간다(§3-2 ⓒ가 이걸 더 강화한다)   |
-| **D1 바인딩**         | ✅ **실비용.** `env.DB.prepare(...).bind(...)` 는 D1 고유 API 다                                          |
-| **Workers 런타임**    | ✅ **실비용.** Node 파일시스템·장기 실행·10ms 초과 연산이 전제될 수 없다                                  |
+| 원래 지적한 이사 비용 | 실제                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| **D1 스키마**         | ❌ **비용 0.** SQLite 그 자체다. `.sql` 이 어느 SQLite 에나 그대로 들어간다(§3-2 ⓒ가 이걸 더 강화한다) |
+| **D1 바인딩**         | ✅ **실비용.** `env.DB.prepare(...).bind(...)` 는 D1 고유 API 다                                       |
+| **Workers 런타임**    | ✅ **실비용.** Node 파일시스템·장기 실행·10ms 초과 연산이 전제될 수 없다                               |
 
 **완화책 — C-4 에서 지금 지불해라(나중엔 비싸다):**
 
@@ -480,61 +508,61 @@ sqlite3 hub-restored.db < hub-prod.sql     # 평범한 SQLite 파일이 나온�
 
 ### 확인한 사실 (2026-07-19 확인, 출처 첨부)
 
-| 사실                                                                     | 출처                                                                                                    |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| **Workers 무료 플랜에 신용카드 불요.** 카드는 유료 전환 시에만            | [Cloudflare Plans](https://www.cloudflare.com/plans/) · [Workers 요금](https://developers.cloudflare.com/workers/platform/pricing/) |
-| Workers 무료 **요청 100,000/일**, 초과 시 Error 1027, UTC 자정 리셋       | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                            |
-| Workers 무료 **CPU 10 ms/HTTP 요청**(Cron 도 10 ms)                       | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                            |
-| Worker **메모리 128 MB/isolate**, **서브리퀘스트 50/요청**, 동시연결 6    | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                            |
-| Worker 스크립트 **3 MB(gzip 후)**, 환경변수 64개·각 5 KB, 계정당 100 Worker | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                            |
-| Cron Trigger 무료 **3개**, 최소 간격 1분                                 | [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)                 |
-| D1 무료 **DB당 500 MB · 계정 총 5 GB · DB 10개**                         | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                      |
-| D1 무료 **행 읽기 5,000,000/일 · 행 쓰기 100,000/일**, 00:00 UTC 리셋      | [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/)                                    |
-| **한도 초과 시 D1 API 가 오류 반환**(쓰기 거부)                          | [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/)                                    |
-| D1 무료 **Worker 호출당 쿼리 50개**(유료 1,000), 쿼리 시간 **30초**       | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                      |
-| D1 SQL 문 길이 **100 KB**, 바인딩 파라미터 **쿼리당 100개**, 행 크기 2 MB, 열 100개 | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                |
-| D1 **Time Travel 무료 7일**(유료 30일)                                   | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                      |
-| **D1 은 auto-commit.** `batch()` 는 순차·비동시 실행이며 하나라도 실패하면 **전체 롤백** | [D1 Worker API](https://developers.cloudflare.com/d1/worker-api/d1-database/)                    |
-| **읽기 복제는 기본 OFF**, 켜려면 대시보드+**Sessions API 필수**. 순차 일관성·read-your-own-writes | [D1 Read Replication](https://developers.cloudflare.com/d1/best-practices/read-replication/) |
-| `wrangler d1 migrations create/list/apply`, `migrations/` 폴더, `d1_migrations` 테이블, `migrations_dir` 로 경로 변경 가능 | [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/)     |
-| 마이그레이션은 **바인딩 이름이 아니라 DB 이름**으로 부르는 것이 안전      | [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/)                             |
-| `wrangler d1 export --remote [--no-data]` 로 `.sql` 덤프, `execute --file` 로 임포트(≤5 GiB) | [Import/Export](https://developers.cloudflare.com/d1/best-practices/import-export-data/)  |
-| **export 는 실행 중 다른 DB 요청을 막는다**, `.sqlite3` 직접 임포트 불가  | [Import/Export](https://developers.cloudflare.com/d1/best-practices/import-export-data/)                |
-| **`*.workers.dev` 에 공개 신뢰 인증서가 자동 발급된다**(TLS 무작업)       | [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)             |
-| 단, Cloudflare 는 프로덕션을 `workers.dev` 대신 커스텀 도메인에 두라고 권고 | [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)           |
-| wrangler 는 **Windows 11 공식 지원**(WSL 불요), Node Current/Active/Maintenance, **프로젝트 로컬 설치 권장** | [Wrangler 설치](https://developers.cloudflare.com/workers/wrangler/install-and-update/) |
-| **행 읽기는 스캔한 행 수**로 계산 — 인덱스 없는 필터는 전체 스캔이 과금됨 | [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/)                                    |
-| KV 무료 **읽기 100,000/일 · 서로 다른 키 쓰기 1,000/일 · 저장 1 GB**      | [KV Limits](https://developers.cloudflare.com/kv/platform/limits/)                                      |
+| 사실                                                                                                                       | 출처                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Workers 무료 플랜에 신용카드 불요.** 카드는 유료 전환 시에만                                                             | [Cloudflare Plans](https://www.cloudflare.com/plans/) · [Workers 요금](https://developers.cloudflare.com/workers/platform/pricing/) |
+| Workers 무료 **요청 100,000/일**, 초과 시 Error 1027, UTC 자정 리셋                                                        | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                                                        |
+| Workers 무료 **CPU 10 ms/HTTP 요청**(Cron 도 10 ms)                                                                        | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                                                        |
+| Worker **메모리 128 MB/isolate**, **서브리퀘스트 50/요청**, 동시연결 6                                                     | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                                                        |
+| Worker 스크립트 **3 MB(gzip 후)**, 환경변수 64개·각 5 KB, 계정당 100 Worker                                                | [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/)                                                        |
+| Cron Trigger 무료 **3개**, 최소 간격 1분                                                                                   | [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)                                             |
+| D1 무료 **DB당 500 MB · 계정 총 5 GB · DB 10개**                                                                           | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                                                  |
+| D1 무료 **행 읽기 5,000,000/일 · 행 쓰기 100,000/일**, 00:00 UTC 리셋                                                      | [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/)                                                                |
+| **한도 초과 시 D1 API 가 오류 반환**(쓰기 거부)                                                                            | [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/)                                                                |
+| D1 무료 **Worker 호출당 쿼리 50개**(유료 1,000), 쿼리 시간 **30초**                                                        | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                                                  |
+| D1 SQL 문 길이 **100 KB**, 바인딩 파라미터 **쿼리당 100개**, 행 크기 2 MB, 열 100개                                        | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                                                  |
+| D1 **Time Travel 무료 7일**(유료 30일)                                                                                     | [D1 Limits](https://developers.cloudflare.com/d1/platform/limits/)                                                                  |
+| **D1 은 auto-commit.** `batch()` 는 순차·비동시 실행이며 하나라도 실패하면 **전체 롤백**                                   | [D1 Worker API](https://developers.cloudflare.com/d1/worker-api/d1-database/)                                                       |
+| **읽기 복제는 기본 OFF**, 켜려면 대시보드+**Sessions API 필수**. 순차 일관성·read-your-own-writes                          | [D1 Read Replication](https://developers.cloudflare.com/d1/best-practices/read-replication/)                                        |
+| `wrangler d1 migrations create/list/apply`, `migrations/` 폴더, `d1_migrations` 테이블, `migrations_dir` 로 경로 변경 가능 | [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/)                                                         |
+| 마이그레이션은 **바인딩 이름이 아니라 DB 이름**으로 부르는 것이 안전                                                       | [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/)                                                         |
+| `wrangler d1 export --remote [--no-data]` 로 `.sql` 덤프, `execute --file` 로 임포트(≤5 GiB)                               | [Import/Export](https://developers.cloudflare.com/d1/best-practices/import-export-data/)                                            |
+| **export 는 실행 중 다른 DB 요청을 막는다**, `.sqlite3` 직접 임포트 불가                                                   | [Import/Export](https://developers.cloudflare.com/d1/best-practices/import-export-data/)                                            |
+| **`*.workers.dev` 에 공개 신뢰 인증서가 자동 발급된다**(TLS 무작업)                                                        | [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)                                         |
+| 단, Cloudflare 는 프로덕션을 `workers.dev` 대신 커스텀 도메인에 두라고 권고                                                | [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)                                         |
+| wrangler 는 **Windows 11 공식 지원**(WSL 불요), Node Current/Active/Maintenance, **프로젝트 로컬 설치 권장**               | [Wrangler 설치](https://developers.cloudflare.com/workers/wrangler/install-and-update/)                                             |
+| **행 읽기는 스캔한 행 수**로 계산 — 인덱스 없는 필터는 전체 스캔이 과금됨                                                  | [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/)                                                                |
+| KV 무료 **읽기 100,000/일 · 서로 다른 키 쓰기 1,000/일 · 저장 1 GB**                                                       | [KV Limits](https://developers.cloudflare.com/kv/platform/limits/)                                                                  |
 
 ### 미확인 사실 (추측으로 채우지 않음)
 
-| 항목                                                                | 상태                                                                                                          |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **인덱스 갱신이 "행 쓰기"에 계산되는가**                            | ⚠ **미확인.** §8-2 는 **계산된다고 가정**하고 설계했다(보수적). `db.rs` v4 가 7개 인덱스를 깔았으므로 배수가 클 수 있다 |
-| **workers.dev 계정 서브도메인을 나중에 바꿀 수 있는가**             | ⚠ **미확인.** §1 은 **못 바꾼다고 가정**한다                                                                  |
-| Worker **요청 본문 크기 상한**(무료 플랜)                           | ⚠ **미확인.** Cloudflare 무료 존은 100 MB 로 알려져 있으나 workers.dev 에 동일 적용되는지 확인 못 함. → **P1-7 은 서버에서 명시 상한을 걸어라**(§6-2 배치 상한이 이걸 겸한다) |
-| **D1 읽기 복제의 무료 플랜 가용 여부**                              | ⚠ **미확인.** 문서가 플랜 구분을 안 한다. 어차피 §5 설계는 **복제 OFF 전제**다                                |
-| `BEGIN`/`COMMIT` 명시 트랜잭션의 D1 지원 범위                       | ⚠ **미확인.** 문서는 auto-commit 과 `batch()` 만 말한다. → **`batch()` 만 쓰고 명시 트랜잭션에 기대지 마라**   |
-| **콜드스타트 실측치**                                               | ⚠ **미확인**(직접 측정 안 함). Workers 는 V8 isolate 라 컨테이너 대비 작다고 알려졌으나 이 앱에서의 체감은 미측정 |
-| **일부 국가·기업망에서 `*.workers.dev` 차단** 사례                  | ⚠ **미확인.** 커뮤니티 보고가 있으나 검증 못 함. 막히면 커스텀 도메인이 대응책이다                            |
-| 무료 한도의 **향후 변경 계획**                                      | ⚠ **미확인**(당연히 비공개). Oracle 사례가 준 교훈은 **§9(탈출)를 장식으로 읽지 말라**는 것이고, 그건 호스트가 바뀌어도 유효하다 |
-| Cloudflare 계정 정지 시 **사전 통지·유예**                          | ⚠ **미확인.** §8-3 은 통지가 없다고 가정한다                                                                  |
+| 항목                                                    | 상태                                                                                                                                                                          |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **인덱스 갱신이 "행 쓰기"에 계산되는가**                | ⚠ **미확인.** §8-2 는 **계산된다고 가정**하고 설계했다(보수적). `db.rs` v4 가 7개 인덱스를 깔았으므로 배수가 클 수 있다                                                       |
+| **workers.dev 계정 서브도메인을 나중에 바꿀 수 있는가** | ⚠ **미확인.** §1 은 **못 바꾼다고 가정**한다                                                                                                                                  |
+| Worker **요청 본문 크기 상한**(무료 플랜)               | ⚠ **미확인.** Cloudflare 무료 존은 100 MB 로 알려져 있으나 workers.dev 에 동일 적용되는지 확인 못 함. → **P1-7 은 서버에서 명시 상한을 걸어라**(§6-2 배치 상한이 이걸 겸한다) |
+| **D1 읽기 복제의 무료 플랜 가용 여부**                  | ⚠ **미확인.** 문서가 플랜 구분을 안 한다. 어차피 §5 설계는 **복제 OFF 전제**다                                                                                                |
+| `BEGIN`/`COMMIT` 명시 트랜잭션의 D1 지원 범위           | ⚠ **미확인.** 문서는 auto-commit 과 `batch()` 만 말한다. → **`batch()` 만 쓰고 명시 트랜잭션에 기대지 마라**                                                                  |
+| **콜드스타트 실측치**                                   | ⚠ **미확인**(직접 측정 안 함). Workers 는 V8 isolate 라 컨테이너 대비 작다고 알려졌으나 이 앱에서의 체감은 미측정                                                             |
+| **일부 국가·기업망에서 `*.workers.dev` 차단** 사례      | ⚠ **미확인.** 커뮤니티 보고가 있으나 검증 못 함. 막히면 커스텀 도메인이 대응책이다                                                                                            |
+| 무료 한도의 **향후 변경 계획**                          | ⚠ **미확인**(당연히 비공개). Oracle 사례가 준 교훈은 **§9(탈출)를 장식으로 읽지 말라**는 것이고, 그건 호스트가 바뀌어도 유효하다                                              |
+| Cloudflare 계정 정지 시 **사전 통지·유예**              | ⚠ **미확인.** §8-3 은 통지가 없다고 가정한다                                                                                                                                  |
 
 ---
 
 ## 부록 A — 설계서 §6 보안 항목 매핑
 
-| 설계서 §6 항목               | 이 런북에서                        | 인프라로 해결되나                                             |
-| ---------------------------- | ---------------------------------- | ------------------------------------------------------------- |
-| **P0-1** TLS 전 구간         | **§1·§7-3** (`workers.dev` 자동)   | ✅ **전부. 무작업.** Oracle 은 §5 한 절 전체였다              |
-| **P0-2** 토큰 URL 제거·수명·회전 | **§5-2**                        | ❌ **앱 작업.** 다만 KDF 금지(CPU 10ms)가 설계를 **제약**한다  |
-| **P0-3** 수신 스키마 strict  | **§6** (C-2)                       | ❌ **앱 작업.** ⚠ **codegen 파이프라인은 불필요해졌다**        |
-| **P1-4** 기기 단위 주체      | **§5-1** (D1 기기 테이블)          | ❌ 앱 작업                                                     |
-| **P1-5** CSP                 | (C-3 · Tauri `csp: null` 교체)     | ❌ 앱 작업                                                     |
-| **P1-6** `no-store` · CORS   | **§5-2** ⚠ Workers 도 기본이 없다  | ❌ 앱 작업. **명시 설정 필수**                                 |
-| **P1-7** 요청 크기 상한·RL   | **§6-2**(배치 상한) · §8-2         | 🔶 플랫폼이 CPU/쿼터로 간접 방어. **명시 상한을 별도로 걸어라** |
-| **P2-8** 백업·복구 검증      | **§9-1**                           | ✅ (①은 앱의 `exportSnapshot`)                                 |
-| **P2-9** 접근 로그           | §8-3 대시보드 + 기기 ID 로깅       | 🔶 "누가"는 P1-4 가 채운다                                     |
+| 설계서 §6 항목                   | 이 런북에서                       | 인프라로 해결되나                                                              |
+| -------------------------------- | --------------------------------- | ------------------------------------------------------------------------------ |
+| **P0-1** TLS 전 구간             | **§1·§7-3** (`workers.dev` 자동)  | ✅ **전부. 무작업.** Oracle 은 §5 한 절 전체였다                               |
+| **P0-2** 토큰 URL 제거·수명·회전 | **§5-2**                          | ❌ **앱 작업.** 다만 KDF 금지(CPU 10ms)가 설계를 **제약**한다                  |
+| **P0-3** 수신 스키마 strict      | **§6** (C-2)                      | ✅ 본문 라우트 **전부** zod `.strict()`(2026-07-20 에 4→1 비대칭 해소)         |
+| **P1-4** 기기 단위 주체          | **§5-1** (D1 기기 테이블)         | ✅ 목록·폐기 라우트 + push/pull 접근 로그에 기기 id 기록                       |
+| **P1-5** CSP                     | (C-3 · Tauri `csp: null` 교체)    | ❌ 앱 작업                                                                     |
+| **P1-6** `no-store` · CORS       | **§5-2** ⚠ Workers 도 기본이 없다 | ❌ 앱 작업. **명시 설정 필수**                                                 |
+| **P1-7** 요청 크기 상한·RL       | **§6-2**(배치 상한) · §7-5 · §8-2 | ✅ 1MB 본문 상한(2겹) + 무인증 라우트 RL. ⚠ **주 방어는 WAF 규칙**(§7-5)       |
+| **P2-8** 백업·복구 검증          | **§9-1**                          | 🔶 `exportSnapshot` 은 있으나 **복원 드릴 미실시** — 존재와 검증은 다른 명제다 |
+| **P2-9** 접근 로그               | §8-3 대시보드 + 기기 ID 로깅      | 🔶 "누가"는 P1-4 가 채운다                                                     |
 
 ## 부록 B — 설계서·CLAUDE.md 에서 갱신이 필요해진 곳
 
@@ -545,4 +573,4 @@ sqlite3 hub-restored.db < hub-prod.sql     # 평범한 SQLite 파일이 나온�
 3. **설계서 §7 "이미 완료된 것" 의 5-C 행** — _"서버가 어디 있든 필요하다"_ 의 근거 소멸(§6-4).
 4. **`oracle-런북.md`** — 상단에 "이력. 실행하지 않음. 단 §4~§7 은 VPS 로 탈출할 때 다시 유효(§9-3)" 경고 추가.
 5. **`CLAUDE.md` 아키텍처 한눈** — `server/` 신설 반영(§4).
-6. **`docs` 툼스톤 갭**(설계서 §7 C-1 이행 결과) — 여전히 미결이고 **C-5 전에** 정해야 한다. 호스트 변경이 이걸 풀어주지 않는다.
+6. ~~**`docs` 툼스톤 갭**~~ → **판정 완료(2026-07-20)**: 제품에 `docs` 삭제 경로가 아예 없어(`db/docs.ts` 에 삭제 함수 없음) 실害가 발생할 수 없다. ⚠ 삭제를 추가하는 커밋이 툼스톤을 같이 넣어야 한다 — 조건은 `cloud/contract.ts` 의 `OUTBOX_TABLES` 주석이 소유한다.

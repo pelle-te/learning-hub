@@ -6,9 +6,9 @@ name: web-ci
 
 on:
   push:
-    paths: ['web/**', 'src-tauri/**', 'package.json', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['web/**', 'src-tauri/**', 'package.json', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', '.github/workflows/ci.yml']
   workflow_dispatch: {}
 
 jobs:
@@ -41,6 +41,31 @@ jobs:
       # 비주얼 회귀(visual.spec)는 win32 베이스라인이라 CI(ubuntu)서 제외 — 로컬/수동 유지.
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e:smoke
+
+  # 클라우드 백엔드(Cloudflare Worker) — **종전까지 CI 가 전혀 안 돌던 폴더다**(2026-07-20 감사).
+  # 워크플로 상단 paths 에 `server/**` 가 없었고 잡도 없어서, 인터넷에 노출되는 코드가
+  # 로컬에서만 검증됐다. 인증·입력검증을 다루는 층이라 그 비대칭이 가장 위험한 곳에 있었다.
+  #
+  # ⚠ `test:roundtrip` 이 이 잡의 핵심이다 — **진짜 workerd + 진짜 D1** 위에서 온보딩→토큰→
+  #   push→pull→폐기를 왕복한다. 이 저장소는 "정적 검사 전량 녹색인데 실물에서 죽는" 부류에
+  #   네 번 물렸고(2단계 저장·C-4 삭제부활·C-5 CSP·pull 페이지네이션), 그때마다 문서는
+  #   "띄워보지 않으면 모른다"고 적었지만 그 층을 만들지는 않았다. 여기가 그 층이다.
+  #   ubuntu 로 충분하다(workerd 는 OS 독립적이고 GUI 가 없다).
+  cloud-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      # typecheck + format:check + 계약(SQL 의미론) + 왕복(실 workerd·D1)
+      - run: npm run verify
 
   # Tauri 셸 — **windows 전용**. ubuntu 에서는 검증이 원리적으로 불가한 것들이 있다:
   # `killTree`(손자 taskkill /T) · `port_owner_pid`(netstat 파싱) · WebView2 자체가 Windows API 다.

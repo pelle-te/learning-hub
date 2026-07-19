@@ -117,9 +117,67 @@ export async function enrollDevice(baseUrl: string, code: string, name: string):
   return cfg;
 }
 
-/** 이 기기의 클라우드 연결을 끊는다(자격증명 삭제). 서버 쪽 폐기는 별도다. */
-export async function disconnectCloud(): Promise<void> {
+/**
+ * 이 기기의 클라우드 연결을 끊는다.
+ *
+ * ⚠ **서버 폐기를 먼저 시도하고, 그다음 로컬 자격증명을 지운다.** 순서가 반대면 서버에
+ * 폐기를 요청할 자격증명이 이미 없다. 서버 폐기가 실패해도 **로컬 삭제는 진행한다** —
+ * "끊기"를 눌렀는데 인터넷이 없다고 안 끊기면 사용자가 할 수 있는 일이 없어진다.
+ * 대신 실패 사실을 돌려줘서 화면이 "서버에서도 끊으려면 다시 시도하세요"라고 말할 수 있게 한다.
+ */
+export async function disconnectCloud(): Promise<{ serverRevoked: boolean }> {
+  let serverRevoked = false;
+  try {
+    const cfg = await readCloudConfig();
+    if (cfg) {
+      await revokeDevice(cfg, cfg.deviceId);
+      serverRevoked = true;
+    }
+  } catch {
+    // 네트워크·인증 실패 — 아래 로컬 삭제는 그대로 진행한다(위 주석 참조).
+  }
   for (const k of Object.values(KEYS)) await execDb('DELETE FROM sync_state WHERE key = ?', [k]);
+  _access = null;
+  return { serverRevoked };
+}
+
+/* ── 기기 관리(P0-2 폐기) ───────────────────────────────────────
+
+   ⚠ C-4 는 `revoked_at` 열과 그 검사를 만들어 놓고 **쓰는 경로를 안 만들었다.** 그래서 폰을
+   잃었을 때 실제로 할 수 있는 일이 D1 에 손으로 SQL 을 치는 것뿐이었다(2026-07-20 감사).
+   여기가 그 경로다. */
+
+export interface CloudDevice {
+  id: string;
+  name: string;
+  createdAt: number;
+  lastSeenAt: number;
+  revokedAt: number | null;
+}
+
+/** 등록된 기기 목록. `self` 는 지금 이 기기의 id. */
+export async function listDevices(cfg: CloudConfig): Promise<{ self: string; devices: CloudDevice[] }> {
+  const res = await authed(cfg, '/api/devices');
+  if (!res.ok) throw new Error(`기기 목록을 못 받았어요(${res.status})`);
+  const j = (asJson(res) ?? {}) as { self?: unknown; devices?: unknown };
+  if (typeof j.self !== 'string' || !Array.isArray(j.devices)) throw new Error('기기 목록 응답이 계약과 다릅니다.');
+  return { self: j.self, devices: j.devices as CloudDevice[] };
+}
+
+/**
+ * 기기를 폐기한다. **되돌릴 수 없다** — 그 기기는 등록 코드로 다시 연결해야 한다.
+ *
+ * ⚠ 이미 발급된 액세스 토큰은 서명 기반이라 서버가 매 요청 폐기 여부를 확인해서 끊는다
+ * (`requireDevice`). 즉 실효는 즉시다 — 다만 그건 **서버 구현에 의존하는 성질**이라
+ * 여기 적어 둔다.
+ */
+export async function revokeDevice(cfg: CloudConfig, deviceId: string): Promise<void> {
+  const res = await authed(cfg, '/api/devices/revoke', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId }),
+  });
+  if (!res.ok) throw new Error(`기기 폐기 실패(${res.status})`);
 }
 
 /* ── 토큰 ────────────────────────────────────────────────────── */

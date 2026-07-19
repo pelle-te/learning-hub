@@ -557,4 +557,50 @@ mod tests {
     fn 짧은_출력은_그대로_둔다() {
         assert_eq!(tail_chars("완료", OUT_CAP), "완료");
     }
+
+    /* ── 실물 대상 통합 검사 ─────────────────────────────────────────────────
+    ▶ 트랙 B `4단계-C` 를 여기로 내렸다(2026-07-20 층 재배치).
+
+    위 단위 테스트들은 캡·인자 정제·출력 절단 같은 **순수 부분**만 잠근다. 실제로 여기서만
+    드러나는 것들이 따로 있다 — python 이 PATH 에서 잡히는가 · cwd 가 워크스페이스인가(틀리면
+    도구가 조용히 빈 결과를 낸다: 이 앱에서 가장 진단하기 어려운 실패) · PYTHONIOENCODING 이
+    실제로 한글 stdout 을 지키는가 · 파이프를 양쪽 다 읽어 교착하지 않는가.
+
+    그 전부가 **프로세스 문제이지 창 문제가 아니다.** 옛 케이스는 이걸 재려고 exe 를 띄웠는데,
+    `run_blocking` 은 워크스페이스 경로만 있으면 그대로 부를 수 있다.
+
+    읽기 전용 도구(`vault-stats`)를 고른 이유는 사용자 볼트를 훼손하지 않기 위해서다
+    (옛 케이스와 같은 선택). */
+
+    #[test]
+    fn 실_워크스페이스에서_파이썬_도구가_돈다() {
+        let cwd = crate::testkit::real_workspace().expect("환경 가정 위반 — testkit 참조");
+        let py = std::env::var("PYTHON").unwrap_or_else(|_| "python".into());
+        let tool = lookup("vault-stats").expect("vault-stats 가 화이트리스트에서 사라졌다");
+
+        let out = run_blocking(&py, tool, vec![], &cwd);
+
+        assert_eq!(out.label, "볼트 통계");
+        // cwd 가 워크스페이스가 아니면 python 이 스크립트를 못 찾아 code≠0 + 빈 stdout 이 된다.
+        assert_eq!(
+            out.code, 0,
+            "도구가 실패했다(cwd 가 워크스페이스가 아닐 수 있다): {}",
+            out.out
+        );
+        assert!(
+            !out.out.is_empty(),
+            "stdout 이 비었다 — 파이프를 못 읽었을 수 있다"
+        );
+        // PYTHONIOENCODING 이 안 걸리면 한글이 깨지거나 python 이 UnicodeEncodeError 로 죽는다.
+        assert!(
+            !out.out.contains('\u{FFFD}'),
+            "출력에 깨진 문자가 있다: {}",
+            out.out
+        );
+        assert!(
+            out.out.chars().any(|c| ('가'..='힣').contains(&c)),
+            "한글이 하나도 없다 — 인코딩이 깨졌을 수 있다: {}",
+            out.out
+        );
+    }
 }

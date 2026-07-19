@@ -189,6 +189,30 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /* ▶ 트랙 B `4단계-I` 를 여기로 내렸다(2026-07-20 층 재배치).
+
+    그 케이스가 실제로 잠그던 것은 "**폴더를 묻지 않고 진짜 볼트를 읽는가**"이고, 그건
+    `<workspace>/knowledge` 를 상대로 스캔이 성립하는지의 문제다 — 앱 창과는 무관하다.
+    (원래 주석도 "FSA 가 깨져서 옮긴 게 아니다"라고 적고 있었다.) */
+    #[test]
+    fn 실_볼트에서_덱을_읽는다() {
+        let vault = crate::testkit::real_vault().expect("환경 가정 위반 — testkit 참조");
+        let s = scan_at(&vault).expect("실 볼트 스캔 실패");
+        // 출처 문구는 프런트가 그대로 보여준다 — 둘 중 하나여야 한다.
+        assert!(
+            ["_index.json", "anki/ 폴더"].contains(&s.src.as_str()),
+            "예상 밖 출처: {}",
+            s.src
+        );
+        assert!(!s.decks.is_empty(), "실 볼트에서 덱을 하나도 못 읽었다");
+        // 파싱이 됐다는 증거 — 이름과 카드 수가 실제로 채워졌는가.
+        assert!(!s.decks[0].file.is_empty());
+        assert!(
+            s.decks.iter().any(|d| d.cards > 0),
+            "모든 덱의 카드 수가 0 — 매니페스트 필드명이 갈렸을 수 있다"
+        );
+    }
+
     #[test]
     fn 빈_매니페스트는_폴더로_폴백한다() {
         // `anki: []` 를 "인덱스가 있다"로 읽으면 덱 0개가 정답이 되어 화면이 빈다.

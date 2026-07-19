@@ -14,3 +14,22 @@
 *.rs    text eol=lf
 *.sql   text eol=lf
 *.toml  text eol=lf
+
+# ── 텍스트 소스는 전부 LF 고정 ────────────────────────────────────────────────
+# 원래 `web/.gitattributes` 에만 있던 규칙을 **루트로 올렸다**(2026-07-20).
+# 이유는 위와 같은 부류의 사고다: `server/`(Cloudflare Worker)가 생겼는데 그 폴더는
+# 어느 .gitattributes 에도 안 걸려 있어서, 새로 클론하면 `.ts` 가 CRLF 로 나오고
+# prettier(endOfLine:lf) 검사가 CI 에서 깨진다. 폴더가 늘 때마다 규칙을 복사하는 대신
+# 루트에서 한 번 못박는다 — `.prettierrc.json` 을 루트로 올린 것과 같은 판단이다.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.cjs   text eol=lf
+*.mjs   text eol=lf
+*.css   text eol=lf
+*.json  text eol=lf
+*.jsonc text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf

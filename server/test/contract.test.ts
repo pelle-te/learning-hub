@@ -23,14 +23,17 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { OUTBOX_TABLES, tableCols } from '../../web/src/lib/cloud/contract';
+import { capBatch, MAX_BATCH_ITEMS, OUTBOX_TABLES, tableCols } from '../../web/src/lib/cloud/contract';
+import { ceilingOf, readPage } from '../src/pull';
 
 const MIG = fileURLToPath(new URL('../../src-tauri/migrations/', import.meta.url));
 
 /** 서버가 쓰는 것과 **같은 스키마**로 DB 를 세운다(공유 마이그레이션 폴더). */
 function freshDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
-  for (const f of readdirSync(MIG).filter((f) => f.endsWith('.sql')).sort()) {
+  for (const f of readdirSync(MIG)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()) {
     db.exec(readFileSync(MIG + f, 'utf8'));
   }
   return db;
@@ -138,7 +141,11 @@ describe('⚠⚠ 삭제가 부활하지 않는다 — 이 파일이 만들어진
 describe('스키마가 계약과 맞는다', () => {
   it('동기화 대상 테이블이 전부 실재하고 updated_at 을 갖는다', () => {
     for (const spec of OUTBOX_TABLES) {
-      const cols = (db.prepare(`PRAGMA table_info(${spec.name})`).all() as { name: string }[]).map((r) => r.name);
+      const cols = (
+        db.prepare(`PRAGMA table_info(${spec.name})`).all() as {
+          name: string;
+        }[]
+      ).map((r) => r.name);
       expect(cols, `${spec.name} 없음`).toContain('updated_at');
       const { key, data } = tableCols(spec);
       for (const c of [...key, ...data]) expect(cols, `${spec.name}.${c} 없음`).toContain(c);
@@ -147,9 +154,151 @@ describe('스키마가 계약과 맞는다', () => {
 
   it('인증 테이블이 실재한다(v5)', () => {
     const names = (
-      db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all() as { name: string }[]
+      db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all() as {
+        name: string;
+      }[]
     ).map((r) => r.name);
     expect(names).toContain('devices');
     expect(names).toContain('enroll_codes');
+  });
+});
+
+/* ============================================================
+   ⚠⚠ pull 페이지네이션 — 2026-07-20 감사가 잡은 **조용한 유실**
+
+   종전 구현은 테이블마다 따로 LIMIT 을 걸고 `upto = max(전체 스탬프)` 를 돌려줬다. 잘린
+   테이블의 남은 행이 워터마크 아래로 묻혀 **영영 전달되지 않았다** — C-1 이 fence 로 막은
+   것과 같은 실패 모드의 수신 측 거울상이다. 아래가 그 시나리오를 그대로 재현한다.
+============================================================ */
+
+/** 한 테이블을 pull 규칙대로 읽는다(라우트가 하는 것과 같은 주입 형태). */
+interface Rec {
+  key: string;
+  updatedAt: number;
+}
+async function pullTable(d: DatabaseSync, tbl: string, since: number, limit: number) {
+  const map = (r: Record<string, unknown>): Rec => ({
+    key: String(r['key']),
+    updatedAt: Number(r['updated_at']),
+  });
+  return readPage<Rec>(
+    (r) => r.updatedAt,
+    async (n) =>
+      (
+        d
+          .prepare(`SELECT key, updated_at FROM ${tbl} WHERE updated_at > ? ORDER BY updated_at LIMIT ?`)
+          .all(since, n) as Record<string, unknown>[]
+      ).map(map),
+    async (stamp) =>
+      (
+        d.prepare(`SELECT key, updated_at FROM ${tbl} WHERE updated_at = ?`).all(stamp) as Record<string, unknown>[]
+      ).map(map),
+    limit,
+  );
+}
+
+const seed = (d: DatabaseSync, tbl: string, entries: [string, number][]): void => {
+  for (const [k, at] of entries) {
+    d.prepare(`INSERT INTO ${tbl} (key, value, updated_at) VALUES (?, '{}', ?)`).run(k, at);
+  }
+};
+
+describe('⚠⚠ pull 페이지네이션 — 잘린 소스가 워터마크를 앞지르지 않는다', () => {
+  it('한 소스가 잘리면 upto 가 그 소스의 완전 지점까지만 올라간다', async () => {
+    // settings: 스탬프 10·20·30 (3건) — limit 2 라 잘린다
+    seed(db, 'settings', [
+      ['a', 10],
+      ['b', 20],
+      ['c', 30],
+    ]);
+    // docs: 스탬프 5000 하나 — 안 잘린다
+    seed(db, 'docs', [['z', 5000]]);
+
+    const s = await pullTable(db, 'settings', 0, 2);
+    const u = await pullTable(db, 'docs', 0, 2);
+
+    expect(s.cap, 'settings 는 잘렸으니 상한이 있어야 한다').toBe(29); // 버려지는 첫 행(30) - 1
+    expect(u.cap, 'docs 는 안 잘렸다').toBeNull();
+
+    const stamps = [...s.items, ...u.items].map((r) => r.updatedAt);
+    const upto = ceilingOf(
+      [s.cap, u.cap].filter((x): x is number => x !== null),
+      stamps,
+      0,
+    );
+
+    /* ⚠ 옛 구현이라면 여기서 5000 이 나왔고, settings 의 'c'(30) 가 영영 묻혔다. */
+    expect(upto, 'upto 가 잘린 소스를 앞질렀다 — c(30) 가 영영 유실된다').toBe(29);
+
+    // 다음 라운드가 실제로 남은 것을 가져오는지 — 유실이 없다는 것의 실증.
+    const next = await pullTable(db, 'settings', upto, 2);
+    expect(next.items.map((r) => r.key)).toContain('c');
+  });
+
+  it('아무 소스도 안 잘리면 받은 것의 최대값까지 전진한다', async () => {
+    seed(db, 'settings', [
+      ['a', 10],
+      ['b', 20],
+    ]);
+    const s = await pullTable(db, 'settings', 0, 10);
+    expect(s.cap).toBeNull();
+    expect(
+      ceilingOf(
+        [],
+        s.items.map((r) => r.updatedAt),
+        0,
+      ),
+    ).toBe(20);
+  });
+
+  it('받을 게 없으면 since 그대로다 — 전진할 근거가 없다', async () => {
+    const s = await pullTable(db, 'settings', 77, 10);
+    expect(s.items).toHaveLength(0);
+    expect(ceilingOf([], [], 77)).toBe(77);
+  });
+
+  it('⚠ 스탬프 그룹을 절대 쪼개지 않는다 — 쪼개면 나머지가 영영 제외된다', async () => {
+    // 같은 flush 가 만든 3건(스탬프 100) + 이후 1건
+    seed(db, 'settings', [
+      ['a', 100],
+      ['b', 100],
+      ['c', 100],
+      ['d', 200],
+    ]);
+    const s = await pullTable(db, 'settings', 0, 2); // limit 2 < 그룹 크기 3
+
+    /* 첫 그룹이 혼자 상한을 넘는다 → 통째로 준다. 여기서 2건만 주고 upto=100 을 잡으면
+       남은 1건은 `updated_at > 100` 이 거짓이라 **영영 안 온다.** */
+    expect(s.items.map((r) => r.key).sort()).toEqual(['a', 'b', 'c']);
+    expect(s.cap).toBe(100);
+  });
+
+  it('⚠ 진행이 0 이 되지 않는다 — since 와 같은 upto 는 영구 교착이다', async () => {
+    seed(db, 'settings', [
+      ['a', 1],
+      ['b', 1],
+      ['c', 1],
+    ]);
+    const s = await pullTable(db, 'settings', 0, 1);
+    const upto = ceilingOf(
+      s.cap !== null ? [s.cap] : [],
+      s.items.map((r) => r.updatedAt),
+      0,
+    );
+    expect(upto, 'upto 가 since 와 같으면 클라이언트가 같은 구간을 영원히 다시 묻는다').toBeGreaterThan(0);
+  });
+
+  it('⚠ 전체 건수가 클라이언트 상한을 넘지 않는다 — 넘으면 첫 전량 동기화가 교착한다', async () => {
+    /* 소스가 8개인데 limit 이 소스마다 걸리므로 합계가 MAX_BATCH_ITEMS 를 넘을 수 있다.
+       그러면 클라이언트의 OutboxBatchSchema 가 자기 응답을 거절해 영원히 못 받는다. */
+    const rows = Array.from({ length: MAX_BATCH_ITEMS + 50 }, (_, i) => ({
+      tbl: 'settings',
+      key: [`k${i}`],
+      data: ['{}'],
+      updatedAt: i + 1,
+    }));
+    const capped = capBatch(rows, [], rows.length);
+    expect(capped.rows.length + capped.tombstones.length).toBeLessThanOrEqual(MAX_BATCH_ITEMS);
+    expect(capped.upto, '자른 뒤 upto 도 함께 내려와야 한다').toBeLessThan(rows.length);
   });
 });

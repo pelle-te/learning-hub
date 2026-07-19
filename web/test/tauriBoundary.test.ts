@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
-import { workspaceStatus, vaultScan, mobileServerStatus } from '@/lib/tauri';
+import { workspaceStatus, vaultScan } from '@/lib/tauri';
 
 let warn: ReturnType<typeof vi.spyOn>;
 
@@ -81,12 +81,6 @@ describe('⚠ 어긋난 응답 — 경고하되 **차단하지 않는다**', () 
     await vaultScan();
     expect(warn).not.toHaveBeenCalled();
   });
-
-  it('snake_case 필드(lan_ip)가 사라지면 잡는다 — 이 필드만 rename 규칙이 다르다', async () => {
-    invoke.mockResolvedValue({ running: true, port: 8765, url: 'http://x' }); // lan_ip 누락
-    await mobileServerStatus();
-    expect(String(warn.mock.calls[0]![0])).toContain('lan_ip');
-  });
 });
 
 describe('검증이 기존 실패 처리를 바꾸지 않는다', () => {
@@ -100,7 +94,6 @@ describe('검증이 기존 실패 처리를 바꾸지 않는다', () => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     expect(await workspaceStatus()).toBeNull();
     expect(await vaultScan()).toBeNull();
-    expect(await mobileServerStatus()).toEqual({ running: false, port: 0, url: null, lan_ip: null });
     expect(invoke).not.toHaveBeenCalled();
   });
 });

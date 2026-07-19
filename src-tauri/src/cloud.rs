@@ -6,7 +6,7 @@ C-5 가 처음엔 `lib/cloud/client.ts` 에서 생 `fetch` 로 워커를 불렀�
 않았다** — C-3 이 CSP 를 `connect-src 'self' ipc:` 로 잠갔기 때문이다. 트랙 A(Chromium,
 CSP 없음)도 트랙 B(클라우드 경로 미주행)도 못 잡았고, 트랙 B 로 실측해서야 나왔다:
 
-```
+```text
 violations: ["connect-src :: https://cloudflare.com/cdn-cgi/trace"]
 ```
 

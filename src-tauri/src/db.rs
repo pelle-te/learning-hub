@@ -114,5 +114,82 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: include_str!("../migrations/005_auth.sql"),
         },
+        /* v6 — **레거시 행이 동기화에서 투명하게 배제되던 결함**을 고친다.
+
+        v3 이 `updated_at` 을 `DEFAULT 0` 으로 추가했는데, 아웃박스는 `updated_at > watermark`
+        로 수집하고 워터마크 초기값이 0 이다. `0 > 0` 이 거짓이라 **v3 이전에 쓰인 행은 영원히
+        안 올라간다.** 앱은 그동안 "연결됨 · 최신 상태"라고 말한다 — 조용한 유실이다.
+
+        첫 실기기 연결(2026-07-20)에서 실측으로 잡았다: 로컬 settings 17행 중 클라우드에 도착한
+        것이 1행이었고, 그 1행만 C-1 이후에 건드려져 진짜 스탬프를 갖고 있었다.
+
+        상수 1 을 쓰는 이유(시계 금지)는 SQL 파일 머리주석 참조. */
+        Migration {
+            version: 6,
+            description: "레거시 updated_at=0 백필 — 동기화 수집에서 빠지던 행 복구",
+            kind: MigrationKind::Up,
+            sql: include_str!("../migrations/006_backfill_stamps.sql"),
+        },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    /// 동기화 대상 테이블 — 전부 `updated_at` 을 갖는다(v3). `runtime_cache`·`meta` 는
+    /// 동기화 대상이 아니라 제외(위 v3 주석 참조).
+    const SYNCED: [&str; 7] = [
+        "settings",
+        "completions",
+        "ds_map",
+        "records",
+        "summaries",
+        "week_alloc",
+        "docs",
+    ];
+
+    /* ▶ 트랙 B 의 `C-5 — 실 DB 에 updated_at = 0 인 행이 없다` 를 여기로 내렸다.
+
+    ⚠ 이 검사는 **실물이어야만 의미가 있다.** 마이그레이션 단위 테스트는 깨끗한 임시 DB 에
+    적용해 보므로 늘 녹색이고, 정작 이번 결함은 *실제 사용자의 DB* 에서 났다(v3 이전에 쓰인
+    행이 0 스탬프로 남아 아웃박스의 `updated_at > watermark` 에서 영원히 빠졌다 — 앱은 그동안
+    "연결됨 · 최신 상태"라고 말했다. 조용한 유실이다).
+
+    옛 케이스는 이걸 재려고 앱을 띄워 웹뷰에서 SQL 을 쐈다. 그런데 이건 **SQL 질의 하나**다 —
+    `examples/probe_counts.rs` 가 이미 같은 일을 하고 있었고(일회성으로 만들어 두고 일반화하지
+    않았다), 창은 처음부터 필요 없었다.
+
+    ⚠ 읽기 전용으로 연다 — 사용자의 정본 DB 다. 앱이 켜져 있어도 WAL 이라 읽기는 막히지 않는다. */
+    #[test]
+    fn 실_db_에_updated_at_0_인_행이_없다() {
+        let Some(path) = crate::testkit::real_db() else {
+            crate::testkit::skip!("앱 DB 가 아직 없습니다(앱을 한 번도 안 켠 기계) — 검사 생략");
+        };
+
+        let zeros = crate::testkit::rt().block_on(async {
+            let opts = sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(&path)
+                .read_only(true);
+            let pool = sqlx::SqlitePool::connect_with(opts)
+                .await
+                .expect("실 DB 열기 실패");
+            let mut out = Vec::new();
+            for t in SYNCED {
+                let (n,): (i64,) =
+                    sqlx::query_as(&format!("SELECT COUNT(*) FROM {t} WHERE updated_at = 0"))
+                        .fetch_one(&pool)
+                        .await
+                        .unwrap_or_else(|e| panic!("{t} 질의 실패(스키마가 갈렸나): {e}"));
+                out.push((t, n));
+            }
+            pool.close().await;
+            out
+        });
+
+        for (t, n) in zeros {
+            assert_eq!(
+                n, 0,
+                "{t} 에 0 스탬프 행이 {n}개 — v6 백필이 안 돌았거나 새로 생겼다(동기화에서 영원히 빠진다)"
+            );
+        }
+    }
 }

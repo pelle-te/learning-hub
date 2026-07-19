@@ -101,6 +101,8 @@ const PINNED_CHECKSUMS: Record<number, string> = {
   2: 'f598f3f3bd83d6bf758ae56a',
   3: 'de83cf7ed0adad247f491ef6',
   4: '4499ebd2ce19b8897811af59',
+  5: '60309279448efeda1f1ef397',
+  6: '240c6c6afb4734b2ab80c210',
 };
 
 describe('⚠⚠ 체크섬 핀 — 기존 마이그레이션은 불변이다', () => {
@@ -108,9 +110,24 @@ describe('⚠⚠ 체크섬 핀 — 기존 마이그레이션은 불변이다', (
     const { createHash } = await import('node:crypto');
     for (const m of all) {
       const pinned = PINNED_CHECKSUMS[m.version];
-      if (!pinned) continue; // 새로 추가된 버전 — 아직 배포 전이라 핀이 없다
       const got = createHash('sha384').update(m.sql, 'utf8').digest('hex').slice(0, 24);
       expect(got, `v${m.version} 의 SQL 이 바뀌었다 — 기존 DB 가 안 열린다. 위 주석을 읽어라.`).toBe(pinned);
+    }
+  });
+
+  /* ⚠ **핀 없는 버전을 허용하지 않는다.** 종전엔 `if (!pinned) continue` 로 조용히 넘어갔고,
+     그 결과 v5·v6 이 **핀 없이 실 DB 에 적용**됐다(2026-07-20 감사에서 발견). 그 순간부터
+     sqlx 체크섬으로 불변인데 CI 가드는 없는 상태 — 핀이 막으려던 바로 그 창이 열려 있었다.
+
+     "배포 전이라 핀이 없다"는 면제가 왜 틀렸나: 마이그레이션이 실 DB 에 적용되는 시점은
+     **배포가 아니라 개발자가 앱을 한 번 띄우는 순간**이다. 그래서 면제 구간이 실질적으로
+     존재하지 않는다. 새 마이그레이션은 **같은 커밋에서** 핀을 추가한다. */
+  it('⚠ 모든 마이그레이션에 핀이 있다 — 면제 구간이 곧 구멍이었다', () => {
+    for (const m of all) {
+      expect(
+        PINNED_CHECKSUMS[m.version],
+        `v${m.version}(${m.file}) 에 체크섬 핀이 없다 — 같은 커밋에서 PINNED_CHECKSUMS 에 추가해라`,
+      ).toBeDefined();
     }
   });
 
@@ -161,10 +178,20 @@ describe('v3 — 동기화 가능한 데이터 모델', () => {
     db.close();
   });
 
-  it('기존 행은 updated_at = 0 으로 이행된다 — "아주 오래된 것"이라 첫 동기화에서 상대가 이긴다', () => {
+  /* ⚠⚠ 이 케이스는 원래 **당시의 오해를 그대로 잠그고 있었다.**
+
+     옛 이름: _"기존 행은 updated_at = 0 으로 이행된다 — 아주 오래된 것이라 첫 동기화에서
+     상대가 이긴다"_. 앞부분(0 으로 이행)은 사실이지만 **뒷부분이 틀렸다.** 0 은 "아주 오래된
+     것"이 아니라 **"영원히 수집되지 않는 것"** 이다 — 아웃박스가 `updated_at > watermark` 로
+     모으고 워터마크 초기값이 0 이라 `0 > 0` 이 거짓이기 때문이다. 첫 동기화에서 지는 게
+     아니라 **애초에 참가하지 않는다.**
+
+     테스트가 녹색이었던 이유가 여기 있다 — 관측(0 이 된다)은 맞고 **해석만 틀렸는데**,
+     단정문이 관측만 검사했다. 실기기 연결(2026-07-20)에서 로컬 17행 중 1행만 도착해서야
+     드러났다. v6 이 백필로 고친다. */
+  it('v3 은 기존 행을 0 으로 채우고 — ⚠ 0 은 "오래됨"이 아니라 "수집 불가"다', () => {
     const db = applyUpTo(2);
     db.exec(`INSERT INTO settings (key, value) VALUES ('before', '{"a":1}')`);
-    // v2 상태에서 쓴 행이 v3 이행 후에도 값을 유지하고 updated_at 만 0 으로 채워지는가
     db.exec(all.find((m) => m.version === 3)!.sql);
     const row = db.prepare(`SELECT value, updated_at FROM settings WHERE key = 'before'`).get() as {
       value: string;
@@ -172,6 +199,40 @@ describe('v3 — 동기화 가능한 데이터 모델', () => {
     };
     expect(row.value).toBe('{"a":1}'); // ⚠ 이행이 데이터를 버리지 않는다
     expect(row.updated_at).toBe(0);
+    // 이 상태의 행은 워터마크 0 에서도 아웃박스에 안 잡힌다 — 그게 결함의 본체였다.
+    const collected = db.prepare(`SELECT COUNT(*) c FROM settings WHERE updated_at > 0`).get() as { c: number };
+    expect(collected.c, 'v3 만으로는 레거시 행이 수집 대상이 아니다').toBe(0);
+    db.close();
+  });
+
+  it('v6 이 레거시 행을 되살린다 — 백필 후엔 워터마크 0 에서 수집된다', () => {
+    const db = applyUpTo(2);
+    db.exec(`INSERT INTO settings (key, value) VALUES ('legacy', '{"a":1}')`);
+    db.exec(all.find((m) => m.version === 3)!.sql);
+    db.exec(all.find((m) => m.version === 6)!.sql);
+    const row = db.prepare(`SELECT value, updated_at FROM settings WHERE key = 'legacy'`).get() as {
+      value: string;
+      updated_at: number;
+    };
+    expect(row.value, '백필이 데이터를 건드리면 안 된다').toBe('{"a":1}');
+    expect(row.updated_at, '수집되려면 0 보다 커야 한다').toBeGreaterThan(0);
+    /* ⚠ 값이 **상수**여야 한다. 시계를 쓰면 기기마다 다른 값이 박혀 같은 레거시 행이
+       "나중에 마이그레이션한 기기"의 것으로 이긴다(SQL 파일 머리주석). */
+    expect(row.updated_at, '시계가 들어갔다 — 기기마다 값이 갈린다').toBe(1);
+    db.close();
+  });
+
+  it('⚠ 불변식: 전 버전 적용 후 sync 테이블에 updated_at = 0 인 행이 남지 않는다', () => {
+    const db = applyUpTo(2);
+    // 각 sync 테이블에 레거시 행을 하나씩 심는다(v3 이전 상태에서 쓴 것을 흉내).
+    db.exec(`INSERT INTO settings (key, value) VALUES ('s', '{}')`);
+    db.exec(`INSERT INTO ds_map (slice, ds, value) VALUES ('sl', 'd', '{}')`);
+    for (const m of all.filter((x) => x.version >= 3)) db.exec(m.sql);
+
+    for (const t of ['settings', 'ds_map']) {
+      const n = db.prepare(`SELECT COUNT(*) c FROM ${t} WHERE updated_at = 0`).get() as { c: number };
+      expect(n.c, `${t} 에 0 스탬프가 남았다 — 그 행은 영원히 동기화되지 않는다`).toBe(0);
+    }
     db.close();
   });
 

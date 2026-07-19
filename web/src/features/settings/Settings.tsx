@@ -17,7 +17,6 @@ import { ACCENTS, type Accent } from '@/lib/uiState';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
-import MobileServerCard from './MobileServerCard';
 import CloudCard from './CloudCard';
 import { lastParity } from '@/lib/db/write';
 import ds from '@/styles/ds.module.css';
@@ -431,9 +430,6 @@ export default function Settings() {
 
       {/* Tauri 셸에서만 렌더(브라우저에선 null) — 1단계에서 승격된 워크스페이스 경로 설정. */}
       <WorkspaceCard />
-
-      {/* 5단계-A — LAN 읽기 전용 모바일 뷰. 기본 OFF 이고 켜는 동안만 포트가 열린다. */}
-      <MobileServerCard />
 
       {/* C-5 — 클라우드 동기화(여러 기기에서 편집). 연결 전에는 아무 요청도 나가지 않는다. */}
       <CloudCard />

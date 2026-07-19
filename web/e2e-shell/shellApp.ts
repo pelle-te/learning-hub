@@ -25,6 +25,30 @@ export interface Shell {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/* ── 공유 셸 ────────────────────────────────────────────────────────────────
+   2026-07-20 층 재배치 전까지 트랙 B 는 케이스마다 exe 를 띄웠다 내렸다 해서 회당 기동이
+   19번이었다. 그중 대부분은 **읽기 전용 IPC 프로브**라 같은 창에서 다 돌 수 있었다
+   (실물을 상대해야 하던 케이스들은 아예 `cargo test` 로 내려갔다 — `src-tauri/src/testkit.rs`).
+
+   ⚠ 공유 셸과 전용 셸을 **섞으면 서로를 죽인다**: `launchShell()` 은 `ensureNoStrayShell()` 로
+   learning-hub 프로세스를 전부 정리하고 시작한다(single-instance 때문에 필요하다). 그래서
+   자기 셸을 따로 쓰는 케이스는 **반드시 `closeSharedShell()` 을 먼저** 불러야 한다. */
+let shared: Shell | null = null;
+
+/** 읽기 전용 케이스들이 함께 쓰는 셸. 처음 부를 때만 실제로 띄운다. */
+export async function sharedShell(): Promise<Shell> {
+  shared ??= await launchShell();
+  return shared;
+}
+
+/** 공유 셸을 내린다. 재시작 계약을 검사하는 케이스가 **자기 셸을 띄우기 전에** 부른다. */
+export async function closeSharedShell(): Promise<void> {
+  if (!shared) return;
+  const s = shared;
+  shared = null; // 먼저 비운다 — 닫기가 실패해도 다음 호출이 죽은 핸들을 재사용하지 않게.
+  await closeShell(s).catch(() => {});
+}
+
 /** PowerShell 한 줄 실행 — 창 핸들 조작·프로세스 조회는 node 표준 라이브러리로 안 된다. */
 function ps(script: string): string {
   const r = spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {

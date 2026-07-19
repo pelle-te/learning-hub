@@ -65,14 +65,78 @@ const DOCS_SPEC: TableSpec = { name: 'docs', cols: ['key', 'value'], keyLen: 1, 
  * 밀어올림·받아오기 대상 테이블 명세. **`rows.ts` 에서 파생**한다 — 손으로 다시 쓰면
  * 이 저장소가 이미 두 번 물린 divergence 를 세 번째로 사는 것이다.
  *
- * ⚠ `docs` 는 `TABLES` 에 없어 `diffRows` 가 손대지 않는다 → **툼스톤이 없다**
- * (`db/docs.ts:46-49` 의 미결 항목). 대상에는 넣는다 — 빼면 내 요약·독후감이 다른 기기에
- * 아예 안 가고, 그게 더 큰 손해다. 남는 한계는 "저작물 키 삭제가 전파되지 않는다" 하나이고
- * **C-5(병합) 전에 정해야 한다.**
+ * ⚠ `docs` 는 `TABLES` 에 없어 `diffRows` 가 손대지 않는다 → **툼스톤이 없다**. 대상에는
+ * 넣는다 — 빼면 내 요약·독후감이 다른 기기에 아예 안 가고, 그게 더 큰 손해다.
+ *
+ * ## ⚠⚠ 판정 (2026-07-20 감사) — **지금은 실害가 없다. 삭제를 추가하면 생긴다**
+ *
+ * 설계서가 _"C-5(병합) 전에 정해야 한다"_ 고 적었는데 안 정한 채 C-5 가 지나갔다. 다시 보니
+ * **정할 것이 없었다**: `db/docs.ts` 에는 `docGet`·`docSet` 뿐이고 **삭제 함수가 아예 없다.**
+ * 제품에 삭제 경로가 없으므로 "전파되지 않는 삭제"는 **발생할 수 없다.** 쓰이지 않을 툼스톤
+ * 경로를 미리 만드는 것은 갱신되지 않는 코드를 하나 더 만드는 일이다(C-2 가 `.strict()`
+ * 수신 파생을 미룬 것과 같은 판단).
+ *
+ * ⚠ **그래서 조건이 규칙이 된다: `docs` 에 삭제를 추가하는 커밋은 툼스톤을 같이 넣어야 한다.**
+ * 안 그러면 다른 기기에서 지운 독후감이 되살아난다 — G2 가 금지한 바로 그것이다.
+ * (`rows.ts` 의 `TABLES` 에 편입하는 것이 가장 싼 경로다. 그러면 `diffRows` 가 자동으로 낸다.)
  */
 export const OUTBOX_TABLES: TableSpec[] = [...TABLES.filter((t) => t.sync), DOCS_SPEC];
 
 /** 테이블 이름 → 기본키 열 / 데이터 열. 서버의 SQL 생성이 이걸 쓴다(손코딩 금지). */
 export function tableCols(spec: TableSpec): { key: string[]; data: string[] } {
   return { key: spec.cols.slice(0, spec.keyLen), data: spec.cols.slice(spec.keyLen) };
+}
+
+/**
+ * 배치를 상한 이하로 자르고 그에 맞는 워터마크를 정한다.
+ *
+ * ## ⚠ 스탬프 경계에서만 자른다 — 여기가 이 함수의 존재 이유다
+ *
+ * 순진하게 "앞에서 N개"로 자르면 **조용한 유실**이 난다. `diffRows` 는 한 번의 flush 가 만든
+ * 행·툼스톤 **전부에 같은 스탬프**를 찍는다. 그 그룹 한가운데를 자르고 `upto` 를 그 스탬프로
+ * 잡으면, 빠진 나머지는 `updated_at > since` 에서 **같은 값이라 제외**되어 영영 안 올라간다.
+ *
+ * 그래서 자를 수 있는 곳은 **스탬프가 바뀌는 지점**뿐이다. 행과 툼스톤이 스탬프 공간을
+ * 공유하므로(같은 flush 가 둘 다 낸다) **합쳐서** 그룹을 센다.
+ *
+ * ⚠ **한 그룹이 혼자 상한을 넘으면 그 그룹은 통째로 보낸다.** 상한을 지키려다 그룹을 쪼개면
+ * 위의 유실이 나기 때문이다 — **정확성이 상한보다 우선**이고, 상한은 성능 장치이지 안전
+ * 장치가 아니다. 이 경우를 호출부가 알 수 있도록 `oversized` 로 알린다.
+ *
+ * ⚠ **`outbox.ts` 가 아니라 여기 있는 이유**(2026-07-20 이동): 원래 `outbox.ts` 에 있었는데
+ * 그 파일은 DB IO 를 해서 **서버가 import 할 수 없다.** 그래서 서버의 pull 은 같은 규칙을
+ * 손으로 다시 쓸 뻔했고, 그건 이 저장소가 이미 두 번 물린 divergence 다. 이 함수는 순수하니
+ * 계약 층이 갖는 것이 맞다 — **push 와 pull 이 같은 자르기 규칙을 쓴다**는 것이 요점이다.
+ */
+export function capBatch(
+  rows: OutboxRow[],
+  tombstones: OutboxTomb[],
+  fence: number,
+  max: number = MAX_BATCH_ITEMS,
+): { rows: OutboxRow[]; tombstones: OutboxTomb[]; upto: number; oversized: boolean } {
+  if (rows.length + tombstones.length <= max) return { rows, tombstones, upto: fence, oversized: false };
+
+  // 스탬프별 건수(행·툼스톤 합산) → 오름차순으로 누적하며 상한을 넘기 직전까지만 취한다.
+  const counts = new Map<number, number>();
+  for (const r of rows) counts.set(r.updatedAt, (counts.get(r.updatedAt) ?? 0) + 1);
+  for (const t of tombstones) counts.set(t.deletedAt, (counts.get(t.deletedAt) ?? 0) + 1);
+
+  const stamps = [...counts.keys()].sort((a, b) => a - b);
+  let taken = 0;
+  let cut = 0; // 포함할 마지막 스탬프
+  for (const s of stamps) {
+    const n = counts.get(s)!;
+    if (taken > 0 && taken + n > max) break; // 이 그룹부터는 다음 배치로
+    taken += n;
+    cut = s;
+  }
+  /* `taken > 0` 가드가 첫 그룹을 보호한다 — 첫 그룹이 혼자 상한을 넘어도 통째로 취한다.
+     안 그러면 cut 이 0 이 되어 빈 배치가 나오고, 그 상태로 워터마크가 안 움직여 **영구 교착**이다. */
+
+  return {
+    rows: rows.filter((r) => r.updatedAt <= cut),
+    tombstones: tombstones.filter((t) => t.deletedAt <= cut),
+    upto: cut,
+    oversized: taken > max,
+  };
 }

@@ -28,22 +28,13 @@
    이번 배치에서 제외되고 **다음 배치에 걸린다**. 과다 포함은 안전하고(같은 값 재전송 =
    LWW 무해) 과소 포함만 위험한데, fence 는 정확히 그 비대칭에 맞춘 설계다.
 
-   ## `docs` 의 남은 갭
+   ## `docs` 의 남은 갭 → **판정 완료**(2026-07-20)
 
-   `docs` 는 `rows.ts` 의 `TABLES` 에 없어 `diffRows` 가 손대지 않는다 → **툼스톤이 없다**
-   (`db/docs.ts:46-49` 가 적어 둔 미결 항목). 여기서는 밀어올림 **대상에는 넣는다**(안 넣으면
-   내 요약·독후감이 다른 기기에 아예 안 간다 — 그게 더 큰 손해다). 남는 한계는 "저작물 키
-   삭제가 전파되지 않는다" 하나이고, 저작물 삭제는 드물어 지금은 실害가 없다.
-   ⚠ **C-5(병합) 전에 `TableSpec` 편입 또는 전용 삭제 경로를 정해야 한다.**
+   결론만: **지금은 실害가 없다 — 제품에 `docs` 삭제 경로가 아예 없기 때문이다.** 근거와
+   "삭제를 추가할 때 지켜야 할 조건"은 `contract.ts` 의 `OUTBOX_TABLES` 주석이 소유한다
+   (계약이 있는 곳에 규칙을 둔다).
 ============================================================ */
-import {
-  MAX_BATCH_ITEMS,
-  OUTBOX_TABLES,
-  tableCols,
-  type OutboxBatch,
-  type OutboxRow,
-  type OutboxTomb,
-} from './contract';
+import { capBatch, OUTBOX_TABLES, tableCols, type OutboxBatch, type OutboxRow, type OutboxTomb } from './contract';
 import { execDb, selectDb } from '../db/sqlite';
 import { nextStamp } from '../db/stamp';
 
@@ -52,6 +43,7 @@ import { nextStamp } from '../db/stamp';
    서버가 딸려오는 런타임 의존 때문에 공유가 불가능해진다(`contract.ts` 머리주석 참조). */
 export {
   batchSize,
+  capBatch,
   MAX_BATCH_ITEMS,
   OUTBOX_TABLES,
   tableCols,
@@ -80,55 +72,6 @@ export async function commitWatermark(upto: number): Promise<boolean> {
        ON CONFLICT(key) DO UPDATE SET value = MAX(CAST(value AS INTEGER), CAST(?2 AS INTEGER))`,
     [WATERMARK_KEY, String(upto)],
   );
-}
-
-/**
- * 배치를 상한 이하로 자르고 그에 맞는 워터마크를 정한다.
- *
- * ## ⚠ 스탬프 경계에서만 자른다 — 여기가 이 함수의 존재 이유다
- *
- * 순진하게 "앞에서 N개"로 자르면 **조용한 유실**이 난다. `diffRows` 는 한 번의 flush 가 만든
- * 행·툼스톤 **전부에 같은 스탬프**를 찍는다. 그 그룹 한가운데를 자르고 `upto` 를 그 스탬프로
- * 잡으면, 빠진 나머지는 `updated_at > since` 에서 **같은 값이라 제외**되어 영영 안 올라간다.
- *
- * 그래서 자를 수 있는 곳은 **스탬프가 바뀌는 지점**뿐이다. 행과 툼스톤이 스탬프 공간을
- * 공유하므로(같은 flush 가 둘 다 낸다) **합쳐서** 그룹을 센다.
- *
- * ⚠ **한 그룹이 혼자 상한을 넘으면 그 그룹은 통째로 보낸다.** 상한을 지키려다 그룹을 쪼개면
- * 위의 유실이 나기 때문이다 — **정확성이 상한보다 우선**이고, 상한은 성능 장치이지 안전
- * 장치가 아니다. 이 경우를 호출부가 알 수 있도록 `oversized` 로 알린다.
- */
-export function capBatch(
-  rows: OutboxRow[],
-  tombstones: OutboxTomb[],
-  fence: number,
-  max: number = MAX_BATCH_ITEMS,
-): { rows: OutboxRow[]; tombstones: OutboxTomb[]; upto: number; oversized: boolean } {
-  if (rows.length + tombstones.length <= max) return { rows, tombstones, upto: fence, oversized: false };
-
-  // 스탬프별 건수(행·툼스톤 합산) → 오름차순으로 누적하며 상한을 넘기 직전까지만 취한다.
-  const counts = new Map<number, number>();
-  for (const r of rows) counts.set(r.updatedAt, (counts.get(r.updatedAt) ?? 0) + 1);
-  for (const t of tombstones) counts.set(t.deletedAt, (counts.get(t.deletedAt) ?? 0) + 1);
-
-  const stamps = [...counts.keys()].sort((a, b) => a - b);
-  let taken = 0;
-  let cut = 0; // 포함할 마지막 스탬프
-  for (const s of stamps) {
-    const n = counts.get(s)!;
-    if (taken > 0 && taken + n > max) break; // 이 그룹부터는 다음 배치로
-    taken += n;
-    cut = s;
-  }
-  /* `taken > 0` 가드가 첫 그룹을 보호한다 — 첫 그룹이 혼자 상한을 넘어도 통째로 취한다.
-     안 그러면 cut 이 0 이 되어 빈 배치가 나오고, 그 상태로 워터마크가 안 움직여 **영구 교착**이다. */
-
-  return {
-    rows: rows.filter((r) => r.updatedAt <= cut),
-    tombstones: tombstones.filter((t) => t.deletedAt <= cut),
-    upto: cut,
-    oversized: taken > max,
-  };
 }
 
 /**

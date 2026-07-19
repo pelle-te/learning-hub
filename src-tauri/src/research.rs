@@ -105,25 +105,36 @@ fn save(app: &tauri::AppHandle) {
     }
 }
 
-/// 부팅 시 이력 복원. **running 이던 잡은 '중단됨'으로 내린다** — 앱이 죽으면 자식 python 도
-/// 함께 죽으므로 그 잡은 실제로는 더 이상 돌지 않는다. 그대로 두면 UI 가 영원히 스피너를 돌리고
-/// 캡(2)이 유령 잡에게 잠겨 새 수집을 못 시작한다.
+/// 저장된 이력 텍스트 → 복원할 잡 목록. **running 이던 잡은 '중단됨'으로 내린다** — 앱이
+/// 죽으면 자식 python 도 함께 죽으므로 그 잡은 실제로는 더 이상 돌지 않는다. 그대로 두면 UI 가
+/// 영원히 스피너를 돌리고 캡(2)이 유령 잡에게 잠겨 새 수집을 못 시작한다.
+///
+/// ⚠ 순수 함수로 갈라 둔다(`AppHandle` 도 시계도 안 받는다). 이 전이가 4단계-D 의 실질이고
+/// 예전엔 **앱을 껐다 켜야만** 확인할 수 있었다 — 그런데 "재시작을 넘는가"는 결국
+/// *파일에 쓰고 다시 읽는가*라, 창을 띄울 이유가 없었다. 손상 파일은 `None`(이력 없음)이다.
+pub fn restored_from(text: &str, now: i64) -> Option<Vec<Job>> {
+    let mut loaded = serde_json::from_str::<Vec<Job>>(text).ok()?;
+    for j in loaded.iter_mut() {
+        if j.status == "running" {
+            j.status = "error".into();
+            j.code = Some(-3);
+            j.ended_at = Some(now);
+            j.out = tail_chars(&format!("{}\n(앱이 종료돼 중단됨)", j.out), OUT_CAP);
+        }
+    }
+    Some(loaded)
+}
+
+/// 부팅 시 이력 복원.
 pub fn restore(app: &tauri::AppHandle) {
     let Some(p) = store_path(app) else { return };
     let Ok(text) = std::fs::read_to_string(p) else {
         return;
     };
-    let Ok(mut loaded) = serde_json::from_str::<Vec<Job>>(&text) else {
-        return; // 손상 파일은 '이력 없음'으로 — 이것 때문에 앱이 안 뜨면 안 된다.
+    // 손상 파일은 '이력 없음'으로 — 이것 때문에 앱이 안 뜨면 안 된다.
+    let Some(loaded) = restored_from(&text, now_ms()) else {
+        return;
     };
-    for j in loaded.iter_mut() {
-        if j.status == "running" {
-            j.status = "error".into();
-            j.code = Some(-3);
-            j.ended_at = Some(now_ms());
-            j.out = tail_chars(&format!("{}\n(앱이 종료돼 중단됨)", j.out), OUT_CAP);
-        }
-    }
     if let Ok(mut g) = jobs().lock() {
         *g = loaded;
     }
@@ -494,5 +505,84 @@ mod tests {
         let back: Vec<Job> = serde_json::from_str(&text).unwrap();
         assert_eq!(back.len(), 2);
         assert_eq!(back[1].status, "canceled");
+    }
+
+    /* ── 트랙 B `4단계-D` 를 여기로 내렸다(2026-07-20 층 재배치) ─────────────
+
+    옛 케이스는 실제 수집기를 띄웠다 곧바로 중단하고, **앱을 껐다 켜서** 이력이 남는지 봤다.
+    거기서 실제로 잠기던 것은 둘이다: ① 재시작 후 이력이 복원되고 running 이 정리되는가
+    ② PID 추적이 되어 중단이 먹히는가. 둘 다 창과 무관하다 — ①은 파일 왕복이고 ②는
+    프로세스 트리 종료다. 아래 둘이 그 자리를 대신한다.
+
+    ⚠ 그리고 이쪽이 **덜 파괴적이다**: 옛 케이스는 사용자의 실제 이력 저장소(12칸)에 테스트
+    잡을 밀어 넣어, 안 치우면 e2e 를 열두 번 돌린 시점에 진짜 수집 기록을 전부 밀어냈다
+    (검증하려던 것을 검증이 망가뜨리는 자리). 여기서는 실물 저장소를 아예 만지지 않는다. */
+
+    #[test]
+    fn 재시작_복원에서_running_은_중단됨으로_내려간다() {
+        let mut list = vec![job("살아있던잡", "running", 10), job("끝난잡", "done", 5)];
+        list[0].out = "수집 중…".into();
+        let text = serde_json::to_string(&list).unwrap();
+
+        let back = restored_from(&text, 12_345).expect("복원 실패");
+        assert_eq!(back.len(), 2, "이력이 재시작을 넘지 못했다");
+
+        let live = back.iter().find(|j| j.id == "살아있던잡").unwrap();
+        /* 그대로 두면 UI 가 영원히 스피너를 돌리고 캡(2)이 유령 잡에게 잠긴다 —
+        앱이 죽으면 자식 python 도 죽으므로 그 잡은 실제로 안 돈다. */
+        assert_eq!(live.status, "error", "running 이 그대로 복원됐다");
+        assert_eq!(live.code, Some(-3));
+        assert_eq!(live.ended_at, Some(12_345));
+        assert!(live.out.contains("앱이 종료돼 중단됨"), "사유가 안 남았다");
+        assert!(live.out.contains("수집 중"), "기존 출력이 날아갔다");
+
+        // 이미 끝난 잡은 손대지 않는다.
+        let done = back.iter().find(|j| j.id == "끝난잡").unwrap();
+        assert_eq!(done.status, "done");
+        assert_eq!(done.code, None);
+    }
+
+    #[test]
+    fn 손상된_이력은_앱을_막지_않는다() {
+        // 이것 때문에 앱이 안 뜨면 안 된다 — '이력 없음'으로 조용히 내려간다.
+        assert!(restored_from("깨진 JSON{{", 0).is_none());
+        assert_eq!(restored_from("[]", 0).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn 프로세스_트리_종료가_실제로_먹힌다() {
+        /* 중단이 동작하는가 = `kill_tree_pid` 가 진짜 프로세스를 죽이는가. 옛 케이스는 이걸
+        재려고 30분짜리 수집기를 띄웠는데, 필요한 건 **오래 사는 자식** 하나면 된다.
+        ⚠ Windows 의 `kill()` 은 직속 자식만 죽인다 — 그래서 taskkill /T 를 쓴다. */
+        let mut child = match Command::new("ping")
+            .args(["-n", "60", "127.0.0.1"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("⚠ SKIP [research] — 테스트용 자식 프로세스를 못 띄웠다: {e}");
+                return;
+            }
+        };
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "자식이 시작하자마자 끝났다 — 테스트가 아무것도 안 잰다"
+        );
+
+        kill_tree_pid(child.id());
+
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            if child.try_wait().unwrap().is_some() {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "kill_tree_pid 후에도 프로세스가 살아 있다 — 중단이 먹히지 않는다"
+            );
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 }

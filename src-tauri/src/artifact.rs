@@ -186,4 +186,38 @@ mod tests {
         assert_eq!(out.data.unwrap()["items"][1], 2);
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /* ── 실물 대상 통합 검사 ─────────────────────────────────────────────────
+    ▶ 트랙 B `4단계-B` 를 여기로 내렸다(2026-07-20 층 재배치).
+
+    위 단위 테스트들은 **내가 만든 임시 폴더**를 읽으므로 "코드가 시키는 대로 하는가"만 본다.
+    정작 4단계-B 가 고친 결함은 **경로 기준이 파일을 쓰는 쪽(파이썬 수집기)과 갈려 있던 것**이라,
+    진짜 워크스페이스의 진짜 산출물을 읽어야만 드러난다. 그건 실물을 상대해야 한다는 요구이지
+    *앱 창을 띄워야 한다*는 요구가 아니었다 — 그래서 GUI 없이 여기서 잰다. */
+
+    #[test]
+    fn 실_워크스페이스의_산출물을_읽는다() {
+        let ws = crate::testkit::real_workspace().expect("환경 가정 위반 — testkit 참조");
+
+        // 볼트 파생물 — serve.js 도 여기는 맞게 보고 있었다.
+        let knowledge = read_at(&ws, "knowledge").expect("knowledge 산출물 읽기 실패");
+        assert!(knowledge.data.is_some(), "knowledge 가 JSON 으로 안 풀렸다");
+
+        /* ⚠ 이 두 줄이 이 케이스의 존재 이유다.
+        serve.js 기준(자기 폴더)이었다면 배포본에서 영원히 빈손이었을 자리 — 수집기는
+        워크스페이스 기준으로 쓴다(읽을거리_수집.py:55 · 증시_수집.py:70). */
+        for name in ["reads", "markets"] {
+            let out = read_at(&ws, name)
+                .unwrap_or_else(|e| panic!("{name} 읽기 실패(경로 기준이 수집기와 갈렸다): {e}"));
+            assert!(out.data.is_some(), "{name} 이 JSON 으로 안 풀렸다");
+        }
+    }
+
+    #[test]
+    fn 실_워크스페이스에서도_화이트리스트_밖은_거부한다() {
+        // 프런트가 '미생성'으로 분류하는 접두를 실물 경로에서도 그대로 쓰는지.
+        let ws = crate::testkit::real_workspace().expect("환경 가정 위반 — testkit 참조");
+        let err = read_at(&ws, "../../etc/passwd").unwrap_err();
+        assert!(err.starts_with(NOT_FOUND), "{err}");
+    }
 }

@@ -167,22 +167,30 @@ fn notes_from_index(vault: &Path) -> Option<Vec<Note>> {
 }
 
 /// 볼트 스캔 — 정본 인덱스 우선, 없으면 직접 순회. 프런트의 폴백 관계와 같은 순서다.
-#[tauri::command]
-pub fn vault_scan(app: tauri::AppHandle) -> Result<VaultNotes, String> {
-    let vault = vault_dir(&app).ok_or("볼트 폴더를 찾지 못했습니다(워크스페이스/knowledge).")?;
+///
+/// ⚠ `AppHandle` 을 받지 않는다(규율 11-2 · `server.rs:364` 와 같은 이유). 경로만 받으면
+/// **진짜 볼트를 상대로 `cargo test` 에서 그대로 부를 수 있다** — 앱 창을 띄우지 않고도
+/// "실물에서 노트가 읽히는가"를 잰다.
+pub fn scan_at(vault: &Path) -> VaultNotes {
     let path = vault.to_string_lossy().into_owned();
-    match notes_from_index(&vault) {
-        Some(notes) => Ok(VaultNotes {
+    match notes_from_index(vault) {
+        Some(notes) => VaultNotes {
             notes,
             src: "정본 _index.json".into(),
             path,
-        }),
-        None => Ok(VaultNotes {
-            notes: walk_notes(&vault),
+        },
+        None => VaultNotes {
+            notes: walk_notes(vault),
             src: "파일 스캔(.md)".into(),
             path,
-        }),
+        },
     }
+}
+
+#[tauri::command]
+pub fn vault_scan(app: tauri::AppHandle) -> Result<VaultNotes, String> {
+    let vault = vault_dir(&app).ok_or("볼트 폴더를 찾지 못했습니다(워크스페이스/knowledge).")?;
+    Ok(scan_at(&vault))
 }
 
 /// 프런트가 구독하는 이벤트 이름 — `lib/tauri.ts` 의 상수와 일치해야 한다.
@@ -196,13 +204,27 @@ pub fn start_watch(app: tauri::AppHandle) {
         return;
     };
     std::thread::spawn(move || {
-        if let Err(e) = watch_loop(&app, &dir) {
+        use tauri::Emitter;
+        // 감시 자체는 `watch_with` 가 하고, 여기서 주는 것은 **알림 방법**뿐이다.
+        let r = watch_with(&dir, || {
+            let _ = app.emit(VAULT_CHANGED, ());
+            true // 앱이 살아 있는 동안 계속 감시한다
+        });
+        if let Err(e) = r {
             log::error!("볼트 감시 실패: {e}");
         }
     });
 }
 
-fn watch_loop(app: &tauri::AppHandle, dir: &Path) -> Result<(), String> {
+/// 볼트 변경 감시 루프 — **알림 수단을 주입받는다.**
+///
+/// ⚠ `AppHandle` 을 받지 않는 이유는 테스트 가능성이다. 예전엔 `app.emit` 이 루프 안에
+/// 박혀 있어서 "파일이 바뀌면 알림이 뜨는가"를 **앱을 띄워야만** 잴 수 있었고, 실제로 그
+/// 케이스가 트랙 B 에 올라가 있었다(3단계). 정작 검사 대상은 notify 배선·디바운스·경로
+/// 필터이고 그 어느 것도 창을 필요로 하지 않는다.
+///
+/// `on_change` 가 `false` 를 돌려주면 루프를 끝낸다 — 테스트가 유한하게 끝나기 위한 출구다.
+pub fn watch_with(dir: &Path, mut on_change: impl FnMut() -> bool) -> Result<(), String> {
     use notify::{RecursiveMode, Watcher};
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
@@ -246,8 +268,9 @@ fn watch_loop(app: &tauri::AppHandle, dir: &Path) -> Result<(), String> {
                 Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
             }
         }
-        use tauri::Emitter;
-        let _ = app.emit(VAULT_CHANGED, ());
+        if !on_change() {
+            return Ok(());
+        }
     }
 }
 
@@ -346,5 +369,99 @@ mod tests {
         let m = notes.iter().find(|n| n.status.is_none()).unwrap();
         assert!(!m.anki_exported);
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /* ── 실물 대상 통합 검사 ─────────────────────────────────────────────────
+    ▶ 트랙 B `3단계`("볼트를 폴더 선택 없이 읽고 파일 변경에 자동 갱신된다")를 여기로 내렸다.
+
+    그 케이스는 **두 가지**를 한꺼번에 재고 있었다: ① 진짜 볼트가 읽히는가 ② 파일이 바뀌면
+    스스로 갱신되는가. 둘 다 앱 창과 무관하다 — ①은 경로 문제고 ②는 notify 배선 문제다.
+    원래 주석의 "브라우저엔 watch 가 없다"는 **트랙 A(Chromium)로는 못 잡는다**는 뜻이었지
+    *창을 띄워야 한다*는 뜻이 아니었다. Rust 통합 테스트가 정확히 그 자리다.
+
+    ⚠ 그리고 여기로 내리면서 검사가 **더 안전해졌다**: 옛 케이스는 사용자의 실제 볼트 파일을
+    다시 써서(같은 바이트) mtime 을 건드렸다. 아래 ②는 임시 폴더를 쓰므로 실물을 만지지 않는다. */
+
+    #[test]
+    fn 실_볼트를_폴더_선택_없이_읽는다() {
+        let vault = crate::testkit::real_vault().expect("환경 가정 위반 — testkit 참조");
+        let out = scan_at(&vault);
+        assert!(!out.notes.is_empty(), "실 볼트에서 노트를 하나도 못 읽었다");
+        assert!(
+            out.path.contains("knowledge"),
+            "볼트 경로가 아니다: {}",
+            out.path
+        );
+        // 노트 레코드가 실제로 채워졌는가 — 과목이 전부 비면 파싱이 죽은 것이다.
+        assert!(out.notes.iter().any(|n| !n.subject.is_empty()));
+    }
+
+    #[test]
+    fn 파일이_바뀌면_감시가_한_번_운다() {
+        let d = tmp();
+        std::fs::create_dir_all(d.join("수학")).unwrap();
+
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let dir = d.clone();
+        let h = std::thread::spawn(move || {
+            // 첫 발화에서 false 를 돌려 루프를 끝낸다 — 테스트가 유한하게 끝난다.
+            let _ = watch_with(&dir, || {
+                let _ = tx.send(());
+                false
+            });
+        });
+
+        // 감시자가 올라올 시간을 준 뒤 실제 파일을 만든다(진짜 fs 이벤트여야 의미가 있다).
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        std::fs::write(
+            d.join("수학").join("새노트.md"),
+            "---\nstatus: drafted\n---\n",
+        )
+        .unwrap();
+
+        // 디바운스(700ms)를 감안한 여유. 안 오면 notify 배선이 끊긴 것이다.
+        let got = rx.recv_timeout(std::time::Duration::from_secs(10));
+        assert!(
+            got.is_ok(),
+            "파일을 바꿨는데 감시가 울지 않았다 — notify 배선이 끊겼다"
+        );
+        let _ = h.join();
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn 파생_폴더_변경은_감시를_깨우지_않는다() {
+        /* `_meta/` 는 파이프라인이 상시 건드린다 — 그대로 흘리면 감시가 사실상 상시 발화가
+        되어 프런트가 계속 재스캔한다. 단 **정본 인덱스만은 예외**(그건 진짜 갱신 신호다).
+        이 필터가 풀리면 성능 결함이 조용히 들어오므로 여기서 잠근다. */
+        let d = tmp();
+        std::fs::create_dir_all(d.join("_meta").join("cache")).unwrap();
+
+        let (tx, rx) = std::sync::mpsc::channel::<()>();
+        let dir = d.clone();
+        let h = std::thread::spawn(move || {
+            let _ = watch_with(&dir, || {
+                let _ = tx.send(());
+                false
+            });
+        });
+        std::thread::sleep(std::time::Duration::from_millis(400));
+
+        // 파생 폴더의 **인덱스가 아닌** 파일 — 무시돼야 한다.
+        std::fs::write(d.join("_meta").join("cache").join("_잡동사니.json"), "{}").unwrap();
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_millis(2500))
+                .is_err(),
+            "파생 폴더 변경에 감시가 울었다 — 상시 발화가 된다"
+        );
+
+        // 정본 인덱스는 예외라 울어야 한다(필터가 과하게 잠기지 않았는지 함께 확인).
+        std::fs::write(d.join("_meta").join("cache").join("_index.json"), "{}").unwrap();
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_secs(10)).is_ok(),
+            "정본 인덱스 변경을 놓쳤다 — 필터가 과하게 잠겼다"
+        );
+        let _ = h.join();
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

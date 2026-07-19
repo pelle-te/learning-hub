@@ -21,11 +21,10 @@ mod files;
 mod news;
 mod ollama;
 mod research;
-/* 5단계-C — AppState ↔ 행 표현 매퍼(rows.ts 의 Rust 이식). 아직 **아무도 안 부른다** —
-5-D 가 이중 대조로, 5-E 가 실제 쓰기 경로로 배선한다. 단계가 독립 릴리스 가능해야 하므로
-이식과 배선을 나눴다(§5단계 재범위 v6). */
-mod rows;
-mod server;
+/* 통합 테스트 공용 헬퍼(2026-07-20 층 재배치). 트랙 B 에 잘못 올라가 있던 실물 검사들이
+여기 헬퍼를 딛고 `cargo test` 로 내려왔다 — 근거는 `testkit.rs` 머리주석. */
+#[cfg(test)]
+mod testkit;
 mod tools;
 mod vault;
 mod workspace;
@@ -79,12 +78,8 @@ pub fn run() {
             files::save_text_file,
             // 4단계-I — 볼트 Anki 카드 스캔(폴더 선택 없이).
             anki_scan::anki_scan,
-            // 5단계-A — LAN 읽기 전용 모바일 뷰 서버. **기본 OFF** — 사용자가 켤 때만 뜬다.
-            server::server_status,
-            server::server_start,
-            server::server_stop,
             /* C-5 후속 — 클라우드 HTTP 중계. 웹뷰가 직접 fetch 하면 CSP(C-3)에 막힌다(실측).
-               뉴스·Ollama·Anki 와 같은 규약: 외부로 나가는 연결은 전부 Rust 가 소유한다. */
+            뉴스·Ollama·Anki 와 같은 규약: 외부로 나가는 연결은 전부 Rust 가 소유한다. */
             cloud::cloud_http,
         ])
         .setup(|app| {
@@ -110,12 +105,10 @@ pub fn run() {
                받아냈지만, **serve.js 가 사라지면서 그 실패 모드 자체가 없어졌다**(포트를 여는
                프로세스가 없다). 남은 건 탐구 잡의 python 뿐이고, 그건 앱이 죽으면 부모가 없어져
                대개 함께 죽는다 — 부팅 시 `research::restore` 가 잔여 'running' 을 정리한다.
-            ⚠ 5단계-A 로 **포트를 여는 프로세스가 다시 생겼다**(우리 자신). 강제 종료되면 소켓은
-               OS 가 회수하므로 고아 서버는 안 남지만, 정상 종료에서는 여기서 명시적으로 내려야
-               graceful shutdown 이 돌아 곧바로 재시작할 때 EADDRINUSE 를 피한다. */
+            ⚠ 5단계-A 가 잠시 포트를 여는 프로세스(LAN 서버)를 되살렸었지만 **§9-1 결정으로
+               은퇴했다**(2026-07-20). 그래서 이 앱은 다시 **여는 포트가 0** 이다. */
             if let tauri::WindowEvent::Destroyed = event {
                 research::shutdown();
-                server::shutdown();
             }
         })
         .run(tauri::generate_context!())
