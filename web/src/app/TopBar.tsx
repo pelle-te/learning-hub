@@ -54,7 +54,7 @@ const BTN_PLAIN =
    border-color·color 세 속성이 통째로 죽고 box-shadow(발광)와 자간만 살아남았다. 즉 헤더 주 액션은
    지금까지 '발광하는 평칩'으로 렌더돼 왔다. Tailwind 로 옮기면서 의도대로 채우면 **여러 탭의 헤더가
    한꺼번에 바뀐다** — 이식이 몰래 하는 디자인 변경이 되므로(절대규칙 #4) **관측된 렌더를 그대로
-   재현**하고 결함만 기록한다. 되살릴지는 별도 결정 사안이다(설계서 §15-7). */
+   재현**하고 결함만 기록한다. 되살릴지는 별도 결정 사안이다(설계서 §15-8). */
 const BTN_FILL = `${BTN_PLAIN.replace('tracking-chip!', 'tracking-fill!')} shadow-fill-chip`;
 const BTN = `${BTN_BASE} ${BTN_PLAIN}`;
 // 정사각 아이콘 전용 버튼(테마·설정·메뉴).
