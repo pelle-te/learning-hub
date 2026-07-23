@@ -361,4 +361,32 @@
   --grid-template-columns-blktop: minmax(0, 1fr) 84px auto auto;
   --grid-template-columns-perday: 30px 104px 14px 104px;
   --grid-template-columns-perday-narrow: 30px 1fr 14px 1fr;
+
+  /* ── today(오늘 대시보드) 이식(C-7) ─────────────────────────────────────────────
+     시그니처 히어로·발광 흐름 레일. 색·그래디언트·그림자는 tokens.css 가 계산하고(bg-[var]·
+     shadow-[var] 로 직접 참조) 여기선 사다리 밖 폰트·자간·그리드·유동 간격만 이름을 준다
+     (§14-3 · stats/items 와 같은 규율). 반복 크기(12.5/11.5px)는 items 토큰을 재사용한다. */
+  --text-subj: var(--fs-subj);
+  --text-subj-mobile: var(--fs-subj-mobile);
+  --text-ghost-num: var(--fs-ghost-num);
+  --text-ghost-unit: var(--fs-ghost-unit);
+  --text-hero-when: 17px;
+  --text-cta-num: 19px;
+  --text-recall-q: 13.5px;
+  /* 링 중앙 분모·지금-노드 퍼센트(9px) — fs-2xs(10) 아래 반픽셀 밖 정확값. */
+  --text-tiny9: 9px;
+  /* 자간 — 과목명(-0.035em)·워터마크 게이지(-0.04em)·게이지 단위(0.03em)·CTA(0.01em). 내장 사다리 밖. */
+  --tracking-subj: -0.035em;
+  --tracking-ghost: -0.04em;
+  --tracking-ghost-unit: 0.03em;
+  --tracking-cta: 0.01em;
+  /* 상단 밴드 그리드 — 히어로(유동) + 흐름 레일(clamp 300~420px 고정 사이드). 900 아래 1컬럼. */
+  --grid-template-columns-today-top: minmax(0, 1fr) clamp(300px, 32%, 420px);
+  /* 흐름 노드 스파인 좌표 — 59px = 시간칸 42 + gap 12 + 점 반경 5(점 중앙 정렬). left-node-spine. */
+  --spacing-node-spine: 59px;
+  /* 유동(clamp) 간격 — 히어로 패딩·과목명/액션 상단 여백(사다리 밖 · 규약 3). */
+  --spacing-hero-y-today: clamp(18px, 2.2vw, 30px);
+  --spacing-hero-x-today: clamp(22px, 3vw, 40px);
+  --spacing-subj-top: clamp(6px, 1vw, 12px);
+  --spacing-actions-top: clamp(18px, 2.4vw, 28px);
 }

@@ -283,6 +283,103 @@
     color-mix(in oklab, var(--tint, var(--acc)) 10%, transparent),
     transparent 60%
   );
+
+  /* ── today(오늘 대시보드 · 시그니처 히어로 · 발광 흐름 레일) 이식(C-7) ────────────────
+     거대 과목명 히어로(과목색 --tint 베이크 오로라 · 포인터 스포트라이트) · 통합 집중 CTA ·
+     now-중심 발광 흐름 노드. 색·그래디언트·발광은 전부 --acc/--ink/--tint/--warn 파생이라 테마·
+     액센트·과목색 전환에 자동 대응한다(절대규칙 #3 — 하드코딩 hex 였다면 깨졌다). 런타임 --tint
+     (과목색)·--mx/--my(포인터)·--tiltX/Y(틸트)를 참조하는 그래디언트/트랜스폼은 히어로 인라인
+     style 이 그 변수를 얹은 사용 시점에 해석된다(items --bg-item-card 와 같은 패턴). SVG·배경·
+     그림자는 bg-[var(…)]·shadow-[var(…)] 임의 유틸로 직접 참조하므로 --color-* 브리지는 두지 않는다. */
+  /* 히어로 3층 베이크(과목색 --tint) — stats --bg-hero-stats 와 기하는 같으나 acc 대신 --tint 라 분리. */
+  --bg-hero-today:
+    radial-gradient(
+      90% 70% at 12% 118%,
+      color-mix(in oklab, var(--tint, var(--acc)) 18%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(72% 64% at 102% -12%, color-mix(in oklab, var(--acc) 10%, transparent), transparent 60%),
+    linear-gradient(165deg, color-mix(in oklab, var(--tint, var(--acc)) 8%, var(--panel2)), var(--panel) 60%);
+  /* 포인터 추적 스포트라이트(--mx/--my 런타임) · 과목색 오로라(--tint) · 흐름 패널 베이크 · 시머/게이지 채움. */
+  --bg-spotlight-today: radial-gradient(
+    440px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklab, var(--acc) 18%, transparent),
+    transparent 55%
+  );
+  --bg-aura-today: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--tint, var(--acc)) 48%, transparent),
+    transparent 72%
+  );
+  --bg-flow-today:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--panel2) 70%, transparent), transparent 55%),
+    var(--panel);
+  --bg-cta-shimmer: linear-gradient(
+    110deg,
+    transparent 30%,
+    color-mix(in srgb, var(--txt) 30%, transparent) 50%,
+    transparent 70%
+  );
+  --bg-setup-prog: linear-gradient(90deg, var(--acc), var(--acc2));
+  /* 3D 틸트 트랜스폼(--tiltX/Y 런타임 · 정지 시 rotate 0 = 항등). */
+  --tilt-today: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
+  /* 거대 과목명 색 — 과목색(--tint) 52% 를 잉크에 섞어 채도만 얹음. --tint 없으면 잉크로 우아하게 폴백. */
+  --subj-col: color-mix(in oklab, var(--tint, var(--ink)) 52%, var(--ink));
+  /* 히어로/흐름 hover 테두리 · 워터마크 게이지 스트로크/단위 색 · 어제 한 줄 강조 · 지금-노드 하이라이트. */
+  --line-hero-hover: color-mix(in srgb, var(--acc) 26%, var(--line));
+  --line-flow-hover: color-mix(in srgb, var(--acc) 18%, var(--line));
+  --stroke-ghost: 1px color-mix(in srgb, var(--ink) 12%, transparent);
+  --ghost-em: color-mix(in srgb, var(--ink) 22%, transparent);
+  --yesterday-b: color-mix(in oklab, var(--acc) 40%, var(--ink));
+  --tint-ink-5: color-mix(in srgb, var(--ink) 5%, transparent);
+  --tint-acc-9: color-mix(in srgb, var(--acc) 9%, transparent);
+  --tint-acc-12: color-mix(in srgb, var(--acc) 12%, transparent);
+  /* CTA 정지 배경 · 블록 4단계 막대 베이스(1·2단계) · 착각카드 배경 · 오버레이 딤 · 셋업 오버레이/체크. */
+  --bg-cta-run: color-mix(in srgb, var(--acc) 16%, var(--panel2));
+  --stg-bg: color-mix(in srgb, var(--acc) 10%, var(--panel));
+  --stg-bg2: color-mix(in srgb, var(--acc2) 16%, var(--panel));
+  --stg-border2: color-mix(in srgb, var(--acc2) 35%, var(--line));
+  --conf-wrong-bg: color-mix(in srgb, var(--warn) 5%, var(--panel2));
+  --overlay-bg: color-mix(in srgb, var(--bg) 72%, transparent);
+  --setup-host-bg: color-mix(in srgb, var(--bg) 45%, transparent);
+  --line-setup: color-mix(in srgb, var(--acc) 38%, var(--line));
+  --setup-strike: color-mix(in srgb, var(--mut) 60%, transparent);
+  /* 발광 그림자/링 — 전부 --glow/--acc/--line 파생. box-shadow·text-shadow 양쪽에서 참조한다. */
+  --shadow-fill: 0 0 16px var(--glow);
+  --shadow-cta: 0 0 34px -6px var(--glow);
+  --shadow-cta-hover: 0 0 48px -4px var(--glow);
+  --shadow-inset-acc-glow: inset 0 0 0 1px var(--acc-glow);
+  --shadow-inset-acc-solid: inset 0 0 0 1px var(--acc);
+  --shadow-inset-line: inset 0 0 0 1px var(--line);
+  --shadow-inset-line-soft: inset 0 0 0 1px var(--line-soft);
+  --shadow-inset-line-acc-hover: inset 0 0 0 1px var(--line-acc-hover);
+  --shadow-inset-line-acc-pill: inset 0 0 0 1px var(--line-acc-pill);
+  --shadow-node-panel: 0 0 0 3px var(--panel);
+  --shadow-node-live: 0 0 0 3px var(--panel), 0 0 8px var(--glow);
+  --shadow-setup-card: 0 0 0 1px var(--acc-soft), var(--shadow-md);
+  /* 기하 오드값 — 임의값(px/%/em/blur/transform) 은 린트가 막으므로 전부 이름을 주고 var() 로 참조한다.
+     오로라 크기/위치 · em 워터마크 위치·간격 · ch 어제한줄 폭 · blur 필터 · CTA 시머 스윕 트랜스폼 ·
+     포커스 링 오프셋 · 셋업 체크 테두리 두께 · 오버레이 backdrop blur. */
+  --aura-h: 130%;
+  --aura-left: -10%;
+  --aura-bottom: -40%;
+  --filter-aura: blur(6px);
+  --ghost-top: 0.04em;
+  --ghost-gap: 0.06em;
+  --ghost-right: clamp(10px, 2vw, 26px);
+  --yesterday-max: 62ch;
+  --cta-shim-off: translateX(-130%);
+  --cta-shim-on: translateX(130%);
+  --cta-outline-offset: 3px;
+  --node-outline-offset: -2px;
+  --setupck-border-w: 1.5px;
+  --backdrop-setup: blur(2px);
+  --backdrop-overlay: blur(3px);
+  /* 유동(clamp) 글자 크기 — 거대 과목명·워터마크 게이지(사다리 밖 · 규약 3). bridge --text-* 가 가리킨다. */
+  --fs-subj: clamp(40px, 5.4vw, 72px);
+  --fs-subj-mobile: clamp(40px, 12vw, 60px);
+  --fs-ghost-num: clamp(64px, 9.6vw, 132px);
+  --fs-ghost-unit: clamp(13px, 1.4vw, 18px);
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

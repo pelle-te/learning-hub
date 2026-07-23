@@ -1,6 +1,6 @@
 /* TodayBlocks — 오늘 배치된 블록 + 블록별 4단계 흐름/방법론 액션.
    파생 스케줄(useSchedule)에서 오늘 Day를 찾고 layoutDay로 시각을 배정해 표시.
-   스타일: 공유는 ds.module(card/blk/donechk/swatch/muted/tiny/foot/empty), today 전용은 Today.module(t.*). */
+   스타일: 공유는 ds.module(card/blk/donechk/swatch/muted/tiny/foot/empty), today 전용은 Tailwind 유틸(C-7). */
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
@@ -12,28 +12,30 @@ import { blankResultFor, clearBlankResult } from '@/lib/methodology';
 import { toHM, hLabel, fmt, todayISO } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import t from './Today.module.css';
 import type { ScheduleItem } from '@/lib/types';
 import { BLOCK_STAGES } from './consts';
 
 /** 블록 4단계 비중 막대(분 추정 포함). */
 function StageBar({ ml }: { ml: number }) {
   return (
-    <div className={t.stagebar}>
-      {BLOCK_STAGES.map((st) => {
+    <div className="mt-2.25 flex h-10.5 gap-0.75">
+      {BLOCK_STAGES.map((st, i) => {
         const w = st.end - st.start;
         const mins = Math.round((ml * w) / 100);
+        // 2단계(예제·풀이)만 acc2 톤으로 강조(원본 .stg:nth-child(2)) — 나머지는 acc 베이스.
+        const tint =
+          i === 1 ? 'border-[color:var(--stg-border2)] bg-[var(--stg-bg2)]' : 'border-line bg-[var(--stg-bg)]';
         return (
           <div
             key={st.name}
-            className={t.stg}
+            className={`flex min-w-0 flex-col items-center justify-center gap-0.25 overflow-hidden rounded-sm border px-1 py-0.75 text-center ${tint}`}
             style={{ flex: w }}
             data-tip={`${st.name} (~${mins}분) — ${st.action}`}
             role="img"
             aria-label={`${st.name} (~${mins}분) — ${st.action}`}
           >
-            <span className={t.stgNm}>{st.name}</span>
-            <span className={t.stgMn}>~{mins}m</span>
+            <span className="max-w-full truncate text-xs leading-[1.6] font-semibold">{st.name}</span>
+            <span className="text-2xs text-mut tabular-nums">~{mins}m</span>
           </div>
         );
       })}
@@ -118,7 +120,7 @@ export function TodayBlocks() {
         const tm = tb && tb.start != null && tb.end != null ? toHM(tb.start) + '–' + toHM(tb.end) : '';
         const done = isDone(state, ds2, it.sid, it.type);
         const head = (
-          <div className={`${t.blkhead}${done ? ' ' + t.rowdone : ''}`}>
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="checkbox"
               className={ds.donechk}
@@ -134,11 +136,11 @@ export function TodayBlocks() {
               className={ds.swatch}
               style={{ background: it.type === 'mock' ? 'var(--bad)' : it.color || '#6ea8fe' }}
             />
-            <b>{it.name}</b>
+            <b className={done ? 'line-through opacity-60' : ''}>{it.name}</b>
             {it.chapters && it.chapters.length > 0 && (
               <span className={`${ds.muted} ${ds.tiny}`}> · {it.chapters.join(', ')}</span>
             )}
-            <span className={`${t.mn} ${ds.muted} ${ds.tiny}`}>
+            <span className={`ml-auto ${ds.muted} ${ds.tiny}`}>
               {tm ? tm + ' · ' : ''}
               {hLabel(it.min)}
             </span>
@@ -150,7 +152,7 @@ export function TodayBlocks() {
             <div key={key} className={ds.blk}>
               {head}
               <StageBar ml={ML} />
-              <div className={t.blkActions}>
+              <div className="mt-2.25 flex flex-wrap gap-1.5">
                 <Button sm onClick={() => prefill('sum', it.sid)}>
                   ✍ 3문장 요약
                 </Button>
@@ -170,10 +172,10 @@ export function TodayBlocks() {
           return (
             <div key={key} className={ds.blk}>
               {head}
-              <div className={`${t.blkNote} ${ds.tiny} ${ds.muted}`}>
+              <div className={`mt-1.75 leading-[1.5] ${ds.tiny} ${ds.muted}`}>
                 📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크.
               </div>
-              <div className={t.blkActions} style={{ marginTop: 6 }}>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {res2 ? (
                   <>
                     {res2.passed ? (
@@ -218,16 +220,16 @@ export function TodayBlocks() {
         return (
           <div key={key} className={ds.blk}>
             {head}
-            {note && <div className={`${t.blkNote} ${ds.tiny} ${ds.muted}`}>{note}</div>}
+            {note && <div className={`mt-1.75 leading-[1.5] ${ds.tiny} ${ds.muted}`}>{note}</div>}
             {ankiLinked && (
-              <div className={t.blkActions} style={{ marginTop: 6 }}>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>
                   🃏 Anki 열기 →
                 </Button>
               </div>
             )}
             {isMock && (
-              <div className={t.blkActions} style={{ marginTop: 6 }}>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Button sm onClick={() => prefill('cbms', it.sid)}>
                   ✗ 오답/시간부족 기록 →
                 </Button>

@@ -28,7 +28,6 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
 import { useCountUp, useHeroPointer } from '@/hooks/interactions';
 import dsm from '@/styles/ds.module.css'; // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
-import s from './TodaySignature.module.css';
 
 const TYPE_LABEL: Record<string, string> = {
   new: '집중 학습',
@@ -37,6 +36,108 @@ const TYPE_LABEL: Record<string, string> = {
   anki: 'Anki',
   mock: '모의시험',
 };
+
+/* ── C-7 이식(today) — Tailwind 클래스 SSOT ────────────────────────────────────────
+   시그니처 히어로(과목색 --tint 베이크·포인터 스포트라이트·3D 틸트) + 통합 집중 CTA + now-중심
+   발광 흐름 레일 + 하단 스트립. 색·그래디언트·발광·틸트는 tokens.css 에 이름 주고 bg-[var]·
+   shadow-[var]·[transform:var] 로 참조(런타임 --tint/--mx/--my/--tiltX·Y 는 히어로 인라인 style 이
+   얹는 사용 시점 해석). 상태 의존(노드 study/block/live/sel/done·CTA 변형)은 아래 map/inline 이
+   정적 클래스맵으로 조립(동적 문자열 금지 · §15). ⚠ preflight 부재 → 전역 button/h2(unlayered)가
+   유틸을 이기므로 다른 값만 `!`(§ global element rules). 내장 크기(text-xs/sm/base/lg)는 companion
+   line-height 를 흘리므로 leading 명시(폼컨트롤/그 자손=normal · 일반 흐름=1.6 또는 원본값 · line-height 트랩).
+   ds.ringSvg/Track/Arc 는 공용 스켈레톤이라 유지. `TodaySignature.module.css` 삭제. */
+const S = {
+  today: 'flex h-full min-w-0 min-h-0 flex-col gap-4 px-5 pt-4.5 pb-3.5 max-wide:px-3.5 max-wide:pt-3.5',
+  top: 'grid min-h-0 flex-auto grid-cols-today-top gap-4 max-wide:grid-cols-1',
+  hero: "group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[today-hero-fade_0.5s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[image:var(--bg-sig-top)] before:content-[''] hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none",
+  aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] animate-[today-aura-breathe_9s_var(--ease)_infinite] motion-reduce:animate-none',
+  spotlight:
+    'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-[0.35s] ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
+  heroFill:
+    'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
+  ghostGauge:
+    'pointer-events-none absolute top-[var(--ghost-top)] right-[var(--ghost-right)] z-[-1] flex items-baseline gap-[var(--ghost-gap)] leading-none select-none',
+  ghostNum:
+    'text-ghost-num font-extrabold tracking-ghost text-transparent tabular-nums [-webkit-text-stroke:var(--stroke-ghost)]',
+  ghostUnit: 'text-ghost-unit font-extrabold tracking-ghost-unit text-[color:var(--ghost-em)] not-italic',
+  heroHead: 'flex items-baseline justify-between gap-3',
+  eyebrow:
+    'inline-flex items-center gap-2 text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-acc uppercase',
+  live: 'size-1.75 rounded-full bg-acc shadow-load animate-[today-live-pulse_1.8s_var(--ease)_infinite] motion-reduce:animate-none',
+  heroWhen: 'text-hero-when font-extrabold tracking-title text-txt tabular-nums',
+  subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-[0.94] tracking-subj! text-balance text-[color:var(--subj-col)]!',
+  heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-[1.5] text-mut',
+  chapter: 'font-semibold text-txt',
+  upnext: 'text-md text-mut',
+  yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-[1.5] text-mut',
+  momentum: 'inline-flex flex-wrap items-center gap-x-3.5 gap-y-2',
+  mChip:
+    'inline-flex items-center rounded-full! border-0! bg-[var(--tint-acc-12)]! px-2.75! py-1! text-sm! leading-[normal] font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
+  actions: 'mt-actions-top flex items-center gap-4',
+  cta: 'relative inline-flex cursor-pointer items-baseline gap-2.5 overflow-hidden rounded-base! border-0! px-6.5! py-3.75! font-extrabold! tracking-cta after:pointer-events-none after:absolute after:inset-0 after:bg-[image:var(--bg-cta-shimmer)] after:[transform:var(--cta-shim-off)] after:transition-transform after:duration-[0.6s] after:ease-[var(--ease)] hover:after:[transform:var(--cta-shim-on)] focus-visible:[outline-offset:var(--cta-outline-offset)]! motion-reduce:after:transition-none',
+  ctaFill:
+    'bg-[image:var(--acc-fill)]! text-on-acc! shadow-[var(--shadow-cta)] hover:-translate-y-px hover:brightness-[1.07] hover:shadow-[var(--shadow-cta-hover)]',
+  ctaRun:
+    'bg-[var(--bg-cta-run)]! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
+  ctaGhost:
+    'bg-transparent! text-txt! shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-hover)]',
+  ctaGo: 'relative z-[1] text-base leading-[normal]',
+  ctaCap: 'relative z-[1] text-sm leading-[normal] font-bold opacity-72',
+  ctaNum: 'relative z-[1] text-cta-num font-extrabold tracking-label tabular-nums',
+  clock: 'text-base14 font-bold tracking-tag text-mut tabular-nums',
+  presets: 'inline-flex gap-1.5',
+  preset:
+    'rounded-md! border-0! bg-transparent! px-3! py-2.25! text-mut! font-extrabold! tabular-nums shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-pill)]',
+  flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 shadow-card animate-[today-hero-in_0.5s_var(--ease)_0.08s_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
+  flowHead: 'mb-2.5! flex! items-center gap-3',
+  ring: 'relative inline-block size-8.5 flex-none [--ring-w:6]',
+  ringNum:
+    'absolute inset-0 flex items-center justify-center text-lg leading-[1.6] font-extrabold tracking-ringnum text-txt',
+  ringNumSmall: 'text-tiny9 font-bold text-mut',
+  flowT: 'flex-1 text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
+  now: 'text-sm leading-[1.6] font-extrabold text-acc tabular-nums [text-shadow:var(--shadow-fill)]',
+  rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
+  railEmpty: 'px-1 py-3.5 text-hint leading-[1.6] text-mut',
+  node: "relative flex w-full items-center gap-3 border-0! bg-transparent! pr-2! pl-0! text-left text-base14! before:pointer-events-none before:absolute before:top-0 before:bottom-0 before:left-node-spine before:w-0.5 before:-translate-x-px before:bg-line2 before:content-[''] first:before:top-1/2 last:before:bottom-1/2",
+  nTime: 'w-10.5 flex-none text-sm font-bold text-mut tabular-nums',
+  nBody: 'flex min-w-0 flex-1 flex-col gap-px',
+  nSub: 'truncate text-note-info text-mut',
+  nNow: 'flex-none text-2xs font-extrabold tracking-mode text-acc [text-shadow:var(--navlink-glow)]',
+  nNowSmall: 'text-tiny9 font-extrabold opacity-85',
+  nProg:
+    'pointer-events-none absolute bottom-0 left-0 z-[2] h-0.5 rounded-full bg-acc shadow-dot transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
+  nDotBase: 'relative z-[1] size-2.5 flex-none rounded-full',
+  nDotStudy: 'bg-acc shadow-[var(--shadow-node-live)]',
+  nDotBlock: 'bg-mut shadow-[var(--shadow-node-panel)]',
+  nDotLive:
+    'bg-acc scale-130 shadow-[var(--shadow-node-live)] animate-[today-dot-ping_1.5s_var(--ease)_infinite] motion-reduce:animate-none',
+  nDotGhost:
+    'relative z-[1] size-2 flex-none rounded-full border-2 border-line2 bg-transparent shadow-[var(--shadow-node-panel)]',
+  reviewCta:
+    'mt-1.5 mb-0.5 inline-flex items-center gap-2 rounded-md! border-0! bg-[var(--tint-warn-faint)]! px-3! py-2! text-hint! font-bold! shadow-[var(--shadow-inset-line2)] hover:shadow-[var(--shadow-inset-acc-glow)]',
+  reviewDot: 'size-1.75 flex-none rounded-full bg-warn',
+  recall:
+    'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[today-hero-fade_0.4s_var(--ease)_both]',
+  recallTop: 'mb-1.5 flex items-baseline gap-2',
+  recallTag: 'flex-none text-2xs font-extrabold tracking-skel uppercase',
+  recallMeta: 'truncate text-xs leading-[1.6] font-bold text-mut',
+  recallQ: 'text-recall-q leading-[1.45] font-bold text-txt',
+  recallBtn:
+    'mt-2.5 w-full rounded-blk! border-0! bg-[var(--acc-soft)]! px-3! py-2! text-hint! font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
+  recallA:
+    'mt-2 flex flex-col gap-1.25 text-hint leading-[1.5] text-mut animate-[today-hero-fade_0.3s_var(--ease)_both]',
+  recallReset:
+    'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-[normal] font-bold! text-mut! underline',
+  confWrongNote: 'mt-1.5 text-sm leading-[1.5] text-mut',
+  more: 'mt-3 border-x-0! border-b-0! rounded-none! border-line2! bg-transparent! pt-3.5! text-left text-sm! leading-[normal] font-bold! text-mut!',
+  strip: 'flex flex-none items-center gap-10 px-1 pt-1 pb-0.5 max-wide:flex-wrap max-wide:gap-x-7 max-wide:gap-y-3.5',
+  grp: 'flex flex-wrap items-center gap-3',
+  grpL: 'text-2xs font-bold tracking-caps text-mut uppercase',
+  tag: 'inline-flex cursor-pointer items-center gap-1.5 border-0! bg-transparent! p-0! font-extrabold!',
+  tagMut: 'inline-flex cursor-default items-center gap-1.5 text-md font-semibold text-mut',
+  dot: 'size-1.75 flex-none rounded-full',
+  vline: 'h-6.5 w-px flex-none bg-line2',
+} as const;
 
 export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const state = useApp((s) => s.state);
@@ -414,36 +515,38 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
 
   return (
-    <section className={s.today} aria-label="오늘 대시보드">
+    <section className={S.today} aria-label="오늘 대시보드">
       {/* ── 상단 밴드: 포커스 히어로 | 오늘의 블록 ── */}
-      <div className={s.top}>
+      <div className={S.top}>
         {/* HERO — 거대 과목명 = 행동의 무대. 과목색 오로라 + 통합 집중 시작. */}
         <div
           ref={heroRef}
           onMouseMove={onHeroMove}
           onMouseLeave={onHeroLeave}
-          className={`${s.hero}${allDone ? ' ' + s.heroDone : ''}`}
+          className={S.hero}
           style={dispColor ? ({ '--tint': dispColor } as CSSProperties) : undefined}
         >
-          <div className={s.aura} aria-hidden="true" />
-          <div className={s.spotlight} aria-hidden="true" />
-          {timer && <div className={s.heroFill} style={{ width: `${timerPct}%` }} aria-hidden="true" />}
+          {/* heroDone 오로라 — allDone 이면 --tint 미주입이라 acc 로 폴백. 원본 .heroDone .aura 의
+              opacity 0.6(모션 자제 시에만 노출)만 재현. 애니 켜지면 auraBreathe 가 opacity 를 덮는다. */}
+          <div className={`${S.aura} ${allDone ? 'opacity-60' : 'opacity-55'}`} aria-hidden="true" />
+          <div className={S.spotlight} aria-hidden="true" />
+          {timer && <div className={S.heroFill} style={{ width: `${timerPct}%` }} aria-hidden="true" />}
           {/* 오버사이즈 게이지 — 우상단 허공을 '오늘 남은 가용시간'으로 채움(정보성 워터마크). */}
-          <span className={s.ghostGauge} aria-hidden="true">
-            <b>{freeLeftH}</b>
-            <em>h 남음</em>
+          <span className={S.ghostGauge} aria-hidden="true">
+            <b className={S.ghostNum}>{freeLeftH}</b>
+            <em className={S.ghostUnit}>h 남음</em>
           </span>
 
-          <div className={s.heroHead}>
-            <span className={s.eyebrow}>
-              {current && <i className={s.live} />}
+          <div className={S.heroHead}>
+            <span className={S.eyebrow}>
+              {current && <i className={S.live} />}
               {kicker}
             </span>
-            <span className={s.heroWhen}>{focusWhen}</span>
+            <span className={S.heroWhen}>{focusWhen}</span>
           </div>
 
-          <h2 className={s.subj}>{subjName}</h2>
-          <div className={s.heroSub}>
+          <h2 className={S.subj}>{subjName}</h2>
+          <div className={S.heroSub}>
             {todayTotal === 0 ? (
               hasItems ? (
                 // §7: 히어로 중복 CTA(.mChip) 제거 — 안내 텍스트만. '오늘 계획 짜기'는 아래 큰 버튼 단일.
@@ -453,9 +556,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               )
             ) : allDone ? (
               // A4 — 완료 후 죽은 화면 대신 '다음 동력'(내일·복습 위험·보충 회수·회상).
-              <span className={s.momentum}>
+              <span className={S.momentum}>
                 {tmrNew ? (
-                  <span className={s.chapter}>내일 · {tmrNew.name}</span>
+                  <span className={S.chapter}>내일 · {tmrNew.name}</span>
                 ) : (
                   <span>내일 일정은 아직 비어 있어요</span>
                 )}
@@ -463,7 +566,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 {frontierTitle && (
                   <button
                     type="button"
-                    className={s.mChip}
+                    className={S.mChip}
                     onClick={() => go('/mastery')}
                     aria-label={`다음 추천 개념 ${frontierTitle} — 숙달도로 이동`}
                   >
@@ -471,22 +574,22 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                   </button>
                 )}
                 {riskN > 0 && (
-                  <button type="button" className={s.mChip} onClick={() => go('/review')}>
+                  <button type="button" className={S.mChip} onClick={() => go('/review')}>
                     복습 위험 {riskN}
                   </button>
                 )}
                 {openBl > 0 && (
-                  <button type="button" className={s.mChip} onClick={() => go('/journal')}>
+                  <button type="button" className={S.mChip} onClick={() => go('/journal')}>
                     보충 {openBl} 회수
                   </button>
                 )}
-                {recall && <span className={s.upnext}>회상 {recallN}개 대기 ↓</span>}
+                {recall && <span className={S.upnext}>회상 {recallN}개 대기 ↓</span>}
               </span>
             ) : (
               <>
-                <span className={s.chapter}>{focusChapter}</span>
+                <span className={S.chapter}>{focusChapter}</span>
                 {upNext && (
-                  <span className={s.upnext}>
+                  <span className={S.upnext}>
                     다음 · {upNext.it.name}
                     {upNext.start != null ? ` ${toHM(upNext.start)}` : ''}
                   </span>
@@ -496,43 +599,49 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           </div>
           {/* A1 — 어제 남긴 '내일 한 줄'(아직 오늘 진행 중일 때만; 완료 화면은 동력에 집중). */}
           {prevNote && !allDone && (
-            <div className={s.yesterday}>
-              <span aria-hidden="true">🌙</span> 어제 남긴 한 줄 — <b>{prevNote}</b>
+            <div className={S.yesterday}>
+              <span aria-hidden="true">🌙</span> 어제 남긴 한 줄 —{' '}
+              <b className="font-bold text-[color:var(--yesterday-b)]">{prevNote}</b>
             </div>
           )}
 
           {/* 주 액션 — 집중 타이머(포모도로). 히어로 안에 통합 = 가장 큰 요소가 곧 행동. */}
-          <div className={s.actions}>
+          <div className={S.actions}>
             {timer ? (
               <button
                 type="button"
-                className={`${s.cta} ${s.ctaRun}`}
+                className={`${S.cta} ${S.ctaRun}`}
                 onClick={() => void stopTimer()}
                 aria-label={timer.kind === 'break' ? '휴식 타이머 정지' : '집중 타이머 정지'}
               >
-                <span className={s.ctaNum}>{mmss}</span>
-                <span className={s.ctaCap}>{timer.kind === 'break' ? '☕ 휴식 · ■ 정지' : '■ 정지'}</span>
+                <span className={S.ctaNum}>{mmss}</span>
+                <span className={S.ctaCap}>{timer.kind === 'break' ? '☕ 휴식 · ■ 정지' : '■ 정지'}</span>
               </button>
             ) : allDone ? (
-              <button type="button" className={`${s.cta} ${s.ctaGhost}`} onClick={() => go('/journal')}>
-                <span className={s.ctaGo}>✓ 오늘 완료</span>
-                <span className={s.ctaCap}>기록 보기 →</span>
+              <button type="button" className={`${S.cta} ${S.ctaGhost}`} onClick={() => go('/journal')}>
+                <span className={S.ctaGo}>✓ 오늘 완료</span>
+                <span className={S.ctaCap}>기록 보기 →</span>
               </button>
             ) : focus ? (
               <>
-                <button type="button" className={s.cta} onClick={() => startTimer()} aria-label="집중 타이머 시작">
-                  <span className={s.ctaGo}>▶ 집중 시작</span>
-                  <span className={s.ctaCap}>{focusMin}분</span>
+                <button
+                  type="button"
+                  className={`${S.cta} ${S.ctaFill}`}
+                  onClick={() => startTimer()}
+                  aria-label="집중 타이머 시작"
+                >
+                  <span className={S.ctaGo}>▶ 집중 시작</span>
+                  <span className={S.ctaCap}>{focusMin}분</span>
                 </button>
                 {/* 포모도로 프리셋 — 블록 길이 대신 25/50분 명시 시작. */}
-                <span className={s.presets}>
+                <span className={S.presets}>
                   {[25, 50]
                     .filter((m) => m !== focusMin)
                     .map((m) => (
                       <button
                         key={m}
                         type="button"
-                        className={s.preset}
+                        className={S.preset}
                         onClick={() => startTimer(m)}
                         aria-label={`${m}분 집중 시작`}
                       >
@@ -543,24 +652,27 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </>
             ) : hasItems ? (
               // §7: 과목은 있으나 오늘 포커스가 없음 → 오늘 계획을 직접 짜는 단일 목적지(계획 › 캘린더 일 뷰).
-              <button type="button" className={s.cta} onClick={goPlanToday}>
-                <span className={s.ctaGo}>오늘 계획 짜기</span>
-                <span className={s.ctaCap}>캘린더 · 오늘 →</span>
+              <button type="button" className={`${S.cta} ${S.ctaFill}`} onClick={goPlanToday}>
+                <span className={S.ctaGo}>오늘 계획 짜기</span>
+                <span className={S.ctaCap}>캘린더 · 오늘 →</span>
               </button>
             ) : (
-              <button type="button" className={s.cta} onClick={() => go('/items')}>
-                <span className={s.ctaGo}>＋ 학습 항목 추가</span>
-                <span className={s.ctaCap}>시작하기 →</span>
+              <button type="button" className={`${S.cta} ${S.ctaFill}`} onClick={() => go('/items')}>
+                <span className={S.ctaGo}>＋ 학습 항목 추가</span>
+                <span className={S.ctaCap}>시작하기 →</span>
               </button>
             )}
-            <span className={s.clock}>{toHM(nowMin)}</span>
+            <span className={S.clock}>{toHM(nowMin)}</span>
           </div>
         </div>
 
         {/* 오늘의 흐름 — now-중심 세로 레일(학습 체크 + 일과, 색 통일). 무지개 트랙 폐기. */}
-        <aside className={s.flow}>
-          <h2 className={s.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayTotal} 완료`}>
-            <span className={`${s.ring}${celebrate ? ' ' + s.ringCele : ''}`} aria-hidden="true">
+        <aside className={S.flow}>
+          <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayTotal} 완료`}>
+            <span
+              className={`${S.ring}${celebrate ? ' animate-[today-ring-cele_1.4s_var(--ease)] motion-reduce:animate-none' : ''}`}
+              aria-hidden="true"
+            >
               <ProgressRing
                 size={80}
                 r={34}
@@ -569,27 +681,38 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 trackClassName={dsm.ringTrack}
                 arcClassName={dsm.ringArc}
               />
-              <span className={s.ringNum}>
+              <span className={S.ringNum}>
                 {todayDone}
-                <small>/{todayTotal}</small>
+                <small className={S.ringNumSmall}>/{todayTotal}</small>
               </span>
             </span>
-            <span className={s.flowT}>오늘의 흐름</span>
-            <span className={s.now}>● {toHM(nowMin)} LIVE</span>
+            <span className={S.flowT}>오늘의 흐름</span>
+            <span className={S.now}>● {toHM(nowMin)} LIVE</span>
           </h2>
-          <div className={s.rail}>
+          <div className={S.rail}>
             {flowNodes.length ? (
               <>
                 {flowNodes.map((nd) => {
                   const live = nd.start <= nowMin && (nd.end == null || nowMin < nd.end);
                   const past = nd.done || (nd.end != null && nowMin >= nd.end);
+                  const sel = selKey === nd.key;
+                  const block = nd.kind === 'block';
                   const dur = nd.end != null ? ` · ${hLabel(nd.end - nd.start)}` : '';
                   // 현재 블록 실시간 진행률(경과/길이) — 1초 틱으로 갱신.
                   const prog =
                     live && nd.end != null && nd.end > nd.start
                       ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
                       : 0;
-                  const cls = `${s.node} ${nd.kind === 'study' ? s.nStudy : s.nBlock}${live ? ' ' + s.nLive : ''}${past ? ' ' + s.nPast : ''}${nd.done ? ' ' + s.nDone : ''}${selKey === nd.key ? ' ' + s.nSel : ''}`;
+                  // 상태 정적 클래스맵(§15 · 동적 조립 금지). 선택(nSel)이 라이브(nLive)보다 우선(원본 소스 순서).
+                  const stateBg = sel
+                    ? 'rounded-md bg-[var(--tint-ink-5)] shadow-[var(--shadow-inset-line2)]'
+                    : live
+                      ? 'rounded-md bg-[var(--tint-acc-9)]'
+                      : '';
+                  const cls = `${S.node} py-2.75! ${nd.e ? 'group/node cursor-pointer hover:rounded-md focus-visible:rounded-md! focus-visible:[outline-offset:var(--node-outline-offset)]!' : 'cursor-default'} ${past ? 'opacity-40' : ''} ${stateBg}`;
+                  // nName 색/굵기: 블록=뮤트·600, 라이브·선택=acc, study hover=acc(group/node), 완료=취소선.
+                  const nNameCls = `truncate ${block ? 'font-semibold text-mut' : 'font-bold'} ${live || sel ? 'text-acc' : ''} ${nd.done ? 'line-through' : ''} ${nd.e ? 'group-hover/node:text-acc' : ''}`;
+                  const nDotCls = `${S.nDotBase} ${live ? S.nDotLive : block ? S.nDotBlock : S.nDotStudy}`;
                   const setNodeRef = (el: HTMLElement | null) => {
                     const m = nodeRefs.current;
                     if (el) m.set(nd.key, el);
@@ -597,22 +720,25 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                   };
                   const inner = (
                     <>
-                      {live && <span className={s.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
-                      <span className={s.nTime}>{toHM(nd.start)}</span>
+                      {live && <span className={S.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
+                      {/* nTime 내장 text-sm 은 companion LH 를 흘리므로 명시 — 폼컨트롤(study 버튼) 자손=normal · div=1.6. */}
+                      <span className={`${S.nTime} ${nd.e ? 'leading-[normal]' : 'leading-[1.6]'}`}>
+                        {toHM(nd.start)}
+                      </span>
                       <span
-                        className={s.nDot}
+                        className={nDotCls}
                         style={nd.kind === 'study' && nd.color ? { background: nd.color } : undefined}
                       />
-                      <span className={s.nBody}>
-                        <span className={s.nName}>{nd.name}</span>
-                        <span className={s.nSub}>
+                      <span className={S.nBody}>
+                        <span className={nNameCls}>{nd.name}</span>
+                        <span className={S.nSub}>
                           {nd.sub}
                           {dur}
                         </span>
                       </span>
                       {live && (
-                        <span className={s.nNow}>
-                          지금 <small>{prog}%</small>
+                        <span className={S.nNow}>
+                          지금 <small className={S.nNowSmall}>{prog}%</small>
                         </span>
                       )}
                     </>
@@ -642,38 +768,39 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                   );
                 })}
                 {/* 종결 캡 고스트 — 마지막 노드 뒤 "이후 일정 없음": 스파인이 끝났다고 읽히게(비인터랙티브). */}
-                <div className={`${s.node} ${s.nGhost}`}>
-                  <span className={s.nTime}>—</span>
-                  <span className={s.nDot} />
-                  <span className={s.nBody}>
-                    <span className={s.nSub}>이후 일정 없음</span>
+                <div className={`${S.node} py-1.75! opacity-55`}>
+                  <span className={`${S.nTime} leading-[1.6]`}>—</span>
+                  <span className={S.nDotGhost} />
+                  <span className={S.nBody}>
+                    <span className={S.nSub}>이후 일정 없음</span>
                   </span>
                 </div>
                 {/* I-2 — 밀린 복습이 있으면 종결 캡 뒤에 은은한 딥링크 칩(스케줄 쓰기 아님 → 복습 실행으로). */}
                 {riskN > 0 && (
                   <button
                     type="button"
-                    className={s.reviewCta}
+                    className={S.reviewCta}
                     onClick={() => go('/review-run')}
                     aria-label={`밀린 복습 ${riskN}개 — 복습 세션으로 이동`}
                   >
-                    <span className={s.reviewDot} aria-hidden="true" />
-                    복습 {riskN}개 밀림 <b>복습 세션 →</b>
+                    <span className={S.reviewDot} aria-hidden="true" />
+                    복습 {riskN}개 밀림 <b className="ml-0.5 font-extrabold text-acc">복습 세션 →</b>
                   </button>
                 )}
               </>
             ) : (
-              <div className={s.railEmpty}>
+              <div className={S.railEmpty}>
                 {hasItems ? (
                   <>
                     오늘은 배치된 블록이 없어요 — 오늘 계획을 직접 짜보세요.{' '}
-                    <button type="button" className={s.mChip} onClick={goPlanToday}>
+                    <button type="button" className={S.mChip} onClick={goPlanToday}>
                       오늘 계획 짜기
                     </button>
                   </>
                 ) : (
                   <>
-                    아직 배치된 블록이 없어요. <b>학습 항목</b>·<b>가용시간</b>을 설정하면 흐름이 채워집니다.
+                    아직 배치된 블록이 없어요. <b className="text-txt">학습 항목</b>·
+                    <b className="text-txt">가용시간</b>을 설정하면 흐름이 채워집니다.
                   </>
                 )}
               </div>
@@ -681,32 +808,32 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           </div>
           {/* A2 — 회상 위젯: 과거에 쓴 내 요약을 '스스로 다시 설명' 인출 연습으로(테스팅 효과). */}
           {recall && (
-            <div className={s.recall}>
-              <div className={s.recallTop}>
-                <span className={s.recallTag}>🧠 회상</span>
-                <span className={s.recallMeta}>
+            <div className={`${S.recall} bg-[var(--panel-acc-faint)]`}>
+              <div className={S.recallTop}>
+                <span className={`${S.recallTag} text-acc`}>🧠 회상</span>
+                <span className={S.recallMeta}>
                   {recall.ageDays}일 전 · {recall.summary.name || '요약'}
                 </span>
               </div>
-              <div className={s.recallQ}>{recall.summary.s1 || '이 개념을 스스로 다시 설명할 수 있나요?'}</div>
+              <div className={S.recallQ}>{recall.summary.s1 || '이 개념을 스스로 다시 설명할 수 있나요?'}</div>
               {recallShown ? (
-                <div className={s.recallA}>
+                <div className={S.recallA}>
                   {recall.summary.s2 && (
                     <div>
-                      <b>도구·어떻게</b> {recall.summary.s2}
+                      <b className="mr-1 font-bold text-txt">도구·어떻게</b> {recall.summary.s2}
                     </div>
                   )}
                   {recall.summary.s3 && (
                     <div>
-                      <b>결과·의미</b> {recall.summary.s3}
+                      <b className="mr-1 font-bold text-txt">결과·의미</b> {recall.summary.s3}
                     </div>
                   )}
-                  <button type="button" className={s.recallReset} onClick={() => setRecallShown(false)}>
+                  <button type="button" className={S.recallReset} onClick={() => setRecallShown(false)}>
                     가리기
                   </button>
                 </div>
               ) : (
-                <button type="button" className={s.recallBtn} onClick={() => setRecallShown(true)}>
+                <button type="button" className={S.recallBtn} onClick={() => setRecallShown(true)}>
                   떠올렸다 · 정답 보기
                 </button>
               )}
@@ -714,37 +841,37 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           )}
           {/* I-10 — 착각 재확인 카드: 확신했지만 틀렸던 개념을 지금 다시 인출(회상과 같은 언어·시각). */}
           {confWrong && (
-            <div className={`${s.recall} ${s.confWrong}`}>
-              <div className={s.recallTop}>
-                <span className={`${s.recallTag} ${s.confWrongTag}`}>⚠ 착각 재확인</span>
-                <span className={s.recallMeta}>
+            <div className={`${S.recall} bg-[var(--conf-wrong-bg)]`}>
+              <div className={S.recallTop}>
+                <span className={`${S.recallTag} text-warn`}>⚠ 착각 재확인</span>
+                <span className={S.recallMeta}>
                   {confWrong.ageDays}일 전 · {CBMS_INFO[confWrong.cbms.code].label}
                   {confWrongN > 1 ? ` · 외 ${confWrongN - 1}` : ''}
                 </span>
               </div>
-              <div className={s.recallQ}>
+              <div className={S.recallQ}>
                 {confWrong.cbms.name}
                 {confWrong.cbms.chapter ? ` · ${confWrong.cbms.chapter}` : ''}
               </div>
-              <div className={s.confWrongNote}>확신했지만 틀렸던 것 — 지금 다시 인출</div>
-              <button type="button" className={s.recallBtn} onClick={() => go('/review-run')}>
+              <div className={S.confWrongNote}>확신했지만 틀렸던 것 — 지금 다시 인출</div>
+              <button type="button" className={S.recallBtn} onClick={() => go('/review-run')}>
                 다시 확인 · 복습 세션 →
               </button>
             </div>
           )}
-          <button type="button" className={s.more} onClick={onOpenMore}>
+          <button type="button" className={S.more} onClick={onOpenMore}>
             ＋ 블록 상세 · 일일 의식 · 흐름 가이드
           </button>
         </aside>
       </div>
 
       {/* 하단 스트립 — 이번 주·마감·Anki·보충(이퀄라이저 폐기 → 정돈된 단일 풋바). */}
-      <div className={s.strip}>
-        <div className={s.grp}>
-          <span className={s.grpL}>이번 주</span>
+      <div className={S.strip}>
+        <div className={S.grp}>
+          <span className={S.grpL}>이번 주</span>
           <button
             type="button"
-            className={s.tag}
+            className={S.tag}
             // 라벨이 '주간 보기'를 약속하므로 뷰도 주(週)로 고정한다(영속 schedView가 day/month면 말과 다른 곳에 착지).
             // 위 goPlanToday와 같은 규약 — 뷰 전환은 보내는 쪽이 먼저.
             onClick={() => {
@@ -753,67 +880,67 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             }}
             aria-label={`이번 주 ${weekTotalH.toFixed(1)}시간 — 주간 보기로 이동`}
           >
-            <b>{weekShown.toFixed(1)}</b> h
+            <b className="text-acc">{weekShown.toFixed(1)}</b> h
           </button>
         </div>
-        <div className={s.vline} />
-        <div className={s.grp}>
-          <span className={s.grpL}>마감 임박</span>
+        <div className={S.vline} />
+        <div className={S.grp}>
+          <span className={S.grpL}>마감 임박</span>
           {soon.length ? (
             soon.map((st) => {
               const { lab } = ddayInfo(st.dday);
               return (
-                <button key={st.name} type="button" className={s.tag} onClick={() => go('/items')}>
-                  <span className={s.dot} style={{ background: st.color || 'var(--acc)' }} />
-                  {st.name} <b>{lab}</b>
+                <button key={st.name} type="button" className={S.tag} onClick={() => go('/items')}>
+                  <span className={S.dot} style={{ background: st.color || 'var(--acc)' }} />
+                  {st.name} <b className="text-acc">{lab}</b>
                 </button>
               );
             })
           ) : (
-            <span className={`${s.tag} ${s.tagMut}`}>없음</span>
+            <span className={S.tagMut}>없음</span>
           )}
         </div>
-        <div className={s.vline} />
-        <div className={s.grp}>
-          <span className={s.grpL}>Anki 대기</span>
+        <div className={S.vline} />
+        <div className={S.grp}>
+          <span className={S.grpL}>Anki 대기</span>
           <button
             type="button"
-            className={s.tag}
+            className={S.tag}
             onClick={() => go('/integrations')}
             title={due == null ? 'Anki 미연결 — 연동 탭에서 실시간 연결' : `복습 대기 ${due}장`}
             aria-label={due == null ? 'Anki 미연결 — 연동 탭으로' : `Anki 복습 대기 ${due}장 — 연동 탭으로`}
           >
-            <b>{due == null ? '연결' : due}</b> {due == null ? '필요' : '장'}
+            <b className="text-acc">{due == null ? '연결' : due}</b> {due == null ? '필요' : '장'}
           </button>
         </div>
-        <div className={s.vline} />
-        <div className={s.grp}>
-          <span className={s.grpL}>열린 보충</span>
-          <button type="button" className={s.tag} onClick={() => go('/journal')}>
-            <b>{openBl}</b> 건
+        <div className={S.vline} />
+        <div className={S.grp}>
+          <span className={S.grpL}>열린 보충</span>
+          <button type="button" className={S.tag} onClick={() => go('/journal')}>
+            <b className="text-acc">{openBl}</b> 건
           </button>
         </div>
-        <div className={s.vline} />
+        <div className={S.vline} />
         {/* PL-19 — 일일 의식 리드아웃+토글(상태 표시 수준; 노트 등 세부는 온디맨드 RitualCard). */}
-        <div className={s.grp}>
-          <span className={s.grpL}>의식</span>
+        <div className={S.grp}>
+          <span className={S.grpL}>의식</span>
           <button
             type="button"
-            className={s.tag}
+            className={S.tag}
             onClick={() => mutate((st) => setRitual(st, ds, 'plan', !ritual?.plan))}
             aria-pressed={!!ritual?.plan}
             aria-label={`아침 계획 ${ritual?.plan ? '완료' : '미완료'} — 토글`}
           >
-            🌅 아침 <b>{ritual?.plan ? '☑' : '☐'}</b>
+            🌅 아침 <b className="text-acc">{ritual?.plan ? '☑' : '☐'}</b>
           </button>
           <button
             type="button"
-            className={s.tag}
+            className={S.tag}
             onClick={() => mutate((st) => setRitual(st, ds, 'shutdown', !ritual?.shutdown))}
             aria-pressed={!!ritual?.shutdown}
             aria-label={`셧다운 ${ritual?.shutdown ? '완료' : '미완료'} — 토글`}
           >
-            🌙 셧다운 <b>{ritual?.shutdown ? '☑' : '☐'}</b>
+            🌙 셧다운 <b className="text-acc">{ritual?.shutdown ? '☑' : '☐'}</b>
           </button>
         </div>
       </div>

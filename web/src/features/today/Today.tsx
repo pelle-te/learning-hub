@@ -10,7 +10,6 @@ import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
 import { todayISO } from '@/lib/utils';
 import ds from '@/styles/ds.module.css';
-import t from './Today.module.css';
 import type { Ritual } from '@/lib/types';
 import { TodaySignature } from './TodaySignature';
 import { SetupGuide, setupComplete } from './SetupGuide';
@@ -44,12 +43,12 @@ function RitualCard() {
         일일 의식{' '}
         <span className={`${ds.muted} ${ds.tiny}`}>— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span>
       </h2>
-      <div className={t.ritualRow}>
-        <label className={t.ritualCk}>
+      <div className="flex flex-wrap gap-2.5">
+        <label className="flex! min-w-55 flex-1 cursor-pointer items-center gap-1.75 rounded-md border border-line bg-panel2 px-2.75 py-2.25 text-md! hover:border-[color:var(--line-acc-hover)]">
           <input type="checkbox" checked={r.plan} onChange={(e) => toggle('plan', e.target.checked)} /> 🌅{' '}
           <b>아침 계획</b> <span className={`${ds.muted} ${ds.tiny}`}>블록 훑고 오늘 가장 중요한 1개 정하기</span>
         </label>
-        <label className={t.ritualCk}>
+        <label className="flex! min-w-55 flex-1 cursor-pointer items-center gap-1.75 rounded-md border border-line bg-panel2 px-2.75 py-2.25 text-md! hover:border-[color:var(--line-acc-hover)]">
           <input type="checkbox" checked={r.shutdown} onChange={(e) => toggle('shutdown', e.target.checked)} /> 🌙{' '}
           <b>저녁 셧다운</b> <span className={`${ds.muted} ${ds.tiny}`}>완료 체크 · 내일 한 줄 · 끝내기</span>
         </label>
@@ -88,10 +87,13 @@ function FlowGuide() {
     <div className={ds.card}>
       <details>
         <summary>학습 원칙 · 블록 흐름 (펼쳐 보기)</summary>
-        <div className={t.princ} style={{ marginTop: 12 }}>
+        <div className="mt-3 mb-1 flex flex-wrap gap-1.75">
           {PRINCIPLES.map(([a, b]) => (
-            <span key={a} className={t.princChip}>
-              <b>{a}</b> {b}
+            <span
+              key={a}
+              className="rounded-full border border-line bg-panel2 px-2.75 py-1.25 text-sm leading-[1.6] text-mut"
+            >
+              <b className="font-semibold text-txt">{a}</b> {b}
             </span>
           ))}
         </div>
@@ -150,11 +152,11 @@ export default function Today() {
   }, [moreOpen]);
 
   return (
-    <div className={t.todayHost}>
+    <div className="relative h-full min-h-0">
       <TodaySignature onOpenMore={openMore} />
       {/* 콜드 스타트 — 과목·목표가 없으면 빈 대시보드 위에 3스텝 온보딩을 띄운다(셋업되면 자동 소멸). */}
       {!setupComplete(items) && (
-        <div className={t.setupHost}>
+        <div className="absolute inset-0 z-5 grid place-items-center overflow-y-auto bg-[var(--setup-host-bg)] p-6 [backdrop-filter:var(--backdrop-setup)]">
           <SetupGuide />
         </div>
       )}
@@ -163,7 +165,7 @@ export default function Today() {
            useFocusTrap(진입·순환·복원) · 패널의 진짜 닫기 버튼이 담당한다. */
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
         <div
-          className={t.overlay}
+          className="fixed inset-0 z-[var(--z-modal)] flex animate-[today-ov-fade_0.16s_var(--ease)] justify-end bg-[var(--overlay-bg)] [backdrop-filter:var(--backdrop-overlay)] motion-reduce:animate-none"
           role="dialog"
           aria-modal="true"
           aria-label="오늘 상세"
@@ -171,14 +173,23 @@ export default function Today() {
             if (e.target === e.currentTarget) setMoreOpen(false);
           }}
         >
-          <div className={t.panel} ref={morePanelRef} tabIndex={-1}>
-            <div className={t.panelHead}>
+          <div
+            className="flex h-full w-full max-w-runner-narrow animate-[today-ov-slide_0.22s_var(--ease)] flex-col border-l border-line bg-bg shadow-detail motion-reduce:animate-none max-mobile:max-w-none max-mobile:border-l-0"
+            ref={morePanelRef}
+            tabIndex={-1}
+          >
+            <div className="flex flex-none items-center justify-between border-b border-line px-5 py-4 text-md tracking-label">
               <b>오늘 상세 — 블록 · 의식 · 흐름</b>
-              <button type="button" className={t.panelX} onClick={() => setMoreOpen(false)} aria-label="닫기">
+              <button
+                type="button"
+                className="size-8 rounded-chip! border border-line bg-transparent!"
+                onClick={() => setMoreOpen(false)}
+                aria-label="닫기"
+              >
                 ✕
               </button>
             </div>
-            <div className={t.panelBody}>
+            <div className="min-h-0 flex-1 [scrollbar-width:thin] overflow-y-auto px-5 pt-4.5 pb-7">
               <TodayBlocks />
               <RitualCard />
               <FlowGuide />

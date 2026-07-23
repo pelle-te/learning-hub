@@ -5,7 +5,6 @@ import { useApp } from '@/store/useApp';
 import { Button, Pill } from '@/components/ui';
 import type { AppState } from '@/lib/types';
 import ds from '@/styles/ds.module.css';
-import t from './Today.module.css';
 
 /** 셋업 완료 판정 — 과목 1개 이상 + 목표(일일분/주당시간/챕터) 1개 이상. Today와 공유(단일 원천). */
 export function setupComplete(items: AppState['items']): boolean {
@@ -65,25 +64,35 @@ export function SetupGuide() {
   const done = steps.filter((s) => s.ok).length;
 
   return (
-    <div className={`${ds.card} ${t.setupCard}`}>
+    <div
+      className={`${ds.card} w-full max-w-runner-narrow border-[color:var(--line-setup)]! shadow-[var(--shadow-setup-card)]!`}
+    >
       <h2>
         시작하기 <span className={`${ds.muted} ${ds.tiny}`}>— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span>
       </h2>
       <div className={ds.row} style={{ alignItems: 'center', marginBottom: 6 }}>
         <Pill tone={done === 3 ? 'good' : 'warn'}>{done}/3 완료</Pill>
-        <span className={t.setupProg}>
-          <i style={{ width: `${Math.round((done / 3) * 100)}%` }} />
+        <span className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-panel2 shadow-[var(--shadow-inset-line-soft)]">
+          <i
+            style={{ width: `${Math.round((done / 3) * 100)}%` }}
+            className="block h-full rounded-full bg-[image:var(--bg-setup-prog)] transition-[width] duration-[0.4s] ease-[var(--ease)]"
+          />
         </span>
       </div>
       {steps.map((s, i) => (
-        <div key={i} className={t.setupStep}>
-          <span className={`${t.setupCk}${s.ok ? ' ' + t.on : ''}`} aria-hidden="true">
+        <div key={i} className="flex items-start gap-2.75 border-t border-line-soft px-0.5 py-2.75">
+          <span
+            className={`mt-px inline-flex size-5.5 flex-none items-center justify-center rounded-full [border-width:var(--setupck-border-w)] [border-style:solid] text-sm leading-[1.6] font-extrabold ${s.ok ? 'border-good bg-good text-on-acc' : 'border-line text-mut'}`}
+            aria-hidden="true"
+          >
             {s.ok ? '✓' : ''}
           </span>
-          <div className={t.setupBody}>
-            <div className={t.setupTitle}>{s.ok ? <s>{s.title}</s> : s.title}</div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-px text-base14 font-semibold">
+              {s.ok ? <s className="text-mut [text-decoration-color:var(--setup-strike)]">{s.title}</s> : s.title}
+            </div>
             <div className={`${ds.muted} ${ds.tiny}`}>{s.desc}</div>
-            {!s.ok && <div className={t.setupAct}>{s.actions}</div>}
+            {!s.ok && <div className="mt-2 flex flex-wrap gap-1.75">{s.actions}</div>}
           </div>
         </div>
       ))}
