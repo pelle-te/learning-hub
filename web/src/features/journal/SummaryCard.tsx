@@ -12,7 +12,6 @@ import { itemById, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import ds from '@/styles/ds.module.css';
-import j from './Journal.module.css';
 
 export default function SummaryCard({ ds: dsKey }: { ds: string }) {
   const uid = useId(); // label↔입력 연결용 고유 접두(폼이 여러 개 떠도 id 충돌 없음)
@@ -142,7 +141,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
       {list.length ? (
         list.map((x) =>
           editId === x.id ? (
-            <div key={x.id} className={`${ds.rec} ${j.editRec}`}>
+            <div key={x.id} className={`${ds.rec} border-line-acc-hover! bg-tint-acc-faint!`}>
               <div className={ds.fld}>
                 <label htmlFor={`sum-edit-${x.id}`}>과목</label>
                 <SubjectSelect
@@ -169,7 +168,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
                 onChange={(e) => setDraft((d) => ({ ...d, s3: e.target.value }))}
                 placeholder="3 — 결과·의미"
               />
-              <div className={j.editActions}>
+              <div className="mt-2 flex gap-2">
                 <Button sm variant="primary" onClick={saveEdit}>
                   저장
                 </Button>

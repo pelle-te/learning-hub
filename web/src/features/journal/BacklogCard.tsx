@@ -12,7 +12,6 @@ import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import ds from '@/styles/ds.module.css';
-import j from './Journal.module.css';
 
 /* ── '보충 필요' 백로그(방법론 5절) ── */
 export default function BacklogCard() {
@@ -112,7 +111,7 @@ export default function BacklogCard() {
       {open.length ? (
         open.map((b) =>
           editId === b.id ? (
-            <div key={b.id} className={`${ds.rec} ${ds.blOpen} ${j.editRec}`}>
+            <div key={b.id} className={`${ds.rec} ${ds.blOpen} border-line-acc-hover! bg-tint-acc-faint!`}>
               <div className={ds.fld}>
                 <label htmlFor={`bl-edit-topic-${b.id}`}>막힌 주제</label>
                 <input
@@ -133,7 +132,7 @@ export default function BacklogCard() {
                   onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
                 />
               </div>
-              <div className={j.editActions}>
+              <div className="mt-2 flex gap-2">
                 <Button sm variant="primary" onClick={saveEdit}>
                   저장
                 </Button>

@@ -18,7 +18,6 @@ import { addDays, fmt, hLabel, iso, mondayOf, parseISO, todayISO } from '@/lib/u
 import { Button } from '@/components/ui';
 import JournalStream from './JournalStream';
 import ds from '@/styles/ds.module.css';
-import j from './Journal.module.css';
 import SummaryCard from './SummaryCard';
 import CbmsCard from './CbmsCard';
 import BacklogCard from './BacklogCard';
@@ -30,22 +29,35 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
   // 접힌 <details> 안 목록을 항상 렌더하지 않고 열렸을 때만(onToggle로 open 추적) 렌더 — lazy.
   const [open, setOpen] = useState(false);
   return (
-    <details className={j.feed} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className={j.feedSum}>최근 활동 · 7일{feed.length ? ` (${feed.length})` : ''}</summary>
+    <details
+      className="mt-2.5 flex-none border-t border-line2 pt-2"
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className="cursor-pointer text-xs leading-[1.6] font-extrabold tracking-widest text-mut select-none hover:text-acc">
+        최근 활동 · 7일{feed.length ? ` (${feed.length})` : ''}
+      </summary>
       {!open ? null : feed.length ? (
-        <ol className={j.feedList}>
+        <ol className="mt-2 max-h-45 [scrollbar-width:thin] list-none overflow-y-auto p-0">
           {feed.map((e, i) => (
-            <li key={i} className={j.feedRow}>
-              <span className={j.feedDs}>{e.ds.slice(5).replace('-', '/')}</span>
-              <span className={j.feedKind} data-kind={e.kind}>
+            <li
+              key={i}
+              className="flex items-baseline gap-2 border-b border-dashed border-tint-line2 py-1 text-sm leading-[1.6]"
+            >
+              <span className="w-9.5 flex-none text-xs leading-[1.6] font-bold text-mut tabular-nums">
+                {e.ds.slice(5).replace('-', '/')}
+              </span>
+              <span
+                className="flex-none text-2xs font-extrabold text-acc data-[kind=blank]:text-warn data-[kind=cbms]:text-warn"
+                data-kind={e.kind}
+              >
                 {e.label}
               </span>
-              <span className={j.feedDetail}>{e.detail}</span>
+              <span className="min-w-0 flex-1 truncate text-txt opacity-85">{e.detail}</span>
             </li>
           ))}
         </ol>
       ) : (
-        <div className={j.feedEmpty}>최근 7일 기록이 없어요 — 오늘 첫 발자취를 남겨보세요.</div>
+        <div className="mt-2 text-xs leading-[1.6] text-mut">최근 7일 기록이 없어요 — 오늘 첫 발자취를 남겨보세요.</div>
       )}
     </details>
   );
@@ -73,17 +85,23 @@ function BatchCapture() {
   };
 
   return (
-    <details className={j.capture} open={open} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className={j.captureSum}>여러 줄 한 번에 — 배치 캡처</summary>
-      <div className={j.captureBody}>
+    <details
+      className="mb-3.5 rounded-base border border-dashed border-line bg-panel2"
+      open={open}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className="cursor-pointer px-3 py-2 text-xs leading-[1.6] font-extrabold tracking-wider text-mut select-none hover:text-acc">
+        여러 줄 한 번에 — 배치 캡처
+      </summary>
+      <div className="px-3 pb-3">
         <textarea
-          className={j.captureTa}
+          className="resize-y leading-normal"
           rows={4}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={'한 줄에 하나씩 — 예)\n미적분 7장 부분적분 요약\n어제 선형대수 고윳값 정리'}
         />
-        <div className={j.captureFoot}>
+        <div className="mt-2 flex items-center justify-between gap-2.5">
           <span className={`${ds.muted} ${ds.tiny}`}>
             {parsed.length ? `${parsed.length}건 인식 — 요약 폼으로 순차 프리필` : '한 줄씩 적으면 요약 폼을 채워요'}
           </span>
@@ -102,21 +120,26 @@ function WeeklyRecapCard() {
   const weekMon = iso(mondayOf(parseISO(todayISO(state))));
   const recap = weeklyRecap(state, weekMon);
   return (
-    <div className={j.recap}>
-      <div className={j.recapHead}>
-        <span className={j.recapTitle}>이번 주 해낸 것</span>
-        {recap.focusMin > 0 && <span className={j.recapStat}>{hLabel(recap.focusMin)} 집중</span>}
+    <div className="mt-3 flex-none rounded-base border border-line-acc bg-tint-acc-faint px-3.5 py-3">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <span className="text-sm leading-[1.6] font-extrabold tracking-wider text-txt">이번 주 해낸 것</span>
+        {recap.focusMin > 0 && (
+          <span className="text-xs leading-[1.6] font-bold text-acc tabular-nums">{hLabel(recap.focusMin)} 집중</span>
+        )}
       </div>
       {recap.wins.length ? (
-        <ul className={j.recapWins}>
+        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {recap.wins.map((w, i) => (
-            <li key={i} className={j.recapWin}>
+            <li
+              key={i}
+              className="rounded-full border border-line-acc-soft bg-acc-soft px-2.25 py-1 text-xs leading-[1.6] font-semibold text-txt"
+            >
               {w}
             </li>
           ))}
         </ul>
       ) : (
-        <div className={j.recapEmpty}>이번 주 기록이 쌓이면 여기 성취가 모여요.</div>
+        <div className="text-xs leading-normal text-mut">이번 주 기록이 쌓이면 여기 성취가 모여요.</div>
       )}
     </div>
   );
@@ -132,21 +155,28 @@ function ShutdownChain() {
   const doneN = chain.days.filter((d) => d.done).length;
   const toggle = () => mutate((st) => setRitual(st, today, 'shutdown', !todayDone));
   return (
-    <div className={j.chain}>
-      <div className={j.chainHead}>
-        <span className={j.chainTitle}>셧다운 체인</span>
-        {chain.streak > 0 && <span className={j.chainStreak}>🔥 {chain.streak}일 연속</span>}
+    <div className="mt-3 flex-none border-t border-line2 pt-2.5">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-xs leading-[1.6] font-extrabold tracking-widest text-mut">셧다운 체인</span>
+        {chain.streak > 0 && (
+          <span className="text-xs leading-[1.6] font-extrabold text-acc tabular-nums">🔥 {chain.streak}일 연속</span>
+        )}
       </div>
-      <div className={j.chainDots} role="img" aria-label={`최근 14일 중 ${doneN}일 셧다운 완료`}>
+      <div className="mb-2.5 flex flex-wrap gap-1.25" role="img" aria-label={`최근 14일 중 ${doneN}일 셧다운 완료`}>
         {chain.days.map((d) => (
           <span
             key={d.ds}
-            className={`${j.dot}${d.done ? ' ' + j.dotDone : ''}`}
+            className={`size-3 rounded-xs border ${d.done ? 'border-acc bg-acc' : 'border-line2 bg-tint-mut'}`}
             title={`${d.ds}${d.done ? ' · 셧다운 완료' : ''}`}
           />
         ))}
       </div>
-      <button type="button" className={j.chainToggle} onClick={toggle} aria-pressed={todayDone}>
+      <button
+        type="button"
+        className="appearance-none rounded-base! border border-line px-2.5! py-1.5! text-xs! leading-[1.6]! font-bold! hover:border-acc! hover:text-acc! aria-pressed:border-line-acc-hover! aria-pressed:bg-tint-acc-faint! aria-pressed:text-acc!"
+        onClick={toggle}
+        aria-pressed={todayDone}
+      >
         {todayDone ? '오늘 셧다운 완료 ✓ — 취소' : '오늘 하루를 닫기 — 셧다운 완료'}
       </button>
     </div>
@@ -193,23 +223,27 @@ export default function Journal() {
   );
 
   return (
-    <section className={j.wrap} aria-label="학습 기록">
-      <div className={j.cols}>
+    <section className="h-full min-w-0" aria-label="학습 기록">
+      <div className="grid h-full min-h-0 grid-cols-journal max-wide:grid-cols-1 max-wide:overflow-y-auto">
         {/* 좌 — 로그(시그니처, fill) + 최근 활동(온디맨드). 선택 날짜를 따라간다. */}
-        <div className={j.logCol}>
+        <div className="flex min-h-0 min-w-0 flex-col px-5.5 pt-5.5 pb-4.5 max-wide:min-h-90">
           <JournalStream ds={ds2} isToday={isToday} fill />
           <WeeklyRecapCard />
           <ActivityFeed ds2={ds2} />
           <ShutdownChain />
-          <div className={j.logHint}>
+          <div className="mt-2.5 flex-none text-xs leading-normal text-mut">
             공부 뒤 남기는 산출물({fmt(new Date(ds2 + 'T00:00:00'))}) — 블록을 끝낼 때마다 하나씩. 누적 추세·약점 분포는{' '}
-            <button type="button" className={j.inlineLink} onClick={() => navigate('/stats', { viewTransition: true })}>
+            <button
+              type="button"
+              className="appearance-none border-none! bg-transparent! p-0! text-xs! leading-normal! font-extrabold! text-acc! underline decoration-acc-glow underline-offset-2 hover:decoration-acc"
+              onClick={() => navigate('/stats', { viewTransition: true })}
+            >
               통계
             </button>
             ·
             <button
               type="button"
-              className={j.inlineLink}
+              className="appearance-none border-none! bg-transparent! p-0! text-xs! leading-normal! font-extrabold! text-acc! underline decoration-acc-glow underline-offset-2 hover:decoration-acc"
               onClick={() => navigate('/review', { viewTransition: true })}
             >
               주간 리뷰
@@ -218,14 +252,18 @@ export default function Journal() {
           </div>
         </div>
         {/* 우 — 기록 입력(온화면 패널, 스크롤) */}
-        <div className={j.inputCol}>
-          <div className={j.inputHead}>기록 입력 — 요약 · 오답 · 보충</div>
+        <div className="min-w-0 [scrollbar-width:thin] overflow-y-auto border-l border-line2 px-5 pt-5 pb-7 max-wide:border-t max-wide:border-l-0">
+          <div className="mb-3 text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
+            기록 입력 — 요약 · 오답 · 보충
+          </div>
           {/* 날짜 스테퍼 — 과거 보충 진입점. 오늘이면 담백하게, 과거면 강조 배너. */}
-          <div className={`${j.dateNav}${isToday ? '' : ' ' + j.dateNavPast}`}>
+          <div
+            className={`mb-3.5 flex items-center gap-2 rounded-base border px-2.5 py-1.75 ${isToday ? 'border-line bg-panel2' : 'border-line-warn-strong bg-tint-warn-faint'}`}
+          >
             <Button sm variant="ghost" onClick={() => stepDay(-1)} aria-label="이전 날">
               ◀
             </Button>
-            <span className={j.dateLabel}>
+            <span className="text-md font-bold text-txt">
               {fmt(new Date(ds2 + 'T00:00:00'))}
               {isToday ? <span className={`${ds.muted} ${ds.tiny}`}> · 오늘</span> : <b> · 과거 보충</b>}
             </span>

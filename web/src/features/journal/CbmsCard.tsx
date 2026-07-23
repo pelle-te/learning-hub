@@ -10,7 +10,6 @@ import { cbmsBetween, editCbms, delCbms, restoreCbms, CBMS_INFO, CBMS_CODES } fr
 import { Button } from '@/components/ui';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import ds from '@/styles/ds.module.css';
-import j from './Journal.module.css';
 import type { CbmsCode } from '@/lib/types';
 
 /* ── CBMS 오답 분류(방법론 6절) ── */
@@ -122,7 +121,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
           const inf = CBMS_INFO[e.code] || { label: '?', tip: '', color: '#888' };
           if (editId === e.id) {
             return (
-              <div key={e.id} className={`${ds.rec} ${j.editRec}`}>
+              <div key={e.id} className={`${ds.rec} border-line-acc-hover! bg-tint-acc-faint!`}>
                 <div className={ds.fieldgrid}>
                   <div className={ds.fld}>
                     <label htmlFor={`cb-edit-ch-${e.id}`}>챕터/문제</label>
@@ -171,7 +170,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                   />{' '}
                   🎯 찍어서 맞음/확신 없었음
                 </label>
-                <div className={j.editActions}>
+                <div className="mt-2 flex gap-2">
                   <Button sm variant="primary" onClick={saveEdit}>
                     저장
                   </Button>

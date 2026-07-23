@@ -186,6 +186,14 @@
   --track-season: color-mix(in srgb, var(--ink) 8%, transparent);
   --track-fill-season: color-mix(in srgb, var(--acc) 45%, transparent);
   --filter-good-glow: drop-shadow(0 0 8px color-mix(in srgb, var(--good) 50%, transparent));
+
+  /* journal(학습 기록) 이식 — 로그 스트림·셧다운 체인·오답 칩이 자체 보유하던 color-mix 를 토큰화.
+     tint-mut=체인 뮤트 도트 배경 · tint-ink=회수/보충 칩 배경 · tint-warn-soft=백지 막힘 칩 배경 ·
+     line-warn-strong=과거 보충 배너 테두리(warn 45%). 노드 발광 링은 shadow 라 tokenBridge 에 둔다. */
+  --tint-mut: color-mix(in srgb, var(--mut) 22%, transparent);
+  --tint-ink: color-mix(in srgb, var(--ink) 8%, transparent);
+  --tint-warn-soft: color-mix(in srgb, var(--warn) 12%, transparent);
+  --line-warn-strong: color-mix(in srgb, var(--warn) 45%, var(--line));
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──
