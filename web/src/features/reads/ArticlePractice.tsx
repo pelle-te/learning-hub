@@ -18,10 +18,25 @@ import { addBacklog } from '@/lib/methodology';
 import { backlogFromArticle, PROMOTE_TOAST } from '@/lib/promote';
 import type { Article, ArticleWork } from '@/lib/reads';
 import ds from '@/styles/ds.module.css';
-import r from './Reads.module.css';
 
 type Filter = 'all' | 'en' | 'ko';
 type Progress = 'all' | 'todo' | 'done';
+
+// 언어 태그(EN=acc / KO=good) — 배경만 상태로 분기(§15 부칙 · 정적 클래스). 스팬이라 ! 불필요.
+const LANG_TAG = 'flex-none rounded-sm px-1.5 py-px text-2xs font-black tracking-tag text-on-acc';
+// 언어/진행 필터(button) — 전역 button{} 과 다른 속성만 !. 활성/비활성 배경·색은 정적 분기.
+// ⚠ leading-[normal]: 이 앱은 preflight 를 안 싣는다 → 폼 컨트롤(button/textarea/input)은 UA
+// line-height:normal 을 가지며 body 1.6 을 상속하지 않는다. 필터 버튼 텍스트는 원본에서 normal 로
+// 렌더됐다(명시 line-height 없음). 1.6 으로 고정하면 ~1px 밀려 dark 스냅샷이 깨진다.
+const LANG_BTN = 'rounded-sm! border-none! px-2.75! py-1! text-sm! leading-[normal]! font-extrabold!';
+// 지문 목록 항목(button) — 테두리/배경은 선택 여부로 정적 분기(no-conflicting 회피 · global button 이 나머지 제공).
+const LIST_ITEM = 'w-full flex flex-col gap-1 text-left rounded-base! py-2.75!';
+// 코치 라벨 톤 — 빠진 핵심=learning · 정확성/바로잡기=bad · 나머지=mut(정적 맵 · 동적 s[k] 금지).
+const COACH_TONE: Record<'miss' | 'bad' | 'mut', string> = {
+  miss: 'text-learning',
+  bad: 'text-bad',
+  mut: 'text-mut',
+};
 
 interface VocabState {
   x: number;
@@ -268,14 +283,17 @@ export default function ArticlePractice({
     if (phase === 'loading') {
       // 2-pane 스켈레톤(markets 미러 · SR-17) — 목록 행 + 리더 라인 형상을 예고해 팝인 레이아웃 점프를 없앤다.
       return (
-        <div className={r.cols}>
-          <span className={r.srOnly} role="status">
+        <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
+          <span className={ds.srOnly} role="status">
             지문 불러오는 중…
           </span>
-          <aside className={r.listPane} aria-hidden="true">
-            <div className={r.skeleList}>
+          <aside className="flex min-h-0 flex-col gap-2.5" aria-hidden="true">
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
               {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className={r.skeleItem}>
+                <div
+                  key={i}
+                  className="flex flex-col gap-1.75 rounded-base border border-line bg-panel px-3.25 py-2.75"
+                >
                   <Skeleton width="42%" height={12} />
                   <Skeleton width="86%" height={14} />
                   <Skeleton width="55%" height={11} />
@@ -283,8 +301,8 @@ export default function ArticlePractice({
               ))}
             </div>
           </aside>
-          <div className={r.readerPane} aria-hidden="true">
-            <div className={r.skeleReader}>
+          <div className="flex min-h-0 min-w-0 flex-col" aria-hidden="true">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border border-line bg-panel px-6.5 py-5.5">
               <Skeleton width="30%" height={12} />
               <Skeleton width="78%" height={24} />
               <Skeleton width="100%" height={14} />
@@ -300,13 +318,13 @@ export default function ArticlePractice({
     // 서버는 살아 있는데 진짜 실패(미생성 계열 아님) — '미수집'과 구분해 실제 오류를 노출(SR-9).
     if (phase === 'error') {
       return (
-        <div className={r.emptyHost}>
+        <div className="grid min-h-0 flex-1 place-items-center p-6">
           <ArtifactError label="지문을" detail={errorMessage} onRetry={() => void refetch()} />
         </div>
       );
     }
     return (
-      <div className={r.emptyHost}>
+      <div className="grid min-h-0 flex-1 place-items-center p-6">
         <ArtifactGate
           online={online}
           onRetry={() => {
@@ -340,16 +358,20 @@ export default function ArticlePractice({
   const myCount = isKoSel ? draft.trim().length : draft.trim() ? draft.trim().split(/\s+/).length : 0;
 
   return (
-    <div className={r.cols}>
+    <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
       {/* 왼쪽 — 지문 목록 + 필터 + 수집 */}
-      <aside className={r.listPane}>
-        <div className={r.listHead}>
-          <div className={r.langFilter} role="group" aria-label="언어 필터">
+      <aside className="flex min-h-0 flex-col gap-2.5">
+        <div className="flex flex-none flex-wrap items-center justify-between gap-2">
+          <div
+            className="inline-flex gap-0.5 rounded-md border border-line bg-panel p-0.75"
+            role="group"
+            aria-label="언어 필터"
+          >
             {(['all', 'en', 'ko'] as Filter[]).map((f) => (
               <button
                 key={f}
                 type="button"
-                className={filter === f ? `${r.langBtn} ${r.langOn}` : r.langBtn}
+                className={`${LANG_BTN} ${filter === f ? 'bg-acc! text-on-acc!' : 'bg-transparent! text-mut!'}`}
                 aria-pressed={filter === f}
                 onClick={() => setFilter(f)}
               >
@@ -358,12 +380,16 @@ export default function ArticlePractice({
             ))}
           </div>
           {/* 진행 필터 — 요약 완료 기준(전체/미완료/완료). 언어 필터와 독립(SR-3). */}
-          <div className={r.langFilter} role="group" aria-label="진행 필터">
+          <div
+            className="inline-flex gap-0.5 rounded-md border border-line bg-panel p-0.75"
+            role="group"
+            aria-label="진행 필터"
+          >
             {(['all', 'todo', 'done'] as Progress[]).map((f) => (
               <button
                 key={f}
                 type="button"
-                className={progress === f ? `${r.langBtn} ${r.langOn}` : r.langBtn}
+                className={`${LANG_BTN} ${progress === f ? 'bg-acc! text-on-acc!' : 'bg-transparent! text-mut!'}`}
                 aria-pressed={progress === f}
                 onClick={() => setProgress(f)}
               >
@@ -380,7 +406,7 @@ export default function ArticlePractice({
             {collecting ? <span className={ds.spin} /> : '↻'} 수집
           </Button>
         </div>
-        <ul className={r.list}>
+        <ul className="m-0 flex min-h-0 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0 max-mobile:max-h-[var(--reads-list-vh)]">
           {list.length ? (
             list.map((a) => {
               const w = work[a.id];
@@ -391,27 +417,30 @@ export default function ArticlePractice({
                 <li key={a.id}>
                   <button
                     type="button"
-                    className={a.id === effId ? `${r.listItem} ${r.itemOn}` : r.listItem}
+                    className={`${LIST_ITEM} ${a.id === effId ? 'border-acc! bg-acc-soft!' : 'bg-panel!'}`}
                     onClick={() => setSelId(a.id)}
                     aria-current={a.id === effId}
                   >
-                    <span className={r.itemTop}>
-                      <span className={r.langTag} data-lang={a.lang}>
+                    <span className="flex items-center gap-1.75">
+                      <span className={`${LANG_TAG} ${a.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
                         {a.lang === 'en' ? 'EN' : 'KO'}
                       </span>
-                      <span className={r.itemField}>{a.field}</span>
+                      <span className="text-xs leading-[normal] font-bold text-mut">{a.field}</span>
                       {w?.done ? (
-                        <span className={r.doneMark} title="요약 완료">
+                        <span className="ml-auto text-sm leading-[normal] font-black text-good" title="요약 완료">
                           ✓
                         </span>
                       ) : hasDraft ? (
-                        <span className={r.draftMark} title="작성 중인 초안 있음">
+                        <span
+                          className="ml-auto text-sm leading-[normal] font-bold text-acc"
+                          title="작성 중인 초안 있음"
+                        >
                           ✎
                         </span>
                       ) : null}
                     </span>
-                    <span className={r.itemTitle}>{a.title}</span>
-                    <span className={r.itemMeta}>
+                    <span className="line-clamp-2 text-base14 leading-[1.35] font-bold text-txt">{a.title}</span>
+                    <span className="text-xs leading-[normal] text-mut tabular-nums">
                       {a.source} · {a.words}
                       {a.lang === 'en' ? ' words' : '자'} · 약 {mins}분
                     </span>
@@ -420,25 +449,30 @@ export default function ArticlePractice({
               );
             })
           ) : (
-            <li className={r.listEmpty}>이 언어의 지문이 없어요 — 필터를 바꾸거나 수집해 보세요.</li>
+            <li className="px-3 py-4.5 text-center text-md text-mut">
+              이 언어의 지문이 없어요 — 필터를 바꾸거나 수집해 보세요.
+            </li>
           )}
         </ul>
       </aside>
 
       {/* 오른쪽 — 리더(원문) + 내 요약 에디터 */}
-      <div className={r.readerPane}>
+      <div className="flex min-h-0 min-w-0 flex-col">
         {sel ? (
           <>
             {/* lang — 영어 지문은 SR이 영어 음성으로 낭독하도록 부분 언어 전환(WCAG 3.1.2). */}
-            <article className={r.reader} lang={sel.lang === 'en' ? 'en' : undefined}>
-              <header className={r.readerHead}>
-                <div className={r.readerMeta} lang="ko">
-                  <span className={r.langTag} data-lang={sel.lang}>
+            <article
+              className="flex min-h-0 flex-1 [scrollbar-width:thin] overflow-y-auto rounded-lg border border-line bg-panel px-6.5 py-5.5 max-mobile:p-4"
+              lang={sel.lang === 'en' ? 'en' : undefined}
+            >
+              <header className="mb-4 border-b border-line2 pb-3.5">
+                <div className="mb-2 flex items-center gap-2 text-sm leading-[1.6] font-bold text-mut" lang="ko">
+                  <span className={`${LANG_TAG} ${sel.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
                     {sel.lang === 'en' ? 'EN' : 'KO'}
                   </span>
                   {sel.field} · {sel.source}
                   <a
-                    className={r.srcLink}
+                    className="ml-auto text-sm leading-[1.6] font-bold"
                     href={/^https?:\/\//i.test(sel.url) ? sel.url : undefined}
                     target="_blank"
                     rel="noreferrer noopener"
@@ -446,15 +480,17 @@ export default function ArticlePractice({
                     원문 ↗
                   </a>
                 </div>
-                <h2 className={r.readerTitle}>{sel.title}</h2>
+                <h2 className="m-0! text-reader-title! leading-[1.28] font-black! tracking-title!">{sel.title}</h2>
               </header>
-              <div className={r.readerBody} ref={readerRef} onPointerUp={onReaderSelect}>
+              <div className="relative text-lg leading-[1.75] text-txt" ref={readerRef} onPointerUp={onReaderSelect}>
                 {sel.text.split(/\n\n+/).map((p, i) => (
-                  <p key={i}>{p}</p>
+                  <p key={i} className="mt-0 mb-3.5 leading-[1.75]">
+                    {p}
+                  </p>
                 ))}
                 {vocab && (
                   <div
-                    className={r.vocabPop}
+                    className="absolute z-[var(--z-dropdown)] -translate-x-1/2 rounded-base border border-line bg-panel px-3 py-2.5 text-md leading-[1.5] shadow-pop outline-none data-[flip=true]:-translate-y-full"
                     style={{ left: vocab.x, top: vocab.y }}
                     role="dialog"
                     aria-label="어휘 뜻"
@@ -463,16 +499,21 @@ export default function ArticlePractice({
                     data-flip={vocab.flip}
                     ref={vocabPopRef}
                   >
-                    <div className={r.vocabHead}>
-                      <b className={r.vocabWord}>{vocab.word}</b>
-                      <button className={r.vocabClose} type="button" onClick={() => setVocab(null)} aria-label="닫기">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <b className="text-base14 text-acc">{vocab.word}</b>
+                      <button
+                        className="border-none! bg-transparent! p-0.5! text-sm! leading-[normal]! text-mut!"
+                        type="button"
+                        onClick={() => setVocab(null)}
+                        aria-label="닫기"
+                      >
                         ✕
                       </button>
                     </div>
                     {sel.lang === 'ko' ? (
                       // 한국어 단어는 로컬 8B가 뜻을 부정확하게 내므로 국어사전 링크로(정확·즉시).
                       <a
-                        className={r.vocabDict}
+                        className="block rounded-sm bg-acc-soft p-2 text-center text-md font-extrabold hover:brightness-105"
                         href={`https://ko.dict.naver.com/#/search?query=${encodeURIComponent(vocab.word)}`}
                         target="_blank"
                         rel="noreferrer noopener"
@@ -480,30 +521,36 @@ export default function ArticlePractice({
                         📖 국어사전에서 보기 ↗
                       </a>
                     ) : vocab.loading ? (
-                      <div className={r.vocabBody} role="status">
+                      <div className="text-txt" role="status">
                         <span className={ds.spin} /> 뜻 찾는 중…
                       </div>
                     ) : vocab.error ? (
-                      <div className={r.vocabBody} role="alert">
+                      <div className="text-txt" role="alert">
                         {vocab.error}
                       </div>
                     ) : vocab.result ? (
-                      <div className={r.vocabBody} role="status">
-                        {vocab.result.pos && <span className={r.vocabPos}>{vocab.result.pos}</span>}
-                        <div className={r.vocabMean}>{vocab.result.meaning}</div>
+                      <div className="text-txt" role="status">
+                        {vocab.result.pos && (
+                          <span className="mb-1 inline-block rounded-sm border border-line px-1.25 text-2xs font-extrabold text-mut">
+                            {vocab.result.pos}
+                          </span>
+                        )}
+                        <div className="font-semibold">{vocab.result.meaning}</div>
                         {vocab.result.synonyms?.length ? (
-                          <div className={r.vocabSyn}>유의어: {vocab.result.synonyms.join(', ')}</div>
+                          <div className="mt-1 text-sm leading-[1.5] text-mut">
+                            유의어: {vocab.result.synonyms.join(', ')}
+                          </div>
                         ) : null}
                         {vocab.result.example && (
-                          <div className={r.vocabEx}>
+                          <div className="mt-1.5 border-t border-line2 pt-1.5 text-sm leading-[1.5] text-txt italic">
                             “{vocab.result.example}”
                             {vocab.result.example_ko ? (
-                              <div className={r.vocabExKo}>{vocab.result.example_ko}</div>
+                              <div className="mt-0.5 text-mut not-italic">{vocab.result.example_ko}</div>
                             ) : null}
                           </div>
                         )}
                         <a
-                          className={r.vocabDictSm}
+                          className="mt-1.5 inline-block text-xs leading-[1.5] font-bold text-mut! hover:text-acc!"
                           href={`https://en.dict.naver.com/#/search?query=${encodeURIComponent(vocab.word)}`}
                           target="_blank"
                           rel="noreferrer noopener"
@@ -512,7 +559,12 @@ export default function ArticlePractice({
                         </a>
                       </div>
                     ) : (
-                      <button className={r.vocabGo} type="button" onClick={doVocab} disabled={!online}>
+                      <button
+                        className="w-full border-none! bg-acc-soft! p-1.75! text-md! font-extrabold! text-acc! hover:brightness-105 disabled:opacity-60!"
+                        type="button"
+                        onClick={doVocab}
+                        disabled={!online}
+                      >
                         {online ? '🔍 뜻 보기' : '워크스페이스 미설정'}
                       </button>
                     )}
@@ -521,18 +573,18 @@ export default function ArticlePractice({
               </div>
             </article>
 
-            <div className={r.editor}>
-              <div className={r.editorHead}>
-                <span className={r.editorLabel}>
+            <div className="mt-3.5 flex-none rounded-lg border border-line bg-panel px-4 py-3.5">
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="text-sm leading-[1.6] font-extrabold tracking-editor text-acc">
                   {sel.lang === 'en' ? '내 정리 (영어 공부 — 핵심 표현·해석)' : '내 요약 (직접 요약해 보기)'}
                 </span>
-                <span className={r.editorCount}>
+                <span className="text-xs leading-[1.6] text-mut tabular-nums">
                   {myCount}
                   {isKoSel ? '자' : ' 단어'}
                 </span>
               </div>
               <textarea
-                className={r.editorArea}
+                className="min-h-24 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-[1.6]!"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={() => commit()}
@@ -543,7 +595,7 @@ export default function ArticlePractice({
                 }
                 aria-label="내 요약"
               />
-              <div className={r.editorActions}>
+              <div className="mt-2.5 flex gap-2">
                 <Button
                   sm
                   variant={work[sel.id]?.done ? 'default' : 'primary'}
@@ -594,7 +646,7 @@ export default function ArticlePractice({
 
               {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 위 상태만 공지). */}
               {grader.busy && grader.preview && (
-                <p className={r.coachStream} aria-hidden="true">
+                <p className="mt-3 mb-0 text-md break-words whitespace-pre-wrap text-mut" aria-hidden="true">
                   {grader.preview}
                 </p>
               )}
@@ -606,14 +658,23 @@ export default function ArticlePractice({
                 const savedAt = coach && coach.id === sel.id ? undefined : work[sel.id]?.coachAt;
                 if (!fb) return null;
                 return (
-                  <div className={r.coach} ref={coachResultRef} tabIndex={-1} aria-label="AI 채점 결과">
-                    <div className={r.coachTop}>
+                  <div
+                    className="mt-3 rounded-base border border-line-acc bg-acc-soft px-3.5 py-3"
+                    ref={coachResultRef}
+                    tabIndex={-1}
+                    aria-label="AI 채점 결과"
+                  >
+                    <div className="mb-2 flex flex-wrap items-center gap-2.5">
                       {typeof fb.score === 'number' && (
-                        <span className={r.coachScore} data-good={fb.score >= 70}>
+                        <span
+                          className={`flex-none rounded-full px-3 py-0.5 text-lg leading-[1.6] font-black text-on-acc ${
+                            fb.score >= 70 ? 'bg-good' : 'bg-bad'
+                          }`}
+                        >
                           {fb.score}점
                         </span>
                       )}
-                      {fb.comment && <span className={r.coachComment}>{fb.comment}</span>}
+                      {fb.comment && <span className="text-md font-semibold text-txt">{fb.comment}</span>}
                       {savedAt && (
                         <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 'auto' }}>
                           저장된 채점
@@ -632,8 +693,8 @@ export default function ArticlePractice({
                       />
                     ) : null}
                     {fb.model_summary && (
-                      <div className={r.coachModel}>
-                        <span className={r.coachModelLabel}>모범 요약</span>
+                      <div className="mt-2.5 border-t border-line2 pt-2 text-md text-txt">
+                        <span className="mb-0.75 block text-xs leading-[1.6] font-extrabold text-acc">모범 요약</span>
                         {fb.model_summary}
                       </div>
                     )}
@@ -643,7 +704,7 @@ export default function ArticlePractice({
             </div>
           </>
         ) : (
-          <div className={r.loading}>왼쪽에서 지문을 선택하세요.</div>
+          <div className="grid flex-1 place-items-center text-base14 text-mut">왼쪽에서 지문을 선택하세요.</div>
         )}
       </div>
     </div>
@@ -653,11 +714,11 @@ export default function ArticlePractice({
 /** 코치 피드백 항목 묶음(빠진 핵심·군더더기·정확성 등). */
 function CoachList({ label, items, tone }: { label: string; items: string[]; tone: 'miss' | 'bad' | 'mut' }) {
   return (
-    <div className={r.coachGroup}>
-      <span className={r.coachLabel} data-tone={tone}>
+    <div className="mt-2">
+      <span className={`mb-0.75 inline-block text-xs leading-[1.6] font-extrabold tracking-label ${COACH_TONE[tone]}`}>
         {label}
       </span>
-      <ul className={r.coachItems}>
+      <ul className="m-0 pl-4.5 text-md leading-[1.55] text-txt">
         {items.map((it, i) => (
           <li key={i}>{it}</li>
         ))}

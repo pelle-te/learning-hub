@@ -238,4 +238,26 @@
   --container-jobtopic: 300px;
   --container-rectopic: 320px;
   --container-off: 620px;
+
+  /* ── reads 이식(읽을거리 · 지문 연습 + 독서) ─────────────────────────────────
+     좌 목록/우 리더 2-pane. 색은 tokens.css 가 계산하고, clamp 유동값·em/px letter-spacing 은
+     사다리 밖 디자인 의도값이라 이름을 준다(markets/control 과 같은 규율 · §14-3). */
+  --color-line-acc-mid: var(--line-acc-mid);
+  --color-tint-acc-panel2: var(--tint-acc-panel2);
+  /* 리더 제목 — clamp 유동값(markets-title 과 같은 성격 · 반올림 예외 · 규약 3). */
+  --text-reader-title: clamp(19px, 2.4vw, 25px);
+  /* 언어/상태 태그 자간 0.04em · 요약 라벨 0.01em · 별점 글리프 1px(픽셀 letter-spacing) —
+     내장 tracking 사다리(wide 0.025 / wider 0.05) 밖의 정확한 값이라 이름을 준다(caps 계열과 같은 논리). */
+  --tracking-tag: 0.04em;
+  --tracking-editor: 0.01em;
+  --tracking-star: 1px;
+  /* 활성 세그먼트(지문/독서 토글) 글로우 · 어휘 팝오버 그림자(=shadow-md · 앱/Tailwind 이름과 분리 · 규약 5). */
+  --shadow-seg-on: 0 0 22px -8px var(--glow);
+  --shadow-pop: var(--shadow-md);
+  /* 상단 세그먼트 세로 마진(clamp) — `mt-seg-y` 로 쓴다. */
+  --spacing-seg-y: clamp(14px, 3vh, 28px);
+  /* 모바일 세로 스택 목록 높이 상한(34vh) — 임의값(`max-h-[34vh]`)은 린트가 막으므로 이름을 준다. */
+  --reads-list-vh: 34vh;
+  /* 2-pane 그리드 — 목록(240~320px) + 리더/에디터(유동). 700 아래로는 1컬럼 세로 스택. */
+  --grid-template-columns-reads: minmax(240px, 320px) 1fr;
 }

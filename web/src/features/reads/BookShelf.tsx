@@ -8,7 +8,15 @@ import { Button } from '@/components/ui';
 import { ui } from '@/shell';
 import { useFlushOnUnmount } from '@/hooks/interactions';
 import { newBook, type Book } from '@/lib/reads';
-import r from './Reads.module.css';
+
+// 공유 셸 클래스(§15 부칙 · 상태색은 정적 분기로 자식에 직접). 전역 input{}/button{} 과 다른 속성만 !.
+const ADD_INPUT = 'rounded-md! bg-panel! px-3! py-2.25! text-base14!';
+// 책 목록 항목(button) — 테두리/배경은 선택 여부로 정적 분기(base+active 동시 지정 시 no-conflicting 회피).
+const LIST_ITEM = 'w-full flex flex-col gap-1 text-left rounded-base! py-2.75!';
+// 독서 상태 필터(button) — 테두리/배경/색은 global button{} 이 주는 line/panel2/txt 위에 활성만 얹는다.
+// ⚠ leading-[normal]: preflight 미탑재 → button 은 UA line-height:normal(body 1.6 미상속). 원본
+// 필터 버튼은 명시 line-height 없이 normal 로 렌더됐다 — 1.6 고정 시 ~1px 밀려 dark 스냅샷 깨짐.
+const BOOK_FILTER_BTN = 'flex-1 px-2! py-1! text-xs! leading-[normal]! font-semibold!';
 
 /** ISO 일시 → 'M/D'(없으면 ''). 독서 시작·완독일 표기용. */
 function shortDate(iso: string | null | undefined): string {
@@ -76,12 +84,12 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
   };
 
   return (
-    <div className={r.cols}>
+    <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
       {/* 왼쪽 — 추가 + 책 목록 */}
-      <aside className={r.listPane}>
-        <div className={r.addBox}>
+      <aside className="flex min-h-0 flex-col gap-2.5">
+        <div className="flex flex-none flex-col gap-1.75 border-b border-line2 pb-2.5">
           <input
-            className={r.addInput}
+            className={ADD_INPUT}
             placeholder="책 제목"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -91,7 +99,7 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
             aria-label="책 제목"
           />
           <input
-            className={r.addInput}
+            className={ADD_INPUT}
             placeholder="저자(선택)"
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
@@ -105,13 +113,13 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
           </Button>
         </div>
         {books.length > 0 && (
-          <div className={r.bookFilter} role="group" aria-label="독서 상태 필터">
+          <div className="mb-2 flex gap-1" role="group" aria-label="독서 상태 필터">
             {(['all', 'reading', 'done'] as const).map((f) => (
               <button
                 key={f}
                 type="button"
                 aria-pressed={statusFilter === f}
-                className={statusFilter === f ? `${r.bookFilterBtn} ${r.bookFilterOn}` : r.bookFilterBtn}
+                className={`${BOOK_FILTER_BTN} ${statusFilter === f ? 'border-line-acc-mid! bg-tint-acc-panel2! text-txt!' : 'text-mut!'}`}
                 onClick={() => setStatusFilter(f)}
               >
                 {f === 'all' ? '전체' : f === 'reading' ? '읽는 중' : '완독'}
@@ -121,28 +129,36 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
         )}
         {books.length ? (
           shown.length ? (
-            <ul className={r.list}>
+            <ul className="m-0 flex min-h-0 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0 max-mobile:max-h-[var(--reads-list-vh)]">
               {shown.map((b) => (
                 <li key={b.id}>
                   <button
                     type="button"
-                    className={b.id === effId ? `${r.listItem} ${r.itemOn}` : r.listItem}
+                    className={`${LIST_ITEM} ${b.id === effId ? 'border-acc! bg-acc-soft!' : 'bg-panel!'}`}
                     onClick={() => setSelId(b.id)}
                     aria-current={b.id === effId}
                   >
-                    <span className={r.itemTop}>
-                      <span className={r.statusTag} data-done={b.status === 'done'}>
+                    <span className="flex items-center gap-1.75">
+                      <span
+                        className={`flex-none rounded-sm px-1.75 py-px text-2xs font-extrabold ${
+                          b.status === 'done' ? 'bg-good text-on-acc' : 'bg-line2 text-mut'
+                        }`}
+                      >
                         {b.status === 'done' ? '완독' : '읽는 중'}
                       </span>
-                      {b.rating > 0 && <span className={r.stars}>{'★'.repeat(b.rating)}</span>}
+                      {b.rating > 0 && (
+                        <span className="text-xs leading-[normal] tracking-star text-learning">
+                          {'★'.repeat(b.rating)}
+                        </span>
+                      )}
                       {b.review.trim() && (
-                        <span className={r.doneMark} title="독후감 있음">
+                        <span className="ml-auto text-sm leading-[normal] font-black text-good" title="독후감 있음">
                           ✎
                         </span>
                       )}
                     </span>
-                    <span className={r.itemTitle}>{b.title}</span>
-                    <span className={r.itemMeta}>
+                    <span className="line-clamp-2 text-base14 leading-[1.35] font-bold text-txt">{b.title}</span>
+                    <span className="text-xs leading-[normal] text-mut tabular-nums">
                       {b.author ? `${b.author} · ` : ''}
                       {b.status === 'done' && shortDate(b.finishedAt)
                         ? `완독 ${shortDate(b.finishedAt)}`
@@ -155,31 +171,31 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
               ))}
             </ul>
           ) : (
-            <div className={r.listEmpty}>이 상태의 책이 없어요.</div>
+            <div className="px-3 py-4.5 text-center text-md text-mut">이 상태의 책이 없어요.</div>
           )
         ) : (
-          <div className={r.listEmpty}>왼쪽 위에서 첫 책을 추가해 보세요.</div>
+          <div className="px-3 py-4.5 text-center text-md text-mut">왼쪽 위에서 첫 책을 추가해 보세요.</div>
         )}
       </aside>
 
       {/* 오른쪽 — 독후감 에디터 */}
-      <div className={r.readerPane}>
+      <div className="flex min-h-0 min-w-0 flex-col">
         {sel ? (
-          <div className={r.bookEditor}>
-            <header className={r.bookHead}>
-              <h2 className={r.readerTitle}>{sel.title}</h2>
-              <div className={r.readerMeta}>
+          <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-line bg-panel px-5.5 py-5">
+            <header className="mb-3 flex-none border-b border-line2 pb-3.5">
+              <h2 className="m-0! text-reader-title! leading-[1.28] font-black! tracking-title!">{sel.title}</h2>
+              <div className="mb-2 flex items-center gap-2 text-sm leading-[1.6] font-bold text-mut">
                 {sel.author ? sel.author + ' · ' : ''}
                 시작 {shortDate(sel.startedAt) || '—'}
                 {sel.status === 'done' && shortDate(sel.finishedAt) ? ` · 완독 ${shortDate(sel.finishedAt)}` : ''}
               </div>
-              <div className={r.bookControls}>
-                <div className={r.rating} role="group" aria-label="별점">
+              <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                <div className="inline-flex" role="group" aria-label="별점">
                   {[1, 2, 3, 4, 5].map((n) => (
                     <button
                       key={n}
                       type="button"
-                      className={r.star}
+                      className="border-none! bg-transparent! px-px! py-0! text-xl! leading-none! text-learning!"
                       aria-label={`별점 ${n}`}
                       aria-pressed={sel.rating >= n}
                       onClick={() => patch(sel.id, { rating: sel.rating === n ? 0 : n })}
@@ -196,12 +212,14 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
                 </Button>
               </div>
             </header>
-            <div className={r.editorHead}>
-              <span className={r.editorLabel}>독후감</span>
-              <span className={r.editorCount}>{draft.trim() ? draft.trim().length : 0}자</span>
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="text-sm leading-[1.6] font-extrabold tracking-editor text-acc">독후감</span>
+              <span className="text-xs leading-[1.6] text-mut tabular-nums">
+                {draft.trim() ? draft.trim().length : 0}자
+              </span>
             </div>
             <textarea
-              className={`${r.editorArea} ${r.bookArea}`}
+              className="min-h-35 flex-1 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-[1.6]!"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commitReview}
@@ -210,7 +228,7 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
             />
           </div>
         ) : (
-          <div className={r.emptyHost}>
+          <div className="grid min-h-0 flex-1 place-items-center p-6">
             <EmptyState
               glyph="📖"
               title="독서 기록을 시작해 보세요"

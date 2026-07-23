@@ -199,6 +199,12 @@
      상승=good/하락=bad 는 글로벌 관례이되 방향은 ▲▼·부호·aria-label 로도 표기(색 비의존). */
   --line-good: color-mix(in srgb, var(--good) 32%, var(--line));
   --line-bad: color-mix(in srgb, var(--bad) 32%, var(--line));
+
+  /* reads(읽을거리) 이식 — 독서 상태 필터 활성 강조. line-acc-mid=활성 테두리(acc 50% ·
+     기존 hover 40↔focus 55 사이 · 5% 초과라 반올림 대신 새 칸) · tint-acc-panel2=활성 배경
+     (panel2 위 acc 12% 워시 · panel-acc-faint 5% 와 다른 세기라 분리). */
+  --line-acc-mid: color-mix(in srgb, var(--acc) 50%, var(--line));
+  --tint-acc-panel2: color-mix(in srgb, var(--acc) 12%, var(--panel2));
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

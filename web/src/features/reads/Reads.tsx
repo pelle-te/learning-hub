@@ -23,7 +23,11 @@ import { onSync } from '@/lib/sync';
 import { ui } from '@/shell';
 import ArticlePractice from './ArticlePractice';
 import BookShelf from './BookShelf';
-import r from './Reads.module.css';
+
+// 상단 세그먼트(지문/독서 토글) — 전역 button{} 과 다른 속성만 ! · 활성/비활성은 정적 분기(규약 4).
+const SEG_BTN = 'rounded-md! border-none! px-5! py-2! text-base14! font-extrabold!';
+const SEG_ON = 'bg-[image:var(--acc-fill)]! text-on-acc! shadow-seg-on';
+const SEG_OFF = 'bg-transparent! text-mut!';
 
 type Mode = 'article' | 'book';
 
@@ -116,14 +120,21 @@ export default function Reads() {
   );
 
   return (
-    <section className={r.wrap} aria-label="읽을거리">
+    <section
+      className="flex h-full min-h-0 min-w-0 flex-col px-6 pb-5 max-mobile:px-3.5 max-mobile:pb-3.5"
+      aria-label="읽을거리"
+    >
       {/* 세그먼트 — tablist 계약(화살표 이동·tabpanel 연결)을 이행하지 않으므로 role은 group +
           aria-pressed가 정직하다(언어 필터와 동일 패턴 · WCAG 4.1.2). */}
-      <div className={r.seg} role="group" aria-label="읽을거리 모드">
+      <div
+        className="mt-seg-y mb-4 inline-flex flex-none gap-1 self-center rounded-base border border-line bg-panel p-1"
+        role="group"
+        aria-label="읽을거리 모드"
+      >
         <button
           type="button"
           aria-pressed={mode === 'article'}
-          className={mode === 'article' ? `${r.segBtn} ${r.segOn}` : r.segBtn}
+          className={`${SEG_BTN} ${mode === 'article' ? SEG_ON : SEG_OFF}`}
           onClick={() => setMode('article')}
         >
           📰 지문 연습
@@ -131,7 +142,7 @@ export default function Reads() {
         <button
           type="button"
           aria-pressed={mode === 'book'}
-          className={mode === 'book' ? `${r.segBtn} ${r.segOn}` : r.segBtn}
+          className={`${SEG_BTN} ${mode === 'book' ? SEG_ON : SEG_OFF}`}
           onClick={() => setMode('book')}
         >
           📖 독서
