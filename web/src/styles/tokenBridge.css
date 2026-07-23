@@ -260,4 +260,16 @@
   --reads-list-vh: 34vh;
   /* 2-pane 그리드 — 목록(240~320px) + 리더/에디터(유동). 700 아래로는 1컬럼 세로 스택. */
   --grid-template-columns-reads: minmax(240px, 320px) 1fr;
+
+  /* ── settings 이식(설정 · 유틸리티 콕핏) ──────────────────────────────────────
+     상단 시네마틱 상태 밴드 + 컨트롤 패널. 히어로 3층 그래디언트·상단 헤어라인·밴드 그림자·
+     페이드업 키프레임은 mastery/review 가 tokens.css/tw.css 에 이름 준 것을 그대로 공유한다
+     (값이 문자 그대로 동일 · ledger→mastery 재사용과 같은 패턴). 아래 셋만 settings 고유 —
+     사다리 밖 값이라 이름을 준다(§14-3). */
+  /* 액센트 스와치 모서리 5px — r-sm(7)·기본 rounded-xs(2) 사다리 밖의 정확한 값(16px 스와치라 보존). */
+  --radius-swatch: 5px;
+  /* 상태 밴드 아이템 간격(clamp 유동값 · 규약 3). mastery 의 --spacing-hero-gap(18/3vw/38)과 값이 달라 분리. */
+  --spacing-settings-gap: clamp(16px, 2.6vw, 34px);
+  /* stale 백업 경고 인라인 span 최소폭 12ch — 임의값(`min-w-[12ch]`)은 ch 단위라 린트가 막으므로 이름을 준다. */
+  --container-warnspan: 12ch;
 }
