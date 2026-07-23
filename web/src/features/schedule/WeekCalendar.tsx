@@ -20,8 +20,73 @@ import { isDone } from '@/lib/persistence';
 import { eventsForDay } from '@/lib/events';
 import { toHM } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, packLanes, timeSpan, type DayData, type Row } from '@/lib/scheduleView';
-import type { Task } from '@/lib/types';
-import s from './WeekCalendar.module.css';
+import type { SessionType, Task } from '@/lib/types';
+
+/* ── C-7 이식(WeekCalendar) — Tailwind 클래스 SSOT ──────────────────────────────
+   [머리글 고정 / 종일 행 / 스크롤 시간축]. 좌측 거터 44px(모바일 34) + 요일 7열은 격자 트랙 토큰
+   (grid-cols-weekcal-*)으로 세 층 정렬을 맞춘다. ⚠ 일정 조각(.seg)은 study/event 가 <button>,
+   block/task 가 <div> 라 **같은 클래스 문자열이 두 요소형에 걸린다** → 전역 button(언레이어)이
+   유틸을 이기는 study/event 쪽 기준으로 button 충돌 속성엔 `!`(div 엔 무해). 색·색믹스는 tokens.css,
+   좌측 색 띠는 런타임 --seg(과목색) 파생이라 인라인 style 이 얹는 사용 시점 해석(§14-3 · 절대규칙 #3).
+   ⚠ 조각 텍스트: text-xs/lg 는 built-in 이라 companion line-height 를 흘려 원본 LH(1.25/1.1)를
+   leading-[…] 로 못박는다(고정 셀 clip 방지 · line-height 트랩). 밀도(micro/compact)·오늘·초과·
+   과거·완료는 정적 클래스맵(§15 · 동적 s[k] 금지). */
+const CAL = {
+  cal: 'flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-panel shadow-inset-line2',
+  head: 'grid flex-none grid-cols-weekcal-head gap-px overflow-y-hidden border-b border-line bg-panel [scrollbar-gutter:stable] max-mobile:grid-cols-weekcal-head-narrow',
+  gutterHead: 'block',
+  dayHead:
+    'flex flex-col items-center gap-px border-x-0! border-t-2! border-b-0! border-t-transparent! bg-transparent! px-0.5! pt-2! pb-1.75! focus-visible:-outline-offset-2!',
+  dow: 'text-sched-dow font-bold tracking-tag',
+  date: 'text-sched-date font-extrabold leading-[1.1] tabular-nums max-mobile:text-lg',
+  dateToday: 'min-w-6.5 rounded-full bg-acc px-1.5 text-bg',
+  dayH: 'text-2xs tabular-nums',
+  allday:
+    'grid max-h-21 flex-none grid-cols-weekcal-head gap-px overflow-y-hidden border-b border-line bg-[var(--tint-ink-faint)] [scrollbar-gutter:stable] [scrollbar-width:thin] max-mobile:grid-cols-weekcal-head-narrow',
+  alldayLab: 'pt-1.5 pr-1.5 text-right text-sched-meta whitespace-nowrap text-mut',
+  alldayCell: 'flex min-w-0 flex-col gap-0.75 px-0.75 py-1.25',
+  chipBase: 'truncate rounded-chip-md px-1.5 py-0.5 text-left text-2xs font-bold',
+  chipDeadline: 'bg-[var(--sched-chip-bad)] text-bad',
+  chipUnplaced:
+    'truncate rounded-chip-md! border-0! bg-[var(--sched-chip-warn)]! px-1.5! py-0.5! text-left text-2xs! font-bold! text-warn!',
+  scroll: 'min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable] [scrollbar-width:thin]',
+  grid: 'relative grid grid-cols-weekcal-grid max-mobile:grid-cols-weekcal-grid-narrow',
+  gutter: 'relative',
+  hourLab: 'absolute right-1.5 -translate-y-1/2 text-2xs tabular-nums text-mut',
+  cols: 'relative grid grid-cols-7 gap-px',
+  lines: 'pointer-events-none absolute inset-0 col-span-full',
+  lineH: 'absolute inset-x-0 h-px bg-line2',
+  lineHalf: 'absolute inset-x-0 h-px bg-[var(--line2-half)]',
+  col: 'relative min-w-0',
+  now: 'pointer-events-none absolute inset-x-0 col-span-full z-[3] h-0 border-t-2 border-solid border-t-bad',
+  nowCap:
+    'absolute left-0.5 -top-2 rounded-chip-sm bg-bad px-1 py-0.25 text-sched-cap font-extrabold tabular-nums text-bg',
+} as const;
+
+// 일정 조각 — 구조(base) + 밀도별 패딩(pad) + 종류별 채움/그림자/좌측띠(kind) + 세션타입 폴백색(type).
+const SEG_BASE = 'absolute flex cursor-default flex-col gap-px overflow-hidden rounded-seg! text-left';
+const SEG_PAD = {
+  base: 'py-0.75! pr-1.5! pl-2.25!',
+  event: 'py-0.75! pr-1.5! pl-2!', // 일정은 좌측 띠가 굵어 padding-left 8px
+  micro: 'py-0.25! pr-1! pl-1.5!',
+};
+const SEG_KIND = {
+  study:
+    'border-t-0! border-r-0! border-b-0! border-l-4! border-l-[color:var(--seg,var(--acc))]! bg-[var(--seg-fill)]! shadow-[var(--shadow-seg)]',
+  event:
+    'border-t-0! border-r-0! border-b-0! border-l-[length:var(--bw-event)]! border-l-[color:var(--seg,var(--acc))]! bg-[var(--seg-fill)]! shadow-[var(--shadow-seg-event)]',
+  block:
+    'border-solid border-t-0 border-r-0 border-b-0 border-l-4 border-l-[color:var(--seg-block-line)] bg-[var(--seg-block-fill)] shadow-[var(--shadow-seg-block)]',
+  task: 'border border-dashed border-[color:var(--seg-task-line)] border-l-4 [border-left-style:solid] border-l-[color:var(--seg,var(--acc))] bg-[var(--seg-fill-20)] shadow-[var(--shadow-seg)]',
+};
+// 세션 타입 폴백색(과목색 인라인 --seg 없을 때) — 정적 맵(§15 · 절대규칙 #3: 리터럴 hex 금지).
+const SEG_TYPE: Record<SessionType, string> = {
+  new: '[--seg:var(--acc)]',
+  rev: '[--seg:var(--acc2)]',
+  anki: '[--seg:var(--warn)]',
+  blank: '[--seg:var(--violet)]',
+  mock: '[--seg:var(--bad)]',
+};
 
 /** 1시간의 **최소** 높이(px). 44 밑으로 내리면 30분 일정이 22px가 안 돼 이름 한 줄도 못 담는다
  *  — v5에서 비율 배치를 걷어낸 이유가 이것이라 이 바닥은 절대 안 내린다.
@@ -48,8 +113,19 @@ type Seg =
 
 /** 높이별 라벨 단계 — 담을 수 없는 라벨을 그리면 겹치고 잘린다.
  *  ~24px: 이름만(한 줄) · ~40px: 이름+시간 · 그 이상: 전부. */
-function densityCls(px: number): string {
-  return px < 26 ? ' ' + s.micro : px < 44 ? ' ' + s.compact : '';
+type Dens = 'micro' | 'compact' | '';
+function densOf(px: number): Dens {
+  return px < 26 ? 'micro' : px < 44 ? 'compact' : '';
+}
+/** 조각 이름 클래스 — 밀도(micro=10px)·종류(block=옅은 600 · event=800 · 그 외 700)로 갈린다. */
+function segNameCls(dens: Dens, kind: Seg['kind']): string {
+  const weight =
+    kind === 'block' ? 'font-semibold text-[color:var(--txt-84)]' : kind === 'event' ? 'font-extrabold' : 'font-bold';
+  return `truncate leading-[1.25] ${dens === 'micro' ? 'text-2xs' : 'text-xs'} ${weight}`;
+}
+/** 조각 메타 — compact/micro/모바일에서 감춘다(고정 셀에 겹쳐 잘림 방지). */
+function segMetaCls(dens: Dens): string {
+  return `truncate text-sched-meta leading-[1.2] text-[color:var(--txt-82)] ${dens ? 'hidden' : ''} max-mobile:hidden`;
 }
 
 export function WeekCalendar({
@@ -178,23 +254,25 @@ export function WeekCalendar({
   ];
 
   return (
-    <div className={s.cal}>
+    <div className={CAL.cal}>
       {/* 요일 머리글 — 스크롤과 무관하게 고정(어느 열을 보는지 잃지 않게). */}
-      <div className={s.head}>
-        <span className={s.gutterHead} />
+      <div className={CAL.head}>
+        <span className={CAL.gutterHead} />
         {parts.map((p, k) => (
           <button
             key={p.ds}
             type="button"
-            className={`${s.dayHead}${p.isToday ? ' ' + s.today : ''}`}
+            className={CAL.dayHead}
             onClick={() => onOpenDay(p.ds)}
             /* 오늘은 액센트 알약(색)으로만 말하면 색각·스크린리더에 전달되지 않는다 → 역할과 라벨 양쪽에 실는다. */
             aria-current={p.isToday ? 'date' : undefined}
             aria-label={`${dows[k]} ${p.date.getMonth() + 1}/${p.date.getDate()}${p.isToday ? ' (오늘)' : ''} · 배정 ${(p.used / 60).toFixed(1)}시간 — 이 날 계획 열기`}
           >
-            <span className={s.dow}>{dows[k]}</span>
-            <span className={s.date}>{p.date.getDate()}</span>
-            <span className={`${s.dayH}${p.over ? ' ' + s.over : ''}`}>{(p.used / 60).toFixed(1)}h</span>
+            <span className={`${CAL.dow} ${p.isToday ? 'text-acc' : 'text-mut'}`}>{dows[k]}</span>
+            <span className={`${CAL.date} ${p.isToday ? CAL.dateToday : ''}`}>{p.date.getDate()}</span>
+            <span className={`${CAL.dayH} ${p.over ? 'font-extrabold text-bad' : 'text-mut'}`}>
+              {(p.used / 60).toFixed(1)}h
+            </span>
           </button>
         ))}
       </div>
@@ -203,8 +281,8 @@ export function WeekCalendar({
       {parts.some(
         (p, k) => (deadlines[k]?.length ?? 0) > 0 || p.rows.some((r) => r.kind === 'study' && r.start == null),
       ) && (
-        <div className={s.allday}>
-          <span className={s.alldayLab}>종일</span>
+        <div className={CAL.allday}>
+          <span className={CAL.alldayLab}>종일</span>
           {parts.map((p, k) => {
             const dls = deadlines[k] ?? [];
             const unplaced = p.rows.reduce((n, r) => n + (r.kind === 'study' && r.start == null ? 1 : 0), 0);
@@ -212,16 +290,16 @@ export function WeekCalendar({
               // 클릭 핸들러를 걷어냈다 — role="presentation"("의미 없음")을 선언한 채 클릭 동작을 갖는 건
               // 명백한 역할 거짓이고, 포커스도 못 받아 키보드로는 애초에 닿지 않았다.
               // 같은 동작(그날 계획 열기)은 위 요일 머리글 버튼과 아래 '미배치' 버튼이 정직하게 제공한다.
-              <div key={p.ds} className={`${s.alldayCell}${p.isToday ? ' ' + s.today : ''}`}>
+              <div key={p.ds} className={CAL.alldayCell}>
                 {dls.map((name) => (
-                  <span key={name} className={s.chipDeadline} title={`마감: ${name}`}>
+                  <span key={name} className={`${CAL.chipBase} ${CAL.chipDeadline}`} title={`마감: ${name}`}>
                     🚩 {name}
                   </span>
                 ))}
                 {unplaced > 0 && (
                   <button
                     type="button"
-                    className={s.chipUnplaced}
+                    className={CAL.chipUnplaced}
                     onClick={() => onOpenDay(p.ds)}
                     title={`미배치 학습 ${unplaced}개 — 가용시간을 넘겨 시각을 못 잡았어요. 아젠다에서 확인`}
                     aria-label={`${dows[k]} 미배치 학습 ${unplaced}개 — 아젠다 열기`}
@@ -236,27 +314,27 @@ export function WeekCalendar({
       )}
 
       {/* 시간 격자 — 1시간=hourH(프레임에서 역산, 하한 HOUR_H). 세로 스크롤은 이 컨테이너가 소유(머리글 고정). */}
-      <div className={s.scroll} ref={scrollRef}>
-        <div className={s.grid} style={{ height: spanPx }}>
-          <div className={s.gutter}>
+      <div className={CAL.scroll} ref={scrollRef}>
+        <div className={CAL.grid} style={{ height: spanPx }}>
+          <div className={CAL.gutter}>
             {hours.map((h) => (
-              <span key={h} className={s.hourLab} style={{ top: yOf(h * 60) }}>
+              <span key={h} className={CAL.hourLab} style={{ top: yOf(h * 60) }}>
                 {String(h).padStart(2, '0')}
               </span>
             ))}
           </div>
 
-          <div className={s.cols}>
+          <div className={CAL.cols}>
             {/* 격자선 — 열 뒤에 한 벌만(열마다 그리면 DOM이 7배). */}
-            <div className={s.lines} aria-hidden="true">
+            <div className={CAL.lines} aria-hidden="true">
               {hours.map((h) => (
-                <span key={h} className={s.lineH} style={{ top: yOf(h * 60) }} />
+                <span key={h} className={CAL.lineH} style={{ top: yOf(h * 60) }} />
               ))}
               {/* 30분 보조선은 압축 구간(심야)엔 그리지 않는다 — 1시간 높이에 여러 줄이 들어가 격자가 뭉갠다. */}
               {hours
                 .filter((h) => h * 60 >= Math.max(lo, NIGHT_END) && h * 60 + 30 < hi)
                 .map((h) => (
-                  <span key={`half${h}`} className={s.lineHalf} style={{ top: yOf(h * 60 + 30) }} />
+                  <span key={`half${h}`} className={CAL.lineHalf} style={{ top: yOf(h * 60 + 30) }} />
                 ))}
             </div>
 
@@ -264,7 +342,7 @@ export function WeekCalendar({
               const isPast = todayIdx >= 0 && k < todayIdx;
               return (
                 // 종일 칸과 같은 이유로 클릭 핸들러 제거(선언한 역할 = 실제 동작). 이 칸은 순수 배치 컨테이너다.
-                <div key={p.ds} className={`${s.col}${p.isToday ? ' ' + s.today : ''}${isPast ? ' ' + s.colPast : ''}`}>
+                <div key={p.ds} className={`${CAL.col} ${isPast ? 'opacity-[0.55]' : ''}`}>
                   {colSegs[k]!.map((pl) => {
                     const e = pl.item;
                     const top = yOf(pl.start);
@@ -279,7 +357,8 @@ export function WeekCalendar({
                       width: `calc(${w}% - 3px)`,
                       ...(e.color ? { ['--seg']: e.color } : {}),
                     } as React.CSSProperties;
-                    const dens = densityCls(h);
+                    const dens = densOf(h);
+                    const pad = dens === 'micro' ? SEG_PAD.micro : e.kind === 'event' ? SEG_PAD.event : SEG_PAD.base;
 
                     if (e.kind === 'study') {
                       const x = e.row.it;
@@ -289,7 +368,7 @@ export function WeekCalendar({
                         <button
                           key={e.key}
                           type="button"
-                          className={`${s.seg} ${s.study} ${s[tag.cls]}${dens}${done ? ' ' + s.done : ''}${past ? ' ' + s.segPast : ''}`}
+                          className={`${SEG_BASE} ${pad} ${SEG_KIND.study} ${SEG_TYPE[x.type]} hover:brightness-[1.08] focus-visible:outline-offset-1! ${done || past ? 'opacity-50' : ''}`}
                           style={style}
                           onClick={(ev) => {
                             ev.stopPropagation();
@@ -302,8 +381,8 @@ export function WeekCalendar({
                           data-tip={`${x.name} · ${tag.label}\n${toHM(pl.start)}–${toHM(pl.end)}${x.chapters?.length ? '\n' + x.chapters.join(', ') : ''}`}
                           title={h < 26 ? `${x.name} · ${tag.label}` : undefined}
                         >
-                          <span className={s.segName}>{e.name}</span>
-                          <span className={s.segMeta}>{e.meta}</span>
+                          <span className={`${segNameCls(dens, 'study')} ${done ? 'line-through' : ''}`}>{e.name}</span>
+                          <span className={segMetaCls(dens)}>{e.meta}</span>
                         </button>
                       );
                     }
@@ -315,7 +394,7 @@ export function WeekCalendar({
                         <button
                           key={e.key}
                           type="button"
-                          className={`${s.seg} ${s.event}${dens}${past ? ' ' + s.segPast : ''}`}
+                          className={`${SEG_BASE} ${pad} ${SEG_KIND.event} [--seg:var(--event)] hover:brightness-[1.08] focus-visible:outline-offset-1! ${past ? 'opacity-50' : ''}`}
                           style={style}
                           onClick={(ev) => {
                             ev.stopPropagation();
@@ -325,8 +404,8 @@ export function WeekCalendar({
                           data-tip={`${e.name} · 일정\n${toHM(pl.start)}–${toHM(pl.end)}`}
                           title={h < 26 ? `${e.name} · 일정` : undefined}
                         >
-                          <span className={s.segName}>{e.name}</span>
-                          <span className={s.segMeta}>{e.meta}</span>
+                          <span className={segNameCls(dens, 'event')}>{e.name}</span>
+                          <span className={segMetaCls(dens)}>{e.meta}</span>
                         </button>
                       );
                     }
@@ -338,14 +417,18 @@ export function WeekCalendar({
                       <div
                         key={e.key}
                         role="group"
-                        className={`${s.seg} ${e.kind === 'task' ? s.task : s.block}${dens}${e.kind === 'task' && e.done ? ' ' + s.done : ''}${past ? ' ' + s.segPast : ''}`}
+                        className={`${SEG_BASE} ${pad} ${e.kind === 'task' ? SEG_KIND.task : SEG_KIND.block} ${(e.kind === 'task' && e.done) || past ? 'opacity-50' : ''}`}
                         style={style}
                         data-tip={`${e.name}\n${e.meta}`}
                         title={h < 26 ? e.name : undefined}
                         aria-label={`${e.name} ${e.meta}`}
                       >
-                        <span className={s.segName}>{e.name}</span>
-                        <span className={s.segMeta}>{e.meta}</span>
+                        <span
+                          className={`${segNameCls(dens, e.kind)} ${e.kind === 'task' && e.done ? 'line-through' : ''}`}
+                        >
+                          {e.name}
+                        </span>
+                        <span className={segMetaCls(dens)}>{e.meta}</span>
                       </div>
                     );
                   })}
@@ -355,8 +438,8 @@ export function WeekCalendar({
 
             {/* 현재 시각 — 열 위를 가로지르는 한 줄(오늘 열만 강조점). */}
             {todayIdx >= 0 && nowMin >= lo && nowMin <= hi && (
-              <span className={s.now} style={{ top: yOf(nowMin) }} aria-hidden="true">
-                <span className={s.nowCap}>{toHM(nowMin)}</span>
+              <span className={CAL.now} style={{ top: yOf(nowMin) }} aria-hidden="true">
+                <span className={CAL.nowCap}>{toHM(nowMin)}</span>
               </span>
             )}
           </div>

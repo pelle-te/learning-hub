@@ -21,32 +21,69 @@ import { Button } from '@/components/ui';
 import { useHeroPointer, useNowMin } from '@/hooks/interactions';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
 import ds from '@/styles/ds.module.css';
-import c from './Schedule.module.css';
 import { computeDay, indexDays, deadlineDdays } from '@/lib/scheduleView';
 import { timedTasksForDay } from '@/lib/tasks';
 import { WeekCalendar } from './WeekCalendar';
 import { DayPlanner } from './DayPlanner';
 import { MonthCalendar } from './MonthCalendar';
 
+/* ── C-7 이식(Schedule 셸) — Tailwind 클래스 SSOT ───────────────────────────────
+   상단 네비(줄바꿈 금지 · 좁으면 서술 텍스트를 sr-only 로 접어 화살표만) · 본문(뷰별 fill) ·
+   하단 스트립(예상 완료·마감·.ics). ds.seg/on/spotHost/glow/spotlight/note 는 공용이라 유지.
+   내장 크기(text-sm/lg)만 companion line-height 를 흘리므로 정상 흐름엔 leading-[1.6]/원본 LH 를
+   명시(line-height 트랩). `.dd`(마감 카운트다운)는 <button> 이라 전역 button 이 유틸을 이겨 다른
+   값만 `!`. @media(900) 세로 스택은 max-wide: 로 재현. */
+const S = {
+  wrap: 'flex h-full min-w-0 flex-col',
+  nav: 'flex flex-none flex-nowrap items-center gap-2.5 border-b border-line px-5.5 py-3.5',
+  wknav: 'flex flex-auto items-center gap-2.5 min-w-0',
+  navBtn: 'flex-none whitespace-nowrap',
+  wk: 'flex-auto min-w-0 truncate text-center',
+  wkLab: 'whitespace-nowrap text-lg leading-[1.6] font-extrabold tracking-wk',
+  wkOff: 'ml-1.5 whitespace-nowrap text-sm leading-[1.6] font-semibold text-mut',
+  navLong: 'whitespace-nowrap max-mobile:sr-only',
+  body: 'min-h-0 flex-1',
+  board2:
+    'flex h-full min-h-0 gap-3.5 px-4 pt-2 pb-2.5 max-wide:flex-col max-wide:overflow-y-auto max-wide:[scrollbar-width:thin]',
+  boardCard:
+    'flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-line bg-[image:var(--board-card-bg)] px-3 pt-2.5 pb-2.5 shadow-[var(--shadow-md)]',
+  boardWrap: 'flex min-h-0 flex-1 flex-col max-wide:min-h-80',
+  calHost: 'min-h-0 flex-1',
+  weekEmptyNote: 'mb-2.5', // + ds.note
+  warn: 'flex-none mt-3 text-sm leading-[1.5]',
+  emptyBoard: 'flex h-full flex-col items-center justify-center gap-3 text-center text-mut',
+  finStrip: 'flex flex-none flex-wrap items-center gap-4 border-t border-line px-5.5 py-1.5',
+  grpL: 'flex-none text-2xs font-bold tracking-caps text-mut uppercase',
+  fin: 'inline-flex items-center gap-1.5 text-sm leading-[1.6] font-semibold text-mut',
+  finDday: 'font-semibold text-mut',
+  ddMut: 'text-md font-semibold text-mut',
+  dot: 'size-1.75 flex-none rounded-full',
+  strip: 'flex flex-none flex-wrap items-center gap-7 border-t border-line px-5.5 py-3.25',
+  grp: 'flex min-w-0 flex-wrap items-center gap-2.5',
+  dd: 'inline-flex items-center gap-1.5 font-bold!',
+  vline: 'h-6 w-px flex-none bg-line2',
+  icsNote: 'flex flex-wrap items-center gap-2 text-sm leading-[1.6]', // 색은 사용처(mut/stale=warn)에서
+} as const;
+
 /** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 안내). 스트립용 컴팩트. */
 function IcsFreshnessNote() {
   const x = useRuntime((s) => s.cache._icsExport);
   const today = useApp((s) => todayISO(s.state)); // 렌더 순수성: Date.now() 대신 앱 정본 '오늘'(테스트 _today 존중)
-  if (!x || !x.at) return <span className={c.icsNote}>📅 캘린더(.ics) 미내보내기</span>;
+  if (!x || !x.at) return <span className={`${S.icsNote} text-mut`}>📅 캘린더(.ics) 미내보내기</span>;
   const when = new Date(x.at);
   const days = isNaN(when.getTime()) ? null : dayDiff(iso(when), today);
   const ago = days == null ? '' : days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`;
   const stale = x.sig !== io.planSignature();
   if (stale)
     return (
-      <span className={`${c.icsNote} ${c.stale}`}>
+      <span className={`${S.icsNote} text-warn`}>
         📅 .ics 계획과 어긋남({ago})
         <Button sm onClick={() => io.exportICS()}>
           🔄 재내보내기
         </Button>
       </span>
     );
-  return <span className={c.icsNote}>📅 .ics 최신 · 마지막 {ago}</span>;
+  return <span className={`${S.icsNote} text-mut`}>📅 .ics 최신 · 마지막 {ago}</span>;
 }
 
 export default function Schedule() {
@@ -211,7 +248,7 @@ export default function Schedule() {
   // tablist 계약(화살표 이동·tabpanel) 미이행 → group+aria-pressed가 정직(WCAG 4.1.2).
   const VIEW_LABEL = { day: '일', week: '주', month: '월' } as const;
   const viewSeg = (
-    <div className={ds.seg} role="group" aria-label="캘린더 보기 방식" style={{ marginLeft: 'auto' }}>
+    <div className={`${ds.seg} ml-auto`} role="group" aria-label="캘린더 보기 방식">
       {(['day', 'week', 'month'] as const).map((v) => (
         <button
           key={v}
@@ -225,25 +262,25 @@ export default function Schedule() {
     </div>
   );
   const navBar = (
-    <div className={c.nav}>
+    <div className={S.nav}>
       {/* 일 뷰 — 날짜 이동도 여기가 소유(주·월과 대칭). 뷰 본문이 자체 네비를 또 그리면
           같은 기능이 두 줄에 흩어지고, 이 줄은 뷰 스위치만 남아 빈 띠가 된다. */}
       {schedView === 'day' && (
-        <div className={c.wknav}>
-          <Button sm onClick={() => dayNav(-1)} aria-label="이전 날">
-            ◀<span className={c.navLong}> 이전 날</span>
+        <div className={S.wknav}>
+          <Button sm className={S.navBtn} onClick={() => dayNav(-1)} aria-label="이전 날">
+            ◀<span className={S.navLong}> 이전 날</span>
           </Button>
-          <div className={c.wk}>
-            <b className={c.wkLab}>{fmtShort(anchorDate)}</b>
-            <span className={c.wkOff}>
+          <div className={S.wk}>
+            <b className={S.wkLab}>{fmtShort(anchorDate)}</b>
+            <span className={S.wkOff}>
               {DOW_MON[(anchorDate.getDay() + 6) % 7]}요일{anchorDs === todayIso && ' · 오늘'}
             </span>
           </div>
-          <Button sm onClick={() => dayNav(1)} aria-label="다음 날">
-            <span className={c.navLong}>다음 날 </span>▶
+          <Button sm className={S.navBtn} onClick={() => dayNav(1)} aria-label="다음 날">
+            <span className={S.navLong}>다음 날 </span>▶
           </Button>
           {anchorDs !== todayIso && (
-            <Button sm variant="ghost" onClick={() => dayNav(0, true)}>
+            <Button sm className={S.navBtn} variant="ghost" onClick={() => dayNav(0, true)}>
               오늘
             </Button>
           )}
@@ -252,39 +289,39 @@ export default function Schedule() {
       {/* 월 뷰 — 달 이동을 여기(공통 nav)가 소유한다. 뷰 본문이 자체 헤더를 또 그리면 헤더가 두 줄이 되고,
           정작 이 줄은 뷰 스위치만 남아 빈 띠가 된다. 주 뷰의 주 이동과 같은 자리·같은 문법. */}
       {schedView === 'month' && (
-        <div className={c.wknav}>
-          <Button sm onClick={() => monthNav(-1)} aria-label="이전 달">
-            ◀<span className={c.navLong}> 이전 달</span>
+        <div className={S.wknav}>
+          <Button sm className={S.navBtn} onClick={() => monthNav(-1)} aria-label="이전 달">
+            ◀<span className={S.navLong}> 이전 달</span>
           </Button>
-          <div className={c.wk}>
-            <b className={c.wkLab}>
+          <div className={S.wk}>
+            <b className={S.wkLab}>
               {anchorDate.getFullYear()}년 {anchorDate.getMonth() + 1}월
             </b>
-            <span className={c.wkOff}>{monthUsedH.toFixed(1)}h</span>
+            <span className={S.wkOff}>{monthUsedH.toFixed(1)}h</span>
           </div>
-          <Button sm onClick={() => monthNav(1)} aria-label="다음 달">
-            <span className={c.navLong}>다음 달 </span>▶
+          <Button sm className={S.navBtn} onClick={() => monthNav(1)} aria-label="다음 달">
+            <span className={S.navLong}>다음 달 </span>▶
           </Button>
-          <Button sm variant="ghost" onClick={() => monthNav(0, true)}>
+          <Button sm className={S.navBtn} variant="ghost" onClick={() => monthNav(0, true)}>
             오늘
           </Button>
         </div>
       )}
       {schedView === 'week' && (
-        <div className={c.wknav}>
+        <div className={S.wknav}>
           {/* aria-label로 이름을 고정한다 — 라벨을 span으로 쪼개면 접근가능한 이름 계산이 조각 사이 공백을
               버려 "◀이전 주"가 된다(폭에 따라 이름이 흔들리는 것도 곤란). 일·월 네비와 같은 문법. */}
-          <Button sm onClick={weekPrev} aria-label="이전 주">
-            ◀<span className={c.navLong}> 이전 주</span>
+          <Button sm className={S.navBtn} onClick={weekPrev} aria-label="이전 주">
+            ◀<span className={S.navLong}> 이전 주</span>
           </Button>
-          <div className={c.wk}>
-            <b className={c.wkLab}>{weekLabel(curMon)}</b>
-            <span className={c.wkOff}>{offsetLabel}</span>
+          <div className={S.wk}>
+            <b className={S.wkLab}>{weekLabel(curMon)}</b>
+            <span className={S.wkOff}>{offsetLabel}</span>
           </div>
-          <Button sm onClick={weekNext} aria-label="다음 주">
-            <span className={c.navLong}>다음 주 </span>▶
+          <Button sm className={S.navBtn} onClick={weekNext} aria-label="다음 주">
+            <span className={S.navLong}>다음 주 </span>▶
           </Button>
-          <Button sm variant="ghost" onClick={weekToday}>
+          <Button sm className={S.navBtn} variant="ghost" onClick={weekToday}>
             오늘
           </Button>
         </div>
@@ -294,13 +331,13 @@ export default function Schedule() {
   );
 
   return (
-    <section className={c.wrap} aria-label="주간 스케줄">
+    <section className={S.wrap} aria-label="주간 스케줄">
       {navBar}
 
       {/* 편성 경고 — 뷰(개요/카드) 무관 공통 스트립(카드뷰에서 소실되지 않도록 분기 밖으로 승격). */}
       {res.warnings.length > 0 && (
         <div
-          className={`${c.warn}${res.warnings.some((w) => w.includes('못') || w.includes('초과')) ? ' ' + c.bad : ''}`}
+          className={`${S.warn} ${res.warnings.some((w) => w.includes('못') || w.includes('초과')) ? 'text-bad' : 'text-warn'}`}
         >
           {res.warnings.map((w, i) => (
             <div key={i}>{w}</div>
@@ -308,32 +345,32 @@ export default function Schedule() {
         </div>
       )}
 
-      <div className={c.body}>
+      <div className={S.body}>
         {schedView === 'day' ? (
           <DayPlanner ds={anchorDs} res={res} nowMin={nowMin} todayIso={todayIso} />
         ) : schedView === 'month' ? (
           <MonthCalendar anchor={parseISO(anchorDs)} res={res} todayIso={todayIso} onPick={monthPick} />
         ) : (
-          <div className={c.board2}>
+          <div className={S.board2}>
             {/* 위크보드 — 정보의 주인공(발광 카드 + 포인터 스포트라이트). */}
             <div
               ref={boardRef}
               onMouseMove={boardMove}
               onMouseLeave={boardLeave}
-              className={`${c.boardCard} ${ds.spotHost} ${ds.glow}`}
+              className={`${S.boardCard} ${ds.spotHost} ${ds.glow}`}
             >
               <div className={ds.spotlight} aria-hidden="true" />
               {hasStudyItems ? (
-                <div className={c.boardWrap}>
+                <div className={S.boardWrap}>
                   {weekPlanMin === 0 && (
                     // 과목은 있는데 이 주에 학습 블록이 하나도 안 잡힌 경우(모두 완료·마감 지남·가용 없음) —
                     // 일과만 뜬 캘린더가 왜 비었는지 조용히 두지 않고 짚어준다.
-                    <div className={c.weekEmptyNote}>
+                    <div className={`${ds.note} ${S.weekEmptyNote}`}>
                       이 주에는 배치된 <b>학습 블록</b>이 없어요 — 마감이 지났거나 가용시간이 부족할 수 있어요.
                       일과(수면·수업)만 표시됩니다.
                     </div>
                   )}
-                  <div className={c.calHost}>
+                  <div className={S.calHost}>
                     <WeekCalendar
                       parts={parts}
                       nowMin={nowMin}
@@ -350,7 +387,7 @@ export default function Schedule() {
                   </div>
                 </div>
               ) : (
-                <div className={c.emptyBoard}>
+                <div className={S.emptyBoard}>
                   <EmptyState
                     glyph="🗓"
                     title="주간 보드가 비어 있어요"
@@ -373,51 +410,51 @@ export default function Schedule() {
         )}
       </div>
 
-      {/* 예상 완료 스트립 — 과목별 스케줄러 산출 완료일(온디맨드 리드아웃, 완료/지연 표식). */}
+      {/* 예상 완료 스트립 — 과목별 스케줄러 산출 완료일(온디맨드 리드아웃, 완료/지연 표식).
+          ⚠ 원본 `.finDone{color:acc}` 는 `.fin b`(명시도 0,1,1 > 0,1,0)에 가려 실제로는 잉크로 렌더된다
+          (완료 지연이면 `.fin.finLate b` 로 bad) — 픽셀 보존을 위해 그 실효 색을 그대로 재현한다. */}
       {finishes.length > 0 && (
-        <div className={c.finStrip}>
-          <span className={c.grpL}>예상 완료</span>
-          {finishes.map((f) => (
-            <span key={f.id} className={`${c.fin}${f.late > 0 ? ' ' + c.finLate : ''}`}>
-              <span className={c.dot} style={{ background: f.color || 'var(--acc)' }} />
-              {f.name}{' '}
-              {f.finished ? (
-                <b className={c.finDone}>✓ 완료</b>
-              ) : (
-                <b>
-                  {f.md ?? '—'}
-                  {f.dday != null && f.dday >= 0 && <span className={c.finDday}> · D-{f.dday}</span>}
-                </b>
-              )}
-            </span>
-          ))}
+        <div className={S.finStrip}>
+          <span className={S.grpL}>예상 완료</span>
+          {finishes.map((f) => {
+            const bCls = `font-bold ${f.late > 0 ? 'text-bad' : 'text-txt'}`;
+            return (
+              <span key={f.id} className={S.fin}>
+                <span className={S.dot} style={{ background: f.color || 'var(--acc)' }} />
+                {f.name}{' '}
+                {f.finished ? (
+                  <b className={bCls}>✓ 완료</b>
+                ) : (
+                  <b className={bCls}>
+                    {f.md ?? '—'}
+                    {f.dday != null && f.dday >= 0 && <span className={S.finDday}> · D-{f.dday}</span>}
+                  </b>
+                )}
+              </span>
+            );
+          })}
         </div>
       )}
 
       {/* 하단 스트립 — 마감 카운트다운 + .ics 신선도 */}
-      <div className={c.strip}>
-        <div className={c.grp}>
-          <span className={c.grpL}>마감</span>
+      <div className={S.strip}>
+        <div className={S.grp}>
+          <span className={S.grpL}>마감</span>
           {soon.length ? (
             soon.map((d) => {
               const { lab } = ddayInfo(d.dday);
               return (
-                <button
-                  key={d.name + d.deadline}
-                  type="button"
-                  className={`${c.dd}${d.dday <= 7 ? ' ' + c.soon : ''}`}
-                  onClick={() => navigate('/items')}
-                >
-                  <span className={c.dot} style={{ background: d.color || 'var(--acc)' }} />
-                  {d.name} <b>{lab}</b>
+                <button key={d.name + d.deadline} type="button" className={S.dd} onClick={() => navigate('/items')}>
+                  <span className={S.dot} style={{ background: d.color || 'var(--acc)' }} />
+                  {d.name} <b className={d.dday <= 7 ? 'text-bad' : 'text-acc'}>{lab}</b>
                 </button>
               );
             })
           ) : (
-            <span className={c.ddMut}>없음</span>
+            <span className={S.ddMut}>없음</span>
           )}
         </div>
-        <div className={c.vline} />
+        <div className={S.vline} />
         <IcsFreshnessNote />
       </div>
     </section>

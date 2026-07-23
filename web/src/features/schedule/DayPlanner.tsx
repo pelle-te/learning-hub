@@ -53,7 +53,77 @@ import { TrayRow, EventBand, TimedCard } from './DayPlannerCards';
 import { COL_CLASS, EDIT_BAR_ID, MIME, type DragKind } from './dayPlannerShared';
 import { Button, NumberField } from '@/components/ui';
 import type { AppState, ScheduleResult } from '@/lib/types';
-import s from './DayPlanner.module.css';
+
+/* ── C-7 이식(DayPlanner) — Tailwind 클래스 SSOT ────────────────────────────────
+   좌 트레이(폼 위주) | 우 하루 타임라인. ⚠ 폼 컨트롤(input/select/button)은 전역 요소규칙
+   (components.css · 언레이어)이 유틸을 이기므로 **다른 값만 `!`**(같으면 클래스 없음). 반경 r-md(10)·
+   패딩·글자색이 그 대상. built-in 크기(text-sm/base/xs)만 companion line-height 를 흘려 폼컨트롤엔
+   leading-[normal], 정상 흐름엔 leading-[1.6]/원본 LH 를 명시(line-height 트랩). 로컬 :hover 는 전역
+   button:hover(명시도 0,2,1)에 이미 가려져 있어 되살리지 않는다(§ global element rules · 트랩 회피).
+   색·색믹스는 tokens.css, 좌측 색 띠는 런타임 --seg 파생(인라인 style 이 얹음 · 절대규칙 #3).
+   @media(700) 세로 스택은 max-mobile: 로 재현. DayPlannerCards 와 공유하는 4종(trayRow/grabDot/
+   rowName/tool)은 두 파일이 각자 린트되도록 동일 문자열을 복제한다. */
+const TOOLBASE =
+  'inline-flex h-5.5 w-5.5 flex-none items-center justify-center rounded-seg! border-transparent! bg-transparent! text-sm! leading-[normal] focus-visible:outline-offset-1! motion-reduce:transition-none';
+// `.editField input` 후손 셀렉터를 자식에 평탄화 — 시각(time) 입력 + NumberField(숫자, width 62px) 공용.
+const EDITFIELD_INPUT = 'px-1.75! py-1.25! tabular-nums focus-visible:outline-offset-1!';
+const NUMFIELD = `${EDITFIELD_INPUT} w-15.5!`;
+const DP = {
+  wrap: 'flex h-full min-h-0 flex-col gap-3',
+  head: 'flex flex-none flex-wrap items-center justify-end gap-3',
+  headRight: 'flex items-center gap-2.5',
+  mode: 'rounded-full border px-2.25 py-0.75 text-xs leading-[1.6] font-extrabold tracking-label',
+  modeManual: 'border-acc-glow bg-acc-soft text-acc',
+  modeAuto: 'border-line2 bg-panel2 text-mut',
+  over: 'rounded-full border border-[color:var(--over-line)] bg-[var(--over-bg)] px-2.25 py-0.75 text-xs leading-[1.6] font-extrabold tabular-nums text-bad',
+  grid2: 'grid min-h-0 flex-1 grid-cols-dayplan gap-3.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr]',
+  tray: 'flex min-h-0 flex-col gap-2.5 rounded-base bg-panel p-3 shadow-inset-line2 max-mobile:max-h-[var(--tray-vh)]',
+  trayHead: 'flex-none text-xs leading-[1.6] font-extrabold tracking-tag text-mut uppercase',
+  addWrap: 'flex flex-none flex-col gap-1.5',
+  addRowTask: 'flex flex-none flex-nowrap items-stretch gap-1.5',
+  addInput: 'min-w-0 rounded-md! py-1.75! focus-visible:outline-offset-1!',
+  addSel: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-[normal] focus-visible:outline-offset-1!',
+  addBtn:
+    'w-8.5 flex-none rounded-md! text-base! leading-[normal] font-extrabold! text-acc! motion-reduce:transition-none',
+  repeatOn: 'border-acc-glow! bg-acc-soft!',
+  addRow: 'grid flex-none grid-cols-2 gap-1.5',
+  addRowBtns: 'grid flex-none auto-cols-fr grid-flow-col gap-1.5',
+  addBlockBtn:
+    'rounded-md! px-2! py-1.5! text-sm! leading-[normal] font-extrabold! text-acc! focus-visible:outline-offset-1!',
+  addBtnOn: 'border-acc-glow! bg-acc-soft!',
+  evForm: 'flex flex-none flex-col gap-1.5',
+  evFormRow: 'grid grid-cols-evform items-stretch gap-1.5',
+  evTime: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-[normal] tabular-nums focus-visible:outline-offset-1!',
+  trayList: 'flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto',
+  trayEmpty: 'px-2 py-6 text-center text-sm leading-[1.6] font-semibold text-mut',
+  inbox: 'flex-none border-t border-line2 pt-2',
+  inboxHead:
+    'cursor-pointer list-none pt-0.5 pb-2 text-xs leading-[1.6] font-extrabold tracking-tag text-mut uppercase',
+  inboxList: 'mt-2 flex max-h-[var(--inbox-vh)] flex-col gap-1.5 overflow-y-auto',
+  timeline: 'relative grid min-h-0 grid-cols-timeline gap-1.5',
+  gutter: 'relative',
+  tick: 'absolute right-2 -translate-y-1/2 text-2xs font-bold tabular-nums text-mut opacity-70',
+  col: 'relative min-h-0 overflow-hidden rounded-base bg-[var(--tint-ink-faint)] shadow-inset-line2',
+  gridLine: 'pointer-events-none absolute inset-x-0 h-px -translate-y-1/2 bg-line-soft',
+  win: 'pointer-events-none absolute left-0.75 right-0.75 rounded-chip bg-transparent shadow-[var(--shadow-win)]',
+  occ: 'pointer-events-none absolute left-0.75 right-0.75 flex items-start overflow-hidden rounded-chip bg-transparent px-2 py-0.75 text-mut shadow-inset-line2',
+  occName: 'truncate text-2xs font-bold',
+  now: 'absolute -left-px -right-px z-[7] h-0.5 -translate-y-1/2 bg-acc shadow-[var(--shadow-now)]',
+  nowCap:
+    'absolute left-1 top-1/2 -translate-y-1/2 rounded-full bg-acc px-1.25 py-0.25 text-sched-cap font-bold tracking-label whitespace-nowrap text-bg shadow-dot',
+  editBar:
+    'mt-2.5 flex flex-none flex-wrap items-center gap-2.5 rounded-md bg-panel px-3 py-2 shadow-[var(--shadow-inset-acc-glow)]',
+  editName: 'mr-auto max-w-2/5 truncate text-md font-extrabold text-txt',
+  editTitle:
+    'grow shrink basis-35 min-w-0 max-w-2/5 mr-auto px-1.75! py-1.25! font-extrabold! focus-visible:outline-offset-1!',
+  editField: 'inline-flex! flex-none items-center gap-1.25 whitespace-nowrap font-bold!',
+  // DayPlannerCards 와 공유(인박스 항목이 씀) — 동일 문자열 복제(각 파일 독립 린트).
+  trayRow:
+    'flex cursor-grab items-center gap-2 rounded-md border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--tray-fill)] px-2.25 py-1.75 shadow-inset-line2 active:cursor-grabbing',
+  grabDot: 'h-4 w-1 flex-none rounded-xs bg-[image:var(--grab-bar)] opacity-70',
+  rowName: 'min-w-0 flex-1 truncate text-md font-bold',
+  tool: `${TOOLBASE} text-mut!`,
+} as const;
 
 const EV_FORM_ID = 'dayPlannerEventForm'; // '+ 일정'이 aria-controls로 가리키는 온디맨드 컴포저.
 /** 일정 길이 프리셋 — 자유 입력 대신 셀렉트로 받는다(340px 트레이에서 숫자 입력 하나를 더 끼우면 제목이 뭉개진다).
@@ -325,10 +395,10 @@ export function DayPlanner({
   };
 
   const trayAdder = (
-    <div className={s.addWrap}>
-      <div className={s.addRowTask}>
+    <div className={DP.addWrap}>
+      <div className={DP.addRowTask}>
         <input
-          className={s.addInput}
+          className={`${DP.addInput} flex-1`}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addFreeTask()}
@@ -337,7 +407,7 @@ export function DayPlanner({
         />
         {namedItems.length > 0 && (
           <select
-            className={s.addSel}
+            className={`${DP.addSel} shrink grow-0 basis-21`}
             value={taskSid}
             onChange={(e) => setTaskSid(e.target.value)}
             aria-label="할 일 연결 과목(선택)"
@@ -353,22 +423,22 @@ export function DayPlanner({
         )}
         <button
           type="button"
-          className={`${s.addBtn}${repeatMode !== 'none' ? ' ' + s.repeatOn : ''}`}
+          className={`${DP.addBtn} ${repeatMode !== 'none' ? DP.repeatOn : ''}`}
           onClick={() => setRepeatMode((m) => REPEAT_NEXT[m])}
           title={REPEAT_TITLE[repeatMode]}
           aria-label={`반복: ${repeatMode === 'none' ? '없음' : repeatMode === 'daily' ? '매일' : '매주'}`}
         >
           {REPEAT_LABEL[repeatMode]}
         </button>
-        <button type="button" className={s.addBtn} onClick={addFreeTask} aria-label="할 일 추가">
+        <button type="button" className={DP.addBtn} onClick={addFreeTask} aria-label="할 일 추가">
           ＋
         </button>
       </div>
       {namedItems.length > 0 && (
-        <div className={s.addRow}>
+        <div className={DP.addRow}>
           {blockType !== 'mock' && (
             <select
-              className={s.addSel}
+              className={DP.addSel}
               value={blockSid || namedItems[0]!.id}
               onChange={(e) => setBlockSid(e.target.value)}
               aria-label="공부 블록 과목"
@@ -381,7 +451,7 @@ export function DayPlanner({
             </select>
           )}
           <select
-            className={s.addSel}
+            className={DP.addSel}
             value={blockType}
             onChange={(e) => setBlockType(e.target.value as typeof blockType)}
             aria-label="공부 블록 유형"
@@ -397,15 +467,15 @@ export function DayPlanner({
       {/* 액션 줄 — 전엔 '+ 블록'이 위 격자의 둘째 줄을 전폭으로 먹었다. 같은 자리를 2열로 쪼개
           '+ 일정'을 나란히 두면 **줄 수가 늘지 않는다**(340px 트레이에 셋째 줄을 새로 만들지 않는 이유).
           과목이 없는 날은 '+ 일정'만 남아 전폭이 된다 — 일정은 과목과 무관하므로 과목 없이도 추가돼야 한다. */}
-      <div className={s.addRowBtns}>
+      <div className={DP.addRowBtns}>
         {namedItems.length > 0 && (
-          <button type="button" className={s.addBlockBtn} onClick={addStudyBlock} title="공부 블록 추가(트레이로)">
+          <button type="button" className={DP.addBlockBtn} onClick={addStudyBlock} title="공부 블록 추가(트레이로)">
             + 블록
           </button>
         )}
         <button
           type="button"
-          className={`${s.addBlockBtn}${evOpen ? ' ' + s.addBtnOn : ''}`}
+          className={`${DP.addBlockBtn} ${evOpen ? DP.addBtnOn : ''}`}
           onClick={() => setEvOpen((v) => !v)}
           title="일정 추가(약속·시험·행사) — 과목과 무관한 단발 사건"
           aria-expanded={evOpen}
@@ -416,25 +486,25 @@ export function DayPlanner({
       </div>
       {/* 온디맨드 세부 — 시각·길이는 일정을 실제로 만들 때만 필요한 정보라 평소엔 숨긴다. */}
       {evOpen && (
-        <div className={s.evForm} id={EV_FORM_ID}>
+        <div className={DP.evForm} id={EV_FORM_ID}>
           <input
-            className={s.addInput}
+            className={`${DP.addInput} flex-none`}
             value={evTitle}
             onChange={(e) => setEvTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addEventNow()}
             placeholder="일정 (예: 병원 예약)"
             aria-label="일정 제목"
           />
-          <div className={s.evFormRow}>
+          <div className={DP.evFormRow}>
             <input
               type="time"
-              className={s.evTime}
+              className={DP.evTime}
               value={evStart}
               onChange={(e) => e.target.value && setEvStart(e.target.value)}
               aria-label="일정 시작 시각"
             />
             <select
-              className={s.addSel}
+              className={DP.addSel}
               value={evMin}
               onChange={(e) => setEvMin(Number(e.target.value))}
               aria-label="일정 길이"
@@ -445,7 +515,7 @@ export function DayPlanner({
                 </option>
               ))}
             </select>
-            <button type="button" className={s.addBtn} onClick={addEventNow} aria-label="일정 추가">
+            <button type="button" className={DP.addBtn} onClick={addEventNow} aria-label="일정 추가">
               ＋
             </button>
           </div>
@@ -477,22 +547,23 @@ export function DayPlanner({
     else if (selTask) mutate((st) => updateTaskMin(st, selTask.id, mm));
   };
   const editBar = (selBlock || selTask || selEvent) && (
-    <div className={s.editBar} id={EDIT_BAR_ID}>
+    <div className={DP.editBar} id={EDIT_BAR_ID}>
       {selEvent ? (
         // 일정만 제목을 여기서 고친다(공부 블록=과목 파생, 할 일=트레이에서 다룸). 오타 수정 경로.
         <input
-          className={s.editTitle}
+          className={DP.editTitle}
           value={selEvent.title}
           onChange={(e) => mutate((st) => updateEvent(st, selEvent.id, { title: e.target.value }))}
           aria-label="일정 제목"
         />
       ) : (
-        <span className={s.editName}>{selBlock ? selBlock.name : selTask!.title}</span>
+        <span className={DP.editName}>{selBlock ? selBlock.name : selTask!.title}</span>
       )}
-      <label className={s.editField}>
+      <label className={DP.editField}>
         시작
         <input
           type="time"
+          className={EDITFIELD_INPUT}
           value={toHM(selStart)}
           onChange={(e) => {
             const [h, m] = e.target.value.split(':').map(Number);
@@ -501,10 +572,18 @@ export function DayPlanner({
           aria-label="시작 시각"
         />
       </label>
-      <label className={s.editField}>
+      <label className={DP.editField}>
         길이
         {/* emptyValue 없음 — 비우면 길이 0분 블록이 확정돼 그 블록이 사실상 사라진다. 직전 값 유지. */}
-        <NumberField min={15} step={15} value={selMin} onCommit={setSelMin} aria-label="길이(분)" />분
+        <NumberField
+          className={NUMFIELD}
+          min={15}
+          step={15}
+          value={selMin}
+          onCommit={setSelMin}
+          aria-label="길이(분)"
+        />
+        분
       </label>
       <Button sm variant="ghost" onClick={() => setSelId(null)}>
         닫기
@@ -513,16 +592,18 @@ export function DayPlanner({
   );
 
   return (
-    <section className={s.wrap} aria-label={`${DOW_MON[(wd + 6) % 7]} 일일 계획`}>
+    <section className={DP.wrap} aria-label={`${DOW_MON[(wd + 6) % 7]} 일일 계획`}>
       {/* 날짜 이동은 공통 nav(Schedule)가 소유 — 주·월과 같은 자리. 여긴 그 날의 상태만. */}
-      <div className={s.head}>
-        <div className={s.headRight}>
-          <span className={`${s.mode}${manual ? ' ' + s.modeManual : ''}`}>{manual ? '내 계획' : '자동초안'}</span>
+      <div className={DP.head}>
+        <div className={DP.headRight}>
+          <span className={`${DP.mode} ${manual ? DP.modeManual : DP.modeAuto}`}>
+            {manual ? '내 계획' : '자동초안'}
+          </span>
           {/* 계획/가용 숫자 자체는 상단 크롬 리드아웃이 정본 — 여기 다시 찍으면 같은 수가 두 번 보인다.
               대신 리드아웃에 없는 '초과' 경보만 남긴다(초과량은 여기서만 알 수 있는 정보). */}
           {over && (
             <span
-              className={s.over}
+              className={DP.over}
               title={`계획 ${hLabel(planMin)} · 가용 ${hLabel(capMin)}${evLoss > 0 ? ` (일정 ${hLabel(evLoss)} 반영)` : ''}`}
             >
               가용 초과 +{hLabel(planMin - capMin)}
@@ -540,23 +621,23 @@ export function DayPlanner({
           한때 비면 EmptyState로 화면을 통째로 갈아끼웠는데, "그냥 원래 하던것 처럼 왼쪽 블럭에
           오른쪽 일일 시간 뜨게 하면 될것 같은데 굳이 이렇게 할 필요 없어 보여"라는 지적을 받고 되돌렸다.
           '왜 비었는지'는 화면을 덮지 않고 트레이 안 한 줄 힌트(emptyHint)로 내렸다. */}
-      <div className={s.grid2}>
+      <div className={DP.grid2}>
         {/* ── 좌: 투두 트레이 ── */}
         {/* role 없는 div의 aria-label은 AT가 버린다(generic은 name-from-author 불허) →
                 이름을 가질 수 있는 role="group"을 준다. 랜드마크(region)까지는 과하다(탭 안의 한 구획). */}
-        <div className={s.tray} onDragOver={allowDrop} onDrop={onTrayDrop} role="group" aria-label="미지정 트레이">
-          <div className={s.trayHead}>미지정 · 끌어서 시간박기</div>
+        <div className={DP.tray} onDragOver={allowDrop} onDrop={onTrayDrop} role="group" aria-label="미지정 트레이">
+          <div className={DP.trayHead}>미지정 · 끌어서 시간박기</div>
           {trayAdder}
-          <div className={s.trayList}>
+          <div className={DP.trayList}>
             {untimed.length === 0 &&
               trayTasks.length === 0 &&
               /* 트레이가 빈 이유는 둘인데 전엔 둘 다 "완료 🎉"였다 — 계획할 게 없어서 빈 것을
                      다 해냈다고 축하하면 거짓말이다. 실제로 배치된 게 있을 때만 축하한다.
                      (여기 남는 '계획할 게 없다' 경로는 인박스만 있는 날 — 그땐 갈 곳을 가리킨다.) */
               (timed.length + timedTasks.length > 0 ? (
-                <div className={s.trayEmpty}>모두 시간박기 완료 🎉</div>
+                <div className={DP.trayEmpty}>모두 시간박기 완료 🎉</div>
               ) : (
-                <div className={s.trayEmpty}>
+                <div className={DP.trayEmpty}>
                   이 날엔 계획할 항목이 없어요.
                   {emptyHint && (
                     <>
@@ -602,35 +683,37 @@ export function DayPlanner({
           </div>
 
           {/* 언젠가(인박스) 서랍 — 날짜 미정 할 일. 이 날로 끌어오거나 배정. */}
-          <details className={s.inbox} open={inbox.length > 0}>
-            <summary className={s.inboxHead}>언젠가 {inbox.length > 0 && <b>{inbox.length}</b>}</summary>
-            <div className={s.addRow}>
+          <details className={DP.inbox} open={inbox.length > 0}>
+            <summary className={DP.inboxHead}>
+              언젠가 {inbox.length > 0 && <b className="ml-1 text-acc">{inbox.length}</b>}
+            </summary>
+            <div className={DP.addRow}>
               <input
-                className={s.addInput}
+                className={`${DP.addInput} flex-1`}
                 value={inboxDraft}
                 onChange={(e) => setInboxDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addInboxTask()}
                 placeholder="+ 날짜 미정 할 일"
                 aria-label="언젠가 할 일 추가"
               />
-              <button type="button" className={s.addBtn} onClick={addInboxTask} aria-label="언젠가 할 일 추가">
+              <button type="button" className={DP.addBtn} onClick={addInboxTask} aria-label="언젠가 할 일 추가">
                 ＋
               </button>
             </div>
-            <div className={s.inboxList}>
+            <div className={DP.inboxList}>
               {inbox.map((t) => (
                 <div
                   key={t.id}
-                  className={s.trayRow}
+                  className={DP.trayRow}
                   draggable
                   onDragStart={onDragStart('task', t.id, t.min || 30)}
                   style={t.color ? ({ ['--seg']: t.color } as React.CSSProperties) : undefined}
                 >
-                  <span className={s.grabDot} aria-hidden="true" />
-                  <span className={s.rowName}>{t.title}</span>
+                  <span className={DP.grabDot} aria-hidden="true" />
+                  <span className={DP.rowName}>{t.title}</span>
                   <button
                     type="button"
-                    className={s.tool}
+                    className={DP.tool}
                     onClick={() => pullToDay(t.id)}
                     title="이 날로 가져오기"
                     aria-label={`${t.title} 이 날로 가져오기`}
@@ -639,7 +722,7 @@ export function DayPlanner({
                   </button>
                   <button
                     type="button"
-                    className={s.tool}
+                    className={DP.tool}
                     onClick={() => mutate((st) => removeTask(st, t.id))}
                     title="삭제"
                     aria-label={`${t.title} 삭제`}
@@ -653,29 +736,29 @@ export function DayPlanner({
         </div>
 
         {/* ── 우: 하루 타임라인 ── */}
-        <div className={s.timeline}>
-          <div className={s.gutter}>
+        <div className={DP.timeline}>
+          <div className={DP.gutter}>
             {ticks.map((m) => (
-              <span key={m} className={s.tick} style={{ top: `${pos(m)}%` }}>
+              <span key={m} className={DP.tick} style={{ top: `${pos(m)}%` }}>
                 {toHM(m)}
               </span>
             ))}
           </div>
           <div
             ref={colRef}
-            className={`${s.col} ${COL_CLASS}`}
+            className={`${DP.col} ${COL_CLASS}`}
             onDragOver={allowDrop}
             onDrop={onTimelineDrop}
             role="group"
             aria-label="타임라인 — 여기로 끌어 시간박기"
           >
             {ticks.map((m) => (
-              <span key={m} className={s.grid} style={{ top: `${pos(m)}%` }} />
+              <span key={m} className={DP.gridLine} style={{ top: `${pos(m)}%` }} />
             ))}
             {windows.map((w, i) => (
               <span
                 key={i}
-                className={s.win}
+                className={DP.win}
                 style={{ top: `${pos(w.s)}%`, height: `${Math.max(0, pos(w.e) - pos(w.s))}%` }}
                 aria-hidden="true"
               />
@@ -687,10 +770,10 @@ export function DayPlanner({
               return (
                 <div
                   key={i}
-                  className={s.occ}
+                  className={DP.occ}
                   style={{ top: `${pos(bs)}%`, height: `${Math.max(1.6, pos(be) - pos(bs))}%` }}
                 >
-                  <span className={s.occName}>{b.name}</span>
+                  <span className={DP.occName}>{b.name}</span>
                 </div>
               );
             })}
@@ -760,8 +843,8 @@ export function DayPlanner({
               />
             ))}
             {isToday && nowMin >= lo && nowMin <= hi && (
-              <span className={s.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true">
-                <span className={s.nowCap}>{toHM(nowMin)}</span>
+              <span className={DP.now} style={{ top: `${pos(nowMin)}%` }} aria-hidden="true">
+                <span className={DP.nowCap}>{toHM(nowMin)}</span>
               </span>
             )}
           </div>

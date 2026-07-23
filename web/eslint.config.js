@@ -209,6 +209,7 @@ export default tseslint.config(
       'src/features/stats/**/*.tsx',
       'src/features/items/**/*.tsx',
       'src/features/today/**/*.tsx',
+      'src/features/schedule/**/*.tsx',
     ],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },

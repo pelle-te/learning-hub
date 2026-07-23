@@ -15,11 +15,36 @@ import { openTasksForDay, tasksForDay } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
 import { useApp } from '@/store/useApp';
 import type { ScheduleResult } from '@/lib/types';
-import s from './MonthCalendar.module.css';
 
 /** 한 칸에 보일 칩 최대 개수. 넘으면 "+N". 칸 최소 높이 76px 기준 2개가 온전히 들어가는 한계 —
  *  이보다 늘리면 마지막 칩이 잘려 "있는데 안 읽히는" 상태가 된다. */
 const MAX_CHIPS = 2;
+
+/* ── C-7 이식(MonthCalendar) — Tailwind 클래스 SSOT ─────────────────────────────
+   6주 격자 칸(고정 최소 높이 + overflow:hidden) + 칩 3종(마감/일정/할일). ⚠ 칸은 고정 행 높이라
+   반픽셀 font-size(10.5/9.5px)가 칩을 잘라먹은 이력이 있어(tokenBridge 머리주석) 전부 --text-sched-*
+   명명 토큰이다. ⚠ 칸(.cell)은 <button> 이라 전역 button(언레이어)이 유틸을 이긴다 → 다른 값만 `!`.
+   칩 텍스트는 built-in 크기(text-sm)만 companion line-height 를 흘리므로 그 자리에만 원본 LH 를
+   명시(leading-[1.5]/[1.45] · line-height 트랩). 상태(오늘/주말/칩 종류/완료)는 정적 클래스맵(§15). */
+const S = {
+  wrap: 'flex h-full min-h-0 flex-col gap-2 overflow-y-auto px-5.5 pt-3.5 pb-4.5 [scrollbar-width:thin] max-mobile:px-3 max-mobile:pt-2.5 max-mobile:pb-3.5',
+  dowRow: 'sticky top-0 z-[2] grid flex-none grid-cols-7 gap-1 bg-bg',
+  dowCell: 'pb-0.5 text-center text-sched-dow font-extrabold tracking-mode-sub',
+  grid: 'grid min-h-0 flex-1 auto-rows-[var(--monthcell-row)] grid-cols-7 gap-1',
+  cell: 'relative grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-chip! border-0! bg-transparent! px-1! pt-1! pb-0.75! text-left focus-visible:-outline-offset-2!',
+  dayRow: 'flex items-baseline justify-between gap-1 px-0.5 pb-0.75',
+  dnum: 'text-sm font-extrabold tabular-nums leading-[1.5]',
+  dnumToday: 'min-w-5 rounded-full bg-acc px-1.25 text-center text-bg',
+  load: 'text-sched-meta tabular-nums text-mut',
+  chips: 'flex min-h-0 flex-col gap-0.5 overflow-hidden',
+  // 칩 공통 — nowrap 말줄임 + off-ladder 반경/틴트. 모바일은 텍스트를 버리고 색점만(칸이 두 줄 못 담음).
+  chip: 'flex flex-none items-center gap-1 truncate rounded-chip-sm bg-[var(--chip-ink)] px-1 py-0.25 text-2xs leading-[1.45] max-mobile:gap-0 max-mobile:px-0.5 max-mobile:py-0.25 max-mobile:text-sched-hide',
+  chipDeadline: 'bg-[var(--sched-chip-bad)]! font-bold text-bad max-mobile:text-sched-cap',
+  chipEvent: 'bg-[var(--tint-event)]! font-bold text-[color:var(--event-on-ink)]',
+  chipDone: 'line-through opacity-50',
+  dot: 'h-1.5 w-1.5 flex-none rounded-full',
+  more: 'cursor-pointer px-1 text-left text-sched-meta font-bold text-mut',
+} as const;
 
 interface Chip {
   key: string;
@@ -29,8 +54,8 @@ interface Chip {
   done?: boolean;
   /** 색점 생략(마감 칩은 🚩 글리프가 그 역할을 한다 — 점까지 붙으면 좁은 칸에서 글자만 밀린다). */
   noDot?: boolean;
-  /** 추가 클래스(일정 칩 등) — 칩 렌더는 한 벌만 두고 종류 차이는 클래스로만 준다. */
-  cls?: string;
+  /** 칩 종류 — 렌더는 한 벌만 두고 종류 차이는 정적 클래스맵으로만 준다(§15). */
+  kind?: 'deadline' | 'event';
 }
 
 export function MonthCalendar({
@@ -64,7 +89,7 @@ export function MonthCalendar({
     //   (사용자는 숨은 게 있다는 사실조차 알 수 없다). 같은 목록의 맨 앞에 넣어 캡과 +N이 전부를 센다.
     //   순서: 마감(가장 시급) → 일정 → 할 일.
     for (const name of state.items.filter((it) => it.deadline === dsKey && it.name).map((it) => it.name)) {
-      chips.push({ key: `d${name}`, name: `🚩 ${name}`, tip: `마감: ${name}`, cls: s.chipDeadline, noDot: true });
+      chips.push({ key: `d${name}`, name: `🚩 ${name}`, tip: `마감: ${name}`, kind: 'deadline', noDot: true });
     }
     const evs = eventsForDay(state, dsKey);
     for (const ev of evs) {
@@ -73,7 +98,7 @@ export function MonthCalendar({
         name: ev.title,
         color: ev.color,
         tip: `${ev.title} · 일정 ${toHM(ev.start)}–${toHM(ev.start + ev.min)}`,
-        cls: s.chipEvent,
+        kind: 'event',
       });
     }
     for (const t of tasksForDay(state, dsKey)) {
@@ -103,16 +128,16 @@ export function MonthCalendar({
   const monthLabel = `${y}년 ${mo + 1}월`;
 
   return (
-    <section className={s.wrap} aria-label={`${monthLabel} 캘린더`}>
-      <div className={s.dowRow} aria-hidden="true">
-        {DOW_MON.map((d) => (
-          <span key={d} className={s.dowCell}>
+    <section className={S.wrap} aria-label={`${monthLabel} 캘린더`}>
+      <div className={S.dowRow} aria-hidden="true">
+        {DOW_MON.map((d, i) => (
+          <span key={d} className={`${S.dowCell} ${i >= 5 ? 'text-[color:var(--mut-weekend)]' : 'text-mut'}`}>
             {d}
           </span>
         ))}
       </div>
 
-      <div className={s.grid}>
+      <div className={S.grid}>
         {cells.map((cl) => {
           const overflow = cl.chips.length - MAX_CHIPS;
           return (
@@ -123,29 +148,35 @@ export function MonthCalendar({
               // 오늘을 색(.today)만으로 전하면 스크린리더·색각 사용자에겐 아무것도 아니다 — 의미를 DOM에 싣는다.
               aria-current={cl.isToday ? 'date' : undefined}
               aria-label={`${fmtShort(cl.date)} · 학습 ${hLabel(cl.used)}${cl.deadlines.length ? ' · 마감 ' + cl.deadlines.join(', ') : ''}${cl.events.length ? ' · 일정 ' + cl.events.join(', ') : ''}${cl.open ? ` · 미완 할일 ${cl.open}` : ''} — 이 날 계획 열기`}
-              className={`${s.cell}${cl.inMonth ? '' : ' ' + s.out}${cl.isToday ? ' ' + s.today : ''}${cl.isWeekend ? ' ' + s.weekend : ''}`}
+              className={`${S.cell} ${cl.inMonth ? '' : 'opacity-[0.42]'} ${cl.isToday ? 'shadow-[var(--shadow-cell-today)]' : 'shadow-inset-line2'} hover:shadow-[var(--shadow-cell-hover)]`}
             >
-              <span className={s.dayRow}>
-                <span className={s.dnum}>{cl.date.getDate()}</span>
-                {cl.used > 0 && <span className={s.load}>{(cl.used / 60).toFixed(1)}h</span>}
+              <span className={S.dayRow}>
+                <span className={`${S.dnum} ${cl.isToday ? S.dnumToday : cl.isWeekend ? 'text-mut' : ''}`}>
+                  {cl.date.getDate()}
+                </span>
+                {cl.used > 0 && <span className={S.load}>{(cl.used / 60).toFixed(1)}h</span>}
               </span>
 
-              <div className={s.chips}>
+              <div className={S.chips}>
                 {cl.chips.slice(0, MAX_CHIPS).map((ch) => (
                   <span
                     key={ch.key}
-                    className={`${s.chip}${ch.cls ? ' ' + ch.cls : ''}${ch.done ? ' ' + s.chipDone : ''}`}
+                    className={`${S.chip} ${ch.kind === 'deadline' ? S.chipDeadline : ch.kind === 'event' ? S.chipEvent : ''} ${ch.done ? S.chipDone : ''}`}
                     title={ch.tip}
                   >
-                    {/* 색점의 기본값은 CSS가 갖는다(칩 종류마다 다름) — 인라인은 실제 색이 있을 때만. */}
+                    {/* 색점의 기본값은 종류별 클래스가 갖는다(일정=event · 그 외=acc) — 인라인은 실제 색이 있을 때만. */}
                     {!ch.noDot && (
-                      <i className={s.dot} style={ch.color ? { background: ch.color } : undefined} aria-hidden="true" />
+                      <i
+                        className={`${S.dot} ${ch.kind === 'event' ? 'bg-[var(--event)]' : 'bg-acc'}`}
+                        style={ch.color ? { background: ch.color } : undefined}
+                        aria-hidden="true"
+                      />
                     )}
                     {ch.name}
                   </span>
                 ))}
               </div>
-              {overflow > 0 && <span className={s.more}>+{overflow}개 더</span>}
+              {overflow > 0 && <span className={S.more}>+{overflow}개 더</span>}
             </button>
           );
         })}

@@ -389,4 +389,27 @@
   --spacing-hero-x-today: clamp(22px, 3vw, 40px);
   --spacing-subj-top: clamp(6px, 1vw, 12px);
   --spacing-actions-top: clamp(18px, 2.4vw, 28px);
+
+  /* ── schedule(캘린더 · 주/월/일) 이식(C-7) ───────────────────────────────────
+     off-ladder 반픽셀/정수 타이포(17/10.5/11.5/9.5/9px)·좌측거터+요일7열 격자 트랙·off-ladder
+     반경(4/5/6px)은 fs 사다리 밖 값이라 이름을 준다(§14-3 · items 반픽셀 예외와 같은 규율).
+     색·색믹스·그래디언트는 tokens.css 가 갖고 JSX 가 bg-[var]·shadow-[var] 로 직접 참조한다. */
+  --text-sched-date: 17px; /* 주 뷰 날짜 숫자(모바일은 text-lg 15) */
+  --text-sched-dow: 10.5px; /* 요일 머리글(주·월) */
+  --text-sched-sub: 11.5px; /* 월 부제 */
+  --text-sched-meta: 9.5px; /* 조각 메타·종일 라벨·부하·+N */
+  --text-sched-cap: 9px; /* 현재시각 배지·모바일 마감 칩 */
+  --text-sched-hide: 0px; /* 모바일 칩 텍스트 숨김(색점만 남김) */
+
+  --radius-seg: 6px; /* 주 seg · 일 tool 버튼 */
+  --radius-chip-sm: 4px; /* 월 칩 · 주 현재시각 배지 */
+  --radius-chip-md: 5px; /* 주 마감/미배치 칩 · 일 길이 스테퍼 버튼 */
+
+  --grid-template-columns-weekcal-head: 44px repeat(7, minmax(0, 1fr)); /* 머리글·종일 행(거터+7열) */
+  --grid-template-columns-weekcal-head-narrow: 34px repeat(7, minmax(0, 1fr));
+  --grid-template-columns-weekcal-grid: 44px minmax(0, 1fr); /* 스크롤 격자(거터+열묶음) */
+  --grid-template-columns-weekcal-grid-narrow: 34px minmax(0, 1fr);
+  --grid-template-columns-dayplan: 340px 1fr; /* 일 뷰 트레이+타임라인(900↓ 1열) */
+  --grid-template-columns-evform: minmax(0, 1.2fr) minmax(0, 1fr) 34px; /* 일정 컴포저 [시각|길이|＋] */
+  --grid-template-columns-timeline: 48px 1fr; /* 일 타임라인 거터+열 */
 }
