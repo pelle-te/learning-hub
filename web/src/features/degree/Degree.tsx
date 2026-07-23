@@ -15,7 +15,6 @@ import { useCountUp } from '@/hooks/interactions';
 import { Button, NumberField } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
-import c from './Degree.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
 import {
   CATS,
@@ -349,47 +348,58 @@ function DegreePlan() {
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
-      <div className={`${ds.card} ${c.statusCard}`}>
-        <div className={c.statusEyebrow}>졸업 현황</div>
-        <div className={c.statusHero}>
+      <div className={ds.card}>
+        <div className="mb-3.5 text-xs font-extrabold tracking-caps text-mut uppercase">졸업 현황</div>
+        <div className="flex flex-wrap items-center gap-7">
           <div
-            className={`${c.gradeRing}${celeFlash ? ' ' + c.ringCele : ''}`}
+            className={`relative size-23 flex-none${celeFlash ? ' animate-[gr-cele_1.4s_var(--ease)] motion-reduce:animate-none' : ''}`}
             role="img"
             aria-label={`졸업 진행 ${pct}%`}
           >
             {/* 카운트업은 다른 링(Stats·Mastery)과 일관 — reduced-motion이면 즉시 최종값. */}
-            <ProgressRing size={80} r={34} pct={shownPct} trackClassName={c.grRingTrack} arcClassName={c.grRingArc} />
-            <div className={c.grRingNum}>
+            <ProgressRing
+              size={80}
+              r={34}
+              pct={shownPct}
+              className="size-full -rotate-90"
+              trackClassName="fill-none stroke-line2 [stroke-width:7]"
+              arcClassName="fill-none stroke-good [stroke-width:7] [stroke-linecap:round] [filter:var(--filter-good-glow)] transition-[stroke-dashoffset] duration-[0.6s] ease-[var(--ease)]"
+            />
+            <div className="absolute inset-0 flex items-center justify-center text-2xl font-extrabold tracking-tight text-txt tabular-nums">
               {Math.round(shownPct)}
-              <small>%</small>
+              <small className="text-sm font-bold text-mut">%</small>
             </div>
           </div>
-          <div className={c.gauges}>
-            <div className={c.g}>
-              <span className={c.gV}>
+          <div className="grid min-w-0 flex-1 grid-cols-degree-gauges gap-x-5 gap-y-4">
+            <div className="flex flex-col gap-0.75">
+              <span className="text-2xl leading-none font-extrabold tracking-tight text-txt tabular-nums">
                 {earned}
-                <small> / {d.targetTotal}</small>
+                <small className="text-sm font-bold text-mut"> / {d.targetTotal}</small>
               </span>
-              <span className={c.gL}>이수 학점</span>
+              <span className="text-xs font-semibold text-mut">이수 학점</span>
             </div>
-            <div className={c.g}>
-              <span className={c.gV}>
+            <div className="flex flex-col gap-0.75">
+              <span className="text-2xl leading-none font-extrabold tracking-tight text-txt tabular-nums">
                 {gpa != null ? gpa.toFixed(2) : '—'}
-                <small> / 4.5</small>
+                <small className="text-sm font-bold text-mut"> / 4.5</small>
               </span>
-              <span className={c.gL}>평점(GPA)</span>
+              <span className="text-xs font-semibold text-mut">평점(GPA)</span>
             </div>
-            <div className={c.g}>
-              <span className={c.gV}>{remain}</span>
-              <span className={c.gL}>남은 학점</span>
+            <div className="flex flex-col gap-0.75">
+              <span className="text-2xl leading-none font-extrabold tracking-tight text-txt tabular-nums">
+                {remain}
+              </span>
+              <span className="text-xs font-semibold text-mut">남은 학점</span>
             </div>
-            <div className={c.g}>
-              <span className={c.gV}>{projSem != null ? `~${projSem}` : '—'}</span>
-              <span className={c.gL}>예상 잔여 학기</span>
+            <div className="flex flex-col gap-0.75">
+              <span className="text-2xl leading-none font-extrabold tracking-tight text-txt tabular-nums">
+                {projSem != null ? `~${projSem}` : '—'}
+              </span>
+              <span className="text-xs font-semibold text-mut">예상 잔여 학기</span>
             </div>
           </div>
         </div>
-        <div className={c.statusMeta}>
+        <div className="mt-3.5 border-t border-line2 pt-3 text-sm text-mut">
           수강중 {inprog} · 예정 {planned}
           {gradedCr > 0 && gradedCr < earned ? ` · 성적 입력 ${gradedCr}/${earned}학점` : ''}
           {earned > 0 && gradedCr === 0 ? (
@@ -398,9 +408,11 @@ function DegreePlan() {
         </div>
 
         {/* PL-17 — 목표 GPA 역산 계산기: 남은 학점을 평균 몇 점으로 채워야 목표에 닿는지. */}
-        <div className={c.gpaGoal}>
-          <div className={c.ggHead}>
-            <label htmlFor="deg-target-gpa">목표 평점</label>
+        <div className="mt-3.5 flex flex-wrap items-center gap-3.5 border-t border-line2 pt-3">
+          <div className="flex items-center gap-2">
+            <label htmlFor="deg-target-gpa" className="text-xs font-bold tracking-wider text-mut uppercase">
+              목표 평점
+            </label>
             {/* 클램프는 NumberField가 min/max로 수행 — 비운 채 떠나면 직전 목표가 살아남는다
                 (예전엔 '3.5'를 고쳐 치는 도중 빈값이 목표 평점 0으로 확정됐다). */}
             <NumberField
@@ -410,10 +422,11 @@ function DegreePlan() {
               step={0.1}
               value={targetGpa}
               onCommit={(v) => setDeg('targetGpa', v)}
+              className="w-18! tabular-nums"
             />
-            <span className={c.ggSlash}>/ 4.5</span>
+            <span className="text-sm font-bold text-mut">/ 4.5</span>
           </div>
-          <div className={c.ggReadout}>
+          <div className="text-md text-txt tabular-nums">
             {gpa == null ? (
               <span className={ds.muted}>성적을 입력하면 목표까지 필요한 평점을 계산해요.</span>
             ) : fc.alreadyMet ? (
@@ -422,8 +435,10 @@ function DegreePlan() {
               <span className={ds.muted}>남은 과목이 없어요.</span>
             ) : (
               <>
-                남은 <b>{fc.futureCr}</b>학점을 평균{' '}
-                <b style={{ color: fc.feasible ? 'var(--good)' : 'var(--bad)' }}>{fc.neededAvg.toFixed(2)}</b>
+                남은 <b className="font-extrabold">{fc.futureCr}</b>학점을 평균{' '}
+                <b className="font-extrabold" style={{ color: fc.feasible ? 'var(--good)' : 'var(--bad)' }}>
+                  {fc.neededAvg.toFixed(2)}
+                </b>
                 점으로 이수하면 목표 달성
                 {!fc.feasible && <span style={{ color: 'var(--bad)' }}> · 만점으로도 도달 어려움</span>}
               </>
@@ -431,7 +446,7 @@ function DegreePlan() {
           </div>
         </div>
 
-        <div className={c.cats}>
+        <div className="mt-4 mb-3.5 grid grid-cols-degree-cats gap-3.5">
           {CATS.map((cat) => {
             const req =
               cat === '전공필수'
@@ -447,31 +462,44 @@ function DegreePlan() {
             const met = req > 0 && have >= req;
             const cpct = req > 0 ? Math.min(100, Math.round((have / req) * 100)) : 0;
             return (
-              <div key={cat} className={c.cat}>
-                <div className={c.catTop}>
-                  <span className={c.catLab}>{cat}</span>
-                  <span className={c.catVal}>
+              <div key={cat} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-bold text-mut">{cat}</span>
+                  <span className="text-lg font-extrabold tabular-nums">
                     {have}
-                    {req > 0 ? <small> / {req}</small> : <small className={c.catNoreq}> · 요건 없음</small>}
+                    {req > 0 ? (
+                      <small className="text-xs font-bold text-mut"> / {req}</small>
+                    ) : (
+                      <small className="text-xs font-semibold text-mut"> · 요건 없음</small>
+                    )}
                     {/* SD-2 requirementRows().met과 동일 의미 — 충족 시 ✓(var(--good)). */}
                     {met && (
-                      <span className={c.catMet} aria-label="충족">
+                      <span className="font-extrabold text-good" aria-label="충족">
                         {' '}
                         ✓
                       </span>
                     )}
                   </span>
                 </div>
-                <div className={c.catTrack}>
-                  {req > 0 && <i style={{ width: `${cpct}%` }} className={met ? c.catDone : undefined} />}
+                <div className="h-1.75 overflow-hidden rounded-full bg-track-cat">
+                  {req > 0 && (
+                    <i
+                      style={{ width: `${cpct}%` }}
+                      className={
+                        met
+                          ? 'block h-full rounded-full bg-acc shadow-node'
+                          : 'block h-full rounded-full bg-track-fill-cat'
+                      }
+                    />
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
 
-        <details className={c.reqDetails}>
-          <summary>졸업 요건 설정</summary>
+        <details className="mt-3.5 border-t border-line2 pt-3">
+          <summary className="text-sm! font-bold text-mut! hover:text-acc!">졸업 요건 설정</summary>
           <div className={ds.row} style={{ marginTop: 10 }}>
             <div>
               <label htmlFor="deg-total">졸업 총 학점</label>
@@ -528,10 +556,10 @@ function DegreePlan() {
 export default function Degree() {
   const [view, setView] = useState<'plan' | 'req'>('plan');
   return (
-    <div className={c.wrap}>
-      <div className={c.header}>
-        <h2 className={c.eyebrow}>🎓 졸업</h2>
-        <div className={`${ds.seg} ${c.viewSeg}`}>
+    <div className="min-w-0">
+      <div className="mb-4 flex items-center gap-3.5">
+        <h2 className="mb-0! text-md! font-extrabold! tracking-caps! text-mut! uppercase">🎓 졸업</h2>
+        <div className={`${ds.seg} ml-auto`}>
           <button
             type="button"
             aria-pressed={view === 'plan'}

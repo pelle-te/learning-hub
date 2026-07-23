@@ -176,6 +176,16 @@
   /* integrations 텔레메트리 채널 — 카드 표면(ink 2% 워시)·idle 점(ink 28%). */
   --ch-tint: color-mix(in srgb, var(--ink) 2%, transparent);
   --dot-idle: color-mix(in srgb, var(--ink) 28%, transparent);
+
+  /* degree(졸업 대시보드) 진행 트랙·채움 — 카테고리 바(catTrack)와 로드맵 학기 바(season)가
+     각각 ink 트랙 + acc 채움을 갖는다. 원본의 6/8%(트랙)·55/45%(채움) 값을 그대로 보존한다
+     (두 컴포넌트라 한 칸으로 모으지 않고 분리). ringArc 발광은 drop-shadow 필터라 색 유틸로
+     표현 불가 → 필터 전체에 이름을 준다(§14-3 · --bg-sig-top 과 같은 성격). */
+  --track-cat: color-mix(in srgb, var(--ink) 6%, transparent);
+  --track-fill-cat: color-mix(in srgb, var(--acc) 55%, transparent);
+  --track-season: color-mix(in srgb, var(--ink) 8%, transparent);
+  --track-fill-season: color-mix(in srgb, var(--acc) 45%, transparent);
+  --filter-good-glow: drop-shadow(0 0 8px color-mix(in srgb, var(--good) 50%, transparent));
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

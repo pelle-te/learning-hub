@@ -75,6 +75,11 @@
   /* integrations 텔레메트리 채널 표면·idle 점(tokens.css 계산). */
   --color-ch-tint: var(--ch-tint);
   --color-dot-idle: var(--dot-idle);
+  /* degree(졸업) 진행 트랙·채움 — ink 트랙 + acc 채움(tokens.css 계산). */
+  --color-track-cat: var(--track-cat);
+  --color-track-fill-cat: var(--track-fill-cat);
+  --color-track-season: var(--track-season);
+  --color-track-fill-season: var(--track-fill-season);
 
   --spacing-1: var(--sp-1);
   --spacing-2: var(--sp-2);
@@ -110,6 +115,9 @@
   --container-ledger-detail: min(360px, 82%);
   /* integrations 2컬럼 — 액션(유동) + 텔레메트리 조종석(고정 360px). */
   --grid-template-columns-integrations: minmax(0, 1fr) 360px;
+  /* degree(졸업) auto-fit 게이지/카테고리 그리드 — 최소칸 110/150px(임의값 대신 테마 항목 · 규약 2). */
+  --grid-template-columns-degree-gauges: repeat(auto-fit, minmax(110px, 1fr));
+  --grid-template-columns-degree-cats: repeat(auto-fit, minmax(150px, 1fr));
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
@@ -166,6 +174,12 @@
      ledger 히어로도 --shadow-hero 공유. 챕터 상세 오버레이는 lg(정의됨 · 폴백 md). */
   --shadow-hero: var(--shadow-md);
   --shadow-detail: var(--shadow-lg, var(--shadow-md));
+  /* degree(졸업) 로드맵 — 완료/수강중 노드·스파인 발광(glow 기반). 8px 는 기존 --shadow-dot 재사용,
+     아래는 12px(노드)·수강중 정적 링(+ sr-pulse 애니가 그 위에 얹힘)·10px(스파인)·2px inset 링(뮤트 노드). */
+  --shadow-node: 0 0 12px var(--glow);
+  --shadow-node-cur: 0 0 0 3px var(--acc-soft), 0 0 12px var(--glow);
+  --shadow-spine: 0 0 10px var(--glow);
+  --shadow-dot-ring: inset 0 0 0 2px var(--line);
 
   /* 대문자 라벨 자간 — 0.16/0.2em 은 Tailwind `tracking-widest`(0.1em) 를 넘어 임의값이
      된다. 색·유동값처럼 이름을 준다(디자인 의도값이지 사다리 칸이 아니다). */
