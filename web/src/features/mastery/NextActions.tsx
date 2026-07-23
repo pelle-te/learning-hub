@@ -19,7 +19,7 @@ import { rootCauseRollup, type Knowledge } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
 import { VaultLink } from './KnowledgeMap';
 import ds from '@/styles/ds.module.css';
-import m from './Mastery.module.css';
+import { M } from './classes';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
 
@@ -63,15 +63,13 @@ function ConceptList<T extends ConceptRow>({
       <h3>
         {heading} <span className={`${ds.muted} ${ds.tiny}`}>{subtitle}</span>
       </h3>
-      <div className={m.mslist}>
+      <div className={M.mslist}>
         {shown.map((it, i) => (
-          <div key={it.basename ?? i} className={m.msrow}>
-            <span className={m.msdot} style={{ background: dotColor }}>
+          <div key={it.basename ?? i} className={M.msrow}>
+            <span className={M.msdot} style={{ background: dotColor }}>
               {dot}
             </span>
-            <span className={m.nm} style={{ flex: 1 }}>
-              {it.title || it.basename}
-            </span>
+            <span className={M.nm}>{it.title || it.basename}</span>
             <span className={`${ds.tiny} ${ds.muted}`}>{it.subject || ''}</span>
             {renderMeta(it)}
             {/* AN-12 — 개념명으로 볼트 딥링크(행 자체는 비대화형이라 명시 아이콘 버튼). */}
@@ -81,7 +79,7 @@ function ConceptList<T extends ConceptRow>({
       </div>
       {/* 조용한 절단 금지 — 숨은 개념 수를 밝히고 펼칠 수 있게. */}
       {(hidden > 0 || expanded) && (
-        <button type="button" className={m.msMore} onClick={() => setExpanded((v) => !v)}>
+        <button type="button" className={M.msMore} onClick={() => setExpanded((v) => !v)}>
           {expanded ? '접기' : `+${hidden}개 더 보기`}
         </button>
       )}
@@ -194,7 +192,7 @@ export function Sequencing() {
           삶-연관성이 켜지고(relevance) 순서가 목표 그래디언트로 갈립니다.
         </div>
       )}
-      <div className={m.mslist}>
+      <div className={M.mslist}>
         {seq.map((it) => {
           const meta = SEQ_REASON_META[it.reason];
           const role = roleMeta(it.역할);
@@ -202,9 +200,9 @@ export function Sequencing() {
           const deferred = it.allocated === false;
           const rel = relActive && typeof it.relevance === 'number' && it.relevance > 0 ? it.relevance : null;
           return (
-            <div key={it.arc_id} className={`${m.msrow}${deferred ? ' ' + m.deferred : ''}`}>
+            <div key={it.arc_id} className={`${M.msrow}${deferred ? ' ' + M.deferred : ''}`}>
               <span
-                className={m.msdot}
+                className={M.msdot}
                 style={{ background: SEQ_DOT[it.reason] }}
                 title={meta.hint}
                 role="img"
@@ -212,14 +210,12 @@ export function Sequencing() {
               >
                 {meta.icon}
               </span>
-              <span className={m.nm} style={{ flex: 1 }}>
-                {it.arc || it.arc_id}
-              </span>
+              <span className={M.nm}>{it.arc || it.arc_id}</span>
               <span className={`${ds.tiny} ${ds.muted}`}>{it.slug || ''}</span>
               {/* 역할 배지(삶-연관 축 · 액센트 틴트) — 콜드면 파생기본 중심. */}
               {role ? (
                 <span
-                  className={`${m.seqbadge} ${m.role}`}
+                  className={`${M.seqbadge} ${M.role}`}
                   data-tip={role.hint}
                   role="img"
                   aria-label={`${role.label} — ${role.hint}`}
@@ -230,7 +226,7 @@ export function Sequencing() {
               {/* 깊이 배지(복습 강도 축 · 중립) — target_depth 롤업. */}
               {depth ? (
                 <span
-                  className={m.seqbadge}
+                  className={M.seqbadge}
                   data-tip={depth.hint}
                   role="img"
                   aria-label={`${depth.label} — ${depth.hint}`}
@@ -339,15 +335,15 @@ export function EngineHealth() {
           <span className={`${ds.tiny} ${ds.muted}`}>증거 노트 {health?.evidenced_notes ?? 0}</span>
         </div>
       ) : null}
-      <div className={m.mslist}>
+      <div className={M.mslist}>
         {tiers.map((t) => {
           const mm = t.bucket.mean_mastery;
           return (
-            <div key={t.label} className={m.msrow}>
-              <span className={m.msdot} title={t.hint}>
+            <div key={t.label} className={M.msrow}>
+              <span className={M.msdot} title={t.hint}>
                 {t.label}
               </span>
-              <span className={m.nm} style={{ flex: 1 }} title={t.hint}>
+              <span className={M.nm} title={t.hint}>
                 연관성 {t.label}위
               </span>
               <span className={`${ds.tiny} ${ds.muted}`}>{t.bucket.n}개 노트</span>
@@ -422,15 +418,13 @@ export function RootCauses({ k }: { k: Knowledge }) {
           (한 선수개념이 여러 약점의 공통 근본원인 — 먼저 메우면 상류가 같이 풀린다)
         </span>
       </h3>
-      <div className={m.mslist}>
+      <div className={M.mslist}>
         {roll.map(({ cause, count }) => (
-          <div key={cause} className={m.msrow}>
-            <span className={m.msdot} style={{ background: 'var(--bad,#e3564a)' }}>
+          <div key={cause} className={M.msrow}>
+            <span className={M.msdot} style={{ background: 'var(--bad,#e3564a)' }}>
               🌱
             </span>
-            <span className={m.nm} style={{ flex: 1 }}>
-              {cause}
-            </span>
+            <span className={M.nm}>{cause}</span>
             <span
               className={ds.chip}
               data-tip="이 뿌리를 메우면 함께 풀릴 약점 수"
@@ -492,14 +486,16 @@ export function Calibration({ k }: { k: Knowledge }) {
         const cw = c.confident_wrong || 0;
         const appropriate = Math.max(0, nErr - cw);
         return (
-          <div className={m.msbar} style={{ marginTop: 10 }}>
+          <div className={M.msbar} style={{ marginTop: 10 }}>
             <div
+              className={M.msbarSeg}
               data-tip={`확신했는데 틀림(과신) ${cw}/${nErr}`}
               role="img"
               aria-label={`확신했는데 틀림(과신) ${cw}/${nErr}`}
               style={{ width: `${nErr ? Math.round((cw / nErr) * 100) : 0}%`, background: 'var(--bad,#e3564a)' }}
             />
             <div
+              className={M.msbarSeg}
               data-tip={`확신없이 틀림(적정) ${appropriate}/${nErr}`}
               role="img"
               aria-label={`확신없이 틀림(적정) ${appropriate}/${nErr}`}

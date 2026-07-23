@@ -5,13 +5,13 @@
    VaultLink도 여기서 내보낸다 — 지식맵 셀과 Gaps 행 양쪽이 쓰는 공유 조각인데
    예전엔 Gaps 안에 같은 obsidian:// 열기가 손으로 한 번 더 구현돼 있었다.
 ============================================================ */
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, type CSSProperties } from 'react';
 import { useCountUp } from '@/hooks/interactions';
 import { masteryColor } from '@/lib/utils';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { Knowledge, KnowledgeSubject } from '@/lib/knowledge';
 import ds from '@/styles/ds.module.css';
-import m from './Mastery.module.css';
+import { M } from './classes';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
 
@@ -36,7 +36,7 @@ export function VaultLink({
   return (
     <button
       type="button"
-      className={variant === 'text' ? `${ds.tiny} ${m.rcLink}` : m.deep}
+      className={variant === 'text' ? `${ds.tiny} ${M.rcLink}` : M.deep}
       onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(q))}
       title={`Obsidian에서 ${label || `"${q}"`} 검색 (설치돼 있어야 함)`}
       aria-label={`Obsidian에서 ${label || q} 검색`}
@@ -51,7 +51,12 @@ export function OverallRing({ overall }: { overall: number }) {
   const target = Math.round((overall || 0) * 100);
   const shown = useCountUp(target);
   return (
-    <div className={m.ring} role="img" aria-label={`전체 숙달 ${target}%`}>
+    <div
+      className={M.ring}
+      style={{ '--ring-w': 8, '--ring-glow-r': '8px' } as CSSProperties}
+      role="img"
+      aria-label={`전체 숙달 ${target}%`}
+    >
       <ProgressRing
         size={120}
         r={46}
@@ -60,9 +65,9 @@ export function OverallRing({ overall }: { overall: number }) {
         trackClassName={ds.ringTrack}
         arcClassName={ds.ringArc}
       />
-      <span className={m.ringNum}>
+      <span className={M.ringNum}>
         {Math.round(shown)}
-        <small>%</small>
+        <small className={M.ringNumSmall}>%</small>
       </span>
     </div>
   );
@@ -80,21 +85,30 @@ export function Distribution({ k }: { k: Knowledge }) {
   const s = k.states || {};
   const tot = k.n_notes || 1;
   return (
-    <div className={m.dist}>
-      <div className={m.msbar}>
+    <div className={M.dist}>
+      <div className={M.msbar}>
         {DIST.map(({ key, color, lab }) => {
           const n = s[key] || 0;
           const w = Math.round((n / tot) * 100);
           if (!w) return null;
           const t = `${lab} ${n} (${w}%)`;
-          return <div key={key} data-tip={t} role="img" aria-label={t} style={{ width: `${w}%`, background: color }} />;
+          return (
+            <div
+              key={key}
+              className={M.msbarSeg}
+              data-tip={t}
+              role="img"
+              aria-label={t}
+              style={{ width: `${w}%`, background: color }}
+            />
+          );
         })}
       </div>
-      <div className={m.distLegend}>
+      <div className={M.distLegend}>
         {DIST.map(({ key, color, lab }) => (
           <span key={key}>
-            <i className={m.dot} style={{ background: color }} />
-            {lab} <b>{s[key] || 0}</b>
+            <i className={M.dot} style={{ background: color }} />
+            {lab} <b className={M.distLegendB}>{s[key] || 0}</b>
           </span>
         ))}
       </div>
@@ -111,7 +125,7 @@ function SubjectHeat({ s }: { s: KnowledgeSubject }) {
   const shown = expanded ? concepts : concepts.slice(0, HEAT_CAP);
   const hidden = concepts.length - shown.length;
   return (
-    <div className={m.msheat}>
+    <div className={M.msheat}>
       {shown.map((c, i) => {
         const t = `${c.title || c.basename}  ·  유효숙달 ${pct(c.p_eff)} (${c.state})${
           c.weak && c.root_cause && c.root_cause !== 'self' ? ' ← 선수약점: ' + c.root_cause : ''
@@ -125,7 +139,7 @@ function SubjectHeat({ s }: { s: KnowledgeSubject }) {
         return (
           <i
             key={i}
-            className={`${m.mscell}${c.frontier ? ' ' + m.fr : ''}`}
+            className={M.mscell}
             style={{ background: col, boxShadow }}
             data-tip={t}
             role="img"
@@ -135,7 +149,7 @@ function SubjectHeat({ s }: { s: KnowledgeSubject }) {
       })}
       {/* 조용한 절단 금지 — 숨은 셀 수를 밝히고 펼칠 수 있게(ConceptList와 동형). */}
       {(hidden > 0 || expanded) && (
-        <button type="button" className={m.heatMore} onClick={() => setExpanded((v) => !v)}>
+        <button type="button" className={M.heatMore} onClick={() => setExpanded((v) => !v)}>
           {expanded ? '접기' : `+${hidden}개`}
         </button>
       )}
@@ -150,21 +164,21 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
   const manyUnknown = (k.states?.unknown || 0) > tot * 0.5;
   return (
     <>
-      <div className={m.mapHead}>
-        <span className={m.mapTitle}>발광 지식맵 — KNOWLEDGE MAP</span>
-        <span className={m.mapMeta}>셀 하나가 개념 · 빨강=약점 · 초록=숙달 · 회색=미관측</span>
+      <div className={M.mapHead}>
+        <span className={M.mapTitle}>발광 지식맵 — KNOWLEDGE MAP</span>
+        <span className={M.mapMeta}>셀 하나가 개념 · 빨강=약점 · 초록=숙달 · 회색=미관측</span>
       </div>
       {manyUnknown && (
-        <div className={m.note}>
-          ⚠ 미관측이 과반 — 인출 데이터(Anki due·CBMS·백지)가 쌓이면 회색이 색을 찾습니다. 그래프 기반 <b>프런티어</b>는
-          관측 없이도 작동하니 우측에서 다음 배울 개념을 보세요.
+        <div className={M.note}>
+          ⚠ 미관측이 과반 — 인출 데이터(Anki due·CBMS·백지)가 쌓이면 회색이 색을 찾습니다. 그래프 기반{' '}
+          <b className="text-txt">프런티어</b>는 관측 없이도 작동하니 우측에서 다음 배울 개념을 보세요.
         </div>
       )}
       {subs.length ? (
         subs.map((s) => (
-          <div key={s.subject} className={m.mssub}>
-            <div className={m.subHead}>
-              <b className={m.subNm}>{s.subject}</b>
+          <div key={s.subject} className={M.mssub}>
+            <div className={M.subHead}>
+              <b className={M.subNm}>{s.subject}</b>
               <span className={`${ds.tiny} ${ds.muted}`}>
                 {s.n}개 · 숙달 {pct(s.mastery)}
                 {s.weak ? ` · 약점 ${s.weak}` : ''}
@@ -177,7 +191,7 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
       ) : (
         <div className={`${ds.muted} ${ds.tiny}`}>과목 없음</div>
       )}
-      <div className={m.mapFoot}>테두리 친 셀 ⬡ = 프런티어(지금 배울 준비됨).</div>
+      <div className={M.mapFoot}>테두리 친 셀 ⬡ = 프런티어(지금 배울 준비됨).</div>
     </>
   );
 }

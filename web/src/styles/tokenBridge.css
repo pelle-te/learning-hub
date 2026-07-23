@@ -55,6 +55,10 @@
   --color-panel-acc-faint: var(--panel-acc-faint);
   --color-tint-bad-faint: var(--tint-bad-faint);
   --color-fill-plan: var(--fill-plan);
+  /* mastery(숙달도 지도) */
+  --color-panel-warn-faint: var(--panel-warn-faint);
+  --color-line-warn: var(--line-warn);
+  --color-line-soft: var(--line-soft);
   --color-tint-line2: var(--tint-line2);
   --color-tint-learning-soft: var(--tint-learning-soft);
   --color-line-acc-soft: var(--line-acc-soft);
@@ -93,8 +97,9 @@
   --grid-template-columns-goals: repeat(auto-fill, minmax(240px, 1fr));
   /* atlas 카드 그리드 — goals 와 값은 같지만 feature 이름으로 분리(교차 참조 혼동 방지). */
   --grid-template-columns-atlas: repeat(auto-fill, minmax(240px, 1fr));
-  /* review 2컬럼 — 본문(유동) + 액션 사이드(고정 420px). 임의값(420px) 대신 이름. */
+  /* review·mastery 2컬럼 — 본문(유동) + 사이드(고정 420px). 값 동일하나 feature 별로 둔다. */
   --grid-template-columns-review: minmax(0, 1fr) 420px;
+  --grid-template-columns-mastery: minmax(0, 1fr) 420px;
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
@@ -119,6 +124,10 @@
   --text-runner-mark: var(--fs-runner-mark);
   /* control 검색 히어로 제목 — clamp 유동값이라 반올림 예외(규약 3). */
   --text-control-title: clamp(26px, 4vw, 40px);
+  /* mastery 히어로 제목(clamp) · 개념행 이름·점 글자(em 상대) — 사다리 밖이라 이름을 준다. */
+  --text-hero-title: clamp(22px, 2.6vw, 30px);
+  --text-concept-nm: 0.92em;
+  --text-msdot: 0.7em;
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
@@ -141,6 +150,8 @@
   --shadow-card: var(--shadow-sm);
   /* review 회고 코칭 warn 톤 점의 발광 링(bad). good 톤·계획막대는 shadow-dot 재사용. */
   --shadow-dot-bad: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
+  /* mastery 히어로 밴드 그림자(shadow-md). 지식맵/폴백은 shadow-card(sm) 재사용. */
+  --shadow-hero: var(--shadow-md);
 
   /* 대문자 라벨 자간 — 0.16/0.2em 은 Tailwind `tracking-widest`(0.1em) 를 넘어 임의값이
      된다. 색·유동값처럼 이름을 준다(디자인 의도값이지 사다리 칸이 아니다). */
@@ -149,9 +160,13 @@
 
   /* control 히어로 상단 패딩 — clamp 유동값(규약 3). `pt-hero-y` 로 쓴다. */
   --spacing-hero-y: clamp(28px, 7vh, 72px);
+  /* mastery 히어로 밴드 간격·좌우 패딩(clamp 유동값). */
+  --spacing-hero-gap: clamp(18px, 3vw, 38px);
+  --spacing-hero-px: clamp(20px, 2.6vw, 30px);
 
   /* 폭 상한(control) — 힌트 문단·잡/기록 topic 말줄임 캡. 임의값(`max-w-[640px]`) 대신 이름. */
   --container-hint: 640px;
   --container-jobtopic: 300px;
   --container-rectopic: 320px;
+  --container-off: 620px;
 }

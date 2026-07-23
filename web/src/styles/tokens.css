@@ -142,6 +142,19 @@
   --panel-acc-faint: color-mix(in srgb, var(--acc) 5%, var(--panel2));
   --tint-bad-faint: color-mix(in srgb, var(--bad) 9%, transparent);
   --fill-plan: color-mix(in srgb, var(--mut) 55%, transparent);
+
+  /* mastery 시네마틱 패널 — 히어로(acc+violet 3층)·지식맵/폴백(acc 2층). 상단 헤어라인은
+     review 의 --bg-sig-top 재사용(값 동일). ringNum 글로우도 --sig-rate-glow 재사용. */
+  --bg-hero-mastery:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
+    radial-gradient(70% 90% at 0% 120%, color-mix(in oklab, var(--violet) 9%, transparent), transparent 64%),
+    linear-gradient(165deg, color-mix(in oklab, var(--acc) 7%, var(--panel2)), var(--panel) 62%);
+  --bg-map-mastery:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 6%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 4%, var(--panel2)), var(--panel) 64%);
+  /* mastery note(경고 톤 박스) 배경·테두리. */
+  --panel-warn-faint: color-mix(in srgb, var(--warn) 10%, var(--panel));
+  --line-warn: color-mix(in srgb, var(--warn) 36%, var(--line));
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
   --tint-acc2-strong: color-mix(in srgb, var(--acc2) 18%, transparent);
   /* acc2 헤어라인 두 세기(goals 이식 · line-acc/-strong 의 acc2 대응) — 프로젝트/가능신호 프레임. */

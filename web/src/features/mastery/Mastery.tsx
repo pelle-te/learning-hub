@@ -23,7 +23,7 @@ import { isTauri } from '@/lib/tauri';
 import { slimKnowState } from '@/lib/scheduler';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import m from './Mastery.module.css';
+import { M } from './classes';
 
 import { OverallRing, Distribution, KnowledgeMap } from './KnowledgeMap';
 import { Frontier, Sequencing, EngineHealth, Gaps, RootCauses, Calibration } from './NextActions';
@@ -33,8 +33,8 @@ const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
 function Setup() {
   // 카드 크롬은 offWrap(발광 패널)이 제공 — 본문은 투명 콘텐츠만(지식맵 패널과 같은 언어).
   return (
-    <div className={m.stateBody}>
-      <h3>아직 지식상태가 없어요</h3>
+    <div className={`${M.offChild} ${M.stateBody}`}>
+      <h3 className={M.stateH3}>아직 지식상태가 없어요</h3>
       <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
         <li>
           볼트 인덱스 최신화: <code>python pipeline/_도구/벌트DB.py build</code>
@@ -130,20 +130,20 @@ export default function Mastery() {
   const realError = classifyArtifact({ hasData: !!k, loading, query: { isError, error }, ping }) === 'error';
 
   return (
-    <section className={m.wrap} aria-label="숙달도 지도">
+    <section className={M.wrap} aria-label="숙달도 지도">
       {/* ── 시네마틱 히어로 밴드 — 전체 숙달 발광 링 + 상태 분포 + 로드 ── */}
       <div
         ref={heroRef}
         onMouseMove={heroMove}
         onMouseLeave={heroLeave}
-        className={`${m.hero} ${ds.spotHost} ${ds.glow}`}
+        className={`${M.hero} ${ds.spotHost} ${ds.glow}`}
       >
         <div className={ds.spotlight} aria-hidden="true" />
         <div className={ds.aura} aria-hidden="true" />
-        <div className={m.heroLeft}>
-          <span className={m.eyebrow}>지식 지도</span>
-          <h2 className={m.headTitle}>🧠 숙달도 지도</h2>
-          <span className={m.headMeta}>
+        <div className={M.heroLeft}>
+          <span className={M.eyebrow}>지식 지도</span>
+          <h2 className={M.headTitle}>🧠 숙달도 지도</h2>
+          <span className={M.headMeta}>
             {k ? (
               <>
                 생성 {k.generated || '—'} · 노트 {k.n_notes}개
@@ -155,14 +155,14 @@ export default function Mastery() {
         </div>
         {k && <OverallRing overall={k.overall || 0} />}
         {k && (
-          <div className={m.heroDistWrap}>
-            <span className={m.distLab}>지식 상태 분포</span>
+          <div className={M.heroDistWrap}>
+            <span className={M.distLab}>지식 상태 분포</span>
             <Distribution k={k} />
           </div>
         )}
-        <div className={m.heroAction}>
+        <div className={M.heroAction}>
           {loading && (
-            <span className={m.headMeta}>
+            <span className={M.headMeta}>
               <span className={ds.spin} /> 로드 중
             </span>
           )}
@@ -179,22 +179,22 @@ export default function Mastery() {
       </div>
 
       {k ? (
-        <div className={m.cols}>
+        <div className={M.cols}>
           {/* 좌 — 발광 지식맵(immersive 시그니처) */}
           <div
             ref={mapRef}
             onMouseMove={mapMove}
             onMouseLeave={mapLeave}
-            className={`${m.mapCol} ${ds.spotHost} ${ds.glow}`}
+            className={`${M.mapCol} ${ds.spotHost} ${ds.glow}`}
           >
             <div className={ds.spotlight} aria-hidden="true" />
             <div className={ds.aura} aria-hidden="true" />
-            <div className={m.mapScroll}>
+            <div className={M.mapScroll}>
               <KnowledgeMap k={k} />
             </div>
           </div>
           {/* 우 — 다음 행동(프런티어·약점·캘리브레이션) */}
-          <div className={m.actionCol}>
+          <div className={M.actionCol}>
             <Frontier k={k} />
             <Sequencing />
             <EngineHealth />
@@ -204,19 +204,19 @@ export default function Mastery() {
           </div>
         </div>
       ) : loading ? (
-        <div className={m.offWrap}>
-          <div className={`${ds.muted}`}>
+        <div className={M.offWrap}>
+          <div className={`${M.offChild} ${ds.muted}`}>
             <span className={ds.spin} /> 지식상태 로드 중...
           </div>
         </div>
       ) : realError ? (
         /* 진짜 실패(서버 응답 에러) — 셋업 안내로 위장하지 않고 에러를 드러내고 재시도를 제공. */
-        <div className={m.offWrap}>
-          <div className={m.errBody} role="alert">
-            <span className={m.errGlyph} aria-hidden="true">
+        <div className={M.offWrap}>
+          <div className={`${M.offChild} ${M.errBody}`} role="alert">
+            <span className={M.errGlyph} aria-hidden="true">
               ⚠
             </span>
-            <h3>지식상태를 불러오지 못했어요</h3>
+            <h3 className={M.errH3}>지식상태를 불러오지 못했어요</h3>
             <div className={`${ds.foot} ${ds.muted}`}>{errMsg}</div>
             <Button sm variant="primary" onClick={() => refetch()}>
               다시 시도
@@ -224,7 +224,7 @@ export default function Mastery() {
           </div>
         </div>
       ) : (
-        <div className={m.offWrap}>
+        <div className={M.offWrap}>
           <Setup />
         </div>
       )}
