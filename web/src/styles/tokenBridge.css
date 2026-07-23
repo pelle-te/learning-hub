@@ -24,10 +24,12 @@
   --color-bg2: var(--bg2);
   --color-panel: var(--panel);
   --color-panel2: var(--panel2);
+  --color-panel-seg: var(--panel-seg);
   --color-line: var(--line);
   --color-line2: var(--line2);
   --color-txt: var(--txt);
   --color-mut: var(--mut);
+  --color-ink: var(--ink);
   --color-acc: var(--acc);
   --color-acc2: var(--acc2);
   --color-on-acc: var(--on-acc);

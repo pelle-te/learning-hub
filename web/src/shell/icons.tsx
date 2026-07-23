@@ -53,9 +53,18 @@ const ICON_PATHS: Record<string, string> = {
     '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/>',
 };
 
-/** name에 맞는 라인 아이콘(없으면 null). */
-export function Icon({ name }: { name?: string }) {
+/** name에 맞는 라인 아이콘(없으면 null).
+ *  className: 전역 `.ic`(1em) 위에 크기·획을 덮는 통로(C-7 셸 이식 규약 4 — 자손 셀렉터
+ *  `:global(.ic)` 대신 자식에 직접 클래스). `.ic` 가 언레이어드라 크기 override 엔 `!` 가 필요하다. */
+export function Icon({ name, className }: { name?: string; className?: string }) {
   const p = name ? ICON_PATHS[name] : '';
   if (!p) return null;
-  return <svg className="ic" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML={{ __html: p }} />;
+  return (
+    <svg
+      className={className ? `ic ${className}` : 'ic'}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: p }}
+    />
+  );
 }

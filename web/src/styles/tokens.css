@@ -53,6 +53,10 @@
      첫 이식(discovery)에서 되돌렸다. 남은 6곳은 그 feature 를 옮길 때 이 토큰으로 모은다. */
   --font-mono: ui-monospace, monospace;
 
+  /* SubTabs 세그먼트 바탕(C-7 셸 이식 · 규약 1: color-mix 결과는 이름을 준다). 공식이 두 테마
+     동일(반투명 패널)이라 여기 한 번만 둔다 — `var(--panel)` 는 사용 시점에 활성 테마로 해소된다. */
+  --panel-seg: color-mix(in srgb, var(--panel) 50%, transparent);
+
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;

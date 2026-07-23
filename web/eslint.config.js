@@ -190,6 +190,7 @@ export default tseslint.config(
   {
     files: [
       'src/phone/**/*.tsx',
+      'src/app/SubTabs.tsx', // C-7 셸 티어 이식분(하나씩 넓힌다)
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',
