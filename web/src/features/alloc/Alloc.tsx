@@ -19,7 +19,20 @@ import { deadlineDdays } from '@/lib/scheduleView';
 import { Button } from '@/components/ui';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
 import { AllocBoard } from './AllocBoard';
-import c from './Alloc.module.css';
+
+/* Alloc 세그먼트 셸 — 옛 CSS Module 을 Tailwind 유틸로 이식(C-7). 주 네비 크롬만 소유(보드는 AllocBoard).
+   ⚠ 내장 크기 이름(text-lg/sm)은 preflight 없는 이 앱에서 companion line-height 를 흘리므로 정상흐름
+   요소엔 leading-[1.6](본문 상속)을 명시로 못박는다. 자간 -0.01em 은 사다리 밖이라 tracking-wk 로 이름. */
+const C = {
+  wrap: 'flex h-full min-w-0 flex-col',
+  nav: 'flex flex-none flex-wrap items-center gap-2.5 border-b border-line px-5.5 py-3.5',
+  // 주 이동 클러스터 — 한 덩어리(1 1 260px). 버튼 세로 붕괴 방지로 자식 Button 에 whitespace-nowrap.
+  wknav: 'flex min-w-0 shrink grow basis-65 items-center gap-2.5',
+  wk: 'min-w-22.5 flex-1 text-center',
+  wkLab: 'text-lg leading-[1.6] font-extrabold tracking-wk whitespace-nowrap',
+  wkOff: 'ml-1.5 text-sm leading-[1.6] font-semibold whitespace-nowrap text-mut',
+  body: 'min-h-0 flex-1',
+};
 
 export default function Alloc() {
   const state = useApp((s) => s.state);
@@ -68,26 +81,26 @@ export default function Alloc() {
   );
 
   return (
-    <section className={c.wrap} aria-label="주간 배분">
-      <div className={c.nav}>
-        <div className={c.wknav}>
-          <Button sm onClick={prev}>
+    <section className={C.wrap} aria-label="주간 배분">
+      <div className={C.nav}>
+        <div className={C.wknav}>
+          <Button sm className="whitespace-nowrap" onClick={prev}>
             ◀ 이전 주
           </Button>
-          <div className={c.wk}>
-            <b className={c.wkLab}>{weekLabel(curMon)}</b>
-            <span className={c.wkOff}>{offsetLabel}</span>
+          <div className={C.wk}>
+            <b className={C.wkLab}>{weekLabel(curMon)}</b>
+            <span className={C.wkOff}>{offsetLabel}</span>
           </div>
-          <Button sm onClick={next}>
+          <Button sm className="whitespace-nowrap" onClick={next}>
             다음 주 ▶
           </Button>
-          <Button sm variant="ghost" onClick={weekToday}>
+          <Button sm variant="ghost" className="whitespace-nowrap" onClick={weekToday}>
             오늘
           </Button>
         </div>
       </div>
 
-      <div className={c.body}>
+      <div className={C.body}>
         <AllocBoard
           weekMon={weekMon}
           res={res}

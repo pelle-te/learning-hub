@@ -27,7 +27,82 @@ import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import type { ScheduleResult } from '@/lib/types';
-import s from './AllocBoard.module.css';
+import ds from '@/styles/ds.module.css';
+
+/* ── AllocBoard — CSS Module → Tailwind 유틸 이식(C-7) ────────────────────────────
+   1px 그리드선은 grid gap + 배경(cell=panel/panel2, gap=line)으로 그린다. 셀은 role 정직한 표.
+   ⚠ 이 앱은 preflight 를 빼서, **내장 크기 이름**(text-sm/lg/xs)은 companion line-height 를 흘려
+     상속 LH 를 덮는다 → 정상흐름 요소엔 leading-[1.6](또는 소스 명시값 1.55)을 못박는다.
+     **폼 컨트롤(<button>·<input>)의 자손 텍스트**는 UA line-height:normal 을 상속하므로 leading-[normal].
+     커스텀 브리지 크기(text-2xs/md/base14)는 LH 를 안 흘리므로 leading 불필요.
+   ⚠ 전역 요소규칙(button/input)은 언레이어라 레이어드 유틸을 이긴다 → 다른 값만 `!`(같으면 클래스 없음).
+     colHead <button> 의 로컬 :hover 는 전역 button:hover(더 높은 명시도)에 이미 가려져 있었다 →
+     되살리지 않는다(전역이 이기게 둔다 · §15). 규약 SSOT 는 §15 + tokenBridge.css 머리주석. */
+const CELL = 'flex min-h-12 items-center px-2.25 py-1.75';
+const S = {
+  wrap: 'flex h-full min-h-0 flex-col gap-3 px-5.5 pt-3.5 pb-3 max-wide:px-3.5 max-wide:py-3',
+  toolbar: 'flex flex-none flex-wrap items-center gap-3',
+  // 모드 배지 — 공통 골격 + 상태별 톤 맵(자동/내 배분 · §15 정적 맵). 자간 0.08em 은 tracking-mode.
+  mode: 'rounded-full border px-2.5 py-0.75 text-xs leading-[1.6] font-extrabold tracking-mode',
+  modeAuto: 'border-line bg-alloc-mode-bg text-mut',
+  modeManual: 'border-line-acc-hover bg-acc-glow text-acc',
+  toolHint: 'min-w-0 truncate text-sm leading-[1.6] text-mut',
+  toolBtns: 'ml-auto flex gap-2',
+  scroll: 'min-h-0 flex-initial overflow-auto [scrollbar-width:thin]',
+  grid: 'grid min-w-140 grid-cols-alloc gap-px rounded-base border border-line bg-line',
+  // 네 모서리 셀 라운딩(overflow:hidden 대체) + 스티키 프레임.
+  corner: `${CELL} sticky top-0 left-0 z-[5] rounded-tl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
+  // 요일 열머리글 <button> — 전역 button 패딩(8/13)을 .cell(7/9)로 이겨야 해 px/py 에 `!`.
+  colHead: 'flex min-h-12 flex-col items-center justify-center gap-px px-2.25! py-1.75! text-center',
+  colToday: 'bg-alloc-col-today!',
+  dow: 'text-sm leading-[normal] font-extrabold text-txt', // <button> 자손 → UA normal 상속
+  date: 'text-2xs font-semibold text-mut', // 커스텀 크기 → LH 안 흘림(leading 불필요)
+  budgetHead: `${CELL} sticky top-0 right-0 z-[5] justify-end rounded-tr-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
+  // 과목 행 머리글(드래그 소스) — group 으로 grab 도트 hover 를 자식에 전달. bg 는 그랩 상태로 분기.
+  rowHead: `${CELL} group sticky left-0 z-[3] min-w-0 cursor-grab gap-1.75 text-md font-bold text-txt active:cursor-grabbing`,
+  grab: 'h-3 w-2 flex-none rounded-xs bg-[image:var(--grab-dots)] opacity-50 group-hover:opacity-90',
+  swatch: 'size-2.25 flex-none rounded-cell',
+  rowName: 'min-w-0 truncate',
+  // 입력 셀 — 비례 채움(.fill) + 색띠(before) + 빈칸 호버 '+'(after) + 드롭 오버(after '+1h').
+  inputCell: 'relative flex min-h-12 items-center overflow-hidden p-0 text-md',
+  fill: 'absolute inset-0 bg-[var(--sub,var(--acc))]', // opacity 는 런타임 인라인
+  before:
+    "before:pointer-events-none before:absolute before:top-0 before:bottom-0 before:left-0 before:z-[1] before:w-0.75 before:bg-[var(--sub,var(--acc))] before:content-['']",
+  hoverPlus:
+    "hover:after:pointer-events-none hover:after:absolute hover:after:inset-0 hover:after:flex hover:after:items-center hover:after:justify-center hover:after:text-md hover:after:font-bold hover:after:text-alloc-plus hover:after:content-['+']",
+  dropOver:
+    "outline-2 -outline-offset-2 outline-dashed outline-acc after:pointer-events-none after:absolute after:inset-0 after:z-[2] after:flex after:items-center after:justify-center after:bg-acc-glow after:text-xs after:leading-[1.6] after:font-extrabold after:text-acc after:content-['+1h']",
+  // NumberField <input type=number> — 전역 input 규칙(언레이어)을 이기려 다른 값만 `!`.
+  // color/font-size(13)/width 는 전역과 동일 → 클래스 없음. ink≡txt.
+  cellInput:
+    'relative z-[1] h-full min-h-12 cursor-text border-0! bg-transparent! px-1! py-0! text-center font-bold tabular-nums placeholder:font-normal placeholder:text-alloc-ph! focus:-outline-offset-2! focus:bg-acc-glow! focus:outline-2 focus:outline-acc',
+  budgetCell: `${CELL} sticky right-0 z-[3] flex-col items-end justify-center gap-px text-right text-md`,
+  budgetB: 'text-base14 font-extrabold text-txt tabular-nums',
+  budgetOf: 'text-xs leading-[1.6] font-semibold text-mut',
+  badge: 'text-2xs',
+  footHead: `${CELL} sticky left-0 z-[3] rounded-bl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
+  footCell: `${CELL} justify-center gap-0.75 text-sm leading-[1.6] text-mut`,
+  footCap: 'font-semibold text-mut',
+  footEnd: `${CELL} sticky right-0 z-[3] rounded-br-base bg-panel2`,
+  hint: 'flex-none text-sm leading-[1.55] text-mut',
+  hintB: 'font-bold text-txt',
+} as const;
+
+// 예산 셀 톤 — 상태별 정적 맵(§15 · 동적 조립 금지). 셀 배경/불투명 + 배지 색/굵기를 각각 분리.
+const BUDGET_BG: Record<'done' | 'ok' | 'under' | 'over' | 'none', string> = {
+  done: 'bg-panel2 opacity-60',
+  ok: 'bg-panel2',
+  under: 'bg-panel2',
+  over: 'bg-alloc-over',
+  none: 'bg-panel2',
+};
+const BADGE_TONE: Record<'done' | 'ok' | 'under' | 'over' | 'none', string> = {
+  done: 'font-bold text-mut', // 완료: 중립(초록 ✓ 오독 방지) · 700
+  ok: 'font-extrabold text-good',
+  under: 'font-extrabold text-warn',
+  over: 'font-extrabold text-bad',
+  none: 'font-extrabold',
+};
 
 /** 분 → 시간 표시(정수는 소수 없이, 반시간은 1자리). 셀·합계 공통. */
 function toH(min: number): string {
@@ -121,7 +196,7 @@ export function AllocBoard({
 
   if (!hasSubjects) {
     return (
-      <div className={s.wrap}>
+      <div className={S.wrap}>
         <EmptyState
           glyph="🎛"
           title="배분할 과목이 없어요"
@@ -141,16 +216,16 @@ export function AllocBoard({
   }
 
   return (
-    <div className={s.wrap}>
+    <div className={S.wrap}>
       {/* 툴바 — 모드 배지(+상태 안내) + 이전주복사/자동으로. 배분 합계는 상단 크롬 리드아웃이 소유(중복 제거). */}
-      <div className={s.toolbar}>
-        <span className={`${s.mode}${managed ? ' ' + s.modeManual : ''}`}>{managed ? '내 배분' : '자동 제안'}</span>
-        <span className={s.toolHint}>
+      <div className={S.toolbar}>
+        <span className={`${S.mode} ${managed ? S.modeManual : S.modeAuto}`}>{managed ? '내 배분' : '자동 제안'}</span>
+        <span className={S.toolHint}>
           {managed
             ? '내가 정한 배분으로 이번 주가 굴러가요.'
             : '엔진이 제안한 배분이에요 — 칸을 고치면 내 배분으로 바뀌어요.'}
         </span>
-        <div className={s.toolBtns}>
+        <div className={S.toolBtns}>
           <Button sm variant="ghost" onClick={onCopyPrev} title="지난 주 배분을 이번 주로 복사">
             ⧉ 지난 주 복사
           </Button>
@@ -163,20 +238,20 @@ export function AllocBoard({
       </div>
 
       {!hasCap && (
-        <div className={s.note}>
+        <div className={ds.note}>
           이번 주 <b>가용시간</b>이 0이에요 — 뼈대(일과)에서 수업·수면을 확인하면 배분 여력이 생겨요.
         </div>
       )}
 
       {noTime.length > 0 && (
-        <div className={s.noteWarn}>
+        <div className={ds.note}>
           <b>{noTime.map((it) => it.name).join(', ')}</b>은(는) <b>주당 목표 시간</b>이 없어 배분해도{' '}
           <b>시간 없음 · 스케줄 안 됨</b>이에요 — 과목에서 주당 시간을 넣어야 <b>새 학습</b>이 놓여요.
         </div>
       )}
 
       {inertFinished.length > 0 && (
-        <div className={s.noteInfo}>
+        <div className={ds.noteInfo}>
           완료 과목 <b>{inertFinished.map((it) => it.name).join(', ')}</b>에는 배분해도 계획상 챕터를 다 배우게 돼 있어{' '}
           <b>새 학습</b>은 안 생겨요 — 복습·Anki만 자동으로 얹혀요.
         </div>
@@ -190,36 +265,36 @@ export function AllocBoard({
           <table>에 display:grid를 걸면 브라우저가 표 시맨틱을 도로 벗겨(used display 기준 role 매핑)
           같은 거짓말이 된다. → role="table" + 정직한 row/columnheader/rowheader/cell.
           행 높이는 CSS의 `.cell{min-height:48px}`가 고정한다 — 과목 수와 무관하게 일정(신축 없음). */}
-      <div className={s.scroll}>
+      <div className={S.scroll}>
         <div
-          className={s.grid}
+          className={S.grid}
           role="table"
           aria-label="주간 배분 보드"
           aria-rowcount={rows.length + 2}
           aria-colcount={9}
         >
           {/* 헤더 행 */}
-          <div className={s.rowContents} role="row">
-            <div className={`${s.cell} ${s.corner}`} role="columnheader">
+          <div className="contents" role="row">
+            <div className={S.corner} role="columnheader">
               과목 · 요일
             </div>
             {cols.map((c) => (
               // 요일 헤더는 '열머리글이자 일 편집기를 여는 버튼'이다. 예전엔 <button role="columnheader">로
               // 버튼 의미를 덮어써 SR엔 정적 머리글로만 읽혔다 → 머리글 래퍼(display:contents) 안에 버튼을 둔다.
               // 오늘 열은 색상 단독으로만 전달되던 걸 aria-current="date"로 보강.
-              <div key={c.i} className={s.slot} role="columnheader" aria-current={c.isToday ? 'date' : undefined}>
+              <div key={c.i} className="contents" role="columnheader" aria-current={c.isToday ? 'date' : undefined}>
                 <button
                   type="button"
-                  className={`${s.cell} ${s.colHead}${c.isToday ? ' ' + s.todayCol : ''}`}
+                  className={`${S.colHead}${c.isToday ? ' ' + S.colToday : ''}`}
                   onClick={() => onOpenDay(c.ds)}
                   title={`${fmtShort(c.date)} 일 편집기 열기`}
                 >
-                  <span className={s.dow}>{c.label}</span>
-                  <span className={s.date}>{fmtShort(c.date)}</span>
+                  <span className={S.dow}>{c.label}</span>
+                  <span className={S.date}>{fmtShort(c.date)}</span>
                 </button>
               </div>
             ))}
-            <div className={`${s.cell} ${s.budgetHead}`} role="columnheader">
+            <div className={S.budgetHead} role="columnheader">
               주당
             </div>
           </div>
@@ -244,7 +319,7 @@ export function AllocBoard({
                     : 'over';
             const subColor = it.color || 'var(--acc)';
             return (
-              <div key={it.id} className={s.rowContents} role="row" style={{ ['--sub' as string]: subColor }}>
+              <div key={it.id} className="contents" role="row" style={{ ['--sub' as string]: subColor }}>
                 {/* 린트가 draggable 을 상호작용 신호로 읽어 'rowheader 는 포커스 가능해야'라고
                     하지만, 이 행 머리글은 조작 대상이 아니다 — 드래그는 순수 마우스 편의 레이어이고
                     접근성 정본은 셀의 NumberField(step 0.5 · aria-label "과목 · 요일 배분(시간)")라
@@ -252,7 +327,7 @@ export function AllocBoard({
                     tabIndex 를 주면 조작할 수 없는 탭 스톱만 과목 수만큼 늘어난다. */}
                 {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
                 <div
-                  className={`${s.cell} ${s.rowHead}${dragSid === it.id ? ' ' + s.rowGrabbing : ''}`}
+                  className={`${S.rowHead} ${dragSid === it.id ? 'bg-acc-glow' : 'bg-panel2'}`}
                   role="rowheader"
                   title={`${it.name} — 요일 칸으로 끌면 그날 +1h`}
                   draggable
@@ -266,18 +341,19 @@ export function AllocBoard({
                     setOverCell(null);
                   }}
                 >
-                  <span className={s.grab} aria-hidden="true" />
-                  <span className={s.swatch} style={{ background: subColor }} />
-                  <span className={s.rowName}>{it.name}</span>
+                  <span className={S.grab} aria-hidden="true" />
+                  <span className={S.swatch} style={{ background: subColor }} />
+                  <span className={S.rowName}>{it.name}</span>
                 </div>
                 {cols.map((c) => {
                   const cellMin = vec[c.wd] || 0;
                   const cellKey = `${it.id}:${c.wd}`;
                   const dropOn = dragSid === it.id; // 잡은 과목 행에만 드롭 허용(과목→요일 의미 유지)
+                  const isDrop = overCell === cellKey;
                   return (
                     <div
                       key={c.i}
-                      className={`${s.cell} ${s.inputCell}${cellMin > 0 ? ' ' + s.hasVal : ''}${c.isToday ? ' ' + s.todayCol : ''}${overCell === cellKey ? ' ' + s.dropOver : ''}`}
+                      className={`${S.inputCell} ${c.isToday ? 'bg-alloc-today' : 'bg-panel'}${cellMin > 0 ? ' ' + S.before : ''}${isDrop ? ' ' + S.dropOver : cellMin > 0 ? '' : ' ' + S.hoverPlus}`}
                       role="cell"
                       onDragOver={(e) => {
                         if (!dropOn) return;
@@ -296,13 +372,13 @@ export function AllocBoard({
                     >
                       {/* 비례 시각 채움 — 배분 분량에 따라 과목색 농도가 진해져 주(週) 부하가 한눈에 읽힌다. */}
                       {cellMin > 0 && (
-                        <span className={s.fill} style={{ opacity: fillAlpha(cellMin) }} aria-hidden="true" />
+                        <span className={S.fill} style={{ opacity: fillAlpha(cellMin) }} aria-hidden="true" />
                       )}
                       {/* NumberField — 미완 입력(빈값·"1.")을 커밋하지 않는다. 예전엔 1.5를 치는 도중
                           '.' 시점의 빈값이 0으로 확정됐고, 그 0이 setAllocCell→ensureWeekAlloc을 타고
                           이 주를 managed로 승격시켜 자동 제안을 영구 대체했다(그리고 최종값도 5h가 됐다). */}
                       <NumberField
-                        className={s.cellInput}
+                        className={S.cellInput}
                         min={0}
                         step={0.5}
                         value={cellMin ? +toH(cellMin) : 0}
@@ -317,10 +393,10 @@ export function AllocBoard({
                     </div>
                   );
                 })}
-                <div className={`${s.cell} ${s.budgetCell} ${s[state_]}`} role="cell">
-                  <b>{toH(rowMin)}</b>
-                  {budgetMin > 0 && <span className={s.budgetOf}> / {toH(budgetMin)}h</span>}
-                  <span className={s.badge}>
+                <div className={`${S.budgetCell} ${BUDGET_BG[state_]}`} role="cell">
+                  <b className={S.budgetB}>{toH(rowMin)}</b>
+                  {budgetMin > 0 && <span className={S.budgetOf}> / {toH(budgetMin)}h</span>}
+                  <span className={`${S.badge} ${BADGE_TONE[state_]}`}>
                     {/* 챕터를 다 끝낸 과목은 중립 라벨(배분 충족 초록 ✓와 구분 — 오독 방지). */}
                     {state_ === 'done' && '챕터 완료'}
                     {state_ === 'ok' && '충족 ✓'}
@@ -335,34 +411,39 @@ export function AllocBoard({
           })}
 
           {/* 가용 푸터 행 — 헤더 행과 마찬가지로 role="row" 래퍼 안에 둔다(예전엔 셀이 표 직속이라 행 구조가 깨졌다). */}
-          <div className={s.rowContents} role="row">
-            <div className={`${s.cell} ${s.footHead}`} role="rowheader">
+          <div className="contents" role="row">
+            <div className={S.footHead} role="rowheader">
               가용
             </div>
             {cols.map((c, i) => {
               const cap = c.cap; // 그 날짜의 실제 가용(일정·override 반영) — capWd 요일 기본값이 아님
               const over = cap > 0 && colMins[i]! > cap + 5;
+              // 배경 우선순위: 초과(bad 12%) > 오늘(acc 8%) > 기본(panel2) — 소스 순서(footOver 가 뒤).
+              const footBg = over ? 'bg-alloc-foot-over' : c.isToday ? 'bg-alloc-today' : 'bg-panel2';
               return (
                 <div
                   key={c.i}
-                  className={`${s.cell} ${s.footCell}${over ? ' ' + s.footOver : ''}${c.isToday ? ' ' + s.todayCol : ''}`}
+                  className={`${S.footCell} ${footBg}`}
                   role="cell"
                   title={`${c.label} 배분 ${toH(colMins[i]!)}h / 가용 ${toH(cap)}h`}
                 >
-                  <b>{toH(colMins[i]!)}</b>
-                  <span className={s.footCap}>/{toH(cap)}</span>
+                  <b className={over ? 'font-extrabold text-bad tabular-nums' : 'font-extrabold text-txt tabular-nums'}>
+                    {toH(colMins[i]!)}
+                  </b>
+                  <span className={S.footCap}>/{toH(cap)}</span>
                 </div>
               );
             })}
             {/* 마지막 칸은 빈 자리(예산 열 아래) — 열 수를 맞춰야 행 구조가 정합하므로 aria-hidden 대신 빈 셀. */}
-            <div className={`${s.cell} ${s.footEnd}`} role="cell" />
+            <div className={S.footEnd} role="cell" />
           </div>
         </div>
       </div>
 
-      <div className={s.hint}>
-        과목 이름을 <b>요일 칸으로 끌면</b> 그날 +1h(숫자를 직접 넣어도 돼요). 배분한 요일엔 <b>새 학습(new)</b>이
-        놓이고, 복습·Anki·모의는 엔진이 자동으로 얹어요. 요일 헤더를 누르면 그날을 <b>시간표까지</b> 짤 수 있어요.
+      <div className={S.hint}>
+        과목 이름을 <b className={S.hintB}>요일 칸으로 끌면</b> 그날 +1h(숫자를 직접 넣어도 돼요). 배분한 요일엔{' '}
+        <b className={S.hintB}>새 학습(new)</b>이 놓이고, 복습·Anki·모의는 엔진이 자동으로 얹어요. 요일 헤더를 누르면
+        그날을 <b className={S.hintB}>시간표까지</b> 짤 수 있어요.
       </div>
     </div>
   );

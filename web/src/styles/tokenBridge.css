@@ -299,4 +299,21 @@
   /* 시즌 페이스 이번주 막대 발광(7px) · wkSeg hover inset 링(ink 22%). 앱/Tailwind shadow 이름과 분리(규약 5). */
   --shadow-spark-now: 0 0 7px var(--glow);
   --shadow-wkseg: inset 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);
+
+  /* ── alloc(주간 배분 보드) 이식(C-7) ──────────────────────────────────────────
+     매트릭스 셀/배지 틴트(tokens.css 계산) · 그리드 트랙 · 자간. 색은 이름만 잇는다. */
+  --color-alloc-mode-bg: var(--alloc-mode-bg);
+  --color-alloc-today: var(--alloc-today);
+  --color-alloc-col-today: var(--alloc-col-today);
+  --color-alloc-over: var(--alloc-over);
+  --color-alloc-foot-over: var(--alloc-foot-over);
+  --color-alloc-ph: var(--alloc-ph);
+  --color-alloc-plus: var(--alloc-plus);
+  /* 매트릭스 그리드 — 과목열(minmax 104,1.1fr) + 요일 7열(minmax 54,1fr) + 예산열(minmax 104,0.95fr).
+     고정 트랙이라 임의값 대신 테마 항목으로 둔다(규약 2 · stats 의 --grid-template-columns-stats 와 같은 처리). */
+  --grid-template-columns-alloc: minmax(104px, 1.1fr) repeat(7, minmax(54px, 1fr)) minmax(104px, 0.95fr);
+  /* 주 라벨 자간 -0.01em · 모드 배지 대문자 0.08em — 내장 tracking 사다리 밖의 정확한 디자인 의도값이라
+     이름을 준다(픽셀 보존 · caps 계열과 같은 논리 · 규약 3). */
+  --tracking-wk: -0.01em;
+  --tracking-mode: 0.08em;
 }

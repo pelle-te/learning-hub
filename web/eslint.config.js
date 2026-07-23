@@ -187,6 +187,7 @@ export default tseslint.config(
   {
     files: [
       'src/phone/**/*.tsx',
+      'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',
       'src/features/guide/**/*.tsx',

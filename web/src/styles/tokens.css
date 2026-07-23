@@ -235,6 +235,28 @@
   --bg-sig-stats:
     radial-gradient(120% 90% at 100% 0%, color-mix(in oklab, var(--acc) 7%, transparent), transparent 58%),
     linear-gradient(168deg, color-mix(in oklab, var(--acc) 5%, var(--panel2)), var(--panel) 64%);
+
+  /* ── alloc(주간 배분 보드) 이식(C-7) ──────────────────────────────────────────
+     매트릭스 셀/배지 틴트 — 전부 --acc/--mut/--bad 파생이라 accent 스냅샷에서 자동 리컬러된다
+     (절대규칙 #3 — 하드코딩 hex 였다면 깨졌다). 오늘 열(셀 acc 8% panel · 열머리글 acc 16% panel2) ·
+     초과 행(bad 9% panel2) · 가용 초과 푸터(bad 12% panel2) · 모드 배지 배경(mut 12%) ·
+     셀 플레이스홀더(mut 55%) · 빈 칸 호버 '+' 힌트(mut 60%). */
+  --alloc-mode-bg: color-mix(in srgb, var(--mut) 12%, transparent);
+  --alloc-today: color-mix(in srgb, var(--acc) 8%, var(--panel));
+  --alloc-col-today: color-mix(in srgb, var(--acc) 16%, var(--panel2));
+  --alloc-over: color-mix(in srgb, var(--bad) 9%, var(--panel2));
+  --alloc-foot-over: color-mix(in srgb, var(--bad) 12%, var(--panel2));
+  --alloc-ph: color-mix(in srgb, var(--mut) 55%, transparent);
+  --alloc-plus: color-mix(in srgb, var(--mut) 60%, transparent);
+  /* 과목 행 그랩 도트(2열×3행 점 패턴) — DayPlanner 트레이 행과 같은 시각 언어. 고정 px 지오메트리라
+     색 유틸로 표현 불가 → background-image 전체에 이름을 준다(§14-3 · --grab-dots). --mut 파생. */
+  --grab-dots:
+    radial-gradient(circle at 2px 2px, var(--mut) 1px, transparent 1.6px),
+    radial-gradient(circle at 6px 2px, var(--mut) 1px, transparent 1.6px),
+    radial-gradient(circle at 2px 6px, var(--mut) 1px, transparent 1.6px),
+    radial-gradient(circle at 6px 6px, var(--mut) 1px, transparent 1.6px),
+    radial-gradient(circle at 2px 10px, var(--mut) 1px, transparent 1.6px),
+    radial-gradient(circle at 6px 10px, var(--mut) 1px, transparent 1.6px);
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──
