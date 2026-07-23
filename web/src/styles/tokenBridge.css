@@ -86,6 +86,9 @@
   --color-tint-warn-soft: var(--tint-warn-soft);
   --color-line-warn-strong: var(--line-warn-strong);
   --color-acc-glow: var(--acc-glow);
+  /* markets(증시 동향) — 지수 카드 등락 테두리(상승 good/하락 bad 32% line 믹스). */
+  --color-line-good: var(--line-good);
+  --color-line-bad: var(--line-bad);
 
   --spacing-1: var(--sp-1);
   --spacing-2: var(--sp-2);
@@ -126,6 +129,10 @@
   /* degree(졸업) auto-fit 게이지/카테고리 그리드 — 최소칸 110/150px(임의값 대신 테마 항목 · 규약 2). */
   --grid-template-columns-degree-gauges: repeat(auto-fit, minmax(110px, 1fr));
   --grid-template-columns-degree-cats: repeat(auto-fit, minmax(150px, 1fr));
+  /* markets 2컬럼 — 지수 보드(유동) + 뉴스 피드(280~360px). 모바일(700) 아래로는 1컬럼 세로 스택. */
+  --grid-template-columns-markets: 1fr minmax(280px, 360px);
+  /* markets 지수 카드 그리드 — auto-fill 최소 150px(goals/atlas 240px 보다 촘촘한 지수 카드). */
+  --grid-template-columns-markets-idx: repeat(auto-fill, minmax(150px, 1fr));
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
@@ -156,6 +163,11 @@
   --text-hero-title: clamp(22px, 2.6vw, 30px);
   --text-concept-nm: 0.92em;
   --text-msdot: 0.7em;
+  /* markets 뉴스 제목·AI 브리핑 본문 14px(=fs-base) — Tailwind 내장 `text-base`(16px)와 이름이
+     겹쳐 그 이름을 못 쓴다(겹치면 기존 text-base 사용처가 통째로 14px 로 줄어든다). 별명을 준다. */
+  --text-base14: var(--fs-base);
+  /* markets 헤더 제목 — clamp 유동값(control-title 과 같은 성격 · 반올림 예외 · 규약 3). */
+  --text-markets-title: clamp(18px, 2.2vw, 23px);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
@@ -204,6 +216,12 @@
   --tracking-eyebrow-wide: 0.24em;
   /* integrations 텔레메트리 채널명·상태(0.12em) — caps(0.16)와 widest(0.1) 사이 한 칸. */
   --tracking-caps-sm: 0.12em;
+  /* markets — 대문자 라벨 0.02em(regionName·feedTitle·briefLabel) · 제목 타이트 -0.02em(headTitle) ·
+     가격 수치 -0.01em(cardPrice). 내장 tracking 사다리(wide 0.025 / tight -0.025) 밖의 정확한
+     디자인 의도값이라 이름을 준다(픽셀 보존 · caps 계열과 같은 논리). */
+  --tracking-label: 0.02em;
+  --tracking-title: -0.02em;
+  --tracking-price: -0.01em;
 
   /* control 히어로 상단 패딩 — clamp 유동값(규약 3). `pt-hero-y` 로 쓴다. */
   --spacing-hero-y: clamp(28px, 7vh, 72px);
@@ -212,6 +230,8 @@
   --spacing-hero-px: clamp(20px, 2.6vw, 30px);
   /* ledger 퍼널 5단계 막대 사이 간격(clamp 유동값). */
   --spacing-funnel-gap: clamp(10px, 1.8vw, 22px);
+  /* markets 헤더/스켈레톤 상단 마진 — clamp 유동값(규약 3). `mt-markets-head-y` 로 쓴다. */
+  --spacing-markets-head-y: clamp(12px, 2.4vh, 22px);
 
   /* 폭 상한(control) — 힌트 문단·잡/기록 topic 말줄임 캡. 임의값(`max-w-[640px]`) 대신 이름. */
   --container-hint: 640px;

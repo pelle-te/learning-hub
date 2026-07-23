@@ -199,6 +199,7 @@ export default tseslint.config(
       'src/features/integrations/**/*.tsx',
       'src/features/degree/**/*.tsx',
       'src/features/journal/**/*.tsx',
+      'src/features/markets/**/*.tsx',
     ],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },

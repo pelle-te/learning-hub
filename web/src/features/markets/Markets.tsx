@@ -5,6 +5,12 @@
    ③ 온디맨드 AI 브리핑 — 버튼을 누르면 그날 지수+헤드라인을 묶어 로컬 Ollama가 해설(자동 실행 X).
    데이터는 증시_수집.py 가 모은다(지연·EOD일 수 있음). 워크스페이스가 없거나 미수집이면 우아 안내.
    ⚠ 상승=초록/하락=빨강(글로벌 관례)이되, 방향은 ▲▼ 글리프+부호+aria-label로도 표기(색 비의존).
+
+   ── C-7 이식(markets) — Tailwind ──────────────────────────────────────────────
+   방향(up/down/flat) 별 관계형 규칙(`.card[data-dir]`·`.cardPct[data-dir]`·`.spark[data-dir]
+   polyline`)은 정적 클래스 맵으로 자식에 직접 준다(규약 4 · §15 부칙 · 동적 조립 금지). 테두리 색은
+   border 폭(base)과 분리해 얹는다(TelemetryConsole 채널과 같은 처리 — 같은 border-color 유틸이
+   겹쳐 no-conflicting 이 걸리지 않게). 등락 믹스색은 --line-good/--line-bad 로 토큰화했다.
 ============================================================ */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -24,10 +30,32 @@ import { useApp } from '@/store/useApp';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromNews, PROMOTE_TOAST } from '@/lib/promote';
 import ds from '@/styles/ds.module.css';
-import m from './Markets.module.css';
 
 const DIR_GLYPH = { up: '▲', down: '▼', flat: '＝' } as const;
 const DIR_WORD = { up: '상승', down: '하락', flat: '보합' } as const;
+type Dir = 'up' | 'down' | 'flat';
+// 방향별 정적 클래스 맵(§15 부칙 · 동적 조립 금지) — 상승=good/하락=bad/보합=mut. 테두리 색은 border
+// 폭과 분리해 flat 도 명시(border-line)한다(같은 border-color 유틸 중복 → no-conflicting 회피).
+const CARD_DIR: Record<Dir, string> = {
+  up: 'border-line-good',
+  down: 'border-line-bad',
+  flat: 'border-line',
+};
+const PCT_DIR: Record<Dir, string> = {
+  up: 'text-good',
+  down: 'text-bad',
+  flat: 'text-mut',
+};
+const SPARK_DIR: Record<Dir, string> = {
+  up: 'stroke-good',
+  down: 'stroke-bad',
+  flat: 'stroke-mut',
+};
+// 반복 셸 클래스 — wrap(4곳)·빈 상태 호스트(2곳)·AI 브리핑 busy/alert(2곳)·브리핑 리스트(2곳).
+const WRAP = 'flex h-full min-h-0 min-w-0 flex-col px-6 pb-5 max-mobile:px-3.5 max-mobile:pb-3.5';
+const EMPTY_HOST = 'grid min-h-0 flex-1 place-items-center p-6';
+const PANEL_BUSY = 'flex flex-wrap items-center justify-center gap-2.5 px-1 py-7 text-base14 text-mut';
+const BRIEF_LIST = 'm-0 pl-4.5 text-md leading-[1.6] text-txt';
 // 리드 지표 심볼 — 상단 리드아웃의 대표 지수(국내 투자자 기준 KOSPI). 수집 피드(_증시/feeds.json)에
 // 이 심볼이 있어야 표시되고, 피드에서 빠지면 첫 지수로 무음 폴백한다(피드↔리드아웃 커플링).
 const LEAD_SYMBOL = '^KS11';
@@ -147,15 +175,15 @@ export default function Markets() {
     if (phase === 'loading') {
       // 지수 카드 형상 스켈레톤 — 무엇이 올지 예고하고 팝인 레이아웃 점프를 없앤다.
       return (
-        <section className={m.wrap} aria-label="증시 동향">
-          <span className={m.srOnly} role="status">
+        <section className={WRAP} aria-label="증시 동향">
+          <span className={ds.srOnly} role="status">
             증시 동향 불러오는 중…
           </span>
-          <div className={m.skeleBoard} aria-hidden="true">
+          <div className="mt-markets-head-y flex flex-col gap-3" aria-hidden="true">
             <Skeleton width={120} height={14} />
-            <div className={m.grid}>
+            <div className="grid grid-cols-markets-idx gap-2.5">
               {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} className={m.skeleCard}>
+                <div key={i} className="flex flex-col gap-2 rounded-base border border-line bg-panel px-3.25 py-3">
                   <Skeleton width="55%" height={13} />
                   <Skeleton width="70%" height={20} />
                   <Skeleton width="38%" height={13} />
@@ -170,16 +198,16 @@ export default function Markets() {
     if (phase === 'error') {
       const errorMessage = artifactErrorMessage(markets.error);
       return (
-        <section className={m.wrap} aria-label="증시 동향">
-          <div className={m.emptyHost}>
+        <section className={WRAP} aria-label="증시 동향">
+          <div className={EMPTY_HOST}>
             <ArtifactError label="증시 데이터를" detail={errorMessage} onRetry={() => void markets.refetch()} />
           </div>
         </section>
       );
     }
     return (
-      <section className={m.wrap} aria-label="증시 동향">
-        <div className={m.emptyHost}>
+      <section className={WRAP} aria-label="증시 동향">
+        <div className={EMPTY_HOST}>
           <ArtifactGate
             online={online}
             onRetry={() => {
@@ -205,14 +233,16 @@ export default function Markets() {
   }
 
   return (
-    <section className={m.wrap} aria-label="증시 동향">
+    <section className={WRAP} aria-label="증시 동향">
       {/* 헤더 — 날짜/지연 안내 + 수집 + AI 브리핑 */}
-      <header className={m.head}>
-        <div className={m.headInfo}>
-          <h2 className={m.headTitle}>증시 동향</h2>
-          <span className={m.headNote}>지수는 지연·최근 종가 기준일 수 있어요 · 뉴스는 원문 링크</span>
+      <header className="mt-markets-head-y mb-3.5 flex flex-none flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 className="m-0! text-markets-title! font-black! tracking-title!">증시 동향</h2>
+          <span className="text-xs leading-[1.6] text-mut">
+            지수는 지연·최근 종가 기준일 수 있어요 · 뉴스는 원문 링크
+          </span>
         </div>
-        <div className={m.headActions}>
+        <div className="inline-flex items-center gap-2">
           <Button
             sm
             onClick={() => void collect()}
@@ -227,29 +257,37 @@ export default function Markets() {
         </div>
       </header>
 
-      <div className={m.cols}>
+      <div className="grid min-h-0 flex-1 grid-cols-markets gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_auto] max-mobile:overflow-y-auto">
         {/* 지수 보드 — 지역별 카드 그리드 */}
-        <div className={m.board}>
+        <div className="flex min-h-0 [scrollbar-width:thin] flex-col gap-4 overflow-y-auto pr-1 max-mobile:overflow-visible">
           {regions.map(([region, list]) => (
-            <section key={region} className={m.region} aria-label={region}>
-              <h3 className={m.regionName}>{region}</h3>
-              <div className={m.grid}>
+            <section key={region} className="flex flex-col gap-2" aria-label={region}>
+              <h3 className="m-0! text-sm! leading-[1.6]! font-extrabold! tracking-label text-mut uppercase">
+                {region}
+              </h3>
+              <div className="grid grid-cols-markets-idx gap-2.5">
                 {list.map((i) => (
                   <IndexCard key={i.symbol} q={i} />
                 ))}
               </div>
             </section>
           ))}
-          {!indices.length && <div className={m.boardEmpty}>지수 데이터를 가져오지 못했어요(뉴스만 표시).</div>}
+          {!indices.length && (
+            <div className="px-1 py-3 text-md leading-[1.6] text-mut">
+              지수 데이터를 가져오지 못했어요(뉴스만 표시).
+            </div>
+          )}
         </div>
 
         {/* 뉴스 피드 — "왜 움직였나" 칼럼·뉴스 */}
-        <aside className={m.feed} aria-label="금융 뉴스">
-          <div className={m.feedHead}>
-            <h3 className={m.feedTitle}>왜 이렇게 움직였나 · 뉴스·칼럼</h3>
+        <aside className="flex min-h-0 flex-col gap-2.5" aria-label="금융 뉴스">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="m-0! flex-none text-sm! leading-[1.6]! font-extrabold! tracking-label text-mut uppercase">
+              왜 이렇게 움직였나 · 뉴스·칼럼
+            </h3>
             {newsFields.length > 1 && (
               <select
-                className={m.feedFilter}
+                className="flex-none px-1.5! py-0.75! text-xs! leading-[1.6]!"
                 value={newsField}
                 onChange={(e) => setNewsField(e.target.value)}
                 aria-label="뉴스 분야 필터"
@@ -264,13 +302,15 @@ export default function Markets() {
             )}
           </div>
           {shownNews.length ? (
-            <ul className={m.newsList}>
+            <ul className="m-0 flex min-h-0 flex-1 [scrollbar-width:thin] list-none flex-col gap-2 overflow-y-auto p-0 max-mobile:overflow-visible">
               {shownNews.map((n) => (
                 <NewsCard key={n.id} n={n} onPromote={promoteNews} promoted={promoted} />
               ))}
             </ul>
           ) : (
-            <div className={m.boardEmpty}>{news.length ? '이 분야의 뉴스가 없어요.' : '수집된 뉴스가 없어요.'}</div>
+            <div className="px-1 py-3 text-md leading-[1.6] text-mut">
+              {news.length ? '이 분야의 뉴스가 없어요.' : '수집된 뉴스가 없어요.'}
+            </div>
           )}
         </aside>
       </div>
@@ -279,23 +319,30 @@ export default function Markets() {
       <DetailDrawer open={briefOpen} onClose={closeBrief} title="🤖 오늘의 증시 브리핑">
         {brief.busy ? (
           <>
-            <div className={m.panelBusy} role="status">
+            <div className={PANEL_BUSY} role="status">
               <span className={ds.spin} /> {brief.preview ? '해설을 쓰는 중…' : '그날 지수와 뉴스를 엮는 중…'}
             </div>
             {/* 스트리밍 미리보기 — 완성된 문장부터 타이핑되듯 나타난다(SR에는 위 status만 공지). */}
             {brief.preview && (
-              <p className={m.briefStream} aria-hidden="true">
+              <p
+                className="m-0 px-1 pb-3 text-md leading-[1.65] break-words whitespace-pre-wrap text-mut"
+                aria-hidden="true"
+              >
                 {brief.preview}
               </p>
             )}
           </>
         ) : briefResult ? (
           <div ref={briefResultRef} tabIndex={-1} aria-label="오늘의 증시 브리핑 결과">
-            {briefResult.overview && <p className={m.briefOverview}>{briefResult.overview}</p>}
+            {briefResult.overview && (
+              <p className="mt-0 mb-3.5 text-lg leading-[1.65] text-txt">{briefResult.overview}</p>
+            )}
             {briefResult.drivers?.length ? (
-              <div className={m.briefGroup}>
-                <span className={m.briefLabel}>오늘의 동인</span>
-                <ul className={m.driverList}>
+              <div className="mt-3">
+                <span className="mb-1.25 inline-block text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase">
+                  오늘의 동인
+                </span>
+                <ul className={BRIEF_LIST}>
                   {briefResult.drivers.map((d, i) => (
                     <li key={i}>
                       <b>{d.title}</b>
@@ -306,18 +353,26 @@ export default function Markets() {
               </div>
             ) : null}
             {briefResult.watch?.length ? (
-              <div className={m.briefGroup}>
-                <span className={m.briefLabel}>지켜볼 점</span>
-                <ul className={m.watchList}>
+              <div className="mt-3">
+                <span className="mb-1.25 inline-block text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase">
+                  지켜볼 점
+                </span>
+                <ul className={BRIEF_LIST}>
                   {briefResult.watch.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
               </div>
             ) : null}
-            {briefResult.caveat && <p className={m.briefCaveat}>{briefResult.caveat}</p>}
+            {briefResult.caveat && (
+              <p className="mt-3.5 mb-0 border-t border-line2 pt-2.5 text-xs leading-[1.5] text-mut">
+                {briefResult.caveat}
+              </p>
+            )}
             {markets.data?.at && (
-              <p className={m.briefStamp}>기준 데이터: {markets.data.at.slice(0, 16).replace('T', ' ')} 수집</p>
+              <p className="mt-2 mb-0 text-xs leading-[1.6] text-mut tabular-nums">
+                기준 데이터: {markets.data.at.slice(0, 16).replace('T', ' ')} 수집
+              </p>
             )}
             {/* 최신 데이터로 다시 해설 — 드로어를 닫지 않고 재생성(옛 전면 재수집 없이). */}
             <Button
@@ -334,7 +389,7 @@ export default function Markets() {
             </Button>
           </div>
         ) : (
-          <div className={m.panelBusy} role="alert">
+          <div className={PANEL_BUSY} role="alert">
             <span>{briefErr || '브리핑을 불러오지 못했어요.'}</span>
             <Button
               sm
@@ -363,21 +418,22 @@ const IndexCard = memo(function IndexCard({ q }: { q: IndexQuote }) {
   const chAbs = `${chSign}${Math.abs(q.change).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}`;
   return (
     <div
-      className={m.card}
-      data-dir={d}
+      className={`flex flex-col gap-1.5 rounded-base border bg-panel px-3.25 py-3 transition-colors duration-[0.14s] ease-[var(--ease)] ${CARD_DIR[d]}`}
       /* role 없는 div의 aria-label은 무시된다(ARIA 1.2) — group으로 유효화 */
       role="group"
       aria-label={`${q.name}, ${DIR_WORD[d]} ${Math.abs(q.changePct).toFixed(2)}퍼센트, 현재 ${price}${q.currency ? ' ' + q.currency : ''}`}
     >
-      <div className={m.cardTop}>
-        <span className={m.cardName}>{q.name}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-md font-bold text-txt">{q.name}</span>
         <Spark spark={q.spark} d={d} />
       </div>
-      <div className={m.cardPrice}>
+      <div className="text-xl leading-[1.6] font-black tracking-price text-txt tabular-nums">
         {price}
-        {q.currency ? <span className={m.cardCurrency}> {q.currency}</span> : null}
+        {q.currency ? (
+          <span className="text-xs leading-[1.6] font-semibold tracking-normal text-mut"> {q.currency}</span>
+        ) : null}
       </div>
-      <div className={m.cardPct} data-dir={d}>
+      <div className={`text-md font-extrabold tabular-nums ${PCT_DIR[d]}`}>
         <span aria-hidden="true">{DIR_GLYPH[d]}</span> {chAbs} ({fmtPct(q.changePct)})
       </div>
     </div>
@@ -385,8 +441,8 @@ const IndexCard = memo(function IndexCard({ q }: { q: IndexQuote }) {
 });
 
 /** 미니 스파크라인(최근 종가) — 의존성 없는 인라인 SVG polyline. */
-function Spark({ spark, d }: { spark: number[]; d: 'up' | 'down' | 'flat' }) {
-  if (!spark || spark.length < 2) return <span className={m.sparkEmpty} aria-hidden="true" />;
+function Spark({ spark, d }: { spark: number[]; d: Dir }) {
+  if (!spark || spark.length < 2) return <span className="inline-block h-5 w-14" aria-hidden="true" />;
   const W = 56;
   const H = 20;
   const min = Math.min(...spark);
@@ -400,8 +456,8 @@ function Spark({ spark, d }: { spark: number[]; d: 'up' | 'down' | 'flat' }) {
     })
     .join(' ');
   return (
-    <svg className={m.spark} width={W} height={H} viewBox={`0 0 ${W} ${H}`} data-dir={d} aria-hidden="true">
-      <polyline points={pts} fill="none" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+    <svg className="flex-none overflow-visible" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+      <polyline className={SPARK_DIR[d]} points={pts} fill="none" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -421,22 +477,27 @@ const NewsCard = memo(function NewsCard({
   const safeUrl = /^https?:\/\//i.test(n.url) ? n.url : undefined;
   const done = promoted.has(newsKey(n)); // 이미 승격했으면 버튼 잠금(중복 백로그 방지, SR-4)
   return (
-    <li className={m.newsItem}>
-      <a className={m.newsLink} href={safeUrl} target="_blank" rel="noreferrer noopener">
-        <div className={m.newsMeta}>
-          <span className={m.newsSource}>{n.source}</span>
-          {n.field ? <span className={m.newsField}>{n.field}</span> : null}
-          {fmtPublished(n.published) ? <span className={m.newsTime}>{fmtPublished(n.published)}</span> : null}
-          <span className={m.newsGo} aria-hidden="true">
+    <li className="flex flex-col gap-1">
+      <a
+        className="flex flex-col gap-1.25 rounded-md border border-line bg-panel px-3.25 py-2.75 transition-colors duration-[0.14s] ease-[var(--ease)] hover:border-line-acc-hover hover:bg-acc-soft"
+        href={safeUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        <div className="flex items-center gap-1.75 text-xs leading-[1.6] font-bold">
+          <span className="text-acc">{n.source}</span>
+          {n.field ? <span className="rounded-sm border border-line px-1.25 text-mut">{n.field}</span> : null}
+          {fmtPublished(n.published) ? <span className="font-medium text-mut">{fmtPublished(n.published)}</span> : null}
+          <span className="ml-auto text-mut" aria-hidden="true">
             ↗
           </span>
         </div>
-        <div className={m.newsTitle}>{n.title}</div>
-        {n.summary ? <div className={m.newsSummary}>{n.summary}</div> : null}
+        <div className="text-base14 leading-[1.4] font-bold text-txt">{n.title}</div>
+        {n.summary ? <div className="line-clamp-2 text-sm leading-[1.5] text-mut">{n.summary}</div> : null}
       </a>
       <button
         type="button"
-        className={m.newsPromote}
+        className="self-start border-none! bg-transparent! px-1! py-0.75! text-xs! leading-[1.6]! font-bold! text-mut!"
         onClick={() => onPromote(n)}
         disabled={done}
         title={done ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}

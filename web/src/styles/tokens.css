@@ -194,6 +194,11 @@
   --tint-ink: color-mix(in srgb, var(--ink) 8%, transparent);
   --tint-warn-soft: color-mix(in srgb, var(--warn) 12%, transparent);
   --line-warn-strong: color-mix(in srgb, var(--warn) 45%, var(--line));
+
+  /* markets(증시 동향) 이식 — 지수 카드 등락 테두리(상승 good/하락 bad 32% line 믹스).
+     상승=good/하락=bad 는 글로벌 관례이되 방향은 ▲▼·부호·aria-label 로도 표기(색 비의존). */
+  --line-good: color-mix(in srgb, var(--good) 32%, var(--line));
+  --line-bad: color-mix(in srgb, var(--bad) 32%, var(--line));
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──
