@@ -8,8 +8,22 @@ import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
 import ds from '@/styles/ds.module.css';
-import c from './ItemCard.module.css';
 import type { Item } from '@/lib/types';
+
+// 과목명 톤 — 정적 맵(§15). 이름 유무로 색·굵기만 가른다(head 는 div[role=button] 이라
+// 폼 컨트롤이 아니다 → 커스텀 크기 text-item-name 은 LH 를 안 흘리고 본문 1.6 을 상속).
+const NAME_BASE = 'min-w-0 flex-1 truncate text-item-name tracking-title max-mobile:text-item-name-sm';
+const NAME_FILLED = 'font-extrabold text-txt';
+const NAME_EMPTY = 'font-bold text-mut';
+// ProgressRing 스켈레톤(ds.ringTrack/.ringArc) 조정 — 과목 틴트·얇은 5px·짧은 전이.
+// px·런타임 --tint 값이라 임의값 클래스로 표현 불가(예외 ②) → 인라인 커스텀 속성.
+const RING_VARS: CSSProperties = {
+  ['--ring-w' as string]: 5,
+  ['--ring-tint' as string]: 'var(--tint, var(--acc))',
+  ['--ring-glow-r' as string]: '6px',
+  ['--ring-glow' as string]: 'color-mix(in srgb, var(--tint, var(--glow)) 55%, transparent)',
+  ['--ring-dur' as string]: '0.5s',
+};
 
 export interface ItemCardProps {
   item: Item;
@@ -59,12 +73,12 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`${c.row} ${ds.spotHost} ${ds.glow}`}
+      className={`${ds.spotHost} ${ds.glow} relative self-start rounded-lg border border-line bg-panel bg-[image:var(--bg-item-card)] shadow-card`}
       style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
     >
       <div className={ds.spotlight} aria-hidden="true" />
       <div
-        className={c.head}
+        className="relative flex cursor-pointer flex-col gap-4 pt-4 pr-4.5 pb-4 pl-5 select-none focus-visible:rounded-lg! focus-visible:-outline-offset-2!"
         role="button"
         tabIndex={0}
         aria-haspopup="dialog"
@@ -76,9 +90,12 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
           }
         }}
       >
-        <span className={c.colorRail} style={{ background: item.color || 'var(--acc)' }} />
-        <div className={c.idRow}>
-          <span className={`${c.name}${item.name ? '' : ' ' + c.nameEmpty}`}>{item.name || '(이름 없음)'}</span>
+        <span
+          className="absolute top-3 bottom-3 left-0 w-0.75 rounded-r-cell shadow-rail"
+          style={{ background: item.color || 'var(--acc)' }}
+        />
+        <div className="flex items-center gap-2.5">
+          <span className={`${NAME_BASE} ${item.name ? NAME_FILLED : NAME_EMPTY}`}>{item.name || '(이름 없음)'}</span>
           {item.deadline && (
             <Pill tiny tone={ddTone}>
               {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
@@ -94,20 +111,21 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
               ⚠ 반복 {weakCount}
             </Pill>
           )}
-          <span className={c.chev} aria-hidden="true">
+          <span className="w-3.5 flex-none text-center text-sm leading-[1.6] text-mut" aria-hidden="true">
             ›
           </span>
         </div>
-        <div className={c.statRow}>
+        <div className="flex items-center gap-4.5">
           {daily ? (
-            <div className={c.bigStat}>
+            <div className="text-2xl leading-[1.6] font-extrabold text-txt tabular-nums">
               매일 {item.dailyMin || 30}
-              <small> 분</small>
+              <small className="text-sm leading-[1.6] font-semibold text-mut"> 분</small>
             </div>
           ) : (
             <>
               <span
-                className={c.ring}
+                className="relative size-12 flex-none"
+                style={RING_VARS}
                 role="img"
                 aria-label={`완료 챕터 ${doneCh}/${chs.length}`}
                 data-tip={`완료 챕터 ${doneCh}/${chs.length} · 약 ${totalH}h`}
@@ -120,33 +138,33 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
                   trackClassName={ds.ringTrack}
                   arcClassName={ds.ringArc}
                 />
-                <span className={c.ringNum}>
+                <span className="absolute inset-0 flex items-center justify-center text-base14 font-extrabold tracking-ringnum text-txt tabular-nums">
                   {prog}
-                  <small>%</small>
+                  <small className="text-ring-pct-unit font-bold text-mut">%</small>
                 </span>
               </span>
-              <div className={c.stats}>
-                <div className={c.stat}>
-                  <span className={c.statV}>
+              <div className="flex gap-5 max-mobile:gap-4">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xl leading-none font-extrabold tracking-title text-txt tabular-nums">
                     {item.weeklyHours || 0}
-                    <small>h</small>
+                    <small className="text-xs leading-none font-bold text-mut">h</small>
                   </span>
-                  <span className={c.statL}>주당</span>
+                  <span className="text-2xs font-bold tracking-caps-sm text-mut uppercase">주당</span>
                 </div>
-                <div className={c.stat}>
-                  <span className={c.statV}>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xl leading-none font-extrabold tracking-title text-txt tabular-nums">
                     {doneCh}
-                    <small>/{chs.length}</small>
+                    <small className="text-xs leading-none font-bold text-mut">/{chs.length}</small>
                   </span>
-                  <span className={c.statL}>챕터</span>
+                  <span className="text-2xs font-bold tracking-caps-sm text-mut uppercase">챕터</span>
                 </div>
                 {totalH > 0 && (
-                  <div className={c.stat}>
-                    <span className={c.statV}>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xl leading-none font-extrabold tracking-title text-txt tabular-nums">
                       {totalH}
-                      <small>h</small>
+                      <small className="text-xs leading-none font-bold text-mut">h</small>
                     </span>
-                    <span className={c.statL}>분량</span>
+                    <span className="text-2xs font-bold tracking-caps-sm text-mut uppercase">분량</span>
                   </div>
                 )}
               </div>
@@ -154,7 +172,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
           )}
         </div>
         {allocTone && (
-          <div className={c.allocRow}>
+          <div className="flex">
             <Pill tiny tone={allocTone}>
               이번 주 {Number.isInteger(allocMin! / 60) ? allocMin! / 60 : (allocMin! / 60).toFixed(1)}h /{' '}
               {item.weeklyHours}h

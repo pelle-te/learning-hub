@@ -15,7 +15,16 @@ import { allocView, colSumMin, weekMonOf } from '@/lib/weekAlloc';
 import { DOW, parseISO, todayISO } from '@/lib/utils';
 import DayRing from './DayRing';
 import ds from '@/styles/ds.module.css';
-import r from './Skeleton.module.css';
+
+// Skeleton.module.css → Tailwind 이식(C-7). 요일 막대는 '가용 위에 배분 적재' — 선택/초과 상태로
+// 트랙·채움 색이 갈리므로 정적 맵으로 조합한다(§15 · 동적 조립 금지). 높이는 런타임 인라인.
+const LG_BASE = 'mr-1 inline-block size-2.25 rounded-xs';
+// vertical-align:-1px 은 px 임의값이라 클래스로 못 준다(예외 밖) → 인라인 style 로 남긴다.
+const LG_VALIGN = { verticalAlign: '-1px' };
+const WB_BASE =
+  'flex flex-col items-center gap-1 rounded-chip! pt-1.5! px-0.5! pb-1.25! focus-visible:-outline-offset-2!';
+const WB_ON = 'border-line-acc-focus! bg-acc-soft!';
+const WB_OFF = 'border-transparent! bg-transparent! hover:bg-panel2!';
 
 export function AvailRail() {
   const state = useApp((s) => s.state);
@@ -53,11 +62,16 @@ export function AvailRail() {
   const shortfall = requiredH > 0 && availH < requiredH;
 
   return (
-    <aside className={r.sigCol} aria-label="가용시간">
-      <div className={`${ds.card} ${r.sigCard}`}>
-        <div className={r.sigColHead}>
+    <aside
+      className="flex min-w-0 [scrollbar-width:thin] flex-col gap-3 overflow-y-auto pt-5 pr-5.5 pb-5 pl-1.5 max-wide:px-5.5 max-wide:pt-2 max-wide:pb-5"
+      aria-label="가용시간"
+    >
+      <div className={`${ds.card} mb-0! flex flex-col items-center gap-4.5`}>
+        <div className="flex w-full items-baseline justify-between text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
           가용시간 — AVAILABILITY
-          <span className={r.sigDow}>{DOW[ringDow]}요일</span>
+          <span className="text-sm leading-[1.6] font-extrabold tracking-normal text-acc normal-case">
+            {DOW[ringDow]}요일
+          </span>
         </div>
         <DayRing
           dow={DOW[ringDow]!}
@@ -69,22 +83,22 @@ export function AvailRail() {
           nowMin={ringDow === todayDow ? nowMin : null}
           peak={peak}
         />
-        <span className={r.sigLegend}>
+        <span className="flex gap-3 text-2xs font-bold text-mut">
           <span>
-            <i className={r.lgFree} />
+            <i className={`${LG_BASE} bg-acc shadow-dot`} style={LG_VALIGN} />
             공부 가능
           </span>
           <span>
-            <i className={r.lgBlock} />
+            <i className={`${LG_BASE} bg-[var(--ring-block)]`} style={LG_VALIGN} />
             일과
           </span>
           <span>
-            <i className={r.lgSleep} />
+            <i className={`${LG_BASE} bg-[var(--ring-sleep)]`} style={LG_VALIGN} />
             수면
           </span>
         </span>
         {/* tablist 계약(화살표 이동·tabpanel) 미이행 → group+aria-pressed가 정직(WCAG 4.1.2). */}
-        <div className={r.wkbars} role="group" aria-label="요일 선택" style={{ width: '100%' }}>
+        <div className="grid w-full grid-cols-[repeat(7,1fr)] gap-1.25 text-center" role="group" aria-label="요일 선택">
           {DOW.map((d, i) => {
             const hrs = free[i]!.freeMin / 60;
             const max = Math.max(1, ...free.map((f) => f.freeMin / 60));
@@ -93,43 +107,54 @@ export function AvailRail() {
             const usedMin = allocWd[i] || 0;
             const over = capMin > 0 && usedMin > capMin;
             const loadPct = capMin > 0 ? Math.min(100, Math.round((usedMin / capMin) * 100)) : 0;
+            const on = i === ringDow;
+            // 트랙(가용 틀)·채움(배분 적재) 색은 선택/초과로 갈린다 — 정적 조합(§15).
+            const barBg = on ? 'bg-[var(--ring-block-strong)]' : 'bg-[var(--ring-sleep-hover)]';
+            const loadBg = over
+              ? on
+                ? 'bg-bad shadow-load-over'
+                : 'bg-bad'
+              : on
+                ? 'bg-acc shadow-load'
+                : 'bg-[var(--fill-load)]';
             return (
               <button
                 key={d}
                 type="button"
-                aria-pressed={i === ringDow}
-                className={`${r.wb}${i === ringDow ? ' ' + r.wbOn : ''}${i === todayDow ? ' ' + r.wbToday : ''}`}
+                aria-pressed={on}
+                className={`${WB_BASE} ${on ? WB_ON : WB_OFF}`}
                 onClick={() => setRingDow(i)}
                 title={`${d}요일 — 가용 ${hrs.toFixed(1)}h · 배분 ${(usedMin / 60).toFixed(1)}h${over ? ' (초과)' : ''}`}
               >
-                <span className={r.wbBarWrap}>
-                  <span className={r.wbBar} style={{ height: `${Math.round((hrs / max) * 100)}%` }}>
+                <span className="flex h-10 w-2.5 items-end justify-center">
+                  <span
+                    className={`relative flex min-h-0.5 w-full items-end overflow-hidden rounded-cell ${barBg}`}
+                    style={{ height: `${Math.round((hrs / max) * 100)}%` }}
+                  >
                     {/* 배분 적재 — 가용 막대 안을 아래에서 채운다. 초과면 경고색. */}
-                    <span
-                      className={`${r.wbLoad}${over ? ' ' + r.wbLoadOver : ''}`}
-                      style={{ height: `${loadPct}%` }}
-                    />
+                    <span className={`w-full rounded-cell ${loadBg}`} style={{ height: `${loadPct}%` }} />
                   </span>
                 </span>
-                <span className={r.h}>{hrs.toFixed(1)}</span>
-                <span className={r.d}>{d}</span>
+                <span className="text-md font-bold tabular-nums">{hrs.toFixed(1)}</span>
+                <span className={`text-2xs ${i === todayDow ? 'font-extrabold text-acc' : 'text-mut'}`}>{d}</span>
               </button>
             );
           })}
         </div>
-        <div className={r.allocSum}>
-          이번 주 배분 <b>{(allocWeekMin / 60).toFixed(1)}h</b> / 가용 <b>{availH.toFixed(1)}h</b>
+        <div className="w-full text-center text-xs leading-[1.6] text-mut tabular-nums">
+          이번 주 배분 <b className="font-extrabold text-txt">{(allocWeekMin / 60).toFixed(1)}h</b> / 가용{' '}
+          <b className="font-extrabold text-txt">{availH.toFixed(1)}h</b>
         </div>
       </div>
       {requiredH > 0 && (
-        <div className={r.sigHint} style={shortfall ? { color: 'var(--warn)' } : undefined}>
+        <div className={`text-xs leading-[1.5] ${shortfall ? 'text-warn' : 'text-mut'}`}>
           주간 가용 <b>{availH.toFixed(1)}h</b> {shortfall ? '<' : '≥'} 학습 목표 <b>{requiredH.toFixed(1)}h</b>
           {shortfall
             ? ' — 가용시간이 목표에 못 미쳐요. 일과를 줄이거나 학습 항목의 목표를 조정하세요.'
             : ' — 목표를 담을 여유가 있어요.'}
         </div>
       )}
-      <div className={r.sigHint}>
+      <div className="text-xs leading-[1.5] text-mut">
         깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다. 요일별
         배분을 과목별로 손보려면 <b>배치</b> 탭의 배분 보드에서 한눈에.
       </div>

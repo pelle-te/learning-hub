@@ -17,11 +17,21 @@ import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import ds from '@/styles/ds.module.css';
-import c from './SubjectSheet.module.css';
 import type { AppState, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
 
 type Mutate = (recipe: (st: AppState) => void) => void;
+
+// SubjectSheet.module.css → Tailwind 이식(C-7). 상태로 갈리는 것만 정적 맵으로(§15).
+const SEC_TITLE = 'mb-0! text-xs! font-extrabold! tracking-caps text-mut uppercase leading-[1.6]';
+const MODE_BASE = 'rounded-full px-1.75 py-0.5 text-2xs font-extrabold tracking-mode-sub';
+const MODE_AUTO = 'text-mut shadow-inset-line2';
+const MODE_MANUAL = 'text-acc shadow-inset-acc-mid';
+const DAY_BASE =
+  'flex! flex-col items-center gap-1 m-0! cursor-pointer rounded-sm bg-panel px-1 py-2 max-mobile:px-0.5 max-mobile:py-1.5';
+// 정보 노트 — AllocRow(완료 안내)·시트(매일 과목 안내) 공유.
+const NOTE_INFO =
+  'rounded-md bg-tint-acc-faint px-2.75 py-2.25 text-note-info text-mut shadow-inset-acc-faint leading-[1.5]';
 
 /** +/- 스텝퍼 — 분/시간 직관 입력(0 미만 방지·소수 첫째자리 반올림). 옛 ItemCard에서 승계. */
 function Stepper({
@@ -103,16 +113,16 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   const finished = res.itemStat.find((st) => st.id === item.id)?.finished;
 
   return (
-    <div className={c.alloc}>
-      <div className={c.allocHead}>
-        <h3 className={c.secTitle}>이번 주 요일 배분</h3>
-        <span className={`${c.mode}${managed ? ' ' + c.modeManual : ''}`}>{managed ? '내 배분' : '자동 제안'}</span>
+    <div className="flex flex-col gap-2.5 rounded-md bg-panel2 p-3.5 shadow-inset-line2">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className={SEC_TITLE}>이번 주 요일 배분</h3>
+        <span className={`${MODE_BASE} ${managed ? MODE_MANUAL : MODE_AUTO}`}>{managed ? '내 배분' : '자동 제안'}</span>
         <Pill tiny tone={rowTone}>
           {rowLabel}
         </Pill>
       </div>
 
-      <div className={c.days}>
+      <div className="grid grid-cols-7 gap-1.5">
         {DOW_MON.map((lab, i) => {
           const date = addDays(monday, i);
           const wd = date.getDay();
@@ -123,11 +133,12 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
           // 그 요일 '남은 여유' = 가용 − (전 과목 배분). 내 칸을 늘릴 여지를 여기서 읽는다(열 맥락 최소 이식).
           const freeMin = capMin - colSumMin(alloc, wd, validSids);
           const over = capMin > 0 && freeMin < 0;
+          const today = iso(date) === todayIso;
           return (
-            <label key={i} className={`${c.day}${iso(date) === todayIso ? ' ' + c.dayToday : ''}`}>
-              <span className={c.dayDow}>{lab}</span>
+            <label key={i} className={`${DAY_BASE} ${today ? 'shadow-inset-acc' : 'shadow-inset-line2'}`}>
+              <span className={`text-xs leading-[1.6] font-extrabold ${today ? 'text-acc' : 'text-mut'}`}>{lab}</span>
               <NumberField
-                className={c.dayInput}
+                className="min-w-0 text-center font-bold tabular-nums"
                 step={0.5}
                 min={0}
                 value={mine / 60 || 0}
@@ -135,7 +146,9 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
                 onCommit={(v) => setCell(wd, v)}
                 aria-label={`${lab}요일 배분 시간`}
               />
-              <span className={`${c.dayFree}${over ? ' ' + c.dayFreeOver : ''}`}>
+              <span
+                className={`text-day-free whitespace-nowrap tabular-nums max-mobile:hidden ${over ? 'font-extrabold text-bad' : 'text-mut'}`}
+              >
                 {capMin === 0 ? '가용 0' : over ? `초과 ${toH(-freeMin)}h` : `여유 ${toH(freeMin)}h`}
               </span>
             </label>
@@ -144,13 +157,14 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
       </div>
 
       {finished && usedMin > 0 && (
-        <div className={c.noteInfo}>
-          계획상 챕터를 다 배우게 돼 있어 <b>새 학습</b>은 더 안 생겨요 — 복습·Anki만 자동으로 얹혀요.
+        <div className={NOTE_INFO}>
+          계획상 챕터를 다 배우게 돼 있어 <b className="font-bold text-txt">새 학습</b>은 더 안 생겨요 — 복습·Anki만
+          자동으로 얹혀요.
         </div>
       )}
-      <div className={c.allocFoot}>
-        요일 칸은 <b>새 학습</b> 분배예요(복습·Anki는 엔진이 자동으로 얹어요). 전 과목을 요일별로 견주려면{' '}
-        <b>배치 › 배분 보드</b>에서.
+      <div className="text-xs leading-[1.5] text-mut">
+        요일 칸은 <b className="font-bold text-txt">새 학습</b> 분배예요(복습·Anki는 엔진이 자동으로 얹어요). 전 과목을
+        요일별로 견주려면 <b className="font-bold text-txt">배치 › 배분 보드</b>에서.
       </div>
     </div>
   );
@@ -186,8 +200,15 @@ export function SubjectSheet({
 
   return (
     <DetailDrawer open onClose={onClose} title={item.name || '(이름 없음)'} placement="center">
-      <div className={c.body} style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}>
-        <span className={c.rail} style={{ background: item.color || 'var(--acc)' }} aria-hidden="true" />
+      <div
+        className="relative flex flex-col gap-4.5 pl-3"
+        style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
+      >
+        <span
+          className="absolute top-0.5 bottom-0.5 left-0 w-0.75 rounded-cell opacity-90"
+          style={{ background: item.color || 'var(--acc)' }}
+          aria-hidden="true"
+        />
 
         <div className={ds.fieldgrid}>
           <div className={`${ds.fld} ${ds.wide}`}>
@@ -250,8 +271,9 @@ export function SubjectSheet({
 
         {/* 배분은 주간(new) 과목만 — 매일(Anki) 과목은 엔진이 매일 자동으로 얹는다(보드 행에도 없음). */}
         {daily ? (
-          <div className={c.noteInfo}>
-            <b>매일(Anki)</b> 과목은 요일 배분 없이 매일 자동으로 잡혀요. 요일별로 나눠 넣으려면 유형을 <b>주당 시간</b>
+          <div className={NOTE_INFO}>
+            <b className="font-bold text-txt">매일(Anki)</b> 과목은 요일 배분 없이 매일 자동으로 잡혀요. 요일별로 나눠
+            넣으려면 유형을 <b className="font-bold text-txt">주당 시간</b>
             으로 바꾸세요.
           </div>
         ) : (
@@ -260,7 +282,7 @@ export function SubjectSheet({
 
         {/* ChapterEditor가 자체 헤더('📘 챕터 N개 · 약 Nh')를 갖고 있어 제목을 덧대지 않는다(중복). */}
         {!daily && (
-          <div className={c.chapters}>
+          <div className="flex flex-col gap-2">
             <ChapterEditor item={item} mutate={mutate} />
           </div>
         )}

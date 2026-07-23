@@ -33,7 +33,6 @@ import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import DetailDrawer from '@/components/DetailDrawer';
 import ds from '@/styles/ds.module.css';
-import c from './Items.module.css';
 import type { Item } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 import { VaultImport } from './VaultImport';
@@ -259,16 +258,19 @@ export default function Items() {
   const sheetItem = sheetId ? items.find((i) => i.id === sheetId) : null;
 
   return (
-    <section className={c.wrap} aria-label="과목">
-      <div className={c.header}>
-        <div className={c.lead}>
-          <h2 className={c.eyebrow}>과목{n ? ` · ${n}과목` : ''}</h2>
-          <div className={c.hint}>
-            카드를 누르면 <b>그 과목의 목표·챕터·요일 배분</b>을 한 창에서 정해요. 순서는 드래그 또는 <b>Alt+↑↓</b>
+    <section className="flex h-full min-h-0 min-w-0 flex-col" aria-label="과목">
+      <div className="flex flex-none items-center gap-3.5 pt-4.5 pr-5.5 pb-3.5 pl-5.5 max-narrow:px-3.5 max-narrow:pt-3.5 max-narrow:pb-2.5">
+        <div className="min-w-0">
+          <h2 className="mb-0! text-xs! leading-[1.6] font-extrabold! tracking-eyebrow! text-acc! uppercase">
+            과목{n ? ` · ${n}과목` : ''}
+          </h2>
+          <div className="mt-1 text-hint leading-[1.4] text-mut">
+            카드를 누르면 <b className="font-bold text-txt">그 과목의 목표·챕터·요일 배분</b>을 한 창에서 정해요. 순서는
+            드래그 또는 <b className="font-bold text-txt">Alt+↑↓</b>
             (키보드).
           </div>
         </div>
-        <div className={c.actions}>
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
           {n > 1 && (
             <Button sm variant="ghost" onClick={recolorAll} title="모든 과목 색을 새 팔레트 순서로 재배정">
               색 재배정
@@ -292,24 +294,29 @@ export default function Items() {
       {/* 뼈대 스트립 — 상시로는 요약만(가용·수업·일과). 누르면 과목과 **같은 중앙 시트**로 편집기가 뜬다.
           제자리 펼침을 쓰지 않는 이유는 ItemCard 아코디언을 걷어낸 이유와 같다: 뒤 갤러리가 아래로 밀려
           조망이 깨진다. 같은 탭 안에서 '펼침'과 '시트' 두 어휘를 섞지 않는다(일관성). */}
-      <div className={c.skeleton}>
-        <button type="button" className={c.skelBar} onClick={() => setShowSkeleton(true)} aria-haspopup="dialog">
-          <span className={c.skelChev} aria-hidden="true">
+      <div className="flex-none px-5.5 max-narrow:px-3.5">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2.5 rounded-md! border-line2! py-2.25! pr-3.5! pl-3.5! text-left text-sm! leading-[normal]"
+          onClick={() => setShowSkeleton(true)}
+          aria-haspopup="dialog"
+        >
+          <span className="w-3 flex-none text-xs leading-[normal] text-mut" aria-hidden="true">
             ›
           </span>
-          <span className={c.skelTitle}>뼈대</span>
-          <span className={c.skelStat}>
-            가용 <b>{(weekFreeMin / 60).toFixed(1)}h</b>/주
+          <span className="flex-none text-skel-title font-extrabold tracking-skel text-acc uppercase">뼈대</span>
+          <span className="whitespace-nowrap text-mut tabular-nums">
+            가용 <b className="font-extrabold text-txt">{(weekFreeMin / 60).toFixed(1)}h</b>/주
           </span>
-          <span className={c.skelSep} aria-hidden="true" />
-          <span className={c.skelStat}>
-            수업 <b>{classCount}</b>
+          <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
+          <span className="whitespace-nowrap text-mut tabular-nums">
+            수업 <b className="font-extrabold text-txt">{classCount}</b>
           </span>
-          <span className={c.skelSep} aria-hidden="true" />
-          <span className={c.skelStat}>
-            일과 <b>{blockCount}</b>
+          <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
+          <span className="whitespace-nowrap text-mut tabular-nums">
+            일과 <b className="font-extrabold text-txt">{blockCount}</b>
           </span>
-          <span className={c.skelHint}>수업·일과 편집</span>
+          <span className="ml-auto text-xs leading-[normal] whitespace-nowrap text-mut">수업·일과 편집</span>
         </button>
       </div>
 
@@ -323,14 +330,14 @@ export default function Items() {
       </DetailDrawer>
 
       {showImport && (
-        <div className={c.importWrap}>
+        <div className="flex-none pt-2.5 pr-5.5 pb-0 pl-5.5 max-narrow:px-3.5">
           <VaultImport onClose={() => setShowImport(false)} />
         </div>
       )}
 
-      <div className={c.cols}>
+      <div className="grid min-h-0 flex-1 grid-cols-items-cols max-wide:grid-cols-1 max-wide:overflow-y-auto">
         {items.length === 0 ? (
-          <div className={c.empty}>
+          <div className="px-5.5 pt-1.5 pb-5.5">
             <div className={ds.card}>
               <EmptyState
                 glyph="📚"
@@ -359,7 +366,7 @@ export default function Items() {
             </div>
           </div>
         ) : (
-          <div className={c.gallery}>
+          <div className="grid min-h-0 [scrollbar-width:thin] grid-cols-gallery content-start gap-3.5 overflow-y-auto pt-1.5 pr-4 pb-5.5 pl-5.5 max-wide:overflow-visible max-wide:px-5.5 max-wide:pt-1.5 max-wide:pb-2 max-narrow:grid-cols-1 max-narrow:px-3.5 max-narrow:pt-1.5 max-narrow:pb-4.5">
             {items.map((s) => (
               /* 드래그 재정렬의 키보드 대안이 같은 요소에 있다 — 아래 onKeyDown 의 Alt+↑↓.
                  이 래퍼는 일부러 포커스를 안 받는다(카드마다 탭 스톱을 늘리지 않으려고);
@@ -369,7 +376,7 @@ export default function Items() {
               <div
                 key={s.id}
                 data-item-id={s.id}
-                className={`${c.dragWrap}${overId === s.id && dragId !== s.id ? ' ' + c.dragOver : ''}${dragId === s.id ? ' ' + c.dragging : ''}`}
+                className={`cursor-grab rounded-drag transition-opacity duration-150 ease-[var(--ease)]${overId === s.id && dragId !== s.id ? ' outline-2 outline-offset-2 outline-acc outline-dashed' : ''}${dragId === s.id ? ' opacity-45' : ''}`}
                 draggable
                 onDragStart={(e) => {
                   setDragId(s.id);

@@ -15,7 +15,11 @@ import { idbPut } from '@/lib/idb';
 import { makeItem, jsq } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import c from './Items.module.css';
+
+// Items.module.css → Tailwind 이식(C-7) 잔여 3종. 볼트/Anki 스캔 결과의 컴팩트 행.
+const VAULT_LIST = 'mt-2.5 flex max-h-[var(--vault-list-vh)] flex-col gap-1.5 overflow-y-auto';
+const VAULT_ROW = 'flex items-center gap-2.5 rounded-md bg-panel2 px-2.5 py-1.75 shadow-inset-line2';
+const VAULT_NAME = 'min-w-0 flex-1 truncate text-md font-bold';
 
 export function VaultImport({ onClose }: { onClose?: () => void }) {
   const qc = useQueryClient();
@@ -141,15 +145,15 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
         </div>
       )}
       {scan && (
-        <div className={c.vaultList}>
+        <div className={VAULT_LIST}>
           {scan.subjects.length === 0 ? (
             <div className={`${ds.muted} ${ds.tiny}`}>스캔된 과목이 없어요 — 폴더 구조를 확인하세요.</div>
           ) : (
             scan.subjects.map((s, si) => {
               const added = items.some((x) => x.name === s.name);
               return (
-                <div key={si} className={c.vaultRow}>
-                  <span className={c.vaultName}>{s.name}</span>
+                <div key={si} className={VAULT_ROW}>
+                  <span className={VAULT_NAME}>{s.name}</span>
                   <span className={`${ds.tiny} ${ds.muted}`}>
                     노트 {s.notes} · 챕터 {s.chapters.length}
                   </span>
@@ -163,13 +167,13 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
         </div>
       )}
       {anki && anki.decks.length > 0 && (
-        <div className={c.vaultList}>
+        <div className={VAULT_LIST}>
           {anki.decks.map((d) => {
             const nm = 'Anki: ' + jsq(d.file);
             const added = items.some((x) => x.name === nm);
             return (
-              <div key={d.file} className={c.vaultRow}>
-                <span className={c.vaultName}>🃏 {d.file}</span>
+              <div key={d.file} className={VAULT_ROW}>
+                <span className={VAULT_NAME}>🃏 {d.file}</span>
                 <span className={`${ds.tiny} ${ds.muted}`}>{d.cards}장</span>
                 <Button
                   sm

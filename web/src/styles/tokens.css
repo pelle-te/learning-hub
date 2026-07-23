@@ -257,6 +257,32 @@
     radial-gradient(circle at 6px 6px, var(--mut) 1px, transparent 1.6px),
     radial-gradient(circle at 2px 10px, var(--mut) 1px, transparent 1.6px),
     radial-gradient(circle at 6px 10px, var(--mut) 1px, transparent 1.6px);
+
+  /* ── items(과목 갤러리 · 24h 가용 링 · 뼈대 편집) 이식(C-7) ──────────────────────
+     24h 링 호 색조는 --ink 반투명 사다리(3~40%) · 발광은 drop-shadow 필터 · 과목색 베이크
+     카드/레일은 런타임 --tint 파생. 전부 --ink/--acc/--tint 파생이라 테마·액센트·과목색 전환에
+     자동 대응한다(절대규칙 #3 — 하드코딩 hex 였다면 깨졌다). SVG stroke/filter·CSS 배경은
+     `[stroke:var(…)]`·`bg-[var(…)]` 임의 유틸로 직접 참조하므로 --color-* 브리지는 두지 않는다. */
+  --ring-track: color-mix(in srgb, var(--ink) 5%, transparent); /* 링 트랙 */
+  --ring-sleep: color-mix(in srgb, var(--ink) 7%, transparent); /* 링 수면 호 + 범례 lgSleep */
+  --ring-sleep-hover: color-mix(in srgb, var(--ink) 14%, transparent); /* 링 수면 호 hover + 요일 막대 트랙(wbBar) */
+  --ring-block: color-mix(in srgb, var(--ink) 16%, transparent); /* 링 일과 호 + 범례 lgBlock */
+  --ring-block-strong: color-mix(in srgb, var(--ink) 24%, transparent); /* 선택 요일 막대 트랙(wbOn wbBar) */
+  --ring-block-hover: color-mix(in srgb, var(--ink) 30%, transparent); /* 링 일과 호 hover */
+  --ring-tick: color-mix(in srgb, var(--ink) 22%, transparent); /* 시각 눈금 */
+  --ring-dot-block: color-mix(in srgb, var(--ink) 40%, transparent); /* 라이브 도트(일과) */
+  --tint-ink-faint: color-mix(in srgb, var(--ink) 3%, transparent); /* 요일별 시간 그리드 배경 */
+  --fill-load: color-mix(in srgb, var(--acc) 65%, transparent); /* 요일 막대 배분 채움(비선택) */
+  --line-blk-hover: color-mix(in srgb, var(--acc) 30%, var(--line2)); /* 일과 블록 카드 hover 테두리 */
+  --filter-ring-free: drop-shadow(0 0 5px var(--glow));
+  --filter-ring-free-hover: drop-shadow(0 0 9px var(--glow));
+  --filter-ring-now: drop-shadow(0 0 4px var(--ink));
+  /* 과목 카드 좌상단 색 베이크(런타임 --tint) — bg-[image:var(--)] 로 얹고 아래 bg-panel 이 바탕. */
+  --bg-item-card: radial-gradient(
+    90% 80% at 0% 0%,
+    color-mix(in oklab, var(--tint, var(--acc)) 10%, transparent),
+    transparent 60%
+  );
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

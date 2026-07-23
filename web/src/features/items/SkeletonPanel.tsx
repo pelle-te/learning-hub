@@ -11,8 +11,30 @@ import { ui } from '@/shell';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import r from './Skeleton.module.css';
 import type { AppState } from '@/lib/types';
+
+/* Skeleton.module.css → Tailwind 이식(C-7). 폼 위주라 전역 요소규칙(button/input/select)을
+   `!` 로 이기는 자리가 많다 — 값이 전역과 같으면 클래스 없음, 다를 때만 `!`(§15 · tokenBridge 머리주석).
+   전역 button:hover 가 더 높은 특이도로 로컬 hover 를 덮던 자리는 되살리지 않는다(전역이 이기게 둔다). */
+const CLASSROW = 'mb-1.5 grid grid-cols-classrow items-center gap-1.5 max-narrow:grid-cols-classrow-narrow';
+// 일과 블록 카드 — 왼쪽 색띠(3px·런타임 색)는 인라인 style 로 남긴다(border-left-width/color).
+const BLK =
+  'flex min-w-0 flex-col gap-2.25 rounded-blk border border-line2 px-3 py-2.5 transition-[border-color] duration-[0.14s] ease-[var(--ease)] hover:border-[var(--line-blk-hover)]';
+const BLK_TOP = 'grid grid-cols-blktop items-center gap-2 max-narrow:grid-cols-[1fr_auto]';
+const BLK_TIME = 'flex items-center gap-1.25 max-narrow:col-span-full';
+const DAYS = 'flex flex-wrap items-center gap-0.75';
+const DAYCHIP = 'min-w-7 rounded-chip! px-0! py-1.25! text-sm! leading-[normal] text-mut!';
+const DAYCHIP_ON = 'bg-acc! border-acc! text-on-acc! font-bold! shadow-daychip';
+const DAYCHIP_PRESET = 'min-w-auto bg-transparent! px-1.75! text-xs! hover:text-acc!';
+const DAYSEP = 'mx-0.75 h-4.5 w-px bg-line';
+const PERDAY = 'flex flex-wrap items-center gap-2.5';
+const PERDAY_TOGGLE = 'border-0! bg-transparent! px-0! py-0.5! text-xs! font-bold! text-mut! leading-[normal]';
+const PERDAY_RESET = 'bg-transparent! px-2! py-0.5! text-2xs! font-bold! text-mut!';
+const PERDAY_GRID =
+  'mt-1 flex flex-col gap-1.25 rounded-blk bg-[var(--tint-ink-faint)] px-2.75 py-2.25 shadow-inset-line2';
+const PERDAY_ROW = 'grid grid-cols-perday items-center gap-1.5 max-narrow:grid-cols-perday-narrow';
+const CLS_GRID = 'mt-2.5 grid grid-cols-cls items-start gap-2';
+const BLK_GRID = 'mt-2.5 grid grid-cols-blk items-start gap-2';
 
 /** 시각 입력 — 네이티브 time(15분 스텝). 옛 97개 <option> 셀렉트를 대체(가볍고 키보드·모바일 친화).
     빈 값(지움)은 이전 값을 유지해 무효 상태를 만들지 않는다. */
@@ -67,8 +89,8 @@ function ClassList({ dow }: { dow: number }) {
   return (
     <>
       {cls.map((b) => (
-        <div key={b.id}>
-          <div className={r.classrow}>
+        <div key={b.id} className="min-w-0">
+          <div className={CLASSROW}>
             <input
               type="text"
               value={b.name}
@@ -77,7 +99,7 @@ function ClassList({ dow }: { dow: number }) {
               onChange={(e) => upd(b.id, 'name', e.target.value)}
             />
             <TimeSelect value={b.start} onChange={(v) => upd(b.id, 'start', v)} label="시작 시각" />
-            <span className={r.csep}>~</span>
+            <span className="text-center text-mut max-narrow:hidden">~</span>
             <TimeSelect value={b.end} onChange={(v) => upd(b.id, 'end', v)} label="끝 시각" />
             <Button sm variant="ghost" danger onClick={() => del(b.id, b.name)} aria-label="삭제" title="삭제">
               ✕
@@ -141,18 +163,22 @@ function BlockList() {
   return (
     <>
       {blocks.map((b) => (
-        <div key={b.id} className={r.blk} style={{ borderLeftColor: BLOCK_TYPES[b.type] || 'var(--line2)' }}>
-          <div className={r.blkTop}>
+        <div
+          key={b.id}
+          className={BLK}
+          style={{ borderLeftColor: BLOCK_TYPES[b.type] || 'var(--line2)', borderLeftWidth: 3 }}
+        >
+          <div className={BLK_TOP}>
             <input
               type="text"
-              className={r.blkName}
+              className="min-w-0 font-semibold"
               value={b.name}
               aria-label="블록 이름"
               placeholder="블록 이름"
               onChange={(e) => upd(b.id, (x) => void (x.name = e.target.value))}
             />
             <select
-              className={r.blkType}
+              className="min-w-0"
               aria-label="블록 유형"
               value={b.type}
               onChange={(e) => upd(b.id, (x) => void (x.type = e.target.value))}
@@ -161,9 +187,9 @@ function BlockList() {
                 <option key={t}>{t}</option>
               ))}
             </select>
-            <div className={r.blkTime}>
+            <div className={BLK_TIME}>
               <TimeSelect value={b.start} onChange={(v) => upd(b.id, (x) => void (x.start = v))} label="시작 시각" />
-              <span className={r.csep}>~</span>
+              <span>~</span>
               <TimeSelect value={b.end} onChange={(v) => upd(b.id, (x) => void (x.end = v))} label="끝 시각" />
             </div>
             <Button sm variant="ghost" danger onClick={() => del(b.id, b.name)} aria-label="삭제" title="삭제">
@@ -173,7 +199,7 @@ function BlockList() {
           <BadRange start={b.start} end={b.end} />
           {/* 선택 상태를 색(.on)만으로 전하면 AT가 못 읽는다 → aria-pressed로 이중화(AvailRail 요일 막대와 같은 패턴).
               요일 토글은 다중 선택이라 tablist가 아니라 group+토글 버튼이 정직하다(WCAG 1.4.1·4.1.2). */}
-          <div className={r.days} role="group" aria-label="반복 요일">
+          <div className={DAYS} role="group" aria-label="반복 요일">
             {DOW.map((_, i) => {
               // DOW는 일=0..토=6. 일과 블록 요일도 같은 인덱스(일=0).
               return (
@@ -182,56 +208,58 @@ function BlockList() {
                   type="button"
                   aria-pressed={b.days.includes(i)}
                   aria-label={`${DOW[i]}요일`}
-                  className={`${r.daychip}${b.days.includes(i) ? ' ' + r.on : ''}`}
+                  className={`${DAYCHIP}${b.days.includes(i) ? ' ' + DAYCHIP_ON : ''}`}
                   onClick={() => toggleDay(b.id, i)}
                 >
                   {DOW[i]}
                 </button>
               );
             })}
-            <span className={r.daysep} />
-            <button type="button" className={`${r.daychip} ${r.preset}`} onClick={() => setDays(b.id, 'wd')}>
+            <span className={DAYSEP} />
+            <button type="button" className={`${DAYCHIP} ${DAYCHIP_PRESET}`} onClick={() => setDays(b.id, 'wd')}>
               평일
             </button>
-            <button type="button" className={`${r.daychip} ${r.preset}`} onClick={() => setDays(b.id, 'we')}>
+            <button type="button" className={`${DAYCHIP} ${DAYCHIP_PRESET}`} onClick={() => setDays(b.id, 'we')}>
               주말
             </button>
-            <button type="button" className={`${r.daychip} ${r.preset}`} onClick={() => setDays(b.id, 'all')}>
+            <button type="button" className={`${DAYCHIP} ${DAYCHIP_PRESET}`} onClick={() => setDays(b.id, 'all')}>
               매일
             </button>
           </div>
-          <div className={r.perDay}>
+          <div className={PERDAY}>
             <button
               type="button"
-              className={r.perDayToggle}
+              className={PERDAY_TOGGLE}
               onClick={() => togglePerDay(b.id)}
               aria-expanded={perDay.has(b.id)}
             >
               {perDay.has(b.id) ? '▾' : '▸'} 요일별 시간 다르게{b.times ? ' · 적용 중' : ''}
             </button>
             {b.times && (
-              <button type="button" className={r.perDayReset} onClick={() => clearTimes(b.id)}>
+              <button type="button" className={PERDAY_RESET} onClick={() => clearTimes(b.id)}>
                 전 요일 공통으로
               </button>
             )}
           </div>
           {perDay.has(b.id) &&
             (b.days.length ? (
-              <div className={r.perDayGrid}>
+              <div className={PERDAY_GRID}>
                 {b.days
                   .slice()
                   .sort((a, c) => a - c)
                   .map((d) => {
                     const t = b.times?.[String(d)];
                     return (
-                      <div key={d} className={`${r.perDayRow}${t ? ' ' + r.perDayRowOn : ''}`}>
-                        <span className={r.perDayDow}>{DOW[d]}</span>
+                      <div key={d} className={PERDAY_ROW}>
+                        <span className={`text-sm leading-[1.6] font-bold ${t ? 'text-acc' : 'text-mut'}`}>
+                          {DOW[d]}
+                        </span>
                         <TimeSelect
                           value={t?.start ?? b.start}
                           onChange={(v) => setDayTime(b.id, d, 'start', v)}
                           label={`${DOW[d]}요일 시작`}
                         />
-                        <span className={r.csep}>~</span>
+                        <span>~</span>
                         <TimeSelect
                           value={t?.end ?? b.end}
                           onChange={(v) => setDayTime(b.id, d, 'end', v)}
@@ -273,7 +301,7 @@ export function SkeletonPanel() {
     });
 
   return (
-    <div className={r.editCol}>
+    <div className="flex min-w-0 flex-col gap-3 pt-3 pb-1">
       <div className={ds.card}>
         <h2>
           수업 (요일별){' '}
@@ -295,7 +323,7 @@ export function SkeletonPanel() {
             </button>
           ))}
         </div>
-        <div className={r.clsGrid}>
+        <div className={CLS_GRID}>
           <ClassList dow={classDow} />
         </div>
         <Button sm style={{ marginTop: 8 }} onClick={() => addClass(classDow)}>
@@ -313,7 +341,7 @@ export function SkeletonPanel() {
             — 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다
           </span>
         </h2>
-        <div className={r.blkGrid}>
+        <div className={BLK_GRID}>
           <BlockList />
         </div>
         <Button sm style={{ marginTop: 8 }} onClick={addBlock}>

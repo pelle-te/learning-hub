@@ -5,7 +5,17 @@
 ============================================================ */
 import { toHM, toMin, hLabel } from '@/lib/utils';
 import type { RoutineBlock } from '@/lib/types';
-import s from './DayRing.module.css';
+
+// 라이브 도트 톤 — 정적 클래스 맵(§15 · 동적 조립 금지). 배경색만 구간으로 가른다.
+const DOT_BASE = 'size-1.5 flex-none rounded-full';
+const DOT_TONE: Record<'free' | 'block' | 'sleep', string> = {
+  free: 'bg-acc',
+  block: 'bg-[var(--ring-dot-block)]',
+  sleep: 'bg-mut',
+};
+// 호 공통 — hover 시 굵어지고 또렷해지는 전이(reduced-motion 은 전이 제거). butt/round linecap 만 개별.
+const ARC_BASE =
+  'fill-none [stroke-width:13] cursor-pointer transition-[stroke-width,filter] duration-[0.14s] ease-[var(--ease)] motion-reduce:transition-none';
 
 const CX = 100;
 const CY = 100;
@@ -95,13 +105,18 @@ export default function DayRing({
   const m = freeMin % 60;
   // '지금' 라이브 구간(오늘 선택 시만) — 이펙트 없는 순수 파생.
   const live = nowMin != null ? currentSegment(nowMin, windows, fixed, wake0, wake1, asleep) : null;
-  const dotClass = live ? (live.tone === 'sleep' ? s.dotSleep : live.tone === 'block' ? s.dotBlock : s.dotFree) : '';
+  const dotClass = live ? DOT_TONE[live.tone] : '';
 
   return (
-    <div className={s.wrap}>
-      <svg viewBox="0 0 200 200" className={s.svg} role="img" aria-label={`${dow}요일 24시간 가용시간 링`}>
+    <div className="relative aspect-square w-full max-w-115 flex-none">
+      <svg
+        viewBox="0 0 200 200"
+        className="block h-full w-full"
+        role="img"
+        aria-label={`${dow}요일 24시간 가용시간 링`}
+      >
         {/* 트랙 */}
-        <circle cx={CX} cy={CY} r={R} className={s.track} />
+        <circle cx={CX} cy={CY} r={R} className="fill-none [stroke:var(--ring-track)] [stroke-width:13]" />
         {/* 수면(깨어있지 않은) 구간 — 자정 넘어 wake1 → wake0+1440 */}
         {asleep &&
           (() => {
@@ -109,7 +124,7 @@ export default function DayRing({
             return (
               <path
                 d={arc(wake1, wake0 + 1440)}
-                className={s.sleep}
+                className={`${ARC_BASE} [stroke:var(--ring-sleep)] [stroke-linecap:butt] hover:[stroke:var(--ring-sleep-hover)] hover:[stroke-width:16]`}
                 data-tip={tip}
                 aria-label={tip.replace('\n', ' — ')}
               />
@@ -125,7 +140,7 @@ export default function DayRing({
             <path
               key={b.id + i}
               d={arc(bs, be)}
-              className={s.block}
+              className={`${ARC_BASE} [stroke:var(--ring-block)] [stroke-linecap:butt] hover:[stroke:var(--ring-block-hover)] hover:[stroke-width:16]`}
               data-tip={tip}
               aria-label={tip.replace('\n', ' — ')}
             />
@@ -138,7 +153,7 @@ export default function DayRing({
             <path
               key={`w${i}`}
               d={arc(w.s, w.e)}
-              className={s.free}
+              className={`${ARC_BASE} stroke-acc [filter:var(--filter-ring-free)] [stroke-linecap:round] hover:[stroke-width:16] hover:[filter:var(--filter-ring-free-hover)] motion-reduce:[filter:none]`}
               data-tip={tip}
               aria-label={tip.replace('\n', ' — ')}
             />
@@ -151,45 +166,58 @@ export default function DayRing({
             return (
               <path
                 d={arcR(peak[0], peak[1], R - 11)}
-                className={s.peak}
+                className="cursor-pointer fill-none stroke-acc [stroke-width:2.5] opacity-50 [stroke-linecap:round]"
                 data-tip={tip}
                 aria-label={tip.replace('\n', ' — ')}
               />
             );
           })()}
         {/* 지금 마커 */}
-        {nowMin != null && <line {...nowLine(nowMin)} className={s.now} />}
+        {nowMin != null && (
+          <line
+            {...nowLine(nowMin)}
+            className="stroke-txt [stroke-width:2] [filter:var(--filter-ring-now)] [stroke-linecap:round]"
+          />
+        )}
         {/* 시각 눈금 */}
         {TICKS.map((t) => {
           const [tx, ty] = pt(t * 60);
           const [lx, ly] = labelPt(t * 60);
           return (
             <g key={t}>
-              <line x1={tx} y1={ty} x2={(tx - CX) * 0.92 + CX} y2={(ty - CY) * 0.92 + CY} className={s.tick} />
-              <text x={lx} y={ly} className={s.ticklab}>
+              <line
+                x1={tx}
+                y1={ty}
+                x2={(tx - CX) * 0.92 + CX}
+                y2={(ty - CY) * 0.92 + CY}
+                className="[stroke:var(--ring-tick)] [stroke-width:1]"
+              />
+              <text x={lx} y={ly} className="fill-mut text-ring-tick font-bold tabular-nums [text-anchor:middle]">
                 {t}
               </text>
             </g>
           );
         })}
       </svg>
-      <div className={s.center}>
-        <span className={s.cnum}>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-px">
+        <span className="text-ring-num leading-none font-extrabold tracking-price text-acc tabular-nums">
           {h}
-          <small>h</small>
+          <small className="text-ring-num-unit font-bold text-mut">h</small>
           {m > 0 && (
             <>
               {' '}
               {m}
-              <small>m</small>
+              <small className="text-ring-num-unit font-bold text-mut">m</small>
             </>
           )}
         </span>
-        <span className={s.clab}>공부 가능</span>
-        <span className={s.csub}>{asleep ? `${toHM(wake0)}–${toHM(wake1)} 활동` : '하루 종일 활동'}</span>
+        <span className="mt-1.25 text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">공부 가능</span>
+        <span className="text-xs leading-[1.6] text-mut tabular-nums opacity-80">
+          {asleep ? `${toHM(wake0)}–${toHM(wake1)} 활동` : '하루 종일 활동'}
+        </span>
         {live && (
-          <span className={s.live}>
-            <i className={`${s.dot} ${dotClass}`} />
+          <span className="mt-1.75 inline-flex items-center gap-1.25 text-xs leading-[1.6] font-bold text-txt tabular-nums">
+            <i className={`${DOT_BASE} ${dotClass}`} />
             지금 · {live.label}
             {live.remain > 0 && ` · ${remainLabel(live.remain)}`}
           </span>
