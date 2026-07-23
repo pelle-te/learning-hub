@@ -121,6 +121,11 @@
   --line-acc-strong: color-mix(in srgb, var(--acc) 32%, var(--line));
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
   --tint-acc2-strong: color-mix(in srgb, var(--acc2) 18%, transparent);
+  /* acc2 헤어라인 두 세기(goals 이식 · line-acc/-strong 의 acc2 대응) — 프로젝트/가능신호 프레임. */
+  --line-acc2: color-mix(in srgb, var(--acc2) 25%, var(--line));
+  --line-acc2-strong: color-mix(in srgb, var(--acc2) 40%, var(--line));
+  /* 패널 위 아주 옅은 acc2 워시(goals projCold 배경). transparent 가 아니라 panel 과 섞는다. */
+  --panel-acc2-faint: color-mix(in srgb, var(--acc2) 6%, var(--panel));
   --tint-good: color-mix(in srgb, var(--good) 15%, transparent);
   --tint-learning: color-mix(in srgb, var(--learning) 18%, transparent);
 }

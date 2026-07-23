@@ -20,7 +20,37 @@ import {
 } from '@/lib/goals';
 import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
 import EmptyState from '@/components/EmptyState';
-import s from './Goals.module.css';
+
+/* ── C-7 네 번째 이식(goals) ─────────────────────────────────────────────
+   `Goals.module.css`(307줄) 를 없앴다. 규약은 설계서 §15 + `styles/tokenBridge.css`
+   머리주석이 SSOT(색은 tokens.css 파생 · 임의값 금지 · 사다리로 반올림).
+
+   이 파일에서 처음 만난 것 둘:
+   ① **em 단위 min-width**(`.wVal` 2.5em · `.projK` 4.5em) — 라벨 컬럼을 폰트에 상대적으로
+      맞추던 자리다. `min-w-[2.5em]` 은 임의값이라 린트가 막는다 → `--container-*` 로 이름을
+      주고 `min-w-wval`·`min-w-projk` 로 쓴다(규약 2·3 의 결).
+   ② **auto-fill 카드 그리드**(`repeat(auto-fill, minmax(240px, 1fr))`) — 임의값 대신
+      `--grid-template-columns-goals` 테마 항목으로(guide 의 `grid-cols-guide` 와 동형).
+
+   ⚠ 반올림: 간격은 최근접 4px(동점은 내림 · discovery/review-run 선례 14→12·22→20).
+   단 **치수적 그래픽 요소**(6px 중요도 바 높이 · 8px 점 · 6px 점 정렬 오프셋)는 사다리
+   반올림의 예외로 표준 분수 유틸(`h-1.5`·`mt-1.5`)로 정확히 남긴다 — 2px 가 사라지면
+   보이지 않는 간격이 아니라 시각 신호(바 두께·점 정렬)가 흔들리기 때문. 임의값(`[6px]`)이
+   아니라 표준 유틸이라 규약 위반이 아니다.
+
+   ⚠ acc2 색 4종은 정적으로 나뉜다 — 14%(`tint-acc2`)·18%(`tint-acc2-strong`)·
+   25%(`line-acc2`)·40%(`line-acc2-strong`)·6%-over-panel(`panel-acc2-faint`). 한 이름에
+   여러 세기를 몰면 guide 이식에서 물린 규약 5(재정의) 를 다시 밟는다. */
+const ROOT = 'px-5 pt-4 pb-12';
+const HERO = 'mb-5 rounded-lg border border-line-acc bg-linear-to-b from-acc-soft to-transparent p-5';
+const GRID = 'grid grid-cols-goals gap-3';
+const CARD = 'flex flex-col gap-2 rounded-md border border-line bg-panel px-4 py-3';
+const CARD_HEAD = 'flex items-baseline justify-between gap-2';
+const CARD_TITLE = 'm-0 text-md tracking-tight';
+const KIND_BASE = 'flex-none rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap';
+const KIND = { goal: 'bg-acc-soft text-acc', project: 'bg-tint-acc2-strong text-acc2' } as const;
+const PROJ_ROW = 'flex items-baseline gap-2 text-sm';
+const PROJ_K = 'min-w-projk flex-none text-xs text-mut';
 
 export default function Goals() {
   const goals = useGoals();
@@ -50,8 +80,8 @@ export default function Goals() {
 
   if (goals.isLoading) {
     return (
-      <section className={s.root}>
-        <p className={s.muted}>내 길을 불러오는 중…</p>
+      <section className={ROOT}>
+        <p className="py-3 text-sm text-mut">내 길을 불러오는 중…</p>
       </section>
     );
   }
@@ -59,7 +89,7 @@ export default function Goals() {
   // 워크스페이스 미설정/계약 부재 → 빈 상태(goals.json 은 손저작이라 실전에선 항상 실재 · 서버 없을 때만).
   if (goals.isError || !data || roots.length === 0) {
     return (
-      <section className={s.root}>
+      <section className={ROOT}>
         <EmptyState
           glyph="🧭"
           title="내 길이 아직 안 보여요"
@@ -75,7 +105,7 @@ export default function Goals() {
   }
 
   return (
-    <section className={s.root}>
+    <section className={ROOT}>
       {roots.map((root) => (
         <GoalBranch key={root.id} node={root} maxWeight={maxChildWeight(root)} isRoot />
       ))}
@@ -84,12 +114,12 @@ export default function Goals() {
       <ProjectsSection projects={projViews} signals={capSignals} />
 
       {/* 노트→목표 연관 — 하이브리드 모델 안내(핵심만 명시링크·나머지 개념그래프 거리 Phase 4). */}
-      <div className={s.relNote}>
-        <span className={s.relDot} />
+      <div className="mt-5 flex gap-2 rounded-md border border-dashed border-line bg-panel px-4 py-3 text-sm leading-normal text-mut">
+        <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-acc" />
         <div>
-          <b>노트→목표 연관 = 하이브리드.</b> 핵심 노트만 <code>goals:</code> 로 직접 잇고, 나머지는 개념그래프 거리로
-          계산합니다(연관성 엔진). 명시 링크·라이브 숙련 신호가 쌓이면 시퀀싱이 목표 근접도로 재정렬됩니다(숙달도 지도 ·
-          Phase 4).
+          <b className="text-txt">노트→목표 연관 = 하이브리드.</b> 핵심 노트만 <code>goals:</code> 로 직접 잇고,
+          나머지는 개념그래프 거리로 계산합니다(연관성 엔진). 명시 링크·라이브 숙련 신호가 쌓이면 시퀀싱이 목표 근접도로
+          재정렬됩니다(숙달도 지도 · Phase 4).
         </div>
       </div>
     </section>
@@ -103,22 +133,23 @@ export default function Goals() {
 function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signals: DiscoveryEntry[] }) {
   const cold = projects.length === 0 && signals.length === 0;
   return (
-    <section className={s.projWrap} aria-label="프로젝트·활용 표면">
-      <div className={s.projHead}>
-        <h2 className={s.projTitle}>프로젝트 · 활용 표면</h2>
-        <span className={s.projMeta}>학습을 응용에 잇는 앵커 — 관계성이 학습을 견인(D10)</span>
+    <section className="mt-6" aria-label="프로젝트·활용 표면">
+      <div className="mb-3 flex flex-wrap items-baseline gap-2">
+        <h2 className="m-0 text-lg tracking-tight">프로젝트 · 활용 표면</h2>
+        <span className="text-xs text-mut">학습을 응용에 잇는 앵커 — 관계성이 학습을 견인(D10)</span>
       </div>
 
       {cold ? (
-        <div className={s.projCold}>
-          <b>아직 선언된 프로젝트가 없어요.</b> 분야 개론이 임계에 도달하면 “이제 이 프로젝트 가능”(capability-unlock)이
-          <b> 발견 큐</b>에 가능신호로 뜨고, 여기 <code>kind:project</code> 노드(분야·산출물·필요지식·capability임계)를
-          더하면 진행 중 프로젝트가 그려집니다. 상향(축적→가능) · 하향(프로젝트→필요지식 분해)의 양방향 앵커예요.
+        <div className="rounded-md border border-dashed border-line-acc2-strong bg-panel-acc2-faint px-4 py-3 text-sm leading-relaxed text-mut">
+          <b className="text-txt">아직 선언된 프로젝트가 없어요.</b> 분야 개론이 임계에 도달하면 “이제 이 프로젝트
+          가능”(capability-unlock)이<b className="text-txt"> 발견 큐</b>에 가능신호로 뜨고, 여기{' '}
+          <code>kind:project</code> 노드(분야·산출물·필요지식·capability임계)를 더하면 진행 중 프로젝트가 그려집니다.
+          상향(축적→가능) · 하향(프로젝트→필요지식 분해)의 양방향 앵커예요.
         </div>
       ) : (
         <>
           {projects.length > 0 && (
-            <div className={s.grid}>
+            <div className={GRID}>
               {projects.map((p) => (
                 <ProjectCard key={p.node.id} p={p} />
               ))}
@@ -127,14 +158,19 @@ function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signa
 
           {/* capability-unlock 가능신호 — 발견 큐가 surface. 여기선 읽기만(승격은 발견 탭). */}
           {signals.length > 0 && (
-            <div className={s.signals}>
-              <div className={s.signalsHead}>
-                <span className={s.signalDot} />
-                <b>가능신호</b> <span className={s.projMeta}>필요지식이 임계 도달 — 발견 큐에서 승격</span>
+            <div className="mt-3 rounded-md border border-line-acc2 bg-panel px-3 py-3">
+              <div className="mb-2 flex items-center gap-2 text-sm">
+                <span className="h-2 w-2 flex-none rounded-full bg-acc2" />
+                <b className="text-txt">가능신호</b>{' '}
+                <span className="text-xs text-mut">필요지식이 임계 도달 — 발견 큐에서 승격</span>
               </div>
-              <div className={s.signalList}>
+              <div className="flex flex-wrap gap-1">
                 {signals.map((e) => (
-                  <span key={e.id} className={s.signalChip} title="발견 큐에서 승격/기각(사람 결정)">
+                  <span
+                    key={e.id}
+                    className="rounded-full bg-tint-acc2 px-2 py-1 text-xs text-acc2"
+                    title="발견 큐에서 승격/기각(사람 결정)"
+                  >
                     {entryTitle(e)}
                   </span>
                 ))}
@@ -151,37 +187,37 @@ function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signa
    capability '가능/잠김' 판정은 라이브 숙련 신호 축적 후(콜드 정직 · 시퀀싱과 대칭)라 임계값만 표시. */
 function ProjectCard({ p }: { p: ProjectView }) {
   return (
-    <article className={`${s.card} ${p.node.active ? '' : s.cardOff}`}>
-      <div className={s.cardHead}>
-        <h3 className={s.cardTitle}>{p.node.title}</h3>
-        <span className={`${s.kind} ${s.kindProject}`}>프로젝트</span>
+    <article className={`${CARD} ${p.node.active ? '' : 'opacity-55'}`}>
+      <div className={CARD_HEAD}>
+        <h3 className={CARD_TITLE}>{p.node.title}</h3>
+        <span className={`${KIND_BASE} ${KIND.project}`}>프로젝트</span>
       </div>
 
       {p.분야 && (
-        <div className={s.projRow}>
-          <span className={s.projK}>분야</span>
-          <span className={s.projV}>{p.분야}</span>
+        <div className={PROJ_ROW}>
+          <span className={PROJ_K}>분야</span>
+          <span className="text-txt">{p.분야}</span>
         </div>
       )}
       {p.산출물 && (
-        <div className={s.projRow}>
-          <span className={s.projK}>산출물</span>
-          <span className={s.projV}>{p.산출물}</span>
+        <div className={PROJ_ROW}>
+          <span className={PROJ_K}>산출물</span>
+          <span className="text-txt">{p.산출물}</span>
         </div>
       )}
       {p.anchor && (
-        <div className={s.projRow}>
-          <span className={s.projK}>앵커 목표</span>
-          <span className={s.projV}>↑ {p.anchor.title}</span>
+        <div className={PROJ_ROW}>
+          <span className={PROJ_K}>앵커 목표</span>
+          <span className="text-txt">↑ {p.anchor.title}</span>
         </div>
       )}
 
       {p.필요지식.length > 0 && (
-        <div className={s.needWrap}>
-          <span className={s.projK}>필요지식</span>
-          <div className={s.needList}>
+        <div className="flex items-start gap-2">
+          <span className={PROJ_K}>필요지식</span>
+          <div className="flex flex-wrap gap-1">
             {p.필요지식.map((n) => (
-              <span key={n} className={s.needChip}>
+              <span key={n} className="rounded-full bg-line2 px-2 py-1 text-xs text-txt">
                 ↓ {n}
               </span>
             ))}
@@ -190,13 +226,16 @@ function ProjectCard({ p }: { p: ProjectView }) {
       )}
 
       {typeof p.capability임계 === 'number' && (
-        <div className={s.capRow} title="축적 숙달이 이 임계에 도달하면 '가능' — 판정은 라이브 신호 후">
-          capability 임계 <b>{Math.round(p.capability임계 * 100)}%</b>
-          <span className={s.capPend}>· 판정 대기(신호 콜드)</span>
+        <div
+          className="border-t border-line2 pt-1 text-xs text-mut"
+          title="축적 숙달이 이 임계에 도달하면 '가능' — 판정은 라이브 신호 후"
+        >
+          capability 임계 <b className="text-acc2 tabular-nums">{Math.round(p.capability임계 * 100)}%</b>
+          <span className="ml-1 text-mut">· 판정 대기(신호 콜드)</span>
         </div>
       )}
 
-      {!p.node.active && <div className={s.offTag}>비활성</div>}
+      {!p.node.active && <div className="self-start text-xs text-mut">비활성</div>}
     </article>
   );
 }
@@ -212,13 +251,15 @@ function GoalBranch({ node, maxWeight, isRoot }: { node: GoalTreeNode; maxWeight
   if (isRoot) {
     return (
       <>
-        <header className={s.hero}>
-          <div className={s.heroKicker}>내 길 · 성취목표</div>
-          <h1 className={s.heroTitle}>{node.title}</h1>
-          <p className={s.heroDesc}>이 단일 목표를 하위목표로 분해해 학습 노력의 연관성 그래디언트를 만듭니다.</p>
+        <header className={HERO}>
+          <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">내 길 · 성취목표</div>
+          <h1 className="mt-1 mb-2 text-xl tracking-tight">{node.title}</h1>
+          <p className="m-0 max-w-prose text-sm text-mut">
+            이 단일 목표를 하위목표로 분해해 학습 노력의 연관성 그래디언트를 만듭니다.
+          </p>
         </header>
         {children.length > 0 && (
-          <div className={s.grid}>
+          <div className={GRID}>
             {children.map((c) => (
               <GoalCard key={c.id} node={c} maxWeight={maxWeight} />
             ))}
@@ -236,39 +277,42 @@ function GoalCard({ node, maxWeight }: { node: GoalTreeNode; maxWeight: number }
   const degRows = degreeReqRows(node);
   const kids = byWeightDesc(node.children);
   return (
-    <article className={`${s.card} ${node.active ? '' : s.cardOff}`}>
-      <div className={s.cardHead}>
-        <h2 className={s.cardTitle}>{node.title}</h2>
-        <span className={`${s.kind} ${node.kind === 'project' ? s.kindProject : s.kindGoal}`}>
+    <article className={`${CARD} ${node.active ? '' : 'opacity-55'}`}>
+      <div className={CARD_HEAD}>
+        <h2 className={CARD_TITLE}>{node.title}</h2>
+        <span className={`${KIND_BASE} ${node.kind === 'project' ? KIND.project : KIND.goal}`}>
           {node.kind === 'project' ? '프로젝트' : '목표'}
         </span>
       </div>
 
-      <div className={s.wRow} aria-label={`상대 중요도 ${node.weight}`}>
-        <div className={s.wbar}>
-          <span className={s.wbarFill} style={{ width: `${pct}%` }} />
+      <div className="flex items-center gap-2" aria-label={`상대 중요도 ${node.weight}`}>
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line2">
+          <span className="block h-full rounded-full bg-acc" style={{ width: `${pct}%` }} />
         </div>
-        <span className={s.wVal}>{node.weight.toFixed(2)}</span>
+        <span className="min-w-wval text-right text-xs text-mut tabular-nums">{node.weight.toFixed(2)}</span>
       </div>
 
       {degRows && (
-        <dl className={s.degGrid}>
+        <dl className="m-0 grid grid-cols-2 gap-1">
           {degRows.map((r) => (
-            <div key={r.label} className={s.degItem}>
-              <dt className={s.degK}>{r.label}</dt>
-              <dd className={s.degV}>
+            <div
+              key={r.label}
+              className="flex items-baseline justify-between rounded-sm border border-line2 bg-bg px-2 py-1"
+            >
+              <dt className="text-xs text-mut">{r.label}</dt>
+              <dd className="m-0 text-sm font-semibold tabular-nums">
                 {r.credits}
-                <span className={s.degU}>학점</span>
+                <span className="ml-1 text-xs font-normal text-mut">학점</span>
               </dd>
             </div>
           ))}
         </dl>
       )}
 
-      {!node.active && <div className={s.offTag}>비활성</div>}
+      {!node.active && <div className="self-start text-xs text-mut">비활성</div>}
 
       {kids.length > 0 && (
-        <div className={s.subGrid}>
+        <div className="mt-1 grid gap-2 border-l-2 border-line2 pl-2">
           {kids.map((k) => (
             <GoalCard key={k.id} node={k} maxWeight={maxWeight} />
           ))}

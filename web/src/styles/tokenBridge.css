@@ -41,6 +41,9 @@
   --color-acc-on-txt: var(--acc-on-txt);
   --color-tint-acc2: var(--tint-acc2);
   --color-tint-acc2-strong: var(--tint-acc2-strong);
+  --color-line-acc2: var(--line-acc2);
+  --color-line-acc2-strong: var(--line-acc2-strong);
+  --color-panel-acc2-faint: var(--panel-acc2-faint);
   --color-tint-line2: var(--tint-line2);
   --color-tint-learning-soft: var(--tint-learning-soft);
   --color-line-acc-soft: var(--line-acc-soft);
@@ -69,6 +72,14 @@
   --container-runner: 720px;
   --container-runner-narrow: 560px;
   --container-guide: 900px;
+  /* 라벨 컬럼 min-width(goals) — `em` 이라 폰트에 상대적이다(사다리 칸이 아니라 이름 붙인
+     상대 크기 · 규약 3 과 같은 이유). 임의값(`min-w-[4.5em]`)은 린트가 막으므로 이름을 준다. */
+  --container-wval: 2.5em;
+  --container-projk: 4.5em;
+
+  /* auto-fill 카드 그리드(goals) — `grid-cols-[repeat(auto-fill,minmax(240px,1fr))]` 임의값
+     대신 테마 항목(규약 2 · guide 의 `--grid-template-columns-guide` 와 같은 처리). */
+  --grid-template-columns-goals: repeat(auto-fill, minmax(240px, 1fr));
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
