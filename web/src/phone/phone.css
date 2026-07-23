@@ -29,9 +29,21 @@
    `w-[137px]` 같은 값은 토큰 사다리를 우회한다. 간격은 `--sp-*`, 타이포는 `--fs-*` 에서
    온 스케일만 쓴다. 예외가 필요하면 **토큰을 먼저 늘린다**.
 ============================================================ */
-@import 'tailwindcss';
+/* ⚠ `source(none)` — 자동 content-scan 을 끈다. `@tailwindcss/vite` 는 기본으로 `src/` 전체를
+   훑는데, 그러면 폰 번들이 **데스크톱 전용 유틸**(`grid-cols-ledger`·`bg-hm-l3`·`text-sched-date` …)
+   까지 통째로 생성한다(C-7 이식 후 실측: 폰 유틸 626개 vs 실사용 58개 → 폰 CSS 20.2KB). 폰은
+   셀룰러 첫 로드가 잦아 예산이 작은데(§9-4), 그 낭비가 예산을 깼다. 그래서 이 엔트리는 `@source`
+   로 **자기 화면 소스만** 스캔한다. ⚠ `@source` 경로는 이 파일 기준 상대다.
+   - `./` = `src/phone/` — 폰 화면 6파일. 여기 className 이 전부 산다.
+   - 폰이 쓰는 `lib/*`(cloud·db·events·tasks·utils)에는 className 문자열이 0이라(순수 로직) 추가
+     안 한다 — 넣어도 무해하나 나중에 그 lib 에 클래스가 생기면 그때 `@source '../lib/…'` 로 좁혀
+     추가한다. `@source '../lib'`(폴더 통째)는 데스크톱 전용 lib 의 클래스까지 도로 끌어와 금물. */
+@import 'tailwindcss' source(none);
+@source './';
 /* ⚠ 브리지는 **`styles/tokenBridge.css` 하나**다. 폰과 데스크톱이 각각 Tailwind 엔트리를
-   갖는데 `@theme` 를 양쪽에 복사하면 그게 곧 divergence 다(이 저장소가 세 번 물린 부류). */
+   갖는데 `@theme` 를 양쪽에 복사하면 그게 곧 divergence 다(이 저장소가 세 번 물린 부류).
+   ⚠ 브리지의 `@theme static` 은 `--color-*` 를 전량 방출하지만 그건 ~0.5KB(red herring)다 —
+   폰 부채의 실체는 위 유틸 626개였다(설계서 §15 부수 발견). */
 @import '../styles/tokenBridge.css';
 
 /* 폰 전용 바탕 — 셸의 크롬(레일·상단바)이 없으므로 여기가 앱 프레임이다.
