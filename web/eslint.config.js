@@ -202,6 +202,7 @@ export default tseslint.config(
       'src/features/markets/**/*.tsx',
       'src/features/reads/**/*.tsx',
       'src/features/settings/**/*.tsx',
+      'src/features/stats/**/*.tsx',
     ],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },

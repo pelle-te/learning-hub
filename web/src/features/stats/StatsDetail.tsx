@@ -34,10 +34,27 @@ import { parseISO, fmtShort, hLabel, DOW } from '@/lib/utils';
 import { radarPoint, radarPolygon, radarRing, type RadarGeom } from '@/lib/statsView';
 import EmptyState from '@/components/EmptyState';
 import ds from '@/styles/ds.module.css';
-import st from './Stats.module.css';
 import type { ScheduleResult } from '@/lib/types';
 
 const TIMELINE_CAP = 60; // 최근 N일만 그려 다년 누적에도 비용 상한.
+
+/* ── C-7 이식(stats 상세) — Tailwind 클래스 ────────────────────────────────────
+   스파크 막대(과신율·유지율·시즌 페이스)·주별 시간 세그·인라인 링크. ds.* 공유 클래스와 차트의
+   런타임 인라인 style(높이·색)·SVG 표현 속성은 그대로 두고 st.* 만 옮긴다. 규약은 §15.
+   막대 base 는 배경을 갖지 않고 사용처가 bg 를 얹는다(sparkBarPast/Now 오버라이드 충돌 방지). */
+const SPARK =
+  'min-w-1.5 flex-1 self-end rounded-t-xs transition-[filter,box-shadow] duration-[0.16s] ease-[var(--ease)] hover:brightness-[1.16] hover:shadow-dot focus-visible:brightness-[1.16] focus-visible:shadow-dot';
+const SPARK_BAR = `${SPARK} bg-acc`;
+const SPARK_NULL = 'h-1 min-w-1.5 flex-1 self-end rounded-t-xs bg-spark-null opacity-60';
+// 시즌 페이스(I-7) — 지난주는 은은히(spark-past), 이번 주는 발광 액센트(shadow-spark-now)로 초점.
+const SPARK_NOW = `${SPARK} bg-acc shadow-spark-now`;
+const SPARK_PAST = `${SPARK} bg-spark-past`;
+const WK_SEG =
+  'rounded-t-cell transition-[filter,box-shadow] duration-[0.16s] ease-[var(--ease)] hover:brightness-[1.14] hover:shadow-wkseg focus-visible:brightness-[1.14] focus-visible:shadow-wkseg';
+// 인라인 링크 <button> — 원본은 font:inherit 로 부모 ds.foot(line-height 미설정 → body 1.6 상속)의 LH 를 상속했다.
+// preflight 가 없어 버튼이 UA line-height:normal 로 떨어지므로 상속 LH 1.6 을 명시로 못박는다.
+const NAV_LINK =
+  'ml-1.25 inline border-0! bg-transparent! p-0! font-bold! text-acc! leading-[1.6] transition-[text-shadow] hover:underline hover:[text-shadow:var(--navlink-glow)] focus-visible:underline focus-visible:[text-shadow:var(--navlink-glow)]';
 
 function RetrievalCard({ r }: { r: ScheduleResult }) {
   const state = useApp((s) => s.state);
@@ -89,7 +106,7 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
         ) : (
           <>
             오답이 늘었어요 — 가장 많은 코드의 처방에 다음 주 시간을 더 주세요.
-            <button type="button" className={st.navLink} onClick={() => navigate('/review', { viewTransition: true })}>
+            <button type="button" className={NAV_LINK} onClick={() => navigate('/review', { viewTransition: true })}>
               주간 리뷰로 →
             </button>
           </>
@@ -123,13 +140,13 @@ function ConfSpark() {
           {weeks.map((w, i) => {
             if (w.rate === null) {
               const lab = `${w.weekMon}: 표본 없음`;
-              return <div key={i} className={st.sparkBarNull} data-tip={lab} role="img" aria-label={lab} />;
+              return <div key={i} className={SPARK_NULL} data-tip={lab} role="img" aria-label={lab} />;
             }
             const lab = `${w.weekMon}: 과신 ${w.rate}% (${w.conf}/${w.total}건)`;
             return (
               <div
                 key={i}
-                className={st.sparkBar}
+                className={SPARK_BAR}
                 data-tip={lab}
                 tabIndex={0}
                 role="img"
@@ -187,7 +204,7 @@ function RetentionSpark() {
             return (
               <div
                 key={i}
-                className={st.sparkBar}
+                className={SPARK_BAR}
                 data-tip={lab}
                 tabIndex={0}
                 role="img"
@@ -366,7 +383,7 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
                   return (
                     <div
                       key={sid}
-                      className={st.wkSeg}
+                      className={WK_SEG}
                       data-tip={lab}
                       role="img"
                       aria-label={lab}
@@ -423,7 +440,7 @@ function SeasonPaceCard() {
             return (
               <div
                 key={i}
-                className={`${st.sparkBar} ${now ? st.sparkBarNow : st.sparkBarPast}`}
+                className={now ? SPARK_NOW : SPARK_PAST}
                 data-tip={lab}
                 tabIndex={0}
                 role="img"

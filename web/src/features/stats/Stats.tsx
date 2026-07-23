@@ -2,7 +2,7 @@
    Stats — 탭: 📊 통계 (Phase 4 · 앱상태 + 파생)
    레거시 ui-stats.js를 React로 — KPI·인출 증거·유지율 스파크·스트릭 히트맵·CBMS 레이더·
    과목별 진행·주별 학습시간·챕터 타임라인. 차트는 기존 SVG/막대 로직을 컴포넌트화(설계도 §3).
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵은 Stats.module(st.*), 요소·토큰은 전역 base.
+   스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵·데이터 보드는 Tailwind(C-7), 요소·토큰은 전역 base.
 ============================================================ */
 import { Suspense, lazy, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,10 +21,111 @@ import { personalBests } from '@/lib/records';
 import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { buildStreakGrid } from '@/lib/statsView';
 import ds from '@/styles/ds.module.css';
-import st from './Stats.module.css';
 import type { ScheduleResult } from '@/lib/types';
 
 const StatsDetail = lazy(() => import('./StatsDetail'));
+
+/* ── C-7 이식(stats) — Tailwind 클래스 ────────────────────────────────────────
+   데이터 보드 4컬럼(스파인·지표·시그니처·과목) + 스트릭 히트맵 잔디 + 발광 원형 게이지.
+   ds.* 공유 클래스·런타임 색 주입(과목 색 style)·전역 요소(h2)는 그대로 두고 전역을 이기는 지점만 `!`.
+   히어로/시그니처 그래디언트·상단 헤어라인·페이드업 키프레임·필터/글로우는 tokens.css/tw.css 에 이름 주고
+   참조한다(§14-3). 규약은 §15 + tokenBridge.css 머리주석이 SSOT. `Stats.module.css` 삭제. */
+const HAIR =
+  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
+
+const S = {
+  // 셸 + 4컬럼 그리드
+  wrap: 'flex h-full min-w-0 flex-col',
+  grid: 'grid min-h-0 flex-1 grid-cols-stats max-wide:grid-cols-1 max-wide:overflow-y-auto',
+  // 1 — 회전 스파인
+  spine:
+    'flex min-w-0 flex-col items-center justify-between overflow-hidden border-r border-line2 px-0 py-6.5 max-wide:flex-row max-wide:justify-start max-wide:gap-3.5 max-wide:border-r-0 max-wide:border-b max-wide:border-line2 max-wide:px-4.5 max-wide:py-3.5',
+  kicker:
+    '[writing-mode:vertical-rl] text-2xs font-extrabold tracking-kicker text-acc uppercase max-wide:[writing-mode:horizontal-tb]',
+  spineBig:
+    '[writing-mode:vertical-rl] text-spine leading-none font-black tracking-spine max-wide:[writing-mode:horizontal-tb] max-wide:text-spine-sm',
+  spineSub:
+    '[writing-mode:vertical-rl] text-xs leading-[1.6] font-extrabold text-mut max-wide:[writing-mode:horizontal-tb]',
+  // 2 — 지표 컬럼
+  metrics:
+    'flex min-w-0 flex-col justify-center gap-3.5 border-r border-line2 p-5.5 max-wide:border-r-0 max-wide:border-b max-wide:border-line2',
+  hero: `relative flex flex-col items-center gap-3 rounded-lg border border-line bg-[image:var(--bg-hero-stats)] px-4.5 pt-5.5 pb-5 shadow-hero animate-[rv-fade-up_0.46s_var(--ease)_both] ${HAIR} motion-reduce:animate-none max-wide:flex-row max-wide:justify-center max-wide:gap-5 max-narrow:flex-col`,
+  heroMeta: 'flex flex-col items-center gap-0.5 text-center',
+  heroLab: 'text-sm leading-[1.6] font-bold text-txt',
+  heroSub: 'text-xs leading-[1.6] text-mut tabular-nums',
+  ros: 'grid grid-cols-2 gap-2.5 max-wide:grid-cols-4 max-narrow:grid-cols-2',
+  // 완료율 게이지
+  gauge: 'relative size-32.5 flex-none',
+  gaugeSvg: 'size-full -rotate-90',
+  gaugeTrack: 'fill-none stroke-line2 [stroke-width:9]',
+  gaugeArc:
+    'fill-none stroke-acc [stroke-width:9] [stroke-linecap:round] [filter:var(--filter-gauge-glow)] transition-[stroke-dashoffset] duration-[0.7s] ease-[var(--ease)] motion-reduce:transition-none',
+  gaugeNum:
+    'absolute inset-0 flex items-center justify-center text-gauge font-black tracking-tight text-acc tabular-nums [text-shadow:var(--gauge-num-glow)]',
+  gaugeUnit: 'ml-px text-gauge-sm font-extrabold text-mut',
+  // 3 — 시그니처
+  signature: 'flex min-h-0 min-w-0 flex-col gap-3.5 p-5.5',
+  sigHead: 'flex items-baseline justify-between',
+  sigTitle: 'text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
+  sigMeta: 'text-xs leading-[1.6] text-mut tabular-nums',
+  sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 shadow-card animate-[rv-fade-up_0.46s_var(--ease)_0.06s_both] ${HAIR} motion-reduce:animate-none`,
+  verdicts: 'flex flex-col gap-3 border-t border-line2 pt-3.5 max-wide:mt-3.5',
+  verdict: 'flex items-start gap-3',
+  vIcon: 'min-w-16 flex-none pt-px text-md font-extrabold',
+  vIconGood: 'text-acc [text-shadow:var(--verdict-glow)]',
+  vIconBad: 'text-bad',
+  vText: 'text-md leading-[1.5] text-mut',
+  weakBar: 'mt-1.5 h-2 flex-1 overflow-hidden rounded-full bg-track-cat',
+  weakFill: 'block h-full rounded-full',
+  // 인라인 링크 <button> — 원본은 font:inherit 로 부모 .vText 의 line-height(1.5)를 상속했다. preflight 가
+  // 없어 버튼이 UA line-height:normal 로 떨어지므로, 부모의 상속 LH 를 명시로 못박는다(모바일 줄바꿈 시 누적 시프트 방지).
+  navLink:
+    'ml-1.25 inline border-0! bg-transparent! p-0! font-bold! text-acc! leading-[1.5] transition-[text-shadow] hover:underline hover:[text-shadow:var(--navlink-glow)] focus-visible:underline focus-visible:[text-shadow:var(--navlink-glow)]',
+  // 4 — 과목별 진행
+  subjects:
+    'flex min-h-0 min-w-0 flex-col border-l border-line2 p-5.5 max-wide:min-h-75 max-wide:border-t max-wide:border-l-0 max-wide:border-line2',
+  subjectsH2: 'mb-3! flex-none text-xs! leading-[1.6] font-extrabold tracking-caps! text-mut! uppercase',
+  subjList: '-mx-1 flex min-h-0 flex-1 flex-col gap-2.25 overflow-y-auto px-1 [scrollbar-width:thin]',
+  subj: "relative flex flex-col gap-1.5 overflow-hidden rounded-md border border-line bg-panel pt-2.75 pr-3.25 pb-3 pl-3.75 shadow-card transition-[border-color,transform,box-shadow] duration-[0.16s] ease-[var(--ease)] before:absolute before:top-2.25 before:bottom-2.25 before:left-0 before:w-0.75 before:scale-y-0 before:rounded-cell before:bg-acc before:shadow-spine before:transition-transform before:duration-[0.18s] before:ease-[var(--ease)] before:content-[''] hover:-translate-y-px hover:border-line-acc hover:shadow-hero hover:before:scale-y-100",
+  subjTop: 'flex items-center gap-2',
+  subjNm: 'flex-1 truncate text-base14 font-bold',
+  subjBar: 'h-1.75 overflow-hidden rounded-full bg-track-cat',
+  subjFill: 'block h-full rounded-full',
+  subjMeta: 'truncate text-xs leading-[1.6] text-mut tabular-nums',
+  // 스트릭 히트맵(잔디)
+  hmWrap: 'flex items-start gap-1.5 overflow-x-auto py-1',
+  hmDowWrap: 'flex flex-none flex-col',
+  hmMonthSpacer: 'mb-0.75 h-3.25',
+  hmDow: 'flex flex-none flex-col gap-0.75 text-2xs text-mut',
+  hmDowCell: 'h-3.25 leading-[1.3]',
+  hmGridWrap: 'flex flex-col',
+  hmMonths: 'mb-0.75 flex h-3.25 gap-0.75',
+  hmMonth: 'w-3.25 flex-none overflow-visible text-2xs leading-[1.3] whitespace-nowrap text-mut',
+  hmGrid: 'flex gap-0.75',
+  hmCol: 'flex flex-col gap-0.75',
+  cell: 'size-3.25 flex-none rounded-cell border border-line-soft',
+  cellLg: 'size-2.75 flex-none rounded-cell border border-line-soft',
+  hmFuture: 'bg-panel2 opacity-25',
+  hmLegend: 'mt-2 flex items-center gap-1',
+  hmTable: 'mt-2',
+  hmSummary: 'w-fit cursor-pointer',
+  hmTableScroll: 'mt-2 max-h-60 overflow-auto [scrollbar-width:thin]',
+  hmTableEl: 'border-collapse text-xs leading-[1.6] tabular-nums',
+  thCol: 'sticky top-0 border-b border-line-soft bg-panel px-2 py-0.75 text-right font-bold whitespace-nowrap text-txt',
+  thRow: 'border-b border-line-soft px-2 py-0.75 text-left font-semibold whitespace-nowrap text-txt',
+  td: 'border-b border-line-soft px-2 py-0.75 text-right whitespace-nowrap text-mut',
+} as const;
+
+/** 잔디 농도 5단(0~4) — 정적 클래스 맵(§15 부칙 · 동적 조립 금지). L0=panel2·L4=acc, 사이는 acc 파생 잔디. */
+const LVL: Record<number, string> = { 0: 'bg-panel2', 1: 'bg-hm-l1', 2: 'bg-hm-l2', 3: 'bg-hm-l3', 4: 'bg-acc' };
+
+/** 과목 칩 톤 — 정적 맵(진행/반복=중립 · good=정상 · bad=시간부족/마감초과). 테두리는 acc/bad 45% line. */
+const PILL = 'rounded-full border px-2 py-px text-2xs font-bold whitespace-nowrap';
+const PILL_TONE = {
+  '': 'border-line text-mut',
+  good: 'border-line-acc-pill text-acc',
+  bad: 'border-line-bad-pill text-bad',
+} as const;
 
 /** 학습 스트릭 히트맵 — 최근 18주 잔디. 메인 화면(bare)과 카드 두 형태로 쓰인다. */
 function StreakHeatmap({ bare }: { bare?: boolean }) {
@@ -36,40 +137,36 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
   const { cols, monthLabels, activeDays, totalMin } = buildStreakGrid(state, WEEKS);
   const heat = (
     <>
-      <div className={st.hmWrap}>
-        <div className={st.hmDowWrap}>
-          <span className={st.hmMonthSpacer} aria-hidden="true" />
-          <div className={st.hmDow}>
+      <div className={S.hmWrap}>
+        <div className={S.hmDowWrap}>
+          <span className={S.hmMonthSpacer} aria-hidden="true" />
+          <div className={S.hmDow}>
             {['월', '', '수', '', '금', '', '일'].map((x, i) => (
-              <span key={i}>{x}</span>
+              <span key={i} className={S.hmDowCell}>
+                {x}
+              </span>
             ))}
           </div>
         </div>
-        <div className={st.hmGridWrap}>
-          <div className={st.hmMonths} aria-hidden="true">
+        <div className={S.hmGridWrap}>
+          <div className={S.hmMonths} aria-hidden="true">
             {monthLabels.map((lab, ci) => (
-              <span key={ci} className={st.hmMonth}>
+              <span key={ci} className={S.hmMonth}>
                 {lab}
               </span>
             ))}
           </div>
-          <div className={st.hmGrid}>
+          <div className={S.hmGrid}>
             {cols.map((col, ci) => (
-              <div key={ci} className={st.hmCol}>
+              <div key={ci} className={S.hmCol}>
                 {col.map((c, i) =>
                   c.l < 0 ? (
-                    <div key={i} className={`${st.hmC} ${st.hmFuture}`} />
+                    <div key={i} className={`${S.cell} ${S.hmFuture}`} />
                   ) : (
                     (() => {
                       const lab = `${c.ds}: ${c.v > 0 ? `${Math.round(c.v)}분` : '학습 없음'}`;
                       return (
-                        <div
-                          key={i}
-                          className={`${st.hmC} ${st['hmL' + c.l]}`}
-                          data-tip={lab}
-                          role="img"
-                          aria-label={lab}
-                        />
+                        <div key={i} className={`${S.cell} ${LVL[c.l]}`} data-tip={lab} role="img" aria-label={lab} />
                       );
                     })()
                   ),
@@ -79,10 +176,10 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
           </div>
         </div>
       </div>
-      <div className={`${st.hmLegend} ${ds.muted} ${ds.tiny}`}>
+      <div className={`${S.hmLegend} ${ds.muted} ${ds.tiny}`}>
         <span>적음</span>
         {[0, 1, 2, 3, 4].map((l) => (
-          <div key={l} className={`${st.hmC} ${st['hmL' + l]}`} />
+          <div key={l} className={`${S.cellLg} ${LVL[l]}`} />
         ))}
         <span>많음</span>
         <span style={{ flex: 1 }} />
@@ -90,16 +187,18 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
       </div>
       {/* 잔디 셀은 탭스톱 폭주 방지로 비포커스(role=img+aria-label) — 대신 키보드/스크린리더용
           접이식 표(주 × 요일 · 분)로 동일 정보를 순회 없이 읽게. 기본 접힘·비침습. */}
-      <details className={st.hmTable} onToggle={(e) => setTableOpen(e.currentTarget.open)}>
-        <summary className={`${ds.muted} ${ds.tiny}`}>표로 보기 — 주 × 요일(분)</summary>
+      <details className={S.hmTable} onToggle={(e) => setTableOpen(e.currentTarget.open)}>
+        <summary className={`${S.hmSummary} ${ds.muted} ${ds.tiny}`}>표로 보기 — 주 × 요일(분)</summary>
         {tableOpen && (
-          <div className={st.hmTableScroll}>
-            <table>
+          <div className={S.hmTableScroll}>
+            <table className={S.hmTableEl}>
               <thead>
                 <tr>
-                  <th scope="col">주 시작</th>
+                  <th scope="col" className={S.thCol}>
+                    주 시작
+                  </th>
                   {['월', '화', '수', '목', '금', '토', '일'].map((d) => (
-                    <th key={d} scope="col">
+                    <th key={d} scope="col" className={S.thCol}>
                       {d}
                     </th>
                   ))}
@@ -108,9 +207,13 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
               <tbody>
                 {cols.map((col, ci) => (
                   <tr key={ci}>
-                    <th scope="row">{fmtShort(parseISO(col[0]!.ds))}</th>
+                    <th scope="row" className={S.thRow}>
+                      {fmtShort(parseISO(col[0]!.ds))}
+                    </th>
                     {col.map((c, i) => (
-                      <td key={i}>{c.l < 0 ? '' : c.v > 0 ? Math.round(c.v) : '·'}</td>
+                      <td key={i} className={S.td}>
+                        {c.l < 0 ? '' : c.v > 0 ? Math.round(c.v) : '·'}
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -136,36 +239,36 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
 function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today: string }) {
   if (s.daily)
     return (
-      <div className={st.subj}>
-        <div className={st.subjTop}>
+      <div className={S.subj}>
+        <div className={S.subjTop}>
           <span className={ds.swatch} style={{ background: s.color }} />
-          <span className={st.subjNm}>{s.name}</span>
-          <span className={st.subjPill}>반복</span>
+          <span className={S.subjNm}>{s.name}</span>
+          <span className={`${PILL} ${PILL_TONE['']}`}>반복</span>
         </div>
-        <div className={st.subjMeta}>
+        <div className={S.subjMeta}>
           매일 {s.dailyMin}분 · {s.schedH}h / {s.days}일
         </div>
       </div>
     );
   const prog = s.totalCh ? Math.round((s.doneCh! / s.totalCh) * 100) : 0;
-  const pill = !s.deadline
-    ? { cls: '', lab: '진행' }
+  const pill: { tone: keyof typeof PILL_TONE; lab: string } = !s.deadline
+    ? { tone: '', lab: '진행' }
     : !s.finished
-      ? { cls: st.bad, lab: '시간부족' }
+      ? { tone: 'bad', lab: '시간부족' }
       : (s.late || 0) > 0
-        ? { cls: st.bad, lab: '마감초과' }
-        : { cls: st.good, lab: '정상' };
+        ? { tone: 'bad', lab: '마감초과' }
+        : { tone: 'good', lab: '정상' };
   return (
-    <div className={st.subj}>
-      <div className={st.subjTop}>
+    <div className={S.subj}>
+      <div className={S.subjTop}>
         <span className={ds.swatch} style={{ background: s.color }} />
-        <span className={st.subjNm}>{s.name}</span>
-        <span className={`${st.subjPill} ${pill.cls}`}>{pill.lab}</span>
+        <span className={S.subjNm}>{s.name}</span>
+        <span className={`${PILL} ${PILL_TONE[pill.tone]}`}>{pill.lab}</span>
       </div>
-      <div className={st.subjBar}>
-        <i style={{ width: `${prog}%`, background: s.color }} />
+      <div className={S.subjBar}>
+        <i className={S.subjFill} style={{ width: `${prog}%`, background: s.color }} />
       </div>
-      <div className={st.subjMeta}>
+      <div className={S.subjMeta}>
         {s.doneCh}/{s.totalCh} 챕터 · {s.schedH}h/{s.totalH}h
         {s.deadline ? (
           <>
@@ -184,18 +287,18 @@ function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today
 function Gauge({ pct }: { pct: number }) {
   const shown = useCountUp(pct);
   return (
-    <div className={st.gauge} role="img" aria-label={`완료율 ${pct}%`}>
+    <div className={S.gauge} role="img" aria-label={`완료율 ${pct}%`}>
       <ProgressRing
         size={130}
         r={52}
         pct={shown}
-        className={st.gaugeSvg}
-        trackClassName={st.gaugeTrack}
-        arcClassName={st.gaugeArc}
+        className={S.gaugeSvg}
+        trackClassName={S.gaugeTrack}
+        arcClassName={S.gaugeArc}
       />
-      <span className={st.gaugeNum}>
+      <span className={S.gaugeNum}>
         {Math.round(shown)}
-        <small>%</small>
+        <small className={S.gaugeUnit}>%</small>
       </span>
     </div>
   );
@@ -203,7 +306,7 @@ function Gauge({ pct }: { pct: number }) {
 
 /** 보조 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유). */
 function Readout(props: { value: number; lab: ReactNode; prefix?: string; suffix?: ReactNode }) {
-  return <CountReadout {...props} className={`${st.ro} ${ds.glow}`} numClassName={st.roNum} labClassName={st.roLab} />;
+  return <CountReadout {...props} className={`${ds.ro} ${ds.glow}`} numClassName={ds.roNum} labClassName={ds.roLab} />;
 }
 
 export default function Stats() {
@@ -290,34 +393,34 @@ export default function Stats() {
     );
 
   return (
-    <section className={st.wrap} aria-label="학습 통계">
-      <div className={st.grid}>
+    <section className={S.wrap} aria-label="학습 통계">
+      <div className={S.grid}>
         {/* 1 — 회전 스파인 */}
-        <div className={st.spine}>
-          <div className={st.kicker}>학습 통계</div>
-          <div className={st.spineBig}>DATA</div>
-          <div className={st.spineSub}>{r.itemStat.length}과목</div>
+        <div className={S.spine}>
+          <div className={S.kicker}>학습 통계</div>
+          <div className={S.spineBig}>DATA</div>
+          <div className={S.spineSub}>{r.itemStat.length}과목</div>
         </div>
 
         {/* 2 — 지표 컬럼(완료율 발광 게이지 히어로 + 카운트업 리드아웃) */}
-        <div className={st.metrics}>
+        <div className={S.metrics}>
           <div
             ref={heroRef}
             onMouseMove={heroMove}
             onMouseLeave={heroLeave}
-            className={`${st.hero} ${ds.spotHost} ${ds.glow}`}
+            className={`${S.hero} ${ds.spotHost} ${ds.glow}`}
           >
             <div className={ds.spotlight} aria-hidden="true" />
             <div className={ds.aura} aria-hidden="true" />
             <Gauge pct={compRate} />
-            <div className={st.heroMeta}>
-              <span className={st.heroLab}>완료율 · 실제/계획</span>
-              <span className={st.heroSub}>
+            <div className={S.heroMeta}>
+              <span className={S.heroLab}>완료율 · 실제/계획</span>
+              <span className={S.heroSub}>
                 {doneH.toFixed(1)}h / {Math.round(totalSchedH)}h
               </span>
             </div>
           </div>
-          <div className={st.ros}>
+          <div className={S.ros}>
             <Readout value={streak} prefix="🔥 " lab="연속 학습일" />
             <Readout value={doneCh} suffix={<small>/{totalCh}</small>} lab="완료 챕터" />
             <Readout value={recallActs} lab="능동 인출(요약+백지+모의)" />
@@ -326,9 +429,9 @@ export default function Stats() {
             {pb.totalDays > 0 && (
               <>
                 <Readout value={pb.longestStreak} prefix="🏆 " lab="최장 연속(개인 기록)" />
-                <div className={`${st.ro} ${ds.glow}`}>
-                  <span className={st.roNum}>{hLabel(pb.bestFocusMin)}</span>
-                  <span className={st.roLab}>
+                <div className={`${ds.ro} ${ds.glow}`}>
+                  <span className={ds.roNum}>{hLabel(pb.bestFocusMin)}</span>
+                  <span className={ds.roLab}>
                     최고 집중일{pb.bestFocusDs ? ` · ${fmtShort(parseISO(pb.bestFocusDs))}` : ''}
                   </span>
                 </div>
@@ -338,39 +441,41 @@ export default function Stats() {
         </div>
 
         {/* 3 — 시그니처(스트릭 발광맵 + 인출 판정) */}
-        <div className={st.signature}>
-          <div className={st.sigHead}>
-            <span className={st.sigTitle}>학습 스트릭 — STREAK</span>
-            <span className={st.sigMeta}>꾸준함의 리듬</span>
+        <div className={S.signature}>
+          <div className={S.sigHead}>
+            <span className={S.sigTitle}>학습 스트릭 — STREAK</span>
+            <span className={S.sigMeta}>꾸준함의 리듬</span>
           </div>
           <div
             ref={mapRef}
             onMouseMove={mapMove}
             onMouseLeave={mapLeave}
-            className={`${st.sigMap} ${ds.spotHost} ${ds.glow}`}
+            className={`${S.sigMap} ${ds.spotHost} ${ds.glow}`}
           >
             <div className={ds.spotlight} aria-hidden="true" />
             <div className={ds.aura} aria-hidden="true" />
             <StreakHeatmap bare />
           </div>
-          <div className={st.verdicts}>
-            <div className={st.verdict}>
-              <span className={`${st.vIcon} ${trGood ? st.good : st.bad}`}>{trIcon}</span>
-              <span className={st.vText}>
-                <b>오답 추세</b> — 지난주 {tr.lastW} → 이번주 {tr.thisW}.{' '}
+          <div className={S.verdicts}>
+            <div className={S.verdict}>
+              <span className={`${S.vIcon} ${trGood ? S.vIconGood : S.vIconBad}`}>{trIcon}</span>
+              <span className={S.vText}>
+                <b className="text-txt">오답 추세</b> — 지난주 {tr.lastW} → 이번주 {tr.thisW}.{' '}
                 {trGood ? '약점이 닫히는 방향. 👍' : '가장 잦은 유형의 처방에 다음 주 시간을 더 주세요.'}
               </span>
             </div>
-            <div className={st.verdict}>
-              <span className={st.vIcon} style={{ color: top ? CBMS_INFO[top.code]?.color : undefined }}>
+            <div className={S.verdict}>
+              <span className={S.vIcon} style={{ color: top ? CBMS_INFO[top.code]?.color : undefined }}>
                 {top ? `${top.code} ${top.n}` : '—'}
               </span>
-              <span className={st.vText} style={{ flex: 1 }}>
-                <b>주된 약점</b> {top ? `${CBMS_INFO[top.code]?.label || ''}(전체 ${top.total}건)` : '오답 기록 없음'}
+              <span className={S.vText} style={{ flex: 1 }}>
+                <b className="text-txt">주된 약점</b>{' '}
+                {top ? `${CBMS_INFO[top.code]?.label || ''}(전체 ${top.total}건)` : '오답 기록 없음'}
                 {top && (
                   <>
-                    <div className={st.weakBar}>
+                    <div className={S.weakBar}>
                       <i
+                        className={S.weakFill}
                         style={{
                           width: `${Math.round((top.n / top.total) * 100)}%`,
                           background: CBMS_INFO[top.code]?.color || 'var(--acc)',
@@ -379,7 +484,7 @@ export default function Stats() {
                     </div>
                     <button
                       type="button"
-                      className={st.navLink}
+                      className={S.navLink}
                       onClick={() => navigate('/review', { viewTransition: true })}
                     >
                       가장 잦은 유형의 처방에 다음 주 시간을 더 주세요 — 주간 리뷰로 →
@@ -392,9 +497,9 @@ export default function Stats() {
         </div>
 
         {/* 4 — 과목별 진행(우측, 스크롤) */}
-        <div className={st.subjects}>
-          <h2>과목별 진행</h2>
-          <div className={st.subjList}>
+        <div className={S.subjects}>
+          <h2 className={S.subjectsH2}>과목별 진행</h2>
+          <div className={S.subjList}>
             {r.itemStat.map((s) => (
               <SubjectRow key={s.id} s={s} today={todayISO(state)} />
             ))}
