@@ -119,6 +119,8 @@
 
   --line-acc: color-mix(in srgb, var(--acc) 30%, var(--line));
   --line-acc-strong: color-mix(in srgb, var(--acc) 32%, var(--line));
+  /* 포커스 링 테두리(control 검색바 :focus-within) — line-acc(30%)보다 진한 55%. */
+  --line-acc-focus: color-mix(in srgb, var(--acc) 55%, var(--line));
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
   --tint-acc2-strong: color-mix(in srgb, var(--acc2) 18%, transparent);
   /* acc2 헤어라인 두 세기(goals 이식 · line-acc/-strong 의 acc2 대응) — 프로젝트/가능신호 프레임. */

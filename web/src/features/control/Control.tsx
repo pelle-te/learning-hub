@@ -19,7 +19,38 @@ import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import EmptyState from '@/components/EmptyState';
 import { ui } from '@/shell';
 import ds from '@/styles/ds.module.css';
-import cm from './Control.module.css';
+
+/* ── C-7 다섯 번째 이식(control) — 첫 폼 위주 feature ──────────────────────
+   규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Control.module.css`(384줄) 삭제.
+
+   ⚠ 이 파일이 처음 만난 구조적 장애물: **전역 요소 규칙이 layered 유틸리티를 이긴다.**
+   `base.css`/`components.css` 는 `@layer` 밖(unlayered)이고 Tailwind 유틸리티는
+   `layer(utilities)` 안이라, CSS 캐스케이드상 unlayered 가 layered 를 **명시도 무관하게**
+   이긴다. `<div>/<span>` 은 경쟁 전역 규칙이 없어 앞 넷은 무사했지만, `<button>`·`<input>`·
+   `<h2>`(전역 `button{}`·`input:focus{}`·`h2{}` 존재)는 유틸리티가 묻힌다 — 예로 `!` 없이
+   옮기면 히어로 h2 가 전역 `h2{font-size:16}` 로 **16px 로 붕괴**한다(clamp 26~40 이어야).
+   → 전역과 **다른** 속성만 `!`(important)로 이긴다(2026-07-23 결정 · Option A). 전역과
+   **같은** 값(jobPeek 테두리 1px line·r-sm 등)은 `!` 없이 전역에 맡겨 과잉 ! 를 피한다.
+   공유 전역 CSS 를 이식 중에 건드리지 않는다(ds.module.css 를 맨 뒤로 미룬 것과 같은 원칙).
+
+   ⚠ searchGo 배경은 `--acc-fill` **그래디언트** SSOT 라 Tailwind 색 유틸로 표현 불가 →
+   `bg-[image:var(--acc-fill)]` 로 토큰을 직접 참조한다(임의 '값'이 아니라 SSOT 참조 · §14-3
+   런타임 변수 주입 예외와 같은 성격). 발광/링·유동 clamp·대문자 자간·폭 상한은 브리지에 이름. */
+const WRAP = 'flex h-full min-h-0 min-w-0 flex-col overflow-y-auto px-6 pb-6 [scrollbar-width:thin]';
+const HERO = 'flex flex-none flex-col items-center pt-hero-y pb-7 text-center';
+const EYEBROW = 'text-sm font-extrabold tracking-eyebrow text-acc uppercase';
+const TITLE = 'mt-3! mb-5! text-control-title! font-black! tracking-tight!'; // h2 — 전역 h2{} 를 ! 로 이김
+const SEARCHBAR =
+  'flex w-full max-w-runner items-center gap-2 rounded-lg border border-line bg-panel py-2 pr-2 pl-4 shadow-bar transition focus-within:border-line-acc-focus focus-within:shadow-bar-focus max-narrow:flex-wrap';
+const SEARCHINPUT =
+  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
+const SEARCHSCOPE =
+  'w-30 flex-none border-l border-l-line2! bg-transparent! px-2 py-2 text-txt shadow-none! placeholder:text-mut! focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:border-t max-narrow:border-t-line2! max-narrow:border-l-0!';
+const SEARCHGO =
+  'inline-flex items-center gap-1 rounded-md! border-0! bg-[image:var(--acc-fill)]! px-5! py-3! font-extrabold! text-on-acc! shadow-go transition hover:-translate-y-px hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:justify-center';
+const JOBS = 'mx-auto mb-5 w-full max-w-runner rounded-md border border-line-acc bg-acc-soft px-4 py-3';
+const JOB_BTN = 'flex-none bg-transparent! px-2! py-1! text-sm! font-bold! text-mut!'; // jobPeek·jobCancel·recAgain — 전역 button{} 과 다른 속성만 !
+const RECITEM = 'flex items-center gap-3 border-b border-line2 px-1 py-3 last:border-b-0';
 
 interface HistEntry {
   topic: string;
@@ -215,18 +246,18 @@ export default function Control() {
   };
 
   return (
-    <section className={cm.wrap} aria-label="탐구 수집">
+    <section className={WRAP} aria-label="탐구 수집">
       {/* 검색 히어로 — 검색엔진 느낌. */}
-      <div className={cm.hero}>
-        <div className={cm.heroEyebrow}>🔭 탐구 수집</div>
-        {/* h2 — TopBar 워드마크가 페이지 영속 h1이라 본문 최상위는 h2(전 탭 일관). 시각 스타일은 CSS 유지. */}
-        <h2 className={cm.heroTitle}>무엇을 새로 알아볼까요?</h2>
-        <div className={`${cm.searchBar}${starting ? ' ' + cm.searchBusy : ''}`}>
-          <span className={cm.searchIcon} aria-hidden="true">
+      <div className={HERO}>
+        <div className={EYEBROW}>🔭 탐구 수집</div>
+        {/* h2 — TopBar 워드마크가 페이지 영속 h1이라 본문 최상위는 h2(전 탭 일관). 시각 스타일은 클래스 유지. */}
+        <h2 className={TITLE}>무엇을 새로 알아볼까요?</h2>
+        <div className={`${SEARCHBAR}${starting ? ' opacity-75' : ''}`}>
+          <span className="flex-none text-xl text-mut" aria-hidden="true">
             ⌕
           </span>
           <input
-            className={cm.searchInput}
+            className={SEARCHINPUT}
             placeholder="주제 — 예: 반도체 공급망 동향, 트랜스포머 어텐션 직관"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
@@ -237,7 +268,7 @@ export default function Control() {
             aria-label="탐구 주제"
           />
           <input
-            className={cm.searchScope}
+            className={SEARCHSCOPE}
             placeholder="범위(선택) — 최근 2년·한국 규제·입문자용"
             value={scope}
             onChange={(e) => setScope(e.target.value)}
@@ -248,7 +279,7 @@ export default function Control() {
             aria-label="범위"
           />
           <button
-            className={cm.searchGo}
+            className={SEARCHGO}
             type="button"
             onClick={() => collect(topic, scope)}
             disabled={starting || offline}
@@ -262,10 +293,10 @@ export default function Control() {
             )}
           </button>
         </div>
-        <div className={cm.heroHint}>
-          웹에서 새로 조사해 <code>전공/_탐구/</code>에 원자 노트 초안을 만듭니다.
+        <div className="mt-4 max-w-hint text-md leading-relaxed text-mut">
+          웹에서 새로 조사해 <code className="text-sm">전공/_탐구/</code>에 원자 노트 초안을 만듭니다.
           {offline ? (
-            <b className={cm.offHint}>
+            <b className="font-bold text-warn">
               {' '}
               ⚠ 워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 지정하면 수집할 수 있어요.
             </b>
@@ -283,60 +314,72 @@ export default function Control() {
 
       {/* 진행 중 잡 — 백그라운드 수집. reload해도 이 목록으로 재부착된다. */}
       {running.length > 0 && (
-        <div className={cm.jobs}>
-          <div className={cm.jobsHead}>
+        <div className={JOBS}>
+          <div className="mb-2 text-xs font-extrabold tracking-caps text-acc uppercase">
             진행 중 · {running.length}
             <span className={`${ds.muted} ${ds.tiny}`}> — 새로고침해도 계속돼요(앱을 닫으면 멈춤)</span>
           </div>
           {running.map((j) => (
-            <div key={j.id} className={cm.job}>
+            <div key={j.id} className="flex flex-wrap items-center gap-2 border-t border-line2 py-2">
               <span className={ds.spin} />
-              <span className={cm.jobTopic}>{j.topic}</span>
-              {j.scope && <span className={cm.jobScope}>{j.scope}</span>}
-              <span className={cm.jobElapsed}>
+              <span className="max-w-jobtopic truncate text-md font-bold text-txt">{j.topic}</span>
+              {j.scope && <span className="text-sm text-mut">{j.scope}</span>}
+              <span className="ml-auto text-sm font-bold text-acc tabular-nums">
                 <Elapsed startedAt={j.startedAt} />
               </span>
               {j.out && (
-                <button type="button" className={cm.jobPeek} onClick={() => setOpenJob(openJob === j.id ? null : j.id)}>
+                <button type="button" className={JOB_BTN} onClick={() => setOpenJob(openJob === j.id ? null : j.id)}>
                   {openJob === j.id ? '출력 숨기기' : '출력 보기'}
                 </button>
               )}
               <button
                 type="button"
-                className={cm.jobCancel}
+                className={JOB_BTN}
                 onClick={() => cancel(j.id)}
                 disabled={cancelling.has(j.id)}
                 title="이 탐구 수집을 중단"
               >
                 {cancelling.has(j.id) ? '중단 중' : '중단'}
               </button>
-              {openJob === j.id && j.out && <pre className={cm.pre}>{j.out}</pre>}
+              {openJob === j.id && j.out && (
+                <pre className="mt-2 max-h-70 basis-full overflow-auto font-mono text-sm leading-normal break-words whitespace-pre-wrap text-txt">
+                  {j.out}
+                </pre>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {/* 최근 수집 기록 — 완료/실패 이력(localStorage, 서버 재시작에도 유지). */}
-      <div className={cm.recent}>
-        <div className={cm.recentHead}>최근 수집 기록</div>
+      <div className="mx-auto min-h-0 w-full max-w-runner flex-1">
+        <div className="mb-2 text-xs font-extrabold tracking-caps text-mut uppercase">최근 수집 기록</div>
         {history.length ? (
-          <div className={cm.recList}>
+          <div className="flex flex-col">
             {history.map((h) => (
-              <div key={h.topic + h.at} className={cm.recItem}>
-                <span className={cm.recDot} data-ok={h.ok ? '1' : '0'} aria-hidden="true" />
-                <span className={cm.recTopic}>{h.topic}</span>
-                <span className={cm.recMeta}>
+              <div key={h.topic + h.at} className={RECITEM}>
+                <span
+                  className="h-2 w-2 flex-none rounded-full bg-acc shadow-dot data-[ok=0]:bg-bad data-[ok=0]:shadow-none"
+                  data-ok={h.ok ? '1' : '0'}
+                  aria-hidden="true"
+                />
+                <span className="max-w-rectopic truncate text-md font-bold text-txt">{h.topic}</span>
+                <span className="flex-1 truncate text-sm text-mut tabular-nums">
                   {h.scope ? h.scope + ' · ' : ''}
                   {fmtWhen(h.at)}
                   {h.ok ? '' : ' · 실패'}
                   {h.durMs ? ' · ' + fmtDur(h.durMs) : ''}
                 </span>
-                <a className={cm.recOpen} href={obsidianLink(h.topic)} title="옵시디언 _탐구 폴더에서 이 주제 열기">
+                <a
+                  className="flex-none rounded-sm px-2 py-1 text-sm font-bold text-acc transition-colors hover:bg-acc-soft"
+                  href={obsidianLink(h.topic)}
+                  title="옵시디언 _탐구 폴더에서 이 주제 열기"
+                >
                   옵시디언 ↗
                 </a>
                 <button
                   type="button"
-                  className={cm.recAgain}
+                  className={JOB_BTN}
                   onClick={() => {
                     setTopic(h.topic);
                     setScope(h.scope || '');
@@ -349,7 +392,7 @@ export default function Control() {
                 </button>
                 <button
                   type="button"
-                  className={cm.recDel}
+                  className="flex-none border-0! bg-transparent! px-2! py-1! text-lg! leading-none text-mut!"
                   onClick={() => removeHist(h.topic, h.at)}
                   aria-label="이 기록 삭제"
                   title="이 기록 삭제"

@@ -44,6 +44,7 @@
   --color-line-acc2: var(--line-acc2);
   --color-line-acc2-strong: var(--line-acc2-strong);
   --color-panel-acc2-faint: var(--panel-acc2-faint);
+  --color-line-acc-focus: var(--line-acc-focus);
   --color-tint-line2: var(--tint-line2);
   --color-tint-learning-soft: var(--tint-learning-soft);
   --color-line-acc-soft: var(--line-acc-soft);
@@ -99,6 +100,8 @@
   /* 유동 스케일 — 사다리 칸이 아니라 **이름 붙은 반응형 크기**다(tokens.css 참조). */
   --text-runner-prompt: var(--fs-runner-prompt);
   --text-runner-mark: var(--fs-runner-mark);
+  /* control 검색 히어로 제목 — clamp 유동값이라 반올림 예외(규약 3). */
+  --text-control-title: clamp(26px, 4vw, 40px);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
@@ -106,4 +109,26 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+
+  /* ── control 이식(폼 위주) ────────────────────────────────────────────────
+     ⚠ shadow 이름은 앱 토큰 `--shadow-sm/md/lg` 및 Tailwind 기본 `--shadow-*` 와
+     **겹치면 안 된다**(규약 5). 새 이름을 주고 값은 tokens.css 를 가리킨다 — 발광/링은
+     `color-mix` 색처럼 계산 결과라 이름을 준다. */
+  --shadow-bar: var(--shadow-md);
+  --shadow-bar-focus: var(--shadow-md), 0 0 0 3px var(--acc-soft);
+  --shadow-go: 0 0 28px -8px var(--glow);
+  --shadow-dot: 0 0 8px var(--glow);
+
+  /* 대문자 라벨 자간 — 0.16/0.2em 은 Tailwind `tracking-widest`(0.1em) 를 넘어 임의값이
+     된다. 색·유동값처럼 이름을 준다(디자인 의도값이지 사다리 칸이 아니다). */
+  --tracking-caps: 0.16em;
+  --tracking-eyebrow: 0.2em;
+
+  /* control 히어로 상단 패딩 — clamp 유동값(규약 3). `pt-hero-y` 로 쓴다. */
+  --spacing-hero-y: clamp(28px, 7vh, 72px);
+
+  /* 폭 상한(control) — 힌트 문단·잡/기록 topic 말줄임 캡. 임의값(`max-w-[640px]`) 대신 이름. */
+  --container-hint: 640px;
+  --container-jobtopic: 300px;
+  --container-rectopic: 320px;
 }
