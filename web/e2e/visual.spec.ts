@@ -618,6 +618,13 @@ for (const theme of THEMES) {
       // lazy 탭 청크가 로드돼 실제 콘텐츠가 그려질 때까지 대기(Suspense 폴백/스켈레톤이 아니라
       // 진짜 화면을 캡처). 탭 본문은 h2 또는 aria-label 섹션을 가짐(TopBar h1·레일엔 없음).
       await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+      // ⚠ integrations 텔레메트리(SERVE.JS 채널)는 `usePing` 이 mount 시 'probing'(연결 확인 중)을
+      // 한 틱 렌더한 뒤 track A 에선 반드시 'offline'(스텁이 capabilities 를 reject → 백엔드 없음)로
+      // settle 한다. 이 전이가 toHaveScreenshot 과 레이스하면 flaky(§15 기록의 실사고). settled 카피가
+      // **뜰 때까지** 대기해 전이 완료를 보장한다 — 'probing 없음'을 기다리지 않는 것이 의도다:
+      // 그러면 카피가 바뀌었을 때 count 0 으로 조용히 통과해 flaky 가 되살아난다. 여기(존재 단정)는
+      // 카피가 바뀌면 timeout 으로 시끄럽게 깨진다.
+      if (tab === 'integrations') await expect(page.getByText('워크스페이스 설정 필요(설정 탭)')).toBeVisible();
       await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
     });
   }
