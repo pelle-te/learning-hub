@@ -121,6 +121,15 @@
   --line-acc-strong: color-mix(in srgb, var(--acc) 32%, var(--line));
   /* 포커스 링 테두리(control 검색바 :focus-within) — line-acc(30%)보다 진한 55%. */
   --line-acc-focus: color-mix(in srgb, var(--acc) 55%, var(--line));
+  /* 강조 테두리(atlas 카드/칩 hover·선택) — line-acc(30)와 focus(55) 사이 40%.
+     원본의 35/40/45% 를 한 칸으로 모은다(2~5% 차는 반올림 허용범위). */
+  --line-acc-hover: color-mix(in srgb, var(--acc) 40%, var(--line));
+
+  /* 신호 시안 틴트(atlas 동향 배지·리소스 kind) — badge 15%·kind 13% 를 15% 로 모은다. */
+  --tint-signal: color-mix(in srgb, var(--signal) 15%, transparent);
+  /* 전망 앰버 옅은 배경(atlas futBox) + 그 안 프로세 색(warn 42%↔txt). */
+  --tint-warn-faint: color-mix(in srgb, var(--warn) 8%, transparent);
+  --warn-on-txt: color-mix(in srgb, var(--warn) 42%, var(--txt));
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
   --tint-acc2-strong: color-mix(in srgb, var(--acc2) 18%, transparent);
   /* acc2 헤어라인 두 세기(goals 이식 · line-acc/-strong 의 acc2 대응) — 프로젝트/가능신호 프레임. */

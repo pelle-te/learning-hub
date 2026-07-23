@@ -45,6 +45,12 @@
   --color-line-acc2-strong: var(--line-acc2-strong);
   --color-panel-acc2-faint: var(--panel-acc2-faint);
   --color-line-acc-focus: var(--line-acc-focus);
+  --color-line-acc-hover: var(--line-acc-hover);
+  /* 신호 시안(atlas · 예전엔 Atlas.module.css 가 자체 보유하던 테마 이탈점 → 토큰 승격됨). */
+  --color-signal: var(--signal);
+  --color-tint-signal: var(--tint-signal);
+  --color-tint-warn-faint: var(--tint-warn-faint);
+  --color-warn-on-txt: var(--warn-on-txt);
   --color-tint-line2: var(--tint-line2);
   --color-tint-learning-soft: var(--tint-learning-soft);
   --color-line-acc-soft: var(--line-acc-soft);
@@ -81,6 +87,8 @@
   /* auto-fill 카드 그리드(goals) — `grid-cols-[repeat(auto-fill,minmax(240px,1fr))]` 임의값
      대신 테마 항목(규약 2 · guide 의 `--grid-template-columns-guide` 와 같은 처리). */
   --grid-template-columns-goals: repeat(auto-fill, minmax(240px, 1fr));
+  /* atlas 카드 그리드 — goals 와 값은 같지만 feature 이름으로 분리(교차 참조 혼동 방지). */
+  --grid-template-columns-atlas: repeat(auto-fill, minmax(240px, 1fr));
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
@@ -88,8 +96,9 @@
   /* 표 라벨 트랙 — 임의값(`grid-cols-[120px_1fr]`) 대신 테마 항목으로 둔다(규약 2). */
   --grid-template-columns-guide: 120px 1fr;
 
-  /* ⚠ 브레이크포인트는 stylelint 이 허용한 3종만(560/700/900). `max-narrow:` 로 쓴다. */
+  /* ⚠ 브레이크포인트는 stylelint 이 허용한 3종만(560/700/900). `max-narrow:`·`max-mobile:` 로 쓴다. */
   --breakpoint-narrow: 560px;
+  --breakpoint-mobile: 700px;
 
   --text-2xs: var(--fs-2xs);
   --text-xs: var(--fs-xs);
@@ -118,6 +127,10 @@
   --shadow-bar-focus: var(--shadow-md), 0 0 0 3px var(--acc-soft);
   --shadow-go: 0 0 28px -8px var(--glow);
   --shadow-dot: 0 0 8px var(--glow);
+  /* atlas 동향 타임라인 점의 발광 링. */
+  --shadow-tl-dot: 0 0 0 3px color-mix(in srgb, var(--signal) 20%, transparent);
+  /* 카드/패널 그림자(atlas) — 앱 --shadow-sm 을 가리킨다(Tailwind 기본 shadow-sm 과 이름 분리). */
+  --shadow-card: var(--shadow-sm);
 
   /* 대문자 라벨 자간 — 0.16/0.2em 은 Tailwind `tracking-widest`(0.1em) 를 넘어 임의값이
      된다. 색·유동값처럼 이름을 준다(디자인 의도값이지 사다리 칸이 아니다). */

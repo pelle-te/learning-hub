@@ -192,6 +192,7 @@ export default tseslint.config(
       'src/features/guide/**/*.tsx',
       'src/features/goals/**/*.tsx',
       'src/features/control/**/*.tsx',
+      'src/features/atlas/**/*.tsx',
     ],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },
