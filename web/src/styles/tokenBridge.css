@@ -143,6 +143,11 @@
   --grid-template-columns-markets: 1fr minmax(280px, 360px);
   /* markets 지수 카드 그리드 — auto-fill 최소 150px(goals/atlas 240px 보다 촘촘한 지수 카드). */
   --grid-template-columns-markets-idx: repeat(auto-fill, minmax(150px, 1fr));
+  /* App 셸 그리드(C-7 · 나브 폭 216px 펼침 / 60px 접힘). 옛 `--nav-w` 런타임 변수를 없애고
+     펼침·접힘을 별도 그리드 토큰으로 준다 — grid-template-columns 전환은 두 토큰 사이에서도
+     애니메이트된다(트랙 수 2 로 동일). App 밖에서 --nav-w 를 읽는 곳은 없었다(실측). */
+  --grid-template-columns-shell: 216px minmax(0, 1fr);
+  --grid-template-columns-shell-collapsed: 60px minmax(0, 1fr);
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;

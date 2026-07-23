@@ -19,7 +19,6 @@ import AmbientCanvas from '@/components/AmbientCanvas';
 import { HudFrame } from '@/components/hud';
 import { SkeletonCard, Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import s from './App.module.css';
 
 /* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3). */
 function TabFallback({ error, resetErrorBoundary }: FallbackProps) {
@@ -151,24 +150,34 @@ export default function App() {
   }, [pathname]);
 
   return (
-    <div className={s.shell + (navCollapsed ? ' ' + s.navCollapsed : '')}>
-      {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감. */}
+    <div
+      className={`relative isolate grid h-screen transition-[grid-template-columns] duration-200 ease-[var(--ease)] max-mobile:h-auto max-mobile:min-h-screen max-mobile:grid-cols-1 ${navCollapsed ? 'grid-cols-shell-collapsed' : 'grid-cols-shell'}`}
+    >
+      {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감.
+          그레인: fixed·z-[-1]·pointer 무시 · 노이즈 data-URI(--grain 토큰)를 overlay 로 4% 얹음. */}
       <AmbientCanvas />
-      <div className={s.ambient} aria-hidden="true" />
+      <div
+        className="pointer-events-none fixed inset-0 z-[-1] bg-[image:var(--grain)] opacity-[0.04] mix-blend-overlay"
+        aria-hidden="true"
+      />
       {/* 스크린리더/키보드 사용자가 매 탭마다 네비를 통과하지 않도록 본문으로 바로 점프(포커스 전엔 시각 숨김). */}
       <a href="#main" className="skip-link">
         본문 바로가기
       </a>
       {/* 라우트 아나운서 — 뷰 전환을 스크린리더에 polite로 알림(시각 숨김). document.title과 짝. */}
-      <div className={s.srLive} role="status" aria-live="polite">
+      <div className="sr-only" role="status" aria-live="polite">
         {routeLabel}
       </div>
       <RailSidebar />
       {/* 본문 컬럼 — TopBar(고정) + 라우트 본문(HudFrame 안에서 흐름). */}
-      <div className={s.col}>
+      <div className="flex h-screen min-w-0 flex-col overflow-hidden max-mobile:h-auto max-mobile:min-h-screen max-mobile:overflow-visible max-mobile:pb-16">
         <TopBar onOpenPalette={() => setPaletteOpen(true)} />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
-        <main id="main" tabIndex={-1} className={s.main}>
+        <main
+          id="main"
+          tabIndex={-1}
+          className="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6"
+        >
           <HudFrame fill={fillFrame} scrollResetKey={pathname}>
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />

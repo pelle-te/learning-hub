@@ -190,7 +190,8 @@ export default tseslint.config(
   {
     files: [
       'src/phone/**/*.tsx',
-      'src/app/SubTabs.tsx', // C-7 셸 티어 이식분(하나씩 넓힌다)
+      'src/app/App.tsx', // C-7 셸 티어 이식분(하나씩 넓힌다)
+      'src/app/SubTabs.tsx',
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',
@@ -216,7 +217,11 @@ export default tseslint.config(
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },
     rules: {
-      'better-tailwindcss/no-unknown-classes': 'error',
+      /* ⚠ 전역 앱-크롬 클래스 허용(C-7 셸 티어). `styles/global/*.css` 의 27개 전역 클래스는
+         Tailwind 유틸이 아니지만 셸이 문자열로 쓴다(플러그인 entryPoint=tw.css 는 이를 모른다).
+         ds.* 는 모듈 참조(`ds.card`)라 안 걸리지만 `skip-link` 등은 생 문자열이라 걸린다.
+         ds.module.css 티어(맨 마지막)에서 이 전역들이 정리되면 목록도 줄어든다. */
+      'better-tailwindcss/no-unknown-classes': ['error', { ignore: ['^skip-link$'] }],
       'better-tailwindcss/no-conflicting-classes': 'error',
       'better-tailwindcss/no-duplicate-classes': 'error',
       'better-tailwindcss/enforce-consistent-class-order': 'error',

@@ -57,6 +57,10 @@
      동일(반투명 패널)이라 여기 한 번만 둔다 — `var(--panel)` 는 사용 시점에 활성 테마로 해소된다. */
   --panel-seg: color-mix(in srgb, var(--panel) 50%, transparent);
 
+  /* 필름 그레인 텍스처(App 셸 앰비언트 오버레이 · C-7). 긴 data-URI 를 JSX 임의값으로 인라인하면
+     내부 `100%25` 가 임의값-금지 룰(%)에 걸린다 → 여기 이름을 줘 `bg-[image:var(--grain)]` 로 쓴다. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
