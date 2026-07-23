@@ -70,6 +70,8 @@
   --color-tint-acc-faint: var(--tint-acc-faint);
   --color-tint-warn: var(--tint-warn);
   --color-tint-bad: var(--tint-bad);
+  /* ledger(정본 원장) 퍼널 막대 트랙 — line 40% 반투명(tokens.css 계산). */
+  --color-bar-track: var(--bar-track);
 
   --spacing-1: var(--sp-1);
   --spacing-2: var(--sp-2);
@@ -100,6 +102,9 @@
   /* review·mastery 2컬럼 — 본문(유동) + 사이드(고정 420px). 값 동일하나 feature 별로 둔다. */
   --grid-template-columns-review: minmax(0, 1fr) 420px;
   --grid-template-columns-mastery: minmax(0, 1fr) 420px;
+  /* ledger 2컬럼 — 매트릭스(유동) + 행동(고정 380px). 챕터 상세 오버레이 폭 상한(min(360px,82%)). */
+  --grid-template-columns-ledger: minmax(0, 1fr) 380px;
+  --container-ledger-detail: min(360px, 82%);
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
@@ -150,19 +155,25 @@
   --shadow-card: var(--shadow-sm);
   /* review 회고 코칭 warn 톤 점의 발광 링(bad). good 톤·계획막대는 shadow-dot 재사용. */
   --shadow-dot-bad: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
-  /* mastery 히어로 밴드 그림자(shadow-md). 지식맵/폴백은 shadow-card(sm) 재사용. */
+  /* mastery 히어로 밴드 그림자(shadow-md). 지식맵/폴백은 shadow-card(sm) 재사용.
+     ledger 히어로도 --shadow-hero 공유. 챕터 상세 오버레이는 lg(정의됨 · 폴백 md). */
   --shadow-hero: var(--shadow-md);
+  --shadow-detail: var(--shadow-lg, var(--shadow-md));
 
   /* 대문자 라벨 자간 — 0.16/0.2em 은 Tailwind `tracking-widest`(0.1em) 를 넘어 임의값이
      된다. 색·유동값처럼 이름을 준다(디자인 의도값이지 사다리 칸이 아니다). */
   --tracking-caps: 0.16em;
   --tracking-eyebrow: 0.2em;
+  /* ledger eyebrow 는 한 칸 더 넓다(0.24em). 디자인 의도값이라 이름을 준다(반올림 예외 · 규약 3 논리). */
+  --tracking-eyebrow-wide: 0.24em;
 
   /* control 히어로 상단 패딩 — clamp 유동값(규약 3). `pt-hero-y` 로 쓴다. */
   --spacing-hero-y: clamp(28px, 7vh, 72px);
-  /* mastery 히어로 밴드 간격·좌우 패딩(clamp 유동값). */
+  /* mastery 히어로 밴드 간격·좌우 패딩(clamp 유동값). ledger 히어로도 --spacing-hero-gap 을 공유(값 동일). */
   --spacing-hero-gap: clamp(18px, 3vw, 38px);
   --spacing-hero-px: clamp(20px, 2.6vw, 30px);
+  /* ledger 퍼널 5단계 막대 사이 간격(clamp 유동값). */
+  --spacing-funnel-gap: clamp(10px, 1.8vw, 22px);
 
   /* 폭 상한(control) — 힌트 문단·잡/기록 topic 말줄임 캡. 임의값(`max-w-[640px]`) 대신 이름. */
   --container-hint: 640px;

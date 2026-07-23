@@ -164,6 +164,14 @@
   --panel-acc2-faint: color-mix(in srgb, var(--acc2) 6%, var(--panel));
   --tint-good: color-mix(in srgb, var(--good) 15%, transparent);
   --tint-learning: color-mix(in srgb, var(--learning) 18%, transparent);
+
+  /* ledger(정본 원장) 히어로 밴드 — mastery 히어로에서 violet 층만 뺀 2층(acc 13% radial + acc 7% linear).
+     지식맵/폴백 패널은 값이 동일해 --bg-map-mastery 를 그대로 공유한다(review→mastery 재사용과 같은 패턴).
+     funBar 트랙은 line 40% 반투명(퍼널 막대 배경). */
+  --bg-hero-ledger:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
+    linear-gradient(165deg, color-mix(in oklab, var(--acc) 7%, var(--panel2)), var(--panel) 62%);
+  --bar-track: color-mix(in srgb, var(--line) 40%, transparent);
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

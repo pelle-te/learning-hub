@@ -6,6 +6,14 @@
 
    today 재설계 사상: 상단 리드아웃(챕터·검증·카드) · fill 프레임 · 히어로 퍼널 · 온디맨드 챕터 세부.
    데이터 원본은 볼트 빌드 산출물(읽기전용) — 워크스페이스가 설정돼 있으면 자동, 오프라인이면 안내(mastery와 동형).
+
+   ── C-7 아홉 번째 이식(ledger) — Tailwind ─────────────────────────────────────
+   레이아웃이 mastery 와 동형이라 인프라를 크게 승계한다: 지식맵/폴백 그래디언트(--bg-map-mastery),
+   상단 헤어라인(--bg-sig-top), 마운트 페이드업(rv-fade-up 키프레임), shadow-hero/card, hero-gap/px.
+   새로 이름 준 것: 히어로 그래디언트(violet 층 없는 변형 · --bg-hero-ledger)·퍼널 막대 트랙
+   (--bar-track)·2컬럼 트랙(380px)·상세 오버레이 폭·퍼널 gap·eyebrow 자간(0.24em)·상세 그림자(lg).
+   전역 요소 규칙을 이기는 `!`(control §15-7): h2 히어로 제목·셋업/에러 h3·셀/딥링크 버튼(border/padding/radius).
+   런타임 색 주입(퍼널 채움·셀·범례 스와치·단계 점 = style={{ background }})은 절대규칙 #3 구현이라 인라인 유지.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { useLedger, usePing } from '@/store/queries';
@@ -28,9 +36,15 @@ import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import l from './Ledger.module.css';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+
+// 히어로/지식맵 밴드 상단 1px 발광 헤어라인(--bg-sig-top · review 이식이 깐 것 재사용).
+const HAIRLINE =
+  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
+// 폴백 패널(로딩·에러·셋업) — 지식맵과 동형(그래디언트·그림자 공유). 자식은 m-auto 로 중앙(옛 `.offWrap > *`).
+const OFF_WRAP =
+  'relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-mastery)] p-5.5 shadow-card animate-[rv-fade-up_0.46s_var(--ease)_0.06s_both] motion-reduce:animate-none [scrollbar-width:thin]';
 
 /** 선택된 챕터 스냅샷(상세 패널). */
 interface Sel {
@@ -42,7 +56,11 @@ interface Sel {
 function Funnel({ l: led }: { l: Ledger }) {
   const total = led.n_chapters || 1;
   return (
-    <div className={l.funnel} role="img" aria-label={`파이프라인 단계별 도달 챕터 (전체 ${led.n_chapters})`}>
+    <div
+      className="flex h-23 min-w-55 flex-1 items-end justify-center gap-funnel-gap max-wide:order-3 max-wide:w-full"
+      role="img"
+      aria-label={`파이프라인 단계별 도달 챕터 (전체 ${led.n_chapters})`}
+    >
       {LEDGER_STAGES.map((st) => {
         const n = led.stage_counts[st] || 0;
         const w = Math.round((n / total) * 100);
@@ -50,16 +68,19 @@ function Funnel({ l: led }: { l: Ledger }) {
         return (
           <div
             key={st}
-            className={l.funStage}
+            className="flex max-w-21 flex-1 flex-col items-center gap-1"
             data-tip={`${m.label} — ${m.desc}: ${n}/${led.n_chapters}챕터`}
             role="img"
             aria-label={`${m.label} — ${m.desc}: ${n}/${led.n_chapters}챕터`}
           >
-            <div className={l.funBar}>
-              <div className={l.funFill} style={{ height: `${w}%`, background: m.color }} />
+            <div className="flex h-13.5 w-full items-end overflow-hidden rounded-sm bg-bar-track">
+              <div
+                className="min-h-0.5 w-full rounded-t-sm transition-[height] duration-[0.5s] ease-[var(--ease)] motion-reduce:transition-none"
+                style={{ height: `${w}%`, background: m.color }}
+              />
             </div>
-            <div className={l.funN}>{n}</div>
-            <div className={l.funLab}>
+            <div className="text-lg leading-none font-black text-txt tabular-nums">{n}</div>
+            <div className="text-2xs whitespace-nowrap text-mut">
               <span aria-hidden="true">{m.glyph}</span> {m.label}
             </div>
           </div>
@@ -80,20 +101,20 @@ function SubjectRow({
   onPick: (ch: LedgerChapter) => void;
 }) {
   return (
-    <div className={l.subRow}>
-      <div className={l.subHead}>
-        <b className={l.subNm}>{roll.subject}</b>
+    <div className="mb-4">
+      <div className="mb-1.5 flex items-baseline gap-2">
+        <b className="truncate text-md font-bold text-txt">{roll.subject}</b>
         <span className={`${ds.tiny} ${ds.muted}`}>
           {roll.abbr} · {roll.total}챕터 · 진척 {pct(roll.progress)}
           {!roll.srcPresent ? ' · 출처 없음' : ''}
         </span>
       </div>
-      <div className={l.cells}>
+      <div className="flex flex-wrap gap-1">
         {subject.chapters.map((ch) => (
           <button
             key={ch.chapter_id}
             type="button"
-            className={l.cell}
+            className="size-3.75 cursor-pointer rounded-xs! border-0! p-0! transition-transform hover:z-[1] hover:scale-[1.5] hover:outline-1 hover:outline-txt motion-reduce:transition-none"
             style={{ background: furthestColor(ch.furthest) }}
             data-tip={`${ch.arc}  ·  ${STAGE_META[ch.furthest === 'planned' ? 'sourced' : ch.furthest]?.label ?? '미착수'}${ch.furthest === 'planned' ? '(미착수)' : ''}  ·  노트 ${ch.notes}·카드 ${ch.cards}`}
             aria-label={`${roll.subject} ${ch.arc} — ${ch.furthest}`}
@@ -122,58 +143,66 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
   }, [onClose]);
   return (
     <div
-      className={l.detail}
+      className="absolute right-3.5 bottom-2 z-[5] w-full max-w-ledger-detail animate-[rv-fade-up_0.24s_var(--ease)_both] rounded-lg border border-line bg-panel px-4 pt-3.5 pb-4 shadow-detail motion-reduce:animate-none max-wide:fixed max-wide:right-auto max-wide:bottom-3.5 max-wide:left-1/2 max-wide:-translate-x-1/2"
       role="dialog"
       aria-modal="true"
       aria-label={`${ch.arc} 상세`}
       ref={panelRef}
       tabIndex={-1}
     >
-      <button type="button" className={l.detailX} onClick={onClose} aria-label="닫기">
+      <button
+        type="button"
+        className="absolute top-2 right-2 size-6.5 leading-none text-mut!"
+        onClick={onClose}
+        aria-label="닫기"
+      >
         ✕
       </button>
       <div className={`${ds.tiny} ${ds.muted}`}>
         {sel.subject} · {ch.chapter_id}
       </div>
-      <div className={l.detailName}>{ch.arc}</div>
-      <div className={l.steps}>
+      <div className="mt-0.5 mb-2.5 pr-6.5 text-lg font-extrabold text-txt">{ch.arc}</div>
+      <div className="mb-3 flex flex-col gap-1.5">
         {LEDGER_STAGES.map((st, i) => {
           const done = ch.milestones[st];
           const cur = stageIndex(ch.furthest) === i;
           const m = STAGE_META[st];
           return (
-            <div key={st} className={`${l.step}${done ? ' ' + l.stepDone : ''}${cur ? ' ' + l.stepCur : ''}`}>
-              <span className={l.stepDot} style={done ? { background: m.color, borderColor: m.color } : undefined}>
+            <div key={st} className={`flex items-center gap-2.25 ${done ? 'opacity-100' : 'opacity-50'}`}>
+              <span
+                className="flex size-4.5 flex-none items-center justify-center rounded-full border border-line text-xs font-black text-panel"
+                style={done ? { background: m.color, borderColor: m.color } : undefined}
+              >
                 {done ? '✓' : ''}
               </span>
-              <span className={l.stepLab}>
+              <span className={`text-sm ${cur ? 'font-bold text-txt' : 'text-mut'}`}>
                 {m.label} <span className={`${ds.tiny} ${ds.muted}`}>{m.desc}</span>
               </span>
             </div>
           );
         })}
       </div>
-      <div className={l.metrics}>
+      <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-mut">
         <span>
-          노트 <b>{ch.notes}</b>
+          노트 <b className="text-txt tabular-nums">{ch.notes}</b>
           {ch.concept ? <span className={ds.muted}> (개념 {ch.concept})</span> : null}
         </span>
         <span>
-          검증률 <b>{pct(ch.verified_ratio)}</b>
+          검증률 <b className="text-txt tabular-nums">{pct(ch.verified_ratio)}</b>
         </span>
         <span>
-          카드 <b>{ch.cards}</b>
+          카드 <b className="text-txt tabular-nums">{ch.cards}</b>
           {ch.reps ? <span className={ds.muted}> · {ch.reps}회</span> : null}
         </span>
         {ch.reviewed_recent ? (
           <span>
-            최근 복습 <b>{ch.reviewed_recent}</b>
+            최근 복습 <b className="text-txt tabular-nums">{ch.reviewed_recent}</b>
           </span>
         ) : null}
       </div>
       <button
         type="button"
-        className={l.deepBtn}
+        className="w-full rounded-md! p-2! text-sm font-semibold!"
         onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(ch.arc.replace(/^\d+\s*/, '')))}
         title="Obsidian에서 이 챕터 검색 (설치돼 있어야 함)"
       >
@@ -193,9 +222,9 @@ function Backlog({ l: led }: { l: Ledger }) {
         📥 백로그 <span className={`${ds.muted} ${ds.tiny}`}>(파이프라인에 아직 안 들어온 것)</span>
       </h3>
       {unp.length > 0 && (
-        <div className={l.blGroup}>
+        <div className="mt-2.5 flex flex-col gap-1.25">
           <div className={`${ds.tiny} ${ds.muted}`}>미처리 참고자료 — 폴더는 있으나 노트 미작성 ({unp.length})</div>
-          <div className={l.chips}>
+          <div className="flex flex-wrap gap-1.25">
             {unp.map((s) => (
               <span key={s} className={ds.chip}>
                 {s}
@@ -205,11 +234,11 @@ function Backlog({ l: led }: { l: Ledger }) {
         </div>
       )}
       {nosrc.length > 0 && (
-        <div className={l.blGroup}>
+        <div className="mt-2.5 flex flex-col gap-1.25">
           <div className={`${ds.tiny} ${ds.muted}`}>출처 없는 과목 — 참고자료 폴더 미연결 ({nosrc.length})</div>
-          <div className={l.chips}>
+          <div className="flex flex-wrap gap-1.25">
             {nosrc.map((s) => (
-              <span key={s} className={`${ds.chip} ${l.chipWarn}`}>
+              <span key={s} className={`${ds.chip} border-line-warn! text-warn!`}>
                 {s}
               </span>
             ))}
@@ -229,7 +258,7 @@ function Bottleneck({ l: led }: { l: Ledger }) {
   return (
     <div className={ds.card}>
       <h3>🎯 병목</h3>
-      <div className={l.bottleBody}>
+      <div className="flex flex-col gap-1.5">
         <span className={ds.kpi} style={{ color: m.color }}>
           {m.glyph} {m.label}
         </span>
@@ -251,8 +280,8 @@ function Bottleneck({ l: led }: { l: Ledger }) {
 
 function Setup() {
   return (
-    <div className={l.stateBody}>
-      <h3>아직 챕터 원장이 없어요</h3>
+    <div className="m-auto max-w-off px-1.5 py-2">
+      <h3 className="mt-0! mb-2! text-base! font-extrabold! tracking-tight!">아직 챕터 원장이 없어요</h3>
       <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
         <li>
           원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
@@ -314,13 +343,15 @@ export default function Ledger() {
   };
 
   return (
-    <section className={l.wrap} aria-label="정본 원장">
+    <section className="flex h-full min-h-0 min-w-0 flex-col gap-3.5 px-4.5 pt-4 pb-3.5" aria-label="정본 원장">
       {/* ── 히어로 밴드 — 파이프라인 퍼널 + 생성일 + 재빌드 ── */}
-      <div className={`${l.hero} ${ds.glow}`}>
-        <div className={l.heroLeft}>
-          <span className={l.eyebrow}>정본 축</span>
-          <h2 className={l.headTitle}>📒 정본 원장</h2>
-          <span className={l.headMeta}>
+      <div
+        className={`relative flex flex-none animate-[rv-fade-up_0.46s_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4 ${HAIRLINE} ${ds.glow}`}
+      >
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>
+          <h2 className="mt-0.5! mb-0! text-hero-title! leading-[1.04] font-black! tracking-tight!">📒 정본 원장</h2>
+          <span className="text-xs text-mut tabular-nums">
             {led ? (
               <>
                 생성 {led.generated || '—'} · 과목 {rolls.length} · 챕터 {led.n_chapters}
@@ -331,9 +362,9 @@ export default function Ledger() {
           </span>
         </div>
         {led && <Funnel l={led} />}
-        <div className={l.heroAction}>
+        <div className="ml-auto flex flex-col items-end gap-2 max-wide:items-start">
           {loading && (
-            <span className={l.headMeta}>
+            <span className="text-xs text-mut tabular-nums">
               <span className={ds.spin} /> 로드 중
             </span>
           )}
@@ -350,24 +381,30 @@ export default function Ledger() {
       </div>
 
       {led ? (
-        <div className={l.cols}>
+        <div className="relative grid min-h-0 flex-1 grid-cols-ledger gap-3.5 max-wide:grid-cols-1 max-wide:overflow-y-auto">
           {/* 좌 — 과목별 파이프라인 매트릭스(immersive) */}
-          <div className={`${l.mapCol} ${ds.glow}`}>
-            <div className={l.mapHead}>
-              <span className={l.mapTitle}>과목별 파이프라인 — SUBJECT PIPELINE</span>
-              <span className={l.mapMeta}>셀 하나가 챕터 · 색 = 가장 멀리 간 단계 · 클릭으로 세부</span>
+          <div
+            className={`relative flex min-h-0 min-w-0 animate-[rv-fade-up_0.46s_var(--ease)_0.06s_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none max-wide:min-h-85 ${ds.glow}`}
+          >
+            <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1.5 px-5 pt-4 pb-1">
+              <span className="text-xs font-extrabold tracking-caps text-mut uppercase">
+                과목별 파이프라인 — SUBJECT PIPELINE
+              </span>
+              <span className="text-xs text-mut">셀 하나가 챕터 · 색 = 가장 멀리 간 단계 · 클릭으로 세부</span>
             </div>
-            <div className={l.legend}>
+            <div className="flex flex-none flex-wrap gap-x-3 gap-y-1 px-5 pt-1.5 pb-2.5 text-2xs text-mut">
               {LEDGER_STAGES.map((st) => (
-                <span key={st}>
-                  <i style={{ background: STAGE_META[st].color }} /> {STAGE_META[st].label}
+                <span key={st} className="inline-flex items-center gap-1">
+                  <i className="inline-block size-2.5 rounded-xs" style={{ background: STAGE_META[st].color }} />{' '}
+                  {STAGE_META[st].label}
                 </span>
               ))}
-              <span>
-                <i style={{ background: 'var(--panel-2,#2a2d35)' }} /> 미착수
+              <span className="inline-flex items-center gap-1">
+                <i className="inline-block size-2.5 rounded-xs" style={{ background: 'var(--panel-2,#2a2d35)' }} />{' '}
+                미착수
               </span>
             </div>
-            <div className={l.mapScroll}>
+            <div className="min-h-0 flex-1 [scrollbar-width:thin] overflow-y-auto px-5 pt-1 pb-5">
               {rolls.map((roll) => (
                 <SubjectRow
                   key={roll.subject}
@@ -379,25 +416,25 @@ export default function Ledger() {
             </div>
           </div>
           {/* 우 — 병목·백로그(다음 행동) */}
-          <div className={l.actionCol}>
+          <div className="flex min-h-0 min-w-0 [scrollbar-width:thin] flex-col gap-3 overflow-y-auto pr-0.5">
             <Bottleneck l={led} />
             <Backlog l={led} />
           </div>
           {sel && <Detail sel={sel} onClose={() => setSel(null)} />}
         </div>
       ) : loading ? (
-        <div className={l.offWrap}>
-          <div className={ds.muted}>
+        <div className={OFF_WRAP}>
+          <div className={`m-auto max-w-off ${ds.muted}`}>
             <span className={ds.spin} /> 챕터 원장 로드 중...
           </div>
         </div>
       ) : realError ? (
-        <div className={l.offWrap}>
-          <div className={l.errBody} role="alert">
-            <span className={l.errGlyph} aria-hidden="true">
+        <div className={OFF_WRAP}>
+          <div className="m-auto flex max-w-off flex-col items-center gap-2 px-1.5 py-2 text-center" role="alert">
+            <span className="text-3xl leading-none text-bad opacity-85" aria-hidden="true">
               ⚠
             </span>
-            <h3>챕터 원장을 불러오지 못했어요</h3>
+            <h3 className="m-0! text-base! font-extrabold!">챕터 원장을 불러오지 못했어요</h3>
             <div className={`${ds.foot} ${ds.muted}`}>{errMsg}</div>
             <Button sm variant="primary" onClick={() => refetch()}>
               다시 시도
@@ -405,7 +442,7 @@ export default function Ledger() {
           </div>
         </div>
       ) : (
-        <div className={l.offWrap}>
+        <div className={OFF_WRAP}>
           <Setup />
         </div>
       )}
