@@ -193,6 +193,7 @@ export default tseslint.config(
       'src/app/App.tsx', // C-7 셸 티어 이식분(하나씩 넓힌다)
       'src/app/SubTabs.tsx',
       'src/app/TopBar.tsx',
+      'src/app/RailSidebar.tsx',
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',

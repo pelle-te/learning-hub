@@ -458,4 +458,20 @@
   --text-shadow-wordmark: 0 0 20px var(--glow);
   --text-shadow-readout: 0 0 22px var(--glow);
   --shadow-fill-chip: 0 0 30px -6px var(--glow);
+  /* ── RailSidebar(셸 티어 4/5) 이식(C-7) ─────────────────────────────────────
+     접힘/펼침 두 벌 기하가 한 컴포넌트에 있다. 반픽셀 폰트(13.5/12.5/10.5)는 정수 사다리 밖이라
+     이름을 준다(eslint 임의값 금지의 예고된 예외 ① — 값으로 쓰지 말고 이름으로). 반경 9/8px 는
+     기존 --radius-blk/--radius-chip 과 값이 같지만 의미가 달라 별칭을 둔다(graph --tracking-kind 선례). */
+  --text-rail-item: 13.5px; /* 나브 행 라벨 */
+  --text-rail-surface: 12.5px; /* 표면 스위처 라벨 */
+  --text-rail-head: 10.5px; /* 그룹 헤더 · 배지 */
+  --radius-rail: 9px; /* 나브 행 · 토글 */
+  --radius-rail-chip: 8px; /* 로고 · 배지 · 플라이아웃 · 표면 버튼 */
+  --radius-rail-seg: 11px; /* 표면 스위처 트랙(펼침) */
+  --tracking-rail-logo: -0.04em; /* L 칩 */
+  --color-tint-acc-panel-20: var(--tint-acc-panel-20);
+  /* 로고 네온 · 표면 활성 칩(inset 링 + 카드 그림자 합성). */
+  --shadow-rail-logo: 0 0 24px -4px var(--glow);
+  --shadow-rail-surface-on: inset 0 0 0 1px var(--acc-glow), var(--shadow-sm);
+  --shadow-rail-item-on: inset 0 0 0 1px var(--acc-glow);
 }
