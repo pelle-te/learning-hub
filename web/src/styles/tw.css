@@ -45,3 +45,15 @@
     transform: none;
   }
 }
+/* integrations 텔레메트리 online 채널 점의 라이브 펄스(C-7 · CSS Module 스코프를 벗어나 전역). */
+@keyframes tc-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 50%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

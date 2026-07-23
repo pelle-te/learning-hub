@@ -172,6 +172,10 @@
     radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
     linear-gradient(165deg, color-mix(in oklab, var(--acc) 7%, var(--panel2)), var(--panel) 62%);
   --bar-track: color-mix(in srgb, var(--line) 40%, transparent);
+
+  /* integrations 텔레메트리 채널 — 카드 표면(ink 2% 워시)·idle 점(ink 28%). */
+  --ch-tint: color-mix(in srgb, var(--ink) 2%, transparent);
+  --dot-idle: color-mix(in srgb, var(--ink) 28%, transparent);
 }
 
 /* ── 다크 모드(기본) — 딥 블랙 캔버스 + 인디고-바이올렛 네온 ──

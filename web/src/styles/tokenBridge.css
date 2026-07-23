@@ -72,6 +72,9 @@
   --color-tint-bad: var(--tint-bad);
   /* ledger(정본 원장) 퍼널 막대 트랙 — line 40% 반투명(tokens.css 계산). */
   --color-bar-track: var(--bar-track);
+  /* integrations 텔레메트리 채널 표면·idle 점(tokens.css 계산). */
+  --color-ch-tint: var(--ch-tint);
+  --color-dot-idle: var(--dot-idle);
 
   --spacing-1: var(--sp-1);
   --spacing-2: var(--sp-2);
@@ -105,6 +108,8 @@
   /* ledger 2컬럼 — 매트릭스(유동) + 행동(고정 380px). 챕터 상세 오버레이 폭 상한(min(360px,82%)). */
   --grid-template-columns-ledger: minmax(0, 1fr) 380px;
   --container-ledger-detail: min(360px, 82%);
+  /* integrations 2컬럼 — 액션(유동) + 텔레메트리 조종석(고정 360px). */
+  --grid-template-columns-integrations: minmax(0, 1fr) 360px;
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
   --text-token: 0.86em;
@@ -155,6 +160,8 @@
   --shadow-card: var(--shadow-sm);
   /* review 회고 코칭 warn 톤 점의 발광 링(bad). good 톤·계획막대는 shadow-dot 재사용. */
   --shadow-dot-bad: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
+  /* integrations 텔레메트리 online 채널 점의 그린 발광(정적 · tc-pulse 애니가 그 위에 링을 얹는다). */
+  --shadow-dot-good: 0 0 8px var(--good);
   /* mastery 히어로 밴드 그림자(shadow-md). 지식맵/폴백은 shadow-card(sm) 재사용.
      ledger 히어로도 --shadow-hero 공유. 챕터 상세 오버레이는 lg(정의됨 · 폴백 md). */
   --shadow-hero: var(--shadow-md);
@@ -166,6 +173,8 @@
   --tracking-eyebrow: 0.2em;
   /* ledger eyebrow 는 한 칸 더 넓다(0.24em). 디자인 의도값이라 이름을 준다(반올림 예외 · 규약 3 논리). */
   --tracking-eyebrow-wide: 0.24em;
+  /* integrations 텔레메트리 채널명·상태(0.12em) — caps(0.16)와 widest(0.1) 사이 한 칸. */
+  --tracking-caps-sm: 0.12em;
 
   /* control 히어로 상단 패딩 — clamp 유동값(규약 3). `pt-hero-y` 로 쓴다. */
   --spacing-hero-y: clamp(28px, 7vh, 72px);

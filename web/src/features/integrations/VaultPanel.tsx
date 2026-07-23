@@ -22,7 +22,6 @@ import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import g from './Integrations.module.css';
 
 export function VaultPanel() {
   const qc = useQueryClient();
@@ -241,7 +240,7 @@ export function VaultPanel() {
       </div>
 
       {scan && (
-        <div className={`${ds.card} ${g.tree}`}>
+        <div className={ds.card}>
           {scan.subjects.map((s, si) => {
             // 노트 0개면 0/0=NaN → 헤더·진행바가 'NaN%'가 된다. 0%로 가드.
             const vp = s.notes ? Math.round((s.verified / s.notes) * 100) : 0;
@@ -250,9 +249,9 @@ export function VaultPanel() {
             const uncovered = Math.max(0, s.notes - s.exported);
             const isOpen = open.has(si);
             return (
-              <div key={si} className={g.sub}>
+              <div key={si} className="mb-2.25 overflow-hidden rounded-md border border-line bg-panel">
                 <div
-                  className={g.sh}
+                  className="flex cursor-pointer items-center gap-2 px-3.25 py-2.5 transition-[background] hover:bg-panel2"
                   role="button"
                   tabIndex={0}
                   aria-expanded={isOpen}
@@ -284,11 +283,14 @@ export function VaultPanel() {
                   <i style={{ width: `${vp}%`, background: 'var(--acc)', boxShadow: '0 0 8px var(--glow)' }} />
                 </div>
                 {isOpen && (
-                  <div className={g.chs}>
+                  <div className="pt-0.5 pr-3.25 pb-2.25 pl-7.5">
                     {s.chapters.length ? (
                       s.chapters.map((c, ci) => (
-                        <div key={ci} className={g.ch}>
-                          <span className={g.nm}>{c.name}</span>
+                        <div
+                          key={ci}
+                          className="flex items-center gap-2 border-b border-dashed border-line-soft py-1.25 text-md last:border-b-0"
+                        >
+                          <span className="flex-1">{c.name}</span>
                           <span className={`${ds.tiny} ${ds.muted}`}>
                             {c.notes}노트 · 검증 {c.verified}
                             {c.wip ? ` · 진행중 ${c.wip}` : ''}
