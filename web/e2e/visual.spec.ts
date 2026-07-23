@@ -539,6 +539,9 @@ const TABS = [
   'review',
   'guide',
   'ledger',
+  // graph 는 <canvas> 힘-방향 뷰지만 초기 좌표가 id 해시 시드로 **결정론적**이고(graphData.ts:
+  // "Math.random 금지 · 스냅샷/테스트 안정") reduced-motion 에선 동기 1회 렌더라 캡처가 안정적이다.
+  'graph',
 ];
 const THEMES = ['dark', 'light'] as const;
 
@@ -603,7 +606,7 @@ const SEED_EMPTY = {
   cbms: [],
   degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
 };
-const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'journal'];
+const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'journal', 'graph'];
 
 for (const theme of THEMES) {
   for (const tab of TABS) {

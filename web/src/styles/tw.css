@@ -171,3 +171,16 @@
     opacity: 0;
   }
 }
+/* graph(지식맵) 이식 — 노드 클릭 상세 패널 진입(detailIn). CSS Module 이 스코프하던 키프레임을
+   전역(unlayered)으로 옮긴다(animate-[detailIn_…] 이름 참조는 스코프 밖이어야 · rv-fade-up 처리와 동일).
+   ⚠ 캔버스 호스트 마운트는 rv-fade-up(translateY 6px)을 재사용하지만 detailIn 은 8px 라 별도 정의. */
+@keyframes detailIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

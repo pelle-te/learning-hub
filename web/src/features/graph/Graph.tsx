@@ -10,6 +10,17 @@
    • prefers-reduced-motion → 애니메이션 생략, 레이아웃을 동기로 N회 반복 후 한 번만 그림.
    • document.hidden → RAF 일시정지. 언마운트 시 RAF·옵서버·리스너 전부 정리(누수 0).
    • 캔버스는 스크린리더에 불투명 → role=img + aria-label 요약 + .srOnly <ul>(항목 done/total) 병행.
+
+   ── C-7 열 번째 이식(graph) — Tailwind ──────────────────────────────────────
+   캔버스 크롬(호스트 프레임·범례·컨트롤·툴팁·상세 패널·빈 상태)만 옮긴다 — 캔버스 픽셀은 JS 가 그린다.
+   지식맵/폴백 그래디언트(--bg-map-mastery)·상단 헤어라인(--bg-sig-top)·마운트 페이드업(rv-fade-up)·
+   shadow-card/hero 를 mastery/ledger 이식에서 승계한다. 새로 이름 준 것: 부유 크롬 글래스 배경
+   (--panel-glass-82/88/94/96)·backdrop 블러(--backdrop-graph)·검색실패 테두리(--line-warn-mid)·
+   상세 패널 폭·off-ladder 반경(6/8px)·자간(0.14em)·허브 스와치 발광(--shadow-hub).
+   ⚠ preflight 미포함 → 폼 컨트롤(<input>/<button>)은 UA line-height:normal 이라 body 1.6 을 상속
+   하지 않는다: 폼 컨트롤엔 leading-[normal], 정상흐름엔 leading-[1.6](또는 소스 명시 1.25/1.7).
+   ⚠ 전역 요소 규칙(input{}/button{})은 unlayered 라 Tailwind 를 이긴다 → 다른 속성만 ! 로 되찾는다.
+   전역 :hover(:not(:disabled)) 특이도에 눌린 로컬 hover 는 되살리지 않는다(전역이 이긴 렌더 보존).
 ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +34,35 @@ import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
 import { createGraphSim, type FocusResult } from './graphSim';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
-import g from './Graph.module.css';
+import ds from '@/styles/ds.module.css';
+
+// 캔버스 호스트/폴백 상단 1px 발광 헤어라인(--bg-sig-top · review→ledger 이식이 깐 것 재사용).
+const HAIRLINE =
+  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
+// 범례 스와치(9px 원) 공통 · 칩(span). 의미연결(lSem)은 점선 선분이라 따로 준다.
+const SWATCH = 'inline-block size-2.25 rounded-full';
+const LEG_SPAN = 'inline-flex items-center gap-1.25 whitespace-nowrap';
+// 검색 토스트(없음/위치) — 우상단 오버레이 공통(값만 색이 다름 · 정상흐름 div → leading-[1.6]).
+const TOAST =
+  'absolute top-11.5 right-3.5 z-[3] rounded-md border bg-panel-glass-88 px-2.5 py-1.25 text-xs leading-[1.6] [backdrop-filter:var(--backdrop-graph)]';
+// 검색 입력 — type=search 는 전역 input[type=text]{} 밖(글래스 배경 직접). 전역 input{font-size:13}
+// 만 겹쳐 text-sm! · 키보드 포커스링(acc55)은 로컬이 이겼던 것이라 focus-visible:…! 로 되찾는다.
+const SEARCH =
+  'h-7 w-37.5 rounded-md border border-line bg-panel-glass-88 px-2.25 text-sm! leading-[normal] text-txt [backdrop-filter:var(--backdrop-graph)] [transition:border-color_0.16s_var(--ease)] focus-visible:border-line-acc-focus!';
+// 줌/찾기 버튼 — 전역 button{} 과 다른 속성만 !(배경·색·반경). border/padding/cursor 는 전역과 동일해 생략.
+const CTRL_BTN =
+  'grid size-7 place-items-center rounded-md! bg-panel-glass-88! text-base! leading-[normal] text-mut! [backdrop-filter:var(--backdrop-graph)]';
+// 툴팁 — 항상 마운트, JS 가 style.display 로 토글(기본 hidden). 정상흐름 div → leading-[1.6].
+const TIP =
+  'pointer-events-none absolute z-[3] hidden max-w-60 translate-x-3.5 -translate-y-1/2 rounded-sm border border-line bg-panel-glass-94 px-2.25 py-1.25 text-sm leading-[1.6] whitespace-nowrap text-txt shadow-hero tabular-nums';
+// 상세 행(정상흐름 div · 소스 line-height 1.7) + 강조 b. 위험도는 group-data 관계형 색(§15 · 자손 셀렉터 대응물).
+const ROW = 'text-sm leading-[1.7] text-mut';
+const ROW_RISK = `${ROW} group data-[risk=overdue]:text-bad`;
+const B = 'font-bold text-txt';
+const B_RISK = `${B} group-data-[risk=overdue]:text-bad group-data-[risk=due]:text-learning`;
+// 상세 액션 버튼 — 전역 button{} 과 다른 속성만 !. hover box-shadow(inset acc)는 전역이 안 건드려 유지.
+const DETAIL_BTN =
+  'rounded-detail-btn! border-0! bg-tint-acc-12! px-2.5 py-1.5 text-sm! leading-[normal] font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]';
 
 /** 노드 클릭 시 여는 상세 패널의 최소 정보(시뮬레이션 노드에서 스냅샷). */
 interface SelInfo {
@@ -531,9 +570,12 @@ export default function Graph() {
   const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
 
   return (
-    <section className={g.wrap} aria-label="지식맵">
+    <section
+      className="flex h-full min-h-0 min-w-0 flex-col px-4.5 pt-4 pb-3.5 max-mobile:px-3 max-mobile:pt-3 max-mobile:pb-2.5"
+      aria-label="지식맵"
+    >
       {items.length === 0 ? (
-        <div className={g.emptyHost}>
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card">
           <EmptyState
             glyph="🕸"
             title="아직 지식맵이 비어 있어요"
@@ -551,11 +593,14 @@ export default function Graph() {
           />
         </div>
       ) : (
-        <div className={g.canvasHost} ref={wrapRef}>
+        <div
+          className={`relative min-h-0 min-w-0 flex-1 animate-[rv-fade-up_0.46s_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none ${HAIRLINE}`}
+          ref={wrapRef}
+        >
           {/* 검색 + 줌 컨트롤 — 우상단 오버레이. 캔버스는 SR 불투명이라 여기 컨트롤이 접근 경로. */}
-          <div className={g.controls}>
+          <div className="absolute top-3 right-3.5 z-[3] flex items-center gap-1.25">
             <input
-              className={g.search}
+              className={SEARCH}
               type="search"
               value={query}
               placeholder="개념·챕터 찾기…"
@@ -569,23 +614,18 @@ export default function Graph() {
                 if (e.key === 'Enter') runSearch(query);
               }}
             />
-            <button type="button" className={g.ctrlBtn} aria-label="찾기" onClick={() => runSearch(query)}>
+            <button type="button" className={CTRL_BTN} aria-label="찾기" onClick={() => runSearch(query)}>
               ⌕
             </button>
-            <button type="button" className={g.ctrlBtn} aria-label="확대" onClick={() => viewApi.current?.zoom(1.3)}>
+            <button type="button" className={CTRL_BTN} aria-label="확대" onClick={() => viewApi.current?.zoom(1.3)}>
               ＋
             </button>
-            <button
-              type="button"
-              className={g.ctrlBtn}
-              aria-label="축소"
-              onClick={() => viewApi.current?.zoom(1 / 1.3)}
-            >
+            <button type="button" className={CTRL_BTN} aria-label="축소" onClick={() => viewApi.current?.zoom(1 / 1.3)}>
               －
             </button>
             <button
               type="button"
-              className={g.ctrlBtn}
+              className={CTRL_BTN}
               aria-label="전체 보기로 초기화"
               onClick={() => {
                 setQuery('');
@@ -598,99 +638,114 @@ export default function Graph() {
             </button>
           </div>
           {noHit && (
-            <div className={g.searchMiss} role="status">
+            <div className={`${TOAST} border-line-warn-mid text-warn`} role="status">
               “{query}” 노드를 못 찾았어요
             </div>
           )}
           {matchHint && (
-            <div className={g.searchHint} role="status" aria-label={`매치 ${matchHint.i} / ${matchHint.n}`}>
+            <div
+              className={`${TOAST} border-line-acc-hover text-acc tabular-nums`}
+              role="status"
+              aria-label={`매치 ${matchHint.i} / ${matchHint.n}`}
+            >
               {matchHint.i}/{matchHint.n}
-              {matchHint.n > 1 ? <span className={g.searchHintTip}> · Enter로 다음</span> : null}
+              {matchHint.n > 1 ? <span className="text-mut"> · Enter로 다음</span> : null}
             </div>
           )}
-          <div className={g.legend}>
-            <span>
-              <i className={g.lHub} /> 항목(허브·색=과목)
+          <div className="pointer-events-none absolute top-3 left-3.5 z-[2] flex flex-wrap gap-x-3.5 gap-y-1.5 rounded-md border border-line bg-panel-glass-82 px-3 py-2 text-xs leading-[1.6] text-mut [backdrop-filter:var(--backdrop-graph)] max-mobile:gap-x-2.5 max-mobile:gap-y-1 max-mobile:px-2.25 max-mobile:py-1.5 max-mobile:text-2xs">
+            <span className={LEG_SPAN}>
+              <i className={`${SWATCH} bg-acc shadow-hub`} /> 항목(허브·색=과목)
             </span>
-            <span>
-              <i style={{ background: 'var(--good)' }} /> 숙달
+            <span className={LEG_SPAN}>
+              <i className={`${SWATCH} bg-good`} /> 숙달
             </span>
-            <span>
-              <i style={{ background: 'var(--learning)' }} /> 학습중
+            <span className={LEG_SPAN}>
+              <i className={`${SWATCH} bg-learning`} /> 학습중
             </span>
-            <span>
-              <i style={{ background: 'var(--mut)' }} /> 미착수
+            <span className={LEG_SPAN}>
+              <i className={`${SWATCH} bg-mut`} /> 미착수
             </span>
             {semEdges.length > 0 ? (
-              <span>
-                <i className={g.lSem} /> 의미 연결(자동)
+              <span className={LEG_SPAN}>
+                <i className="inline-block h-0 w-3.5 rounded-none border-t-2 border-dashed border-acc opacity-70" />{' '}
+                의미 연결(자동)
               </span>
             ) : semStatus === 'unavailable' ? (
               <span
-                className={g.legendMut}
+                className={`${LEG_SPAN} italic opacity-70`}
                 title="Ollama 임베딩 모델이 있으면 과목 경계를 넘는 의미 연결이 자동으로 그려져요"
               >
-                <i className={g.lSem} /> 의미 연결 — Ollama 필요
+                <i className="inline-block h-0 w-3.5 rounded-none border-t-2 border-dashed border-acc opacity-70" />{' '}
+                의미 연결 — Ollama 필요
               </span>
             ) : null}
           </div>
-          <canvas ref={canvasRef} className={g.canvas} role="img" aria-label={ariaLabel} />
+          <canvas ref={canvasRef} className="block size-full touch-none" role="img" aria-label={ariaLabel} />
           {/* 툴팁 — 항상 마운트, 위치·텍스트·표시는 포인터 핸들러가 ref로 직접 갱신(리렌더 없음). */}
-          <div ref={tipRef} className={g.tip} role="tooltip" aria-hidden="true" />
+          <div ref={tipRef} className={TIP} role="tooltip" aria-hidden="true" />
           {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
           {sel && (
-            <div className={g.detail} role="dialog" aria-label={`${sel.label} 상세`}>
+            <div
+              className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[detailIn_0.22s_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
+              role="dialog"
+              aria-label={`${sel.label} 상세`}
+            >
               <button
                 ref={detailCloseRef}
                 type="button"
-                className={g.detailX}
+                className="absolute top-2 right-2.25 size-5.5 rounded-detail-x! border-0! bg-transparent! text-mut!"
                 onClick={() => setSel(null)}
                 aria-label="닫기"
               >
                 ✕
               </button>
-              <div className={g.detailKind}>{sel.kind === 'hub' ? '학습 항목' : '챕터'}</div>
-              <div className={g.detailName}>{sel.label}</div>
+              <div className="text-2xs font-extrabold tracking-kind text-acc uppercase">
+                {sel.kind === 'hub' ? '학습 항목' : '챕터'}
+              </div>
+              <div className="mt-0.75 mb-2 pr-5 text-lg leading-[1.25] font-extrabold break-keep text-txt">
+                {sel.label}
+              </div>
               {sel.kind === 'hub' ? (
                 <>
-                  <div className={g.detailRow}>
+                  <div className={ROW}>
                     진행{' '}
-                    <b>
+                    <b className={B}>
                       {sel.done ?? 0}/{sel.total ?? 0}
                     </b>{' '}
                     챕터
                   </div>
                   {/* AN-23 — graphData가 이미 집계한 챕터 학습시간 합을 노출(0이면 생략). */}
                   {sel.hours != null && sel.hours > 0 && (
-                    <div className={g.detailRow}>
-                      총 학습 <b>{sel.hours.toFixed(1)}h</b>
+                    <div className={ROW}>
+                      총 학습 <b className={B}>{sel.hours.toFixed(1)}h</b>
                     </div>
                   )}
                   {hubRisk > 0 && (
-                    <div className={g.detailRow} data-risk="overdue">
-                      복습 위험 <b>{hubRisk}개</b>
+                    <div className={ROW_RISK} data-risk="overdue">
+                      복습 위험 <b className={B_RISK}>{hubRisk}개</b>
                     </div>
                   )}
                 </>
               ) : (
                 <>
-                  <div className={g.detailRow}>
-                    상태 <b>{sel.tone === 'done' ? '숙달' : sel.tone === 'learning' ? '학습중' : '미착수'}</b>
+                  <div className={ROW}>
+                    상태{' '}
+                    <b className={B}>{sel.tone === 'done' ? '숙달' : sel.tone === 'learning' ? '학습중' : '미착수'}</b>
                   </div>
                   {leafRv ? (
-                    <div className={g.detailRow} data-risk={leafRv.risk}>
-                      마지막 학습 <b>{leafRv.daysSince}일 전</b> ·{' '}
+                    <div className={ROW_RISK} data-risk={leafRv.risk}>
+                      마지막 학습 <b className={B_RISK}>{leafRv.daysSince}일 전</b> ·{' '}
                       {leafRv.risk === 'overdue' ? '복습 시급' : leafRv.risk === 'due' ? '복습 권장' : '최근'}
                     </div>
                   ) : (
-                    <div className={`${g.detailRow} ${g.detailMut}`}>완료된 학습 기록이 아직 없어요</div>
+                    <div className={`${ROW} opacity-80`}>완료된 학습 기록이 아직 없어요</div>
                   )}
                 </>
               )}
-              <div className={g.detailActions}>
+              <div className="mt-2.75 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className={g.detailBtn}
+                  className={DETAIL_BTN}
                   // AN-17 — 목록 최상단이 아니라 이 항목 카드로 딥링크(허브=자기 항목 id, 잎=부모 항목 id 둘 다 sel.itemId).
                   onClick={() => navigate('/items?focus=' + encodeURIComponent(sel.itemId), { viewTransition: true })}
                 >
@@ -699,7 +754,7 @@ export default function Graph() {
                 {(hubRisk > 0 || (leafRv && leafRv.risk !== 'fresh')) && (
                   <button
                     type="button"
-                    className={g.detailBtn}
+                    className={DETAIL_BTN}
                     onClick={() => navigate('/review', { viewTransition: true })}
                   >
                     복습 위험 보기 →
@@ -708,7 +763,7 @@ export default function Graph() {
                 {/* E-5: 볼트 딥링크 — obsidian://search는 볼트명 없이도 동작(설치돼 있으면). */}
                 <button
                   type="button"
-                  className={g.detailBtn}
+                  className={DETAIL_BTN}
                   onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(sel.label))}
                   title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
                 >
@@ -717,7 +772,7 @@ export default function Graph() {
                 {/* E-5: Anki는 신뢰 가능한 데스크톱 URL 스킴이 없어 연동 탭(덱 상태·내보내기)으로 안내. */}
                 <button
                   type="button"
-                  className={g.detailBtn}
+                  className={DETAIL_BTN}
                   onClick={() => navigate('/integrations', { viewTransition: true })}
                   title="Anki 덱 상태·카드 내보내기"
                 >
@@ -727,7 +782,7 @@ export default function Graph() {
             </div>
           )}
           {/* 스크린리더 대체 — 캔버스는 불투명하므로 항목별 done/total을 목록으로 병행 제공. */}
-          <ul className={g.srOnly}>
+          <ul className={ds.srOnly}>
             {items.map((it) => {
               const t = it.chapters?.length || 0;
               const d = it.chapters?.filter((c) => c.done).length || 0;
