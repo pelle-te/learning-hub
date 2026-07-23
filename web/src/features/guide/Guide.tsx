@@ -65,7 +65,7 @@ function Section({
           {glyph}
         </span>
         <div>
-          <h2 className="m-0 mb-1 text-lg tracking-tight">
+          <h2 className="m-0! mb-1! text-lg! tracking-tight!">
             {n && <span className="text-acc tabular-nums">{n}</span>}
             {title}
           </h2>
@@ -104,7 +104,7 @@ export default function Guide() {
       {/* ── 히어로 ── */}
       <header className={HERO}>
         <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">러닝 허브 · 안내</div>
-        <h1 className="mt-1 mb-2 text-xl tracking-tight">이 시스템이 할 수 있는 것 · 하는 법</h1>
+        <h1 className="mt-1! mb-2! text-xl! tracking-tight!">이 시스템이 할 수 있는 것 · 하는 법</h1>
         <p className="m-0 max-w-prose text-sm leading-relaxed text-mut">
           <b className="text-txt">삶-연관 개인 지식 엔진</b> — 교재를 노트로 만들어(<b className="text-txt">학습</b>),
           세상을 모아(<b className="text-txt">수집</b>), 내 목표에 맞춰 (<b className="text-txt">연관성</b>) 배운다. 세

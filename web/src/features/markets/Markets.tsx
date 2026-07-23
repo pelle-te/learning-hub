@@ -497,7 +497,7 @@ const NewsCard = memo(function NewsCard({
       </a>
       <button
         type="button"
-        className="self-start border-none! bg-transparent! px-1! py-0.75! text-xs! leading-[1.6]! font-bold! text-mut!"
+        className="self-start border-none! bg-transparent! px-1! py-0.75! text-xs! leading-[normal]! font-bold! text-mut!"
         onClick={() => onPromote(n)}
         disabled={done}
         title={done ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}

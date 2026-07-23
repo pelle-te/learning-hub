@@ -84,7 +84,7 @@ const S = {
   // 4 — 과목별 진행
   subjects:
     'flex min-h-0 min-w-0 flex-col border-l border-line2 p-5.5 max-wide:min-h-75 max-wide:border-t max-wide:border-l-0 max-wide:border-line2',
-  subjectsH2: 'mb-3! flex-none text-xs! leading-[1.6] font-extrabold tracking-caps! text-mut! uppercase',
+  subjectsH2: 'mb-3! flex-none text-xs! leading-[1.6] font-extrabold! tracking-caps! text-mut! uppercase',
   subjList: '-mx-1 flex min-h-0 flex-1 flex-col gap-2.25 overflow-y-auto px-1 [scrollbar-width:thin]',
   subj: "relative flex flex-col gap-1.5 overflow-hidden rounded-md border border-line bg-panel pt-2.75 pr-3.25 pb-3 pl-3.75 shadow-card transition-[border-color,transform,box-shadow] duration-[0.16s] ease-[var(--ease)] before:absolute before:top-2.25 before:bottom-2.25 before:left-0 before:w-0.75 before:scale-y-0 before:rounded-cell before:bg-acc before:shadow-spine before:transition-transform before:duration-[0.18s] before:ease-[var(--ease)] before:content-[''] hover:-translate-y-px hover:border-line-acc hover:shadow-hero hover:before:scale-y-100",
   subjTop: 'flex items-center gap-2',

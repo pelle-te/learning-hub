@@ -545,6 +545,17 @@ const TABS = [
 ];
 const THEMES = ['dark', 'light'] as const;
 
+/* 캡처 직전 정착 대기 — **웹폰트 스와프가 레이아웃을 10px 움직인다**(2026-07-24 발견).
+   이 앱은 `Pretendard Variable` 을 쓰는데, 폴백 폰트로 첫 페인트가 끝난 뒤 스와프가 일어나면
+   줄상자 높이가 줄어 화면 전체가 위로 밀린다. `toHaveScreenshot` 의 "연속 두 프레임 동일"
+   안정화는 그 사이에 끼어들 수 있어(실측: 16 병렬에서 2/16 이 스와프 전 상태로 박혔다)
+   **베이스라인 자체가 두 상태를 오갔다** — 종전 임계 2% 가 그걸 통째로 삼키고 있었다.
+   `fonts.status==='loaded'` 로 스와프 완료를 단정하고 rAF 두 번으로 그 뒤 리플로우까지 넘긴다. */
+async function settle(page: Page) {
+  await page.waitForFunction(() => document.fonts.status === 'loaded');
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
+}
+
 async function boot(page: Page, theme: string, seed: object = SEED) {
   // reducedMotion을 명시 await — config(use.reducedMotion)만 믿으면 드물게 첫 로드와 레이스해
   // AmbientCanvas가 애니메이션 프레임으로 돌기 시작(스크린샷 불안정 → flaky). 여기서 확정한다.
@@ -625,6 +636,13 @@ for (const theme of THEMES) {
       // 그러면 카피가 바뀌었을 때 count 0 으로 조용히 통과해 flaky 가 되살아난다. 여기(존재 단정)는
       // 카피가 바뀌면 timeout 으로 시끄럽게 깨진다.
       if (tab === 'integrations') await expect(page.getByText('워크스페이스 설정 필요(설정 탭)')).toBeVisible();
+      // ⚠ graph 도 같은 부류다(2026-07-24 계산-스타일 대조에서 발견 — 픽셀 게이트는 못 잡고 있었다).
+      // 범례의 '의미 연결' 칩은 `semStatus` 가 settle 한 뒤에야 붙는다: 트랙 A 에선 임베딩 커맨드가
+      // reject 되어 반드시 'unavailable'(= Ollama 필요) 로 끝나는데, 그 전에 찍으면 칩이 통째로
+      // 빠진 상을 박는다(실측: 같은 실행에서 dark 는 50노드, light 는 48노드). integrations 와 같은
+      // **존재 단정**으로 전이 완료를 보장한다(카피가 바뀌면 조용히 통과하지 않고 timeout).
+      if (tab === 'graph') await expect(page.getByText('의미 연결 — Ollama 필요')).toBeVisible();
+      await settle(page);
       await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
     });
   }
@@ -639,6 +657,7 @@ for (const theme of THEMES) {
       await expect(page.locator('#main')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+      await settle(page);
       await expect(page).toHaveScreenshot(`${tab}-empty-${theme}.png`, { fullPage: true });
     });
   }
@@ -663,6 +682,7 @@ test('stats · accent-lime', async ({ page }) => {
   await expect(page.locator('#main')).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-accent', 'lime');
   await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+  await settle(page);
   await expect(page).toHaveScreenshot('stats-accent-lime.png', { fullPage: true });
 });
 
@@ -686,6 +706,7 @@ for (const theme of THEMES) {
     await page.goto('/alloc');
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
+    await settle(page);
     await expect(page).toHaveScreenshot(`alloc-board-${theme}.png`, { fullPage: true });
   });
 }
@@ -717,6 +738,7 @@ for (const theme of THEMES) {
     await page.goto('/review-run');
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.getByRole('progressbar')).toBeVisible();
+    await settle(page);
     await expect(page).toHaveScreenshot(`review-run-${theme}.png`, { fullPage: true });
   });
 }
@@ -736,6 +758,7 @@ for (const theme of THEMES) {
     await expect(page.getByRole('heading', { name: '이번 주 요일 배분' })).toBeVisible();
     // 뷰포트 캡처 — fullPage는 position:fixed 오버레이를 스크롤 오프셋만큼 어긋나게 그려(헤더 누락·좌측 잘림)
     // 실제 렌더와 다른 상을 박는다. 시트는 뷰포트에 고정된 물건이라 뷰포트로 잡는 게 정직하다.
+    await settle(page);
     await expect(page).toHaveScreenshot(`subject-sheet-${theme}.png`);
   });
 }
@@ -753,6 +776,7 @@ for (const theme of THEMES) {
     // toBeVisible은 opacity를 보지 않으므로 그냥 찍으면 두 번째 카드가 투명한 상을 박는다 — 불투명해질 때까지 대기.
     await expect(page.getByRole('dialog').locator('h2').nth(1).locator('..')).toHaveCSS('opacity', '1');
     // 시트는 뷰포트 고정물 → 뷰포트 캡처(fullPage는 fixed 오버레이를 어긋나게 그린다).
+    await settle(page);
     await expect(page).toHaveScreenshot(`skeleton-open-${theme}.png`);
   });
 }
@@ -777,6 +801,7 @@ for (const view of ['month', 'day'] as const) {
     await page.goto('/schedule');
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.locator('#main section[aria-label]').first()).toBeVisible();
+    await settle(page);
     await expect(page).toHaveScreenshot(`calendar-${view}-dark.png`, { fullPage: true });
   });
 }
@@ -788,6 +813,7 @@ for (const theme of THEMES) {
     await page.goto('/atlas/ran');
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.locator('#main h1')).toBeVisible(); // 상세 표제(그리드엔 h1 없음)
+    await settle(page);
     await expect(page).toHaveScreenshot(`atlas-detail-${theme}.png`, { fullPage: true });
   });
 }
@@ -803,6 +829,7 @@ for (const tab of TABS_MOBILE) {
     await page.goto('/' + tab);
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+    await settle(page);
     await expect(page).toHaveScreenshot(`${tab}-mobile.png`, { fullPage: true });
   });
 }

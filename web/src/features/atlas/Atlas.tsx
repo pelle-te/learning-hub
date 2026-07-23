@@ -38,7 +38,7 @@ import { fmtPublished } from '@/lib/markets';
       색이라 정적 클래스로 표현 불가 — §14-3 예외 그대로. 옛 `--sig`/`--fut` 로컬 별칭은
       실토큰(`--signal`/`--warn`)으로 편다(별칭이 있던 이유가 없어졌다). */
 const ROOT = 'px-5 pt-4 pb-12';
-const CHIP = 'rounded-full! px-3! py-1! text-sm! whitespace-nowrap';
+const CHIP = 'rounded-full! px-3! py-1! text-sm! leading-[normal]! whitespace-nowrap';
 const CHIP_ON = 'bg-acc-soft! border-line-acc-hover! font-semibold! text-txt!';
 const CHIP_OFF = 'bg-panel! text-mut!';
 const CARDS = 'grid grid-cols-atlas gap-2';
@@ -140,7 +140,7 @@ export default function Atlas() {
           <p className="m-0 max-w-prose text-md leading-normal text-mut">{field.one}</p>
           <button
             type="button"
-            className={`absolute top-0 right-0 px-3! py-1! text-sm! max-mobile:static max-mobile:mt-2.5 ${on ? 'border-acc! bg-acc! font-bold! text-on-acc!' : ''}`}
+            className={`absolute top-0 right-0 px-3! py-1! text-sm! leading-[normal]! max-mobile:static max-mobile:mt-2.5 ${on ? 'border-acc! bg-acc! font-bold! text-on-acc!' : ''}`}
             aria-pressed={on}
             onClick={() => toggleStar(field.key)}
           >

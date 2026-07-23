@@ -43,7 +43,7 @@ const TITLE = 'mt-3! mb-5! text-control-title! font-black! tracking-tight!'; // 
 const SEARCHBAR =
   'flex w-full max-w-runner items-center gap-2 rounded-lg border border-line bg-panel py-2 pr-2 pl-4 shadow-bar transition focus-within:border-line-acc-focus focus-within:shadow-bar-focus max-narrow:flex-wrap';
 const SEARCHINPUT =
-  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
+  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! leading-[normal]! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
 const SEARCHSCOPE =
   'w-30 flex-none border-l border-l-line2! bg-transparent! px-2 py-2 text-txt shadow-none! placeholder:text-mut! focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:border-t max-narrow:border-t-line2! max-narrow:border-l-0!';
 const SEARCHGO =

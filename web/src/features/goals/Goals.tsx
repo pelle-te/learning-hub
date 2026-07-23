@@ -46,7 +46,7 @@ const HERO = 'mb-5 rounded-lg border border-line-acc bg-linear-to-b from-acc-sof
 const GRID = 'grid grid-cols-goals gap-3';
 const CARD = 'flex flex-col gap-2 rounded-md border border-line bg-panel px-4 py-3';
 const CARD_HEAD = 'flex items-baseline justify-between gap-2';
-const CARD_TITLE = 'm-0 text-md tracking-tight';
+const CARD_TITLE = 'm-0! text-md! tracking-tight!'; // h1~h3 — 언레이어드 전역 h2/h3{} 를 ! 로 이긴다
 const KIND_BASE = 'flex-none rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap';
 const KIND = { goal: 'bg-acc-soft text-acc', project: 'bg-tint-acc2-strong text-acc2' } as const;
 const PROJ_ROW = 'flex items-baseline gap-2 text-sm';
@@ -135,7 +135,7 @@ function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signa
   return (
     <section className="mt-6" aria-label="프로젝트·활용 표면">
       <div className="mb-3 flex flex-wrap items-baseline gap-2">
-        <h2 className="m-0 text-lg tracking-tight">프로젝트 · 활용 표면</h2>
+        <h2 className="m-0! text-lg! tracking-tight!">프로젝트 · 활용 표면</h2>
         <span className="text-xs text-mut">학습을 응용에 잇는 앵커 — 관계성이 학습을 견인(D10)</span>
       </div>
 
@@ -253,7 +253,7 @@ function GoalBranch({ node, maxWeight, isRoot }: { node: GoalTreeNode; maxWeight
       <>
         <header className={HERO}>
           <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">내 길 · 성취목표</div>
-          <h1 className="mt-1 mb-2 text-xl tracking-tight">{node.title}</h1>
+          <h1 className="mt-1! mb-2! text-xl! tracking-tight!">{node.title}</h1>
           <p className="m-0 max-w-prose text-sm text-mut">
             이 단일 목표를 하위목표로 분해해 학습 노력의 연관성 그래디언트를 만듭니다.
           </p>

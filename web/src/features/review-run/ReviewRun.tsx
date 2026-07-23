@@ -42,7 +42,7 @@ const ACTS_END = `${ACTS} justify-end`;
 const ACTS_CENTER = `${ACTS} justify-center`;
 const SKIP =
   'cursor-pointer rounded-sm border border-line bg-none px-3 py-2 text-md text-mut hover:border-acc hover:text-txt';
-const PROMPT = 'm-0 text-runner-prompt leading-normal';
+const PROMPT = 'm-0! text-runner-prompt! leading-normal'; // h2 — 언레이어드 전역 h2{} 를 ! 로 이긴다
 const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint py-3 pr-4 pl-8 leading-relaxed';
 /* 배지 색은 data-* 변형으로 — 옛 `.badge[data-kind='confident']` 의 직역이다. */
 const BADGE =

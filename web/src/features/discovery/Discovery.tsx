@@ -121,7 +121,7 @@ export default function Discovery() {
     <section className={ROOT}>
       <header className="mb-4 rounded-lg border border-line-acc bg-linear-to-b from-acc-soft to-transparent p-5">
         <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">발견 · 축 C</div>
-        <h1 className="mt-1 mb-2 text-xl tracking-tight">✦ 발견 큐</h1>
+        <h1 className="mt-1! mb-2! text-xl! tracking-tight!">✦ 발견 큐</h1>
         <p className="m-0 max-w-prose text-sm leading-normal text-mut">
           기계가 표면화한 후보를 <b>사람이 승격/기각</b>합니다 — 승격은 개론 섹션을 atomic 노트로 분해하는 핸드오프(핵심
           지시문 파이프라인), 기각은 큐에서 내림. 결정은 재실행에도 보존됩니다(멱등).
@@ -166,7 +166,7 @@ function Candidate({
           >
             {meta?.label ?? entry.kind}
           </span>
-          <h2 className="m-0 truncate text-md tracking-tight">{entryTitle(entry)}</h2>
+          <h2 className="m-0! truncate text-md! tracking-tight!">{entryTitle(entry)}</h2>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mut">
           {goals.length > 0 && (
