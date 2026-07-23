@@ -317,6 +317,9 @@
   --tint-ink-5: color-mix(in srgb, var(--ink) 5%, transparent);
   --tint-acc-9: color-mix(in srgb, var(--acc) 9%, transparent);
   --tint-acc-12: color-mix(in srgb, var(--acc) 12%, transparent);
+  /* FocusChip hover(본체 14% · 중단 8%) — 칩 배경 --tint-acc-9 위에 얹는 단계. */
+  --tint-acc-14: color-mix(in srgb, var(--acc) 14%, transparent);
+  --tint-acc-8: color-mix(in srgb, var(--acc) 8%, transparent);
   /* 나브 배지(복습·보충 대기) 배경 — 저채도 알약(발광·펄스 없음 · C-9). */
   --tint-acc-panel-20: color-mix(in srgb, var(--acc) 20%, var(--panel));
   /* CTA 정지 배경 · 블록 4단계 막대 베이스(1·2단계) · 착각카드 배경 · 오버레이 딤 · 셋업 오버레이/체크. */

@@ -194,6 +194,7 @@ export default tseslint.config(
       'src/app/SubTabs.tsx',
       'src/app/TopBar.tsx',
       'src/app/RailSidebar.tsx',
+      'src/app/FocusChip.tsx',
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',

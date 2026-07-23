@@ -474,4 +474,15 @@
   --shadow-rail-logo: 0 0 24px -4px var(--glow);
   --shadow-rail-surface-on: inset 0 0 0 1px var(--acc-glow), var(--shadow-sm);
   --shadow-rail-item-on: inset 0 0 0 1px var(--acc-glow);
+  /* ── FocusChip(셸 티어 5/5) 이식(C-7) ───────────────────────────────────────
+     TopBar 상주 집중 칩. 색은 전부 --acc/--glow 파생이라 이름만 잇는다(테마·액센트 자동 대응). */
+  --color-tint-acc-9: var(
+    --tint-acc-9
+  ); /* 칩 배경 — ⚠ 브리지에 없으면 `bg-tint-acc-9` 자체가 생성되지 않아
+     배경이 통째로 투명해진다(eslint no-unknown-classes 도 못 잡았다 · 실렌더 대조가 잡았다). */
+  --color-tint-acc-14: var(--tint-acc-14); /* 본체 hover */
+  --color-tint-acc-8: var(--tint-acc-8); /* 중단 버튼 hover */
+  --shadow-focus-chip: 0 0 24px -8px var(--glow); /* 칩 외곽 발광 */
+  --shadow-focus-dot: 0 0 10px var(--glow); /* 라이브 펄스 점(spine 과 값만 같다) */
+  --text-shadow-focus-time: 0 0 16px var(--glow); /* 남은 시간 네온 */
 }

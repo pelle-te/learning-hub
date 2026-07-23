@@ -256,3 +256,17 @@
   --subj-col: color-mix(in oklab, var(--tint, var(--ink)) 52%, var(--ink));
   --tilt-today: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
 }
+
+/* FocusChip(셸 5/5) 라이브 펄스 — CSS Module 이 스코프하던 키프레임을 전역(unlayered)으로.
+   reduced-motion 은 유틸(`motion-reduce:animate-none`)이 담당한다(원본 미디어쿼리 대체). */
+@keyframes focus-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.78);
+  }
+}
