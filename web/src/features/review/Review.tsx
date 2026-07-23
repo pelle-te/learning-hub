@@ -34,8 +34,77 @@ import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import ds from '@/styles/ds.module.css';
-import rv from './Review.module.css';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
+
+/* ── C-7 일곱 번째 이식(review) — 지금까지 최대(689줄 TSX · 515 CSS) ──────────
+   규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Review.module.css` 삭제.
+   ⚠ **`ds.*` 공유 클래스는 그대로 둔다**(ds.module.css 는 맨 뒤 이식 · 부칙). `rv.*` 만 옮긴다 —
+   혼용이 정상이다. 전역 요소 규칙(button·textarea·h2·small…)은 control 규율대로 다른 속성만 `!`.
+
+   이 파일에서 처음 만난 것:
+   ① **마운트 애니메이션**(막대 리빌 `rv-bar-rise` · 카드 페이드업 `rv-fade-up`) — 키프레임을
+      tw.css 에 전역으로 두고 `animate-[…_0.4s_var(--ease)_both]` 로 붙인다(막대 stagger 지연은
+      런타임값이라 인라인 style 유지). ds-fadeUp 은 ds.module 에 스코프돼 못 부르므로 새로 뒀다.
+   ② **oklab 액센트 베이크 그래디언트**(sigChart 배경·상단 헤어라인)·달성률 글로우(text-shadow) —
+      Tailwind 색 유틸로 표현 불가라 tokens.css 에 이름 주고 `bg-[image:var(--…)]`·`[text-shadow:
+      var(--…)]` 로 참조(§14-3). 막대는 항상 mainCol 이라 `.mainCol .paBar` 오버라이드(14/130/150)를
+      실효값으로 삼는다. */
+const WRAP = 'flex h-full min-w-0 flex-col';
+const NAV = 'flex flex-none items-center gap-2 border-b border-line px-6 py-3';
+const WKBOX = 'min-w-30 flex-1 text-center';
+const WKLAB = 'text-lg font-extrabold';
+const WKOFF = 'ml-1 text-sm font-semibold text-mut';
+const GRID = 'grid min-h-0 flex-1 grid-cols-review max-wide:grid-cols-1 max-wide:overflow-y-auto';
+const MAINCOL = 'min-w-0 overflow-y-auto px-6 py-5 [scrollbar-width:thin]';
+const SIDECOL =
+  'min-w-0 overflow-y-auto border-l border-line2 p-5 [scrollbar-width:thin] max-wide:border-t max-wide:border-l-0';
+const HINT = 'mb-4 text-xs leading-normal text-mut';
+const SIG_CHART =
+  "relative mb-3 rounded-lg border border-line bg-[image:var(--bg-sig-chart)] px-5 py-4 shadow-card animate-[rv-fade-up_0.46s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-[''] motion-reduce:animate-none";
+const SIG_HEAD = 'mb-2 flex items-baseline justify-between';
+const SIG_TITLE = 'text-xs font-extrabold tracking-caps text-mut uppercase';
+const SIG_RATE = 'text-2xl font-black tracking-tight text-acc tabular-nums [text-shadow:var(--sig-rate-glow)]';
+const PA_EMPTY = 'flex min-h-38 items-center justify-center px-3 py-2 text-center text-sm leading-normal text-mut';
+const PA_CHART = 'flex min-h-38 items-end justify-around gap-2 px-1 pt-2 pb-0.5';
+const PA_COL = 'flex flex-col items-center gap-1';
+const PA_BAR = 'flex h-32 items-end gap-0.5';
+const I_BASE =
+  'block w-3.5 origin-bottom rounded-t-xs transition-[height] duration-[0.4s] ease-[var(--ease)] animate-[rv-bar-rise_0.4s_var(--ease)_both] motion-reduce:animate-none';
+const I_PLAN = `${I_BASE} bg-fill-plan`;
+const I_DONE = `${I_BASE} bg-acc shadow-dot`;
+const PALG = 'mr-0.5 inline-block size-2.5 rounded-xs align-middle';
+const PALG_PLAN = `${PALG} bg-fill-plan`;
+const PALG_DONE = `${PALG} bg-acc shadow-dot`;
+const INLINE_LINK =
+  'border-0! bg-transparent! p-0! font-bold! text-acc! underline decoration-acc/45 decoration-1 underline-offset-2 transition-[text-decoration-color] hover:decoration-acc focus-visible:rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc';
+const COACH_LIST = 'm-0 mt-2 flex list-none flex-col gap-2 p-0';
+const COACH_ITEM = 'group flex gap-2 text-md leading-normal text-txt';
+const COACH_DOT =
+  'mt-1.5 size-1.5 flex-none rounded-full bg-mut group-data-[tone=warn]:bg-bad group-data-[tone=warn]:shadow-dot-bad group-data-[tone=good]:bg-acc group-data-[tone=good]:shadow-dot';
+const WEAK_BOX = 'mt-3 border-t border-line2 pt-3';
+const WEAK_LIST = 'm-0 mt-1 flex list-none flex-col gap-1 p-0';
+const WEAK_ITEM = 'flex items-baseline justify-between gap-2 text-sm';
+const WEAK_META = 'flex-none text-xs font-bold whitespace-nowrap text-mut';
+const WEAK_ACTIONS = 'flex flex-none items-center gap-1';
+const WEAK_SEED =
+  'flex-none rounded-full! border-line-acc-hover! bg-tint-acc! px-2! py-1! text-xs! font-extrabold! whitespace-nowrap text-acc!';
+const WEAK_ALLOT =
+  'flex-none rounded-full! bg-transparent! px-2! py-1! text-xs! font-extrabold! whitespace-nowrap text-acc!';
+const COACH_AI = 'mt-3 flex items-center gap-2';
+const AI_BOX =
+  'mt-3 rounded-md border border-line2 bg-panel-acc-faint px-3 py-3 animate-[rv-fade-up_0.3s_var(--ease)_both] motion-reduce:animate-none';
+const AI_STREAM = 'm-0 mt-2 text-xs leading-relaxed break-words whitespace-pre-wrap text-mut';
+const AI_HEAD = 'text-md font-extrabold leading-snug text-txt';
+const AI_FOCUS = 'mt-2 text-sm leading-normal text-mut';
+const AI_ACTIONS = 'mx-0 my-2 flex flex-col gap-1 pl-4 text-sm leading-snug text-txt';
+const RISK_LIST = 'm-0 my-2 flex list-none flex-col gap-0.5 p-0';
+const RISK_ROW = 'group flex items-center gap-2 rounded-sm px-2 py-2 text-md data-[risk=overdue]:bg-tint-bad-faint';
+const RISK_DOT = 'size-2 flex-none rounded-full';
+const RISK_NM = 'min-w-0 flex-1 truncate font-bold text-txt';
+const RISK_AGE = 'flex-none text-sm font-extrabold text-mut tabular-nums group-data-[risk=overdue]:text-bad';
+const BENCH_ACTIONS = 'flex flex-none items-center gap-1';
+const BENCH_BTN = 'inline-flex h-6 w-6.5 flex-none items-center justify-center p-0! text-sm! leading-none text-mut!';
+const SHOW_MORE = 'my-1 px-3! py-1! text-sm! font-semibold! text-mut!';
 
 interface WeekPA {
   byDay: { ds: string; k: number; pm: number; dm: number }[];
@@ -95,33 +164,33 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
       ref={ref}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`${rv.sigChart} ${ds.spotHost} ${ds.glow}`}
+      className={`${SIG_CHART} ${ds.spotHost} ${ds.glow}`}
     >
       <div className={ds.spotlight} aria-hidden="true" />
       <div className={ds.aura} aria-hidden="true" />
-      <div className={rv.sigHead}>
-        <span className={rv.sigTitle}>계획 대비 실제 — PLAN vs ACTUAL</span>
+      <div className={SIG_HEAD}>
+        <span className={SIG_TITLE}>계획 대비 실제 — PLAN vs ACTUAL</span>
         {!empty && (
-          <span className={rv.sigRate}>
+          <span className={SIG_RATE}>
             달성 {rate}
-            <small>%</small>
+            <small className="ml-px text-md font-extrabold text-mut">%</small>
           </span>
         )}
       </div>
       {empty ? (
-        <div className={rv.paEmpty}>이 주엔 계획된 블록이 없어요 — 계획 탭에서 배정하면 채워집니다.</div>
+        <div className={PA_EMPTY}>이 주엔 계획된 블록이 없어요 — 계획 탭에서 배정하면 채워집니다.</div>
       ) : (
-        <div className={rv.paChart}>
+        <div className={PA_CHART}>
           {byDay.map((x) => {
             const ph = Math.round((x.pm / maxRef) * 70);
             const dh = Math.round((x.dm / maxRef) * 70);
             const paLab = `${DOW_MON[x.k]} ${fmtShort(parseISO(x.ds))} · 계획 ${(x.pm / 60).toFixed(1)}h / 완료 ${(x.dm / 60).toFixed(1)}h`;
             // 인덱스 기반 소량 stagger — 막대가 요일 순서대로 밑에서 차오른다(표현만, 데이터 불변).
             return (
-              <div key={x.k} className={rv.paCol} data-tip={paLab} role="img" aria-label={paLab}>
-                <span className={rv.paBar}>
-                  <i className={rv.plan} style={{ height: ph, animationDelay: `${x.k * 45}ms` }} />
-                  <i className={rv.done} style={{ height: dh, animationDelay: `${x.k * 45 + 80}ms` }} />
+              <div key={x.k} className={PA_COL} data-tip={paLab} role="img" aria-label={paLab}>
+                <span className={PA_BAR}>
+                  <i className={I_PLAN} style={{ height: ph, animationDelay: `${x.k * 45}ms` }} />
+                  <i className={I_DONE} style={{ height: dh, animationDelay: `${x.k * 45 + 80}ms` }} />
                 </span>
                 <span className={`${ds.tiny} ${ds.muted}`}>{DOW_MON[x.k]}</span>
               </div>
@@ -130,9 +199,9 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
         </div>
       )}
       <div className={ds.foot}>
-        <span className={`${rv.paLg} ${rv.plan}`} /> 계획 &nbsp; <span className={`${rv.paLg} ${rv.done}`} /> 완료
-        &nbsp;· 막대는 요일별 시간. 자세한 추세는{' '}
-        <button type="button" className={rv.inlineLink} onClick={() => navigate('/stats', { viewTransition: true })}>
+        <span className={PALG_PLAN} /> 계획 &nbsp; <span className={PALG_DONE} /> 완료 &nbsp;· 막대는 요일별 시간.
+        자세한 추세는{' '}
+        <button type="button" className={INLINE_LINK} onClick={() => navigate('/stats', { viewTransition: true })}>
           통계
         </button>{' '}
         탭.
@@ -224,7 +293,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
       )}
       <div className={ds.foot} style={{ marginTop: 8 }}>
         오래 열린 항목일수록 위로. 더 안 중요하면 과감히 버린다(재시작 루틴). 추가는{' '}
-        <button type="button" className={rv.inlineLink} onClick={() => navigate('/today', { viewTransition: true })}>
+        <button type="button" className={INLINE_LINK} onClick={() => navigate('/today', { viewTransition: true })}>
           오늘 학습
         </button>{' '}
         탭에서.
@@ -352,33 +421,33 @@ function CoachCard({ ds0 }: { ds0: string }) {
       {hasData ? (
         <>
           {insights.length > 0 && (
-            <ul className={rv.coachList}>
+            <ul className={COACH_LIST}>
               {insights.map((ins, i) => (
-                <li key={i} className={rv.coachItem} data-tone={ins.tone}>
-                  <span className={rv.coachDot} aria-hidden="true" />
+                <li key={i} className={COACH_ITEM} data-tone={ins.tone}>
+                  <span className={COACH_DOT} aria-hidden="true" />
                   <span>{ins.text}</span>
                 </li>
               ))}
             </ul>
           )}
           {weak.length > 0 && (
-            <div className={rv.weakBox}>
+            <div className={WEAK_BOX}>
               <div className={`${ds.muted} ${ds.tiny}`}>반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
-              <ul className={rv.weakList}>
+              <ul className={WEAK_LIST}>
                 {weak.map((w) => {
                   const lever = leverFor(w.subject);
                   return (
-                    <li key={w.key} className={rv.weakItem}>
-                      <b>
+                    <li key={w.key} className={WEAK_ITEM}>
+                      <b className="font-bold text-txt">
                         {w.subject} — {w.chapter}
                       </b>
-                      <span className={rv.weakMeta}>
+                      <span className={WEAK_META}>
                         {w.count}회 · {w.codes.map((c) => CBMS_INFO[c].label).join('·')}
                       </span>
-                      <span className={rv.weakActions}>
+                      <span className={WEAK_ACTIONS}>
                         <button
                           type="button"
-                          className={rv.weakSeed}
+                          className={WEAK_SEED}
                           onClick={() => seedBacklog(backlogFromWeakSpot(w))}
                           title={`"${w.subject} — ${w.chapter}"를 보충 백로그로 보내기`}
                           aria-label={`${w.subject} ${w.chapter} 보충 백로그로 보내기`}
@@ -388,7 +457,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
                         {lever && (
                           <button
                             type="button"
-                            className={rv.weakAllot}
+                            className={WEAK_ALLOT}
                             onClick={() => allotMore(w.subject, lever.id)}
                             title={`"${w.subject}" 주간 배정시간 +1h (현재 ${lever.weeklyHours || 0}h)`}
                             aria-label={`${w.subject} 다음 주 배정시간 1시간 늘리기`}
@@ -404,19 +473,19 @@ function CoachCard({ ds0 }: { ds0: string }) {
             </div>
           )}
           {roots.length > 0 && (
-            <div className={rv.weakBox}>
+            <div className={WEAK_BOX}>
               <div className={`${ds.muted} ${ds.tiny}`}>
                 약점의 뿌리 — 한 선수개념이 여러 약점의 공통 근본원인(먼저 메우면 상류가 함께 풀림)
               </div>
-              <ul className={rv.weakList}>
+              <ul className={WEAK_LIST}>
                 {roots.map((c) => (
-                  <li key={c.cause} className={rv.weakItem}>
-                    <b>🌱 {c.cause}</b>
-                    <span className={rv.weakMeta}>{c.count}개 약점의 뿌리</span>
-                    <span className={rv.weakActions}>
+                  <li key={c.cause} className={WEAK_ITEM}>
+                    <b className="font-bold text-txt">🌱 {c.cause}</b>
+                    <span className={WEAK_META}>{c.count}개 약점의 뿌리</span>
+                    <span className={WEAK_ACTIONS}>
                       <button
                         type="button"
-                        className={rv.weakSeed}
+                        className={WEAK_SEED}
                         onClick={() => seedBacklog(backlogFromRootCause(c))}
                         title={`"${c.cause}"(선수개념)를 보충 백로그로 보내기`}
                         aria-label={`${c.cause} 보충 백로그로 보내기`}
@@ -433,7 +502,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
       ) : (
         <div className={ds.foot}>이번 주 요약·오답·백지 기록이 쌓이면 코칭이 나와요.</div>
       )}
-      <div className={rv.coachAi}>
+      <div className={COACH_AI}>
         <Button
           sm
           onClick={askAI}
@@ -461,20 +530,20 @@ function CoachCard({ ds0 }: { ds0: string }) {
       </div>
       {/* 코칭 스트리밍 미리보기 — 완성 문장부터(SR에는 버튼의 '코칭 중…'이 상태). */}
       {aiBusy && aiPreview && (
-        <p className={rv.aiStream} aria-hidden="true">
+        <p className={AI_STREAM} aria-hidden="true">
           {aiPreview}
         </p>
       )}
       {ai && (
-        <div className={rv.aiBox} role="status">
-          {ai.headline && <div className={rv.aiHead}>{ai.headline}</div>}
+        <div className={AI_BOX} role="status">
+          {ai.headline && <div className={AI_HEAD}>{ai.headline}</div>}
           {ai.focus && (
-            <div className={rv.aiFocus}>
-              <b>먼저 손볼 것</b> {ai.focus}
+            <div className={AI_FOCUS}>
+              <b className="mr-1 font-bold text-acc">먼저 손볼 것</b> {ai.focus}
             </div>
           )}
           {Array.isArray(ai.actions) && ai.actions.length > 0 && (
-            <ul className={rv.aiActions}>
+            <ul className={AI_ACTIONS}>
               {ai.actions.map((a, i) => (
                 <li key={i}>{a}</li>
               ))}
@@ -529,21 +598,21 @@ function WorkbenchCard() {
       </div>
       {all.length ? (
         <>
-          <ul className={rv.riskList}>
+          <ul className={RISK_LIST}>
             {shown.map((c) => {
               const lever = leverFor(c.subject);
               return (
-                <li key={c.sid + '|' + c.chapter} className={rv.riskRow} data-risk={c.risk}>
-                  <span className={rv.riskDot} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
-                  <span className={rv.riskNm}>
-                    {c.subject} <small>{c.chapter}</small>
+                <li key={c.sid + '|' + c.chapter} className={RISK_ROW} data-risk={c.risk}>
+                  <span className={RISK_DOT} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
+                  <span className={RISK_NM}>
+                    {c.subject} <small className="ml-1 text-sm font-medium text-mut">{c.chapter}</small>
                   </span>
-                  <span className={rv.riskAge}>{c.daysSince}일</span>
-                  <span className={rv.benchActions}>
+                  <span className={RISK_AGE}>{c.daysSince}일</span>
+                  <span className={BENCH_ACTIONS}>
                     {lever && (
                       <button
                         type="button"
-                        className={rv.weakAllot}
+                        className={WEAK_ALLOT}
                         onClick={() => allotMore(c.subject, lever.id)}
                         title={`"${c.subject}" 주간 배정시간 +1h (현재 ${lever.weeklyHours || 0}h)`}
                         aria-label={`${c.subject} 다음 주 배정시간 1시간 늘리기`}
@@ -553,7 +622,7 @@ function WorkbenchCard() {
                     )}
                     <button
                       type="button"
-                      className={rv.benchBtn}
+                      className={BENCH_BTN}
                       onClick={() => seedRisk(c)}
                       title={`"${c.subject} — ${c.chapter}"를 보충 백로그로 보내기`}
                       aria-label={`${c.subject} ${c.chapter} 보충 백로그로 보내기`}
@@ -563,7 +632,7 @@ function WorkbenchCard() {
                     {/* 백지 복습 유도의 손잡이 — 볼트 딥링크(Graph E-5 미러). obsidian://search는 볼트명 없이도 동작. */}
                     <button
                       type="button"
-                      className={rv.benchBtn}
+                      className={BENCH_BTN}
                       onClick={() => openVault(c)}
                       title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
                       aria-label={`${c.subject} ${c.chapter} 볼트에서 검색`}
@@ -572,7 +641,7 @@ function WorkbenchCard() {
                     </button>
                     <button
                       type="button"
-                      className={rv.benchBtn}
+                      className={BENCH_BTN}
                       onClick={() => navigate('/review-run', { viewTransition: true })}
                       title="지금 복습 실행(백지 인출)"
                       aria-label={`${c.subject} ${c.chapter} 복습 실행`}
@@ -585,7 +654,7 @@ function WorkbenchCard() {
             })}
           </ul>
           {(hidden > 0 || expanded) && (
-            <button type="button" className={rv.showMore} onClick={() => setExpanded((v) => !v)}>
+            <button type="button" className={SHOW_MORE} onClick={() => setExpanded((v) => !v)}>
               {expanded ? '접기' : `+${hidden}개 더 보기`}
             </button>
           )}
@@ -645,16 +714,14 @@ export default function Review() {
   );
 
   return (
-    <section className={rv.wrap} aria-label="주간 리뷰">
-      <div className={rv.nav}>
+    <section className={WRAP} aria-label="주간 리뷰">
+      <div className={NAV}>
         <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
           ◀ 이전 주
         </Button>
-        <div className={rv.wkBox}>
-          <b className={rv.wkLab}>{weekLabel(mon)}</b>
-          <span className={rv.wkOff}>
-            {isThis ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}
-          </span>
+        <div className={WKBOX}>
+          <b className={WKLAB}>{weekLabel(mon)}</b>
+          <span className={WKOFF}>{isThis ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}</span>
         </div>
         <Button sm onClick={() => setWeekOffset((o) => Math.min(0, o + 1))} disabled={weekOffset >= 0}>
           다음 주 ▶
@@ -664,10 +731,10 @@ export default function Review() {
         </Button>
       </div>
 
-      <div className={rv.grid}>
+      <div className={GRID}>
         {/* 좌 — 시그니처 차트(계획 대비 실제 · CBMS 분포) */}
-        <div className={rv.mainCol}>
-          <div className={rv.hint}>
+        <div className={MAINCOL}>
+          <div className={HINT}>
             주 1회 15~20분, <b>공부 방식</b>을 점검하는 자리. 시간(투입)이 아니라 <i>CBMS 분포 축소·진행률</i> 같은
             나아진 증거가 가장 강한 동기.
           </div>
@@ -677,7 +744,7 @@ export default function Review() {
           <CbmsDistCard cnt={cnt} />
         </div>
         {/* 우 — 점검·회수(액션) */}
-        <div className={rv.sideCol}>
+        <div className={SIDECOL}>
           {/* key=주 — 주 이동 시 리마운트해 메모 draft를 그 주 note로 재동기화(+언마운트 flush). */}
           <ChecklistCard key={wk} wk={wk} />
           <WorkbenchCard />

@@ -130,6 +130,18 @@
   /* 전망 앰버 옅은 배경(atlas futBox) + 그 안 프로세 색(warn 42%↔txt). */
   --tint-warn-faint: color-mix(in srgb, var(--warn) 8%, transparent);
   --warn-on-txt: color-mix(in srgb, var(--warn) 42%, var(--txt));
+
+  /* review 시그니처 차트 — 액센트 베이크 배경(radial+linear · oklab)·상단 헤어라인·달성률 글로우.
+     그래디언트·발광은 Tailwind 색 유틸로 표현 불가 → 이름을 주고 var() 로 참조(§14-3 성격). */
+  --bg-sig-chart:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 7%, transparent), transparent 56%),
+    linear-gradient(168deg, color-mix(in oklab, var(--acc) 5%, var(--panel2)), var(--panel) 64%);
+  --bg-sig-top: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  --sig-rate-glow: 0 0 18px var(--acc-glow);
+  /* review AI 박스 배경 · 복습위험 overdue 행 배경 · 계획 막대 채움(mut 55%). */
+  --panel-acc-faint: color-mix(in srgb, var(--acc) 5%, var(--panel2));
+  --tint-bad-faint: color-mix(in srgb, var(--bad) 9%, transparent);
+  --fill-plan: color-mix(in srgb, var(--mut) 55%, transparent);
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
   --tint-acc2-strong: color-mix(in srgb, var(--acc2) 18%, transparent);
   /* acc2 헤어라인 두 세기(goals 이식 · line-acc/-strong 의 acc2 대응) — 프로젝트/가능신호 프레임. */

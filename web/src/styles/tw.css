@@ -21,3 +21,27 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import './tokenBridge.css';
+
+/* ── 마운트 리빌 키프레임(C-7 · review 이식) ────────────────────────────────
+   CSS Modules 는 keyframe 이름을 스코프한다 — ds.module.css 의 `ds-fadeUp` 은 거기 스코프라
+   Tailwind 유틸리티에서 못 부른다. 그래서 전역(unlayered)으로 둔다. 지속시간·이징은 클래스에서
+   `animate-[rv-fade-up_0.46s_var(--ease)_both]` 처럼 붙인다(값은 임의값 금지에 안 걸린다 — s 는
+   막힌 단위 목록에 없다). 막대 stagger 지연은 런타임값이라 인라인 style 로 남는다. */
+@keyframes rv-bar-rise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes rv-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
