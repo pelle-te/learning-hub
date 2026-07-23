@@ -121,7 +121,7 @@ export default function Items() {
               value: (
                 <>
                   {(allocWeekMin / 60).toFixed(1)}
-                  <small> / {(weekBudgetMin / 60).toFixed(1)} h</small>
+                  <small className="text-base14 font-bold text-mut"> / {(weekBudgetMin / 60).toFixed(1)} h</small>
                 </>
               ),
             },
@@ -130,7 +130,7 @@ export default function Items() {
               value: insight.totalCh ? (
                 <>
                   {insight.doneCh}
-                  <small> / {insight.totalCh}</small>
+                  <small className="text-base14 font-bold text-mut"> / {insight.totalCh}</small>
                 </>
               ) : (
                 '—'

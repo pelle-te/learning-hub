@@ -64,7 +64,9 @@ const CAL = {
 } as const;
 
 // 일정 조각 — 구조(base) + 밀도별 패딩(pad) + 종류별 채움/그림자/좌측띠(kind) + 세션타입 폴백색(type).
-const SEG_BASE = 'absolute flex cursor-default flex-col gap-px overflow-hidden rounded-seg! text-left';
+// ⚠ seg-scope — 과목색(--seg) 파생 채움/링을 **이 요소에서** 다시 선언한다(tw.css 머리주석: :root 선언은
+//    폴백으로 굳어 인라인 --seg 를 못 따라간다). 없으면 조각 채움이 통째로 빈다.
+const SEG_BASE = 'seg-scope absolute flex cursor-default flex-col gap-px overflow-hidden rounded-seg! text-left';
 const SEG_PAD = {
   base: 'py-0.75! pr-1.5! pl-2.25!',
   event: 'py-0.75! pr-1.5! pl-2!', // 일정은 좌측 띠가 굵어 padding-left 8px

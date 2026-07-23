@@ -193,7 +193,7 @@ export default function Schedule() {
             value: (
               <>
                 {(anchorDay.planMin / 60).toFixed(1)}
-                <small> h</small>
+                <small className="text-base14 font-bold text-mut"> h</small>
               </>
             ),
             accent: true,
@@ -208,7 +208,7 @@ export default function Schedule() {
               value: (
                 <>
                   {monthUsedH.toFixed(1)}
-                  <small> h</small>
+                  <small className="text-base14 font-bold text-mut"> h</small>
                 </>
               ),
               accent: true,
@@ -223,7 +223,7 @@ export default function Schedule() {
               value: (
                 <>
                   {weekUsedH.toFixed(1)}
-                  <small> h</small>
+                  <small className="text-base14 font-bold text-mut"> h</small>
                 </>
               ),
               accent: true,

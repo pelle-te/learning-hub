@@ -119,7 +119,7 @@ const DP = {
   editField: 'inline-flex! flex-none items-center gap-1.25 whitespace-nowrap font-bold!',
   // DayPlannerCards 와 공유(인박스 항목이 씀) — 동일 문자열 복제(각 파일 독립 린트).
   trayRow:
-    'flex cursor-grab items-center gap-2 rounded-md border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--tray-fill)] px-2.25 py-1.75 shadow-inset-line2 active:cursor-grabbing',
+    'seg-scope flex cursor-grab items-center gap-2 rounded-md border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--tray-fill)] px-2.25 py-1.75 shadow-inset-line2 active:cursor-grabbing',
   grabDot: 'h-4 w-1 flex-none rounded-xs bg-[image:var(--grab-bar)] opacity-70',
   rowName: 'min-w-0 flex-1 truncate text-md font-bold',
   tool: `${TOOLBASE} text-mut!`,

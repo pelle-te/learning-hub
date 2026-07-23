@@ -64,7 +64,7 @@ export default function Alloc() {
           value: (
             <>
               {(weekAllocMin / 60).toFixed(1)}
-              <small> / {(weekBudgetMin / 60).toFixed(1)}h</small>
+              <small className="text-base14 font-bold text-mut"> / {(weekBudgetMin / 60).toFixed(1)}h</small>
             </>
           ),
           accent: true,

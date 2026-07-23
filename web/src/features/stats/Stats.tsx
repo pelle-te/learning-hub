@@ -348,7 +348,7 @@ export default function Stats() {
           value: (
             <>
               {compRate}
-              <small>%</small>
+              <small className="text-base14 font-bold text-mut">%</small>
             </>
           ),
           accent: true,
@@ -358,7 +358,7 @@ export default function Stats() {
           value: (
             <>
               {streak}
-              <small> 일</small>
+              <small className="text-base14 font-bold text-mut"> 일</small>
             </>
           ),
         },

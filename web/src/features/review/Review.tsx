@@ -701,7 +701,7 @@ export default function Review() {
           value: (
             <>
               {pa.rate}
-              <small>%</small>
+              <small className="text-base14 font-bold text-mut">%</small>
             </>
           ),
           accent: true,

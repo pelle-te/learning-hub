@@ -3,12 +3,63 @@ import { actions, io, Icon } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
 import FocusChip from './FocusChip';
-import s from './TopBar.module.css';
 
 /* TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
    워드마크 + 컨텍스트 서브 + 우측 액션 칩(⌘K·테마·⋯ 데이터 메뉴). 설정 진입은 레일 하단 ⚙가 담당.
    데이터 액션은 네이티브 shell/actions 호출(테마·내보내기·가져오기·되돌리기·초기화).
-   ⋯ 메뉴는 바깥 클릭/Esc로 닫힘. ⌘K는 팔레트 열기(전역 단축키는 CommandPalette가 소유). */
+   ⋯ 메뉴는 바깥 클릭/Esc로 닫힘. ⌘K는 팔레트 열기(전역 단축키는 CommandPalette가 소유).
+
+   ── C-7 셸 티어 3/5 이식(Tailwind) ──────────────────────────────────────────────
+   ⚠ 전제 두 가지(§15-5·§15-6 · 둘 다 실사고에서 나왔다):
+   ① raw `<button>` 은 **언레이어드 전역 `button{}`**(styles/global/components.css)에서 배경·보더·
+      radius·padding·font-size(13px)·font-family 를 받는다. 유틸은 `@layer utilities` 라 그걸 못
+      이기므로 해당 속성엔 `!` 가 필수다.
+   ② `<h1>` 도 같다 — 언레이어드 전역 `h1{}`(base.css)이 font-size 22px·letter-spacing·font-weight 를
+      건다. 워드마크는 21px/-0.03em/900 이라 전부 `!` 로 이겨야 한다(`!` 없이 두면 **조용히 22px**).
+   그리고 `.rv small`(자손 셀렉터)은 규약 4로 옮길 수 없어 **값을 만드는 11곳**(alloc·degree·items×2·
+   review·schedule×3·stats×2·today)이 `<small>` 에 직접 클래스를 준다 — 소비자가 아니라 생산자가
+   자기 스타일을 소유하는 쪽이 정직하다. `TopBar.module.css` 삭제.
+   ⚠ 메뉴(`.menu`/`.menu-sep`/`.menu-danger`)는 **전역 앱크롬 클래스**라 이 티어에서 건드리지 않는다
+   (ds.module + 전역 요소 규칙은 맨 마지막에 함께 — App 의 `skip-link` 와 같은 취급). */
+const BAR =
+  'relative z-[var(--z-dropdown)] flex flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
+// 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.
+const WORDMARK =
+  'text-wordmark! leading-[0.94] font-black! tracking-wordmark! uppercase max-mobile:text-wordmark-sm! max-mobile:leading-none';
+const MARK_PART = 'block max-mobile:inline';
+const SUB = 'mt-1.75 text-sm leading-[1.4] tracking-topbar-sub text-mut max-mobile:hidden';
+// 컨텍스트 리드아웃 — 페이지가 주입(진행률·연속·마감).
+const READOUTS = 'mr-2 flex items-start gap-7.5 self-center max-mobile:hidden';
+const READOUT = 'flex flex-col gap-1';
+const RL = 'text-2xs font-bold tracking-readout text-mut uppercase';
+const RV = 'text-readout-num leading-none font-extrabold tracking-readout-num tabular-nums';
+/* 값 없음(—)은 강조 대신 뮤트 — 액센트 대시가 '검열 바'처럼 읽히는 것 방지. ⚠ 색/그림자는
+   `racc` 와 **같은 속성**이라 두 클래스를 겹쳐 붙이면 레이어 순서로 갈린다(SubTabs 관용구):
+   붙일 조합을 미리 고른다. */
+const RV_ACC = 'text-acc text-shadow-readout';
+const RV_NULL = 'text-mut opacity-55';
+const ACTIONS = 'flex items-center gap-2 self-center';
+/* HUD 칩 버튼 — 각진 헤어라인. 전역 button{} 을 이기는 속성 전부 `!` · 폼 컨트롤이라 leading-[normal].
+   ⚠ **색·보더색·자간은 base 에 두지 않는다**(SubTabs 와 같은 관용구 · 이식 중 실제로 물렸다):
+   `bg-transparent!` 와 `bg-acc!` 처럼 **같은 속성 유틸을 겹쳐 붙이면** 클래스 나열 순서가 아니라
+   Tailwind 가 방출한 순서로 갈려 주 액션이 통짜로 죽는다(네온 필이 투명 칩으로 렌더됐다).
+   변형(plain/fill)이 자기 속성을 통째로 소유하게 나눈다. */
+const BTN_BASE =
+  'inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-sm! border! px-3.25! py-0! text-sm! leading-[normal] font-bold! transition-colors duration-150 ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:min-h-10';
+const BTN_PLAIN =
+  'border-line! bg-transparent! tracking-chip! text-ink! hover:border-line-acc-strong! hover:bg-panel2!';
+/* 주 액션 — 데모의 "네온 채움 필"이지만 **실제로는 채워진 적이 없다.**
+   ⚠ 이식 중 발견한 선존 결함(고치지 않고 보존): `TopBar.module.css` 는 `.fill`(98행)을 `.btn`(112행)
+   **앞에** 뒀는데 둘 다 클래스 하나짜리 같은 명시도라 **뒤에 온 `.btn` 이 이긴다** — background·
+   border-color·color 세 속성이 통째로 죽고 box-shadow(발광)와 자간만 살아남았다. 즉 헤더 주 액션은
+   지금까지 '발광하는 평칩'으로 렌더돼 왔다. Tailwind 로 옮기면서 의도대로 채우면 **여러 탭의 헤더가
+   한꺼번에 바뀐다** — 이식이 몰래 하는 디자인 변경이 되므로(절대규칙 #4) **관측된 렌더를 그대로
+   재현**하고 결함만 기록한다. 되살릴지는 별도 결정 사안이다(설계서 §15-7). */
+const BTN_FILL = `${BTN_PLAIN.replace('tracking-chip!', 'tracking-fill!')} shadow-fill-chip`;
+const BTN = `${BTN_BASE} ${BTN_PLAIN}`;
+// 정사각 아이콘 전용 버튼(테마·설정·메뉴).
+const BTN_ICON = `${BTN} w-8.5 px-0! max-mobile:w-10`;
+
 const THEME_ICON: Record<string, string> = { light: 'sun', dark: 'moon' };
 const THEME_NEXT: Record<string, string> = { light: '다크', dark: '라이트' };
 const THEME_NAME: Record<string, string> = { light: '라이트', dark: '다크' };
@@ -40,39 +91,38 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
   const close = () => setMoreOpen(false);
 
   return (
-    <header className={s.bar}>
-      <h1 className={s.wordmark}>
-        <span>러닝</span>
-        <span className={s.accent}>허브</span>
+    <header className={BAR}>
+      <h1 className={WORDMARK}>
+        <span className={MARK_PART}>러닝</span>
+        <span className={`${MARK_PART} text-acc text-shadow-wordmark`}>허브</span>
       </h1>
-      <span className={s.sub}>오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
-      <span className={s.grow} />
+      <span className={SUB}>오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
+      <span className="flex-1" />
       {/* 전역 집중 세션 칩 — 어느 탭에서든 진행 중 세션이 보인다(클릭 → 오늘). */}
       <FocusChip />
       {readouts.length > 0 && (
-        <div className={s.readouts}>
+        <div className={READOUTS}>
           {readouts.map((r, i) => (
-            <div key={i} className={`${s.readout}${r.accent ? ' ' + s.racc : ''}`}>
-              <span className={s.rl}>{r.label}</span>
-              {/* 값 없음(—)은 강조 대신 뮤트 — 액센트 대시가 '검열 바'처럼 읽히는 것 방지. */}
-              <span className={`${s.rv}${r.value === '—' ? ' ' + s.rnull : ''}`}>{r.value}</span>
+            <div key={i} className={READOUT}>
+              <span className={RL}>{r.label}</span>
+              <span className={`${RV} ${r.value === '—' ? RV_NULL : r.accent ? RV_ACC : ''}`}>{r.value}</span>
             </div>
           ))}
         </div>
       )}
-      <div className={s.actions}>
+      <div className={ACTIONS}>
         {action && (
-          <button className={`${s.btn} ${s.fill}`} onClick={action.onClick}>
+          <button className={`${BTN_BASE} ${BTN_FILL}`} onClick={action.onClick}>
             {action.label}
           </button>
         )}
-        <button className={s.btn} onClick={onOpenPalette} title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">
+        <button className={BTN} onClick={onOpenPalette} title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">
           ⌘K
         </button>
         {/* C-12: 단축키 치트시트는 '?' 키·팔레트로만 열려 발견성이 낮았다 — 눈에 보이는 진입점.
             App이 이미 리스닝하는 이벤트로 위임(배선 재사용). */}
         <button
-          className={`${s.btn} ${s.icon}`}
+          className={BTN_ICON}
           onClick={() => window.dispatchEvent(new CustomEvent('lh:open-shortcuts'))}
           title="키보드 단축키 (?)"
           aria-label="키보드 단축키 보기"
@@ -80,18 +130,18 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
           ?
         </button>
         <button
-          className={`${s.btn} ${s.icon}`}
+          className={BTN_ICON}
           onClick={() => actions.toggleTheme()}
           title={`테마: ${THEME_NAME[theme]} — 클릭하면 ${THEME_NEXT[theme]}로`}
           aria-label={`테마 전환 (현재 ${THEME_NAME[theme]})`}
         >
-          <Icon name={THEME_ICON[theme]} />
+          <Icon name={THEME_ICON[theme]} className="size-4!" />
         </button>
         {/* ⋯ 메뉴 — 디스클로저(aria-expanded)로만 선언. role=menu는 화살표 내비·포커스 이동(APG)
             계약을 요구하는데 이 목록은 Tab 이동이라 role이 SR 기대만 깨뜨렸다(제거가 정확). */}
-        <div className={s.menuwrap} ref={wrapRef}>
+        <div className="relative" ref={wrapRef}>
           <button
-            className={`${s.btn} ${s.icon}`}
+            className={BTN_ICON}
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((v) => !v)}
             title="데이터·백업 메뉴"
@@ -160,7 +210,7 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
         id="imp"
         ref={impRef}
         accept="application/json"
-        style={{ display: 'none' }}
+        className="hidden"
         onChange={(e) => actions.importJSON(e.currentTarget)}
       />
     </header>

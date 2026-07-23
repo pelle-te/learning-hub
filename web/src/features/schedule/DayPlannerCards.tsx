@@ -24,7 +24,7 @@ const TOOLBASE =
   'inline-flex h-5.5 w-5.5 flex-none items-center justify-center rounded-seg! border-transparent! bg-transparent! text-sm! leading-[normal] focus-visible:outline-offset-1! motion-reduce:transition-none';
 const C = {
   trayRow:
-    'flex cursor-grab items-center gap-2 rounded-md border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--tray-fill)] px-2.25 py-1.75 shadow-inset-line2 active:cursor-grabbing',
+    'seg-scope flex cursor-grab items-center gap-2 rounded-md border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--tray-fill)] px-2.25 py-1.75 shadow-inset-line2 active:cursor-grabbing',
   grabDot: 'h-4 w-1 flex-none rounded-xs bg-[image:var(--grab-bar)] opacity-70',
   rowName: 'min-w-0 flex-1 truncate text-md font-bold',
   rowMeta: 'flex-none whitespace-nowrap text-2xs font-bold text-mut',
@@ -34,14 +34,14 @@ const C = {
   durVal: 'min-w-8.5 text-center text-xs leading-[1.6] font-extrabold tabular-nums text-txt',
   rowDur: 'flex-none whitespace-nowrap text-xs leading-[1.6] font-extrabold tabular-nums text-mut',
   tool: `${TOOLBASE} text-mut!`,
-  ev: 'group absolute left-1 box-border flex min-h-4 items-start justify-between gap-1.5 overflow-hidden rounded-blk border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--event)] bg-[var(--ev-fill)] px-2 text-txt shadow-[var(--shadow-ev)] transition-shadow duration-140 ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-ev-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc motion-reduce:transition-none',
+  ev: 'seg-scope group absolute left-1 box-border flex min-h-4 items-start justify-between gap-1.5 overflow-hidden rounded-blk border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--event)] bg-[var(--ev-fill)] px-2 text-txt shadow-[var(--shadow-ev)] transition-shadow duration-140 ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-ev-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc motion-reduce:transition-none',
   evSel: 'z-[9] outline-2 -outline-offset-1 outline-acc',
   cardMain: 'flex min-w-0 flex-col gap-px',
   cardName: 'truncate text-sm leading-[1.15] font-extrabold tracking-wk',
   cardMeta: 'whitespace-nowrap text-2xs font-bold opacity-[0.82]',
   cardTools:
     'flex flex-none gap-px opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none',
-  card: 'group absolute right-1 box-border flex min-h-4 cursor-grab items-start justify-between gap-1.5 overflow-hidden rounded-blk px-2 text-txt transition-[box-shadow,filter] duration-140 ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-card-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc active:cursor-grabbing motion-reduce:transition-none',
+  card: 'seg-scope group absolute right-1 box-border flex min-h-4 cursor-grab items-start justify-between gap-1.5 overflow-hidden rounded-blk px-2 text-txt transition-[box-shadow,filter] duration-140 ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-card-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc active:cursor-grabbing motion-reduce:transition-none',
   cardStudy:
     'border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--seg-fill-20)] shadow-[var(--shadow-card-study)]',
   cardTask:

@@ -331,7 +331,7 @@ function DegreePlan() {
           value: (
             <>
               {earned}
-              <small> / {d.targetTotal}</small>
+              <small className="text-base14 font-bold text-mut"> / {d.targetTotal}</small>
             </>
           ),
           accent: true,

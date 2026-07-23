@@ -286,11 +286,6 @@
   --filter-ring-free-hover: drop-shadow(0 0 9px var(--glow));
   --filter-ring-now: drop-shadow(0 0 4px var(--ink));
   /* 과목 카드 좌상단 색 베이크(런타임 --tint) — bg-[image:var(--)] 로 얹고 아래 bg-panel 이 바탕. */
-  --bg-item-card: radial-gradient(
-    90% 80% at 0% 0%,
-    color-mix(in oklab, var(--tint, var(--acc)) 10%, transparent),
-    transparent 60%
-  );
 
   /* ── today(오늘 대시보드 · 시그니처 히어로 · 발광 흐름 레일) 이식(C-7) ────────────────
      거대 과목명 히어로(과목색 --tint 베이크 오로라 · 포인터 스포트라이트) · 통합 집중 CTA ·
@@ -300,25 +295,7 @@
      style 이 그 변수를 얹은 사용 시점에 해석된다(items --bg-item-card 와 같은 패턴). SVG·배경·
      그림자는 bg-[var(…)]·shadow-[var(…)] 임의 유틸로 직접 참조하므로 --color-* 브리지는 두지 않는다. */
   /* 히어로 3층 베이크(과목색 --tint) — stats --bg-hero-stats 와 기하는 같으나 acc 대신 --tint 라 분리. */
-  --bg-hero-today:
-    radial-gradient(
-      90% 70% at 12% 118%,
-      color-mix(in oklab, var(--tint, var(--acc)) 18%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(72% 64% at 102% -12%, color-mix(in oklab, var(--acc) 10%, transparent), transparent 60%),
-    linear-gradient(165deg, color-mix(in oklab, var(--tint, var(--acc)) 8%, var(--panel2)), var(--panel) 60%);
   /* 포인터 추적 스포트라이트(--mx/--my 런타임) · 과목색 오로라(--tint) · 흐름 패널 베이크 · 시머/게이지 채움. */
-  --bg-spotlight-today: radial-gradient(
-    440px circle at var(--mx, 50%) var(--my, 0%),
-    color-mix(in oklab, var(--acc) 18%, transparent),
-    transparent 55%
-  );
-  --bg-aura-today: radial-gradient(
-    closest-side,
-    color-mix(in oklab, var(--tint, var(--acc)) 48%, transparent),
-    transparent 72%
-  );
   --bg-flow-today:
     radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--panel2) 70%, transparent), transparent 55%),
     var(--panel);
@@ -330,9 +307,7 @@
   );
   --bg-setup-prog: linear-gradient(90deg, var(--acc), var(--acc2));
   /* 3D 틸트 트랜스폼(--tiltX/Y 런타임 · 정지 시 rotate 0 = 항등). */
-  --tilt-today: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
   /* 거대 과목명 색 — 과목색(--tint) 52% 를 잉크에 섞어 채도만 얹음. --tint 없으면 잉크로 우아하게 폴백. */
-  --subj-col: color-mix(in oklab, var(--tint, var(--ink)) 52%, var(--ink));
   /* 히어로/흐름 hover 테두리 · 워터마크 게이지 스트로크/단위 색 · 어제 한 줄 강조 · 지금-노드 하이라이트. */
   --line-hero-hover: color-mix(in srgb, var(--acc) 26%, var(--line));
   --line-flow-hover: color-mix(in srgb, var(--acc) 18%, var(--line));
@@ -396,26 +371,6 @@
      채움/그림자는 인라인 style 이 --seg 를 얹는 사용 시점에 해석된다(items --bg-item-card 패턴).
      JSX 는 bg-[var(…)]·shadow-[var(…)]·border-l-[color:var(…)] 임의 유틸로 직접 참조하므로
      --color-* 브리지는 두지 않는다(items/today 와 같은 규율 · §14-3). */
-  --seg-fill: color-mix(in srgb, var(--seg, var(--acc)) 34%, var(--panel)); /* 학습 조각 채움(주 뷰) */
-  --seg-fill-20: color-mix(in srgb, var(--seg, var(--acc)) 20%, var(--panel)); /* 할일 조각(주)·공부 카드(일) */
-  --seg-fill-12: color-mix(in srgb, var(--seg, var(--acc)) 12%, var(--panel)); /* 할일 카드 채움(일) */
-  --seg-block-fill: color-mix(in srgb, var(--seg, var(--mut)) 16%, var(--panel)); /* 일과 블록 채움(주) */
-  --seg-block-line: color-mix(in srgb, var(--seg, var(--mut)) 60%, transparent); /* 일과 블록 좌측 띠 */
-  --seg-task-line: color-mix(in srgb, var(--seg, var(--acc)) 70%, transparent); /* 할일 조각 점선 테두리 */
-  --seg-handle: color-mix(in srgb, var(--seg, var(--acc)) 40%, transparent); /* 리사이즈 핸들 hover */
-  --tray-fill: color-mix(in srgb, var(--seg, var(--acc)) 12%, var(--panel2)); /* 트레이 행 채움(일) */
-  --ev-fill: color-mix(in srgb, var(--event) 20%, var(--panel)); /* 일정 밴드 채움(일) */
-  --shadow-seg: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 55%, transparent), 0 1px 3px rgb(0 0 0 / 35%);
-  --shadow-seg-block: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--mut)) 34%, transparent);
-  --shadow-seg-event: inset 0 0 0 1px color-mix(in srgb, var(--seg) 70%, transparent), 0 1px 3px rgb(0 0 0 / 35%);
-  --shadow-card-study: inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 26%, transparent);
-  --shadow-card-hover:
-    inset 0 0 0 1px color-mix(in srgb, var(--seg, var(--acc)) 48%, transparent),
-    0 0 14px color-mix(in srgb, var(--seg, var(--glow)) 26%, transparent);
-  --shadow-ev: inset 0 0 0 1px color-mix(in srgb, var(--event) 30%, transparent);
-  --shadow-ev-hover:
-    inset 0 0 0 1px color-mix(in srgb, var(--event) 55%, transparent),
-    0 0 14px color-mix(in srgb, var(--event) 26%, transparent);
   --shadow-win: inset 0 0 0 1px color-mix(in srgb, var(--good) 22%, transparent); /* 가용창 점선 윤곽(일) */
   --shadow-now: 0 0 10px var(--glow); /* 지금 라인 발광(일) */
   --shadow-cell-today: inset 0 0 0 1.5px var(--acc); /* 월 오늘 칸 링(1.5px · 사다리 밖) */

@@ -439,4 +439,23 @@
   --radius-detail-btn: 8px;
   /* 상세 종류 eyebrow 자간 0.14em — caps(0.16)↔caps-sm(0.12) 사이 한 칸(items --tracking-skel 과 값만 같다). */
   --tracking-kind: 0.14em;
+
+  /* ── TopBar(셸 티어 3/5) 이식(C-7) ───────────────────────────────────────────
+     워드마크·리드아웃 수치는 **브랜드 마크**다 — 사다리 칸이 아니라 설계도 §1-2 가 정한
+     의도값이라 유동값(clamp)과 같은 논리로 이름을 준다(규약 3). 색·발광은 tokens.css 의
+     `--glow` 파생이라 여기선 이름만 잇는다(테마가 바뀌면 자동으로 다시 계산된다). */
+  --text-wordmark: 21px;
+  --text-wordmark-sm: 17px; /* 700↓ 단일행 워드마크 */
+  --text-readout-num: var(--fs-hero); /* 30px — 헤더 큰 네온 수치 */
+  --tracking-wordmark: -0.03em;
+  --tracking-topbar-sub: 0.01em;
+  --tracking-readout: 0.18em; /* caps(0.16)↔eyebrow(0.2) 사이 */
+  --tracking-readout-num: -0.04em;
+  --tracking-chip: 0.02em; /* HUD 칩 버튼 */
+  --tracking-fill: 0.04em; /* 주 액션(네온 채움) */
+  /* 네온 글로우 3종 — 워드마크/리드아웃은 text-shadow, 주 액션은 box-shadow.
+     ⚠ Tailwind 의 text-shadow 네임스페이스는 `--text-shadow-*` 다(v4.1~). */
+  --text-shadow-wordmark: 0 0 20px var(--glow);
+  --text-shadow-readout: 0 0 22px var(--glow);
+  --shadow-fill-chip: 0 0 30px -6px var(--glow);
 }
