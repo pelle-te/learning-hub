@@ -14,7 +14,39 @@ import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
 import { FIELDS, categoryOf } from '@/lib/atlas';
 import type { SemHit, SemKind } from '@/lib/semantic';
-import styles from './CommandPalette.module.css';
+
+/* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
+   ⚠⚠ **이식하며 발견한 선존 결함(고치지 않고 보존 · 절대규칙 #4 · §15-8 ⑤ 와 같은 부류)**:
+   `.input` 이 선언한 padding(16/18px)·background(transparent)·border(하단만)·color(inherit)는
+   **한 번도 적용된 적이 없다.** cmdk 가 `<input type="text">` 로 렌더하는데 언레이어드 전역
+   `input[type='text'] {…}`(global/components.css)가 **명시도 (0,1,1)** 로 모듈 클래스 (0,1,0)를
+   이긴다 — 실제 렌더는 앱 공통 입력(패딩 8/10 · 라운드 7 · 패널 배경 · 사방 1px 보더)이다.
+   계산 스타일 덤프로 확인했다. 살아남은 선언은 `font-size:16px` 뿐이고(전역 폼 13px 을 이긴다)
+   유틸리티는 언레이어드를 못 이기므로 그 하나에 `!` 가 필요하다. **되살릴지는 별도 안건.**
+
+   그리고 `.semGroup [cmdk-group-heading]` 은 **우리가 만들지 않는 DOM**이라 규약 4 의 "자식에
+   직접 클래스"를 쓸 수 없다. cmdk 의 `heading` 이 ReactNode 를 받으므로 **스타일된 노드를 직접
+   넘긴다** — 바깥 `[cmdk-group-heading]` div 는 아무 스타일도 없어 패딩을 안쪽으로 옮겨도
+   박스가 동일하다(덤프로 확인). 자손 셀렉터를 되살리지 않는 유일한 길이다. */
+const OVERLAY = 'fixed inset-0 z-[var(--z-palette)] bg-scrim backdrop-blur-palette animate-[cp-fade_0.12s_ease]';
+const CONTENT = 'fixed top-palette-y left-1/2 z-[var(--z-palette-top)] w-palette max-w-palette -translate-x-1/2';
+const DIALOG = 'overflow-hidden rounded-palette border border-line bg-panel text-txt shadow-float';
+const INPUT = 'text-palette-input!';
+const LIST = 'max-h-palette-list overflow-auto p-1.5';
+/* ⚠ 배경은 두 곳이 갖는다 — 선택 상태(0,2,0)가 캡처 틴트(0,1,0)를 이기는 원본 관계가
+   Tailwind 에서도 그대로 성립한다(`data-[…]` 변형이 속성 셀렉터를 붙이므로). */
+const ITEM =
+  'flex cursor-pointer items-center justify-between gap-3 rounded-chip px-3 py-2.5 select-none data-[selected=true]:bg-acc-soft';
+const CAPTURE = 'relative mb-1 border border-acc-glow bg-tint-acc-6';
+const LABEL = 'text-base14';
+/* 힌트 칩 — base 는 기하만 갖고 **색·보더색·투명도는 변형이 통째로 소유**한다(§15-8 ②). */
+const HINT_BASE = 'rounded-full border px-2 py-0.5 text-xs leading-[1.6]';
+const HINT = HINT_BASE + ' border-line opacity-60';
+const HINT_CAP = HINT_BASE + ' border-acc-glow text-acc opacity-90';
+const EMPTY = 'p-6 text-center text-md opacity-60';
+const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs leading-[1.6] opacity-70';
+const BRAND = 'font-bold';
+const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase';
 
 const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥' };
 const CONTENT_ICON: Record<ContentHit['kind'], string> = {
@@ -129,14 +161,14 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
       open={open}
       onOpenChange={(v) => (v ? onOpenChange(true) : close())}
       label="명령 팔레트"
-      className={styles.dialog}
-      overlayClassName={styles.overlay}
-      contentClassName={styles.content}
+      className={DIALOG}
+      overlayClassName={OVERLAY}
+      contentClassName={CONTENT}
     >
       <Command.Input
         value={search}
         onValueChange={setSearch}
-        className={styles.input}
+        className={INPUT}
         placeholder="명령·탭 검색, 또는 빠른 캡처 (예: 내일 오후 3시 알고리즘 복습)"
         /* 팔레트가 열리는 유일한 경로는 사용자의 명시적 ⌘K 다. 열릴 때 입력에 포커스가 가는 건
            combobox/팔레트의 표준 동작이고, 없으면 오히려 키보드 사용자가 아무 데도 못 간다.
@@ -144,14 +176,14 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
       />
-      <Command.List className={styles.list}>
-        <Command.Empty className={styles.empty}>일치하는 명령이 없어요</Command.Empty>
+      <Command.List className={LIST}>
+        <Command.Empty className={EMPTY}>일치하는 명령이 없어요</Command.Empty>
         {showCapture && cap && (
           <Command.Item
             key="quick-capture"
             forceMount
             value={'quick-capture ' + search}
-            className={`${styles.item} ${styles.capture}`}
+            className={`${ITEM} ${CAPTURE}`}
             onSelect={() => {
               try {
                 runCapture();
@@ -161,69 +193,69 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
               close();
             }}
           >
-            <span className={styles.label}>📌 빠른 캡처 — 기록에 남기기</span>
-            <span className={styles.hint}>{summarize(cap)}</span>
+            <span className={LABEL}>📌 빠른 캡처 — 기록에 남기기</span>
+            <span className={HINT_CAP}>{summarize(cap)}</span>
           </Command.Item>
         )}
         {/* E-6 오프라인 통합 검색 — 학습 항목·독서 부분문자열(forceMount: 자체 매칭이 기준). */}
         {content.length > 0 && (
-          <Command.Group heading="빠른 검색 — 학습 항목·독서" className={styles.semGroup} forceMount>
+          <Command.Group heading={<span className={GROUP_HEAD}>빠른 검색 — 학습 항목·독서</span>} forceMount>
             {content.map((h) => (
               <Command.Item
                 key={h.id}
                 forceMount
                 value={'content ' + h.id + ' ' + search}
-                className={styles.item}
+                className={ITEM}
                 onSelect={() => {
                   close();
                   navigate(h.to, { viewTransition: true });
                 }}
               >
-                <span className={styles.label}>
+                <span className={LABEL}>
                   {CONTENT_ICON[h.kind]} {h.label}
                 </span>
-                <span className={styles.hint}>{CONTENT_HINT[h.kind]}</span>
+                <span className={HINT}>{CONTENT_HINT[h.kind]}</span>
               </Command.Item>
             ))}
           </Command.Group>
         )}
         {/* 의미 검색 결과 — cmdk 부분문자열 필터를 우회(forceMount): 임베딩 유사도가 매칭 기준. */}
         {shownSem.length > 0 && (
-          <Command.Group heading="의미 검색 — 내 학습 자산" className={styles.semGroup} forceMount>
+          <Command.Group heading={<span className={GROUP_HEAD}>의미 검색 — 내 학습 자산</span>} forceMount>
             {shownSem.map((h) => (
               <Command.Item
                 key={'sem:' + h.id}
                 forceMount
                 value={'semantic ' + h.id + ' ' + search}
-                className={styles.item}
+                className={ITEM}
                 onSelect={() => {
                   close();
                   navigate(h.to, { viewTransition: true });
                 }}
               >
-                <span className={styles.label}>
+                <span className={LABEL}>
                   {SEM_ICON[h.kind]} {h.label}
                 </span>
-                <span className={styles.hint}>{Math.round(h.sim * 100)}% 유사</span>
+                <span className={HINT}>{Math.round(h.sim * 100)}% 유사</span>
               </Command.Item>
             ))}
           </Command.Group>
         )}
         {/* 진로 지도 분야 바로가기 — 검색어가 있을 때만(빈 상태 28개 홍수 방지). cmdk 부분문자열 필터가 좁힌다. */}
         {search.trim() && (
-          <Command.Group heading="진로 지도 — 분야" className={styles.semGroup}>
+          <Command.Group heading={<span className={GROUP_HEAD}>진로 지도 — 분야</span>}>
             {FIELDS.map((f) => (
               <Command.Item
                 key={'atlas:' + f.key}
                 value={`atlas ${f.name} ${categoryOf(f)?.name ?? ''}`}
-                className={styles.item}
+                className={ITEM}
                 onSelect={() => {
                   close();
                   navigate(`/atlas/${f.key}`, { viewTransition: true });
                 }}
               >
-                <span className={styles.label}>📡 {f.name}</span>
-                <span className={styles.hint}>진로 지도</span>
+                <span className={LABEL}>📡 {f.name}</span>
+                <span className={HINT}>진로 지도</span>
               </Command.Item>
             ))}
           </Command.Group>
@@ -232,7 +264,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
           <Command.Item
             key={c.id}
             value={c.label + ' ' + c.hint}
-            className={styles.item}
+            className={ITEM}
             onSelect={() => {
               close();
               recordRecent(c.id); // 최근 명령 LRU — 다음 ⌘K에서 위로.
@@ -248,16 +280,16 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
               }
             }}
           >
-            <span className={styles.label}>{c.label}</span>
-            <span className={styles.hint}>{c.hint}</span>
+            <span className={LABEL}>{c.label}</span>
+            <span className={HINT}>{c.hint}</span>
           </Command.Item>
         ))}
       </Command.List>
-      <div className={styles.foot}>
+      <div className={FOOT}>
         <span>
           <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>Esc</b> 닫기
         </span>
-        <span className={styles.brand}>⌘K</span>
+        <span className={BRAND}>⌘K</span>
       </div>
     </Command.Dialog>
   );

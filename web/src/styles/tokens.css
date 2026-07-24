@@ -315,6 +315,8 @@
   --ghost-em: color-mix(in srgb, var(--ink) 22%, transparent);
   --yesterday-b: color-mix(in oklab, var(--acc) 40%, var(--ink));
   --tint-ink-5: color-mix(in srgb, var(--ink) 5%, transparent);
+  /* ⌘K 팔레트 빠른 캡처 항목 배경(6%) — 선택 상태(--acc-soft 14%)보다 옅은 상시 틴트. */
+  --tint-acc-6: color-mix(in srgb, var(--acc) 6%, transparent);
   --tint-acc-9: color-mix(in srgb, var(--acc) 9%, transparent);
   --tint-acc-12: color-mix(in srgb, var(--acc) 12%, transparent);
   /* FocusChip hover(본체 14% · 중단 8%) — 칩 배경 --tint-acc-9 위에 얹는 단계. */
@@ -329,6 +331,10 @@
   --stg-border2: color-mix(in srgb, var(--acc2) 35%, var(--line));
   --conf-wrong-bg: color-mix(in srgb, var(--warn) 5%, var(--panel2));
   --overlay-bg: color-mix(in srgb, var(--bg) 72%, transparent);
+  /* ⌘K 팔레트 스크림 — 위 --overlay-bg 와 달리 **테마에 안 따라가는** 검정 45%다(팔레트는
+     라이트에서도 배경을 확실히 눌러 입력에 시선을 몬다). C-7 컴포넌트 티어에서 생 rgba 를
+     여기로 승격(절대규칙 #3 — 색은 tokens.css 에서만 온다). */
+  --scrim: rgba(0, 0, 0, 0.45);
   --setup-host-bg: color-mix(in srgb, var(--bg) 45%, transparent);
   --line-setup: color-mix(in srgb, var(--acc) 38%, var(--line));
   --setup-strike: color-mix(in srgb, var(--mut) 60%, transparent);

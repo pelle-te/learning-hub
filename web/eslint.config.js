@@ -195,6 +195,13 @@ export default tseslint.config(
       'src/app/TopBar.tsx',
       'src/app/RailSidebar.tsx',
       'src/app/FocusChip.tsx',
+      // C-7 컴포넌트 티어(공유 프리미티브) — ui/* 와 ds.module.css 는 여전히 맨 마지막이다.
+      'src/components/EmptyState.tsx',
+      'src/components/OnlineStatus.tsx',
+      'src/components/Tooltip.tsx',
+      'src/components/ShortcutsHelp.tsx',
+      'src/components/DetailDrawer.tsx',
+      'src/components/CommandPalette.tsx',
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',
@@ -226,7 +233,13 @@ export default tseslint.config(
          ds.module.css 티어(맨 마지막)에서 이 전역들이 정리되면 목록도 줄어든다. */
       /* 전역 앱크롬 클래스는 유틸이 아니다 — `skip-link`(App)·`menu`/`menu-sep`/`menu-danger`(TopBar ⋯ 드롭다운)는
          `styles/global/components.css` 가 소유하고 **ds.module + 전역 요소 규칙과 함께 맨 마지막**에 옮긴다(§15-5). */
-      'better-tailwindcss/no-unknown-classes': ['error', { ignore: ['^skip-link$', '^menu(-sep|-danger)?$'] }],
+      /* 무시 목록 = **전역 앱크롬 클래스**뿐이다(ds.module + 전역 요소 규칙은 맨 마지막 티어에서
+         함께 옮긴다). 여기에 새 이름을 넣는 것은 "아직 안 옮겼다"는 표시이지 면제가 아니다.
+         `modal*`·`in`·`primary` 는 ShortcutsHelp 가 쓰는 공통 모달 크롬(global/components.css). */
+      'better-tailwindcss/no-unknown-classes': [
+        'error',
+        { ignore: ['^skip-link$', '^menu(-sep|-danger)?$', '^modal(-ov|-t|-a|-ok)?$', '^in$', '^primary$'] },
+      ],
       'better-tailwindcss/no-conflicting-classes': 'error',
       'better-tailwindcss/no-duplicate-classes': 'error',
       'better-tailwindcss/enforce-consistent-class-order': 'error',

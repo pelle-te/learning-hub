@@ -6,7 +6,37 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import s from './DetailDrawer.module.css';
+
+/* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
+   ⚠ 원본은 `.overlayCenter .panel` 이라는 **조상 변형 자손 셀렉터**로 두 벌 기하를 갈랐다.
+   규약 4 대로 자손에 직접 클래스를 준다 — placement 가 이미 prop 이므로 정적 맵 두 벌이면 된다
+   (부칙: 동적 조립 금지 · 문자열이 통째로 소스에 있어야 Tailwind 가 클래스를 만든다).
+   ⚠ 그리고 §15-8 ② — **한 속성은 한 문자열이 소유한다**: base 에 `justify-end` 를 두고 변형에서
+   `justify-center` 로 덮으면 클래스 순서가 아니라 방출 순서로 갈린다. 정렬·폭·반경·보더처럼
+   두 벌이 다른 속성은 전부 변형 쪽이 통째로 갖는다.
+   닫기 버튼(`<button>`)은 언레이어드 전역 `button{}` 을 이겨야 하므로 해당 속성에 `!`. */
+const OVERLAY_BASE =
+  'fixed inset-0 z-[var(--z-modal)] flex bg-overlay backdrop-blur-overlay animate-[dd-fade_0.16s_var(--ease)] motion-reduce:animate-none';
+const OVERLAY = {
+  right: 'justify-end',
+  center: 'items-center justify-center px-drawer-pad-x py-drawer-pad-y max-mobile:p-0',
+} as const;
+const PANEL_BASE = 'flex w-full flex-col bg-bg shadow-float motion-reduce:animate-none';
+const PANEL = {
+  right:
+    'h-full max-w-drawer border-l border-line animate-[dd-slide_0.22s_var(--ease)] max-mobile:max-w-none max-mobile:border-l-0',
+  center:
+    'h-auto max-h-full max-w-drawer-sheet rounded-lg border border-line animate-[dd-pop_0.2s_var(--ease)] max-mobile:h-full max-mobile:max-h-none max-mobile:rounded-none max-mobile:border-0',
+} as const;
+const HEAD = 'flex flex-none items-center justify-between gap-3 border-b border-line px-5 py-4 text-md tracking-label';
+/* 제목은 줄어들고 넘치면 말줄임 — min-w-0 이 없으면 flex 항목이 콘텐츠 폭 아래로 못 줄어
+   좁은 시트에서 닫기 버튼을 패널 밖으로 밀어낸다. */
+const TITLE = 'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap';
+/* ⚠ padding 을 건드리지 않는다 — 원본 `.panelX` 도 안 건드렸고, 실제 렌더는 전역 `button{}` 의
+   8px 13px 이다(32×32 고정 박스 안이라 보이지는 않는다). 유틸로 0 을 주면 그건 이식이 아니라
+   변경이다(절대규칙 #4). */
+const CLOSE = 'size-8 flex-none rounded-chip! border! border-line! bg-transparent! text-ink! hover:bg-panel2!';
+const BODY = 'min-h-0 flex-1 overflow-y-auto px-5 pt-4.5 pb-7 [scrollbar-width:thin]';
 
 export default function DetailDrawer({
   open,
@@ -44,7 +74,7 @@ export default function DetailDrawer({
        진짜 닫기 버튼(aria-label="닫기"). 린트는 그 셋을 볼 수 없다. */
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
-      className={`${s.overlay}${placement === 'center' ? ' ' + s.overlayCenter : ''}`}
+      className={`${OVERLAY_BASE} ${OVERLAY[placement]}`}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -52,16 +82,16 @@ export default function DetailDrawer({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={s.panel} ref={panelRef} tabIndex={-1}>
-        <div className={s.panelHead}>
-          <b className={s.panelTitle} title={title}>
+      <div className={`${PANEL_BASE} ${PANEL[placement]}`} ref={panelRef} tabIndex={-1}>
+        <div className={HEAD}>
+          <b className={TITLE} title={title}>
             {title}
           </b>
-          <button type="button" className={s.panelX} onClick={onClose} aria-label="닫기">
+          <button type="button" className={CLOSE} onClick={onClose} aria-label="닫기">
             ✕
           </button>
         </div>
-        <div className={s.panelBody}>{children}</div>
+        <div className={BODY}>{children}</div>
       </div>
     </div>,
     document.body,

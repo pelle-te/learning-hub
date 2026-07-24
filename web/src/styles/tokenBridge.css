@@ -485,4 +485,59 @@
   --shadow-focus-chip: 0 0 24px -8px var(--glow); /* 칩 외곽 발광 */
   --shadow-focus-dot: 0 0 10px var(--glow); /* 라이브 펄스 점(spine 과 값만 같다) */
   --text-shadow-focus-time: 0 0 16px var(--glow); /* 남은 시간 네온 */
+
+  /* ── components/*(공유 프리미티브 티어) 이식(C-7) ────────────────────────────
+     feature 가 아니라 **여러 feature 가 함께 쓰는 컴포넌트**들이다(EmptyState·Tooltip·
+     OnlineStatus·ShortcutsHelp·DetailDrawer·CommandPalette). 그래서 이름에 feature 를
+     안 붙이고 컴포넌트명을 쓴다. `ui/*` 프리미티브와 `ds.module.css` 는 여전히 맨 마지막이다. */
+
+  /* ⚠⚠ 부유 표면 그림자 — **`shadow-lg` 라고 쓰면 안 된다.** `--shadow-lg` 는 Tailwind **기본**
+     토큰 이름이라, 브리지가 덮지 않으면 유틸이 앱의 `--shadow-lg`(0 24px 60px -22px …)가 아니라
+     Tailwind 기본값(0 10px 15px -3px …)으로 조용히 렌더된다 — §15-8 ③ 과 같은 부류의 침묵이다.
+     이름을 갈라 두면 그 사고가 원천적으로 불가능해진다(규약 5). */
+  --shadow-float: var(--shadow-lg);
+
+  /* EmptyState — 19px 제목·30px 글리프·14px 반경은 정수 사다리 밖이라 이름을 준다
+     (items `--text-item-name: 19px` · schedule `--radius-drag: 14px` 선례). */
+  --container-empty: 460px;
+  --text-empty-glyph: var(--fs-hero); /* 30px */
+  --text-empty-title: 19px;
+  --tracking-empty-title: -0.01em;
+  --radius-empty-glyph: 14px;
+
+  /* OnlineStatus — 배지 폭 상한(뷰포트 - 좌우 16px). `max-w-[calc(100vw-32px)]` 는
+     임의 수치 금지에 걸리므로 이름으로 옮긴다. */
+  --container-online-badge: calc(100vw - 32px);
+
+  /* Tooltip */
+  --container-tooltip: 248px;
+
+  /* ShortcutsHelp — 치트시트 폭(540 상한 · 좁은 화면 92vw) + kbd 칩 하단 립 1px.
+     ⚠ 이름을 `sheet` 로 두지 않는다: DetailDrawer 의 중앙 시트와 겹쳐 `w-sheet`/`max-w-sheet` 가
+     어느 네임스페이스로 풀릴지 모호해진다(규약 5 · §15-3 이 그걸로 무너졌다). */
+  --container-cheatsheet: 540px;
+  --width-cheatsheet: 92vw;
+  --shadow-kbd: 0 1px 0 var(--line);
+
+  /* DetailDrawer — 우측 패널 620px · 중앙 시트 1200px(그 폭이 내부 격자의 열 수를 정한다).
+     중앙 시트 패딩은 유동값이라 반올림하지 않고 이름을 준다(규약 3). */
+  --container-drawer: 620px;
+  --container-drawer-sheet: 1200px;
+  --spacing-drawer-pad-y: clamp(16px, 5vh, 56px);
+  --spacing-drawer-pad-x: clamp(12px, 4vw, 48px);
+  --color-overlay: var(--overlay-bg);
+  /* ⚠ `backdrop-blur-*` 는 `--backdrop-blur-*` 가 아니라 **`--blur-*`** 네임스페이스를 읽는다
+     (blur 와 backdrop-blur 가 스케일을 공유). 이름을 틀리면 유틸이 아예 생성되지 않는다. */
+  --blur-overlay: 3px; /* = tokens.css --backdrop-overlay */
+
+  /* CommandPalette — 팔레트 스크림은 테마 무관 검정 45%(다른 오버레이의 --overlay-bg 와 다르다). */
+  --color-scrim: var(--scrim);
+  --color-tint-acc-6: var(--tint-acc-6);
+  --container-palette: 640px;
+  --width-palette: 92vw;
+  --radius-palette: 14px;
+  --blur-palette: 2px;
+  --spacing-palette-y: 18vh; /* 시트 상단 오프셋 — top-* 는 spacing 스케일을 읽는다 */
+  --spacing-palette-list: 50vh; /* 목록 최대 높이 */
+  --text-palette-input: 16px; /* 검색 입력 — 정수 사다리 밖(14↔20 사이) */
 }
