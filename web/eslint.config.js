@@ -169,6 +169,38 @@ export default tseslint.config(
     files: ['src/features/registry.tsx'],
     rules: { 'no-restricted-imports': 'off' },
   },
+  /* SD-7 — main.tsx 의 **부팅 순서 계약**을 린트로 승격(2026-07-24).
+
+     계약: `useApp` 모듈은 `initAppStore()` 가 **끝난 뒤에** 처음 평가돼야 한다. 그 스토어는
+     `create()` 시점(=모듈 평가 시점)에 `preloadedState()` 를 읽으므로, 먼저 평가되면 아직
+     null 인 값을 읽고 **셸이 SQLite 대신 낡은 localStorage 로 부팅한다.**
+
+     ⚠ 이 계약은 main.tsx 주석에 정확한 조건까지 적혀 있었는데도 **그 파일 자신이 어겼다** —
+     `ThemeProvider` 를 정적 import 했고 그게 `useApp` 을 끌어왔다(2단계-E 가 `App` 만 동적으로
+     바꾸고 형제를 놓쳤다). 2026-07-24 트랙 B 가 잡을 때까지 살아 있었다.
+     **교훈: 표현 가능한 계약을 주석에 두면 지켜지지 않는다.**
+
+     막는 방식: main.tsx 에서 `useApp` 을 (직접이든 그것을 끌어오는 앱 컴포넌트든) **정적으로**
+     import 하지 못하게 한다. 동적 `import()` 는 이 규칙의 대상이 아니라 그대로 통과한다 —
+     그게 정확히 우리가 원하는 형태다. 새 컴포넌트를 여기에 정적으로 붙이려는 사람은
+     아래 메시지를 읽고 동적 import 쪽으로 간다. */
+  {
+    files: ['src/main.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/store/useApp', '@/app/App', '@/app/ThemeProvider'],
+              message:
+                'main.tsx 는 `useApp` 을 끌어오는 모듈을 **정적으로** import 할 수 없습니다 — 스토어가 initAppStore() 보다 먼저 만들어져 셸이 낡은 localStorage 로 부팅합니다(SD-7). `.then()` 안에서 동적 import 하세요.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // web/scripts/*.mjs — Node 도구(gate·scaffold-tab·bundle-budget). Node 전역 허용.
   {
     files: ['scripts/**/*.mjs'],
