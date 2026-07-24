@@ -17,17 +17,24 @@ import { useScrollLock } from '@/hooks/useScrollLock';
    두 벌이 다른 속성은 전부 변형 쪽이 통째로 갖는다.
    닫기 버튼(`<button>`)은 언레이어드 전역 `button{}` 을 이겨야 하므로 해당 속성에 `!`. */
 const OVERLAY_BASE =
-  'fixed inset-0 z-[var(--z-modal)] flex bg-overlay backdrop-blur-overlay animate-[dd-fade_0.16s_var(--ease)] motion-reduce:animate-none';
+  'fixed inset-0 z-[var(--z-modal)] flex bg-overlay backdrop-blur-overlay motion-reduce:animate-none';
+/* 진입 애니는 별도로 뺐다(morphName 일 때 끄기 위해). View Transitions morph 로 여는 경우
+   드로어 자체의 dd-pop/dd-fade 가 켜져 있으면 **새 스냅샷이 pop 시작(작고 투명) 상태로 잡혀**
+   morph 가 "투명한 것으로 변형"이 된다 — 그래서 morph 열림에선 이 둘을 끄고 VT 가 전담한다. */
+const OVERLAY_ENTER = 'animate-[dd-fade_0.16s_var(--ease)]';
 const OVERLAY = {
   right: 'justify-end',
   center: 'items-center justify-center px-drawer-pad-x py-drawer-pad-y max-mobile:p-0',
 } as const;
 const PANEL_BASE = 'flex w-full flex-col bg-bg shadow-float motion-reduce:animate-none';
 const PANEL = {
-  right:
-    'h-full max-w-drawer border-l border-line animate-[dd-slide_0.22s_var(--ease)] max-mobile:max-w-none max-mobile:border-l-0',
+  right: 'h-full max-w-drawer border-l border-line max-mobile:max-w-none max-mobile:border-l-0',
   center:
-    'h-auto max-h-full max-w-drawer-sheet rounded-lg border border-line animate-[dd-pop_0.2s_var(--ease)] max-mobile:h-full max-mobile:max-h-none max-mobile:rounded-none max-mobile:border-0',
+    'h-auto max-h-full max-w-drawer-sheet rounded-lg border border-line max-mobile:h-full max-mobile:max-h-none max-mobile:rounded-none max-mobile:border-0',
+} as const;
+const PANEL_ENTER = {
+  right: 'animate-[dd-slide_0.22s_var(--ease)]',
+  center: 'animate-[dd-pop_0.2s_var(--ease)]',
 } as const;
 const HEAD = 'flex flex-none items-center justify-between gap-3 border-b border-line px-5 py-4 text-md tracking-label';
 /* 제목은 줄어들고 넘치면 말줄임 — min-w-0 이 없으면 flex 항목이 콘텐츠 폭 아래로 못 줄어
@@ -45,6 +52,7 @@ export default function DetailDrawer({
   title,
   children,
   placement = 'right',
+  morphName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -53,6 +61,9 @@ export default function DetailDrawer({
   /** 'right'=우측 슬라이드 패널(기본·today 패턴) · 'center'=탭 프레임보다 작은 중앙 시트.
       중앙 시트는 "목록은 그대로 두고 한 항목만 파고든다"는 용도 — 뒤 목록의 조망을 깨지 않는다(과목 상세). */
   placement?: 'right' | 'center';
+  /** View Transitions 공유요소 morph 이름(호출부가 여는 원본과 짝지어 준다). 주면 패널이 이 이름을
+      갖고 진입 애니(dd-pop/dd-fade)를 끈다 — VT 가 원본→패널 morph 를 전담한다. 없으면 기존 동작. */
+  morphName?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef); // 포커스 트랩 + 복원(접근성 — aria-modal 선언만 있고 관리가 없던 결함 보완).
@@ -76,7 +87,7 @@ export default function DetailDrawer({
        진짜 닫기 버튼(aria-label="닫기"). 린트는 그 셋을 볼 수 없다. */
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
-      className={`${OVERLAY_BASE} ${OVERLAY[placement]}`}
+      className={`${OVERLAY_BASE} ${OVERLAY[placement]}${morphName ? '' : ` ${OVERLAY_ENTER}`}`}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -84,7 +95,12 @@ export default function DetailDrawer({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`${PANEL_BASE} ${PANEL[placement]}`} ref={panelRef} tabIndex={-1}>
+      <div
+        className={`${PANEL_BASE} ${PANEL[placement]}${morphName ? '' : ` ${PANEL_ENTER[placement]}`}`}
+        ref={panelRef}
+        tabIndex={-1}
+        style={morphName ? { viewTransitionName: morphName } : undefined}
+      >
         <div className={HEAD}>
           <b className={TITLE} title={title}>
             {title}

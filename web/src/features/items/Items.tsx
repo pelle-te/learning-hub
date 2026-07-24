@@ -12,6 +12,7 @@
    여기선 lib/weekAlloc 같은 출처로 한 과목의 행만 편집한다. 두 입구, 한 진실.
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -85,6 +86,7 @@ export default function Items() {
   // 반응형 cbms 슬라이스를 넘겨 재계산을 그 변화에 묶는다(전체 state 구독으로 인한 불필요 리렌더 회피).
   const weakBySid = useMemo(() => weakCountBySid({ ...useApp.getState().state, cbms }), [cbms]);
   const [sheetId, setSheetId] = useState<string | null>(null); // 열려 있는 과목 상세 시트
+  const [morphing, setMorphing] = useState(false); // 이 열림이 카드→시트 VT morph 인가(진입 애니 대체)
   const [showSkeleton, setShowSkeleton] = useState(false); // 뼈대 편집 스트립 펼침(온디맨드 세부)
   const [showImport, setShowImport] = useState(false); // 인라인 볼트 불러오기 토글(§5-2)
   const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 파일 전체가 이것만 쓴다.
@@ -149,6 +151,7 @@ export default function Items() {
     mutate((st) => {
       st.items.push(makeItem({ id, source: '직접', name: '새 과목' }));
     });
+    setMorphing(false); // 새 과목은 카드가 아직 없어 morph 없이 연다
     setSheetId(id); // 새 과목은 바로 시트를 열어 편집
   }, [mutate]);
 
@@ -252,6 +255,30 @@ export default function Items() {
     }, 1500);
     return () => window.clearTimeout(t);
   }, [searchParams, setSearchParams]);
+
+  // 카드 → 과목 시트 열기. VT 지원 + 모션 허용이면 클릭된 카드에 공유 이름을 얹어 시트로 morph
+  // 시킨다(카드 위치·크기에서 시트로 보간). flushSync 로 시트를 동기 마운트해야 new 스냅샷이 잡힌다.
+  // 미지원/reduced-motion/fx-lite/새 과목(카드 없음)이면 즉시 열림(무해 폴백).
+  const openSheet = useCallback((id: string) => {
+    const el = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+    const reduce =
+      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const lite = document.documentElement.getAttribute('data-fx') === 'lite';
+    if (typeof doc.startViewTransition === 'function' && el && !reduce && !lite) {
+      el.style.viewTransitionName = 'subject-morph'; // old 스냅샷: 이 카드가 그 이름
+      doc.startViewTransition(() =>
+        flushSync(() => {
+          el.style.viewTransitionName = ''; // new 스냅샷: 카드는 이름 반납(시트가 이어받는다)
+          setMorphing(true);
+          setSheetId(id);
+        }),
+      );
+    } else {
+      setMorphing(false);
+      setSheetId(id);
+    }
+  }, []);
 
   const n = items.length;
   const sheetItem = sheetId ? items.find((i) => i.id === sheetId) : null;
@@ -408,7 +435,7 @@ export default function Items() {
               >
                 <ItemCard
                   item={s}
-                  onOpen={setSheetId}
+                  onOpen={openSheet}
                   weakCount={weakBySid[s.id]}
                   allocMin={rowSumMin(alloc[s.id])}
                   todayIso={todayIso}
@@ -422,7 +449,13 @@ export default function Items() {
       </div>
 
       {sheetItem && (
-        <SubjectSheet item={sheetItem} mutate={mutate} onClose={() => setSheetId(null)} onDelete={removeItem} />
+        <SubjectSheet
+          item={sheetItem}
+          mutate={mutate}
+          onClose={() => setSheetId(null)}
+          onDelete={removeItem}
+          morph={morphing}
+        />
       )}
     </section>
   );

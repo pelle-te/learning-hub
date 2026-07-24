@@ -121,38 +121,43 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
         </Pill>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
-        {DOW_MON.map((lab, i) => {
-          const date = addDays(monday, i);
-          const wd = date.getDay();
-          const mine = vec?.[wd] || 0;
-          // 보드 열과 같은 출처여야 한다 — capWd(요일 기본값)가 아니라 그 날짜의 실제 가용.
-          // 드릴다운인데 상위 보드와 다른 수를 보이면 "여기선 여유 있다는데 보드는 초과"가 된다.
-          const capMin = dayStudyMin(state, iso(date), wd, capWd);
-          // 그 요일 '남은 여유' = 가용 − (전 과목 배분). 내 칸을 늘릴 여지를 여기서 읽는다(열 맥락 최소 이식).
-          const freeMin = capMin - colSumMin(alloc, wd, validSids);
-          const over = capMin > 0 && freeMin < 0;
-          const today = iso(date) === todayIso;
-          return (
-            <label key={i} className={`${DAY_BASE} ${today ? 'shadow-inset-acc' : 'shadow-inset-line2'}`}>
-              <span className={`text-xs leading-[1.6] font-extrabold ${today ? 'text-acc' : 'text-mut'}`}>{lab}</span>
-              <NumberField
-                className="min-w-0 text-center font-bold tabular-nums"
-                step={0.5}
-                min={0}
-                value={mine / 60 || 0}
-                emptyValue={0} // 비우기 = 그 요일 배분 없음
-                onCommit={(v) => setCell(wd, v)}
-                aria-label={`${lab}요일 배분 시간`}
-              />
-              <span
-                className={`text-day-free whitespace-nowrap tabular-nums max-mobile:hidden ${over ? 'font-extrabold text-bad' : 'text-mut'}`}
-              >
-                {capMin === 0 ? '가용 0' : over ? `초과 ${toH(-freeMin)}h` : `여유 ${toH(freeMin)}h`}
-              </span>
-            </label>
-          );
-        })}
+      {/* 요일 배분 그리드 — **시트 폭**에 반응(뷰포트 아님 · 컨테이너 쿼리). 좁은 시트(폰 전폭)에선
+          7칸이 눌리므로 4칸 2줄로 접고, 시트가 넓으면(데스크톱) 7칸 한 줄. 배치 보드에 재사용돼도
+          그 컨테이너 폭에 맞춰 스스로 접힌다 — 미디어쿼리(560/700/900)로는 표현 못 하는 국소 반응. */}
+      <div className="@container">
+        <div className="grid grid-cols-4 gap-1.5 @sm:grid-cols-7">
+          {DOW_MON.map((lab, i) => {
+            const date = addDays(monday, i);
+            const wd = date.getDay();
+            const mine = vec?.[wd] || 0;
+            // 보드 열과 같은 출처여야 한다 — capWd(요일 기본값)가 아니라 그 날짜의 실제 가용.
+            // 드릴다운인데 상위 보드와 다른 수를 보이면 "여기선 여유 있다는데 보드는 초과"가 된다.
+            const capMin = dayStudyMin(state, iso(date), wd, capWd);
+            // 그 요일 '남은 여유' = 가용 − (전 과목 배분). 내 칸을 늘릴 여지를 여기서 읽는다(열 맥락 최소 이식).
+            const freeMin = capMin - colSumMin(alloc, wd, validSids);
+            const over = capMin > 0 && freeMin < 0;
+            const today = iso(date) === todayIso;
+            return (
+              <label key={i} className={`${DAY_BASE} ${today ? 'shadow-inset-acc' : 'shadow-inset-line2'}`}>
+                <span className={`text-xs leading-[1.6] font-extrabold ${today ? 'text-acc' : 'text-mut'}`}>{lab}</span>
+                <NumberField
+                  className="min-w-0 text-center font-bold tabular-nums"
+                  step={0.5}
+                  min={0}
+                  value={mine / 60 || 0}
+                  emptyValue={0} // 비우기 = 그 요일 배분 없음
+                  onCommit={(v) => setCell(wd, v)}
+                  aria-label={`${lab}요일 배분 시간`}
+                />
+                <span
+                  className={`text-day-free whitespace-nowrap tabular-nums max-mobile:hidden ${over ? 'font-extrabold text-bad' : 'text-mut'}`}
+                >
+                  {capMin === 0 ? '가용 0' : over ? `초과 ${toH(-freeMin)}h` : `여유 ${toH(freeMin)}h`}
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       {finished && usedMin > 0 && (
@@ -174,11 +179,14 @@ export function SubjectSheet({
   mutate,
   onClose,
   onDelete,
+  morph,
 }: {
   item: Item;
   mutate: Mutate;
   onClose: () => void;
   onDelete: (id: string) => void;
+  /** 카드→시트 View Transitions morph 로 열렸나 — 그러면 시트가 공유 이름을 갖고 진입 애니를 끈다. */
+  morph?: boolean;
 }) {
   const id = item.id;
   // 마감 D-day도 앱 정본 '오늘'에서 — 벽시계 new Date()를 쓰면 `_today` 시드 주입 시 값이 갈렸다.
@@ -198,7 +206,13 @@ export function SubjectSheet({
   );
 
   return (
-    <DetailDrawer open onClose={onClose} title={item.name || '(이름 없음)'} placement="center">
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={item.name || '(이름 없음)'}
+      placement="center"
+      morphName={morph ? 'subject-morph' : undefined}
+    >
       <div
         className="relative flex flex-col gap-4.5 pl-3"
         style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
