@@ -649,6 +649,24 @@ Oracle 안이 이렇게 지적했다: _"Workers+D1 을 택했다면 D1 스키마
 
 ---
 
+## 실시간 poke (Phase 2 · Durable Object)
+
+한 기기 push → 다른 기기 즉시 pull 하도록 "변경 있음"만 실시간 통지한다(데이터는 여전히 push/pull). `server/src/syncHub.ts` 의 `SyncHub` DO 하나가 모든 기기 WebSocket 을 쥐고, `/api/sync/live` 가 인증 후 위임한다.
+
+**배포(사용자 손 필요):**
+
+1. `cd web && npm run build` (자산 선행) → `cd server && npx wrangler deploy`. `wrangler.jsonc` 의 `durable_objects` 바인딩 + `migrations`(`new_sqlite_classes: ["SyncHub"]`)를 wrangler 가 첫 배포에서 적용한다.
+2. ⚠ **SQLite 백드 DO 라야 무료 플랜에서 뜬다**(`new_sqlite_classes`). 배포가 `new_classes` 유료를 요구하면 그건 마이그레이션 오타다.
+3. 확인: 폰에서 앱을 두 기기로 열고 한쪽에서 편집 → 다른 쪽이 폴링(최대 5분)을 기다리지 않고 갱신되면 산다. 브라우저 콘솔에 `wss://…/api/sync/live` 연결이 보인다.
+
+**설계상 성질(중요):**
+
+- **점진적 향상** — WS 가 못 붙어도(배포 전·네트워크·CSP) 앱은 기존 이벤트/폴링 동기화로 그대로 돈다. 정확성의 전제가 아니라 최신성의 향상이다.
+- **폰만 켠다** — 데스크톱 Tauri 웹뷰는 CSP `connect-src 'self' ipc:` 로 이 WS 가 막힌다(`phone/sync.ts` 가 `live:true`, StorageGuard 는 안 켬).
+- **인증** — 브라우저 WS 는 Authorization 헤더 불가라 액세스 토큰을 `Sec-WebSocket-Protocol` 로 싣는다(URL 아님 · P0-2 연장). Worker 가 검증+폐기 확인 후 DO 로 위임한다.
+
+---
+
 ## 부록 A — 설계서 §6 보안 항목 매핑
 
 | 설계서 §6 항목                   | 이 런북에서                       | 인프라로 해결되나                                                                |
