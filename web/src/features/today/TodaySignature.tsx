@@ -25,7 +25,7 @@ import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCoun
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
-import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, DOW_MON } from '@/lib/utils';
+import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, mmss, DOW_MON } from '@/lib/utils';
 import { useCountUp, useHeroPointer } from '@/hooks/interactions';
 // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 
@@ -411,7 +411,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신). 종료 알림·완료 연결은 FocusChip이.
   const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
   const timerPct = timer && timer.total ? Math.min(100, ((timer.total - timerLeft) / timer.total) * 100) : 0;
-  const mmss = `${String(Math.floor(timerLeft / 60)).padStart(2, '0')}:${String(timerLeft % 60).padStart(2, '0')}`;
+  const timerLabel = mmss(timerLeft);
   // 포모도로 프리셋 — 기본은 블록 파생(focusMinutes), 25/50은 명시 선택.
   const startTimer = (min?: number) => {
     if (!focus) return;
@@ -614,7 +614,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 onClick={() => void stopTimer()}
                 aria-label={timer.kind === 'break' ? '휴식 타이머 정지' : '집중 타이머 정지'}
               >
-                <span className={S.ctaNum}>{mmss}</span>
+                <span className={S.ctaNum}>{timerLabel}</span>
                 <span className={S.ctaCap}>{timer.kind === 'break' ? '☕ 휴식 · ■ 정지' : '■ 정지'}</span>
               </button>
             ) : allDone ? (

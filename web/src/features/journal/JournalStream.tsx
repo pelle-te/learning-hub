@@ -15,7 +15,7 @@
 import { useApp } from '@/store/useApp';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { summariesFor, cbmsBetween, CBMS_INFO } from '@/lib/methodology';
-import { itemById } from '@/lib/utils';
+import { itemById, hhmm } from '@/lib/utils';
 import type { CbmsCode } from '@/lib/types';
 
 // fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
@@ -38,8 +38,7 @@ function fmtTime(at?: number): string {
   if (!at) return '';
   const d = new Date(at);
   if (isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+  return hhmm(d);
 }
 
 export default function JournalStream({

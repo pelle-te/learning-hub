@@ -140,6 +140,28 @@ export function toHM(m: number): string {
   const mm = m % 60;
   return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
+/* ── 시각 포매터 (CT-S3) ──────────────────────────────────────────────────────
+   `const p = (n) => String(n).padStart(2,'0')` 가 feature 안에서 **네 번** 다시 태어나고
+   있었다(Control×2 · AnkiPanel · JournalStream) + `MM:SS` 조립이 두 곳(FocusChip ·
+   TodaySignature)에 글자단위로 복제돼 있었다. 개별로는 사소하지만 같은 표기 규약이
+   여섯 군데에 흩어져 있으면 하나만 고쳐지는 날이 온다. */
+
+/** 한 자리 수를 0 으로 채운다('7' → '07'). */
+export function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Date → 로컬 'HH:MM'. (분 수 → 'HH:MM' 은 `toHM`.) */
+export function hhmm(d: Date): string {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** 초 → 'MM:SS'(양쪽 0 채움). 60분을 넘으면 분이 세 자리로 늘어난다(타이머 표기 그대로). */
+export function mmss(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  return `${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`;
+}
+
 export function clamp(v: number, a: number, b: number): number {
   return Math.max(a, Math.min(b, v));
 }

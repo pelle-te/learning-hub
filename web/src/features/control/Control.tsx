@@ -14,6 +14,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePing, useResearchJobs, RESEARCH_JOBS_KEY } from '@/store/queries';
 import { startResearch, cancelResearch, type ResearchJob } from '@/lib/api';
 import { readJSON, writeJSON } from '@/lib/localStore';
+import { hhmm, pad2 } from '@/lib/utils';
 import { onSync } from '@/lib/sync';
 import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import EmptyState from '@/components/EmptyState';
@@ -79,14 +80,13 @@ function obsidianLink(topic: string): string {
 function fmtWhen(at: string): string {
   const d = new Date(at);
   if (isNaN(d.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${hhmm(d)}`;
 }
 /** 경과 시간 mm:ss(진행 중 잡). 서버-클라 시계 오차로 음수가 되지 않게 0으로 클램프. */
 function fmtElapsed(startedAt: number, now: number): string {
   const s = Math.max(0, Math.round((now - startedAt) / 1000));
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${Math.floor(s / 60)}:${p(s % 60)}`;
+  // ⚠ mmss 와 달리 **분에는 0 을 안 채운다**('3:07') — 경과 표기의 기존 형태를 보존한다.
+  return `${Math.floor(s / 60)}:${pad2(s % 60)}`;
 }
 /** 소요시간(ms) → mm:ss(경과와 같은 포맷 재사용). */
 function fmtDur(ms: number): string {

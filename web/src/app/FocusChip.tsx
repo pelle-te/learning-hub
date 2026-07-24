@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFocus } from '@/store/useFocus';
 import { useApp } from '@/store/useApp';
 import { touchReview } from '@/lib/persistence';
+import { mmss } from '@/lib/utils';
 import { toast } from '@/shell/toast';
 import { confirm } from '@/shell/modal';
 import { routeTitle } from './docTitle';
@@ -34,9 +35,7 @@ const STOP =
   //    박으면 '이식'이 아니라 변경이다(칩은 overflow-hidden 이라 radius 차이가 눈엔 거의 안 보인다).
   'inline-flex w-7.5 items-center justify-center border-0! border-l! border-l-line-acc! bg-transparent! text-2xs! leading-[normal] text-mut! hover:bg-tint-acc-8! hover:text-bad! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 
-function fmt(sec: number): string {
-  return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
-}
+const fmt = mmss; // 표기 규약은 lib/utils 가 단일 원천(CT-S3)
 
 export default function FocusChip() {
   const session = useFocus((st) => st.session);

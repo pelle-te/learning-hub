@@ -13,7 +13,7 @@ import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
-import { makeItem, clamp, jsq } from '@/lib/utils';
+import { makeItem, clamp, jsq, hhmm } from '@/lib/utils';
 import { Button } from '@/components/ui';
 
 export function AnkiPanel() {
@@ -97,14 +97,13 @@ export function AnkiPanel() {
   useEffect(() => {
     if (!autoRefresh || !connected) return;
     let alive = true;
-    const p = (n: number) => String(n).padStart(2, '0');
     const refresh = async () => {
       try {
         const l = await fetchAnkiLive();
         if (!alive) return;
         applyLive(l);
         const now = new Date();
-        setLastAuto(`${p(now.getHours())}:${p(now.getMinutes())}`);
+        setLastAuto(hhmm(now));
       } catch {
         /* AnkiConnect 순간 단절 — 다음 주기/포커스에 복구 */
       }
