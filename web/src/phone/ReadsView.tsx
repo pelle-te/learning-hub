@@ -15,7 +15,7 @@
    `reads` 산출물의 각 항목에 `text`(수천 자)가 들어 있다 — 이 화면이 존재할 값을 하는
    이유가 그것이다. 목록만 보여 줄 거면 폰에 올릴 이유가 없었다.
 ============================================================ */
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { readMirrored } from '@/lib/artifactMirror';
 
 interface Article {
@@ -45,6 +45,8 @@ interface MarketsArtifact {
 }
 
 const CARD = 'border-b border-line px-3 py-3';
+// ⚠ 제목은 `<h3>` 이다 — 본문이 수천 자인 화면이라(이 뷰의 존재 이유) SR 사용자가 헤딩 탐색으로
+//    기사 사이를 건너뛸 수 있어야 한다. div 로 두면 문서 헤딩 구조에서 항목이 사라진다.
 const TITLE = 'text-base font-semibold text-ink';
 const META = 'mt-1 text-xs text-mut';
 const BODY = 'mt-2 text-sm leading-relaxed whitespace-pre-wrap text-txt';
@@ -53,27 +55,37 @@ const EMPTY = 'px-3 py-8 text-center text-sm text-mut';
 /** 목록의 한 줄 — 탭하면 본문을 편다. 본문이 없으면 펼침 자체를 안 만든다. */
 function ArticleRow({ a }: { a: Article }): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  const bodyId = useId();
   const body = (a.text ?? '').trim();
   const meta = [a.source, a.published?.slice(0, 10), a.words ? `${a.words}단어` : ''].filter(Boolean).join(' · ');
+  const head = (
+    <>
+      <h3 className={TITLE}>{a.title || '(제목 없음)'}</h3>
+      {meta ? <div className={META}>{meta}</div> : null}
+    </>
+  );
   return (
     <article className={CARD}>
       {body ? (
-        <button
-          type="button"
-          className="min-h-11 w-full text-left"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <div className={TITLE}>{a.title || '(제목 없음)'}</div>
-          {meta ? <div className={META}>{meta}</div> : null}
-        </button>
+        <>
+          <button
+            type="button"
+            className="min-h-11 w-full text-left"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {head}
+          </button>
+          {open ? (
+            <div id={bodyId} className={BODY}>
+              {body}
+            </div>
+          ) : null}
+        </>
       ) : (
-        <div className="min-h-11">
-          <div className={TITLE}>{a.title || '(제목 없음)'}</div>
-          {meta ? <div className={META}>{meta}</div> : null}
-        </div>
+        <div className="min-h-11">{head}</div>
       )}
-      {open && body ? <div className={BODY}>{body}</div> : null}
     </article>
   );
 }
@@ -114,7 +126,7 @@ export default function ReadsView(): React.JSX.Element {
           </h2>
           {news.map((n, i) => (
             <article key={n.id ?? i} className={CARD}>
-              <div className={TITLE}>{n.title || '(제목 없음)'}</div>
+              <h3 className={TITLE}>{n.title || '(제목 없음)'}</h3>
               {n.source || n.published ? (
                 <div className={META}>{[n.source, n.published?.slice(0, 10)].filter(Boolean).join(' · ')}</div>
               ) : null}

@@ -4,7 +4,7 @@
    스케줄 탭이 "재내보내기 필요"를 띄운다.
 ============================================================ */
 import { schedule, layoutDay } from './scheduler';
-import { iso, parseISO, hLabel, rid } from './utils';
+import { iso, parseISO, hLabel, rid, pad2 } from './utils';
 import type { AppState } from './types';
 
 function icsEsc(s: unknown): string {
@@ -21,7 +21,7 @@ function icsDt(ds: string, min: number): string {
   }
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(h).padStart(2, '0')}${String(m).padStart(2, '0')}00`;
+  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(h)}${pad2(m)}00`;
 }
 
 const LABEL: Record<string, string> = {

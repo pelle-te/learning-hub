@@ -14,15 +14,19 @@ import { addTask, removeTask, tasksForDay, toggleTaskDone } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
 import { colorForId, parseISO, fmt, toHM } from '@/lib/utils';
 import { syncSoon } from './sync';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export default function DayView({ ds }: { ds: string }): React.JSX.Element {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
   const [draft, setDraft] = useState('');
 
-  const events = eventsForDay(state, ds);
-  const tasks = tasksForDay(state, ds);
+  /* ⚠ `draft`(할 일 추가 입력)가 같은 컴포넌트에 있어, memo 가 없으면 **타이핑 매 키마다**
+     `eventsForDay`·`tasksForDay` 가 state 배열을 통째로 재순회한다. 데스크톱은 이 부류를
+     `store/selectors` 캐시로 막는데(PL-15) 폰엔 그 층이 없다 → 여기서 memo 로 막는다.
+     폰 데이터가 작아 체감은 미미하지만 패턴상 명백한 낭비다. */
+  const events = useMemo(() => eventsForDay(state, ds), [state, ds]);
+  const tasks = useMemo(() => tasksForDay(state, ds), [state, ds]);
 
   /* 편집 후엔 동기화를 예약한다. `mutate` 는 400ms 디바운스로 SQLite 에 쓰고, `syncSoon` 은
      그보다 길게(1200ms) 기다렸다 아웃박스를 훑는다 — 순서가 뒤집히면 방금 편집이 이번

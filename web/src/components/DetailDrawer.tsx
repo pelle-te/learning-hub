@@ -6,6 +6,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 /* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
    ⚠ 원본은 `.overlayCenter .panel` 이라는 **조상 변형 자손 셀렉터**로 두 벌 기하를 갈랐다.
@@ -55,6 +56,7 @@ export default function DetailDrawer({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef); // 포커스 트랩 + 복원(접근성 — aria-modal 선언만 있고 관리가 없던 결함 보완).
+  useScrollLock(open); // 배경 스크롤 잠금 — 트랩의 짝(포커스가 안 새듯 스크롤도 안 새야 한다).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

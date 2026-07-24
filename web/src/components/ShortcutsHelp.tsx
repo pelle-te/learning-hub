@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, tabByKey, paletteCommands } from '@/shell';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { MOD_K_LABEL } from '@/lib/platform';
 
 // C-12: 팔레트 액션 카탈로그 — ⌘K를 열어 검색해야만 발견되던 강력 액션들을 치트시트에 노출.
@@ -33,6 +34,7 @@ const KBD =
 export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(open, panelRef);
+  useScrollLock(open); // 배경 스크롤 잠금 — modal.tsx 와 같은 전체화면 `.modal-ov` 셸인데 한쪽만 걸려 있었다.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

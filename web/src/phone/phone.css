@@ -46,6 +46,26 @@
    폰 부채의 실체는 위 유틸 626개였다(설계서 §15 부수 발견). */
 @import '../styles/tokenBridge.css';
 
+/* ⚠ 포커스 링(2026-07-24 회귀 복구) — 폰은 데스크톱 셸의 전역 CSS 를 **안 물어서**
+   `global/components.css` 의 `:focus-visible { outline: 2px acc }` 계약이 통째로 빠져 있었다.
+   Tailwind preflight 가 outline 을 지우진 않으니 브라우저 native 링은 남지만, 앱이 명시한
+   2px acc 링은 폰의 모든 버튼·탭·입력칸에서 부재였다(디자인시스템 포커스 계약과 불일치 ·
+   iPad+키보드·스위치 접근 사용자에게 실害). 색 원천은 토큰이라 규약 #3 위반 아님. 데스크톱
+   `components.css:255-267` 을 그대로 옮긴다 — 두 곳이 갈리지 않게 값이 동일해야 한다. */
+:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='tab']:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
 /* 폰 전용 바탕 — 셸의 크롬(레일·상단바)이 없으므로 여기가 앱 프레임이다.
    ⚠ `min-height: 100dvh` — 모바일 브라우저 주소창이 접힐 때 `100vh` 는 실제 뷰포트보다
    커서 바닥이 잘린다. dvh 가 그 축을 따라간다. */

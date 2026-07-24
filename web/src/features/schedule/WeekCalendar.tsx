@@ -18,7 +18,7 @@ import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import { eventsForDay } from '@/lib/events';
-import { toHM } from '@/lib/utils';
+import { toHM, pad2 } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, packLanes, timeSpan, type DayData, type Row } from '@/lib/scheduleView';
 import type { SessionType, Task } from '@/lib/types';
 
@@ -321,7 +321,7 @@ export function WeekCalendar({
           <div className={CAL.gutter}>
             {hours.map((h) => (
               <span key={h} className={CAL.hourLab} style={{ top: yOf(h * 60) }}>
-                {String(h).padStart(2, '0')}
+                {pad2(h)}
               </span>
             ))}
           </div>

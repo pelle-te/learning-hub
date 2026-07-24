@@ -25,22 +25,34 @@ export default function WeekView({ ds, onPick }: { ds: string; onPick: (ds: stri
         const events = eventsForDay(state, d);
         const all = tasksForDay(state, d);
         const open = openTasksForDay(state, d);
+        const done = all.length - open.length;
+        /* ⚠ 버튼의 접근 이름을 **문장으로** 짠다. 안 그러면 SR 이 "7월 24일 · 일정 2 · 할 일 3
+           슬래시 5" 처럼 파편으로 읽고, 빈 날의 `—`(아래)는 의미 없는 문자로 읽힌다 — 조망이
+           목적인 화면인데 음성으론 조망이 안 된다. 시각 텍스트는 그대로 두고 이름만 보강한다. */
+        const label =
+          `${fmt(parseISO(d))}${d === today ? ', 오늘' : ''}` +
+          (events.length > 0 ? `, 일정 ${events.length}개` : '') +
+          (all.length > 0 ? `, 할 일 ${done}/${all.length} 완료` : ', 할 일 없음');
         return (
           <button
             key={d}
             type="button"
             onClick={() => onPick(d)}
             aria-current={d === today ? 'date' : undefined}
+            aria-label={label}
             className={`flex min-h-14 items-center justify-between gap-3 rounded-md border border-line bg-panel px-3 py-2 text-left ${
               d === today ? 'border-acc' : ''
             }`}
           >
-            <span className={`text-sm ${d === today ? 'font-semibold text-acc' : 'text-txt'}`}>{fmt(parseISO(d))}</span>
-            <span className="flex items-center gap-3 text-xs text-mut tabular-nums">
+            {/* 시각 텍스트는 aria-hidden — 접근 이름은 위 문장형 aria-label 이 소유한다(중복 방지). */}
+            <span className={`text-sm ${d === today ? 'font-semibold text-acc' : 'text-txt'}`} aria-hidden="true">
+              {fmt(parseISO(d))}
+            </span>
+            <span className="flex items-center gap-3 text-xs text-mut tabular-nums" aria-hidden="true">
               {events.length > 0 ? <span>일정 {events.length}</span> : null}
               {all.length > 0 ? (
                 <span>
-                  할 일 {all.length - open.length}/{all.length}
+                  할 일 {done}/{all.length}
                 </span>
               ) : (
                 <span className="opacity-50">—</span>

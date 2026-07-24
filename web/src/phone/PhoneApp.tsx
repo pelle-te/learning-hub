@@ -54,13 +54,17 @@ export default function PhoneApp(): React.JSX.Element {
               </button>
             ) : null}
           </span>
-          <div className="flex gap-1" role="tablist">
+          {/* ⚠ role="tablist"/"tab" 이 **아니다**. 그건 tabpanel 연결(aria-controls)·화살표 이동·
+              roving tabindex 까지 약속하는 계약인데 이 스위처는 그중 아무것도 이행하지 않아
+              SR 사용자에게 "탭 1/3"이라 읽히고도 갈 패널을 못 찾게 한다(미완성 tab 롤은 순수
+              버튼보다 나쁘다). 데스크톱 RailSidebar·Schedule 세그먼트가 같은 이유로 내린 판단
+              (group + aria-pressed)을 그대로 쓴다. */}
+          <div className="flex gap-1" role="group" aria-label="화면 전환">
             {(['day', 'week', 'reads'] as const).map((v) => (
               <button
                 key={v}
                 type="button"
-                role="tab"
-                aria-selected={view === v}
+                aria-pressed={view === v}
                 onClick={() => setView(v)}
                 className={`min-h-11 rounded-md px-4 text-sm ${view === v ? 'bg-acc text-on-acc' : 'text-mut'}`}
               >

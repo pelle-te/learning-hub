@@ -27,7 +27,7 @@ export interface CaptureResult {
    재구현했다(주석이 "utils와 동일 규약"이라 자인까지 했다). 같은 lib 계층이라 import에 제약도 없다.
    ⚠ 옛 로컬 addDays는 인자를 자정으로 절삭했지만 utils.addDays는 시각을 보존한다 — 여기 호출부는
    전부 이미 절삭된 base(startOfDay·mondayOf 산출)를 넘기므로 동작은 동일하다. */
-import { iso, addDays, mondayOf, startOfDay } from './utils';
+import { iso, addDays, mondayOf, startOfDay, pad2 } from './utils';
 
 /** raw에서 needle(대소문자 무시) 첫 등장을 공백으로 치환 — title 걷어내기용. */
 function stripOnce(hay: string, needle: string): string {
@@ -139,7 +139,7 @@ function timeLabelOf(minute: number): string {
   const period = h24 < 12 ? '오전' : '오후';
   let h12 = h24 % 12;
   if (h12 === 0) h12 = 12;
-  return `${period} ${h12}:${String(mm).padStart(2, '0')}`;
+  return `${period} ${h12}:${pad2(mm)}`;
 }
 
 /** 시간 인식 — 오전/오후 접두, HH:MM, H시 M분, H시 반, H시. 없으면 null. */
