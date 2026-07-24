@@ -15,7 +15,6 @@ import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
 import { makeItem, clamp, jsq } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 
 export function AnkiPanel() {
   const qc = useQueryClient();
@@ -176,13 +175,13 @@ export function AnkiPanel() {
 
   return (
     <>
-      <div className={ds.card}>
+      <div className="ds-card">
         <h2>Anki 현황</h2>
-        <div className={ds.row}>
+        <div className="ds-row">
           <Button sm disabled={busy === 'file'} onClick={scanFiles}>
             {busy === 'file' ? (
               <>
-                <span className={ds.spin} /> 스캔 중
+                <span className="ds-spin" /> 스캔 중
               </>
             ) : (
               '📁 볼트 카드 스캔'
@@ -191,7 +190,7 @@ export function AnkiPanel() {
           <Button sm disabled={busy === 'live'} onClick={goLive}>
             {busy === 'live' ? (
               <>
-                <span className={ds.spin} /> 연결 중
+                <span className="ds-spin" /> 연결 중
               </>
             ) : (
               '🔌 AnkiConnect 실시간 due'
@@ -207,21 +206,18 @@ export function AnkiPanel() {
           </Button>
           <div style={{ flex: 2 }} />
         </div>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           카드 스캔: 정본 _meta/cache/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백.
           실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765). <b>카드 생성</b>: 그동안 적은 3문장 요약·반복
           오답을 import용 초안(.txt)으로 — Anki에서 추리고 손질(큐레이션).
         </div>
         {err && (
-          <div className={ds.warnbox} role="alert" style={{ marginTop: 8 }}>
+          <div className="ds-warnbox" role="alert" style={{ marginTop: 8 }}>
             {err}
           </div>
         )}
         {file && (
-          <div
-            className={`${ds.muted} ${ds.tiny}`}
-            style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}
-          >
+          <div className="ds-muted ds-tiny" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>
               📂 카드 스캔: {file.at}
               {file.src ? ' · ' + file.src : ''}
@@ -233,7 +229,7 @@ export function AnkiPanel() {
         )}
         {live && (
           <div
-            className={`${ds.muted} ${ds.tiny}`}
+            className="ds-muted ds-tiny"
             style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
           >
             <span>🔌 실시간 연결됨: {live.at}</span>
@@ -249,7 +245,7 @@ export function AnkiPanel() {
       </div>
 
       {file && (
-        <div className={ds.card}>
+        <div className="ds-card">
           <h3>볼트 카드(파일 기준)</h3>
           <table>
             <thead>
@@ -268,10 +264,10 @@ export function AnkiPanel() {
                       <th rowSpan={dks.length} scope="rowgroup">
                         <b>{s}</b>
                         <br />
-                        <span className={`${ds.tiny} ${ds.muted}`}>{totalCards(dks)}장</span>
+                        <span className="ds-tiny ds-muted">{totalCards(dks)}장</span>
                       </th>
                     )}
-                    <th className={ds.tiny} scope="row">
+                    <th className="ds-tiny" scope="row">
                       {d.file}
                     </th>
                     <td>{d.cards}</td>
@@ -300,16 +296,16 @@ export function AnkiPanel() {
               </tr>
             </tfoot>
           </table>
-          <div className={ds.foot}>
+          <div className="ds-foot">
             '+스케줄'은 해당 덱을 '매일 복습' 항목으로 추가합니다(예상 분 = 카드수×0.5, 수정 가능).
           </div>
         </div>
       )}
 
       {live && (
-        <div className={ds.card}>
+        <div className="ds-card">
           <h3>실시간 due (AnkiConnect)</h3>
-          <div className={ds.row} style={{ marginBottom: 6, alignItems: 'center' }}>
+          <div className="ds-row" style={{ marginBottom: 6, alignItems: 'center' }}>
             <Button
               sm
               onClick={dueBudget}
@@ -317,7 +313,7 @@ export function AnkiPanel() {
             >
               📥 오늘 due 합계 → 복습 시간예산
             </Button>
-            <span className={`${ds.muted} ${ds.tiny}`}>
+            <span className="ds-muted ds-tiny">
               오늘 풀 due 합 <b>{dueTot}</b>장
             </span>
           </div>
@@ -358,7 +354,7 @@ export function AnkiPanel() {
               })}
             </tbody>
           </table>
-          <div className={ds.foot}>
+          <div className="ds-foot">
             '+스케줄'은 덱별로 항목을 추가하고, '복습 시간예산'은 <b>전체 due 합</b>을 하나의 매일 복습 항목으로
             잡아요(스케줄 용량에 반영). 시점(due)은 FSRS가 소유.
           </div>

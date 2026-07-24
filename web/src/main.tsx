@@ -12,18 +12,21 @@ import '@/styles/global/index.css';
    소유한다(한 줄 요약: 리셋이 들어오면 스냅샷 59장이 전부 흔들려 "feature 단위 diff"
    전략이 첫 걸음에서 죽는다). 전역 CSS **뒤에** 온다 — 유틸리티가 이겨야 한다. */
 import '@/styles/tw.css';
+/* 공유 디자인 시스템(옛 CSS Module) — C-7 마지막 티어에서 전역 `ds-*` 로 승격.
+   ⚠ 위치가 계약이다: 옛 import 도 여기(tw.css 뒤)였다. **언레이어드**라 유틸리티를 이기는데,
+   그건 이식 전 CSS Module 이 갖던 관계 그대로다(근거는 `ds.css` 머리주석). */
+import '@/styles/ds.css';
 
 import { queryClient } from '@/app/queryClient';
 import ThemeProvider from '@/app/ThemeProvider';
 import { initAppStore } from '@/lib/db/boot';
-import ds from '@/styles/ds.module.css';
 
 function ShellFallback() {
   return (
     <div className="wrap">
-      <div className={ds.card}>
+      <div className="ds-card">
         <h2>앱을 시작하지 못했어요</h2>
-        <p className={`${ds.muted} ${ds.tiny}`}>새로고침하거나 ⋯ 메뉴 → 데이터 내보내기로 백업 후 점검하세요.</p>
+        <p className="ds-muted ds-tiny">새로고침하거나 ⋯ 메뉴 → 데이터 내보내기로 백업 후 점검하세요.</p>
       </div>
     </div>
   );

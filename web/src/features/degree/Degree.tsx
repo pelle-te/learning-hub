@@ -4,7 +4,7 @@
    · 졸업 계획(DegreePlan) — 학기별 수강·학점/요건 추적·GPA 인사이트(앱상태)
    · 졸업요건 정리(DegreeReq) — 요람 기준 정적 요건표(읽기전용)
    학기·과목 타입과 집계는 lib/degree(DegreeSemester·semesterStat 등)를 단일 출처로 공유한다.
-   스타일: 공유 디자인 시스템은 styles/ds.module.css(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
+   스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
@@ -14,7 +14,6 @@ import { rid, makeItem } from '@/lib/utils';
 import { useCountUp } from '@/hooks/interactions';
 import { Button, NumberField } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
-import ds from '@/styles/ds.module.css';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
 import {
   CATS,
@@ -101,7 +100,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
 
   const header = (
     <div
-      className={ds.itemhead}
+      className="ds-itemhead"
       role="button"
       tabIndex={0}
       aria-expanded={open}
@@ -113,27 +112,27 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
         }
       }}
     >
-      <span className={ds.chev}>{open ? '▾' : '▸'}</span>
-      <span className={ds.itemname}>{sem.name || <span className={ds.muted}>(이름 없음)</span>}</span>
-      <span className={ds.itemmeta}>
-        <span className={`${ds.pill} ${ds.tiny}`}>
+      <span className="ds-chev">{open ? '▾' : '▸'}</span>
+      <span className="ds-itemname">{sem.name || <span className="ds-muted">(이름 없음)</span>}</span>
+      <span className="ds-itemmeta">
+        <span className="ds-pill ds-tiny">
           {cr}학점 · {sem.courses.length}과목
         </span>
-        {doneCr > 0 && <span className={`${ds.pill} ${ds.tiny} ${ds.good}`}>완료 {doneCr}</span>}
-        {inprog > 0 && <span className={`${ds.pill} ${ds.tiny}`}>수강중 {inprog}</span>}
-        {g != null && <span className={`${ds.pill} ${ds.tiny}`}>GPA {g.toFixed(2)}</span>}
+        {doneCr > 0 && <span className="ds-pill ds-tiny ds-good">완료 {doneCr}</span>}
+        {inprog > 0 && <span className="ds-pill ds-tiny">수강중 {inprog}</span>}
+        {g != null && <span className="ds-pill ds-tiny">GPA {g.toFixed(2)}</span>}
       </span>
     </div>
   );
 
-  if (!open) return <div className={`${ds.card} ${ds.itemrow}`}>{header}</div>;
+  if (!open) return <div className="ds-card ds-itemrow">{header}</div>;
 
   return (
-    <div className={`${ds.card} ${ds.itemrow} ${ds.open}`}>
+    <div className="ds-card ds-itemrow ds-open">
       {header}
-      <div className={ds.itembody}>
-        <div className={ds.fieldgrid} style={{ marginBottom: 10 }}>
-          <div className={`${ds.fld} ${ds.wide}`}>
+      <div className="ds-itembody">
+        <div className="ds-fieldgrid" style={{ marginBottom: 10 }}>
+          <div className="ds-fld ds-wide">
             <label htmlFor={`sem-name-${sem.id}`}>학기 이름</label>
             <input
               id={`sem-name-${sem.id}`}
@@ -145,7 +144,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
             />
           </div>
         </div>
-        <div className={ds.chaptbl}>
+        <div className="ds-chaptbl">
           <table>
             <thead>
               <tr>
@@ -231,7 +230,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className={`${ds.empty} ${ds.tiny}`} style={{ padding: 12 }}>
+                  <td colSpan={6} className="ds-empty ds-tiny" style={{ padding: 12 }}>
                     과목이 없어요. 아래에서 추가하세요.
                   </td>
                 </tr>
@@ -239,13 +238,13 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
             </tbody>
           </table>
         </div>
-        <div className={ds.row} style={{ marginTop: 8 }}>
+        <div className="ds-row" style={{ marginTop: 8 }}>
           <Button sm variant="primary" onClick={addCourse}>
             + 과목 추가
           </Button>
         </div>
-        <div className={ds.itemfoot}>
-          <span className={`${ds.tiny} ${ds.muted}`}>
+        <div className="ds-itemfoot">
+          <span className="ds-tiny ds-muted">
             {cr}학점 · {sem.courses.length}과목{doneCr > 0 ? ` · 완료 ${doneCr}학점` : ''}
           </span>
           <Button sm variant="ghost" danger onClick={delSem}>
@@ -348,7 +347,7 @@ function DegreePlan() {
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
-      <div className={ds.card}>
+      <div className="ds-card">
         <div className="mb-3.5 text-xs font-extrabold tracking-caps text-mut uppercase">졸업 현황</div>
         <div className="flex flex-wrap items-center gap-7">
           <div
@@ -428,11 +427,11 @@ function DegreePlan() {
           </div>
           <div className="text-md text-txt tabular-nums">
             {gpa == null ? (
-              <span className={ds.muted}>성적을 입력하면 목표까지 필요한 평점을 계산해요.</span>
+              <span className="ds-muted">성적을 입력하면 목표까지 필요한 평점을 계산해요.</span>
             ) : fc.alreadyMet ? (
               <span style={{ color: 'var(--good)' }}>이미 목표 달성 ✓</span>
             ) : fc.neededAvg == null ? (
-              <span className={ds.muted}>남은 과목이 없어요.</span>
+              <span className="ds-muted">남은 과목이 없어요.</span>
             ) : (
               <>
                 남은 <b className="font-extrabold">{fc.futureCr}</b>학점을 평균{' '}
@@ -500,7 +499,7 @@ function DegreePlan() {
 
         <details className="mt-3.5 border-t border-line2 pt-3">
           <summary className="text-sm! font-bold text-mut! hover:text-acc!">졸업 요건 설정</summary>
-          <div className={ds.row} style={{ marginTop: 10 }}>
+          <div className="ds-row" style={{ marginTop: 10 }}>
             <div>
               <label htmlFor="deg-total">졸업 총 학점</label>
               <NumberField id="deg-total" min={0} value={d.targetTotal} onCommit={(v) => setDeg('targetTotal', v)} />
@@ -521,11 +520,11 @@ function DegreePlan() {
         </details>
       </div>
 
-      <div className={ds.card}>
-        <div className={ds.row} style={{ alignItems: 'center' }}>
+      <div className="ds-card">
+        <div className="ds-row" style={{ alignItems: 'center' }}>
           <h2 style={{ flex: 1, margin: 0 }}>
             학기별 수강{' '}
-            <span className={`${ds.muted} ${ds.tiny}`} style={{ fontWeight: 400 }}>
+            <span className="ds-muted ds-tiny" style={{ fontWeight: 400 }}>
               {list.length ? `(${list.length})` : ''}
             </span>
           </h2>
@@ -559,11 +558,11 @@ export default function Degree() {
     <div className="min-w-0">
       <div className="mb-4 flex items-center gap-3.5">
         <h2 className="mb-0! text-md! font-extrabold! tracking-caps! text-mut! uppercase">🎓 졸업</h2>
-        <div className={`${ds.seg} ml-auto`}>
+        <div className="ds-seg ml-auto">
           <button
             type="button"
             aria-pressed={view === 'plan'}
-            className={view === 'plan' ? ds.on : ''}
+            className={view === 'plan' ? 'ds-on' : ''}
             onClick={() => setView('plan')}
           >
             졸업 계획
@@ -571,7 +570,7 @@ export default function Degree() {
           <button
             type="button"
             aria-pressed={view === 'req'}
-            className={view === 'req' ? ds.on : ''}
+            className={view === 'req' ? 'ds-on' : ''}
             onClick={() => setView('req')}
           >
             졸업요건 정리

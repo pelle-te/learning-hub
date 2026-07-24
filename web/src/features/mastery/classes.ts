@@ -4,7 +4,7 @@
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT.
 
    ⚠ `ds.*` 공유 클래스와 런타임 색 주입(숙달 램프·분포 세그·개념 점 = `style={{ background }}`)은
-   그대로 둔다(§14-3 · ds.module.css 는 맨 뒤). 전역 요소(h2/h3·button)는 control 규율대로 `!`.
+   그대로 둔다(§14-3 · 공유 디자인 시스템은 맨 뒤). 전역 요소(h2/h3·button)는 control 규율대로 `!`.
    시네마틱 패널의 oklab 그래디언트·상단 헤어라인·글로우는 tokens.css 에 이름 주고 참조(§14-3),
    마운트 페이드업은 review 가 tw.css 에 둔 `rv-fade-up` 키프레임을 재사용한다. */
 

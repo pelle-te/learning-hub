@@ -22,7 +22,6 @@ import { isFsAccessSupported, pickDirectory } from '@/lib/fsAccess';
 import { isTauri } from '@/lib/tauri';
 import { slimKnowState } from '@/lib/scheduler';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 import { M } from './classes';
 
 import { OverallRing, Distribution, KnowledgeMap } from './KnowledgeMap';
@@ -35,7 +34,7 @@ function Setup() {
   return (
     <div className={`${M.offChild} ${M.stateBody}`}>
       <h3 className={M.stateH3}>아직 지식상태가 없어요</h3>
-      <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
+      <ol className="ds-foot" style={{ lineHeight: 1.9 }}>
         <li>
           볼트 인덱스 최신화: <code>python pipeline/_도구/벌트DB.py build</code>
         </li>
@@ -50,7 +49,7 @@ function Setup() {
           위 <b>📁 볼트에서 불러오기</b> 클릭 → 전공 폴더 선택
         </li>
       </ol>
-      <div className={`${ds.foot} ${ds.muted}`}>
+      <div className="ds-foot ds-muted">
         엔진은 선수개념 그래프로 "지금 배울 준비된 것(ZPD)"과 "약점의 근본원인"을 진단합니다. 인출 관측(Anki/CBMS)이
         쌓일수록 추정이 날카로워집니다.
       </div>
@@ -132,14 +131,9 @@ export default function Mastery() {
   return (
     <section className={M.wrap} aria-label="숙달도 지도">
       {/* ── 시네마틱 히어로 밴드 — 전체 숙달 발광 링 + 상태 분포 + 로드 ── */}
-      <div
-        ref={heroRef}
-        onMouseMove={heroMove}
-        onMouseLeave={heroLeave}
-        className={`${M.hero} ${ds.spotHost} ${ds.glow}`}
-      >
-        <div className={ds.spotlight} aria-hidden="true" />
-        <div className={ds.aura} aria-hidden="true" />
+      <div ref={heroRef} onMouseMove={heroMove} onMouseLeave={heroLeave} className={`${M.hero} ds-spotHost ds-glow`}>
+        <div className="ds-spotlight" aria-hidden="true" />
+        <div className="ds-aura" aria-hidden="true" />
         <div className={M.heroLeft}>
           <span className={M.eyebrow}>지식 지도</span>
           <h2 className={M.headTitle}>🧠 숙달도 지도</h2>
@@ -163,13 +157,13 @@ export default function Mastery() {
         <div className={M.heroAction}>
           {loading && (
             <span className={M.headMeta}>
-              <span className={ds.spin} /> 로드 중
+              <span className="ds-spin" /> 로드 중
             </span>
           )}
           <Button sm variant="primary" onClick={loadFromVault} disabled={vaultLoading}>
             {vaultLoading ? (
               <>
-                <span className={ds.spin} /> 읽는 중…
+                <span className="ds-spin" /> 읽는 중…
               </>
             ) : (
               <>📁 {isTauri() ? '볼트에서 새로고침' : `볼트에서 ${k ? '새로고침' : '지식상태 불러오기'}`}</>
@@ -181,14 +175,9 @@ export default function Mastery() {
       {k ? (
         <div className={M.cols}>
           {/* 좌 — 발광 지식맵(immersive 시그니처) */}
-          <div
-            ref={mapRef}
-            onMouseMove={mapMove}
-            onMouseLeave={mapLeave}
-            className={`${M.mapCol} ${ds.spotHost} ${ds.glow}`}
-          >
-            <div className={ds.spotlight} aria-hidden="true" />
-            <div className={ds.aura} aria-hidden="true" />
+          <div ref={mapRef} onMouseMove={mapMove} onMouseLeave={mapLeave} className={`${M.mapCol} ds-spotHost ds-glow`}>
+            <div className="ds-spotlight" aria-hidden="true" />
+            <div className="ds-aura" aria-hidden="true" />
             <div className={M.mapScroll}>
               <KnowledgeMap k={k} />
             </div>
@@ -205,8 +194,8 @@ export default function Mastery() {
         </div>
       ) : loading ? (
         <div className={M.offWrap}>
-          <div className={`${M.offChild} ${ds.muted}`}>
-            <span className={ds.spin} /> 지식상태 로드 중...
+          <div className={`${M.offChild} ds-muted`}>
+            <span className="ds-spin" /> 지식상태 로드 중...
           </div>
         </div>
       ) : realError ? (
@@ -217,7 +206,7 @@ export default function Mastery() {
               ⚠
             </span>
             <h3 className={M.errH3}>지식상태를 불러오지 못했어요</h3>
-            <div className={`${ds.foot} ${ds.muted}`}>{errMsg}</div>
+            <div className="ds-foot ds-muted">{errMsg}</div>
             <Button sm variant="primary" onClick={() => refetch()}>
               다시 시도
             </Button>

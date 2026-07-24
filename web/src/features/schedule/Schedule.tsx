@@ -20,7 +20,6 @@ import { iso, parseISO, addDays, dayDiff, weekLabel, fmtShort, ddayInfo, todayIS
 import { Button } from '@/components/ui';
 import { useHeroPointer, useNowMin } from '@/hooks/interactions';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
-import ds from '@/styles/ds.module.css';
 import { computeDay, indexDays, deadlineDdays } from '@/lib/scheduleView';
 import { timedTasksForDay } from '@/lib/tasks';
 import { WeekCalendar } from './WeekCalendar';
@@ -29,7 +28,7 @@ import { MonthCalendar } from './MonthCalendar';
 
 /* ── C-7 이식(Schedule 셸) — Tailwind 클래스 SSOT ───────────────────────────────
    상단 네비(줄바꿈 금지 · 좁으면 서술 텍스트를 sr-only 로 접어 화살표만) · 본문(뷰별 fill) ·
-   하단 스트립(예상 완료·마감·.ics). ds.seg/on/spotHost/glow/spotlight/note 는 공용이라 유지.
+   하단 스트립(예상 완료·마감·.ics). 'ds-seg'/on/spotHost/glow/spotlight/note 는 공용이라 유지.
    내장 크기(text-sm/lg)만 companion line-height 를 흘리므로 정상 흐름엔 leading-[1.6]/원본 LH 를
    명시(line-height 트랩). `.dd`(마감 카운트다운)는 <button> 이라 전역 button 이 유틸을 이겨 다른
    값만 `!`. @media(900) 세로 스택은 max-wide: 로 재현. */
@@ -49,7 +48,7 @@ const S = {
     'flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-line bg-[image:var(--board-card-bg)] px-3 pt-2.5 pb-2.5 shadow-[var(--shadow-md)]',
   boardWrap: 'flex min-h-0 flex-1 flex-col max-wide:min-h-80',
   calHost: 'min-h-0 flex-1',
-  weekEmptyNote: 'mb-2.5', // + ds.note
+  weekEmptyNote: 'mb-2.5', // + 'ds-note'
   warn: 'flex-none mt-3 text-sm leading-[1.5]',
   emptyBoard: 'flex h-full flex-col items-center justify-center gap-3 text-center text-mut',
   finStrip: 'flex flex-none flex-wrap items-center gap-4 border-t border-line px-5.5 py-1.5',
@@ -248,12 +247,12 @@ export default function Schedule() {
   // tablist 계약(화살표 이동·tabpanel) 미이행 → group+aria-pressed가 정직(WCAG 4.1.2).
   const VIEW_LABEL = { day: '일', week: '주', month: '월' } as const;
   const viewSeg = (
-    <div className={`${ds.seg} ml-auto`} role="group" aria-label="캘린더 보기 방식">
+    <div className="ds-seg ml-auto" role="group" aria-label="캘린더 보기 방식">
       {(['day', 'week', 'month'] as const).map((v) => (
         <button
           key={v}
           aria-pressed={schedView === v}
-          className={schedView === v ? ds.on : ''}
+          className={schedView === v ? 'ds-on' : ''}
           onClick={() => setView(v)}
         >
           {VIEW_LABEL[v]}
@@ -357,15 +356,15 @@ export default function Schedule() {
               ref={boardRef}
               onMouseMove={boardMove}
               onMouseLeave={boardLeave}
-              className={`${S.boardCard} ${ds.spotHost} ${ds.glow}`}
+              className={`${S.boardCard} ds-spotHost ds-glow`}
             >
-              <div className={ds.spotlight} aria-hidden="true" />
+              <div className="ds-spotlight" aria-hidden="true" />
               {hasStudyItems ? (
                 <div className={S.boardWrap}>
                   {weekPlanMin === 0 && (
                     // 과목은 있는데 이 주에 학습 블록이 하나도 안 잡힌 경우(모두 완료·마감 지남·가용 없음) —
                     // 일과만 뜬 캘린더가 왜 비었는지 조용히 두지 않고 짚어준다.
-                    <div className={`${ds.note} ${S.weekEmptyNote}`}>
+                    <div className={`ds-note ${S.weekEmptyNote}`}>
                       이 주에는 배치된 <b>학습 블록</b>이 없어요 — 마감이 지났거나 가용시간이 부족할 수 있어요.
                       일과(수면·수업)만 표시됩니다.
                     </div>

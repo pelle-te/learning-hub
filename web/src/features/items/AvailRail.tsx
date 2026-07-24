@@ -14,7 +14,6 @@ import { freeWindowsForWeekday, blocksForWeekday, peakRange } from '@/lib/schedu
 import { allocView, colSumMin, weekMonOf } from '@/lib/weekAlloc';
 import { DOW, parseISO, todayISO } from '@/lib/utils';
 import DayRing from './DayRing';
-import ds from '@/styles/ds.module.css';
 
 // Skeleton.module.css → Tailwind 이식(C-7). 요일 막대는 '가용 위에 배분 적재' — 선택/초과 상태로
 // 트랙·채움 색이 갈리므로 정적 맵으로 조합한다(§15 · 동적 조립 금지). 높이는 런타임 인라인.
@@ -66,7 +65,7 @@ export function AvailRail() {
       className="flex min-w-0 [scrollbar-width:thin] flex-col gap-3 overflow-y-auto pt-5 pr-5.5 pb-5 pl-1.5 max-wide:px-5.5 max-wide:pt-2 max-wide:pb-5"
       aria-label="가용시간"
     >
-      <div className={`${ds.card} mb-0! flex flex-col items-center gap-4.5`}>
+      <div className="ds-card mb-0! flex flex-col items-center gap-4.5">
         <div className="flex w-full items-baseline justify-between text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
           가용시간 — AVAILABILITY
           <span className="text-sm leading-[1.6] font-extrabold tracking-normal text-acc normal-case">

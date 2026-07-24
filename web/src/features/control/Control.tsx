@@ -18,7 +18,6 @@ import { onSync } from '@/lib/sync';
 import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import EmptyState from '@/components/EmptyState';
 import { ui } from '@/shell';
-import ds from '@/styles/ds.module.css';
 
 /* ── C-7 다섯 번째 이식(control) — 첫 폼 위주 feature ──────────────────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Control.module.css`(384줄) 삭제.
@@ -31,7 +30,7 @@ import ds from '@/styles/ds.module.css';
    옮기면 히어로 h2 가 전역 `h2{font-size:16}` 로 **16px 로 붕괴**한다(clamp 26~40 이어야).
    → 전역과 **다른** 속성만 `!`(important)로 이긴다(2026-07-23 결정 · Option A). 전역과
    **같은** 값(jobPeek 테두리 1px line·r-sm 등)은 `!` 없이 전역에 맡겨 과잉 ! 를 피한다.
-   공유 전역 CSS 를 이식 중에 건드리지 않는다(ds.module.css 를 맨 뒤로 미룬 것과 같은 원칙).
+   공유 전역 CSS 를 이식 중에 건드리지 않는다(공유 디자인 시스템을 맨 뒤로 미룬 것과 같은 원칙).
 
    ⚠ searchGo 배경은 `--acc-fill` **그래디언트** SSOT 라 Tailwind 색 유틸로 표현 불가 →
    `bg-[image:var(--acc-fill)]` 로 토큰을 직접 참조한다(임의 '값'이 아니라 SSOT 참조 · §14-3
@@ -286,7 +285,7 @@ export default function Control() {
           >
             {starting ? (
               <>
-                <span className={ds.spin} /> 시작 중
+                <span className="ds-spin" /> 시작 중
               </>
             ) : (
               '수집 시작'
@@ -317,11 +316,11 @@ export default function Control() {
         <div className={JOBS}>
           <div className="mb-2 text-xs font-extrabold tracking-caps text-acc uppercase">
             진행 중 · {running.length}
-            <span className={`${ds.muted} ${ds.tiny}`}> — 새로고침해도 계속돼요(앱을 닫으면 멈춤)</span>
+            <span className="ds-muted ds-tiny"> — 새로고침해도 계속돼요(앱을 닫으면 멈춤)</span>
           </div>
           {running.map((j) => (
             <div key={j.id} className="flex flex-wrap items-center gap-2 border-t border-line2 py-2">
-              <span className={ds.spin} />
+              <span className="ds-spin" />
               <span className="max-w-jobtopic truncate text-md font-bold text-txt">{j.topic}</span>
               {j.scope && <span className="text-sm text-mut">{j.scope}</span>}
               <span className="ml-auto text-sm font-bold text-acc tabular-nums">

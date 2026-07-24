@@ -19,7 +19,6 @@ import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
 import CloudCard from './CloudCard';
 import { lastParity } from '@/lib/db/write';
-import ds from '@/styles/ds.module.css';
 import type { AppState } from '@/lib/types';
 
 /* ── C-7 이식(settings) — Tailwind 클래스 ─────────────────────────────────────
@@ -46,17 +45,17 @@ const S = {
   stepBtn: 'w-8.5 flex-none text-lg! font-extrabold! leading-[1]', // <button> — 16px→15px(text-lg) 반올림 · w800 · lh1(전역 pad/border/bg/color 는 동일)
   subLabel: 'inline!', // 전역 label{display:block} 을 이김(div 사용처엔 무해)
   fldBody: 'mt-1.5',
-  chkFlush: 'm-0!', // ds.chkRow 의 margin:9px 0 을 이김
-  chkTop: 'mt-2.5!', // ds.chkRow 의 margin-top(9px) 을 10px 로 이김
+  chkFlush: 'm-0!', // 'ds-chkRow' 의 margin:9px 0 을 이김
+  chkTop: 'mt-2.5!', // 'ds-chkRow' 의 margin-top(9px) 을 10px 로 이김
   spacer: 'flex-1',
   pillRow: 'mb-1.5',
   fileInput: 'hidden',
-  bdLine: 'mt-1! tabular-nums', // ds.foot 의 margin-top(7px) 을 4px 로 이김
+  bdLine: 'mt-1! tabular-nums', // 'ds-foot' 의 margin-top(7px) 을 4px 로 이김
   warnAction: 'mt-2 flex flex-wrap items-center gap-2.5',
   warnActionSpan: 'min-w-warnspan flex-1', // 옛 `.warnAction > span` — 자식에 직접(규약 4)
   dangerRow: 'mt-3 border-t border-line pt-3',
-  ro: `${ds.ro} min-w-24 px-3.75! max-mobile:flex-1`, // composes ro + 최소폭 96px·좌우 15px·모바일 flex
-  roLab: ds.roLab,
+  ro: `ds-ro min-w-24 px-3.75! max-mobile:flex-1`, // composes ro + 최소폭 96px·좌우 15px·모바일 flex
+  roLab: 'ds-roLab',
 } as const;
 
 // 상태(tone) 정적 클래스 맵 — 타일 테두리/배경 + 숫자 색(§15 부칙 · 동적 조립 금지).
@@ -74,7 +73,7 @@ function ParityLine() {
   const p = lastParity();
   if (p.skipped) return null;
   return (
-    <div className={`${ds.foot} ${S.bdLine}`}>
+    <div className={`ds-foot ${S.bdLine}`}>
       {p.ok ? '✓ SQLite 경로 일치(이행 검증 중)' : `⚠ SQLite 경로 불일치: ${p.mismatched.join(', ')}`}
     </div>
   );
@@ -132,7 +131,7 @@ function Readout({
   display?: React.ReactNode;
 }) {
   const tileCls = `${S.ro} ${tone ? TONE_TILE[tone] : ''}`;
-  const numCls = `${ds.roNum} ${tone ? TONE_NUM[tone] : ''}`;
+  const numCls = `ds-roNum ${tone ? TONE_NUM[tone] : ''}`;
   if (display != null) {
     return (
       <div className={tileCls} title={lab}>
@@ -247,14 +246,9 @@ export default function Settings() {
   return (
     <section className={S.wrap} aria-label="설정">
       {/* ── 시네마틱 상태 밴드 — 무엇을 설정하나 + 핵심 상태(백업·저장·기록) ── */}
-      <div
-        ref={heroRef}
-        onMouseMove={heroMove}
-        onMouseLeave={heroLeave}
-        className={`${S.hero} ${ds.spotHost} ${ds.glow}`}
-      >
-        <div className={ds.spotlight} aria-hidden="true" />
-        <div className={ds.aura} aria-hidden="true" />
+      <div ref={heroRef} onMouseMove={heroMove} onMouseLeave={heroLeave} className={`${S.hero} ds-spotHost ds-glow`}>
+        <div className="ds-spotlight" aria-hidden="true" />
+        <div className="ds-aura" aria-hidden="true" />
         <div className={S.heroLeft}>
           <span className={S.eyebrow}>환경설정 · SETTINGS</span>
           <h2 className={S.title}>설정</h2>
@@ -274,10 +268,9 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className={`${ds.card} ${ds.glow}`}>
+      <div className="ds-card ds-glow">
         <h2>
-          테마 · 액센트{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
+          테마 · 액센트 <span className="ds-muted ds-tiny">— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
         </h2>
         <div className={S.accRow}>
           {ACCENTS.map((a) => (
@@ -298,18 +291,18 @@ export default function Settings() {
             </button>
           ))}
         </div>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           액센트는 이 기기에 저장돼요(데이터와 별개). 발광·강조·진행 바 전체에 즉시 반영됩니다.
         </div>
-        <label className={`${ds.chkRow} ${S.chkTop}`}>
+        <label className={`ds-chkRow ${S.chkTop}`}>
           <input type="checkbox" checked={fxLite} onChange={(e) => setFxLite(e.target.checked)} />
           발광 효과 줄이기 (배경 오로라·발광 펄스 정지 — 저사양/노트북에서 가볍게)
         </label>
       </div>
 
-      <div className={`${ds.card} ${ds.glow}`}>
+      <div className="ds-card ds-glow">
         <h2>기본 설정</h2>
-        <div className={ds.row}>
+        <div className="ds-row">
           <div>
             <label htmlFor="set-start">시작일</label>
             <input
@@ -343,17 +336,17 @@ export default function Settings() {
             />
           </div>
         </div>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           모듈 = 한 번에 집중하는 공부 슬롯(기본 2시간). 하루 공부 가능 시간이 이 단위로 과목에 배분됩니다.
         </div>
         <hr />
-        <div className={ds.row}>
-          <div className={ds.fld}>
+        <div className="ds-row">
+          <div className="ds-fld">
             <label htmlFor="set-blank" className={S.subLabel}>
-              백지 복습 자동 배치 <span className={`${ds.muted} ${ds.tiny}`}>(방법론 9절 — 주 1회 단원 재구성)</span>
+              백지 복습 자동 배치 <span className="ds-muted ds-tiny">(방법론 9절 — 주 1회 단원 재구성)</span>
             </label>
             <div className={S.fldBody}>
-              <label className={`${ds.chkRow} ${S.chkFlush}`}>
+              <label className={`ds-chkRow ${S.chkFlush}`}>
                 <input
                   type="checkbox"
                   id="set-blank"
@@ -366,7 +359,7 @@ export default function Settings() {
           </div>
           <div>
             <label htmlFor="set-mock">
-              모의시험 주기 (주) <span className={`${ds.muted} ${ds.tiny}`}>0=끔 (방법론 12절)</span>
+              모의시험 주기 (주) <span className="ds-muted ds-tiny">0=끔 (방법론 12절)</span>
             </label>
             <Stepper
               id="set-mock"
@@ -379,22 +372,22 @@ export default function Settings() {
             />
           </div>
         </div>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           백지 복습·모의시험은 여유 있는 날에만 배치되며 가용시간을 넘기지 않아요. <b>오늘 학습</b> 탭에서 절차 가이드를
           봅니다.
         </div>
         <hr />
-        <div className={ds.row}>
-          <div className={ds.fld}>
+        <div className="ds-row">
+          <div className="ds-fld">
             {/* 그룹 캡션은 <label>이 아니다 — label 은 '하나의 컨트롤'에 묶이는 것이고, 여기서
-                실제 label 역할은 아래 ds.chkRow 가 이미 하고 있다(input 을 감싼다). 캡션은 div +
+                실제 label 역할은 아래 'ds-chkRow' 가 이미 하고 있다(input 을 감싼다). 캡션은 div +
                 role=group/aria-labelledby 로 묶어야 스크린리더가 "적응형 용량 그룹"으로 읽는다.
                 .subLabel 이 display:inline 을 명시하므로 div 로 바꿔도 픽셀은 동일. */}
             <div className={S.subLabel} id="set-adaptive-cap">
-              적응형 용량 <span className={`${ds.muted} ${ds.tiny}`}>(방법론 1·10절 — "계획은 가설")</span>
+              적응형 용량 <span className="ds-muted ds-tiny">(방법론 1·10절 — "계획은 가설")</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-adaptive-cap">
-              <label className={`${ds.chkRow} ${S.chkFlush}`}>
+              <label className={`ds-chkRow ${S.chkFlush}`}>
                 <input
                   type="checkbox"
                   checked={state.adaptiveCapacity !== false}
@@ -404,12 +397,12 @@ export default function Settings() {
               </label>
             </div>
           </div>
-          <div className={ds.fld}>
+          <div className="ds-fld">
             <div className={S.subLabel} id="set-review-anki">
-              복습은 Anki에 위임 <span className={`${ds.muted} ${ds.tiny}`}>(시간 이중계상 방지)</span>
+              복습은 Anki에 위임 <span className="ds-muted ds-tiny">(시간 이중계상 방지)</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-review-anki">
-              <label className={`${ds.chkRow} ${S.chkFlush}`}>
+              <label className={`ds-chkRow ${S.chkFlush}`}>
                 <input
                   type="checkbox"
                   checked={state.reviewViaAnki}
@@ -419,12 +412,12 @@ export default function Settings() {
               </label>
             </div>
           </div>
-          <div className={ds.fld}>
+          <div className="ds-fld">
             <div className={S.subLabel} id="set-graph-prio">
-              그래프 우선순위 <span className={`${ds.muted} ${ds.tiny}`}>(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
+              그래프 우선순위 <span className="ds-muted ds-tiny">(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-graph-prio">
-              <label className={`${ds.chkRow} ${S.chkFlush}`}>
+              <label className={`ds-chkRow ${S.chkFlush}`}>
                 <input
                   type="checkbox"
                   checked={state.graphPriority}
@@ -438,11 +431,10 @@ export default function Settings() {
             </div>
           </div>
         </div>
-        <div className={ds.row}>
+        <div className="ds-row">
           <div>
             <label htmlFor="set-peak0">
-              각성도 최고 시간대 시작{' '}
-              <span className={`${ds.muted} ${ds.tiny}`}>(방법론 1절 — 어려운 새 학습을 맑을 때)</span>
+              각성도 최고 시간대 시작 <span className="ds-muted ds-tiny">(방법론 1절 — 어려운 새 학습을 맑을 때)</span>
             </label>
             <input
               id="set-peak0"
@@ -463,11 +455,11 @@ export default function Settings() {
           <div className={S.spacer} />
         </div>
         {peakInverted && (
-          <div className={`${ds.warnbox} ${ds.bad}`}>
+          <div className="ds-warnbox ds-bad">
             ⚠ 끝 시각이 시작보다 빨라요 — 피크 구간이 비어 우선 배치가 동작하지 않습니다.
           </div>
         )}
-        <div className={ds.foot}>
+        <div className="ds-foot">
           피크 시간대를 정하면 <b>새 학습(new)·모의시험</b>을 그 구간에 우선 배치하고, 복습·Anki는 나머지 시간에.
           비워두면 끔(이른 시각부터 순서대로).
         </div>
@@ -479,23 +471,22 @@ export default function Settings() {
       {/* C-5 — 클라우드 동기화(여러 기기에서 편집). 연결 전에는 아무 요청도 나가지 않는다. */}
       <CloudCard />
 
-      <div className={`${ds.card} ${ds.glow}`}>
+      <div className="ds-card ds-glow">
         <h2>
-          데이터 백업·정리{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
+          데이터 백업·정리 <span className="ds-muted ds-tiny">— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
         </h2>
-        <div className={`${ds.row} ${S.pillRow}`}>
-          <span className={`${ds.pill} ${stale ? ds.warn : ds.good}`}>{backupLine}</span>
-          <span className={ds.pill}>
+        <div className={`ds-row ${S.pillRow}`}>
+          <span className={`ds-pill ${stale ? 'ds-warn' : 'ds-good'}`}>{backupLine}</span>
+          <span className="ds-pill">
             저장 크기 {sizeKB}KB · 기록 {recs}건
           </span>
         </div>
         {/* 기록 구성비 — 어느 데이터가 저장을 지배하는지 진단(막연한 총합 → 범주별). */}
-        <div className={`${ds.foot} ${S.bdLine}`}>
+        <div className={`ds-foot ${S.bdLine}`}>
           완료 {bd.done} · 요약 {bd.summaries} · 오답 {bd.cbms} · 백로그 {bd.backlog} · 백지 {bd.blank}
         </div>
         <ParityLine />
-        <div className={ds.row}>
+        <div className="ds-row">
           <Button sm onClick={() => io.backupToVault()}>
             📁 볼트 폴더에 백업
           </Button>
@@ -553,7 +544,7 @@ export default function Settings() {
           </Button>
         </div>
         {/* 아카이브 사전 미리보기 — 블라인드 위험버튼을 "N건 보관 가능" 정보형으로 승격. */}
-        <div className={`${ds.foot} ${S.bdLine}`}>
+        <div className={`ds-foot ${S.bdLine}`}>
           {archN === 0 ? (
             '정리할 오래된 기록 없음'
           ) : (
@@ -563,7 +554,7 @@ export default function Settings() {
           )}
         </div>
         {stale && (
-          <div className={`${ds.warnbox} ${S.warnAction}`}>
+          <div className={`ds-warnbox ${S.warnAction}`}>
             <span className={S.warnActionSpan}>
               백업이 {days == null ? '아직 없어요' : `${days}일 지났어요`}. 브라우저 캐시를 지우면 데이터가 사라질 수
               있으니 백업하세요.
@@ -573,13 +564,13 @@ export default function Settings() {
             </Button>
           </div>
         )}
-        <div className={ds.foot}>
+        <div className="ds-foot">
           볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 저장 때마다{' '}
           <b>IndexedDB에 자동 미러</b>되어, 사이트 데이터가 지워져도 <b>♻ 복구</b>로 되살릴 수 있어요(같은 브라우저
           한정). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.
         </div>
         {/* 위험구역 — 되돌리기(직전 백업본 복원)·전체 초기화. TopBar ⋯메뉴에만 있던 걸 설정탭에도. */}
-        <div className={`${ds.row} ${S.dangerRow}`}>
+        <div className={`ds-row ${S.dangerRow}`}>
           <Button sm variant="ghost" onClick={() => actions.undoLast()}>
             ↩ 되돌리기
           </Button>

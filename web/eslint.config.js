@@ -202,6 +202,11 @@ export default tseslint.config(
       'src/components/ShortcutsHelp.tsx',
       'src/components/DetailDrawer.tsx',
       'src/components/CommandPalette.tsx',
+      // ui/* 프리미티브 — ds 를 composes 하던 4종(마지막 티어에서 전역 ds-* 로 전환).
+      'src/components/ui/Card.tsx',
+      'src/components/ui/Kpi.tsx',
+      'src/components/ui/Pill.tsx',
+      'src/components/ui/ProgressBar.tsx',
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',
@@ -238,7 +243,19 @@ export default tseslint.config(
          `modal*`·`in`·`primary` 는 ShortcutsHelp 가 쓰는 공통 모달 크롬(global/components.css). */
       'better-tailwindcss/no-unknown-classes': [
         'error',
-        { ignore: ['^skip-link$', '^menu(-sep|-danger)?$', '^modal(-ov|-t|-a|-ok)?$', '^in$', '^primary$'] },
+        {
+          ignore: [
+            /* 공유 디자인 시스템(`styles/ds.css`) — C-7 마지막 티어에서 CSS Module 에서 전역으로
+               승격했다. 유틸리티가 아니므로 플러그인이 모르는 게 정상이고, 접두 하나로 면제한다
+               (접두를 둔 이유의 절반이 이것이다 — `ds.css` 머리주석). */
+            '^ds-',
+            '^skip-link$',
+            '^menu(-sep|-danger)?$',
+            '^modal(-ov|-t|-a|-ok)?$',
+            '^in$',
+            '^primary$',
+          ],
+        },
       ],
       'better-tailwindcss/no-conflicting-classes': 'error',
       'better-tailwindcss/no-duplicate-classes': 'error',

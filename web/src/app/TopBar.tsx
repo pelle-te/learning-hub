@@ -20,7 +20,7 @@ import FocusChip from './FocusChip';
    review·schedule×3·stats×2·today)이 `<small>` 에 직접 클래스를 준다 — 소비자가 아니라 생산자가
    자기 스타일을 소유하는 쪽이 정직하다. `TopBar.module.css` 삭제.
    ⚠ 메뉴(`.menu`/`.menu-sep`/`.menu-danger`)는 **전역 앱크롬 클래스**라 이 티어에서 건드리지 않는다
-   (ds.module + 전역 요소 규칙은 맨 마지막에 함께 — App 의 `skip-link` 와 같은 취급). */
+   (전역 요소 규칙은 맨 마지막에 함께 — App 의 `skip-link` 와 같은 취급). */
 const BAR =
   'relative z-[var(--z-dropdown)] flex flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
 // 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.

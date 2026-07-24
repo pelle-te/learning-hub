@@ -10,7 +10,6 @@ import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 import type { AppState } from '@/lib/types';
 
 /* Skeleton.module.css → Tailwind 이식(C-7). 폼 위주라 전역 요소규칙(button/input/select)을
@@ -54,7 +53,7 @@ function TimeSelect({ value, onChange, label }: { value: string; onChange: (v: s
 function BadRange({ start, end }: { start: string; end: string }) {
   if (toMin(start) < toMin(end)) return null;
   return (
-    <div className={`${ds.tiny}`} style={{ color: 'var(--bad)', marginTop: 4 }}>
+    <div className="ds-tiny" style={{ color: 'var(--bad)', marginTop: 4 }}>
       ⚠ 끝 시각이 시작보다 빨라요 — 이 블록은 무시됩니다.
     </div>
   );
@@ -82,7 +81,7 @@ function ClassList({ dow }: { dow: number }) {
     .sort((x, y) => toMin(x.start) - toMin(y.start));
   if (!cls.length)
     return (
-      <div className={`${ds.empty} ${ds.tiny}`} style={{ padding: '14px 6px' }}>
+      <div className="ds-empty ds-tiny" style={{ padding: '14px 6px' }}>
         {DOW[dow]}요일 수업이 없어요. 아래 <b>+ 수업 추가</b>로 넣으세요.
       </div>
     );
@@ -270,7 +269,7 @@ function BlockList() {
                   })}
               </div>
             ) : (
-              <div className={`${ds.empty} ${ds.tiny}`} style={{ padding: '8px 6px' }}>
+              <div className="ds-empty ds-tiny" style={{ padding: '8px 6px' }}>
                 위에서 요일을 먼저 선택하세요.
               </div>
             ))}
@@ -302,21 +301,20 @@ export function SkeletonPanel() {
 
   return (
     <div className="flex min-w-0 flex-col gap-3 pt-3 pb-1">
-      <div className={ds.card}>
+      <div className="ds-card">
         <h2>
-          수업 (요일별){' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
+          수업 (요일별) <span className="ds-muted ds-tiny">— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
         </h2>
         {/* 편집 중인 요일 = 단일 선택. tablist 계약(화살표 이동·tabpanel)을 이행하지 않으므로
             group+aria-pressed가 정직하다(AvailRail 요일 막대와 동일 · WCAG 1.4.1 색 단독 금지). */}
-        <div className={ds.seg} role="group" aria-label="수업 편집 요일">
+        <div className="ds-seg" role="group" aria-label="수업 편집 요일">
           {DOW.map((d, i) => (
             <button
               key={d}
               type="button"
               aria-pressed={i === classDow}
               aria-label={`${d}요일`}
-              className={i === classDow ? ds.on : ''}
+              className={i === classDow ? 'ds-on' : ''}
               onClick={() => setClassDow(i)}
             >
               {d}
@@ -329,17 +327,15 @@ export function SkeletonPanel() {
         <Button sm style={{ marginTop: 8 }} onClick={() => addClass(classDow)}>
           + 수업 추가
         </Button>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           요일마다 수업 시간이 달라도 각각 지정할 수 있어요. 수업 시간은 공부 가능 시간에서 자동으로 빠집니다.
         </div>
       </div>
 
-      <div className={ds.card}>
+      <div className="ds-card">
         <h2>
           그 밖의 일과 블록{' '}
-          <span className={`${ds.muted} ${ds.tiny}`}>
-            — 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다
-          </span>
+          <span className="ds-muted ds-tiny">— 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다</span>
         </h2>
         <div className={BLK_GRID}>
           <BlockList />
@@ -347,7 +343,7 @@ export function SkeletonPanel() {
         <Button sm style={{ marginTop: 8 }} onClick={addBlock}>
           + 블록 추가
         </Button>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           수면 블록으로 깨어있는 시간을 정하면 빈 시간이 정확해져요. 블록을 지워도 그 시간은 그냥 빈 시간(공부 가능)이
           될 뿐, 학습 항목은 사라지지 않습니다.
         </div>

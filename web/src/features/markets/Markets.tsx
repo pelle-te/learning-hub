@@ -29,7 +29,6 @@ import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromNews, PROMOTE_TOAST } from '@/lib/promote';
-import ds from '@/styles/ds.module.css';
 
 const DIR_GLYPH = { up: '▲', down: '▼', flat: '＝' } as const;
 const DIR_WORD = { up: '상승', down: '하락', flat: '보합' } as const;
@@ -176,7 +175,7 @@ export default function Markets() {
       // 지수 카드 형상 스켈레톤 — 무엇이 올지 예고하고 팝인 레이아웃 점프를 없앤다.
       return (
         <section className={WRAP} aria-label="증시 동향">
-          <span className={ds.srOnly} role="status">
+          <span className="ds-srOnly" role="status">
             증시 동향 불러오는 중…
           </span>
           <div className="mt-markets-head-y flex flex-col gap-3" aria-hidden="true">
@@ -249,7 +248,7 @@ export default function Markets() {
             disabled={collecting || !online}
             title={online ? '새로 수집' : '워크스페이스가 설정되지 않았어요'}
           >
-            {collecting ? <span className={ds.spin} /> : '↻'} 수집
+            {collecting ? <span className="ds-spin" /> : '↻'} 수집
           </Button>
           <Button variant="primary" sm onClick={askBrief} disabled={!online || !indices.length}>
             🤖 오늘 왜 움직였나
@@ -320,7 +319,7 @@ export default function Markets() {
         {brief.busy ? (
           <>
             <div className={PANEL_BUSY} role="status">
-              <span className={ds.spin} /> {brief.preview ? '해설을 쓰는 중…' : '그날 지수와 뉴스를 엮는 중…'}
+              <span className="ds-spin" /> {brief.preview ? '해설을 쓰는 중…' : '그날 지수와 뉴스를 엮는 중…'}
             </div>
             {/* 스트리밍 미리보기 — 완성된 문장부터 타이핑되듯 나타난다(SR에는 위 status만 공지). */}
             {brief.preview && (

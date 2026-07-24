@@ -18,7 +18,6 @@ import {
 import { rootCauseRollup, type Knowledge } from '@/lib/knowledge';
 import { masteryColor } from '@/lib/utils';
 import { VaultLink } from './KnowledgeMap';
-import ds from '@/styles/ds.module.css';
 import { M } from './classes';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
@@ -53,15 +52,15 @@ function ConceptList<T extends ConceptRow>({
   const hidden = items.length - shown.length;
   if (!items.length)
     return (
-      <div className={ds.card}>
+      <div className="ds-card">
         <h3>{heading}</h3>
         {empty}
       </div>
     );
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>
-        {heading} <span className={`${ds.muted} ${ds.tiny}`}>{subtitle}</span>
+        {heading} <span className="ds-muted ds-tiny">{subtitle}</span>
       </h3>
       <div className={M.mslist}>
         {shown.map((it, i) => (
@@ -70,7 +69,7 @@ function ConceptList<T extends ConceptRow>({
               {dot}
             </span>
             <span className={M.nm}>{it.title || it.basename}</span>
-            <span className={`${ds.tiny} ${ds.muted}`}>{it.subject || ''}</span>
+            <span className="ds-tiny ds-muted">{it.subject || ''}</span>
             {renderMeta(it)}
             {/* AN-12 — 개념명으로 볼트 딥링크(행 자체는 비대화형이라 명시 아이콘 버튼). */}
             <VaultLink query={it.title || it.basename || ''} />
@@ -92,13 +91,13 @@ export function Frontier({ k }: { k: Knowledge }) {
     <ConceptList
       heading="🎯 다음 배울 개념"
       subtitle="(ZPD · 선수 충족·고레버리지순 — 이걸 배우면 가장 많은 게 풀린다)"
-      empty={<div className={`${ds.muted} ${ds.tiny}`}>프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
+      empty={<div className="ds-muted ds-tiny">프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
       items={k.frontier || []}
       dot="⬡"
       dotColor="var(--acc2)"
       renderMeta={(f) => (
         <span
-          className={ds.chip}
+          className="ds-chip"
           data-tip="이 개념을 선수로 삼는 개념 수"
           role="img"
           aria-label={`의존 ${f.prereq_in} — 이 개념을 선수로 삼는 개념 수`}
@@ -130,19 +129,19 @@ export function Sequencing() {
   // 단계④ 연관성 배분이 켜졌나(노트 goals: 링크 존재). 콜드면 역할=파생기본·relevance 0 이라 배분항 무영향.
   const relActive = !!o.relevance_active;
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>
         🧭 다음 학습 순서{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>
+        <span className="ds-muted ds-tiny">
           (커리큘럼 arc 단위 — 개념 단위는 위 🎯 · 선수게이트+약점+ZPD+삶연관성 결합 랭크)
         </span>
       </h3>
-      <div className={ds.row} style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+      <div className="ds-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
         {/* data-tip은 눈으로 보는 사용자용 — 스크린리더는 같은 정보를 aria-label로 받는다
             (TooltipHost가 네이티브 title을 대체하므로 설명이 aria로도 안 실리면 통째로 유실된다).
             여기 담긴 게 "왜 이 순서인가"라는 랭킹 근거라 더더욱 빠뜨릴 수 없다. */}
         <span
-          className={ds.chip}
+          className="ds-chip"
           data-tip={SEQ_REASON_META.remediate.hint}
           role="img"
           aria-label={`보강 ${counts.remediate} — ${SEQ_REASON_META.remediate.hint}`}
@@ -150,7 +149,7 @@ export function Sequencing() {
           보강 {counts.remediate}
         </span>
         <span
-          className={ds.chip}
+          className="ds-chip"
           data-tip={SEQ_REASON_META.zpd.hint}
           role="img"
           aria-label={`ZPD ${counts.zpd} — ${SEQ_REASON_META.zpd.hint}`}
@@ -158,7 +157,7 @@ export function Sequencing() {
           ZPD {counts.zpd}
         </span>
         <span
-          className={ds.chip}
+          className="ds-chip"
           data-tip={SEQ_REASON_META.frontier.hint}
           role="img"
           aria-label={`프론티어 ${counts.frontier} — ${SEQ_REASON_META.frontier.hint}`}
@@ -168,7 +167,7 @@ export function Sequencing() {
         {/* 단계④ 유한 예산(#2) 배분 요약 — 주당 시간 상한 안에서 몇 arc 배분/미룸. */}
         {typeof o.allocated_arcs === 'number' ? (
           <span
-            className={ds.chip}
+            className="ds-chip"
             data-tip={`주당 ${o.time_budget_hours ?? '?'}h 예산 내 배분 ${o.allocated_arcs}개 · 초과 미룸 ${o.deferred_arcs ?? 0}개 (약 ${o.allocated_hours ?? '?'}h)`}
             role="img"
             aria-label={`주당 ${o.time_budget_hours ?? '?'}h 예산 내 배분 ${o.allocated_arcs}개 · 초과 미룸 ${o.deferred_arcs ?? 0}개 (약 ${o.allocated_hours ?? '?'}h)`}
@@ -180,14 +179,14 @@ export function Sequencing() {
       </div>
       {counts.remediate === 0 && (
         /* 콜드스타트 정직성 — '보강 0'을 '약점 없음'으로 오해하지 않게(KnowledgeMap의 미관측 배너와 대칭). */
-        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginBottom: 8 }}>
+        <div className="ds-foot ds-muted ds-tiny" style={{ marginBottom: 8 }}>
           보강 0 — 약점이 없다기보다 인출 관측(Anki·CBMS)이 아직 없어서일 수 있어요. 관측이 쌓이면 약점 arc가 보강으로
           올라옵니다.
         </div>
       )}
       {!relActive && (
         /* 연관성 콜드 정직성 — 역할/깊이는 파생 기본값(중심·숙련)이고 삶연관성 가중은 아직 0. */
-        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginBottom: 8 }}>
+        <div className="ds-foot ds-muted ds-tiny" style={{ marginBottom: 8 }}>
           역할·깊이 배지는 지금 <b>파생 기본값</b>(핵심=중심·숙련)이에요. 핵심 노트에 <code>goals:</code> 링크를 달면
           삶-연관성이 켜지고(relevance) 순서가 목표 그래디언트로 갈립니다.
         </div>
@@ -211,7 +210,7 @@ export function Sequencing() {
                 {meta.icon}
               </span>
               <span className={M.nm}>{it.arc || it.arc_id}</span>
-              <span className={`${ds.tiny} ${ds.muted}`}>{it.slug || ''}</span>
+              <span className="ds-tiny ds-muted">{it.slug || ''}</span>
               {/* 역할 배지(삶-연관 축 · 액센트 틴트) — 콜드면 파생기본 중심. */}
               {role ? (
                 <span
@@ -237,7 +236,7 @@ export function Sequencing() {
               {/* 삶-연관성 — 활성 & >0 일 때만(콜드=0 은 숨겨 노이즈 방지). goal 은 tip 에. */}
               {rel != null ? (
                 <span
-                  className={ds.chip}
+                  className="ds-chip"
                   data-tip={`삶-연관성 ${pct(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
                   role="img"
                   aria-label={`삶-연관성 ${pct(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
@@ -247,7 +246,7 @@ export function Sequencing() {
               ) : null}
               {typeof it.mastery === 'number' ? (
                 <span
-                  className={ds.chip}
+                  className="ds-chip"
                   data-tip="arc 노트 평균 유효숙달"
                   role="img"
                   aria-label={`arc 노트 평균 유효숙달 ${pct(it.mastery)}`}
@@ -257,7 +256,7 @@ export function Sequencing() {
               ) : null}
               {it.unlocks ? (
                 <span
-                  className={ds.chip}
+                  className="ds-chip"
                   data-tip="이 arc를 선수로 삼는 arc 수 — 먼저 익히면 이만큼 풀린다"
                   role="img"
                   aria-label={`푼다 ${it.unlocks} — 이 arc를 선수로 삼는 arc 수. 먼저 익히면 이만큼 풀린다`}
@@ -268,7 +267,7 @@ export function Sequencing() {
               {/* 미룸(예산·quota) — 이번 주기 배분 아님을 명시(트레이드오프). */}
               {deferred ? (
                 <span
-                  className={ds.chip}
+                  className="ds-chip"
                   data-tip={
                     it.defer_reason === 'quota'
                       ? '소양·지평 quota 초과 — 과점 방지로 이번 주기 미룸'
@@ -290,7 +289,7 @@ export function Sequencing() {
         })}
       </div>
       {total > seq.length ? (
-        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`}>
+        <div className="ds-foot ds-muted ds-tiny">
           +{total - seq.length}개 더 (커리큘럼 시퀀싱 전체 {total})
         </div>
       ) : null}
@@ -309,22 +308,21 @@ export function EngineHealth() {
   const cold = isHealthCold(health);
   const monotone = isRelevanceMonotone(health);
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>
-        📈 엔진 건강{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
+        📈 엔진 건강 <span className="ds-muted ds-tiny">(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
       </h3>
       {cold ? (
         /* 콜드 정직성 — 라이브 인출 신호 0(P8 콜드)이라 평균숙달이 없음. 스캐폴드만 켜고 판정은 신호 축적 후. */
-        <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginBottom: 8 }}>
+        <div className="ds-foot ds-muted ds-tiny" style={{ marginBottom: 8 }}>
           라이브 인출 신호가 아직 없어요(P8 콜드) — 연관성↑ 노트가 더 숙달됐는지는 <b>판정 유예</b>. 인출 관측이 쌓이는
           순간 아래 분위별 평균 숙달로 배분 논지가 검증됩니다.
         </div>
       ) : monotone != null ? (
         /* 라이브 판정 — 상≥중≥하 평균숙달이면 배분 논지 성립. */
-        <div className={ds.row} style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+        <div className="ds-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
           <span
-            className={ds.chip}
+            className="ds-chip"
             style={{ color: monotone ? 'var(--good)' : 'var(--learning)' }}
             data-tip="연관성 상위 노트일수록 평균 숙달이 높으면 배분(연관성×gap) 논지 성립"
             role="img"
@@ -332,7 +330,7 @@ export function EngineHealth() {
           >
             {monotone ? '연관성↑ → 숙달↑ 성립' : '아직 단조 아님'}
           </span>
-          <span className={`${ds.tiny} ${ds.muted}`}>증거 노트 {health?.evidenced_notes ?? 0}</span>
+          <span className="ds-tiny ds-muted">증거 노트 {health?.evidenced_notes ?? 0}</span>
         </div>
       ) : null}
       <div className={M.mslist}>
@@ -346,10 +344,10 @@ export function EngineHealth() {
               <span className={M.nm} title={t.hint}>
                 연관성 {t.label}위
               </span>
-              <span className={`${ds.tiny} ${ds.muted}`}>{t.bucket.n}개 노트</span>
+              <span className="ds-tiny ds-muted">{t.bucket.n}개 노트</span>
               {typeof mm === 'number' ? (
                 <span
-                  className={ds.chip}
+                  className="ds-chip"
                   style={{ color: masteryColor(mm) }}
                   data-tip="이 분위 노트의 평균 유효숙달"
                   role="img"
@@ -359,7 +357,7 @@ export function EngineHealth() {
                 </span>
               ) : (
                 <span
-                  className={ds.chip}
+                  className="ds-chip"
                   data-tip="인출 신호 없음 — 평균 숙달 미산출(콜드)"
                   role="img"
                   aria-label="인출 신호 없음 — 평균 숙달 미산출(콜드)"
@@ -380,15 +378,15 @@ export function Gaps({ k }: { k: Knowledge }) {
     <ConceptList
       heading="🩹 약점 진단"
       subtitle="(약한 순 · 근본원인을 먼저 메우면 상류가 같이 풀린다)"
-      empty={<div className={`${ds.foot} ${ds.muted}`}>증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
+      empty={<div className="ds-foot ds-muted">증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
       items={k.gaps || []}
       dot="✗"
       dotColor="var(--bad,#e3564a)"
       renderMeta={(x) => (
         <>
-          <span className={ds.chip}>{pct(x.p_eff)}</span>{' '}
+          <span className="ds-chip">{pct(x.p_eff)}</span>{' '}
           {x.root_cause === 'self' ? (
-            <span className={ds.tiny} style={{ color: 'var(--bad)' }}>
+            <span className="ds-tiny" style={{ color: 'var(--bad)' }}>
               본인 개념
             </span>
           ) : x.root_cause ? (
@@ -411,10 +409,10 @@ export function RootCauses({ k }: { k: Knowledge }) {
   const roll = rootCauseRollup(k); // 상위 5개(self·무근원 제외, count 내림차순).
   if (!roll.length) return null;
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>
         🌱 약점의 뿌리{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>
+        <span className="ds-muted ds-tiny">
           (한 선수개념이 여러 약점의 공통 근본원인 — 먼저 메우면 상류가 같이 풀린다)
         </span>
       </h3>
@@ -426,7 +424,7 @@ export function RootCauses({ k }: { k: Knowledge }) {
             </span>
             <span className={M.nm}>{cause}</span>
             <span
-              className={ds.chip}
+              className="ds-chip"
               data-tip="이 뿌리를 메우면 함께 풀릴 약점 수"
               role="img"
               aria-label={`${count}개 약점의 뿌리`}
@@ -446,9 +444,9 @@ export function Calibration({ k }: { k: Knowledge }) {
   const c = k.calibration || {};
   if (!c.n_errors && !c.blank_total)
     return (
-      <div className={ds.card}>
+      <div className="ds-card">
         <h3>🎚 메타인지 캘리브레이션</h3>
-        <div className={`${ds.foot} ${ds.muted}`}>
+        <div className="ds-foot ds-muted">
           CBMS 오답·백지 기록이 없습니다 — 러닝허브에서 기록 후 <b>볼트 백업</b>→<code>지식엔진.py build --export</code>
           로 인제스트하면 '확신했는데 틀린' 과신율이 잡힙니다(투입 아닌 출력 지표 · 설계 E).
         </div>
@@ -457,24 +455,24 @@ export function Calibration({ k }: { k: Knowledge }) {
   const over = c.overconfidence_rate || 0;
   const overCol = over > 0.5 ? 'var(--bad)' : over > 0.3 ? 'var(--learning)' : 'var(--good)';
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>
         🎚 메타인지 캘리브레이션{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>(확신도 vs 정확도 — 낮을수록 자기 앎을 정확히 안다)</span>
+        <span className="ds-muted ds-tiny">(확신도 vs 정확도 — 낮을수록 자기 앎을 정확히 안다)</span>
       </h3>
-      <div className={ds.row} style={{ gap: 24, flexWrap: 'wrap' }}>
+      <div className="ds-row" style={{ gap: 24, flexWrap: 'wrap' }}>
         <div>
-          <div className={ds.kpi} style={{ color: overCol }}>
+          <div className="ds-kpi" style={{ color: overCol }}>
             {pct(over)}
           </div>
-          <div className={ds.foot}>
+          <div className="ds-foot">
             과신율 — 확신했는데 틀림 {c.confident_wrong || 0} / 전체 오답 {c.n_errors || 0}
           </div>
         </div>
         {c.blank_total ? (
           <div>
-            <div className={ds.kpi}>{pct(c.blank_pass_rate)}</div>
-            <div className={ds.foot}>
+            <div className="ds-kpi">{pct(c.blank_pass_rate)}</div>
+            <div className="ds-foot">
               백지복습 통과율 {c.blank_pass || 0}/{c.blank_total || 0}
             </div>
           </div>
@@ -507,7 +505,7 @@ export function Calibration({ k }: { k: Knowledge }) {
           </div>
         );
       })()}
-      <div className={`${ds.foot} ${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
+      <div className="ds-foot ds-muted ds-tiny" style={{ marginTop: 6 }}>
         과신 오답 = 다음 복습에서 우선 표적. 백지 통과율 = '꺼낼 수 있는가'의 직접 증거.
       </div>
     </div>

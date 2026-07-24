@@ -11,7 +11,6 @@ import { openBacklog, addBacklog, editBacklog, delBacklog, restoreBacklog } from
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
-import ds from '@/styles/ds.module.css';
 
 /* ── '보충 필요' 백로그(방법론 5절) ── */
 export default function BacklogCard() {
@@ -58,22 +57,21 @@ export default function BacklogCard() {
     ui.toast('백로그 추가됨', 'ok');
   };
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        보충 필요 백로그{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>
+        보충 필요 백로그 <span className="ds-muted ds-tiny">— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>
       </h2>
-      <div className={ds.row} style={{ marginBottom: 6 }}>
-        <span className={`${ds.pill} ${open.length ? ds.warn : ds.good}`}>열림 {open.length}</span>
-        <span className={`${ds.pill} ${ds.good}`}>회수 {closed}</span>
+      <div className="ds-row" style={{ marginBottom: 6 }}>
+        <span className={`ds-pill ${open.length ? 'ds-warn' : 'ds-good'}`}>열림 {open.length}</span>
+        <span className="ds-pill ds-good">회수 {closed}</span>
         <span style={{ flex: 1 }} />
       </div>
-      <div className={ds.fieldgrid}>
-        <div className={ds.fld}>
+      <div className="ds-fieldgrid">
+        <div className="ds-fld">
           <label htmlFor={`${uid}-sid`}>과목</label>
           <SubjectSelect id={`${uid}-sid`} value={sid} onChange={setSid} />
         </div>
-        <div className={`${ds.fld} ${ds.wide}`}>
+        <div className="ds-fld ds-wide">
           <label htmlFor={`${uid}-topic`}>막힌 주제</label>
           <input
             id={`${uid}-topic`}
@@ -85,9 +83,9 @@ export default function BacklogCard() {
             placeholder="예) 3장 변위전류 유도 막힘"
           />
         </div>
-        <div className={`${ds.fld} ${ds.wide}`}>
+        <div className="ds-fld ds-wide">
           <label htmlFor={`${uid}-note`}>
-            메모 <span className={`${ds.muted} ${ds.tiny}`}>(가정·결과식·물리적 의미만)</span>
+            메모 <span className="ds-muted ds-tiny">(가정·결과식·물리적 의미만)</span>
           </label>
           <input
             id={`${uid}-note`}
@@ -103,7 +101,7 @@ export default function BacklogCard() {
         <Button variant="primary" onClick={submit}>
           백로그 추가
         </Button>
-        <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 8 }}>
+        <span className="ds-muted ds-tiny" style={{ marginLeft: 8 }}>
           회수처: 컨디션 좋은 오전 블록 / 백지 복습 / 질문 목록
         </span>
       </div>
@@ -111,8 +109,8 @@ export default function BacklogCard() {
       {open.length ? (
         open.map((b) =>
           editId === b.id ? (
-            <div key={b.id} className={`${ds.rec} ${ds.blOpen} border-line-acc-hover! bg-tint-acc-faint!`}>
-              <div className={ds.fld}>
+            <div key={b.id} className="ds-rec ds-blOpen border-line-acc-hover! bg-tint-acc-faint!">
+              <div className="ds-fld">
                 <label htmlFor={`bl-edit-topic-${b.id}`}>막힌 주제</label>
                 <input
                   id={`bl-edit-topic-${b.id}`}
@@ -122,7 +120,7 @@ export default function BacklogCard() {
                   onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
                 />
               </div>
-              <div className={`${ds.fld} ${ds.wide}`}>
+              <div className="ds-fld ds-wide">
                 <label htmlFor={`bl-edit-note-${b.id}`}>메모</label>
                 <input
                   id={`bl-edit-note-${b.id}`}
@@ -142,13 +140,13 @@ export default function BacklogCard() {
               </div>
             </div>
           ) : (
-            <div key={b.id} className={`${ds.rec} ${ds.blOpen}`}>
-              <div className={ds.recHead}>
+            <div key={b.id} className="ds-rec ds-blOpen">
+              <div className="ds-recHead">
                 <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => toggleUndo(b.id)} />
-                <span className={ds.swatch} style={{ background: itemById(state, b.sid)?.color || 'var(--mut)' }} />
+                <span className="ds-swatch" style={{ background: itemById(state, b.sid)?.color || 'var(--mut)' }} />
                 <b>{b.topic || '(주제 없음)'}</b>
-                {b.name && <span className={`${ds.muted} ${ds.tiny}`}> · {b.name}</span>}
-                <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 6 }}>
+                {b.name && <span className="ds-muted ds-tiny"> · {b.name}</span>}
+                <span className="ds-muted ds-tiny" style={{ marginLeft: 6 }}>
                   {b.ds}
                 </span>
                 <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(b)} title="수정">
@@ -158,14 +156,12 @@ export default function BacklogCard() {
                   ✕
                 </Button>
               </div>
-              {b.note && <div className={ds.tiny}>{b.note}</div>}
+              {b.note && <div className="ds-tiny">{b.note}</div>}
             </div>
           ),
         )
       ) : (
-        <div className={`${ds.empty} ${ds.tiny}`}>
-          열린 '보충 필요' 항목이 없어요. 👍 백로그를 닫아 두는 게 메타인지.
-        </div>
+        <div className="ds-empty ds-tiny">열린 '보충 필요' 항목이 없어요. 👍 백로그를 닫아 두는 게 메타인지.</div>
       )}
     </div>
   );

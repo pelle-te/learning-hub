@@ -33,18 +33,17 @@ import { usePing, useKnowledge } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
 
 /* ── C-7 일곱 번째 이식(review) — 지금까지 최대(689줄 TSX · 515 CSS) ──────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Review.module.css` 삭제.
-   ⚠ **`ds.*` 공유 클래스는 그대로 둔다**(ds.module.css 는 맨 뒤 이식 · 부칙). `rv.*` 만 옮긴다 —
+   ⚠ **`ds-*` 공유 클래스는 그대로 둔다**(공유 디자인 시스템은 맨 뒤 이식 · 부칙). `rv.*` 만 옮긴다 —
    혼용이 정상이다. 전역 요소 규칙(button·textarea·h2·small…)은 control 규율대로 다른 속성만 `!`.
 
    이 파일에서 처음 만난 것:
    ① **마운트 애니메이션**(막대 리빌 `rv-bar-rise` · 카드 페이드업 `rv-fade-up`) — 키프레임을
       tw.css 에 전역으로 두고 `animate-[…_0.4s_var(--ease)_both]` 로 붙인다(막대 stagger 지연은
-      런타임값이라 인라인 style 유지). ds-fadeUp 은 ds.module 에 스코프돼 못 부르므로 새로 뒀다.
+      런타임값이라 인라인 style 유지). ds-fadeUp 은 당시 CSS Module 에 스코프돼 못 불렀으므로 새로 뒀다.
    ② **oklab 액센트 베이크 그래디언트**(sigChart 배경·상단 헤어라인)·달성률 글로우(text-shadow) —
       Tailwind 색 유틸로 표현 불가라 tokens.css 에 이름 주고 `bg-[image:var(--…)]`·`[text-shadow:
       var(--…)]` 로 참조(§14-3). 막대는 항상 mainCol 이라 `.mainCol .paBar` 오버라이드(14/130/150)를
@@ -150,7 +149,7 @@ const WEEKLY_CHECKS: [string, string][] = [
 ];
 
 /** 계획 대비 실제 — 요일별 계획·완료 분 막대(weekPlanActual 집계 공유). 주간 디브리프의 발광 시그니처.
-   액센트 베이크 패널 + 포인터 추적 스포트라이트·오로라(ds.spotHost/spotlight/aura/glow). */
+   액센트 베이크 패널 + 포인터 추적 스포트라이트·오로라('ds-spotHost'/spotlight/aura/glow). */
 function PlanActualCard({ pa }: { pa: WeekPA }) {
   const { byDay, maxRef, rate, planMin } = pa;
   const navigate = useNavigate();
@@ -160,14 +159,9 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
   const empty = planMin === 0;
 
   return (
-    <div
-      ref={ref}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      className={`${SIG_CHART} ${ds.spotHost} ${ds.glow}`}
-    >
-      <div className={ds.spotlight} aria-hidden="true" />
-      <div className={ds.aura} aria-hidden="true" />
+    <div ref={ref} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave} className={`${SIG_CHART} ds-spotHost ds-glow`}>
+      <div className="ds-spotlight" aria-hidden="true" />
+      <div className="ds-aura" aria-hidden="true" />
       <div className={SIG_HEAD}>
         <span className={SIG_TITLE}>계획 대비 실제 — PLAN vs ACTUAL</span>
         {!empty && (
@@ -192,13 +186,13 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
                   <i className={I_PLAN} style={{ height: ph, animationDelay: `${x.k * 45}ms` }} />
                   <i className={I_DONE} style={{ height: dh, animationDelay: `${x.k * 45 + 80}ms` }} />
                 </span>
-                <span className={`${ds.tiny} ${ds.muted}`}>{DOW_MON[x.k]}</span>
+                <span className="ds-tiny ds-muted">{DOW_MON[x.k]}</span>
               </div>
             );
           })}
         </div>
       )}
-      <div className={ds.foot}>
+      <div className="ds-foot">
         <span className={PALG_PLAN} /> 계획 &nbsp; <span className={PALG_DONE} /> 완료 &nbsp;· 막대는 요일별 시간.
         자세한 추세는{' '}
         <button type="button" className={INLINE_LINK} onClick={() => navigate('/stats', { viewTransition: true })}>
@@ -228,28 +222,28 @@ function CbmsDistCard({ cnt }: { cnt: Record<CbmsCode, number> }) {
     );
   }
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        오답 CBMS 분포 <span className={`${ds.muted} ${ds.tiny}`}>— 약점의 분포</span>
+        오답 CBMS 분포 <span className="ds-muted ds-tiny">— 약점의 분포</span>
       </h2>
       {CBMS_CODES.map((c) => {
         const inf = CBMS_INFO[c];
         const n = cnt[c];
         return (
-          <div key={c} className={ds.cbmsRow}>
-            <span className={ds.cbmsChip} style={{ '--c': inf.color } as React.CSSProperties}>
+          <div key={c} className="ds-cbmsRow">
+            <span className="ds-cbmsChip" style={{ '--c': inf.color } as React.CSSProperties}>
               {c} {inf.label}
             </span>
-            <span className={ds.cbmsTrack}>
+            <span className="ds-cbmsTrack">
               <i style={{ width: `${(n / maxc) * 100}%`, background: inf.color }} />
             </span>
-            <span className={ds.tiny} style={{ minWidth: 18, textAlign: 'right' }}>
+            <span className="ds-tiny" style={{ minWidth: 18, textAlign: 'right' }}>
               {n}
             </span>
           </div>
         );
       })}
-      <div className={ds.foot} style={{ marginTop: 10 }}>
+      <div className="ds-foot" style={{ marginTop: 10 }}>
         {hint}
       </div>
     </div>
@@ -265,33 +259,33 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트(Journal과 단일 출처).
   const close = useToggleBacklogUndo();
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        보충 필요 회수 <span className={`${ds.muted} ${ds.tiny}`}>— 백로그를 닫는 고리</span>
+        보충 필요 회수 <span className="ds-muted ds-tiny">— 백로그를 닫는 고리</span>
       </h2>
-      <div className={ds.row} style={{ marginBottom: 8 }}>
-        <span className={`${ds.pill} ${open.length ? ds.warn : ds.good}`}>열림 {open.length}</span>
-        <span className={`${ds.pill} ${ds.good}`}>이번 주 회수 {closedThisWeek}</span>
+      <div className="ds-row" style={{ marginBottom: 8 }}>
+        <span className={`ds-pill ${open.length ? 'ds-warn' : 'ds-good'}`}>열림 {open.length}</span>
+        <span className="ds-pill ds-good">이번 주 회수 {closedThisWeek}</span>
       </div>
       {open.length ? (
         open.map((b) => (
-          <div key={b.id} className={`${ds.rec} ${ds.blOpen}`}>
-            <div className={ds.recHead}>
+          <div key={b.id} className="ds-rec ds-blOpen">
+            <div className="ds-recHead">
               <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => close(b.id)} />
-              <span className={ds.swatch} style={{ background: itemById(state, b.sid)?.color || '#888' }} />
+              <span className="ds-swatch" style={{ background: itemById(state, b.sid)?.color || '#888' }} />
               <b>{b.topic || '(주제 없음)'}</b>
-              {b.name && <span className={`${ds.muted} ${ds.tiny}`}> · {b.name}</span>}
-              <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 6 }}>
+              {b.name && <span className="ds-muted ds-tiny"> · {b.name}</span>}
+              <span className="ds-muted ds-tiny" style={{ marginLeft: 6 }}>
                 열린 지 {dayDiff(b.ds, todayISO(state))}일
               </span>
             </div>
-            {b.note && <div className={ds.tiny}>{b.note}</div>}
+            {b.note && <div className="ds-tiny">{b.note}</div>}
           </div>
         ))
       ) : (
-        <div className={`${ds.empty} ${ds.tiny}`}>열린 백로그가 없어요 👍</div>
+        <div className="ds-empty ds-tiny">열린 백로그가 없어요 👍</div>
       )}
-      <div className={ds.foot} style={{ marginTop: 8 }}>
+      <div className="ds-foot" style={{ marginTop: 8 }}>
         오래 열린 항목일수록 위로. 더 안 중요하면 과감히 버린다(재시작 루틴). 추가는{' '}
         <button type="button" className={INLINE_LINK} onClick={() => navigate('/today', { viewTransition: true })}>
           오늘 학습
@@ -315,15 +309,15 @@ function ChecklistCard({ wk }: { wk: string }) {
   const commit = () => mutate((st) => setWeeklyNote(st, wk, draft));
   useFlushOnUnmount(commit); // 마지막 편집 유실 방지 — 탭 이탈/주 이동으로 언마운트될 때 draft 커밋.
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
         주간 점검 체크리스트{' '}
-        <span className={`${ds.pill} ${ckDone === WEEKLY_CHECKS.length ? ds.good : ''} ${ds.tiny}`}>
+        <span className={`ds-pill ${ckDone === WEEKLY_CHECKS.length ? 'ds-good' : ''} ds-tiny`}>
           {ckDone}/{WEEKLY_CHECKS.length}
         </span>
       </h2>
       {WEEKLY_CHECKS.map(([k, label]) => (
-        <label key={k} className={ds.chkRow}>
+        <label key={k} className="ds-chkRow">
           <input
             type="checkbox"
             checked={!!checks[k]}
@@ -333,8 +327,8 @@ function ChecklistCard({ wk }: { wk: string }) {
         </label>
       ))}
       <label htmlFor="wk-note" style={{ marginTop: 10 }}>
-        이번 주 메모 <span className={`${ds.muted} ${ds.tiny}`}>(무엇을 바꿀까)</span>
-        {draft.trim() && <span className={`${ds.pill} ${ds.good} ${ds.tiny}`}> ✓ 자동 저장됨</span>}
+        이번 주 메모 <span className="ds-muted ds-tiny">(무엇을 바꿀까)</span>
+        {draft.trim() && <span className="ds-pill ds-good ds-tiny"> ✓ 자동 저장됨</span>}
       </label>
       <textarea
         id="wk-note"
@@ -344,7 +338,7 @@ function ChecklistCard({ wk }: { wk: string }) {
         onBlur={commit}
         placeholder="예) M 오답이 많았다 → 다음 주 통신 도출 백지연습 +1블록. 보충필요 2개 남음, 토요일 오전에 닫기."
       />
-      <div className={ds.foot}>체크/메모는 그 주에 저장돼요(주를 넘기면 각각 따로 보관).</div>
+      <div className="ds-foot">체크/메모는 그 주에 저장돼요(주를 넘기면 각각 따로 보관).</div>
     </div>
   );
 }
@@ -414,9 +408,9 @@ function CoachCard({ ds0 }: { ds0: string }) {
   const hasData = insights.length > 0 || weak.length > 0 || roots.length > 0;
 
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        회고 코칭 <span className={`${ds.muted} ${ds.tiny}`}>— 이번 주 데이터가 말하는 다음 주 우선순위</span>
+        회고 코칭 <span className="ds-muted ds-tiny">— 이번 주 데이터가 말하는 다음 주 우선순위</span>
       </h2>
       {hasData ? (
         <>
@@ -432,7 +426,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
           )}
           {weak.length > 0 && (
             <div className={WEAK_BOX}>
-              <div className={`${ds.muted} ${ds.tiny}`}>반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
+              <div className="ds-muted ds-tiny">반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
               <ul className={WEAK_LIST}>
                 {weak.map((w) => {
                   const lever = leverFor(w.subject);
@@ -474,7 +468,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
           )}
           {roots.length > 0 && (
             <div className={WEAK_BOX}>
-              <div className={`${ds.muted} ${ds.tiny}`}>
+              <div className="ds-muted ds-tiny">
                 약점의 뿌리 — 한 선수개념이 여러 약점의 공통 근본원인(먼저 메우면 상류가 함께 풀림)
               </div>
               <ul className={WEAK_LIST}>
@@ -500,7 +494,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
           )}
         </>
       ) : (
-        <div className={ds.foot}>이번 주 요약·오답·백지 기록이 쌓이면 코칭이 나와요.</div>
+        <div className="ds-foot">이번 주 요약·오답·백지 기록이 쌓이면 코칭이 나와요.</div>
       )}
       <div className={COACH_AI}>
         <Button
@@ -511,7 +505,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
         >
           {aiBusy ? (
             <>
-              <span className={ds.spin} /> 코칭 중…
+              <span className="ds-spin" /> 코칭 중…
             </>
           ) : (
             '🤖 AI 회고 받기'
@@ -519,7 +513,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
         </Button>
         {aiErr && (
           <>
-            <span className={`${ds.muted} ${ds.tiny}`} role="alert">
+            <span className="ds-muted ds-tiny" role="alert">
               {aiErr}
             </span>
             <Button sm variant="ghost" onClick={askAI} disabled={aiBusy || !online}>
@@ -549,7 +543,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
               ))}
             </ul>
           )}
-          {ai.encourage && <div className={ds.foot}>{ai.encourage}</div>}
+          {ai.encourage && <div className="ds-foot">{ai.encourage}</div>}
         </div>
       )}
     </div>
@@ -588,13 +582,13 @@ function WorkbenchCard() {
     window.open('obsidian://search?query=' + encodeURIComponent(c.subject + ' ' + c.chapter));
 
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        약점 워크벤치 <span className={`${ds.muted} ${ds.tiny}`}>— 오래 안 본 개념을 식별에서 행동으로</span>
+        약점 워크벤치 <span className="ds-muted ds-tiny">— 오래 안 본 개념을 식별에서 행동으로</span>
       </h2>
-      <div className={ds.row} style={{ marginBottom: 8 }}>
-        <span className={`${ds.pill} ${all.length ? ds.warn : ds.good}`}>복습 위험 {all.length}</span>
-        <span className={`${ds.pill} ${openN ? ds.warn : ds.good}`}>보충 열림 {openN}</span>
+      <div className="ds-row" style={{ marginBottom: 8 }}>
+        <span className={`ds-pill ${all.length ? 'ds-warn' : 'ds-good'}`}>복습 위험 {all.length}</span>
+        <span className={`ds-pill ${openN ? 'ds-warn' : 'ds-good'}`}>보충 열림 {openN}</span>
       </div>
       {all.length ? (
         <>
@@ -660,9 +654,9 @@ function WorkbenchCard() {
           )}
         </>
       ) : (
-        <div className={ds.foot}>위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요 👍</div>
+        <div className="ds-foot">위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요 👍</div>
       )}
-      <div className={ds.foot}>
+      <div className="ds-foot">
         오래될수록 붉게 — 배정으로 시간을 주거나 · 보충 큐로 넣거나 · 볼트에서 찾아 · 복습 실행으로 인출.
       </div>
     </div>

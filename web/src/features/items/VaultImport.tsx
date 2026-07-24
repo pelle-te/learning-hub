@@ -14,7 +14,6 @@ import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
 import { makeItem, jsq } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 
 // Items.module.css → Tailwind 이식(C-7) 잔여 3종. 볼트/Anki 스캔 결과의 컴팩트 행.
 const VAULT_LIST = 'mt-2.5 flex max-h-[var(--vault-list-vh)] flex-col gap-1.5 overflow-y-auto';
@@ -104,14 +103,14 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div className={ds.card} style={{ marginBottom: 14 }}>
-      <div className={ds.row} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="ds-card" style={{ marginBottom: 14 }}>
+      <div className="ds-row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
         <b style={{ flex: 1 }}>📁 볼트 / Anki에서 불러오기</b>
         {!isTauri() && (
           <Button sm variant="primary" disabled={!!busy} onClick={doScanVault}>
             {busy === 'vault' ? (
               <>
-                <span className={ds.spin} /> 스캔 중…
+                <span className="ds-spin" /> 스캔 중…
               </>
             ) : scan ? (
               '🔄 볼트 다시 스캔'
@@ -123,7 +122,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
         <Button sm disabled={!!busy} onClick={doScanAnki}>
           {busy === 'anki' ? (
             <>
-              <span className={ds.spin} /> 스캔 중…
+              <span className="ds-spin" /> 스캔 중…
             </>
           ) : (
             '🃏 Anki 카드 스캔'
@@ -135,26 +134,26 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
           </Button>
         )}
       </div>
-      <div className={ds.foot}>
+      <div className="ds-foot">
         볼트=전공 폴더의 과목→챕터. Anki=덱을 '매일 복습' 항목으로. 검증/실시간 due 상세·연동 해제는 연동 탭에서.
         (Chrome/Edge)
       </div>
       {err && (
-        <div className={ds.warnbox} role="alert" style={{ marginTop: 8 }}>
+        <div className="ds-warnbox" role="alert" style={{ marginTop: 8 }}>
           {err}
         </div>
       )}
       {scan && (
         <div className={VAULT_LIST}>
           {scan.subjects.length === 0 ? (
-            <div className={`${ds.muted} ${ds.tiny}`}>스캔된 과목이 없어요 — 폴더 구조를 확인하세요.</div>
+            <div className="ds-muted ds-tiny">스캔된 과목이 없어요 — 폴더 구조를 확인하세요.</div>
           ) : (
             scan.subjects.map((s, si) => {
               const added = items.some((x) => x.name === s.name);
               return (
                 <div key={si} className={VAULT_ROW}>
                   <span className={VAULT_NAME}>{s.name}</span>
-                  <span className={`${ds.tiny} ${ds.muted}`}>
+                  <span className="ds-tiny ds-muted">
                     노트 {s.notes} · 챕터 {s.chapters.length}
                   </span>
                   <Button sm variant={added ? 'ghost' : 'primary'} disabled={added} onClick={() => addSubject(s)}>
@@ -174,7 +173,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
             return (
               <div key={d.file} className={VAULT_ROW}>
                 <span className={VAULT_NAME}>🃏 {d.file}</span>
-                <span className={`${ds.tiny} ${ds.muted}`}>{d.cards}장</span>
+                <span className="ds-tiny ds-muted">{d.cards}장</span>
                 <Button
                   sm
                   variant={added ? 'ghost' : 'primary'}
@@ -189,7 +188,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
         </div>
       )}
       {anki && anki.decks.length === 0 && (
-        <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
+        <div className="ds-muted ds-tiny" style={{ marginTop: 6 }}>
           스캔된 Anki 덱이 없어요 — 정본 인덱스나 anki/*.txt 폴더를 확인하세요.
         </div>
       )}

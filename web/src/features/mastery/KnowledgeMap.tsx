@@ -10,7 +10,6 @@ import { useCountUp } from '@/hooks/interactions';
 import { masteryColor } from '@/lib/utils';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { Knowledge, KnowledgeSubject } from '@/lib/knowledge';
-import ds from '@/styles/ds.module.css';
 import { M } from './classes';
 
 const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
@@ -36,7 +35,7 @@ export function VaultLink({
   return (
     <button
       type="button"
-      className={variant === 'text' ? `${ds.tiny} ${M.rcLink}` : M.deep}
+      className={variant === 'text' ? `ds-tiny ${M.rcLink}` : M.deep}
       onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(q))}
       title={`Obsidian에서 ${label || `"${q}"`} 검색 (설치돼 있어야 함)`}
       aria-label={`Obsidian에서 ${label || q} 검색`}
@@ -61,9 +60,9 @@ export function OverallRing({ overall }: { overall: number }) {
         size={120}
         r={46}
         pct={shown}
-        className={ds.ringSvg}
-        trackClassName={ds.ringTrack}
-        arcClassName={ds.ringArc}
+        className="ds-ringSvg"
+        trackClassName={'ds-ringTrack'}
+        arcClassName={'ds-ringArc'}
       />
       <span className={M.ringNum}>
         {Math.round(shown)}
@@ -179,7 +178,7 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
           <div key={s.subject} className={M.mssub}>
             <div className={M.subHead}>
               <b className={M.subNm}>{s.subject}</b>
-              <span className={`${ds.tiny} ${ds.muted}`}>
+              <span className="ds-tiny ds-muted">
                 {s.n}개 · 숙달 {pct(s.mastery)}
                 {s.weak ? ` · 약점 ${s.weak}` : ''}
                 {s.unknown ? ` · 미관측 ${s.unknown}` : ''}
@@ -189,7 +188,7 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
           </div>
         ))
       ) : (
-        <div className={`${ds.muted} ${ds.tiny}`}>과목 없음</div>
+        <div className="ds-muted ds-tiny">과목 없음</div>
       )}
       <div className={M.mapFoot}>테두리 친 셀 ⬡ = 프런티어(지금 배울 준비됨).</div>
     </>

@@ -6,7 +6,6 @@
 import type { ReactNode } from 'react';
 import EmptyState from './EmptyState';
 import { Button } from './ui';
-import ds from '@/styles/ds.module.css';
 
 export default function ArtifactGate({
   online,
@@ -54,7 +53,7 @@ export default function ArtifactGate({
         <Button variant="primary" onClick={onCollect} disabled={collecting}>
           {collecting ? (
             <>
-              <span className={ds.spin} /> 수집 중…
+              <span className="ds-spin" /> 수집 중…
             </>
           ) : (
             collectLabel

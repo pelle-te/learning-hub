@@ -1,10 +1,9 @@
 /* ChapterEditor — 과목의 챕터 표(추가·삭제·수정·드래그 정렬·일괄 붙여넣기).
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
+   스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
 import { useCallback, useState } from 'react';
 import { rid } from '@/lib/utils';
 import { ui } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 import type { AppState, Item } from '@/lib/types';
 
 type Mutate = (recipe: (st: AppState) => void) => void;
@@ -67,16 +66,16 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   };
 
   return (
-    <details open={chs.length === 0} className={ds.chapwrap}>
+    <details open={chs.length === 0} className="ds-chapwrap">
       <summary>
         📖 챕터{' '}
-        <span className={ds.muted} style={{ fontWeight: 400 }}>
+        <span className="ds-muted" style={{ fontWeight: 400 }}>
           {chs.length ? `${chs.length}개 · 약 ${totalH}h` : '추가'}
         </span>
       </summary>
-      <div className={ds.chapbody}>
+      <div className="ds-chapbody">
         {chs.length ? (
-          <div className={ds.chaptbl}>
+          <div className="ds-chaptbl">
             <table>
               <thead>
                 <tr>
@@ -102,8 +101,8 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       move(i, i + (e.key === 'ArrowDown' ? 1 : -1));
                     }}
                   >
-                    <td className={`${ds.muted} ${ds.tiny}`} style={{ whiteSpace: 'nowrap' }}>
-                      <span className={ds.draghandle} title="드래그 또는 Alt+↑↓로 순서 변경">
+                    <td className="ds-muted ds-tiny" style={{ whiteSpace: 'nowrap' }}>
+                      <span className="ds-draghandle" title="드래그 또는 Alt+↑↓로 순서 변경">
                         ⠿
                       </span>{' '}
                       {i + 1}
@@ -146,21 +145,21 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
             </table>
           </div>
         ) : (
-          <div className={`${ds.empty} ${ds.tiny}`} style={{ padding: '14px 6px' }}>
+          <div className="ds-empty ds-tiny" style={{ padding: '14px 6px' }}>
             아직 챕터가 없어요. 아래에서 추가하거나 붙여넣기 하세요.
           </div>
         )}
 
-        <div className={ds.row} style={{ marginTop: 8, gap: 6 }}>
+        <div className="ds-row" style={{ marginTop: 8, gap: 6 }}>
           <Button sm variant="primary" onClick={addCh}>
             + 챕터 추가
           </Button>
           <span style={{ flex: 1 }} />
-          <span className={`${ds.tiny} ${ds.muted}`}>↕ 드래그로 순서 변경</span>
+          <span className="ds-tiny ds-muted">↕ 드래그로 순서 변경</span>
         </div>
 
-        <details className={ds.bulkwrap} style={{ marginTop: 10 }}>
-          <summary className={ds.tiny}>⊕ 여러 챕터 한 번에 붙여넣기</summary>
+        <details className="ds-bulkwrap" style={{ marginTop: 10 }}>
+          <summary className="ds-tiny">⊕ 여러 챕터 한 번에 붙여넣기</summary>
           <label htmlFor={`bulk-${id}`} style={{ marginTop: 6 }}>
             한 줄에 하나씩 · "이름 | 시간" 형식도 가능
           </label>

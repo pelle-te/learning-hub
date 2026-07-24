@@ -34,7 +34,6 @@ import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
 import { createGraphSim, type FocusResult } from './graphSim';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
-import ds from '@/styles/ds.module.css';
 
 // 캔버스 호스트/폴백 상단 1px 발광 헤어라인(--bg-sig-top · review→ledger 이식이 깐 것 재사용).
 const HAIRLINE =
@@ -782,7 +781,7 @@ export default function Graph() {
             </div>
           )}
           {/* 스크린리더 대체 — 캔버스는 불투명하므로 항목별 done/total을 목록으로 병행 제공. */}
-          <ul className={ds.srOnly}>
+          <ul className="ds-srOnly">
             {items.map((it) => {
               const t = it.chapters?.length || 0;
               const d = it.chapters?.filter((c) => c.done).length || 0;

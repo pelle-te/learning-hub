@@ -4,7 +4,7 @@
    순수 표현: 화면 모델(DegreeSemester[])을 받아 lib/degree.semesterStat로 집계해 그린다.
 
    ── C-7 이식(degree) — Tailwind ──────────────────────────────────────────────
-   보드 껍데기는 ds.board(composes)를 유지하고 델타(하단 패딩·마진)만 `!` 로 얹는다.
+   보드 껍데기는 전역 `ds-board` 를 유지하고 델타(하단 패딩·마진)만 `!` 로 얹는다.
    phase(done/current/future) 별 자식 규칙(`.done .dot` 등)은 **정적 클래스 맵**으로 자식에
    직접 준다(규약 4 · 동적 조립 금지). 노드 펄스(sr-pulse)·발광 shadow 는 tw.css/토큰으로 옮겼다.
    ⚠ station 은 <button> 이라 전역 button 규칙을 `!` 로 이긴다(bg/border/radius/padding). 원본의
@@ -12,7 +12,6 @@
    특이도로 이를 덮던 잠재 버그가 있었다(리포트 참조). open 상태는 hover 를 빼 acc-soft 를 유지한다.
 ============================================================ */
 import { semesterGpa, semesterStat, type DegreeSemester } from '@/lib/degree';
-import ds from '@/styles/ds.module.css';
 
 // phase 별 정적 클래스 맵(§15 부칙 · 동적 조립 금지). 노드/바채움/태그의 색·발광만 상태로 가른다.
 type Phase = 'done' | 'current' | 'future';
@@ -51,7 +50,7 @@ export default function SeasonRoadmap({
   const fillPct = list.length > 1 ? (doneCount / (list.length - 1)) * 100 : doneCount ? 100 : 0;
 
   return (
-    <div className={`${ds.board} mb-4! pb-3.5!`}>
+    <div className="ds-board mb-4! pb-3.5!">
       <div className="mb-4 flex items-baseline justify-between">
         <span className="text-xs font-extrabold tracking-caps text-mut uppercase">졸업 로드맵 — ROADMAP</span>
         <span className="flex items-baseline gap-1.5 tabular-nums">

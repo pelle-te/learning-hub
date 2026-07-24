@@ -3,7 +3,7 @@
    세계적 수준의 "살아있는" 감각을 전 탭에 일관 적용하기 위한 단일 원천.
    • useCountUp — 현재 표시값→target 카운트업(reduced-motion이면 즉시).
    • useHeroPointer — 포인터 추적: --mx/--my(스포트라이트) + --tiltX/Y(3D 틸트) CSS 변수 주입.
-   짝이 되는 CSS는 ds.module.css의 .spotHost/.spotlight/.tiltable/.glow.
+   짝이 되는 CSS는 styles/ds.css의 .ds-spotHost/.ds-spotlight/.ds-glow.
 ============================================================ */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 

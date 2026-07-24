@@ -2,7 +2,7 @@
    Stats — 탭: 📊 통계 (Phase 4 · 앱상태 + 파생)
    레거시 ui-stats.js를 React로 — KPI·인출 증거·유지율 스파크·스트릭 히트맵·CBMS 레이더·
    과목별 진행·주별 학습시간·챕터 타임라인. 차트는 기존 SVG/막대 로직을 컴포넌트화(설계도 §3).
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 히트맵·데이터 보드는 Tailwind(C-7), 요소·토큰은 전역 base.
+   스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 히트맵·데이터 보드는 Tailwind(C-7), 요소·토큰은 전역 base.
 ============================================================ */
 import { Suspense, lazy, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +20,6 @@ import { cbmsCounts, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence, CBMS_IN
 import { personalBests } from '@/lib/records';
 import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { buildStreakGrid } from '@/lib/statsView';
-import ds from '@/styles/ds.module.css';
 import type { ScheduleResult } from '@/lib/types';
 
 const StatsDetail = lazy(() => import('./StatsDetail'));
@@ -176,7 +175,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
           </div>
         </div>
       </div>
-      <div className={`${S.hmLegend} ${ds.muted} ${ds.tiny}`}>
+      <div className={`${S.hmLegend} ds-muted ds-tiny`}>
         <span>적음</span>
         {[0, 1, 2, 3, 4].map((l) => (
           <div key={l} className={`${S.cellLg} ${LVL[l]}`} />
@@ -188,7 +187,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
       {/* 잔디 셀은 탭스톱 폭주 방지로 비포커스(role=img+aria-label) — 대신 키보드/스크린리더용
           접이식 표(주 × 요일 · 분)로 동일 정보를 순회 없이 읽게. 기본 접힘·비침습. */}
       <details className={S.hmTable} onToggle={(e) => setTableOpen(e.currentTarget.open)}>
-        <summary className={`${S.hmSummary} ${ds.muted} ${ds.tiny}`}>표로 보기 — 주 × 요일(분)</summary>
+        <summary className={`${S.hmSummary} ds-muted ds-tiny`}>표로 보기 — 주 × 요일(분)</summary>
         {tableOpen && (
           <div className={S.hmTableScroll}>
             <table className={S.hmTableEl}>
@@ -226,9 +225,9 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
   );
   if (bare) return heat;
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h2>
-        학습 스트릭 <span className={`${ds.muted} ${ds.tiny}`}>— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
+        학습 스트릭 <span className="ds-muted ds-tiny">— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
       </h2>
       {heat}
     </div>
@@ -241,7 +240,7 @@ function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today
     return (
       <div className={S.subj}>
         <div className={S.subjTop}>
-          <span className={ds.swatch} style={{ background: s.color }} />
+          <span className="ds-swatch" style={{ background: s.color }} />
           <span className={S.subjNm}>{s.name}</span>
           <span className={`${PILL} ${PILL_TONE['']}`}>반복</span>
         </div>
@@ -261,7 +260,7 @@ function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today
   return (
     <div className={S.subj}>
       <div className={S.subjTop}>
-        <span className={ds.swatch} style={{ background: s.color }} />
+        <span className="ds-swatch" style={{ background: s.color }} />
         <span className={S.subjNm}>{s.name}</span>
         <span className={`${PILL} ${PILL_TONE[pill.tone]}`}>{pill.lab}</span>
       </div>
@@ -306,7 +305,7 @@ function Gauge({ pct }: { pct: number }) {
 
 /** 보조 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유). */
 function Readout(props: { value: number; lab: ReactNode; prefix?: string; suffix?: ReactNode }) {
-  return <CountReadout {...props} className={`${ds.ro} ${ds.glow}`} numClassName={ds.roNum} labClassName={ds.roLab} />;
+  return <CountReadout {...props} className="ds-ro ds-glow" numClassName={'ds-roNum'} labClassName={'ds-roLab'} />;
 }
 
 export default function Stats() {
@@ -372,7 +371,7 @@ export default function Stats() {
   if (!r.itemStat.length)
     return (
       <section aria-label="학습 통계">
-        <div className={ds.card}>
+        <div className="ds-card">
           <EmptyState
             glyph="📊"
             title="아직 통계가 없어요"
@@ -408,10 +407,10 @@ export default function Stats() {
             ref={heroRef}
             onMouseMove={heroMove}
             onMouseLeave={heroLeave}
-            className={`${S.hero} ${ds.spotHost} ${ds.glow}`}
+            className={`${S.hero} ds-spotHost ds-glow`}
           >
-            <div className={ds.spotlight} aria-hidden="true" />
-            <div className={ds.aura} aria-hidden="true" />
+            <div className="ds-spotlight" aria-hidden="true" />
+            <div className="ds-aura" aria-hidden="true" />
             <Gauge pct={compRate} />
             <div className={S.heroMeta}>
               <span className={S.heroLab}>완료율 · 실제/계획</span>
@@ -429,9 +428,9 @@ export default function Stats() {
             {pb.totalDays > 0 && (
               <>
                 <Readout value={pb.longestStreak} prefix="🏆 " lab="최장 연속(개인 기록)" />
-                <div className={`${ds.ro} ${ds.glow}`}>
-                  <span className={ds.roNum}>{hLabel(pb.bestFocusMin)}</span>
-                  <span className={ds.roLab}>
+                <div className="ds-ro ds-glow">
+                  <span className="ds-roNum">{hLabel(pb.bestFocusMin)}</span>
+                  <span className="ds-roLab">
                     최고 집중일{pb.bestFocusDs ? ` · ${fmtShort(parseISO(pb.bestFocusDs))}` : ''}
                   </span>
                 </div>
@@ -446,14 +445,9 @@ export default function Stats() {
             <span className={S.sigTitle}>학습 스트릭 — STREAK</span>
             <span className={S.sigMeta}>꾸준함의 리듬</span>
           </div>
-          <div
-            ref={mapRef}
-            onMouseMove={mapMove}
-            onMouseLeave={mapLeave}
-            className={`${S.sigMap} ${ds.spotHost} ${ds.glow}`}
-          >
-            <div className={ds.spotlight} aria-hidden="true" />
-            <div className={ds.aura} aria-hidden="true" />
+          <div ref={mapRef} onMouseMove={mapMove} onMouseLeave={mapLeave} className={`${S.sigMap} ds-spotHost ds-glow`}>
+            <div className="ds-spotlight" aria-hidden="true" />
+            <div className="ds-aura" aria-hidden="true" />
             <StreakHeatmap bare />
           </div>
           <div className={S.verdicts}>
@@ -512,7 +506,7 @@ export default function Stats() {
           `detailOpen &&`로 감싸 마운트 자체를 미루므로 닫힌 상태에선 네트워크 요청도 없다. */}
       <DetailDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title="학습 리포트 — 상세">
         {detailOpen && (
-          <Suspense fallback={<div className={`${ds.muted} ${ds.tiny}`}>상세 리포트를 불러오는 중…</div>}>
+          <Suspense fallback={<div className="ds-muted ds-tiny">상세 리포트를 불러오는 중…</div>}>
             <StatsDetail r={r} />
           </Suspense>
         )}

@@ -1,6 +1,6 @@
 /* TodayBlocks — 오늘 배치된 블록 + 블록별 4단계 흐름/방법론 액션.
    파생 스케줄(useSchedule)에서 오늘 Day를 찾고 layoutDay로 시각을 배정해 표시.
-   스타일: 공유는 ds.module(card/blk/donechk/swatch/muted/tiny/foot/empty), today 전용은 Tailwind 유틸(C-7). */
+   스타일: 공유는 전역 `ds-*`(card/blk/donechk/swatch/muted/tiny/foot/empty), today 전용은 Tailwind 유틸(C-7). */
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
@@ -11,7 +11,6 @@ import { isDone } from '@/lib/persistence';
 import { blankResultFor, clearBlankResult } from '@/lib/methodology';
 import { toHM, hLabel, fmt, todayISO } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 import type { ScheduleItem } from '@/lib/types';
 import { BLOCK_STAGES } from './consts';
 
@@ -63,9 +62,9 @@ export function TodayBlocks() {
 
   if (!items.length) {
     return (
-      <div className={ds.card} id="today-blocks">
+      <div className="ds-card" id="today-blocks">
         <h2>오늘의 블록</h2>
-        <div className={ds.empty}>
+        <div className="ds-empty">
           오늘 배치된 블록이 없어요. <b>학습 항목</b>·<b>일과</b> 탭에서 과목/가용시간을 설정하면 여기에 블록이
           나타납니다.
         </div>
@@ -105,12 +104,12 @@ export function TodayBlocks() {
   const clearBlank = (sid: string) => mutate((st) => clearBlankResult(st, ds2, sid));
 
   return (
-    <div className={ds.card} id="today-blocks">
+    <div className="ds-card" id="today-blocks">
       <h2>
-        오늘의 블록 <span className={`${ds.muted} ${ds.tiny}`}>{fmt(new Date(ds2 + 'T00:00:00'))}</span>
+        오늘의 블록 <span className="ds-muted ds-tiny">{fmt(new Date(ds2 + 'T00:00:00'))}</span>
       </h2>
       {/* 70% 룰 안내는 카드 상단에 한 번만(블록마다 반복하면 노이즈). 자세한 단계는 아래 흐름 가이드로. */}
-      <div className={ds.foot} style={{ margin: '-2px 0 12px' }}>
+      <div className="ds-foot" style={{ margin: '-2px 0 12px' }}>
         막히면 <b>70% 룰</b> — 10~15분만 씨름하고, 힌트는 한 조각씩. 자세한 흐름은 아래 ‘학습 원칙’에 있어요.
       </div>
 
@@ -123,7 +122,7 @@ export function TodayBlocks() {
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="checkbox"
-              className={ds.donechk}
+              className="ds-donechk"
               checked={done}
               onChange={(e) => onToggle(it, e.target.checked)}
               title="완료 표시"
@@ -133,14 +132,14 @@ export function TodayBlocks() {
                 DayPlanner `.mock`·WeekCalendar `.mock`과 같은 어휘라 세 뷰의 모의 색이 일치한다
                 (옛 scheduler의 저장 리터럴 '#b794f6' 제거에 따른 정합 — 절대규칙 3). */}
             <span
-              className={ds.swatch}
+              className="ds-swatch"
               style={{ background: it.type === 'mock' ? 'var(--bad)' : it.color || '#6ea8fe' }}
             />
             <b className={done ? 'line-through opacity-60' : ''}>{it.name}</b>
             {it.chapters && it.chapters.length > 0 && (
-              <span className={`${ds.muted} ${ds.tiny}`}> · {it.chapters.join(', ')}</span>
+              <span className="ds-muted ds-tiny"> · {it.chapters.join(', ')}</span>
             )}
-            <span className={`ml-auto ${ds.muted} ${ds.tiny}`}>
+            <span className="ds-muted ds-tiny ml-auto">
               {tm ? tm + ' · ' : ''}
               {hLabel(it.min)}
             </span>
@@ -149,7 +148,7 @@ export function TodayBlocks() {
 
         if (it.type === 'new') {
           return (
-            <div key={key} className={ds.blk}>
+            <div key={key} className="ds-blk">
               {head}
               <StageBar ml={ML} />
               <div className="mt-2.25 flex flex-wrap gap-1.5">
@@ -170,9 +169,9 @@ export function TodayBlocks() {
         if (it.type === 'blank') {
           const res2 = blankResultFor(state, ds2, it.sid);
           return (
-            <div key={key} className={ds.blk}>
+            <div key={key} className="ds-blk">
               {head}
-              <div className={`mt-1.75 leading-[1.5] ${ds.tiny} ${ds.muted}`}>
+              <div className="ds-tiny ds-muted mt-1.75 leading-[1.5]">
                 📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크.
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -183,7 +182,7 @@ export function TodayBlocks() {
                     ) : (
                       <Pill tone="warn">
                         ⚠ 막힘 기록됨{res2.note ? ' · ' + res2.note : ''}{' '}
-                        <span className={`${ds.muted} ${ds.tiny}`}>→ CBMS(C) 연결</span>
+                        <span className="ds-muted ds-tiny">→ CBMS(C) 연결</span>
                       </Pill>
                     )}{' '}
                     <Button sm variant="ghost" onClick={() => clearBlank(it.sid)} title="기록 지우기">
@@ -218,9 +217,9 @@ export function TodayBlocks() {
         // PL-3: mock도 설명만 있던 데드엔드였다 → 시험 후 오답·시간부족을 CBMS로 바로 분류(모의→CBMS 회고 루프 폐합).
         const isMock = it.type === 'mock';
         return (
-          <div key={key} className={ds.blk}>
+          <div key={key} className="ds-blk">
             {head}
-            {note && <div className={`mt-1.75 leading-[1.5] ${ds.tiny} ${ds.muted}`}>{note}</div>}
+            {note && <div className="ds-tiny ds-muted mt-1.75 leading-[1.5]">{note}</div>}
             {ankiLinked && (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>

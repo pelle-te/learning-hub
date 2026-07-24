@@ -1,13 +1,12 @@
 /* ItemCard — 과목 현황 카드(요약 전용). 계획 재개편 v3에서 아코디언을 걷어냈다:
    제자리 펼침은 뒤 카드를 밀어 갤러리 조망을 깨뜨렸다 → 클릭하면 SubjectSheet(중앙 시트)가 열린다.
    그래서 이 카드는 '읽는' 물건이고, 편집은 전부 시트가 소유한다.
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base. */
+   스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
 import { memo, type CSSProperties } from 'react';
 import { dayDiff, ddayInfo } from '@/lib/utils';
 import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
-import ds from '@/styles/ds.module.css';
 import type { Item } from '@/lib/types';
 
 // 과목명 톤 — 정적 맵(§15). 이름 유무로 색·굵기만 가른다(head 는 div[role=button] 이라
@@ -15,7 +14,7 @@ import type { Item } from '@/lib/types';
 const NAME_BASE = 'min-w-0 flex-1 truncate text-item-name tracking-title max-mobile:text-item-name-sm';
 const NAME_FILLED = 'font-extrabold text-txt';
 const NAME_EMPTY = 'font-bold text-mut';
-// ProgressRing 스켈레톤(ds.ringTrack/.ringArc) 조정 — 과목 틴트·얇은 5px·짧은 전이.
+// ProgressRing 스켈레톤('ds-ringTrack'/.ringArc) 조정 — 과목 틴트·얇은 5px·짧은 전이.
 // px·런타임 --tint 값이라 임의값 클래스로 표현 불가(예외 ②) → 인라인 커스텀 속성.
 const RING_VARS: CSSProperties = {
   ['--ring-w' as string]: 5,
@@ -73,10 +72,10 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`${ds.spotHost} ${ds.glow} relative self-start rounded-lg border border-line bg-panel bg-[image:var(--bg-item-card)] shadow-card tint-scope`}
+      className="ds-spotHost ds-glow relative self-start rounded-lg border border-line bg-panel bg-[image:var(--bg-item-card)] shadow-card tint-scope"
       style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
     >
-      <div className={ds.spotlight} aria-hidden="true" />
+      <div className="ds-spotlight" aria-hidden="true" />
       <div
         className="relative flex cursor-pointer flex-col gap-4 pt-4 pr-4.5 pb-4 pl-5 select-none focus-visible:rounded-lg! focus-visible:-outline-offset-2!"
         role="button"
@@ -134,9 +133,9 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
                   size={48}
                   r={20}
                   pct={prog}
-                  className={ds.ringSvg}
-                  trackClassName={ds.ringTrack}
-                  arcClassName={ds.ringArc}
+                  className="ds-ringSvg"
+                  trackClassName={'ds-ringTrack'}
+                  arcClassName={'ds-ringArc'}
                 />
                 <span className="absolute inset-0 flex items-center justify-center text-base14 font-extrabold tracking-ringnum text-txt tabular-nums">
                   {prog}

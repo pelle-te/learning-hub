@@ -9,7 +9,6 @@ import { useRecordEditor } from '@/shell/useRecordEditor';
 import { cbmsBetween, editCbms, delCbms, restoreCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
 import { Button } from '@/components/ui';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
-import ds from '@/styles/ds.module.css';
 import type { CbmsCode } from '@/lib/types';
 
 /* ── CBMS 오답 분류(방법론 6절) ── */
@@ -58,16 +57,16 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
     ui.toast('오답 추가됨', 'ok');
   };
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        오답 분류 CBMS <span className={`${ds.muted} ${ds.tiny}`}>— 틀린 이유별로 처방이 다르다</span>
+        오답 분류 CBMS <span className="ds-muted ds-tiny">— 틀린 이유별로 처방이 다르다</span>
       </h2>
-      <div className={ds.fieldgrid}>
-        <div className={ds.fld}>
+      <div className="ds-fieldgrid">
+        <div className="ds-fld">
           <label htmlFor={`${uid}-sid`}>과목</label>
           <SubjectSelect id={`${uid}-sid`} value={sid} onChange={setSid} />
         </div>
-        <div className={ds.fld}>
+        <div className="ds-fld">
           <label htmlFor={`${uid}-ch`}>챕터/문제</label>
           <input
             id={`${uid}-ch`}
@@ -79,7 +78,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
             placeholder="예) 3장 변위전류"
           />
         </div>
-        <div className={ds.fld}>
+        <div className="ds-fld">
           <label htmlFor={`${uid}-code`}>유형</label>
           <select id={`${uid}-code`} value={code} onChange={(e) => setCode(e.target.value as CbmsCode)}>
             {CBMS_CODES.map((c) => (
@@ -89,9 +88,9 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
             ))}
           </select>
         </div>
-        <div className={`${ds.fld} ${ds.wide}`}>
+        <div className="ds-fld ds-wide">
           <label htmlFor={`${uid}-note`}>
-            메모 <span className={`${ds.muted} ${ds.tiny}`}>(어디서 왜 막혔나)</span>
+            메모 <span className="ds-muted ds-tiny">(어디서 왜 막혔나)</span>
           </label>
           <input
             id={`${uid}-note`}
@@ -103,15 +102,15 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
           />
         </div>
       </div>
-      <label className={ds.tiny} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+      <label className="ds-tiny" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
         <input type="checkbox" checked={conf} onChange={(e) => setConf(e.target.checked)} /> 🎯{' '}
-        <b>찍어서 맞음/확신 없었음</b> <span className={ds.muted}>— 맞아도 다시 점검 대상(확신도 보정)</span>
+        <b>찍어서 맞음/확신 없었음</b> <span className="ds-muted">— 맞아도 다시 점검 대상(확신도 보정)</span>
       </label>
       <div style={{ marginTop: 10 }}>
         <Button variant="primary" onClick={submit}>
           오답 추가
         </Button>
-        <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 8 }}>
+        <span className="ds-muted ds-tiny" style={{ marginLeft: 8 }}>
           C 개념 · B 경계 · M 수학 · S 실수 · T 시간부족(모의시험)
         </span>
       </div>
@@ -121,9 +120,9 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
           const inf = CBMS_INFO[e.code] || { label: '?', tip: '', color: '#888' };
           if (editId === e.id) {
             return (
-              <div key={e.id} className={`${ds.rec} border-line-acc-hover! bg-tint-acc-faint!`}>
-                <div className={ds.fieldgrid}>
-                  <div className={ds.fld}>
+              <div key={e.id} className="ds-rec border-line-acc-hover! bg-tint-acc-faint!">
+                <div className="ds-fieldgrid">
+                  <div className="ds-fld">
                     <label htmlFor={`cb-edit-ch-${e.id}`}>챕터/문제</label>
                     <input
                       id={`cb-edit-ch-${e.id}`}
@@ -133,7 +132,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                       placeholder="예) 3장 변위전류"
                     />
                   </div>
-                  <div className={ds.fld}>
+                  <div className="ds-fld">
                     <label htmlFor={`cb-edit-code-${e.id}`}>유형</label>
                     <select
                       id={`cb-edit-code-${e.id}`}
@@ -147,7 +146,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                       ))}
                     </select>
                   </div>
-                  <div className={`${ds.fld} ${ds.wide}`}>
+                  <div className="ds-fld ds-wide">
                     <label htmlFor={`cb-edit-note-${e.id}`}>메모</label>
                     <input
                       id={`cb-edit-note-${e.id}`}
@@ -160,7 +159,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                   </div>
                 </div>
                 <label
-                  className={ds.tiny}
+                  className="ds-tiny"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6 }}
                 >
                   <input
@@ -182,14 +181,14 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
             );
           }
           return (
-            <div key={e.id} className={ds.rec}>
-              <div className={ds.recHead}>
-                <span className={ds.cbmsChip} style={{ '--c': inf.color } as React.CSSProperties}>
+            <div key={e.id} className="ds-rec">
+              <div className="ds-recHead">
+                <span className="ds-cbmsChip" style={{ '--c': inf.color } as React.CSSProperties}>
                   {e.code} {inf.label}
                 </span>
                 {e.conf && (
                   <span
-                    className={ds.cbmsChip}
+                    className="ds-cbmsChip"
                     style={{ '--c': '#888' } as React.CSSProperties}
                     title="확신 없이 맞힘 — 다시 점검 대상"
                   >
@@ -197,7 +196,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                   </span>
                 )}
                 <b>{e.name || ''}</b>
-                {e.chapter && <span className={`${ds.muted} ${ds.tiny}`}> · {e.chapter}</span>}
+                {e.chapter && <span className="ds-muted ds-tiny"> · {e.chapter}</span>}
                 <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(e)} title="수정">
                   ✎
                 </Button>
@@ -205,13 +204,13 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                   ✕
                 </Button>
               </div>
-              {e.note && <div className={ds.tiny}>{e.note}</div>}
-              <div className={`${ds.tiny} ${ds.muted}`}>처방: {inf.tip}</div>
+              {e.note && <div className="ds-tiny">{e.note}</div>}
+              <div className="ds-tiny ds-muted">처방: {inf.tip}</div>
             </div>
           );
         })
       ) : (
-        <div className={`${ds.empty} ${ds.tiny}`}>
+        <div className="ds-empty ds-tiny">
           오늘 기록한 오답이 없어요. '찍어서 맞은' 문제도 오답으로(확신 없으면 기록).
         </div>
       )}

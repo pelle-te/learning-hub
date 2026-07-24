@@ -35,7 +35,6 @@ import {
 import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -104,7 +103,7 @@ function SubjectRow({
     <div className="mb-4">
       <div className="mb-1.5 flex items-baseline gap-2">
         <b className="truncate text-md font-bold text-txt">{roll.subject}</b>
-        <span className={`${ds.tiny} ${ds.muted}`}>
+        <span className="ds-tiny ds-muted">
           {roll.abbr} · {roll.total}챕터 · 진척 {pct(roll.progress)}
           {!roll.srcPresent ? ' · 출처 없음' : ''}
         </span>
@@ -158,7 +157,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
       >
         ✕
       </button>
-      <div className={`${ds.tiny} ${ds.muted}`}>
+      <div className="ds-tiny ds-muted">
         {sel.subject} · {ch.chapter_id}
       </div>
       <div className="mt-0.5 mb-2.5 pr-6.5 text-lg font-extrabold text-txt">{ch.arc}</div>
@@ -176,7 +175,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
                 {done ? '✓' : ''}
               </span>
               <span className={`text-sm ${cur ? 'font-bold text-txt' : 'text-mut'}`}>
-                {m.label} <span className={`${ds.tiny} ${ds.muted}`}>{m.desc}</span>
+                {m.label} <span className="ds-tiny ds-muted">{m.desc}</span>
               </span>
             </div>
           );
@@ -185,14 +184,14 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-mut">
         <span>
           노트 <b className="text-txt tabular-nums">{ch.notes}</b>
-          {ch.concept ? <span className={ds.muted}> (개념 {ch.concept})</span> : null}
+          {ch.concept ? <span className="ds-muted"> (개념 {ch.concept})</span> : null}
         </span>
         <span>
           검증률 <b className="text-txt tabular-nums">{pct(ch.verified_ratio)}</b>
         </span>
         <span>
           카드 <b className="text-txt tabular-nums">{ch.cards}</b>
-          {ch.reps ? <span className={ds.muted}> · {ch.reps}회</span> : null}
+          {ch.reps ? <span className="ds-muted"> · {ch.reps}회</span> : null}
         </span>
         {ch.reviewed_recent ? (
           <span>
@@ -217,16 +216,16 @@ function Backlog({ l: led }: { l: Ledger }) {
   const { unprocessed_src: unp, subjects_without_src: nosrc } = led.backlog;
   if (!unp.length && !nosrc.length) return null;
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>
-        📥 백로그 <span className={`${ds.muted} ${ds.tiny}`}>(파이프라인에 아직 안 들어온 것)</span>
+        📥 백로그 <span className="ds-muted ds-tiny">(파이프라인에 아직 안 들어온 것)</span>
       </h3>
       {unp.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-1.25">
-          <div className={`${ds.tiny} ${ds.muted}`}>미처리 참고자료 — 폴더는 있으나 노트 미작성 ({unp.length})</div>
+          <div className="ds-tiny ds-muted">미처리 참고자료 — 폴더는 있으나 노트 미작성 ({unp.length})</div>
           <div className="flex flex-wrap gap-1.25">
             {unp.map((s) => (
-              <span key={s} className={ds.chip}>
+              <span key={s} className="ds-chip">
                 {s}
               </span>
             ))}
@@ -235,10 +234,10 @@ function Backlog({ l: led }: { l: Ledger }) {
       )}
       {nosrc.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-1.25">
-          <div className={`${ds.tiny} ${ds.muted}`}>출처 없는 과목 — 참고자료 폴더 미연결 ({nosrc.length})</div>
+          <div className="ds-tiny ds-muted">출처 없는 과목 — 참고자료 폴더 미연결 ({nosrc.length})</div>
           <div className="flex flex-wrap gap-1.25">
             {nosrc.map((s) => (
-              <span key={s} className={`${ds.chip} border-line-warn! text-warn!`}>
+              <span key={s} className="ds-chip border-line-warn! text-warn!">
                 {s}
               </span>
             ))}
@@ -256,13 +255,13 @@ function Bottleneck({ l: led }: { l: Ledger }) {
   const m = STAGE_META[b.stage];
   const gap = b.from - b.passed;
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h3>🎯 병목</h3>
       <div className="flex flex-col gap-1.5">
-        <span className={ds.kpi} style={{ color: m.color }}>
+        <span className="ds-kpi" style={{ color: m.color }}>
           {m.glyph} {m.label}
         </span>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           직전 단계 <b>{b.from}</b>챕터 중 <b>{b.passed}</b>만 {m.label} 통과 — <b>{gap}</b>챕터 대기.
           <br />
           {b.stage === 'verified'
@@ -282,16 +281,16 @@ function Setup() {
   return (
     <div className="m-auto max-w-off px-1.5 py-2">
       <h3 className="mt-0! mb-2! text-base! font-extrabold! tracking-tight!">아직 챕터 원장이 없어요</h3>
-      <ol className={ds.foot} style={{ lineHeight: 1.9 }}>
+      <ol className="ds-foot" style={{ lineHeight: 1.9 }}>
         <li>
           원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
-          <span className={ds.muted}> (또는 아래 “원장 재빌드” 버튼)</span>
+          <span className="ds-muted"> (또는 아래 “원장 재빌드” 버튼)</span>
         </li>
         <li>
           한 명령 전체 빌드: <code>python pipeline/_도구/빌드.py</code>
         </li>
       </ol>
-      <div className={`${ds.foot} ${ds.muted}`}>
+      <div className="ds-foot ds-muted">
         원장은 <code>subjects.json</code>(정본 slug·src) + 볼트 인덱스 + Anki 신호를 조인해 과목×챕터의 5단계 진척을
         집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
       </div>
@@ -346,7 +345,7 @@ export default function Ledger() {
     <section className="flex h-full min-h-0 min-w-0 flex-col gap-3.5 px-4.5 pt-4 pb-3.5" aria-label="정본 원장">
       {/* ── 히어로 밴드 — 파이프라인 퍼널 + 생성일 + 재빌드 ── */}
       <div
-        className={`relative flex flex-none animate-[rv-fade-up_0.46s_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4 ${HAIRLINE} ${ds.glow}`}
+        className={`relative flex flex-none animate-[rv-fade-up_0.46s_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4 ${HAIRLINE} ds-glow`}
       >
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>
@@ -365,13 +364,13 @@ export default function Ledger() {
         <div className="ml-auto flex flex-col items-end gap-2 max-wide:items-start">
           {loading && (
             <span className="text-xs text-mut tabular-nums">
-              <span className={ds.spin} /> 로드 중
+              <span className="ds-spin" /> 로드 중
             </span>
           )}
           <Button sm variant="primary" onClick={rebuild} disabled={rebuilding}>
             {rebuilding ? (
               <>
-                <span className={ds.spin} /> 빌드 중…
+                <span className="ds-spin" /> 빌드 중…
               </>
             ) : (
               <>🔁 원장 재빌드</>
@@ -383,9 +382,7 @@ export default function Ledger() {
       {led ? (
         <div className="relative grid min-h-0 flex-1 grid-cols-ledger gap-3.5 max-wide:grid-cols-1 max-wide:overflow-y-auto">
           {/* 좌 — 과목별 파이프라인 매트릭스(immersive) */}
-          <div
-            className={`relative flex min-h-0 min-w-0 animate-[rv-fade-up_0.46s_var(--ease)_0.06s_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none max-wide:min-h-85 ${ds.glow}`}
-          >
+          <div className="ds-glow relative flex min-h-0 min-w-0 animate-[rv-fade-up_0.46s_var(--ease)_0.06s_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none max-wide:min-h-85">
             <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1.5 px-5 pt-4 pb-1">
               <span className="text-xs font-extrabold tracking-caps text-mut uppercase">
                 과목별 파이프라인 — SUBJECT PIPELINE
@@ -424,8 +421,8 @@ export default function Ledger() {
         </div>
       ) : loading ? (
         <div className={OFF_WRAP}>
-          <div className={`m-auto max-w-off ${ds.muted}`}>
-            <span className={ds.spin} /> 챕터 원장 로드 중...
+          <div className="ds-muted m-auto max-w-off">
+            <span className="ds-spin" /> 챕터 원장 로드 중...
           </div>
         </div>
       ) : realError ? (
@@ -435,7 +432,7 @@ export default function Ledger() {
               ⚠
             </span>
             <h3 className="m-0! text-base! font-extrabold!">챕터 원장을 불러오지 못했어요</h3>
-            <div className={`${ds.foot} ${ds.muted}`}>{errMsg}</div>
+            <div className="ds-foot ds-muted">{errMsg}</div>
             <Button sm variant="primary" onClick={() => refetch()}>
               다시 시도
             </Button>

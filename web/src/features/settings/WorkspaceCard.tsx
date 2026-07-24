@@ -13,7 +13,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { isTauri, pickWorkspace, workspaceStatus, type WorkspaceStatus } from '@/lib/tauri';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
-import ds from '@/styles/ds.module.css';
 
 export default function WorkspaceCard() {
   const [status, setStatus] = useState<WorkspaceStatus | null>(null);
@@ -47,26 +46,25 @@ export default function WorkspaceCard() {
 
   const bad = !status.valid;
   return (
-    <div className={`${ds.card} ${ds.glow}`}>
+    <div className="ds-card ds-glow">
       <h2>
-        워크스페이스 폴더{' '}
-        <span className={`${ds.muted} ${ds.tiny}`}>— 파이썬 도구·산출물이 이 폴더 기준으로 돕니다</span>
+        워크스페이스 폴더 <span className="ds-muted ds-tiny">— 파이썬 도구·산출물이 이 폴더 기준으로 돕니다</span>
       </h2>
-      <div className={`${ds.row}`}>
-        <span className={`${ds.pill} ${bad ? ds.warn : ds.good}`}>
+      <div className="ds-row">
+        <span className={`ds-pill ${bad ? 'ds-warn' : 'ds-good'}`}>
           {bad ? '확인 필요' : status.inferred ? '자동 추론됨' : '설정됨'}
         </span>
-        <span className={`${ds.muted} ${ds.tiny}`}>{status.path || '경로 없음'}</span>
+        <span className="ds-muted ds-tiny">{status.path || '경로 없음'}</span>
       </div>
       {bad && (
-        <div className={ds.foot}>
+        <div className="ds-foot">
           폴더를 찾을 수 없어요(이동·이름 변경·외장 드라이브 분리). 폴더를 다시 지정하면 도구가 복구됩니다.
         </div>
       )}
       {status.inferred && !bad && (
-        <div className={ds.foot}>실행 위치에서 자동으로 찾은 경로예요. 맞다면 그대로 두고, 다르면 직접 지정하세요.</div>
+        <div className="ds-foot">실행 위치에서 자동으로 찾은 경로예요. 맞다면 그대로 두고, 다르면 직접 지정하세요.</div>
       )}
-      <div className={ds.row}>
+      <div className="ds-row">
         <Button sm variant={bad ? 'primary' : 'ghost'} onClick={() => void pick()} disabled={busy}>
           📁 폴더 지정
         </Button>

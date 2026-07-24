@@ -4,10 +4,10 @@
    순수 파생(읽기 전용 개요) — 입력은 아래 카드들이 소유. 데이터는 기존 selector 그대로.
 
    월드클래스 라운드(AmbientCanvas 언어) — 패널이 살아있는 발광 보드로: 포인터 추적
-   스포트라이트 + 색 오로라(ds.spotHost/spotlight/aura/glow) + 카운트 카운트업.
+   스포트라이트 + 색 오로라('ds-spotHost'/spotlight/aura/glow) + 카운트 카운트업.
 
    ── C-7 이식(journal) — Tailwind ──────────────────────────────────────────────
-   보드 껍데기는 ds.board(composes)를 유지하고, fill(시그니처 발광 보드) 델타만 `!` 로 얹는다.
+   보드 껍데기는 전역 `ds-board` 를 유지하고, fill(시그니처 발광 보드) 델타만 `!` 로 얹는다.
    시그니처 배경/상단 헤어라인은 review 가 토큰화한 --bg-sig-chart/--bg-sig-top 을 그대로 공유하고,
    마운트 애니는 rv-fade-up(tw.css)을 재사용한다(값·키프레임 동일). 노드/칩의 색·발광은 정적
    클래스로 자식에 직접 준다(규약 4 · 동적 조립 금지 — 백지 통과/막힘은 passed 로 가른다).
@@ -16,10 +16,9 @@ import { useApp } from '@/store/useApp';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { summariesFor, cbmsBetween, CBMS_INFO } from '@/lib/methodology';
 import { itemById } from '@/lib/utils';
-import ds from '@/styles/ds.module.css';
 import type { CbmsCode } from '@/lib/types';
 
-// fill 시그니처 보드 델타 — ds.board 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
+// fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
 const BOARD_FILL =
   "flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! shadow-card animate-[rv-fade-up_0.46s_var(--ease)_both] motion-reduce:animate-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
 // 스트림 행 · 노드 · 종류 칩의 공유 base(상태별 색은 아래에서 조건부로 얹는다).
@@ -70,10 +69,10 @@ export default function JournalStream({
       ref={ref}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`${ds.board} relative ${ds.spotHost} ${ds.glow}${fill ? ' ' + BOARD_FILL : ''}`}
+      className={`ds-board ds-spotHost relative ds-glow${fill ? ' ' + BOARD_FILL : ''}`}
     >
-      <div className={ds.spotlight} aria-hidden="true" />
-      <div className={ds.aura} aria-hidden="true" />
+      <div className="ds-spotlight" aria-hidden="true" />
+      <div className="ds-aura" aria-hidden="true" />
       <div className="mb-3 flex items-baseline justify-between">
         <span className="text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
           {titleLabel} — LOG
@@ -140,7 +139,7 @@ export default function JournalStream({
                     {fmtTime(e.at)}
                   </span>
                 )}
-                <span className={ds.cbmsChip} style={{ '--c': inf.color } as React.CSSProperties}>
+                <span className="ds-cbmsChip" style={{ '--c': inf.color } as React.CSSProperties}>
                   {e.code} {inf.label}
                 </span>
                 <span className="max-w-45 flex-none truncate text-md font-bold">{e.name || '오답'}</span>

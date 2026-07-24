@@ -17,7 +17,6 @@ import { pickRetrieval, pickConfidentWrong, type RetrievalCard, type ConfidentWr
 import { CBMS_INFO } from '@/lib/methodology';
 import { Button } from '@/components/ui';
 import type { AppState, Day } from '@/lib/types';
-import ds from '@/styles/ds.module.css';
 
 /* ── C-7 Tailwind 이식(두 번째 feature) ──────────────────────────────────
    `ReviewRun.module.css` 를 없앴다. discovery 에 없던 마찰 3종을 여기서 처음 만났고,
@@ -32,7 +31,7 @@ import ds from '@/styles/ds.module.css';
    ③ **속성 셀렉터**(`.badge[data-kind]`) → `data-[kind=…]:` 변형. CSS 에서 하던 것의
       정공법 대응물이라 린트가 허용한다(그 규칙은 값만 막는다).
 
-   ⚠ `ds.card`·`ds.glow`·`ds.muted`·`ds.tiny` 는 그대로 둔다 — `ds.module.css` 는
+   ⚠ `'ds-card'`·`'ds-glow'`·`'ds-muted'`·`'ds-tiny'` 는 그대로 둔다 — 공유 디자인 시스템은
    공유 SSOT 라 **맨 마지막**이다(건드리면 스냅샷 59장이 전부 흔들린다). 혼용이 정상. */
 const WRAP = 'flex h-full flex-col items-center justify-center gap-4 p-runner-pad';
 const CARD_BASE = 'flex w-full flex-col gap-3';
@@ -113,12 +112,12 @@ export default function ReviewRun() {
   if (total === 0) {
     return (
       <div className={WRAP}>
-        <div className={`${ds.card} ${ds.glow} ${CENTER}`}>
+        <div className={`ds-card ds-glow ${CENTER}`}>
           <div className="text-runner-mark leading-none" aria-hidden="true">
             ✓
           </div>
           <h2>복습할 게 없어요</h2>
-          <p className={ds.muted}>밀린 챕터도, 다시 인출할 요약·착각도 없습니다. 오늘 새 학습에 집중하세요.</p>
+          <p className="ds-muted">밀린 챕터도, 다시 인출할 요약·착각도 없습니다. 오늘 새 학습에 집중하세요.</p>
           <div className={ACTS_CENTER}>
             <Button onClick={() => nav('/today')}>오늘 학습으로</Button>
           </div>
@@ -131,12 +130,12 @@ export default function ReviewRun() {
   if (finished) {
     return (
       <div className={WRAP}>
-        <div className={`${ds.card} ${ds.glow} ${CENTER}`}>
+        <div className={`ds-card ds-glow ${CENTER}`}>
           <div className="text-runner-mark leading-none" aria-hidden="true">
             🎯
           </div>
           <h2>복습 세션 완료</h2>
-          <p className={ds.muted}>
+          <p className="ds-muted">
             {total}개 중 <strong>{doneCount}</strong>개를 인출했어요. 남은 챕터는 볼트에서 이어가세요.
           </p>
           <div className={ACTS_CENTER}>
@@ -172,12 +171,12 @@ export default function ReviewRun() {
       </div>
 
       {item.kind === 'retrieval' && (
-        <div className={`${ds.card} ${ds.glow} ${CARD_BASE} max-w-runner`} data-kind="retrieval">
+        <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="retrieval">
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="retrieval">
               회상
             </span>
-            <span className={ds.tiny}>
+            <span className="ds-tiny">
               {step} · {item.card.ageDays}일 전 요약
             </span>
           </div>
@@ -192,7 +191,7 @@ export default function ReviewRun() {
               <li>{item.card.summary.s3}</li>
             </ol>
           ) : (
-            <p className={ds.muted}>머릿속으로 먼저 인출한 뒤, 아래로 내 원래 요약과 대조하세요.</p>
+            <p className="ds-muted">머릿속으로 먼저 인출한 뒤, 아래로 내 원래 요약과 대조하세요.</p>
           )}
           <div className={ACTS_END}>
             {!revealed && (
@@ -209,12 +208,12 @@ export default function ReviewRun() {
       )}
 
       {item.kind === 'confident' && (
-        <div className={`${ds.card} ${ds.glow} ${CARD_BASE} max-w-runner`} data-kind="confident">
+        <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="confident">
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="confident">
               착각 재확인
             </span>
-            <span className={ds.tiny}>
+            <span className="ds-tiny">
               {step} · {item.card.ageDays}일 전 · {CBMS_INFO[item.card.cbms.code].label}
             </span>
           </div>
@@ -226,10 +225,10 @@ export default function ReviewRun() {
           {revealed ? (
             <div className={REVEAL}>
               <p className="whitespace-pre-wrap">{item.card.cbms.note || '(메모 없음)'}</p>
-              <p className={ds.tiny}>처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
+              <p className="ds-tiny">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
             </div>
           ) : (
-            <p className={ds.muted}>먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
+            <p className="ds-muted">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
           )}
           <div className={ACTS_END}>
             {!revealed && (
@@ -255,12 +254,12 @@ export default function ReviewRun() {
       )}
 
       {item.kind === 'chapter' && (
-        <div className={`${ds.card} ${ds.glow} ${CARD_BASE} max-w-runner`} data-kind="chapter" data-risk={item.ch.risk}>
+        <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="chapter" data-risk={item.ch.risk}>
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="chapter" data-risk={item.ch.risk}>
               {item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}
             </span>
-            <span className={ds.tiny}>
+            <span className="ds-tiny">
               {step} · {item.ch.daysSince}일 방치
             </span>
           </div>
@@ -272,7 +271,7 @@ export default function ReviewRun() {
             />
             {item.ch.subject} <small className="text-base font-medium opacity-70">{item.ch.chapter}</small>
           </h2>
-          <p className={ds.muted}>
+          <p className="ds-muted">
             배웠지만 {item.ch.daysSince}일 안 봤어요(마지막 {item.ch.lastDs}). 지금 인출해 망각곡선을 리셋하세요.
           </p>
           <div className={ACTS_END}>

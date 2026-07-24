@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { Button, Pill } from '@/components/ui';
 import type { AppState } from '@/lib/types';
-import ds from '@/styles/ds.module.css';
 
 /** 셋업 완료 판정 — 과목 1개 이상 + 목표(일일분/주당시간/챕터) 1개 이상. Today와 공유(단일 원천). */
 export function setupComplete(items: AppState['items']): boolean {
@@ -64,13 +63,11 @@ export function SetupGuide() {
   const done = steps.filter((s) => s.ok).length;
 
   return (
-    <div
-      className={`${ds.card} w-full max-w-runner-narrow border-[color:var(--line-setup)]! shadow-[var(--shadow-setup-card)]!`}
-    >
+    <div className="ds-card w-full max-w-runner-narrow border-[color:var(--line-setup)]! shadow-[var(--shadow-setup-card)]!">
       <h2>
-        시작하기 <span className={`${ds.muted} ${ds.tiny}`}>— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span>
+        시작하기 <span className="ds-muted ds-tiny">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span>
       </h2>
-      <div className={ds.row} style={{ alignItems: 'center', marginBottom: 6 }}>
+      <div className="ds-row" style={{ alignItems: 'center', marginBottom: 6 }}>
         <Pill tone={done === 3 ? 'good' : 'warn'}>{done}/3 완료</Pill>
         <span className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-panel2 shadow-[var(--shadow-inset-line-soft)]">
           <i
@@ -91,7 +88,7 @@ export function SetupGuide() {
             <div className="mb-px text-base14 font-semibold">
               {s.ok ? <s className="text-mut [text-decoration-color:var(--setup-strike)]">{s.title}</s> : s.title}
             </div>
-            <div className={`${ds.muted} ${ds.tiny}`}>{s.desc}</div>
+            <div className="ds-muted ds-tiny">{s.desc}</div>
             {!s.ok && <div className="mt-2 flex flex-wrap gap-1.75">{s.actions}</div>}
           </div>
         </div>

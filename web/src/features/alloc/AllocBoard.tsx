@@ -27,7 +27,6 @@ import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import type { ScheduleResult } from '@/lib/types';
-import ds from '@/styles/ds.module.css';
 
 /* ── AllocBoard — CSS Module → Tailwind 유틸 이식(C-7) ────────────────────────────
    1px 그리드선은 grid gap + 배경(cell=panel/panel2, gap=line)으로 그린다. 셀은 role 정직한 표.
@@ -238,20 +237,20 @@ export function AllocBoard({
       </div>
 
       {!hasCap && (
-        <div className={ds.note}>
+        <div className="ds-note">
           이번 주 <b>가용시간</b>이 0이에요 — 뼈대(일과)에서 수업·수면을 확인하면 배분 여력이 생겨요.
         </div>
       )}
 
       {noTime.length > 0 && (
-        <div className={ds.note}>
+        <div className="ds-note">
           <b>{noTime.map((it) => it.name).join(', ')}</b>은(는) <b>주당 목표 시간</b>이 없어 배분해도{' '}
           <b>시간 없음 · 스케줄 안 됨</b>이에요 — 과목에서 주당 시간을 넣어야 <b>새 학습</b>이 놓여요.
         </div>
       )}
 
       {inertFinished.length > 0 && (
-        <div className={ds.noteInfo}>
+        <div className="ds-noteInfo">
           완료 과목 <b>{inertFinished.map((it) => it.name).join(', ')}</b>에는 배분해도 계획상 챕터를 다 배우게 돼 있어{' '}
           <b>새 학습</b>은 안 생겨요 — 복습·Anki만 자동으로 얹혀요.
         </div>

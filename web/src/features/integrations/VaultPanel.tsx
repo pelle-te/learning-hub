@@ -21,7 +21,6 @@ import { isTauri, onVaultChanged } from '@/lib/tauri';
 import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
 import { Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 
 export function VaultPanel() {
   const qc = useQueryClient();
@@ -179,15 +178,15 @@ export function VaultPanel() {
 
   return (
     <>
-      <div className={ds.card}>
+      <div className="ds-card">
         <h2>옵시디언 볼트 현황</h2>
-        <div className={ds.row}>
+        <div className="ds-row">
           {/* 셸에선 폴더 연동·해제 버튼이 없다 — 볼트 위치를 앱이 알고, 변경은 감시가 알려 준다. */}
           {!isTauri() && (
             <Button sm variant="primary" disabled={busy} onClick={doScan}>
               {busy ? (
                 <>
-                  <span className={ds.spin} /> 스캔 중...
+                  <span className="ds-spin" /> 스캔 중...
                 </>
               ) : scan ? (
                 '🔄 다시 스캔'
@@ -221,18 +220,18 @@ export function VaultPanel() {
           )}
           <div style={{ flex: 3 }} />
         </div>
-        <div className={ds.foot}>
+        <div className="ds-foot">
           {isTauri()
             ? '워크스페이스의 knowledge 폴더를 읽습니다 — 파일이 바뀌면 자동으로 갱신돼요. 항목 옆 ‘+스케줄’로 바로 학습 항목에 넣어요.'
             : "전공 폴더를 고르면 과목→챕터→노트 수와 검증/Anki 상태(YAML)를 읽습니다. 항목 옆 '+스케줄'로 바로 학습 항목에 넣어요. (Chrome/Edge)"}
         </div>
         {err && (
-          <div className={ds.warnbox} role="alert" style={{ marginTop: 8 }}>
+          <div className="ds-warnbox" role="alert" style={{ marginTop: 8 }}>
             {err}
           </div>
         )}
         {scan && (
-          <div className={`${ds.muted} ${ds.tiny}`} style={{ marginTop: 6 }}>
+          <div className="ds-muted ds-tiny" style={{ marginTop: 6 }}>
             📂 {isTauri() ? '감시 중' : '연동됨'}: <b style={{ color: 'var(--ink)' }}>{handle?.name || 'knowledge'}</b>{' '}
             · 스캔 {scan.at} · 과목 {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
           </div>
@@ -240,7 +239,7 @@ export function VaultPanel() {
       </div>
 
       {scan && (
-        <div className={ds.card}>
+        <div className="ds-card">
           {scan.subjects.map((s, si) => {
             // 노트 0개면 0/0=NaN → 헤더·진행바가 'NaN%'가 된다. 0%로 가드.
             const vp = s.notes ? Math.round((s.verified / s.notes) * 100) : 0;
@@ -264,7 +263,7 @@ export function VaultPanel() {
                   }}
                 >
                   <b style={{ flex: 1 }}>{s.name}</b>
-                  <span className={`${ds.tiny} ${ds.muted}`}>
+                  <span className="ds-tiny ds-muted">
                     노트 {s.notes} · 검증 {s.verified}({vp}%){s.wip ? ` · 진행중 ${s.wip}` : ''}
                     {s.legacy ? ` · 구버전 ${s.legacy}` : ''} · Anki {s.exported}({ep}%)
                     {uncovered > 0 ? ` · 🃏 미출력 ${uncovered}` : ''}
@@ -279,7 +278,7 @@ export function VaultPanel() {
                     +학습항목(챕터 포함)
                   </Button>
                 </div>
-                <div className={ds.bar} style={{ margin: '0 12px 6px' }}>
+                <div className="ds-bar" style={{ margin: '0 12px 6px' }}>
                   <i style={{ width: `${vp}%`, background: 'var(--acc)', boxShadow: '0 0 8px var(--glow)' }} />
                 </div>
                 {isOpen && (
@@ -291,7 +290,7 @@ export function VaultPanel() {
                           className="flex items-center gap-2 border-b border-dashed border-line-soft py-1.25 text-md last:border-b-0"
                         >
                           <span className="flex-1">{c.name}</span>
-                          <span className={`${ds.tiny} ${ds.muted}`}>
+                          <span className="ds-tiny ds-muted">
                             {c.notes}노트 · 검증 {c.verified}
                             {c.wip ? ` · 진행중 ${c.wip}` : ''}
                             {c.legacy ? ` · 구버전 ${c.legacy}` : ''} · Anki {c.exported}
@@ -302,7 +301,7 @@ export function VaultPanel() {
                         </div>
                       ))
                     ) : (
-                      <div className={`${ds.muted} ${ds.tiny}`}>하위 챕터 없음</div>
+                      <div className="ds-muted ds-tiny">하위 챕터 없음</div>
                     )}
                   </div>
                 )}

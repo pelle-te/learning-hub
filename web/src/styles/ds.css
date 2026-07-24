@@ -1,21 +1,36 @@
 /* ============================================================
-   ds.module.css — 공유 디자인 시스템(CSS Module 전환 · composes 대상).
-   전역 styles/global/*.css의 *클래스 기반 디자인 시스템*을 로컬 스코프로 옮기는 단일 원천.
-   (요소·:root 토큰·리셋은 전역 base 레이어로 유지 — CSS Modules는 클래스/ID만 스코프.)
+   ds.css — 공유 디자인 시스템(C-7 마지막 티어 · 옛 `ds.module.css` 의 승격판).
 
-   사용: import ds from '@/styles/ds.module.css';  <div className={ds.card}>
-        조합: className={`${ds.card} ${ds.muted}`} 또는 컴포넌트 모듈에서 `composes: card from '@/styles/ds.module.css'`.
+   ## 왜 CSS Module 을 그만뒀나
 
-   ⚠ 클래스 정의 순서 = 원본 components.css → features.css 순서를 그대로 유지한다.
-   CSS Modules에서도 같은 특이도면 *소스 순서*가 승자를 정하므로(예: `pill tiny`는 tiny가
-   pill보다 뒤라 11.5px가 이김), 순서를 보존해야 전역과 픽셀 동일.
+   이 파일의 클래스는 **41개 파일이 800회** 쓰는 공유물이다. 앞선 티어들처럼 소비처 JSX 로
+   인라인하면 같은 문자열이 수백 번 복제되고, `.ds-card` 의 `::before`·`:nth-child` 스태거처럼
+   **유틸리티로 표현조차 불가능한 것들**은 어차피 CSS 로 남는다. 그래서 스코프만 벗기고
+   `ds-` 접두를 붙여 전역으로 올린다(사용자 결정 2026-07-24).
 
-   전환 정책: 슬라이스 단위로 소비처를 ds.*로 옮기고, 전역 정의는 모든 소비처 이전 완료 후 제거.
-   값은 styles/global/*.css와 동일(드리프트 0).
+   ## ⚠ 레이어에 넣지 않는다 — 의도다
+
+   `@layer components` 에 넣으면 **유틸리티가 이 클래스들을 이긴다.** 지금은 정반대다:
+   CSS Module 은 언레이어드라 `${ds.card} p-0` 에서 카드의 패딩이 이겼다. 레이어로 내리는 순간
+   그 관계가 뒤집혀 **21개 feature 의 이식분이 조용히 다르게 렌더된다.** 승격의 계약은
+   "픽셀 동일"(I6)이므로 캐스케이드 위치도 그대로 둔다.
+   ⚠ 따라서 **유틸리티로 이 클래스의 속성을 덮으려면 `!` 가 필요하다** — 전역 `button{}`·`h1~h3{}`·
+   `.modal` 과 같은 취급이다(설계서 §15-8 ① · §15-10).
+
+   ## ⚠ 정의 순서 = 원본 순서 (건드리지 말 것)
+
+   같은 특이도면 **소스 순서**가 승자를 정한다. 예: `ds-pill ds-tiny` 는 `.ds-tiny` 가 뒤에 있어서
+   font-size 가 tiny 로 풀린다. 순서를 바꾸면 그 조합이 조용히 달라진다.
+
+   ## 이름 규약
+
+   전부 `ds-` 접두다. 전역이 된 순간 `card`·`row`·`empty` 같은 이름은 너무 흔해서 전역 앱크롬
+   (`.modal`·`.menu`)이나 미래의 유틸과 부딪힐 수 있고, 접두가 있으면 **호출부에서 출처가 보인다**.
+   eslint `no-unknown-classes` 도 패턴 하나(`^ds-`)로 면제된다.
 ============================================================ */
 
 /* ── 카드 ── */
-.card {
+.ds-card {
   position: relative;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -27,7 +42,7 @@
     border-color 0.2s var(--ease),
     box-shadow 0.2s var(--ease);
 }
-.card::before {
+.ds-card::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
@@ -36,27 +51,27 @@
   background: linear-gradient(90deg, transparent, var(--hairline), transparent);
   pointer-events: none;
 }
-.card:hover {
+.ds-card:hover {
   border-color: color-mix(in srgb, var(--acc) 28%, var(--line));
 }
 /* 등장 모션 — 마운트 시 부드럽게 떠오름(스태거). 재렌더가 아니라 마운트에만 1회 실행.
    reduced-motion은 motion.css 전역 백스톱이 즉시 처리. */
-.card {
+.ds-card {
   animation: cardIn 0.44s var(--ease) both;
 }
-.card:nth-child(2) {
+.ds-card:nth-child(2) {
   animation-delay: 0.05s;
 }
-.card:nth-child(3) {
+.ds-card:nth-child(3) {
   animation-delay: 0.1s;
 }
-.card:nth-child(4) {
+.ds-card:nth-child(4) {
   animation-delay: 0.15s;
 }
-.card:nth-child(5) {
+.ds-card:nth-child(5) {
   animation-delay: 0.2s;
 }
-.card:nth-child(n + 6) {
+.ds-card:nth-child(n + 6) {
   animation-delay: 0.24s;
 }
 @keyframes cardIn {
@@ -71,9 +86,9 @@
 }
 
 /* ── 보드 패널 — 시그니처 위젯(로드맵·텔레메트리·기록 스트림)의 공통 껍데기.
-   세 feature가 각자 "WeekGrid/.board 결 통일"이라 주석까지 달아놓고 같은 값을 손으로 복제하고 있었다.
-   여기가 SSOT — 각 모듈은 composes로 가져가고 자기 델타(패딩 하단·마진·position 등)만 얹는다. */
-.board {
+   세 feature가 각자 "WeekGrid/.ds-board 결 통일"이라 주석까지 달아놓고 같은 값을 손으로 복제하고 있었다.
+   여기가 SSOT — 각 소비처는 이 클래스를 쓰고 자기 델타(패딩 하단·마진·position 등)만 유틸로 얹는다(`!` 필요). */
+.ds-board {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--panel) 40%, transparent);
@@ -81,10 +96,10 @@
   margin-bottom: 14px;
 }
 
-/* ── 리드아웃 타일 — "큰 숫자 + 작은 라벨" 카드. ds.kpi(격자용·22px)와 달리 단독/줄 배치를 전제로 한
+/* ── 리드아웃 타일 — "큰 숫자 + 작은 라벨" 카드. ds.ds-kpi(격자용·22px)와 달리 단독/줄 배치를 전제로 한
    조금 더 큰(24px) 표기다. Stats와 Settings가 이 세 규칙을 **바이트 단위로 동일하게** 복붙하고 있었고
-   그중 .roNum은 6개 선언이 한 글자도 다르지 않았다 — 여기가 SSOT, 각자 델타만 얹는다. */
-.ro {
+   그중 .ds-roNum은 6개 선언이 한 글자도 다르지 않았다 — 여기가 SSOT, 각자 델타만 얹는다. */
+.ds-ro {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -96,7 +111,7 @@
   background: color-mix(in srgb, var(--ink) 2%, var(--panel));
   box-shadow: var(--shadow-sm);
 }
-.roNum {
+.ds-roNum {
   font-size: 24px;
   font-weight: 800;
   line-height: 1;
@@ -104,12 +119,12 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
-.roNum small {
+.ds-roNum small {
   font-size: 13px;
   font-weight: 700;
   color: var(--mut);
 }
-.roLab {
+.ds-roLab {
   font-size: 10.5px;
   color: var(--mut);
   font-weight: 600;
@@ -117,12 +132,15 @@
   line-height: 1.3;
 }
 
-/* ── 인라인 노트 — 화면 흐름 안에 얹는 한두 줄 안내. ds.warnbox(좌측 바 + 경고색 글자)와 달리
+/* ── 인라인 노트 — 화면 흐름 안에 얹는 한두 줄 안내. ds.ds-warnbox(좌측 바 + 경고색 글자)와 달리
    본문색을 유지하고 배경만 옅게 틴트한다(정보 > 경보).
-   틴트는 --tint 변수 하나로 갈린다: 기본 warn, 정보성은 .noteInfo가 acc로 바꾼다.
-   alloc(3벌)·schedule(1벌)이 같은 골격을 각자 복제하고 있었다 — 그중 alloc의 .note와 .noteWarn은
+   틴트는 --tint 변수 하나로 갈린다: 기본 warn, 정보성은 .ds-noteInfo가 acc로 바꾼다.
+   alloc(3벌)·schedule(1벌)이 같은 골격을 각자 복제하고 있었다 — 그중 alloc의 .ds-note와 .ds-noteWarn은
    완전히 동일했다(한 파일 안에서의 복제). */
-.note {
+/* ⚠ `composes: note` 해체 — CSS Modules 전용 기능이라 전역에는 없다.
+   선택자 그룹으로 바꿔 두 클래스가 같은 규칙을 받게 하고, 델타(--tint)만 뒤에 얹는다. */
+.ds-note,
+.ds-noteInfo {
   --tint: var(--warn);
   flex: none;
   padding: 8px 12px;
@@ -133,27 +151,27 @@
   border: 1px solid color-mix(in srgb, var(--tint) 38%, var(--line));
   border-radius: var(--r);
 }
-.note b {
+.ds-note b,
+.ds-noteInfo b {
   color: var(--tint);
   font-weight: 700;
 }
-.noteInfo {
-  composes: note;
+.ds-noteInfo {
   --tint: var(--acc);
 }
 
 /* ── 레이아웃 ── */
-.row {
+.ds-row {
   display: flex;
   gap: var(--sp-2);
   flex-wrap: wrap;
 }
-.row > * {
+.ds-row > * {
   flex: 1;
 }
 
 /* ── 작은 시각 요소(원본 순서: swatch → pill → muted → tiny) ── */
-.swatch {
+.ds-swatch {
   width: 11px;
   height: 11px;
   border-radius: 3px;
@@ -162,7 +180,7 @@
   margin-right: 5px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18) inset;
 }
-.pill {
+.ds-pill {
   display: inline-block;
   padding: 2px 9px;
   border-radius: 99px;
@@ -171,41 +189,41 @@
   background: var(--panel2);
   border: 1px solid var(--line);
 }
-.pill.good {
+.ds-pill.ds-good {
   color: var(--good);
   border-color: color-mix(in srgb, var(--good) 45%, var(--line));
   background: color-mix(in srgb, var(--good) 10%, transparent);
 }
-.pill.warn {
+.ds-pill.ds-warn {
   color: var(--warn);
   border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
   background: color-mix(in srgb, var(--warn) 10%, transparent);
 }
-.pill.bad {
+.ds-pill.ds-bad {
   color: var(--bad);
   border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
   background: color-mix(in srgb, var(--bad) 10%, transparent);
 }
-.muted {
+.ds-muted {
   color: var(--mut);
 }
-.tiny {
+.ds-tiny {
   font-size: var(--fs-sm);
 }
 
 /* ── KPI ── */
-.kpis {
+.ds-kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--sp-3);
   margin-bottom: 17px;
 }
 @media (max-width: 560px) {
-  .kpis {
+  .ds-kpis {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-.kpi {
+.ds-kpi {
   position: relative;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -219,36 +237,36 @@
     box-shadow 0.18s var(--ease);
   animation: ds-fadeUp 0.4s var(--ease) both;
 }
-.kpi:hover {
+.ds-kpi:hover {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--acc) 30%, var(--line));
   box-shadow: var(--shadow-md);
 }
-.kpi .v {
+.ds-kpi .ds-v {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
 }
-.kpi .l {
+.ds-kpi .ds-l {
   font-size: var(--fs-sm);
   color: var(--mut);
   margin-top: 1px;
   word-break: keep-all;
 }
-.kpis .kpi:nth-child(2) {
+.ds-kpis .ds-kpi:nth-child(2) {
   animation-delay: 0.05s;
 }
-.kpis .kpi:nth-child(3) {
+.ds-kpis .ds-kpi:nth-child(3) {
   animation-delay: 0.1s;
 }
-.kpis .kpi:nth-child(4) {
+.ds-kpis .ds-kpi:nth-child(4) {
   animation-delay: 0.15s;
 }
 
 /* ── 경고 박스 ── */
-.warnbox {
+.ds-warnbox {
   background: color-mix(in srgb, var(--warn) 12%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
   color: var(--warn);
@@ -258,7 +276,7 @@
   font-size: var(--fs-md);
   position: relative;
 }
-.warnbox::before {
+.ds-warnbox::before {
   content: '';
   position: absolute;
   left: 0;
@@ -268,17 +286,17 @@
   border-radius: var(--r-md) 0 0 var(--r-md);
   background: var(--warn);
 }
-.warnbox.bad {
+.ds-warnbox.ds-bad {
   background: color-mix(in srgb, var(--bad) 12%, var(--panel));
   border-color: color-mix(in srgb, var(--bad) 40%, var(--line));
   color: var(--bad);
 }
-.warnbox.bad::before {
+.ds-warnbox.ds-bad::before {
   background: var(--bad);
 }
 
 /* ── 진행 막대 ── */
-.bar {
+.ds-bar {
   height: 6px;
   border-radius: 99px;
   background: var(--panel2);
@@ -286,33 +304,33 @@
   margin: 7px 13px;
   box-shadow: inset 0 0 0 1px var(--line-soft);
 }
-.bar > i {
+.ds-bar > i {
   display: block;
   height: 100%;
   border-radius: 99px;
   transition: width 0.4s var(--ease);
 }
 
-.empty {
+.ds-empty {
   color: var(--mut);
   text-align: center;
   padding: 32px 10px;
 }
-.foot {
+.ds-foot {
   margin-top: 7px;
   font-size: 11px;
   color: var(--mut);
 }
 
 /* ── 세그먼트 컨트롤 ── */
-.seg {
+.ds-seg {
   display: inline-flex;
   border: 1px solid var(--line);
   border-radius: 9px;
   overflow: hidden;
   background: var(--panel2);
 }
-.seg button {
+.ds-seg button {
   border: none;
   border-radius: 0;
   background: transparent;
@@ -320,18 +338,18 @@
   color: var(--mut);
   font-weight: 500;
 }
-.seg button:hover {
+.ds-seg button:hover {
   background: color-mix(in srgb, var(--acc) 8%, transparent);
   color: var(--txt);
 }
-.seg button.on {
+.ds-seg button.ds-on {
   background: var(--acc);
   color: var(--on-acc);
   font-weight: 700;
 }
 
 /* ── 스피너 ── */
-.spin {
+.ds-spin {
   display: inline-block;
   width: 13px;
   height: 13px;
@@ -343,30 +361,30 @@
 }
 
 /* ── 완료 체크박스(today 블록·schedule 타임라인 공유) ── */
-input.donechk {
+input.ds-donechk {
   margin: 0 7px 0 0;
 }
-input.donechk:checked {
+input.ds-donechk:checked {
   background: var(--good);
   border-color: var(--good);
 }
 
 /* ── 블록 카드(today 블록·routine 공유) ── */
-.blk {
+.ds-blk {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   padding: 11px 13px;
   margin-bottom: 10px;
   background: var(--panel2);
 }
-.blk:last-child {
+.ds-blk:last-child {
   margin-bottom: 0;
 }
 
-/* ── 타임라인 행 — stats의 최근 활동 목록. 한때 여기 주간그리드 서브시스템(.weekgrid·.day·.dh·
-   .todaychip·.nowline·.rowdone 등 ~135줄)이 함께 있었으나, 주·월 뷰가 feature 모듈
+/* ── 타임라인 행 — stats의 최근 활동 목록. 한때 여기 주간그리드 서브시스템(.ds-weekgrid·.day·.dh·
+   .ds-todaychip·.nowline·.rowdone 등 ~135줄)이 함께 있었으나, 주·월 뷰가 feature 모듈
    (WeekCalendar.module.css 등)로 이관되며 전부 사어가 돼 제거했다. 남은 소비처는 Stats.tsx 하나. */
-.tl {
+.ds-tl {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -374,27 +392,27 @@ input.donechk:checked {
   border-bottom: 1px dashed var(--line-soft);
   font-size: 13px;
 }
-.tl:last-child {
+.ds-tl:last-child {
   border-bottom: none;
 }
-.tl .tm {
+.ds-tl .ds-tm {
   color: var(--mut);
   font-size: var(--fs-sm);
   min-width: 92px;
   font-variant-numeric: tabular-nums;
 }
-.tl .nm {
+.ds-tl .ds-nm {
   flex: 1;
   word-break: keep-all;
 }
 
 /* ── 접이식 목록(아코디언) — items↔degree 공유 (원본 features.css 순서) ── */
-.itemrow {
+.ds-itemrow {
   padding: 0;
   overflow: hidden;
   margin-bottom: 8px;
 }
-.itemhead {
+.ds-itemhead {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -403,20 +421,20 @@ input.donechk:checked {
   user-select: none;
   transition: background 0.14s var(--ease);
 }
-.itemhead:hover {
+.ds-itemhead:hover {
   background: var(--panel2);
 }
-.itemrow.open > .itemhead {
+.ds-itemrow.ds-open > .ds-itemhead {
   border-bottom: 1px solid var(--line-soft);
 }
-.chev {
+.ds-chev {
   color: var(--mut);
   font-size: 11px;
   width: 12px;
   text-align: center;
   flex: none;
 }
-.itemname {
+.ds-itemname {
   font-weight: 600;
   font-size: 14px;
   flex: 1;
@@ -425,7 +443,7 @@ input.donechk:checked {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.itemmeta {
+.ds-itemmeta {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -433,30 +451,30 @@ input.donechk:checked {
   justify-content: flex-end;
   flex: none;
 }
-.itembody {
+.ds-itembody {
   padding: 14px;
 }
 @media (max-width: 560px) {
-  .itemmeta .muted.tiny {
+  .ds-itemmeta .ds-muted.ds-tiny {
     display: none;
   }
 }
-.fieldgrid {
+.ds-fieldgrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 11px 12px;
   align-items: end;
 }
-.fieldgrid .fld.wide {
+.ds-fieldgrid .ds-fld.ds-wide {
   grid-column: 1 / -1;
 }
-.fld label {
+.ds-fld label {
   margin: 0 0 4px;
 }
-.fld > .row {
+.ds-fld > .ds-row {
   max-width: none;
 }
-.itemfoot {
+.ds-itemfoot {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -465,93 +483,93 @@ input.donechk:checked {
   padding-top: 11px;
   border-top: 1px solid var(--line-soft);
 }
-.chapwrap {
+.ds-chapwrap {
   margin-top: 14px;
   border-top: 1px solid var(--line-soft);
   padding-top: 12px;
 }
-.chapwrap > summary {
+.ds-chapwrap > summary {
   font-size: 13px;
   font-weight: 600;
   color: var(--txt);
   list-style: none;
 }
-.chapwrap > summary::-webkit-details-marker {
+.ds-chapwrap > summary::-webkit-details-marker {
   display: none;
 }
-.chapbody {
+.ds-chapbody {
   margin-top: 10px;
 }
-.chaptbl {
+.ds-chaptbl {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   overflow: hidden;
 }
-.chaptbl table {
+.ds-chaptbl table {
   margin: 0;
 }
-.chaptbl th {
+.ds-chaptbl th {
   padding: 7px 9px;
   background: var(--panel2);
 }
-.chaptbl td {
+.ds-chaptbl td {
   padding: 5px 9px;
   border-bottom: 1px solid var(--line-soft);
 }
-.chaptbl tbody tr:last-child td {
+.ds-chaptbl tbody tr:last-child td {
   border-bottom: none;
 }
-.bulkwrap > summary {
+.ds-bulkwrap > summary {
   color: var(--acc);
   font-size: 11px;
 }
 
-/* 드래그 핸들(챕터 정렬) — tr[draggable]는 요소/속성이라 전역으로 남고 .draghandle만 스코프 */
-.draghandle {
+/* 드래그 핸들(챕터 정렬) — tr[draggable]는 요소/속성이라 전역으로 남고 .ds-draghandle만 스코프 */
+.ds-draghandle {
   cursor: grab;
   color: var(--mut);
   user-select: none;
 }
-.draghandle:hover {
+.ds-draghandle:hover {
   color: var(--acc);
 }
-tr[draggable='true']:hover .draghandle {
+tr[draggable='true']:hover .ds-draghandle {
   color: var(--acc);
 }
 
 /* ── 기록 카드 + CBMS — journal↔review 공유 (원본 하이픈명을 camelCase로: rec-head→recHead 등) ── */
-.rec {
+.ds-rec {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   padding: 9px 11px;
   margin-bottom: 8px;
   background: var(--panel2);
 }
-.rec:last-child {
+.ds-rec:last-child {
   margin-bottom: 0;
 }
-.recHead {
+.ds-recHead {
   display: flex;
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
 }
-.rec3 {
+.ds-rec3 {
   margin: 7px 0 0;
   padding-left: 18px;
   font-size: var(--fs-md);
   line-height: 1.5;
 }
-.rec3 li {
+.ds-rec3 li {
   margin-bottom: 3px;
 }
-.rec3 .muted {
+.ds-rec3 .ds-muted {
   margin-right: 5px;
 }
-.blOpen {
+.ds-blOpen {
   border-left: 3px solid var(--warn);
 }
-.cbmsChip {
+.ds-cbmsChip {
   font-size: 11px;
   font-weight: 700;
   padding: 2px 9px;
@@ -560,17 +578,17 @@ tr[draggable='true']:hover .draghandle {
   border: 1px solid color-mix(in srgb, var(--c, var(--mut)) 45%, var(--line));
   background: color-mix(in srgb, var(--c, var(--mut)) 14%, transparent);
 }
-.cbmsRow {
+.ds-cbmsRow {
   display: flex;
   align-items: center;
   gap: 9px;
   margin-bottom: 7px;
 }
-.cbmsRow .cbmsChip {
+.ds-cbmsRow .ds-cbmsChip {
   min-width: 62px;
   text-align: center;
 }
-.cbmsTrack {
+.ds-cbmsTrack {
   flex: 1;
   height: 9px;
   border-radius: 99px;
@@ -578,7 +596,7 @@ tr[draggable='true']:hover .draghandle {
   overflow: hidden;
   box-shadow: inset 0 0 0 1px var(--line-soft);
 }
-.cbmsTrack > i {
+.ds-cbmsTrack > i {
   display: block;
   height: 100%;
   border-radius: 99px;
@@ -586,7 +604,7 @@ tr[draggable='true']:hover .draghandle {
 }
 
 /* ── 체크리스트 행 — settings↔review 공유 ── */
-.chkRow {
+.ds-chkRow {
   display: flex;
   align-items: flex-start;
   gap: 9px;
@@ -595,12 +613,12 @@ tr[draggable='true']:hover .draghandle {
   color: var(--txt);
   cursor: pointer;
 }
-.chkRow input[type='checkbox'] {
+.ds-chkRow input[type='checkbox'] {
   margin-top: 1px;
 }
 
 /* ── 칩 — control·mastery·review 공유 ── */
-.chip {
+.ds-chip {
   display: inline-block;
   padding: 1px 8px;
   border-radius: 99px;
@@ -611,7 +629,7 @@ tr[draggable='true']:hover .draghandle {
 }
 
 /* ── 스크린리더 전용(시각적 숨김) 표준 클립 패턴 — graph·markets·reads 공유 ── */
-.srOnly {
+.ds-srOnly {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -642,13 +660,13 @@ tr[draggable='true']:hover .draghandle {
 
 /* ── 인터랙션 레이어(공유) — 오늘 탭 "FOCUS"의 살아있는 감각을 전 탭에 일관 적용.
    useHeroPointer가 --mx/--my(스포트라이트)·--tiltX/Y(틸트)를 주입. 짝: hooks/interactions.ts. ── */
-/* 스포트라이트 호스트 — 자식 .spotlight가 커서를 따라 발광. position/overflow/isolation 셋업. */
-.spotHost {
+/* 스포트라이트 호스트 — 자식 .ds-spotlight가 커서를 따라 발광. position/overflow/isolation 셋업. */
+.ds-spotHost {
   position: relative;
   overflow: hidden;
   isolation: isolate;
 }
-.spotlight {
+.ds-spotlight {
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -661,11 +679,11 @@ tr[draggable='true']:hover .draghandle {
   opacity: 0;
   transition: opacity 0.35s var(--ease);
 }
-.spotHost:hover .spotlight {
+.ds-spotHost:hover .ds-spotlight {
   opacity: 1;
 }
 /* 색 오로라 — --tint(없으면 acc)로 패널을 물들이는 거대 라디얼(호흡). 자식 요소로 둔다. */
-.aura {
+.ds-aura {
   position: absolute;
   z-index: -1;
   left: -8%;
@@ -694,31 +712,31 @@ tr[draggable='true']:hover .draghandle {
   }
 }
 /* 호버 글로우 — 카드 테두리가 액센트로 반응 + 살짝 떠오름. */
-.glow {
+.ds-glow {
   transition:
     border-color 0.2s var(--ease),
     box-shadow 0.2s var(--ease),
     transform 0.2s var(--ease);
 }
-.glow:hover {
+.ds-glow:hover {
   border-color: color-mix(in srgb, var(--acc) 24%, var(--line));
   box-shadow: var(--shadow-md);
 }
 /* ── 원형 진행 링(radial progress) 공용 스켈레톤 ──
    구조(SVG·원 지오메트리)는 <ProgressRing> 컴포넌트가, 외형(굵기·색·글로우·전이)은 이 클래스가 소유.
-   소비처는 컨테이너 .ring에 커스텀 속성으로 값만 지정한다(크기 .ring·중앙 숫자 .ringNum은
+   소비처는 컨테이너 .ds-ring에 커스텀 속성으로 값만 지정한다(크기 .ds-ring·중앙 숫자 .ds-ringNum은
    시각 비중이 사이트마다 달라 feature 모듈에 남긴다). items/mastery/today가 공유. */
-.ringSvg {
+.ds-ringSvg {
   width: 100%;
   height: 100%;
   transform: rotate(-90deg);
 }
-.ringTrack {
+.ds-ringTrack {
   fill: none;
   stroke: var(--line2);
   stroke-width: var(--ring-w, 6);
 }
-.ringArc {
+.ds-ringArc {
   fill: none;
   stroke: var(--ring-tint, var(--acc));
   stroke-width: var(--ring-w, 6);
@@ -727,12 +745,12 @@ tr[draggable='true']:hover .draghandle {
   transition: stroke-dashoffset var(--ring-dur, 0.7s) var(--ease);
 }
 @media (prefers-reduced-motion: reduce) {
-  .spotlight,
-  .glow,
-  .ringArc {
+  .ds-spotlight,
+  .ds-glow,
+  .ds-ringArc {
     transition: none;
   }
-  .aura {
+  .ds-aura {
     animation: none;
   }
 }

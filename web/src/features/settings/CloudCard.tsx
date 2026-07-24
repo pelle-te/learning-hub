@@ -35,7 +35,6 @@ import { syncOnce } from '@/lib/cloud/run';
 import { useApp } from '@/store/useApp';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
-import ds from '@/styles/ds.module.css';
 
 export default function CloudCard() {
   const [cfg, setCfg] = useState<CloudConfig | null>(null);
@@ -142,23 +141,23 @@ export default function CloudCard() {
   if (!isTauri() || !loaded) return null;
 
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h2>
-        클라우드 동기화 <span className={`${ds.muted} ${ds.tiny}`}>— 여러 기기에서 같은 계획을 보고 편집합니다</span>
+        클라우드 동기화 <span className="ds-muted ds-tiny">— 여러 기기에서 같은 계획을 보고 편집합니다</span>
       </h2>
 
-      <div className={ds.row}>
-        <span className={`${ds.pill} ${cfg ? ds.good : ds.muted}`}>{cfg ? '연결됨' : '연결 안 됨'}</span>
-        {cfg && <span className={`${ds.muted} ${ds.tiny}`}>{cfg.baseUrl}</span>}
+      <div className="ds-row">
+        <span className={`ds-pill ${cfg ? 'ds-good' : 'ds-muted'}`}>{cfg ? '연결됨' : '연결 안 됨'}</span>
+        {cfg && <span className="ds-muted ds-tiny">{cfg.baseUrl}</span>}
       </div>
 
       {cfg ? (
         <>
-          <div className={ds.foot}>
+          <div className="ds-foot">
             계획·할일·완료·일정과 내 요약·독후감이 올라갑니다. <b>볼트 노트·파이썬 도구·AI·Anki 는 이 PC 에만</b>{' '}
             남아요(인터넷 없이도 그대로 동작합니다).
           </div>
-          <div className={ds.row}>
+          <div className="ds-row">
             <Button sm variant="ghost" onClick={() => void syncNow()} disabled={busy}>
               🔄 지금 동기화
             </Button>
@@ -173,22 +172,20 @@ export default function CloudCard() {
           {/* ⚠ 기기 목록 = **분실 대응 수단**. 폰을 잃으면 여기서 그 기기만 끊는다. */}
           {devices && (
             <>
-              <div className={ds.foot}>
+              <div className="ds-foot">
                 기기를 잃어버렸다면 여기서 <b>폐기</b>하세요 — 그 기기의 접근이 즉시 끊깁니다. 되돌릴 수 없고, 다시
                 쓰려면 등록 코드가 필요해요.
               </div>
               {devices.devices.map((d) => (
-                <div key={d.id} className={ds.row}>
-                  <span className={`${ds.pill} ${d.revokedAt ? ds.muted : ds.good}`}>
+                <div key={d.id} className="ds-row">
+                  <span className={`ds-pill ${d.revokedAt ? 'ds-muted' : 'ds-good'}`}>
                     {d.revokedAt ? '폐기됨' : '활성'}
                   </span>
                   <span>
                     {d.name}
-                    {d.id === devices.self && <span className={`${ds.muted} ${ds.tiny}`}> (이 기기)</span>}
+                    {d.id === devices.self && <span className="ds-muted ds-tiny"> (이 기기)</span>}
                   </span>
-                  <span className={`${ds.muted} ${ds.tiny}`}>
-                    마지막 접속 {new Date(d.lastSeenAt * 1000).toLocaleString()}
-                  </span>
+                  <span className="ds-muted ds-tiny">마지막 접속 {new Date(d.lastSeenAt * 1000).toLocaleString()}</span>
                   {!d.revokedAt && d.id !== devices.self && (
                     <Button sm variant="ghost" onClick={() => void revoke(d)} disabled={busy}>
                       폐기
@@ -201,10 +198,10 @@ export default function CloudCard() {
         </>
       ) : (
         <>
-          <div className={ds.foot}>
+          <div className="ds-foot">
             서버 주소와 <b>등록 코드</b>를 넣으면 이 기기가 연결됩니다. 코드는 1회용이고 10분 뒤 만료돼요.
           </div>
-          <div className={ds.row}>
+          <div className="ds-row">
             <input
               type="url"
               placeholder="https://…workers.dev"
@@ -213,7 +210,7 @@ export default function CloudCard() {
               onChange={(e) => setUrl(e.target.value)}
             />
           </div>
-          <div className={ds.row}>
+          <div className="ds-row">
             <input
               type="text"
               placeholder="등록 코드"
@@ -225,7 +222,7 @@ export default function CloudCard() {
               연결
             </Button>
           </div>
-          <div className={ds.foot}>⚠ 성적·일정·메모가 인터넷을 건너갑니다. 신뢰하는 서버 주소인지 확인하세요.</div>
+          <div className="ds-foot">⚠ 성적·일정·메모가 인터넷을 건너갑니다. 신뢰하는 서버 주소인지 확인하세요.</div>
         </>
       )}
     </div>

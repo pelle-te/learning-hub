@@ -18,14 +18,13 @@ import TooltipHost from '@/components/Tooltip';
 import AmbientCanvas from '@/components/AmbientCanvas';
 import { HudFrame } from '@/components/hud';
 import { SkeletonCard, Button } from '@/components/ui';
-import ds from '@/styles/ds.module.css';
 
 /* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3). */
 function TabFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
-    <div className={ds.card}>
+    <div className="ds-card">
       <h2>이 탭에서 오류가 발생했어요</h2>
-      <p className={`${ds.muted} ${ds.tiny}`}>{String((error as Error)?.message || error)}</p>
+      <p className="ds-muted ds-tiny">{String((error as Error)?.message || error)}</p>
       <Button variant="primary" sm onClick={resetErrorBoundary}>
         다시 시도
       </Button>
@@ -64,7 +63,7 @@ export default function App() {
                     <ReactTab />
                   </Suspense>
                 ) : (
-                  <div className={ds.card}>알 수 없는 탭: {t.key}</div>
+                  <div className="ds-card">알 수 없는 탭: {t.key}</div>
                 )}
               </ErrorBoundary>
             }

@@ -32,7 +32,6 @@ import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import DetailDrawer from '@/components/DetailDrawer';
-import ds from '@/styles/ds.module.css';
 import type { Item } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 import { VaultImport } from './VaultImport';
@@ -338,7 +337,7 @@ export default function Items() {
       <div className="grid min-h-0 flex-1 grid-cols-items-cols max-wide:grid-cols-1 max-wide:overflow-y-auto">
         {items.length === 0 ? (
           <div className="px-5.5 pt-1.5 pb-5.5">
-            <div className={ds.card}>
+            <div className="ds-card">
               <EmptyState
                 glyph="📚"
                 title="아직 과목이 없어요"

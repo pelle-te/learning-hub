@@ -2,7 +2,7 @@
    Journal — 탭: 📒 학습 기록 (Phase 4 · 앱상태/Zustand)
    레거시 ui-journal.js를 React로 — 공부 뒤 남기는 산출물: 3문장 요약·CBMS 오답·보충 백로그.
    '오늘 학습' 블록의 프리필 버튼이 prefill 스토어로 과목을 미리 채운다.
-   스타일: 공유 디자인 시스템은 ds.module(ds.*), 요소·토큰은 전역 base(Phase 9 전환).
+   스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base.
 ============================================================ */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,6 @@ import { parseCaptureBatch } from '@/lib/quickCapture';
 import { addDays, fmt, hLabel, iso, mondayOf, parseISO, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import JournalStream from './JournalStream';
-import ds from '@/styles/ds.module.css';
 import SummaryCard from './SummaryCard';
 import CbmsCard from './CbmsCard';
 import BacklogCard from './BacklogCard';
@@ -102,7 +101,7 @@ function BatchCapture() {
           placeholder={'한 줄에 하나씩 — 예)\n미적분 7장 부분적분 요약\n어제 선형대수 고윳값 정리'}
         />
         <div className="mt-2 flex items-center justify-between gap-2.5">
-          <span className={`${ds.muted} ${ds.tiny}`}>
+          <span className="ds-muted ds-tiny">
             {parsed.length ? `${parsed.length}건 인식 — 요약 폼으로 순차 프리필` : '한 줄씩 적으면 요약 폼을 채워요'}
           </span>
           <Button sm variant="primary" onClick={apply} disabled={!parsed.length}>
@@ -265,7 +264,7 @@ export default function Journal() {
             </Button>
             <span className="text-md font-bold text-txt">
               {fmt(new Date(ds2 + 'T00:00:00'))}
-              {isToday ? <span className={`${ds.muted} ${ds.tiny}`}> · 오늘</span> : <b> · 과거 보충</b>}
+              {isToday ? <span className="ds-muted ds-tiny"> · 오늘</span> : <b> · 과거 보충</b>}
             </span>
             <Button sm variant="ghost" onClick={() => stepDay(1)} disabled={isToday} aria-label="다음 날">
               ▶

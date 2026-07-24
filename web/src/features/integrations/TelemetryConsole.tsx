@@ -8,7 +8,6 @@ import { usePing } from '@/store/queries';
 import { totalDue, totalCards, type AnkiLive, type AnkiFile } from '@/lib/anki';
 import type { VaultScan } from '@/lib/vault';
 import type { ReactNode } from 'react';
-import ds from '@/styles/ds.module.css';
 
 type Status = 'online' | 'idle' | 'offline' | 'probing';
 const STATUS_LABEL: Record<Status, string> = {
@@ -91,7 +90,7 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const cards = file ? totalCards(file.decks) : 0;
 
   return (
-    <div className={`${ds.board}${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>
+    <div className={`ds-board${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>
       <div className="mb-3.5 flex items-baseline justify-between">
         <span className="text-xs font-extrabold tracking-caps text-mut uppercase">연동 텔레메트리 — TELEMETRY</span>
         {!vertical && <span className="text-2xs text-mut opacity-80">시스템 폴더 /api · 볼트 · Anki 조종석</span>}

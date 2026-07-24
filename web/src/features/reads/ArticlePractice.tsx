@@ -17,7 +17,6 @@ import { useFlushOnUnmount } from '@/hooks/interactions';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromArticle, PROMOTE_TOAST } from '@/lib/promote';
 import type { Article, ArticleWork } from '@/lib/reads';
-import ds from '@/styles/ds.module.css';
 
 type Filter = 'all' | 'en' | 'ko';
 type Progress = 'all' | 'todo' | 'done';
@@ -284,7 +283,7 @@ export default function ArticlePractice({
       // 2-pane 스켈레톤(markets 미러 · SR-17) — 목록 행 + 리더 라인 형상을 예고해 팝인 레이아웃 점프를 없앤다.
       return (
         <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
-          <span className={ds.srOnly} role="status">
+          <span className="ds-srOnly" role="status">
             지문 불러오는 중…
           </span>
           <aside className="flex min-h-0 flex-col gap-2.5" aria-hidden="true">
@@ -403,7 +402,7 @@ export default function ArticlePractice({
             disabled={collecting || !online}
             title={online ? '새 지문 수집' : '워크스페이스가 설정되지 않았어요'}
           >
-            {collecting ? <span className={ds.spin} /> : '↻'} 수집
+            {collecting ? <span className="ds-spin" /> : '↻'} 수집
           </Button>
         </div>
         <ul className="m-0 flex min-h-0 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0 max-mobile:max-h-[var(--reads-list-vh)]">
@@ -522,7 +521,7 @@ export default function ArticlePractice({
                       </a>
                     ) : vocab.loading ? (
                       <div className="text-txt" role="status">
-                        <span className={ds.spin} /> 뜻 찾는 중…
+                        <span className="ds-spin" /> 뜻 찾는 중…
                       </div>
                     ) : vocab.error ? (
                       <div className="text-txt" role="alert">
@@ -611,7 +610,7 @@ export default function ArticlePractice({
                 >
                   {grader.busy ? (
                     <>
-                      <span className={ds.spin} /> 채점 중…
+                      <span className="ds-spin" /> 채점 중…
                     </>
                   ) : (
                     '🤖 AI 채점 받기'
@@ -676,7 +675,7 @@ export default function ArticlePractice({
                       )}
                       {fb.comment && <span className="text-md font-semibold text-txt">{fb.comment}</span>}
                       {savedAt && (
-                        <span className={`${ds.muted} ${ds.tiny}`} style={{ marginLeft: 'auto' }}>
+                        <span className="ds-muted ds-tiny" style={{ marginLeft: 'auto' }}>
                           저장된 채점
                         </span>
                       )}

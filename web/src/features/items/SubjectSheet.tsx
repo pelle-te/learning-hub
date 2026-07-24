@@ -16,7 +16,6 @@ import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo } from '@/
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
-import ds from '@/styles/ds.module.css';
 import type { AppState, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
 
@@ -50,7 +49,7 @@ function Stepper({
   const clamp = (v: number) => Math.max(0, Math.round(v * 10) / 10);
   const bump = (d: number) => onChange(clamp(value + d));
   return (
-    <div className={ds.row} style={{ gap: 4, alignItems: 'center', maxWidth: 170 }}>
+    <div className="ds-row" style={{ gap: 4, alignItems: 'center', maxWidth: 170 }}>
       <Button sm onClick={() => bump(-step)} aria-label={`${unit} 줄이기`}>
         –
       </Button>
@@ -66,7 +65,7 @@ function Stepper({
       <Button sm onClick={() => bump(step)} aria-label={`${unit} 늘리기`}>
         +
       </Button>
-      <span className={`${ds.muted} ${ds.tiny}`}>{unit}</span>
+      <span className="ds-muted ds-tiny">{unit}</span>
     </div>
   );
 }
@@ -210,8 +209,8 @@ export function SubjectSheet({
           aria-hidden="true"
         />
 
-        <div className={ds.fieldgrid}>
-          <div className={`${ds.fld} ${ds.wide}`}>
+        <div className="ds-fieldgrid">
+          <div className="ds-fld ds-wide">
             <label htmlFor={`it-name-${id}`}>과목 이름</label>
             <input
               id={`it-name-${id}`}
@@ -222,7 +221,7 @@ export function SubjectSheet({
               placeholder="과목 이름"
             />
           </div>
-          <div className={ds.fld}>
+          <div className="ds-fld">
             <label htmlFor={`it-mode-${id}`}>유형</label>
             <select
               id={`it-mode-${id}`}
@@ -233,7 +232,7 @@ export function SubjectSheet({
               <option value="daily">매일(Anki)</option>
             </select>
           </div>
-          <div className={ds.fld}>
+          <div className="ds-fld">
             <label htmlFor={`it-amount-${id}`}>{daily ? '매일 학습 (분)' : '주당 목표 시간'}</label>
             {daily ? (
               <Stepper
@@ -253,7 +252,7 @@ export function SubjectSheet({
               />
             )}
           </div>
-          <div className={ds.fld}>
+          <div className="ds-fld">
             <label htmlFor={`it-dl-${id}`}>마감일 (선택)</label>
             <input
               id={`it-dl-${id}`}
@@ -262,7 +261,7 @@ export function SubjectSheet({
               onChange={(e) => upd((it) => void (it.deadline = e.target.value))}
             />
             {item.deadline && (
-              <span className={`${ds.tiny} ${ds.muted}`} style={{ marginTop: 4 }}>
+              <span className="ds-tiny ds-muted" style={{ marginTop: 4 }}>
                 {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
               </span>
             )}
@@ -287,8 +286,8 @@ export function SubjectSheet({
           </div>
         )}
 
-        <div className={ds.itemfoot}>
-          <span className={`${ds.tiny} ${ds.muted}`}>
+        <div className="ds-itemfoot">
+          <span className="ds-tiny ds-muted">
             출처 {item.source || '직접'}
             {!daily && chs.length ? ` · ${chs.length}챕터 · 약 ${totalH}h` : ''}
           </span>
