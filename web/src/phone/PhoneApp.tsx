@@ -10,21 +10,22 @@ import { useEffect, useState } from 'react';
 import { addDays, iso, parseISO, todayISO } from '@/lib/utils';
 import { useApp } from '@/store/useApp';
 import { isDurable } from '@/lib/db/browserDb';
+import TodayView from './TodayView';
 import DayView from './DayView';
 import WeekView from './WeekView';
 import ReadsView from './ReadsView';
 import ReviewView from './ReviewView';
 import { sync } from './sync';
 
-type View = 'day' | 'week' | 'review' | 'reads';
-const VIEW_LABEL: Record<View, string> = { day: '일', week: '주', review: '복습', reads: '읽기' };
-/** 날짜 이동이 의미 있는 뷰 — 복습·읽을거리는 날짜 축이 아니라 '오늘/가장 최근' 하나다. */
+type View = 'today' | 'day' | 'week' | 'review' | 'reads';
+const VIEW_LABEL: Record<View, string> = { today: '홈', day: '일', week: '주', review: '복습', reads: '읽기' };
+/** 날짜 이동이 의미 있는 뷰 — 홈·복습·읽을거리는 날짜 축이 아니라 '오늘/가장 최근' 하나다. */
 const DATED: View[] = ['day', 'week'];
 
 export default function PhoneApp(): React.JSX.Element {
   const today = useApp((s) => todayISO(s.state));
   const [ds, setDs] = useState(today);
-  const [view, setView] = useState<View>('day');
+  const [view, setView] = useState<View>('today'); // 열면 홈 대시보드가 먼저
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function PhoneApp(): React.JSX.Element {
               버튼보다 나쁘다). 데스크톱 RailSidebar·Schedule 세그먼트가 같은 이유로 내린 판단
               (group + aria-pressed)을 그대로 쓴다. */}
           <div className="flex gap-1" role="group" aria-label="화면 전환">
-            {(['day', 'week', 'review', 'reads'] as const).map((v) => (
+            {(['today', 'day', 'week', 'review', 'reads'] as const).map((v) => (
               <button
                 key={v}
                 type="button"
@@ -101,6 +102,7 @@ export default function PhoneApp(): React.JSX.Element {
         ) : null}
       </header>
 
+      {view === 'today' ? <TodayView onGo={setView} /> : null}
       {view === 'day' ? <DayView ds={ds} /> : null}
       {view === 'week' ? (
         <WeekView
