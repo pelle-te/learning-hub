@@ -144,3 +144,84 @@ export function shutdownChain(state: AppState, back = 14): RitualChain {
   }
   return { streak, days };
 }
+
+/* ── On This Day 회고(ID-4) ─────────────────────────────────────────────────
+   달력상 '같은 날'(−4주·−1년)의 실기록 한 줄을 회수한다("4주 전 오늘, {과목} — {요약}").
+   회상 카드와 선택 기준이 다르다: 회상은 age+해시로 도는데 여기는 **달력 정합**(정확히 −28/−365일)이다.
+   실기록이 그날 있을 때만 내보내(0의 벽 방지) · 이력 30일 미만이면 통째로 침묵(신규 사용자엔 과거가 없다). */
+export interface OnThisDayEntry {
+  ds: string;
+  daysAgo: number;
+  /** '4주 전 오늘' | '1년 전 오늘' */
+  offsetLabel: string;
+  sid: string;
+  subject: string;
+  /** 그날의 실기록 한 줄 — 요약 s1(있으면) 또는 완료 학습 분. */
+  detail: string;
+}
+
+const ON_THIS_DAY_OFFSETS: readonly { days: number; label: string }[] = [
+  { days: 28, label: '4주 전 오늘' },
+  { days: 365, label: '1년 전 오늘' },
+];
+/** 이력 게이트 — 첫 기록이 이 일수 이상 과거라야 회고가 의미 있다(0의 벽 방지). */
+export const ON_THIS_DAY_MIN_HISTORY = 30;
+
+/** 가장 오래된 실기록 날짜(completions·summaries 통틀어) — 없으면 ''. */
+function earliestRecordDs(state: AppState): string {
+  let earliest = '';
+  const scan = (ds: string) => {
+    if (!earliest || ds < earliest) earliest = ds;
+  };
+  for (const ds of Object.keys(state.completions || {})) scan(ds);
+  for (const ds of Object.keys(state.summaries || {})) scan(ds);
+  return earliest;
+}
+
+/** 달력상 같은 날(−4주·−1년)의 과거 실기록 한 줄들. 이력 30일 미만이거나 그날 기록이 없으면 빈 배열. */
+export function onThisDay(state: AppState, todayDs: string): OnThisDayEntry[] {
+  const earliest = earliestRecordDs(state);
+  if (!earliest || dayDiff(earliest, todayDs) < ON_THIS_DAY_MIN_HISTORY) return [];
+  const out: OnThisDayEntry[] = [];
+  for (const off of ON_THIS_DAY_OFFSETS) {
+    const ds = iso(addDays(parseISO(todayDs), -off.days));
+    // 우선순위 ① 그날 남긴 요약(가장 풍부한 회고) — 첫 항목의 s1 을 한 줄로.
+    const sums = state.summaries?.[ds];
+    if (sums && sums.length) {
+      const s = sums[0]!;
+      out.push({
+        ds,
+        daysAgo: off.days,
+        offsetLabel: off.label,
+        sid: s.sid,
+        subject: s.name || '',
+        detail: (s.s1 || '').trim() || '요약을 남겼어요',
+      });
+      continue;
+    }
+    // ② 요약이 없으면 완료 학습(실기록)로 폴백. 그마저 없으면 이 오프셋은 침묵(0의 벽).
+    const comp = state.completions?.[ds];
+    if (comp) {
+      let min = 0;
+      let any = false;
+      for (const k of Object.keys(comp)) {
+        const e = comp[k];
+        if (e?.done) {
+          any = true;
+          min += e.min || 0;
+        }
+      }
+      if (any) {
+        out.push({
+          ds,
+          daysAgo: off.days,
+          offsetLabel: off.label,
+          sid: '',
+          subject: '',
+          detail: `${Math.round(min)}분 학습했어요`,
+        });
+      }
+    }
+  }
+  return out;
+}

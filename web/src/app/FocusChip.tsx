@@ -69,10 +69,17 @@ export default function FocusChip() {
     doneKey.current = session.startedAt;
     const { ds, sid, type, name, blockMin, kind, chapter } = session;
     const isBreak = kind === 'break';
+    // 즉석 집중(ID-3)은 대상 블록이 없어 완료 토글을 못(안) 한다 — 축하·자동 휴식은 집중과 같되
+    // '블록 완료로 표시' 액션만 뺀다(유령 완료 방지). isBreak 은 여전히 false라 회복 휴식은 붙는다.
+    const isFree = kind === 'free';
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
         new Notification(isBreak ? '휴식 끝 ☕' : '집중 세션 완료 🎉', {
-          body: isBreak ? '재충전 완료 — 다음 블록을 시작해볼까요?' : `${name} — 수고했어요. 블록을 완료로 표시할까요?`,
+          body: isBreak
+            ? '재충전 완료 — 다음 블록을 시작해볼까요?'
+            : isFree
+              ? `${name} — 수고했어요.`
+              : `${name} — 수고했어요. 블록을 완료로 표시할까요?`,
         });
       } catch {
         /* 알림 실패는 토스트가 커버 */
@@ -83,6 +90,9 @@ export default function FocusChip() {
         label: '▶ 집중 시작',
         onAction: () => useFocus.getState().startOnCurrent(),
       });
+    } else if (isFree) {
+      // 완료 액션 없음 — 즉석 세션은 기록에 남기지 않는다(수고 인정만).
+      toast(`즉석 집중 완료 🎉 — ${name}. 수고했어요.`, 'info', 8_000);
     } else {
       toast(`집중 세션 완료 🎉 — ${name}`, 'info', 10_000, {
         label: '블록 완료로 표시',

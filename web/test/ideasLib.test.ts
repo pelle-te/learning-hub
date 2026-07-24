@@ -5,7 +5,7 @@
 ============================================================ */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { confTrend } from '@/lib/methodology';
-import { personalBests, seasonPace, shutdownChain } from '@/lib/records';
+import { onThisDay, personalBests, seasonPace, shutdownChain } from '@/lib/records';
 import { pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { weeklyRecap } from '@/lib/insights';
 import { frontierNext } from '@/lib/knowledge';
@@ -78,6 +78,51 @@ describe('personalBests (I-6)', () => {
   it('기록 없으면 전부 0', () => {
     const pb = personalBests({ _today: TODAY, completions: {} } as unknown as AppState);
     expect(pb).toMatchObject({ longestStreak: 0, currentStreak: 0, bestFocusMin: 0, totalDays: 0 });
+  });
+});
+
+describe('onThisDay (ID-4 회고)', () => {
+  // TODAY=2026-07-08. −4주=2026-06-10, −1년=2025-07-08. 이력 30일+ 게이트 위해 오래된 완료 하나.
+  const summaries = {
+    '2026-06-10': [{ id: 'x', sid: 's1', name: '회로이론', s1: '극한의 정의 재정리', s2: '', s3: '' }],
+  };
+  const base = {
+    _today: TODAY,
+    completions: comps([['2026-05-01', 's1|new', 60]]), // 68일 전 = 이력 30일+ 충족
+    summaries,
+  } as unknown as AppState;
+
+  it('−4주 요약을 달력 정합으로 회수(과목+s1 한 줄)', () => {
+    const out = onThisDay(base, TODAY);
+    expect(out.length).toBeGreaterThanOrEqual(1);
+    const wk = out.find((e) => e.daysAgo === 28)!;
+    expect(wk.offsetLabel).toBe('4주 전 오늘');
+    expect(wk.subject).toBe('회로이론');
+    expect(wk.detail).toBe('극한의 정의 재정리');
+  });
+
+  it('이력 30일 미만이면 침묵(0의 벽 방지)', () => {
+    const young = {
+      _today: TODAY,
+      completions: comps([['2026-07-01', 's1|new', 60]]), // 7일 전뿐 → 이력 < 30
+      summaries,
+    } as unknown as AppState;
+    expect(onThisDay(young, TODAY)).toEqual([]);
+  });
+
+  it('그날 기록 없으면 그 오프셋은 건너뛴다 · 완료만 있으면 분으로 폴백', () => {
+    const compOnly = {
+      _today: TODAY,
+      completions: comps([
+        ['2026-05-01', 's1|new', 60], // 이력 게이트용
+        ['2026-06-10', 's2|new', 45], // −4주 그날 완료(요약 없음)
+      ]),
+      summaries: {},
+    } as unknown as AppState;
+    const out = onThisDay(compOnly, TODAY);
+    const wk = out.find((e) => e.daysAgo === 28)!;
+    expect(wk.detail).toBe('45분 학습했어요');
+    expect(out.some((e) => e.daysAgo === 365)).toBe(false); // −1년엔 기록 없음 → 없음
   });
 });
 

@@ -31,6 +31,9 @@ interface FocusStore {
   start: (t: FocusTarget) => void;
   /** '지금 할 일' 블록을 계산해 시작 — 상단 바·팔레트용. 대상 없으면 false. */
   startOnCurrent: () => boolean;
+  /** 즉석 집중(ID-3) — 예약 블록 없이 임의 길이. `kind:'free'`라 완료 토글 경로에서 빠진다
+   *  (유령 완료 방지). 볼트 정리·정독 같은 비예약 학습에 ⌘K 로 바로 타이머를 건다. */
+  startFree: (min: number, label?: string) => void;
   /** 세션 중단(완료 아님). */
   stop: () => void;
   /** 집중 종료 직후 자동 휴식(포모도로 회복 구간) — 완료 토글 없는 'break' 세션. */
@@ -81,6 +84,28 @@ export const useFocus = create<FocusStore>((set, get) => ({
       blockMin: focus.it.min,
     });
     return true;
+  },
+
+  startFree(min, label = '즉석 집중') {
+    // 알림 권한은 첫 시작 때 지연 요청(종료 축하 알림용) — start()와 동일.
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default')
+      void Notification.requestPermission();
+    const m = Math.max(1, Math.round(min));
+    const now = Date.now();
+    const session: FocusSession = {
+      endsAt: now + m * 60_000,
+      total: m * 60,
+      startedAt: now,
+      ds: '', // 대상 블록 없음 — kind:'free'라 완료 토글에 안 들어감(유령 완료 방지)
+      sid: '',
+      type: 'new', // 자리표시(스키마 필수) — 완료 경로에서 걸러지므로 의미 없음
+      name: label,
+      blockMin: 0,
+      kind: 'free',
+    };
+    set({ session });
+    persistFocus(storage, session);
+    toast(`집중 ${m}분 시작 — 화이팅 🔥`, 'info');
   },
 
   stop() {

@@ -40,6 +40,29 @@ function baseCommands(): PaletteCommand[] {
       run: () => void useFocus.getState().startOnCurrent(),
       to: '/today',
     },
+    // ID-3: 즉석 집중 — 예약 블록 없이 임의 길이 타이머(볼트 정리·정독 등 비예약 학습).
+    // 프리셋 3종을 노출하되 store.startFree(min)은 임의 min 을 받는다(유령 완료 없이).
+    {
+      id: 'act:focus-free-25',
+      kind: 'act',
+      label: '⏱ 즉석 집중 25분 — 예약 없이',
+      hint: '오늘',
+      run: () => useFocus.getState().startFree(25),
+    },
+    {
+      id: 'act:focus-free-15',
+      kind: 'act',
+      label: '⏱ 즉석 집중 15분 — 예약 없이',
+      hint: '오늘',
+      run: () => useFocus.getState().startFree(15),
+    },
+    {
+      id: 'act:focus-free-50',
+      kind: 'act',
+      label: '⏱ 즉석 집중 50분 — 예약 없이',
+      hint: '오늘',
+      run: () => useFocus.getState().startFree(50),
+    },
     // I-9: 복습 세션 러너 진입(오늘 인출할 것을 한 흐름으로).
     {
       id: 'act:review-run',

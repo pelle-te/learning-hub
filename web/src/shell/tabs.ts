@@ -124,6 +124,19 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   { key: 'stats', label: '통계', group: 'train', surface: 'study', order: 80, icon: 'chart', fill: true },
+  // 복습 부하 예보(ID-1) — 앞 14일 다가오는 복습 파도를 조망. 통계 호스트의 세그먼트로 접는다
+  // (분석 대시보드 묶음). 나브 숨김 · 라우트·⌘K·g단축키·세그먼트로 진입 · fill(단일 화면).
+  {
+    key: 'forecast',
+    label: '복습 예보',
+    group: 'train',
+    surface: 'study',
+    order: 82,
+    hidden: true,
+    segLabel: '예보',
+    icon: 'chart',
+    fill: true,
+  },
   {
     key: 'mastery',
     label: '숙달도 지도',
@@ -198,7 +211,7 @@ export const SUBTAB_GROUPS: string[][] = [
   ['plan-host', 'schedule', 'alloc', 'items'],
   ['integrations', 'ledger'],
   ['journal', 'review', 'review-run'],
-  ['stats', 'mastery', 'graph'],
+  ['stats', 'forecast', 'mastery', 'graph'],
 ];
 
 /* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────

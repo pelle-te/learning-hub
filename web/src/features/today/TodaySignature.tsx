@@ -24,6 +24,7 @@ import { totalDue } from '@/lib/anki';
 import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
+import { onThisDay } from '@/lib/records';
 import { ProgressRing } from '@/components/ProgressRing';
 import { FlowRail, type FlowNode } from './FlowRail';
 import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, mmss, DOW_MON } from '@/lib/utils';
@@ -209,6 +210,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
 
   // A1 — 어제 셧다운에서 남긴 '내일 한 줄'을 오늘 아침 다시 보여줌(셧다운→모닝 루프 닫기).
   const prevNote = (state.rituals?.[iso(addDays(today, -1))]?.note || '').trim();
+  // ID-4 — On This Day: 달력상 같은 날(−4주·−1년)의 과거 실기록 한 줄(있을 때만·이력 30일+ 게이트).
+  const onThis = onThisDay(state, ds)[0];
   // A3 — 오늘 '일과 블록·이미 배치된 학습 뺀' 남은 가용시간(now 이후) — 워터마크를 정보성으로.
   // 배치된 날이면 layoutDay의 잔여 free(학습 세션·일과 차감 + 당일 오버라이드 캡 반영)를 쓰고,
   // 빈 날(L 없음)이면 순수 루틴 창으로 폴백. now 이후로 클램프해 빡빡한 날 과대표시를 막는다.
@@ -497,6 +500,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             <div className={S.yesterday}>
               <span aria-hidden="true">🌙</span> 어제 남긴 한 줄 —{' '}
               <b className="font-bold text-[color:var(--yesterday-b)]">{prevNote}</b>
+            </div>
+          )}
+          {/* ID-4 — On This Day 회고: 달력상 같은 날의 과거 실기록 한 줄(회상 카드와 달리 달력 정합). */}
+          {onThis && (
+            <div className={S.yesterday}>
+              <span aria-hidden="true">📅</span> {onThis.offsetLabel} —{' '}
+              {onThis.subject && <b className="font-bold text-[color:var(--yesterday-b)]">{onThis.subject}</b>}{' '}
+              {onThis.detail}
             </div>
           )}
 

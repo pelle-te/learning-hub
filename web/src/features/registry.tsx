@@ -28,6 +28,7 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   review: () => import('./review/Review'),
   'review-run': () => import('./review-run/ReviewRun'),
   stats: () => import('./stats/Stats'),
+  forecast: () => import('./forecast/Forecast'),
   degree: () => import('./degree/Degree'),
   settings: () => import('./settings/Settings'),
   integrations: () => import('./integrations/Integrations'),

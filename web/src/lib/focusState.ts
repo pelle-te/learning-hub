@@ -26,8 +26,10 @@ export const FocusSessionSchema = z.object({
   blockMin: z.number(),
   /** 복습이 겨냥한 챕터(ReviewRun 전용) — 완료 시 챕터 터치 로그(위험모델 lastDs 갱신 · 감사 #22). 생략 = 챕터 무관 블록. */
   chapter: z.string().optional(),
-  /** 세션 종류 — 'break'는 완료 알림 후 자동 시작되는 휴식(완료 토글 없음). 생략 = 집중(하위호환). */
-  kind: z.enum(['focus', 'break']).optional(),
+  /** 세션 종류 — 'break'는 완료 알림 후 자동 시작되는 휴식(완료 토글 없음). 'free'는 예약 블록
+   *  없는 즉석 집중(ID-3) — 대상 블록이 없어 **완료 토글 경로에서 빠진다**(유령 완료 방지),
+   *  단 집중처럼 축하·자동 휴식은 준다. 생략 = 예약 블록 집중(하위호환). */
+  kind: z.enum(['focus', 'break', 'free']).optional(),
 });
 export type FocusSession = z.infer<typeof FocusSessionSchema>;
 

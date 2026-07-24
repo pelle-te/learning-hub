@@ -530,6 +530,7 @@ const TABS = [
   'journal',
   'degree',
   'stats',
+  'forecast',
   // 'routine' 제거 — 계획 재개편 v3에서 '뼈대'가 '과목'으로 병합돼 /routine은 /items 리다이렉트다.
   // 남겨두면 items와 픽셀 동일한 스냅샷이 두 벌 생겨 리뷰 노이즈만 는다.
   'settings',
@@ -662,6 +663,86 @@ for (const theme of THEMES) {
     });
   }
 }
+
+/* 복습 부하 예보(ID-1) — 막대 차트 실렌더(§15-4). 공유 SEED 는 완료 챕터가 done 처리라 예보가
+   비어(=오늘탭 backlog) TABS 루프는 '빈 상태'만 찍는다. 여기선 최근 완료된(아직 미완) 챕터를
+   심어 '다가오는 파도'가 실제 막대로 그려지는지를 별도 픽셀로 잡는다 — 정적 검사가 못 보는
+   회색 토큰·컬럼 붕괴를 이 화면만이 드러낸다. 공유 SEED 를 안 건드려 다른 59장 베이스라인은 불변. */
+const SEED_FORECAST = {
+  schemaVersion: 3,
+  theme: 'dark',
+  startDate: '2026-06-01',
+  moduleLen: 120,
+  reviewRatio: 20,
+  completions: {
+    '2026-06-04': { 'm|rev': { done: true, min: 60 } }, // 극한·미분 터치(daysSince 11)
+    '2026-06-08': { 'p|new': { done: true, min: 60 } }, // 역학 터치(daysSince 7)
+    '2026-06-11': { 'm|rev': { done: true, min: 60 } }, // 미분 최신 터치(daysSince 4)
+  },
+  items: [
+    {
+      id: 'm',
+      source: '직접',
+      name: '미적분',
+      color: '#4f8ff0',
+      mode: 'weekly',
+      weeklyHours: 6,
+      dailyMin: 30,
+      deadline: '2026-08-15',
+      chapters: [
+        { id: 'c1', name: '극한', hours: 3, done: false },
+        { id: 'c2', name: '미분', hours: 4, done: false },
+      ],
+    },
+    {
+      id: 'p',
+      source: '직접',
+      name: '일반물리',
+      color: '#1eb5a3',
+      mode: 'weekly',
+      weeklyHours: 4,
+      dailyMin: 30,
+      deadline: '',
+      chapters: [{ id: 'c3', name: '역학', hours: 5, done: false }],
+    },
+  ],
+  routine: [{ id: 'r1', name: '수면', type: '수면', start: '00:00', end: '07:00', days: [0, 1, 2, 3, 4, 5, 6] }],
+  cbms: [],
+  degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
+};
+for (const theme of THEMES) {
+  test(`forecast · full · ${theme}`, async ({ page }) => {
+    await boot(page, theme, SEED_FORECAST);
+    await page.goto('/forecast');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(page.locator('#main h2').first()).toBeVisible(); // 막대 화면(빈 상태 아님)
+    await settle(page);
+    await expect(page).toHaveScreenshot(`forecast-full-${theme}.png`, { fullPage: true });
+  });
+}
+
+/* On This Day 회고(ID-4) — 오늘 히어로에 '달력상 같은 날'의 과거 실기록 한 줄. 공유 SEED 는
+   이력 14일이라 30일+ 게이트에 막혀(=회고 침묵) today 스냅샷엔 안 나온다. 여기선 −4주 요약 +
+   오래된 완료(이력 30일+ 충족)를 심어 회고 줄이 실제로 렌더되는지 잡는다(§15-4 · 회색·붕괴 방지). */
+const SEED_ONTHISDAY = {
+  ...SEED,
+  startDate: '2026-04-01',
+  completions: { ...SEED.completions, '2026-05-01': { 'm|new': { done: true, min: 60 } } },
+  summaries: {
+    '2026-05-18': [
+      { id: 's1', sid: 'm', name: '미적분', s1: '극한의 엡실론-델타 정의를 처음 이해했다', s2: '', s3: '' },
+    ],
+  },
+};
+test('today · onthisday · dark', async ({ page }) => {
+  await boot(page, 'dark', SEED_ONTHISDAY);
+  await page.goto('/today');
+  await expect(page.locator('#main')).toBeVisible();
+  await expect(page.getByText('4주 전 오늘', { exact: false })).toBeVisible(); // 회고 줄 렌더 확인
+  await settle(page);
+  await expect(page).toHaveScreenshot('today-onthisday-dark.png', { fullPage: true });
+});
 
 // 액센트 노브 — UI설정(lh_ui_v1) accent를 바꾸면 네온이 통째로 교체되는지(--acc 파생 cascade).
 test('stats · accent-lime', async ({ page }) => {

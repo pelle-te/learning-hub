@@ -2,7 +2,16 @@
    spacedReview.test.ts — 개념(챕터) 간격반복 위험 + freeMinAfter(홈 헬퍼) 회귀.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { chapterReviews, riskChapters, riskOf, riskSummary } from '@/lib/spacedReview';
+import {
+  chapterReviews,
+  dueForecast,
+  interleaveBySubject,
+  riskChapters,
+  riskOf,
+  riskSummary,
+  type ChapterReview,
+  type ReviewRisk,
+} from '@/lib/spacedReview';
 import { touchReview } from '@/lib/persistence';
 import { freeMinAfter } from '@/lib/scheduler';
 import type { AppState, Day, ScheduleItem } from '@/lib/types';
@@ -114,6 +123,109 @@ describe('spacedReview — chapterReviews', () => {
     expect(revs).toHaveLength(1);
     expect(revs[0]!.lastDs).toBe('2026-07-02');
     expect(revs[0]!.daysSince).toBe(2);
+  });
+});
+
+describe('spacedReview — dueForecast(ID-1 복습 부하 예보)', () => {
+  it('오늘 만진 챕터는 1·3·7일에 파도로 계상(오프셋 사다리) · horizon 밖(16)은 제외', () => {
+    const days = [day(TODAY, [newIt('p', '물리', ['역학'])])];
+    const s = stateWith([[TODAY, 'p', 'new']]);
+    const fc = dueForecast(s, days, TODAY, 14);
+    expect(fc).toHaveLength(14);
+    const on = (off: number) => fc.find((f) => f.offset === off)!;
+    expect(on(1).chapters).toBe(1);
+    expect(on(3).chapters).toBe(1);
+    expect(on(7).chapters).toBe(1);
+    expect(on(2).chapters).toBe(0); // 오프셋 사이 빈 날
+    expect(fc.some((f) => f.offset === 16)).toBe(false); // horizon(14) 밖
+    // 날짜·요일 파생 검증
+    expect(on(1).ds).toBe('2026-07-05');
+    expect(on(7).ds).toBe('2026-07-11');
+    expect(on(1).wd).toBe(new Date('2026-07-05T00:00:00').getDay());
+  });
+
+  it('이미 모든 오프셋 지난(overdue) 챕터는 예보에서 빠진다(=오늘탭 backlog)', () => {
+    const days = [day('2026-06-18', [newIt('m', '수학', ['1장'])])]; // daysSince 16
+    const s = stateWith([['2026-06-18', 'm', 'new']]);
+    const fc = dueForecast(s, days, TODAY);
+    expect(fc.reduce((t, f) => t + f.chapters, 0)).toBe(0);
+  });
+
+  it('중간 사다리 챕터 — 남은 오프셋만 미래로 투영', () => {
+    const days = [day('2026-06-30', [newIt('m', '수학', ['2장'])])]; // daysSince 4
+    const s = stateWith([['2026-06-30', 'm', 'new']]);
+    const fc = dueForecast(s, days, TODAY);
+    expect(fc.filter((f) => f.chapters > 0).map((f) => f.offset)).toEqual([3, 12]); // 7-4, 16-4
+  });
+
+  it('같은 날 여러 챕터 → 과목별 집계·개수 내림차순', () => {
+    const days = [day(TODAY, [newIt('p', '물리', ['역학', '열']), newIt('m', '수학', ['1장'])])];
+    const s = stateWith([
+      [TODAY, 'p', 'new'],
+      [TODAY, 'm', 'new'],
+    ]);
+    const on1 = dueForecast(s, days, TODAY).find((f) => f.offset === 1)!;
+    expect(on1.chapters).toBe(3);
+    expect(on1.subjects.map((x) => [x.subject, x.count])).toEqual([
+      ['물리', 2],
+      ['수학', 1],
+    ]);
+  });
+
+  it('horizon 인자가 예보 길이를 정한다', () => {
+    const fc = dueForecast(stateWith([]), [], TODAY, 7);
+    expect(fc).toHaveLength(7);
+    expect(fc[0]!.offset).toBe(1);
+    expect(fc[6]!.offset).toBe(7);
+  });
+});
+
+describe('spacedReview — interleaveBySubject(ID-2 과목 인터리빙)', () => {
+  const cr = (sid: string, chapter: string, daysSince: number): ChapterReview => ({
+    sid,
+    subject: sid.toUpperCase(),
+    chapter,
+    lastDs: '2026-06-01',
+    daysSince,
+    risk: riskOf(daysSince) as ReviewRisk,
+  });
+  // 위험순(daysSince desc) 정렬 입력 가정. m 3장·p 2장·e 1장 전부 overdue.
+  const key = (c: ChapterReview) => `${c.sid}:${c.chapter}`;
+
+  it('티어 안에서 과목 라운드로빈으로 끼운다(같은 과목 연속 금지)', () => {
+    const input = [
+      cr('m', 'm1', 30),
+      cr('m', 'm2', 28),
+      cr('m', 'm3', 26),
+      cr('p', 'p1', 25),
+      cr('p', 'p2', 24),
+      cr('e', 'e1', 20),
+    ];
+    // 과목 회전 순 = 가장 급한 챕터 등장 순(m→p→e). 라운드: [m1,p1,e1],[m2,p2],[m3].
+    expect(interleaveBySubject(input).map(key)).toEqual(['m:m1', 'p:p1', 'e:e1', 'm:m2', 'p:p2', 'm:m3']);
+  });
+
+  it('위험 티어는 절대 넘지 않는다 — overdue 전부가 due 앞(overdue 밀림 금지)', () => {
+    const input = [
+      cr('m', 'm1', 20), // overdue
+      cr('m', 'm2', 18), // overdue
+      cr('p', 'p1', 10), // due
+      cr('p', 'p2', 9), // due
+    ];
+    const out = interleaveBySubject(input);
+    const firstDue = out.findIndex((c) => c.risk === 'due');
+    const lastOverdue = out.map((c) => c.risk).lastIndexOf('overdue');
+    expect(lastOverdue).toBeLessThan(firstDue);
+    // 티어 경계 넘어 인터리브하지 않는다: overdue 는 m만 2장이라 [m1,m2], due 는 [p1,p2].
+    expect(out.map(key)).toEqual(['m:m1', 'm:m2', 'p:p1', 'p:p2']);
+  });
+
+  it('과목이 하나뿐이면 항등(순서 그대로) · 빈 입력은 빈 출력 · 결정적', () => {
+    const single = [cr('m', 'm1', 30), cr('m', 'm2', 20), cr('m', 'm3', 10)];
+    expect(interleaveBySubject(single).map(key)).toEqual(['m:m1', 'm:m2', 'm:m3']);
+    expect(interleaveBySubject([])).toEqual([]);
+    const input = [cr('m', 'm1', 30), cr('p', 'p1', 25), cr('m', 'm2', 20)];
+    expect(interleaveBySubject(input)).toEqual(interleaveBySubject(input)); // 안정
   });
 });
 
