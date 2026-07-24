@@ -754,3 +754,45 @@ tr[draggable='true']:hover .ds-draghandle {
     animation: none;
   }
 }
+
+/* ── 박스형 표(옛 `ui/Table.module.css`) — C-7 마지막 티어에서 여기로 올렸다.
+   ⚠ `<table>`·`<th>`·`<td>` 는 **소비처가 만드는 DOM** 이라 규약 4("자식에 직접 클래스")를
+   적용할 수 없다 — cmdk 의 group heading 과 같은 부류(§15-10). 그래서 자손 셀렉터가 남는다.
+   ⚠ `.ds-chaptbl`(위)과 **의도적으로 갈라진** 사이다: 머리글 대문자·트래킹, 행 hover,
+   td 패딩 6 vs 5. 지금 합치면 개선분이 되레 퇴행한다. */
+.ds-table {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.ds-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+.ds-table th {
+  padding: 7px 9px;
+  background: var(--panel2);
+  color: var(--mut);
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  vertical-align: middle;
+}
+.ds-table td {
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  vertical-align: middle;
+}
+.ds-table tbody tr {
+  transition: background 0.12s var(--ease);
+}
+.ds-table tbody tr:hover {
+  background: color-mix(in srgb, var(--acc) 5%, transparent);
+}
+.ds-table tbody tr:last-child td {
+  border-bottom: none;
+}

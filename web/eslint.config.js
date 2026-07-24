@@ -207,6 +207,10 @@ export default tseslint.config(
       'src/components/ui/Kpi.tsx',
       'src/components/ui/Pill.tsx',
       'src/components/ui/ProgressBar.tsx',
+      // 마지막 잔여 3종(C-7 마감) — Skeleton 은 순수 유틸, Table 은 `ds-table`, HudFrame 은 앱크롬 `hud*`.
+      'src/components/ui/Skeleton.tsx',
+      'src/components/ui/Table.tsx',
+      'src/components/hud/HudFrame.tsx',
       'src/features/alloc/**/*.tsx',
       'src/features/discovery/**/*.tsx',
       'src/features/review-run/**/*.tsx',
@@ -252,6 +256,7 @@ export default tseslint.config(
             '^skip-link$',
             '^menu(-sep|-danger)?$',
             '^modal(-ov|-t|-a|-ok)?$',
+            '^hud(-scroll|-fill)?$',
             '^in$',
             '^primary$',
           ],

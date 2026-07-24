@@ -509,6 +509,9 @@
      임의 수치 금지에 걸리므로 이름으로 옮긴다. */
   --container-online-badge: calc(100vw - 32px);
 
+  /* Skeleton — 그라데이션 밑에 깔리는 바탕색(그라데이션 자체는 `bg-[image:var(--bg-skeleton)]`). */
+  --color-sk-base: var(--sk-base);
+
   /* Tooltip */
   --container-tooltip: 248px;
 

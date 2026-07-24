@@ -324,3 +324,13 @@
     opacity: 1;
   }
 }
+
+/* Skeleton 시머(C-7 마지막 티어) — 배경 그라데이션이 좌우로 흐른다. */
+@keyframes sk-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

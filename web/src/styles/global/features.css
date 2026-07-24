@@ -300,3 +300,80 @@
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ── HUD 프레임(옛 `components/hud/HudFrame.module.css`) — C-7 마지막 티어에서 여기로 왔다.
+   ⚠ **유틸리티로 옮길 수 없는 부류다**(§15-12의 "의도된 잔여"였다가 위치만 정리했다):
+   `clip-path: polygon(...)` 노치 · 2단 그라데이션 · **`::-webkit-scrollbar` 계열 의사요소**
+   (Tailwind 에 대응 유틸이 없다). `motion.css` 의 `::view-transition-*` 과 같은 자리다.
+   여기(`features.css` = `@layer components`)에 두면 유틸리티가 이길 수 있어, 소비처가 필요할 때
+   `className` 으로 덮는 정공법이 열린다(옛 CSS Module 은 언레이어드라 그게 안 됐다). */
+.hud {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--line);
+  /* 미묘한 수직 그라데이션 + 상단 시트 하이라이트 → 앰비언트 위에 유리판처럼 떠 보임(깊이). */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel) 64%, transparent),
+    color-mix(in srgb, var(--panel) 46%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 70px -34px rgba(0, 0, 0, 0.55);
+  /* 노치: 좌상단·우하단 22px 사선 컷(데모 v6). clip-path가 보더까지 깎아 HUD 단면을 만든다. */
+  clip-path: polygon(22px 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%, 0 22px);
+  overflow: hidden;
+}
+
+/* 내부 스크롤러 — 프레임은 고정, 콘텐츠만 흐른다. 패딩으로 본문 여백 확보. */
+.hud-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px 26px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.hud-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.hud-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* fill 모드 — 본문이 프레임을 가득(단일 화면 대시보드). 패딩 없음, 자식이 100% 채움.
+   세로 스택: SubTabs 같은 선행 자식은 자연 높이로 위에, 라우트 본문(마지막 자식)이 남은 높이를 채움.
+   (today는 SubTabs가 null이라 본문이 곧 유일·마지막 자식 → 그대로 가득.)
+   overflow-y:auto — 표준 뷰포트에선 콘텐츠가 100%라 스크롤 없음(hidden과 동일), 짧은 높이·
+   스태킹 브레이크포인트 사이에선 잘리는 대신 스크롤(콘텐츠 클리핑 방지). 가로는 계속 숨김. */
+.hud-fill {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.hud-fill > * {
+  min-width: 0;
+}
+.hud-fill > *:last-child {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 모바일: 노치·프레임 보더를 접고 단일 컬럼으로(반응형은 Phase D에서 정교화). */
+@media (max-width: 700px) {
+  .hud {
+    border: none;
+    clip-path: none;
+    background: none;
+  }
+  .hud-scroll {
+    padding: 12px 14px 24px;
+  }
+  /* 모바일 단일 화면 해제(세로 스크롤)는 기본 .hud-fill overflow-y:auto가 이미 담당. */
+}

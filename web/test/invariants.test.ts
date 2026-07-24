@@ -221,8 +221,17 @@ describe('불변식 ⑤ CSS 가 참조하는 --토큰이 정의돼 있다', () =
   // 정의된 것 전부(tokens.css 든 feature 모듈이든 — 지역 변수도 정당한 정의다).
   const defined = new Set([...all.matchAll(/(--[a-z][\w-]*)\s*:/gi)].map((m) => m[1]!));
 
-  it('CSS 파일을 찾았다(0개면 이 불변식이 아무것도 안 잰다)', () => {
-    expect(files.length).toBeGreaterThan(10);
+  /* ⚠ 옛 단언은 `files.length > 10` 이었다. 주석은 "0개면 아무것도 안 잰다"인데 값은 10이라,
+     **통합할수록 게이트가 조여지는** 역인센티브가 됐다 — C-7 이 CSS Module 54개를 0으로 만들며
+     실제로 이 줄에서 걸렸다(파일이 정확히 10개가 됐다). 카나리아가 정말로 지켜야 하는 것은
+     "글롭이 아무것도 못 찾는 상태"와 "정의의 원천이 스캔 범위 밖으로 나가는 것"이므로
+     개수 대신 **원천 파일의 존재**를 단언한다. */
+  it('CSS 파일을 찾았다 — 특히 토큰 원천이 스캔 범위 안에 있다', () => {
+    expect(files.length).toBeGreaterThan(0);
+    const names = files.map((f) => f.replace(/\\/g, '/'));
+    expect(names.some((n) => n.endsWith('/styles/tokens.css'))).toBe(true);
+    expect(names.some((n) => n.endsWith('/styles/tokenBridge.css'))).toBe(true);
+    expect(names.some((n) => n.endsWith('/styles/ds.css'))).toBe(true);
   });
 
   it('폴백 없는 var(--x) 참조가 전부 정의를 갖는다', () => {

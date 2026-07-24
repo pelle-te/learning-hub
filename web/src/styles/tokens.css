@@ -115,6 +115,14 @@
   --fs-runner-mark: clamp(2.6rem, 8vw, 4rem);
 
   /* 배지·강조 배경 틴트 — `color-mix()` 결과에 이름을 준다(위 파생 의미론 색과 같은 규율). */
+  /* Skeleton(콘텐츠 로딩 자리표시 · C-7 마지막) — 두 단계 회색과 그 사이를 흐르는 그라데이션.
+     옛 `Skeleton.module.css` 가 `.line` **지역 변수**로 갖고 있던 것을 여기로 올린다(색은
+     tokens.css 에서만 온다 — 절대규칙 #3). `--bg-size-skeleton` 은 색이 아니지만 그라데이션과
+     한 벌이라 옆에 둔다(`200% 100%` 는 유틸 임의값으로 못 적는다 — 내부 `%` 가 룰에 걸린다). */
+  --sk-base: color-mix(in srgb, var(--txt) 8%, var(--panel));
+  --sk-hi: color-mix(in srgb, var(--txt) 14%, var(--panel));
+  --bg-skeleton: linear-gradient(90deg, var(--sk-base) 0%, var(--sk-hi) 50%, var(--sk-base) 100%);
+  --bg-size-skeleton: 200% 100%;
   --tint-acc: color-mix(in srgb, var(--acc) 16%, transparent);
   --tint-acc2: color-mix(in srgb, var(--acc2) 14%, transparent);
   --tint-line2: color-mix(in srgb, var(--line2) 60%, transparent);
