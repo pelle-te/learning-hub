@@ -114,7 +114,8 @@ web/src/
               막아 `database is locked`로 죽는다(실측). 증분 upsert가 대신 안전을 준다(DB가 비는 창이 없다).
               스키마 DDL의 단일 원천은 **`src-tauri/src/db.rs`**(프런트가 DDL을 들면 배포본마다 갈린다).
   shell/      탭 레지스트리(tabs.ts)·팔레트·단축키·토스트·액션.
-  styles/     ds.module(전역 디자인시스템) + feature별 *.module.css.
+  styles/     tokens(색·스케일 원천) + tokenBridge(Tailwind ↔ tokens) + ds.css(공유 `ds-*`) +
+              tw.css(Tailwind 진입점·전역 키프레임) + global/(리셋·앱크롬). **`*.module.css` 는 0개**.
 (백엔드 없음)  4단계에서 serve.js 를 삭제했다. 백엔드는 아래 src-tauri/ 의 커맨드가 전부다.
               프런트에서 그 커맨드를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2)이고,
               전송 분기(셸/브라우저)는 **`web/src/lib/api.ts` 안에만** 있다.
@@ -127,7 +128,10 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 ```
 
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.
-- **CSS Module 전면 전환 완료**: 전역 클래스는 앱 크롬만(27개). feature는 `*.module.css`.
+- **Tailwind 전환(C-7) 완료 · `*.module.css` 0개.** 스타일은 ① JSX 유틸리티 ② 공유 `ds-*`(`styles/ds.css`) ③ 앱 리셋·크롬(`styles/global/`) 셋 중 하나다.
+  - ⚠ **레이어가 계약이다**: `@layer base, components, theme, utilities` — `global/{base,components}.css`=base · `global/features.css`=components · **`ds.css` 와 `motion.css` 는 언레이어드**(유틸을 이긴다 → 덮으려면 `!`). 순서는 **최초 등장 순**이라 `main.tsx` 가 `global/index.css` → `tw.css` → `ds.css` 순으로 import 하는 것이 그 계약이다.
+  - ⚠ **버튼 hover 장식엔 `enabled:`** 를 붙인다 — 전역은 `:not(:disabled)` 로 자기를 가드하지만 유틸은 그 가드를 상속하지 않는다(비활성 버튼이 hover 에서 밝아진 실사고).
+  - 남은 CSS 와 그 존재 이유는 설계서 **§15-15 표**가 SSOT.
 - 스택: zustand+immer · @tanstack/react-query · react-router 7 · zod · cmdk(⌘K) · vite-plugin-pwa.
 
 ## 참고 문서
@@ -138,7 +142,7 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - `web/docs/골든/` — 레퍼런스 feature(스타일 앵커)
 - `web/docs/평가루브릭.md`·`평가기록.md` — 다각도 채점 SSOT + 추세
 - `web/docs/개선루브릭.md`·`로드맵.md` — 개선 우선순위 채점 + 백로그 SSOT("다음 뭐")
-- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반. **C-0~C-6 완료 · 다음 C-7(Tailwind 본편)**. ⚠ §13 이 C-6 이행 결과이고 **§9-4·§4 를 정정한다** — 그 두 절을 문자 그대로 읽으면 오도된다. Tailwind 규약 3가지의 SSOT 는 `src/phone/phone.css` 머리주석
+- `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반. **C-0~C-7 완료**(C-7=Tailwind 본편 · §15 가 이식 규약·사고 기록의 SSOT). ⚠ §13 이 C-6 이행 결과이고 **§9-4·§4 를 정정한다** — 그 두 절을 문자 그대로 읽으면 오도된다. Tailwind 규약 3가지의 SSOT 는 `src/phone/phone.css` 머리주석
 - `web/docs/cloudflare-런북.md` — **호스트 실행 절차서**(Cloudflare Workers + D1). 설계는 위 문서 §9-3b 가 SSOT, 여기는 "손으로 뭘 치는가"
 - `web/docs/oracle-런북.md` — ⚠ **보류**: 호스트를 Oracle 로 정했다가 뒤집었다(§9-3b). 실행하지 말 것 — 설계서가 인용하는 조사(한도 반토막·회수 임계값) 때문에 남겨 둔 이력 문서
 - `web/docs/플랫폼개편-설계.md` — **이력**: 0~5단계(Tauri 셸·SQLite·볼트 Rust·serve.js 해체) 결정 근거. ⚠ §10·§2 N4 는 새 문서가 정정했다 — 그대로 읽으면 오도된다(문서 상단 경고 참조)
