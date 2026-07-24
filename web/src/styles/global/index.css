@@ -1,11 +1,33 @@
 /* ============================================================
    styles/global/index.css — 앱 크롬 전역 스타일(옛 style.css 분해).
-   공유 *클래스* 디자인 시스템은 ds.module.css로 이관 완료 — 여기 남은 건 리셋·타이포·body 등
-   스코프를 가질 수 없는 것들과, 셸이 직접 쓰는 소수 클래스뿐이다.
-   색/반경/그림자 토큰은 전부 `@/styles/tokens.css`가 단일 원천(옛 theme.css는 주석만 남아 제거됨).
-   @import 순서 = 캐스케이드 순서. Vite가 빌드 시 인라인.
+   공유 *클래스* 디자인 시스템은 `styles/ds.css`(전역 `ds-*`)로 이관 완료 — 여기 남은 건
+   리셋·타이포·body 등 스코프를 가질 수 없는 것들과, 셸이 직접 쓰는 소수 클래스뿐이다.
+   색/반경/그림자 토큰은 전부 `@/styles/tokens.css`가 단일 원천.
+
+   ## ⚠⚠ 레이어 — C-7 마지막 티어에서 여기를 정리했다
+
+   이 파일들은 지금까지 **언레이어드**였다. 그러면 Tailwind 의 `@layer utilities` 를 **명시도와
+   무관하게 이긴다** — 그게 이 이식이 반복해서 물린 함정이다: 전역 `button{}`·`h1~h3{}`·`.ic`·
+   `.modal` 이 유틸을 이겨서, 옮긴 코드마다 `!` 를 박아야 했고(§15-8 ① · §15-10 · §15-11),
+   빠뜨리면 **에러 없이 조용히 옛 값으로 렌더**됐다.
+
+   이제 계단을 명시한다: **base < components < theme < utilities**.
+   - `base`     = 리셋·요소 규칙(html/body/h1~h3/a/form/table/button). 앱이 preflight 대신
+                  쓰는 자기 리셋이다(`tw.css` 머리주석) → Tailwind 의 base 자리와 같은 층.
+   - `components` = 앱 크롬 컴포넌트 클래스(.menu/.toast/.modal*). 유틸이 이겨야 하는 층.
+   - `motion.css` 는 **언레이어드로 남긴다** — `::view-transition-*` 은 문서 최상위 의사요소라
+                  레이어와 무관하고, 얹을 유틸도 없다(§15-12 의 "의도된 잔여").
+
+   ⚠ **이 선언이 첫 번째로 등장해야** 순서가 고정된다(레이어 순서는 최초 등장 순). main.tsx 가
+   `global/index.css` 를 `tw.css` 보다 먼저 import 하는 것이 그래서 계약이다.
+   ⚠ 지금까지 박아 둔 `!` 는 **잉여가 됐지만 지우지 않았다** — 값이 같아 무해하고, 지우면
+   "여기는 전역과 겹친다"는 표식이 함께 사라진다.
+   ⚠ 대가: 전에는 **아무 효과가 없던** 유틸(전역에 지고 있던 것)이 살아난다. 그건 대부분 원래
+   의도였지만 정의상 변경이므로, 이 커밋에서 스냅샷·버튼 계산스타일로 전수 확인했다.
 ============================================================ */
-@import './base.css'; /* 베이스(리셋·타이포·아이콘·스킵링크) */
-@import './components.css'; /* 카드·폼·표·KPI·경고·태그·막대·트리·일과편집·스피너·세그먼트·스케줄 공용 */
-@import './features.css'; /* 학습항목 아코디언·셋업·토스트·모달·팔레트·히트맵·숙달도·제어판 */
-@import './motion.css'; /* 탭 전환 모션(View Transitions API) — 본문 크로스페이드 */
+@layer base, components, theme, utilities;
+
+@import './base.css' layer(base); /* 리셋·타이포·아이콘·스킵링크 */
+@import './components.css' layer(base); /* 폼·표·버튼 요소 규칙(앱의 preflight 대체) */
+@import './features.css' layer(components); /* 앱 크롬 — 메뉴·토스트·모달 */
+@import './motion.css'; /* 탭 전환 모션(View Transitions) — 레이어 밖(위 주석 참조) */

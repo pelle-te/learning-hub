@@ -45,8 +45,13 @@ const SEARCHINPUT =
   'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! leading-[normal]! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
 const SEARCHSCOPE =
   'w-30 flex-none border-l border-l-line2! bg-transparent! px-2 py-2 text-txt shadow-none! placeholder:text-mut! focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:border-t max-narrow:border-t-line2! max-narrow:border-l-0!';
+/* ⚠ hover 장식에는 `enabled:` 를 붙인다. C-7 마지막 티어에서 전역 CSS 를 `@layer base` 로
+   내리면서 유틸리티가 전역을 이기게 됐는데, 그러면 앱의 `button:disabled` 가드(`:not(:disabled)`)를
+   유틸이 그냥 통과한다 — 실측: 비활성 상태의 이 버튼이 hover 에서 `brightness(1.05)` 로 밝아졌다
+   ("눌러도 안 되는 컨트롤"이라는 신호가 죽는다). 스냅샷은 disabled·hover 를 안 찍으므로
+   상호작용 계산스타일 전수 대조가 잡았다(설계서 §15-14). */
 const SEARCHGO =
-  'inline-flex items-center gap-1 rounded-md! border-0! bg-[image:var(--acc-fill)]! px-5! py-3! font-extrabold! text-on-acc! shadow-go transition hover:-translate-y-px hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:justify-center';
+  'inline-flex items-center gap-1 rounded-md! border-0! bg-[image:var(--acc-fill)]! px-5! py-3! font-extrabold! text-on-acc! shadow-go transition enabled:hover:-translate-y-px enabled:hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:justify-center';
 const JOBS = 'mx-auto mb-5 w-full max-w-runner rounded-md border border-line-acc bg-acc-soft px-4 py-3';
 const JOB_BTN = 'flex-none bg-transparent! px-2! py-1! text-sm! font-bold! text-mut!'; // jobPeek·jobCancel·recAgain — 전역 button{} 과 다른 속성만 !
 const RECITEM = 'flex items-center gap-3 border-b border-line2 px-1 py-3 last:border-b-0';
