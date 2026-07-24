@@ -80,6 +80,26 @@ export async function workspaceStatus(): Promise<WorkspaceStatus | null> {
   }
 }
 
+/** 기본 연결 문자열 — 셸이 아니거나 커맨드가 없을 때(구 배포본) 쓰는 값. 예전의 상수 그대로다. */
+export const DEFAULT_DB_URL = 'sqlite:learning-hub.db';
+
+/**
+ * 백엔드가 **실제로 마이그레이션한** DB 연결 문자열(SD-6).
+ *
+ * ⚠ 프런트가 이 값을 상수로 따로 들면, 하네스가 데이터 폴더를 격리했을 때 **백엔드는 A 에
+ * 마이그레이션하고 프런트는 B 를 여는** 상태가 만들어진다 — 스키마 없는 빈 DB 가 열리고 앱은
+ * "데이터가 없다"고 조용히 말한다. 그래서 값은 한 벌뿐이고 그 한 벌은 Rust 가 소유한다.
+ * 실패 시 기본값으로 폴백하는 것은 **구 배포본 호환**용이다(커맨드가 없던 시절 = override 도 없다).
+ */
+export async function dbUrl(): Promise<string> {
+  if (!isTauri()) return DEFAULT_DB_URL;
+  try {
+    return await call('db_url_cmd', undefined, z.string());
+  } catch {
+    return DEFAULT_DB_URL;
+  }
+}
+
 /* 창 닫기 훅(`onCloseRequested`)은 **일부러 두지 않는다** — 근거는 실측이다(2026-07-19).
    설계 §8 은 "Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 `useApp` 의 언로드 안전망이
    안 걸린다"고 보고 1단계에 셸 전용 훅을 요구했다. **재보니 발화한다**: WM_CLOSE 로 창을 닫으면

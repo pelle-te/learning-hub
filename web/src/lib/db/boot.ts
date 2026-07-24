@@ -103,8 +103,13 @@ export async function initAppStore(): Promise<void> {
     if (!ok) return; // 쓰기 실패 — localStorage 경로로 부팅(정본은 아직 거기 있다)
     _preloaded = fromLocal;
     _migrated = true;
-  } catch {
-    // 진단 불가 실패도 폴백으로 흡수한다. 부팅 실패는 이 앱에서 가장 나쁜 결과다.
+  } catch (e) {
+    /* 진단 불가 실패도 폴백으로 흡수한다 — 부팅 실패는 이 앱에서 가장 나쁜 결과다.
+       ⚠ 하지만 **조용히** 삼키지는 않는다. 이 catch 가 무음이던 동안, 부팅 읽기가 실패하면
+       앱은 아무 말 없이 localStorage(= 옛 데이터)로 떠서 사용자에겐 "저장한 게 사라졌다"로
+       보였다. SD-6 작업 중 실제로 이 침묵 때문에 원인을 못 찾고 계측을 따로 붙여야 했다
+       (`getDb()` 의 catch 는 같은 이유로 이미 로그를 남기고 있었다 — 여기만 빠져 있었다). */
+    console.error('[db] 부팅 읽기 실패 — localStorage 로 폴백합니다(최근 편집이 안 보일 수 있음).', e);
     _preloaded = null;
   }
 }

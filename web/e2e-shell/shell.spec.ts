@@ -31,7 +31,15 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { closeShell, closeSharedShell, ensureNoStrayShell, launchShell, sharedShell, type Shell } from './shellApp';
+import {
+  closeShell,
+  closeSharedShell,
+  e2eDataDir,
+  ensureNoStrayShell,
+  launchShell,
+  sharedShell,
+  type Shell,
+} from './shellApp';
 
 test.afterAll(async () => {
   await closeSharedShell();
@@ -116,6 +124,28 @@ test('IPC 왕복 — 커맨드가 등록돼 있고 웹뷰에서 실제로 닿는
   }
 });
 
+/* 데이터 폴더 격리(SD-6) — **이 하네스가 사용자의 실 DB 를 안 건드린다.**
+
+   왜 여기여야 하나: `paths.rs` 유닛은 "환경변수가 있으면 이런 문자열을 만든다"까지만 잰다.
+   실제로 걸렸는가는 **앱이 그 값으로 DB 를 열었는가**이고, 그건 부팅한 프로세스 안에서만
+   관측된다. 이게 없으면 격리는 검증되지 않은 주장이고, 어느 날 조용히 풀려 있어도 모른다
+   (env 오타 하나면 충분하다 — 그리고 실패 증상은 "테스트가 잘 돈다"이다).
+
+   ⚠ 단언을 **경로 문자열 비교로** 한다. "임시 폴더에 파일이 있다"만 보면 앱이 두 DB 를 다
+   열었어도 통과한다. */
+test('데이터 폴더 격리 — 앱이 하네스가 준 폴더의 DB 를 연다(실 AppData 아님)', async () => {
+  const shell = await sharedShell();
+  const url = await ipc(shell, 'db_url_cmd');
+  expect(url.threw, `db_url_cmd 가 안 닿는다: ${url.err}`).toBe(false);
+
+  const dir = e2eDataDir();
+  const expected = `sqlite:${path.join(dir, 'learning-hub.db')}`;
+  expect(url.out, '앱이 격리 폴더가 아닌 곳의 DB 를 열고 있다 — 실 사용자 데이터가 노출된다').toBe(expected);
+
+  // 그리고 실제로 그 자리에 생겼는가(마이그레이션이 override 경로에 적용됐다는 증거).
+  await expect.poll(() => existsSync(path.join(dir, 'learning-hub.db')), { timeout: 15_000 }).toBe(true);
+});
+
 /* Channel 스트리밍 — **vitest 가 원리적으로 못 보는 자리.**
 
    유닛 테스트는 Channel 을 스텁으로 대체하므로 "실제 IPC 채널이 붙는가"는 검사 대상이 아니다.
@@ -186,10 +216,14 @@ test('창 닫기 — 디바운스 대기 중 닫아도 비동기 SQL 쓰기가 �
           __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> };
         }
       ).__TAURI_INTERNALS__;
+      /* ⚠ DB 를 **앱에게 물어서** 연다(SD-6). 예전엔 `'sqlite:learning-hub.db'` 를 여기 박아
+         뒀는데, 격리 이후 그 상대경로는 플러그인이 **실제 app_config_dir 기준**으로 풀어
+         하네스가 사용자의 진짜 DB 를 여는 결과가 된다 — 정확히 없애려던 그 접촉이다. */
+      const db = (await w.invoke('db_url_cmd')) as string;
       // ⚠ 먼저 연결을 연다 — `getDb()` 는 지연 로드라 편집이 없던 세션에선 DB 가 안 열려 있다.
-      await w.invoke('plugin:sql|load', { db: 'sqlite:learning-hub.db' });
+      await w.invoke('plugin:sql|load', { db });
       const rows = (await w.invoke('plugin:sql|select', {
-        db: 'sqlite:learning-hub.db',
+        db,
         query: "SELECT value FROM settings WHERE key = 'theme'",
         values: [],
       })) as { value: string }[];
@@ -219,15 +253,19 @@ test('창 닫기 — 디바운스 대기 중 닫아도 비동기 SQL 쓰기가 �
   let shell: Shell = await sharedShell();
   try {
     const before = await readTheme(shell);
-    await awaitHydration(shell, before);
+    /* ⚠ 격리 폴더는 **빈 DB 로 시작**하므로 `settings` 에 theme 행이 아직 없을 수 있다
+       (`undefined`). 그때 화면에 내려오는 값은 `defaults().theme` = 'dark' 다
+       (`ThemeProvider:14` 의 `theme || 'dark'`). 이 폴백이 없으면 첫 실행에서
+       "data-theme 이 undefined 가 되기를" 영원히 기다린다. */
+    await awaitHydration(shell, before ?? 'dark');
     // 편집을 일으키고 **곧바로** 닫는다 — 저장이 아직 진행 중일 때 창이 죽는 상황을 만든다.
     await shell.page.getByRole('button', { name: /테마 전환/ }).click();
     await closeSharedShell();
 
-    /* 다시 띄우는 이유는 **읽기가 아니라 원복**이다. 값 확인만이면 Node 가 SQLite 파일을
-       직접 읽으면 되지만(`node:sqlite`), 되돌리기는 **앱 자신의 쓰기 경로로** 해야 한다 —
-       하네스가 실물 DB 에 직접 쓰는 순간이 정확히 `updated_at` 을 빠뜨려 사용자 독후감을
-       동기화에서 탈락시킨 그 사고다. 8초를 아끼자고 그 문을 다시 열지 않는다. */
+    /* 다시 띄우는 이유는 **재시작을 넘어 살아남았는지**를 보기 위해서다. 예전엔 여기에
+       "원복" 이라는 두 번째 목적이 붙어 있었다 — 하네스가 사용자의 진짜 DB 를 만졌으니
+       테마를 돌려놔야 했다. SD-6 로 데이터 폴더가 격리되면서 **그 이유가 사라졌다**
+       (임시 폴더라 OS 가 치운다). 아래 원복 단계도 함께 없앴다. */
     shell = await launchShell();
     const after = await readTheme(shell);
     expect(after, '비동기 SQL 쓰기가 창 닫기에서 잘렸다 → 닫기 가드가 안 걸렸다').not.toBe(before);
@@ -240,10 +278,6 @@ test('창 닫기 — 디바운스 대기 중 닫아도 비동기 SQL 쓰기가 �
        나온다(이 케이스를 쓰면서 실제로 두 번 물렸다 — 둘 다 앱이 아니라 테스트 결함이었다).
        수렴을 기다리는 형태로 쓰면 "부팅 읽기가 화면까지 도달한다"까지 함께 잠긴다. */
     await awaitHydration(shell, after);
-
-    // 원복 — 위 대기가 끝난 뒤라 토글이 올바른 현재값에서 계산된다.
-    await shell.page.getByRole('button', { name: /테마 전환/ }).click();
-    await expect.poll(() => readTheme(shell), { timeout: 10_000 }).toBe(before);
   } finally {
     await closeShell(shell);
   }

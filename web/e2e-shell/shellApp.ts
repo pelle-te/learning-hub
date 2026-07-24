@@ -8,13 +8,30 @@
       `CloseRequested` 를 건너뛰어 **검사 대상인 flush 경로 자체를 우회**해 버린다.
 ============================================================ */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type Page } from '@playwright/test';
 
 // ESM 스코프라 __dirname 이 없다 — 설정(testDir)이 web/ 기준으로 도므로 cwd 에서 잡는다.
 const EXE = path.resolve(process.cwd(), '../src-tauri/target/release/learning-hub.exe');
 const CDP_PORT = 9222;
+
+/* ── 데이터 폴더 격리(SD-6) ─────────────────────────────────────────────────
+   트랙 B 는 **사용자의 실제 DB 를 상대**하고 있었다. 이미 실사고를 냈다 — 옛 케이스가 `docs` 에
+   2열 INSERT 를 해서 실제 독후감의 `updated_at` 을 0 으로 깎았고, 그 행은 클라우드 동기화에서
+   영원히 빠졌다(앱은 "최신"이라고 말한다). 그 뒤로는 **"하네스는 실 DB 에 쓰지 않는다"는 규약**
+   으로 막고 있었는데, 규약은 흘러내린다. 이제 구조로 막는다.
+
+   ⚠ `APPDATA` 를 갈아끼우는 방식은 **안 통한다(실측)** — `dirs` 크레이트가 Win32
+   `SHGetKnownFolderPath` 를 부르므로 환경변수를 무시한다. 그래서 **앱이 스스로 읽는**
+   override 를 쓴다(`src-tauri/src/paths.rs`). DB·`workspace.json`·`research-jobs.json` 이
+   함께 옮겨간다 — 원래 한 폴더에 있는 삼형제다.
+
+   ⚠ 폴더는 **실행마다 새로** 만든다. 재사용하면 앞선 실행의 상태가 다음 실행의 전제가 되어,
+   "혼자 돌리면 통과하는데 전체로 돌리면 실패"가 생긴다(그리고 그 반대도). 임시 폴더라
+   OS 가 알아서 치우므로 정리 코드도 필요 없다. */
+const dataDir = mkdtempSync(path.join(os.tmpdir(), 'lh-e2e-'));
 
 export interface Shell {
   page: Page;
@@ -65,7 +82,11 @@ export async function launchShell(): Promise<Shell> {
   await ensureNoStrayShell();
 
   const proc = spawn(EXE, {
-    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${CDP_PORT}` },
+    env: {
+      ...process.env,
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${CDP_PORT}`,
+      LEARNING_HUB_E2E_DATA_DIR: dataDir,
+    },
     detached: false,
     stdio: 'ignore',
   });
@@ -129,6 +150,11 @@ export async function closeShell(shell: Shell): Promise<void> {
     ps(`Stop-Process -Id ${shell.pid} -Force -ErrorAction SilentlyContinue`);
     throw new Error('창이 정상 종료로 닫히지 않았습니다(강제 종료함) — allow-destroy 권한을 확인하세요.');
   }
+}
+
+/** 이번 실행의 격리 데이터 폴더 — 케이스가 "실 DB 를 안 건드렸다"를 단언할 때 쓴다. */
+export function e2eDataDir(): string {
+  return dataDir;
 }
 
 export function isAlive(pid: number): boolean {

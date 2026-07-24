@@ -11,7 +11,6 @@ Tauri 앱은 설치 경로에 놓이므로 **1단계에서 이미 이 추론이 
 */
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use tauri::Manager;
 
 /// 워크스페이스로 인정하는 표지 — `knowledge/` 와 `pipeline/` 이 함께 있는 폴더.
 /// (러닝허브 앱 폴더 `hub/` 의 **부모**가 워크스페이스라는 것이 저장소 규약이다.)
@@ -34,12 +33,8 @@ pub struct WorkspaceStatus {
 }
 
 fn config_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|e| format!("설정 폴더를 찾지 못했습니다: {e}"))?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("설정 폴더 생성 실패: {e}"))?;
-    Ok(dir.join("workspace.json"))
+    // 폴더 결정은 paths 가 소유한다(SD-6) — DB·잡 이력과 **같은 폴더**여야 하기 때문.
+    Ok(crate::paths::config_dir(app)?.join("workspace.json"))
 }
 
 pub fn load(app: &tauri::AppHandle) -> WorkspaceConfig {

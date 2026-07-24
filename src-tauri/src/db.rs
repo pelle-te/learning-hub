@@ -30,8 +30,10 @@
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
-/// 앱 DB 파일명 — `tauri-plugin-sql` 이 app data 폴더 기준으로 연다.
-pub const DB_URL: &str = "sqlite:learning-hub.db";
+/* ⚠ 연결 문자열은 여기 없다 — **`paths::db_url()`** 이 소유한다(SD-6).
+   폴더가 하네스 override 로 갈릴 수 있게 되면서 상수로는 표현이 안 되고, 무엇보다
+   `workspace.json`·`research-jobs.json` 과 **같은 폴더**를 봐야 해서 그 셋의 경로 해석이
+   한 곳에 있어야 한다. 프런트도 `db_url` 커맨드로 **같은 값**을 받아 연다. */
 
 pub fn migrations() -> Vec<Migration> {
     vec![

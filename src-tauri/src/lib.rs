@@ -20,6 +20,7 @@ mod db;
 mod files;
 mod news;
 mod ollama;
+mod paths;
 mod research;
 /* 통합 테스트 공용 헬퍼(2026-07-20 층 재배치). 트랙 B 에 잘못 올라가 있던 실물 검사들이
 여기 헬퍼를 딛고 `cargo test` 로 내려왔다 — 근거는 `testkit.rs` 머리주석. */
@@ -52,10 +53,12 @@ pub fn run() {
         // 2단계 — SQLite. 스키마는 db.rs 가 단일 원천이고 프런트는 데이터만 넣고 뺀다.
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations(db::DB_URL, db::migrations())
+                .add_migrations(&paths::db_url(), db::migrations())
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            // SD-6 — 프런트가 **백엔드가 마이그레이션한 그 DB** 를 열게 한다(값 두 벌 금지).
+            paths::db_url_cmd,
             workspace::workspace_status,
             workspace::set_workspace,
             vault::vault_scan,

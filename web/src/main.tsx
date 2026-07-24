@@ -18,8 +18,14 @@ import '@/styles/tw.css';
 import '@/styles/ds.css';
 
 import { queryClient } from '@/app/queryClient';
-import ThemeProvider from '@/app/ThemeProvider';
 import { initAppStore } from '@/lib/db/boot';
+
+/* ⚠ `ThemeProvider` 를 **정적으로 import 하지 않는다** — 아래 계약이 그것 때문에 깨져 있었다.
+   ThemeProvider 는 `useApp` 을 import 하고, ES import 는 호이스팅되므로 그 한 줄이 스토어를
+   `initAppStore()` 가 시작하기도 **전에** 만들었다. 그러면 `preloadedState()` 가 아직 null 이라
+   셸이 **SQLite 가 아니라 낡은 localStorage 로 부팅**한다(2단계-E 가 App 만 동적으로 바꾸고
+   ThemeProvider 를 놓쳤다 · SD-6 작업 중 트랙 B 재시작 케이스가 이걸 잡았다).
+   `queryClient` 는 안전하다 — `@tanstack/react-query` 만 import 한다(실측). */
 
 function ShellFallback() {
   return (
@@ -42,7 +48,11 @@ function ShellFallback() {
 void initAppStore()
   .catch(() => {})
   .then(async () => {
-    const { default: App } = await import('@/app/App');
+    // 이 두 줄이 `useApp` 모듈 평가를 처음 유발한다 — 그래서 반드시 위 await 뒤여야 한다.
+    const [{ default: App }, { default: ThemeProvider }] = await Promise.all([
+      import('@/app/App'),
+      import('@/app/ThemeProvider'),
+    ]);
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
         <ErrorBoundary FallbackComponent={ShellFallback}>

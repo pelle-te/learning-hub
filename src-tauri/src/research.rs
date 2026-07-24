@@ -36,7 +36,7 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 use crate::tools::{kill_tree_pid, tail_chars, Cap, OUT_CAP};
 
@@ -91,9 +91,8 @@ fn canceled() -> &'static Mutex<std::collections::HashSet<String>> {
 /* ── 영속 ─────────────────────────────────────────────────────── */
 
 fn store_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
-    let dir = app.path().app_config_dir().ok()?;
-    std::fs::create_dir_all(&dir).ok()?;
-    Some(dir.join("research-jobs.json"))
+    // 폴더 결정은 paths 가 소유한다(SD-6) — DB·workspace.json 과 **같은 폴더**여야 하기 때문.
+    Some(crate::paths::config_dir(app).ok()?.join("research-jobs.json"))
 }
 
 fn save(app: &tauri::AppHandle) {

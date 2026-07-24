@@ -11,7 +11,7 @@
    ⚠ 스키마(DDL)는 여기 없다 — `src-tauri/src/db.rs` 가 단일 원천이다. 프런트가 DDL 을 들고
    있으면 배포본마다 스키마가 갈릴 수 있다.
 ============================================================ */
-import { isTauri } from '../tauri';
+import { isTauri, dbUrl } from '../tauri';
 import { diffRows, type DbRows } from './rows';
 import { nextStamp } from './stamp';
 
@@ -21,7 +21,10 @@ interface Db {
   select<T>(query: string, values?: unknown[]): Promise<T>;
 }
 
-const DB_URL = 'sqlite:learning-hub.db'; // src-tauri/src/db.rs 의 DB_URL 과 일치해야 한다
+/* ⚠ 연결 문자열 상수는 **여기 없다**(SD-6). 폴더가 하네스 override 로 갈릴 수 있게 되면서,
+   프런트가 값을 따로 들면 백엔드가 마이그레이션한 DB 와 다른 파일을 열 수 있다 —
+   스키마 없는 빈 DB 가 열리고 앱은 "데이터가 없다"고 조용히 말한다. `lib/tauri.dbUrl()` 이
+   Rust(`paths::db_url`)에게 묻는다. */
 
 let _db: Promise<Db> | null = null;
 
@@ -62,8 +65,8 @@ export async function getDb(): Promise<Db | null> {
     const { getBrowserDb } = await import('./browserDb');
     return getBrowserDb();
   }
-  _db ??= import('@tauri-apps/plugin-sql')
-    .then((m) => m.default.load(DB_URL) as Promise<Db>)
+  _db ??= Promise.all([import('@tauri-apps/plugin-sql'), dbUrl()])
+    .then(([m, url]) => m.default.load(url) as Promise<Db>)
     .then(async (db) => {
       /* WAL 로 올린다 — 기본 롤백 저널에선 **읽는 중엔 쓸 수 없어** `database is locked` 가 난다.
          plugin-sql 은 sqlx 커넥션 **풀**이라 읽기와 쓰기가 서로 다른 커넥션에서 겹치는 게 정상
