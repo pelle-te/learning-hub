@@ -13,6 +13,7 @@ import { todayISO, parseISO, fmt, ddayInfo } from '@/lib/utils';
 import { studyStreak } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
+import { pickTodayFocus } from '@/lib/todayFocus';
 
 const CARD = 'rounded-lg border border-line bg-panel p-4';
 const STAT = 'flex flex-col gap-0.5 rounded-md border border-line bg-panel2 px-3 py-2.5';
@@ -26,8 +27,9 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
   const day = res.days.find((d) => d.ds === today);
   const newBlocks = (day?.items || []).filter((it) => it.type === 'new');
   const plannedMin = newBlocks.reduce((t, it) => t + (it.min || 0), 0);
-  // 오늘의 초점 = 가장 큰 새 학습 블록(없으면 null).
-  const focus = newBlocks.slice().sort((a, b) => (b.min || 0) - (a.min || 0))[0] || null;
+  // 오늘의 초점 = 마감·진도 밀림 가중 우선순위(읽기전용 추천 · 스케줄 안 씀 · pickTodayFocus).
+  const focusPick = pickTodayFocus(newBlocks, res.itemStat, today);
+  const focus = focusPick?.block || null;
 
   const streak = studyStreak(state);
   const risk = riskSummary(state, res.days, today);
@@ -50,7 +52,10 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
         className={CARD}
         style={focus?.color ? { borderLeft: `3px solid ${focus.color}`, paddingLeft: 13 } : undefined}
       >
-        <div className="text-2xs font-bold tracking-wide text-mut uppercase">오늘의 초점</div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-2xs font-bold tracking-wide text-mut uppercase">오늘의 초점</span>
+          {focusPick ? <span className="text-2xs font-bold text-acc">{focusPick.reason}</span> : null}
+        </div>
         {focus ? (
           <>
             <div className="mt-1 text-base font-bold text-txt">{focus.name}</div>
