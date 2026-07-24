@@ -48,14 +48,17 @@ const BTN_BASE =
   'inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-sm! border! px-3.25! py-0! text-sm! leading-[normal] font-bold! transition-colors duration-150 ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:min-h-10';
 const BTN_PLAIN =
   'border-line! bg-transparent! tracking-chip! text-ink! hover:border-line-acc-strong! hover:bg-panel2!';
-/* 주 액션 — 데모의 "네온 채움 필"이지만 **실제로는 채워진 적이 없다.**
-   ⚠ 이식 중 발견한 선존 결함(고치지 않고 보존): `TopBar.module.css` 는 `.fill`(98행)을 `.btn`(112행)
-   **앞에** 뒀는데 둘 다 클래스 하나짜리 같은 명시도라 **뒤에 온 `.btn` 이 이긴다** — background·
-   border-color·color 세 속성이 통째로 죽고 box-shadow(발광)와 자간만 살아남았다. 즉 헤더 주 액션은
-   지금까지 '발광하는 평칩'으로 렌더돼 왔다. Tailwind 로 옮기면서 의도대로 채우면 **여러 탭의 헤더가
-   한꺼번에 바뀐다** — 이식이 몰래 하는 디자인 변경이 되므로(절대규칙 #4) **관측된 렌더를 그대로
-   재현**하고 결함만 기록한다. 되살릴지는 별도 결정 사안이다(설계서 §15-8). */
-const BTN_FILL = `${BTN_PLAIN.replace('tracking-chip!', 'tracking-fill!')} shadow-fill-chip`;
+/* 주 액션 — "네온 채움 필"(데모의 "지금 시작 →"). **2026-07-24 에 되살렸다**(사용자 결정 · §15-9).
+   내력: `TopBar.module.css` 는 `.fill`(98행)을 `.btn`(112행) **앞에** 뒀는데 둘 다 클래스 하나짜리
+   같은 명시도라 뒤에 온 `.btn` 이 이겼다 — background·border-color·color 세 속성이 통째로 죽고
+   box-shadow(발광)와 자간만 살아남아, 헤더 주 액션은 지금까지 '발광하는 평칩'으로 렌더돼 왔다.
+   C-7 이식 시점엔 절대규칙 #4(이식이 몰래 하는 디자인 변경 금지)에 따라 관측된 렌더를 재현만 하고
+   결함으로 기록해 뒀고, 이제 사용자 결정으로 원래 의도대로 채운다.
+   ⚠ BTN_PLAIN 을 파생해 쓰지 않는다 — 배경·색·보더색을 두 문자열이 나눠 가지면 클래스 나열
+   순서가 아니라 Tailwind 방출 순서로 갈린다(§15-8 ②, 이 파일에서 실제로 물렸던 그 결함). */
+const BTN_FILL =
+  // hover 의 brightness(1.06)는 사다리 밖이라 내장 칸(105)으로 반올림(규약 2 · hover 는 스냅샷 밖).
+  'border-acc! bg-acc! tracking-fill! text-on-acc! shadow-fill-chip hover:brightness-105';
 const BTN = `${BTN_BASE} ${BTN_PLAIN}`;
 // 정사각 아이콘 전용 버튼(테마·설정·메뉴).
 const BTN_ICON = `${BTN} w-8.5 px-0! max-mobile:w-10`;

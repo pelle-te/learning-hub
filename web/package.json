@@ -25,7 +25,7 @@
     "report:debt": "node scripts/report-debt.mjs",
     "verify": "npm run codegen:check && npm run typecheck && npm run lint && npm run lint:css && npm run format:check && npm run knip && npm run test:coverage",
     "e2e": "playwright test",
-    "e2e:update": "playwright test --update-snapshots",
+    "e2e:update": "playwright test --update-snapshots=all --workers=1",
     "e2e:smoke": "playwright test smoke",
     "e2e:shell": "playwright test -c playwright.shell.config.ts",
     "gate": "node scripts/gate.mjs",
