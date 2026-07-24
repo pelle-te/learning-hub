@@ -19,6 +19,10 @@ import { nextStamp } from './stamp';
 interface Db {
   execute(query: string, values?: unknown[]): Promise<unknown>;
   select<T>(query: string, values?: unknown[]): Promise<T>;
+  /** 여러 문장을 한 왕복으로(H-1). **폰(워커)만 구현**한다 — plugin-sql 은 배치 API 가 없어
+   *  `undefined` 이고, `batchDb`/`writeRows` 가 순차 `execute` 로 폴백한다. 그쪽은 IPC 라
+   *  왕복이 싸고, 무엇보다 sqlx 풀에서 트랜잭션(`BEGIN`)이 잠금으로 죽어 배치 이득이 작다. */
+  batch?(stmts: { sql: string; args: unknown[] }[]): Promise<void>;
 }
 
 /* ⚠ 연결 문자열 상수는 **여기 없다**(SD-6). 폴더가 하네스 override 로 갈릴 수 있게 되면서,
@@ -104,6 +108,28 @@ export async function execDb(query: string, values: unknown[] = []): Promise<boo
     return true;
   } catch (e) {
     console.error('[db] execute 실패:', query, e);
+    return false;
+  }
+}
+
+/**
+ * 여러 문장을 **한 배치**로 실행한다(H-1). 폰(워커)이면 한 왕복 + 트랜잭션(원자적),
+ * 셸이면 순차 `execute` 폴백(plugin-sql 은 배치 API 가 없다). 성공 여부만 돌려주고 삼키지 않는다.
+ *
+ * ⚠ 폴백은 **비원자적**이다(중간에 죽으면 부분 적용) — 데스크톱은 이미 diff 쓰기가 그
+ * 성질을 전제로 안전하고(`writeRows` 주석: "남는 건 여분의 옛 행이지 사라진 행이 아니다"),
+ * 병합(`applyPull`)은 실패를 **던져** 워터마크 전진을 막는다(다음 pull 이 재개).
+ */
+export async function batchDb(stmts: { sql: string; args: unknown[] }[]): Promise<boolean> {
+  if (!stmts.length) return true;
+  const db = await getDb();
+  if (!db) return false;
+  try {
+    if (db.batch) await db.batch(stmts);
+    else for (const s of stmts) await db.execute(s.sql, s.args);
+    return true;
+  } catch (e) {
+    console.error('[db] batch 실패:', e);
     return false;
   }
 }
@@ -217,7 +243,10 @@ export async function writeRows(rows: DbRows): Promise<boolean> {
      워터마크에 영영 안 걸린다(`stamp.ts` 머리주석). 발급을 한 지점으로 모으는 게 그 방어다. */
   const stmts = diffRows(_last, rows, nextStamp());
   try {
-    for (const s of stmts) await db.execute(s.sql, s.args);
+    /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
+       셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */
+    if (db.batch) await db.batch(stmts);
+    else for (const s of stmts) await db.execute(s.sql, s.args);
     _last = rows;
     return true;
   } catch (e) {

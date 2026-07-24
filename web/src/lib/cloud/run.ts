@@ -54,13 +54,34 @@ export interface SyncResult {
   error?: string;
 }
 
+/* ⚠⚠ **재진입 가드는 여기, 공유층에 있다**(C-1 후속 · 2026-07-24).
+
+   종전엔 겹침 방지가 `phone/sync.ts` 에만 있었다 — 그런데 `syncOnce` 를 부르는 곳은 폰만이
+   아니다: 데스크톱은 `StorageGuard`(5분 틱)·`CloudCard`("지금 동기화"·연결 직후)에서 부르고,
+   그 셋은 서로 겹칠 수 있었다(설정에서 버튼을 누르는 순간 틱이 겹치는 등). 겹치면 두 동기화가
+   모듈 전역 가변 상태(`sqlite.ts` 의 diff 기준선 `_last`·스탬프 발급기·워터마크)를 **경합**하고,
+   그건 `merge.ts` 머리주석이 경고한 "낡은 기준선이 받아온 변경을 되돌리는 문장을 만든다"의
+   재현 경로다. 가드가 소비자 레이어(폰)에 있으면 다른 소비자가 상속받지 못한다 —
+   그래서 겹침 방지를 **`syncOnce` 자체의 불변식**으로 끌어올린다. 이제 어느 경로로 불러도
+   동시에 둘이 돌지 않는다. */
+let _inflight: Promise<SyncResult> | null = null;
+
 /**
  * 동기화 1회. 클라우드에 연결돼 있지 않으면 아무것도 하지 않는다(`disconnected`).
+ *
+ * ⚠ **겹쳐 돌지 않는다** — 이미 도는 중이면 그 약속을 돌려준다(위 주석 참조).
  *
  * 실패를 삼키지 않는다 — 호출부가 사용자에게 알릴 수 있어야 한다. 다만 **던지지도 않는다**:
  * 동기화 실패가 앱을 멈추면 안 되고(로컬은 멀쩡히 동작한다), 다음 시도가 재개한다.
  */
-export async function syncOnce(): Promise<SyncResult> {
+export function syncOnce(): Promise<SyncResult> {
+  _inflight ??= runSyncOnce().finally(() => {
+    _inflight = null;
+  });
+  return _inflight;
+}
+
+async function runSyncOnce(): Promise<SyncResult> {
   const cfg = await readCloudConfig();
   if (!cfg) return { status: 'disconnected', pulled: 0, state: null };
 

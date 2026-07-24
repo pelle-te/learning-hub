@@ -24,6 +24,8 @@ import type { DbRequest, DbResponse } from './sqlite.worker';
 interface Db {
   execute(query: string, values?: unknown[]): Promise<unknown>;
   select<T>(query: string, values?: unknown[]): Promise<T>;
+  /** 여러 문장을 한 왕복으로(H-1). 워커에선 트랜잭션으로 감싸 **원자적**이다. */
+  batch(stmts: { sql: string; args: unknown[] }[]): Promise<void>;
 }
 
 /** OPFS 를 못 잡아 인메모리로 내려갔는가. 화면이 이 사실을 말해야 한다(워커 머리주석). */
@@ -83,6 +85,10 @@ export async function getBrowserDb(): Promise<Db | null> {
         const r = await call(worker, { kind: 'select', sql: query, bind: values });
         if (!r.ok || r.kind !== 'select') throw new Error('select 응답이 계약과 다릅니다.');
         return r.rows as T;
+      },
+      async batch(stmts: { sql: string; args: unknown[] }[]): Promise<void> {
+        // 워커 프로토콜은 `bind` 를 쓴다(`Db` 계약은 `args`) — 경계에서 맞춘다.
+        await call(worker, { kind: 'batch', stmts: stmts.map((s) => ({ sql: s.sql, bind: s.args })) });
       },
     };
   })();

@@ -23,7 +23,7 @@
    서버 응답은 네트워크를 건너온다. `OutboxBatchSchema` 로 **똑같이 검증**한다 — 우리 서버라고
    믿고 넘기면 그건 `lib/tauri.ts` 의 비차단 정책을 신뢰 경계에 잘못 적용하는 것이다.
 ============================================================ */
-import { execDb } from '../db/sqlite';
+import { batchDb } from '../db/sqlite';
 import { readRows, setDiffBaseline } from '../db/sqlite';
 import { rowsToState } from '../db/rows';
 import { seedStamp } from '../db/stamp';
@@ -46,7 +46,11 @@ export interface MergeResult {
  * 병합 결과가 갈린다 — 그게 이 프로젝트에서 가장 비싼 종류의 버그다(재현이 기기 의존).
  */
 export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
-  let applied = 0;
+  /* ⚠ **한 배치로 병합한다**(H-1). 종전엔 행마다 `execDb` 를 순차로 await 했는데, 폰에선
+     그게 200 번(pull 상한)의 워커 왕복이었다. 문장 순서는 그대로 유지한다 — 행 upsert 를
+     먼저, 그다음 툼스톤(삽입 + 오래된 행 DELETE). 순서가 의미를 가지므로 배치 안에서도 이
+     순서로 실행된다(워커·폴백 모두 배열 순). */
+  const stmts: { sql: string; args: unknown[] }[] = [];
 
   for (const r of batch.rows) {
     const spec = SPEC.get(r.tbl);
@@ -59,36 +63,42 @@ export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
     /* ⚠ 툼스톤 가드가 `ON CONFLICT` 만으로는 안 된다 — 행이 이미 지워졌으면 **충돌이 없어**
        LWW 조건이 평가되지 않고 오래된 편집이 부활한다. 서버에서 실측으로 잡은 결함이고
        (`server/test/contract.test.ts`), 로컬 병합도 같은 함정을 그대로 갖는다. */
-    const ok = await execDb(
-      `INSERT INTO ${spec.name} (${names.join(',')})
+    stmts.push({
+      sql: `INSERT INTO ${spec.name} (${names.join(',')})
        SELECT ${names.map(() => '?').join(',')}
        WHERE NOT EXISTS (
          SELECT 1 FROM tombstones WHERE tbl = ? AND k1 = ? AND k2 = ? AND deleted_at >= ?
        )
        ON CONFLICT(${key.join(',')}) DO UPDATE SET ${setters}
        WHERE excluded.updated_at > ${spec.name}.updated_at`,
-      [...r.key, ...r.data, r.updatedAt, r.tbl, k1, k2, r.updatedAt],
-    );
-    if (ok) applied++;
+      args: [...r.key, ...r.data, r.updatedAt, r.tbl, k1, k2, r.updatedAt],
+    });
   }
 
   for (const t of batch.tombstones) {
-    const okT = await execDb(
-      `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
+    stmts.push({
+      sql: `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
        ON CONFLICT(tbl,k1,k2) DO UPDATE SET deleted_at = excluded.deleted_at
        WHERE excluded.deleted_at > tombstones.deleted_at`,
-      [t.tbl, t.k1, t.k2, t.deletedAt],
-    );
-    if (okT) applied++;
+      args: [t.tbl, t.k1, t.k2, t.deletedAt],
+    });
     const spec = SPEC.get(t.tbl);
     if (!spec) continue;
     const { key } = tableCols(spec);
     const where = key.map((k) => `${k} = ?`).join(' AND ');
     const keys = key.length === 2 ? [t.k1, t.k2] : [t.k1];
-    await execDb(`DELETE FROM ${spec.name} WHERE ${where} AND updated_at < ?`, [...keys, t.deletedAt]);
+    stmts.push({ sql: `DELETE FROM ${spec.name} WHERE ${where} AND updated_at < ?`, args: [...keys, t.deletedAt] });
   }
 
-  if (!applied) return { state: null, applied: 0 };
+  if (!stmts.length) return { state: null, applied: 0 };
+
+  /* ⚠ 실패는 **던진다**(반환하지 않는다). `run.ts` 가 이 예외를 잡으면 pull 워터마크를
+     전진시키지 않아 다음 pull 이 같은 구간을 재개한다. 종전 per-row `execDb` 는 실패를
+     삼켜서, 한 행이 실패해도 워터마크가 전진해 **그 행이 조용히 유실**될 수 있었다 —
+     배치는 그 자리에서 멈추므로 그 창을 닫는다. */
+  if (!(await batchDb(stmts))) throw new Error('병합 배치 실패 — pull 을 재개합니다.');
+  // 적용 건수 = 시도 건수(서버는 바뀐 것만 보내므로 실사용에선 실제 반영 수와 같다).
+  const applied = batch.rows.length + batch.tombstones.length;
 
   /* ⚠ **씨앗을 심는다.** 받아온 스탬프가 로컬 최대값보다 클 수 있다(다른 기기가 미래에 있는
      시계를 썼거나 단순히 더 최근이거나). 안 심으면 다음 로컬 편집이 그보다 작은 스탬프를 받아

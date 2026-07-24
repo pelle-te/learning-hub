@@ -13,7 +13,6 @@ import { useApp } from '@/store/useApp';
 import { addTask, removeTask, tasksForDay, toggleTaskDone } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
 import { colorForId, parseISO, fmt, toHM } from '@/lib/utils';
-import { syncSoon } from './sync';
 import { useMemo, useState } from 'react';
 
 export default function DayView({ ds }: { ds: string }): React.JSX.Element {
@@ -28,12 +27,11 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
   const events = useMemo(() => eventsForDay(state, ds), [state, ds]);
   const tasks = useMemo(() => tasksForDay(state, ds), [state, ds]);
 
-  /* 편집 후엔 동기화를 예약한다. `mutate` 는 400ms 디바운스로 SQLite 에 쓰고, `syncSoon` 은
-     그보다 길게(1200ms) 기다렸다 아웃박스를 훑는다 — 순서가 뒤집히면 방금 편집이 이번
-     회차에서 빠진다(`phone/sync.ts` 참조). */
+  /* 편집 후 동기화 예약은 이제 **전역**이다 — `installSyncTriggers({ onEdit })` 가 `useApp`
+     상태 변경을 구독해 `syncSoon` 을 건다(`store/syncController`). 그래서 여기서 화면마다
+     따로 부르지 않는다(DayView·WeekView·ReadsView 어디서 편집해도 한 곳이 잡는다). */
   const edit = (recipe: Parameters<typeof mutate>[0]): void => {
     mutate(recipe);
-    syncSoon();
   };
 
   const add = (e: React.FormEvent): void => {

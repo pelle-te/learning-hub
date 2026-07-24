@@ -31,10 +31,19 @@ import {
   type CloudConfig,
   type CloudDevice,
 } from '@/lib/cloud/client';
-import { syncOnce } from '@/lib/cloud/run';
-import { useApp } from '@/store/useApp';
+import { collectOutbox, batchSize } from '@/lib/cloud/outbox';
+import { runSync, lastSync } from '@/store/syncController';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
+
+/** 상대 시각 문구(관측성 readout 전용). 렌더 시점 계산이라 라이브 갱신은 아니다. */
+function relTime(at: number): string {
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (s < 60) return '방금';
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}분 전`;
+  return `${Math.round(m / 60)}시간 전`;
+}
 
 export default function CloudCard() {
   const [cfg, setCfg] = useState<CloudConfig | null>(null);
@@ -43,6 +52,16 @@ export default function CloudCard() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [devices, setDevices] = useState<{ self: string; devices: CloudDevice[] } | null>(null);
+  /* 관측성(설계서 §14 발전 #4) — 조용한 `blocked`(한도 소진·폐기)나 밀린 아웃박스를 사용자가
+     알아차릴 수단. `pending` 은 아직 안 올라간 건수, `syncedAt` 은 마지막 동기화 시각. */
+  const [pending, setPending] = useState<number | null>(null);
+  const [syncedAt, setSyncedAt] = useState<number | null>(null);
+
+  const refreshStatus = useCallback(async () => {
+    const b = await collectOutbox(); // ⚠ 스캔 1회(펜스 스탬프를 하나 소모하지만 단조라 무해)
+    setPending(b ? batchSize(b) : null);
+    setSyncedAt(lastSync()?.at ?? null);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -50,11 +69,12 @@ export default function CloudCard() {
       if (!alive) return;
       setCfg(c);
       setLoaded(true);
+      if (c) void refreshStatus();
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [refreshStatus]);
 
   const connect = useCallback(async () => {
     if (!url.trim() || !code.trim()) return;
@@ -66,16 +86,16 @@ export default function CloudCard() {
       ui.toast('클라우드에 연결했어요 — 첫 동기화를 시작합니다.', 'ok', 5000);
       /* 연결 직후 한 번 돌린다. 5분 주기를 기다리게 하면 "연결했는데 아무 일도 안 난다"로
          보이고, 사용자는 실패로 읽는다. */
-      const r = await syncOnce();
-      if (r.state) useApp.getState().loadState(r.state);
+      const r = await runSync(); // 병합 결과 메모리 반영은 runSync 가 한다(컨트롤러 계약).
       if (r.status === 'failed') ui.toast(`첫 동기화에 실패했어요 — ${r.error ?? ''}`, 'warn', 8000);
+      void refreshStatus();
     } catch (e) {
       // 서버가 준 사유(코드 만료·틀린 주소)를 그대로 보여주는 게 가장 친절하다.
       ui.toast(String((e as Error)?.message || e), 'bad', 8000);
     } finally {
       setBusy(false);
     }
-  }, [url, code]);
+  }, [url, code, refreshStatus]);
 
   const disconnect = useCallback(async () => {
     /* ⚠ 되돌리기 어려운 동작이라 확인을 받는다. 다만 **로컬 데이터는 지우지 않는다** —
@@ -129,14 +149,14 @@ export default function CloudCard() {
   const syncNow = useCallback(async () => {
     setBusy(true);
     try {
-      const r = await syncOnce();
-      if (r.state) useApp.getState().loadState(r.state);
+      const r = await runSync(); // 병합 결과 메모리 반영은 runSync 가 한다(컨트롤러 계약).
       if (r.status === 'failed') ui.toast(`동기화 실패 — ${r.error ?? ''}`, 'bad', 8000);
       else ui.toast(r.pulled ? `${r.pulled}건을 받아왔어요.` : '최신 상태예요.', 'ok', 4000);
+      void refreshStatus();
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [refreshStatus]);
 
   if (!isTauri() || !loaded) return null;
 
@@ -167,6 +187,12 @@ export default function CloudCard() {
             <Button sm variant="ghost" onClick={() => void disconnect()} disabled={busy}>
               ⛔ 연결 끊기
             </Button>
+          </div>
+
+          {/* 관측성 readout(§14 발전 #4) — 마지막 동기화 시각 + 아직 안 올라간 건수. */}
+          <div className="ds-foot ds-tiny">
+            {syncedAt ? `마지막 동기화 ${relTime(syncedAt)}` : '아직 동기화 전'}
+            {pending != null && (pending > 0 ? ` · 올릴 것 ${pending}건 대기` : ' · 최신 상태(대기 없음)')}
           </div>
 
           {/* ⚠ 기기 목록 = **분실 대응 수단**. 폰을 잃으면 여기서 그 기기만 끊는다. */}

@@ -36,12 +36,16 @@ import { MIGRATIONS } from './migrations';
 export type DbRequest =
   | { id: number; kind: 'open' }
   | { id: number; kind: 'exec'; sql: string; bind: unknown[] }
-  | { id: number; kind: 'select'; sql: string; bind: unknown[] };
+  | { id: number; kind: 'select'; sql: string; bind: unknown[] }
+  /* 여러 문장을 **한 왕복**으로. 폰에선 `exec` 한 번이 postMessage 왕복 하나라, 첫 전량
+     동기화(pull 200건)나 큰 flush 가 N 번 순차 왕복이 됐다 — 그걸 1 번으로 접는다(H-1). */
+  | { id: number; kind: 'batch'; stmts: { sql: string; bind: unknown[] }[] };
 
 export type DbResponse =
   | { id: number; ok: true; kind: 'open'; durable: boolean }
   | { id: number; ok: true; kind: 'exec' }
   | { id: number; ok: true; kind: 'select'; rows: unknown[] }
+  | { id: number; ok: true; kind: 'batch' }
   | { id: number; ok: false; error: string };
 
 interface Oo1Db {
@@ -99,6 +103,25 @@ self.onmessage = async (ev: MessageEvent<DbRequest>) => {
     if (req.kind === 'select') {
       const rows = db.exec({ sql: req.sql, bind: req.bind, rowMode: 'object', returnValue: 'resultRows' }) as unknown[];
       reply({ id: req.id, ok: true, kind: 'select', rows });
+      return;
+    }
+    if (req.kind === 'batch') {
+      /* ⚠ 트랜잭션으로 감싼다 — 워커는 **단일 커넥션**이라 sqlx 풀의 `BEGIN` 잠금 함정
+         (`sqlite.ts` 주석)이 없다. 그래서 폰에선 배치가 **원자적**이다: 병합 도중 실패하면
+         통째로 롤백돼 부분 병합이 원리적으로 생기지 않는다(데스크톱은 풀 제약상 순차 비원자). */
+      db.exec({ sql: 'BEGIN' });
+      try {
+        for (const s of req.stmts) db.exec({ sql: s.sql, bind: s.bind });
+        db.exec({ sql: 'COMMIT' });
+      } catch (e) {
+        try {
+          db.exec({ sql: 'ROLLBACK' });
+        } catch {
+          /* 롤백 실패는 원 오류를 가리지 않게 삼킨다 */
+        }
+        throw e;
+      }
+      reply({ id: req.id, ok: true, kind: 'batch' });
       return;
     }
     db.exec({ sql: req.sql, bind: req.bind });
