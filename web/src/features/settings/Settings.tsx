@@ -203,6 +203,8 @@ export default function Settings() {
   const setAccent = useUI((s) => s.setAccent);
   const fxLite = useUI((s) => s.ui.fxLite);
   const setFxLite = useUI((s) => s.setFxLite);
+  const themeAuto = useUI((s) => s.ui.themeAuto);
+  const setThemeAuto = useUI((s) => s.setThemeAuto);
   // 포인터 추적 스포트라이트 — 상태 밴드가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
   // 파일에서 복원 — 숨은 파일 인풋을 버튼이 대리 클릭(importJSON은 HTMLInputElement를 받는다).
@@ -297,6 +299,10 @@ export default function Settings() {
         <label className={`ds-chkRow ${S.chkTop}`}>
           <input type="checkbox" checked={fxLite} onChange={(e) => setFxLite(e.target.checked)} />
           발광 효과 줄이기 (배경 오로라·발광 펄스 정지 — 저사양/노트북에서 가볍게)
+        </label>
+        <label className="ds-chkRow">
+          <input type="checkbox" checked={themeAuto} onChange={(e) => setThemeAuto(e.target.checked)} />
+          시스템 테마 따라가기 (OS 가 밝기를 바꾸면 앱도 함께 — 끄면 수동 선택 유지)
         </label>
       </div>
 

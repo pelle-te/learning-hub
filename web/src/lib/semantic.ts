@@ -76,7 +76,10 @@ export function buildCorpus(state: AppState, reads: ReadsLocal | null): SemEntry
         kind: 'chapter',
         label: `${it.name} — ${ch.name}`,
         text: `${it.name} ${ch.name}`,
-        to: '/graph',
+        // 챕터의 집은 지식맵이 아니라 **학습 항목**이다. `/graph` 로 보내면 노드가 어디 있는지
+        // 스스로 찾아야 했다 — AN-17 의 `?focus=` 앵커로 그 과목 카드까지 데려다준다
+        // (contentSearch 와 같은 목적지 = 두 검색이 같은 것을 찾으면 같은 곳에 착지).
+        to: `/items?focus=${encodeURIComponent(it.id)}`,
       });
     }
   }

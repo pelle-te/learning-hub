@@ -26,6 +26,8 @@ export interface UIStore {
   setNavSurface: (s: NavSurface) => void;
   /** Anki 실시간 due 자동 새로고침 토글(2단계-A4 — 구 'lh:anki-autorefresh' 직접 접근을 대체). */
   setAnkiAutoRefresh: (on: boolean) => void;
+  /** 시스템 테마 따라가기 토글 — 켜는 즉시 ThemeProvider가 현재 OS 값으로 맞춘다. */
+  setThemeAuto: (on: boolean) => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
   /** KV에서 다시 부팅(가져오기 복원 등 화면 밖 경로가 lh_ui_v1을 교체했을 때).
@@ -77,6 +79,12 @@ export const useUI = create<UIStore>()(
       setAnkiAutoRefresh(on) {
         set((s) => {
           s.ui.ankiAutoRefresh = on;
+        });
+        flush();
+      },
+      setThemeAuto(on) {
+        set((s) => {
+          s.ui.themeAuto = on;
         });
         flush();
       },

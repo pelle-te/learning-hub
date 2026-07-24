@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, tabByKey, paletteCommands } from '@/shell';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { MOD_K_LABEL } from '@/lib/platform';
 
 // C-12: 팔레트 액션 카탈로그 — ⌘K를 열어 검색해야만 발견되던 강력 액션들을 치트시트에 노출.
 // 카테고리(hint) 순으로 묶어 스캔성 확보. 단일 원천(palette.ts) 재사용이라 표류 없음.
@@ -85,7 +86,7 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
             </ul>
           </section>
           <section>
-            <h3 className={H}>⌘K 명령 팔레트</h3>
+            <h3 className={H}>{MOD_K_LABEL} 명령 팔레트</h3>
             <ul className={LIST}>
               {acts.map((c) => (
                 <li key={c.id} className={LI}>

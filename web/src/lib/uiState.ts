@@ -50,6 +50,14 @@ export const UIStateSchema = z.object({
   // localStorage에 **직접** 쓰던 유일한 kv SSOT 우회였다. 계층 밖이라 백업에도 안 들어갔다
   // (0단계-E가 고친 결함과 같은 부류인데 그때 누락됨) → UI 설정으로 흡수해 _local 사이드카에 편입.
   ankiAutoRefresh: z.boolean().default(false),
+  /* 시스템 테마 따라가기 — OS 가 다크/라이트를 바꾸면(야간 모드 스케줄 등) 앱도 따라간다.
+     ⚠ **`state.theme` 에 'auto' 를 넣지 않는다.** 앱 데이터의 theme 은 D1 로 동기화되고 서버
+     zod 가 `.strict()` 로 받는다 — enum 에 값을 늘리면 이 앱과 **서버·다른 기기 클라이언트가
+     동시에** 알아야 하고, 모르는 쪽은 상태 전체를 거부한다. 반면 "따라갈까 말까"는 기기별
+     취향이지 동기화 대상이 아니다(모니터가 다르면 답도 다르다) → UI 설정에 둔다. 켜져 있으면
+     ThemeProvider 가 감지 결과를 `state.theme` 에 **해소된 값으로** 써넣으므로, 정본은 계속
+     'light'|'dark' 둘 중 하나다. 옛 저장본 호환은 .default. */
+  themeAuto: z.boolean().default(false),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

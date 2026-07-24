@@ -54,7 +54,9 @@ beforeEach(() => {
 describe('contentSearch (E-6)', () => {
   it('과목명 매칭 → subject 히트(/items)', () => {
     const hits = contentSearch('선형', reads);
-    expect(hits.some((h) => h.kind === 'subject' && h.label === '선형대수' && h.to === '/items')).toBe(true);
+    expect(hits.some((h) => h.kind === 'subject' && h.label === '선형대수' && h.to.startsWith('/items?focus='))).toBe(
+      true,
+    );
   });
 
   it('챕터명 매칭 → chapter 히트(과목 · 챕터 라벨)', () => {

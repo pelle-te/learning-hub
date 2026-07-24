@@ -6,6 +6,8 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 export interface ConfirmOpts {
   title?: string;
@@ -80,24 +82,24 @@ export function ModalHost() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const restoreRef = useRef<HTMLElement | null>(null);
+  const initialRef = useRef<HTMLElement | null>(null);
 
   const isPrompt = current?.kind === 'prompt';
   const cancelVal = isPrompt ? null : false;
   const titleId = current ? `modal-t-${current.id}` : undefined;
   const bodyId = current ? `modal-b-${current.id}` : undefined;
 
+  /* 포커스 관리는 이제 공유 훅이 소유한다 — 여기 손코딩돼 있던 것을 useFocusTrap 이 그대로
+     추출해 갔는데(주석이 그렇게 적혀 있다) 정작 원본은 남아, 검증된 패턴의 **복제 두 벌**이
+     ShortcutsHelp·DetailDrawer 와 갈라진 채 유지되고 있었다.
+     ⚠ `active` 를 `!!current` 로 주는 것이 안전한 이유: finish()가 resolve 직후 close()로
+     current 를 반드시 null 로 만들어, 연속된 모달 사이에 false 를 한 번 거친다(그래야 새
+     모달에서 초기 포커스가 다시 잡힌다). */
   useEffect(() => {
-    if (!current) return;
-    // 열릴 때 직전 포커스 요소를 기억 → 닫힐 때 복원(접근성 — 키보드 맥락 유지).
-    restoreRef.current = document.activeElement as HTMLElement | null;
-    const el = inputRef.current || okRef.current;
-    const t = setTimeout(() => el?.focus(), 50);
-    return () => {
-      clearTimeout(t);
-      restoreRef.current?.focus?.();
-    };
+    initialRef.current = inputRef.current || okRef.current;
   }, [current]);
+  useFocusTrap(!!current, dialogRef, initialRef);
+  useScrollLock(!!current);
 
   if (!current) return null;
 
@@ -107,25 +109,7 @@ export function ModalHost() {
   };
   const okVal = () => (isPrompt ? (inputRef.current?.value.trim() ?? '') : true);
 
-  // 포커스 트랩 — Tab이 모달 밖으로 새지 않게 첫/끝 포커스 요소 사이를 순환.
-  const trapTab = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const root = dialogRef.current;
-    if (!root) return;
-    const f = root.querySelectorAll<HTMLElement>('button, textarea, input, [href], [tabindex]:not([tabindex="-1"])');
-    if (!f.length) return;
-    const first = f[0]!;
-    const last = f[f.length - 1]!;
-    const act = document.activeElement;
-    if (e.shiftKey && act === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && act === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
+  // Tab 순환은 useFocusTrap(document 리스너)이 맡는다 — 여기는 확정/취소 키만.
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -134,8 +118,6 @@ export function ModalHost() {
       if (isPrompt && document.activeElement === inputRef.current && !(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
       finish(okVal());
-    } else {
-      trapTab(e);
     }
   };
 

@@ -130,7 +130,8 @@ describe('buildCorpus — 상태 → 임베딩 코퍼스', () => {
     // 라벨·이동 라우트가 팔레트에서 쓸 수 있는 형태인지
     const ch = corpus.find((e) => e.id === 'ch:i1:c1')!;
     expect(ch.label).toBe('전자기학 — 맥스웰 방정식');
-    expect(ch.to).toBe('/graph');
+    // 챕터 히트는 지식맵이 아니라 **소속 과목 카드**로 앵커링한다(contentSearch 와 같은 목적지).
+    expect(ch.to).toBe('/items?focus=i1');
   });
   it('reads가 null이어도 동작한다', () => {
     expect(() => buildCorpus(seedState(), null)).not.toThrow();

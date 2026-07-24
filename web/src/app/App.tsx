@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, tabByKey, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
 import { useUI } from '@/store/useUI';
+import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
@@ -32,9 +33,25 @@ function TabFallback({ error, resetErrorBoundary }: FallbackProps) {
   );
 }
 
+/* 지연 로드 탭의 로딩 상태 — 스켈레톤은 **눈에만** 보인다. 스크린리더에는 라우트 아나운서가
+   탭 이름을 읽어 준 뒤 아무 일도 일어나지 않는 정적이 흐른다(느린 첫 진입에서 특히 길다).
+   role=status 한 줄로 "불러오는 중"을 알리고, 뜬 뒤엔 그 노드가 사라져 다시 조용해진다. */
+function TabLoading() {
+  return (
+    <>
+      <span className="sr-only" role="status">
+        탭을 불러오는 중
+      </span>
+      <SkeletonCard />
+    </>
+  );
+}
+
 export default function App() {
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const paletteOpen = useOverlay((s) => s.palette);
+  const setPaletteOpen = useOverlay((s) => s.setPalette);
+  const helpOpen = useOverlay((s) => s.help);
+  const setHelpOpen = useOverlay((s) => s.setHelp);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // 현재 라우트 메타는 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목/프레임에 쓴다.
@@ -59,7 +76,7 @@ export default function App() {
               <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
                 <SubTabs tabKey={t.key} />
                 {ReactTab ? (
-                  <Suspense fallback={<SkeletonCard />}>
+                  <Suspense fallback={<TabLoading />}>
                     <ReactTab />
                   </Suspense>
                 ) : (
@@ -77,7 +94,10 @@ export default function App() {
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 전역 단축키: ⌘K/Ctrl+K 팔레트 · '?' 도움말 · 'g'+키 탭 이동(입력 중엔 단일키 무시).
+  // ⚠ 오버레이 상태는 **구독이 아니라 getState 로** 읽는다 — deps 에 넣으면 팔레트를 열고 닫을
+  //   때마다 document 리스너가 떼였다 붙는다(예전엔 `paletteOpen` 이 deps 에 있었다).
   useEffect(() => {
+    const ov = useOverlay.getState();
     const navMap = new Map(NAV_SHORTCUTS.map((s) => [s.seq, s.tab]));
     const clearG = () => {
       gPending.current = false;
@@ -88,16 +108,16 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         clearG();
-        setPaletteOpen((v) => !v);
+        ov.togglePalette();
         return;
       }
       // 단일키 단축키는 수정자/입력 포커스/팔레트 열림 시 무시
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping() || paletteOpen) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping() || useOverlay.getState().palette) return;
 
       if (e.key === '?') {
         e.preventDefault();
         clearG();
-        setHelpOpen((v) => !v);
+        ov.toggleHelp();
         return;
       }
       // [ / ] — 이전/다음 탭 순환(숨김 탭 제외). 현재 경로는 이벤트 시점 값을 직접 읽어 stale 방지.
@@ -133,14 +153,7 @@ export default function App() {
       document.removeEventListener('keydown', onKey, true);
       clearG();
     };
-  }, [navigate, paletteOpen]);
-
-  // 팔레트 '키보드 단축키 보기' 명령 → 도움말 열기(헤더 변경 없이 이벤트로 연결).
-  useEffect(() => {
-    const open = () => setHelpOpen(true);
-    window.addEventListener('lh:open-shortcuts', open);
-    return () => window.removeEventListener('lh:open-shortcuts', open);
-  }, []);
+  }, [navigate]);
 
   // SPA 라우트 전환을 문서 제목에 반영 — 탭마다 별개 '페이지'처럼 동작하는데도 제목이 '러닝허브'
   // 고정이던 문제(WCAG 2.4.2). document.title은 외부 시스템이라 effect가 적법(아나운서 텍스트는 파생).
@@ -170,7 +183,7 @@ export default function App() {
       <RailSidebar />
       {/* 본문 컬럼 — TopBar(고정) + 라우트 본문(HudFrame 안에서 흐름). */}
       <div className="flex h-screen min-w-0 flex-col overflow-hidden max-mobile:h-auto max-mobile:min-h-screen max-mobile:overflow-visible max-mobile:pb-16">
-        <TopBar onOpenPalette={() => setPaletteOpen(true)} />
+        <TopBar />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
         <main
           id="main"

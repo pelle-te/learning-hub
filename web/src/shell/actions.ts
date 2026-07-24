@@ -22,8 +22,9 @@ import { loadReads, importReads } from '@/lib/reads';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
+import { storage } from '@/lib/kv';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
-import { buildAnkiCards, buildSummaryNotes, archiveOldData, openBacklog } from '@/lib/methodology';
+import { buildAnkiCards, buildSummaryNotes, archiveOldData, openBacklog, addBacklog } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
 import { iso, mondayOf, todayISO } from '@/lib/utils';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
@@ -34,7 +35,10 @@ import { toast, toastUndo } from './toast';
 import { confirm } from './modal';
 
 const st = () => useApp.getState();
-const safeLS = (): Storage | null => (typeof localStorage !== 'undefined' ? localStorage : null);
+/* ⚠ 예전엔 여기 `safeLS()` 라는 자체 헬퍼가 localStorage 를 **직접** 잡았다. 그건 앱의 KV 단일
+   출처(`lib/kv` 의 `storage`)를 우회하는 마지막 지점이었고, 비브라우저 환경에서 조용히 `null` 을
+   돌려줘 되돌리기 백업이 **저장된 적 없이 성공한 척**했다(kv 는 메모리로 폴백한다).
+   try/catch 는 그대로 둔다 — 용량 초과·프라이빗 모드는 폴백이 아니라 예외로 온다. */
 
 /** 파일 내보내기 — 셸은 저장 대화상자, 브라우저는 `<a download>`.
  *
@@ -64,7 +68,7 @@ function download(filename: string, text: string, mime: string): void {
 /** 되돌리기용 1단계 백업(localStorage). */
 export function backupNow(): boolean {
   try {
-    safeLS()?.setItem(BACKUP_KEY, JSON.stringify(st().state));
+    storage.setItem(BACKUP_KEY, JSON.stringify(st().state));
     return true;
   } catch {
     return false;
@@ -82,7 +86,7 @@ async function backupOrConfirm(): Promise<boolean> {
 /** 손상 원본 보존본 존재 여부(감사 2026-07-16 ③#9) — 설정 탭이 버튼 노출을 게이팅. */
 export function hasCorruptSnapshot(): boolean {
   try {
-    return safeLS()?.getItem(CORRUPT_KEY) != null;
+    return storage.getItem(CORRUPT_KEY) != null;
   } catch {
     return false;
   }
@@ -91,10 +95,9 @@ export function hasCorruptSnapshot(): boolean {
 /** 손상 원본 내려받기(③#9) — boot이 CORRUPT_KEY에 보존한 '살릴 수 없던 raw'를 devtools 없이
  *  파일로 회수. 내려받기 성공 시 키를 정리한다(쓰기만 있고 읽기/삭제 경로가 없어 영구 잔존하던 층). */
 export function downloadCorruptSnapshot(): void {
-  const ls = safeLS();
   let raw: string | null = null;
   try {
-    raw = ls?.getItem(CORRUPT_KEY) ?? null;
+    raw = storage.getItem(CORRUPT_KEY);
   } catch {
     /* 접근 불가 */
   }
@@ -104,7 +107,7 @@ export function downloadCorruptSnapshot(): void {
   }
   download('러닝허브_손상원본.json', raw, 'application/json');
   try {
-    ls?.removeItem(CORRUPT_KEY);
+    storage.removeItem(CORRUPT_KEY);
   } catch {
     /* 정리 실패는 치명 아님 — 다음 시도에서 재정리 */
   }
@@ -180,8 +183,7 @@ export function importJSON(input: HTMLInputElement): void {
 
 /** 되돌리기 — BACKUP_KEY 직전 상태로. */
 export function undoLast(): void {
-  const ls = safeLS();
-  const b = ls?.getItem(BACKUP_KEY);
+  const b = storage.getItem(BACKUP_KEY);
   if (!b) {
     toast('되돌릴 백업이 없습니다.', 'bad');
     return;
@@ -193,7 +195,7 @@ export function undoLast(): void {
   }
   st().loadState(s);
   try {
-    ls?.removeItem(BACKUP_KEY);
+    storage.removeItem(BACKUP_KEY);
   } catch {
     /* noop */
   }
@@ -431,9 +433,15 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
   const s = st().state;
   const cap = limit * 3;
   const hits: ContentHit[] = [];
+  /* ⚠ 예전엔 과목·챕터 히트가 전부 `/items`(탭 루트)로만 갔다 — "선형대수"를 찾아 Enter 를 눌러도
+     과목 20개짜리 목록 한복판에 떨어질 뿐, **내가 고른 것이 어디 있는지 표시가 없었다**. 찾아 주는
+     것과 데려다주는 것은 다르다. AN-17 이 `?focus=<itemId>` 앵커(스크롤 + 1.5초 하이라이트)를
+     이미 만들어 뒀으므로(Items.tsx:214) 그 위에 얹는다 — 로드맵이 '앵커 선행'이라 적어 둔 대목.
+     챕터 히트는 챕터 단위 앵커가 없으니 **소속 과목 카드**까지가 정직한 최선이다. */
+  const itemAnchor = (id: string) => '/items?focus=' + encodeURIComponent(id);
   for (const it of s.items) {
     if (it.name.toLowerCase().includes(q))
-      hits.push({ id: 'c-subj:' + it.id, kind: 'subject', label: it.name, to: '/items' });
+      hits.push({ id: 'c-subj:' + it.id, kind: 'subject', label: it.name, to: itemAnchor(it.id) });
     for (const c of it.chapters || []) {
       if (hits.length >= cap) break;
       if (c.name.toLowerCase().includes(q))
@@ -441,7 +449,7 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
           id: 'c-chap:' + it.id + ':' + c.id,
           kind: 'chapter',
           label: `${it.name} · ${c.name}`,
-          to: '/items',
+          to: itemAnchor(it.id),
         });
     }
   }
@@ -478,4 +486,18 @@ export function runQuickCapture(cap: CaptureResult, summary: string): void {
   // C-10: 파서가 뽑은 날짜(미래는 기록 탭이 무시)도 넘긴다 — "어제 …" 캡처가 오늘로 잘못 기록되던 것 해소.
   usePrefill.getState().request(form, sid, cap.dateISO);
   toast('📌 기록 탭에 준비했어요 — ' + summary, 'ok', 4500);
+}
+
+/** 팔레트 결과 0건 폴백 — 친 문자열을 **그대로** 보충('나중에 볼 것')으로 담는다.
+ *
+ *  왜 보충인가: 파서가 아무 토큰도 못 뽑은 텍스트는 날짜도 과목도 없는 *생각 조각*이다.
+ *  기록 프리필로 보내면 폼만 열리고 **친 글자는 어디에도 안 남는다**(프리필은 과목·날짜만
+ *  나른다) — 캡처를 자처하면서 캡처를 잃는 셈이라, 텍스트를 그대로 보존하는 backlog 가
+ *  유일하게 정직한 목적지다. 과목 미지정(sid='')은 보충 스키마가 이미 허용한다.
+ *  예전엔 이 경우 팔레트가 "일치하는 명령이 없어요"로 **막다른 골목**이었다. */
+export function captureToBacklog(text: string): void {
+  const topic = text.trim();
+  if (!topic) return;
+  st().mutate((s) => addBacklog(s, '', '', topic, ''));
+  toast('📥 보충에 담았어요 — ' + topic, 'ok', 4000);
 }

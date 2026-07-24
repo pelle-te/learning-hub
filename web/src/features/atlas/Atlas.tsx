@@ -10,6 +10,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useAtlasNews, usePing } from '@/store/queries';
 import { readJSON, writeJSON } from '@/lib/localStore';
+import { MOD_K_LABEL } from '@/lib/platform';
 import { onSync } from '@/lib/sync';
 import { ATLAS_STARS_KEY as STARS_KEY, ATLAS_NOTES_KEY as NOTES_KEY } from '@/lib/sidecars';
 import {
@@ -305,8 +306,8 @@ export default function Atlas() {
               aria-label={`${field.name} 메모`}
             />
             <div className="mt-1 text-2xs text-mut">
-              발견한 통찰을 여기에. <kbd className="font-mono font-bold text-acc">⌘K</kbd> 빠른 캡처와 함께 진로관을
-              갱신해 나갑니다.
+              발견한 통찰을 여기에. <kbd className="font-mono font-bold text-acc">{MOD_K_LABEL}</kbd> 빠른 캡처와 함께
+              진로관을 갱신해 나갑니다.
             </div>
           </Panel>
         </div>

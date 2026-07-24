@@ -122,9 +122,22 @@
     transform: none;
   }
 }
+/* 퇴장 — 등장과 대칭. ⚠ 예전엔 여기가 **정지 상태 선언**(opacity:0)뿐이었고 전이 속성도,
+   `.out` 을 붙이는 코드도 없어 완전히 사장돼 있었다(C-2 가 등장에서 고친 것과 같은 부류).
+   지금은 toast.tsx 가 제거 전에 `out` 을 달고 TOAST_OUT_MS 뒤에 실제로 언마운트한다.
+   `forwards` 로 끝 상태를 물려야 애니 종료와 언마운트 사이에 한 프레임 되살아나지 않는다. */
 .toast.out {
-  opacity: 0;
-  transform: translateY(8px) scale(0.98);
+  animation: toastOut 0.16s var(--ease) forwards;
+}
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
 }
 .toast .toast-i {
   flex: none;

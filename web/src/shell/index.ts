@@ -27,7 +27,14 @@ export {
   type SurfaceMeta,
 } from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
-export { captureSubjects, runQuickCapture, semanticPalette, contentSearch, type ContentHit } from './actions';
+export {
+  captureSubjects,
+  runQuickCapture,
+  captureToBacklog,
+  semanticPalette,
+  contentSearch,
+  type ContentHit,
+} from './actions';
 export { recordRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';
 

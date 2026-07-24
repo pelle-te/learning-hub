@@ -3,6 +3,8 @@
    네비게이션은 'g' 다음 키 시퀀스(Linear/GitHub 결): g→t = 오늘 학습.
    App이 이 표를 읽어 키 핸들링하고, ShortcutsHelp가 같은 표로 치트시트를 그린다.
 ============================================================ */
+import { MOD_LABEL } from '@/lib/platform';
+
 export interface NavShortcut {
   /** 'g' 다음에 누르는 키 */
   seq: string;
@@ -27,9 +29,9 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
   { seq: 'e', tab: 'settings' },
 ];
 
-/** 치트시트에 함께 보일 전역 단축키(시퀀스 외). */
+/** 치트시트에 함께 보일 전역 단축키(시퀀스 외). 수정자 표기는 플랫폼 파생(lib/platform). */
 export const GLOBAL_SHORTCUTS: { keys: string; label: string }[] = [
-  { keys: 'Ctrl / ⌘ + K', label: '명령 팔레트' },
+  { keys: `${MOD_LABEL} + K`, label: '명령 팔레트' },
   { keys: 'G 그다음 ↑표의 키', label: '탭으로 이동' },
   { keys: '[  /  ]', label: '이전 / 다음 탭' },
   { keys: ',  /  .', label: '이전 / 다음 주(스케줄·리뷰 탭)' },

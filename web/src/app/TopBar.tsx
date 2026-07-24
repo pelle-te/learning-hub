@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { actions, io, Icon } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
+import { useOverlay } from '@/store/useOverlay';
+import { MOD_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import FocusChip from './FocusChip';
 
 /* TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
@@ -67,7 +69,11 @@ const THEME_ICON: Record<string, string> = { light: 'sun', dark: 'moon' };
 const THEME_NEXT: Record<string, string> = { light: '다크', dark: '라이트' };
 const THEME_NAME: Record<string, string> = { light: '라이트', dark: '다크' };
 
-export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
+export default function TopBar() {
+  // 팔레트·치트시트 열기는 스토어가 소유 — 예전엔 전자가 App 에서 내려오는 prop, 후자가
+  // `window.dispatchEvent('lh:open-shortcuts')` 라는 DOM 이벤트 우회였다(같은 일, 두 배선).
+  const openPalette = useOverlay((s) => s.setPalette);
+  const openHelp = useOverlay((s) => s.setHelp);
   const theme = useApp((s) => s.state.theme) || 'dark';
   const readouts = usePageChrome((s) => s.readouts);
   const action = usePageChrome((s) => s.action);
@@ -119,14 +125,18 @@ export default function TopBar({ onOpenPalette }: { onOpenPalette: () => void })
             {action.label}
           </button>
         )}
-        <button className={BTN} onClick={onOpenPalette} title="명령 팔레트 (Ctrl/⌘+K)" aria-label="명령 팔레트 열기">
-          ⌘K
+        <button
+          className={BTN}
+          onClick={() => openPalette(true)}
+          title={`명령 팔레트 (${MOD_LABEL}+K)`}
+          aria-label="명령 팔레트 열기"
+        >
+          {MOD_K_LABEL}
         </button>
-        {/* C-12: 단축키 치트시트는 '?' 키·팔레트로만 열려 발견성이 낮았다 — 눈에 보이는 진입점.
-            App이 이미 리스닝하는 이벤트로 위임(배선 재사용). */}
+        {/* C-12: 단축키 치트시트는 '?' 키·팔레트로만 열려 발견성이 낮았다 — 눈에 보이는 진입점. */}
         <button
           className={BTN_ICON}
-          onClick={() => window.dispatchEvent(new CustomEvent('lh:open-shortcuts'))}
+          onClick={() => openHelp(true)}
           title="키보드 단축키 (?)"
           aria-label="키보드 단축키 보기"
         >

@@ -105,7 +105,11 @@ export default function RailSidebar() {
   });
   const curKey = loc.pathname.split('/')[1] || 'today';
   const cur = hostTabKey(curKey);
-  const go = (key: string) => navigate('/' + key, { viewTransition: true });
+  /* @param animate 뷰 전환(크로스페이드)을 쓸지. ⚠ 방향키 roving 은 **끈다** — 화살표를 누르고
+     있으면 키 반복(초당 20~30회)마다 View Transition 이 시작되고, 각 전환이 이전 것을 중단시켜
+     레일·본문이 계속 반투명 상태로 깜빡인다(원하는 탭에 도착해도 잔상이 남는다). 클릭·⌘K 처럼
+     '한 번의 의도적 이동'에서만 애니가 의미가 있다. */
+  const go = (key: string, animate = true) => navigate('/' + key, { viewTransition: animate });
 
   // 활성 표면 = 현재 라우트 탭의 surface(1차 원천). 전역 탭(설정)이면 영속값으로 폴백.
   // 라우트가 이기므로 ⌘K·딥링크로 다른 표면 탭에 가면 나브가 자동으로 그 표면으로 따라간다(desync 없음).
@@ -149,7 +153,7 @@ export default function RailSidebar() {
     }
     e.preventDefault();
     const t = flat[next]!;
-    go(t.key);
+    go(t.key, false);
     requestAnimationFrame(() => document.getElementById('rail-' + t.key)?.focus());
   };
 

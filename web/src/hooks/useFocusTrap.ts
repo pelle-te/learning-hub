@@ -6,7 +6,17 @@
 ============================================================ */
 import { useEffect, type RefObject } from 'react';
 
-export function useFocusTrap(active: boolean, panelRef: RefObject<HTMLElement | null>): void {
+/**
+ * @param initialRef 열릴 때 포커스를 받을 요소(생략 시 패널의 첫 포커스 가능 요소).
+ *   ⚠ 확인 모달은 **취소가 아니라 확인 버튼**을, prompt 는 입력을 먼저 잡아야 한다 —
+ *   DOM 순서상 첫 요소는 취소라, 이 옵션이 없으면 modal.tsx 를 이 훅으로 수렴시키는 순간
+ *   기본 포커스가 조용히 바뀐다(파괴적 확인창에서 특히 위험한 종류의 '무해한 리팩터').
+ */
+export function useFocusTrap(
+  active: boolean,
+  panelRef: RefObject<HTMLElement | null>,
+  initialRef?: RefObject<HTMLElement | null>,
+): void {
   useEffect(() => {
     if (!active) return;
     const root = panelRef.current;
@@ -19,8 +29,8 @@ export function useFocusTrap(active: boolean, panelRef: RefObject<HTMLElement | 
             ),
           ).filter((el) => !el.hasAttribute('disabled'))
         : [];
-    // 열릴 때 패널 첫 요소(없으면 패널 자체)로 포커스 이동. 렌더 직후 타이밍(50ms) — modal.tsx와 동일.
-    const tid = setTimeout(() => (focusables()[0] || root)?.focus(), 50);
+    // 열릴 때 지정 요소(없으면 패널 첫 요소, 그것도 없으면 패널 자체)로 포커스. 렌더 직후 50ms.
+    const tid = setTimeout(() => (initialRef?.current || focusables()[0] || root)?.focus(), 50);
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Tab') return;
       const f = focusables();
@@ -42,5 +52,5 @@ export function useFocusTrap(active: boolean, panelRef: RefObject<HTMLElement | 
       document.removeEventListener('keydown', onKey);
       restore?.focus?.(); // 닫힐 때 직전 포커스(트리거)로 복원.
     };
-  }, [active, panelRef]);
+  }, [active, panelRef, initialRef]);
 }

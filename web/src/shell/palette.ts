@@ -9,6 +9,7 @@ import { recentIds } from './recent';
 import * as A from './actions';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
+import { useOverlay } from '@/store/useOverlay';
 
 // C-5: 탭 → g-시퀀스 매핑(치트시트가 이미 정의). 팔레트 hint에 노출해 사용 중 키보드 내비를 학습시킨다.
 const SEQ_BY_TAB = new Map(NAV_SHORTCUTS.map((s) => [s.tab, s.seq]));
@@ -79,7 +80,9 @@ function baseCommands(): PaletteCommand[] {
       kind: 'act',
       label: '키보드 단축키 보기',
       hint: '도움말',
-      run: () => window.dispatchEvent(new CustomEvent('lh:open-shortcuts')),
+      // 예전엔 `window.dispatchEvent(new CustomEvent('lh:open-shortcuts'))` 로 App 에 신호를 보냈다 —
+      // 도움말 열림이 App 의 useState 라 여기서 닿을 방법이 그것뿐이었다. 이제 스토어가 소유한다.
+      run: () => useOverlay.getState().setHelp(true),
     },
     // 테마
     { id: 'act:theme', kind: 'act', label: '테마 전환(다크↔라이트)', hint: '설정', run: A.toggleTheme },

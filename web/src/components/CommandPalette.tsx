@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Command } from 'cmdk';
+import { Command, useCommandState } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
 import {
   paletteCommands,
   recordRecent,
   captureSubjects,
   runQuickCapture,
+  captureToBacklog,
   semanticPalette,
   contentSearch,
   type ContentHit,
 } from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
+import { MOD_K_LABEL } from '@/lib/platform';
 import { FIELDS, categoryOf } from '@/lib/atlas';
 import type { SemHit, SemKind } from '@/lib/semantic';
 
@@ -90,6 +92,34 @@ function summarize(c: CaptureResult): string {
   if (c.chapter) parts.push(c.chapter);
   if (c.sessionType) parts.push(TYPE_LABEL[c.sessionType]);
   return parts.join(' · ');
+}
+
+/** 결과 0건 폴백.
+ *
+ *  예전엔 여기가 `Command.Empty` 의 "일치하는 명령이 없어요" 한 줄, 즉 **막다른 골목**이었다.
+ *  파서가 날짜·과목·유형을 하나도 못 뽑은 문자열(= 그냥 떠오른 생각)이 정확히 그 경우인데,
+ *  그건 실패가 아니라 **가장 흔한 캡처**다 → 그대로 보충에 담을 수 있게 한다.
+ *
+ *  ⚠ `filtered.count` 는 **forceMount 항목을 세지 않는다**(cmdk 는 forceMount 면 아예 등록을
+ *  건너뛴다 — 실측). 이 팔레트의 캡처·통합검색·의미검색 결과가 전부 forceMount 라, 이 값은
+ *  정확히 "명령·탭·분야 중 매칭 0"을 뜻한다. 그래서 다른 결과가 이미 있으면 별도로 가려낸다. */
+function NoMatchFallback({ search, suppressed }: { search: string; suppressed: boolean }) {
+  const none = useCommandState((s) => s.filtered.count === 0);
+  const q = search.trim();
+  if (!none) return null;
+  if (!q) return <div className={EMPTY}>일치하는 명령이 없어요</div>;
+  if (suppressed) return null; // 캡처 칩·검색 결과가 이미 답을 주고 있다.
+  return (
+    <Command.Item
+      forceMount
+      value={'capture-raw ' + search}
+      className={`${ITEM} ${CAPTURE}`}
+      onSelect={() => captureToBacklog(q)}
+    >
+      <span className={LABEL}>📥 “{q}” 를 보충에 담기</span>
+      <span className={HINT_CAP}>나중에 볼 것</span>
+    </Command.Item>
+  );
 }
 
 /* CommandPalette — cmdk 기반 ⌘K 팔레트(손코딩 ui-command.js 대체, 설계도 §3).
@@ -181,7 +211,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         autoFocus
       />
       <Command.List className={LIST}>
-        <Command.Empty className={EMPTY}>일치하는 명령이 없어요</Command.Empty>
+        <NoMatchFallback search={search} suppressed={showCapture || content.length > 0 || shownSem.length > 0} />
         {showCapture && cap && (
           <Command.Item
             key="quick-capture"
@@ -293,7 +323,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         <span>
           <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>Esc</b> 닫기
         </span>
-        <span className={BRAND}>⌘K</span>
+        <span className={BRAND}>{MOD_K_LABEL}</span>
       </div>
     </Command.Dialog>
   );
