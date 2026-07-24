@@ -52,7 +52,13 @@ export {
   type OutboxTomb,
 } from './contract';
 
-const WATERMARK_KEY = 'watermark';
+/* 기기 로컬 동기화 진행 키 — 둘 다 `sync_state` 에 있고 **내보내기·동기화 대상이 아니다**.
+   여기 함께 두는 이유: 연결 해제(`client.ts`)가 자격증명과 함께 이 둘을 지워야 하는데(H2),
+   `PULL_MARK_KEY` 를 `run.ts` 가 들면 `client.ts ↔ run.ts` 순환 import 가 된다. 이 모듈은
+   `client.ts`·`run.ts` 어느 쪽도 import 하지 않아 순환이 없다. */
+export const WATERMARK_KEY = 'watermark';
+/** 받기 전용 워터마크("어디까지 받았나"). 발급/커밋은 `run.ts` 가, 삭제는 `client.ts` 가 한다. */
+export const PULL_MARK_KEY = 'cloud:pullMark';
 
 /** 현재 워터마크. 없거나 DB 미가용이면 0 = "아무것도 안 보냈다"(전량이 대상). */
 export async function readWatermark(): Promise<number> {

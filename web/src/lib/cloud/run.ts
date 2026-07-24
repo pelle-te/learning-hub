@@ -26,9 +26,8 @@ import { pushOutbox, type PushResult } from './push';
 import { makeTransport, pullChanges, readCloudConfig } from './client';
 import { applyPull } from './merge';
 import { batchSize } from './contract';
+import { PULL_MARK_KEY as PULL_MARK } from './outbox';
 import type { AppState } from '../types';
-
-const PULL_MARK = 'cloud:pullMark';
 
 async function readPullMark(): Promise<number> {
   const r = await selectDb<{ value: string }>('SELECT value FROM sync_state WHERE key = ?', [PULL_MARK]);

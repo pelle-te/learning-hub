@@ -233,15 +233,17 @@ export function setDiffBaseline(rows: DbRows | null): void {
  * 대신 diff 방식이 트랜잭션 없이도 안전하다 — DELETE-후-INSERT 와 달리 **DB 가 비는 순간이
  * 없고**, 중간에 죽어도 남는 건 "여분의 옛 행"이지 "사라진 행"이 아니다(다음 쓰기가 정리한다).
  */
-export async function writeRows(rows: DbRows): Promise<boolean> {
+export async function writeRows(rows: DbRows, stamp?: number | (() => number)): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
   // 기준선이 없으면(첫 쓰기·이관 직후) DB 를 한 번 읽어 세운다 — 없다고 전량 삭제하면
   // 위에 적은 안전 속성이 그대로 깨진다.
   if (!_last) _last = await readRows();
   /* ⚠ `diffRows` 의 기본값(`Date.now()`)에 맡기지 않는다 — 시계가 뒤로 점프하면 그 뒤 편집이
-     워터마크에 영영 안 걸린다(`stamp.ts` 머리주석). 발급을 한 지점으로 모으는 게 그 방어다. */
-  const stmts = diffRows(_last, rows, nextStamp());
+     워터마크에 영영 안 걸린다(`stamp.ts` 머리주석). 발급을 한 지점으로 모으는 게 그 방어다.
+     ⚠ 최초 이관(`boot.ts`)은 `chunkedStamp` 를 넘긴다 — 전 행이 한 스탬프 그룹이 되어 아웃박스가
+     영구 차단되는 것을 막는다(C1). 일반 flush 는 인자 없이 `nextStamp()` 하나를 쓴다(무변경). */
+  const stmts = diffRows(_last, rows, stamp ?? nextStamp());
   try {
     /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
        셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */

@@ -17,7 +17,11 @@ import { initDocs } from './docs';
 import type { AppState } from '../types';
 import { rowsToState, stateToRows } from './rows';
 import { isDbAvailable, readMaxStamp, readRows, setDiffBaseline, writeRows } from './sqlite';
-import { seedStamp } from './stamp';
+import { chunkedStamp, seedStamp } from './stamp';
+
+/** 최초 이관의 청크 크기 — `MAX_BATCH_ITEMS`(500) 아래로 여유를 두어 단일 스탬프 그룹이
+ *  아웃박스 배치 상한을 넘지 않게 한다(C1 · `stamp.ts`·`cloud/contract.ts` 참조). */
+const MIGRATION_STAMP_CHUNK = 400;
 
 let _preloaded: AppState | null = null;
 let _migrated = false;
@@ -99,7 +103,9 @@ export async function initAppStore(): Promise<void> {
     // 빈 DB — 아직 이관 전이다. localStorage 정본을 읽어 SQLite 로 옮긴다.
     // boot() 는 손상 시 CORRUPT_KEY 보존 + defaults() 폴백까지 이미 처리한다.
     const fromLocal = boot(storage);
-    const ok = await writeRows(stateToRows(fromLocal));
+    /* ⚠ 청크 스탬프로 쓴다 — 수개월치 데이터가 한 스탬프 그룹이 되면 첫 클라우드 연결에서
+       아웃박스가 상한(500)에 걸려 영구 차단된다(C1). 청크마다 스탬프를 갈아 다배치로 나간다. */
+    const ok = await writeRows(stateToRows(fromLocal), chunkedStamp(MIGRATION_STAMP_CHUNK));
     if (!ok) return; // 쓰기 실패 — localStorage 경로로 부팅(정본은 아직 거기 있다)
     _preloaded = fromLocal;
     _migrated = true;

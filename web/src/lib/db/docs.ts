@@ -86,6 +86,22 @@ export async function initDocs(): Promise<void> {
   _cache = map;
 }
 
+/**
+ * 병합으로 `docs` 행이 바뀐 뒤 메모리 사본을 다시 읽는다(H1).
+ *
+ * ⚠ `_cache` 는 **부팅에만** 채워진다(`initDocs`). pull 이 받아온 독후감·진로 메모·미러
+ * 산출물을 SQLite `docs` 에 병합해도 이 사본은 낡은 채라, 폰 `ReadsView`(`readMirrored`→`docGet`)가
+ * 받아온 것을 **다음 앱 재시작까지 못 본다** — C-6 의 "폰에서 읽을거리를 읽는다"를 직접 깎는다.
+ * `applyPull` 이 `docs` 행을 병합했으면 이 함수로 사본을 되맞춘다. `initDocs` 와 달리 1회 이관
+ * 분기는 없다(이관은 부팅의 관심사이고, 여기는 "받아온 것 반영"만 한다).
+ */
+export async function reloadDocs(): Promise<void> {
+  if (!isSqlitePrimary()) return;
+  const rows = await selectDb<{ key: string; value: string }>('SELECT key, value FROM docs');
+  if (!rows) return; // DB 미가용 — 기존 사본 유지(빈 사본으로 덮어 화면을 비우지 않는다)
+  _cache = new Map(rows.map((r) => [r.key, r.value]));
+}
+
 /** 저작물 읽기(**동기**) — 셸이면 메모리, 아니면 localStorage. */
 export function docGet(key: string): string | null {
   if (_cache && isDocKey(key)) return _cache.get(key) ?? null;

@@ -51,6 +51,29 @@ export function currentStamp(): number {
   return _last;
 }
 
+/**
+ * 대량 **최초 이관** 전용 스탬프 배급기 — `chunkSize` 건마다 새 단조 스탬프를 낸다(C1).
+ *
+ * ⚠ 이관 쓰기는 `diffRows(null, …)` 라 전 행이 **한 번의 쓰기**로 나가고, 그대로 두면 전부
+ * 같은 스탬프를 받는다. 그런데 아웃박스는 스탬프 그룹을 **경계에서만** 자를 수 있어서
+ * (같은 flush 가 만든 행은 쪼개면 유실 — `capBatch` 주석), 단일 그룹이 `MAX_BATCH_ITEMS`(500)를
+ * 넘으면 그 배치가 스키마 상한에 걸려 **영구 차단**된다(수개월 쓴 사용자의 첫 클라우드 연결이
+ * 통째로 막히는 무증상 결함). 이관 행은 상대 순서가 무의미하므로, 청크마다 스탬프를 갈아
+ * 그룹을 상한 아래로 유지하면 아웃박스가 자연히 다배치로 나눠 보낸다.
+ *
+ * 발급값은 `nextStamp()` 를 거치므로 단조성·`_last` 갱신이 그대로 유지된다(이후 일반 편집은
+ * 이 값들보다 큰 스탬프를 받는다). 일반 flush 는 이 배급기를 쓰지 않는다 — 작아서 문제가 없다.
+ */
+export function chunkedStamp(chunkSize: number): () => number {
+  let issued = 0;
+  let current = nextStamp();
+  return () => {
+    if (issued > 0 && issued % chunkSize === 0) current = nextStamp();
+    issued++;
+    return current;
+  };
+}
+
 /** 테스트 전용 — 발급기를 초기 상태로. */
 export function _resetStamp(): void {
   _last = 0;

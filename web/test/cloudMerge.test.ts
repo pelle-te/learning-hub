@@ -76,7 +76,10 @@ describe('병합 SQL', () => {
     await applyPull(batch({ rows: [], tombstones: [{ tbl: 'settings', k1: 'theme', k2: '', deletedAt: 600 }] }));
     expect(sqls().some((s) => /INSERT INTO tombstones/.test(s))).toBe(true);
     const del = sqls().find((s) => /DELETE FROM settings/.test(s));
-    expect(del, '오래된 행 삭제가 없다').toMatch(/updated_at < \?/);
+    /* ⚠ `<=` 여야 한다(H3) — 부활 가드가 `deleted_at >= updatedAt`(동점 삭제 승)이므로 이 DELETE 도
+       동점을 지워야 방향이 맞는다. `<` 였을 때 같은 ms 삭제↔편집이 기기별로 반대로 판정돼 영구
+       분기했다. 서버(`server/src/index.ts`)의 DELETE 와도 같은 값이어야 한다. */
+    expect(del, '오래된 행 삭제가 없다').toMatch(/updated_at <= \?/);
   });
 
   it('모르는 테이블은 건너뛴다(스키마가 이미 걸렀어야 하지만 방어적으로)', async () => {

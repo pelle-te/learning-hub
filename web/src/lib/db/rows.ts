@@ -133,7 +133,11 @@ export interface Stmt {
  * ⚠ **upsert 를 먼저, 삭제를 나중에** 낸다 — 중간에 죽으면 남는 쪽이 "여분의 옛 행"이어야지
  * "사라진 행"이면 안 된다. 여분은 다음 쓰기가 정리하지만 유실은 복구할 수 없다.
  */
-export function diffRows(prev: DbRows | null, next: DbRows, now: number = Date.now()): Stmt[] {
+export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() => number) = Date.now()): Stmt[] {
+  /* 스탬프는 **동기화 행마다** 배급한다. 상수(일반 flush)면 모든 행·툼스톤이 같은 값을 받아
+     종전과 한 글자도 다르지 않고(한 flush = 한 스탬프 그룹), 함수(최초 이관의 `chunkedStamp`)면
+     청크마다 값이 갈려 단일 그룹이 배치 상한을 넘지 않는다(C1 · `stamp.ts` 참조). */
+  const stampFor = typeof now === 'function' ? now : (): number => now;
   const a = prev ? toTableData(prev) : null;
   const b = toTableData(next);
   const upserts: Stmt[] = [];
@@ -151,7 +155,7 @@ export function diffRows(prev: DbRows | null, next: DbRows, now: number = Date.n
          비교에 넣으면 모든 행이 항상 "변경됨"이 되어 증분 쓰기가 전량 쓰기로 퇴화한다. */
       if (old && old.length === vals.length && old.every((v, i) => v === vals[i])) continue;
       const cols = spec.sync ? [...spec.cols, 'updated_at'] : spec.cols;
-      const args = spec.sync ? [...vals, now] : vals;
+      const args = spec.sync ? [...vals, stampFor()] : vals;
       upserts.push({
         sql: `INSERT OR REPLACE INTO ${spec.name} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
         args,
@@ -179,7 +183,7 @@ export function diffRows(prev: DbRows | null, next: DbRows, now: number = Date.n
       if (spec.sync) {
         tombs.push({
           sql: `INSERT OR REPLACE INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)`,
-          args: [...tomb(spec, vals), now],
+          args: [...tomb(spec, vals), stampFor()],
         });
       }
       deletes.push({ sql: `DELETE FROM ${spec.name} WHERE ${where}`, args: vals.slice(0, spec.keyLen) });

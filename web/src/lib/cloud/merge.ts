@@ -26,6 +26,8 @@
 import { batchDb } from '../db/sqlite';
 import { readRows, setDiffBaseline } from '../db/sqlite';
 import { rowsToState } from '../db/rows';
+import { reloadDocs } from '../db/docs';
+import { runExclusive } from '../db/write';
 import { seedStamp } from '../db/stamp';
 import type { AppState } from '../types';
 import { OUTBOX_TABLES, tableCols, type OutboxBatch } from './contract';
@@ -87,29 +89,44 @@ export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
     const { key } = tableCols(spec);
     const where = key.map((k) => `${k} = ?`).join(' AND ');
     const keys = key.length === 2 ? [t.k1, t.k2] : [t.k1];
-    stmts.push({ sql: `DELETE FROM ${spec.name} WHERE ${where} AND updated_at < ?`, args: [...keys, t.deletedAt] });
+    /* ⚠ `<=` 다(H3). 부활 가드(위 `deleted_at >= updatedAt`)는 동점이면 **삭제 승**인데, 이
+       DELETE 가 `<` 면 동점 행을 안 지워 **행 승**이라 방향이 엇갈렸다 — 같은 ms 에 A 가 삭제·
+       B 가 편집하면 A=삭제·B=존재로 영구 분기했다(양쪽 "동기화 완료"). 두 규칙을 삭제 승으로
+       통일한다. 서버(`server/src/index.ts`)도 같은 값이어야 한다(안 그러면 기기별 병합이 갈린다). */
+    stmts.push({ sql: `DELETE FROM ${spec.name} WHERE ${where} AND updated_at <= ?`, args: [...keys, t.deletedAt] });
   }
 
   if (!stmts.length) return { state: null, applied: 0 };
 
-  /* ⚠ 실패는 **던진다**(반환하지 않는다). `run.ts` 가 이 예외를 잡으면 pull 워터마크를
-     전진시키지 않아 다음 pull 이 같은 구간을 재개한다. 종전 per-row `execDb` 는 실패를
-     삼켜서, 한 행이 실패해도 워터마크가 전진해 **그 행이 조용히 유실**될 수 있었다 —
-     배치는 그 자리에서 멈추므로 그 창을 닫는다. */
-  if (!(await batchDb(stmts))) throw new Error('병합 배치 실패 — pull 을 재개합니다.');
   // 적용 건수 = 시도 건수(서버는 바뀐 것만 보내므로 실사용에선 실제 반영 수와 같다).
   const applied = batch.rows.length + batch.tombstones.length;
 
-  /* ⚠ **씨앗을 심는다.** 받아온 스탬프가 로컬 최대값보다 클 수 있다(다른 기기가 미래에 있는
-     시계를 썼거나 단순히 더 최근이거나). 안 심으면 다음 로컬 편집이 그보다 작은 스탬프를 받아
-     "이미 보낸 것"으로 묻힌다 — `db/stamp.ts` 가 막으려는 실패 모드 그대로다. */
-  for (const r of batch.rows) seedStamp(r.updatedAt);
-  for (const t of batch.tombstones) seedStamp(t.deletedAt);
+  /* ⚠ 병합 쓰기 + 씨앗 + 기준선을 flush 와 **같은 직렬화 단위**(`runExclusive`)에서 돌린다(H4).
+     종전엔 아래 `readRows()` 창에 useApp 디바운스 flush 가 끼어들어, 기준선이 안 세워진 사이에
+     낡은 메모리를 더 큰 스탬프로 써서 받아온 행을 되돌릴 수 있었다(그 되돌림이 LWW 로 서버까지
+     이긴다 — 머리주석이 경고한 구멍). 체인에 얹어 겹침을 원천 차단한다. */
+  const rows = await runExclusive(async () => {
+    /* ⚠ 실패는 **던진다**(반환하지 않는다). `run.ts` 가 이 예외를 잡으면 pull 워터마크를
+       전진시키지 않아 다음 pull 이 같은 구간을 재개한다. 종전 per-row `execDb` 는 실패를
+       삼켜서 한 행이 실패해도 워터마크가 전진해 그 행이 조용히 유실될 수 있었다. */
+    if (!(await batchDb(stmts))) throw new Error('병합 배치 실패 — pull 을 재개합니다.');
 
-  /* ⚠ **기준선을 먼저, 상태를 나중에.** 이 순서가 에코를 막는다(머리주석 참조).
-     되읽은 행으로 기준선을 세워야 `loadState` 안의 flush 가 diff 를 비워 아무것도 안 쓴다. */
-  const rows = await readRows();
+    /* ⚠ **씨앗을 심는다.** 받아온 스탬프가 로컬 최대값보다 클 수 있다(다른 기기가 더 최근).
+       안 심으면 다음 로컬 편집이 그보다 작은 스탬프를 받아 "이미 보낸 것"으로 묻힌다. */
+    for (const r of batch.rows) seedStamp(r.updatedAt);
+    for (const t of batch.tombstones) seedStamp(t.deletedAt);
+
+    /* ⚠ 받아온 것에 `docs` 행이 있으면 메모리 사본을 되맞춘다(H1). `docs._cache` 는 부팅에만
+       채워져, 안 하면 폰 `ReadsView` 가 받아온 독후감·미러 산출물을 재시작까지 못 본다. */
+    if (batch.rows.some((r) => r.tbl === 'docs')) await reloadDocs();
+
+    /* ⚠ **기준선을 먼저, 상태를 나중에.** 이 순서가 에코를 막는다(머리주석 참조).
+       되읽은 행으로 기준선을 세워야 `loadState` 안의 flush 가 diff 를 비워 아무것도 안 쓴다. */
+    const back = await readRows();
+    if (back) setDiffBaseline(back);
+    return back;
+  });
+
   if (!rows) return { state: null, applied };
-  setDiffBaseline(rows);
   return { state: rowsToState(rows), applied };
 }

@@ -52,12 +52,18 @@ export function lastSync(): LastSync | null {
 const AFTER_EDIT_MS = 1200;
 let _editTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** 설치된 트리거 세트의 실행기(`beforeSync`(산출물 미러)+겹침 가드 포함). 없으면 맨 `runSync`.
+ *  ⚠ `syncSoon` 이 이걸 거쳐야 편집 트리거 동기화도 미러를 함께 올린다(H5) — 종전엔 `runSync` 를
+ *  직접 불러 `beforeSync`·`_running` 을 우회했다. */
+let _activeRun: (() => void) | null = null;
+
 /** 편집 뒤 한 박자 쉬고 동기화. 연속 편집은 마지막 하나로 합쳐진다(디바운스). */
 export function syncSoon(): void {
   if (_editTimer) clearTimeout(_editTimer);
   _editTimer = setTimeout(() => {
     _editTimer = null;
-    void runSync();
+    if (_activeRun) _activeRun();
+    else void runSync();
   }, AFTER_EDIT_MS);
 }
 
@@ -101,6 +107,8 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
         _running = null;
       });
   };
+  // 편집 디바운스(`syncSoon`)가 이 실행기를 거치게 한다 — beforeSync·겹침 가드를 함께 상속(H5).
+  _activeRun = run;
 
   const onVisible = (): void => {
     if (document.visibilityState === 'visible') run();
@@ -133,5 +141,6 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
       clearTimeout(_editTimer);
       _editTimer = null;
     }
+    if (_activeRun === run) _activeRun = null; // 이 세트가 소유한 실행기만 거둔다
   };
 }

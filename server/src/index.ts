@@ -477,12 +477,17 @@ app.post('/api/sync/push', async (c) => {
       ).bind(t.tbl, t.k1, t.k2, t.deletedAt),
     );
     /* 툼스톤보다 오래된 행은 지운다. 부활 방지의 실행부이고, `diffRows` 가 클라이언트에서
-       일부러 미룬 정리(rows.ts 주석)를 정본이 대신 하는 지점이다. */
+       일부러 미룬 정리(rows.ts 주석)를 정본이 대신 하는 지점이다.
+       ⚠ `<=` 다(H3) — 위 부활 가드가 `deleted_at >= …`(동점 삭제 승)이므로 이 DELETE 도 동점을
+       지워야 방향이 맞는다. `<` 였을 때 같은 ms 삭제↔편집이 기기별로 반대로 판정돼 영구 분기했다.
+       클라이언트 병합(`web/src/lib/cloud/merge.ts`)과 **같은 값**이어야 한다. */
     const cols = TABLE_COLS[t.tbl];
     if (cols) {
       const where = cols.key.map((k) => `${k} = ?`).join(' AND ');
       const keys = cols.key.length === 2 ? [t.k1, t.k2] : [t.k1];
-      stmts.push(c.env.DB.prepare(`DELETE FROM ${t.tbl} WHERE ${where} AND updated_at < ?`).bind(...keys, t.deletedAt));
+      stmts.push(
+        c.env.DB.prepare(`DELETE FROM ${t.tbl} WHERE ${where} AND updated_at <= ?`).bind(...keys, t.deletedAt),
+      );
     }
   }
 

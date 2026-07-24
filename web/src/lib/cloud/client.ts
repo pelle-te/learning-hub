@@ -21,6 +21,7 @@
 import { execDb, selectDb } from '../db/sqlite';
 import { cloudHttp, isTauri } from '../tauri';
 import { PermanentPushError, type CloudTransport } from './push';
+import { PULL_MARK_KEY, WATERMARK_KEY } from './outbox';
 import { OutboxBatchSchema } from './schema';
 import type { OutboxBatch } from './contract';
 
@@ -124,6 +125,12 @@ export async function enrollDevice(baseUrl: string, code: string, name: string):
  * 폐기를 요청할 자격증명이 이미 없다. 서버 폐기가 실패해도 **로컬 삭제는 진행한다** —
  * "끊기"를 눌렀는데 인터넷이 없다고 안 끊기면 사용자가 할 수 있는 일이 없어진다.
  * 대신 실패 사실을 돌려줘서 화면이 "서버에서도 끊으려면 다시 시도하세요"라고 말할 수 있게 한다.
+ *
+ * ⚠ **워터마크 둘도 함께 지운다(H2).** 종전엔 자격증명 3키만 지워서 `watermark`·`cloud:pullMark`
+ * 가 남았다. 그 상태로 다른 백엔드에 재연결하거나 서버 D1 이 리셋되면(무료 티어 이빅션·마이그
+ * 레이션 재생성), `collectOutbox` 의 `updated_at > 워터마크` 가 **기존 데이터 전량을 제외**해
+ * 새 서버가 내 데이터를 영영 못 받는다 — 앱은 "연결됨·최신"이라 말한다(v6 백필이 고친 조용한
+ * 유실과 같은 계열, 방향만 재연결 축). 0 부터 다시 push/pull 은 LWW 멱등이라 안전하다.
  */
 export async function disconnectCloud(): Promise<{ serverRevoked: boolean }> {
   let serverRevoked = false;
@@ -136,7 +143,8 @@ export async function disconnectCloud(): Promise<{ serverRevoked: boolean }> {
   } catch {
     // 네트워크·인증 실패 — 아래 로컬 삭제는 그대로 진행한다(위 주석 참조).
   }
-  for (const k of Object.values(KEYS)) await execDb('DELETE FROM sync_state WHERE key = ?', [k]);
+  for (const k of [...Object.values(KEYS), WATERMARK_KEY, PULL_MARK_KEY])
+    await execDb('DELETE FROM sync_state WHERE key = ?', [k]);
   _access = null;
   return { serverRevoked };
 }

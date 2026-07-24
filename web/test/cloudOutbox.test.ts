@@ -60,7 +60,8 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
 
 import { collectOutbox, commitWatermark, readWatermark, batchSize, OUTBOX_TABLES } from '@/lib/cloud/outbox';
 import { pushOutbox, backoffDelay, PermanentPushError, isPermanent, type CloudTransport } from '@/lib/cloud/push';
-import { nextStamp, seedStamp, currentStamp, _resetStamp } from '@/lib/db/stamp';
+import { nextStamp, seedStamp, currentStamp, chunkedStamp, _resetStamp } from '@/lib/db/stamp';
+import { MAX_BATCH_ITEMS } from '@/lib/cloud/contract';
 
 const noSleep = async (): Promise<void> => undefined;
 
@@ -197,6 +198,68 @@ describe('아웃박스 — 밀어올림 대상 질의', () => {
   it('DB 미가용이면 부분 배치 대신 null — 불완전을 완전으로 착각시키지 않는다', async () => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     expect(await collectOutbox(0)).toBeNull();
+  });
+});
+
+/* ── ②-b C1: 최초 이관의 단일 스탬프 그룹 ────────────────────────
+
+   실사용자(수개월치 데이터)의 **첫 클라우드 연결**이 무증상으로 영구 차단되던 결함.
+   이관 쓰기(`diffRows(null, …)`)가 전 행에 **한 스탬프**를 찍으면 그 그룹이 `MAX_BATCH_ITEMS`
+   를 넘고, `capBatch` 는 그룹을 못 쪼개 통째로 내보내는데(정확성 우선) 그 배치가 스키마 상한에
+   걸려 `blocked` 가 된다 — 워터마크가 안 움직여 매 회차 재차단. `chunkedStamp` 가 이관 행을
+   청크마다 갈라 그룹을 상한 아래로 유지하는 것이 처방이다. */
+describe('C1 — 최초 이관 스탬프 분산', () => {
+  it('chunkedStamp 는 청크마다 새 단조 스탬프를 낸다', () => {
+    const alloc = chunkedStamp(3);
+    const got = Array.from({ length: 7 }, () => alloc());
+    // 같은 청크(3건) 안은 동일, 청크가 바뀌면 증가.
+    expect(got[0]).toBe(got[1]);
+    expect(got[1]).toBe(got[2]);
+    expect(got[3]).toBeGreaterThan(got[2]);
+    expect(got[3]).toBe(got[4]);
+    expect(got[6]).toBeGreaterThan(got[3]);
+    // 발급기 단조성도 이어진다 — 이후 일반 편집은 더 큰 스탬프를 받는다.
+    expect(nextStamp()).toBeGreaterThan(got[6]!);
+  });
+
+  it('⚠ 단일 스탬프 그룹이 상한을 넘으면 push 가 blocked 된다 — 이관이 만들면 안 되는 형태', async () => {
+    const n = MAX_BATCH_ITEMS + 100;
+    tables.set(
+      'completions',
+      Array.from({ length: n }, (_, i) => ({ ds: '2026-01-01', k: `k${i}`, value: '{}', updated_at: 100 })),
+    );
+    seedStamp(10_000); // fence 가 100 보다 크게
+    const t = { batches: [] as unknown[], push: async (b: unknown) => void (t.batches as unknown[]).push(b) };
+
+    const res = await pushOutbox(t, { sleep: noSleep });
+    expect(res.status).toBe('blocked'); // 스키마 상한에 걸린다 — 이 형태가 결함이었다
+    expect(await readWatermark()).toBe(0); // 전진하지 못한다(영구 재차단)
+  });
+
+  it('청크 스탬프로 쓰면 상한 넘는 이관도 여러 배치로 전부 나간다(blocked 없음)', async () => {
+    const n = MAX_BATCH_ITEMS * 2 + 200; // 1200 행
+    const chunk = 400;
+    tables.set(
+      'completions',
+      Array.from({ length: n }, (_, i) => ({
+        ds: '2026-01-01',
+        k: `k${i}`,
+        value: '{}',
+        updated_at: 100 + Math.floor(i / chunk), // chunkedStamp 가 이관에서 만드는 스탬프 분포
+      })),
+    );
+    seedStamp(10_000);
+    const t = { batches: [] as unknown[], push: async (b: unknown) => void (t.batches as unknown[]).push(b) };
+
+    let sent = 0;
+    for (let i = 0; i < 10; i++) {
+      const res = await pushOutbox(t, { sleep: noSleep });
+      expect(res.status).not.toBe('blocked');
+      if (res.status === 'idle') break;
+      expect(res.sent).toBeLessThanOrEqual(MAX_BATCH_ITEMS); // 어떤 배치도 상한을 안 넘는다
+      sent += res.sent;
+    }
+    expect(sent).toBe(n); // 한 건도 빠지지 않고 전부 나갔다
   });
 });
 

@@ -37,6 +37,10 @@ export function isDurable(): boolean {
 let _seq = 0;
 const _waiting = new Map<number, { resolve: (r: DbResponse) => void; reject: (e: Error) => void }>();
 
+/** 한 왕복의 응답 시간 상한(H5). 워커가 open 성공 뒤 죽으면 이후 요청은 응답도 `onerror`(1회성)도
+ *  못 받아 **영원히 대기**한다(폰 무음 정지). wasm SQLite 연산은 밀리초대라 넉넉히 잡아도 안전. */
+const CALL_TIMEOUT_MS = 30_000;
+
 /* ⚠ `Omit<DbRequest,'id'>` 는 여기서 틀린다 — 유니온에 그냥 걸면 **공통 속성만 남아**
    `sql`·`bind` 가 사라진다. 조건부 타입으로 감싸야 각 갈래에 개별 적용된다(분배 법칙). */
 type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
@@ -44,7 +48,19 @@ type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 function call(worker: Worker, req: WithoutId<DbRequest>): Promise<DbResponse> {
   const id = ++_seq;
   return new Promise((resolve, reject) => {
-    _waiting.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      if (_waiting.delete(id)) reject(new Error('SQLite 워커 응답 시간 초과 — 워커가 죽었을 수 있습니다.'));
+    }, CALL_TIMEOUT_MS);
+    _waiting.set(id, {
+      resolve: (r) => {
+        clearTimeout(timer);
+        resolve(r);
+      },
+      reject: (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    });
     worker.postMessage({ ...req, id } as DbRequest);
   });
 }
@@ -66,10 +82,14 @@ export async function getBrowserDb(): Promise<Db | null> {
       else w.reject(new Error(ev.data.error));
     };
     /* 워커가 통째로 죽으면(스크립트 로드 실패·wasm 미지원) 대기 중인 약속이 **영원히 안
-       풀린다** — 그러면 부팅이 멈춘 채 화면이 아무 말도 안 한다. 전부 깨워서 실패시킨다. */
+       풀린다** — 그러면 부팅이 멈춘 채 화면이 아무 말도 안 한다. 전부 깨워서 실패시킨다.
+       ⚠ `_handle` 도 무효화한다(H5) — 안 하면 다음 `getBrowserDb()` 가 **죽은 워커를 쥔 핸들**을
+       그대로 돌려줘 이후 모든 요청이 타임아웃까지 매달린다. null 로 두면 다음 호출이 새 워커를
+       세운다(`getBrowserDb` 의 `_handle ??=`). */
     worker.onerror = (): void => {
       for (const [, w] of _waiting) w.reject(new Error('SQLite 워커가 죽었습니다.'));
       _waiting.clear();
+      _handle = null;
     };
 
     const opened = await call(worker, { kind: 'open' });

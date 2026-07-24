@@ -41,8 +41,14 @@ const TABLE_NAMES = OUTBOX_TABLES.map((t) => t.name) as [string, ...string[]];
 /** 동기화 대상 테이블 이름만 허용한다 — 서버가 이 값을 테이블명으로 쓰기 때문이다. */
 export const TableNameSchema = z.enum(TABLE_NAMES);
 
-/** epoch ms. `.int()` 가 `NaN`·`Infinity`·소수를 함께 걸러낸다. */
-const Stamp = z.number().int().nonnegative();
+/** 스탬프 상한 — 서기 2100(epoch ms). 실제 스탬프는 이보다 한참 아래이고, 이 위는 전부
+ *  손상·악의다. 상한이 없으면 `1e18` 같은 거대 유한값이 통과해(`.int()` 는 유한하기만 하면 OK),
+ *  `merge.ts` 의 `seedStamp` 래칫이 발급기를 그 값으로 끌어올려 `nextStamp` 이 **영원히 `_last+1`**
+ *  만 내게 된다(벽시계 복귀 불가 · H5). 스키마 머리주석의 "타임스탬프 오염 차단"을 완성한다. */
+const MAX_STAMP = 4102444800000;
+
+/** epoch ms. `.int()` 가 `NaN`·`Infinity`·소수를, `.lte` 가 거대 미래값을 함께 걸러낸다. */
+const Stamp = z.number().int().nonnegative().lte(MAX_STAMP);
 
 export const OutboxRowSchema = z
   .object({

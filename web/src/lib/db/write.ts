@@ -87,9 +87,24 @@ function diffSlices(a: AppState, b: AppState): string[] {
 export function writeAndVerify(state: AppState): Promise<ParityReport> {
   // 체인으로 이어 붙인다 — 동시 실행하면 두 스냅샷 쓰기가 서로 섞여 마지막 것이 정본이 아닐 수 있다.
   // 그리고 `whenSettled()` 가 기다릴 대상이 하나로 모인다.
+  return runExclusive(() => runWrite(state));
+}
+
+/**
+ * 임의의 로컬 DB 쓰기를 flush 와 **같은 직렬화 단위**에서 돌린다(H4).
+ *
+ * 동기화 병합(`cloud/merge.ts` 의 `applyPull`)이 쓰는 동안 useApp 디바운스 flush 가 끼어들면,
+ * 아직 기준선이 안 세워진 창에 **낡은 메모리를 더 큰 스탬프로 써서 받아온 행을 되돌릴** 수 있다
+ * (그 되돌림이 LWW 로 서버까지 이겨 다른 기기의 편집이 조용히 소실된다). 병합 쓰기를 이 체인에
+ * 얹으면 flush 와 병합이 절대 겹치지 않는다.
+ *
+ * ⚠ 병합은 **로컬 쓰기**라 `whenSettled()`(창 닫기 가드)가 기다려도 §5-2 의 "로컬만 기다린다"를
+ * 어기지 않는다 — 원격 push 는 여전히 이 체인 밖이다(`push.ts` 머리주석).
+ */
+export function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
   const next = Promise.resolve(_inflight)
     .catch(() => undefined)
-    .then(() => runWrite(state));
+    .then(fn);
   _inflight = next;
   return next;
 }

@@ -29,20 +29,34 @@ export function useAiStream(): AiStream {
   const run = useCallback(async function run<T>(
     fn: (o: { signal: AbortSignal; onDelta: (t: string) => void }) => Promise<T>,
   ): Promise<AiRunResult<T>> {
-    setBusy(true);
-    setPreview('');
+    /* ⚠ 진행 중이던 스트림을 **먼저 끊는다**. 안 그러면 겹쳐 부를 때 옛 `abortRef` 가 덮여
+       `cancel()` 이 옛 스트림을 못 끊고, 그것이 계속 `setPreview` 를 밀며 먼저 끝난 쪽이
+       나중 스트림의 `busy` 를 조기 해제한다. */
+    abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
+    setBusy(true);
+    setPreview('');
     let result: AiRunResult<T>;
     try {
-      const value = await fn({ signal: ac.signal, onDelta: (t) => setPreview(previewFromJsonStream(t)) });
+      const value = await fn({
+        signal: ac.signal,
+        // 이 실행이 아직 현재 것일 때만 미리보기를 민다 — 취소된 옛 스트림의 지연 델타가 덮지 않게.
+        onDelta: (t) => {
+          if (abortRef.current === ac) setPreview(previewFromJsonStream(t));
+        },
+      });
       result = { ok: true, value };
     } catch (e) {
       const err = e as Error;
       result = { ok: false, aborted: err.name === 'AbortError', error: err.message || String(e) };
     }
-    abortRef.current = null;
-    setBusy(false);
+    /* 이 실행이 아직 현재 것일 때만 정리한다 — 겹쳐 실행되면 **나중 실행**이 abortRef·busy 를
+       소유한다. 아니면 취소된 옛 실행의 뒷정리가 새 실행의 상태를 지운다. */
+    if (abortRef.current === ac) {
+      abortRef.current = null;
+      setBusy(false);
+    }
     return result;
   }, []);
 

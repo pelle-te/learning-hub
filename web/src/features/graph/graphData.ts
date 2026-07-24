@@ -7,7 +7,7 @@
      명시(조용한 절단 금지). 허브의 done/total 집계는 캡과 무관하게 실제 챕터 수를 반영.
    렌더/색 해석·힘 시뮬레이션은 Graph.tsx가 담당(이 파일은 UI/캔버스 비의존, 단위테스트 대상).
 ============================================================ */
-import { PALETTE } from '@/lib/utils';
+import { colorForId } from '@/lib/utils';
 import type { Item } from '@/lib/types';
 
 /** 총 노드 상한(허브+잎). 초과 시 허브당 잎을 캡한다.
@@ -100,11 +100,14 @@ export function buildGraph(items: Item[], expandedHubs?: ReadonlySet<string>): G
     console.info(`[knowledge-map] 노드 ${rawTotal} > ${MAX_NODES} — 허브당 잎을 ${perHubCap}개로 캡했습니다.`);
   }
 
-  items.forEach((it, i) => {
+  items.forEach((it) => {
     const chapters = it.chapters || [];
     const done = chapters.filter((c) => c.done).length;
     const hours = chapters.reduce((t, c) => t + (c.hours || 0), 0);
-    const color = it.color || PALETTE[i % PALETTE.length] || '#8a8f9c';
+    /* ⚠ 폴백은 **id 해시**(`colorForId`)다 — 배열 인덱스(`i % len`)는 0단계-G 가 폐기한 위치
+       기반 스킴이라, 색이 정체성이 아닌 위치로 정해져 삭제·재정렬 때 밀리고 타 탭(ItemCard·Stats,
+       전부 `colorForId` 파생)과 어긋난다(절대규칙 #3). */
+    const color = it.color || colorForId(it.id);
     const pos = seedPos(it.id);
     nodes.push({
       id: it.id,

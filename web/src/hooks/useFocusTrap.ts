@@ -27,7 +27,10 @@ export function useFocusTrap(
             root.querySelectorAll<HTMLElement>(
               'button, textarea, input, select, a[href], [tabindex]:not([tabindex="-1"])',
             ),
-          ).filter((el) => !el.hasAttribute('disabled'))
+            /* `disabled` 뿐 아니라 **숨은 요소**도 뺀다 — `[hidden]`·`display:none`·접힌 섹션은
+               `offsetParent === null` 이다. 안 빼면 Tab 순환이 보이지 않는 곳에 착지해 "포커스가
+               사라진 것처럼" 보인다(접힌 섹션 안 버튼 등). */
+          ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null)
         : [];
     // 열릴 때 지정 요소(없으면 패널 첫 요소, 그것도 없으면 패널 자체)로 포커스. 렌더 직후 50ms.
     const tid = setTimeout(() => (initialRef?.current || focusables()[0] || root)?.focus(), 50);
