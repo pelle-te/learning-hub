@@ -223,9 +223,13 @@ export function vaultSearchUrl(query: string): string {
   return `obsidian://search?query=${encodeURIComponent(query)}`;
 }
 
-/** 볼트 검색을 새 창으로 연다(대부분의 호출부 형태). URL 만 필요하면 `vaultSearchUrl`. */
+/** 볼트 검색을 새 창으로 연다(대부분의 호출부 형태). URL 만 필요하면 `vaultSearchUrl`.
+ *  ⚠ `window` 가드 — 이 파일은 헤더대로 **프레임워크·DOM 무관**이어야 한다. 서버(Worker)가
+ *  `cloud/contract` → `db/rows` → 여기를 타입 그래프로 끌어오는데, 거기엔 `window` 가 없다. */
 export function openVaultSearch(query: string): void {
-  window.open(vaultSearchUrl(query));
+  // `globalThis.open`(=브라우저 window.open) — `window` 이름을 직접 안 써야 서버 타입그래프에서 안전하다.
+  const g = globalThis as { open?: (url?: string | URL, target?: string) => unknown };
+  if (typeof g.open === 'function') g.open(vaultSearchUrl(query));
 }
 
 /* 주(週) 헬퍼 — 월요일 시작 */

@@ -54,6 +54,8 @@ interface Env {
    * 미설정이면 브라우저 교차 오리진은 전부 막힌다(닫힘이 기본값).
    */
   HUB_ALLOWED_ORIGINS?: string;
+  /** 실시간 poke 브로드캐스트 DO(Phase 2). push 뒤 다른 기기에 "변경 있음"만 알린다(데이터는 pull). */
+  SYNC_HUB: DurableObjectNamespace;
 }
 
 type Vars = { deviceId: string };
@@ -325,6 +327,9 @@ const requireDevice: MiddlewareHandler<{
   Bindings: Env;
   Variables: Vars;
 }> = async (c, next) => {
+  // ⚠ WebSocket(`/api/sync/live`)은 Bearer 헤더를 실을 수 없어(브라우저 제약) 이 미들웨어를
+  //    통과할 수 없다. 그 경로는 **자체 인증**한다(Sec-WebSocket-Protocol 토큰) — 여기선 비켜준다.
+  if (new URL(c.req.url).pathname === '/api/sync/live') return next();
   const token = bearerFrom(c.req.raw);
   const deviceId = token ? await verifyAccessToken(c.env.HUB_SIGNING_KEY, token, nowSec()) : null;
   if (!deviceId) return c.json({ error: 'unauthorized' }, 401);
@@ -424,6 +429,40 @@ app.post('/api/devices/revoke', async (c) => {
 
 /* ── 동기화 ──────────────────────────────────────────────────── */
 
+/** 단일 사용자 → 단일 DO 인스턴스. 모든 기기 소켓이 여기 모여, 브로드캐스트가 "내 다른 기기 전부". */
+function hub(env: Env): DurableObjectStub {
+  return env.SYNC_HUB.get(env.SYNC_HUB.idFromName('hub'));
+}
+
+/* ── 실시간 poke(Phase 2) ─────────────────────────────────────────
+   WebSocket 으로 "변경 있음"만 실시간 통지한다. **데이터는 여전히 push/pull** 이 옮긴다 —
+   이 채널로는 `poke` 한 글자만 흐른다(받은 기기가 pull). 폴링·포커스 대기를 없앤다.
+
+   ⚠ 인증이 특수하다: 브라우저 WebSocket 은 Authorization 헤더를 못 싣는다. 그래서 액세스 토큰을
+   **`Sec-WebSocket-Protocol` 서브프로토콜**로 받는다(URL 이 아니다 — P0-2 "토큰은 URL 아닌 헤더만"
+   의 연장). 검증(+폐기 확인)은 여기서 하고, 통과하면 DO 로 업그레이드를 위임한다.
+
+   ⚠ 이건 **점진적 향상**이다. 클라이언트가 붙지 못해도(데스크톱 CSP·네트워크) 앱은 기존
+   이벤트/폴링 동기화로 그대로 돈다 — 연결은 최신성을 빠르게 할 뿐, 정확성의 전제가 아니다. */
+app.get('/api/sync/live', async (c) => {
+  if (c.req.header('Upgrade') !== 'websocket') return c.json({ error: 'expected websocket' }, 426);
+  const proto = c.req.header('Sec-WebSocket-Protocol');
+  const token = proto ? proto.split(',')[0]?.trim() : undefined;
+  const deviceId = token ? await verifyAccessToken(c.env.HUB_SIGNING_KEY, token, nowSec()) : null;
+  if (!deviceId) return c.json({ error: 'unauthorized' }, 401);
+  // 폐기 확인 — 민감 경로는 매 연결 확인(requireDevice 와 같은 규율).
+  const row = await c.env.DB.prepare('SELECT revoked_at FROM devices WHERE id = ?')
+    .bind(deviceId)
+    .first<{ revoked_at: number | null }>();
+  if (!row || row.revoked_at !== null) return c.json({ error: 'unauthorized' }, 401);
+
+  const res = await hub(c.env).fetch(c.req.raw); // DO 가 101 + webSocket 을 돌려준다
+  // 브라우저가 요청한 서브프로토콜을 응답에 되돌려줘야 연결이 성립한다(선택한 프로토콜 확인).
+  const headers = new Headers(res.headers);
+  if (token) headers.set('Sec-WebSocket-Protocol', token);
+  return new Response(res.body, { status: res.status, webSocket: res.webSocket, headers });
+});
+
 /**
  * 아웃박스 배치를 받아 정본에 반영한다.
  *
@@ -496,6 +535,19 @@ app.post('/api/sync/push', async (c) => {
   }
 
   if (stmts.length) await c.env.DB.batch(stmts);
+
+  /* 실시간 poke(Phase 2) — 뭔가 반영됐으면 다른 기기에 "변경 있음"을 쏜다. `waitUntil` 로 응답을
+     막지 않는다(브로드캐스트 실패는 무해 — 폴링·포커스가 여전히 받는다). 데이터는 안 싣는다. */
+  if (stmts.length) {
+    c.executionCtx.waitUntil(
+      hub(c.env)
+        .fetch('https://sync-hub.internal/broadcast', { method: 'POST' })
+        .catch(() => {
+          /* 브로드캐스트 실패는 삼킨다 — 실시간은 향상이지 정확성의 전제가 아니다. */
+        }),
+    );
+  }
+
   // P2-9 접근 로그(주체 포함). 건수만 — 값은 개인 데이터라 로그에 넣지 않는다.
   console.log(
     JSON.stringify({
@@ -645,5 +697,8 @@ app.get('/api/sync/pull', async (c) => {
     tombstones: capped.tombstones,
   });
 });
+
+/** ⚠ DO 클래스는 진입 모듈에서 내보내야 런타임이 찾는다(wrangler.jsonc 의 class_name 과 일치). */
+export { SyncHub } from './syncHub';
 
 export default app;

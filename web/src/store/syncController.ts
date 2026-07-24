@@ -21,6 +21,8 @@
 ============================================================ */
 import { syncOnce, type SyncResult } from '@/lib/cloud/run';
 import { applyPull } from '@/lib/cloud/merge';
+import { readCloudConfig } from '@/lib/cloud/client';
+import { connectLive, type LiveHandle } from '@/lib/cloud/live';
 import { nextStamp } from '@/lib/db/stamp';
 import { endMergeApply } from '@/lib/db/write';
 import { RUNTIME_CACHE_KEYS } from '@/lib/persistence';
@@ -147,6 +149,9 @@ export interface SyncTriggerOptions {
   beforeSync?: () => Promise<void>;
   /** 각 동기화 결과 콜백(예: `blocked` 토스트). */
   onResult?: (r: SyncResult) => void;
+  /** 실시간 poke 채널(Phase 2)을 켠다. **폰만** true — 데스크톱 Tauri 웹뷰는 CSP 로 WS 가 막힌다.
+   *  못 붙어도 무해(폴링·이벤트로 폴백). 켜면 다른 기기 push 를 거의 즉시 받아 pull 한다. */
+  live?: boolean;
 }
 
 /**
@@ -157,7 +162,7 @@ export interface SyncTriggerOptions {
  * 실행될 수 있다 — 이 가드가 그 창을 닫는다.
  */
 export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
-  const { pollMs, onEdit = true, onPagehide = false, beforeSync, onResult } = opts;
+  const { pollMs, onEdit = true, onPagehide = false, beforeSync, onResult, live = false } = opts;
 
   let _running: Promise<void> | null = null;
   const run = (): void => {
@@ -201,6 +206,16 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   let pollId: ReturnType<typeof setInterval> | null = null;
   if (pollMs) pollId = setInterval(run, pollMs);
 
+  // 실시간 poke 채널(Phase 2 · 폰) — cfg 가 있으면 붙어, 다른 기기 push 를 거의 즉시 받아 pull 한다.
+  // ⚠ 못 붙어도 위 트리거(복귀·편집후·폴링)가 최신성을 보장한다(점진적 향상).
+  let liveHandle: LiveHandle | null = null;
+  let liveDisposed = false;
+  if (live) {
+    void readCloudConfig().then((cfg) => {
+      if (cfg && !liveDisposed) liveHandle = connectLive(cfg, run);
+    });
+  }
+
   run(); // 설치 즉시 1회 — 열었다 = 최신을 보고 싶다.
 
   return () => {
@@ -208,6 +223,8 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
     if (onPagehide) window.removeEventListener('pagehide', onHide);
     unsub?.();
     if (pollId) clearInterval(pollId);
+    liveDisposed = true;
+    liveHandle?.close();
     if (_editTimer) {
       clearTimeout(_editTimer);
       _editTimer = null;

@@ -207,6 +207,11 @@ export function _resetToken(): void {
   _access = null;
 }
 
+/** 실시간 WS 가 서브프로토콜로 실을 액세스 토큰(Phase 2). 캐시·갱신은 내부 `accessToken` 이 처리. */
+export function currentAccessToken(cfg: CloudConfig): Promise<string> {
+  return accessToken(cfg);
+}
+
 async function accessToken(cfg: CloudConfig, force = false): Promise<string> {
   // 만료 30초 전부터 갱신한다 — 요청이 날아가는 중에 만료되는 창을 없앤다.
   if (!force && _access && _access.expiresAt - 30_000 > Date.now()) return _access.token;

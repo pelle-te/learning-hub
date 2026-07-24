@@ -12,8 +12,10 @@ import { installSyncTriggers as install, type SyncTriggerOptions } from '@/store
 
 export { runSync as sync, syncSoon } from '@/store/syncController';
 
-/** 부팅 시 1회 설치(연결된 뒤 `main.tsx` 가 부른다). 폰은 폴링을 켜지 않고, 이탈 시 push 한다. */
+/** 부팅 시 1회 설치(연결된 뒤 `main.tsx` 가 부른다). 폰은 폴링을 켜지 않고, 이탈 시 push 한다.
+ *  ⚠ **실시간 poke(`live`)는 폰만 켠다**(Phase 2) — 폰은 Workers 오리진의 동일출처 WS 라 붙는다.
+ *  데스크톱(Tauri 웹뷰)은 CSP `connect-src 'self' ipc:` 로 막혀 못 붙으므로 StorageGuard 는 안 켠다. */
 export function installSyncTriggers(): () => void {
-  const opts: SyncTriggerOptions = { onEdit: true, onPagehide: true };
+  const opts: SyncTriggerOptions = { onEdit: true, onPagehide: true, live: true };
   return install(opts);
 }

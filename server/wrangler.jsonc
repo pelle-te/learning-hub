@@ -51,6 +51,17 @@
     // binding 은 두지 않는다 — 사용자 워커가 자산을 직접 꺼내 줄 일이 없다(자산 워커가 전담).
   },
 
+  /* ── 실시간 poke DO(Phase 2) ────────────────────────────────────────────────
+     `SyncHub` 하나가 모든 기기 WebSocket 을 쥐고, push 뒤 "변경 있음"만 브로드캐스트한다.
+     ⚠ **SQLite 백드 DO**(`new_sqlite_classes`)라야 무료 플랜에서 쓸 수 있다(`new_classes` 는
+     유료). 상태 저장은 안 하지만(순수 소켓 팬아웃) 백엔드 종류가 요금제 자격을 가른다.
+     배포 절차·확인은 cloudflare-런북(§ 실시간)에 있다 — 이 바인딩만으로는 안 뜨고 `wrangler deploy`
+     가 필요하다. 클라이언트는 붙지 못해도 기존 동기화로 폴백하므로(점진적 향상) 배포 전에도 앱은 돈다. */
+  "durable_objects": {
+    "bindings": [{ "name": "SYNC_HUB", "class_name": "SyncHub" }]
+  },
+  "migrations": [{ "tag": "v1-synchub", "new_sqlite_classes": ["SyncHub"] }],
+
   "d1_databases": [
     {
       "binding": "DB",
