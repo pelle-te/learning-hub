@@ -11,6 +11,8 @@ import {
   colSumMin,
   copyPrevWeekAlloc,
   deriveAutoAlloc,
+  neglectDaysBySid,
+  NEGLECT_DAYS,
   ensureWeekAlloc,
   isUnschedulable,
   isWeekManaged,
@@ -343,5 +345,35 @@ describe('주간 배분 — 주당 0시간 과목(리드아웃 오염)', () => {
       { id: 'y', name: 'Anki', mode: 'daily', dailyMin: 20, chapters: [] },
     ]);
     expect(weeklyItems(st).map((it) => it.name)).toEqual(['수학']);
+  });
+});
+
+describe('주간 배분 — 방치 신호(ID-7 neglectDaysBySid)', () => {
+  const TODAY = '2026-07-15';
+  const comps = (rows: [ds: string, key: string, done: boolean][]) => {
+    const out: Record<string, Record<string, { done: boolean; min: number }>> = {};
+    for (const [ds, key, done] of rows) (out[ds] = out[ds] || {})[key] = { done, min: 60 };
+    return out;
+  };
+
+  it('과목별 마지막 완료 뒤 경과일(완료만·미래 무시·최신 유지)', () => {
+    const state = {
+      completions: comps([
+        ['2026-07-05', 'm|new', true], // m 10일 전
+        ['2026-07-13', 'm|rev', true], // m 최신 = 2일 전(이게 이김)
+        ['2026-07-01', 'p|new', true], // p 14일 전
+        ['2026-07-14', 's|new', false], // 미완료 → 제외
+        ['2026-08-01', 'p|rev', true], // 미래 → 무시
+      ]),
+    } as never;
+    const n = neglectDaysBySid(state, TODAY);
+    expect(n['m']).toBe(2); // 최신(07-13)
+    expect(n['p']).toBe(14);
+    expect(n['s']).toBeUndefined(); // 완료 이력 없음(미완료뿐) → 키 없음
+  });
+
+  it('완료 이력 없는 과목은 키 없음(신규 과목을 방치로 안 몬다)', () => {
+    expect(neglectDaysBySid({ completions: {} } as never, TODAY)).toEqual({});
+    expect(NEGLECT_DAYS).toBe(7);
   });
 });

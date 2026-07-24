@@ -2,7 +2,7 @@
    insights.test.ts — 회고 코칭 & 반복 약점(순수·결정적) 회귀.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { dominantCbms, weakCountBySid, weakSpots, weeklyInsights } from '@/lib/insights';
+import { dayShape, dominantCbms, weakCountBySid, weakSpots, weeklyInsights } from '@/lib/insights';
 import type { AppState, CbmsCode } from '@/lib/types';
 
 let _n = 0;
@@ -30,6 +30,38 @@ const blank = (ds: string, passed: boolean) => ({ id: 'k' + ++_n, ds, sid: 'm', 
 const st = (over: Record<string, unknown>): AppState => ({ items: [], ...over }) as unknown as AppState;
 
 const WK = '2026-06-29'; // 그 주 월요일(ds0) — ds6 = 07-05, 지난주 = 06-22~06-28
+
+describe('insights — dayShape (ID-5 오늘의 모양)', () => {
+  const D = '2026-06-30';
+  it('그날 완료 과목수·세션·분 집계 + 마지막 요약의 마지막 문장', () => {
+    const state = st({
+      completions: {
+        [D]: {
+          'm|new': { done: true, min: 60 },
+          'm|rev': { done: true, min: 30 },
+          'p|new': { done: true, min: 45 },
+          's|new': { done: false, min: 20 }, // 미완료 → 제외
+        },
+      },
+      summaries: {
+        [D]: [
+          { id: 'a', sid: 'm', name: '수학', s1: 'x', s2: 'y', s3: '극한은 근방의 수렴' },
+          { id: 'b', sid: 'p', name: '물리', s1: '관성', s2: '', s3: '' }, // 마지막 요약 → s3 없어 s1
+        ],
+      },
+    });
+    const sh = dayShape(state, D);
+    expect(sh.subjects).toBe(2); // m, p (완료만)
+    expect(sh.sessions).toBe(3);
+    expect(sh.focusMin).toBe(135);
+    expect(sh.learned).toBe('관성'); // 마지막 요약(b)의 s3 없어 s1 폴백
+  });
+
+  it('완료·요약 없으면 0·빈 문자열(UI 가 숨김)', () => {
+    const sh = dayShape(st({ completions: {}, summaries: {} }), D);
+    expect(sh).toMatchObject({ subjects: 0, sessions: 0, focusMin: 0, learned: '' });
+  });
+});
 
 describe('insights — dominantCbms', () => {
   it('최다 코드가 2건↑·40%↑면 반환, 아니면 null', () => {

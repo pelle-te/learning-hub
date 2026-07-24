@@ -188,3 +188,34 @@ export function weeklyRecap(state: AppState, weekMonDs: string): WeeklyRecap {
 
   return { weekMon: weekMonDs, doneSessions, focusMin, summaries, backlogClosed, wins };
 }
+
+export interface DayShape {
+  ds: string;
+  subjects: number; // 그날 완료 세션이 있는 과목 수(distinct)
+  sessions: number; // 그날 완료 학습 세션 수
+  focusMin: number; // 그날 완료 학습 분 합
+  learned: string; // 그날 마지막 요약의 마지막 문장(s3→s2→s1) — 없으면 ''
+}
+
+/** 오늘의 모양(ID-5) — 하루짜리 weeklyRecap 축소판. 셧다운 순간에 '오늘이 어땠나' 회고 한 줄로.
+ *  weeklyRecap 이 전향 모멘텀이라면 여기는 그날의 마감 톤(I-13 셧다운 체인과 상보). learned 는
+ *  요약의 '마지막 문장' — 3문장 요약에서 결론/핵심에 해당하는 자리라 '배운 것'으로 가장 적합하다. */
+export function dayShape(state: AppState, ds: string): DayShape {
+  const comp = state.completions?.[ds] || {};
+  const sids = new Set<string>();
+  let sessions = 0;
+  let focusMin = 0;
+  for (const k of Object.keys(comp)) {
+    const e = comp[k];
+    if (e?.done) {
+      sessions++;
+      focusMin += e.min || 0;
+      const sid = k.split('|')[0];
+      if (sid) sids.add(sid);
+    }
+  }
+  const sums = state.summaries?.[ds] || [];
+  const last = sums[sums.length - 1];
+  const learned = last ? (last.s3 || last.s2 || last.s1 || '').trim() : '';
+  return { ds, subjects: sids.size, sessions, focusMin, learned };
+}

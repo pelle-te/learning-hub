@@ -5,12 +5,36 @@
    스케줄러 입력은 아니고(스케줄러는 state.weekAlloc를 직접 읽음 · §12-4), 여긴 보드/스토어가 쓰는 편집 헬퍼.
    ⚠ state 변형 함수(ensure/set/copy/reset)는 store.mutate(immer draft) 안에서만 호출한다.
 ============================================================ */
-import { addDays, iso, mondayOf, parseISO } from './utils';
+import { addDays, dayDiff, iso, mondayOf, parseISO } from './utils';
 import type { AppState, Item, ScheduleResult } from './types';
 
 /** 7요일 0벡터(분) — index=wd(0=일..6=토). */
 export function zeroVec(): number[] {
   return [0, 0, 0, 0, 0, 0, 0];
+}
+
+/** 방치 배지(ID-7) 임계 — 이 일수 이상 손 안 댄 과목에 '방치' 신호. */
+export const NEGLECT_DAYS = 7;
+
+/** 과목별 '마지막 완료(손 댄) 날 → 오늘로부터 경과일'(ID-7). 완료(done) 세션만 — 계획만 있고
+ *  안 한 건 '손 댐'이 아니다. 예산 상태(배분량 vs 예산)와 **직교한 최근성** 신호라, 배분 보드에서
+ *  "이번 주 배분했지만 며칠째 실제로는 안 함"이라는 계획↔실행 괴리를 드러낸다. 완료 이력 없는
+ *  과목은 키 없음(신규 과목을 '방치'로 몰아세우지 않는다 — 기준 날짜가 없다). */
+export function neglectDaysBySid(state: AppState, todayIso: string): Record<string, number> {
+  const comp = state.completions || {};
+  const lastDs: Record<string, string> = {};
+  for (const ds of Object.keys(comp)) {
+    if (ds > todayIso) continue; // 미래 완료 무시
+    for (const k of Object.keys(comp[ds] || {})) {
+      if (!comp[ds]![k]?.done) continue;
+      const sid = k.split('|')[0];
+      if (!sid) continue;
+      if (!lastDs[sid] || ds > lastDs[sid]!) lastDs[sid] = ds;
+    }
+  }
+  const out: Record<string, number> = {};
+  for (const sid of Object.keys(lastDs)) out[sid] = dayDiff(lastDs[sid]!, todayIso);
+  return out;
 }
 
 /** 그 날짜(또는 주 아무 날)가 속한 주의 월요일(ISO) = weekAlloc 키. */

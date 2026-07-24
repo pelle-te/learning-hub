@@ -8,6 +8,7 @@ import { useApp } from '@/store/useApp';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
+import { dayShape } from '@/lib/insights';
 import { todayISO } from '@/lib/utils';
 import type { Ritual } from '@/lib/types';
 import { TodaySignature } from './TodaySignature';
@@ -22,6 +23,8 @@ function RitualCard() {
 
   const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
   const r: Ritual = state.rituals?.[ds2] || { plan: false, shutdown: false, note: '' };
+  // ID-5 오늘의 모양 — 셧다운 순간의 회고 한 줄(완료·요약 있을 때만).
+  const shape = dayShape(state, ds2);
   const [note, setNote] = useState(r.note || '');
   const [justSaved, setJustSaved] = useState(false); // blur 저장이 조용해서 반영 여부를 인라인으로 표시.
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
@@ -51,6 +54,18 @@ function RitualCard() {
           <b>저녁 셧다운</b> <span className="ds-muted ds-tiny">완료 체크 · 내일 한 줄 · 끝내기</span>
         </label>
       </div>
+      {/* ID-5 오늘의 모양 — 하루 회고 한 줄(완료 세션·요약 있을 때만). 셧다운 전 '오늘이 어땠나'. */}
+      {(shape.sessions > 0 || shape.learned) && (
+        <div className="ds-foot" style={{ marginTop: 8 }}>
+          🌙 <b>오늘의 모양</b> — {shape.subjects}과목 · {shape.sessions}세션 · {shape.focusMin}분 집중
+          {shape.learned && (
+            <>
+              {' '}
+              · 배운 것: <i className="text-txt">{shape.learned}</i>
+            </>
+          )}
+        </div>
+      )}
       <div className="ds-fld" style={{ marginTop: 8 }}>
         <label htmlFor="ritual-note">
           내일 한 줄 <span className="ds-muted ds-tiny">— 셧다운의 마지막 조각, 내일의 나에게 남기는 메모</span>

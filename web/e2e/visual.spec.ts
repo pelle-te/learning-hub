@@ -792,6 +792,53 @@ for (const theme of THEMES) {
   });
 }
 
+/* 방치 배지(ID-7 · [[plan-ux-polish-priority]]) — 이번 주 배분됐는데 7일+ 손 안 댄 과목 행에
+   '💤 N일' warn 핀. 공유 SEED 는 과목이 작아 현재 주엔 배분이 0(모두 조기 종료)이라 배지가 못 뜬다.
+   여기선 절대 안 끝나는 큰 챕터(500h) + 현재 주 명시 배분 + 10일 전 완료로 배지가 실제로 뜨는지
+   픽셀로 잡는다(§15-4 · 사용자가 배분 보드 시각 완성도에 특히 민감). FIXED=06-15(월)=현재 주 월요일. */
+const SEED_NEGLECT = {
+  schemaVersion: 3,
+  theme: 'dark',
+  startDate: '2026-06-01',
+  moduleLen: 120,
+  reviewRatio: 20,
+  completions: { '2026-06-05': { 'em|new': { done: true, min: 120 } } }, // 10일 전
+  items: [
+    {
+      id: 'em',
+      source: '직접',
+      name: '전자기학',
+      color: '#4f8ff0',
+      mode: 'weekly',
+      weeklyHours: 4,
+      dailyMin: 30,
+      deadline: '',
+      chapters: [{ id: 'c1', name: '벡터장', hours: 500, done: false }], // 안 끝남 → finished=false
+    },
+  ],
+  routine: [{ id: 'r1', name: '수면', type: '수면', start: '00:00', end: '07:00', days: [0, 1, 2, 3, 4, 5, 6] }],
+  weekAlloc: { '2026-06-15': { em: [0, 120, 60, 0, 0, 0, 0] } }, // 현재 주 명시 배분 → rowMin>0(managed)
+  cbms: [],
+  degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
+};
+test('alloc-board · neglect · dark', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install({ time: FIXED });
+  await page.addInitScript((seed) => {
+    try {
+      localStorage.setItem('study_planner_v3', JSON.stringify(seed as object));
+      localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'week', accent: 'lime', recentCommands: [] }));
+    } catch {
+      /* noop */
+    }
+  }, SEED_NEGLECT);
+  await page.goto('/alloc');
+  await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
+  await expect(page.getByText(/💤\d+/).first()).toBeVisible(); // 방치 배지 렌더 확인
+  await settle(page);
+  await expect(page).toHaveScreenshot('alloc-board-neglect-dark.png', { fullPage: true });
+});
+
 /* 복습 러너(C-7 Tailwind 이식) — **이 화면은 시각 커버리지가 0이었다.** 그 상태에서 이식했더니
    카드가 1글자 폭으로 무너졌는데(토큰 이름이 `--spacing-*` 와 `--container-*` 두 네임스페이스에
    겹쳐 `max-w-runner` 가 48px 으로 풀렸다) **린트·빌드·유닛이 전량 녹색**이었다. 띄워 봐야만

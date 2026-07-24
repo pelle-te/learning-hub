@@ -209,6 +209,27 @@ describe('AllocBoard — 행 합·예산 잔여·열 합', () => {
     expect(within(subjectRow('물리')).queryByText(/남음/)).toBeNull();
   });
 
+  it('ID-7 방치 배지 — 배분했는데 7일+ 손 안 댄 과목 행에만 뜬다', () => {
+    // 물리: 이번 주 배분(120분) + 마지막 완료 10일 전(06-14) → 방치. 영어: 완료 이력 없음 → 배지 없음.
+    seed({
+      weekAlloc: WeekAllocSchema.parse({ [WK0]: { phy: [0, 120, 0, 0, 0, 0, 0] } }),
+      completions: { '2026-06-14': { 'phy|new': { done: true, min: 60 } } }, // TODAY=06-24 → 10일
+    });
+    renderBoard();
+    expect(within(subjectRow('물리')).getByText(/💤\s*10/)).toBeInTheDocument();
+    expect(within(subjectRow('물리')).getByLabelText('10일째 손 안 댐')).toBeInTheDocument();
+    expect(within(subjectRow('영어')).queryByText(/💤/)).toBeNull(); // 완료 이력 없는 과목은 안 몬다
+  });
+
+  it('ID-7 방치 배지 — 최근(7일 미만) 손 댔으면 배분 있어도 안 뜬다', () => {
+    seed({
+      weekAlloc: WeekAllocSchema.parse({ [WK0]: { phy: [0, 120, 0, 0, 0, 0, 0] } }),
+      completions: { '2026-06-21': { 'phy|new': { done: true, min: 60 } } }, // TODAY=06-24 → 3일
+    });
+    renderBoard();
+    expect(within(subjectRow('물리')).queryByText(/💤/)).toBeNull();
+  });
+
   it('요일 열 합 / 그날 실제 가용 — dayOverrides 를 반영한다(요일 기본값이 아니다)', () => {
     seed({
       weekAlloc: WeekAllocSchema.parse({ [WK0]: { phy: [0, 0, 120, 0, 0, 0, 0] } }),

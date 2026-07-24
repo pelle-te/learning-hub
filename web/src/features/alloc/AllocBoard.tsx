@@ -17,6 +17,8 @@ import {
   copyPrevWeekAlloc,
   isUnschedulable,
   isWeekManaged,
+  neglectDaysBySid,
+  NEGLECT_DAYS,
   resetWeekAlloc,
   rowSumMin,
   setAllocCell,
@@ -79,6 +81,9 @@ const S = {
   budgetB: 'text-base14 font-extrabold text-txt tabular-nums',
   budgetOf: 'text-xs leading-[1.6] font-semibold text-mut',
   badge: 'text-2xs',
+  // ID-7 방치 배지 — 행 이름 뒤 우측 정렬 warn 핀. 예산 배지(우측 셀)와 위계·위치가 달라 오독 없다.
+  neglect:
+    'ml-auto flex-none rounded-full bg-tint-warn px-1.5 py-0.5 text-2xs font-bold whitespace-nowrap text-warn tabular-nums',
   footHead: `${CELL} sticky left-0 z-[3] rounded-bl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
   footCell: `${CELL} justify-center gap-0.75 text-sm leading-[1.6] text-mut`,
   footCap: 'font-semibold text-mut',
@@ -142,6 +147,8 @@ export function AllocBoard({
   const validSids = new Set(rows.map((it) => it.id)); // 삭제된 과목의 고아 배분이 열 합을 부풀리지 않게
   const managed = isWeekManaged(state, weekMon);
   const alloc = allocView(state, res, weekMon); // managed면 명시값, 아니면 자동 파생 스냅샷
+  // ID-7 방치 신호 — 과목별 마지막 손 댄 뒤 경과일(예산 상태와 직교한 최근성).
+  const neglect = neglectDaysBySid(state, todayIso);
 
   const monday = parseISO(weekMon);
   // 열=월~일(Mon-first). 각 열의 실제 날짜·wd(getDay)·오늘 여부.
@@ -317,6 +324,9 @@ export function AllocBoard({
                     ? 'under'
                     : 'over';
             const subColor = it.color || 'var(--acc)';
+            // ID-7 방치 배지 — 이번 주 배분했는데(rowMin>0) 7일+ 손 안 댄 과목만(소음 절제).
+            const nds = neglect[it.id];
+            const neglected = nds != null && nds >= NEGLECT_DAYS && rowMin > 0 && !finished;
             return (
               <div key={it.id} className="contents" role="row" style={{ ['--sub' as string]: subColor }}>
                 {/* 린트가 draggable 을 상호작용 신호로 읽어 'rowheader 는 포커스 가능해야'라고
@@ -343,6 +353,15 @@ export function AllocBoard({
                   <span className={S.grab} aria-hidden="true" />
                   <span className={S.swatch} style={{ background: subColor }} />
                   <span className={S.rowName}>{it.name}</span>
+                  {neglected && (
+                    <span
+                      className={S.neglect}
+                      title={`이번 주 배분했지만 ${nds}일째 실제 학습이 없어요 — 계획과 실행이 벌어지는 중`}
+                      aria-label={`${nds}일째 손 안 댐`}
+                    >
+                      💤{nds}
+                    </span>
+                  )}
                 </div>
                 {cols.map((c) => {
                   const cellMin = vec[c.wd] || 0;

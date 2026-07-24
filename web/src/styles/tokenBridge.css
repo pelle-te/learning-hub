@@ -318,7 +318,7 @@
   --color-alloc-plus: var(--alloc-plus);
   /* 매트릭스 그리드 — 과목열(minmax 104,1.1fr) + 요일 7열(minmax 54,1fr) + 예산열(minmax 104,0.95fr).
      고정 트랙이라 임의값 대신 테마 항목으로 둔다(규약 2 · stats 의 --grid-template-columns-stats 와 같은 처리). */
-  --grid-template-columns-alloc: minmax(104px, 1.1fr) repeat(7, minmax(54px, 1fr)) minmax(104px, 0.95fr);
+  --grid-template-columns-alloc: minmax(148px, 1.4fr) repeat(7, minmax(52px, 1fr)) minmax(104px, 0.95fr);
   /* 주 라벨 자간 -0.01em · 모드 배지 대문자 0.08em — 내장 tracking 사다리 밖의 정확한 디자인 의도값이라
      이름을 준다(픽셀 보존 · 규약 3). */
   --tracking-wk: -0.01em;

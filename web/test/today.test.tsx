@@ -53,3 +53,21 @@ test('today: 아침 계획 의식 토글이 store.rituals에 기록된다', asyn
   const ds = iso(new Date());
   await waitFor(() => expect(useApp.getState().state.rituals?.[ds]?.plan).toBe(true));
 });
+
+test('today: ID-5 오늘의 모양 — 완료·요약 있으면 셧다운 회고 한 줄이 뜬다', async () => {
+  const ds = iso(new Date());
+  useApp.getState().mutate((st) => {
+    st.completions = { [ds]: { 'm|new': { done: true, min: 60 }, 'p|new': { done: true, min: 30 } } };
+    st.summaries = { [ds]: [{ id: 'a', sid: 'm', name: '미적분', s1: 'x', s2: 'y', s3: '극한의 정의를 다시 정리' }] };
+  });
+  renderApp('/today');
+  fireEvent.click(await screen.findByRole('button', { name: /일일 의식/ })); // 상세 오버레이 열기
+  // 회고 한 줄 — 과목수·세션·배운 것(마지막 요약 마지막 문장).
+  expect(await screen.findByText(/오늘의 모양/)).toBeInTheDocument();
+  expect(screen.getByText(/극한의 정의를 다시 정리/)).toBeInTheDocument();
+  // cleanup: 다음 테스트에 새지 않게.
+  useApp.getState().mutate((st) => {
+    st.completions = {};
+    st.summaries = {};
+  });
+});
