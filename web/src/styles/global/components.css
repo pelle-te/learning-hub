@@ -162,8 +162,41 @@ button.ghost {
 button.ghost:hover {
   background: var(--panel2);
 }
-/* (button.sm / button.danger:hover는 제거 — 두 변형 모두 components/ui/Button.module.css가
-   styles.sm/styles.danger로 소유하고, 전역판을 참조하는 className="sm|danger"는 0건이었다.) */
+/* ⚠ sm/danger 가 여기로 **돌아왔다**(2026-07-24 · C-7 마지막 티어).
+   옛 주석은 "두 변형은 `Button.module.css` 가 소유하고 전역 참조가 0건"이라 지웠다고 적혀
+   있었는데, 그 결과 **버튼 룩이 두 벌**이 됐다 — 모듈의 `.btn`·`.primary`·`.ghost` 선언이 위
+   `button{}` 계열과 한 글자도 다르지 않은 사본이었다. 갈린 이유는 명시도가 아니라 **이름**이다
+   (모듈 클래스는 해시라 리터럴 `primary` 와 서로 안 닿는다). 사본을 지우고 `<Button>` 이 이
+   전역 이름들을 그대로 쓰게 했다 → 시스템 하나. */
+button.sm {
+  padding: 5px 10px;
+  font-size: var(--fs-sm);
+}
+/* ⚠ `:not(:disabled)` 로 명시도를 맞춘다. 모듈판은 `.danger:hover`(0,2,0)였는데 위
+   `button:hover:not(:disabled)`(0,2,1)에 져서 **한 번도 발화한 적이 없다** — 이식이 드러낸
+   네 번째 사장 규칙이다(TopBar `.fill` · 팔레트 `.input` · Pill `tiny` 에 이어). */
+button.danger:hover:not(:disabled) {
+  border-color: var(--bad);
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+/* ⚠⚠ 비활성 발광 끄기는 **primary 에만** 건다. 실측이 두 번 가르쳤다:
+   ① 위 `button:disabled`(0,1,1) 안에 넣었더니 `button.primary`(0,1,1)와 동점인데 primary 가
+      뒤라 졌다 — 비활성 primary 가 그대로 빛났다.
+   ② 그래서 `button:disabled` 를 여기(뒤)로 옮겼더니 이번엔 **너무 넓었다**: 언레이어드라
+      유틸리티를 이겨서, `shadow-go` 같은 유틸을 단 **생 `<button disabled>` 의 그림자까지**
+      지웠다(control 수집 버튼). 옛 모듈 규칙의 범위는 `.btn`(=컴포넌트)뿐이었고 그 컴포넌트가
+      갖는 유일한 그림자원은 primary 다 → 딱 그만큼만 재현한다.
+   둘 다 스냅샷이 disabled 상태를 안 찍어 못 잡았고, 전 버튼 계산스타일 대조가 잡았다. */
+button.primary:disabled {
+  box-shadow: none;
+}
+/* 비활성 primary 에 hover 하면 `button.primary:hover`(0,2,1)의 brightness 가 위 saturate 를
+   덮는다 — 그걸 되돌린다(모듈판 `.primary:disabled:hover` 의 전역 대응). */
+button.primary:disabled:hover,
+button:disabled:hover {
+  filter: saturate(0.6);
+}
 
 /* ── 표(요소) ── */
 table {

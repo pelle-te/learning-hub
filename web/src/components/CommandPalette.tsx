@@ -16,13 +16,16 @@ import { FIELDS, categoryOf } from '@/lib/atlas';
 import type { SemHit, SemKind } from '@/lib/semantic';
 
 /* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
-   ⚠⚠ **이식하며 발견한 선존 결함(고치지 않고 보존 · 절대규칙 #4 · §15-8 ⑤ 와 같은 부류)**:
-   `.input` 이 선언한 padding(16/18px)·background(transparent)·border(하단만)·color(inherit)는
-   **한 번도 적용된 적이 없다.** cmdk 가 `<input type="text">` 로 렌더하는데 언레이어드 전역
-   `input[type='text'] {…}`(global/components.css)가 **명시도 (0,1,1)** 로 모듈 클래스 (0,1,0)를
-   이긴다 — 실제 렌더는 앱 공통 입력(패딩 8/10 · 라운드 7 · 패널 배경 · 사방 1px 보더)이다.
-   계산 스타일 덤프로 확인했다. 살아남은 선언은 `font-size:16px` 뿐이고(전역 폼 13px 을 이긴다)
-   유틸리티는 언레이어드를 못 이기므로 그 하나에 `!` 가 필요하다. **되살릴지는 별도 안건.**
+   ⚠⚠ **검색 입력은 "한 번도 적용된 적 없는 CSS" 였고, 2026-07-24 에 되살렸다(사용자 결정).**
+   `.input` 이 선언한 padding(16/18px)·투명 배경·하단만 보더·`color:inherit` 는 전부 죽어 있었다 —
+   cmdk 가 `<input type="text">` 로 렌더하는데 언레이어드 전역 `input[type='text']`(명시도 0,1,1)이
+   모듈 클래스(0,1,0)를 이겼기 때문이다. 실제 렌더는 앱 공통 입력(패딩 8/10 · 라운드 7 · 패널 배경 ·
+   사방 1px 보더)이었다(계산 스타일 덤프로 확인). 팔레트는 다이얼로그 자체가 이미 테두리·라운드를
+   갖는데 그 안에 또 입력 상자가 그려져 이중 액자였다 — 의도대로 **경계 없는 검색줄**로 되돌린다.
+   ⚠ 유틸리티는 언레이어드를 못 이기므로 **전역이 세우는 속성마다 `!` 가 필요하다.** 그리고 보더는
+   `border-0!` + `border-b!` 로 겹쳐 쓰지 않는다(§15-8 ② — 같은 속성을 두 유틸이 나눠 가지면
+   방출 순서로 갈린다) → 변마다 하나씩 소유하게 `border-x-0!`·`border-t-0!`·`border-b!` 로 쓴다.
+   포커스 링은 두지 않는다 — 팔레트가 열리면 이 입력이 **항상** 포커스라 링이 상태를 구분하지 못한다.
 
    그리고 `.semGroup [cmdk-group-heading]` 은 **우리가 만들지 않는 DOM**이라 규약 4 의 "자식에
    직접 클래스"를 쓸 수 없다. cmdk 의 `heading` 이 ReactNode 를 받으므로 **스타일된 노드를 직접
@@ -31,7 +34,8 @@ import type { SemHit, SemKind } from '@/lib/semantic';
 const OVERLAY = 'fixed inset-0 z-[var(--z-palette)] bg-scrim backdrop-blur-palette animate-[cp-fade_0.12s_ease]';
 const CONTENT = 'fixed top-palette-y left-1/2 z-[var(--z-palette-top)] w-palette max-w-palette -translate-x-1/2';
 const DIALOG = 'overflow-hidden rounded-palette border border-line bg-panel text-txt shadow-float';
-const INPUT = 'text-palette-input!';
+const INPUT =
+  'w-full rounded-none! border-x-0! border-t-0! border-b! border-line! bg-transparent! px-4.5! py-4! text-palette-input! outline-none!';
 const LIST = 'max-h-palette-list overflow-auto p-1.5';
 /* ⚠ 배경은 두 곳이 갖는다 — 선택 상태(0,2,0)가 캡처 틴트(0,1,0)를 이기는 원본 관계가
    Tailwind 에서도 그대로 성립한다(`data-[…]` 변형이 속성 셀렉터를 붙이므로). */
