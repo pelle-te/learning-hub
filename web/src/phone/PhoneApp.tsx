@@ -12,9 +12,13 @@ import { useApp } from '@/store/useApp';
 import { isDurable } from '@/lib/db/browserDb';
 import DayView from './DayView';
 import WeekView from './WeekView';
+import ReadsView from './ReadsView';
 import { sync } from './sync';
 
-type View = 'day' | 'week';
+type View = 'day' | 'week' | 'reads';
+const VIEW_LABEL: Record<View, string> = { day: '일', week: '주', reads: '읽기' };
+/** 날짜 이동이 의미 있는 뷰 — 읽을거리는 날짜 축이 아니라 '가장 최근 수집' 하나다. */
+const DATED: View[] = ['day', 'week'];
 
 export default function PhoneApp(): React.JSX.Element {
   const today = useApp((s) => todayISO(s.state));
@@ -34,17 +38,24 @@ export default function PhoneApp(): React.JSX.Element {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-line bg-bg">
+        {/* ⚠ 날짜 화살표는 날짜 축이 있는 뷰에서만 **자리를 유지한 채** 비활성이 아니라
+            아예 숨긴다 — 읽을거리에는 이전/다음 날이 없고, 눌러도 아무 일이 없는 버튼을
+            남기면 "고장난 화살표"가 된다. 가운데 탭 묶음이 밀리지 않게 폭만 예약한다. */}
         <div className="flex items-center justify-between px-2 py-2">
-          <button
-            type="button"
-            aria-label="이전"
-            onClick={() => shift(view === 'day' ? -1 : -7)}
-            className="min-h-11 px-3"
-          >
-            ‹
-          </button>
+          <span className="w-11">
+            {DATED.includes(view) ? (
+              <button
+                type="button"
+                aria-label="이전"
+                onClick={() => shift(view === 'day' ? -1 : -7)}
+                className="min-h-11 px-3"
+              >
+                ‹
+              </button>
+            ) : null}
+          </span>
           <div className="flex gap-1" role="tablist">
-            {(['day', 'week'] as const).map((v) => (
+            {(['day', 'week', 'reads'] as const).map((v) => (
               <button
                 key={v}
                 type="button"
@@ -53,18 +64,22 @@ export default function PhoneApp(): React.JSX.Element {
                 onClick={() => setView(v)}
                 className={`min-h-11 rounded-md px-4 text-sm ${view === v ? 'bg-acc text-on-acc' : 'text-mut'}`}
               >
-                {v === 'day' ? '일' : '주'}
+                {VIEW_LABEL[v]}
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            aria-label="다음"
-            onClick={() => shift(view === 'day' ? 1 : 7)}
-            className="min-h-11 px-3"
-          >
-            ›
-          </button>
+          <span className="w-11 text-right">
+            {DATED.includes(view) ? (
+              <button
+                type="button"
+                aria-label="다음"
+                onClick={() => shift(view === 'day' ? 1 : 7)}
+                className="min-h-11 px-3"
+              >
+                ›
+              </button>
+            ) : null}
+          </span>
         </div>
 
         {/* ⚠ 영속 실패는 말한다 — OPFS 를 못 잡으면 새로고침 한 번에 오프라인 캐시가 증발한다.
@@ -81,9 +96,8 @@ export default function PhoneApp(): React.JSX.Element {
         ) : null}
       </header>
 
-      {view === 'day' ? (
-        <DayView ds={ds} />
-      ) : (
+      {view === 'day' ? <DayView ds={ds} /> : null}
+      {view === 'week' ? (
         <WeekView
           ds={ds}
           onPick={(d) => {
@@ -91,7 +105,8 @@ export default function PhoneApp(): React.JSX.Element {
             setView('day');
           }}
         />
-      )}
+      ) : null}
+      {view === 'reads' ? <ReadsView /> : null}
     </div>
   );
 }

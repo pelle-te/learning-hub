@@ -24,13 +24,18 @@
 ============================================================ */
 import { storage } from '../kv';
 import { isTauri } from '../tauri';
-import { execDb, selectDb } from './sqlite';
+import { execDb, isSqlitePrimary, selectDb } from './sqlite';
 import { nextStamp } from './stamp';
 
 /** SQLite 로 옮긴 키. 여기 없는 키는 `docGet`/`docSet` 이 localStorage 로 그대로 흘린다 —
  *  `lh_ui_v1`(테마·액센트)은 **기기별 설정**이라 일부러 안 옮겼다(폰은 폰의 설정을 쓴다).
  *  `lh:research-history` 도 남겼다: 탐구 *결과*는 볼트에 파일로 남고 이건 화면용 목록이다. */
-export const DOC_KEYS = ['lh:reads', 'atlas.notes', 'atlas.stars'] as const;
+/** PC → 폰 단방향 산출물 미러(`lib/artifactMirror.ts`). 키 공간의 주인이 여기라 여기서 선언한다
+ *  — 반대로 두면 `artifactMirror ↔ docs` 순환 import 가 되고, 로드 순서에 따라 `DOC_KEYS` 가
+ *  TDZ 로 터진다(둘 중 어느 모듈이 먼저 평가되느냐에 달린 조용한 폭탄). */
+export const MIRROR_DOC_KEYS = ['artifact:reads', 'artifact:markets'] as const;
+
+export const DOC_KEYS = ['lh:reads', 'atlas.notes', 'atlas.stars', ...MIRROR_DOC_KEYS] as const;
 export type DocKey = (typeof DOC_KEYS)[number];
 
 const isDocKey = (k: string): k is DocKey => (DOC_KEYS as readonly string[]).includes(k);
@@ -50,17 +55,26 @@ let _cache: Map<string, string> | null = null;
    명시해야 한다. 이 파일이 `AppState` 매퍼와 분리된 이유는 `db.rs:76-78` 참조. */
 const DOC_UPSERT = 'INSERT OR REPLACE INTO docs (key, value, updated_at) VALUES (?1, ?2, ?3)';
 
-/** 부팅 시 1회 — DB 의 저작물을 메모리로 끌어올린다. 실패는 조용히 넘긴다(호출부가 localStorage 로 폴백). */
+/** 부팅 시 1회 — DB 의 저작물을 메모리로 끌어올린다. 실패는 조용히 넘긴다(호출부가 localStorage 로 폴백).
+ *
+ *  ⚠ 조건이 **`isTauri()` 가 아니라 `isSqlitePrimary()`** 다(C-6 이 만든 구분 · CLAUDE.md 가
+ *  경고한 그 부류). 폰은 Tauri 가 아닌데 SQLite 가 정본이라, `isTauri()` 로 막으면 동기화로
+ *  내려온 `docs` 행을 **읽지도 쓰지도 못한다** — 읽기는 빈 화면이 되고 쓰기는 폰 localStorage 로
+ *  새어 아웃박스에 안 걸린다(= 영원히 동기화되지 않는 편집). C-6 이 `AppState` 경로에서만
+ *  이 조건을 바꾸고 `docs` 를 놓쳤다. */
 export async function initDocs(): Promise<void> {
-  if (!isTauri()) return;
+  if (!isSqlitePrimary()) return;
   const rows = await selectDb<{ key: string; value: string }>('SELECT key, value FROM docs');
   if (!rows) return; // DB 미가용 — _cache 를 null 로 두어 localStorage 경로가 살아 있게 한다
   const map = new Map(rows.map((r) => [r.key, r.value]));
 
   /* 1회 이관 — 빈 docs 를 "새 사용자"가 아니라 "아직 안 옮겨졌다"로 읽는다.
      `initAppStore` 가 `AppState` 에 대해 하는 것과 같은 판단이고, 안 하면 셸로 넘어온 사용자의
-     **요약·독후감이 조용히 사라진 것처럼 보인다**(localStorage 엔 그대로 있는데 화면이 빈다). */
-  if (map.size === 0) {
+     **요약·독후감이 조용히 사라진 것처럼 보인다**(localStorage 엔 그대로 있는데 화면이 빈다).
+     ⚠ 여기만은 **셸 전용**이다 — 폰의 빈 docs 는 "아직 클라우드에서 안 받았다"이지 이관 대상이
+     아니고, 폰 오리진의 localStorage 에 뭔가 있다면 그건 **남의 데이터**다
+     (`initPhoneStore` 가 `AppState` 에 대해 같은 이유로 이관을 안 하는 것과 짝). */
+  if (map.size === 0 && isTauri()) {
     for (const k of DOC_KEYS) {
       const v = storage.getItem(k);
       if (v != null) {

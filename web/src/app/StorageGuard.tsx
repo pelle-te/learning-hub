@@ -8,9 +8,10 @@
 ============================================================ */
 import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
-import { installCloseGuard } from '@/lib/tauri';
+import { installCloseGuard, isTauri } from '@/lib/tauri';
 import { whenSettled } from '@/lib/db/write';
 import { syncOnce } from '@/lib/cloud/run';
+import { mirrorArtifacts } from '@/lib/artifactMirror';
 import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 
@@ -43,16 +44,23 @@ export default function StorageGuard() {
   useEffect(() => {
     let alive = true;
     const tick = (): void => {
-      void syncOnce().then((r) => {
-        if (!alive) return;
-        // 병합된 것이 있으면 메모리에 싣는다. 없으면 건드리지 않는다(불필요한 재렌더 방지).
-        if (r.state) useApp.getState().loadState(r.state);
-        /* 실패는 조용히 넘긴다 — 로컬은 멀쩡히 동작하고 다음 시도가 재개한다.
+      /* 산출물 미러(설계 §13-8) — **동기화보다 먼저**. 그래야 이번 사이클에 함께 올라간다.
+         셸 전용이다: 원본 파일이 PC 에만 있고, 폰에서 부르면 404 만 왕복한다.
+         내용이 안 바뀌었으면 쓰지 않으므로(스탬프를 안 찍는다) 5분마다 불려도 유선 비용 0. */
+      const mirror = isTauri() ? mirrorArtifacts().catch(() => undefined) : Promise.resolve(undefined);
+      void mirror
+        .then(() => syncOnce())
+        .then((r) => {
+          if (!r) return;
+          if (!alive) return;
+          // 병합된 것이 있으면 메모리에 싣는다. 없으면 건드리지 않는다(불필요한 재렌더 방지).
+          if (r.state) useApp.getState().loadState(r.state);
+          /* 실패는 조용히 넘긴다 — 로컬은 멀쩡히 동작하고 다음 시도가 재개한다.
            ⚠ 단 `blocked`(기기 폐기·한도 소진)는 사용자가 조치해야 풀리므로 알린다. */
-        if (r.push?.status === 'blocked') {
-          ui.toast(`클라우드 동기화가 중단됐어요 — ${r.push.error ?? ''}`, 'warn', 12000);
-        }
-      });
+          if (r.push?.status === 'blocked') {
+            ui.toast(`클라우드 동기화가 중단됐어요 — ${r.push.error ?? ''}`, 'warn', 12000);
+          }
+        });
     };
     tick();
     const id = setInterval(tick, 5 * 60 * 1000);

@@ -25,6 +25,11 @@ vi.mock('@/lib/db/sqlite', () => ({
   // 그 실패가 AppState 프리로드까지 끌고 내려가면 안 된다(boot.ts 가 자체 try 로 끊는다).
   selectDb: vi.fn(async () => null),
   execDb: vi.fn(async () => true),
+  /* C-6/§13-8 — `docs.ts` 의 분기가 `isTauri()` 에서 **`isSqlitePrimary()`** 로 바뀌었다
+     (폰은 Tauri 가 아닌데 SQLite 가 정본이다). 모킹에서 빠지면 `initDocs` 가 TypeError 로
+     터지고 그 실패가 AppState 프리로드까지 끌고 내려가 **세 케이스가 한꺼번에** 빨간불이
+     된다 — 위 `readMaxStamp` 주석이 기록한 것과 정확히 같은 함정을 두 번째로 밟았다. */
+  isSqlitePrimary: vi.fn(() => true),
   // C-1 — 타임스탬프 발급기의 씨앗(DB 의 최대 updated_at). 부팅의 **첫 쓰기보다 앞**에서
   // 불리므로 여기서 빠지면 이관 경로 전체가 조용히 폴백으로 떨어진다(실제로 그렇게 깨졌다).
   readMaxStamp: vi.fn(async () => 0),
