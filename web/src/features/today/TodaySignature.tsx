@@ -25,8 +25,9 @@ import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCoun
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
 import { ProgressRing } from '@/components/ProgressRing';
-import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, hLabel, mmss, DOW_MON } from '@/lib/utils';
-import { useCountUp, useHeroPointer } from '@/hooks/interactions';
+import { FlowRail, type FlowNode } from './FlowRail';
+import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, mmss, DOW_MON } from '@/lib/utils';
+import { useCountUp, useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 
 const TYPE_LABEL: Record<string, string> = {
@@ -98,24 +99,6 @@ const S = {
   now: 'text-sm leading-[1.6] font-extrabold text-acc tabular-nums [text-shadow:var(--shadow-fill)]',
   rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
   railEmpty: 'px-1 py-3.5 text-hint leading-[1.6] text-mut',
-  node: "relative flex w-full items-center gap-3 border-0! bg-transparent! pr-2! pl-0! text-left text-base14! before:pointer-events-none before:absolute before:top-0 before:bottom-0 before:left-node-spine before:w-0.5 before:-translate-x-px before:bg-line2 before:content-[''] first:before:top-1/2 last:before:bottom-1/2",
-  nTime: 'w-10.5 flex-none text-sm font-bold text-mut tabular-nums',
-  nBody: 'flex min-w-0 flex-1 flex-col gap-px',
-  nSub: 'truncate text-note-info text-mut',
-  nNow: 'flex-none text-2xs font-extrabold tracking-mode text-acc [text-shadow:var(--navlink-glow)]',
-  nNowSmall: 'text-tiny9 font-extrabold opacity-85',
-  nProg:
-    'pointer-events-none absolute bottom-0 left-0 z-[2] h-0.5 rounded-full bg-acc shadow-dot transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
-  nDotBase: 'relative z-[1] size-2.5 flex-none rounded-full',
-  nDotStudy: 'bg-acc shadow-[var(--shadow-node-live)]',
-  nDotBlock: 'bg-mut shadow-[var(--shadow-node-panel)]',
-  nDotLive:
-    'bg-acc scale-130 shadow-[var(--shadow-node-live)] animate-[today-dot-ping_1.5s_var(--ease)_infinite] motion-reduce:animate-none',
-  nDotGhost:
-    'relative z-[1] size-2 flex-none rounded-full border-2 border-line2 bg-transparent shadow-[var(--shadow-node-panel)]',
-  reviewCta:
-    'mt-1.5 mb-0.5 inline-flex items-center gap-2 rounded-md! border-0! bg-[var(--tint-warn-faint)]! px-3! py-2! text-hint! font-bold! shadow-[var(--shadow-inset-line2)] hover:shadow-[var(--shadow-inset-acc-glow)]',
-  reviewDot: 'size-1.75 flex-none rounded-full bg-warn',
   recall:
     'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[today-hero-fade_0.4s_var(--ease)_both]',
   recallTop: 'mb-1.5 flex items-baseline gap-2',
@@ -160,9 +143,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     go(`/schedule?ds=${todayISO(state)}`); // '오늘'은 앱 단일 출처(_today 시드 존중) — new Date() 금지
   };
   const [recallShown, setRecallShown] = useState(false); // A2 — 회상 정답 공개 여부
-  // I-4 — 흐름 레일 키보드 흐름(j/k 이동·Enter 집중·s 기록). 선택 노드 key + DOM 참조맵.
-  const [selKey, setSelKey] = useState<string | null>(null);
-  const nodeRefs = useRef(new Map<string, HTMLElement>());
 
   // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.
   const { ref: heroRef, onMouseMove: onHeroMove, onMouseLeave: onHeroLeave } = useHeroPointer(7);
@@ -173,35 +153,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const stopSession = useFocus((st) => st.stop);
 
   // 적응형 틱 — 초 단위 표시는 포모도로(mmss)뿐이므로 세션 중에만 1초, 평시엔 30초(FocusChip과 동일 패턴).
-  // 무조건 1초는 방치된 대시보드를 초당 리렌더하는 60배 과잉이었다. 백그라운드 정지·복귀 캐치업 유지.
-  const [, setTick] = useState(0);
-  const tickPeriod = timer ? 1000 : 30_000;
-  useEffect(() => {
-    let id: ReturnType<typeof setInterval> | null = null;
-    const startTick = () => {
-      if (id == null) id = setInterval(() => setTick((t) => (t + 1) % 86400), tickPeriod);
-    };
-    const stopTick = () => {
-      if (id != null) {
-        clearInterval(id);
-        id = null;
-      }
-    };
-    const onVis = () => {
-      if (document.hidden) stopTick();
-      else {
-        setTick((t) => (t + 1) % 86400); // 복귀 즉시 캐치업
-        startTick();
-      }
-    };
-    // 주기 전환(세션 시작/종료) 자체가 리렌더를 동반하므로 즉시 캐치업은 불필요 — 틱만 재설정.
-    startTick();
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      stopTick();
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [tickPeriod]);
+  // 무조건 1초는 방치된 대시보드를 초당 리렌더하는 60배 과잉이었다. 백그라운드 정지·복귀 캐치업은 훅이 소유.
+  useAdaptiveTick(timer ? 1000 : 30_000);
 
   const ds = todayISO(state);
   const today = parseISO(ds);
@@ -290,26 +243,16 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
 
   // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃). 파생 로직은 lib/scheduleView.deadlineDdays로 위임.
   const ddays = deadlineDdays(res.itemStat, ds);
-  const soon = ddays.filter((st) => st.dday <= 14).slice(0, 3);
+  const soon = ddays.filter((st) => st.dday <= 14).slice(0, 3); // 14=D-day 임박 임계 · 3=스트립 최대 표시
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
 
   // 오늘의 흐름 노드 — 학습(체크 가능)+일과 블록을 시간순 단일 리스트로(무지개 가로 트랙 폐기).
   const tl = L?.tl || [];
-  type FlowNode = {
-    key: string;
-    kind: 'study' | 'block';
-    start: number;
-    end: number | null;
-    name: string;
-    sub: string;
-    color?: string;
-    done: boolean;
-    e: (typeof enriched)[number] | null;
-  };
-  const flowNodes: FlowNode[] = [
+  type EnrichedItem = (typeof enriched)[number];
+  const flowNodes: FlowNode<EnrichedItem>[] = [
     ...enriched
       .filter((e) => e.start != null)
-      .map((e): FlowNode => ({
+      .map((e): FlowNode<EnrichedItem> => ({
         key: 'study|' + e.it.sid + '|' + e.it.type,
         kind: 'study',
         start: e.start as number,
@@ -322,7 +265,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
       })),
     ...tl
       .filter((t) => t.kind === 'block' && t.start != null)
-      .map((t, i): FlowNode => ({
+      .map((t, i): FlowNode<EnrichedItem> => ({
         key: 'block|' + i + '|' + String(t.start),
         kind: 'block',
         start: t.start as number,
@@ -335,63 +278,15 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
       })),
   ].sort((a, b) => a.start - b.start);
 
-  // I-4 — 흐름 레일 키보드 흐름: j/k 노드 이동(활성 하이라이트+스크롤) · Enter 현재 노드 집중 시작 · s 기록 프리필.
-  // Today.tsx 오버레이 키처리와 같은 window keydown+cleanup 패턴. 입력 포커스 시엔 무시(타이핑 보호).
-  const startNodeFocus = (e: (typeof enriched)[number]) => {
+  // I-4 — 흐름 레일의 선택·키보드(j/k/Enter/s)·DOM refs 는 `FlowRail` 이 소유한다(재설계 · 책임 이전).
+  // 여기선 노드가 요구하는 세 동작을 **불투명 콜백**으로만 준다(FlowRail 은 enriched 형태·store 를 모른다).
+  const startNodeFocus = (e: EnrichedItem): void => {
     startSession({ ds, sid: e.it.sid, type: e.it.type, name: e.it.name, min: focusMinutes(e), blockMin: e.it.min });
   };
-  // 핸들러가 읽는 최신 값 — 리스너를 재등록하지 않고도 최신 상태를 보게 하는 통로.
-  // (deps에 flowNodes를 넣던 시절엔 그게 매 렌더 새 배열이라 window keydown이 **매 렌더 제거→재등록**됐다.)
-  const keyCtx = useRef({ flowNodes, selKey, ds, startNodeFocus });
-  // deps 없는 effect = 매 렌더 후 갱신. 렌더 중 ref 쓰기는 컴파일러가 막으므로(정당하다) 여기서 민다.
-  useEffect(() => {
-    keyCtx.current = { flowNodes, selKey, ds, startNodeFocus };
-  });
-
-  useEffect(() => {
-    const reveal = (key: string) => {
-      const el = nodeRefs.current.get(key);
-      const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      el?.scrollIntoView({ block: 'nearest', behavior: rm ? 'auto' : 'smooth' });
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const { flowNodes, selKey, ds, startNodeFocus } = keyCtx.current;
-      if (!flowNodes.length) return;
-      const keys = flowNodes.map((n) => n.key);
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const idx = selKey ? keys.indexOf(selKey) : -1;
-      if (e.key === 'j') {
-        e.preventDefault();
-        const next = keys[Math.min(keys.length - 1, idx + 1)] ?? keys[0]!;
-        setSelKey(next);
-        reveal(next);
-      } else if (e.key === 'k') {
-        e.preventDefault();
-        const prev = idx <= 0 ? keys[0]! : keys[idx - 1]!;
-        setSelKey(prev);
-        reveal(prev);
-      } else if (e.key === 'Enter') {
-        const nd = flowNodes.find((n) => n.key === selKey);
-        if (nd?.e) {
-          e.preventDefault();
-          startNodeFocus(nd.e);
-        }
-      } else if (e.key === 's' || e.key === 'S') {
-        const nd = flowNodes.find((n) => n.key === selKey);
-        if (nd?.e) {
-          e.preventDefault();
-          usePrefill.getState().request('sum', nd.e.it.sid, ds);
-          ui.toast(`${nd.e.it.name} — 기록 프리필됨 ✍`, 'info');
-        }
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // deps 빈 배열이 이제 정직하다 — 핸들러가 참조하는 값은 전부 keyCtx.current에서 읽으므로
-    // 마운트/언마운트에 각 1회만 등록/해제된다(exhaustive-deps 억제도 함께 제거).
-  }, []);
+  const prefillNode = (e: EnrichedItem): void => {
+    usePrefill.getState().request('sum', e.it.sid, ds);
+    ui.toast(`${e.it.name} — 기록 프리필됨 ✍`, 'info');
+  };
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
   const subjName = allDone ? '완료' : focus ? focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
@@ -691,103 +586,15 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           </h2>
           <div className={S.rail}>
             {flowNodes.length ? (
-              <>
-                {flowNodes.map((nd) => {
-                  const live = nd.start <= nowMin && (nd.end == null || nowMin < nd.end);
-                  const past = nd.done || (nd.end != null && nowMin >= nd.end);
-                  const sel = selKey === nd.key;
-                  const block = nd.kind === 'block';
-                  const dur = nd.end != null ? ` · ${hLabel(nd.end - nd.start)}` : '';
-                  // 현재 블록 실시간 진행률(경과/길이) — 1초 틱으로 갱신.
-                  const prog =
-                    live && nd.end != null && nd.end > nd.start
-                      ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
-                      : 0;
-                  // 상태 정적 클래스맵(§15 · 동적 조립 금지). 선택(nSel)이 라이브(nLive)보다 우선(원본 소스 순서).
-                  const stateBg = sel
-                    ? 'rounded-md bg-[var(--tint-ink-5)] shadow-[var(--shadow-inset-line2)]'
-                    : live
-                      ? 'rounded-md bg-[var(--tint-acc-9)]'
-                      : '';
-                  const cls = `${S.node} py-2.75! ${nd.e ? 'group/node cursor-pointer hover:rounded-md focus-visible:rounded-md! focus-visible:[outline-offset:var(--node-outline-offset)]!' : 'cursor-default'} ${past ? 'opacity-40' : ''} ${stateBg}`;
-                  // nName 색/굵기: 블록=뮤트·600, 라이브·선택=acc, study hover=acc(group/node), 완료=취소선.
-                  const nNameCls = `truncate ${block ? 'font-semibold text-mut' : 'font-bold'} ${live || sel ? 'text-acc' : ''} ${nd.done ? 'line-through' : ''} ${nd.e ? 'group-hover/node:text-acc' : ''}`;
-                  const nDotCls = `${S.nDotBase} ${live ? S.nDotLive : block ? S.nDotBlock : S.nDotStudy}`;
-                  const setNodeRef = (el: HTMLElement | null) => {
-                    const m = nodeRefs.current;
-                    if (el) m.set(nd.key, el);
-                    else m.delete(nd.key);
-                  };
-                  const inner = (
-                    <>
-                      {live && <span className={S.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
-                      {/* nTime 내장 text-sm 은 companion LH 를 흘리므로 명시 — 폼컨트롤(study 버튼) 자손=normal · div=1.6. */}
-                      <span className={`${S.nTime} ${nd.e ? 'leading-[normal]' : 'leading-[1.6]'}`}>
-                        {toHM(nd.start)}
-                      </span>
-                      <span
-                        className={nDotCls}
-                        style={nd.kind === 'study' && nd.color ? { background: nd.color } : undefined}
-                      />
-                      <span className={S.nBody}>
-                        <span className={nNameCls}>{nd.name}</span>
-                        <span className={S.nSub}>
-                          {nd.sub}
-                          {dur}
-                        </span>
-                      </span>
-                      {live && (
-                        <span className={S.nNow}>
-                          지금 <small className={S.nNowSmall}>{prog}%</small>
-                        </span>
-                      )}
-                    </>
-                  );
-                  return nd.e ? (
-                    <button
-                      key={nd.key}
-                      ref={setNodeRef}
-                      type="button"
-                      className={cls}
-                      onClick={() => toggle(nd.e!)}
-                      aria-label={`${nd.name} 완료 토글`}
-                      aria-pressed={nd.done}
-                      aria-current={selKey === nd.key ? true : undefined}
-                    >
-                      {inner}
-                    </button>
-                  ) : (
-                    <div
-                      key={nd.key}
-                      ref={setNodeRef}
-                      className={cls}
-                      aria-current={selKey === nd.key ? true : undefined}
-                    >
-                      {inner}
-                    </div>
-                  );
-                })}
-                {/* 종결 캡 고스트 — 마지막 노드 뒤 "이후 일정 없음": 스파인이 끝났다고 읽히게(비인터랙티브). */}
-                <div className={`${S.node} py-1.75! opacity-55`}>
-                  <span className={`${S.nTime} leading-[1.6]`}>—</span>
-                  <span className={S.nDotGhost} />
-                  <span className={S.nBody}>
-                    <span className={S.nSub}>이후 일정 없음</span>
-                  </span>
-                </div>
-                {/* I-2 — 밀린 복습이 있으면 종결 캡 뒤에 은은한 딥링크 칩(스케줄 쓰기 아님 → 복습 실행으로). */}
-                {riskN > 0 && (
-                  <button
-                    type="button"
-                    className={S.reviewCta}
-                    onClick={() => go('/review-run')}
-                    aria-label={`밀린 복습 ${riskN}개 — 복습 세션으로 이동`}
-                  >
-                    <span className={S.reviewDot} aria-hidden="true" />
-                    복습 {riskN}개 밀림 <b className="ml-0.5 font-extrabold text-acc">복습 세션 →</b>
-                  </button>
-                )}
-              </>
+              <FlowRail
+                nodes={flowNodes}
+                nowMin={nowMin}
+                riskN={riskN}
+                onToggle={toggle}
+                onFocus={startNodeFocus}
+                onPrefill={prefillNode}
+                onReview={() => go('/review-run')}
+              />
             ) : (
               <div className={S.railEmpty}>
                 {hasItems ? (

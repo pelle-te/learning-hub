@@ -18,15 +18,17 @@
 
    ## 호출부 계약
 
-   이 함수는 **메모리 상태를 건드리지 않는다.** 병합된 상태를 돌려주기만 하고, `loadState()` 를
-   부르는 것은 호출부다 — `lib/` 는 zustand 를 모른다(I2 레이어 단방향).
+   이 함수는 **메모리 상태를 건드리지 않는다.** 병합된 상태를 돌려주기만 하고, `applyMerged()` 를
+   부르는 것은 호출부다(⚠ `loadState` 아님 · C1) — `lib/` 는 zustand 를 모른다(I2 레이어 단방향).
 ============================================================ */
 import { execDb, selectDb } from '../db/sqlite';
-import { pushOutbox, type PushResult } from './push';
+import { pushOutbox, type PushResult, type CloudTransport } from './push';
 import { makeTransport, pullChanges, readCloudConfig } from './client';
 import { applyPull } from './merge';
-import { batchSize } from './contract';
+import { scanConflicts } from './conflictScan';
+import { batchSize, MAX_BATCH_ITEMS } from './contract';
 import { PULL_MARK_KEY as PULL_MARK } from './outbox';
+import type { ConflictShadow } from './conflicts';
 import type { AppState } from '../types';
 
 async function readPullMark(): Promise<number> {
@@ -48,8 +50,10 @@ export interface SyncResult {
   push?: PushResult;
   /** 받아서 적용한 변경 수. */
   pulled: number;
-  /** 병합 결과 상태. **null 이 아니면 호출부가 `loadState()` 를 불러야 한다.** */
+  /** 병합 결과 상태. **null 이 아니면 호출부가 `applyMerged()` 를 불러야 한다**(⚠ `loadState` 아님 · C1). */
   state: AppState | null;
+  /** 이번 pull 이 LWW 로 덮은 **동시 로컬 편집**(있으면). 병합에는 영향 없는 관측 결과다(§150 보완). */
+  conflicts?: ConflictShadow[];
   error?: string;
 }
 
@@ -80,13 +84,30 @@ export function syncOnce(): Promise<SyncResult> {
   return _inflight;
 }
 
+/* ⚠ **가득 찬 push 배치를 이어서 비운다(H2 · 2026-07-24 감사).** `capBatch` 로 `MAX_BATCH_ITEMS`
+   에서 잘린 배치는 워터마크만 전진시키고 끝나는데, push 는 pull 과 달리 **메모리 상태를 안 바꿔**
+   편집 구독(`syncController`)을 못 깨운다 — 즉 남은 아웃박스를 이어받을 에코가 없다. 폴링 없는 폰에서
+   사용자가 편집·전환을 안 하면 초기 대량 push 가 다음 앱 열기까지 정체한다(유실 아님, 수렴 지연).
+   가득 찬 배치가 나오는 동안 이어 돌려 한 번에 비운다. 각 회가 워터마크를 전진시켜 아웃박스는 단조
+   감소하므로 종료가 보장되고, 폭주 방지로 상한도 둔다. `sent` 는 합계로 돌려준다. */
+const MAX_PUSH_DRAIN = 50; // 50 × MAX_BATCH_ITEMS(500) = 25,000 행 — 현실적 초기 동기화를 전부 덮는다
+async function drainPush(transport: CloudTransport): Promise<PushResult> {
+  let res = await pushOutbox(transport);
+  let sent = res.sent;
+  for (let i = 0; res.status === 'pushed' && res.sent >= MAX_BATCH_ITEMS && i < MAX_PUSH_DRAIN; i++) {
+    res = await pushOutbox(transport);
+    sent += res.sent;
+  }
+  return { ...res, sent };
+}
+
 async function runSyncOnce(): Promise<SyncResult> {
   const cfg = await readCloudConfig();
   if (!cfg) return { status: 'disconnected', pulled: 0, state: null };
 
   try {
     // ① 내 편집을 먼저 올린다.
-    const push = await pushOutbox(makeTransport(cfg));
+    const push = await drainPush(makeTransport(cfg));
 
     // ② 그다음 받아온다. `since` 는 **받기 전용** 워터마크다(머리주석 참조).
     const since = await readPullMark();
@@ -99,12 +120,16 @@ async function runSyncOnce(): Promise<SyncResult> {
       return { status: 'ok', push, pulled: 0, state: null };
     }
 
-    // ③ 병합. 기준선 정리까지 `applyPull` 이 하고, 메모리 반영은 호출부 몫이다.
+    /* ③ 병합 **직전** 충돌 스캔 — 이 시점 로컬은 아직 병합-전이라 "덮이기 직전 값"을 본다.
+       읽기 전용이라 병합의 LWW 불변식(merge.ts)에 손대지 않는다(§150 조용한 손실 보완). */
+    const conflicts = await scanConflicts(incoming, since);
+
+    // ④ 병합. 기준선 정리까지 `applyPull` 이 하고, 메모리 반영은 호출부 몫이다.
     const merged = await applyPull(incoming);
     /* ⚠ **병합이 끝난 뒤에만** 마크를 전진시킨다. 순서가 반대면 병합 실패 시 그 구간을
        영영 다시 안 받는다 — C-1 의 "전송 성공 뒤에만 워터마크" 계약과 같은 규율이다. */
     await commitPullMark(incoming.upto);
-    return { status: 'ok', push, pulled: merged.applied, state: merged.state };
+    return { status: 'ok', push, pulled: merged.applied, state: merged.state, conflicts };
   } catch (e) {
     return { status: 'failed', pulled: 0, state: null, error: e instanceof Error ? e.message : String(e) };
   }

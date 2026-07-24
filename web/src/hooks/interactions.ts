@@ -6,6 +6,7 @@
    짝이 되는 CSS는 styles/ds.css의 .ds-spotHost/.ds-spotlight/.ds-glow.
 ============================================================ */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { minutesOfDay } from '@/lib/utils';
 
 /** 현재 표시값→target으로 부드럽게 카운트업/다운(easeOutCubic). reduced-motion·SSR이면 즉시 target.
  *  target 변경 시 0이 아니라 *현재값*에서 트윈 — 데이터 갱신마다 KPI가 0으로 튀는 깜빡임 방지(L-8). */
@@ -42,12 +43,12 @@ export function useCountUp(target: number, ms = 750): number {
 export function useNowMin(): number {
   const [nowMin, setNowMin] = useState(() => {
     const d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
+    return minutesOfDay(d);
   });
   useEffect(() => {
     const tick = () => {
       const d = new Date();
-      setNowMin(d.getHours() * 60 + d.getMinutes());
+      setNowMin(minutesOfDay(d));
     };
     const id = setInterval(tick, 60_000);
     const onVis = () => {
@@ -60,6 +61,40 @@ export function useNowMin(): number {
     };
   }, []);
   return nowMin;
+}
+
+/** 주기적으로 **리렌더만** 트리거하는 틱 — 화면의 상대시각(⏱ mm:ss·now 라인)이 로드 시점에
+ *  멈추지 않게. period 는 호출부가 상황에 맞게 준다(포모도로 세션 중=1s · 평시=30s). 백그라운드에선
+ *  멈추고 복귀 시 즉시 캐치업. 카운터 값은 리렌더 트리거일 뿐이라 읽지도 반환하지도 않는다
+ *  (그래서 종전의 `% 86400` 상한도 불필요 — 단조 증가로 충분하다). */
+export function useAdaptiveTick(periodMs: number): void {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    let id: ReturnType<typeof setInterval> | null = null;
+    const bump = (): void => setTick((t) => t + 1);
+    const start = (): void => {
+      if (id == null) id = setInterval(bump, periodMs);
+    };
+    const stop = (): void => {
+      if (id != null) {
+        clearInterval(id);
+        id = null;
+      }
+    };
+    const onVis = (): void => {
+      if (document.hidden) stop();
+      else {
+        bump(); // 복귀 즉시 캐치업
+        start();
+      }
+    };
+    start();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [periodMs]);
 }
 
 /** 언마운트 시 미커밋 초안 flush — fn을 이펙트에서 ref에 담아(렌더 중 ref쓰기 금지·React Compiler refs 준수)

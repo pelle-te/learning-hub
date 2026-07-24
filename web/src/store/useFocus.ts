@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { storage } from '@/lib/kv';
 import { bootFocus, persistFocus, todayEntries, pickFocus, focusMinutes, type FocusSession } from '@/lib/focusState';
-import { todayISO } from '@/lib/utils';
+import { todayISO, minutesOfDay } from '@/lib/utils';
 import type { SessionType } from '@/lib/types';
 import { toast } from '@/shell/toast';
 import { useApp } from './useApp';
@@ -67,7 +67,7 @@ export const useFocus = create<FocusStore>((set, get) => ({
     const state = useApp.getState().state;
     const entries = todayEntries(state, selectSchedule(state));
     const now = new Date();
-    const { focus } = pickFocus(entries, now.getHours() * 60 + now.getMinutes());
+    const { focus } = pickFocus(entries, minutesOfDay(now));
     if (!focus) {
       toast('지금 시작할 학습 블록이 없어요 — 학습 항목을 확인하세요.', 'warn');
       return false;

@@ -42,6 +42,30 @@ export function lastParity(): ParityReport {
   return _last;
 }
 
+/* ⚠⚠ **병합 반영 진행 플래그(C1 · 2026-07-24 감사)** — `runExclusive` 가 못 닫는 잔여 창을 막는다.
+   `runExclusive` 는 병합 *배치 쓰기 도중*의 flush 만 직렬화한다. 그런데 `applyPull`(merge.ts)이
+   병합-후 행으로 **diff 기준선을 세우고 반환한 뒤**, 메모리 반영(`useApp.applyMerged`)은 그 사이의
+   `await commitPullMark`(체인 밖 IPC) + `syncOnce` 언와인드가 끝난 다음에야 일어난다. 그 창에서
+   `useApp` 디바운스 flush 가 발화하면 **낡은 메모리를 병합-후 기준선과 diff** 해서 받아온 행을
+   되돌리는 문장을 만들고, 그 되돌림이 LWW 로 서버까지 이겨 다른 기기 편집이 조용히 소실된다.
+   기준선-세우기(`applyPull`)와 메모리-반영(`applyMerged`) 사이 동안 flush 를 **미룬다**. */
+let _mergeApplyPending = false;
+
+/** 병합 반영 창 시작 — `applyPull` 이 기준선을 세운 직후(같은 `runExclusive` 안) 켠다. */
+export function beginMergeApply(): void {
+  _mergeApplyPending = true;
+}
+
+/** 병합 반영 창 종료 — `applyMerged`(메모리 반영 완료) + `runSync` finally(방어)가 끈다. */
+export function endMergeApply(): void {
+  _mergeApplyPending = false;
+}
+
+/** flush 가 이 창에서 쓰면 받아온 행을 되돌린다 — `useApp.flush` 가 이 값을 보고 미룬다. */
+export function isMergeApplyPending(): boolean {
+  return _mergeApplyPending;
+}
+
 /** 진행 중인 SQL 쓰기가 끝날 때까지 기다린다(없으면 즉시 resolve).
     창 닫기 가드가 쓴다 — **실측(2026-07-19)**: 디바운스 대기 중 창을 닫으면 비동기 SQL 쓰기가
     통째로 잘린다(트랙 B `2단계-C` 케이스). 동기 localStorage 는 `pagehide` 로 지켜지지만

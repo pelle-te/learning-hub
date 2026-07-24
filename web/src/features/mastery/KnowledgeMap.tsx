@@ -7,7 +7,7 @@
 ============================================================ */
 import { useState, type ReactNode, type CSSProperties } from 'react';
 import { useCountUp } from '@/hooks/interactions';
-import { masteryColor } from '@/lib/utils';
+import { masteryColor, openVaultSearch } from '@/lib/utils';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { Knowledge, KnowledgeSubject } from '@/lib/knowledge';
 import { M } from './classes';
@@ -36,7 +36,7 @@ export function VaultLink({
     <button
       type="button"
       className={variant === 'text' ? `ds-tiny ${M.rcLink}` : M.deep}
-      onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(q))}
+      onClick={() => openVaultSearch(q)}
       title={`Obsidian에서 ${label || `"${q}"`} 검색 (설치돼 있어야 함)`}
       aria-label={`Obsidian에서 ${label || q} 검색`}
     >

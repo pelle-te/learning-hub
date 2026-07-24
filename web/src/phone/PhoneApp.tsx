@@ -13,11 +13,12 @@ import { isDurable } from '@/lib/db/browserDb';
 import DayView from './DayView';
 import WeekView from './WeekView';
 import ReadsView from './ReadsView';
+import ReviewView from './ReviewView';
 import { sync } from './sync';
 
-type View = 'day' | 'week' | 'reads';
-const VIEW_LABEL: Record<View, string> = { day: '일', week: '주', reads: '읽기' };
-/** 날짜 이동이 의미 있는 뷰 — 읽을거리는 날짜 축이 아니라 '가장 최근 수집' 하나다. */
+type View = 'day' | 'week' | 'review' | 'reads';
+const VIEW_LABEL: Record<View, string> = { day: '일', week: '주', review: '복습', reads: '읽기' };
+/** 날짜 이동이 의미 있는 뷰 — 복습·읽을거리는 날짜 축이 아니라 '오늘/가장 최근' 하나다. */
 const DATED: View[] = ['day', 'week'];
 
 export default function PhoneApp(): React.JSX.Element {
@@ -60,7 +61,7 @@ export default function PhoneApp(): React.JSX.Element {
               버튼보다 나쁘다). 데스크톱 RailSidebar·Schedule 세그먼트가 같은 이유로 내린 판단
               (group + aria-pressed)을 그대로 쓴다. */}
           <div className="flex gap-1" role="group" aria-label="화면 전환">
-            {(['day', 'week', 'reads'] as const).map((v) => (
+            {(['day', 'week', 'review', 'reads'] as const).map((v) => (
               <button
                 key={v}
                 type="button"
@@ -110,6 +111,7 @@ export default function PhoneApp(): React.JSX.Element {
           }}
         />
       ) : null}
+      {view === 'review' ? <ReviewView /> : null}
       {view === 'reads' ? <ReadsView /> : null}
     </div>
   );

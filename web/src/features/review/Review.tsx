@@ -31,7 +31,7 @@ import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TO
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing, useKnowledge } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
-import { itemById } from '@/lib/utils';
+import { itemById, openVaultSearch } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
 
@@ -578,8 +578,7 @@ function WorkbenchCard() {
     mutate((s) => addBacklog(s, '', seed.name, seed.topic, seed.note));
     toast(PROMOTE_TOAST);
   };
-  const openVault = (c: { subject: string; chapter: string }) =>
-    window.open('obsidian://search?query=' + encodeURIComponent(c.subject + ' ' + c.chapter));
+  const openVault = (c: { subject: string; chapter: string }) => openVaultSearch(c.subject + ' ' + c.chapter);
 
   return (
     <div className="ds-card ds-glow">

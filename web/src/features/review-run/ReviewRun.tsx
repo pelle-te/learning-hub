@@ -11,12 +11,11 @@ import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
-import { todayISO } from '@/lib/utils';
-import { riskChapters, riskSummary, type ChapterReview } from '@/lib/spacedReview';
-import { pickRetrieval, pickConfidentWrong, type RetrievalCard, type ConfidentWrongCard } from '@/lib/retrieval';
+import { todayISO, openVaultSearch } from '@/lib/utils';
+import { riskSummary } from '@/lib/spacedReview';
+import { buildReviewQueue } from '@/lib/reviewQueue';
 import { CBMS_INFO } from '@/lib/methodology';
 import { Button } from '@/components/ui';
-import type { AppState, Day } from '@/lib/types';
 
 /* ── C-7 Tailwind 이식(두 번째 feature) ──────────────────────────────────
    `ReviewRun.module.css` 를 없앴다. discovery 에 없던 마찰 3종을 여기서 처음 만났고,
@@ -49,31 +48,13 @@ const BADGE =
   'data-[kind=confident]:bg-tint-warn data-[kind=confident]:text-warn ' +
   'data-[risk=overdue]:bg-tint-bad data-[risk=overdue]:text-bad';
 
-type RunItem =
-  | { kind: 'retrieval'; card: RetrievalCard }
-  | { kind: 'confident'; card: ConfidentWrongCard }
-  | { kind: 'chapter'; ch: ChapterReview };
-
-const CHAPTER_CAP = 12;
-
-/** 오늘 복습 큐 — 회상 1 → 착각 재확인 1 → 밀린 챕터 상위 N. 하루 단위 결정적(회상·착각은 날짜 해시). */
-function buildQueue(state: AppState, days: Day[], today: string): RunItem[] {
-  const q: RunItem[] = [];
-  const rc = pickRetrieval(state, today);
-  if (rc) q.push({ kind: 'retrieval', card: rc });
-  const cw = pickConfidentWrong(state, today);
-  if (cw) q.push({ kind: 'confident', card: cw });
-  for (const ch of riskChapters(state, days || [], today, CHAPTER_CAP)) q.push({ kind: 'chapter', ch });
-  return q;
-}
-
 export default function ReviewRun() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const nav = useNavigate();
   const today = todayISO(state);
 
-  const queue = buildQueue(state, res.days, today);
+  const queue = buildReviewQueue(state, res.days, today);
   const risk = riskSummary(state, res.days || [], today);
 
   const [idx, setIdx] = useState(0);
@@ -239,11 +220,7 @@ export default function ReviewRun() {
             <button
               type="button"
               className={SKIP}
-              onClick={() =>
-                window.open(
-                  'obsidian://search?query=' + encodeURIComponent(item.card.cbms.name + ' ' + item.card.cbms.chapter),
-                )
-              }
+              onClick={() => openVaultSearch(item.card.cbms.name + ' ' + item.card.cbms.chapter)}
               title="Obsidian에서 검색"
             >
               🔎 볼트
@@ -278,9 +255,7 @@ export default function ReviewRun() {
             <button
               type="button"
               className={SKIP}
-              onClick={() =>
-                window.open('obsidian://search?query=' + encodeURIComponent(item.ch.subject + ' ' + item.ch.chapter))
-              }
+              onClick={() => openVaultSearch(item.ch.subject + ' ' + item.ch.chapter)}
               title="Obsidian에서 검색"
             >
               🔎 볼트

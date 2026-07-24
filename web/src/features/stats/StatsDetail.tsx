@@ -30,7 +30,7 @@ import {
   CBMS_CODES,
 } from '@/lib/methodology';
 import { seasonPace } from '@/lib/records';
-import { parseISO, fmtShort, hLabel, DOW } from '@/lib/utils';
+import { parseISO, fmtShort, hLabel, DOW, round1 } from '@/lib/utils';
 import { radarPoint, radarPolygon, radarRing, type RadarGeom } from '@/lib/statsView';
 import EmptyState from '@/components/EmptyState';
 import type { ScheduleResult } from '@/lib/types';
@@ -372,7 +372,7 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
               <div className="ds-tiny ds-muted">{Math.round(tot)}h</div>
               <div style={{ display: 'flex', flexDirection: 'column-reverse', width: 30, gap: 1 }}>
                 {Object.entries(segs).map(([sid, h]) => {
-                  const lab = `${byId[sid]?.name || ''}: ${Math.round(h * 10) / 10}h`;
+                  const lab = `${byId[sid]?.name || ''}: ${round1(h)}h`;
                   return (
                     <div
                       key={sid}

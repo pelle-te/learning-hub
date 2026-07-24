@@ -2,7 +2,7 @@
 /* ============================================================
    scaffold-tab.mjs — 새 탭 보일러플레이트를 아키텍처 규약대로 결정적으로 생성.
    ① shell/tabs.ts TABS 등록  ② features/registry.tsx LOADERS 등록
-   ③ features/<key>/<Key>.tsx + .module.css  ④ test/<key>.test.tsx 스텁
+   ③ features/<key>/<Key>.tsx (Tailwind — C-7 이후 *.module.css 는 0개)  ④ test/<key>.test.tsx 스텁
    사용: cd web && node scripts/scaffold-tab.mjs <key> [label] [--group=plan] [--surface=study] [--icon=file] [--dry]
    본 기능 구현·레이아웃은 하지 않는다(스텁만). 이후 protocols/새탭추가.md의 나머지 단계를 사람이 진행.
 ============================================================ */
@@ -83,34 +83,26 @@ changes.push({
 // ── ③ feature 파일 ───────────────────────────────────────
 const featDir = join(root, 'src/features', key);
 const tsxPath = join(featDir, `${Comp}.tsx`);
-const cssPath = join(featDir, `${Comp}.module.css`);
-const tsx = `import styles from './${Comp}.module.css';
-
-/* ${label} 탭 — 스캐폴딩 스텁. protocols/새탭추가.md 사상으로 본 구현을 채운다.
-   레이어 규약: store(useApp/queries)·lib 순수함수만 소비. app/다른 feature import 금지. */
+/* ⚠ C-7 이후 스타일은 **Tailwind 유틸리티 + 공유 `ds-*`(styles/ds.css)** 뿐이다 — `*.module.css` 는
+   0개다. 스텁도 그 규약으로 낸다(생 CSS 파일·`import styles` 없음). 토큰 색은 tokenBridge 유틸
+   (`text-txt`·`text-mut`·`text-acc` 등)로 쓴다. 임의값(`w-[137px]`)은 금지(no-restricted-classes). */
+const tsx = `/* ${label} 탭 — 스캐폴딩 스텁. protocols/새탭추가.md 사상으로 본 구현을 채운다.
+   레이어 규약: store(useApp/queries)·lib 순수함수만 소비. app/다른 feature import 금지.
+   스타일: Tailwind 유틸리티 + 공유 ds-*(styles/ds.css). *.module.css 신설 금지(C-7). */
 export default function ${Comp}() {
   return (
-    <section className={styles.root}>
-      <h1>${label}</h1>
+    <section className="flex flex-col gap-4 p-4">
+      <h1 className="text-xl font-bold text-txt">${label}</h1>
     </section>
   );
 }
 `;
-const css = `.root {\n  padding: var(--space-4, 1rem);\n}\n`;
 changes.push({
   path: `src/features/${key}/${Comp}.tsx`,
   action: existsSync(tsxPath) ? '이미 있음(건너뜀)' : '생성',
   apply: () => {
     if (!existsSync(featDir)) mkdirSync(featDir, { recursive: true });
     if (!existsSync(tsxPath)) writeFileSync(tsxPath, tsx);
-  },
-});
-changes.push({
-  path: `src/features/${key}/${Comp}.module.css`,
-  action: existsSync(cssPath) ? '이미 있음(건너뜀)' : '생성',
-  apply: () => {
-    if (!existsSync(featDir)) mkdirSync(featDir, { recursive: true });
-    if (!existsSync(cssPath)) writeFileSync(cssPath, css);
   },
 });
 

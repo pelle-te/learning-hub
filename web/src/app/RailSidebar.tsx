@@ -3,6 +3,7 @@ import { navGroups, hostTabKey, surfaceOf, surfaceHome, SURFACES, Icon, type Tab
 import { prefetchTab } from '@/features/registry';
 import { useUI } from '@/store/useUI';
 import { useApp } from '@/store/useApp';
+import { useConflicts } from '@/store/useConflicts';
 import { selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
 
@@ -103,6 +104,8 @@ export default function RailSidebar() {
     const state = st.state;
     return selectRiskSummary(state).overdue + openBacklog(state).length;
   });
+  // 동기화 충돌(다른 기기 편집에 덮인 로컬 편집) 대기 수 — 설정 탭 코너 배지(Phase 4).
+  const conflictBadge = useConflicts((s) => s.shadows.length);
   const curKey = loc.pathname.split('/')[1] || 'today';
   const cur = hostTabKey(curKey);
   /* @param animate 뷰 전환(크로스페이드)을 쓸지. ⚠ 방향키 roving 은 **끈다** — 화살표를 누르고
@@ -160,14 +163,17 @@ export default function RailSidebar() {
   const renderBtn = (t: TabMeta) => {
     const i = idxOf(t.key);
     const active = cur === t.key;
-    const badge = t.key === NAV_BADGE_TAB ? reviewBadge : 0;
+    // 배지 두 종류: journal=복습·보충 대기 · settings=동기화 충돌 대기. 라벨도 각각.
+    const isConflict = t.key === 'settings' && conflictBadge > 0;
+    const badge = t.key === NAV_BADGE_TAB ? reviewBadge : t.key === 'settings' ? conflictBadge : 0;
+    const badgeLabel = isConflict ? `동기화 충돌 ${badge}건` : `복습·보충 ${badge}건 대기`;
     return (
       <button
         key={t.key}
         id={'rail-' + t.key}
         type="button"
         aria-current={active ? 'page' : undefined}
-        aria-label={badge > 0 ? `${t.label} — 복습·보충 ${badge}건 대기` : t.label}
+        aria-label={badge > 0 ? `${t.label} — ${badgeLabel}` : t.label}
         tabIndex={active || (!hasActive && i === 0) ? 0 : -1}
         className={`${ITEM} ${collapsed ? ITEM_COL : ITEM_EXP} ${active ? ITEM_ON : ITEM_OFF}`}
         onKeyDown={onKey(i)}

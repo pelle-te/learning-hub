@@ -14,17 +14,17 @@
 
 > **실행 경로 = 셸 하나, 저장 백엔드 = 둘.** 이 둘을 헷갈리지 말 것.
 >
-> - **배포**는 Tauri 셸뿐이다. `러닝허브_실행.bat`(옛 serve.js + Chrome `--app`)은 2단계-E에서 **은퇴**했다(안내 스텁만 남김) — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
+> - **배포**는 Tauri 셸뿐이다. 옛 브라우저 실행 경로(serve.js + Chrome `--app`)는 2단계-E에서 **은퇴**했다 — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
 > - ⚠ **저장 백엔드가 셋이다**(C-6): 셸=SQLite(plugin-sql) · **폰=SQLite(wasm+OPFS, 워커)** · dev/트랙 A=localStorage. 폰 것은 **`enableBrowserDb()` 로 명시 opt-in** 이고 폰 진입점만 부른다 — 무조건 켜면 dev 와 스냅샷 59장이 통째로 백엔드를 갈아탄다. 그래서 저장 경로의 조건은 `isTauri()` 가 아니라 **`isSqlitePrimary()`** 다(폰은 Tauri 가 아닌데 SQLite 가 정본 — 이걸 틀리면 폰 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**).
 > - **`npm run dev` 와 트랙 A(스냅샷 59장)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 산출물 5종만 invoke 스텁으로 목업한다.
 > - ⚠ **오리진이 갈려 데이터는 자동 이관되지 않는다.** Chrome에서 쓰던 데이터가 있으면 반드시 기존 앱에서 내보내기 → 셸에서 가져오기. 셸 자신의 localStorage(1단계에 쓰던 것)는 **첫 부팅에 SQLite로 1회 자동 이관**된다(`initAppStore`).
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
 
-1. **Tauri 셸이 prebuilt `web/dist/`를 로드한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 `selfDestroying`으로 은퇴시켜 옛 캐시 마찰은 해소됨 — `vite.config.ts` 참고. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.) `npm run tauri:build` 는 `web` 빌드를 **자동으로 먼저 돌린다**(`beforeBuildCommand`)지만, **트랙 B(`npm run e2e:shell`)는 exe 를 검사하므로 앞서 `tauri:build` 가 필요**하다 — 안 하면 옛 exe 를 검사한다.
+1. **Tauri 셸이 prebuilt `web/dist/`를 로드한다 → 소스 수정 후 반드시 `cd web && npm run build`.** UI/색이 "안 바뀐다"의 1순위 원인. (PWA SW는 **C-6에서 폰(Workers 오리진)에만** 등록된다 — 데스크톱 셸은 `tauri://` 로컬 파일, 트랙 A는 `serviceWorkers:'block'`이라 정의상 폰에만 붙는다(`vite.config.ts`의 `selfDestroying:false` 주석). 옛 "은퇴" 문구는 앱이 `localhost:8000`+serve.js로 뜨던 시절 것으로, 그 오리진이 죽으며 뒤집혔다. dev 서버 `npm run dev`는 HMR이라 빌드 불필요.) `npm run tauri:build` 는 `web` 빌드를 **자동으로 먼저 돌린다**(`beforeBuildCommand`)지만, **트랙 B(`npm run e2e:shell`)는 exe 를 검사하므로 앞서 `tauri:build` 가 필요**하다 — 안 하면 옛 exe 를 검사한다.
 2. **레이어 경계는 단방향**(`app → features → components → {hooks, store} → lib`, 역방향 import 금지). `eslint-plugin-boundaries`가 **error**로 막는다. 새 코드가 상위를 import하면 린트가 깨진다 → 세부는 `web/docs/아키텍처.md`.
-3. **과목 색 = `PALETTE` 파생물**(저장값 아님 — 한 줄 교체로 전탭 반영). 임의 하드코딩 금지.
-   - 파생 키는 **`item.id` 해시**(`lib/utils.ts` `colorForId`)다. 0단계-G에서 배열 인덱스에서 옮겼다 — 인덱스는 *위치*라 삭제·재정렬 때 뒤 과목 색이 전부 밀렸고 보정 코드가 파생을 4곳으로 불렸다. id는 *정체성*이라 불변이고 파생이 1곳이다.
+3. **과목 색 = 파생물**(저장값 아님 — 노브 교체로 전탭 반영). 임의 하드코딩 금지.
+   - 파생은 **OKLCH 생성**(`lib/utils.ts` `colorForId`)이다(2026-07-24 에 옛 8색 `PALETTE` 배열 대체). `item.id` 해시 → 색상환 각도(hue), 명도·채도는 `SUBJECT_L`·`SUBJECT_C` 고정 → hex. **8색 한계가 사라졌다**(과목 무제한 구분). 파생 키가 id 인 이유는 그대로: 인덱스는 *위치*라 삭제·재정렬 때 뒤 과목 색이 밀렸고, id는 *정체성*이라 불변이고 파생이 1곳이다.
    - 원칙이 규칙이고 메커니즘은 그 구현이다: 색을 **저장값처럼 다루지 말 것**(입력으로 받거나 하드코딩 금지). 파생 키를 또 바꾸더라도 이 원칙은 유지된다.
 4. **명시 지시 임의변경 금지.** 사용자가 못박은 결정(예 "블록도 색 있어야")을 내 판단으로 뒤집지 않는다. 대담한 재설계는 **새 영역에만**, 기존 제약은 유지.
 5. **커밋 전 `git -c core.quotepath=false diff --cached --stat` 확인.** 이 저장소는 web/시스템/전공 세션이 **동시 작업**한다 — 스테이징에 `전공/`·`시스템/` 파일이 섞이면 그 커밋에서 빼고 **앱 저장소 범위(`web/` + `src-tauri/` + `docs/` + 루트 설정)** 만 담는다(인덱스 위생 재발 이력 다수). git user=`jin`, 기본 브랜치=`master`.
@@ -109,7 +109,7 @@ web/src/
               리드아웃·prefill) + 비-스토어 데이터 접근(queries=TanStack·selectors=파생 캐시).
   lib/        순수 로직·IO(api·scheduler·anki·vault·schema…). 최하위, React 무관(훅은 hooks/).
   lib/db/     **앱 데이터 정본(SQLite · 2단계~)**. rows.ts=AppState↔행 **순수** 매퍼(Tauri 없이 전량
-              테스트) · sqlite.ts=SQL만(로직 없음) · boot.ts=부팅 읽기+localStorage 1회 이관 · dual.ts=대조.
+              테스트) · sqlite.ts=SQL만(로직 없음) · boot.ts=부팅 읽기+localStorage 1회 이관 · write.ts=정본 쓰기+되읽기 대조(옛 dual.ts).
               ⚠ **트랜잭션 금지** — sqlx 커넥션 풀이라 별도 execute로 부른 BEGIN이 다른 커넥션의 쓰기를
               막아 `database is locked`로 죽는다(실측). 증분 upsert가 대신 안전을 준다(DB가 비는 창이 없다).
               스키마 DDL의 단일 원천은 **`src-tauri/src/db.rs`**(프런트가 DDL을 들면 배포본마다 갈린다).
@@ -144,6 +144,4 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - `web/docs/개선루브릭.md`·`로드맵.md` — 개선 우선순위 채점 + 백로그 SSOT("다음 뭐")
 - `web/docs/클라우드전환-설계.md` — **진행 중 · SSOT**: 여러 기기에서 보고 편집한다(앱 데이터만 클라우드, 로컬 자원은 PC). 6렌즈 전수 감사 기반. **C-0~C-7 완료**(C-7=Tailwind 본편 · §15 가 이식 규약·사고 기록의 SSOT). ⚠ §13 이 C-6 이행 결과이고 **§9-4·§4 를 정정한다** — 그 두 절을 문자 그대로 읽으면 오도된다. Tailwind 규약 3가지의 SSOT 는 `src/phone/phone.css` 머리주석
 - `web/docs/cloudflare-런북.md` — **호스트 실행 절차서**(Cloudflare Workers + D1). 설계는 위 문서 §9-3b 가 SSOT, 여기는 "손으로 뭘 치는가"
-- `web/docs/oracle-런북.md` — ⚠ **보류**: 호스트를 Oracle 로 정했다가 뒤집었다(§9-3b). 실행하지 말 것 — 설계서가 인용하는 조사(한도 반토막·회수 임계값) 때문에 남겨 둔 이력 문서
-- `web/docs/플랫폼개편-설계.md` — **이력**: 0~5단계(Tauri 셸·SQLite·볼트 Rust·serve.js 해체) 결정 근거. ⚠ §10·§2 N4 는 새 문서가 정정했다 — 그대로 읽으면 오도된다(문서 상단 경고 참조)
-- `README.md` · `설계도.md` · `MIGRATION.md` — 배경·이전 이력
+- `README.md` — 배경·실행. 제품 목적은 이 문서(CLAUDE.md) 머리말이 SSOT.

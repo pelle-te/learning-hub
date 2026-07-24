@@ -20,6 +20,7 @@ import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { classifyArtifact } from '@/lib/artifactState';
+import { openVaultSearch } from '@/lib/utils';
 import {
   LEDGER_STAGES,
   STAGE_META,
@@ -202,7 +203,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
       <button
         type="button"
         className="w-full rounded-md! p-2! text-sm font-semibold!"
-        onClick={() => window.open('obsidian://search?query=' + encodeURIComponent(ch.arc.replace(/^\d+\s*/, '')))}
+        onClick={() => openVaultSearch(ch.arc.replace(/^\d+\s*/, ''))}
         title="Obsidian에서 이 챕터 검색 (설치돼 있어야 함)"
       >
         🔎 볼트에서 열기

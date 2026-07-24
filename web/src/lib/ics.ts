@@ -4,7 +4,7 @@
    스케줄 탭이 "재내보내기 필요"를 띄운다.
 ============================================================ */
 import { schedule, layoutDay } from './scheduler';
-import { iso, parseISO, hLabel, rid, pad2 } from './utils';
+import { iso, parseISO, hLabel, rid, pad2, minutesOfDay } from './utils';
 import type { AppState } from './types';
 
 function icsEsc(s: unknown): string {
@@ -36,7 +36,7 @@ const LABEL: Record<string, string> = {
 export function buildICS(state: AppState): string {
   const r = schedule(state);
   const now = new Date();
-  const stamp = icsDt(iso(now), now.getHours() * 60 + now.getMinutes());
+  const stamp = icsDt(iso(now), minutesOfDay(now));
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',

@@ -13,40 +13,71 @@ export const REVIEW_OFFSETS_WEAK = [1, 2, 4, 8, 16];
 /** 백지복습 최근 통과 과목의 꼬리 복습(②#23) — 16일 종결 후 엔진이 영영 복습을 안 만들던 것을
  *  32~35일 창의 1회 꼬리로 연장(spacedReview overdue 표식·수동 ReviewRun 의존 완화). */
 export const REVIEW_TAIL_OFFSET = 34;
-/** 과목 색 팔레트 — ⑧ 라임 가족 네온 비비드(모노크롬·고채도). 라임그린·에메랄드·민트·틸·스프링·시안틸·제이드·딥틸.
- *  ⑦ 단색 가족을 유지하되 채도를 확 올려 '쨍하게' + WeekGrid 세그에 같은 색 글로우를 입혀 '반짝이게'.
- *  전부 녹색 한 가족이라 세그를 모두 발광시켜도 무지개처럼 안 싸운다 — 라임 액센트까지 함께 빛나는 네온 통일감.
- *  ⚠ 순수 라임(#b6f23a)은 액센트 전용으로 비움(과목 0번은 더 초록 쪽 #9be83f). 일과 블록(BLOCK_TYPES)만 발광 제외.
- *  (스왑: 한 줄만 교체하면 전 탭 반영. 순서를 바꾸면 과목별 배정 색이 바뀜.) */
-export const PALETTE = ['#9be83f', '#22d6a4', '#63f0c8', '#1fb89a', '#3fe06a', '#22cdd6', '#5fe8a8', '#1f9b8a'];
+/* 과목 색 파생 = **OKLCH 생성**(2026-07-24 · 옛 8색 라임 가족 배열 대체).
+   id 해시 → **색상(hue)만** 뽑고 명도(L)·채도(C)는 고정해, 딥블랙 캔버스에서 균질하게 밝고 채도
+   있는 색을 **무제한으로** 만든다. 색상환 전체에 고르게 흩어지므로 과목이 5개든 50개든 서로
+   또렷이 구분된다 — 옛 8색은 5과목에서 두 과목이 같은 색일 확률이 ~80%(생일 문제)였다.
 
-/* 과목 색 파생 키 = **item.id 해시**(0단계-G · 2026-07-19 결정).
-   이전엔 배열 인덱스였다. 인덱스는 위치 정보라 삭제·재정렬 시 뒤따르는 모든 과목 색이 한 칸씩
-   밀렸고(Items.tsx가 이동 직후 재유도로 덮어 가리고 있었다), 그 보정 코드가 파생 로직을 4곳으로
-   불렸다. id는 과목의 정체성이라 위치가 바뀌어도 불변 → 파생이 1곳으로 모이고 보정이 사라진다.
+   ⚠ 절대규칙 #3 그대로: 색은 **저장값이 아니라 파생물**이고 파생 지점은 `colorForId` 1곳,
+   파생 키는 위치가 아니라 **정체성**(id)이라 삭제·재정렬에 불변이다. '팔레트 한 줄'이 하던
+   "한 곳만 바꾸면 전 탭 반영"의 자리를 아래 `SUBJECT_L`·`SUBJECT_C` 두 노브가 잇는다(두 값을
+   바꾸면 전 과목 색조가 한 번에 이동). 바뀐 건 '무엇으로부터 파생하는가'(고정 배열 → OKLCH)뿐.
+   출력은 여전히 **hex** 라 모든 소비처(SVG fill·border·인라인 style)가 그대로 받는다. */
+const SUBJECT_L = 0.72; // OKLCH 명도 — 딥블랙 위 가독 + 라이트 테마에서도 너무 옅지 않게(두 테마 공용 hex)
+const SUBJECT_C = 0.15; // OKLCH 채도 — 생생하되, sRGB 게멋 밖 hue 는 oklchToHex 가 채도만 줄여 맞춘다
 
-   ⚠ 알려진 트레이드오프(결정 시 감수):
-   ① 목록의 '순서 있는 색 그라데이션'을 잃는다(팔레트 주석 ⑦⑧이 의도했던 것).
-   ② 해시는 충돌한다 — 8색이므로 과목 5개면 두 과목이 같은 색일 확률이 약 80%다(생일 문제).
-      인덱스 방식은 8개까지 색 중복이 없었다. 충돌 없이 완전 불변은 8칸에선 원리적으로 불가능
-      (충돌 회피는 '다른 과목의 존재'에 의존 → 삭제 시 색이 바뀜 = 불변성 포기).
-      중복이 실사용에서 거슬리면 PALETTE를 늘리는 게 정공법이다(색을 늘리면 확률이 급감).
-   원칙(절대규칙 #3)은 그대로다: **색은 저장값이 아니라 PALETTE의 파생물**이고, PALETTE 한 줄을
-   바꾸면 전 탭에 반영된다. 바뀐 건 '무엇으로부터 파생하는가'(위치 → 정체성)뿐이다. */
+/** OKLCH → sRGB hex(Björn Ottosson 변환). sRGB 게멋 밖이면 **채도만 줄여**(명도·색상 보존) 유효한
+ *  hex 를 보장한다 — 고채도 파랑/보라 등이 클리핑으로 탁해지는 것을 막는다. */
+export function oklchToHex(L: number, C0: number, hDeg: number): string {
+  const hr = (hDeg * Math.PI) / 180;
+  const toLinear = (C: number): [number, number, number] => {
+    const a = C * Math.cos(hr);
+    const b = C * Math.sin(hr);
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+    const l = l_ ** 3;
+    const m = m_ ** 3;
+    const s = s_ ** 3;
+    return [
+      4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+      -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+      -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+    ];
+  };
+  let C = C0;
+  let rgb = toLinear(C);
+  for (let i = 0; i < 16 && rgb.some((v) => v < -0.0001 || v > 1.0001); i++) {
+    C *= 0.92; // 게멋 밖 → 채도만 축소 후 재시도
+    rgb = toLinear(C);
+  }
+  const gamma = (c: number): number => {
+    const x = Math.max(0, Math.min(1, c));
+    return x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055;
+  };
+  return `#${rgb
+    .map((c) =>
+      Math.round(gamma(c) * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
+
 export function colorForId(id: string): string {
   // FNV-1a 32비트 — 짧고 결정적이며 rid() 같은 짧은 문자열에서도 분포가 고르다.
-  // >>> 0으로 부호 없는 32비트를 유지(자바스크립트 비트연산은 부호 있는 32비트라 음수 인덱스 방지).
+  // >>> 0으로 부호 없는 32비트를 유지(자바스크립트 비트연산은 부호 있는 32비트라 음수 방지).
   let h = 0x811c9dc5;
   const s = String(id || '');
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return PALETTE[h % PALETTE.length] as string;
+  return oklchToHex(SUBJECT_L, SUBJECT_C, h % 360); // 해시 → 색상환 각도(0~359)
 }
 
-/** 과목 색은 '저장값'이 아니라 팔레트의 파생물 — 부팅마다 id 해시로 다시 유도한다.
- *  (수동 색 선택 UI가 없으므로 안전.) 이 덕에 PALETTE만 바꾸면 어떤 저장 데이터든 다음 부팅에 전부 갱신된다
+/** 과목 색은 '저장값'이 아니라 파생물 — 부팅마다 id 해시 → OKLCH 로 다시 유도한다(colorForId).
+ *  (수동 색 선택 UI가 없으므로 안전.) 이 덕에 SUBJECT_L·C 만 바꾸면 어떤 저장 데이터든 다음 부팅에 전부 갱신된다
  *  — 옛 색을 hex로 일일이 매핑하던 리맵의 사각지대(저장값이 목록에 없으면 안 바뀜)를 원천 제거. */
 export function refineItemColors(state: AppState): AppState {
   // 비객체 원소(null·문자열 등) 방어 — 손상 백업 한 건이 부팅 자체를 throw시켜 앱을 영구 백지로
@@ -132,7 +163,8 @@ export function dayDiff(a: string, b: string): number {
 }
 export function toMin(t: string): number {
   const [h, m] = t.split(':').map(Number) as [number, number?];
-  return h * 60 + (m || 0);
+  // 시(hour)가 비거나 비수치("":30`)면 NaN 전파를 막는다 — 옛 `toMinLocal` 의 `(h||0)` 흡수와 동치.
+  return (Number.isFinite(h) ? h : 0) * 60 + (m || 0);
 }
 export function toHM(m: number): string {
   m = Math.round(m);
@@ -169,10 +201,31 @@ export function clamp(v: number, a: number, b: number): number {
 export function jsq(s: unknown): string {
   return (s ?? '').toString().replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ').replace(/\r/g, '');
 }
+/** 소수 한 자리 반올림. `Math.round(x*10)/10` 이 engine·Review·Today·Items·StatsDetail 등
+ *  여덟 곳에 인라인으로 흩어져 있었다(pad2/mmss 를 통합한 것과 같은 이유로 이름을 준다). */
+export function round1(v: number): number {
+  return Math.round(v * 10) / 10;
+}
+
 /** 시간(시간 단위) 표시 — 분으로 안 다루도록. */
 export function hLabel(min: number): string {
-  const h = min / 60;
-  return Math.round(h * 10) / 10 + 'h';
+  return round1(min / 60) + 'h';
+}
+
+/** Date → 자정부터의 분(`h*60+m`). interactions·Today·useFocus·ics 에 인라인으로 흩어져 있었다. */
+export function minutesOfDay(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+/** Obsidian 볼트 검색 딥링크 — `obsidian://search` 스킴·인코딩을 한 곳으로 모은다(7곳 인라인 수렴).
+ *  볼트명 없이도 동작한다(설치돼 있으면). 링크 형식이 바뀌어도 여기 한 곳만 고친다. */
+export function vaultSearchUrl(query: string): string {
+  return `obsidian://search?query=${encodeURIComponent(query)}`;
+}
+
+/** 볼트 검색을 새 창으로 연다(대부분의 호출부 형태). URL 만 필요하면 `vaultSearchUrl`. */
+export function openVaultSearch(query: string): void {
+  window.open(vaultSearchUrl(query));
 }
 
 /* 주(週) 헬퍼 — 월요일 시작 */

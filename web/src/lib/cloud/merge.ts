@@ -14,9 +14,10 @@
    `sync.ts` 의 `kind:'local'` 방송이었고, 여기가 그 교훈이 재현되는 자리다.
 
    그래서 계약이 이렇다: `applyPull()` 이 ①②를 하고 **③에 쓸 상태를 돌려준다.**
-   호출부는 그걸 `loadState()` 에 넣는다. ②를 먼저 맞춰 두므로 `loadState` 안의 flush 는
-   diff 가 비어 **아무것도 쓰지 않는다** — 받아온 행에 새 스탬프가 찍혀 서버로 되돌아가는
-   에코가 그래서 안 생긴다.
+   호출부는 그걸 `applyMerged()` 에 넣는다(⚠ `loadState` 가 **아니다** — C1: 그건 병합 진행 중
+   들어온 로컬 편집을 지운다. `useApp.applyMerged` 주석). ②를 먼저 맞춰 두므로, 진행 중 편집이
+   없으면 `applyMerged` 는 flush 를 아예 안 하고(기준선=스냅샷), 있으면 그 편집만 diff 로 써서
+   받아온 행은 **되돌아가지 않는다** — 받아온 행에 새 스탬프가 찍혀 서버로 가는 에코가 안 생긴다.
 
    ## ⚠ 받아온 것도 신뢰하지 않는다
 
@@ -27,7 +28,7 @@ import { batchDb } from '../db/sqlite';
 import { readRows, setDiffBaseline } from '../db/sqlite';
 import { rowsToState } from '../db/rows';
 import { reloadDocs } from '../db/docs';
-import { runExclusive } from '../db/write';
+import { runExclusive, beginMergeApply } from '../db/write';
 import { seedStamp } from '../db/stamp';
 import type { AppState } from '../types';
 import { OUTBOX_TABLES, tableCols, type OutboxBatch } from './contract';
@@ -35,7 +36,7 @@ import { OUTBOX_TABLES, tableCols, type OutboxBatch } from './contract';
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
 
 export interface MergeResult {
-  /** 메모리에 실을 새 상태. 호출부가 `loadState()` 에 넣어야 완결된다. */
+  /** 메모리에 실을 새 상태. 호출부가 `applyMerged()` 에 넣어야 완결된다(⚠ `loadState` 아님 · C1). */
   state: AppState | null;
   /** 실제로 적용한 문장 수(0이면 받아올 게 없었다). */
   applied: number;
@@ -121,9 +122,18 @@ export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
     if (batch.rows.some((r) => r.tbl === 'docs')) await reloadDocs();
 
     /* ⚠ **기준선을 먼저, 상태를 나중에.** 이 순서가 에코를 막는다(머리주석 참조).
-       되읽은 행으로 기준선을 세워야 `loadState` 안의 flush 가 diff 를 비워 아무것도 안 쓴다. */
+       되읽은 행으로 기준선을 세워야 `applyMerged` 의 flush(진행 중 편집이 있을 때만)가 받아온
+       행을 되돌리지 않는다. */
     const back = await readRows();
-    if (back) setDiffBaseline(back);
+    if (back) {
+      setDiffBaseline(back);
+      /* ⚠ 기준선을 세운 **바로 이 순간부터** 메모리(`applyMerged`)가 반영될 때까지 flush 를 막아야
+         한다(C1). 기준선(병합-후)과 메모리(병합-전)가 어긋난 창이 여기서 열리기 때문 — 켜기를
+         기준선-세우기와 같은 문장에 두어 그 창의 시작을 원자적으로 만든다. `applyMerged`(성공) 또는
+         `runSync` finally(실패 경로)가 반드시 끈다. `back` 이 null(되읽기 실패)이면 기준선도 안 서고
+         `applyPull` 이 state=null 을 돌려 `applyMerged` 가 안 불리므로, 여기서 켜지 않는 것이 맞다. */
+      beginMergeApply();
+    }
     return back;
   });
 

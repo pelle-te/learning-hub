@@ -12,7 +12,7 @@ import { useCallback, type CSSProperties } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { allocView, colSumMin, rowSumMin, setAllocCell, isWeekManaged, weekMonOf } from '@/lib/weekAlloc';
-import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo } from '@/lib/utils';
+import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo, round1 } from '@/lib/utils';
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
@@ -46,7 +46,7 @@ function Stepper({
   unit: string;
   onChange: (v: number) => void;
 }) {
-  const clamp = (v: number) => Math.max(0, Math.round(v * 10) / 10);
+  const clamp = (v: number) => Math.max(0, round1(v));
   const bump = (d: number) => onChange(clamp(value + d));
   return (
     <div className="ds-row" style={{ gap: 4, alignItems: 'center', maxWidth: 170 }}>

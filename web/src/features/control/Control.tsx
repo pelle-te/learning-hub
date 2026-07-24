@@ -14,7 +14,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePing, useResearchJobs, RESEARCH_JOBS_KEY } from '@/store/queries';
 import { startResearch, cancelResearch, type ResearchJob } from '@/lib/api';
 import { readJSON, writeJSON } from '@/lib/localStore';
-import { hhmm, pad2 } from '@/lib/utils';
+import { hhmm, pad2, vaultSearchUrl } from '@/lib/utils';
 import { onSync } from '@/lib/sync';
 import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import EmptyState from '@/components/EmptyState';
@@ -75,7 +75,7 @@ function saveHistory(h: HistEntry[]) {
 }
 /** 옵시디언 바로가기 — 전공/_탐구 폴더에서 주제 검색(마지막 연 볼트 기준). */
 function obsidianLink(topic: string): string {
-  return `obsidian://search?query=${encodeURIComponent('path:_탐구 ' + topic)}`;
+  return vaultSearchUrl('path:_탐구 ' + topic);
 }
 function fmtWhen(at: string): string {
   const d = new Date(at);

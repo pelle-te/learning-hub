@@ -1,21 +1,23 @@
 /* ============================================================
-   itemColor.test.ts — 과목 색 파생(0단계-G · 파생 키를 배열 인덱스 → item.id 해시로).
+   itemColor.test.ts — 과목 색 파생(id 해시 → OKLCH 생성 · 2026-07-24 배열→OKLCH).
    잠그는 계약:
-     ① 색은 **저장값이 아니라 PALETTE의 파생물**(절대규칙 #3) — PALETTE 한 줄로 전 탭 반영.
-     ② 파생 키는 위치가 아니라 **정체성** → 삭제·재정렬에 불변(이게 0-G의 전부).
-     ③ 파생 지점은 1곳(colorForId) — 옛 4곳 중복(refineItemColors·makeItem·recolorAll·moveItem) 해소.
+     ① 색은 **저장값이 아니라 파생물**(절대규칙 #3) — colorForId 1곳이 유도, 저장은 캐시일 뿐.
+     ② 파생 키는 위치가 아니라 **정체성**(id) → 삭제·재정렬에 불변(이게 0-G의 전부).
+     ③ OKLCH 생성은 **8색 한계가 없다** — 과목 수가 늘어도 서로 구분되는 색(옛 8색은 ~80% 충돌).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { PALETTE, colorForId, makeItem, refineItemColors } from '@/lib/utils';
+import { colorForId, oklchToHex, makeItem, refineItemColors } from '@/lib/utils';
 import type { AppState } from '@/lib/types';
+
+const HEX = /^#[0-9a-f]{6}$/;
 
 const itemsOf = (...ids: string[]) => ids.map((id) => ({ id, name: id, color: '' }));
 const stateOf = (...ids: string[]) => refineItemColors({ items: itemsOf(...ids) } as unknown as AppState);
 const colorMap = (s: AppState) => Object.fromEntries(s.items.map((i) => [i.id, i.color]));
 
 describe('colorForId — 파생 규칙', () => {
-  it('항상 PALETTE 안의 색을 준다', () => {
-    for (let i = 0; i < 200; i++) expect(PALETTE).toContain(colorForId('id-' + i));
+  it('항상 유효한 hex 색을 준다', () => {
+    for (let i = 0; i < 200; i++) expect(colorForId('id-' + i)).toMatch(HEX);
   });
 
   it('같은 id는 항상 같은 색(결정적)', () => {
@@ -24,19 +26,31 @@ describe('colorForId — 파생 규칙', () => {
 
   it('빈 id·비정상 입력에도 유효한 색(부팅이 깨지지 않는다)', () => {
     for (const bad of ['', null, undefined]) {
-      expect(PALETTE).toContain(colorForId(bad as unknown as string));
+      expect(colorForId(bad as unknown as string)).toMatch(HEX);
     }
   });
 
-  it('PALETTE 8색에 고르게 흩어진다(한 색으로 쏠리지 않음)', () => {
+  it('색상환 전체에 넓게 흩어진다(8색 한계 없음 · 한 색 쏠림 없음)', () => {
     const hist = new Map<string, number>();
     for (let i = 0; i < 4000; i++) {
       const c = colorForId('r' + i.toString(36) + '-' + i);
       hist.set(c, (hist.get(c) || 0) + 1);
     }
-    expect(hist.size).toBe(PALETTE.length); // 8색 전부 등장
-    // 균등이면 500. 쏠림 감지용 느슨한 경계(해시 품질 회귀 방어).
-    for (const n of hist.values()) expect(n).toBeGreaterThan(250);
+    // 색상 각도 0~359 → 수백 가지 색이 나온다(옛 8색과 근본적으로 다르다). 쏠림도 없다.
+    expect(hist.size).toBeGreaterThan(300);
+    for (const n of hist.values()) expect(n).toBeLessThan(60);
+  });
+});
+
+describe('oklchToHex — 게멋 안전', () => {
+  it('색상환 어느 각도든 유효한 hex(게멋 밖은 채도 축소로 맞춤)', () => {
+    for (let h = 0; h < 360; h += 7) expect(oklchToHex(0.72, 0.15, h)).toMatch(HEX);
+  });
+  it('채도 0이면 무채색(회색 계열 · R=G=B)', () => {
+    const gray = oklchToHex(0.72, 0, 0);
+    expect(gray).toMatch(HEX);
+    expect(gray.slice(1, 3)).toBe(gray.slice(3, 5));
+    expect(gray.slice(3, 5)).toBe(gray.slice(5, 7));
   });
 });
 
@@ -61,11 +75,11 @@ describe('refineItemColors — 삭제·재정렬 불변 (0-G의 핵심)', () => 
     expect(after.b).toBe(before.b);
   });
 
-  it('저장된 낡은 색을 현재 PALETTE로 덮어쓴다(색은 저장값이 아니다)', () => {
+  it('저장된 낡은 색을 현재 파생 결과로 덮어쓴다(색은 저장값이 아니다)', () => {
     const s = { items: [{ id: 'a', name: 'a', color: '#ff0000' }] } as unknown as AppState;
     refineItemColors(s);
     expect(s.items[0]!.color).toBe(colorForId('a'));
-    expect(PALETTE).toContain(s.items[0]!.color);
+    expect(s.items[0]!.color).toMatch(HEX);
   });
 
   it('비객체 원소를 걸러내고 나머지를 살린다(손상 백업이 부팅을 죽이지 않게)', () => {
@@ -96,13 +110,12 @@ describe('makeItem — 생성 시 색도 id 파생', () => {
   });
 });
 
-describe('알려진 트레이드오프 — 색 중복', () => {
-  it('과목 수가 팔레트 크기를 넘으면 색이 반복된다(문서화된 한계)', () => {
-    // 인덱스 방식은 8개까지 중복이 없었지만, 해시는 그 보장을 못 한다.
-    // 8칸에서 '완전 불변 + 무충돌'은 원리적으로 불가능(충돌 회피가 다른 과목의 존재에 의존).
-    // 중복이 거슬리면 정공법은 PALETTE를 늘리는 것 — 이 테스트는 그 사실을 문서로 남긴다.
+describe('OKLCH 생성 — 8색 한계 제거', () => {
+  it('과목이 20개여도 색이 8색으로 뭉치지 않는다(옛 배열의 근본 한계 해소)', () => {
+    // 옛 8색 배열은 20과목이면 색이 8가지로 반복됐다(생일 문제로 5과목만 돼도 ~80% 충돌).
+    // 색상환 생성은 각 id 를 독립 각도로 보내 훨씬 많은 색으로 갈린다.
     const s = stateOf(...Array.from({ length: 20 }, (_, i) => 'id' + i));
     const distinct = new Set(s.items.map((i) => i.color));
-    expect(distinct.size).toBeLessThanOrEqual(PALETTE.length);
+    expect(distinct.size).toBeGreaterThan(12); // 8색 한계였다면 ≤8 — 그 천장이 사라졌다
   });
 });

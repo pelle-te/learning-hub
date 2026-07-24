@@ -9,7 +9,7 @@ import { useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
-import { toHM, hLabel, parseISO, DOW_MON, clamp } from '@/lib/utils';
+import { toHM, toMin, hLabel, parseISO, DOW_MON, clamp, itemById } from '@/lib/utils';
 import {
   blocksForWeekday,
   freeWindowsForDay,
@@ -50,9 +50,10 @@ import { SESSION_TYPE_META as TAG } from '@/lib/scheduleView';
 // 타임라인 시간↔좌표 변환·겹침 판정은 lib이 소유(순수 · 단위 테스트 대상).
 import { minToPct, timelineSpan, overlaps } from '@/lib/dayPlanGeometry';
 import { TrayRow, EventBand, TimedCard } from './DayPlannerCards';
-import { COL_CLASS, EDIT_BAR_ID, MIME, type DragKind } from './dayPlannerShared';
+import { useTimeboxDnd } from './useTimeboxDnd';
+import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
 import { Button, NumberField } from '@/components/ui';
-import type { AppState, ScheduleResult } from '@/lib/types';
+import type { AppState, ScheduleResult, SessionType } from '@/lib/types';
 
 /* ── C-7 이식(DayPlanner) — Tailwind 클래스 SSOT ────────────────────────────────
    좌 트레이(폼 위주) | 우 하루 타임라인. ⚠ 폼 컨트롤(input/select/button)은 전역 요소규칙
@@ -130,12 +131,6 @@ const EV_FORM_ID = 'dayPlannerEventForm'; // '+ 일정'이 aria-controls로 가�
  *  세밀 조정은 추가 후 편집 바(분 단위)에서 한다 — 추가는 빠르게, 정밀은 온디맨드. */
 const EVENT_MINS = [30, 60, 90, 120, 180, 240] as const;
 
-/* HH:MM → 분. */
-function toMinLocal(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
 /** 자유 할일 소요(min) 갱신 — 리사이즈용(placeTask는 start만 다룸). */
 function updateTaskMin(st: AppState, id: string, min: number): void {
   const t = (st.tasks || []).find((x) => x.id === id);
@@ -162,7 +157,7 @@ export function DayPlanner({
   const [repeatMode, setRepeatMode] = useState<'none' | 'daily' | 'weekly'>('none'); // +할일 반복 모드
   const [taskSid, setTaskSid] = useState(''); // +할일 과목 링크(선택)
   const [blockSid, setBlockSid] = useState(''); // +블록 대상 과목
-  const [blockType, setBlockType] = useState<'new' | 'rev' | 'anki' | 'blank' | 'mock'>('new');
+  const [blockType, setBlockType] = useState<SessionType>('new');
   const [selId, setSelId] = useState<string | null>(null); // 인라인 편집 대상 카드(시각/분 입력)
   // 일정(약속·시험·행사) 컴포저 — 평소엔 접혀 있고 '+ 일정'을 눌러야 펼쳐진다(온디맨드 세부).
   const [evOpen, setEvOpen] = useState(false);
@@ -181,16 +176,9 @@ export function DayPlanner({
 
   // 공부 블록 완료 — 수동 날은 블록별(setBlockDone: block.done + sid|type 집계 미러링),
   // 자동(미승격) 날은 sid|type 단일 블록이라 종전 completions 경로 그대로(가벼운 체크, 승격 강제 안 함).
-  const blockDone = (b: {
-    id: string;
-    sid: string;
-    type: 'anki' | 'new' | 'rev' | 'blank' | 'mock';
-    done?: boolean;
-  }) => (manual ? !!b.done : isDone(state, ds, b.sid, b.type));
-  const toggleBlock = (
-    b: { id: string; sid: string; type: 'anki' | 'new' | 'rev' | 'blank' | 'mock'; min: number },
-    on: boolean,
-  ) => {
+  const blockDone = (b: { id: string; sid: string; type: SessionType; done?: boolean }) =>
+    manual ? !!b.done : isDone(state, ds, b.sid, b.type);
+  const toggleBlock = (b: { id: string; sid: string; type: SessionType; min: number }, on: boolean) => {
     if (manual) mutate((st) => setBlockDone(st, ds, b.id, on, todayIso));
     else toggleDone(ds, b.sid, b.type, b.min, on);
   };
@@ -212,7 +200,7 @@ export function DayPlanner({
   // 렌더 시 items에서 다시 끌어온다. 덕분에 과거에 저장된 임의 색(구 모의 블록의 보라 리터럴 등)도
   // 마이그레이션 없이 자동으로 사라지고, PALETTE 한 줄 교체가 이 뷰에도 그대로 반영된다.
   // sid를 못 찾으면(모의=sid 'mock') undefined → CSS 타입 폴백(.mock)이 색을 준다.
-  const segColor = (sid: string) => state.items.find((it) => it.id === sid)?.color;
+  const segColor = (sid: string) => itemById(state, sid)?.color;
 
   // 왜 비었는가 — "다 배치됐다"와 "애초에 할 게 없다"는 다른 상태라, 후자를 '완료'로 축하하면 거짓말이 된다.
   // 다만 이걸로 화면을 덮진 않는다(사용자 지적) — 트레이 안 **한 줄 힌트**로만 원인을 짚는다.
@@ -236,7 +224,7 @@ export function DayPlanner({
   events.forEach((e) => ms.push(e.start, e.start + e.min)); // 새벽 일정도 화면 밖으로 잘리지 않게 union
   routine.forEach((b) => {
     if (b.type === '수면') return;
-    ms.push(toMinLocal(b.start), toMinLocal(b.end));
+    ms.push(toMin(b.start), toMin(b.end));
   });
   // 창 **밖**의 일정(새벽 블록 등)은 union해 잘리지 않게 한다 — 안 그러면 화면 밖으로 사라진다.
   const { lo, hi, span } = timelineSpan(wake0, wake1, ms);
@@ -252,24 +240,11 @@ export function DayPlanner({
   const evLoss = eventStudyLossMin(state, ds, wd);
 
   /* ── 드래그 시간박기 ─────────────────────────────────────────────── */
-  const onDragStart = (kind: DragKind, id: string, dur: number) => (e: React.DragEvent) => {
-    e.dataTransfer.setData(MIME, JSON.stringify({ kind, id, dur }));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  const readDrag = (e: React.DragEvent): { kind: DragKind; id: string; dur: number } | null => {
-    const raw = e.dataTransfer.getData(MIME);
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as { kind: DragKind; id: string; dur: number };
-    } catch {
-      return null;
-    }
-  };
   // 점유 구간(고정 일과 + 타임박스 카드) — 겹침 해소용. excludeId=드래그/이동 대상은 제외(자기와 안 겹침).
   const occupiedExcept = (excludeId?: string): [number, number][] => [
     ...timed.filter((b) => b.id !== excludeId).map((b): [number, number] => [b.start!, b.start! + b.min]),
     ...timedTasks.filter((t) => t.id !== excludeId).map((t): [number, number] => [t.start!, t.start! + (t.min || 30)]),
-    ...routine.map((b): [number, number] => [toMinLocal(b.start), toMinLocal(b.end)]),
+    ...routine.map((b): [number, number] => [toMin(b.start), toMin(b.end)]),
     // 일정도 점유다 — 드롭/⤵ 배치가 약속 시간을 비껴가게 한다(가용창 차감과 같은 사실을 상호작용에서도).
     ...events.map((e): [number, number] => [e.start, e.start + e.min]),
   ];
@@ -281,31 +256,18 @@ export function DayPlanner({
     ...timed.map((b): [number, number] => [b.start!, b.start! + b.min]),
     ...timedTasks.map((t): [number, number] => [t.start!, t.start! + (t.min || 30)]),
   ];
-  const onTimelineDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const d = readDrag(e);
-    const el = colRef.current;
-    if (!d || !el) return;
-    const rect = el.getBoundingClientRect();
-    const frac = clamp((e.clientY - rect.top) / rect.height, 0, 1);
-    const at = resolveSlot(occupiedExcept(d.id), lo + frac * span, d.dur, 1440); // §6-2 밀거나 거부
-    if (at == null) {
-      ui.toast('그 시간대에 빈 자리가 없어요 — 다른 시간에 놓아보세요.', 'warn');
-      return;
-    }
-    if (d.kind === 'block') mutate((st) => placeBlock(st, res, ds, d.id, at));
-    else mutate((st) => placeTask(st, d.id, ds, at));
-  };
-  const onTrayDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const d = readDrag(e);
-    if (!d) return;
-    if (d.kind === 'block') mutate((st) => unplaceBlock(st, res, ds, d.id));
-    else mutate((st) => unplaceTask(st, d.id));
-  };
-  const allowDrop = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes(MIME)) e.preventDefault();
-  };
+  // 드래그 프로토콜(MIME 직렬화·좌표→분·슬롯 해소)은 useTimeboxDnd 가 소유 — 배치/복귀는 불투명 콜백으로.
+  const dnd = useTimeboxDnd({
+    colRef,
+    lo,
+    span,
+    occupiedExcept,
+    onPlace: (kind, id, at) =>
+      kind === 'block' ? mutate((st) => placeBlock(st, res, ds, id, at)) : mutate((st) => placeTask(st, id, ds, at)),
+    onUnplace: (kind, id) =>
+      kind === 'block' ? mutate((st) => unplaceBlock(st, res, ds, id)) : mutate((st) => unplaceTask(st, id)),
+    onNoRoom: () => ui.toast('그 시간대에 빈 자리가 없어요 — 다른 시간에 놓아보세요.', 'warn'),
+  });
 
   // 키보드 시간박기 대안(§6-4) — 트레이 항목을 첫 가용창 시작에 박되 겹침 해소로 빈칸을 찾는다.
   const placeFirstFree = (kind: DragKind, id: string, min: number) => {
@@ -389,7 +351,7 @@ export function DayPlanner({
   const addEventNow = () => {
     const title = evTitle.trim();
     if (!title) return;
-    mutate((st) => addEvent(st, { ds, title, start: toMinLocal(evStart), min: evMin }));
+    mutate((st) => addEvent(st, { ds, title, start: toMin(evStart), min: evMin }));
     setEvTitle('');
     ui.toast(`${evStart} · ${title} 일정 추가`, 'ok');
   };
@@ -625,7 +587,13 @@ export function DayPlanner({
         {/* ── 좌: 투두 트레이 ── */}
         {/* role 없는 div의 aria-label은 AT가 버린다(generic은 name-from-author 불허) →
                 이름을 가질 수 있는 role="group"을 준다. 랜드마크(region)까지는 과하다(탭 안의 한 구획). */}
-        <div className={DP.tray} onDragOver={allowDrop} onDrop={onTrayDrop} role="group" aria-label="미지정 트레이">
+        <div
+          className={DP.tray}
+          onDragOver={dnd.allowDrop}
+          onDrop={dnd.onTrayDrop}
+          role="group"
+          aria-label="미지정 트레이"
+        >
           <div className={DP.trayHead}>미지정 · 끌어서 시간박기</div>
           {trayAdder}
           <div className={DP.trayList}>
@@ -660,7 +628,7 @@ export function DayPlanner({
                 onSetMin={manual ? (m) => mutate((st) => resizeBlock(st, res, ds, b.id, m)) : undefined}
                 onPlace={() => placeFirstFree('block', b.id, b.min)}
                 onDelete={manual ? () => mutate((st) => removeBlock(st, ds, b.id)) : undefined}
-                onDragStart={onDragStart('block', b.id, b.min)}
+                onDragStart={dnd.onDragStart('block', b.id, b.min)}
               />
             ))}
             {trayTasks.map((t) => (
@@ -677,7 +645,7 @@ export function DayPlanner({
                 onSetMin={(m) => mutate((st) => updateTaskMin(st, t.id, Math.max(SNAP, m)))}
                 onPlace={() => placeFirstFree('task', t.id, t.min || 30)}
                 onDelete={() => mutate((st) => removeTask(st, t.id))}
-                onDragStart={onDragStart('task', t.id, t.min || 30)}
+                onDragStart={dnd.onDragStart('task', t.id, t.min || 30)}
               />
             ))}
           </div>
@@ -706,7 +674,7 @@ export function DayPlanner({
                   key={t.id}
                   className={DP.trayRow}
                   draggable
-                  onDragStart={onDragStart('task', t.id, t.min || 30)}
+                  onDragStart={dnd.onDragStart('task', t.id, t.min || 30)}
                   style={t.color ? ({ ['--seg']: t.color } as React.CSSProperties) : undefined}
                 >
                   <span className={DP.grabDot} aria-hidden="true" />
@@ -747,8 +715,8 @@ export function DayPlanner({
           <div
             ref={colRef}
             className={`${DP.col} ${COL_CLASS}`}
-            onDragOver={allowDrop}
-            onDrop={onTimelineDrop}
+            onDragOver={dnd.allowDrop}
+            onDrop={dnd.onTimelineDrop}
             role="group"
             aria-label="타임라인 — 여기로 끌어 시간박기"
           >
@@ -764,8 +732,8 @@ export function DayPlanner({
               />
             ))}
             {routine.map((b, i) => {
-              const bs = toMinLocal(b.start);
-              const be = toMinLocal(b.end);
+              const bs = toMin(b.start);
+              const be = toMin(b.end);
               if (be <= lo || bs >= hi || be <= bs) return null;
               return (
                 <div
@@ -810,7 +778,7 @@ export function DayPlanner({
                 pos={pos}
                 selected={selId === b.id}
                 onSelect={() => setSelId((v) => (v === b.id ? null : b.id))}
-                onDragStart={onDragStart('block', b.id, b.min)}
+                onDragStart={dnd.onDragStart('block', b.id, b.min)}
                 onMove={(delta) => mutate((st) => placeBlock(st, res, ds, b.id, b.start! + delta))}
                 onSetMin={(m) => mutate((st) => resizeBlock(st, res, ds, b.id, m))}
                 onUnplace={() => mutate((st) => unplaceBlock(st, res, ds, b.id))}
@@ -834,7 +802,7 @@ export function DayPlanner({
                 pos={pos}
                 selected={selId === t.id}
                 onSelect={() => setSelId((v) => (v === t.id ? null : t.id))}
-                onDragStart={onDragStart('task', t.id, t.min || 30)}
+                onDragStart={dnd.onDragStart('task', t.id, t.min || 30)}
                 onMove={(delta) => mutate((st) => placeTask(st, t.id, ds, (t.start || 0) + delta))}
                 onSetMin={(m) => mutate((st) => updateTaskMin(st, t.id, Math.max(SNAP, m)))}
                 onUnplace={() => mutate((st) => unplaceTask(st, t.id))}

@@ -20,7 +20,33 @@
    보조로 준다(`pollMs`). 폰은 폴링을 켜지 않는다.
 ============================================================ */
 import { syncOnce, type SyncResult } from '@/lib/cloud/run';
+import { applyPull } from '@/lib/cloud/merge';
+import { nextStamp } from '@/lib/db/stamp';
+import { endMergeApply } from '@/lib/db/write';
+import { RUNTIME_CACHE_KEYS } from '@/lib/persistence';
+import type { AppState } from '@/lib/types';
+import type { ConflictShadow } from '@/lib/cloud/conflicts';
 import { useApp } from './useApp';
+import { useConflicts, shadowId } from './useConflicts';
+
+/** 동기화에서 제외되는 런타임/휘발 캐시 키(내보내기·push 대상 아님 · `rows.ts` sync:false). */
+const EPHEMERAL_SLICES = new Set<string>(RUNTIME_CACHE_KEYS);
+
+/**
+ * 두 상태에서 **동기화 대상 슬라이스**(런타임 캐시 제외)가 하나라도 참조가 바뀌었나(H3).
+ *
+ * immer 가 안 바뀐 슬라이스의 참조를 공유하므로 최상위 키 identity 비교로 충분하다 — 바뀐 것이
+ * 런타임 캐시(`_knowState`·`_icsExport`·`_ankiLive`…)뿐이면 false 를 돌려 무의미한 동기화를 막는다.
+ */
+function syncedSliceChanged(next: AppState, prev: AppState): boolean {
+  const a = next as unknown as Record<string, unknown>;
+  const b = prev as unknown as Record<string, unknown>;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]); // 추가/삭제 키까지(삭제는 드물지만 정확성)
+  for (const k of keys) {
+    if (a[k] !== b[k] && !EPHEMERAL_SLICES.has(k)) return true;
+  }
+  return false;
+}
 
 /**
  * 동기화 1회 + 병합 결과를 메모리에 반영. `syncOnce` 는 lib 에서 이미 겹침 불가.
@@ -29,12 +55,53 @@ import { useApp } from './useApp';
  * 덮는다(0단계-E 에서 물린 *낡은 메모리가 복원본을 덮는다*). `lib` 은 zustand 를 모른다.
  */
 export async function runSync(): Promise<SyncResult> {
-  const r = await syncOnce();
-  if (r.state) useApp.getState().loadState(r.state);
-  // 관측성(설계서 §14 발전 #4) — 마지막 시도 기록. `disconnected`(연결 안 됨)는 "시도"가
-  // 아니라 남기지 않는다. 설정 카드가 "마지막 동기화 N분 전"으로 읽는다.
-  if (r.status !== 'disconnected') _lastSync = { at: Date.now(), result: r };
-  return r;
+  try {
+    const r = await syncOnce();
+    // ⚠ `loadState` 가 아니라 `applyMerged`(C1). `loadState` 는 `pending`(미flush 편집)을 비우고
+    // 통째 교체 후 flush 라, 병합 진행 중 들어온 로컬 편집을 조용히 소실시킨다 — 병합 스냅샷 위에
+    // 그 편집을 재적용(rebase)하는 진입점을 써야 한다(useApp `applyMerged` 주석).
+    if (r.state) useApp.getState().applyMerged(r.state); // 이 안에서 endMergeApply() 로 C1 창을 닫는다
+    // ⚠ 병합이 덮은 동시 편집을 기록한다(Phase 4 · 관측만 — 병합 결과는 이미 위에서 확정됐다).
+    // 로컬 전용 store 라 여기(store 층)가 접합점이다(`lib` 은 zustand 를 모른다 · run.ts 가 결과만 실어 온다).
+    if (r.conflicts?.length) useConflicts.getState().add(r.conflicts);
+    // 관측성(설계서 §14 발전 #4) — 마지막 시도 기록. `disconnected`(연결 안 됨)는 "시도"가
+    // 아니라 남기지 않는다. 설정 카드가 "마지막 동기화 N분 전"으로 읽는다.
+    if (r.status !== 'disconnected') _lastSync = { at: Date.now(), result: r };
+    return r;
+  } finally {
+    /* ⚠ **C1 방어망.** `applyPull` 이 병합 창을 켰는데(`beginMergeApply`) 이후 `commitPullMark`
+       실패로 `runSyncOnce` catch 가 state=null 을 돌려주면 `applyMerged` 가 안 불려 창이 영영 안
+       닫히고 flush 가 영구 정지한다. `runSync` 가 병합 반영의 유일한 진입점이므로 여기서 무조건
+       닫는다 — `applyMerged` 가 이미 닫았으면 no-op, 실패 경로면 여기서 푼다. */
+    endMergeApply();
+  }
+}
+
+/**
+ * 충돌 그림자의 **패배한 로컬 값을 되살린다**(Phase 4 완결 — 관측→행동).
+ *
+ * 되살리기 = 그 값을 **fresh 스탬프로 다시 쓰는 것**이다. 검증된 병합 기계(`applyPull`)에 한 행짜리
+ * 합성 배치를 먹여 재사용한다 — 정본 쓰기·기준선 세우기·메모리 반영·에코 방지가 전부 그 안에
+ * 있어(merge.ts) **테이블 무관하게** 안전하다. 손으로 테이블별 mutate 를 짜면 그 불변식을 다시
+ * 구현해야 하고, 그건 이 저장소가 divergence 로 반복해 물린 실수다.
+ *
+ * `nextStamp()` 는 단조 최대라 원격 승자(remoteUpdatedAt · 원 병합에서 이미 seed됨)보다 크다 →
+ * 되살린 값이 LWW 로 이기고, `syncSoon()` 이 다른 기기로도 밀어올린다.
+ */
+export async function restoreConflict(shadow: ConflictShadow): Promise<void> {
+  const merged = await applyPull({
+    since: 0,
+    upto: 0,
+    rows: [{ tbl: shadow.tbl, key: shadow.key, data: shadow.localData, updatedAt: nextStamp() }],
+    tombstones: [],
+  });
+  try {
+    if (merged.state) useApp.getState().applyMerged(merged.state);
+  } finally {
+    endMergeApply(); // C1 방어망 — applyPull 이 연 병합-적용 창을 반드시 닫는다(실패 경로 포함)
+  }
+  useConflicts.getState().dismiss(shadowId(shadow)); // 해소됨
+  syncSoon(); // 되살린 값을 다른 기기로 전파
 }
 
 /** 마지막 동기화 시도 기록(연결됐을 때만). 관측성 readout 이 읽는다. */
@@ -120,10 +187,14 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
 
   let unsub: (() => void) | undefined;
   if (onEdit) {
-    // immer 가 편집마다 새 state 참조를 만든다 → 참조가 갈리면 진짜 편집이다(런타임 캐시 포함).
-    // syncSoon 은 디바운스라 무편집 렌더가 섞여도 싸게 접힌다.
+    // immer 가 편집마다 새 state 참조를 만든다 → 참조가 갈리면 진짜 편집이다.
+    // ⚠ **동기화 대상 슬라이스가 바뀔 때만** 예약한다(H3 · 2026-07-24 감사). 종전엔 `s.state` 참조가
+    //    갈리기만 하면 예약해서, `setRuntimeCache`(_knowState·_icsExport·_ankiLive — sync:false·절대 push
+    //    안 됨)까지 **살아 있는 네트워크 pull** 을 유발했다. 스케줄 재계산 한 번이 무의미한 동기화 한 번이
+    //    되어 Workers 일일 요청 한도를 태웠다(설계서 §9-3b 가 명시 제약으로 두는 그 예산). immer 는 안 바뀐
+    //    슬라이스의 참조를 공유하므로, 최상위 키별 identity 비교로 **바뀐 슬라이스가 런타임 캐시뿐이면 건너뛴다**.
     unsub = useApp.subscribe((s, prev) => {
-      if (s.state !== prev.state) syncSoon();
+      if (s.state !== prev.state && syncedSliceChanged(s.state, prev.state)) syncSoon();
     });
   }
 

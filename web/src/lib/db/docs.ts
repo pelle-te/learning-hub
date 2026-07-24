@@ -25,6 +25,7 @@
 import { storage } from '../kv';
 import { isTauri } from '../tauri';
 import { execDb, isSqlitePrimary, selectDb } from './sqlite';
+import { runExclusive } from './write';
 import { nextStamp } from './stamp';
 
 /** SQLite 로 옮긴 키. 여기 없는 키는 `docGet`/`docSet` 이 localStorage 로 그대로 흘린다 —
@@ -115,9 +116,23 @@ export function docSet(key: string, value: string): boolean {
   if (_cache && isDocKey(key)) {
     _cache.set(key, value);
     /* ⚠ DB 쓰기 실패를 삼키지 않는다 — 정본을 쥔 층의 침묵이 2단계-E 에서 원인 추적을 막았다.
-       사용자 토스트까지 띄우진 않는다: 메모리엔 있어 화면은 정상이고, 다음 저장이 다시 시도한다. */
-    void execDb(DOC_UPSERT, [key, value, nextStamp()]).then((ok) => {
-      if (!ok) console.error('[docs] 저장 실패:', key);
+       사용자 토스트까지 띄우진 않는다: 메모리엔 있어 화면은 정상이고, 다음 저장이 다시 시도한다.
+       ⚠ **`runExclusive` 체인에 얹는다**(M1 · 2026-07-24). 종전엔 생 `execDb` 라 `whenSettled()`
+       (창 닫기 가드)가 이 쓰기를 **안 기다렸다** — 요약·독후감을 입력한 직후 앱을 닫으면 IPC/워커
+       왕복이 절단될 수 있었고, docs 는 정본이 따로 없어 유실이 곧 소실이다. 체인에 얹으면 AppState
+       flush 와 같은 배리어를 공유해 닫기 가드가 함께 기다린다(스탬프는 실행 시점에 발급해 쓰기
+       순서와 일치). 로컬 쓰기라 §5-2 "로컬만 기다린다"를 어기지 않는다(원격 push 는 이 체인 밖). */
+    void runExclusive(() => execDb(DOC_UPSERT, [key, value, nextStamp()])).then((ok) => {
+      if (!ok) {
+        console.error('[docs] 저장 실패:', key);
+        return;
+      }
+      /* ⚠ **쓰기가 끝난 뒤 메모리 사본을 다시 못박는다(H1 · 2026-07-24 감사).** 병합이 `runExclusive`
+         체인에서 도는 중 이 `docSet` 이 겹치면, 병합의 `reloadDocs()` 가 (이 쓰기 W1 반영 전) DB 를
+         읽어 `_cache` 를 통째 재할당하면서 방금 친 값을 떨어뜨린다 — `docs` 는 `pending` rebase 가 없어
+         재시작 전까지 화면에서 사라졌다. 이 쓰기는 항상 `reloadDocs` 뒤(같은 체인 순서)에 완결되므로,
+         완결 시 값을 되박으면 클로버가 복원된다. DB·서버는 이미 이 값이라 되박음이 정본과 어긋나지 않는다. */
+      if (_cache && isDocKey(key)) _cache.set(key, value);
     });
     return true;
   }

@@ -17,7 +17,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { ui } from '@/shell';
-import { colorForId, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO } from '@/lib/utils';
+import { colorForId, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO, round1 } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
   allocView,
@@ -64,7 +64,7 @@ function useInsight(items: Item[], todayDs: string) {
     const chPct = totalCh ? Math.round((doneCh / totalCh) * 100) : 0;
     return {
       count: named.length,
-      weekly: Math.round(weekly * 10) / 10,
+      weekly: round1(weekly),
       doneCh,
       totalCh,
       chPct,

@@ -9,7 +9,8 @@ import ArtifactGate from '@/components/ArtifactGate';
 import ArtifactError from '@/components/ArtifactError';
 import { useAiStream } from '@/components/useAiStream';
 import { Button, Skeleton } from '@/components/ui';
-import { coachSummary, lookupVocab, type CoachFeedback, type VocabResult } from '@/lib/api';
+import { coachSummary, type CoachFeedback } from '@/lib/api';
+import { ReaderVocab } from './ReaderVocab';
 import { classifyArtifact } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
@@ -36,16 +37,6 @@ const COACH_TONE: Record<'miss' | 'bad' | 'mut', string> = {
   bad: 'text-bad',
   mut: 'text-mut',
 };
-
-interface VocabState {
-  x: number;
-  y: number;
-  flip: boolean; // 뷰포트 하단 근처면 단어 위로 뒤집어 띄운다(리더 바닥에서 잘림 방지).
-  word: string;
-  loading: boolean;
-  result: VocabResult | null;
-  error: string | null;
-}
 
 export default function ArticlePractice({
   articles,
@@ -102,9 +93,6 @@ export default function ArticlePractice({
   // 채점 결과가 도착하면 결과 카드로 포커스를 옮긴다 — 전체를 role=status로 장황하게 읽지 않고
   // 간결히 '결과가 왔다'만 알린다(막 채점한 transient 결과일 때만; 지문 전환 시엔 옮기지 않음).
   const coachResultRef = useRef<HTMLDivElement>(null);
-  // Ollama 어휘(선택한 단어 뜻) — 리더 위 팝오버.
-  const [vocab, setVocab] = useState<VocabState | null>(null);
-  const readerRef = useRef<HTMLDivElement>(null);
 
   // 채점(수십 초)이 도는 동안 사용자가 요약을 편집·완료토글할 수 있다 — 완료 시점에 클릭시점 캡처값이 아닌
   // '지금 저장된' work를 읽어 coach 필드만 병합하려고 최신 work를 ref로 미러(캡처값으로 덮으면 편집이 되돌려짐).
@@ -129,7 +117,7 @@ export default function ArticlePractice({
   if (effId !== draftFor) {
     setDraftFor(effId);
     setDraft(effId ? (work[effId]?.summary ?? '') : '');
-    setVocab(null);
+    // 지문 전환 시 열려 있던 어휘 팝오버는 `<ReaderVocab key={sel.id}>` 리마운트가 초기화한다.
   }
   // 지문이 바뀌거나 떠나면 진행 중 채점을 중단(생성 낭비 방지 — 오표시는 id 태깅이 이미 막는다).
   const cancelGrade = grader.cancel;
@@ -192,81 +180,6 @@ export default function ArticlePractice({
         coachAt: new Date().toISOString(),
       });
     } else ui.toast(cs.error || '채점 실패', 'bad');
-  };
-
-  // 리더에서 단어/구를 선택하면 위치를 잡아 어휘 팝오버 준비(뜻은 버튼 눌러 조회).
-  // pointerup — 마우스뿐 아니라 터치(long-press 선택)에서도 뜬다.
-  const onReaderSelect = () => {
-    const s = window.getSelection();
-    const text = s?.toString().trim() ?? '';
-    const host = readerRef.current;
-    if (!s || !text || text.length > 60 || text.includes('\n') || !host || s.rangeCount === 0) {
-      return;
-    }
-    const rect = s.getRangeAt(0).getBoundingClientRect();
-    const box = host.getBoundingClientRect();
-    if (!rect.width) return;
-    // 팝오버는 translateX(-50%)라 문단 좌우 끝 단어에서 리더 밖으로 잘렸다 — x를 클램프.
-    const rawX = rect.left - box.left + rect.width / 2;
-    const x = Math.max(100, Math.min(rawX, Math.max(100, box.width - 100)));
-    // 뷰포트 하단 근처(아래 공간 부족)면 위로 뒤집어 단어 위에 띄운다 — 리더 바닥에서 잘리던 문제.
-    const flip = rect.bottom + 220 > window.innerHeight;
-    setVocab({
-      x,
-      y: flip ? rect.top - box.top - 6 : rect.bottom - box.top + 6,
-      flip,
-      word: text,
-      loading: false,
-      result: null,
-      error: null,
-    });
-  };
-
-  // 팝오버 닫기 — Esc + 바깥 클릭(기존엔 ✕ 또는 지문 전환뿐이었다).
-  const vocabPopRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!vocab) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setVocab(null);
-    };
-    const onDown = (e: PointerEvent) => {
-      if (vocabPopRef.current && !vocabPopRef.current.contains(e.target as Node)) setVocab(null);
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onDown);
-    };
-  }, [vocab]);
-
-  // 팝오버가 새로 열리면(단어 선택) role=dialog로 포커스 이동 — 기존엔 포커스를 받지 못했다(a11y).
-  // word가 바뀔 때만 발화 → loading·result 갱신 시 포커스를 훔치지 않는다. preventScroll로 리더 점프 방지.
-  useEffect(() => {
-    if (vocab?.word) vocabPopRef.current?.focus({ preventScroll: true });
-  }, [vocab?.word]);
-
-  const doVocab = async () => {
-    if (!sel || !vocab) return;
-    const reqWord = vocab.word; // 응답 도착 시 다른 단어가 선택돼 있으면 버린다(레이스 가드)
-    setVocab({ ...vocab, loading: true, error: null });
-    try {
-      // ⚠ lookupVocab(api.ts)은 아직 signal을 받지 않아 fetch 자체는 취소하지 못한다(진짜 abort는
-      //   api.ts에 signal 배선 필요) — 여기선 UI가 무한 스피너에 갇히지 않도록 15s 타임아웃만 건다.
-      const res = await Promise.race([
-        lookupVocab(reqWord, sel.text.slice(0, 600), sel.lang),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('시간 초과')), 15000)),
-      ]);
-      setVocab((v) =>
-        v && v.word === reqWord
-          ? { ...v, loading: false, result: res.vocab ?? null, error: res.ok ? null : (res.error ?? '실패') }
-          : v,
-      );
-    } catch (e) {
-      setVocab((v) =>
-        v && v.word === reqWord ? { ...v, loading: false, error: (e as Error).message || '조회 실패' } : v,
-      );
-    }
   };
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
@@ -481,95 +394,7 @@ export default function ArticlePractice({
                 </div>
                 <h2 className="m-0! text-reader-title! leading-[1.28] font-black! tracking-title!">{sel.title}</h2>
               </header>
-              <div className="relative text-lg leading-[1.75] text-txt" ref={readerRef} onPointerUp={onReaderSelect}>
-                {sel.text.split(/\n\n+/).map((p, i) => (
-                  <p key={i} className="mt-0 mb-3.5 leading-[1.75]">
-                    {p}
-                  </p>
-                ))}
-                {vocab && (
-                  <div
-                    className="absolute z-[var(--z-dropdown)] -translate-x-1/2 rounded-base border border-line bg-panel px-3 py-2.5 text-md leading-[1.5] shadow-pop outline-none data-[flip=true]:-translate-y-full"
-                    style={{ left: vocab.x, top: vocab.y }}
-                    role="dialog"
-                    aria-label="어휘 뜻"
-                    lang="ko"
-                    tabIndex={-1}
-                    data-flip={vocab.flip}
-                    ref={vocabPopRef}
-                  >
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <b className="text-base14 text-acc">{vocab.word}</b>
-                      <button
-                        className="border-none! bg-transparent! p-0.5! text-sm! leading-[normal]! text-mut!"
-                        type="button"
-                        onClick={() => setVocab(null)}
-                        aria-label="닫기"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    {sel.lang === 'ko' ? (
-                      // 한국어 단어는 로컬 8B가 뜻을 부정확하게 내므로 국어사전 링크로(정확·즉시).
-                      <a
-                        className="block rounded-sm bg-acc-soft p-2 text-center text-md font-extrabold hover:brightness-105"
-                        href={`https://ko.dict.naver.com/#/search?query=${encodeURIComponent(vocab.word)}`}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                      >
-                        📖 국어사전에서 보기 ↗
-                      </a>
-                    ) : vocab.loading ? (
-                      <div className="text-txt" role="status">
-                        <span className="ds-spin" /> 뜻 찾는 중…
-                      </div>
-                    ) : vocab.error ? (
-                      <div className="text-txt" role="alert">
-                        {vocab.error}
-                      </div>
-                    ) : vocab.result ? (
-                      <div className="text-txt" role="status">
-                        {vocab.result.pos && (
-                          <span className="mb-1 inline-block rounded-sm border border-line px-1.25 text-2xs font-extrabold text-mut">
-                            {vocab.result.pos}
-                          </span>
-                        )}
-                        <div className="font-semibold">{vocab.result.meaning}</div>
-                        {vocab.result.synonyms?.length ? (
-                          <div className="mt-1 text-sm leading-[1.5] text-mut">
-                            유의어: {vocab.result.synonyms.join(', ')}
-                          </div>
-                        ) : null}
-                        {vocab.result.example && (
-                          <div className="mt-1.5 border-t border-line2 pt-1.5 text-sm leading-[1.5] text-txt italic">
-                            “{vocab.result.example}”
-                            {vocab.result.example_ko ? (
-                              <div className="mt-0.5 text-mut not-italic">{vocab.result.example_ko}</div>
-                            ) : null}
-                          </div>
-                        )}
-                        <a
-                          className="mt-1.5 inline-block text-xs leading-[1.5] font-bold text-mut! hover:text-acc!"
-                          href={`https://en.dict.naver.com/#/search?query=${encodeURIComponent(vocab.word)}`}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                        >
-                          영어사전 ↗
-                        </a>
-                      </div>
-                    ) : (
-                      <button
-                        className="w-full border-none! bg-acc-soft! p-1.75! text-md! font-extrabold! text-acc! hover:brightness-105 disabled:opacity-60!"
-                        type="button"
-                        onClick={doVocab}
-                        disabled={!online}
-                      >
-                        {online ? '🔍 뜻 보기' : '워크스페이스 미설정'}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+              <ReaderVocab key={sel.id} lang={sel.lang} text={sel.text} online={online} />
             </article>
 
             <div className="mt-3.5 flex-none rounded-lg border border-line bg-panel px-4 py-3.5">

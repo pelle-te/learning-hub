@@ -13,7 +13,11 @@
 ============================================================ */
 import { isTauri, dbUrl } from '../tauri';
 import { diffRows, type DbRows } from './rows';
-import { nextStamp } from './stamp';
+import { chunkedStamp } from './stamp';
+
+/** flush 한 번이 만드는 스탬프 그룹의 상한. `MAX_BATCH_ITEMS`(500) 아래로 여유를 둔다 —
+ *  이유는 아래 `writeRows` 주석(C2). `boot.ts` 의 이관 청크와 같은 값. */
+const WRITE_STAMP_CHUNK = 400;
 
 /** plugin-sql 의 Database 인스턴스(타입만 최소로 — 전체 타입을 끌어오면 브라우저 번들에 샌다). */
 interface Db {
@@ -241,9 +245,16 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
   if (!_last) _last = await readRows();
   /* ⚠ `diffRows` 의 기본값(`Date.now()`)에 맡기지 않는다 — 시계가 뒤로 점프하면 그 뒤 편집이
      워터마크에 영영 안 걸린다(`stamp.ts` 머리주석). 발급을 한 지점으로 모으는 게 그 방어다.
-     ⚠ 최초 이관(`boot.ts`)은 `chunkedStamp` 를 넘긴다 — 전 행이 한 스탬프 그룹이 되어 아웃박스가
-     영구 차단되는 것을 막는다(C1). 일반 flush 는 인자 없이 `nextStamp()` 하나를 쓴다(무변경). */
-  const stmts = diffRows(_last, rows, stamp ?? nextStamp());
+
+     ⚠⚠ 기본을 `nextStamp()`(단일 스탬프)에서 **`chunkedStamp(400)`** 로 바꾼다(C2 · 2026-07-24).
+     `chunkedStamp` 는 첫 400건까지 **같은 스탬프**를 내므로 일반 flush(≤400 변경 행)는 종전과
+     한 글자도 다르지 않다(한 flush = 한 스탬프 그룹). 그런데 `loadState`(가져오기·복구·되돌리기
+     — `shell/actions.ts` 4곳)는 상태를 **통째로** 써서 sync 행이 500 을 넘을 수 있고, 그러면 단일
+     스탬프 그룹이 `capBatch` 가 못 쪼개는 `oversized` 가 되어 스키마 상한에 걸려 **아웃박스가
+     영구 차단**된다(그 사용자의 이후 모든 편집이 조용히 동기화 안 됨). 최초 이관(`boot.ts`)만
+     `chunkedStamp` 로 막고 런타임 import 경로는 안 막던 비대칭이 결함이었다. 여기서 기본을 청크로
+     바꾸면 **어느 호출자든** 단일 그룹이 상한을 못 넘어 그 차단이 원천 봉쇄된다(호출자 무관 방어). */
+  const stmts = diffRows(_last, rows, stamp ?? chunkedStamp(WRITE_STAMP_CHUNK));
   try {
     /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
        셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */

@@ -18,7 +18,7 @@
    **재시도 불가**로 접어 `PermanentPushError` 로 올린다 — 그래야 `push.ts` 의 백오프가
    하루 종일 헛치지 않는다(C-1 에서 그 방어를 넣은 이유 그대로).
 ============================================================ */
-import { execDb, selectDb } from '../db/sqlite';
+import { execDb, isSqlitePrimary, selectDb } from '../db/sqlite';
 import { cloudHttp, isTauri } from '../tauri';
 import { PermanentPushError, type CloudTransport } from './push';
 import { PULL_MARK_KEY, WATERMARK_KEY } from './outbox';
@@ -110,11 +110,21 @@ export async function enrollDevice(baseUrl: string, code: string, name: string):
     throw new Error('등록 응답이 계약과 다릅니다.');
   }
   const cfg: CloudConfig = { baseUrl: base, deviceId: j.deviceId, refreshToken: j.refreshToken };
-  await Promise.all([
+  /* ⚠ **세 자격증명 쓰기가 모두 성공해야 연결이다.** 종전엔 결과를 버렸는데(Promise.all 반환 무시),
+     하나라도 실패하면 서버엔 기기가 이미 등록됐는데 로컬 config 는 찢어져 `readCloudConfig`(3키 전부
+     필요)가 null 을 돌려준다 — 앱은 "미연결"로 보이고 사용자는 그 유령 기기를 보지도 폐기하지도 못한다.
+     실패를 던져 호출부(`Connect`·`CloudCard`)가 재시도를 안내하게 한다. */
+  const wrote = await Promise.all([
     setKey(KEYS.baseUrl, cfg.baseUrl),
     setKey(KEYS.deviceId, cfg.deviceId),
     setKey(KEYS.refresh, cfg.refreshToken),
   ]);
+  /* ⚠ **SQLite 정본일 때만** 실패를 던진다. dev/트랙 A 브라우저(비-SQLite)는 `sync_state` 자체가
+     없어 `setKey`(execDb)가 false 라도 정상 폴백이고, `readCloudConfig` 가 null 을 돌려주는 기존
+     계약이 이미 "연결 안 됨"을 올바로 표현한다. 폰·셸(SQLite 정본)에선 false = 진짜 쓰기 실패다. */
+  if (isSqlitePrimary() && wrote.some((ok) => !ok)) {
+    throw new Error('연결 정보를 저장하지 못했습니다. 저장공간을 확인하고 다시 시도해 주세요.');
+  }
   return cfg;
 }
 

@@ -133,7 +133,7 @@ export default function Atlas() {
         <Link to="/atlas" className="mb-3 inline-block text-sm text-mut! hover:text-acc">
           ← 분야 목록
         </Link>
-        <header className="relative mb-4 border-b border-line2 pb-3">
+        <header className="relative mb-4 border-b border-line2 pb-3" style={{ viewTransitionName: 'atlas-hero' }}>
           <div className="text-2xs font-bold tracking-widest text-acc uppercase">
             {cat?.num} {cat?.name}
           </div>
@@ -384,9 +384,24 @@ export default function Atlas() {
 /** 분야 카드 — 상세로 가는 링크 + 관심 토글(중첩 인터랙티브 회피: Link + 절대배치 star). */
 function FieldCard({ f, starred, onToggle }: { f: AtlasField; starred: boolean; onToggle: (k: string) => void }) {
   const nt = newTrendCount(f);
+  const to = `/atlas/${f.key}`;
   return (
     <article className={CARD}>
-      <Link to={`/atlas/${f.key}`} className={CARDLINK}>
+      {/* 그리드→상세 공유요소 morph(View Transitions). `viewTransition` 이 이 이동을
+          startViewTransition 으로 감싸고(BrowserRouter 에서 동작), onClick 이 **클릭된 카드에만**
+          'atlas-hero' 이름을 붙여 old 스냅샷이 이 카드를 그 이름으로 잡는다. 상세 헤더가 같은
+          이름을 늘 지녀 new 스냅샷과 보간(morph)된다 — 페이지당 소스 하나·대상 하나라 유일.
+          네비게이션이 카드를 언마운트해 인라인 이름은 자연히 사라진다. 미지원/reduced-motion 은
+          즉시 전환(motion.css). ⚠ `useViewTransitionState` 는 안 쓴다 — data router 를 요구하는데
+          이 앱은 BrowserRouter 다(atlasTab.test 가 이 회귀를 잡았다). */}
+      <Link
+        to={to}
+        viewTransition
+        className={CARDLINK}
+        onClick={(e) => {
+          e.currentTarget.style.viewTransitionName = 'atlas-hero';
+        }}
+      >
         <h3 className="m-0! text-md! font-semibold! tracking-tight!">{f.name}</h3>
         <p className="mt-1 mb-2 text-sm leading-snug text-mut">{f.one}</p>
         <div className="flex items-center gap-2">

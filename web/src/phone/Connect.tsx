@@ -6,7 +6,8 @@
    틀릴 수 있는 축이 하나 늘 뿐이고, 더 나쁘게는 **오타난 주소로 등록 코드를 보내게 된다** —
    등록 코드는 짧은 수명의 비밀이라 남의 서버에 보내면 그대로 유출이다.
 
-   등록 코드는 PC 의 설정 탭에서 발급한다(C-5 온보딩과 같은 경로).
+   등록 코드는 **관리자가 발급**한다(관리 비밀 `HUB_ADMIN_KEY` 로 보호되는 수동 curl · 런북 §5-2).
+   앱 안엔 발급 버튼이 없다 — 그 비밀을 번들에 심지 않기 위해서다.
 ============================================================ */
 import { useState } from 'react';
 import { enrollDevice } from '@/lib/cloud/client';
@@ -34,7 +35,7 @@ export default function Connect({ onDone }: { onDone: () => void }): React.JSX.E
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6">
       <div>
         <h1 className="text-xl font-semibold text-txt">러닝허브</h1>
-        <p className="mt-2 text-sm text-mut">PC 의 설정 → 클라우드에서 등록 코드를 발급해 입력하세요.</p>
+        <p className="mt-2 text-sm text-mut">발급받은 1회용 등록 코드를 입력하세요(서버 관리자가 발급).</p>
       </div>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <label htmlFor="code" className="text-xs text-mut">

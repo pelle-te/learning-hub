@@ -33,10 +33,20 @@
    view-transition-name은 각 컴포넌트 모듈이 소유(TopBar.module .bar=app-header,
    RailSidebar.module .rail=app-nav) — 전역 .top/.nav 클래스는 CSS Module 전환 후 마크업에서 사라졌다. */
 
+/* 공유요소 morph — 그리드 카드 ↔ 상세 헤더(atlas). 클릭된 카드에만 'atlas-hero' 이름이 붙어
+   (Atlas.tsx useViewTransitionState) 브라우저가 카드→헤더의 위치·크기를 보간한다. 기본 그룹
+   애니(morph)에 이징·길이만 얹는다. ⚠ react-router 의 viewTransition 은 reduced-motion 을
+   보지 않으므로(=start 무조건 호출) 이 그룹도 모션 자제 시 명시적으로 꺼야 한다 — 루트처럼. */
+::view-transition-group(atlas-hero) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease);
+}
+
 /* 모션 민감 사용자 — 전환 애니메이션 끔(즉시 교체) */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-new(root),
+  ::view-transition-group(atlas-hero) {
     animation: none;
   }
 

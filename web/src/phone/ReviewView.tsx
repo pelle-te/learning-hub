@@ -1,0 +1,207 @@
+/* ============================================================
+   phone/ReviewView.tsx — 폰 복습 러너(Phase 3 · "지하철 5분 복습").
+
+   ## ⚠ 규칙은 lib, 화면만 새로
+
+   큐는 데스크톱 `ReviewRun` 과 **같은** `buildReviewQueue`(lib)를 쓴다 — 회상 → 착각 재확인 →
+   밀린 챕터. 폰은 화면만 새로 짠다(설계서 §9-4).
+
+   ## 폰은 상태를 쓰지 않는다 — 정직한 인출 연습
+
+   데스크톱 러너는 챕터에 '집중 시작'(전역 타이머)을 붙여 완료 시 lastDs 를 갱신한다. 폰엔 그
+   타이머 UI 가 없다. 가짜로 "복습함"을 기록하면 위험 모델이 거짓으로 내려간다 — 그래서 폰은
+   **머릿속 인출 연습**만 제공한다(카드 넘기며 스스로 설명 → 원래 값과 대조). 기록은 데스크톱
+   '집중'에서 정직하게 남긴다. 인출 자체가 기억을 강화하므로 이동 중 5분에 값이 있다.
+============================================================ */
+import { useMemo, useState } from 'react';
+import { useApp } from '@/store/useApp';
+import { useSchedule } from '@/store/selectors';
+import { todayISO } from '@/lib/utils';
+import { buildReviewQueue } from '@/lib/reviewQueue';
+import { CBMS_INFO } from '@/lib/methodology';
+
+const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
+const BADGE = 'inline-flex w-fit rounded-full bg-tint-acc px-2 py-1 text-2xs font-bold tracking-wide text-acc';
+const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint px-4 py-3 text-sm leading-relaxed';
+const PRIMARY = 'min-h-11 flex-1 rounded-md bg-acc px-4 text-sm font-semibold text-on-acc';
+const GHOST = 'min-h-11 rounded-md border border-line px-4 text-sm text-mut';
+
+export default function ReviewView(): React.JSX.Element {
+  const state = useApp((s) => s.state);
+  const res = useSchedule();
+  const today = todayISO(state);
+  const queue = useMemo(() => buildReviewQueue(state, res.days, today), [state, res.days, today]);
+
+  const [idx, setIdx] = useState(0);
+  const [doneCount, setDoneCount] = useState(0);
+  const [revealedAt, setRevealedAt] = useState(-1);
+  const revealed = revealedAt === idx;
+
+  const total = queue.length;
+  const finished = idx >= total;
+
+  const advance = (didIt: boolean): void => {
+    if (didIt) setDoneCount((n) => n + 1);
+    setIdx((i) => i + 1);
+  };
+  const restart = (): void => {
+    setIdx(0);
+    setDoneCount(0);
+    setRevealedAt(-1);
+  };
+
+  if (total === 0) {
+    return (
+      <section className="flex flex-col items-center gap-3 p-6 text-center">
+        <div className="text-5xl" aria-hidden="true">
+          ✓
+        </div>
+        <h2 className="text-base font-semibold text-txt">복습할 게 없어요</h2>
+        <p className="text-sm text-mut">밀린 챕터도, 다시 인출할 요약·착각도 없습니다.</p>
+      </section>
+    );
+  }
+
+  if (finished) {
+    return (
+      <section className="flex flex-col items-center gap-3 p-6 text-center">
+        <div className="text-5xl" aria-hidden="true">
+          🎯
+        </div>
+        <h2 className="text-base font-semibold text-txt">복습 세션 완료</h2>
+        <p className="text-sm text-mut">
+          {total}개 중 <strong className="text-txt">{doneCount}</strong>개를 인출했어요.
+        </p>
+        <button type="button" onClick={restart} className={GHOST}>
+          처음부터
+        </button>
+      </section>
+    );
+  }
+
+  const item = queue[idx]!;
+  const step = `${idx + 1} / ${total}`;
+
+  return (
+    <section className="flex flex-col gap-4 p-4">
+      <div
+        className="h-1 w-full overflow-hidden rounded-full bg-line"
+        role="progressbar"
+        aria-valuenow={idx}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-label={`복습 진행 ${step}`}
+      >
+        <span
+          className="block h-full rounded-full bg-acc transition-all"
+          style={{ width: `${(idx / total) * 100}%` }}
+        />
+      </div>
+
+      {item.kind === 'retrieval' ? (
+        <div className={CARD}>
+          <div className="flex items-center justify-between gap-2">
+            <span className={BADGE}>회상</span>
+            <span className="text-2xs text-mut">
+              {step} · {item.card.ageDays}일 전 요약
+            </span>
+          </div>
+          <h2 className="m-0 text-base leading-normal font-semibold text-txt">
+            "{item.card.summary.name}" — 보지 않고 스스로 3문장으로 설명해 보세요.
+          </h2>
+          {revealed ? (
+            <ol className={REVEAL}>
+              <li>{item.card.summary.s1}</li>
+              <li>{item.card.summary.s2}</li>
+              <li>{item.card.summary.s3}</li>
+            </ol>
+          ) : (
+            <p className="text-sm text-mut">머릿속으로 먼저 인출한 뒤, 원래 요약과 대조하세요.</p>
+          )}
+          <div className="mt-1 flex gap-2">
+            {!revealed ? (
+              <button type="button" onClick={() => setRevealedAt(idx)} className={GHOST}>
+                원래 요약
+              </button>
+            ) : null}
+            <button type="button" onClick={() => advance(false)} className={GHOST}>
+              건너뛰기
+            </button>
+            <button type="button" onClick={() => advance(true)} className={PRIMARY}>
+              다시 설명했어요
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {item.kind === 'confident' ? (
+        <div className={CARD}>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`${BADGE} bg-tint-warn text-warn`}>착각 재확인</span>
+            <span className="text-2xs text-mut">
+              {step} · {CBMS_INFO[item.card.cbms.code].label}
+            </span>
+          </div>
+          <h2 className="m-0 text-base leading-normal font-semibold text-txt">
+            {item.card.cbms.name}
+            {item.card.cbms.chapter ? ` · ${item.card.cbms.chapter}` : ''} — 확신했지만 틀렸던 지점. 지금은 설명할 수
+            있나요?
+          </h2>
+          {revealed ? (
+            <div className={REVEAL}>
+              <p className="m-0 whitespace-pre-wrap">{item.card.cbms.note || '(메모 없음)'}</p>
+              <p className="m-0 text-2xs text-mut">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-mut">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
+          )}
+          <div className="mt-1 flex gap-2">
+            {!revealed ? (
+              <button type="button" onClick={() => setRevealedAt(idx)} className={GHOST}>
+                당시 메모
+              </button>
+            ) : null}
+            <button type="button" onClick={() => advance(false)} className={GHOST}>
+              건너뛰기
+            </button>
+            <button type="button" onClick={() => advance(true)} className={PRIMARY}>
+              다시 확인했어요
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {item.kind === 'chapter' ? (
+        <div className={CARD}>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`${BADGE} ${item.ch.risk === 'overdue' ? 'bg-tint-bad text-bad' : ''}`}>
+              {item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}
+            </span>
+            <span className="text-2xs text-mut">
+              {step} · {item.ch.daysSince}일 방치
+            </span>
+          </div>
+          <h2 className="m-0 flex items-center gap-2 text-base leading-normal font-semibold text-txt">
+            <span
+              className="inline-block size-3 shrink-0 rounded-sm"
+              style={{ background: item.ch.color || 'var(--acc)' }}
+              aria-hidden="true"
+            />
+            {item.ch.subject} <span className="text-sm font-medium text-mut">{item.ch.chapter}</span>
+          </h2>
+          <p className="text-sm text-mut">
+            배웠지만 {item.ch.daysSince}일 안 봤어요. 지금 머릿속으로 핵심을 인출해 망각곡선을 리셋하세요.
+          </p>
+          <div className="mt-1 flex gap-2">
+            <button type="button" onClick={() => advance(false)} className={GHOST}>
+              건너뛰기
+            </button>
+            <button type="button" onClick={() => advance(true)} className={PRIMARY}>
+              인출했어요
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}

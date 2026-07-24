@@ -11,7 +11,7 @@ import { boot, persist, serialize, setDone, defaults, CORRUPT_KEY, KEY } from '@
 import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
-import { writeAndVerify } from '@/lib/db/write';
+import { writeAndVerify, isMergeApplyPending, endMergeApply } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
 import { storage } from '@/lib/kv';
@@ -71,6 +71,11 @@ export interface AppStore {
   mutate: (recipe: (s: AppState) => void) => void;
   /** 상태 통째 교체(가져오기·되돌리기·복구) + 즉시 영속. */
   loadState: (s: AppState) => void;
+  /** 백그라운드 동기화 병합 결과를 메모리에 반영한다 — `loadState` 와 **다르다**(C1).
+   *  `loadState` 는 가져오기 의미론이라 `pending`(미flush 편집)을 비우고 통째 교체 후 즉시
+   *  flush 하는데, 병합에 그걸 쓰면 병합 진행 중 들어온 로컬 편집이 조용히 소실된다. 이 진입점은
+   *  병합 스냅샷 위에 `pending` 을 **재적용(rebase)** 해 진행 중 편집을 보존한다. */
+  applyMerged: (s: AppState) => void;
   /** 디바운스를 건너뛰고 지금 저장한다(창 닫기 가드 전용).
    *  `pagehide` 안전망과 달리 **호출 시점을 밖에서 정할 수 있어야** 닫기를 보류한 채
    *  비동기 SQL 쓰기까지 끝낼 수 있다(2단계-C 실측: 안 그러면 그 쓰기가 잘린다). */
@@ -106,6 +111,15 @@ export const useApp = create<AppStore>()(
       if (timer) {
         clearTimeout(timer);
         timer = null;
+      }
+      /* ⚠⚠ **병합 반영 중이면 쓰지 않고 미룬다(C1).** `applyPull` 이 기준선을 병합-후로 세운 뒤
+         `applyMerged` 가 메모리를 반영하기 전 창에서 여기 쓰면, 낡은 메모리를 병합-후 기준선과 diff 해
+         **받아온 행을 되돌리는** 문장을 만든다(그 되돌림이 LWW 로 서버까지 이겨 다른 기기 편집이 조용히
+         소실된다 · `db/write.ts` `isMergeApplyPending` 주석). 편집은 `pending` 에 남겨 두고 재예약해,
+         `applyMerged` 가 창을 닫은 뒤 그 편집만 병합 스냅샷 위에 diff 로 쓰게 한다. */
+      if (isMergeApplyPending()) {
+        if (pending.length) schedulePersist();
+        return;
       }
       // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
       const merged = mergeRuntime(get().state);
@@ -205,6 +219,30 @@ export const useApp = create<AppStore>()(
           s.state = splitRuntime(next); // 가져온 스냅샷에 남아있던 런타임 캐시도 분리(디스크 왕복 대칭)
         });
         flush(); // 통째 교체는 즉시 영속(디바운스 X) — 가져오기/복구 직후 새로고침해도 안전.
+      },
+      applyMerged(next) {
+        /* ⚠ C1 — 병합 반영 전용. `loadState` 와 갈라 두는 이유가 이 함수의 존재 이유다.
+
+           `syncController.runSync` 가 병합 스냅샷을 여기로 싣는다. 병합은 네트워크 왕복(push→pull)
+           동안 진행되고, 그 사이 사용자가 로컬 편집을 하면 `commit` 이 메모리 반영 + `pending.push`
+           + 400ms flush 예약을 한다. 그 편집이 아직 DB 에 flush 되기 전이면 병합 스냅샷(`merge.ts`
+           의 `readRows()` 시점 고정)에는 **없다**. 여기서 `loadState` 를 쓰면 그 편집이 메모리·큐·
+           타이머에서 모두 지워져 **영구 소실**된다(fence·`runExclusive` 가 못 막는 별개 벡터).
+
+           그래서 스냅샷 위에 `pending` 을 **재적용(rebase)** 한다 — 멀티탭 `onSync`(위)와 동형이다.
+           recipe 는 편집 *의도*라 새 베이스 위 재적용이 곧 필드 단위 병합이 된다. 재적용된 편집은
+           `pending` 에 남아 이어지는 flush 가 정본에 쓰고 아웃박스로 올린다(유실도 역전파도 없다).
+           병합 자체는 이미 `applyPull` 이 정본·기준선을 세웠으므로, 진행 중 편집이 없으면 여기서
+           flush 하지 않는다(기준선=스냅샷이라 어차피 빈 diff). */
+        set((s) => {
+          s.state = splitRuntime(next);
+          for (const r of pending) r(s.state);
+        });
+        /* ⚠ 메모리 반영이 끝났으니 **C1 창을 닫는다** — 이제 기준선(병합-후)과 메모리(병합-후+재적용
+           편집)가 일치하므로 이후 flush 는 재적용 편집만 diff 로 쓴다(받아온 행 되돌림 없음). 이 호출과
+           `set()` 사이엔 await 가 없어 창 종료도 원자적이다. `runSync` finally 가 실패 경로를 방어한다. */
+        endMergeApply();
+        if (pending.length) schedulePersist();
       },
       setRuntimeCache(key, val) {
         // _knowState는 schedule() 입력 — state 참조를 갈아 selectSchedule 무효화(정확성에 필요).

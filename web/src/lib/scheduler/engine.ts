@@ -18,6 +18,7 @@ import {
   iso,
   mondayOf,
   parseISO,
+  round1,
   todayISO,
 } from '../utils';
 import { isWeekManaged } from '../weekAlloc';
@@ -451,8 +452,8 @@ export function schedule(state: AppState): ScheduleResult {
       weeklyHours: +(s.weeklyHours || 0),
       totalCh: total,
       doneCh,
-      totalH: Math.round(s._totalH * 10) / 10,
-      schedH: Math.round((s._schedMin / 60) * 10) / 10,
+      totalH: round1(s._totalH),
+      schedH: round1(s._schedMin / 60),
       deadline: s.deadline,
       finishDate,
       finished,
@@ -468,7 +469,7 @@ export function schedule(state: AppState): ScheduleResult {
       daily: true,
       dailyMin: +(s.dailyMin || 0),
       days: planned,
-      schedH: Math.round(((planned * +(s.dailyMin || 0)) / 60) * 10) / 10,
+      schedH: round1((planned * +(s.dailyMin || 0)) / 60),
     });
   });
 

@@ -18,6 +18,7 @@ import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
 import CloudCard from './CloudCard';
+import ConflictsNotice from './ConflictsNotice';
 import { lastParity } from '@/lib/db/write';
 import type { AppState } from '@/lib/types';
 
@@ -476,6 +477,9 @@ export default function Settings() {
 
       {/* C-5 — 클라우드 동기화(여러 기기에서 편집). 연결 전에는 아무 요청도 나가지 않는다. */}
       <CloudCard />
+
+      {/* Phase 4 — 동기화 충돌(다른 기기 편집에 덮인 내 편집). 충돌이 없으면 렌더 안 함. */}
+      <ConflictsNotice />
 
       <div className="ds-card ds-glow">
         <h2>

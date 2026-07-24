@@ -10,6 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import { stateToRows, rowsToState, ARRAY_SLICES, diffRows } from '@/lib/db/rows';
 import { defaults, exportSnapshot, RUNTIME_CACHE_KEYS, EPHEMERAL_ONLY_KEYS } from '@/lib/persistence';
+import { chunkedStamp, _resetStamp } from '@/lib/db/stamp';
+import { MAX_BATCH_ITEMS } from '@/lib/cloud/contract';
 import type { AppState } from '@/lib/types';
 
 const roundTrip = (s: AppState): AppState => rowsToState(stateToRows(s));
@@ -275,5 +277,36 @@ describe('5단계-D — updated_at 과 툼스톤', () => {
   it('안 바뀐 행은 updated_at 도 안 찍는다 — 아니면 증분이 전량 쓰기로 퇴화한다', () => {
     const rows = stateToRows({ theme: 'dark', tasks: [{ id: 't1' }] } as never);
     expect(diffRows(rows, rows, now)).toEqual([]);
+  });
+});
+
+describe('C2 — 대량 단일 flush 의 스탬프 청킹(아웃박스 영구 차단 방지)', () => {
+  /* ⚠ 결함: 런타임 `loadState`(가져오기·복구·되돌리기)는 상태를 통째로 써서 sync 행이 500 을 넘을
+     수 있는데, `writeRows` 가 단일 `nextStamp()` 를 쓰면 전부 **한 스탬프 그룹**이 된다. capBatch 가
+     스탬프 경계에서만 자를 수 있어 그 그룹이 상한(500)을 넘으면 스키마가 거부 → 아웃박스 영구 차단
+     (이후 모든 편집이 조용히 동기화 안 됨). 최초 이관만 chunkedStamp 로 막던 비대칭이었다.
+     고침: `writeRows` 기본을 `chunkedStamp(400)` 로 → 어느 호출자든 단일 그룹이 상한을 못 넘는다. */
+  it('chunkedStamp(400) 은 500 초과 sync 행을 400 이하 그룹들로 쪼갠다', () => {
+    _resetStamp();
+    const s = {
+      ...defaults(),
+      events: Array.from({ length: 600 }, (_, i) => ({ id: `e${i}`, ds: '2026-07-24', title: `x${i}` })),
+    };
+    // writeRows 가 인자 없이 쓰는 것과 **같은** 배급기(sqlite.ts `WRITE_STAMP_CHUNK`).
+    const stmts = diffRows(null, stateToRows(s as unknown as AppState), chunkedStamp(400));
+
+    // sync upsert(끝 인자가 updated_at 스탬프)의 스탬프별 건수.
+    const counts = new Map<number, number>();
+    for (const st of stmts) {
+      if (!/INSERT OR REPLACE INTO (records|settings|completions|ds_map|summaries|week_alloc) /.test(st.sql)) continue;
+      const stamp = st.args[st.args.length - 1] as number;
+      counts.set(stamp, (counts.get(stamp) ?? 0) + 1);
+    }
+    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    const maxGroup = Math.max(...counts.values());
+
+    expect(total).toBeGreaterThan(MAX_BATCH_ITEMS); // 테스트가 헛돌지 않게 — 실제로 상한 초과를 만들었다
+    expect(maxGroup).toBeLessThanOrEqual(400); // 어떤 단일 그룹도 청크 상한 이하
+    expect(maxGroup).toBeLessThan(MAX_BATCH_ITEMS); // → capBatch 가 못 쪼개는 oversized 가 생기지 않는다
   });
 });
