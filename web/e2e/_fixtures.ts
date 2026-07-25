@@ -554,6 +554,9 @@ export const TABS = [
   'control',
   'integrations',
   'review',
+  // ID-9 오답 노트 — 나브에 없는(hidden) 세그먼트지만 로스터에 넣는다. 라우트는 살아 있고,
+  // 공유 SEED 에 CBMS 기록이 있어 **빈 상태가 아니라 실제 카드**가 그려진다(§15-4).
+  'mistakes',
   'guide',
   'ledger',
   // graph 는 <canvas> 힘-방향 뷰지만 초기 좌표가 id 해시 시드로 **결정론적**이고(graphData.ts:

@@ -123,6 +123,21 @@ export const TABS: TabMeta[] = [
     icon: 'refresh',
     fill: true,
   },
+  /* ID-9 오답 노트 — 전 기간 CBMS·백지 실패 아카이브. **독립 나브 탭이 아니라 기록 호스트의
+     세그먼트다**(사용자 결정 2026-07-25 · I-14 가 같은 긴장에서 '독립탭 대신 강화'로 판정된 선례).
+     ⚠ '주간 리뷰'(review)와 시제가 다르다: 리뷰는 *이번 주 처방*, 여기는 *전 기간 아카이브*.
+       한 화면에 섞으면 주간 프레이밍이 흐려지고, 나브에 따로 세우면 두 화면이 서로를 먹는다 →
+       같은 호스트의 이웃 세그먼트가 그 관계를 화면으로 말해 준다. */
+  {
+    key: 'mistakes',
+    label: '오답 노트',
+    group: 'train',
+    surface: 'study',
+    order: 74,
+    hidden: true,
+    icon: 'notebook',
+    fill: true,
+  },
   { key: 'stats', label: '통계', group: 'train', surface: 'study', order: 80, icon: 'chart', fill: true },
   // 복습 부하 예보(ID-1) — 앞 14일 다가오는 복습 파도를 조망. 통계 호스트의 세그먼트로 접는다
   // (분석 대시보드 묶음). 나브 숨김 · 라우트·⌘K·g단축키·세그먼트로 진입 · fill(단일 화면).
@@ -210,7 +225,8 @@ export const SUBTAB_GROUPS: string[][] = [
   // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대).
   ['plan-host', 'schedule', 'alloc', 'items'],
   ['integrations', 'ledger'],
-  ['journal', 'review', 'review-run'],
+  // 기록 호스트: 기록(적기) → 주간 리뷰(이번 주 처방) → 복습 실행(지금 굴리기) → 오답 노트(전 기간 아카이브).
+  ['journal', 'review', 'review-run', 'mistakes'],
   ['stats', 'forecast', 'mastery', 'graph'],
 ];
 
