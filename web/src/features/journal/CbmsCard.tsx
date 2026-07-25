@@ -9,6 +9,8 @@ import { useRecordEditor } from '@/shell/useRecordEditor';
 import { cbmsBetween, editCbms, delCbms, restoreCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import type { CbmsCode } from '@/lib/types';
 
@@ -61,6 +63,13 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
     ui.toast('오답 추가됨', 'ok');
     commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
+
+  /* N-17 폼 키 계약 — ⌘Enter 는 어디서나 제출 · 맨 Enter 는 한 줄 칸에서만 · Esc 는 편집 취소.
+     ⚠ 새 항목 폼엔 `cancel` 을 안 넘긴다: 거기서 Esc 가 입력을 날리면 그게 더 놀랍다.
+     ⚠ 옛 인라인 핸들러엔 IME 조합 가드가 없어 **한글 확정 Enter 에 덜 친 내용이 제출**됐다
+        (선재 결함 · 근거는 `useFormSubmit` 머리주석). */
+  const addKeys = useFormSubmit(submit);
+  const editKeys = useFormSubmit(saveEdit, cancel);
   return (
     <div ref={cardRef} className="ds-card ds-glow">
       <h2>
@@ -79,7 +88,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
             type="text"
             value={chapter}
             onChange={(e) => setChapter(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            {...addKeys}
             placeholder="예) 3장 변위전류"
           />
         </div>
@@ -102,7 +111,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            {...addKeys}
             placeholder="예) 경계조건에서 법선성분 연속을 빠뜨림"
           />
         </div>
@@ -112,7 +121,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
         <b>찍어서 맞음/확신 없었음</b> <span className="ds-muted">— 맞아도 다시 점검 대상(확신도 보정)</span>
       </label>
       <div style={{ marginTop: 10 }}>
-        <Button variant="primary" onClick={submit}>
+        <Button variant="primary" onClick={submit} title={`오답 추가 (Enter · ${MOD_ENTER_LABEL})`}>
           오답 추가
         </Button>
         <span className="ds-muted ds-tiny" style={{ marginLeft: 8 }}>
@@ -134,6 +143,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                       type="text"
                       value={edraft.chapter}
                       onChange={(ev) => setEdraft((d) => ({ ...d, chapter: ev.target.value }))}
+                      {...editKeys}
                       placeholder="예) 3장 변위전류"
                     />
                   </div>
@@ -158,7 +168,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                       type="text"
                       value={edraft.note}
                       onChange={(ev) => setEdraft((d) => ({ ...d, note: ev.target.value }))}
-                      onKeyDown={(ev) => ev.key === 'Enter' && saveEdit()}
+                      {...editKeys}
                       placeholder="어디서 왜 막혔나"
                     />
                   </div>

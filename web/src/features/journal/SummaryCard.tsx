@@ -11,6 +11,8 @@ import { summariesFor, addSummary, editSummary, delSummary, restoreSummary, cbms
 import { itemById, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 
 export default function SummaryCard({ ds: dsKey }: { ds: string }) {
@@ -59,6 +61,13 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
     ui.toast('요약 저장됨', 'ok');
     commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
+
+  /* N-17 폼 키 계약 — ⌘Enter 는 어디서나 제출 · 맨 Enter 는 한 줄 칸에서만 · Esc 는 편집 취소.
+     ⚠ 새 항목 폼엔 `cancel` 을 안 넘긴다: 거기서 Esc 가 입력을 날리면 그게 더 놀랍다.
+     ⚠ 옛 인라인 핸들러엔 IME 조합 가드가 없어 **한글 확정 Enter 에 덜 친 내용이 제출**됐다
+        (선재 결함 · 근거는 `useFormSubmit` 머리주석). */
+  const addKeys = useFormSubmit(submit);
+  const editKeys = useFormSubmit(saveEdit, cancel);
   // 오늘 산출물(요약·오답)이 없으면 내보내기는 빈 파일 = 데드엔드 → 비활성화.
   const todayIso = todayISO({ _today: state._today });
   const canExport = summariesFor(state, todayIso).length > 0 || cbmsBetween(state, todayIso, todayIso).length > 0;
@@ -86,6 +95,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
         rows={2}
         value={s1}
         onChange={(e) => setS1(e.target.value)}
+        {...addKeys}
         placeholder="예) 시변 환경에서 자기장과 전기장이 어떻게 퍼져 나가는지 해석하려고…"
       />
       <label htmlFor={`${uid}-s2`}>
@@ -96,6 +106,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
         rows={2}
         value={s2}
         onChange={(e) => setS2(e.target.value)}
+        {...addKeys}
         placeholder="예) 변위전류가 든 앙페르 법칙과 패러데이 법칙을 연립해 파동방정식을 세웠고…"
       />
       <label htmlFor={`${uid}-s3`}>
@@ -106,10 +117,13 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
         rows={2}
         value={s3}
         onChange={(e) => setS3(e.target.value)}
+        {...addKeys}
         placeholder="예) 전자기파가 빛의 속도로 전파됨을 증명 — 무선통신의 근거."
       />
       <div style={{ marginTop: 10 }}>
-        <Button variant="primary" onClick={submit}>
+        {/* N-17 — 키 계약의 발견 경로는 치트시트(N-16)가 소유한다. 여기 눈에 보이는 힌트를
+            달면 fill 스냅샷을 태우면서 세 카드에 같은 문구가 세 번 생긴다 → title 로만. */}
+        <Button variant="primary" onClick={submit} title={`요약 저장 (${MOD_ENTER_LABEL})`}>
           요약 저장
         </Button>
         <Button
@@ -158,18 +172,21 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
                 rows={2}
                 value={draft.s1}
                 onChange={(e) => setDraft((d) => ({ ...d, s1: e.target.value }))}
+                {...editKeys}
                 placeholder="1 — 현상·왜"
               />
               <textarea
                 rows={2}
                 value={draft.s2}
                 onChange={(e) => setDraft((d) => ({ ...d, s2: e.target.value }))}
+                {...editKeys}
                 placeholder="2 — 도구·어떻게"
               />
               <textarea
                 rows={2}
                 value={draft.s3}
                 onChange={(e) => setDraft((d) => ({ ...d, s3: e.target.value }))}
+                {...editKeys}
                 placeholder="3 — 결과·의미"
               />
               <div className="mt-2 flex gap-2">

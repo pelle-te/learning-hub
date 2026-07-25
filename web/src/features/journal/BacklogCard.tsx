@@ -11,6 +11,8 @@ import { openBacklog, addBacklog, editBacklog, delBacklog, restoreBacklog } from
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 
 /* ── '보충 필요' 백로그(방법론 5절) ── */
@@ -62,6 +64,13 @@ export default function BacklogCard() {
     ui.toast('백로그 추가됨', 'ok');
     commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
+
+  /* N-17 폼 키 계약 — ⌘Enter 는 어디서나 제출 · 맨 Enter 는 한 줄 칸에서만 · Esc 는 편집 취소.
+     ⚠ 새 항목 폼엔 `cancel` 을 안 넘긴다: 거기서 Esc 가 입력을 날리면 그게 더 놀랍다.
+     ⚠ 옛 인라인 핸들러엔 IME 조합 가드가 없어 **한글 확정 Enter 에 덜 친 내용이 제출**됐다
+        (선재 결함 · 근거는 `useFormSubmit` 머리주석). */
+  const addKeys = useFormSubmit(submit);
+  const editKeys = useFormSubmit(saveEdit, cancel);
   return (
     <div ref={cardRef} className="ds-card ds-glow">
       <h2>
@@ -85,7 +94,7 @@ export default function BacklogCard() {
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            {...addKeys}
             placeholder="예) 3장 변위전류 유도 막힘"
           />
         </div>
@@ -98,13 +107,13 @@ export default function BacklogCard() {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            {...addKeys}
             placeholder="예) ∇×H=J+∂D/∂t 까지는 갔는데 파동방정식 유도에서 막힘"
           />
         </div>
       </div>
       <div style={{ marginTop: 10 }}>
-        <Button variant="primary" onClick={submit}>
+        <Button variant="primary" onClick={submit} title={`백로그 추가 (Enter · ${MOD_ENTER_LABEL})`}>
           백로그 추가
         </Button>
         <span className="ds-muted ds-tiny" style={{ marginLeft: 8 }}>
@@ -123,7 +132,7 @@ export default function BacklogCard() {
                   type="text"
                   value={edraft.topic}
                   onChange={(e) => setEdraft((d) => ({ ...d, topic: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                  {...editKeys}
                 />
               </div>
               <div className="ds-fld ds-wide">
@@ -133,7 +142,7 @@ export default function BacklogCard() {
                   type="text"
                   value={edraft.note}
                   onChange={(e) => setEdraft((d) => ({ ...d, note: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                  {...editKeys}
                 />
               </div>
               <div className="mt-2 flex gap-2">
