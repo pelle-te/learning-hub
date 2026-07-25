@@ -41,3 +41,43 @@ export function SkeletonCard({ lines = 4 }: { lines?: number }) {
     </Card>
   );
 }
+
+/* ── 전면(fill) 탭의 로딩 골격(N-4) ────────────────────────────────────────
+   착지 화면 **16개가 전면 fill 대시보드**인데 탭 진입 폴백은 `SkeletonCard` 한 장이었다.
+   즉 프레임 상단에 작은 카드 하나가 떴다가 화면 전체가 갈아 끼워지는 **레이아웃 점프**가
+   매 진입마다 났다 — 스켈레톤이 막으려던 바로 그 현상을 스켈레톤이 만들고 있었다.
+
+   ⚠ **탭마다 골격을 따로 정의하지 않는다.** 그러면 그리드가 두 벌이 되어 서로 표류하고,
+   점프는 조용히 되돌아온다(그때는 "스켈레톤이 있는데도" 나서 원인을 더 못 찾는다).
+   대신 이 저장소의 fill 탭이 **공유하는 구조**만 그린다: 상단 리드아웃 · 본문 · 하단 스트립
+   (재설계 사상의 3단). 정확히 맞지는 않아도 **틀린 크기가 아니다**가 목표다.
+
+   ⚠ 애니메이션은 `LINE` 이 소유하고 `motion-reduce` 로 꺼진다(위). 여기선 기하만 정한다. */
+const FILL_WRAP = 'flex h-full w-full flex-col gap-4 p-5';
+const FILL_ROW = 'flex gap-3';
+
+/** 전면 대시보드 탭(`TabMeta.fill`)의 Suspense 폴백 — 프레임을 실제로 채운다. */
+export function SkeletonFill() {
+  return (
+    <div className={FILL_WRAP}>
+      <span role="status" className="sr-only">
+        불러오는 중…
+      </span>
+      {/* 상단 리드아웃 — 세 값이 가로로 서는 형태(usePageChrome 이 세우는 그것). */}
+      <div className={FILL_ROW}>
+        <Skeleton width="18%" height={13} />
+        <Skeleton width="12%" height={13} />
+        <Skeleton width="12%" height={13} />
+      </div>
+      {/* 본문 — 남는 높이를 전부 먹는다. 이 한 칸이 '점프 없음'의 대부분을 만든다. */}
+      <Skeleton width="100%" height="100%" />
+      {/* 하단 스트립 — 신호 그룹 3~5개가 가로로 서는 형태. */}
+      <div className={FILL_ROW}>
+        <Skeleton width="22%" height={44} />
+        <Skeleton width="22%" height={44} />
+        <Skeleton width="22%" height={44} />
+        <Skeleton width="22%" height={44} />
+      </div>
+    </div>
+  );
+}

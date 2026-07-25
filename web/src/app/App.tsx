@@ -30,13 +30,18 @@ import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
 import AmbientCanvas from '@/components/AmbientCanvas';
 import { HudFrame } from '@/components/hud';
-import { SkeletonCard, Button } from '@/components/ui';
+import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
 
-/* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3). */
-function TabFallback({ error, resetErrorBoundary }: FallbackProps) {
+/* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3).
+
+   ⚠ N-4 — **어느 탭이 죽었는지를 화면에도 적는다.** 22개 탭이 같은 폴백 한 장을 공유해서
+   "이 탭"이 어느 탭인지 말하지 않았는데, 셸은 멀쩡히 살아 있고 나브도 그대로라 사용자는
+   무엇이 고장났는지 알 수 없었다(그래서 이 경계의 사고는 특히 조용히 지나간다).
+   `reportError` 는 이미 `tab:<key>` 컨텍스트를 싣고 있었다 — 화면만 그 사실을 몰랐다. */
+function TabFallback({ error, resetErrorBoundary, label }: FallbackProps & { label: string }) {
   return (
     <div className="ds-card">
-      <h2>이 탭에서 오류가 발생했어요</h2>
+      <h2>{label ? `‘${label}’ 탭에서 오류가 발생했어요` : '이 탭에서 오류가 발생했어요'}</h2>
       <p className="ds-muted ds-tiny">{String((error as Error)?.message || error)}</p>
       <Button variant="primary" sm onClick={resetErrorBoundary}>
         다시 시도
@@ -47,14 +52,19 @@ function TabFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 /* 지연 로드 탭의 로딩 상태 — 스켈레톤은 **눈에만** 보인다. 스크린리더에는 라우트 아나운서가
    탭 이름을 읽어 준 뒤 아무 일도 일어나지 않는 정적이 흐른다(느린 첫 진입에서 특히 길다).
-   role=status 한 줄로 "불러오는 중"을 알리고, 뜬 뒤엔 그 노드가 사라져 다시 조용해진다. */
-function TabLoading() {
+   role=status 한 줄로 "불러오는 중"을 알리고, 뜬 뒤엔 그 노드가 사라져 다시 조용해진다.
+
+   ⚠ N-4 — 골격은 **착지할 화면의 모양을 따라간다.** 종전엔 fill 탭 16개에도 카드 한 장을
+   띄워서, 프레임 상단의 작은 카드가 화면 전체로 갈아 끼워지는 레이아웃 점프가 매 진입마다
+   났다(스켈레톤이 막으려던 현상을 스켈레톤이 만들고 있었다). 판정은 `TabMeta.fill` 단일
+   원천에서 온다 — 여기서 탭 목록을 다시 세면 그 순간 두 번째 SSOT 가 생긴다. */
+function TabLoading({ fill }: { fill: boolean }) {
   return (
     <>
       <span className="sr-only" role="status">
         탭을 불러오는 중
       </span>
-      <SkeletonCard />
+      {fill ? <SkeletonFill /> : <SkeletonCard />}
     </>
   );
 }
@@ -89,13 +99,13 @@ export default function App() {
                죽었는지를 컨텍스트로 싣는다 — 그게 없으면 스택만 보고 화면을 못 특정한다. */
             element={
               <ErrorBoundary
-                FallbackComponent={TabFallback}
+                fallbackRender={(p) => <TabFallback {...p} label={t.label} />}
                 resetKeys={[t.key]}
                 onError={(e) => reportError(e, `tab:${t.key}`)}
               >
                 <SubTabs tabKey={t.key} />
                 {ReactTab ? (
-                  <Suspense fallback={<TabLoading />}>
+                  <Suspense fallback={<TabLoading fill={!!t.fill} />}>
                     <ReactTab />
                   </Suspense>
                 ) : (

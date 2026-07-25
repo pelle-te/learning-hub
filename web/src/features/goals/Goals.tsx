@@ -26,6 +26,7 @@ import {
 } from '@/lib/goals';
 import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
 import EmptyState from '@/components/EmptyState';
+import { SkeletonText } from '@/components/ui';
 
 /* ── C-7 네 번째 이식(goals) ─────────────────────────────────────────────
    `Goals.module.css`(307줄) 를 없앴다. 규약은 설계서 §15 + `styles/tokenBridge.css`
@@ -91,7 +92,13 @@ export default function Goals() {
   if (goals.isLoading) {
     return (
       <section className={ROOT}>
-        <p className="py-3 text-sm text-mut">내 길을 불러오는 중…</p>
+        {/* N-4 — 생 문장 대신 형상(Discovery 와 같은 판단). */}
+        <span className="sr-only" role="status">
+          내 길을 불러오는 중…
+        </span>
+        <div className="py-3">
+          <SkeletonText lines={4} />
+        </div>
       </section>
     );
   }

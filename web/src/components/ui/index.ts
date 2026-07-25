@@ -6,5 +6,5 @@ export { Pill, type PillTone } from './Pill';
 export { Kpi, KpiGrid, type KpiTone } from './Kpi';
 export { ProgressBar } from './ProgressBar';
 export { Table } from './Table';
-export { Skeleton, SkeletonText, SkeletonCard } from './Skeleton';
+export { Skeleton, SkeletonText, SkeletonCard, SkeletonFill } from './Skeleton';
 export { NumberField } from './NumberField';

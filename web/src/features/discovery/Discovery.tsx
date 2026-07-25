@@ -22,7 +22,7 @@ import {
 } from '@/lib/discovery';
 import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
-import { Button } from '@/components/ui';
+import { Button, SkeletonText } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 
 /* ── C-7 Tailwind 이식(첫 feature) ───────────────────────────────────────
@@ -87,7 +87,15 @@ export default function Discovery() {
   if (disc.isLoading) {
     return (
       <section className={ROOT}>
-        <p className="py-3 text-sm text-mut">발견 큐를 불러오는 중…</p>
+        {/* N-4 — 생 문장 대신 형상. 문장은 "무엇이 올지"를 말하지 못하고, 뜨는 순간
+            아래 목록이 밀려 올라오는 레이아웃 점프가 난다. SR 안내는 SkeletonText 밖의
+            role=status 가 소유한다(줄들은 장식이라 aria-hidden 이다). */}
+        <span className="sr-only" role="status">
+          발견 큐를 불러오는 중…
+        </span>
+        <div className="py-3">
+          <SkeletonText lines={4} />
+        </div>
       </section>
     );
   }

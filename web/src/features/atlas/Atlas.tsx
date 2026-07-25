@@ -25,6 +25,7 @@ import {
   type AtlasField,
 } from '@/lib/atlas';
 import { fmtPublished } from '@/lib/markets';
+import { SkeletonText } from '@/components/ui';
 
 /* ── C-7 여섯 번째 이식(atlas) ────────────────────────────────────────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Atlas.module.css`(536줄) 삭제.
@@ -266,7 +267,14 @@ export default function Atlas() {
                 </ul>
               </>
             ) : online && news.isLoading ? (
-              <p className="m-0 text-sm text-mut">최신 소식을 불러오는 중…</p>
+              /* N-4 — 소식 목록 자리에 목록 형상. 한 줄 문장이 여러 줄 목록으로 바뀌면서
+                 나던 점프를 없앤다. */
+              <>
+                <span className="sr-only" role="status">
+                  최신 소식을 불러오는 중…
+                </span>
+                <SkeletonText lines={3} />
+              </>
             ) : field.trends.length ? (
               // 폴백(오프라인·서버꺼짐·수집실패) — 시드 동향.
               <ul className={TL}>
