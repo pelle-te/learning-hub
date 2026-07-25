@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import {
@@ -10,6 +10,7 @@ import {
   ToastHost,
   ModalHost,
   NAV_SHORTCUTS,
+  vtMove,
 } from '@/shell';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
@@ -175,6 +176,27 @@ export default function App() {
       clearG();
     };
   }, [navigate]);
+
+  /* ── D-8 전이의 방향 ──────────────────────────────────────────────────
+     `<html data-vt>` 를 세우면 `motion.css` 가 그 값에 맞는 전이를 고른다. 판정은 순수
+     함수(`shell/vt.vtMove`)가 `tabs.ts` 의 order·세그먼트 관계에서 뽑으므로 **호출부 22곳은
+     한 줄도 안 바뀐다**(그 자리에 방향을 적기 시작하면 즉시 특례가 번식한다).
+
+     ⚠ `useLayoutEffect` 인 것이 핵심이다. React Router 의 `viewTransition` 은
+     `startViewTransition(cb)` 안에서 DOM 을 갱신하고, 레이아웃 이펙트는 그 커밋과 같은
+     동기 구간에서 돈다 — 즉 **전이 애니가 시작되기 전**에 속성이 선다. `useEffect` 로 두면
+     한 박자 늦어 첫 프레임을 놓친다(그리고 그 어긋남은 조용하다). */
+  const prevPath = useRef(pathname);
+  useLayoutEffect(() => {
+    const from = prevPath.current;
+    prevPath.current = pathname;
+    if (from === pathname) return;
+    const move = vtMove(from, pathname);
+    const el = document.documentElement;
+    el.dataset.vt = move.kind;
+    if (move.dir) el.dataset.vtDir = move.dir;
+    else delete el.dataset.vtDir;
+  }, [pathname]);
 
   // SPA 라우트 전환을 문서 제목에 반영 — 탭마다 별개 '페이지'처럼 동작하는데도 제목이 '러닝허브'
   // 고정이던 문제(WCAG 2.4.2). document.title은 외부 시스템이라 effect가 적법(아나운서 텍스트는 파생).

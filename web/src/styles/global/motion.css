@@ -5,7 +5,7 @@
    (본문만 부드럽게 교체 — 네비 깜빡임 방지). 미지원 브라우저는 즉시 전환(무해).
 ============================================================ */
 
-/* 본문(루트)만 짧게 크로스페이드 + 살짝 떠오름 */
+/* 본문(루트)만 짧게 크로스페이드 + 살짝 떠오름 — **방향을 모를 때의 기본값**. */
 ::view-transition-old(root) {
   animation: vt-fade-out 140ms var(--ease) both;
 }
@@ -29,6 +29,103 @@
   }
 }
 
+/* ── D-8 전이의 방향 문법 ────────────────────────────────────────────────
+   종전엔 이 파일이 root 하나에 크로스페이드를 걸고 끝이라, **옆으로 가는 것**(오늘→통계)과
+   **안으로 들어가는 것**(계획→과목)과 **몰입**(복습 러너)이 픽셀 단위로 같았다. 화면이 바뀌는
+   방식이 "어디로 갔는지"를 하나도 말해 주지 않았다는 뜻이다.
+
+   판정은 `shell/vt.ts` 가 `tabs.ts` 의 order·세그먼트 관계에서 뽑고, App 이 `<html data-vt>` 로
+   세운다 — **CSS 에는 특례가 없다**(여기에 탭 이름이 등장하기 시작하면 문법이 아니라 목록이 된다).
+
+   ⚠ 길이는 전부 220ms 이하 · 움직임은 **transform/opacity 뿐**이다. 이 앱의 착지 화면 16개가
+     전면 fill 대시보드라 레이아웃을 건드리는 전이는 그 자체로 비싸다(발산이 immerse 400ms 를
+     경고한 이유). 몰입은 오히려 더 짧게 잡아 "닫힘"이 느껴지되 기다림이 되지 않게 한다. */
+
+/* lateral — 형제 사이. 진행 방향(order 대소)으로 밀린다. */
+:root[data-vt='lateral']::view-transition-old(root) {
+  animation: vt-fade-out 120ms var(--ease) both;
+}
+:root[data-vt='lateral']::view-transition-new(root) {
+  animation: vt-lateral-fwd 200ms var(--ease) both;
+}
+:root[data-vt='lateral'][data-vt-dir='back']::view-transition-new(root) {
+  animation: vt-lateral-back 200ms var(--ease) both;
+}
+@keyframes vt-lateral-fwd {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes vt-lateral-back {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* descend — 호스트 안으로. 새 화면이 **앞으로 다가온다**(살짝 커지며). */
+:root[data-vt='descend']::view-transition-old(root) {
+  animation: vt-fade-out 120ms var(--ease) both;
+}
+:root[data-vt='descend']::view-transition-new(root) {
+  animation: vt-descend 200ms var(--ease) both;
+}
+@keyframes vt-descend {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ascend — 나오는 길. descend 의 거울(살짝 물러섰다 제자리로) — 들어간 곳엔 나오는 길이 있다. */
+:root[data-vt='ascend']::view-transition-old(root) {
+  animation: vt-fade-out 120ms var(--ease) both;
+}
+:root[data-vt='ascend']::view-transition-new(root) {
+  animation: vt-ascend 200ms var(--ease) both;
+}
+@keyframes vt-ascend {
+  from {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* immerse — 몰입 화면(복습 러너). 세상이 닫히듯 **더 짧고 더 깊게**. */
+:root[data-vt='immerse']::view-transition-old(root) {
+  animation: vt-fade-out 100ms var(--ease) both;
+}
+:root[data-vt='immerse']::view-transition-new(root) {
+  animation: vt-immerse 180ms var(--ease) both;
+}
+@keyframes vt-immerse {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* 헤더/네비는 전환에서 분리 → 고정(사용자 시선 앵커 유지, 깜빡임 제거).
    view-transition-name은 각 컴포넌트 모듈이 소유(TopBar.module .bar=app-header,
    RailSidebar.module .rail=app-nav) — 전역 .top/.nav 클래스는 CSS Module 전환 후 마크업에서 사라졌다. */
@@ -44,8 +141,13 @@
 
 /* 모션 민감 사용자 — 전환 애니메이션 끔(즉시 교체) */
 @media (prefers-reduced-motion: reduce) {
+  /* ⚠ D-8 이후 방향별 규칙이 `:root[data-vt=…]`(명시도 0,2,0)라 **여기서도 같은 명시도로**
+     꺼야 한다. 맨 `::view-transition-*`(0,0,0)만 두면 방향 전이가 모션 자제에서 살아남는다 —
+     이 파일이 원래부터 경고하던 "react-router 는 reduced-motion 을 안 본다"의 재발이다. */
   ::view-transition-old(root),
   ::view-transition-new(root),
+  :root[data-vt]::view-transition-old(root),
+  :root[data-vt]::view-transition-new(root),
   ::view-transition-group(atlas-hero) {
     animation: none;
   }

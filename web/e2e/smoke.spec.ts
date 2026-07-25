@@ -10,6 +10,17 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
   await page.getByRole('button', { name: '통계' }).click();
   await expect(page).toHaveURL(/\/stats$/);
 
+  /* D-8 전이 방향 — 애니 자체는 정지 프레임 스냅샷에 안 잡히지만, **어느 문법이 골라졌는지**는
+     `<html data-vt>` 로 관측 가능하다. 이게 없으면 방향 문법 전체가 "돌고 있다고 믿는" 층이 된다.
+     오늘(order 10) → 통계(80)라 앞으로 가는 형제 이동이다. */
+  await expect(page.locator('html')).toHaveAttribute('data-vt', 'lateral');
+  await expect(page.locator('html')).toHaveAttribute('data-vt-dir', 'fwd');
+
+  // 통계 → 그 안의 조망(예보)으로 = 안으로 들어감(descend). 세그먼트 바가 그 경로다.
+  await page.getByRole('button', { name: '예보' }).click();
+  await expect(page).toHaveURL(/\/forecast$/);
+  await expect(page.locator('html')).toHaveAttribute('data-vt', 'descend');
+
   // ⌘K 명령 팔레트.
   await page.keyboard.press('Control+k');
   await expect(page.getByPlaceholder(/명령·탭 검색/)).toBeVisible();
