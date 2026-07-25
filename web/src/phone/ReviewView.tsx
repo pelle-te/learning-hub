@@ -13,12 +13,12 @@
    **머릿속 인출 연습**만 제공한다(카드 넘기며 스스로 설명 → 원래 값과 대조). 기록은 데스크톱
    '집중'에서 정직하게 남긴다. 인출 자체가 기억을 강화하므로 이동 중 5분에 값이 있다.
 ============================================================ */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { useSchedule } from '@/store/selectors';
 import { todayISO } from '@/lib/utils';
-import { buildReviewQueue } from '@/lib/reviewQueue';
+import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
 import { CBMS_INFO } from '@/lib/methodology';
 
 const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
@@ -31,23 +31,32 @@ export default function ReviewView(): React.JSX.Element {
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const today = todayISO(state);
-  const queue = useMemo(() => buildReviewQueue(state, res.days, today), [state, res.days, today]);
-
+  /* 세션 스냅샷 — 데스크톱 러너와 같은 이유(D-1). 폰은 백그라운드 pull 병합이 더 잦아
+     파생 큐일 때 발밑에서 카드가 바뀔 여지가 오히려 크다. */
+  const [queue, setQueue] = useState<RunItem[]>(() => buildReviewQueue(state, res.days, today));
   const [idx, setIdx] = useState(0);
-  const [doneCount, setDoneCount] = useState(0);
+  const [gotKeys, setGotKeys] = useState<string[]>([]);
   const [revealedAt, setRevealedAt] = useState(-1);
   const revealed = revealedAt === idx;
 
   const total = queue.length;
   const finished = idx >= total;
+  const cardCount = queue.filter((i) => !i.again).length;
+  const againCount = total - cardCount;
 
   const advance = (didIt: boolean): void => {
-    if (didIt) setDoneCount((n) => n + 1);
+    const cur = queue[idx];
+    if (didIt) {
+      if (cur) setGotKeys((ks) => (ks.includes(runItemKey(cur)) ? ks : [...ks, runItemKey(cur)]));
+    } else {
+      setQueue((q) => requeue(q, idx)); // D-1 — 넘긴 카드를 3장 뒤 한 번 더(조건은 lib 이 판단)
+    }
     setIdx((i) => i + 1);
   };
   const restart = (): void => {
+    setQueue(buildReviewQueue(state, res.days, today));
     setIdx(0);
-    setDoneCount(0);
+    setGotKeys([]);
     setRevealedAt(-1);
   };
 
@@ -85,7 +94,8 @@ export default function ReviewView(): React.JSX.Element {
         </div>
         <h2 className="text-base font-semibold text-txt">복습 세션 완료</h2>
         <p className="text-sm text-mut">
-          {total}개 중 <strong className="text-txt">{doneCount}</strong>개를 인출했어요.
+          카드 {cardCount}장 중 <strong className="text-txt">{gotKeys.length}</strong>개를 인출했어요
+          {againCount > 0 ? ` · 놓친 ${againCount}개는 한 번 더 만났어요` : ''}.
         </p>
         <button type="button" onClick={restart} className={GHOST}>
           처음부터
@@ -95,7 +105,7 @@ export default function ReviewView(): React.JSX.Element {
   }
 
   const item = queue[idx]!;
-  const step = `${idx + 1} / ${total}`;
+  const step = `${item.again ? '↻ 다시 · ' : ''}${idx + 1} / ${total}`;
 
   return (
     <section {...swipe} className="flex flex-col gap-4 p-4">

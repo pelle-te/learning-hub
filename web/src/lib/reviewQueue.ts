@@ -16,10 +16,13 @@ import { chapterReviews, interleaveBySubject, type ChapterReview } from './space
 import { pickRetrieval, pickConfidentWrong, type RetrievalCard, type ConfidentWrongCard } from './retrieval';
 import type { AppState, Day } from './types';
 
-export type RunItem =
+export type RunCard =
   | { kind: 'retrieval'; card: RetrievalCard }
   | { kind: 'confident'; card: ConfidentWrongCard }
   | { kind: 'chapter'; ch: ChapterReview };
+
+/** 큐 원소 = 카드 + 재삽입 표식. `again` 은 **세션 내 두 번째 등장**임을 뜻한다(D-1). */
+export type RunItem = RunCard & { again?: true };
 
 /** 밀린 챕터 상한 — 한 세션에 몰아넣지 않는다(나머지는 다음 세션으로 자연 이월). */
 export const REVIEW_CHAPTER_CAP = 12;
@@ -35,4 +38,44 @@ export function buildReviewQueue(state: AppState, days: Day[], today: string): R
   const risk = chapterReviews(state, days || [], today).filter((c) => c.risk !== 'fresh');
   for (const ch of interleaveBySubject(risk).slice(0, REVIEW_CHAPTER_CAP)) q.push({ kind: 'chapter', ch });
   return q;
+}
+
+/** 카드의 세션 내 정체성 — 재삽입본과 원본이 **같은 카드**임을 세는 키(분모가 흔들리지 않게). */
+export function runItemKey(item: RunItem): string {
+  if (item.kind === 'retrieval') return `r:${item.card.summary.id}`;
+  if (item.kind === 'confident') return `c:${item.card.cbms.id}`;
+  return `h:${item.ch.sid}|${item.ch.chapter}`;
+}
+
+/* ── D-1 세션 내 확장 인출(재큐) ──────────────────────────────────────────
+   러너가 12장을 넘기는 동안 **산출 데이터가 0**이었다 — 못 떠올린 카드를 그 자리에서 영구히
+   버리고, 세션이 끝나면 그 사실조차 남지 않았다. 인출 연습의 값은 *실패한 것을 다시 만나는 데*
+   있으므로, 넘긴 카드를 세션 안에서 딱 한 번 더 준다.
+
+   숫자 셋의 근거(임의 계수를 만들지 않는다는 `spacedReview.ts:29-31` 규율과 같은 논리):
+   ① **간격 3장** — 확장 인출(expanding retrieval)은 "직후가 아니라 조금 뒤"가 요점이다. 바로
+      다음 장에 다시 주면 작업기억에서 꺼내는 것이라 인출이 아니고, 너무 뒤면 세션이 끝난다.
+      큐의 카드 종류가 셋(회상·착각·챕터)이라 3장이면 최소 한 번은 다른 종류가 사이에 낀다.
+   ② **1회 상한** — 두 번째도 못 하면 그건 세션이 풀 문제가 아니라 다음 복습일의 문제다.
+      상한이 없으면 못 하는 카드가 큐를 무한히 늘려 러너가 끝나지 않는다.
+   ③ **큐 ≥4일 때만** — 3장 간격이 성립하지 않는 짧은 큐에서 재삽입하면 사실상 "직후 반복"이라
+      ①의 근거를 스스로 깬다.
+
+   ⚠ 순수 함수다. 데스크톱(`ReviewRun`)·폰(`ReviewView`) 두 러너가 이 한 곳을 공유하고,
+   유닛 테스트가 UI 없이 전량을 덮는다(스냅샷과 무관한 안전망). */
+export const REQUEUE_GAP = 3;
+export const REQUEUE_MIN_QUEUE = 4;
+
+/**
+ * `idx` 의 카드를 **3장 뒤에 1회** 재삽입한 새 큐를 돌려준다(조건 미달이면 원본 그대로).
+ * 끝을 넘어가면 마지막에 붙인다 — 세션 밖으로 밀어내면 재큐가 아니라 삭제다.
+ */
+export function requeue(queue: RunItem[], idx: number): RunItem[] {
+  const item = queue[idx];
+  if (!item || item.again) return queue; // 이미 두 번째 등장 → 상한(②)
+  if (queue.length < REQUEUE_MIN_QUEUE) return queue; // 짧은 큐(③)
+  const at = Math.min(idx + 1 + REQUEUE_GAP, queue.length);
+  const next = queue.slice();
+  next.splice(at, 0, { ...item, again: true });
+  return next;
 }

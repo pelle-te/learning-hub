@@ -14,8 +14,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
+/* 큐 **조립**만 가로챈다 — `requeue`·`runItemKey`(D-1)는 진짜를 쓴다. 전체를 바꾸면 러너가
+   실제로 쓰는 규칙이 테스트에서만 사라져 "녹색인데 아무것도 안 쟀음"이 된다. */
 const { buildReviewQueue } = vi.hoisted(() => ({ buildReviewQueue: vi.fn() }));
-vi.mock('@/lib/reviewQueue', () => ({ buildReviewQueue }));
+vi.mock('@/lib/reviewQueue', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/reviewQueue')>()),
+  buildReviewQueue,
+}));
 vi.mock('@/store/selectors', () => ({ useSchedule: () => ({ days: [] }) }));
 
 import ReviewView from '@/phone/ReviewView';
@@ -28,12 +33,12 @@ afterEach(() => {
 /** 회상 카드 — 원래 요약을 '펼칠' 수 있는 종류. */
 const retrieval = (n: number) => ({
   kind: 'retrieval' as const,
-  card: { ageDays: 3, summary: { name: `요약${n}`, s1: `첫째${n}`, s2: '둘째', s3: '셋째' } },
+  card: { ageDays: 3, summary: { id: `s${n}`, name: `요약${n}`, s1: `첫째${n}`, s2: '둘째', s3: '셋째' } },
 });
 /** 챕터 카드 — 펼칠 것이 없는 종류(원래 요약·메모가 없다). */
 const chapter = {
   kind: 'chapter' as const,
-  ch: { risk: 'overdue', daysSince: 9, subject: '물리', chapter: '역학', color: '#4f8ff0' },
+  ch: { sid: 'p', risk: 'overdue', daysSince: 9, subject: '물리', chapter: '역학', color: '#4f8ff0' },
 };
 
 /** 한 제스처. 기본은 60px 이상 가로 = 스와이프. */
@@ -99,6 +104,24 @@ describe('폰 복습 러너 — 스와이프 배선(UX-B2)', () => {
     for (const name of ['원래 요약', '건너뛰기', '다시 설명했어요']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
+  });
+
+  /* D-1 배선 — 규칙은 `reviewQueue.test.ts` 가 소유한다. 여기서 보는 것은 러너가 그 규칙을
+     실제로 부르는가 하나뿐이다(넘긴 카드가 세션 안에서 되돌아오고, 분모는 안 흔들린다). */
+  it('건너뛴 카드가 세션 안에서 한 번 더 온다 — 카드 수(분모)는 그대로', () => {
+    buildReviewQueue.mockReturnValue([retrieval(1), retrieval(2), retrieval(3), retrieval(4)]);
+    render(<ReviewView />);
+    swipe(card(), -80); // 1 을 건너뜀 → 3장 뒤(끝)에 재삽입
+    for (const n of [2, 3, 4]) {
+      expect(screen.getByText(new RegExp(`"요약${n}"`))).toBeInTheDocument();
+      swipe(card(), 80);
+    }
+    expect(screen.getByText(/"요약1"/)).toBeInTheDocument(); // 돌아왔다
+    expect(screen.getByText(/↻ 다시/)).toBeInTheDocument(); // 그리고 그렇다고 말한다
+    swipe(card(), 80);
+    expect(screen.getByText('복습 세션 완료')).toBeInTheDocument();
+    expect(screen.getByText(/카드 4장 중/)).toBeInTheDocument(); // 큐는 5장이었지만 카드는 4장
+    expect(screen.getByText('4')).toBeInTheDocument(); // 인출 4 — 재삽입본을 두 번 세지 않는다
   });
 
   it('챕터 카드는 펼칠 것이 없어 탭이 아무 일도 안 한다', () => {

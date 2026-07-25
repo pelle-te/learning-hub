@@ -13,7 +13,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { riskSummary } from '@/lib/spacedReview';
-import { buildReviewQueue } from '@/lib/reviewQueue';
+import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
 import { CBMS_INFO } from '@/lib/methodology';
 import { jolSummary, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
@@ -62,11 +62,16 @@ export default function ReviewRun() {
   const nav = useNavigate();
   const today = todayISO(state);
 
-  const queue = buildReviewQueue(state, res.days, today);
   const risk = riskSummary(state, res.days || [], today);
 
+  /* 큐는 **세션 시작 시점의 스냅샷**이다(D-1). 재큐가 큐를 늘리므로 상태가 아니면 안 되고,
+     파생으로 두면 세션 중 상태 변화(챕터 '집중 시작' → completions 갱신 · 클라우드 pull 병합)가
+     발밑에서 큐를 갈아 끼워 `idx` 가 다른 카드를 가리킨다. 다시 열면 다시 만든다. */
+  const [queue, setQueue] = useState<RunItem[]>(() => buildReviewQueue(state, res.days, today));
   const [idx, setIdx] = useState(0);
-  const [doneCount, setDoneCount] = useState(0);
+  /* '해낸 것'은 **서로 다른 카드**로 센다 — 재큐가 같은 카드를 두 번 보여주므로 이벤트로 세면
+     "12개 중 14개 인출"이 나온다(옛 `doneCount` 가 정확히 그 형태였다). */
+  const [gotKeys, setGotKeys] = useState<string[]>([]);
   const [revealedAt, setRevealedAt] = useState(-1);
   const revealed = revealedAt === idx;
 
@@ -77,26 +82,37 @@ export default function ReviewRun() {
      ⚠ 대답은 **선택**이다. 안 누르고 넘어가면 기록도 없다(강제하면 위 마찰 문제로 되돌아간다). */
   const [jol, setJol] = useState<JolEntry[]>([]);
   const [pred, setPred] = useState<boolean | null>(null);
-  const askJol = !revealed && pred === null && jol.length < JOL_MAX;
+  // 재큐된 카드에는 안 묻는다 — 예측은 첫 대면에서만 의미가 있고(두 번째는 이미 답을 봤다),
+  // 같은 카드가 대조 기록에 두 번 들어가면 jolSummary 의 표본이 부풀어 오른다.
+  const askJol = !revealed && pred === null && jol.length < JOL_MAX && !queue[idx]?.again;
 
   const total = queue.length;
   const finished = idx >= total;
   const remaining = Math.max(0, total - idx);
+  const cardCount = queue.filter((i) => !i.again).length; // 서로 다른 카드 수 = 정직한 분모
+  const gotCount = gotKeys.length;
+  const againCount = total - cardCount;
 
   usePageChromeEffect(
     () => ({
       readouts: [
         { label: '남은 복습', value: finished ? 0 : remaining, accent: !finished && remaining > 0 },
-        { label: '해낸 것', value: doneCount },
+        { label: '해낸 것', value: gotCount },
         { label: '오늘 위험', value: `${risk.overdue}⬤ ${risk.due}◒` },
       ],
       action: { label: '오늘 학습', onClick: () => nav('/today') },
     }),
-    [remaining, doneCount, finished, risk.overdue, risk.due],
+    [remaining, gotCount, finished, risk.overdue, risk.due],
   );
 
   const advance = (didIt: boolean) => {
-    if (didIt) setDoneCount((n) => n + 1);
+    const cur = queue[idx];
+    if (didIt) {
+      if (cur) setGotKeys((ks) => (ks.includes(runItemKey(cur)) ? ks : [...ks, runItemKey(cur)]));
+    } else {
+      // D-1 — 못 한 카드는 버리지 않고 세션 안에서 한 번 더(3장 뒤). 조건은 requeue 가 판단한다.
+      setQueue((q) => requeue(q, idx));
+    }
     // 예측을 남긴 카드만 대조 기록에 들어간다 — 안 물었거나 안 누른 카드는 조용히 빠진다.
     if (pred !== null) setJol((rows) => [...rows, { predicted: pred, recalled: didIt }]);
     setPred(null);
@@ -104,8 +120,9 @@ export default function ReviewRun() {
   };
   const reveal = () => setRevealedAt(idx);
   const restart = () => {
+    setQueue(buildReviewQueue(state, res.days, today));
     setIdx(0);
-    setDoneCount(0);
+    setGotKeys([]);
     setRevealedAt(-1);
     setJol([]);
     setPred(null);
@@ -140,8 +157,12 @@ export default function ReviewRun() {
             🎯
           </div>
           <h2>복습 세션 완료</h2>
+          {/* D-1 — 분모는 **서로 다른 카드 수**다. 옛 문구는 큐 길이를 분모로 썼는데 재큐가 그
+              길이를 늘리므로 "12개 중 14개"가 나올 수 있었다(같은 카드를 두 번 세는 형태). */}
           <p className="ds-muted">
-            {total}개 중 <strong>{doneCount}</strong>개를 인출했어요. 남은 챕터는 볼트에서 이어가세요.
+            카드 {cardCount}장 중 <strong>{gotCount}</strong>개를 인출했어요
+            {againCount > 0 && <> · 놓친 {againCount}개는 세션 안에서 한 번 더 만났어요</>}. 남은 챕터는 볼트에서
+            이어가세요.
           </p>
           {/* ID-11 — 예측이 얼마나 맞았나. **비율을 안 쓴다**(표본이 최대 3건이라 %는 정밀해 보이는
               소음이다) · 과신은 따로 짚는다: "될 줄 알았는데 안 됨"이 복습을 건너뛰게 하는 방향이다. */}
@@ -164,7 +185,8 @@ export default function ReviewRun() {
   }
 
   const item = queue[idx]!;
-  const step = `${idx + 1} / ${total}`;
+  /* 재큐된 카드는 그렇다고 말한다 — 안 말하면 아까 넘긴 카드가 다시 뜬 것이 결함으로 읽힌다. */
+  const step = `${item.again ? '↻ 다시 · ' : ''}${idx + 1} / ${total}`;
 
   return (
     <div className={WRAP}>
