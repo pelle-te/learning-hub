@@ -132,6 +132,21 @@ test('today · onthisday · dark', async ({ page }) => {
   await expect(page).toHaveScreenshot('today-onthisday-dark.png', { fullPage: true });
 });
 
+/* N-5 하루의 국면 — **늦은 시각의 today**.
+
+   기본 스냅샷은 09:00 에 고정돼 있어(FIXED) 마감 국면을 원리적으로 못 담는다. 국면 판정
+   자체는 순수 함수로 유닛에서 잠갔지만, 이 저장소가 두 번 물린 부류는 "로직은 맞는데 화면에
+   안 붙어 있는" 것이라(§15-4) 실렌더가 따로 필요하다. 늦은 시각엔 남은 가용 창이 0이 되어
+   '🌙 하루 닫기'가 서고, 09:00 스냅샷들은 한 장도 안 바뀐다. */
+test('today · closing · dark', async ({ page }) => {
+  await boot(page, 'dark', SEED, new Date('2026-06-15T23:40:00'));
+  await page.goto('/today');
+  await expect(page.locator('#main')).toBeVisible();
+  await expect(page.getByText('하루 닫기', { exact: false })).toBeVisible();
+  await settle(page);
+  await expect(page).toHaveScreenshot('today-closing-dark.png', { fullPage: true });
+});
+
 // 액센트 노브 — UI설정(lh_ui_v1) accent를 바꾸면 네온이 통째로 교체되는지(--acc 파생 cascade).
 test('stats · accent-lime', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' }); // boot()과 동일 — 캔버스 애니메이션 레이스 봉쇄

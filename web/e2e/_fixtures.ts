@@ -576,7 +576,12 @@ export async function settle(page: Page) {
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
 }
 
-export async function boot(page: Page, theme: string, seed: object = SEED) {
+/**
+ * @param at 벽시계 고정 시각. 기본은 {@link FIXED}(09:00) — **기존 스냅샷 전량의 전제**라
+ *   바꾸면 안 된다. N-5 처럼 *하루의 국면*이 걸린 장면만 늦은 시각을 넘긴다(그 장면은 자기
+ *   스냅샷을 따로 갖는다).
+ */
+export async function boot(page: Page, theme: string, seed: object = SEED, at: Date = FIXED) {
   // reducedMotion을 명시 await — config(use.reducedMotion)만 믿으면 드물게 첫 로드와 레이스해
   // AmbientCanvas가 애니메이션 프레임으로 돌기 시작(스크린샷 불안정 → flaky). 여기서 확정한다.
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -608,7 +613,7 @@ export async function boot(page: Page, theme: string, seed: object = SEED) {
       ledger: LEDGER_FIXTURE,
     } as Record<string, unknown>,
   );
-  await page.clock.install({ time: FIXED });
+  await page.clock.install({ time: at });
   await page.addInitScript(
     ([s, th]) => {
       try {

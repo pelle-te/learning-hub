@@ -19,12 +19,15 @@ import { isDone, studyStreak } from '@/lib/persistence';
 import { pickFocus, focusMinutes } from '@/lib/focusState';
 import { openBacklog, setRitual, CBMS_INFO } from '@/lib/methodology';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter, sessionTimeMap } from '@/lib/scheduler';
+import { dayPhase } from '@/lib/dayPhase';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue } from '@/lib/anki';
 import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
 import { onThisDay } from '@/lib/records';
+import { dayShape } from '@/lib/insights';
+import type { AppState } from '@/lib/types';
 import { ProgressRing } from '@/components/ProgressRing';
 import { FlowRail, type FlowNode } from './FlowRail';
 import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, mmss, DOW_MON } from '@/lib/utils';
@@ -137,7 +140,73 @@ const tone = (hot: boolean): string => (hot ? S.hot : S.cool);
 /** Anki 는 **미연결(null)이 hot 이 아니다** — 설정 문제라 매일 뜨고, 매일 뜨는 액센트는 소음이 된다. */
 const ankiTone = (due: number | null | undefined): string => tone(due != null && due > 0);
 
-export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
+/* ── N-5 마감 국면의 두 조각 ────────────────────────────────────────────────
+   본문에서 떼어 낸 것은 스타일이 아니라 **분기**다 — `TodaySignature` 는 이미 인지복잡도
+   래칫(77) 바로 아래에 있어서, 조건부 JSX 를 그 안에 더 쌓으면 게이트가 막는다. 래칫이
+   "더 나빠지지 않는다"만 보장한다는 뜻이 정확히 이것이다: 새 분기는 새 이름을 갖는다. */
+
+/** '오늘의 모양'(ID-5) 한 줄 — 닫을 때가 아니거나 잴 것이 없으면 아무것도 안 그린다.
+ *  ⚠ `when` 을 **인자로 받아 자기가 판정한다**: 호출부에서 `closing && …` 로 감싸면 그 분기가
+ *  본문의 복잡도로 잡히고, 이 파일은 래칫 바로 아래에 있다. 계산도 여기서 해야 안 그릴 때
+ *  안 돈다(호출부가 삼항으로 넘기면 그 삼항이 또 한 분기다). */
+function ShapeLine({ state, ds, when }: { state: AppState; ds: string; when: boolean }) {
+  if (!when) return null;
+  const shape = dayShape(state, ds);
+  if (shape.sessions === 0 && !shape.learned) return null;
+  return (
+    <div className={S.yesterday}>
+      <span aria-hidden="true">🌙</span> 오늘의 모양 — {shape.subjects}과목 · {shape.sessions}세션 · {shape.focusMin}분
+      {shape.learned && (
+        <>
+          {' '}
+          · <b className="font-bold text-[color:var(--yesterday-b)]">{shape.learned}</b>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 포모도로 프리셋(25·50분).
+ *
+ *  ⚠ N-5 — 닫을 때가 되면 **사라진다**. 남은 창이 가장 짧은 블록도 못 담는 시점에 25·50분을
+ *  권하는 것은 있지도 않은 시간을 제안하는 것이다. 부수 효과로 버튼 셋이 한 줄에 몰려 글자가
+ *  두 줄로 접히던 것도 함께 풀린다 — 실렌더 확인이 그걸 잡았다(§15-4).
+ *  ⚠ `hidden` 속성으로는 안 된다: `inline-flex` 유틸이 display 를 세워 이긴다(실측). */
+function Presets({ focusMin, onPick, when }: { focusMin: number; onPick: (m: number) => void; when: boolean }) {
+  if (!when) return null;
+  return (
+    <span className={S.presets}>
+      {[25, 50]
+        .filter((m) => m !== focusMin)
+        .map((m) => (
+          <button key={m} type="button" className={S.preset} onClick={() => onPick(m)} aria-label={`${m}분 집중 시작`}>
+            {m}′
+          </button>
+        ))}
+    </span>
+  );
+}
+
+/** 하루를 닫는 길 — 의식 카드로 열고 '내일 한 줄'에 커서까지 놓는다(`Today.tsx` 가 그 포커스를 소유). */
+function CloseDayCta({
+  onOpenMore,
+  cap,
+  when = true,
+}: {
+  onOpenMore: (focus?: 'ritual') => void;
+  cap: string;
+  when?: boolean;
+}) {
+  if (!when) return null;
+  return (
+    <button type="button" className={`${S.cta} ${S.ctaGhost}`} onClick={() => onOpenMore('ritual')}>
+      <span className={S.ctaGo}>🌙 하루 닫기</span>
+      <span className={S.ctaCap}>{cap}</span>
+    </button>
+  );
+}
+
+export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') => void }) {
   const state = useApp((s) => s.state);
   const ankiLive = useRuntime((s) => s.cache._ankiLive);
   const res = useSchedule();
@@ -234,7 +303,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const freeIntervals: [number, number][] = L
     ? L.free
     : freeWindowsForWeekday(state, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
-  const freeLeftH = Math.round((freeMinAfter(freeIntervals, nowMin) / 60) * 10) / 10;
+  const freeLeftMin = freeMinAfter(freeIntervals, nowMin);
+  const freeLeftH = Math.round((freeLeftMin / 60) * 10) / 10;
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
   const recallN = recall ? retrievableCount(state, ds) : 0; // '회상 N개 대기' — 실제 대기 수량
@@ -306,6 +376,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
     usePrefill.getState().request('sum', e.it.sid, ds);
     ui.toast(`${e.it.name} — 기록 프리필됨 ✍`, 'info');
   };
+
+  /* ── N-5 하루의 국면 ────────────────────────────────────────────────
+     판정은 순수 함수가 `layoutDay` 산출물에서만 뽑는다(임의 시각 상수 없음 — 근거는
+     `lib/dayPhase.ts` 머리주석). 여기서 시각으로 다시 나누기 시작하면 밤샘하는 날에
+     화면이 틀린 질문을 크게 던진다. */
+  const phase = dayPhase({
+    todayTotal,
+    pending: pending.length,
+    freeLeftMin,
+    // 남은 것 중 가장 짧은 블록 — "자리에 들어가는가"의 기준(dayPhase 머리주석).
+    shortestPendingMin: pending.reduce((m, e) => Math.min(m, e.it.min || 0), Number.POSITIVE_INFINITY),
+  });
+  const closing = phase === 'closing';
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
   const focusMin = focusMinutes(focus);
@@ -527,6 +610,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               <b className="font-bold text-[color:var(--yesterday-b)]">{prevNote}</b>
             </div>
           )}
+          <ShapeLine state={state} ds={ds} when={closing} />
           {/* ID-4 — On This Day 회고: 달력상 같은 날의 과거 실기록 한 줄(회상 카드와 달리 달력 정합). */}
           {onThis && (
             <div className={S.yesterday}>
@@ -549,10 +633,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 <span className={S.ctaCap}>{timer.kind === 'break' ? '☕ 휴식 · ■ 정지' : '■ 정지'}</span>
               </button>
             ) : allDone ? (
-              <button type="button" className={`${S.cta} ${S.ctaGhost}`} onClick={() => go('/journal')}>
-                <span className={S.ctaGo}>✓ 오늘 완료</span>
-                <span className={S.ctaCap}>기록 보기 →</span>
-              </button>
+              /* N-5 — 다 한 날의 다음 걸음은 '기록 보기'가 아니라 **하루를 닫는 것**이다.
+                 종전엔 그 행위가 ＋블록 상세 → 오버레이 → 스크롤 뒤에 있었다. */
+              <CloseDayCta onOpenMore={onOpenMore} cap="내일 한 줄 →" />
             ) : focus ? (
               <>
                 <button
@@ -564,22 +647,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                   <span className={S.ctaGo}>▶ 집중 시작</span>
                   <span className={S.ctaCap}>{focusMin}분</span>
                 </button>
-                {/* 포모도로 프리셋 — 블록 길이 대신 25/50분 명시 시작. */}
-                <span className={S.presets}>
-                  {[25, 50]
-                    .filter((m) => m !== focusMin)
-                    .map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        className={S.preset}
-                        onClick={() => startTimer(m)}
-                        aria-label={`${m}분 집중 시작`}
-                      >
-                        {m}′
-                      </button>
-                    ))}
-                </span>
+                {/* N-5 — 못 한 채로 끝나는 날. 남은 창이 0인데도 화면은 계속 "집중 시작"만
+                    크게 띄우며 있지도 않은 시간을 쓰라고 했다. 시작을 **지우지는 않는다**
+                    (밤샘은 사용자의 선택이다) — 닫는 길을 옆에 낼 뿐이고, 그래서 채움 버튼은
+                    여전히 하나다(D-6 액센트 예산). */}
+                <Presets focusMin={focusMin} onPick={startTimer} when={!closing} />
               </>
             ) : hasItems ? (
               // §7: 과목은 있으나 오늘 포커스가 없음 → 오늘 계획을 직접 짜는 단일 목적지(계획 › 캘린더 일 뷰).
@@ -593,6 +665,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 <span className={S.ctaCap}>시작하기 →</span>
               </button>
             )}
+            {/* N-5 — 닫는 길은 **어느 분기에도** 있다. 처음엔 `focus` 분기 안에 뒀는데, 늦은
+                시각엔 화면이 다른 분기를 타서(포커스가 없다) 정작 필요한 순간에 안 보였다 —
+                실렌더 확인이 그걸 잡았다(§15-4). 완료 화면은 자기 CTA 가 이미 닫기라 뺀다.
+                채움 버튼은 여전히 하나다(D-6): 이건 ghost 다. */}
+            <CloseDayCta onOpenMore={onOpenMore} cap="남은 창 없음 →" when={closing && !allDone && !timer} />
             <span className={S.clock}>{toHM(nowMin)}</span>
           </div>
         </div>
@@ -702,7 +779,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </button>
             </div>
           )}
-          <button type="button" className={S.more} onClick={onOpenMore}>
+          <button type="button" className={S.more} onClick={() => onOpenMore()}>
             ＋ 블록 상세 · 일일 의식 · 흐름 가이드
           </button>
         </aside>

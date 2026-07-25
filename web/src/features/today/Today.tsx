@@ -153,7 +153,26 @@ export default function Today() {
   const [moreOpen, setMoreOpen] = useState(false);
   const morePanelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(moreOpen, morePanelRef); // '오늘 상세' 오버레이 포커스 트랩 + 복원.
-  const openMore = useCallback(() => setMoreOpen(true), []);
+  /* N-5 — 오버레이를 **어디로 열지**를 호출부가 정한다. 하루를 닫는 행위가 화면에서 가장
+     접근성 나쁜 곳(＋ → 오버레이 → 스크롤)에 있던 것이 이 항목의 본체였다: '하루 닫기'로
+     열면 의식 카드로 스크롤하고 '내일 한 줄'에 커서까지 놓는다. 그래야 1클릭으로 끝난다.
+     ⚠ `useFocusTrap` 이 열릴 때 패널에 포커스를 주므로, 우리 포커스는 **그 뒤**여야 한다.
+     rAF 한 프레임을 기다리는 것이 그 순서다(경쟁하면 조용히 지고, 증상은 "가끔 커서가
+     안 잡힘"이라 재현이 안 된다). */
+  const [moreFocus, setMoreFocus] = useState<'ritual' | undefined>(undefined);
+  const openMore = useCallback((focus?: 'ritual') => {
+    setMoreFocus(focus);
+    setMoreOpen(true);
+  }, []);
+  useEffect(() => {
+    if (!moreOpen || moreFocus !== 'ritual') return;
+    const raf = requestAnimationFrame(() => {
+      const el = document.getElementById('ritual-note');
+      el?.scrollIntoView({ block: 'center' });
+      el?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [moreOpen, moreFocus]);
 
   useEffect(() => {
     if (!moreOpen) return;
