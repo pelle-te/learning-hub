@@ -15,6 +15,7 @@
 ============================================================ */
 import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
+import { useSwipe } from '@/hooks/useSwipe';
 import { useSchedule } from '@/store/selectors';
 import { todayISO } from '@/lib/utils';
 import { buildReviewQueue } from '@/lib/reviewQueue';
@@ -50,6 +51,20 @@ export default function ReviewView(): React.JSX.Element {
     setRevealedAt(-1);
   };
 
+  /* UX-B2 카드 스와이프 — 인출/건너뛰기/펼치기가 버튼 3개 조준이었다. 플래시카드의 지배적
+     관용(우=했다·좌=넘김·탭=뒤집기)을 그대로 쓴다. 큐 로직(`buildReviewQueue`)은 한 줄도 안 바뀐다.
+     ⚠ 버튼은 전부 남는다 — 스와이프는 어포던스가 숨어 있어 발견성이 낮고 키보드·스위치 접근에는
+       닿지 않는다. 훅도 버튼 위 탭은 삼킨다('건너뛰기'를 눌렀는데 펼쳐지는 일이 없게).
+     ⚠ 훅은 early return 위에 있어야 한다(훅 규칙) → 현재 카드가 없을 때는 핸들러를 안 준다.
+     ⚠ 챕터 카드는 펼칠 것이 없다(원래 요약·메모가 없다) → 그 카드에선 탭을 안 건다. */
+  const cur = queue[idx];
+  const revealable = !!cur && cur.kind !== 'chapter';
+  const swipe = useSwipe({
+    onSwipeRight: cur ? () => advance(true) : undefined,
+    onSwipeLeft: cur ? () => advance(false) : undefined,
+    onTap: revealable && !revealed ? () => setRevealedAt(idx) : undefined,
+  });
+
   if (total === 0) {
     return (
       <section className="flex flex-col items-center gap-3 p-6 text-center">
@@ -83,7 +98,7 @@ export default function ReviewView(): React.JSX.Element {
   const step = `${idx + 1} / ${total}`;
 
   return (
-    <section className="flex flex-col gap-4 p-4">
+    <section {...swipe} className="flex flex-col gap-4 p-4">
       <div
         className="h-1 w-full overflow-hidden rounded-full bg-line"
         role="progressbar"
@@ -202,6 +217,13 @@ export default function ReviewView(): React.JSX.Element {
           </div>
         </div>
       ) : null}
+
+      {/* 숨은 제스처를 한 줄로 알린다 — 버튼이 정본이라 없어도 쓸 수 있지만, 알려 주지 않으면
+          만들어 둔 손맛을 아무도 못 찾는다(폰 할 일 스와이프를 드롭한 근거가 '발견성'이었다).
+          `aria-hidden` — SR 사용자에게 손가락 방향 안내는 소음이고, 같은 동작이 버튼에 있다. */}
+      <p className="text-center text-2xs text-mut" aria-hidden="true">
+        ← 건너뛰기 · 인출 →{revealable && !revealed ? ' · 탭하면 펼침' : ''}
+      </p>
     </section>
   );
 }

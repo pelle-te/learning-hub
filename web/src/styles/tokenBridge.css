@@ -111,6 +111,13 @@
      1글자 폭으로 무너졌다. 린트·빌드는 전량 녹색이었고 화면을 띄워서야 보였다.
      → **토큰 이름은 Tailwind 네임스페이스 전체에서 유일해야 한다.** */
   --spacing-runner-pad: var(--pad-runner);
+  /* 폰 하단 안전영역(UX-B1) — 고정 탭바가 iOS 홈 인디케이터·안드로이드 제스처 바 아래로
+     잘리지 않게. `phone.html` 이 `viewport-fit=cover` 라 `env()` 가 실제 값을 준다.
+     ⚠ 임의값(`pb-[env(...)]`)을 안 쓰는 이유는 phone.css 규약 3 — "예외가 필요하면 토큰을
+       먼저 늘린다". env() 를 모르는 브라우저에선 폴백 0 으로 떨어져 기본 패딩만 남는다.
+     ⚠ 기본 패딩을 값에 합쳐 둔다. 안 그러면 안전영역이 0 인 기기(대부분의 안드로이드·데스크톱
+       브라우저)에서 탭바 글자가 화면 맨 아래 모서리에 붙는다. */
+  --spacing-safe-b: calc(var(--sp-2) + env(safe-area-inset-bottom, 0px));
 
   /* 폭 상한 — `min(720px, 100%)` 는 `w-full max-w-runner` 로 표현된다. */
   --container-runner: 720px;

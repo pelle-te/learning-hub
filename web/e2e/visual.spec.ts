@@ -379,3 +379,66 @@ for (const tab of TABS_MOBILE) {
     await expect(page).toHaveScreenshot(`${tab}-mobile.png`, { fullPage: true });
   });
 }
+
+/* ── 폰 웹앱(C-6) — **브라우저 렌더 커버리지가 0 이던 화면** ─────────────────────────
+   `PhoneApp` 은 클라우드 등록을 마쳐야 렌더된다(미연결이면 `Connect`). 그래서 `phone.spec.ts`
+   는 등록 화면까지밖에 못 봤고, 폰 5화면은 지금껏 진짜 브라우저에서 **한 번도 안 찍혔다** —
+   정적 검사·유닛만으로 폰 레이아웃을 바꾸는 것이 §15-4 가 금지하는 바로 그 상태였다.
+
+   등록은 서버가 코드를 발급하므로 **네트워크가 유일한 관문**이다. 그 응답만 가로채면 앱이
+   자기 경로로 SQLite 에 설정을 쓰고 그대로 뜬다 — 프로덕션 표면을 하나도 안 늘린다.
+
+   ⚠ `clock.install` 이 아니라 `setFixedTime` 이다. install 은 타이머를 통째로 가짜로 만드는데
+     폰 부팅은 wasm·워커·OPFS 라 그 위에서 멈출 수 있다. 여기 필요한 건 '오늘'의 고정뿐이다.
+   ⚠ `fullPage: false` 다 — 이 장의 요지가 **하단 탭바가 뷰포트 바닥에 붙는가**인데
+     fullPage 는 sticky 를 흐름상 위치로 펴서 그 질문을 지운다. */
+async function bootPhone(page: Page): Promise<void> {
+  await page.setViewportSize(MOBILE);
+  await page.clock.setFixedTime(FIXED);
+  // ⚠ 등록 라우트를 **나중에** 건다 — Playwright 는 나중에 등록한 핸들러가 이긴다.
+  await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+  await page.route('**/api/enroll/claim', (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ deviceId: 'e2e-device', refreshToken: 'e2e-refresh' }),
+    }),
+  );
+  await page.goto('/phone.html');
+  await page.getByLabel('등록 코드').fill('E2E-CODE');
+  await page.getByRole('button', { name: '연결' }).click();
+  await expect(page.getByRole('group', { name: '화면 전환' })).toBeVisible();
+}
+
+test('phone · shell · dark', async ({ page }) => {
+  await bootPhone(page);
+  await settle(page);
+  await expect(page).toHaveScreenshot('phone-shell-dark.png');
+});
+
+test('phone · 하단 탭바로 화면을 바꾼다(UX-B1)', async ({ page }) => {
+  await bootPhone(page);
+  const tabs = page.getByRole('group', { name: '화면 전환' });
+  // 탭바가 **본문 뒤**에 온다 = 문서 순서상 마지막(엄지 지대). 위치만 옮기고 계약은 그대로.
+  await expect(tabs.getByRole('button', { name: '홈' })).toHaveAttribute('aria-pressed', 'true');
+  await tabs.getByRole('button', { name: '주' }).click();
+  await expect(tabs.getByRole('button', { name: '주' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tabs.getByRole('button', { name: '홈' })).toHaveAttribute('aria-pressed', 'false');
+  // 탭바는 뷰포트 바닥에 붙어 있다(sticky 가 실제로 먹는지 — jsdom 이 원리적으로 못 보는 축).
+  const box = (await tabs.boundingBox())!;
+  const vh = page.viewportSize()!.height;
+  expect(box.y + box.height).toBeGreaterThan(vh - 4);
+});
+
+test('phone · 본문 좌우 스와이프가 날짜를 옮긴다(UX-B3)', async ({ page }) => {
+  await bootPhone(page);
+  await page.getByRole('group', { name: '화면 전환' }).getByRole('button', { name: '일' }).click();
+  const heading = page.locator('main h2').first();
+  const before = await heading.textContent();
+  // 손가락 궤적을 합성한다 — 실 마우스는 pointerType='mouse' 라 훅이 의도적으로 무시한다.
+  const pt = (x: number) => ({ pointerId: 1, pointerType: 'touch', clientX: x, clientY: 400 });
+  await page.dispatchEvent('main', 'pointerdown', pt(300));
+  await page.dispatchEvent('main', 'pointermove', pt(270));
+  await page.dispatchEvent('main', 'pointerup', pt(200));
+  await expect(heading).not.toHaveText(before ?? '');
+});
