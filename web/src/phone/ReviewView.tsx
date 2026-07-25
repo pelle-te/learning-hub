@@ -19,6 +19,7 @@ import { useSwipe } from '@/hooks/useSwipe';
 import { useSchedule } from '@/store/selectors';
 import { todayISO } from '@/lib/utils';
 import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import type { ChapterReview } from '@/lib/spacedReview';
 import { CBMS_INFO } from '@/lib/methodology';
 
 const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
@@ -26,6 +27,30 @@ const BADGE = 'inline-flex w-fit rounded-full bg-tint-acc px-2 py-1 text-2xs fon
 const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint px-4 py-3 text-sm leading-relaxed';
 const PRIMARY = 'min-h-11 flex-1 rounded-md bg-acc px-4 text-sm font-semibold text-on-acc';
 const GHOST = 'min-h-11 rounded-md border border-line px-4 text-sm text-mut';
+
+/** 챕터 카드 문구(N-10) — 유지(끝낸 챕터)는 **왜 돌아왔는지**를 말해야 한다. 설명이 없으면
+ *  끝낸 챕터가 다시 뜬 것이 "앱이 완료를 잊었다"로 읽힌다. 앵커를 모르면 모른다고 말한다.
+ *  ⚠ 컴포넌트 밖 순수 함수인 이유는 인지복잡도 래칫이다 — 이 컴포넌트는 이미 한계에 붙어 있어
+ *  본문에 분기를 더하면 게이트가 깨진다(래칫이 의도대로 작동한 자리). */
+function chapterCopy(ch: ChapterReview): { badge: string; age: string; body: string } {
+  if (!ch.maintenance)
+    return {
+      badge: ch.risk === 'overdue' ? '많이 밀림' : '복습 때',
+      age: ` · ${ch.daysSince}일 방치`,
+      body: `배웠지만 ${ch.daysSince}일 안 봤어요. 지금 머릿속으로 핵심을 인출해 망각곡선을 리셋하세요.`,
+    };
+  if (!ch.lastDs)
+    return {
+      badge: '유지',
+      age: '',
+      body: '끝낸 챕터인데 마지막으로 본 날이 기록에 없어요. 한 번 인출하면 유지 주기가 잡힙니다.',
+    };
+  return {
+    badge: '유지',
+    age: ` · ${ch.daysSince}일 방치`,
+    body: `끝낸 챕터예요. 마지막으로 본 지 ${ch.daysSince}일 — 유지 인출로 붙잡아 둡니다.`,
+  };
+}
 
 export default function ReviewView(): React.JSX.Element {
   const state = useApp((s) => s.state);
@@ -200,10 +225,11 @@ export default function ReviewView(): React.JSX.Element {
         <div className={CARD}>
           <div className="flex items-center justify-between gap-2">
             <span className={`${BADGE} ${item.ch.risk === 'overdue' ? 'bg-tint-bad text-bad' : ''}`}>
-              {item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}
+              {chapterCopy(item.ch).badge}
             </span>
             <span className="text-2xs text-mut">
-              {step} · {item.ch.daysSince}일 방치
+              {step}
+              {chapterCopy(item.ch).age}
             </span>
           </div>
           <h2 className="m-0 flex items-center gap-2 text-base leading-normal font-semibold text-txt">
@@ -214,9 +240,7 @@ export default function ReviewView(): React.JSX.Element {
             />
             {item.ch.subject} <span className="text-sm font-medium text-mut">{item.ch.chapter}</span>
           </h2>
-          <p className="text-sm text-mut">
-            배웠지만 {item.ch.daysSince}일 안 봤어요. 지금 머릿속으로 핵심을 인출해 망각곡선을 리셋하세요.
-          </p>
+          <p className="text-sm text-mut">{chapterCopy(item.ch).body}</p>
           <div className="mt-1 flex gap-2">
             <button type="button" onClick={() => advance(false)} className={GHOST}>
               건너뛰기

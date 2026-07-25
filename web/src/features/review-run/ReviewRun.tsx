@@ -420,10 +420,11 @@ export default function ReviewRun() {
         <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="chapter" data-risk={item.ch.risk}>
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="chapter" data-risk={item.ch.risk}>
-              {item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}
+              {item.ch.maintenance ? '유지' : item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}
             </span>
             <span className="ds-tiny">
-              {step} · {item.ch.daysSince}일 방치
+              {step}
+              {item.ch.maintenance && !item.ch.lastDs ? '' : ` · ${item.ch.daysSince}일 방치`}
             </span>
           </div>
           <h2 className={PROMPT}>
@@ -434,8 +435,22 @@ export default function ReviewRun() {
             />
             {item.ch.subject} <small className="text-base font-medium opacity-70">{item.ch.chapter}</small>
           </h2>
+          {/* 유지 카드는 **왜 돌아왔는지**를 말해야 한다 — 끝낸 챕터가 설명 없이 다시 뜨면
+              사용자 눈엔 앱이 완료를 잊은 것으로 읽힌다(앵커를 모르는 경우는 그렇다고 말한다). */}
           <p className="ds-muted">
-            배웠지만 {item.ch.daysSince}일 안 봤어요(마지막 {item.ch.lastDs}). 지금 인출해 망각곡선을 리셋하세요.
+            {item.ch.maintenance ? (
+              item.ch.lastDs ? (
+                <>
+                  끝낸 챕터예요. 마지막으로 본 지 {item.ch.daysSince}일({item.ch.lastDs}) — 유지 인출로 붙잡아 둡니다.
+                </>
+              ) : (
+                <>끝낸 챕터인데 마지막으로 본 날이 기록에 없어요. 한 번 인출하면 그때부터 유지 주기가 잡힙니다.</>
+              )
+            ) : (
+              <>
+                배웠지만 {item.ch.daysSince}일 안 봤어요(마지막 {item.ch.lastDs}). 지금 인출해 망각곡선을 리셋하세요.
+              </>
+            )}
           </p>
         </div>
       )}

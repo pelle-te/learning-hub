@@ -1,7 +1,7 @@
 /* ChapterEditor — 과목의 챕터 표(추가·삭제·수정·드래그 정렬·일괄 붙여넣기).
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
 import { useCallback, useState } from 'react';
-import { rid } from '@/lib/utils';
+import { rid, todayISO } from '@/lib/utils';
 import { ui } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
 import type { AppState, Item } from '@/lib/types';
@@ -26,6 +26,17 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   );
 
   const addCh = () => upd((it) => void it.chapters.push({ id: rid(), name: '새 챕터', hours: 2, done: false }));
+  /** 완료 토글 — **끝낸 날을 함께 남긴다**(N-10). 스케줄러는 done 챕터의 블록을 더 이상 안 만들어
+   *  계획이 재생성되는 순간 그 챕터의 날짜 링크가 사라지므로, 여기서 안 찍으면 "언제 끝냈나"를
+   *  앱이 영영 모른다 → 유지 복습이 걸 사다리가 없다. 해제하면 지운다(거짓 앵커 방지). */
+  const setDone = (i: number, on: boolean) =>
+    mutate((st) => {
+      const ch = st.items.find((x) => x.id === id)?.chapters[i];
+      if (!ch) return;
+      ch.done = on;
+      if (on) ch.doneDs = todayISO(st);
+      else delete ch.doneDs;
+    });
   // 챕터 삭제 — 진행 기록도 함께 사라지므로 1단계 백업 + 되돌리기 토스트(과목 삭제·색 재배정과 동일 언두 관용).
   const delCh = (i: number) => {
     const nm = chs[i]?.name || '이 챕터';
@@ -130,7 +141,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       <input
                         type="checkbox"
                         checked={c.done}
-                        onChange={(e) => upd((it) => void (it.chapters[i]!.done = e.target.checked))}
+                        onChange={(e) => setDone(i, e.target.checked)}
                         aria-label="완료"
                       />
                     </td>

@@ -4,8 +4,13 @@
    (완료된) 세션에서 챕터별 '마지막으로 만진 날'을 뽑아, 망각곡선상 오래 방치된 챕터를 위험으로 표식.
 
    신호원: 스케줄의 완료 세션(new/rev/blank) + chapters. isDone으로 게이팅 — 계획만 있고 안 한 건 제외.
-   ⚠ 한계: 챕터를 'done' 처리하면 스케줄 계획에서 빠져(=이 스캔에서도 빠짐) — 진행 중 과목의
-      '배웠지만 다시 안 본' 챕터를 겨냥한다(가장 잊기 쉬운 구간). REVIEW_OFFSETS(1·3·7·16)와 정렬.
+   이 스캔은 **진행 중** 챕터를 본다(REVIEW_OFFSETS 1·3·7·16 정렬).
+
+   ⚠ 끝낸(done) 챕터는 여기 원리적으로 안 들어온다 — 스케줄러가 `!done` 만 계획에 넣으므로
+      **계획이 재생성되는 순간 과거 블록에서도 사라진다**. 예전엔 그 사실이 이 자리에 "⚠ 한계"로
+      적혀 있었는데, 그건 문서가 아니라 결함이었다: 끝낸 날부터 그 챕터를 다시 볼 앱 내 경로가
+      0이 된다(6개월 전 챕터는 존재하지 않는 것과 같다). 그 구멍은 아래 **유지(maintenance)
+      사다리**가 별도 함수로 메운다 — 입력이 '스케줄'이 아니라 '챕터 카탈로그'다.
 ============================================================ */
 import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
 import { isDone } from './persistence';
@@ -21,6 +26,8 @@ export interface ChapterReview {
   lastDs: string; // 마지막으로 만진 날
   daysSince: number; // 오늘로부터 경과일
   risk: ReviewRisk;
+  /** 유지(끝낸 챕터) 출신 표식 — 본 사다리 항목엔 없다(N-10). 큐·UI 가 한 배열에서 구분한다. */
+  maintenance?: true;
 }
 
 /** 간격반복의 마지막 오프셋(16) 기준: 그 이상 방치=overdue, 마지막 직전(7)↑=due. */
@@ -113,6 +120,66 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
     });
   }
   return out.sort((a, b) => b.daysSince - a.daysSince || (a.subject < b.subject ? -1 : 1));
+}
+
+/* ── 유지(maintenance) 큐 — 끝낸 챕터가 사라지지 않게 (N-10) ─────────────────
+   `chapterReviews` 의 입력은 **스케줄**이라 done 챕터를 볼 수 없다(엔진이 블록을 안 만든다).
+   그래서 여기선 입력을 뒤집어 **챕터 카탈로그**(`items[].chapters`)에서 done 만 훑는다.
+
+   설계 결정 셋:
+   ① **사다리를 새로 짓지 않는다** — 본 사다리(1·3·7·16·34)가 대략 2배 성장이므로 꼬리(34)에서
+      같은 성장률로 잇는다. "왜 하필 그 숫자"가 안 생기고, 본 사다리를 고치면 여기가 따라온다.
+   ② **한 단 강등 — 유지는 절대 `overdue` 가 되지 않는다.** 진행 중 챕터의 overdue 가 유지에
+      밀리면 그건 간격반복이 아니라 향수(鄕愁)다. 최대 `due` 라 티어 정렬만으로 불변식이 선다.
+   ③ **앵커를 모르는 챕터**(이 기능 이전에 끝낸 것 · `doneDs` 없음)는 '모름'으로 두고 `due` 로만
+      취급한다 — 오래됐다고 단정하지 않는다. 한 번 인출하면 `reviewTouches` 가 진짜 앵커를
+      남기므로 스스로 교정된다. 수십 장이 한꺼번에 몰리는 것은 소비처의 **세션 상한**이 막는다
+      (`reviewQueue.MAINTENANCE_CAP`) — 상한 없이 이걸 켜면 "끝냈는데 전부 다시"가 된다. */
+export const MAINTENANCE_OFFSETS: readonly number[] = [
+  REVIEW_TAIL_OFFSET,
+  REVIEW_TAIL_OFFSET * 2,
+  REVIEW_TAIL_OFFSET * 4,
+]; // 34 · 68 · 136
+
+export interface MaintenanceReview extends ChapterReview {
+  /** 유지 큐 출신 표식 — 본 사다리 항목과 한 배열에 섞일 때의 구분자(UI 문구·정렬). */
+  maintenance: true;
+  /** 앵커(끝낸 날 또는 마지막 인출)를 아는가. false 면 `daysSince` 는 의미 없다. */
+  anchored: boolean;
+}
+
+/** 끝낸 챕터의 유지 상태. 앵커를 아는 것 먼저(오래된 순) → 모르는 것(과목·챕터명 결정 순). */
+export function maintenanceReviews(state: AppState, todayDs: string): MaintenanceReview[] {
+  const touches = state.reviewTouches || {};
+  const out: MaintenanceReview[] = [];
+  for (const it of state.items || []) {
+    for (const ch of it.chapters || []) {
+      if (!ch.done) continue;
+      // 앵커 = 끝낸 날과 마지막 인출 중 **최신**(미래 값은 시드·시계 어긋남 방어로 무시).
+      const cands = [ch.doneDs, touches[it.id + '|' + ch.name]].filter((d): d is string => !!d && d <= todayDs);
+      const lastDs = cands.length ? cands.sort()[cands.length - 1]! : '';
+      const anchored = !!lastDs;
+      const daysSince = anchored ? dayDiff(lastDs, todayDs) : 0;
+      out.push({
+        sid: it.id,
+        subject: it.name,
+        color: it.color,
+        chapter: ch.name,
+        lastDs,
+        daysSince,
+        // 강등된 사다리: 첫 칸(34일)을 넘겼거나 언제인지 모르면 due, 그 외 fresh. overdue 는 없다.
+        risk: !anchored || daysSince >= MAINTENANCE_OFFSETS[0]! ? 'due' : 'fresh',
+        maintenance: true,
+        anchored,
+      });
+    }
+  }
+  return out.sort(
+    (a, b) =>
+      Number(b.anchored) - Number(a.anchored) ||
+      b.daysSince - a.daysSince ||
+      (a.subject + a.chapter < b.subject + b.chapter ? -1 : 1),
+  );
 }
 
 /** 복습 위험(due/overdue) 챕터만, 위험 큰 순 상위 cap개. */
@@ -257,9 +324,9 @@ export function dueForecast(
   // dayOffset(1..horizon) → 그날 계상된 챕터들
   const buckets = new Map<number, ForecastChapter[]>();
   const hoursOf = chapterHours(state);
-  for (const ch of chapterReviews(state, days, todayDs)) {
+  const project = (ch: ChapterReview, offsets: readonly number[]): void => {
     const hours = hoursOf.get(ch.sid + '|' + ch.chapter) ?? 1;
-    for (const off of FORECAST_OFFSETS) {
+    for (const off of offsets) {
       const d = off - ch.daysSince; // 오늘로부터 이 복습까지 남은 일수
       if (d < 1 || d > horizon) continue;
       const at = buckets.get(d);
@@ -267,7 +334,13 @@ export function dueForecast(
       if (at) at.push(entry);
       else buckets.set(d, [entry]);
     }
-  }
+  };
+  for (const ch of chapterReviews(state, days, todayDs)) project(ch, FORECAST_OFFSETS);
+  /* 끝낸 챕터의 유지 복습도 같은 파도다(N-10) — 예보만 그것을 못 보면 "계획엔 있는데 예보엔
+     없는 일"이 생긴다. ⚠ **앵커를 아는 것만** 투영한다: 언제 끝냈는지 모르는 챕터는 미래
+     날짜를 특정할 수 없고, 모르는 것을 특정 날짜에 그리면 그 날의 가용선 판정까지 거짓이 된다
+     (그쪽은 러너의 세션 상한이 소화한다). */
+  for (const ch of maintenanceReviews(state, todayDs)) if (ch.anchored) project(ch, MAINTENANCE_OFFSETS);
   const ML = state.moduleLen || 120;
   const revMin = reviewBlockMin(ML);
   const dayOf = new Map(days.map((d) => [d.ds, d]));

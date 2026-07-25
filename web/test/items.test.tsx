@@ -159,3 +159,35 @@ test('items: 시트에서 과목 이름·주당 시간 수정이 store에 반영
   fireEvent.click(screen.getByRole('button', { name: 'h 늘리기' }));
   await waitFor(() => expect(useApp.getState().state.items[0]!.weeklyHours).toBe(3.5));
 });
+
+/* N-10 — 완료 체크는 **끝낸 날을 함께 남긴다**. 이 스탬프가 없으면 스케줄러가 done 챕터의
+   블록을 더는 안 만들면서 그 챕터의 날짜 링크가 통째로 끊겨, 유지 복습이 걸 사다리가 사라진다. */
+test('items: 챕터 완료 체크가 doneDs(끝낸 날)를 남기고, 해제하면 지운다', async () => {
+  useApp.getState().mutate((st) => {
+    st._today = '2026-07-08';
+    st.items = [
+      {
+        id: 'sx',
+        source: '직접',
+        name: '미적분',
+        color: '#4f8ff0',
+        mode: 'weekly',
+        weeklyHours: 3,
+        dailyMin: 30,
+        deadline: '',
+        chapters: [{ id: 'c1', name: '극한', hours: 2, done: false }],
+      },
+    ];
+  });
+  renderApp('/items');
+  fireEvent.click(await screen.findByText('미적분'));
+  const done = await screen.findByRole('checkbox', { name: '완료' });
+
+  fireEvent.click(done);
+  await waitFor(() => expect(useApp.getState().state.items[0]!.chapters[0]!.done).toBe(true));
+  expect(useApp.getState().state.items[0]!.chapters[0]!.doneDs).toBe('2026-07-08');
+
+  fireEvent.click(done);
+  await waitFor(() => expect(useApp.getState().state.items[0]!.chapters[0]!.done).toBe(false));
+  expect(useApp.getState().state.items[0]!.chapters[0]!.doneDs).toBeUndefined();
+});

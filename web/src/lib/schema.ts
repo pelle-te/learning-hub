@@ -10,11 +10,17 @@ import { z } from 'zod';
 export const ThemeSchema = z.enum(['light', 'dark']);
 export type Theme = z.infer<typeof ThemeSchema>;
 
+/** doneDs = 챕터를 끝낸 날(N-10 유지 사다리의 앵커). 옵셔널이라 기존 저장은 무마이그레이션.
+ *  ⚠ 왜 필요한가: done 챕터는 스케줄러가 더 이상 블록을 안 만들어(`_chs` 가 `!done` 필터)
+ *  **과거 날짜와의 링크까지 통째로 끊긴다** — 계획이 매번 재생성되기 때문이다. 그래서 "언제
+ *  끝냈나"는 여기 남기지 않으면 앱 어디에도 없다(로드맵 N-10 의 "데이터는 전부 있다"는 전제
+ *  정정). 없는 옛 챕터는 '모름'으로 다루고 유지 큐의 세션 상한이 그 불확실성을 감당한다. */
 export const ChapterSchema = z.object({
   id: z.string(),
   name: z.string(),
   hours: z.number(),
   done: z.boolean(),
+  doneDs: z.string().optional(),
 });
 
 export const ItemModeSchema = z.enum(['weekly', 'daily']);

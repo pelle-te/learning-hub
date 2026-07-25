@@ -114,3 +114,30 @@ test('review-run 키: u 는 직전 전진을 되돌린다(빨라진 키의 짝)'
   press('u');
   expect(await screen.findByText('회상')).toBeInTheDocument(); // 카드로 돌아왔다
 });
+
+/* N-10 — 끝낸 챕터가 유지 카드로 **실제 러너에** 뜨는지. 유닛(reviewQueue)은 큐 배열까지만 보고,
+   배선(`ch.maintenance` 가 카드 문구까지 닿는지)은 여기서만 관측된다. 설명 없는 재등장은
+   "앱이 완료를 잊었다"로 읽히므로 문구 자체가 계약이다(§15-4). */
+test('review-run: 끝낸 챕터가 유지 카드로 뜨고 왜 돌아왔는지 말한다', async () => {
+  useApp.getState().mutate((st) => {
+    st._today = '2026-07-08';
+    st.summaries = {};
+    st.cbms = [];
+    st.completions = {};
+    st.items = [
+      {
+        id: 'p',
+        name: '물리',
+        source: '직접',
+        mode: 'weekly',
+        weeklyHours: 4,
+        chapters: [{ id: 'c1', name: '역학', hours: 2, done: true }], // 앵커 없는 옛 완료 챕터
+      },
+    ] as never;
+  });
+  renderApp('/review-run');
+  expect(await screen.findByText('유지')).toBeInTheDocument();
+  expect(screen.getByText(/끝낸 챕터인데 마지막으로 본 날이 기록에 없어요/)).toBeInTheDocument();
+  // 앵커가 없으면 "N일 방치"를 말하지 않는다 — 모르는 것을 아는 척하지 않는다.
+  expect(screen.queryByText(/일 방치/)).not.toBeInTheDocument();
+});

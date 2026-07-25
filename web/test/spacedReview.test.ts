@@ -7,6 +7,7 @@ import {
   dueForecast,
   pullForwardCandidates,
   interleaveBySubject,
+  maintenanceReviews,
   riskChapters,
   failingSids,
   riskOf,
@@ -436,5 +437,72 @@ describe('scheduler — freeMinAfter(now 이후 남은 자유시간)', () => {
   });
   it('now가 하루 시작이면 전부', () => {
     expect(freeMinAfter(free, 0)).toBe(60 + 180);
+  });
+});
+
+describe('spacedReview — 유지 큐(N-10 · 끝낸 챕터가 사라지지 않게)', () => {
+  /** 챕터 카탈로그만 있는 상태 — 스케줄(days)은 일부러 비운다. done 챕터는 계획에 원리적으로
+   *  안 나타나므로, 유지 스캔이 **스케줄과 무관하게** 동작하는 것이 이 기능의 요점이다. */
+  const catalog = (chs: { name: string; done: boolean; doneDs?: string }[]): AppState =>
+    ({
+      items: [{ id: 'p', name: '물리', chapters: chs.map((c) => ({ id: c.name, name: c.name, hours: 2, ...c })) }],
+    }) as unknown as AppState;
+
+  it('스케줄이 비어도 끝낸 챕터를 찾는다 — 진행 중 챕터는 여기 없다', () => {
+    const s = catalog([
+      { name: '역학', done: true, doneDs: '2026-05-01' },
+      { name: '전자기', done: false },
+    ]);
+    expect(chapterReviews(s, [], TODAY)).toHaveLength(0); // 스케줄 경로는 못 본다(= 옛 구멍)
+    const keep = maintenanceReviews(s, TODAY);
+    expect(keep.map((c) => c.chapter)).toEqual(['역학']);
+    expect(keep[0]!.maintenance).toBe(true);
+    expect(keep[0]!.anchored).toBe(true);
+    expect(keep[0]!.daysSince).toBe(64);
+  });
+
+  it('유지는 **절대 overdue 가 아니다**(한 단 강등) — 진행 중 밀림이 향수에 밀리지 않게', () => {
+    const s = catalog([{ name: '역학', done: true, doneDs: '2025-01-01' }]); // 1년 반 방치
+    expect(maintenanceReviews(s, TODAY)[0]!.risk).toBe('due');
+  });
+
+  it('사다리 첫 칸(34일) 전이면 fresh — 막 끝낸 챕터를 곧바로 되돌리지 않는다', () => {
+    const fresh = catalog([{ name: '역학', done: true, doneDs: '2026-07-01' }]); // 3일 전
+    expect(maintenanceReviews(fresh, TODAY)[0]!.risk).toBe('fresh');
+    const old = catalog([{ name: '역학', done: true, doneDs: '2026-05-31' }]); // 34일 전
+    expect(maintenanceReviews(old, TODAY)[0]!.risk).toBe('due');
+  });
+
+  it('앵커를 모르면(옛 done 챕터) 오래됐다고 단정하지 않고 due 로만 — 인출 한 번이 앵커를 만든다', () => {
+    const s = catalog([{ name: '역학', done: true }]);
+    const before = maintenanceReviews(s, TODAY)[0]!;
+    expect(before.anchored).toBe(false);
+    expect(before.lastDs).toBe('');
+    expect(before.risk).toBe('due');
+    touchReview(s, 'p', '역학', TODAY); // 러너에서 한 번 인출
+    const after = maintenanceReviews(s, TODAY)[0]!;
+    expect(after.anchored).toBe(true);
+    expect(after.daysSince).toBe(0);
+    expect(after.risk).toBe('fresh'); // 방금 봤으니 다음 칸까지 조용하다
+  });
+
+  it('앵커 = 끝낸 날과 마지막 인출 중 최신 · 미래 값은 무시(시드·시계 어긋남)', () => {
+    const s = catalog([{ name: '역학', done: true, doneDs: '2026-05-01' }]);
+    touchReview(s, 'p', '역학', '2026-06-20');
+    expect(maintenanceReviews(s, TODAY)[0]!.lastDs).toBe('2026-06-20');
+    // 미래 터치는 저장소를 덮지만(touchReview 는 단조 증가) 앵커로는 안 쓴다 → 끝낸 날로 폴백.
+    // 요점은 **미래 앵커가 음수 경과일을 만들지 않는 것**이다(그러면 유지가 영영 안 뜬다).
+    touchReview(s, 'p', '역학', '2026-09-01');
+    const after = maintenanceReviews(s, TODAY)[0]!;
+    expect(after.lastDs).toBe('2026-05-01');
+    expect(after.daysSince).toBeGreaterThan(0);
+  });
+
+  it('예보는 **앵커를 아는 것만** 투영한다 — 모르는 날짜를 특정 날에 그리면 가용선까지 거짓이 된다', () => {
+    const known = catalog([{ name: '역학', done: true, doneDs: '2026-06-10' }]); // daysSince 24 → 34-24=+10일
+    const fc = dueForecast(known, [], TODAY);
+    expect(fc.filter((f) => f.chapters > 0).map((f) => f.offset)).toEqual([10]);
+    const unknown = catalog([{ name: '역학', done: true }]);
+    expect(dueForecast(unknown, [], TODAY).reduce((t, f) => t + f.chapters, 0)).toBe(0);
   });
 });

@@ -3,7 +3,7 @@
    회상·착각 카드는 비우고 밀린 챕터만 남겨 순서를 검증한다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { REQUEUE_GAP, buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { MAINTENANCE_CAP, REQUEUE_GAP, buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
 import type { AppState, Day, ScheduleItem } from '@/lib/types';
 
 const TODAY = '2026-07-04';
@@ -94,5 +94,40 @@ describe('requeue — 못 한 카드를 세션 안에서 한 번 더', () => {
     const next = requeue(q4, 0);
     expect(runItemKey(next[4]!)).toBe(runItemKey(next[0]!));
     expect(new Set(next.map(runItemKey)).size).toBe(4); // 큐는 5장이지만 카드는 4장
+  });
+});
+
+describe('buildReviewQueue — 유지(끝낸 챕터) 꼬리(N-10)', () => {
+  /** 끝낸 챕터 n장을 가진 과목 카탈로그. 앵커가 없으므로 전부 due(=옛 done 챕터의 실제 모습). */
+  const withDone = (base: AppState, n: number): AppState =>
+    ({
+      ...base,
+      items: [
+        {
+          id: 'k',
+          name: '유지과목',
+          chapters: Array.from({ length: n }, (_, i) => ({ id: 'k' + i, name: `k${i}`, hours: 2, done: true })),
+        },
+      ],
+    }) as unknown as AppState;
+
+  it('done 이 0이면 침묵한다 — 큐가 한 장도 안 늘어난다', () => {
+    const s = stateWith([]);
+    expect(buildReviewQueue(s, [], TODAY)).toHaveLength(0);
+  });
+
+  it('세션당 2장 상한 — 끝낸 챕터가 40장이어도 큐는 2장만 는다', () => {
+    const s = withDone(stateWith([]), 40);
+    const q = buildReviewQueue(s, [], TODAY);
+    expect(q).toHaveLength(MAINTENANCE_CAP);
+    expect(q.every((i) => i.kind === 'chapter' && i.ch.maintenance)).toBe(true);
+  });
+
+  it('유지는 **맨 뒤**다 — 진행 중 밀린 챕터가 유지에 밀리지 않는다(강등 불변식의 배치판)', () => {
+    const days = [day('2026-06-14', [revIt('m', ['m1', 'm2'])])]; // 20일 전 = overdue
+    const s = withDone(stateWith([['2026-06-14', 'm', 'new']]), 3);
+    const q = buildReviewQueue(s, days, TODAY);
+    const kinds = q.map((i) => (i.kind === 'chapter' && i.ch.maintenance ? '유지' : i.kind));
+    expect(kinds).toEqual(['chapter', 'chapter', '유지', '유지']);
   });
 });
