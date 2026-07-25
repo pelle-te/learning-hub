@@ -302,6 +302,61 @@ describe('AllocBoard — 접근성 계약(6단계 JSX 재작성이 가장 잘 �
   });
 });
 
+/* ── ③-b 착지 펄스(UX-A3) — 모션의 **가드**만 잠근다 ─────────────────
+   클래스·픽셀은 여전히 단언하지 않는다. 여기서 잠그는 건 "WAAPI 를 걸었는가"가 아니라
+   **reduced-motion 에서 안 거는가**다 — WAAPI 는 전역 CSS 백스톱이 닿지 않는 유일한 층이라,
+   가드가 빠지면 모션 민감 사용자에게 조용히 애니가 남는다(정적 검사로는 안 보인다). */
+describe('AllocBoard — 착지 펄스는 모션 환경설정을 존중한다', () => {
+  /** 드롭 = dragstart(행 머리글) → drop(그 행의 칸). dataTransfer 는 jsdom 에 없어 최소 스텁. */
+  function dropOnCell(subject: string, dow: string): void {
+    const head = within(subjectRow(subject)).getByRole('rowheader');
+    const dt = { setData: () => {}, effectAllowed: '', dropEffect: '', getData: () => '' };
+    fireEvent.dragStart(head, { dataTransfer: dt });
+    // 칸(role=cell)은 입력의 부모 — 핸들러가 붙어 있는 요소다.
+    const target = cell(subject, dow).closest('[role="cell"]')!;
+    fireEvent.drop(target, { dataTransfer: dt });
+  }
+
+  /* ⚠ jsdom 에는 `Element.prototype.animate` 가 **없다**(WAAPI 미구현). spyOn 은 없는 속성을
+     못 감시하므로 직접 심는다. 이 부재가 곧 `pulseCell` 이 `typeof el.animate !== 'function'`
+     가드를 갖는 이유이기도 하다 — 없으면 여기서 TypeError 로 드롭 자체가 죽는다. */
+  let animate: ReturnType<typeof vi.fn>;
+  const hadAnimate = 'animate' in Element.prototype;
+  beforeEach(() => {
+    animate = vi.fn(() => ({}) as Animation);
+    Object.defineProperty(Element.prototype, 'animate', { value: animate, configurable: true, writable: true });
+  });
+  afterEach(() => {
+    if (!hadAnimate) delete (Element.prototype as unknown as { animate?: unknown }).animate;
+  });
+
+  function mockReduce(reduce: boolean): void {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: reduce && q.includes('prefers-reduced-motion'),
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+  }
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('드롭하면 그 칸에 애니를 1회 건다(값도 함께 커밋된다)', () => {
+    mockReduce(false);
+    renderBoard();
+    dropOnCell('물리', '화');
+    expect(allocOf()?.['phy']?.[TUE_WD]).toBe(60); // 드롭 1회 = +1h
+    expect(animate).toHaveBeenCalledTimes(1);
+  });
+
+  it('reduced-motion 이면 값만 바뀌고 애니는 걸지 않는다', () => {
+    mockReduce(true);
+    renderBoard();
+    dropOnCell('물리', '화');
+    expect(allocOf()?.['phy']?.[TUE_WD]).toBe(60); // 기능은 그대로 — 모션만 뺀다
+    expect(animate).not.toHaveBeenCalled();
+  });
+});
+
 /* ── ④ 경계 ──────────────────────────────────────────────────────── */
 describe('AllocBoard — 경계', () => {
   it('배분 대상 과목이 없으면 표 대신 안내(EmptyState)', () => {

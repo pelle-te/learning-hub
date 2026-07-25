@@ -271,6 +271,21 @@
   }
 }
 
+/* alloc(주간 배분 보드) 툴바 액션 결과 스윕(UX-A4) — '지난 주 복사'·'자동으로' 는 결과가 그리드
+   곳곳에 흩어지는데 피드백이 토스트뿐이라, 무엇이 실제로 바뀌었는지 눈으로 못 찾았다. 바뀐 칸만
+   1회 훑는다(칸마다 다른 stagger 지연은 런타임값이라 인라인 `animation-delay` 로 준다).
+   ⚠ CSS 애니라 전역 reduced-motion 백스톱(`global/features.css`)이 그대로 닿는다 — 별도 JS 가드
+   불필요. 같은 팩의 착지 펄스(UX-A3)는 **WAAPI** 라 그 백스톱이 안 닿아 matchMedia 로 직접 막는다. */
+@keyframes alloc-sweep {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  35% {
+    box-shadow: inset 0 0 0 2px var(--acc);
+  }
+}
+
 /* ── components/*(공유 프리미티브 티어) 이식(C-7) ─────────────────────────────
    OnlineStatus 배지 진입 · Tooltip 페이드. 전역(unlayered)인 이유는 위와 같다 —
    CSS Modules 는 keyframe 이름을 스코프해 `animate-[…]` 가 못 부른다.

@@ -115,6 +115,26 @@ export function copyPrevWeekAlloc(state: AppState, res: ScheduleResult, wk: stri
   return n;
 }
 
+/** 두 배분 스냅샷 사이에서 **값이 실제로 달라진 칸**의 키(`${sid}:${wd}`)를 행·요일 순서로.
+ *  보드 툴바 액션('지난 주 복사'·'자동으로')의 결과를 그 칸들만 훑어 보여주는 데 쓴다(UX-A4).
+ *  ⚠ `sids` 는 **보이는 과목**만 넘긴다 — 삭제된 과목의 고아 배분이 바뀌어도 가리킬 칸이 화면에
+ *    없다(colSumMin 의 validSids 방어선과 같은 이유).
+ *  왜 액션별 반환 확장이 아니라 전후 비교인가: 두 액션이 같은 답을 필요로 하는데 lib 쪽 반환을
+ *  액션마다 넓히면 그만큼 계약이 갈린다. 비교는 순수하고, 한 함수가 두 경로를 덮는다. */
+export function changedAllocCells(
+  before: Record<string, number[]>,
+  after: Record<string, number[]>,
+  sids: readonly string[],
+): string[] {
+  const keys: string[] = [];
+  for (const sid of sids) {
+    const b = before[sid] || zeroVec();
+    const a = after[sid] || zeroVec();
+    for (let wd = 0; wd < 7; wd++) if ((b[wd] || 0) !== (a[wd] || 0)) keys.push(`${sid}:${wd}`);
+  }
+  return keys;
+}
+
 /** 그 주를 자동으로 되돌리기 — weekAlloc[wk] 삭제(auto 복귀). state 변형. */
 export function resetWeekAlloc(state: AppState, wk: string): void {
   if (state.weekAlloc) delete state.weekAlloc[wk];

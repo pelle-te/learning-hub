@@ -256,6 +256,7 @@ export const curriculumArtifactSchema = z
       .object({ unprocessed_src: z.array(z.string()).optional(), subjects_without_src: z.array(z.string()).optional() })
       .passthrough()
       .optional(),
+    mapping_drift: z.array(z.string()).optional(),
     edges: z
       .array(z.object({ from: z.string(), to: z.string(), reason: z.string().optional() }).passthrough())
       .optional(),

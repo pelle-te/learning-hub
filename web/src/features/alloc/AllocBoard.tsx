@@ -6,13 +6,14 @@
    자동엔진은 복습/Anki/모의를 그 위에 자동으로 얹으므로 여기선 '새 학습(new)' 요일 분배만 사용자가 정한다.
    (React Compiler ON — 수동 메모 없이 파생 인라인.)
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { addDays, iso, parseISO, fmtShort, DOW_MON } from '@/lib/utils';
 import {
   allocView,
+  changedAllocCells,
   colSumMin,
   copyPrevWeekAlloc,
   isUnschedulable,
@@ -26,6 +27,7 @@ import {
   zeroVec,
 } from '@/lib/weekAlloc';
 import { dayStudyMin } from '@/lib/scheduler';
+import { pulseRing } from '@/lib/motion';
 import { Button, NumberField } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import type { ScheduleResult } from '@/lib/types';
@@ -66,27 +68,39 @@ const S = {
   rowName: 'min-w-0 truncate',
   // 입력 셀 — 비례 채움(.fill) + 색띠(before) + 빈칸 호버 '+'(after) + 드롭 오버(after '+1h').
   inputCell: 'relative flex min-h-12 items-center overflow-hidden p-0 text-md',
-  fill: 'absolute inset-0 bg-[var(--sub,var(--acc))]', // opacity 는 런타임 인라인
+  // UX-A3: 드롭/타이핑으로 값이 바뀔 때 농도가 "툭" 갈리지 않게. 전역 reduced-motion 백스톱이 닿는다.
+  fill: 'absolute inset-0 bg-[var(--sub,var(--acc))] transition-opacity duration-200', // opacity 는 런타임 인라인
   before:
     "before:pointer-events-none before:absolute before:top-0 before:bottom-0 before:left-0 before:z-[1] before:w-0.75 before:bg-[var(--sub,var(--acc))] before:content-['']",
   hoverPlus:
     "hover:after:pointer-events-none hover:after:absolute hover:after:inset-0 hover:after:flex hover:after:items-center hover:after:justify-center hover:after:text-md hover:after:font-bold hover:after:text-alloc-plus hover:after:content-['+']",
   dropOver:
     "outline-2 -outline-offset-2 outline-dashed outline-acc after:pointer-events-none after:absolute after:inset-0 after:z-[2] after:flex after:items-center after:justify-center after:bg-acc-glow after:text-xs after:leading-[1.6] after:font-extrabold after:text-acc after:content-['+1h']",
+  // UX-A2 드롭 가능 프리뷰 — 잡은 과목 행의 놓을 수 있는 칸을 드래그 **시작 시점에** 옅게 예고한다.
+  // dropOver(2px 실선급 점선 + '+1h')의 한 단 아래 버전 — 같은 시각 언어라 "여기 놓을 수 있다"가
+  // 한 어휘로 읽힌다. ⚠ 정적이다(애니 아님) → reduced-motion·React Compiler 어느 쪽과도 무관.
+  dragHint: 'outline-1 -outline-offset-1 outline-dashed outline-line-acc-hover',
+  // UX-A4 스윕 — 툴바 액션이 **실제로 바꾼** 칸만 1회 훑는다. 지연은 인라인 animation-delay.
+  sweep: 'animate-[alloc-sweep_0.62s_var(--ease)_both]',
+  // UX-A1 가장자리 비례 막대 — 셀의 .fill 관용구를 '결론' 칸(주당 예산 · 요일 가용)에 재사용.
+  edgeBar: 'pointer-events-none absolute inset-y-0 left-0',
   // NumberField <input type=number> — 전역 input 규칙(언레이어)을 이기려 다른 값만 `!`.
   // color/font-size(13)/width 는 전역과 동일 → 클래스 없음. ink≡txt.
   cellInput:
     'relative z-[1] h-full min-h-12 cursor-text border-0! bg-transparent! px-1! py-0! text-center font-bold tabular-nums placeholder:font-normal placeholder:text-alloc-ph! focus:-outline-offset-2! focus:bg-acc-glow! focus:outline-2 focus:outline-acc',
-  budgetCell: `${CELL} sticky right-0 z-[3] flex-col items-end justify-center gap-px text-right text-md`,
-  budgetB: 'text-base14 font-extrabold text-txt tabular-nums',
-  budgetOf: 'text-xs leading-[1.6] font-semibold text-mut',
-  badge: 'text-2xs',
+  // ⚠ overflow-hidden + 자식 relative z-[1] 은 UX-A1 막대 때문이다 — 막대는 절대배치라
+  //   비배치 형제(숫자·배지)보다 **위에** 칠해진다. 숫자를 배치요소로 올려야 막대가 배경이 된다.
+  budgetCell: `${CELL} sticky right-0 z-[3] flex-col items-end justify-center gap-px overflow-hidden text-right text-md`,
+  budgetB: 'relative z-[1] text-base14 font-extrabold text-txt tabular-nums',
+  budgetOf: 'relative z-[1] text-xs leading-[1.6] font-semibold text-mut',
+  badge: 'relative z-[1] text-2xs',
   // ID-7 방치 배지 — 행 이름 뒤 우측 정렬 warn 핀. 예산 배지(우측 셀)와 위계·위치가 달라 오독 없다.
   neglect:
     'ml-auto flex-none rounded-full bg-tint-warn px-1.5 py-0.5 text-2xs font-bold whitespace-nowrap text-warn tabular-nums',
   footHead: `${CELL} sticky left-0 z-[3] rounded-bl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
-  footCell: `${CELL} justify-center gap-0.75 text-sm leading-[1.6] text-mut`,
-  footCap: 'font-semibold text-mut',
+  footCell: `${CELL} relative justify-center gap-0.75 overflow-hidden text-sm leading-[1.6] text-mut`,
+  footNum: 'relative z-[1] font-extrabold tabular-nums',
+  footCap: 'relative z-[1] font-semibold text-mut',
   footEnd: `${CELL} sticky right-0 z-[3] rounded-br-base bg-panel2`,
   hint: 'flex-none text-sm leading-[1.55] text-mut',
   hintB: 'font-bold text-txt',
@@ -121,6 +135,17 @@ function fillAlpha(min: number): number {
   return Math.min(0.5, 0.16 + (min / 150) * 0.34);
 }
 
+/** 가장자리 막대 농도(UX-A1) — 셀 채움(0.16~0.5)보다 **낮게** 고정한다.
+ *  가장자리는 데이터가 아니라 *결론*(합계 대비 예산·가용)이다. 셀보다 진하면 시선이 표 테두리로
+ *  끌려가 "어느 칸이 무거운가"라는 본래 질문이 뒤로 밀린다 — 위계 유지가 이 상수의 존재 이유다. */
+const EDGE_ALPHA = 0.2;
+/** 스윕 stagger(UX-A4) — 칸당 지연·지연 상한·다 훑은 뒤 머무는 시간(ms).
+ *  상한이 필요한 이유: 복사는 과목×요일이라 칸이 수십 개가 될 수 있고, 캡이 없으면 꼬리가
+ *  몇 초씩 늘어져 "아직 뭔가 돌고 있다"로 읽힌다. */
+const SWEEP_STEP_MS = 45;
+const SWEEP_MAX_DELAY_MS = 540;
+const SWEEP_HOLD_MS = 900;
+
 export function AllocBoard({
   weekMon,
   res,
@@ -142,6 +167,17 @@ export function AllocBoard({
   const [dragSid, setDragSid] = useState<string | null>(null);
   const [overCell, setOverCell] = useState<string | null>(null); // `${sid}:${wd}`
   const DROP_STEP = 60; // 드롭 1회 = +1h
+
+  // UX-A4 스윕 — `${sid}:${wd}` → animation-delay(ms). null 이면 아무 칸도 안 훑는 중.
+  const [sweep, setSweep] = useState<Record<string, number> | null>(null);
+  const sweepFx = useRef<{ t: number | null; raf: number | null }>({ t: null, raf: null });
+  useEffect(() => {
+    const fx = sweepFx.current;
+    return () => {
+      if (fx.t != null) clearTimeout(fx.t);
+      if (fx.raf != null) cancelAnimationFrame(fx.raf);
+    };
+  }, []);
 
   const rows = weeklyItems(state); // 배분 대상=주간(new) 과목. 술어는 weekAlloc이 단일 소유(복붙 필터 제거).
   const validSids = new Set(rows.map((it) => it.id)); // 삭제된 과목의 고아 배분이 열 합을 부풀리지 않게
@@ -170,17 +206,57 @@ export function AllocBoard({
   };
   // 복사 결과를 정직하게 — copyPrevWeekAlloc은 소스가 비면(계획 첫 주 등) **아무것도 쓰지 않고** 0을 준다.
   // 예전엔 그때도 성공 토스트를 띄워 "복사했어요"만 보이고 화면은 그대로인 무음 실패였다.
+  /** 툴바 액션이 **실제로 바꾼** 칸을 훑는다(UX-A4). `before` = 액션 직전의 배분 스냅샷.
+   *  ⚠ 왜 로드맵이 적은 "copyPrevWeekAlloc 반환 확장"이 아니라 전후 diff 인가:
+   *    ① 그 시그니처만 넓히면 '자동으로'(resetWeekAlloc)는 여전히 결과가 안 보인다 — 로드맵이
+   *       지적한 "결과가 곳곳에 흩어지는데 토스트만"은 **두 버튼 공통** 증상이다.
+   *    ② diff 는 weekAlloc.ts 계약을 안 건드린다(로드맵이 R2 로 표시한 유일한 리스크가 사라진다).
+   *    ③ 복사는 '과목 단위'로 쓰는데 시각 단위는 '칸'이라, 어차피 lib 안에서 칸 단위로 되짚어야 했다.
+   *  immer 는 구조 공유라 mutate 뒤에도 `before` 참조는 옛 값을 그대로 들고 있다(스냅샷이 성립). */
+  const sweepChanged = (before: Record<string, number[]>) => {
+    const after = allocView(useApp.getState().state, res, weekMon);
+    const keys = changedAllocCells(
+      before,
+      after,
+      rows.map((it) => it.id),
+    );
+    const delays: Record<string, number> = {};
+    keys.forEach((k, i) => (delays[k] = Math.min(i * SWEEP_STEP_MS, SWEEP_MAX_DELAY_MS)));
+    const fx = sweepFx.current;
+    if (fx.t != null) clearTimeout(fx.t);
+    if (fx.raf != null) cancelAnimationFrame(fx.raf);
+    if (keys.length === 0) {
+      setSweep(null);
+      return;
+    }
+    // 한 번 껐다 켠다 — 같은 칸을 연달아 훑을 때 className 이 동일하면 CSS 애니가 재시작하지 않는다.
+    setSweep(null);
+    fx.raf = requestAnimationFrame(() => {
+      fx.raf = null;
+      setSweep(delays);
+      fx.t = window.setTimeout(() => {
+        fx.t = null;
+        setSweep(null);
+      }, SWEEP_MAX_DELAY_MS + SWEEP_HOLD_MS);
+    });
+  };
+
   const onCopyPrev = () => {
+    const before = alloc;
     let n = 0;
     mutate((st) => {
       n = copyPrevWeekAlloc(st, res, weekMon);
     });
-    if (n > 0) ui.toast(`지난 주 배분 ${n}개 과목을 이번 주로 복사했어요.`, 'ok');
-    else ui.toast('복사할 지난 주 배분이 없어요(계획 첫 주예요).', 'warn');
+    if (n > 0) {
+      ui.toast(`지난 주 배분 ${n}개 과목을 이번 주로 복사했어요.`, 'ok');
+      sweepChanged(before);
+    } else ui.toast('복사할 지난 주 배분이 없어요(계획 첫 주예요).', 'warn');
   };
   const onReset = () => {
+    const before = alloc;
     mutate((st) => resetWeekAlloc(st, weekMon));
     ui.toast('이번 주를 자동 배분으로 되돌렸어요.', 'info');
+    sweepChanged(before);
   };
 
   const hasSubjects = rows.length > 0;
@@ -368,10 +444,15 @@ export function AllocBoard({
                   const cellKey = `${it.id}:${c.wd}`;
                   const dropOn = dragSid === it.id; // 잡은 과목 행에만 드롭 허용(과목→요일 의미 유지)
                   const isDrop = overCell === cellKey;
+                  const sweepMs = sweep?.[cellKey];
+                  // 강조는 하나만 — 지금 올라와 있는 칸(dropOver) > 놓을 수 있는 칸(dragHint) >
+                  // 빈 칸 호버 '+'. 드래그 중엔 '+' 를 죽인다(같은 행에 두 어포던스가 겹치면 소음).
+                  const affordance = isDrop ? S.dropOver : dropOn ? S.dragHint : cellMin > 0 ? '' : S.hoverPlus;
                   return (
                     <div
                       key={c.i}
-                      className={`${S.inputCell} ${c.isToday ? 'bg-alloc-today' : 'bg-panel'}${cellMin > 0 ? ' ' + S.before : ''}${isDrop ? ' ' + S.dropOver : cellMin > 0 ? '' : ' ' + S.hoverPlus}`}
+                      className={`${S.inputCell} ${c.isToday ? 'bg-alloc-today' : 'bg-panel'}${cellMin > 0 ? ' ' + S.before : ''}${affordance ? ' ' + affordance : ''}${sweepMs != null ? ' ' + S.sweep : ''}`}
+                      style={sweepMs != null ? { animationDelay: `${sweepMs}ms` } : undefined}
                       role="cell"
                       onDragOver={(e) => {
                         if (!dropOn) return;
@@ -383,9 +464,14 @@ export function AllocBoard({
                       onDrop={(e) => {
                         if (!dropOn) return;
                         e.preventDefault();
+                        // currentTarget 은 디스패치 동안만 유효하다 → 동기로 붙잡아 둔다.
+                        const cell = e.currentTarget;
                         setCell(it.id, c.wd, (cellMin + DROP_STEP) / 60);
                         setOverCell(null);
                         setDragSid(null);
+                        // UX-A3 착지 펄스 — 이펙트가 아니라 핸들러라 prev 비교·set-state 위험이 없다.
+                        // reduced-motion 가드는 lib/motion 이 소유한다(WAAPI 는 전역 CSS 백스톱 밖).
+                        pulseRing(cell, subColor);
                       }}
                     >
                       {/* 비례 시각 채움 — 배분 분량에 따라 과목색 농도가 진해져 주(週) 부하가 한눈에 읽힌다. */}
@@ -412,6 +498,16 @@ export function AllocBoard({
                   );
                 })}
                 <div className={`${S.budgetCell} ${BUDGET_BG[state_]}`} role="cell">
+                  {/* UX-A1 — "2.5 / 10h · 7.5h 남음"은 결론이 맞지만 **읽어서 빼야** 알 수 있다.
+                      같은 결론을 폭으로도 주면 "어느 과목이 미달인가"가 산수 없이 눈에 든다.
+                      색은 과목색(--sub) 재사용이라 행 정체성이 유지되고, 초과일 때만 bad 로 갈린다. */}
+                  {budgetMin > 0 && (
+                    <span
+                      className={`${S.edgeBar} ${state_ === 'over' ? 'bg-bad' : 'bg-[var(--sub,var(--acc))]'}`}
+                      style={{ width: `${Math.min(100, (rowMin / budgetMin) * 100)}%`, opacity: EDGE_ALPHA }}
+                      aria-hidden="true"
+                    />
+                  )}
                   <b className={S.budgetB}>{toH(rowMin)}</b>
                   {budgetMin > 0 && <span className={S.budgetOf}> / {toH(budgetMin)}h</span>}
                   <span className={`${S.badge} ${BADGE_TONE[state_]}`}>
@@ -445,9 +541,16 @@ export function AllocBoard({
                   role="cell"
                   title={`${c.label} 배분 ${toH(colMins[i]!)}h / 가용 ${toH(cap)}h`}
                 >
-                  <b className={over ? 'font-extrabold text-bad tabular-nums' : 'font-extrabold text-txt tabular-nums'}>
-                    {toH(colMins[i]!)}
-                  </b>
+                  {/* UX-A1 — 열은 과목이 없으니 액센트로. "어느 요일이 빡빡한가"가 7개 분수를
+                      비교하지 않고도 읽힌다(가용 0인 날은 분모가 없어 막대도 없다). */}
+                  {cap > 0 && (
+                    <span
+                      className={`${S.edgeBar} ${over ? 'bg-bad' : 'bg-acc'}`}
+                      style={{ width: `${Math.min(100, (colMins[i]! / cap) * 100)}%`, opacity: EDGE_ALPHA }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <b className={`${S.footNum} ${over ? 'text-bad' : 'text-txt'}`}>{toH(colMins[i]!)}</b>
                   <span className={S.footCap}>/{toH(cap)}</span>
                 </div>
               );

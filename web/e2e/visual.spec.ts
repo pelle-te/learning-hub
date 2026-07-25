@@ -227,6 +227,36 @@ test('alloc-board · neglect · dark', async ({ page }) => {
   await expect(page).toHaveScreenshot('alloc-board-neglect-dark.png', { fullPage: true });
 });
 
+/* 드롭 가능 프리뷰(UX-A2) — 과목 행을 잡은 동안에만 존재하는 상태라 **정지 스냅샷으로는 원리적으로
+   못 잡힌다**(§15-4 가 요구하는 실렌더 확인의 사각지대). 드래그를 합성해 그 순간을 찍는다:
+   잡은 행의 7칸에 옅은 프리뷰(1px 점선) + 지금 올라온 칸에 진한 dropOver('+1h')가 함께 보여야 한다.
+   ⚠ 스냅샷 밖의 값(가장자리 막대 UX-A1)도 이 화면에 같이 있으므로, 이 장이 팩 전체의 시각 앵커다. */
+test('alloc-board · drag-preview · dark', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install({ time: FIXED });
+  await page.addInitScript((seed) => {
+    try {
+      localStorage.setItem('study_planner_v3', JSON.stringify(seed as object));
+      localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'week', accent: 'lime', recentCommands: [] }));
+    } catch {
+      /* noop */
+    }
+  }, SEED_NEGLECT);
+  await page.goto('/alloc');
+  await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
+
+  const row = page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: /전자기학/ }) });
+  // ⚠ Playwright 의 실제 마우스 드래그는 HTML5 DnD 를 발화시키지 않는다(브라우저 보안 모델) →
+  //    진짜 DataTransfer 핸들을 만들어 이벤트를 합성한다. 핸들러가 setData/dropEffect 를 만지므로
+  //    빈 객체로는 안 되고 실 DataTransfer 여야 한다.
+  const dt = await page.evaluateHandle(() => new DataTransfer());
+  await row.getByRole('rowheader').dispatchEvent('dragstart', { dataTransfer: dt });
+  await row.getByRole('cell').nth(3).dispatchEvent('dragover', { dataTransfer: dt }); // 목요일 칸
+  await expect(row.getByRole('cell').nth(3)).toHaveClass(/outline-acc/); // 드롭 상태 진입 확인
+  await settle(page);
+  await expect(page).toHaveScreenshot('alloc-board-drag-dark.png', { fullPage: true });
+});
+
 /* 복습 러너(C-7 Tailwind 이식) — **이 화면은 시각 커버리지가 0이었다.** 그 상태에서 이식했더니
    카드가 1글자 폭으로 무너졌는데(토큰 이름이 `--spacing-*` 와 `--container-*` 두 네임스페이스에
    겹쳐 `max-w-runner` 가 48px 으로 풀렸다) **린트·빌드·유닛이 전량 녹색**이었다. 띄워 봐야만

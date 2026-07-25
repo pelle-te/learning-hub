@@ -9,6 +9,7 @@ import { schedule } from '@/lib/scheduler';
 import {
   allocView,
   colSumMin,
+  changedAllocCells,
   copyPrevWeekAlloc,
   deriveAutoAlloc,
   neglectDaysBySid,
@@ -281,6 +282,30 @@ describe('주간 배분 — 첫 주 지난주복사(무음 전멸 재현 경로)
     const WK1 = '2026-06-29';
     setAllocCell(st, r, WK0, phys.id, 2, 120);
     expect(copyPrevWeekAlloc(st, r, WK1)).toBe(1);
+  });
+});
+
+describe('주간 배분 — 바뀐 칸 diff(UX-A4 스윕의 근거)', () => {
+  it('값이 달라진 칸만, 행·요일 순서로 준다', () => {
+    const before = { a: [0, 60, 0, 0, 0, 0, 0], b: [0, 0, 30, 0, 0, 0, 0] };
+    const after = { a: [0, 60, 120, 0, 0, 0, 0], b: [0, 0, 30, 0, 0, 0, 0] };
+    expect(changedAllocCells(before, after, ['a', 'b'])).toEqual(['a:2']);
+  });
+
+  it('한쪽에만 있는 과목은 0벡터와 비교한다(복사·되돌리기가 행을 통째로 만들거나 지운다)', () => {
+    expect(changedAllocCells({}, { a: [0, 60, 60, 0, 0, 0, 0] }, ['a'])).toEqual(['a:1', 'a:2']);
+    expect(changedAllocCells({ a: [0, 60, 0, 0, 0, 0, 0] }, {}, ['a'])).toEqual(['a:1']);
+  });
+
+  it('바뀐 게 없으면 빈 배열 — 호출부가 "훑을 것 없음"을 구분할 수 있어야 한다', () => {
+    const v = { a: [0, 60, 0, 0, 0, 0, 0] };
+    expect(changedAllocCells(v, { a: [0, 60, 0, 0, 0, 0, 0] }, ['a'])).toEqual([]);
+  });
+
+  it('sids 밖(삭제된 과목의 고아 배분)은 세지 않는다 — 가리킬 칸이 화면에 없다', () => {
+    const before = { ghost: [0, 180, 0, 0, 0, 0, 0] };
+    const after = { ghost: [0, 0, 0, 0, 0, 0, 0] };
+    expect(changedAllocCells(before, after, ['alive'])).toEqual([]);
   });
 });
 
