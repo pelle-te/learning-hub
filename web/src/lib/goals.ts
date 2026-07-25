@@ -7,6 +7,7 @@
 import { getArtifact } from './api';
 import { parseArtifact } from './artifacts';
 import type { GoalsArtifact } from './artifacts.gen';
+import type { Knowledge, KnowledgeConcept } from './knowledge';
 
 export type { GoalsArtifact };
 /** 목표/프로젝트 노드 1개 — 생성 스키마에서 파생(손유지 아님). */
@@ -91,6 +92,42 @@ export function projectViews(g: GoalsArtifact | null | undefined): ProjectView[]
     capability임계: n.capability임계,
     anchor: n.parent && n.parent !== n.id ? byId.get(n.parent) : undefined,
   }));
+}
+
+/** 프로젝트 '필요지식' 한 칸 — 이름 + (찾았다면) 지식엔진이 아는 그 개념(ID-8). */
+export interface NeedKnowledgeRow {
+  /** 프로젝트가 적은 이름 그대로. 조인이 실패해도 이 이름은 **항상** 보인다. */
+  name: string;
+  /** basename 정확 매칭으로 찾은 개념. 못 찾으면 undefined = 링크 없는 그냥 칩. */
+  concept?: KnowledgeConcept;
+  /** 그 개념이 약점인가. 조인 실패면 false — 모르는 것을 약점이라 부르지 않는다. */
+  weak: boolean;
+}
+
+/**
+ * 프로젝트의 `필요지식` 이름들을 지식엔진 개념에 붙여 **약점 여부**를 함께 돌려준다(ID-8).
+ *
+ * 왜 필요한가: capability 상향(축적 → "이제 가능")은 배선돼 있는데 **역방향이 죽어 있었다** —
+ * "이 프로젝트를 열려면 이 지식이 약하다"를 화면이 말하지 않아, 필요지식 칩이 정적 텍스트였다.
+ *
+ * ⚠ **조인은 `basename` 정확 일치만이다.** fuzzy(부분일치·정규화)로 넓히면 엉뚱한 개념이 붙어
+ *   "약점"이라 잘못 말하고, 그 거짓이 사용자의 학습 순서를 바꾼다 — 조용한 오류라 더 나쁘다.
+ *   같은 이유로 SR-19(Anki 이름 조인)가 드롭됐다. 못 찾으면 **링크를 안 붙이는 것이 정답**이다.
+ * ⚠ basename 이 겹치면 먼저 나온 개념이 이긴다(결정론). 지식엔진이 basename 을 노트 파일명으로
+ *   쓰므로 실전 중복은 없지만, 순서에 의존하지 않는다는 사실을 여기 적어 둔다.
+ */
+export function needKnowledgeRows(names: string[], k: Knowledge | null | undefined): NeedKnowledgeRow[] {
+  const byBasename = new Map<string, KnowledgeConcept>();
+  for (const s of k?.subjects ?? []) {
+    for (const c of s.concepts ?? []) {
+      const b = c.basename;
+      if (b && !byBasename.has(b)) byBasename.set(b, c);
+    }
+  }
+  return names.map((name) => {
+    const concept = byBasename.get(name);
+    return { name, concept, weak: !!concept?.weak };
+  });
 }
 
 /** 형제 노드를 weight 내림차순으로(동률=원 순서 안정정렬) — 내 길 지도 표시순(배분 그래디언트 상대값). */

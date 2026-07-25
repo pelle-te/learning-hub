@@ -22,7 +22,8 @@ export default function BacklogCard() {
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
   const topicRef = useRef<HTMLInputElement>(null);
-  usePrefillForm('bl', setSid, topicRef);
+  // C-10 잔여 — 캡처가 뽑은 챕터를 '막힌 주제'로 받는다(파서가 뽑고 버리던 유일한 필드).
+  usePrefillForm('bl', setSid, topicRef, setTopic);
 
   const open = openBacklog(state);
   // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.

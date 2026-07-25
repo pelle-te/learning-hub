@@ -15,6 +15,7 @@ import { todayISO, openVaultSearch } from '@/lib/utils';
 import { riskSummary } from '@/lib/spacedReview';
 import { buildReviewQueue } from '@/lib/reviewQueue';
 import { CBMS_INFO } from '@/lib/methodology';
+import { jolSummary, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
 
 /* ── C-7 Tailwind 이식(두 번째 feature) ──────────────────────────────────
@@ -41,6 +42,13 @@ const ACTS_CENTER = `${ACTS} justify-center`;
 const SKIP =
   'cursor-pointer rounded-sm border border-line bg-none px-3 py-2 text-md text-mut hover:border-acc hover:text-txt';
 const PROMPT = 'm-0! text-runner-prompt! leading-normal'; // h2 — 언레이어드 전역 h2{} 를 ! 로 이긴다
+/* ID-11 인출 전 예측 바 — 카드 **위**에 얇게. 카드 어휘(ds-card)를 안 쓰는 건 의도다:
+   이건 복습 대상이 아니라 그 앞의 한 줄짜리 질문이라, 카드로 보이면 위계가 카드와 맞먹는다. */
+const JOL_BAR = 'flex w-full max-w-runner flex-wrap items-center justify-end gap-2';
+const JOL_BTN =
+  'cursor-pointer rounded-full border border-line bg-none px-3 py-1 text-xs text-mut hover:border-acc hover:text-txt';
+/** 세션 앞 N개만 묻는다 — 매 카드마다 물으면 러너가 설문이 되고 대답이 무성의해진다. */
+const JOL_MAX = 3;
 const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint py-3 pr-4 pl-8 leading-relaxed';
 /* 배지 색은 data-* 변형으로 — 옛 `.badge[data-kind='confident']` 의 직역이다. */
 const BADGE =
@@ -62,6 +70,15 @@ export default function ReviewRun() {
   const [revealedAt, setRevealedAt] = useState(-1);
   const revealed = revealedAt === idx;
 
+  /* ID-11 인출 전 예측(JOL) — 펼치기 **전에** "떠오를 것 같아?"를 한 번 묻고 실제 결과와 대조한다.
+     ⚠ 마찰 절제: 세션 앞 JOL_MAX 개만 묻는다. 매 카드마다 물으면 러너가 설문이 되고, 그러면
+       사람들은 아무거나 눌러 신호가 오히려 나빠진다.
+     ⚠ 영속하지 않는다(로컬 state) — D1·서버 zod·폰 계약까지 번지는 새 필드를 지표 하나로 열지 않는다.
+     ⚠ 대답은 **선택**이다. 안 누르고 넘어가면 기록도 없다(강제하면 위 마찰 문제로 되돌아간다). */
+  const [jol, setJol] = useState<JolEntry[]>([]);
+  const [pred, setPred] = useState<boolean | null>(null);
+  const askJol = !revealed && pred === null && jol.length < JOL_MAX;
+
   const total = queue.length;
   const finished = idx >= total;
   const remaining = Math.max(0, total - idx);
@@ -80,6 +97,9 @@ export default function ReviewRun() {
 
   const advance = (didIt: boolean) => {
     if (didIt) setDoneCount((n) => n + 1);
+    // 예측을 남긴 카드만 대조 기록에 들어간다 — 안 물었거나 안 누른 카드는 조용히 빠진다.
+    if (pred !== null) setJol((rows) => [...rows, { predicted: pred, recalled: didIt }]);
+    setPred(null);
     setIdx((i) => i + 1);
   };
   const reveal = () => setRevealedAt(idx);
@@ -87,6 +107,8 @@ export default function ReviewRun() {
     setIdx(0);
     setDoneCount(0);
     setRevealedAt(-1);
+    setJol([]);
+    setPred(null);
   };
 
   // 빈 큐 — 복습할 게 없음(깨끗함).
@@ -107,6 +129,8 @@ export default function ReviewRun() {
     );
   }
 
+  const jolStat = jolSummary(jol);
+
   // 완주 — 이 세션 리캡.
   if (finished) {
     return (
@@ -119,6 +143,15 @@ export default function ReviewRun() {
           <p className="ds-muted">
             {total}개 중 <strong>{doneCount}</strong>개를 인출했어요. 남은 챕터는 볼트에서 이어가세요.
           </p>
+          {/* ID-11 — 예측이 얼마나 맞았나. **비율을 안 쓴다**(표본이 최대 3건이라 %는 정밀해 보이는
+              소음이다) · 과신은 따로 짚는다: "될 줄 알았는데 안 됨"이 복습을 건너뛰게 하는 방향이다. */}
+          {jolStat && (
+            <p className="ds-muted ds-tiny">
+              떠오를지 미리 답한 {jolStat.n}개 중 <strong>{jolStat.hit}개</strong>를 맞혔어요
+              {jolStat.over > 0 && <> · 될 줄 알았는데 안 된 게 {jolStat.over}개(과신)</>}
+              {jolStat.under > 0 && <> · 애매하다 했는데 된 게 {jolStat.under}개</>}
+            </p>
+          )}
           <div className={ACTS_CENTER}>
             <Button onClick={restart} variant="ghost">
               처음부터
@@ -150,6 +183,20 @@ export default function ReviewRun() {
           style={{ width: `${(idx / total) * 100}%` }}
         />
       </div>
+
+      {/* ID-11 — 카드 위 한 줄. 카드 종류가 셋이라 각 카드 안에 넣으면 같은 JSX 가 세 벌이 되고,
+          그러면 한 곳만 고쳐지는 드리프트가 시작된다(이 저장소가 여러 번 물린 부류). */}
+      {askJol && (
+        <div className={JOL_BAR} role="group" aria-label="인출 전 예측">
+          <span className="ds-tiny">펼치기 전에 — 이거 떠오를 것 같나요?</span>
+          <button type="button" className={JOL_BTN} onClick={() => setPred(true)}>
+            떠오를 듯
+          </button>
+          <button type="button" className={JOL_BTN} onClick={() => setPred(false)}>
+            애매해
+          </button>
+        </div>
+      )}
 
       {item.kind === 'retrieval' && (
         <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="retrieval">

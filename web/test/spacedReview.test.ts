@@ -7,6 +7,7 @@ import {
   dueForecast,
   interleaveBySubject,
   riskChapters,
+  failingSids,
   riskOf,
   riskSummary,
   type ChapterReview,
@@ -45,6 +46,55 @@ describe('spacedReview — riskOf 임계(REVIEW_OFFSETS 16/7 정렬)', () => {
     expect(riskOf(15)).toBe('due');
     expect(riskOf(6)).toBe('fresh');
     expect(riskOf(0)).toBe('fresh');
+  });
+});
+
+describe('spacedReview — 성패 가중 간격(ID-10 · 실패 방향만)', () => {
+  it('직전 백지가 막힘이면 사다리를 한 칸 앞당긴다(7→3 · 16→7)', () => {
+    expect(riskOf(3, true)).toBe('due'); // 평소엔 fresh
+    expect(riskOf(7, true)).toBe('overdue'); // 평소엔 due
+    expect(riskOf(2, true)).toBe('fresh'); // 앞당겨도 갓 본 건 갓 본 것
+  });
+
+  it('통과 방향은 **일부러** 안 바꾼다 — 잊은 챕터를 안 보여주는 쪽이 더 나쁘다', () => {
+    // failing=false 는 기존 임계 그대로. 성공했다고 간격을 늘리는 경로는 이 함수에 없다.
+    expect(riskOf(6)).toBe('fresh');
+    expect(riskOf(7)).toBe('due');
+    expect(riskOf(16)).toBe('overdue');
+  });
+
+  const blanks = (rows: [string, string, boolean][]): AppState =>
+    ({
+      blankResults: rows.map(([ds, sid, passed], i) => ({ id: 'b' + i, ds, sid, name: '', passed, note: '' })),
+    }) as unknown as AppState;
+
+  it('과목당 가장 최근 결과만 본다 — 통과가 뒤따르면 실패 표식이 풀린다(낙인 금지)', () => {
+    const st = blanks([
+      ['2026-06-20', 'm', false],
+      ['2026-06-28', 'm', true], // 더 최근에 통과
+      ['2026-06-22', 'p', false], // 물리는 실패가 최신
+    ]);
+    const f = failingSids(st, TODAY);
+    expect(f.has('m')).toBe(false);
+    expect(f.has('p')).toBe(true);
+  });
+
+  it('미래 기록은 무시한다(시드·시계 어긋남 방어)', () => {
+    expect(failingSids(blanks([['2026-09-01', 'm', false]]), TODAY).has('m')).toBe(false);
+  });
+
+  it('기록이 없으면 아무 과목도 앞당기지 않는다', () => {
+    expect(failingSids({} as AppState, TODAY).size).toBe(0);
+  });
+
+  it('chapterReviews 가 그 과목 챕터의 위험을 실제로 올린다', () => {
+    // 수학 5장 = age 8 → 평소 due. 직전 백지가 막힘이면 overdue(임계 7)로 올라간다.
+    const days = [day('2026-06-26', [newIt('m', '수학', ['5장'])])];
+    const base = stateWith([['2026-06-26', 'm', 'new']]);
+    expect(chapterReviews(base, days, TODAY)[0]!.risk).toBe('due');
+
+    const failed = { ...base, ...blanks([['2026-06-27', 'm', false]]) } as AppState;
+    expect(chapterReviews(failed, days, TODAY)[0]!.risk).toBe('overdue');
   });
 });
 

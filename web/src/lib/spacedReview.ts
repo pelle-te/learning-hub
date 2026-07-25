@@ -26,11 +26,48 @@ export interface ChapterReview {
 /** 간격반복의 마지막 오프셋(16) 기준: 그 이상 방치=overdue, 마지막 직전(7)↑=due. */
 const DUE_DAYS = REVIEW_OFFSETS[REVIEW_OFFSETS.length - 2] ?? 7; // 7
 const OVERDUE_DAYS = REVIEW_OFFSETS[REVIEW_OFFSETS.length - 1] ?? 16; // 16
+/* ID-10(실패 방향) — 직전 백지가 '막힘'이면 **사다리를 한 칸 앞당긴다**(7→3 · 16→7).
+   임의 계수를 만들지 않는 것이 요점이다: 앞당김 폭이 REVIEW_OFFSETS 자신에서 나오므로
+   사다리를 고치면 여기가 따라오고, "왜 하필 그 숫자인가"라는 질문이 안 생긴다. */
+const FAIL_DUE_DAYS = REVIEW_OFFSETS[REVIEW_OFFSETS.length - 3] ?? 3; // 3
+const FAIL_OVERDUE_DAYS = DUE_DAYS; // 7
 
-export function riskOf(daysSince: number): ReviewRisk {
-  if (daysSince >= OVERDUE_DAYS) return 'overdue';
-  if (daysSince >= DUE_DAYS) return 'due';
+/**
+ * 경과일 → 위험도. `failing` 이면 임계를 한 칸 앞당긴다(ID-10 · **실패 방향만**).
+ *
+ * 왜 실패 방향만인가: 이 함수는 러너 큐·오늘탭 배지·통계가 함께 읽는 **핵심 파생 계약**이다.
+ * 통과 방향(잘했으니 간격을 늘림)까지 한 번에 넣으면 "복습이 줄었다"가 위험 감소인지 계산
+ * 변경인지 구분할 수 없게 된다 — 게다가 통과 방향을 정밀하게 하려면 백지 결과가 챕터 단위여야
+ * 하는데(현재는 과목-일 단위 = 토대 B) 그 전엔 잘한 챕터와 못 한 챕터가 한 신호를 공유한다.
+ * **앞당김은 그 거친 신호로도 안전하다** — 최악이 "덜 급한 챕터를 조금 일찍 본다"이기 때문이다.
+ * 반대 방향은 최악이 "잊은 챕터를 안 보여준다"라 같은 근거로 못 넣는다(비대칭이 설계 결정이다).
+ */
+export function riskOf(daysSince: number, failing = false): ReviewRisk {
+  const over = failing ? FAIL_OVERDUE_DAYS : OVERDUE_DAYS;
+  const due = failing ? FAIL_DUE_DAYS : DUE_DAYS;
+  if (daysSince >= over) return 'overdue';
+  if (daysSince >= due) return 'due';
   return 'fresh';
+}
+
+/**
+ * 직전 백지 복습이 **막힘**으로 끝난 과목 id 집합(ID-10 입력).
+ *
+ * 과목당 가장 최근(오늘 이하) 백지 결과 하나만 본다 — 오래된 실패가 영원히 따라다니면 그건
+ * 간격반복이 아니라 낙인이다. 그 뒤 통과 기록이 있으면 자연히 빠진다.
+ * ⚠ 백지 결과는 (날짜, 과목) 단위다(챕터 아님 · 토대 B). 그래서 이 신호는 **과목 전체**에
+ *   걸린다 — 같은 과목의 안 막힌 챕터도 함께 앞당겨진다. 위 비대칭 근거가 그것을 허용한다.
+ */
+export function failingSids(state: AppState, todayDs: string): Set<string> {
+  const latest = new Map<string, { ds: string; passed: boolean }>();
+  for (const r of state.blankResults || []) {
+    if (!r.ds || r.ds > todayDs) continue; // 미래 기록 무시(시드·시계 어긋남 방어)
+    const cur = latest.get(r.sid || '');
+    if (!cur || r.ds > cur.ds) latest.set(r.sid || '', { ds: r.ds, passed: !!r.passed });
+  }
+  const out = new Set<string>();
+  for (const [sid, v] of latest) if (sid && !v.passed) out.add(sid);
+  return out;
 }
 
 const TOUCH_TYPES: ReadonlySet<SessionType> = new Set<SessionType>(['new', 'rev', 'blank']);
@@ -60,6 +97,8 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
     const cur = last.get(k);
     if (cur && ds > cur.ds && ds <= todayDs) cur.ds = ds;
   }
+  // ID-10 — 직전 백지가 막힌 과목은 임계를 한 칸 앞당긴다(성패 가중 · 실패 방향만).
+  const failing = failingSids(state, todayDs);
   const out: ChapterReview[] = [];
   for (const e of last.values()) {
     const daysSince = dayDiff(e.ds, todayDs);
@@ -70,7 +109,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       chapter: e.chapter,
       lastDs: e.ds,
       daysSince,
-      risk: riskOf(daysSince),
+      risk: riskOf(daysSince, failing.has(e.sid)),
     });
   }
   return out.sort((a, b) => b.daysSince - a.daysSince || (a.subject < b.subject ? -1 : 1));

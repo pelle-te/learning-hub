@@ -14,6 +14,10 @@ export interface PrefillReq {
   form: PrefillForm;
   sid: string;
   ds: string;
+  /** C-10 잔여: 빠른 캡처가 뽑은 챕터('3장'·'ch 5'). 텍스트 필드가 있는 폼만 소비한다.
+   *  ⚠ 지금 그런 폼은 **보충('bl')의 "막힌 주제"** 하나다 — 요약('sum')엔 챕터를 담을 칸이
+   *    아예 없어(s1~s3 문장 셋) 넘겨도 갈 곳이 없다. 그래서 캡처는 bl 경로에서만 채운다. */
+  chapter?: string;
 }
 
 interface PrefillStore {
@@ -21,11 +25,13 @@ interface PrefillStore {
   sid: string;
   /** C-10: 빠른 캡처가 파싱한 날짜('YYYY-MM-DD') — 기록 탭이 그 날짜로 이동해 백필. 없으면 ''(오늘 유지). */
   ds: string;
+  /** C-10 잔여: 현재 투영 중인 챕터(없으면 ''). 텍스트 칸이 있는 폼만 읽는다. */
+  chapter: string;
   /** 매 요청마다 증가 — 같은 (form,sid) 재요청도 effect가 감지하게. */
   nonce: number;
   /** I-11: 남은 배치. head가 현재 투영(form/sid/ds). 단건 request는 길이 1 큐. */
   queue: PrefillReq[];
-  request: (form: PrefillForm, sid: string, ds?: string) => void;
+  request: (form: PrefillForm, sid: string, ds?: string, chapter?: string) => void;
   /** I-11: 다건 프리필(멀티라인 캡처) — 첫 건을 투영하고 소비마다 다음으로 자동 전진. */
   requestBatch: (reqs: PrefillReq[]) => void;
   /** 해당 폼이 소비 완료 → 큐에 다음이 있으면 그 폼으로 전진(nonce++), 없으면 form=null. */
@@ -36,21 +42,38 @@ export const usePrefill = create<PrefillStore>((set) => ({
   form: null,
   sid: '',
   ds: '',
+  chapter: '',
   nonce: 0,
   queue: [],
-  request: (form, sid, ds = '') => set((s) => ({ queue: [{ form, sid, ds }], form, sid, ds, nonce: s.nonce + 1 })),
+  request: (form, sid, ds = '', chapter = '') =>
+    set((s) => ({ queue: [{ form, sid, ds, chapter }], form, sid, ds, chapter, nonce: s.nonce + 1 })),
   requestBatch: (reqs) =>
     set((s) => {
       if (!reqs.length) return {};
       const head = reqs[0]!;
-      return { queue: reqs.slice(), form: head.form, sid: head.sid, ds: head.ds, nonce: s.nonce + 1 };
+      return {
+        queue: reqs.slice(),
+        form: head.form,
+        sid: head.sid,
+        ds: head.ds,
+        chapter: head.chapter ?? '',
+        nonce: s.nonce + 1,
+      };
     }),
   consume: (form) =>
     set((s) => {
       if (s.form !== form) return {};
       const rest = s.queue.slice(1);
       const next = rest[0];
-      if (next) return { queue: rest, form: next.form, sid: next.sid, ds: next.ds, nonce: s.nonce + 1 };
+      if (next)
+        return {
+          queue: rest,
+          form: next.form,
+          sid: next.sid,
+          ds: next.ds,
+          chapter: next.chapter ?? '',
+          nonce: s.nonce + 1,
+        };
       return { queue: [], form: null };
     }),
 }));

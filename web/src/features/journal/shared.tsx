@@ -38,19 +38,25 @@ export function SubjectSelect({
   );
 }
 
-/** prefill 요청을 구독해 해당 폼의 과목을 채우고 스크롤/포커스. */
+/** prefill 요청을 구독해 해당 폼의 과목을 채우고 스크롤/포커스.
+ *  @param setText C-10 잔여 — 캡처가 뽑은 **챕터**를 받을 텍스트 칸이 있는 폼만 넘긴다(보충의
+ *    '막힌 주제'). 챕터가 비어 있으면 부르지 않는다 — 빈 값으로 사용자가 이미 친 글자를 지우면
+ *    프리필이 도움이 아니라 파괴가 된다. */
 export function usePrefillForm(
   form: PrefillForm,
   setSid: (sid: string) => void,
   focusEl: React.RefObject<HTMLElement | null>,
+  setText?: (v: string) => void,
 ) {
   const nonce = usePrefill((s) => s.nonce);
   const reqForm = usePrefill((s) => s.form);
   const reqSid = usePrefill((s) => s.sid);
+  const reqChapter = usePrefill((s) => s.chapter);
   const consume = usePrefill((s) => s.consume);
   useEffect(() => {
     if (reqForm !== form) return;
     setSid(reqSid);
+    if (setText && reqChapter) setText(reqChapter);
     consume(form);
     const el = focusEl.current;
     if (el) {

@@ -7,7 +7,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { confTrend } from '@/lib/methodology';
 import { onThisDay, personalBests, seasonPace, shutdownChain } from '@/lib/records';
 import { pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
-import { weeklyRecap } from '@/lib/insights';
+import { jolSummary, weeklyRecap } from '@/lib/insights';
 import { frontierNext } from '@/lib/knowledge';
 import { backlogFromWeakSpot, backlogFromRootCause } from '@/lib/promote';
 import { parseCaptureBatch } from '@/lib/quickCapture';
@@ -282,5 +282,31 @@ describe('프리필 배치 큐 (I-11)', () => {
   it('빈 배치 → 무변경', () => {
     usePrefill.getState().requestBatch([]);
     expect(usePrefill.getState().form).toBeNull();
+  });
+});
+
+describe('jolSummary (ID-11 인출 전 예측)', () => {
+  it('맞힌 수 · 과신 · 과소평가를 나눈다(비율은 안 만든다 — 표본이 최대 3건)', () => {
+    const s = jolSummary([
+      { predicted: true, recalled: true }, // 맞힘
+      { predicted: true, recalled: false }, // 과신 — 될 줄 알았는데 안 됨
+      { predicted: false, recalled: true }, // 과소평가
+      { predicted: false, recalled: false }, // 맞힘
+    ])!;
+    expect(s).toEqual({ n: 4, hit: 2, over: 1, under: 1 });
+  });
+
+  it('기록이 없으면 null — 호출부가 "잴 것 없음"을 침묵으로 처리한다', () => {
+    expect(jolSummary([])).toBeNull();
+  });
+
+  it('과신만 있는 세션 — 가장 위험한 방향이 따로 드러난다', () => {
+    const s = jolSummary([
+      { predicted: true, recalled: false },
+      { predicted: true, recalled: false },
+    ])!;
+    expect(s.over).toBe(2);
+    expect(s.hit).toBe(0);
+    expect(s.under).toBe(0);
   });
 });

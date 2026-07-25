@@ -7,7 +7,11 @@
 ============================================================ */
 import { useMemo } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useGoals, useDiscovery } from '@/store/queries';
+import { useGoals, useDiscovery, useKnowledge } from '@/store/queries';
+import { useApp } from '@/store/useApp';
+import { ui } from '@/shell';
+import { addBacklog, openBacklog } from '@/lib/methodology';
+import type { Knowledge } from '@/lib/knowledge';
 import {
   buildGoalTree,
   byWeightDesc,
@@ -16,6 +20,8 @@ import {
   projectNodes,
   projectViews,
   type GoalTreeNode,
+  needKnowledgeRows,
+  type NeedKnowledgeRow,
   type ProjectView,
 } from '@/lib/goals';
 import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
@@ -58,6 +64,10 @@ export default function Goals() {
 
   // 발견 큐(capability-unlock 가능신호 · D10 양방향). 콜드면 404→undefined(내 길 렌더 무영향).
   const disc = useDiscovery();
+  /* ID-8 하향 루프 — 필요지식이 **약점인가**를 알려면 지식엔진 산출물이 필요하다. 숙달도·리뷰 탭이
+     이미 쓰는 같은 쿼리라 캐시를 공유한다(신규 IO 0에 가깝다). 콜드면 undefined → 칩은 지금까지처럼
+     정적으로 남는다(조인 실패를 '약점 아님'으로 조용히 바꾸지 않는다는 뜻이기도 하다). */
+  const knowledge = useKnowledge().data;
 
   const roots = useMemo(() => buildGoalTree(data), [data]);
   const active = useMemo(() => activeGoals(data), [data]);
@@ -111,7 +121,7 @@ export default function Goals() {
       ))}
 
       {/* 프로젝트·활용 표면(D10) — 선언 프로젝트(진행 중) + capability-unlock 가능신호(양방향). */}
-      <ProjectsSection projects={projViews} signals={capSignals} />
+      <ProjectsSection projects={projViews} signals={capSignals} k={knowledge} />
 
       {/* 노트→목표 연관 — 하이브리드 모델 안내(핵심만 명시링크·나머지 개념그래프 거리 Phase 4). */}
       <div className="mt-5 flex gap-2 rounded-md border border-dashed border-line bg-panel px-4 py-3 text-sm leading-normal text-mut">
@@ -130,7 +140,15 @@ export default function Goals() {
    ① 선언된 프로젝트(kind:project · 진행 중) = 앵커목표↑·필요지식↓·산출물(done)·capability임계.
    ② capability-unlock 가능신호 = 발견 큐가 "이제 이 프로젝트 가능"으로 surface 한 후보(승격은 발견 탭).
    둘 다 콜드(프로젝트 미명시·신호 없음)면 억지 시드 없이 D10 모델을 정직하게 안내(과설계 금지). */
-function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signals: DiscoveryEntry[] }) {
+function ProjectsSection({
+  projects,
+  signals,
+  k,
+}: {
+  projects: ProjectView[];
+  signals: DiscoveryEntry[];
+  k: Knowledge | undefined;
+}) {
   const cold = projects.length === 0 && signals.length === 0;
   return (
     <section className="mt-6" aria-label="프로젝트·활용 표면">
@@ -151,7 +169,7 @@ function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signa
           {projects.length > 0 && (
             <div className={GRID}>
               {projects.map((p) => (
-                <ProjectCard key={p.node.id} p={p} />
+                <ProjectCard key={p.node.id} p={p} k={k} />
               ))}
             </div>
           )}
@@ -183,9 +201,62 @@ function ProjectsSection({ projects, signals }: { projects: ProjectView[]; signa
   );
 }
 
+/** 필요지식 칩 — 약점이면 **행동 가능한 버튼**, 아니면 지금까지처럼 정적 칩(ID-8).
+ *
+ *  이 칩이 이 탭의 핵심 비대칭이었다: capability **상향**(축적 → "이제 가능")은 배선돼 있는데
+ *  **하향**("이 프로젝트를 열려면 이 지식이 약하다")은 정적 텍스트라 죽어 있었다. 약점인 것만
+ *  보충으로 담을 수 있게 해서 그 방향을 잇는다 — 제품 telos(관계성이 학습을 견인)에 정확히 붙는다.
+ *
+ *  ⚠ 약점이 아니거나 **조인이 안 된 이름은 버튼으로 만들지 않는다.** 지식엔진이 모르는 이름을
+ *    누르게 하면 "담았다"는 피드백만 주고 무엇에 대한 보충인지가 비어 버린다(칩은 그대로 보인다).
+ *  ⚠ 이미 담긴 주제는 잠근다 — 같은 보충이 여러 번 쌓이면 목록이 곧 소음이 된다(SR-4 '✓보냄' 선례). */
+function NeedChip({ row, seeded, onSeed }: { row: NeedKnowledgeRow; seeded: boolean; onSeed: () => void }) {
+  const base = 'rounded-full px-2 py-1 text-xs';
+  if (!row.weak) {
+    return (
+      <span
+        className={`${base} bg-line2 text-txt`}
+        title={row.concept ? '지식엔진이 아는 개념 — 지금은 약점이 아니에요' : '지식엔진에 같은 이름의 개념이 없어요'}
+      >
+        ↓ {row.name}
+      </span>
+    );
+  }
+  if (seeded) {
+    return (
+      <span className={`${base} bg-tint-warn text-warn`} title="이미 보충에 담겨 있어요">
+        ✓ {row.name}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={`${base} bg-tint-warn font-semibold text-warn`}
+      onClick={onSeed}
+      title={`'${row.name}'은(는) 지금 약점이에요 — 보충('나중에 볼 것')에 담기`}
+      aria-label={`${row.name} — 약점, 보충에 담기`}
+    >
+      ⚠ {row.name}
+    </button>
+  );
+}
+
 /** 프로젝트 카드 — 앵커목표(상향)·산출물(done)·필요지식 칩(하향)·capability임계.
    capability '가능/잠김' 판정은 라이브 숙련 신호 축적 후(콜드 정직 · 시퀀싱과 대칭)라 임계값만 표시. */
-function ProjectCard({ p }: { p: ProjectView }) {
+function ProjectCard({ p, k }: { p: ProjectView; k: Knowledge | undefined }) {
+  const mutate = useApp((s) => s.mutate);
+  // 이미 열려 있는 보충의 주제 집합 — 중복 시드 잠금의 근거를 로컬 state 가 아니라 **실제 상태**에서 판다
+  // (탭을 다시 열어도, 다른 화면에서 담았어도 같은 답이 나온다).
+  const openTopics = useApp((s) => new Set(openBacklog(s.state).map((b) => b.topic)));
+  const rows = needKnowledgeRows(p.필요지식, k);
+  const weakN = rows.filter((r) => r.weak).length;
+
+  const seed = (name: string): void => {
+    mutate((s) => addBacklog(s, '', '', name, `프로젝트 '${p.node.title}'의 필요지식`));
+    ui.toast(`📥 보충에 담았어요 — ${name}`, 'ok', 4000);
+  };
+
   return (
     <article className={`${CARD} ${p.node.active ? '' : 'opacity-55'}`}>
       <div className={CARD_HEAD}>
@@ -212,15 +283,16 @@ function ProjectCard({ p }: { p: ProjectView }) {
         </div>
       )}
 
-      {p.필요지식.length > 0 && (
+      {rows.length > 0 && (
         <div className="flex items-start gap-2">
           <span className={PROJ_K}>필요지식</span>
-          <div className="flex flex-wrap gap-1">
-            {p.필요지식.map((n) => (
-              <span key={n} className="rounded-full bg-line2 px-2 py-1 text-xs text-txt">
-                ↓ {n}
-              </span>
+          <div className="flex flex-wrap items-center gap-1">
+            {rows.map((r) => (
+              <NeedChip key={r.name} row={r} seeded={openTopics.has(r.name)} onSeed={() => seed(r.name)} />
             ))}
+            {/* 조인이 아무것도 못 찾았을 수도, 전부 튼튼할 수도 있다 — 약점이 **있을 때만** 말한다.
+                (지식 산출물이 콜드면 rows 는 전부 weak=false 라 이 줄이 자연히 침묵한다.) */}
+            {weakN > 0 && <span className="ml-1 text-xs text-mut">— {weakN}개가 약점이에요(눌러서 보충에 담기)</span>}
           </div>
         </div>
       )}

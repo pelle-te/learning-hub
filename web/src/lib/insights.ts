@@ -219,3 +219,42 @@ export function dayShape(state: AppState, ds: string): DayShape {
   const learned = last ? (last.s3 || last.s2 || last.s1 || '').trim() : '';
   return { ds, subjects: sids.size, sessions, focusMin, learned };
 }
+
+/* ── ID-11 인출 전 예측(JOL · Judgment of Learning) ───────────────────────────
+   러너가 답을 펼치기 **전에** "이거 떠오를 것 같아?"를 묻고, 실제 인출 결과와 대조한다.
+   I-5(confTrend)는 오답을 적은 **뒤**의 확신을 보므로 시점이 다르다 — 이쪽은 *사전* 회상 예측이라
+   메타인지 교정(어디서 내 감이 틀리는가)에 직접 붙는다(Nelson&Dunlosky).
+
+   ⚠ **영속하지 않는다.** 세션 안에서만 산다 — D1·서버 strict zod·폰 계약까지 번지는 새 필드를
+     '알아두면 좋은 지표' 하나로 여는 것은 비용이 값보다 크다(로드맵이 못박은 보류 사유).
+   ⚠ **비율을 만들지 않는다.** 표본이 세션당 최대 3건이라 "정확도 67%"는 정밀해 보이는 소음이다.
+     같은 이유로 통계 탭이 표본 게이트를 두는데, 여기선 애초에 개수로만 말한다. */
+export interface JolEntry {
+  /** 펼치기 전 예측 — true='떠오를 것 같다'. */
+  predicted: boolean;
+  /** 실제 결과 — true='인출했다'(건너뛰기=false). */
+  recalled: boolean;
+}
+export interface JolSummary {
+  n: number;
+  /** 예측이 맞은 횟수. */
+  hit: number;
+  /** 과신 — 될 줄 알았는데 안 됨(가장 위험한 방향: 안다고 믿어 복습을 건너뛴다). */
+  over: number;
+  /** 과소평가 — 애매하다 했는데 됨. */
+  under: number;
+}
+
+/** JOL 기록 집계 — 비어 있으면 null(호출부가 '잴 것 없음'을 침묵으로 처리하게). */
+export function jolSummary(rows: JolEntry[]): JolSummary | null {
+  if (!rows.length) return null;
+  let hit = 0;
+  let over = 0;
+  let under = 0;
+  for (const r of rows) {
+    if (r.predicted === r.recalled) hit++;
+    else if (r.predicted) over++;
+    else under++;
+  }
+  return { n: rows.length, hit, over, under };
+}

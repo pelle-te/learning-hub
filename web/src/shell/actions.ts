@@ -484,7 +484,8 @@ export function runQuickCapture(cap: CaptureResult, summary: string): void {
   const form: PrefillForm = cap.sessionType && cap.sessionType !== 'new' && cap.sessionType !== 'anki' ? 'bl' : 'sum';
   const sid = cap.subject ? (st().state.items.find((i) => i.name === cap.subject)?.id ?? '') : '';
   // C-10: 파서가 뽑은 날짜(미래는 기록 탭이 무시)도 넘긴다 — "어제 …" 캡처가 오늘로 잘못 기록되던 것 해소.
-  usePrefill.getState().request(form, sid, cap.dateISO);
+  // C-10 잔여: 챕터도 넘긴다 — 단 텍스트 칸이 있는 **보충 폼**일 때만(요약엔 담을 칸이 없다).
+  usePrefill.getState().request(form, sid, cap.dateISO, form === 'bl' ? cap.chapter : '');
   toast('📌 기록 탭에 준비했어요 — ' + summary, 'ok', 4500);
 }
 
