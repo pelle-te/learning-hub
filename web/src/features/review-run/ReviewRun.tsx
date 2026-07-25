@@ -4,13 +4,20 @@
    오늘 인출할 것을 한 카드씩 흐름으로: ① 회상(내 요약 다시 설명) ② 착각 재확인(과신 오답 재인출)
    ③ 밀린 챕터(간격반복 due/overdue). 진행은 이 세션의 로컬 상태(가짜 위험 감소 주장 없음) —
    실제 학습은 '집중 시작'(전역 타이머)·볼트 딥링크로 다리 놓고, 완료 세션이 정직하게 루프를 먹인다.
+
+   ## 조작은 키보드가 정본이다(D-3)
+   `Space` 펼치기 · `1` 건너뛰기 · `2` 판정(펼친 뒤에만) · `V` 볼트 · `U` 되돌리기 · `Esc` 중단.
+   카드 안에는 버튼이 없다 — 전부 화면 발치의 키캡 한 줄(`KeyBar`)로 모였고, 그 키캡이 곧
+   누를 수 있는 버튼이다. 목록(`keys`)이 리스너와 화면의 **단일 원천**이라 둘이 갈릴 수 없다.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
+import { useOverlay } from '@/store/useOverlay';
+import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { riskSummary } from '@/lib/spacedReview';
 import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
@@ -37,11 +44,18 @@ const WRAP = 'flex h-full flex-col items-center justify-center gap-4 p-runner-pa
 const CARD_BASE = 'flex w-full flex-col gap-3';
 const CENTER = 'w-full max-w-runner-narrow items-center text-center';
 const ACTS = 'mt-1 flex flex-wrap items-center gap-2';
-const ACTS_END = `${ACTS} justify-end`;
 const ACTS_CENTER = `${ACTS} justify-center`;
-const SKIP =
-  'cursor-pointer rounded-sm border border-line bg-none px-3 py-2 text-md text-mut hover:border-acc hover:text-txt';
 const PROMPT = 'm-0! text-runner-prompt! leading-normal'; // h2 — 언레이어드 전역 h2{} 를 ! 로 이긴다
+/* ── D-3 발치 키캡 바 ────────────────────────────────────────────────────
+   카드에서 버튼 무리(건너뛰기·펼치기·판정·볼트)를 걷어내고 화면 발치의 한 줄로 모았다.
+   **키캡은 진짜 버튼이다** — 포인터 경로를 없애면 키보드를 못 쓰는 상황(터치·스위치)에서
+   러너가 통째로 잠긴다. 키를 *가르치는* 라벨이자 누를 수 있는 컨트롤, 둘 다인 형태. */
+const KEYBAR = 'flex w-full max-w-runner flex-wrap items-center justify-center gap-2';
+const KEYBTN =
+  'flex cursor-pointer items-center gap-1.5 rounded-sm border border-line bg-none px-2.5 py-1.5 text-xs text-mut hover:border-acc hover:text-txt';
+const KEYBTN_ON = `${KEYBTN} border-acc-glow text-acc`;
+const KEYCAP =
+  'min-w-5 rounded-sm border border-line bg-panel2 px-1.5 py-0.5 text-center font-mono text-2xs leading-none text-txt shadow-kbd';
 /* ID-11 인출 전 예측 바 — 카드 **위**에 얇게. 카드 어휘(ds-card)를 안 쓰는 건 의도다:
    이건 복습 대상이 아니라 그 앞의 한 줄짜리 질문이라, 카드로 보이면 위계가 카드와 맞먹는다. */
 const JOL_BAR = 'flex w-full max-w-runner flex-wrap items-center justify-end gap-2';
@@ -55,6 +69,27 @@ const BADGE =
   'rounded-full bg-tint-acc px-2 py-1 text-xs font-bold tracking-wide text-acc whitespace-nowrap ' +
   'data-[kind=confident]:bg-tint-warn data-[kind=confident]:text-warn ' +
   'data-[risk=overdue]:bg-tint-bad data-[risk=overdue]:text-bad';
+
+/** 발치 키캡 하나 — `k` 는 KeyboardEvent.key 그대로(리스너와 라벨이 같은 값을 쓴다). */
+interface RunKey {
+  k: string;
+  cap: string;
+  label: string;
+  run: () => void;
+  primary?: boolean;
+  /** 목록엔 있지만 바에는 안 그린다(관용 처리용 — 아래 `2` 펼치기 폴백). */
+  quiet?: boolean;
+}
+
+/** 되돌리기용 세션 스냅샷 — 전진 직전 상태 전량(부분만 담으면 되돌린 뒤가 어긋난다). */
+interface RunSnap {
+  idx: number;
+  queue: RunItem[];
+  gotKeys: string[];
+  revealedAt: number;
+  jol: JolEntry[];
+  pred: boolean | null;
+}
 
 export default function ReviewRun() {
   const state = useApp((s) => s.state);
@@ -82,6 +117,7 @@ export default function ReviewRun() {
      ⚠ 대답은 **선택**이다. 안 누르고 넘어가면 기록도 없다(강제하면 위 마찰 문제로 되돌아간다). */
   const [jol, setJol] = useState<JolEntry[]>([]);
   const [pred, setPred] = useState<boolean | null>(null);
+  const [past, setPast] = useState<RunSnap[]>([]);
   // 재큐된 카드에는 안 묻는다 — 예측은 첫 대면에서만 의미가 있고(두 번째는 이미 답을 봤다),
   // 같은 카드가 대조 기록에 두 번 들어가면 jolSummary 의 표본이 부풀어 오른다.
   const askJol = !revealed && pred === null && jol.length < JOL_MAX && !queue[idx]?.again;
@@ -107,6 +143,7 @@ export default function ReviewRun() {
 
   const advance = (didIt: boolean) => {
     const cur = queue[idx];
+    setPast((p) => [...p, { idx, queue, gotKeys, revealedAt, jol, pred }]); // D-3 되돌리기용
     if (didIt) {
       if (cur) setGotKeys((ks) => (ks.includes(runItemKey(cur)) ? ks : [...ks, runItemKey(cur)]));
     } else {
@@ -119,6 +156,20 @@ export default function ReviewRun() {
     setIdx((i) => i + 1);
   };
   const reveal = () => setRevealedAt(idx);
+  /* D-3 되돌리기 — 오타 한 번(1 을 눌러야 할 때 2)이 세션 기록을 조용히 오염시키던 것을 닫는다.
+     상태 전량을 스냅샷으로 되돌린다: 재큐가 큐를 바꿨을 수도, JOL 이 기록됐을 수도 있어
+     `idx--` 만으로는 되돌아가지지 않는다(부분 복원이 곧 새 결함이다). */
+  const undo = () => {
+    const prev = past[past.length - 1];
+    if (!prev) return;
+    setPast((p) => p.slice(0, -1));
+    setQueue(prev.queue);
+    setIdx(prev.idx);
+    setGotKeys(prev.gotKeys);
+    setRevealedAt(prev.revealedAt);
+    setJol(prev.jol);
+    setPred(prev.pred);
+  };
   const restart = () => {
     setQueue(buildReviewQueue(state, res.days, today));
     setIdx(0);
@@ -126,7 +177,98 @@ export default function ReviewRun() {
     setRevealedAt(-1);
     setJol([]);
     setPred(null);
+    setPast([]);
   };
+
+  /* ── D-3 키보드 계약 ────────────────────────────────────────────────────
+     이 화면엔 keydown 이 **0개**였다. 12장 세션이 21~27클릭이고 버튼이 카드 우측에 몰려
+     있어 매 카드 같은 마우스 왕복을 했다 — 집중을 지키려는 화면이 손을 계속 불러냈다.
+
+     ⚠ **판정은 대조 뒤에만**(`2` 는 펼친 뒤에 생긴다). 안 그러면 1/2 연타가 "12개 인출"로
+     기록되지만 실제로는 아무것도 인출하지 않은 세션이 된다 — 학습 지능을 팔아 클릭을 사는
+     교환이다. 다만 마찰로 두지 않는다: 펼치기 전에 `2` 를 누르면 **먼저 펼친다**(누른 사람의
+     의도는 "됐다, 확인하자"이므로 그 다음 화면이 정확히 필요한 것이다). 키 수는 그대로 둘,
+     대조 없는 판정만 원리적으로 불가능해진다.
+     ⚠ `1`(건너뛰기)은 펼치기 전에도 된다 — "모르겠다, 넘김"은 정직한 결과이고, D-1 재큐가
+     그 카드를 세션 안에서 한 번 더 데려온다.
+     ⚠ 되돌리기(`u`)가 이 계약의 짝이다. 키가 빨라지면 오타도 빨라진다. */
+  const cur = queue[idx];
+  const keys: RunKey[] = [];
+  if (cur) {
+    const revealable = cur.kind !== 'chapter';
+    if (revealable && !revealed)
+      keys.push({
+        k: ' ',
+        cap: 'Space',
+        label: cur.kind === 'retrieval' ? '원래 요약 펼치기' : '당시 메모 펼치기',
+        run: reveal,
+      });
+    keys.push({ k: '1', cap: '1', label: '건너뛰기', run: () => advance(false) });
+    if (cur.kind === 'chapter')
+      keys.push({
+        k: '2',
+        cap: '2',
+        label: '▶ 집중 시작',
+        primary: true,
+        run: () => {
+          useFocus.getState().start({
+            ds: today,
+            sid: cur.ch.sid,
+            type: 'rev',
+            name: cur.ch.subject,
+            min: 25,
+            blockMin: 25,
+            chapter: cur.ch.chapter, // 완료 시 챕터 터치 → 위험모델 lastDs 갱신(감사 #22)
+          });
+          advance(true);
+        },
+      });
+    else
+      keys.push({
+        k: '2',
+        cap: '2',
+        label: revealed ? (cur.kind === 'retrieval' ? '다시 설명했어요' : '다시 확인했어요') : '펼쳐서 대조하기',
+        primary: revealed,
+        // 펼치기 전엔 **바에 안 그린다** — 그리면 Space 와 같은 일을 하는 칩이 둘이 된다.
+        // 그래도 눌리면 펼친다: 계약을 가르치는 것과 실수를 벌하는 것은 다른 일이다.
+        quiet: !revealed,
+        run: () => (revealed ? advance(true) : reveal()),
+      });
+    if (cur.kind !== 'retrieval')
+      keys.push({
+        k: 'v',
+        cap: 'V',
+        label: '볼트에서 찾기',
+        run: () =>
+          openVaultSearch(
+            cur.kind === 'confident'
+              ? cur.card.cbms.name + ' ' + cur.card.cbms.chapter
+              : cur.ch.subject + ' ' + cur.ch.chapter,
+          ),
+      });
+  }
+  /* ⚠ 되돌리기·중단은 **카드 밖에서도** 산다 — 특히 마지막 카드를 잘못 눌러 리캡으로 튄 순간이
+     되돌리기가 가장 필요한 때다. 카드 안에만 두면 그 순간에 정확히 없다. */
+  if (past.length) keys.push({ k: 'u', cap: 'U', label: '되돌리기', run: undo });
+  keys.push({ k: 'Escape', cap: 'Esc', label: '중단', run: () => nav('/today') });
+
+  /* 리스너는 마운트당 1회 — 목록은 이펙트에서 동기화한다(렌더 중 ref 쓰기 금지 · `useWeekNavKeys` 선례). */
+  const keysRef = useRef<RunKey[]>([]);
+  useEffect(() => {
+    keysRef.current = keys;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping()) return;
+      if (useOverlay.getState().palette || useOverlay.getState().help) return; // 위가 열려 있으면 그쪽 것
+      const hit = keysRef.current.find((a) => a.k === e.key);
+      if (!hit) return;
+      e.preventDefault();
+      hit.run();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   // 빈 큐 — 복습할 게 없음(깨끗함).
   if (total === 0) {
@@ -180,6 +322,8 @@ export default function ReviewRun() {
             <Button onClick={() => nav('/today')}>오늘 학습으로</Button>
           </div>
         </div>
+        {/* 마지막 카드를 잘못 눌러 여기 도착했을 수 있다 — 되돌리기가 가장 필요한 순간이다. */}
+        <KeyBar keys={keys} />
       </div>
     );
   }
@@ -243,17 +387,6 @@ export default function ReviewRun() {
           ) : (
             <p className="ds-muted">머릿속으로 먼저 인출한 뒤, 아래로 내 원래 요약과 대조하세요.</p>
           )}
-          <div className={ACTS_END}>
-            {!revealed && (
-              <Button variant="ghost" onClick={reveal}>
-                원래 요약 보기
-              </Button>
-            )}
-            <button type="button" className={SKIP} onClick={() => advance(false)}>
-              건너뛰기
-            </button>
-            <Button onClick={() => advance(true)}>다시 설명했어요</Button>
-          </div>
         </div>
       )}
 
@@ -280,22 +413,6 @@ export default function ReviewRun() {
           ) : (
             <p className="ds-muted">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
           )}
-          <div className={ACTS_END}>
-            {!revealed && (
-              <Button variant="ghost" onClick={reveal}>
-                당시 메모 보기
-              </Button>
-            )}
-            <button
-              type="button"
-              className={SKIP}
-              onClick={() => openVaultSearch(item.card.cbms.name + ' ' + item.card.cbms.chapter)}
-              title="Obsidian에서 검색"
-            >
-              🔎 볼트
-            </button>
-            <Button onClick={() => advance(true)}>다시 확인했어요</Button>
-          </div>
         </div>
       )}
 
@@ -320,37 +437,35 @@ export default function ReviewRun() {
           <p className="ds-muted">
             배웠지만 {item.ch.daysSince}일 안 봤어요(마지막 {item.ch.lastDs}). 지금 인출해 망각곡선을 리셋하세요.
           </p>
-          <div className={ACTS_END}>
-            <button
-              type="button"
-              className={SKIP}
-              onClick={() => openVaultSearch(item.ch.subject + ' ' + item.ch.chapter)}
-              title="Obsidian에서 검색"
-            >
-              🔎 볼트
-            </button>
-            <button type="button" className={SKIP} onClick={() => advance(false)}>
-              건너뛰기
-            </button>
-            <Button
-              onClick={() => {
-                useFocus.getState().start({
-                  ds: today,
-                  sid: item.ch.sid,
-                  type: 'rev',
-                  name: item.ch.subject,
-                  min: 25,
-                  blockMin: 25,
-                  chapter: item.ch.chapter, // 완료 시 챕터 터치 → 위험모델 lastDs 갱신(감사 #22)
-                });
-                advance(true);
-              }}
-            >
-              ▶ 집중 시작
-            </Button>
-          </div>
         </div>
       )}
+
+      <KeyBar keys={keys} />
+    </div>
+  );
+}
+
+/** D-3 발치 키캡 한 줄 — 카드마다 흩어져 있던 버튼 무리가 여기 하나로 모였다.
+ *  키캡은 **누를 수도 있다**(포인터 경로 보존 — 키보드만 남기면 러너가 통째로 잠긴다).
+ *  목록은 러너의 `keys` 가 단일 원천이라 리스너와 화면이 갈릴 수 없다 — 갈리면
+ *  "화면엔 있는데 안 눌리는 키"(또는 그 반대)가 생기고 그건 조용하다. */
+function KeyBar({ keys }: { keys: RunKey[] }) {
+  const shown = keys.filter((a) => !a.quiet);
+  if (!shown.length) return null;
+  return (
+    <div className={KEYBAR} role="group" aria-label="복습 조작">
+      {shown.map((a) => (
+        <button
+          key={a.k}
+          type="button"
+          className={a.primary ? KEYBTN_ON : KEYBTN}
+          onClick={a.run}
+          aria-keyshortcuts={a.k === ' ' ? 'Space' : a.cap}
+        >
+          <kbd className={KEYCAP}>{a.cap}</kbd>
+          {a.label}
+        </button>
+      ))}
     </div>
   );
 }
