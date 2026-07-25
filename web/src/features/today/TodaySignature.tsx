@@ -58,14 +58,17 @@ const S = {
   heroFill:
     'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
   heroHead: 'flex items-baseline justify-between gap-3',
+  /* D-6 액센트 예산 — 아이브로는 **분류 라벨**이지 손봐야 할 것이 아니다. 액센트는 행동에만.
+     (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */
   eyebrow:
-    'inline-flex items-center gap-2 text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-acc uppercase',
+    'inline-flex items-center gap-2 text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-mut uppercase',
   live: 'size-1.75 rounded-full bg-acc shadow-load animate-[today-live-pulse_1.8s_var(--ease)_infinite] motion-reduce:animate-none',
   subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-[0.94] tracking-subj! text-balance text-[color:var(--subj-col)]!',
   heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-[1.5] text-mut',
   chapter: 'font-semibold text-txt',
   // D-5 선택 근거 — 액센트로 한 줄. 크기는 챕터 줄과 같되 무게로만 낮춘다(위계는 색·굵기로).
-  why: 'text-md font-semibold text-acc',
+  // D-5 선택 근거 — 보조 설명이라 조용하게(D-6: 액센트는 행동 하나에만).
+  why: 'text-md font-semibold text-mut',
   upnext: 'text-md text-mut',
   yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-[1.5] text-mut',
   momentum: 'inline-flex flex-wrap items-center gap-x-3.5 gap-y-2',
@@ -93,7 +96,8 @@ const S = {
     'absolute inset-0 flex items-center justify-center text-lg leading-[1.6] font-extrabold tracking-ringnum text-txt',
   ringNumSmall: 'text-tiny9 font-bold text-mut',
   flowT: 'flex-1 text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
-  now: 'text-sm leading-[1.6] font-extrabold text-acc tabular-nums [text-shadow:var(--shadow-fill)]',
+  // D-6 — '● 09:00 LIVE'는 시계다(내가 손볼 것이 아니다). 살아 있다는 신호는 점 하나로 충분.
+  now: 'text-sm leading-[1.6] font-extrabold text-mut tabular-nums',
   rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
   railEmpty: 'px-1 py-3.5 text-hint leading-[1.6] text-mut',
   recall:
@@ -424,16 +428,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             : { label: '학습 항목 설정 →', onClick: () => go('/items') }
           : allDone
             ? { label: '기록 보기', onClick: () => go('/journal') }
-            : {
-                label: '지금 시작 →',
-                // getState로 항상 신선한 세션을 읽음(chrome 이펙트 deps에 안 묶임).
-                // 이미 집중 중이면 재시작 대신 세부 패널을 연다.
-                onClick: () => {
-                  const f = useFocus.getState();
-                  if (f.session) onOpenMore();
-                  else f.startOnCurrent();
-                },
-              },
+            : /* ⚠ D-6 — 여기 '지금 시작 →' 네온 버튼이 있었다. 히어로의 '▶ 집중 시작'과 **거의 같은
+                 동작**을 하면서 화면 대각선 반대쪽에 앉아, 한 화면에 채움 버튼이 둘이었다.
+                 액센트 예산은 채움 1개다 → 오늘 탭에서 상단 액션을 비운다(진행 중 세부 패널은
+                 흐름 카드의 '+ 블록 상세…'가 연다). 빈 날·완주 화면의 액션은 히어로에 짝이 없어
+                 남긴다 — 중복이 아니라 그 화면의 **유일한** 다음 걸음이다. */
+              undefined,
     }),
     [pct, streak, nearestDday, freeLeftH, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
@@ -655,7 +655,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           {recall && (
             <div className={`${S.recall} bg-[var(--panel-acc-faint)]`}>
               <div className={S.recallTop}>
-                <span className={`${S.recallTag} text-acc`}>🧠 회상</span>
+                <span className={`${S.recallTag} text-txt`}>🧠 회상</span>
                 <span className={S.recallMeta}>
                   {recall.ageDays}일 전 · {recall.summary.name || '요약'}
                 </span>
