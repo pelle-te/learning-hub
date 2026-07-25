@@ -9,6 +9,7 @@ import { bootFocus, persistFocus, todayEntries, pickFocus, focusMinutes, type Fo
 import { todayISO, minutesOfDay } from '@/lib/utils';
 import type { SessionType } from '@/lib/types';
 import { toast } from '@/shell/toast';
+import { putResume, clearResume, resumeDevice, type ResumeCursor } from '@/lib/resume';
 import { useApp } from './useApp';
 import { selectSchedule } from './selectors';
 
@@ -42,6 +43,19 @@ interface FocusStore {
   clear: () => void;
 }
 
+/** 커서 쓰기 두 줄 — 기기 id 가 없으면(미연결) 통째로 무동작. 스토어가 `useApp` 을 직접
+ *  변형하는 유일한 자리라 여기 한 곳으로 모은다. */
+function writeResume(cur: ResumeCursor): void {
+  const id = resumeDevice();
+  if (!id) return;
+  useApp.getState().mutate((st) => putResume(st, id, cur));
+}
+function dropResume(): void {
+  const id = resumeDevice();
+  if (!id) return;
+  useApp.getState().mutate((st) => clearResume(st, id));
+}
+
 export const useFocus = create<FocusStore>((set, get) => ({
   session: bootFocus(storage, Date.now()),
 
@@ -63,6 +77,9 @@ export const useFocus = create<FocusStore>((set, get) => ({
     };
     set({ session });
     persistFocus(storage, session);
+    /* N-7 — 이어하기 커서(집중). 이 세션은 로컬 KV 에만 있어 기기를 넘지 않았다: 폰을 열면
+       "PC 에서 뭘 하고 있었지"가 기억 재구성이었다. 클라우드 미연결이면 무동작이다. */
+    writeResume({ kind: 'focus', label: t.name, at: now });
     toast(`집중 ${t.min}분 시작 — 화이팅 🔥`, 'info');
   },
 
@@ -111,6 +128,7 @@ export const useFocus = create<FocusStore>((set, get) => ({
   stop() {
     set({ session: null });
     persistFocus(storage, null);
+    dropResume(); // 중단했으면 이어할 것이 없다 — 남겨 두면 다른 기기에 유령 커서가 뜬다
   },
 
   startBreak(min = 5) {
@@ -134,5 +152,6 @@ export const useFocus = create<FocusStore>((set, get) => ({
   clear() {
     set({ session: null });
     persistFocus(storage, null);
+    dropResume(); // 세션 종료 = 이어할 것 없음(자동 휴식은 커서를 만들지 않는다)
   },
 }));

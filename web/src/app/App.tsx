@@ -1,23 +1,15 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
-import {
-  orderedTabs,
-  tabByKey,
-  destinations,
-  surfaceOf,
-  hostTabKey,
-  ToastHost,
-  ModalHost,
-  NAV_SHORTCUTS,
-  vtMove,
-} from '@/shell';
+import { orderedTabs, tabByKey, destinations, hostTabKey, ToastHost, ModalHost, NAV_SHORTCUTS, vtMove } from '@/shell';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
+import MiniHud from '@/app/MiniHud';
+import { MINI_PATH } from '@/lib/miniMode';
 import StorageGuard from '@/app/StorageGuard';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
@@ -150,13 +142,15 @@ export default function App() {
         return;
       }
       /* [ / ] — 이전/다음 도달점 순환. 현재 경로는 이벤트 시점 값을 직접 읽어 stale 방지.
-         ⚠ D-4: **레일과 같은 목록**(`destinations(표면)`)을 돈다. 예전엔 `!t.hidden` 전역
-         목록이라 학습 화면에서 `]` 를 누르면 레일에 없는 자료 탭으로 조용히 새어 나갔고,
-         `settings` 는 레일엔 있는데 링에만 없었다. 링이 곧 레일이라는 계약이 이제 코드다.
+         ⚠ D-4: **레일과 같은 목록**(`destinations()`)을 돈다. 예전엔 `!t.hidden` 전역 목록이라
+         학습 화면에서 `]` 를 누르면 레일에 없는 자료 탭으로 조용히 새어 나갔고, `settings` 는
+         레일엔 있는데 링에만 없었다. 링이 곧 레일이라는 계약이 이제 코드다.
+         ⚠ N-6 이후 이 함수는 인자를 안 받는다 — 표면이 사라져 "어느 표면의 목록인가"라는
+         질문 자체가 없어졌고, 그와 함께 링↔레일이 서로 다른 표면을 보던 마지막 틈도 닫혔다.
          세그먼트(lens)에 있을 땐 그 **호스트** 위치에서 도는 것이 링의 뜻과 맞다. */
       if (e.key === '[' || e.key === ']') {
         const cur = window.location.pathname.replace(/^\//, '') || 'today';
-        const visible = destinations(surfaceOf(hostTabKey(cur)) ?? useUI.getState().ui.navSurface);
+        const visible = destinations();
         let i = visible.findIndex((t) => t.key === hostTabKey(cur));
         if (i < 0) i = 0;
         const n = e.key === ']' ? (i + 1) % visible.length : (i - 1 + visible.length) % visible.length;
@@ -268,11 +262,18 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/today" replace />} />
               {routeEls}
+              {/* 미니 HUD(N-8) — 본문은 비운다. 화면은 셸을 덮는 오버레이가 그리고, 이 자리는
+                  `*` 리다이렉트에 잡혀 /today 로 튕기지 않게 라우트를 **존재하게** 하는 몫이다
+                  (탭이 아니라 나브·팔레트·g단축키엔 안 뜬다). */}
+              <Route path={MINI_PATH} element={null} />
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </HudFrame>
         </main>
       </div>
+      {/* 미니 HUD 는 **셸을 덮는다**(걷어내지 않는다) — 세션 종료의 단일 감시자인 FocusChip 이
+          TopBar 안에 살아 있어야 알림·완료 토스트·자동 휴식이 계속 돈다(MiniHud 머리주석). */}
+      {pathname === MINI_PATH && <MiniHud />}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <OnlineStatus />

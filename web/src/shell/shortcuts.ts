@@ -34,7 +34,10 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
   { seq: 'e', tab: 'settings' },
 ];
 
-/** 치트시트에 함께 보일 전역 단축키(시퀀스 외). 수정자 표기는 플랫폼 파생(lib/platform). */
+/** 치트시트에 함께 보일 전역 단축키(시퀀스 외). 수정자 표기는 플랫폼 파생(lib/platform).
+ *  ⚠ **여기 있는 것은 진짜로 어디서나 동작해야 한다.** N-16 에서 `,`/`.`(주 이동)를 뺐다 —
+ *  전역이라 적혀 있었지만 실제 리스너는 2화면에만 있어 **12개 탭에서 거짓말**이었다. 그 항목은
+ *  이제 `useKeymap` 이 화면과 함께 등록하고 치트시트 '이 화면' 섹션이 문맥에 맞게 그린다. */
 export const GLOBAL_SHORTCUTS: { keys: string; label: string }[] = [
   { keys: `${MOD_LABEL} + K`, label: '명령 팔레트' },
   // D-2 — 팔레트 안에서만 유효하지만 여기 있는 이유: 캡처는 "떠올랐을 때" 쓰는 것이라
@@ -42,7 +45,6 @@ export const GLOBAL_SHORTCUTS: { keys: string; label: string }[] = [
   { keys: `${MOD_LABEL} + Enter`, label: '팔레트에 친 문장을 그대로 캡처' },
   { keys: 'G 그다음 ↑표의 키', label: '탭으로 이동' },
   { keys: '[  /  ]', label: '이전 / 다음 탭' },
-  { keys: ',  /  .', label: '이전 / 다음 주(스케줄·리뷰 탭)' },
   { keys: '← → Home End', label: '탭 사이 이동(나브 포커스 시)' },
   { keys: '?', label: '이 도움말 열기 / 닫기' },
   { keys: 'Esc', label: '팔레트·모달·도움말 닫기' },

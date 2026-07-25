@@ -23,10 +23,8 @@ export function migrateSchedView(v: unknown): SchedView | undefined {
 export const AccentSchema = z.enum(['violet', 'lime', 'cyan', 'amber']);
 export type Accent = z.infer<typeof AccentSchema>;
 
-/** 나브 표면(P9 Phase 6 Wave⑥) — 학습(핵심·숙련) vs 자료(수집·발견) 두 표면 스위처.
-    라우트가 1차 원천(현재 탭의 surface)이고, 전역 탭(설정)에선 이 영속값으로 폴백. 기본 학습. */
-export const NavSurfaceSchema = z.enum(['study', 'materials']);
-export type NavSurface = z.infer<typeof NavSurfaceSchema>;
+/* ⚠ `navSurface`(나브 표면 영속)는 **N-6 에서 사라졌다**. 옛 저장에 남아 있어도 zod 가
+   모르는 키를 버리므로 마이그레이션이 필요 없다 — 표면이라는 개념 자체가 없어졌다. */
 // enum이 선언순 tuple을 보존 → 목록 재기입 없이 스키마에서 파생(SSOT). 소비처 타입 유지 위해 spread.
 export const ACCENTS: Accent[] = [...AccentSchema.options];
 
@@ -45,7 +43,6 @@ export const UIStateSchema = z.object({
   // 사이드바 접힘 — false=라벨+그룹 펼침(기본), true=60px 아이콘 레일. 옛 저장본 호환 위해 .default.
   navCollapsed: z.boolean().default(false),
   // 나브 표면(Wave⑥) — 스위처 클릭·전역 탭 폴백용 영속값. 라우트가 우선. 옛 저장본은 .default로 학습.
-  navSurface: NavSurfaceSchema.default('study'),
   // Anki 실시간 due 자동 새로고침(2단계-A4) — 원래 AnkiPanel이 'lh:anki-autorefresh' 평문 키를
   // localStorage에 **직접** 쓰던 유일한 kv SSOT 우회였다. 계층 밖이라 백업에도 안 들어갔다
   // (0단계-E가 고친 결함과 같은 부류인데 그때 누락됨) → UI 설정으로 흡수해 _local 사이드카에 편입.

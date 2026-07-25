@@ -21,7 +21,6 @@ describe('bootUI — 부팅/복원', () => {
       recentCommands: ['a', 'b'],
       fxLite: false,
       navCollapsed: false,
-      navSurface: 'study',
       ankiAutoRefresh: false,
       themeAuto: false,
     });
@@ -59,7 +58,6 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
       recentCommands: ['x', 'y'],
       fxLite: false,
       navCollapsed: false,
-      navSurface: 'study',
       ankiAutoRefresh: false,
       themeAuto: false,
     });
@@ -91,7 +89,6 @@ describe('persistUI — 왕복', () => {
       recentCommands: ['cmd'],
       fxLite: true,
       navCollapsed: false,
-      navSurface: 'study',
       ankiAutoRefresh: false,
       themeAuto: false,
     });

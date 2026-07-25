@@ -182,7 +182,7 @@ export async function readRows(): Promise<DbRows | null> {
     settings: settings.map((r) => ({ key: str(r.key), json: str(r.value) })),
     runtime: runtime.map((r) => ({ key: str(r.key), json: str(r.value) })),
     completions: completions.map((r) => ({ ds: str(r.ds), k: str(r.k), json: str(r.value) })),
-    dsMaps: { dayOverrides: [], dayPlans: [], rituals: [] },
+    dsMaps: { dayOverrides: [], dayPlans: [], rituals: [], resume: [] },
     arrays: { cbms: [], backlog: [], blankResults: [], retentionLog: [], events: [], tasks: [] },
     summaries: summaries.map((r) => ({ sid: str(r.sid), ord: Number(r.ord), json: str(r.value) })),
     weekAlloc: weekAlloc.map((r) => ({ wk: str(r.wk), sid: str(r.sid), json: str(r.value) })),

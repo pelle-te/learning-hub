@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, tabByKey, paletteCommands } from '@/shell';
+import { useActiveKeymaps } from '@/hooks/useKeymap';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { MOD_K_LABEL } from '@/lib/platform';
@@ -33,6 +34,10 @@ const KBD =
    modal.tsx·DetailDrawer와 동일 계약(키보드 사용자가 배경으로 새지 않게). */
 export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  /* N-16 — **지금 이 화면에 실제로 살아 있는 키**. 치트시트가 전역이라 적어 놓고 2화면에서만
+     동작하던 항목(`,`/`.`)이 12개 탭에서 거짓말을 하고 있었다. 이제 목록이 화면을 따라온다:
+     비어 있으면 섹션 자체가 없다("이 화면엔 전용 키가 없다"를 빈 섹션으로 말하지 않는다). */
+  const screenKeys = useActiveKeymaps();
   useFocusTrap(open, panelRef);
   useScrollLock(open); // 배경 스크롤 잠금 — modal.tsx 와 같은 전체화면 `.modal-ov` 셸인데 한쪽만 걸려 있었다.
   useEffect(() => {
@@ -97,6 +102,21 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
               ))}
             </ul>
           </section>
+          {screenKeys.length > 0 && (
+            <section>
+              <h3 className={H}>이 화면</h3>
+              <ul className={LIST}>
+                {screenKeys.flatMap((km) =>
+                  km.bindings.map((b) => (
+                    <li key={km.scope + b.display} className={LI}>
+                      <kbd className={KBD}>{b.display}</kbd>
+                      <span>{b.label}</span>
+                    </li>
+                  )),
+                )}
+              </ul>
+            </section>
+          )}
           <section>
             <h3 className={H}>{MOD_K_LABEL} 명령 팔레트</h3>
             <ul className={LIST}>

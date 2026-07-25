@@ -2,8 +2,14 @@
    shell/tabs.ts — 탭 레지스트리(레거시 tabs.js의 registerTab 분산 등록 → 네이티브 단일 표).
    탭 추가 = 이 배열에 한 줄 + features/registry.tsx에 컴포넌트 등록. 나브/팔레트가 이걸 단일 원천으로 순회.
 ============================================================ */
-/** 나브 표면(Wave⑥) — 학습(핵심·숙련) vs 자료(수집·발견). surface 미지정=전역(두 표면 공통, 설정 그룹). */
-export type Surface = 'study' | 'materials';
+/* ⚠ **표면(Surface)은 N-6 에서 해체됐다**(2026-07-26). 옛 구조: 학습/자료 두 표면을 상단
+   스위처로 가르고 `navSurface` 를 영속하고 표면별 나브를 두 벌 빌드했다. 지운 이유:
+   자료 6탭 중 **5탭이 콜드 게이트**(usePing)라 눌러 들어가면 절반이 "설정하세요"인데, 그것을
+   숨기려고 **전 화면 상시 크롬 2버튼**을 유지하고 있었다 — 값보다 크롬이 컸다. 폰은 애초에
+   이 표면을 안 만들었고(6탭 중 `reads` 하나만 데려갔다) 그 쪽이 더 잘 살고 있었다.
+   "학습 중 딴짓 격리"라는 의도된 마찰이라는 반론은 **접힘 그룹 하나면 충분**하다는 것이 답이다.
+   함께 사라진 것: `Surface`·`SURFACES`·`surfaceOf`·`surfaceHome`·`navSurface` 영속·스위처 24줄
+   ·표면↔`[ ]` 링의 순환 불일치(레일에 없는 탭으로 새던 것 — 목록이 하나가 되며 자동 해소). */
 
 /* ── 탭의 역할(D-4) ─────────────────────────────────────────────────────
    "갈 수 있는 곳"의 열거가 **다섯 벌이었고 멤버십이 서로 달랐다**: 레일 9 / 세그먼트 13 /
@@ -30,8 +36,6 @@ export interface TabMeta {
   /** 도달 방식(위 주석) — 레일·`[ ]` 링·`g` 키의 단일 원천. */
   role: TabRole;
   icon: string;
-  /** 소속 표면(Wave⑥ 스위처). 미지정=전역(학습·자료 양쪽에 노출 · 설정 그룹). */
-  surface?: Surface;
   /** 단일 화면 대시보드 탭(데모 v6 사상) — HudFrame을 가득 채우고 내부 스크롤 없음.
      App의 fillFrame 판정 단일 원천(옛 하드코딩 FILL_TABS 목록 대체, L-15). */
   fill?: boolean;
@@ -39,17 +43,16 @@ export interface TabMeta {
   segLabel?: string;
 }
 
-/** 모든 탭(표시 순서·그룹·표면·아이콘). `role` 이 도달 방식을 정한다(destination=레일·링·g키 · lens=세그먼트·⌘K).
-   Wave⑥ 표면 분리: **학습**(study · 계획 plan/숙련 train)과 **자료**(materials · 수집 collect/발견 discover)를
-   상단 스위처로 가르고, **설정**(settings) 그룹은 두 표면 공통(전역 · surface 미지정). group=표면 내 소분류.
-   빈도 위계: 매일(계획) > 주간(숙련·수집) > 드묾(발견·설정은 하단·⌘K 진입). */
+/** 모든 탭(표시 순서·그룹·아이콘). `role` 이 도달 방식을 정한다(destination=레일·링·g키 · lens=세그먼트·⌘K).
+   `group` 이 레일 섹션이다: 계획(plan) · 숙련(train) · 수집(collect) · 발견(discover) · 설정(settings).
+   빈도 위계: 매일(계획) > 주간(숙련·수집) > 드묾(발견·설정은 하단·⌘K 진입). N-6 이후 표면 구분은 없다 —
+   그룹 헤더가 그 일을 하고 있었고, 그 위에 표면을 또 얹은 것이 중복이었다. */
 export const TABS: TabMeta[] = [
-  // ── 학습 표면 · 계획(plan) ──
+  // ── 계획(plan) ──
   {
     key: 'today',
     label: '오늘 학습',
     group: 'plan',
-    surface: 'study',
     order: 10,
     role: 'destination',
     icon: 'target',
@@ -63,7 +66,6 @@ export const TABS: TabMeta[] = [
     key: 'schedule',
     label: '계획',
     group: 'plan',
-    surface: 'study',
     order: 12,
     role: 'destination',
     segLabel: '캘린더',
@@ -71,13 +73,12 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // 내 길(goals) — 축 A '내 길 지도'(P9 Phase 6). 전략 앵커(전파통신 연구원 자립 트리)라 오늘 다음, 계획 상단.
-  { key: 'goals', label: '내 길', group: 'plan', surface: 'study', order: 15, role: 'destination', icon: 'compass' },
+  { key: 'goals', label: '내 길', group: 'plan', order: 15, role: 'destination', icon: 'compass' },
   // 배분 세그먼트(주간 배분 보드) — 옛 배치 탭의 alloc 뷰를 승격(재개편 v4). 캘린더 바로 뒤.
   {
     key: 'alloc',
     label: '주간 배분',
     group: 'plan',
-    surface: 'study',
     order: 22,
     role: 'lens',
     segLabel: '배분',
@@ -85,7 +86,7 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
-  { key: 'degree', label: '졸업 계획', group: 'plan', surface: 'study', order: 35, role: 'destination', icon: 'cap' },
+  { key: 'degree', label: '졸업 계획', group: 'plan', order: 35, role: 'destination', icon: 'cap' },
   // 과목(items) — 전공 과목·챕터 카탈로그 + 뼈대(가용시간·수업·일과) + 과목별 요일 배분(계획 재개편 v3).
   // 계획의 lens. 세그먼트 라벨='과목' — 계획은 [캘린더 · 배분 · 과목] 3세그먼트다(v4).
   // fill: 좌 갤러리 / 우 가용 레일이 화면을 꽉 채우는 프레임이라 여백 래퍼 없이 붙인다.
@@ -93,19 +94,17 @@ export const TABS: TabMeta[] = [
     key: 'items',
     label: '과목',
     group: 'plan',
-    surface: 'study',
     order: 40,
     role: 'lens',
     segLabel: '과목',
     icon: 'file',
     fill: true,
   },
-  // ── 학습 표면 · 숙련(train) — '내가 뭘 아는가·무엇을 익힐까' ──
+  // ── 숙련(train) — '내가 뭘 아는가·무엇을 익힐까' ──
   {
     key: 'journal',
     label: '학습 기록',
     group: 'train',
-    surface: 'study',
     order: 60,
     role: 'destination',
     icon: 'notebook',
@@ -115,7 +114,6 @@ export const TABS: TabMeta[] = [
     key: 'review',
     label: '주간 리뷰',
     group: 'train',
-    surface: 'study',
     order: 70,
     role: 'lens',
     icon: 'refresh',
@@ -127,7 +125,6 @@ export const TABS: TabMeta[] = [
     key: 'review-run',
     label: '복습 실행',
     group: 'train',
-    surface: 'study',
     order: 72,
     role: 'lens',
     icon: 'refresh',
@@ -142,7 +139,6 @@ export const TABS: TabMeta[] = [
     key: 'mistakes',
     label: '오답 노트',
     group: 'train',
-    surface: 'study',
     order: 74,
     role: 'lens',
     icon: 'notebook',
@@ -152,7 +148,6 @@ export const TABS: TabMeta[] = [
     key: 'stats',
     label: '통계',
     group: 'train',
-    surface: 'study',
     order: 80,
     role: 'destination',
     icon: 'chart',
@@ -164,7 +159,6 @@ export const TABS: TabMeta[] = [
     key: 'forecast',
     label: '복습 예보',
     group: 'train',
-    surface: 'study',
     order: 82,
     role: 'lens',
     segLabel: '예보',
@@ -175,7 +169,6 @@ export const TABS: TabMeta[] = [
     key: 'mastery',
     label: '숙달도 지도',
     group: 'train',
-    surface: 'study',
     order: 85,
     role: 'lens',
     icon: 'grid',
@@ -186,18 +179,16 @@ export const TABS: TabMeta[] = [
     key: 'graph',
     label: '지식맵',
     group: 'train',
-    surface: 'study',
     order: 87,
     role: 'lens',
     icon: 'graph',
     fill: true,
   },
-  // ── 자료 표면 · 수집(collect) — 피드·읽을거리 ──
+  // ── 수집(collect) — 피드·읽을거리 ──
   {
     key: 'reads',
     label: '읽을거리',
     group: 'collect',
-    surface: 'materials',
     order: 45,
     role: 'destination',
     icon: 'reads',
@@ -206,7 +197,6 @@ export const TABS: TabMeta[] = [
     key: 'markets',
     label: '증시 동향',
     group: 'collect',
-    surface: 'materials',
     order: 47,
     role: 'destination',
     icon: 'trend',
@@ -215,18 +205,16 @@ export const TABS: TabMeta[] = [
     key: 'atlas',
     label: '진로 지도',
     group: 'collect',
-    surface: 'materials',
     order: 48,
     role: 'destination',
     icon: 'radio',
   },
-  // ── 자료 표면 · 발견(discover) — surface·triage·연동 ──
+  // ── 발견(discover) — surface·triage·연동 ──
   // 발견 큐(discovery) — 축 C '발견 루프'(P9 Phase 6 Wave④). 수집·surface·다리개념 후보를 사람이 승격/기각(D5).
   {
     key: 'discovery',
     label: '발견',
     group: 'discover',
-    surface: 'materials',
     order: 49,
     role: 'destination',
     icon: 'discovery',
@@ -235,7 +223,6 @@ export const TABS: TabMeta[] = [
     key: 'integrations',
     label: '연동 현황',
     group: 'discover',
-    surface: 'materials',
     order: 50,
     role: 'destination',
     icon: 'link',
@@ -247,13 +234,12 @@ export const TABS: TabMeta[] = [
     key: 'ledger',
     label: '정본 원장',
     group: 'discover',
-    surface: 'materials',
     order: 52,
     role: 'lens',
     icon: 'grid',
     fill: true,
   },
-  // ── 전역(설정) — surface 미지정 → 학습·자료 두 표면 하단에 공통 노출 ──
+  // ── 설정(settings) — 레일 하단(스페이서 아래) ──
   // 안내(guide) — 이 시스템이 할 수 있는 것 + 하는 법 매뉴얼(전역 참조). 스크롤 페이지라 fill 없음.
   { key: 'guide', label: '안내', group: 'settings', order: 185, role: 'destination', icon: 'book' },
   // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
@@ -303,62 +289,56 @@ export const GROUP_LABELS: Record<string, string> = {
   settings: '설정',
 };
 
-/* ── 표면 스위처(Wave⑥) ──────────────────────────────────────────────────
-   학습(핵심·숙련) vs 자료(수집·발견) 두 표면. RailSidebar 상단 세그먼트가 이걸 순회한다. */
-export interface SurfaceMeta {
-  key: Surface;
-  label: string;
-  icon: string;
-  /** 스위처 클릭 시 이동할 홈 탭 key(그 표면 첫 노출 탭). */
-  home: string;
-}
-export const SURFACES: SurfaceMeta[] = [
-  { key: 'study', label: '학습', icon: 'target', home: 'today' },
-  { key: 'materials', label: '자료', icon: 'reads', home: 'reads' },
-];
-
 export interface NavGroup {
   key: string;
   label: string;
   tabs: TabMeta[];
 }
 
-/** 한 표면에 상시 노출되는 도달점 — `role==='destination'` + 그 표면 소속(또는 전역).
- *  **레일·`[ ]` 링이 같은 이 함수에서 파생된다**(D-4). 예전엔 링이 표면을 안 보고 전역 목록을
- *  돌아 학습 화면에서 `]` 를 누르면 레일에 없는 자료 탭으로 새어 나갔다. */
-export function destinations(surface: Surface): TabMeta[] {
-  return ORDERED_TABS.filter((t) => t.role === 'destination' && (t.surface === surface || t.surface === undefined));
+/** 상시 노출되는 도달점(내부) — `role==='destination'` 전부. 그룹 묶기의 입력이다. */
+function destinationTabs(): TabMeta[] {
+  return ORDERED_TABS.filter((t) => t.role === 'destination');
 }
 
-/** 한 표면의 도달점을 그룹 순서대로 묶는다(첫 등장=order 최소). 전역(설정) 그룹은 두 표면 모두 하단 노출. */
-function buildNavGroups(surface: Surface): NavGroup[] {
-  const groups: NavGroup[] = [];
-  for (const t of destinations(surface)) {
-    let g = groups.find((x) => x.key === t.group);
-    if (!g) {
-      g = { key: t.group, label: GROUP_LABELS[t.group] ?? t.group, tabs: [] };
-      groups.push(g);
-    }
-    g.tabs.push(t);
+/** 도달점을 그룹으로 묶는다. 설정 그룹은 레일 하단(스페이서 아래).
+ *  TABS 가 불변이라 모듈 로드 시 1회 계산해 재사용한다(C-8 · 매 렌더 재빌드 금지).
+ *
+ *  ⚠ **그룹 순서는 `GROUP_LABELS` 의 선언 순서다**(빈도 위계: 계획 > 숙련 > 수집 > 발견 > 설정).
+ *  탭 `order` 의 첫 등장으로 정하면 안 된다 — `reads`(45)·`markets`(47) 가 `journal`(60) 보다
+ *  작아서 **수집·발견이 숙련 위로 올라간다**. 표면이 있던 시절엔 두 그룹이 아예 다른 화면에
+ *  있어 이 어긋남이 보이지 않았고, N-6 이 합치는 순간 드러났다(실렌더 확인이 잡았다).
+ *  탭 `order` 는 **그룹 안에서의** 순서만 정한다. */
+function buildNavGroups(): NavGroup[] {
+  const byGroup = new Map<string, TabMeta[]>();
+  for (const t of destinationTabs()) {
+    const g = byGroup.get(t.group);
+    if (g) g.push(t);
+    else byGroup.set(t.group, [t]);
   }
+  const groups: NavGroup[] = [];
+  for (const key of Object.keys(GROUP_LABELS)) {
+    const tabs = byGroup.get(key);
+    if (tabs?.length) groups.push({ key, label: GROUP_LABELS[key] ?? key, tabs });
+  }
+  // 라벨 표에 없는 그룹(신설 직후)도 잃지 않는다 — 불변식 테스트가 라벨 누락을 따로 잡는다.
+  for (const [key, tabs] of byGroup) if (!groups.some((g) => g.key === key)) groups.push({ key, label: key, tabs });
   return groups;
 }
-/** 표면별 나브 그룹 — TABS 불변이라 표면당 1회 계산해 재사용(C-8 · 매 렌더 재빌드 제거). */
-const NAV_GROUPS_BY_SURFACE: Record<Surface, NavGroup[]> = {
-  study: buildNavGroups('study'),
-  materials: buildNavGroups('materials'),
-};
-export function navGroups(surface: Surface): NavGroup[] {
-  return NAV_GROUPS_BY_SURFACE[surface];
+const NAV_GROUPS: NavGroup[] = buildNavGroups();
+export function navGroups(): NavGroup[] {
+  return NAV_GROUPS;
 }
 
-/** key가 속한 표면 — 탭 메타의 surface(전역=undefined). 라우트에서 활성 표면 파생에 쓴다. */
-export function surfaceOf(key: string): Surface | undefined {
-  return TAB_BY_KEY.get(key)?.surface;
-}
-/** 표면의 홈 탭 key(스위처 클릭 시 이동). SURFACES.home 단일 원천. */
-export function surfaceHome(surface: Surface): string {
-  return SURFACES.find((s) => s.key === surface)?.home ?? 'today';
+/** `[ ]` 링이 도는 목록 — **레일에 보이는 순서 그대로**(그룹 순 → 그룹 안 order 순).
+ *
+ *  ⚠ 레일 순서에서 **파생**시키는 것이 핵심이다. 한때 이 함수가 `ORDERED_TABS` 를 직접 필터해
+ *  두 목록의 *멤버십*은 같은데 *순서*가 달랐다(그룹 순서를 빈도 위계로 고정한 순간 갈렸다).
+ *  그러면 `]` 를 눌렀을 때 레일에서 아래가 아닌 엉뚱한 칸으로 튄다 — 눈에 보이는 순서와 손이
+ *  기대하는 순서가 어긋나는, 설명 없이는 못 알아채는 부류다. 이제 두 벌이 될 수 없다.
+ *  (`test/invariants.test.ts` 가 같은 목록임을 계속 잠근다 — 이 파생이 뒤집히면 즉시 빨개진다.) */
+const DESTINATIONS: TabMeta[] = NAV_GROUPS.flatMap((g) => g.tabs);
+export function destinations(): TabMeta[] {
+  return DESTINATIONS;
 }
 
 /** key가 속한 섹션 그룹의 탭 메타 배열(첫 항목=호스트). 그룹에 없으면 null. */

@@ -346,19 +346,14 @@ export default function Stats() {
   // 개인 기록(I-6) — 성취 회수: 최장 연속·최고 집중일. 기록 없으면(totalDays 0) 숨겨 0의 벽 방지.
   const pb = personalBests(state);
 
+  /* N-15 — 완료율이 이 탭의 첫째 수치다(44px). 예전엔 완료율·연속·인출 셋이 **같은 30px** 로
+     나란히 서서 "무엇을 먼저 보라"는 말을 아무도 하지 않았다. 통계 탭이 답해야 하는 질문 하나를
+     고르면 그건 완료율이고, 나머지 둘은 그 옆의 맥락이다. ⚠ 본문의 회전 스파인과 충돌하지
+     않는다 — 스파인은 40px 이지만 세로로 눕고 옅어(장식) 읽는 순서가 겹치지 않는다. */
   usePageChromeEffect(
     () => ({
+      primary: { value: String(compRate), unit: '%', label: '완료율' },
       readouts: [
-        {
-          label: '완료율',
-          value: (
-            <>
-              {compRate}
-              <small className="text-base14 font-bold text-mut">%</small>
-            </>
-          ),
-          accent: true,
-        },
         {
           label: '연속',
           value: (

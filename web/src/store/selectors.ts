@@ -4,6 +4,8 @@
 ============================================================ */
 import { schedule, studyMinByWeekday } from '@/lib/scheduler';
 import { riskSummary } from '@/lib/spacedReview';
+import { isDone } from '@/lib/persistence';
+import { openBacklog } from '@/lib/methodology';
 import { todayISO } from '@/lib/utils';
 import type { AppState, ScheduleResult } from '@/lib/types';
 import { useApp } from './useApp';
@@ -94,4 +96,36 @@ export function selectRiskSummary(state: AppState): { overdue: number; due: numb
     riskCache = { state, result: riskSummary(state, selectSchedule(state).days || [], todayISO(state)) };
   }
   return riskCache.result;
+}
+
+/* ── 나브 상태 신호(N-13) ───────────────────────────────────────────────────
+   레일 항목은 **눌러 들어가야 안에 뭐가 있는지** 알 수 있었다(상태를 가진 항목이 배지 2개뿐).
+   그런데 그 신호들은 이미 여러 화면에서 계산되고 있었다 — 데이터가 없던 게 아니라 *표시 자리*가
+   없었다. 계산을 여기 한 곳으로 수렴시켜 레일이 소비한다.
+
+   ⚠ **0·평온은 아무것도 안 그린다.** 매일 0을 외치면 신호가 죽고, 그때부터 레일은 배경이 된다.
+   "레일이 말하면 뭔가 있는 것"이 이 기능의 생사이자 5원칙(절제)과의 화해점이다.
+   ⚠ **없는 신호를 지어내지 않는다.** 상태가 있는 항목만 여기 있다(오늘·기록). 나머지 도달점은
+   지금 앱이 싸게 셀 수 있는 '지금 뭔가 있음'이 없어서 비운 것이지, 자리가 없어서가 아니다 —
+   신호가 생기면 이 표에 한 줄을 더한다. */
+let navCache: { state: AppState; result: Record<string, string> } | null = null;
+
+export function selectNavSignals(state: AppState): Record<string, string> {
+  if (navCache && navCache.state === state) return navCache.result;
+  const out: Record<string, string> = {};
+  // 오늘 — 남은 블록(계획됐지만 아직 안 한 것). 다 했으면 침묵한다(그게 평온의 정의다).
+  const today = todayISO(state);
+  const day = (selectSchedule(state).days || []).find((d) => d.ds === today);
+  const left = (day?.items || []).filter((it) => !isDone(state, today, it.sid, it.type)).length;
+  if (left > 0) out.today = `남은 ${left}`;
+  // 기록 — 옛 배지는 밀림+보충을 **한 숫자로 합쳐** 무엇이 밀렸는지 말하지 않았다. 둘은 성격이
+  // 다른 일이라(인출 vs 보충 학습) 합치면 어느 쪽도 행동으로 안 이어진다.
+  const { overdue } = selectRiskSummary(state);
+  const backlog = openBacklog(state).length;
+  const parts: string[] = [];
+  if (overdue > 0) parts.push(`밀림 ${overdue}`);
+  if (backlog > 0) parts.push(`보충 ${backlog}`);
+  if (parts.length) out.journal = parts.join(' · ');
+  navCache = { state, result: out };
+  return out;
 }

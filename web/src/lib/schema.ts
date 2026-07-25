@@ -236,6 +236,21 @@ export const AppStateSchema = z
     retentionLog: z.array(RetentionSchema),
     weekly: z.record(z.string(), WeeklySchema),
     rituals: z.record(z.string(), RitualSchema),
+    /* 이어하기 커서(N-7) — **기기 id → 커서**. 옵셔널이라 기존 저장은 무마이그레이션.
+       `ds_map` 슬라이스라 기기당 1행이고, 각 기기가 자기 행만 써서 병합 충돌이 없다.
+       6시간 TTL 은 읽는 쪽(`latestResume`)이 판정한다 — 저장된 값을 시간이 지났다고 지우는
+       배경 작업을 만들면 그게 또 하나의 동기화 쓰기가 되고, 그 쓰기는 아무도 안 읽는다. */
+    resume: z
+      .record(
+        z.string(),
+        z.object({
+          kind: z.enum(['review', 'focus', 'journal']),
+          label: z.string(),
+          at: z.number(),
+          progress: z.string().optional(),
+        }),
+      )
+      .optional(),
     blankReviewWeekly: z.boolean(),
     mockEveryWeeks: z.number(),
     adaptiveCapacity: z.boolean(),

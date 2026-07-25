@@ -15,16 +15,7 @@ import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
-import {
-  TABS,
-  GROUP_LABELS,
-  navGroups,
-  destinations,
-  surfaceOf,
-  SURFACES,
-  SUBTAB_GROUPS,
-  tabByKey,
-} from '@/shell/tabs';
+import { TABS, GROUP_LABELS, navGroups, destinations, SUBTAB_GROUPS, tabByKey } from '@/shell/tabs';
 import { NAV_SHORTCUTS } from '@/shell/shortcuts';
 import type { AppState } from '@/lib/types';
 
@@ -91,30 +82,17 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
 });
 
 // ── 불변식 ③ 표면 스위처(Wave⑥) — 표면·그룹 정합 ──
-describe('불변식 ③ 나브 표면(Wave⑥) 정합', () => {
+describe('불변식 ③ 나브 그룹 정합', () => {
   it('모든 탭 group은 GROUP_LABELS에 라벨이 있다(고아 헤더 방지)', () => {
     for (const t of TABS) expect(GROUP_LABELS[t.group], `group '${t.group}' (${t.key})`).toBeTruthy();
   });
-  it('surface 미지정 탭(전역)은 설정 그룹뿐 — 표면 소속은 study|materials로만', () => {
-    for (const t of TABS) {
-      if (t.surface === undefined) expect(t.group, t.key).toBe('settings');
-      else expect(['study', 'materials']).toContain(t.surface);
-    }
-  });
-  it('navGroups(surface)는 그 표면 탭 + 전역(설정)만 — 다른 표면은 누출 없음', () => {
-    for (const surface of ['study', 'materials'] as const) {
-      const keys = navGroups(surface).flatMap((g) => g.tabs.map((t) => t.key));
-      for (const key of keys) {
-        const s = surfaceOf(key);
-        expect(s === surface || s === undefined, `${key} in ${surface} nav`).toBe(true);
-      }
-      // 전역 진입점(control·settings)은 두 표면 모두에 있어야 한다(항상 도달).
-      expect(keys).toContain('control');
-      expect(keys).toContain('settings');
-    }
-  });
-  it('surfaceHome은 그 표면 소속 탭을 가리킨다(스위처 착지점 정합)', () => {
-    for (const sf of SURFACES) expect(surfaceOf(sf.home)).toBe(sf.key);
+  /* ⚠ 옛 '표면 정합' 3케이스는 N-6 과 함께 사라졌다 — 표면이 없으니 "다른 표면으로 누출"이라는
+     사건 자체가 표현 불가능해졌다(테스트를 지운 게 아니라 지킬 대상이 없어진 것이다).
+     그 케이스들이 실제로 지키던 것 — **전역 진입점은 어디서든 도달 가능** — 만 남긴다. */
+  it('설정 그룹 진입점(control·settings)은 항상 레일에 선다', () => {
+    const keys = navGroups().flatMap((g) => g.tabs.map((t) => t.key));
+    expect(keys).toContain('control');
+    expect(keys).toContain('settings');
   });
 });
 
@@ -127,14 +105,10 @@ describe('불변식 ③ 나브 표면(Wave⑥) 정합', () => {
 ============================================================ */
 describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에서 파생된다', () => {
   it('레일에 서는 것은 정확히 destination 이다(lens 누출 0)', () => {
-    for (const surface of ['study', 'materials'] as const)
-      for (const t of navGroups(surface).flatMap((g) => g.tabs)) expect(t.role, t.key).toBe('destination');
+    for (const t of navGroups().flatMap((g) => g.tabs)) expect(t.role, t.key).toBe('destination');
   });
   it('`[ ]` 링은 레일과 같은 목록을 돈다(같은 함수에서 파생 — 두 벌이 될 수 없다)', () => {
-    for (const surface of ['study', 'materials'] as const)
-      expect(destinations(surface).map((t) => t.key)).toEqual(
-        navGroups(surface).flatMap((g) => g.tabs.map((t) => t.key)),
-      );
+    expect(destinations().map((t) => t.key)).toEqual(navGroups().flatMap((g) => g.tabs.map((t) => t.key)));
   });
   it('모든 `g` 시퀀스가 실존하는 탭을 가리킨다(죽은 목적지 금지)', () => {
     for (const sc of NAV_SHORTCUTS) expect(tabByKey(sc.tab), `g ${sc.seq}`).toBeTruthy();

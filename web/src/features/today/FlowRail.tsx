@@ -10,6 +10,7 @@
    C-7 이식: 노드 전용 Tailwind 클래스 SSOT 는 여기(`N`) — 원래 today 의 `S` 맵에 있던 것을 이 파일로 옮겼다.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { toHM, hLabel } from '@/lib/utils';
 import { commit } from '@/lib/motion';
 
@@ -69,6 +70,15 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
 
   // 핸들러가 읽는 최신 값 — 리스너를 재등록하지 않고도 최신 상태/콜백을 보게 하는 통로.
   // (nodes 는 매 렌더 새 배열이라 deps 에 넣으면 window keydown 이 매 렌더 제거→재등록된다.)
+  /* N-16 — 이 화면의 키를 **치트시트에 등재**한다. 등록은 아래 핸들러가 그대로 하고(Enter 의
+     타깃 가드가 `useKeymap` 의 keys→run 모델로 표현되지 않는다) 설명만 레지스트리로 올린다.
+     이 넷은 이 항목 전까지 **어디에도 문서화돼 있지 않았다** — 있는데 아무도 모르는 키였다. */
+  useKeymapDoc('이 화면 · 오늘 흐름', [
+    { display: 'J / K', label: '다음 / 이전 블록 선택' },
+    { display: 'Enter', label: '선택한 블록으로 집중 시작' },
+    { display: 'S', label: '선택한 블록을 요약에 채우기' },
+  ]);
+
   const keyCtx = useRef({ nodes, selKey, onFocus, onPrefill });
   useEffect(() => {
     keyCtx.current = { nodes, selKey, onFocus, onPrefill };

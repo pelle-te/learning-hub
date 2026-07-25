@@ -7,15 +7,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { storage } from '@/lib/kv';
 import { idbMirror } from '@/lib/idb';
-import {
-  bootUI,
-  persistUI,
-  pushRecent,
-  type Accent,
-  type NavSurface,
-  type SchedView,
-  type UIState,
-} from '@/lib/uiState';
+import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
 
 export interface UIStore {
   ui: UIState;
@@ -23,7 +15,6 @@ export interface UIStore {
   setAccent: (a: Accent) => void;
   setFxLite: (on: boolean) => void;
   toggleNav: () => void;
-  setNavSurface: (s: NavSurface) => void;
   /** Anki 실시간 due 자동 새로고침 토글(2단계-A4 — 구 'lh:anki-autorefresh' 직접 접근을 대체). */
   setAnkiAutoRefresh: (on: boolean) => void;
   /** 시스템 테마 따라가기 토글 — 켜는 즉시 ThemeProvider가 현재 OS 값으로 맞춘다. */
@@ -67,12 +58,6 @@ export const useUI = create<UIStore>()(
       toggleNav() {
         set((s) => {
           s.ui.navCollapsed = !s.ui.navCollapsed;
-        });
-        flush();
-      },
-      setNavSurface(surface) {
-        set((s) => {
-          s.ui.navSurface = surface;
         });
         flush();
       },

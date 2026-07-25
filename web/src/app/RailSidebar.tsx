@@ -1,10 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { navGroups, hostTabKey, surfaceOf, surfaceHome, SURFACES, Icon, type TabMeta, type Surface } from '@/shell';
+import { navGroups, hostTabKey, Icon, type TabMeta } from '@/shell';
 import { prefetchTab } from '@/features/registry';
 import { useUI } from '@/store/useUI';
 import { useApp } from '@/store/useApp';
 import { useConflicts } from '@/store/useConflicts';
-import { selectRiskSummary } from '@/store/selectors';
+import { selectNavSignals, selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
 import { markVia } from '@/lib/visits';
 
@@ -42,20 +42,6 @@ const LOGO =
 // ⚠ 규약 6 — `text-lg` 는 **내장 크기명**이라 동반 line-height(1.555)를 방출한다. 원본 `.word` 는
 //    선언이 없어 body 1.6 을 상속했으므로(24px) 명시하지 않으면 줄상자가 23.3px 로 줄어든다.
 const WORD = 'text-lg leading-[1.6] font-extrabold tracking-title whitespace-nowrap text-ink';
-// 표면 스위처(Wave⑥) — 학습 ↔ 자료. 펼침=2칸 세그먼트(트랙 있음), 접힘·모바일=아이콘 칩만.
-const SURF_TRACK = 'flex max-mobile:m-0 max-mobile:flex-row max-mobile:flex-none max-mobile:gap-0.5 max-mobile:p-0.5';
-const SURF_TRACK_EXP =
-  'mx-0.5 mb-2.5 gap-0.75 rounded-rail-seg border border-line2 bg-panel2 p-0.75 max-mobile:rounded-none max-mobile:border-0 max-mobile:bg-transparent';
-const SURF_TRACK_COL = 'mx-0 mb-2.5 flex-col gap-1 border-0 bg-transparent p-0.75';
-const SURFACE_BTN =
-  'flex items-center justify-center gap-1.75 rounded-rail-chip! border! border-transparent! text-rail-surface! leading-[normal] font-bold! tracking-price! transition-[color,background,box-shadow] duration-160 ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:h-auto! max-mobile:min-h-11 max-mobile:w-auto! max-mobile:min-w-10 max-mobile:flex-none';
-const SURFACE_OFF = 'bg-transparent! text-mut! hover:text-ink!';
-const SURFACE_BTN_EXP = 'flex-1 px-2! py-1.75!';
-const SURFACE_BTN_COL = 'h-9 w-10.5 flex-none px-0! py-0!';
-const SURFACE_ON_EXP = 'bg-bg! text-acc! shadow-rail-surface-on';
-// ⚠ 접힘은 **배경만** 바꾼다(원본 `.rail.collapsed .surfaceOn` 이 background 만 덮었다) — inset 링은
-//    두 상태 공통이다. 링을 빼면 접힘 레일에서 활성 표면 표시가 사라진다(실렌더 확인이 잡았다).
-const SURFACE_ON_COL = 'bg-acc-soft! text-acc! shadow-rail-surface-on';
 const GROUPS = 'flex flex-col gap-0.5 max-mobile:contents';
 const GROUPS_COL = 'items-center gap-1';
 const GROUP = 'flex flex-col gap-0.5 max-mobile:contents';
@@ -89,7 +75,11 @@ const TOGGLE_COL = 'mt-1.5 size-10.5 justify-center gap-0 px-0! py-0!';
 // ⚠ 굵기도 `!` 가 필요하다 — 전역 `.ic{stroke-width:2}`(base.css)는 **언레이어드**라 유틸이 못 이긴다.
 //    `!` 없이 두면 아이콘이 조용히 2px 로 굵어진다(레일 아이콘 20개 전부 · 실렌더 확인이 잡았다).
 const IC_ITEM = 'size-5! [stroke-width:1.7]!';
-const IC_SURFACE = 'size-4.25! [stroke-width:1.8]!';
+/* 상태 슬롯(N-13) — 라벨 아래 한 줄. 배지(숫자 하나)가 말하지 못하던 **무엇이** 밀렸는지를 적는다.
+   ⚠ 펼침에서만 뜬다(접힘 42px 레일엔 글자가 들어갈 자리가 없다 · 그쪽은 배지가 계속 맡는다).
+   ⚠ 절제: 발광·색 없이 저채도 한 줄이다. 신호는 **있을 때만** 그려지므로 존재 자체가 강조다. */
+const SIGNAL =
+  'block overflow-hidden text-ellipsis whitespace-nowrap text-rail-head font-bold text-mut max-mobile:hidden';
 const IC_TOGGLE = 'size-4.5! [stroke-width:1.7]!';
 
 export default function RailSidebar() {
@@ -97,14 +87,14 @@ export default function RailSidebar() {
   const loc = useLocation();
   const collapsed = useUI((st) => st.ui.navCollapsed);
   const toggleNav = useUI((st) => st.toggleNav);
-  const persistedSurface = useUI((st) => st.ui.navSurface);
-  const setNavSurface = useUI((st) => st.setNavSurface);
   // 숫자만 구독 — selectRiskSummary도 state 참조 캐시라 이 셀렉터가 알림마다 불려도 전수 스캔은
   // state 버전당 1회다(예전엔 riskSummary가 매 알림마다 days×items×chapters를 통째로 순회했다).
   const reviewBadge = useApp((st) => {
     const state = st.state;
     return selectRiskSummary(state).overdue + openBacklog(state).length;
   });
+  // 나브 상태 신호(N-13) — 계산은 selectors 한 곳, 여기선 표시만. 참조-캐시라 알림마다 불려도 싸다.
+  const signals = useApp((st) => selectNavSignals(st.state));
   // 동기화 충돌(다른 기기 편집에 덮인 로컬 편집) 대기 수 — 설정 탭 코너 배지(Phase 4).
   const conflictBadge = useConflicts((s) => s.shadows.length);
   const curKey = loc.pathname.split('/')[1] || 'today';
@@ -114,23 +104,13 @@ export default function RailSidebar() {
      레일·본문이 계속 반투명 상태로 깜빡인다(원하는 탭에 도착해도 잔상이 남는다). 클릭·⌘K 처럼
      '한 번의 의도적 이동'에서만 애니가 의미가 있다. */
   /* N-11 — 레일에서 출발한 내비게이션임을 표시한다. 방향키 roving 도 레일이다(같은 목록을
-     같은 손으로 돈다). 표면 스위처의 홈 이동도 여기를 지나므로 함께 `rail` 로 잡힌다. */
+     같은 손으로 돈다). */
   const go = (key: string, animate = true) => {
     markVia('rail');
     navigate('/' + key, { viewTransition: animate });
   };
 
-  // 활성 표면 = 현재 라우트 탭의 surface(1차 원천). 전역 탭(설정)이면 영속값으로 폴백.
-  // 라우트가 이기므로 ⌘K·딥링크로 다른 표면 탭에 가면 나브가 자동으로 그 표면으로 따라간다(desync 없음).
-  const activeSurface: Surface = surfaceOf(curKey) ?? persistedSurface;
-  // 스위처 클릭 — 영속값 갱신 + 그 표면 홈으로 이동(라우트가 activeSurface를 확정).
-  const switchSurface = (target: Surface) => {
-    if (target === activeSurface) return;
-    setNavSurface(target);
-    go(surfaceHome(target));
-  };
-
-  const groups = navGroups(activeSurface);
+  const groups = navGroups();
   const topGroups = groups.filter((g) => g.key !== 'settings');
   const bottomGroup = groups.find((g) => g.key === 'settings');
 
@@ -173,13 +153,15 @@ export default function RailSidebar() {
     const isConflict = t.key === 'settings' && conflictBadge > 0;
     const badge = t.key === NAV_BADGE_TAB ? reviewBadge : t.key === 'settings' ? conflictBadge : 0;
     const badgeLabel = isConflict ? `동기화 충돌 ${badge}건` : `복습·보충 ${badge}건 대기`;
+    // 접힘 레일엔 글자 자리가 없다 → 신호는 펼침 전용이고 접힘은 배지가 계속 맡는다.
+    const signal = collapsed ? '' : (signals[t.key] ?? '');
     return (
       <button
         key={t.key}
         id={'rail-' + t.key}
         type="button"
         aria-current={active ? 'page' : undefined}
-        aria-label={badge > 0 ? `${t.label} — ${badgeLabel}` : t.label}
+        aria-label={badge > 0 ? `${t.label} — ${badgeLabel}` : signal ? `${t.label} — ${signal}` : t.label}
         tabIndex={active || (!hasActive && i === 0) ? 0 : -1}
         className={`${ITEM} ${collapsed ? ITEM_COL : ITEM_EXP} ${active ? ITEM_ON : ITEM_OFF}`}
         onKeyDown={onKey(i)}
@@ -188,7 +170,16 @@ export default function RailSidebar() {
         onClick={() => go(t.key)}
       >
         <Icon name={t.icon} className={IC_ITEM} />
-        <span className={collapsed ? LABEL_COL : LABEL}>{t.label}</span>
+        {collapsed ? (
+          <span className={LABEL_COL}>{t.label}</span>
+        ) : (
+          /* 라벨 + 상태 한 줄(N-13). 신호가 없으면 줄 자체가 없다 — 빈 줄을 그려 두면 높이가
+             늘 흔들리고, "평온엔 아무것도 안 그린다"가 레이아웃에서 배신당한다. */
+          <span className="min-w-0 flex-1">
+            <span className={LABEL}>{t.label}</span>
+            {signal && <span className={SIGNAL}>{signal}</span>}
+          </span>
+        )}
         {badge > 0 && (
           <span className={BADGE} aria-hidden="true">
             {badge > 99 ? '99+' : badge}
@@ -217,35 +208,6 @@ export default function RailSidebar() {
       <div className={`${BRAND} ${collapsed ? BRAND_COL : BRAND_EXP}`} aria-hidden="true">
         <div className={LOGO}>L</div>
         {!collapsed && <span className={WORD}>러닝 허브</span>}
-      </div>
-
-      {/* 표면 스위처(Wave⑥) — 학습(핵심·숙련) ↔ 자료(수집·발견). 펼침=세그먼트, 접힘=아이콘 토글. */}
-      {/* role="tablist"/"tab"은 화살표 이동·roving tabindex·aria-controls→tabpanel까지 약속하는 계약인데
-          이 스위처는 그 어느 것도 이행하지 않았다 — SR 사용자는 탭 탐색을 시도했다가 아무 반응도 못 얻는다.
-          Schedule 세그먼트가 이미 같은 이유로 내린 판단(group + aria-pressed)을 여기에도 적용한다. */}
-      <div
-        className={`${SURF_TRACK} ${collapsed ? SURF_TRACK_COL : SURF_TRACK_EXP}`}
-        role="group"
-        aria-label="표면 전환"
-      >
-        {SURFACES.map((sf) => {
-          const on = sf.key === activeSurface;
-          const onCls = on ? (collapsed ? SURFACE_ON_COL : SURFACE_ON_EXP) : SURFACE_OFF;
-          return (
-            <button
-              key={sf.key}
-              type="button"
-              aria-pressed={on}
-              aria-label={sf.label}
-              title={sf.label}
-              className={`${SURFACE_BTN} ${collapsed ? SURFACE_BTN_COL : SURFACE_BTN_EXP} ${onCls}`}
-              onClick={() => switchSurface(sf.key)}
-            >
-              <Icon name={sf.icon} className={IC_SURFACE} />
-              {!collapsed && <span className="whitespace-nowrap max-mobile:hidden">{sf.label}</span>}
-            </button>
-          );
-        })}
       </div>
 
       <div className={`${GROUPS} ${collapsed ? GROUPS_COL : ''}`}>{topGroups.map((g, i) => renderGroup(g, i > 0))}</div>

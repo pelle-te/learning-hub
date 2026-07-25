@@ -308,3 +308,53 @@ test('창 닫기 — 디바운스 대기 중 닫아도 비동기 SQL 쓰기가 �
     await closeShell(shell);
   }
 });
+
+/* 미니 HUD 창 모드(N-8) — **창 크기·항상 위는 WebView2 밖의 사실**이라 여기서만 관측된다.
+   트랙 A 는 `vite preview` 를 Chromium 으로 찍어 창 자체가 없고, cargo 는 프런트가 없어
+   "접기 버튼이 실제로 창을 줄이는가"를 못 본다. 그리고 이 배선이 끊기면 증상이 조용하다 —
+   버튼은 눌리고 라우트도 바뀌는데 창만 그대로여서, 알약이 전체 화면을 덮은 채로 남는다.
+
+   ⚠ 복귀 크기가 **진입 전 실측값**인지도 함께 본다(상수 폴백으로 조용히 떨어지면 사용자가
+   키워 둔 창이 매번 되돌려진다). 그래서 진입 전에 크기를 일부러 바꿔 두고 그 값으로 돌아오는지
+   확인한다 — 폴백(1440×900)과 구분되는 값을 골라야 검사가 의미를 갖는다. */
+test('미니 HUD — 접기가 창을 알약으로 줄이고, 펼치기가 원래 크기로 되돌린다', async () => {
+  const shell = await sharedShell();
+  const size = () => shell.page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  const href = () => shell.page.evaluate(() => location.href);
+
+  /* 폴백(1440×900)과 구분되는 크기로 맞춰 둔다 — 이 값으로 돌아와야 '실측 복귀'가 증명된다.
+     ⚠ 번들된 앱 문서라 `import('@tauri-apps/api/window')` 는 **베어 스펙파이어라 해석되지
+     않는다**(하네스가 실제로 물렸다). 다른 케이스들처럼 IPC 내부 진입점을 직접 부른다. */
+  await shell.page.evaluate(async () => {
+    const w = (window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> } })
+      .__TAURI_INTERNALS__;
+    await w.invoke('plugin:window|set_size', { label: 'main', value: { Logical: { width: 1100, height: 720 } } });
+  });
+  await expect.poll(async () => (await size()).w, { timeout: 10_000 }).toBeLessThan(1200);
+  const before = await size();
+
+  // 즉석 집중 25분 — 팔레트로 세션을 만든다(FocusChip 은 세션이 있어야 뜬다).
+  await shell.page.keyboard.press('Control+k');
+  await shell.page.getByPlaceholder(/명령·탭 검색/).fill('즉석 집중 25');
+  await shell.page.keyboard.press('Enter');
+  await expect(shell.page.getByRole('button', { name: '미니 타이머로 접기' })).toBeVisible({ timeout: 10_000 });
+
+  await shell.page.getByRole('button', { name: '미니 타이머로 접기' }).click();
+  await expect.poll(async () => (await size()).w, { timeout: 10_000 }).toBeLessThan(400);
+  expect(await href()).toContain('/mini');
+  await expect(shell.page.getByRole('button', { name: '앱 창으로 펼치기' })).toBeVisible();
+
+  await shell.page.getByRole('button', { name: '앱 창으로 펼치기' }).click();
+  await expect.poll(async () => (await size()).w, { timeout: 10_000 }).toBeGreaterThan(1000);
+  const after = await size();
+  expect(Math.abs(after.w - before.w), '복귀 크기가 실측값이 아니다(상수 폴백으로 떨어졌다)').toBeLessThan(30);
+  expect(await href()).not.toContain('/mini');
+
+  /* 세션은 접기 전 상태 그대로 살아 있어야 한다 — 창 모드가 타이머를 건드리면 안 된다.
+     ⚠ 같은 aria-label 을 오늘 탭 히어로 CTA 도 쓴다 → 상단 칩으로 좁힌다(`.first()` 는
+     문서 순서상 TopBar 다). 안 좁히면 strict mode 위반으로 **기능과 무관하게** 빨개진다. */
+  const stopChip = shell.page.getByRole('button', { name: '집중 타이머 정지' }).first();
+  await expect(stopChip).toBeVisible();
+  await stopChip.click();
+  await shell.page.getByRole('button', { name: '중단' }).click(); // 조기중단 confirm
+});

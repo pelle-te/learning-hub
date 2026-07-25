@@ -143,6 +143,57 @@ export async function installCloseGuard(beforeClose: () => Promise<void>, timeou
   }
 }
 
+/* ── 미니 HUD 창 모드(N-8) ──────────────────────────────────────────────────
+   집중 중 남은 시간 확인이 **alt-tab 2회**였다(`FocusChip` 이 TopBar 안이라 창이 가려지면 같이
+   사라진다) — 집중을 지키려는 도구가 그 왕복으로 집중을 깬다. 타이머는 탭이 아니라 **창 모드**다.
+
+   ⚠ 새 플러그인 0 · 새 창 0. **같은 창**을 줄이고 항상 위로 올릴 뿐이라 SQLite 커넥션·종료
+   가드·단일 인스턴스 계약이 전부 그대로다(새 창을 만들면 그 셋을 전부 다시 상대해야 한다).
+   ⚠ 복귀 크기는 **들어갈 때 실측한 값**을 쓴다 — 상수로 굳히면 사용자가 창을 키워 둔 것을
+   앱이 조용히 되돌린다(그리고 그 손실은 한 번 일어나면 복구가 불가능하다).
+   ⚠ 실패는 전부 `false` 다: 권한이 없거나 브라우저면 **아무 일도 안 일어난 것**이 되고 호출부가
+   라우팅을 취소한다. 반쯤 들어간 상태(작아졌는데 라우트는 그대로)가 최악이다. */
+export interface WindowBox {
+  width: number;
+  height: number;
+}
+
+/** 현재 내부 크기(물리 픽셀 → 논리 픽셀). 브라우저·실패 시 null. */
+export async function windowInnerSize(): Promise<WindowBox | null> {
+  if (!isTauri()) return null;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const win = getCurrentWindow();
+    const size = await win.innerSize();
+    const f = await win.scaleFactor();
+    const logical = size.toLogical(f);
+    return { width: Math.round(logical.width), height: Math.round(logical.height) };
+  } catch {
+    return null;
+  }
+}
+
+/** 미니 모드 진입/복귀. `box` 가 있으면 그 크기로 되돌린다(복귀). 성공 여부를 돌려준다. */
+export async function setMiniWindow(on: boolean, box?: WindowBox | null): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window');
+    const win = getCurrentWindow();
+    const target = on ? MINI_WINDOW : (box ?? RESTORE_FALLBACK);
+    await win.setAlwaysOnTop(on);
+    await win.setResizable(!on); // 알약을 늘려 봐야 내용이 없다 — 그리고 늘린 채 복귀하면 실측이 무의미해진다
+    await win.setSize(new LogicalSize(target.width, target.height));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 알약 크기 — 남은 시간·블록명·중지 버튼 한 줄이 들어가는 최소치. */
+export const MINI_WINDOW: WindowBox = { width: 320, height: 92 };
+/** 복귀 실측이 없을 때만 쓰는 폴백(tauri.conf.json 의 기본 창 크기와 같은 값). */
+const RESTORE_FALLBACK: WindowBox = { width: 1440, height: 900 };
+
 /** Rust 가 읽어 준 볼트 노트 레코드 — 정본 인덱스의 `notes[]` 와 같은 모양.
  *  ⚠ **집계된 결과가 아니다.** 집계는 `lib/vault.ts` 의 `subjectsFromIndex` 하나가 소유한다
  *  (3단계-B 에서 집계 구현이 두 벌이라 같은 볼트에서 숫자가 갈리던 결함을 고쳤다 —

@@ -39,6 +39,11 @@ const RV = 'text-readout-num leading-none font-extrabold tracking-readout-num ta
    `racc` 와 **같은 속성**이라 두 클래스를 겹쳐 붙이면 레이어 순서로 갈린다(SubTabs 관용구):
    붙일 조합을 미리 고른다. */
 const RV_ACC = 'text-acc text-shadow-readout';
+/* 화면의 첫째 수치(N-15) — 44px. 리드아웃(30px)과 **크기로** 위계를 만든다: 이 자리가 비면
+   종전 화면 그대로고, 채우면 그 탭에서 가장 큰 글자가 된다(원칙 2 의 물리적 표현). */
+const PRIMARY = 'flex flex-col gap-1 max-mobile:hidden';
+const PV = 'text-primary-num leading-none font-black tracking-readout-num text-acc tabular-nums text-shadow-readout';
+const PU = 'text-lg leading-none font-bold text-mut';
 const RV_NULL = 'text-mut opacity-55';
 const ACTIONS = 'flex items-center gap-2 self-center';
 /* HUD 칩 버튼 — 각진 헤어라인. 전역 button{} 을 이기는 속성 전부 `!` · 폼 컨트롤이라 leading-[normal].
@@ -76,6 +81,7 @@ export default function TopBar() {
   const openHelp = useOverlay((s) => s.setHelp);
   const theme = useApp((s) => s.state.theme) || 'dark';
   const readouts = usePageChrome((s) => s.readouts);
+  const primary = usePageChrome((s) => s.primary);
   const action = usePageChrome((s) => s.action);
   const [moreOpen, setMoreOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -109,6 +115,15 @@ export default function TopBar() {
       <span className="flex-1" />
       {/* 전역 집중 세션 칩 — 어느 탭에서든 진행 중 세션이 보인다(클릭 → 오늘). */}
       <FocusChip />
+      {primary && (
+        <div className={`${PRIMARY} ${readouts.length > 0 ? 'mr-7.5' : 'mr-2'}`}>
+          <span className={RL}>{primary.label}</span>
+          <span className={PV}>
+            {primary.value}
+            {primary.unit && <span className={PU}>{primary.unit}</span>}
+          </span>
+        </div>
+      )}
       {readouts.length > 0 && (
         <div className={READOUTS}>
           {readouts.map((r, i) => (

@@ -23,6 +23,7 @@ import './phone.css';
 import { enableBrowserDb } from '@/lib/db/sqlite';
 import { initPhoneStore } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
+import { setResumeDevice } from '@/lib/resume';
 import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 
 function Fallback(): React.JSX.Element {
@@ -63,6 +64,7 @@ void initPhoneStore()
     /* 폰은 **정의상 클라우드에 붙어 있다**(그게 폰 웹앱의 존재 이유다) — 즉 데스크톱과 달리
        전송처가 거의 항상 있다. 미연결(=최초 Connect 화면)일 때만 무동작. */
     initTelemetry(cfg?.baseUrl ?? null, 'phone');
+    setResumeDevice(cfg?.deviceId); // N-7 — 폰이 자기 커서를 쓰고 데스크톱 커서를 읽는다
     collectWebVitals();
     const connected = cfg !== null;
     const root = createRoot(document.getElementById('root')!);

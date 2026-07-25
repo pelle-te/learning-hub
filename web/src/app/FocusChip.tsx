@@ -4,11 +4,13 @@
    ③ 종료 감지 — 시스템 알림 + '블록 완료로 표시' 액션 토스트(한 번만).
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useFocus } from '@/store/useFocus';
 import { useApp } from '@/store/useApp';
 import { touchReview } from '@/lib/persistence';
 import { mmss } from '@/lib/utils';
+import { isTauri } from '@/lib/tauri';
+import { MINI_PATH, enterMini, exitMini } from '@/lib/miniMode';
 import { toast } from '@/shell/toast';
 import { confirm } from '@/shell/modal';
 import { routeTitle } from './docTitle';
@@ -42,7 +44,12 @@ export default function FocusChip() {
   const stop = useFocus((st) => st.stop);
   const clear = useFocus((st) => st.clear);
   const navigate = useNavigate();
+  const location = useLocation();
   const [now, setNow] = useState(() => Date.now());
+  /** 접기 — 창 조작이 성공했을 때만 라우팅한다(반쪽 상태 금지 · `miniMode` 머리주석). */
+  const foldToMini = async (): Promise<void> => {
+    if (await enterMini(location.pathname)) navigate(MINI_PATH);
+  };
   const doneKey = useRef<number | null>(null);
 
   // 1초 틱(세션 중에만). 백그라운드 스로틀은 브라우저에 맡기고, 복귀·시작 시 즉시 캐치업.
@@ -108,6 +115,17 @@ export default function FocusChip() {
     if (!isBreak) useFocus.getState().startBreak(5); // 자동 휴식 — 포모도로 회복 구간
   }, [session, leftSec, clear]);
 
+  /* 미니 모드 자동 복귀(N-8) — 세션이 끝나면 알약을 접고 원래 창·원래 탭으로 돌아온다.
+     ⚠ 세션 종료를 이 컴포넌트가 단독 감시하므로(위 이펙트) 복귀도 여기 둔다. 미니 화면이
+     자기 종료를 감시하게 만들면 감시자가 둘이 되고, 그러면 알림·완료 토스트가 두 번 뜬다.
+     ⚠ `session` 이 null 이 되는 순간에 걸린다 — 자동 휴식이 곧바로 새 세션을 만들지만 그건
+     다음 렌더의 새 session 이라 이 이펙트는 이미 복귀를 걸었다(휴식은 알약에 안 가둔다). */
+  const inMini = location.pathname === MINI_PATH;
+  useEffect(() => {
+    if (!inMini || session) return;
+    void exitMini().then((back) => navigate(back, { replace: true }));
+  }, [inMini, session, navigate]);
+
   // 문서 제목에 남은 시간 미러 — 다른 앱/탭에 가 있어도 세션이 보인다.
   useEffect(() => {
     if (!session) return;
@@ -147,6 +165,19 @@ export default function FocusChip() {
         <b className={TIME}>{mmss}</b>
         <span className={NAME}>{isBreak ? '☕ 휴식' : session.name}</span>
       </button>
+      {/* 접기(N-8) — 셸에서만 뜬다. 브라우저(dev·트랙 A)엔 창 개념이 없어 눌러도 할 일이 없고,
+          휴식은 5분짜리라 창을 접었다 펴는 비용이 값보다 크다. */}
+      {!isBreak && isTauri() && (
+        <button
+          type="button"
+          className={STOP}
+          onClick={() => void foldToMini()}
+          title="미니 타이머로 접기 — 항상 위에 뜨는 알약"
+          aria-label="미니 타이머로 접기"
+        >
+          ▭
+        </button>
+      )}
       <button
         type="button"
         className={STOP}

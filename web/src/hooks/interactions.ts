@@ -7,6 +7,7 @@
 ============================================================ */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { minutesOfDay } from '@/lib/utils';
+import { useKeymap } from './useKeymap';
 
 /** 현재 표시값→target으로 부드럽게 카운트업/다운(easeOutCubic). reduced-motion·SSR이면 즉시 target.
  *  target 변경 시 0이 아니라 *현재값*에서 트윈 — 데이터 갱신마다 KPI가 0으로 튀는 깜빡임 방지(L-8). */
@@ -115,27 +116,18 @@ export function isTyping(): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
-/** 주(週) 이동 단일키 — ',' 이전 주 / '.' 다음 주(스케줄·리뷰 공용). 입력 중·수정자 조합은 무시.
- *  콜백은 ref로 최신을 읽어 리스너는 마운트당 1회만 등록. */
+/** 주 이동 `,`/`.` — **N-16 이후 `useKeymap` 위에 얹힌 얇은 래퍼**다.
+ *  옛 구현은 자기 리스너를 직접 걸었고, 그래서 이 키가 *어느 화면에 사는지* 앱이 몰랐다
+ *  (치트시트는 전역이라 적었지만 실제론 2화면뿐 = 12개 탭에서 거짓말). 이제 등록과 설명이
+ *  같은 선언에서 나오므로 치트시트가 "지금 이 화면" 섹션에 스스로 뜬다. */
 export function useWeekNavKeys(onPrev: () => void, onNext: () => void): void {
-  const cb = useRef({ onPrev, onNext });
-  useEffect(() => {
-    cb.current = { onPrev, onNext }; // 렌더마다 최신 콜백 동기화(렌더 중 ref 쓰기 금지 규칙 준수)
-  });
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping()) return;
-      if (e.key === ',') {
-        e.preventDefault();
-        cb.current.onPrev();
-      } else if (e.key === '.') {
-        e.preventDefault();
-        cb.current.onNext();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  useKeymap(
+    '이 화면 · 주 이동',
+    [
+      { keys: [','], display: ',', label: '이전 주' },
+      { keys: ['.'], display: '.', label: '다음 주' },
+    ].map((b, i) => ({ ...b, run: i === 0 ? onPrev : onNext })),
+  );
 }
 
 /** 포인터 추적 — 패널 위 커서 위치를 CSS 변수로(스포트라이트 --mx/--my, 3D 틸트 --tiltX/Y).

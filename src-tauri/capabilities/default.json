@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계-F 에서 dialog:allow-save 를 추가했다 — `<a download>` 가 WebView2 에서 **예외 없이 아무 파일도 만들지 않는 것**을 실측해, 내보내기 6경로를 저장 대화상자 + save_text_file 로 옮겼기 때문. fs 플러그인은 안 들였다: 쓰기는 커맨드 하나면 되고, 플러그인은 훨씬 넓은 권한을 연다). ⚠ core:window:allow-destroy 는 2단계-C 에서 켰다 — 프런트가 onCloseRequested 로 닫기를 보류하고 비동기 SQL 쓰기를 기다린 뒤 직접 destroy 하기 때문. core:window:default 는 조회 전용이라 이게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 창이 영영 안 닫힌다(1단계 실측). 이 둘은 **항상 같이 간다** — 훅을 지우면 이 권한도 지울 것.",
+  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계-F 에서 dialog:allow-save 를 추가했다 — `<a download>` 가 WebView2 에서 **예외 없이 아무 파일도 만들지 않는 것**을 실측해, 내보내기 6경로를 저장 대화상자 + save_text_file 로 옮겼기 때문. fs 플러그인은 안 들였다: 쓰기는 커맨드 하나면 되고, 플러그인은 훨씬 넓은 권한을 연다). ⚠ core:window:allow-destroy 는 2단계-C 에서 켰다 — 프런트가 onCloseRequested 로 닫기를 보류하고 비동기 SQL 쓰기를 기다린 뒤 직접 destroy 하기 때문. core:window:default 는 조회 전용이라 이게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 창이 영영 안 닫힌다(1단계 실측). 이 둘은 **항상 같이 간다** — 훅을 지우면 이 권한도 지울 것. ⚠ set-size/set-always-on-top/set-resizable 셋은 N-8(미니 HUD)에서 켰다 — 집중 세션 중 **같은 창**을 알약 크기로 줄이고 항상 위에 두기 위해서다(새 창·새 플러그인 0이라 SQLite 커넥션·종료 가드·single-instance 계약이 그대로다). 크기 조회(innerSize·scaleFactor)는 core:window:default 의 조회 권한으로 이미 되므로 추가하지 않았다 — 복귀 크기는 상수가 아니라 **진입 시 실측값**이라 이 읽기가 기능의 일부다. 미니 모드를 지우면 이 셋도 함께 지울 것.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,6 +10,9 @@
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
-    "core:window:allow-destroy"
+    "core:window:allow-destroy",
+    "core:window:allow-set-size",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-resizable"
   ]
 }

@@ -13,6 +13,7 @@ import { todayISO } from '@/lib/utils';
 import type { Ritual } from '@/lib/types';
 import { TodaySignature } from './TodaySignature';
 import { SetupGuide, setupComplete } from './SetupGuide';
+import ResumeChip from './ResumeChip';
 import { TodayBlocks } from './TodayBlocks';
 import { BLOCK_STAGES, PRINCIPLES } from './consts';
 
@@ -185,6 +186,13 @@ export default function Today() {
 
   return (
     <div className="relative h-full min-h-0">
+      {/* N-7 — 다른 기기에서 하던 것(있을 때만). 히어로 위 오른쪽 구석에 얹어 착지 화면의
+          레이아웃을 건드리지 않는다: 커서가 없는 대부분의 시간엔 이 노드 자체가 없다. */}
+      <div className="pointer-events-none absolute top-0 right-0 z-4 p-1 max-mobile:static max-mobile:p-0">
+        <div className="pointer-events-auto">
+          <ResumeChip />
+        </div>
+      </div>
       <TodaySignature onOpenMore={openMore} />
       {/* 콜드 스타트 — 과목·목표가 없으면 빈 대시보드 위에 3스텝 온보딩을 띄운다(셋업되면 자동 소멸). */}
       {!setupComplete(items) && (

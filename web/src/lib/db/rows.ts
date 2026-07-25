@@ -18,8 +18,12 @@
 import { EPHEMERAL_ONLY_KEYS, RUNTIME_CACHE_KEYS } from '../persistence';
 import type { AppState } from '../types';
 
-/** 날짜 키 맵 슬라이스 — completions 는 2단 중첩이라 따로 다룬다. */
-const DS_MAP_SLICES = ['dayOverrides', 'dayPlans', 'rituals'] as const;
+/** 키 맵 슬라이스(`ds_map` 테이블 = `(slice, key, value)`) — completions 는 2단 중첩이라 따로 다룬다.
+ *  ⚠ 열 이름은 역사적으로 `ds` 지만 **의미는 '그 슬라이스의 키'**다. N-7 의 `resume` 은 키가
+ *  날짜가 아니라 **기기 id** 인 첫 슬라이스다 — 이 표에 날짜 가정이 없는 것을 확인하고 넣었다
+ *  (정렬·프루닝 어디도 `ds` 를 파싱하지 않는다). 새 테이블 0 · 서버 DDL 0 으로 기기별 1행을
+ *  얻는 자리가 여기뿐이라 중요하다: 각 기기가 **자기 행만 쓰므로 동기화 충돌이 원리적으로 없다**. */
+const DS_MAP_SLICES = ['dayOverrides', 'dayPlans', 'rituals', 'resume'] as const;
 /** id 를 가진 배열 슬라이스. retentionLog 만 id 가 없어 순번을 id 로 쓴다. */
 export const ARRAY_SLICES = ['cbms', 'backlog', 'blankResults', 'retentionLog', 'events', 'tasks'] as const;
 export type ArraySlice = (typeof ARRAY_SLICES)[number];
@@ -203,7 +207,7 @@ export function stateToRows(state: AppState): DbRows {
     settings: [],
     runtime: [],
     completions: [],
-    dsMaps: { dayOverrides: [], dayPlans: [], rituals: [] },
+    dsMaps: { dayOverrides: [], dayPlans: [], rituals: [], resume: [] },
     arrays: { cbms: [], backlog: [], blankResults: [], retentionLog: [], events: [], tasks: [] },
     summaries: [],
     weekAlloc: [],

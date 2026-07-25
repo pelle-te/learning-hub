@@ -21,6 +21,8 @@ import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { riskSummary } from '@/lib/spacedReview';
 import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { putResume, clearResume, resumeDevice, type ResumeCursor } from '@/lib/resume';
+
 import { CBMS_INFO } from '@/lib/methodology';
 import { jolSummary, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
@@ -91,6 +93,18 @@ interface RunSnap {
   pred: boolean | null;
 }
 
+/** 커서 쓰기/지우기(N-7) — 미연결이면 무동작. `useFocus` 와 같은 관용구. */
+function writeResume(cur: ResumeCursor): void {
+  const id = resumeDevice();
+  if (!id) return;
+  useApp.getState().mutate((st) => putResume(st, id, cur));
+}
+function dropResume(): void {
+  const id = resumeDevice();
+  if (!id) return;
+  useApp.getState().mutate((st) => clearResume(st, id));
+}
+
 export default function ReviewRun() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
@@ -124,6 +138,11 @@ export default function ReviewRun() {
 
   const total = queue.length;
   const finished = idx >= total;
+  /* N-7 — 끝냈으면 커서를 지운다(다른 기기에 유령 이어하기가 남지 않게).
+     ⚠ 렌더가 아니라 이펙트다: 완주 분기 안에서 부르면 렌더 중 스토어를 변형하게 된다. */
+  useEffect(() => {
+    if (finished) dropResume();
+  }, [finished]);
   const remaining = Math.max(0, total - idx);
   const cardCount = queue.filter((i) => !i.again).length; // 서로 다른 카드 수 = 정직한 분모
   const gotCount = gotKeys.length;
@@ -154,6 +173,10 @@ export default function ReviewRun() {
     if (pred !== null) setJol((rows) => [...rows, { predicted: pred, recalled: didIt }]);
     setPred(null);
     setIdx((i) => i + 1);
+    /* N-7 — 이어하기 커서(복습). **5장마다**만 쓴다: 카드마다 쓰면 한 세션이 아웃박스에 12행을
+       남기고, 그 12행이 말하는 것은 같은 한 가지("복습 중")다. 진행 표기는 다음 카드 기준. */
+    if ((idx + 1) % 5 === 0 && idx + 1 < queue.length)
+      writeResume({ kind: 'review', label: '복습 세션', at: Date.now(), progress: `${idx + 2}/${queue.length}` });
   };
   const reveal = () => setRevealedAt(idx);
   /* D-3 되돌리기 — 오타 한 번(1 을 눌러야 할 때 2)이 세션 기록을 조용히 오염시키던 것을 닫는다.

@@ -20,6 +20,7 @@ import '@/styles/ds.css';
 import { queryClient } from '@/app/queryClient';
 import { initAppStore } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
+import { setResumeDevice } from '@/lib/resume';
 import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 
 /* ⚠ `ThemeProvider` 를 **정적으로 import 하지 않는다** — 아래 계약이 그것 때문에 깨져 있었다.
@@ -58,7 +59,10 @@ void initAppStore()
   .then(async () => {
     /* 전송처는 클라우드 설정에서 온다. 미연결이면 `null` → 전 경로 무동작(설계 원칙 ③). */
     await readCloudConfig()
-      .then((cfg) => initTelemetry(cfg?.baseUrl ?? null, 'shell'))
+      .then((cfg) => {
+        initTelemetry(cfg?.baseUrl ?? null, 'shell');
+        setResumeDevice(cfg?.deviceId); // N-7 이어하기 커서 — 미연결이면 빈 값 = 전 경로 무동작
+      })
       .catch(() => {});
     collectWebVitals();
     // 이 두 줄이 `useApp` 모듈 평가를 처음 유발한다 — 그래서 반드시 위 await 뒤여야 한다.

@@ -18,15 +18,10 @@ export {
   hostTabKey,
   navGroups,
   destinations,
-  surfaceOf,
-  surfaceHome,
-  SURFACES,
   GROUP_LABELS,
   type TabMeta,
   type NavGroup,
-  type Surface,
   type TabRole,
-  type SurfaceMeta,
 } from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';
 export { vtMove, type VtKind, type VtMove } from './vt';

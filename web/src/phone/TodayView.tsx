@@ -7,6 +7,7 @@
 
    규칙은 lib 것을 그대로 쓴다(studyStreak·riskSummary·deadlineDdays·useSchedule) — 픽셀만 새로.
 ============================================================ */
+import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { todayISO, parseISO, fmt, ddayInfo } from '@/lib/utils';
@@ -14,12 +15,19 @@ import { studyStreak, isDone } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { pickFocus, type FocusEntry } from '@/lib/focusState';
+import { latestResume, resumeDevice, resumeLabel, type ResumeKind } from '@/lib/resume';
 
 const CARD = 'rounded-lg border border-line bg-panel p-4';
 const STAT = 'flex flex-col gap-0.5 rounded-md border border-line bg-panel2 px-3 py-2.5';
 const NAV = 'min-h-12 flex-1 rounded-md text-sm font-semibold';
 
 export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => void }): React.JSX.Element {
+  /* 이어하기 커서(N-7) — 마운트 시각 한 번으로 TTL 을 본다(6시간짜리라 초 단위 정확도 불필요).
+     `kind` 는 라우트가 아니라 **의도**라 폰은 자기 뷰 이름으로 옮긴다: 복습→review, 나머지는
+     오늘 하루 화면(day). 이 표 하나가 드롭된 F1(딥링크 핸드오프)을 불필요하게 만든 것이다. */
+  const [nowMs] = useState(() => Date.now());
+  const resume = latestResume(useApp.getState().state, resumeDevice(), nowMs);
+  const onResume = (kind: ResumeKind): void => onGo(kind === 'review' ? 'review' : 'day');
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const today = todayISO(state);
@@ -58,6 +66,20 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
           <span className="text-xs text-mut">오늘 시작해요</span>
         )}
       </header>
+
+      {/* N-7 이어하기 — 데스크톱에서 하던 것이 살아 있을 때만 뜬다. 폰이 이 기능의 주 수혜자다:
+          "PC 에서 어디까지 했더라"가 그동안 기억 재구성이었고, 틀리면 같은 걸 두 번 했다.
+          ⚠ 데스크톱 칩을 공유하지 않고 폰 문법으로 따로 그린다(C-6 · lib 만 공유). */}
+      {resume && (
+        <button
+          type="button"
+          onClick={() => onResume(resume.cur.kind)}
+          className="flex min-h-11 w-full items-center gap-2 rounded-md border border-line-acc-pill bg-tint-acc px-3 text-left text-sm font-semibold text-ink"
+        >
+          <span aria-hidden="true">↪</span>
+          {resumeLabel(resume.cur)}
+        </button>
+      )}
 
       {/* 오늘의 초점 — 가장 큰 새 학습(과목색 좌측 띠). */}
       <div

@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 const WRAP = 'mx-auto flex max-w-empty flex-col items-center gap-2 px-6 py-11 text-center';
 // 차분한 네온 글리프 — 1px inset 링은 `--line-acc`(= acc 30% + line) 토큰 그대로.
 const GLYPH =
-  'mb-1 flex size-14 items-center justify-center rounded-empty-glyph bg-acc-soft text-empty-glyph inset-ring inset-ring-line-acc';
+  'mb-1 flex size-16 items-center justify-center rounded-empty-glyph bg-acc-soft text-empty-glyph inset-ring inset-ring-line-acc';
 const TITLE = 'text-empty-title font-extrabold tracking-empty-title text-ink';
 const DESC = 'text-md leading-[1.65] text-mut';
 const ACTIONS = 'mt-2.5 flex flex-wrap justify-center gap-2';
