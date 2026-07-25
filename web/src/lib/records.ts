@@ -4,6 +4,7 @@
    여기는 격려·리듬·연속성. 앱의 '오늘'(todayISO)을 주입받아 결정적으로 계산한다.
 ============================================================ */
 import { addDays, dayDiff, iso, mondayOf, parseISO, todayISO } from './utils';
+import { completionMin } from './persistence';
 import type { AppState } from './types';
 
 /** 하루별 완료 학습 분(done 세션의 min 합). 완료 없는 날은 키 없음. */
@@ -17,7 +18,7 @@ function dailyFocusMin(state: AppState): Record<string, number> {
       const e = comp[ds]![k];
       if (e?.done) {
         any = true;
-        min += e.min || 0;
+        min += completionMin(e);
       }
     }
     if (any) out[ds] = min;
@@ -208,7 +209,7 @@ export function onThisDay(state: AppState, todayDs: string): OnThisDayEntry[] {
         const e = comp[k];
         if (e?.done) {
           any = true;
-          min += e.min || 0;
+          min += completionMin(e);
         }
       }
       if (any) {

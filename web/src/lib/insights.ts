@@ -6,6 +6,7 @@
    Ollama는 선택적 살(enrichment)일 뿐, 뼈대는 여기 결정적 계산이 소유한다(오프라인 완결·테스트가능).
 ============================================================ */
 import { addDays, iso, parseISO } from './utils';
+import { completionMin } from './persistence';
 import {
   CBMS_INFO,
   backlogClosedBetween,
@@ -168,7 +169,7 @@ export function weeklyRecap(state: AppState, weekMonDs: string): WeeklyRecap {
       const e = comp[ds]![k];
       if (e?.done) {
         doneSessions++;
-        focusMin += e.min || 0;
+        focusMin += completionMin(e);
       }
     }
   }
@@ -209,7 +210,7 @@ export function dayShape(state: AppState, ds: string): DayShape {
     const e = comp[k];
     if (e?.done) {
       sessions++;
-      focusMin += e.min || 0;
+      focusMin += completionMin(e);
       const sid = k.split('|')[0];
       if (sid) sids.add(sid);
     }

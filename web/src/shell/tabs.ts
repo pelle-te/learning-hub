@@ -73,7 +73,7 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // 내 길(goals) — 축 A '내 길 지도'(P9 Phase 6). 전략 앵커(전파통신 연구원 자립 트리)라 오늘 다음, 계획 상단.
-  { key: 'goals', label: '내 길', group: 'plan', order: 15, role: 'destination', icon: 'compass' },
+  { key: 'goals', label: '내 길', group: 'plan', order: 15, role: 'lens', segLabel: '내 길', icon: 'compass' },
   // 배분 세그먼트(주간 배분 보드) — 옛 배치 탭의 alloc 뷰를 승격(재개편 v4). 캘린더 바로 뒤.
   {
     key: 'alloc',
@@ -86,7 +86,7 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
-  { key: 'degree', label: '졸업 계획', group: 'plan', order: 35, role: 'destination', icon: 'cap' },
+  { key: 'degree', label: '졸업 계획', group: 'plan', order: 35, role: 'lens', segLabel: '졸업', icon: 'cap' },
   // 과목(items) — 전공 과목·챕터 카탈로그 + 뼈대(가용시간·수업·일과) + 과목별 요일 배분(계획 재개편 v3).
   // 계획의 lens. 세그먼트 라벨='과목' — 계획은 [캘린더 · 배분 · 과목] 3세그먼트다(v4).
   // fill: 좌 갤러리 / 우 가용 레일이 화면을 꽉 채우는 프레임이라 여백 래퍼 없이 붙인다.
@@ -271,7 +271,12 @@ export const SUBTAB_GROUPS: string[][] = [
   // 계획 호스트: 캘린더(schedule)가 **자기 자신이 호스트**다(D-4 — 옛 plan-host 셸 은퇴).
   // host=첫 항목=schedule → hostTabKey가 세 세그먼트를 '계획'으로 하이라이트.
   // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대).
-  ['schedule', 'alloc', 'items'],
+  /* N-14 1단계 — '멀리'(goals·degree)가 계획 호스트로 들어왔다. 셋 다 *언제 무엇을 할까*의
+     같은 시간 축인데(오늘·이번 주·이번 학기) 레일에서 세 항목으로 쪼개져 있었다.
+     라우트·⌘K·`g` 단축키는 전부 그대로 — 바뀐 것은 **무엇이 상시 보이는가** 하나다.
+     ⚠ `role` 을 lens 로 바꾸는 것과 **반드시 함께** 해야 한다(불변식 ③-b: lens 는 어느 세그먼트
+     그룹엔가 속해야 하고, destination 은 레일에 서야 한다). 근거·다음 판단 지점은 `docs/IA개편-설계.md`. */
+  ['schedule', 'alloc', 'items', 'goals', 'degree'],
   ['integrations', 'ledger'],
   // 기록 호스트: 기록(적기) → 주간 리뷰(이번 주 처방) → 복습 실행(지금 굴리기) → 오답 노트(전 기간 아카이브).
   ['journal', 'review', 'review-run', 'mistakes'],

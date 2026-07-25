@@ -105,7 +105,11 @@ export default function FocusChip() {
         label: '블록 완료로 표시',
         onAction: () => {
           const app = useApp.getState();
-          app.toggleDone(ds, sid, type, blockMin, true);
+          /* G-1 — **실제로 집중한 분**을 함께 남긴다. 지금까지 회고 넷은 계획 분을 "집중한
+             시간"으로 읽었고, 그중 `adherenceFactor` 는 그 값으로 미래 용량을 깎았다. 이 경로가
+             실측을 아는 유일한 자리다(세션 총 길이 = `total` 초). 세션을 중간에 멈췄다면 그 세션은
+             완료 토스트 자체가 안 뜨므로 여기 오는 값은 언제나 '끝까지 한 세션'이다. */
+          app.toggleDone(ds, sid, type, blockMin, true, Math.round(session.total / 60));
           // ReviewRun發 세션은 챕터를 아니까 챕터 터치도 기록 — 위험모델 lastDs 갱신(감사 #22).
           if (chapter) app.mutate((st) => touchReview(st, sid, chapter, ds));
         },

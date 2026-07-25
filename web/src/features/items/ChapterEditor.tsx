@@ -2,6 +2,10 @@
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
 import { useCallback, useState } from 'react';
 import { rid, todayISO } from '@/lib/utils';
+import { chapterSnapshot, riskWord } from '@/lib/chapterView';
+import { useApp } from '@/store/useApp';
+import { useSchedule } from '@/store/selectors';
+import DetailDrawer from '@/components/DetailDrawer';
 import { ui } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
 import type { AppState, Item } from '@/lib/types';
@@ -14,6 +18,10 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   const totalH = chs.reduce((t, c) => t + (+c.hours || 0), 0);
   const [drag, setDrag] = useState<number | null>(null);
   const [bulk, setBulk] = useState('');
+  const [peek, setPeek] = useState<string | null>(null);
+  const state = useApp((s) => s.state);
+  const res = useSchedule();
+  const snap = peek ? chapterSnapshot(state, res.days || [], todayISO(state), id, peek) : null;
 
   /** 이 과목만 변형. */
   const upd = useCallback(
@@ -95,6 +103,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                   <th style={{ width: 96 }}>시간(h)</th>
                   <th style={{ width: 52 }}>완료</th>
                   <th style={{ width: 36 }}></th>
+                  <th style={{ width: 36 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -146,6 +155,20 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       />
                     </td>
                     <td style={{ textAlign: 'center' }}>
+                      {/* N-2 첫 조각 — 이 챕터의 현재 상태를 **그 자리에서** 편다. 지금까지
+                          "노트 썼나·언제 복습" 을 알려면 4화면·6클릭이었다(객체가 목적지가 아니라
+                          화면마다 흩어진 행이었다). 읽기 전용 v0 이라 액션은 아직 없다. */}
+                      <Button
+                        sm
+                        variant="ghost"
+                        onClick={() => setPeek(c.name)}
+                        aria-label={`${c.name} 상태 보기`}
+                        title="이 챕터의 상태"
+                      >
+                        ⓘ
+                      </Button>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
                       <Button sm variant="ghost" danger onClick={() => delCh(i)} aria-label="삭제" title="삭제">
                         ✕
                       </Button>
@@ -186,6 +209,36 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
           </Button>
         </details>
       </div>
+
+      {/* N-2 첫 조각 — 챕터 상태 서랍(읽기 전용). 볼트 산출물(mastery·ledger) 조인은 **일부러
+          안 넣었다**: 조인 키가 basename 정확일치라 실패하면 절반이 빈칸인데, 빈 서랍은
+          "데이터 없음"이 아니라 "이 도구가 나를 모른다"로 읽힌다(`lib/chapterView` 머리주석). */}
+      <DetailDrawer
+        open={!!snap}
+        onClose={() => setPeek(null)}
+        title={snap ? `${snap.subject} · ${snap.chapter}` : ''}
+        placement="center"
+      >
+        {snap && (
+          <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-md">
+            <dt className="ds-muted">분량</dt>
+            <dd className="m-0 font-bold">{snap.hours ? `${snap.hours}h` : '—'}</dd>
+            <dt className="ds-muted">진행</dt>
+            <dd className="m-0 font-bold">
+              {snap.done ? `끝냄${snap.doneDs ? ` · ${snap.doneDs}` : ' · 날짜 기록 없음'}` : '진행 중'}
+            </dd>
+            <dt className="ds-muted">복습</dt>
+            <dd className="m-0 font-bold">
+              {riskWord(snap)}
+              {snap.lastDs && (
+                <span className="ds-muted ds-tiny">{` · 마지막 ${snap.lastDs} (${snap.daysSince}일 전)`}</span>
+              )}
+            </dd>
+            <dt className="ds-muted">오답 기록</dt>
+            <dd className="m-0 font-bold">{snap.cbms ? `${snap.cbms}건` : '없음'}</dd>
+          </dl>
+        )}
+      </DetailDrawer>
     </details>
   );
 }

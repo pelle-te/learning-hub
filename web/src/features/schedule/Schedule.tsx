@@ -13,7 +13,7 @@ import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import EmptyState from '@/components/EmptyState';
-import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
+import { selectFinishGains, useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
 import { iso, parseISO, addDays, dayDiff, weekLabel, fmtShort, ddayInfo, todayISO, DOW_MON } from '@/lib/utils';
@@ -154,6 +154,9 @@ export default function Schedule() {
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
   const soon = ddays.slice(0, 4);
 
+  /* N-3 반사실 — 적응형 계수가 적용된 계획에서만 계산된다(아니면 빈 배열 · 비용 0).
+     `schedule()` 이 순수 함수라 "계수 없이 한 번 더" 돌린 결과이지 추정이 아니다. */
+  const gainById = new Map(selectFinishGains(state).map((g) => [g.id, g]));
   // 과목별 예상 완료일(스케줄러 산출 finishDate) — 하단 리드아웃. finishDate/완료 표식 있는 과목만.
   const finishes = (res.itemStat || [])
     .filter((st) => st.name && (st.finishDate || st.finished))
@@ -165,6 +168,7 @@ export default function Schedule() {
       late: st.late || 0,
       md: st.finishDate ? fmtShort(parseISO(st.finishDate)) : null,
       dday: st.deadline ? dayDiff(todayIso, st.deadline) : null,
+      gain: gainById.get(st.id),
     }));
 
   // 배치 전용 리드아웃(뷰별 스왑) — 일=그날, 주=이번 주(週), 월=그 달. 탭재설계 '상단 리드아웃' 사상.
@@ -427,6 +431,15 @@ export default function Schedule() {
                   <b className={bCls}>
                     {f.md ?? '—'}
                     {f.dday != null && f.dday >= 0 && <span className={S.finDday}> · D-{f.dday}</span>}
+                    {/* N-3 — 이행률 계수가 이 날짜를 며칠 밀었는지. **진단이지 평가가 아니다**:
+                        '늦었다'가 아니라 "계획대로 지키면 이 날"이라고만 말한다(이행률은 통제 밖
+                        사유로도 떨어진다 · records 의 '성취 회수' 톤). 계수가 없으면 아예 안 뜬다. */}
+                    {f.gain && (
+                      <span className={S.finDday} title={`계획대로 지키면 ${f.gain.idealDate}`}>
+                        {' '}
+                        · 지키면 −{f.gain.days}일
+                      </span>
+                    )}
                   </b>
                 )}
               </span>

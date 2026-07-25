@@ -401,6 +401,17 @@ export function isDone(state: AppState, ds: string, sid: string, type: SessionTy
   return !!(e && e.done);
 }
 /** 완료 토글(스토어 액션이 호출 후 persist). on=false면 기록 제거. */
+/** 회고가 읽어야 하는 '집중한 분'(G-1) — **실측이 있으면 실측, 없으면 계획**.
+ *
+ *  왜 함수인가: `min` 을 그대로 읽던 곳이 넷(`records.bestFocusMin`·`seasonPace`·
+ *  `insights.dayShape`·`scheduler.adherenceFactor`)이었고, 그중 하나는 그 값으로 **미래 계획
+ *  용량을 깎는다**. 폴백 규칙을 네 곳에 복제하면 언젠가 한 곳만 남아 "회고는 실측인데 계획은
+ *  체크박스"가 된다 — 그 어긋남은 화면 어디에도 안 보인다. 규칙은 여기 한 줄이다. */
+export function completionMin(e: { min?: number; actualMin?: number } | undefined): number {
+  if (!e) return 0;
+  return typeof e.actualMin === 'number' && e.actualMin > 0 ? e.actualMin : +(e.min || 0);
+}
+
 export function setDone(
   state: AppState,
   ds: string,
@@ -408,12 +419,20 @@ export function setDone(
   type: SessionType,
   plannedMin: number,
   on: boolean,
+  actualMin?: number,
 ): void {
   const m = compMap(state, ds);
   const k = sid + '|' + type;
   // doneDs = 실제 완료일(②#23 · todayISO는 _today 시드 존중) — 복습 사다리가 계획일이 아니라
   // 이 날을 앵커한다(늦게 완료해도 복습이 앞당겨진 채 고정되지 않게 · 망각곡선 정합).
-  if (on) m[k] = { done: true, min: Math.round(plannedMin), doneDs: todayISO(state) };
+  if (on)
+    m[k] = {
+      done: true,
+      min: Math.round(plannedMin),
+      doneDs: todayISO(state),
+      // 실측은 **있을 때만** 싣는다 — 0/undefined 를 넣으면 "쟀는데 0분"과 "안 쟀다"가 섞인다.
+      ...(actualMin && actualMin > 0 ? { actualMin: Math.round(actualMin) } : {}),
+    };
   else delete m[k];
   if (!Object.keys(m).length) delete state.completions[ds];
 }

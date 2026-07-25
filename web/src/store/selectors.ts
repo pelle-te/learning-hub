@@ -6,7 +6,7 @@ import { schedule, studyMinByWeekday } from '@/lib/scheduler';
 import { riskSummary } from '@/lib/spacedReview';
 import { isDone } from '@/lib/persistence';
 import { openBacklog } from '@/lib/methodology';
-import { todayISO } from '@/lib/utils';
+import { dayDiff, todayISO } from '@/lib/utils';
 import type { AppState, ScheduleResult } from '@/lib/types';
 import { useApp } from './useApp';
 
@@ -127,5 +127,50 @@ export function selectNavSignals(state: AppState): Record<string, string> {
   if (backlog > 0) parts.push(`보충 ${backlog}`);
   if (parts.length) out.journal = parts.join(' · ');
   navCache = { state, result: out };
+  return out;
+}
+
+/* ── 반사실 완주일(N-3) ─────────────────────────────────────────────────────
+   `adherenceFactor` 는 최근 14일 이행률로 **계획 용량을 0.5~1.0배 곱한다**. 사용자에게 보이는
+   것은 설정의 체크박스 하나(+PL-3 이 노출한 계수뿐)이고, **그래서 종료일이 며칠 밀렸는지는
+   어느 화면에도 없었다** — "왜 종료일이 늘었지?"의 답이 코드 읽기였다.
+
+   답을 만드는 방법은 새 계산이 아니라 **같은 계산을 한 번 더 돌리는 것**이다: `schedule()` 은
+   순수 함수고 `adaptiveCapacity:false` 면 계수가 정확히 1 이 된다. 그래서 반사실은 추정이
+   아니라 **이 앱 자신의 엔진이 내놓은 다른 입력의 결과**다(임의 계수 0).
+
+   ⚠ 계수가 적용되지 않은 상태(`adaptApplied` false)면 **아예 계산하지 않는다** — 결과가 같을
+   것이 자명한데 무거운 스케줄을 한 번 더 도는 것은 순수 낭비다.
+   ⚠ 문구는 호출부의 몫이고, 이 함수는 **날짜와 일수만** 준다. 이행률은 통제 밖 사유로도 떨어진다
+   → 여기서 평가하는 값(예: '손해')을 만들면 화면이 자책을 유도하게 된다(records 의 '성취 회수' 톤과 충돌). */
+export interface FinishGain {
+  id: string;
+  name: string;
+  /** 지금 계획의 완주일. */
+  finishDate: string;
+  /** 계수 없이(=계획대로 지켰을 때) 계획의 완주일. */
+  idealDate: string;
+  /** 며칠 당겨지는가(≥1 인 것만 담는다). */
+  days: number;
+}
+let cfCache: { state: AppState; result: FinishGain[] } | null = null;
+
+export function selectFinishGains(state: AppState): FinishGain[] {
+  if (cfCache && cfCache.state === state) return cfCache.result;
+  const cur = selectSchedule(state);
+  let out: FinishGain[] = [];
+  if (cur.adaptApplied) {
+    const ideal = schedule({ ...state, adaptiveCapacity: false });
+    const byId = new Map(ideal.itemStat.map((s) => [s.id, s]));
+    out = cur.itemStat
+      .map((s) => {
+        const alt = byId.get(s.id);
+        if (!s.finishDate || !alt?.finishDate) return null;
+        const days = dayDiff(alt.finishDate, s.finishDate);
+        return days >= 1 ? { id: s.id, name: s.name, finishDate: s.finishDate, idealDate: alt.finishDate, days } : null;
+      })
+      .filter((x): x is FinishGain => !!x);
+  }
+  cfCache = { state, result: out };
   return out;
 }

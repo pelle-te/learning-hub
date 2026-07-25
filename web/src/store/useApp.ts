@@ -85,7 +85,9 @@ export interface AppStore {
    *  selectSchedule 재계산이 없다(B1/B3). 영속 스코프(내보내기 제외·로컬 유지)는 두 경로 동일. */
   setRuntimeCache: (key: '_knowState', val: AppState['_knowState']) => void;
   setTheme: (t: Theme) => void;
-  toggleDone: (ds: string, sid: string, type: SessionType, plannedMin: number, on: boolean) => void;
+  /** 블록 완료 토글. `actualMin` 은 **실제로 집중한 분**(G-1) — 집중 세션이 끝나 그것을 아는
+   *  경로만 넘긴다. 손으로 체크한 경우엔 실측이 없으므로 안 넘기고, 회고는 계획 분으로 폴백한다. */
+  toggleDone: (ds: string, sid: string, type: SessionType, plannedMin: number, on: boolean, actualMin?: number) => void;
   addCbms: (
     ds: string,
     sid: string,
@@ -259,9 +261,9 @@ export const useApp = create<AppStore>()(
           s.theme = t;
         });
       },
-      toggleDone(ds, sid, type, plannedMin, on) {
+      toggleDone(ds, sid, type, plannedMin, on, actualMin) {
         commit((s) => {
-          setDone(s, ds, sid, type, plannedMin, on);
+          setDone(s, ds, sid, type, plannedMin, on, actualMin);
         });
       },
       addCbms(ds, sid, name, chapter, code, note, conf) {

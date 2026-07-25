@@ -4,6 +4,7 @@
 ============================================================ */
 import { clamp, dayDiff, iso, addDays, parseISO } from '../utils';
 import { dayStudyMin } from './windows';
+import { completionMin } from '../persistence';
 import type { AppState, Item } from '../types';
 
 export function itemTotalHours(it: Item): number {
@@ -95,7 +96,8 @@ export function adherenceFactor(
     capMin += dayStudyMin(state, ds, date.getDay(), capWd);
     const m = c[ds];
     let dm = 0;
-    if (m) for (const k in m) dm += +m[k]!.min || 0;
+    // G-1 — **실측이 있으면 실측**. 이 값이 곧 아래 계수가 되고, 그 계수가 미래 용량을 깎는다.
+    if (m) for (const k in m) dm += completionMin(m[k]);
     doneMin += dm;
     if (dm > 0) activeDays++;
   }

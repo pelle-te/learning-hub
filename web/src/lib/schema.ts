@@ -53,7 +53,17 @@ export const RoutineBlockSchema = z.object({
 
 /** doneDs = 실제 완료 날짜(감사 2026-07-16 ②#23) — 복습 사다리 앵커. 옵셔널이라 기존 저장 무마이그레이션
  *  (없으면 계획일 앵커 = 종전 동작). 계획일(completions 키)과 다르면 '늦게 완료'를 뜻한다. */
-export const CompletionEntrySchema = z.object({ done: z.boolean(), min: z.number(), doneDs: z.string().optional() });
+/* ⚠ `min` 은 **계획된 분**이다(체크 시점의 블록 길이). G-1 이전엔 회고 전량이 이 값을
+   "집중한 시간"으로 읽었고, 그중 `adherenceFactor` 는 그 값으로 **계획 용량을 0.5~1.0배 실제로
+   깎았다** — 즉 체크박스가 미래 일정을 바꾸는데 아무도 그 사실을 몰랐다. `actualMin` 은
+   `useFocus` 가 아는 **실제 경과 분**이고, 있으면 그것을 쓴다(`completionMin`). 옵셔널이라
+   기존 저장·서버 계약(값을 불투명하게 다룬다)·폰 모두 무마이그레이션. */
+export const CompletionEntrySchema = z.object({
+  done: z.boolean(),
+  min: z.number(),
+  doneDs: z.string().optional(),
+  actualMin: z.number().optional(),
+});
 /** completions[ds][`${sid}|${type}`] = {done,min} */
 export const CompletionsSchema = z.record(z.string(), z.record(z.string(), CompletionEntrySchema));
 
