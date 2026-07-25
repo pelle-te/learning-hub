@@ -20,6 +20,7 @@ import { cbmsCounts, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence, CBMS_IN
 import { personalBests } from '@/lib/records';
 import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { buildStreakGrid } from '@/lib/statsView';
+import { sortSubjectsByUrgency } from '@/lib/scheduleView';
 import type { ScheduleResult } from '@/lib/types';
 
 const StatsDetail = lazy(() => import('./StatsDetail'));
@@ -499,8 +500,11 @@ export default function Stats() {
         {/* 4 — 과목별 진행(우측, 스크롤) */}
         <div className={S.subjects}>
           <h2 className={S.subjectsH2}>과목별 진행</h2>
+          {/* UX-2 — 입력 순서 그대로였다. 과목이 여럿이면 '시간부족'·'마감초과' 배지가 목록
+              아래쪽에 묻혀, 배지는 급하다고 말하는데 화면은 그 사실을 숨겼다. 위험군만 위로
+              올리는 **안정** 정렬이라 나머지 상대 순서(=위치 기억)는 보존된다. */}
           <div className={S.subjList}>
-            {r.itemStat.map((s) => (
+            {sortSubjectsByUrgency(r.itemStat, todayISO(state)).map((s) => (
               <SubjectRow key={s.id} s={s} today={todayISO(state)} />
             ))}
           </div>

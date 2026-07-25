@@ -10,6 +10,8 @@ import {
   computeDay,
   deadlineDdays,
   indexDays,
+  sortSubjectsByUrgency,
+  subjectUrgency,
   timeSpan,
   SESSION_TYPE_META,
   type DayIndex,
@@ -194,6 +196,44 @@ describe('scheduleView/deadlineDdays — Today·Schedule 공유 마감 D-day', (
   it('itemStat 부재도 빈 배열로 견딘다', () => {
     expect(deadlineDdays(undefined, DS)).toEqual([]);
     expect(deadlineDdays([], DS)).toEqual([]);
+  });
+});
+
+describe('scheduleView/sortSubjectsByUrgency — 통계 과목 표시 순서(UX-2)', () => {
+  const stat = (over: Partial<ItemStat>): ItemStat =>
+    ({ id: over.name || 'x', name: 'X', schedH: 0, ...over }) as ItemStat;
+
+  it('위험군을 위로 — 마감초과 > 시간부족 > 마감임박 > 평온', () => {
+    const rows = sortSubjectsByUrgency(
+      [
+        stat({ name: '평온', deadline: '2026-08-30', finished: true }),
+        stat({ name: '임박', deadline: '2026-06-27', finished: true }), // D-4
+        stat({ name: '시간부족', deadline: '2026-08-01' }), // finished 아님
+        stat({ name: '마감초과', deadline: '2026-08-01', finished: true, late: 3 }),
+      ],
+      DS, // 2026-06-23
+    );
+    expect(rows.map((r) => r.name)).toEqual(['마감초과', '시간부족', '임박', '평온']);
+  });
+
+  it('같은 등급 안에서는 **입력 순서를 지킨다**(위치 기억 보존 — 이 정렬의 존재 이유)', () => {
+    const rows = sortSubjectsByUrgency([stat({ name: 'A' }), stat({ name: 'B' }), stat({ name: 'C' })], DS);
+    expect(rows.map((r) => r.name)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('원본 배열을 변형하지 않는다(표시용 정렬 — 데이터는 그대로)', () => {
+    const src = [stat({ name: 'A' }), stat({ name: '급함', deadline: '2026-08-01' })];
+    sortSubjectsByUrgency(src, DS);
+    expect(src.map((r) => r.name)).toEqual(['A', '급함']);
+  });
+
+  it("'반복'(daily) 과목은 마감 축이 없어 등급 0 — 급하지 않은 게 아니라 잴 수 없다", () => {
+    expect(subjectUrgency(stat({ name: 'Anki', daily: true, late: 5 }), DS)).toBe(0);
+    expect(subjectUrgency(stat({ name: '마감없음' }), DS)).toBe(0);
+  });
+
+  it('마감이 지난 지 오래여도 late 가 0 이고 끝났으면 평온이다(경고를 만들어내지 않는다)', () => {
+    expect(subjectUrgency(stat({ name: '옛날', deadline: '2026-01-01', finished: true }), DS)).toBe(0);
   });
 });
 

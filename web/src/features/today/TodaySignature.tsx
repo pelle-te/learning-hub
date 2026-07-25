@@ -121,7 +121,23 @@ const S = {
   tagMut: 'inline-flex cursor-default items-center gap-1.5 text-md font-semibold text-mut',
   dot: 'size-1.75 flex-none rounded-full',
   vline: 'h-6.5 w-px flex-none bg-line2',
+  /* UX-1 하단 스트립 액센트 위계 — 다섯 그룹의 숫자가 **전부** `text-acc` 볼드라 위계가 0이었다
+     (DS §0-5: 다 강조하면 아무것도 강조가 아니다). 액센트를 "지금 손봐야 할 것"에만 예약한다:
+     임박 마감 · 밀린 Anki · 열린 보충. 나머지(이번 주 누적 시간 · 의식 체크)는 *상태 보고*라
+     `txt` 로 내린다 — 굵기는 그대로라 여전히 읽히고, 색만 조용해진다.
+     ⚠ 임계는 보수적으로. 요일마다 색이 튀면 "액센트가 의미를 갖는다"는 신호 자체가 흔들린다
+       → 0/미연결은 무조건 cool, 양수일 때만 hot. 새 요소는 0개(조건은 이미 계산돼 있었다). */
+  hot: 'text-acc',
+  cool: 'text-txt',
 } as const;
+
+/** UX-1 액센트 게이트 — hot 이면 액센트, 아니면 조용한 상태 보고색.
+ *  ⚠ 판정을 컴포넌트 **밖**에 두는 건 취향이 아니라 래칫이 실제로 걸린 결과다: 조건을 JSX 안에
+ *    흩었더니 이 컴포넌트의 인지복잡도가 77→80 이 되어 `sonarjs/cognitive-complexity` 가 막았다.
+ *    이름 붙은 술어로 밖에 내면 복잡도도 내려가고 "왜 이것만 강조인가"도 JSX 밖에서 읽힌다. */
+const tone = (hot: boolean): string => (hot ? S.hot : S.cool);
+/** Anki 는 **미연결(null)이 hot 이 아니다** — 설정 문제라 매일 뜨고, 매일 뜨는 액센트는 소음이 된다. */
+const ankiTone = (due: number | null | undefined): string => tone(due != null && due > 0);
 
 export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const state = useApp((s) => s.state);
@@ -698,7 +714,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             }}
             aria-label={`이번 주 ${weekTotalH.toFixed(1)}시간 — 주간 보기로 이동`}
           >
-            <b className="text-acc">{weekShown.toFixed(1)}</b> h
+            <b className={S.cool}>{weekShown.toFixed(1)}</b> h
           </button>
         </div>
         <div className={S.vline} />
@@ -710,7 +726,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               return (
                 <button key={st.name} type="button" className={S.tag} onClick={() => go('/items')}>
                   <span className={S.dot} style={{ background: st.color || 'var(--acc)' }} />
-                  {st.name} <b className="text-acc">{lab}</b>
+                  {st.name} <b className={S.hot}>{lab}</b>
                 </button>
               );
             })
@@ -728,14 +744,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             title={due == null ? 'Anki 미연결 — 연동 탭에서 실시간 연결' : `복습 대기 ${due}장`}
             aria-label={due == null ? 'Anki 미연결 — 연동 탭으로' : `Anki 복습 대기 ${due}장 — 연동 탭으로`}
           >
-            <b className="text-acc">{due == null ? '연결' : due}</b> {due == null ? '필요' : '장'}
+            <b className={ankiTone(due)}>{due == null ? '연결' : due}</b> {due == null ? '필요' : '장'}
           </button>
         </div>
         <div className={S.vline} />
         <div className={S.grp}>
           <span className={S.grpL}>열린 보충</span>
           <button type="button" className={S.tag} onClick={() => go('/journal')}>
-            <b className="text-acc">{openBl}</b> 건
+            <b className={tone(openBl > 0)}>{openBl}</b> 건
           </button>
         </div>
         <div className={S.vline} />
@@ -749,7 +765,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             aria-pressed={!!ritual?.plan}
             aria-label={`아침 계획 ${ritual?.plan ? '완료' : '미완료'} — 토글`}
           >
-            🌅 아침 <b className="text-acc">{ritual?.plan ? '☑' : '☐'}</b>
+            🌅 아침 <b className={S.cool}>{ritual?.plan ? '☑' : '☐'}</b>
           </button>
           <button
             type="button"
@@ -758,7 +774,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
             aria-pressed={!!ritual?.shutdown}
             aria-label={`셧다운 ${ritual?.shutdown ? '완료' : '미완료'} — 토글`}
           >
-            🌙 셧다운 <b className="text-acc">{ritual?.shutdown ? '☑' : '☐'}</b>
+            🌙 셧다운 <b className={S.cool}>{ritual?.shutdown ? '☑' : '☐'}</b>
           </button>
         </div>
       </div>

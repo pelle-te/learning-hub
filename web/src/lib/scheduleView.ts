@@ -29,6 +29,31 @@ export function deadlineDdays(itemStat: ItemStat[] | undefined, todayIso: string
     .sort((a, b) => a.dday - b.dday);
 }
 
+/** 통계 '과목별 진행'에서 그 과목이 **지금 손봐야 할 것인가**(UX-2 · 0=평온 · 클수록 급함).
+ *  등급은 그 화면이 이미 배지로 말하는 것과 **같은 술어**를 쓴다(배지는 '시간부족'인데 순서는
+ *  무관하면 두 신호가 서로를 부정한다):
+ *   3 마감초과(late>0) · 2 시간부족(마감 있는데 계획 안에 못 끝냄) · 1 마감 임박(D-7 이내) · 0 그 외.
+ *  ⚠ '반복'(daily) 과목은 마감 개념이 없어 항상 0 이다 — 급하지 않은 게 아니라 이 축이 없다. */
+export function subjectUrgency(st: ItemStat, todayIso: string): number {
+  if (st.daily || !st.deadline) return 0;
+  if ((st.late || 0) > 0) return 3;
+  if (!st.finished) return 2;
+  const d = dayDiff(todayIso, st.deadline);
+  return d >= 0 && d <= 7 ? 1 : 0;
+}
+
+/** 통계 과목 목록의 **표시 순서**(UX-2). 위험군만 위로 올리는 *안정* 정렬.
+ *
+ *  왜 안정이어야 하는가: 이 목록은 매번 같은 자리에서 같은 과목을 찾는 화면이다. 급한 것만
+ *  위로 올리고 **나머지 상대 순서는 그대로 두어야** 위치 기억이 살아남는다(전체 재정렬은 목록을
+ *  매일 새 목록으로 만든다). `Array.prototype.sort` 는 명세상 안정이라 등급만 비교하면 된다.
+ *
+ *  ⚠ 표시용이다 — 데이터·색·마크업은 손대지 않는다. 정렬 토글 UI 도 붙이지 않는다(과설계).
+ */
+export function sortSubjectsByUrgency(itemStat: ItemStat[], todayIso: string): ItemStat[] {
+  return [...itemStat].sort((a, b) => subjectUrgency(b, todayIso) - subjectUrgency(a, todayIso));
+}
+
 /* ── 타임라인 표시 범위 ───────────────────────────────────────────────────
    "일정이 있는 구간 ±여유"로 하루를 좁히는 계산 — 주간 캘린더(spanOf)와 일 편집기(인라인 lo/hi)에
    같은 알고리즘이 두 벌 있었다(스냅 60 vs 30, 폴백만 다름). number[] → {lo,hi} 순수함수인데 뷰

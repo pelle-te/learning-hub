@@ -111,6 +111,43 @@
   /* C-2: 마운트부터 .in이 붙어 트랜지션이 발화하지 않던 것 → .menu(menuPop)처럼 keyframe으로.
      기본(resting) 상태는 보임(opacity 기본 1) — reduced-motion으로 애니 꺼져도 즉시 표시된다. */
   animation: toastIn 0.2s var(--ease);
+  /* UX-3 수명 바를 담기 위한 것(아래 `.toast-life`). 라운드 모서리 밖으로 삐져나오지 않게 클립. */
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── UX-3 되돌리기 남은 시간 바 ─────────────────────────────────────────────
+   `toastUndo` 는 6.5초짜리 **가역 창**을 여는데 그 창이 화면에 전혀 안 보였다 — 사용자는
+   되돌릴 수 있다는 것도, 시간이 얼마 남았는지도 모른 채 토스트가 사라지는 것만 봤다.
+   ⚠ 되돌리기가 **있는 토스트에만** 붙인다(일반 알림에 시간 바를 달면 그냥 장식이다).
+   ⚠ 길이는 `animation-duration`(런타임 ms), 일시정지는 `animation-play-state` 로 — hover/focus
+     로 타이머를 멈추는 기존 동작(WCAG 2.2.1)과 **같은 상태**를 공유해야 바가 거짓말하지 않는다.
+   ⚠ reduced-motion 이면 **숨긴다.** 이건 애니메이션으로만 표현 가능한 정보라, 모션을 끄면
+     0폭 잔재가 남아 "창이 없다"로 오독된다 — 표현 수단이 없으면 표현을 지우는 쪽이 정직하다.
+     (전역 백스톱이 duration 을 0.001ms 로 눌러 실제로 그 잔재가 생긴다.) */
+.toast-life {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: var(--acc);
+  opacity: 0.55;
+  transform-origin: left;
+  animation-name: toastLife;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes toastLife {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-life {
+    display: none;
+  }
 }
 @keyframes toastIn {
   from {

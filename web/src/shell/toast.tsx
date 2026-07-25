@@ -94,6 +94,16 @@ function Toast({ item }: { item: ToastItem }) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
+      {/* UX-3 — 되돌리기 창이 얼마나 남았는지 보여준다. 되돌릴 게 있는 토스트에만 붙고,
+          위 hover/focus 일시정지와 **같은 `paused` 상태**를 쓴다(바가 멈춰 있는데 타이머는
+          돌아가는 식으로 갈리면, 보이는 것이 곧 거짓이 된다). 나머지는 CSS 가 소유한다. */}
+      {item.action && (
+        <span
+          className="toast-life"
+          style={{ animationDuration: `${item.ms}ms`, animationPlayState: paused ? 'paused' : 'running' }}
+          aria-hidden="true"
+        />
+      )}
       <span className="toast-i">{ICON[item.type]}</span>
       <span className="toast-m">{item.msg}</span>
       {item.action && (
