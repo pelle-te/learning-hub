@@ -8,11 +8,13 @@ import { ui } from '@/shell';
 import { useRecordEditor } from '@/shell/useRecordEditor';
 import { cbmsBetween, editCbms, delCbms, restoreCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
 import { Button } from '@/components/ui';
+import { commit } from '@/lib/motion';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import type { CbmsCode } from '@/lib/types';
 
 /* ── CBMS 오답 분류(방법론 6절) ── */
 export default function CbmsCard({ ds: dsKey }: { ds: string }) {
+  const cardRef = useRef<HTMLDivElement>(null); // D-7 commit 착지 대상(값이 바뀐 상자)
   const uid = useId(); // label↔입력 연결용 고유 접두
   const state = useApp((s) => s.state);
   const addCbms = useApp((s) => s.addCbms);
@@ -45,6 +47,8 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
     deleteLabel: '오답 삭제됨',
     savedToast: '오답 수정됨',
   });
+  /* D-7 commit — 저장이 **값이 바뀐 자리**에서 보이게 한다. 종전 성공 신호는 토스트뿐이라
+     화면 구석에서 뜨고 사라졌고, "무엇이" 바뀌었는지는 말하지 못했다(모션 어휘 `commit`). */
   const submit = () => {
     if (!sid && !chapter.trim() && !note.trim()) {
       ui.toast('과목·챕터·메모 중 최소 하나는 입력하세요.', 'warn');
@@ -55,9 +59,10 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
     setNote('');
     setConf(false);
     ui.toast('오답 추가됨', 'ok');
+    commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
   return (
-    <div className="ds-card ds-glow">
+    <div ref={cardRef} className="ds-card ds-glow">
       <h2>
         오답 분류 CBMS <span className="ds-muted ds-tiny">— 틀린 이유별로 처방이 다르다</span>
       </h2>

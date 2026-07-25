@@ -27,7 +27,7 @@ import {
   zeroVec,
 } from '@/lib/weekAlloc';
 import { dayStudyMin } from '@/lib/scheduler';
-import { pulseRing } from '@/lib/motion';
+import { commit } from '@/lib/motion';
 import { Button, NumberField } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import type { ScheduleResult } from '@/lib/types';
@@ -471,7 +471,7 @@ export function AllocBoard({
                         setDragSid(null);
                         // UX-A3 착지 펄스 — 이펙트가 아니라 핸들러라 prev 비교·set-state 위험이 없다.
                         // reduced-motion 가드는 lib/motion 이 소유한다(WAAPI 는 전역 CSS 백스톱 밖).
-                        pulseRing(cell, subColor);
+                        commit(cell, subColor);
                       }}
                     >
                       {/* 비례 시각 채움 — 배분 분량에 따라 과목색 농도가 진해져 주(週) 부하가 한눈에 읽힌다. */}

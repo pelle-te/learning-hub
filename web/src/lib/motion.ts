@@ -21,21 +21,42 @@ function reduced(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/* ── D-7 모션 어휘 — 이 앱의 움직임은 네 마디만 말한다 ────────────────────
+   키프레임이 35개였다(fade 9종·pulse 5종·pop 3종·slide 3종이 **같은 일을 이름만 달리**).
+   이름이 많다는 것은 문법이 없다는 뜻이고, 문법이 없으면 새 화면마다 새 움직임이 생긴다.
+   움직임이 말할 수 있는 것은 넷뿐이다:
+
+   · **enter**   — 처음 존재하게 됨(없던 것이 생김). 짧은 페이드 + 미세 상승.
+   · **commit**  — **내 행동이 반영됨**(아래 `commit()`). 1회 · 액센트 링 · 되돌아옴.
+   · **live**    — 시스템이 스스로 변함(지금 진행 중·수신 중). **무한 애니는 여기만 허용**.
+   · **transit** — 화면과 화면 사이(뷰 트랜지션 · D-8 이 방향 문법을 준다).
+
+   ⚠ 예외는 **1페이지 1개**까지 — 시그니처 비주얼(오늘 히어로 오로라 등)은 정체성이라 문법
+     밖에 둔다. 예외 없는 문법은 원칙 3(시그니처 하나)을 죽인다.
+   ⚠ CSS 로 표현된 enter/live 는 키프레임이 소유하고, 여기 있는 것은 **명령형(WAAPI)** 뿐이다
+     — 이유는 이 파일 머리주석(전역 reduced-motion 백스톱이 WAAPI 에 안 닿는다). */
+
+/** `commit` 의 유일한 길이 — 340ms. 눈이 알아채되 다음 동작을 막지 않는 값. */
+const COMMIT_MS = 340;
+
 /**
- * 요소에 안쪽 링을 한 번 번쩍인다 — "방금 여기에 무슨 일이 있었다"는 착지 신호.
+ * **commit** — "내가 한 것이 반영됐다"를 그 자리에서 1회 번쩍인다(안쪽 액센트 링).
  * @param el    대상. `animate` 가 없는 환경(jsdom 등)에서는 아무 일도 안 한다.
- * @param color 계산된 색. `var(...)` 참조면 그 요소에서 `--acc` 를 풀어 쓴다(토큰은 원천에 있다).
+ * @param color 계산된 색. 생략·`var(...)` 이면 그 요소에서 `--acc` 를 풀어 쓴다(토큰은 원천에 있다).
  *
  * 무한 반복·펄스가 아니라 **1회**다 — 상시 움직이는 요소는 주의를 계속 훔치고, 이 앱의
  * 넛지 원칙(발광·펄스 남발 금지)에 정면으로 어긋난다.
+ *
+ * ⚠ **성공 신호가 토스트뿐이면 안 된다.** 토스트는 화면 구석에서 뜨고 사라지므로 "무엇이"
+ *   바뀌었는지를 말하지 못한다. 값이 바뀐 자리에서 번쩍이는 것이 그 답이다.
  */
-export function pulseRing(el: HTMLElement, color: string): void {
-  if (typeof el.animate !== 'function' || reduced()) return;
+export function commit(el: HTMLElement | null | undefined, color = 'var(--acc)'): void {
+  if (!el || typeof el.animate !== 'function' || reduced()) return;
   const ring = color.startsWith('var(')
     ? getComputedStyle(el).getPropertyValue('--acc').trim() || 'currentColor'
     : color;
   el.animate([{ boxShadow: `inset 0 0 0 2px ${ring}` }, { boxShadow: 'inset 0 0 0 2px transparent' }], {
-    duration: 340,
+    duration: COMMIT_MS,
     easing: 'ease-out',
   });
 }

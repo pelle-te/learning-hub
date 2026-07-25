@@ -23,26 +23,53 @@
 @import './tokenBridge.css';
 
 /* ── 마운트 리빌 키프레임(C-7 · review 이식) ────────────────────────────────
-   CSS Modules 는 keyframe 이름을 스코프한다 — ds.module.css 의 `ds-fadeUp` 은 거기 스코프라
+   CSS Modules 는 keyframe 이름을 스코프한다 — ds.module.css 의 `enter-rise` 은 거기 스코프라
    Tailwind 유틸리티에서 못 부른다. 그래서 전역(unlayered)으로 둔다. 지속시간·이징은 클래스에서
-   `animate-[rv-fade-up_0.46s_var(--ease)_both]` 처럼 붙인다(값은 임의값 금지에 안 걸린다 — s 는
+   `animate-[enter-rise_0.46s_var(--ease)_both]` 처럼 붙인다(값은 임의값 금지에 안 걸린다 — s 는
    막힌 단위 목록에 없다). 막대 stagger 지연은 런타임값이라 인라인 style 로 남는다. */
+/* ── D-7 모션 어휘 · enter ──────────────────────────────────────────────
+   "처음 존재하게 됨"을 말하는 키프레임은 **셋뿐**이다. 예전엔 같은 일을 이름만 달리한
+   정의가 아홉 개였다(enter-fade · enter-fade · enter-fade · enter-fade · enter-fade ·
+   enter-rise · enter-rise · enter-rise · enter-rise · enter-slide · enter-slide). 이름이 많다는 것은
+   문법이 없다는 뜻이고, 문법이 없으면 새 화면마다 새 움직임이 생긴다.
+   어휘 전체(enter·commit·live·transit)의 SSOT 는 `lib/motion.ts` 머리주석이다.
+   ⚠ 길이·딜레이는 호출부가 정한다(`animate-[enter-rise_0.46s_…]`) — 여기서 고정하면
+     같은 뜻의 움직임이 또 이름으로 갈린다. */
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes enter-slide {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes rv-bar-rise {
   from {
     transform: scaleY(0);
   }
   to {
     transform: scaleY(1);
-  }
-}
-@keyframes rv-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
   }
 }
 /* integrations 텔레메트리 online 채널 점의 라이브 펄스(C-7 · CSS Module 스코프를 벗어나 전역). */
@@ -59,7 +86,7 @@
 }
 /* degree(졸업) 이식 — 로드맵 수강중 노드 펄스(sr-pulse) + 요건 100% 최초 충족 발광 플래시(gr-cele).
    CSS Module 이 스코프하던 키프레임을 전역(unlayered)으로 옮긴다 — animate-[...] 에서 이름으로 참조하려면
-   스코프 밖이어야 한다(review 의 rv-fade-up · integrations 의 tc-pulse 와 같은 처리). */
+   스코프 밖이어야 한다(review 의 enter-rise · integrations 의 tc-pulse 와 같은 처리). */
 @keyframes sr-pulse {
   0% {
     box-shadow:
@@ -86,7 +113,7 @@
 }
 /* today(오늘 대시보드) 이식 — 히어로 페이드/흐름 진입·오로라 호흡·라이브 펄스·완료 링
    셀레브레이션·지금-노드 레이더 핑·상세 오버레이 페이드/슬라이드. CSS Module 이 스코프하던
-   키프레임을 전역(unlayered)으로 옮긴다(animate-[…] 이름 참조는 스코프 밖이어야 · rv-fade-up 처리와 동일).
+   키프레임을 전역(unlayered)으로 옮긴다(animate-[…] 이름 참조는 스코프 밖이어야 · enter-rise 처리와 동일).
    ⚠ today-ring-cele 는 gr-cele 와 30% scale 이 다르다(1.12 vs 1.1) → 재사용 불가, 별도 정의. */
 @keyframes today-hero-in {
   from {
@@ -96,14 +123,6 @@
   to {
     opacity: 1;
     transform: none;
-  }
-}
-@keyframes today-hero-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 @keyframes today-aura-breathe {
@@ -160,31 +179,9 @@
       0 0 14px var(--glow);
   }
 }
-@keyframes today-ov-fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes today-ov-slide {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-}
-/* graph(지식맵) 이식 — 노드 클릭 상세 패널 진입(detailIn). CSS Module 이 스코프하던 키프레임을
-   전역(unlayered)으로 옮긴다(animate-[detailIn_…] 이름 참조는 스코프 밖이어야 · rv-fade-up 처리와 동일).
-   ⚠ 캔버스 호스트 마운트는 rv-fade-up(translateY 6px)을 재사용하지만 detailIn 은 8px 라 별도 정의. */
-@keyframes detailIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
+/* graph(지식맵) 이식 — 노드 클릭 상세 패널 진입(enter-rise). CSS Module 이 스코프하던 키프레임을
+   전역(unlayered)으로 옮긴다(animate-[enter-rise_…] 이름 참조는 스코프 밖이어야 · enter-rise 처리와 동일).
+   ⚠ 캔버스 호스트 마운트는 enter-rise(translateY 6px)을 재사용하지만 enter-rise 은 8px 라 별도 정의. */
 /* ============================================================
    런타임 변수 스코프 유틸(C-7 · 2026-07-24 셸 티어 중 발견한 **선존 결함**의 수정)
 
@@ -301,28 +298,8 @@
     transform: translate(-50%, 0);
   }
 }
-@keyframes tt-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* DetailDrawer — 오버레이 페이드 · 우측 슬라이드 · 중앙 시트 팝. 셋 다 `from` 만 있는
    원본을 그대로 옮긴다(끝 상태 = 요소의 정지 스타일이므로 `to` 를 안 쓴다). */
-@keyframes dd-fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes dd-slide {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-}
 @keyframes dd-pop {
   from {
     transform: scale(0.97);
@@ -331,15 +308,6 @@
 }
 
 /* CommandPalette 오버레이 페이드(원본 `fade` — 이름을 컴포넌트 접두사로 명확히). */
-@keyframes cp-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* Skeleton 시머(C-7 마지막 티어) — 배경 그라데이션이 좌우로 흐른다. */
 @keyframes sk-shimmer {
   0% {

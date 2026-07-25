@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
    ── C-7 컴포넌트 티어 이식(Tailwind) ────────────────────────────────────────
    키프레임(`os-slide-up`)은 `styles/tw.css` 전역으로 옮겼다 — CSS Modules 는 keyframe 이름을
-   스코프하므로 유틸리티에서 이름으로 부를 수 없다(review `rv-fade-up` 이 세운 관용구).
+   스코프하므로 유틸리티에서 이름으로 부를 수 없다(review `enter-rise` 이 세운 관용구).
    `motion-reduce:animate-none` 이 원본의 `@media (prefers-reduced-motion)` 자리다. */
 const BADGE =
   'fixed bottom-4.5 left-1/2 z-[var(--z-toast)] inline-flex max-w-online-badge -translate-x-1/2 items-center gap-2.25 rounded-full border border-warn bg-panel px-4 py-2.25 text-md text-txt shadow-float animate-[os-slide-up_0.25s_var(--ease)_both] motion-reduce:animate-none';

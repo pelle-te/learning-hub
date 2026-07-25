@@ -9,7 +9,7 @@
    ── C-7 이식(journal) — Tailwind ──────────────────────────────────────────────
    보드 껍데기는 전역 `ds-board` 를 유지하고, fill(시그니처 발광 보드) 델타만 `!` 로 얹는다.
    시그니처 배경/상단 헤어라인은 review 가 토큰화한 --bg-sig-chart/--bg-sig-top 을 그대로 공유하고,
-   마운트 애니는 rv-fade-up(tw.css)을 재사용한다(값·키프레임 동일). 노드/칩의 색·발광은 정적
+   마운트 애니는 enter-rise(tw.css)을 재사용한다(값·키프레임 동일). 노드/칩의 색·발광은 정적
    클래스로 자식에 직접 준다(규약 4 · 동적 조립 금지 — 백지 통과/막힘은 passed 로 가른다).
 ============================================================ */
 import { useApp } from '@/store/useApp';
@@ -20,7 +20,7 @@ import type { CbmsCode } from '@/lib/types';
 
 // fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
 const BOARD_FILL =
-  "flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! shadow-card animate-[rv-fade-up_0.46s_var(--ease)_both] motion-reduce:animate-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
+  "flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! shadow-card animate-[enter-rise_0.46s_var(--ease)_both] motion-reduce:animate-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
 // 스트림 행 · 노드 · 종류 칩의 공유 base(상태별 색은 아래에서 조건부로 얹는다).
 const ROW =
   'relative flex min-h-7.5 items-center gap-2 border-b border-dashed border-line2 py-1.75 pl-5.5 last:border-b-0';

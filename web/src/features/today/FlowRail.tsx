@@ -11,6 +11,7 @@
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { toHM, hLabel } from '@/lib/utils';
+import { commit } from '@/lib/motion';
 
 /** 흐름 노드 하나. `e` 는 부모가 콜백에서 다시 받는 **불투명 페이로드**(학습 노드면 값, 일과 블록이면 null). */
 export interface FlowNode<TE> {
@@ -174,7 +175,12 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
             ref={setNodeRef}
             type="button"
             className={cls}
-            onClick={() => onToggle(nd.e!)}
+            /* D-7 commit — 완료 토글은 이 앱에서 가장 잦은 쓰기인데 **아무 반응이 없었다**
+               (체크 표시가 바뀌는 것이 전부). 눌린 노드 자리에서 1회 착지시킨다. */
+            onClick={(ev) => {
+              onToggle(nd.e!);
+              commit(ev.currentTarget);
+            }}
             aria-label={`${nd.name} 완료 토글`}
             aria-pressed={nd.done}
             aria-current={sel ? true : undefined}

@@ -19,9 +19,9 @@ import { useScrollLock } from '@/hooks/useScrollLock';
 const OVERLAY_BASE =
   'fixed inset-0 z-[var(--z-modal)] flex bg-overlay backdrop-blur-overlay motion-reduce:animate-none';
 /* 진입 애니는 별도로 뺐다(morphName 일 때 끄기 위해). View Transitions morph 로 여는 경우
-   드로어 자체의 dd-pop/dd-fade 가 켜져 있으면 **새 스냅샷이 pop 시작(작고 투명) 상태로 잡혀**
+   드로어 자체의 dd-pop/enter-fade 가 켜져 있으면 **새 스냅샷이 pop 시작(작고 투명) 상태로 잡혀**
    morph 가 "투명한 것으로 변형"이 된다 — 그래서 morph 열림에선 이 둘을 끄고 VT 가 전담한다. */
-const OVERLAY_ENTER = 'animate-[dd-fade_0.16s_var(--ease)]';
+const OVERLAY_ENTER = 'animate-[enter-fade_0.16s_var(--ease)]';
 const OVERLAY = {
   right: 'justify-end',
   center: 'items-center justify-center px-drawer-pad-x py-drawer-pad-y max-mobile:p-0',
@@ -33,7 +33,7 @@ const PANEL = {
     'h-auto max-h-full max-w-drawer-sheet rounded-lg border border-line max-mobile:h-full max-mobile:max-h-none max-mobile:rounded-none max-mobile:border-0',
 } as const;
 const PANEL_ENTER = {
-  right: 'animate-[dd-slide_0.22s_var(--ease)]',
+  right: 'animate-[enter-slide_0.22s_var(--ease)]',
   center: 'animate-[dd-pop_0.2s_var(--ease)]',
 } as const;
 const HEAD = 'flex flex-none items-center justify-between gap-3 border-b border-line px-5 py-4 text-md tracking-label';
@@ -62,7 +62,7 @@ export default function DetailDrawer({
       중앙 시트는 "목록은 그대로 두고 한 항목만 파고든다"는 용도 — 뒤 목록의 조망을 깨지 않는다(과목 상세). */
   placement?: 'right' | 'center';
   /** View Transitions 공유요소 morph 이름(호출부가 여는 원본과 짝지어 준다). 주면 패널이 이 이름을
-      갖고 진입 애니(dd-pop/dd-fade)를 끈다 — VT 가 원본→패널 morph 를 전담한다. 없으면 기존 동작. */
+      갖고 진입 애니(dd-pop/enter-fade)를 끈다 — VT 가 원본→패널 morph 를 전담한다. 없으면 기존 동작. */
   morphName?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);

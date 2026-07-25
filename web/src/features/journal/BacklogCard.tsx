@@ -10,10 +10,12 @@ import { useRecordEditor } from '@/shell/useRecordEditor';
 import { openBacklog, addBacklog, editBacklog, delBacklog, restoreBacklog } from '@/lib/methodology';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import { commit } from '@/lib/motion';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 
 /* ── '보충 필요' 백로그(방법론 5절) ── */
 export default function BacklogCard() {
+  const cardRef = useRef<HTMLDivElement>(null); // D-7 commit 착지 대상(값이 바뀐 상자)
   const uid = useId(); // label↔입력 연결용 고유 접두
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -47,6 +49,8 @@ export default function BacklogCard() {
     savedToast: '보충 항목 수정됨',
   });
   const closed = (state.backlog || []).filter((b) => b.done).length;
+  /* D-7 commit — 저장이 **값이 바뀐 자리**에서 보이게 한다. 종전 성공 신호는 토스트뿐이라
+     화면 구석에서 뜨고 사라졌고, "무엇이" 바뀌었는지는 말하지 못했다(모션 어휘 `commit`). */
   const submit = () => {
     if (!topic.trim()) {
       ui.toast('막힌 주제를 적어주세요.', 'warn');
@@ -56,9 +60,10 @@ export default function BacklogCard() {
     setTopic('');
     setNote('');
     ui.toast('백로그 추가됨', 'ok');
+    commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
   return (
-    <div className="ds-card ds-glow">
+    <div ref={cardRef} className="ds-card ds-glow">
       <h2>
         보충 필요 백로그 <span className="ds-muted ds-tiny">— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>
       </h2>

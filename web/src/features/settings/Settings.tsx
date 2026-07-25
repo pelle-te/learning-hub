@@ -33,7 +33,7 @@ const HAIRLINE =
 
 const S = {
   wrap: 'flex min-w-0 flex-col gap-4',
-  hero: `relative flex flex-wrap items-center gap-settings-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-5 shadow-hero animate-[rv-fade-up_0.46s_var(--ease)_both] ${HAIRLINE} motion-reduce:animate-none`,
+  hero: `relative flex flex-wrap items-center gap-settings-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-5 shadow-hero animate-[enter-rise_0.46s_var(--ease)_both] ${HAIRLINE} motion-reduce:animate-none`,
   heroLeft: 'flex min-w-0 flex-1 flex-col gap-0.75',
   eyebrow: 'text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-acc uppercase',
   title: 'mt-0.5! mb-0! text-hero-title! font-black! leading-[1.04] tracking-title!', // h2 — 전역 h2{} 를 ! 로 이김(색 ink≡txt 는 동일→클래스 없음)

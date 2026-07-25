@@ -41,9 +41,9 @@ import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
    혼용이 정상이다. 전역 요소 규칙(button·textarea·h2·small…)은 control 규율대로 다른 속성만 `!`.
 
    이 파일에서 처음 만난 것:
-   ① **마운트 애니메이션**(막대 리빌 `rv-bar-rise` · 카드 페이드업 `rv-fade-up`) — 키프레임을
+   ① **마운트 애니메이션**(막대 리빌 `rv-bar-rise` · 카드 페이드업 `enter-rise`) — 키프레임을
       tw.css 에 전역으로 두고 `animate-[…_0.4s_var(--ease)_both]` 로 붙인다(막대 stagger 지연은
-      런타임값이라 인라인 style 유지). ds-fadeUp 은 당시 CSS Module 에 스코프돼 못 불렀으므로 새로 뒀다.
+      런타임값이라 인라인 style 유지). enter-rise 은 당시 CSS Module 에 스코프돼 못 불렀으므로 새로 뒀다.
    ② **oklab 액센트 베이크 그래디언트**(sigChart 배경·상단 헤어라인)·달성률 글로우(text-shadow) —
       Tailwind 색 유틸로 표현 불가라 tokens.css 에 이름 주고 `bg-[image:var(--…)]`·`[text-shadow:
       var(--…)]` 로 참조(§14-3). 막대는 항상 mainCol 이라 `.mainCol .paBar` 오버라이드(14/130/150)를
@@ -59,7 +59,7 @@ const SIDECOL =
   'min-w-0 overflow-y-auto border-l border-line2 p-5 [scrollbar-width:thin] max-wide:border-t max-wide:border-l-0';
 const HINT = 'mb-4 text-xs leading-normal text-mut';
 const SIG_CHART =
-  "relative mb-3 rounded-lg border border-line bg-[image:var(--bg-sig-chart)] px-5 py-4 shadow-card animate-[rv-fade-up_0.46s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-[''] motion-reduce:animate-none";
+  "relative mb-3 rounded-lg border border-line bg-[image:var(--bg-sig-chart)] px-5 py-4 shadow-card animate-[enter-rise_0.46s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-[''] motion-reduce:animate-none";
 const SIG_HEAD = 'mb-2 flex items-baseline justify-between';
 const SIG_TITLE = 'text-xs font-extrabold tracking-caps text-mut uppercase';
 const SIG_RATE = 'text-2xl font-black tracking-tight text-acc tabular-nums [text-shadow:var(--sig-rate-glow)]';
@@ -91,7 +91,7 @@ const WEAK_ALLOT =
   'flex-none rounded-full! bg-transparent! px-2! py-1! text-xs! leading-[normal]! font-extrabold! whitespace-nowrap text-acc!';
 const COACH_AI = 'mt-3 flex items-center gap-2';
 const AI_BOX =
-  'mt-3 rounded-md border border-line2 bg-panel-acc-faint px-3 py-3 animate-[rv-fade-up_0.3s_var(--ease)_both] motion-reduce:animate-none';
+  'mt-3 rounded-md border border-line2 bg-panel-acc-faint px-3 py-3 animate-[enter-rise_0.3s_var(--ease)_both] motion-reduce:animate-none';
 const AI_STREAM = 'm-0 mt-2 text-xs leading-relaxed break-words whitespace-pre-wrap text-mut';
 const AI_HEAD = 'text-md font-extrabold leading-snug text-txt';
 const AI_FOCUS = 'mt-2 text-sm leading-normal text-mut';

@@ -51,7 +51,7 @@ const TYPE_LABEL: Record<string, string> = {
 const S = {
   today: 'flex h-full min-w-0 min-h-0 flex-col gap-4 px-5 pt-4.5 pb-3.5 max-wide:px-3.5 max-wide:pt-3.5',
   top: 'grid min-h-0 flex-auto grid-cols-today-top gap-4 max-wide:grid-cols-1',
-  hero: "tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[today-hero-fade_0.5s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[image:var(--bg-sig-top)] before:content-[''] hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none",
+  hero: "tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[enter-fade_0.5s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[image:var(--bg-sig-top)] before:content-[''] hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none",
   aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] animate-[today-aura-breathe_9s_var(--ease)_infinite] motion-reduce:animate-none',
   spotlight:
     'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-[0.35s] ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
@@ -100,16 +100,14 @@ const S = {
   now: 'text-sm leading-[1.6] font-extrabold text-mut tabular-nums',
   rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
   railEmpty: 'px-1 py-3.5 text-hint leading-[1.6] text-mut',
-  recall:
-    'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[today-hero-fade_0.4s_var(--ease)_both]',
+  recall: 'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[enter-fade_0.4s_var(--ease)_both]',
   recallTop: 'mb-1.5 flex items-baseline gap-2',
   recallTag: 'flex-none text-2xs font-extrabold tracking-skel uppercase',
   recallMeta: 'truncate text-xs leading-[1.6] font-bold text-mut',
   recallQ: 'text-recall-q leading-[1.45] font-bold text-txt',
   recallBtn:
     'mt-2.5 w-full rounded-blk! border-0! bg-[var(--acc-soft)]! px-3! py-2! text-hint! font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
-  recallA:
-    'mt-2 flex flex-col gap-1.25 text-hint leading-[1.5] text-mut animate-[today-hero-fade_0.3s_var(--ease)_both]',
+  recallA: 'mt-2 flex flex-col gap-1.25 text-hint leading-[1.5] text-mut animate-[enter-fade_0.3s_var(--ease)_both]',
   recallReset:
     'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-[normal] font-bold! text-mut! underline',
   confWrongNote: 'mt-1.5 text-sm leading-[1.5] text-mut',

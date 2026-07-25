@@ -10,9 +10,11 @@ import { useRecordEditor } from '@/shell/useRecordEditor';
 import { summariesFor, addSummary, editSummary, delSummary, restoreSummary, cbmsBetween } from '@/lib/methodology';
 import { itemById, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import { commit } from '@/lib/motion';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 
 export default function SummaryCard({ ds: dsKey }: { ds: string }) {
+  const cardRef = useRef<HTMLDivElement>(null); // D-7 commit 착지 대상(값이 바뀐 상자)
   const uid = useId(); // label↔입력 연결용 고유 접두(폼이 여러 개 떠도 id 충돌 없음)
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -43,6 +45,8 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
     deleteLabel: '요약 삭제됨',
     savedToast: '요약 수정됨',
   });
+  /* D-7 commit — 저장이 **값이 바뀐 자리**에서 보이게 한다. 종전 성공 신호는 토스트뿐이라
+     화면 구석에서 뜨고 사라졌고, "무엇이" 바뀌었는지는 말하지 못했다(모션 어휘 `commit`). */
   const submit = () => {
     if (!s1.trim() && !s2.trim() && !s3.trim()) {
       ui.toast('세 문장 중 최소 하나는 적어주세요.', 'warn');
@@ -53,13 +57,14 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
     setS2('');
     setS3('');
     ui.toast('요약 저장됨', 'ok');
+    commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
   // 오늘 산출물(요약·오답)이 없으면 내보내기는 빈 파일 = 데드엔드 → 비활성화.
   const todayIso = todayISO({ _today: state._today });
   const canExport = summariesFor(state, todayIso).length > 0 || cbmsBetween(state, todayIso, todayIso).length > 0;
 
   return (
-    <div className="ds-card ds-glow">
+    <div ref={cardRef} className="ds-card ds-glow">
       <h2>
         3문장 요약 <span className="ds-muted ds-tiny">— 압축이 안 되면 이해한 게 아니다(파인만)</span>
       </h2>

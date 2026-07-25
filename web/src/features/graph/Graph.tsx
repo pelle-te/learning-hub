@@ -13,7 +13,7 @@
 
    ── C-7 열 번째 이식(graph) — Tailwind ──────────────────────────────────────
    캔버스 크롬(호스트 프레임·범례·컨트롤·툴팁·상세 패널·빈 상태)만 옮긴다 — 캔버스 픽셀은 JS 가 그린다.
-   지식맵/폴백 그래디언트(--bg-map-mastery)·상단 헤어라인(--bg-sig-top)·마운트 페이드업(rv-fade-up)·
+   지식맵/폴백 그래디언트(--bg-map-mastery)·상단 헤어라인(--bg-sig-top)·마운트 페이드업(enter-rise)·
    shadow-card/hero 를 mastery/ledger 이식에서 승계한다. 새로 이름 준 것: 부유 크롬 글래스 배경
    (--panel-glass-82/88/94/96)·backdrop 블러(--backdrop-graph)·검색실패 테두리(--line-warn-mid)·
    상세 패널 폭·off-ladder 반경(6/8px)·자간(0.14em)·허브 스와치 발광(--shadow-hub).
@@ -508,7 +508,7 @@ export default function Graph() {
         </div>
       ) : (
         <div
-          className={`relative min-h-0 min-w-0 flex-1 animate-[rv-fade-up_0.46s_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none ${HAIRLINE}`}
+          className={`relative min-h-0 min-w-0 flex-1 animate-[enter-rise_0.46s_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none ${HAIRLINE}`}
           ref={wrapRef}
         >
           {/* 검색 + 줌 컨트롤 — 우상단 오버레이. 캔버스는 SR 불투명이라 여기 컨트롤이 접근 경로. */}
@@ -600,7 +600,7 @@ export default function Graph() {
           {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
           {sel && (
             <div
-              className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[detailIn_0.22s_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
+              className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[enter-rise_0.22s_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
               role="dialog"
               aria-label={`${sel.label} 상세`}
             >
