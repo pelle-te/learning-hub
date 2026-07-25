@@ -1,6 +1,6 @@
 ---
 name: web-evaluator
-description: 러닝허브 web 대상(feature/lib)을 평가루브릭으로 채점하는 읽기 전용 독립 평가자. /평가가 차원별로 병렬 호출한다. 작업자≠검사자 격리를 지킨다.
+description: 러닝허브 web 대상(feature/lib)을 평가루브릭으로 채점하는 읽기 전용 독립 평가자. `/감사 … 점수` 모드가 차원별로 병렬 호출한다. 작업자≠검사자 격리를 지킨다.
 tools: Read, Grep, Glob, Bash
 ---
 
