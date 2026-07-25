@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   chapterReviews,
   dueForecast,
+  pullForwardCandidates,
   interleaveBySubject,
   riskChapters,
   failingSids,
@@ -227,6 +228,149 @@ describe('spacedReview — dueForecast(ID-1 복습 부하 예보)', () => {
     expect(fc).toHaveLength(7);
     expect(fc[0]!.offset).toBe(1);
     expect(fc[6]!.offset).toBe(7);
+  });
+});
+
+describe('spacedReview — 가용선(N-9 · 부하와 가용을 같은 단위로)', () => {
+  /** 계획 배열의 미래 날 — studyMin(그날 가용)과 이미 잡힌 블록을 실어 가용선의 입력이 된다. */
+  const planDay = (ds: string, studyMin: number, items: ScheduleItem[] = []): Day =>
+    ({
+      ds,
+      date: new Date(ds + 'T00:00:00'),
+      wd: new Date(ds + 'T00:00:00').getDay(),
+      studyMin,
+      used: 0,
+      modLeft: 0,
+      revLeft: 0,
+      items,
+    }) as Day;
+  const revIt = (sid: string, min: number): ScheduleItem => ({ type: 'rev', sid, name: '복습', min });
+  /** 완료 이력 + 챕터 분량(hours)을 함께 가진 상태. ML=120 → 복습 1블록 = 30분. */
+  const stateOf = (chapters: { sid: string; name: string; ch: [string, number][] }[], done: [string, string][]) => {
+    const s = stateWith(done.map(([ds, sid]) => [ds, sid, 'new'] as [string, string, string]));
+    return {
+      ...s,
+      moduleLen: 120,
+      items: chapters.map((c) => ({
+        id: c.sid,
+        name: c.name,
+        chapters: c.ch.map(([name, hours]) => ({ id: name, name, hours })),
+      })),
+    } as unknown as AppState;
+  };
+
+  it('막대는 개수가 아니라 **분량**을 센다 — 같은 2개라도 블록이 다르다', () => {
+    const days = [day(TODAY, [newIt('p', '물리', ['역학', '열'])])];
+    const big = stateOf(
+      [
+        {
+          sid: 'p',
+          name: '물리',
+          ch: [
+            ['역학', 4],
+            ['열', 2],
+          ],
+        },
+      ],
+      [[TODAY, 'p']],
+    );
+    const small = stateOf(
+      [
+        {
+          sid: 'p',
+          name: '물리',
+          ch: [
+            ['역학', 0.5],
+            ['열', 0.5],
+          ],
+        },
+      ],
+      [[TODAY, 'p']],
+    );
+    const on1 = (s: AppState) => dueForecast(s, days, TODAY).find((f) => f.offset === 1)!;
+    expect(on1(big).chapters).toBe(2);
+    expect(on1(small).chapters).toBe(2); // 개수는 같은데
+    expect(on1(big).blocks).toBe(3); // 6h = 3모듈치 = 3블록
+    expect(on1(small).blocks).toBe(1); // 1h = 0.5모듈 → 반올림 0이 아니라 최소 1블록
+  });
+
+  it('분량을 모르는 챕터는 엔진과 같은 1h 폴백(계획과 예보가 다른 세계를 말하지 않게)', () => {
+    const days = [day(TODAY, [newIt('p', '물리', ['미등록장'])])];
+    const s = stateOf([{ sid: 'p', name: '물리', ch: [['역학', 4]] }], [[TODAY, 'p']]);
+    expect(dueForecast(s, days, TODAY).find((f) => f.offset === 1)!.load[0]!.hours).toBe(1);
+  });
+
+  it('가용선 = (그날 가용 − 이미 잡힌 비복습 블록) ÷ 복습 1블록 · 넘으면 over', () => {
+    const s = stateOf(
+      [
+        {
+          sid: 'p',
+          name: '물리',
+          ch: [
+            ['역학', 4],
+            ['열', 2],
+          ],
+        },
+      ],
+      [[TODAY, 'p']],
+    );
+    const days = [
+      day(TODAY, [newIt('p', '물리', ['역학', '열'])]),
+      planDay('2026-07-05', 60), // 가용 60분 → 2블록. 부하 3블록 → 초과
+      planDay('2026-07-07', 240, [newIt('p', '물리', ['다음장'])]), // 240 − 120(학습) = 120 → 4블록
+    ];
+    const fc = dueForecast(s, days, TODAY);
+    const at = (off: number) => fc.find((f) => f.offset === off)!;
+    expect(at(1).capBlocks).toBe(2);
+    expect(at(1).over).toBe(true);
+    expect(at(3).capBlocks).toBe(4);
+    expect(at(3).over).toBe(false); // 3블록 ≤ 4블록
+  });
+
+  it('가용에서 rev 는 빼지 않는다 — 계획의 rev 가 곧 이 예보라 빼면 이중계상', () => {
+    const s = stateOf([{ sid: 'p', name: '물리', ch: [['역학', 4]] }], [[TODAY, 'p']]);
+    const days = [day(TODAY, [newIt('p', '물리', ['역학'])]), planDay('2026-07-05', 120, [revIt('p', 60)])];
+    // 60분 rev 를 빼면 2블록이 됐을 것 — 안 빼므로 120/30 = 4블록.
+    expect(dueForecast(s, days, TODAY).find((f) => f.offset === 1)!.capBlocks).toBe(4);
+  });
+
+  it('계획 배열에 없는 날은 가용을 **모른다**(null) — 모르면 초과라고 말하지 않는다', () => {
+    const s = stateOf([{ sid: 'p', name: '물리', ch: [['역학', 8]] }], [[TODAY, 'p']]);
+    const fc = dueForecast(s, [day(TODAY, [newIt('p', '물리', ['역학'])])], TODAY);
+    expect(fc[0]!.blocks).toBe(4);
+    expect(fc[0]!.capBlocks).toBeNull();
+    expect(fc[0]!.over).toBe(false);
+  });
+
+  it('앞당길 후보 — 분량 큰 것부터, 여유 있는 가장 이른 날로, 같은 날에 몰아주지 않는다', () => {
+    const s = stateOf(
+      [
+        {
+          sid: 'p',
+          name: '물리',
+          ch: [
+            ['역학', 4],
+            ['열', 2],
+            ['파동', 2],
+          ],
+        },
+      ],
+      [[TODAY, 'p']],
+    );
+    const days = [
+      day(TODAY, [newIt('p', '물리', ['역학', '열', '파동'])]),
+      planDay('2026-07-05', 30), // +1일: 1블록(부하 4블록 → 초과)
+      planDay('2026-07-06', 60), // +2일: 2블록 여유
+      planDay('2026-07-08', 60), // +4일: 2블록 여유
+    ];
+    const fc = dueForecast(s, days, TODAY);
+    expect(fc.find((f) => f.offset === 1)!.over).toBe(true);
+    const cands = pullForwardCandidates(fc, 1);
+    expect(cands.map((c) => c.chapter.chapter)).toEqual(['역학', '열', '파동']); // 분량 큰 순
+    // +1일 앞엔 여유 있는 날이 없다 → 전부 '오늘'(null). 앞선 날이 생기면 그 날을 쓴다.
+    expect(cands.map((c) => c.toOffset)).toEqual([null, null, null]);
+    // +3일(사다리의 다음 파도) 기준 앞선 여유는 +2일의 2블록뿐 → 두 후보가 나눠 쓰고 세 번째는 오늘.
+    expect(pullForwardCandidates(fc, 3).map((c) => c.toOffset)).toEqual([2, 2, null]);
   });
 });
 

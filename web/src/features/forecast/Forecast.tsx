@@ -1,12 +1,18 @@
 /* ============================================================
-   Forecast — 탭: 📈 복습 부하 예보 (ID-1 · fill 대시보드)
+   Forecast — 탭: 📈 복습 부하 예보 (ID-1 · N-9 가용선 · fill 대시보드)
    학습 루프에서 유일하게 비어 있던 시제를 메운다: 오늘탭이 '밀린 것'(overdue backlog)이라면
    여기선 '다가오는 복습 파도'를 앞 14일 날짜별로 조망한다. 볼트 챕터를 '마지막 만진 날' +
-   간격반복 오프셋으로 미래에 투영해, 어느 날 복습이 몰릴지를 '부하의 형태'로 그린다.
+   간격반복 오프셋으로 미래에 투영해, 어느 날 복습이 몰릴지를 그린다.
 
-   ⚠ 정확 예측이 아니라 형태다 — Anki(FSRS) 는 미래 due 를 앱이 아닌 Anki 가 소유하므로
-   막대는 볼트 챕터만 그리고, Anki 는 '오늘 기준 due' 를 별도 컨텍스트로만 정직하게 얹는다
-   (예보 정밀 비대칭 · 로드맵 ID-1). 데이터는 store(useApp·useSchedule) / 로직은 lib.
+   ⚠ N-9: 막대 단위는 **개수가 아니라 복습 블록**이고 날짜마다 **가용선**(점선)이 함께 선다.
+   개수 막대는 "언젠가 몰린다"까지만 말할 수 있었다 — 비교 대상이 없으면 3개가 많은지 적은지
+   화면 안에서 판정이 불가능하고, 그래서 예전 부제는 '정확 예측이 아니라 부하의 형태'라는
+   면책으로 끝났다. 부하와 가용이 같은 단위가 된 지금은 그 문장이 필요 없다(비교가 답을 준다).
+   환산 규칙과 그 안전장치(임의 계수 0 · rev 이중계상 금지)는 `lib/spacedReview` 가 소유한다.
+
+   ⚠ Anki(FSRS) 는 미래 due 를 앱이 아닌 Anki 가 소유하므로 막대는 볼트 챕터만 그리고,
+   Anki 는 '오늘 기준 due' 를 별도 컨텍스트로만 정직하게 얹는다(예보 정밀 비대칭 · ID-1).
+   데이터는 store(useApp·useSchedule) / 로직은 lib.
 
    [a11y] 막대는 `role="img" + aria-label + data-tip + tabIndex={0}` 규약(StatsDetail 선례)을
    따른다. tabIndex 목적은 **툴팁 도달성**(components/Tooltip 이 전역 focusin 으로 `[data-tip]`
@@ -21,9 +27,9 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { dueForecast, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
+import { dueForecast, pullForwardCandidates, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
 import { totalDue } from '@/lib/anki';
-import { todayISO, fmtShort, DOW } from '@/lib/utils';
+import { todayISO, fmtShort, reviewBlockMin, DOW } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
 
@@ -31,42 +37,68 @@ const WRAP = 'flex h-full flex-col gap-4 p-6';
 const CHART = 'flex min-h-0 flex-1 items-end gap-1.5';
 /* 한 날 = 세로 컬럼(막대 + 라벨). 주말은 살짝 죽여 평일 파도와 시각적으로 가른다. */
 const COL = 'flex min-w-0 flex-1 flex-col items-center gap-1.5';
-const BAR_TRACK = 'flex w-full flex-col-reverse overflow-hidden rounded-t-sm';
+/** 컬럼의 세로 무대 — 막대는 바닥에, 가용선은 그 위 절대 좌표에 선다(둘이 같은 축을 쓴다). */
+const STAGE = 'relative w-full';
+const BAR_TRACK = 'absolute inset-x-0 bottom-0 flex flex-col-reverse overflow-hidden rounded-t-sm';
+/** 가용선 — 그날 복습에 쓸 수 있는 블록 수. 축 밖(여유 충분)이면 맨 위에 옅게 눕는다.
+ *  ⚠ 색은 여기 안 굳힌다 — 초과일 때 `border-bad` 를 덧붙이면 같은 특이도라 소스 순서가 승자를
+ *  정해(유틸리티 두 개가 같은 속성) 조용히 어느 한쪽이 이긴다. 호출부가 **하나만** 고른다. */
+const CAP_LINE = 'absolute inset-x-0 border-t border-dashed';
 const LEGEND = 'flex flex-wrap items-center gap-x-4 gap-y-1.5';
+const OVER_STRIP =
+  'flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-sm border border-line-bad bg-tint-bad-faint px-3 py-2';
 
 /** 막대 영역 최대 높이(px) — fill 프레임 안에서 flex-1 이 실제 높이를 정하되, 세그먼트 비율의
  *  기준 높이다. 인라인 style 로 세그먼트별 height 를 주는 건 StatsDetail 스파크바와 같은 관용구. */
 const BAR_MAX = 200;
 
-function DayColumn({ d, max }: { d: ForecastDay; max: number }) {
+const short = (ds: string): string => fmtShort(new Date(ds + 'T00:00:00'));
+
+function DayColumn({ d, axisMax }: { d: ForecastDay; axisMax: number }) {
   const weekend = d.wd === 0 || d.wd === 6;
+  const cap = d.capBlocks;
+  // 가용선이 축 위로 벗어나면(=파도보다 한참 여유) 맨 위에 눕히고 옅게 — 좌표를 잃되 존재는 남긴다.
+  const capClamped = cap != null && cap > axisMax;
+  const capH = cap == null ? null : Math.round((Math.min(cap, axisMax) / axisMax) * BAR_MAX);
+  const capTxt = cap == null ? '' : ` — 가용 ${cap}블록`;
   const label =
     d.chapters === 0
-      ? `${fmtShort(new Date(d.ds + 'T00:00:00'))} 복습 없음`
-      : `${fmtShort(new Date(d.ds + 'T00:00:00'))} (${DOW[d.wd]}) 복습 ${d.chapters}개 — ` +
+      ? `${short(d.ds)} 복습 없음${capTxt}`
+      : `${short(d.ds)} (${DOW[d.wd]}) 복습 ${d.blocks}블록 · 챕터 ${d.chapters}개${capTxt}` +
+        (d.over ? ' ⚠ 가용 초과' : '') +
+        ' — ' +
         d.subjects.map((s) => `${s.subject} ${s.count}`).join(', ');
   return (
     <div className={COL}>
-      <div
-        className={BAR_TRACK}
-        style={{ height: max ? Math.round((d.chapters / max) * BAR_MAX) : 0 }}
-        role="img"
-        aria-label={label}
-        data-tip={label}
-        tabIndex={0}
-      >
-        {d.subjects.map((s) => (
+      <div className={STAGE} style={{ height: BAR_MAX }} role="img" aria-label={label} data-tip={label} tabIndex={0}>
+        <div
+          className={`${BAR_TRACK} ${d.over ? 'ring-1 ring-bad' : ''}`}
+          style={{ height: Math.round((d.blocks / axisMax) * BAR_MAX) }}
+          aria-hidden="true"
+        >
+          {d.subjects.map((s) => (
+            <div
+              key={s.sid}
+              style={{
+                height: `${(s.count / Math.max(1, d.chapters)) * 100}%`,
+                background: s.color || 'var(--acc)',
+              }}
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+        {capH != null && (
           <div
-            key={s.sid}
-            style={{
-              height: `${(s.count / Math.max(1, d.chapters)) * 100}%`,
-              background: s.color || 'var(--acc)',
-            }}
+            className={`${CAP_LINE} ${d.over ? 'border-bad' : 'border-line'} ${capClamped ? 'opacity-45' : ''}`}
+            style={{ bottom: capH }}
             aria-hidden="true"
           />
-        ))}
+        )}
       </div>
-      <div className={`ds-tiny leading-none ${weekend ? 'text-mut' : 'text-txt'}`} aria-hidden="true">
+      <div
+        className={`ds-tiny leading-none ${d.over ? 'text-bad' : weekend ? 'text-mut' : 'text-txt'}`}
+        aria-hidden="true"
+      >
         {d.offset}
       </div>
       <div className="ds-tiny leading-none text-mut" aria-hidden="true">
@@ -87,9 +119,28 @@ export default function Forecast() {
   const forecast = useMemo(() => dueForecast(state, res.days || [], today), [state, res.days, today]);
 
   const total = forecast.reduce((t, d) => t + d.chapters, 0);
-  const max = forecast.reduce((m, d) => Math.max(m, d.chapters), 0);
+  const max = forecast.reduce((m, d) => Math.max(m, d.blocks), 0);
+  /* 축 = 파도 최댓값에 앵커한다. 가용선까지 축에 넣으면(가용은 '안 자고 안 수업인 모든 시간'이라
+     보통 파도의 몇 배다) 막대가 통째로 납작해져 정작 부하의 형태를 잃는다 — 그런 날의 가용선은
+     맨 위에 옅게 눕혀(capClamped) '천장이 높다'만 말하게 한다. 넘는 날은 정의상 축 안이라 안 잘린다.
+     여유가 있는 날에도 선이 보이도록 파도 위 1블록(축 자신의 눈금)만 머리 공간을 준다. */
+  const axisMax = Math.max(1, max + (forecast.some((d) => d.capBlocks != null && d.capBlocks > max) ? 1 : 0));
   // 가장 몰리는 날(peak) — 여러 날이 같으면 가장 이른 날.
-  const peak = max > 0 ? forecast.find((d) => d.chapters === max)! : null;
+  const peak = max > 0 ? forecast.find((d) => d.blocks === max)! : null;
+  const revMin = reviewBlockMin(state.moduleLen);
+  // 개입 — 가용선을 넘는 첫 날(가장 이른 = 가장 먼저 손쓸 수 있는 날) 하나만 말한다.
+  const overDays = forecast.filter((d) => d.over);
+  const firstOver = overDays[0] ?? null;
+  // firstOver 는 memo 된 forecast 의 원소 참조라 forecast 가 그대로면 참조도 그대로다(deps 안전).
+  const pull = useMemo(
+    () => (firstOver ? pullForwardCandidates(forecast, firstOver.offset) : []),
+    [forecast, firstOver],
+  );
+  const toLabel = (off: number | null): string => {
+    if (off == null) return '오늘';
+    const at = forecast.find((f) => f.offset === off);
+    return at ? short(at.ds) : '오늘';
+  };
 
   // 예보에 등장하는 과목(색 범례) — 첫 등장 순, 중복 제거.
   const legend = useMemo(() => {
@@ -101,13 +152,16 @@ export default function Forecast() {
   usePageChromeEffect(
     () => ({
       readouts: [
-        { label: `앞 ${FORECAST_HORIZON}일 복습`, value: total, accent: total > 0 },
-        { label: '가장 몰리는 날', value: peak ? `+${peak.offset}일 · ${peak.chapters}개` : '—' },
-        { label: 'Anki 오늘 due', value: ankiDue == null ? '—' : ankiDue },
+        { label: `앞 ${FORECAST_HORIZON}일 복습`, value: `${total}개`, accent: total > 0 },
+        { label: '가장 몰리는 날', value: peak ? `+${peak.offset}일 · ${peak.blocks}블록` : '—' },
+        // 가용 초과가 있으면 그것이 이 탭의 결론이다 — 없을 때만 Anki 컨텍스트가 그 자리를 쓴다.
+        overDays.length
+          ? { label: '가용 초과', value: `${overDays.length}일`, accent: true }
+          : { label: 'Anki 오늘 due', value: ankiDue == null ? '—' : ankiDue },
       ],
       action: { label: '복습 실행', onClick: () => nav('/review-run') },
     }),
-    [total, peak?.offset, peak?.chapters, ankiDue],
+    [total, peak?.offset, peak?.blocks, overDays.length, ankiDue],
   );
 
   if (total === 0) {
@@ -134,7 +188,7 @@ export default function Forecast() {
         <h2 className="m-0">
           복습 부하 예보{' '}
           <span className="ds-muted ds-tiny">
-            — 앞 {FORECAST_HORIZON}일 볼트 챕터. 정확 예측이 아니라 '부하의 형태'
+            — 앞 {FORECAST_HORIZON}일 볼트 챕터. 막대 = 복습 블록(1블록 {revMin}분) · 점선 = 그날 가용
           </span>
         </h2>
         {ankiDue != null && (
@@ -144,9 +198,30 @@ export default function Forecast() {
 
       <div className={CHART}>
         {forecast.map((d) => (
-          <DayColumn key={d.ds} d={d} max={max} />
+          <DayColumn key={d.ds} d={d} axisMax={axisMax} />
         ))}
       </div>
+
+      {/* 이름 있는 status — 셸에 sr-only status 영역이 상시 둘(App.tsx) 있어 무명이면 구분이 안 된다. */}
+      {firstOver && (
+        <div className={OVER_STRIP} role="status" aria-label="가용 초과">
+          <span className="ds-tiny font-bold text-bad">
+            ⚠ {short(firstOver.ds)} ({DOW[firstOver.wd]}) 복습 {firstOver.blocks}블록 · 가용 {firstOver.capBlocks}블록
+            {overDays.length > 1 && ` · 외 ${overDays.length - 1}일 초과`}
+          </span>
+          {pull.length > 0 && (
+            <span className="ds-tiny text-mut">
+              앞당길 후보 —{' '}
+              {pull.map((p, i) => (
+                <span key={p.chapter.sid + '|' + p.chapter.chapter}>
+                  {i > 0 && ' · '}
+                  {p.chapter.subject} {p.chapter.chapter} → {toLabel(p.toOffset)}
+                </span>
+              ))}
+            </span>
+          )}
+        </div>
+      )}
 
       {legend.length > 0 && (
         <div className={LEGEND}>

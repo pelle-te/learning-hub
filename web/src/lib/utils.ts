@@ -13,6 +13,13 @@ export const REVIEW_OFFSETS_WEAK = [1, 2, 4, 8, 16];
 /** 백지복습 최근 통과 과목의 꼬리 복습(②#23) — 16일 종결 후 엔진이 영영 복습을 안 만들던 것을
  *  32~35일 창의 1회 꼬리로 연장(spacedReview overdue 표식·수동 ReviewRun 의존 완화). */
 export const REVIEW_TAIL_OFFSET = 34;
+/** 복습 1블록의 분 — 엔진이 학습 1모듈(ML분)당 예약하는 복습 시간(engine `pushReviewTasks`).
+ *  같은 식이 세 곳(engine·dayPlanOverride·dayPlans)에 복제돼 있던 것을 사다리 상수들 옆으로 모은다:
+ *  "복습 1블록 ↔ 학습 1모듈"은 부하 환산(N-9 예보 가용선)이 기대는 도메인 규칙이라, 사본이 갈리면
+ *  예보의 블록과 계획의 블록이 조용히 다른 것을 세게 된다. */
+export function reviewBlockMin(moduleLen: number): number {
+  return Math.max(15, Math.round((moduleLen || 120) * 0.25));
+}
 /* 과목 색 파생 = **OKLCH 생성**(2026-07-24 · 옛 8색 라임 가족 배열 대체).
    id 해시 → **색상(hue)만** 뽑고 명도(L)·채도(C)는 고정해, 딥블랙 캔버스에서 균질하게 밝고 채도
    있는 색을 **무제한으로** 만든다. 색상환 전체에 고르게 흩어지므로 과목이 5개든 50개든 서로

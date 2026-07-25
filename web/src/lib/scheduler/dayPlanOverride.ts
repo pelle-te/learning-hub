@@ -2,7 +2,7 @@
    scheduler/dayPlanOverride.ts — 자동 산출 위에 사용자의 수동 배치를 얹는 후처리.
    ⚠ 핵심 불변식: 수동 오버라이드가 없으면 완전 무동작 → 자동 산출이 100% 그대로여야 한다.
 ============================================================ */
-import { REVIEW_OFFSETS, REVIEW_OFFSETS_WEAK, REVIEW_TAIL_OFFSET, clamp, dayDiff } from '../utils';
+import { REVIEW_OFFSETS, REVIEW_OFFSETS_WEAK, REVIEW_TAIL_OFFSET, clamp, dayDiff, reviewBlockMin } from '../utils';
 import { latestBlank } from './priority';
 import type { AppState, Day } from '../types';
 
@@ -46,7 +46,7 @@ export function reseedManualReviews(
   if (!plans) return;
   if (reviewViaAnki) return;
   if (!days.some((d) => plans[d.ds]?.mode === 'manual')) return; // auto-only → 무동작
-  const revMin = Math.max(15, Math.round(ML * 0.25));
+  const revMin = reviewBlockMin(ML);
   const dlIdxOf = (sid: string): number => {
     const it = state.items.find((x) => x.id === sid);
     return it?.deadline ? dayDiff(start, it.deadline) : Infinity;

@@ -18,6 +18,7 @@ import {
   iso,
   mondayOf,
   parseISO,
+  reviewBlockMin,
   round1,
   todayISO,
 } from '../utils';
@@ -204,7 +205,7 @@ export function schedule(state: AppState): ScheduleResult {
           name: s.name,
           color: s.color,
           chapters: covered.slice(),
-          min: Math.max(15, Math.round(ML * 0.25)),
+          min: reviewBlockMin(ML),
         });
     });
   };

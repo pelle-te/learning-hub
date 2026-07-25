@@ -5,7 +5,7 @@
    applyDayPlans(scheduler)가 manual인 날 day.items를 이 블록으로 치환하고, layoutDay가 start를 존중.
    변형 헬퍼는 스토어 mutate 안에서 호출(→ persist), 컴포넌트는 blocksForDay 등 선택자로 파생만 읽는다.
 ============================================================ */
-import { rid, clamp } from './utils';
+import { rid, clamp, reviewBlockMin } from './utils';
 import type { AppState, DayPlan, PlacedBlock, ScheduleResult } from './types';
 
 /** 시간박기 스냅 격자(분) — 드래그·리사이즈·시각 입력 공통. */
@@ -262,7 +262,7 @@ export function blockMinPresets(moduleLen: number): Record<string, number> {
   const ML = moduleLen || 120;
   return {
     new: ML,
-    rev: Math.max(15, Math.round(ML * 0.25)),
+    rev: reviewBlockMin(ML),
     anki: 20,
     blank: Math.max(30, Math.round(ML * 0.4)),
     mock: ML,

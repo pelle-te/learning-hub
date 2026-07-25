@@ -7,7 +7,7 @@
    ⚠ 한계: 챕터를 'done' 처리하면 스케줄 계획에서 빠져(=이 스캔에서도 빠짐) — 진행 중 과목의
       '배웠지만 다시 안 본' 챕터를 겨냥한다(가장 잊기 쉬운 구간). REVIEW_OFFSETS(1·3·7·16)와 정렬.
 ============================================================ */
-import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO } from './utils';
+import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
 import { isDone } from './persistence';
 import type { AppState, Day, SessionType } from './types';
 
@@ -182,6 +182,15 @@ export interface ForecastSubject {
   color?: string;
   count: number;
 }
+/** 그날 계상된 챕터 1건(앞당길 후보·블록 환산의 원재료). */
+export interface ForecastChapter {
+  sid: string;
+  subject: string;
+  color?: string;
+  chapter: string;
+  /** 그 챕터의 학습 분량(시간 · Chapter.hours). 알 수 없으면 엔진과 같은 1h 폴백. */
+  hours: number;
+}
 export interface ForecastDay {
   ds: string;
   /** 오늘로부터 경과일(1..horizon). */
@@ -192,47 +201,133 @@ export interface ForecastDay {
   chapters: number;
   /** 과목별 분해(내림차순). */
   subjects: ForecastSubject[];
+  /** 그날 계상된 챕터 원본 — 분량 큰 순(앞당길 후보 산출용). */
+  load: ForecastChapter[];
+  /** 부하를 **복습 블록 수**로 환산한 값(N-9). 개수가 아니라 분량으로 재므로 30분짜리와 3시간짜리
+   *  챕터가 같은 무게로 세지지 않는다. 부하가 있으면 최소 1(엔진의 복습은 블록 단위라 반올림 0이 없다). */
+  blocks: number;
+  /** 그날 복습에 쓸 수 있는 가용선(블록). 계획 배열에 그 날이 없으면 **null = 모름**(선을 안 그린다). */
+  capBlocks: number | null;
+  /** blocks > capBlocks — 그날은 복습이 물리적으로 안 들어간다. 모르면(capBlocks null) false. */
+  over: boolean;
+}
+
+/* ── 가용선(N-9) ───────────────────────────────────────────────────────────
+   개수 막대는 "언젠가 몰린다"까지만 말하고 "그 날은 물리적으로 안 들어간다"를 못 말한다.
+   비교가 가능하려면 부하와 가용이 **같은 단위**여야 하는데, 그 단위를 새로 지어낼 필요가 없다 —
+   엔진이 이미 "학습 1모듈(ML분)당 복습 1블록(reviewBlockMin)"으로 계획하고 있다. 그래서
+     · 부하 = 그날 복습할 챕터들이 **원래 몇 모듈치 학습이었나**(Chapter.hours 합 ÷ ML)
+     · 가용 = 그날 복습에 쓸 수 있는 분 ÷ 복습 1블록 분
+   둘 다 엔진 상수에서 파생돼 **임의 계수가 0개**다(spacedReview 는 계수를 안 만든다는 규율).
+
+   ⚠ **분이 아니라 블록으로 반올림**한다. `Chapter.hours` 는 볼트 산출에서 노트×0.5h 같은 거친
+      추정이라 분 단위 비교는 가짜 정밀이고, 가용선이 틀리면 앱이 "불가능"이라 겁을 준다.
+   ⚠ 가용에서 **`rev` 블록은 빼지 않는다** — 계획의 rev 가 바로 이 예보가 투영하는 그것이라,
+      빼면 같은 복습을 두 번 세고 가용선이 실제보다 낮아진다(= 없는 위기를 만든다).
+   ⚠ 이 예보는 **완료된 학습만** 투영하므로(chapterReviews 의 isDone 게이팅) 미래에 배울 것에서
+      나올 복습은 안 들어 있다. 즉 부하는 하한이다 — 그래서 가용선을 넘으면 "정말 넘는다". */
+
+/** `sid|챕터명` → 학습 시간. 엔진의 `Math.max(0.1, +c.hours || 1)` 폴백과 같은 규칙을 쓴다
+ *  (같은 챕터가 계획에선 1h, 예보에선 0h 로 세지면 두 화면이 다른 세계를 말한다). */
+function chapterHours(state: AppState): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const it of state.items || [])
+    for (const c of it.chapters || []) m.set(it.id + '|' + c.name, Math.max(0.1, +c.hours || 1));
+  return m;
+}
+
+/** 그날 복습에 쓸 수 있는 분 → 블록. 계획 배열에 없는 날은 null(모름 · 선을 안 그린다). */
+function capBlocksOf(day: Day | undefined, revMin: number): number | null {
+  if (!day) return null;
+  // 이미 계획된 **비복습** 블록(학습·Anki·백지·모의)은 그 시간을 이미 쓴다 → 가용에서 뺀다.
+  const committed = day.items.reduce((t, it) => (it.type === 'rev' ? t : t + it.min), 0);
+  return Math.floor(Math.max(0, day.studyMin - committed) / revMin);
 }
 
 /** 앞 horizon일 날짜별 복습 부하(볼트 챕터) 예보. 챕터 하나가 여러 오프셋 경계에 걸리면
  *  각 날에 계상된다(예: 오늘 만진 챕터 → 1·3·7일에 각각 = 실제 간격반복 파도 모양).
- *  이미 모든 오프셋을 지난(overdue) 챕터는 미래 투영이 음수라 자연히 빠진다(=오늘탭 backlog). */
+ *  이미 모든 오프셋을 지난(overdue) 챕터는 미래 투영이 음수라 자연히 빠진다(=오늘탭 backlog).
+ *  각 날은 부하·가용을 **복습 블록** 단위로 함께 싣는다(위 가용선 주석). */
 export function dueForecast(
   state: AppState,
   days: Day[],
   todayDs: string,
   horizon: number = FORECAST_HORIZON,
 ): ForecastDay[] {
-  // dayOffset(1..horizon) → sid → 누적 과목
-  const buckets = new Map<number, Map<string, ForecastSubject>>();
+  // dayOffset(1..horizon) → 그날 계상된 챕터들
+  const buckets = new Map<number, ForecastChapter[]>();
+  const hoursOf = chapterHours(state);
   for (const ch of chapterReviews(state, days, todayDs)) {
+    const hours = hoursOf.get(ch.sid + '|' + ch.chapter) ?? 1;
     for (const off of FORECAST_OFFSETS) {
       const d = off - ch.daysSince; // 오늘로부터 이 복습까지 남은 일수
       if (d < 1 || d > horizon) continue;
-      let bySid = buckets.get(d);
-      if (!bySid) buckets.set(d, (bySid = new Map()));
-      const cur = bySid.get(ch.sid);
-      if (cur) cur.count++;
-      else bySid.set(ch.sid, { sid: ch.sid, subject: ch.subject, color: ch.color, count: 1 });
+      const at = buckets.get(d);
+      const entry: ForecastChapter = { sid: ch.sid, subject: ch.subject, color: ch.color, chapter: ch.chapter, hours };
+      if (at) at.push(entry);
+      else buckets.set(d, [entry]);
     }
   }
+  const ML = state.moduleLen || 120;
+  const revMin = reviewBlockMin(ML);
+  const dayOf = new Map(days.map((d) => [d.ds, d]));
   const base = parseISO(todayDs);
   const out: ForecastDay[] = [];
   for (let d = 1; d <= horizon; d++) {
-    const bySid = buckets.get(d);
-    const subjects = bySid
-      ? [...bySid.values()].sort((a, b) => b.count - a.count || (a.subject < b.subject ? -1 : 1))
-      : [];
+    const load = (buckets.get(d) || [])
+      .slice()
+      .sort((a, b) => b.hours - a.hours || (a.subject + a.chapter < b.subject + b.chapter ? -1 : 1));
+    const bySid = new Map<string, ForecastSubject>();
+    for (const c of load) {
+      const cur = bySid.get(c.sid);
+      if (cur) cur.count++;
+      else bySid.set(c.sid, { sid: c.sid, subject: c.subject, color: c.color, count: 1 });
+    }
+    const subjects = [...bySid.values()].sort((a, b) => b.count - a.count || (a.subject < b.subject ? -1 : 1));
     const date = addDays(base, d);
+    const ds = iso(date);
+    // 부하 블록 = 그 챕터들이 원래 몇 모듈치 학습이었나. 부하가 있으면 최소 1블록(복습은 블록 단위).
+    const modules = load.reduce((t, c) => t + (c.hours * 60) / ML, 0);
+    const blocks = load.length ? Math.max(1, Math.round(modules)) : 0;
+    const capBlocks = capBlocksOf(dayOf.get(ds), revMin);
     out.push({
-      ds: iso(date),
+      ds,
       offset: d,
       wd: date.getDay(),
-      chapters: subjects.reduce((t, s) => t + s.count, 0),
+      chapters: load.length,
       subjects,
+      load,
+      blocks,
+      capBlocks,
+      over: capBlocks != null && blocks > capBlocks,
     });
   }
   return out;
+}
+
+/** 앞당길 후보 — 가용선을 넘는 날의 챕터를, **그 전에 여유가 있는 가장 이른 날**로 옮긴다.
+ *  분량 큰 것부터(같은 수의 클릭으로 가장 많이 던다) 최대 cap개. 목적지를 못 찾으면 `toOffset:null`
+ *  = "오늘 미리 보기"(복습을 앞당기는 건 언제나 가능하다 — 예보에 없는 오늘이 마지막 답).
+ *  ⚠ 후보마다 목적지 여유를 1블록씩 소진한다 — 안 그러면 셋 다 같은 날을 가리켜 그 날이 새 파도가 된다. */
+export interface PullForward {
+  chapter: ForecastChapter;
+  /** 목적지 오프셋(1..) · null 이면 오늘. */
+  toOffset: number | null;
+}
+export function pullForwardCandidates(forecast: ForecastDay[], offset: number, cap = 3): PullForward[] {
+  const target = forecast.find((f) => f.offset === offset);
+  if (!target) return [];
+  const slack = new Map<number, number>();
+  for (const f of forecast)
+    if (f.offset < offset && f.capBlocks != null) slack.set(f.offset, Math.max(0, f.capBlocks - f.blocks));
+  return target.load.slice(0, cap).map((chapter) => {
+    for (const [off, s] of slack)
+      if (s >= 1) {
+        slack.set(off, s - 1);
+        return { chapter, toOffset: off };
+      }
+    return { chapter, toOffset: null };
+  });
 }
 
 /** 위험 요약 — {overdue, due, total 위험 수} (배지·홈 넛지용). */
