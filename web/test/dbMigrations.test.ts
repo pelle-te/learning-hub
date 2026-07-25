@@ -104,6 +104,7 @@ const PINNED_CHECKSUMS: Record<number, string> = {
   4: '4499ebd2ce19b8897811af59',
   5: '60309279448efeda1f1ef397',
   6: '240c6c6afb4734b2ab80c210',
+  7: '9695a0af8541a71785a7335c',
 };
 
 describe('⚠⚠ 체크섬 핀 — 기존 마이그레이션은 불변이다', () => {
@@ -299,6 +300,41 @@ describe('v4 — 오프라인 큐가 물어볼 질문', () => {
     expect((db.prepare(`SELECT value FROM sync_state WHERE key='watermark'`).get() as { value: string }).value).toBe(
       '900',
     );
+    db.close();
+  });
+});
+
+describe('v7 — 방문 원장(N-11)', () => {
+  /* ⚠ 이 케이스가 이 표의 **설계 의도 자체**를 잠근다. `updated_at` 이 없다는 것이
+     "깜빡했다"가 아니라 "동기화에 참가할 수 없다"는 선언이라, 누군가 나중에 열을 더하면
+     방문 기록이 조용히 클라우드로 올라가기 시작한다(뷰 상태는 동기화 밖이라는 계약 위반). */
+  it('updated_at 이 없다 — 동기화 배제가 플래그가 아니라 구조다', () => {
+    const db = applyUpTo(7);
+    expect(cols(db, 'route_visits')).not.toContain('updated_at');
+    db.close();
+  });
+
+  it('기본키가 (key, day, via) 다 — 진입 경로를 합치면 관측이 순환논증이 된다', () => {
+    const db = applyUpTo(7);
+    const up = `INSERT INTO route_visits (key, day, via, n) VALUES (?,?,?,1)
+                ON CONFLICT(key, day, via) DO UPDATE SET n = n + 1`;
+    db.prepare(up).run('items', '2026-07-26', 'rail');
+    db.prepare(up).run('items', '2026-07-26', 'rail');
+    db.prepare(up).run('items', '2026-07-26', 'palette');
+    const rows = db.prepare(`SELECT via, n FROM route_visits ORDER BY via`).all() as { via: string; n: number }[];
+    expect(rows).toEqual([
+      { via: 'palette', n: 1 },
+      { via: 'rail', n: 2 },
+    ]);
+    db.close();
+  });
+
+  it('⚠ 보존기간 청소가 인덱스를 탄다 — 매 내비게이션 경로에 앉는 비용이다', () => {
+    const db = applyUpTo(7);
+    const plan = db.prepare(`EXPLAIN QUERY PLAN DELETE FROM route_visits WHERE day < ?`).all('2026-01-01') as {
+      detail: string;
+    }[];
+    expect(plan.map((p) => p.detail).join(' ')).toContain('idx_route_visits_day');
     db.close();
   });
 });

@@ -6,6 +6,7 @@ import { useApp } from '@/store/useApp';
 import { useConflicts } from '@/store/useConflicts';
 import { selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
+import { markVia } from '@/lib/visits';
 
 // C-9: 복습 밀림·열린 보충은 review/mastery 탭 안에서만 보여 다른 탭에 있으면 알 길이 없었다.
 // 로그 그룹 진입점(학습 기록=review 호스트)에 은은한 카운트 배지로 어디서든 신호(발광·펄스 금지).
@@ -112,7 +113,12 @@ export default function RailSidebar() {
      있으면 키 반복(초당 20~30회)마다 View Transition 이 시작되고, 각 전환이 이전 것을 중단시켜
      레일·본문이 계속 반투명 상태로 깜빡인다(원하는 탭에 도착해도 잔상이 남는다). 클릭·⌘K 처럼
      '한 번의 의도적 이동'에서만 애니가 의미가 있다. */
-  const go = (key: string, animate = true) => navigate('/' + key, { viewTransition: animate });
+  /* N-11 — 레일에서 출발한 내비게이션임을 표시한다. 방향키 roving 도 레일이다(같은 목록을
+     같은 손으로 돈다). 표면 스위처의 홈 이동도 여기를 지나므로 함께 `rail` 로 잡힌다. */
+  const go = (key: string, animate = true) => {
+    markVia('rail');
+    navigate('/' + key, { viewTransition: animate });
+  };
 
   // 활성 표면 = 현재 라우트 탭의 surface(1차 원천). 전역 탭(설정)이면 영속값으로 폴백.
   // 라우트가 이기므로 ⌘K·딥링크로 다른 표면 탭에 가면 나브가 자동으로 그 표면으로 따라간다(desync 없음).

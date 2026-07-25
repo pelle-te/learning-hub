@@ -84,6 +84,32 @@ test('라우팅 — 탭 이동이 셸 안에서 동작한다(히스토리 라우
   await expect.poll(href, { timeout: 10_000 }).not.toBe(before);
   // 라우팅 후에도 앱이 살아 있는가(라우터 오류로 백지가 되는 것을 잡는다).
   await expect(shell.page.locator('main').first()).toBeVisible();
+
+  /* N-11 방문 원장 — **방금 그 클릭이 실제로 행이 됐는가.**
+
+     이 자리여야 하는 이유: `dbMigrations.test.ts` 는 SQL 을(node:sqlite 로), `visits.test.ts`
+     는 분류 규칙을 잠그지만, **배선**(레일 클릭 → markVia → App 이펙트 → SQLite)은 어디에도
+     안 걸린다. 브라우저에선 `getDb()` 가 null 이라 트랙 A 가 원리적으로 못 보고, cargo 는
+     프런트가 없다. 배선이 끊기면 표는 영원히 비어 있는데 **아무 에러도 안 난다** — 그리고
+     이 표의 목적이 "빈 것과 안 센 것을 구분하는 것"이라 그 침묵이 특히 위험하다.
+
+     ⚠ `via` 까지 단언한다. 행 수만 보면 전부 `link` 로 떨어져도 통과하는데, 진입 경로를
+     쪼개는 것이 이 표의 존재 이유다(합계는 접근성의 함수라 결정 근거가 못 된다). */
+  const visits = () =>
+    shell.page.evaluate(async () => {
+      const w = (window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> } })
+        .__TAURI_INTERNALS__;
+      const db = (await w.invoke('db_url_cmd')) as string;
+      await w.invoke('plugin:sql|load', { db });
+      return (await w.invoke('plugin:sql|select', {
+        db,
+        query: "SELECT via, n FROM route_visits WHERE key = 'stats'",
+        values: [],
+      })) as { via: string; n: number }[];
+    });
+  await expect
+    .poll(visits, { timeout: 10_000 })
+    .toEqual([expect.objectContaining({ via: 'rail', n: expect.any(Number) })]);
 });
 
 /* IPC 왕복 — **커맨드가 등록돼 있고 웹뷰에서 실제로 닿는가.**

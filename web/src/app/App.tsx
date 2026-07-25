@@ -21,6 +21,7 @@ import BootRecovery from '@/app/BootRecovery';
 import StorageGuard from '@/app/StorageGuard';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
+import { markVia, recordVisit, takeVia } from '@/lib/visits';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
 import SubTabs from '@/app/SubTabs';
@@ -151,6 +152,7 @@ export default function App() {
         const n = e.key === ']' ? (i + 1) % visible.length : (i - 1 + visible.length) % visible.length;
         e.preventDefault();
         clearG();
+        markVia('key');
         navigate('/' + visible[n]!.key, { viewTransition: true });
         return;
       }
@@ -159,6 +161,7 @@ export default function App() {
         clearG();
         if (tab) {
           e.preventDefault();
+          markVia('key');
           navigate('/' + tab, { viewTransition: true });
         }
         return;
@@ -203,6 +206,24 @@ export default function App() {
   useEffect(() => {
     document.title = routeTitle(pathname); // FocusChip 세션 종료 복원과 공유하는 단일 출처(X-9).
   }, [pathname]);
+
+  /* ── N-11 방문 원장 ───────────────────────────────────────────────────
+     계수는 **여기 한 곳**이다. 22개 내비게이션 호출부에 기록을 흩으면 새 링크가 생길 때마다
+     빠뜨리고, 빠진 것은 0 으로 보인다(없는 것과 안 센 것이 구분되지 않는다). 호출부는
+     `markVia` 힌트만 남기고, 힌트가 없으면 `link` 로 떨어진다 — 누락이 오분류이지 유실이 아니다.
+
+     ⚠ 첫 마운트는 `boot` 다(= 딥링크이거나 그냥 앱을 연 것). 그 둘을 구분하려면 라우트가
+     기본값인지를 봐야 하는데, 기본 경로로 딥링크하는 것도 가능해 구분이 원리적으로 흐리다 —
+     한 칸으로 두고 그 사실을 이름으로 말한다.
+
+     ⚠ `await` 하지 않는다. 관측이 내비게이션을 늦추면 관측 대상이 관측 때문에 달라진다.
+     브라우저(dev·트랙 A)에선 `recordVisit` 이 통째로 무동작이다. */
+  const firstVisit = useRef(true);
+  useEffect(() => {
+    const via = firstVisit.current ? 'boot' : takeVia('link');
+    firstVisit.current = false;
+    void recordVisit(routeKey, via);
+  }, [pathname, routeKey]);
 
   return (
     <div

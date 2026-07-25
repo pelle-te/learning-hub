@@ -8,6 +8,7 @@ import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { subTabGroupOf, Icon } from '@/shell';
 import { prefetchTab } from '@/features/registry';
+import { markVia } from '@/lib/visits';
 
 /* ⚠ C-7 셸 이식 — raw <button> 은 **언레이어드 전역 `button{}`**(styles/global/components.css)에서
    배경·보더·radius·padding·font-size(13px) 를 받는다. Tailwind 유틸은 `@layer utilities` 라
@@ -71,7 +72,10 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
               tabIndex={active ? 0 : -1}
               onMouseEnter={() => prefetchTab(t.key)}
               onFocus={() => prefetchTab(t.key)}
-              onClick={() => navigate('/' + t.key, { viewTransition: true })}
+              onClick={() => {
+                markVia('seg'); // N-11 — 세그먼트 진입은 레일 진입과 뜻이 다르다(호스트 안에서의 이동)
+                navigate('/' + t.key, { viewTransition: true });
+              }}
             >
               <Icon name={t.icon} className="size-3.5!" />
               <span>{t.segLabel ?? t.label}</span>

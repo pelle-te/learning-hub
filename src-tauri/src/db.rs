@@ -132,6 +132,17 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: include_str!("../migrations/006_backfill_stamps.sql"),
         },
+        /* v7(N-11) — **방문 원장**. 앱이 자기 사용을 관측하지 못하던 공백.
+
+        25탭 중 무엇을 실제로 여는지 몰라 IA 결정 셋(탭 은퇴·폰 뷰 사용 여부·all-clear
+        빈도)이 전부 코드 읽기 추론 위에 서 있었다. `via`(진입 경로)로 쪼개는 이유와
+        동기화에서 구조적으로 빠지는 이유는 SQL 파일 머리주석이 SSOT. */
+        Migration {
+            version: 7,
+            description: "N-11 방문 원장 — 진입 경로별 라우트 카운터(동기화 대상 아님)",
+            kind: MigrationKind::Up,
+            sql: include_str!("../migrations/007_route_visits.sql"),
+        },
     ]
 }
 

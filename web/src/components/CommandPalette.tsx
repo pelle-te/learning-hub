@@ -15,6 +15,7 @@ import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
 import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { FIELDS, categoryOf } from '@/lib/atlas';
+import { markVia } from '@/lib/visits';
 import type { SemHit, SemKind } from '@/lib/semantic';
 
 /* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
@@ -131,6 +132,14 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     onOpenChange(false);
   };
 
+  /* N-11 — 팔레트발 내비게이션은 **이름을 알고 찾아간 것**이라 레일 클릭과 뜻이 다르다.
+     레일에서 지운 목적지가 여기서 계속 열린다면 그건 "안 쓰이는 탭"이 아니라 "숨겨 둔 탭"이다.
+     `close()` 에 붙이지 않는 이유: 캡처·Esc 도 그 경로를 지나 내비게이션 없이 닫는다. */
+  const go = (to: string) => {
+    markVia('palette');
+    navigate(to, { viewTransition: true });
+  };
+
   // 자연어 빠른 캡처 — 입력을 파싱해 날짜·시간·과목·유형을 뽑는다(예: "내일 오후 3시 알고리즘 2챕터 복습").
   // 순수 lib(quickCapture)라 여기선 결과만 미리보고, 선택 시 shell 액션으로 기록 프리필에 넘긴다.
   const cap = useMemo(
@@ -177,7 +186,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
   const runCapture = () => {
     if (!cap) return;
     runQuickCapture(cap, summarize(cap));
-    navigate('/journal', { viewTransition: true });
+    go('/journal');
   };
 
   /* ── D-2 캡처는 조건부이면 캡처가 아니다 ──────────────────────────────────
@@ -259,7 +268,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 className={ITEM}
                 onSelect={() => {
                   close();
-                  navigate(h.to, { viewTransition: true });
+                  go(h.to);
                 }}
               >
                 <span className={LABEL}>
@@ -281,7 +290,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 className={ITEM}
                 onSelect={() => {
                   close();
-                  navigate(h.to, { viewTransition: true });
+                  go(h.to);
                 }}
               >
                 <span className={LABEL}>
@@ -302,7 +311,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 className={ITEM}
                 onSelect={() => {
                   close();
-                  navigate(`/atlas/${f.key}`, { viewTransition: true });
+                  go(`/atlas/${f.key}`);
                 }}
               >
                 <span className={LABEL}>📡 {f.name}</span>
@@ -320,11 +329,11 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
               close();
               recordRecent(c.id); // 최근 명령 LRU — 다음 ⌘K에서 위로.
               try {
-                if (c.kind === 'tab') navigate('/' + c.key, { viewTransition: true });
+                if (c.kind === 'tab') go('/' + c.key);
                 else {
                   c.run();
                   // 액션이 특정 탭에서 이어지는 경우(집중 시작·기록 프리필) 실행 후 이동.
-                  if (c.to) navigate(c.to, { viewTransition: true });
+                  if (c.to) go(c.to);
                 }
               } catch (e) {
                 console.error(e);
