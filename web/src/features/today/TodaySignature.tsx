@@ -57,19 +57,15 @@ const S = {
     'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-[0.35s] ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
   heroFill:
     'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
-  ghostGauge:
-    'pointer-events-none absolute top-[var(--ghost-top)] right-[var(--ghost-right)] z-[-1] flex items-baseline gap-[var(--ghost-gap)] leading-none select-none',
-  ghostNum:
-    'text-ghost-num font-extrabold tracking-ghost text-transparent tabular-nums [-webkit-text-stroke:var(--stroke-ghost)]',
-  ghostUnit: 'text-ghost-unit font-extrabold tracking-ghost-unit text-[color:var(--ghost-em)] not-italic',
   heroHead: 'flex items-baseline justify-between gap-3',
   eyebrow:
     'inline-flex items-center gap-2 text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-acc uppercase',
   live: 'size-1.75 rounded-full bg-acc shadow-load animate-[today-live-pulse_1.8s_var(--ease)_infinite] motion-reduce:animate-none',
-  heroWhen: 'text-hero-when font-extrabold tracking-title text-txt tabular-nums',
   subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-[0.94] tracking-subj! text-balance text-[color:var(--subj-col)]!',
   heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-[1.5] text-mut',
   chapter: 'font-semibold text-txt',
+  // D-5 선택 근거 — 액센트로 한 줄. 크기는 챕터 줄과 같되 무게로만 낮춘다(위계는 색·굵기로).
+  why: 'text-md font-semibold text-acc',
   upnext: 'text-md text-mut',
   yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-[1.5] text-mut',
   momentum: 'inline-flex flex-wrap items-center gap-x-3.5 gap-y-2',
@@ -196,8 +192,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   const nowMs = nowDate.getTime();
   const startKey = (e: (typeof enriched)[number]) => e.start ?? 9999;
   const pending = enriched.filter((e) => !e.done);
-  // '지금 할 일' 선택은 lib/focusState.pickFocus와 공유 — 팔레트·상단 바 시작과 같은 규칙.
-  const { current, focus } = pickFocus(enriched, nowMin);
+  /* '지금 할 일' 선택은 lib/focusState.pickFocus 와 공유 — 팔레트·상단 바 시작과 같은 규칙.
+     D-5: 급함 재료(마감·진도)를 함께 넘긴다. 배치된 날은 시각이 이기므로 결과가 그대로고,
+     시각이 없는 블록끼리만 급한 것이 앞선다 — 그리고 **왜 이것인지**(reason)를 받아 화면에 쓴다. */
+  const { current, focus, reason: focusReason } = pickFocus(enriched, nowMin, res.itemStat, ds);
   const allDone = todayTotal > 0 && pending.length === 0;
 
   const after = focus?.end ?? nowMin;
@@ -308,14 +306,17 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
   };
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
-  const subjName = allDone ? '완료' : focus ? focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
   const focusMin = focusMinutes(focus);
-  const focusWhen = focus && focus.start != null && focus.end != null ? `${toHM(focus.start)}–${toHM(focus.end)}` : '—';
-  const focusChapter = focus
-    ? focus.it.chapters?.length
-      ? focus.it.chapters.join(', ')
-      : TYPE_LABEL[focus.it.type] || '학습'
-    : '—';
+  const focusType = focus ? TYPE_LABEL[focus.it.type] || '학습' : '';
+  const focusChapterName = focus?.it.chapters?.length ? focus.it.chapters.join(', ') : '';
+  /* ── D-5 히어로의 주어를 행동으로 ──────────────────────────────────────
+     72px 자리에 **과목명**이 있었다 — 내가 이미 아는 것이다. 정작 무엇을 하는지(챕터·유형)는
+     18px 였고 "왜 이것인가"는 화면 어디에도 없었다. 큰 자리를 행동에 준다.
+     ⚠ 챕터가 없는 블록(Anki·모의 등)이면 큰 자리는 과목명으로 폴백한다 — 그때는 그것이
+       유일하게 구체적인 이름이고, 유형은 바로 아래 줄이 말한다. */
+  const heroMain = allDone ? '완료' : focus ? focusChapterName || focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
+  // 큰 자리에 챕터가 섰으면 아래 줄은 과목 · 유형, 아니면 유형만(같은 말을 두 번 하지 않는다).
+  const heroSub = focus ? (focusChapterName ? `${focus.it.name} · ${focusType}` : focusType) : '—';
 
   const dispColor = !allDone && focus ? focus.it.color : undefined;
 
@@ -401,6 +402,17 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           // E-2: D-day만이 아니라 '어느 과목을 우선할지' 이름까지 리드아웃(가장 가까운 마감).
           value: nearestDday == null ? '—' : `D-${nearestDday}${ddays[0]?.name ? ` · ${ddays[0]!.name}` : ''}`,
         },
+        /* D-5 — 히어로의 132px 워터마크에 있던 값. 거기선 `aria-hidden` 장식이라 SR 에 아예
+           없었고, 크기가 화면 최대라 위계를 거꾸로 세웠다. 여기선 다른 리드아웃과 같은 무게다. */
+        {
+          label: '남은 가용',
+          value: (
+            <>
+              {freeLeftH}
+              <small className="text-base14 font-bold text-mut"> h</small>
+            </>
+          ),
+        },
         // PL-5: 적응형 용량이 적용된 날만(최근 이행률 저조 → 오늘 가용 축소) 감축률을 노출 — 비가시 해소.
         ...(res.adaptApplied ? [{ label: '용량', value: `−${Math.round((1 - (res.adapt ?? 1)) * 100)}%` }] : []),
       ],
@@ -423,7 +435,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
                 },
               },
     }),
-    [pct, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
+    [pct, streak, nearestDday, freeLeftH, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
@@ -445,21 +457,18 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
           <div className={`${S.aura} ${allDone ? 'opacity-60' : 'opacity-55'}`} aria-hidden="true" />
           <div className={S.spotlight} aria-hidden="true" />
           {timer && <div className={S.heroFill} style={{ width: `${timerPct}%` }} aria-hidden="true" />}
-          {/* 오버사이즈 게이지 — 우상단 허공을 '오늘 남은 가용시간'으로 채움(정보성 워터마크). */}
-          <span className={S.ghostGauge} aria-hidden="true">
-            <b className={S.ghostNum}>{freeLeftH}</b>
-            <em className={S.ghostUnit}>h 남음</em>
-          </span>
-
+          {/* ⚠ D-5 — 132px '남은 N h' 워터마크가 여기 있었다. `aria-hidden` **장식이 화면 최대
+              활자**인 상태였고(SR 에는 애초에 없던 정보다), 그 옆의 72px 은 과목명이었다.
+              값은 버리지 않고 상단 리드아웃('남은 가용')으로 내렸다 — 거기선 SR 도 읽는다.
+              우상단 시각도 뺐다: 같은 값을 아래 근거 한 줄과 흐름 레일이 이미 말한다. */}
           <div className={S.heroHead}>
             <span className={S.eyebrow}>
               {current && <i className={S.live} />}
               {kicker}
             </span>
-            <span className={S.heroWhen}>{focusWhen}</span>
           </div>
 
-          <h2 className={S.subj}>{subjName}</h2>
+          <h2 className={S.subj}>{heroMain}</h2>
           <div className={S.heroSub}>
             {todayTotal === 0 ? (
               hasItems ? (
@@ -501,7 +510,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: () => void }) {
               </span>
             ) : (
               <>
-                <span className={S.chapter}>{focusChapter}</span>
+                <span className={S.chapter}>{heroSub}</span>
+                {/* D-5 — "왜 이것인가". 고르는 함수가 이유까지 돌려주므로 화면과 규칙이 갈릴 수 없다. */}
+                {focusReason && <span className={S.why}>{focusReason}</span>}
                 {upNext && (
                   <span className={S.upnext}>
                     다음 · {upNext.it.name}

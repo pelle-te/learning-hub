@@ -10,10 +10,10 @@
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { todayISO, parseISO, fmt, ddayInfo } from '@/lib/utils';
-import { studyStreak } from '@/lib/persistence';
+import { studyStreak, isDone } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
-import { pickTodayFocus } from '@/lib/todayFocus';
+import { pickFocus, type FocusEntry } from '@/lib/focusState';
 
 const CARD = 'rounded-lg border border-line bg-panel p-4';
 const STAT = 'flex flex-col gap-0.5 rounded-md border border-line bg-panel2 px-3 py-2.5';
@@ -27,9 +27,21 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
   const day = res.days.find((d) => d.ds === today);
   const newBlocks = (day?.items || []).filter((it) => it.type === 'new');
   const plannedMin = newBlocks.reduce((t, it) => t + (it.min || 0), 0);
-  // 오늘의 초점 = 마감·진도 밀림 가중 우선순위(읽기전용 추천 · 스케줄 안 씀 · pickTodayFocus).
-  const focusPick = pickTodayFocus(newBlocks, res.itemStat, today);
-  const focus = focusPick?.block || null;
+  /* 오늘의 초점 — **데스크톱 히어로와 같은 함수**(D-5). 예전엔 폰만 `pickTodayFocus`(마감·진도
+     가중)를 써서 같은 질문에 답이 둘이었고, 이유(reason)를 표시하는 것도 폰뿐이었다. 그 규칙은
+     `pickFocus` 안으로 흡수됐다.
+     ⚠ **시각을 일부러 안 넘긴다**(start/end=null). 폰 카드는 타임블로킹 화면이 아니라 "무엇부터"만
+       묻는다 — 시각을 주면 `pickFocus` 가 시간 순서를 우선해 급함(마감·진도)이 밀린다.
+     ⚠ 후보는 여전히 **새 학습 블록**뿐이다(카드의 빈 문구가 그 범위를 전제한다). 무엇을 후보로
+       볼지는 화면의 결정, 그중 무엇이 먼저인지는 lib 의 결정 — 그 경계를 지킨다. */
+  const entries: FocusEntry[] = newBlocks.map((it) => ({
+    it,
+    start: null,
+    end: null,
+    done: isDone(state, today, it.sid, it.type),
+  }));
+  const focusPick = pickFocus(entries, 0, res.itemStat, today);
+  const focus = focusPick.focus?.it || null;
 
   const streak = studyStreak(state);
   const risk = riskSummary(state, res.days, today);
@@ -54,7 +66,7 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-2xs font-bold tracking-wide text-mut uppercase">오늘의 초점</span>
-          {focusPick ? <span className="text-2xs font-bold text-acc">{focusPick.reason}</span> : null}
+          {focusPick.reason ? <span className="text-2xs font-bold text-acc">{focusPick.reason}</span> : null}
         </div>
         {focus ? (
           <>
