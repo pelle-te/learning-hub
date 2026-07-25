@@ -46,19 +46,35 @@ export const SCHEDULE_INPUT_KEYS = [
   'weekAlloc', // §12-4 주간 배분 — 배분 있는 주는 new 블록을 요일 벡터로 구동(배분 변경 시 재스케줄)
 ] as const;
 
+/* ⚠⚠ **파생 '오늘'을 키에 함께 싣는다(H3 · 2026-07-26 감사).**
+
+   위 목록의 `_today` 는 슬라이스 이름으로선 옳지만, `persistence.migrate()` 가 부팅 때 그 시드를
+   지우므로 **프로덕션에선 항상 `undefined`** 다(시드 경로 0). 즉 "키에 없다"가 아니라 **키는 있고
+   값이 무효**였고, 그래서 날짜가 바뀌어도 캐시가 절대 안 깨졌다 — 데스크톱은 며칠 켜 두는 앱이
+   라는 게 이 앱의 전제인데(그래서 5분 폴백 폴링도 있다), 자정을 넘기면 어제 블록·"남은 N"·밀림
+   수가 그대로 남았다. 파생값을 넣으면 시드가 있든(테스트) 없든(프로덕션) **같은 규칙**으로 깨진다. */
 function scheduleInputs(s: AppState): readonly unknown[] {
   const r = s as unknown as Record<string, unknown>;
-  return SCHEDULE_INPUT_KEYS.map((k) => r[k]);
+  return [...SCHEDULE_INPUT_KEYS.map((k) => r[k]), todayISO(s)];
 }
-let cache: { keys: readonly unknown[]; result: ScheduleResult } | null = null;
+
+/* 튜플 키 1-엔트리 메모의 **단일 구현**(H9 · 2026-07-26 감사).
+
+   ⚠ 종전엔 `selectSchedule` 만 튜플 키였고 나머지 셋은 **루트 참조**였다 — 위 AN-16 주석이
+   "루트 참조로 캐시하면 무관 슬라이스 쓰기마다 캐시가 깨져 무거운 계산이 헛돈다"고 적어 놓고
+   한 곳만 고친 상태로 남아 있었다. 그래서 `tasks` 드래그 한 번이 `selectFinishGains` 의 **전량
+   재시뮬 1회**를 불렀다. 규칙을 함수 하나로 만들어 다음 셀렉터가 자동으로 같은 규칙을 쓰게 한다. */
+function keyed<T>(keysOf: (s: AppState) => readonly unknown[], compute: (s: AppState) => T): (s: AppState) => T {
+  let c: { keys: readonly unknown[]; result: T } | null = null;
+  return (s) => {
+    const keys = keysOf(s);
+    if (!c || c.keys.length !== keys.length || c.keys.some((k, i) => k !== keys[i])) c = { keys, result: compute(s) };
+    return c.result;
+  };
+}
 
 /** 통합 스케줄을 입력 슬라이스로 메모이즈(React 밖에서도 호출 가능 — ics 내보내기 등). */
-export function selectSchedule(state: AppState): ScheduleResult {
-  const keys = scheduleInputs(state);
-  if (!cache || cache.keys.length !== keys.length || cache.keys.some((k, i) => k !== keys[i]))
-    cache = { keys, result: schedule(state) };
-  return cache.result;
-}
+export const selectSchedule: (state: AppState) => ScheduleResult = keyed(scheduleInputs, (s) => schedule(s));
 
 /** 통합 스케줄 훅 — 같은 state 버전을 보는 모든 소비처가 단일 계산 결과를 공유. */
 export function useSchedule(): ScheduleResult {
@@ -88,15 +104,16 @@ export function useStudyMinByWeekday(): number[] {
    (zustand는 셀렉터를 알림마다 실행하고 mutate는 디바운스 없이 즉시 set한다).
    Graph 탭은 같은 함수에 대해 이미 "전수 스캔이 순수 낭비"라며 호출을 회피하고 있었다 —
    사이드바가 유일한 무조건 호출부였다. selectSchedule과 같은 참조-캐시로 state 버전당 1회로 묶는다. */
-let riskCache: { state: AppState; result: { overdue: number; due: number } } | null = null;
+/* ⚠ 키 = 스케줄 입력 + **riskSummary 가 그 밖에서 읽는 슬라이스**. `chapterReviews` 가
+   `reviewTouches`(계획 밖 인출 기록)를 읽는데 그건 스케줄 입력이 아니다 — 빠뜨리면 복습을
+   해도 배지가 안 풀리는(=위 감사 #22 와 같은) 무증상 stale 이 된다. `completions`·`blankResults`
+   는 이미 스케줄 입력에 있다. */
+const riskInputs = (s: AppState): readonly unknown[] => [...scheduleInputs(s), s.reviewTouches];
 
-/** 복습 위험 요약을 state 참조로 메모이즈(연체/임박 개수). */
-export function selectRiskSummary(state: AppState): { overdue: number; due: number } {
-  if (!riskCache || riskCache.state !== state) {
-    riskCache = { state, result: riskSummary(state, selectSchedule(state).days || [], todayISO(state)) };
-  }
-  return riskCache.result;
-}
+/** 복습 위험 요약(연체/임박 개수) — 입력 슬라이스로 메모이즈. */
+export const selectRiskSummary: (state: AppState) => { overdue: number; due: number } = keyed(riskInputs, (s) =>
+  riskSummary(s, selectSchedule(s).days || [], todayISO(s)),
+);
 
 /* ── 나브 상태 신호(N-13) ───────────────────────────────────────────────────
    레일 항목은 **눌러 들어가야 안에 뭐가 있는지** 알 수 있었다(상태를 가진 항목이 배지 2개뿐).
@@ -108,10 +125,10 @@ export function selectRiskSummary(state: AppState): { overdue: number; due: numb
    ⚠ **없는 신호를 지어내지 않는다.** 상태가 있는 항목만 여기 있다(오늘·기록). 나머지 도달점은
    지금 앱이 싸게 셀 수 있는 '지금 뭔가 있음'이 없어서 비운 것이지, 자리가 없어서가 아니다 —
    신호가 생기면 이 표에 한 줄을 더한다. */
-let navCache: { state: AppState; result: Record<string, string> } | null = null;
+/* 키 = 위험 입력 + `openBacklog` 이 읽는 `backlog`(보충 개수). */
+const navInputs = (s: AppState): readonly unknown[] => [...riskInputs(s), s.backlog];
 
-export function selectNavSignals(state: AppState): Record<string, string> {
-  if (navCache && navCache.state === state) return navCache.result;
+export const selectNavSignals: (state: AppState) => Record<string, string> = keyed(navInputs, (state) => {
   const out: Record<string, string> = {};
   // 오늘 — 남은 블록(계획됐지만 아직 안 한 것). 다 했으면 침묵한다(그게 평온의 정의다).
   const today = todayISO(state);
@@ -126,9 +143,8 @@ export function selectNavSignals(state: AppState): Record<string, string> {
   if (overdue > 0) parts.push(`밀림 ${overdue}`);
   if (backlog > 0) parts.push(`보충 ${backlog}`);
   if (parts.length) out.journal = parts.join(' · ');
-  navCache = { state, result: out };
   return out;
-}
+});
 
 /* ── 반사실 완주일(N-3) ─────────────────────────────────────────────────────
    `adherenceFactor` 는 최근 14일 이행률로 **계획 용량을 0.5~1.0배 곱한다**. 사용자에게 보이는
@@ -153,10 +169,9 @@ export interface FinishGain {
   /** 며칠 당겨지는가(≥1 인 것만 담는다). */
   days: number;
 }
-let cfCache: { state: AppState; result: FinishGain[] } | null = null;
-
-export function selectFinishGains(state: AppState): FinishGain[] {
-  if (cfCache && cfCache.state === state) return cfCache.result;
+/* ⚠ 키 = 스케줄 입력 그대로. 아래는 **같은 엔진을 다른 입력으로 한 번 더** 도는 것이라
+   입력 집합이 정확히 같다 — 루트 참조로 잡으면 `tasks` 드래그 한 번에 전량 재시뮬이 붙는다(H9). */
+export const selectFinishGains: (state: AppState) => FinishGain[] = keyed(scheduleInputs, (state) => {
   const cur = selectSchedule(state);
   let out: FinishGain[] = [];
   if (cur.adaptApplied) {
@@ -171,6 +186,5 @@ export function selectFinishGains(state: AppState): FinishGain[] {
       })
       .filter((x): x is FinishGain => !!x);
   }
-  cfCache = { state, result: out };
   return out;
-}
+});

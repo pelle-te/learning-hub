@@ -60,6 +60,11 @@ const S = {
   colToday: 'bg-alloc-col-today!',
   dow: 'text-sm leading-[normal] font-extrabold text-txt', // <button> 자손 → UA normal 상속
   date: 'text-2xs font-semibold text-mut', // 커스텀 크기 → LH 안 흘림(leading 불필요)
+  /* ⚠ 오늘 열에서는 **묵음색을 쓰지 않는다**(H22 · 2026-07-26). 열 배경이 `--alloc-col-today`
+     로 밝아져 `--mut` 과의 대비가 4.13:1 로 내려간다(10px 본문 → 4.5:1 요구 · axe serious).
+     오늘 열은 강조 대상이므로 본문색이 의미상으로도 맞다. a11y 로스터를 `TABS` 밖 화면까지
+     넓히자마자 이 화면이 처음 검사됐고, 그 첫 실행에서 잡혔다. */
+  dateToday: 'text-2xs font-semibold text-txt',
   budgetHead: `${CELL} sticky top-0 right-0 z-[5] justify-end rounded-tr-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
   // 과목 행 머리글(드래그 소스) — group 으로 grab 도트 hover 를 자식에 전달. bg 는 그랩 상태로 분기.
   rowHead: `${CELL} group sticky left-0 z-[3] min-w-0 cursor-grab gap-1.75 text-md font-bold text-txt active:cursor-grabbing`,
@@ -372,7 +377,7 @@ export function AllocBoard({
                   title={`${fmtShort(c.date)} 일 편집기 열기`}
                 >
                   <span className={S.dow}>{c.label}</span>
-                  <span className={S.date}>{fmtShort(c.date)}</span>
+                  <span className={c.isToday ? S.dateToday : S.date}>{fmtShort(c.date)}</span>
                 </button>
               </div>
             ))}

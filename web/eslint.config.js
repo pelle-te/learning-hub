@@ -244,51 +244,18 @@ export default tseslint.config(
      v4.7.0 에 그런 룰은 **없다**(룰 15개 전량 확인). 대신 `no-restricted-classes` 의
      `restrict` 패턴으로 막는다 — 결과는 같고 수단이 다르다. */
   {
-    files: [
-      'src/phone/**/*.tsx',
-      'src/app/App.tsx', // C-7 셸 티어 이식분(하나씩 넓힌다)
-      'src/app/SubTabs.tsx',
-      'src/app/TopBar.tsx',
-      'src/app/RailSidebar.tsx',
-      'src/app/FocusChip.tsx',
-      // C-7 컴포넌트 티어(공유 프리미티브) — ui/* 와 ds.module.css 는 여전히 맨 마지막이다.
-      'src/components/EmptyState.tsx',
-      'src/components/OnlineStatus.tsx',
-      'src/components/Tooltip.tsx',
-      'src/components/ShortcutsHelp.tsx',
-      'src/components/DetailDrawer.tsx',
-      'src/components/CommandPalette.tsx',
-      // ui/* 프리미티브 — ds 를 composes 하던 4종(마지막 티어에서 전역 ds-* 로 전환).
-      'src/components/ui/Card.tsx',
-      'src/components/ui/Kpi.tsx',
-      'src/components/ui/Pill.tsx',
-      'src/components/ui/ProgressBar.tsx',
-      // 마지막 잔여 3종(C-7 마감) — Skeleton 은 순수 유틸, Table 은 `ds-table`, HudFrame 은 앱크롬 `hud*`.
-      'src/components/ui/Skeleton.tsx',
-      'src/components/ui/Table.tsx',
-      'src/components/hud/HudFrame.tsx',
-      'src/features/alloc/**/*.tsx',
-      'src/features/discovery/**/*.tsx',
-      'src/features/review-run/**/*.tsx',
-      'src/features/guide/**/*.tsx',
-      'src/features/goals/**/*.tsx',
-      'src/features/control/**/*.tsx',
-      'src/features/atlas/**/*.tsx',
-      'src/features/review/**/*.tsx',
-      'src/features/mastery/**/*.tsx',
-      'src/features/ledger/**/*.tsx',
-      'src/features/integrations/**/*.tsx',
-      'src/features/degree/**/*.tsx',
-      'src/features/journal/**/*.tsx',
-      'src/features/markets/**/*.tsx',
-      'src/features/reads/**/*.tsx',
-      'src/features/settings/**/*.tsx',
-      'src/features/stats/**/*.tsx',
-      'src/features/items/**/*.tsx',
-      'src/features/today/**/*.tsx',
-      'src/features/schedule/**/*.tsx',
-      'src/features/graph/**/*.tsx',
-    ],
+    /* ⚠⚠ **이행기 목록을 걷었다(H21 · 2026-07-26 감사).**
+
+       여기 있던 것은 "feature 를 하나씩 옮길 때마다 넓힌다"는 **C-7 이행 장치**였다. C-7 은
+       끝났고(`*.module.css` 0개) 그때부터 목록은 **표류**했다 — 이후 신설된 `features/forecast`·
+       `features/mistakes`, 컴포넌트 `ArtifactError`·`ArtifactGate`·`CountReadout`·`ProgressRing`,
+       `ui/{Button,NumberField}` 가 전부 빠져 있었다. 즉 **가장 새 코드가 무집행**이었고, 그건
+       집행자를 두는 목적과 정반대다(이 저장소가 stylelint 를 들일 때 내린 결론과 같다:
+       규약을 관습에 두면 흘러내린다).
+
+       이제 `src` 아래 모든 `.tsx` 다 — 새 파일이 자동으로 포함되므로 같은 표류가 재발하지 않는다.
+       (⚠ 이 주석에 글롭을 그대로 쓰지 말 것: 별표 둘 뒤의 슬래시가 블록 주석을 조기 종료시킨다.) */
+    files: ['src/**/*.tsx'],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },
     rules: {
@@ -315,6 +282,19 @@ export default tseslint.config(
             '^hud(-scroll|-fill)?$',
             '^in$',
             '^primary$',
+            /* H21 로 대상이 `src` 전량이 되며 드러난 잔여 전역 앱크롬 — 전부
+               `styles/global/{base,components}.css` 소유이고 성격이 위 목록과 같다.
+               · `wrap` — 부팅 실패·다운그레이드 화면의 바깥 래퍼(main.tsx)
+               · `ic` — 아이콘 스프라이트(shell/icons.tsx)
+               · `modal-*`·`ghost` — 공통 모달 크롬(shell/modal.tsx)
+               · `toast*`·`out` — 토스트 호스트(shell/toast.tsx)
+               ⚠ 여기 넣는 것은 **"아직 안 옮겼다"는 표시이지 면제가 아니다**(위 주석과 같은 규율). */
+            '^wrap$',
+            '^ic$',
+            '^modal-(b|in|cancel|danger)$',
+            '^ghost$',
+            '^toast(-host|-life|-i|-m|-act)?$',
+            '^out$',
           ],
         },
       ],

@@ -565,6 +565,55 @@ export const TABS = [
 ];
 export const THEMES = ['dark', 'light'] as const;
 
+/* ⚠⚠ **a11y 로스터는 `TABS` 보다 넓다(H22 · 2026-07-26 감사).**
+
+   `a11y.spec.ts` 는 _"시각 회귀와 같은 로스터를 쓴다. 목록이 갈리면 '시각은 보는데 a11y 는
+   안 보는 화면'이 조용히 생긴다"_ 고 적어 뒀는데, 그 상태가 **이미 참**이었다: `alloc`(스냅샷
+   4장)·`review-run`(2장)은 시각 쪽에서 **개별 테스트**로 잡혀 있다 — 각자 UI 상태·시계가 필요해
+   `TABS` 루프에 못 들어간다. 그래서 axe 가 두 화면을 한 번도 안 봤다. 둘 다 fill 대시보드고
+   `alloc` 은 드래그 보드라 위험이 평균 이상이다.
+
+   ⚠ **그냥 `TABS` 에 넣지 않는 이유**: 그러면 시각 회귀가 같은 화면의 스냅샷을 **두 벌** 만든다
+   (`alloc-dark.png` 와 `alloc-board-dark.png`). 로스터 대신 **준비 절차를 여기 함께** 둔다 —
+   `prep` 은 시각 테스트의 조건과 같은 것을 재현한다(빈 화면을 검사하면 아무것도 증명 못 한다:
+   이 파일 머리주석이 시드를 공유하는 이유와 같은 논거). */
+export interface ExtraScreen {
+  key: string;
+  path: string;
+  /** `boot()` 뒤·`goto` 앞에 필요한 추가 준비(UI 상태·시계). */
+  prep?: (page: Page) => Promise<void>;
+  /** 실제 콘텐츠가 떴다는 관측 가능한 증거(빈 상태 검사 방지). */
+  ready: (page: Page) => Promise<unknown>;
+}
+
+export const A11Y_EXTRA: ExtraScreen[] = [
+  {
+    key: 'alloc',
+    path: '/alloc',
+    prep: async (page) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('lh_ui_v1', JSON.stringify({ schedView: 'alloc', accent: 'lime', recentCommands: [] }));
+        } catch {
+          /* noop */
+        }
+      });
+    },
+    ready: (page) => page.getByRole('table', { name: '주간 배분 보드' }).waitFor(),
+  },
+  {
+    key: 'review-run',
+    path: '/review-run',
+    /* ⚠ 시계를 SEED 기준일보다 뒤로 민다 — 그래야 챕터가 "밀린" 상태가 되어 **실제 카드**가
+       렌더된다(시각 테스트가 같은 이유로 같은 시각을 쓴다). 빈 화면의 a11y 는 거의 아무것도
+       재지 않는다. */
+    prep: async (page) => {
+      await page.clock.install({ time: new Date('2026-09-01T09:00:00') });
+    },
+    ready: (page) => page.getByRole('progressbar').waitFor(),
+  },
+];
+
 /* 캡처 직전 정착 대기 — **웹폰트 스와프가 레이아웃을 10px 움직인다**(2026-07-24 발견).
    이 앱은 `Pretendard Variable` 을 쓰는데, 폴백 폰트로 첫 페인트가 끝난 뒤 스와프가 일어나면
    줄상자 높이가 줄어 화면 전체가 위로 밀린다. `toHaveScreenshot` 의 "연속 두 프레임 동일"

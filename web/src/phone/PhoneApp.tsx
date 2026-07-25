@@ -11,7 +11,7 @@ import { addDays, iso, parseISO, todayISO } from '@/lib/utils';
 import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { isDurable } from '@/lib/db/browserDb';
-import { isDbBroken, onDbHealth } from '@/lib/db/sqlite';
+import { isSaveFallback, onSaveFallback } from '@/lib/db/fallback';
 import TodayView from './TodayView';
 import DayView from './DayView';
 import WeekView from './WeekView';
@@ -30,7 +30,7 @@ export default function PhoneApp(): React.JSX.Element {
   const [ds, setDs] = useState(today);
   const [view, setView] = useState<View>('today'); // 열면 홈 대시보드가 먼저
   const [status, setStatus] = useState<string | null>(null);
-  const dbBroken = useSyncExternalStore(onDbHealth, isDbBroken, () => false);
+  const dbBroken = useSyncExternalStore(onSaveFallback, isSaveFallback, () => false);
 
   useEffect(() => {
     void sync().then((r) => {

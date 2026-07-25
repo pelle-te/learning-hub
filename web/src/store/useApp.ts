@@ -14,7 +14,7 @@ import { idbMirror } from '@/lib/idb';
 import { writeAndVerify, isMergeApplyPending, endMergeApply } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
-import { markDbFallback } from '@/lib/db/fallback';
+import { markDbFallback, setSaveFallback } from '@/lib/db/fallback';
 import { storage } from '@/lib/kv';
 import { announce, onSync } from '@/lib/sync';
 import { toast } from '@/shell/toast';
@@ -164,6 +164,7 @@ export const useApp = create<AppStore>()(
              지금은 임시 사본을 남기고(다음 부팅에 DB 가 여전히 죽어 있으면 `boot(storage)` 가
              이걸 읽는다) 마커를 찍는다 — 지속 배너(`app/StorageBanner`)가 그 사실을 말한다.
              토스트가 아니라 배너인 이유: 30초 스로틀 토스트는 자리를 비운 사이 통째로 놓친다. */
+          setSaveFallback(r.unavailable);
           if (r.unavailable) persistFallback(merged);
           else if (!r.ok && !r.skipped) warnSaveFailure();
         });

@@ -35,7 +35,14 @@ jobs:
       # `|| true` 로 무력화되는 길로 간다). 여기선 사유·만료일 원장으로 판단을 기한부로 만든다.
       - run: npm run audit
       - run: npm run lint
+      # lint:css — verify 구성요소인데 CI 에만 빠져 있던 비대칭(H5 · 2026-07-26 감사).
+      # **format:check 가 여기 빠져 있던 2026-07-16 사고와 같은 형태**이고, 그때 고친 사람이
+      # 이 둘(lint:css·knip)은 안 봤다. stylelint 는 CSS 규약(생 hex 금지 · 브레이크포인트 3종)의
+      # **유일한 집행자**다 — 규약을 관습에 두면 흘러내린다는 것이 이 저장소의 반복된 결론이다.
+      - run: npm run lint:css
       - run: npm run typecheck
+      # knip — 죽은 export·미사용 의존성. 위와 같은 누락이었다.
+      - run: npm run knip
       # format:check — verify 구성요소인데 CI 에만 빠져 있던 비대칭(감사 2026-07-16 ②#29):
       # 포맷 위반이 --no-verify·웹UI 커밋으로 들어오면 CI 가 통과시켰다. codegen:check 는
       # hub 단독 체크아웃엔 부모 스키마가 없어 graceful skip 이라 CI 추가 실익 없음(의도적 제외).

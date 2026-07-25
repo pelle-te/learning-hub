@@ -28,9 +28,8 @@ vi.mock('@/lib/tauri', async (orig) => ({
 }));
 vi.mock('@/lib/idb', () => ({ idbMirror: vi.fn(), idbLoad: vi.fn(async () => null) }));
 
-import { isDbBroken, onDbHealth } from '@/lib/db/sqlite';
 import { writeAndVerify } from '@/lib/db/write';
-import { dbFallbackAt } from '@/lib/db/fallback';
+import { dbFallbackAt, isSaveFallback, onSaveFallback } from '@/lib/db/fallback';
 import { KEY, defaults } from '@/lib/persistence';
 import { useApp } from '@/store/useApp';
 
@@ -45,29 +44,31 @@ describe('정본 가용성 — `skipped`(정상)와 `unavailable`(유실 직전)
     tauri.on = false;
     const r = await writeAndVerify(defaults());
     expect(r).toMatchObject({ ok: true, skipped: true, unavailable: false });
-    expect(isDbBroken()).toBe(false); // 정본이 아닌 경로는 "고장"이 아니다
   });
 
   it('셸인데 연결 실패면 unavailable + ok:false — 여기가 skipped 로 보고되던 자리다', async () => {
     tauri.on = true;
-    const seen: boolean[] = [];
-    const un = onDbHealth(() => seen.push(isDbBroken()));
     const r = await writeAndVerify(defaults());
-    un();
     expect(r).toMatchObject({ ok: false, skipped: false, unavailable: true });
-    expect(isDbBroken()).toBe(true);
-    expect(seen).toContain(true); // 배너가 구독하는 신호가 실제로 발화한다
   });
 });
 
 describe('useApp.flush — 정본이 죽으면 임시 저장으로 떨어진다(무음 유실 차단)', () => {
-  it('편집이 localStorage 임시 사본 + 회수 마커로 남는다', async () => {
+  it('편집이 localStorage 임시 사본 + 회수 마커로 남고, 배너 신호가 켜진다', async () => {
     tauri.on = true;
     localStorage.clear();
+    const seen: boolean[] = [];
+    const un = onSaveFallback(() => seen.push(isSaveFallback()));
     useApp.getState().mutate((s) => {
       s.moduleLen = 77;
     });
     await sleep(600); // 디바운스(400ms) + 비동기 쓰기 판정
+    un();
+    /* ⚠ 신호는 **편집이 실제로 저장에 실패했을 때** 켜진다(연결 실패가 아니라). 그 차이를
+       트랙 A 가 드러냈다 — 스텁이 Tauri 를 흉내내지만 SQL 을 거부해, 연결 기준이면 시각
+       스냅샷 전량에 경고 배너가 떴다(`db/fallback.ts` 머리주석). */
+    expect(seen).toContain(true);
+    expect(isSaveFallback()).toBe(true);
     const raw = localStorage.getItem(KEY);
     expect(raw).not.toBeNull();
     expect((JSON.parse(raw!) as { moduleLen: number }).moduleLen).toBe(77);
@@ -80,14 +81,18 @@ describe('useApp.flush — 정본이 죽으면 임시 저장으로 떨어진다(
    비워진다 — 회복을 앞에서 돌리면 그 뒤 케이스들이 살아 있는 DB 를 물려받아, "죽었을 때"를
    검사한다고 적어 놓고 실제로는 정상 경로를 검사하게 된다(정확히 이 파일이 잠그려는 부류의 침묵). */
 describe('회복 — 한 번의 실패가 영구 표시가 되지 않는다', () => {
-  it('연결이 살아나면 배너 신호도 내려간다', async () => {
+  it('저장이 다시 성공하면 배너 신호가 내려간다', async () => {
     tauri.on = true;
     const exec = vi.fn(async () => undefined);
     const select = vi.fn(async () => [] as unknown[]);
     load.mockImplementation(async () => ({ execute: exec, select }));
-    const r = await writeAndVerify(defaults());
-    expect(isDbBroken()).toBe(false);
-    expect(r.unavailable).toBe(false);
+
+    useApp.getState().mutate((s) => {
+      s.moduleLen = 78;
+    });
+    await sleep(600);
+
+    expect(isSaveFallback()).toBe(false);
     expect(exec).toHaveBeenCalled(); // 실제로 SQL 이 돌았다(= 회복 판정이 관측에 근거한다)
   });
 });

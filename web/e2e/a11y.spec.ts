@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { SEED, TABS, boot, settle } from './_fixtures';
+import { A11Y_EXTRA, SEED, TABS, boot, settle } from './_fixtures';
 
 /* ============================================================
    a11y.spec.ts — 접근성 자동검증(axe-core) · 트랙 A.
@@ -102,15 +102,15 @@ async function a11ySettle(page: import('@playwright/test').Page): Promise<void> 
   await settle(page);
 }
 
-/* 검사 화면 — 시각 회귀와 **같은 로스터**(`TABS`)를 쓴다. 목록이 갈리면 "시각은 보는데
-   a11y 는 안 보는 화면"이 조용히 생긴다. 다크만 도는 이유: 대비 위반은 테마마다 다르지만
-   구조 위반(라벨·롤·이름)은 같고, 대비는 아래 별도 테스트가 두 테마를 다 본다. */
-for (const tab of TABS) {
-  test(`a11y · ${tab}`, async ({ page }) => {
-    await boot(page, 'dark', SEED);
-    await page.goto('/' + tab);
-    await a11ySettle(page);
+/* 검사 화면 — 시각 회귀와 **같은 로스터**(`TABS`)를 쓰고, 거기 못 들어가는 화면은
+   `A11Y_EXTRA` 가 **같은 조건으로** 잇는다(H22 · 근거는 `_fixtures.ts` 의 그 상수 주석).
+   목록이 갈리면 "시각은 보는데 a11y 는 안 보는 화면"이 조용히 생긴다 — 실제로 생겨 있었다.
+   다크만 도는 이유: 대비 위반은 테마마다 다르지만 구조 위반(라벨·롤·이름)은 같고, 대비는
+   아래 별도 테스트가 두 테마를 다 본다. */
 
+/** 렌더된 화면 하나를 검사한다 — 로스터 둘이 **같은 판정**을 쓰게 하는 자리. */
+async function 검사(page: import('@playwright/test').Page, 화면: string): Promise<void> {
+  {
     const 결과 = await new AxeBuilder({ page })
       /* 캔버스 기반 화면(graph·AmbientCanvas)은 픽셀이라 axe 가 볼 것이 없다.
          제외가 아니라 **분석 대상 축소**다 — 주변 컨트롤은 그대로 검사한다. */
@@ -119,7 +119,7 @@ for (const tab of TABS) {
 
     const 위반 = 결과.violations
       .filter((v) => 임계.includes(v.impact ?? ''))
-      .filter((v) => !(`${tab} :: ${v.id}` in 알려진위반));
+      .filter((v) => !(`${화면} :: ${v.id}` in 알려진위반));
 
     /* 실패 메시지가 곧 수정 지시가 되게 — 규칙 id·설명·문제 노드의 셀렉터까지 싣는다.
        "a11y 위반 3건" 만 뜨면 사람이 다시 재현해야 한다. */
@@ -137,7 +137,30 @@ for (const tab of TABS) {
           .join('\n'),
     );
 
-    expect(위반.length, `${tab} 화면 a11y 위반 ${위반.length}건:${보고.join('')}\n`).toBe(0);
+    expect(위반.length, `${화면} 화면 a11y 위반 ${위반.length}건:${보고.join('')}\n`).toBe(0);
+  }
+}
+
+for (const tab of TABS) {
+  test(`a11y · ${tab}`, async ({ page }) => {
+    await boot(page, 'dark', SEED);
+    await page.goto('/' + tab);
+    await a11ySettle(page);
+    await 검사(page, tab);
+  });
+}
+
+/* `TABS` 로 못 도는 화면 — 시각 쪽에도 개별 테스트로 있다(스냅샷 6장). `ready` 로 **실제
+   콘텐츠가 떴음**을 먼저 단정하는 것이 요점이다: 빈 화면은 컨트롤도 랜드마크도 거의 없어
+   axe 가 통과해도 아무것도 증명하지 못한다(이 파일 머리주석의 '빠른 통과가 곧 거짓 통과'). */
+for (const 화면 of A11Y_EXTRA) {
+  test(`a11y · ${화면.key}`, async ({ page }) => {
+    await boot(page, 'dark', SEED);
+    await 화면.prep?.(page);
+    await page.goto(화면.path);
+    await 화면.ready(page);
+    await a11ySettle(page);
+    await 검사(page, 화면.key);
   });
 }
 

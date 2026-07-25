@@ -18,6 +18,42 @@
 import { storage } from '../kv';
 import { KEY } from '../persistence';
 
+/* ── "지금 임시 저장으로 돌고 있다" 신호 ─────────────────────────────────────
+
+   ⚠ **판정 기준이 "연결 실패"가 아니라 "저장이 실제로 임시본으로 떨어졌다" 인 것이 의도다.**
+
+   처음엔 `getDb()` 실패(= 연결)를 신호로 삼았는데, 트랙 A 가 그 선택이 틀렸음을 즉시 보여 줬다:
+   하네스는 `__TAURI_INTERNALS__` 스텁을 심어(산출물 IPC 를 목업하려고) `isTauri()` 를 참으로
+   만들지만 `plugin:sql|*` 은 거부한다 → **모든 시각 스냅샷에 경고 배너가 떴다.** 그건 하네스
+   사정이지 사용자 상태가 아니다.
+
+   더 중요한 것은 그게 우연이 아니라는 점이다 — 사용자에게 참인 사실은 "DB 소켓이 안 열렸다"가
+   아니라 **"내가 방금 한 편집이 정본에 못 갔다"** 이고, 후자만이 행동(내보내기 백업)을 부른다.
+   편집이 없었다면 잃을 것도 없다. 그래서 이 플래그는 `useApp.flush` 가 `unavailable` 을 받은
+   순간 켜지고, 저장이 다시 성공하면 꺼진다. */
+let _saveFallback = false;
+const _subs = new Set<() => void>();
+
+/** `useApp.flush` 전용 — 정본 저장 실패/성공을 그대로 반영한다. */
+export function setSaveFallback(on: boolean): void {
+  if (_saveFallback === on) return;
+  _saveFallback = on;
+  for (const cb of [..._subs]) cb();
+}
+
+/** 이번 세션의 편집이 임시 사본에만 남고 있는가(동기 — 배너가 읽는다). */
+export function isSaveFallback(): boolean {
+  return _saveFallback;
+}
+
+/** 신호 구독(`useSyncExternalStore` 용). 반환값은 해제 함수. */
+export function onSaveFallback(cb: () => void): () => void {
+  _subs.add(cb);
+  return () => {
+    _subs.delete(cb);
+  };
+}
+
 /** 임시 저장이 일어난 시각(ms). 값이 있으면 "회수하지 않은 임시 사본이 있다"는 뜻. */
 const MARK_KEY = KEY + '_dbfallback';
 
