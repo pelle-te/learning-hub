@@ -23,3 +23,6 @@ export const MOD_LABEL = isMac() ? '⌘' : 'Ctrl';
 
 /** 팔레트 호출 표기 — 버튼 라벨처럼 통짜로 보여 줄 때(`⌘K` / `Ctrl K`). */
 export const MOD_K_LABEL = isMac() ? '⌘K' : 'Ctrl K';
+
+/** 제출·캡처 표기(D-2 팔레트 캡처 · N-17 폼 제출) — `⌘Enter` / `Ctrl Enter`. */
+export const MOD_ENTER_LABEL = isMac() ? '⌘Enter' : 'Ctrl Enter';

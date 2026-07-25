@@ -89,14 +89,10 @@ function baseCommands(): PaletteCommand[] {
       run: () => usePrefill.getState().request('cbms', ''),
       to: '/journal',
     },
-    {
-      id: 'act:add-bl',
-      kind: 'act',
-      label: '기록 · 보충 필요 추가',
-      hint: '기록',
-      run: () => usePrefill.getState().request('bl', ''),
-      to: '/journal',
-    },
+    /* ⚠ `act:add-bl`(기록 · 보충 필요 추가)은 **D-2 에서 은퇴**했다. 하는 일이 "과목·내용을
+       빈 채로 보충 폼을 여는 것"이었는데, 이제 팔레트에서 문장을 치고 ⌘Enter 를 누르면 그
+       문장이 **그대로 보충에 담긴다**. 빈 폼을 여는 명령은 그보다 엄격히 못한 경로다
+       (친 글자를 버리고 다시 치게 만든다). 재추가 금지 — 근거는 로드맵 D-2. */
     // 도움말
     {
       id: 'act:shortcuts',

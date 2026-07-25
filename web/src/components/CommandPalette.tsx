@@ -13,7 +13,7 @@ import {
 } from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
-import { MOD_K_LABEL } from '@/lib/platform';
+import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { FIELDS, categoryOf } from '@/lib/atlas';
 import type { SemHit, SemKind } from '@/lib/semantic';
 
@@ -94,32 +94,22 @@ function summarize(c: CaptureResult): string {
   return parts.join(' · ');
 }
 
-/** 결과 0건 폴백.
- *
- *  예전엔 여기가 `Command.Empty` 의 "일치하는 명령이 없어요" 한 줄, 즉 **막다른 골목**이었다.
- *  파서가 날짜·과목·유형을 하나도 못 뽑은 문자열(= 그냥 떠오른 생각)이 정확히 그 경우인데,
- *  그건 실패가 아니라 **가장 흔한 캡처**다 → 그대로 보충에 담을 수 있게 한다.
+/** 결과 0건 안내.
  *
  *  ⚠ `filtered.count` 는 **forceMount 항목을 세지 않는다**(cmdk 는 forceMount 면 아예 등록을
  *  건너뛴다 — 실측). 이 팔레트의 캡처·통합검색·의미검색 결과가 전부 forceMount 라, 이 값은
- *  정확히 "명령·탭·분야 중 매칭 0"을 뜻한다. 그래서 다른 결과가 이미 있으면 별도로 가려낸다. */
+ *  정확히 "명령·탭·분야 중 매칭 0"을 뜻한다. 그래서 다른 결과가 이미 있으면 가려낸다.
+ *
+ *  ⚠ **D-2 이전엔 여기가 캡처의 유일한 입구였다** — 결과가 0건일 때만 "보충에 담기" 행을
+ *  띄웠다. 그래서 친 문장이 내가 공부 중인 무언가를 언급하는 순간(=검색이 히트하는 순간)
+ *  캡처가 사라졌다. 지금은 캡처가 {@link MOD_ENTER_LABEL} 로 **항상** 도달 가능하므로 여기는
+ *  안내만 한다(그 안내가 곧 발견 경로다). */
 function NoMatchFallback({ search, suppressed }: { search: string; suppressed: boolean }) {
   const none = useCommandState((s) => s.filtered.count === 0);
   const q = search.trim();
-  if (!none) return null;
+  if (!none || suppressed) return null;
   if (!q) return <div className={EMPTY}>일치하는 명령이 없어요</div>;
-  if (suppressed) return null; // 캡처 칩·검색 결과가 이미 답을 주고 있다.
-  return (
-    <Command.Item
-      forceMount
-      value={'capture-raw ' + search}
-      className={`${ITEM} ${CAPTURE}`}
-      onSelect={() => captureToBacklog(q)}
-    >
-      <span className={LABEL}>📥 “{q}” 를 보충에 담기</span>
-      <span className={HINT_CAP}>나중에 볼 것</span>
-    </Command.Item>
-  );
+  return <div className={EMPTY}>일치하는 명령이 없어요 — {MOD_ENTER_LABEL} 로 지금 친 문장을 그대로 캡처</div>;
 }
 
 /* CommandPalette — cmdk 기반 ⌘K 팔레트(손코딩 ui-command.js 대체, 설계도 §3).
@@ -190,6 +180,28 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     navigate('/journal', { viewTransition: true });
   };
 
+  /* ── D-2 캡처는 조건부이면 캡처가 아니다 ──────────────────────────────────
+     예전엔 캡처 행이 "결과 0건일 때"(생 텍스트) 또는 "파서가 토큰을 뽑았을 때"(구조화)만
+     떴다. 그래서 **친 문장이 내가 공부 중인 무언가를 언급하는 순간 캡처가 사라졌다** —
+     "변위전류 유도 못 따라감"은 챕터를 히트시키므로 검색 결과가 뜨고, 그러면 담을 곳이
+     없어진다. 캡처는 떠오른 것을 잃지 않으려고 있는 기능이라 조건부면 존재 이유가 없다.
+
+     ⚠ **첫 줄 고정을 안 한다.** 캡처 행을 목록 맨 위에 박으면 `⌘K → t → Enter`(탭 이동)
+     근육기억이 통째로 깨진다 — Enter 는 계속 '선택한 항목 실행'이고, 캡처는 전용 키를 갖는다.
+     정확한 목표는 "1급 시민"이 아니라 **"항상 도달 가능"**이다.
+
+     ⚠ cmdk 는 자기 키 처리 **전에** 이 핸들러를 부르고 `defaultPrevented` 를 존중한다
+     (dist 실측) → preventDefault 로 Enter 의 기본 동작(선택 항목 실행)을 정확히 가로챈다. */
+  const captureNow = () => {
+    const q = search.trim();
+    if (!q) return;
+    // 파서가 뭔가 뽑았으면 구조화 캡처(기록 프리필), 아니면 친 문장 그대로 보충으로.
+    // 뒤쪽이 중요하다 — 프리필은 과목·날짜만 나르므로 생 문장은 거기서 **사라진다**.
+    if (meaningful(cap)) runCapture();
+    else captureToBacklog(q);
+    close();
+  };
+
   return (
     <Command.Dialog
       open={open}
@@ -198,6 +210,11 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
       className={DIALOG}
       overlayClassName={OVERLAY}
       contentClassName={CONTENT}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey) || e.nativeEvent.isComposing) return;
+        e.preventDefault();
+        captureNow();
+      }}
     >
       <Command.Input
         value={search}
@@ -319,9 +336,14 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
           </Command.Item>
         ))}
       </Command.List>
+      {/* D-2 — 캡처의 발견 경로. 전용 키는 안 보이면 없는 것과 같아, 힌트 바가 곧 어포던스다.
+          입력이 있을 때만 액센트로 올라온다(늘 밝으면 다섯 힌트가 서로를 죽인다 · D-6 과 같은 규율). */}
       <div className={FOOT}>
         <span>
           <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>Esc</b> 닫기
+        </span>
+        <span className={search.trim() ? 'text-acc' : undefined}>
+          <b>{MOD_ENTER_LABEL}</b> {showCapture ? '캡처 — 기록' : '캡처 — 보충'}
         </span>
         <span className={BRAND}>{MOD_K_LABEL}</span>
       </div>

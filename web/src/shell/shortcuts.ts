@@ -32,6 +32,9 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
 /** 치트시트에 함께 보일 전역 단축키(시퀀스 외). 수정자 표기는 플랫폼 파생(lib/platform). */
 export const GLOBAL_SHORTCUTS: { keys: string; label: string }[] = [
   { keys: `${MOD_LABEL} + K`, label: '명령 팔레트' },
+  // D-2 — 팔레트 안에서만 유효하지만 여기 있는 이유: 캡처는 "떠올랐을 때" 쓰는 것이라
+  // 팔레트를 열어 힌트 바를 읽고 나서 배우면 이미 늦다.
+  { keys: `${MOD_LABEL} + Enter`, label: '팔레트에 친 문장을 그대로 캡처' },
   { keys: 'G 그다음 ↑표의 키', label: '탭으로 이동' },
   { keys: '[  /  ]', label: '이전 / 다음 탭' },
   { keys: ',  /  .', label: '이전 / 다음 주(스케줄·리뷰 탭)' },
