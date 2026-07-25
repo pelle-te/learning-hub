@@ -67,16 +67,18 @@ const TONE_NUM = { ok: 'text-acc!', warn: 'text-bad!' } as const;
 // 액센트 스와치 버튼 선택 상태 — 두 배경 유틸이 한 요소에 겹치지 않게 on/off 로 가른다(no-conflicting-classes 회피).
 const ACC_STATE = { on: 'border-acc! bg-acc-soft!', off: 'bg-transparent!' } as const;
 
-/** 2단계-D 양방향 검증 구간의 진단 한 줄 — SQL 경로가 JSON 정본과 일치하는가.
-    이 구간에서 정본은 여전히 localStorage 라 **사용자가 할 일은 없다**. 그래서 토스트가 아니라
-    설정 탭의 조용한 리드아웃이고, 브라우저(SQL 경로 없음)에선 렌더 자체를 안 한다.
-    2단계-E 에서 정본이 SQLite 로 뒤집히면 이 줄은 사라진다(구간의 수명이 곧 이 줄의 수명). */
+/** 저장 경로 진단 한 줄 — 쓴 것과 되읽은 것이 일치하는가(`db/write.ts` 의 되읽기 대조).
+    ⚠ 옛 주석은 "2단계-D 이행 구간의 한시적 줄이고 2단계-E 에서 사라진다"고 적고 있었다 —
+    둘 다 거짓이 됐다(정본이 SQLite 로 뒤집혔고 이 줄은 남았다 · `write.ts` 머리주석과 같은 드리프트).
+    지금 이 줄의 뜻: **정본 저장이 건강한가**. 브라우저(SQLite 가 정본 아님)에선 렌더하지 않는다.
+    사용자 행동이 필요한 사건(연결 실패)은 이 조용한 줄이 아니라 지속 배너가 맡는다(C1). */
 function ParityLine() {
   const p = lastParity();
   if (p.skipped) return null;
+  if (p.unavailable) return <div className={`ds-foot ${S.bdLine}`}>⚠ 저장소에 연결하지 못했습니다(임시 저장 중)</div>;
   return (
     <div className={`ds-foot ${S.bdLine}`}>
-      {p.ok ? '✓ SQLite 경로 일치(이행 검증 중)' : `⚠ SQLite 경로 불일치: ${p.mismatched.join(', ')}`}
+      {p.ok ? '✓ 저장 경로 정상(쓴 값과 되읽은 값 일치)' : `⚠ 저장 경로 불일치: ${p.mismatched.join(', ')}`}
     </div>
   );
 }

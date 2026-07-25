@@ -35,7 +35,15 @@ vi.mock('@/lib/db/sqlite', () => ({
   readMaxStamp: vi.fn(async () => 0),
 }));
 
-import { initAppStore, preloadedState, didMigrate, resetBootState } from '@/lib/db/boot';
+/* C2 — 다운그레이드 가드. `isTauri()` 는 진짜 것을 써야 하므로(`asTauri` 가 window 로 조작한다)
+   모듈 전체가 아니라 **이 함수 하나만** 갈아 끼운다. */
+const { dbVersionGuard } = vi.hoisted(() => ({ dbVersionGuard: vi.fn() }));
+vi.mock('@/lib/tauri', async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  dbVersionGuard,
+}));
+
+import { initAppStore, preloadedState, didMigrate, resetBootState, dbDowngrade } from '@/lib/db/boot';
 import { stateToRows } from '@/lib/db/rows';
 import { defaults, persist } from '@/lib/persistence';
 import { storage } from '@/lib/kv';
@@ -61,7 +69,30 @@ beforeEach(() => {
   readRows.mockReset();
   writeRows.mockReset().mockResolvedValue(true);
   isDbAvailable.mockReset().mockResolvedValue(true);
+  dbVersionGuard.mockReset().mockResolvedValue(null); // 기본은 "가드 없음"(구 배포본·브라우저)
   asTauri(true);
+});
+
+/* ⚠ 순서가 계약이다(C2 · 2026-07-26 감사). 가드가 `load()` **뒤에** 오면 이미 늦다 —
+   다운그레이드는 `load()` 실패로 나타나고, 그 실패는 "조용한 localStorage 폴백"으로 흘러
+   **뜨는데 데이터가 옛날 것**이 된다. 그래서 여기서 잠그는 것은 판정값이 아니라 **순서**다. */
+describe('initAppStore — 다운그레이드 가드(C2)', () => {
+  it('다운그레이드면 DB 를 열지도 않고 멈춘다(폴백 부팅 금지)', async () => {
+    dbVersionGuard.mockResolvedValue({ applied: 9, bundled: 7, downgraded: true });
+    persist(storage, marked('로컬')); // 폴백이 돌면 이게 실려 나온다 — 그러면 안 된다
+    await initAppStore();
+    expect(isDbAvailable).not.toHaveBeenCalled();
+    expect(preloadedState()).toBeNull();
+    expect(dbDowngrade()).toMatchObject({ applied: 9, bundled: 7 });
+  });
+
+  it('같은 버전이면 평소대로 부팅한다(가드가 정상 경로를 막지 않는다)', async () => {
+    dbVersionGuard.mockResolvedValue({ applied: 7, bundled: 7, downgraded: false });
+    readRows.mockResolvedValue(stateToRows(marked('디비')));
+    await initAppStore();
+    expect(dbDowngrade()).toBeNull();
+    expect(markerOf(preloadedState())).toBe('디비');
+  });
 });
 
 describe('initAppStore — 부팅 경로 선택', () => {

@@ -146,6 +146,84 @@ pub fn migrations() -> Vec<Migration> {
     ]
 }
 
+/* ── 다운그레이드 가드(C2 · 2026-07-26 감사) ─────────────────────────────────────
+
+⚠ **이 앱은 다운그레이드를 지원하지 않는다.** 판정이고, 그 판정을 여기서 코드로 만든다.
+
+근거는 sqlx 의 거동이다: `validate_applied_migrations`(sqlx-core 0.8 `migrate/migrator.rs`)가
+**DB 에 적용됐는데 번들에 없는 버전**을 `VersionMissing` 으로 거부한다. `tauri-plugin-sql` 은
+`Migrator::new` 기본값을 쓰므로 `ignore_missing:false` 다 → v7 을 적용한 DB 를 v6 만 아는 exe 가
+열면 `load()` 가 Err 를 낸다.
+
+그 다음이 문제였다. `load()` Err → `getDb()` null → **C1 경로에 그대로 착지**한다. 즉 증상이
+"앱이 안 뜬다"가 아니라 **"뜨는데 데이터가 옛날 것"** 이고, 그게 더 나쁘다 — 사용자는 정상으로
+보이는 앱에서 낡은 상태를 편집하고, 그 편집이 임시 사본으로 갈라진다.
+
+⚠ 지금은 안전하다(릴리스 0건 = 다운그레이드할 대상이 없다). **첫 업데이트를 내는 순간 무장된다** —
+그래서 지금 심는다. 처방은 조용한 폴백이 아니라 **명시적 화면**이고, 그 판정에 필요한 값은
+"DB 에 적용된 최대 버전"과 "이 빌드가 아는 최대 버전" 둘뿐이다.
+
+⚠ 규율 11-2 — 커맨드는 `AppHandle` 을 로직에 섞지 않는다. 아래 두 함수는 경로·값만 받는 순수
+/준순수 함수라 그 자리가 곧 통합 테스트 진입점이다. */
+
+/// 이 빌드가 아는 마지막 마이그레이션 버전.
+pub fn bundled_max_version() -> i64 {
+    migrations().iter().map(|m| m.version).max().unwrap_or(0)
+}
+
+/// DB 에 **이미 적용된** 최대 버전. 파일이 없거나(첫 실행) `_sqlx_migrations` 가 아직 없으면 `None`.
+///
+/// ⚠ 읽기 전용으로 연다 — 판정하러 온 길에 파일을 만들거나 고치면 안 된다(read_only 는
+/// 없는 파일을 만들지도 않는다).
+pub async fn applied_max_version_at(path: &std::path::Path) -> Result<Option<i64>, String> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let opts = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(true);
+    let pool = sqlx::SqlitePool::connect_with(opts)
+        .await
+        .map_err(|e| format!("DB 열기 실패: {e}"))?;
+    // 테이블 부재(= 아직 한 번도 마이그레이션 안 됨)는 오류가 아니라 `None` 이다.
+    let got: Option<(Option<i64>,)> = sqlx::query_as("SELECT MAX(version) FROM _sqlx_migrations")
+        .fetch_optional(&pool)
+        .await
+        .ok()
+        .flatten();
+    pool.close().await;
+    Ok(got.and_then(|(v,)| v))
+}
+
+/// 다운그레이드 판정 — 값 둘만 보는 순수 술어(그래서 테스트가 앱 없이 붙는다).
+pub fn is_downgrade(applied: Option<i64>, bundled: i64) -> bool {
+    applied.is_some_and(|a| a > bundled)
+}
+
+/// 부팅 가드 결과 — 프런트가 이 값으로 **명시적 화면**을 띄운다(조용한 폴백 금지).
+#[derive(serde::Serialize)]
+pub struct DbVersionGuard {
+    /// DB 에 적용된 최대 버전(아직 없으면 null).
+    pub applied: Option<i64>,
+    /// 이 빌드가 아는 최대 버전.
+    pub bundled: i64,
+    /// 다운그레이드인가 — 참이면 **DB 를 열어선 안 된다**.
+    pub downgraded: bool,
+}
+
+/// 프런트가 `load()` **앞에** 부른다. 여기서 참이면 프런트는 DB 를 열지 않고 화면으로 말한다.
+#[tauri::command]
+pub async fn db_version_guard(app: tauri::AppHandle) -> Result<DbVersionGuard, String> {
+    let path = crate::paths::db_path(&app)?;
+    let applied = applied_max_version_at(&path).await?;
+    let bundled = bundled_max_version();
+    Ok(DbVersionGuard {
+        applied,
+        bundled,
+        downgraded: is_downgrade(applied, bundled),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     /// 동기화 대상 테이블 — 전부 `updated_at` 을 갖는다(v3). `runtime_cache`·`meta` 는
@@ -159,6 +237,101 @@ mod tests {
         "week_alloc",
         "docs",
     ];
+
+    /* ▶ C2(2026-07-26 감사) — **이 케이스가 단언하는 것은 우리 코드가 아니라 sqlx 의 거동이다.**
+
+    그게 요점이다: 처방("다운그레이드는 지원하지 않는다 · 열지 말고 화면으로 말한다")이
+    *"구버전 exe 는 신버전 DB 를 못 연다"* 는 외부 라이브러리의 성질 위에 서 있다. 그 전제가
+    조용히 바뀌면(플러그인이 `ignore_missing` 을 켜거나 sqlx 가 정책을 바꾸면) 가드는 남는데
+    근거가 사라져, 있지도 않은 위험을 막느라 앱을 세우게 된다. 전제는 테스트가 붙들어야 한다.
+
+    ⚠ 임시 DB 로만 돈다 — 사용자의 실 DB 를 마이그레이션하는 검사는 만들지 않는다. */
+    #[test]
+    fn 구버전은_신버전_db_를_못_연다_그래서_가드가_먼저_말해야_한다() {
+        use super::{applied_max_version_at, bundled_max_version, is_downgrade, migrations};
+        use sqlx::migrate::{Migration as SqlxMigration, MigrationType, Migrator};
+        use std::borrow::Cow;
+
+        let dir = std::env::temp_dir().join("lh-downgrade-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("임시 폴더 생성 실패");
+        let path = dir.join("learning-hub.db");
+
+        /* `tauri-plugin-sql` 이 자기 `Migration` 을 sqlx 로 옮기는 것과 **같은 변환**이다
+        (`lib.rs:91` — `MigrationKind::Up` → `MigrationType::ReversibleUp`, `no_tx:false`).
+        여기서 어긋나면 체크섬이 달라져 다른 실패를 검사하게 된다. */
+        let migrator = |upto: i64| Migrator {
+            migrations: Cow::Owned(
+                migrations()
+                    .into_iter()
+                    .filter(|m| m.version <= upto)
+                    .map(|m| {
+                        SqlxMigration::new(
+                            m.version,
+                            Cow::Borrowed(m.description),
+                            MigrationType::ReversibleUp,
+                            Cow::Borrowed(m.sql),
+                            false,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            ignore_missing: false, // 플러그인이 쓰는 `Migrator::new` 기본값(commands.rs:22)
+            locking: true,
+            no_tx: false,
+        };
+
+        let newest = bundled_max_version();
+        assert!(newest >= 2, "버전이 하나뿐이면 이 검사가 성립하지 않는다");
+
+        crate::testkit::rt().block_on(async {
+            // ① 최신 앱이 만든 DB.
+            let pool = sqlx::SqlitePool::connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(&path)
+                    .create_if_missing(true),
+            )
+            .await
+            .expect("임시 DB 열기 실패");
+            migrator(newest)
+                .run(&pool)
+                .await
+                .expect("최신 마이그레이션 적용 실패");
+            pool.close().await;
+
+            // ② 가드가 판정에 쓰는 값 — 실제로 읽힌다(읽기 전용 · 파일 훼손 없음).
+            let applied = applied_max_version_at(&path)
+                .await
+                .expect("적용 버전 조회 실패");
+            assert_eq!(applied, Some(newest), "적용된 최대 버전을 못 읽었다");
+            assert!(
+                is_downgrade(applied, newest - 1),
+                "구버전 빌드에서 다운그레이드로 판정돼야 한다"
+            );
+            assert!(
+                !is_downgrade(applied, newest),
+                "같은 버전은 다운그레이드가 아니다"
+            );
+
+            // ③ 구버전 exe 흉내 — 하나 적은 집합으로 같은 DB 를 열면 **거부된다**.
+            let pool = sqlx::SqlitePool::connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new().filename(&path),
+            )
+            .await
+            .expect("임시 DB 재열기 실패");
+            let err = migrator(newest - 1)
+                .run(&pool)
+                .await
+                .expect_err("구버전이 신버전 DB 를 열었다 — C2 가드의 전제가 깨졌다");
+            assert!(
+                matches!(err, sqlx::migrate::MigrateError::VersionMissing(v) if v == newest),
+                "기대한 거부 사유가 아니다: {err:?}"
+            );
+            pool.close().await;
+        });
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /* ▶ 트랙 B 의 `C-5 — 실 DB 에 updated_at = 0 인 행이 없다` 를 여기로 내렸다.
 

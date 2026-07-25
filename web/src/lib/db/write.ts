@@ -13,8 +13,11 @@
    ## 지금의 계약
 
    · **셸**: `writeAndVerify` 가 정본을 쓴다. 실패는 `useApp` 이 사용자에게 경고한다(무시 금지).
-   · **브라우저(dev·트랙 A)**: `isDbAvailable()` 이 거짓 → `skipped` 로 즉시 반환하고
+   · **브라우저(dev·트랙 A)**: SQLite 가 정본이 아니다 → `skipped` 로 즉시 반환하고
      localStorage 경로가 저장을 맡는다(2·3단계와 같은 폴백 규율).
+   · **정본인데 연결 실패**(C1 · 2026-07-26): `unavailable` 로 반환한다. 이게 `skipped` 와
+     같은 값이던 것이 결함이었다 — 둘 다 "SQL 을 못 돌렸다"지만 전자는 **정상**이고 후자는
+     **데이터 유실 직전**이라, 한 값으로 뭉치면 호출부가 폴백도 경고도 못 한다.
 
    왜 쓰기만 하지 않고 **되읽어** 대조하는가: `stateToRows`/`rowsToState` 왕복은
    `dbRows.test.ts` 가 이미 잠갔다. 남은 미지는 그 사이의 **SQL 층**(타입 강제 변환·NULL 처리)이고,
@@ -22,7 +25,7 @@
    거기서 나왔다 — 검증을 떼면 그 부류가 다시 조용해진다.
 ============================================================ */
 import { stateToRows, rowsToState } from './rows';
-import { readRows, writeRows, isDbAvailable } from './sqlite';
+import { readRows, writeRows, isDbAvailable, isSqlitePrimary } from './sqlite';
 import type { AppState } from '../types';
 
 /** 대조 결과 — 소비처(개발 콘솔·설정 탭 진단)가 읽는다. */
@@ -30,11 +33,15 @@ export interface ParityReport {
   ok: boolean;
   /** 값이 갈린 최상위 슬라이스 이름. ok=true 면 빈 배열. */
   mismatched: string[];
-  /** SQL 경로가 아예 못 돈 경우(브라우저·DB 미가용). 이땐 ok 를 판정하지 않는다. */
+  /** SQL 경로가 **정상적으로** 안 돈 경우(브라우저·dev·트랙 A — SQLite 가 정본이 아니다).
+   *  이땐 ok 를 판정하지 않는다. ⚠ "DB 가 죽었다"는 여기가 아니라 `unavailable` 이다. */
   skipped: boolean;
+  /** SQLite 가 **정본인데** 연결에 실패했다(C1). `ok:false` 와 함께 온다 —
+   *  호출부는 localStorage 폴백 + 지속 배너로 이어야 한다. */
+  unavailable: boolean;
 }
 
-let _last: ParityReport = { ok: true, mismatched: [], skipped: true };
+let _last: ParityReport = { ok: true, mismatched: [], skipped: true, unavailable: false };
 let _inflight: Promise<unknown> | null = null;
 
 /** 마지막 대조 결과(설정 탭 진단·테스트가 읽는다). */
@@ -135,22 +142,28 @@ export function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
 
 async function runWrite(state: AppState): Promise<ParityReport> {
   if (!(await isDbAvailable())) {
-    _last = { ok: true, mismatched: [], skipped: true };
+    /* ⚠ 여기가 C1 의 자리다. 같은 `null` 이 두 뜻이었다 — 아래 두 갈래로 가른다.
+       (`isDbAvailable()` 이 `getDb()` 를 부르며 가용성 플래그를 갱신하므로 순서가 중요하다.) */
+    if (!isSqlitePrimary()) {
+      _last = { ok: true, mismatched: [], skipped: true, unavailable: false };
+      return _last;
+    }
+    _last = { ok: false, mismatched: ['<DB 연결 불가>'], skipped: false, unavailable: true };
     return _last;
   }
   try {
     const wrote = await writeRows(stateToRows(state));
     if (!wrote) {
-      _last = { ok: false, mismatched: ['<쓰기 실패>'], skipped: false };
+      _last = { ok: false, mismatched: ['<쓰기 실패>'], skipped: false, unavailable: false };
       return _last;
     }
     const back = await readRows();
     if (!back) {
-      _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false };
+      _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false, unavailable: false };
       return _last;
     }
     const mismatched = diffSlices(state, rowsToState(back));
-    _last = { ok: !mismatched.length, mismatched, skipped: false };
+    _last = { ok: !mismatched.length, mismatched, skipped: false, unavailable: false };
     if (mismatched.length) {
       /* ⚠ 셸에선 이 불일치가 **정본이 의도와 다르게 저장됐다**는 뜻이다. 콘솔 경고는 진단용이고,
          사용자에게 알리는 책임은 호출부(`useApp` → `warnSaveFailure`)에 있다 — 여기서 토스트를
@@ -160,7 +173,7 @@ async function runWrite(state: AppState): Promise<ParityReport> {
     return _last;
   } catch (e) {
     console.error('[db] 저장/대조 중 예외', e);
-    _last = { ok: false, mismatched: [`<예외: ${(e as Error).message}>`], skipped: false };
+    _last = { ok: false, mismatched: [`<예외: ${(e as Error).message}>`], skipped: false, unavailable: false };
     return _last;
   }
 }

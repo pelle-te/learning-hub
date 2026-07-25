@@ -18,7 +18,7 @@ import '@/styles/tw.css';
 import '@/styles/ds.css';
 
 import { queryClient } from '@/app/queryClient';
-import { initAppStore } from '@/lib/db/boot';
+import { initAppStore, dbDowngrade } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';
 import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
@@ -41,6 +41,29 @@ function ShellFallback() {
   );
 }
 
+/* 다운그레이드 화면(C2 · 2026-07-26 감사) — **앱을 띄우지 않는다.**
+
+   이 상태에서 정상 부팅시키면 DB 는 안 열리고 낡은 localStorage 로 떠서, 사용자는 정상으로
+   보이는 앱에서 옛 데이터를 편집한다(= 신버전이 만든 정본과 갈라진다). 그래서 조용한 폴백이
+   아니라 화면이고, 여기서 `App`·`ThemeProvider` 를 **import 하지 않는 것**이 방어의 일부다 —
+   그 두 줄이 `useApp` 모듈 평가를 유발하고, 그러면 어떤 편집도 없이 쓰기 경로가 살아난다. */
+function DowngradeScreen({ applied, bundled }: { applied: number | null; bundled: number }) {
+  return (
+    <div className="wrap">
+      <div className="ds-card">
+        <h2>더 새 버전이 만든 데이터예요</h2>
+        <p className="ds-muted">
+          이 데이터(v{applied})는 지금 실행 중인 앱(v{bundled})보다 새 버전이 만들었습니다. 구버전으로 열면 데이터가
+          갈리기 때문에 시작을 멈췄어요 — <b>최신 버전으로 업데이트</b>한 뒤 다시 실행하세요.
+        </p>
+        <p className="ds-muted ds-tiny">
+          이 앱은 다운그레이드를 지원하지 않습니다. 되돌려야 한다면 최신 버전에서 먼저 데이터를 내보내세요.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /* 2단계-E — 스토어를 **마운트 전에** 준비한다.
    셸에선 SQLite 가 정본이라 읽기가 비동기인데, 하이드레이션 게이트(기본값으로 먼저 렌더 후 교체)를
    쓰면 "하이드레이션 전 쓰기가 기본값으로 실데이터를 덮는" 실패 모드가 새로 생긴다(0단계-E에서
@@ -57,6 +80,16 @@ installGlobalErrorHooks();
 void initAppStore()
   .catch((e: unknown) => reportError(e, 'initAppStore'))
   .then(async () => {
+    /* C2 — 다운그레이드면 여기서 끝난다(앱 모듈을 아예 안 부른다). */
+    const down = dbDowngrade();
+    if (down) {
+      createRoot(document.getElementById('root')!).render(
+        <StrictMode>
+          <DowngradeScreen applied={down.applied} bundled={down.bundled} />
+        </StrictMode>,
+      );
+      return;
+    }
     /* 전송처는 클라우드 설정에서 온다. 미연결이면 `null` → 전 경로 무동작(설계 원칙 ③). */
     await readCloudConfig()
       .then((cfg) => {

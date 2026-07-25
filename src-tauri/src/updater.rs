@@ -22,7 +22,36 @@
    (그래서 여기 `#[cfg(test)]` 가 얇은 것이 정상이다 — 없는 로직을 만들어 테스트하지 않는다).
 ============================================================ */
 use serde::Serialize;
-use tauri_plugin_updater::UpdaterExt;
+use tauri_plugin_updater::{Updater, UpdaterExt};
+
+/* ⚠⚠ **엔드포인트는 런타임에 온다(C3 · 2026-07-26 감사).**
+
+`tauri.conf.json` 의 GitHub Releases URL 은 **실측 404 였다** — 저장소가 비공개라(api.github.com
+도 404) 업데이터가 토큰을 싣지 않으므로 `check()` 가 **모든 사용자에게** Err 였다. 즉 "전달" 층이
+한 번도 왕복된 적이 없었다. `릴리스.md:103` 이 그 조건을 정확히 경고해 두고 확인 없이 배선했다.
+
+처방은 같은 문서의 대안②다: **사용자 자신의 Workers 오리진**(폰 웹앱을 이미 서빙 중인 그것)에
+`latest.json` 을 정적 자산으로 올린다 — 추가 호스팅 0, 공개 접근 가능. 그런데 그 오리진은
+**사람마다 다르고 빌드 시점에 모른다.** 그래서 프런트가 클라우드 설정의 `baseUrl` 로 만들어
+넘기고, 여기서 `updater_builder().endpoints()` 로 갈아 끼운다.
+
+⚠ **엔드포인트가 신뢰 경계가 아니다.** 서명 검증은 `tauri.conf.json` 의 pubkey 로 하고 개인키는
+로컬에만 있다 — 엔드포인트를 가로채도 임의 페이로드를 설치시킬 수 없다. 그래서 이 값을 런타임
+입력으로 받는 것이 안전하다(반대로 pubkey 를 런타임 입력으로 받으면 그 순간 무너진다). */
+fn updater_with(app: &tauri::AppHandle, endpoint: Option<String>) -> Result<Updater, String> {
+    let mut b = app.updater_builder();
+    if let Some(url) = endpoint
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    {
+        let parsed = reqwest::Url::parse(&url)
+            .map_err(|e| format!("업데이트 주소가 올바르지 않습니다: {e}"))?;
+        b = b
+            .endpoints(vec![parsed])
+            .map_err(|e| format!("업데이트 주소를 설정하지 못했습니다: {e}"))?;
+    }
+    b.build().map_err(|e| e.to_string())
+}
 
 /// 업데이트 확인 결과. 프런트가 이 모양 그대로 읽는다(`web/src/lib/tauri.ts`).
 #[derive(Serialize, Default)]
@@ -43,9 +72,12 @@ pub struct UpdateInfo {
 /// 프런트가 조용히 무시할지 토스트를 띄울지 정한다. 여기서 삼키면 UI 가 "확인됨(없음)"과
 /// "확인 못 함"을 구분할 수 없다.
 #[tauri::command]
-pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
+pub async fn check_update(
+    app: tauri::AppHandle,
+    endpoint: Option<String>,
+) -> Result<UpdateInfo, String> {
     let current = app.package_info().version.to_string();
-    let updater = app.updater().map_err(|e| e.to_string())?;
+    let updater = updater_with(&app, endpoint)?;
     match updater.check().await.map_err(|e| e.to_string())? {
         Some(u) => Ok(UpdateInfo {
             available: true,
@@ -66,8 +98,9 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
 /// ⚠ 이 함수는 정상 경로에서 **돌아오지 않는다**(`restart` 가 프로세스를 갈아탄다).
 /// 프런트는 호출 전에 저장이 끝났음을 보장해야 한다 — 그래서 설정 UI 가 확인 대화를 낀다.
 #[tauri::command]
-pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
-    let updater = app.updater().map_err(|e| e.to_string())?;
+pub async fn install_update(app: tauri::AppHandle, endpoint: Option<String>) -> Result<(), String> {
+    /* ⚠ 확인과 설치가 **같은 엔드포인트**를 봐야 한다 — 다르면 "본 것과 다른 것을 설치"한다. */
+    let updater = updater_with(&app, endpoint)?;
     let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
         return Err("설치할 업데이트가 없습니다".into());
     };

@@ -5,6 +5,10 @@ web/dev-dist/
 web/.vite/
 node_modules/
 
+# 업데이트 인스톨러(C3) — 같은 오리진에서 서빙하려고 `public/updates/` 에 두지만,
+# 저장소에 릴리스마다 수 MB 바이너리를 쌓지는 않는다(매니페스트 `latest.json` 만 추적).
+web/public/updates/*.exe
+
 # 로그/OS
 *.log
 .DS_Store

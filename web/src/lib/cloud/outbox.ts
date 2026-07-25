@@ -28,6 +28,25 @@
    이번 배치에서 제외되고 **다음 배치에 걸린다**. 과다 포함은 안전하고(같은 값 재전송 =
    LWW 무해) 과소 포함만 위험한데, fence 는 정확히 그 비대칭에 맞춘 설계다.
 
+   ## ⚠⚠ fence 만으로는 못 막는 벡터 — 수집도 같은 직렬화 단위여야 한다 (C4 · 2026-07-26 감사)
+
+   위 논증은 *"스캔 도중에 스탬프를 받는 쓰기"*(> fence)만 다룬다. 그런데 **스탬프는 이미
+   받았는데 아직 커밋되지 않은 쓰기**가 있다:
+
+       ① flush 가 스탬프 S 를 발급(`sqlite.ts` 의 `writeRows`) → ② `await db.batch(...)` 진행 중
+       → ③ 그 창에 `collectOutbox` 가 fence F(>S)를 발급하고 **별도 커넥션**으로 스캔
+       → 아직 커밋 전이라 S 행이 안 보인다 → ④ 전송 성공 → `commitWatermark(F)`
+       → 이제 **S ≤ W** 라 그 행은 `updated_at > W` 에 영원히 안 걸린다.
+
+   조용하고 영구적이다(결정로그 C1 과 같은 계열, 방향만 반대). 쓰기 3종(flush·병합·docs)은
+   전부 `runExclusive` 위인데 **수집만 그 밖이었다** — 그래서 아래 `collectOutbox` 는 fence
+   발급과 스캔을 통째로 그 체인 안에서 돌린다. 그러면 ①②가 끝난 뒤에야 F 가 발급되므로
+   위 인터리브 자체가 성립하지 않는다.
+
+   ⚠ **원격 전송(`transport.push`)은 여전히 체인 밖이다**(`push.ts` 가 수집과 전송을 나눠
+   부른다) — 설계 §5-2 의 "로컬만 기다린다"가 그대로 유지된다. 체인에 드는 것은 로컬 읽기뿐이라
+   창 닫기 가드(`whenSettled`)가 기다려도 네트워크를 기다리지 않는다.
+
    ## `docs` 의 남은 갭 → **판정 완료**(2026-07-20)
 
    결론만: **지금은 실害가 없다 — 제품에 `docs` 삭제 경로가 아예 없기 때문이다.** 근거와
@@ -36,6 +55,7 @@
 ============================================================ */
 import { capBatch, OUTBOX_TABLES, tableCols, type OutboxBatch, type OutboxRow, type OutboxTomb } from './contract';
 import { execDb, selectDb } from '../db/sqlite';
+import { runExclusive } from '../db/write';
 import { nextStamp } from '../db/stamp';
 
 /* ⚠ 계약(타입·테이블 명세·상한)은 **`contract.ts` 가 소유한다.** 여기서 다시 정의하지
@@ -89,6 +109,13 @@ export async function commitWatermark(upto: number): Promise<boolean> {
  * 전진한 뒤 다음 호출이 가져간다 — 즉 큰 동기화는 여러 배치로 나뉘어 **자연히 재개**된다.
  */
 export async function collectOutbox(since?: number): Promise<OutboxBatch | null> {
+  /* ⚠ **쓰기와 같은 직렬화 단위에서 돈다(C4).** fence 발급과 스캔 사이가 아니라, *스탬프는
+     발급됐는데 아직 커밋 전인 쓰기* 가 문제였다 — 머리주석의 C4 절이 SSOT. 전송은 여전히
+     이 체인 밖이다(호출부 `push.ts` 가 수집과 전송을 나눠 부른다). */
+  return runExclusive(() => scanOutbox(since));
+}
+
+async function scanOutbox(since?: number): Promise<OutboxBatch | null> {
   const from = since ?? (await readWatermark());
   // 상한선을 **스캔 전에** 발급한다 — 이유는 머리주석 "fence" 참조.
   const fence = nextStamp();

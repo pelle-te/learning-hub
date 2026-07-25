@@ -24,8 +24,13 @@
 ============================================================ */
 import { useCallback, useState } from 'react';
 import { checkUpdate, installUpdate, isTauri, type UpdateInfo } from '@/lib/tauri';
+import { readCloudConfig, updateManifestUrl } from '@/lib/cloud/client';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
+
+/* ⚠ 엔드포인트를 **매번 설정에서 읽는다**(C3). 빌드 시점 상수가 아닌 이유: 배포처가 사용자
+   자신의 Workers 오리진이라 사람마다 다르다. 근거는 `updater.rs` 머리주석이 SSOT. */
+const endpoint = async (): Promise<string | undefined> => updateManifestUrl(await readCloudConfig());
 
 export default function UpdateCard() {
   const [busy, setBusy] = useState(false);
@@ -34,7 +39,7 @@ export default function UpdateCard() {
   const onCheck = useCallback(async () => {
     setBusy(true);
     try {
-      const r = await checkUpdate();
+      const r = await checkUpdate(await endpoint());
       setInfo(r);
       if (!r.available) ui.toast(`최신 버전입니다 (${r.current})`);
     } catch (e) {
@@ -52,7 +57,7 @@ export default function UpdateCard() {
     if (!confirm('지금 내려받아 설치하고 앱을 재시작합니다.\n진행 중인 작업이 있으면 먼저 저장하세요.')) return;
     setBusy(true);
     try {
-      await installUpdate();
+      await installUpdate(await endpoint());
     } catch (e) {
       setBusy(false);
       ui.toast(`설치 실패: ${e instanceof Error ? e.message : String(e)}`);

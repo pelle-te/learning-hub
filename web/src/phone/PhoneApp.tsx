@@ -6,11 +6,12 @@
    그만큼이 빠진다 — 예산이 데스크톱과 합산되므로(§ `scripts/bundle-budget.mjs`) 이건
    취향이 아니라 제약이다.
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { addDays, iso, parseISO, todayISO } from '@/lib/utils';
 import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { isDurable } from '@/lib/db/browserDb';
+import { isDbBroken, onDbHealth } from '@/lib/db/sqlite';
 import TodayView from './TodayView';
 import DayView from './DayView';
 import WeekView from './WeekView';
@@ -29,6 +30,7 @@ export default function PhoneApp(): React.JSX.Element {
   const [ds, setDs] = useState(today);
   const [view, setView] = useState<View>('today'); // 열면 홈 대시보드가 먼저
   const [status, setStatus] = useState<string | null>(null);
+  const dbBroken = useSyncExternalStore(onDbHealth, isDbBroken, () => false);
 
   useEffect(() => {
     void sync().then((r) => {
@@ -88,6 +90,14 @@ export default function PhoneApp(): React.JSX.Element {
           </span>
         </div>
 
+        {/* ⚠ 정본 연결 실패도 말한다(C1 · 2026-07-26 감사) — 폰도 SQLite 가 정본이라, 워커가
+            죽으면 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**. 데스크톱은 배너
+            (`app/StorageBanner`)가 같은 사실을 말한다 — 화면은 갈라도 규칙은 하나다. */}
+        {dbBroken ? (
+          <p role="alert" className="px-3 pb-2 text-xs text-bad">
+            저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.
+          </p>
+        ) : null}
         {/* ⚠ 영속 실패는 말한다 — OPFS 를 못 잡으면 새로고침 한 번에 오프라인 캐시가 증발한다.
             조용히 두면 "저장되는 것처럼 보이면서 아무것도 안 쓰는" 상태가 된다. */}
         {!isDurable() ? (

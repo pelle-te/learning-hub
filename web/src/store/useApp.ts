@@ -14,6 +14,7 @@ import { idbMirror } from '@/lib/idb';
 import { writeAndVerify, isMergeApplyPending, endMergeApply } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
+import { markDbFallback } from '@/lib/db/fallback';
 import { storage } from '@/lib/kv';
 import { announce, onSync } from '@/lib/sync';
 import { toast } from '@/shell/toast';
@@ -36,6 +37,25 @@ function warnSaveFailure(): void {
   if (now - _lastSaveFailToastAt < SAVE_FAIL_TOAST_GAP_MS) return;
   _lastSaveFailToastAt = now;
   toast('저장 실패 — 저장공간이 가득 찼을 수 있어요. 데이터 내보내기로 백업하세요.', 'bad', 6000);
+}
+
+/* 정본(SQLite)이 죽었을 때의 **임시** 저장(C1 · 2026-07-26 감사). 이 사본이 그 세션에 남는
+   유일한 사용자 데이터다 — 다음 부팅에 DB 가 여전히 죽어 있으면 `initAppStore` 가 폴백해 이걸
+   읽고, 회복돼 있으면 배너가 파일로 회수시킨다(`lib/db/fallback.ts` 머리주석이 SSOT).
+   ⚠ 성공/실패를 삼키지 않는 것이 요점이 아니다 — **폴백이 아예 없던 것**이 결함이었다. */
+function persistFallback(merged: AppState): void {
+  let json: string | null = null;
+  try {
+    json = persist(storage, merged);
+    markDbFallback();
+  } catch {
+    /* 임시 저장마저 실패(쿼터 초과 등) — 사용자에게 남은 길은 내보내기뿐이고 배너가 그걸 요구한다. */
+  }
+  try {
+    idbMirror(json ?? serialize(merged));
+  } catch {
+    /* 직렬화 자체 실패(비정상 상태) — 미러 불가 */
+  }
 }
 
 /* 부팅 최후 방어선 — boot()는 JSON 파싱 실패를 이미 CORRUPT_KEY 보존 + defaults()로 덮지만,
@@ -137,7 +157,15 @@ export const useApp = create<AppStore>()(
       if (isSqlitePrimary()) {
         pending = []; // 셸·폰 모두 단일 윈도우 — rebase 상대가 없으므로 큐를 들고 있을 이유가 없다
         void writeAndVerify(merged).then((r) => {
-          if (!r.ok && !r.skipped) warnSaveFailure();
+          /* ⚠⚠ **정본이 죽었으면 여기서 끝내지 않는다(C1 · 2026-07-26 감사).** 예전엔 연결 실패가
+             `skipped`(= "브라우저라 정상")로 와서 이 콜백이 아무것도 안 했고, 위 `return` 때문에
+             아래 localStorage 폴백도 안 탔다. 결과: 그 세션 편집이 **메모리에만** 살고 재시작하면
+             낡은 데이터로 떠서 사용자에겐 "저장한 게 사라졌다"가 됐다(무음 유실).
+             지금은 임시 사본을 남기고(다음 부팅에 DB 가 여전히 죽어 있으면 `boot(storage)` 가
+             이걸 읽는다) 마커를 찍는다 — 지속 배너(`app/StorageBanner`)가 그 사실을 말한다.
+             토스트가 아니라 배너인 이유: 30초 스로틀 토스트는 자리를 비운 사이 통째로 놓친다. */
+          if (r.unavailable) persistFallback(merged);
+          else if (!r.ok && !r.skipped) warnSaveFailure();
         });
         return;
       }

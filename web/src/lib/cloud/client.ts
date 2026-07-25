@@ -93,6 +93,19 @@ export async function readCloudConfig(): Promise<CloudConfig | null> {
   return { baseUrl, deviceId, refreshToken };
 }
 
+/**
+ * 업데이터가 볼 `latest.json` 주소(C3 · 2026-07-26 감사).
+ *
+ * **폰 웹앱과 같은 오리진의 정적 자산**이다(`web/public/updates/latest.json` → `web/dist` →
+ * Workers assets). 왜 GitHub Releases 가 아닌지: 그 URL 은 저장소가 비공개라 **실측 404** 였고,
+ * 업데이터는 토큰을 싣지 않아 모든 사용자에게 확인이 실패했다(`릴리스.md` 대안②).
+ *
+ * 미연결이면 `undefined` — 그땐 `tauri.conf.json` 의 기본 엔드포인트로 떨어진다(= 종전 거동).
+ */
+export function updateManifestUrl(cfg: CloudConfig | null): string | undefined {
+  return cfg ? `${cfg.baseUrl}/updates/latest.json` : undefined;
+}
+
 /** 등록 코드로 이 기기를 클라우드에 붙인다. 성공하면 설정이 저장된다. */
 export async function enrollDevice(baseUrl: string, code: string, name: string): Promise<CloudConfig> {
   // 끝 슬래시 제거. 정규식(`/\/+$/`)은 백트래킹 때문에 ReDoS 대상이라 쓰지 않는다(sonarjs).

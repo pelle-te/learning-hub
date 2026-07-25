@@ -71,6 +71,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // SD-6 — 프런트가 **백엔드가 마이그레이션한 그 DB** 를 열게 한다(값 두 벌 금지).
             paths::db_url_cmd,
+            /* C2 — 프런트가 DB 를 **열기 전에** 다운그레이드인지 묻는다. 조용한 폴백이면
+            "뜨는데 데이터가 옛날 것"이 되기 때문(근거는 db.rs 의 가드 절 주석). */
+            db::db_version_guard,
             workspace::workspace_status,
             workspace::set_workspace,
             vault::vault_scan,

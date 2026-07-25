@@ -66,12 +66,48 @@ export function isSqlitePrimary(): boolean {
   return isTauri() || _browserDbEnabled;
 }
 
+/* ── 가용성(C1 · 2026-07-26 감사) ────────────────────────────────
+
+   ⚠ **`isSqlitePrimary()` 는 "가용성"이 아니다.** 그 둘을 한 술어가 겸직하던 것이 이 파일
+   `getDb()` 의 catch 가 정확히 진단해 놓고도(아래 주석) 사용자 절반을 열어 둔 원인이다:
+   연결이 실패하면 `getDb()` 는 null 을 주는데, 정본 쓰기 경로(`db/write.ts`)는 그 null 을
+   **"브라우저라 SQL 을 안 쓴다"(정상)** 와 구분하지 못해 `skipped` 로 보고했고, 호출부
+   (`useApp.flush`)는 그걸 성공으로 읽고 **localStorage 폴백도 타지 않은 채** 반환했다.
+   결과: 그 세션의 편집이 메모리에만 살고, 재시작하면 낡은 localStorage 로 떠서
+   사용자에겐 "저장한 게 사라졌다"가 된다.
+
+   그래서 술어를 가른다 — 실행 경로(`isSqlitePrimary`)와 **지금 쓸 수 있는가**(`isDbBroken`).
+   동기 함수인 것이 의도다(`useApp.flush`·배너가 동기 경로). */
+let _dbBroken = false;
+const _healthSubs = new Set<() => void>();
+
+function setDbBroken(v: boolean): void {
+  if (_dbBroken === v) return;
+  _dbBroken = v;
+  for (const cb of [..._healthSubs]) cb();
+}
+
+/** SQLite 가 정본인데 **연결에 실패한** 상태인가. 브라우저(정본 아님)에선 항상 false. */
+export function isDbBroken(): boolean {
+  return _dbBroken;
+}
+
+/** 가용성 변화 구독(`useSyncExternalStore` 용). 반환값은 해제 함수. */
+export function onDbHealth(cb: () => void): () => void {
+  _healthSubs.add(cb);
+  return () => {
+    _healthSubs.delete(cb);
+  };
+}
+
 /** DB 핸들(지연 로드·1회). 셸이면 plugin-sql, 폰이면 wasm, 그 외 브라우저는 null. */
 export async function getDb(): Promise<Db | null> {
   if (!isTauri()) {
-    if (!_browserDbEnabled) return null;
+    if (!_browserDbEnabled) return null; // 정본이 아니다 — 가용성 판정 대상이 아니므로 플래그를 안 건드린다
     const { getBrowserDb } = await import('./browserDb');
-    return getBrowserDb();
+    const db = await getBrowserDb(); // 자체 catch 로 null 을 준다(로그는 그쪽이 남긴다)
+    setDbBroken(!db);
+    return db;
   }
   _db ??= Promise.all([import('@tauri-apps/plugin-sql'), dbUrl()])
     .then(([m, url]) => m.default.load(url) as Promise<Db>)
@@ -88,11 +124,16 @@ export async function getDb(): Promise<Db | null> {
       return db;
     });
   try {
-    return await _db;
+    const db = await _db;
+    setDbBroken(false); // 재시도가 성공하면 배너가 스스로 내려간다
+    return db;
   } catch (e) {
     // ⚠ 조용히 삼키지 않는다 — 정본이 SQLite 인데 연결 실패가 무음이면 앱은 "저장되는 것처럼"
     //   보이면서 아무것도 안 쓴다(2단계-E 에서 실제로 이 침묵 때문에 원인을 못 찾았다).
+    //   ⚠ 로그는 **개발자 절반**만 닫는다. 사용자 절반은 이 플래그가 닫는다(C1) —
+    //   `db/write.ts` 가 `unavailable` 로 보고하고, `useApp` 이 폴백 저장 + 지속 배너로 잇는다.
     console.error('[db] SQLite 연결 실패 — 저장이 되지 않습니다.', e);
+    setDbBroken(true);
     _db = null; // 다음 호출에서 재시도 — 한 번 실패가 영구 불능이 되지 않게
     return null;
   }

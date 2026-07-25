@@ -12,7 +12,7 @@
 ============================================================ */
 import { boot } from '../persistence';
 import { storage } from '../kv';
-import { isTauri } from '../tauri';
+import { isTauri, dbVersionGuard, type DbGuard } from '../tauri';
 import { initDocs } from './docs';
 import type { AppState } from '../types';
 import { rowsToState, stateToRows } from './rows';
@@ -25,6 +25,18 @@ const MIGRATION_STAMP_CHUNK = 400;
 
 let _preloaded: AppState | null = null;
 let _migrated = false;
+let _downgraded: DbGuard | null = null;
+
+/**
+ * 다운그레이드가 감지됐는가(C2) — 값이 있으면 **앱을 정상 부팅시키면 안 된다.**
+ *
+ * 진행하면 두 갈래로 나쁘다: DB 는 못 열리므로 낡은 localStorage 로 뜨고(= "저장한 게
+ * 사라졌다"), 거기서 한 편집은 신버전이 만든 정본과 갈라진다. `main.tsx` 가 이 값을 보고
+ * 명시적 화면을 띄운다 — 조용한 폴백은 여기서 정답이 아니다.
+ */
+export function dbDowngrade(): DbGuard | null {
+  return _downgraded;
+}
 
 /** 부팅 시 SQLite 에서 읽어 둔 상태. 없으면 null → 호출부가 기존 localStorage 경로를 탄다. */
 export function preloadedState(): AppState | null {
@@ -40,6 +52,7 @@ export function didMigrate(): boolean {
 export function resetBootState(): void {
   _preloaded = null;
   _migrated = false;
+  _downgraded = null;
 }
 
 /**
@@ -82,6 +95,18 @@ export async function initPhoneStore(): Promise<void> {
 export async function initAppStore(): Promise<void> {
   if (!isTauri()) return;
   try {
+    /* ⚠ **DB 를 열기 전에** 다운그레이드를 판정한다(C2 · 2026-07-26 감사). 순서가 계약이다 —
+       `isDbAvailable()` 이 곧 `load()` 이고, 다운그레이드면 그게 실패해 아래 catch 도 아닌
+       "조용한 localStorage 폴백"으로 흘러 **뜨는데 데이터가 옛날 것**이 된다. 판정이 참이면
+       이 함수는 아무것도 읽지 않고 나가고, `main.tsx` 가 앱 대신 명시적 화면을 띄운다. */
+    const guard = await dbVersionGuard();
+    if (guard?.downgraded) {
+      _downgraded = guard;
+      console.error(
+        `[db] 다운그레이드 감지 — DB v${guard.applied} > 이 빌드 v${guard.bundled}. 정상 부팅을 중단합니다.`,
+      );
+      return;
+    }
     if (!(await isDbAvailable())) return;
     /* ⚠ **어떤 쓰기보다 먼저** 타임스탬프 발급기에 씨앗을 심는다(C-1). 모듈 지역 변수라
        재시작하면 0 으로 돌아가는데, 그 상태에서 시계가 뒤로 가 있으면 **이미 DB 에 쓴 값보다

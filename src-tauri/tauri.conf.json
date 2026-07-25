@@ -32,7 +32,7 @@
       "//": "자동 업데이트(2026-07-25). 배선 근거는 src-tauri/src/updater.rs, 릴리스 절차는 web/docs/릴리스.md 가 SSOT.",
       "//pubkey": "⚠ 이 공개키에 대응하는 **개인키가 유일한 서명 자료**다(src-tauri/.updater-key · gitignore). 잃으면 이 앱에 다시는 업데이트를 배포할 수 없다 — 다른 키로 서명한 업데이트는 클라이언트가 거부한다. 백업은 사용자 몫.",
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk2RDg2OTQ3NDRGMkRFRTAKUldUZzN2SkVSMm5ZbHJuYmdpSjlSN3dUdURhRTFURUdLdGpVVGxxOGFLWS9WekZRRlUyVVc1dVgK",
-      "//endpoints": "⚠ GitHub Releases 의 latest.json 을 가리킨다. 저장소가 비공개면 이 URL 은 인증이 필요해 동작하지 않는다 — 그때는 공개 릴리스 저장소를 따로 두거나 Workers 에 정적 파일로 올린다(런북 §7-6 과 같은 오리진을 쓸 수 있다).",
+      "//endpoints": "⚠⚠ **이 값은 폴백일 뿐이고 실측 404 다**(C3 · 2026-07-26 감사: 저장소가 비공개라 업데이터가 토큰을 안 싣는다). 실제 주소는 앱이 런타임에 만든다 — 사용자 자신의 Workers 오리진 + /updates/latest.json(`lib/cloud/client.ts` updateManifestUrl → `updater.rs` updater_with). 여기를 지우지 않는 이유: 플러그인이 엔드포인트 없는 설정을 거부하고, 클라우드 미연결 사용자에겐 이 값이 유일한 후보다(그 경우 확인은 Err 로 정직하게 실패한다).",
       "endpoints": ["https://github.com/pelle-te/learning-hub/releases/latest/download/latest.json"],
       "//windows": "NSIS 로 번들하므로 설치 모드도 NSIS. passive = 진행창은 보이되 사용자 입력을 요구하지 않는다(무인 설치인 quiet 는 실패해도 조용해서 안 쓴다).",
       "windows": { "installMode": "passive" }

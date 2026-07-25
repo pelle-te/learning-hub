@@ -74,6 +74,15 @@ pub fn db_url() -> String {
     }
 }
 
+/// DB **파일**의 절대 경로. `db_url()` 은 미설정 시 상대경로를 주므로(플러그인이
+/// app_config_dir 기준으로 푼다) 파일을 직접 열어야 하는 쪽은 이걸 쓴다.
+///
+/// ⚠ `config_dir` 을 통과시키는 것이 요점이다 — override 해석이 한 곳에만 있어야 하고,
+/// 백엔드가 A 를 열고 프런트가 B 를 여는 상태가 이 파일이 막으려는 바로 그 실패다.
+pub fn db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(config_dir(app)?.join(DB_FILE))
+}
+
 /// 프런트가 열 DB 연결 문자열 — **백엔드가 마이그레이션한 바로 그 값**을 준다.
 ///
 /// ⚠ 이 커맨드가 있는 이유가 이 변경의 핵심 위험이다: 프런트가 상수를 따로 들고 있으면

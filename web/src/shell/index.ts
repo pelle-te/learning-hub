@@ -59,6 +59,7 @@ export const io = {
   exportSummaryNotes: A.exportSummaryNotes,
   hasCorruptSnapshot: A.hasCorruptSnapshot,
   downloadCorruptSnapshot: A.downloadCorruptSnapshot,
+  downloadFallbackSnapshot: A.downloadFallbackSnapshot,
 };
 
 /** 헤더 ⋯ 메뉴/팔레트가 호출하는 상태 변형 액션. */

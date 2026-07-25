@@ -11,6 +11,7 @@ import BootRecovery from '@/app/BootRecovery';
 import MiniHud from '@/app/MiniHud';
 import { MINI_PATH } from '@/lib/miniMode';
 import StorageGuard from '@/app/StorageGuard';
+import StorageBanner from '@/app/StorageBanner';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
 import { markVia, recordVisit, takeVia } from '@/lib/visits';
@@ -252,6 +253,8 @@ export default function App() {
       {/* 본문 컬럼 — TopBar(고정) + 라우트 본문(HudFrame 안에서 흐름). */}
       <div className="flex h-screen min-w-0 flex-col overflow-hidden max-mobile:h-auto max-mobile:min-h-screen max-mobile:overflow-visible max-mobile:pb-16">
         <TopBar />
+        {/* 정본 저장소 실패의 지속 표시(C1) — 정상 경로·브라우저에선 null 이라 레이아웃 영향 0. */}
+        <StorageBanner />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
         <main
           id="main"

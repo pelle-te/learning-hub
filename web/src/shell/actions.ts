@@ -22,6 +22,7 @@ import { loadReads, importReads } from '@/lib/reads';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
+import { dbFallbackSnapshot } from '@/lib/db/fallback';
 import { storage } from '@/lib/kv';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import {
@@ -120,6 +121,21 @@ export function downloadCorruptSnapshot(): void {
     /* 정리 실패는 치명 아님 — 다음 시도에서 재정리 */
   }
   toast('손상 원본을 내려받았어요 — 보존 키는 정리했습니다.', 'ok');
+}
+
+/** 임시 저장본 내려받기(C1 · 2026-07-26 감사) — 정본(SQLite)이 죽은 세션이 localStorage 에
+ *  남긴 스냅샷을 파일로 회수한다. **자동 병합은 하지 않는다**(근거는 `lib/db/fallback.ts`
+ *  머리주석) — 사람이 파일을 보고 가져오기로 정한다.
+ *
+ *  ⚠ 마커를 여기서 지우지 않는다(H19 와 같은 규율): 셸의 `download` 는 비동기 fire-and-forget
+ *  이라 저장 대화를 취소해도 성공처럼 보인다. 정리는 사용자의 "확인함"이 한다. */
+export function downloadFallbackSnapshot(): void {
+  const raw = dbFallbackSnapshot();
+  if (!raw) {
+    toast('임시 저장본이 없습니다.', 'warn');
+    return;
+  }
+  download('러닝허브_임시저장본.json', raw, 'application/json');
 }
 
 /** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 읽을거리 저작물(_reads: 내 요약·독후감)

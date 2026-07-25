@@ -61,6 +61,7 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
 import { collectOutbox, commitWatermark, readWatermark, batchSize, OUTBOX_TABLES } from '@/lib/cloud/outbox';
 import { pushOutbox, backoffDelay, PermanentPushError, isPermanent, type CloudTransport } from '@/lib/cloud/push';
 import { nextStamp, seedStamp, currentStamp, chunkedStamp, _resetStamp } from '@/lib/db/stamp';
+import { runExclusive } from '@/lib/db/write';
 import { MAX_BATCH_ITEMS } from '@/lib/cloud/contract';
 
 const noSleep = async (): Promise<void> => undefined;
@@ -198,6 +199,36 @@ describe('아웃박스 — 밀어올림 대상 질의', () => {
   it('DB 미가용이면 부분 배치 대신 null — 불완전을 완전으로 착각시키지 않는다', async () => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     expect(await collectOutbox(0)).toBeNull();
+  });
+
+  /* ⚠⚠ C4(2026-07-26 감사) — fence 가 **원리적으로 못 막는** 벡터.
+
+     위 케이스는 *"스캔 도중에 스탬프를 받는 쓰기"*(> fence)다. 여기는 반대다: **스탬프는
+     이미 받았는데 아직 커밋되지 않은 쓰기**. 수집이 쓰기와 같은 직렬화 단위 밖이면 그 창에
+     끼어들어 빈 스캔을 하고, `commitWatermark(fence)` 가 그 행을 **워터마크 아래로 묻는다**
+     (S ≤ W). 어떤 회차에도 다시 안 걸린다 — 무증상·영구.
+
+     이 케이스가 재현하는 것은 `writeRows` 의 실제 모양이다: 스탬프를 먼저 발급하고
+     `await db.batch(...)` 로 커밋한다. 그 사이를 `runExclusive` 가 잡고 있어야 한다. */
+  it('⚠ 스탬프는 받았는데 커밋 전인 쓰기를 삼키지 않는다 — 수집도 같은 직렬화 단위', async () => {
+    tables.set('settings', []);
+    seedStamp(100);
+
+    const stamp = nextStamp(); // ① 쓰기가 스탬프를 **먼저** 받는다
+    let commit!: () => void;
+    const committed = new Promise<void>((r) => (commit = r));
+    const write = runExclusive(async () => {
+      await committed; // ② 커밋이 끝날 때까지 체인을 쥐고 있다(= db.batch in-flight)
+      tables.get('settings')!.push({ key: 'inflight', value: '{}', updated_at: stamp });
+    });
+
+    const collect = collectOutbox(0); // ③ 그 창에 수집이 들어온다
+    setTimeout(commit, 20); // 커밋은 늦게 끝난다 — 직렬화가 없으면 스캔이 먼저 지나간다
+    await write;
+    const batch = await collect;
+
+    expect(batch!.rows.map((r) => r.key[0])).toEqual(['inflight']); // 커밋 전이던 그 행이 실렸다
+    expect(batch!.upto).toBeGreaterThanOrEqual(stamp); // 워터마크가 이 행을 넘어가지 않는다
   });
 });
 

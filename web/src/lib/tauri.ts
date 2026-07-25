@@ -100,6 +100,36 @@ export async function dbUrl(): Promise<string> {
   }
 }
 
+/** 부팅 다운그레이드 가드(C2) — 판정에 필요한 값 둘 + 결론. */
+const DbGuardZ = z.object({
+  /** DB 에 적용된 최대 마이그레이션 버전(아직 없으면 null). */
+  applied: z.number().nullable(),
+  /** 이 빌드가 아는 최대 버전. */
+  bundled: z.number(),
+  downgraded: z.boolean(),
+});
+export type DbGuard = z.infer<typeof DbGuardZ>;
+
+/**
+ * **DB 를 열기 전에** 다운그레이드인지 묻는다(C2 · 2026-07-26 감사).
+ *
+ * 신버전이 적용한 DB 를 구버전 exe 가 열면 sqlx 가 `VersionMissing` 으로 거부하는데
+ * (`src-tauri/src/db.rs` 의 가드 절 · `cargo test` 가 그 전제를 붙들고 있다), 그 실패는
+ * `getDb()` null → C1 경로로 흘러 **"뜨는데 데이터가 옛날 것"** 이 된다. 열기 전에 물으면
+ * 그 상태를 화면으로 말할 수 있다.
+ *
+ * 실패·미지원(구 배포본엔 커맨드가 없다)이면 `null` — 종전 거동으로 되돌아간다. 그 경우에도
+ * 데이터가 위험해지지는 않는다(연결 실패는 C1 이 임시 저장 + 배너로 받는다).
+ */
+export async function dbVersionGuard(): Promise<DbGuard | null> {
+  if (!isTauri()) return null;
+  try {
+    return await call('db_version_guard', undefined, DbGuardZ);
+  } catch {
+    return null;
+  }
+}
+
 /* 창 닫기 훅(`onCloseRequested`)은 **일부러 두지 않는다** — 근거는 실측이다(2026-07-19).
    설계 §8 은 "Tauri 창 닫기에서 `pagehide` 발화가 보장되지 않아 `useApp` 의 언로드 안전망이
    안 걸린다"고 보고 1단계에 셸 전용 훅을 요구했다. **재보니 발화한다**: WM_CLOSE 로 창을 닫으면
@@ -487,9 +517,15 @@ const UpdateInfoSchema = z
   })
   .passthrough() as z.ZodType<UpdateInfo>;
 
-/** 업데이트가 있는지 **확인만** 한다(받지도 설치하지도 않는다). */
-export function checkUpdate(): Promise<UpdateInfo> {
-  return call('check_update', {}, UpdateInfoSchema);
+/**
+ * 업데이트가 있는지 **확인만** 한다(받지도 설치하지도 않는다).
+ *
+ * `endpoint` 는 사용자 자신의 Workers 오리진에 올린 `latest.json` 주소다(C3). 안 넘기면
+ * `tauri.conf.json` 의 기본 엔드포인트를 쓰는데, **그건 실측 404 였다**(비공개 저장소) —
+ * 근거와 신뢰 경계 논증은 `src-tauri/src/updater.rs` 머리주석이 SSOT.
+ */
+export function checkUpdate(endpoint?: string): Promise<UpdateInfo> {
+  return call('check_update', { endpoint: endpoint ?? null }, UpdateInfoSchema);
 }
 
 /**
@@ -498,6 +534,7 @@ export function checkUpdate(): Promise<UpdateInfo> {
  * ⚠ 정상 경로에서 이 프라미스는 **resolve 하지 않는다** — 프로세스가 갈아탄다.
  * 호출 전에 저장이 끝났음을 보장해야 한다(UI 가 확인 대화를 끼는 이유).
  */
-export function installUpdate(): Promise<void> {
-  return call('install_update', {}, z.unknown() as z.ZodType<void>);
+export function installUpdate(endpoint?: string): Promise<void> {
+  // ⚠ 확인 때와 **같은 엔드포인트**를 넘겨야 한다(본 것과 다른 것을 설치하지 않게).
+  return call('install_update', { endpoint: endpoint ?? null }, z.unknown() as z.ZodType<void>);
 }
