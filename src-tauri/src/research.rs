@@ -92,7 +92,11 @@ fn canceled() -> &'static Mutex<std::collections::HashSet<String>> {
 
 fn store_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     // 폴더 결정은 paths 가 소유한다(SD-6) — DB·workspace.json 과 **같은 폴더**여야 하기 때문.
-    Some(crate::paths::config_dir(app).ok()?.join("research-jobs.json"))
+    Some(
+        crate::paths::config_dir(app)
+            .ok()?
+            .join("research-jobs.json"),
+    )
 }
 
 fn save(app: &tauri::AppHandle) {

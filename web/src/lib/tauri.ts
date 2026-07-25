@@ -410,3 +410,43 @@ export function cloudHttp(
 ): Promise<CloudHttpResponse> {
   return call('cloud_http', { url, method, headers, body: body ?? null }, CloudHttpResponseSchema);
 }
+
+/* ── 자동 업데이트(2026-07-25) ─────────────────────────────────────────────
+   관측(텔레메트리)의 짝이다 — 결함을 알게 되는 경로를 만들었으니 고친 것을 전달할 경로도
+   있어야 한다. 종전 배포는 NSIS 수동 재설치뿐이었다.
+
+   ⚠ **확인과 설치를 가른 것이 계약이다.** 확인은 부작용이 없고, 설치는 앱을 재시작한다.
+   섞으면 UI 가 "확인만" 을 표현할 수 없어 결국 자동 설치로 흐른다 — 학습 세션 중 재시작은
+   이 앱에서 가장 나쁜 실패다(진행 중인 집중 타이머·미저장 편집이 날아간다).
+
+   ⚠ 셸 전용. 브라우저·폰에는 업데이터가 없다(폰은 SW 가, 브라우저는 새로고침이 그 역할). */
+export interface UpdateInfo {
+  available: boolean;
+  version: string;
+  current: string;
+  notes: string;
+}
+
+const UpdateInfoSchema = z
+  .object({
+    available: z.boolean(),
+    version: z.string(),
+    current: z.string(),
+    notes: z.string(),
+  })
+  .passthrough() as z.ZodType<UpdateInfo>;
+
+/** 업데이트가 있는지 **확인만** 한다(받지도 설치하지도 않는다). */
+export function checkUpdate(): Promise<UpdateInfo> {
+  return call('check_update', {}, UpdateInfoSchema);
+}
+
+/**
+ * 받아서 설치하고 **앱을 재시작한다.** 사용자가 명시적으로 누른 뒤에만 부를 것.
+ *
+ * ⚠ 정상 경로에서 이 프라미스는 **resolve 하지 않는다** — 프로세스가 갈아탄다.
+ * 호출 전에 저장이 끝났음을 보장해야 한다(UI 가 확인 대화를 끼는 이유).
+ */
+export function installUpdate(): Promise<void> {
+  return call('install_update', {}, z.unknown() as z.ZodType<void>);
+}

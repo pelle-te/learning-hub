@@ -42,8 +42,14 @@ const EYEBROW = 'text-sm font-extrabold tracking-eyebrow text-acc uppercase';
 const TITLE = 'mt-3! mb-5! text-control-title! font-black! tracking-tight!'; // h2 — 전역 h2{} 를 ! 로 이김
 const SEARCHBAR =
   'flex w-full max-w-runner items-center gap-2 rounded-lg border border-line bg-panel py-2 pr-2 pl-4 shadow-bar transition focus-within:border-line-acc-focus focus-within:shadow-bar-focus max-narrow:flex-wrap';
+/* ⚠ `text-txt!` — 없으면 **입력한 검색어가 안 보인다**(2026-07-25 a11y 게이트가 잡음).
+   Tailwind preflight 를 끈 상태(`tw.css` 머리주석)라 `<input>` 은 UA 기본 `color: black` 을
+   그대로 쓴다. 다크가 기본 테마이므로 결과는 `#000000` on `#0e0f13` = **대비 1.09:1**.
+   바로 아래 `SEARCHSCOPE` 에는 `text-txt` 가 있다 — 한쪽만 빠진 누락이었고, 사람 눈에는
+   "placeholder 는 보이는데 타이핑하면 사라진다"로 나타난다. 색 지정이 없는 것이 원인이라
+   정적 검사로는 원리적으로 안 보인다(axe 가 **계산된 스타일**을 재서 잡았다). */
 const SEARCHINPUT =
-  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! leading-[normal]! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
+  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! leading-[normal]! text-txt! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
 const SEARCHSCOPE =
   'w-30 flex-none border-l border-l-line2! bg-transparent! px-2 py-2 text-txt shadow-none! placeholder:text-mut! focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:border-t max-narrow:border-t-line2! max-narrow:border-l-0!';
 /* ⚠ hover 장식에는 `enabled:` 를 붙인다. C-7 마지막 티어에서 전역 CSS 를 `@layer base` 로

@@ -246,3 +246,115 @@ describe('삭제가 부활하지 않는다 — 실제 라우트에서(G2)', () =
     expect(r?.c, '삭제가 부활했다 — G2 위반').toBe(0);
   });
 });
+
+/* ── 관측 라우트(2026-07-25) ────────────────────────────────────────────────
+   ⚠ 이 라우트는 **무인증**이다. 그 결정이 옳으려면 두 성질이 실물에서 성립해야 한다:
+   ① 토큰 없이 받아 준다(오류는 인증 전에도 나고, 그게 가장 알고 싶은 종류다)
+   ② 그런데도 **아무것도 저장하지 않는다**(공격이 곧 D1 쿼터 소진이 되지 않게).
+   ②는 정적 검사로 증명할 수 없고 실 D1 위에서만 보인다 — 그래서 여기 있다. */
+describe('클라이언트 텔레메트리(/api/log)', () => {
+  it('인증 없이 받아 준다 — 오류는 토큰이 생기기 전에도 난다', async () => {
+    const r = await SELF.fetch(`${BASE}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'error', name: 'boom', app: 'phone', route: '/today' }),
+    });
+    expect(r.status).toBe(204);
+  });
+
+  it('⚠ 스키마가 깨져도 204 다 — 400 을 주면 오류 보고가 오류를 낳는 고리가 된다', async () => {
+    const bad = await SELF.fetch(`${BASE}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: '없는종류', name: 'x' }),
+    });
+    expect(bad.status).toBe(204);
+
+    const notJson = await SELF.fetch(`${BASE}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'JSON 아님',
+    });
+    expect(notJson.status).toBe(204);
+  });
+
+  it('⚠ 모르는 필드는 거부한다(.strict) — 신뢰 경계의 규약', async () => {
+    // strict 위반도 위 이유로 204 지만, **저장은 물론 로그 형식도 오염되지 않아야 한다**.
+    const r = await SELF.fetch(`${BASE}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'error', name: 'x', 몰래: '주입' }),
+    });
+    expect(r.status).toBe(204);
+  });
+
+  it('⚠⚠ D1 에 아무것도 쓰지 않는다 — 폭주가 쿼터를 태우지 않게', async () => {
+    const before = await env.DB.prepare('SELECT COUNT(*) AS c FROM settings').first<{ c: number }>();
+    for (let i = 0; i < 5; i++) {
+      await SELF.fetch(`${BASE}/api/log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'vital', name: 'LCP', value: 1234.5 }),
+      });
+    }
+    const after = await env.DB.prepare('SELECT COUNT(*) AS c FROM settings').first<{ c: number }>();
+    expect(after?.c, '텔레메트리가 D1 에 썼다 — 설계 위반').toBe(before?.c);
+  });
+
+  it('본문 크기 상한이 이 라우트에도 걸린다', async () => {
+    const r = await SELF.fetch(`${BASE}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'error', name: 'x', detail: 'ㄱ'.repeat(2 * 1024 * 1024) }),
+    });
+    expect(r.status).toBe(413);
+  });
+});
+
+/* ── 레이트 리밋(2026-07-25) ────────────────────────────────────────────────
+   ⚠ 이 동작은 **지금까지 테스트가 없었다.** 무인증 라우트의 유일한 남용 방어인데도
+   "돌 것이다"에 맡겨져 있었다. 2026-07-25 에 주 방어를 `ratelimits` 바인딩으로 옮기면서
+   같이 잠근다 — 바꾼 것에 테스트가 없으면 바꾼 줄도 모른다.
+
+   ⚠ **버킷을 헤더로 격리한다.** 카운터 키는 `${CF-Connecting-IP}:${경로}` 이고 in-memory
+   맵은 아이솔레이트 수명 동안 산다. 헤더를 안 주면 전 테스트가 `unknown:…` 버킷을 공유해
+   이 테스트가 앞뒤 테스트를 429 로 죽인다(그리고 그 실패는 원인이 안 보인다). 전용 IP 를
+   주면 이 테스트만의 버킷이 생겨 순서에 의존하지 않는다.
+
+   ⚠ 테스트 환경에는 `AUTH_LIMITER` 바인딩이 없다 → 여기서 검증되는 것은 **in-memory 폴백**
+   이다. 그게 정확히 폴백을 남겨 둔 이유(로컬·테스트에서 방어가 사라지지 않게)이고,
+   바인딩 경로는 배포 환경에서만 존재하므로 여기서 잴 수 없다. */
+describe('무인증 라우트 레이트 리밋', () => {
+  it('창(60초) 안에서 상한(20)을 넘으면 429 · 넘기 전엔 통과한다', async () => {
+    const ip = '203.0.113.9'; // 이 테스트 전용 버킷(TEST-NET-3 · 실제로 안 쓰이는 대역)
+    const hit = () =>
+      SELF.fetch(`${BASE}/api/log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
+        body: JSON.stringify({ kind: 'error', name: 'flood' }),
+      });
+
+    const codes: number[] = [];
+    for (let i = 0; i < 25; i++) codes.push((await hit()).status);
+
+    expect(codes.slice(0, 20), '상한 안쪽은 전부 통과해야 한다').toEqual(Array(20).fill(204));
+    expect(codes.slice(20), '상한을 넘으면 429 여야 한다').toEqual(Array(5).fill(429));
+  });
+
+  it('⚠ 버킷은 IP 별로 갈린다 — 한 사람이 다른 사람을 막지 못한다', async () => {
+    const flood = '203.0.113.10';
+    for (let i = 0; i < 25; i++) {
+      await SELF.fetch(`${BASE}/api/log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': flood },
+        body: JSON.stringify({ kind: 'error', name: 'flood' }),
+      });
+    }
+    const other = await SELF.fetch(`${BASE}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.11' },
+      body: JSON.stringify({ kind: 'error', name: 'innocent' }),
+    });
+    expect(other.status, '무관한 IP 가 함께 막혔다').toBe(204);
+  });
+});

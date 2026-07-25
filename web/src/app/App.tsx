@@ -10,6 +10,7 @@ import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
 import StorageGuard from '@/app/StorageGuard';
 import { routeTitle } from '@/app/docTitle';
+import { reportError } from '@/lib/telemetry';
 import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/components/CommandPalette';
 import SubTabs from '@/app/SubTabs';
@@ -72,8 +73,15 @@ export default function App() {
           <Route
             key={t.key}
             path={t.key === 'atlas' ? '/atlas/*' : '/' + t.key}
+            /* ⚠ `onError` — 탭 하나가 죽어도 셸은 살아 있어 사용자가 다른 탭으로 넘어간다.
+               그래서 이 경계의 사고는 **특히 조용히 지나간다**(2026-07-25 감사). 어느 탭이
+               죽었는지를 컨텍스트로 싣는다 — 그게 없으면 스택만 보고 화면을 못 특정한다. */
             element={
-              <ErrorBoundary FallbackComponent={TabFallback} resetKeys={[t.key]}>
+              <ErrorBoundary
+                FallbackComponent={TabFallback}
+                resetKeys={[t.key]}
+                onError={(e) => reportError(e, `tab:${t.key}`)}
+              >
                 <SubTabs tabKey={t.key} />
                 {ReactTab ? (
                   <Suspense fallback={<TabLoading />}>

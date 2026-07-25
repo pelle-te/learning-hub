@@ -19,6 +19,7 @@ import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
 import CloudCard from './CloudCard';
 import ConflictsNotice from './ConflictsNotice';
+import UpdateCard from './UpdateCard';
 import { lastParity } from '@/lib/db/write';
 import type { AppState } from '@/lib/types';
 
@@ -480,6 +481,10 @@ export default function Settings() {
 
       {/* Phase 4 — 동기화 충돌(다른 기기 편집에 덮인 내 편집). 충돌이 없으면 렌더 안 함. */}
       <ConflictsNotice />
+
+      {/* 2026-07-25 — 앱 업데이트. 텔레메트리(결함을 알게 되는 경로)의 짝이다: 고친 것을
+          전달할 경로가 없으면 관측은 절반만 값을 낸다. 셸에서만 렌더. */}
+      <UpdateCard />
 
       <div className="ds-card ds-glow">
         <h2>

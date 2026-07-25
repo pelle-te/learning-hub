@@ -36,6 +36,30 @@ export default tseslint.config(
      못 잡았다. jsx-a11y 는 aria 속성명 오타·role 대비 필수 속성 누락·상호작용 요소의 키보드
      핸들러 부재 같은 '기계가 잡을 수 있는 것'만 담당한다(나머지는 여전히 사람 몫). */
   { ...jsxA11y.flatConfigs.recommended, files: ['src/**/*.tsx'] },
+  /* ⚠ **두 a11y 도구가 정면으로 충돌하는 지점**이라 근거를 남긴다(2026-07-25).
+
+     axe 의 `scrollable-region-focusable` 은 *스크롤되는데 포커스 가능한 자식이 없는* 영역을
+     **위반**으로 잡는다 — 키보드·스위치 사용자가 그 안을 볼 방법이 없기 때문이다(WCAG 2.1.1).
+     실측으로 둘 걸렸다: `guide` 탭 본문(순수 텍스트라 포커스 대상 0)과 통계의 18주 잔디.
+     해법은 컨테이너에 `tabIndex={0}` 을 주는 것이고, 그게 이 규칙의 표준 처방이다.
+
+     그런데 jsx-a11y 의 `no-noninteractive-tabindex` 는 정확히 그것을 금지한다. 이유는
+     타당하다 — 비대화형 요소를 아무렇게나 탭 순서에 넣으면 키보드 이동이 쓰레기가 된다.
+     **다만 그 규칙은 소스만 보므로 "이 div 가 실제로 스크롤되는지"를 알 수 없다.**
+     스크롤 여부는 렌더된 계산 스타일의 성질이고, 그건 axe 만 볼 수 있다.
+
+     그래서 규칙을 끄지 않고 **좁힌다**: `role="group"` 이 붙은 요소에서만 허용한다.
+     `group` 을 표식으로 고른 이유는 ① 스크롤 컨테이너의 의미에 맞고 ② 이름 없는 group 은
+     스크린리더가 사실상 무시하므로 탭마다 잡음 랜드마크가 생기지 않으며 ③ 명시적이라
+     "우연히 통과"가 아니라는 점이다(기본 옵션은 `allowExpressionValues: true` 라 삼항식으로
+     쓰면 이 규칙을 조용히 우회할 수 있다 — 그 통로에 기대지 않는다).
+     ⚠ 새로 여기에 해당하려면 **정말 스크롤되는 컨테이너**여야 한다. 아니면 규칙이 맞다. */
+  {
+    files: ['src/**/*.tsx'],
+    rules: {
+      'jsx-a11y/no-noninteractive-tabindex': ['error', { tags: [], roles: ['tabpanel', 'group'] }],
+    },
+  },
   /* 코드 품질 게이트(0단계-F) — sonarjs를 **recommended 없이** 규칙 2개만 켠다.
      recommended는 217규칙이고 실측 위반 249건 중 181건이 스타일 취향
      (no-nested-conditional 130 · no-nested-assignment 20 · void-use 18 ·

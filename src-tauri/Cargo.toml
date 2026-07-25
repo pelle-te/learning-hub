@@ -67,3 +67,10 @@ sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runti
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # 러닝허브_실행.bat 의 "포트 8000 stale 서버 강제종료"를 대체 — 두 번째 실행은 기존 창을 깨운다.
 tauri-plugin-single-instance = "2"
+# 자동 업데이트(2026-07-25). **관측(텔레메트리)의 짝**이다 — 그것 없이 이것만 있으면 고칠
+# 것을 모른 채 배포 경로만 있고, 이것 없이 그것만 있으면 **결함을 알게 됐는데 전달할 방법이
+# 없다.** 종전이 후자였다: 배포가 NSIS 수동 재설치뿐이었다.
+# ⚠ 데스크톱 전용 블록에 둔다 — 모바일 타깃엔 스토어가 그 역할을 한다.
+# ⚠ 네트워크는 **Rust 가 낸다**. 웹뷰는 CSP `connect-src 'self' ipc:` 라 밖으로 못 나가고,
+#   그 규약("셸에서 외부로 나가는 연결이 하나도 없다")은 cloud.rs·news.rs 와 동일하다.
+tauri-plugin-updater = "2"

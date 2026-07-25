@@ -56,6 +56,14 @@ interface Env {
   HUB_ALLOWED_ORIGINS?: string;
   /** 실시간 poke 브로드캐스트 DO(Phase 2). push 뒤 다른 기기에 "변경 있음"만 알린다(데이터는 pull). */
   SYNC_HUB: DurableObjectNamespace;
+  /**
+   * 무인증 라우트용 레이트 리미터(`wrangler.jsonc` 의 `ratelimits`).
+   *
+   * ⚠ **선택적(`?`)이다.** 로컬 `wrangler dev` 나 일부 테스트 환경에서는 바인딩이 없을 수
+   * 있고, 그때도 서버는 돌아야 한다(`rateGuard` 가 in-memory 폴백으로 계속 막는다).
+   * 필수로 선언하면 타입은 만족스럽지만 런타임에 `undefined.limit()` 으로 죽는다.
+   */
+  AUTH_LIMITER?: RateLimit;
 }
 
 type Vars = { deviceId: string };
@@ -199,18 +207,31 @@ app.use('/api/*', async (c, next) => {
   return next();
 });
 
-/* ── 레이트 리밋(P1-7) ─────────────────────────────────────────
+/* ── 레이트 리밋(P1-7 · 2026-07-25 재설계) ─────────────────────────────
 
-   ⚠⚠ **이것은 보조 방어이지 주 방어가 아니다 — 그 차이를 적어 둔다.**
+   ## 무엇이 바뀌었나 — **주 방어가 코드 안으로 들어왔다**
 
-   Workers 는 요청을 **여러 아이솔레이트**에 흩뿌리고 각 아이솔레이트는 자기 메모리만 본다.
-   따라서 아래 카운터는 "한 아이솔레이트가 본 것"만 세고, **분산된 공격은 그대로 통과한다.**
-   그럼에도 두는 이유는 실수·폭주 루프(클라이언트 버그로 초당 수십 번 치는 부류)를 싸게
-   끊기 때문이고, 그건 실제로 이 앱에서 가장 그럴듯한 시나리오다.
+   종전 구현은 아이솔레이트 로컬 `Map` 카운터 하나였고, 주석이 스스로 _"보조 방어이지 주
+   방어가 아니다"_ 라 적으며 진짜 방어를 **WAF 대시보드 규칙**에 맡겼다. 한계 진단은 정확
+   했지만 결론이 나빴다: 실제 방어가 **버전관리도 리뷰도 테스트도 안 되는 곳**에 살았다.
+   이 저장소가 stylelint·번들예산·커버리지 임계를 들이며 반복해 내린 결론과 정면으로 어긋난다
+   (_"규약을 관습에 두면 흘러내린다"_ — 대시보드 설정은 관습의 극단이다).
 
-   **진짜 방어는 Cloudflare WAF 레이트 리밋 규칙**(무료 플랜 1개)이고 그건 코드가 아니라
-   대시보드 설정이다 — 런북 §7-5 에 절차를 적었다. D1 카운터로 만들지 않은 이유: 공격받는
-   동안 카운터 쓰기가 **그 자체로 D1 일일 한도를 태운다**(막으려던 것을 방어가 대신 한다).
+   지금은 **`ratelimits` 바인딩**(`wrangler.jsonc` 의 `AUTH_LIMITER`)이 주 방어다.
+   아이솔레이트 경계를 넘고, 커밋에 남고, PR 에서 보이고, 롤백된다.
+
+   ## ⚠ in-memory 카운터를 **지우지 않았다** — 이유가 있다
+
+   ① 바인딩은 **로컬 개발·일부 테스트 환경에서 없을 수 있다**(`env.AUTH_LIMITER` 가 undefined).
+      그때 방어가 통째로 사라지면 "로컬에선 무제한, 배포본만 막힘"이 되어 재현이 안 된다.
+   ② 바인딩 호출은 네트워크 왕복이 아니지만 공짜도 아니다. 명백한 폭주(같은 아이솔레이트가
+      초당 수십 번 보는 클라이언트 루프)는 메모리에서 먼저 끊는 편이 싸다.
+   즉 **두 겹이고 순서가 있다**: 싼 로컬 컷 → 정확한 전역 컷.
+
+   ## D1 카운터로 만들지 않은 이유(변함없음)
+
+   공격받는 동안 카운터 쓰기가 **그 자체로 D1 일일 한도를 태운다** — 막으려던 것을 방어가
+   대신 한다. `/api/log` 를 무저장으로 만든 것과 같은 판단이다.
 
    무인증 라우트에만 건다. `/api/sync/*` 는 이미 토큰이 필요하고, 거기 걸면 정상 동기화가
    막힐 위험이 방어 이득보다 크다. */
@@ -231,8 +252,25 @@ function rateLimited(bucket: string, now: number): boolean {
 
 const rateGuard: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (c, next) => {
   const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
-  if (rateLimited(`${ip}:${new URL(c.req.url).pathname}`, nowSec())) {
-    return c.json({ error: 'too many requests' }, 429);
+  const bucket = `${ip}:${new URL(c.req.url).pathname}`;
+
+  // ① 싼 로컬 컷 — 같은 아이솔레이트에서 보이는 명백한 폭주를 바인딩 호출 전에 끊는다.
+  if (rateLimited(bucket, nowSec())) return c.json({ error: 'too many requests' }, 429);
+
+  // ② 전역 컷 — 아이솔레이트 경계를 넘는 진짜 방어.
+  /* ⚠ 바인딩이 없어도 **요청을 막지 않는다.** 없는 환경은 로컬·테스트뿐이고, 거기서 500 을
+     내면 관측 가능한 것은 방어가 아니라 개발 마찰이다. 대신 위 ①이 계속 돈다.
+     ⚠ `limit()` 자체가 실패해도 통과시킨다(fail-open). 레이트 리미터 장애가 곧 서비스
+     장애가 되는 것은 이 앱의 위험 프로파일에 맞지 않다 — 여기서 지키는 것은 남용이지
+     기밀이 아니다(인증은 별개 층이고 그건 fail-closed 다). */
+  const limiter = c.env.AUTH_LIMITER;
+  if (limiter) {
+    try {
+      const { success } = await limiter.limit({ key: bucket });
+      if (!success) return c.json({ error: 'too many requests' }, 429);
+    } catch {
+      /* fail-open — 위 주석 참조. */
+    }
   }
   await next();
 };
@@ -242,6 +280,72 @@ app.use('/api/token', rateGuard);
 
 /** 헬스체크 — 인증 없이 열려 있는 유일한 GET. 비밀도 데이터도 노출하지 않는다. */
 app.get('/api/health', (c) => c.json({ ok: true }));
+
+/* ── 관측 가능성: 클라이언트 오류·성능 수집(2026-07-25 감사) ────────────────────
+
+   ## 왜 이게 없었는가가 이 저장소의 가장 큰 비대칭이었다
+
+   배포 **전** 검증은 여섯 겹이다(정적·유닛·컴포넌트·트랙A·트랙B·실 workerd 왕복).
+   배포 **후** 관측은 `observability.enabled` 하나였고 그건 **이 워커 자신**만 본다.
+   즉 폰 브라우저나 WebView2 안에서 앱이 죽으면 아무도 모른다 — 사용자가 말해 주기 전까지.
+   래칫들은 *아는 회귀*를 막지만 *모르는 것*을 잡는 층은 통째로 없었다.
+
+   ## ⚠ D1 에 쓰지 않는다 — `console` 로 낸다
+
+   Cloudflare Logs 가 워커의 stdout 을 구조화해 수집한다(`observability.enabled` 가 이미 켜져
+   있다). D1 테이블을 만들지 않은 이유는 셋이다:
+   ① **스키마를 안 건드린다.** `src-tauri/migrations/` 는 D1 과 데스크톱 SQLite 가 **공유**
+      하므로(`wrangler.jsonc`) 여기에 텔레메트리 테이블을 넣으면 **데스크톱 앱 DB 에도** 생긴다.
+   ② **쿼터.** 오류 폭주(렌더 루프)가 곧 D1 일일 한도 소진이 된다 — 레이트 리밋을 D1 카운터로
+      만들지 않은 것과 **같은 이유**이고, 그 판단은 이미 이 파일에 적혀 있다.
+   ③ 이 데이터는 조회 대상이 아니라 **관측 대상**이다. 조인할 일이 없다.
+
+   ## ⚠ 인증을 요구하지 않는다 — 대신 레이트 리밋 + 크기 상한
+
+   오류는 **인증되기 전에도** 난다(부팅 실패가 가장 알고 싶은 종류다). 토큰을 요구하면
+   정작 제일 중요한 신호를 못 받는다. 대신 ① 무인증 라우트용 `rateGuard` 를 붙이고
+   ② 위 `MAX_BODY_BYTES` 가 이미 걸려 있으며 ③ **아무것도 저장하지 않으므로** 남는 비용이
+   로그 한 줄뿐이다. `/api/enroll/*`·`/api/token` 과 같은 취급이다. */
+const TelemetrySchema = z
+  .object({
+    kind: z.enum(['error', 'vital']),
+    /** 오류 메시지 또는 지표 이름(LCP/INP/CLS…). */
+    name: z.string().min(1).max(200),
+    /** 오류 스택(잘린 것) 또는 없음. ⚠ 길이 상한이 곧 개인정보 노출 상한이다. */
+    detail: z.string().max(2000).optional(),
+    /** vital 의 수치. error 면 없음. */
+    value: z.number().finite().optional(),
+    /** 어느 화면에서 났나. 전체 URL 이 아니라 **경로만** — 쿼리에 값이 실릴 수 있다. */
+    route: z.string().max(200).optional(),
+    /** 'shell' | 'phone' — 두 엔트리를 구분해야 어디를 고칠지 안다. */
+    app: z.enum(['shell', 'phone']).optional(),
+    /** 앱 빌드 식별자(있으면). 어느 버전에서 났는지 없으면 추적이 안 된다. */
+    build: z.string().max(64).optional(),
+  })
+  .strict();
+
+app.use('/api/log', rateGuard);
+app.post('/api/log', async (c) => {
+  const parsed = await readBody(await c.req.json().catch(() => null), TelemetrySchema);
+  /* ⚠ 검증 실패도 **204** 로 답한다. 이 라우트는 클라이언트가 결과를 보고 뭘 하는 곳이
+     아니고(fire-and-forget), 400 을 주면 오류 보고가 다시 오류를 만드는 고리가 생긴다.
+     대신 서버 로그에는 남긴다 — 계약이 깨진 것도 알아야 할 신호다. */
+  if (!parsed) {
+    console.warn(JSON.stringify({ t: 'telemetry.reject', reason: 'schema' }));
+    return c.body(null, 204);
+  }
+  console.log(
+    JSON.stringify({
+      t: parsed.kind === 'error' ? 'client.error' : 'client.vital',
+      ...parsed,
+      /* ⚠ IP 는 싣지 않는다. 사용자가 한 명인 개인 앱이라 식별에 아무 값이 없고,
+         남기는 순간 로그가 개인정보가 된다. 국가 코드만 — 회선 종류를 가늠하는 데 쓴다. */
+      country: c.req.header('CF-IPCountry') ?? null,
+      at: new Date().toISOString(),
+    }),
+  );
+  return c.body(null, 204);
+});
 
 /* ── 온보딩: PC 가 코드를 발급 → 폰이 제출 ───────────────────── */
 

@@ -11,7 +11,17 @@ import { spawnSync } from 'node:child_process';
 
 const quick = process.argv.includes('quick');
 const steps = [['verify', ['run', 'verify']]];
-if (!quick) steps.push(['build', ['run', 'build']], ['budget', ['run', 'budget']], ['e2e', ['run', 'e2e']]);
+/* SCA 게이트(2026-07-25) — **full 모드에만** 든다. `verify` 안에 넣지 않은 이유는
+   레지스트리 네트워크를 타기 때문이다: verify 는 오프라인에서도 돌아야 하는 내부 루프이고,
+   거기에 네트워크를 섞으면 비행기 모드에서 게이트가 통째로 죽는다(그러면 사람이 verify 를
+   건너뛰기 시작한다 — 게이트를 잃는 가장 흔한 경로). 자리는 여기와 CI 다. */
+if (!quick)
+  steps.push(
+    ['audit', ['run', 'audit']],
+    ['build', ['run', 'build']],
+    ['budget', ['run', 'budget']],
+    ['e2e', ['run', 'e2e']],
+  );
 
 /* Tauri 셸(1단계~) — Rust 쪽도 게이트에 든다(불변식 I4).
    ⚠ **없으면 건너뛴다**: web 만 만지는 작업까지 Rust 툴체인을 요구하면 게이트가 진입장벽이 된다.

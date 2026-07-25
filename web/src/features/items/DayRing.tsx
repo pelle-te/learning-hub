@@ -107,13 +107,30 @@ export default function DayRing({
   const live = nowMin != null ? currentSegment(nowMin, windows, fixed, wake0, wake1, asleep) : null;
   const dotClass = live ? DOT_TONE[live.tone] : '';
 
+  /* ⚠ 링 전체의 접근 가능한 이름 — **구간 요약까지 여기 싣는다**(2026-07-25 a11y 게이트).
+     종전엔 각 `<path>` 에 `aria-label` 을 달았는데 두 가지가 틀려 있었다:
+     ① axe `aria-prohibited-attr` — 롤 없는 `path` 에는 `aria-label` 을 못 단다.
+     ② 설령 달아도 **읽히지 않는다.** 부모 `<svg role="img">` 는 하위 트리를 통째로
+        하나의 이미지로 만들어 자식을 접근성 트리에서 지운다. 즉 그 라벨들은 검증만
+        실패시키고 아무에게도 안 읽히는 죽은 코드였다(`data-tip` 은 시각 툴팁이라 별개다).
+     그래서 라벨을 자식에서 걷어내고 **부모 이름 하나에 요약을 합친다** — 스크린리더가
+     파편 대신 문장 하나를 받는다. 픽셀은 1도 안 바뀐다. */
+  const 요약 = [
+    `공부 가능 ${windows.length}구간 총 ${h > 0 ? `${h}시간 ` : ''}${m}분`,
+    fixed.length > 0 ? `고정 일과 ${fixed.length}개` : null,
+    peak ? `고집중 ${toHM(peak[0])}–${toHM(peak[1])}` : null,
+    asleep ? `취침 ${toHM(wake1)}–${toHM(wake0)}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <div className="relative aspect-square w-full max-w-115 flex-none">
       <svg
         viewBox="0 0 200 200"
         className="block h-full w-full"
         role="img"
-        aria-label={`${dow}요일 24시간 가용시간 링`}
+        aria-label={`${dow}요일 24시간 가용시간 링 — ${요약}`}
       >
         {/* 트랙 */}
         <circle cx={CX} cy={CY} r={R} className="fill-none [stroke:var(--ring-track)] [stroke-width:13]" />
@@ -126,7 +143,6 @@ export default function DayRing({
                 d={arc(wake1, wake0 + 1440)}
                 className={`${ARC_BASE} [stroke:var(--ring-sleep)] [stroke-linecap:butt] hover:[stroke:var(--ring-sleep-hover)] hover:[stroke-width:16]`}
                 data-tip={tip}
-                aria-label={tip.replace('\n', ' — ')}
               />
             );
           })()}
@@ -142,7 +158,6 @@ export default function DayRing({
               d={arc(bs, be)}
               className={`${ARC_BASE} [stroke:var(--ring-block)] [stroke-linecap:butt] hover:[stroke:var(--ring-block-hover)] hover:[stroke-width:16]`}
               data-tip={tip}
-              aria-label={tip.replace('\n', ' — ')}
             />
           );
         })}
@@ -155,7 +170,6 @@ export default function DayRing({
               d={arc(w.s, w.e)}
               className={`${ARC_BASE} stroke-acc [filter:var(--filter-ring-free)] [stroke-linecap:round] hover:[stroke-width:16] hover:[filter:var(--filter-ring-free-hover)] motion-reduce:[filter:none]`}
               data-tip={tip}
-              aria-label={tip.replace('\n', ' — ')}
             />
           );
         })}
@@ -168,7 +182,6 @@ export default function DayRing({
                 d={arcR(peak[0], peak[1], R - 11)}
                 className="cursor-pointer fill-none stroke-acc [stroke-width:2.5] opacity-50 [stroke-linecap:round]"
                 data-tip={tip}
-                aria-label={tip.replace('\n', ' — ')}
               />
             );
           })()}

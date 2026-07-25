@@ -1,0 +1,8 @@
+{
+  "//": "SCA 원장(server/) — `npm run audit` 이 읽는다. 규칙과 실패 조건은 ../web/scripts/audit-gate.mjs 머리주석이 SSOT.",
+  "//상태": "2026-07-25 기준 **비어 있다.** 감사 시점 4건(sharp GHSA-f88m-g3jw-g9cj 및 그 경유 miniflare·wrangler·@cloudflare/vitest-pool-workers)은 `npm audit fix`(비파괴)로 전량 해소됐다.",
+  "//⚠": "비어 있다는 것이 이 파일의 내용이다 — 지우지 말 것. 파일이 없어도 게이트는 돌지만, 그때는 '아직 아무도 안 봤다'와 '보고 나서 비었다'를 구분할 수 없다. 인터넷에 노출되는 유일한 층이라 그 구분이 값을 한다.",
+  "//판단": "여기에 항목을 추가하려면 먼저 상향 픽스가 없음을 확인할 것. 이 층은 web/ 과 달리 devDependency 도 신뢰면이다(wrangler 가 배포 자격증명을 다룬다).",
+
+  "허용": []
+}

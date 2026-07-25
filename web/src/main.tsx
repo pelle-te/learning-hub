@@ -19,6 +19,8 @@ import '@/styles/ds.css';
 
 import { queryClient } from '@/app/queryClient';
 import { initAppStore } from '@/lib/db/boot';
+import { readCloudConfig } from '@/lib/cloud/client';
+import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 
 /* ⚠ `ThemeProvider` 를 **정적으로 import 하지 않는다** — 아래 계약이 그것 때문에 깨져 있었다.
    ThemeProvider 는 `useApp` 을 import 하고, ES import 는 호이스팅되므로 그 한 줄이 스토어를
@@ -45,9 +47,20 @@ function ShellFallback() {
    ⚠ `initAppStore()` 는 어떤 이유로도 throw 하지 않는다 — 실패하면 localStorage 폴백으로 뜬다.
    그래도 방어적으로 catch 한다: 여기서 던지면 앱이 영구 백지가 되고 ShellFallback 도 못 잡는다.
    `useApp` 은 이 시점 이후에 import 돼야 한다(모듈 평가 시점에 부팅값을 읽으므로 순서가 계약). */
+/* 관측(2026-07-25) — **전역 훅부터 건다.** 아래 부팅은 렌더 밖이라 어떤 `ErrorBoundary` 도
+   못 잡는데(`lib/utils.ts:84` 가 같은 사실을 적어 뒀다), 지금까지 그쪽이 조용히 죽는 층이었다.
+   `initTelemetry` 로 전송처를 켜기 전에는 훅이 수집만 하고 아무것도 보내지 않는다 —
+   순서가 이래야 부팅 **자체**의 실패도 잡힌다(전송처는 부팅 뒤에야 알 수 있다). */
+installGlobalErrorHooks();
+
 void initAppStore()
-  .catch(() => {})
+  .catch((e: unknown) => reportError(e, 'initAppStore'))
   .then(async () => {
+    /* 전송처는 클라우드 설정에서 온다. 미연결이면 `null` → 전 경로 무동작(설계 원칙 ③). */
+    await readCloudConfig()
+      .then((cfg) => initTelemetry(cfg?.baseUrl ?? null, 'shell'))
+      .catch(() => {});
+    collectWebVitals();
     // 이 두 줄이 `useApp` 모듈 평가를 처음 유발한다 — 그래서 반드시 위 await 뒤여야 한다.
     const [{ default: App }, { default: ThemeProvider }] = await Promise.all([
       import('@/app/App'),
@@ -55,7 +68,9 @@ void initAppStore()
     ]);
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
-        <ErrorBoundary FallbackComponent={ShellFallback}>
+        {/* ⚠ `onError` — 종전엔 폴백 UI 만 그리고 **아무것도 기록하지 않았다.** 셸 전체가
+            죽는 가장 심각한 경우인데 그 사실이 어디에도 안 남았다(2026-07-25 감사). */}
+        <ErrorBoundary FallbackComponent={ShellFallback} onError={(e) => reportError(e, 'shell-boundary')}>
           <QueryClientProvider client={queryClient}>
             <BrowserRouter>
               <ThemeProvider>

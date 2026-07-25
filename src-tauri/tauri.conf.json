@@ -27,9 +27,21 @@
       "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5173 http://localhost:5173; object-src 'none'"
     }
   },
+  "plugins": {
+    "updater": {
+      "//": "자동 업데이트(2026-07-25). 배선 근거는 src-tauri/src/updater.rs, 릴리스 절차는 web/docs/릴리스.md 가 SSOT.",
+      "//pubkey": "⚠ 이 공개키에 대응하는 **개인키가 유일한 서명 자료**다(src-tauri/.updater-key · gitignore). 잃으면 이 앱에 다시는 업데이트를 배포할 수 없다 — 다른 키로 서명한 업데이트는 클라이언트가 거부한다. 백업은 사용자 몫.",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk2RDg2OTQ3NDRGMkRFRTAKUldUZzN2SkVSMm5ZbHJuYmdpSjlSN3dUdURhRTFURUdLdGpVVGxxOGFLWS9WekZRRlUyVVc1dVgK",
+      "//endpoints": "⚠ GitHub Releases 의 latest.json 을 가리킨다. 저장소가 비공개면 이 URL 은 인증이 필요해 동작하지 않는다 — 그때는 공개 릴리스 저장소를 따로 두거나 Workers 에 정적 파일로 올린다(런북 §7-6 과 같은 오리진을 쓸 수 있다).",
+      "endpoints": ["https://github.com/pelle-te/learning-hub/releases/latest/download/latest.json"],
+      "//windows": "NSIS 로 번들하므로 설치 모드도 NSIS. passive = 진행창은 보이되 사용자 입력을 요구하지 않는다(무인 설치인 quiet 는 실패해도 조용해서 안 쓴다).",
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "windows": {
       "nsis": {
         "languages": ["Korean"],

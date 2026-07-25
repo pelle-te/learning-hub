@@ -23,6 +23,7 @@ import './phone.css';
 import { enableBrowserDb } from '@/lib/db/sqlite';
 import { initPhoneStore } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
+import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 
 function Fallback(): React.JSX.Element {
   return (
@@ -37,6 +38,13 @@ function Fallback(): React.JSX.Element {
 
 enableBrowserDb();
 
+/* 관측(2026-07-25) — **폰이 이 배선의 주 수혜자다.** 진짜 브라우저·진짜 셀룰러·진짜 기기라
+   데스크톱 셸과 달리 우리가 재현할 수 없는 환경에서 돈다(OPFS 미지원 사설 브라우징, 저사양
+   기기의 wasm 실패, 지하철 회선). 지금까지 그쪽 실패는 전부 침묵이었다.
+   ⚠ 훅을 `initPhoneStore()` **앞에** 건다 — OPFS·wasm 부팅 실패가 정확히 가장 알고 싶은
+   종류인데, 그건 렌더 전이라 아래 `ErrorBoundary` 가 원리적으로 못 잡는다. */
+installGlobalErrorHooks();
+
 /* 서비스워커 등록 — **폰에서만** 한다(`injectRegister: null` 이라 자동 주입이 없다).
    데이터는 OPFS SQLite 에 있지만 **앱 껍데기가 없으면 아무것도 안 뜬다** — 지하철에서
    여는 경우가 이 앱의 실사용이라 그 차이가 크다. 등록 실패는 삼킨다: SW 는 부가 기능이고,
@@ -44,21 +52,26 @@ enableBrowserDb();
 void import('virtual:pwa-register').then((m) => m.registerSW({ immediate: true })).catch(() => {});
 
 void initPhoneStore()
-  .catch(() => {})
+  .catch((e: unknown) => reportError(e, 'initPhoneStore'))
   .then(async () => {
     const [{ default: PhoneApp }, { default: Connect }, { installSyncTriggers }] = await Promise.all([
       import('./PhoneApp'),
       import('./Connect'),
       import('./sync'),
     ]);
-    const connected = (await readCloudConfig()) !== null;
+    const cfg = await readCloudConfig();
+    /* 폰은 **정의상 클라우드에 붙어 있다**(그게 폰 웹앱의 존재 이유다) — 즉 데스크톱과 달리
+       전송처가 거의 항상 있다. 미연결(=최초 Connect 화면)일 때만 무동작. */
+    initTelemetry(cfg?.baseUrl ?? null, 'phone');
+    collectWebVitals();
+    const connected = cfg !== null;
     const root = createRoot(document.getElementById('root')!);
 
     const render = (ok: boolean): void => {
       if (ok) installSyncTriggers();
       root.render(
         <StrictMode>
-          <ErrorBoundary FallbackComponent={Fallback}>
+          <ErrorBoundary FallbackComponent={Fallback} onError={(e) => reportError(e, 'phone-boundary')}>
             {ok ? <PhoneApp /> : <Connect onDone={() => render(true)} />}
           </ErrorBoundary>
         </StrictMode>,

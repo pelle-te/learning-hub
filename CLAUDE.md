@@ -35,15 +35,24 @@
 
 ```
 npm run verify   # codegen:check + typecheck + lint + lint:css + format:check + knip + test:coverage
+npm run audit    # SCA — 알려진 CVE 게이트(2026-07-25). ⚠ **verify 에 없다**: 레지스트리 네트워크를
+                 #   타므로 오프라인에서 verify 가 통째로 죽는다. 자리는 여기와 CI.
+                 #   예외는 `audit-allowlist.json` 의 **사유+만료일 원장**이고, 만료·사문화도 실패다
+                 #   (근거는 scripts/audit-gate.mjs 머리주석).
 npm run e2e      # 트랙 A — Playwright 시각/동작 스냅샷 (백엔드 없이 · 산출물은 invoke 스텁으로 목업)
                  #   ⚠ C-6 에서 `phone.spec.ts` 가 붙었다 — 폰이 진짜 크로미움에서 뜨는지 +
                  #   OPFS 저장소가 실제로 생기는지(wasm·워커가 살았다는 관측 가능한 증거).
                  #   스냅샷은 안 찍는다. 정적 검사가 원리적으로 못 보는 층이라 여기 있다.
+                 #   ⚠ 2026-07-25 에 `a11y.spec.ts`(axe)가 붙었다 — 아래 절 참조.
+npm run e2e:a11y # a11y — axe-core 로 렌더된 DOM 을 검사(`serious`+`critical` 만 실패).
+                 #   린트(jsx-a11y)는 **소스**를 보고 axe 는 **결과물**을 본다 — 대체재가 아니다.
 npm run budget   # 번들 예산 — **엔트리별**(데스크톱/폰 초기 로드) + 전체 총합 2축.
                  #   ⚠ 총합 축은 폴더를 직접 훑는다(매니페스트엔 워커·wasm 이 없다).
 npm run build    # tsc -b && vite build — Tauri 셸이 로드할 dist 재생성
 npm run e2e:shell # 트랙 B — 빌드된 exe 를 띄워 WebView2 안을 검사(사전 `npm run tauri:build:fast` 필요)
 ```
+
+- ⚠ **`verify` 녹색 ≠ 완료.** SCA·a11y·시각회귀는 `verify` 밖이다. 완료 판정은 `npm run gate`(full) 로 한다.
 
 ```
 cargo test --manifest-path src-tauri/Cargo.toml   # 루트에서 — Rust 유닛 + 실물 통합(73개 · ~4초)
@@ -77,6 +86,21 @@ cd server && npm run verify   # 클라우드 백엔드 — typecheck + format + 
 - ⚠ **C-7 이식 규약 6종의 SSOT 는 클라우드전환-설계 §15 다** — 전부 실사고에서 나왔다(추측 항목 0). 특히 **§15-4: feature 당 최소 1회 실렌더 확인**. 이식 2건에서 사고가 2건 났고 **둘 다 정적 검사 전량 녹색**이었다(존재하지 않는 토큰이 회색으로 렌더 · 카드가 1글자 폭으로 붕괴). `--update-snapshots` 는 **깨진 결과를 정답으로 굳힌다** → 순서는 "이식 → 눈으로 확인 → 스냅샷 재생성"이고, **커버리지 0인 화면은 이식 *전에* 스냅샷부터 만든다**.
 - ⚠ **게이트는 병렬 작업(다른 세션·서브에이전트)이 멈춘 뒤에 돌린다.** 동시에 파일이 쓰이면 게이트가 시점에 의존해 **flaky 를 결함으로, 결함을 flaky 로** 읽는다(실측: `verify` 4건 실패 → 재실행 전량 통과, 원인은 코드가 아니었다).
 - **`lint:css`(stylelint)가 CSS 규약을 강제한다** — 생 hex 금지(색은 tokens.css 토큰만) · 브레이크포인트 3종(560/700/900)만. 설정 근거는 `stylelint.config.js` 주석. 규약을 '관습'에 두면 흘러내린다는 게 감사 결론이었다.
+
+## 2026-07-25 감사 — **배포 후를 보는 층**이 생겼다 (요지만 · 근거는 각 파일 머리주석)
+
+> 이 저장소의 가장 큰 비대칭은 코드 품질이 아니라 **시제**였다. 배포 **전** 검증은 여섯 겹인데(정적·유닛·컴포넌트·트랙A·트랙B·실 workerd 왕복) 배포 **후** 관측은 0 이었다. 래칫은 *아는 회귀*를 막고, 아래 넷은 *모르는 것*을 잡는다.
+
+| 무엇                    | 어디                                                   | 도입 즉시 잡은 것                                                              |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **SCA 게이트**          | `web/scripts/audit-gate.mjs` + 패키지별 `audit-allowlist.json` | web 14건·server 4건(전부 high)이 무게이트였다. server 는 즉시 0 으로 해소       |
+| **a11y(axe)**           | `web/e2e/a11y.spec.ts`                                 | ⚠ **다크(기본) 테마에서 검색 입력 글자가 안 보였다**(대비 1.09:1) 외 3종        |
+| **텔레메트리**          | `web/src/lib/telemetry.ts` + `server` `/api/log`       | `ErrorBoundary` 셋이 폴백만 그리고 아무것도 기록하지 않던 것 · 전역 훅 부재     |
+| **업데이터**            | `src-tauri/src/updater.rs` + 설정 UI                   | 결함을 알게 돼도 **전달 경로가 수동 재설치뿐**이던 것(관측의 짝)                |
+
+- ⚠ **원장 두 개는 "무시"가 아니라 "기한부 판단"이다.** `audit-allowlist.json` 과 `a11y.spec.ts` 의 `알려진위반` 은 둘 다 **재검토 만료일**을 갖고, 지나면 게이트가 깨진다. 판단에 유효기간이 없으면 그건 판단이 아니라 방치다.
+- ⚠ **TS 7 · ESLint 10 은 생태계 차단이다**(2026-07-25 실측 · 우리 코드 문제 아님). TS 7.0.2 는 typecheck·build 를 통과하지만 `typescript-eslint` 전 버전이 TS7 을 지원하지 않고(peer `<6.1.0`) 실제로 하드 크래시한다 → **레이어 경계 린트(절대규칙 #2)가 죽는다.** ESLint 10 은 `eslint-plugin-jsx-a11y`(peer `^9`) 하나가 막는다. 둘 다 롤백했고 재시도 조건은 SCA 원장에 적혀 있다 — **다시 조사하지 말 것.**
+- ⚠ **업데이터 개인키**(`src-tauri/.updater-key`)는 gitignore 이고 **재생성 불가**다. 유출되면 업데이트 사칭, 잃으면 영구히 배포 불가. 절차는 `web/docs/릴리스.md` 가 SSOT.
 
 ## 트리거 라우팅 (요청 유형 → 읽을 프로토콜)
 

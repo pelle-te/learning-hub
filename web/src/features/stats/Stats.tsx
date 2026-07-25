@@ -136,7 +136,13 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
   const { cols, monthLabels, activeDays, totalMin } = buildStreakGrid(state, WEEKS);
   const heat = (
     <>
-      <div className={S.hmWrap}>
+      {/* ⚠ `tabIndex={0}` + 이름 — axe `scrollable-region-focusable`(2026-07-25). 이 잔디는
+          18주치라 좁은 폭에서 **가로로 스크롤된다.** 안에 포커스 가능한 자식이 하나도 없어서
+          (전부 `<span>` 칸이다) 키보드·스위치 사용자는 잘린 부분을 볼 방법이 아예 없었다.
+          마우스 휠·터치로만 닿는 콘텐츠가 있었던 셈이다. 컨테이너를 포커스 대상으로 만들면
+          화살표키로 스크롤된다(브라우저 기본 동작). 픽셀은 안 바뀐다 — 포커스 링은 :focus-visible
+          이라 스냅샷(비포커스 상태)에 안 나온다. */}
+      <div className={S.hmWrap} tabIndex={0} role="group" aria-label={`최근 ${WEEKS}주 학습 잔디`}>
         <div className={S.hmDowWrap}>
           <span className={S.hmMonthSpacer} aria-hidden="true" />
           <div className={S.hmDow}>

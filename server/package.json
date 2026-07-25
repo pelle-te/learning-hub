@@ -13,6 +13,8 @@
     "format:check": "prettier --check \"*.ts\" \"src/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write \"*.ts\" \"src/**/*.ts\" \"test/**/*.ts\"",
     "test:roundtrip": "vitest run --config vitest.roundtrip.config.ts",
+    "_주석:audit": "SCA 게이트. 로직은 ../web/scripts/audit-gate.mjs 하나를 **공유**한다(사본 금지 — index.ts 가 web 의 zod 스키마를 직접 import 하는 것과 같은 이유). 원장만 패키지별로 갖는다. verify 에 안 넣는 이유는 레지스트리 네트워크 의존이다 — 자리는 CI.",
+    "audit": "node ../web/scripts/audit-gate.mjs --allowlist audit-allowlist.json",
     "verify": "npm run typecheck && npm run format:check && npm run test && npm run test:roundtrip"
   },
   "devDependencies": {

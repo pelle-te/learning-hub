@@ -27,6 +27,13 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      # SCA — **알려진 CVE 게이트**(2026-07-25 감사). 종전 공급망 방어는 gitleaks(시크릿이 새는가)와
+      # Renovate(의존성이 낡는가) 둘뿐이었고, 그 사이 축이 비어 있었다: *해당하는 CVE 가 들어와도
+      # CI 가 통과시킨다*. 실측 시점 web 14건 전부 high 였고 그중 react-router 는 사용자에게
+      # 실제 배포되는 의존성이다. ⚠ `npm audit --audit-level=high` 한 줄을 쓰지 않는 이유는
+      # audit-gate.mjs 머리주석에 있다(상향 픽스가 없는 항목이 있어 그 형태는 즉시 빨간불 →
+      # `|| true` 로 무력화되는 길로 간다). 여기선 사유·만료일 원장으로 판단을 기한부로 만든다.
+      - run: npm run audit
       - run: npm run lint
       - run: npm run typecheck
       # format:check — verify 구성요소인데 CI 에만 빠져 있던 비대칭(감사 2026-07-16 ②#29):
@@ -41,6 +48,11 @@ jobs:
       # 비주얼 회귀(visual.spec)는 win32 베이스라인이라 CI(ubuntu)서 제외 — 로컬/수동 유지.
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e:smoke
+      # a11y(axe) — 스모크와 같은 이유로 CI 에 든다: **OS 독립적**이다(픽셀 비교가 없고
+      # 접근성 트리·계산된 스타일만 본다). 도입 즉시 실제 결함 4종을 잡았다 —
+      # 다크 기본 테마에서 검색 입력 글자가 안 보이던 것(대비 1.09:1) 포함.
+      # ⚠ 이 잡이 ubuntu 인데 통과하는 것이 정상이다. 시각 회귀만 win32 베이스라인 문제다.
+      - run: npm run e2e:a11y
 
   # 시크릿 스캔 — 설계서 §5-2 가 "인증 자료를 다루기 시작하는데 시크릿 스캔이 없다"고 적은 항목.
   # C-4 로 실제로 그 자료가 생겼다(HUB_SIGNING_KEY·HUB_ADMIN_KEY·리프레시 토큰). 이 저장소가
@@ -92,6 +104,10 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
+      # ⚠ 이 층은 web/ 과 달리 **devDependency 도 신뢰면**이다 — wrangler 가 배포 자격증명을
+      # 다룬다. 그래서 원장이 비어 있는 상태를 유지하는 것이 목표다(현재 0건).
+      # 스크립트는 ../web/scripts/audit-gate.mjs 를 공유하므로 web 의존성 설치가 필요 없다(순수 Node).
+      - run: npm run audit
       # typecheck + format:check + 계약(SQL 의미론) + 왕복(실 workerd·D1)
       - run: npm run verify
 
@@ -136,3 +152,35 @@ jobs:
       # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
       # `cargo check` 만으로는 1단계에서 겪은 WiX/NSIS 번들 실패를 못 잡는다.
       - run: npm run tauri:build
+
+      # ── 시각 회귀(2026-07-25 신설) ───────────────────────────────────────────
+      # 종전에 CI 밖이던 유일한 게이트다. 이유는 정당했다 — 베이스라인 106장이 **win32**
+      # 라 ubuntu 잡에서는 원리적으로 못 돈다. 그런데 그 결론이 "CI 에서 안 돈다"로 굳으면서
+      # **앱의 주 UI 안전망이 '누가 로컬에서 기억하고 돌리는가'에 걸려 있었다.**
+      # 커버리지가 UI 레이어에서 얇다는 사실(로드맵: "엔진/lib은 커버, UI는 e2e 시각만")과
+      # 겹치면 구멍이 정확히 겹친다: UI 는 단위 커버리지도 얇고 CI 시각 검증도 없었다.
+      #
+      # 해법은 새 러너가 아니라 **이미 있는 windows 잡**이다(추가 과금 0 · 러너 OS 일치).
+      # ⚠ 위치가 계약이다: `tauri:build` **뒤**여야 한다 — 그게 `web` 빌드를 선행하므로
+      #   `dist` 가 갓 만들어진 상태이고, preview 는 그 `dist` 를 띄운다(옛 산출물에 스냅샷을
+      #   찍는 함정은 `playwright.config.ts` 의 `reuseExistingServer:false` 주석이 소유).
+      #
+      # ⚠⚠ **첫 실행에서 실패할 수 있고, 그건 앱 회귀가 아닐 수 있다.** 베이스라인은 개발자
+      #   PC 에서 찍혔고 러너는 폰트 렌더·서브픽셀 AA 가 다를 수 있다. 임계 0.5% 가 그 여유를
+      #   덮도록 잡혀 있지만(§ config 주석) 실측 전에는 단언할 수 없다. 실패하면 아래 아티팩트의
+      #   diff 이미지를 **먼저 보고** 판단할 것 — 러너 렌더 차이면 베이스라인을 러너에서
+      #   재생성하지 말고(그러면 로컬이 영구히 빨간불이 된다) 이 스텝을 `e2e:smoke` 수준으로
+      #   낮추거나 Playwright 도커 이미지로 양쪽을 통일하는 쪽이 맞다.
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run e2e
+        working-directory: web
+      # 실패했을 때 **눈으로 볼 수 있어야** 위 판단이 가능하다. 실패 시에만 올린다.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 7

@@ -29,7 +29,24 @@ export default function HudFrame({
   }, [scrollResetKey]);
   return (
     <section className={className ? `hud ${className}` : 'hud'}>
-      <div ref={scrollRef} className={fill ? 'hud-fill' : 'hud-scroll'}>
+      {/* ⚠ 스크롤러에 `tabIndex={0}` — axe `scrollable-region-focusable`(2026-07-25).
+          브라우저는 `overflow:auto` 컨테이너를 **자동으로 포커스 대상으로 만들지 않는다.**
+          안에 포커스 가능한 자식이 하나라도 있으면 그걸 타고 스크롤이 따라오지만, `guide`
+          처럼 **순수 텍스트뿐인 탭**은 키보드·스위치 사용자가 첫 화면 아래를 볼 방법이
+          아예 없었다(마우스 휠·터치 전용 콘텐츠). 게이트가 정확히 그 탭에서 잡았다.
+
+          ⚠ `fill` 일 땐 붙이지 않는다 — 그쪽은 스크롤이 없어서 포커스 정지점만 늘린다.
+          ⚠ `role="group"` 은 **이름을 주지 않는다**(`region` 도 아니다): 이름 없는 group 은
+          스크린리더가 사실상 무시하므로 탭마다 잡음 랜드마크가 생기지 않으면서, 동시에
+          `jsx-a11y/no-noninteractive-tabindex` 에 "의도된 스크롤 컨테이너"임을 표시한다
+          (그 규칙과 axe 가 충돌하는 이유는 `eslint.config.js` 가 소유). 삼항식으로 규칙을
+          우회할 수도 있었지만 그건 우연한 통과다. 픽셀은 안 바뀐다(포커스 링은 `:focus-visible`). */}
+      <div
+        ref={scrollRef}
+        className={fill ? 'hud-fill' : 'hud-scroll'}
+        tabIndex={fill ? undefined : 0}
+        role={fill ? undefined : 'group'}
+      >
         {children}
       </div>
     </section>

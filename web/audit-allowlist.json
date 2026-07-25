@@ -1,0 +1,137 @@
+{
+  "//": "SCA 원장(web/) — `npm run audit` 이 읽는다. 규칙과 실패 조건은 scripts/audit-gate.mjs 머리주석이 SSOT.",
+  "//기준일": "2026-07-25 — 최초 작성. `npm audit fix`(비파괴)로 fast-uri 1건 해소 후 남은 14건.",
+  "//⚠": "여기 적는 것은 '무시'가 아니라 '기한부 판단'이다. 상향 픽스가 생기면 원장에서 지우고 올린다. 실측 결과 14건 전부 npm 이 제안하는 fix 가 **현재보다 낮은 버전**(다운그레이드)이라 지금은 올릴 곳이 없다.",
+  "//체인": "14건은 독립 14건이 아니라 뿌리 3개다 — ① eslint(brace-expansion ReDoS) ② vite-plugin-pwa(ejs) ③ react-router. 그래서 사유도 3벌이고, 같은 뿌리는 같은 문장을 공유한다.",
+
+  "허용": [
+    {
+      "패키지": "react-router",
+      "심각도": "high",
+      "범위": "prod",
+      "권고": "GHSA-qwww-vcr4-c8h2 — RSC Mode CSRF Bypass Allows Action Execution Before 400 Response",
+      "사유": "⚠ 이 목록에서 **유일하게 사용자에게 배포되는** 항목이라 가장 짧은 재검토 주기를 준다. 취약 경로는 RSC(React Server Components) 모드의 서버 액션 처리인데, 이 앱에는 그 코드가 존재하지 않는다: 엔트리 둘 다 `BrowserRouter`(main.tsx) 이고 폰은 라우터를 아예 안 싣는다(phone/main.tsx 머리주석 3번). loader/action·서버 렌더·RSC 어느 것도 쓰지 않으므로 취약 함수에 도달하는 호출 경로가 없다. npm 제안 fix 는 7.11.0 = **다운그레이드**(현재 7.18.1)라 올릴 곳이 없다.",
+      "해소조건": "react-router 7.19+ 에 패치가 실리면 즉시 올린다. Renovate 가 patch+minor 를 automerge 하므로 대개 자동으로 사라진다(그때 이 항목은 '사문' 으로 게이트를 깨뜨려 삭제를 강제한다).",
+      "재검토": "2026-09-01"
+    },
+
+    {
+      "패키지": "eslint",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "GHSA-mh99-v99m-4gvg — brace-expansion ReDoS (전이 의존)",
+      "사유": "빌드 산출물에 안 실린다(devDependency). 취약 코드는 minimatch→brace-expansion 의 글롭 패턴 파싱이고, 여기에 들어가는 문자열은 **우리가 쓴 eslint.config.js 의 files/ignores 패턴**뿐이다 — 신뢰할 수 없는 입력이 닿는 경로가 없다. 픽스는 eslint 10(major).",
+      "해소조건": "ESLint 10 승격. ⚠ **2026-07-25 실측: 지금은 불가능하다.** `eslint-plugin-jsx-a11y@6.10.2` 의 peer 가 `^3 || … || ^9` 로 **ESLint 10 을 지원하지 않는다**(나머지 5종 — boundaries·sonarjs·better-tailwindcss·react-hooks·import-resolver-typescript — 은 전부 `^10` 을 받는다). jsx-a11y 하나가 그룹 전체를 잡고 있다. 재검토 때 확인할 것은 **그 플러그인의 peer 뿐**이다(다른 걸 다시 조사하지 말 것).",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "@eslint/config-array",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "GHSA-mh99-v99m-4gvg (전이)",
+      "사유": "위 `eslint` 항목과 같은 뿌리(minimatch→brace-expansion). ESLint 10 과 함께 사라진다.",
+      "해소조건": "ESLint 10 승격.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "@eslint/eslintrc",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "GHSA-mh99-v99m-4gvg (전이)",
+      "사유": "위 `eslint` 항목과 같은 뿌리. ESLint 10 과 함께 사라진다.",
+      "해소조건": "ESLint 10 승격.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "minimatch",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "GHSA-mh99-v99m-4gvg (전이)",
+      "사유": "위 `eslint` 항목과 같은 뿌리. 린트 글롭 패턴만 처리한다.",
+      "해소조건": "ESLint 10 승격.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "brace-expansion",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "GHSA-mh99-v99m-4gvg — ReDoS",
+      "사유": "이 체인의 **뿌리**. 위 `eslint` 항목의 도달 가능성 논증이 그대로 적용된다.",
+      "해소조건": "ESLint 10 승격.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "eslint-plugin-jsx-a11y",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "GHSA-mh99-v99m-4gvg (전이 · 자체 minimatch)",
+      "사유": "위와 같은 뿌리. ⚠ npm 이 제안하는 fix 는 6.4.1 = **다운그레이드**(현재 6.10.2)라 따르면 a11y 룰을 잃는다. ⚠⚠ 이 패키지가 **ESLint 10 그룹 전체를 막고 있는 병목**이다(peer 가 `^9` 까지) — 즉 이 항목 하나가 위 eslint 체인 5건의 해소를 동시에 지연시킨다. 우선순위를 여기에 둘 것.",
+      "해소조건": "jsx-a11y 가 ESLint 10 peer + minimatch 상향을 실은 릴리스. 그게 나오면 eslint 체인 6건이 **한 번에** 사라진다.",
+      "재검토": "2026-10-01"
+    },
+
+    {
+      "패키지": "vite-plugin-pwa",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "ejs 취약점 (workbox-build 경유 전이)",
+      "사유": "**빌드타임 전용**이다 — 취약한 ejs 는 workbox 가 서비스워커 파일을 템플릿으로 찍을 때만 돌고, 그 템플릿 입력은 우리 `vite.config.ts` 의 workbox 설정뿐이다. 산출물(dist)에는 ejs 가 안 실린다. npm 제안 fix 는 1.2.0 = **다운그레이드**(현재 1.3.0).",
+      "해소조건": "workbox-build 가 ejs 를 올린 릴리스를 문 vite-plugin-pwa. ⚠ renovate.json 이 0.x 가 아닌데도 vite 그룹에 묶여 있으므로 vite 생태계와 함께 검토한다.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "workbox-build",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "ejs (전이)",
+      "사유": "위 `vite-plugin-pwa` 와 같은 뿌리. 빌드타임 전용.",
+      "해소조건": "vite-plugin-pwa 상향.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "@trickfilm400/rollup-plugin-off-main-thread",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "ejs (전이)",
+      "사유": "위 `vite-plugin-pwa` 와 같은 뿌리. 빌드타임 전용.",
+      "해소조건": "vite-plugin-pwa 상향.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "ejs",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "ejs 템플릿 인젝션",
+      "사유": "이 체인의 **뿌리**. 서비스워커 생성 시 우리 설정만 템플릿에 넣는다 — 신뢰할 수 없는 입력 경로 없음.",
+      "해소조건": "vite-plugin-pwa 상향.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "jake",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "filelist→minimatch (전이)",
+      "사유": "ejs 의 의존. 위 `vite-plugin-pwa` 체인. 빌드타임 전용.",
+      "해소조건": "vite-plugin-pwa 상향.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "filelist",
+      "심각도": "high",
+      "범위": "dev",
+      "권고": "minimatch (전이)",
+      "사유": "jake 의 의존. 위 `vite-plugin-pwa` 체인. 빌드타임 전용.",
+      "해소조건": "vite-plugin-pwa 상향.",
+      "재검토": "2026-10-01"
+    },
+    {
+      "패키지": "react-router-dom",
+      "심각도": "high",
+      "범위": "prod",
+      "권고": "react-router 재노출 (전이)",
+      "사유": "위 `react-router` 항목과 같은 뿌리. 동일한 도달 가능성 논증(이 앱에 RSC 경로 없음).",
+      "해소조건": "react-router 패치 릴리스.",
+      "재검토": "2026-09-01"
+    }
+  ]
+}

@@ -27,6 +27,7 @@ mod research;
 #[cfg(test)]
 mod testkit;
 mod tools;
+mod updater;
 mod vault;
 mod workspace;
 
@@ -46,6 +47,17 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }));
+        /* 자동 업데이트(2026-07-25) — **관측의 짝**. 텔레메트리로 결함을 알게 돼도 종전엔
+        전달 경로가 NSIS 수동 재설치뿐이었다. 그 비대칭을 여기서 닫는다.
+
+        ⚠ **자동으로 받지도 설치하지도 않는다.** 플러그인만 등록하고, 확인·설치는 사용자가
+        설정에서 누를 때만 돈다(`updater::check_update`/`install_update`). 학습 중에 앱이
+        제멋대로 재시작하는 것이 이 앱에서 가장 나쁜 실패다 — 진행 중인 집중 세션·타이머·
+        미저장 편집이 날아간다. 조용한 자동 설치는 그 위험을 사용자 동의 없이 지운다.
+
+        ⚠ 서명 검증은 플러그인이 한다(공개키는 `tauri.conf.json`). 개인키를 잃으면 이 앱에
+        다시는 업데이트를 못 낸다 — 절차와 백업 책임은 `web/docs/릴리스.md` 가 SSOT. */
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
 
     builder
@@ -84,6 +96,11 @@ pub fn run() {
             /* C-5 후속 — 클라우드 HTTP 중계. 웹뷰가 직접 fetch 하면 CSP(C-3)에 막힌다(실측).
             뉴스·Ollama·Anki 와 같은 규약: 외부로 나가는 연결은 전부 Rust 가 소유한다. */
             cloud::cloud_http,
+            /* 자동 업데이트(2026-07-25) — 관측(텔레메트리)의 짝. **확인과 설치를 가른다**:
+            확인은 부작용이 없고, 설치는 앱을 재시작하므로 사용자가 명시적으로 누른 뒤에만
+            불린다(근거는 updater.rs 머리주석). */
+            updater::check_update,
+            updater::install_update,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
