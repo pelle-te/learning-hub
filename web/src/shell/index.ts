@@ -17,6 +17,7 @@ export {
   subTabGroupOf,
   hostTabKey,
   navGroups,
+  destinations,
   surfaceOf,
   surfaceHome,
   SURFACES,
@@ -24,6 +25,7 @@ export {
   type TabMeta,
   type NavGroup,
   type Surface,
+  type TabRole,
   type SurfaceMeta,
 } from './tabs';
 export { paletteCommands, type PaletteCommand } from './palette';

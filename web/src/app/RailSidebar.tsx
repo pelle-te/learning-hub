@@ -14,7 +14,7 @@ const NAV_BADGE_TAB = 'journal';
 /* RailSidebar — 라벨+그룹 접이식 사이드바(설계도 §1-2 확장).
    - 펼침(기본): 그룹 헤더(계획·자료·분석·설정) 아래 아이콘+라벨 행. 탭이 늘어도 청킹으로 스캔 가능.
    - 접힘: 60px 아이콘 레일 + 그룹 구분선 + hover 플라이아웃 라벨(집중 모드·공간 회수). useUI.navCollapsed 영속.
-   - 흡수 탭(routine/degree/review/mastery/graph)에 있을 땐 그 호스트를 활성으로(섹션 전환은 본문 상단 SubTabs).
+   - lens(review/mastery/graph/alloc/items…)에 있을 땐 그 호스트를 활성으로(섹션 전환은 본문 상단 SubTabs).
    - 방향키/Home/End 이동(roving tabindex) — *라우트 내비*지 ARIA tablist가 아니라 활성 표기는 aria-current="page".
    - settings 그룹(탐구 수집·설정)은 스페이서 아래 하단에(저빈도 운영 화면).
 

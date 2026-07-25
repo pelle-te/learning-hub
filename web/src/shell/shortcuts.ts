@@ -12,10 +12,16 @@ export interface NavShortcut {
   tab: string;
 }
 
-/** g-시퀀스 네비게이션(가장 자주 쓰는 탭). 충돌 없는 단일 문자. */
+/** g-시퀀스 네비게이션(가장 자주 쓰는 탭). 충돌 없는 단일 문자.
+ *  ⚠ **모든 seq 의 tab 은 실존해야 한다** — `test/invariants.test.ts` 가 기계로 잠근다.
+ *  D-4 이전엔 `g o` 가 은퇴한 `routine`(리다이렉트 shim)을 가리켜, 누르면 죽은 탭에 갔다
+ *  `/items` 로 튕겼다. 목적지가 사라지는 것은 조용한 사건이라 표가 스스로 낡는다. */
 export const NAV_SHORTCUTS: NavShortcut[] = [
   { seq: 't', tab: 'today' },
-  { seq: 'p', tab: 'plan-host' }, // 계획 호스트(배치로 진입). g s/i/o 는 세그먼트 딥링크로 유지.
+  /* ⚠ `p`(계획)와 `s`(캘린더)가 **같은 곳을 가리킨다 — 의도된 것이다.** D-4 이전에도 `g p` 는
+     plan-host 를 거쳐 `/schedule` 로 튕겼으니 두 키의 착지는 원래 같았다. 셸이 사라졌다고 한
+     쪽을 지우면 그 손가락 습관만 깨지고 얻는 것이 없다(이 저장소는 사용자 1인이다). */
+  { seq: 'p', tab: 'schedule' },
   { seq: 's', tab: 'schedule' },
   { seq: 'i', tab: 'items' },
   { seq: 'j', tab: 'journal' },
@@ -23,7 +29,6 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
   { seq: 'a', tab: 'stats' },
   { seq: 'm', tab: 'mastery' },
   { seq: 'd', tab: 'degree' },
-  { seq: 'o', tab: 'routine' },
   { seq: 'n', tab: 'integrations' },
   { seq: 'c', tab: 'control' },
   { seq: 'e', tab: 'settings' },

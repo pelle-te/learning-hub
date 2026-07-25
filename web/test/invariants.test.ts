@@ -15,7 +15,17 @@ import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
-import { TABS, GROUP_LABELS, navGroups, surfaceOf, SURFACES } from '@/shell/tabs';
+import {
+  TABS,
+  GROUP_LABELS,
+  navGroups,
+  destinations,
+  surfaceOf,
+  SURFACES,
+  SUBTAB_GROUPS,
+  tabByKey,
+} from '@/shell/tabs';
+import { NAV_SHORTCUTS } from '@/shell/shortcuts';
 import type { AppState } from '@/lib/types';
 
 /* Proxy 내부 접근·상속 프로퍼티 등 슬라이스가 아닌 잡음 키(캐시 입력이 아님). */
@@ -105,6 +115,40 @@ describe('불변식 ③ 나브 표면(Wave⑥) 정합', () => {
   });
   it('surfaceHome은 그 표면 소속 탭을 가리킨다(스위처 착지점 정합)', () => {
     for (const sf of SURFACES) expect(surfaceOf(sf.home)).toBe(sf.key);
+  });
+});
+
+/* ============================================================
+   불변식 ③-b — **"갈 수 있는 곳"의 열거는 하나에서 파생된다** (D-4)
+
+   레일 / `[ ]` 링 / `g` 키 / 세그먼트가 각자 자기 목록을 갖던 시절, 멤버십이 조용히 갈렸다:
+   `g o` 는 은퇴한 탭으로 갔다 튕겼고, 링은 표면 경계를 넘어 레일에 없는 곳으로 샜다.
+   목적지가 사라지는 사건은 **아무 에러도 안 내므로** 손으로는 못 지킨다 — 기계로 잠근다.
+============================================================ */
+describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에서 파생된다', () => {
+  it('레일에 서는 것은 정확히 destination 이다(lens 누출 0)', () => {
+    for (const surface of ['study', 'materials'] as const)
+      for (const t of navGroups(surface).flatMap((g) => g.tabs)) expect(t.role, t.key).toBe('destination');
+  });
+  it('`[ ]` 링은 레일과 같은 목록을 돈다(같은 함수에서 파생 — 두 벌이 될 수 없다)', () => {
+    for (const surface of ['study', 'materials'] as const)
+      expect(destinations(surface).map((t) => t.key)).toEqual(
+        navGroups(surface).flatMap((g) => g.tabs.map((t) => t.key)),
+      );
+  });
+  it('모든 `g` 시퀀스가 실존하는 탭을 가리킨다(죽은 목적지 금지)', () => {
+    for (const sc of NAV_SHORTCUTS) expect(tabByKey(sc.tab), `g ${sc.seq}`).toBeTruthy();
+  });
+  it('모든 세그먼트 키가 실존하고, 호스트(첫 항목)는 destination 이다', () => {
+    for (const g of SUBTAB_GROUPS) {
+      for (const k of g) expect(tabByKey(k), k).toBeTruthy();
+      expect(tabByKey(g[0]!)?.role, `host ${g[0]}`).toBe('destination');
+      for (const k of g.slice(1)) expect(tabByKey(k)?.role, `seg ${k}`).toBe('lens');
+    }
+  });
+  it('lens 는 반드시 어느 세그먼트 그룹에 속한다(도달 경로 없는 탭 금지)', () => {
+    const inGroup = new Set(SUBTAB_GROUPS.flat());
+    for (const t of TABS) if (t.role === 'lens') expect(inGroup.has(t.key), `${t.key} 는 어디로도 못 간다`).toBe(true);
   });
 });
 

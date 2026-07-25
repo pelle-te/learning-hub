@@ -26,8 +26,9 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
   const navigate = useNavigate();
   const group = subTabGroupOf(tabKey);
   const btns = useRef<Array<HTMLButtonElement | null>>([]);
-  // 셸 호스트(plan-host 등)는 세그먼트 버튼으로 렌더하지 않는다 — 나브·라우트엔 있지만 자식 세그먼트만 바에 노출.
-  const segs = (group ?? []).filter((t) => !t.shell);
+  // D-4 — 옛 `shell` 플래그(화면 없는 호스트를 버튼에서 제외)는 사라졌다. 이제 호스트는 자기 화면을
+  // 가진 세그먼트 자신이라(계획 = 캘린더) 걸러낼 것이 없다.
+  const segs = group ?? [];
   if (segs.length < 2) return null;
 
   const activeIdx = segs.findIndex((t) => t.key === tabKey);

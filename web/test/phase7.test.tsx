@@ -35,12 +35,12 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 test('나브 하위탭: ArrowRight로 다음 탭 자동 활성(today → 계획)', async () => {
-  // 계획 개편: today(10) 다음 order 12에 '계획'(plan-host) 호스트 삽입 → 다음 탭=계획(rail-plan-host).
+  // 계획 개편: today(10) 다음 order 12 = '계획'(=캘린더 자신 · D-4 로 plan-host 셸 은퇴).
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   expect(today).toHaveAttribute('aria-current', 'page');
   fireEvent.keyDown(today, { key: 'ArrowRight' });
-  await waitFor(() => expect(document.getElementById('rail-plan-host')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.getElementById('rail-schedule')).toHaveAttribute('aria-current', 'page'));
 });
 
 test('레일 나브: End로 마지막 나브 항목(설정)으로 이동', async () => {
@@ -59,22 +59,22 @@ test('레일 나브: ArrowLeft가 첫 항목에서 마지막(설정)으로 순�
   await waitFor(() => expect(document.getElementById('rail-settings')).toHaveAttribute('aria-current', 'page'));
 });
 
-test('단축키: ]는 다음 탭(today → 계획), [는 이전 탭(today → control=탐구수집)', async () => {
+test('단축키: ]는 다음 도달점(today → 계획), [는 이전(today → 설정 · 링이 표면 안에서 순환)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
-  // 계획 개편: today 다음 표시탭 = 계획(plan-host · order 12).
+  // 계획 개편: today 다음 도달점 = 계획(schedule · order 12).
   const { unmount } = renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: ']' });
-  await waitFor(() => expect(document.getElementById('rail-plan-host')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.getElementById('rail-schedule')).toHaveAttribute('aria-current', 'page'));
   unmount();
 
   renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: '[' });
-  // 표시(비숨김) 탭 마지막은 이제 '시스템 제어판'(routine·degree·review·mastery는 섹션 세그먼트로 흡수·숨김).
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: /탐구 수집/ })).toHaveAttribute('aria-current', 'page'),
-  );
+  /* D-4 — 링이 **레일과 같은 목록**(학습 표면의 destination)을 돈다. 그 마지막은 '설정'이다.
+     예전엔 전역 목록을 돌아 학습 화면에서 자료 표면 탭으로 새어 나갔고(레일엔 없는 곳), 정작
+     레일 마지막인 '설정'은 링에서 빠져 있었다 — 둘 다 조용한 결함이었다. */
+  await waitFor(() => expect(document.getElementById('rail-settings')).toHaveAttribute('aria-current', 'page'));
 });
 
 test('레일 나브: 접기 토글이 사이드바를 접고 펼친다(navCollapsed)', async () => {

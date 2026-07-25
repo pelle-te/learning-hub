@@ -1,7 +1,16 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
-import { orderedTabs, tabByKey, ToastHost, ModalHost, NAV_SHORTCUTS } from '@/shell';
+import {
+  orderedTabs,
+  tabByKey,
+  destinations,
+  surfaceOf,
+  hostTabKey,
+  ToastHost,
+  ModalHost,
+  NAV_SHORTCUTS,
+} from '@/shell';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
@@ -128,11 +137,15 @@ export default function App() {
         ov.toggleHelp();
         return;
       }
-      // [ / ] — 이전/다음 탭 순환(숨김 탭 제외). 현재 경로는 이벤트 시점 값을 직접 읽어 stale 방지.
+      /* [ / ] — 이전/다음 도달점 순환. 현재 경로는 이벤트 시점 값을 직접 읽어 stale 방지.
+         ⚠ D-4: **레일과 같은 목록**(`destinations(표면)`)을 돈다. 예전엔 `!t.hidden` 전역
+         목록이라 학습 화면에서 `]` 를 누르면 레일에 없는 자료 탭으로 조용히 새어 나갔고,
+         `settings` 는 레일엔 있는데 링에만 없었다. 링이 곧 레일이라는 계약이 이제 코드다.
+         세그먼트(lens)에 있을 땐 그 **호스트** 위치에서 도는 것이 링의 뜻과 맞다. */
       if (e.key === '[' || e.key === ']') {
-        const visible = orderedTabs().filter((t) => !t.hidden);
         const cur = window.location.pathname.replace(/^\//, '') || 'today';
-        let i = visible.findIndex((t) => t.key === cur);
+        const visible = destinations(surfaceOf(hostTabKey(cur)) ?? useUI.getState().ui.navSurface);
+        let i = visible.findIndex((t) => t.key === hostTabKey(cur));
         if (i < 0) i = 0;
         const n = e.key === ']' ? (i + 1) % visible.length : (i - 1 + visible.length) % visible.length;
         e.preventDefault();

@@ -49,6 +49,14 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
 
   if (!open) return null;
 
+  // 이동 키를 목적지로 묶는다(한 탭에 키가 둘일 수 있다 — 아래 렌더 주석 참조).
+  const navRows: { tab: string; seqs: string[] }[] = [];
+  for (const sc of NAV_SHORTCUTS) {
+    const row = navRows.find((r) => r.tab === sc.tab);
+    if (row) row.seqs.push(sc.seq.toUpperCase());
+    else navRows.push({ tab: sc.tab, seqs: [sc.seq.toUpperCase()] });
+  }
+
   // 액션 명령만(탭 이동은 위 '이동' 섹션이 이미 커버) 카테고리 순으로 정렬해 카탈로그로.
   const acts = paletteCommands()
     .filter((c) => c.kind === 'act')
@@ -67,11 +75,13 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
             <h3 className={H}>
               이동 — <kbd className={KBD}>G</kbd> 누른 뒤
             </h3>
+            {/* D-4 — 같은 탭을 가리키는 키가 둘일 수 있다(`g p`·`g s` = 계획). 목적지로 묶어
+                "P / S"로 한 줄에 보인다 — 두 줄로 같은 말을 하면 치트시트가 결함처럼 읽힌다. */}
             <ul className={LIST}>
-              {NAV_SHORTCUTS.map((sc) => (
-                <li key={sc.seq} className={LI}>
-                  <kbd className={KBD}>{sc.seq.toUpperCase()}</kbd>
-                  <span>{tabByKey(sc.tab)?.label ?? sc.tab}</span>
+              {navRows.map((r) => (
+                <li key={r.tab} className={LI}>
+                  <kbd className={KBD}>{r.seqs.join(' / ')}</kbd>
+                  <span>{tabByKey(r.tab)?.label ?? r.tab}</span>
                 </li>
               ))}
             </ul>

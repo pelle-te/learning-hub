@@ -9,7 +9,7 @@ import App from '@/app/App';
 import { useApp } from '@/store/useApp';
 import { iso, mondayOf } from '@/lib/utils';
 
-/* Phase 4 — 앱상태 탭 7개(schedule·routine·journal·review·stats·degree·settings)가
+/* Phase 4 — 앱상태 탭 7개(schedule·items·journal·review·stats·degree·settings)가
    React로 동작하고 변경이 store(앱상태)에 반영되는지. 모두 #page(레거시 노드)를 쓰지 않음. */
 function renderApp(initialPath: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -71,10 +71,11 @@ test('schedule: 캘린더 세그먼트가 일/주/월 뷰를 전환한다(#page 
   await waitFor(() => expect(screen.getByRole('button', { name: '월' })).toHaveAttribute('aria-pressed', 'true'));
 });
 
-// 계획 재개편 v3 — '뼈대'는 '과목' 탭의 접이식 스트립으로 병합됐다(/routine은 /items 리다이렉트).
-// 편집기는 온디맨드라 스트립을 먼저 펼쳐야 '+ 블록 추가'가 나온다.
-test('routine: + 블록 추가가 store.routine에 들어간다', async () => {
-  renderApp('/routine');
+// 계획 재개편 v3 — '뼈대'는 '과목' 탭의 접이식 스트립으로 병합됐다. 편집기는 온디맨드라
+// 스트립을 먼저 펼쳐야 '+ 블록 추가'가 나온다.
+// ⚠ 옛 `/routine` 리다이렉트 shim 은 D-4 에서 은퇴했다 — 여기서 직접 /items 를 연다.
+test('items: 뼈대 + 블록 추가가 store.routine에 들어간다', async () => {
+  renderApp('/items');
   fireEvent.click(await screen.findByRole('button', { name: /수업·일과 편집/ }));
   const add = await screen.findByRole('button', { name: '+ 블록 추가' });
   fireEvent.click(add);
