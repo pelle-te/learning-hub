@@ -36,7 +36,9 @@ export {
   captureToBacklog,
   semanticPalette,
   contentSearch,
+  verbsFor,
   type ContentHit,
+  type HitVerb,
 } from './actions';
 export { recordRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';

@@ -24,9 +24,17 @@ import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { storage } from '@/lib/kv';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
-import { buildAnkiCards, buildSummaryNotes, archiveOldData, openBacklog, addBacklog } from '@/lib/methodology';
+import {
+  buildAnkiCards,
+  buildSummaryNotes,
+  archiveOldData,
+  openBacklog,
+  addBacklog,
+  toggleBacklog,
+} from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
-import { iso, mondayOf, todayISO } from '@/lib/utils';
+import { PROMOTE_TOAST } from '@/lib/promote';
+import { iso, mondayOf, openVaultSearch, todayISO } from '@/lib/utils';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
 import type { CaptureResult } from '@/lib/quickCapture';
@@ -421,7 +429,136 @@ export type ContentHit = {
   kind: 'subject' | 'chapter' | 'book' | 'backlog' | 'weak';
   label: string;
   to: string;
+  /* ── 동사가 작용할 대상(N-1) ──────────────────────────────────────────
+     ⚠ `id` 문자열(`c-chap:<sid>:<cid>`)을 되파싱하지 않는다. 그 문자열은 cmdk 의 키일 뿐
+     계약이 아니고, 접두어 규칙이 한 번 바뀌면 동사가 **조용히 엉뚱한 객체에** 작용한다
+     (잘못된 쓰기는 이 저장소가 반복해서 물린 침묵하는 부류다). 필드로 들고 다닌다. */
+  /** 소속 과목 id — subject·chapter·weak. weak 는 CBMS 항목의 sid 다. */
+  sid?: string;
+  /** 과목명(표시·볼트 질의용) — sid 가 지워진 과목을 가리킬 수 있어 이름을 함께 든다. */
+  subject?: string;
+  /** 챕터명 — chapter·weak. */
+  chapter?: string;
+  /** 보충 레코드 id — backlog. */
+  blId?: string;
 };
+
+/* ── N-1 명사→동사 ────────────────────────────────────────────────────────
+   ⌘K 는 **찾아주고 데려다만 줬다**. `ContentHit` 은 4필드였고 `onSelect` 는
+   `close(); navigate()` 가 전부라, "이 약점을 보충에 담기"는 팔레트에서 찾은 뒤 화면을
+   옮겨 다시 그 항목을 찾아 버튼을 누르는 4클릭이었다.
+
+   ## ⚠ 규율: **새 동사를 짓지 않는다**
+
+   여기 있는 동사는 전부 **이미 화면에 있는 버튼**이다 — 요약·오답 프리필(오늘 탭 블록
+   버튼과 같은 경로) · 보충에 담기(`Review.tsx` I-1 의 `addBacklog`+토스트 그대로) ·
+   볼트 열기(5개 feature 의 `openVaultSearch`) · 보충 완료(`BacklogCard` 의 `toggleBacklog`).
+   이 규율을 어기는 순간 팔레트가 **두 번째 IA** 가 되고, 어느 쪽이 진짜인지 모르게 된다.
+
+   ## ⚠ 프리필에 `sid` 를 넘기는 것이 이 항목의 절반이다
+
+   팔레트의 `act:add-sum`·`act:add-cbms` 는 `request(form, '')` 로 **과목을 빈 채** 넘겼다.
+   즉 키보드 경로가 마우스보다 못했다(오늘 탭 버튼은 그 블록의 과목을 채워 준다). 객체
+   위에서 부르는 동사는 그 객체를 안다 — 같은 폼이 채워진 채로 열린다. */
+export interface HitVerb {
+  id: string;
+  label: string;
+  hint: string;
+  run: () => void;
+  /** 실행 후 이동할 라우트(없으면 제자리 — 볼트 열기·보충 완료가 그렇다). */
+  to?: string;
+}
+
+/** 보충 담기 — `Review.tsx` 의 I-1 경로(addBacklog + 승격 토스트)를 그대로 승격한 것. */
+function seedBacklog(sid: string, name: string, topic: string, note: string): void {
+  st().mutate((s) => addBacklog(s, sid, name, topic, note));
+  toast(PROMOTE_TOAST, 'ok');
+}
+
+/**
+ * 히트 위에서 쓸 수 있는 동사들. 빈 배열이면 팔레트가 동사 단계를 열지 않는다
+ * (열어 놓고 "없음"을 보여 주는 것은 키를 배운 사람에게 벌을 주는 것이다).
+ */
+export function verbsFor(hit: ContentHit): HitVerb[] {
+  const subject = hit.subject ?? '';
+  const chapter = hit.chapter ?? '';
+  const sid = hit.sid ?? '';
+  /* 볼트 질의 — `Review.tsx:581` 의 `subject + ' ' + chapter` 관용구. 챕터가 없으면
+     과목명만(`Mistakes.tsx:88` 이 같은 폴백을 쓴다). */
+  const vaultQuery = [subject, chapter].filter(Boolean).join(' ');
+  const openVault: HitVerb = {
+    id: 'v:vault',
+    label: '볼트에서 열기',
+    hint: 'Obsidian',
+    run: () => openVaultSearch(vaultQuery),
+  };
+
+  switch (hit.kind) {
+    case 'subject':
+    case 'chapter':
+      return [
+        {
+          id: 'v:sum',
+          label: '3문장 요약 남기기',
+          hint: '기록',
+          run: () => usePrefill.getState().request('sum', sid),
+          to: '/journal',
+        },
+        {
+          id: 'v:cbms',
+          label: '오답(CBMS) 기록',
+          hint: '기록',
+          // 보충 폼과 달리 요약 폼엔 챕터 칸이 없다 — 챕터는 CBMS 로만 넘긴다(runQuickCapture 와 같은 판단).
+          run: () => usePrefill.getState().request('cbms', sid, '', chapter),
+          to: '/journal',
+        },
+        {
+          id: 'v:bl',
+          label: '보충에 담기',
+          hint: '보충',
+          run: () => seedBacklog(sid, subject || hit.label, chapter || subject || hit.label, ''),
+        },
+        openVault,
+      ];
+    case 'weak':
+      /* 약점은 **이미 진단된 것**이라 처방이 먼저다 — 발산이 든 대표 사례
+         ("리뷰 약점→보충 = 4클릭+스크롤+화면전환 1"). 순서가 곧 권고다. */
+      return [
+        {
+          id: 'v:bl',
+          label: '보충에 담기',
+          hint: '처방',
+          run: () => seedBacklog(sid, '반복 약점', `${subject} — ${chapter}`, '2회 이상 막힌 지점 — 백지로 인출'),
+        },
+        {
+          id: 'v:cbms',
+          label: '오답(CBMS) 기록',
+          hint: '기록',
+          run: () => usePrefill.getState().request('cbms', sid, '', chapter),
+          to: '/journal',
+        },
+        openVault,
+      ];
+    case 'backlog':
+      return [
+        {
+          id: 'v:done',
+          label: '보충 완료 처리',
+          hint: '보충',
+          run: () => {
+            if (!hit.blId) return;
+            st().mutate((s) => toggleBacklog(s, hit.blId!));
+            toast('보충을 닫았어요.', 'ok');
+          },
+        },
+      ];
+    /* `book` 은 동사가 없다 — 읽을거리에서 할 수 있는 일(정독·연습·요약)이 전부 그 화면의
+       상태에 붙어 있어 여기로 들어올리면 화면 하나를 팔레트에 다시 짓게 된다. 기본 동작
+       (열기)이 정직한 최선이다. */
+    default:
+      return [];
+  }
+}
 
 /** E-6/C-3: ⌘K 오프라인 통합 검색 — Ollama 불필요. 메모리에 이미 있는 학습 항목(과목·챕터)·독서(책)·
    열린 보충(backlog)·반복 약점(weak)을 부분문자열로 찾아 해당 탭으로 이동. 의미검색(semanticPalette)의
@@ -441,7 +578,14 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
   const itemAnchor = (id: string) => '/items?focus=' + encodeURIComponent(id);
   for (const it of s.items) {
     if (it.name.toLowerCase().includes(q))
-      hits.push({ id: 'c-subj:' + it.id, kind: 'subject', label: it.name, to: itemAnchor(it.id) });
+      hits.push({
+        id: 'c-subj:' + it.id,
+        kind: 'subject',
+        label: it.name,
+        to: itemAnchor(it.id),
+        sid: it.id,
+        subject: it.name,
+      });
     for (const c of it.chapters || []) {
       if (hits.length >= cap) break;
       if (c.name.toLowerCase().includes(q))
@@ -450,6 +594,9 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
           kind: 'chapter',
           label: `${it.name} · ${c.name}`,
           to: itemAnchor(it.id),
+          sid: it.id,
+          subject: it.name,
+          chapter: c.name,
         });
     }
   }
@@ -467,13 +614,28 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
   for (const bl of openBacklog(s)) {
     if (hits.length >= cap) break;
     if ((bl.topic + ' ' + bl.name + ' ' + bl.note).toLowerCase().includes(q))
-      hits.push({ id: 'c-bl:' + bl.id, kind: 'backlog', label: bl.topic || bl.name || '보충', to: '/journal' });
+      hits.push({
+        id: 'c-bl:' + bl.id,
+        kind: 'backlog',
+        label: bl.topic || bl.name || '보충',
+        to: '/journal',
+        blId: bl.id,
+      });
   }
   // C-3: 반복 약점(2회+ 막힌 과목·챕터) → 리뷰 탭.
   for (const w of weakSpots(s)) {
     if (hits.length >= cap) break;
     if ((w.subject + ' ' + w.chapter).toLowerCase().includes(q))
-      hits.push({ id: 'c-weak:' + w.key, kind: 'weak', label: `${w.subject} · ${w.chapter}`, to: '/review' });
+      hits.push({
+        id: 'c-weak:' + w.key,
+        kind: 'weak',
+        label: `${w.subject} · ${w.chapter}`,
+        to: '/review',
+        // weakSpots 의 key 는 `sid|chapter` 다 — 이미 갖고 있는 값을 필드로 꺼낸다(되파싱 금지).
+        sid: w.key.split('|')[0] ?? '',
+        subject: w.subject,
+        chapter: w.chapter,
+      });
   }
   return hits.slice(0, limit);
 }

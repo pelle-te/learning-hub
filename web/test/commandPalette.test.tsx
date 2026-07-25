@@ -14,7 +14,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import CommandPalette from '@/components/CommandPalette';
 import { useApp } from '@/store/useApp';
 import { usePrefill } from '@/store/prefill';
@@ -25,6 +25,21 @@ function open() {
       <CommandPalette open onOpenChange={() => {}} />
     </MemoryRouter>,
   );
+}
+/** 팔레트 + 라우트 관측기 — "이동했는가"를 단언하려면 목적지가 보여야 한다. */
+function openAt() {
+  const seen = { path: '' };
+  function Probe() {
+    seen.path = useLocation().pathname;
+    return null;
+  }
+  render(
+    <MemoryRouter>
+      <CommandPalette open onOpenChange={() => {}} />
+      <Probe />
+    </MemoryRouter>,
+  );
+  return seen;
 }
 const input = () => screen.getByPlaceholderText(/명령·탭 검색/);
 const modEnter = (el: HTMLElement) => fireEvent.keyDown(el, { key: 'Enter', ctrlKey: true });
@@ -108,4 +123,65 @@ test('팔레트: 맨 Enter 는 캡처가 아니다 — 선택 항목 실행 계�
   fireEvent.keyDown(input(), { key: 'Enter' });
   expect(useApp.getState().state.backlog || []).toHaveLength(0);
   spy.mockRestore();
+});
+
+/* ⚠⚠ **N-1 이 새로 만든 위험을 정면으로 잰다.**
+
+   N-1 은 "지금 무엇 위에 있나"를 알아야 해서 cmdk 의 선택 값을 **제어**로 바꿨다. 그런데
+   제어 값은 cmdk 의 *자동 첫 항목 선택*을 덮을 수 있고, 그러면 `⌘K → t → Enter` 가
+   **아무 일도 안 하게 된다** — D-2 가 캡처 설계를 통째로 비튼 이유가 바로 그 근육기억이었다.
+
+   위 '맨 Enter' 케이스는 이걸 못 잡는다: "캡처가 아니다"만 단언하므로 **아무것도 안 일어나도
+   통과한다.** 부정문만 있는 검사가 회귀를 통과시키는 전형이라, 여기서 긍정문을 건다. */
+test('⚠ 맨 Enter 가 첫 항목을 **실행한다** — 제어 선택으로 바꾸며 죽기 쉬운 계약', () => {
+  const seen = openAt();
+  fireEvent.change(input(), { target: { value: '통계' } });
+  fireEvent.keyDown(input(), { key: 'Enter' });
+  expect(seen.path, '선택 항목이 없어 Enter 가 무동작이다 — 자동 첫 항목 선택이 죽었다').toBe('/stats');
+});
+
+test('N-1: 히트 위에서 → 가 그 객체의 동사 목록을 연다', () => {
+  open();
+  fireEvent.change(input(), { target: { value: '변위전류' } });
+  fireEvent.keyDown(input(), { key: 'ArrowRight' });
+  expect(screen.getByText('보충에 담기')).toBeInTheDocument();
+  // 동사 단계에선 다른 것을 안 그린다 — 무엇에 대해 말하는지가 흐려지면 안 된다.
+  expect(screen.queryByText(/빠른 검색/)).not.toBeInTheDocument();
+});
+
+/* 이 케이스가 N-1 의 값 자체다. 종전 경로는 "리뷰 탭으로 가 → 스크롤 → 그 항목을 찾아 →
+   버튼"이었고, 그 사이에 화면이 한 번 바뀐다. 그리고 `sid` 단언이 절반인데, 팔레트의 옛
+   `act:add-*` 는 `request(form, '')` 로 **과목을 빈 채** 넘겨 키보드 경로가 마우스보다
+   못했다 — 객체 위에서 부른 동사는 그 객체를 안다. */
+test('N-1: 동사가 실제로 쓴다 — 보충이 과목 id 와 함께 담긴다', () => {
+  open();
+  fireEvent.change(input(), { target: { value: '변위전류' } });
+  fireEvent.keyDown(input(), { key: 'ArrowRight' });
+  fireEvent.click(screen.getByText('보충에 담기'));
+  const bl = useApp.getState().state.backlog || [];
+  expect(bl).toHaveLength(1);
+  expect(bl[0]!.sid, '과목을 빈 채로 넘기면 키보드 경로가 마우스보다 못하다').toBe('em');
+  expect(bl[0]!.topic).toBe('변위전류');
+});
+
+test('N-1: 동사에서 Esc 는 **한 단계만** 접는다 — 친 검색어를 잃지 않는다', () => {
+  open();
+  fireEvent.change(input(), { target: { value: '변위전류' } });
+  fireEvent.keyDown(input(), { key: 'ArrowRight' });
+  expect(screen.getByText('보충에 담기')).toBeInTheDocument();
+  fireEvent.keyDown(input(), { key: 'Escape' });
+  expect(screen.queryByText('보충에 담기')).not.toBeInTheDocument();
+  expect(screen.getByText(/빠른 검색/)).toBeInTheDocument(); // 히트 목록으로 되돌아왔다
+  expect(input()).toHaveValue('변위전류'); // 검색어는 살아 있다
+});
+
+/* ⚠ `→` 는 **캐럿이 끝일 때만** 가로챈다. 안 그러면 검색어 중간을 고치려는 커서 이동이
+   화면을 갈아 치운다 — 텍스트 편집을 뺏는 단축키는 그 자체로 결함이다. */
+test('N-1: 캐럿이 중간이면 → 는 커서 이동이지 드릴다운이 아니다', () => {
+  open();
+  const el = input() as HTMLInputElement;
+  fireEvent.change(el, { target: { value: '변위전류' } });
+  el.setSelectionRange(1, 1);
+  fireEvent.keyDown(el, { key: 'ArrowRight' });
+  expect(screen.queryByText('보충에 담기')).not.toBeInTheDocument();
 });
