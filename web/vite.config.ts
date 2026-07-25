@@ -4,6 +4,54 @@ import babel from '@rolldown/plugin-babel';
 import { VitePWA } from 'vite-plugin-pwa';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
+
+/* ── D-9 폰 precache 는 **폰 그래프**여야 한다 (결함 수정) ────────────────────
+   종전 `globPatterns: ['phone.html','icon.svg']` 는 껍데기의 **절반만** 구웠다: 폰 엔트리가
+   참조하는 JS·CSS·워커·wasm 은 전부 precache 밖이고 런타임 CacheFirst 에만 의존했다.
+   그래서 **배포 직후 오프라인 첫 로드가 흰 화면**이 된다 — 새 `phone.html` 은 precache 에서
+   나오는데 그것이 참조하는 **새 해시 청크**는 캐시에 없기 때문이다(데이터는 OPFS 에 멀쩡한데).
+   설정 주석이 "지하철에서 열면 껍데기가 없으면 아무것도 안 뜬다"고 그 시나리오를 정확히
+   적어 두고 있었다.
+
+   해법은 파일명 추측이 아니라 **관측**이다: `dist/.vite/manifest.json`(예산 게이트가 이미
+   쓰는 그 그래프)에서 `phone.html` 의 전이 폐포를 뽑는다. 데스크톱 청크를 폰에 굽지 않는
+   판단은 그대로다 — 폐포에 안 들어오면 자동으로 빠진다.
+
+   ⚠ 동적 import 도 따라간다. 폰의 첫 화면(`PhoneApp`)·DB(`browserDb`)가 전부 lazy 라
+     정적 imports 만 따라가면 "셸은 뜨는데 화면이 안 뜨는" 반쪽을 또 만든다.
+   ⚠ SQLite 워커·wasm 은 매니페스트 그래프 **밖**에서 방출된다(별도 엔트리) → 이름으로 잡는다.
+     844KB(gz 393)라 첫 설치는 비싸지만, 해시 파일명이라 **바뀔 때만** 다시 받는다. 그리고
+     폰은 SQLite 가 정본이라 그것 없이는 오프라인에서 화면만 뜨고 데이터가 0이다.
+   ⚠ 폰트는 여전히 제외(2MB · `font-display: swap` 이라 없어도 즉시 뜬다).
+   ⚠ 매니페스트를 못 읽으면 **precache 를 넓히지 않고** 옛 최소 집합으로 되돌아간다 —
+     실패 모드가 "데스크톱 청크까지 폰에 굽기"가 되면 안 된다. */
+const PHONE_EXTRA = /^assets\/sqlite.*\.(?:js|wasm)$/; // 워커·wasm(그래프 밖에서 방출 · 이름으로 잡는다)
+const PHONE_SHELL = new Set(['phone.html', 'icon.svg', 'manifest.webmanifest']);
+
+function phoneGraphFiles(): Set<string> | null {
+  try {
+    const m = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'dist/.vite/manifest.json'), 'utf8')) as Record<
+      string,
+      { file?: string; css?: string[]; assets?: string[]; imports?: string[]; dynamicImports?: string[] }
+    >;
+    const seen = new Set<string>();
+    const out = new Set<string>();
+    const walk = (key: string): void => {
+      const c = m[key];
+      if (!c || seen.has(key)) return;
+      seen.add(key);
+      if (c.file) out.add(c.file);
+      for (const f of c.css ?? []) out.add(f);
+      for (const f of c.assets ?? []) out.add(f);
+      for (const dep of [...(c.imports ?? []), ...(c.dynamicImports ?? [])]) walk(dep);
+    };
+    walk('phone.html');
+    return out.size ? out : null;
+  } catch {
+    return null;
+  }
+}
 
 // serve.js(:8000)가 백엔드 /api. Vite는 :5173에서 React 셸을 띄우고 /api는 프록시(동일출처처럼).
 // Phase 6: vite-plugin-pwa 정식화 — 셸 precache + 자동 업데이트(stale 캐시 해소). /api는 캐시 제외(NetworkOnly).
@@ -43,13 +91,28 @@ export default defineConfig({
          등록은 `phone/main.tsx` 가 명시적으로 한다(§5-2 "셸 빌드에선 제거"). */
       injectRegister: null,
       workbox: {
-        /* ⚠ 모든 js 를 glob 으로 precache 하지 않는다 — dist 에는 데스크톱 청크 20여 개가 함께 있고,
+        /* ⚠ 모든 js 를 precache 하지 않는다 — dist 에는 데스크톱 청크 20여 개가 함께 있고,
            폰이 그걸 전부 미리 받으면 셀룰러에서 수백 KB 를 낭비한다(예산 게이트가 엔트리를
-           나눈 것과 같은 이유). 껍데기만 precache 하고 청크는 런타임에 캐시한다. */
+           나눈 것과 같은 이유). 그 경계를 **파일명이 아니라 그래프**로 긋는 것이 D-9 다. */
         /* ⚠ 폰트(2MB 가변 Pretendard)는 precache 에서 뺐다 — 첫 방문이 셀룰러일 수 있는데
            껍데기 하나 받자고 2MB 를 선불하는 것은 값이 안 맞는다. `font-display: swap` 이라
            없으면 시스템 폰트로 즉시 뜨고, 아래 런타임 캐시가 한 번 받은 뒤로 오프라인을 덮는다. */
-        globPatterns: ['phone.html', 'icon.svg'],
+        /* 넓게 모아서 **그래프로 좁힌다**(D-9). 좁히는 일은 아래 manifestTransforms 가 한다 —
+           glob 만으로는 "폰이 실제로 참조하는 것"을 표현할 방법이 없다(파일명은 추측이다). */
+        globPatterns: ['phone.html', 'icon.svg', 'manifest.webmanifest', 'assets/**/*.{js,css,wasm}'],
+        manifestTransforms: [
+          (entries) => {
+            const graph = phoneGraphFiles();
+            const keep = entries.filter((e) => {
+              const url = e.url.replace(/^\//, '');
+              if (PHONE_SHELL.has(url)) return true;
+              if (!graph) return false; // 매니페스트 실패 → 옛 최소 집합으로 안전하게 축소
+              return graph.has(url) || PHONE_EXTRA.test(url);
+            });
+            const warnings = graph ? [] : ['[pwa] dist/.vite/manifest.json 을 못 읽어 폰 셸만 precache 했습니다.'];
+            return { manifest: keep, warnings };
+          },
+        ],
         navigateFallback: 'phone.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [

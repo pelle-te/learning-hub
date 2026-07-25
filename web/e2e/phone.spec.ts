@@ -72,3 +72,46 @@ test.describe('폰 웹앱', () => {
     expect((await opfsEntries(page)).join(',')).not.toContain('learning-hub');
   });
 });
+
+/* ============================================================
+   D-9 오프라인 껍데기 — **precache 가 폰 그래프를 담고 있는가**.
+
+   종전 `globPatterns: ['phone.html','icon.svg']` 는 껍데기의 절반만 구웠다: 새 `phone.html` 은
+   precache 에서 나오는데 그것이 참조하는 **새 해시 청크**는 캐시에 없어, 배포 직후 오프라인
+   첫 로드가 흰 화면이었다(데이터는 OPFS 에 멀쩡한데).
+
+   ⚠ 왜 "진짜 오프라인 재현"이 아니라 산출물 단언인가: 트랙 A 는 `serviceWorkers: 'block'` 이라
+     SW 를 애초에 못 등록한다(그 설정은 스냅샷 결정성의 전제다 — 여기 하나 때문에 못 바꾼다).
+     그래서 **실제로 구워진 sw.js** 를 읽어 계약을 잠근다: 폰 엔트리·앱 청크·wasm 이 들어 있고,
+     데스크톱 엔트리는 안 들어 있다. 정적 검사가 원리적으로 못 보는 층이라 여기가 유일한 감시자다.
+============================================================ */
+test.describe('폰 오프라인 껍데기(D-9)', () => {
+  /** HTML 의 module script src(=그 엔트리의 해시 청크). */
+  async function entryChunk(request: import('@playwright/test').APIRequestContext, html: string): Promise<string> {
+    const body = await (await request.get(html)).text();
+    const m = /<script[^>]+type="module"[^>]+src="\/?([^"]+)"/.exec(body);
+    expect(m, `${html} 에서 module 엔트리를 못 찾았다`).toBeTruthy();
+    return m![1]!;
+  }
+
+  test('sw.js precache 가 폰 그래프를 담고 데스크톱 청크는 빼놓는다', async ({ request }) => {
+    const sw = await (await request.get('/sw.js')).text();
+    const urls = [...sw.matchAll(/url:"([^"]+)"/g)].map((m) => m[1]!);
+    expect(urls.length, 'precache 목록이 비었다').toBeGreaterThan(5);
+
+    // ① 폰 엔트리 청크가 들어 있다(옛 설정이 정확히 이걸 빠뜨렸다).
+    expect(urls).toContain(await entryChunk(request, '/phone.html'));
+    // ② 첫 화면(PhoneApp)은 **동적** import 다 — 정적 그래프만 따라가면 여기서 반쪽이 된다.
+    expect(
+      urls.some((u) => /PhoneApp-.*\.js$/.test(u)),
+      'PhoneApp 청크 없음',
+    ).toBe(true);
+    // ③ SQLite wasm — 폰은 이게 정본이라 없으면 화면만 뜨고 데이터가 0이다.
+    expect(
+      urls.some((u) => /sqlite3-.*\.wasm$/.test(u)),
+      'sqlite wasm 없음',
+    ).toBe(true);
+    // ④ 데스크톱 엔트리는 폰에 굽지 않는다(셀룰러 낭비 · 그 판단은 D-9 뒤에도 그대로다).
+    expect(urls).not.toContain(await entryChunk(request, '/index.html'));
+  });
+});
