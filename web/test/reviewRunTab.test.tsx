@@ -32,6 +32,7 @@ afterEach(() => {
     st.summaries = {};
     st.cbms = [];
     st.items = [];
+    st.reviewTouches = {};
   });
 });
 
@@ -189,4 +190,76 @@ test('review-run: 끝낸 챕터가 유지 카드로 뜨고 왜 돌아왔는지 �
   expect(screen.getByText(/끝낸 챕터인데 마지막으로 본 날이 기록에 없어요/)).toBeInTheDocument();
   // 앵커가 없으면 "N일 방치"를 말하지 않는다 — 모르는 것을 아는 척하지 않는다.
   expect(screen.queryByText(/일 방치/)).not.toBeInTheDocument();
+});
+
+/* ── E1 인출이 앵커를 옮긴다(2026-07-29) ─────────────────────────────────
+   이 화면은 챕터 카드에 "한 번 인출하면 그때부터 유지 주기가 잡힙니다"라고 **약속해 놓고
+   그 경로를 주지 않았다** — `touchReview` 의 쓰기 호출부가 `FocusChip` 하나였고, 그건 25분
+   세션 완주 + 토스트 클릭까지 요구했다. 유닛(persistence)은 함수만 보고, **배선**(키 → 앱 상태)은
+   여기서만 관측된다.
+
+   ⚠ 반증이 본체다: `2`(집중 시작)가 앵커를 옮기면 안 된다. 옮기면 공부 없이 키만 눌러도
+   망각곡선이 리셋되고, 그건 조용하다. */
+/** 유지 카드 1장짜리 세션(끝낸 챕터 · 앵커 없음) — sid='p' · chapter='역학'. */
+function seedOneMaintenance() {
+  useApp.getState().mutate((st) => {
+    st._today = '2026-07-08';
+    st.summaries = {};
+    st.cbms = [];
+    st.completions = {};
+    st.reviewTouches = {};
+    st.items = [
+      {
+        id: 'p',
+        name: '물리',
+        source: '직접',
+        mode: 'weekly',
+        weeklyHours: 4,
+        chapters: [{ id: 'c1', name: '역학', hours: 2, done: true }],
+      },
+    ] as never;
+  });
+}
+const touches = () => useApp.getState().state.reviewTouches || {};
+
+test('review-run 키: 3 은 앵커를 오늘로 옮긴다 — 화면이 한 약속을 실제로 지킨다', async () => {
+  seedOneMaintenance();
+  renderApp('/review-run');
+  await screen.findByText('유지');
+  expect(touches()['p|역학']).toBeUndefined();
+  press('3');
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  expect(touches()['p|역학']).toBe('2026-07-08');
+});
+
+test('review-run 키: 2(집중 시작)는 앵커를 옮기지 **않는다** — 세션 시작은 인출 사건이 아니다', async () => {
+  seedOneMaintenance();
+  renderApp('/review-run');
+  await screen.findByText('유지');
+  press('2');
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  // 25분을 실제로 보고 완료해야 FocusChip 이 옮긴다. 여기서 옮기면 키 연타가 곧 리셋이 된다.
+  expect(touches()['p|역학']).toBeUndefined();
+});
+
+test('review-run 키: 1(건너뛰기)도 앵커를 안 옮긴다', async () => {
+  seedOneMaintenance();
+  renderApp('/review-run');
+  await screen.findByText('유지');
+  press('1');
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  expect(touches()['p|역학']).toBeUndefined();
+});
+
+test('review-run 키: u 는 앵커까지 되돌린다 — 화면과 모델이 갈리지 않는다', async () => {
+  seedOneMaintenance();
+  renderApp('/review-run');
+  await screen.findByText('유지');
+  press('3');
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  expect(touches()['p|역학']).toBe('2026-07-08');
+  press('u');
+  expect(await screen.findByText('유지')).toBeInTheDocument();
+  // 세션만 물리고 앵커를 두고 오면 "물렸는데 인출한 것으로 남는" 조용한 어긋남이 된다.
+  expect(touches()['p|역학']).toBeUndefined();
 });

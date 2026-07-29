@@ -24,10 +24,15 @@ vi.mock('@/lib/reviewQueue', async (importOriginal) => ({
 vi.mock('@/store/selectors', () => ({ useSchedule: () => ({ days: [] }) }));
 
 import ReviewView from '@/phone/ReviewView';
+import { useApp } from '@/store/useApp';
 
 afterEach(() => {
   cleanup();
   buildReviewQueue.mockReset();
+  useApp.getState().mutate((st) => {
+    delete st._today;
+    st.reviewTouches = {};
+  });
 });
 
 /** 회상 카드 — 원래 요약을 '펼칠' 수 있는 종류. */
@@ -132,5 +137,52 @@ describe('폰 복습 러너 — 스와이프 배선(UX-B2)', () => {
     tap(card());
     expect(screen.getByText('역학')).toBeInTheDocument(); // 그대로 — 넘어가지도, 펼쳐지지도 않는다
     expect(screen.queryByText('복습 세션 완료')).toBeNull();
+  });
+});
+
+/* ── E1 폰도 앵커를 옮긴다(2026-07-29) ───────────────────────────────────
+   이 화면의 챕터 카드 버튼은 "인출했어요"라고 적혀 있고 본문은 "망각곡선을 리셋하세요"라고
+   말하는데 **아무것도 기록하지 않았다**(옛 결정 "폰은 상태를 쓰지 않는다"). 그 결정은 B1 이
+   폰에 블록 완료 체크를 넣으며 이미 뒤집혀 있었고, 남은 것은 화면이 하는 거짓말뿐이었다.
+   규칙은 데스크톱과 같은 `anchorOf` 가 소유한다 — 기기에 따라 사다리가 달라지면 안 된다. */
+describe('폰 복습 러너 — 인출 판정이 앵커를 옮긴다(E1)', () => {
+  const touches = () => useApp.getState().state.reviewTouches || {};
+  const seedToday = () =>
+    useApp.getState().mutate((st) => {
+      st._today = '2026-07-08';
+      st.reviewTouches = {};
+    });
+
+  it('챕터 카드에서 "인출했어요"를 누르면 앵커가 오늘로 간다', () => {
+    seedToday();
+    buildReviewQueue.mockReturnValue([chapter]);
+    render(<ReviewView />);
+    expect(touches()['p|역학']).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: '인출했어요' }));
+    expect(touches()['p|역학']).toBe('2026-07-08');
+  });
+
+  it('우측 스와이프도 같은 판정이다 — 버튼과 제스처가 갈리지 않는다', () => {
+    seedToday();
+    buildReviewQueue.mockReturnValue([chapter]);
+    render(<ReviewView />);
+    swipe(card(), 120);
+    expect(touches()['p|역학']).toBe('2026-07-08');
+  });
+
+  it('건너뛰기(좌측)는 앵커를 안 옮긴다 — "모르겠다"는 인출이 아니다', () => {
+    seedToday();
+    buildReviewQueue.mockReturnValue([chapter]);
+    render(<ReviewView />);
+    swipe(card(), -120);
+    expect(touches()['p|역학']).toBeUndefined();
+  });
+
+  it('회상 카드는 인출해도 앵커가 없다 — Summary 에 chapter 가 없다(오염 금지)', () => {
+    seedToday();
+    buildReviewQueue.mockReturnValue([retrieval(1)]);
+    render(<ReviewView />);
+    fireEvent.click(screen.getByRole('button', { name: '다시 설명했어요' }));
+    expect(Object.keys(touches())).toHaveLength(0);
   });
 });

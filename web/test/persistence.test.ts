@@ -14,8 +14,11 @@ import {
   migrate,
   persist,
   sanitizeImported,
+  restoreReviewTouch,
+  reviewTouchOf,
   SCHEMA_VERSION,
   studyStreak,
+  touchReview,
 } from '@/lib/persistence';
 import { addCbms, blankPassRate, buildAnkiCards, setBlankResult } from '@/lib/methodology';
 import type { AppState, KV } from '@/lib/types';
@@ -301,5 +304,52 @@ describe('sanitizeImported — 가져오기 방어선(크래시 유발 레코드
   it('필드가 없으면 무해(no-op)', () => {
     const s = { items: [], routine: [] } as unknown as AppState;
     expect(() => sanitizeImported(s)).not.toThrow();
+  });
+});
+
+/* ── E1 복습 앵커 터치(2026-07-29) ───────────────────────────────────────
+   `touchReview` 는 단조 증가라 되감기가 원리적으로 불가능하다 — 러너의 `U`(되돌리기)가
+   세션 state 만 물리고 앵커를 두고 오면 **화면은 물렸다고 하고 모델은 인출했다고 하는**
+   어긋남이 조용히 남는다. 그 짝(`restoreReviewTouch`)을 왕복으로 잠근다. */
+describe('reviewTouches — 앵커 터치와 되돌리기가 왕복한다', () => {
+  const empty = () => ({}) as unknown as AppState;
+
+  it('없던 앵커를 만들고 조회한다', () => {
+    const s = empty();
+    expect(reviewTouchOf(s, 'p', '역학')).toBeUndefined();
+    touchReview(s, 'p', '역학', '2026-07-29');
+    expect(reviewTouchOf(s, 'p', '역학')).toBe('2026-07-29');
+  });
+
+  it('단조 증가 — 더 옛 날짜로는 뒤로 안 간다', () => {
+    const s = empty();
+    touchReview(s, 'p', '역학', '2026-07-29');
+    touchReview(s, 'p', '역학', '2026-07-01');
+    expect(reviewTouchOf(s, 'p', '역학')).toBe('2026-07-29');
+  });
+
+  it('되돌리기 — 원래 없었으면 **지운다**(빈 문자열이나 옛 값을 남기지 않는다)', () => {
+    const s = empty();
+    const prev = reviewTouchOf(s, 'p', '역학'); // undefined
+    touchReview(s, 'p', '역학', '2026-07-29');
+    restoreReviewTouch(s, 'p', '역학', prev);
+    expect(reviewTouchOf(s, 'p', '역학')).toBeUndefined();
+    expect(Object.keys(s.reviewTouches || {})).toHaveLength(0);
+  });
+
+  it('되돌리기 — 이전 값이 있었으면 그 값으로 되돌린다', () => {
+    const s = empty();
+    touchReview(s, 'p', '역학', '2026-07-20');
+    const prev = reviewTouchOf(s, 'p', '역학');
+    touchReview(s, 'p', '역학', '2026-07-29');
+    expect(reviewTouchOf(s, 'p', '역학')).toBe('2026-07-29');
+    restoreReviewTouch(s, 'p', '역학', prev);
+    expect(reviewTouchOf(s, 'p', '역학')).toBe('2026-07-20');
+  });
+
+  it('앵커 키는 sid|chapter — 같은 챕터명이 과목을 넘나들지 않는다', () => {
+    const s = empty();
+    touchReview(s, 'p', '역학', '2026-07-29');
+    expect(reviewTouchOf(s, 'm', '역학')).toBeUndefined();
   });
 });

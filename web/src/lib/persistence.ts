@@ -443,12 +443,34 @@ export function setDone(
 }
 /** ReviewRun 챕터 인출 기록 — 위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22).
  *  완료(completions)는 `sid|type` 키라 챕터 무구분 — 밀린 챕터를 복습해도 '망각곡선 리셋'이
- *  모델에 반영되지 않던 루프를 챕터 단위 터치 로그로 닫는다. 최신 ds만 유지(단조 증가). */
+ *  모델에 반영되지 않던 루프를 챕터 단위 터치 로그로 닫는다. 최신 ds만 유지(단조 증가).
+ *
+ *  ⚠ **E1(2026-07-29) 이전까지 이 함수의 쓰기 호출부는 `app/FocusChip.tsx` 하나였다.** 그 경로는
+ *  조건이 셋이다(집중 세션 완주 + 토스트 수명 안에 '블록 완료로 표시' 클릭 + `chapter` 존재).
+ *  그래서 러너에서 챕터를 아무리 인출해도 앵커가 안 생겼고, `reviewQueue.ts` 의 `MAINTENANCE_CAP`
+ *  주석이 유지 큐의 존립 근거로 든 _"볼 때마다 진짜 앵커가 하나씩 생겨 큐가 스스로 수렴한다"_ 가
+ *  **작동한 적이 없다**(끝낸 챕터는 앵커가 없어 영구히 `due`). 러너가 이제 직접 부른다. */
 export function touchReview(state: AppState, sid: string, chapter: string, ds: string): void {
   const m = (state.reviewTouches = state.reviewTouches || {});
   const k = sid + '|' + chapter;
   const cur = m[k];
   if (!cur || ds > cur) m[k] = ds;
+}
+/** 터치 로그 조회(되돌리기용 이전 값 확보) — 없으면 undefined. */
+export function reviewTouchOf(state: AppState, sid: string, chapter: string): string | undefined {
+  return (state.reviewTouches || {})[sid + '|' + chapter];
+}
+/** 되돌리기 전용 — 터치를 **이전 값으로 되돌린다**(원래 없었으면 지운다).
+ *
+ *  `touchReview` 는 단조 증가라 되감기가 원리적으로 불가능하다. 러너의 `U`(되돌리기)는 세션
+ *  상태를 전량 스냅샷으로 되돌리는데, 앵커만 앞으로 간 채 남으면 **화면은 물렸다고 하고 모델은
+ *  인출했다고 하는** 상태가 된다 — 그리고 그 어긋남은 조용하다(D-3 이 되돌리기를 키보드 계약의
+ *  짝으로 둔 이유가 정확히 "키가 빨라지면 오타도 빨라진다"였다). */
+export function restoreReviewTouch(state: AppState, sid: string, chapter: string, prev: string | undefined): void {
+  const m = (state.reviewTouches = state.reviewTouches || {});
+  const k = sid + '|' + chapter;
+  if (prev === undefined) delete m[k];
+  else m[k] = prev;
 }
 
 /** 총 완료 학습시간(시간). */

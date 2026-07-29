@@ -6,19 +6,32 @@
    큐는 데스크톱 `ReviewRun` 과 **같은** `buildReviewQueue`(lib)를 쓴다 — 회상 → 착각 재확인 →
    밀린 챕터. 폰은 화면만 새로 짠다(설계서 §9-4).
 
-   ## 폰은 상태를 쓰지 않는다 — 정직한 인출 연습
+   ## 인출 판정이 앵커를 옮긴다(E1 · 2026-07-29)
 
-   데스크톱 러너는 챕터에 '집중 시작'(전역 타이머)을 붙여 완료 시 lastDs 를 갱신한다. 폰엔 그
-   타이머 UI 가 없다. 가짜로 "복습함"을 기록하면 위험 모델이 거짓으로 내려간다 — 그래서 폰은
-   **머릿속 인출 연습**만 제공한다(카드 넘기며 스스로 설명 → 원래 값과 대조). 기록은 데스크톱
-   '집중'에서 정직하게 남긴다. 인출 자체가 기억을 강화하므로 이동 중 5분에 값이 있다.
+   ⚠ **이 절은 옛 결정("폰은 상태를 쓰지 않는다")을 뒤집은 것이다.** 그 결정의 논거는 _"가짜로
+   복습함을 기록하면 위험 모델이 거짓으로 내려간다 · 기록은 데스크톱 '집중'에서 정직하게 남긴다"_
+   였는데, 세 가지가 그 전제를 무너뜨렸다:
+
+   ① 이 화면의 챕터 카드 버튼은 **"인출했어요"** 라고 적혀 있고 본문은 _"망각곡선을 리셋하세요"_
+      라고 말하는데 **아무것도 기록하지 않았다** — 화면이 하는 약속과 하는 일이 달랐다.
+   ② "기록은 데스크톱이 남긴다"는 경로가 실제로는 조건 3중 게이트였다(집중 완주 + 토스트 클릭 +
+      chapter 존재). 그래서 앵커는 데스크톱에서도 거의 안 생겼다(`lib/persistence.touchReview` 주석).
+   ③ **"폰은 상태를 쓰지 않는다"는 이미 거짓이다** — B1 이 폰에 블록 완료 체크를 넣었고, 그건
+      `adherenceFactor` 를 통해 계획 용량을 실제로 깎는다. 인출 기록보다 무거운 쓰기다.
+
+   판정은 `lib/reviewQueue.anchorOf` 가 소유한다(데스크톱과 **같은 규칙** — §9-4). 회상 카드는
+   `Summary` 에 chapter 가 없어 앵커가 원리적으로 없고, 그건 두 화면에서 똑같이 null 이다.
+
+   ⚠ 데스크톱과 다른 점 하나: 저쪽 `2`(집중 시작)는 인출 사건이 아니라 세션 *시작*이라 앵커를
+   옮기지 않는다(그래서 저긴 opt-in 이다). 폰엔 그런 동작이 없어 **긍정 판정 = 인출**이 항상 참이다.
 ============================================================ */
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { useSchedule } from '@/store/selectors';
 import { todayISO } from '@/lib/utils';
-import { buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { anchorOf, buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { touchReview } from '@/lib/persistence';
 import type { ChapterReview } from '@/lib/spacedReview';
 import { CBMS_INFO } from '@/lib/methodology';
 
@@ -80,6 +93,10 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
   const advance = (didIt: boolean): void => {
     const cur = queue[idx];
     if (didIt) {
+      /* E1 — 긍정 판정은 곧 인출 사건이다(폰엔 '집중 시작' 같은 비-인출 긍정이 없다).
+         앵커가 없는 카드(회상)는 `anchorOf` 가 null 을 주므로 여기서 종류를 따질 필요가 없다. */
+      const a = cur ? anchorOf(cur) : null;
+      if (a) useApp.getState().mutate((st) => touchReview(st, a.sid, a.chapter, today));
       if (cur) setGotKeys((ks) => (ks.includes(runItemKey(cur)) ? ks : [...ks, runItemKey(cur)]));
     } else {
       setQueue((q) => requeue(q, idx)); // D-1 — 넘긴 카드를 3장 뒤 한 번 더(조건은 lib 이 판단)

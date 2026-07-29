@@ -65,6 +65,28 @@ export function buildReviewQueue(state: AppState, days: Day[], today: string): R
   return q;
 }
 
+/**
+ * 이 카드가 옮길 수 있는 **복습 앵커**(`reviewTouches` 의 `sid|chapter`) — 없으면 null.
+ *
+ * E1(2026-07-29) — 러너의 인출 판정이 위험모델에 도달하는 통로다. 카드 종류별로 답이 다르고,
+ * 그 차이가 곧 설계다:
+ * · `chapter` — 앵커 그 자체다.
+ * · `confident` — `Cbms` 가 `sid`·`chapter` 를 다 가지므로 옮길 수 있다. 착각 재확인의
+ *   "다시 확인했어요"는 대조를 거친 **진짜 인출 사건**인데 종전엔 세션 카운터만 올리고 버려졌다.
+ * · `retrieval` — **원리적으로 없다.** `Summary` 스키마에 `chapter` 필드가 아예 없다(요약은
+ *   과목 단위다). sid 만으로 그 과목의 아무 챕터나 리셋하는 것은 인출 기록이 아니라 오염이다.
+ *
+ * ⚠ lib 에 두는 이유는 폰 러너(`phone/ReviewView`)가 **같은 판정**을 써야 하기 때문이다 —
+ * 설계서 §9-4("화면은 따로, 규칙은 lib"). 이게 화면마다 갈리면 어느 기기에서 인출했느냐에 따라
+ * 사다리가 달라지고, 그건 조용하다.
+ */
+export function anchorOf(item: RunCard): { sid: string; chapter: string } | null {
+  if (item.kind === 'chapter') return { sid: item.ch.sid, chapter: item.ch.chapter };
+  if (item.kind === 'confident' && item.card.cbms.chapter)
+    return { sid: item.card.cbms.sid, chapter: item.card.cbms.chapter };
+  return null;
+}
+
 /** 카드의 세션 내 정체성 — 재삽입본과 원본이 **같은 카드**임을 세는 키(분모가 흔들리지 않게). */
 export function runItemKey(item: RunItem): string {
   if (item.kind === 'retrieval') return `r:${item.card.summary.id}`;

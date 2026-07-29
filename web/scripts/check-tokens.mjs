@@ -144,6 +144,41 @@ if (모듈css.length) {
   process.exit(1);
 }
 
+/* ── 둥근 글래스 카드 래칫(E11 · 2026-07-29) ─────────────────────────────────
+   `ds-card` 은퇴는 **소비처 0**을 달성했지만 형태는 남았다 — 25파일이 각자
+   `rounded-md border border-line bg-panel shadow-card` 를 철자한다. 디자인시스템 §0 원칙 ④가
+   _"둥근 글래스 카드 폐기"_ 라 선언한 그 형태이고, 더 나쁜 것은 이제 **SSOT 조차 없다**는 것이다
+   (`ds-card` 시절엔 한 곳을 고치면 됐다 → 드리프트 조건이 오히려 악화됐다).
+
+   ⚠ **래칫이지 금지가 아니다.** 한 번에 쓸면 스냅샷 60~78장을 태우면서 "더 나아졌나"를 아무도
+   확인 못 한 채 굳는다(`ds-card` 파일럿이 그래서 단계로 갔다). 여기서 보장하는 것은
+   **"더 나빠지지 않는다"** 하나다 — `max-lines`·`cognitive-complexity` 래칫과 같은 규율.
+
+   ⚠ **판정을 좁힌 이유(실측)**: `border`+`rounded` 아무거나로 세면 **108 선언/41 파일**인데
+   그 대부분이 알약·칩(`rounded-full`+테두리)이라 원칙 ④와 무관하다. 좁힌 기준
+   (테두리 + `rounded-md` 이상 + 배경/그림자)이 곧 "카드 표면"이고 그건 **46 선언/21 파일**이다.
+   느슨한 기준으로 래칫을 걸면 알약을 고칠 때마다 게이트가 우는 소음 장치가 된다. */
+const 카드래칫 = 46;
+const 카드표면 = [];
+const 클래스문자열 = /(?:className\s*=\s*["'`]([^"'`]*)["'`])|(?:^\s*(?:const|let)\s+[A-Z_0-9]+\s*=\s*["'`]([^"'`]*)["'`])/gm;
+for (const p of 파일들(ROOT).filter((f) => /\.tsx?$/.test(f))) {
+  const src = readFileSync(p, 'utf8');
+  for (const m of src.matchAll(클래스문자열)) {
+    const c = m[1] ?? m[2];
+    if (!c) continue;
+    const 테두리 = /(^|\s)border(\s|-|$)/.test(c);
+    const 큰반경 = /(^|\s)rounded-(md|lg|xl|2xl)(\s|$)/.test(c);
+    const 면 = /(^|\s)(bg-|shadow-)/.test(c);
+    if (테두리 && 큰반경 && 면) 카드표면.push(p);
+  }
+}
+if (카드표면.length > 카드래칫) {
+  console.error(`✗ 둥근 글래스 카드 표면이 늘었다: ${카드표면.length} > 래칫 ${카드래칫}`);
+  console.error('  디자인시스템 §0 원칙 ④가 폐기한 형태다. 표면은 `ds-canvas`·`ds-rule`·`ds-well` 중 하나여야 한다.');
+  console.error(`  파일: ${[...new Set(카드표면)].join(', ')}`);
+  process.exit(1);
+}
+
 console.log(
-  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · *.module.css 0개.`,
+  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}.`,
 );

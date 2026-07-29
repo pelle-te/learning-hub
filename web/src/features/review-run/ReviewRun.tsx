@@ -6,9 +6,29 @@
    실제 학습은 '집중 시작'(전역 타이머)·볼트 딥링크로 다리 놓고, 완료 세션이 정직하게 루프를 먹인다.
 
    ## 조작은 키보드가 정본이다(D-3)
-   `Space` 펼치기 · `1` 건너뛰기 · `2` 판정(펼친 뒤에만) · `V` 볼트 · `U` 되돌리기 · `Esc` 중단.
+   `Space` 펼치기 · `1` 건너뛰기 · `2` 판정/집중 시작 · `3` 떠올렸어요(챕터 · 볼트를 연 뒤) ·
+   `V` 볼트 · `U` 되돌리기 · `Esc` 중단.
    카드 안에는 버튼이 없다 — 전부 화면 발치의 키캡 한 줄(`KeyBar`)로 모였고, 그 키캡이 곧
    누를 수 있는 버튼이다. 목록(`keys`)이 리스너와 화면의 **단일 원천**이라 둘이 갈릴 수 없다.
+
+   ## 인출이 앵커를 옮긴다(E1 · 2026-07-29)
+   이 화면은 챕터 카드에 _"지금 인출해 망각곡선을 리셋하세요"_ · _"한 번 인출하면 그때부터 유지
+   주기가 잡힙니다"_ 라고 **약속해 놓고 그 경로를 주지 않았다.** `touchReview` 의 쓰기 호출부가
+   `app/FocusChip.tsx` 하나였기 때문 — 즉 앵커를 얻으려면 25분 집중 세션을 완주하고 토스트가
+   살아 있는 동안 '블록 완료로 표시'까지 눌러야 했다. 그래서 유지 큐(끝낸 챕터)는 앵커를 못 얻어
+   영구히 `due` 였고, `reviewQueue.ts` 의 `MAINTENANCE_CAP` 주석이 그 기능의 존립 근거로 든
+   _"볼 때마다 진짜 앵커가 하나씩 생겨 큐가 스스로 수렴한다"_ 가 한 번도 참이 아니었다.
+
+   ⚠ **`2`(집중 시작)에서 앵커를 옮기지 않는 것이 이 설계의 핵심이다.** 그건 인출 사건이 아니라
+     세션 *시작*이라, 거기에 매달면 25분 공부 없이 `2` 를 14번 눌러 14개 챕터의 망각곡선을
+     리셋하게 된다 — 사용자가 승인한 "인출 사건이 사다리의 단위"라는 근거로도 정당화되지 않는다
+     (그 경우 인출 사건 자체가 없다). 그래서 **`3` 을 따로 판다.**
+   ⚠ **`3` 에는 대조 게이트가 없다** — 챕터 카드엔 펼칠 본문이 없어서(`revealable` 이 이 종류를
+     애초에 제외한다) 요구할 대조가 없고, 볼트 열람을 조건으로 걸면 그건 계약이 아니라 새 마찰이다.
+     자기보고의 위험은 알려진 채로 수용된 것이고, 최악이 "덜 급한 챕터를 좀 늦게 본다"라 방향이
+     안전한 쪽이다(`spacedReview.ts:47-50` 의 비대칭 논거와 부호가 같다).
+   ⚠ **회상 카드는 앵커가 원리적으로 없다** — `Summary` 에 `chapter` 필드 자체가 없다(요약은 과목
+     단위다). sid 만으로 아무 챕터나 리셋하는 것은 인출 기록이 아니라 오염이라 하지 않는다.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -19,8 +39,10 @@ import { useFocus } from '@/store/useFocus';
 import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
+import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
+import { toast } from '@/shell/toast';
 import { riskSummary } from '@/lib/spacedReview';
-import { buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { anchorOf, buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
 import { putResume, clearResume, resumeDevice, type ResumeCursor, type ResumeNav } from '@/lib/resume';
 
 import { CBMS_INFO } from '@/lib/methodology';
@@ -85,7 +107,9 @@ interface RunKey {
   quiet?: boolean;
 }
 
-/** 되돌리기용 세션 스냅샷 — 전진 직전 상태 전량(부분만 담으면 되돌린 뒤가 어긋난다). */
+/** 되돌리기용 세션 스냅샷 — 전진 직전 상태 전량(부분만 담으면 되돌린 뒤가 어긋난다).
+ *  `touch` 는 이 전진이 **앱 상태에 남긴 앵커**와 그 직전 값이다(E1). 세션 state 만 되돌리고
+ *  앵커를 두고 오면 화면은 물렸다고 하고 모델은 인출했다고 하는 어긋남이 조용히 남는다. */
 interface RunSnap {
   idx: number;
   queue: RunItem[];
@@ -93,6 +117,7 @@ interface RunSnap {
   revealedAt: number;
   jol: JolEntry[];
   pred: boolean | null;
+  touch?: { sid: string; chapter: string; prev: string | undefined };
 }
 
 /** 커서 쓰기/지우기(N-7) — 미연결이면 무동작. `useFocus` 와 같은 관용구. */
@@ -174,9 +199,19 @@ export default function ReviewRun() {
     [remaining, gotCount, finished, risk.overdue, risk.due],
   );
 
-  const advance = (didIt: boolean) => {
+  /**
+   * 한 카드를 마친다. `anchor` 가 참이면 이 전진은 **인출 사건**이라 복습 앵커를 오늘로 옮긴다(E1).
+   * ⚠ 호출부가 앵커 여부를 정한다 — 여기서 `didIt` 만 보고 판단하면 `2`(집중 시작)까지 앵커를
+   *   옮겨, 공부 없이 키만 눌러도 망각곡선이 리셋된다(머리주석 ⚠ 첫째).
+   */
+  const advance = (didIt: boolean, anchor = false) => {
     const cur = queue[idx];
-    setPast((p) => [...p, { idx, queue, gotKeys, revealedAt, jol, pred }]); // D-3 되돌리기용
+    const a = anchor && cur ? anchorOf(cur) : null;
+    // 되돌리기가 앵커까지 물릴 수 있도록 **직전 값을 스냅샷에 함께** 담는다(쓰기 전에 읽는다).
+    const snap: RunSnap = { idx, queue, gotKeys, revealedAt, jol, pred };
+    if (a) snap.touch = { ...a, prev: reviewTouchOf(state, a.sid, a.chapter) };
+    setPast((p) => [...p, snap]); // D-3 되돌리기용
+    if (a) useApp.getState().mutate((st) => touchReview(st, a.sid, a.chapter, today));
     if (didIt) {
       if (cur) setGotKeys((ks) => (ks.includes(runItemKey(cur)) ? ks : [...ks, runItemKey(cur)]));
     } else {
@@ -199,6 +234,11 @@ export default function ReviewRun() {
   const undo = () => {
     const prev = past[past.length - 1];
     if (!prev) return;
+    // E1 — 세션 state 보다 **앱 상태를 먼저** 되돌린다(앵커가 남으면 화면과 모델이 갈린다).
+    if (prev.touch) {
+      const t = prev.touch;
+      useApp.getState().mutate((st) => restoreReviewTouch(st, t.sid, t.chapter, t.prev));
+    }
     setPast((p) => p.slice(0, -1));
     setQueue(prev.queue);
     setIdx(prev.idx);
@@ -248,6 +288,15 @@ export default function ReviewRun() {
         label: '▶ 집중 시작',
         primary: true,
         run: () => {
+          /* ⚠ **진행 중 세션을 말없이 갈아치우지 않는다(E1).** `useFocus.start` 는 무조건
+             덮어쓰는데, 챕터 카드의 유일한 긍정 동작이 집중 시작이라 러너를 훑으며 `2` 를 두 번
+             누르면 첫 세션이 증발한다 — 그리고 그 세션이 **앵커의 유일한 생산자**였다(위 머리주석).
+             즉 "러너를 다 봤는데 다음 날 그대로 온다"의 실제 메커니즘이 여기였다. */
+          const s = useFocus.getState().session;
+          if (s && s.kind !== 'break') {
+            toast(`이미 "${s.name}" 집중 중이에요 — 끝내거나 중단한 뒤 시작하세요.`, 'warn');
+            return;
+          }
           useFocus.getState().start({
             ds: today,
             sid: cur.ch.sid,
@@ -257,6 +306,7 @@ export default function ReviewRun() {
             blockMin: 25,
             chapter: cur.ch.chapter, // 완료 시 챕터 터치 → 위험모델 lastDs 갱신(감사 #22)
           });
+          // 앵커는 **여기서 안 옮긴다** — 세션 완주가 옮긴다(FocusChip). 머리주석 ⚠ 첫째.
           advance(true);
         },
       });
@@ -269,8 +319,17 @@ export default function ReviewRun() {
         // 펼치기 전엔 **바에 안 그린다** — 그리면 Space 와 같은 일을 하는 칩이 둘이 된다.
         // 그래도 눌리면 펼친다: 계약을 가르치는 것과 실수를 벌하는 것은 다른 일이다.
         quiet: !revealed,
-        run: () => (revealed ? advance(true) : reveal()),
+        // 착각 재확인은 `sid|chapter` 를 다 갖는 **진짜 인출 사건**이라 앵커를 옮긴다(E1).
+        // 회상은 `Summary` 에 chapter 가 없어 옮길 것이 없다 — `anchorOf` 가 null 을 준다.
+        run: () => (revealed ? advance(true, true) : reveal()),
       });
+    /* E1 — 챕터 카드의 인출 판정. `2`(집중 시작)와 뜻이 다르다: 저건 "이제 25분 볼게"이고
+       이건 "지금 떠올렸어"다. 앵커를 옮기는 것은 후자뿐이다.
+       ⚠ **대조 게이트를 걸지 않는다.** 챕터 카드엔 펼칠 본문이 없어(`revealable` 이 이 종류를
+         애초에 제외한다) 여기서 요구할 '대조'가 없고, 볼트 열람을 조건으로 걸면 그건 계약이
+         아니라 새 마찰이다. 자기보고의 위험(대충 누르면 곡선이 리셋된다)은 사용자가 알고 내린
+         결정이며, 최악이 "덜 급한 챕터를 좀 늦게 본다"라 방향이 안전한 쪽이다. */
+    if (cur.kind === 'chapter') keys.push({ k: '3', cap: '3', label: '떠올렸어요', run: () => advance(true, true) });
     if (cur.kind !== 'retrieval')
       keys.push({
         k: 'v',

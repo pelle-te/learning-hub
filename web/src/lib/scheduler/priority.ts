@@ -3,6 +3,7 @@
    총량 환산 · 지식상태(숙달도) 슬림화/조회 · 백지복습 최근 결과 · 적응형 용량 계수.
 ============================================================ */
 import { clamp, dayDiff, iso, addDays, parseISO } from '../utils';
+import { matchSubjectIndex } from '../subjectMatch';
 import { dayStudyMin } from './windows';
 import { completionMin } from '../persistence';
 import type { AppState, Item } from '../types';
@@ -42,30 +43,20 @@ export function latestBlank(state: AppState, sid: string): boolean | null {
   return passed;
 }
 
+/** 지식엔진 과목 숙달도 조회 — 이름 매칭 규칙은 `lib/subjectMatch` 가 소유한다(E3).
+ *  ⚠ 규칙을 여기 인라인으로 두었더니 **실패가 조용했고**(안 붙어도 null 만 돌아온다) 몇 과목이
+ *  안 붙는지 아무 화면에도 없었다 — 그 규칙이 `masteryNeed` 를 통해 배분을 구동하는데도.
+ *  이제 같은 규칙이 조인 리포트(`subjectJoin`)를 먹이므로 계측과 배분이 갈릴 수 없다. */
 export function subjectMastery(state: AppState, name: string): number | null {
   const k = state._knowState;
   if (!k || !Array.isArray(k.subjects)) return null;
-  const b = (name || '').replace(/\s/g, '');
-  if (!b) return null; // 빈 질의 — a.indexOf('')가 전 과목을 매칭해 배분을 오염(L-9). 매칭 불가로 취급.
-  // 정확 일치 우선, 없으면 포함 후보 중 길이차가 가장 작은 것 — 첫-포함 히트는
-  // "물리"↔"물리화학" 같은 오매핑으로 graphPriority 배분을 조용히 오염시킨다.
-  let best: number | null = null;
-  let bestGap = Infinity;
-  for (const s of k.subjects) {
-    if (!s.subject) continue;
-    const a = s.subject.replace(/\s/g, '');
-    if (!a) continue; // 공백뿐인 과목명 — b.indexOf('')=0 역오염 방지(L-9).
-    const m = typeof s.mastery === 'number' ? s.mastery : null;
-    if (a === b) return m;
-    if (a.indexOf(b) >= 0 || b.indexOf(a) >= 0) {
-      const gap = Math.abs(a.length - b.length);
-      if (gap < bestGap) {
-        bestGap = gap;
-        best = m;
-      }
-    }
-  }
-  return best;
+  const i = matchSubjectIndex(
+    name,
+    k.subjects.map((s) => s.subject || ''),
+  );
+  if (i < 0) return null;
+  const m = k.subjects[i]?.mastery;
+  return typeof m === 'number' ? m : null;
 }
 export function masteryNeed(state: AppState, name: string): number {
   if (state.graphPriority !== true) return 0; // 기본 off → 영향 0

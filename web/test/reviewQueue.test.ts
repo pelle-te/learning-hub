@@ -3,7 +3,15 @@
    회상·착각 카드는 비우고 밀린 챕터만 남겨 순서를 검증한다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { MAINTENANCE_CAP, REQUEUE_GAP, buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import {
+  MAINTENANCE_CAP,
+  REQUEUE_GAP,
+  anchorOf,
+  buildReviewQueue,
+  requeue,
+  runItemKey,
+  type RunItem,
+} from '@/lib/reviewQueue';
 import type { AppState, Day, ScheduleItem } from '@/lib/types';
 
 const TODAY = '2026-07-04';
@@ -129,5 +137,48 @@ describe('buildReviewQueue — 유지(끝낸 챕터) 꼬리(N-10)', () => {
     const q = buildReviewQueue(s, days, TODAY);
     const kinds = q.map((i) => (i.kind === 'chapter' && i.ch.maintenance ? '유지' : i.kind));
     expect(kinds).toEqual(['chapter', 'chapter', '유지', '유지']);
+  });
+});
+
+/* ── E1 앵커 판정(2026-07-29) ────────────────────────────────────────────
+   러너의 인출 판정이 위험모델에 닿는 통로. 카드 종류별로 답이 다르고 **그 차이가 설계**라,
+   종류마다 잠근다 — 특히 회상 카드가 null 인 것이 핵심이다(`Summary` 에 chapter 가 없다). */
+describe('anchorOf — 어떤 카드가 복습 앵커를 옮길 수 있나', () => {
+  const chapterCard = (sid: string, chapter: string): RunItem => ({
+    kind: 'chapter',
+    ch: { sid, chapter, subject: sid, risk: 'due', daysSince: 9, lastDs: '2026-06-25' } as never,
+  });
+
+  it('챕터 카드 — 앵커 그 자체다', () => {
+    expect(anchorOf(chapterCard('p', '역학'))).toEqual({ sid: 'p', chapter: '역학' });
+  });
+
+  it('착각 재확인 — Cbms 가 sid·chapter 를 다 가지므로 옮긴다', () => {
+    const item: RunItem = {
+      kind: 'confident',
+      card: { ageDays: 3, cbms: { id: 'x', ds: '2026-07-01', sid: 'm', name: '수학', chapter: '적분' } as never },
+    };
+    expect(anchorOf(item)).toEqual({ sid: 'm', chapter: '적분' });
+  });
+
+  it('착각 재확인이라도 chapter 가 비면 옮기지 않는다 — 빈 키로 앵커를 만들지 않는다', () => {
+    const item: RunItem = {
+      kind: 'confident',
+      card: { ageDays: 3, cbms: { id: 'x', ds: '2026-07-01', sid: 'm', name: '수학', chapter: '' } as never },
+    };
+    expect(anchorOf(item)).toBeNull();
+  });
+
+  it('회상 카드 — **원리적으로** 앵커가 없다(Summary 에 chapter 필드 자체가 없다)', () => {
+    const item: RunItem = {
+      kind: 'retrieval',
+      card: {
+        ds: '2026-07-01',
+        ageDays: 3,
+        summary: { id: 'r1', sid: 's1', name: '선형대수', s1: 'a', s2: 'b', s3: 'c' },
+      },
+    };
+    // sid 만으로 그 과목의 아무 챕터나 리셋하는 것은 인출 기록이 아니라 오염이다.
+    expect(anchorOf(item)).toBeNull();
   });
 });
