@@ -18,6 +18,7 @@ import DayView from './DayView';
 import WeekView from './WeekView';
 import ReadsView from './ReadsView';
 import ReviewView from './ReviewView';
+import SyncLedger from './SyncLedger';
 import { sync } from './sync';
 
 type View = 'today' | 'day' | 'week' | 'review' | 'reads';
@@ -142,6 +143,10 @@ export default function PhoneApp(): React.JSX.Element {
             {status}
           </p>
         ) : null}
+        {/* ⚠ 여기까지는 전부 **실패했을 때만** 말한다(UX-B4 가 지적한 그 비대칭). 성공·오프라인·
+            대기 중이 전부 침묵이면 "폰에서 체크한 게 올라갔나?"에 답이 없고, 그 불확실이
+            PC 에서의 중복 입력으로 이어진다. 아래 원장이 그 나머지 절반을 상시로 말한다. */}
+        <SyncLedger />
       </header>
 
       {/* ⚠ 스와이프는 **본문에만** 건다(헤더·탭바 제외) — 탭바 위 손짓까지 날짜를 옮기면

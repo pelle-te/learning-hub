@@ -368,7 +368,7 @@ export function WeekCalendar({
                         <button
                           key={e.key}
                           type="button"
-                          className={`${SEG_BASE} ${pad} ${SEG_KIND.study} ${SEG_TYPE[x.type]} hover:brightness-[1.08] focus-visible:outline-offset-1! ${done || past ? 'opacity-50' : ''}`}
+                          className={`${SEG_BASE} ${pad} ${SEG_KIND.study} ${SEG_TYPE[x.type]} hover:brightness-[1.08] focus-visible:outline-offset-1! ${done || past ? 'ds-past' : ''}`}
                           style={style}
                           onClick={(ev) => {
                             ev.stopPropagation();
@@ -394,7 +394,7 @@ export function WeekCalendar({
                         <button
                           key={e.key}
                           type="button"
-                          className={`${SEG_BASE} ${pad} ${SEG_KIND.event} [--seg:var(--event)] hover:brightness-[1.08] focus-visible:outline-offset-1! ${past ? 'opacity-50' : ''}`}
+                          className={`${SEG_BASE} ${pad} ${SEG_KIND.event} [--seg:var(--event)] hover:brightness-[1.08] focus-visible:outline-offset-1! ${past ? 'ds-past' : ''}`}
                           style={style}
                           onClick={(ev) => {
                             ev.stopPropagation();
@@ -417,7 +417,7 @@ export function WeekCalendar({
                       <div
                         key={e.key}
                         role="group"
-                        className={`${SEG_BASE} ${pad} ${e.kind === 'task' ? SEG_KIND.task : SEG_KIND.block} ${(e.kind === 'task' && e.done) || past ? 'opacity-50' : ''}`}
+                        className={`${SEG_BASE} ${pad} ${e.kind === 'task' ? SEG_KIND.task : SEG_KIND.block} ${(e.kind === 'task' && e.done) || past ? 'ds-past' : ''}`}
                         style={style}
                         data-tip={`${e.name}\n${e.meta}`}
                         title={h < 26 ? e.name : undefined}

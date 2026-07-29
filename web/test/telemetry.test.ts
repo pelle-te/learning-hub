@@ -160,4 +160,28 @@ describe('telemetry', () => {
     t.reportError(new Error('같은 것'));
     expect(beacon).toHaveBeenCalledTimes(2);
   });
+
+  /* ⚠⚠ **원칙 ④ 가 `route` 에 대해서만 참이었다(M4).** _"개인정보를 싣지 않는다"_ 고 적어 놓고
+     `name`(에러 메시지)·`detail`(스택)의 **내용은 안 봤는데**, Rust 에러는 절대경로를 그대로
+     싣고 그 경로엔 Windows 사용자명이 들어간다. 도달 경로는 `unhandledrejection` → `reportError`.
+     여기서 잠그지 않으면 다음 사람이 마스킹을 지워도 아무도 모른다 — 새는 곳이 우리 서버 로그라
+     **증상이 화면에 안 나타난다**. */
+  it('경로의 사용자명을 자리표시자로 바꾼다 — 구조는 남기고 신원만 지운다', async () => {
+    const t = await load();
+    expect(t.redactPaths('C:\\Users\\홍길동\\AppData\\hub.db 없음')).toBe('C:\\Users\\<user>\\AppData\\hub.db 없음');
+    expect(t.redactPaths('/Users/jin/dev/hub/x.ts:12')).toBe('/Users/<user>/dev/hub/x.ts:12');
+    expect(t.redactPaths('/home/jin/hub')).toBe('/home/<user>/hub');
+  });
+
+  it('⚠ 전송되는 값 자체가 마스킹된다 — 함수만 맞고 배선이 빠지는 부류를 막는다', async () => {
+    const t = await load();
+    t._resetTelemetry();
+    t.initTelemetry('https://h.example', 'shell');
+    t.reportError(new Error('C:\\Users\\홍길동\\hub 열기 실패'));
+    expect(beacon).toHaveBeenCalledTimes(1);
+    const blob = beacon.mock.calls[0]![1] as Blob;
+    const text = await blob.text();
+    expect(text).not.toContain('홍길동');
+    expect(text).toContain('<user>');
+  });
 });

@@ -88,8 +88,39 @@ export function _resetTelemetry(): void {
   seen.clear();
 }
 
+/**
+ * 파일 경로에서 **사용자를 식별하는 조각**을 지운다(원칙 ④ · M4).
+ *
+ * ⚠⚠ 원칙 ④ 는 "경로만 보내고 문자열은 자른다"까지만 했고 **문자열의 내용은 안 봤다.**
+ * 그런데 Rust 에러는 절대경로를 그대로 싣고(`files.rs` 등) 그 경로엔 **Windows 사용자명**이
+ * 들어간다(`C:\Users\<이름>\…`). 도달 경로는 `unhandledrejection` → `reportError` →
+ * `detail`(스택)·`name`(메시지)이고, 둘 다 마스킹 없이 나가고 있었다.
+ * 즉 "개인정보를 싣지 않는다"는 **route 에 대해서만 참**이었다.
+ *
+ * ⚠ 지우지 않고 **자리표시자로 바꾼다** — 경로가 통째로 사라지면 "어느 파일에서 났나"라는
+ * 진단 가치까지 함께 잃는다. 지워야 하는 건 사용자명이지 경로 구조가 아니다.
+ * ⚠ 어떤 이유로도 던지지 않는다(원칙 ①) — 정규식 실패조차 원문을 그대로 돌려준다.
+ */
+export function redactPaths(s: string): string {
+  try {
+    return (
+      s
+        // C:\Users\홍길동\… · C:/Users/hong/…
+        .replace(/([A-Za-z]:[\\/])Users[\\/][^\\/\s"')]+/gi, '$1Users\\<user>')
+        // /Users/<name>/… (macOS) · /home/<name>/… (linux)
+        .replace(/\/(Users|home)\/[^/\s"')]+/gi, '/$1/<user>')
+    );
+  } catch {
+    return s;
+  }
+}
+
 function post(ev: Event): void {
   if (!baseUrl || sent >= MAX_PER_SESSION) return;
+  /* ⚠ 마스킹은 **중복 제거 키를 만들기 전에** 한다. 사용자명이 키에 남으면 같은 오류가
+     경로 차이로 다른 키가 될 수 있고(원칙 ②의 억제가 새는 것), 무엇보다 마스킹된 값이
+     전송되는 값과 달라진다. */
+  ev = { ...ev, name: redactPaths(ev.name), ...(ev.detail ? { detail: redactPaths(ev.detail) } : null) };
   /* 중복 제거 — 같은 오류가 반복되는 것은 **정보가 아니다**(첫 건이 이미 말했다).
      지표(vital)는 이름당 한 번만 의미가 있으므로 같은 키로 자연히 걸린다. */
   const key = `${ev.kind}:${ev.name}:${ev.route ?? ''}`;

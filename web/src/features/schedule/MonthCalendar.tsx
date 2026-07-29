@@ -41,7 +41,7 @@ const S = {
   chip: 'flex flex-none items-center gap-1 truncate rounded-chip-sm bg-[var(--chip-ink)] px-1 py-0.25 text-2xs leading-[1.45] max-mobile:gap-0 max-mobile:px-0.5 max-mobile:py-0.25 max-mobile:text-sched-hide',
   chipDeadline: 'bg-[var(--sched-chip-bad)]! font-bold text-bad max-mobile:text-sched-cap',
   chipEvent: 'bg-[var(--tint-event)]! font-bold text-[color:var(--event-on-ink)]',
-  chipDone: 'line-through opacity-50',
+  chipDone: 'line-through ds-past',
   dot: 'h-1.5 w-1.5 flex-none rounded-full',
   more: 'cursor-pointer px-1 text-left text-sched-meta font-bold text-mut',
 } as const;

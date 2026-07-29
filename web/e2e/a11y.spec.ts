@@ -54,16 +54,6 @@ const 임계 = ['serious', 'critical'];
  * 픽셀을 바꾸는 **디자인 결정**이라 사용자 몫이다(절대규칙 #4).
  */
 const 알려진위반: Record<string, { 사유: string; 재검토: string }> = {
-  'schedule :: color-contrast': {
-    사유:
-      '원인은 토큰이 아니라 `opacity-50` 이다 — WeekCalendar 가 **완료·지난 일정 조각**을 ' +
-      '50% 로 흐린다(WeekCalendar.tsx:373·399·422). axe 는 그 합성 결과를 재므로 10px 굵은 ' +
-      '조각 이름이 3.77:1 로 떨어진다(기준 4.5). "지난 것은 흐리게"는 이 앱이 의도한 시각 ' +
-      '신호이고, 그걸 걷어내는 것은 접근성 수정이 아니라 **캘린더 디자인 변경**이다. ' +
-      '대안은 opacity 대신 채도만 낮추거나(색은 유지·명도 보존) 완료 표시를 아이콘으로 ' +
-      '옮기는 것 — 둘 다 사용자 결정 사안이라 여기서 단독 착수하지 않는다.',
-    재검토: '2026-10-01',
-  },
   '대비-light :: color-contrast': {
     사유:
       '레일의 **활성 내비 항목**(`ITEM_ON = bg-acc-soft! text-acc!` · RailSidebar.tsx:74)이 ' +

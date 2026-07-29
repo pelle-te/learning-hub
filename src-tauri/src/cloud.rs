@@ -31,6 +31,7 @@ CSP 를 푸는 대신 요청을 Rust 로 내린 이유는 **이 앱의 기존 �
 */
 use serde::Serialize;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 /// pull 응답이 이보다 크면 계약 위반이다(서버가 커서 페이지네이션으로 자른다 — 런북 §8-2).
@@ -58,6 +59,28 @@ pub fn is_allowed(url: &str) -> bool {
     }
 }
 
+/// 공용 HTTP 클라이언트(M3) — **한 번 만들어 재사용**한다.
+///
+/// ⚠ 종전엔 요청마다 `Client::builder().build()` 했다. `reqwest::Client` 는 커넥션 풀과
+/// TLS 세션 캐시를 **자기 안에** 들고 있어서, 매번 새로 만들면 그 둘이 매번 버려진다 —
+/// 동기화는 push/pull 로 짧은 요청을 반복하는 패턴이라 **매 요청이 새 TLS 핸드셰이크**가 된다.
+/// 기능은 같고 비용만 붙는 형태였다.
+/// ⚠ 설정(타임아웃·리다이렉트 금지)은 그대로다. 리다이렉트 금지는 보안 계약이라(위 머리주석)
+/// 공용화하면서도 절대 풀지 않는다.
+fn shared_client() -> Result<&'static reqwest::Client, String> {
+    static C: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
+    C.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(TIMEOUT)
+            // ⚠ 3xx 를 따라가면 Authorization 이 다른 호스트로 샌다. 위 머리주석 참조.
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| e.to_string())
+    })
+    .as_ref()
+    .map_err(|e| e.clone())
+}
+
 #[tauri::command]
 pub async fn cloud_http(
     url: String,
@@ -69,12 +92,7 @@ pub async fn cloud_http(
         return Err(format!("허용되지 않는 주소입니다(https 만 가능): {url}"));
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(TIMEOUT)
-        // ⚠ 3xx 를 따라가면 Authorization 이 다른 호스트로 샌다. 위 머리주석 참조.
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = shared_client()?;
 
     let m = reqwest::Method::from_bytes(method.as_bytes())
         .map_err(|_| format!("알 수 없는 메서드: {method}"))?;

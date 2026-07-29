@@ -377,6 +377,23 @@ fn take_canceled(id: &str) -> bool {
     canceled().lock().map(|mut c| c.remove(id)).unwrap_or(false)
 }
 
+/// 요청 하나의 취소 표식 수명(M3) — 스트림이 **어떻게 끝나든** Drop 에서 지운다.
+///
+/// ⚠ 없으면 단조 증가한다: 스트림이 정상 종료한 **뒤에** 도착한 `ollama_cancel` 은 아무도
+/// 소비하지 않아 집합에 영구히 남는다(`take_canceled` 는 실행 중에만 불린다). 앱을 며칠 켜 두는
+/// 것이 이 앱의 전제이므로 "언젠가 정리된다"가 성립하지 않는다.
+/// ⚠ RAII 인 이유는 반환 경로가 많아서다 — 타임아웃·연결 오류·파싱 실패·정상 종료가 각자
+/// `return` 하는데, 그 자리마다 정리를 손으로 넣으면 새로 생기는 경로가 조용히 빠진다
+/// (`tools.rs` 의 동시성 캡이 같은 이유로 RAII 다).
+struct CancelSlot(String);
+impl Drop for CancelSlot {
+    fn drop(&mut self) {
+        if let Ok(mut c) = canceled().lock() {
+            c.remove(&self.0);
+        }
+    }
+}
+
 /* ── 실행 ─────────────────────────────────────────────────────── */
 
 #[derive(Clone, Serialize)]
@@ -405,6 +422,8 @@ pub async fn ollama_run<R: tauri::Runtime>(
     on_delta: Option<JavaScriptChannelId>,
 ) -> Value {
     let on_delta: Option<Channel<Delta>> = on_delta.map(|id| id.channel_on(webview));
+    // M3 — 이 요청의 취소 표식은 함수를 벗어나는 순간 사라진다(늦게 온 취소가 영구 잔류하지 않게).
+    let _cancel_slot = CancelSlot(request_id.clone());
     let spec = match build(&kind, &body) {
         Ok(s) => s,
         // 입력 검증 실패는 캡을 잡기 **전에** 걸러진다(serve.js L691 과 같은 순서).

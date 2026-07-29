@@ -247,6 +247,33 @@ describe('삭제가 부활하지 않는다 — 실제 라우트에서(G2)', () =
   });
 });
 
+/* ── 시계가 앞선 기기가 전 기기를 오염시키지 못한다(M1) ────────────────────────
+   클라이언트 스탬프는 `max(Date.now(), 직전+1)` 이고 병합은 **받아온 값으로 래칫**한다. 그 둘이
+   맞물리면 시계가 몇 년 앞선 기기 하나가 전 기기를 영구히 `직전+1` 체제로 밀어, `stamp.ts` 가
+   약속한 "언젠가 벽시계로 복귀"가 깨진다. 서버는 권위 시계를 쥐고도 안 쓰고 있었다.
+   ⚠ 이 성질은 **서버에서만** 잠글 수 있다 — 시계가 틀린 기기는 자기가 틀렸다는 걸 모른다. */
+describe('스탬프를 서버 시계로 클램프한다(M1)', () => {
+  it('미래로 몇 년 앞선 스탬프는 now+유예로 잘린다', async () => {
+    const { access } = await enroll();
+    const future = Date.now() + 5 * 365 * 24 * 3600 * 1000; // 5년 뒤
+    await push(access, { since: 0, upto: future, rows: [row('clk', '{"v":1}', future)], tombstones: [] });
+    const r = await env.DB.prepare('SELECT updated_at AS u FROM settings WHERE key = ?')
+      .bind('clk')
+      .first<{ u: number }>();
+    expect(r?.u, '미래 스탬프가 그대로 저장됐다 — 전 기기가 오염된다').toBeLessThan(Date.now() + 10 * 60 * 1000);
+  });
+
+  it('⚠ 과거 스탬프는 건드리지 않는다 — 올리면 남의 편집을 이기게 된다', async () => {
+    const { access } = await enroll();
+    const past = Date.now() - 24 * 3600 * 1000; // 하루 전(뒤처진 시계)
+    await push(access, { since: 0, upto: past, rows: [row('old', '{"v":1}', past)], tombstones: [] });
+    const r = await env.DB.prepare('SELECT updated_at AS u FROM settings WHERE key = ?')
+      .bind('old')
+      .first<{ u: number }>();
+    expect(r?.u, '과거 스탬프를 올렸다 — 방어가 막으려던 것을 저지른다').toBe(past);
+  });
+});
+
 /* ── 관측 라우트(2026-07-25) ────────────────────────────────────────────────
    ⚠ 이 라우트는 **무인증**이다. 그 결정이 옳으려면 두 성질이 실물에서 성립해야 한다:
    ① 토큰 없이 받아 준다(오류는 인증 전에도 나고, 그게 가장 알고 싶은 종류다)

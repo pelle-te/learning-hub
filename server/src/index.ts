@@ -188,12 +188,23 @@ app.use('/api/*', async (c, next) => {
   c.header('Cache-Control', 'no-store');
 });
 
+/**
+ * 스탬프 클램프 유예(M1) — 클라이언트 시계가 서버보다 이만큼 앞서는 것까지는 인정한다.
+ *
+ * ⚠ 0 으로 두면 안 된다: 정상 기기도 서버와 몇 초는 어긋나고, 유예 없이 자르면 방금 쓴
+ * 편집이 서버 시각으로 되감겨 **같은 배치 안의 순서**가 뒤집힐 수 있다. 5분은 "사람이 쓰는
+ * 기기의 시계 오차"로는 넉넉하고 "시계가 몇 년 앞섰다"는 확실히 잡는 폭이다.
+ */
+const STAMP_SKEW_MS = 5 * 60 * 1000;
+
 /* ⚠ **요청 크기 상한(P1-7).** 종전 상한은 `MAX_BATCH_ITEMS` 하나였는데, 그건 **본문을 전부
    읽고 JSON 파싱까지 끝낸 뒤** 도는 검사라 상한이라 부르기 어려웠다 — 100MB 본문도 일단
    파싱은 다 해 보고 나서 거절했다. CPU 10ms 예산에서 그건 그 자체로 자원 소모다.
 
    `Content-Length` 로 **파싱 전에** 끊는다. 헤더가 없거나 거짓일 수 있지만(청크 전송) 그건
-   아래 스트림 계량이 받는다 — 두 겹인 이유는 헤더 하나에 기대는 방어는 방어가 아니어서다. */
+   아래 스트림 계량이 받는다 — 두 겹인 이유는 헤더 하나에 기대는 방어는 방어가 아니어서다.
+   ⚠ 그 "스트림 계량"이 2026-07-29 까지는 **전량 버퍼링**이었다(M2). 지금은 실제로 청크를 세다
+   상한을 넘는 순간 스트림을 취소한다 — 주석이 먼저 참이 되고 구현이 나중에 따라온 자리다. */
 const MAX_BODY_BYTES = 1024 * 1024; // 1MB — MAX_BATCH_ITEMS(500건) 를 넉넉히 담고도 남는다
 
 app.use('/api/*', async (c, next) => {
@@ -202,8 +213,25 @@ app.use('/api/*', async (c, next) => {
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
     return c.json({ error: 'payload too large' }, 413);
   }
-  const body = await c.req.raw.clone().arrayBuffer();
-  if (body.byteLength > MAX_BODY_BYTES) return c.json({ error: 'payload too large' }, 413);
+  /* ⚠⚠ **여기가 실제로 스트림 계량이다(M2).** 종전 구현은 `clone().arrayBuffer()` 로 본문을
+     **전량 버퍼링**한 뒤 길이를 봤다 — 위 주석이 "아래 스트림 계량이 받는다"고 적어 둔 것과
+     달랐고, 그러면 상한을 넘는 본문도 **일단 끝까지 메모리에 올린 뒤** 거절하게 된다.
+     상한의 목적이 자원 보호인데 방어가 그 자원을 먼저 쓰는 형태였다.
+     → 청크를 세다 넘는 순간 `cancel()` 하고 413. 정상 크기 요청은 읽는 바이트 수가 종전과
+       같고(어차피 Hono 가 다시 읽는다), 달라지는 것은 **초과분을 안 읽는다**는 것 하나다. */
+  const reader = c.req.raw.clone().body?.getReader();
+  if (reader) {
+    let seen = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      seen += value?.byteLength ?? 0;
+      if (seen > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => {});
+        return c.json({ error: 'payload too large' }, 413);
+      }
+    }
+  }
   return next();
 });
 
@@ -587,6 +615,24 @@ app.post('/api/sync/push', async (c) => {
   }
   const batch = parsed.data;
 
+  /* ⚠⚠ **스탬프를 서버 시계로 클램프한다(M1).**
+
+     클라이언트 스탬프는 `max(Date.now(), 직전+1)` 이고(`db/stamp.ts`), 병합은 **받아온 값으로
+     `seedStamp` 를 래칫**한다(`cloud/merge.ts`). 그 둘이 맞물리면 시계가 몇 년 앞선 기기 하나가
+     전 기기를 영구히 `직전+1` 체제로 민다 — `stamp.ts` 가 약속한 _"시계가 뒤로 가도 언젠가
+     벽시계로 복귀한다"_ 가 깨지고, 스탬프 상한이 서기 2100(74년 폭)까지 열린다.
+
+     서버는 **권위 시계를 쥐고도 안 쓰고 있었다.** 여기서 자른다: 미래로 가는 값만 `now+유예`
+     로 내린다. 과거 값은 **건드리지 않는다** — 뒤처진 시계는 LWW 에서 스스로 지므로 위험하지
+     않고, 올리면 오히려 남의 편집을 이기게 된다(막으려던 것을 방어가 저지르는 형태).
+
+     ⚠ 유예를 두는 이유: 정상 기기도 서버와 몇 초는 어긋난다. 유예 없이 자르면 방금 쓴
+     편집이 서버 시각으로 되감겨 **같은 배치 안의 순서**가 뒤집힐 수 있다.
+     ⚠ 클라이언트를 못 고치는 게 아니라 **여기가 맞는 자리**다 — 시계가 틀린 기기는 자기가
+     틀렸다는 걸 모른다. */
+  const stampCeil = Date.now() + STAMP_SKEW_MS;
+  const clamp = (t: number): number => (t > stampCeil ? stampCeil : t);
+
   const stmts: D1PreparedStatement[] = [];
   for (const r of batch.rows) {
     const cols = TABLE_COLS[r.tbl]!;
@@ -612,7 +658,7 @@ app.post('/api/sync/push', async (c) => {
          )
          ON CONFLICT(${cols.key.join(',')}) DO UPDATE SET ${setters}
          WHERE excluded.updated_at > ${r.tbl}.updated_at`,
-      ).bind(...r.key, ...r.data, r.updatedAt, r.tbl, k1, k2, r.updatedAt),
+      ).bind(...r.key, ...r.data, clamp(r.updatedAt), r.tbl, k1, k2, clamp(r.updatedAt)),
     );
   }
   for (const t of batch.tombstones) {
@@ -621,7 +667,7 @@ app.post('/api/sync/push', async (c) => {
         `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
          ON CONFLICT(tbl,k1,k2) DO UPDATE SET deleted_at = excluded.deleted_at
          WHERE excluded.deleted_at > tombstones.deleted_at`,
-      ).bind(t.tbl, t.k1, t.k2, t.deletedAt),
+      ).bind(t.tbl, t.k1, t.k2, clamp(t.deletedAt)),
     );
     /* 툼스톤보다 오래된 행은 지운다. 부활 방지의 실행부이고, `diffRows` 가 클라이언트에서
        일부러 미룬 정리(rows.ts 주석)를 정본이 대신 하는 지점이다.
