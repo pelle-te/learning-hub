@@ -132,7 +132,11 @@ export async function initAppStore(): Promise<void> {
     const fromLocal = boot(storage);
     /* ⚠ 청크 스탬프로 쓴다 — 수개월치 데이터가 한 스탬프 그룹이 되면 첫 클라우드 연결에서
        아웃박스가 상한(500)에 걸려 영구 차단된다(C1). 청크마다 스탬프를 갈아 다배치로 나간다. */
-    const ok = await writeRows(stateToRows(fromLocal), chunkedStamp(MIGRATION_STAMP_CHUNK));
+    /* ⚠ `writeRows` 는 이제 **객체**를 준다(`{ ok, touched }`) — `const ok = await …` 로 받아
+       `if (!ok)` 로 쓰면 객체는 언제나 truthy 라 **쓰기 실패가 조용히 성공으로 읽힌다**(이관이
+       실패했는데 `_migrated = true` 가 되고, 그 다음 부팅은 빈 DB 를 정본으로 본다). 타입은
+       이걸 안 잡아 준다 — 그래서 구조분해로 받는다. */
+    const { ok } = await writeRows(stateToRows(fromLocal), chunkedStamp(MIGRATION_STAMP_CHUNK));
     if (!ok) return; // 쓰기 실패 — localStorage 경로로 부팅(정본은 아직 거기 있다)
     _preloaded = fromLocal;
     _migrated = true;

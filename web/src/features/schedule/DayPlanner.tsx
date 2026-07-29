@@ -9,7 +9,7 @@ import { useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
-import { toHM, toMin, hLabel, parseISO, DOW_MON, clamp, itemById } from '@/lib/utils';
+import { toHM, toMin, hLabel, parseISO, DOW_MON, clamp, itemById, ddayInfo, dayDiff } from '@/lib/utils';
 import {
   blocksForWeekday,
   freeWindowsForDay,
@@ -18,6 +18,7 @@ import {
   eventStudyLossMin,
 } from '@/lib/scheduler';
 import { addEvent, updateEvent, removeEvent, eventsForDay } from '@/lib/events';
+import { DayPlannerEditBar } from './DayPlannerEditBar';
 import {
   blocksForDay,
   untimedBlocks,
@@ -52,7 +53,7 @@ import { minToPct, timelineSpan, overlaps } from '@/lib/dayPlanGeometry';
 import { TrayRow, EventBand, TimedCard } from './DayPlannerCards';
 import { useTimeboxDnd } from './useTimeboxDnd';
 import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
-import { Button, NumberField } from '@/components/ui';
+import { Button } from '@/components/ui';
 import type { AppState, ScheduleResult, SessionType } from '@/lib/types';
 
 /* ── C-7 이식(DayPlanner) — Tailwind 클래스 SSOT ────────────────────────────────
@@ -515,59 +516,28 @@ export function DayPlanner({
     if (selBlock) mutate((st) => resizeBlock(st, res, ds, selBlock.id, mm));
     else if (selTask) mutate((st) => updateTaskMin(st, selTask.id, mm));
   };
-  const editBar = (selBlock || selTask || selEvent) && (
-    <div className={DP.editBar} id={EDIT_BAR_ID}>
-      {selEvent ? (
-        // 일정만 제목을 여기서 고친다(공부 블록=과목 파생, 할 일=트레이에서 다룸). 오타 수정 경로.
-        <input
-          className={DP.editTitle}
-          /* ⚠ 초안이 있으면 초안을, 없으면 정본을 보여준다. 선택이 바뀌면 아래 커밋에서
-             초안을 비우므로 **다른 일정의 초안이 새 선택에 새지 않는다**. */
-          value={titleDraft ?? selEvent.title}
-          onChange={(e) => setTitleDraft(e.target.value)}
-          onBlur={() => {
-            const t = titleDraft;
-            setTitleDraft(null);
-            if (t != null && t !== selEvent.title) mutate((st) => updateEvent(st, selEvent.id, { title: t }));
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          }}
-          aria-label="일정 제목"
-        />
-      ) : (
-        <span className={DP.editName}>{selBlock ? selBlock.name : selTask!.title}</span>
-      )}
-      <label className={DP.editField}>
-        시작
-        <input
-          type="time"
-          className={EDITFIELD_INPUT}
-          value={toHM(selStart)}
-          onChange={(e) => {
-            const [h, m] = e.target.value.split(':').map(Number);
-            if (Number.isFinite(h) && Number.isFinite(m)) setSelStart(h! * 60 + m!);
-          }}
-          aria-label="시작 시각"
-        />
-      </label>
-      <label className={DP.editField}>
-        길이
-        {/* emptyValue 없음 — 비우면 길이 0분 블록이 확정돼 그 블록이 사실상 사라진다. 직전 값 유지. */}
-        <NumberField
-          className={NUMFIELD}
-          min={15}
-          step={15}
-          value={selMin}
-          onCommit={setSelMin}
-          aria-label="길이(분)"
-        />
-        분
-      </label>
-      <Button sm variant="ghost" onClick={() => setSelId(null)}>
-        닫기
-      </Button>
-    </div>
+  /* ⚠ 편집 바는 `DayPlannerEditBar` 로 갈렸다 — 이 파일이 `max-lines` 래칫(745)을 넘겨서다.
+     계산(무엇이 선택됐나·시작/길이를 어떻게 쓰나)은 **여기 남기고** 표시만 넘긴다. */
+  const editBar = (
+    <DayPlannerEditBar
+      cls={DP}
+      barId={EDIT_BAR_ID}
+      fieldInput={EDITFIELD_INPUT}
+      numField={NUMFIELD}
+      selBlock={selBlock}
+      selTask={selTask}
+      selEvent={selEvent}
+      selStart={selStart}
+      selMin={selMin}
+      setSelStart={setSelStart}
+      setSelMin={setSelMin}
+      onClose={() => setSelId(null)}
+      titleDraft={titleDraft}
+      setTitleDraft={setTitleDraft}
+      mutate={mutate}
+      updateEvent={updateEvent}
+      updateTask={updateTask}
+    />
   );
 
   return (
@@ -652,7 +622,10 @@ export function DayPlanner({
               <TrayRow
                 key={t.id}
                 title={t.title}
-                meta="할 일"
+                /* ⚠ `Task.deadline` 은 스키마에만 있고 **쓰기 0·읽기 0** 이었다 — 사용자가 넣을 수도
+                   볼 수도 없는 필드였다. 읽는 자리를 여기 준다: 마감이 있으면 D-day 를 함께 말한다.
+                   라벨 조립은 `ddayInfo` 가 소유한다(직접 `D-${n}` 을 만들면 오늘 마감이 "D-0"으로 샌다). */
+                meta={t.deadline ? `할 일 · ${ddayInfo(dayDiff(todayIso, t.deadline)).lab}` : '할 일'}
                 color={t.color}
                 min={t.min ?? 30}
                 free

@@ -25,7 +25,7 @@
    거기서 나왔다 — 검증을 떼면 그 부류가 다시 조용해진다.
 ============================================================ */
 import { stateToRows, rowsToState } from './rows';
-import { readRows, writeRows, isDbAvailable, isSqlitePrimary } from './sqlite';
+import { readRows, readTouched, touchedKey, writeRows, isDbAvailable, isSqlitePrimary } from './sqlite';
 import type { AppState } from '../types';
 
 /** 대조 결과 — 소비처(개발 콘솔·설정 탭 진단)가 읽는다. */
@@ -43,9 +43,15 @@ export interface ParityReport {
 
 let _last: ParityReport = { ok: true, mismatched: [], skipped: true, unavailable: false };
 
-/** 되읽기 대조 주기 — **세션 첫 쓰기 + 이후 N 회당 1회**(H6). 근거는 `runWrite` 안 주석. */
-const VERIFY_EVERY = 20;
-let _writes = 0;
+/**
+ * 행축 대조로 감당할 접촉 행 상한 — 넘으면 종전 **전량 되읽기**로 떨어진다.
+ *
+ * 왜 상한이 필요한가: 첫 쓰기(기준선 없음)와 대량 쓰기(가져오기·복구·되돌리기)는 손댄 행이 곧
+ * 전체라(2년 근사 상태에서 5,348행), 키를 나열해 읽으면 `IN` 목록이 병적으로 길어지고 전량
+ * 읽기보다 비싸진다. 400 은 `WRITE_STAMP_CHUNK` 와 같은 자릿수 — 일반 편집 flush 는 변경 행이
+ * 한 자릿수라 여기 근처에도 안 온다(즉 실사용에선 **언제나 행축**이다).
+ */
+const ROW_VERIFY_MAX = 400;
 let _inflight: Promise<unknown> | null = null;
 
 /** 마지막 대조 결과(설정 탭 진단·테스트가 읽는다). */
@@ -157,32 +163,57 @@ async function runWrite(state: AppState): Promise<ParityReport> {
   }
   try {
     const wrote = await writeRows(stateToRows(state));
-    if (!wrote) {
+    if (!wrote.ok) {
       _last = { ok: false, mismatched: ['<쓰기 실패>'], skipped: false, unavailable: false };
       return _last;
     }
-    /* ⚠⚠ **되읽기 대조는 표본이다(H6 · 2026-07-26 감사).**
+    /* ── 되읽기 대조의 이력(읽는 순서대로) ──────────────────────────────────
+       ① 처음엔 **매 flush 전량**이었다. 쓰기는 증분(diff)인데 검증만 O(전체) — 8테이블을 통째로
+          읽고(`readRows`) 상태로 되돌린 뒤 양쪽을 stringify 했다. 2년 근사 상태(10,380행/0.67MB)
+          에서 순수 JS 10ms + IPC 690KB 를 400ms 마다.
+       ② H6(2026-07-26 감사)이 그걸 **표본**(첫 쓰기 + 20회당 1회)으로 바꿨다. 근거: 이 층이 잡는
+          것은 스키마·매퍼의 성질이라 한 번 어긋나면 계속 어긋난다 = 표본으로 잡힌다.
+       ③ 지금은 **행축**이다(아래). 표본이 옳았던 전제는 "전량이 비싸다"였는데, 손댄 행만 보면
+          그 전제 자체가 사라진다.
 
-       쓰기는 증분(diff)인데 **검증만 O(전체)** 였다: 매 flush(400ms 디바운스)마다 8테이블을
-       전량 읽고(`readRows`) 상태로 되돌린 뒤(`rowsToState`) 양쪽을 통째로 stringify 했다.
-       2년 근사 상태(10,380행/0.67MB)에서 순수 JS 10ms + IPC 690KB — 편집 중 400ms 마다.
+       ⚠ ②가 남긴 규율은 지금도 유효하다: **안 잰 회차에 `ok:true` 를 새로 쓰지 않는다.** 안 잰
+       것을 "일치"라고 보고하면 설정 탭 진단이 거짓말을 한다(감사가 반복해 잡은 부류). 아래
+       "바뀐 행 없음" 분기가 직전 결과를 그대로 두는 이유가 그것이다. */
+    /* ⚠⚠ **대조를 시간축에서 행축으로 옮겼다(2026-07-29).** 표본 설계의 대가는
+       **20회 중 19회가 무검증**이라는 것이었다. 이 층이 잡으려는 것(SQL 층의 타입 강제변환·
+       NULL 처리)은 **행의 성질**이므로, 손댄 행만 되읽으면 비용이 O(변경행)으로 떨어지면서
+       **매 flush 검증**이 된다 — 더 싸고 탐지력은 오른다. 표본은 "전량이 비싸다"의 우회였지
+       목적이 아니었다.
 
-       이 층의 목적은 머리주석이 적은 대로 **SQL 층의 타입 강제변환·NULL 처리 탐지**다. 그건
-       스키마·매퍼의 성질이라 **한 번 어긋나면 계속 어긋난다** — 즉 표본으로 잡힌다. 전량이어야
-       할 근거는 어디에도 없었다(있었다면 여기 적혀 있었을 것이다).
+       ⚠ 전량 경로는 **지우지 않고 남긴다.** 첫 쓰기(기준선 없음)와 대량 쓰기(가져오기·복구·
+       되돌리기)는 손댄 행이 곧 전체라, 키를 나열해 읽는 것이 오히려 비싸고 `IN` 목록도
+       병적으로 길어진다. 그 경계가 `ROW_VERIFY_MAX` 다.
 
-       ⚠ 건너뛴 회차에 `ok:true` 를 새로 쓰지 않고 **직전 대조 결과를 그대로 둔다.** 안 잰 것을
-       "일치"라고 보고하면 설정 탭 진단이 거짓말을 하게 된다(이 감사가 반복해 잡은 부류). */
-    /* ⚠ **더 나은 안이 있고, 그건 여기서 즉흥으로 할 일이 아니다**(2026-07-29 분석).
-       표본(20회당 1회)의 대가는 **19회가 무검증**이라는 것이다. 대안: `diffRows` 가 방금 건드린
-       행의 키만 되읽어 대조하면 비용이 O(변경행)으로 떨어지면서 **매 flush 검증**이 된다 —
-       더 싸고 탐지력은 오히려 오른다.
-       그런데 그건 `sqlite.ts` 에 키 지정 다중 테이블 조회를 새로 내고 `diffRows` 가 건드린 키를
-       밖으로 내보내야 하는, **정본 저장 경로 한복판의 100줄짜리 변경**이다(이 항목을 "틈날 때"로
-       분류한 추정이 규모를 잘못 봤다). 이 저장소는 그 경로에서 조용한 유실에 반복해 물렸고,
-       현행 표본 설계는 사흘 전 감사(H6)가 근거를 적어 내린 결정이다. → 설계 확인 뒤 별건. */
-    _writes += 1;
-    if (_writes !== 1 && _writes % VERIFY_EVERY !== 0) return _last;
+       ⚠ 건너뛰지 않으므로 "안 잰 회차"가 없다 — H6 이 걱정한 "안 잰 것을 일치라고 보고"할
+       여지 자체가 사라진다. */
+    if (wrote.touched.length && wrote.touched.length <= ROW_VERIFY_MAX) {
+      const back = await readTouched(wrote.touched);
+      if (!back) {
+        _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false, unavailable: false };
+        return _last;
+      }
+      const bad = new Set<string>();
+      for (const t of wrote.touched) {
+        const got = back.get(touchedKey(t.table, t.key));
+        /* ⚠ 비교는 **문자열로** 한다. SQLite 는 열 친화성에 따라 숫자를 number 로 돌려주는데
+           우리가 쓴 값은 string 일 수 있다 — 그 강제변환이야말로 이 층이 잡으려는 것이지만,
+           JSON 값이 그대로 왕복하는 한 정상이다. 원시 타입이 갈리는 것 자체는 SQLite 의 정상
+           거동이라 `===` 로 보면 전 행이 불일치가 된다(그러면 경고가 소음이 되어 죽는다). */
+        if (!got || got.length !== t.vals.length || got.some((v, i) => String(v) !== String(t.vals[i]))) {
+          bad.add(t.table);
+        }
+      }
+      const mismatched = [...bad];
+      _last = { ok: !mismatched.length, mismatched, skipped: false, unavailable: false };
+      if (mismatched.length) console.warn('[db] 쓴 행과 되읽은 행이 다릅니다:', mismatched);
+      return _last;
+    }
+    if (!wrote.touched.length) return _last; // 바뀐 행이 없다 = 검증할 것도 없다(직전 결과 유지)
     const back = await readRows();
     if (!back) {
       _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false, unavailable: false };

@@ -57,6 +57,43 @@
   pointer-events: none;
 }
 
+/* ── 표면 레지스터 3종 — `ds-card` 은퇴의 대체물(2026-07-29 · **파일럿 중**) ─────────────
+   원칙 4 는 _"둥근 글래스 폐기 → 얇은 헤어라인 + 노치 HUD"_ 라 선언했는데 실제로는 `ds-card`
+   (배경+테두리+radius+그림자)가 **앱의 기본 표면**이다(28파일 77곳). 카드가 세 장 쌓이면
+   카드 사이에만 `margin 17px + border 2px` = **순수 장식 57px** 이 들어간다.
+
+   대체는 "카드를 지운다"가 아니라 **무엇을 위한 표면인지 세 갈래로 나눈다**:
+   · `ds-canvas` — 상자가 아예 없다. 그 자체가 페이지인 내용(긴 문서·폼 섹션).
+   · `ds-rule`   — 위쪽 헤어라인 한 줄로만 가른다. 목록형 섹션 구분(원칙 4 의 직역).
+   · `ds-well`   — 눌린 면(패널2 틴트·테두리 없음). *진짜로* 묶여 들어간 내용.
+
+   ⚠ **파일럿은 `settings` 한 화면뿐이다.** 로드맵 처방("가장 불리한 케이스부터")이고, 나머지
+   27파일은 이 화면을 눈으로 본 뒤 판단한다 — 77곳을 한 번에 쓸면 스냅샷 60~70장을 태우면서
+   "더 나아졌나"를 아무도 확인 못 한 채 굳는다.
+   ⚠ 배분 보드는 **제외**다("카드에도 색 있어야"라는 못박힌 지시 · CLAUDE.md #4). */
+.ds-canvas {
+  position: relative;
+  margin-bottom: 17px;
+}
+.ds-rule {
+  position: relative;
+  margin-bottom: 17px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+/* 첫 섹션 위에는 선을 긋지 않는다 — 위가 비어 있으면 가를 것이 없다. */
+.ds-rule:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.ds-well {
+  position: relative;
+  background: var(--panel2);
+  border-radius: var(--r-sm);
+  padding: 16px 18px;
+  margin-bottom: 17px;
+}
+
 /* ── 카드 ── */
 .ds-card {
   position: relative;

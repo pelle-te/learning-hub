@@ -15,7 +15,13 @@
    503줄(백엔드 커맨드 전량 + zod)이 **두 엔트리의 초기 청크**에 들어간다. 폰은 그 표면을
    한 번도 안 부른다. `dbUrl()` 은 아래 Tauri 분기 안에서 동적으로 가져온다. */
 import { isTauri } from '../isTauri';
-import { diffRows, type DbRows } from './rows';
+import { diffRowsDetailed, TABLES, type DbRows, type TableSpec, type TouchedRow } from './rows';
+
+/** `writeRows` 의 결과 — 성공 여부 + **이번에 실제로 손댄 행**(되읽기 대조의 대상). */
+export interface WriteResult {
+  ok: boolean;
+  touched: TouchedRow[];
+}
 import { chunkedStamp } from './stamp';
 
 /** flush 한 번이 만드는 스탬프 그룹의 상한. `MAX_BATCH_ITEMS`(500) 아래로 여유를 둔다 —
@@ -181,6 +187,54 @@ export async function isDbAvailable(): Promise<boolean> {
 type Row = Record<string, string | number>;
 const str = (v: string | number | undefined): string => (v == null ? '' : String(v));
 
+/**
+ * **방금 쓴 행만** 되읽는다 — 되읽기 대조의 행축 판(`write.ts` 참조).
+ *
+ * 왜: 종전 대조는 매번 8테이블을 **전량** 읽었고(2년 근사 상태에서 IPC 946KB + JS 9ms) 그래서
+ * 20회에 1회만 돌렸다. 즉 **19회는 무검증**이었다. 이 층의 목적은 "SQL 층의 타입 강제변환·
+ * NULL 처리 탐지"인데 그건 **행의 성질**이라, 손댄 행만 보면 비용이 O(변경행)으로 떨어지면서
+ * 오히려 **매 flush 검증**이 된다 — 더 싸고 탐지력은 오른다.
+ *
+ * ⚠ 복합키(keyLen=2) 테이블은 **첫 키만 `IN`** 으로 좁히고 정확한 조합은 호출부가 거른다.
+ * 행 값 튜플(`WHERE (a,b) IN (VALUES …)`)은 SQLite 가 지원하지만 plugin-sql → sqlx 경로에서
+ * 바인딩 거동을 이 저장소가 검증한 적이 없다 — 정본 저장 경로에서 미검증 SQL 문법에 기대지
+ * 않는다. 첫 키로 좁히면 과다 인출이 생기지만 그 상한은 "이번에 손댄 서로 다른 첫 키 수"다.
+ * ⚠ 반환은 `키 → 데이터 열 배열`(`spec.cols` 순서, `updated_at` 제외)이다. 없는 키는 없는
+ * 채로 둔다 — 호출부가 "썼는데 안 읽힌다"를 불일치로 판정할 수 있어야 한다.
+ */
+export async function readTouched(touched: TouchedRow[]): Promise<Map<string, unknown[]> | null> {
+  const db = await getDb();
+  if (!db || !touched.length) return db ? new Map() : null;
+  const bySpec = new Map<TableSpec, TouchedRow[]>();
+  for (const t of touched) {
+    const spec = TABLES.find((x) => x.name === t.table);
+    if (!spec) continue;
+    const list = bySpec.get(spec);
+    if (list) list.push(t);
+    else bySpec.set(spec, [t]);
+  }
+  const out = new Map<string, unknown[]>();
+  await Promise.all(
+    [...bySpec.entries()].map(async ([spec, list]) => {
+      const firsts = [...new Set(list.map((t) => String(t.key[0])))];
+      const rows = await db.select<Row[]>(
+        `SELECT ${spec.cols.join(',')} FROM ${spec.name} WHERE ${spec.cols[0]} IN (${firsts.map(() => '?').join(',')})`,
+        firsts,
+      );
+      for (const r of rows) {
+        const vals = spec.cols.map((c) => r[c as keyof Row]);
+        out.set(touchedKey(spec.name, vals.slice(0, spec.keyLen)), vals);
+      }
+    }),
+  );
+  return out;
+}
+
+/** 접촉 행 식별자 — 테이블 + 기본키. 구분자는 값에 안 나오는 NUL 이다(`join('')` 충돌 방지). */
+export function touchedKey(table: string, key: unknown[]): string {
+  return [table, ...key.map((k) => String(k))].join('\u0000');
+}
+
 /** 전체 상태를 읽어 행 표현으로. 빈 DB 면 null(= 아직 이관 전). */
 export async function readRows(): Promise<DbRows | null> {
   const db = await getDb();
@@ -260,9 +314,9 @@ export function setDiffBaseline(rows: DbRows | null): void {
  * 대신 diff 방식이 트랜잭션 없이도 안전하다 — DELETE-후-INSERT 와 달리 **DB 가 비는 순간이
  * 없고**, 중간에 죽어도 남는 건 "여분의 옛 행"이지 "사라진 행"이 아니다(다음 쓰기가 정리한다).
  */
-export async function writeRows(rows: DbRows, stamp?: number | (() => number)): Promise<boolean> {
+export async function writeRows(rows: DbRows, stamp?: number | (() => number)): Promise<WriteResult> {
   const db = await getDb();
-  if (!db) return false;
+  if (!db) return { ok: false, touched: [] };
   // 기준선이 없으면(첫 쓰기·이관 직후) DB 를 한 번 읽어 세운다 — 없다고 전량 삭제하면
   // 위에 적은 안전 속성이 그대로 깨진다.
   if (!_last) _last = await readRows();
@@ -277,17 +331,20 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
      영구 차단**된다(그 사용자의 이후 모든 편집이 조용히 동기화 안 됨). 최초 이관(`boot.ts`)만
      `chunkedStamp` 로 막고 런타임 import 경로는 안 막던 비대칭이 결함이었다. 여기서 기본을 청크로
      바꾸면 **어느 호출자든** 단일 그룹이 상한을 못 넘어 그 차단이 원천 봉쇄된다(호출자 무관 방어). */
-  const stmts = diffRows(_last, rows, stamp ?? chunkedStamp(WRITE_STAMP_CHUNK));
+  /* ⚠ `diffRowsDetailed` 로 문장과 **접촉 행**을 한 순회에서 함께 받는다 — 되읽기 대조(`write.ts`)가
+     "방금 쓴 행"만 확인할 수 있게. 두 번 순회해 따로 만들면 언젠가 한쪽만 고쳐져 **검증이 엉뚱한
+     행을 본다**(그때 증상은 "대조는 통과하는데 저장이 틀렸다"다). */
+  const { stmts, touched } = diffRowsDetailed(_last, rows, stamp ?? chunkedStamp(WRITE_STAMP_CHUNK));
   try {
     /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
        셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */
     if (db.batch) await db.batch(stmts);
     else for (const s of stmts) await db.execute(s.sql, s.args);
     _last = rows;
-    return true;
+    return { ok: true, touched };
   } catch (e) {
     console.error('[db] 쓰기 실패', e);
     _last = null; // 부분 적용됐을 수 있다 — 다음 쓰기가 DB 를 다시 읽어 기준선을 세우게 한다
-    return false;
+    return { ok: false, touched: [] };
   }
 }

@@ -188,15 +188,12 @@ export const TaskSchema = z.object({
   ds: z.string().optional(), // 배정 날짜(YYYY-MM-DD). 없으면 '언젠가'(인박스)
   start: z.number().optional(), // 시각(분). 없으면 그날 미지정 트레이
   min: z.number().optional(), // 소요(선택) — 캘린더 블록 높이
-  /* ⚠⚠ **`Task.deadline` 은 지금 아무 데서도 쓰이지 않는다 — 배선이 없다**(2026-07-29 실측).
-     쓰기: `addTask` 호출부 3곳(`DayPlanner` 2 · `phone/DayView` 1) 중 이 값을 넘기는 곳 **0**.
-     읽기: `.deadline` 참조 21곳은 전부 `Item`(과목) 쪽이고 `Task` 쪽 **0**.
-     즉 스키마·동기화 계약에는 있는데 사용자는 넣을 수도, 볼 수도 없다.
-     남겨 둔 이유: 지우면 클라이언트 zod·서버 strict zod·D1 계약이 함께 움직여야 하는데 얻는
-     것은 필드 하나이고, 반대로 **잇는 것은 UI 신설**(입력 + D-day 배지)이라 둘 다 이 자리의
-     결정이 아니다. 다음에 이 필드를 보는 사람이 "동작한다"고 가정하지 않도록 여기 적는다 —
-     `Item.deadline` 과 이름이 같아서 특히 그렇게 읽힌다. 판정은 로드맵 Later 항목. */
-  deadline: z.string().optional(), // ⏰ 마감(선택 · **미배선** — 위 주석 참조)
+  /* ⚠ 이 필드는 2026-07-29 까지 **쓰기 0·읽기 0** 이었다(스키마·동기화 계약엔 있는데 사용자는
+     넣을 수도 볼 수도 없었다). 같은 날 배선했다 — 쓰기는 `DayPlanner` 편집 바의 날짜 입력,
+     읽기는 트레이 칩의 D-day 배지(`ddayInfo`). 둘 중 하나만 있으면 나머지 하나가 영원히
+     빈다는 것이 이 필드가 죽어 있던 이유다.
+     ⚠ `Item.deadline`(과목 마감)과 **다른 것**이다 — 이름이 같아 혼동하기 쉽다. */
+  deadline: z.string().optional(), // ⏰ 마감(선택 · 할 일 전용)
   done: z.boolean().optional(),
   doneDs: z.string().optional(),
   at: z.number().optional(), // 생성 시각(로그·정렬)

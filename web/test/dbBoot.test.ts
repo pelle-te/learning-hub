@@ -67,7 +67,10 @@ beforeEach(() => {
   localStorage.clear();
   resetBootState();
   readRows.mockReset();
-  writeRows.mockReset().mockResolvedValue(true);
+  /* ⚠ `writeRows` 는 **객체**를 준다(`{ ok, touched }`) — 되읽기 대조가 행축으로 바뀌며
+     "이번에 손댄 행"을 함께 돌려주게 됐다(2026-07-29). 목이 boolean 을 주면 호출부의
+     `const { ok } = …` 이 undefined 를 받아 **쓰기 성공이 실패로 읽힌다**. */
+  writeRows.mockReset().mockResolvedValue({ ok: true, touched: [] });
   isDbAvailable.mockReset().mockResolvedValue(true);
   dbVersionGuard.mockReset().mockResolvedValue(null); // 기본은 "가드 없음"(구 배포본·브라우저)
   asTauri(true);
@@ -145,7 +148,7 @@ describe('실패는 전부 localStorage 폴백으로 수렴한다', () => {
   it('이관 쓰기가 실패하면 폴백(정본은 아직 localStorage 에 있다)', async () => {
     persist(storage, marked('2026-06-03'));
     readRows.mockResolvedValue(null);
-    writeRows.mockResolvedValue(false);
+    writeRows.mockResolvedValue({ ok: false, touched: [] });
     await initAppStore();
     expect(preloadedState()).toBeNull(); // 옮기지 못했으니 정본을 옮겼다고 주장하지 않는다
     expect(didMigrate()).toBe(false);

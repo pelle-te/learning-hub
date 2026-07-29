@@ -303,7 +303,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="ds-card ds-glow">
+      <div className="ds-rule">
         <h2>
           테마 · 액센트 <span className="ds-muted ds-tiny">— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
         </h2>
@@ -339,7 +339,7 @@ export default function Settings() {
         </label>
       </div>
 
-      <div className="ds-card ds-glow">
+      <div className="ds-rule">
         <h2>기본 설정</h2>
         <div className="ds-row">
           <div>
@@ -517,7 +517,7 @@ export default function Settings() {
           전달할 경로가 없으면 관측은 절반만 값을 낸다. 셸에서만 렌더. */}
       <UpdateCard />
 
-      <div className="ds-card ds-glow">
+      <div className="ds-rule">
         <h2>
           데이터 백업·정리 <span className="ds-muted ds-tiny">— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
         </h2>

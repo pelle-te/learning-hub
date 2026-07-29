@@ -194,11 +194,19 @@ export const TABS: TabMeta[] = [
     icon: 'reads',
   },
   {
+    /* ⚠ **H24 — 상시 레일에서 내렸다(2026-07-29 · `destination` → `lens`).**
+       제품 앵커는 "볼트·Anki·일과를 한눈에 보는 **로컬 학습 대시보드**"인데 이 탭은 학습 상태
+       소비가 **0**이다(로드맵·설계 어디에도 존재 근거가 없고 등장은 전부 버그 수정 항목).
+       그런데 레일 한 칸을 상시로 쓰면서 508줄 + 뉴스 RSS Rust 커맨드 + 파이썬 수집기를 문다.
+       ⚠ **지우지 않는다.** ⌘K·`g` 단축키·딥링크(`/markets`)는 그대로다 — 도달성은 유지하고
+       "매일 보이는 자리"만 회수한다. 그래야 `route_visits` 로 **레일을 지웠을 때 ⌘K 방문이
+       남는가**를 물을 수 있다(`visits.ts` 머리주석이 이 탭을 1순위 후보로 지목한 그 질문).
+       재판정: 관측 2주 뒤. 되돌리기는 이 두 글자다. */
     key: 'markets',
     label: '증시 동향',
     group: 'collect',
     order: 47,
-    role: 'destination',
+    role: 'lens',
     icon: 'trend',
   },
   {
@@ -278,6 +286,11 @@ export const SUBTAB_GROUPS: string[][] = [
      그룹엔가 속해야 하고, destination 은 레일에 서야 한다). 근거·다음 판단 지점은 `docs/IA개편-설계.md`. */
   ['schedule', 'alloc', 'items', 'goals', 'degree'],
   ['integrations', 'ledger'],
+  /* H24 — 수집 호스트: 읽을거리(호스트) + 증시 동향. `markets` 를 레일에서 내리면서(destination
+     → lens) **도달 경로를 함께 준다** — 불변식 ③-b 가 정확히 그것을 요구하고, 실제로 이 줄
+     없이 role 만 바꿨다가 테스트에 잡혔다. `lens` 는 "숨긴다"가 아니라 "호스트 밑으로 옮긴다"다.
+     둘 다 `collect` 그룹이고 성격도 같다(밖에서 읽을 것을 들여오는 화면). */
+  ['reads', 'markets'],
   // 기록 호스트: 기록(적기) → 주간 리뷰(이번 주 처방) → 복습 실행(지금 굴리기) → 오답 노트(전 기간 아카이브).
   ['journal', 'review', 'review-run', 'mistakes'],
   ['stats', 'forecast', 'mastery', 'graph'],

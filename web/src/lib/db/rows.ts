@@ -137,7 +137,28 @@ export interface Stmt {
  * ⚠ **upsert 를 먼저, 삭제를 나중에** 낸다 — 중간에 죽으면 남는 쪽이 "여분의 옛 행"이어야지
  * "사라진 행"이면 안 된다. 여분은 다음 쓰기가 정리하지만 유실은 복구할 수 없다.
  */
-export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() => number) = Date.now()): Stmt[] {
+/** 이번 쓰기가 **실제로 손댄 행** 하나 — 되읽기 대조의 단위. */
+export interface TouchedRow {
+  /** 테이블 이름(`TABLES[].name`). */
+  table: string;
+  /** 기본키 값들(`keyLen` 개). */
+  key: unknown[];
+  /** 우리가 쓴 데이터 열 전량(키 포함 · `spec.cols` 순서). 되읽은 값과 이걸 대조한다. */
+  vals: unknown[];
+}
+
+/**
+ * `diffRows` 의 상세판 — 문장과 **접촉 행**을 **한 번의 순회**에서 함께 낸다.
+ *
+ * ⚠ 두 함수로 나눠 각자 순회하게 만들면 언젠가 한쪽만 고쳐져 **검증이 엉뚱한 행을 본다** —
+ * 그때 증상은 "대조는 통과하는데 저장이 틀렸다"이고, 그건 이 층이 막으려던 바로 그것이다.
+ * `diffRows` 는 이 함수의 얇은 래퍼다.
+ */
+export function diffRowsDetailed(
+  prev: DbRows | null,
+  next: DbRows,
+  now: number | (() => number) = Date.now(),
+): { stmts: Stmt[]; touched: TouchedRow[] } {
   /* 스탬프는 **동기화 행마다** 배급한다. 상수(일반 flush)면 모든 행·툼스톤이 같은 값을 받아
      종전과 한 글자도 다르지 않고(한 flush = 한 스탬프 그룹), 함수(최초 이관의 `chunkedStamp`)면
      청크마다 값이 갈려 단일 그룹이 배치 상한을 넘지 않는다(C1 · `stamp.ts` 참조). */
@@ -147,6 +168,7 @@ export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() =>
   const upserts: Stmt[] = [];
   const tombs: Stmt[] = [];
   const deletes: Stmt[] = [];
+  const touched: TouchedRow[] = [];
   /** 툼스톤 기본키 — 단일키 테이블은 k2 를 빈 문자열로 채운다(db.rs v3 와 같은 규약). */
   const tomb = (spec: TableSpec, vals: unknown[]): unknown[] => [spec.name, vals[0], spec.keyLen === 2 ? vals[1] : ''];
 
@@ -164,6 +186,9 @@ export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() =>
         sql: `INSERT OR REPLACE INTO ${spec.name} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
         args,
       });
+      // ⚠ `vals` 는 **데이터 열만**이다(`updated_at` 제외) — 그 값은 우리가 매번 새로 찍으므로
+      //    되읽기 대조에 넣으면 항상 불일치가 된다(위 비교가 같은 이유로 제외한다).
+      touched.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals });
       /* ⚠ **부활(지웠다가 같은 키로 다시 만들기)을 여기서 처리하지 않는다.**
          처음엔 툼스톤을 지우는 문장을 같이 냈는데, 그러면 ① 이 목록에 DELETE 가 섞여
          "삭제는 upsert 뒤" 계약이 형식적으로 깨지고 ② 기준선이 없는 첫 쓰기에서 전 행에
@@ -193,7 +218,12 @@ export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() =>
       deletes.push({ sql: `DELETE FROM ${spec.name} WHERE ${where}`, args: vals.slice(0, spec.keyLen) });
     }
   }
-  return [...upserts, ...tombs, ...deletes];
+  return { stmts: [...upserts, ...tombs, ...deletes], touched };
+}
+
+/** 상태 두 벌 → 증분 SQL. 접촉 행이 필요하면 `diffRowsDetailed`. */
+export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() => number) = Date.now()): Stmt[] {
+  return diffRowsDetailed(prev, next, now).stmts;
 }
 
 /** AppState → 행. `persistence.ts` 의 2계층 스코프를 **테이블 정책으로 직역**한다:

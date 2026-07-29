@@ -105,3 +105,21 @@ describe('tasks — 자유 할 일 CRUD·선택자(§4-4)', () => {
     expect(s.tasks).toHaveLength(1);
   });
 });
+
+/* `Task.deadline` 은 스키마·동기화 계약엔 있는데 **쓰기 0·읽기 0** 이라 사용자가 넣을 수도 볼 수도
+   없었다(2026-07-29 실측). 배선한 뒤로는 왕복이 계약이다 — 한쪽만 살아 있으면 다른 쪽이 죽는다. */
+describe('Task.deadline — 왕복', () => {
+  it('updateTask 로 넣은 마감이 그대로 남는다', () => {
+    const st = seed();
+    const t = addTask(st, { title: '보고서', ds: '2026-07-29' });
+    updateTask(st, t.id, { deadline: '2026-08-05' });
+    expect(st.tasks.find((x) => x.id === t.id)?.deadline).toBe('2026-08-05');
+  });
+
+  it('빈 문자열로 지울 수 있다 — 넣기만 되고 못 지우면 그것도 반쪽이다', () => {
+    const st = seed();
+    const t = addTask(st, { title: '보고서', ds: '2026-07-29', deadline: '2026-08-05' });
+    updateTask(st, t.id, { deadline: '' });
+    expect(st.tasks.find((x) => x.id === t.id)?.deadline).toBe('');
+  });
+});
