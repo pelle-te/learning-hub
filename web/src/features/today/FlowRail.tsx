@@ -2,7 +2,25 @@
    FlowRail — 오늘의 흐름 레일(시간순 학습·일과 노드 리스트).
 
    TodaySignature 에서 **책임 이전**으로 떼어냈다(재설계 · 이 상호작용이 부모 인지복잡도 77 의 주
-   동인이었다). 선택 상태(selKey)·키보드 네비(j/k/Enter/s)·노드 DOM refs 를 **이 컴포넌트가 소유**한다.
+   동인이었다). 키보드 네비(j/k + 동사키)·노드 DOM refs 를 **이 컴포넌트가 소유**한다.
+
+   ## 커서는 하나다 — 선택 = DOM 포커스(E5 · 2026-07-29)
+
+   종전엔 커서가 **두 벌**이었다: `j/k` 가 옮기는 그림자 선택(`selKey`)과 Tab 이 옮기는 DOM
+   포커스. 그래서 이 앱에서 **가장 잦은 쓰기인 완료 토글에 키가 없었고**, `Enter` 는 어느
+   커서 위에 있느냐에 따라 뜻이 갈렸다(포커스면 토글 · 선택이면 집중 시작). 아래 `Enter`
+   가드가 그 충돌을 봉합하던 자리다. 키보드로 완료하려면 히어로 CTA·프리셋·resume 칩을
+   지나 **Tab 을 여러 번** 눌러야 했다.
+
+   지금은 **roving tabindex** 다: 레일 전체가 탭 스톱 하나이고 `j/k` 는 `focus()` 를 옮긴다.
+   커서가 하나가 되면서 뜻이 겹치던 자리가 사라지고, 그 위에 동사키를 편다 —
+   `x` 완료 · `f` 집중 시작 · `s` 기록. `Enter`/`Space` 는 버튼의 **네이티브 활성**(=완료)이라
+   따로 가로채지 않는다(가로채는 순간 다시 두 뜻이 된다).
+
+   ⚠ **포인터 경로는 그대로다** — 노드는 여전히 버튼이고 탭=완료다. 키보드 경로를 추가하되
+   포인터를 없애면 터치·스위치 접근에서 이 화면이 통째로 잠긴다.
+   ⚠ `15분 미루기`(`.`)는 **여기 없다** — 그건 계획을 쓰는 새 도메인 연산이라 이 상호작용
+   변경과 사정거리가 다르다(별건).
    부모는 데이터(nodes·nowMin·riskN)와 **불투명 콜백**(onToggle·onFocus·onPrefill·onReview)만 넘긴다 —
    `e` 를 제네릭으로 두어 FlowRail 이 `enriched` 형태·store·ds 에 전혀 결합되지 않는다(25-prop 컴포넌트로
    쪼개는 것과 정반대: 응집을 부수지 않고 상태기계만 옮긴다). 빈 상태는 부모가 렌더한다(공유 클래스 결합 회피).
@@ -64,7 +82,8 @@ export interface FlowRailProps<TE> {
 }
 
 export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefill, onReview }: FlowRailProps<TE>) {
-  // I-4 — 흐름 레일 키보드 흐름: j/k 노드 이동(활성 하이라이트+스크롤) · Enter 집중 시작 · s 기록 프리필.
+  /* 커서 = **실제 DOM 포커스**(E5). `selKey` 는 그 포커스를 따라가는 거울이라 두 벌이 아니다 —
+     roving tabindex 의 "지금 탭 스톱인 노드"를 정하는 데 쓴다. */
   const [selKey, setSelKey] = useState<string | null>(null);
   const nodeRefs = useRef(new Map<string, HTMLElement>());
 
@@ -74,21 +93,29 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
      타깃 가드가 `useKeymap` 의 keys→run 모델로 표현되지 않는다) 설명만 레지스트리로 올린다.
      이 넷은 이 항목 전까지 **어디에도 문서화돼 있지 않았다** — 있는데 아무도 모르는 키였다. */
   useKeymapDoc('이 화면 · 오늘 흐름', [
-    { display: 'J / K', label: '다음 / 이전 블록 선택' },
-    { display: 'Enter', label: '선택한 블록으로 집중 시작' },
-    { display: 'S', label: '선택한 블록을 요약에 채우기' },
+    { display: 'J / K', label: '다음 / 이전 블록' },
+    { display: 'X', label: '완료 토글' },
+    { display: 'F', label: '집중 시작' },
+    { display: 'S', label: '요약에 채우기' },
   ]);
 
-  const keyCtx = useRef({ nodes, selKey, onFocus, onPrefill });
+  const keyCtx = useRef({ nodes, selKey, onFocus, onPrefill, onToggle });
   useEffect(() => {
-    keyCtx.current = { nodes, selKey, onFocus, onPrefill };
+    keyCtx.current = { nodes, selKey, onFocus, onPrefill, onToggle };
   });
 
   useEffect(() => {
-    // 판정(모션 자제)은 `lib/motion` 이 소유한다(H16) — 여기선 대상만 고른다.
-    const revealNode = (key: string): void => reveal(nodeRefs.current.get(key), 'nearest');
+    /* 커서를 옮긴다 = **포커스를 옮긴다**(E5). 스크롤 판정(모션 자제)은 `lib/motion` 이 소유하고
+       (H16) 여기선 대상만 고른다. 포커스가 곧 커서라 `setSelKey` 는 `onFocus` 가 대신 해도
+       되지만, 노드가 없는 경우(일과 블록=div)를 위해 여기서도 세운다. */
+    const move = (key: string): void => {
+      setSelKey(key);
+      const el = nodeRefs.current.get(key);
+      reveal(el, 'nearest');
+      el?.focus({ preventScroll: true });
+    };
     const onKey = (e: KeyboardEvent): void => {
-      const { nodes, selKey, onFocus, onPrefill } = keyCtx.current;
+      const { nodes, selKey, onFocus, onPrefill, onToggle } = keyCtx.current;
       if (!nodes.length) return;
       const keys = nodes.map((n) => n.key);
       const t = e.target as HTMLElement | null;
@@ -97,36 +124,39 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
       const idx = selKey ? keys.indexOf(selKey) : -1;
       if (e.key === 'j') {
         e.preventDefault();
-        const next = keys[Math.min(keys.length - 1, idx + 1)] ?? keys[0]!;
-        setSelKey(next);
-        revealNode(next);
-      } else if (e.key === 'k') {
-        e.preventDefault();
-        const prev = idx <= 0 ? keys[0]! : keys[idx - 1]!;
-        setSelKey(prev);
-        revealNode(prev);
-      } else if (e.key === 'Enter') {
-        // ⚠ 노드 버튼에 DOM 포커스가 있으면(Tab 이동) Enter 는 **네이티브 활성**(=완료 토글)에 맡긴다.
-        //    여기서 가로채면 사용자가 기대한 토글 대신 집중 세션이 시작된다. j/k 선택(selKey)은 DOM
-        //    포커스를 옮기지 않으므로, 그때의 Enter 는 아래로 내려가 집중 세션을 연다(둘이 안 겹친다).
-        if (t?.tagName === 'BUTTON') return;
-        const nd = nodes.find((n) => n.key === selKey);
-        if (nd?.e) {
-          e.preventDefault();
-          onFocus(nd.e);
-        }
-      } else if (e.key === 's' || e.key === 'S') {
-        const nd = nodes.find((n) => n.key === selKey);
-        if (nd?.e) {
-          e.preventDefault();
-          onPrefill(nd.e);
-        }
+        move(keys[Math.min(keys.length - 1, idx + 1)] ?? keys[0]!);
+        return;
       }
+      if (e.key === 'k') {
+        e.preventDefault();
+        move(idx <= 0 ? keys[0]! : keys[idx - 1]!);
+        return;
+      }
+      /* 동사키 — 전부 **같은 커서**(포커스한 노드)에 대해 돈다.
+         ⚠ `Enter`/`Space` 는 안 다룬다: 포커스한 노드는 버튼이라 네이티브 활성이 곧 완료다.
+            가로채면 한 키가 다시 두 뜻을 갖게 되고, 그게 E5 이전의 결함이었다. */
+      const verb =
+        e.key === 'x' || e.key === 'X'
+          ? onToggle
+          : e.key === 'f' || e.key === 'F'
+            ? onFocus
+            : e.key === 's' || e.key === 'S'
+              ? onPrefill
+              : null;
+      if (!verb) return;
+      const nd = nodes.find((n) => n.key === selKey);
+      if (!nd?.e) return; // 일과 블록엔 동사가 없다(페이로드가 null)
+      e.preventDefault();
+      verb(nd.e);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // deps 빈 배열이 정직하다 — 핸들러가 참조하는 값은 전부 keyCtx.current 에서 읽는다(마운트당 1회 등록).
   }, []);
+
+  /* roving tabindex — 레일 전체가 탭 스톱 **하나**다. 커서가 없으면 첫 노드가 그 자리를 맡아
+     Tab 으로 들어온 사람도 즉시 `j/k` 를 쓸 수 있다(들어올 문이 없으면 키 계약이 죽는다). */
+  const tabStop = selKey ?? nodes[0]?.key ?? null;
 
   return (
     <>
@@ -188,6 +218,10 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
               onToggle(nd.e!);
               commit(ev.currentTarget);
             }}
+            /* E5 — 포커스가 곧 커서다. 마우스·Tab 으로 들어와도 `j/k` 가 그 자리에서 이어진다
+               (거울을 안 맞추면 Tab 으로 옮긴 뒤 `j` 가 엉뚱한 데서 다시 시작한다). */
+            onFocus={() => setSelKey(nd.key)}
+            tabIndex={tabStop === nd.key ? 0 : -1}
             aria-label={`${nd.name} 완료 토글`}
             aria-pressed={nd.done}
             aria-current={sel ? true : undefined}

@@ -4,7 +4,7 @@
    진행률·연속·마감 리드아웃과 "지금 시작" 주 액션은 상단 바(usePageChrome)로 끌어올림.
    세부(블록 액션·일일 의식·흐름 가이드)는 onOpenMore 패널로 — 기본은 한 화면, 무스크롤.
 ============================================================ */
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
@@ -17,7 +17,7 @@ import { usePrefill } from '@/store/prefill';
 import { usePing, useKnowledge } from '@/store/queries';
 import { studyStreak } from '@/lib/persistence';
 import { focusMinutes } from '@/lib/focusState';
-import { openBacklog, setRitual, CBMS_INFO } from '@/lib/methodology';
+import { openBacklog, CBMS_INFO } from '@/lib/methodology';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
@@ -30,8 +30,8 @@ import { dayShape } from '@/lib/insights';
 import type { AppState } from '@/lib/types';
 import { ProgressRing } from '@/components/ProgressRing';
 import { FlowRail, type FlowNode } from './FlowRail';
-import { todayISO, parseISO, mondayOf, addDays, iso, ddayInfo, toHM, mmss, DOW_MON } from '@/lib/utils';
-import { useCountUp, useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
+import { todayISO, parseISO, addDays, iso, ddayInfo, toHM, mmss } from '@/lib/utils';
+import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 
 const TYPE_LABEL: Record<string, string> = {
@@ -316,16 +316,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     pending.filter((e) => e !== focus).sort((a, b) => startKey(a) - startKey(b))[0] ||
     null;
 
-  const mon = mondayOf(today);
-  const weekData = DOW_MON.map((lab, i) => {
-    const date = addDays(mon, i);
-    const k = iso(date);
-    const day = byDs[k];
-    const min = (day?.items || []).reduce((t, it) => t + (it.min || 0), 0);
-    return { lab, h: min / 60, today: k === ds };
-  });
-  const weekTotalH = weekData.reduce((t, d) => t + d.h, 0);
-  const weekShown = useCountUp(weekTotalH);
+  /* E8 — 주(週) 누적 시간 계산이 여기서 사라졌다(스트립의 `이번 주 N h` 와 함께). 그건 오늘의
+     판단이 아니라 주의 조망이고, `/schedule` 이 그 질문을 통째로 소유하는 화면이다. 매일 7일을
+     순회하던 비용과 `useCountUp` 훅 하나도 같이 없어진다. */
 
   const streak = studyStreak(state);
   const due = ankiLive?.decks ? totalDue(ankiLive.decks) : null;
@@ -447,8 +440,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   const dispColor = !allDone && focus ? focus.it.color : undefined;
 
-  // PL-19 — 오늘 일일 의식 상태(아침 계획·셧다운) 리드아웃용. 세부 입력은 온디맨드 RitualCard 소유.
-  const ritual = state.rituals?.[ds];
+  /* E8 — 일일 의식 토글이 스트립에서 빠졌다. 같은 토글이 앱 안에 셋이었고(여기 · 온디맨드
+     `RitualCard` · `하루 닫기` CTA), 닫는 길은 CTA 가 이미 커서까지 놓아 준다. 상태 읽기도
+     그 카드가 소유한다. */
 
   // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신). 종료 알림·완료 연결은 FocusChip이.
   const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
@@ -511,8 +505,15 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // 진행률·연속·마감 + 주 액션을 상단 바로 끌어올림(데모 v6 헤더).
   usePageChromeEffect(
     () => ({
+      /* ── E7 한 양 = 한 자리(2026-07-29) ────────────────────────────────
+         평일 낮 이 화면의 상시 숫자 26개 중 다음 행동을 바꾸는 것은 5개인데, **6개 양이
+         15자리에서** 렌더되고 있었다. 여기서 뗀 둘은 각각 이미 소유자가 있다:
+         · 진행률 → 흐름 헤더의 `ProgressRing`(호(弧) + `3/7`)이 두 표현으로 말한다.
+         · 마감   → 하단 스트립 '마감 임박'이 D-day 와 **이름까지** 말한다(같은 `ddays[0]`).
+         ⚠ 마감을 상단에서 떼면 급한 D-day 를 보려고 시선이 하단까지 내려간다 — 대신 이 화면은
+           무스크롤이라 내려갈 거리가 화면 안이고, 스트립은 E8 에서 *있을 때만* 그린다(0인 날은
+           아예 없으므로 마감이 떠 있으면 그 자체가 신호다). */
       readouts: [
-        { label: '진행률', value: todayTotal ? `${pct}%` : '—', accent: true },
         {
           label: '연속',
           // PL-9: streak≥2면 🔥 프리픽스(Stats 탭 prefix="🔥 "와 통일 — 불씨 살아있음 시각화).
@@ -523,11 +524,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               <small className="text-base14 font-bold text-mut"> 일</small>
             </>
           ),
-        },
-        {
-          label: '마감',
-          // E-2: D-day만이 아니라 '어느 과목을 우선할지' 이름까지 리드아웃(가장 가까운 마감).
-          value: nearestDday == null ? '—' : `D-${nearestDday}${ddays[0]?.name ? ` · ${ddays[0]!.name}` : ''}`,
         },
         /* D-5 — 히어로의 132px 워터마크에 있던 값. 거기선 `aria-hidden` 장식이라 SR 에 아예
            없었고, 크기가 화면 최대라 위계를 거꾸로 세웠다. 여기선 다른 리드아웃과 같은 무게다. */
@@ -563,6 +559,49 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
 
+  /* ── E8 하단 스트립 = **오늘의 판단**만 ─────────────────────────────────
+     각 그룹은 *말할 것이 있을 때만* 존재한다(레일 신호와 같은 규칙 — `selectors.ts` 의 그 계약).
+     전부 비면 스트립 줄 자체가 없고 히어로가 그 높이를 먹는다: 정적(quiet)이 문구가 아니라
+     **레이아웃으로** 표현된다.
+     ⚠ Anki 는 `due > 0` 일 때만 — `due == null`(이 기기에서 연결한 적 없음)까지 그리면 Anki 를
+       안 쓰는 날마다 "연결 필요"를 외치게 되고, 그건 N-13 이 금지한 바로 그 형태다. 연결 상태의
+       소유자는 연동 탭이다. */
+  const stripGroups: { key: string; node: React.ReactNode }[] = [];
+  if (soon.length)
+    stripGroups.push({
+      key: 'dday',
+      node: (
+        <div className={S.grp}>
+          <span className={S.grpL}>마감 임박</span>
+          {soon.map((st) => {
+            const { lab } = ddayInfo(st.dday);
+            return (
+              <button key={st.name} type="button" className={S.tag} onClick={() => go('/items')}>
+                <span className={S.dot} style={{ background: st.color || 'var(--acc)' }} />
+                {st.name} <b className={S.hot}>{lab}</b>
+              </button>
+            );
+          })}
+        </div>
+      ),
+    });
+  if (due != null && due > 0)
+    stripGroups.push({
+      key: 'anki',
+      node: <AnkiTag due={due} fresh={ankiFresh} onGo={() => go('/integrations')} />,
+    });
+  if (openBl > 0)
+    stripGroups.push({
+      key: 'backlog',
+      node: (
+        <div className={S.grp}>
+          <span className={S.grpL}>열린 보충</span>
+          <button type="button" className={S.tag} onClick={() => go('/journal')}>
+            <b className={tone(true)}>{openBl}</b> 건
+          </button>
+        </div>
+      ),
+    });
   return (
     <section className={S.today} aria-label="오늘 대시보드">
       {/* ── 상단 밴드: 포커스 히어로 | 오늘의 블록 ── */}
@@ -712,7 +751,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 실렌더 확인이 그걸 잡았다(§15-4). 완료 화면은 자기 CTA 가 이미 닫기라 뺀다.
                 채움 버튼은 여전히 하나다(D-6): 이건 ghost 다. */}
             <CloseDayCta onOpenMore={onOpenMore} cap="남은 창 없음 →" when={closing && !allDone && !timer} />
-            <span className={S.clock}>{toHM(nowMin)}</span>
+            {/* E7 — 히어로 시계를 뗐다. 바로 아래 흐름 헤더가 `● 09:00 LIVE` 로 **같은 문자열**을
+                이미 말하고 있었다(한 양이 두 자리). 시각의 소유자는 흐름 헤더 하나다. */}
           </div>
         </div>
 
@@ -827,74 +867,31 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
         </aside>
       </div>
 
-      {/* 하단 스트립 — 이번 주·마감·Anki·보충(이퀄라이저 폐기 → 정돈된 단일 풋바). */}
-      <div className={S.strip}>
-        <div className={S.grp}>
-          <span className={S.grpL}>이번 주</span>
-          <button
-            type="button"
-            className={S.tag}
-            // 라벨이 '주간 보기'를 약속하므로 뷰도 주(週)로 고정한다(영속 schedView가 day/month면 말과 다른 곳에 착지).
-            // 위 goPlanToday와 같은 규약 — 뷰 전환은 보내는 쪽이 먼저.
-            onClick={() => {
-              setSchedView('week');
-              go('/schedule');
-            }}
-            aria-label={`이번 주 ${weekTotalH.toFixed(1)}시간 — 주간 보기로 이동`}
-          >
-            <b className={S.cool}>{weekShown.toFixed(1)}</b> h
-          </button>
+      {/* ── E8 스트립도 침묵한다(2026-07-29) ────────────────────────────────
+          `store/selectors.ts` 가 레일 신호의 계약을 못박아 두었다 — **"0·평온은 아무것도 안
+          그린다. 매일 0을 외치면 신호가 죽는다."** 그런데 같은 데이터가 여기서는 정반대로
+          돌고 있었다: `마감 임박 없음` · `열린 보충 0 건` · `의식 ☐ ☐`. all-clear 인 날 이
+          스트립은 5그룹 + 구분선 4개 = **노드 9개가 전부 "아무것도 없음"을 말하는 데** 화면
+          하단을 썼다. 한 저장소 안에 침묵의 규칙이 두 개일 수는 없다.
+
+          함께 사라진 둘(0 이라서가 아니라 **여기 질문이 아니라서**):
+          · `이번 주 N h` — 그건 오늘의 판단이 아니라 주(週)의 조망이고, `/schedule` 이 그
+            질문을 통째로 소유하는 화면이다. 여기 있으면 매일 보이지만 매일 쓸모는 없다.
+          · `의식 ☑/☐` — 같은 토글이 앱 안에 **세 곳**이었다(여기 · 온디맨드 `RitualCard` ·
+            `하루 닫기` CTA). 닫는 길은 이미 CTA 가 커서까지 놓아 준다.
+
+          ⚠ 구분선은 **보이는 그룹 사이에만** 그린다 — 그룹이 사라져도 선이 남으면 그 선이
+            "여기 뭔가 있었다"고 말하는 유령이 된다. */}
+      {stripGroups.length > 0 && (
+        <div className={S.strip}>
+          {stripGroups.map((g, i) => (
+            <Fragment key={g.key}>
+              {i > 0 && <div className={S.vline} />}
+              {g.node}
+            </Fragment>
+          ))}
         </div>
-        <div className={S.vline} />
-        <div className={S.grp}>
-          <span className={S.grpL}>마감 임박</span>
-          {soon.length ? (
-            soon.map((st) => {
-              const { lab } = ddayInfo(st.dday);
-              return (
-                <button key={st.name} type="button" className={S.tag} onClick={() => go('/items')}>
-                  <span className={S.dot} style={{ background: st.color || 'var(--acc)' }} />
-                  {st.name} <b className={S.hot}>{lab}</b>
-                </button>
-              );
-            })
-          ) : (
-            <span className={S.tagMut}>없음</span>
-          )}
-        </div>
-        <div className={S.vline} />
-        <AnkiTag due={due} fresh={ankiFresh} onGo={() => go('/integrations')} />
-        <div className={S.vline} />
-        <div className={S.grp}>
-          <span className={S.grpL}>열린 보충</span>
-          <button type="button" className={S.tag} onClick={() => go('/journal')}>
-            <b className={tone(openBl > 0)}>{openBl}</b> 건
-          </button>
-        </div>
-        <div className={S.vline} />
-        {/* PL-19 — 일일 의식 리드아웃+토글(상태 표시 수준; 노트 등 세부는 온디맨드 RitualCard). */}
-        <div className={S.grp}>
-          <span className={S.grpL}>의식</span>
-          <button
-            type="button"
-            className={S.tag}
-            onClick={() => mutate((st) => setRitual(st, ds, 'plan', !ritual?.plan))}
-            aria-pressed={!!ritual?.plan}
-            aria-label={`아침 계획 ${ritual?.plan ? '완료' : '미완료'} — 토글`}
-          >
-            🌅 아침 <b className={S.cool}>{ritual?.plan ? '☑' : '☐'}</b>
-          </button>
-          <button
-            type="button"
-            className={S.tag}
-            onClick={() => mutate((st) => setRitual(st, ds, 'shutdown', !ritual?.shutdown))}
-            aria-pressed={!!ritual?.shutdown}
-            aria-label={`셧다운 ${ritual?.shutdown ? '완료' : '미완료'} — 토글`}
-          >
-            🌙 셧다운 <b className={S.cool}>{ritual?.shutdown ? '☑' : '☐'}</b>
-          </button>
-        </div>
-      </div>
+      )}
     </section>
   );
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /* ============================================================
-   flowRail.test.tsx — FlowRail 키보드 네비(j/k/Enter/s)의 오라클.
+   flowRail.test.tsx — FlowRail 키보드 계약(j/k + 동사키 x/f/s)의 오라클.
 
    ⚠ 이 경로는 **시각 스냅샷(트랙 A)이 원리적으로 못 본다** — 키보드 상호작용은 정적 렌더가 아니다.
    TodaySignature 에서 FlowRail 로 상호작용 상태기계를 이전(재설계)하면서, 그 동작을 여기서 잠근다.
@@ -64,7 +64,13 @@ test('j/k 로 선택이 이동하고 aria-current 로 표시된다', () => {
   expect(cur()?.getAttribute('aria-label')).toContain('수학');
 });
 
-test('Enter 는 학습 노드에 onFocus, s 는 onPrefill — 일과 블록(e=null)은 무시', () => {
+/* ── E5 동사키(2026-07-29) ────────────────────────────────────────────────
+   종전 계약은 `Enter`=집중 시작이었고, 그건 **DOM 포커스 위에서는 완료 토글**이라 같은 키가
+   커서에 따라 두 뜻을 가졌다. 지금은 커서가 하나(포커스)이고 동사가 각자 키를 갖는다.
+   ⚠ `Enter` 는 **여기서 안 다룬다** — 포커스한 노드는 버튼이라 네이티브 활성이 곧 완료다.
+     가로채면 두 뜻이 다시 생긴다. 아래 음성 테스트가 그 계약을 잠근다. */
+test('x 완료 · f 집중 · s 기록 — 셋 다 같은 커서에 대해 돈다', () => {
+  const onToggle = vi.fn();
   const onFocus = vi.fn();
   const onPrefill = vi.fn();
   render(
@@ -72,25 +78,83 @@ test('Enter 는 학습 노드에 onFocus, s 는 onPrefill — 일과 블록(e=nu
       nodes={nodes()}
       nowMin={0}
       riskN={0}
-      onToggle={noop}
+      onToggle={onToggle}
       onFocus={onFocus}
       onPrefill={onPrefill}
       onReview={noop}
     />,
   );
   fireEvent.keyDown(window, { key: 'j' }); // 수학(학습) 선택
-  fireEvent.keyDown(window, { key: 'Enter' });
-  expect(onFocus).toHaveBeenCalledWith({ it: { sid: 'a', name: '수학' } });
+  const 수학 = { it: { sid: 'a', name: '수학' } };
+  fireEvent.keyDown(window, { key: 'x' });
+  expect(onToggle).toHaveBeenCalledWith(수학); // 이 앱에서 가장 잦은 쓰기 — 종전엔 키가 없었다
+  fireEvent.keyDown(window, { key: 'f' });
+  expect(onFocus).toHaveBeenCalledWith(수학);
   fireEvent.keyDown(window, { key: 's' });
-  expect(onPrefill).toHaveBeenCalledWith({ it: { sid: 'a', name: '수학' } });
+  expect(onPrefill).toHaveBeenCalledWith(수학);
+});
 
-  fireEvent.keyDown(window, { key: 'j' }); // 점심(블록, e=null)
-  onFocus.mockClear();
-  onPrefill.mockClear();
-  fireEvent.keyDown(window, { key: 'Enter' }); // 무시돼야
+test('Enter 는 가로채지 않는다 — 버튼의 네이티브 활성이 곧 완료다', () => {
+  const onFocus = vi.fn();
+  const onToggle = vi.fn();
+  render(
+    <FlowRail
+      nodes={nodes()}
+      nowMin={0}
+      riskN={0}
+      onToggle={onToggle}
+      onFocus={onFocus}
+      onPrefill={noop}
+      onReview={noop}
+    />,
+  );
+  fireEvent.keyDown(window, { key: 'j' });
+  fireEvent.keyDown(window, { key: 'Enter' });
+  // 집중도 아니고 우리 핸들러의 토글도 아니다(클릭은 브라우저가 만든다 — jsdom 에선 안 만든다).
+  expect(onFocus).not.toHaveBeenCalled();
+  expect(onToggle).not.toHaveBeenCalled();
+});
+
+test('일과 블록(e=null)엔 동사가 없다 — 페이로드 없는 노드는 무시', () => {
+  const onToggle = vi.fn();
+  const onFocus = vi.fn();
+  const onPrefill = vi.fn();
+  render(
+    <FlowRail
+      nodes={nodes()}
+      nowMin={0}
+      riskN={0}
+      onToggle={onToggle}
+      onFocus={onFocus}
+      onPrefill={onPrefill}
+      onReview={noop}
+    />,
+  );
+  fireEvent.keyDown(window, { key: 'j' }); // 수학
+  fireEvent.keyDown(window, { key: 'j' }); // 점심(블록)
+  fireEvent.keyDown(window, { key: 'x' });
+  fireEvent.keyDown(window, { key: 'f' });
   fireEvent.keyDown(window, { key: 's' });
+  expect(onToggle).not.toHaveBeenCalled();
   expect(onFocus).not.toHaveBeenCalled();
   expect(onPrefill).not.toHaveBeenCalled();
+});
+
+/* roving tabindex — 레일 전체가 탭 스톱 **하나**여야 한다. 아니면 Tab 이 노드 수만큼 걸려
+   "완료하려면 Tab 6번"이라는 E5 이전 상태로 되돌아간다. */
+test('레일은 탭 스톱이 하나다(roving tabindex)', () => {
+  const { container } = render(
+    <FlowRail nodes={nodes()} nowMin={0} riskN={0} onToggle={noop} onFocus={noop} onPrefill={noop} onReview={noop} />,
+  );
+  const stops = container.querySelectorAll('button[tabindex="0"]');
+  expect(stops).toHaveLength(1);
+  // 커서가 없어도 문이 있다 — 첫 노드가 그 자리를 맡는다.
+  expect(stops[0]!.getAttribute('aria-label')).toContain('수학');
+  fireEvent.keyDown(window, { key: 'j' });
+  fireEvent.keyDown(window, { key: 'j' });
+  fireEvent.keyDown(window, { key: 'j' }); // 영어
+  expect(container.querySelectorAll('button[tabindex="0"]')).toHaveLength(1);
+  expect(container.querySelector('button[tabindex="0"]')?.getAttribute('aria-label')).toContain('영어');
 });
 
 test('입력 요소에 포커스가 있으면 단축키를 무시한다(타이핑 보호)', () => {
@@ -109,7 +173,7 @@ test('입력 요소에 포커스가 있으면 단축키를 무시한다(타이�
   const input = document.createElement('input');
   document.body.appendChild(input);
   fireEvent.keyDown(input, { key: 'j' }); // INPUT 대상 → 무시
-  fireEvent.keyDown(input, { key: 'Enter' });
+  fireEvent.keyDown(input, { key: 'f' });
   expect(onFocus).not.toHaveBeenCalled();
   input.remove();
 });

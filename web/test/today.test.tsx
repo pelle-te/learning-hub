@@ -42,10 +42,12 @@ afterEach(() => cleanup());
 test('today: React 카드(대시보드 히어로·오늘의 흐름)가 뜨고 #page를 쓰지 않는다', async () => {
   renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
-  // 단일 초점 히어로 — kicker(지금/다음/오늘 할 일·오늘 학습) + 보조 '이번 주' 지표(히어로로 스코프).
+  // 단일 초점 히어로 — kicker(지금/다음/오늘 할 일·오늘 학습).
   const hero = screen.getByLabelText('오늘 대시보드');
   expect(within(hero).getByText(/^(지금 할 일|다음 할 일|오늘 할 일|오늘 학습)$/)).toBeInTheDocument();
-  expect(within(hero).getByText('이번 주')).toBeInTheDocument();
+  /* E8 — `이번 주 N h` 는 스트립에서 빠졌다. 오늘의 판단이 아니라 주(週)의 조망이고,
+     `/schedule` 이 그 질문을 소유하는 화면이다(매일 보이지만 매일 쓸모는 없던 자리). */
+  expect(within(hero).queryByText('이번 주')).toBeNull();
   // 흐름 레일 헤딩(블록 체크리스트를 흡수한 now-중심 타임라인).
   expect(screen.getByRole('heading', { name: /^오늘의 흐름/ })).toBeInTheDocument();
   expect(document.getElementById('page')).toBeNull();
@@ -88,4 +90,30 @@ test('today: ID-5 오늘의 모양 — 완료·요약 있으면 셧다운 회고
     st.completions = {};
     st.summaries = {};
   });
+});
+
+/* ── E8 스트립도 침묵한다(2026-07-29) ────────────────────────────────────
+   `store/selectors.ts` 가 레일 신호에 대해 못박은 계약 — "0·평온은 아무것도 안 그린다.
+   매일 0을 외치면 신호가 죽는다" — 이 스트립에서만 정반대로 돌고 있었다(`마감 임박 없음` ·
+   `열린 보충 0 건` · `의식 ☐ ☐`). 한 저장소 안에 침묵의 규칙이 둘일 수는 없다.
+
+   ⚠ 스냅샷으로는 이걸 못 잡는다: all-clear 화면이 스냅샷에 있어도 "없음"이 정답으로 굳으면
+   그대로 통과한다(§15-4 가 반복해 물린 형태). 계약은 여기서 문장으로 잠근다. */
+test('today: 마감·Anki·보충이 전부 비면 하단 스트립이 통째로 없다', async () => {
+  useApp.getState().mutate((st) => {
+    st.items = [{ id: 'seed', name: '테스트 과목', mode: 'weekly', weeklyHours: 5, chapters: [] }] as never;
+    st.backlog = [];
+    st.cbms = [];
+    delete st._ankiLive;
+  });
+  renderApp('/today');
+  await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
+  const hero = screen.getByLabelText('오늘 대시보드');
+  // 0을 말하는 문구가 하나도 없다 — 있으면 그게 매일 반복되는 소음이다.
+  expect(within(hero).queryByText('마감 임박')).toBeNull();
+  expect(within(hero).queryByText('열린 보충')).toBeNull();
+  expect(within(hero).queryByText('Anki 대기')).toBeNull();
+  expect(within(hero).queryByText('없음')).toBeNull();
+  // 의식 토글도 여기 없다(같은 토글이 앱 안에 셋이었다 — 닫는 길 CTA 가 소유한다).
+  expect(within(hero).queryByText('의식')).toBeNull();
 });
