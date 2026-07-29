@@ -27,9 +27,13 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
   await expect(page.locator('html')).toHaveAttribute('data-vt', 'lateral');
   await expect(page.locator('html')).toHaveAttribute('data-vt-dir', 'fwd');
 
-  // 통계 → 그 안의 조망(예보)으로 = 안으로 들어감(descend). 세그먼트 바가 그 경로다.
-  await page.getByRole('button', { name: '예보' }).click();
-  await expect(page).toHaveURL(/\/forecast$/);
+  /* 통계 → 그 안의 조망(숙달도)으로 = 안으로 들어감(descend). 세그먼트 바가 그 경로다.
+     ⚠ **2026-07-29(E13) 에 대상이 바뀌었다.** 옛 단언은 `예보` 를 눌러 descend 를 봤는데,
+     `forecast` 가 인출 축의 **호스트로 승격**하면서 통계↔예보는 이제 *형제*(lateral)다 —
+     테스트가 틀린 게 아니라 관계가 바뀐 것이고, 그래서 descend 를 보려면 실제로 통계 **안에**
+     있는 렌즈를 눌러야 한다. 이 케이스가 IA 변경을 조용히 통과시키지 않은 것이 요점이다. */
+  await page.getByRole('button', { name: '숙달도 지도' }).click();
+  await expect(page).toHaveURL(/\/mastery$/);
   await expect(page.locator('html')).toHaveAttribute('data-vt', 'descend');
 
   // ⌘K 명령 팔레트.

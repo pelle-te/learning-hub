@@ -1,5 +1,8 @@
 /* ============================================================
-   Graph — 탭: 🕸 지식맵. 로컬 학습 항목만으로 그려지는 힘-방향(force-directed) 허브-앤-스포크.
+   Graph — 탭: 🕸 학습 구조도. 로컬 학습 항목만으로 그려지는 힘-방향(force-directed) 허브-앤-스포크.
+   ⚠ 옛 라벨은 '지식맵'이었는데 `mastery` 의 히트맵 패널 제목도 '발광 지식맵'이라 **같은 세그먼트
+   바에 같은 이름이 둘**이었다(E10 · 2026-07-29). 둘은 다른 질문에 답한다 — 여기는 항목→챕터
+   *구조*(항상 가용), 저기는 개념 단위 *숙달 분포*(볼트 산출). 이름이 그 차이를 말한다.
    항목=허브, 챕터=잎, 허브→챕터=링크. "내가 무엇을 얼마나 익혔나"의 살아있는 지도.
    서버 페치 없음(항상 가용) — graphData.buildGraph(순수)로 노드/링크를 만들고,
    자체 스프링-반발 시뮬레이션(velocity-Verlet 근사)을 <canvas>에서 돈다(외부 라이브러리 없음).
@@ -479,21 +482,21 @@ export default function Graph() {
     setMatchHint(r ? { i: r.i, n: r.n } : null);
   };
 
-  const ariaLabel = `지식맵 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
+  const ariaLabel = `학습 구조도 — 항목 ${items.length}개, 챕터 ${doneCh}/${totalCh} 완료${semEdges.length ? `, 의미 연결 ${semEdges.length}개` : ''}`;
 
   return (
     <section
       className="flex h-full min-h-0 min-w-0 flex-col px-4.5 pt-4 pb-3.5 max-mobile:px-3 max-mobile:pt-3 max-mobile:pb-2.5"
-      aria-label="지식맵"
+      aria-label="학습 구조도"
     >
       {items.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card">
           <EmptyState
             glyph="🕸"
-            title="아직 지식맵이 비어 있어요"
+            title="아직 학습 구조도가 비어 있어요"
             desc={
               <>
-                학습 항목을 추가하면 지식맵이 그려져요. 항목은 <b>허브</b>, 챕터는 <b>잎</b>으로 이어져 무엇을 얼마나
+                학습 항목을 추가하면 구조도가 그려져요. 항목은 <b>허브</b>, 챕터는 <b>잎</b>으로 이어져 무엇을 얼마나
                 익혔는지 한눈에 보입니다.
               </>
             }
@@ -516,7 +519,7 @@ export default function Graph() {
               type="search"
               value={query}
               placeholder="개념·챕터 찾기…"
-              aria-label="지식맵 노드 검색"
+              aria-label="학습 구조도 노드 검색"
               onChange={(e) => {
                 setQuery(e.target.value);
                 setNoHit(false);

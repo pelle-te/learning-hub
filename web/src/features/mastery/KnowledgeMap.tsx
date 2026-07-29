@@ -154,7 +154,10 @@ function SubjectHeat({ s }: { s: KnowledgeSubject }) {
   );
 }
 
-/** 발광 지식맵 — 과목별 히트맵(셀 하나가 개념). 데이터 보드의 immersive 시그니처(카드 래퍼 없이 bare). */
+/** 숙달 히트맵 — 과목별 히트맵(셀 하나가 개념). 데이터 보드의 immersive 시그니처(카드 래퍼 없이 bare).
+ *  ⚠ 옛 제목은 "발광 지식맵"이었는데, `graph` 탭 라벨도 '지식맵'이라 **같은 세그먼트 바에 같은
+ *  이름이 둘** 있었다(E10). 둘은 다른 질문에 답한다 — 저기는 항목→챕터 *구조*, 여기는 개념 단위
+ *  *숙달 분포*. 이름이 그 차이를 말하게 했다. */
 export function KnowledgeMap({ k }: { k: Knowledge }) {
   const subs = (k.subjects || []).slice().sort((a, b) => a.mastery - b.mastery);
   const tot = k.n_notes || 1;
@@ -162,7 +165,7 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
   return (
     <>
       <div className={M.mapHead}>
-        <span className={M.mapTitle}>발광 지식맵 — KNOWLEDGE MAP</span>
+        <span className={M.mapTitle}>숙달 히트맵 — MASTERY HEATMAP</span>
         <span className={M.mapMeta}>셀 하나가 개념 · 빨강=약점 · 초록=숙달 · 회색=미관측</span>
       </div>
       {manyUnknown && (

@@ -155,12 +155,22 @@ export const TABS: TabMeta[] = [
   },
   // 복습 부하 예보(ID-1) — 앞 14일 다가오는 복습 파도를 조망. 통계 호스트의 세그먼트로 접는다
   // (분석 대시보드 묶음). lens · 라우트·⌘K·g단축키·세그먼트로 진입 · fill(단일 화면).
+  /* ⚠ **E13 — 인출 축의 호스트로 승격했다(2026-07-29 · `lens` → `destination`).**
+     제품 앵커가 이름을 명시한 세 소스(볼트·Anki·일과) 중 **Anki 만 자기 목적지가 0**이었고,
+     "오늘 무엇을 다시 꺼내야 하나"의 조각이 3호스트에 흩어져 있었다(`review-run`·`mistakes`
+     =기록 / 여기=통계 / Anki 덱=연동). `totalDue()` 는 5곳에서 각자 계산됐다.
+     이 탭은 **볼트 due 와 Anki due 를 한 화면에 쥔 유일한 화면**이라 그 축의 얼굴이 될 수 있다.
+     폰이 슬롯 5개 제약에서 `복습` 을 최상위로 뽑은 것도 같은 방향의 증거다.
+     ⚠ 관측을 기다릴 수 없는 항목이다 — "없는 목적지"의 방문 수는 `route_visits` 에 영원히 0으로
+     찍힌다(존재하지 않는 것에 대한 수요는 원장에 안 남는다).
+     ⚠ 예보는 볼트 챕터만 그리고 **Anki 미래 due 는 원리적으로 못 그린다** → 호스트 상단은
+     "오늘 due" 를 말하고 14일 막대는 그 아래다(반쪽 예보가 축의 얼굴이 되지 않게). */
   {
     key: 'forecast',
     label: '복습 예보',
     group: 'train',
-    order: 82,
-    role: 'lens',
+    order: 75,
+    role: 'destination',
     segLabel: '예보',
     icon: 'chart',
     fill: true,
@@ -175,12 +185,23 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // 지식맵은 통계 호스트의 섹션으로 접는다(숙달도 지도와 함께 '내가 뭘 아는가' 맵 묶음). 라우트·⌘K·g단축키는 유지.
+  /* ⚠ **E10 — '지식맵'이라는 이름이 두 화면에 있었다(2026-07-29).**
+     이 탭 라벨이 '지식맵'이고 `mastery/KnowledgeMap.tsx` 의 패널 제목이 "발광 지식맵 —
+     KNOWLEDGE MAP" 이었다. 둘은 **같은 앎 호스트의 이웃 세그먼트**라, 세그먼트 바에서 어느
+     쪽이 "진짜 내 지식 구조"인지 화면 안에서 판정할 수 없었다.
+
+     ⚠ **은퇴시키지 않았다.** 발산 리포트는 이 탭의 은퇴를 제안했지만(근거: 이름 충돌), 실제로
+     읽어 보니 둘은 **다른 질문에 답한다**: 여기는 로컬 항목→챕터의 힘-방향 **구조도**(서버 페치
+     0 · 항상 가용)이고, 저기는 볼트 산출 **개념 단위 숙달 히트맵**(콜드 게이트)이다. 리포트의
+     자기비평이 정확히 그 위험을 적어 뒀고, 확인해 보니 그 우려가 맞았다. 712줄을 이름 하나로
+     지우는 것은 근거가 얇다 → **이름을 갈라 충돌만 끝낸다.** */
   {
     key: 'graph',
-    label: '지식맵',
+    label: '학습 구조도',
     group: 'train',
     order: 87,
     role: 'lens',
+    segLabel: '구조',
     icon: 'graph',
     fill: true,
   },
@@ -209,12 +230,15 @@ export const TABS: TabMeta[] = [
     role: 'lens',
     icon: 'trend',
   },
+  /* E17-IA 콜드 강등 — 이 탭은 학습 상태 소비가 0이고(시드+RSS만 본다) 워크스페이스가 없으면
+     본문이 안내문이다. H24(`markets`)와 **같은 논증**이라 같은 처분을 한다: 지우지 않고
+     "매일 보이는 자리"만 회수한다(⌘K·`g`·딥링크 그대로). */
   {
     key: 'atlas',
     label: '진로 지도',
     group: 'collect',
     order: 48,
-    role: 'destination',
+    role: 'lens',
     icon: 'radio',
   },
   // ── 발견(discover) — surface·triage·연동 ──
@@ -222,41 +246,48 @@ export const TABS: TabMeta[] = [
   {
     key: 'discovery',
     label: '발견',
-    group: 'discover',
+    group: 'collect',
     order: 49,
-    role: 'destination',
+    role: 'lens',
     icon: 'discovery',
   },
+  /* 배관 상태는 **매일 볼 것이 아니다**. 게다가 이 탭은 콜드 게이트의 호스트라, 상시 목적지로
+     두면 레일에서 눌러 들어간 절반이 "설정하세요"가 된다(N-6 이 표면을 해체한 그 근거). */
   {
     key: 'integrations',
     label: '연동 현황',
-    group: 'discover',
+    group: 'settings',
     order: 50,
-    role: 'destination',
+    role: 'lens',
     icon: 'link',
     fill: true,
   },
   // 정본 원장 — 과목×챕터 5단계 파이프라인 진척(통합 4단계 소비). 연동 현황 호스트의 세그먼트로 접는다
   // (자료 생산·연결 상태 묶음). lens · 라우트·⌘K·g단축키·세그먼트로 진입 · fill(단일 화면).
+  /* '어디까지 아는가'는 배관이 아니라 **앎**의 질문이다 → 통계 호스트로 옮긴다(옛 자리는
+     연동 호스트였는데, 그 호스트가 렌즈로 내려가며 호스트 자격도 함께 사라졌다). */
   {
     key: 'ledger',
     label: '정본 원장',
-    group: 'discover',
-    order: 52,
+    group: 'train',
+    order: 88,
     role: 'lens',
     icon: 'grid',
     fill: true,
   },
   // ── 설정(settings) — 레일 하단(스페이서 아래) ──
   // 안내(guide) — 이 시스템이 할 수 있는 것 + 하는 법 매뉴얼(전역 참조). 스크롤 페이지라 fill 없음.
-  { key: 'guide', label: '안내', group: 'settings', order: 185, role: 'destination', icon: 'book' },
+  /* ⚠ **참조물은 "가는 곳"이 아니다.** 347줄 정적 매뉴얼이 레일 상시 1칸을 쓰고 있었다.
+     ⚠ 여기서 **은퇴시키지 않는다** — 내용 분해(치트시트 '이 화면' 절 · 콜드 안내문 · 설정 도구
+     목록)는 비가역이라 흡수가 끝난 뒤여야 한다. 지금 회수하는 것은 자리뿐이다. */
+  { key: 'guide', label: '안내', group: 'settings', order: 185, role: 'lens', icon: 'book' },
   // 제어판은 나브에 노출(설정 그룹). 탐구 수집·지식 재빌드 등 운영 도구 진입점.
   {
     key: 'control',
     label: '탐구 수집',
     group: 'settings',
     order: 190,
-    role: 'destination',
+    role: 'lens',
     icon: 'search',
     fill: true,
   },
@@ -277,25 +308,27 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
    라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
 export const SUBTAB_GROUPS: string[][] = [
   // 계획 호스트: 캘린더(schedule)가 **자기 자신이 호스트**다(D-4 — 옛 plan-host 셸 은퇴).
-  // host=첫 항목=schedule → hostTabKey가 세 세그먼트를 '계획'으로 하이라이트.
-  // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대).
-  /* N-14 1단계 — '멀리'(goals·degree)가 계획 호스트로 들어왔다. 셋 다 *언제 무엇을 할까*의
-     같은 시간 축인데(오늘·이번 주·이번 학기) 레일에서 세 항목으로 쪼개져 있었다.
-     라우트·⌘K·`g` 단축키는 전부 그대로 — 바뀐 것은 **무엇이 상시 보이는가** 하나다.
-     ⚠ `role` 을 lens 로 바꾸는 것과 **반드시 함께** 해야 한다(불변식 ③-b: lens 는 어느 세그먼트
-     그룹엔가 속해야 하고, destination 은 레일에 서야 한다). 근거·다음 판단 지점은 `docs/IA개편-설계.md`. */
+  // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대) → 멀리(N-14).
   ['schedule', 'alloc', 'items', 'goals', 'degree'],
-  ['integrations', 'ledger'],
-  /* H24 — 수집 호스트: 읽을거리(호스트) + 증시 동향. `markets` 를 레일에서 내리면서(destination
-     → lens) **도달 경로를 함께 준다** — 불변식 ③-b 가 정확히 그것을 요구하고, 실제로 이 줄
-     없이 role 만 바꿨다가 테스트에 잡혔다. `lens` 는 "숨긴다"가 아니라 "호스트 밑으로 옮긴다"다.
-     둘 다 `collect` 그룹이고 성격도 같다(밖에서 읽을 것을 들여오는 화면). */
-  ['reads', 'markets'],
-  // 기록 호스트: 기록(적기) → 주간 리뷰(이번 주 처방) → 복습 실행(지금 굴리기) → 오답 노트(전 기간 아카이브).
-  ['journal', 'review', 'review-run', 'mistakes'],
-  ['stats', 'forecast', 'mastery', 'graph'],
+  /* 기록 호스트 — 시제가 **과거**인 것만 남았다(E13). 적기(journal) → 이번 주 처방(review).
+     옛 목록은 여기에 `review-run`·`mistakes` 까지 넣어 네 개였는데, 그 둘은 *다시 꺼내는 일*이라
+     시제가 다르다. 그래서 "복습하려면 기록 탭으로 간다"는 설명 불가능한 동선이 있었다. */
+  ['journal', 'review'],
+  /* ⚠ **인출 호스트 — E13 신설(2026-07-29).** 예보(오늘·앞으로 무엇이 밀리나) → 복습 실행(지금
+     굴리기) → 오답 노트(전 기간 아카이브). 새 화면은 **0개**다 — 흩어져 있던 조각을 한 호스트
+     밑으로 모았을 뿐이고, 라우트·⌘K·`g` 는 전부 그대로다(도달성 손실 0). */
+  ['forecast', 'review-run', 'mistakes'],
+  /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 지식맵 → 정본 원장(어디까지 아는가).
+     `ledger` 가 배관(연동) 밑에서 여기로 왔다. */
+  ['stats', 'mastery', 'graph', 'ledger'],
+  /* 수집 호스트 — 밖에서 들여오는 것 전부. H24(`markets`)에 이어 `atlas`·`discovery` 가
+     같은 논증으로 합류했다(학습 상태 소비 0 · 콜드면 안내문). */
+  ['reads', 'markets', 'atlas', 'discovery'],
+  /* 시스템 호스트 — 설정(호스트) + 배관·도구·매뉴얼. 매일 볼 것이 아닌 것들의 집이다.
+     ⚠ `integrations` 는 **호스트에서 렌즈로 내려왔다** — 그러면서 자기 밑에 있던 `ledger` 의
+     호스트 자격도 사라졌으므로 그 탭을 앎 호스트로 옮겼다(불변식 ③-b: 호스트는 destination). */
+  ['settings', 'integrations', 'control', 'guide'],
 ];
-
 /* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
    TabMeta.group(plan/train/collect/discover/settings) → 사이드바 섹션 헤더 라벨. 빈도 위계를 시각적 청킹으로.
    settings 그룹은 하단(스페이서 아래)에 렌더 — 저빈도 운영/설정(두 표면 공통). */

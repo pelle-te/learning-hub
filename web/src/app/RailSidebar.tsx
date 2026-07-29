@@ -50,7 +50,6 @@ const GROUPS_COL = 'items-center gap-1';
 const GROUP = 'flex flex-col gap-0.5 max-mobile:contents';
 const GROUP_COL = 'items-center';
 // 그룹 헤더(펼침 전용) — 소문자 캡스, 저채도. 구분선은 접힘 전용.
-const HEAD = 'px-2.5 pt-2.5 pb-1 text-rail-head font-extrabold tracking-mode text-mut uppercase max-mobile:hidden';
 const DIVIDER = 'my-1 h-px w-6 flex-none bg-line2 max-mobile:hidden';
 const SPACER = 'min-h-2 flex-1 max-mobile:hidden';
 // 탭 버튼 — 펼침=아이콘+라벨 행, 접힘=42px 아이콘 칩. 모바일=44px 터치 타깃.
@@ -192,16 +191,20 @@ export default function RailSidebar() {
     );
   };
 
-  // 그룹 = 헤더(펼침) 또는 구분선(접힘, 최상단 제외) + 탭 버튼들.
+  /* ── E22 그룹 헤더 은퇴(2026-07-29) ─────────────────────────────────────
+     청킹은 항목이 7+ 일 때 값이 나오는 메커니즘인데, IA 재편 뒤 destination 은 **7개**이고
+     그룹은 4개다 — 그룹당 1.75개. 헤더가 항목 수의 절반을 차지하는 청킹은 구조를 주는 것이
+     아니라 줄 수를 늘리는 것이다(재편 전에도 11개/5그룹 = 2.2 였다).
+
+     ⚠ 그룹 자체를 지우지는 않았다 — `TabMeta.group` 은 **레일 순서**를 정하는 데 계속 쓰인다
+     (빈도 위계: 계획 > 숙련 > 수집 > 설정). `buildNavGroups` 머리주석이 경고하는 함정,
+     즉 `order` 만으로 정렬하면 `reads`(45)가 `journal`(60)보다 앞서는 문제가 그대로 살아 있다.
+     바뀐 것은 **무엇이 그려지는가** 하나다.
+     ⚠ SR 용 `role="group" aria-label` 도 뗐다 — 보이지 않는 그룹을 스크린리더에만 알리면
+     시각 사용자와 다른 구조를 듣게 된다(없는 경계를 있다고 말하는 셈). */
   const renderGroup = (g: { key: string; label: string; tabs: TabMeta[] }, showSep: boolean) => (
-    <div key={g.key} className={`${GROUP} ${collapsed ? GROUP_COL : ''}`} role="group" aria-label={g.label}>
-      {collapsed ? (
-        showSep && <div className={DIVIDER} aria-hidden="true" />
-      ) : (
-        <div className={HEAD} aria-hidden="true">
-          {g.label}
-        </div>
-      )}
+    <div key={g.key} className={`${GROUP} ${collapsed ? GROUP_COL : ''}`}>
+      {showSep && collapsed && <div className={DIVIDER} aria-hidden="true" />}
       {g.tabs.map(renderBtn)}
     </div>
   );

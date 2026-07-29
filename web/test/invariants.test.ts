@@ -15,7 +15,7 @@ import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
-import { TABS, GROUP_LABELS, navGroups, destinations, SUBTAB_GROUPS, tabByKey } from '@/shell/tabs';
+import { TABS, GROUP_LABELS, navGroups, destinations, SUBTAB_GROUPS, tabByKey, subTabGroupOf } from '@/shell/tabs';
 import { NAV_SHORTCUTS } from '@/shell/shortcuts';
 import type { AppState } from '@/lib/types';
 
@@ -89,10 +89,17 @@ describe('불변식 ③ 나브 그룹 정합', () => {
   /* ⚠ 옛 '표면 정합' 3케이스는 N-6 과 함께 사라졌다 — 표면이 없으니 "다른 표면으로 누출"이라는
      사건 자체가 표현 불가능해졌다(테스트를 지운 게 아니라 지킬 대상이 없어진 것이다).
      그 케이스들이 실제로 지키던 것 — **전역 진입점은 어디서든 도달 가능** — 만 남긴다. */
-  it('설정 그룹 진입점(control·settings)은 항상 레일에 선다', () => {
-    const keys = navGroups().flatMap((g) => g.tabs.map((t) => t.key));
-    expect(keys).toContain('control');
-    expect(keys).toContain('settings');
+  /* ⚠ **2026-07-29(E13/IA 재편)에 다시 쓰였다.** 옛 문구는 _"설정 그룹 진입점(control·settings)은
+     항상 레일에 선다"_ 였는데, 그건 지키려던 것("전역 진입점은 어디서든 도달 가능")보다 **좁은
+     명제**였다 — 레일에 서는 것은 도달 가능성의 여러 수단 중 하나일 뿐이다. `control` 은 콜드
+     게이트라(워크스페이스 없으면 본문이 안내문) 상시 목적지 자리를 회수했고, 대신 시스템 호스트의
+     세그먼트로 내려왔다. 도달 경로는 그대로 넷이다: 세그먼트 · ⌘K · `g` · 딥링크.
+     지킬 대상을 정확히 적는다 — **레일이 아니라 도달성**이다. */
+  it('전역 진입점(settings·control)은 도달 가능하다 — 레일이든 세그먼트든', () => {
+    const rail = navGroups().flatMap((g) => g.tabs.map((t) => t.key));
+    expect(rail).toContain('settings'); // 설정은 하단 앵커라 레일에 남는다
+    // control 은 렌즈다 → 어느 호스트 밑에서든 세그먼트로 닿아야 한다(③-b 가 그 존재를 이미 강제한다).
+    expect(subTabGroupOf('control')?.map((t) => t.key)).toContain('control');
   });
 });
 
