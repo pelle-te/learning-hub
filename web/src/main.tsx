@@ -33,7 +33,7 @@ import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError }
 function ShellFallback() {
   return (
     <div className="wrap">
-      <div className="ds-card">
+      <div className="ds-well">
         <h2>앱을 시작하지 못했어요</h2>
         <p className="ds-muted ds-tiny">새로고침하거나 ⋯ 메뉴 → 데이터 내보내기로 백업 후 점검하세요.</p>
       </div>
@@ -50,7 +50,7 @@ function ShellFallback() {
 function DowngradeScreen({ applied, bundled }: { applied: number | null; bundled: number }) {
   return (
     <div className="wrap">
-      <div className="ds-card">
+      <div className="ds-well">
         <h2>더 새 버전이 만든 데이터예요</h2>
         <p className="ds-muted">
           이 데이터(v{applied})는 지금 실행 중인 앱(v{bundled})보다 새 버전이 만들었습니다. 구버전으로 열면 데이터가

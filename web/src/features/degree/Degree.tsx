@@ -129,10 +129,10 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
     </div>
   );
 
-  if (!open) return <div className="ds-card ds-itemrow">{header}</div>;
+  if (!open) return <div className="ds-rule ds-itemrow">{header}</div>;
 
   return (
-    <div className="ds-card ds-itemrow ds-open">
+    <div className="ds-rule ds-itemrow ds-open">
       {header}
       <div className="ds-itembody">
         <div className="ds-fieldgrid" style={{ marginBottom: 10 }}>
@@ -351,7 +351,7 @@ function DegreePlan() {
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
-      <div className="ds-card">
+      <div className="ds-rule">
         <div className="mb-3.5 text-xs font-extrabold tracking-caps text-mut uppercase">졸업 현황</div>
         <div className="flex flex-wrap items-center gap-7">
           <div
@@ -524,7 +524,7 @@ function DegreePlan() {
         </details>
       </div>
 
-      <div className="ds-card">
+      <div className="ds-rule">
         <div className="ds-row" style={{ alignItems: 'center' }}>
           <h2 style={{ flex: 1, margin: 0 }}>
             학기별 수강{' '}

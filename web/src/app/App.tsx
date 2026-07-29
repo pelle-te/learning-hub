@@ -37,7 +37,7 @@ import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
    `reportError` 는 이미 `tab:<key>` 컨텍스트를 싣고 있었다 — 화면만 그 사실을 몰랐다. */
 function TabFallback({ error, resetErrorBoundary, label }: FallbackProps & { label: string }) {
   return (
-    <div className="ds-card">
+    <div className="ds-well">
       <h2>{label ? `‘${label}’ 탭에서 오류가 발생했어요` : '이 탭에서 오류가 발생했어요'}</h2>
       <p className="ds-muted ds-tiny">{String((error as Error)?.message || error)}</p>
       <Button variant="primary" sm onClick={resetErrorBoundary}>
@@ -106,7 +106,7 @@ export default function App() {
                     <ReactTab />
                   </Suspense>
                 ) : (
-                  <div className="ds-card">알 수 없는 탭: {t.key}</div>
+                  <div className="ds-well">알 수 없는 탭: {t.key}</div>
                 )}
               </ErrorBoundary>
             }

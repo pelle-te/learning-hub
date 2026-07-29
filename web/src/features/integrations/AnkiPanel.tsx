@@ -184,7 +184,7 @@ export function AnkiPanel() {
 
   return (
     <>
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>Anki 현황</h2>
         <div className="ds-row">
           <Button sm disabled={busy === 'file'} onClick={scanFiles}>
@@ -254,7 +254,7 @@ export function AnkiPanel() {
       </div>
 
       {file && (
-        <div className="ds-card">
+        <div className="ds-rule">
           <h3>볼트 카드(파일 기준)</h3>
           <table>
             <thead>
@@ -312,7 +312,7 @@ export function AnkiPanel() {
       )}
 
       {live && (
-        <div className="ds-card">
+        <div className="ds-rule">
           <h3>실시간 due (AnkiConnect)</h3>
           <div className="ds-row" style={{ marginBottom: 6, alignItems: 'center' }}>
             <Button

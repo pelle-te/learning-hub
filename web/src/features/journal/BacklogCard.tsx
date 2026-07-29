@@ -72,7 +72,7 @@ export default function BacklogCard() {
   const addKeys = useFormSubmit(submit);
   const editKeys = useFormSubmit(saveEdit, cancel);
   return (
-    <div ref={cardRef} className="ds-card ds-glow">
+    <div ref={cardRef} className="ds-well">
       <h2>
         보충 필요 백로그 <span className="ds-muted ds-tiny">— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>
       </h2>

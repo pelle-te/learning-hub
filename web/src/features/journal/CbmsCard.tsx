@@ -71,7 +71,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
   const addKeys = useFormSubmit(submit);
   const editKeys = useFormSubmit(saveEdit, cancel);
   return (
-    <div ref={cardRef} className="ds-card ds-glow">
+    <div ref={cardRef} className="ds-well">
       <h2>
         오답 분류 CBMS <span className="ds-muted ds-tiny">— 틀린 이유별로 처방이 다르다</span>
       </h2>

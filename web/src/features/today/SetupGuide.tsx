@@ -62,8 +62,12 @@ export function SetupGuide() {
   ];
   const done = steps.filter((s) => s.ok).length;
 
+  /* ⚠ 여기만 `ds-well` 에 **테두리를 명시로 되살린다.** 이 패널은 콜드스타트에서 화면을 통째로
+     차지하는 단 하나의 표면이라 `--line-setup` 으로 자기 가장자리를 구분하는데, `ds-well` 은
+     테두리가 없어 색 지정만 남으면(`border-[color:…]`) 폭이 0이라 **조용히 아무것도 안 그려진다**
+     — 정의되지 않은 토큰이 회색으로 렌더되던 H20 과 같은 부류다. */
   return (
-    <div className="ds-card w-full max-w-runner-narrow border-[color:var(--line-setup)]! shadow-[var(--shadow-setup-card)]!">
+    <div className="ds-well w-full max-w-runner-narrow border border-[color:var(--line-setup)]! shadow-[var(--shadow-setup-card)]!">
       <h2>
         시작하기 <span className="ds-muted ds-tiny">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span>
       </h2>

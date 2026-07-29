@@ -63,7 +63,7 @@ export function AvailRail() {
       className="flex min-w-0 [scrollbar-width:thin] flex-col gap-3 overflow-y-auto pt-5 pr-5.5 pb-5 pl-1.5 max-wide:px-5.5 max-wide:pt-2 max-wide:pb-5"
       aria-label="가용시간"
     >
-      <div className="ds-card mb-0! flex flex-col items-center gap-4.5">
+      <div className="ds-well mb-0! flex flex-col items-center gap-4.5">
         <div className="flex w-full items-baseline justify-between text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
           가용시간 — AVAILABILITY
           <span className="text-sm leading-[1.6] font-extrabold tracking-normal text-acc normal-case">

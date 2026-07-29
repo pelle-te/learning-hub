@@ -103,7 +103,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div className="ds-card" style={{ marginBottom: 14 }}>
+    <div className="ds-rule" style={{ marginBottom: 14 }}>
       <div className="ds-row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
         <b style={{ flex: 1 }}>📁 볼트 / Anki에서 불러오기</b>
         {!isTauri() && (

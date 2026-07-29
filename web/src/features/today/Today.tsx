@@ -41,7 +41,7 @@ function RitualCard() {
   };
 
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         일일 의식 <span className="ds-muted ds-tiny">— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span>
       </h2>
@@ -98,7 +98,7 @@ function RitualCard() {
 /** 블록 흐름 가이드(접이식 참고) — 5원리 + 단계 표 + 체크리스트. */
 function FlowGuide() {
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <details>
         <summary>학습 원칙 · 블록 흐름 (펼쳐 보기)</summary>
         <div className="mt-3 mb-1 flex flex-wrap gap-1.75">

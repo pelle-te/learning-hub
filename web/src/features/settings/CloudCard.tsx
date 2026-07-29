@@ -164,7 +164,7 @@ export default function CloudCard() {
   if (!isTauri() || !loaded) return null;
 
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         클라우드 동기화 <span className="ds-muted ds-tiny">— 여러 기기에서 같은 계획을 보고 편집합니다</span>
       </h2>

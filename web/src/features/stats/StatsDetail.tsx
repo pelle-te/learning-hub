@@ -64,7 +64,7 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
   // 과신 오답률(메타인지 캘리브레이션 · 방법론 E5) — 지식엔진 미빌드에도 실시간 집계. 오답 0이면 null.
   const cal = confRate(state);
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         인출 증거{' '}
         <span className="ds-muted ds-tiny">— "이해했다"가 아니라 "꺼낼 수 있다"의 증거(투입 아닌 출력 지표)</span>
@@ -167,7 +167,7 @@ function RetentionSpark() {
   const t = retentionTrend(state);
   if (!t.has || !t.latest)
     return (
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>
           유지율 추세 <span className="ds-muted ds-tiny">— 기억 유지의 출력 지표</span>
         </h2>
@@ -185,7 +185,7 @@ function RetentionSpark() {
   const icon = flat ? '＝ 유지' : good ? '▼ 감소' : '▲ 증가';
   const col = flat ? 'var(--muted)' : good ? 'var(--ok)' : 'var(--bad)';
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         유지율 추세{' '}
         <span className="ds-muted ds-tiny">— Anki 복습 빚(due)의 주별 추세. 투입 아닌 '기억 유지'의 출력 지표</span>
@@ -241,7 +241,7 @@ function CbmsRadar() {
   const total = vals.reduce((a, b) => a + b, 0);
   if (!total)
     return (
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>
           오답 분포(CBMS) <span className="ds-muted ds-tiny">— 약점 유형의 모양</span>
         </h2>
@@ -260,7 +260,7 @@ function CbmsRadar() {
   const ring = (f: number) => radarRing(f, geom);
   const poly = radarPolygon(vals, geom);
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         오답 분포(CBMS) <span className="ds-muted ds-tiny">— 약점 유형의 모양(전체 {total}건)</span>
       </h2>
@@ -420,7 +420,7 @@ function SeasonPaceCard() {
   const arrow = flat ? '＝' : good ? '▲' : '▼';
   const col = flat ? 'var(--muted)' : good ? 'var(--ok)' : 'var(--bad)';
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         시즌 페이스 <span className="ds-muted ds-tiny">— 이번 주 학습량 vs 직전 4주 평균(완료율 아닌 '리듬')</span>
       </h2>
@@ -516,12 +516,12 @@ export default function StatsDetail({ r }: { r: ScheduleResult }) {
       <RetrievalCard r={r} />
       <RetentionSpark />
       <CbmsRadar />
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>주별 학습시간</h2>
         <WeeklyBars r={r} />
       </div>
       <SeasonPaceCard />
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>학습한 내용 (챕터 타임라인)</h2>
         <ChapterTimeline r={r} />
       </div>

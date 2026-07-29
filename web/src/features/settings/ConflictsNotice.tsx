@@ -87,7 +87,7 @@ export default function ConflictsNotice() {
   if (!shadows.length) return null;
 
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-well">
       <h2>
         동기화 충돌 <span className="ds-muted ds-tiny">— 다른 기기 편집에 덮인 내 편집 {shadows.length}건</span>
       </h2>

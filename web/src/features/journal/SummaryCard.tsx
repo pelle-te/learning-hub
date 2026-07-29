@@ -73,7 +73,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
   const canExport = summariesFor(state, todayIso).length > 0 || cbmsBetween(state, todayIso, todayIso).length > 0;
 
   return (
-    <div ref={cardRef} className="ds-card ds-glow">
+    <div ref={cardRef} className="ds-well">
       <h2>
         3문장 요약 <span className="ds-muted ds-tiny">— 압축이 안 되면 이해한 게 아니다(파인만)</span>
       </h2>

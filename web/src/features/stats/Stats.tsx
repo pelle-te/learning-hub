@@ -230,7 +230,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
   );
   if (bare) return heat;
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h2>
         학습 스트릭 <span className="ds-muted ds-tiny">— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
       </h2>
@@ -371,7 +371,7 @@ export default function Stats() {
   if (!r.itemStat.length)
     return (
       <section aria-label="학습 통계">
-        <div className="ds-card">
+        <div className="ds-rule">
           <EmptyState
             glyph="📊"
             title="아직 통계가 없어요"

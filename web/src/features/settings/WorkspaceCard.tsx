@@ -52,7 +52,7 @@ export default function WorkspaceCard() {
 
   const bad = !status.valid;
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-rule">
       <h2>
         워크스페이스 폴더 <span className="ds-muted ds-tiny">— 파이썬 도구·산출물이 이 폴더 기준으로 돕니다</span>
       </h2>

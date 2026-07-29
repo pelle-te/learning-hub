@@ -50,13 +50,13 @@ function ConceptList<T extends ConceptRow>({
   const hidden = items.length - shown.length;
   if (!items.length)
     return (
-      <div className="ds-card">
+      <div className="ds-rule">
         <h3>{heading}</h3>
         {empty}
       </div>
     );
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>
         {heading} <span className="ds-muted ds-tiny">{subtitle}</span>
       </h3>
@@ -127,7 +127,7 @@ export function Sequencing() {
   // 단계④ 연관성 배분이 켜졌나(노트 goals: 링크 존재). 콜드면 역할=파생기본·relevance 0 이라 배분항 무영향.
   const relActive = !!o.relevance_active;
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>
         🧭 다음 학습 순서{' '}
         <span className="ds-muted ds-tiny">
@@ -306,7 +306,7 @@ export function EngineHealth() {
   const cold = isHealthCold(health);
   const monotone = isRelevanceMonotone(health);
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>
         📈 엔진 건강 <span className="ds-muted ds-tiny">(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
       </h3>
@@ -407,7 +407,7 @@ export function RootCauses({ k }: { k: Knowledge }) {
   const roll = rootCauseRollup(k); // 상위 5개(self·무근원 제외, count 내림차순).
   if (!roll.length) return null;
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>
         🌱 약점의 뿌리{' '}
         <span className="ds-muted ds-tiny">
@@ -442,7 +442,7 @@ export function Calibration({ k }: { k: Knowledge }) {
   const c = k.calibration || {};
   if (!c.n_errors && !c.blank_total)
     return (
-      <div className="ds-card">
+      <div className="ds-rule">
         <h3>🎚 메타인지 캘리브레이션</h3>
         <div className="ds-foot ds-muted">
           CBMS 오답·백지 기록이 없습니다 — 러닝허브에서 기록 후 <b>볼트 백업</b>→<code>지식엔진.py build --export</code>
@@ -453,7 +453,7 @@ export function Calibration({ k }: { k: Knowledge }) {
   const over = c.overconfidence_rate || 0;
   const overCol = over > 0.5 ? 'var(--bad)' : over > 0.3 ? 'var(--learning)' : 'var(--good)';
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>
         🎚 메타인지 캘리브레이션{' '}
         <span className="ds-muted ds-tiny">(확신도 vs 정확도 — 낮을수록 자기 앎을 정확히 안다)</span>

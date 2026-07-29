@@ -301,7 +301,7 @@ export function SkeletonPanel() {
 
   return (
     <div className="flex min-w-0 flex-col gap-3 pt-3 pb-1">
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>
           수업 (요일별) <span className="ds-muted ds-tiny">— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
         </h2>
@@ -332,7 +332,7 @@ export function SkeletonPanel() {
         </div>
       </div>
 
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>
           그 밖의 일과 블록{' '}
           <span className="ds-muted ds-tiny">— 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다</span>

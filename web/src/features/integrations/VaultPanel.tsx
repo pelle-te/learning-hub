@@ -178,7 +178,7 @@ export function VaultPanel() {
 
   return (
     <>
-      <div className="ds-card">
+      <div className="ds-rule">
         <h2>옵시디언 볼트 현황</h2>
         <div className="ds-row">
           {/* 셸에선 폴더 연동·해제 버튼이 없다 — 볼트 위치를 앱이 알고, 변경은 감시가 알려 준다. */}
@@ -239,7 +239,7 @@ export function VaultPanel() {
       </div>
 
       {scan && (
-        <div className="ds-card">
+        <div className="ds-rule">
           {scan.subjects.map((s, si) => {
             // 노트 0개면 0/0=NaN → 헤더·진행바가 'NaN%'가 된다. 0%로 가드.
             const vp = s.notes ? Math.round((s.verified / s.notes) * 100) : 0;

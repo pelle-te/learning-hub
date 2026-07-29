@@ -40,7 +40,7 @@ import { Button } from '@/components/ui';
    ③ **속성 셀렉터**(`.badge[data-kind]`) → `data-[kind=…]:` 변형. CSS 에서 하던 것의
       정공법 대응물이라 린트가 허용한다(그 규칙은 값만 막는다).
 
-   ⚠ `'ds-card'`·`'ds-glow'`·`'ds-muted'`·`'ds-tiny'` 는 그대로 둔다 — 공유 디자인 시스템은
+   ⚠ `'ds-well'`·`'ds-glow'`·`'ds-muted'`·`'ds-tiny'` 는 그대로 둔다 — 공유 디자인 시스템은
    공유 SSOT 라 **맨 마지막**이다(건드리면 스냅샷 59장이 전부 흔들린다). 혼용이 정상. */
 const WRAP = 'flex h-full flex-col items-center justify-center gap-4 p-runner-pad';
 const CARD_BASE = 'flex w-full flex-col gap-3';
@@ -58,7 +58,7 @@ const KEYBTN =
 const KEYBTN_ON = `${KEYBTN} border-acc-glow text-acc`;
 const KEYCAP =
   'min-w-5 rounded-sm border border-line bg-panel2 px-1.5 py-0.5 text-center font-mono text-2xs leading-none text-txt shadow-kbd';
-/* ID-11 인출 전 예측 바 — 카드 **위**에 얇게. 카드 어휘(ds-card)를 안 쓰는 건 의도다:
+/* ID-11 인출 전 예측 바 — 카드 **위**에 얇게. 카드 어휘(ds-well)를 안 쓰는 건 의도다:
    이건 복습 대상이 아니라 그 앞의 한 줄짜리 질문이라, 카드로 보이면 위계가 카드와 맞먹는다. */
 const JOL_BAR = 'flex w-full max-w-runner flex-wrap items-center justify-end gap-2';
 /** N-7 착지 안내 — 카드 위 한 줄(절제: 배지나 카드가 아니라 문장 하나). */
@@ -311,7 +311,7 @@ export default function ReviewRun() {
   if (total === 0) {
     return (
       <div className={WRAP}>
-        <div className={`ds-card ds-glow ${CENTER}`}>
+        <div className={`ds-well ${CENTER}`}>
           <div className="text-runner-mark leading-none" aria-hidden="true">
             ✓
           </div>
@@ -331,7 +331,7 @@ export default function ReviewRun() {
   if (finished) {
     return (
       <div className={WRAP}>
-        <div className={`ds-card ds-glow ${CENTER}`}>
+        <div className={`ds-well ${CENTER}`}>
           <div className="text-runner-mark leading-none" aria-hidden="true">
             🎯
           </div>
@@ -428,7 +428,7 @@ export default function ReviewRun() {
       )}
 
       {item.kind === 'retrieval' && (
-        <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="retrieval">
+        <div className={`ds-well ${CARD_BASE} max-w-runner`} data-kind="retrieval">
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="retrieval">
               회상
@@ -454,7 +454,7 @@ export default function ReviewRun() {
       )}
 
       {item.kind === 'confident' && (
-        <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="confident">
+        <div className={`ds-well ${CARD_BASE} max-w-runner`} data-kind="confident">
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="confident">
               착각 재확인
@@ -480,7 +480,7 @@ export default function ReviewRun() {
       )}
 
       {item.kind === 'chapter' && (
-        <div className={`ds-card ds-glow ${CARD_BASE} max-w-runner`} data-kind="chapter" data-risk={item.ch.risk}>
+        <div className={`ds-well ${CARD_BASE} max-w-runner`} data-kind="chapter" data-risk={item.ch.risk}>
           <div className="flex items-center justify-between gap-2">
             <span className={BADGE} data-kind="chapter" data-risk={item.ch.risk}>
               {item.ch.maintenance ? '유지' : item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}

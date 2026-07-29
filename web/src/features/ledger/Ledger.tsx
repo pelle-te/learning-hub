@@ -219,7 +219,7 @@ function Backlog({ l: led }: { l: Ledger }) {
   const { unprocessed_src: unp, subjects_without_src: nosrc } = led.backlog;
   if (!unp.length && !nosrc.length) return null;
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>
         📥 백로그 <span className="ds-muted ds-tiny">(파이프라인에 아직 안 들어온 것)</span>
       </h3>
@@ -258,7 +258,7 @@ function Bottleneck({ l: led }: { l: Ledger }) {
   const m = STAGE_META[b.stage];
   const gap = b.from - b.passed;
   return (
-    <div className="ds-card">
+    <div className="ds-rule">
       <h3>🎯 병목</h3>
       <div className="flex flex-col gap-1.5">
         <span className="ds-kpi" style={{ color: m.color }}>

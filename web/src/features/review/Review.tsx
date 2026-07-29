@@ -222,7 +222,7 @@ function CbmsDistCard({ cnt }: { cnt: Record<CbmsCode, number> }) {
     );
   }
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-rule">
       <h2>
         오답 CBMS 분포 <span className="ds-muted ds-tiny">— 약점의 분포</span>
       </h2>
@@ -259,7 +259,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트(Journal과 단일 출처).
   const close = useToggleBacklogUndo();
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-rule">
       <h2>
         보충 필요 회수 <span className="ds-muted ds-tiny">— 백로그를 닫는 고리</span>
       </h2>
@@ -309,7 +309,7 @@ function ChecklistCard({ wk }: { wk: string }) {
   const commit = () => mutate((st) => setWeeklyNote(st, wk, draft));
   useFlushOnUnmount(commit); // 마지막 편집 유실 방지 — 탭 이탈/주 이동으로 언마운트될 때 draft 커밋.
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-rule">
       <h2>
         주간 점검 체크리스트{' '}
         <span className={`ds-pill ${ckDone === WEEKLY_CHECKS.length ? 'ds-good' : ''} ds-tiny`}>
@@ -408,7 +408,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
   const hasData = insights.length > 0 || weak.length > 0 || roots.length > 0;
 
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-rule">
       <h2>
         회고 코칭 <span className="ds-muted ds-tiny">— 이번 주 데이터가 말하는 다음 주 우선순위</span>
       </h2>
@@ -581,7 +581,7 @@ function WorkbenchCard() {
   const openVault = (c: { subject: string; chapter: string }) => openVaultSearch(c.subject + ' ' + c.chapter);
 
   return (
-    <div className="ds-card ds-glow">
+    <div className="ds-rule">
       <h2>
         약점 워크벤치 <span className="ds-muted ds-tiny">— 오래 안 본 개념을 식별에서 행동으로</span>
       </h2>
