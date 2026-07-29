@@ -16,7 +16,7 @@
    레이어: store(useApp·usePageChrome)·lib 만 소비. app/다른 feature import 금지(boundaries).
 ============================================================ */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { mistakeArchive, mistakeTotals, type MistakeRow } from '@/lib/mistakes';
@@ -97,8 +97,14 @@ export default function Mistakes() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
   const nav = useNavigate();
-  const [sid, setSid] = useState('');
-  const [code, setCode] = useState<CbmsCode | ''>('');
+  /* ⚠ 필터 초기값을 **URL 에서 받는다**(A11). 종전엔 순수 로컬 state 라 `/mistakes?sid=…` 로
+     보내도 전체 목록에 떨어졌다 — ⌘K 오답 히트·챕터 서랍의 '오답 N건' 이 데려다줄 곳이
+     없었다는 뜻이다(찾아주는 것과 데려다주는 것은 다르다 · `contentSearch` 머리주석의 같은 규율).
+     ⚠ 초기값만 읽고 그 뒤로는 사용자 조작이 소유한다 — URL 을 계속 따라가면 칩을 눌러 필터를
+       바꾼 순간 주소와 화면이 어긋나거나, 되돌아가기가 필터 조작을 되감는다. */
+  const [params] = useSearchParams();
+  const [sid, setSid] = useState(() => params.get('sid') ?? '');
+  const [code, setCode] = useState<CbmsCode | ''>(() => (params.get('code') as CbmsCode | null) ?? '');
 
   const rows = mistakeArchive(state, { sid: sid || undefined, code: code || undefined });
   const totals = mistakeTotals(rows);
@@ -107,8 +113,11 @@ export default function Mistakes() {
 
   usePageChromeEffect(
     () => ({
+      /* N-15 `primary` — 이 탭의 질문은 "어디가 막혔나"이고, 그 답이 곧 막힌 칸 수다.
+         ⚠ 0이면 안 그린다(위 예보와 같은 규율) — 막힌 데가 없다는 것은 화면이 비어 있는 것으로
+         이미 말해진다. */
+      primary: totals.spots > 0 ? { value: String(totals.spots), unit: '칸', label: '막힘' } : null,
       readouts: [
-        { label: '막힌 칸', value: totals.spots },
         { label: '오답 기록', value: totals.records },
         { label: '확신 오답', value: totals.confident, accent: totals.confident > 0 },
       ],

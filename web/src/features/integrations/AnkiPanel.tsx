@@ -92,10 +92,20 @@ export function AnkiPanel() {
 
   const toggleAuto = () => setAutoRefresh(!autoRefresh);
 
-  // 자동 새로고침 — 연결(live)돼 있고 켜졌을 때만. 5분 주기 + 탭 복귀 시 즉시. 실패는 조용히(다음 기회에 복구).
-  const connected = !!live;
+  /* 자동 새로고침 — **한 번이라도 연결한 적이 있고** 켜졌을 때. 5분 주기 + 탭 복귀 시 즉시.
+     실패는 조용히(다음 주기/포커스에 복구).
+
+     ⚠⚠ **게이트가 `!!live` 였던 동안 이 이펙트는 재시작 뒤 한 번도 안 돌았다.** `live` 는
+     `skipToken` 구독이라(위 `useQuery`) 부팅 직후엔 언제나 undefined 이고, 그 값을 채우는
+     유일한 경로가 수동 '실시간 연결' 버튼이다 — 즉 "자동"이 매 세션 수동 1회를 요구했다.
+     그런데 `_ankiLive` 는 `runtime` 테이블에 살아남아 오늘 탭이 그 옛 숫자를 계속 그렸다
+     (갱신은 멈췄는데 표시는 멈추지 않는 조합 — 조용하고 그럴듯한 오류).
+     → 판정 기준을 "지금 캐시에 값이 있나"에서 **"이 기기가 Anki 를 연결한 적 있나"** 로.
+       영속된 `_ankiLive` 가 정확히 그 증거다. */
+  const cachedLive = useRuntime((s) => s.cache._ankiLive);
+  const everConnected = !!live || !!cachedLive;
   useEffect(() => {
-    if (!autoRefresh || !connected) return;
+    if (!autoRefresh || !everConnected) return;
     let alive = true;
     const refresh = async () => {
       try {
@@ -118,7 +128,7 @@ export function AnkiPanel() {
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [autoRefresh, connected, applyLive]);
+  }, [autoRefresh, everConnected, applyLive]);
 
   const addAnki = (name: string, mins: number) => {
     const nm = 'Anki: ' + name;

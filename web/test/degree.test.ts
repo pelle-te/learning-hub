@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   degreeStats,
+  progressPct,
   requirementRows,
   retakeCandidates,
   categoryReq,
@@ -229,5 +230,22 @@ describe('gpaForecast', () => {
     const f = gpaForecast(allDone, 4.0);
     expect(f.futureCr).toBe(0);
     expect(f.neededAvg).toBeNull();
+  });
+});
+
+/* 세 화면(상단 리드아웃·요건 탭·학기 로드맵)이 각자 인라인으로 계산하다 둘만 클램프가 없어,
+   초과이수에서 한쪽은 108% 다른 쪽은 100% 를 말했다. 정의를 하나로 모은 자리. */
+describe('progressPct — 졸업 진행률의 단일 정의', () => {
+  // 공용 픽스처의 이수(완료) 학점은 11 — 목표만 갈아 끼워 세 경우를 만든다.
+  it('초과이수를 자르지 않는다 — 자르면 "얼마나 넘겼나"가 사라진다', () => {
+    expect(progressPct(deg({ targetTotal: 10 }))).toBe(110);
+  });
+
+  it('평범한 경우', () => {
+    expect(progressPct(deg({ targetTotal: 22 }))).toBe(50);
+  });
+
+  it('목표가 0이면 0 — 0으로 나누지 않는다', () => {
+    expect(progressPct(deg({ targetTotal: 0 }))).toBe(0);
   });
 });

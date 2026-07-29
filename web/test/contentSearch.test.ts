@@ -48,6 +48,17 @@ beforeEach(() => {
     },
     { id: 'i2', name: '알고리즘', mode: 'daily', chapters: [{ id: 'c3', name: '정렬', hours: 1, done: false }] },
   ] as typeof base.items;
+  base.cbms = [
+    {
+      id: 'm1',
+      ds: '2026-07-20',
+      sid: 'i1',
+      name: '선형대수',
+      chapter: '고유값',
+      code: 'C1',
+      note: '대각화 조건을 헷갈렸다',
+    },
+  ] as typeof base.cbms;
   useApp.getState().loadState(base);
 });
 
@@ -77,5 +88,24 @@ describe('contentSearch (E-6)', () => {
   it('대소문자 무시 + limit 상한 준수', () => {
     expect(contentSearch('벡터'.toUpperCase(), reads).length).toBeGreaterThanOrEqual(0);
     expect(contentSearch('공', reads, 1).length).toBeLessThanOrEqual(1);
+  });
+});
+
+/* 오답 메모(CBMS `note`)는 앱에서 가장 밀도 높은 자기 텍스트인데 **유일하게 검색 밖**이었다 —
+   도달 경로가 오답 탭을 눈으로 스크롤하는 것뿐이었다. */
+describe('contentSearch — 오답 메모', () => {
+  it('메모 본문으로 찾힌다', () => {
+    const hits = contentSearch('대각화', reads);
+    expect(hits.some((h) => h.kind === 'mistake')).toBe(true);
+  });
+
+  it('과목까지 좁혀 데려간다 — 조인 키가 과목 id 라 실패가 원리적으로 없다', () => {
+    const hit = contentSearch('대각화', reads).find((h) => h.kind === 'mistake')!;
+    expect(hit.to).toBe('/mistakes?sid=i1');
+    expect(hit.sid).toBe('i1');
+  });
+
+  it('과목명·챕터명으로도 걸린다', () => {
+    expect(contentSearch('고유값', reads).some((h) => h.kind === 'mistake')).toBe(true);
   });
 });

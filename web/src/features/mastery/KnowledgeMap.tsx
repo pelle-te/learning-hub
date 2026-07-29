@@ -7,12 +7,10 @@
 ============================================================ */
 import { useState, type ReactNode, type CSSProperties } from 'react';
 import { useCountUp } from '@/hooks/interactions';
-import { masteryColor, openVaultSearch } from '@/lib/utils';
+import { masteryColor, openVaultSearch, pctLabel } from '@/lib/utils';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { Knowledge, KnowledgeSubject } from '@/lib/knowledge';
 import { M } from './classes';
-
-const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
 
 /** AN-12 — 볼트 딥링크. obsidian://search는 볼트명 없이도 동작(설치돼 있으면).
    Graph 탭 E-5 패턴 미러 — 죽은 개념 텍스트를 "볼트에서 이 개념 열기"로 살린다.
@@ -126,7 +124,7 @@ function SubjectHeat({ s }: { s: KnowledgeSubject }) {
   return (
     <div className={M.msheat}>
       {shown.map((c, i) => {
-        const t = `${c.title || c.basename}  ·  유효숙달 ${pct(c.p_eff)} (${c.state})${
+        const t = `${c.title || c.basename}  ·  유효숙달 ${pctLabel(c.p_eff)} (${c.state})${
           c.weak && c.root_cause && c.root_cause !== 'self' ? ' ← 선수약점: ' + c.root_cause : ''
         }`;
         const col = masteryColor(c.p_eff, c.state);
@@ -179,7 +177,7 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
             <div className={M.subHead}>
               <b className={M.subNm}>{s.subject}</b>
               <span className="ds-tiny ds-muted">
-                {s.n}개 · 숙달 {pct(s.mastery)}
+                {s.n}개 · 숙달 {pctLabel(s.mastery)}
                 {s.weak ? ` · 약점 ${s.weak}` : ''}
                 {s.unknown ? ` · 미관측 ${s.unknown}` : ''}
               </span>

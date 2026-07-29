@@ -382,17 +382,13 @@
      (§14-3 · stats/items 와 같은 규율). 반복 크기(12.5/11.5px)는 items 토큰을 재사용한다. */
   --text-subj: var(--fs-subj);
   --text-subj-mobile: var(--fs-subj-mobile);
-  --text-ghost-num: var(--fs-ghost-num);
-  --text-ghost-unit: var(--fs-ghost-unit);
   --text-hero-when: 17px;
   --text-cta-num: 19px;
   --text-recall-q: 13.5px;
   /* 링 중앙 분모·지금-노드 퍼센트(9px) — fs-2xs(10) 아래 반픽셀 밖 정확값. */
   --text-tiny9: 9px;
-  /* 자간 — 과목명(-0.035em)·워터마크 게이지(-0.04em)·게이지 단위(0.03em)·CTA(0.01em). 내장 사다리 밖. */
+  /* 자간 — 과목명(-0.035em)·CTA(0.01em). 내장 사다리 밖. */
   --tracking-subj: -0.035em;
-  --tracking-ghost: -0.04em;
-  --tracking-ghost-unit: 0.03em;
   --tracking-cta: 0.01em;
   /* 상단 밴드 그리드 — 히어로(유동) + 흐름 레일(clamp 300~420px 고정 사이드). 900 아래 1컬럼. */
   --grid-template-columns-today-top: minmax(0, 1fr) clamp(300px, 32%, 420px);
@@ -503,7 +499,8 @@
   /* ── components/*(공유 프리미티브 티어) 이식(C-7) ────────────────────────────
      feature 가 아니라 **여러 feature 가 함께 쓰는 컴포넌트**들이다(EmptyState·Tooltip·
      OnlineStatus·ShortcutsHelp·DetailDrawer·CommandPalette). 그래서 이름에 feature 를
-     안 붙이고 컴포넌트명을 쓴다. `ui/*` 프리미티브와 `ds.module.css` 는 여전히 맨 마지막이다. */
+     안 붙이고 컴포넌트명을 쓴다. (⚠ 옛 문구의 "`ds.module.css` 는 여전히 맨 마지막" 은 C-7
+     **이행 계획**이었고 그 이행은 끝났다 — `ds.css` 는 전역·언레이어드다. 2026-07-29 정정.) */
 
   /* ⚠⚠ 부유 표면 그림자 — **`shadow-lg` 라고 쓰면 안 된다.** `--shadow-lg` 는 Tailwind **기본**
      토큰 이름이라, 브리지가 덮지 않으면 유틸이 앱의 `--shadow-lg`(0 24px 60px -22px …)가 아니라

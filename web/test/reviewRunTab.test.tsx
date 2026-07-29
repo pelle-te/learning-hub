@@ -12,11 +12,11 @@ import ThemeProvider from '@/app/ThemeProvider';
 import App from '@/app/App';
 import { useApp } from '@/store/useApp';
 
-function renderApp(path: string) {
+function renderApp(path: string, state?: unknown) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[state === undefined ? path : { pathname: path, state }]}>
         <ThemeProvider>
           <App />
         </ThemeProvider>
@@ -70,6 +70,55 @@ test('review-run: 회상 카드 흐름 — 렌더 → 펼침 → 판정 → 세�
   fireEvent.click(screen.getByRole('button', { name: /다시 설명했어요/ }));
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
   expect(screen.getByText(/카드 1장 중/)).toBeInTheDocument();
+});
+
+/* ── N-7 이어하기 착지 ───────────────────────────────────────────────────
+   칩이 `(7/12)` 를 약속하는 동안 러너는 언제나 0 에서 열렸다 — `resume.ts` 머리주석이 이
+   기능의 존재 이유로 든 중복 학습을 기능이 **보장**하던 자리다.
+
+   ⚠ **긍정문으로 잠근다.** "0 에서 시작하지 않는다"만 단언하면 착지가 엉뚱한 카드로 가도
+   통과한다(N-1 이 물린 "부정문만 있는 검사"). 몇 번째 카드인지를 직접 본다.
+   ⚠ 짝이 되는 음성 테스트가 더 중요하다: 내비 state 없이 그냥 열면 **반드시** 1장부터다.
+   그게 깨지면 레일·⌘K 로 연 사람이 묻지도 않고 중간에서 시작한다. */
+/** 2장짜리 세션 — 회상(요약) + 유지(끝낸 챕터). 회상·착각은 각각 최대 1장이라 종류를 섞는다. */
+function seedTwoCards() {
+  useApp.getState().mutate((st) => {
+    st._today = '2026-07-08';
+    st.cbms = [];
+    st.completions = {};
+    st.summaries = { '2026-07-04': [{ id: 'r1', sid: 's1', name: '선형대수', s1: 'a', s2: 'b', s3: 'c' }] };
+    st.items = [
+      {
+        id: 'p',
+        name: '물리',
+        source: '직접',
+        mode: 'weekly',
+        weeklyHours: 4,
+        chapters: [{ id: 'c1', name: '역학', hours: 2, done: true }],
+      },
+    ] as never;
+  });
+}
+
+test('review-run: 이어하기로 오면 그 카드에서 시작한다(N-7 착지)', async () => {
+  seedTwoCards();
+  renderApp('/review-run', { resumeAt: 1 });
+  // 1장을 건너뛰고 2번째 카드(유지)에 착지 — 회상 카드는 이미 다른 기기에서 봤다.
+  expect(await screen.findByText('유지')).toBeInTheDocument();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '복습 진행 2 / 2');
+  // 건너뛴 카드가 있다는 사실을 말하고, 되돌아갈 길을 함께 준다.
+  expect(screen.getByText(/다른 기기에서 1장까지 봤어요/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '처음부터 보기' }));
+  expect(await screen.findByText('회상')).toBeInTheDocument();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '복습 진행 1 / 2');
+});
+
+test('review-run: 그냥 열면 언제나 1장부터 — 이어하기는 기본값이 아니라 의도다', async () => {
+  seedTwoCards();
+  renderApp('/review-run');
+  expect(await screen.findByText('회상')).toBeInTheDocument();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '복습 진행 1 / 2');
+  expect(screen.queryByText(/다른 기기에서/)).toBeNull();
 });
 
 /* ── D-3 키보드 계약 ─────────────────────────────────────────────────────

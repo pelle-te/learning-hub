@@ -12,7 +12,7 @@ import { useNowMin } from '@/hooks/interactions';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { freeWindowsForWeekday, blocksForWeekday, peakRange } from '@/lib/scheduler';
 import { allocView, colSumMin, weekMonOf, weekRequiredMin } from '@/lib/weekAlloc';
-import { DOW, parseISO, todayISO } from '@/lib/utils';
+import { DOW, parseISO, todayISO, hLabel } from '@/lib/utils';
 import DayRing from './DayRing';
 
 // Skeleton.module.css → Tailwind 이식(C-7). 요일 막대는 '가용 위에 배분 적재' — 선택/초과 상태로
@@ -121,7 +121,7 @@ export function AvailRail() {
                 aria-pressed={on}
                 className={`${WB_BASE} ${on ? WB_ON : WB_OFF}`}
                 onClick={() => setRingDow(i)}
-                title={`${d}요일 — 가용 ${hrs.toFixed(1)}h · 배분 ${(usedMin / 60).toFixed(1)}h${over ? ' (초과)' : ''}`}
+                title={`${d}요일 — 가용 ${hrs.toFixed(1)}h · 배분 ${hLabel(usedMin)}${over ? ' (초과)' : ''}`}
               >
                 <span className="flex h-10 w-2.5 items-end justify-center">
                   <span
@@ -139,7 +139,7 @@ export function AvailRail() {
           })}
         </div>
         <div className="w-full text-center text-xs leading-[1.6] text-mut tabular-nums">
-          이번 주 배분 <b className="font-extrabold text-txt">{(allocWeekMin / 60).toFixed(1)}h</b> / 가용{' '}
+          이번 주 배분 <b className="font-extrabold text-txt">{hLabel(allocWeekMin)}</b> / 가용{' '}
           <b className="font-extrabold text-txt">{availH.toFixed(1)}h</b>
         </div>
       </div>

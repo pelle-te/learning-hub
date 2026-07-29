@@ -9,6 +9,7 @@ import { useUI } from '@/store/useUI';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import {
   BACKUP_KEY,
+  BACKUP_AT_KEY,
   CORRUPT_KEY,
   RUNTIME_CACHE_KEYS,
   migrate,
@@ -81,13 +82,33 @@ function download(filename: string, text: string, mime: string): Promise<boolean
   return Promise.resolve(true);
 }
 
-/** 되돌리기용 1단계 백업(localStorage). */
+/** 되돌리기용 1단계 백업(localStorage). 시각도 함께 남긴다 — 아래 `backupAt` 참조. */
 export function backupNow(): boolean {
   try {
     storage.setItem(BACKUP_KEY, JSON.stringify(st().state));
+    storage.setItem(BACKUP_AT_KEY, String(Date.now()));
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * 되돌리기 백업이 **언제** 찍혔나. 없으면 null(= 되돌릴 것이 없다).
+ *
+ * ⚠ 이게 없던 동안 ⋯ 메뉴의 '되돌리기' 는 **항상 눌리는 버튼**이었고, 누르면 "직전"이 아니라
+ * *마지막으로 파괴적 동작을 한 아무 때나*로 갔다 — 며칠 전일 수도 있었고 화면 어디에도 그
+ * 사실이 없었다. 되돌리기가 조용히 며칠을 지우는 것은 되돌리기가 아니다.
+ * ⚠ 시각을 못 읽어도(옛 백업엔 키가 없다) **백업 자체는 유효**하다 → `at:null` 로 구분한다.
+ */
+export function backupAt(): { at: number | null } | null {
+  try {
+    if (storage.getItem(BACKUP_KEY) == null) return null;
+    const raw = storage.getItem(BACKUP_AT_KEY);
+    const n = raw == null ? NaN : Number(raw);
+    return { at: Number.isFinite(n) ? n : null };
+  } catch {
+    return null;
   }
 }
 /** 파괴적 동작 전 백업 — 실패하면 되돌리기 불가를 경고하고 진행 여부를 묻는다. */
@@ -118,7 +139,7 @@ export function downloadCorruptSnapshot(): void {
     /* 접근 불가 */
   }
   if (!raw) {
-    toast('보존된 손상 원본이 없습니다.', 'warn');
+    toast('보존된 손상 원본이 없어요.', 'warn');
     return;
   }
   /* ⚠⚠ **저장이 확인된 뒤에만 정리한다(H19 · 2026-07-26 감사).** 종전엔 `download()` 직후
@@ -132,7 +153,7 @@ export function downloadCorruptSnapshot(): void {
     } catch {
       /* 정리 실패는 치명 아님 — 다음 시도에서 재정리 */
     }
-    toast('손상 원본을 내려받았어요 — 보존 키는 정리했습니다.', 'ok');
+    toast('손상 원본을 내려받았어요 — 보존본은 정리했어요.', 'ok');
   });
 }
 
@@ -145,7 +166,7 @@ export function downloadCorruptSnapshot(): void {
 export function downloadFallbackSnapshot(): void {
   const raw = dbFallbackSnapshot();
   if (!raw) {
-    toast('임시 저장본이 없습니다.', 'warn');
+    toast('임시 저장본이 없어요.', 'warn');
     return;
   }
   download('러닝허브_임시저장본.json', raw, 'application/json');
@@ -222,17 +243,18 @@ export function importJSON(input: HTMLInputElement): void {
 export function undoLast(): void {
   const b = storage.getItem(BACKUP_KEY);
   if (!b) {
-    toast('되돌릴 백업이 없습니다.', 'bad');
+    toast('되돌릴 백업이 없어요 — 삭제·가져오기·초기화 직전에 자동으로 만들어져요.', 'bad');
     return;
   }
   const s = parseState(b);
   if (!s) {
-    toast('백업이 손상됨', 'bad');
+    toast('백업이 손상돼 되돌릴 수 없어요. 내보내 둔 파일이 있으면 가져오기로 복구하세요.', 'bad');
     return;
   }
   st().loadState(s);
   try {
     storage.removeItem(BACKUP_KEY);
+    storage.removeItem(BACKUP_AT_KEY); // 짝을 남기면 다음 메뉴가 "없는 백업의 시각"을 말한다
   } catch {
     /* noop */
   }
@@ -287,8 +309,8 @@ export async function restoreFromIDB(preloaded?: string | null): Promise<void> {
     }
   }
   if (!s) {
-    if (json) toast('IndexedDB 백업을 살릴 수 없습니다(형식 오류).', 'bad', 4000);
-    else toast('IndexedDB 백업이 없습니다(이 브라우저에서 저장된 적 없음).', 'warn', 4000);
+    if (json) toast('IndexedDB 백업을 살릴 수 없어요(형식 오류).', 'bad', 4000);
+    else toast('IndexedDB 백업이 없어요(이 브라우저에서 저장된 적 없어요).', 'warn', 4000);
     return;
   }
   if (!(await backupOrConfirm())) return;
@@ -455,7 +477,7 @@ export function semanticPalette(query: string): Promise<SemHit[]> {
 
 export type ContentHit = {
   id: string;
-  kind: 'subject' | 'chapter' | 'book' | 'backlog' | 'weak';
+  kind: 'subject' | 'chapter' | 'book' | 'backlog' | 'weak' | 'mistake';
   label: string;
   to: string;
   /* ── 동사가 작용할 대상(N-1) ──────────────────────────────────────────
@@ -664,6 +686,23 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
         sid: w.key.split('|')[0] ?? '',
         subject: w.subject,
         chapter: w.chapter,
+      });
+  }
+  /* 오답 메모(CBMS `note`) — **가장 밀도 높은 자기 텍스트인데 유일하게 검색 밖이었다.**
+     "내가 왜 틀렸는지 적어 둔 그것"에 도달하는 경로가 오답 탭을 눈으로 스크롤하는 것뿐이었다.
+     ⚠ 목적지는 `?sid=` 로 **과목까지 좁혀** 보낸다 — 조인 키가 과목 id 라 실패가 원리적으로
+       없다(챕터 이름 매칭이 아니다). 챕터 단위 앵커는 없으므로 과목까지가 정직한 최선이다. */
+  for (const e of s.cbms || []) {
+    if (hits.length >= cap) break;
+    if (`${e.note} ${e.name} ${e.chapter}`.toLowerCase().includes(q))
+      hits.push({
+        id: 'c-cbms:' + e.id,
+        kind: 'mistake',
+        label: `${e.name || '?'}${e.chapter ? ' · ' + e.chapter : ''} — ${(e.note || '').slice(0, 40)}`,
+        to: '/mistakes?sid=' + encodeURIComponent(e.sid),
+        sid: e.sid,
+        subject: e.name,
+        chapter: e.chapter,
       });
   }
   return hits.slice(0, limit);

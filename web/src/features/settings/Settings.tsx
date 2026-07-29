@@ -29,12 +29,10 @@ import type { AppState } from '@/lib/types';
    미리보기 = style={{ background }})·전역 요소(h2/button/input/label)는 그대로 두고, 전역을
    이기는 지점만 `!`. 히어로 그래디언트·상단 헤어라인·밴드 그림자·페이드업 키프레임은 mastery/
    review 가 이름 준 것을 공유한다(값 동일). 규약은 §15 + tokenBridge.css 머리주석이 SSOT. */
-const HAIRLINE =
-  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
 
 const S = {
   wrap: 'flex min-w-0 flex-col gap-4',
-  hero: `relative flex flex-wrap items-center gap-settings-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-5 shadow-hero animate-[enter-rise_0.46s_var(--ease)_both] ${HAIRLINE} motion-reduce:animate-none`,
+  hero: `relative flex flex-wrap items-center gap-settings-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-5 shadow-hero animate-[enter-rise_0.46s_var(--ease)_both] ds-hairline motion-reduce:animate-none`,
   heroLeft: 'flex min-w-0 flex-1 flex-col gap-0.75',
   eyebrow: 'text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-acc uppercase',
   title: 'mt-0.5! mb-0! text-hero-title! font-black! leading-[1.04] tracking-title!', // h2 — 전역 h2{} 를 ! 로 이김(색 ink≡txt 는 동일→클래스 없음)
@@ -248,7 +246,7 @@ export default function Settings() {
   const [hasCorrupt, setHasCorrupt] = useState(() => io.hasCorruptSnapshot());
 
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
-  // (draft 파라미터는 d — CSS 모듈 import `st` 섀도잉 방지, store 셀렉터 `s`와 결.)
+  // (draft 파라미터는 d — store 셀렉터 `s`와 겹치지 않게. 옛 사유였던 CSS 모듈 import `st` 는 C-7 에서 사라졌다.)
   const set = <K extends keyof AppState>(k: K, v: AppState[K]) => mutate((d) => void ((d as AppState)[k] = v));
 
   // 피크 시간대 역전 감지 — 끝이 시작보다 이르면 스케줄러 피크 우선배치가 조용히 깨진다.

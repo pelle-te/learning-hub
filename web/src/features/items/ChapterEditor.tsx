@@ -1,6 +1,7 @@
 /* ChapterEditor — 과목의 챕터 표(추가·삭제·수정·드래그 정렬·일괄 붙여넣기).
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
 import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { rid, todayISO } from '@/lib/utils';
 import { chapterSnapshot, riskWord } from '@/lib/chapterView';
 import { useApp } from '@/store/useApp';
@@ -235,7 +236,18 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
               )}
             </dd>
             <dt className="ds-muted">오답 기록</dt>
-            <dd className="m-0 font-bold">{snap.cbms ? `${snap.cbms}건` : '없음'}</dd>
+            {/* ⚠ 숫자만 있으면 막다른 골목이다 — "3건"을 보고 그 3건을 보려면 오답 탭에서 과목을
+                다시 골라야 했다. 서랍이 표방한 "객체가 목적지"와 어긋나던 유일한 칸이라 링크를 준다.
+                ⚠ 조인은 **과목 id** 로만 한다(챕터 이름 매칭이 아니다) → 실패가 원리적으로 없다. */}
+            <dd className="m-0 font-bold">
+              {snap.cbms ? (
+                <Link to={`/mistakes?sid=${encodeURIComponent(id)}`} className="text-acc">
+                  {snap.cbms}건 →
+                </Link>
+              ) : (
+                '없음'
+              )}
+            </dd>
           </dl>
         )}
       </DetailDrawer>

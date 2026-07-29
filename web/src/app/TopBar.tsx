@@ -4,6 +4,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChrome } from '@/store/usePageChrome';
 import { useOverlay } from '@/store/useOverlay';
 import { MOD_LABEL, MOD_K_LABEL } from '@/lib/platform';
+import { agoLabel } from '@/lib/utils';
 import FocusChip from './FocusChip';
 
 /* TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
@@ -105,6 +106,23 @@ export default function TopBar() {
 
   const close = () => setMoreOpen(false);
 
+  /* 되돌리기 백업의 존재·시각 — **메뉴를 여는 클릭이** 읽는다.
+     ⚠ 렌더에서 읽으면 `Date.now()` 라 순수성 린트가 막고(옳다 — 시계는 렌더의 입력이 아니다),
+       이펙트에서 읽으면 setState-in-effect 라 또 막힌다. 남는 정당한 자리가 이벤트 핸들러이고,
+       마침 그게 의미도 맞다: **여는 순간이 "지금 알고 싶다"는 신호**다.
+     ⚠ 마운트 시 한 번 읽는 방식은 안 된다 — 세션 내내 낡아 "방금"이라 적힌 3시간 전이 된다. */
+  const [undoWhen, setUndoWhen] = useState<string | null>(null);
+  const openMore = () => {
+    const next = !moreOpen;
+    if (next) {
+      // ⚠ 갱신은 여는 쪽에서만 — 상태 업데이터 안에서 하면 StrictMode 이중 호출에 부작용이 두 번 돈다.
+      const b = actions.backupAt();
+      setUndoWhen(b ? (b.at == null ? '시각 모름' : agoLabel(b.at, Date.now())) : null);
+    }
+    setMoreOpen(next);
+  };
+  const undoInfo = undoWhen !== null;
+
   return (
     <header className={BAR}>
       <h1 className={WORDMARK}>
@@ -171,7 +189,7 @@ export default function TopBar() {
           <button
             className={BTN_ICON}
             aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((v) => !v)}
+            onClick={openMore}
             title="데이터·백업 메뉴"
             aria-label="데이터·백업 메뉴"
           >
@@ -207,15 +225,26 @@ export default function TopBar() {
               >
                 <Icon name="upload" /> 데이터 가져오기
               </button>
+              {/* ⚠ **언제 것인지 말한다.** 종전엔 라벨이 그냥 '되돌리기' 이고 백업이 없어도
+                  눌렸다 — 누르면 "직전"이 아니라 *마지막 파괴적 동작 시점*(며칠 전일 수 있다)
+                  으로 갔고, 그 사실이 화면 어디에도 없었다. 되돌리기가 조용히 며칠을 지우면
+                  그건 안전망이 아니라 두 번째 사고다.
+                  ⚠ 백업이 없으면 **비활성**이다(누르고 나서 토스트로 실패를 아는 것보다 낫다). */}
               <button
                 type="button"
+                disabled={!undoInfo}
                 onClick={() => {
                   close();
                   actions.undoLast();
                 }}
-                title="초기화/가져오기 직전으로 되돌리기"
+                title={
+                  undoInfo
+                    ? `파괴적 동작 직전 상태로 되돌리기 (백업 ${undoWhen})`
+                    : '되돌릴 백업이 없습니다 — 삭제·가져오기·초기화 직전에 자동으로 만들어집니다'
+                }
               >
                 <Icon name="undo" /> 되돌리기
+                {undoInfo ? <span className="ml-auto text-2xs text-mut">{undoWhen}</span> : null}
               </button>
               <div className="menu-sep" />
               <button

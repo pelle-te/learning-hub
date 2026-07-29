@@ -18,7 +18,7 @@ import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import { eventsForDay } from '@/lib/events';
-import { toHM, pad2 } from '@/lib/utils';
+import { toHM, pad2, hNum, hLabel } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, packLanes, timeSpan, type DayData, type Row } from '@/lib/scheduleView';
 import type { SessionType, Task } from '@/lib/types';
 
@@ -268,13 +268,11 @@ export function WeekCalendar({
             onClick={() => onOpenDay(p.ds)}
             /* 오늘은 액센트 알약(색)으로만 말하면 색각·스크린리더에 전달되지 않는다 → 역할과 라벨 양쪽에 실는다. */
             aria-current={p.isToday ? 'date' : undefined}
-            aria-label={`${dows[k]} ${p.date.getMonth() + 1}/${p.date.getDate()}${p.isToday ? ' (오늘)' : ''} · 배정 ${(p.used / 60).toFixed(1)}시간 — 이 날 계획 열기`}
+            aria-label={`${dows[k]} ${p.date.getMonth() + 1}/${p.date.getDate()}${p.isToday ? ' (오늘)' : ''} · 배정 ${hNum(p.used)}시간 — 이 날 계획 열기`}
           >
             <span className={`${CAL.dow} ${p.isToday ? 'text-acc' : 'text-mut'}`}>{dows[k]}</span>
             <span className={`${CAL.date} ${p.isToday ? CAL.dateToday : ''}`}>{p.date.getDate()}</span>
-            <span className={`${CAL.dayH} ${p.over ? 'font-extrabold text-bad' : 'text-mut'}`}>
-              {(p.used / 60).toFixed(1)}h
-            </span>
+            <span className={`${CAL.dayH} ${p.over ? 'font-extrabold text-bad' : 'text-mut'}`}>{hLabel(p.used)}</span>
           </button>
         ))}
       </div>

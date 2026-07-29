@@ -20,6 +20,7 @@ import {
   STATUSES,
   GRADE_KEYS,
   degreeStats,
+  progressPct,
   semesterGpa,
   semesterStat,
   gpaForecast,
@@ -73,10 +74,13 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
       }))
     )
       return;
+    // 소속 과목(=성적 입력 전량)이 함께 사라진다 — 형제 `delCourse` 가 이미 쓰는 안전망을
+    // **더 큰 삭제**가 안 쓰고 있었다(파괴력과 복구가능성의 역전).
+    ui.backupNow();
     mutate((st) => {
       st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id);
     });
-    ui.toast('학기 삭제됨', 'info');
+    ui.toastUndo('학기 삭제됨');
   };
   const courseToItem = (name: string) => {
     // PL-15 — items를 구독하지 않고 핸들러 시점에 스냅샷 조회(무관한 items 편집에 카드 재렌더 방지).
@@ -293,8 +297,8 @@ function DegreePlan() {
   const stats = degreeStats(d);
   const { earned, inprog, planned, byCat, gpa, gradedCr, semDone } = stats;
   const remain = Math.max(0, d.targetTotal - earned);
-  const pct = d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
-  const shownPct = useCountUp(Math.min(100, pct));
+  const pct = progressPct(d); // 정의는 lib 하나 — 세 화면이 같은 답을 말한다
+  const shownPct = useCountUp(Math.min(100, pct)); // 링 기하만 클램프(숫자는 진실을 그대로)
   const list = sems(d);
   const avgPerSem = semDone ? earned / semDone : 0;
   const projSem = earned && avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;

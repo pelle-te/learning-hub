@@ -204,21 +204,34 @@ export default function Journal() {
     if (next > today) return; // 미래 금지
     setDs2(next);
   };
-  const sumN = summariesFor(state, today).length;
-  const cbmsN = cbmsBetween(state, today, today).length;
+  /* ⚠ **리드아웃은 화면이 보고 있는 날을 따라간다**(`ds2`), '오늘'이 아니라.
+     종전엔 여기만 `today` 였고 스트림·입력 폼은 `ds2` 였다 → '과거 보충' 으로 7/12 요약을
+     저장해도 최상단 `요약` 숫자가 그대로였다. 리드아웃은 "0.5초에 상태를 읽는 자리"라는 계약을
+     정면으로 깨는 자리다(저장이 됐는지 목록을 다시 훑게 만든다).
+     ⚠ `열린 보충` 만 날짜 무관이다 — 그건 "오늘까지 안 닫힌 것" 전량이라 선택 날짜와 무관하다. */
+  const sumN = summariesFor(state, ds2).length;
+  const cbmsN = cbmsBetween(state, ds2, ds2).length;
   const openN = openBacklog(state).length;
+  /* 내보내기는 **오늘 것**을 내보낸다(`'today'`) → 게이트도 오늘 수로 본다. 리드아웃과 다른
+     날을 보는 것이 맞다: 라벨이 따라가는 것은 *보고 있는 날*이고, 액션이 따르는 것은 *하는 일*이다. */
+  const todaySumN = isToday ? sumN : summariesFor(state, today).length;
+  const todayCbmsN = isToday ? cbmsN : cbmsBetween(state, today, today).length;
 
   usePageChromeEffect(
     () => ({
       readouts: [
-        { label: '요약', value: sumN, accent: true },
-        { label: '오답', value: cbmsN },
+        // 오늘이 아니면 라벨에 날짜를 붙인다 — 안 붙이면 과거 수치가 오늘 수치로 읽힌다.
+        { label: isToday ? '요약' : `요약 · ${ds2.slice(5)}`, value: sumN, accent: true },
+        { label: isToday ? '오답' : `오답 · ${ds2.slice(5)}`, value: cbmsN },
         { label: '열린 보충', value: openN },
       ],
       // 무데이터면 빈 파일 데드엔드 → 상단바 액션 자체를 미노출(카드 내부 버튼은 canExport로 별도 가드).
-      action: sumN || cbmsN ? { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') } : undefined,
+      action:
+        todaySumN || todayCbmsN
+          ? { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') }
+          : undefined,
     }),
-    [sumN, cbmsN, openN],
+    [sumN, cbmsN, openN, isToday, ds2, todaySumN, todayCbmsN],
   );
 
   return (

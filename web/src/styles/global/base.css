@@ -9,9 +9,15 @@ body {
   margin: 0;
   color: var(--txt);
   background: var(--bg);
-  /* 단일 네온 광원(에디토리얼) — 우상단 한 점만 은은히. 다색 글로우 폐기(설계도 §0-1). */
-  background-image: radial-gradient(1100px 640px at 92% -10%, var(--acc-soft), transparent 58%);
-  background-attachment: fixed;
+  /* ⚠ 여기 있던 `background-image: radial-gradient(… --acc-soft …)`(+`background-attachment`)를
+     지웠다(2026-07-29) — **원칙 1 의 유일한 CSS 구현이었는데 렌더에 도달한 적이 없다.**
+     `AmbientCanvas` 가 `alpha:false` 불투명 캔버스를 `position:fixed; inset:0` 로 깔아
+     body 배경을 100% 가리고(App 이 조건 없이 마운트한다 · `data-fx=lite` 는 애니만 멈춘다),
+     폰 엔트리는 이 파일을 import 조차 하지 않는다(`tokens.css` + `phone.css` 뿐).
+     즉 두 엔트리 어디서도 한 픽셀도 안 그려지는 선언이었다 — "문서에만 있는 원칙"의 표본이고,
+     남겨 두면 다음 사람이 여기를 고쳐 놓고 화면이 안 바뀌는 이유를 찾게 된다.
+     ⚠ WebGL 실패 시 폴백은 `AmbientCanvas` 의 `FALLBACK_BG` 가 소유한다(그건 3색이라 원칙 1
+     과 어긋나지만, 바꾸면 스냅샷을 태우므로 시각 사이클에서 함께 판단한다). */
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.6;

@@ -87,4 +87,63 @@ if (미정의.length) {
   process.exit(1);
 }
 
-console.log(`✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종).`);
+/* ── 역방향 — **선언됐는데 아무 데서도 안 쓰이는 토큰**(2026-07-29) ──────────────
+   앞의 검사는 "쓰는데 없는 것"을 잡는다. 반대 방향은 조용히 쌓인다: 화면이 사라져도 그 화면의
+   토큰은 남고, 주석은 **존재하지 않는 UI 를 현재형으로** 설명한다. 그러면 다음 사람이 죽은
+   이름을 살아 있는 어휘로 읽고 재사용한다(이 저장소가 `--fs-spine` 을 손으로 발견한 것이 이미
+   그 신호였다).
+
+   실사례: 132px 워터마크가 D-5 에서 제거되며 `--ghost-*` 5종과 `--fs-ghost-*` 체인이 통째로
+   고아가 됐는데, `tokens.css` 주석은 그대로 그 워터마크를 설명하고 있었다.
+
+   ⚠ **범위는 `tokens.css` 뿐이다.** `tokenBridge.css` 의 `@theme` 항목(`--color-*`·`--text-*`)은
+   Tailwind 가 유틸을 생성해 소비하지 `var()` 로 참조하지 않는다 → 전량 오탐이 된다.
+   ⚠ 예외는 **사유+만료일 원장**이다(SCA·a11y 원장과 같은 규율). 유효기간 없는 예외는 판단이
+   아니라 방치다. */
+const 미사용_원장 = [
+  {
+    이름: '--fs-spine',
+    사유: '타이포 사다리의 최상단 단(72px). 소비처는 0이지만 이건 죽은 UI 잔재가 아니라 **스케일의 한 칸**이고, 지우면 사다리가 자기 범위에 대해 거짓말을 한다(원칙 2 의 "제일 큰 픽셀"이 문서에만 남는다). N-15 가 `primary` 44px 을 들이며 남겨 둔 자리.',
+    만료: '2027-01-31',
+  },
+];
+
+const tokensCss = readFileSync(join(ROOT, 'styles/tokens.css'), 'utf8');
+const 토큰선언 = new Set([...tokensCss.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)].map((m) => m[1]));
+const 원장이름 = new Set(미사용_원장.map((r) => r.이름));
+const 만료된 = 미사용_원장.filter((r) => new Date(r.만료) < new Date());
+const 미사용 = [...토큰선언].filter((n) => !참조.has(n) && !원장이름.has(n));
+// 사문화한 원장 항목(이미 쓰이게 된 것)도 실패다 — 남아 있으면 그게 방치다.
+const 사문화 = 미사용_원장.filter((r) => 참조.has(r.이름) || !토큰선언.has(r.이름));
+
+if (미사용.length || 만료된.length || 사문화.length) {
+  if (미사용.length) {
+    console.error('✗ 선언됐는데 아무 데서도 참조되지 않는 토큰:\n');
+    for (const 이름 of 미사용) console.error(`  ${이름}`);
+    console.error('\n지우거나(주인 UI 가 사라졌다면) 쓰거나, 사유+만료일과 함께 원장에 올리세요.');
+  }
+  for (const r of 만료된) console.error(`✗ 미사용 원장 만료: ${r.이름}(만료 ${r.만료}) — 다시 판단할 때다.`);
+  for (const r of 사문화) console.error(`✗ 미사용 원장 사문화: ${r.이름} — 이제 쓰이거나 선언이 없다. 원장에서 빼세요.`);
+  process.exit(1);
+}
+
+/* ── `*.module.css` 0개 단언(2026-07-29) ─────────────────────────────────────
+   C-7 이 끝나며 "`*.module.css` 는 0개"가 규약이 됐는데, **그걸 강제하는 게이트가 없었다**
+   (`package.json` 스크립트 전량 확인). 선언만 있고 집행이 없으면 흘러내린다는 것이 이 저장소가
+   stylelint 를 들일 때 내린 결론 그대로다.
+
+   ⚠ 왜 중요한가: CSS Module 은 **언레이어드**라 Tailwind 유틸을 이긴다(`ShortcutsHelp.tsx:20`
+   이 그 함정을 기록한다). 그리고 생기는 순간 `better-tailwindcss` 의 검사 범위 **밖**으로
+   나간다 — 즉 한 파일이 규약 둘을 동시에 우회한다. */
+const 모듈css = 파일들(ROOT).filter((p) => /\.module\.css$/.test(p));
+if (모듈css.length) {
+  console.error('✗ `*.module.css` 가 생겼다 — C-7 이후 이 저장소에 CSS Module 은 0개가 규약이다:\n');
+  for (const p of 모듈css) console.error(`  ${p}`);
+  console.error('\n언레이어드라 Tailwind 유틸을 이기고, better-tailwindcss 검사 범위 밖으로 나간다.');
+  console.error('스타일은 ① JSX 유틸리티 ② 공유 `ds-*`(styles/ds.css) ③ 앱 크롬(styles/global/) 셋 중 하나여야 한다.');
+  process.exit(1);
+}
+
+console.log(
+  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · *.module.css 0개.`,
+);

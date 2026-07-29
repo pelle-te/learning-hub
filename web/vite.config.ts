@@ -27,6 +27,15 @@ import { readFileSync } from 'node:fs';
    ⚠ 매니페스트를 못 읽으면 **precache 를 넓히지 않고** 옛 최소 집합으로 되돌아간다 —
      실패 모드가 "데스크톱 청크까지 폰에 굽기"가 되면 안 된다. */
 const PHONE_EXTRA = /^assets\/sqlite.*\.(?:js|wasm)$/; // 워커·wasm(그래프 밖에서 방출 · 이름으로 잡는다)
+/* ⚠ **precache 에서 빼는 것**(위 패턴이 이름으로 쓸어 담은 것 중 실제로는 안 도는 것).
+   `sqlite3-worker1-*.js`(206KB · **gz 61KB**)는 `sqlite3Worker1Promiser.defaultConfig.worker`
+   팩토리 안에서만 참조된다 — 그리고 우리는 그 promiser 를 **한 번도 부르지 않는다**(전 소스에
+   `promiser`·`worker1` 참조 0 · 우리 워커는 `installOpfsSAHPoolVfs` 를 직접 쓴다). 즉 폰 첫
+   설치 데이터의 10.5% 가 실행되지 않는 파일이었다.
+   ⚠ `sqlite3-opfs-async-proxy` 는 **일부러 남긴다.** 그건 COOP/COEP 가 있을 때 쓰는 `opfs`
+   VFS 의 짝이라 "안 쓴다"를 배포 헤더까지 확인하지 않고는 단정할 수 없고, 틀리면 증상이
+   **오프라인에서만** 나타난다(가장 늦게 발견되는 자리). 61KB 를 확실히 얻고 10KB 는 남긴다. */
+const PHONE_PRECACHE_SKIP = /^assets\/sqlite3-worker1-/;
 const PHONE_SHELL = new Set(['phone.html', 'icon.svg', 'manifest.webmanifest']);
 
 function phoneGraphFiles(): Set<string> | null {
@@ -107,6 +116,7 @@ export default defineConfig({
               const url = e.url.replace(/^\//, '');
               if (PHONE_SHELL.has(url)) return true;
               if (!graph) return false; // 매니페스트 실패 → 옛 최소 집합으로 안전하게 축소
+              if (PHONE_PRECACHE_SKIP.test(url)) return false;
               return graph.has(url) || PHONE_EXTRA.test(url);
             });
             const warnings = graph ? [] : ['[pwa] dist/.vite/manifest.json 을 못 읽어 폰 셸만 precache 했습니다.'];

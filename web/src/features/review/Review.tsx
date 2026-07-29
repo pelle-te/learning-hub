@@ -30,7 +30,7 @@ import { rootCauseRollup } from '@/lib/knowledge';
 import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TOAST } from '@/lib/promote';
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing, useKnowledge } from '@/store/queries';
-import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO } from '@/lib/utils';
+import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO, hLabel } from '@/lib/utils';
 import { itemById, openVaultSearch } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
@@ -59,7 +59,7 @@ const SIDECOL =
   'min-w-0 overflow-y-auto border-l border-line2 p-5 [scrollbar-width:thin] max-wide:border-t max-wide:border-l-0';
 const HINT = 'mb-4 text-xs leading-normal text-mut';
 const SIG_CHART =
-  "relative mb-3 rounded-lg border border-line bg-[image:var(--bg-sig-chart)] px-5 py-4 shadow-card animate-[enter-rise_0.46s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-[''] motion-reduce:animate-none";
+  'relative mb-3 rounded-lg border border-line bg-[image:var(--bg-sig-chart)] px-5 py-4 shadow-card animate-[enter-rise_0.46s_var(--ease)_both] ds-hairline motion-reduce:animate-none';
 const SIG_HEAD = 'mb-2 flex items-baseline justify-between';
 const SIG_TITLE = 'text-xs font-extrabold tracking-caps text-mut uppercase';
 const SIG_RATE = 'text-2xl font-black tracking-tight text-acc tabular-nums [text-shadow:var(--sig-rate-glow)]';
@@ -178,7 +178,7 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
           {byDay.map((x) => {
             const ph = Math.round((x.pm / maxRef) * 70);
             const dh = Math.round((x.dm / maxRef) * 70);
-            const paLab = `${DOW_MON[x.k]} ${fmtShort(parseISO(x.ds))} · 계획 ${(x.pm / 60).toFixed(1)}h / 완료 ${(x.dm / 60).toFixed(1)}h`;
+            const paLab = `${DOW_MON[x.k]} ${fmtShort(parseISO(x.ds))} · 계획 ${hLabel(x.pm)} / 완료 ${hLabel(x.dm)}`;
             // 인덱스 기반 소량 stagger — 막대가 요일 순서대로 밑에서 차오른다(표현만, 데이터 불변).
             return (
               <div key={x.k} className={PA_COL} data-tip={paLab} role="img" aria-label={paLab}>

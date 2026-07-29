@@ -1,8 +1,19 @@
 import { test, expect } from '@playwright/test';
+import { boot } from './_fixtures';
 
 /* 스모크 — 실제 빌드물(dist)에서 셸·나브·라우팅·팔레트·폴백이 동작하는지(베이스라인 불필요). */
 
 test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', async ({ page }) => {
+  /* ⚠⚠ **시드가 없으면 `/today` 는 온보딩 화면이다**(H14 · 2026-07-26). `setupComplete(items)`
+     가 거짓이면 `Today.tsx` 가 `TodaySignature` 를 **아예 렌더하지 않는다** — 즉 아래 단언의
+     대상이 존재하지 않는다.
+     이 테스트는 그 변경 이후로 계속 실패하고 있었다: 2026-07-26 감사가 "today 계열 테스트 4건이
+     콜드스타트 상태에서 대시보드를 검사하고 있었다"를 발견해 시드를 심었는데, **`smoke` 는 그
+     목록에 없었다**(다섯 번째였다). 2026-07-29 에 다른 작업 중 드러났고, 내 변경 이전 커밋을
+     빌드해 재현하는 것으로 **선재 결함임을 확인**했다.
+     ⚠ 아래 두 테스트는 시드를 **일부러 안 준다** — 각각 '신규 부팅 기본 테마'와 콜드 게이트
+       화면이 관심사라, 여기 시드를 공유로 올리면 그 둘이 검사 대상을 잃는다. */
+  await boot(page, 'dark');
   await page.goto('/today');
   await expect(page.getByLabel('오늘 대시보드')).toBeVisible();
 

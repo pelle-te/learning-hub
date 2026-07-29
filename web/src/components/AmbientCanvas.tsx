@@ -39,14 +39,33 @@ void main(){
   float n1 = fbm(p * 1.15 + vec2(t, t * 0.6));
   float n2 = fbm(p * 1.55 + vec2(-t * 0.7, t * 0.45) + 5.3);
   float n3 = fbm(p * 0.95 + vec2(t * 0.5, -t * 0.55) + 12.7);
-  vec3 glow = u_c1 * smoothstep(0.45, 0.95, n1) * 0.42
-            + u_c2 * smoothstep(0.50, 0.97, n2) * 0.34
-            + u_c3 * smoothstep(0.45, 0.92, n3) * 0.34;
+  float w1 = smoothstep(0.45, 0.95, n1) * 0.42;
+  float w2 = smoothstep(0.50, 0.97, n2) * 0.34;
+  float w3 = smoothstep(0.45, 0.92, n3) * 0.34;
+  vec3 glow = u_c1 * w1 + u_c2 * w2 + u_c3 * w3;
+  float wsum = w1 + w2 + w3;
   // 세로(모바일) 화면 감쇠 — 좁은 뷰포트는 노이즈의 좁은 슬라이스만 보게 돼 글로우장이 겹쳐
   // 가산 블로우아웃(헤더가 하얗게 타버림). 가로(aspect>=1.15)는 1.0 그대로 = 데스크톱 픽셀 불변.
   float aspect = u_res.x / u_res.y;
-  glow *= mix(0.30, 1.0, smoothstep(0.75, 1.15, aspect));
-  gl_FragColor = vec4(u_bg + glow, 1.0);
+  float att = mix(0.30, 1.0, smoothstep(0.75, 1.15, aspect));
+  glow *= att; wsum *= att;
+  /* 가산 합성은 밝은 캔버스에서 색을 지운다(라이트 테마).
+     u_bg + glow 는 딥블랙(약 0.02)에서는 정확히 원하는 것 — 어둠 위에 빛을 더한다. 그런데
+     라이트의 --bg 는 #fafbfc(약 0.98)라 어느 채널이든 곧장 1.0 으로 클램프되고, 남는 것은
+     색상(hue)이 사라진 흰 반점이다(전이 밴드에선 라임의 G 만 살아 옅은 올리브 캐스트가 뜬다).
+     즉 원칙 1(단일 네온)이 라이트에서 무채색으로 붕괴해 있었다.
+     tokens.css 는 이걸 이미 알고 있었다 — 라이트 블록이 --acc-soft·--glow 를 크게 눌러 두고
+     "흰 패널 위 오로라가 올리브빛 얼룩으로 번지지 않게" 라 적었다. 그런데 셰이더는 그 파생을
+     안 쓰고 생 --acc 를 읽는 유일한 소비처라 그 방어를 통째로 비껴갔다.
+     → 밝은 배경에서는 가산이 아니라 혼합(mix)으로 — 배경을 색 쪽으로 당기면 hue 가 산다.
+     분기하는 것이 요점이다: 가산은 어두운 캔버스에선 옳다. 다크까지 혼합으로 바꾸면 결과가
+     -u_bg*wsum 만큼 미세하게 달라져 다크 스냅샷 44장을 이유 없이 태운다. 고칠 것은 밝은
+     배경이지 합성 방식 자체가 아니다. 판정은 배경 휘도 하나로 한다(테마 유니폼을 새로 넘기지
+     않는다 — 이미 있는 값으로 답할 수 있으면 새 입력을 만들지 않는다). */
+  vec3 tint = wsum > 0.0001 ? glow / wsum : u_bg;
+  float lum = dot(u_bg, vec3(0.2126, 0.7152, 0.0722));
+  vec3 lit = mix(u_bg, tint, clamp(wsum, 0.0, 1.0));
+  gl_FragColor = vec4(mix(u_bg + glow, lit, step(0.5, lum)), 1.0);
 }`;
 
 function hexToRgb(s: string): [number, number, number] | null {
@@ -152,7 +171,7 @@ export default function AmbientCanvas() {
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
-    let last = 0;
+    let timer = 0; // 12fps 예약 핸들 — RAF 콜백을 주사율만큼 깨우지 않기 위한 짝(아래 draw).
     // 12fps 캡 — 드리프트가 극도로 느려(t*0.025) 24fps와 시각적으로 무구분(스냅샷은 단일 프레임이라
     // 불변). 앱 최대 상시 비용(풀스크린 프래그먼트 셰이더)을 그대로 절반으로 낮춘다.
     const FRAME = 1000 / 12;
@@ -164,12 +183,17 @@ export default function AmbientCanvas() {
       document.hidden ||
       !document.hasFocus() ||
       document.documentElement.getAttribute('data-fx') === 'lite';
+    /* ⚠ **다음 프레임을 `setTimeout` 으로 예약한다.** 예전엔 맨 앞에서 무조건 `requestAnimationFrame`
+       을 걸고 그 뒤 `ms - last < FRAME` 으로 버렸다 — 그리기는 12회/초인데 **깨어나기는 디스플레이
+       주사율만큼**(60~144회/초)이었다. 콜백 자체는 μs 급이라 체감은 없지만, 앱이 포커스를 쥔 내내
+       도는 유일한 상시 루프라 유휴 전력에서는 공짜가 아니다.
+       ⚠ 정지 프레임은 불변이다(그리는 시점·내용이 그대로) → 스냅샷 영향 0. */
     const draw = (ms: number) => {
-      raf = requestAnimationFrame(draw);
-      if (ms - last < FRAME) return;
-      last = ms;
       gl.uniform1f(uTime, ms / 1000);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      timer = window.setTimeout(() => {
+        raf = requestAnimationFrame(draw);
+      }, FRAME);
     };
     const drawOnce = () => {
       gl.uniform1f(uTime, 0);
@@ -177,11 +201,11 @@ export default function AmbientCanvas() {
     };
     const start = () => {
       cancelAnimationFrame(raf);
+      clearTimeout(timer);
       if (paused()) {
         drawOnce();
         return;
       }
-      last = 0;
       raf = requestAnimationFrame(draw);
     };
 
@@ -210,6 +234,7 @@ export default function AmbientCanvas() {
 
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(timer);
       window.removeEventListener('resize', onResize);
       document.removeEventListener('visibilitychange', start);
       window.removeEventListener('focus', start);

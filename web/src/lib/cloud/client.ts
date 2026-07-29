@@ -23,6 +23,7 @@ import { execDb, isSqlitePrimary, selectDb } from '../db/sqlite';
 import { isTauri } from '../isTauri';
 import { PermanentPushError, type CloudTransport } from './push';
 import { PULL_MARK_KEY, WATERMARK_KEY } from './outbox';
+// ⚠ 지연 import 로 바꾸지 말 것 — 근거는 `push.ts` 의 같은 import 위 주석(실측 0.3KB).
 import { OutboxBatchSchema } from './schema';
 import type { OutboxBatch } from './contract';
 

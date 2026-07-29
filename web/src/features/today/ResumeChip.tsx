@@ -14,7 +14,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
-import { latestResume, resumeDevice, resumeLabel, RESUME_ROUTE } from '@/lib/resume';
+import { latestResume, resumeDevice, resumeLabel, resumeIndex, RESUME_ROUTE, type ResumeNav } from '@/lib/resume';
 
 const CHIP =
   'inline-flex items-center gap-2 rounded-chip border! border-line-acc-pill! bg-tint-acc-9! px-3! py-1.5! text-sm! leading-[normal] font-bold! text-ink! hover:bg-tint-acc-14! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
@@ -25,13 +25,16 @@ export default function ResumeChip() {
   const [now] = useState(() => Date.now());
   const hit = latestResume(state, resumeDevice(), now);
   if (!hit) return null;
+  /* 진행 인덱스를 **내비 state 로 실어 보낸다** — 착지 화면이 커서를 스스로 읽으면 레일·⌘K 로
+     그냥 연 사람까지 7번째 카드에서 시작한다. 이어하기는 누른 사람의 의도다.
+     ⚠ 이 칩이 `(7/12)` 를 약속하는 동안 러너는 언제나 0 에서 열렸다 — 이 기능이 막으려던
+     중복 학습을 기능이 보장하던 자리다. */
+  const go = (): void => {
+    const at = resumeIndex(hit.cur);
+    navigate(RESUME_ROUTE[hit.cur.kind], at === null ? undefined : { state: { resumeAt: at } satisfies ResumeNav });
+  };
   return (
-    <button
-      type="button"
-      className={CHIP}
-      onClick={() => navigate(RESUME_ROUTE[hit.cur.kind])}
-      title="다른 기기에서 하던 것을 이어서"
-    >
+    <button type="button" className={CHIP} onClick={go} title="다른 기기에서 하던 것을 이어서">
       <span aria-hidden="true">↪</span>
       {resumeLabel(hit.cur)}
     </button>

@@ -3,7 +3,7 @@
    그래서 이 카드는 '읽는' 물건이고, 편집은 전부 시트가 소유한다.
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
 import { memo, type CSSProperties } from 'react';
-import { dayDiff, ddayInfo } from '@/lib/utils';
+import { dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -173,8 +173,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
         {allocTone && (
           <div className="flex">
             <Pill tiny tone={allocTone}>
-              이번 주 {Number.isInteger(allocMin! / 60) ? allocMin! / 60 : (allocMin! / 60).toFixed(1)}h /{' '}
-              {item.weeklyHours}h
+              이번 주 {hLabel(allocMin!)} / {item.weeklyHours}h
             </Pill>
           </div>
         )}

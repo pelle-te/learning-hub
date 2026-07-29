@@ -30,8 +30,6 @@ const StatsDetail = lazy(() => import('./StatsDetail'));
    ds.* 공유 클래스·런타임 색 주입(과목 색 style)·전역 요소(h2)는 그대로 두고 전역을 이기는 지점만 `!`.
    히어로/시그니처 그래디언트·상단 헤어라인·페이드업 키프레임·필터/글로우는 tokens.css/tw.css 에 이름 주고
    참조한다(§14-3). 규약은 §15 + tokenBridge.css 머리주석이 SSOT. `Stats.module.css` 삭제. */
-const HAIR =
-  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
 
 const S = {
   // 셸 + 4컬럼 그리드
@@ -49,7 +47,7 @@ const S = {
   // 2 — 지표 컬럼
   metrics:
     'flex min-w-0 flex-col justify-center gap-3.5 border-r border-line2 p-5.5 max-wide:border-r-0 max-wide:border-b max-wide:border-line2',
-  hero: `relative flex flex-col items-center gap-3 rounded-lg border border-line bg-[image:var(--bg-hero-stats)] px-4.5 pt-5.5 pb-5 shadow-hero animate-[enter-rise_0.46s_var(--ease)_both] ${HAIR} motion-reduce:animate-none max-wide:flex-row max-wide:justify-center max-wide:gap-5 max-narrow:flex-col`,
+  hero: `relative flex flex-col items-center gap-3 rounded-lg border border-line bg-[image:var(--bg-hero-stats)] px-4.5 pt-5.5 pb-5 shadow-hero animate-[enter-rise_0.46s_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-row max-wide:justify-center max-wide:gap-5 max-narrow:flex-col`,
   heroMeta: 'flex flex-col items-center gap-0.5 text-center',
   heroLab: 'text-sm leading-[1.6] font-bold text-txt',
   heroSub: 'text-xs leading-[1.6] text-mut tabular-nums',
@@ -68,7 +66,7 @@ const S = {
   sigHead: 'flex items-baseline justify-between',
   sigTitle: 'text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
   sigMeta: 'text-xs leading-[1.6] text-mut tabular-nums',
-  sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 shadow-card animate-[enter-rise_0.46s_var(--ease)_0.06s_both] ${HAIR} motion-reduce:animate-none`,
+  sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 shadow-card animate-[enter-rise_0.46s_var(--ease)_0.06s_both] ds-hairline motion-reduce:animate-none`,
   verdicts: 'flex flex-col gap-3 border-t border-line2 pt-3.5 max-wide:mt-3.5',
   verdict: 'flex items-start gap-3',
   vIcon: 'min-w-16 flex-none pt-px text-md font-extrabold',

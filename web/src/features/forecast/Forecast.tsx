@@ -28,7 +28,9 @@ import { useRuntime } from '@/store/useRuntime';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { dueForecast, pullForwardCandidates, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
-import { totalDue } from '@/lib/anki';
+import { addOrMergeBlock } from '@/lib/dayPlans';
+import { ui } from '@/shell';
+import { totalDue, ankiFreshness } from '@/lib/anki';
 import { todayISO, fmtShort, reviewBlockMin, DOW } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
@@ -53,6 +55,9 @@ const OVER_STRIP =
 const BAR_MAX = 200;
 
 const short = (ds: string): string => fmtShort(new Date(ds + 'T00:00:00'));
+/** 앞당길 후보 칩 — 텍스트였던 것이 버튼이 됐다(A10). 조밀한 스트립 안이라 최소 높이만 잡는다. */
+const PULL_CHIP =
+  'cursor-pointer rounded-full border! border-line! bg-none! px-2! py-0.5! text-2xs! text-mut! enabled:hover:border-acc! enabled:hover:text-txt!';
 
 function DayColumn({ d, axisMax }: { d: ForecastDay; axisMax: number }) {
   const weekend = d.wd === 0 || d.wd === 6;
@@ -110,11 +115,13 @@ function DayColumn({ d, axisMax }: { d: ForecastDay; axisMax: number }) {
 
 export default function Forecast() {
   const state = useApp((s) => s.state);
+  const mutate = useApp((s) => s.mutate);
   const res = useSchedule();
   const nav = useNavigate();
   const today = todayISO(state);
   const ankiLive = useRuntime((s) => s.cache._ankiLive);
   const ankiDue = ankiLive?.decks ? totalDue(ankiLive.decks) : null;
+  const ankiFresh = ankiFreshness(ankiLive, today);
 
   const forecast = useMemo(() => dueForecast(state, res.days || [], today), [state, res.days, today]);
 
@@ -142,6 +149,33 @@ export default function Forecast() {
     return at ? short(at.ds) : '오늘';
   };
 
+  /* ⚠ **후보를 실제로 꽂는다.** 종전엔 이 줄들이 순수 텍스트였다 — 가용 초과를 알려주고
+     해법(어느 챕터를 언제로)까지 계산해 놓고, 옮기는 일은 사용자가 계획 탭에 가서 손으로 했다.
+     배관만 없었다: `dayPlans.addOrMergeBlock` 은 같은 `sid|type` 병합(완료 키 충돌 방지)까지
+     설계돼 있는데 **소비처가 0곳**이었다(테스트에만 존재).
+     ⚠ 단위·분은 새로 짓지 않는다 — `reviewBlockMin(moduleLen)` 은 예보 막대가 쓰는 그 값이다
+       (임의 계수 0 · `spacedReview` 가 스스로 못박은 규율).
+     ⚠ **부작용을 말한다**: 목적지 날은 `ensureManual` 로 수동 편집 모드가 된다. 조용히
+       바꾸면 다음에 그 날 자동 배치가 안 도는 것이 원인 불명의 결함으로 보인다. */
+  const pullTo = (p: (typeof pull)[number]): void => {
+    const at = p.toOffset == null ? null : forecast.find((f) => f.offset === p.toOffset);
+    const ds = at ? at.ds : today;
+    mutate((st) => {
+      addOrMergeBlock(st, res, ds, {
+        sid: p.chapter.sid,
+        type: 'rev',
+        name: p.chapter.subject,
+        min: revMin,
+        chapters: [p.chapter.chapter],
+      });
+    });
+    ui.toast(
+      `${short(ds)}에 "${p.chapter.chapter}" 복습 블록을 넣었어요 — 그날은 수동 편집 모드가 됩니다.`,
+      'ok',
+      6000,
+    );
+  };
+
   // 예보에 등장하는 과목(색 범례) — 첫 등장 순, 중복 제거.
   const legend = useMemo(() => {
     const seen = new Map<string, { subject: string; color?: string }>();
@@ -151,17 +185,23 @@ export default function Forecast() {
 
   usePageChromeEffect(
     () => ({
+      /* N-15 `primary` — 예보의 결론은 "앞으로 얼마나 오나" 하나다(막대는 그 분포를 그린다).
+         ⚠ **0이면 안 그린다.** 44px 짜리 `0개` 는 빈 예보 화면에서 가장 큰 요소가 되는데,
+         그때 그 화면이 이미 "다가오는 복습 파도가 아직 없어요" 라고 말하고 있다 — 같은 0을 두 번,
+         그것도 제일 크게 외치는 꼴이다(N-13 이 레일 상태 슬롯에서 못박은 규율과 같다:
+         매일 0을 외치면 신호가 죽는다). */
+      primary: total > 0 ? { value: String(total), unit: '개', label: `앞 ${FORECAST_HORIZON}일 복습` } : null,
       readouts: [
-        { label: `앞 ${FORECAST_HORIZON}일 복습`, value: `${total}개`, accent: total > 0 },
         { label: '가장 몰리는 날', value: peak ? `+${peak.offset}일 · ${peak.blocks}블록` : '—' },
         // 가용 초과가 있으면 그것이 이 탭의 결론이다 — 없을 때만 Anki 컨텍스트가 그 자리를 쓴다.
         overDays.length
           ? { label: '가용 초과', value: `${overDays.length}일`, accent: true }
-          : { label: 'Anki 오늘 due', value: ankiDue == null ? '—' : ankiDue },
+          : // ⚠ 낡은 캐시를 '오늘 due' 라 부르지 않는다 — Anki due 는 날이 바뀌면 통째로 갈린다.
+            { label: ankiFresh?.stale ? 'Anki due · 옛 값' : 'Anki 오늘 due', value: ankiDue == null ? '—' : ankiDue },
       ],
       action: { label: '복습 실행', onClick: () => nav('/review-run') },
     }),
-    [total, peak?.offset, peak?.blocks, overDays.length, ankiDue],
+    [total, peak?.offset, peak?.blocks, overDays.length, ankiDue, ankiFresh?.stale],
   );
 
   if (total === 0) {
@@ -210,13 +250,18 @@ export default function Forecast() {
             {overDays.length > 1 && ` · 외 ${overDays.length - 1}일 초과`}
           </span>
           {pull.length > 0 && (
-            <span className="ds-tiny text-mut">
-              앞당길 후보 —{' '}
-              {pull.map((p, i) => (
-                <span key={p.chapter.sid + '|' + p.chapter.chapter}>
-                  {i > 0 && ' · '}
+            <span className="ds-tiny flex flex-wrap items-center gap-1.5 text-mut">
+              앞당길 후보 —
+              {pull.map((p) => (
+                <button
+                  key={p.chapter.sid + '|' + p.chapter.chapter}
+                  type="button"
+                  className={PULL_CHIP}
+                  onClick={() => pullTo(p)}
+                  title={`${toLabel(p.toOffset)}에 ${revMin}분 복습 블록으로 넣습니다(그날은 수동 편집 모드가 됩니다)`}
+                >
                   {p.chapter.subject} {p.chapter.chapter} → {toLabel(p.toOffset)}
-                </span>
+                </button>
               ))}
             </span>
           )}

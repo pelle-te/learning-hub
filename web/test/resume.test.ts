@@ -2,7 +2,7 @@
    resume.test.ts — 이어하기 커서(N-7)의 판정 규칙. 전부 순수 함수라 여기서 전량 덮인다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { latestResume, putResume, clearResume, resumeLabel, RESUME_TTL_MIN } from '@/lib/resume';
+import { latestResume, putResume, clearResume, resumeLabel, resumeIndex, RESUME_TTL_MIN } from '@/lib/resume';
 import type { AppState } from '@/lib/types';
 
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
@@ -77,5 +77,29 @@ describe('resume — 문구', () => {
       '복습 이어하기 — 복습 세션 (6/12)',
     );
     expect(resumeLabel({ kind: 'focus', label: '전자기학', at: NOW })).toBe('집중 이어하기 — 전자기학');
+  });
+});
+
+/* 화면이 약속한 진행과 러너가 실제로 착지하는 자리를 잇는 파서. 이 둘이 갈려 있던 동안
+   칩은 `(7/12)` 라 말하고 러너는 언제나 1장부터 열렸다 — 이 기능이 막으려던 중복 학습을
+   기능이 보장하던 자리다. */
+describe('resume — 착지 인덱스', () => {
+  const cur = (progress?: string) => ({ kind: 'review' as const, label: '복습 세션', at: NOW, progress });
+
+  it('쓰는 쪽 규약과 맞물린다 — `idx+2`(다음 카드의 1-based) 를 0-based 로 되돌린다', () => {
+    // ReviewRun.advance 가 idx=5 에서 쓴 값이 "7/12" 다 → 다시 열면 0-based 6 번 카드.
+    expect(resumeIndex(cur('7/12'))).toBe(6);
+    expect(resumeIndex(cur('1/12'))).toBe(0);
+  });
+
+  it('진행 표기가 없거나 형태가 아니면 null — 모르면 처음부터가 안전한 기본값이다', () => {
+    expect(resumeIndex(cur())).toBeNull();
+    expect(resumeIndex(cur('복습 중'))).toBeNull();
+    expect(resumeIndex(cur('7'))).toBeNull();
+    expect(resumeIndex(cur('0/12'))).toBeNull(); // 1-based 라 0 은 나올 수 없는 값
+  });
+
+  it('큐 길이는 보지 않는다 — 클램프는 실제 큐를 쥔 호출부의 몫', () => {
+    expect(resumeIndex(cur('99/12'))).toBe(98);
   });
 });

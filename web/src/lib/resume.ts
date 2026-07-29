@@ -111,3 +111,34 @@ export function resumeLabel(cur: ResumeCursor): string {
   const what = cur.kind === 'review' ? '복습' : cur.kind === 'focus' ? '집중' : '기록';
   return cur.progress ? `${what} 이어하기 — ${cur.label} (${cur.progress})` : `${what} 이어하기 — ${cur.label}`;
 }
+
+/**
+ * 진행 표기(`"7/12"`)에서 **0-based 착지 인덱스**를 뽑는다. 형태가 아니면 null.
+ *
+ * ⚠ 이 함수가 없던 동안 화면은 `(7/12)` 를 **약속만 하고** 착지점은 언제나 0 이었다 — 즉 이
+ * 모듈 머리주석이 존재 이유로 든 바로 그 중복 학습("폰에서 7장 했는데 PC 에서 또 본다")을
+ * 기능이 **보장**하고 있었다. 약속과 착지를 잇는 것이 이 파서다.
+ * ⚠ 쓰는 쪽(`ReviewRun.advance`)이 넣는 값은 **다음 카드의 1-based 번호**다(`idx+2`) →
+ * 0-based 는 그것에서 1 을 뺀 값이다. 이 규약이 갈리면 카드 하나가 조용히 건너뛰어진다.
+ * ⚠ 큐 길이는 여기서 안 본다 — 기기마다 상태가 달라 길이가 다를 수 있고, 클램프는 실제
+ * 큐를 쥔 호출부의 몫이다(여기서 하면 파서가 큐를 알아야 한다).
+ */
+/**
+ * 착지 화면에 "이어하기로 왔다"를 전하는 내비게이션 state.
+ *
+ * ⚠ **커서를 착지 화면이 직접 읽으면 안 된다.** 다른 기기의 커서가 살아 있는 동안 사용자가
+ * 그냥 복습을 열면(레일·⌘K·`g` 단축키) 묻지도 않고 7번째 카드에서 시작하게 된다 — 이어하기는
+ * *누른 사람의 의도*이지 화면의 기본값이 아니다. 그래서 의도는 **진입 경로가 실어 나른다**.
+ */
+export interface ResumeNav {
+  /** 0-based 착지 인덱스. `resumeIndex()` 산출값. */
+  resumeAt: number;
+}
+
+export function resumeIndex(cur: ResumeCursor): number | null {
+  const m = /^(\d+)\s*\/\s*(\d+)$/.exec(cur.progress ?? '');
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n - 1;
+}

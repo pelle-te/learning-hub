@@ -8,7 +8,7 @@
 import { useApp } from '@/store/useApp';
 import { Card, KpiGrid, Kpi, Pill, ProgressBar, Table } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
-import { degreeStats, requirementRows, retakeCandidates } from '@/lib/degree';
+import { degreeStats, progressPct, requirementRows, retakeCandidates } from '@/lib/degree';
 
 export default function DegreeReq() {
   const d = useApp((s) => s.state.degree);
@@ -19,7 +19,7 @@ export default function DegreeReq() {
 
   const earned = stats.earned;
   const remain = Math.max(0, d.targetTotal - earned);
-  const pct = d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
+  const pct = progressPct(d);
   const unmet = rows.filter((r) => r.req && !r.met).length;
   const mustRetake = retakes.some((r) => r.mandatory);
 

@@ -20,7 +20,7 @@ import type { CbmsCode } from '@/lib/types';
 
 // fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
 const BOARD_FILL =
-  "flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! shadow-card animate-[enter-rise_0.46s_var(--ease)_both] motion-reduce:animate-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
+  'flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! shadow-card animate-[enter-rise_0.46s_var(--ease)_both] motion-reduce:animate-none ds-hairline';
 // 스트림 행 · 노드 · 종류 칩의 공유 base(상태별 색은 아래에서 조건부로 얹는다).
 const ROW =
   'relative flex min-h-7.5 items-center gap-2 border-b border-dashed border-line2 py-1.75 pl-5.5 last:border-b-0';

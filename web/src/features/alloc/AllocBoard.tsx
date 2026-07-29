@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { addDays, iso, parseISO, fmtShort, DOW_MON } from '@/lib/utils';
+import { addDays, iso, parseISO, fmtShort, DOW_MON, hNum } from '@/lib/utils';
 import {
   allocView,
   changedAllocCells,
@@ -126,12 +126,6 @@ const BADGE_TONE: Record<'done' | 'ok' | 'under' | 'over' | 'none', string> = {
   over: 'font-extrabold text-bad',
   none: 'font-extrabold',
 };
-
-/** 분 → 시간 표시(정수는 소수 없이, 반시간은 1자리). 셀·합계 공통. */
-function toH(min: number): string {
-  const h = min / 60;
-  return Number.isInteger(h) ? String(h) : h.toFixed(1);
-}
 
 /** 셀 채움 농도(0.16~0.5) — 배분 분량에 비례. 2.5h(150분)에서 포화.
  *  작은 배분도 즉시 보이게 하한 0.16에서 출발, 무거운 날은 진하게 → 주(週) 부하를 색농도로 읽는다. */
@@ -490,7 +484,7 @@ export function AllocBoard({
                         className={S.cellInput}
                         min={0}
                         step={0.5}
-                        value={cellMin ? +toH(cellMin) : 0}
+                        value={cellMin ? +hNum(cellMin) : 0}
                         emptyValue={0} // 칸을 비우는 건 "이 요일엔 배분 안 함"이라는 뜻
                         // 0 셀은 '·'로 채우지 않는다 — 전 칸에 깔린 점이 소음이 돼 "읽을 것 없는 표"로 보였다.
                         // 빈 칸은 비어 보이고(바탕 틴트 없음 · 캘린더 v5 사상), 값 있는 칸만 채움+색띠로 주인공이 된다.
@@ -513,14 +507,14 @@ export function AllocBoard({
                       aria-hidden="true"
                     />
                   )}
-                  <b className={S.budgetB}>{toH(rowMin)}</b>
-                  {budgetMin > 0 && <span className={S.budgetOf}> / {toH(budgetMin)}h</span>}
+                  <b className={S.budgetB}>{hNum(rowMin)}</b>
+                  {budgetMin > 0 && <span className={S.budgetOf}> / {hNum(budgetMin)}h</span>}
                   <span className={`${S.badge} ${BADGE_TONE[state_]}`}>
                     {/* 챕터를 다 끝낸 과목은 중립 라벨(배분 충족 초록 ✓와 구분 — 오독 방지). */}
                     {state_ === 'done' && '챕터 완료'}
                     {state_ === 'ok' && '충족 ✓'}
-                    {state_ === 'under' && `${toH(-diff)}h 남음`}
-                    {state_ === 'over' && `+${toH(diff)}h`}
+                    {state_ === 'under' && `${hNum(-diff)}h 남음`}
+                    {state_ === 'over' && `+${hNum(diff)}h`}
                     {/* 주당 시간이 없는 과목 — 배분해도 엔진이 0블록. 과목 카드와 같은 문구. */}
                     {state_ === 'none' && '시간 없음'}
                   </span>
@@ -544,7 +538,7 @@ export function AllocBoard({
                   key={c.i}
                   className={`${S.footCell} ${footBg}`}
                   role="cell"
-                  title={`${c.label} 배분 ${toH(colMins[i]!)}h / 가용 ${toH(cap)}h`}
+                  title={`${c.label} 배분 ${hNum(colMins[i]!)}h / 가용 ${hNum(cap)}h`}
                 >
                   {/* UX-A1 — 열은 과목이 없으니 액센트로. "어느 요일이 빡빡한가"가 7개 분수를
                       비교하지 않고도 읽힌다(가용 0인 날은 분모가 없어 막대도 없다). */}
@@ -555,8 +549,8 @@ export function AllocBoard({
                       aria-hidden="true"
                     />
                   )}
-                  <b className={`${S.footNum} ${over ? 'text-bad' : 'text-txt'}`}>{toH(colMins[i]!)}</b>
-                  <span className={S.footCap}>/{toH(cap)}</span>
+                  <b className={`${S.footNum} ${over ? 'text-bad' : 'text-txt'}`}>{hNum(colMins[i]!)}</b>
+                  <span className={S.footCap}>/{hNum(cap)}</span>
                 </div>
               );
             })}

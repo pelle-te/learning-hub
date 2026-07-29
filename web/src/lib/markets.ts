@@ -5,6 +5,7 @@
    순수 계산 + fetch만 — 앱 상태(useApp)에 복제하지 않는다(설계도 §1-B, api.ts와 동일 원칙).
 ============================================================ */
 import { getArtifact } from './api';
+import { agoLabel } from './utils';
 
 /** 지수 1종(증시_수집.py의 JSON과 1:1). 등락은 마지막 종가 vs 그 전 종가. */
 export interface IndexQuote {
@@ -52,17 +53,8 @@ export function fmtPublished(published: string, now: number = Date.now()): strin
   if (!s) return '';
   const t = Date.parse(s);
   if (Number.isNaN(t)) return s; // RSS의 비표준 날짜 등 — 원문 노출이 무표기보다 낫다.
-  const mins = Math.round((now - t) / 60000);
-  if (mins < 0) return '방금'; // 미래 타임스탬프(시계 오차)는 방금으로.
-  if (mins < 1) return '방금';
-  if (mins < 60) return `${mins}분 전`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}시간 전`;
-  const days = Math.round(hrs / 24);
-  if (days === 1) return '어제';
-  if (days < 7) return `${days}일 전`;
-  const d = new Date(t);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  // 상대표기 규칙 자체는 `utils.agoLabel` 이 소유한다(⋯ 메뉴의 되돌리기가 두 번째 소비처).
+  return agoLabel(t, now);
 }
 
 /** 지수 집계(리드아웃용) — 상승/하락/보합 개수. changePct 부호로 분류. */

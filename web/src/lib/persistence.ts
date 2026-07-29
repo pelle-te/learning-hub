@@ -14,6 +14,11 @@ import type { AppState, CompletionEntry, KV, RoutineBlock, SessionType } from '.
 export const KEY = 'study_planner_v3'; // localStorage 키 (모델 변경으로 v3)
 export const SCHEMA_VERSION = 3;
 export const BACKUP_KEY = KEY + '_backup'; // 초기화/가져오기 직전 백업(되돌리기용)
+/* 그 백업을 **언제** 찍었나(epoch ms).
+   ⚠ 백업 JSON 안에 넣지 않고 **별도 키**인 것이 요점이다 — 안에 넣으면 저장 형태가 바뀌어
+   `parseState` 복원 경로를 건드리고, 그 경로는 사용자의 마지막 안전망이다. 시각은 부가정보라
+   없어도 복원은 되어야 하고(옛 백업엔 실제로 없다), 그 비대칭을 키 분리가 그대로 표현한다. */
+export const BACKUP_AT_KEY = BACKUP_KEY + '_at';
 export const CORRUPT_KEY = KEY + '_corrupt'; // 손상 원본 보존(영구손실 방지 · P1-7)
 /** 런타임 캐시 — 기기-로컬 산출물이라 *파일 내보내기(백업) JSON*에서 제외(F-01·F-10). */
 export const RUNTIME_CACHE_KEYS = ['_vaultScan', '_ankiFile', '_ankiLive', '_icsExport', '_knowState'] as const;

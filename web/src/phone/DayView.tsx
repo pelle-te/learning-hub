@@ -10,15 +10,27 @@
    순수 함수라 그대로 온다. 이원화되는 것은 픽셀이지 규칙이 아니다.
 ============================================================ */
 import { useApp } from '@/store/useApp';
+import { useSchedule } from '@/store/selectors';
 import { addTask, removeTask, tasksForDay, toggleTaskDone } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
+import { isDone } from '@/lib/persistence';
 import { colorForId, parseISO, fmt, toHM } from '@/lib/utils';
 import { useMemo, useState } from 'react';
 
 export default function DayView({ ds }: { ds: string }): React.JSX.Element {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
+  const toggleDone = useApp((s) => s.toggleDone);
+  const res = useSchedule();
   const [draft, setDraft] = useState('');
+
+  /* ⚠⚠ **폰에는 학습 블록 완료 체크가 통째로 없었다**(B1 · `src/phone/**` 의 `toggleDone`
+     호출부 0건). 홈은 "새 학습 3블록 · 4.5h" 를 보여 주면서 그중 몇 개를 했는지는 **받지
+     않았다** — 그런데 이 앱의 루프(스트릭·완료율·`scheduler/priority.adherenceFactor`)는 전부
+     이 체크가 먹인다. 폰의 전제가 "책상 밖"인데 책상 밖에서 한 공부는 PC 앞에 앉을 때까지
+     기록될 수 없었고, 그때쯤엔 무엇을 했는지가 기억 재구성이 된다.
+     ⚠ 규칙은 한 줄도 새로 안 짠다 — `useApp.toggleDone` 그대로다(§9-4 "화면은 따로, 규칙은 lib"). */
+  const blocks = useMemo(() => res.days.find((d) => d.ds === ds)?.items ?? [], [res.days, ds]);
 
   /* ⚠ `draft`(할 일 추가 입력)가 같은 컴포넌트에 있어, memo 가 없으면 **타이핑 매 키마다**
      `eventsForDay`·`tasksForDay` 가 state 배열을 통째로 재순회한다. 데스크톱은 이 부류를
@@ -57,6 +69,33 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
               <span className="truncate text-sm text-txt">{ev.title}</span>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {blocks.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-2xs tracking-wide text-mut uppercase">학습</h3>
+          {blocks.map((it) => {
+            const done = isDone(state, ds, it.sid, it.type);
+            return (
+              <label
+                key={`${it.sid}|${it.type}`}
+                className="flex min-h-11 items-center gap-3 rounded-md border border-line bg-panel px-3 py-2"
+                style={{ borderLeft: `3px solid ${colorForId(it.sid)}`, paddingLeft: 13 }}
+              >
+                <input
+                  type="checkbox"
+                  checked={done}
+                  onChange={() => toggleDone(ds, it.sid, it.type, it.min || 0, !done)}
+                  className="size-5 shrink-0 accent-acc"
+                />
+                <span className={`flex-1 truncate text-sm ${done ? 'text-mut line-through' : 'text-txt'}`}>
+                  {it.name}
+                </span>
+                <span className="shrink-0 text-xs text-mut tabular-nums">{Math.round((it.min || 0) / 6) / 10}h</span>
+              </label>
+            );
+          })}
         </div>
       ) : null}
 

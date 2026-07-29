@@ -30,7 +30,10 @@ const NAV_BADGE_TAB = 'journal';
    수식자가 두 변형 위에 얹힌다(원본 미디어쿼리가 두 상태를 함께 덮던 것과 같은 구조).
    `RailSidebar.module.css` 삭제. */
 const RAIL =
-  'z-nav row-[1/-1] flex h-screen w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line2 bg-bg [view-transition-name:app-nav] max-mobile:fixed max-mobile:inset-x-0 max-mobile:top-auto max-mobile:bottom-0 max-mobile:z-[var(--z-dropdown)] max-mobile:row-auto max-mobile:h-auto max-mobile:w-auto max-mobile:flex-row max-mobile:items-center max-mobile:justify-around max-mobile:gap-0.5 max-mobile:overflow-visible max-mobile:border-r-0 max-mobile:border-t max-mobile:border-t-line max-mobile:px-2 max-mobile:pt-1.5 max-mobile:pb-[calc(6px+env(safe-area-inset-bottom,0px))]';
+  /* ⚠ `z-nav` 이었다 — `--z-nav` 는 `@theme` 에 없어 **유틸이 생성되지 않았고**, 빌드 산출
+     CSS 에 `.z-nav` 가 0건이었다(실측). 즉 데스크톱 레일이 z-index 없이 DOM 순서에만 기대는
+     상태였다. 같은 문자열의 모바일 분기가 이미 쓰는 관용구(`z-[var(--z-dropdown)]`)로 맞춘다. */
+  'z-[var(--z-nav)] row-[1/-1] flex h-screen w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line2 bg-bg [view-transition-name:app-nav] max-mobile:fixed max-mobile:inset-x-0 max-mobile:top-auto max-mobile:bottom-0 max-mobile:z-[var(--z-dropdown)] max-mobile:row-auto max-mobile:h-auto max-mobile:w-auto max-mobile:flex-row max-mobile:items-center max-mobile:justify-around max-mobile:gap-0.5 max-mobile:overflow-visible max-mobile:border-r-0 max-mobile:border-t max-mobile:border-t-line max-mobile:px-2 max-mobile:pt-1.5 max-mobile:pb-[calc(6px+env(safe-area-inset-bottom,0px))]';
 const RAIL_EXP = 'gap-0.5 px-2.5 pt-3.5 pb-3';
 const RAIL_COL = 'items-center gap-1 px-0 pt-4 pb-3.5 max-mobile:items-center';
 // 브랜드 — 접힘 시 L 칩만, 펼침 시 워드마크 동반. 모바일 바텀바에선 통째로 숨는다.

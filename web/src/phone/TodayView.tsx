@@ -15,19 +15,26 @@ import { studyStreak, isDone } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { pickFocus, type FocusEntry } from '@/lib/focusState';
-import { latestResume, resumeDevice, resumeLabel, type ResumeKind } from '@/lib/resume';
+import { latestResume, resumeDevice, resumeLabel, resumeIndex, type ResumeKind, type ResumeCursor } from '@/lib/resume';
 
 const CARD = 'rounded-lg border border-line bg-panel p-4';
 const STAT = 'flex flex-col gap-0.5 rounded-md border border-line bg-panel2 px-3 py-2.5';
 const NAV = 'min-h-12 flex-1 rounded-md text-sm font-semibold';
 
-export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => void }): React.JSX.Element {
+export default function TodayView({
+  onGo,
+}: {
+  onGo: (v: 'day' | 'review', resumeAt?: number) => void;
+}): React.JSX.Element {
   /* 이어하기 커서(N-7) — 마운트 시각 한 번으로 TTL 을 본다(6시간짜리라 초 단위 정확도 불필요).
      `kind` 는 라우트가 아니라 **의도**라 폰은 자기 뷰 이름으로 옮긴다: 복습→review, 나머지는
      오늘 하루 화면(day). 이 표 하나가 드롭된 F1(딥링크 핸드오프)을 불필요하게 만든 것이다. */
   const [nowMs] = useState(() => Date.now());
   const resume = latestResume(useApp.getState().state, resumeDevice(), nowMs);
-  const onResume = (kind: ResumeKind): void => onGo(kind === 'review' ? 'review' : 'day');
+  /* ⚠ 진행 인덱스를 함께 넘긴다 — 넘기지 않으면 칩이 `(7/12)` 를 약속해 놓고 러너가 1장부터
+     열린다. 그러면 이 기능이 막으려던 중복 학습("PC 에서 어디까지 했더라")을 기능이 보장한다. */
+  const onResume = (kind: ResumeKind, cur: ResumeCursor): void =>
+    kind === 'review' ? onGo('review', resumeIndex(cur) ?? 0) : onGo('day');
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const today = todayISO(state);
@@ -50,6 +57,8 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
   }));
   const focusPick = pickFocus(entries, 0, res.itemStat, today);
   const focus = focusPick.focus?.it || null;
+  const focusDone = focusPick.focus?.done ?? false;
+  const toggleDone = useApp((s) => s.toggleDone);
 
   const streak = studyStreak(state);
   const risk = riskSummary(state, res.days, today);
@@ -73,7 +82,7 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
       {resume && (
         <button
           type="button"
-          onClick={() => onResume(resume.cur.kind)}
+          onClick={() => onResume(resume.cur.kind, resume.cur)}
           className="flex min-h-11 w-full items-center gap-2 rounded-md border border-line-acc-pill bg-tint-acc px-3 text-left text-sm font-semibold text-ink"
         >
           <span aria-hidden="true">↪</span>
@@ -92,7 +101,22 @@ export default function TodayView({ onGo }: { onGo: (v: 'day' | 'review') => voi
         </div>
         {focus ? (
           <>
-            <div className="mt-1 text-base font-bold text-txt">{focus.name}</div>
+            {/* ⚠ **끝냈다고 말할 수 있어야 한다**(B1). 종전엔 폰이 `isDone` 을 *읽기만* 하고
+                (pickFocus 입력으로 쓰고 버렸다) 완료를 **받을 창구가 없었다** — 폰의 전제가
+                "책상 밖"인데 거기서 한 공부가 기록될 길이 없었다는 뜻이다.
+                ⚠ 라벨 전체가 터치 표적이다(최소 44px) — 체크박스만 키우지 않는다. */}
+            <label className="mt-1 flex min-h-11 items-center gap-3">
+              <input
+                type="checkbox"
+                checked={focusDone}
+                onChange={() => toggleDone(today, focus.sid, focus.type, focus.min || 0, !focusDone)}
+                className="size-5 shrink-0 accent-acc"
+                aria-label={`${focus.name} 완료`}
+              />
+              <span className={`text-base font-bold ${focusDone ? 'text-mut line-through' : 'text-txt'}`}>
+                {focus.name}
+              </span>
+            </label>
             {focus.chapters && focus.chapters.length > 0 ? (
               <div className="mt-0.5 truncate text-sm text-mut">{focus.chapters.join(' · ')}</div>
             ) : null}

@@ -57,13 +57,14 @@ const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs lead
 const BRAND = 'font-bold';
 const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase';
 
-const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥' };
+const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥', mistake: '✗' };
 const CONTENT_ICON: Record<ContentHit['kind'], string> = {
   subject: '📗',
   chapter: '📚',
   book: '📖',
   backlog: '📥',
   weak: '⚠️',
+  mistake: '✗',
 };
 const CONTENT_HINT: Record<ContentHit['kind'], string> = {
   subject: '학습 항목',
@@ -71,6 +72,7 @@ const CONTENT_HINT: Record<ContentHit['kind'], string> = {
   book: '읽을거리',
   backlog: '보충',
   weak: '반복 약점',
+  mistake: '오답 메모',
 };
 
 const TYPE_LABEL: Record<NonNullable<CaptureResult['sessionType']>, string> = {

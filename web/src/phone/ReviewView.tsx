@@ -52,14 +52,22 @@ function chapterCopy(ch: ChapterReview): { badge: string; age: string; body: str
   };
 }
 
-export default function ReviewView(): React.JSX.Element {
+/**
+ * @param startAt 이어하기로 들어왔을 때의 **0-based 착지 인덱스**(N-7). 탭바로 오면 0.
+ *   ⚠ 커서를 이 화면이 직접 읽지 않는 이유는 데스크톱과 같다 — 그러면 탭바로 그냥 연 사람도
+ *   묻지 않고 중간에서 시작한다. 이어하기는 누른 사람의 의도이지 화면의 기본값이 아니다.
+ */
+export default function ReviewView({ startAt = 0 }: { startAt?: number }): React.JSX.Element {
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const today = todayISO(state);
   /* 세션 스냅샷 — 데스크톱 러너와 같은 이유(D-1). 폰은 백그라운드 pull 병합이 더 잦아
      파생 큐일 때 발밑에서 카드가 바뀔 여지가 오히려 크다. */
   const [queue, setQueue] = useState<RunItem[]>(() => buildReviewQueue(state, res.days, today));
-  const [idx, setIdx] = useState(0);
+  /* N-7 착지 — 큐 길이는 기기마다 다를 수 있으므로 클램프한다(순서는 결정론적이라 근사가
+     성립하고, 어긋나면 아래 '처음부터' 가 탈출구다). */
+  const [startedAt] = useState(() => Math.max(0, Math.min(startAt, Math.max(0, queue.length - 1))));
+  const [idx, setIdx] = useState(startedAt);
   const [gotKeys, setGotKeys] = useState<string[]>([]);
   const [revealedAt, setRevealedAt] = useState(-1);
   const revealed = revealedAt === idx;
@@ -155,6 +163,17 @@ export default function ReviewView(): React.JSX.Element {
       <p className="sr-only" role="status">
         {step} · {badge} · {subject}
       </p>
+
+      {/* N-7 착지 안내 — 건너뛴 카드가 있다는 사실을 말하지 않으면 "앱이 앞부분을 잃었다"로
+          읽히고, 탈출구가 없으면 그 추측을 확인할 방법도 없다. 첫 판정에 사라진다. */}
+      {startedAt > 0 && idx === startedAt && gotKeys.length === 0 ? (
+        <p className="m-0 flex flex-wrap items-center gap-2 text-xs text-mut">
+          다른 기기에서 {startedAt}장까지 봤어요.
+          <button type="button" onClick={restart} className="min-h-8 rounded-md border border-line px-2 text-xs">
+            처음부터
+          </button>
+        </p>
+      ) : null}
 
       {item.kind === 'retrieval' ? (
         <div className={CARD}>

@@ -16,7 +16,19 @@ import EmptyState from '@/components/EmptyState';
 import { selectFinishGains, useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
-import { iso, parseISO, addDays, dayDiff, weekLabel, fmtShort, ddayInfo, todayISO, DOW_MON } from '@/lib/utils';
+import {
+  iso,
+  parseISO,
+  addDays,
+  dayDiff,
+  weekLabel,
+  fmtShort,
+  ddayInfo,
+  todayISO,
+  DOW_MON,
+  hNum,
+  hLabel,
+} from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { useHeroPointer, useNowMin } from '@/hooks/interactions';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
@@ -195,14 +207,14 @@ export default function Schedule() {
             label: `${fmtShort(anchorDate)} 계획`,
             value: (
               <>
-                {(anchorDay.planMin / 60).toFixed(1)}
+                {hNum(anchorDay.planMin)}
                 <small className="text-base14 font-bold text-mut"> h</small>
               </>
             ),
             accent: true,
           },
           { label: '완료', value: anchorDay.planMin ? `${dayCompRate}%` : '—' },
-          { label: '가용', value: `${(anchorDay.studyMin / 60).toFixed(1)}h` },
+          { label: '가용', value: hLabel(anchorDay.studyMin) },
         ]
       : schedView === 'month'
         ? [

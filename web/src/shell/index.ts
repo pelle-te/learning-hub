@@ -67,5 +67,7 @@ export const actions = {
   toggleTheme: A.toggleTheme,
   importJSON: A.importJSON,
   undoLast: A.undoLast,
+  /** 되돌릴 백업이 있나·언제 것인가 — 메뉴가 라벨을 정하기 전에 묻는다(읽기만 한다). */
+  backupAt: A.backupAt,
   resetAll: A.resetAll,
 };

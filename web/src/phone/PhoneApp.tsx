@@ -51,6 +51,28 @@ export default function PhoneApp(): React.JSX.Element {
 
   const shift = (n: number): void => setDs((d) => iso(addDays(parseISO(d), n)));
 
+  /* 뷰를 고르는 **단일 창구**. 뷰만 바꾸는 것이 아니라 그 뷰의 **시작점**까지 정한다 —
+     시작점이 뷰 밖에 흩어져 있으면 "어디서 왔느냐"에 따라 화면이 조용히 달라진다.
+     ⚠ 홈의 '오늘 일정'은 반드시 **오늘**로 간다. `ds` 는 주·일 뷰 스와이프로 움직이는데
+       버튼이 `setView` 만 하면 마지막으로 훑던 다음 주 어느 날이 열리고, 헤더 라벨은 '일'
+       이라 날짜를 말하지 않아 본문 제목을 읽기 전엔 알아채지도 못한다.
+     ⚠ 이어하기는 **착지 인덱스**를 함께 넘긴다(N-7). 데스크톱이 내비 state 로 하는 일을
+       폰은 props 로 한다(라우터가 없다) — 값은 같고 전달 수단만 화면 문법을 따른다.
+     ⚠ 탭바로 온 복습은 언제나 0 이다. 안 그러면 한 번 이어한 뒤로는 탭을 눌러도 계속
+       중간에서 열려, 이어하기가 *의도*가 아니라 앱의 기본값이 된다. */
+  const [reviewStart, setReviewStart] = useState(0);
+  /** 탭바 — 뷰만 바꾼다(날짜 축은 사용자가 훑던 자리에 둔다). */
+  const goTab = (v: View): void => {
+    setReviewStart(0);
+    setView(v);
+  };
+  /** 홈의 다음 행동 — 날짜·시작점까지 정한다. */
+  const goFromHome = (v: 'day' | 'review', resumeAt = 0): void => {
+    if (v === 'day') setDs(today);
+    setReviewStart(v === 'review' ? resumeAt : 0);
+    setView(v);
+  };
+
   /* UX-B3 날짜 좌우 스와이프 — 지금까지 날짜 이동은 상단 ‹› 뿐이었다. 폰에서 그 두 버튼은
      화면 최상단 양 끝(엄지가 가장 못 닿는 곳)이라, 날짜를 훑는 동작이 매번 손을 고쳐 쥐게 했다.
      ⚠ 화살표는 그대로 둔다 — 스와이프는 어포던스가 숨어 있고 키보드·SR 에는 닿지 않는다.
@@ -125,7 +147,7 @@ export default function PhoneApp(): React.JSX.Element {
       {/* ⚠ 스와이프는 **본문에만** 건다(헤더·탭바 제외) — 탭바 위 손짓까지 날짜를 옮기면
           탭을 고르려다 날짜가 바뀐다. */}
       <main {...swipe} className="flex-1">
-        {view === 'today' ? <TodayView onGo={setView} /> : null}
+        {view === 'today' ? <TodayView onGo={goFromHome} /> : null}
         {view === 'day' ? <DayView ds={ds} /> : null}
         {view === 'week' ? (
           <WeekView
@@ -136,7 +158,7 @@ export default function PhoneApp(): React.JSX.Element {
             }}
           />
         ) : null}
-        {view === 'review' ? <ReviewView /> : null}
+        {view === 'review' ? <ReviewView startAt={reviewStart} /> : null}
         {view === 'reads' ? <ReadsView /> : null}
       </main>
 
@@ -155,7 +177,7 @@ export default function PhoneApp(): React.JSX.Element {
             key={v}
             type="button"
             aria-pressed={view === v}
-            onClick={() => setView(v)}
+            onClick={() => goTab(v)}
             className={`min-h-11 flex-1 rounded-md px-2 text-sm ${view === v ? 'bg-acc text-on-acc' : 'text-mut'}`}
           >
             {VIEW_LABEL[v]}

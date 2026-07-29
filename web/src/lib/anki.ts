@@ -4,6 +4,7 @@
    ② 실시간 due: AnkiConnect(localhost:8765, deckNames+getDeckStats).
    순수 fetch만 — 앱 상태에 복제 X. TanStack Query가 캐시/로딩/에러 소유(설계도 §1-B).
 ============================================================ */
+import { iso } from './utils';
 import { loadVaultIndex } from './vault';
 import { dirEntries, pickDirectory } from './fsAccess';
 import { isTauri, shellAnkiConnect, shellAnkiScan } from './tauri';
@@ -18,6 +19,10 @@ export interface AnkiDeck {
 export interface AnkiLive {
   at: string;
   decks: AnkiDeck[];
+  /** 조회한 **날짜**(로컬 ISO). `at` 은 `toLocaleString` 이라 사람은 읽어도 코드는 못 판정한다.
+   *  ⚠ optional 인 이유는 옛 저장본 때문이다 — 이 필드 이전에 `runtime` 테이블에 남은 값은
+   *  날짜를 모르고, 그때는 **모른다고 말한다**(아래 `ankiFreshness`). */
+  ds?: string;
 }
 export interface AnkiFileDeck {
   file: string;
@@ -82,7 +87,26 @@ export async function fetchAnkiLive(): Promise<AnkiLive> {
     review: d.review_count,
     total: d.total_in_deck,
   }));
-  return { at: new Date().toLocaleString('ko'), decks };
+  const now = new Date();
+  return { at: now.toLocaleString('ko'), ds: iso(now), decks };
+}
+
+/**
+ * 이 due 숫자가 **오늘 것인가**.
+ *
+ * ⚠ 이게 없던 동안 오늘 탭은 `runtime` 테이블에 남은 옛 값을 **오늘 값과 똑같이** 그렸다.
+ * Anki due 는 날이 바뀌면 통째로 갈리므로 어제 숫자는 틀린 숫자인데, 화면엔 그 사실이
+ * 어디에도 없었다 — "한눈에" 대시보드에서 가장 나쁜 오류 형태(조용하고 그럴듯하다).
+ * ⚠ 모르면 모른다고 말한다(`ds` 없는 옛 저장본) — 신선하다고 우기지 않는다.
+ */
+export function ankiFreshness(
+  live: AnkiLive | null | undefined,
+  todayDs: string,
+): { stale: boolean; label: string } | null {
+  if (!live) return null;
+  if (!live.ds) return { stale: true, label: '마지막 확인 시각을 몰라요' };
+  if (live.ds === todayDs) return { stale: false, label: '오늘 확인함' };
+  return { stale: true, label: `${live.ds}에 확인한 값이에요` };
 }
 
 /** 볼트 카드 스캔 — `_index.json` 의 anki 매니페스트 우선, 없으면 `anki/` 폴더 `.txt` 폴백.

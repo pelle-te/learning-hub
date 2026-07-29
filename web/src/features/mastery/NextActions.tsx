@@ -16,11 +16,9 @@ import {
   type SeqReason,
 } from '@/lib/curriculum';
 import { rootCauseRollup, type Knowledge } from '@/lib/knowledge';
-import { masteryColor } from '@/lib/utils';
+import { masteryColor, pctLabel } from '@/lib/utils';
 import { VaultLink } from './KnowledgeMap';
 import { M } from './classes';
-
-const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
 
 interface ConceptRow {
   title?: string;
@@ -237,11 +235,11 @@ export function Sequencing() {
               {rel != null ? (
                 <span
                   className="ds-chip"
-                  data-tip={`삶-연관성 ${pct(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
+                  data-tip={`삶-연관성 ${pctLabel(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
                   role="img"
-                  aria-label={`삶-연관성 ${pct(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
+                  aria-label={`삶-연관성 ${pctLabel(rel)}${it.goal ? ` · 목표 ${it.goal}` : ''} — 배분 우선순위 근거(연관성×gap)`}
                 >
-                  연관 {pct(rel)}
+                  연관 {pctLabel(rel)}
                 </span>
               ) : null}
               {typeof it.mastery === 'number' ? (
@@ -249,9 +247,9 @@ export function Sequencing() {
                   className="ds-chip"
                   data-tip="arc 노트 평균 유효숙달"
                   role="img"
-                  aria-label={`arc 노트 평균 유효숙달 ${pct(it.mastery)}`}
+                  aria-label={`arc 노트 평균 유효숙달 ${pctLabel(it.mastery)}`}
                 >
-                  {pct(it.mastery)}
+                  {pctLabel(it.mastery)}
                 </span>
               ) : null}
               {it.unlocks ? (
@@ -351,9 +349,9 @@ export function EngineHealth() {
                   style={{ color: masteryColor(mm) }}
                   data-tip="이 분위 노트의 평균 유효숙달"
                   role="img"
-                  aria-label={`이 분위 노트의 평균 유효숙달 ${pct(mm)}`}
+                  aria-label={`이 분위 노트의 평균 유효숙달 ${pctLabel(mm)}`}
                 >
-                  {pct(mm)}
+                  {pctLabel(mm)}
                 </span>
               ) : (
                 <span
@@ -384,7 +382,7 @@ export function Gaps({ k }: { k: Knowledge }) {
       dotColor="var(--bad,#e3564a)"
       renderMeta={(x) => (
         <>
-          <span className="ds-chip">{pct(x.p_eff)}</span>{' '}
+          <span className="ds-chip">{pctLabel(x.p_eff)}</span>{' '}
           {x.root_cause === 'self' ? (
             <span className="ds-tiny" style={{ color: 'var(--bad)' }}>
               본인 개념
@@ -463,7 +461,7 @@ export function Calibration({ k }: { k: Knowledge }) {
       <div className="ds-row" style={{ gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div className="ds-kpi" style={{ color: overCol }}>
-            {pct(over)}
+            {pctLabel(over)}
           </div>
           <div className="ds-foot">
             과신율 — 확신했는데 틀림 {c.confident_wrong || 0} / 전체 오답 {c.n_errors || 0}
@@ -471,7 +469,7 @@ export function Calibration({ k }: { k: Knowledge }) {
         </div>
         {c.blank_total ? (
           <div>
-            <div className="ds-kpi">{pct(c.blank_pass_rate)}</div>
+            <div className="ds-kpi">{pctLabel(c.blank_pass_rate)}</div>
             <div className="ds-foot">
               백지복습 통과율 {c.blank_pass || 0}/{c.blank_total || 0}
             </div>

@@ -154,7 +154,7 @@ export function MonthCalendar({
                 <span className={`${S.dnum} ${cl.isToday ? S.dnumToday : cl.isWeekend ? 'text-mut' : ''}`}>
                   {cl.date.getDate()}
                 </span>
-                {cl.used > 0 && <span className={S.load}>{(cl.used / 60).toFixed(1)}h</span>}
+                {cl.used > 0 && <span className={S.load}>{hLabel(cl.used)}</span>}
               </span>
 
               <div className={S.chips}>

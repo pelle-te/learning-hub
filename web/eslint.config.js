@@ -82,15 +82,19 @@ export default tseslint.config(
       'sonarjs/super-linear-regex': 'error',
     },
   },
-  /* 파일 크기 래칫 — 임계는 현재 최댓값(844 · TodaySignature)이고 내려가기만 한다.
+  /* 파일 크기 래칫 — 임계는 **현재 최댓값**이고 내려가기만 한다.
      주석·빈 줄 제외: 이 저장소는 "왜"를 주석으로 남기는 걸 규약으로 삼는데(결정로그와 짝),
      주석을 줄 수에 세면 규약을 지킬수록 게이트가 조여지는 역인센티브가 된다.
-     ⚠ 730 → 844 재기준선(C-7 today 이식): 위 인지복잡도 주석이 예고한 대로, CSS Module(988줄)이
-     JSX 로 들어오며 TodaySignature.tsx 가 729→844 로 밀렸다. 클래스 문자열은 `const S={}` 로 모아
-     JSX 줄 수를 눌렀지만 상태맵·유틸 문자열이 순증한다. 이식이 끝나면 다시 내려갈 여지를 본다. */
+     ⚠ 730 → 844 재기준선(C-7 today 이식): CSS Module(988줄)이 JSX 로 들어오며 TodaySignature.tsx
+     가 729→844 로 밀렸다. 위 주석은 "이식이 끝나면 다시 내려갈 여지를 본다"고 예고했다.
+     ⚠⚠ **844 → 745 로 조인다(2026-07-29).** C-7 은 끝났는데 임계는 그대로여서, 선언("임계는 현재
+     최댓값")과 실측(최댓값 742 · DayPlanner)이 **102줄** 벌어져 있었다 — 새 파일이 그만큼 아무
+     신호 없이 자랄 수 있었고, `report:debt` 헤더는 `(래칫 844)` 를 찍어 게이트가 팽팽한 것처럼
+     읽혔다. 래칫의 유일한 계약("더 나빠지지 않는다")이 조용히 깨져 있던 자리다.
+     여유 3줄은 의도다 — 인지복잡도 래칫(77·여유 0)과 같은 규율이고, 넘으면 쪼개라는 뜻이다. */
   {
     files: ['src/**/*.{ts,tsx}'],
-    rules: { 'max-lines': ['error', { max: 844, skipBlankLines: true, skipComments: true }] },
+    rules: { 'max-lines': ['error', { max: 745, skipBlankLines: true, skipComments: true }] },
   },
   // atlasData.ts는 진로 아틀라스 시드 **데이터**(779줄)다 — 분할해도 복잡도가 줄지 않는 상수 테이블이라
   // 크기 래칫의 대상이 아니다(코드가 아니라 데이터라는 것이 예외 사유).
@@ -300,6 +304,8 @@ export default tseslint.config(
 
      ⚠ 지금은 `src/phone/**` 만 대상이다. C-7 이 feature 를 하나씩 옮길 때마다 이 목록을
      넓힌다 — 한 번에 전체를 켜면 아직 CSS Modules 인 파일에서 오탐만 쏟아진다.
+     (⚠ 이 두 문단은 **C-7 이행기의 기록**이다. 지금 대상은 아래 블록대로 `src` 전량이고
+      `*.module.css` 는 0개다 — 이력으로 읽을 것. 2026-07-29 표시.)
 
      ⚠⚠ **설계서의 가정 하나가 틀렸다**: `플랫폼개편-설계.md` §4-6단계는 _"`[max-width:820px]`
      임의값은 better-tailwindcss 의 **임의값 룰**을 명시적으로 켜야 막힌다"_ 고 적었는데,
@@ -319,12 +325,29 @@ export default tseslint.config(
        (⚠ 이 주석에 글롭을 그대로 쓰지 말 것: 별표 둘 뒤의 슬래시가 블록 주석을 조기 종료시킨다.) */
     files: ['src/**/*.tsx'],
     plugins: { 'better-tailwindcss': betterTailwind },
+    /* ⚠⚠ **`variables` 로 대문자 상수를 검사 대상에 넣지 말 것 — 2026-07-29 에 해 보고 되돌렸다.**
+
+       진단 자체는 맞다: 플러그인의 변수 탐지 기본값은 `classNames?`·`classes`·`styles?` **라는
+       이름의 변수**뿐이고(`…/lib/options/default-options.js` 의 `DEFAULT_VARIABLE_NAMES`),
+       이 저장소의 관용구는 `const S = {…}`·`const RAIL = '…'` 이라 `className={대문자상수}`
+       형태(786회)가 검사 밖이다. 그래서 `variables` 에 `^[A-Z][A-Z0-9_]*$` 를 더해 봤다.
+
+       **결과: 위반 1619건 중 진짜는 정확히 1건이었다**(`RailSidebar` 의 `z-nav`). 나머지 1618건은
+       전부 오탐 — 이 저장소에서 대문자는 "클래스"가 아니라 **그냥 모듈 상수**다: `icons.tsx` 의
+       SVG path 데이터 819건 · `AmbientCanvas` 의 GLSL 셰이더 465건 · 팔레트/치트시트의 한글 라벨
+       맵 · 이모지 맵 · `ThemeProvider` 의 테마 색 맵. 플러그인이 쓸 수 있는 키가 못 된다
+       (이름을 바꿔 규약을 만드는 길은 있으나, 786개 참조를 건드리는 순수 churn 이다).
+
+       진짜 1건이 속한 결함 부류("선언은 됐는데 아무 데서도 안 쓰이는 토큰")는 플러그인이 아니라
+       **`scripts/check-tokens.mjs` 의 역방향 검사**가 소유한다 — 거기가 정확한 자리다. */
     settings: { 'better-tailwindcss': { entryPoint: 'src/styles/tw.css' } },
     rules: {
       /* ⚠ 전역 앱-크롬 클래스 허용(C-7 셸 티어). `styles/global/*.css` 의 27개 전역 클래스는
          Tailwind 유틸이 아니지만 셸이 문자열로 쓴다(플러그인 entryPoint=tw.css 는 이를 모른다).
          ds.* 는 모듈 참조(`ds.card`)라 안 걸리지만 `skip-link` 등은 생 문자열이라 걸린다.
-         ds.module.css 티어(맨 마지막)에서 이 전역들이 정리되면 목록도 줄어든다. */
+         (⚠ 옛 문구의 "ds.module.css 티어에서 정리되면 목록이 줄어든다" 는 **끝난 이행 계획**을
+         근거로 삼고 있었다 — 이 무시 목록은 이제 전역 앱크롬이 `styles/global/` 에서 유틸로
+         옮겨갈 때만 줄어든다. 2026-07-29 정정.) */
       /* 전역 앱크롬 클래스는 유틸이 아니다 — `skip-link`(App)·`menu`/`menu-sep`/`menu-danger`(TopBar ⋯ 드롭다운)는
          `styles/global/components.css` 가 소유하고 **ds.module + 전역 요소 규칙과 함께 맨 마지막**에 옮긴다(§15-5). */
       /* 무시 목록 = **전역 앱크롬 클래스**뿐이다(ds.module + 전역 요소 규칙은 맨 마지막 티어에서

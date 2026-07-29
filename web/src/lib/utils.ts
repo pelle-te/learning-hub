@@ -214,9 +214,50 @@ export function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
-/** 시간(시간 단위) 표시 — 분으로 안 다루도록. */
+/**
+ * 분 → **단위 없는** 시간 수치 문자열(`180`→`"3"` · `210`→`"3.5"`).
+ *
+ * ⚠ 이 규칙이 앱 안에서 **네 가지**로 갈려 있었다(2026-07-29 수렴):
+ * ① `hLabel`(정본 · `3h`·`3.5h`) ② 인라인 `(min/60).toFixed(1)` **13곳**(항상 `3.0h`)
+ * ③ `ItemCard` 의 손으로 다시 쓴 `hLabel` 규칙 ④ `AllocBoard`·`SubjectSheet` 의 `toH` 2벌
+ * (뒤엣것은 주석이 _"배분 보드 toH와 같은 규칙"_ 이라 **복제임을 스스로 적어 두었다** — 한쪽
+ * 반올림만 바뀌면 주석은 계속 "같다"고 말하는 채로 값이 갈린다).
+ * 계획·과목·캘린더·복습이 한 화면에 섞여 보이는 수치라 표기 불일치가 매일 눈에 띄던 자리다.
+ */
+export function hNum(min: number): string {
+  return String(round1(min / 60));
+}
+
+/** 시간(시간 단위) 표시 — 분으로 안 다루도록. `hNum` + 단위. */
 export function hLabel(min: number): string {
-  return round1(min / 60) + 'h';
+  return hNum(min) + 'h';
+}
+
+/** 0~1 비율 → `"42%"`. `ledger`·`mastery` 3파일에 4벌로 복제돼 있던 것(가드 유무만 달랐다). */
+export function pctLabel(x?: number): string {
+  return `${Math.round((x || 0) * 100)}%`;
+}
+
+/**
+ * epoch ms → 짧은 상대표기("방금 · 3분 전 · 2시간 전 · 어제 · 3일 전 · M/D").
+ *
+ * `markets.fmtPublished`(뉴스 발행시각)에만 있던 규칙을 여기로 올린다 — 두 번째 소비처가
+ * 생겼기 때문이다(⋯ 메뉴의 "되돌리기"가 **언제 것인지** 말해야 한다). 도메인 모듈에 두면
+ * 앱 크롬이 뉴스 모듈을 청크로 끌고, 두 번째 사본이 생기면 표기가 갈린다.
+ * ⚠ `now` 주입 가능 — 렌더 중 `Date.now()` 는 순수성 린트가 막고, 테스트도 그래야 결정적이다.
+ * ⚠ 미래 시각(시계 오차)은 '방금'으로 접는다 — "-3분 전"은 결함으로 읽힌다.
+ */
+export function agoLabel(t: number, now: number): string {
+  const mins = Math.round((now - t) / 60000);
+  if (mins < 1) return '방금';
+  if (mins < 60) return `${mins}분 전`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}시간 전`;
+  const days = Math.round(hrs / 24);
+  if (days === 1) return '어제';
+  if (days < 7) return `${days}일 전`;
+  const d = new Date(t);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /** Date → 자정부터의 분(`h*60+m`). interactions·Today·useFocus·ics 에 인라인으로 흩어져 있었다. */

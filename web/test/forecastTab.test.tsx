@@ -46,7 +46,11 @@ test('forecast: 완료 챕터가 없으면 EmptyState로 폴백', async () => {
   // lazy 로드 → Suspense 해제까지 findBy로 대기.
   expect(await screen.findByText('다가오는 복습 파도가 아직 없어요')).toBeInTheDocument();
   // 상단 리드아웃(페이지 크롬)이 주입된다 — 실제 셸에 마운트됐다는 관측 가능한 증거.
-  expect(screen.getByText('앞 14일 복습')).toBeInTheDocument();
+  expect(screen.getByText('가장 몰리는 날')).toBeInTheDocument();
+  /* ⚠ **0이면 44px `primary` 를 안 그린다.** 이 화면이 이미 "파도가 아직 없어요" 라고 말하는데
+     같은 0을 화면 최대 글자로 한 번 더 외치면 신호가 죽는다(N-13 규율). 이 단언이 그 계약이다 —
+     없으면 다음 사람이 무심코 `primary` 를 무조건 세워 빈 화면에 거대한 0이 돌아온다. */
+  expect(screen.queryByText('앞 14일 복습')).toBeNull();
 });
 
 /* N-9 가용선의 **개입** 경로는 e2e 시드로는 안 나온다 — 시드의 일과가 헐렁해 가용이 파도보다

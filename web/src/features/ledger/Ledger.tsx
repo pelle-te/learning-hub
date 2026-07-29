@@ -20,7 +20,7 @@ import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { classifyArtifact } from '@/lib/artifactState';
-import { openVaultSearch } from '@/lib/utils';
+import { openVaultSearch, pctLabel } from '@/lib/utils';
 import {
   LEDGER_STAGES,
   PLANNED_COLOR,
@@ -38,11 +38,7 @@ import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
 import { Button } from '@/components/ui';
 
-const pct = (x: number) => `${Math.round(x * 100)}%`;
-
 // 히어로/지식맵 밴드 상단 1px 발광 헤어라인(--bg-sig-top · review 이식이 깐 것 재사용).
-const HAIRLINE =
-  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
 // 폴백 패널(로딩·에러·셋업) — 지식맵과 동형(그래디언트·그림자 공유). 자식은 m-auto 로 중앙(옛 `.offWrap > *`).
 const OFF_WRAP =
   'relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-mastery)] p-5.5 shadow-card animate-[enter-rise_0.46s_var(--ease)_0.06s_both] motion-reduce:animate-none [scrollbar-width:thin]';
@@ -106,7 +102,7 @@ function SubjectRow({
       <div className="mb-1.5 flex items-baseline gap-2">
         <b className="truncate text-md font-bold text-txt">{roll.subject}</b>
         <span className="ds-tiny ds-muted">
-          {roll.abbr} · {roll.total}챕터 · 진척 {pct(roll.progress)}
+          {roll.abbr} · {roll.total}챕터 · 진척 {pctLabel(roll.progress)}
           {!roll.srcPresent ? ' · 출처 없음' : ''}
         </span>
       </div>
@@ -194,7 +190,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
           {ch.concept ? <span className="ds-muted"> (개념 {ch.concept})</span> : null}
         </span>
         <span>
-          검증률 <b className="text-txt tabular-nums">{pct(ch.verified_ratio)}</b>
+          검증률 <b className="text-txt tabular-nums">{pctLabel(ch.verified_ratio)}</b>
         </span>
         <span>
           카드 <b className="text-txt tabular-nums">{ch.cards}</b>
@@ -352,7 +348,7 @@ export default function Ledger() {
     <section className="flex h-full min-h-0 min-w-0 flex-col gap-3.5 px-4.5 pt-4 pb-3.5" aria-label="정본 원장">
       {/* ── 히어로 밴드 — 파이프라인 퍼널 + 생성일 + 재빌드 ── */}
       <div
-        className={`relative flex flex-none animate-[enter-rise_0.46s_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4 ${HAIRLINE} ds-glow`}
+        className={`ds-hairline ds-glow relative flex flex-none animate-[enter-rise_0.46s_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`}
       >
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>

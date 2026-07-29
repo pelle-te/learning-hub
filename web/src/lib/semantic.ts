@@ -13,7 +13,7 @@ import { idbMirror, idbLoad } from './idb';
 import type { AppState } from './types';
 import type { ReadsLocal } from './reads';
 
-export type SemKind = 'chapter' | 'summary' | 'book' | 'backlog';
+export type SemKind = 'chapter' | 'summary' | 'book' | 'backlog' | 'mistake';
 
 export interface SemEntry {
   id: string;
@@ -123,6 +123,21 @@ export function buildCorpus(state: AppState, reads: ReadsLocal | null): SemEntry
       label: `백로그 · ${topic}`,
       text: `${topic} ${bl.note || ''}`.slice(0, 1200),
       to: '/journal',
+    });
+  }
+  /* ⑤ 오답 메모 — 의미 검색이 이 코퍼스에서만 빠져 있었다. "적분 치환에서 왜 막혔더라"처럼
+     **단어가 안 겹치는** 질의가 정확히 이 자료를 찾아야 하는 부류다(부분문자열 검색이 가장
+     못하는 자리 = 의미 검색이 가장 잘하는 자리).
+     ⚠ 벡터 캐시 키는 텍스트 해시라 항목이 늘어도 기존 캐시는 무효화되지 않는다. */
+  for (const e of state.cbms || []) {
+    const note = (e.note || '').trim();
+    if (!note) continue;
+    out.push({
+      id: `cbms:${e.id}`,
+      kind: 'mistake',
+      label: `오답 · ${e.name || '?'}${e.chapter ? ' ' + e.chapter : ''}`,
+      text: `${e.name || ''} ${e.chapter || ''} ${note}`.slice(0, 1200),
+      to: `/mistakes?sid=${encodeURIComponent(e.sid)}`,
     });
   }
   return out;

@@ -13,8 +13,8 @@ import { useUI } from '@/store/useUI';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
-import { weekLabel, todayISO, ddayInfo } from '@/lib/utils';
-import { weekAllocTotalMin, weekBudgetMin as weekBudgetMinOf } from '@/lib/weekAlloc';
+import { weekLabel, todayISO, ddayInfo, hNum, hLabel, iso, addDays, parseISO } from '@/lib/utils';
+import { weekAllocTotalMin, weekBudgetMin as weekBudgetMinOf, weekDoneNewMin } from '@/lib/weekAlloc';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { Button } from '@/components/ui';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
@@ -31,6 +31,8 @@ const C = {
   wk: 'min-w-22.5 flex-1 text-center',
   wkLab: 'text-lg leading-[1.6] font-extrabold tracking-wk whitespace-nowrap',
   wkOff: 'ml-1.5 text-sm leading-[1.6] font-semibold whitespace-nowrap text-mut',
+  // 지난주 대조 한 줄 — 주 네비 오른쪽 끝(보드 바로 위).
+  prev: 'ml-auto text-sm leading-[1.6] whitespace-nowrap text-mut tabular-nums',
   body: 'min-h-0 flex-1',
 };
 
@@ -53,23 +55,42 @@ export default function Alloc() {
   // 주당 예산 합(스케줄 가능한 주간 과목 weeklyHours) — 배분이 채워가는 목표. '가용 총량'(수십 h)보다 배분과 직접 관계돼 리드아웃에 적합.
   const weekBudgetMin = weekBudgetMinOf(state);
   const allocPct = weekBudgetMin > 0 ? Math.round((weekAllocMin / weekBudgetMin) * 100) : 0;
+  /* 지난주 대조 — **다음 주 숫자를 정하는 자리에 유일하게 없던 근거**(Later).
+     보드는 "이번 주 얼마를 배분했나"만 말했고, "지난주엔 그 배분이 얼마나 지켜졌나"는 어디에도
+     없었다. 새 데이터는 0이다(배분·완료 둘 다 이미 있다).
+     ⚠ `new` 타입으로 좁힌 이유는 `weekDoneNewMin` 머리주석 — 안 좁히면 비교 불가능한 대조가 된다.
+     ⚠ **이번 주에는 안 그린다**(진행 중이라 실제가 늘 모자라 보인다 = 매일 지는 게임). */
+  const prevMon = iso(addDays(parseISO(weekMon), -7));
+  const prevAllocMin = weekAllocTotalMin(state, res, prevMon);
+  const prevDoneMin = weekDoneNewMin(state, prevMon);
+  const showPrev = isThisWeek && prevAllocMin > 0;
   const ddays = deadlineDdays(res.itemStat, todayIso);
   const nearestDday = ddays.length ? ddays[0]!.dday : null;
 
   usePageChromeEffect(
     () => ({
+      /* N-15 `primary` — 이 탭에서 먼저 읽어야 할 하나(예산을 얼마나 채웠나). 종전엔 리드아웃
+         셋이 같은 30px 로 나란히 서서 "무엇을 먼저 보라"를 아무도 말하지 않았다.
+         ⚠ 시그니처 비주얼(배분 보드 매트릭스)은 본문 한복판이라 상단 44px 과 읽는 순서가
+           겹치지 않는다 — `stats` 회전 스파인과 같은 판단. */
+      primary: weekBudgetMin ? { value: String(allocPct), unit: '%', label: '예산 달성' } : null,
       readouts: [
         {
           label: '이번 주 배분',
           value: (
             <>
-              {(weekAllocMin / 60).toFixed(1)}
-              <small className="text-base14 font-bold text-mut"> / {(weekBudgetMin / 60).toFixed(1)}h</small>
+              {hNum(weekAllocMin)}
+              <small className="text-base14 font-bold text-mut"> / {hLabel(weekBudgetMin)}</small>
             </>
           ),
           accent: true,
         },
-        { label: '예산 달성', value: weekBudgetMin ? `${allocPct}%` : '—' },
+        /* ⚠ 옛 '예산 달성' 리드아웃은 **44px `primary` 로 승격**돼 여기서 사라졌다. 남겨 두면
+           같은 수치가 한 화면에 두 번(그중 하나는 제일 크게) 뜨고, 그건 위계를 만드는 것이
+           아니라 없애는 것이다 — 승격의 요점은 *하나를 크게*이지 *하나를 더*가 아니다.
+           ⚠ 예산이 0이라 primary 를 못 세우는 경우에만 종전 자리로 되돌린다(그때는 위계를
+           말할 대상 자체가 없다). */
+        ...(weekBudgetMin ? [] : [{ label: '예산 달성', value: '—' }]),
         // D-day 라벨은 정본 헬퍼가 소유 — 직접 `D-${dday}`를 조립하면 오늘 마감이 "D-0"으로 샌다.
         { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
       ],
@@ -98,6 +119,16 @@ export default function Alloc() {
             오늘
           </Button>
         </div>
+        {/* 지난주 대조 — **상단 크롬이 아니라 여기**다. 크롬은 primary(44px)+리드아웃 3+액션으로
+            이미 폭을 다 써서 4번째를 얹으면 형제 라벨이 두 줄로 접힌다(실렌더로 확인). 그리고
+            이 값의 집은 원래 여기가 맞다: 다음 주 숫자를 정하는 보드 **바로 위**에 있어야
+            근거로 읽힌다(크롬에 있으면 그냥 또 하나의 지표다). */}
+        {showPrev ? (
+          <span className={C.prev} title="지난주 새 학습: 실제로 해낸 시간 / 배분했던 시간">
+            지난주 <b className="font-extrabold text-txt">{hNum(prevDoneMin)}</b>
+            <span className="text-mut"> / {hLabel(prevAllocMin)} 지킴</span>
+          </span>
+        ) : null}
       </div>
 
       <div className={C.body}>

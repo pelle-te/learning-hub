@@ -12,7 +12,7 @@ import { useCallback, type CSSProperties } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { allocView, colSumMin, rowSumMin, setAllocCell, isWeekManaged, weekMonOf } from '@/lib/weekAlloc';
-import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo, round1 } from '@/lib/utils';
+import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo, round1, hNum } from '@/lib/utils';
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
@@ -70,12 +70,6 @@ function Stepper({
   );
 }
 
-/** 분 → 시간 표시(정수는 소수 없이). 배분 보드 toH와 같은 규칙. */
-function toH(min: number): string {
-  const h = min / 60;
-  return Number.isInteger(h) ? String(h) : h.toFixed(1);
-}
-
 /** 이 과목의 이번 주 요일 분배 — 배분 보드 한 행의 드릴다운 판. */
 function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   const state = useApp((s) => s.state);
@@ -98,12 +92,12 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   const rowTone: PillTone = budgetMin === 0 ? 'neutral' : diff === 0 ? 'good' : diff > 0 ? 'bad' : 'warn';
   const rowLabel =
     budgetMin === 0
-      ? `${toH(usedMin)}h 배분`
+      ? `${hNum(usedMin)}h 배분`
       : diff === 0
-        ? `✓ 예산 ${toH(budgetMin)}h 딱 맞음`
+        ? `✓ 예산 ${hNum(budgetMin)}h 딱 맞음`
         : diff > 0
-          ? `초과 +${toH(diff)}h`
-          : `부족 ${toH(-diff)}h`;
+          ? `초과 +${hNum(diff)}h`
+          : `부족 ${hNum(-diff)}h`;
 
   const setCell = (wd: number, hours: number) =>
     mutate((st) => setAllocCell(st, res, wk, item.id, wd, Math.max(0, Math.round(hours * 60))));
@@ -152,7 +146,7 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
                 <span
                   className={`text-day-free whitespace-nowrap tabular-nums max-mobile:hidden ${over ? 'font-extrabold text-bad' : 'text-mut'}`}
                 >
-                  {capMin === 0 ? '가용 0' : over ? `초과 ${toH(-freeMin)}h` : `여유 ${toH(freeMin)}h`}
+                  {capMin === 0 ? '가용 0' : over ? `초과 ${hNum(-freeMin)}h` : `여유 ${hNum(freeMin)}h`}
                 </span>
               </label>
             );

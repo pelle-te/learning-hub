@@ -19,7 +19,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { prefersReducedMotion, reveal } from '@/lib/motion';
 import { ui } from '@/shell';
-import { colorForId, rid, makeItem, ddayInfo, DOW, todayISO, round1 } from '@/lib/utils';
+import { colorForId, rid, makeItem, ddayInfo, DOW, todayISO, round1, hNum, hLabel } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
   allocView,
@@ -125,8 +125,8 @@ export default function Items() {
               label: '이번 주 배분',
               value: (
                 <>
-                  {(allocWeekMin / 60).toFixed(1)}
-                  <small className="text-base14 font-bold text-mut"> / {(weekBudgetMin / 60).toFixed(1)} h</small>
+                  {hNum(allocWeekMin)}
+                  <small className="text-base14 font-bold text-mut"> / {hNum(weekBudgetMin)} h</small>
                 </>
               ),
             },
@@ -184,6 +184,11 @@ export default function Items() {
         { title: '과목 삭제', okLabel: '삭제', danger: true },
       );
       if (!okConfirm) return;
+      /* ⚠ **이 앱에서 가장 파괴적인 삭제인데 유일하게 안전망이 없었다.** 훨씬 작은 형제들 —
+         챕터(`ChapterEditor`)·수업/블록(`SkeletonPanel`)·졸업 과목(`Degree.delCourse`) — 은
+         전부 `backupNow()`+`toastUndo()` 를 갖는데, 챕터·진행·배분·dayPlans 를 **한꺼번에**
+         지우는 여기만 확인창 하나였다. 파괴력과 복구가능성이 정확히 역전돼 있었다. */
+      ui.backupNow();
       mutate((st) => {
         st.items = st.items.filter((s) => s.id !== id);
         // 참조 무결성 — weekAlloc은 sid 맵이라 과목만 지우면 배분이 전 주에 고아로 남고,
@@ -194,7 +199,7 @@ export default function Items() {
         removeSidFromDayPlans(st, id);
       });
       setSheetId((cur) => (cur === id ? null : cur)); // 삭제한 과목의 시트는 닫는다
-      ui.toast('과목 삭제됨', 'info');
+      ui.toastUndo(`"${(it && it.name) || '과목'}" 삭제됨`);
     },
     [items, mutate],
   );
@@ -336,7 +341,7 @@ export default function Items() {
           </span>
           <span className="flex-none text-skel-title font-extrabold tracking-skel text-acc uppercase">뼈대</span>
           <span className="whitespace-nowrap text-mut tabular-nums">
-            가용 <b className="font-extrabold text-txt">{(weekFreeMin / 60).toFixed(1)}h</b>/주
+            가용 <b className="font-extrabold text-txt">{hLabel(weekFreeMin)}</b>/주
           </span>
           <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
           <span className="whitespace-nowrap text-mut tabular-nums">

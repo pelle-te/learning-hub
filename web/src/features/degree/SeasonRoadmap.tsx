@@ -44,7 +44,9 @@ export default function SeasonRoadmap({
   openIds: Set<string>;
   onToggle: (id: string) => void;
 }) {
-  const pct = targetTotal > 0 ? Math.min(100, Math.round((earned / targetTotal) * 100)) : 0;
+  /* ⚠ 클램프를 뗐다 — 여기만 100% 로 잘라 상단 리드아웃·요건 탭이 108% 를 말할 때 혼자
+     "다 됐다"고 했다. 이 값은 스파인 채움이 아니라 **텍스트**다(채움은 아래 `fillPct`). */
+  const pct = targetTotal > 0 ? Math.round((earned / targetTotal) * 100) : 0;
   // 진행 노드 비율 — 완료 학기까지 스파인을 채움(시각적 "어디까지 왔나").
   const doneCount = list.filter((sm) => semesterStat(sm).phase === 'done').length;
   const fillPct = list.length > 1 ? (doneCount / (list.length - 1)) * 100 : doneCount ? 100 : 0;

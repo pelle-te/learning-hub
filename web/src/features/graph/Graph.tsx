@@ -37,8 +37,6 @@ import { drawGraph, type Palette } from './graphDraw';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
 
 // 캔버스 호스트/폴백 상단 1px 발광 헤어라인(--bg-sig-top · review→ledger 이식이 깐 것 재사용).
-const HAIRLINE =
-  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-[1] before:h-px before:rounded-t-lg before:bg-[image:var(--bg-sig-top)] before:content-['']";
 // 범례 스와치(9px 원) 공통 · 칩(span). 의미연결(lSem)은 점선 선분이라 따로 준다.
 const SWATCH = 'inline-block size-2.25 rounded-full';
 const LEG_SPAN = 'inline-flex items-center gap-1.25 whitespace-nowrap';
@@ -508,7 +506,7 @@ export default function Graph() {
         </div>
       ) : (
         <div
-          className={`relative min-h-0 min-w-0 flex-1 animate-[enter-rise_0.46s_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none ${HAIRLINE}`}
+          className={`ds-hairline relative min-h-0 min-w-0 flex-1 animate-[enter-rise_0.46s_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none`}
           ref={wrapRef}
         >
           {/* 검색 + 줌 컨트롤 — 우상단 오버레이. 캔버스는 SR 불투명이라 여기 컨트롤이 접근 경로. */}

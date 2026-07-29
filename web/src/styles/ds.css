@@ -29,6 +29,34 @@
    eslint `no-unknown-classes` 도 패턴 하나(`^ds-`)로 면제된다.
 ============================================================ */
 
+/* ── 상단 헤어라인 ──────────────────────────────────────────────────────────
+   시그니처 표면(히어로·지도·차트 패널) 맨 위의 1px 광선. 원칙 4 가 "둥근 글래스 카드 폐기 →
+   얇은 헤어라인"이라 했을 때의 그 헤어라인이다.
+
+   ⚠⚠ **왜 클래스인가 — 같은 관용구가 8벌로 복제돼 있었고 이미 3변종으로 갈렸다.**
+   상수 5벌(`Graph`·`Ledger`·`mastery/classes`·`Settings`·`Stats` · 이름도 `HAIRLINE`/`HAIR`
+   둘) + 인라인 3벌(`JournalStream`·`Review`·`TodaySignature`). 갈라진 지점이 결함을 가리킨다:
+   `z-index:1` 이 **셋에만** 있었다(Graph·Settings·JournalStream). 없는 변종에서는 배경을 가진
+   자식이 그 위를 덮어 **헤어라인이 아예 안 보인다** — 셋이 뒤늦게 z 를 붙인 것이 그 증거다.
+   즉 복제가 그냥 중복이 아니라 **절반이 조용히 안 그려지는 상태**였다.
+
+   ⚠ `ds.css` 는 **언레이어드**(머리주석)라 유틸리티를 이긴다 → 종전 `before:*` 유틸들이 서로
+   같은 명시도라 **등장 순서에 의존하던 것**도 함께 사라진다.
+   ⚠ `rounded-t-lg` 를 표준에 포함한다. 빠져 있던 `TodaySignature` 히어로는 `overflow-hidden`
+   이라 시각 변화가 0이고, 나머지는 원래 갖고 있었다. */
+.ds-hairline::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 1;
+  height: 1px;
+  border-start-start-radius: var(--r-lg);
+  border-start-end-radius: var(--r-lg);
+  background-image: var(--bg-sig-top);
+  pointer-events: none;
+}
+
 /* ── 카드 ── */
 .ds-card {
   position: relative;

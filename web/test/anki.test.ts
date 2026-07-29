@@ -3,7 +3,7 @@
    폴더 선택(미지원·취소)의 우아한 실패를 검증 — 외부 의존이라 fetch·window를 stub.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ankiConnect, fetchAnkiLive, pickAndScanAnki, totalCards, totalDue } from '@/lib/anki';
+import { ankiConnect, ankiFreshness, fetchAnkiLive, pickAndScanAnki, totalCards, totalDue } from '@/lib/anki';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -98,5 +98,32 @@ describe('pickAndScanAnki — 폴더 선택 실패 경로', () => {
       }),
     });
     await expect(pickAndScanAnki()).resolves.toBeNull();
+  });
+});
+
+/* ── 신선도 ────────────────────────────────────────────────────────────────
+   `_ankiLive` 는 `runtime` 테이블에 살아남는 캐시다. 갱신 경로(`AnkiPanel` 이펙트)는 그
+   컴포넌트가 마운트돼 있을 때만 도는데, 표시(오늘 탭 KPI·예보 리드아웃)는 언제나 그린다 —
+   갱신은 멈췄는데 표시는 안 멈추는 조합이라 **어제 숫자가 오늘 숫자 행세**를 했다. */
+describe('anki — 이 due 가 오늘 것인가', () => {
+  const live = (ds?: string) => ({ at: '아무개', ds, decks: [] });
+
+  it('같은 날이면 신선', () => {
+    expect(ankiFreshness(live('2026-07-29'), '2026-07-29')).toEqual({ stale: false, label: '오늘 확인함' });
+  });
+
+  it('날이 다르면 낡음 — 언제 것인지 함께 말한다', () => {
+    expect(ankiFreshness(live('2026-07-28'), '2026-07-29')).toEqual({
+      stale: true,
+      label: '2026-07-28에 확인한 값이에요',
+    });
+  });
+
+  it('옛 저장본(ds 없음)은 신선하다고 우기지 않는다 — 모르면 모른다고 말한다', () => {
+    expect(ankiFreshness(live(), '2026-07-29')).toEqual({ stale: true, label: '마지막 확인 시각을 몰라요' });
+  });
+
+  it('값 자체가 없으면 null — 그건 "낡음"이 아니라 "미연결"이고 화면 문구가 다르다', () => {
+    expect(ankiFreshness(null, '2026-07-29')).toBeNull();
   });
 });

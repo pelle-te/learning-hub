@@ -26,8 +26,7 @@ import { M } from './classes';
 
 import { OverallRing, Distribution, KnowledgeMap } from './KnowledgeMap';
 import { Frontier, Sequencing, EngineHealth, Gaps, RootCauses, Calibration } from './NextActions';
-
-const pct = (x?: number) => `${Math.round((x || 0) * 100)}%`;
+import { pctLabel } from '@/lib/utils';
 
 function Setup() {
   // 카드 크롬은 offWrap(발광 패널)이 제공 — 본문은 투명 콘텐츠만(지식맵 패널과 같은 언어).
@@ -73,7 +72,7 @@ export default function Mastery() {
       readouts: !k
         ? []
         : [
-            { label: '전체 숙달', value: pct(k.overall), accent: true },
+            { label: '전체 숙달', value: pctLabel(k.overall), accent: true },
             { label: '노트', value: k.n_notes ?? 0 },
             { label: '약점', value: weak ?? 0 },
           ],

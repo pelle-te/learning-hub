@@ -3,7 +3,9 @@
    ── 무엇 ──────────────────────────────────────────────────
    다크(기본) + 라이트 에디토리얼 2테마의 CSS 변수만 정의한다. 색/반경/그림자/이징/네온.
    ThemeProvider가 <html data-theme>를 토글하면 이 변수들이 통째로 바뀐다.
-   React 컴포넌트(*.module.css)는 var(--*)로만 색을 참조 → 테마 자동 대응.
+   스타일은 어디서 오든 var(--*)로만 색을 참조한다 → 테마 자동 대응.
+   (⚠ 옛 문구는 "React 컴포넌트(*.module.css)" 라 적었는데 C-7 이후 **`*.module.css` 는 0개**다.
+    지금 소비자는 ① JSX Tailwind 유틸 ② `ds.css` ③ `styles/global/` 셋이다 — 2026-07-29 정정.)
 
    ── 디자인 언어 ───────────────────────────────────────────
    순백 검정 + 단일 네온(인디고-바이올렛). 캔버스는 딥 블랙(--bg), 액센트는 단 하나(--acc)
@@ -12,7 +14,7 @@
 
    ── 왜 별도 파일인가 ──────────────────────────────────────
    토큰을 별도 파일로 분리해, 어떤 스타일 파일이 바뀌어도 테마 토큰이 단일 원천으로 남게 한다.
-   styles/global/*.css·*.module.css 모두 이 변수만 참조한다(드리프트 없음).
+   styles/global/*.css·ds.css·tokenBridge.css 모두 이 변수만 참조한다(드리프트 없음).
 
    변수명 보존(일부 인라인 스타일·기존 모듈이 참조):
      --bg --bg2 --panel --panel2 --line --line-soft --txt --mut
@@ -316,11 +318,10 @@
   --bg-setup-prog: linear-gradient(90deg, var(--acc), var(--acc2));
   /* 3D 틸트 트랜스폼(--tiltX/Y 런타임 · 정지 시 rotate 0 = 항등). */
   /* 거대 과목명 색 — 과목색(--tint) 52% 를 잉크에 섞어 채도만 얹음. --tint 없으면 잉크로 우아하게 폴백. */
-  /* 히어로/흐름 hover 테두리 · 워터마크 게이지 스트로크/단위 색 · 어제 한 줄 강조 · 지금-노드 하이라이트. */
+  /* 히어로/흐름 hover 테두리 · 어제 한 줄 강조 · 지금-노드 하이라이트.
+     (워터마크 게이지 스트로크/단위 색은 D-5 에서 그 UI 와 함께 사라졌다 — 2026-07-29 정리.) */
   --line-hero-hover: color-mix(in srgb, var(--acc) 26%, var(--line));
   --line-flow-hover: color-mix(in srgb, var(--acc) 18%, var(--line));
-  --stroke-ghost: 1px color-mix(in srgb, var(--ink) 12%, transparent);
-  --ghost-em: color-mix(in srgb, var(--ink) 22%, transparent);
   --yesterday-b: color-mix(in oklab, var(--acc) 40%, var(--ink));
   --tint-ink-5: color-mix(in srgb, var(--ink) 5%, transparent);
   /* ⌘K 팔레트 빠른 캡처 항목 배경(6%) — 선택 상태(--acc-soft 14%)보다 옅은 상시 틴트. */
@@ -360,15 +361,12 @@
   --shadow-node-live: 0 0 0 3px var(--panel), 0 0 8px var(--glow);
   --shadow-setup-card: 0 0 0 1px var(--acc-soft), var(--shadow-md);
   /* 기하 오드값 — 임의값(px/%/em/blur/transform) 은 린트가 막으므로 전부 이름을 주고 var() 로 참조한다.
-     오로라 크기/위치 · em 워터마크 위치·간격 · ch 어제한줄 폭 · blur 필터 · CTA 시머 스윕 트랜스폼 ·
+     오로라 크기/위치 · ch 어제한줄 폭 · blur 필터 · CTA 시머 스윕 트랜스폼 ·
      포커스 링 오프셋 · 셋업 체크 테두리 두께 · 오버레이 backdrop blur. */
   --aura-h: 130%;
   --aura-left: -10%;
   --aura-bottom: -40%;
   --filter-aura: blur(6px);
-  --ghost-top: 0.04em;
-  --ghost-gap: 0.06em;
-  --ghost-right: clamp(10px, 2vw, 26px);
   --yesterday-max: 62ch;
   --cta-shim-off: translateX(-130%);
   --cta-shim-on: translateX(130%);
@@ -377,11 +375,9 @@
   --setupck-border-w: 1.5px;
   --backdrop-setup: blur(2px);
   --backdrop-overlay: blur(3px);
-  /* 유동(clamp) 글자 크기 — 거대 과목명·워터마크 게이지(사다리 밖 · 규약 3). bridge --text-* 가 가리킨다. */
+  /* 유동(clamp) 글자 크기 — 거대 과목명(사다리 밖 · 규약 3). bridge --text-* 가 가리킨다. */
   --fs-subj: clamp(40px, 5.4vw, 72px);
   --fs-subj-mobile: clamp(40px, 12vw, 60px);
-  --fs-ghost-num: clamp(64px, 9.6vw, 132px);
-  --fs-ghost-unit: clamp(13px, 1.4vw, 18px);
 
   /* ── schedule(캘린더 · 주/월/일 3뷰) 이식(C-7) ───────────────────────────────
      일정 조각(학습·일과·할일·일정)의 채움/좌측 띠/링, 캘린더 칩·격자선·현재시각 발광.
@@ -540,6 +536,18 @@
   /* 액센트 채움 그라데이션 — 다크와 동일 공식(--acc에서 파생). */
   --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
   --hairline: rgba(255, 255, 255, 0.85);
+
+  /* ⚠⚠ **오버레이 딤 — 라이트에서 딤이 딤을 하지 않았다.**
+     기본값(`:root`)은 `color-mix(--bg 72%, transparent)` 인데 라이트의 `--bg` 는 `#fafbfc` 다 →
+     **흰 배경 위에 흰색 72%** 를 덮는 꼴이라 초점 억제가 통째로 없었다. 다크에선 같은 상호작용이
+     "모달이 열렸다"로 읽히는데 라이트에선 "패널이 어디 나타났다"가 된다(세부 시트·온디맨드
+     오버레이 전부 — `DetailDrawer`·`Today`).
+     ⚠ 처방은 이미 이 파일 안에 있었다: 바로 아래 `--scrim` 이 팔레트에 대해 같은 함정을 진단하고
+     **테마에 안 따라가는 검정**으로 풀었다. 그 판단을 오버레이 전체가 못 받고 있었을 뿐이다.
+     ⚠ 잉크 계열로 어둡게 하되 `--scrim`(45%)보다는 얕다 — 시트는 팔레트와 달리 **뒤 맥락을 남긴
+     채** 위에 얹히는 표면이라, 같은 세기로 덮으면 "어디서 열렸는지"를 잃는다. */
+  --overlay-bg: color-mix(in srgb, var(--ink) 32%, transparent);
+
   --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
   --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);
   --shadow-lg: 0 22px 50px -22px rgba(20, 22, 45, 0.18);

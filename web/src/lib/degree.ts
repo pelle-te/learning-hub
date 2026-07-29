@@ -169,6 +169,21 @@ export interface RequirementRow {
   pct: number; // 진행률 0~100(요건 없으면 have>0시 100)
 }
 
+/**
+ * 졸업 진행률(%) — **초과이수를 있는 그대로** 돌려준다(130/120 = 108).
+ *
+ * ⚠ 이 한 줄이 세 화면에 각자 인라인돼 있었고, 그중 둘만 클램프가 없었다: 상단 리드아웃·
+ * 요건 탭은 **108%**, 학기 로드맵은 **100%** 를 같은 상태에 대해 말했다. 초과이수는 흔한
+ * 상태라 "한 화면에서 다른 답"이 실제로 보이던 자리다.
+ * ⚠ **클램프는 여기서 안 한다.** 자르면 "얼마나 넘겼나"라는 정보가 lib 에서 사라지고, 정작
+ * 잘라야 하는 곳(막대 폭)은 이미 `ProgressBar` 가 자기 기하로 클램프한다 — 숫자는 진실을,
+ * 기하는 화면 안을 각자 책임진다.
+ */
+export function progressPct(d: Degree): number {
+  const { earned } = degreeStats(d);
+  return d.targetTotal > 0 ? Math.round((earned / d.targetTotal) * 100) : 0;
+}
+
 /** 카테고리별 요건 대비 이수 현황 — DegreeReq의 핵심 '요건 충족' 표. */
 export function requirementRows(d: Degree): RequirementRow[] {
   const { byCat } = degreeStats(d);

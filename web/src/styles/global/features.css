@@ -3,7 +3,7 @@
    feature/디자인 시스템 클래스(itemrow·blk·rec·cbms·pa·hm·ms·ctl·tree·setup·ritual·stagebar…)와
    공용(seg·spin·tag…)은 Phase 9에서 ds.module + 각 feature 모듈로 이전 완료 → 정의 삭제.
    여기 남는 건 단 한 번 쓰이는 앱 크롬: ⋯메뉴·토스트·모달·스크롤바·모션 환경설정(전역).
-   (명령 팔레트 cmd-*는 components/CommandPalette.module.css가 소유 → 전역 정의 삭제.)
+   (명령 팔레트 cmd-*는 C-7 에서 JSX 유틸로 옮겨 갔다 → 전역 정의 삭제.)
 ============================================================ */
 
 /* ── 모션 환경설정(전역) ── */
@@ -17,7 +17,7 @@
 }
 
 /* ── 헤더 오버플로 메뉴(⋯) — 드롭다운 패널만 전역(TopBar.tsx가 className="menu"로 직접 사용).
-   래퍼(.menuwrap)는 TopBar.module.css가 소유하므로 전역판은 제거됨. */
+   래퍼(.menuwrap)는 C-7 에서 `TopBar.tsx` 의 JSX 유틸로 옮겨 갔으므로 전역판은 제거됨. */
 .menu {
   position: absolute;
   right: 0;

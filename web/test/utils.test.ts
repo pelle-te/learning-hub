@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  agoLabel,
   clamp,
   dayDiff,
   ddayInfo,
@@ -184,5 +185,33 @@ describe('masteryColor — 숙달도→색', () => {
   it('범위 밖 p의 색상(h)은 0~120으로 클램프된다', () => {
     expect(masteryColor(2)).toContain('hsl(120 '); // h가 120을 넘지 않음
     expect(masteryColor(-1)).toContain('hsl(0 ');
+  });
+});
+
+/* ── 상대 시각 표기 ────────────────────────────────────────────────────────
+   `markets.fmtPublished`(뉴스)에만 있던 규칙을 올린 것. 두 번째 소비처는 ⋯ 메뉴의
+   "되돌리기"가 **언제 것인지** 말하는 자리다 — 그게 없던 동안 되돌리기는 며칠 전 상태로
+   조용히 갈 수 있었다. */
+describe('agoLabel — 짧은 상대표기', () => {
+  const NOW = Date.UTC(2026, 6, 29, 12, 0, 0);
+  const ago = (ms: number) => agoLabel(NOW - ms, NOW);
+
+  it('경계값', () => {
+    expect(ago(0)).toBe('방금');
+    // ⚠ 반올림이라 30초를 넘기면 '1분 전'이다(floor 아님) — 옛 `fmtPublished` 의 거동 그대로.
+    expect(ago(29_000)).toBe('방금');
+    expect(ago(59_000)).toBe('1분 전');
+    expect(ago(3 * 60_000)).toBe('3분 전');
+    expect(ago(2 * 3600_000)).toBe('2시간 전');
+    expect(ago(24 * 3600_000)).toBe('어제');
+    expect(ago(3 * 24 * 3600_000)).toBe('3일 전');
+  });
+
+  it('일주일이 넘으면 날짜로 — "39일 전"은 사람이 못 읽는다', () => {
+    expect(ago(40 * 24 * 3600_000)).toMatch(/^\d+\/\d+$/);
+  });
+
+  it('미래 시각(시계 오차)은 방금으로 접는다 — "-3분 전"은 결함으로 읽힌다', () => {
+    expect(agoLabel(NOW + 5 * 60_000, NOW)).toBe('방금');
   });
 });

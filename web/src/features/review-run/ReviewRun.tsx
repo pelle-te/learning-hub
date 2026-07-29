@@ -11,7 +11,7 @@
    누를 수 있는 버튼이다. 목록(`keys`)이 리스너와 화면의 **단일 원천**이라 둘이 갈릴 수 없다.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -21,7 +21,7 @@ import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { riskSummary } from '@/lib/spacedReview';
 import { buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
-import { putResume, clearResume, resumeDevice, type ResumeCursor } from '@/lib/resume';
+import { putResume, clearResume, resumeDevice, type ResumeCursor, type ResumeNav } from '@/lib/resume';
 
 import { CBMS_INFO } from '@/lib/methodology';
 import { jolSummary, type JolEntry } from '@/lib/insights';
@@ -61,6 +61,8 @@ const KEYCAP =
 /* ID-11 인출 전 예측 바 — 카드 **위**에 얇게. 카드 어휘(ds-card)를 안 쓰는 건 의도다:
    이건 복습 대상이 아니라 그 앞의 한 줄짜리 질문이라, 카드로 보이면 위계가 카드와 맞먹는다. */
 const JOL_BAR = 'flex w-full max-w-runner flex-wrap items-center justify-end gap-2';
+/** N-7 착지 안내 — 카드 위 한 줄(절제: 배지나 카드가 아니라 문장 하나). */
+const RESUME_NOTE = 'm-0 flex w-full max-w-runner flex-wrap items-center gap-2 text-xs text-mut';
 const JOL_BTN =
   'cursor-pointer rounded-full border border-line bg-none px-3 py-1 text-xs text-mut hover:border-acc hover:text-txt';
 /** 세션 앞 N개만 묻는다 — 매 카드마다 물으면 러너가 설문이 되고 대답이 무성의해진다. */
@@ -117,7 +119,19 @@ export default function ReviewRun() {
      파생으로 두면 세션 중 상태 변화(챕터 '집중 시작' → completions 갱신 · 클라우드 pull 병합)가
      발밑에서 큐를 갈아 끼워 `idx` 가 다른 카드를 가리킨다. 다시 열면 다시 만든다. */
   const [queue, setQueue] = useState<RunItem[]>(() => buildReviewQueue(state, res.days, today));
-  const [idx, setIdx] = useState(0);
+  /* N-7 착지 — '이어하기 (7/12)' 를 눌러 왔으면 그 자리에서 시작한다.
+     ⚠ 이 두 줄이 없던 동안 칩은 진행을 **약속만 하고** 러너는 언제나 0 에서 열렸다. 즉
+       `resume.ts` 머리주석이 이 기능의 존재 이유로 든 중복 학습("폰에서 7장 했는데 PC 에서
+       또 본다")을 기능이 스스로 **보장**하고 있었다.
+     ⚠ 커서를 여기서 직접 읽지 않는다 — 그러면 레일·⌘K 로 그냥 연 사람도 묻지 않고 7번째
+       카드에서 시작한다. 의도는 **진입 경로**(내비 state)가 실어 나른다.
+     ⚠ 큐는 이 기기에서 새로 짜이므로 길이가 다를 수 있다 → 클램프. 순서는 결정론적이라
+       근사가 성립하고, 어긋나면 아래 '처음부터 보기'가 탈출구다. */
+  const resumeAt = (useLocation().state as ResumeNav | null)?.resumeAt;
+  const [startedAt] = useState(() =>
+    typeof resumeAt === 'number' ? Math.max(0, Math.min(resumeAt, Math.max(0, queue.length - 1))) : 0,
+  );
+  const [idx, setIdx] = useState(startedAt);
   /* '해낸 것'은 **서로 다른 카드**로 센다 — 재큐가 같은 카드를 두 번 보여주므로 이벤트로 세면
      "12개 중 14개 인출"이 나온다(옛 `doneCount` 가 정확히 그 형태였다). */
   const [gotKeys, setGotKeys] = useState<string[]>([]);
@@ -381,6 +395,18 @@ export default function ReviewRun() {
           style={{ width: `${(idx / total) * 100}%` }}
         />
       </div>
+
+      {/* N-7 착지 안내 — 이어하기로 왔고 아직 아무것도 안 했을 때만. 건너뛴 카드가 있다는 사실을
+          말하지 않으면 "앱이 앞부분을 잃었다"로 읽히고, 탈출구가 없으면 그 추측을 확인할 방법도
+          없다. 첫 판정을 내리는 순간 사라진다(그 뒤엔 이 세션의 이야기다). */}
+      {startedAt > 0 && idx === startedAt && past.length === 0 && (
+        <p className={RESUME_NOTE}>
+          다른 기기에서 {startedAt}장까지 봤어요 — {startedAt + 1}번째부터 이어갑니다.
+          <Button onClick={restart} variant="ghost" sm>
+            처음부터 보기
+          </Button>
+        </p>
+      )}
 
       {/* H13 — 카드 전환 공지(시각 영향 0). 카드 **밖**이라 리전이 계속 살아 있고 텍스트만 바뀐다. */}
       <p className="sr-only" role="status">

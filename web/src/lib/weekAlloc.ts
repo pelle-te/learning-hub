@@ -6,6 +6,7 @@
    ⚠ state 변형 함수(ensure/set/copy/reset)는 store.mutate(immer draft) 안에서만 호출한다.
 ============================================================ */
 import { addDays, dayDiff, iso, mondayOf, parseISO } from './utils';
+import { completionMin } from './persistence';
 import type { AppState, Item, ScheduleResult } from './types';
 
 /** 7요일 0벡터(분) — index=wd(0=일..6=토). */
@@ -244,4 +245,30 @@ export function weekRequiredMin(state: AppState): number {
 export function weekAllocTotalMin(state: AppState, res: ScheduleResult, wk: string): number {
   const map = allocView(state, res, wk);
   return weeklyItems(state).reduce((t, it) => (isUnschedulable(it) ? t : t + rowSumMin(map[it.id])), 0);
+}
+
+/**
+ * 그 주에 **실제로 해낸 새 학습 분**(월~일 7일 합).
+ *
+ * 왜 필요한가: 배분 보드는 "이번 주 얼마를 배분했나"만 말하고 "지난주엔 그 배분이 얼마나
+ * 지켜졌나"를 말하지 않았다 — **다음 주 숫자를 정하는 바로 그 자리에서 유일하게 없는 근거**다.
+ *
+ * ⚠ **`new` 타입만 센다.** 배분(`weekAlloc`)이 구동하는 것은 새 학습 블록이고, `completions` 는
+ * 복습·백지·Anki·모의까지 전 타입의 합이다. 좁히지 않으면 "배분 10h / 실제 14h" 같은 **비교
+ * 불가능한 대조**가 나오고, 그건 근거가 아니라 소음이다(이 항목이 Later 로 내려갔던 사유가
+ * 정확히 그 의미 어긋남이었다 — 좁힌 첫 조각만 취한다).
+ * ⚠ 분은 `completionMin` 이 소유한다(실측 있으면 실측, 없으면 계획 · G-1). 폴백 규칙을 여기서
+ * 다시 쓰면 회고가 두 가지 답을 갖게 된다.
+ */
+export function weekDoneNewMin(state: AppState, wk: string): number {
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = state.completions?.[iso(addDays(parseISO(wk), i))];
+    if (!day) continue;
+    for (const [key, entry] of Object.entries(day)) {
+      if (!key.endsWith('|new')) continue;
+      if (entry?.done) total += completionMin(entry);
+    }
+  }
+  return total;
 }

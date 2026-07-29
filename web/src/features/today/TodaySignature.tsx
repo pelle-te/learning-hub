@@ -21,7 +21,7 @@ import { openBacklog, setRitual, CBMS_INFO } from '@/lib/methodology';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
-import { totalDue } from '@/lib/anki';
+import { totalDue, ankiFreshness } from '@/lib/anki';
 import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
@@ -54,7 +54,7 @@ const TYPE_LABEL: Record<string, string> = {
 const S = {
   today: 'flex h-full min-w-0 min-h-0 flex-col gap-4 px-5 pt-4.5 pb-3.5 max-wide:px-3.5 max-wide:pt-3.5',
   top: 'grid min-h-0 flex-auto grid-cols-today-top gap-4 max-wide:grid-cols-1',
-  hero: "tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[enter-fade_0.5s_var(--ease)_both] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-[image:var(--bg-sig-top)] before:content-[''] hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none",
+  hero: 'tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[enter-fade_0.5s_var(--ease)_both] ds-hairline hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none',
   aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] animate-[today-aura-breathe_9s_var(--ease)_infinite] motion-reduce:animate-none',
   spotlight:
     'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-[0.35s] ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
@@ -139,6 +139,50 @@ const S = {
 const tone = (hot: boolean): string => (hot ? S.hot : S.cool);
 /** Anki 는 **미연결(null)이 hot 이 아니다** — 설정 문제라 매일 뜨고, 매일 뜨는 액센트는 소음이 된다. */
 const ankiTone = (due: number | null | undefined): string => tone(due != null && due > 0);
+
+/**
+ * 하단 스트립의 Anki 대기 칸.
+ *
+ * ⚠⚠ **이 숫자는 `runtime` 테이블에 남은 캐시라 어제 것일 수 있다.** `AnkiPanel` 을 열어야만
+ * 갱신되는데(그 컴포넌트의 이펙트가 유일한 갱신 경로다) 오늘 탭은 그 사실을 말하지 않고
+ * 오늘 값과 똑같이 그렸다. Anki due 는 날이 바뀌면 통째로 갈리므로 어제 숫자는 **틀린 숫자**다.
+ * → 낡았으면 액센트를 빼고 title·aria 가 언제 것인지 말한다. 판정은 `lib/anki.ankiFreshness`.
+ *
+ * ⚠ 컴포넌트로 뗀 이유는 스타일이 아니라 **분기**다 — `TodaySignature` 는 인지복잡도 래칫(77)
+ * 바로 아래라 조건부 JSX 를 더 쌓으면 게이트가 막는다(N-5 가 같은 이유로 조각을 뗀 선례).
+ * 래칫이 "더 나빠지지 않는다"만 보장한다는 뜻이 정확히 이것이다: 새 분기는 새 이름을 갖는다.
+ */
+function AnkiTag({
+  due,
+  fresh,
+  onGo,
+}: {
+  due: number | null;
+  fresh: { stale: boolean; label: string } | null;
+  onGo: () => void;
+}) {
+  const stale = due != null && fresh?.stale === true;
+  const body = due == null ? '미연결 — 연동 탭에서 실시간 연결' : `복습 대기 ${due}장`;
+  const note = stale ? ` — ${fresh.label}. 연동 탭에서 새로고침` : '';
+  return (
+    <div className={S.grp}>
+      <span className={S.grpL}>Anki 대기</span>
+      <button
+        type="button"
+        className={S.tag}
+        onClick={onGo}
+        title={`${body}${note}`}
+        aria-label={`Anki ${body}${note} — 연동 탭으로`}
+      >
+        {/* ⚠ 낡은 값은 **액센트만 뺀다**(숫자는 지우지 않는다). 지우면 '연결 필요'와 구분이
+            사라져 이미 연결한 사용자가 다시 연결하려 들고, 그대로 강조하면 어제 숫자를 오늘
+            것으로 읽는다 — 톤을 낮추는 것이 "이건 오늘 것이 아니다"의 시각 표현이다. */}
+        <b className={stale ? tone(false) : ankiTone(due)}>{due == null ? '연결' : due}</b>{' '}
+        {due == null ? '필요' : '장'}
+      </button>
+    </div>
+  );
+}
 
 /* ── N-5 마감 국면의 두 조각 ────────────────────────────────────────────────
    본문에서 떼어 낸 것은 스타일이 아니라 **분기**다 — `TodaySignature` 는 이미 인지복잡도
@@ -285,6 +329,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   const streak = studyStreak(state);
   const due = ankiLive?.decks ? totalDue(ankiLive.decks) : null;
+  const ankiFresh = ankiFreshness(ankiLive, ds); // 이 숫자가 오늘 것인가(캐시라 어제 것일 수 있다)
   const openBl = openBacklog(state).length;
   // 셋업은 됐지만(과목 있음) 오늘 배치가 0인 경우를 콜드스타트와 구분 — 빈 메시지가 이미 설정한 사용자에게
   // 또 "설정하라"고 말하지 않도록. 마감 지남·가용시간 없음 등이면 스케줄로 안내.
@@ -818,18 +863,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
           )}
         </div>
         <div className={S.vline} />
-        <div className={S.grp}>
-          <span className={S.grpL}>Anki 대기</span>
-          <button
-            type="button"
-            className={S.tag}
-            onClick={() => go('/integrations')}
-            title={due == null ? 'Anki 미연결 — 연동 탭에서 실시간 연결' : `복습 대기 ${due}장`}
-            aria-label={due == null ? 'Anki 미연결 — 연동 탭으로' : `Anki 복습 대기 ${due}장 — 연동 탭으로`}
-          >
-            <b className={ankiTone(due)}>{due == null ? '연결' : due}</b> {due == null ? '필요' : '장'}
-          </button>
-        </div>
+        <AnkiTag due={due} fresh={ankiFresh} onGo={() => go('/integrations')} />
         <div className={S.vline} />
         <div className={S.grp}>
           <span className={S.grpL}>열린 보충</span>
