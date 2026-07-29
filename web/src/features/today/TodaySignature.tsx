@@ -304,7 +304,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const { entries: enriched, current, focus, reason: focusReason } = selectTodayFocus(state, nowMin);
   const todayDone = enriched.filter((e) => e.done).length;
   const todayTotal = items.length;
-  const pct = todayTotal ? Math.round((todayDone / todayTotal) * 100) : 0;
 
   const startKey = (e: (typeof enriched)[number]) => e.start ?? 9999;
   const pending = enriched.filter((e) => !e.done);
@@ -373,9 +372,38 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // 오늘의 흐름 노드 — 학습(체크 가능)+일과 블록을 시간순 단일 리스트로(무지개 가로 트랙 폐기).
   const tl = L?.tl || [];
   type EnrichedItem = (typeof enriched)[number];
+  /* ── E9 "오늘 밖"을 오늘 것처럼 그리지 않는다(2026-07-29) ──────────────────
+     `dayPhase` 는 이미 "남은 창에 가장 짧은 것도 안 들어간다"를 판정하는데, 그 판정의 결과는
+     프리셋 숨김과 닫기 버튼 등장 **둘뿐**이었다. 레일은 그날도 남은 블록 전부를 같은 무게로
+     세웠고, 링은 `3/7` 로 **오늘 불가능한 목표를 분모**로 썼다. 매일 저녁 "다 못 했다"는
+     실패감의 출처가 여기다 — 화면이 "오늘 밖"이라고 알면서도 목록에서는 오늘 것처럼 보여 준다.
+
+     규칙: 남은(미완료) 학습 블록을 시각 순으로 훑으며 분을 누적하고, **남은 창을 넘는 순간부터**
+     아래를 접는다. 새 계수는 0이다 — `freeLeftMin`(가용)과 `it.min`(계획 분) 둘 다 이미 있다.
+     ⚠ 일과 블록은 세지 않는다(내가 하는 학습이 아니라 이미 잡힌 시간이다).
+     ⚠ 완료한 블록도 안 센다 — 이미 쓴 시간은 `freeLeftMin` 에서 빠져 있다(이중 차감 방지). */
+  const beyondKeys = new Set<string>();
+  let beyondMin = 0;
+  {
+    let acc = 0;
+    for (const e of enriched
+      .filter((e) => e.start != null && !e.done)
+      .sort((a, b) => (a.start as number) - (b.start as number))) {
+      acc += e.it.min || 0;
+      if (acc > freeLeftMin) {
+        beyondKeys.add('study|' + e.it.sid + '|' + e.it.type);
+        beyondMin += e.it.min || 0;
+      }
+    }
+  }
+  /* 링의 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는
+     블록까지 목표에 넣고 매일 그 목표에 못 미쳤다 — 게이지가 매일 지는 게임을 그린 셈이다. */
+  const todayPossible = Math.max(todayDone, todayTotal - beyondKeys.size);
+  const pct = todayPossible ? Math.round((todayDone / todayPossible) * 100) : 0;
+
   const flowNodes: FlowNode<EnrichedItem>[] = [
     ...enriched
-      .filter((e) => e.start != null)
+      .filter((e) => e.start != null && !beyondKeys.has('study|' + e.it.sid + '|' + e.it.type))
       .map((e): FlowNode<EnrichedItem> => ({
         key: 'study|' + e.it.sid + '|' + e.it.type,
         kind: 'study',
@@ -758,7 +786,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
         {/* 오늘의 흐름 — now-중심 세로 레일(학습 체크 + 일과, 색 통일). 무지개 트랙 폐기. */}
         <aside className={S.flow}>
-          <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayTotal} 완료`}>
+          <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayPossible} 완료`}>
             <span
               className={`${S.ring}${celebrate ? ' animate-[today-ring-cele_1.4s_var(--ease)] motion-reduce:animate-none' : ''}`}
               aria-hidden="true"
@@ -773,7 +801,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               />
               <span className={S.ringNum}>
                 {todayDone}
-                <small className={S.ringNumSmall}>/{todayTotal}</small>
+                <small className={S.ringNumSmall}>/{todayPossible}</small>
               </span>
             </span>
             <span className={S.flowT}>오늘의 흐름</span>
@@ -785,6 +813,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 nodes={flowNodes}
                 nowMin={nowMin}
                 riskN={riskN}
+                beyond={beyondKeys.size ? { count: beyondKeys.size, min: beyondMin } : null}
                 onToggle={toggle}
                 onFocus={startNodeFocus}
                 onPrefill={prefillNode}

@@ -79,9 +79,20 @@ export interface FlowRailProps<TE> {
   onPrefill: (e: TE) => void;
   /** 복습 딥링크 칩 클릭. */
   onReview: () => void;
+  /** E9 — 남은 창을 넘어 **오늘 밖**인 블록 요약. 없으면 null. */
+  beyond?: { count: number; min: number } | null;
 }
 
-export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefill, onReview }: FlowRailProps<TE>) {
+export function FlowRail<TE>({
+  nodes,
+  nowMin,
+  riskN,
+  onToggle,
+  onFocus,
+  onPrefill,
+  onReview,
+  beyond = null,
+}: FlowRailProps<TE>) {
   /* 커서 = **실제 DOM 포커스**(E5). `selKey` 는 그 포커스를 따라가는 거울이라 두 벌이 아니다 —
      roving tabindex 의 "지금 탭 스톱인 노드"를 정하는 데 쓴다. */
   const [selKey, setSelKey] = useState<string | null>(null);
@@ -234,12 +245,17 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
           </div>
         );
       })}
-      {/* 종결 캡 고스트 — 마지막 노드 뒤 "이후 일정 없음": 스파인이 끝났다고 읽히게(비인터랙티브). */}
+      {/* 종결 캡 — 스파인이 끝났다고 읽히게(비인터랙티브).
+          E9: 남은 창을 넘는 블록이 있으면 "이후 일정 없음"은 **거짓말**이다. 그때는 그것들이
+          오늘 밖이라는 사실을 한 줄로 말한다 — 접힌 줄 자체가 "이건 못 한 게 아니라 애초에
+          오늘 것이 아니었다"는 판단이고, 저녁마다 오던 실패감의 출처를 없앤다. */}
       <div className={`${N.node} py-1.75! opacity-55`}>
         <span className={`${N.nTime} leading-[1.6]`}>—</span>
         <span className={N.nDotGhost} />
         <span className={N.nBody}>
-          <span className={N.nSub}>이후 일정 없음</span>
+          <span className={N.nSub}>
+            {beyond ? `오늘 밖 ${beyond.count}개 · ${hLabel(beyond.min)}` : '이후 일정 없음'}
+          </span>
         </span>
       </div>
       {/* I-2 — 밀린 복습이 있으면 종결 캡 뒤에 은은한 딥링크 칩(스케줄 쓰기 아님 → 복습 실행으로). */}

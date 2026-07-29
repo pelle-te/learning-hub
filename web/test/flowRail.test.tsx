@@ -177,3 +177,30 @@ test('입력 요소에 포커스가 있으면 단축키를 무시한다(타이�
   expect(onFocus).not.toHaveBeenCalled();
   input.remove();
 });
+
+/* ── E9 "오늘 밖"을 오늘 것처럼 그리지 않는다(2026-07-29) ─────────────────
+   종결 캡이 항상 "이후 일정 없음"이었는데, 남은 창을 넘는 블록이 있으면 그건 거짓말이다.
+   접힌 줄 자체가 "이건 못 한 게 아니라 애초에 오늘 것이 아니었다"는 판단이다. */
+test('종결 캡: 오늘 밖 블록이 있으면 그 사실을 말한다', () => {
+  const { container } = render(
+    <FlowRail
+      nodes={nodes()}
+      nowMin={0}
+      riskN={0}
+      onToggle={noop}
+      onFocus={noop}
+      onPrefill={noop}
+      onReview={noop}
+      beyond={{ count: 3, min: 150 }}
+    />,
+  );
+  expect(container.textContent).toContain('오늘 밖 3개');
+  expect(container.textContent).not.toContain('이후 일정 없음');
+});
+
+test('종결 캡: 전부 창 안이면 종전대로 "이후 일정 없음"', () => {
+  const { container } = render(
+    <FlowRail nodes={nodes()} nowMin={0} riskN={0} onToggle={noop} onFocus={noop} onPrefill={noop} onReview={noop} />,
+  );
+  expect(container.textContent).toContain('이후 일정 없음');
+});
