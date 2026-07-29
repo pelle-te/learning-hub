@@ -383,7 +383,7 @@ export default function Items() {
                     옵시디언 볼트나 Anki에서 통째로 불러올 수도 있어요.
                   </>
                 }
-                actions={
+                next={
                   <>
                     <Button variant="primary" onClick={addItem}>
                       + 첫 과목 추가

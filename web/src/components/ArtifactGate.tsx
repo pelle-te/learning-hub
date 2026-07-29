@@ -35,7 +35,7 @@ export default function ArtifactGate({
         glyph={glyph}
         title="워크스페이스가 설정되지 않았어요"
         desc={offlineDesc}
-        actions={
+        next={
           onRetry ? (
             <Button variant="primary" onClick={onRetry}>
               다시 확인
@@ -49,7 +49,7 @@ export default function ArtifactGate({
       glyph={glyph}
       title={emptyTitle}
       desc={emptyDesc}
-      actions={
+      next={
         <Button variant="primary" onClick={onCollect} disabled={collecting}>
           {collecting ? (
             <>

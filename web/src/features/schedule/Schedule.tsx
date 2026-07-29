@@ -412,7 +412,7 @@ export default function Schedule() {
                         일과(수면·식사)만 보여요.
                       </>
                     }
-                    actions={
+                    next={
                       <Button sm variant="primary" onClick={() => navigate('/items')}>
                         학습 항목 추가하기 →
                       </Button>

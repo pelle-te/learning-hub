@@ -233,6 +233,8 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
               glyph="📖"
               title="독서 기록을 시작해 보세요"
               desc="읽은 책을 추가하고 독후감을 남기면, 무엇을 읽고 무엇을 얻었는지가 쌓입니다."
+              /* 추가 폼은 같은 화면 왼쪽 위에 있다 — 중복 CTA 대신 위치를 가리킨다(Control 과 같은 판단). */
+              next={{ terminal: '← 왼쪽 위 "＋ 책 추가"로 첫 책을 담아 보세요.' }}
             />
           </div>
         )}

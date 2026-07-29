@@ -17,6 +17,7 @@
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 import { useApp } from '@/store/useApp';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui';
 import {
   cbmsCounts,
   cbmsTrend,
@@ -351,10 +352,20 @@ function CbmsRadar() {
 
 /** 주별 학습시간 — 과목별 색 스택 막대. */
 function WeeklyBars({ r }: { r: ScheduleResult }) {
+  const navigate = useNavigate();
   const weeks = Object.keys(r.weekHours).sort();
   if (!weeks.length)
     return (
-      <EmptyState glyph="📊" title="아직 주별 데이터가 없어요" desc="블록을 완료하면 주별 학습시간이 여기 쌓여요." />
+      <EmptyState
+        glyph="📊"
+        title="아직 주별 데이터가 없어요"
+        desc="블록을 완료하면 주별 학습시간이 여기 쌓여요."
+        next={
+          <Button sm onClick={() => navigate('/today')}>
+            오늘 학습으로 →
+          </Button>
+        }
+      />
     );
   const byId: Record<string, ScheduleResult['itemStat'][number]> = {};
   r.itemStat.forEach((s) => (byId[s.id] = s));

@@ -26,7 +26,8 @@ import {
 } from '@/lib/goals';
 import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
 import EmptyState from '@/components/EmptyState';
-import { SkeletonText } from '@/components/ui';
+import { useNavigate } from 'react-router-dom';
+import { Button, SkeletonText } from '@/components/ui';
 
 /* ── C-7 네 번째 이식(goals) ─────────────────────────────────────────────
    `Goals.module.css`(307줄) 를 없앴다. 규약은 설계서 §15 + `styles/tokenBridge.css`
@@ -60,6 +61,7 @@ const PROJ_ROW = 'flex items-baseline gap-2 text-sm';
 const PROJ_K = 'min-w-projk flex-none text-xs text-mut';
 
 export default function Goals() {
+  const navigate = useNavigate();
   const goals = useGoals();
   const data = goals.data;
 
@@ -115,6 +117,13 @@ export default function Goals() {
               손저작 계약 <code>knowledge/_meta/contract/goals.json</code> 을 읽어 옵니다. 설정 탭에서 워크스페이스를
               지정하면 목표 트리가 여기 그려집니다.
             </>
+          }
+          /* 콜드 게이트 — 막힌 지점(워크스페이스 미설정)으로 **데려다준다**. 종전엔 어디로
+             가야 하는지 문장으로만 말하고 사용자가 탭을 찾아야 했다. */
+          next={
+            <Button sm onClick={() => navigate('/settings')}>
+              설정에서 워크스페이스 지정 →
+            </Button>
           }
         />
       </section>

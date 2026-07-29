@@ -22,6 +22,7 @@ import {
 } from '@/lib/discovery';
 import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
+import { useNavigate } from 'react-router-dom';
 import { Button, SkeletonText } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 
@@ -46,6 +47,7 @@ const KIND_CLASS: Record<string, string> = {
 const ROOT = 'px-5 pt-4 pb-6';
 
 export default function Discovery() {
+  const navigate = useNavigate();
   const disc = useDiscovery();
   const qc = useQueryClient();
   const data = disc.data;
@@ -107,6 +109,18 @@ export default function Discovery() {
         <EmptyState
           glyph="✦"
           title={counts.promoted + counts.dismissed > 0 ? '미결 후보가 없어요' : '발견 큐가 아직 비어 있어요'}
+          /* ⚠ 두 상태는 **처방이 다르다**. "다 처리했다"는 정상 종착이라 억지 CTA 를 두면
+             성공한 사람에게 할 일을 만들어 주는 꼴이고, "큐가 비었다"는 파이프라인이 안 돈
+             것이라 갈 곳이 있다. `next` 가 필수라 이 구분을 안 하고는 렌더가 안 된다. */
+          next={
+            counts.promoted + counts.dismissed > 0 ? (
+              { terminal: '수집·발견이 더 돌면 새 후보가 차오릅니다.' }
+            ) : (
+              <Button sm onClick={() => navigate('/control')}>
+                탐구 수집 열기 →
+              </Button>
+            )
+          }
           desc={
             counts.promoted + counts.dismissed > 0 ? (
               <>

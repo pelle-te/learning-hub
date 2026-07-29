@@ -141,7 +141,7 @@ export default function Mistakes() {
               <b>무엇이 반복해서 나를 막는가</b>가 보여요.
             </>
           }
-          actions={
+          next={
             <Button sm variant="primary" onClick={() => nav('/journal')}>
               기록하러 가기 →
             </Button>

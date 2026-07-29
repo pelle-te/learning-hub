@@ -286,7 +286,7 @@ export function AllocBoard({
               <b>주당 목표 시간</b>이 있는 과목을 추가하면, 여기서 그 시간을 요일에 배분할 수 있어요(월2·목1처럼).
             </>
           }
-          actions={
+          next={
             <Button sm variant="primary" onClick={() => navigate('/items')}>
               과목 추가하러 가기 →
             </Button>

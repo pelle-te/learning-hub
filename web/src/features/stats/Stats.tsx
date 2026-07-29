@@ -381,7 +381,7 @@ export default function Stats() {
                 지표가 또렷해져요.
               </>
             }
-            actions={
+            next={
               <Button variant="primary" onClick={() => navigate('/items')}>
                 + 학습 항목 추가
               </Button>

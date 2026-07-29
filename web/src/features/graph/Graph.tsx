@@ -497,7 +497,7 @@ export default function Graph() {
                 익혔는지 한눈에 보입니다.
               </>
             }
-            actions={
+            next={
               <Button variant="primary" onClick={() => navigate('/items', { viewTransition: true })}>
                 + 학습 항목 추가
               </Button>

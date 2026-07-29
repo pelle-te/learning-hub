@@ -216,7 +216,7 @@ export default function Forecast() {
               그려집니다. 오늘 학습을 마치면 곧 첫 파도가 나타나요.
             </>
           }
-          actions={<Button onClick={() => nav('/today')}>오늘 학습으로</Button>}
+          next={<Button onClick={() => nav('/today')}>오늘 학습으로</Button>}
         />
       </section>
     );

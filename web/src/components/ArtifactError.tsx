@@ -19,7 +19,7 @@ export default function ArtifactError({
       glyph="⚠️"
       title={`${label} 불러오지 못했어요`}
       desc={<>워크스페이스는 연결됐지만 응답에 문제가 있어요{detail ? ` — ${detail}` : '.'}</>}
-      actions={
+      next={
         <Button variant="primary" onClick={onRetry}>
           다시 시도
         </Button>
