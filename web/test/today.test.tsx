@@ -70,9 +70,19 @@ test('today: ID-5 오늘의 모양 — 완료·요약 있으면 셧다운 회고
   });
   renderApp('/today');
   fireEvent.click(await screen.findByRole('button', { name: /일일 의식/ })); // 상세 오버레이 열기
-  // 회고 한 줄 — 과목수·세션·배운 것(마지막 요약 마지막 문장).
-  expect(await screen.findByText(/오늘의 모양/)).toBeInTheDocument();
-  expect(screen.getByText(/극한의 정의를 다시 정리/)).toBeInTheDocument();
+  /* ⚠⚠ **오버레이 안으로 범위를 좁힌다 — 안 좁히면 이 테스트는 저녁에만 깨진다.**
+     '오늘의 모양'은 두 곳에서 렌더된다: 여기 의식 카드(`Today.tsx` · 잴 것이 있으면 언제나)와
+     시그니처(`TodaySignature` · **`dayPhase`가 `closing`일 때만**). 늦은 시각엔 남은 가용이
+     가장 짧은 블록보다 작아져 `closing`이 참이 되고, 그러면 화면에 둘 다 떠서
+     `findByText`가 "Found multiple elements"로 죽는다.
+     실제로 2026-07-26(N-5 국면 도입) 이후 **저녁에 게이트를 돌렸다면 늘 실패했을** 테스트였다 —
+     게이트가 늘 낮에 돌아 안 보였을 뿐이고, 2026-07-29 21:39 커밋에서 처음 드러났다.
+     벽시계에 따라 답이 달라지는 단언은 그 자체가 결함이다(`e2e`가 `boot(at)`으로 시각을
+     고정하는 것과 같은 이유). 여기서 보려는 것은 **의식 오버레이의 회고 한 줄**이므로
+     그 컨테이너 안에서만 찾으면 국면과 무관해진다. */
+  const sheet = within(await screen.findByRole('dialog', { name: '오늘 상세' }));
+  expect(await sheet.findByText(/오늘의 모양/)).toBeInTheDocument();
+  expect(sheet.getByText(/극한의 정의를 다시 정리/)).toBeInTheDocument();
   // cleanup: 다음 테스트에 새지 않게.
   useApp.getState().mutate((st) => {
     st.completions = {};

@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0",
-  "notes": "현재 배포본입니다. 새 버전을 내면 릴리스 절차(web/docs/릴리스.md §2-3)가 이 파일을 통째로 갈아 끼웁니다.",
-  "pub_date": "2026-07-26T00:00:00Z",
+  "version": "0.2.0",
+  "notes": "재기준선 22건 — 화면이 사실과 다르게 말하던 자리를 고쳤습니다.\n\n· 다른 기기에서 하던 복습을 '이어하기'로 열면 이제 그 카드에서 시작합니다(전엔 1장부터 다시 봤습니다).\n· Anki 대기 숫자가 낡았으면 낡았다고 말합니다 — 어제 값을 오늘 값처럼 그리던 것을 고쳤습니다.\n· 라이트 테마에서 세부 시트가 뒤 배경을 제대로 눌러 줍니다.\n· 과목·학기 삭제에 되돌리기가 생겼고, 되돌리기가 '언제 것'인지 말합니다.\n· 예보의 '앞당길 후보'를 눌러 그날 계획에 바로 넣을 수 있습니다.\n· 오답 메모를 명령 팔레트 검색으로 찾을 수 있습니다.\n· 폰에서 학습 블록을 완료 체크할 수 있습니다.\n· 시간·비율 표기와 졸업 진행률이 화면마다 다르던 것을 하나로 맞췄습니다.",
+  "pub_date": "2026-07-29T12:30:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "",
-      "url": "https://updates.invalid/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.1.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbHRUb2FvNUlxUHoxYmtKbnRVWGsxRzFmNnVsTWxsbkRjSFh3UG1CZDdjemRkOXFIdFVhVTUvRlRsZGNmRGhNb0dxZ3p1RlFVaEl3NEYrVWJ6WUMxR3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1MzI4MDQyCWZpbGU665+s64ud7ZeI67iMXzAuMi4wX3g2NC1zZXR1cC5leGUKcGtNWmdESzVuR0t6TkhUR0ZiWnBNUzR5Z3pkYTV1OGl2OE9iNDJ3VWJFalYreFB6c1J6SGJIVm5IVk0rNm5PN1pLak5OcXh2TENGZ1Q5U0RZYU9SQXc9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.2.0_x64-setup.exe"
     }
   }
 }
