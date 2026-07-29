@@ -131,8 +131,29 @@ button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--acc) 8%, var(--panel2));
   color: var(--txt);
 }
+/* ── E15 압력 레지스터(2026-07-29) ────────────────────────────────────────
+   실측: `hover:` 130회 · `group-hover:` 7 vs `active:` **5**, CSS `:active` **1개**(아래 이
+   규칙 하나). 즉 원칙 ⑤의 "라이브감" 예산이 거의 전부 **마우스 오버**에 들어가 있었고,
+   ① 이 앱은 ⌘K·`g` 단축키 중심이라 키보드 조작엔 hover 가 없고
+   ② **폰 웹앱엔 hover 자체가 없다**
+   → 두 경로에서 라이브감이 0이었다. 눌림은 세 경로(마우스·키보드 Enter/Space·터치) 모두에서
+   발생하므로, 예산을 hover 에서 press 로 옮기는 것이 커버리지를 넓히는 유일한 방향이다.
+
+   ⚠ `translateY(1px)` 만으로는 "눌렸다"가 아니라 "떨렸다"로 읽힌다(1px 은 서브픽셀 렌더링에
+   묻힌다). 축소 + 그림자 회수가 물리적 은유를 완성한다 — 면이 눌려 들어가면 그림자가 준다.
+   ⚠ **정지 프레임에 안 잡힌다** → 시각 스냅샷 영향 0. 그게 이 변경의 장점이자 위험이고,
+   그래서 회귀를 볼 수 있는 것은 이 주석과 손뿐이다.
+   ⚠ `:focus-visible` 은 건드리지 않는다 — 그건 "어디 있나"이고 이건 "지금 눌렀다"라 다른 축이다. */
 button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.98) translateY(1px);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 모션 자제에서도 **압력 자체는 남긴다** — 이건 장식이 아니라 "눌렸다"는 피드백이고,
+     그걸 없애면 라이브감 예산이 다시 hover 로만 돌아간다. 변위만 뺀다. */
+  button:active:not(:disabled) {
+    transform: none;
+  }
 }
 /* 비활성 — 비동기 작업 중(스캔·동기화·도구 실행) 버튼이 살아있는 것처럼 보이던 문제.
    호버 가드(:not(:disabled))와 짝으로, "눌러도 안 되는" 컨트롤임을 시각적으로 명시. */

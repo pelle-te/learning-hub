@@ -535,7 +535,17 @@
   --glow: color-mix(in srgb, var(--acc) 18%, transparent);
   /* 액센트 채움 그라데이션 — 다크와 동일 공식(--acc에서 파생). */
   --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
-  --hairline: rgba(255, 255, 255, 0.85);
+  /* ⚠⚠ **헤어라인이 라이트에서 한 픽셀도 안 그려졌다(E4 · 2026-07-29).**
+     값이 `rgba(255,255,255,.85)` 인데 이 테마의 `--panel` 은 `#ffffff` 다 → **흰 면 위 흰 선**.
+     다크 값(같은 흰색 6%)을 그대로 두고 알파만 올린 흔적인데, 그건 *어두운* 면 위에서만 선이
+     된다. 결과: `--bg-sig-top`(헤어라인으로 만든 상단 그라데이션)이 무효가 되고, `ds-hairline`
+     소비처 8곳(today·stats×2·ledger·review·journal·graph·settings)에서 **디자인시스템 원칙 ④가
+     이름으로 든 "얇은 헤어라인"이 라이트에 존재하지 않았다**.
+     ⚠ 이 파일은 같은 함정을 이미 두 번 진단해 뒀다 — 바로 아래 `--overlay-bg`(흰 위 흰색 딤)와
+     `--scrim`(테마를 안 따라가는 검정). 처방이 옆에 있는데 이 토큰만 못 받고 있었다.
+     ⚠ 잉크 10% — `--line-soft`(#eef0f4)보다 얕다. 헤어라인은 *구분선*이 아니라 *가장자리의
+     암시*라, 선으로 읽히기 시작하면 원칙 ④가 폐기한 카드 테두리로 되돌아간다. */
+  --hairline: color-mix(in srgb, var(--ink) 10%, transparent);
 
   /* ⚠⚠ **오버레이 딤 — 라이트에서 딤이 딤을 하지 않았다.**
      기본값(`:root`)은 `color-mix(--bg 72%, transparent)` 인데 라이트의 `--bg` 는 `#fafbfc` 다 →
