@@ -12,6 +12,7 @@
    여기선 lib/weekAlloc 같은 출처로 한 과목의 행만 편집한다. 두 입구, 한 진실.
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { flushSync } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
@@ -79,6 +80,9 @@ function useInsight(items: Item[], todayDs: string, itemStat: ItemStat[]) {
 }
 
 export default function Items() {
+  /* E16 — 드래그 재정렬의 키보드 대안이 주석·`aria-label` 에만 있었다. 등재해야 `?` 가 이 화면에
+     대해 사실을 말한다(치트시트가 거짓말할 자유를 없앤다). */
+  useKeymapDoc('이 화면 · 과목', [{ display: 'Alt + ↑ / ↓', label: '과목 순서 바꾸기' }]);
   const items = useApp((s) => s.state.items);
   const cbms = useApp((s) => s.state.cbms);
   const routine = useApp((s) => s.state.routine);

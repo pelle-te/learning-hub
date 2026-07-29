@@ -31,6 +31,7 @@
      단위다). sid 만으로 아무 챕터나 리셋하는 것은 인출 기록이 아니라 오염이라 하지 않는다.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
@@ -135,6 +136,19 @@ function dropResume(): void {
 
 export default function ReviewRun() {
   const state = useApp((s) => s.state);
+  /* E16 — 이 화면은 앱에서 키가 가장 많은데 **치트시트에 없었다**. 발치 `KeyBar` 가 화면 위에서
+     가르치지만 그건 *이 카드에 지금 뜨는 것*만 보여준다 — `?` 를 눌러 전체 어휘를 물었을 때
+     답이 없으면, 있는 기능이 없는 것과 같다. 등록은 아래 리스너가 그대로 하고 설명만 올린다
+     (`keys` 는 카드 종류에 따라 달라지므로 `useKeymap` 의 keys→run 모델로 옮길 수 없다). */
+  useKeymapDoc('이 화면 · 복습 실행', [
+    { display: 'Space', label: '펼쳐서 대조' },
+    { display: '1', label: '건너뛰기' },
+    { display: '2', label: '판정 / 집중 시작' },
+    { display: '3', label: '떠올렸어요(챕터 · 앵커를 옮긴다)' },
+    { display: 'V', label: '볼트에서 찾기' },
+    { display: 'U', label: '되돌리기' },
+    { display: 'Esc', label: '중단' },
+  ]);
   const res = useSchedule();
   const nav = useNavigate();
   const today = todayISO(state);

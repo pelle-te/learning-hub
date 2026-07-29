@@ -26,6 +26,7 @@
    전역 :hover(:not(:disabled)) 특이도에 눌린 로컬 hover 는 되살리지 않는다(전역이 이긴 렌더 보존).
 ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
@@ -183,6 +184,10 @@ export default function Graph() {
   const leafRv = sel && sel.kind === 'leaf' ? reviewMap.get(sel.itemId + '|' + sel.label) : null;
   const hubRisk =
     sel && sel.kind === 'hub' ? reviews.filter((r) => r.sid === sel.itemId && r.risk !== 'fresh').length : 0;
+
+  /* E16 — 이 Esc 는 패널이 열렸을 때만 산다 → 치트시트도 그때만 말한다(`enabled`).
+     무조건 등재하면 닫을 것이 없을 때도 "Esc 닫기"라 적어 **반대 방향으로** 거짓말한다. */
+  useKeymapDoc('이 화면 · 노드 상세', [{ display: 'Esc', label: '상세 패널 닫기' }], !!sel);
 
   // AN-5 — role="dialog" 상세 패널의 키보드 닫기. sel이 있을 때만 document keydown Esc→닫기
   // (캔버스 상호작용과 충돌 없게 게이트, cleanup 필수).

@@ -7,6 +7,7 @@
    좌표 변환은 lib/dayPlanGeometry가 소유.
 ============================================================ */
 import { hLabel, toHM } from '@/lib/utils';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { pxToMin } from '@/lib/dayPlanGeometry';
 import { SNAP, snap as snapMin } from '@/lib/dayPlans';
 import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
@@ -261,6 +262,15 @@ export function TimedCard({
   const top = pos(start);
   const height = Math.max(3, pos(start + min) - top);
   const compact = min < 45;
+
+  /* E16 — 이 Alt 조합들은 **`aria-label` 문장 하나에만** 적혀 있었다. 즉 스크린리더 사용자에게만
+     문서화되고 `?` 치트시트엔 없었다(있는데 아무도 모르는 키의 전형). 등록은 요소 스코프
+     `onKeyDown` 이라 전역 리스너로 옮길 수 없으므로 설명만 올린다. */
+  useKeymapDoc('이 화면 · 일일 배치', [
+    { display: 'Alt + ↑ / ↓', label: '블록 시간 ±15분' },
+    { display: 'Alt + Shift + ↑ / ↓', label: '블록 길이 ±15분' },
+    { display: 'Alt + Backspace', label: '트레이로 되돌리기' },
+  ]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!e.altKey) return;

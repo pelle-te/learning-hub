@@ -4,6 +4,7 @@
    세부(블록 액션·일일 의식·흐름 가이드)는 "＋"/"지금 시작" → 오버레이 패널로(필요할 때만).
 ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useApp } from '@/store/useApp';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { ui } from '@/shell';
@@ -174,6 +175,8 @@ export default function Today() {
     });
     return () => cancelAnimationFrame(raf);
   }, [moreOpen, moreFocus]);
+
+  useKeymapDoc('이 화면 · 블록 상세', [{ display: 'Esc', label: '세부 패널 닫기' }], moreOpen);
 
   useEffect(() => {
     if (!moreOpen) return;

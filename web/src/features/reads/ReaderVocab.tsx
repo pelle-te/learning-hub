@@ -7,6 +7,7 @@
    참조하지 않으므로, 인터페이스는 **3 props**(lang·text·online)로 끝난다(prop-drilling 아님).
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { lookupVocab, type VocabResult } from '@/lib/api';
 
 interface VocabState {
@@ -73,6 +74,10 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
     document.addEventListener('selectionchange', onSel);
     return () => document.removeEventListener('selectionchange', onSel);
   }, []);
+
+  /* E16 — 이 Esc 는 패널이 열렸을 때만 산다 → 치트시트도 그때만 말한다(`enabled`).
+     무조건 등재하면 닫을 것이 없을 때도 "Esc 닫기"라 적어 **반대 방향으로** 거짓말한다. */
+  useKeymapDoc('이 화면 · 단어 팝오버', [{ display: 'Esc', label: '팝오버 닫기' }], !!vocab);
 
   // 팝오버 닫기 — Esc + 바깥 클릭(기존엔 ✕ 또는 지문 전환뿐이었다).
   useEffect(() => {

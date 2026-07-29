@@ -16,6 +16,7 @@
    런타임 색 주입(퍼널 채움·셀·범례 스와치·단계 점 = style={{ background }})은 절대규칙 #3 구현이라 인라인 유지.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -136,6 +137,8 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
   // 전부 트랩을 붙였는데 여기만 이탈). 같은 훅으로 계약을 이행한다.
   const panelRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(true, panelRef);
+  /* E16 — 이 컴포넌트 자체가 조건부 렌더라 마운트 = 열림이다. */
+  useKeymapDoc('이 화면 · 원장 상세', [{ display: 'Esc', label: '상세 닫기' }]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

@@ -134,6 +134,51 @@ describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에�
 });
 
 /* ============================================================
+   불변식 ③-c — **키를 등록하는 화면은 그 키를 설명한다** (E19 · 2026-07-29)
+
+   이 저장소는 키 계약을 **주석으로** 지켰고, `useKeymap` 자체가 그 표류에서 태어났다(N-16:
+   "keydown 이 27파일 85건에 흩어져 어느 화면에 어떤 키가 사는지 앱 자신도 몰랐다"). 그런데
+   레지스트리를 만든 뒤에도 표류는 계속됐다 — 복습 러너는 앱에서 키가 가장 많은데 치트시트에
+   없었고, 일일 배치의 `Alt+↑↓` 는 **`aria-label` 문장 하나에만** 적혀 스크린리더 사용자에게만
+   문서화돼 있었다. 셋 다 **정적 검사 전량 녹색**에서 살아 있었다.
+
+   ⚠ 범위를 **전역 리스너로 좁힌 것이 의도**다. 요소 스코프 `onKeyDown`(입력칸의 Enter 처리 등)
+   까지 요구하면 폼마다 치트시트 항목이 생겨 소음이 되고, 그러면 이 불변식이 첫 주에 무력화된다.
+   `document`/`window` 에 거는 키는 **그 화면에 있는 동안 어디서나 먹는다** — 그건 정의상 화면 키다.
+   ⚠ 예외 목록을 두지 않는다. 예외는 반드시 썩고, 썩은 예외는 게이트가 아니라 알리바이가 된다
+   (`tabs.ts` 의 `role` 이 필수 필드인 것과 같은 규율).
+============================================================ */
+describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등재한다', () => {
+  const FEATURES = join(process.cwd(), 'src', 'features');
+  function files(dir: string, out: string[] = []): string[] {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) files(p, out);
+      else if (/\.tsx?$/.test(e.name)) out.push(p);
+    }
+    return out;
+  }
+  const REGISTERS = /(document|window)\.addEventListener\(\s*['"`]keydown/;
+  const DECLARES = /useKeymap(Doc)?\s*\(/;
+
+  it('전역 keydown 을 거는 파일은 useKeymap/useKeymapDoc 을 부른다', () => {
+    const offenders = files(FEATURES).filter((p) => {
+      const src = readFileSync(p, 'utf8');
+      return REGISTERS.test(src) && !DECLARES.test(src);
+    });
+    // 실패하면: 그 화면의 키를 `useKeymapDoc(scope, rows, enabled?)` 로 등재하세요.
+    // 조건부로 사는 키(패널 열림 등)는 `enabled` 로 그 조건을 그대로 옮깁니다.
+    expect(offenders).toEqual([]);
+  });
+
+  it('전역 키를 거는 feature 가 하나 이상 존재한다(0이면 이 불변식이 아무것도 안 잰다)', () => {
+    // ⚠ 조용한 통과 방지 — 정규식이 망가지거나 경로가 바뀌면 0개가 되고, 그건 녹색이 아니라 고장이다.
+    const registrars = files(FEATURES).filter((p) => REGISTERS.test(readFileSync(p, 'utf8')));
+    expect(registrars.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+/* ============================================================
    불변식 ④ — **JS 가 읽는 CSS 토큰은 실제로 정의돼 있다** (6단계/C-7 선행조건)
 
    왜 이게 불변식이 되어야 하는가: C-7(Tailwind 전환)이 "조용히 깨지는 것 3종"
