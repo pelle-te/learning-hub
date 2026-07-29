@@ -10,12 +10,20 @@
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
-import { todayISO, parseISO, fmt, ddayInfo } from '@/lib/utils';
+import { todayISO, parseISO, fmt, ddayInfo, mmss } from '@/lib/utils';
 import { studyStreak, isDone } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { pickFocus, type FocusEntry } from '@/lib/focusState';
-import { latestResume, resumeDevice, resumeLabel, resumeIndex, type ResumeKind, type ResumeCursor } from '@/lib/resume';
+import {
+  latestResume,
+  resumeDevice,
+  resumeLabel,
+  resumeIndex,
+  focusRemainingMs,
+  type ResumeKind,
+  type ResumeCursor,
+} from '@/lib/resume';
 
 const CARD = 'rounded-lg border border-line bg-panel p-4';
 const STAT = 'flex flex-col gap-0.5 rounded-md border border-line bg-panel2 px-3 py-2.5';
@@ -31,6 +39,7 @@ export default function TodayView({
      오늘 하루 화면(day). 이 표 하나가 드롭된 F1(딥링크 핸드오프)을 불필요하게 만든 것이다. */
   const [nowMs] = useState(() => Date.now());
   const resume = latestResume(useApp.getState().state, resumeDevice(), nowMs);
+  const resumeLeft = resume ? focusRemainingMs(resume.cur, nowMs) : null;
   /* ⚠ 진행 인덱스를 함께 넘긴다 — 넘기지 않으면 칩이 `(7/12)` 를 약속해 놓고 러너가 1장부터
      열린다. 그러면 이 기능이 막으려던 중복 학습("PC 에서 어디까지 했더라")을 기능이 보장한다. */
   const onResume = (kind: ResumeKind, cur: ResumeCursor): void =>
@@ -79,6 +88,15 @@ export default function TodayView({
       {/* N-7 이어하기 — 데스크톱에서 하던 것이 살아 있을 때만 뜬다. 폰이 이 기능의 주 수혜자다:
           "PC 에서 어디까지 했더라"가 그동안 기억 재구성이었고, 틀리면 같은 걸 두 번 했다.
           ⚠ 데스크톱 칩을 공유하지 않고 폰 문법으로 따로 그린다(C-6 · lib 만 공유). */}
+      {/* E26 — PC 에서 집중 중이면 **말만** 한다(조작 없음). 종전엔 폰이 그 사실을 몰라
+          같은 블록을 체크했고, PC 종료 토스트의 완료 제안과 이중이 됐다. */}
+      {resumeLeft != null && (
+        <p role="status" className="m-0 flex items-center gap-2 text-xs text-mut">
+          <span aria-hidden="true">⏱</span>
+          다른 기기에서 집중 중 — {mmss(Math.round(resumeLeft / 1000))} 남음
+        </p>
+      )}
+
       {resume && (
         <button
           type="button"

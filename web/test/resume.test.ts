@@ -2,7 +2,16 @@
    resume.test.ts — 이어하기 커서(N-7)의 판정 규칙. 전부 순수 함수라 여기서 전량 덮인다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { latestResume, putResume, clearResume, resumeLabel, resumeIndex, RESUME_TTL_MIN } from '@/lib/resume';
+import {
+  latestResume,
+  putResume,
+  clearResume,
+  resumeLabel,
+  resumeIndex,
+  RESUME_TTL_MIN,
+  focusRemainingMs,
+  type ResumeCursor,
+} from '@/lib/resume';
 import type { AppState } from '@/lib/types';
 
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
@@ -101,5 +110,30 @@ describe('resume — 착지 인덱스', () => {
 
   it('큐 길이는 보지 않는다 — 클램프는 실제 큐를 쥔 호출부의 몫', () => {
     expect(resumeIndex(cur('99/12'))).toBe(98);
+  });
+});
+
+/* ── E26 다른 기기의 집중 세션(2026-07-29) ───────────────────────────────
+   집중은 로컬 KV 에만 살아 기기를 넘지 않았다 → PC 에서 25분을 걸고 자리를 뜨면 폰은 모르고,
+   그 블록을 폰에서 체크하면 PC 종료 토스트의 완료 제안과 이중이 된다. 커서에 종료 시각
+   한 필드를 더해 닫는다. **읽기 전용**이라는 것이 이 기능의 경계다. */
+describe('focusRemainingMs — 다른 기기가 지금 집중 중인가', () => {
+  const NOW = 1_700_000_000_000;
+  const cur = (p: Partial<ResumeCursor>): ResumeCursor => ({ kind: 'focus', label: '전자기학', at: NOW, ...p });
+
+  it('종료 시각이 미래면 남은 시간을 준다', () => {
+    expect(focusRemainingMs(cur({ endsAt: NOW + 90_000 }), NOW)).toBe(90_000);
+  });
+
+  it('이미 끝났으면 null — 남은 시간을 우기지 않는다(시계 어긋남 방어)', () => {
+    expect(focusRemainingMs(cur({ endsAt: NOW - 1 }), NOW)).toBeNull();
+  });
+
+  it('집중이 아닌 커서는 null — 복습·기록 이어하기엔 종료 시각이 없다', () => {
+    expect(focusRemainingMs(cur({ kind: 'review', endsAt: NOW + 90_000 }), NOW)).toBeNull();
+  });
+
+  it('옛 저장본(endsAt 없음)은 조용히 null — 무마이그레이션 계약', () => {
+    expect(focusRemainingMs(cur({}), NOW)).toBeNull();
   });
 });

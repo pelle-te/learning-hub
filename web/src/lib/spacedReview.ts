@@ -202,6 +202,33 @@ const RISK_TIERS: readonly ReviewRisk[] = ['overdue', 'due', 'fresh'];
 
 /** 위험 티어는 보존하고 티어 내부만 과목 라운드로빈으로 인터리빙한다. 입력은 위험순 정렬을
  *  가정(chapterReviews 산출) — 과목 회전 순서 = 각 과목의 가장 급한 챕터 등장 순(결정적). */
+/**
+ * 과목 라운드로빈 한 겹(순수 · 티어 없음). 같은 과목이 연달아 오지 않게 섞되 **각 과목 안의
+ * 순서는 보존**한다(입력 순 = 그 과목에서 가장 급한 것부터).
+ *
+ * ⚠ 제네릭인 이유(E25 · 2026-07-29): 이 규칙이 **복습 큐에서만** 쓰이고 있었다. 계획 쪽
+ * `scheduler/layout` 은 생성 순을 그대로 배치해, 앱이 복습 12장에 대해선 인터리빙을 지키면서
+ * **하루 6시간의 본 학습에서는 안 지키는** 비대칭이 있었다. 규칙을 두 벌로 만들지 않으려고
+ * 키 접근자만 받는다.
+ */
+export function interleaveByKey<T>(items: T[], keyOf: (t: T) => string): T[] {
+  if (items.length < 2) return items.slice();
+  const byKey = new Map<string, T[]>();
+  for (const it of items) {
+    const k = keyOf(it);
+    const g = byKey.get(k);
+    if (g) g.push(it);
+    else byKey.set(k, [it]);
+  }
+  const groups = [...byKey.values()];
+  const out: T[] = [];
+  const rounds = Math.max(...groups.map((g) => g.length));
+  for (let round = 0; round < rounds; round++) {
+    for (const g of groups) if (round < g.length) out.push(g[round]!);
+  }
+  return out;
+}
+
 export function interleaveBySubject(chapters: ChapterReview[]): ChapterReview[] {
   const out: ChapterReview[] = [];
   for (const tier of RISK_TIERS) {
@@ -210,19 +237,8 @@ export function interleaveBySubject(chapters: ChapterReview[]): ChapterReview[] 
       if (inTier.length) out.push(inTier[0]!);
       continue;
     }
-    // 과목별 그룹(삽입 순 = 위험순 정렬에서 그 과목이 처음 등장한 순서 = 가장 급한 챕터 순).
-    const bySubject = new Map<string, ChapterReview[]>();
-    for (const c of inTier) {
-      const g = bySubject.get(c.sid);
-      if (g) g.push(c);
-      else bySubject.set(c.sid, [c]);
-    }
-    const groups = [...bySubject.values()];
-    // 라운드로빈: 라운드 r 마다 각 과목의 r번째 챕터를 순서대로 뽑는다. 가장 긴 그룹까지 돌면 끝.
-    const rounds = Math.max(...groups.map((g) => g.length));
-    for (let round = 0; round < rounds; round++) {
-      for (const g of groups) if (round < g.length) out.push(g[round]!);
-    }
+    // 라운드로빈은 `interleaveByKey` 가 소유한다 — 계획 배치와 **같은 한 겹**을 쓴다(E25).
+    out.push(...interleaveByKey(inTier, (c) => c.sid));
   }
   return out;
 }

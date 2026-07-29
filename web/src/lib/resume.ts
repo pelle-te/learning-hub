@@ -43,6 +43,11 @@ export interface ResumeCursor {
   at: number;
   /** 진행 상황 한 줄("3/12") — 있으면 표시한다. */
   progress?: string;
+  /** 집중 세션 종료 시각(epoch ms) — `kind:'focus'` 에만. E26.
+   *  ⚠ 이 값이 **다른 기기에서 읽힐 때만** 값이 있다(내 기기는 `useFocus` 가 이미 안다).
+   *  폰이 "PC 에서 집중 중 · N분 남음"을 말하는 근거이고, 그 이상은 하지 않는다 — 조작을 주면
+   *  종료 감시자가 둘이 되고 `FocusChip` 이 경고한 "알림·완료 토스트가 두 번"이 재현된다. */
+  endsAt?: number;
 }
 
 /** 기기 id → 커서. 자기 것도 남의 것도 여기 함께 있다(행은 기기별로 갈린다). */
@@ -81,6 +86,23 @@ export function latestResume(
     if (!best || cur.at > best.cur.at) best = { deviceId, cur };
   }
   return best;
+}
+
+/**
+ * **다른 기기가 지금 집중 중인가** — 남은 밀리초(아니거나 이미 끝났으면 null). E26.
+ *
+ * 집중 세션은 `lib/focusState` 의 로컬 KV 에만 살아 기기를 넘지 않았다. 그래서 PC 에서 25분을
+ * 걸어 두고 자리를 뜨면 폰은 그 사실을 모르고, 그 블록을 폰에서 완료 체크하면 PC 종료 토스트의
+ * 완료 제안과 **이중**이 된다. 커서에 종료 시각 한 필드를 더해 그 공백을 닫는다.
+ *
+ * ⚠ **읽기 전용이다.** 폰에 중지·연장을 주면 종료 감시자가 둘이 되고, `FocusChip` 머리주석이
+ * 경고한 "알림·완료 토스트가 두 번"이 그대로 재현된다. 아는 것과 조작하는 것은 다른 일이다.
+ * ⚠ 시계 어긋남에 대한 방어는 **음수를 null 로** 접는 것뿐이다 — 남은 시간을 우기지 않는다.
+ */
+export function focusRemainingMs(cur: ResumeCursor, now: number): number | null {
+  if (cur.kind !== 'focus' || typeof cur.endsAt !== 'number') return null;
+  const left = cur.endsAt - now;
+  return left > 0 ? left : null;
 }
 
 /** 커서를 기록한다(자기 행만). `label` 이 비면 아무것도 안 한다 — 이름 없는 이어하기는 못 읽는다. */

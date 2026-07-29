@@ -263,6 +263,11 @@ export const AppStateSchema = z
           label: z.string(),
           at: z.number(),
           progress: z.string().optional(),
+          /* E26(2026-07-29) — 집중 세션의 종료 시각(epoch ms). `kind:'focus'` 에만 실린다.
+             ⚠ 서버 DDL·zod 가 0인 이유: `resume` 은 `ds_map` 슬라이스이고 그 `value` 는 **JSON
+             문자열이라 서버에 불투명**하다. 즉 이 필드는 클라 계약에만 존재한다.
+             ⚠ optional 이라 옛 저장본은 무마이그레이션으로 그대로 읽힌다. */
+          endsAt: z.number().optional(),
         }),
       )
       .optional(),

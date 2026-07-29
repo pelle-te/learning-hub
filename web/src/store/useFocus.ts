@@ -79,7 +79,8 @@ export const useFocus = create<FocusStore>((set, get) => ({
     persistFocus(storage, session);
     /* N-7 — 이어하기 커서(집중). 이 세션은 로컬 KV 에만 있어 기기를 넘지 않았다: 폰을 열면
        "PC 에서 뭘 하고 있었지"가 기억 재구성이었다. 클라우드 미연결이면 무동작이다. */
-    writeResume({ kind: 'focus', label: t.name, at: now });
+    // E26 — 종료 시각을 함께 실어 **다른 기기가** 남은 시간을 말할 수 있게 한다(읽기 전용).
+    writeResume({ kind: 'focus', label: t.name, at: now, endsAt: session.endsAt });
     toast(`집중 ${t.min}분 시작 — 화이팅 🔥`, 'info');
   },
 

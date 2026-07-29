@@ -328,6 +328,46 @@ describe('scheduler (T1~T21 parity)', () => {
     expect(ns.start! >= 540 && ns.start! < 720).toBe(true);
   });
 
+  /* ── E25 계획 배치도 과목을 섞는다(2026-07-29) ────────────────────────
+     이 앱은 복습 12장에 대해선 인터리빙을 지키면서(`interleaveBySubject`) **하루 6시간의 본
+     학습에는 안 지키고** 있었다 — `layout` 이 생성 순을 그대로 배치했기 때문이다.
+     ⚠ 이 케이스가 없으면 그 변경이 **관측되지 않는다**: 기존 스케줄러 테스트에는 같은 날 여러
+       과목이 오는 픽스처가 없어, 인터리빙을 넣어도 전량 녹색이었다(실제로 그랬다). */
+  it('T18-b 같은 날 여러 과목이면 라운드로빈으로 섞인다(블록 수·분은 불변)', () => {
+    const state = baseState([weeklyItem('수학', 6, mkChapters([['1', 6]]))]);
+    const day = {
+      wd: 3,
+      items: [
+        { type: 'new', sid: 'a', name: '수학', min: 60 },
+        { type: 'new', sid: 'a', name: '수학', min: 60 },
+        { type: 'new', sid: 'b', name: '물리', min: 60 },
+      ],
+    } as unknown as Day;
+    const L = layoutDay(state, day);
+    const sids = L.sessions.filter((x) => x.type === 'new').map((x) => x.sid);
+    expect(sids).toEqual(['a', 'b', 'a']); // 생성 순이면 a,a,b 였다
+    expect(L.sessions.filter((x) => x.type === 'new')).toHaveLength(3); // 순열이다 — 개수 불변
+  });
+
+  it('T18-c peak 이 티어를 정하고 인터리빙이 그 안을 정한다(두 규칙이 안 싸운다)', () => {
+    const state = baseState([weeklyItem('수학', 6, mkChapters([['1', 6]]))], {
+      peakStart: '09:00',
+      peakEnd: '12:00',
+    });
+    const day = {
+      wd: 3,
+      items: [
+        { type: 'rev', sid: 'r1', name: '복습1', min: 30 },
+        { type: 'new', sid: 'a', name: '수학', min: 60 },
+        { type: 'new', sid: 'b', name: '물리', min: 60 },
+      ],
+    } as unknown as Day;
+    const L = layoutDay(state, day);
+    const order = L.sessions.map((x) => x.type);
+    // new(피크 대상)가 먼저 = peak 이 티어를 정한다. 그 안에서 a,b 가 섞인다.
+    expect(order.indexOf('new')).toBeLessThan(order.indexOf('rev'));
+  });
+
   it('T19 복습 용량 부족 시 경고 노출', () => {
     const subs: unknown[] = [];
     for (let s = 0; s < 8; s++) {
