@@ -3,7 +3,15 @@
    폴더 선택(미지원·취소)의 우아한 실패를 검증 — 외부 의존이라 fetch·window를 stub.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ankiConnect, ankiFreshness, fetchAnkiLive, pickAndScanAnki, totalCards, totalDue } from '@/lib/anki';
+import {
+  ankiConnect,
+  ankiFreshness,
+  fetchAnkiLive,
+  pickAndScanAnki,
+  totalCards,
+  totalDue,
+  dueBySubject,
+} from '@/lib/anki';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -125,5 +133,51 @@ describe('anki — 이 due 가 오늘 것인가', () => {
 
   it('값 자체가 없으면 null — 그건 "낡음"이 아니라 "미연결"이고 화면 문구가 다르다', () => {
     expect(ankiFreshness(null, '2026-07-29')).toBeNull();
+  });
+});
+
+/* ── E18 과목별 due 분해(2026-07-29) ─────────────────────────────────────
+   `totalDue()` 는 전 덱을 한 숫자로 합쳐 "어느 과목이 밀렸나"를 말하지 못했다 — 알려면 Anki 를
+   직접 열어야 했다. 매칭 규칙은 `subjectMatch` 가 소유하므로(배분을 구동하는 그 규칙과 같아야
+   한다) 여기서 잠그는 것은 **분해와 미연결 처리**다. */
+describe('dueBySubject — 덱 due 를 과목에 붙인다', () => {
+  const deck = (name: string, due: number) => ({ name, new: due, learn: 0, review: 0, total: due });
+  const items = [
+    { id: 'em', name: '전자기학' },
+    { id: 'ci', name: '회로이론' },
+  ];
+
+  it('과목별로 합치고 due 내림차순으로 준다', () => {
+    const r = dueBySubject([deck('전자기학', 120), deck('회로이론', 80)], items);
+    expect(r.rows.map((x) => [x.sid, x.due])).toEqual([
+      ['em', 120],
+      ['ci', 80],
+    ]);
+  });
+
+  it('같은 과목의 여러 덱은 합산된다(Anki 는 덱을 쪼개 쓴다)', () => {
+    const r = dueBySubject([deck('전자기학::1장', 30), deck('전자기학::2장', 20)], items);
+    expect(r.rows).toHaveLength(1);
+    expect(r.rows[0]!.due).toBe(50);
+  });
+
+  it('⚠ 안 붙는 덱을 **조용히 흡수하지 않는다** — 합계가 안 맞아야 조인 오류가 보인다', () => {
+    const r = dueBySubject([deck('전자기학', 120), deck('일본어', 40), deck('요리', 10)], items);
+    expect(r.rows).toHaveLength(1);
+    expect(r.unmatchedDecks).toBe(2);
+    expect(r.unmatchedDue).toBe(50);
+  });
+
+  it('due 0 인 덱은 분해에 안 들어간다 — 있는 것만 말한다', () => {
+    const r = dueBySubject([deck('전자기학', 0), deck('일본어', 0)], items);
+    expect(r.rows).toHaveLength(0);
+    expect(r.unmatchedDecks).toBe(0);
+  });
+
+  it('분해 합 + 미연결 합 = totalDue — 어느 카드도 사라지지 않는다', () => {
+    const decks = [deck('전자기학', 120), deck('회로이론', 80), deck('일본어', 40)];
+    const r = dueBySubject(decks, items);
+    const sum = r.rows.reduce((t, x) => t + x.due, 0) + r.unmatchedDue;
+    expect(sum).toBe(totalDue(decks));
   });
 });

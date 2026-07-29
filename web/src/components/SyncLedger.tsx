@@ -1,0 +1,38 @@
+/* ============================================================
+   components/SyncLedger — 동기화 원장 한 줄(그리기만 · E12 · 2026-07-29).
+
+   ## 무엇이 결함이었나
+
+   `PhoneApp` 헤더는 **실패했을 때만** 말했고(UX-B4 가 그걸 고쳤다), 데스크톱은 그 고침을 못
+   받았다 — 설정 탭 카드·`blocked` 토스트·레일 충돌 배지 셋으로 흩어져 평상시엔 전부 침묵한다.
+   그래서 PC 네트워크가 끊긴 채 반나절 편집해도 신호가 0이고, 폰을 열면 어제 상태라 **같은 걸 또
+   입력**하게 된다. 기기를 잇겠다고 만든 기능이 두 번 일하게 만드는 형태다.
+
+   ## 새 데이터가 0 이다
+
+   `syncController.lastSync()` 가 마지막 성공 시각을, `collectOutbox()` 가 대기 건수를 이미 준다.
+   없던 것은 **화면에 말하는 자리**뿐이었다.
+
+   ⚠ 판정(`lib/syncLedger.ledgerLine`)과 읽기(`store/useSyncLedger`)는 여기 없다 — 두 기기가
+   서로 다른 조건에서 침묵하지 않게 한 곳에 뒀고, `components` 는 store 를 import 할 수 없다.
+   여기서 화면마다 달라지는 것은 `className` 뿐이다.
+============================================================ */
+import { ledgerLine, type Ledger } from '@/lib/syncLedger';
+
+export default function SyncLedger({
+  led,
+  now,
+  className = '',
+}: {
+  led: Ledger;
+  now: number;
+  className?: string;
+}): React.JSX.Element | null {
+  const line = ledgerLine(led, now);
+  if (!line) return null;
+  return (
+    <p role="status" className={`text-xs ${line.warn ? 'text-warn' : 'text-mut'} ${className}`}>
+      {line.text}
+    </p>
+  );
+}

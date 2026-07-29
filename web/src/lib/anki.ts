@@ -9,6 +9,8 @@ import { loadVaultIndex } from './vault';
 import { dirEntries, pickDirectory } from './fsAccess';
 import { isTauri, shellAnkiConnect, shellAnkiScan } from './tauri';
 
+import { matchSubjectIndex } from './subjectMatch';
+
 export interface AnkiDeck {
   name: string;
   new: number;
@@ -157,7 +159,58 @@ export async function pickAndScanAnki(
 
 /** 덱들의 오늘 풀 due 합(new+learn+review). */
 export function totalDue(decks: AnkiDeck[]): number {
-  return decks.reduce((t, d) => t + (+d.new || 0) + (+d.learn || 0) + (+d.review || 0), 0);
+  return decks.reduce((t, d) => t + deckDue(d), 0);
+}
+
+/** 덱 하나의 오늘 due(new+learn+review). */
+function deckDue(d: AnkiDeck): number {
+  return (+d.new || 0) + (+d.learn || 0) + (+d.review || 0);
+}
+
+/** 과목별 due 분해 결과. `unmatchedDecks`/`unmatchedDue` 는 **숨기지 않고 남긴다**(아래 ⚠). */
+export interface DueBySubject {
+  /** due 내림차순. `sid` 는 앱의 과목 id. */
+  rows: { sid: string; name: string; due: number }[];
+  /** 어느 과목에도 안 붙은 덱 수. */
+  unmatchedDecks: number;
+  /** 그 덱들의 due 합. */
+  unmatchedDue: number;
+}
+
+/**
+ * Anki 덱 due 를 **앱의 과목에 붙여** 분해한다(E18 · 2026-07-29).
+ *
+ * ⚠ 종전엔 `totalDue()` 가 전 덱을 **하나의 숫자**로 합쳤다. 덱 이름이 `AnkiLive.decks[].name`
+ * 으로 살아 있는데 어디서도 `items[].name` 과 맞춰보지 않아, "Anki 340장"을 보고 **어느 과목이
+ * 밀렸는지 알려면 Anki 를 직접 열어야** 했다(앱 밖 왕복). 그리고 복습 큐는 볼트 챕터만 보므로
+ * Anki 가 200장 밀린 과목의 챕터를 태연히 또 올린다 — 두 시스템이 서로를 모른다.
+ *
+ * ⚠ **미연결 덱을 조용히 흡수하지 않는다.** 합계가 안 맞으면 눈에 띄어야 조인이 틀렸다는 것을
+ * 알 수 있다("전자기학 120 · 회로 80 · 미연결 3덱 140장"). 숨기면 계측(E3)이 하려던 일을
+ * 이 함수가 되돌린다.
+ * ⚠ 매칭 규칙은 `subjectMatch` 가 소유한다 — 배분을 구동하는 그 규칙과 같아야 한다.
+ */
+export function dueBySubject(decks: AnkiDeck[], items: readonly { id: string; name: string }[]): DueBySubject {
+  const names = items.map((i) => i.name);
+  const bySid = new Map<string, { sid: string; name: string; due: number }>();
+  let unmatchedDecks = 0;
+  let unmatchedDue = 0;
+  for (const d of decks) {
+    const due = deckDue(d);
+    if (due <= 0) continue; // 0장인 덱은 분해에 기여하지 않는다(있는 것만 말한다)
+    const i = matchSubjectIndex(d.name, names);
+    const it = i >= 0 ? items[i] : undefined;
+    if (!it) {
+      unmatchedDecks++;
+      unmatchedDue += due;
+      continue;
+    }
+    const cur = bySid.get(it.id);
+    if (cur) cur.due += due;
+    else bySid.set(it.id, { sid: it.id, name: it.name, due });
+  }
+  const rows = [...bySid.values()].sort((a, b) => b.due - a.due || (a.name < b.name ? -1 : 1));
+  return { rows, unmatchedDecks, unmatchedDue };
 }
 
 /** 볼트 카드 파일덱들의 총 카드 수 합 — totalDue와 대칭. 인라인 reduce 3중복 수렴(SR-11). */

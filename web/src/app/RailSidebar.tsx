@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { navGroups, hostTabKey, Icon, type TabMeta } from '@/shell';
+import SyncLedger from '@/components/SyncLedger';
+import { useSyncLedger } from '@/store/useSyncLedger';
 import { prefetchTab } from '@/features/registry';
 import { useUI } from '@/store/useUI';
 import { useApp } from '@/store/useApp';
@@ -112,6 +114,7 @@ export default function RailSidebar() {
     navigate('/' + key, { viewTransition: animate });
   };
 
+  const ledger = useSyncLedger();
   const groups = navGroups();
   const topGroups = groups.filter((g) => g.key !== 'settings');
   const bottomGroup = groups.find((g) => g.key === 'settings');
@@ -218,6 +221,11 @@ export default function RailSidebar() {
 
       <div className={`${GROUPS} ${collapsed ? GROUPS_COL : ''}`}>{topGroups.map((g, i) => renderGroup(g, i > 0))}</div>
       <div className={SPACER} />
+      {/* E12 — 데스크톱도 자기 동기화 상태를 말한다. 폰 헤더와 **같은 컴포넌트·같은 판정**이라
+          두 기기가 서로 다른 조건에서 침묵할 수 없다(달라지는 것은 여백뿐).
+          ⚠ 접힘(아이콘 전용) 레일에선 그리지 않는다 — 42px 폭에 문장을 넣으면 잘리고, 잘린
+            상태 문구는 없는 것보다 나쁘다(무슨 일이 났는지 모른 채 뭔가 났다는 것만 안다). */}
+      {!collapsed && <SyncLedger {...ledger} className="px-2.5 pb-1.5" />}
       {bottomGroup && renderGroup(bottomGroup, true)}
       <button
         type="button"

@@ -30,7 +30,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { dueForecast, pullForwardCandidates, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
 import { addOrMergeBlock } from '@/lib/dayPlans';
 import { ui } from '@/shell';
-import { totalDue, ankiFreshness } from '@/lib/anki';
+import { totalDue, dueBySubject, ankiFreshness } from '@/lib/anki';
 import { todayISO, fmtShort, reviewBlockMin, DOW } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui';
@@ -122,6 +122,11 @@ export default function Forecast() {
   const ankiLive = useRuntime((s) => s.cache._ankiLive);
   const ankiDue = ankiLive?.decks ? totalDue(ankiLive.decks) : null;
   const ankiFresh = ankiFreshness(ankiLive, today);
+  /* E18 — 덱 due 를 **과목에** 붙인다. 종전엔 `totalDue()` 한 숫자뿐이라 "Anki 340장"을 보고
+     어느 과목이 밀렸는지 알려면 Anki 를 직접 열어야 했다(앱 밖 왕복).
+     ⚠ 이 탭이 그 자리인 이유(E13): 여기가 **볼트 due 와 Anki due 를 한 화면에 쥔** 유일한
+     화면이고, 인출 축의 호스트다. 연동 탭은 "붙었나"만 말한다. */
+  const ankiBy = ankiLive?.decks ? dueBySubject(ankiLive.decks, state.items) : null;
 
   const forecast = useMemo(() => dueForecast(state, res.days || [], today), [state, res.days, today]);
 
@@ -224,6 +229,25 @@ export default function Forecast() {
 
   return (
     <div className={WRAP}>
+      {/* E18 — Anki 가 어느 과목에 밀려 있나. **미연결 덱을 숨기지 않는다**: 합계가 안 맞아야
+          조인이 틀렸다는 것을 알 수 있다(E3 계측이 하려던 일을 이 화면이 되돌리지 않게).
+          ⚠ 넛지 문장은 두지 않는다 — "이미 밀려 있어요" 가 조언이 되려면 임계가 필요하고 그건
+          임의 계수다(`spacedReview` 가 못박은 규율). 분해까지만 한다. */}
+      {ankiBy && (ankiBy.rows.length > 0 || ankiBy.unmatchedDecks > 0) && (
+        <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mut">
+          <span className="font-bold text-txt">Anki 오늘 due</span>
+          {ankiBy.rows.slice(0, 3).map((r) => (
+            <span key={r.sid}>
+              {r.name} <b className="text-txt">{r.due}</b>
+            </span>
+          ))}
+          {ankiBy.unmatchedDecks > 0 && (
+            <span>
+              미연결 {ankiBy.unmatchedDecks}덱 <b className="text-txt">{ankiBy.unmatchedDue}</b>
+            </span>
+          )}
+        </p>
+      )}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0">
           복습 부하 예보{' '}
