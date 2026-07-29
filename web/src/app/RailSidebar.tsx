@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { navGroups, hostTabKey, Icon, type TabMeta } from '@/shell';
+import { noteLens, railTarget } from '@/shell/lastLens';
 import SyncLedger from '@/components/SyncLedger';
 import { useSyncLedger } from '@/store/useSyncLedger';
 import { prefetchTab } from '@/features/registry';
@@ -103,15 +105,24 @@ export default function RailSidebar() {
   const conflictBadge = useConflicts((s) => s.shadows.length);
   const curKey = loc.pathname.split('/')[1] || 'today';
   const cur = hostTabKey(curKey);
+  /* 지금 보는 탭을 기억한다(렌더 중 부수효과 금지 → 이펙트).
+     ⚠ 호스트 자신이면 기억이 지워진다 — 조망으로 돌아온 의도를 다음 클릭이 존중하게. */
+  useEffect(() => {
+    noteLens(curKey);
+  }, [curKey]);
   /* @param animate 뷰 전환(크로스페이드)을 쓸지. ⚠ 방향키 roving 은 **끈다** — 화살표를 누르고
      있으면 키 반복(초당 20~30회)마다 View Transition 이 시작되고, 각 전환이 이전 것을 중단시켜
      레일·본문이 계속 반투명 상태로 깜빡인다(원하는 탭에 도착해도 잔상이 남는다). 클릭·⌘K 처럼
      '한 번의 의도적 이동'에서만 애니가 의미가 있다. */
   /* N-11 — 레일에서 출발한 내비게이션임을 표시한다. 방향키 roving 도 레일이다(같은 목록을
      같은 손으로 돈다). */
+  /* E27 — 레일 클릭은 그 호스트에서 **마지막으로 보던 렌즈**로 간다(세션 한정). 종전엔 항상
+     첫 렌즈라, 배분 보드를 보려면 매번 레일 1 + 세그먼트 1 = 2클릭이었다.
+     ⚠ `g` 키·⌘K·딥링크는 렌즈를 이름으로 지목하므로 이 기억을 안 탄다 — 이 규칙은 레일 클릭
+       한 경로만 상대한다(`shell/lastLens` 머리주석). */
   const go = (key: string, animate = true) => {
     markVia('rail');
-    navigate('/' + key, { viewTransition: animate });
+    navigate('/' + railTarget(key), { viewTransition: animate });
   };
 
   const ledger = useSyncLedger();
