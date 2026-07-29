@@ -27,8 +27,7 @@ export { paletteCommands, type PaletteCommand } from './palette';
 export { vtMove, type VtKind, type VtMove } from './vt';
 export {
   captureSubjects,
-  runQuickCapture,
-  captureToBacklog,
+  commitCapture,
   semanticPalette,
   contentSearch,
   verbsFor,

@@ -19,6 +19,7 @@ import WeekView from './WeekView';
 import ReadsView from './ReadsView';
 import ReviewView from './ReviewView';
 import SyncLedger from './SyncLedger';
+import CaptureBar from './CaptureBar';
 import { sync } from './sync';
 
 type View = 'today' | 'day' | 'week' | 'review' | 'reads';
@@ -166,6 +167,10 @@ export default function PhoneApp(): React.JSX.Element {
         {view === 'review' ? <ReviewView startAt={reviewStart} /> : null}
         {view === 'reads' ? <ReadsView /> : null}
       </main>
+
+      {/* E14 캡처 바 — 탭바 **위**(엄지 도달권 안, 그러나 내비게이션보다 아래). 이 화면의
+          다섯 뷰가 전부 읽기·체크뿐이라 "지하철 5분"에 떠오른 것을 받을 곳이 0이었다. */}
+      <CaptureBar />
 
       {/* UX-B1 하단 탭바 — 5탭 스위처가 화면 최상단에 있었다. 폰을 한 손으로 쥐면 거기가
           엄지가 가장 못 닿는 지대다(iOS·안드로이드가 나란히 하단으로 내려간 이유). "지하철에서

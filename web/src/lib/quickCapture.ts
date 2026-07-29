@@ -323,3 +323,39 @@ export function parseCaptureBatch(raw: string, now: Date, subjects?: string[]): 
     .map((l) => parseCapture(l, now, subjects))
     .filter((x): x is CaptureResult => x !== null);
 }
+
+/* ── 캡처 → 보충 레코드(E2·E14 · 2026-07-29) ─────────────────────────────
+   데스크톱 ⌘Enter 와 폰 캡처 바가 **같은 규칙**으로 같은 곳에 착지해야 한다(§9-4 — 화면은
+   따로, 규칙은 lib). 두 화면이 각자 조립하면 어느 기기에서 담았느냐에 따라 레코드 모양이
+   달라지고, 그 차이는 목록에서만 뒤늦게 보인다. */
+export interface CaptureRecord {
+  /** 매칭된 과목 id — 못 찾으면 ''(보충 스키마가 허용한다). */
+  sid: string;
+  /** 매칭된 과목명 — 못 찾으면 ''. */
+  name: string;
+  /** 토큰을 걷어낸 제목. */
+  topic: string;
+  /** 원문 — `topic` 이 이미 원문이면 ''(같은 글자를 두 칸에 넣지 않는다). */
+  note: string;
+}
+
+/**
+ * 파싱 결과 + 원문 → 보충 레코드 필드. 빈 입력이면 null.
+ *
+ * ⚠ **원문은 어느 칸에든 반드시 온전히 남는다.** 토큰을 전부 뽑았을 때 `parseCapture` 는
+ * `title` 을 원문으로 폴백하므로(그 계약이 여기 전제다) `topic` 이 원문을 들고 `note` 는 빈다.
+ * 일부만 뽑았으면 `topic` 은 남은 조각이라 `note` 가 원문을 든다. 어느 쪽이든 사용자가 친
+ * 글자가 사라지는 경우는 없다 — 그것이 이 함수의 유일한 불변식이다.
+ */
+export function captureRecord(
+  cap: CaptureResult | null,
+  raw: string,
+  subjects: readonly { id: string; name: string }[],
+): CaptureRecord | null {
+  const text = (raw || '').trim();
+  if (!text) return null;
+  const name = cap?.subject ?? '';
+  const sid = name ? (subjects.find((i) => i.name === name)?.id ?? '') : '';
+  const topic = (cap?.title || text).trim() || text;
+  return { sid, name, topic, note: topic === text ? '' : text };
+}

@@ -250,11 +250,14 @@ export function blankPassRate(
   return { total: rs.length, passed: rs.filter((x) => x.passed).length };
 }
 
-/* ── '보충 필요' 백로그(5절) ── */
-export function addBacklog(state: AppState, sid: string, name: string, topic: string, note: string): void {
+/* ── '보충 필요' 백로그(5절) ──
+   ⚠ **id 를 돌려준다**(E2) — 캡처가 곧 커밋이 되면서 "방금 담은 그것"만 되돌릴 수 있어야 했다.
+   목록 끝을 지우는 식으로 되돌리면 그 사이에 다른 쓰기가 끼었을 때 엉뚱한 항목이 사라진다. */
+export function addBacklog(state: AppState, sid: string, name: string, topic: string, note: string): string {
   state.backlog = state.backlog || [];
+  const id = rid();
   state.backlog.push({
-    id: rid(),
+    id,
     ds: todayISO(state), // '오늘' 단일 출처(_today 시드 존중) — 벽시계 직접 참조 금지
     sid: sid || '',
     name: name || '',
@@ -264,6 +267,11 @@ export function addBacklog(state: AppState, sid: string, name: string, topic: st
     doneDs: '',
     at: Date.now(),
   });
+  return id;
+}
+/** 보충 백로그 한 건 제거(되돌리기 전용) — 없으면 무동작. */
+export function removeBacklog(state: AppState, id: string): void {
+  state.backlog = (state.backlog || []).filter((x) => x.id !== id);
 }
 /** 보충 백로그 인라인 편집 — 주제·메모를 갈아끼운다(id·날짜·완료상태 보존). */
 export function editBacklog(state: AppState, id: string, patch: { topic?: string; note?: string }): void {

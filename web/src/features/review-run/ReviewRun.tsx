@@ -37,6 +37,7 @@ import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { useOverlay } from '@/store/useOverlay';
+import { usePrefill } from '@/store/prefill';
 import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
@@ -46,7 +47,7 @@ import { anchorOf, buildReviewQueue, cardSpeech, requeue, runItemKey, type RunIt
 import { putResume, clearResume, resumeDevice, type ResumeCursor, type ResumeNav } from '@/lib/resume';
 
 import { CBMS_INFO } from '@/lib/methodology';
-import { jolSummary, type JolEntry } from '@/lib/insights';
+import { jolSummary, overconfidentCards, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
 
 /* ── C-7 Tailwind 이식(두 번째 feature) ──────────────────────────────────
@@ -218,8 +219,17 @@ export default function ReviewRun() {
       // D-1 — 못 한 카드는 버리지 않고 세션 안에서 한 번 더(3장 뒤). 조건은 requeue 가 판단한다.
       setQueue((q) => requeue(q, idx));
     }
-    // 예측을 남긴 카드만 대조 기록에 들어간다 — 안 물었거나 안 누른 카드는 조용히 빠진다.
-    if (pred !== null) setJol((rows) => [...rows, { predicted: pred, recalled: didIt }]);
+    /* 예측을 남긴 카드만 대조 기록에 들어간다 — 안 물었거나 안 누른 카드는 조용히 빠진다.
+       E6 — **어떤 카드였는지도 함께** 싣는다. 종전엔 카운트만 남아 완주 화면이 "과신 2개"라
+       말하고 끝났고, 그 2개를 오답으로 남기려면 3화면·6클릭이라 아무도 안 했다. */
+    if (pred !== null && cur) {
+      const a = anchorOf(cur);
+      const { subject } = cardSpeech(cur);
+      setJol((rows) => [
+        ...rows,
+        { predicted: pred, recalled: didIt, label: subject, sid: a?.sid, chapter: a?.chapter },
+      ]);
+    }
     setPred(null);
     setIdx((i) => i + 1);
     /* N-7 — 이어하기 커서(복습). **5장마다**만 쓴다: 카드마다 쓰면 한 세션이 아웃박스에 12행을
@@ -411,6 +421,32 @@ export default function ReviewRun() {
               {jolStat.under > 0 && <> · 애매하다 했는데 된 게 {jolStat.under}개</>}
             </p>
           )}
+          {/* ── E6 과신 카드를 오답으로 착지시킨다 ─────────────────────────────
+              위 문장은 "가장 위험한 방향"을 짚고 **끝났다**. 여기서 그 항목을 그 자리에 세우고
+              클릭 하나로 오답 폼(`usePrefill`)에 과목·챕터를 실어 보낸다.
+              ⚠ **코드(C/B/M/S/T)는 지어내지 않는다** — 앱이 아는 것은 "본인이 될 거라 했고
+                안 됐다"는 관측 사실뿐이다. 분류는 사람이 고른다(자동 분류가 조용한 오분류로
+                드롭된 경계를 지킨다).
+              ⚠ 마찰을 더하는 방향이지만 안 누르면 종전과 동일하다(순손실 0). 그리고 이 자리가
+                CBMS 표본이 생기는 유일한 경로다 — 0행이 `mistakeArchive`·`weakSpots`·
+                `pickConfidentWrong`·러너 대조면을 전부 굶기고 있다. */}
+          {overconfidentCards(jol).map((r, i) => (
+            <p key={`${r.label}-${i}`} className={RESUME_NOTE}>
+              <span>
+                ⚠ <strong>{r.label}</strong> — 될 줄 알았는데 안 됐어요
+              </span>
+              <Button
+                sm
+                variant="ghost"
+                onClick={() => {
+                  usePrefill.getState().request('cbms', r.sid ?? '', '', r.chapter ?? '');
+                  nav('/journal');
+                }}
+              >
+                오답으로 남기기 →
+              </Button>
+            </p>
+          ))}
           <div className={ACTS_CENTER}>
             <Button onClick={restart} variant="ghost">
               처음부터

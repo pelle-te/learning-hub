@@ -156,9 +156,17 @@ if (모듈css.length) {
 
    ⚠ **판정을 좁힌 이유(실측)**: `border`+`rounded` 아무거나로 세면 **108 선언/41 파일**인데
    그 대부분이 알약·칩(`rounded-full`+테두리)이라 원칙 ④와 무관하다. 좁힌 기준
-   (테두리 + `rounded-md` 이상 + 배경/그림자)이 곧 "카드 표면"이고 그건 **46 선언/21 파일**이다.
-   느슨한 기준으로 래칫을 걸면 알약을 고칠 때마다 게이트가 우는 소음 장치가 된다. */
-const 카드래칫 = 46;
+   (테두리 + `rounded-md` 이상 + 배경/그림자)이 곧 "카드 표면"이다.
+   느슨한 기준으로 래칫을 걸면 알약을 고칠 때마다 게이트가 우는 소음 장치가 된다.
+
+   ⚠⚠ **컨트롤은 표면이 아니다.** 첫 판(46)은 `<input>`·`<button>` 까지 셌고, 그래서 도입 직후
+   폰 캡처 바의 입력 하나에 즉시 울었다 — 그런데 그 입력은 `phone/DayView` 의 할일 입력과 **글자
+   그대로 같은 관용구**다(`rounded-md border border-line bg-panel px-3`). 즉 검출기가 "카드 면"과
+   "폼 컨트롤"을 뭉뚱그린 것이지 코드가 규약을 어긴 것이 아니었다. 여기서 래칫을 올렸다면
+   `max-lines` 가 102줄 헐거워져 있던 것(A16)과 같은 종류의 무신호가 된다 → **검출기를 고쳤다.** */
+const 카드래칫 = 39;
+/** 표면이 아니라 *컨트롤*인 태그 — 여기 붙은 클래스는 원칙 ④의 대상이 아니다. */
+const 컨트롤태그 = /^(input|button|select|textarea|a|label|option)\b/i;
 const 카드표면 = [];
 const 클래스문자열 = /(?:className\s*=\s*["'`]([^"'`]*)["'`])|(?:^\s*(?:const|let)\s+[A-Z_0-9]+\s*=\s*["'`]([^"'`]*)["'`])/gm;
 for (const p of 파일들(ROOT).filter((f) => /\.tsx?$/.test(f))) {
@@ -169,7 +177,15 @@ for (const p of 파일들(ROOT).filter((f) => /\.tsx?$/.test(f))) {
     const 테두리 = /(^|\s)border(\s|-|$)/.test(c);
     const 큰반경 = /(^|\s)rounded-(md|lg|xl|2xl)(\s|$)/.test(c);
     const 면 = /(^|\s)(bg-|shadow-)/.test(c);
-    if (테두리 && 큰반경 && 면) 카드표면.push(p);
+    if (!(테두리 && 큰반경 && 면)) continue;
+    /* 이 className 을 문 여는 태그를 뒤로 훑어 찾는다(JSX 속성은 여는 태그 안에 있다).
+       ⚠ **`className=` 형태일 때만** 본다 — 모듈 상단 `const CARD = '…'` 상수는 태그 밖이라
+       뒤로 훑으면 무관한 `<` 를 집어 조용히 건너뛰게 된다(거짓 음성). 상수는 항상 센다. */
+    if (m[1] !== undefined) {
+      const 여는태그 = src.lastIndexOf('<', m.index);
+      if (여는태그 >= 0 && 컨트롤태그.test(src.slice(여는태그 + 1, 여는태그 + 12))) continue;
+    }
+    카드표면.push(p);
   }
 }
 if (카드표면.length > 카드래칫) {

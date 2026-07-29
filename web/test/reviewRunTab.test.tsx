@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/app/ThemeProvider';
 import App from '@/app/App';
 import { useApp } from '@/store/useApp';
+import { usePrefill } from '@/store/prefill';
 
 function renderApp(path: string, state?: unknown) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -262,4 +263,35 @@ test('review-run 키: u 는 앵커까지 되돌린다 — 화면과 모델이 �
   expect(await screen.findByText('유지')).toBeInTheDocument();
   // 세션만 물리고 앵커를 두고 오면 "물렸는데 인출한 것으로 남는" 조용한 어긋남이 된다.
   expect(touches()['p|역학']).toBeUndefined();
+});
+
+/* ── E6 과신 카드가 오답으로 착지한다(2026-07-29) ────────────────────────
+   완주 화면은 "될 줄 알았는데 안 된 게 N개(과신)"라 말하고 **끝났다**. `insights.ts` 가 그
+   방향을 "가장 위험한 부류"라 적어 두고도 다음 행동이 없던 자리이고, 그 마찰이 CBMS 0행의
+   직접 원인이다(3화면·6클릭이면 아무도 안 한다). */
+test('review-run: 과신 카드가 완주 화면에 이름으로 서고, 오답 폼으로 보낸다', async () => {
+  seedOneRetrieval();
+  renderApp('/review-run');
+  await screen.findByText('회상');
+  // 펼치기 전 예측 — "떠오를 듯"이라 답하고
+  fireEvent.click(screen.getByRole('button', { name: '떠오를 듯' }));
+  // 실제로는 건너뛴다 → predicted=true · recalled=false = 과신
+  press('1');
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  expect(screen.getByText(/될 줄 알았는데 안 됐어요/)).toBeInTheDocument();
+  // 어떤 카드였는지를 말한다 — 카운트만으로는 무엇을 남길지 알 수 없다.
+  expect(screen.getByText('선형대수')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /오답으로 남기기/ }));
+  expect(usePrefill.getState().form).toBe('cbms');
+});
+
+test('review-run: 예측이 맞았으면 과신 항목이 안 뜬다 — 성공에 마찰을 걸지 않는다', async () => {
+  seedOneRetrieval();
+  renderApp('/review-run');
+  await screen.findByText('회상');
+  fireEvent.click(screen.getByRole('button', { name: '떠오를 듯' }));
+  press(' '); // 펼쳐서 대조
+  press('2'); // 다시 설명했어요 → recalled=true
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  expect(screen.queryByText(/될 줄 알았는데 안 됐어요/)).toBeNull();
 });

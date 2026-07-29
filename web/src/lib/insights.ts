@@ -235,6 +235,20 @@ export interface JolEntry {
   predicted: boolean;
   /** 실제 결과 — true='인출했다'(건너뛰기=false). */
   recalled: boolean;
+  /* ── E6(2026-07-29) — 어떤 카드였나 ────────────────────────────────────
+     종전엔 카운트만 남아 완주 화면이 _"될 줄 알았는데 안 된 게 2개"_ 라 말하고 **끝났다**.
+     이 주석 바로 아래(`JolSummary.over`)가 그 방향을 _"가장 위험한 방향"_ 이라 적어 두고도
+     다음 행동이 없었던 자리다 — 과신 카드를 오답으로 남기려면 완주 → 저널 탭 → 오답 카드 →
+     과목·챕터 손입력(3화면·6클릭+)이라 실제로는 아무도 안 했고, 그래서 CBMS 가 0행이다.
+     ⚠ **세션 로컬 타입이다** — 영속하지 않으므로 스키마·D1·폰 계약과 무관하다(그 판단은
+     `ReviewRun` 의 JOL 주석이 이미 내렸고 여기서 뒤집지 않는다). 늘어난 것은 화면이
+     그 자리에서 오답 폼을 열어 줄 수 있을 만큼의 식별자뿐이다. */
+  /** 카드 라벨(사람이 읽는 것) — 없으면 화면이 항목을 그리지 않는다. */
+  label?: string;
+  /** 오답 프리필용 — 과목 id. 챕터 카드·착각 카드만 갖는다. */
+  sid?: string;
+  /** 오답 프리필용 — 챕터명. */
+  chapter?: string;
 }
 export interface JolSummary {
   n: number;
@@ -247,6 +261,18 @@ export interface JolSummary {
 }
 
 /** JOL 기록 집계 — 비어 있으면 null(호출부가 '잴 것 없음'을 침묵으로 처리하게). */
+/**
+ * 과신 카드만 — **될 줄 알았는데 안 된 것**(E6). 완주 화면이 오답으로 남길 후보다.
+ *
+ * ⚠ 라벨이 없는 항목은 뺀다: 무엇을 남기라는 건지 화면이 말할 수 없으면 그 버튼은 소음이다.
+ * ⚠ 코드(C/B/M/S/T)는 **여기서도 화면에서도 지어내지 않는다** — 앱이 아는 것은 "본인이 될 거라
+ *   했고 안 됐다"는 관측 사실뿐이고, 분류는 사람이 한다(LLM 자동 CBMS 분류가 조용한 오분류로
+ *   드롭된 그 경계를 구조적으로 지킨다).
+ */
+export function overconfidentCards(rows: JolEntry[]): JolEntry[] {
+  return rows.filter((r) => r.predicted && !r.recalled && !!r.label);
+}
+
 export function jolSummary(rows: JolEntry[]): JolSummary | null {
   if (!rows.length) return null;
   let hit = 0;

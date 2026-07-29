@@ -5,8 +5,7 @@ import {
   paletteCommands,
   recordRecent,
   captureSubjects,
-  runQuickCapture,
-  captureToBacklog,
+  commitCapture,
   semanticPalette,
   contentSearch,
   verbsFor,
@@ -193,10 +192,9 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
   }, [open, search]);
   const shownSem = search.trim().length >= 2 ? semHits : [];
 
+  /** 캡처 실행 — **언제나 커밋**한다(E2). 파싱 결과가 있으면 함께 실린다. */
   const runCapture = () => {
-    if (!cap) return;
-    runQuickCapture(cap, summarize(cap));
-    go('/journal');
+    commitCapture(cap, search, meaningful(cap) ? summarize(cap) : '');
   };
 
   /* ── D-2 캡처는 조건부이면 캡처가 아니다 ──────────────────────────────────
@@ -211,13 +209,12 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
 
      ⚠ cmdk 는 자기 키 처리 **전에** 이 핸들러를 부르고 `defaultPrevented` 를 존중한다
      (dist 실측) → preventDefault 로 Enter 의 기본 동작(선택 항목 실행)을 정확히 가로챈다. */
+  /* ⚠ **E2 이후 갈래가 없다.** 종전엔 여기서 두 경로로 갈렸고(구조화=프리필+화면 이동 /
+     생 문장=즉시 저장), 그래서 **입력이 정교할수록 덜 저장되는** 역전이 있었다. 지금은 어느
+     쪽이든 커밋하고, 파싱 결과는 버려지는 대신 레코드에 실린다(`commitCapture` 머리주석). */
   const captureNow = () => {
-    const q = search.trim();
-    if (!q) return;
-    // 파서가 뭔가 뽑았으면 구조화 캡처(기록 프리필), 아니면 친 문장 그대로 보충으로.
-    // 뒤쪽이 중요하다 — 프리필은 과목·날짜만 나르므로 생 문장은 거기서 **사라진다**.
-    if (meaningful(cap)) runCapture();
-    else captureToBacklog(q);
+    if (!search.trim()) return;
+    runCapture();
     close();
   };
 
@@ -367,7 +364,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                   close();
                 }}
               >
-                <span className={LABEL}>📌 빠른 캡처 — 기록에 남기기</span>
+                <span className={LABEL}>📌 빠른 캡처 — 보충에 담기</span>
                 <span className={HINT_CAP}>{summarize(cap)}</span>
               </Command.Item>
             )}
@@ -483,7 +480,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
           </span>
         ) : (
           <span className={search.trim() ? 'text-acc' : undefined}>
-            <b>{MOD_ENTER_LABEL}</b> {showCapture ? '캡처 — 기록' : '캡처 — 보충'}
+            <b>{MOD_ENTER_LABEL}</b> 캡처 — 보충에 담기
           </span>
         )}
         <span className={BRAND}>{MOD_K_LABEL}</span>

@@ -6,7 +6,7 @@
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
-import { usePrefill, type PrefillForm } from '@/store/prefill';
+import { usePrefill } from '@/store/prefill';
 import {
   BACKUP_KEY,
   BACKUP_AT_KEY,
@@ -32,6 +32,7 @@ import {
   archiveOldData,
   openBacklog,
   addBacklog,
+  removeBacklog,
   toggleBacklog,
 } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
@@ -39,7 +40,7 @@ import { PROMOTE_TOAST } from '@/lib/promote';
 import { iso, mondayOf, openVaultSearch, todayISO } from '@/lib/utils';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
-import type { CaptureResult } from '@/lib/quickCapture';
+import { captureRecord, type CaptureResult } from '@/lib/quickCapture';
 import { isTauri, shellSaveFile } from '@/lib/tauri';
 import { toast, toastUndo } from './toast';
 import { confirm } from './modal';
@@ -708,27 +709,31 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
   return hits.slice(0, limit);
 }
 
-/** 자연어 캡처 결과 → 기록 프리필 요청 + 확인 토스트. 팔레트는 이후 /journal로 이동한다.
-   세션 유형이 복습/모의/백지면 '보충 필요'(bl), 그 외(새 학습·anki·미지정)는 '요약'(sum) 폼으로. */
-export function runQuickCapture(cap: CaptureResult, summary: string): void {
-  const form: PrefillForm = cap.sessionType && cap.sessionType !== 'new' && cap.sessionType !== 'anki' ? 'bl' : 'sum';
-  const sid = cap.subject ? (st().state.items.find((i) => i.name === cap.subject)?.id ?? '') : '';
-  // C-10: 파서가 뽑은 날짜(미래는 기록 탭이 무시)도 넘긴다 — "어제 …" 캡처가 오늘로 잘못 기록되던 것 해소.
-  // C-10 잔여: 챕터도 넘긴다 — 단 텍스트 칸이 있는 **보충 폼**일 때만(요약엔 담을 칸이 없다).
-  usePrefill.getState().request(form, sid, cap.dateISO, form === 'bl' ? cap.chapter : '');
-  toast('📌 기록 탭에 준비했어요 — ' + summary, 'ok', 4500);
-}
+/* ── E2 캡처는 **언제나 커밋한다**(2026-07-29) ─────────────────────────────
+   종전엔 같은 ⌘Enter 가 입력에 따라 두 갈래로 갈렸다:
 
-/** 팔레트 결과 0건 폴백 — 친 문자열을 **그대로** 보충('나중에 볼 것')으로 담는다.
- *
- *  왜 보충인가: 파서가 아무 토큰도 못 뽑은 텍스트는 날짜도 과목도 없는 *생각 조각*이다.
- *  기록 프리필로 보내면 폼만 열리고 **친 글자는 어디에도 안 남는다**(프리필은 과목·날짜만
- *  나른다) — 캡처를 자처하면서 캡처를 잃는 셈이라, 텍스트를 그대로 보존하는 backlog 가
- *  유일하게 정직한 목적지다. 과목 미지정(sid='')은 보충 스키마가 이미 허용한다.
- *  예전엔 이 경우 팔레트가 "일치하는 명령이 없어요"로 **막다른 골목**이었다. */
-export function captureToBacklog(text: string): void {
-  const topic = text.trim();
-  if (!topic) return;
-  st().mutate((s) => addBacklog(s, '', '', topic, ''));
-  toast('📥 보충에 담았어요 — ' + topic, 'ok', 4000);
+   · 파서가 아무것도 못 뽑은 **생 문장** → `addBacklog` 로 **즉시 저장**
+   · 파서가 토큰을 뽑은 **구조화 입력** → 기록 탭으로 화면을 옮기고 **폼만 프리필**
+
+   그래서 "내일 3시 전자기 3장 복습"을 치고 ⌘Enter 하면 **아무것도 저장되지 않았다** — 사람이
+   폼을 확인하고 다시 저장해야 했고, 그러지 않으면 친 글자가 통째로 사라졌다(프리필은 과목·날짜만
+   나른다). **입력이 정교할수록 결말이 나쁜 역전**이고, 캡처는 정확히 그 반대여야 하는 기능이다.
+
+   ⚠ 착지가 보충인 것은 D-2 가 이미 내린 판단 그대로다 — _"텍스트를 그대로 보존하는 backlog 가
+   유일하게 정직한 목적지"_. 달라진 것은 **구조화 입력도 같은 곳에 착지한다**는 것과, 파싱 결과를
+   버리지 않고 함께 싣는다는 것이다(과목 → `sid`·`name`, 나머지 토큰을 걷어낸 제목 → `topic`,
+   **원문 전체 → `note`**). 종전에 저 넷은 화면 하나를 열고 사라졌다.
+   ⚠ **화면을 옮기지 않는다.** 캡처는 떠올랐을 때 쓰는 것이라 문맥 이탈이 곧 비용이다. 담은 것은
+   기록 탭 보충 목록에서 인라인 편집(`editBacklog`)으로 고칠 수 있으므로 "열어서 고치기" 경로는
+   그대로 살아 있다 — 다만 **기본값이 아니게** 됐다.
+   ⚠ 되돌리기가 짝이다: 파서가 잘못 뽑으면 곧 잘못된 레코드다. `id` 로 그 한 건만 지운다. */
+export function commitCapture(cap: CaptureResult | null, raw: string, summary: string): void {
+  // 레코드 조립은 lib 이 소유한다 — 폰 캡처 바(`phone/CaptureBar`)와 같은 규칙이어야 한다.
+  const rec = captureRecord(cap, raw, st().state.items);
+  if (!rec) return;
+  let id = '';
+  st().mutate((s) => {
+    id = addBacklog(s, rec.sid, rec.name, rec.topic, rec.note);
+  });
+  toastUndo('📥 보충에 담았어요 — ' + (summary || rec.topic), () => st().mutate((s) => removeBacklog(s, id)));
 }

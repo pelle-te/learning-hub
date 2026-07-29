@@ -102,12 +102,33 @@ test('팔레트: 아무 토큰도 없는 생 문장도 그대로 담긴다(가�
   expect((useApp.getState().state.backlog || [])[0]!.topic).toBe(q);
 });
 
-test('팔레트: 파서가 토큰을 뽑으면 보충이 아니라 기록 프리필로 간다', () => {
+/* E2 — 종전엔 이 케이스가 **저장 없이** 기록 탭 프리필로만 갔다. 즉 "입력이 정교할수록
+   덜 저장된다"는 역전이 있었고, 이 테스트가 그 역전을 잠그고 있었다. 이제 반대를 잠근다. */
+test('팔레트: 파서가 토큰을 뽑아도 **커밋한다** — 정교한 입력이 덜 저장되지 않는다', () => {
   open();
   fireEvent.change(input(), { target: { value: '내일 전자기학 복습' } });
   modEnter(input());
-  expect(useApp.getState().state.backlog || []).toHaveLength(0);
-  expect(usePrefill.getState().form).toBe('bl'); // 복습 유형 → '보충 필요' 폼(runQuickCapture 규칙)
+  const bl = useApp.getState().state.backlog || [];
+  expect(bl).toHaveLength(1);
+  /* 원문이 **어느 칸에든 온전히** 남는다 — 파싱이 틀려도 친 글자는 손상되지 않는다.
+     ⚠ 어느 칸인지는 파싱 정도에 달렸다: 토큰을 다 뽑으면 `parseCapture` 계약상 `title` 이
+     곧 원문이라(빈 title 은 raw 로 폴백) topic 에 들어가고, 일부만 뽑으면 topic 은 남은
+     조각이라 note 가 원문을 든다. 칸을 못박으면 파서 규칙이 바뀔 때 이 테스트가 거짓으로 깨진다. */
+  expect([bl[0]!.topic, bl[0]!.note]).toContain('내일 전자기학 복습');
+  // 화면을 옮기지 않는다(프리필 요청도 없다) — 캡처는 문맥 이탈이 곧 비용이다.
+  expect(usePrefill.getState().form).toBeFalsy();
+});
+
+test('팔레트: 파싱된 과목이 레코드에 실린다 — 프리필과 함께 사라지던 것', () => {
+  useApp.getState().mutate((st) => {
+    st.items = [{ id: 'em', name: '전자기학', source: '직접', mode: 'weekly', weeklyHours: 4, chapters: [] }] as never;
+  });
+  open();
+  fireEvent.change(input(), { target: { value: '내일 전자기학 복습' } });
+  modEnter(input());
+  const rec = (useApp.getState().state.backlog || [])[0]!;
+  expect(rec.sid).toBe('em');
+  expect(rec.name).toBe('전자기학');
 });
 
 test('팔레트: 빈 입력의 ⌘Enter 는 아무것도 만들지 않는다', () => {
