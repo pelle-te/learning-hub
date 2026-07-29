@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { toHM, hLabel } from '@/lib/utils';
-import { commit } from '@/lib/motion';
+import { commit, reveal } from '@/lib/motion';
 
 /** 흐름 노드 하나. `e` 는 부모가 콜백에서 다시 받는 **불투명 페이로드**(학습 노드면 값, 일과 블록이면 null). */
 export interface FlowNode<TE> {
@@ -85,11 +85,8 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
   });
 
   useEffect(() => {
-    const reveal = (key: string): void => {
-      const el = nodeRefs.current.get(key);
-      const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      el?.scrollIntoView({ block: 'nearest', behavior: rm ? 'auto' : 'smooth' });
-    };
+    // 판정(모션 자제)은 `lib/motion` 이 소유한다(H16) — 여기선 대상만 고른다.
+    const revealNode = (key: string): void => reveal(nodeRefs.current.get(key), 'nearest');
     const onKey = (e: KeyboardEvent): void => {
       const { nodes, selKey, onFocus, onPrefill } = keyCtx.current;
       if (!nodes.length) return;
@@ -102,12 +99,12 @@ export function FlowRail<TE>({ nodes, nowMin, riskN, onToggle, onFocus, onPrefil
         e.preventDefault();
         const next = keys[Math.min(keys.length - 1, idx + 1)] ?? keys[0]!;
         setSelKey(next);
-        reveal(next);
+        revealNode(next);
       } else if (e.key === 'k') {
         e.preventDefault();
         const prev = idx <= 0 ? keys[0]! : keys[idx - 1]!;
         setSelKey(prev);
-        reveal(prev);
+        revealNode(prev);
       } else if (e.key === 'Enter') {
         // ⚠ 노드 버튼에 DOM 포커스가 있으면(Tab 이동) Enter 는 **네이티브 활성**(=완료 토글)에 맡긴다.
         //    여기서 가로채면 사용자가 기대한 토글 대신 집중 세션이 시작된다. j/k 선택(selKey)은 DOM

@@ -23,6 +23,7 @@ import { classifyArtifact } from '@/lib/artifactState';
 import { openVaultSearch } from '@/lib/utils';
 import {
   LEDGER_STAGES,
+  PLANNED_COLOR,
   STAGE_META,
   furthestColor,
   stageIndex,
@@ -114,7 +115,12 @@ function SubjectRow({
           <button
             key={ch.chapter_id}
             type="button"
-            className="size-3.75 cursor-pointer rounded-xs! border-0! p-0! transition-transform hover:z-[1] hover:scale-[1.5] hover:outline-1 hover:outline-txt motion-reduce:transition-none"
+            /* ⚠ 미착수 칸에만 실선 테두리(H20 후속) — 색이 `--panel2`(패널과 거의 같은 톤)라
+               라이트에서 칸 자체가 안 보인다. "빈 슬롯"이 보이지 않으면 진척 대비가 사라진다.
+               색을 진하게 되돌리지 않는 이유: 그러면 미착수가 완료보다 강해지는 역전이 재발한다. */
+            className={`size-3.75 cursor-pointer rounded-xs! p-0! transition-transform hover:z-[1] hover:scale-[1.5] hover:outline-1 hover:outline-txt motion-reduce:transition-none ${
+              ch.furthest === 'planned' ? 'border! border-line!' : 'border-0!'
+            }`}
             style={{ background: furthestColor(ch.furthest) }}
             data-tip={`${ch.arc}  ·  ${STAGE_META[ch.furthest === 'planned' ? 'sourced' : ch.furthest]?.label ?? '미착수'}${ch.furthest === 'planned' ? '(미착수)' : ''}  ·  노트 ${ch.notes}·카드 ${ch.cards}`}
             aria-label={`${roll.subject} ${ch.arc} — ${ch.furthest}`}
@@ -398,7 +404,12 @@ export default function Ledger() {
                 </span>
               ))}
               <span className="inline-flex items-center gap-1">
-                <i className="inline-block size-2.5 rounded-xs" style={{ background: 'var(--panel-2,#2a2d35)' }} />{' '}
+                {/* ⚠ 범례 색은 **범례가 설명하는 그 값**이어야 한다 — 여기 리터럴을 다시 적어
+                    두었던 탓에 H20 의 오타(`--panel-2`)가 두 곳에 복제돼 있었다. */}
+                <i
+                  className="inline-block size-2.5 rounded-xs border border-line"
+                  style={{ background: PLANNED_COLOR }}
+                />{' '}
                 미착수
               </span>
             </div>

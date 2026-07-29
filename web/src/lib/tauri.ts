@@ -11,10 +11,12 @@
    Chromium 이라 이 분기가 없으면 UI 개발과 시각 검증망이 함께 죽는다(2·3단계와 같은 판단).
 ============================================================ */
 
-/** Tauri WebView 안에서 실행 중인가. 브라우저(dev·트랙 A)에선 false. */
-export function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
+/* ⚠ `isTauri` 는 **`lib/isTauri.ts` 로 떨어져 나갔다**(H7) — 부팅 경로 모듈이 판정 2줄 때문에
+   이 파일 503줄을 통째로 끌던 것을 끊기 위해서다(폰 초기 로드의 30.3%). 여기서 다시 export 해
+   기존 호출부는 그대로 둔다 — 그 모듈들은 어차피 무거운 커맨드를 쓰므로 얻을 게 없다.
+   ⚠ **부팅 경로에서는 `@/lib/isTauri` 에서 직접 가져올 것**(`db/*`·`cloud/client`·`telemetry`). */
+export { isTauri } from './isTauri';
+import { isTauri } from './isTauri';
 
 /* ── 경계 파싱(C-2) ──────────────────────────────────────────────
    `invoke<T>` 의 `<T>` 는 **주장일 뿐 검증이 아니다.** Rust 쪽 시그니처가 바뀌면 TS 는 아무것도

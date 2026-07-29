@@ -50,13 +50,24 @@ export interface Ledger {
 export const STAGE_META: Record<LedgerStage, { label: string; glyph: string; color: string; desc: string }> = {
   sourced: { label: '출처', glyph: '📂', color: 'var(--line,#3a3f4b)', desc: '참고자료 폴더 연결' },
   noted: { label: '노트', glyph: '📝', color: 'var(--mut,#9298a4)', desc: '원자 노트 작성' },
-  verified: { label: '검증', glyph: '✓', color: 'var(--sky,#5aa9e6)', desc: '개념 노트 검증 통과' },
+  /* ⚠ `--sky` 는 **정의된 적이 없는 이름**이었다(H20 · 2026-07-26 감사) — 폴백 hex 로만 그려져
+     테마와 무관하게 고정색이었다. 파란 계열의 실제 토큰은 `--signal` 이다. */
+  verified: { label: '검증', glyph: '✓', color: 'var(--signal)', desc: '개념 노트 검증 통과' },
   carded: { label: '카드', glyph: '🃏', color: 'var(--learning,#d6a72b)', desc: 'Anki 카드 발급' },
   reviewed: { label: '복습', glyph: '🔁', color: 'var(--good,#62d28c)', desc: '최근 인출(복습) 관측' },
 };
 
-/** planned(마일스톤 0) 표시 색 — 아직 착수 전. */
-export const PLANNED_COLOR = 'var(--panel-2,#2a2d35)';
+/**
+ * planned(마일스톤 0) 표시 색 — 아직 착수 전.
+ *
+ * ⚠⚠ **여기가 라이트에서 의미를 뒤집고 있었다(H20 · 2026-07-26 감사).** 이름이 `--panel-2` 였는데
+ * 정의된 토큰은 `--panel2`(하이픈 없음)라 **항상 폴백 `#2a2d35` 로 그려졌다.** 그건 딥블랙용
+ * 회색이라 라이트 테마의 흰 패널 위에서 **짙은 덩어리**가 되고, 하필 그게 '미착수'다 —
+ * 미착수가 완료보다 진해 보이는 역전이 `ledger-light` 스냅샷에 정답으로 굳어 있었다.
+ * (§15-4 가 경고한 "존재하지 않는 토큰이 회색으로 렌더"의 재발이고, 그래서 `scripts/check-tokens.mjs`
+ * 가 이 부류를 기계로 잡는다 — 사람 눈은 두 번 놓쳤다.)
+ */
+export const PLANNED_COLOR = 'var(--panel2)';
 
 /** furthest 단계의 색(토큰). planned면 회색. */
 export function furthestColor(f: Furthest): string {

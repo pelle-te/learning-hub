@@ -5,13 +5,13 @@
 ============================================================ */
 import { create } from 'zustand';
 import { storage } from '@/lib/kv';
-import { bootFocus, persistFocus, todayEntries, pickFocus, focusMinutes, type FocusSession } from '@/lib/focusState';
+import { bootFocus, persistFocus, focusMinutes, type FocusSession } from '@/lib/focusState';
 import { todayISO, minutesOfDay } from '@/lib/utils';
 import type { SessionType } from '@/lib/types';
 import { toast } from '@/shell/toast';
 import { putResume, clearResume, resumeDevice, type ResumeCursor } from '@/lib/resume';
 import { useApp } from './useApp';
-import { selectSchedule } from './selectors';
+import { selectTodayFocus } from './selectors';
 
 export interface FocusTarget {
   ds: string;
@@ -85,9 +85,10 @@ export const useFocus = create<FocusStore>((set, get) => ({
 
   startOnCurrent() {
     const state = useApp.getState().state;
-    const entries = todayEntries(state, selectSchedule(state));
-    const now = new Date();
-    const { focus } = pickFocus(entries, minutesOfDay(now));
+    /* ⚠ 여기가 D-5 통일에서 빠져 있던 호출부다(H4) — `stat`·`today` 를 안 넘겨 급함 계산이
+       죽어 있었고, 그래서 히어로와 ⌘K 집중이 **서로 다른 블록**을 가리켰다. 셀렉터가 재료를
+       묶으므로 이제 그 실수가 구조적으로 불가능하다(근거는 `store/selectors.ts` 그 절). */
+    const { focus } = selectTodayFocus(state, minutesOfDay(new Date()));
     if (!focus) {
       toast('지금 시작할 학습 블록이 없어요 — 학습 항목을 확인하세요.', 'warn');
       return false;

@@ -51,6 +51,29 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
     });
   };
 
+  /* ⚠⚠ **키보드 진입점(H12 · 2026-07-26 감사).**
+
+     이 기능은 Esc·포커스 복원·`role=dialog`·레이스 가드까지 다 갖췄는데 **여는 문이 마우스
+     전용**(`onPointerUp`)이라 전체가 키보드로 도달 불가였다(WCAG 2.1.1 A). 잘 만든 방과
+     잠긴 문의 조합이라 리뷰에서 눈에 안 띈다 — 안쪽만 보면 완성돼 있기 때문이다.
+
+     `selectionchange` 로 "리더 안에 유효한 선택이 있는가"를 추적해 **명시 버튼**을 켠다.
+     보조기술·캐럿 브라우징(F7)·터치 선택 전부 이 한 경로로 들어온다. 버튼을 항상 켜 두고
+     빈 선택에 무반응으로 두지 않는 이유: 그건 "눌렀는데 아무 일도 안 일어남"이라 고장과
+     구분되지 않는다. */
+  const [canLookup, setCanLookup] = useState(false);
+  useEffect(() => {
+    const onSel = (): void => {
+      const s = window.getSelection();
+      const t = s?.toString().trim() ?? '';
+      const host = readerRef.current;
+      const inside = !!(s && s.rangeCount > 0 && host && host.contains(s.anchorNode));
+      setCanLookup(!!t && t.length <= 60 && !t.includes('\n') && inside);
+    };
+    document.addEventListener('selectionchange', onSel);
+    return () => document.removeEventListener('selectionchange', onSel);
+  }, []);
+
   // 팝오버 닫기 — Esc + 바깥 클릭(기존엔 ✕ 또는 지문 전환뿐이었다).
   useEffect(() => {
     if (!vocab) return;
@@ -108,7 +131,27 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
   };
 
   return (
-    <div className="relative text-lg leading-[1.75] text-txt" ref={readerRef} onPointerUp={onReaderSelect}>
+    <div
+      className="relative text-lg leading-[1.75] text-txt"
+      ref={readerRef}
+      onPointerUp={onReaderSelect}
+      /* ⚠ 여기에 `onKeyUp` 을 달지 않는다 — 정적 요소를 상호작용 요소로 만들면(jsx-a11y
+         `no-static-element-interactions`) 롤·탭 순서까지 흉내내야 하고, 무엇보다 **불필요하다**:
+         위 `selectionchange` 는 입력 수단을 가리지 않아 캐럿 브라우징(F7)·Shift+화살표·보조기술
+         선택에서 모두 발화한다. 진입점은 아래 버튼 하나로 충분하다. */
+    >
+      <div className="mb-2 flex justify-end">
+        <button
+          type="button"
+          className="border-line! bg-transparent! px-2! py-1! text-sm! text-mut! enabled:hover:text-txt!"
+          onClick={onReaderSelect}
+          disabled={!canLookup}
+        >
+          {/* ⚠ 문구가 팝오버 안의 '뜻 보기'(AI 조회)와 겹치지 않아야 한다 — 둘은 다른 일이다.
+              이건 **팝오버를 여는** 버튼이고, 저건 열린 팝오버에서 조회를 시작하는 버튼이다. */}
+          선택한 단어 찾기
+        </button>
+      </div>
       {text.split(/\n\n+/).map((p, i) => (
         <p key={i} className="mt-0 mb-3.5 leading-[1.75]">
           {p}

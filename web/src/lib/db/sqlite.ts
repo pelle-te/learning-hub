@@ -11,7 +11,10 @@
    ⚠ 스키마(DDL)는 여기 없다 — `src-tauri/src/db.rs` 가 단일 원천이다. 프런트가 DDL 을 들고
    있으면 배포본마다 스키마가 갈릴 수 있다.
 ============================================================ */
-import { isTauri, dbUrl } from '../tauri';
+/* ⚠ `isTauri` 는 **초소형 모듈**에서 가져온다(H7) — 여기서 `../tauri` 를 정적으로 물면 그
+   503줄(백엔드 커맨드 전량 + zod)이 **두 엔트리의 초기 청크**에 들어간다. 폰은 그 표면을
+   한 번도 안 부른다. `dbUrl()` 은 아래 Tauri 분기 안에서 동적으로 가져온다. */
+import { isTauri } from '../isTauri';
 import { diffRows, type DbRows } from './rows';
 import { chunkedStamp } from './stamp';
 
@@ -90,7 +93,8 @@ export async function getDb(): Promise<Db | null> {
     const { getBrowserDb } = await import('./browserDb');
     return getBrowserDb(); // 자체 catch 로 null 을 준다(로그는 그쪽이 남긴다)
   }
-  _db ??= Promise.all([import('@tauri-apps/plugin-sql'), dbUrl()])
+  // ⚠ `dbUrl()` 도 여기서 동적으로 — 셸 분기 안이라 폰·브라우저는 이 청크를 아예 안 받는다(H7).
+  _db ??= Promise.all([import('@tauri-apps/plugin-sql'), import('../tauri').then((m) => m.dbUrl())])
     .then(([m, url]) => m.default.load(url) as Promise<Db>)
     .then(async (db) => {
       /* WAL 로 올린다 — 기본 롤백 저널에선 **읽는 중엔 쓸 수 없어** `database is locked` 가 난다.

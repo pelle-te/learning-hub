@@ -40,6 +40,9 @@ jobs:
       # 이 둘(lint:css·knip)은 안 봤다. stylelint 는 CSS 규약(생 hex 금지 · 브레이크포인트 3종)의
       # **유일한 집행자**다 — 규약을 관습에 두면 흘러내린다는 것이 이 저장소의 반복된 결론이다.
       - run: npm run lint:css
+      # check:tokens — 정의되지 않은 `var(--x)` 참조(H20). stylelint 는 CSS 만 보므로
+      # **TS 문자열 속 토큰**(인라인 style 로 주입되는 색)은 원리적으로 못 본다.
+      - run: npm run check:tokens
       - run: npm run typecheck
       # knip — 죽은 export·미사용 의존성. 위와 같은 누락이었다.
       - run: npm run knip

@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePrefill, type PrefillForm } from '@/store/prefill';
 import { itemById } from '@/lib/utils';
+import { reveal } from '@/lib/motion';
 import type { AppState } from '@/lib/types';
 
 /** 과목 선택 <option> — 이름 있는 항목만. */
@@ -60,7 +61,8 @@ export function usePrefillForm(
     consume(form);
     const el = focusEl.current;
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // ⚠ 모션 자제 가드가 여기만 빠져 있었다(H16) — 판정을 `lib/motion.reveal` 하나로 모은다.
+      reveal(el);
       setTimeout(() => el.focus(), 300);
     }
     // nonce가 바뀔 때만 반응(같은 과목 재요청도 감지). setSid/consume/focusEl은 안정 참조, reqSid는

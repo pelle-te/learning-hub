@@ -159,6 +159,13 @@ export function DayPlanner({
   const [blockSid, setBlockSid] = useState(''); // +블록 대상 과목
   const [blockType, setBlockType] = useState<SessionType>('new');
   const [selId, setSelId] = useState<string | null>(null); // 인라인 편집 대상 카드(시각/분 입력)
+  /* 일정 제목 초안(H8 · 2026-07-26 감사) — **커밋은 blur/Enter 에서만** 한다.
+     종전엔 `onChange` 가 곧장 `mutate` 라, 제목 한 글자마다 `events` 슬라이스가 갈려
+     `SCHEDULE_INPUT_KEYS` 캐시가 깨지고 **최대 1826일 스케줄이 통째로 재시뮬**됐다
+     (+ 반사실 2회차 + 레일 전수 스캔 + 400ms 뒤 flush 왕복). **제목은 스케줄에 아무 영향이
+     없다** — 전 코드베이스에서 텍스트 필드가 키 입력마다 mutate 하던 자리는 여기 하나였고,
+     `Today.tsx` 의 '내일 한 줄'은 처음부터 draft+onBlur 로 올바르다. 그 패턴을 그대로 쓴다. */
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
   // 일정(약속·시험·행사) 컴포저 — 평소엔 접혀 있고 '+ 일정'을 눌러야 펼쳐진다(온디맨드 세부).
   const [evOpen, setEvOpen] = useState(false);
   const [evTitle, setEvTitle] = useState('');
@@ -514,8 +521,18 @@ export function DayPlanner({
         // 일정만 제목을 여기서 고친다(공부 블록=과목 파생, 할 일=트레이에서 다룸). 오타 수정 경로.
         <input
           className={DP.editTitle}
-          value={selEvent.title}
-          onChange={(e) => mutate((st) => updateEvent(st, selEvent.id, { title: e.target.value }))}
+          /* ⚠ 초안이 있으면 초안을, 없으면 정본을 보여준다. 선택이 바뀌면 아래 커밋에서
+             초안을 비우므로 **다른 일정의 초안이 새 선택에 새지 않는다**. */
+          value={titleDraft ?? selEvent.title}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onBlur={() => {
+            const t = titleDraft;
+            setTitleDraft(null);
+            if (t != null && t !== selEvent.title) mutate((st) => updateEvent(st, selEvent.id, { title: t }));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
           aria-label="일정 제목"
         />
       ) : (

@@ -19,7 +19,8 @@
    하루 종일 헛치지 않는다(C-1 에서 그 방어를 넣은 이유 그대로).
 ============================================================ */
 import { execDb, isSqlitePrimary, selectDb } from '../db/sqlite';
-import { cloudHttp, isTauri } from '../tauri';
+// ⚠ 부팅 경로 — `isTauri` 는 초소형 모듈에서, `cloudHttp` 는 셸 분기 안에서 동적으로(H7).
+import { isTauri } from '../isTauri';
 import { PermanentPushError, type CloudTransport } from './push';
 import { PULL_MARK_KEY, WATERMARK_KEY } from './outbox';
 import { OutboxBatchSchema } from './schema';
@@ -45,6 +46,7 @@ interface Reply {
 
 async function send(url: string, method: string, headers: Record<string, string>, body?: string): Promise<Reply> {
   if (isTauri()) {
+    const { cloudHttp } = await import('../tauri'); // 셸 전용 중계(CSP) — 폰은 이 청크를 안 받는다
     const r = await cloudHttp(url, method, headers, body);
     return { status: r.status, ok: r.status >= 200 && r.status < 300, body: r.body };
   }

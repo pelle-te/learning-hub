@@ -21,6 +21,12 @@ function reduced(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** 같은 판정을 **인라인 스타일**에서 써야 하는 자리용(H16) — 판정 자체는 여전히 한 곳이다.
+ *  (`Items` 의 하이라이트 펄스처럼 스크롤이 아니라 transition 문자열을 고르는 경우.) */
+export function prefersReducedMotion(): boolean {
+  return reduced();
+}
+
 /* ── D-7 모션 어휘 — 이 앱의 움직임은 네 마디만 말한다 ────────────────────
    키프레임이 35개였다(fade 9종·pulse 5종·pop 3종·slide 3종이 **같은 일을 이름만 달리**).
    이름이 많다는 것은 문법이 없다는 뜻이고, 문법이 없으면 새 화면마다 새 움직임이 생긴다.
@@ -50,6 +56,21 @@ const COMMIT_MS = 340;
  * ⚠ **성공 신호가 토스트뿐이면 안 된다.** 토스트는 화면 구석에서 뜨고 사라지므로 "무엇이"
  *   바뀌었는지를 말하지 못한다. 값이 바뀐 자리에서 번쩍이는 것이 그 답이다.
  */
+/**
+ * **reveal** — 요소를 보이는 곳으로 스크롤한다. 모션 자제면 즉시 점프(H16 · 2026-07-26 감사).
+ *
+ * `scrollIntoView({behavior:'smooth'})` 는 **인자가 CSS 백스톱을 이긴다** — `scroll-behavior`
+ * 를 눌러도 명령형 인자가 그대로 산다. 그래서 이 판정이 호출부마다 복제돼 있었고, 4곳 중
+ * 한 곳(`journal/shared.tsx`)만 가드를 빠뜨려 새고 있었다. 판정이 여러 곳에 흩어진 것이
+ * 원인이므로 처방은 "그 한 줄을 고치기"가 아니라 **판정을 한 곳으로 모으기**다.
+ *
+ * ⚠ 이 파일에 두는 이유: WAAPI 와 같은 부류의 결함이다(전역 CSS 백스톱이 원리적으로 안 닿는
+ * 명령형 모션). 머리주석의 논거가 그대로 적용된다.
+ */
+export function reveal(el: Element | null | undefined, block: ScrollLogicalPosition = 'center'): void {
+  el?.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block });
+}
+
 export function commit(el: HTMLElement | null | undefined, color = 'var(--acc)'): void {
   if (!el || typeof el.animate !== 'function' || reduced()) return;
   const ring = color.startsWith('var(')

@@ -10,15 +10,15 @@ import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
-import { useSchedule } from '@/store/selectors';
+import { useSchedule, selectTodayFocus } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
 import { usePing, useKnowledge } from '@/store/queries';
-import { isDone, studyStreak } from '@/lib/persistence';
-import { pickFocus, focusMinutes } from '@/lib/focusState';
+import { studyStreak } from '@/lib/persistence';
+import { focusMinutes } from '@/lib/focusState';
 import { openBacklog, setRitual, CBMS_INFO } from '@/lib/methodology';
-import { layoutDay, freeWindowsForWeekday, freeMinAfter, sessionTimeMap } from '@/lib/scheduler';
+import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue } from '@/lib/anki';
@@ -248,25 +248,22 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const todayDay = byDs[ds];
   const items = todayDay?.items || [];
   const L = items.length ? layoutDay(state, todayDay!) : null;
-  const timeBy: ReturnType<typeof sessionTimeMap> = L ? sessionTimeMap(L.sessions) : {};
-
-  const enriched = items.map((it) => {
-    const tm = timeBy[it.sid + '|' + it.type] || { start: null, end: null };
-    return { it, start: tm.start, end: tm.end, done: isDone(state, ds, it.sid, it.type) };
-  });
-  const todayDone = enriched.filter((e) => e.done).length;
-  const todayTotal = items.length;
-  const pct = todayTotal ? Math.round((todayDone / todayTotal) * 100) : 0;
 
   const nowDate = new Date();
   const nowMin = nowDate.getHours() * 60 + nowDate.getMinutes();
   const nowMs = nowDate.getTime();
+  /* ⚠ '지금 할 일'의 답은 **`selectTodayFocus` 하나**에서 온다(H4 · 2026-07-26 감사).
+     D-5 가 "초점은 한 함수가 고른다"로 통일했는데 **호출부 하나가 남아** 절반만 통일됐었다:
+     `useFocus.startOnCurrent` 가 `stat`·`today` 를 안 넘겨(기본값 `[]`·`''`) 급함 계산이 죽었고,
+     그래서 히어로는 "마감 임박 블록", ⌘K·FocusChip 의 집중 시작은 "가장 큰 블록"을 가리켰다.
+     재료 조립을 셀렉터에 두면 **인자 선택권이 호출부에서 사라져** 같은 일이 재발할 수 없다. */
+  const { entries: enriched, current, focus, reason: focusReason } = selectTodayFocus(state, nowMin);
+  const todayDone = enriched.filter((e) => e.done).length;
+  const todayTotal = items.length;
+  const pct = todayTotal ? Math.round((todayDone / todayTotal) * 100) : 0;
+
   const startKey = (e: (typeof enriched)[number]) => e.start ?? 9999;
   const pending = enriched.filter((e) => !e.done);
-  /* '지금 할 일' 선택은 lib/focusState.pickFocus 와 공유 — 팔레트·상단 바 시작과 같은 규칙.
-     D-5: 급함 재료(마감·진도)를 함께 넘긴다. 배치된 날은 시각이 이기므로 결과가 그대로고,
-     시각이 없는 블록끼리만 급한 것이 앞선다 — 그리고 **왜 이것인지**(reason)를 받아 화면에 쓴다. */
-  const { current, focus, reason: focusReason } = pickFocus(enriched, nowMin, res.itemStat, ds);
   const allDone = todayTotal > 0 && pending.length === 0;
 
   const after = focus?.end ?? nowMin;

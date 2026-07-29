@@ -23,7 +23,7 @@
    흡수하므로 **소비처(`reads.ts`·`sidecars.ts`)는 어디에 저장되는지 모른다.**
 ============================================================ */
 import { storage } from '../kv';
-import { isTauri } from '../tauri';
+import { isTauri } from '../isTauri'; // ⚠ 부팅 경로 — 초소형 모듈에서(H7 · `lib/isTauri.ts` 머리주석)
 import { execDb, isSqlitePrimary, selectDb } from './sqlite';
 import { runExclusive } from './write';
 import { nextStamp } from './stamp';

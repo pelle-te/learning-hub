@@ -21,9 +21,12 @@ const load = vi.fn(async (): Promise<unknown> => {
 });
 
 vi.mock('@tauri-apps/plugin-sql', () => ({ default: { load } }));
+/* ⚠ 실행 경로 판정은 **`lib/isTauri`** 에서 온다(H7 — 부팅 경로가 503줄짜리 `lib/tauri` 를
+   끌지 않게 떼어낸 초소형 모듈). 여기를 `@/lib/tauri` 로만 모킹하면 이 파일이 조용히
+   "브라우저"를 검사하게 된다. */
+vi.mock('@/lib/isTauri', () => ({ isTauri: () => tauri.on }));
 vi.mock('@/lib/tauri', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
-  isTauri: () => tauri.on,
   dbUrl: async () => 'sqlite:test.db',
 }));
 vi.mock('@/lib/idb', () => ({ idbMirror: vi.fn(), idbLoad: vi.fn(async () => null) }));

@@ -12,7 +12,9 @@
 ============================================================ */
 import { boot } from '../persistence';
 import { storage } from '../kv';
-import { isTauri, dbVersionGuard, type DbGuard } from '../tauri';
+// ⚠ 부팅 경로 — `isTauri` 는 초소형 모듈에서(H7). `dbVersionGuard` 는 셸 분기 안에서 동적으로.
+import { isTauri } from '../isTauri';
+import type { DbGuard } from '../tauri';
 import { initDocs } from './docs';
 import type { AppState } from '../types';
 import { rowsToState, stateToRows } from './rows';
@@ -99,7 +101,7 @@ export async function initAppStore(): Promise<void> {
        `isDbAvailable()` 이 곧 `load()` 이고, 다운그레이드면 그게 실패해 아래 catch 도 아닌
        "조용한 localStorage 폴백"으로 흘러 **뜨는데 데이터가 옛날 것**이 된다. 판정이 참이면
        이 함수는 아무것도 읽지 않고 나가고, `main.tsx` 가 앱 대신 명시적 화면을 띄운다. */
-    const guard = await dbVersionGuard();
+    const guard = await import('../tauri').then((m) => m.dbVersionGuard());
     if (guard?.downgraded) {
       _downgraded = guard;
       console.error(

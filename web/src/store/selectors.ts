@@ -3,6 +3,7 @@
    입력(state)이 바뀔 때만 재계산한다(설계도 §1-A).
 ============================================================ */
 import { schedule, studyMinByWeekday } from '@/lib/scheduler';
+import { pickFocus, todayEntries, type FocusEntry, type FocusPick } from '@/lib/focusState';
 import { riskSummary } from '@/lib/spacedReview';
 import { isDone } from '@/lib/persistence';
 import { openBacklog } from '@/lib/methodology';
@@ -145,6 +146,30 @@ export const selectNavSignals: (state: AppState) => Record<string, string> = key
   if (parts.length) out.journal = parts.join(' · ');
   return out;
 });
+
+/* ── '지금 뭘 하지'의 단일 답(H4 · 2026-07-26 감사) ─────────────────────────
+
+   D-5 가 두 규칙(데스크톱 시간대 · 폰 급함 가중)을 `pickFocus` 하나로 합쳤는데, **호출부
+   하나가 남아 통일이 절반이었다**: `useFocus.startOnCurrent` 가 `stat`·`today` 를 안 넘겨
+   기본값(`[]`·`''`)으로 돌았고, 그러면 `urgency()` 가 블록 크기만 보게 된다. 결과가 관측
+   가능했다 — 히어로는 "미적분(D-2)"인데 ⌘K·FocusChip 의 집중 시작은 "물리(3h)".
+
+   ⚠ 처방이 "인자를 마저 넘긴다"가 아닌 이유: 그건 다음 호출부에서 또 빠진다(이번이 그
+   재발이었다 — `focusState.ts:95` 주석이 같은 결함을 이미 한 번 고쳤다). **재료 조립을
+   여기로 옮겨 호출부에서 선택권을 뺏는다.**
+
+   ⚠ `nowMin` 만 인자로 남는다 — 시각은 화면이 아는 것이고, 셀렉터가 벽시계를 직접 읽으면
+   테스트가 시간을 못 고정한다.
+
+   ⚠ **폰(`phone/TodayView`)은 이 셀렉터를 안 쓴다 — 그건 결함이 아니다.** 폰은 후보를
+   *새 학습 블록만*으로 좁히고 시각을 일부러 0 으로 준다(그 두 결정의 근거는 그 파일 주석).
+   "무엇을 후보로 볼지"는 화면의 결정이고 "그중 무엇이 먼저인지"만 lib 의 결정이다 —
+   그쪽은 이미 `stat`·`today` 를 넘기고 있어 H4 의 결함(재료 누락)이 없다. */
+export function selectTodayFocus(state: AppState, nowMin: number): FocusPick & { entries: FocusEntry[] } {
+  const res = selectSchedule(state);
+  const entries = todayEntries(state, res);
+  return { entries, ...pickFocus(entries, nowMin, res.itemStat, todayISO(state)) };
+}
 
 /* ── 반사실 완주일(N-3) ─────────────────────────────────────────────────────
    `adherenceFactor` 는 최근 14일 이행률로 **계획 용량을 0.5~1.0배 곱한다**. 사용자에게 보이는

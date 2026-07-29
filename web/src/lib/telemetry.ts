@@ -31,7 +31,10 @@
    이 규약을 어기면 셸에서 조용히 전부 실패한다(그리고 그 실패는 관측되지 않는다 — 관측
    장치의 실패는 정의상 관측되지 않으므로 여기서 규약을 지키는 것이 특히 중요하다).
 ============================================================ */
-import { cloudHttp, isTauri } from './tauri';
+/* ⚠ 부팅 경로다 — `isTauri` 는 초소형 모듈에서, `cloudHttp` 는 **셸 분기 안에서 동적으로**
+   가져온다(H7 · `lib/isTauri.ts` 머리주석). 이 파일은 `main.tsx` 가 첫 줄에서 부르므로
+   여기서 `tauri.ts` 를 정적으로 물면 503줄이 두 엔트리의 초기 청크에 그대로 들어간다. */
+import { isTauri } from './isTauri';
 
 /** 한 세션에서 보낼 최대 건수. 넘으면 조용히 버린다(원칙 ②). */
 const MAX_PER_SESSION = 20;
@@ -98,7 +101,10 @@ function post(ev: Event): void {
   const url = `${baseUrl}/api/log`;
   try {
     if (isTauri()) {
-      void cloudHttp(url, 'POST', { 'Content-Type': 'application/json' }, body).catch(() => {});
+      // 셸 전용 경로라 여기서 지연 로드한다(H7) — 폰·브라우저는 이 청크를 아예 안 받는다.
+      void import('./tauri')
+        .then((m) => m.cloudHttp(url, 'POST', { 'Content-Type': 'application/json' }, body))
+        .catch(() => {});
       return;
     }
     /* `sendBeacon` 을 먼저 시도한다 — 페이지가 언로드되는 중에도 나간다. 오류 보고는

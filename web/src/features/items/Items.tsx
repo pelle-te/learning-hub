@@ -17,6 +17,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
+import { prefersReducedMotion, reveal } from '@/lib/motion';
 import { ui } from '@/shell';
 import { colorForId, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO, round1 } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
@@ -231,8 +232,8 @@ export default function Items() {
     );
     const card = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(focus)}"]`);
     if (!card) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    card.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    const reduce = prefersReducedMotion();
+    reveal(card); // 모션 자제 판정은 `lib/motion` 이 소유한다(H16 — 흩어져 있던 것이 재발 원인이었다)
     // 1.5s 하이라이트 펄스 후 소멸 — 이전 값을 저장해 원복(CSS 모듈 미변경, 인라인만).
     const prev = {
       outline: card.style.outline,
