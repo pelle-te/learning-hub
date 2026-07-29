@@ -147,7 +147,8 @@ web/src/
               tw.css(Tailwind 진입점·전역 키프레임) + global/(리셋·앱크롬). **`*.module.css` 는 0개**.
 (백엔드 없음)  4단계에서 serve.js 를 삭제했다. 백엔드는 아래 src-tauri/ 의 커맨드가 전부다.
               프런트에서 그 커맨드를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2)이고,
-              전송 분기(셸/브라우저)는 **`web/src/lib/api.ts` 안에만** 있다.
+              전송 분기(셸/브라우저)는 **모듈당 한 곳**이다(`api.ts`·`cloud/client.ts`·`anki.ts` —
+              2026-07-26 감사에서 "api.ts 안에만"이 사실과 달라 정정).
 src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
               **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 11종+RAII 동시성 캡 ·
               research.rs=탐구 잡(이벤트 진행·JSON 이력) · ollama.rs=AI 5종(Channel 스트리밍) ·

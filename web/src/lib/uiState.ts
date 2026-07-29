@@ -19,7 +19,11 @@ export function migrateSchedView(v: unknown): SchedView | undefined {
   return v === 'day' || v === 'week' || v === 'month' ? v : undefined;
 }
 
-/** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1. 기본 violet(브랜드). */
+/** 네온 액센트 노브 — tokens.css의 [data-accent] 프리셋과 1:1.
+ *  ⚠ **기본값은 `lime` 이다**(아래 `.default('lime')`). 이 주석은 "기본 violet"이라 적고 있었고,
+ *  a11y 원장이 이미 그 드리프트를 지목했는데 미해소로 남아 있었다(2026-07-26 감사에서 정정).
+ *  `violet` 은 전용 프리셋이 없는 **베이스 색**이라 코드가 그걸 "기본"으로 다루는 자리가 따로
+ *  있다(`Settings.readAccentPreviews`) — 두 뜻이 겹쳐 주석이 낡은 채로 살아남았다. */
 export const AccentSchema = z.enum(['violet', 'lime', 'cyan', 'amber']);
 export type Accent = z.infer<typeof AccentSchema>;
 
