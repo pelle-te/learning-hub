@@ -18,6 +18,7 @@ import { usePing, useKnowledge } from '@/store/queries';
 import { studyStreak } from '@/lib/persistence';
 import { focusMinutes } from '@/lib/focusState';
 import { openBacklog, CBMS_INFO } from '@/lib/methodology';
+import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
@@ -531,6 +532,21 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   }, [streak]);
 
   // 진행률·연속·마감 + 주 액션을 상단 바로 끌어올림(데모 v6 헤더).
+  /* ── E23 하루 신호 기록 ────────────────────────────────────────────────
+     '정적(quiet)의 설계'가 기다린 미지수는 **all-clear 빈도** 하나였다. 그 값은 그날그날의
+     상태에서만 알 수 있고 지나가면 재구성이 불가능하다(항목이 지워지거나 마감이 바뀌면 과거가
+     소급해 달라진다) → 관측된 시점에 남긴다.
+     ⚠ deps 가 다섯 숫자다 — 값이 **바뀔 때만** 쓴다. 매 렌더에 쓰면 관측이 관측 대상보다
+       비싸지고, 하루 한 번만 쓰면 "하루가 어떻게 끝났나"를 놓친다(그 둘 사이가 정확한 자리).
+     ⚠ Anki 미연결은 `-1` 이다 — 0(없음)과 구분한다. `isQuiet` 이 그 차이를 쓴다. */
+  useEffect(() => {
+    void recordDaySignal(
+      { pending: pending.length, overdue: riskN, backlog: openBl, ankiDue: due ?? -1, dueSoon: soon.length },
+      ds,
+    );
+    void pruneDaySignals(ds);
+  }, [pending.length, riskN, openBl, due, soon.length, ds]);
+
   usePageChromeEffect(
     () => ({
       /* ── E7 한 양 = 한 자리(2026-07-29) ────────────────────────────────

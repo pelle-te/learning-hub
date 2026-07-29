@@ -3,7 +3,9 @@
    라이브 채널 리드아웃으로(● ONLINE/IDLE/OFFLINE). 시스템 폴더 /api 연동의 "조종석".
    상태는 Query 캐시 구독(enabled:false로 fetch 없이 읽기) + usePing. 순수 표현에 가깝되 상태는 store/query에서.
 ============================================================ */
+import { useEffect, useState } from 'react';
 import { useQuery, skipToken } from '@tanstack/react-query';
+import { quietSummary } from '@/lib/daySignals';
 import { usePing } from '@/store/queries';
 import { totalDue, totalCards, type AnkiLive, type AnkiFile } from '@/lib/anki';
 import type { VaultScan } from '@/lib/vault';
@@ -78,6 +80,15 @@ function Channel({
 
 export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const ping = usePing();
+  /* ── E23 소비처 — **쓰기만 하는 계측은 계측이 아니다** ──────────────────
+     `visits.ts` 가 도입 나흘 뒤 감사에서 "읽는 곳이 0"으로 잡혔다(H23). 그동안 로드맵 다섯
+     항목이 그 데이터를 기다렸고, 사람이 값을 볼 수 없으니 "쌓이고 있다"는 믿음만 쌓였다.
+     그래서 원장을 만든 커밋이 소비처도 함께 낸다 — 이 한 줄이 '정적(quiet)의 설계'의 착수
+     게이트다(조용한 날이 드물면 금도금, 잦으면 매일 0의 벽을 치우는 것). */
+  const [quiet, setQuiet] = useState<{ observed: number; quiet: number } | null>(null);
+  useEffect(() => {
+    void quietSummary().then(setQuiet);
+  }, []);
   // skipToken → fetch 없이(쿼리 비활성) 같은 캐시 키만 구독(패널이 setQueryData하면 콘솔도 갱신).
   //  enabled:false와 달리 queryFn 누락 경고를 내지 않음(읽기전용 캐시 구독의 정석).
   const vault = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
@@ -89,12 +100,17 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const due = live ? totalDue(live.decks) : 0;
   const cards = file ? totalCards(file.decks) : 0;
 
+  /* 분모가 14 가 아니라 **관측된 날**이다 — 앱을 안 연 날은 조용했는지 알 수 없고, 그걸
+     조용한 날로 세면 "안 썼다"가 "평온했다"로 둔갑한다. 관측이 0이면 아예 말하지 않는다. */
+  const quietLine = quiet && quiet.observed > 0 ? `최근 ${quiet.observed}일 관측 중 조용한 날 ${quiet.quiet}일` : null;
+
   return (
     <div className={`ds-board${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>
       <div className="mb-3.5 flex items-baseline justify-between">
         <span className="text-xs font-extrabold tracking-caps text-mut uppercase">연동 텔레메트리 — TELEMETRY</span>
         {!vertical && <span className="text-2xs text-mut opacity-80">시스템 폴더 /api · 볼트 · Anki 조종석</span>}
       </div>
+      {quietLine && <p className="mt-0 mb-3 text-2xs text-mut">{quietLine}</p>}
       <div
         className={vertical ? 'flex min-h-0 flex-1 flex-col gap-3' : 'grid grid-cols-3 gap-2.5 max-mobile:grid-cols-1'}
       >
