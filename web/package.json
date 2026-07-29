@@ -31,6 +31,7 @@
     "e2e:update": "playwright test --update-snapshots=all --workers=1",
     "e2e:smoke": "playwright test smoke",
     "e2e:a11y": "playwright test a11y",
+    "e2e:motion": "playwright test motion --workers=1",
     "e2e:shell": "playwright test -c playwright.shell.config.ts",
     "gate": "node scripts/gate.mjs",
     "scaffold-tab": "node scripts/scaffold-tab.mjs",
