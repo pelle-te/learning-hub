@@ -73,16 +73,22 @@ function Toast({ item }: { item: ToastItem }) {
   }, [leaving, item.id, remove]);
   // 퇴장 중엔 타이머 일시정지 조작을 받지 않는다(hover 로 되살아나면 애니가 뒤집힌다).
   const dismiss = () => setLeaving(true);
-  // 오류(bad)는 즉시 읽히도록 assertive(role=alert), 그 외는 polite(role=status).
-  const role = item.type === 'bad' ? 'alert' : 'status';
+  /* ⚠⚠ **여기에 라이브 롤을 두지 않는다(H15 · 2026-07-26 감사).**
+     라이브 리전은 콘텐츠가 바뀌기 **전에** DOM 에 있어야 공지가 나간다. 종전엔 `role=status`
+     노드를 텍스트와 **동시에** 삽입해서, AT 에 따라 한 번도 안 읽힐 수 있었다 — 하필 행동을
+     요구하는 것들(저장공간·클라우드 차단)이 그 부류다. 공지는 아래 `ToastHost` 의 **항상
+     마운트된 빈 리전**이 맡고, 이 노드는 시각 + 조작(되돌리기 버튼)만 갖는다.
+     ⚠ `aria-hidden` 을 걸지 않는 것도 의도다 — 걸면 그 되돌리기 버튼이 AT 에서 사라진다. */
   return (
     /* 클릭은 '조기 닫기'(마우스 편의)일 뿐이다. 토스트는 타이머로 자동 소멸하므로 키보드
        사용자가 닫을 일이 없고, 전달은 role=alert/status + 호스트의 aria-live 가 담당한다.
        실제 조작(되돌리기)은 아래 진짜 <button> 이 소유한다. */
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+    /* ⚠ `no-static-element-interactions` 도 함께 끈다(H15 로 롤이 빠지면서 새로 걸린다).
+       근거는 위와 같다: 이 노드는 **상호작용 요소가 아니다** — 클릭은 마우스 편의이고,
+       진짜 조작은 안쪽 `<button>`(되돌리기)이 갖는다. 롤을 다시 붙이면 H15 가 되살아난다. */
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className={`toast ${item.type}${leaving ? ' out' : ''}`}
-      role={role}
       onClick={dismiss}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -129,16 +135,41 @@ function Toast({ item }: { item: ToastItem }) {
 
 export function ToastHost() {
   const items = useToastStore((s) => s.items);
-  /* ⚠ 호스트에 `aria-live="polite"` 를 두지 않는다 — 각 토스트가 이미 role=alert/status(암묵적
-     라이브 영역)라 **중첩**이었고, ARIA 는 변경 노드의 *가장 가까운 조상* 라이브 영역의
-     politeness 를 따른다. 즉 오류 토스트에 애써 붙인 role="alert"(assertive)가 조상의 polite 에
-     통째로 삼켜져, **오류가 한 번도 즉시 읽힌 적이 없었다.** 중첩을 걷어내면 각 토스트가 자기
-     politeness 를 갖는다(정상 알림=polite · 오류=assertive). */
+
+  /* ⚠⚠ **공지는 항상 마운트된 빈 리전 둘이 맡는다(H15 · 2026-07-26 감사).**
+
+     ① 라이브 리전은 **텍스트가 바뀌기 전에 DOM 에 있어야** 한다. 토스트 노드에 롤을 달면
+        리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 통째로 씹힌다.
+     ② 중첩 politeness 문제도 함께 사라진다 — 종전 주석이 기록한 "호스트에 aria-live 를 두면
+        오류의 assertive 가 조상의 polite 에 삼켜진다"는 **리전을 형제로 두면 성립하지 않는다.**
+        polite/assertive 를 아예 다른 노드로 가른다.
+
+     ⚠ 두 리전을 **동시에 채우지 않는다** — 하나가 차면 다른 하나는 비운다. 같은 문장이 두 번
+        읽히는 것은 안 읽히는 것 다음으로 나쁘다. */
+  const lastId = useRef<string | number | null>(null);
+  const [live, setLive] = useState<{ polite: string; assertive: string }>({ polite: '', assertive: '' });
+  useEffect(() => {
+    const it = items[items.length - 1];
+    if (!it || lastId.current === it.id) return;
+    lastId.current = it.id;
+    // 액션이 있으면 그 사실도 말한다 — 눈에 보이는 버튼이 SR 에는 존재를 알릴 길이 없다.
+    const msg = it.action ? `${it.msg} — ${it.action.label}` : it.msg;
+    setLive(it.type === 'bad' ? { polite: '', assertive: msg } : { polite: msg, assertive: '' });
+  }, [items]);
+
   return (
-    <div id="toastHost" className="toast-host">
-      {items.map((it) => (
-        <Toast key={it.id} item={it} />
-      ))}
-    </div>
+    <>
+      <div className="sr-only" role="status" aria-live="polite">
+        {live.polite}
+      </div>
+      <div className="sr-only" role="alert" aria-live="assertive">
+        {live.assertive}
+      </div>
+      <div id="toastHost" className="toast-host">
+        {items.map((it) => (
+          <Toast key={it.id} item={it} />
+        ))}
+      </div>
+    </>
   );
 }

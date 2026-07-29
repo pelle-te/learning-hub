@@ -12,6 +12,7 @@ import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { isDurable } from '@/lib/db/browserDb';
 import { isSaveFallback, onSaveFallback } from '@/lib/db/fallback';
+import { recordVisit } from '@/lib/visits';
 import TodayView from './TodayView';
 import DayView from './DayView';
 import WeekView from './WeekView';
@@ -38,6 +39,15 @@ export default function PhoneApp(): React.JSX.Element {
       else setStatus(null);
     });
   }, []);
+
+  /* ⚠ 폰 뷰 방문을 기록한다(H23 · 2026-07-26 감사). `route_visits` 의 존재 이유 셋 중 하나가
+     **"폰 뷰 사용 여부"** 인데, 계수기는 `app/App.tsx` 에만 있었고 폰은 `app/` 을 안 쓴다 —
+     즉 그 질문에 계측이 도달하지 않은 채 원장만 쌓이고 있었다. 2주 뒤의 0 을 "폰 안 씀"으로
+     읽었다면, 이 저장소가 반복해 물린 **"없는 데이터 vs 안 센 데이터"** 를 데이터가 있다는
+     이유로 더 자신 있게 틀리는 형태였다. */
+  useEffect(() => {
+    void recordVisit(view, 'phone');
+  }, [view]);
 
   const shift = (n: number): void => setDs((d) => iso(addDays(parseISO(d), n)));
 

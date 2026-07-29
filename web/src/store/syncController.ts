@@ -28,6 +28,7 @@ import { endMergeApply } from '@/lib/db/write';
 import { RUNTIME_CACHE_KEYS } from '@/lib/persistence';
 import type { AppState } from '@/lib/types';
 import type { ConflictShadow } from '@/lib/cloud/conflicts';
+import { toast } from '@/shell/toast'; // zustand 단독 모듈이라 store→shell 순환이 없다(useApp 과 같은 근거)
 import { useApp } from './useApp';
 import { useConflicts, shadowId } from './useConflicts';
 
@@ -212,7 +213,13 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   let liveDisposed = false;
   if (live) {
     void readCloudConfig().then((cfg) => {
-      if (cfg && !liveDisposed) liveHandle = connectLive(cfg, run);
+      /* ⚠ `onDead` — 재시도가 무의미해진 상태(기기 폐기·인증 영구 거부)는 **사람이 조치해야**
+         풀린다(H18). 조용히 멈추면 사용자는 실시간이 죽은 줄도 모르고, 계속 재시도하면
+         `/api/token` 을 하루 수천 번 친다. 멈추고 한 번 말한다. */
+      if (cfg && !liveDisposed)
+        liveHandle = connectLive(cfg, run, (reason) => {
+          toast(`실시간 동기화가 중단됐어요 — ${reason}`, 'warn', 12000);
+        });
     });
   }
 

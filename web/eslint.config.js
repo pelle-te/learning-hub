@@ -120,6 +120,20 @@ export default tseslint.config(
         { type: 'hooks', pattern: '**/src/hooks/**' },
         { type: 'store', pattern: '**/src/store/**' },
         { type: 'lib', pattern: '**/src/lib/**' },
+        /* ⚠⚠ **`shell` 을 등록한다(H10 · 2026-07-26 감사).**
+
+           종전엔 `shell/` 이 어느 element 에도 안 잡혀(`no-unknown` 도 off) 경계 밖이었고,
+           `shell/index.ts` 는 그걸 _"boundaries 무관 디렉터리라 어느 레이어에서도 import
+           가능"_ 이라며 **기능으로 선언**했다. 그 예외가 실제로 한 일: 허용표상 금지인
+           **`components → store` 가 배럴 한 칸을 거쳐 통과**했다(팔레트·단축키·useCollectTool).
+           무효화된 전제는 "shell 은 서비스라 분류 불가"인데, shell 이 나르는 것은 서비스만이
+           아니라 **상태와 IPC** 다.
+
+           ⚠ `toast` 만 따로 잡는 것이 이 표의 요점이다. 토스트는 zustand 단독 모듈이라
+           스토어·IPC 사슬이 없고(위 실측), `store/useApp` 이 저장 실패를 알리려면 그게
+           필요하다. **더 구체적인 패턴이 먼저** 와야 한다 — boundaries 는 첫 일치를 쓴다. */
+        { type: 'shellToast', pattern: '**/src/shell/toast/**' },
+        { type: 'shell', pattern: '**/src/shell/**' },
       ],
     },
     rules: {
@@ -144,6 +158,8 @@ export default tseslint.config(
                 { to: { element: { type: 'hooks' } } },
                 { to: { element: { type: 'store' } } },
                 { to: { element: { type: 'lib' } } },
+                { to: { element: { type: 'shell' } } },
+                { to: { element: { type: 'shellToast' } } },
               ],
             },
             {
@@ -153,15 +169,42 @@ export default tseslint.config(
                 { to: { element: { type: 'hooks' } } },
                 { to: { element: { type: 'store' } } },
                 { to: { element: { type: 'lib' } } },
+                { to: { element: { type: 'shell' } } },
+                { to: { element: { type: 'shellToast' } } },
               ],
             },
             {
+              /* ⚠ **`shell` 이 없는 것이 이 줄의 요점이다**(H10). 재사용 프리미티브가 셸 배럴을
+                 물면 그 한 칸으로 스토어·IPC 가 딸려 온다 — 토스트(잎 모듈)만 허용한다. */
               from: { element: { type: 'components' } },
-              allow: [{ to: { element: { type: 'hooks' } } }, { to: { element: { type: 'lib' } } }],
+              allow: [
+                { to: { element: { type: 'hooks' } } },
+                { to: { element: { type: 'lib' } } },
+                { to: { element: { type: 'shellToast' } } },
+              ],
             },
             { from: { element: { type: 'hooks' } }, allow: [{ to: { element: { type: 'lib' } } }] },
-            { from: { element: { type: 'store' } }, allow: [{ to: { element: { type: 'lib' } } }] },
+            {
+              /* 스토어가 토스트만 쓰는 것은 의도다 — 저장 실패를 사용자에게 알리는 유일한 통로다
+                 (`useApp` 주석). 배럴(`shell`)은 여기서도 금지 — 그러면 store → actions → store 다. */
+              from: { element: { type: 'store' } },
+              allow: [{ to: { element: { type: 'lib' } } }, { to: { element: { type: 'shellToast' } } }],
+            },
             { from: { element: { type: 'lib' } }, allow: [{ to: { element: { type: 'lib' } } }] },
+            {
+              /* 셸 서비스는 상태·IPC·UI 를 엮는 자리다(액션 표면). 그래서 위로는 아무도 못
+                 올라오게 하고(위 정책들), 여기서는 아래 전부를 허용한다. */
+              from: { element: { type: 'shell' } },
+              allow: [
+                { to: { element: { type: 'components' } } },
+                { to: { element: { type: 'hooks' } } },
+                { to: { element: { type: 'store' } } },
+                { to: { element: { type: 'lib' } } },
+                { to: { element: { type: 'shell' } } },
+                { to: { element: { type: 'shellToast' } } },
+              ],
+            },
+            { from: { element: { type: 'shellToast' } }, allow: [{ to: { element: { type: 'lib' } } }] },
           ],
         },
       ],
@@ -214,11 +257,30 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
+          /* ⚠⚠ **denylist 를 allowlist 로 뒤집었다(H10 · 2026-07-26 감사).**
+
+             종전 표현은 모듈 이름 **3개짜리 denylist**(`@/store/useApp`·`@/app/App`·
+             `@/app/ThemeProvider`)라 계약의 실제 내용("`useApp` 을 **전이적으로** 끌어오는
+             모듈을 정적 import 하지 않는다")을 담지 못했다. 실제로 구멍이 열려 있었다:
+             `import { ui } from '@/shell'` 한 줄이면 `shell/index` → `actions` → `@/store/useApp`
+             으로 이어져 **셸이 다시 낡은 localStorage 로 부팅한다.** 목록에 없으니 린트는 조용하다.
+
+             지금은 `@/…` 전부를 막고 **안전이 증명된 것만** 뚫는다:
+             · `@/styles/**` — CSS
+             · `@/lib/**` — 경계 규칙상 `lib → lib` 뿐이라 스토어에 닿을 수 없다(위 boundaries)
+             · `@/app/queryClient` — `@tanstack/react-query` 만 문다(실측 · main.tsx 주석)
+             새 진입점을 여기 정적으로 붙이려는 사람은 아래 메시지를 읽고 동적 import 로 간다. */
           patterns: [
             {
-              group: ['@/store/useApp', '@/app/App', '@/app/ThemeProvider'],
+              /* ⚠ 부정 패턴(`!@/styles/**`)은 이 규칙에서 **동작하지 않는다**(실측 — 전부 걸렸다).
+                 그래서 "스토어에 닿을 수 있는 레이어 전체"를 **디렉터리 단위**로 막는다. 모듈
+                 이름을 세지 않으므로 그 레이어에 새 파일이 생겨도 자동으로 덮인다.
+                 남는 것은 `@/lib/**`(경계상 lib→lib 뿐)과 `@/styles/**`(CSS) 뿐이고, 그래서
+                 `queryClient` 를 `lib/` 로 옮겼다 — `@tanstack/react-query` 만 무는 순수 설정이라
+                 원래 app 층에 있을 이유가 없었다(그 위치가 이 규칙의 예외를 강요하고 있었다). */
+              group: ['@/app/**', '@/store/**', '@/features/**', '@/components/**', '@/hooks/**', '@/shell', '@/shell/**'],
               message:
-                'main.tsx 는 `useApp` 을 끌어오는 모듈을 **정적으로** import 할 수 없습니다 — 스토어가 initAppStore() 보다 먼저 만들어져 셸이 낡은 localStorage 로 부팅합니다(SD-7). `.then()` 안에서 동적 import 하세요.',
+                'main.tsx 는 `useApp` 을 (전이적으로라도) 끌어오는 모듈을 **정적으로** import 할 수 없습니다 — 스토어가 initAppStore() 보다 먼저 만들어져 셸이 낡은 localStorage 로 부팅합니다(SD-7). `.then()` 안에서 동적 import 하세요. 정말 안전하다면 이 allowlist 에 근거와 함께 추가하세요.',
             },
           ],
         },

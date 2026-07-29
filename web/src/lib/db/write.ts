@@ -42,6 +42,10 @@ export interface ParityReport {
 }
 
 let _last: ParityReport = { ok: true, mismatched: [], skipped: true, unavailable: false };
+
+/** 되읽기 대조 주기 — **세션 첫 쓰기 + 이후 N 회당 1회**(H6). 근거는 `runWrite` 안 주석. */
+const VERIFY_EVERY = 20;
+let _writes = 0;
 let _inflight: Promise<unknown> | null = null;
 
 /** 마지막 대조 결과(설정 탭 진단·테스트가 읽는다). */
@@ -157,6 +161,20 @@ async function runWrite(state: AppState): Promise<ParityReport> {
       _last = { ok: false, mismatched: ['<쓰기 실패>'], skipped: false, unavailable: false };
       return _last;
     }
+    /* ⚠⚠ **되읽기 대조는 표본이다(H6 · 2026-07-26 감사).**
+
+       쓰기는 증분(diff)인데 **검증만 O(전체)** 였다: 매 flush(400ms 디바운스)마다 8테이블을
+       전량 읽고(`readRows`) 상태로 되돌린 뒤(`rowsToState`) 양쪽을 통째로 stringify 했다.
+       2년 근사 상태(10,380행/0.67MB)에서 순수 JS 10ms + IPC 690KB — 편집 중 400ms 마다.
+
+       이 층의 목적은 머리주석이 적은 대로 **SQL 층의 타입 강제변환·NULL 처리 탐지**다. 그건
+       스키마·매퍼의 성질이라 **한 번 어긋나면 계속 어긋난다** — 즉 표본으로 잡힌다. 전량이어야
+       할 근거는 어디에도 없었다(있었다면 여기 적혀 있었을 것이다).
+
+       ⚠ 건너뛴 회차에 `ok:true` 를 새로 쓰지 않고 **직전 대조 결과를 그대로 둔다.** 안 잰 것을
+       "일치"라고 보고하면 설정 탭 진단이 거짓말을 하게 된다(이 감사가 반복해 잡은 부류). */
+    _writes += 1;
+    if (_writes !== 1 && _writes % VERIFY_EVERY !== 0) return _last;
     const back = await readRows();
     if (!back) {
       _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false, unavailable: false };

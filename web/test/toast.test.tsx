@@ -31,11 +31,17 @@ afterEach(() => {
 /** 수명 바 — 장식이라 role 이 없다. 클래스로 찾되 *존재 여부*만 본다(스타일은 단언 안 함). */
 const life = (): HTMLElement | null => document.querySelector('.toast-life');
 
+/** 보이는 토스트 상자. ⚠ `getByRole('status')` 로 잡지 않는다(H15) — 라이브 리전이 **토스트
+ *  밖의 항상 마운트된 노드**로 옮겨갔고, 그게 이 파일이 지켜야 할 계약이다. */
+const box = (): HTMLElement => document.querySelector('.toast')!;
+
 describe('토스트 되돌리기 창 표시(UX-3)', () => {
   it('되돌릴 게 없는 알림에는 시간 바를 안 붙인다(장식 금지)', () => {
     render(<ToastHost />);
     act(() => toast('저장했어요', 'ok'));
-    expect(screen.getByText('저장했어요')).toBeInTheDocument();
+    /* ⚠ 둘인 것이 계약이다(H15) — 보이는 토스트 + **미리 마운트된** 라이브 리전.
+       리전이 토스트와 함께 삽입되면 공지가 씹혀 SR 사용자는 한 번도 못 듣는다. */
+    expect(screen.getAllByText('저장했어요').length).toBe(2);
     expect(life()).toBeNull();
   });
 
@@ -49,16 +55,16 @@ describe('토스트 되돌리기 창 표시(UX-3)', () => {
   it('hover/포커스로 타이머가 멈추면 바도 멈춘다(보이는 것이 거짓이 되지 않게)', () => {
     render(<ToastHost />);
     act(() => toastUndo('지웠어요', () => {}));
-    const box = screen.getByRole('status');
+    const el = box();
     expect(life()!.style.animationPlayState).toBe('running');
 
-    fireEvent.mouseEnter(box);
+    fireEvent.mouseEnter(el);
     expect(life()!.style.animationPlayState).toBe('paused');
-    fireEvent.mouseLeave(box);
+    fireEvent.mouseLeave(el);
     expect(life()!.style.animationPlayState).toBe('running');
 
     // 키보드 사용자도 같다 — WCAG 2.2.1 로 이미 focus 일시정지를 넣어 둔 자리를 바가 공유한다.
-    fireEvent.focus(box);
+    fireEvent.focus(el);
     expect(life()!.style.animationPlayState).toBe('paused');
   });
 

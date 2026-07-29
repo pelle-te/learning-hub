@@ -17,6 +17,7 @@
    (`new WebSocket(url, [token])`). 서버가 검증(+폐기 확인)하고 그 프로토콜을 되돌려준다(§P0-2 연장).
 ============================================================ */
 import { currentAccessToken, type CloudConfig } from './client';
+import { isPermanent } from './push';
 
 /** https→wss · http→ws(루프백 dev). */
 function wsUrl(baseUrl: string): string {
@@ -29,15 +30,22 @@ export interface LiveHandle {
 
 const MAX_BACKOFF_MS = 30_000;
 const PING_MS = 45_000; // 유휴 연결이 프록시에 끊기지 않게 keep-alive
+/** 이만큼 **유지된** 연결만 "붙었다"로 본다(H18) — 아래 `onopen` 주석 참조. */
+const STABLE_MS = 30_000;
 
 /**
  * 실시간 poke 채널을 연다. `onPoke` 는 "변경 있음" 수신마다 호출된다(호출부가 pull 을 돌린다).
  * `close()` 로 완전히 끈다(재연결도 멈춘다).
+ *
+ * `onDead` 는 **재시도가 무의미해졌을 때 1회** 불린다(기기 폐기·인증 영구 거부). 호출부가
+ * 사용자에게 알린다 — 이 상태는 사람이 조치해야 풀리기 때문이다(H18).
  */
-export function connectLive(cfg: CloudConfig, onPoke: () => void): LiveHandle {
+export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reason: string) => void): LiveHandle {
   let ws: WebSocket | null = null;
   let closed = false;
   let retry = 0;
+  /** 마지막 연결이 성립한 시각(0 = 연결 없음). 백오프 리셋 판정용(H18). */
+  let openedAt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -63,7 +71,17 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void): LiveHandle {
     let token: string;
     try {
       token = await currentAccessToken(cfg);
-    } catch {
+    } catch (e) {
+      /* ⚠⚠ **영구 실패를 일시 실패와 가르지 않으면 재연결이 해로워진다(H18 · 2026-07-26 감사).**
+         종전엔 전부 `scheduleReconnect()` 였다 — 기기가 폐기된 폰을 하루 방치하면 `/api/token`
+         을 **≈2,880회** 치면서(30초 상한) 화면에는 아무것도 안 뜬다. 무료 한도를 직격하고,
+         정작 사용자는 조치가 필요하다는 사실을 모른다. 영구 실패면 멈추고 **한 번 말한다**. */
+      if (isPermanent(e)) {
+        closed = true;
+        stopPing();
+        onDead?.(e instanceof Error ? e.message : '실시간 연결이 거부되었습니다.');
+        return;
+      }
       scheduleReconnect(); // 토큰 실패(오프라인 등) — 나중에 다시
       return;
     }
@@ -75,7 +93,10 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void): LiveHandle {
       return;
     }
     ws.onopen = (): void => {
-      retry = 0;
+      /* ⚠ **여기서 백오프를 리셋하지 않는다(H18).** 서버가 붙자마자 끊는 상태(플래핑)에서
+         `retry = 0` 은 백오프를 통째로 무력화해 초당 재연결이 된다. "붙었다"의 근거는 연결
+         **성립**이 아니라 **유지**다 — 아래 `onclose` 가 `STABLE_MS` 이상 살아 있었을 때만 리셋한다. */
+      openedAt = Date.now();
       stopPing();
       pingTimer = setInterval(() => {
         try {
@@ -90,6 +111,9 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void): LiveHandle {
     };
     ws.onclose = (): void => {
       stopPing();
+      // 충분히 유지된 연결이었으면 그때만 백오프를 처음으로 되돌린다(H18).
+      if (openedAt && Date.now() - openedAt >= STABLE_MS) retry = 0;
+      openedAt = 0;
       ws = null;
       scheduleReconnect();
     };

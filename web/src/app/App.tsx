@@ -16,9 +16,13 @@ import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
 import { markVia, recordVisit, takeVia } from '@/lib/visits';
 import { getReactTab, prefetchTab } from '@/features/registry';
-import CommandPalette from '@/components/CommandPalette';
+/* ⚠ 팔레트·단축키 도움말은 **앱 크롬**이다(H10 · 2026-07-26 감사). `components/` 에 있던 동안
+   `components → @/shell → store` 라는, 허용표상 금지인 경로가 배럴 한 칸을 거쳐 통과했다 —
+   `components` 는 재사용 프리미티브(무상태에 가깝게)라는 계약을 그 둘이 애초에 만족하지 않았다
+   (App 만 렌더하고, 액션·스토어·IPC 를 문다). 자리를 사실에 맞추면 계약 위반이 사라진다. */
+import CommandPalette from '@/app/CommandPalette';
 import SubTabs from '@/app/SubTabs';
-import ShortcutsHelp from '@/components/ShortcutsHelp';
+import ShortcutsHelp from '@/app/ShortcutsHelp';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
 import AmbientCanvas from '@/components/AmbientCanvas';

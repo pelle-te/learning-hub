@@ -117,7 +117,9 @@ describe('폰 복습 러너 — 스와이프 배선(UX-B2)', () => {
       swipe(card(), 80);
     }
     expect(screen.getByText(/"요약1"/)).toBeInTheDocument(); // 돌아왔다
-    expect(screen.getByText(/↻ 다시/)).toBeInTheDocument(); // 그리고 그렇다고 말한다
+    // ⚠ `getAllBy` 인 것이 계약이다(H13) — 같은 사실이 **눈에 보이는 줄**과 **SR 라이브 리전**
+    //    두 곳에 있어야 한다. 하나로 줄이면 둘 중 한 사용자가 그 사실을 못 받는다.
+    expect(screen.getAllByText(/↻ 다시/).length).toBeGreaterThanOrEqual(2);
     swipe(card(), 80);
     expect(screen.getByText('복습 세션 완료')).toBeInTheDocument();
     expect(screen.getByText(/카드 4장 중/)).toBeInTheDocument(); // 큐는 5장이었지만 카드는 4장

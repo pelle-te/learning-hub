@@ -18,7 +18,7 @@ import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { useSchedule } from '@/store/selectors';
 import { todayISO } from '@/lib/utils';
-import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
 import type { ChapterReview } from '@/lib/spacedReview';
 import { CBMS_INFO } from '@/lib/methodology';
 
@@ -131,6 +131,9 @@ export default function ReviewView(): React.JSX.Element {
 
   const item = queue[idx]!;
   const step = `${item.again ? '↻ 다시 · ' : ''}${idx + 1} / ${total}`;
+  /* H13 — 카드 전환은 SR 에 무음이다(같은 key 라 포커스는 버튼에 남고 본문만 교체된다).
+     문구는 **lib 이 소유**한다(`cardSpeech`) — 데스크톱 러너와 같은 말을 해야 한다. */
+  const { badge, subject } = cardSpeech(item);
 
   return (
     <section {...swipe} className="flex flex-col gap-4 p-4">
@@ -147,6 +150,11 @@ export default function ReviewView(): React.JSX.Element {
           style={{ width: `${(idx / total) * 100}%` }}
         />
       </div>
+
+      {/* 카드 **밖**의 라이브 리전(H13) — 안에 두면 카드와 함께 교체돼 공지가 씹힌다. */}
+      <p className="sr-only" role="status">
+        {step} · {badge} · {subject}
+      </p>
 
       {item.kind === 'retrieval' ? (
         <div className={CARD}>

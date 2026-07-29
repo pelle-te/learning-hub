@@ -52,7 +52,8 @@ test('테마 토글: <html data-theme> 다크↔라이트 + 토스트', async ()
   await waitFor(() => expect(document.documentElement.getAttribute('data-theme')).toBe('dark'));
   expect(useApp.getState().state.theme).toBe('dark');
   // 네이티브 토스트가 떴다.
-  await waitFor(() => expect(screen.getByText(/테마:/)).toBeInTheDocument());
+  // ⚠ 둘이다(H15) — 보이는 토스트 + 항상 마운트된 라이브 리전. 근거는 `toast.test.tsx` 주석.
+  await waitFor(() => expect(screen.getAllByText(/테마:/).length).toBe(2));
 });
 
 test('확인 모달: 전체 초기화 → 취소하면 데이터가 유지된다', async () => {

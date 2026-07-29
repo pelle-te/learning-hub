@@ -11,7 +11,7 @@ import { useApp } from '@/store/useApp';
 import { useNowMin } from '@/hooks/interactions';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { freeWindowsForWeekday, blocksForWeekday, peakRange } from '@/lib/scheduler';
-import { allocView, colSumMin, weekMonOf } from '@/lib/weekAlloc';
+import { allocView, colSumMin, weekMonOf, weekRequiredMin } from '@/lib/weekAlloc';
 import { DOW, parseISO, todayISO } from '@/lib/utils';
 import DayRing from './DayRing';
 
@@ -52,11 +52,9 @@ export function AvailRail() {
   const allocWd = DOW.map((_, i) => colSumMin(alloc, i, validSids));
   const allocWeekMin = allocWd.reduce((t, m) => t + m, 0);
 
-  // 가용 vs 목표 — 주당 목표(주간시간 + 매일과목×7)를 합쳐 가용시간이 담을 수 있는지 짚어준다.
-  const requiredH = state.items.reduce((t, it) => {
-    if (!it.name) return t;
-    return t + (it.mode === 'daily' ? ((it.dailyMin || 0) * 7) / 60 : it.weeklyHours || 0);
-  }, 0);
+  /* 가용 vs 필요 — 주당 필요량(주간시간 + 매일과목×7)을 가용시간이 담을 수 있는지 짚어준다.
+     ⚠ 정의는 **lib 하나**다(H11) — 여기와 `Items` 가 각자 계산하던 것을 수렴했다. */
+  const requiredH = weekRequiredMin(state) / 60;
   const availH = weekFreeMin / 60;
   const shortfall = requiredH > 0 && availH < requiredH;
 

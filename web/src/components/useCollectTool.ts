@@ -7,7 +7,10 @@
 ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { runTool } from '@/lib/api';
-import { ui } from '@/shell';
+/* ⚠ **배럴이 아니라 잎 모듈에서** 가져온다(H10) — @/shell 배럴은 ctions.ts(스토어·IPC)를
+   함께 끌어 components → store 라는 금지 경로가 전이로 만들어진다. 토스트는 zustand 단독
+   모듈이라 그 사슬이 없다. */
+import { toast } from '@/shell/toast';
 
 export function useCollectTool(
   tool: string,
@@ -34,16 +37,16 @@ export function useCollectTool(
         if (res.ok) {
           await refetch();
           ok = true;
-          if (!silent) ui.toast(doneMsg, 'ok');
+          if (!silent) toast(doneMsg, 'ok');
         } else if (!silent) {
-          ui.toast('수집 실패 — 아래 실행 로그를 확인하세요', 'bad');
+          toast('수집 실패 — 아래 실행 로그를 확인하세요', 'bad');
         }
       } catch (e) {
         // 사용자 취소/타임아웃(AbortError)은 실패 토스트로 겁주지 않는다.
         if (ctrl.signal.aborted) {
-          if (!silent) ui.toast('수집을 취소했어요', 'ok');
+          if (!silent) toast('수집을 취소했어요', 'ok');
         } else if (!silent) {
-          ui.toast('수집 요청 실패: ' + ((e as Error).message || e), 'bad');
+          toast('수집 요청 실패: ' + ((e as Error).message || e), 'bad');
         }
       }
       ctrlRef.current = null;

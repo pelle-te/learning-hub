@@ -19,7 +19,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { prefersReducedMotion, reveal } from '@/lib/motion';
 import { ui } from '@/shell';
-import { colorForId, rid, makeItem, dayDiff, ddayInfo, DOW, todayISO, round1 } from '@/lib/utils';
+import { colorForId, rid, makeItem, ddayInfo, DOW, todayISO, round1 } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
   allocView,
@@ -28,13 +28,15 @@ import {
   removeSidFromAlloc,
   weekAllocTotalMin,
   weekBudgetMin as weekBudgetMinOf,
+  weekRequiredMin,
 } from '@/lib/weekAlloc';
+import { deadlineDdays } from '@/lib/scheduleView';
 import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
 import EmptyState from '@/components/EmptyState';
 import DetailDrawer from '@/components/DetailDrawer';
-import type { Item } from '@/lib/types';
+import type { AppState, Item, ItemStat } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 import { VaultImport } from './VaultImport';
 import { SkeletonPanel } from './SkeletonPanel';
@@ -44,23 +46,24 @@ import { SubjectSheet } from './SubjectSheet';
 /** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감.
  *  '오늘'은 벽시계가 아니라 **앱 정본**(todayISO, `_today` 시드 존중)을 호출부에서 받는다 —
  *  AvailRail/Alloc이 못박은 계약(단일 출처)을 마감 D-day만 우회하면 시드 주입 시 값이 갈렸다. */
-function useInsight(items: Item[], todayDs: string) {
+function useInsight(items: Item[], todayDs: string, itemStat: ItemStat[]) {
   return useMemo(() => {
     const named = items.filter((i) => i.name);
     if (!named.length) return null;
-    let weekly = 0;
+    /* ⚠ 두 정의를 **lib 으로 수렴**했다(H11 · 2026-07-26 감사).
+       ① 주당 필요 시간 — 여기서 따로 더하던 것이 `AvailRail` 의 같은 계산과 별개로 존재했다.
+       ② 가장 가까운 마감 — 필터 없는 최솟값이라 **3월에 끝낸 과목의 D+130 이 항상 이겼다**
+          (`deadlineDdays` 는 끝난 과목·지난 마감을 빼는 SSOT 이고, Today·Schedule 은 이미
+          그걸 쓴다. 여기만 안 써서 같은 앱이 서로 다른 '가장 가까운 마감'을 말했다). */
+    const weekly = weekRequiredMin({ items } as unknown as AppState) / 60;
+    const nearestDd = deadlineDdays(itemStat, todayDs)[0];
+    const nearest = nearestDd ? { dd: nearestDd.dday, name: nearestDd.name } : null;
     let totalCh = 0;
     let doneCh = 0;
-    let nearest: { dd: number; name: string } | null = null;
     for (const s of named) {
-      weekly += s.mode === 'daily' ? ((s.dailyMin || 0) * 7) / 60 : s.weeklyHours || 0;
       for (const ch of s.chapters || []) {
         totalCh++;
         if (ch.done) doneCh++;
-      }
-      if (s.deadline) {
-        const dd = dayDiff(todayDs, s.deadline);
-        if (nearest == null || dd < nearest.dd) nearest = { dd, name: s.name };
       }
     }
     const chPct = totalCh ? Math.round((doneCh / totalCh) * 100) : 0;
@@ -72,7 +75,7 @@ function useInsight(items: Item[], todayDs: string) {
       chPct,
       nearest,
     };
-  }, [items, todayDs]);
+  }, [items, todayDs, itemStat]);
 }
 
 export default function Items() {
@@ -91,7 +94,7 @@ export default function Items() {
   const [showSkeleton, setShowSkeleton] = useState(false); // 뼈대 편집 스트립 펼침(온디맨드 세부)
   const [showImport, setShowImport] = useState(false); // 인라인 볼트 불러오기 토글(§5-2)
   const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 파일 전체가 이것만 쓴다.
-  const insight = useInsight(items, todayIso);
+  const insight = useInsight(items, todayIso, res.itemStat);
 
   // 이번 주 배분(과목별 합) — 카드 배지 공용. 보드/시트와 같은 출처(lib/weekAlloc).
   const wk = weekMonOf(todayIso);

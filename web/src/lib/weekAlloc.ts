@@ -223,6 +223,23 @@ export function weekBudgetMin(state: AppState): number {
   );
 }
 
+/**
+ * 이번 주 **필요 시간**(분) = 매일 과목(dailyMin×7) + 주간 과목(weeklyHours). "가용시간이 이걸
+ * 담을 수 있나"를 묻는 쪽의 분자다(H11 · 2026-07-26 감사).
+ *
+ * ⚠ `weekBudgetMin` 과 **다른 질문이고, 그래서 값이 다르다.** 저기는 *배분 보드가 나눠 담을 수
+ * 있는 양*(매일 과목은 엔진이 따로 굴리므로 제외)이고, 여기는 *일주일에 실제로 필요한 총량*이다.
+ * 감사가 잡은 결함은 값이 다른 것 자체가 아니라 **두 값이 각각 두 곳에 인라인으로 복제**돼
+ * 있었다는 점이다(`AvailRail`·`Items` 가 각자 계산 → 한 화면에서 15.0h 와 18.5h 가 동시에 뜬다).
+ * 정의를 하나로 모으고, 이름으로 무엇을 묻는지 구분한다.
+ */
+export function weekRequiredMin(state: AppState): number {
+  return (state.items || []).reduce((t, it) => {
+    if (!it.name) return t;
+    return t + (it.mode === 'daily' ? (it.dailyMin || 0) * 7 : Math.round((it.weeklyHours || 0) * 60));
+  }, 0);
+}
+
 /** 그 주 배분 합(분) — 분모(weekBudgetMin)와 **같은 과목 집합**을 순회한다(비율 오염 방지). 리드아웃 분자. */
 export function weekAllocTotalMin(state: AppState, res: ScheduleResult, wk: string): number {
   const map = allocView(state, res, wk);

@@ -24,6 +24,23 @@ export type RunCard =
 /** 큐 원소 = 카드 + 재삽입 표식. `again` 은 **세션 내 두 번째 등장**임을 뜻한다(D-1). */
 export type RunItem = RunCard & { again?: true };
 
+/**
+ * 카드 한 장을 **한 줄로** 말한다 — 배지와 대상(H13 · 2026-07-26 감사).
+ *
+ * 왜 lib 인가: 데스크톱·폰 두 러너가 카드 전환을 스크린리더에 알려야 하는데, 그 문구가 화면마다
+ * 갈리면 "폰만 다르게 읽히는" 상태가 조용히 생긴다(설계서 §9-4 의 "화면은 따로, 규칙은 lib" ·
+ * 결정로그가 `chapterCopy` 2벌로 이미 물린 부류). 배지 문자열은 각 카드의 시각 배지와 **같은 말**이다.
+ */
+export function cardSpeech(item: RunCard): { badge: string; subject: string } {
+  if (item.kind === 'retrieval') return { badge: '회상', subject: item.card.summary.name };
+  if (item.kind === 'confident') {
+    const ch = item.card.cbms.chapter ? ` · ${item.card.cbms.chapter}` : '';
+    return { badge: '착각 재확인', subject: `${item.card.cbms.name}${ch}` };
+  }
+  const badge = item.ch.maintenance ? '유지' : item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때';
+  return { badge, subject: `${item.ch.subject} · ${item.ch.chapter}` };
+}
+
 /** 밀린 챕터 상한 — 한 세션에 몰아넣지 않는다(나머지는 다음 세션으로 자연 이월). */
 export const REVIEW_CHAPTER_CAP = 12;
 /** 유지(끝낸 챕터) 상한 — **세션당 2장**(N-10). 진행 중 복습이 주(主)이고 유지는 꼬리다.

@@ -55,16 +55,22 @@ const st = () => useApp.getState();
  *  실측 — 다운로드 폴더·프로필·앱 폴더 어디에도 안 생긴다). 내보내기 6경로가 전부 이 함수에
  *  수렴하고 그중 하나가 **백업**이라, 2단계-E 로 배포 경로를 셸 하나로 좁힌 뒤 줄곧 백업이
  *  안 되는 상태였다. 실패가 조용했던 것이 이 결함의 본질이라, 이제 결과를 토스트로 알린다. */
-function download(filename: string, text: string, mime: string): void {
+/* ⚠ **저장 성공 여부를 돌려준다**(H19 · 2026-07-26 감사). 종전엔 `void` 라 호출부가 결과를 알
+   방법이 없었고, 그래서 `downloadCorruptSnapshot` 이 "내려받았겠지" 하고 **원본을 지웠다** —
+   셸에서 저장 대화를 **취소해도** 유일한 손상 원본이 사라졌다(복구 경로가 복구 대상을 파괴).
+   브라우저 `<a download>` 경로는 성공을 관측할 수단이 없으므로 `true` 로 본다 — 거기선 취소가
+   파일 저장 대화가 아니라 브라우저 다운로드 관리자의 일이고, 원본 삭제와 엮이지 않는다. */
+function download(filename: string, text: string, mime: string): Promise<boolean> {
   if (isTauri()) {
-    void shellSaveFile(filename, text)
+    return shellSaveFile(filename, text)
       .then((saved) => {
         if (saved) toast(`${filename} 을 저장했어요.`, 'ok');
+        return saved;
       })
       .catch((e: unknown) => {
         toast(`저장하지 못했어요 — ${e instanceof Error ? e.message : String(e)}`, 'bad');
+        return false;
       });
-    return;
   }
   const blob = new Blob([text], { type: mime });
   const a = document.createElement('a');
@@ -72,6 +78,7 @@ function download(filename: string, text: string, mime: string): void {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 0);
+  return Promise.resolve(true);
 }
 
 /** 되돌리기용 1단계 백업(localStorage). */
@@ -114,13 +121,19 @@ export function downloadCorruptSnapshot(): void {
     toast('보존된 손상 원본이 없습니다.', 'warn');
     return;
   }
-  download('러닝허브_손상원본.json', raw, 'application/json');
-  try {
-    storage.removeItem(CORRUPT_KEY);
-  } catch {
-    /* 정리 실패는 치명 아님 — 다음 시도에서 재정리 */
-  }
-  toast('손상 원본을 내려받았어요 — 보존 키는 정리했습니다.', 'ok');
+  /* ⚠⚠ **저장이 확인된 뒤에만 정리한다(H19 · 2026-07-26 감사).** 종전엔 `download()` 직후
+     무조건 지웠는데, 셸에서 그건 비동기 fire-and-forget 이라 **사용자가 저장 대화를 취소해도**
+     유일한 손상 원본이 사라졌다 — 복구 경로가 복구 대상을 파괴하는 형태다. 원본은 재생성이
+     불가능하므로, 판단이 애매하면 **남기는 쪽**이 항상 옳다(다음 시도에서 다시 받을 수 있다). */
+  void download('러닝허브_손상원본.json', raw, 'application/json').then((saved) => {
+    if (!saved) return; // 취소·실패 — 보존본은 그대로 둔다(안내는 download 가 이미 했다)
+    try {
+      storage.removeItem(CORRUPT_KEY);
+    } catch {
+      /* 정리 실패는 치명 아님 — 다음 시도에서 재정리 */
+    }
+    toast('손상 원본을 내려받았어요 — 보존 키는 정리했습니다.', 'ok');
+  });
 }
 
 /** 임시 저장본 내려받기(C1 · 2026-07-26 감사) — 정본(SQLite)이 죽은 세션이 localStorage 에

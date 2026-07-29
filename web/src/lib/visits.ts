@@ -28,7 +28,7 @@
    ⚠ 브라우저(dev·트랙 A)에선 `getDb()` 가 null 이라 통째로 무동작이다 — 스냅샷 59장과
    개발 경로는 이 파일이 없는 것과 똑같이 돈다.
 ============================================================ */
-import { execDb, isSqlitePrimary } from './db/sqlite';
+import { execDb, isSqlitePrimary, selectDb } from './db/sqlite';
 import { addDays, iso, parseISO, todayISO } from './utils';
 
 /** 목적지에 **어떻게 도달했는가**. 합쳐서 세면 안 되는 이유는 머리주석. */
@@ -44,7 +44,13 @@ export type Via =
   /** 본문 안 링크·칩·버튼(힌트 없는 내비게이션의 기본값) */
   | 'link'
   /** 앱을 열었을 때의 첫 착지(= 딥링크이거나 그냥 기본 경로) */
-  | 'boot';
+  | 'boot'
+  /** 폰 웹앱의 뷰 전환(H23 · 2026-07-26 감사). 데스크톱 레일/세그와 **같은 축에 놓지 않는다** —
+   *  폰은 화면이 다섯이고 진입 수단이 하단 탭바 하나뿐이라, 섞으면 접근성 함수가 달라진 것을
+   *  같은 잣대로 비교하게 된다. 이 값이 있어야 머리주석이 든 동기 셋 중 **"폰 뷰 사용 여부"**
+   *  가 실제로 측정된다(그전엔 폰이 `app/` 을 안 써서 계측이 도달하지 않았다 —
+   *  2주 뒤 나올 0 은 "폰 안 씀"이 아니라 "안 쟀음"이었다). */
+  | 'phone';
 
 /** 힌트 유효 시간(ms) — 이걸 넘긴 `markVia` 는 버린다(머리주석). */
 const HINT_TTL = 1000;
@@ -78,6 +84,29 @@ export function takeVia(fallback: Via, now: number = Date.now()): Via {
 export function resetVia(): void {
   _hint = null;
   _pruned = false;
+}
+
+/** 원장 한 줄(요약 읽기용). */
+export interface VisitRow {
+  key: string;
+  via: Via;
+  n: number;
+}
+
+/**
+ * 최근 `days` 일의 방문 합계(많은 순). **소비처가 없는 계측은 계측이 아니다**(H23).
+ *
+ * 도입 나흘 뒤 감사가 잡은 것: 이 원장은 쓰기만 있고 **읽는 곳이 0** 이었고, 그동안 로드맵의
+ * 다섯 항목이 이 데이터를 기다리고 있었다. 사람이 값을 볼 수 없으면 "쌓이고 있다"는 믿음만
+ * 쌓인다 — 실제로 폰 계측은 도달조차 못 하고 있었고, 리드아웃이 있었다면 첫날에 드러났다.
+ */
+export async function visitSummary(days = 14, todayDs: string = todayISO()): Promise<VisitRow[]> {
+  const from = iso(addDays(parseISO(todayDs), -days));
+  const rows = await selectDb<{ key: string; via: string; n: number }>(
+    `SELECT key, via, SUM(n) AS n FROM route_visits WHERE day >= ? GROUP BY key, via ORDER BY n DESC`,
+    [from],
+  );
+  return (rows ?? []).map((r) => ({ key: String(r.key), via: String(r.via) as Via, n: Number(r.n) || 0 }));
 }
 
 /**

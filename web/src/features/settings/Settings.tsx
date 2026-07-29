@@ -7,13 +7,14 @@
    월드클래스 라운드(AmbientCanvas 언어) — 폼이 본질인 유틸 탭의 괴리감 해소: 상단 시네마틱
    상태 밴드(백업·저장·기록을 카운트업 리드아웃으로)로 제품의 같은 피부·살아있는 감각을 입힘.
 ============================================================ */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { ui, io, actions } from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
+import { visitSummary, type VisitRow } from '@/lib/visits';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
@@ -67,11 +68,41 @@ const TONE_NUM = { ok: 'text-acc!', warn: 'text-bad!' } as const;
 // 액센트 스와치 버튼 선택 상태 — 두 배경 유틸이 한 요소에 겹치지 않게 on/off 로 가른다(no-conflicting-classes 회피).
 const ACC_STATE = { on: 'border-acc! bg-acc-soft!', off: 'bg-transparent!' } as const;
 
+/**
+ * 방문 원장 리드아웃(H23 · 2026-07-26 감사) — **소비처가 없는 계측은 계측이 아니다.**
+ *
+ * `route_visits`(N-11)는 도입 나흘 동안 쓰기만 있고 읽는 곳이 0 이었다. 그 사이 로드맵의 다섯
+ * 항목이 이 데이터를 기다렸고, 정작 폰 계측은 **도달조차 못 하고 있었다** — 값을 볼 수 있었다면
+ * 첫날에 드러났을 사실이다. 그래서 화려한 화면이 아니라 **원본에 가까운 표**다: 판단(탭 은퇴 등)은
+ * 사람이 하고, 여기는 그 입력을 정직하게 보여 주기만 한다(via 를 합치지 않는 것이 그 정직함이다).
+ */
+function VisitLedger() {
+  const [rows, setRows] = useState<VisitRow[] | null>(null);
+  useEffect(() => {
+    void visitSummary().then(setRows);
+  }, []);
+  if (!rows?.length) return null;
+  return (
+    <details className={`ds-foot ${S.bdLine}`}>
+      <summary>방문 원장(최근 14일) — 어디를 얼마나 열었나</summary>
+      <div className="ds-tiny mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+        {rows.slice(0, 16).map((r) => (
+          <span key={`${r.key}:${r.via}`}>
+            {r.key} <span className="ds-muted">· {r.via}</span> {r.n}
+          </span>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 /** 저장 경로 진단 한 줄 — 쓴 것과 되읽은 것이 일치하는가(`db/write.ts` 의 되읽기 대조).
     ⚠ 옛 주석은 "2단계-D 이행 구간의 한시적 줄이고 2단계-E 에서 사라진다"고 적고 있었다 —
     둘 다 거짓이 됐다(정본이 SQLite 로 뒤집혔고 이 줄은 남았다 · `write.ts` 머리주석과 같은 드리프트).
     지금 이 줄의 뜻: **정본 저장이 건강한가**. 브라우저(SQLite 가 정본 아님)에선 렌더하지 않는다.
-    사용자 행동이 필요한 사건(연결 실패)은 이 조용한 줄이 아니라 지속 배너가 맡는다(C1). */
+    사용자 행동이 필요한 사건(연결 실패)은 이 조용한 줄이 아니라 지속 배너가 맡는다(C1).
+    ⚠ H6 이후 대조는 **표본**이다 — 건너뛴 회차는 이 값을 갱신하지 않는다(안 잰 것을 '일치'라
+    보고하지 않기 위해서다 · `db/write.ts` 의 그 절). */
 function ParityLine() {
   const p = lastParity();
   if (p.skipped) return null;
@@ -503,6 +534,7 @@ export default function Settings() {
           완료 {bd.done} · 요약 {bd.summaries} · 오답 {bd.cbms} · 백로그 {bd.backlog} · 백지 {bd.blank}
         </div>
         <ParityLine />
+        <VisitLedger />
         <div className="ds-row">
           <Button sm onClick={() => io.backupToVault()}>
             📁 볼트 폴더에 백업

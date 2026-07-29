@@ -20,7 +20,7 @@ import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { riskSummary } from '@/lib/spacedReview';
-import { buildReviewQueue, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import { buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
 import { putResume, clearResume, resumeDevice, type ResumeCursor } from '@/lib/resume';
 
 import { CBMS_INFO } from '@/lib/methodology';
@@ -355,6 +355,15 @@ export default function ReviewRun() {
   /* 재큐된 카드는 그렇다고 말한다 — 안 말하면 아까 넘긴 카드가 다시 뜬 것이 결함으로 읽힌다. */
   const step = `${item.again ? '↻ 다시 · ' : ''}${idx + 1} / ${total}`;
 
+  /* ⚠⚠ **카드 전환이 스크린리더에 완전 무음이었다(H13 · 2026-07-26 감사).**
+     카드 세 종류가 같은 `key` 로 자리를 바꾸므로 포커스는 버튼에 남고 **본문만 교체**된다 —
+     SR 입장에서는 아무 일도 안 일어난 것이다. `progressbar` 의 `aria-label` 갱신은 공지
+     대상이 아니라서 그 층도 못 메운다. 결과: 12장 세션 내내 무엇을 보고 있는지 모른 채
+     버튼만 누른다(기능이 있는데 안 보이는 것과 같다).
+     → 카드 **밖**의 라이브 리전에 "n/총 · 배지 · 프롬프트 요약"을 싣는다. 밖인 것이 중요하다:
+       카드 안에 두면 카드와 함께 교체돼 리전이 매번 새로 삽입되고, 그러면 공지가 씹힌다. */
+  const { badge, subject } = cardSpeech(item); // 문구는 lib 이 소유(폰 러너와 같은 말)
+
   return (
     <div className={WRAP}>
       {/* 진행바에 정직한 의미를 준다 — 예전엔 aria-hidden인데 대체 수단도 없어 SR에는 진행이 통째로 없었다.
@@ -372,6 +381,11 @@ export default function ReviewRun() {
           style={{ width: `${(idx / total) * 100}%` }}
         />
       </div>
+
+      {/* H13 — 카드 전환 공지(시각 영향 0). 카드 **밖**이라 리전이 계속 살아 있고 텍스트만 바뀐다. */}
+      <p className="sr-only" role="status">
+        {step} · {badge} · {subject}
+      </p>
 
       {/* ID-11 — 카드 위 한 줄. 카드 종류가 셋이라 각 카드 안에 넣으면 같은 JSX 가 세 벌이 되고,
           그러면 한 곳만 고쳐지는 드리프트가 시작된다(이 저장소가 여러 번 물린 부류). */}

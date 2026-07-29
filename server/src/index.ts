@@ -802,6 +802,38 @@ app.get('/api/sync/pull', async (c) => {
   });
 });
 
+/* ⚠⚠ **처리되지 않은 예외를 분류한다(H17 · 2026-07-26 감사).**
+
+   종전엔 `app.onError` 가 아예 없어 D1 이 던지면 Hono 기본 500 이 나갔다. 클라이언트는 5xx 를
+   **일시 오류**로 읽는 것이 옳은 규약이라(`push.ts`: "네트워크·5xx·타임아웃은 재시도가 정확히
+   맞는 처방") 5회 백오프 후 조용히 실패하고, 다음 트리거마다 그걸 반복한다. 문제는 낭비가
+   아니라 **침묵**이다: 앱은 "동기화 중"으로 보이고 사용자는 멈춘 걸 모른다.
+
+   `push.ts:41` 은 _"일일 한도는 `PermanentPushError` 부류"_ 라고 이미 적어 뒀는데 **그렇게
+   매핑하는 코드가 어디에도 없었다.** 서버가 사유를 붙이는 것이 그 매핑의 시작점이다.
+
+   ⚠ 한도 오류의 **정확한 문구는 Cloudflare 가 소유**하고 우리가 고정할 수 없다 → 문자열
+   휴리스틱이다. 그래서 판정이 틀렸을 때의 방향을 안전한 쪽으로 잡는다: 못 알아보면 500(재시도
+   가능)이다. 한도인데 500 을 주면 예전과 같고, 한도가 아닌데 429 를 주면 **동기화가 멈춘 채
+   사용자에게 잘못 알린다** — 후자가 더 나쁘다.
+   ⚠ `permanent: true` 는 클라이언트가 읽는 **계약**이다(`cloud/client.ts` 의 push 분기).
+      레이트 리미터의 429 와 구분해야 하므로 상태코드만으로 판정하지 않는다. */
+app.onError((err, c) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(JSON.stringify({ ev: 'unhandled', msg: msg.slice(0, 300) }));
+  if (/daily limit|quota|exceeded|too many (rows|writes)/i.test(msg)) {
+    return c.json(
+      {
+        error: 'limit',
+        detail: '저장소 일일 한도를 소진했습니다 — 한도가 리셋된 뒤 다시 동기화됩니다.',
+        permanent: true,
+      },
+      429,
+    );
+  }
+  return c.json({ error: 'internal' }, 500);
+});
+
 /** ⚠ DO 클래스는 진입 모듈에서 내보내야 런타임이 찾는다(wrangler.jsonc 의 class_name 과 일치). */
 export { SyncHub } from './syncHub';
 

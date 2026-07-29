@@ -193,9 +193,18 @@ export default function Today() {
           <ResumeChip />
         </div>
       </div>
-      <TodaySignature onOpenMore={openMore} />
-      {/* 콜드 스타트 — 과목·목표가 없으면 빈 대시보드 위에 3스텝 온보딩을 띄운다(셋업되면 자동 소멸). */}
-      {!setupComplete(items) && (
+      {/* ⚠⚠ **콜드 스타트에는 시그니처를 렌더하지 않는다(H14 · 2026-07-26 감사).**
+
+          종전엔 온보딩 스크림 **뒤에** 대시보드가 조건 없이 살아 있었다. 스크림에는
+          `role`·`aria-modal`·포커스 트랩·`inert` 가 전무해서 Tab 이 뒤로 새고, 스크린리더는
+          온보딩과 (아직 아무 데이터도 없는) 대시보드를 **섞어서** 읽었다.
+
+          다른 오버레이(아래 '오늘 상세')처럼 모달 계약을 다는 대신 **가리는 것을 안 그린다**를
+          골랐다: 이 화면은 데이터가 0 인 상태라 뒤에 보존할 맥락이 애초에 없고, 그러면
+          트랩·복원·inert 라는 기계 셋이 통째로 필요 없어진다. 셋업이 끝나면 자동으로 돌아온다. */}
+      {setupComplete(items) ? (
+        <TodaySignature onOpenMore={openMore} />
+      ) : (
         <div className="absolute inset-0 z-5 grid place-items-center overflow-y-auto bg-[var(--setup-host-bg)] p-6 [backdrop-filter:var(--backdrop-setup)]">
           <SetupGuide />
         </div>

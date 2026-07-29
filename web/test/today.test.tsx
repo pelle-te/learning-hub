@@ -24,9 +24,17 @@ function renderApp(initialPath: string) {
   );
 }
 
+/* ⚠ **과목을 심는 것이 계약이다(H14 · 2026-07-26 감사).** 종전엔 `defaults()`(items: []) 위에서
+   렌더했는데, 그 상태의 실제 화면은 **콜드 스타트 온보딩**이다 — 즉 이 테스트들은 사용자가
+   그 상태에서 볼 수 없는 대시보드를 검사하고 있었다(스크림 뒤에 조건 없이 살아 있었기 때문에
+   가능했고, 그 '뒤에 살아 있음'이 곧 H14 의 결함이었다: Tab 이 새고 SR 이 둘을 섞어 읽었다).
+   대시보드를 검사하려면 대시보드가 뜨는 상태를 만들어야 한다. */
 beforeEach(() => {
   useApp.getState().mutate((st) => {
     st.rituals = {};
+    if (!st.items.some((i) => i.name)) {
+      st.items.push({ id: 'seed', name: '테스트 과목', mode: 'weekly', weeklyHours: 5, chapters: [] } as never);
+    }
   });
 });
 afterEach(() => cleanup());

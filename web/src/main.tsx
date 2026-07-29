@@ -17,7 +17,7 @@ import '@/styles/tw.css';
    그건 이식 전 CSS Module 이 갖던 관계 그대로다(근거는 `ds.css` 머리주석). */
 import '@/styles/ds.css';
 
-import { queryClient } from '@/app/queryClient';
+import { queryClient } from '@/lib/queryClient';
 import { initAppStore, dbDowngrade } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';

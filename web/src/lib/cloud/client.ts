@@ -293,6 +293,13 @@ export function makeTransport(cfg: CloudConfig): CloudTransport {
         const j = (asJson(res) ?? {}) as { detail?: string };
         throw new PermanentPushError(`서버가 배치를 거부했습니다: ${j.detail ?? '(사유 없음)'}`);
       }
+      /* ⚠ 한도 소진(H17) — **상태코드만으로 판정하지 않는다.** 429 는 레이트 리밋(잠깐 뒤
+         다시 되는 것)도 쓰므로, 서버가 붙인 `permanent` 표식이 있을 때만 끊는다. 그 표식의
+         소유자는 `server/src/index.ts` 의 `app.onError` 다. */
+      if (res.status === 429) {
+        const j = (asJson(res) ?? {}) as { detail?: string; permanent?: boolean };
+        if (j.permanent) throw new PermanentPushError(j.detail ?? '서버가 한도 소진을 알렸습니다.');
+      }
       if (!res.ok) throw new Error(`push 실패(${res.status})`); // 5xx·네트워크 → 재시도 대상
     },
   };

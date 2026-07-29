@@ -15,7 +15,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import CommandPalette from '@/components/CommandPalette';
+import CommandPalette from '@/app/CommandPalette';
 import { useApp } from '@/store/useApp';
 import { usePrefill } from '@/store/prefill';
 
