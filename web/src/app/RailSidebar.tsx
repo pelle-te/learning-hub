@@ -64,10 +64,13 @@ const ITEM =
 const ITEM_OFF = 'bg-transparent! text-mut! hover:bg-panel2! hover:text-ink!';
 const ITEM_EXP = 'w-full gap-2.75 px-2.5! py-2!';
 const ITEM_COL = 'size-10.5 justify-center gap-0 px-0! py-0!';
-const ITEM_ON = 'bg-acc-soft! text-acc! shadow-rail-item-on';
+// ⚠ 글자는 `text-acc` 가 아니라 **`text-acc-on-soft`** 다 — 액센트 틴트는 *같은 색을 흐리게 깐
+//    배경*이라 라이트에서 원색 액센트를 얹으면 대비가 무너진다(라이트 4종 전부 4.04 이하였다 ·
+//    근거·수치는 `tokens.css` 의 표). 다크에선 같은 값이므로 픽셀이 안 바뀐다.
+const ITEM_ON = 'bg-acc-soft! text-acc-on-soft! shadow-rail-item-on';
 // 복습·보충 대기 배지(C-9) — 코너 카운트. 절제: 발광·펄스 없이 저채도 알약.
 const BADGE =
-  'pointer-events-none absolute top-0.75 right-1.25 h-4 min-w-4 rounded-rail-chip bg-tint-acc-panel-20 px-1 text-center text-rail-head leading-4 font-extrabold text-acc';
+  'pointer-events-none absolute top-0.75 right-1.25 h-4 min-w-4 rounded-rail-chip bg-tint-acc-panel-20 px-1 text-center text-rail-head leading-4 font-extrabold text-acc-on-soft';
 // 라벨 — 펼침=흐름 텍스트(생략표), 접힘=hover 플라이아웃(모바일은 숨김).
 const LABEL = 'overflow-hidden text-ellipsis whitespace-nowrap max-mobile:hidden';
 const LABEL_COL =

@@ -36,7 +36,7 @@ import type { ChapterReview } from '@/lib/spacedReview';
 import { CBMS_INFO } from '@/lib/methodology';
 
 const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
-const BADGE = 'inline-flex w-fit rounded-full bg-tint-acc px-2 py-1 text-2xs font-bold tracking-wide text-acc';
+const BADGE = 'inline-flex w-fit rounded-full bg-tint-acc px-2 py-1 text-2xs font-bold tracking-wide text-acc-on-soft';
 const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint px-4 py-3 text-sm leading-relaxed';
 const PRIMARY = 'min-h-11 flex-1 rounded-md bg-acc px-4 text-sm font-semibold text-on-acc';
 const GHOST = 'min-h-11 rounded-md border border-line px-4 text-sm text-mut';

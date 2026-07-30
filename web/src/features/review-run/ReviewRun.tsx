@@ -94,7 +94,7 @@ const JOL_MAX = 3;
 const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint py-3 pr-4 pl-8 leading-relaxed';
 /* 배지 색은 data-* 변형으로 — 옛 `.badge[data-kind='confident']` 의 직역이다. */
 const BADGE =
-  'rounded-full bg-tint-acc px-2 py-1 text-xs font-bold tracking-wide text-acc whitespace-nowrap ' +
+  'rounded-full bg-tint-acc px-2 py-1 text-xs font-bold tracking-wide text-acc-on-soft whitespace-nowrap ' +
   'data-[kind=confident]:bg-tint-warn data-[kind=confident]:text-warn ' +
   'data-[risk=overdue]:bg-tint-bad data-[risk=overdue]:text-bad';
 

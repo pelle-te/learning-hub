@@ -75,7 +75,7 @@ const DP = {
   head: 'flex flex-none flex-wrap items-center justify-end gap-3',
   headRight: 'flex items-center gap-2.5',
   mode: 'rounded-full border px-2.25 py-0.75 text-xs leading-text font-extrabold tracking-label',
-  modeManual: 'border-acc-glow bg-acc-soft text-acc',
+  modeManual: 'border-acc-glow bg-acc-soft text-acc-on-soft',
   modeAuto: 'border-line2 bg-panel2 text-mut',
   over: 'rounded-full border border-[color:var(--over-line)] bg-[var(--over-bg)] px-2.25 py-0.75 text-xs leading-text font-extrabold tabular-nums text-bad',
   grid2: 'grid min-h-0 flex-1 grid-cols-dayplan gap-3.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr]',

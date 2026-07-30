@@ -382,7 +382,7 @@ export default function Control() {
                   {h.durMs ? ' · ' + fmtDur(h.durMs) : ''}
                 </span>
                 <a
-                  className="flex-none rounded-sm px-2 py-1 text-sm font-bold text-acc transition-colors hover:bg-acc-soft"
+                  className="flex-none rounded-sm px-2 py-1 text-sm font-bold text-acc-on-soft transition-colors hover:bg-acc-soft"
                   href={obsidianLink(h.topic)}
                   title="옵시디언 _탐구 폴더에서 이 주제 열기"
                 >

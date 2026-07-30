@@ -116,7 +116,7 @@ export default function JournalStream({
                     {fmtTime(x.at)}
                   </span>
                 )}
-                <span className={`${KIND} bg-acc-soft text-acc`}>요약</span>
+                <span className={`${KIND} bg-acc-soft text-acc-on-soft`}>요약</span>
                 <span
                   className="size-2.25 flex-none rounded-xs"
                   style={{ background: itemById(state, x.sid)?.color || 'var(--acc)' }}

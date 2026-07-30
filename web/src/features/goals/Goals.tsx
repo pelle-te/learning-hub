@@ -56,7 +56,7 @@ const CARD = 'flex flex-col gap-2 rounded-md border border-line bg-panel px-4 py
 const CARD_HEAD = 'flex items-baseline justify-between gap-2';
 const CARD_TITLE = 'm-0! text-md! tracking-tight!'; // h1~h3 — 언레이어드 전역 h2/h3{} 를 ! 로 이긴다
 const KIND_BASE = 'flex-none rounded-full px-2 py-1 text-xs font-semibold whitespace-nowrap';
-const KIND = { goal: 'bg-acc-soft text-acc', project: 'bg-tint-acc2-strong text-acc2' } as const;
+const KIND = { goal: 'bg-acc-soft text-acc-on-soft', project: 'bg-tint-acc2-strong text-acc2' } as const;
 const PROJ_ROW = 'flex items-baseline gap-2 text-sm';
 const PROJ_K = 'min-w-projk flex-none text-xs text-mut';
 

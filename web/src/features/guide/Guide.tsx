@@ -21,7 +21,7 @@ const HOW =
   'grid grid-cols-guide items-baseline gap-3 rounded-sm border border-line2 bg-bg px-2 py-2 max-narrow:grid-cols-1 max-narrow:gap-1';
 /* 인라인 토큰 — 말로 시키기/명령/참조/키/탭. 전부 같은 골격에 색만 다르다. */
 const TOKEN = 'rounded-sm px-1 py-px text-token font-mono whitespace-nowrap';
-const SAY = `${TOKEN} border border-line-acc-soft bg-acc-soft text-acc`;
+const SAY = `${TOKEN} border border-line-acc-soft bg-acc-soft text-acc-on-soft`;
 const CMD = `${TOKEN} bg-line2 text-txt`;
 const REF = 'rounded-sm bg-tint-line2 px-1 py-px text-token font-mono text-mut';
 const K = `${REF} text-acc2`;

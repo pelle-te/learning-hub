@@ -172,7 +172,7 @@ function ShutdownChain() {
       </div>
       <button
         type="button"
-        className="appearance-none rounded-base! border border-line px-2.5! py-1.5! text-xs! leading-text! font-bold! hover:border-acc! hover:text-acc! aria-pressed:border-line-acc-hover! aria-pressed:bg-tint-acc-faint! aria-pressed:text-acc!"
+        className="appearance-none rounded-base! border border-line px-2.5! py-1.5! text-xs! leading-text! font-bold! hover:border-acc! hover:text-acc! aria-pressed:border-line-acc-hover! aria-pressed:bg-tint-acc-faint! aria-pressed:text-acc-on-soft!"
         onClick={toggle}
         aria-pressed={todayDone}
       >

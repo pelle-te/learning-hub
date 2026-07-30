@@ -40,7 +40,7 @@ import State from '@/components/State';
    런타임에 조립했는데, Tailwind 는 소스를 문자열로 훑으므로 **그렇게 만든 클래스는
    생성되지 않는다**(조용히 스타일 없음). 린터도 못 본다. 조립 금지가 규약이다. */
 const KIND_CLASS: Record<string, string> = {
-  uncovered: 'bg-acc-soft text-acc',
+  uncovered: 'bg-acc-soft text-acc-on-soft',
   bridge: 'bg-tint-acc2-strong text-acc2',
   survey_context: 'bg-tint-good text-good',
   capability: 'bg-tint-learning text-learning',

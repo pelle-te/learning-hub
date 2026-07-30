@@ -41,6 +41,8 @@
   --color-line-acc: var(--line-acc);
   --color-line-acc-strong: var(--line-acc-strong);
   --color-acc-on-txt: var(--acc-on-txt);
+  /* 액센트 틴트 위의 액센트 글자 — `text-acc` 가 아니라 이것을 쓴다(근거는 tokens.css 의 표). */
+  --color-acc-on-soft: var(--acc-on-soft);
   --color-tint-acc2: var(--tint-acc2);
   --color-tint-acc2-strong: var(--tint-acc2-strong);
   --color-line-acc2: var(--line-acc2);

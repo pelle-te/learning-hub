@@ -94,7 +94,7 @@ const WEAK_ITEM = 'flex items-baseline justify-between gap-2 text-sm';
 const WEAK_META = 'flex-none text-xs font-bold whitespace-nowrap text-mut';
 const WEAK_ACTIONS = 'flex flex-none items-center gap-1';
 const WEAK_SEED =
-  'flex-none rounded-full! border-line-acc-hover! bg-tint-acc! px-2! py-1! text-xs! leading-auto! font-extrabold! whitespace-nowrap text-acc!';
+  'flex-none rounded-full! border-line-acc-hover! bg-tint-acc! px-2! py-1! text-xs! leading-auto! font-extrabold! whitespace-nowrap text-acc-on-soft!';
 const WEAK_ALLOT =
   'flex-none rounded-full! bg-transparent! px-2! py-1! text-xs! leading-auto! font-extrabold! whitespace-nowrap text-acc!';
 const COACH_AI = 'mt-3 flex items-center gap-2';

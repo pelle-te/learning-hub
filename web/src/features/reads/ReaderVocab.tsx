@@ -232,7 +232,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
             </div>
           ) : (
             <button
-              className="w-full border-none! bg-acc-soft! p-1.75! text-md! font-extrabold! text-acc! hover:brightness-105 disabled:opacity-60!"
+              className="w-full border-none! bg-acc-soft! p-1.75! text-md! font-extrabold! text-acc-on-soft! hover:brightness-105 disabled:opacity-60!"
               type="button"
               onClick={doVocab}
               disabled={!online}

@@ -20,7 +20,7 @@ const SEG =
 // 레이어 순서로 갈려 못 덮는다).
 const BTN_BASE =
   'inline-flex items-center gap-1.5 whitespace-nowrap rounded-none! border-y-0! border-l-0! border-r! border-line2! px-3.75! py-2! text-sm! leading-auto font-bold! tracking-label transition-colors duration-fast ease-[var(--ease)] last:border-r-0! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
-const BTN_ON = 'bg-acc-soft! text-acc! ring-1 ring-inset ring-acc-glow';
+const BTN_ON = 'bg-acc-soft! text-acc-on-soft! ring-1 ring-inset ring-acc-glow';
 const BTN_OFF = 'bg-transparent! text-mut! hover:bg-panel2! hover:text-ink!';
 
 export default function SubTabs({ tabKey }: { tabKey: string }) {

@@ -66,7 +66,7 @@ const B = 'font-bold text-txt';
 const B_RISK = `${B} group-data-[risk=overdue]:text-bad group-data-[risk=due]:text-learning`;
 // 상세 액션 버튼 — 전역 button{} 과 다른 속성만 !. hover box-shadow(inset acc)는 전역이 안 건드려 유지.
 const DETAIL_BTN =
-  'rounded-detail-btn! border-0! bg-tint-acc-12! px-2.5 py-1.5 text-sm! leading-auto font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]';
+  'rounded-detail-btn! border-0! bg-tint-acc-12! px-2.5 py-1.5 text-sm! leading-auto font-extrabold! text-acc-on-soft! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]';
 
 /** 노드 클릭 시 여는 상세 패널의 최소 정보(시뮬레이션 노드에서 스냅샷). */
 interface SelInfo {
