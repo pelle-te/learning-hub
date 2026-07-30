@@ -544,3 +544,26 @@ test('press · 버튼을 누르고 있는 프레임(정지 게이트가 못 보�
     await page.mouse.up();
   }
 });
+
+/* ============================================================
+   치트시트(`?`) — **E16·E19 가 투자한 화면인데 스냅샷이 0장이었다**(E20 에서 발견 · 2026-07-30)
+
+   E16 이 키바를 오버레이로 만들고 E19 가 "키를 거는 화면은 그 키를 설명한다"를 불변식으로
+   잠갔는데, **그 결과물이 어떻게 보이는지**는 어떤 스냅샷도 찍지 않았다. 즉 목록의 *내용*은
+   기계가 지키고 *렌더*는 아무도 안 봤다 — 줄이 넘치든 겹치든 통과한다.
+   E20 이 전역 단축키 한 줄을 등재하며 그 공백을 만났으므로 여기서 닫는다.
+
+   ⚠ 다크만 찍는다. 이 오버레이는 색 토큰만 쓰고 레이아웃이 테마와 무관하다 — 라이트를 더하면
+   베이스라인 1장이 늘고 새 정보는 0이다(같은 판단을 `ledger · error` 에서는 반대로 했는데,
+   거기는 `State` 의 글리프가 **라이트에서 대비가 갈리는** 자리라 근거가 달랐다).
+============================================================ */
+test('shortcuts-help · dark', async ({ page }) => {
+  await boot(page, 'dark');
+  await page.goto('/today');
+  await settle(page);
+  await page.keyboard.press('?');
+  // 열렸다는 것을 단언한 뒤 찍는다 — 안 열린 화면을 정답으로 굽지 않게(§15-4).
+  await expect(page.getByRole('dialog').or(page.locator('[aria-label*="단축키"]')).first()).toBeVisible();
+  await settle(page);
+  await expect(page).toHaveScreenshot('shortcuts-help-dark.png');
+});

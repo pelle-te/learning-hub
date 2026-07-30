@@ -155,8 +155,8 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/007_route_visits.sql"),
         },
         /* E23 — '정적(quiet)의 설계'가 기다리던 단 하나의 미지수(all-clear 빈도)를 잰다.
-           007 과 같은 부류다: `updated_at` 이 없어 아웃박스 수집이 **구조적으로** 불가능하고,
-           그래서 동기화 대상이 아니라는 사실이 플래그가 아니라 스키마로 표현된다. */
+        007 과 같은 부류다: `updated_at` 이 없어 아웃박스 수집이 **구조적으로** 불가능하고,
+        그래서 동기화 대상이 아니라는 사실이 플래그가 아니라 스키마로 표현된다. */
         Migration {
             version: 8,
             description: "E23 하루 신호 원장 — all-clear 빈도 계기(동기화 대상 아님)",

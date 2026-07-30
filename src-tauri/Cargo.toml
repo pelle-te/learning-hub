@@ -74,3 +74,7 @@ tauri-plugin-single-instance = "2"
 # ⚠ 네트워크는 **Rust 가 낸다**. 웹뷰는 CSP `connect-src 'self' ipc:` 라 밖으로 못 나가고,
 #   그 규약("셸에서 외부로 나가는 연결이 하나도 없다")은 cloud.rs·news.rs 와 동일하다.
 tauri-plugin-updater = "2"
+
+# 전역 단축키(E20 · 2026-07-30) — 앱이 포커스가 아닐 때도 캡처 입구를 연다.
+# ⚠ 새 창·새 WebView 를 만들지 않으므로 SQLite 커넥션·부팅 순서·single-instance 계약은 그대로다.
+tauri-plugin-global-shortcut = "2"

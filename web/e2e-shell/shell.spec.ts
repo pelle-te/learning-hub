@@ -150,6 +150,35 @@ test('IPC 왕복 — 커맨드가 등록돼 있고 웹뷰에서 실제로 닿는
   }
 });
 
+/* 전역 캡처 단축키(E20) — **등록이 실제로 됐는가, 그리고 실패가 프런트까지 오는가.**
+
+   여기여야 하는 이유: 전역 단축키는 **OS 에 등록**되므로 `cargo test` 가 원리적으로 못 본다
+   (유닛은 상태 해석만 잰다 — `hotkey.rs` 의 테스트 주석). 그리고 트랙 A 에는 Tauri 가 없으니
+   `capabilities` 자체가 없다. 즉 이 배선이 살았는지 물어볼 수 있는 곳이 **여기 하나**다.
+
+   ⚠ **`hotkeyError` 라는 이름을 문자로 확인하는 것이 이 케이스의 절반이다.** Rust 필드는
+   `hotkey_error`(snake) 이고 구조체엔 `rename_all` 이 없다 → `#[serde(rename)]` 을 빠뜨리면 JSON 은
+   `hotkey_error` 인데 프런트는 `hotkeyError` 를 읽어 **영원히 `undefined`** 가 된다. 타입·빌드·
+   스냅샷 전부 통과하고 화면은 "실패 없음"으로 보인다 — 그 조용한 형태를 이름으로 잠근다.
+   ⚠ `hotkey === true` 를 단언하지 **않는다**: CI·개발기에서 다른 앱이 조합을 선점하고 있을 수 있고,
+   그건 우리 결함이 아니다. 잠그는 것은 **필드가 존재하고 실패면 사유가 함께 온다**는 계약이다. */
+test('전역 단축키 — 등록 상태가 capabilities 로 관측된다(실패도 사유와 함께)', async () => {
+  const shell = await sharedShell();
+  const cap = await ipc(shell, 'capabilities');
+  expect(cap.threw, `capabilities 가 안 닿는다: ${cap.err}`).toBe(false);
+  const out = cap.out as { hotkey?: boolean; hotkeyError?: string | null };
+
+  // 필드가 존재한다 — 없으면 프런트의 HOTKEY 채널이 통째로 안 그려진다(관측 0으로 되돌아간다).
+  expect(typeof out.hotkey, `capabilities.hotkey 가 없다 — 직렬화 회귀`).toBe('boolean');
+  // 이름이 camelCase 로 나온다(위 ⚠). `null` 이어도 키는 있어야 한다.
+  expect(Object.keys(out), 'hotkeyError 키가 camelCase 로 안 나온다').toContain('hotkeyError');
+
+  /* 성공/실패는 환경에 달렸지만 **둘 사이의 계약**은 불변이다:
+     등록됐으면 사유가 없고, 사유가 있으면 등록되지 않았다. 이 대칭이 깨지면 UI 가 거짓말한다. */
+  if (out.hotkey) expect(out.hotkeyError ?? null, '등록됐는데 실패 사유가 있다').toBeNull();
+  else if (out.hotkeyError) expect(out.hotkey, '사유가 있는데 등록됐다고 한다').toBe(false);
+});
+
 /* 데이터 폴더 격리(SD-6) — **이 하네스가 사용자의 실 DB 를 안 건드린다.**
 
    왜 여기여야 하나: `paths.rs` 유닛은 "환경변수가 있으면 이런 문자열을 만든다"까지만 잰다.

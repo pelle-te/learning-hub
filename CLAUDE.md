@@ -88,6 +88,10 @@ cd server && npm run verify   # 클라우드 백엔드 — typecheck + format + 
 - **작업 중 확인은 앱을 껐다 켜지 말 것.** `npm run tauri:dev` 를 **한 번 띄워 세션 내내 유지**한다 — 진짜 WebView2·IPC·SQLite 인데 프런트는 HMR 이라 재빌드·재기동이 0 이다(Rust 를 고칠 때만 알아서 다시 선다). ⚠ 단 dev 는 `devCsp`(느슨)에 오리진이 `localhost:5173` 이라 **CSP·오리진이 걸린 결함은 dev 에서 안 나타난다**(C-5 가 정확히 그 부류였다) → "됐다"고 말하기 전엔 릴리스 exe 로 트랙 B 1회.
 - **`tauri:build:fast`(= `tauri build --no-bundle`)를 개발 루프에 쓴다.** 트랙 B 는 `target/release/learning-hub.exe` 만 검사하는데(`shellApp.ts`) `tauri:build` 는 그 뒤에 **NSIS 인스톨러까지** 만든다 — 매번 만들고 매번 안 쓴다. 배포본을 낼 때만 `tauri:build`.
 - **Tauri 셸(`src-tauri/`, 플랫폼 개편 1단계~)**: 루트에서 `npm run tauri:check|fmt|clippy|test|dev|build`. `/게이트`가 **cargo가 있으면** `tauri:check` → `tauri:build` → `e2e:shell`(트랙 B)까지 돈다(없으면 전부 건너뜀 — web만 만지는 작업에 Rust 툴체인을 요구하지 않는다). **`tauri:check` 만으로는 부족하다** — 1단계에서 `cargo check` 녹색인데 번들이 죽은 실사고가 있었고, 그건 `tauri build` 에서만 나타난다. `e2e:shell` 이 마지막인 건 **빌드된 exe 를 검사 대상으로 삼기** 때문(순서가 뒤집히면 옛 exe를 검사해 통과가 거짓이 된다). ⚠ cargo가 "없다"고 나오면 대개 **셸이 rustup 설치보다 오래된 것** — 새 터미널을 열면 잡힌다.
+- ⚠ **성공하지 않은 화면은 `components/State` 하나가 그린다**(E17 · 2026-07-30). `kind='loading'|'error'|'empty'` 이고 판정은 `lib/artifactState.ts` 의 `classifyArtifact`(4단계 · 이미 SSOT)가 한다 — **판정=lib · 그리기=components**. `EmptyState`·`ArtifactError` 는 삭제됐다.
+  - `next` 는 **필수**이고 타입이 `undefined` 를 **막는다**(`ReactNode` 를 쓰면 `next={undefined}` 가 통과해 필수화가 무력해진다 — 실제로 그 구멍으로 하나가 새고 있었다). 행동이 없으면 `{ terminal: '왜 없는지' }`.
+  - 콜드 게이트 문구는 `WORKSPACE_UNSET`·`workspaceHint(gains)`·`needsWorkspace(what)` — **공통부만** 공유하고 "이 화면이 얻는 것"은 호출부가 준다.
+- ⚠ **`commit`(내 행동이 반영됨)은 값 쪽이 소유한다** — `hooks/useCommitOnChange(value)`(E15). 뮤테이션에 DOM 을 알리면 `store` 가 배치를 알게 되어 레이어 규율이 깨지고, 입구가 여럿인 값(⌘K·키보드·폰·**클라우드 pull**)마다 붙여야 한다. 값 쪽에 붙이면 한 번에 전부 덮인다.
 - **`npm run report:debt`** — 인지복잡도·파일 크기·features:lib 비율을 **강제 없이** 출력(추세 관찰용). 하드 게이트는 래칫 2개(`cognitive-complexity` 77 · `max-lines` 730)뿐이고 "더 나빠지지 않는다"만 보장한다.
 
 - **e2e 스냅샷 함정:** `--update-snapshots`을 **값 없이** 주면 기본이 `changed` — **실패한 것만** 다시 쓴다. 임계(현재 0.5%) 아래로 드리프트한 낡은 베이스라인은 재생성도 경고도 없이 **통과**한다(§15-7 이 이걸로 몇 달을 잃었다). → `npm run e2e:update` 는 이제 **`--update-snapshots=all --workers=1`** 로 못박혀 있다(값 없는 형태를 쓰지 말 것 · 단일 워커는 웹폰트 스와프 상태를 베이스라인에 굽지 않기 위한 것). 전량이 아니라 일부만 다시 쓰려면 `-g` 로 **제목을 좁히고 `=all` 은 유지**한다. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
@@ -161,6 +165,7 @@ web/src/
               전송 분기(셸/브라우저)는 **모듈당 한 곳**이다(`api.ts`·`cloud/client.ts`·`anki.ts` —
               2026-07-26 감사에서 "api.ts 안에만"이 사실과 달라 정정).
 src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
+              **hotkey.rs=전역 캡처 단축키(E20 · 등록 실패를 `capabilities.hotkeyError` 로 관측)** ·
               **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 11종+RAII 동시성 캡 ·
               research.rs=탐구 잡(이벤트 진행·JSON 이력) · ollama.rs=AI 5종(Channel 스트리밍) ·
               artifact.rs=산출물 8종 · news.rs=뉴스 RSS · files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).

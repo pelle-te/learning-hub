@@ -15,6 +15,7 @@ import StorageBanner from '@/app/StorageBanner';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
 import { markVia, recordVisit, takeVia } from '@/lib/visits';
+import { onGlobalCapture } from '@/lib/tauri';
 import { getReactTab, prefetchTab } from '@/features/registry';
 /* ⚠ 팔레트·단축키 도움말은 **앱 크롬**이다(H10 · 2026-07-26 감사). `components/` 에 있던 동안
    `components → @/shell → store` 라는, 허용표상 금지인 경로가 배럴 한 칸을 거쳐 통과했다 —
@@ -118,6 +119,24 @@ export default function App() {
   const navCollapsed = useUI((st) => st.ui.navCollapsed);
   const gPending = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* 전역(OS) 캡처 단축키(E20) — 앱이 포커스가 아닐 때도 캡처 입구가 열린다.
+     Rust 가 창을 띄우고 포커스한 뒤 "눌렸다"만 보내고, **무엇을 열지는 여기서 정한다** →
+     ⌘K 팔레트를 연다(새 라우트·새 창 0 · 되돌리기는 이 블록 삭제 한 번).
+     ⚠ 셸이 아니면 구독이 no-op 이라 브라우저·트랙 A 에 영향이 0 이다. */
+  useEffect(() => {
+    let off: (() => void) | null = null;
+    let dead = false;
+    void onGlobalCapture(() => useOverlay.getState().setPalette(true)).then((f) => {
+      // ⚠ 언마운트가 구독 완료보다 빠를 수 있다 — 그때 바로 떼지 않으면 리스너가 샌다.
+      if (dead) f();
+      else off = f;
+    });
+    return () => {
+      dead = true;
+      off?.();
+    };
+  }, []);
 
   // 전역 단축키: ⌘K/Ctrl+K 팔레트 · '?' 도움말 · 'g'+키 탭 이동(입력 중엔 단일키 무시).
   // ⚠ 오버레이 상태는 **구독이 아니라 getState 로** 읽는다 — deps 에 넣으면 팔레트를 열고 닫을

@@ -27,6 +27,11 @@ export interface PingResponse {
   server: string;
   tools: string[];
   work: string;
+  /** 전역 캡처 단축키 등록 여부(E20 · 셸 전용). 브라우저에선 undefined. */
+  hotkey?: boolean;
+  /** 등록 실패 사유 — **이 값이 있을 때만 실패다.** `hotkey === false` 만 보고 경고를 띄우면
+   *  브라우저·dev 에서 상시 경고가 되고, 상시 경고는 곧 무시된다(Rust `hotkey.rs` 와 같은 계약). */
+  hotkeyError?: string | null;
 }
 
 export interface RunResult {

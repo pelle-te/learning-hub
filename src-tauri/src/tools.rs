@@ -205,6 +205,19 @@ pub struct Capabilities {
     pub server: String,
     pub tools: Vec<String>,
     pub work: String,
+    /// 전역 캡처 단축키가 등록됐는가(E20). ⚠ `false` 를 곧 "실패"로 읽지 말 것 —
+    /// 브라우저·테스트에선 시도조차 안 하므로 `false` + 사유 없음이 정상이다.
+    pub hotkey: bool,
+    /// 등록 실패 사유. **이 값이 있을 때만 실패다**(대개 다른 앱이 조합을 선점한 경우).
+    /// 조용히 삼키면 사용자는 키가 안 먹는 이유를 알 방법이 없다 — 그게 이 필드의 존재 이유다.
+    ///
+    /// ⚠⚠ **`rename` 이 필수다.** 이 구조체는 `rename_all` 이 없어 필드명이 그대로 나가므로,
+    /// 이름을 안 바꾸면 JSON 은 `hotkey_error` 인데 프런트(`PingResponse`)는 `hotkeyError` 를 읽어
+    /// **영원히 `undefined`** 가 된다 — 타입도 빌드도 통과하고 화면은 "실패 없음"으로 보인다.
+    /// 다른 필드(`ok`·`server`·`tools`·`work`)는 한 낱말이라 이 함정이 없었고, 그래서 이 구조체엔
+    /// 지금까지 `rename_all` 이 필요하지 않았다(첫 복합어가 이 필드다).
+    #[serde(rename = "hotkeyError")]
+    pub hotkey_error: Option<String>,
 }
 
 /// ⚠ **python·Ollama 살아있음 플래그는 일부러 넣지 않았다.**
@@ -215,6 +228,7 @@ pub struct Capabilities {
 #[tauri::command]
 pub fn capabilities(app: tauri::AppHandle) -> Capabilities {
     let ws = crate::workspace::resolve(&app);
+    let (hotkey, hotkey_error) = crate::hotkey::status();
     Capabilities {
         ok: ws.is_some(),
         server: "러닝허브 제어판".into(),
@@ -222,6 +236,8 @@ pub fn capabilities(app: tauri::AppHandle) -> Capabilities {
         work: ws
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default(),
+        hotkey,
+        hotkey_error,
     }
 }
 

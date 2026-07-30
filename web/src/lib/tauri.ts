@@ -270,6 +270,23 @@ export async function onVaultChanged(cb: () => void): Promise<() => void> {
   }
 }
 
+/** 전역 캡처 단축키가 눌리면 부르는 구독(E20 · 셸 전용). 해제 함수를 돌려준다.
+ *
+ *  ⚠ Rust 는 **"눌렸다"만** 보낸다 — 창을 띄우고 포커스하는 것까지가 그쪽 일이고, *무엇을 열지*는
+ *  화면 층의 결정이다(`src-tauri/src/hotkey.rs` 머리주석). 이 경계 덕에 열 대상을 바꾸는 것이
+ *  프런트 한 줄이고 Rust 재빌드가 0 이다.
+ *  ⚠ 이벤트 이름은 `hotkey.rs` 의 `CAPTURE_EVENT` 와 짝이다(문자열 두 벌 — 다른 구독 2종과 같은
+ *  형태이고, 이름이 갈리면 조용히 아무 일도 안 일어난다). */
+export async function onGlobalCapture(cb: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    return await listen('global-capture', () => cb()); // src-tauri/src/hotkey.rs CAPTURE_EVENT
+  } catch {
+    return () => {};
+  }
+}
+
 /** 산출물 읽기 결과 — Rust `artifact::ArtifactOut` 과 1:1.
  *  `data`(JSON 파싱 성공) 또는 `raw`(파싱 실패 원문) 중 하나만 실린다. */
 export interface ArtifactOut<T = unknown> {

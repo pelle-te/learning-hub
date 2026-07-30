@@ -18,6 +18,7 @@ mod artifact;
 mod cloud;
 mod db;
 mod files;
+mod hotkey;
 mod news;
 mod ollama;
 mod paths;
@@ -61,6 +62,9 @@ pub fn run() {
     }
 
     builder
+        /* 전역 단축키(E20) — **데스크톱 전용**이라 여기서 켠다. 실패해도 앱은 뜬다(등록 결과는
+        `hotkey::status()` 가 보관하고 `capabilities` 가 프런트로 실어 보낸다 — 조용히 죽지 않는다). */
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         // 2단계 — SQLite. 스키마는 db.rs 가 단일 원천이고 프런트는 데이터만 넣고 뺀다.
         .plugin(
@@ -118,6 +122,9 @@ pub fn run() {
             // 탐구 잡 이력 복원(4단계-D). running 이던 잡은 '중단됨'으로 내린다 —
             // 앱이 죽으면 자식 python 도 죽으므로 그 잡은 실제로 안 돈다.
             research::restore(app.handle());
+            /* 전역 캡처 단축키(E20) — 등록 실패는 **삼키지 않는다**(다른 앱이 조합을 선점할 수
+            있다). 사유는 `capabilities.hotkey_error` 로 프런트까지 간다. */
+            hotkey::register(app.handle());
             log::info!("워크스페이스: {:?}", workspace::resolve(app.handle()));
             Ok(())
         })

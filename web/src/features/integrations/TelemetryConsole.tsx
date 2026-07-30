@@ -96,6 +96,11 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
 
   const serve: Status = ping.isLoading ? 'probing' : ping.isSuccess && ping.data?.ok ? 'online' : 'offline';
+  /* 전역 캡처 단축키(E20) — 셸에서만 존재하는 채널이다. 브라우저·dev 에선 필드가 아예 안 오므로
+     칸을 세우지 않는다(없는 기능을 'IDLE' 로 그리면 "고장난 것"으로 읽힌다).
+     ⚠ 실패 판정은 **사유의 존재**다(`hotkey === false` 가 아니다 — Rust 쪽과 같은 계약). */
+  const hotkeyErr = ping.data?.hotkeyError ?? null;
+  const hotkeyShown = ping.data?.hotkey !== undefined || !!hotkeyErr;
   const vaultNotes = vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0;
   const due = live ? totalDue(live.decks) : 0;
   const cards = file ? totalCards(file.decks) : 0;
@@ -147,6 +152,21 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
                 : 'AnkiConnect 대기'
           }
         />
+        {/* ⚠ 전역 캡처 단축키(E20) — **등록 실패가 조용히 죽지 않게 하는 표면**이다. 전역 조합은
+            OS 전체에서 한 앱만 가질 수 있어 다른 앱이 선점하면 등록이 실패하는데, 그걸 삼키면
+            사용자는 키가 안 먹는 이유를 알 방법이 0 이다(2026-07-25 감사가 잡은 '죽은 분기'와
+            같은 형태). 채널로 세워 두면 새 표면 없이 상시 관측이 붙는다.
+            ⚠ **사유가 있을 때만 실패**로 그린다 — `hotkey === false` 만 보고 경고하면 브라우저·dev
+            에서 상시 경고가 되고, 상시 경고는 곧 무시된다(Rust `hotkey.rs` 와 같은 계약). */}
+        {hotkeyShown && (
+          <Channel
+            label="HOTKEY"
+            status={hotkeyErr ? 'offline' : ping.data?.hotkey ? 'online' : 'idle'}
+            vertical={vertical}
+            value={ping.data?.hotkey ? '⌘⇧␣' : '—'}
+            sub={hotkeyErr ? `등록 실패 — 다른 앱이 선점했을 수 있어요: ${hotkeyErr}` : '전역 캡처 · 앱 밖에서도 열림'}
+          />
+        )}
       </div>
     </div>
   );
