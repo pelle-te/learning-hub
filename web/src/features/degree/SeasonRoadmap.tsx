@@ -6,7 +6,7 @@
    ── C-7 이식(degree) — Tailwind ──────────────────────────────────────────────
    보드 껍데기는 전역 `ds-board` 를 유지하고 델타(하단 패딩·마진)만 `!` 로 얹는다.
    phase(done/current/future) 별 자식 규칙(`.done .dot` 등)은 **정적 클래스 맵**으로 자식에
-   직접 준다(규약 4 · 동적 조립 금지). 노드 펄스(sr-pulse)·발광 shadow 는 tw.css/토큰으로 옮겼다.
+   직접 준다(규약 4 · 동적 조립 금지). 노드 펄스(`live-pulse` + `pulse-course` 노브 · 옛 `sr-pulse`)·발광 shadow 는 tw.css/토큰으로 옮겼다.
    ⚠ station 은 <button> 이라 전역 button 규칙을 `!` 로 이긴다(bg/border/radius/padding). 원본의
    `.station:hover{background:panel2}` 를 그대로 이식한다 — 전역 button:hover 가 명세보다 높은
    특이도로 이를 덮던 잠재 버그가 있었다(리포트 참조). open 상태는 hover 를 빼 acc-soft 를 유지한다.
@@ -17,7 +17,7 @@ import { semesterGpa, semesterStat, type DegreeSemester } from '@/lib/degree';
 type Phase = 'done' | 'current' | 'future';
 const DOT: Record<Phase, string> = {
   done: 'bg-acc shadow-node',
-  current: 'bg-acc shadow-node-cur animate-[sr-pulse_1.8s_infinite] motion-reduce:animate-none',
+  current: 'bg-acc shadow-node-cur pulse-course animate-[live-pulse_var(--tempo)_infinite] motion-reduce:animate-none',
   future: 'bg-bg shadow-dot-ring',
 };
 const BAR_FILL: Record<Phase, string> = {
@@ -70,7 +70,7 @@ export default function SeasonRoadmap({
         <div className="relative flex [scrollbar-width:thin] gap-2 overflow-x-auto px-0.5 pt-1 pb-0.5">
           <span className="absolute top-3.25 right-2 left-2 h-0.5 rounded-xs bg-line" aria-hidden="true">
             <i
-              className="absolute top-0 left-0 h-full rounded-xs bg-acc shadow-spine transition-[width] duration-[0.4s] ease-[var(--ease)]"
+              className="absolute top-0 left-0 h-full rounded-xs bg-acc shadow-spine transition-[width] duration-draw ease-[var(--ease)]"
               style={{ width: `${fillPct}%` }}
             />
           </span>

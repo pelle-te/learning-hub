@@ -32,20 +32,12 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  animation: menuPop 0.14s var(--ease);
+  /* E24: 옛 `menuPop` → `enter-pop`. 메뉴는 톱바에서 **내려오므로** 시작 Y 가 음수다(노브 하나). */
+  --pop-y: -4px;
+  animation: enter-pop var(--dur-fast) var(--ease);
 }
 .menu[hidden] {
   display: none;
-}
-@keyframes menuPop {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 /* 항목은 role 없는 <button>(APG상 role=menuitem 제거가 정확 — TopBar 주석 참고) →
    실제 마크업인 .menu 직계 버튼을 겨냥한다(구분자 .menu-sep은 <div>라 제외). */
@@ -108,9 +100,10 @@
   font-size: 13px;
   line-height: 1.45;
   color: var(--txt);
-  /* C-2: 마운트부터 .in이 붙어 트랜지션이 발화하지 않던 것 → .menu(menuPop)처럼 keyframe으로.
-     기본(resting) 상태는 보임(opacity 기본 1) — reduced-motion으로 애니 꺼져도 즉시 표시된다. */
-  animation: toastIn 0.2s var(--ease);
+  /* C-2: 마운트부터 .in이 붙어 트랜지션이 발화하지 않던 것 → .menu(enter-pop)처럼 keyframe으로.
+     기본(resting) 상태는 보임(opacity 기본 1) — reduced-motion으로 애니 꺼져도 즉시 표시된다.
+     E24: 옛 `toastIn` 은 `enter-pop` 의 **기본값과 픽셀 동일**했다(8px · scale 0.98 · 페이드). */
+  animation: enter-pop var(--dur) var(--ease);
   /* UX-3 수명 바를 담기 위한 것(아래 `.toast-life`). 라운드 모서리 밖으로 삐져나오지 않게 클립. */
   position: relative;
   overflow: hidden;
@@ -149,32 +142,13 @@
     display: none;
   }
 }
-@keyframes toastIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 /* 퇴장 — 등장과 대칭. ⚠ 예전엔 여기가 **정지 상태 선언**(opacity:0)뿐이었고 전이 속성도,
    `.out` 을 붙이는 코드도 없어 완전히 사장돼 있었다(C-2 가 등장에서 고친 것과 같은 부류).
    지금은 toast.tsx 가 제거 전에 `out` 을 달고 TOAST_OUT_MS 뒤에 실제로 언마운트한다.
-   `forwards` 로 끝 상태를 물려야 애니 종료와 언마운트 사이에 한 프레임 되살아나지 않는다. */
+   `forwards` 로 끝 상태를 물려야 애니 종료와 언마운트 사이에 한 프레임 되살아나지 않는다.
+   ⚠ 길이가 등장(`--dur`)보다 짧은 것은 의도다 — 사라지는 것을 기다리게 하지 않는다. */
 .toast.out {
-  animation: toastOut 0.16s var(--ease) forwards;
-}
-@keyframes toastOut {
-  from {
-    opacity: 1;
-    transform: none;
-  }
-  to {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
+  animation: exit-pop var(--dur-fast) var(--ease) forwards;
 }
 .toast .toast-i {
   flex: none;
@@ -254,16 +228,9 @@
   background: color-mix(in srgb, var(--bg) 60%, transparent);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  /* C-2: 마운트부터 .in이 붙어 페이드가 안 뜨던 것 → keyframe으로. 기본은 보임(reduced-motion 안전). */
-  animation: modalOvIn 0.16s var(--ease);
-}
-@keyframes modalOvIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  /* C-2: 마운트부터 .in이 붙어 페이드가 안 뜨던 것 → keyframe으로. 기본은 보임(reduced-motion 안전).
+     E24: 옛 `modalOvIn` 은 `enter-fade` 와 **글자 단위로 같은 정의**였다(순수 중복). */
+  animation: enter-fade var(--dur-fast) var(--ease);
 }
 .modal-ov.out {
   opacity: 0;
@@ -275,15 +242,11 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
   padding: 20px;
-  animation: modalPop 0.18s var(--ease);
-}
-@keyframes modalPop {
-  from {
-    transform: translateY(8px) scale(0.98);
-  }
-  to {
-    transform: none;
-  }
+  /* E24: 옛 `modalPop` → `enter-pop`. **시트는 페이드하지 않는다**(`--pop-op: 1`) — 스크림이 이미
+     페이드하는데 시트까지 겹치면 두 겹으로 흐려진다. 원본이 opacity 를 안 넣은 이유가 그것이고,
+     노브로 남겨 두면 다음 사람이 그 판단을 지운 채 기본값을 쓰지 않는다. */
+  --pop-op: 1;
+  animation: enter-pop var(--dur) var(--ease);
 }
 .modal-t {
   font-size: 15px;

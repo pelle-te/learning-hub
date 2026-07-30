@@ -42,7 +42,7 @@ import { Button } from '@/components/ui';
 // 히어로/지식맵 밴드 상단 1px 발광 헤어라인(--bg-sig-top · review 이식이 깐 것 재사용).
 // 폴백 패널(로딩·에러·셋업) — 지식맵과 동형(그래디언트·그림자 공유). 자식은 m-auto 로 중앙(옛 `.offWrap > *`).
 const OFF_WRAP =
-  'relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-mastery)] p-5.5 shadow-card animate-[enter-rise_0.46s_var(--ease)_0.06s_both] motion-reduce:animate-none [scrollbar-width:thin]';
+  'relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-mastery)] p-5.5 shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] motion-reduce:animate-none [scrollbar-width:thin]';
 
 /** 선택된 챕터 스냅샷(상세 패널). */
 interface Sel {
@@ -73,7 +73,7 @@ function Funnel({ l: led }: { l: Ledger }) {
           >
             <div className="flex h-13.5 w-full items-end overflow-hidden rounded-sm bg-bar-track">
               <div
-                className="min-h-0.5 w-full rounded-t-sm transition-[height] duration-[0.5s] ease-[var(--ease)] motion-reduce:transition-none"
+                className="min-h-0.5 w-full rounded-t-sm transition-[height] duration-draw ease-[var(--ease)] motion-reduce:transition-none"
                 style={{ height: `${w}%`, background: m.color }}
               />
             </div>
@@ -148,7 +148,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
   }, [onClose]);
   return (
     <div
-      className="absolute right-3.5 bottom-2 z-[5] w-full max-w-ledger-detail animate-[enter-rise_0.24s_var(--ease)_both] rounded-lg border border-line bg-panel px-4 pt-3.5 pb-4 shadow-detail motion-reduce:animate-none max-wide:fixed max-wide:right-auto max-wide:bottom-3.5 max-wide:left-1/2 max-wide:-translate-x-1/2"
+      className="absolute right-3.5 bottom-2 z-[5] w-full max-w-ledger-detail animate-[enter-rise_var(--dur)_var(--ease)_both] rounded-lg border border-line bg-panel px-4 pt-3.5 pb-4 shadow-detail motion-reduce:animate-none max-wide:fixed max-wide:right-auto max-wide:bottom-3.5 max-wide:left-1/2 max-wide:-translate-x-1/2"
       role="dialog"
       aria-modal="true"
       aria-label={`${ch.arc} 상세`}
@@ -351,7 +351,7 @@ export default function Ledger() {
     <section className="flex h-full min-h-0 min-w-0 flex-col gap-3.5 px-4.5 pt-4 pb-3.5" aria-label="정본 원장">
       {/* ── 히어로 밴드 — 파이프라인 퍼널 + 생성일 + 재빌드 ── */}
       <div
-        className={`ds-hairline ds-glow relative flex flex-none animate-[enter-rise_0.46s_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`}
+        className={`ds-hairline ds-glow relative flex flex-none animate-[enter-rise_var(--dur-slow)_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`}
       >
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>
@@ -388,7 +388,7 @@ export default function Ledger() {
       {led ? (
         <div className="relative grid min-h-0 flex-1 grid-cols-ledger gap-3.5 max-wide:grid-cols-1 max-wide:overflow-y-auto">
           {/* 좌 — 과목별 파이프라인 매트릭스(immersive) */}
-          <div className="ds-glow relative flex min-h-0 min-w-0 animate-[enter-rise_0.46s_var(--ease)_0.06s_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none max-wide:min-h-85">
+          <div className="ds-glow relative flex min-h-0 min-w-0 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none max-wide:min-h-85">
             <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1.5 px-5 pt-4 pb-1">
               <span className="text-xs font-extrabold tracking-caps text-mut uppercase">
                 과목별 파이프라인 — SUBJECT PIPELINE

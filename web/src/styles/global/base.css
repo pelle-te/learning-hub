@@ -95,7 +95,7 @@ a:hover {
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-lg);
   transform: translateY(-160%);
-  transition: transform 0.16s var(--ease);
+  transition: transform var(--dur-fast) var(--ease);
 }
 .skip-link:focus {
   transform: translateY(0);

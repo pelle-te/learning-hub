@@ -28,7 +28,7 @@ const CH_WRAP: Record<Status, string> = {
   probing: 'border-line bg-ch-tint',
 };
 const DOT: Record<Status, string> = {
-  online: 'bg-good shadow-dot-good animate-[tc-pulse_1.8s_infinite] motion-reduce:animate-none',
+  online: 'bg-good shadow-dot-good pulse-online animate-[live-pulse_var(--tempo)_infinite] motion-reduce:animate-none',
   idle: 'bg-dot-idle',
   offline: 'bg-bad shadow-dot-bad',
   probing: 'bg-mut',

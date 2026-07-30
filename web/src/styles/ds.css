@@ -274,10 +274,10 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition:
-    transform 0.18s var(--ease),
-    border-color 0.18s var(--ease),
-    box-shadow 0.18s var(--ease);
-  animation: enter-rise 0.4s var(--ease) both;
+    transform var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+  animation: enter-rise var(--dur-slow) var(--ease) both;
 }
 .ds-kpi:hover {
   transform: translateY(-2px);
@@ -298,13 +298,13 @@
   word-break: keep-all;
 }
 .ds-kpis .ds-kpi:nth-child(2) {
-  animation-delay: 0.05s;
+  animation-delay: var(--stagger);
 }
 .ds-kpis .ds-kpi:nth-child(3) {
-  animation-delay: 0.1s;
+  animation-delay: calc(var(--stagger) * 2);
 }
 .ds-kpis .ds-kpi:nth-child(4) {
-  animation-delay: 0.15s;
+  animation-delay: calc(var(--stagger) * 3);
 }
 
 /* ── 경고 박스 ── */
@@ -350,7 +350,7 @@
   display: block;
   height: 100%;
   border-radius: 99px;
-  transition: width 0.4s var(--ease);
+  transition: width var(--draw) var(--ease);
 }
 
 .ds-empty {
@@ -398,7 +398,7 @@
   border: 2px solid var(--line);
   border-top-color: var(--acc);
   border-radius: 50%;
-  animation: ds-sp 1s linear infinite;
+  animation: live-spin var(--tempo-fast) linear infinite;
   vertical-align: middle;
 }
 
@@ -461,7 +461,7 @@ input.ds-donechk:checked {
   padding: 12px 14px;
   cursor: pointer;
   user-select: none;
-  transition: background 0.14s var(--ease);
+  transition: background var(--dur-fast) var(--ease);
 }
 .ds-itemhead:hover {
   background: var(--panel2);
@@ -642,7 +642,7 @@ tr[draggable='true']:hover .ds-draghandle {
   display: block;
   height: 100%;
   border-radius: 99px;
-  transition: width 0.4s var(--ease);
+  transition: width var(--draw) var(--ease);
 }
 
 /* ── 체크리스트 행 — settings↔review 공유 ── */
@@ -684,11 +684,8 @@ tr[draggable='true']:hover .ds-draghandle {
   white-space: nowrap;
 }
 
-@keyframes ds-sp {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* ⚠ 옛 `@keyframes ds-sp` 가 여기 있었다 — E24 에서 `live-spin`(회전) 으로 이름이 바뀌고
+   `styles/tw.css` 로 옮겨 갔다. 키프레임은 이제 **전부 그 파일 하나**에 있다(어휘 SSOT). */
 /* ── 인터랙션 레이어(공유) — 오늘 탭 "FOCUS"의 살아있는 감각을 전 탭에 일관 적용.
    useHeroPointer가 --mx/--my(스포트라이트)·--tiltX/Y(틸트)를 주입. 짝: hooks/interactions.ts. ── */
 /* 스포트라이트 호스트 — 자식 .ds-spotlight가 커서를 따라 발광. position/overflow/isolation 셋업. */
@@ -708,7 +705,7 @@ tr[draggable='true']:hover .ds-draghandle {
     transparent 55%
   );
   opacity: 0;
-  transition: opacity 0.35s var(--ease);
+  transition: opacity var(--dur-slow) var(--ease);
 }
 .ds-spotHost:hover .ds-spotlight {
   opacity: 1;
@@ -729,25 +726,20 @@ tr[draggable='true']:hover .ds-draghandle {
   );
   opacity: 0.5;
   filter: blur(6px);
-  animation: ds-aura 9s var(--ease) infinite;
-}
-@keyframes ds-aura {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.4;
-  }
-  50% {
-    transform: translateY(-2%) scale(1.05);
-    opacity: 0.54;
-  }
+  /* E24: 옛 `ds-aura` → `live-breathe` + `live-aura` 노브. 옛 정의는 today 히어로의 오라와
+     opacity 가 0.02 달랐다(0.4/0.54 vs 0.42/0.56) — 드리프트라 시그니처 값으로 닫았다. */
+  --br-op: 0.42;
+  --br-op-mid: 0.56;
+  --br-y: -2%;
+  --br-sc: 1.05;
+  animation: live-breathe var(--tempo-slow) var(--ease) infinite;
 }
 /* 호버 글로우 — 카드 테두리가 액센트로 반응 + 살짝 떠오름. */
 .ds-glow {
   transition:
-    border-color 0.2s var(--ease),
-    box-shadow 0.2s var(--ease),
-    transform 0.2s var(--ease);
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 .ds-glow:hover {
   border-color: color-mix(in srgb, var(--acc) 24%, var(--line));
@@ -773,7 +765,7 @@ tr[draggable='true']:hover .ds-draghandle {
   stroke-width: var(--ring-w, 6);
   stroke-linecap: round;
   filter: drop-shadow(0 0 var(--ring-glow-r, 7px) var(--ring-glow, var(--glow)));
-  transition: stroke-dashoffset var(--ring-dur, 0.7s) var(--ease);
+  transition: stroke-dashoffset var(--ring-dur, var(--draw)) var(--ease);
 }
 @media (prefers-reduced-motion: reduce) {
   .ds-spotlight,
@@ -819,7 +811,7 @@ tr[draggable='true']:hover .ds-draghandle {
   vertical-align: middle;
 }
 .ds-table tbody tr {
-  transition: background 0.12s var(--ease);
+  transition: background var(--dur-fast) var(--ease);
 }
 .ds-table tbody tr:hover {
   background: color-mix(in srgb, var(--acc) 5%, transparent);

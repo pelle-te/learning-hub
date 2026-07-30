@@ -415,7 +415,7 @@ export default function Items() {
               <div
                 key={s.id}
                 data-item-id={s.id}
-                className={`cursor-grab rounded-drag transition-opacity duration-150 ease-[var(--ease)]${overId === s.id && dragId !== s.id ? ' outline-2 outline-offset-2 outline-acc outline-dashed' : ''}${dragId === s.id ? ' opacity-45' : ''}`}
+                className={`cursor-grab rounded-drag transition-opacity duration-fast ease-[var(--ease)]${overId === s.id && dragId !== s.id ? ' outline-2 outline-offset-2 outline-acc outline-dashed' : ''}${dragId === s.id ? ' opacity-45' : ''}`}
                 draggable
                 onDragStart={(e) => {
                   setDragId(s.id);

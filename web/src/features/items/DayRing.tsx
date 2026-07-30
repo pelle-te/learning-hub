@@ -15,7 +15,7 @@ const DOT_TONE: Record<'free' | 'block' | 'sleep', string> = {
 };
 // 호 공통 — hover 시 굵어지고 또렷해지는 전이(reduced-motion 은 전이 제거). butt/round linecap 만 개별.
 const ARC_BASE =
-  'fill-none [stroke-width:13] cursor-pointer transition-[stroke-width,filter] duration-[0.14s] ease-[var(--ease)] motion-reduce:transition-none';
+  'fill-none [stroke-width:13] cursor-pointer transition-[stroke-width,filter] duration-fast ease-[var(--ease)] motion-reduce:transition-none';
 
 const CX = 100;
 const CY = 100;

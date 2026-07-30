@@ -47,7 +47,7 @@ const S = {
   // 2 — 지표 컬럼
   metrics:
     'flex min-w-0 flex-col justify-center gap-3.5 border-r border-line2 p-5.5 max-wide:border-r-0 max-wide:border-b max-wide:border-line2',
-  hero: `relative flex flex-col items-center gap-3 rounded-lg border border-line bg-[image:var(--bg-hero-stats)] px-4.5 pt-5.5 pb-5 shadow-hero animate-[enter-rise_0.46s_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-row max-wide:justify-center max-wide:gap-5 max-narrow:flex-col`,
+  hero: `relative flex flex-col items-center gap-3 rounded-lg border border-line bg-[image:var(--bg-hero-stats)] px-4.5 pt-5.5 pb-5 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-row max-wide:justify-center max-wide:gap-5 max-narrow:flex-col`,
   heroMeta: 'flex flex-col items-center gap-0.5 text-center',
   heroLab: 'text-sm leading-[1.6] font-bold text-txt',
   heroSub: 'text-xs leading-[1.6] text-mut tabular-nums',
@@ -57,7 +57,7 @@ const S = {
   gaugeSvg: 'size-full -rotate-90',
   gaugeTrack: 'fill-none stroke-line2 [stroke-width:9]',
   gaugeArc:
-    'fill-none stroke-acc [stroke-width:9] [stroke-linecap:round] [filter:var(--filter-gauge-glow)] transition-[stroke-dashoffset] duration-[0.7s] ease-[var(--ease)] motion-reduce:transition-none',
+    'fill-none stroke-acc [stroke-width:9] [stroke-linecap:round] [filter:var(--filter-gauge-glow)] transition-[stroke-dashoffset] duration-draw ease-[var(--ease)] motion-reduce:transition-none',
   gaugeNum:
     'absolute inset-0 flex items-center justify-center text-gauge font-black tracking-tight text-acc tabular-nums [text-shadow:var(--gauge-num-glow)]',
   gaugeUnit: 'ml-px text-gauge-sm font-extrabold text-mut',
@@ -66,7 +66,7 @@ const S = {
   sigHead: 'flex items-baseline justify-between',
   sigTitle: 'text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
   sigMeta: 'text-xs leading-[1.6] text-mut tabular-nums',
-  sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 shadow-card animate-[enter-rise_0.46s_var(--ease)_0.06s_both] ds-hairline motion-reduce:animate-none`,
+  sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none`,
   verdicts: 'flex flex-col gap-3 border-t border-line2 pt-3.5 max-wide:mt-3.5',
   verdict: 'flex items-start gap-3',
   vIcon: 'min-w-16 flex-none pt-px text-md font-extrabold',
@@ -84,7 +84,7 @@ const S = {
     'flex min-h-0 min-w-0 flex-col border-l border-line2 p-5.5 max-wide:min-h-75 max-wide:border-t max-wide:border-l-0 max-wide:border-line2',
   subjectsH2: 'mb-3! flex-none text-xs! leading-[1.6] font-extrabold! tracking-caps! text-mut! uppercase',
   subjList: '-mx-1 flex min-h-0 flex-1 flex-col gap-2.25 overflow-y-auto px-1 [scrollbar-width:thin]',
-  subj: "relative flex flex-col gap-1.5 overflow-hidden rounded-md border border-line bg-panel pt-2.75 pr-3.25 pb-3 pl-3.75 shadow-card transition-[border-color,transform,box-shadow] duration-[0.16s] ease-[var(--ease)] before:absolute before:top-2.25 before:bottom-2.25 before:left-0 before:w-0.75 before:scale-y-0 before:rounded-cell before:bg-acc before:shadow-spine before:transition-transform before:duration-[0.18s] before:ease-[var(--ease)] before:content-[''] hover:-translate-y-px hover:border-line-acc hover:shadow-hero hover:before:scale-y-100",
+  subj: "relative flex flex-col gap-1.5 overflow-hidden rounded-md border border-line bg-panel pt-2.75 pr-3.25 pb-3 pl-3.75 shadow-card transition-[border-color,transform,box-shadow] duration-fast ease-[var(--ease)] before:absolute before:top-2.25 before:bottom-2.25 before:left-0 before:w-0.75 before:scale-y-0 before:rounded-cell before:bg-acc before:shadow-spine before:transition-transform before:duration-fast before:ease-[var(--ease)] before:content-[''] hover:-translate-y-px hover:border-line-acc hover:shadow-hero hover:before:scale-y-100",
   subjTop: 'flex items-center gap-2',
   subjNm: 'flex-1 truncate text-base14 font-bold',
   subjBar: 'h-1.75 overflow-hidden rounded-full bg-track-cat',

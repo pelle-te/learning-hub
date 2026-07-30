@@ -191,6 +191,26 @@
   /* markets 헤더 제목 — clamp 유동값(control-title 과 같은 성격 · 반올림 예외 · 규약 3). */
   --text-markets-title: clamp(18px, 2.2vw, 23px);
 
+  /* ── 시간 사다리(E24) — `duration-fast|base|slow|draw` ─────────────────────
+     값은 `tokens.css` 가 갖고 여기는 이름만 잇는다(색과 같은 규약). 리터럴 `duration-150`·
+     임의값 `duration-[0.46s]` 이 40여 곳에 흩어져 있던 것을 이 넷으로 닫는다.
+
+     ⚠⚠ **네임스페이스는 `--transition-duration-*` 다. `--duration-*` 가 아니다**(v4.3.3 실측).
+       첫 판에 `--duration-fast` 로 적었더니 **테마 변수는 출력되는데 `duration-fast` 클래스가
+       아예 생성되지 않았다** — 그러면 `transition-[width] duration-fast` 는 `--tw-duration` 을
+       못 받아 Tailwind 기본값 150ms 로 조용히 떨어진다. typecheck·lint:css·build·스냅샷 **전량
+       녹색**이었다(존재하지 않는 유틸리티 클래스는 CSS 에서 에러가 아니라 무규칙이다 — 불변식
+       ⑤가 잠근 `var(--tx)` 오타와 정확히 같은 부류). 확인법은 빌드된 CSS 에서 `.duration-fast{`
+       규칙을 직접 찾는 것이고, 이름만 보고 맞다고 가정하지 말 것.
+     ⚠ `--transition-duration-base` 를 `duration`(이름 없는 형태)으로 쓸 수는 없다 — Tailwind 는
+       네임스페이스 접미사를 요구한다. 그래서 기본 칸의 이름이 `base` 다(`radius-base` 와 같은 처리).
+     ⚠ 무한 주기(`--tempo-*`)와 축하(`--dur-cele`)는 **transition 이 아니라 animation** 이라
+       여기 없다 — 호출부가 `animate-[…_var(--tempo)_…]` 로 직접 싣는다. */
+  --transition-duration-fast: var(--dur-fast);
+  --transition-duration-base: var(--dur);
+  --transition-duration-slow: var(--dur-slow);
+  --transition-duration-draw: var(--draw);
+
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
@@ -215,14 +235,14 @@
   --shadow-card: var(--shadow-sm);
   /* review 회고 코칭 warn 톤 점의 발광 링(bad). good 톤·계획막대는 shadow-dot 재사용. */
   --shadow-dot-bad: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
-  /* integrations 텔레메트리 online 채널 점의 그린 발광(정적 · tc-pulse 애니가 그 위에 링을 얹는다). */
+  /* integrations 텔레메트리 online 채널 점의 그린 발광(정적 · `live-pulse` 애니가 그 위에 링을 얹는다). */
   --shadow-dot-good: 0 0 8px var(--good);
   /* mastery 히어로 밴드 그림자(shadow-md). 지식맵/폴백은 shadow-card(sm) 재사용.
      ledger 히어로도 --shadow-hero 공유. 챕터 상세 오버레이는 lg(정의됨 · 폴백 md). */
   --shadow-hero: var(--shadow-md);
   --shadow-detail: var(--shadow-lg, var(--shadow-md));
   /* degree(졸업) 로드맵 — 완료/수강중 노드·스파인 발광(glow 기반). 8px 는 기존 --shadow-dot 재사용,
-     아래는 12px(노드)·수강중 정적 링(+ sr-pulse 애니가 그 위에 얹힘)·10px(스파인)·2px inset 링(뮤트 노드). */
+     아래는 12px(노드)·수강중 정적 링(+ `live-pulse` 애니가 그 위에 얹힘)·10px(스파인)·2px inset 링(뮤트 노드). */
   --shadow-node: 0 0 12px var(--glow);
   --shadow-node-cur: 0 0 0 3px var(--acc-soft), 0 0 12px var(--glow);
   --shadow-spine: 0 0 10px var(--glow);

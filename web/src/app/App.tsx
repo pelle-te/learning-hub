@@ -236,7 +236,7 @@ export default function App() {
 
   return (
     <div
-      className={`relative isolate grid h-screen transition-[grid-template-columns] duration-200 ease-[var(--ease)] max-mobile:h-auto max-mobile:min-h-screen max-mobile:grid-cols-1 ${navCollapsed ? 'grid-cols-shell-collapsed' : 'grid-cols-shell'}`}
+      className={`relative isolate grid h-screen transition-[grid-template-columns] duration-base ease-[var(--ease)] max-mobile:h-auto max-mobile:min-h-screen max-mobile:grid-cols-1 ${navCollapsed ? 'grid-cols-shell-collapsed' : 'grid-cols-shell'}`}
     >
       {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감.
           그레인: fixed·z-[-1]·pointer 무시 · 노이즈 data-URI(--grain 토큰)를 overlay 로 4% 얹음. */}

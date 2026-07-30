@@ -46,6 +46,17 @@ npm run e2e      # 트랙 A — Playwright 시각/동작 스냅샷 (백엔드 �
                  #   ⚠ 2026-07-25 에 `a11y.spec.ts`(axe)가 붙었다 — 아래 절 참조.
 npm run e2e:a11y # a11y — axe-core 로 렌더된 DOM 을 검사(`serious`+`critical` 만 실패).
                  #   린트(jsx-a11y)는 **소스**를 보고 axe 는 **결과물**을 본다 — 대체재가 아니다.
+npm run e2e:motion # 모션 — **중간 프레임** 시각 회귀(`e2e/motion.spec.ts` · 2026-07-29 신설).
+                 #   ⚠ `e2e` 안에 포함돼 있다(별도로 돌릴 때만 이 스크립트). 여기 적는 이유는
+                 #   **정지 프레임 게이트가 모션 층을 원리적으로 못 보기** 때문 — `visual.spec.ts` 는
+                 #   reducedMotion 을 명시하므로 duration·키프레임·이징을 어떻게 바꿔도 122장이
+                 #   전부 통과한다(E24 에서 실증: 어휘 32종→20종 · 길이 15종→토큰 8종에 **정지
+                 #   스냅샷은 한 장도 안 움직였다**). 애니를 0ms 에 얼리고 `currentTime` 을 직접
+                 #   세워 찍는다.
+                 #   ⚠ **감도에 바닥이 있다** — 그 파일 머리주석의 실측 표가 SSOT("무엇을 보고
+                 #   무엇을 못 보는가"). 요지: 길이는 잡고 **무한 주기는 픽셀로 못 잡는다**(주기는
+                 #   토큰 + 불변식 ⑥이 지킨다). 어휘를 관측하려면 그 어휘가 프레임 면적을
+                 #   지배해야 한다(그래서 맥동은 자기 클립을 쓴다).
 npm run budget   # 번들 예산 — **엔트리별**(데스크톱/폰 초기 로드) + 전체 총합 2축.
                  #   ⚠ 총합 축은 폴더를 직접 훑는다(매니페스트엔 워커·wasm 이 없다).
 npm run build    # tsc -b && vite build — Tauri 셸이 로드할 dist 재생성
@@ -160,6 +171,8 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.
 - **Tailwind 전환(C-7) 완료 · `*.module.css` 0개.** 스타일은 ① JSX 유틸리티 ② 공유 `ds-*`(`styles/ds.css`) ③ 앱 리셋·크롬(`styles/global/`) 셋 중 하나다.
   - ⚠ **레이어가 계약이다**: `@layer base, components, theme, utilities` — `global/{base,components}.css`=base · `global/features.css`=components · **`ds.css` 와 `motion.css` 는 언레이어드**(유틸을 이긴다 → 덮으려면 `!`). 순서는 **최초 등장 순**이라 `main.tsx` 가 `global/index.css` → `tw.css` → `ds.css` 순으로 import 하는 것이 그 계약이다.
+  - ⚠ **모션은 어휘 다섯 마디 + 시간 사다리로 닫혀 있다**(E24 · 2026-07-30). 어휘 SSOT = `lib/motion.ts` 머리주석(**enter · commit · live · transit · draw**) · 키프레임 SSOT = **`styles/tw.css`**(그 파일 밖에 `@keyframes` 를 만들지 말 것). 길이는 **토큰만** 쓴다(`--dur-fast|--dur|--dur-slow` · `--dur-cele` · `--draw` · `--tempo-*` · `--stagger`; transition 은 `duration-fast|base|slow|draw` 유틸). 새 움직임은 **축이 다르면 새 이름, 같은 축의 크기 차이면 노브**다. 집행자는 **불변식 ⑥**(`test/invariants.test.ts`)이고, 시간 리터럴·어휘 밖 키프레임 이름·`duration-<이름>` 브리지 누락을 전부 막는다.
+    - ⚠ `duration-*` 의 Tailwind 네임스페이스는 **`--transition-duration-*`** 다(`--duration-*` 아님 · v4 실측). 틀리면 클래스가 **생성되지 않고** transition 이 기본 150ms 로 조용히 떨어지는데 **전 게이트가 녹색**이다 — 실제로 E24 에서 물렸다.
   - ⚠ **버튼 hover 장식엔 `enabled:`** 를 붙인다 — 전역은 `:not(:disabled)` 로 자기를 가드하지만 유틸은 그 가드를 상속하지 않는다(비활성 버튼이 hover 에서 밝아진 실사고).
   - 남은 CSS 와 그 존재 이유는 설계서 **§15-15 표**가 SSOT.
 - 스택: zustand+immer · @tanstack/react-query · react-router 7 · zod · cmdk(⌘K) · vite-plugin-pwa.

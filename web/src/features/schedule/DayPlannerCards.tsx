@@ -35,14 +35,14 @@ const C = {
   durVal: 'min-w-8.5 text-center text-xs leading-[1.6] font-extrabold tabular-nums text-txt',
   rowDur: 'flex-none whitespace-nowrap text-xs leading-[1.6] font-extrabold tabular-nums text-mut',
   tool: `${TOOLBASE} text-mut!`,
-  ev: 'seg-scope group absolute left-1 box-border flex min-h-4 items-start justify-between gap-1.5 overflow-hidden rounded-blk border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--event)] bg-[var(--ev-fill)] px-2 text-txt shadow-[var(--shadow-ev)] transition-shadow duration-140 ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-ev-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc motion-reduce:transition-none',
+  ev: 'seg-scope group absolute left-1 box-border flex min-h-4 items-start justify-between gap-1.5 overflow-hidden rounded-blk border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--event)] bg-[var(--ev-fill)] px-2 text-txt shadow-[var(--shadow-ev)] transition-shadow duration-fast ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-ev-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc motion-reduce:transition-none',
   evSel: 'z-[9] outline-2 -outline-offset-1 outline-acc',
   cardMain: 'flex min-w-0 flex-col gap-px',
   cardName: 'truncate text-sm leading-[1.15] font-extrabold tracking-wk',
   cardMeta: 'whitespace-nowrap text-2xs font-bold opacity-[0.82]',
   cardTools:
-    'flex flex-none gap-px opacity-0 transition-opacity duration-120 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none',
-  card: 'seg-scope group absolute right-1 box-border flex min-h-4 cursor-grab items-start justify-between gap-1.5 overflow-hidden rounded-blk px-2 text-txt transition-[box-shadow,filter] duration-140 ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-card-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc active:cursor-grabbing motion-reduce:transition-none',
+    'flex flex-none gap-px opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none',
+  card: 'seg-scope group absolute right-1 box-border flex min-h-4 cursor-grab items-start justify-between gap-1.5 overflow-hidden rounded-blk px-2 text-txt transition-[box-shadow,filter] duration-fast ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-card-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc active:cursor-grabbing motion-reduce:transition-none',
   cardStudy:
     'border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--seg-fill-20)] shadow-[var(--shadow-card-study)]',
   cardTask:

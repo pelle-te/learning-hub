@@ -48,6 +48,20 @@ const 선언패턴 = [
 /** 참조: `var(--name`. */
 const 참조패턴 = /var\(\s*(--[a-zA-Z0-9-]+)/g;
 
+/* ⚠ **주석을 걷어낸 뒤 스캔한다**(E24 · 2026-07-30). 이 저장소의 주석은 옛 이름·틀린 이름을
+   인용해 *왜 바뀌었는지*를 남기는 문화이고(그게 규약이다), 이 검사기의 탄생 사유 자체가
+   `var(--tx)` 오타다 — 그래서 그 사유를 주석에 적는 순간 **인용이 위반으로 잡혔다**(실제로
+   `tokenBridge.css` 에서 물렸다). 검사 대상은 **선언과 참조**이고 주석 안 CSS 는 실행되지
+   않으므로 조용한 실패가 원리적으로 불가능하다.
+   ⚠ 줄 번호를 보고하므로 **줄바꿈을 보존**하며 지운다(내용만 공백으로).
+   ⚠ 같은 이유로 `test/invariants.test.ts` 의 불변식 ⑤·⑥도 같은 처리를 한다 — 검사기가 셋인데
+     처리가 갈리면 "어느 검사기가 주석을 보는가"를 사람이 외워야 한다. */
+function 주석제거(본문) {
+  return 본문
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:'"`\\])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
+}
+
 function 파일들(dir) {
   const out = [];
   for (const 이름 of readdirSync(dir)) {
@@ -62,7 +76,7 @@ const 선언 = new Set();
 const 참조 = new Map(); // name → [파일:줄]
 
 for (const 파일 of 파일들(ROOT)) {
-  const 본문 = readFileSync(파일, 'utf8');
+  const 본문 = 주석제거(readFileSync(파일, 'utf8'));
   for (const 패턴 of 선언패턴) for (const m of 본문.matchAll(패턴)) 선언.add(m[1]);
   const 줄들 = 본문.split('\n');
   줄들.forEach((줄, i) => {
@@ -108,7 +122,7 @@ const 미사용_원장 = [
   },
 ];
 
-const tokensCss = readFileSync(join(ROOT, 'styles/tokens.css'), 'utf8');
+const tokensCss = 주석제거(readFileSync(join(ROOT, 'styles/tokens.css'), 'utf8'));
 const 토큰선언 = new Set([...tokensCss.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)].map((m) => m[1]));
 const 원장이름 = new Set(미사용_원장.map((r) => r.이름));
 const 만료된 = 미사용_원장.filter((r) => new Date(r.만료) < new Date());

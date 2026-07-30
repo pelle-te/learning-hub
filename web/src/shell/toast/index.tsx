@@ -25,7 +25,10 @@ interface ToastStore {
 }
 let _id = 0;
 const MAX_STACK = 4; // 연속 실패가 우하단을 도배하지 않게 — 초과 시 최고참부터 제거
-/** 퇴장 애니(.toast.out) 길이와 맞춘 언마운트 지연(ms). CSS `toastOut` 0.16s 와 짝. */
+/** 퇴장 애니(.toast.out) 길이와 맞춘 언마운트 지연(ms). CSS `exit-pop` = `--dur-fast`(120ms)와 짝.
+ *  ⚠ 40ms 여유를 둔다 — 애니가 끝나기 *전에* 언마운트하면 마지막 프레임이 잘려 툭 사라진다.
+ *  ⚠ 토큰을 JS 에서 읽지 않는 이유는 `lib/motion.ts` 의 `COMMIT_MS` 와 같다(그 머리주석 참조).
+ *    드리프트는 `invariants.test.ts` 가 tokens.css 를 읽어 막는다. */
 const TOAST_OUT_MS = 160;
 const useToastStore = create<ToastStore>((set) => ({
   items: [],

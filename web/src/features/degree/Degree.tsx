@@ -355,7 +355,7 @@ function DegreePlan() {
         <div className="mb-3.5 text-xs font-extrabold tracking-caps text-mut uppercase">졸업 현황</div>
         <div className="flex flex-wrap items-center gap-7">
           <div
-            className={`relative size-23 flex-none${celeFlash ? ' animate-[gr-cele_1.4s_var(--ease)] motion-reduce:animate-none' : ''}`}
+            className={`relative size-23 flex-none${celeFlash ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
             role="img"
             aria-label={`졸업 진행 ${pct}%`}
           >
@@ -366,7 +366,7 @@ function DegreePlan() {
               pct={shownPct}
               className="size-full -rotate-90"
               trackClassName="fill-none stroke-line2 [stroke-width:7]"
-              arcClassName="fill-none stroke-good [stroke-width:7] [stroke-linecap:round] [filter:var(--filter-good-glow)] transition-[stroke-dashoffset] duration-[0.6s] ease-[var(--ease)]"
+              arcClassName="fill-none stroke-good [stroke-width:7] [stroke-linecap:round] [filter:var(--filter-good-glow)] transition-[stroke-dashoffset] duration-draw ease-[var(--ease)]"
             />
             <div className="absolute inset-0 flex items-center justify-center text-2xl font-extrabold tracking-tight text-txt tabular-nums">
               {Math.round(shownPct)}

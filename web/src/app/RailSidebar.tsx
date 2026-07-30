@@ -58,7 +58,7 @@ const DIVIDER = 'my-1 h-px w-6 flex-none bg-line2 max-mobile:hidden';
 const SPACER = 'min-h-2 flex-1 max-mobile:hidden';
 // 탭 버튼 — 펼침=아이콘+라벨 행, 접힘=42px 아이콘 칩. 모바일=44px 터치 타깃.
 const ITEM =
-  'group relative flex items-center rounded-rail! border! border-transparent! text-left text-rail-item! leading-[normal] font-semibold! transition-[color,background,box-shadow] duration-160 ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:h-auto! max-mobile:min-h-11 max-mobile:w-auto! max-mobile:min-w-11 max-mobile:justify-center max-mobile:gap-0 max-mobile:px-0! max-mobile:py-0!';
+  'group relative flex items-center rounded-rail! border! border-transparent! text-left text-rail-item! leading-[normal] font-semibold! transition-[color,background,box-shadow] duration-fast ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:h-auto! max-mobile:min-h-11 max-mobile:w-auto! max-mobile:min-w-11 max-mobile:justify-center max-mobile:gap-0 max-mobile:px-0! max-mobile:py-0!';
 // ⚠ 배경·색은 **변형이 통째로 소유한다** — base 에 `bg-transparent!`/`text-mut!` 를 두고 ON 에서
 //    덮으려 하면 방출 순서로 갈려 활성 표시가 통째로 죽는다(이 이식에서 실제로 물렸다).
 const ITEM_OFF = 'bg-transparent! text-mut! hover:bg-panel2! hover:text-ink!';
@@ -71,10 +71,10 @@ const BADGE =
 // 라벨 — 펼침=흐름 텍스트(생략표), 접힘=hover 플라이아웃(모바일은 숨김).
 const LABEL = 'overflow-hidden text-ellipsis whitespace-nowrap max-mobile:hidden';
 const LABEL_COL =
-  'pointer-events-none absolute top-1/2 left-[calc(100%+8px)] z-[var(--z-dropdown)] -translate-y-1/2 -translate-x-1 rounded-rail-chip border border-line bg-panel px-2.75 py-1.5 text-sm leading-[normal] font-bold tracking-topbar-sub whitespace-nowrap text-ink opacity-0 shadow-md transition-[opacity,transform] duration-140 ease-[var(--ease)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 max-mobile:hidden';
+  'pointer-events-none absolute top-1/2 left-[calc(100%+8px)] z-[var(--z-dropdown)] -translate-y-1/2 -translate-x-1 rounded-rail-chip border border-line bg-panel px-2.75 py-1.5 text-sm leading-[normal] font-bold tracking-topbar-sub whitespace-nowrap text-ink opacity-0 shadow-md transition-[opacity,transform] duration-fast ease-[var(--ease)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 max-mobile:hidden';
 // 접기/펼치기 토글 — 하단(모바일 숨김).
 const TOGGLE =
-  'flex items-center rounded-rail! border! border-transparent! bg-transparent! text-md! leading-[normal] font-semibold! text-mut! transition-[color,background] duration-160 ease-[var(--ease)] hover:bg-panel2! hover:text-ink! focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:hidden';
+  'flex items-center rounded-rail! border! border-transparent! bg-transparent! text-md! leading-[normal] font-semibold! text-mut! transition-[color,background] duration-fast ease-[var(--ease)] hover:bg-panel2! hover:text-ink! focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:hidden';
 const TOGGLE_EXP = 'mt-1 w-full gap-2.75 px-2.5! py-2!';
 const TOGGLE_COL = 'mt-1.5 size-10.5 justify-center gap-0 px-0! py-0!';
 // 아이콘 크기·굵기(원본 `.item :global(.ic)`) — Icon 이 className 을 받는다(§15-5 재사용 자산).

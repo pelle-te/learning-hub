@@ -76,7 +76,7 @@ export function SetupGuide() {
         <span className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-panel2 shadow-[var(--shadow-inset-line-soft)]">
           <i
             style={{ width: `${Math.round((done / 3) * 100)}%` }}
-            className="block h-full rounded-full bg-[image:var(--bg-setup-prog)] transition-[width] duration-[0.4s] ease-[var(--ease)]"
+            className="block h-full rounded-full bg-[image:var(--bg-setup-prog)] transition-[width] duration-draw ease-[var(--ease)]"
           />
         </span>
       </div>

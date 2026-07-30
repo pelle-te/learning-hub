@@ -35,9 +35,9 @@ textarea {
   padding: 8px 10px;
   outline: none;
   transition:
-    border-color 0.15s var(--ease),
-    box-shadow 0.15s var(--ease),
-    background 0.15s var(--ease);
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
 }
 input::placeholder,
 textarea::placeholder {
@@ -83,9 +83,9 @@ input[type='checkbox'] {
   position: relative;
   vertical-align: middle;
   transition:
-    background 0.14s var(--ease),
-    border-color 0.14s var(--ease),
-    box-shadow 0.14s var(--ease);
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 input[type='checkbox']:hover {
   border-color: var(--acc);
@@ -120,11 +120,11 @@ button {
   padding: 8px 13px;
   font-weight: 500;
   transition:
-    border-color 0.15s var(--ease),
-    background 0.15s var(--ease),
-    color 0.15s var(--ease),
-    transform 0.1s var(--ease),
-    box-shadow 0.15s var(--ease);
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 button:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
@@ -232,7 +232,7 @@ td {
   vertical-align: middle;
 }
 tbody tr {
-  transition: background 0.12s var(--ease);
+  transition: background var(--dur-fast) var(--ease);
 }
 tbody tr:hover {
   background: color-mix(in srgb, var(--acc) 5%, transparent);

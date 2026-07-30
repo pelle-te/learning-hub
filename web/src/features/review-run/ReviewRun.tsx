@@ -500,7 +500,7 @@ export default function ReviewRun() {
         aria-label={`복습 진행 ${idx + 1} / ${total}`}
       >
         <span
-          className="block h-full rounded-full bg-acc transition-all duration-300"
+          className="block h-full rounded-full bg-acc transition-all duration-draw"
           style={{ width: `${(idx / total) * 100}%` }}
         />
       </div>

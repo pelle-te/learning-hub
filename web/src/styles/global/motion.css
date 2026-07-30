@@ -7,10 +7,10 @@
 
 /* 본문(루트)만 짧게 크로스페이드 + 살짝 떠오름 — **방향을 모를 때의 기본값**. */
 ::view-transition-old(root) {
-  animation: vt-fade-out 140ms var(--ease) both;
+  animation: vt-fade-out var(--dur-fast) var(--ease) both;
 }
 ::view-transition-new(root) {
-  animation: vt-fade-in 180ms var(--ease) both;
+  animation: vt-fade-in var(--dur) var(--ease) both;
 }
 
 @keyframes vt-fade-out {
@@ -39,17 +39,23 @@
 
    ⚠ 길이는 전부 220ms 이하 · 움직임은 **transform/opacity 뿐**이다. 이 앱의 착지 화면 16개가
      전면 fill 대시보드라 레이아웃을 건드리는 전이는 그 자체로 비싸다(발산이 immerse 400ms 를
-     경고한 이유). 몰입은 오히려 더 짧게 잡아 "닫힘"이 느껴지되 기다림이 되지 않게 한다. */
+     경고한 이유). 몰입은 오히려 더 짧게 잡아 "닫힘"이 느껴지되 기다림이 되지 않게 한다.
+
+   ⚠ **E24: 길이가 토큰이 됐다**(옛 100·120·140·180·200·280ms 여섯 종 → `--dur-fast`/`--dur`/
+     `--dur-slow`). 나가는 프레임은 전부 `--dur-fast`, 들어오는 프레임은 `--dur` 이고 **immerse 만
+     들어오는 것도 `--dur-fast`** 다 — 위 문단의 "몰입은 더 짧게"를 사다리 위에서 지키는 유일한
+     방법이 그것이다(옛 값 100/180 도 넷 중 가장 짧았다). 방향별 차이는 이제 **길이가 아니라
+     transform** 이 말한다(밀림 18px · 확대 0.985 · 축소 0.97). */
 
 /* lateral — 형제 사이. 진행 방향(order 대소)으로 밀린다. */
 :root[data-vt='lateral']::view-transition-old(root) {
-  animation: vt-fade-out 120ms var(--ease) both;
+  animation: vt-fade-out var(--dur-fast) var(--ease) both;
 }
 :root[data-vt='lateral']::view-transition-new(root) {
-  animation: vt-lateral-fwd 200ms var(--ease) both;
+  animation: vt-lateral-fwd var(--dur) var(--ease) both;
 }
 :root[data-vt='lateral'][data-vt-dir='back']::view-transition-new(root) {
-  animation: vt-lateral-back 200ms var(--ease) both;
+  animation: vt-lateral-back var(--dur) var(--ease) both;
 }
 @keyframes vt-lateral-fwd {
   from {
@@ -74,10 +80,10 @@
 
 /* descend — 호스트 안으로. 새 화면이 **앞으로 다가온다**(살짝 커지며). */
 :root[data-vt='descend']::view-transition-old(root) {
-  animation: vt-fade-out 120ms var(--ease) both;
+  animation: vt-fade-out var(--dur-fast) var(--ease) both;
 }
 :root[data-vt='descend']::view-transition-new(root) {
-  animation: vt-descend 200ms var(--ease) both;
+  animation: vt-descend var(--dur) var(--ease) both;
 }
 @keyframes vt-descend {
   from {
@@ -92,10 +98,10 @@
 
 /* ascend — 나오는 길. descend 의 거울(살짝 물러섰다 제자리로) — 들어간 곳엔 나오는 길이 있다. */
 :root[data-vt='ascend']::view-transition-old(root) {
-  animation: vt-fade-out 120ms var(--ease) both;
+  animation: vt-fade-out var(--dur-fast) var(--ease) both;
 }
 :root[data-vt='ascend']::view-transition-new(root) {
-  animation: vt-ascend 200ms var(--ease) both;
+  animation: vt-ascend var(--dur) var(--ease) both;
 }
 @keyframes vt-ascend {
   from {
@@ -110,10 +116,10 @@
 
 /* immerse — 몰입 화면(복습 러너). 세상이 닫히듯 **더 짧고 더 깊게**. */
 :root[data-vt='immerse']::view-transition-old(root) {
-  animation: vt-fade-out 100ms var(--ease) both;
+  animation: vt-fade-out var(--dur-fast) var(--ease) both;
 }
 :root[data-vt='immerse']::view-transition-new(root) {
-  animation: vt-immerse 180ms var(--ease) both;
+  animation: vt-immerse var(--dur-fast) var(--ease) both;
 }
 @keyframes vt-immerse {
   from {
@@ -135,7 +141,7 @@
    애니(morph)에 이징·길이만 얹는다. ⚠ react-router 의 viewTransition 은 reduced-motion 을
    보지 않으므로(=start 무조건 호출) 이 그룹도 모션 자제 시 명시적으로 꺼야 한다 — 루트처럼. */
 ::view-transition-group(atlas-hero) {
-  animation-duration: 280ms;
+  animation-duration: var(--dur-slow);
   animation-timing-function: var(--ease);
 }
 

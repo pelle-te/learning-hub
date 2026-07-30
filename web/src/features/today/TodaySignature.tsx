@@ -55,18 +55,18 @@ const TYPE_LABEL: Record<string, string> = {
 const S = {
   today: 'flex h-full min-w-0 min-h-0 flex-col gap-4 px-5 pt-4.5 pb-3.5 max-wide:px-3.5 max-wide:pt-3.5',
   top: 'grid min-h-0 flex-auto grid-cols-today-top gap-4 max-wide:grid-cols-1',
-  hero: 'tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[enter-fade_0.5s_var(--ease)_both] ds-hairline hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none',
-  aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] animate-[today-aura-breathe_9s_var(--ease)_infinite] motion-reduce:animate-none',
+  hero: 'tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[enter-fade_var(--dur-slow)_var(--ease)_both] ds-hairline hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none',
+  aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] live-aura animate-[live-breathe_var(--tempo-slow)_var(--ease)_infinite] motion-reduce:animate-none',
   spotlight:
-    'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-[0.35s] ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
+    'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-slow ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
   heroFill:
-    'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-1000 ease-linear motion-reduce:transition-none',
+    'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-draw ease-linear motion-reduce:transition-none',
   heroHead: 'flex items-baseline justify-between gap-3',
   /* D-6 액센트 예산 — 아이브로는 **분류 라벨**이지 손봐야 할 것이 아니다. 액센트는 행동에만.
      (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */
   eyebrow:
     'inline-flex items-center gap-2 text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-mut uppercase',
-  live: 'size-1.75 rounded-full bg-acc shadow-load animate-[today-live-pulse_1.8s_var(--ease)_infinite] motion-reduce:animate-none',
+  live: 'size-1.75 rounded-full bg-acc shadow-load animate-[live-breathe_var(--tempo)_var(--ease)_infinite] motion-reduce:animate-none',
   subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-[0.94] tracking-subj! text-balance text-[color:var(--subj-col)]!',
   heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-[1.5] text-mut',
   chapter: 'font-semibold text-txt',
@@ -79,7 +79,7 @@ const S = {
   mChip:
     'inline-flex items-center rounded-full! border-0! bg-[var(--tint-acc-12)]! px-2.75! py-1! text-sm! leading-[normal] font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
   actions: 'mt-actions-top flex items-center gap-4',
-  cta: 'relative inline-flex cursor-pointer items-baseline gap-2.5 overflow-hidden rounded-base! border-0! px-6.5! py-3.75! font-extrabold! tracking-cta after:pointer-events-none after:absolute after:inset-0 after:bg-[image:var(--bg-cta-shimmer)] after:[transform:var(--cta-shim-off)] after:transition-transform after:duration-[0.6s] after:ease-[var(--ease)] hover:after:[transform:var(--cta-shim-on)] focus-visible:[outline-offset:var(--cta-outline-offset)]! motion-reduce:after:transition-none',
+  cta: 'relative inline-flex cursor-pointer items-baseline gap-2.5 overflow-hidden rounded-base! border-0! px-6.5! py-3.75! font-extrabold! tracking-cta after:pointer-events-none after:absolute after:inset-0 after:bg-[image:var(--bg-cta-shimmer)] after:[transform:var(--cta-shim-off)] after:transition-transform after:duration-slow after:ease-[var(--ease)] hover:after:[transform:var(--cta-shim-on)] focus-visible:[outline-offset:var(--cta-outline-offset)]! motion-reduce:after:transition-none',
   ctaFill:
     'bg-[image:var(--acc-fill)]! text-on-acc! shadow-[var(--shadow-cta)] hover:-translate-y-px hover:brightness-[1.07] hover:shadow-[var(--shadow-cta-hover)]',
   ctaRun:
@@ -93,7 +93,7 @@ const S = {
   presets: 'inline-flex gap-1.5',
   preset:
     'rounded-md! border-0! bg-transparent! px-3! py-2.25! text-mut! font-extrabold! tabular-nums shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-pill)]',
-  flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 shadow-card animate-[today-hero-in_0.5s_var(--ease)_0.08s_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
+  flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 shadow-card [--rise-y:12px] animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
   flowHead: 'mb-2.5! flex! items-center gap-3',
   ring: 'relative inline-block size-8.5 flex-none [--ring-w:6]',
   ringNum:
@@ -104,14 +104,16 @@ const S = {
   now: 'text-sm leading-[1.6] font-extrabold text-mut tabular-nums',
   rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
   railEmpty: 'px-1 py-3.5 text-hint leading-[1.6] text-mut',
-  recall: 'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[enter-fade_0.4s_var(--ease)_both]',
+  recall:
+    'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
   recallTop: 'mb-1.5 flex items-baseline gap-2',
   recallTag: 'flex-none text-2xs font-extrabold tracking-skel uppercase',
   recallMeta: 'truncate text-xs leading-[1.6] font-bold text-mut',
   recallQ: 'text-recall-q leading-[1.45] font-bold text-txt',
   recallBtn:
     'mt-2.5 w-full rounded-blk! border-0! bg-[var(--acc-soft)]! px-3! py-2! text-hint! font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
-  recallA: 'mt-2 flex flex-col gap-1.25 text-hint leading-[1.5] text-mut animate-[enter-fade_0.3s_var(--ease)_both]',
+  recallA:
+    'mt-2 flex flex-col gap-1.25 text-hint leading-[1.5] text-mut animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
   recallReset:
     'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-[normal] font-bold! text-mut! underline',
   confWrongNote: 'mt-1.5 text-sm leading-[1.5] text-mut',
@@ -804,7 +806,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
         <aside className={S.flow}>
           <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayPossible} 완료`}>
             <span
-              className={`${S.ring}${celebrate ? ' animate-[today-ring-cele_1.4s_var(--ease)] motion-reduce:animate-none' : ''}`}
+              className={`${S.ring}${celebrate ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
               aria-hidden="true"
             >
               <ProgressRing

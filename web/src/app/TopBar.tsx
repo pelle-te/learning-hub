@@ -53,7 +53,7 @@ const ACTIONS = 'flex items-center gap-2 self-center';
    Tailwind 가 방출한 순서로 갈려 주 액션이 통짜로 죽는다(네온 필이 투명 칩으로 렌더됐다).
    변형(plain/fill)이 자기 속성을 통째로 소유하게 나눈다. */
 const BTN_BASE =
-  'inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-sm! border! px-3.25! py-0! text-sm! leading-[normal] font-bold! transition-colors duration-150 ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:min-h-10';
+  'inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-sm! border! px-3.25! py-0! text-sm! leading-[normal] font-bold! transition-colors duration-fast ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:min-h-10';
 const BTN_PLAIN =
   'border-line! bg-transparent! tracking-chip! text-ink! hover:border-line-acc-strong! hover:bg-panel2!';
 /* 주 액션 — "네온 채움 필"(데모의 "지금 시작 →"). **2026-07-24 에 되살렸다**(사용자 결정 · §15-9).

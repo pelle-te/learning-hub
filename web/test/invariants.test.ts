@@ -304,10 +304,16 @@ describe('불변식 ⑤ CSS 가 참조하는 --토큰이 정의돼 있다', () =
     expect(names.some((n) => n.endsWith('/styles/ds.css'))).toBe(true);
   });
 
+  /* ⚠ **주석을 걷어낸 뒤 스캔한다.** 이 케이스는 E24 에서 물렸다: 브리지 주석에 이 불변식의
+     탄생 사유(_"`var(--tx)` 오타"_)를 인용했더니 **그 인용이 위반으로 잡혔다.** 검사 대상은
+     참조이고 주석은 참조가 아니다 — 주석 안 CSS 는 실행되지 않으므로 조용한 실패가 불가능하다.
+     (불변식 ⑥이 같은 이유로 같은 처리를 한다. 이 저장소는 옛 이름·옛 값을 주석에 인용해 *왜
+     바뀌었는지*를 남기는 문화라, 원문 스캔은 묘비명을 위반으로 읽는다.) */
   it('폴백 없는 var(--x) 참조가 전부 정의를 갖는다', () => {
     const missing: string[] = [];
     for (const f of files) {
-      for (const m of readFileSync(f, 'utf8').matchAll(/var\(\s*(--[a-z][\w-]*)\s*\)/gi)) {
+      const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const m of src.matchAll(/var\(\s*(--[a-z][\w-]*)\s*\)/gi)) {
         const name = m[1]!;
         if (defined.has(name) || RUNTIME_INJECTED.has(name)) continue;
         missing.push(`${f.replace(SRC, '')} → var(${name})`);
@@ -316,5 +322,145 @@ describe('불변식 ⑤ CSS 가 참조하는 --토큰이 정의돼 있다', () =
     /* ⚠ 폴백이 있는 참조(`var(--x, 1rem)`)는 검사하지 않는다 — 그건 "없을 수 있다"를
        작성자가 **명시한** 것이라 조용한 실패가 아니다. 폴백 없는 것만이 사고다. */
     expect([...new Set(missing)], `정의 없는 토큰:\n${[...new Set(missing)].join('\n')}`).toEqual([]);
+  });
+});
+
+/* ============================================================
+   불변식 ⑥ — **모션 어휘와 시간 사다리는 주석이 아니라 게이트가 지킨다** (E24 · 2026-07-30)
+
+   E24 가 키프레임 32종 → 20종, 길이 리터럴 15종 → 토큰 8종으로 수렴시켰다. 그런데 그 수렴을
+   지키는 것이 **주석뿐이면 원래 상태로 되돌아온다** — 32종이 생긴 경위가 정확히 그것이다
+   (C-7 이 feature 를 하나씩 옮기는 동안 각 feature 의 키프레임이 그 feature 이름을 달고
+   올라왔고, 아무 게이트도 "이건 이미 있는 움직임이다"라 말하지 않았다).
+
+   ## 왜 정적 검사가 이걸 원리적으로 못 보는가
+
+   - `stylelint` 는 색의 출처를 강제하지만(생 hex 금지) **시간에는 같은 규칙이 없었다** —
+     `--dur-*` 토큰이 애초에 존재하지 않았기 때문이다.
+   - 시각 스냅샷은 **정지 프레임**이라 길이·이징을 어떻게 바꿔도 통과한다(`e2e/motion.spec.ts`
+     머리주석이 그 반증을 기록한다). 중간 프레임 하네스도 어휘당 한 장이라 *새로 생긴* 이름을
+     못 본다.
+   - 즉 새 키프레임 `xyz-fade-in 0.42s` 를 추가하는 커밋은 **전 게이트 녹색**이다.
+
+   그래서 여기서 잠근다. 세 축이다: ① 어휘 이름 ② 길이 토큰 ③ WAAPI 상수 ↔ 토큰 동기.
+============================================================ */
+describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
+  const SRC = join(process.cwd(), 'src') + '/';
+
+  /** 선언된 어휘 접두사. 여기 없는 이름의 키프레임을 만들려면 **어휘를 먼저 늘려야** 한다
+   *  (그 판단은 `lib/motion.ts` 머리주석 = 어휘 SSOT 에 남는다). */
+  const VOCAB = /^(enter|exit|live|commit|draw|vt)-/;
+  /** 어휘 밖 예외 — 사유가 코드에 적혀 있어야 하고, 늘어나면 그게 곧 문법 붕괴의 신호다. */
+  const VOCAB_EXCEPTIONS = new Set([
+    // 토스트 되돌리기 창의 남은 시간 바. 움직임이 장식이 아니라 **정보**이고 길이가 런타임값
+    // (`animation-duration` 을 JS 가 ms 로 준다)이라 다섯 어휘 어디에도 속하지 않는다.
+    'toastLife',
+  ]);
+
+  function filesUnder(pred: (name: string) => boolean): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (pred(e.name)) out.push(p);
+      }
+    };
+    walk(SRC);
+    return out;
+  }
+
+  /** ⚠ **주석을 먼저 걷어낸다.** 이 저장소의 주석은 옛 이름·옛 값을 인용해 *왜 바뀌었는지*를
+   *  남기는 문화라(그게 규약이다) 원문을 그대로 스캔하면 `@keyframes ds-sp 가 여기 있었다` 같은
+   *  묘비명이 위반으로 잡힌다 — 실제로 이 불변식의 첫 실행이 그렇게 실패했다. 검사 대상은
+   *  **선언**이고 주석은 선언이 아니다. */
+  const stripComments = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  const cssFiles = filesUnder((n) => n.endsWith('.css'));
+  const tsFiles = filesUnder((n) => /\.tsx?$/.test(n));
+  const allCss = cssFiles.map((f) => stripComments(readFileSync(f, 'utf8'))).join('\n');
+
+  it('키프레임 이름이 전부 선언된 어휘에 속한다(컴포넌트 이름을 단 키프레임 0)', () => {
+    const names = [...allCss.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]!);
+    // ⚠ 조용한 통과 방지 — 정규식이 망가지면 0개가 되고 그건 녹색이 아니라 고장이다.
+    expect(names.length).toBeGreaterThanOrEqual(15);
+    const stray = names.filter((n) => !VOCAB.test(n) && !VOCAB_EXCEPTIONS.has(n));
+    expect(
+      stray,
+      `어휘 밖 키프레임(enter|exit|live|commit|draw|vt 접두사 필요 · 어휘 SSOT=lib/motion.ts):\n${stray.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('CSS 의 animation/transition 길이가 리터럴이 아니다(사다리 밖 시간 금지)', () => {
+    /* `animation:`·`transition:`·`animation-duration:`·`animation-delay:` 선언 안의 시간 리터럴.
+       ⚠ 0 계열은 통과시킨다 — reduced-motion 백스톱(`0.01ms`·`0s`)은 "모션을 끈다"는 뜻이라
+         사다리 칸이 아니다. 그 값을 토큰으로 바꾸면 백스톱이 사다리에 묶여 버린다. */
+    const bad: string[] = [];
+    for (const f of cssFiles) {
+      const src = stripComments(readFileSync(f, 'utf8'));
+      for (const m of src.matchAll(/(animation|transition)(-duration|-delay)?\s*:\s*([^;{}]+)/g)) {
+        for (const t of m[3]!.matchAll(/(?<![\w.-])(\d+(?:\.\d+)?)(m?s)\b/g)) {
+          const v = Number(t[1]);
+          if (v === 0 || (t[2] === 'ms' && v <= 0.01)) continue;
+          bad.push(`${f.replace(SRC, '')} → ${t[0]} (in \`${m[1]}${m[2] ?? ''}\`)`);
+        }
+      }
+    }
+    expect(
+      bad,
+      `시간 리터럴(토큰을 쓸 것 — tokens.css 의 --dur-*/--draw/--tempo-*/--stagger):\n${bad.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('JSX 의 animate-[…]·duration-… 길이가 리터럴이 아니다', () => {
+    const bad: string[] = [];
+    for (const f of tsFiles) {
+      const src = stripComments(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''));
+      for (const m of src.matchAll(/animate-\[[^\]]*\]/g)) {
+        if (/(?<![\w.-])\d+(?:\.\d+)?m?s\b/.test(m[0])) bad.push(`${f.replace(SRC, '')} → ${m[0]}`);
+      }
+      /* `duration-fast|base|slow|draw`(테마 항목)만 허용. 임의값·숫자 스케일은 사다리 밖이다.
+         ⚠ `duration-` 뒤 첫 토큰만 본다(`before:duration-fast` 같은 변형 접두사는 앞에 붙는다). */
+      for (const m of src.matchAll(/\bduration-(\[[^\]]*\]|\d+)/g)) bad.push(`${f.replace(SRC, '')} → ${m[0]}`);
+    }
+    expect(bad, `시간 리터럴(JSX):\n${bad.join('\n')}`).toEqual([]);
+  });
+
+  /* ⚠⚠ **이 케이스는 E24 착수 중 실제로 물린 사고에서 나왔다.** 브리지에 `--duration-fast` 라
+     적었는데(그럴듯하다) Tailwind v4 의 네임스페이스는 `--transition-duration-*` 다 → 테마 변수는
+     출력되는데 **`duration-fast` 클래스가 생성되지 않았고**, 그러면 `transition-[width]
+     duration-fast` 는 Tailwind 기본 150ms 로 조용히 떨어진다. typecheck·lint:css·build·스냅샷
+     **전량 녹색**이었다 — 존재하지 않는 유틸리티 클래스는 CSS 에서 에러가 아니라 무규칙이기
+     때문이다(불변식 ⑤가 잠근 `var(--tx)` 오타와 같은 부류의 침묵).
+     ⚠ 빌드된 CSS 를 검사하지 않는 이유: 이 파일은 `dist/` 없이도 돌아야 한다(게이트 순서상
+       유닛이 build 보다 앞이다). 대신 **이름 패리티**를 잠근다 — 사고의 원인이 정확히 그것이었다. */
+  it('JSX 가 쓰는 duration-<이름> 이 브리지의 --transition-duration-<이름> 과 짝이다', () => {
+    const bridge = readFileSync(join(SRC, 'styles', 'tokenBridge.css'), 'utf8');
+    const used = new Set<string>();
+    for (const f of tsFiles) {
+      const src = stripComments(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''));
+      for (const m of src.matchAll(/\bduration-([a-z][\w-]*)/g)) used.add(m[1]!);
+    }
+    // ⚠ 조용한 통과 방지 — 0개면 정규식이 망가진 것이다.
+    expect(used.size).toBeGreaterThanOrEqual(3);
+    const orphan = [...used].filter((n) => !bridge.includes(`--transition-duration-${n}:`));
+    expect(
+      orphan,
+      `브리지에 없는 duration 이름(→ 클래스가 생성되지 않아 150ms 로 조용히 떨어진다):\n${orphan.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('WAAPI 상수가 tokens.css 의 토큰과 같은 값이다(복제의 유일한 방어선)', () => {
+    /* `lib/motion.ts` 의 `COMMIT_MS` 는 `--dur-slow` 의 복제다 — WAAPI 는 `var()` 를 못 읽어서
+       (그 파일 머리주석) 복제가 불가피하고, 그래서 여기가 유일한 드리프트 방어선이다. */
+    const tokensCss = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8');
+    const durSlow = /--dur-slow:\s*(\d+)ms/.exec(tokensCss);
+    expect(durSlow, 'tokens.css 에 --dur-slow 가 ms 단위로 정의돼 있어야 한다').not.toBeNull();
+
+    const motionTs = readFileSync(join(SRC, 'lib', 'motion.ts'), 'utf8');
+    const commitMs = /const COMMIT_MS = (\d+);/.exec(motionTs);
+    expect(commitMs, 'lib/motion.ts 에 COMMIT_MS 상수가 있어야 한다').not.toBeNull();
+
+    expect(Number(commitMs![1]), 'COMMIT_MS ≠ --dur-slow — 둘 중 하나만 고쳤다').toBe(Number(durSlow![1]));
   });
 });

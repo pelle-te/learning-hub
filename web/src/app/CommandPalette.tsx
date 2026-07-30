@@ -35,7 +35,8 @@ import type { SemHit, SemKind } from '@/lib/semantic';
    직접 클래스"를 쓸 수 없다. cmdk 의 `heading` 이 ReactNode 를 받으므로 **스타일된 노드를 직접
    넘긴다** — 바깥 `[cmdk-group-heading]` div 는 아무 스타일도 없어 패딩을 안쪽으로 옮겨도
    박스가 동일하다(덤프로 확인). 자손 셀렉터를 되살리지 않는 유일한 길이다. */
-const OVERLAY = 'fixed inset-0 z-[var(--z-palette)] bg-scrim backdrop-blur-palette animate-[enter-fade_0.12s_ease]';
+const OVERLAY =
+  'fixed inset-0 z-[var(--z-palette)] bg-scrim backdrop-blur-palette animate-[enter-fade_var(--dur-fast)_ease]';
 const CONTENT = 'fixed top-palette-y left-1/2 z-[var(--z-palette-top)] w-palette max-w-palette -translate-x-1/2';
 const DIALOG = 'overflow-hidden rounded-palette border border-line bg-panel text-txt shadow-float';
 const INPUT =

@@ -17,7 +17,7 @@ import { clamp } from '@/lib/utils';
    `.rv small` 을 생산자 쪽에서 고친 것과 같은 판단이다 — 규약 4 의 정신. */
 const GAP = 8;
 const TIP =
-  'pointer-events-none fixed z-[var(--z-tooltip)] max-w-tooltip -translate-x-1/2 rounded-sm border border-line bg-panel px-2.5 py-1.75 text-sm leading-[1.45] break-keep whitespace-pre-line text-txt shadow-float animate-[enter-fade_0.12s_var(--ease)_both] motion-reduce:animate-none';
+  'pointer-events-none fixed z-[var(--z-tooltip)] max-w-tooltip -translate-x-1/2 rounded-sm border border-line bg-panel px-2.5 py-1.75 text-sm leading-[1.45] break-keep whitespace-pre-line text-txt shadow-float animate-[enter-fade_var(--dur-fast)_var(--ease)_both] motion-reduce:animate-none';
 // 위/아래 배치 — 아래로 붙을 땐 변환이 필요 없다(위 GAP 이 top 에 이미 들어가 있다).
 const ABOVE = '-translate-y-full';
 

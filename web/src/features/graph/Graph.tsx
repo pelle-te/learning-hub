@@ -514,7 +514,7 @@ export default function Graph() {
         </div>
       ) : (
         <div
-          className={`ds-hairline relative min-h-0 min-w-0 flex-1 animate-[enter-rise_0.46s_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none`}
+          className={`ds-hairline relative min-h-0 min-w-0 flex-1 animate-[enter-rise_var(--dur-slow)_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none`}
           ref={wrapRef}
         >
           {/* 검색 + 줌 컨트롤 — 우상단 오버레이. 캔버스는 SR 불투명이라 여기 컨트롤이 접근 경로. */}
@@ -606,7 +606,7 @@ export default function Graph() {
           {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
           {sel && (
             <div
-              className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[enter-rise_0.22s_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
+              className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[enter-rise_var(--dur)_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
               role="dialog"
               aria-label={`${sel.label} 상세`}
             >

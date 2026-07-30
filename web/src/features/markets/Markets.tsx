@@ -417,7 +417,7 @@ const IndexCard = memo(function IndexCard({ q }: { q: IndexQuote }) {
   const chAbs = `${chSign}${Math.abs(q.change).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}`;
   return (
     <div
-      className={`flex flex-col gap-1.5 rounded-base border bg-panel px-3.25 py-3 transition-colors duration-[0.14s] ease-[var(--ease)] ${CARD_DIR[d]}`}
+      className={`flex flex-col gap-1.5 rounded-base border bg-panel px-3.25 py-3 transition-colors duration-fast ease-[var(--ease)] ${CARD_DIR[d]}`}
       /* role 없는 div의 aria-label은 무시된다(ARIA 1.2) — group으로 유효화 */
       role="group"
       aria-label={`${q.name}, ${DIR_WORD[d]} ${Math.abs(q.changePct).toFixed(2)}퍼센트, 현재 ${price}${q.currency ? ' ' + q.currency : ''}`}
@@ -478,7 +478,7 @@ const NewsCard = memo(function NewsCard({
   return (
     <li className="flex flex-col gap-1">
       <a
-        className="flex flex-col gap-1.25 rounded-md border border-line bg-panel px-3.25 py-2.75 transition-colors duration-[0.14s] ease-[var(--ease)] hover:border-line-acc-hover hover:bg-acc-soft"
+        className="flex flex-col gap-1.25 rounded-md border border-line bg-panel px-3.25 py-2.75 transition-colors duration-fast ease-[var(--ease)] hover:border-line-acc-hover hover:bg-acc-soft"
         href={safeUrl}
         target="_blank"
         rel="noreferrer noopener"

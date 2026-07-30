@@ -9,7 +9,7 @@ import { Card } from './Card';
    → 토큰 이름으로 참조한다(`--grain`·`--acc-fill` 과 같은 관용구).
    키프레임은 전역(`tw.css`) — CSS Modules 가 이름을 스코프해 유틸에서 못 부르던 제약의 잔재다. */
 const LINE =
-  'h-3.25 rounded-sm bg-sk-base bg-[image:var(--bg-skeleton)] bg-[length:var(--bg-size-skeleton)] animate-[sk-shimmer_1.2s_var(--ease)_infinite] motion-reduce:animate-none';
+  'h-3.25 rounded-sm bg-sk-base bg-[image:var(--bg-skeleton)] bg-[length:var(--bg-size-skeleton)] animate-[live-flow_var(--tempo-fast)_var(--ease)_infinite] motion-reduce:animate-none';
 const STACK = 'space-y-2.75';
 
 /** 단일 스켈레톤 줄. width로 폭을, height로 높이를 조절. */

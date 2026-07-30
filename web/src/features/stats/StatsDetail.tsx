@@ -43,14 +43,14 @@ const TIMELINE_CAP = 60; // 최근 N일만 그려 다년 누적에도 비용 상
    런타임 인라인 style(높이·색)·SVG 표현 속성은 그대로 두고 st.* 만 옮긴다. 규약은 §15.
    막대 base 는 배경을 갖지 않고 사용처가 bg 를 얹는다(sparkBarPast/Now 오버라이드 충돌 방지). */
 const SPARK =
-  'min-w-1.5 flex-1 self-end rounded-t-xs transition-[filter,box-shadow] duration-[0.16s] ease-[var(--ease)] hover:brightness-[1.16] hover:shadow-dot focus-visible:brightness-[1.16] focus-visible:shadow-dot';
+  'min-w-1.5 flex-1 self-end rounded-t-xs transition-[filter,box-shadow] duration-fast ease-[var(--ease)] hover:brightness-[1.16] hover:shadow-dot focus-visible:brightness-[1.16] focus-visible:shadow-dot';
 const SPARK_BAR = `${SPARK} bg-acc`;
 const SPARK_NULL = 'h-1 min-w-1.5 flex-1 self-end rounded-t-xs bg-spark-null opacity-60';
 // 시즌 페이스(I-7) — 지난주는 은은히(spark-past), 이번 주는 발광 액센트(shadow-spark-now)로 초점.
 const SPARK_NOW = `${SPARK} bg-acc shadow-spark-now`;
 const SPARK_PAST = `${SPARK} bg-spark-past`;
 const WK_SEG =
-  'rounded-t-cell transition-[filter,box-shadow] duration-[0.16s] ease-[var(--ease)] hover:brightness-[1.14] hover:shadow-wkseg focus-visible:brightness-[1.14] focus-visible:shadow-wkseg';
+  'rounded-t-cell transition-[filter,box-shadow] duration-fast ease-[var(--ease)] hover:brightness-[1.14] hover:shadow-wkseg focus-visible:brightness-[1.14] focus-visible:shadow-wkseg';
 // 인라인 링크 <button> — 원본은 font:inherit 로 부모 'ds-foot'(line-height 미설정 → body 1.6 상속)의 LH 를 상속했다.
 // preflight 가 없어 버튼이 UA line-height:normal 로 떨어지므로 상속 LH 1.6 을 명시로 못박는다.
 const NAV_LINK =

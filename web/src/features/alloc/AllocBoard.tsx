@@ -74,7 +74,7 @@ const S = {
   // 입력 셀 — 비례 채움(.fill) + 색띠(before) + 빈칸 호버 '+'(after) + 드롭 오버(after '+1h').
   inputCell: 'relative flex min-h-12 items-center overflow-hidden p-0 text-md',
   // UX-A3: 드롭/타이핑으로 값이 바뀔 때 농도가 "툭" 갈리지 않게. 전역 reduced-motion 백스톱이 닿는다.
-  fill: 'absolute inset-0 bg-[var(--sub,var(--acc))] transition-opacity duration-200', // opacity 는 런타임 인라인
+  fill: 'absolute inset-0 bg-[var(--sub,var(--acc))] transition-opacity duration-base', // opacity 는 런타임 인라인
   before:
     "before:pointer-events-none before:absolute before:top-0 before:bottom-0 before:left-0 before:z-[1] before:w-0.75 before:bg-[var(--sub,var(--acc))] before:content-['']",
   hoverPlus:
@@ -86,7 +86,7 @@ const S = {
   // 한 어휘로 읽힌다. ⚠ 정적이다(애니 아님) → reduced-motion·React Compiler 어느 쪽과도 무관.
   dragHint: 'outline-1 -outline-offset-1 outline-dashed outline-line-acc-hover',
   // UX-A4 스윕 — 툴바 액션이 **실제로 바꾼** 칸만 1회 훑는다. 지연은 인라인 animation-delay.
-  sweep: 'animate-[alloc-sweep_0.62s_var(--ease)_both]',
+  sweep: 'animate-[commit-ring_var(--dur-slow)_var(--ease)_both]',
   // UX-A1 가장자리 비례 막대 — 셀의 .fill 관용구를 '결론' 칸(주당 예산 · 요일 가용)에 재사용.
   edgeBar: 'pointer-events-none absolute inset-y-0 left-0',
   // NumberField <input type=number> — 전역 input 규칙(언레이어)을 이기려 다른 값만 `!`.

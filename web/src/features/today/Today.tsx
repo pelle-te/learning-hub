@@ -217,7 +217,7 @@ export default function Today() {
            useFocusTrap(진입·순환·복원) · 패널의 진짜 닫기 버튼이 담당한다. */
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
         <div
-          className="fixed inset-0 z-[var(--z-modal)] flex animate-[enter-fade_0.16s_var(--ease)] justify-end bg-[var(--overlay-bg)] [backdrop-filter:var(--backdrop-overlay)] motion-reduce:animate-none"
+          className="fixed inset-0 z-[var(--z-modal)] flex animate-[enter-fade_var(--dur-fast)_var(--ease)] justify-end bg-[var(--overlay-bg)] [backdrop-filter:var(--backdrop-overlay)] motion-reduce:animate-none"
           role="dialog"
           aria-modal="true"
           aria-label="오늘 상세"
@@ -226,7 +226,7 @@ export default function Today() {
           }}
         >
           <div
-            className="flex h-full w-full max-w-runner-narrow animate-[enter-slide_0.22s_var(--ease)] flex-col border-l border-line bg-bg shadow-detail motion-reduce:animate-none max-mobile:max-w-none max-mobile:border-l-0"
+            className="flex h-full w-full max-w-runner-narrow animate-[enter-slide_var(--dur)_var(--ease)] flex-col border-l border-line bg-bg shadow-detail motion-reduce:animate-none max-mobile:max-w-none max-mobile:border-l-0"
             ref={morePanelRef}
             tabIndex={-1}
           >

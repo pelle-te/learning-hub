@@ -18,7 +18,7 @@ import type { AppState } from '@/lib/types';
 const CLASSROW = 'mb-1.5 grid grid-cols-classrow items-center gap-1.5 max-narrow:grid-cols-classrow-narrow';
 // 일과 블록 카드 — 왼쪽 색띠(3px·런타임 색)는 인라인 style 로 남긴다(border-left-width/color).
 const BLK =
-  'flex min-w-0 flex-col gap-2.25 rounded-blk border border-line2 px-3 py-2.5 transition-[border-color] duration-[0.14s] ease-[var(--ease)] hover:border-[var(--line-blk-hover)]';
+  'flex min-w-0 flex-col gap-2.25 rounded-blk border border-line2 px-3 py-2.5 transition-[border-color] duration-fast ease-[var(--ease)] hover:border-[var(--line-blk-hover)]';
 const BLK_TOP = 'grid grid-cols-blktop items-center gap-2 max-narrow:grid-cols-[1fr_auto]';
 const BLK_TIME = 'flex items-center gap-1.25 max-narrow:col-span-full';
 const DAYS = 'flex flex-wrap items-center gap-0.75';

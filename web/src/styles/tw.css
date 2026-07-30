@@ -22,19 +22,33 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import './tokenBridge.css';
 
-/* ── 마운트 리빌 키프레임(C-7 · review 이식) ────────────────────────────────
-   CSS Modules 는 keyframe 이름을 스코프한다 — ds.module.css 의 `enter-rise` 은 거기 스코프라
-   Tailwind 유틸리티에서 못 부른다. 그래서 전역(unlayered)으로 둔다. 지속시간·이징은 클래스에서
-   `animate-[enter-rise_0.46s_var(--ease)_both]` 처럼 붙인다(값은 임의값 금지에 안 걸린다 — s 는
-   막힌 단위 목록에 없다). 막대 stagger 지연은 런타임값이라 인라인 style 로 남는다. */
-/* ── D-7 모션 어휘 · enter ──────────────────────────────────────────────
-   "처음 존재하게 됨"을 말하는 키프레임은 **셋뿐**이다. 예전엔 같은 일을 이름만 달리한
-   정의가 아홉 개였다(enter-fade · enter-fade · enter-fade · enter-fade · enter-fade ·
-   enter-rise · enter-rise · enter-rise · enter-rise · enter-slide · enter-slide). 이름이 많다는 것은
-   문법이 없다는 뜻이고, 문법이 없으면 새 화면마다 새 움직임이 생긴다.
-   어휘 전체(enter·commit·live·transit)의 SSOT 는 `lib/motion.ts` 머리주석이다.
-   ⚠ 길이·딜레이는 호출부가 정한다(`animate-[enter-rise_0.46s_…]`) — 여기서 고정하면
-     같은 뜻의 움직임이 또 이름으로 갈린다. */
+/* ============================================================
+   ⚠⚠ **모션 어휘의 SSOT 는 이 파일이다**(E24 · 2026-07-30).
+
+   CSS Modules 는 keyframe 이름을 스코프하므로 Tailwind 유틸리티에서 이름으로 부를 수 없다 —
+   그래서 키프레임은 전역(unlayered)으로 여기 산다. C-7 이 feature 를 하나씩 옮기는 동안 각
+   feature 의 키프레임이 **그 feature 의 이름을 달고** 여기로 올라왔고, 그래서 32종이 됐다
+   (`tc-pulse`·`sr-pulse`·`today-dot-ping` 은 **같은 링 확산**이었고, `ds-aura`·
+   `today-aura-breathe` 는 opacity 가 0.02 다른 같은 호흡이었다).
+
+   ## 규칙 — 축이 다르면 이름, 같은 축의 크기 차이면 노브
+
+   이름이 많다는 것은 문법이 없다는 뜻이다. 그러나 **파라미터를 없애는 것도 문법이 아니다** —
+   진폭·거리가 다른 것을 억지로 같게 만들면 시그니처가 죽는다. 그래서 경계를 이렇게 둔다:
+
+   - **메커니즘(축)이 다르면 새 이름** — 페이드 / 이동 / 스케일 / 링 확산 / 배경 흐름 / 회전.
+   - **같은 메커니즘의 크기·불투명도 차이면 노브**(`--rise-y`·`--br-sc`·`--pulse-r`).
+     노브 묶음이 재사용되면 `@utility` 로 이름을 준다(아래 `live-aura`·`pulse-*`).
+   - **차이가 2% 이하면 드리프트로 보고 없앤다.** 옛 주석은 `today-ring-cele` 를 _"gr-cele 와
+     30% scale 이 다르다(1.12 vs 1.1) → 재사용 불가"_ 라 적어 드리프트를 의도로 방어하고
+     있었다. 지금은 하나다.
+
+   어휘 전체(enter·commit·live·transit + **draw**)의 SSOT 는 `lib/motion.ts` 머리주석이다.
+   ⚠ 길이는 이제 **토큰**이다(`tokens.css` 의 `--dur-*`·`--draw`·`--tempo-*`). 리터럴을 쓰지
+     말 것 — 15종이 흩어져 있던 것을 사다리로 닫은 것이 E24 의 절반이다.
+============================================================ */
+
+/* ── enter — 처음 존재하게 됨. 축 넷(페이드 · 상승 · 슬라이드 · 팝) + 퇴장 하나 ────────── */
 @keyframes enter-fade {
   from {
     opacity: 0;
@@ -43,14 +57,19 @@
     opacity: 1;
   }
 }
+/* 상승 — 기본 8px. `--rise-y` 로 거리를(히어로 12px), `--rise-x` 로 X 성분을 준다.
+   ⚠ `--rise-x` 는 방향이 아니라 **위치 보정**이다 — `OnlineStatus` 배지가 `-translate-x-1/2`
+     로 중앙 정렬돼 있어 애니메이션이 그 transform 을 덮어쓰기 때문(원본 `os-slide-up` 이
+     `translate(-50%, …)` 를 갖고 있던 이유가 그것이고, 그건 X 축 이동이 아니다).
+     옆에서 들어오는 것은 `enter-slide` 다. */
 @keyframes enter-rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translate(var(--rise-x, 0), var(--rise-y, 8px));
   }
   to {
     opacity: 1;
-    transform: none;
+    transform: translate(var(--rise-x, 0), 0);
   }
 }
 @keyframes enter-slide {
@@ -63,8 +82,155 @@
     transform: none;
   }
 }
+/* 팝 — 없던 **표면**이 생김(메뉴·토스트·모달·시트). 옛 `menuPop`·`modalPop`·`toastIn`·`dd-pop`
+   넷은 방향이 *의미*로 갈린 게 아니라 **작성 시점**으로 갈려 있었다(방향 문법은 `data-vt` 가
+   화면 층에서 담당한다) → 하나로 흡수하고 차이는 노브로 남긴다.
+   • `--pop-y`  — 시작 Y. 기본 8px(아래에서 올라옴) · 메뉴는 −4px(위 톱바에서 내려온다) · 시트는 0.
+   • `--pop-op` — 시작 불투명도. 기본 0 · **모달 시트만 1**(스크림이 페이드를 담당하므로 시트가
+                  같이 페이드하면 두 겹으로 흐려진다). */
+@keyframes enter-pop {
+  from {
+    opacity: var(--pop-op, 0);
+    transform: translateY(var(--pop-y, 8px)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* 퇴장 — enter-pop 의 거울. 어휘에 `exit` 이 따로 없는 이유는 **구성원이 하나**이기 때문이고
+   (토스트만 자기 퇴장을 그린다), 그 비대칭을 컴포넌트 이름(`toastOut`)에 숨기지 않고 여기
+   드러내 둔다. 둘째가 생기면 그때 어휘가 된다. */
+@keyframes exit-pop {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
 
-@keyframes rv-bar-rise {
+/* ── live — 시스템이 스스로 변함. **무한 애니는 이 어휘만** ───────────────────────────
+   축은 넷이다: 호흡(자기 크기·불투명도) · 맥동(링이 퍼진다) · 흐름(배경이 흐른다) · 회전.
+   주기는 `--tempo-*` 토큰이 갖는다(호출부가 고른다 — 주기는 길이가 아니라 성격이다). */
+/* 호흡 — 기본값은 **작은 점**(옛 `focus-pulse`·`today-live-pulse`. 0.45/0.4 · 0.78/0.82 로
+   갈려 있던 것을 하나로 닫았다). 큰 발광 오라는 `live-aura` 노브 묶음을 쓴다. */
+@keyframes live-breathe {
+  0%,
+  100% {
+    opacity: var(--br-op, 1);
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: var(--br-op-mid, 0.45);
+    transform: translateY(var(--br-y, 0)) scale(var(--br-sc, 0.78));
+  }
+}
+/* 오라 호흡 — `ds.css` 의 `.ds-aura`(과목 카드)와 today 히어로가 공유. 옛 두 정의는 opacity 가
+   0.02 달랐다(0.4/0.54 vs 0.42/0.56) — 드리프트라 시그니처 쪽 값으로 닫았다. */
+@utility live-aura {
+  --br-op: 0.42;
+  --br-op-mid: 0.56;
+  --br-y: -2%;
+  --br-sc: 1.05;
+}
+/* 맥동 — 링이 퍼져 나가며 사라진다. 옛 `tc-pulse`·`sr-pulse`·`today-dot-ping` 셋은 **레이어
+   수만** 달랐다(민 링 / 링+글로우 / 패널 갭+링+글로우) → 바깥 두 레이어를 노브로 두고 기본값을
+   투명(=없음)으로 잡으면 하나가 된다.
+   ⚠ 100% 를 0% 와 **같은 프레임으로 못박았다.** 옛 `sr-pulse` 는 100% 가 아예 없어 끝 상태가
+     요소의 정지 box-shadow(없음)로 보간됐고, 무한 반복이라 매 주기 끝에서 글로우가 사라졌다가
+     0% 에서 되돌아왔다 — 눈에 보이는 스냅이었다. 링 시작 반경이 0 인 둘(`tc`·`today-dot`)은
+     이 변경에 대해 픽셀 동일하다(반경 0 이면 색이 안 보인다). */
+@keyframes live-pulse {
+  0%,
+  100% {
+    box-shadow:
+      var(--pulse-gap, 0 0 0 0 transparent),
+      0 0 0 var(--pulse-r0, 0) var(--pulse-col, var(--acc)),
+      var(--pulse-halo, 0 0 0 0 transparent);
+  }
+  70% {
+    box-shadow:
+      var(--pulse-gap, 0 0 0 0 transparent),
+      0 0 0 var(--pulse-r, 8px) transparent,
+      var(--pulse-halo-peak, var(--pulse-halo, 0 0 0 0 transparent));
+  }
+}
+/* 맥동 노브 묶음 — JSX 임의 프로퍼티(`[--pulse-halo:0_0_12px_var(--glow)]`)로 적으면 값이
+   읽을 수 없게 되므로 CSS 쪽에 이름을 준다(`seg-scope`·`tint-scope` 와 같은 처리). */
+@utility pulse-online {
+  /* integrations 텔레메트리 online 채널 점 */
+  --pulse-col: color-mix(in srgb, var(--good) 50%, transparent);
+  --pulse-r: 7px;
+}
+@utility pulse-course {
+  /* degree 로드맵 '수강중' 노드 */
+  --pulse-r0: 2px;
+  --pulse-col: var(--acc-soft);
+  --pulse-r: 9px;
+  --pulse-halo: 0 0 12px var(--glow);
+}
+@utility pulse-now {
+  /* today 흐름 레일의 '지금' 노드 — 패널색 갭 링으로 점을 배경에서 떼어 낸다 */
+  --pulse-gap: 0 0 0 3px var(--panel);
+  --pulse-col: color-mix(in srgb, var(--acc) 65%, transparent);
+  --pulse-r: 10px;
+  --pulse-halo: 0 0 14px var(--glow);
+  --pulse-halo-peak: 0 0 20px var(--glow);
+}
+/* 흐름 — 배경 그라데이션이 좌우로 흐른다(스켈레톤 시머). */
+@keyframes live-flow {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+/* 회전 — 로딩 스피너(`ds.css` 의 `.ds-spin`). 옛 이름 `ds-sp`.
+   ⚠ 로드맵 E24 는 live 를 셋으로 닫는다고 적었는데 **넷이다** — 회전은 다른 셋과 메커니즘이
+     겹치지 않아 흡수할 곳이 없다. 지어낸 3 보다 실측된 4 를 적는다. */
+@keyframes live-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── commit — 내 행동이 반영됨 ─────────────────────────────────────────────
+   기본형은 **WAAPI**(`lib/motion.ts` 의 `commit()` · 안쪽 액센트 링 1회)다. 아래 둘은 CSS 로만
+   가능한 두 경우다: ① 스태거(여러 칸을 파도로) ② 축하(강화판). */
+/* 스윕 — `alloc` 보드에서 **여러 칸이 한꺼번에** 바뀔 때(자동 배분·지난 주 복사). 칸마다 다른
+   지연이 필요해 WAAPI 대신 CSS 다(지연은 런타임값이라 인라인 `animation-delay`). */
+@keyframes commit-ring {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  35% {
+    box-shadow: inset 0 0 0 2px var(--acc);
+  }
+}
+/* 축하 — commit 의 강화판. 옛 `gr-cele`(졸업 요건 100%)·`today-ring-cele`(하루 링 완주)는
+   scale 이 1.1 vs 1.12 로만 달랐다. **`live` 가 아니라 `commit`** 인 이유: 무한이 아니고 1회이며,
+   원인이 시스템이 아니라 사용자의 행동이다(어휘 이동이 E24 의 답 ②). */
+@keyframes commit-cele {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 18px var(--glow));
+  }
+}
+
+/* ── draw — 값이 자기 크기까지 자란다(E24 가 발견한 다섯째 어휘) ──────────────────────
+   링 arc(`stroke-dashoffset`)·막대(`height`/`scaleY`)·진행 채움(`width`)이 여기 속한다. 대부분은
+   `transition` 이라 키프레임이 하나뿐이지만(막대 마운트), **길이 토큰 `--draw` 가 이 어휘의
+   본체**다. enter 도 live 도 아니어서 700·1000ms 가 사다리 밖에 표류하고 있었다. */
+@keyframes draw-bar {
   from {
     transform: scaleY(0);
   }
@@ -72,116 +238,7 @@
     transform: scaleY(1);
   }
 }
-/* integrations 텔레메트리 online 채널 점의 라이브 펄스(C-7 · CSS Module 스코프를 벗어나 전역). */
-@keyframes tc-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 50%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 7px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-/* degree(졸업) 이식 — 로드맵 수강중 노드 펄스(sr-pulse) + 요건 100% 최초 충족 발광 플래시(gr-cele).
-   CSS Module 이 스코프하던 키프레임을 전역(unlayered)으로 옮긴다 — animate-[...] 에서 이름으로 참조하려면
-   스코프 밖이어야 한다(review 의 enter-rise · integrations 의 tc-pulse 와 같은 처리). */
-@keyframes sr-pulse {
-  0% {
-    box-shadow:
-      0 0 0 2px var(--acc-soft),
-      0 0 12px var(--glow);
-  }
-  70% {
-    box-shadow:
-      0 0 0 9px transparent,
-      0 0 12px var(--glow);
-  }
-}
-@keyframes gr-cele {
-  0% {
-    transform: scale(1);
-  }
-  30% {
-    transform: scale(1.1);
-    filter: drop-shadow(0 0 18px var(--glow));
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-/* today(오늘 대시보드) 이식 — 히어로 페이드/흐름 진입·오로라 호흡·라이브 펄스·완료 링
-   셀레브레이션·지금-노드 레이더 핑·상세 오버레이 페이드/슬라이드. CSS Module 이 스코프하던
-   키프레임을 전역(unlayered)으로 옮긴다(animate-[…] 이름 참조는 스코프 밖이어야 · enter-rise 처리와 동일).
-   ⚠ today-ring-cele 는 gr-cele 와 30% scale 이 다르다(1.12 vs 1.1) → 재사용 불가, 별도 정의. */
-@keyframes today-hero-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes today-aura-breathe {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.42;
-  }
-  50% {
-    transform: translateY(-2%) scale(1.05);
-    opacity: 0.56;
-  }
-}
-@keyframes today-live-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(0.82);
-  }
-}
-@keyframes today-ring-cele {
-  0% {
-    transform: scale(1);
-  }
-  30% {
-    transform: scale(1.12);
-    filter: drop-shadow(0 0 18px var(--glow));
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-@keyframes today-dot-ping {
-  0% {
-    box-shadow:
-      0 0 0 3px var(--panel),
-      0 0 0 0 color-mix(in srgb, var(--acc) 65%, transparent),
-      0 0 14px var(--glow);
-  }
-  70% {
-    box-shadow:
-      0 0 0 3px var(--panel),
-      0 0 0 10px transparent,
-      0 0 20px var(--glow);
-  }
-  100% {
-    box-shadow:
-      0 0 0 3px var(--panel),
-      0 0 0 0 transparent,
-      0 0 14px var(--glow);
-  }
-}
-/* graph(지식맵) 이식 — 노드 클릭 상세 패널 진입(enter-rise). CSS Module 이 스코프하던 키프레임을
-   전역(unlayered)으로 옮긴다(animate-[enter-rise_…] 이름 참조는 스코프 밖이어야 · enter-rise 처리와 동일).
-   ⚠ 캔버스 호스트 마운트는 enter-rise(translateY 6px)을 재사용하지만 enter-rise 은 8px 라 별도 정의. */
+
 /* ============================================================
    런타임 변수 스코프 유틸(C-7 · 2026-07-24 셸 티어 중 발견한 **선존 결함**의 수정)
 
@@ -254,66 +311,6 @@
   --tilt-today: perspective(1100px) rotateX(var(--tiltX, 0deg)) rotateY(var(--tiltY, 0deg));
 }
 
-/* FocusChip(셸 5/5) 라이브 펄스 — CSS Module 이 스코프하던 키프레임을 전역(unlayered)으로.
-   reduced-motion 은 유틸(`motion-reduce:animate-none`)이 담당한다(원본 미디어쿼리 대체). */
-@keyframes focus-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.78);
-  }
-}
-
-/* alloc(주간 배분 보드) 툴바 액션 결과 스윕(UX-A4) — '지난 주 복사'·'자동으로' 는 결과가 그리드
-   곳곳에 흩어지는데 피드백이 토스트뿐이라, 무엇이 실제로 바뀌었는지 눈으로 못 찾았다. 바뀐 칸만
-   1회 훑는다(칸마다 다른 stagger 지연은 런타임값이라 인라인 `animation-delay` 로 준다).
-   ⚠ CSS 애니라 전역 reduced-motion 백스톱(`global/features.css`)이 그대로 닿는다 — 별도 JS 가드
-   불필요. 같은 팩의 착지 펄스(UX-A3)는 **WAAPI** 라 그 백스톱이 안 닿아 matchMedia 로 직접 막는다. */
-@keyframes alloc-sweep {
-  0%,
-  100% {
-    box-shadow: inset 0 0 0 0 transparent;
-  }
-  35% {
-    box-shadow: inset 0 0 0 2px var(--acc);
-  }
-}
-
-/* ── components/*(공유 프리미티브 티어) 이식(C-7) ─────────────────────────────
-   OnlineStatus 배지 진입 · Tooltip 페이드. 전역(unlayered)인 이유는 위와 같다 —
-   CSS Modules 는 keyframe 이름을 스코프해 `animate-[…]` 가 못 부른다.
-   ⚠ os-slide-up 의 `translate(-50%, …)` 는 배지의 `-translate-x-1/2` 를 애니메이션이
-   덮어쓰기 때문에 X 성분을 그대로 갖고 있어야 한다(원본과 동일). */
-@keyframes os-slide-up {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 12px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-/* DetailDrawer — 오버레이 페이드 · 우측 슬라이드 · 중앙 시트 팝. 셋 다 `from` 만 있는
-   원본을 그대로 옮긴다(끝 상태 = 요소의 정지 스타일이므로 `to` 를 안 쓴다). */
-@keyframes dd-pop {
-  from {
-    transform: scale(0.97);
-    opacity: 0;
-  }
-}
-
-/* CommandPalette 오버레이 페이드(원본 `fade` — 이름을 컴포넌트 접두사로 명확히). */
-/* Skeleton 시머(C-7 마지막 티어) — 배경 그라데이션이 좌우로 흐른다. */
-@keyframes sk-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
+/* ⚠ 옛 `focus-pulse`·`alloc-sweep`·`os-slide-up`·`dd-pop`·`sk-shimmer` 가 여기 있었다 —
+   전부 이 파일 위쪽 어휘로 흡수됐다(각각 `live-breathe`·`commit-ring`·`enter-rise`(--rise-x)·
+   `enter-pop`(--pop-y:0)·`live-flow`). 컴포넌트 이름을 단 키프레임은 이제 0개다. */
