@@ -110,13 +110,38 @@ pub fn run() {
             updater::install_update,
         ])
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            /* ⚠⚠ **릴리스에도 로거를 등록한다(H1 · 2026-07-30 `/감사 근본`).**
+
+            종전엔 이 블록이 `if cfg!(debug_assertions)` 안에 있었다 → **배포본에서 Rust 로그가
+            전부 사라졌다.** 그 대가가 구체적이다:
+
+            · **볼트 감시 중단**(`vault.rs`)의 유일한 신호가 `log::error!` 다 → 자동 갱신이 멈춘
+              사실이 화면·로그·텔레메트리 **어디에도** 없었다. 사용자는 "왜 안 바뀌지"만 안다.
+            · **전역 캡처 발동 실패**(`hotkey.rs`)도 `log::warn!` 뿐이다 → E20 이 *등록* 실패를
+              관측 가능하게 만들어 둔 그 파일에서, *발동* 실패는 여전히 무음이었다.
+
+            2026-07-25 감사가 세운 명제("배포 후를 보는 층이 0")를 텔레메트리·업데이터로 닫았는데,
+            **Rust 쪽 절반이 컴파일 조건 하나로 빠져 있었다.** dev 에서는 정상으로 보이므로
+            이 부류는 릴리스 빌드로만 드러난다.
+
+            ⚠ 레벨을 갈라 둔다: dev 는 `Info`(개발 중 흐름을 본다), 릴리스는 `Warn`(디스크에
+              쌓이는 것은 문제만). 파일 타깃이 있어야 사용자가 나중에 첨부할 수 있다 —
+              stdout 만 두면 GUI 앱에서는 그 출력이 아무 데도 안 남는다. */
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(if cfg!(debug_assertions) {
+                        log::LevelFilter::Info
+                    } else {
+                        log::LevelFilter::Warn
+                    })
+                    .target(tauri_plugin_log::Target::new(
+                        tauri_plugin_log::TargetKind::LogDir { file_name: None },
+                    ))
+                    .target(tauri_plugin_log::Target::new(
+                        tauri_plugin_log::TargetKind::Stdout,
+                    ))
+                    .build(),
+            )?;
             // 볼트 파일 감시(3단계) — 실패해도 앱은 뜬다(감시가 없으면 수동 갱신으로 돌아갈 뿐).
             vault::start_watch(app.handle().clone());
             // 탐구 잡 이력 복원(4단계-D). running 이던 잡은 '중단됨'으로 내린다 —

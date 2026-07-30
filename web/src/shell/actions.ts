@@ -377,19 +377,38 @@ export async function backupToVault(): Promise<void> {
 
 /** 오래된 기록(기본 6개월 이전) 보관 파일로 내려받고 앱에서 비움. */
 export function archiveOld(monthsKeep = 6): void {
-  let count = 0;
-  let archive: unknown = null;
-  st().mutate((s) => {
-    const res = archiveOldData(s, monthsKeep);
-    count = res.count;
-    archive = res.archive;
-  });
-  if (!count) {
+  /* ⚠⚠ **저장이 확인된 뒤에만 비운다(H2 · 2026-07-30 `/감사 근본`).**
+
+     종전 순서는 `mutate(archiveOldData)`(= 상태에서 **삭제**) → `download(...)`(**반환값 무시**)
+     → "내려받고 비웠어요" 토스트였다. 셸의 `download` 는 저장 대화를 띄우고 취소 시 `false` 를
+     주는데 그 값을 읽지 않았으므로, **사용자가 취소하면 6개월치 기록이 파일 없이 사라졌다.**
+     그리고 `runCloseout`("하루 마감")이 이 함수를 무인 호출하므로 버튼 한 번이 발동시킨다.
+
+     이건 같은 파일 `downloadCorruptSnapshot` 이 H19(2026-07-26)에서 이미 고친 형태이고, 그때
+     세운 원칙("복구 경로가 복구 대상을 파괴한다")을 이 함수가 위반한 채 남아 있었다.
+
+     → ① **사본**에서 보관 payload 를 만들고(상태 무변경) ② 저장 성공을 확인한 뒤 ③ 실제로 비운다.
+     ⚠ ①의 cutoff 를 ③에 물려준다 — 저장 대화가 자정을 넘겨 열려 있으면 두 번째 계산이 하루
+       밀려 **보관한 것과 지운 것이 어긋난다**(`archiveOldData` 의 `cutoffOverride` 주석). */
+  const preview = archiveOldData(structuredClone(st().state), monthsKeep);
+  if (!preview.count) {
     toast('정리할 오래된 기록이 없어요(6개월 이전 기록 없음).', 'info', 3200);
     return;
   }
-  download(`러닝허브_보관_${todayISO()}.json`, JSON.stringify(archive, null, 2), 'application/json');
-  toast(`${count}건을 보관 파일로 내려받고 앱에서 비웠어요.`, 'ok', 4200);
+  void download(`러닝허브_보관_${todayISO()}.json`, JSON.stringify(preview.archive, null, 2), 'application/json').then(
+    (saved) => {
+      if (!saved) {
+        /* 취소·실패 — 앱의 기록은 손대지 않았다. 그 사실을 말해야 사용자가 "지워졌나?" 를
+         의심하지 않는다(조용한 무반응이 최악이라는 규율). */
+        toast('보관 파일을 저장하지 않았어요 — 앱의 기록은 그대로 뒀어요.', 'warn', 5000);
+        return;
+      }
+      st().mutate((s) => {
+        archiveOldData(s, monthsKeep, preview.archive.cutoff);
+      });
+      toast(`${preview.count}건을 보관 파일로 내려받고 앱에서 비웠어요.`, 'ok', 4200);
+    },
+  );
 }
 
 /** 내보내기 범위 → [from, to] ds. 'week'=이번 주 월요일~오늘(리뷰 주간 케이던스와 정렬),

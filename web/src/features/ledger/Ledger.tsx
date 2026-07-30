@@ -20,7 +20,7 @@ import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { classifyArtifact, needsWorkspace } from '@/lib/artifactState';
+import { classifyArtifact, needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { openVaultSearch, pctLabel } from '@/lib/utils';
 import {
   LEDGER_STAGES,
@@ -341,8 +341,9 @@ export default function Ledger() {
       } else {
         ui.toast((r.out || '').slice(0, 140) || `${needsWorkspace('원장 재빌드에 실패했어요')}.`, 'bad');
       }
-    } catch {
-      ui.toast('원장 재빌드에 실패했어요(워크스페이스 설정 필요).', 'bad');
+    } catch (e) {
+      // H23 — 사유를 버리지 않는다(동시성 캡 소진을 워크스페이스 문제로 말하던 자리).
+      ui.toast(`${toolFailureCopy(e, '원장 재빌드에 실패했어요')}.`, 'bad');
     } finally {
       setRebuilding(false);
     }

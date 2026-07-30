@@ -22,6 +22,8 @@ import { initAppStore, dbDowngrade } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';
 import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
+// H21 — 부팅 체인이 render 에 도달하지 못한 경우의 최후 화면. **의존 0** 이 그 모듈의 계약이다.
+import { showBootFallback } from '@/lib/bootFallbackScreen';
 
 /* ⚠ `ThemeProvider` 를 **정적으로 import 하지 않는다** — 아래 계약이 그것 때문에 깨져 있었다.
    ThemeProvider 는 `useApp` 을 import 하고, ES import 는 호이스팅되므로 그 한 줄이 스토어를
@@ -118,4 +120,12 @@ void initAppStore()
         </ErrorBoundary>
       </StrictMode>,
     );
+  })
+  /* ⚠⚠ **종단 catch — 없으면 청크 로드 실패가 영구 백지다(H21 · 2026-07-30 `/감사 근본`).**
+     위 `await import('@/app/App')` 이 실패하면 `render()` 에 도달하지 못하고 `#root` 는 빈 div
+     그대로다. `ShellFallback` 은 **자기가 렌더되지 못하는 트리 안에** 있어 정의상 못 잡는다 —
+     즉 폴백이 있는데 이 경로만 폴백이 없었다. 근거·의존 0 계약은 그 모듈 머리주석이 SSOT. */
+  .catch((e: unknown) => {
+    reportError(e, 'boot-chain');
+    showBootFallback(e);
   });

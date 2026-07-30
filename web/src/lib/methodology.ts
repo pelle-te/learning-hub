@@ -437,8 +437,18 @@ export interface ArchiveResult {
   count: number;
 }
 /** cutoff(기본 6개월) 이전 기록을 archive로 분리하고 state에서 비운다(다운로드는 호출부). */
-export function archiveOldData(state: AppState, monthsKeep = 6): ArchiveResult {
-  const cutoff = iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30))); // '오늘' 단일 출처(_today 시드 존중)
+/**
+ * `cutoffOverride` 는 **같은 경계를 두 번 계산하지 않기 위한** 인자다(H2 · 2026-07-30).
+ *
+ * `shell/actions.ts` 의 `archiveOld` 는 이제 ① 사본에서 보관 payload 를 만들고 ② 저장이
+ * **성공한 뒤에** 실제 상태를 비운다(H19 와 같은 규율 — 복구 경로가 복구 대상을 파괴하면 안 된다).
+ * 그 둘 사이에는 사용자가 저장 대화를 붙들고 있는 **임의의 시간**이 있고, 그동안 자정을 넘기면
+ * 두 번째 호출의 cutoff 가 하루 밀려 **보관한 것과 지운 것이 어긋난다**(archive 엔 없는 날이
+ * 지워지거나 그 반대). 첫 호출이 정한 경계를 그대로 물려줘 그 창을 없앤다.
+ */
+export function archiveOldData(state: AppState, monthsKeep = 6, cutoffOverride?: string): ArchiveResult {
+  // '오늘' 단일 출처(_today 시드 존중). 넘겨받았으면 그 값이 진리다(위 주석).
+  const cutoff = cutoffOverride ?? iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30)));
   const arch: ArchiveResult['archive'] = {
     schemaVersion: SCHEMA_VERSION,
     archivedAt: new Date().toISOString(),

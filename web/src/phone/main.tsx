@@ -25,6 +25,8 @@ import { initPhoneStore } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';
 import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
+// H21 — 종단 폴백. 폰은 SW autoUpdate 때문에 청크 로드 실패의 도달 가능성이 더 높다.
+import { showBootFallback } from '@/lib/bootFallbackScreen';
 
 function Fallback(): React.JSX.Element {
   return (
@@ -80,4 +82,12 @@ void initPhoneStore()
       );
     };
     render(connected);
+  })
+  /* ⚠⚠ **종단 catch(H21).** 폰은 이 경로의 도달 가능성이 데스크톱보다 **높다**: SW 가
+     `registerType:'autoUpdate'`(skipWaiting)라, 새 배포가 precache 를 갈아치우는 중에 구 해시
+     청크를 요청하면 그 import 가 죽는다. 그때 종전에는 흰 화면에 버튼이 0개였다 —
+     지하철에서 5분 쓰는 화면이 그 상태가 되면 사용자가 할 수 있는 일이 없다. */
+  .catch((e: unknown) => {
+    reportError(e, 'phone-boot-chain');
+    showBootFallback(e);
   });

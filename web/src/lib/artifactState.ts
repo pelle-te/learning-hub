@@ -90,6 +90,30 @@ export function needsWorkspace(what: string): string {
 }
 
 /**
+ * 도구 실행이 **던진** 경우의 문구(H23 · 2026-07-30 `/감사 근본`).
+ *
+ * ⚠⚠ **모든 예외를 "워크스페이스 설정 필요"로 말하지 말 것.** `run_tool` 의 `Err` 경로에는
+ * 워크스페이스와 무관한 사유가 실재한다 — `tools.rs` 의 **동시성 캡 소진**("이미 실행 중인
+ * 도구가 많아요 — 잠시 후 다시.")과 **알 수 없는 도구**가 그것이다. 그것을 워크스페이스
+ * 문제로 말하면 사용자는 **이미 설정해 둔 워크스페이스를 다시 설정하러 간다** — 처방이
+ * 원인과 무관하니 아무리 따라도 해결되지 않는다.
+ *
+ * 서버가 사유를 정확히 주는데 클라이언트가 한 문장으로 뭉개는 부류이고, H17(D1 한도를
+ * "재시도 가능"으로 오분류)·H23①(등록 429)과 **같은 계열**이다. 올바른 형태는 이 저장소에
+ * 이미 있었다 — `components/useCollectTool` 은 같은 자리에서 `e.message` 를 그대로 보여 준다.
+ *
+ * @param what 무엇을 못 했나(예: `'원장 재빌드에 실패했어요'`)
+ */
+export function toolFailureCopy(e: unknown, what: string): string {
+  const msg = e instanceof Error ? e.message.trim() : typeof e === 'string' ? e.trim() : '';
+  /* 사유가 있으면 그것이 가장 정확한 안내다. 길이만 자른다(토스트 한 줄) — 내용을 해석해
+     분류하려 들면 그 분류가 곧 다음 오진이 된다(문구는 Rust 소유다). */
+  if (msg) return `${what} — ${msg.slice(0, 140)}`;
+  // 사유를 못 얻은 경우에만 종전 추측으로 폴백한다. 그때도 그것이 추측임이 문장에 드러난다.
+  return needsWorkspace(what);
+}
+
+/**
  * 산출물 로드 실패 문구 — 옛 `components/ArtifactError` 가 컴포넌트로 들고 있던 것.
  *
  * ⚠ **컴포넌트가 아니라 문구여야 한다**(E17). `ArtifactError` 는 `State` 를 한 겹 감싸 제목·설명을

@@ -16,8 +16,24 @@ export function useCollectTool(
   tool: string,
   refetch: () => Promise<unknown>,
   doneMsg: string,
-): { collecting: boolean; collect: (silent?: boolean) => Promise<boolean>; cancel: () => void } {
+): {
+  collecting: boolean;
+  collect: (silent?: boolean) => Promise<boolean>;
+  cancel: () => void;
+  /** 마지막 수집 실패 사유(성공하면 null). **`silent` 여도 기록된다** — 근거는 아래 H23 주석. */
+  lastError: string | null;
+} {
   const [collecting, setCollecting] = useState(false);
+  /* ⚠⚠ **조용한 실패를 상태로 남긴다(H23 · 2026-07-30 `/감사 근본`).**
+
+     `useAutoCollect` 는 `collect(true)`(silent)로 부르므로 실패 시 토스트가 0 이었다. 그 뒤
+     화면은 `classifyArtifact` 가 `empty` 로 분류해 **"아직 수집 안 됨"** 안내를 띄운다 →
+     사용자는 *"받으려다 실패했다"* 와 *"안 받았다"* 를 구별할 수 없고, 그 둘의 처방은 다르다
+     (전자는 파이썬·워크스페이스 확인, 후자는 그냥 수집 버튼).
+
+     조용한 것 자체는 옳다 — 자동 수집이 매번 토스트를 쏘면 그게 소음이다. 틀린 것은
+     **아무 데도 안 남는다**는 것이었다. 그래서 토스트는 그대로 억제하고 상태로 보관한다. */
+  const [lastError, setLastError] = useState<string | null>(null);
   const ctrlRef = useRef<AbortController | null>(null);
 
   /** 진행 중인 수집을 취소 — 물린 연결/느린 서버를 스피너에 갇히지 않고 끊는다. */
@@ -37,16 +53,20 @@ export function useCollectTool(
         if (res.ok) {
           await refetch();
           ok = true;
+          setLastError(null); // 성공이 사유를 지운다 — 낡은 경고가 남으면 그게 다음 오진이다
           if (!silent) toast(doneMsg, 'ok');
-        } else if (!silent) {
-          toast('수집 실패 — 아래 실행 로그를 확인하세요', 'bad');
+        } else {
+          setLastError((res.out || '').slice(0, 140) || '수집 스크립트가 실패했어요');
+          if (!silent) toast('수집 실패 — 아래 실행 로그를 확인하세요', 'bad');
         }
       } catch (e) {
         // 사용자 취소/타임아웃(AbortError)은 실패 토스트로 겁주지 않는다.
         if (ctrl.signal.aborted) {
+          setLastError(null); // 취소는 실패가 아니다
           if (!silent) toast('수집을 취소했어요', 'ok');
-        } else if (!silent) {
-          toast('수집 요청 실패: ' + ((e as Error).message || e), 'bad');
+        } else {
+          setLastError(String((e as Error)?.message || e).slice(0, 140));
+          if (!silent) toast('수집 요청 실패: ' + ((e as Error).message || e), 'bad');
         }
       }
       ctrlRef.current = null;
@@ -55,7 +75,7 @@ export function useCollectTool(
     },
     [collecting, tool, refetch, doneMsg],
   );
-  return { collecting, collect, cancel };
+  return { collecting, collect, cancel, lastError };
 }
 
 /** 크로스데이 자동수집 — 온라인·비로딩·비수집이고 데이터가 '오늘 신선'하지 않으면 마운트당 1회 조용히 수집.

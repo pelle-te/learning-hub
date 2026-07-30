@@ -20,6 +20,11 @@
    그래서 실패를 **상태로 보관**하고 `capabilities` 에 실어 보낸다 — 그 커맨드는 이미 프런트 8곳이
    "백엔드를 지금 쓸 수 있는가"로 소비하는 진단 채널이라, 새 표면을 만들지 않고 관측이 붙는다.
 
+   ⚠ **2026-07-30 `/감사 근본`(H1) 정정: 위 문장은 *등록* 에만 참이었다.** 발동(창 표시·포커스·
+   이벤트 전달) 실패는 `log::warn!` 뿐이었고 릴리스엔 로거가 없었다(`lib.rs` 가 로거를
+   `debug_assertions` 안에만 등록했다) → 배포본에서 무음. `get_webview_window` 가 `None` 인
+   분기는 **로그조차 없었다**. 지금은 발동 실패도 `LAST_FIRE_ERR` 로 같은 채널을 탄다.
+
    ## 범위 — **앱이 실행 중일 때만 산다**(2026-07-30 실측으로 확정)
 
    전역 단축키의 OS 등록은 **프로세스에 묶인다** — 앱이 꺼지면 조합도 함께 풀린다. 그래서 이
@@ -59,15 +64,36 @@ pub const CAPTURE_EVENT: &str = "global-capture";
 /// 등록 결과 — `None` 이면 아직 시도 전(비-데스크톱·테스트), `Some(Ok)` 성공, `Some(Err)` 실패 사유.
 static STATUS: Mutex<Option<Result<(), String>>> = Mutex::new(None);
 
+/* ⚠⚠ **발동(fire) 실패도 관측한다(H1 · 2026-07-30 `/감사 근본`).**
+
+이 파일의 머리주석은 *등록* 실패를 삼키지 않는 것을 존재 이유의 절반으로 선언했는데,
+**발동 실패는 그 규율 밖이었다**: `w.show()`·`set_focus()`·`emit()` 이 실패하면 `log::warn!`
+뿐이었고, 릴리스 빌드엔 로거가 아예 없었다(H1 의 나머지 절반 — `lib.rs`). 더 나쁜 것은
+`get_webview_window("main")` 이 `None` 인 경우인데, 그때는 분기 전체가 **로그조차 없이**
+no-op 이었다.
+
+사용자가 보는 증상은 등록 실패와 **똑같다** — "키를 눌렀는데 아무 일도 안 일어난다".
+원인이 다른데 관측 가능성이 갈리면, 제보를 받아도 어느 쪽인지 모른다. 같은 채널로 보낸다. */
+static LAST_FIRE_ERR: Mutex<Option<String>> = Mutex::new(None);
+
+fn note_fire_err(what: &str, e: impl std::fmt::Display) {
+    log::warn!("전역 캡처 — {what} 실패: {e}");
+    *LAST_FIRE_ERR.lock().expect("hotkey fire err") = Some(format!("{what} 실패: {e}"));
+}
+
 /// 등록 상태를 읽는다. `capabilities` 가 이 값을 실어 프런트로 보낸다.
 ///
 /// 반환: `(등록됨, 실패 사유)`. 아직 시도 전이면 `(false, None)` — **`false` 를 "실패"로 읽지 말 것**.
 /// 사유가 있어야 실패다(그 구분이 없으면 브라우저·테스트가 전부 "실패"로 보인다).
+///
+/// ⚠ 등록은 됐는데 **발동**이 실패한 경우도 사유를 싣는다(H1). 그때 첫 값은 `true` 로 남는다 —
+/// 등록은 실제로 됐기 때문이다. 두 실패를 한 채널로 보내되 **서로 덮지 않는다**(등록 실패가 우선).
 pub fn status() -> (bool, Option<String>) {
+    let fire = LAST_FIRE_ERR.lock().expect("hotkey fire err").clone();
     match &*STATUS.lock().expect("hotkey status") {
-        Some(Ok(())) => (true, None),
+        Some(Ok(())) => (true, fire),
         Some(Err(e)) => (false, Some(e.clone())),
-        None => (false, None),
+        None => (false, fire),
     }
 }
 
@@ -92,20 +118,25 @@ pub fn register(app: &tauri::AppHandle) {
             if event.state() != ShortcutState::Pressed {
                 return;
             }
-            if let Some(w) = handle.get_webview_window("main") {
-                /* 창을 띄우고 포커스 — 최소화·백그라운드 상태에서 눌러도 즉시 쓸 수 있어야 한다.
-                ⚠ 실패를 삼키지 않는다: 여기서 실패하면 키는 먹었는데 창이 안 뜨는 상태이고,
-                  그건 사용자에게 "고장"으로 보인다. */
-                if let Err(e) = w.show() {
-                    log::warn!("전역 캡처 — 창 표시 실패: {e}");
-                }
-                if let Err(e) = w.set_focus() {
-                    log::warn!("전역 캡처 — 포커스 실패: {e}");
-                }
-                // 무엇을 열지는 프런트가 정한다(라우팅·팔레트는 화면 층의 결정).
-                if let Err(e) = handle.emit(CAPTURE_EVENT, ()) {
-                    log::warn!("전역 캡처 — 이벤트 전달 실패: {e}");
-                }
+            let Some(w) = handle.get_webview_window("main") else {
+                /* ⚠ 종전엔 이 분기가 **로그조차 없는 no-op** 이었다(H1). 창이 없는 상태에서
+                키를 누르면 아무 일도 안 일어나고 아무 데도 안 남았다 — 등록 실패와 증상이
+                같은데 관측 가능성만 갈렸다. */
+                note_fire_err("메인 창을 찾지 못함", "창이 없거나 이미 파괴됨");
+                return;
+            };
+            /* 창을 띄우고 포커스 — 최소화·백그라운드 상태에서 눌러도 즉시 쓸 수 있어야 한다.
+            ⚠ 실패를 삼키지 않는다: 여기서 실패하면 키는 먹었는데 창이 안 뜨는 상태이고,
+              그건 사용자에게 "고장"으로 보인다. */
+            if let Err(e) = w.show() {
+                note_fire_err("창 표시", e);
+            }
+            if let Err(e) = w.set_focus() {
+                note_fire_err("포커스", e);
+            }
+            // 무엇을 열지는 프런트가 정한다(라우팅·팔레트는 화면 층의 결정).
+            if let Err(e) = handle.emit(CAPTURE_EVENT, ()) {
+                note_fire_err("이벤트 전달", e);
             }
         })
         .map_err(|e| e.to_string());
@@ -151,6 +182,39 @@ mod tests {
         assert!(!ok);
         // 사유가 프런트까지 가야 사용자가 "다른 앱이 선점했다"를 알 수 있다.
         assert_eq!(err.as_deref(), Some("HotKey already registered"));
+    }
+
+    /* H1(2026-07-30 `/감사 근본`) — **발동 실패도 같은 채널로 간다.** 사용자가 보는 증상이
+    등록 실패와 같으므로(키를 눌렀는데 아무 일도 안 일어난다), 관측 가능성이 갈리면 제보를
+    받아도 어느 쪽인지 모른다. 여기서 잠그는 것은 **두 실패가 서로를 덮지 않는다**는 것이다. */
+    #[test]
+    fn 등록은_됐는데_발동이_실패하면_등록됨_true_에_사유가_실린다() {
+        set_status(Some(Ok(())));
+        *LAST_FIRE_ERR.lock().unwrap() = None;
+        note_fire_err("창 표시", "테스트 사유");
+
+        let (ok, err) = status();
+        assert!(
+            ok,
+            "등록은 실제로 됐다 — false 로 뒤집으면 진단이 거짓말한다"
+        );
+        assert!(
+            err.as_deref().is_some_and(|s| s.contains("창 표시")),
+            "발동 실패 사유가 프런트까지 가야 한다: {err:?}"
+        );
+        *LAST_FIRE_ERR.lock().unwrap() = None;
+    }
+
+    #[test]
+    fn 등록_실패가_발동_사유에_덮이지_않는다() {
+        set_status(Some(Err("HotKey already registered".into())));
+        note_fire_err("포커스", "나중에 난 실패");
+
+        let (ok, err) = status();
+        assert!(!ok);
+        // 등록이 안 됐으면 그게 근본 원인이다 — 발동 사유를 앞세우면 엉뚱한 곳을 보게 된다.
+        assert_eq!(err.as_deref(), Some("HotKey already registered"));
+        *LAST_FIRE_ERR.lock().unwrap() = None;
     }
 
     #[test]

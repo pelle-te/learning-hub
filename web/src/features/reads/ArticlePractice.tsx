@@ -51,6 +51,7 @@ export default function ArticlePractice({
   refetchPing,
   collecting,
   collect,
+  collectError,
 }: {
   articles: Article[];
   work: Record<string, ArticleWork>;
@@ -67,6 +68,8 @@ export default function ArticlePractice({
      주입(SR-13). 자식이 별도 인스턴스를 만들면 collecting 상태가 둘로 갈렸다. */
   collecting: boolean;
   collect: (silent?: boolean) => Promise<boolean>;
+  /** 조용한 자동 수집의 마지막 실패 사유(H23) — 부모의 단일 `useCollectTool` 인스턴스가 소유한다. */
+  collectError?: string | null;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [progress, setProgress] = useState<Progress>('all');
@@ -268,6 +271,7 @@ export default function ArticlePractice({
           collecting={collecting}
           onCollect={() => void collect()}
           collectLabel="지문 수집 시작"
+          collectError={collectError}
         />
       </div>
     );

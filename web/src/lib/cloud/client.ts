@@ -120,7 +120,23 @@ export async function enrollDevice(baseUrl: string, code: string, name: string):
     { 'Content-Type': 'application/json' },
     JSON.stringify({ code, name }),
   );
-  if (!res.ok) throw new Error(`등록 실패(${res.status}) — 코드가 틀렸거나 만료됐습니다.`);
+  /* ⚠⚠ **상태코드마다 다른 처방을 준다(H23 · 2026-07-30 `/감사 근본`).**
+
+     종전엔 전 상태코드가 _"코드가 틀렸거나 만료됐습니다"_ 였다. 그런데 `/api/enroll/*` 에는
+     `rateGuard` 가 붙어 있어(`server/src/index.ts`) **429** 를 준다 → 오진의 처방("새 코드를
+     받으세요")이 **리미터를 한 번 더 때린다**. 사용자는 코드를 계속 새로 받으며 점점 더 막힌다.
+
+     이 저장소가 H17(D1 한도를 "재시도 가능"으로 오분류)에서 고친 것과 같은 부류다: 서버는
+     사유를 정확히 말하고 있는데 클라이언트가 한 문장으로 뭉갰다. */
+  if (!res.ok) {
+    const why =
+      res.status === 429
+        ? '요청이 너무 잦아요 — 잠시 뒤 다시 시도해 주세요(새 코드를 받을 필요는 없어요).'
+        : res.status >= 500
+          ? '서버에 문제가 있어요 — 잠시 뒤 다시 시도해 주세요.'
+          : '코드가 틀렸거나 만료됐습니다.';
+    throw new Error(`등록 실패(${res.status}) — ${why}`);
+  }
   const j = (asJson(res) ?? {}) as { deviceId?: unknown; refreshToken?: unknown };
   if (typeof j.deviceId !== 'string' || typeof j.refreshToken !== 'string') {
     throw new Error('등록 응답이 계약과 다릅니다.');

@@ -21,7 +21,7 @@ import {
   type DiscoveryDecision,
 } from '@/lib/discovery';
 import { runTool } from '@/lib/api';
-import { needsWorkspace } from '@/lib/artifactState';
+import { needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useNavigate } from 'react-router-dom';
 import { Button, SkeletonText } from '@/components/ui';
@@ -80,8 +80,9 @@ export default function Discovery() {
       } else {
         ui.toast((r.out || '').slice(0, 140) || `${needsWorkspace('결정을 반영하지 못했어요')}.`, 'bad');
       }
-    } catch {
-      ui.toast(`${needsWorkspace('결정을 반영하지 못했어요')}.`, 'bad');
+    } catch (e) {
+      // H23 — 사유를 버리지 않는다(같은 오진이 두 곳에 있었다).
+      ui.toast(`${toolFailureCopy(e, '결정을 반영하지 못했어요')}.`, 'bad');
     } finally {
       setBusy(null);
     }

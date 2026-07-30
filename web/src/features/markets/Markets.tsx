@@ -117,7 +117,11 @@ export default function Markets() {
   const briefResultRef = useRef<HTMLDivElement>(null);
 
   // silent=자동 수집(탭 열 때 오늘 데이터가 없으면) — 성공 토스트를 띄우지 않는다.
-  const { collecting, collect: collectRaw } = useCollectTool('markets-collect', markets.refetch, '증시 동향 수집 완료');
+  const {
+    collecting,
+    collect: collectRaw,
+    lastError: collectError,
+  } = useCollectTool('markets-collect', markets.refetch, '증시 동향 수집 완료');
   const collect = useCallback(
     async (silent = false) => {
       // 수집이 데이터를 갈면 옛 브리핑은 다른 날의 해설 — 무효화해 다음 열람 때 새로 받는다.
@@ -240,6 +244,7 @@ export default function Markets() {
             collecting={collecting}
             onCollect={() => void collect()}
             collectLabel="증시 동향 수집 시작"
+            collectError={collectError}
           />
         </div>
       </section>

@@ -68,7 +68,11 @@ export default function Reads() {
   // 아니면 마운트당 1회 자동 수집(어제 지문이 조용히 남는 문제). 장중 갱신은 목록 헤더의 '수집' 버튼.
   // 오프라인이면 수집하지 않는다(!online 가드). 자동수집 이펙트는 useAutoCollect로 수렴(SR-13).
   // 이 단일 인스턴스가 collect/collecting의 SSOT — ArticlePractice(수동 '수집' 버튼·빈상태)에 prop으로 전달.
-  const { collecting, collect } = useCollectTool('reads-collect', reads.refetch, '읽을거리 수집 완료');
+  const {
+    collecting,
+    collect,
+    lastError: collectError,
+  } = useCollectTool('reads-collect', reads.refetch, '읽을거리 수집 완료');
   const d = reads.data;
   const fresh = !!d && d.date === todayISO() && d.articles.length > 0;
   useAutoCollect(collect, { online, isLoading: reads.isLoading, collecting, fresh });
@@ -163,6 +167,7 @@ export default function Reads() {
           refetchPing={refetchPing}
           collecting={collecting}
           collect={collect}
+          collectError={collectError}
         />
       ) : (
         <BookShelf books={local.books} setBooks={setBooks} />
