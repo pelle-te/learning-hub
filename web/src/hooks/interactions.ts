@@ -7,6 +7,7 @@
 ============================================================ */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { minutesOfDay } from '@/lib/utils';
+import { prefersReducedMotion } from '@/lib/motion';
 import { useKeymap } from './useKeymap';
 
 /** 현재 표시값→target으로 부드럽게 카운트업/다운(easeOutCubic). reduced-motion·SSR이면 즉시 target.
@@ -15,7 +16,9 @@ export function useCountUp(target: number, ms = 750): number {
   const [v, setV] = useState(0);
   const vRef = useRef(0); // 현재 표시값 미러(deps에 넣지 않고 애니메이션 시작점으로 읽기 위함)
   useEffect(() => {
-    const reduce = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // ⚠ 판정은 `lib/motion` 하나다(H19) — 여기서 matchMedia 를 직접 부르면 앱 설정('발광 효과
+    //    줄이기')을 모르는 사본이 된다. 그 사본들이 설정 라벨을 거짓으로 만들고 있었다.
+    const reduce = prefersReducedMotion();
     if (reduce || typeof requestAnimationFrame === 'undefined') {
       vRef.current = target;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 모션 자제 시 애니메이션 없이 즉시 최종값.

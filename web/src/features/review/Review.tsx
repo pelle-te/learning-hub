@@ -5,6 +5,7 @@
 ============================================================ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LiveRegion from '@/components/LiveRegion';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { toast, toastUndo } from '@/shell/toast';
@@ -502,6 +503,13 @@ function CoachCard({ ds0 }: { ds0: string }) {
       ) : (
         <div className="ds-foot">이번 주 요약·오답·백지 기록이 쌓이면 코칭이 나와요.</div>
       )}
+      {/* ⚠ **공지는 미리 서 있는 리전이 맡는다**(H22 · 2026-07-30). 종전엔 `role="alert"`/`status` 가
+          `{aiErr && …}`·`{ai && …}` 안쪽 노드에 붙어 있어 **리전과 텍스트가 동시에 삽입**됐다 —
+          `shell/toast` 가 "그러면 AT 에 따라 공지가 통째로 씹힌다"고 적어 둔 그 형태다. AI 회고는
+          수 초 뒤에 비동기로 도착하므로, 씹히면 스크린리더 사용자에겐 **버튼을 눌렀는데 아무 일도
+          안 일어난 것**이 된다. 오류만 assertive(하던 일을 끊어도 되는 소식)다. */}
+      <LiveRegion message={aiErr ?? ''} assertive />
+      <LiveRegion message={ai ? 'AI 회고가 도착했어요' + (ai.headline ? ` — ${ai.headline}` : '') : ''} />
       <div className={COACH_AI}>
         <Button
           sm
@@ -519,9 +527,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
         </Button>
         {aiErr && (
           <>
-            <span className="ds-muted ds-tiny" role="alert">
-              {aiErr}
-            </span>
+            <span className="ds-muted ds-tiny">{aiErr}</span>
             <Button sm variant="ghost" onClick={askAI} disabled={aiBusy || !online}>
               다시 시도
             </Button>
@@ -535,7 +541,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
         </p>
       )}
       {ai && (
-        <div className={AI_BOX} role="status">
+        <div className={AI_BOX}>
           {ai.headline && <div className={AI_HEAD}>{ai.headline}</div>}
           {ai.focus && (
             <div className={AI_FOCUS}>

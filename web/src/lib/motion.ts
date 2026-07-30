@@ -16,13 +16,38 @@
      갈려 조용히 무애니가 된다. 색은 **계산값**으로 받는다(호출부가 이미 아는 값이면 그대로 넘긴다).
 ============================================================ */
 
-/** 모션 자제 설정인가. matchMedia 가 없는 환경(테스트·SSR)에서는 '자제 아님'으로 본다. */
-function reduced(): boolean {
+/* ── 모션 자제 판정 — **축이 하나다**(H19 · 2026-07-30 `/감사 근본`) ──────────────────
+
+   자제해야 할 이유는 둘인데(OS 의 `prefers-reduced-motion`, 앱 설정의 `발광 효과 줄이기`)
+   **판정이 다섯 곳에 흩어져 있었고 그중 둘만 후자를 알았다**(`AmbientCanvas`·`Items`).
+   결과가 관측 가능한 거짓말이었다: 설정 라벨이 _"배경 오로라·**발광 펄스 정지**"_ 를 약속하는데
+   `commit()` 의 액센트 링 펄스는 계속 돌았다. `data-fx=lite` 의 CSS 백스톱(`global/motion.css`)은
+   **WAAPI 에 원리적으로 안 닿기** 때문이다 — 이 파일이 존재하는 이유와 정확히 같은 논거인데
+   가드만 절반이었다.
+
+   그래서 두 이유를 여기서 OR 로 합치고, 다른 자리는 전부 이 함수를 부른다. 이유가 셋이 되면
+   고칠 곳도 여기 하나다. */
+
+/** OS 의 모션 자제 설정. matchMedia 가 없는 환경(테스트·SSR)에서는 '자제 아님'으로 본다. */
+function prefersOS(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-/** 같은 판정을 **인라인 스타일**에서 써야 하는 자리용(H16) — 판정 자체는 여전히 한 곳이다.
- *  (`Items` 의 하이라이트 펄스처럼 스크롤이 아니라 transition 문자열을 고르는 경우.) */
+/** 앱 설정 '발광 효과 줄이기'(`ThemeProvider` 가 `data-fx="lite"` 로 캐스케이드에 싣는다). */
+function fxLite(): boolean {
+  return typeof document !== 'undefined' && document.documentElement.getAttribute('data-fx') === 'lite';
+}
+
+function reduced(): boolean {
+  return prefersOS() || fxLite();
+}
+
+/**
+ * 모션을 자제해야 하는가 — **OS 설정 또는 앱 설정**(위 절).
+ *
+ * ⚠ 이 앱에서 "모션 자제"를 판정하는 **유일한 자리**다. 각자 `matchMedia` 를 부르면 그 사본은
+ * `data-fx` 를 모르는 채로 남고, 그게 H19 의 형태였다(설정이 약속한 것과 화면이 다름).
+ */
 export function prefersReducedMotion(): boolean {
   return reduced();
 }

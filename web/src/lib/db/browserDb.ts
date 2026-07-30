@@ -45,11 +45,43 @@ const CALL_TIMEOUT_MS = 30_000;
    `sql`·`bind` 가 사라진다. 조건부 타입으로 감싸야 각 갈래에 개별 적용된다(분배 법칙). */
 type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 
+/* ============================================================
+   워커 수명 — **죽었으면 확실히 죽인다**(H13 · 2026-07-30 `/감사 근본`)
+
+   종전엔 이 파일에 `terminate()` 가 **한 번도 없었다**(전 저장소 0건). 결과가 둘이다:
+
+   ① **좀비가 OPFS 락을 쥔다.** 워커가 멎어도(무한 루프·wasm 트랩) 컨텍스트는 살아 있어
+      `FileSystemSyncAccessHandle` 을 놓지 않는다. 그 상태로 새 워커를 세우면 SAH 풀을 못 잡아
+      **조용히 `:memory:` 로 내려앉는다** — 앱은 정상으로 보이고 저장만 사라진다.
+      `terminate()` 는 컨텍스트를 파괴해 그 핸들을 브라우저가 회수하게 하는 유일한 수단이다.
+   ② **모든 연산이 30초씩 매달린다.** 타임아웃은 *그 한 호출*만 거절했고 `_handle` 은 멀쩡한
+      채였다 → 다음 호출이 같은 죽은 워커에 또 붙어 또 30초를 기다린다. `onerror` 는 핸들을
+      무효화하지만 그건 **로드 실패에만** 오고, 열린 뒤 멎는 경우는 그 이벤트가 아예 안 온다.
+
+   그래서 죽이는 자리를 하나로 모은다. 타임아웃은 "느린 연산"이 아니라 **죽음의 증거**로 다룬다 —
+   wasm SQLite 연산은 밀리초대라 30초는 정상 범위가 아니고, 오판해도 대가는 워커 재기동뿐이다
+   (같은 DB 를 다시 연다). 반대로 안 죽이면 대가가 무음 `:memory:` 다 — 비대칭이 명확하다. */
+let _worker: Worker | null = null;
+
+function killWorker(reason: string): void {
+  const w = _worker;
+  _worker = null;
+  _handle = null;
+  _durable = false; // 새 워커가 OPFS 를 다시 잡기 전까지 "내구성 있다"고 말하면 안 된다
+  for (const [, p] of _waiting) p.reject(new Error(reason));
+  _waiting.clear();
+  /* ⚠ 마지막에 죽인다 — 먼저 죽이면 대기자들이 이유 없이 매달린 채 남는다. */
+  w?.terminate();
+}
+
 function call(worker: Worker, req: WithoutId<DbRequest>): Promise<DbResponse> {
   const id = ++_seq;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      if (_waiting.delete(id)) reject(new Error('SQLite 워커 응답 시간 초과 — 워커가 죽었을 수 있습니다.'));
+      /* ⚠ 이 호출만 거절하지 않는다(H13) — 응답이 없다는 것은 워커가 멎었다는 뜻이고, 그대로
+         두면 이후 모든 연산이 30초씩 매달리며 좀비가 OPFS 락을 계속 쥔다. */
+      if (_waiting.has(id)) killWorker('SQLite 워커 응답 시간 초과 — 워커를 재기동합니다.');
+      else reject(new Error('SQLite 워커 응답 시간 초과 — 워커가 죽었을 수 있습니다.'));
     }, CALL_TIMEOUT_MS);
     _waiting.set(id, {
       resolve: (r) => {
@@ -73,7 +105,11 @@ let _handle: Promise<Db> | null = null;
  */
 export async function getBrowserDb(): Promise<Db | null> {
   _handle ??= (async (): Promise<Db> => {
+    /* ⚠ 새 워커를 세우기 전에 **직전 것을 반드시 죽인다**(H13). `_handle` 만 null 로 두면
+       옛 워커가 살아남아 OPFS 핸들을 쥔 채 새 워커와 경합한다 — 그 결과가 무음 `:memory:` 다. */
+    if (_worker) killWorker('SQLite 워커를 재기동합니다.');
     const worker = new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' });
+    _worker = worker;
     worker.onmessage = (ev: MessageEvent<DbResponse>): void => {
       const w = _waiting.get(ev.data.id);
       if (!w) return;
@@ -86,14 +122,14 @@ export async function getBrowserDb(): Promise<Db | null> {
        ⚠ `_handle` 도 무효화한다(H5) — 안 하면 다음 `getBrowserDb()` 가 **죽은 워커를 쥔 핸들**을
        그대로 돌려줘 이후 모든 요청이 타임아웃까지 매달린다. null 로 두면 다음 호출이 새 워커를
        세운다(`getBrowserDb` 의 `_handle ??=`). */
-    worker.onerror = (): void => {
-      for (const [, w] of _waiting) w.reject(new Error('SQLite 워커가 죽었습니다.'));
-      _waiting.clear();
-      _handle = null;
-    };
+    worker.onerror = (): void => killWorker('SQLite 워커가 죽었습니다.');
 
     const opened = await call(worker, { kind: 'open' });
-    if (!opened.ok || opened.kind !== 'open') throw new Error('SQLite 를 열지 못했습니다.');
+    if (!opened.ok || opened.kind !== 'open') {
+      // 못 열었으면 이 워커는 쓸모가 없다 — 남겨 두면 그대로 좀비다.
+      killWorker('SQLite 를 열지 못했습니다.');
+      throw new Error('SQLite 를 열지 못했습니다.');
+    }
     _durable = opened.durable;
 
     return {
@@ -118,7 +154,10 @@ export async function getBrowserDb(): Promise<Db | null> {
   } catch (e) {
     // `sqlite.ts` 와 같은 규약: 조용히 삼키지 않고, 한 번 실패가 영구 불능이 되지 않게 한다.
     console.error('[db] 폰 SQLite 초기화 실패 — 로컬 캐시 없이 돕니다.', e);
-    _handle = null;
+    /* ⚠ `_handle = null` 만으로는 부족하다(H13) — 실패한 워커가 살아남아 OPFS 핸들을 쥔다.
+       `open` 이 **거절**로 끝나는 경로는 위 `if (!opened.ok)` 를 지나지 않으므로 여기가
+       그 갈래의 유일한 정리 지점이다. */
+    killWorker('폰 SQLite 초기화 실패');
     return null;
   }
 }

@@ -25,6 +25,7 @@
    ⚠ 전역 요소 규칙(input{}/button{})은 unlayered 라 Tailwind 를 이긴다 → 다른 속성만 ! 로 되찾는다.
    전역 :hover(:not(:disabled)) 특이도에 눌린 로컬 hover 는 되살리지 않는다(전역이 이긴 렌더 보존).
 ============================================================ */
+import { prefersReducedMotion } from '@/lib/motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useNavigate } from 'react-router-dom';
@@ -249,6 +250,8 @@ export default function Graph() {
     let downY = 0;
     let moved = false;
 
+    /* ⚠ 이 핸들은 **변화를 듣기 위한 것**이고, "지금 자제인가"의 판정은 `lib/motion` 이 한다(H19).
+       종전엔 `reduce.matches` 를 직접 읽어 앱 설정('발광 효과 줄이기')을 모르는 사본이었다. */
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     // ── 그리기 — 코어(sim)·팔레트·치수만 읽는 순수 렌더는 `graphDraw.drawGraph` 가 소유한다.
@@ -272,7 +275,7 @@ export default function Graph() {
       }
     };
     const ensureLoop = () => {
-      if (raf === 0 && !paused() && !reduce.matches) raf = requestAnimationFrame(loop);
+      if (raf === 0 && !paused() && !prefersReducedMotion()) raf = requestAnimationFrame(loop);
     };
     const reheat = (a = 0.6) => {
       alpha = Math.max(alpha, a);
@@ -344,7 +347,7 @@ export default function Graph() {
       if (sim.isDragging()) {
         if (!moved && Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
         sim.dragTo(px, py);
-        if (reduce.matches) draw();
+        if (prefersReducedMotion()) draw();
         else ensureLoop();
         const dn = downId ? sim.node(downId) : undefined;
         if (dn) showTip(px, py, tipText(dn));
@@ -445,7 +448,7 @@ export default function Graph() {
 
     // 초기화 — 모션 비선호면 동기로 정착시킨 뒤 1회 그림. 아니면 RAF 루프.
     resize();
-    if (reduce.matches) {
+    if (prefersReducedMotion()) {
       // L-2 — step은 대형에서 무겁다. 반복수를 노드 수에 반비례로 캡해 모션민감 사용자의
       // 초기화 프리즈를 막는다(정착 품질은 유지).
       const iters = Math.min(320, Math.floor(40000 / Math.max(1, sim.nodes.length)));

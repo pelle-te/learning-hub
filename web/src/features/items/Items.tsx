@@ -275,10 +275,8 @@ export default function Items() {
   const openSheet = useCallback((id: string) => {
     const el = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
     const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
-    const reduce =
-      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const lite = document.documentElement.getAttribute('data-fx') === 'lite';
-    if (typeof doc.startViewTransition === 'function' && el && !reduce && !lite) {
+    // ⚠ 두 이유(OS·앱 설정)를 여기서 다시 OR 하지 않는다 — 판정은 `lib/motion` 하나다(H19).
+    if (typeof doc.startViewTransition === 'function' && el && !prefersReducedMotion()) {
       el.style.viewTransitionName = 'subject-morph'; // old 스냅샷: 이 카드가 그 이름
       doc.startViewTransition(() =>
         flushSync(() => {

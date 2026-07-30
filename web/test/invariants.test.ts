@@ -464,3 +464,61 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     expect(Number(commitMs![1]), 'COMMIT_MS ≠ --dur-slow — 둘 중 하나만 고쳤다').toBe(Number(durSlow![1]));
   });
 });
+
+/* ============================================================
+   불변식 ⑦ — **모션 자제 판정은 `lib/motion` 하나다** (H19 · 2026-07-30 `/감사 근본`)
+
+   자제해야 할 이유는 둘인데(OS 의 `prefers-reduced-motion`, 앱 설정의 `data-fx="lite"`)
+   판정이 다섯 곳에 흩어져 있었고 **그중 둘만 후자를 알았다**. 결과가 관측 가능한 거짓말이었다:
+   설정 라벨이 "발광 펄스 정지"를 약속하는데 `commit()` 의 링 펄스는 계속 돌았다.
+
+   ⚠ 이 불변식이 없으면 재발이 **조용하다** — 새 컴포넌트가 `matchMedia('(prefers-reduced-motion…')`
+   를 한 줄 부르는 순간 그 화면만 앱 설정을 모르게 되고, 정적 검사도 스냅샷도 그걸 못 본다
+   (모션 자제 사용자의 화면에서만 다르게 보인다).
+   ⚠ **MediaQueryList 를 만드는 것 자체는 막지 않는다** — 변화를 *듣는* 것은 정당하다
+   (`AmbientCanvas`·`Graph` 가 그렇게 쓴다). 막는 것은 그 `.matches` 를 **판정으로 읽는 것**이다.
+============================================================ */
+describe('불변식 ⑦ 모션 자제 판정이 lib/motion 밖에 없다', () => {
+  const SRC7 = join(process.cwd(), 'src') + '/';
+  const OWNER = join(SRC7, 'lib', 'motion.ts');
+
+  function tsFiles(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(e.name)) out.push(p);
+      }
+    };
+    walk(SRC7);
+    return out;
+  }
+
+  it('`.matches` 로 모션 자제를 직접 판정하는 파일이 없다', () => {
+    const offenders = tsFiles()
+      .filter((p) => p !== OWNER)
+      .filter((p) => {
+        /* ⚠ **주석을 걷어내고 본다.** 안 그러면 "종전엔 `reduce.matches` 를 읽었다"고 적어 둔
+           설명이 위반으로 잡힌다(실제로 잡혔다) — 근거를 남길수록 게이트가 빨개지는 역인센티브는
+           이 저장소가 `max-lines` 에서 이미 거부한 형태다. */
+        const src = readFileSync(p, 'utf8')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/(^|[^:])\/\/.*$/gm, '$1');
+        // `<이름>.matches` 형태로 읽는 자리 — 그 이름이 reduced-motion 질의로 만들어졌는가.
+        if (!/prefers-reduced-motion/.test(src)) return false;
+        return /\breduce\.matches\b|matchMedia\([^)]*prefers-reduced-motion[^)]*\)\.matches/.test(src);
+      })
+      .map((p) => p.slice(SRC7.length).replaceAll('\\', '/'));
+    expect(
+      offenders,
+      `모션 자제 판정을 직접 하고 있다(앱 설정 data-fx 를 모르는 사본이 된다) — \`prefersReducedMotion()\` 을 쓰세요:\n${offenders.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('판정 소유자가 **두 이유를 모두** 본다(0이면 이 불변식이 아무것도 안 잰다)', () => {
+    const owner = readFileSync(OWNER, 'utf8');
+    expect(owner).toMatch(/prefers-reduced-motion/);
+    expect(owner, "앱 설정('발광 효과 줄이기')을 안 보면 라벨이 거짓이 된다").toMatch(/data-fx/);
+  });
+});

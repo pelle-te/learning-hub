@@ -17,52 +17,21 @@ import { restoreConflict } from '@/store/syncController';
 import { ui } from '@/shell';
 import { Button } from '@/components/ui';
 import type { ConflictShadow } from '@/lib/cloud/conflicts';
-
-/** 테이블 → 사람이 읽는 이름(모르는 테이블은 원래 이름 그대로). */
-const TBL_LABEL: Record<string, string> = {
-  docs: '문서(독후감·노트)',
-  completions: '완료 기록',
-  settings: '설정',
-  ds_map: '일자별 기록',
-  records: '학습 기록',
-  summaries: '요약',
-  week_alloc: '주간 배분',
-};
-
-/** 행 값 배열 → 짧은 미리보기 문자열(원시값만이라 안전하게 문자열화). */
-function preview(data: unknown[]): string {
-  const s = data
-    .map((v) => (v == null ? '' : String(v)))
-    .join(' · ')
-    .trim();
-  if (!s) return '(빈 값)';
-  return s.length > 90 ? s.slice(0, 90) + '…' : s;
-}
-
-/** 감지 시각 → 짧은 한국어 표기(실패 시 빈 문자열). */
-function whenLabel(ts: number): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+/* ⚠ 라벨·미리보기·시각 표기는 **lib 이 소유한다**(H20) — 폰(`phone/ConflictsView`)이 같은
+   충돌을 그리게 되면서, 사본을 두면 두 기기가 같은 충돌을 다르게 설명하게 된다(§13-0). */
+import { RESTORE_CONFIRM, previewOf, tableLabel, whenLabel } from '@/lib/conflictView';
 
 function ConflictRow({ c }: { c: ConflictShadow }) {
   const dismiss = useConflicts((s) => s.dismiss);
   // 되살리기는 지금 값(다른 기기 편집)을 옛 로컬 값으로 덮는 실제 데이터 변경 → confirm 으로 가드.
   const restore = async (): Promise<void> => {
-    const ok = await ui.confirm(
-      '이 기기의 옛 값으로 되살릴까요? 지금 값(다른 기기 편집)을 덮어쓰고 다른 기기에도 반영돼요.',
-      {
-        title: '되살리기',
-        okLabel: '되살리기',
-      },
-    );
+    const ok = await ui.confirm(RESTORE_CONFIRM, { title: '되살리기', okLabel: '되살리기' });
     if (ok) await restoreConflict(c);
   };
   return (
     <li className="flex flex-col gap-1 border-l-2 border-l-warn bg-panel2 py-2 pr-2 pl-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-bold text-txt">{TBL_LABEL[c.tbl] ?? c.tbl}</span>
+        <span className="text-xs font-bold text-txt">{tableLabel(c.tbl)}</span>
         <span className="text-2xs text-mut tabular-nums">{whenLabel(c.detectedAt)}</span>
         <Button sm variant="ghost" className="ml-auto" onClick={() => void restore()}>
           되살리기
@@ -72,10 +41,10 @@ function ConflictRow({ c }: { c: ConflictShadow }) {
         </Button>
       </div>
       <div className="text-2xs text-mut">
-        내 값 <code className="font-mono text-2xs text-txt">{preview(c.localData)}</code>
+        내 값 <code className="font-mono text-2xs text-txt">{previewOf(c.localData)}</code>
       </div>
       <div className="text-2xs text-mut">
-        덮은 값 <code className="font-mono text-2xs">{preview(c.remoteData)}</code>
+        덮은 값 <code className="font-mono text-2xs">{previewOf(c.remoteData)}</code>
       </div>
     </li>
   );

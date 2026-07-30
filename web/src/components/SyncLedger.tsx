@@ -17,6 +17,7 @@
    서로 다른 조건에서 침묵하지 않게 한 곳에 뒀고, `components` 는 store 를 import 할 수 없다.
    여기서 화면마다 달라지는 것은 `className` 뿐이다.
 ============================================================ */
+import LiveRegion from './LiveRegion';
 import { ledgerLine, type Ledger } from '@/lib/syncLedger';
 
 export default function SyncLedger({
@@ -27,12 +28,16 @@ export default function SyncLedger({
   led: Ledger;
   now: number;
   className?: string;
-}): React.JSX.Element | null {
+}): React.JSX.Element {
   const line = ledgerLine(led, now);
-  if (!line) return null;
+  /* ⚠ **공지 리전은 항상 서 있다**(H22). 종전엔 `role="status"` 가 이 `<p>` 에 붙어 있었고
+     `if (!line) return null` 이라 **리전과 텍스트가 동시에 삽입**됐다 — `shell/toast` 가 자기
+     주석에 "그러면 AT 에 따라 공지가 통째로 씹힌다"고 적어 둔 바로 그 형태다. 보이는 줄은
+     그대로 조건부로 두고(레이아웃 불변), 알리는 일만 갈라낸다. */
   return (
-    <p role="status" className={`text-xs ${line.warn ? 'text-warn' : 'text-mut'} ${className}`}>
-      {line.text}
-    </p>
+    <>
+      <LiveRegion message={line?.text ?? ''} />
+      {line ? <p className={`text-xs ${line.warn ? 'text-warn' : 'text-mut'} ${className}`}>{line.text}</p> : null}
+    </>
   );
 }

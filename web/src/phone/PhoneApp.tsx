@@ -18,7 +18,9 @@ import DayView from './DayView';
 import WeekView from './WeekView';
 import ReadsView from './ReadsView';
 import ReviewView from './ReviewView';
+import LiveRegion from '@/components/LiveRegion';
 import SyncLedger from '@/components/SyncLedger';
+import ConflictsView from './ConflictsView';
 import { useSyncLedger } from '@/store/useSyncLedger';
 import CaptureBar from './CaptureBar';
 import { sync } from './sync';
@@ -151,6 +153,18 @@ export default function PhoneApp(): React.JSX.Element {
             PC 에서의 중복 입력으로 이어진다. 아래 원장이 그 나머지 절반을 상시로 말한다. */}
         <SyncLedger {...ledger} className="px-3 pb-2" />
       </header>
+
+      {/* ⚠ **진 편집을 폰에서도 보고 되살린다**(H20 · 2026-07-30). 그림자는 폰에서도 정상
+          적재되는데 읽는 화면이 데스크톱에만 있었다 — 하필 폰이 더 자주 지는 쪽이다(짧게 켜고
+          끄므로 마지막 저장이 PC 일 확률이 높다). 헤더 **밖**에 두는 것이 의도다: 헤더는
+          sticky 라 목록이 길어지면 본문을 덮는다. 충돌이 없으면 아무것도 안 그린다. */}
+      {/* ⚠ **폰은 화면·날짜 전환을 한 번도 알리지 않았다**(H22 · 2026-07-30). 데스크톱은 라우트
+          아나운서가 그 일을 하는데(SPA a11y 의 어려운 부분은 이미 손으로 해 뒀다) 폰은 라우터가
+          없어 `view`·`ds` 가 **상태**로만 바뀐다 — 즉 탭을 누르거나 스와이프해도 스크린리더에는
+          아무 일도 안 일어난 것이 된다. 하필 스와이프는 시각적 피드백이 화면 전체라 더 그렇다.
+          날짜가 있는 화면은 날짜까지 함께 말한다("주 · 6/15" — 어디로 갔는지가 곧 그 둘이다). */}
+      <LiveRegion message={`${VIEW_LABEL[view]}${DATED.includes(view) ? ` · ${ds.slice(5).replace('-', '/')}` : ''}`} />
+      <ConflictsView />
 
       {/* ⚠ 스와이프는 **본문에만** 건다(헤더·탭바 제외) — 탭바 위 손짓까지 날짜를 옮기면
           탭을 고르려다 날짜가 바뀐다. */}

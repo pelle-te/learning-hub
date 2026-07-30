@@ -4,6 +4,7 @@
    안전장치: WebGL 없으면 CSS 그라데이션 폴백 · 저해상도(0.6x)+12fps 캡 · 탭 숨김/reduced-motion 시 정지.
    순수 표현(외부 상태 없음). 테마 변경은 data-theme 변동을 관찰해 색 유니폼만 갱신.
 ============================================================ */
+import { prefersReducedMotion } from '@/lib/motion';
 import { useEffect, useRef } from 'react';
 
 const FALLBACK_BG =
@@ -178,11 +179,10 @@ export default function AmbientCanvas() {
     // 정지 조건: 모션 비선호 · 탭 숨김 · 창 포커스 밖 · 발광효과끄기(data-fx=lite).
     // '창 포커스 밖'은 앱 모드 창이 다른 창 뒤에 있을 때(visibilitychange는 최소화/탭전환만 잡고 "뒤에 가림"은
     // 못 잡음) GPU를 계속 태우는 낭비를 막는다. lite는 사용자가 끈 경우 — 정적 프레임만 그리고 멈춘다.
-    const paused = () =>
-      reduce.matches ||
-      document.hidden ||
-      !document.hasFocus() ||
-      document.documentElement.getAttribute('data-fx') === 'lite';
+    /* ⚠ 모션 자제 판정은 `lib/motion` 하나다(H19) — 여기서 두 이유(OS·`data-fx`)를 다시
+       조립하면 그게 곧 사본이고, 사본이 갈리는 것이 H19 의 형태였다. `reduce`(MediaQueryList)는
+       **변화를 듣기 위해서만** 남긴다(판정은 아래 한 줄이 한다). */
+    const paused = () => prefersReducedMotion() || document.hidden || !document.hasFocus();
     /* ⚠ **다음 프레임을 `setTimeout` 으로 예약한다.** 예전엔 맨 앞에서 무조건 `requestAnimationFrame`
        을 걸고 그 뒤 `ms - last < FRAME` 으로 버렸다 — 그리기는 12회/초인데 **깨어나기는 디스플레이
        주사율만큼**(60~144회/초)이었다. 콜백 자체는 μs 급이라 체감은 없지만, 앱이 포커스를 쥔 내내
