@@ -78,15 +78,15 @@ export function TodayBlocks() {
 
   const ML = state.moduleLen || 120;
 
-  // 블록 완료 순간 작은 보상 — 마지막 블록이면 큰 축하, 아니면 진행을 가볍게 짚어준다(동기 설계).
+  /* 블록 완료 — 마지막 블록의 축하는 `TodaySignature` 의 allDone 이펙트가 단독 소유한다.
+     ⚠ **E15: 중간 진행 토스트를 은퇴시켰다**(`좋아요 — n/m 블록 완료`). 그 토스트가 말하던 사실은
+     같은 화면의 진행 링이 이미 갖고 있고, 이제 그 숫자가 `commit` 으로 **스스로 번쩍인다**
+     (`useCommitOnChange`). 즉 정보를 지운 것이 아니라 **말하는 자리를 값 옆으로 옮긴** 것이다 —
+     화면 구석에서 뜨고 사라지는 문장은 "무엇이" 바뀌었는지를 원리적으로 말하지 못한다.
+     ⚠ 되돌리기가 필요한 사건이 아니다(같은 체크박스를 다시 누르면 끝) → 토스트 예산의 두 조건
+     ("되돌리기 필요" · "결과가 화면 밖") **둘 다 해당하지 않는다.** */
   const onToggle = (it: ScheduleItem, on: boolean) => {
     toggleDone(ds2, it.sid, it.type, it.min, on);
-    if (!on) return;
-    // state는 토글 전 스냅샷 → 이 블록을 제외한 완료 수 + 1 = 토글 후 완료 수.
-    const doneNow = items.filter((x) => isDone(state, ds2, x.sid, x.type)).length + 1;
-    // 마지막 블록의 축하 토스트는 TodaySignature의 allDone 이펙트가 단독 소유(이중 토스트 방지).
-    // 여기선 중간 진행만 가볍게 짚는다.
-    if (doneNow < items.length) ui.toast(`좋아요 — ${doneNow}/${items.length} 블록 완료`, 'info');
   };
 
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');

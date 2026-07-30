@@ -490,3 +490,57 @@ test('mastery · loading · dark', async ({ page }) => {
   await settle(page);
   await expect(page).toHaveScreenshot('mastery-loading-dark.png');
 });
+
+/* ============================================================
+   압력(press) — **누르고 있는 프레임**(E15 · 2026-07-30)
+
+   ## 왜 필요한가
+
+   `:active` 는 **정지 프레임 게이트가 원리적으로 못 보는 상태**다 — 스냅샷은 아무것도 누르지 않은
+   화면을 찍으므로, 압력 레지스터(`global/components.css` 의 `button:active`)를 지우거나 망가뜨려도
+   125장이 전량 통과한다. E24 가 모션에서 겪은 것과 **같은 종류의 사각**이고, E15 가 hover 예산을
+   press·commit 으로 옮기려면 **옮긴 쪽을 볼 수 있어야** 한다(안 보이는 곳으로 옮기는 것은 이동이
+   아니라 삭제다).
+
+   ⚠ 모션 애니가 아니라 **CSS 상태**라 `motion.spec.ts` 의 얼리기 하네스가 필요 없다 —
+   `mouse.down()` 으로 붙잡아 두면 그대로 정지 상태다(결정적).
+   ⚠ 클립을 버튼에 맞춘다 — E24 가 배운 규칙("어휘를 관측하려면 그 어휘가 프레임 면적을
+   지배해야 한다")을 그대로 적용한다. 전체 화면을 찍으면 2px 변위가 비율 아래로 사라진다.
+
+   ⚠⚠ **`reducedMotion: 'no-preference'` 가 이 케이스의 생사다 — 첫 판이 그걸로 실패했다.**
+   `boot` 은 `reducedMotion: 'reduce'` 로 부팅하고(스냅샷 125장의 전제), 그 모드에서
+   `global/components.css` 는 압력의 `transform` 을 **명시적으로 끈다**(`transform: none`).
+   즉 기본 부팅으로 찍으면 이 스냅샷은 압력의 변위를 **원리적으로 볼 수 없다** — 실제로 반증에서
+   `scale(0.98) translateY(1px)` 을 지웠는데 **통과했다**(126장 전량 녹색).
+   → 모션을 켜고 찍는다. **이 반증이 남긴 사실 하나**: 모션 자제 사용자의 압력 피드백은
+     `box-shadow: none` 하나뿐이다(변위 없음). 그건 의도된 판단이지만(그 파일 주석), 그래서
+     **이 케이스가 지키는 것은 "모션 켠 사용자의 압력"** 이라는 점을 분명히 해 둔다.
+============================================================ */
+test('press · 버튼을 누르고 있는 프레임(정지 게이트가 못 보는 상태)', async ({ page }) => {
+  await boot(page, 'dark');
+  // ⚠ `boot` 뒤에 되돌린다(순서가 계약 — `motion.spec.ts` 의 `bootFrozen` 과 같은 이유).
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/today');
+  // 히어로의 주 액션 — 이 앱에서 가장 많이 눌리는 버튼이고 `.primary` 변형을 함께 덮는다.
+  const btn = page
+    .locator('#main button')
+    .filter({ hasText: /집중|시작/ })
+    .first();
+  await expect(btn).toBeVisible();
+  await settle(page);
+  const b = (await btn.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  try {
+    const pad = 10;
+    await expect(page).toHaveScreenshot('press-cta-dark.png', {
+      clip: { x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2 },
+      // ⚠ 감도를 조인다 — 압력은 `scale(0.98) translateY(1px)` + 그림자 회수라 변화량이 작다.
+      threshold: 0.05,
+      maxDiffPixelRatio: 0.002,
+    });
+  } finally {
+    // ⚠ 반드시 뗀다 — 누른 채로 끝나면 이 페이지를 쓰는 다음 단언이 클릭을 삼킨다.
+    await page.mouse.up();
+  }
+});

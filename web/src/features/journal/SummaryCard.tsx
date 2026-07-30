@@ -58,7 +58,9 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
     setS1('');
     setS2('');
     setS3('');
-    ui.toast('요약 저장됨', 'ok');
+    /* E15 — 성공 토스트를 은퇴시켰다. 바로 아래 `commit()` 이 **값이 바뀐 그 자리**에서
+       번쩍이고, 추가된 요약 은 같은 카드의 목록에 즉시 나타난다 → 토스트는 같은 사실을
+       화면 구석에서 한 번 더 말하는 것이었다(되돌리기도 필요 없다 · 예산 두 조건 모두 불해당). */
     commit(cardRef.current); // D-7 — 값이 바뀐 **그 자리**에서 1회 착지(토스트만으로는 어디가 바뀐지 모른다)
   };
 

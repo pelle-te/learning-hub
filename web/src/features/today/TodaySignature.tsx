@@ -33,6 +33,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { FlowRail, type FlowNode } from './FlowRail';
 import { todayISO, parseISO, addDays, iso, ddayInfo, toHM, mmss } from '@/lib/utils';
 import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
+import { useCommitOnChange } from '@/hooks/useCommitOnChange';
 // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 
 const TYPE_LABEL: Record<string, string> = {
@@ -402,6 +403,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   /* 링의 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는
      블록까지 목표에 넣고 매일 그 목표에 못 미쳤다 — 게이지가 매일 지는 게임을 그린 셈이다. */
   const todayPossible = Math.max(todayDone, todayTotal - beyondKeys.size);
+  /* E15 — 완료 수가 바뀌면 링 숫자가 스스로 번쩍인다(`commit` 어휘). 마운트엔 안 번쩍인다. */
+  const doneRef = useCommitOnChange(todayDone);
   const pct = todayPossible ? Math.round((todayDone / todayPossible) * 100) : 0;
 
   const flowNodes: FlowNode<EnrichedItem>[] = [
@@ -817,7 +820,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 trackClassName={'ds-ringTrack'}
                 arcClassName={'ds-ringArc'}
               />
-              <span className={S.ringNum}>
+              {/* E15 — 완료 수가 바뀌면 **그 숫자 자리에서** 번쩍인다. 종전엔 그 사실을 화면
+                  구석의 토스트(`좋아요 — n/m 블록 완료`)가 말했는데, 토스트는 *무엇이* 바뀌었는지를
+                  말하지 못한다(`lib/motion.ts` 의 `commit` 주석이 그 결함을 적어 뒀다).
+                  ⚠ 입구가 여럿이다(블록 체크·레일 토글·폰·클라우드 pull) — 값을 보는 쪽에 붙였으므로
+                    전부 한 번에 덮인다. 근거는 `useCommitOnChange` 머리주석. */}
+              <span ref={doneRef} className={S.ringNum}>
                 {todayDone}
                 <small className={S.ringNumSmall}>/{todayPossible}</small>
               </span>
