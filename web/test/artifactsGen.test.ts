@@ -14,10 +14,10 @@ import {
 } from '@/lib/artifacts.gen';
 
 describe('artifacts.gen — 생성 상수', () => {
-  it('EXPECTED_SCHEMA_VERSION 은 9 아티팩트(부모 스키마 const 파생 · curriculum v4=P9 Phase4 연관성 · goals/discovery=P9 Phase6)', () => {
+  it('EXPECTED_SCHEMA_VERSION 은 9 아티팩트(부모 스키마 const 파생 · curriculum v4=P9 Phase4 연관성 · knowledge v2=②#54 사전분포 검역 · goals/discovery=P9 Phase6)', () => {
     expect(EXPECTED_SCHEMA_VERSION).toEqual({
       index: 1,
-      knowledge: 1,
+      knowledge: 2,
       ledger: 1,
       anki: 1,
       reads: 1,

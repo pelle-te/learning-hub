@@ -159,7 +159,9 @@ function SubjectHeat({ s }: { s: KnowledgeSubject }) {
  *  이름이 둘** 있었다(E10). 둘은 다른 질문에 답한다 — 저기는 항목→챕터 *구조*, 여기는 개념 단위
  *  *숙달 분포*. 이름이 그 차이를 말하게 했다. */
 export function KnowledgeMap({ k }: { k: Knowledge }) {
-  const subs = (k.subjects || []).slice().sort((a, b) => a.mastery - b.mastery);
+  // 미측정(null) 과목은 정렬 뒤로 — 0으로 취급하면 '가장 약한 과목'으로 올라와 거짓 우선순위가 된다(②#54).
+  const mval = (m: number | null | undefined) => (m == null ? Number.POSITIVE_INFINITY : m);
+  const subs = (k.subjects || []).slice().sort((a, b) => mval(a.mastery) - mval(b.mastery));
   const tot = k.n_notes || 1;
   const manyUnknown = (k.states?.unknown || 0) > tot * 0.5;
   return (

@@ -32,10 +32,10 @@ import { isTauri } from './isTauri';
 
    반대로 `cloud/schema.ts` 는 네트워크를 건너온 페이로드라 거부가 목적 그 자체다.
    **두 경계를 같은 정책으로 다루면 한쪽은 반드시 틀린다.** */
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 /** 모양이 계약과 다르면 경고만 남기고 원본을 통과시킨다(비차단). */
-function checkShape<T>(cmd: string, data: unknown, schema: z.ZodType<T>): T {
+function checkShape<T>(cmd: string, data: unknown, schema: z.ZodMiniType<T>): T {
   const r = schema.safeParse(data);
   if (r.success) return r.data;
   const issues = r.error.issues
@@ -48,7 +48,7 @@ function checkShape<T>(cmd: string, data: unknown, schema: z.ZodType<T>): T {
 
 /** invoke 를 지연 로드한다 — 브라우저 번들에 Tauri API 가 섞여 들어가 초기 로드를 늘리지 않게.
  *  `schema` 를 주면 응답 모양을 검사한다(비차단 — 위 주석 참조). */
-async function call<T>(cmd: string, args?: Record<string, unknown>, schema?: z.ZodType<T>): Promise<T> {
+async function call<T>(cmd: string, args?: Record<string, unknown>, schema?: z.ZodMiniType<T>): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core');
   const out = await invoke<T>(cmd, args);
   return schema ? checkShape(cmd, out, schema) : out;
@@ -68,9 +68,11 @@ export interface WorkspaceStatus {
   inferred: boolean;
 }
 
-const WorkspaceStatusSchema = z
-  .object({ path: z.string().nullable(), valid: z.boolean(), inferred: z.boolean() })
-  .passthrough() as z.ZodType<WorkspaceStatus>;
+const WorkspaceStatusSchema = z.looseObject({
+  path: z.nullable(z.string()),
+  valid: z.boolean(),
+  inferred: z.boolean(),
+}) as z.ZodMiniType<WorkspaceStatus>;
 
 /** 현재 워크스페이스 상태. 브라우저에선 null(경로 개념이 셸 전용이라 설정 UI 자체를 숨긴다). */
 export async function workspaceStatus(): Promise<WorkspaceStatus | null> {
@@ -105,7 +107,7 @@ export async function dbUrl(): Promise<string> {
 /** 부팅 다운그레이드 가드(C2) — 판정에 필요한 값 둘 + 결론. */
 const DbGuardZ = z.object({
   /** DB 에 적용된 최대 마이그레이션 버전(아직 없으면 null). */
-  applied: z.number().nullable(),
+  applied: z.nullable(z.number()),
   /** 이 빌드가 아는 최대 버전. */
   bundled: z.number(),
   downgraded: z.boolean(),
@@ -237,15 +239,13 @@ export interface VaultNotesFromRust {
   path: string;
 }
 
-const VaultNotesSchema = z
-  .object({
-    /* 노트 원소는 **전 필드가 옵셔널**이다(인터페이스 그대로) — 볼트 노트는 사용자가 손으로
+const VaultNotesSchema = z.looseObject({
+  /* 노트 원소는 **전 필드가 옵셔널**이다(인터페이스 그대로) — 볼트 노트는 사용자가 손으로
        쓰는 파일이라 필드 누락이 정상이다. 여기서 잡으려는 건 `notes` 가 배열이 아닌 경우다. */
-    notes: z.array(z.object({}).passthrough()),
-    src: z.string(),
-    path: z.string(),
-  })
-  .passthrough() as z.ZodType<VaultNotesFromRust>;
+  notes: z.array(z.looseObject({})),
+  src: z.string(),
+  path: z.string(),
+}) as z.ZodMiniType<VaultNotesFromRust>;
 
 /** 셸에서 볼트를 읽는다. 브라우저면 null(호출부가 File System Access 폴백으로 간다). */
 export async function vaultScan(): Promise<VaultNotesFromRust | null> {
@@ -301,9 +301,11 @@ export const ARTIFACT_NOT_FOUND = 'NOT_FOUND';
 
 /* 봉투(`ok`/`data`/`raw`)만 검사한다 — `data` 안쪽은 산출물 종류마다 달라서 여기가 알 수 없고,
    그건 이미 `artifacts.ts` 의 `parseArtifact` 가 종류별 zod 로 검사한다(중복 방어 금지). */
-const ArtifactEnvelopeSchema = z
-  .object({ ok: z.boolean(), data: z.unknown().optional(), raw: z.string().optional() })
-  .passthrough();
+const ArtifactEnvelopeSchema = z.looseObject({
+  ok: z.boolean(),
+  data: z.optional(z.unknown()),
+  raw: z.optional(z.string()),
+});
 
 /** 산출물 1종을 셸에서 읽는다(4단계-B). 브라우저면 null → 호출부가 `/api` 폴백.
  *
@@ -314,7 +316,7 @@ const ArtifactEnvelopeSchema = z
  *  실사고로 배운 것과 같은 이유다. */
 export async function artifactRead<T = unknown>(name: string): Promise<ArtifactOut<T> | null> {
   if (!isTauri()) return null;
-  return call('artifact_read', { name }, ArtifactEnvelopeSchema as z.ZodType<ArtifactOut<T>>);
+  return call('artifact_read', { name }, ArtifactEnvelopeSchema as z.ZodMiniType<ArtifactOut<T>>);
 }
 
 /** 파이썬 도구 실행 결과 — Rust `tools::RunOut` 과 1:1. `stats` 는 프런트가 붙인다(`toolStats.ts`). */
@@ -325,9 +327,12 @@ export interface RunToolOut {
   label: string;
 }
 
-const RunToolOutSchema = z
-  .object({ ok: z.boolean(), out: z.string(), code: z.number(), label: z.string() })
-  .passthrough() as z.ZodType<RunToolOut>;
+const RunToolOutSchema = z.looseObject({
+  ok: z.boolean(),
+  out: z.string(),
+  code: z.number(),
+  label: z.string(),
+}) as z.ZodMiniType<RunToolOut>;
 
 /** 화이트리스트 도구 1종을 셸에서 실행한다(4단계-C).
  *  동시성 캡·타임아웃·프로세스 트리 종료는 전부 Rust 가 소유한다 — 캡이 차 있으면 throw. */
@@ -347,20 +352,18 @@ export interface ShellResearchJob {
   out: string;
 }
 
-const ShellResearchJobSchema = z
-  .object({
-    id: z.string(),
-    topic: z.string(),
-    scope: z.string(),
-    /* ⚠ `status` 만 enum 이다 — 이 값으로 UI 가 분기하므로, Rust 가 새 상태를 추가하면
+const ShellResearchJobSchema = z.looseObject({
+  id: z.string(),
+  topic: z.string(),
+  scope: z.string(),
+  /* ⚠ `status` 만 enum 이다 — 이 값으로 UI 가 분기하므로, Rust 가 새 상태를 추가하면
        프런트는 조용히 "모르는 상태"를 렌더한다. 그게 여기서 잡고 싶은 드리프트다. */
-    status: z.enum(['running', 'done', 'error', 'canceled']),
-    code: z.number().nullable(),
-    startedAt: z.number(),
-    endedAt: z.number().nullable(),
-    out: z.string(),
-  })
-  .passthrough() as z.ZodType<ShellResearchJob>;
+  status: z.enum(['running', 'done', 'error', 'canceled']),
+  code: z.nullable(z.number()),
+  startedAt: z.number(),
+  endedAt: z.nullable(z.number()),
+  out: z.string(),
+}) as z.ZodMiniType<ShellResearchJob>;
 
 export function shellResearchStart(topic: string, scope?: string): Promise<ShellResearchJob> {
   return call('research_start', { topic, scope: scope ?? null }, ShellResearchJobSchema);
@@ -492,9 +495,10 @@ export interface CloudHttpResponse {
   body: string;
 }
 
-const CloudHttpResponseSchema = z
-  .object({ status: z.number(), body: z.string() })
-  .passthrough() as z.ZodType<CloudHttpResponse>;
+const CloudHttpResponseSchema = z.looseObject({
+  status: z.number(),
+  body: z.string(),
+}) as z.ZodMiniType<CloudHttpResponse>;
 
 /**
  * 클라우드 워커에 요청한다 — **셸 전용**. 브라우저(폰·dev)는 `client.ts` 가 `fetch` 로 간다.
@@ -527,14 +531,12 @@ export interface UpdateInfo {
   notes: string;
 }
 
-const UpdateInfoSchema = z
-  .object({
-    available: z.boolean(),
-    version: z.string(),
-    current: z.string(),
-    notes: z.string(),
-  })
-  .passthrough() as z.ZodType<UpdateInfo>;
+const UpdateInfoSchema = z.looseObject({
+  available: z.boolean(),
+  version: z.string(),
+  current: z.string(),
+  notes: z.string(),
+}) as z.ZodMiniType<UpdateInfo>;
 
 /**
  * 업데이트가 있는지 **확인만** 한다(받지도 설치하지도 않는다).
@@ -555,5 +557,5 @@ export function checkUpdate(endpoint?: string): Promise<UpdateInfo> {
  */
 export function installUpdate(endpoint?: string): Promise<void> {
   // ⚠ 확인 때와 **같은 엔드포인트**를 넘겨야 한다(본 것과 다른 것을 설치하지 않게).
-  return call('install_update', { endpoint: endpoint ?? null }, z.unknown() as z.ZodType<void>);
+  return call('install_update', { endpoint: endpoint ?? null }, z.unknown() as z.ZodMiniType<void>);
 }

@@ -31,7 +31,7 @@ import {
 } from '../../web/src/lib/cloud/contract';
 import { OutboxBatchSchema } from '../../web/src/lib/cloud/schema';
 import { ceilingOf, readPage } from './pull';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import {
   ACCESS_TTL_SEC,
   ENROLL_TTL_SEC,
@@ -87,24 +87,20 @@ const nowSec = (): number => Math.floor(Date.now() / 1000);
    통과가 아니라 거부다. 길이 상한을 거는 이유는 값이 그대로 D1 에 들어가기 때문이다 —
    `name` 은 종전에도 `slice(0,64)` 로 잘랐지만, **자르는 것과 거부하는 것은 다르다**(자르면
    사용자가 자기가 뭘 보냈는지 모른 채 다른 값이 저장된다). */
-const EnrollClaimSchema = z
-  .object({
-    code: z.string().min(1).max(256),
-    name: z.string().max(64).optional(),
-  })
-  .strict();
+const EnrollClaimSchema = z.strictObject({
+  code: z.string().check(z.minLength(1)).check(z.maxLength(256)),
+  name: z.optional(z.string().check(z.maxLength(64))),
+});
 
-const TokenSchema = z
-  .object({
-    deviceId: z.string().min(1).max(128),
-    refreshToken: z.string().min(1).max(512),
-  })
-  .strict();
+const TokenSchema = z.strictObject({
+  deviceId: z.string().check(z.minLength(1)).check(z.maxLength(128)),
+  refreshToken: z.string().check(z.minLength(1)).check(z.maxLength(512)),
+});
 
-const RevokeSchema = z.object({ deviceId: z.string().min(1).max(128) }).strict();
+const RevokeSchema = z.strictObject({ deviceId: z.string().check(z.minLength(1)).check(z.maxLength(128)) });
 
 /** 본문을 스키마로 읽는다. 실패는 400 — 이유는 짧게만 돌려준다(내부 구조를 흘리지 않는다). */
-async function readBody<T>(raw: unknown, schema: z.ZodType<T>): Promise<T | null> {
+async function readBody<T>(raw: unknown, schema: z.ZodMiniType<T>): Promise<T | null> {
   const r = schema.safeParse(raw);
   return r.success ? r.data : null;
 }
@@ -334,23 +330,21 @@ app.get('/api/health', (c) => c.json({ ok: true }));
    정작 제일 중요한 신호를 못 받는다. 대신 ① 무인증 라우트용 `rateGuard` 를 붙이고
    ② 위 `MAX_BODY_BYTES` 가 이미 걸려 있으며 ③ **아무것도 저장하지 않으므로** 남는 비용이
    로그 한 줄뿐이다. `/api/enroll/*`·`/api/token` 과 같은 취급이다. */
-const TelemetrySchema = z
-  .object({
-    kind: z.enum(['error', 'vital']),
-    /** 오류 메시지 또는 지표 이름(LCP/INP/CLS…). */
-    name: z.string().min(1).max(200),
-    /** 오류 스택(잘린 것) 또는 없음. ⚠ 길이 상한이 곧 개인정보 노출 상한이다. */
-    detail: z.string().max(2000).optional(),
-    /** vital 의 수치. error 면 없음. */
-    value: z.number().finite().optional(),
-    /** 어느 화면에서 났나. 전체 URL 이 아니라 **경로만** — 쿼리에 값이 실릴 수 있다. */
-    route: z.string().max(200).optional(),
-    /** 'shell' | 'phone' — 두 엔트리를 구분해야 어디를 고칠지 안다. */
-    app: z.enum(['shell', 'phone']).optional(),
-    /** 앱 빌드 식별자(있으면). 어느 버전에서 났는지 없으면 추적이 안 된다. */
-    build: z.string().max(64).optional(),
-  })
-  .strict();
+const TelemetrySchema = z.strictObject({
+  kind: z.enum(['error', 'vital']),
+  /** 오류 메시지 또는 지표 이름(LCP/INP/CLS…). */
+  name: z.string().check(z.minLength(1)).check(z.maxLength(200)),
+  /** 오류 스택(잘린 것) 또는 없음. ⚠ 길이 상한이 곧 개인정보 노출 상한이다. */
+  detail: z.optional(z.string().check(z.maxLength(2000))),
+  /** vital 의 수치. error 면 없음. */
+  value: z.optional(z.number().check(z.refine(Number.isFinite))),
+  /** 어느 화면에서 났나. 전체 URL 이 아니라 **경로만** — 쿼리에 값이 실릴 수 있다. */
+  route: z.optional(z.string().check(z.maxLength(200))),
+  /** 'shell' | 'phone' — 두 엔트리를 구분해야 어디를 고칠지 안다. */
+  app: z.optional(z.enum(['shell', 'phone'])),
+  /** 앱 빌드 식별자(있으면). 어느 버전에서 났는지 없으면 추적이 안 된다. */
+  build: z.optional(z.string().check(z.maxLength(64))),
+});
 
 app.use('/api/log', rateGuard);
 app.post('/api/log', async (c) => {

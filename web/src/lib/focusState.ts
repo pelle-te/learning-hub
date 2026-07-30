@@ -6,7 +6,7 @@
    오늘 탭 히어로·상단 바·팔레트가 같은 규칙을 공유한다(드리프트 방지).
 ============================================================ */
 import { completionKey } from './domainKeys';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import type { AppState, ItemStat, KV, ScheduleItem, ScheduleResult, SessionType } from './types';
 import { layoutDay, sessionTimeMap } from './scheduler';
 import { isDone } from './persistence';
@@ -21,16 +21,16 @@ export const FocusSessionSchema = z.object({
   /** 대상 블록 식별(완료 토글용) */
   ds: z.string(),
   sid: z.string(),
-  type: z.enum(['anki', 'new', 'rev', 'blank', 'mock']) satisfies z.ZodType<SessionType>,
+  type: z.enum(['anki', 'new', 'rev', 'blank', 'mock']) satisfies z.ZodMiniType<SessionType>,
   name: z.string(),
   /** 블록의 원래 분량(분) — toggleDone에 넘길 값(세션 분과 다를 수 있음) */
   blockMin: z.number(),
   /** 복습이 겨냥한 챕터(ReviewRun 전용) — 완료 시 챕터 터치 로그(위험모델 lastDs 갱신 · 감사 #22). 생략 = 챕터 무관 블록. */
-  chapter: z.string().optional(),
+  chapter: z.optional(z.string()),
   /** 세션 종류 — 'break'는 완료 알림 후 자동 시작되는 휴식(완료 토글 없음). 'free'는 예약 블록
    *  없는 즉석 집중(ID-3) — 대상 블록이 없어 **완료 토글 경로에서 빠진다**(유령 완료 방지),
    *  단 집중처럼 축하·자동 휴식은 준다. 생략 = 예약 블록 집중(하위호환). */
-  kind: z.enum(['focus', 'break', 'free']).optional(),
+  kind: z.optional(z.enum(['focus', 'break', 'free'])),
 });
 export type FocusSession = z.infer<typeof FocusSessionSchema>;
 

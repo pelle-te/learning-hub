@@ -147,7 +147,7 @@ export default function Mastery() {
             )}
           </span>
         </div>
-        {k && <OverallRing overall={k.overall || 0} />}
+        {k && k.overall != null && <OverallRing overall={k.overall} />}
         {k && (
           <div className={M.heroDistWrap}>
             <span className={M.distLab}>지식 상태 분포</span>

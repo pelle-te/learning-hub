@@ -4,7 +4,7 @@
    목적: 산재하던 localStorage 키(sched_view·lh_recent_cmds)를 단일화 + 스키마 검증 + 테스트 가능.
    useApp과 동일한 KV 주입 패턴(순수)이라 노드/테스트에서도 그대로 동작.
 ============================================================ */
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { ThemeSchema } from './schema';
 import type { KV, Theme } from './types';
 
@@ -39,19 +39,27 @@ export const UIStateSchema = z.object({
   // preprocess로 구 값을 흡수하고, 그래도 못 맞추면 .catch로 폴백 — schedView 하나가
   // 전체 UIState parse를 깨 accent·최근명령까지 기본값으로 되돌리던 것을 방지(부분 손상 격리).
   // 기본=week(캘린더 주 뷰). 재개편 v4에서 배분이 독립 세그먼트로 빠지며 캘린더가 계획의 첫 착지가 됐다.
-  schedView: z.preprocess((v) => migrateSchedView(v) ?? v, SchedViewSchema).catch('week'),
-  accent: AccentSchema.default('lime'),
-  recentCommands: z.array(z.string()).default([]),
+  /* ⚠ `z.preprocess` 는 **mini 에 없다**(H28) — 같은 뜻을 `pipe(transform, …)` 로 쓴다.
+     의미는 동일하다: 값을 먼저 변환하고 그 결과를 스키마에 통과시킨다. */
+  schedView: z.catch(
+    z.pipe(
+      z.transform((v) => migrateSchedView(v) ?? v),
+      SchedViewSchema,
+    ),
+    'week',
+  ),
+  accent: z._default(AccentSchema, 'lime'),
+  recentCommands: z._default(z.array(z.string()), []),
   // 발광 효과 줄이기 — 풀스크린 오로라 셰이더 정지 + 발광 오라 무한 애니 정지(상시 GPU/페인트 절감).
   // 기본 false(현 외형 그대로). 옛 저장본엔 없으니 .default로 호환. data-fx="lite"로 cascade.
-  fxLite: z.boolean().default(false),
+  fxLite: z._default(z.boolean(), false),
   // 사이드바 접힘 — false=라벨+그룹 펼침(기본), true=60px 아이콘 레일. 옛 저장본 호환 위해 .default.
-  navCollapsed: z.boolean().default(false),
+  navCollapsed: z._default(z.boolean(), false),
   // 나브 표면(Wave⑥) — 스위처 클릭·전역 탭 폴백용 영속값. 라우트가 우선. 옛 저장본은 .default로 학습.
   // Anki 실시간 due 자동 새로고침(2단계-A4) — 원래 AnkiPanel이 'lh:anki-autorefresh' 평문 키를
   // localStorage에 **직접** 쓰던 유일한 kv SSOT 우회였다. 계층 밖이라 백업에도 안 들어갔다
   // (0단계-E가 고친 결함과 같은 부류인데 그때 누락됨) → UI 설정으로 흡수해 _local 사이드카에 편입.
-  ankiAutoRefresh: z.boolean().default(false),
+  ankiAutoRefresh: z._default(z.boolean(), false),
   /* 시스템 테마 따라가기 — OS 가 다크/라이트를 바꾸면(야간 모드 스케줄 등) 앱도 따라간다.
      ⚠ **`state.theme` 에 'auto' 를 넣지 않는다.** 앱 데이터의 theme 은 D1 로 동기화되고 서버
      zod 가 `.strict()` 로 받는다 — enum 에 값을 늘리면 이 앱과 **서버·다른 기기 클라이언트가
@@ -64,13 +72,13 @@ export const UIStateSchema = z.object({
      → 감지 결과는 아래 `autoTheme` 에 **기기-로컬로** 담는다. `state.theme` 은 사람이 고른
      값만 담고(그건 여전히 동기화된다 — 수동 선택은 의도다), 화면은 둘을 `resolveTheme` 로
      해소한 값 하나를 본다. 옛 저장본 호환은 .default. */
-  themeAuto: z.boolean().default(false),
+  themeAuto: z._default(z.boolean(), false),
   /* 시스템이 지금 말하는 값 — `themeAuto` 가 켜져 있는 동안에만 `state.theme` 을 **덮는다**(H9).
      ⚠ 영속하지만 정본이 아니다: ThemeProvider 가 마운트마다 OS 를 다시 읽어 덮어쓰므로
      저장본이 틀려도 한 프레임 뒤 자가 교정된다(영속시키는 이유는 그 한 프레임의 깜빡임 제거).
      ⚠ 수동으로 테마를 고르면 `null` 로 지운다 — 그래야 "고른 값이 다음 OS 변경까지 유지"라는
      기존 계약이 그대로 성립한다(그 계약은 사용자가 못박은 것이다 · 절대규칙 #4). */
-  autoTheme: ThemeSchema.nullable().default(null),
+  autoTheme: z._default(z.nullable(ThemeSchema), null),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

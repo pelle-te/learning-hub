@@ -18,7 +18,10 @@ export interface KnowledgeConcept {
 }
 export interface KnowledgeSubject {
   subject: string;
-  mastery: number;
+  /** 과목 평균 유효숙달. `null` = 이 과목에 관측 0건(measured=0) — 전부 사전분포라 평균이 사실이 아니다(부모 ②#54 사전분포 검역). */
+  mastery: number | null;
+  /** 실제 관측(evidence>0)이 있는 노트 수 — `mastery`가 측정인지 prior인지 가르는 분모. */
+  measured?: number;
   n?: number;
   weak?: number;
   unknown?: number;
@@ -48,7 +51,17 @@ export interface KnowledgeCalibration {
 export interface Knowledge {
   generated?: string;
   n_notes?: number;
-  overall?: number;
+  /** 전체 평균 유효숙달. `null` = 사전분포 검역 중(증거덮개율 < 임계) — 숫자를 짓지 않는다. `evidence_coverage` 를 함께 읽어라. */
+  overall?: number | null;
+  /** 부모 ②#54 검역 상태 — measured/total/pct/threshold_pct/quarantined/note. */
+  evidence_coverage?: {
+    measured?: number;
+    total?: number;
+    pct?: number;
+    threshold_pct?: number;
+    quarantined?: boolean;
+    note?: string;
+  };
   states?: { mastered?: number; learning?: number; weak?: number; unknown?: number };
   subjects?: KnowledgeSubject[];
   frontier?: KnowledgeFrontier[];

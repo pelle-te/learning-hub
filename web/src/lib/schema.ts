@@ -5,7 +5,7 @@
    ※ migrate/validShape의 *동작*은 persistence.ts가 손코딩 그대로 보존(테스트 회귀 방지).
      여기 스키마는 (1) 타입 추론의 단일 원천 (2) 선택적 런타임 검증에 쓴다.
 ============================================================ */
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 export const ThemeSchema = z.enum(['light', 'dark']);
 export type Theme = z.infer<typeof ThemeSchema>;
@@ -20,24 +20,22 @@ export const ChapterSchema = z.object({
   name: z.string(),
   hours: z.number(),
   done: z.boolean(),
-  doneDs: z.string().optional(),
+  doneDs: z.optional(z.string()),
 });
 
 export const ItemModeSchema = z.enum(['weekly', 'daily']);
 
-export const ItemSchema = z
-  .object({
-    id: z.string(),
-    source: z.string().optional(),
-    name: z.string(),
-    color: z.string().optional(),
-    mode: ItemModeSchema,
-    weeklyHours: z.number().optional(),
-    dailyMin: z.number().optional(),
-    deadline: z.string().optional(),
-    chapters: z.array(ChapterSchema).default([]),
-  })
-  .passthrough();
+export const ItemSchema = z.looseObject({
+  id: z.string(),
+  source: z.optional(z.string()),
+  name: z.string(),
+  color: z.optional(z.string()),
+  mode: ItemModeSchema,
+  weeklyHours: z.optional(z.number()),
+  dailyMin: z.optional(z.number()),
+  deadline: z.optional(z.string()),
+  chapters: z._default(z.array(ChapterSchema), []),
+});
 
 export const RoutineBlockSchema = z.object({
   id: z.string(),
@@ -48,7 +46,7 @@ export const RoutineBlockSchema = z.object({
   days: z.array(z.number()),
   // 요일별 시간 오버라이드(선택) — 키=요일(일0..토6) 문자열. 없으면 start/end 공통 적용.
   // 일과 블록도 수업처럼 요일마다 다른 시간을 가질 수 있게(blocksForWeekday가 단일 지점서 해석).
-  times: z.record(z.string(), z.object({ start: z.string(), end: z.string() })).optional(),
+  times: z.optional(z.record(z.string(), z.object({ start: z.string(), end: z.string() }))),
 });
 
 /** doneDs = 실제 완료 날짜(감사 2026-07-16 ②#23) — 복습 사다리 앵커. 옵셔널이라 기존 저장 무마이그레이션
@@ -61,8 +59,8 @@ export const RoutineBlockSchema = z.object({
 export const CompletionEntrySchema = z.object({
   done: z.boolean(),
   min: z.number(),
-  doneDs: z.string().optional(),
-  actualMin: z.number().optional(),
+  doneDs: z.optional(z.string()),
+  actualMin: z.optional(z.number()),
 });
 /** completions[ds][`${sid}|${type}`] = {done,min} */
 export const CompletionsSchema = z.record(z.string(), z.record(z.string(), CompletionEntrySchema));
@@ -74,7 +72,7 @@ export const SummarySchema = z.object({
   s1: z.string(),
   s2: z.string(),
   s3: z.string(),
-  at: z.number().optional(), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프·정렬용)
+  at: z.optional(z.number()), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프·정렬용)
 });
 
 export const CbmsCodeSchema = z.enum(['C', 'B', 'M', 'S', 'T']);
@@ -86,8 +84,8 @@ export const CbmsSchema = z.object({
   chapter: z.string(),
   code: CbmsCodeSchema,
   note: z.string(),
-  conf: z.boolean().optional(), // 구버전엔 없음 — '찍어서 맞음' 플래그(F-06)
-  at: z.number().optional(), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
+  conf: z.optional(z.boolean()), // 구버전엔 없음 — '찍어서 맞음' 플래그(F-06)
+  at: z.optional(z.number()), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
 });
 
 export const BacklogSchema = z.object({
@@ -99,7 +97,7 @@ export const BacklogSchema = z.object({
   note: z.string(),
   done: z.boolean(),
   doneDs: z.string(),
-  at: z.number().optional(), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
+  at: z.optional(z.number()), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
 });
 
 export const BlankResultSchema = z.object({
@@ -137,12 +135,12 @@ export const CourseSchema = z.object({
   credits: z.number(),
   category: z.string(),
   status: z.string(),
-  grade: z.string().optional(),
+  grade: z.optional(z.string()),
 });
 export const SemesterSchema = z.object({
   id: z.string(),
   name: z.string(),
-  courses: z.array(CourseSchema).default([]),
+  courses: z._default(z.array(CourseSchema), []),
 });
 export const DegreeSchema = z.object({
   targetTotal: z.number(),
@@ -150,7 +148,7 @@ export const DegreeSchema = z.object({
   reqMajorSel: z.number(),
   reqLiberal: z.number(),
   semesters: z.array(SemesterSchema),
-  targetGpa: z.number().optional(), // 목표 졸업 GPA(역산 계산기) — 옵셔널이라 기존 저장 상태 무마이그레이션.
+  targetGpa: z.optional(z.number()), // 목표 졸업 GPA(역산 계산기) — 옵셔널이라 기존 저장 상태 무마이그레이션.
 });
 
 export const AnkiSchema = z.object({ source: z.string() });
@@ -163,14 +161,14 @@ export const PlacedBlockSchema = z.object({
   type: z.enum(['anki', 'new', 'rev', 'blank', 'mock']), // SessionType
   sid: z.string(), // 과목 id('mock'은 모의)
   name: z.string(),
-  color: z.string().optional(),
-  start: z.number().optional(), // 자정 기준 분(명시 배치) — layoutDay가 존중. 없으면 미지정(트레이).
+  color: z.optional(z.string()),
+  start: z.optional(z.number()), // 자정 기준 분(명시 배치) — layoutDay가 존중. 없으면 미지정(트레이).
   min: z.number(),
-  chapters: z.array(z.string()).optional(),
-  pinned: z.boolean().optional(), // 자동 재계산에서 보존
+  chapters: z.optional(z.array(z.string())),
+  pinned: z.optional(z.boolean()), // 자동 재계산에서 보존
   // 블록별 완료(수동 날 · 같은 sid|type 여러 블록을 독립 체크). completions[ds][sid|type] 집계는
   // setBlockDone이 이 플래그들의 OR/합으로 미러링해 하류(스케줄러 복습씨앗·통계·.ics)는 무변경.
-  done: z.boolean().optional(),
+  done: z.optional(z.boolean()),
 });
 export const DayPlanSchema = z.object({
   mode: z.enum(['auto', 'manual']), // manual = 그날 배치의 진리는 사용자
@@ -183,21 +181,21 @@ export const DayPlanSchema = z.object({
 export const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
-  sid: z.string().optional(), // 연결 과목(선택) — 색·필터용. 없으면 순수 자유 할 일
-  color: z.string().optional(),
-  ds: z.string().optional(), // 배정 날짜(YYYY-MM-DD). 없으면 '언젠가'(인박스)
-  start: z.number().optional(), // 시각(분). 없으면 그날 미지정 트레이
-  min: z.number().optional(), // 소요(선택) — 캘린더 블록 높이
+  sid: z.optional(z.string()), // 연결 과목(선택) — 색·필터용. 없으면 순수 자유 할 일
+  color: z.optional(z.string()),
+  ds: z.optional(z.string()), // 배정 날짜(YYYY-MM-DD). 없으면 '언젠가'(인박스)
+  start: z.optional(z.number()), // 시각(분). 없으면 그날 미지정 트레이
+  min: z.optional(z.number()), // 소요(선택) — 캘린더 블록 높이
   /* ⚠ 이 필드는 2026-07-29 까지 **쓰기 0·읽기 0** 이었다(스키마·동기화 계약엔 있는데 사용자는
      넣을 수도 볼 수도 없었다). 같은 날 배선했다 — 쓰기는 `DayPlanner` 편집 바의 날짜 입력,
      읽기는 트레이 칩의 D-day 배지(`ddayInfo`). 둘 중 하나만 있으면 나머지 하나가 영원히
      빈다는 것이 이 필드가 죽어 있던 이유다.
      ⚠ `Item.deadline`(과목 마감)과 **다른 것**이다 — 이름이 같아 혼동하기 쉽다. */
-  deadline: z.string().optional(), // ⏰ 마감(선택 · 할 일 전용)
-  done: z.boolean().optional(),
-  doneDs: z.string().optional(),
-  at: z.number().optional(), // 생성 시각(로그·정렬)
-  repeat: z.enum(['daily', 'weekly']).optional(), // 반복(선택) — 완료 시 다음 occurrence를 새 task로 spawn
+  deadline: z.optional(z.string()), // ⏰ 마감(선택 · 할 일 전용)
+  done: z.optional(z.boolean()),
+  doneDs: z.optional(z.string()),
+  at: z.optional(z.number()), // 생성 시각(로그·정렬)
+  repeat: z.optional(z.enum(['daily', 'weekly'])), // 반복(선택) — 완료 시 다음 occurrence를 새 task로 spawn
 });
 
 /* ── 일정(Wave 5) ──────────────────────────────────────────────────────
@@ -215,9 +213,9 @@ export const PlanEventSchema = z.object({
   start: z.number(), // 자정 기준 분(0~1439)
   min: z.number(), // 길이(분) — start+min<=1440 클램프(events.ts)
   title: z.string(),
-  note: z.string().optional(),
-  color: z.string().optional(), // 캘린더 칩 색(선택) — Task와 같은 관례
-  at: z.number().optional(), // 생성 시각(로그·정렬)
+  note: z.optional(z.string()),
+  color: z.optional(z.string()), // 캘린더 칩 색(선택) — Task와 같은 관례
+  at: z.optional(z.number()), // 생성 시각(로그·정렬)
 });
 
 /* ── 주간 배분(재개편 v2 §12-3) ─────────────────────────────────────────
@@ -227,86 +225,82 @@ export const PlanEventSchema = z.object({
 export const WeekAllocSchema = z.record(z.string(), z.record(z.string(), z.array(z.number())));
 
 /** 지식상태(_지식상태.json) — graphPriority 보정에 쓰는 과목 숙달도(서버/외부 캐시). */
-export const KnowStateSchema = z
-  .object({
-    subjects: z.array(z.object({ subject: z.string(), mastery: z.number() }).passthrough()).optional(),
-  })
-  .passthrough();
+export const KnowStateSchema = z.looseObject({
+  subjects: z.optional(z.array(z.looseObject({ subject: z.string(), mastery: z.number() }))),
+});
 
-export const AppStateSchema = z
-  .object({
-    schemaVersion: z.number(),
-    theme: ThemeSchema,
-    completions: CompletionsSchema,
-    startDate: z.string(),
-    moduleLen: z.number(),
-    reviewRatio: z.number(),
-    routine: z.array(RoutineBlockSchema),
-    dayOverrides: z.record(z.string(), z.union([z.number(), z.string()])),
-    items: z.array(ItemSchema),
-    summaries: z.record(z.string(), z.array(SummarySchema)),
-    cbms: z.array(CbmsSchema),
-    backlog: z.array(BacklogSchema),
-    blankResults: z.array(BlankResultSchema),
-    retentionLog: z.array(RetentionSchema),
-    weekly: z.record(z.string(), WeeklySchema),
-    rituals: z.record(z.string(), RitualSchema),
-    /* 이어하기 커서(N-7) — **기기 id → 커서**. 옵셔널이라 기존 저장은 무마이그레이션.
+export const AppStateSchema = z.looseObject({
+  schemaVersion: z.number(),
+  theme: ThemeSchema,
+  completions: CompletionsSchema,
+  startDate: z.string(),
+  moduleLen: z.number(),
+  reviewRatio: z.number(),
+  routine: z.array(RoutineBlockSchema),
+  dayOverrides: z.record(z.string(), z.union([z.number(), z.string()])),
+  items: z.array(ItemSchema),
+  summaries: z.record(z.string(), z.array(SummarySchema)),
+  cbms: z.array(CbmsSchema),
+  backlog: z.array(BacklogSchema),
+  blankResults: z.array(BlankResultSchema),
+  retentionLog: z.array(RetentionSchema),
+  weekly: z.record(z.string(), WeeklySchema),
+  rituals: z.record(z.string(), RitualSchema),
+  /* 이어하기 커서(N-7) — **기기 id → 커서**. 옵셔널이라 기존 저장은 무마이그레이션.
        `ds_map` 슬라이스라 기기당 1행이고, 각 기기가 자기 행만 써서 병합 충돌이 없다.
        6시간 TTL 은 읽는 쪽(`latestResume`)이 판정한다 — 저장된 값을 시간이 지났다고 지우는
        배경 작업을 만들면 그게 또 하나의 동기화 쓰기가 되고, 그 쓰기는 아무도 안 읽는다. */
-    resume: z
-      .record(
-        z.string(),
-        z.object({
-          kind: z.enum(['review', 'focus', 'journal']),
-          label: z.string(),
-          at: z.number(),
-          progress: z.string().optional(),
-          /* E26(2026-07-29) — 집중 세션의 종료 시각(epoch ms). `kind:'focus'` 에만 실린다.
+  resume: z.optional(
+    z.record(
+      z.string(),
+      z.object({
+        kind: z.enum(['review', 'focus', 'journal']),
+        label: z.string(),
+        at: z.number(),
+        progress: z.optional(z.string()),
+        /* E26(2026-07-29) — 집중 세션의 종료 시각(epoch ms). `kind:'focus'` 에만 실린다.
              ⚠ 서버 DDL·zod 가 0인 이유: `resume` 은 `ds_map` 슬라이스이고 그 `value` 는 **JSON
              문자열이라 서버에 불투명**하다. 즉 이 필드는 클라 계약에만 존재한다.
              ⚠ optional 이라 옛 저장본은 무마이그레이션으로 그대로 읽힌다. */
-          endsAt: z.number().optional(),
-        }),
-      )
-      .optional(),
-    blankReviewWeekly: z.boolean(),
-    mockEveryWeeks: z.number(),
-    adaptiveCapacity: z.boolean(),
-    peakStart: z.string(),
-    peakEnd: z.string(),
-    reviewViaAnki: z.boolean(),
-    graphPriority: z.boolean(),
-    degree: DegreeSchema,
-    anki: AnkiSchema,
-    /** reviewTouches[`${sid}|${chapter}`] = ds(YYYY-MM-DD) — ReviewRun의 챕터 단위 인출 기록.
-     *  위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22). 구버전엔 없음. */
-    reviewTouches: z.record(z.string(), z.string()).optional(),
-    /** 일일 배치 오버라이드(§4-1) — 키=ds(YYYY-MM-DD). manual인 날은 그날 배치의 진리=사용자.
-     *  옵셔널·무마이그레이션(구버전 저장 무손상 로드). RUNTIME_CACHE_KEYS 아님 → 영속·백업·.ics 대상. */
-    dayPlans: z.record(z.string(), DayPlanSchema).optional(),
-    /** 자유 할 일(§4-4) — 과목 무관 할 일(과제·심부름). 공부 블록과 별개 독립 리스트. 신규·옵셔널·무마이그레이션. */
-    tasks: z.array(TaskSchema).optional(),
-    /** 일정(Wave 5) — 과목 무관 단발 일정(약속·시험·행사). **스케줄 입력**이다(그 시간만큼 가용시간을 깎는다)
-     *  → SCHEDULE_INPUT_KEYS에 반드시 포함. 신규·옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
-    events: z.array(PlanEventSchema).optional(),
-    /** 주간 배분(§12-3) — 키=weekMon(ISO). 배분 있는 주는 스케줄러 new 블록을 이 요일 벡터로 구동(§12-4).
-     *  없는 주는 자동(종전 100% 불변). 옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
-    weekAlloc: WeekAllocSchema.optional(),
-    // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
-    _today: z.string().optional(),
-    _knowState: KnowStateSchema.optional(),
-    _vaultScan: z.unknown().optional(),
-    _ankiFile: z.unknown().optional(),
-    _ankiLive: z.unknown().optional(),
-    _icsExport: z.unknown().optional(),
-    _lastBackupAt: z.string().optional(),
-    // 축하 모먼트 중복발화 방지 마커 — 영속(RUNTIME_CACHE_KEYS 아님)이라 재로드해도 재발화 안 함.
-    _lastStreakCele: z.number().optional(), // 마지막으로 축하한 연속 학습일 임계(7·14·30·50·100)
-    _degreeCele: z.boolean().optional(), // 졸업요건 100% 축하 완료 플래그
-  })
-  .passthrough();
+        endsAt: z.optional(z.number()),
+      }),
+    ),
+  ),
+  blankReviewWeekly: z.boolean(),
+  mockEveryWeeks: z.number(),
+  adaptiveCapacity: z.boolean(),
+  peakStart: z.string(),
+  peakEnd: z.string(),
+  reviewViaAnki: z.boolean(),
+  graphPriority: z.boolean(),
+  degree: DegreeSchema,
+  anki: AnkiSchema,
+  /** reviewTouches[`${sid}|${chapter}`] = ds(YYYY-MM-DD) — ReviewRun의 챕터 단위 인출 기록.
+   *  위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22). 구버전엔 없음. */
+  reviewTouches: z.optional(z.record(z.string(), z.string())),
+  /** 일일 배치 오버라이드(§4-1) — 키=ds(YYYY-MM-DD). manual인 날은 그날 배치의 진리=사용자.
+   *  옵셔널·무마이그레이션(구버전 저장 무손상 로드). RUNTIME_CACHE_KEYS 아님 → 영속·백업·.ics 대상. */
+  dayPlans: z.optional(z.record(z.string(), DayPlanSchema)),
+  /** 자유 할 일(§4-4) — 과목 무관 할 일(과제·심부름). 공부 블록과 별개 독립 리스트. 신규·옵셔널·무마이그레이션. */
+  tasks: z.optional(z.array(TaskSchema)),
+  /** 일정(Wave 5) — 과목 무관 단발 일정(약속·시험·행사). **스케줄 입력**이다(그 시간만큼 가용시간을 깎는다)
+   *  → SCHEDULE_INPUT_KEYS에 반드시 포함. 신규·옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
+  events: z.optional(z.array(PlanEventSchema)),
+  /** 주간 배분(§12-3) — 키=weekMon(ISO). 배분 있는 주는 스케줄러 new 블록을 이 요일 벡터로 구동(§12-4).
+   *  없는 주는 자동(종전 100% 불변). 옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
+  weekAlloc: z.optional(WeekAllocSchema),
+  // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
+  _today: z.optional(z.string()),
+  _knowState: z.optional(KnowStateSchema),
+  _vaultScan: z.optional(z.unknown()),
+  _ankiFile: z.optional(z.unknown()),
+  _ankiLive: z.optional(z.unknown()),
+  _icsExport: z.optional(z.unknown()),
+  _lastBackupAt: z.optional(z.string()),
+  // 축하 모먼트 중복발화 방지 마커 — 영속(RUNTIME_CACHE_KEYS 아님)이라 재로드해도 재발화 안 함.
+  _lastStreakCele: z.optional(z.number()), // 마지막으로 축하한 연속 학습일 임계(7·14·30·50·100)
+  _degreeCele: z.optional(z.boolean()), // 졸업요건 100% 축하 완료 플래그
+});
 
 export type Chapter = z.infer<typeof ChapterSchema>;
 export type Item = z.infer<typeof ItemSchema>;

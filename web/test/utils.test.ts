@@ -18,6 +18,7 @@ import {
   masteryColor,
   mondayOf,
   parseISO,
+  pctLabel,
   toHM,
   toMin,
   todayISO,
@@ -213,5 +214,19 @@ describe('agoLabel — 짧은 상대표기', () => {
 
   it('미래 시각(시계 오차)은 방금으로 접는다 — "-3분 전"은 결함으로 읽힌다', () => {
     expect(agoLabel(NOW + 5 * 60_000, NOW)).toBe('방금');
+  });
+});
+
+describe('pctLabel — 사전분포 검역(부모 ②#54)', () => {
+  it('null 은 0% 가 아니라 "미측정" — 없는 것과 0인 것은 다르다', () => {
+    expect(pctLabel(null)).toBe('미측정');
+  });
+  it('undefined(로딩 중)는 종전대로 0% — 로딩 상태와 검역 상태를 섞지 않는다', () => {
+    expect(pctLabel(undefined)).toBe('0%');
+  });
+  it('정상 수치는 회귀 없음', () => {
+    expect(pctLabel(0)).toBe('0%');
+    expect(pctLabel(0.474)).toBe('47%');
+    expect(pctLabel(1)).toBe('100%');
   });
 });

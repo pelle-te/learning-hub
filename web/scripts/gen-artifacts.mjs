@@ -78,14 +78,14 @@ function zodExpr(node) {
   }
   let t = node.type;
   if (Array.isArray(t)) {
-    // 널러블 유니언: ["string","null"] → z.string().nullable()
+    // 널러블 유니언: ["string","null"] → z.nullable(z.string())  ⚠ mini 는 래핑 형태다(H28)
     const nonNull = t.filter((x) => x !== 'null');
     const nullable = t.includes('null');
     const inner =
       nonNull.length === 1
         ? zodExpr({ ...node, type: nonNull[0] })
         : `z.union([${nonNull.map((x) => zodExpr({ ...node, type: x })).join(', ')}])`;
-    return nullable ? `${inner}.nullable()` : inner;
+    return nullable ? `z.nullable(${inner})` : inner;
   }
   switch (t) {
     case 'string':
@@ -115,12 +115,14 @@ function zodExpr(node) {
       const required = new Set(node.required || []);
       const lines = keys.map((k) => {
         let e = zodExpr(props[k]);
-        if (!required.has(k)) e += '.optional()';
+        if (!required.has(k)) e = `z.optional(${e})`;
         return `${JSON.stringify(k)}: ${e}`;
       });
-      const obj = `z.object({ ${lines.join(', ')} })`;
-      // additionalProperties=false 만 strict, 그 외(기본 true·loose 계약)는 passthrough.
-      return addl === false ? `${obj}.strict()` : `${obj}.passthrough()`;
+      /* ⚠ mini 는 `strict`/`loose` 가 **메서드가 아니라 생성자**다(H28) — `z.object().strict()` 가
+         아니라 `z.strictObject()`. 여기가 생성기라 이 한 줄이 164곳을 결정한다. */
+      const fields = `{ ${lines.join(', ')} }`;
+      // additionalProperties=false 만 strict, 그 외(기본 true·loose 계약)는 loose.
+      return addl === false ? `z.strictObject(${fields})` : `z.looseObject(${fields})`;
     }
     default:
       return 'z.unknown()';
@@ -176,7 +178,7 @@ const raw = `/* ============================================================
    재생성: cd web && npm run codegen   (게이트: npm run codegen:check)
    생성기: scripts/gen-artifacts.mjs · P7 Bet 1 후속(repo 경계 드리프트 소멸).
 ============================================================ */
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 /** 각 아티팩트가 기대하는 \`_schemaVersion\`(부모 스키마 const 파생). 불일치는 artifacts.ts 가 경고. */
 export const EXPECTED_SCHEMA_VERSION = {
@@ -220,5 +222,7 @@ if (existing === formatted) {
   console.log('· artifacts.gen.ts 변경 없음.');
 } else {
   writeFileSync(outPath, formatted);
-  console.log(`✓ artifacts.gen.ts 생성(${ARTIFACTS.length} 아티팩트 · STAGES ${ledgerStages.length} · 버전 ${Object.values(versions).join('/')}).`);
+  console.log(
+    `✓ artifacts.gen.ts 생성(${ARTIFACTS.length} 아티팩트 · STAGES ${ledgerStages.length} · 버전 ${Object.values(versions).join('/')}).`,
+  );
 }

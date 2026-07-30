@@ -233,9 +233,12 @@ export function hLabel(min: number): string {
   return hNum(min) + 'h';
 }
 
-/** 0~1 비율 → `"42%"`. `ledger`·`mastery` 3파일에 4벌로 복제돼 있던 것(가드 유무만 달랐다). */
-export function pctLabel(x?: number): string {
-  return `${Math.round((x || 0) * 100)}%`;
+/** 0~1 비율 → `"42%"`. `ledger`·`mastery` 3파일에 4벌로 복제돼 있던 것(가드 유무만 달랐다).
+ *  `null` → `"미측정"`: 부모의 사전분포 검역(②#54)이 "근거가 없어 총계를 내지 않는다"를 뜻하므로
+ *  0%로 바꿔 그리면 **"측정했는데 0"으로 거짓 표시**된다. 없는 것과 0인 것은 다르다.
+ *  `undefined`(아직 안 불러옴)는 종전대로 0% — 로딩 상태와 검역 상태를 섞지 않는다. */
+export function pctLabel(x?: number | null): string {
+  return x === null ? '미측정' : `${Math.round((x || 0) * 100)}%`;
 }
 
 /**

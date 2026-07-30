@@ -30,7 +30,7 @@
    · `NaN`/`Infinity` 타임스탬프 → 워터마크 비교를 오염시켜 동기화가 멈추거나 폭주한다.
    · fence 계약 위반 → 클라이언트가 `since`~`upto` 밖의 행을 보내면 워터마크 전진이 거짓이 된다.
 ============================================================ */
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { MAX_BATCH_ITEMS, OUTBOX_TABLES, type OutboxBatch } from './contract';
 
 /** 테이블 이름 → 명세. 길이 검사가 이걸 참조한다. */
@@ -47,11 +47,13 @@ export const TableNameSchema = z.enum(TABLE_NAMES);
  *  만 내게 된다(벽시계 복귀 불가 · H5). 스키마 머리주석의 "타임스탬프 오염 차단"을 완성한다. */
 const MAX_STAMP = 4102444800000;
 
-/** epoch ms. `.int()` 가 `NaN`·`Infinity`·소수를, `.lte` 가 거대 미래값을 함께 걸러낸다. */
-const Stamp = z.number().int().nonnegative().lte(MAX_STAMP);
+/** epoch ms. `z.int()` 가 `NaN`·`Infinity`·소수를, `lte` 가 거대 미래값을 함께 걸러낸다.
+ *  ⚠ mini 에서는 제약이 **메서드가 아니라 체크 함수**다(`.nonnegative()` → `z.nonnegative()`) —
+ *  의미는 같고 붙이는 방식만 다르다(H28). */
+const Stamp = z.int().check(z.nonnegative(), z.lte(MAX_STAMP));
 
 export const OutboxRowSchema = z
-  .object({
+  .strictObject({
     tbl: TableNameSchema,
     key: z.array(z.string()),
     /* `unknown` 을 유지한다 — 열 값은 텍스트·정수가 섞이고(`records.ord` 는 INTEGER),
@@ -59,78 +61,99 @@ export const OutboxRowSchema = z
     data: z.array(z.unknown()),
     updatedAt: Stamp,
   })
-  .strict()
-  .superRefine((r, ctx) => {
+  .check((ctx) => {
+    /* ⚠ `superRefine` 은 mini 에 없다(H28) — `check` 가 같은 자리다. 다만 시그니처가 다르다:
+       값은 `ctx.value` 로 오고, 이슈는 `ctx.addIssue(...)` 가 아니라 `ctx.issues.push(...)` 다
+       (`input` 을 함께 실어야 한다 — classic 이 자동으로 채워 주던 필드). */
+    const r = ctx.value;
     const spec = SPEC.get(r.tbl);
     if (!spec) return; // enum 이 이미 걸렀다(방어적)
     if (r.key.length !== spec.keyLen) {
-      ctx.addIssue({
+      ctx.issues.push({
         code: 'custom',
         path: ['key'],
         message: `${r.tbl}: 기본키 ${spec.keyLen}개여야 하는데 ${r.key.length}개`,
+        input: ctx.value,
       });
     }
     const dataLen = spec.cols.length - spec.keyLen;
     if (r.data.length !== dataLen) {
-      ctx.addIssue({
+      ctx.issues.push({
         code: 'custom',
         path: ['data'],
         message: `${r.tbl}: 데이터 열 ${dataLen}개여야 하는데 ${r.data.length}개`,
+        input: ctx.value,
       });
     }
   });
 
 export const OutboxTombSchema = z
-  .object({
+  .strictObject({
     tbl: TableNameSchema,
     k1: z.string(),
     /** 단일키 테이블은 빈 문자열(db.rs v3 규약). */
     k2: z.string(),
     deletedAt: Stamp,
   })
-  .strict()
-  .superRefine((t, ctx) => {
+  .check((ctx) => {
+    const t = ctx.value;
     const spec = SPEC.get(t.tbl);
     if (spec && spec.keyLen === 1 && t.k2 !== '') {
-      ctx.addIssue({ code: 'custom', path: ['k2'], message: `${t.tbl}: 단일키 테이블인데 k2 가 비어 있지 않다` });
+      ctx.issues.push({
+        code: 'custom',
+        path: ['k2'],
+        message: `${t.tbl}: 단일키 테이블인데 k2 가 비어 있지 않다`,
+        input: ctx.value,
+      });
     }
   });
 
 export const OutboxBatchSchema = z
-  .object({
+  .strictObject({
     since: Stamp,
     upto: Stamp,
     rows: z.array(OutboxRowSchema),
     tombstones: z.array(OutboxTombSchema),
   })
-  .strict()
-  .superRefine((b, ctx) => {
+  .check((ctx) => {
+    const b = ctx.value;
     if (b.upto < b.since) {
-      ctx.addIssue({ code: 'custom', path: ['upto'], message: `upto(${b.upto}) 가 since(${b.since}) 보다 작다` });
+      ctx.issues.push({
+        code: 'custom',
+        path: ['upto'],
+        message: `upto(${b.upto}) 가 since(${b.since}) 보다 작다`,
+        input: ctx.value,
+      });
     }
     /* ⚠ 상한은 **경고가 아니라 거부**다. 넘는 배치는 서버 CPU 한도에서 어차피 죽는데,
        거기서 죽으면 원인이 "타임아웃"으로 보여 진단이 어렵다. 여기서 이름 붙여 거부한다. */
     const total = b.rows.length + b.tombstones.length;
     if (total > MAX_BATCH_ITEMS) {
-      ctx.addIssue({ code: 'custom', message: `배치가 상한을 넘었다: ${total} > ${MAX_BATCH_ITEMS}` });
+      ctx.issues.push({
+        code: 'custom',
+        message: `배치가 상한을 넘었다: ${total} > ${MAX_BATCH_ITEMS}`,
+        input: ctx.value,
+      });
     }
     /* fence 계약 — 모든 항목이 (since, upto] 안에 있어야 한다. 밖의 행이 섞이면 워터마크를
        upto 로 전진시키는 순간 그 행이 "보냈다"고 잘못 기록되거나, 반대로 영영 안 올라간다. */
     for (const [i, r] of b.rows.entries()) {
       if (r.updatedAt <= b.since || r.updatedAt > b.upto) {
-        ctx.addIssue({
+        ctx.issues.push({
           code: 'custom',
           path: ['rows', i],
           message: `updatedAt ${r.updatedAt} 이 (${b.since}, ${b.upto}] 밖이다`,
+          input: ctx.value,
         });
       }
     }
     for (const [i, t] of b.tombstones.entries()) {
       if (t.deletedAt <= b.since || t.deletedAt > b.upto) {
-        ctx.addIssue({
+        ctx.issues.push({
           code: 'custom',
           path: ['tombstones', i],
           message: `deletedAt ${t.deletedAt} 이 (${b.since}, ${b.upto}] 밖이다`,
+          input: ctx.value,
         });
       }
     }
@@ -177,8 +200,8 @@ export function parseInboundBatch(
     .object({
       since: Stamp,
       upto: Stamp,
-      rows: z.array(z.unknown()).default([]),
-      tombstones: z.array(z.unknown()).default([]),
+      rows: z._default(z.array(z.unknown()), []),
+      tombstones: z._default(z.array(z.unknown()), []),
     })
     /* ⚠ `.strict()` 를 쓰지 않는다 — 서버가 배치 객체에 **새 필드**를 더해도(진단용 메타 등)
        구버전 클라이언트가 죽지 않아야 한다. 모르는 필드는 여기서 조용히 사라진다. */
@@ -200,7 +223,7 @@ export function parseInboundBatch(
 }
 
 /** zod 이슈를 한 줄로 — 상위 5개만(전량은 로그가 페이로드만큼 커진다). */
-function issueLine(e: z.ZodError): string {
+function issueLine(e: z.core.$ZodError): string {
   return e.issues
     .slice(0, 5)
     .map((i) => `${i.path.join('.') || '(루트)'}: ${i.message}`)
