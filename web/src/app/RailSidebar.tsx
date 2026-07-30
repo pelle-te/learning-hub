@@ -135,7 +135,22 @@ export default function RailSidebar() {
   const idxOf = (key: string) => flat.findIndex((t) => t.key === key);
   const hasActive = flat.some((t) => t.key === cur);
 
-  // roving: ↑↓/←→/Home/End로 탭 이동(자동 활성) + 렌더 후 포커스.
+  /* roving: ↑↓/←→/Home/End 로 **포커스만** 옮긴다(H10 · 2026-07-30 `/감사 근본`).
+
+     ⚠⚠ 종전엔 포커스 이동 **전에** `go(t.key, false)` 로 라우트를 즉시 바꾸는 *자동 활성*이었다.
+     두 가지가 동시에 틀렸다:
+
+     · **훑을 수 없다.** SR 사용자가 ↓ 를 세 번 눌러 레일 라벨을 읽으려 하면 라우트가 세 번
+       바뀌고, `App.tsx` 의 라우트 아나운서와 `document.title` 이 매번 갱신돼 **자기가 읽으려던
+       라벨이 계속 잘린다.** 형제 위젯 `SubTabs` 는 정확히 반대로 결정하고 그 근거를 적어 뒀다
+       (_"활성화는 네이티브 버튼(Enter/Space)·클릭이 소유 — 라우트 전환은 명시 동작으로"_).
+       내비게이션 목록은 tablist 가 아니므로 WAI 도 수동 활성을 권한다.
+     · **관측 원장을 오염시킨다.** `go()` 가 `markVia('rail')` 를 부르고 `App.tsx` 가 경로 변경마다
+       `recordVisit` 한다 → **키보드 탐색 한 번이 '레일 방문'으로 집계된다.** 그 숫자는 H24(markets
+       강등)·IA 재판정이 2주 기다리는 바로 그 데이터다(`route_visits`). 탐색이 방문으로 찍히면
+       "무엇을 실제로 쓰는가"의 답이 조용히 부풀려진다.
+
+     활성화는 버튼의 네이티브 동작(Enter/Space)이 이미 소유한다 — 여기서 뺀 것은 그 중복뿐이다. */
   const onKey = (idx: number) => (e: React.KeyboardEvent) => {
     let next = -1;
     switch (e.key) {
@@ -158,8 +173,11 @@ export default function RailSidebar() {
     }
     e.preventDefault();
     const t = flat[next]!;
-    go(t.key, false);
-    requestAnimationFrame(() => document.getElementById('rail-' + t.key)?.focus());
+    /* 포커스만 옮긴다 — `go()` 를 부르지 않는 것이 H10 의 전부다. roving tabindex 이므로
+       `tabIndex` 는 `cur` 이 아니라 **DOM 포커스**를 따라야 하는데, 그 계산은 아래
+       `renderBtn` 이 `activeKey`(=현재 라우트)로 하고 있어 포커스 이동 자체는 막지 않는다
+       (브라우저가 focus() 를 그대로 수행한다). */
+    document.getElementById('rail-' + t.key)?.focus();
   };
 
   const renderBtn = (t: TabMeta) => {

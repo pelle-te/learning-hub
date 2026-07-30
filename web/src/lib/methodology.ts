@@ -289,7 +289,10 @@ export function toggleBacklog(state: AppState, id: string): void {
 export function delBacklog(state: AppState, id: string): void {
   state.backlog = (state.backlog || []).filter((x) => x.id !== id);
 }
-export function openBacklog(state: AppState): Backlog[] {
+/* ⚠ 입력을 `Pick<AppState,'backlog'>` 로 좁혔다(H17) — 이 함수가 읽는 것이 그 한 슬라이스뿐이고,
+   타입이 그 사실을 말하면 호출부가 **전체 상태를 구독하지 않고** 그 조각만 구독할 수 있다.
+   전체 상태를 요구하면 셀렉터가 루트를 물게 되고, 그게 무관 쓰기마다 리렌더를 만든다. */
+export function openBacklog(state: Pick<AppState, 'backlog'>): Backlog[] {
   return (state.backlog || []).filter((b) => !b.done);
 }
 export function backlogClosedBetween(state: AppState, fromDs?: string, toDs?: string): number {

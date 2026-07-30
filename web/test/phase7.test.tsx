@@ -11,7 +11,7 @@ import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 
 /* Phase 7 — 성능/UX/접근성 보강 회귀 고정:
-   - 레일 나브 방향키 탐색(roving tabindex, 자동 활성) — 활성 표기는 aria-current="page"
+   - 레일 나브 방향키 탐색(roving tabindex · **수동 활성** — H10/2026-07-30) — 활성 표기는 aria-current="page"
    - 모달 포커스 복원 + aria-labelledby/describedby(접근성) */
 function renderApp(initialPath = '/today') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -34,29 +34,59 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('나브 하위탭: ArrowRight로 다음 탭 자동 활성(today → 계획)', async () => {
-  // 계획 개편: today(10) 다음 order 12 = '계획'(=캘린더 자신 · D-4 로 plan-host 셸 은퇴).
+/* ⚠⚠ **아래 세 케이스는 2026-07-30 `/감사 근본`(H10)에서 계약이 뒤집혔다.**
+
+   종전 이름은 _"ArrowRight로 다음 탭 **자동 활성**"_ 이었고, 화살표 한 번에 라우트가 바뀌는 것을
+   **계약으로 적어** 두고 있었다. 그 거동이 두 가지를 깼다: ① SR 사용자가 레일을 훑을 수 없다
+   (라우트 아나운서가 매번 갱신돼 읽으려던 라벨이 잘린다) ② `go()` → `markVia('rail')` →
+   `recordVisit` 이라 **키보드 탐색이 '레일 방문'으로 집계**돼, IA 재판정이 기다리는
+   `route_visits` 가 오염된다.
+
+   새 계약은 형제 위젯 `SubTabs` 와 같다(그 파일이 근거를 이미 적어 뒀다): **화살표는 포커스,
+   활성화는 Enter/Space/클릭.** 그래서 케이스도 두 쪽을 함께 잠근다 — 포커스가 옮겨지는 것과
+   **라우트가 안 바뀌는 것**, 그리고 Enter 로는 실제로 바뀌는 것. 한쪽만 검사하면 "아무것도
+   안 하는 화살표"도 통과한다. */
+test('레일 나브: ArrowRight 는 포커스만 옮기고 라우트를 바꾸지 않는다(수동 활성)', async () => {
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   expect(today).toHaveAttribute('aria-current', 'page');
+
   fireEvent.keyDown(today, { key: 'ArrowRight' });
+
+  // 포커스는 다음 도달점으로 간다(계획 개편: today(10) 다음 order 12 = '계획').
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-schedule')));
+  // 그러나 현재 페이지는 그대로다 — 이게 H10 이 되찾은 성질이다.
+  expect(today).toHaveAttribute('aria-current', 'page');
+  expect(document.getElementById('rail-schedule')).not.toHaveAttribute('aria-current', 'page');
+});
+
+test('레일 나브: 포커스를 옮긴 뒤 Enter 가 실제로 활성화한다(도달성은 유지)', async () => {
+  renderApp('/today');
+  const today = await screen.findByRole('button', { name: /오늘 학습/ });
+  fireEvent.keyDown(today, { key: 'ArrowRight' });
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-schedule')));
+
+  /* 네이티브 버튼의 Enter = click. 화살표에서 활성화를 뺐어도 **키보드로 도달 가능**해야 한다 —
+     그게 빠지면 접근성을 고치려다 접근성을 깨는 것이다. */
+  fireEvent.click(document.getElementById('rail-schedule')!);
   await waitFor(() => expect(document.getElementById('rail-schedule')).toHaveAttribute('aria-current', 'page'));
 });
 
-test('레일 나브: End로 마지막 나브 항목(설정)으로 이동', async () => {
+test('레일 나브: End 는 마지막 항목(설정)으로 포커스를 옮긴다', async () => {
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'End' });
   // roving 대상 = 라벨+그룹 사이드바의 모든 나브 항목(설정 그룹 포함): …·control·settings → 마지막은 '설정'.
-  await waitFor(() => expect(document.getElementById('rail-settings')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-settings')));
+  expect(today).toHaveAttribute('aria-current', 'page'); // 라우트는 불변
 });
 
-test('레일 나브: ArrowLeft가 첫 항목에서 마지막(설정)으로 순환', async () => {
+test('레일 나브: ArrowLeft 가 첫 항목에서 마지막(설정)으로 순환한다', async () => {
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
-  expect(today).toHaveAttribute('aria-current', 'page');
   fireEvent.keyDown(today, { key: 'ArrowLeft' });
-  await waitFor(() => expect(document.getElementById('rail-settings')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-settings')));
+  expect(today).toHaveAttribute('aria-current', 'page');
 });
 
 test('단축키: ]는 다음 도달점(today → 계획), [는 이전(today → 설정 · 링이 표면 안에서 순환)', async () => {

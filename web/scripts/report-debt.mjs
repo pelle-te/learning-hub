@@ -88,9 +88,39 @@ function readRatchet() {
   console.warn('⚠ eslint.config.js 에서 max-lines 임계를 못 읽었습니다 — 표시값이 실제 게이트와 다를 수 있습니다.');
   return 844;
 }
-console.log(`\n큰 파일 top 10 (max-lines 래칫 ${MAX_LINES_RATCHET})`);
+/* ⚠⚠ **면제 파일을 ⚠ 로 표시하지 않는다(H18 · 2026-07-30 `/감사 근본`).**
+
+   위 `readRatchet` 은 임계를 게이트에서 읽어 드리프트를 이미 막았지만, **per-file 면제**는
+   안 읽었다. 그래서 이 리포트의 ⚠ 두 개가 **둘 다 거짓양성**이었다:
+   ① `lib/atlasData.ts` — eslint.config.js 가 `'max-lines': 'off'` 로 명시 면제(시드 데이터).
+   ② `TodaySignature.tsx` — 아래 줄 세기가 **근사**라 실제 eslint 값(724)보다 크게 나왔다.
+
+   유일한 경고 신호가 100% 거짓양성이면 사람은 그 리포트를 안 읽는다 — 이 저장소가 sonarjs
+   recommended 를 거른 근거("노이즈가 신호를 묻는다")와 같은 논리다. 근사라는 사실도 함께
+   적어 둔다: 정확한 값이 필요하면 게이트(`npm run lint`)가 권위다. */
+function exemptPatterns() {
+  try {
+    const cfg = readFileSync('eslint.config.js', 'utf8');
+    const out = [];
+    // `files: ['src/lib/atlasData.ts'] … rules: { 'max-lines': 'off' }` 블록에서 경로만 걷는다.
+    for (const m of cfg.matchAll(/files:\s*\[([^\]]*)\][\s\S]{0,400}?'max-lines':\s*'off'/g)) {
+      for (const q of m[1].matchAll(/['"]([^'"]+)['"]/g)) out.push(q[1]);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+const EXEMPT = exemptPatterns();
+const isExempt = (rel) => EXEMPT.some((p) => p.replace(/^src\//, '') === rel || p === `src/${rel}`);
+
+console.log(`\n큰 파일 top 10 (max-lines 래칫 ${MAX_LINES_RATCHET} · 줄 수는 **근사** — 권위는 npm run lint)`);
 for (const f of [...files].sort((a, b) => b.lines - a.lines).slice(0, 10)) {
-  const flag = f.lines > MAX_LINES_RATCHET ? ' ⚠' : '';
+  const exempt = isExempt(f.rel);
+  /* ⚠ 초과를 **단정하지 않는다.** 아래 줄 세기는 근사이고 실측상 **과대**로 기운다
+     (TodaySignature: 근사 749 vs eslint 724). 단정하면 없는 부채를 쫓게 되고, 그게 이 리포트를
+     안 읽게 만드는 가장 빠른 길이다. 주의는 주되 판정은 게이트에 맡긴다. */
+  const flag = exempt ? ' (면제)' : f.lines > MAX_LINES_RATCHET ? ' ⚠ 근사 초과 → npm run lint 로 확인' : '';
   console.log(`  ${String(f.lines).padStart(5)}  ${f.rel}${flag}`);
 }
 

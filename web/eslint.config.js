@@ -94,7 +94,13 @@ export default tseslint.config(
      여유 3줄은 의도다 — 인지복잡도 래칫(77·여유 0)과 같은 규율이고, 넘으면 쪼개라는 뜻이다. */
   {
     files: ['src/**/*.{ts,tsx}'],
-    rules: { 'max-lines': ['error', { max: 745, skipBlankLines: true, skipComments: true }] },
+    /* ⚠ **래칫을 745 → 727 로 조였다(H18 · 2026-07-30 `/감사 근본`).**
+       규약은 _"임계는 **현재 최댓값**이고 내려가기만 한다"_ 인데, 그새 파일들이 줄어(E17·E24 등)
+       실측 최댓값이 **724** 였다(면제된 `atlasData.ts` 제외 · 권위 측정은 전체-src eslint).
+       즉 래칫이 **21줄 느슨**했고, 그 폭만큼 파일이 조용히 자랄 수 있었다 — 래칫의 유일한 일이
+       "더 나빠지지 않는다"인데 그 보장이 21줄 헐거웠던 것이다.
+       여유 3줄은 의도다(인지복잡도 래칫 77·여유 0 과 같은 규율 — 넘으면 쪼개라는 뜻). */
+    rules: { 'max-lines': ['error', { max: 727, skipBlankLines: true, skipComments: true }] },
   },
   // atlasData.ts는 진로 아틀라스 시드 **데이터**(779줄)다 — 분할해도 복잡도가 줄지 않는 상수 테이블이라
   // 크기 래칫의 대상이 아니다(코드가 아니라 데이터라는 것이 예외 사유).
@@ -138,6 +144,19 @@ export default tseslint.config(
            필요하다. **더 구체적인 패턴이 먼저** 와야 한다 — boundaries 는 첫 일치를 쓴다. */
         { type: 'shellToast', pattern: '**/src/shell/toast/**' },
         { type: 'shell', pattern: '**/src/shell/**' },
+        /* ⚠⚠ **`phone` 을 등록한다(H27 · 2026-07-30 `/감사 근본`).**
+
+           C-6 은 _"폰은 `lib/` 만 공유하고 화면은 따로다"_ 를 설계 결론으로 선언했지만
+           (설계서 §13-0), `src/phone/**` 은 **어느 element 에도 안 잡혀 있었다** — `no-unknown`
+           도 off 라 `@/features/*`·`@/app/*`·`@/shell` 을 넣어도 **린트가 조용했다.**
+           즉 그 결론은 집행자 없는 관습이었고, 이 저장소는 "규약을 관습에 두면 흘러내린다"를
+           stylelint·번들 예산·커버리지 임계에서 반복해 배웠다.
+
+           ⚠ 지금 실제 import 는 전부 합법이다(감사 시점 실측) — 그래서 이 등록은 **회귀를 막는
+             것**이고 기존 코드를 하나도 안 고친다. 비용 0 에 선언이 곧 집행이 된다.
+           ⚠ 허용 목록은 아래 정책에서 `features` 와 같은 폭으로 준다. 폰이 `app/`·`features/` 를
+             무는 것만 막으면 §13-0 의 결론이 그대로 강제된다. */
+        { type: 'phone', pattern: '**/src/phone/**' },
       ],
     },
     rules: {
@@ -164,6 +183,21 @@ export default tseslint.config(
                 { to: { element: { type: 'lib' } } },
                 { to: { element: { type: 'shell' } } },
                 { to: { element: { type: 'shellToast' } } },
+              ],
+            },
+            /* 폰(H27) — 화면은 따로지만 소비 층은 feature 와 같다. `app`·`features`·`shell` 배럴은
+               **주지 않는다**: 그게 §13-0 의 "하위 컴포넌트 선별 재사용은 성립하지 않았다"라는
+               실측 결론이고, `shell` 은 `actions.ts`(스토어·IPC)를 나르므로 폰 번들에 들어가면
+               H7(폰 초기 로드에서 데스크톱 IPC 표면 제거)이 되돌려진다. 토스트만 잎 모듈로 허용. */
+            {
+              from: { element: { type: 'phone' } },
+              allow: [
+                { to: { element: { type: 'components' } } },
+                { to: { element: { type: 'hooks' } } },
+                { to: { element: { type: 'store' } } },
+                { to: { element: { type: 'lib' } } },
+                { to: { element: { type: 'shellToast' } } },
+                { to: { element: { type: 'phone' } } },
               ],
             },
             {

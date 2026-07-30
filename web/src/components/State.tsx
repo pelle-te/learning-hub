@@ -88,7 +88,15 @@ export default function State(props: StateProps) {
   return (
     <div
       className={WRAP}
-      role={kind === 'loading' ? 'status' : undefined}
+      /* ⚠⚠ **에러도 공지한다(H7 · 2026-07-30 `/감사 근본`).** 종전엔 `role`/`aria-live` 를
+         `loading` 에만 걸었다 → 산출물 읽기가 실패하면 스크린리더 사용자는 "불러오는 중"을 들은
+         뒤 **아무 공지도 받지 못했다**. 게다가 같은 노드가 `role=status` → 롤 없음으로 바뀌며
+         텍스트가 교체되므로 라이브 공지도 불발한다(리전이 사라지면 변경이 관측되지 않는다).
+         E17 이 성공하지 않은 화면 **전부**를 이 컴포넌트로 모았으므로 파급이 앱 전역이고,
+         같은 이유로 **수정 지점도 한 곳**이다 — 그게 E17 이 사 온 값이다.
+         `alert` 인 이유: 실패는 사용자가 하려던 일이 안 됐다는 뜻이라 즉시 알려야 한다.
+         빈 상태(`empty`)는 롤이 없다 — 정상 상태이고, 매번 공지하면 그 자체가 소음이다. */
+      role={kind === 'loading' ? 'status' : kind === 'error' ? 'alert' : undefined}
       aria-live={kind === 'loading' ? 'polite' : undefined}
     >
       {kind === 'loading' ? SPIN : glyph != null && <div className={GLYPH}>{glyph}</div>}

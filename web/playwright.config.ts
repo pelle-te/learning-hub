@@ -5,6 +5,20 @@ import { defineConfig, devices } from '@playwright/test';
    /api 프록시는 dev 전용이라 preview엔 없음 → 외부 탭(control/mastery/integrations)은 우아한 폴백을 찍는다. */
 export default defineConfig({
   testDir: './e2e',
+  /* ⚠⚠ **모션 스펙은 이 설정에서 제외한다(H4 · 2026-07-30 `/감사 근본`).**
+
+     `motion.spec.ts` 는 감도를 이 파일보다 **10배 조여** 쓴다(`threshold 0.05` ·
+     `maxDiffPixelRatio 0.0005`). 그 파일 스스로 그 임계의 **짝이 `--workers=1`** 이라고 적었다
+     ("더 조이면 웹폰트 스와프·서브픽셀 렌더가 flaky 로 들어온다").
+
+     그런데 그 짝을 지키는 경로는 `npm run e2e:motion` 뿐이었고, **게이트와 CI 는 `npm run e2e`**
+     (= `fullyParallel` + 워커 무제한)를 돌렸다. 즉 하네스가 요구한 조건이 **실제로 도는 어느
+     경로에서도 성립하지 않았다.** 게다가 `retries: 1` 이 그 비결정성을 **flaky-녹색으로 가린다**
+     — 그 재시도의 근거 주석은 모션 하네스보다 먼저 쓰였고, 이 조합은 검토된 적이 없다.
+
+     → 짝을 **스크립트 규율이 아니라 구조**로 만든다: 여기서 제외하고 `playwright.motion.config.ts`
+       가 `workers: 1` 로 소유한다. `npm run e2e` 는 둘을 이어 돌린다(커버리지 동일). */
+  testIgnore: '**/motion.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // 비주얼 스냅샷은 16-워커 병렬 부하에서 안정화 타이밍 flaky가 드물게 난다(로컬 전용).

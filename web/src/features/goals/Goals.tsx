@@ -264,7 +264,14 @@ function ProjectCard({ p, k }: { p: ProjectView; k: Knowledge | undefined }) {
   const mutate = useApp((s) => s.mutate);
   // 이미 열려 있는 보충의 주제 집합 — 중복 시드 잠금의 근거를 로컬 state 가 아니라 **실제 상태**에서 판다
   // (탭을 다시 열어도, 다른 화면에서 담았어도 같은 답이 나온다).
-  const openTopics = useApp((s) => new Set(openBacklog(s.state).map((b) => b.topic)));
+  /* ⚠⚠ **셀렉터가 새 객체를 만들면 구독이 항상 깨진다(H17 · 2026-07-30 `/감사 근본`).**
+     종전엔 `useApp((s) => new Set(openBacklog(s.state).map(...)))` 였다. zustand 의 기본 비교는
+     `Object.is` 이므로 **앱 스토어의 모든 알림마다** 참조가 달라져(다른 탭의 완료 토글·집중
+     시작·`setRuntimeCache` 까지) 마운트된 카드 전부가 리렌더했다. React Compiler 는 훅 **반환값**
+     이 매번 새 참조인 것을 고칠 수 없다 — 메모의 입력 자체가 달라지기 때문이다.
+     → 원시 슬라이스만 구독하고 파생은 렌더 본문에서 한다(그건 컴파일러가 메모한다). */
+  const backlog = useApp((s) => s.state.backlog);
+  const openTopics = new Set(openBacklog({ backlog }).map((b) => b.topic));
   const rows = needKnowledgeRows(p.필요지식, k);
   const weakN = rows.filter((r) => r.weak).length;
 
