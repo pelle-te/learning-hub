@@ -518,6 +518,10 @@
   /* 액센트 채움 그라데이션 — 활성 세그/토글/링 등 "칠해진" 표면 SSOT(--acc에서 파생). */
   --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
   --hairline: rgba(255, 255, 255, 0.06);
+  /* 노치 HUD 브래킷 색(E28 · `ds-frame`) — **테마별로 세기가 달라야 한다.** 다크에서 읽히는
+     55% 를 라이트(흰 패널)에 그대로 쓰면 사라진다 — E4 가 헤어라인에서 물린 것과 같은 부류이고,
+     그래서 `--glow` 를 그냥 쓰지 않고 이름을 갈랐다. */
+  --frame-line: color-mix(in srgb, var(--acc) 55%, transparent);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 8px 30px -10px rgba(0, 0, 0, 0.62);
   --shadow-lg: 0 24px 60px -22px rgba(0, 0, 0, 0.72);
@@ -591,6 +595,9 @@
      ⚠ 잉크 계열로 어둡게 하되 `--scrim`(45%)보다는 얕다 — 시트는 팔레트와 달리 **뒤 맥락을 남긴
      채** 위에 얹히는 표면이라, 같은 세기로 덮으면 "어디서 열렸는지"를 잃는다. */
   --overlay-bg: color-mix(in srgb, var(--ink) 32%, transparent);
+  /* 흰 패널 위에서는 55% 가 사라진다(실렌더) → 불투명에 가깝게. 액센트 자체가 라이트에서
+     이미 어두운 계열이라(대비 확보용) 세게 써도 시끄럽지 않다. */
+  --frame-line: color-mix(in srgb, var(--acc) 88%, transparent);
 
   --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.05), 0 1px 1.5px rgba(20, 22, 45, 0.04);
   --shadow-md: 0 8px 24px -10px rgba(20, 22, 45, 0.12);

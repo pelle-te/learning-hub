@@ -58,8 +58,14 @@ const MAINCOL = 'min-w-0 overflow-y-auto px-6 py-5 [scrollbar-width:thin]';
 const SIDECOL =
   'min-w-0 overflow-y-auto border-l border-line2 p-5 [scrollbar-width:thin] max-wide:border-t max-wide:border-l-0';
 const HINT = 'mb-4 text-xs leading-normal text-mut';
+/* E28 — 시그니처를 **노치 HUD**(`ds-frame`)로. 옛 형태는 `border`+`rounded-lg`+`shadow-card` =
+   원칙 ④가 폐기한 둥근 글래스 카드였고, 그게 **원칙 ③의 주인공(화면당 시그니처 하나)에 입혀져
+   있었다** — 가장 크게 어기는 자리가 가장 눈에 띄는 자리였다는 뜻이다(E11 이 세운 진단).
+   ⚠ `ds-frame` 이 padding 을 갖는다 → `px-5 py-4` 를 뗀다(두 벌이면 값이 갈린다).
+   ⚠ 배경(`--bg-sig-chart`)은 남긴다. 노치 HUD 는 *테두리*를 안 그리는 것이고 액센트 베이크 면은
+     이 화면의 정체성이다(원칙 ③ 예외 = 시그니처 하나). */
 const SIG_CHART =
-  'relative mb-3 rounded-lg border border-line bg-[image:var(--bg-sig-chart)] px-5 py-4 shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none';
+  'ds-frame bg-[image:var(--bg-sig-chart)] animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none';
 const SIG_HEAD = 'mb-2 flex items-baseline justify-between';
 const SIG_TITLE = 'text-xs font-extrabold tracking-caps text-mut uppercase';
 const SIG_RATE = 'text-2xl font-black tracking-tight text-acc tabular-nums [text-shadow:var(--sig-rate-glow)]';

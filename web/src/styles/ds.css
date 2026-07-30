@@ -66,6 +66,8 @@
    · `ds-rule`   — 위쪽 헤어라인 한 줄로만 가른다. **세로로 쌓인 형제 섹션**(원칙 4 의 직역).
    · `ds-well`   — 눌린 면(패널2 틴트·테두리 없음). **단독·집중 표면** — 러너 카드, 기록 입력
      폼, 부팅 실패 화면처럼 상자가 "이건 하나의 객체다"를 말해야 하는 자리.
+   · `ds-frame`  — **노치 HUD**(모서리 브래킷 · E28 에서 신설). 한 화면의 **시그니처 하나**를 담는
+     계기판. 원칙 ④ 문장의 뒤쪽 절반이고, 3종을 낼 때는 아직 코드에 없었다(아래 정의 참조).
 
    ⚠ 자리마다 골랐지 일괄 치환이 아니다. 둘을 뭉치면 *문서의 한 절*과 *한 개의 객체*가 같은
    모양이 되는데, 그게 애초에 `ds-card` 가 하던 잘못이다.
@@ -94,6 +96,61 @@
   border-radius: var(--r-sm);
   padding: 16px 18px;
   margin-bottom: 17px;
+}
+
+/* ── 넷째 표면 `ds-frame` — **노치 HUD**(E28 · 2026-07-30) ──────────────────────────
+   원칙 ④는 _"둥근 글래스 폐기 → 얇은 헤어라인 **+ 노치 HUD 프레임**"_ 이라 선언했는데, 위 3종은
+   그 문장의 **앞쪽(헤어라인)만** 구현한 것이다. 뒤쪽은 이름만 있고 **코드에 한 번도 존재한 적이
+   없었다** — 즉 이것은 복원이 아니라 신설이다.
+
+   ## 무엇이 '노치 HUD' 인가 — 테두리를 다 그리지 않는다
+
+   상자를 닫으면 그게 카드다(원칙 ④가 폐기한 것). 계기(HUD)는 **모서리만** 표시한다: 네 귀퉁이에
+   ㄱ자 브래킷을 찍고 변은 비운다. 그러면 ① 영역은 읽히는데 ② 상자로는 읽히지 않고 ③ 배경이
+   그대로 통과해 캔버스의 오로라·그레인이 살아 있다(이 앱의 시그니처가 배경에 있다).
+
+   ⚠ **`ds-well`·`ds-rule` 과 경쟁하지 않는다.** 셋은 "무엇을 위한 표면인가"로 갈렸고 이건 넷째
+     갈래다: **계기판** — 한 화면의 시그니처 하나(원칙 ③)를 담는 자리. 여러 개 쓰면 화면이
+     사이파이 장식이 되므로 **한 화면에 하나**가 계약이다.
+   ⚠ **톤·두께는 실렌더로 정했다.** 첫 판(`--line-acc` 1px · 팔 15px)은 계산 스타일로는 정확히
+     적용됐는데(8그라데이션 · 4모서리) **눈으로는 안 보였다** — 액센트 39% 알파를 1px 로 그리면
+     다크 배경에서 사라진다. 계기 표시가 안 읽히면 그건 계기가 아니라 노이즈다.
+     → **3점을 실제로 찍어 보고** 골랐다: `1px@39%` 안 보임 · `6px@100%` 사이파이 장식으로 과함 ·
+     **`3px@55%`(`--glow`) · 팔 24px** 가 "영역은 읽히고 상자로는 안 읽히는" 지점이었다.
+     D-6 의 액센트 예산("액센트는 행동에만")을 먹는 것처럼 보이지만 **시그니처는 그 문법의 승인된
+     예외**다(원칙 ③ · 한 화면에 하나) — 이 표면은 이미 `--bg-sig-chart`(액센트 베이크 면)와
+     `text-acc` 달성률을 갖고 있다.
+   ⚠ 브래킷은 **하나의 의사요소**가 그린다(8개 그라데이션 = 4모서리 × 2팔). 요소를 4개 두면
+     소비처 마크업이 프레임 구조를 알아야 하고, 그건 규약 4(자식에 직접 클래스)를 어긴다.
+   ⚠⚠ **`::after` 를 쓴다 — `::before` 는 이미 임자가 있다.** 첫 판은 `::before` 로 썼는데,
+     시그니처 표면은 거의 항상 `ds-hairline` 을 함께 달고 그 클래스가 **`::before` 를 쓴다**.
+     한 요소에 `::before` 는 하나뿐이므로 **둘 중 하나가 조용히 사라진다**(소스 순서로 승패가
+     갈리고, 에러도 경고도 없다). 실렌더로 잡았다 — 요소만 잘라 찍었더니 브래킷이 **한 개도
+     안 보였다**. 정적 검사·스냅샷 임계 어느 쪽도 이걸 못 본다(§15-4 의 세 번째 실증).
+   ⚠ `pointer-events: none` — 장식이 클릭을 삼키면 안 된다(이 저장소가 오버레이에서 물린 부류). */
+.ds-frame {
+  position: relative;
+  padding: 18px 20px;
+  margin-bottom: 17px;
+}
+.ds-frame::after {
+  --frame-w: 3px; /* 선 두께 — 실렌더 3점 관측: 1px@39% 안 보임 · 6px@100% 과함 · 3px */
+  --frame-l: 24px; /* 팔 길이 */
+
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* 좌상 — 가로팔 + 세로팔 */
+    linear-gradient(var(--frame-line), var(--frame-line)) 0 0 / var(--frame-l) var(--frame-w) no-repeat,
+    linear-gradient(var(--frame-line), var(--frame-line)) 0 0 / var(--frame-w) var(--frame-l) no-repeat,
+    /* 우상 */ linear-gradient(var(--frame-line), var(--frame-line)) 100% 0 / var(--frame-l) var(--frame-w) no-repeat,
+    linear-gradient(var(--frame-line), var(--frame-line)) 100% 0 / var(--frame-w) var(--frame-l) no-repeat,
+    /* 좌하 */ linear-gradient(var(--frame-line), var(--frame-line)) 0 100% / var(--frame-l) var(--frame-w) no-repeat,
+    linear-gradient(var(--frame-line), var(--frame-line)) 0 100% / var(--frame-w) var(--frame-l) no-repeat,
+    /* 우하 */ linear-gradient(var(--frame-line), var(--frame-line)) 100% 100% / var(--frame-l) var(--frame-w) no-repeat,
+    linear-gradient(var(--frame-line), var(--frame-line)) 100% 100% / var(--frame-w) var(--frame-l) no-repeat;
 }
 
 /* ⚠⚠ **`.ds-card` 는 은퇴했다(2026-07-29 · 소비처 0).**
