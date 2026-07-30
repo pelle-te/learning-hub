@@ -308,7 +308,7 @@ export function ddayInfo(dday: number): { lab: string; cls: string } {
  *  다크에선 저숙달 빨강이(2.84:1), 라이트에선 고숙달 초록이(2.05:1) 각각 묻혔다. 램프 자체(빨강→초록)는
  *  색각이상에 취약하므로 호출부는 색만으로 정보를 전달하지 말 것(툴팁·수치 병기 — 현재 두 곳 다 준수). */
 export function masteryColor(p: number, kind?: string): string {
-  if (kind === 'unknown') return 'var(--line,#3a3a3a)';
+  if (kind === 'unknown') return 'var(--line)';
   const t = clamp(p, 0, 1);
   const h = Math.round(t * 120);
   return `hsl(${h} 62% calc(var(--mastery-l0) + (var(--mastery-l1) - var(--mastery-l0)) * ${t.toFixed(3)}))`;

@@ -109,9 +109,9 @@ export function Frontier({ k }: { k: Knowledge }) {
 
 /** reason 버킷 점 색(디자인시스템 변수 · 프런티어 셀/약점 점과 같은 언어). */
 const SEQ_DOT: Record<SeqReason, string> = {
-  remediate: 'var(--bad,#e3564a)',
+  remediate: 'var(--bad)',
   zpd: 'var(--acc2)',
-  frontier: 'var(--line,#666)',
+  frontier: 'var(--line)',
 };
 
 /** 🧭 다음 학습 순서 — 커리큘럼(단계③ 적응형 시퀀싱) arc 랭크. 개념-레벨 프런티어(Frontier)의 arc-레벨 짝:
@@ -379,7 +379,7 @@ export function Gaps({ k }: { k: Knowledge }) {
       empty={<div className="ds-foot ds-muted">증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
       items={k.gaps || []}
       dot="✗"
-      dotColor="var(--bad,#e3564a)"
+      dotColor="var(--bad)"
       renderMeta={(x) => (
         <>
           <span className="ds-chip">{pctLabel(x.p_eff)}</span>{' '}
@@ -417,7 +417,7 @@ export function RootCauses({ k }: { k: Knowledge }) {
       <div className={M.mslist}>
         {roll.map(({ cause, count }) => (
           <div key={cause} className={M.msrow}>
-            <span className={M.msdot} style={{ background: 'var(--bad,#e3564a)' }}>
+            <span className={M.msdot} style={{ background: 'var(--bad)' }}>
               🌱
             </span>
             <span className={M.nm}>{cause}</span>
@@ -488,7 +488,7 @@ export function Calibration({ k }: { k: Knowledge }) {
               data-tip={`확신했는데 틀림(과신) ${cw}/${nErr}`}
               role="img"
               aria-label={`확신했는데 틀림(과신) ${cw}/${nErr}`}
-              style={{ width: `${nErr ? Math.round((cw / nErr) * 100) : 0}%`, background: 'var(--bad,#e3564a)' }}
+              style={{ width: `${nErr ? Math.round((cw / nErr) * 100) : 0}%`, background: 'var(--bad)' }}
             />
             <div
               className={M.msbarSeg}

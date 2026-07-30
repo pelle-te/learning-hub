@@ -552,10 +552,30 @@ app.post('/api/devices/revoke', async (c) => {
     .bind(nowSec(), body.deviceId)
     .run();
   if (!r.meta.changes) return c.json({ error: 'unknown or already revoked device' }, 404);
+
+  /* ⚠⚠ **열려 있는 실시간 소켓도 끊는다(H15 · 2026-07-30 `/감사 근본`).**
+
+     종전엔 이 라우트가 `revoked_at` 만 세웠다. 그런데 `/api/sync/live` 의 소켓은 Hibernation
+     으로 무기한 유지되므로 **폐기된 기기가 `poke` 를 영구히 계속 받았다** — 아래 15분 유예가
+     정직하게 적혀 있는데 이 채널은 그 15분조차 아니었다. 데이터는 못 받지만(pull 은 액세스
+     토큰을 요구하고 `/api/token` 이 폐기를 막는다) **활동 메타데이터**는 계속 흘렀다.
+     ⚠ 실패해도 폐기 자체는 성립한다 — DO 가 안 떠 있을 수도 있고, 그때 소켓도 없다. */
+  let liveClosed = 0;
+  try {
+    const closed = await hub(c.env).fetch(
+      `https://sync-hub.internal/close?device=${encodeURIComponent(body.deviceId)}`,
+      { method: 'POST' },
+    );
+    liveClosed = ((await closed.json()) as { closed?: number }).closed ?? 0;
+  } catch {
+    // 소켓 정리 실패는 폐기를 무르지 않는다(폐기는 이미 DB 에 남았다).
+  }
+
   return c.json({
     ok: true,
     revoked: body.deviceId,
     accessTokenGraceSec: ACCESS_TTL_SEC,
+    liveClosed,
   });
 });
 
@@ -588,7 +608,11 @@ app.get('/api/sync/live', async (c) => {
     .first<{ revoked_at: number | null }>();
   if (!row || row.revoked_at !== null) return c.json({ error: 'unauthorized' }, 401);
 
-  const res = await hub(c.env).fetch(c.req.raw); // DO 가 101 + webSocket 을 돌려준다
+  /* ⚠ **기기 id 를 헤더로 실어 보낸다(H15).** DO 가 그 값으로 소켓을 태그하고, 나중에 폐기 시
+     "이 기기의 소켓만" 골라 닫는다. 원본 요청을 그대로 넘기면 태그할 값이 없다(종전 구현). */
+  const upgrade = new Request(c.req.raw, { headers: new Headers(c.req.raw.headers) });
+  upgrade.headers.set('X-Device-Id', deviceId);
+  const res = await hub(c.env).fetch(upgrade); // DO 가 101 + webSocket 을 돌려준다
   // 브라우저가 요청한 서브프로토콜을 응답에 되돌려줘야 연결이 성립한다(선택한 프로토콜 확인).
   const headers = new Headers(res.headers);
   if (token) headers.set('Sec-WebSocket-Protocol', token);

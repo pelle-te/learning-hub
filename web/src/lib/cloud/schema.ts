@@ -145,6 +145,68 @@ export type ParsedOutboxBatch = z.infer<typeof OutboxBatchSchema>;
  * 보이지만 값이 크다: **깨진 배치를 만드는 버그를 유선에 나가기 전에** 잡고, 서버와
  * 클라이언트가 **같은 계약**을 본다는 것을 테스트가 보장하게 된다.
  */
+/* ============================================================
+   ⚠⚠ **수신은 관용, 송신은 엄격**(H16 · 2026-07-30 `/감사 근본`).
+
+   위 `OutboxBatchSchema` 는 `z.enum(TABLE_NAMES)` + `.strict()` 다. 그건 **서버가 받는 쪽**에선
+   옳다(신뢰 경계 · 서버가 `tbl` 을 테이블명으로 쓴다). 그런데 클라이언트의 **pull** 도 같은
+   스키마를 쓰고 있었고, 거기서는 정반대 결과를 낸다:
+
+     다음 릴리스에서 `TABLES` 에 테이블이 하나 늘면 → 서버 pull 응답에 그 `tbl` 이 섞인다 →
+     **아직 업데이트 안 한 데스크톱**이 배치를 통째로 throw → `pullMark` 가 전진하지 않는다 →
+     **그 기기의 수신이 영구 정지**한다(표시는 `failed` 토스트 한 줄).
+
+   버전 스큐는 우연이 아니라 **구조적**이다: 데스크톱 업데이터는 사용자 승인을 기다리고 폰 SW 는
+   `autoUpdate` 다. 즉 두 기기가 서로 다른 스키마를 아는 창이 정상적으로 존재한다.
+
+   지금은 무증상이고 **다음 스키마 추가가 방아쇠**다 — 그래서 지금 10줄이 나중에 "구버전 기기가
+   조용히 죽는" 사고보다 싸다.
+
+   ## 관용의 범위를 좁게 못박는다
+
+   · 모르는 `tbl` 행/툼스톤은 **버린다**(경고와 함께). 우리가 모르는 테이블에 병합할 방법이 없다.
+   · `upto` 는 **그대로 전진시킨다** — 버린 것은 "우리가 쓸 수 없는 것"이고, 다시 받아도 또 버린다.
+     전진시키지 않으면 그 구간을 영원히 되묻는다(H2/2026-07-24 가 고친 정체와 같은 형태).
+   · 그 외 검사는 **한 글자도 느슨해지지 않는다**: 살아남은 항목에 원래의 엄격 스키마를 그대로
+     적용한다(스탬프 상한·열 개수·k2 규약·fence·배치 상한). 관용은 *경계*에만 있고 *내용*엔 없다.
+   ============================================================ */
+export function parseInboundBatch(
+  input: unknown,
+): { ok: true; batch: OutboxBatch; dropped: number } | { ok: false; error: string } {
+  const env = z
+    .object({
+      since: Stamp,
+      upto: Stamp,
+      rows: z.array(z.unknown()).default([]),
+      tombstones: z.array(z.unknown()).default([]),
+    })
+    /* ⚠ `.strict()` 를 쓰지 않는다 — 서버가 배치 객체에 **새 필드**를 더해도(진단용 메타 등)
+       구버전 클라이언트가 죽지 않아야 한다. 모르는 필드는 여기서 조용히 사라진다. */
+    .safeParse(input);
+  if (!env.success) return { ok: false, error: `서버 응답 봉투가 계약과 다릅니다 — ${issueLine(env.error)}` };
+
+  const known = (v: unknown): boolean => {
+    const t = (v as { tbl?: unknown } | null)?.tbl;
+    return typeof t === 'string' && SPEC.has(t);
+  };
+  const rows = env.data.rows.filter(known);
+  const tombstones = env.data.tombstones.filter(known);
+  const dropped = env.data.rows.length - rows.length + (env.data.tombstones.length - tombstones.length);
+
+  // 살아남은 것에는 **원래의 엄격 스키마**를 그대로 적용한다.
+  const strict = OutboxBatchSchema.safeParse({ since: env.data.since, upto: env.data.upto, rows, tombstones });
+  if (!strict.success) return { ok: false, error: `서버 응답이 계약과 다릅니다 — ${issueLine(strict.error)}` };
+  return { ok: true, batch: strict.data as OutboxBatch, dropped };
+}
+
+/** zod 이슈를 한 줄로 — 상위 5개만(전량은 로그가 페이로드만큼 커진다). */
+function issueLine(e: z.ZodError): string {
+  return e.issues
+    .slice(0, 5)
+    .map((i) => `${i.path.join('.') || '(루트)'}: ${i.message}`)
+    .join(' · ');
+}
+
 export function parseOutboxBatch(input: unknown): { ok: true; batch: OutboxBatch } | { ok: false; error: string } {
   const r = OutboxBatchSchema.safeParse(input);
   if (r.success) return { ok: true, batch: r.data as OutboxBatch };

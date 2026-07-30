@@ -203,12 +203,53 @@ describe('push 의 실패 분류', () => {
 });
 
 describe('받아온 것도 검증한다', () => {
-  it('서버 응답이 계약과 다르면 던진다 — "우리 서버니까"는 신뢰 근거가 아니다', async () => {
+  /* ⚠⚠ **이 케이스의 계약이 2026-07-30 `/감사 근본`(H16)에서 갈렸다.**
+
+     종전엔 _"모르는 테이블이 섞이면 던진다"_ 였다. 신뢰 경계 논리로는 맞지만 **수신 방향에선
+     정반대 결과**를 낸다: 다음 릴리스에서 테이블이 하나 늘면 업데이트 안 한 기기가 배치를 통째로
+     throw 하고 `pullMark` 가 전진하지 않아 **수신이 영구 정지**한다. 그리고 버전 스큐는 구조적이다
+     (데스크톱 업데이터는 승인 대기 · 폰 SW 는 autoUpdate).
+
+     새 계약: **모르는 것은 버리고 아는 것은 그대로 엄격하게 검사한다.** 그래서 두 쪽을 함께
+     잠근다 — 아래 두 케이스가 각각 그 절반이다. 한쪽만 검사하면 "전부 통과시키는 파서"도 통과한다. */
+  it('모르는 테이블은 **버리고** 나머지를 살린다 — 구버전 기기의 수신이 멈추지 않는다', async () => {
     queue = [
       { status: 200, body: { accessToken: 'A', expiresIn: 900 } },
       {
         status: 200,
-        body: { since: 0, upto: 100, rows: [{ tbl: '모르는테이블', key: [], data: [], updatedAt: 1 }], tombstones: [] },
+        body: {
+          since: 0,
+          upto: 600,
+          rows: [
+            { tbl: '미래테이블', key: ['x'], data: ['v'], updatedAt: 100 },
+            { tbl: 'settings', key: ['k'], data: ['v'], updatedAt: 500 },
+          ],
+          tombstones: [],
+          // 서버가 봉투에 새 필드를 더해도 죽지 않아야 한다(`.strict()` 를 뺀 이유).
+          진단메타: { 서버버전: 'x' },
+        },
+      },
+    ];
+    const batch = await pullChanges(CFG, 0);
+    expect(batch.rows).toHaveLength(1);
+    expect(batch.rows[0]!.tbl).toBe('settings');
+    /* ⚠ `upto` 는 **그대로 전진한다.** 버린 것은 "우리가 쓸 수 없는 것"이고 다시 받아도 또 버린다 —
+       전진시키지 않으면 그 구간을 영원히 되묻는다(H2/2026-07-24 가 고친 정체와 같은 형태). */
+    expect(batch.upto).toBe(600);
+  });
+
+  it('**아는** 테이블의 내용이 계약과 다르면 여전히 던진다 — 관용은 경계에만 있다', async () => {
+    queue = [
+      { status: 200, body: { accessToken: 'A', expiresIn: 900 } },
+      {
+        status: 200,
+        body: {
+          since: 0,
+          upto: 600,
+          // settings 는 데이터 열이 1개인데 2개를 보냈다 → 열이 밀린 채 upsert 되는 부류.
+          rows: [{ tbl: 'settings', key: ['k'], data: ['v', '여분'], updatedAt: 500 }],
+          tombstones: [],
+        },
       },
     ];
     await expect(pullChanges(CFG, 0)).rejects.toThrow(/계약과 다릅니다/);

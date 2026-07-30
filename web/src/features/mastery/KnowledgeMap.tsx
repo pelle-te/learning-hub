@@ -71,10 +71,10 @@ export function OverallRing({ overall }: { overall: number }) {
 }
 
 const DIST: { key: 'mastered' | 'learning' | 'weak' | 'unknown'; color: string; lab: string }[] = [
-  { key: 'mastered', color: 'var(--good,#4caf50)', lab: '숙달' },
-  { key: 'learning', color: 'var(--learning,#d6a72b)', lab: '학습중' },
-  { key: 'weak', color: 'var(--bad,#e3564a)', lab: '약점' },
-  { key: 'unknown', color: 'var(--line,#444)', lab: '미관측' },
+  { key: 'mastered', color: 'var(--good)', lab: '숙달' },
+  { key: 'learning', color: 'var(--learning)', lab: '학습중' },
+  { key: 'weak', color: 'var(--bad)', lab: '약점' },
+  { key: 'unknown', color: 'var(--line)', lab: '미관측' },
 ];
 
 /** 지식 상태 분포 — 한 줄 세그먼트 바 + 범례 칩(히어로에 베이크). */

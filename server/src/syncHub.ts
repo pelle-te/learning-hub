@@ -52,12 +52,41 @@ export class SyncHub implements DurableObject {
       return new Response(JSON.stringify({ poked: n }), { headers: { 'Content-Type': 'application/json' } });
     }
 
+    /* 폐기된 기기의 소켓을 끊는다(H15 · 2026-07-30 `/감사 근본`).
+
+       ⚠⚠ 종전엔 이 경로가 **없었다.** `/api/devices/revoke` 는 `revoked_at` 만 세우고 DO 에
+       아무것도 알리지 않았고, Hibernation 소켓은 무기한 유지된다 → **폐기된 기기의 열린 소켓이
+       영구히 산다.** 폐기 라우트는 액세스 토큰 15분 유예를 정직하게 적어 뒀는데(`index.ts`),
+       이 채널은 그 15분도 아니라 무한이었다.
+
+       실피해는 데이터가 아니라 **활동 메타데이터**다: 도난 기기가 "방금 다른 기기가 무언가
+       바꿨다"를 계속 받는다(데이터는 못 받는다 — pull 은 액세스 토큰을 요구하고 `/api/token` 이
+       폐기를 막는다). 그래도 폐기의 뜻은 "이 기기와의 관계를 끊는다"이므로 신호도 끊는다. */
+    if (url.pathname === '/close') {
+      const device = url.searchParams.get('device') ?? '';
+      let n = 0;
+      // 태그로 찾는다 — 아래 업그레이드에서 `acceptWebSocket(server, [deviceId])` 로 붙인 그 값이다.
+      for (const ws of this.state.getWebSockets(device)) {
+        try {
+          ws.close(4003, 'device revoked');
+          n++;
+        } catch {
+          // 이미 닫히는 중이면 무시.
+        }
+      }
+      return new Response(JSON.stringify({ closed: n }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     // WebSocket 업그레이드 — 기기가 붙는다.
     if (req.headers.get('Upgrade') === 'websocket') {
       const pair = new WebSocketPair();
       const client = pair[0];
       const server = pair[1];
-      this.state.acceptWebSocket(server); // Hibernation 대상으로 등록
+      /* ⚠ **기기 id 로 태그해 둔다(H15).** 태그가 없으면 나중에 "이 기기의 소켓만" 골라 닫을
+         방법이 없다 — 종전 구현이 정확히 그 상태였다. Worker 가 이미 토큰을 검증했으므로
+         (`/api/sync/live`) 이 헤더는 신뢰 경계 **안쪽** 값이다. */
+      const device = req.headers.get('X-Device-Id') ?? '';
+      this.state.acceptWebSocket(server, device ? [device] : []); // Hibernation 대상으로 등록
       return new Response(null, { status: 101, webSocket: client });
     }
 

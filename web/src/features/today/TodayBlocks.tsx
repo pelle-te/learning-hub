@@ -9,7 +9,7 @@ import { ui } from '@/shell';
 import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import { blankResultFor, clearBlankResult } from '@/lib/methodology';
-import { toHM, hLabel, fmt, todayISO } from '@/lib/utils';
+import { toHM, hLabel, fmt, todayISO, colorForId } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import type { ScheduleItem } from '@/lib/types';
 import { BLOCK_STAGES } from './consts';
@@ -130,10 +130,13 @@ export function TodayBlocks() {
             />
             {/* 모의(mock)는 과목이 없어 색을 파생할 수 없다 → 타입 토큰(--bad)으로.
                 DayPlanner `.mock`·WeekCalendar `.mock`과 같은 어휘라 세 뷰의 모의 색이 일치한다
-                (옛 scheduler의 저장 리터럴 '#b794f6' 제거에 따른 정합 — 절대규칙 3). */}
+                (옛 scheduler의 저장 리터럴 '#b794f6' 제거에 따른 정합 — 절대규칙 3).
+                ⚠ 폴백은 **id 해시 파생**이다(H8 · 2026-07-30). 종전 `|| '#6ea8fe'` 는 `colorForId`
+                가 원리적으로 만들 수 없는 색이라(OKLCH 고정 L·C 램프 밖) 색이 비는 순간 이 스와치만
+                다른 언어로 튄다 — `graph/graphData.ts` 가 같은 이유로 이미 이 형태다(절대규칙 #3). */}
             <span
               className="ds-swatch"
-              style={{ background: it.type === 'mock' ? 'var(--bad)' : it.color || '#6ea8fe' }}
+              style={{ background: it.type === 'mock' ? 'var(--bad)' : it.color || colorForId(it.sid) }}
             />
             <b className={done ? 'line-through opacity-60' : ''}>{it.name}</b>
             {it.chapters && it.chapters.length > 0 && (

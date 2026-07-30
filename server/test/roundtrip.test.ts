@@ -145,6 +145,55 @@ describe('⚠⚠ 기기 폐기가 실제로 접근을 끊는다(P0-2)', () => {
     expect((await pull(admin.access, 0)).status, '멀쩡한 기기까지 끊겼다').toBe(200);
   });
 
+  /* ⚠⚠ **열린 실시간 소켓까지 끊는가**(H15 · 2026-07-30 `/감사 근본`).
+
+     종전 구현은 `revoked_at` 만 세우고 DO 에 아무것도 알리지 않았다. Hibernation 소켓은 무기한
+     유지되므로 **폐기된 기기가 `poke` 를 영구히 계속 받았다** — 위 케이스가 잠근 "15분 유예"는
+     이 채널에 아예 적용되지 않았다.
+
+     ⚠ 이 케이스가 **두 쪽을 함께** 잠그는 것이 핵심이다: 태그 없이 `getWebSockets()` 전량을
+     닫아도 "폐기된 소켓이 닫혔다"는 통과한다. 멀쩡한 기기가 살아 있는지를 같이 보지 않으면
+     실시간 동기화를 통째로 끊는 구현이 녹색으로 지나간다. */
+  it('⚠⚠ 폐기가 열린 실시간 소켓을 끊는다 — 그리고 **그 기기 것만**(H15)', async () => {
+    const victim = await enroll('잃어버린폰');
+    const admin = await enroll('PC');
+
+    /* 실제 라우트 그대로 붙는다 — 토큰은 `Sec-WebSocket-Protocol`(P0-2: URL 아닌 헤더). */
+    const open = async (access: string): Promise<WebSocket> => {
+      const r = await SELF.fetch(`${BASE}/api/sync/live`, {
+        headers: { Upgrade: 'websocket', 'Sec-WebSocket-Protocol': access },
+      });
+      expect(r.status, '실시간 소켓 업그레이드가 성립하지 않는다').toBe(101);
+      const ws = r.webSocket;
+      expect(ws, '101 인데 webSocket 이 없다 — 업그레이드 위임이 깨졌다').toBeTruthy();
+      ws!.accept();
+      return ws!;
+    };
+
+    const victimWs = await open(victim.access);
+    const adminWs = await open(admin.access);
+
+    const victimClosed = new Promise<number>((resolve) => {
+      victimWs.addEventListener('close', (e) => resolve(e.code));
+    });
+    let adminClosed = false;
+    adminWs.addEventListener('close', () => {
+      adminClosed = true;
+    });
+
+    const rev = await SELF.fetch(`${BASE}/api/devices/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${admin.access}` },
+      body: JSON.stringify({ deviceId: victim.deviceId }),
+    });
+    expect(rev.status).toBe(200);
+    const body = (await rev.json()) as { liveClosed?: number };
+    expect(body.liveClosed, '폐기가 DO 에 알리지 않았다 — 소켓이 그대로 산다').toBe(1);
+
+    expect(await victimClosed, '폐기 사유 코드(4003)로 닫히지 않았다').toBe(4003);
+    expect(adminClosed, '멀쩡한 기기 소켓까지 끊었다 — 태그 없이 전량 close 한 구현이다').toBe(false);
+  });
+
   it('기기 목록이 비밀을 노출하지 않는다', async () => {
     const { access } = await enroll();
     const r = await SELF.fetch(`${BASE}/api/devices`, { headers: { Authorization: `Bearer ${access}` } });

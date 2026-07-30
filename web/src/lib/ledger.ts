@@ -47,14 +47,27 @@ export interface Ledger {
 }
 
 /** 단계 표시 메타 — 라벨·글리프·색(토큰). 완성도 순(cool→warm→green)으로 furthest를 색칠. */
+/* ⚠⚠ **`var(--x)` 에 hex 폴백을 달지 않는다(H8 · 2026-07-30 `/감사 근본`).**
+
+   이 파일이 그 위험의 현장이었다: H20 은 `var(--panel-2,#2a2d35)` 였고 **정의된 이름은
+   `--panel2`(하이픈 없음)** 라 항상 폴백 hex 로 그려졌다 — 라이트에서 '미착수'가 완료보다
+   진해 보이는 **의미 역전**이 몇 달을 살아남았다. 폴백이 오타를 조용하게 만든 것이다.
+
+   2026-07-30 감사 실측: 남아 있던 폴백 14건의 **값이 전부 틀렸다**(`var(--good,#4caf50)` ↔ 실제
+   `--good` 은 `#62d28c`/라이트 `#0ea371`). 즉 유지되지 않는 죽은 값이면서, 오타가 나면 그 죽은
+   값으로 조용히 렌더된다. → 폴백을 전부 걷어냈다. 토큰명이 틀리면 **시끄럽게** 실패한다
+   (`npm run check:tokens` 가 TS 문자열 속 `var(--x)` 를 tokens.css 와 대조한다 — 불변식 ⑤가
+   `var(--tx)` 오타에 대해 세운 규율과 같은 자리).
+   ⚠ 폴백을 되살리지 말 것. "SSR 안전"·"토큰 로드 전"은 이 앱에 없는 상황이다(토큰 CSS 는
+     `main.tsx` 의 첫 import 다). */
 export const STAGE_META: Record<LedgerStage, { label: string; glyph: string; color: string; desc: string }> = {
-  sourced: { label: '출처', glyph: '📂', color: 'var(--line,#3a3f4b)', desc: '참고자료 폴더 연결' },
-  noted: { label: '노트', glyph: '📝', color: 'var(--mut,#9298a4)', desc: '원자 노트 작성' },
+  sourced: { label: '출처', glyph: '📂', color: 'var(--line)', desc: '참고자료 폴더 연결' },
+  noted: { label: '노트', glyph: '📝', color: 'var(--mut)', desc: '원자 노트 작성' },
   /* ⚠ `--sky` 는 **정의된 적이 없는 이름**이었다(H20 · 2026-07-26 감사) — 폴백 hex 로만 그려져
      테마와 무관하게 고정색이었다. 파란 계열의 실제 토큰은 `--signal` 이다. */
   verified: { label: '검증', glyph: '✓', color: 'var(--signal)', desc: '개념 노트 검증 통과' },
-  carded: { label: '카드', glyph: '🃏', color: 'var(--learning,#d6a72b)', desc: 'Anki 카드 발급' },
-  reviewed: { label: '복습', glyph: '🔁', color: 'var(--good,#62d28c)', desc: '최근 인출(복습) 관측' },
+  carded: { label: '카드', glyph: '🃏', color: 'var(--learning)', desc: 'Anki 카드 발급' },
+  reviewed: { label: '복습', glyph: '🔁', color: 'var(--good)', desc: '최근 인출(복습) 관측' },
 };
 
 /**

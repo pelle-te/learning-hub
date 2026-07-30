@@ -24,7 +24,7 @@ import { isTauri } from '../isTauri';
 import { PermanentPushError, type CloudTransport } from './push';
 import { PULL_MARK_KEY, WATERMARK_KEY } from './outbox';
 // ⚠ 지연 import 로 바꾸지 말 것 — 근거는 `push.ts` 의 같은 import 위 주석(실측 0.3KB).
-import { OutboxBatchSchema } from './schema';
+import { parseInboundBatch } from './schema';
 import type { OutboxBatch } from './contract';
 
 /* ── 전송 분기 ───────────────────────────────────────────────────
@@ -331,13 +331,17 @@ export function makeTransport(cfg: CloudConfig): CloudTransport {
 export async function pullChanges(cfg: CloudConfig, since: number, limit = 200): Promise<OutboxBatch> {
   const res = await authed(cfg, `/api/sync/pull?since=${since}&limit=${limit}`);
   if (!res.ok) throw new Error(`pull 실패(${res.status})`);
-  const parsed = OutboxBatchSchema.safeParse(asJson(res));
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .slice(0, 5)
-      .map((i) => `${i.path.join('.') || '(루트)'}: ${i.message}`)
-      .join(' · ');
-    throw new Error(`서버 응답이 계약과 다릅니다 — ${issues}`);
+  /* ⚠ **수신은 관용 파서를 쓴다(H16).** 엄격 스키마를 그대로 쓰면 다음 릴리스에서 테이블이
+     하나 늘 때 **업데이트 안 한 기기의 수신이 영구 정지**한다(버전 스큐는 구조적이다 — 데스크톱
+     업데이터는 승인 대기, 폰 SW 는 autoUpdate). 근거·관용의 범위는 `schema.ts` 의 H16 절이 SSOT. */
+  const parsed = parseInboundBatch(asJson(res));
+  if (!parsed.ok) throw new Error(parsed.error);
+  if (parsed.dropped > 0) {
+    /* 조용히 버리지 않는다 — 이 앱이 모르는 테이블이 서버에 있다는 것은 **업데이트가 필요하다**는
+       신호이고, 그건 사용자가 알아야 하는 사실이다(관측 없는 관용은 침묵과 같다). */
+    console.warn(
+      `[cloud] pull: 이 버전이 모르는 항목 ${parsed.dropped}건을 건너뜁니다 — 앱 업데이트가 필요할 수 있어요.`,
+    );
   }
-  return parsed.data as OutboxBatch;
+  return parsed.batch;
 }
