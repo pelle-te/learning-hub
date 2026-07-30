@@ -6,7 +6,19 @@ import { test, expect, type Page } from '@playwright/test';
 
    ⚠ 시드·fixture·부팅 헬퍼는 **`_fixtures.ts` 로 갈라졌다**(2026-07-25) — `a11y.spec.ts` 가
    같은 상태를 봐야 하기 때문. 근거는 그 파일 머리주석. */
-import { FIXED, SEED, SEED_EMPTY, TABS, TABS_EMPTY, THEMES, boot, settle, bootArtifactPhase } from './_fixtures';
+import {
+  FIXED,
+  MOBILE,
+  SEED,
+  SEED_EMPTY,
+  TABS,
+  TABS_EMPTY,
+  THEMES,
+  boot,
+  bootArtifactPhase,
+  bootPhone,
+  settle,
+} from './_fixtures';
 
 for (const theme of THEMES) {
   for (const tab of TABS) {
@@ -380,7 +392,6 @@ for (const theme of THEMES) {
 }
 
 // 반응형(모바일 390px) — 레일이 하단 탭바로, 시그니처 보드가 단일 컬럼으로 스택되는지(가로 넘침 없이).
-const MOBILE = { width: 390, height: 844 };
 // 모바일 — routine 자리를 items가 잇는다(병합 탭은 900px에서 레일이 갤러리 아래로 접히므로 회귀 가치가 크다).
 const TABS_MOBILE = ['today', 'schedule', 'stats', 'items'];
 for (const tab of TABS_MOBILE) {
@@ -400,30 +411,11 @@ for (const tab of TABS_MOBILE) {
    는 등록 화면까지밖에 못 봤고, 폰 5화면은 지금껏 진짜 브라우저에서 **한 번도 안 찍혔다** —
    정적 검사·유닛만으로 폰 레이아웃을 바꾸는 것이 §15-4 가 금지하는 바로 그 상태였다.
 
-   등록은 서버가 코드를 발급하므로 **네트워크가 유일한 관문**이다. 그 응답만 가로채면 앱이
-   자기 경로로 SQLite 에 설정을 쓰고 그대로 뜬다 — 프로덕션 표면을 하나도 안 늘린다.
-
-   ⚠ `clock.install` 이 아니라 `setFixedTime` 이다. install 은 타이머를 통째로 가짜로 만드는데
-     폰 부팅은 wasm·워커·OPFS 라 그 위에서 멈출 수 있다. 여기 필요한 건 '오늘'의 고정뿐이다.
+   ⚠ **부팅 절차는 `_fixtures.ts` 의 `bootPhone` 이 소유한다**(H6 · 2026-07-30 에 여기서 승격).
+     `a11y.spec.ts` 도 같은 화면을 봐야 하는데 사본을 만들면 두 로스터가 갈린다 — `A11Y_EXTRA`
+     주석이 이미 "목록이 갈리면 조용히 사각이 생긴다"고 적어 둔 그 실패다.
    ⚠ `fullPage: false` 다 — 이 장의 요지가 **하단 탭바가 뷰포트 바닥에 붙는가**인데
      fullPage 는 sticky 를 흐름상 위치로 펴서 그 질문을 지운다. */
-async function bootPhone(page: Page): Promise<void> {
-  await page.setViewportSize(MOBILE);
-  await page.clock.setFixedTime(FIXED);
-  // ⚠ 등록 라우트를 **나중에** 건다 — Playwright 는 나중에 등록한 핸들러가 이긴다.
-  await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
-  await page.route('**/api/enroll/claim', (r) =>
-    r.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ deviceId: 'e2e-device', refreshToken: 'e2e-refresh' }),
-    }),
-  );
-  await page.goto('/phone.html');
-  await page.getByLabel('등록 코드').fill('E2E-CODE');
-  await page.getByRole('button', { name: '연결' }).click();
-  await expect(page.getByRole('group', { name: '화면 전환' })).toBeVisible();
-}
 
 test('phone · shell · dark', async ({ page }) => {
   await bootPhone(page);

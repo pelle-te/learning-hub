@@ -174,9 +174,18 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
           const cur = stageIndex(ch.furthest) === i;
           const m = STAGE_META[st];
           return (
-            <div key={st} className={`flex items-center gap-2.25 ${done ? 'opacity-100' : 'opacity-50'}`}>
+            /* ⚠⚠ **행 전체의 `opacity-50` 이 글자를 못 읽게 하고 있었다**(H6 · 2026-07-30).
+               실측 `#50545c` on `#0e0f13` = **2.52:1**(다크 · 기준 4.5). 미달성 단계의 이름과
+               설명이 사실상 안 보였다 — 그런데 이 오버레이는 **어느 a11y 로스터에도 없어서**
+               (경로가 아니라 클릭으로 열린다) 검사된 적이 자체가 없었다. H6 이 그 사각을 닫자
+               첫 실행에서 나왔다.
+               ⚠ 불투명도로는 이 의도를 표현할 수 없다 — 통과하려면 다크 0.80·라이트 0.90 이
+               필요하고(실측), 0.90 은 흐리게가 아니다. `AllocBoard` 의 `done` 셀이 같은 결론이었다.
+               → 흐리게 하는 대상을 **마커(원)로 좁힌다.** 달성/미달성은 원래 ✓ 채움이 나르고
+               (체크리스트의 표준 어포던스), 현재 단계는 `font-bold text-txt` 가 이미 가른다. */
+            <div key={st} className="flex items-center gap-2.25">
               <span
-                className="flex size-4.5 flex-none items-center justify-center rounded-full border border-line text-xs font-black text-panel"
+                className={`flex size-4.5 flex-none items-center justify-center rounded-full border border-line text-xs font-black text-panel ${done ? '' : 'opacity-50'}`}
                 style={done ? { background: m.color, borderColor: m.color } : undefined}
               >
                 {done ? '✓' : ''}

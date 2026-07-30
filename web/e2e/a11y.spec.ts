@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { A11Y_EXTRA, SEED, TABS, boot, settle } from './_fixtures';
+import { A11Y_EXTRA, A11Y_OVERLAY, PHONE_VIEWS, SEED, TABS, boot, bootPhone, settle } from './_fixtures';
 
 /* ============================================================
    a11y.spec.ts — 접근성 자동검증(axe-core) · 트랙 A.
@@ -43,18 +43,32 @@ import { A11Y_EXTRA, SEED, TABS, boot, settle } from './_fixtures';
 const 임계 = ['serious', 'critical'];
 
 /**
- * 알려진 위반 원장 — `"<화면> :: <규칙id>"` → { 사유, 재검토 }.
+ * 알려진 위반 원장 — `"<화면> :: <규칙id>"` → { 사유, 재검토, 노드? }.
  *
  * ⚠ 여기 적는 것은 면제가 아니라 **기한부 기록**이다(SCA 원장과 같은 형태 ·
  * `scripts/audit-gate.mjs` 머리주석). `재검토` 가 지나면 게이트가 깨진다 — 판단에
  * 유효기간이 없으면 그건 판단이 아니라 방치다. 비어 있는 것이 목표 상태다.
  *
  * ⚠ **넣기 전에 물어야 할 것**: 이게 "고칠 수 없는가"인가 "고치면 안 되는가"인가,
- * 아니면 "지금 내가 결정할 일이 아닌가"인가. 아래 둘은 셋째다 — 라이트 테마 전 화면의
+ * 아니면 "지금 내가 결정할 일이 아닌가"인가. 아래 것은 셋째다 — 라이트 테마 전 화면의
  * 픽셀을 바꾸는 **디자인 결정**이라 사용자 몫이다(절대규칙 #4).
+ *
+ * ## ⚠ `노드` — 원장이 **규칙 단위에서 노드 단위로** 내려왔다(H5 · 2026-07-30)
+ *
+ * 라이트 대비 검사를 1화면 → 전 화면으로 넓히면서 필요해졌다. 문제의 위반은 *화면*이 아니라
+ * **레일(모든 화면에 있는 컴포넌트)** 의 것이라, 화면 단위로 적으면 `"대비-light 의
+ * color-contrast 전부"` 를 덮는다 — 즉 커버리지를 23배로 넓히면서 **그 23화면의 새 대비 결함을
+ * 통째로 눈감는** 자기모순이 된다. `노드` 가 있으면 그 패턴에 맞는 노드만 빼고 **나머지는 그대로
+ * 실패**한다. 원장이 넓어질수록 좁게 적는 장치가 함께 필요하다.
  */
-const 알려진위반: Record<string, { 사유: string; 재검토: string }> = {
+const 알려진위반: Record<string, { 사유: string; 재검토: string; 노드?: RegExp }> = {
   '대비-light :: color-contrast': {
+    /* **액센트 파생 표면만** 남긴다 — `text-acc` 를 `bg-acc-soft`·`bg-tint-acc` 위에 얹는 자리다
+       (레일 활성 내비 · 가이드 키캡 · 액센트 칩). 같은 검사가 잡은 나머지 5계열(good·acc2·warn·
+       bad·learning·signal)은 액센트가 아니라 시맨틱이라 **실제로 고쳤다**(`tokens.css` 의 표).
+       ⚠ 이 패턴이 좁아야 의미가 있다: 넓히면 커버리지를 23배로 늘리면서 그 23화면의 새 대비
+       결함을 통째로 눈감는 자기모순이 된다. */
+    노드: /bg-acc-soft|bg-tint-acc\b|#rail-/,
     사유:
       '레일의 **활성 내비 항목**(`ITEM_ON = bg-acc-soft! text-acc!` · RailSidebar.tsx:74)이 ' +
       '라이트+lime 에서 4.35:1(기준 4.5). ⚠ 예외 경로가 아니다 — `lib/uiState.ts` 가 기본 ' +
@@ -100,26 +114,34 @@ async function a11ySettle(page: import('@playwright/test').Page): Promise<void> 
    다크만 도는 이유: 대비 위반은 테마마다 다르지만 구조 위반(라벨·롤·이름)은 같고, 대비는
    아래 별도 테스트가 두 테마를 다 본다. */
 
-/** 렌더된 화면 하나를 검사한다 — 로스터 둘이 **같은 판정**을 쓰게 하는 자리. */
-async function 검사(page: import('@playwright/test').Page, 화면: string): Promise<void> {
-  {
-    const 결과 = await new AxeBuilder({ page })
-      /* 캔버스 기반 화면(graph·AmbientCanvas)은 픽셀이라 axe 가 볼 것이 없다.
-         제외가 아니라 **분석 대상 축소**다 — 주변 컨트롤은 그대로 검사한다. */
-      .exclude('canvas')
-      .analyze();
+type 결과노드 = { target: unknown[]; html: string; failureSummary?: string };
+type 위반항목 = { id: string; impact?: string | null; help: string; helpUrl: string; nodes: 결과노드[] };
 
-    const 위반 = 결과.violations
-      .filter((v) => 임계.includes(v.impact ?? ''))
-      .filter((v) => !(`${화면} :: ${v.id}` in 알려진위반));
+/** 원장을 적용해 **남은 노드가 있는 위반만** 돌려준다(위 `노드` 주석). */
+function 원장적용(화면: string, 위반들: 위반항목[]): 위반항목[] {
+  const 남은: 위반항목[] = [];
+  for (const v of 위반들) {
+    const 기록 = 알려진위반[`${화면} :: ${v.id}`];
+    if (!기록) {
+      남은.push(v);
+      continue;
+    }
+    if (!기록.노드) continue; // 규칙 단위 기록 — 이 화면의 이 규칙 전부
+    const 미기록 = v.nodes.filter((n) => !기록.노드!.test(`${n.target.join(' ')} ${n.html}`));
+    if (미기록.length) 남은.push({ ...v, nodes: 미기록 });
+  }
+  return 남은;
+}
 
-    /* 실패 메시지가 곧 수정 지시가 되게 — 규칙 id·설명·문제 노드의 셀렉터까지 싣는다.
-       "a11y 위반 3건" 만 뜨면 사람이 다시 재현해야 한다. */
-    const 보고 = 위반.map(
+/** 실패 메시지가 곧 수정 지시가 되게 — 규칙 id·설명·문제 노드의 셀렉터까지 싣는다.
+    "a11y 위반 3건" 만 뜨면 사람이 다시 재현해야 한다. */
+function 보고문(위반들: 위반항목[], 노드수 = 5): string {
+  return 위반들
+    .map(
       (v) =>
         `\n  [${v.impact}] ${v.id} — ${v.help}\n    ${v.helpUrl}\n` +
         v.nodes
-          .slice(0, 5)
+          .slice(0, 노드수)
           /* ⚠ `n.html` 을 반드시 싣는다 — 셀렉터만으로는 못 찾는 노드가 있다(실측: `.px-1` 이
              소스 grep 으로 안 잡혔다). 실패 메시지가 재현 없이 수정 지점을 주는 것이 목적이다. */
           .map(
@@ -127,61 +149,116 @@ async function 검사(page: import('@playwright/test').Page, 화면: string): Pr
               `    · ${n.target.join(' ')}\n      ${n.html.slice(0, 200)}\n      ${n.failureSummary?.replace(/\n/g, '\n      ')}`,
           )
           .join('\n'),
-    );
-
-    expect(위반.length, `${화면} 화면 a11y 위반 ${위반.length}건:${보고.join('')}\n`).toBe(0);
-  }
+    )
+    .join('');
 }
 
-for (const tab of TABS) {
-  test(`a11y · ${tab}`, async ({ page }) => {
-    await boot(page, 'dark', SEED);
-    await page.goto('/' + tab);
-    await a11ySettle(page);
-    await 검사(page, tab);
-  });
+/** 렌더된 화면 하나를 검사한다 — 로스터 둘이 **같은 판정**을 쓰게 하는 자리. */
+async function 검사(page: import('@playwright/test').Page, 화면: string): Promise<void> {
+  const 결과 = await new AxeBuilder({ page })
+    /* 캔버스 기반 화면(graph·AmbientCanvas)은 픽셀이라 axe 가 볼 것이 없다.
+       제외가 아니라 **분석 대상 축소**다 — 주변 컨트롤은 그대로 검사한다. */
+    .exclude('canvas')
+    .analyze();
+
+  const 위반 = 원장적용(
+    화면,
+    결과.violations.filter((v) => 임계.includes(v.impact ?? '')),
+  );
+  expect(위반.length, `${화면} 화면 a11y 위반 ${위반.length}건:${보고문(위반)}\n`).toBe(0);
 }
 
-/* `TABS` 로 못 도는 화면 — 시각 쪽에도 개별 테스트로 있다(스냅샷 6장). `ready` 로 **실제
-   콘텐츠가 떴음**을 먼저 단정하는 것이 요점이다: 빈 화면은 컨트롤도 랜드마크도 거의 없어
-   axe 가 통과해도 아무것도 증명하지 못한다(이 파일 머리주석의 '빠른 통과가 곧 거짓 통과'). */
-for (const 화면 of A11Y_EXTRA) {
+/* 로스터를 **하나로 합친다**(H5 · 2026-07-30). 종전엔 구조 검사가 두 루프로 갈려 있었고,
+   대비 검사는 그 어느 쪽도 안 쓰고 `/today` 를 하드코딩했다 — 그래서 라이트 대비 커버리지가
+   **23화면 중 1화면**이었다. 바로 위 주석이 _"라이트에서 대비가 깨져도 아무도 모른다"_ 고
+   선언한 그 검사가 1/23 만 이행 중이었던 것이다. 로스터가 하나면 갈릴 자리가 없다. */
+type 검사화면 = {
+  key: string;
+  path: string;
+  prep?: (page: import('@playwright/test').Page) => Promise<void>;
+  ready?: (page: import('@playwright/test').Page) => Promise<unknown>;
+};
+const 화면들: 검사화면[] = [...TABS.map((t) => ({ key: t, path: '/' + t })), ...A11Y_EXTRA];
+
+/** 화면을 띄우고 axe 가 볼 수 있는 상태까지 데려간다.
+    ⚠ `ready` 가 있는 화면은 **실제 콘텐츠가 떴음**을 먼저 단정한다 — 빈 화면은 컨트롤도
+    랜드마크도 거의 없어 axe 가 통과해도 아무것도 증명하지 못한다(머리주석의 '빠른 통과가
+    곧 거짓 통과'). */
+async function 띄우기(page: import('@playwright/test').Page, 화면: 검사화면, theme: string): Promise<void> {
+  await boot(page, theme, SEED);
+  await 화면.prep?.(page);
+  await page.goto(화면.path);
+  await 화면.ready?.(page);
+  await a11ySettle(page);
+}
+
+/* 구조 검사(라벨·롤·이름·대비)는 다크 전 화면. 구조 위반은 테마와 무관하고, 다크 대비는
+   여기 포함된다(`color-contrast` 는 serious 라 임계 안이다). */
+for (const 화면 of 화면들) {
   test(`a11y · ${화면.key}`, async ({ page }) => {
-    await boot(page, 'dark', SEED);
-    await 화면.prep?.(page);
-    await page.goto(화면.path);
-    await 화면.ready(page);
-    await a11ySettle(page);
+    await 띄우기(page, 화면, 'dark');
     await 검사(page, 화면.key);
   });
 }
 
-/* 대비(contrast)는 테마 파생물이라 **라이트도 본다** — 토큰이 다크에서만 검증되면
-   라이트에서 대비가 깨져도 아무도 모른다(색은 파생물이라는 절대규칙 #3 의 검증면). */
-for (const theme of ['dark', 'light'] as const) {
-  test(`a11y · 대비 · ${theme}`, async ({ page }) => {
-    await boot(page, theme, SEED);
-    await page.goto('/today');
-    await a11ySettle(page);
-
+/* 대비는 테마 파생물이라 **라이트를 따로, 그리고 전 화면** 본다 — 토큰이 다크에서만 검증되면
+   라이트에서 대비가 깨져도 아무도 모른다(색은 파생물이라는 절대규칙 #3 의 검증면).
+   ⚠ 화면 키를 `대비-light` 하나로 쓰는 것이 의도다: 알려진 위반은 **레일**(모든 화면에 있는
+   컴포넌트)의 것이라 화면마다 원장을 복제할 이유가 없다. 대신 그 기록은 `노드` 로 좁혀져
+   있어 같은 화면의 *다른* 대비 결함은 그대로 실패한다. */
+for (const 화면 of 화면들) {
+  test(`a11y · 대비 · light · ${화면.key}`, async ({ page }) => {
+    await 띄우기(page, 화면, 'light');
     const 결과 = await new AxeBuilder({ page }).exclude('canvas').withRules(['color-contrast']).analyze();
-    const 위반 = 결과.violations.filter((v) => !(`대비-${theme} :: ${v.id}` in 알려진위반));
-
-    const 보고 = 위반.map(
-      (v) =>
-        `\n  [${v.impact}] ${v.id} — ${v.help}\n` +
-        v.nodes
-          .slice(0, 8)
-          /* ⚠ `n.html` 을 반드시 싣는다 — 셀렉터만으로는 못 찾는 노드가 있다(실측: `.px-1` 이
-             소스 grep 으로 안 잡혔다). 실패 메시지가 재현 없이 수정 지점을 주는 것이 목적이다. */
-          .map(
-            (n) =>
-              `    · ${n.target.join(' ')}\n      ${n.html.slice(0, 200)}\n      ${n.failureSummary?.replace(/\n/g, '\n      ')}`,
-          )
-          .join('\n'),
-    );
-    expect(위반.length, `${theme} 테마 대비 위반:${보고.join('')}\n`).toBe(0);
+    const 위반 = 원장적용('대비-light', 결과.violations);
+    expect(위반.length, `${화면.key} · light 대비 위반:${보고문(위반, 8)}\n`).toBe(0);
   });
+}
+
+/* ── 오버레이(H6 · 2026-07-30) — **어느 로스터에도 없던 형상** ───────────────────────
+   위 두 루프는 *경로로 도달하는* 화면만 본다. `role="dialog"` 를 선언하는 자리는 키·클릭으로만
+   열려서 axe 가 한 번도 못 봤다 — 하필 a11y 위험이 가장 높은 형상인데도(트랩·`aria-modal`·
+   배경 `inert`·복원이 전부 여기서 요구된다). 여는 절차는 `_fixtures.ts` 의 `A11Y_OVERLAY` 가
+   소유한다(그 상수 주석이 근거의 SSOT).
+   ⚠ 검사 범위를 오버레이로 좁히지 않고 **문서 전체**를 본다 — 오버레이의 진짜 결함은 대개
+   *오버레이 안*이 아니라 **오버레이와 배경의 관계**(배경이 여전히 읽히는가)에 있다. */
+for (const 화면 of A11Y_OVERLAY) {
+  test(`a11y · ${화면.key}`, async ({ page }) => {
+    await boot(page, 'dark', SEED);
+    await page.goto(화면.path);
+    await a11ySettle(page);
+    await 화면.열기(page);
+    await 화면.ready(page);
+    await settle(page);
+    await 검사(page, 화면.key);
+  });
+}
+
+/* ── 미니 HUD(`/mini`) — 창 모드 전용 라우트라 `TABS` 에 없다 ───────────────────────
+   H11 이 여기서 **배경으로 포커스가 새는 것**을 잡았는데, 그때도 axe 는 이 경로를 안 보고
+   있었다(사람이 손으로 찾았다). 라우트 하나짜리 화면이라 비용이 거의 0 이다. */
+test('a11y · mini', async ({ page }) => {
+  await boot(page, 'dark', SEED);
+  await page.goto('/mini');
+  await a11ySettle(page);
+  await 검사(page, 'mini');
+});
+
+/* ── 폰 웹앱(H6) — **axe 가 폰을 한 번도 안 봤다** ──────────────────────────────────
+   `phone.spec.ts` 는 axe 를 0건 쓰고, 폰은 데스크톱과 **화면이 따로**다(설계서 §13-0). 즉
+   데스크톱 23화면이 전부 녹색이어도 폰에 대해서는 아무것도 말하지 않는다. 그리고 폰은
+   `global/components.css` 를 안 물어 **포커스 링이 전면 부재**했던 이력이 있다 — 이 파일
+   머리주석이 "axe 가 초 단위로 잡는 부류"의 예로 든 바로 그 결함이다.
+   ⚠ 다크·라이트 둘 다 돈다. 폰은 대비 위험이 더 크다(작은 글자 + 야외 화면). */
+for (const theme of ['dark', 'light'] as const) {
+  for (const view of PHONE_VIEWS) {
+    test(`a11y · phone · ${view} · ${theme}`, async ({ page }) => {
+      await bootPhone(page, theme);
+      await page.getByRole('group', { name: '화면 전환' }).getByRole('button', { name: view }).click();
+      await a11ySettle(page);
+      await 검사(page, `phone-${theme}`);
+    });
+  }
 }
 
 /* 원장 만료 — 판단에 유효기간을 강제한다(SCA 게이트와 같은 장치).

@@ -614,6 +614,126 @@ export const A11Y_EXTRA: ExtraScreen[] = [
   },
 ];
 
+/* ⚠⚠ **오버레이는 어느 로스터에도 없었다(H6 · 2026-07-30 `/감사 근본`).**
+
+   `TABS` 도 `A11Y_EXTRA` 도 **경로로 도달하는 화면**만 든다. 그런데 이 앱에서 `role="dialog"`
+   를 선언하는 자리는 아홉이고, 그 전부가 **키·클릭으로만 열린다** — 즉 axe 가 한 번도 본 적이
+   없다. 하필 오버레이는 a11y 위험이 가장 높은 형상이다: 포커스 트랩·`aria-modal`·배경 `inert`·
+   복원이 전부 여기서 요구되고, 이 저장소는 그 계약을 이미 **세 번** 어긴 이력이 있다
+   (`Ledger` 트랩 부재 · 온보딩 스크림의 role 전무 · 미니 HUD 뒤 포커스 누출 H11).
+
+   ⚠ `열기` 가 `ready` 와 분리돼 있는 것이 계약이다 — 여는 동작과 "열렸다는 증거"를 한 함수에
+   두면 안 열린 화면을 검사하고도 통과할 수 있다(§15-4 가 스냅샷에서 겪은 것과 같은 부류). */
+export interface OverlayScreen {
+  key: string;
+  path: string;
+  /** 오버레이를 여는 동작(키·클릭). */
+  열기: (page: Page) => Promise<void>;
+  /** 실제로 열렸다는 관측 가능한 증거. */
+  ready: (page: Page) => Promise<unknown>;
+}
+
+export const A11Y_OVERLAY: OverlayScreen[] = [
+  {
+    key: 'overlay-palette',
+    path: '/today',
+    열기: (page) => page.keyboard.press('Control+k'),
+    ready: (page) => page.getByPlaceholder(/명령·탭 검색/).waitFor(),
+  },
+  {
+    key: 'overlay-shortcuts',
+    path: '/today',
+    열기: (page) => page.keyboard.press('?'),
+    ready: (page) => page.getByRole('dialog', { name: '키보드 단축키' }).waitFor(),
+  },
+  {
+    key: 'overlay-today-more',
+    path: '/today',
+    열기: (page) => page.getByRole('button', { name: /블록 상세 · 일일 의식/ }).click(),
+    ready: (page) => page.getByRole('dialog', { name: '오늘 상세' }).waitFor(),
+  },
+  {
+    key: 'overlay-subject-sheet',
+    path: '/items',
+    // 과목 카드 머리는 `div[role=button]` 이다(드래그 핸들과 겸용) — 접근명이 카드 본문 전체라
+    // 앞부분으로만 건다(SEED 의 첫 과목). 이름 전체를 적으면 카드 문구가 바뀔 때마다 깨진다.
+    열기: (page) => page.getByRole('button', { name: /^미적분/ }).click(),
+    ready: (page) => page.getByRole('dialog').waitFor(),
+  },
+  {
+    key: 'overlay-ledger-detail',
+    path: '/ledger',
+    /* ⚠ 칩의 접근명은 `<과목> <챕터> — <단계>` 다. `aria-label*="—"` 로 잡으면 상단 바의
+       "오늘 학습 — 남은 1" 이 먼저 걸린다(실측) — 부분일치 셀렉터의 전형적 오조준이다. */
+    열기: (page) => page.getByRole('button', { name: '안테나 1 방사 원리 — noted' }).click(),
+    ready: (page) => page.getByRole('dialog', { name: /상세$/ }).waitFor(),
+  },
+  {
+    /* `shell/modal` 의 명령형 confirm — 파괴적 동작의 마지막 관문이라 오버레이 중에서도
+     **틀리면 대가가 가장 큰** 자리다. 학기를 펼친 뒤 삭제를 누르면 뜬다(확인은 누르지 않는다). */
+    key: 'overlay-confirm',
+    path: '/degree',
+    열기: async (page) => {
+      await page
+        .getByRole('button', { name: /2026-1학기/ })
+        .last()
+        .click();
+      await page.getByRole('button', { name: '학기 삭제' }).click();
+    },
+    ready: (page) => page.getByRole('dialog').waitFor(),
+  },
+];
+
+/* ⚠ **덮지 못한 오버레이 3종 — 이유를 적어 둔다**(H6 · 2026-07-30).
+   `role="dialog"` 선언부는 여덟이고 위 여섯이 그중 다섯을 연다(`DetailDrawer` 는 과목 시트가
+   대표한다 — 챕터 편집기가 그 안에 렌더된다). 나머지 셋은 **트랙 A 에서 결정적으로 열 수 없다**:
+   · `Markets` AI 브리핑 — 버튼이 `disabled={!online || !indices.length}` 이고 트랙 A 는 백엔드가
+     없어 `online=false` 다(실측: `<button disabled>`). 열려면 백엔드를 흉내 내야 하는데 그건
+     이 트랙의 정의를 어긴다.
+   · `Graph` 상세 — 캔버스 좌표를 클릭해야 한다(노드 위치가 시뮬레이션 결과라 비결정적).
+   · `ReaderVocab` — 지문을 고르고 그 안의 단어를 클릭해야 열린다(2단계 깊이 + 텍스트 의존).
+   셋 다 "안 하기로" 한 것이지 "없는" 것이 아니다 — 로드맵에 남는다. */
+
+/* ── 폰 웹앱 부팅 — `visual.spec.ts` 에서 승격했다(H6 · 2026-07-30) ────────────────────
+   axe 가 폰을 한 번도 안 보고 있었는데(`phone.spec.ts` 에 axe 0건), 폰을 연결 상태로 띄우는
+   절차는 이미 `visual.spec.ts` 안에 있었다. 사본을 만들면 두 로스터가 갈린다 — 이 파일이
+   `A11Y_EXTRA` 주석에서 이미 겪었다고 적은 바로 그 실패다. 그래서 여기로 올린다.
+
+   등록은 서버가 코드를 발급하므로 **네트워크가 유일한 관문**이다. 그 응답만 가로채면 앱이
+   자기 경로로 SQLite 에 설정을 쓰고 그대로 뜬다 — 프로덕션 표면을 하나도 안 늘린다.
+
+   ⚠ `clock.install` 이 아니라 `setFixedTime` 이다. install 은 타이머를 통째로 가짜로 만드는데
+     폰 부팅은 wasm·워커·OPFS 라 그 위에서 멈출 수 있다. 여기 필요한 건 '오늘'의 고정뿐이다. */
+export const PHONE_VIEWS = ['홈', '일', '주', '복습', '읽기'] as const;
+/** 폰 뷰포트 — `visual.spec.ts` 의 모바일 스냅샷과 **같은 값**이어야 한다(사본 방지로 여기 소유). */
+export const MOBILE = { width: 390, height: 844 };
+
+export async function bootPhone(page: Page, theme: 'dark' | 'light' = 'dark'): Promise<void> {
+  await page.setViewportSize(MOBILE);
+  await page.clock.setFixedTime(FIXED);
+  await page.addInitScript((t) => {
+    try {
+      localStorage.setItem('lh_ui_v1', JSON.stringify({ accent: 'lime', recentCommands: [] }));
+      document.documentElement.setAttribute('data-theme', t);
+    } catch {
+      /* noop */
+    }
+  }, theme);
+  // ⚠ 등록 라우트를 **나중에** 건다 — Playwright 는 나중에 등록한 핸들러가 이긴다.
+  await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+  await page.route('**/api/enroll/claim', (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ deviceId: 'e2e-device', refreshToken: 'e2e-refresh' }),
+    }),
+  );
+  await page.goto('/phone.html');
+  await page.getByLabel('등록 코드').fill('E2E-CODE');
+  await page.getByRole('button', { name: '연결' }).click();
+  await page.getByRole('group', { name: '화면 전환' }).waitFor();
+}
+
 /* 캡처 직전 정착 대기 — **웹폰트 스와프가 레이아웃을 10px 움직인다**(2026-07-24 발견).
    이 앱은 `Pretendard Variable` 을 쓰는데, 폴백 폰트로 첫 페인트가 끝난 뒤 스와프가 일어나면
    줄상자 높이가 줄어 화면 전체가 위로 밀린다. `toHaveScreenshot` 의 "연속 두 프레임 동일"
