@@ -3,7 +3,7 @@
    왼쪽 책 목록(추가·읽는 중/완독) · 오른쪽 선택한 책의 독후감 에디터 + 별점 + 상태.
 ============================================================ */
 import { useState } from 'react';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
 import { useFlushOnUnmount } from '@/hooks/interactions';
@@ -229,7 +229,7 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
           </div>
         ) : (
           <div className="grid min-h-0 flex-1 place-items-center p-6">
-            <EmptyState
+            <State
               glyph="📖"
               title="독서 기록을 시작해 보세요"
               desc="읽은 책을 추가하고 독후감을 남기면, 무엇을 읽고 무엇을 얻었는지가 쌓입니다."

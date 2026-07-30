@@ -21,10 +21,11 @@ import {
   type DiscoveryDecision,
 } from '@/lib/discovery';
 import { runTool } from '@/lib/api';
+import { needsWorkspace } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useNavigate } from 'react-router-dom';
 import { Button, SkeletonText } from '@/components/ui';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 
 /* ── C-7 Tailwind 이식(첫 feature) ───────────────────────────────────────
    `Discovery.module.css` 를 없앴다. 규약은 `styles/tokenBridge.css` + `phone/phone.css`
@@ -77,10 +78,10 @@ export default function Discovery() {
         ui.toast(decision === 'promote' ? '후보를 승격했어요(→ 개론 분해 핸드오프).' : '후보를 기각했어요.', 'ok');
         await qc.invalidateQueries({ queryKey: DISCOVERY_KEY });
       } else {
-        ui.toast((r.out || '').slice(0, 140) || '결정을 반영하지 못했어요(워크스페이스 설정 필요).', 'bad');
+        ui.toast((r.out || '').slice(0, 140) || `${needsWorkspace('결정을 반영하지 못했어요')}.`, 'bad');
       }
     } catch {
-      ui.toast('결정을 반영하지 못했어요(워크스페이스 설정 필요).', 'bad');
+      ui.toast(`${needsWorkspace('결정을 반영하지 못했어요')}.`, 'bad');
     } finally {
       setBusy(null);
     }
@@ -106,7 +107,7 @@ export default function Discovery() {
   if (disc.isError || !data || pending.length === 0) {
     return (
       <section className={ROOT}>
-        <EmptyState
+        <State
           glyph="✦"
           title={counts.promoted + counts.dismissed > 0 ? '미결 후보가 없어요' : '발견 큐가 아직 비어 있어요'}
           /* ⚠ 두 상태는 **처방이 다르다**. "다 처리했다"는 정상 종착이라 억지 CTA 를 두면

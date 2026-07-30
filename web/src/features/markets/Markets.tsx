@@ -17,10 +17,17 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useMarkets, usePing } from '@/store/queries';
 import { marketsBrief, type MarketBriefResult } from '@/lib/api';
 import { indexStats, groupByRegion, fmtPct, dir, fmtPublished, type IndexQuote, type NewsItem } from '@/lib/markets';
-import { classifyArtifact, artifactErrorMessage } from '@/lib/artifactState';
+import {
+  classifyArtifact,
+  artifactErrorMessage,
+  artifactErrorCopy,
+  workspaceHint,
+  WORKSPACE_UNSET,
+  WORKSPACE_UNSET_SHORT,
+} from '@/lib/artifactState';
 import { todayISO } from '@/lib/utils';
 import ArtifactGate from '@/components/ArtifactGate';
-import ArtifactError from '@/components/ArtifactError';
+import State from '@/components/State';
 import DetailDrawer from '@/components/DetailDrawer';
 import { useCollectTool, useAutoCollect } from '@/components/useCollectTool';
 import { useAiStream } from '@/components/useAiStream';
@@ -93,7 +100,7 @@ export default function Markets() {
       readouts: [
         { label: '상승·하락·보합', value: `${st.up}↑ ${st.down}↓ ${st.flat}＝`, accent: true },
         ...(lead ? [{ label: lead.name, value: fmtPct(lead.changePct) }] : []),
-        { label: '워크스페이스', value: online ? '● 연결됨' : pingLoading ? '…' : '미설정' },
+        { label: '워크스페이스', value: online ? '● 연결됨' : pingLoading ? '…' : WORKSPACE_UNSET_SHORT },
         ...(markets.data?.at ? [{ label: '수집', value: markets.data.at.slice(5, 16).replace('T', ' ') }] : []),
       ],
     }),
@@ -199,7 +206,15 @@ export default function Markets() {
       return (
         <section className={WRAP} aria-label="증시 동향">
           <div className={EMPTY_HOST}>
-            <ArtifactError label="증시 데이터를" detail={errorMessage} onRetry={() => void markets.refetch()} />
+            <State
+              kind="error"
+              {...artifactErrorCopy('증시 데이터를', errorMessage)}
+              next={
+                <Button variant="primary" onClick={() => void markets.refetch()}>
+                  다시 시도
+                </Button>
+              }
+            />
           </div>
         </section>
       );
@@ -216,8 +231,8 @@ export default function Markets() {
             glyph="📈"
             offlineDesc={
               <>
-                증시 동향은 러닝허브가 직접 수집해요. 설정 탭에서 워크스페이스 폴더를 지정하면 전세계 지수 등락과 금융
-                뉴스를 가져옵니다. 피드 설정: <code>hub/_증시/feeds.json</code>
+                증시 동향은 러닝허브가 직접 수집해요. {workspaceHint('전세계 지수 등락과 금융 뉴스를 가져옵니다')} 피드
+                설정: <code>hub/_증시/feeds.json</code>
               </>
             }
             emptyTitle="아직 수집된 증시 데이터가 없어요"
@@ -246,7 +261,7 @@ export default function Markets() {
             sm
             onClick={() => void collect()}
             disabled={collecting || !online}
-            title={online ? '새로 수집' : '워크스페이스가 설정되지 않았어요'}
+            title={online ? '새로 수집' : WORKSPACE_UNSET}
           >
             {collecting ? <span className="ds-spin" /> : '↻'} 수집
           </Button>

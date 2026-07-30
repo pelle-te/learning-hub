@@ -25,7 +25,7 @@ import {
   type ProjectView,
 } from '@/lib/goals';
 import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { useNavigate } from 'react-router-dom';
 import { Button, SkeletonText } from '@/components/ui';
 
@@ -109,7 +109,7 @@ export default function Goals() {
   if (goals.isError || !data || roots.length === 0) {
     return (
       <section className={ROOT}>
-        <EmptyState
+        <State
           glyph="🧭"
           title="내 길이 아직 안 보여요"
           desc={

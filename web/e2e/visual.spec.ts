@@ -6,7 +6,7 @@ import { test, expect, type Page } from '@playwright/test';
 
    ⚠ 시드·fixture·부팅 헬퍼는 **`_fixtures.ts` 로 갈라졌다**(2026-07-25) — `a11y.spec.ts` 가
    같은 상태를 봐야 하기 때문. 근거는 그 파일 머리주석. */
-import { FIXED, SEED, SEED_EMPTY, TABS, TABS_EMPTY, THEMES, boot, settle } from './_fixtures';
+import { FIXED, SEED, SEED_EMPTY, TABS, TABS_EMPTY, THEMES, boot, settle, bootArtifactPhase } from './_fixtures';
 
 for (const theme of THEMES) {
   for (const tab of TABS) {
@@ -456,4 +456,37 @@ test('phone · 본문 좌우 스와이프가 날짜를 옮긴다(UX-B3)', async 
   await page.dispatchEvent('main', 'pointermove', pt(270));
   await page.dispatchEvent('main', 'pointerup', pt(200));
   await expect(heading).not.toHaveText(before ?? '');
+});
+
+/* ============================================================
+   산출물 단계 — **로딩·에러**(E17 · 2026-07-30)
+
+   `classifyArtifact` 는 4단계를 내는데 스냅샷은 `ready`·`empty` 두 개만 찍고 있었다. 그래서
+   E17 이 로딩·에러 표면을 `components/State` 로 통째로 갈아치웠는데도 **122장이 전량 통과**했다 —
+   "안 바뀌었다"가 아니라 **"본 적이 없다"** 였다. 근거·구현은 `_fixtures.ts` 의
+   `bootArtifactPhase` 머리주석.
+
+   ⚠ 두 탭만 찍는다(ledger·mastery). 넷 다 찍으면 베이스라인이 8장 늘어나는데, 이 둘이 **옛
+   손코딩 블록을 글자까지 같게 복제하고 있던 쌍**이라 수렴의 증거로 충분하다(markets·reads 는
+   같은 `State` 를 같은 문구 함수로 부른다 → 새 정보가 없다).
+   ⚠ 라이트도 찍는다 — `State` 의 글리프가 `bg-acc-soft` + inset 링이라 **라이트에서 대비가
+   갈리는** 자리다(E4 가 헤어라인에서 물린 것과 같은 부류).
+============================================================ */
+for (const theme of THEMES) {
+  test(`ledger · error · ${theme}`, async ({ page }) => {
+    await bootArtifactPhase(page, theme, 'ledger', 'error');
+    await page.goto('/ledger');
+    await expect(page.getByRole('alert').or(page.getByText('챕터 원장을 불러오지 못했어요'))).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`ledger-error-${theme}.png`);
+  });
+}
+
+test('mastery · loading · dark', async ({ page }) => {
+  await bootArtifactPhase(page, 'dark', 'knowledge', 'loading');
+  await page.goto('/mastery');
+  // 로딩은 스스로 알린다(role=status) — 이 단언이 곧 E17 의 계약이다.
+  await expect(page.getByRole('status').filter({ hasText: '지식상태를 불러오는 중' })).toBeVisible();
+  await settle(page);
+  await expect(page).toHaveScreenshot('mastery-loading-dark.png');
 });

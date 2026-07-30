@@ -18,6 +18,26 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.{ts,tsx}'],
+    /* ⚠⚠ **`test:coverage` 만 간헐 실패하던 것의 원인**(2026-07-30 실측 · 선존 결함).
+       `npm run test` 는 3/3 통과하는데 `npm run test:coverage` 는 3회 중 1~2회 실패했고, 실패는
+       늘 같은 형태였다: `items`·`schedule` 처럼 **lazy(Suspense) feature 를 렌더하는 케이스**의
+       `findByRole` 이 timeout. RTL 의 비동기 유틸 기본 대기는 **1000ms** 인데, v8 계측이 붙으면
+       lazy 청크의 import+평가가 그 예산을 넘긴다. 즉 코드가 아니라 **대기 예산**이 문제였다.
+
+       왜 고쳐야 하나: 이 상태로 두면 게이트가 **flaky 를 결함으로, 결함을 flaky 로** 읽는다
+       (CLAUDE.md 가 명시한 함정). 실제로 이번 세션에서 E17 작업 중 6건이 실패해 회귀로 의심했고,
+       이전 커밋을 stash 로 되돌려 같은 빈도로 실패하는 것을 확인해야 판별이 됐다 — 그 판별 비용이
+       매번 드는 게이트는 신뢰할 수 없다.
+
+       ⚠⚠ **`testTimeout` 만으로는 안 고쳐진다**(첫 시도가 그랬다). 그건 *케이스 전체*의 상한이고,
+       터지는 것은 `findBy*` 내부의 `waitFor` 예산(`asyncUtilTimeout`)이라 **별개 노브**다 —
+       증상이 같아서 같은 노브로 보이는 함정. 실제 처방은 `test/_setup.ts` 가 갖는다(그 파일
+       머리주석이 이 결함의 SSOT). 여기 `testTimeout` 은 그 대기가 길어진 만큼 케이스 상한도
+       함께 올려 두는 짝이다.
+       ⚠ 근본 처방(테스트가 Suspense 경계를 명시적으로 기다리기)은 케이스 다수를 고쳐야 하고,
+       그건 이 커밋의 범위가 아니다. 예산을 맞추는 것으로 먼저 신뢰를 되찾는다. */
+    setupFiles: ['./test/_setup.ts'],
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       // 앱 소스만 계측(엔트리·타입선언·CSS모듈 제외 → 분모 왜곡 방지).

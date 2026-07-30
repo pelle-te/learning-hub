@@ -401,6 +401,16 @@
   animation: live-spin var(--tempo-fast) linear infinite;
   vertical-align: middle;
 }
+/* 큰 스피너 — **상태 표면**(`components/State` 의 `kind='loading'`)용. 13px 은 버튼 안에서 라벨과
+   나란히 설 크기이고, 화면 한가운데에 혼자 서면 안 보인다(실렌더로 확인: 64px 글리프 웰 안의
+   13px 스피너가 **빈 상자로 읽혔다** — 모션 자제로 정지하면 더 그렇다 · §15-4).
+   ⚠ 유틸리티(`size-7`)로 못 덮는다 — `ds.css` 는 언레이어드라 유틸을 이긴다(CLAUDE.md 레이어 계약).
+   그래서 룩의 SSOT 인 여기에 변형을 둔다(디자인시스템 §4-1 "값을 베끼지 말고 ds-* 재사용"). */
+.ds-spin.ds-spin-lg {
+  width: 30px;
+  height: 30px;
+  border-width: 3px;
+}
 
 /* ── 완료 체크박스(today 블록·schedule 타임라인 공유) ── */
 input.ds-donechk {

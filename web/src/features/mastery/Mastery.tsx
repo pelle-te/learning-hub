@@ -22,6 +22,7 @@ import { isFsAccessSupported, pickDirectory } from '@/lib/fsAccess';
 import { isTauri } from '@/lib/tauri';
 import { slimKnowState } from '@/lib/scheduler';
 import { Button } from '@/components/ui';
+import State from '@/components/State';
 import { M } from './classes';
 
 import { OverallRing, Distribution, KnowledgeMap } from './KnowledgeMap';
@@ -192,24 +193,24 @@ export default function Mastery() {
           </div>
         </div>
       ) : loading ? (
+        /* E17 — 로딩·에러 표면이 `components/State` 하나다(Ledger 와 **글자까지 같은 블록**이
+           양쪽에 복제돼 있었다). 프레임(offWrap)은 이 탭의 것이고 안의 상태 언어만 공용이다. */
         <div className={M.offWrap}>
-          <div className={`${M.offChild} ds-muted`}>
-            <span className="ds-spin" /> 지식상태 로드 중...
-          </div>
+          <State kind="loading" title="지식상태를 불러오는 중" />
         </div>
       ) : realError ? (
         /* 진짜 실패(서버 응답 에러) — 셋업 안내로 위장하지 않고 에러를 드러내고 재시도를 제공. */
         <div className={M.offWrap}>
-          <div className={`${M.offChild} ${M.errBody}`} role="alert">
-            <span className={M.errGlyph} aria-hidden="true">
-              ⚠
-            </span>
-            <h3 className={M.errH3}>지식상태를 불러오지 못했어요</h3>
-            <div className="ds-foot ds-muted">{errMsg}</div>
-            <Button sm variant="primary" onClick={() => refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <State
+            title="지식상태를 불러오지 못했어요"
+            desc={errMsg}
+            kind="error"
+            next={
+              <Button sm variant="primary" onClick={() => refetch()}>
+                다시 시도
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className={M.offWrap}>

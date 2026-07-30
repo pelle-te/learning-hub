@@ -20,7 +20,7 @@ import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { classifyArtifact } from '@/lib/artifactState';
+import { classifyArtifact, needsWorkspace } from '@/lib/artifactState';
 import { openVaultSearch, pctLabel } from '@/lib/utils';
 import {
   LEDGER_STAGES,
@@ -38,6 +38,7 @@ import {
 import { runTool } from '@/lib/api';
 import { ui } from '@/shell';
 import { Button } from '@/components/ui';
+import State from '@/components/State';
 
 // 히어로/지식맵 밴드 상단 1px 발광 헤어라인(--bg-sig-top · review 이식이 깐 것 재사용).
 // 폴백 패널(로딩·에러·셋업) — 지식맵과 동형(그래디언트·그림자 공유). 자식은 m-auto 로 중앙(옛 `.offWrap > *`).
@@ -338,7 +339,7 @@ export default function Ledger() {
         ui.toast('챕터 원장을 다시 빌드했어요.', 'ok');
         await refetch();
       } else {
-        ui.toast((r.out || '').slice(0, 140) || '원장 재빌드에 실패했어요(워크스페이스 설정 필요).', 'bad');
+        ui.toast((r.out || '').slice(0, 140) || `${needsWorkspace('원장 재빌드에 실패했어요')}.`, 'bad');
       }
     } catch {
       ui.toast('원장 재빌드에 실패했어요(워크스페이스 설정 필요).', 'bad');
@@ -431,23 +432,23 @@ export default function Ledger() {
           {sel && <Detail sel={sel} onClose={() => setSel(null)} />}
         </div>
       ) : loading ? (
+        /* E17 — 로딩·에러 표면이 `components/State` 하나다(옛 인라인 스피너 + 손코딩 에러 바디를
+           대체). 프레임(OFF_WRAP)은 이 탭의 것이고 **안의 상태 언어만** 공용이다. */
         <div className={OFF_WRAP}>
-          <div className="ds-muted m-auto max-w-off">
-            <span className="ds-spin" /> 챕터 원장 로드 중...
-          </div>
+          <State kind="loading" title="챕터 원장을 불러오는 중" />
         </div>
       ) : realError ? (
         <div className={OFF_WRAP}>
-          <div className="m-auto flex max-w-off flex-col items-center gap-2 px-1.5 py-2 text-center" role="alert">
-            <span className="text-3xl leading-none text-bad opacity-85" aria-hidden="true">
-              ⚠
-            </span>
-            <h3 className="m-0! text-base! font-extrabold!">챕터 원장을 불러오지 못했어요</h3>
-            <div className="ds-foot ds-muted">{errMsg}</div>
-            <Button sm variant="primary" onClick={() => refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <State
+            title="챕터 원장을 불러오지 못했어요"
+            desc={errMsg}
+            kind="error"
+            next={
+              <Button sm variant="primary" onClick={() => refetch()}>
+                다시 시도
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className={OFF_WRAP}>

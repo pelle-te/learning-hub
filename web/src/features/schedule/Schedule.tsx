@@ -12,7 +12,7 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { selectFinishGains, useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
@@ -403,7 +403,7 @@ export default function Schedule() {
                 </div>
               ) : (
                 <div className={S.emptyBoard}>
-                  <EmptyState
+                  <State
                     glyph="🗓"
                     title="주간 보드가 비어 있어요"
                     desc={

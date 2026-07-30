@@ -7,7 +7,7 @@
 ============================================================ */
 import { useApp } from '@/store/useApp';
 import { Card, KpiGrid, Kpi, Pill, ProgressBar, Table } from '@/components/ui';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { degreeStats, progressPct, requirementRows, retakeCandidates } from '@/lib/degree';
 
 export default function DegreeReq() {
@@ -26,7 +26,7 @@ export default function DegreeReq() {
   // 과목이 하나도 없으면 계산할 게 없다 — 졸업 계획 탭으로 안내(1급 빈 상태).
   if (totalCourses === 0) {
     return (
-      <EmptyState
+      <State
         glyph="🎓"
         title="아직 등록된 과목이 없어요"
         desc={

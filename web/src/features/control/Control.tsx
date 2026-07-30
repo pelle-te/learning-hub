@@ -17,7 +17,8 @@ import { readJSON, writeJSON } from '@/lib/localStore';
 import { hhmm, pad2, vaultSearchUrl } from '@/lib/utils';
 import { onSync } from '@/lib/sync';
 import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
-import EmptyState from '@/components/EmptyState';
+import { WORKSPACE_UNSET, WORKSPACE_UNSET_SHORT, workspaceHint } from '@/lib/artifactState';
+import State from '@/components/State';
 import { ui } from '@/shell';
 
 /* ── C-7 다섯 번째 이식(control) — 첫 폼 위주 feature ──────────────────────
@@ -139,7 +140,7 @@ export default function Control() {
       readouts: [
         { label: '진행 중', value: running.length, accent: running.length > 0 },
         { label: '수집 기록', value: history.length },
-        { label: '워크스페이스', value: online ? '● 연결됨' : offline ? '미설정' : '…' },
+        { label: '워크스페이스', value: online ? '● 연결됨' : offline ? WORKSPACE_UNSET_SHORT : '…' },
       ],
     }),
     [running.length, history.length, online, offline],
@@ -205,7 +206,7 @@ export default function Control() {
     }
     // 버튼은 offline이면 disabled지만 Enter 키는 그 게이트를 우회한다 — collect에서 단일 가드.
     if (offline) {
-      ui.toast('워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 지정하면 수집할 수 있어요.', 'warn');
+      ui.toast(`${WORKSPACE_UNSET} — ${workspaceHint('수집할 수 있어요')}`, 'warn');
       return;
     }
     if (starting) return;
@@ -308,7 +309,7 @@ export default function Control() {
           {offline ? (
             <b className="font-bold text-warn">
               {' '}
-              ⚠ 워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 지정하면 수집할 수 있어요.
+              ⚠ {WORKSPACE_UNSET} — {workspaceHint('수집할 수 있어요')}
             </b>
           ) : (
             /* ⚠ 잡 소유 모델이 4단계에서 바뀌었다 — **앱이 곧 잡 소유자**다(별도 서버가 없다).
@@ -413,7 +414,7 @@ export default function Control() {
             ))}
           </div>
         ) : (
-          <EmptyState
+          <State
             glyph="🔭"
             title="아직 수집한 탐구가 없어요"
             desc="웹에서 새로 조사해 볼트에 초안을 만듭니다."

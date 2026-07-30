@@ -10,7 +10,7 @@ import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { Button } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -372,7 +372,7 @@ export default function Stats() {
     return (
       <section aria-label="학습 통계">
         <div className="ds-rule">
-          <EmptyState
+          <State
             glyph="📊"
             title="아직 통계가 없어요"
             desc={

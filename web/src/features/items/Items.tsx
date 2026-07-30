@@ -35,7 +35,7 @@ import { deadlineDdays } from '@/lib/scheduleView';
 import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import DetailDrawer from '@/components/DetailDrawer';
 import type { AppState, Item, ItemStat } from '@/lib/types';
 import { ItemCard } from './ItemCard';
@@ -378,7 +378,7 @@ export default function Items() {
         {items.length === 0 ? (
           <div className="px-5.5 pt-1.5 pb-5.5">
             <div className="ds-rule">
-              <EmptyState
+              <State
                 glyph="📚"
                 title="아직 과목이 없어요"
                 desc={

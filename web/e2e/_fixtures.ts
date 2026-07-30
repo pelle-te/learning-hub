@@ -676,6 +676,72 @@ export async function boot(page: Page, theme: string, seed: object = SEED, at: D
 }
 
 // 신규 사용자(학습 항목·기록 없음) — 빈 상태 1급 설계 검증. 기본 일과(수면·식사)만 가진 새 볼트.
+/* ============================================================
+   `bootArtifactPhase` — **로딩·에러 단계를 실제로 찍는다**(E17 · 2026-07-30).
+
+   ## ⚠⚠ 왜 필요했나 — 커버리지가 0이었다
+
+   트랙 A 는 백엔드가 없고, `boot` 의 스텁은 `capabilities` 를 **거절**한다(의도 · 목업 안 한 탭이
+   '백엔드 없음' 화면을 찍게 하려는 것). 그 결과 산출물 탭 4개(ledger·mastery·markets·reads)가
+   스냅샷에서 **언제나 `empty` 단계**로만 렌더됐다 → `classifyArtifact` 의 4단계 중 **`loading` 과
+   `error` 는 스냅샷이 한 장도 없었다.**
+
+   E17 이 그 두 표면을 `components/State` 로 갈아치웠을 때 시각 게이트 122장이 **전량 통과**했고,
+   그건 "안 바뀌었다"가 아니라 **"본 적이 없다"** 였다. 설계서 §15-4 가 못박은 형태 그대로다:
+   _"커버리지 0인 화면은 이식 *전에* 스냅샷부터 만든다."_ 이식이 먼저 끝났으므로, 최소한
+   출하 전에 만든다.
+
+   ## 어떻게
+
+   `boot` 뒤에 스텁을 **덮어쓴다**(순서가 계약이다 — `addInitScript` 는 누적되고 나중 것이 이긴다).
+   · `capabilities` 를 **성공**시켜 online 을 참으로 만든다 → 오프라인 안내로 빠지지 않는다.
+   · 대상 산출물만 골라 `phase` 로 만든다:
+     - `'error'`   — `HTTP 500` 으로 거절(⚠ 404·TypeError 는 `isNotYetError` 가 '미생성'으로
+                     분류해 `empty` 로 가 버린다 — 에러를 찍으려면 그 분류를 통과해야 한다).
+     - `'loading'` — **영원히 pending** 인 프로미스. `settle()` 은 rAF 두 번만 기다리므로 로딩
+                     분기가 그대로 잡힌다(타이머·벽시계에 의존하지 않아 결정적이다).
+   · 나머지 산출물은 그대로 fixture 로 답한다(한 탭의 단계를 보려고 다른 탭을 깨지 않는다).
+============================================================ */
+export async function bootArtifactPhase(
+  page: Page,
+  theme: string,
+  target: string,
+  phase: 'loading' | 'error',
+  seed: object = SEED,
+) {
+  await boot(page, theme, seed);
+  await page.addInitScript(
+    ([fixtures, name, ph]) => {
+      (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+        invoke: (cmd: string, args?: { name?: string }) => {
+          // 워크스페이스가 유효한 척 — 그래야 오프라인 안내가 아니라 로딩/에러가 보인다.
+          if (cmd === 'capabilities') return Promise.resolve({ ok: true, server: 'e2e', tools: [], work: 'D:/e2e' });
+          if (cmd === 'artifact_read' && args?.name === name) {
+            if (ph === 'loading') return new Promise(() => {}); // 영원히 pending
+            return Promise.reject(new Error('HTTP 500'));
+          }
+          if (cmd === 'artifact_read' && args?.name && args.name in (fixtures as Record<string, unknown>))
+            return Promise.resolve({ ok: true, data: (fixtures as Record<string, unknown>)[args.name] });
+          return Promise.reject(new Error('NOT_FOUND e2e 스텁 — 이 커맨드는 목업되지 않았습니다'));
+        },
+        transformCallback: (cb: unknown) => cb,
+      };
+    },
+    [
+      {
+        reads: READS_FIXTURE,
+        markets: MARKETS_FIXTURE,
+        goals: GOALS_FIXTURE,
+        discovery: DISCOVERY_FIXTURE,
+        knowledge: KNOWLEDGE_FIXTURE,
+        ledger: LEDGER_FIXTURE,
+      } as Record<string, unknown>,
+      target,
+      phase,
+    ] as const,
+  );
+}
+
 export const SEED_EMPTY = {
   schemaVersion: 3,
   theme: 'light',

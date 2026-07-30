@@ -29,7 +29,7 @@ import {
 import { dayStudyMin } from '@/lib/scheduler';
 import { commit } from '@/lib/motion';
 import { Button, NumberField } from '@/components/ui';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import type { ScheduleResult } from '@/lib/types';
 
 /* ── AllocBoard — CSS Module → Tailwind 유틸 이식(C-7) ────────────────────────────
@@ -278,7 +278,7 @@ export function AllocBoard({
   if (!hasSubjects) {
     return (
       <div className={S.wrap}>
-        <EmptyState
+        <State
           glyph="🎛"
           title="배분할 과목이 없어요"
           desc={

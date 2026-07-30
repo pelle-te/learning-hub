@@ -6,12 +6,12 @@
 ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ArtifactGate from '@/components/ArtifactGate';
-import ArtifactError from '@/components/ArtifactError';
+import State from '@/components/State';
 import { useAiStream } from '@/components/useAiStream';
 import { Button, Skeleton } from '@/components/ui';
 import { coachSummary, type CoachFeedback } from '@/lib/api';
 import { ReaderVocab } from './ReaderVocab';
-import { classifyArtifact } from '@/lib/artifactState';
+import { classifyArtifact, artifactErrorCopy, workspaceHint, WORKSPACE_UNSET } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useFlushOnUnmount } from '@/hooks/interactions';
@@ -231,7 +231,15 @@ export default function ArticlePractice({
     if (phase === 'error') {
       return (
         <div className="grid min-h-0 flex-1 place-items-center p-6">
-          <ArtifactError label="지문을" detail={errorMessage} onRetry={() => void refetch()} />
+          <State
+            kind="error"
+            {...artifactErrorCopy('지문을', errorMessage)}
+            next={
+              <Button variant="primary" onClick={() => void refetch()}>
+                다시 시도
+              </Button>
+            }
+          />
         </div>
       );
     }
@@ -246,8 +254,8 @@ export default function ArticlePractice({
           glyph="📰"
           offlineDesc={
             <>
-              읽을거리 지문은 러닝허브가 직접 수집해요. 설정 탭에서 워크스페이스 폴더를 지정하면 내 RSS 피드에서 원문을
-              가져옵니다. 피드 설정: <code>hub/_읽을거리/feeds.json</code>
+              읽을거리 지문은 러닝허브가 직접 수집해요. {workspaceHint('내 RSS 피드에서 원문을 가져옵니다')} 피드 설정:{' '}
+              <code>hub/_읽을거리/feeds.json</code>
             </>
           }
           emptyTitle="아직 수집된 지문이 없어요"
@@ -313,7 +321,7 @@ export default function ArticlePractice({
             sm
             onClick={() => void collect()}
             disabled={collecting || !online}
-            title={online ? '새 지문 수집' : '워크스페이스가 설정되지 않았어요'}
+            title={online ? '새 지문 수집' : WORKSPACE_UNSET}
           >
             {collecting ? <span className="ds-spin" /> : '↻'} 수집
           </Button>
@@ -427,12 +435,7 @@ export default function ArticlePractice({
                 >
                   {work[sel.id]?.done ? '✓ 완료됨 — 되돌리기' : '요약 완료로 표시'}
                 </Button>
-                <Button
-                  sm
-                  onClick={askCoach}
-                  disabled={grader.busy || !online}
-                  title={online ? '' : '워크스페이스가 설정되지 않았어요'}
-                >
+                <Button sm onClick={askCoach} disabled={grader.busy || !online} title={online ? '' : WORKSPACE_UNSET}>
                   {grader.busy ? (
                     <>
                       <span className="ds-spin" /> 채점 중…

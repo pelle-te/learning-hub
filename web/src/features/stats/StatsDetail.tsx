@@ -33,7 +33,7 @@ import {
 import { seasonPace } from '@/lib/records';
 import { parseISO, fmtShort, hLabel, DOW, round1 } from '@/lib/utils';
 import { radarPoint, radarPolygon, radarRing, type RadarGeom } from '@/lib/statsView';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import type { ScheduleResult } from '@/lib/types';
 
 const TIMELINE_CAP = 60; // 최근 N일만 그려 다년 누적에도 비용 상한.
@@ -356,7 +356,7 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
   const weeks = Object.keys(r.weekHours).sort();
   if (!weeks.length)
     return (
-      <EmptyState
+      <State
         glyph="📊"
         title="아직 주별 데이터가 없어요"
         desc="블록을 완료하면 주별 학습시간이 여기 쌓여요."

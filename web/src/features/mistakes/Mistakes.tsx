@@ -23,7 +23,7 @@ import { mistakeArchive, mistakeTotals, type MistakeRow } from '@/lib/mistakes';
 import { CBMS_INFO, CBMS_CODES, addBacklog } from '@/lib/methodology';
 import { openVaultSearch } from '@/lib/utils';
 import { ui } from '@/shell';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { Button } from '@/components/ui';
 import type { CbmsCode } from '@/lib/types';
 
@@ -132,7 +132,7 @@ export default function Mistakes() {
   if (empty) {
     return (
       <section className={WRAP}>
-        <EmptyState
+        <State
           glyph="✗"
           title="아직 오답 기록이 없어요"
           desc={

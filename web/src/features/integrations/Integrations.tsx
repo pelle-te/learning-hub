@@ -11,6 +11,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { totalDue, type AnkiLive } from '@/lib/anki';
 import { subjectJoin } from '@/lib/subjectMatch';
 import type { VaultScan } from '@/lib/vault';
+import { WORKSPACE_UNSET_SHORT } from '@/lib/artifactState';
 import TelemetryConsole from './TelemetryConsole';
 import { VaultPanel } from './VaultPanel';
 import { AnkiPanel } from './AnkiPanel';
@@ -53,7 +54,7 @@ export default function Integrations() {
           value: noEngine ? '—' : `${join.matched}/${join.total}`,
           accent: join.unmatched.length > 0,
         },
-        { label: '워크스페이스', value: online ? '● 연결됨' : ping.isLoading ? '…' : '미설정' },
+        { label: '워크스페이스', value: online ? '● 연결됨' : ping.isLoading ? '…' : WORKSPACE_UNSET_SHORT },
       ],
     }),
     [vault, subjects, live, due, online, ping.isLoading, noEngine, join.matched, join.total, join.unmatched.length],

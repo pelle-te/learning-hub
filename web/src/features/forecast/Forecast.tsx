@@ -32,7 +32,7 @@ import { addOrMergeBlock } from '@/lib/dayPlans';
 import { ui } from '@/shell';
 import { totalDue, dueBySubject, ankiFreshness } from '@/lib/anki';
 import { todayISO, fmtShort, reviewBlockMin, DOW } from '@/lib/utils';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { Button } from '@/components/ui';
 
 const WRAP = 'flex h-full flex-col gap-4 p-6';
@@ -212,7 +212,7 @@ export default function Forecast() {
   if (total === 0) {
     return (
       <section className={WRAP} aria-label="복습 부하 예보">
-        <EmptyState
+        <State
           glyph="📈"
           title="다가오는 복습 파도가 아직 없어요"
           desc={

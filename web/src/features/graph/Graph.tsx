@@ -33,7 +33,7 @@ import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { chapterReviews, type ChapterReview } from '@/lib/spacedReview';
 import { todayISO, openVaultSearch } from '@/lib/utils';
-import EmptyState from '@/components/EmptyState';
+import State from '@/components/State';
 import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
 import { createGraphSim, type FocusResult } from './graphSim';
@@ -496,7 +496,7 @@ export default function Graph() {
     >
       {items.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card">
-          <EmptyState
+          <State
             glyph="🕸"
             title="아직 학습 구조도가 비어 있어요"
             desc={
