@@ -206,3 +206,24 @@ test('N-1: 캐럿이 중간이면 → 는 커서 이동이지 드릴다운이 �
   fireEvent.keyDown(el, { key: 'ArrowRight' });
   expect(screen.queryByText('보충에 담기')).not.toBeInTheDocument();
 });
+
+/* ⚠⚠ **H14 — 진로 지도 시드는 이제 지연 적재다**(2026-07-30 감사).
+
+   `import { FIELDS } from '@/lib/atlas'` 한 줄이 811줄 시드(실측 14.2 KB gz)를 **App 청크**로
+   끌어왔다. app/ 은 셸 크롬이라 부팅 직후 통째로 로드되는데, 팔레트가 쓰는 것은 분야 25개의
+   이름뿐이고 그마저 검색어가 있을 때만 그린다.
+
+   이 케이스가 잠그는 것은 **두 방향**이다:
+   ① 첫 프레임엔 없다 — 정적 import 로 되돌리면 동기적으로 존재해 이 단언이 빨개진다.
+   ② 그래도 도달한다 — 지연 적재의 진짜 위험은 "영원히 안 나타난다"이고, 부정문만 있으면
+      아무것도 안 그려도 통과한다(이 파일의 '맨 Enter' 케이스가 남긴 교훈).
+   ⚠ 구조 자체(정적 import 금지)의 집행자는 eslint `no-restricted-imports`(H14 블록)다 —
+      행동 테스트는 원리적으로 "언제 적재됐나"를 못 가른다. 둘은 대체재가 아니다. */
+test('H14: 진로 지도 분야는 첫 프레임에 없고, 적재된 뒤 팔레트에서 열린다', async () => {
+  const seen = openAt();
+  fireEvent.change(input(), { target: { value: '안테나' } });
+  expect(screen.queryByText(/안테나 설계/), '동기적으로 있으면 시드가 다시 셸 청크에 있는 것이다').toBeNull();
+
+  fireEvent.click(await screen.findByText(/안테나 설계/));
+  expect(seen.path).toBe('/atlas/antenna');
+});

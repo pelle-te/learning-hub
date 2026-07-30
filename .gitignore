@@ -5,8 +5,13 @@ web/dev-dist/
 web/.vite/
 node_modules/
 
-# 업데이트 인스톨러(C3) — 같은 오리진에서 서빙하려고 `public/updates/` 에 두지만,
-# 저장소에 릴리스마다 수 MB 바이너리를 쌓지는 않는다(매니페스트 `latest.json` 만 추적).
+# 릴리스 바이너리(C3 · H12 로 자리가 바뀌었다) — 같은 오리진에서 서빙하지만 저장소에
+# 릴리스마다 수 MB 를 쌓지는 않는다(매니페스트 `latest.json` 만 추적).
+# ⚠ **`public/` 이 아니라 `release-assets/` 다.** `public/` 은 빌드 입력이라 dist 로 복사되는데,
+#   그 dist 가 tauri `frontendDist` 이기도 해서 인스톨러가 **다음 데스크톱 번들 안에** 실렸다
+#   (실측 7.16MB · 매 릴리스마다 배로). 지금은 `npm run release:stage` 가 배포 직전에만 넣는다.
+#   아래 `public/` 규칙은 되돌아가는 것을 막는 2차 방어로 남긴다(1차는 `npm run budget` 축 ③).
+web/release-assets/
 web/public/updates/*.exe
 
 # 로그/OS

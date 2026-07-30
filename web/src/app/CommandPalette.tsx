@@ -15,7 +15,6 @@ import {
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
 import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
-import { FIELDS, categoryOf } from '@/lib/atlas';
 import { markVia } from '@/lib/visits';
 import type { SemHit, SemKind } from '@/lib/semantic';
 
@@ -56,6 +55,9 @@ const EMPTY = 'p-6 text-center text-md opacity-60';
 const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs leading-[1.6] opacity-70';
 const BRAND = 'font-bold';
 const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase';
+
+/** 팔레트가 진로 지도에서 실제로 쓰는 전부 — key·이름·대분류명(H14 의 지연 적재 결과물). */
+type AtlasEntry = { key: string; name: string; cat: string };
 
 const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥', mistake: '✗' };
 const CONTENT_ICON: Record<ContentHit['kind'], string> = {
@@ -192,6 +194,33 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     };
   }, [open, search]);
   const shownSem = search.trim().length >= 2 ? semHits : [];
+
+  /* 진로 지도 분야 인덱스 — **열릴 때 지연 적재**(H14 · 2026-07-30 감사).
+
+     이 한 줄이 `import { FIELDS } from '@/lib/atlas'` 였는데, 팔레트는 App 이 정적으로 끌고
+     App 은 부팅 직후 항상 로드된다 → 811줄 시드(`atlasData.ts` · 실측 **14.2 KB gz** 청크)가
+     데스크톱 콜드 스타트의 두 번째 웨이브에 무조건 실렸다. 그런데 여기서 쓰는 것은 분야 25개의
+     **key·이름·대분류명뿐**이고, 그마저 `search.trim()` 이 있을 때만 그린다.
+     ⚠ 엔트리 예산(`npm run budget` 축 ①)은 App 이 동적 import 라 이 비용을 **못 본다** —
+     "게이트가 녹색이니 없다"가 성립하지 않는 자리다(축 ②의 총합에만 잡혔다).
+
+     인덱스를 손으로 베껴 두지 않는다 — 그건 이 저장소가 반복해 물린 SSOT 사본이다. 대신
+     원본을 그대로 두고 **적재 시점만** 옮긴다. 실패해도 이 그룹만 비고 팔레트는 계속 돈다
+     (부팅 청크와 달리 여기는 부분 기능이라 조용한 폴백이 맞다). */
+  const [atlasFields, setAtlasFields] = useState<AtlasEntry[]>([]);
+  useEffect(() => {
+    if (!open || atlasFields.length) return;
+    let stale = false;
+    void import('@/lib/atlas')
+      .then(({ FIELDS, categoryOf }) => {
+        if (stale) return;
+        setAtlasFields(FIELDS.map((f) => ({ key: f.key, name: f.name, cat: categoryOf(f)?.name ?? '' })));
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [open, atlasFields.length]);
 
   /** 캡처 실행 — **언제나 커밋**한다(E2). 파싱 결과가 있으면 함께 실린다. */
   const runCapture = () => {
@@ -413,13 +442,15 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 ))}
               </Command.Group>
             )}
-            {/* 진로 지도 분야 바로가기 — 검색어가 있을 때만(빈 상태 28개 홍수 방지). cmdk 부분문자열 필터가 좁힌다. */}
-            {search.trim() && (
+            {/* 진로 지도 분야 바로가기 — 검색어가 있을 때만(빈 상태 28개 홍수 방지). cmdk 부분문자열 필터가 좁힌다.
+                ⚠ `atlasFields.length` 도 함께 본다 — 시드가 지연 적재라(H14) 첫 프레임엔 비어 있고,
+                   그때 그룹만 렌더하면 항목 없는 머리글이 한 프레임 스친다. */}
+            {search.trim() && atlasFields.length > 0 && (
               <Command.Group heading={<span className={GROUP_HEAD}>진로 지도 — 분야</span>}>
-                {FIELDS.map((f) => (
+                {atlasFields.map((f) => (
                   <Command.Item
                     key={'atlas:' + f.key}
-                    value={`atlas ${f.name} ${categoryOf(f)?.name ?? ''}`}
+                    value={`atlas ${f.name} ${f.cat}`}
                     className={ITEM}
                     onSelect={() => {
                       close();

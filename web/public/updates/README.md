@@ -23,12 +23,25 @@
 업데이터는 `version` 이 설치본보다 클 때만 내려받는다. 문서가 코드와 다른 이유를 대고 있으면
 다음 사람이 그 논거를 믿고 url 을 바꾼다.
 
+## ⚠⚠ 이 폴더에 **인스톨러를 두지 않는다**(H12 · 2026-07-30)
+
+여기는 `public/` = **빌드 입력**이고, 산출물 `web/dist` 는 소비자가 둘이다 — wrangler
+`assets.directory`(서빙)이자 tauri `frontendDist`(데스크톱 번들). 그래서 이 폴더에 둔
+7.16MB 인스톨러가 **다음 데스크톱 인스톨러 안에 통째로** 실려 있었고, 그 번들을 다시 릴리스
+자산으로 두면 매 릴리스마다 배로 불어난다. 두 예산 축은 `dist/assets` 만 훑어 보이지 않았다.
+
+→ 인스톨러는 **`web/release-assets/`**(빌드 입력 아님 · gitignore)에 두고,
+`npm run release:stage` 가 **배포 직전에만** `dist/updates/` 로 넣는다. 되돌아가면
+`npm run budget` 의 축 ③(번들 오염)이 빨개진다.
+
+**이 폴더에 남는 것은 텍스트뿐이다** — `latest.json` 과 이 문서.
+
 ## 릴리스할 때 (절차 SSOT = `web/docs/릴리스.md`)
 
 1. `latest.json` 을 새 버전으로 통째 교체 — `signature` 는 `.sig` 파일의 **내용**, `url` 은
    인스톨러의 **절대 URL**.
-2. 인스톨러(`러닝허브_x.y.z_x64-setup.exe`)를 이 폴더에 함께 둔다(같은 오리진에서 내려받게).
-   ⚠ git 에는 안 올린다(`.gitignore`) — 저장소에 바이너리를 쌓지 않는다.
-3. `cd web && npm run build && cd ../server && npx wrangler deploy`
+2. 인스톨러(`러닝허브_x.y.z_x64-setup.exe`)를 **`web/release-assets/`** 에 둔다(위 ⚠ 참조).
+3. `cd web && npm run build && npm run release:stage && cd ../server && npx wrangler deploy`
+   — `release:stage` 가 `latest.json` 이 가리키는 파일의 존재와 `signature` 를 **배포 전에** 판정한다.
 4. **엔드포인트 200 확인** — 이 확인이 없어서 404 가 배선된 채로 남았다:
    `curl.exe -I https://<워커>.workers.dev/updates/latest.json`

@@ -325,6 +325,37 @@ export default tseslint.config(
       ],
     },
   },
+  /* H14 — **셸 크롬은 시드 데이터를 정적으로 끌지 않는다**(2026-07-30 `/감사 근본`).
+
+     `app/` 은 App·TopBar·팔레트 같은 셸 크롬이라 **부팅 직후 통째로 로드된다**(App 청크).
+     거기 있던 `import { FIELDS } from '@/lib/atlas'` 한 줄이 811줄 시드(`atlasData.ts` ·
+     실측 **14.2 KB gz**)를 그 웨이브에 끌어왔는데, 팔레트가 쓰는 것은 분야 25개의 이름뿐이고
+     그마저 검색어가 있을 때만 그린다.
+
+     ⚠ **엔트리 예산이 이걸 못 본다.** `npm run budget` 축 ①은 매니페스트의 정적 `imports` 만
+     따라가는데 App 은 main.tsx 가 *동적으로* 부른다(SD-7 계약) → 이 비용은 축 ②의 총합에만
+     잡혔다. "게이트가 녹색이니 없다"가 성립하지 않는 자리라, 검출기를 여기 둔다.
+
+     막는 방식은 SD-7 과 같다 — **정적 import 만** 막고 동적 `import()` 는 통과시킨다. 그게
+     정확히 원하는 형태다(`CommandPalette` 가 열릴 때 적재한다). 시드가 늘면 값이 커질 뿐
+     구조는 같으므로, 목록이 아니라 *모듈*을 막아 `atlasData` 우회도 함께 닫는다. */
+  {
+    files: ['src/app/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/lib/atlas', '@/lib/atlasData'],
+              message:
+                'app/ 은 셸 크롬이라 부팅 직후 통째로 로드됩니다 — 진로 지도 시드(14.2 KB gz)를 **정적으로** import 하면 그 웨이브에 실립니다(H14). 필요한 시점에 `await import(\'@/lib/atlas\')` 로 지연 적재하세요.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // web/scripts/*.mjs — Node 도구(gate·scaffold-tab·bundle-budget). Node 전역 허용.
   {
     files: ['scripts/**/*.mjs'],

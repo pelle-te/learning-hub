@@ -36,7 +36,9 @@
     "e2e:shell": "playwright test -c playwright.shell.config.ts",
     "gate": "node scripts/gate.mjs",
     "scaffold-tab": "node scripts/scaffold-tab.mjs",
-    "budget": "node scripts/bundle-budget.mjs"
+    "budget": "node scripts/bundle-budget.mjs",
+    "_주석:release:stage": "릴리스 바이너리를 배포 **직전에만** dist/updates 로 넣는다(H12). dist 는 wrangler 자산 폴더이자 tauri frontendDist 라, public/ 에 두면 데스크톱 번들에 실려 매 릴리스마다 배로 불어난다 — 근거는 scripts/stage-release-assets.mjs 머리주석.",
+    "release:stage": "node scripts/stage-release-assets.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
