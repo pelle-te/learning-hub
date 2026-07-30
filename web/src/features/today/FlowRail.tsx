@@ -201,7 +201,7 @@ export function FlowRail<TE>({
           <>
             {live && <span className={N.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
             {/* nTime 내장 text-sm 은 companion LH 를 흘리므로 명시 — 폼컨트롤(study 버튼) 자손=normal · div=1.6. */}
-            <span className={`${N.nTime} ${nd.e ? 'leading-[normal]' : 'leading-[1.6]'}`}>{toHM(nd.start)}</span>
+            <span className={`${N.nTime} ${nd.e ? 'leading-auto' : 'leading-text'}`}>{toHM(nd.start)}</span>
             <span className={nDotCls} style={nd.kind === 'study' && nd.color ? { background: nd.color } : undefined} />
             <span className={N.nBody}>
               <span className={nNameCls}>{nd.name}</span>
@@ -250,7 +250,7 @@ export function FlowRail<TE>({
           오늘 밖이라는 사실을 한 줄로 말한다 — 접힌 줄 자체가 "이건 못 한 게 아니라 애초에
           오늘 것이 아니었다"는 판단이고, 저녁마다 오던 실패감의 출처를 없앤다. */}
       <div className={`${N.node} py-1.75! opacity-55`}>
-        <span className={`${N.nTime} leading-[1.6]`}>—</span>
+        <span className={`${N.nTime} leading-text`}>—</span>
         <span className={N.nDotGhost} />
         <span className={N.nBody}>
           <span className={N.nSub}>

@@ -25,10 +25,10 @@ type Progress = 'all' | 'todo' | 'done';
 // 언어 태그(EN=acc / KO=good) — 배경만 상태로 분기(§15 부칙 · 정적 클래스). 스팬이라 ! 불필요.
 const LANG_TAG = 'flex-none rounded-sm px-1.5 py-px text-2xs font-black tracking-tag text-on-acc';
 // 언어/진행 필터(button) — 전역 button{} 과 다른 속성만 !. 활성/비활성 배경·색은 정적 분기.
-// ⚠ leading-[normal]: 이 앱은 preflight 를 안 싣는다 → 폼 컨트롤(button/textarea/input)은 UA
+// ⚠ leading-auto: 이 앱은 preflight 를 안 싣는다 → 폼 컨트롤(button/textarea/input)은 UA
 // line-height:normal 을 가지며 body 1.6 을 상속하지 않는다. 필터 버튼 텍스트는 원본에서 normal 로
 // 렌더됐다(명시 line-height 없음). 1.6 으로 고정하면 ~1px 밀려 dark 스냅샷이 깨진다.
-const LANG_BTN = 'rounded-sm! border-none! px-2.75! py-1! text-sm! leading-[normal]! font-extrabold!';
+const LANG_BTN = 'rounded-sm! border-none! px-2.75! py-1! text-sm! leading-auto! font-extrabold!';
 // 지문 목록 항목(button) — 테두리/배경은 선택 여부로 정적 분기(no-conflicting 회피 · global button 이 나머지 제공).
 const LIST_ITEM = 'w-full flex flex-col gap-1 text-left rounded-base! py-2.75!';
 // 코치 라벨 톤 — 빠진 핵심=learning · 정확성/바로잡기=bad · 나머지=mut(정적 맵 · 동적 s[k] 금지).
@@ -349,22 +349,19 @@ export default function ArticlePractice({
                       <span className={`${LANG_TAG} ${a.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
                         {a.lang === 'en' ? 'EN' : 'KO'}
                       </span>
-                      <span className="text-xs leading-[normal] font-bold text-mut">{a.field}</span>
+                      <span className="text-xs leading-auto font-bold text-mut">{a.field}</span>
                       {w?.done ? (
-                        <span className="ml-auto text-sm leading-[normal] font-black text-good" title="요약 완료">
+                        <span className="ml-auto text-sm leading-auto font-black text-good" title="요약 완료">
                           ✓
                         </span>
                       ) : hasDraft ? (
-                        <span
-                          className="ml-auto text-sm leading-[normal] font-bold text-acc"
-                          title="작성 중인 초안 있음"
-                        >
+                        <span className="ml-auto text-sm leading-auto font-bold text-acc" title="작성 중인 초안 있음">
                           ✎
                         </span>
                       ) : null}
                     </span>
-                    <span className="line-clamp-2 text-base14 leading-[1.35] font-bold text-txt">{a.title}</span>
-                    <span className="text-xs leading-[normal] text-mut tabular-nums">
+                    <span className="line-clamp-2 text-base14 leading-tight font-bold text-txt">{a.title}</span>
+                    <span className="text-xs leading-auto text-mut tabular-nums">
                       {a.source} · {a.words}
                       {a.lang === 'en' ? ' words' : '자'} · 약 {mins}분
                     </span>
@@ -390,13 +387,13 @@ export default function ArticlePractice({
               lang={sel.lang === 'en' ? 'en' : undefined}
             >
               <header className="mb-4 border-b border-line2 pb-3.5">
-                <div className="mb-2 flex items-center gap-2 text-sm leading-[1.6] font-bold text-mut" lang="ko">
+                <div className="mb-2 flex items-center gap-2 text-sm leading-text font-bold text-mut" lang="ko">
                   <span className={`${LANG_TAG} ${sel.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
                     {sel.lang === 'en' ? 'EN' : 'KO'}
                   </span>
                   {sel.field} · {sel.source}
                   <a
-                    className="ml-auto text-sm leading-[1.6] font-bold"
+                    className="ml-auto text-sm leading-text font-bold"
                     href={/^https?:\/\//i.test(sel.url) ? sel.url : undefined}
                     target="_blank"
                     rel="noreferrer noopener"
@@ -404,23 +401,23 @@ export default function ArticlePractice({
                     원문 ↗
                   </a>
                 </div>
-                <h2 className="m-0! text-reader-title! leading-[1.28] font-black! tracking-title!">{sel.title}</h2>
+                <h2 className="m-0! text-reader-title! leading-tight font-black! tracking-title!">{sel.title}</h2>
               </header>
               <ReaderVocab key={sel.id} lang={sel.lang} text={sel.text} online={online} />
             </article>
 
             <div className="mt-3.5 flex-none rounded-lg border border-line bg-panel px-4 py-3.5">
               <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-sm leading-[1.6] font-extrabold tracking-editor text-acc">
+                <span className="text-sm leading-text font-extrabold tracking-editor text-acc">
                   {sel.lang === 'en' ? '내 정리 (영어 공부 — 핵심 표현·해석)' : '내 요약 (직접 요약해 보기)'}
                 </span>
-                <span className="text-xs leading-[1.6] text-mut tabular-nums">
+                <span className="text-xs leading-text text-mut tabular-nums">
                   {myCount}
                   {isKoSel ? '자' : ' 단어'}
                 </span>
               </div>
               <textarea
-                className="min-h-24 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-[1.6]!"
+                className="min-h-24 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-text!"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={() => commit()}
@@ -498,7 +495,7 @@ export default function ArticlePractice({
                     <div className="mb-2 flex flex-wrap items-center gap-2.5">
                       {typeof fb.score === 'number' && (
                         <span
-                          className={`flex-none rounded-full px-3 py-0.5 text-lg leading-[1.6] font-black text-on-acc ${
+                          className={`flex-none rounded-full px-3 py-0.5 text-lg leading-text font-black text-on-acc ${
                             fb.score >= 70 ? 'bg-good' : 'bg-bad'
                           }`}
                         >
@@ -525,7 +522,7 @@ export default function ArticlePractice({
                     ) : null}
                     {fb.model_summary && (
                       <div className="mt-2.5 border-t border-line2 pt-2 text-md text-txt">
-                        <span className="mb-0.75 block text-xs leading-[1.6] font-extrabold text-acc">모범 요약</span>
+                        <span className="mb-0.75 block text-xs leading-text font-extrabold text-acc">모범 요약</span>
                         {fb.model_summary}
                       </div>
                     )}
@@ -546,10 +543,10 @@ export default function ArticlePractice({
 function CoachList({ label, items, tone }: { label: string; items: string[]; tone: 'miss' | 'bad' | 'mut' }) {
   return (
     <div className="mt-2">
-      <span className={`mb-0.75 inline-block text-xs leading-[1.6] font-extrabold tracking-label ${COACH_TONE[tone]}`}>
+      <span className={`mb-0.75 inline-block text-xs leading-text font-extrabold tracking-label ${COACH_TONE[tone]}`}>
         {label}
       </span>
-      <ul className="m-0 pl-4.5 text-md leading-[1.55] text-txt">
+      <ul className="m-0 pl-4.5 text-md leading-text text-txt">
         {items.map((it, i) => (
           <li key={i}>{it}</li>
         ))}

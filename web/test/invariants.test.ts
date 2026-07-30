@@ -522,3 +522,71 @@ describe('불변식 ⑦ 모션 자제 판정이 lib/motion 밖에 없다', () =>
     expect(owner, "앱 설정('발광 효과 줄이기')을 안 보면 라벨이 거짓이 된다").toMatch(/data-fx/);
   });
 });
+
+/* ============================================================
+   불변식 ⑧ — **타이포·스태킹에도 사다리가 있다** (H29 · 2026-07-30 `/감사 근본`)
+
+   모션은 어휘 다섯 마디 + 길이 토큰 8종으로 닫고 불변식 ⑥이 지킨다(E24). 그런데 같은 성질의
+   두 축은 **집행자가 0** 이었다:
+
+   · `leading-[…]` 임의값 **234곳 · 20종** — 새 화면마다 새 줄높이가 생겨도 아무도 모른다.
+   · `z-*` 이원화 — 앱 크롬은 `--z-*` 토큰인데 일부는 생 숫자였다(`z-10` 이 그 형태).
+
+   ⚠ 생 숫자 z 를 **전부** 막지는 않는다. 컴포넌트 **내부** 스태킹(막대 위에 숫자 · 오버레이 위
+   배지)은 지역적이고 한 자리로 충분하다 — 그건 이름 붙일 관계가 아니라 그리기 순서다.
+   막는 것은 **두 자리 이상**이다: 그 크기는 앱 전역 레이어와 겨루겠다는 뜻이고, 그 겨룸은
+   `--z-*` 사다리가 이미 이름으로 정리해 뒀다.
+============================================================ */
+describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는다', () => {
+  const SRC8 = join(process.cwd(), 'src') + '/';
+  /** 윈도우 경로 구분자 — 리터럴로 쓰면 이스케이프가 헷갈린다(실제로 두 번 물렸다). */
+  const SEP_BS = String.fromCharCode(92);
+
+  function sources(): { path: string; code: string }[] {
+    const out: { path: string; code: string }[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(e.name)) {
+          // 주석은 걷어낸다 — 근거를 남길수록 게이트가 빨개지면 그건 역인센티브다(불변식 ⑦과 같은 이유).
+          const code = readFileSync(p, 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/(^|[^:])\/\/.*$/gm, '$1');
+          out.push({ path: p.slice(SRC8.length).split(SEP_BS).join('/'), code });
+        }
+      }
+    };
+    walk(SRC8);
+    return out;
+  }
+
+  it('`leading-[…]` 임의값이 없다 — 줄높이는 `--leading-*` 사다리에서 고른다', () => {
+    const bad = sources()
+      .flatMap(({ path, code }) => (code.match(/leading-\[[^\]]+\]/g) ?? []).map((m) => `${path}: ${m}`))
+      .sort();
+    expect(
+      bad,
+      `줄높이 임의값 ${bad.length}건 — \`tokenBridge.css\` 의 --leading-* 중에서 고르세요(auto/flat/none/display/tight/snug/body/text/loose):\n${bad.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('두 자리 이상 z-index 는 `--z-*` 토큰으로만 쓴다(앱 레이어와 겨루는 크기다)', () => {
+    const bad = sources()
+      .flatMap(({ path, code }) => (code.match(/\bz-\[(\d{2,})\]|\bz-(\d{2,})\b/g) ?? []).map((m) => `${path}: ${m}`))
+      .sort();
+    expect(
+      bad,
+      `생 z-index ${bad.length}건 — \`z-[var(--z-nav|dropdown|toast|modal|dialog|tooltip|palette)]\` 를 쓰세요:\n${bad.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('사다리가 실제로 정의돼 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
+    const bridge = readFileSync(join(SRC8, 'styles', 'tokenBridge.css'), 'utf8');
+    const steps = [...bridge.matchAll(/--leading-([a-z]+):/g)].map((m) => m[1]);
+    expect(steps.length, '--leading-* 사다리가 없으면 위 검사는 "쓰지 말라"만 하고 대안이 없다').toBeGreaterThanOrEqual(
+      8,
+    );
+    expect(steps).toContain('text');
+  });
+});

@@ -106,7 +106,7 @@ function FlowGuide() {
           {PRINCIPLES.map(([a, b]) => (
             <span
               key={a}
-              className="rounded-full border border-line bg-panel2 px-2.75 py-1.25 text-sm leading-[1.6] text-mut"
+              className="rounded-full border border-line bg-panel2 px-2.75 py-1.25 text-sm leading-text text-mut"
             >
               <b className="font-semibold text-txt">{a}</b> {b}
             </span>

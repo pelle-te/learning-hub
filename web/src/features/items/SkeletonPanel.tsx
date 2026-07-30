@@ -22,12 +22,12 @@ const BLK =
 const BLK_TOP = 'grid grid-cols-blktop items-center gap-2 max-narrow:grid-cols-[1fr_auto]';
 const BLK_TIME = 'flex items-center gap-1.25 max-narrow:col-span-full';
 const DAYS = 'flex flex-wrap items-center gap-0.75';
-const DAYCHIP = 'min-w-7 rounded-chip! px-0! py-1.25! text-sm! leading-[normal] text-mut!';
+const DAYCHIP = 'min-w-7 rounded-chip! px-0! py-1.25! text-sm! leading-auto text-mut!';
 const DAYCHIP_ON = 'bg-acc! border-acc! text-on-acc! font-bold! shadow-daychip';
 const DAYCHIP_PRESET = 'min-w-auto bg-transparent! px-1.75! text-xs! hover:text-acc!';
 const DAYSEP = 'mx-0.75 h-4.5 w-px bg-line';
 const PERDAY = 'flex flex-wrap items-center gap-2.5';
-const PERDAY_TOGGLE = 'border-0! bg-transparent! px-0! py-0.5! text-xs! font-bold! text-mut! leading-[normal]';
+const PERDAY_TOGGLE = 'border-0! bg-transparent! px-0! py-0.5! text-xs! font-bold! text-mut! leading-auto';
 const PERDAY_RESET = 'bg-transparent! px-2! py-0.5! text-2xs! font-bold! text-mut!';
 const PERDAY_GRID =
   'mt-1 flex flex-col gap-1.25 rounded-blk bg-[var(--tint-ink-faint)] px-2.75 py-2.25 shadow-inset-line2';
@@ -250,7 +250,7 @@ function BlockList() {
                     const t = b.times?.[String(d)];
                     return (
                       <div key={d} className={PERDAY_ROW}>
-                        <span className={`text-sm leading-[1.6] font-bold ${t ? 'text-acc' : 'text-mut'}`}>
+                        <span className={`text-sm leading-text font-bold ${t ? 'text-acc' : 'text-mut'}`}>
                           {DOW[d]}
                         </span>
                         <TimeSelect

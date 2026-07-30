@@ -2,6 +2,7 @@
    scheduleView.ts — Schedule 탭의 하루치 뷰모델(순수). 컴포넌트에서 분리해 단위테스트 가능.
    scheduler(엔진 결과 ScheduleResult)와 layoutDay(시각배치)를 받아 카드/개요 공용 DayData로 빚는다.
 ============================================================ */
+import { parseCompletionKey } from './domainKeys';
 import { dayStudyMin, layoutDay } from './scheduler';
 import { isDone } from './persistence';
 import { iso, addDays, dayDiff } from './utils';
@@ -174,7 +175,7 @@ export function computeDay(
   const planMin = items.reduce((t, it) => t + it.min, 0);
   let doneMinTot = 0;
   Object.keys(plannedByKey).forEach((key) => {
-    const [sid, type] = key.split('|');
+    const { sid, type } = parseCompletionKey(key);
     if (isDone(state, ds2, sid!, type as SessionType)) doneMinTot += plannedByKey[key]!;
   });
 

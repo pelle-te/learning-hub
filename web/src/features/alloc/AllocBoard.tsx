@@ -35,8 +35,8 @@ import type { ScheduleResult } from '@/lib/types';
 /* ── AllocBoard — CSS Module → Tailwind 유틸 이식(C-7) ────────────────────────────
    1px 그리드선은 grid gap + 배경(cell=panel/panel2, gap=line)으로 그린다. 셀은 role 정직한 표.
    ⚠ 이 앱은 preflight 를 빼서, **내장 크기 이름**(text-sm/lg/xs)은 companion line-height 를 흘려
-     상속 LH 를 덮는다 → 정상흐름 요소엔 leading-[1.6](또는 소스 명시값 1.55)을 못박는다.
-     **폼 컨트롤(<button>·<input>)의 자손 텍스트**는 UA line-height:normal 을 상속하므로 leading-[normal].
+     상속 LH 를 덮는다 → 정상흐름 요소엔 leading-text(또는 소스 명시값 1.55)을 못박는다.
+     **폼 컨트롤(<button>·<input>)의 자손 텍스트**는 UA line-height:normal 을 상속하므로 leading-auto.
      커스텀 브리지 크기(text-2xs/md/base14)는 LH 를 안 흘리므로 leading 불필요.
    ⚠ 전역 요소규칙(button/input)은 언레이어라 레이어드 유틸을 이긴다 → 다른 값만 `!`(같으면 클래스 없음).
      colHead <button> 의 로컬 :hover 는 전역 button:hover(더 높은 명시도)에 이미 가려져 있었다 →
@@ -46,10 +46,10 @@ const S = {
   wrap: 'flex h-full min-h-0 flex-col gap-3 px-5.5 pt-3.5 pb-3 max-wide:px-3.5 max-wide:py-3',
   toolbar: 'flex flex-none flex-wrap items-center gap-3',
   // 모드 배지 — 공통 골격 + 상태별 톤 맵(자동/내 배분 · §15 정적 맵). 자간 0.08em 은 tracking-mode.
-  mode: 'rounded-full border px-2.5 py-0.75 text-xs leading-[1.6] font-extrabold tracking-mode',
+  mode: 'rounded-full border px-2.5 py-0.75 text-xs leading-text font-extrabold tracking-mode',
   modeAuto: 'border-line bg-alloc-mode-bg text-mut',
   modeManual: 'border-line-acc-hover bg-acc-glow text-acc',
-  toolHint: 'min-w-0 truncate text-sm leading-[1.6] text-mut',
+  toolHint: 'min-w-0 truncate text-sm leading-text text-mut',
   toolBtns: 'ml-auto flex gap-2',
   scroll: 'min-h-0 flex-initial overflow-auto [scrollbar-width:thin]',
   grid: 'grid min-w-140 grid-cols-alloc gap-px rounded-base border border-line bg-line',
@@ -58,7 +58,7 @@ const S = {
   // 요일 열머리글 <button> — 전역 button 패딩(8/13)을 .cell(7/9)로 이겨야 해 px/py 에 `!`.
   colHead: 'flex min-h-12 flex-col items-center justify-center gap-px px-2.25! py-1.75! text-center',
   colToday: 'bg-alloc-col-today!',
-  dow: 'text-sm leading-[normal] font-extrabold text-txt', // <button> 자손 → UA normal 상속
+  dow: 'text-sm leading-auto font-extrabold text-txt', // <button> 자손 → UA normal 상속
   date: 'text-2xs font-semibold text-mut', // 커스텀 크기 → LH 안 흘림(leading 불필요)
   /* ⚠ 오늘 열에서는 **묵음색을 쓰지 않는다**(H22 · 2026-07-26). 열 배경이 `--alloc-col-today`
      로 밝아져 `--mut` 과의 대비가 4.13:1 로 내려간다(10px 본문 → 4.5:1 요구 · axe serious).
@@ -80,7 +80,7 @@ const S = {
   hoverPlus:
     "hover:after:pointer-events-none hover:after:absolute hover:after:inset-0 hover:after:flex hover:after:items-center hover:after:justify-center hover:after:text-md hover:after:font-bold hover:after:text-alloc-plus hover:after:content-['+']",
   dropOver:
-    "outline-2 -outline-offset-2 outline-dashed outline-acc after:pointer-events-none after:absolute after:inset-0 after:z-[2] after:flex after:items-center after:justify-center after:bg-acc-glow after:text-xs after:leading-[1.6] after:font-extrabold after:text-acc after:content-['+1h']",
+    "outline-2 -outline-offset-2 outline-dashed outline-acc after:pointer-events-none after:absolute after:inset-0 after:z-[2] after:flex after:items-center after:justify-center after:bg-acc-glow after:text-xs after:leading-text after:font-extrabold after:text-acc after:content-['+1h']",
   // UX-A2 드롭 가능 프리뷰 — 잡은 과목 행의 놓을 수 있는 칸을 드래그 **시작 시점에** 옅게 예고한다.
   // dropOver(2px 실선급 점선 + '+1h')의 한 단 아래 버전 — 같은 시각 언어라 "여기 놓을 수 있다"가
   // 한 어휘로 읽힌다. ⚠ 정적이다(애니 아님) → reduced-motion·React Compiler 어느 쪽과도 무관.
@@ -97,17 +97,17 @@ const S = {
   //   비배치 형제(숫자·배지)보다 **위에** 칠해진다. 숫자를 배치요소로 올려야 막대가 배경이 된다.
   budgetCell: `${CELL} sticky right-0 z-[3] flex-col items-end justify-center gap-px overflow-hidden text-right text-md`,
   budgetB: 'relative z-[1] text-base14 font-extrabold text-txt tabular-nums',
-  budgetOf: 'relative z-[1] text-xs leading-[1.6] font-semibold text-mut',
+  budgetOf: 'relative z-[1] text-xs leading-text font-semibold text-mut',
   badge: 'relative z-[1] text-2xs',
   // ID-7 방치 배지 — 행 이름 뒤 우측 정렬 warn 핀. 예산 배지(우측 셀)와 위계·위치가 달라 오독 없다.
   neglect:
     'ml-auto flex-none rounded-full bg-tint-warn px-1.5 py-0.5 text-2xs font-bold whitespace-nowrap text-warn tabular-nums',
   footHead: `${CELL} sticky left-0 z-[3] rounded-bl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
-  footCell: `${CELL} relative justify-center gap-0.75 overflow-hidden text-sm leading-[1.6] text-mut`,
+  footCell: `${CELL} relative justify-center gap-0.75 overflow-hidden text-sm leading-text text-mut`,
   footNum: 'relative z-[1] font-extrabold tabular-nums',
   footCap: 'relative z-[1] font-semibold text-mut',
   footEnd: `${CELL} sticky right-0 z-[3] rounded-br-base bg-panel2`,
-  hint: 'flex-none text-sm leading-[1.55] text-mut',
+  hint: 'flex-none text-sm leading-text text-mut',
   hintB: 'font-bold text-txt',
 } as const;
 

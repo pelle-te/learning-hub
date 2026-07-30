@@ -366,7 +366,7 @@ export default function Ledger() {
       >
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>
-          <h2 className="mt-0.5! mb-0! text-hero-title! leading-[1.04] font-black! tracking-tight!">📒 정본 원장</h2>
+          <h2 className="mt-0.5! mb-0! text-hero-title! leading-none font-black! tracking-tight!">📒 정본 원장</h2>
           <span className="text-xs text-mut tabular-nums">
             {led ? (
               <>

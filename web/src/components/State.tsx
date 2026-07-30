@@ -60,7 +60,7 @@ const WRAP = 'mx-auto flex max-w-empty flex-col items-center gap-2 px-6 py-11 te
 const GLYPH =
   'mb-1 flex size-16 items-center justify-center rounded-empty-glyph bg-acc-soft text-empty-glyph inset-ring inset-ring-line-acc';
 const TITLE = 'text-empty-title font-extrabold tracking-empty-title text-ink';
-const DESC = 'text-md leading-[1.65] text-mut';
+const DESC = 'text-md leading-text text-mut';
 const ACTIONS = 'mt-2.5 flex flex-wrap justify-center gap-2';
 /** 종착 상태 안내 — 행동이 아니라 **이유**라 톤을 낮춘다(CTA 처럼 보이면 누를 것을 찾게 된다). */
 const TERMINAL = 'mt-1.5 text-xs text-mut';

@@ -298,10 +298,10 @@ export default function Items() {
     <section className="flex h-full min-h-0 min-w-0 flex-col" aria-label="과목">
       <div className="flex flex-none items-center gap-3.5 pt-4.5 pr-5.5 pb-3.5 pl-5.5 max-narrow:px-3.5 max-narrow:pt-3.5 max-narrow:pb-2.5">
         <div className="min-w-0">
-          <h2 className="mb-0! text-xs! leading-[1.6] font-extrabold! tracking-eyebrow! text-acc! uppercase">
+          <h2 className="mb-0! text-xs! leading-text font-extrabold! tracking-eyebrow! text-acc! uppercase">
             과목{n ? ` · ${n}과목` : ''}
           </h2>
-          <div className="mt-1 text-hint leading-[1.4] text-mut">
+          <div className="mt-1 text-hint leading-snug text-mut">
             카드를 누르면 <b className="font-bold text-txt">그 과목의 목표·챕터·요일 배분</b>을 한 창에서 정해요. 순서는
             드래그 또는 <b className="font-bold text-txt">Alt+↑↓</b>
             (키보드).
@@ -334,11 +334,11 @@ export default function Items() {
       <div className="flex-none px-5.5 max-narrow:px-3.5">
         <button
           type="button"
-          className="flex w-full items-center gap-2.5 rounded-md! border-line2! py-2.25! pr-3.5! pl-3.5! text-left text-sm! leading-[normal]"
+          className="flex w-full items-center gap-2.5 rounded-md! border-line2! py-2.25! pr-3.5! pl-3.5! text-left text-sm! leading-auto"
           onClick={() => setShowSkeleton(true)}
           aria-haspopup="dialog"
         >
-          <span className="w-3 flex-none text-xs leading-[normal] text-mut" aria-hidden="true">
+          <span className="w-3 flex-none text-xs leading-auto text-mut" aria-hidden="true">
             ›
           </span>
           <span className="flex-none text-skel-title font-extrabold tracking-skel text-acc uppercase">뼈대</span>
@@ -353,7 +353,7 @@ export default function Items() {
           <span className="whitespace-nowrap text-mut tabular-nums">
             일과 <b className="font-extrabold text-txt">{blockCount}</b>
           </span>
-          <span className="ml-auto text-xs leading-[normal] whitespace-nowrap text-mut">수업·일과 편집</span>
+          <span className="ml-auto text-xs leading-auto whitespace-nowrap text-mut">수업·일과 편집</span>
         </button>
       </div>
 

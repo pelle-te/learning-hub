@@ -15,7 +15,7 @@ export const M = {
   hero: `relative flex flex-none items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-4 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`,
   heroLeft: 'flex min-w-0 flex-col gap-0.5',
   eyebrow: 'text-xs font-extrabold tracking-eyebrow text-acc uppercase',
-  headTitle: 'mt-0.5! mb-0! text-hero-title! font-black! leading-[1.04] tracking-tight!', // h2 — 전역 h2{} 를 ! 로 이김
+  headTitle: 'mt-0.5! mb-0! text-hero-title! font-black! leading-none tracking-tight!', // h2 — 전역 h2{} 를 ! 로 이김
   headMeta: 'text-xs text-mut tabular-nums',
   ring: 'relative size-26 flex-none', // --ring-w/--ring-glow-r 는 인라인 style(px 임의값 금지 우회 + 런타임 skeleton 파라미터)
   ringNum:

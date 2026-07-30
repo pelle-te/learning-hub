@@ -23,7 +23,7 @@ const PULSE =
 const TIME = 'text-4xl leading-none font-extrabold tracking-topbar-sub text-acc tabular-nums text-shadow-focus-time';
 const NAME = 'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold text-mut';
 const BTN =
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-sm! border! border-line! bg-transparent! p-0! text-sm! leading-[normal] text-mut! hover:border-line-acc! hover:text-ink! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
+  'inline-flex size-8 shrink-0 items-center justify-center rounded-sm! border! border-line! bg-transparent! p-0! text-sm! leading-auto text-mut! hover:border-line-acc! hover:text-ink! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 
 export default function MiniHud() {
   const session = useFocus((s) => s.session);

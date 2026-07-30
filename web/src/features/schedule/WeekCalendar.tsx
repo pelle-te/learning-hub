@@ -38,7 +38,7 @@ const CAL = {
   dayHead:
     'flex flex-col items-center gap-px border-x-0! border-t-2! border-b-0! border-t-transparent! bg-transparent! px-0.5! pt-2! pb-1.75! focus-visible:-outline-offset-2!',
   dow: 'text-sched-dow font-bold tracking-tag',
-  date: 'text-sched-date font-extrabold leading-[1.1] tabular-nums max-mobile:text-lg',
+  date: 'text-sched-date font-extrabold leading-display tabular-nums max-mobile:text-lg',
   dateToday: 'min-w-6.5 rounded-full bg-acc px-1.5 text-bg',
   dayH: 'text-2xs tabular-nums',
   allday:
@@ -123,11 +123,11 @@ function densOf(px: number): Dens {
 function segNameCls(dens: Dens, kind: Seg['kind']): string {
   const weight =
     kind === 'block' ? 'font-semibold text-[color:var(--txt-84)]' : kind === 'event' ? 'font-extrabold' : 'font-bold';
-  return `truncate leading-[1.25] ${dens === 'micro' ? 'text-2xs' : 'text-xs'} ${weight}`;
+  return `truncate leading-tight ${dens === 'micro' ? 'text-2xs' : 'text-xs'} ${weight}`;
 }
 /** 조각 메타 — compact/micro/모바일에서 감춘다(고정 셀에 겹쳐 잘림 방지). */
 function segMetaCls(dens: Dens): string {
-  return `truncate text-sched-meta leading-[1.2] text-[color:var(--txt-82)] ${dens ? 'hidden' : ''} max-mobile:hidden`;
+  return `truncate text-sched-meta leading-tight text-[color:var(--txt-82)] ${dens ? 'hidden' : ''} max-mobile:hidden`;
 }
 
 export function WeekCalendar({

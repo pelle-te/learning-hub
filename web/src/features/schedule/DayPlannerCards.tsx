@@ -17,12 +17,12 @@ import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
    ⚠ 좌측 색 띠·채움은 런타임 --seg(과목색) 파생이라 인라인 style 이 얹는 사용 시점 해석(절대규칙 #3).
    ⚠ 카드/밴드는 <div> 라 전역 button 경합이 없지만, 안의 tool/durBtn 은 <button> 이라 전역 button
    (언레이어)을 이겨야 하므로 다른 값만 `!`(§ global element rules · TOOLBASE 참조). built-in 크기
-   (text-xs/sm)만 companion line-height 를 흘려 폼컨트롤/자손엔 leading-[normal], 정상 흐름엔 원본 LH
+   (text-xs/sm)만 companion line-height 를 흘려 폼컨트롤/자손엔 leading-auto, 정상 흐름엔 원본 LH
    (1.6/1.15)를 명시(line-height 트랩). hover/focus 로 드러나는 툴바는 group-hover/-focus-within(§15).
    ⚠ tool 의 로컬 :hover 는 전역 button:hover(더 높은 명시도)에 이미 가려져 있어 되살리지 않는다. */
 // 공용 아이콘 툴 버튼(색은 사용처에서 text-mut!/text-acc! 로 — 같은 property 라 한쪽만).
 const TOOLBASE =
-  'inline-flex h-5.5 w-5.5 flex-none items-center justify-center rounded-seg! border-transparent! bg-transparent! text-sm! leading-[normal] focus-visible:outline-offset-1! motion-reduce:transition-none';
+  'inline-flex h-5.5 w-5.5 flex-none items-center justify-center rounded-seg! border-transparent! bg-transparent! text-sm! leading-auto focus-visible:outline-offset-1! motion-reduce:transition-none';
 const C = {
   trayRow:
     'seg-scope flex cursor-grab items-center gap-2 rounded-md border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--seg,var(--acc))] bg-[var(--tray-fill)] px-2.25 py-1.75 shadow-inset-line2 active:cursor-grabbing',
@@ -31,14 +31,14 @@ const C = {
   rowMeta: 'flex-none whitespace-nowrap text-2xs font-bold text-mut',
   durStep: 'inline-flex flex-none cursor-default items-center gap-0.5',
   durBtn:
-    'inline-flex h-4.5 w-4.5 items-center justify-center rounded-chip-md! border-line2! bg-panel! leading-[1] font-extrabold! focus-visible:outline-offset-1!',
-  durVal: 'min-w-8.5 text-center text-xs leading-[1.6] font-extrabold tabular-nums text-txt',
-  rowDur: 'flex-none whitespace-nowrap text-xs leading-[1.6] font-extrabold tabular-nums text-mut',
+    'inline-flex h-4.5 w-4.5 items-center justify-center rounded-chip-md! border-line2! bg-panel! leading-none font-extrabold! focus-visible:outline-offset-1!',
+  durVal: 'min-w-8.5 text-center text-xs leading-text font-extrabold tabular-nums text-txt',
+  rowDur: 'flex-none whitespace-nowrap text-xs leading-text font-extrabold tabular-nums text-mut',
   tool: `${TOOLBASE} text-mut!`,
   ev: 'seg-scope group absolute left-1 box-border flex min-h-4 items-start justify-between gap-1.5 overflow-hidden rounded-blk border-solid border-l-[length:var(--bw-seg)] border-l-[color:var(--event)] bg-[var(--ev-fill)] px-2 text-txt shadow-[var(--shadow-ev)] transition-shadow duration-fast ease-[var(--ease)] hover:z-[6] hover:shadow-[var(--shadow-ev-hover)] focus-within:z-[8] focus-within:-outline-offset-2 focus-within:outline-2 focus-within:outline-acc motion-reduce:transition-none',
   evSel: 'z-[9] outline-2 -outline-offset-1 outline-acc',
   cardMain: 'flex min-w-0 flex-col gap-px',
-  cardName: 'truncate text-sm leading-[1.15] font-extrabold tracking-wk',
+  cardName: 'truncate text-sm leading-display font-extrabold tracking-wk',
   cardMeta: 'whitespace-nowrap text-2xs font-bold opacity-[0.82]',
   cardTools:
     'flex flex-none gap-px opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none',

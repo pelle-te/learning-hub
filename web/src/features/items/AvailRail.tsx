@@ -64,9 +64,9 @@ export function AvailRail() {
       aria-label="가용시간"
     >
       <div className="ds-well mb-0! flex flex-col items-center gap-4.5">
-        <div className="flex w-full items-baseline justify-between text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
+        <div className="flex w-full items-baseline justify-between text-xs leading-text font-extrabold tracking-caps text-mut uppercase">
           가용시간 — AVAILABILITY
-          <span className="text-sm leading-[1.6] font-extrabold tracking-normal text-acc normal-case">
+          <span className="text-sm leading-text font-extrabold tracking-normal text-acc normal-case">
             {DOW[ringDow]}요일
           </span>
         </div>
@@ -138,20 +138,20 @@ export function AvailRail() {
             );
           })}
         </div>
-        <div className="w-full text-center text-xs leading-[1.6] text-mut tabular-nums">
+        <div className="w-full text-center text-xs leading-text text-mut tabular-nums">
           이번 주 배분 <b className="font-extrabold text-txt">{hLabel(allocWeekMin)}</b> / 가용{' '}
           <b className="font-extrabold text-txt">{availH.toFixed(1)}h</b>
         </div>
       </div>
       {requiredH > 0 && (
-        <div className={`text-xs leading-[1.5] ${shortfall ? 'text-warn' : 'text-mut'}`}>
+        <div className={`text-xs leading-body ${shortfall ? 'text-warn' : 'text-mut'}`}>
           주간 가용 <b>{availH.toFixed(1)}h</b> {shortfall ? '<' : '≥'} 학습 목표 <b>{requiredH.toFixed(1)}h</b>
           {shortfall
             ? ' — 가용시간이 목표에 못 미쳐요. 일과를 줄이거나 학습 항목의 목표를 조정하세요.'
             : ' — 목표를 담을 여유가 있어요.'}
         </div>
       )}
-      <div className="text-xs leading-[1.5] text-mut">
+      <div className="text-xs leading-body text-mut">
         깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다. 요일별
         배분을 과목별로 손보려면 <b>배치</b> 탭의 배분 보드에서 한눈에.
       </div>

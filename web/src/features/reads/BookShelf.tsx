@@ -14,9 +14,9 @@ const ADD_INPUT = 'rounded-md! bg-panel! px-3! py-2.25! text-base14!';
 // 책 목록 항목(button) — 테두리/배경은 선택 여부로 정적 분기(base+active 동시 지정 시 no-conflicting 회피).
 const LIST_ITEM = 'w-full flex flex-col gap-1 text-left rounded-base! py-2.75!';
 // 독서 상태 필터(button) — 테두리/배경/색은 global button{} 이 주는 line/panel2/txt 위에 활성만 얹는다.
-// ⚠ leading-[normal]: preflight 미탑재 → button 은 UA line-height:normal(body 1.6 미상속). 원본
+// ⚠ leading-auto: preflight 미탑재 → button 은 UA line-height:normal(body 1.6 미상속). 원본
 // 필터 버튼은 명시 line-height 없이 normal 로 렌더됐다 — 1.6 고정 시 ~1px 밀려 dark 스냅샷 깨짐.
-const BOOK_FILTER_BTN = 'flex-1 px-2! py-1! text-xs! leading-[normal]! font-semibold!';
+const BOOK_FILTER_BTN = 'flex-1 px-2! py-1! text-xs! leading-auto! font-semibold!';
 
 /** ISO 일시 → 'M/D'(없으면 ''). 독서 시작·완독일 표기용. */
 function shortDate(iso: string | null | undefined): string {
@@ -147,18 +147,16 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
                         {b.status === 'done' ? '완독' : '읽는 중'}
                       </span>
                       {b.rating > 0 && (
-                        <span className="text-xs leading-[normal] tracking-star text-learning">
-                          {'★'.repeat(b.rating)}
-                        </span>
+                        <span className="text-xs leading-auto tracking-star text-learning">{'★'.repeat(b.rating)}</span>
                       )}
                       {b.review.trim() && (
-                        <span className="ml-auto text-sm leading-[normal] font-black text-good" title="독후감 있음">
+                        <span className="ml-auto text-sm leading-auto font-black text-good" title="독후감 있음">
                           ✎
                         </span>
                       )}
                     </span>
-                    <span className="line-clamp-2 text-base14 leading-[1.35] font-bold text-txt">{b.title}</span>
-                    <span className="text-xs leading-[normal] text-mut tabular-nums">
+                    <span className="line-clamp-2 text-base14 leading-tight font-bold text-txt">{b.title}</span>
+                    <span className="text-xs leading-auto text-mut tabular-nums">
                       {b.author ? `${b.author} · ` : ''}
                       {b.status === 'done' && shortDate(b.finishedAt)
                         ? `완독 ${shortDate(b.finishedAt)}`
@@ -183,8 +181,8 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
         {sel ? (
           <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-line bg-panel px-5.5 py-5">
             <header className="mb-3 flex-none border-b border-line2 pb-3.5">
-              <h2 className="m-0! text-reader-title! leading-[1.28] font-black! tracking-title!">{sel.title}</h2>
-              <div className="mb-2 flex items-center gap-2 text-sm leading-[1.6] font-bold text-mut">
+              <h2 className="m-0! text-reader-title! leading-tight font-black! tracking-title!">{sel.title}</h2>
+              <div className="mb-2 flex items-center gap-2 text-sm leading-text font-bold text-mut">
                 {sel.author ? sel.author + ' · ' : ''}
                 시작 {shortDate(sel.startedAt) || '—'}
                 {sel.status === 'done' && shortDate(sel.finishedAt) ? ` · 완독 ${shortDate(sel.finishedAt)}` : ''}
@@ -213,13 +211,13 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
               </div>
             </header>
             <div className="mb-2 flex items-baseline justify-between">
-              <span className="text-sm leading-[1.6] font-extrabold tracking-editor text-acc">독후감</span>
-              <span className="text-xs leading-[1.6] text-mut tabular-nums">
+              <span className="text-sm leading-text font-extrabold tracking-editor text-acc">독후감</span>
+              <span className="text-xs leading-text text-mut tabular-nums">
                 {draft.trim() ? draft.trim().length : 0}자
               </span>
             </div>
             <textarea
-              className="min-h-35 flex-1 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-[1.6]!"
+              className="min-h-35 flex-1 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-text!"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commitReview}

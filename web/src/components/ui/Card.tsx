@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
    함께 지웠다 — 미러를 없애려고 composes 를 썼는데 사본이 남아 있었다.
    ⚠ `<h2>` 는 언레이어드 전역 `h2{}`(16px · -0.015em)를 받으므로 다른 값만 `!` 로 이긴다.
    같은 값(margin 0 0 13px · 700 · keep-all · color)은 전역에 맡긴다. */
-const TITLE = 'text-lg! leading-[1.6] tracking-price! text-txt';
+const TITLE = 'text-lg! leading-text tracking-price! text-txt';
 
 /** 콘텐츠 패널. title을 주면 카드 머리에 h2로 렌더. */
 export function Card({ title, children, className }: { title?: ReactNode; children: ReactNode; className?: string }) {

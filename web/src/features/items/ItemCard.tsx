@@ -110,15 +110,15 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
               ⚠ 반복 {weakCount}
             </Pill>
           )}
-          <span className="w-3.5 flex-none text-center text-sm leading-[1.6] text-mut" aria-hidden="true">
+          <span className="w-3.5 flex-none text-center text-sm leading-text text-mut" aria-hidden="true">
             ›
           </span>
         </div>
         <div className="flex items-center gap-4.5">
           {daily ? (
-            <div className="text-2xl leading-[1.6] font-extrabold text-txt tabular-nums">
+            <div className="text-2xl leading-text font-extrabold text-txt tabular-nums">
               매일 {item.dailyMin || 30}
-              <small className="text-sm leading-[1.6] font-semibold text-mut"> 분</small>
+              <small className="text-sm leading-text font-semibold text-mut"> 분</small>
             </div>
           ) : (
             <>

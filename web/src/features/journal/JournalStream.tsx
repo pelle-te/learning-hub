@@ -73,10 +73,8 @@ export default function JournalStream({
       <div className="ds-spotlight" aria-hidden="true" />
       <div className="ds-aura" aria-hidden="true" />
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
-          {titleLabel} — LOG
-        </span>
-        <span className="flex gap-3.5 text-xs leading-[1.6] text-mut">
+        <span className="text-xs leading-text font-extrabold tracking-caps text-mut uppercase">{titleLabel} — LOG</span>
+        <span className="flex gap-3.5 text-xs leading-text text-mut">
           <span>
             <Count n={sums.length} /> 요약
           </span>
@@ -95,7 +93,7 @@ export default function JournalStream({
       </div>
 
       {total === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-1 pt-2.5 pb-1.5 text-center text-sm leading-[1.6] text-mut">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-1 pt-2.5 pb-1.5 text-center text-sm leading-text text-mut">
           {/* 빈 보드가 의도된 상태로 읽히도록 — 흐릿한 에디토리얼 글리프 + 중앙 정렬(문구는 그대로). */}
           <span className="text-display leading-none text-acc opacity-14 select-none" aria-hidden="true">
             ✎
@@ -124,7 +122,7 @@ export default function JournalStream({
                   style={{ background: itemById(state, x.sid)?.color || 'var(--acc)' }}
                 />
                 <span className="max-w-45 flex-none truncate text-md font-bold">{x.name || '(과목 없음)'}</span>
-                <span className="min-w-0 flex-1 truncate text-sm leading-[1.6] text-mut">{lead}</span>
+                <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{lead}</span>
               </li>
             );
           })}
@@ -142,8 +140,8 @@ export default function JournalStream({
                   {e.code} {inf.label}
                 </span>
                 <span className="max-w-45 flex-none truncate text-md font-bold">{e.name || '오답'}</span>
-                {e.chapter && <span className="flex-none text-xs leading-[1.6] text-mut">· {e.chapter}</span>}
-                {e.note && <span className="min-w-0 flex-1 truncate text-sm leading-[1.6] text-mut">{e.note}</span>}
+                {e.chapter && <span className="flex-none text-xs leading-text text-mut">· {e.chapter}</span>}
+                {e.note && <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{e.note}</span>}
               </li>
             );
           })}
@@ -158,7 +156,7 @@ export default function JournalStream({
                 style={{ background: itemById(state, b.sid)?.color || 'var(--acc)' }}
               />
               <span className="max-w-45 flex-none truncate text-md font-bold">{b.name || '(과목 없음)'}</span>
-              {b.note && <span className="min-w-0 flex-1 truncate text-sm leading-[1.6] text-mut">{b.note}</span>}
+              {b.note && <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{b.note}</span>}
             </li>
           ))}
           {backlogToday.map((b) => (
@@ -171,8 +169,8 @@ export default function JournalStream({
               )}
               <span className={`${KIND} bg-tint-ink text-txt`}>{b.done ? '회수' : '보충'}</span>
               <span className="max-w-45 flex-none truncate text-md font-bold">{b.topic || '(주제 없음)'}</span>
-              {b.name && <span className="flex-none text-xs leading-[1.6] text-mut">· {b.name}</span>}
-              {b.note && <span className="min-w-0 flex-1 truncate text-sm leading-[1.6] text-mut">{b.note}</span>}
+              {b.name && <span className="flex-none text-xs leading-text text-mut">· {b.name}</span>}
+              {b.note && <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{b.note}</span>}
             </li>
           ))}
         </ol>

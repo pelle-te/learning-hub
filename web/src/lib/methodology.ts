@@ -5,6 +5,7 @@
    *순수*하게: reads는 state를 받아 값 반환, 뮤테이터는 받은 state를 변형(Immer draft
    또는 평범한 객체 모두 동작). persist/다운로드/토스트는 store·features가 조립한다.
 ============================================================ */
+import { keySid } from './domainKeys';
 import { addDays, iso, mondayOf, parseISO, rid, todayISO } from './utils';
 import { SCHEMA_VERSION, isDone } from './persistence';
 import type { AppState, Backlog, BlankResult, Cbms, CbmsCode, Ritual, ScheduleResult, Summary } from './types';
@@ -544,7 +545,7 @@ export function activityFeed(state: AppState, fromDs: string, toDs: string, cap 
     for (const key in c[ds]) {
       const e = c[ds]![key]!;
       if (!e || e.done !== true) continue;
-      const [sid] = key.split('|');
+      const sid = keySid(key);
       out.push({ ds, kind: 'done', label: '블록 완료', detail: nameOf(sid || '') || key });
     }
   }

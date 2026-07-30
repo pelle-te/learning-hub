@@ -32,7 +32,7 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
       className="mt-2.5 flex-none border-t border-line2 pt-2"
       onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary className="cursor-pointer text-xs leading-[1.6] font-extrabold tracking-widest text-mut select-none hover:text-acc">
+      <summary className="cursor-pointer text-xs leading-text font-extrabold tracking-widest text-mut select-none hover:text-acc">
         최근 활동 · 7일{feed.length ? ` (${feed.length})` : ''}
       </summary>
       {!open ? null : feed.length ? (
@@ -40,9 +40,9 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
           {feed.map((e, i) => (
             <li
               key={i}
-              className="flex items-baseline gap-2 border-b border-dashed border-tint-line2 py-1 text-sm leading-[1.6]"
+              className="flex items-baseline gap-2 border-b border-dashed border-tint-line2 py-1 text-sm leading-text"
             >
-              <span className="w-9.5 flex-none text-xs leading-[1.6] font-bold text-mut tabular-nums">
+              <span className="w-9.5 flex-none text-xs leading-text font-bold text-mut tabular-nums">
                 {e.ds.slice(5).replace('-', '/')}
               </span>
               <span
@@ -56,7 +56,7 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
           ))}
         </ol>
       ) : (
-        <div className="mt-2 text-xs leading-[1.6] text-mut">최근 7일 기록이 없어요 — 오늘 첫 발자취를 남겨보세요.</div>
+        <div className="mt-2 text-xs leading-text text-mut">최근 7일 기록이 없어요 — 오늘 첫 발자취를 남겨보세요.</div>
       )}
     </details>
   );
@@ -89,7 +89,7 @@ function BatchCapture() {
       open={open}
       onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary className="cursor-pointer px-3 py-2 text-xs leading-[1.6] font-extrabold tracking-wider text-mut select-none hover:text-acc">
+      <summary className="cursor-pointer px-3 py-2 text-xs leading-text font-extrabold tracking-wider text-mut select-none hover:text-acc">
         여러 줄 한 번에 — 배치 캡처
       </summary>
       <div className="px-3 pb-3">
@@ -121,9 +121,9 @@ function WeeklyRecapCard() {
   return (
     <div className="mt-3 flex-none rounded-base border border-line-acc bg-tint-acc-faint px-3.5 py-3">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <span className="text-sm leading-[1.6] font-extrabold tracking-wider text-txt">이번 주 해낸 것</span>
+        <span className="text-sm leading-text font-extrabold tracking-wider text-txt">이번 주 해낸 것</span>
         {recap.focusMin > 0 && (
-          <span className="text-xs leading-[1.6] font-bold text-acc tabular-nums">{hLabel(recap.focusMin)} 집중</span>
+          <span className="text-xs leading-text font-bold text-acc tabular-nums">{hLabel(recap.focusMin)} 집중</span>
         )}
       </div>
       {recap.wins.length ? (
@@ -131,7 +131,7 @@ function WeeklyRecapCard() {
           {recap.wins.map((w, i) => (
             <li
               key={i}
-              className="rounded-full border border-line-acc-soft bg-acc-soft px-2.25 py-1 text-xs leading-[1.6] font-semibold text-txt"
+              className="rounded-full border border-line-acc-soft bg-acc-soft px-2.25 py-1 text-xs leading-text font-semibold text-txt"
             >
               {w}
             </li>
@@ -156,9 +156,9 @@ function ShutdownChain() {
   return (
     <div className="mt-3 flex-none border-t border-line2 pt-2.5">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-xs leading-[1.6] font-extrabold tracking-widest text-mut">셧다운 체인</span>
+        <span className="text-xs leading-text font-extrabold tracking-widest text-mut">셧다운 체인</span>
         {chain.streak > 0 && (
-          <span className="text-xs leading-[1.6] font-extrabold text-acc tabular-nums">🔥 {chain.streak}일 연속</span>
+          <span className="text-xs leading-text font-extrabold text-acc tabular-nums">🔥 {chain.streak}일 연속</span>
         )}
       </div>
       <div className="mb-2.5 flex flex-wrap gap-1.25" role="img" aria-label={`최근 14일 중 ${doneN}일 셧다운 완료`}>
@@ -172,7 +172,7 @@ function ShutdownChain() {
       </div>
       <button
         type="button"
-        className="appearance-none rounded-base! border border-line px-2.5! py-1.5! text-xs! leading-[1.6]! font-bold! hover:border-acc! hover:text-acc! aria-pressed:border-line-acc-hover! aria-pressed:bg-tint-acc-faint! aria-pressed:text-acc!"
+        className="appearance-none rounded-base! border border-line px-2.5! py-1.5! text-xs! leading-text! font-bold! hover:border-acc! hover:text-acc! aria-pressed:border-line-acc-hover! aria-pressed:bg-tint-acc-faint! aria-pressed:text-acc!"
         onClick={toggle}
         aria-pressed={todayDone}
       >
@@ -265,7 +265,7 @@ export default function Journal() {
         </div>
         {/* 우 — 기록 입력(온화면 패널, 스크롤) */}
         <div className="min-w-0 [scrollbar-width:thin] overflow-y-auto border-l border-line2 px-5 pt-5 pb-7 max-wide:border-t max-wide:border-l-0">
-          <div className="mb-3 text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase">
+          <div className="mb-3 text-xs leading-text font-extrabold tracking-caps text-mut uppercase">
             기록 입력 — 요약 · 오답 · 보충
           </div>
           {/* 날짜 스테퍼 — 과거 보충 진입점. 오늘이면 담백하게, 과거면 강조 배너. */}

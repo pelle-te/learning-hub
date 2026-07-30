@@ -19,7 +19,7 @@ import { routeTitle } from './docTitle';
    TopBar 상주 칩 — 네온 헤어라인 + 라이브 펄스 + 모노 숫자. 색은 전부 --acc/--glow 파생
    토큰(절대규칙 #3). ⚠ 두 버튼은 raw `<button>` 이라 언레이어드 전역 `button{}` 을 상대한다
    (배경·보더·radius·padding·font 계열에 `!`). 자손(`b`·`span`)은 버튼의 UA `line-height:normal`
-   을 상속하던 자리라 내장 크기명(text-lg/text-sm)에 `leading-[normal]` 을 함께 박는다(규약 6-b).
+   을 상속하던 자리라 내장 크기명(text-lg/text-sm)에 `leading-auto` 을 함께 박는다(규약 6-b).
    펄스 키프레임은 tw.css 로 옮겼다(CSS Module 스코프 밖이어야 유틸에서 부를 수 있다).
    `FocusChip.module.css` 삭제. */
 const CHIP =
@@ -28,14 +28,14 @@ const BODY =
   'inline-flex min-h-8.5 items-center gap-2 border-0! bg-transparent! px-3! py-0! text-ink! hover:bg-tint-acc-14! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 const PULSE =
   'size-1.75 rounded-full bg-acc shadow-focus-dot animate-[live-breathe_var(--tempo)_ease-in-out_infinite] motion-reduce:animate-none';
-const TIME = 'text-lg leading-[normal] font-extrabold tracking-topbar-sub text-acc tabular-nums text-shadow-focus-time';
+const TIME = 'text-lg leading-auto font-extrabold tracking-topbar-sub text-acc tabular-nums text-shadow-focus-time';
 const NAME =
-  'max-w-30 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-[normal] font-bold text-mut max-mobile:hidden';
+  'max-w-30 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-auto font-bold text-mut max-mobile:hidden';
 const STOP =
   // ⚠ radius·padding 은 **건드리지 않는다** — 원본 `.stopBtn`/`.body` 가 그 속성을 선언하지 않아
   //    언레이어드 전역 `button{}`(radius 7px · padding 8/13px)을 그대로 받고 있었다. 유틸로 0 을
   //    박으면 '이식'이 아니라 변경이다(칩은 overflow-hidden 이라 radius 차이가 눈엔 거의 안 보인다).
-  'inline-flex w-7.5 items-center justify-center border-0! border-l! border-l-line-acc! bg-transparent! text-2xs! leading-[normal] text-mut! hover:bg-tint-acc-8! hover:text-bad! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
+  'inline-flex w-7.5 items-center justify-center border-0! border-l! border-l-line-acc! bg-transparent! text-2xs! leading-auto text-mut! hover:bg-tint-acc-8! hover:text-bad! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 
 const fmt = mmss; // 표기 규약은 lib/utils 가 단일 원천(CT-S3)
 

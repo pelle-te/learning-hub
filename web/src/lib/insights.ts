@@ -5,6 +5,7 @@
 
    Ollama는 선택적 살(enrichment)일 뿐, 뼈대는 여기 결정적 계산이 소유한다(오프라인 완결·테스트가능).
 ============================================================ */
+import { keySid, weakKey } from './domainKeys';
 import { addDays, iso, parseISO } from './utils';
 import { completionMin } from './persistence';
 import {
@@ -41,7 +42,7 @@ export function weakSpots(state: AppState, fromDs?: string, toDs?: string, cap =
     if (toDs && e.ds > toDs) continue;
     const chapter = (e.chapter || '').trim();
     if (!chapter) continue;
-    const key = e.sid + '|' + chapter;
+    const key = weakKey(e.sid, chapter);
     const w = map.get(key) || { key, subject: e.name || '?', chapter, count: 0, codes: [] as CbmsCode[] };
     w.count++;
     if (!w.codes.includes(e.code)) w.codes.push(e.code);
@@ -57,7 +58,7 @@ export function weakSpots(state: AppState, fromDs?: string, toDs?: string, cap =
 export function weakCountBySid(state: AppState): Record<string, number> {
   const out: Record<string, number> = {};
   for (const w of weakSpots(state, undefined, undefined, Infinity)) {
-    const sid = w.key.split('|')[0] ?? '';
+    const sid = keySid(w.key);
     if (!sid) continue;
     out[sid] = (out[sid] || 0) + w.count;
   }
@@ -211,7 +212,7 @@ export function dayShape(state: AppState, ds: string): DayShape {
     if (e?.done) {
       sessions++;
       focusMin += completionMin(e);
-      const sid = k.split('|')[0];
+      const sid = keySid(k);
       if (sid) sids.add(sid);
     }
   }

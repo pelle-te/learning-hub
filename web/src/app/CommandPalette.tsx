@@ -48,13 +48,13 @@ const ITEM =
 const CAPTURE = 'relative mb-1 border border-acc-glow bg-tint-acc-6';
 const LABEL = 'text-base14';
 /* 힌트 칩 — base 는 기하만 갖고 **색·보더색·투명도는 변형이 통째로 소유**한다(§15-8 ②). */
-const HINT_BASE = 'rounded-full border px-2 py-0.5 text-xs leading-[1.6]';
+const HINT_BASE = 'rounded-full border px-2 py-0.5 text-xs leading-text';
 const HINT = HINT_BASE + ' border-line opacity-60';
 const HINT_CAP = HINT_BASE + ' border-acc-glow text-acc opacity-90';
 const EMPTY = 'p-6 text-center text-md opacity-60';
-const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs leading-[1.6] opacity-70';
+const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs leading-text opacity-70';
 const BRAND = 'font-bold';
-const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase';
+const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-text font-extrabold tracking-label text-acc uppercase';
 
 /** 팔레트가 진로 지도에서 실제로 쓰는 전부 — key·이름·대분류명(H14 의 지연 적재 결과물). */
 type AtlasEntry = { key: string; name: string; cat: string };

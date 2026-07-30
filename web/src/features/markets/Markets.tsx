@@ -61,7 +61,7 @@ const SPARK_DIR: Record<Dir, string> = {
 const WRAP = 'flex h-full min-h-0 min-w-0 flex-col px-6 pb-5 max-mobile:px-3.5 max-mobile:pb-3.5';
 const EMPTY_HOST = 'grid min-h-0 flex-1 place-items-center p-6';
 const PANEL_BUSY = 'flex flex-wrap items-center justify-center gap-2.5 px-1 py-7 text-base14 text-mut';
-const BRIEF_LIST = 'm-0 pl-4.5 text-md leading-[1.6] text-txt';
+const BRIEF_LIST = 'm-0 pl-4.5 text-md leading-text text-txt';
 // 리드 지표 심볼 — 상단 리드아웃의 대표 지수(국내 투자자 기준 KOSPI). 수집 피드(_증시/feeds.json)에
 // 이 심볼이 있어야 표시되고, 피드에서 빠지면 첫 지수로 무음 폴백한다(피드↔리드아웃 커플링).
 const LEAD_SYMBOL = '^KS11';
@@ -257,7 +257,7 @@ export default function Markets() {
       <header className="mt-markets-head-y mb-3.5 flex flex-none flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <h2 className="m-0! text-markets-title! font-black! tracking-title!">증시 동향</h2>
-          <span className="text-xs leading-[1.6] text-mut">
+          <span className="text-xs leading-text text-mut">
             지수는 지연·최근 종가 기준일 수 있어요 · 뉴스는 원문 링크
           </span>
         </div>
@@ -281,7 +281,7 @@ export default function Markets() {
         <div className="flex min-h-0 [scrollbar-width:thin] flex-col gap-4 overflow-y-auto pr-1 max-mobile:overflow-visible">
           {regions.map(([region, list]) => (
             <section key={region} className="flex flex-col gap-2" aria-label={region}>
-              <h3 className="m-0! text-sm! leading-[1.6]! font-extrabold! tracking-label text-mut uppercase">
+              <h3 className="m-0! text-sm! leading-text! font-extrabold! tracking-label text-mut uppercase">
                 {region}
               </h3>
               <div className="grid grid-cols-markets-idx gap-2.5">
@@ -292,21 +292,19 @@ export default function Markets() {
             </section>
           ))}
           {!indices.length && (
-            <div className="px-1 py-3 text-md leading-[1.6] text-mut">
-              지수 데이터를 가져오지 못했어요(뉴스만 표시).
-            </div>
+            <div className="px-1 py-3 text-md leading-text text-mut">지수 데이터를 가져오지 못했어요(뉴스만 표시).</div>
           )}
         </div>
 
         {/* 뉴스 피드 — "왜 움직였나" 칼럼·뉴스 */}
         <aside className="flex min-h-0 flex-col gap-2.5" aria-label="금융 뉴스">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="m-0! flex-none text-sm! leading-[1.6]! font-extrabold! tracking-label text-mut uppercase">
+            <h3 className="m-0! flex-none text-sm! leading-text! font-extrabold! tracking-label text-mut uppercase">
               왜 이렇게 움직였나 · 뉴스·칼럼
             </h3>
             {newsFields.length > 1 && (
               <select
-                className="flex-none px-1.5! py-0.75! text-xs! leading-[1.6]!"
+                className="flex-none px-1.5! py-0.75! text-xs! leading-text!"
                 value={newsField}
                 onChange={(e) => setNewsField(e.target.value)}
                 aria-label="뉴스 분야 필터"
@@ -327,7 +325,7 @@ export default function Markets() {
               ))}
             </ul>
           ) : (
-            <div className="px-1 py-3 text-md leading-[1.6] text-mut">
+            <div className="px-1 py-3 text-md leading-text text-mut">
               {news.length ? '이 분야의 뉴스가 없어요.' : '수집된 뉴스가 없어요.'}
             </div>
           )}
@@ -344,7 +342,7 @@ export default function Markets() {
             {/* 스트리밍 미리보기 — 완성된 문장부터 타이핑되듯 나타난다(SR에는 위 status만 공지). */}
             {brief.preview && (
               <p
-                className="m-0 px-1 pb-3 text-md leading-[1.65] break-words whitespace-pre-wrap text-mut"
+                className="m-0 px-1 pb-3 text-md leading-text break-words whitespace-pre-wrap text-mut"
                 aria-hidden="true"
               >
                 {brief.preview}
@@ -354,11 +352,11 @@ export default function Markets() {
         ) : briefResult ? (
           <div ref={briefResultRef} tabIndex={-1} aria-label="오늘의 증시 브리핑 결과">
             {briefResult.overview && (
-              <p className="mt-0 mb-3.5 text-lg leading-[1.65] text-txt">{briefResult.overview}</p>
+              <p className="mt-0 mb-3.5 text-lg leading-text text-txt">{briefResult.overview}</p>
             )}
             {briefResult.drivers?.length ? (
               <div className="mt-3">
-                <span className="mb-1.25 inline-block text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase">
+                <span className="mb-1.25 inline-block text-xs leading-text font-extrabold tracking-label text-acc uppercase">
                   오늘의 동인
                 </span>
                 <ul className={BRIEF_LIST}>
@@ -373,7 +371,7 @@ export default function Markets() {
             ) : null}
             {briefResult.watch?.length ? (
               <div className="mt-3">
-                <span className="mb-1.25 inline-block text-xs leading-[1.6] font-extrabold tracking-label text-acc uppercase">
+                <span className="mb-1.25 inline-block text-xs leading-text font-extrabold tracking-label text-acc uppercase">
                   지켜볼 점
                 </span>
                 <ul className={BRIEF_LIST}>
@@ -384,12 +382,12 @@ export default function Markets() {
               </div>
             ) : null}
             {briefResult.caveat && (
-              <p className="mt-3.5 mb-0 border-t border-line2 pt-2.5 text-xs leading-[1.5] text-mut">
+              <p className="mt-3.5 mb-0 border-t border-line2 pt-2.5 text-xs leading-body text-mut">
                 {briefResult.caveat}
               </p>
             )}
             {markets.data?.at && (
-              <p className="mt-2 mb-0 text-xs leading-[1.6] text-mut tabular-nums">
+              <p className="mt-2 mb-0 text-xs leading-text text-mut tabular-nums">
                 기준 데이터: {markets.data.at.slice(0, 16).replace('T', ' ')} 수집
               </p>
             )}
@@ -446,10 +444,10 @@ const IndexCard = memo(function IndexCard({ q }: { q: IndexQuote }) {
         <span className="min-w-0 truncate text-md font-bold text-txt">{q.name}</span>
         <Spark spark={q.spark} d={d} />
       </div>
-      <div className="text-xl leading-[1.6] font-black tracking-price text-txt tabular-nums">
+      <div className="text-xl leading-text font-black tracking-price text-txt tabular-nums">
         {price}
         {q.currency ? (
-          <span className="text-xs leading-[1.6] font-semibold tracking-normal text-mut"> {q.currency}</span>
+          <span className="text-xs leading-text font-semibold tracking-normal text-mut"> {q.currency}</span>
         ) : null}
       </div>
       <div className={`text-md font-extrabold tabular-nums ${PCT_DIR[d]}`}>
@@ -503,7 +501,7 @@ const NewsCard = memo(function NewsCard({
         target="_blank"
         rel="noreferrer noopener"
       >
-        <div className="flex items-center gap-1.75 text-xs leading-[1.6] font-bold">
+        <div className="flex items-center gap-1.75 text-xs leading-text font-bold">
           <span className="text-acc">{n.source}</span>
           {n.field ? <span className="rounded-sm border border-line px-1.25 text-mut">{n.field}</span> : null}
           {fmtPublished(n.published) ? <span className="font-medium text-mut">{fmtPublished(n.published)}</span> : null}
@@ -511,12 +509,12 @@ const NewsCard = memo(function NewsCard({
             ↗
           </span>
         </div>
-        <div className="text-base14 leading-[1.4] font-bold text-txt">{n.title}</div>
-        {n.summary ? <div className="line-clamp-2 text-sm leading-[1.5] text-mut">{n.summary}</div> : null}
+        <div className="text-base14 leading-snug font-bold text-txt">{n.title}</div>
+        {n.summary ? <div className="line-clamp-2 text-sm leading-body text-mut">{n.summary}</div> : null}
       </a>
       <button
         type="button"
-        className="self-start border-none! bg-transparent! px-1! py-0.75! text-xs! leading-[normal]! font-bold! text-mut!"
+        className="self-start border-none! bg-transparent! px-1! py-0.75! text-xs! leading-auto! font-bold! text-mut!"
         onClick={() => onPromote(n)}
         disabled={done}
         title={done ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}

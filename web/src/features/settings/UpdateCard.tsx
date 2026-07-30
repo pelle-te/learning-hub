@@ -68,7 +68,7 @@ export default function UpdateCard() {
 
   return (
     <section className="ds-rule">
-      <h2 className="text-lg! leading-[1.6] tracking-price! text-txt">앱 업데이트</h2>
+      <h2 className="text-lg! leading-text tracking-price! text-txt">앱 업데이트</h2>
       <p className="ds-muted ds-tiny m-0">
         새 버전이 있는지 확인합니다. <strong>자동으로 설치하지 않습니다</strong> — 학습 중에 앱이 재시작되지 않도록
         확인과 설치를 따로 둡니다.

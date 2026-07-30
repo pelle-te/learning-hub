@@ -5,6 +5,7 @@
    '오늘의 포커스 블록' 선택 로직(todayEntries·pickFocus)도 여기 두어
    오늘 탭 히어로·상단 바·팔레트가 같은 규칙을 공유한다(드리프트 방지).
 ============================================================ */
+import { completionKey } from './domainKeys';
 import { z } from 'zod';
 import type { AppState, ItemStat, KV, ScheduleItem, ScheduleResult, SessionType } from './types';
 import { layoutDay, sessionTimeMap } from './scheduler';
@@ -77,7 +78,7 @@ export function todayEntries(state: AppState, res: ScheduleResult): FocusEntry[]
   const L = layoutDay(state, todayDay!);
   const timeBy = sessionTimeMap(L.sessions);
   return items.map((it) => {
-    const tm = timeBy[it.sid + '|' + it.type] || { start: null, end: null };
+    const tm = timeBy[completionKey(it.sid, it.type)] || { start: null, end: null };
     return { it, start: tm.start, end: tm.end, done: isDone(state, ds, it.sid, it.type) };
   });
 }

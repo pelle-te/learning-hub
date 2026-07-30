@@ -4,6 +4,7 @@
    진행률·연속·마감 리드아웃과 "지금 시작" 주 액션은 상단 바(usePageChrome)로 끌어올림.
    세부(블록 액션·일일 의식·흐름 가이드)는 onOpenMore 패널로 — 기본은 한 화면, 무스크롤.
 ============================================================ */
+import { completionKey } from '@/lib/domainKeys';
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ui } from '@/shell';
@@ -66,19 +67,19 @@ const S = {
   /* D-6 액센트 예산 — 아이브로는 **분류 라벨**이지 손봐야 할 것이 아니다. 액센트는 행동에만.
      (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */
   eyebrow:
-    'inline-flex items-center gap-2 text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-mut uppercase',
+    'inline-flex items-center gap-2 text-xs leading-text font-extrabold tracking-eyebrow-wide text-mut uppercase',
   live: 'size-1.75 rounded-full bg-acc shadow-load animate-[live-breathe_var(--tempo)_var(--ease)_infinite] motion-reduce:animate-none',
-  subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-[0.94] tracking-subj! text-balance text-[color:var(--subj-col)]!',
-  heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-[1.5] text-mut',
+  subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-flat tracking-subj! text-balance text-[color:var(--subj-col)]!',
+  heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-body text-mut',
   chapter: 'font-semibold text-txt',
   // D-5 선택 근거 — 액센트로 한 줄. 크기는 챕터 줄과 같되 무게로만 낮춘다(위계는 색·굵기로).
   // D-5 선택 근거 — 보조 설명이라 조용하게(D-6: 액센트는 행동 하나에만).
   why: 'text-md font-semibold text-mut',
   upnext: 'text-md text-mut',
-  yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-[1.5] text-mut',
+  yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-body text-mut',
   momentum: 'inline-flex flex-wrap items-center gap-x-3.5 gap-y-2',
   mChip:
-    'inline-flex items-center rounded-full! border-0! bg-[var(--tint-acc-12)]! px-2.75! py-1! text-sm! leading-[normal] font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
+    'inline-flex items-center rounded-full! border-0! bg-[var(--tint-acc-12)]! px-2.75! py-1! text-sm! leading-auto font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
   actions: 'mt-actions-top flex items-center gap-4',
   cta: 'relative inline-flex cursor-pointer items-baseline gap-2.5 overflow-hidden rounded-base! border-0! px-6.5! py-3.75! font-extrabold! tracking-cta after:pointer-events-none after:absolute after:inset-0 after:bg-[image:var(--bg-cta-shimmer)] after:[transform:var(--cta-shim-off)] after:transition-transform after:duration-slow after:ease-[var(--ease)] hover:after:[transform:var(--cta-shim-on)] focus-visible:[outline-offset:var(--cta-outline-offset)]! motion-reduce:after:transition-none',
   ctaFill:
@@ -87,8 +88,8 @@ const S = {
     'bg-[var(--bg-cta-run)]! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
   ctaGhost:
     'bg-transparent! text-txt! shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-hover)]',
-  ctaGo: 'relative z-[1] text-base leading-[normal]',
-  ctaCap: 'relative z-[1] text-sm leading-[normal] font-bold opacity-72',
+  ctaGo: 'relative z-[1] text-base leading-auto',
+  ctaCap: 'relative z-[1] text-sm leading-auto font-bold opacity-72',
   ctaNum: 'relative z-[1] text-cta-num font-extrabold tracking-label tabular-nums',
   clock: 'text-base14 font-bold tracking-tag text-mut tabular-nums',
   presets: 'inline-flex gap-1.5',
@@ -98,27 +99,26 @@ const S = {
   flowHead: 'mb-2.5! flex! items-center gap-3',
   ring: 'relative inline-block size-8.5 flex-none [--ring-w:6]',
   ringNum:
-    'absolute inset-0 flex items-center justify-center text-lg leading-[1.6] font-extrabold tracking-ringnum text-txt',
+    'absolute inset-0 flex items-center justify-center text-lg leading-text font-extrabold tracking-ringnum text-txt',
   ringNumSmall: 'text-tiny9 font-bold text-mut',
-  flowT: 'flex-1 text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
+  flowT: 'flex-1 text-xs leading-text font-extrabold tracking-caps text-mut uppercase',
   // D-6 — '● 09:00 LIVE'는 시계다(내가 손볼 것이 아니다). 살아 있다는 신호는 점 하나로 충분.
-  now: 'text-sm leading-[1.6] font-extrabold text-mut tabular-nums',
+  now: 'text-sm leading-text font-extrabold text-mut tabular-nums',
   rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
-  railEmpty: 'px-1 py-3.5 text-hint leading-[1.6] text-mut',
+  railEmpty: 'px-1 py-3.5 text-hint leading-text text-mut',
   recall:
     'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
   recallTop: 'mb-1.5 flex items-baseline gap-2',
   recallTag: 'flex-none text-2xs font-extrabold tracking-skel uppercase',
-  recallMeta: 'truncate text-xs leading-[1.6] font-bold text-mut',
-  recallQ: 'text-recall-q leading-[1.45] font-bold text-txt',
+  recallMeta: 'truncate text-xs leading-text font-bold text-mut',
+  recallQ: 'text-recall-q leading-snug font-bold text-txt',
   recallBtn:
     'mt-2.5 w-full rounded-blk! border-0! bg-[var(--acc-soft)]! px-3! py-2! text-hint! font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
   recallA:
-    'mt-2 flex flex-col gap-1.25 text-hint leading-[1.5] text-mut animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
-  recallReset:
-    'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-[normal] font-bold! text-mut! underline',
-  confWrongNote: 'mt-1.5 text-sm leading-[1.5] text-mut',
-  more: 'mt-3 border-x-0! border-b-0! rounded-none! border-line2! bg-transparent! pt-3.5! text-left text-sm! leading-[normal] font-bold! text-mut!',
+    'mt-2 flex flex-col gap-1.25 text-hint leading-body text-mut animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
+  recallReset: 'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-auto font-bold! text-mut! underline',
+  confWrongNote: 'mt-1.5 text-sm leading-body text-mut',
+  more: 'mt-3 border-x-0! border-b-0! rounded-none! border-line2! bg-transparent! pt-3.5! text-left text-sm! leading-auto font-bold! text-mut!',
   strip: 'flex flex-none items-center gap-10 px-1 pt-1 pb-0.5 max-wide:flex-wrap max-wide:gap-x-7 max-wide:gap-y-3.5',
   grp: 'flex flex-wrap items-center gap-3',
   grpL: 'text-2xs font-bold tracking-caps text-mut uppercase',
@@ -395,7 +395,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
       .sort((a, b) => (a.start as number) - (b.start as number))) {
       acc += e.it.min || 0;
       if (acc > freeLeftMin) {
-        beyondKeys.add('study|' + e.it.sid + '|' + e.it.type);
+        beyondKeys.add('study|' + completionKey(e.it.sid, e.it.type));
         beyondMin += e.it.min || 0;
       }
     }
@@ -409,9 +409,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   const flowNodes: FlowNode<EnrichedItem>[] = [
     ...enriched
-      .filter((e) => e.start != null && !beyondKeys.has('study|' + e.it.sid + '|' + e.it.type))
+      .filter((e) => e.start != null && !beyondKeys.has('study|' + completionKey(e.it.sid, e.it.type)))
       .map((e): FlowNode<EnrichedItem> => ({
-        key: 'study|' + e.it.sid + '|' + e.it.type,
+        key: 'study|' + completionKey(e.it.sid, e.it.type),
         kind: 'study',
         start: e.start as number,
         end: e.end,

@@ -25,7 +25,7 @@ const MAX_CHIPS = 2;
    반픽셀 font-size(10.5/9.5px)가 칩을 잘라먹은 이력이 있어(tokenBridge 머리주석) 전부 --text-sched-*
    명명 토큰이다. ⚠ 칸(.cell)은 <button> 이라 전역 button(언레이어)이 유틸을 이긴다 → 다른 값만 `!`.
    칩 텍스트는 built-in 크기(text-sm)만 companion line-height 를 흘리므로 그 자리에만 원본 LH 를
-   명시(leading-[1.5]/[1.45] · line-height 트랩). 상태(오늘/주말/칩 종류/완료)는 정적 클래스맵(§15). */
+   명시(leading-body/[1.45] · line-height 트랩). 상태(오늘/주말/칩 종류/완료)는 정적 클래스맵(§15). */
 const S = {
   wrap: 'flex h-full min-h-0 flex-col gap-2 overflow-y-auto px-5.5 pt-3.5 pb-4.5 [scrollbar-width:thin] max-mobile:px-3 max-mobile:pt-2.5 max-mobile:pb-3.5',
   dowRow: 'sticky top-0 z-[2] grid flex-none grid-cols-7 gap-1 bg-bg',
@@ -33,12 +33,12 @@ const S = {
   grid: 'grid min-h-0 flex-1 auto-rows-[var(--monthcell-row)] grid-cols-7 gap-1',
   cell: 'relative grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-chip! border-0! bg-transparent! px-1! pt-1! pb-0.75! text-left focus-visible:-outline-offset-2!',
   dayRow: 'flex items-baseline justify-between gap-1 px-0.5 pb-0.75',
-  dnum: 'text-sm font-extrabold tabular-nums leading-[1.5]',
+  dnum: 'text-sm font-extrabold tabular-nums leading-body',
   dnumToday: 'min-w-5 rounded-full bg-acc px-1.25 text-center text-bg',
   load: 'text-sched-meta tabular-nums text-mut',
   chips: 'flex min-h-0 flex-col gap-0.5 overflow-hidden',
   // 칩 공통 — nowrap 말줄임 + off-ladder 반경/틴트. 모바일은 텍스트를 버리고 색점만(칸이 두 줄 못 담음).
-  chip: 'flex flex-none items-center gap-1 truncate rounded-chip-sm bg-[var(--chip-ink)] px-1 py-0.25 text-2xs leading-[1.45] max-mobile:gap-0 max-mobile:px-0.5 max-mobile:py-0.25 max-mobile:text-sched-hide',
+  chip: 'flex flex-none items-center gap-1 truncate rounded-chip-sm bg-[var(--chip-ink)] px-1 py-0.25 text-2xs leading-snug max-mobile:gap-0 max-mobile:px-0.5 max-mobile:py-0.25 max-mobile:text-sched-hide',
   chipDeadline: 'bg-[var(--sched-chip-bad)]! font-bold text-bad max-mobile:text-sched-cap',
   chipEvent: 'bg-[var(--tint-event)]! font-bold text-[color:var(--event-on-ink)]',
   chipDone: 'line-through ds-past',

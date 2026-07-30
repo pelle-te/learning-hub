@@ -60,13 +60,13 @@ import type { AppState, ScheduleResult, SessionType } from '@/lib/types';
    좌 트레이(폼 위주) | 우 하루 타임라인. ⚠ 폼 컨트롤(input/select/button)은 전역 요소규칙
    (components.css · 언레이어)이 유틸을 이기므로 **다른 값만 `!`**(같으면 클래스 없음). 반경 r-md(10)·
    패딩·글자색이 그 대상. built-in 크기(text-sm/base/xs)만 companion line-height 를 흘려 폼컨트롤엔
-   leading-[normal], 정상 흐름엔 leading-[1.6]/원본 LH 를 명시(line-height 트랩). 로컬 :hover 는 전역
+   leading-auto, 정상 흐름엔 leading-text/원본 LH 를 명시(line-height 트랩). 로컬 :hover 는 전역
    button:hover(명시도 0,2,1)에 이미 가려져 있어 되살리지 않는다(§ global element rules · 트랩 회피).
    색·색믹스는 tokens.css, 좌측 색 띠는 런타임 --seg 파생(인라인 style 이 얹음 · 절대규칙 #3).
    @media(700) 세로 스택은 max-mobile: 로 재현. DayPlannerCards 와 공유하는 4종(trayRow/grabDot/
    rowName/tool)은 두 파일이 각자 린트되도록 동일 문자열을 복제한다. */
 const TOOLBASE =
-  'inline-flex h-5.5 w-5.5 flex-none items-center justify-center rounded-seg! border-transparent! bg-transparent! text-sm! leading-[normal] focus-visible:outline-offset-1! motion-reduce:transition-none';
+  'inline-flex h-5.5 w-5.5 flex-none items-center justify-center rounded-seg! border-transparent! bg-transparent! text-sm! leading-auto focus-visible:outline-offset-1! motion-reduce:transition-none';
 // `.editField input` 후손 셀렉터를 자식에 평탄화 — 시각(time) 입력 + NumberField(숫자, width 62px) 공용.
 const EDITFIELD_INPUT = 'px-1.75! py-1.25! tabular-nums focus-visible:outline-offset-1!';
 const NUMFIELD = `${EDITFIELD_INPUT} w-15.5!`;
@@ -74,33 +74,31 @@ const DP = {
   wrap: 'flex h-full min-h-0 flex-col gap-3',
   head: 'flex flex-none flex-wrap items-center justify-end gap-3',
   headRight: 'flex items-center gap-2.5',
-  mode: 'rounded-full border px-2.25 py-0.75 text-xs leading-[1.6] font-extrabold tracking-label',
+  mode: 'rounded-full border px-2.25 py-0.75 text-xs leading-text font-extrabold tracking-label',
   modeManual: 'border-acc-glow bg-acc-soft text-acc',
   modeAuto: 'border-line2 bg-panel2 text-mut',
-  over: 'rounded-full border border-[color:var(--over-line)] bg-[var(--over-bg)] px-2.25 py-0.75 text-xs leading-[1.6] font-extrabold tabular-nums text-bad',
+  over: 'rounded-full border border-[color:var(--over-line)] bg-[var(--over-bg)] px-2.25 py-0.75 text-xs leading-text font-extrabold tabular-nums text-bad',
   grid2: 'grid min-h-0 flex-1 grid-cols-dayplan gap-3.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr]',
   tray: 'flex min-h-0 flex-col gap-2.5 rounded-base bg-panel p-3 shadow-inset-line2 max-mobile:max-h-[var(--tray-vh)]',
-  trayHead: 'flex-none text-xs leading-[1.6] font-extrabold tracking-tag text-mut uppercase',
+  trayHead: 'flex-none text-xs leading-text font-extrabold tracking-tag text-mut uppercase',
   addWrap: 'flex flex-none flex-col gap-1.5',
   addRowTask: 'flex flex-none flex-nowrap items-stretch gap-1.5',
   addInput: 'min-w-0 rounded-md! py-1.75! focus-visible:outline-offset-1!',
-  addSel: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-[normal] focus-visible:outline-offset-1!',
-  addBtn:
-    'w-8.5 flex-none rounded-md! text-base! leading-[normal] font-extrabold! text-acc! motion-reduce:transition-none',
+  addSel: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-auto focus-visible:outline-offset-1!',
+  addBtn: 'w-8.5 flex-none rounded-md! text-base! leading-auto font-extrabold! text-acc! motion-reduce:transition-none',
   repeatOn: 'border-acc-glow! bg-acc-soft!',
   addRow: 'grid flex-none grid-cols-2 gap-1.5',
   addRowBtns: 'grid flex-none auto-cols-fr grid-flow-col gap-1.5',
   addBlockBtn:
-    'rounded-md! px-2! py-1.5! text-sm! leading-[normal] font-extrabold! text-acc! focus-visible:outline-offset-1!',
+    'rounded-md! px-2! py-1.5! text-sm! leading-auto font-extrabold! text-acc! focus-visible:outline-offset-1!',
   addBtnOn: 'border-acc-glow! bg-acc-soft!',
   evForm: 'flex flex-none flex-col gap-1.5',
   evFormRow: 'grid grid-cols-evform items-stretch gap-1.5',
-  evTime: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-[normal] tabular-nums focus-visible:outline-offset-1!',
+  evTime: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-auto tabular-nums focus-visible:outline-offset-1!',
   trayList: 'flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto',
-  trayEmpty: 'px-2 py-6 text-center text-sm leading-[1.6] font-semibold text-mut',
+  trayEmpty: 'px-2 py-6 text-center text-sm leading-text font-semibold text-mut',
   inbox: 'flex-none border-t border-line2 pt-2',
-  inboxHead:
-    'cursor-pointer list-none pt-0.5 pb-2 text-xs leading-[1.6] font-extrabold tracking-tag text-mut uppercase',
+  inboxHead: 'cursor-pointer list-none pt-0.5 pb-2 text-xs leading-text font-extrabold tracking-tag text-mut uppercase',
   inboxList: 'mt-2 flex max-h-[var(--inbox-vh)] flex-col gap-1.5 overflow-y-auto',
   timeline: 'relative grid min-h-0 grid-cols-timeline gap-1.5',
   gutter: 'relative',

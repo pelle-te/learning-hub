@@ -83,7 +83,7 @@ export function SetupGuide() {
       {steps.map((s, i) => (
         <div key={i} className="flex items-start gap-2.75 border-t border-line-soft px-0.5 py-2.75">
           <span
-            className={`mt-px inline-flex size-5.5 flex-none items-center justify-center rounded-full [border-width:var(--setupck-border-w)] [border-style:solid] text-sm leading-[1.6] font-extrabold ${s.ok ? 'border-good bg-good text-on-acc' : 'border-line text-mut'}`}
+            className={`mt-px inline-flex size-5.5 flex-none items-center justify-center rounded-full [border-width:var(--setupck-border-w)] [border-style:solid] text-sm leading-text font-extrabold ${s.ok ? 'border-good bg-good text-on-acc' : 'border-line text-mut'}`}
             aria-hidden="true"
           >
             {s.ok ? '✓' : ''}

@@ -21,10 +21,11 @@
    (--panel-glass-82/88/94/96)·backdrop 블러(--backdrop-graph)·검색실패 테두리(--line-warn-mid)·
    상세 패널 폭·off-ladder 반경(6/8px)·자간(0.14em)·허브 스와치 발광(--shadow-hub).
    ⚠ preflight 미포함 → 폼 컨트롤(<input>/<button>)은 UA line-height:normal 이라 body 1.6 을 상속
-   하지 않는다: 폼 컨트롤엔 leading-[normal], 정상흐름엔 leading-[1.6](또는 소스 명시 1.25/1.7).
+   하지 않는다: 폼 컨트롤엔 leading-auto, 정상흐름엔 leading-text(또는 소스 명시 1.25/1.7).
    ⚠ 전역 요소 규칙(input{}/button{})은 unlayered 라 Tailwind 를 이긴다 → 다른 속성만 ! 로 되찾는다.
    전역 :hover(:not(:disabled)) 특이도에 눌린 로컬 hover 는 되살리지 않는다(전역이 이긴 렌더 보존).
 ============================================================ */
+import { weakKey } from '@/lib/domainKeys';
 import { prefersReducedMotion } from '@/lib/motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
@@ -45,27 +46,27 @@ import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/sem
 // 범례 스와치(9px 원) 공통 · 칩(span). 의미연결(lSem)은 점선 선분이라 따로 준다.
 const SWATCH = 'inline-block size-2.25 rounded-full';
 const LEG_SPAN = 'inline-flex items-center gap-1.25 whitespace-nowrap';
-// 검색 토스트(없음/위치) — 우상단 오버레이 공통(값만 색이 다름 · 정상흐름 div → leading-[1.6]).
+// 검색 토스트(없음/위치) — 우상단 오버레이 공통(값만 색이 다름 · 정상흐름 div → leading-text).
 const TOAST =
-  'absolute top-11.5 right-3.5 z-[3] rounded-md border bg-panel-glass-88 px-2.5 py-1.25 text-xs leading-[1.6] [backdrop-filter:var(--backdrop-graph)]';
+  'absolute top-11.5 right-3.5 z-[3] rounded-md border bg-panel-glass-88 px-2.5 py-1.25 text-xs leading-text [backdrop-filter:var(--backdrop-graph)]';
 // 검색 입력 — type=search 는 전역 input[type=text]{} 밖(글래스 배경 직접). 전역 input{font-size:13}
 // 만 겹쳐 text-sm! · 키보드 포커스링(acc55)은 로컬이 이겼던 것이라 focus-visible:…! 로 되찾는다.
 const SEARCH =
-  'h-7 w-37.5 rounded-md border border-line bg-panel-glass-88 px-2.25 text-sm! leading-[normal] text-txt [backdrop-filter:var(--backdrop-graph)] [transition:border-color_0.16s_var(--ease)] focus-visible:border-line-acc-focus!';
+  'h-7 w-37.5 rounded-md border border-line bg-panel-glass-88 px-2.25 text-sm! leading-auto text-txt [backdrop-filter:var(--backdrop-graph)] [transition:border-color_0.16s_var(--ease)] focus-visible:border-line-acc-focus!';
 // 줌/찾기 버튼 — 전역 button{} 과 다른 속성만 !(배경·색·반경). border/padding/cursor 는 전역과 동일해 생략.
 const CTRL_BTN =
-  'grid size-7 place-items-center rounded-md! bg-panel-glass-88! text-base! leading-[normal] text-mut! [backdrop-filter:var(--backdrop-graph)]';
-// 툴팁 — 항상 마운트, JS 가 style.display 로 토글(기본 hidden). 정상흐름 div → leading-[1.6].
+  'grid size-7 place-items-center rounded-md! bg-panel-glass-88! text-base! leading-auto text-mut! [backdrop-filter:var(--backdrop-graph)]';
+// 툴팁 — 항상 마운트, JS 가 style.display 로 토글(기본 hidden). 정상흐름 div → leading-text.
 const TIP =
-  'pointer-events-none absolute z-[3] hidden max-w-60 translate-x-3.5 -translate-y-1/2 rounded-sm border border-line bg-panel-glass-94 px-2.25 py-1.25 text-sm leading-[1.6] whitespace-nowrap text-txt shadow-hero tabular-nums';
+  'pointer-events-none absolute z-[3] hidden max-w-60 translate-x-3.5 -translate-y-1/2 rounded-sm border border-line bg-panel-glass-94 px-2.25 py-1.25 text-sm leading-text whitespace-nowrap text-txt shadow-hero tabular-nums';
 // 상세 행(정상흐름 div · 소스 line-height 1.7) + 강조 b. 위험도는 group-data 관계형 색(§15 · 자손 셀렉터 대응물).
-const ROW = 'text-sm leading-[1.7] text-mut';
+const ROW = 'text-sm leading-loose text-mut';
 const ROW_RISK = `${ROW} group data-[risk=overdue]:text-bad`;
 const B = 'font-bold text-txt';
 const B_RISK = `${B} group-data-[risk=overdue]:text-bad group-data-[risk=due]:text-learning`;
 // 상세 액션 버튼 — 전역 button{} 과 다른 속성만 !. hover box-shadow(inset acc)는 전역이 안 건드려 유지.
 const DETAIL_BTN =
-  'rounded-detail-btn! border-0! bg-tint-acc-12! px-2.5 py-1.5 text-sm! leading-[normal] font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]';
+  'rounded-detail-btn! border-0! bg-tint-acc-12! px-2.5 py-1.5 text-sm! leading-auto font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]';
 
 /** 노드 클릭 시 여는 상세 패널의 최소 정보(시뮬레이션 노드에서 스냅샷). */
 interface SelInfo {
@@ -179,10 +180,10 @@ export default function Graph() {
   );
   const reviewMap = useMemo(() => {
     const m = new Map<string, ChapterReview>();
-    for (const r of reviews) m.set(r.sid + '|' + r.chapter, r);
+    for (const r of reviews) m.set(weakKey(r.sid, r.chapter), r);
     return m;
   }, [reviews]);
-  const leafRv = sel && sel.kind === 'leaf' ? reviewMap.get(sel.itemId + '|' + sel.label) : null;
+  const leafRv = sel && sel.kind === 'leaf' ? reviewMap.get(weakKey(sel.itemId, sel.label)) : null;
   const hubRisk =
     sel && sel.kind === 'hub' ? reviews.filter((r) => r.sid === sel.itemId && r.risk !== 'fresh').length : 0;
 
@@ -575,7 +576,7 @@ export default function Graph() {
               {matchHint.n > 1 ? <span className="text-mut"> · Enter로 다음</span> : null}
             </div>
           )}
-          <div className="pointer-events-none absolute top-3 left-3.5 z-[2] flex flex-wrap gap-x-3.5 gap-y-1.5 rounded-md border border-line bg-panel-glass-82 px-3 py-2 text-xs leading-[1.6] text-mut [backdrop-filter:var(--backdrop-graph)] max-mobile:gap-x-2.5 max-mobile:gap-y-1 max-mobile:px-2.25 max-mobile:py-1.5 max-mobile:text-2xs">
+          <div className="pointer-events-none absolute top-3 left-3.5 z-[2] flex flex-wrap gap-x-3.5 gap-y-1.5 rounded-md border border-line bg-panel-glass-82 px-3 py-2 text-xs leading-text text-mut [backdrop-filter:var(--backdrop-graph)] max-mobile:gap-x-2.5 max-mobile:gap-y-1 max-mobile:px-2.25 max-mobile:py-1.5 max-mobile:text-2xs">
             <span className={LEG_SPAN}>
               <i className={`${SWATCH} bg-acc shadow-hub`} /> 항목(허브·색=과목)
             </span>
@@ -625,7 +626,7 @@ export default function Graph() {
               <div className="text-2xs font-extrabold tracking-kind text-acc uppercase">
                 {sel.kind === 'hub' ? '학습 항목' : '챕터'}
               </div>
-              <div className="mt-0.75 mb-2 pr-5 text-lg leading-[1.25] font-extrabold break-keep text-txt">
+              <div className="mt-0.75 mb-2 pr-5 text-lg leading-tight font-extrabold break-keep text-txt">
                 {sel.label}
               </div>
               {sel.kind === 'hub' ? (

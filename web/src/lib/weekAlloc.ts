@@ -5,6 +5,7 @@
    스케줄러 입력은 아니고(스케줄러는 state.weekAlloc를 직접 읽음 · §12-4), 여긴 보드/스토어가 쓰는 편집 헬퍼.
    ⚠ state 변형 함수(ensure/set/copy/reset)는 store.mutate(immer draft) 안에서만 호출한다.
 ============================================================ */
+import { keySid } from './domainKeys';
 import { addDays, dayDiff, iso, mondayOf, parseISO } from './utils';
 import { completionMin } from './persistence';
 import type { AppState, Item, ScheduleResult } from './types';
@@ -28,7 +29,7 @@ export function neglectDaysBySid(state: AppState, todayIso: string): Record<stri
     if (ds > todayIso) continue; // 미래 완료 무시
     for (const k of Object.keys(comp[ds] || {})) {
       if (!comp[ds]![k]?.done) continue;
-      const sid = k.split('|')[0];
+      const sid = keySid(k);
       if (!sid) continue;
       if (!lastDs[sid] || ds > lastDs[sid]!) lastDs[sid] = ds;
     }

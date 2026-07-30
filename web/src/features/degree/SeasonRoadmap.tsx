@@ -63,7 +63,7 @@ export default function SeasonRoadmap({
       </div>
 
       {list.length === 0 ? (
-        <div className="px-1 pt-3.5 pb-2 text-sm leading-[1.6] text-mut">
+        <div className="px-1 pt-3.5 pb-2 text-sm leading-text text-mut">
           아직 학기가 없어요. 아래 <b>＋ 학기 추가</b>로 첫 시즌을 열면 여기에 진행 트랙이 그려집니다.
         </div>
       ) : (
@@ -91,7 +91,7 @@ export default function SeasonRoadmap({
                 onClick={() => onToggle(sm.id)}
               >
                 <span className={`size-3.25 rounded-full ${DOT[phase]}`} />
-                <span className="max-w-full truncate text-md leading-[1.2] font-extrabold">
+                <span className="max-w-full truncate text-md leading-tight font-extrabold">
                   {sm.name || '(이름 없음)'}
                 </span>
                 <span className="block h-1 w-full overflow-hidden rounded-xs bg-track-season">

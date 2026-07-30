@@ -54,7 +54,7 @@ const WK_SEG =
 // 인라인 링크 <button> — 원본은 font:inherit 로 부모 'ds-foot'(line-height 미설정 → body 1.6 상속)의 LH 를 상속했다.
 // preflight 가 없어 버튼이 UA line-height:normal 로 떨어지므로 상속 LH 1.6 을 명시로 못박는다.
 const NAV_LINK =
-  'ml-1.25 inline border-0! bg-transparent! p-0! font-bold! text-acc! leading-[1.6] transition-[text-shadow] hover:underline hover:[text-shadow:var(--navlink-glow)] focus-visible:underline focus-visible:[text-shadow:var(--navlink-glow)]';
+  'ml-1.25 inline border-0! bg-transparent! p-0! font-bold! text-acc! leading-text transition-[text-shadow] hover:underline hover:[text-shadow:var(--navlink-glow)] focus-visible:underline focus-visible:[text-shadow:var(--navlink-glow)]';
 
 function RetrievalCard({ r }: { r: ScheduleResult }) {
   const state = useApp((s) => s.state);

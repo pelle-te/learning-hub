@@ -95,7 +95,7 @@ export default function PhoneApp(): React.JSX.Element {
        `sticky bottom-0` 만으로는 내용이 짧은 화면(복습 완료·빈 날)에서 탭바가 본문 바로 아래
        중간 높이에 뜬다 — sticky 는 '흐름상 위치가 뷰포트 밖일 때만' 붙잡기 때문이다. */
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 border-b border-line bg-bg">
+      <header className="sticky top-0 z-[var(--z-nav)] border-b border-line bg-bg">
         {/* ⚠ 날짜 화살표는 날짜 축이 있는 뷰에서만 **자리를 유지한 채** 비활성이 아니라
             아예 숨긴다 — 읽을거리에는 이전/다음 날이 없고, 눌러도 아무 일이 없는 버튼을
             남기면 "고장난 화살표"가 된다. 가운데 탭 묶음이 밀리지 않게 폭만 예약한다. */}
@@ -194,7 +194,7 @@ export default function PhoneApp(): React.JSX.Element {
           ⚠ role/aria 는 그대로 group + aria-pressed 다 — 위치만 옮기고 계약은 안 건드린다.
           ⚠ 안전영역은 `pb-safe-b` 토큰(= 기본 패딩 + env(safe-area-inset-bottom)). */}
       <nav
-        className="sticky bottom-0 z-10 flex justify-around border-t border-line bg-bg px-2 pt-2 pb-safe-b"
+        className="sticky bottom-0 z-[var(--z-nav)] flex justify-around border-t border-line bg-bg px-2 pt-2 pb-safe-b"
         role="group"
         aria-label="화면 전환"
       >

@@ -137,7 +137,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
 
   return (
     <div
-      className="relative text-lg leading-[1.75] text-txt"
+      className="relative text-lg leading-loose text-txt"
       ref={readerRef}
       onPointerUp={onReaderSelect}
       /* ⚠ 여기에 `onKeyUp` 을 달지 않는다 — 정적 요소를 상호작용 요소로 만들면(jsx-a11y
@@ -158,13 +158,13 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
         </button>
       </div>
       {text.split(/\n\n+/).map((p, i) => (
-        <p key={i} className="mt-0 mb-3.5 leading-[1.75]">
+        <p key={i} className="mt-0 mb-3.5 leading-loose">
           {p}
         </p>
       ))}
       {vocab && (
         <div
-          className="absolute z-[var(--z-dropdown)] -translate-x-1/2 rounded-base border border-line bg-panel px-3 py-2.5 text-md leading-[1.5] shadow-pop outline-none data-[flip=true]:-translate-y-full"
+          className="absolute z-[var(--z-dropdown)] -translate-x-1/2 rounded-base border border-line bg-panel px-3 py-2.5 text-md leading-body shadow-pop outline-none data-[flip=true]:-translate-y-full"
           style={{ left: vocab.x, top: vocab.y }}
           role="dialog"
           aria-label="어휘 뜻"
@@ -176,7 +176,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
           <div className="mb-1.5 flex items-center justify-between gap-2">
             <b className="text-base14 text-acc">{vocab.word}</b>
             <button
-              className="border-none! bg-transparent! p-0.5! text-sm! leading-[normal]! text-mut!"
+              className="border-none! bg-transparent! p-0.5! text-sm! leading-auto! text-mut!"
               type="button"
               onClick={() => setVocab(null)}
               aria-label="닫기"
@@ -211,10 +211,10 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
               )}
               <div className="font-semibold">{vocab.result.meaning}</div>
               {vocab.result.synonyms?.length ? (
-                <div className="mt-1 text-sm leading-[1.5] text-mut">유의어: {vocab.result.synonyms.join(', ')}</div>
+                <div className="mt-1 text-sm leading-body text-mut">유의어: {vocab.result.synonyms.join(', ')}</div>
               ) : null}
               {vocab.result.example && (
-                <div className="mt-1.5 border-t border-line2 pt-1.5 text-sm leading-[1.5] text-txt italic">
+                <div className="mt-1.5 border-t border-line2 pt-1.5 text-sm leading-body text-txt italic">
                   “{vocab.result.example}”
                   {vocab.result.example_ko ? (
                     <div className="mt-0.5 text-mut not-italic">{vocab.result.example_ko}</div>
@@ -222,7 +222,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
                 </div>
               )}
               <a
-                className="mt-1.5 inline-block text-xs leading-[1.5] font-bold text-mut! hover:text-acc!"
+                className="mt-1.5 inline-block text-xs leading-body font-bold text-mut! hover:text-acc!"
                 href={`https://en.dict.naver.com/#/search?query=${encodeURIComponent(vocab.word)}`}
                 target="_blank"
                 rel="noreferrer noopener"

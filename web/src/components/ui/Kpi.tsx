@@ -9,9 +9,9 @@ export type KpiTone = 'warn' | 'bad' | 'good';
    있어야 한다 — 옛 주석이 경고하던 암묵 결합이고, 빠뜨리면 컴파일 에러 없이 스타일만 빠진다.
    tone 별 값 색만 이 컴포넌트 고유라 `data-[tone=…]` 변형으로 얹는다(속성 셀렉터의 정공법).
    ⚠ `.ds-kpi .ds-v` 가 line-height 1.15 를 세우므로 자손 span 은 그 값을 상속한다 → suffix 에
-   내장 크기명을 쓸 땐 `leading-[1.15]` 로 못박는다(규약 6). */
+   내장 크기명을 쓸 땐 `leading-display` 로 못박는다(규약 6). */
 const V = 'ds-v data-[tone=warn]:text-warn data-[tone=bad]:text-bad data-[tone=good]:text-good';
-const SUF = 'ml-0.75 text-sm leading-[1.15] font-semibold text-mut';
+const SUF = 'ml-0.75 text-sm leading-display font-semibold text-mut';
 
 /** KPI 4열 그리드 컨테이너. */
 export function KpiGrid({ children }: { children: ReactNode }) {

@@ -45,7 +45,7 @@ export default function DegreeReq() {
   return (
     <>
       <Card title="졸업요건 충족 현황">
-        <div className="text-sm leading-[1.6] text-mut">
+        <div className="text-sm leading-text text-mut">
           내 <b>졸업 계획</b> 데이터로 계산한 요건 대비 이수 현황입니다. 학기·과목·성적을 수정하면 즉시 반영돼요.
         </div>
         <div className="mt-3.5 mb-1">
@@ -113,7 +113,7 @@ export default function DegreeReq() {
           </tbody>
         </Table>
         {unmet > 0 && (
-          <div className="mt-2 text-sm leading-[1.6] text-mut">
+          <div className="mt-2 text-sm leading-text text-mut">
             부족한 카테고리는 <b>졸업 계획</b>에서 해당 구분 과목을 더 이수하세요. (요건 학점은 졸업 계획 → 졸업 요건
             설정에서 조정)
           </div>
@@ -123,7 +123,7 @@ export default function DegreeReq() {
       <Card title="2 · 재수강 후보 (C+ 이하)">
         {retakes.length ? (
           <>
-            <div className="mt-2 text-sm leading-[1.6] text-mut">
+            <div className="mt-2 text-sm leading-text text-mut">
               성적 C+ 이하 이수 과목. <b>F</b>는 학점 미취득 → <b>졸업 위해 재수강 필수</b>. 그 외는 평점 향상용 선택
               재수강.
             </div>
@@ -166,7 +166,7 @@ export default function DegreeReq() {
             </Table>
           </>
         ) : (
-          <div className="text-sm leading-[1.6] text-mut">
+          <div className="text-sm leading-text text-mut">
             재수강 후보가 없어요 — 이수한 과목이 모두 <b>C+ 초과</b>입니다. 👍
           </div>
         )}

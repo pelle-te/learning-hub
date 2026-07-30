@@ -41,7 +41,7 @@ import { MonthCalendar } from './MonthCalendar';
 /* ── C-7 이식(Schedule 셸) — Tailwind 클래스 SSOT ───────────────────────────────
    상단 네비(줄바꿈 금지 · 좁으면 서술 텍스트를 sr-only 로 접어 화살표만) · 본문(뷰별 fill) ·
    하단 스트립(예상 완료·마감·.ics). 'ds-seg'/on/spotHost/glow/spotlight/note 는 공용이라 유지.
-   내장 크기(text-sm/lg)만 companion line-height 를 흘리므로 정상 흐름엔 leading-[1.6]/원본 LH 를
+   내장 크기(text-sm/lg)만 companion line-height 를 흘리므로 정상 흐름엔 leading-text/원본 LH 를
    명시(line-height 트랩). `.dd`(마감 카운트다운)는 <button> 이라 전역 button 이 유틸을 이겨 다른
    값만 `!`. @media(900) 세로 스택은 max-wide: 로 재현. */
 const S = {
@@ -50,8 +50,8 @@ const S = {
   wknav: 'flex flex-auto items-center gap-2.5 min-w-0',
   navBtn: 'flex-none whitespace-nowrap',
   wk: 'flex-auto min-w-0 truncate text-center',
-  wkLab: 'whitespace-nowrap text-lg leading-[1.6] font-extrabold tracking-wk',
-  wkOff: 'ml-1.5 whitespace-nowrap text-sm leading-[1.6] font-semibold text-mut',
+  wkLab: 'whitespace-nowrap text-lg leading-text font-extrabold tracking-wk',
+  wkOff: 'ml-1.5 whitespace-nowrap text-sm leading-text font-semibold text-mut',
   navLong: 'whitespace-nowrap max-mobile:sr-only',
   body: 'min-h-0 flex-1',
   board2:
@@ -61,11 +61,11 @@ const S = {
   boardWrap: 'flex min-h-0 flex-1 flex-col max-wide:min-h-80',
   calHost: 'min-h-0 flex-1',
   weekEmptyNote: 'mb-2.5', // + 'ds-note'
-  warn: 'flex-none mt-3 text-sm leading-[1.5]',
+  warn: 'flex-none mt-3 text-sm leading-body',
   emptyBoard: 'flex h-full flex-col items-center justify-center gap-3 text-center text-mut',
   finStrip: 'flex flex-none flex-wrap items-center gap-4 border-t border-line px-5.5 py-1.5',
   grpL: 'flex-none text-2xs font-bold tracking-caps text-mut uppercase',
-  fin: 'inline-flex items-center gap-1.5 text-sm leading-[1.6] font-semibold text-mut',
+  fin: 'inline-flex items-center gap-1.5 text-sm leading-text font-semibold text-mut',
   finDday: 'font-semibold text-mut',
   ddMut: 'text-md font-semibold text-mut',
   dot: 'size-1.75 flex-none rounded-full',
@@ -73,7 +73,7 @@ const S = {
   grp: 'flex min-w-0 flex-wrap items-center gap-2.5',
   dd: 'inline-flex items-center gap-1.5 font-bold!',
   vline: 'h-6 w-px flex-none bg-line2',
-  icsNote: 'flex flex-wrap items-center gap-2 text-sm leading-[1.6]', // 색은 사용처(mut/stale=warn)에서
+  icsNote: 'flex flex-wrap items-center gap-2 text-sm leading-text', // 색은 사용처(mut/stale=warn)에서
 } as const;
 
 /** .ics 신선도 — 마지막 내보내기 서명을 현재 계획과 비교(어긋나면 재내보내기 안내). 스트립용 컴팩트. */

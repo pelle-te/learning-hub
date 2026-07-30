@@ -50,7 +50,7 @@ const SEARCHBAR =
    "placeholder 는 보이는데 타이핑하면 사라진다"로 나타난다. 색 지정이 없는 것이 원인이라
    정적 검사로는 원리적으로 안 보인다(axe 가 **계산된 스타일**을 재서 잡았다). */
 const SEARCHINPUT =
-  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! leading-[normal]! text-txt! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
+  'min-w-0 flex-1 border-0! bg-transparent! px-1 py-2 text-base! leading-auto! text-txt! shadow-none! focus-visible:rounded-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc';
 const SEARCHSCOPE =
   'w-30 flex-none border-l border-l-line2! bg-transparent! px-2 py-2 text-txt shadow-none! placeholder:text-mut! focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-acc max-narrow:w-full max-narrow:border-t max-narrow:border-t-line2! max-narrow:border-l-0!';
 /* ⚠ hover 장식에는 `enabled:` 를 붙인다. C-7 마지막 티어에서 전역 CSS 를 `@layer base` 로

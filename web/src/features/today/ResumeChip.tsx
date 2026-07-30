@@ -17,7 +17,7 @@ import { useApp } from '@/store/useApp';
 import { latestResume, resumeDevice, resumeLabel, resumeIndex, RESUME_ROUTE, type ResumeNav } from '@/lib/resume';
 
 const CHIP =
-  'inline-flex items-center gap-2 rounded-chip border! border-line-acc-pill! bg-tint-acc-9! px-3! py-1.5! text-sm! leading-[normal] font-bold! text-ink! hover:bg-tint-acc-14! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
+  'inline-flex items-center gap-2 rounded-chip border! border-line-acc-pill! bg-tint-acc-9! px-3! py-1.5! text-sm! leading-auto font-bold! text-ink! hover:bg-tint-acc-14! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 
 export default function ResumeChip() {
   const state = useApp((s) => s.state);

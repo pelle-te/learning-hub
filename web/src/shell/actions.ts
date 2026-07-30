@@ -3,6 +3,7 @@
    순수 도메인 로직은 lib에 있고, 여기선 store 오케스트레이션 + 파일 다운로드/업로드 + FS Access +
    toast/modal UI를 엮는다. 헤더 ⋯ 메뉴·설정 탭·스케줄/기록 탭이 호출.
 ============================================================ */
+import { keySid } from '@/lib/domainKeys';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
@@ -710,7 +711,7 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
         label: `${w.subject} · ${w.chapter}`,
         to: '/review',
         // weakSpots 의 key 는 `sid|chapter` 다 — 이미 갖고 있는 값을 필드로 꺼낸다(되파싱 금지).
-        sid: w.key.split('|')[0] ?? '',
+        sid: keySid(w.key),
         subject: w.subject,
         chapter: w.chapter,
       });

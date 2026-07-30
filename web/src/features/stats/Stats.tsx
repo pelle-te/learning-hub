@@ -43,14 +43,14 @@ const S = {
   spineBig:
     '[writing-mode:vertical-rl] text-spine leading-none font-black tracking-spine max-wide:[writing-mode:horizontal-tb] max-wide:text-spine-sm',
   spineSub:
-    '[writing-mode:vertical-rl] text-xs leading-[1.6] font-extrabold text-mut max-wide:[writing-mode:horizontal-tb]',
+    '[writing-mode:vertical-rl] text-xs leading-text font-extrabold text-mut max-wide:[writing-mode:horizontal-tb]',
   // 2 — 지표 컬럼
   metrics:
     'flex min-w-0 flex-col justify-center gap-3.5 border-r border-line2 p-5.5 max-wide:border-r-0 max-wide:border-b max-wide:border-line2',
   hero: `relative flex flex-col items-center gap-3 rounded-lg border border-line bg-[image:var(--bg-hero-stats)] px-4.5 pt-5.5 pb-5 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-row max-wide:justify-center max-wide:gap-5 max-narrow:flex-col`,
   heroMeta: 'flex flex-col items-center gap-0.5 text-center',
-  heroLab: 'text-sm leading-[1.6] font-bold text-txt',
-  heroSub: 'text-xs leading-[1.6] text-mut tabular-nums',
+  heroLab: 'text-sm leading-text font-bold text-txt',
+  heroSub: 'text-xs leading-text text-mut tabular-nums',
   ros: 'grid grid-cols-2 gap-2.5 max-wide:grid-cols-4 max-narrow:grid-cols-2',
   // 완료율 게이지
   gauge: 'relative size-32.5 flex-none',
@@ -64,41 +64,41 @@ const S = {
   // 3 — 시그니처
   signature: 'flex min-h-0 min-w-0 flex-col gap-3.5 p-5.5',
   sigHead: 'flex items-baseline justify-between',
-  sigTitle: 'text-xs leading-[1.6] font-extrabold tracking-caps text-mut uppercase',
-  sigMeta: 'text-xs leading-[1.6] text-mut tabular-nums',
+  sigTitle: 'text-xs leading-text font-extrabold tracking-caps text-mut uppercase',
+  sigMeta: 'text-xs leading-text text-mut tabular-nums',
   sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none`,
   verdicts: 'flex flex-col gap-3 border-t border-line2 pt-3.5 max-wide:mt-3.5',
   verdict: 'flex items-start gap-3',
   vIcon: 'min-w-16 flex-none pt-px text-md font-extrabold',
   vIconGood: 'text-acc [text-shadow:var(--verdict-glow)]',
   vIconBad: 'text-bad',
-  vText: 'text-md leading-[1.5] text-mut',
+  vText: 'text-md leading-body text-mut',
   weakBar: 'mt-1.5 h-2 flex-1 overflow-hidden rounded-full bg-track-cat',
   weakFill: 'block h-full rounded-full',
   // 인라인 링크 <button> — 원본은 font:inherit 로 부모 .vText 의 line-height(1.5)를 상속했다. preflight 가
   // 없어 버튼이 UA line-height:normal 로 떨어지므로, 부모의 상속 LH 를 명시로 못박는다(모바일 줄바꿈 시 누적 시프트 방지).
   navLink:
-    'ml-1.25 inline border-0! bg-transparent! p-0! font-bold! text-acc! leading-[1.5] transition-[text-shadow] hover:underline hover:[text-shadow:var(--navlink-glow)] focus-visible:underline focus-visible:[text-shadow:var(--navlink-glow)]',
+    'ml-1.25 inline border-0! bg-transparent! p-0! font-bold! text-acc! leading-body transition-[text-shadow] hover:underline hover:[text-shadow:var(--navlink-glow)] focus-visible:underline focus-visible:[text-shadow:var(--navlink-glow)]',
   // 4 — 과목별 진행
   subjects:
     'flex min-h-0 min-w-0 flex-col border-l border-line2 p-5.5 max-wide:min-h-75 max-wide:border-t max-wide:border-l-0 max-wide:border-line2',
-  subjectsH2: 'mb-3! flex-none text-xs! leading-[1.6] font-extrabold! tracking-caps! text-mut! uppercase',
+  subjectsH2: 'mb-3! flex-none text-xs! leading-text font-extrabold! tracking-caps! text-mut! uppercase',
   subjList: '-mx-1 flex min-h-0 flex-1 flex-col gap-2.25 overflow-y-auto px-1 [scrollbar-width:thin]',
   subj: "relative flex flex-col gap-1.5 overflow-hidden rounded-md border border-line bg-panel pt-2.75 pr-3.25 pb-3 pl-3.75 shadow-card transition-[border-color,transform,box-shadow] duration-fast ease-[var(--ease)] before:absolute before:top-2.25 before:bottom-2.25 before:left-0 before:w-0.75 before:scale-y-0 before:rounded-cell before:bg-acc before:shadow-spine before:transition-transform before:duration-fast before:ease-[var(--ease)] before:content-[''] hover:-translate-y-px hover:border-line-acc hover:shadow-hero hover:before:scale-y-100",
   subjTop: 'flex items-center gap-2',
   subjNm: 'flex-1 truncate text-base14 font-bold',
   subjBar: 'h-1.75 overflow-hidden rounded-full bg-track-cat',
   subjFill: 'block h-full rounded-full',
-  subjMeta: 'truncate text-xs leading-[1.6] text-mut tabular-nums',
+  subjMeta: 'truncate text-xs leading-text text-mut tabular-nums',
   // 스트릭 히트맵(잔디)
   hmWrap: 'flex items-start gap-1.5 overflow-x-auto py-1',
   hmDowWrap: 'flex flex-none flex-col',
   hmMonthSpacer: 'mb-0.75 h-3.25',
   hmDow: 'flex flex-none flex-col gap-0.75 text-2xs text-mut',
-  hmDowCell: 'h-3.25 leading-[1.3]',
+  hmDowCell: 'h-3.25 leading-tight',
   hmGridWrap: 'flex flex-col',
   hmMonths: 'mb-0.75 flex h-3.25 gap-0.75',
-  hmMonth: 'w-3.25 flex-none overflow-visible text-2xs leading-[1.3] whitespace-nowrap text-mut',
+  hmMonth: 'w-3.25 flex-none overflow-visible text-2xs leading-tight whitespace-nowrap text-mut',
   hmGrid: 'flex gap-0.75',
   hmCol: 'flex flex-col gap-0.75',
   cell: 'size-3.25 flex-none rounded-cell border border-line-soft',
@@ -108,7 +108,7 @@ const S = {
   hmTable: 'mt-2',
   hmSummary: 'w-fit cursor-pointer',
   hmTableScroll: 'mt-2 max-h-60 overflow-auto [scrollbar-width:thin]',
-  hmTableEl: 'border-collapse text-xs leading-[1.6] tabular-nums',
+  hmTableEl: 'border-collapse text-xs leading-text tabular-nums',
   thCol: 'sticky top-0 border-b border-line-soft bg-panel px-2 py-0.75 text-right font-bold whitespace-nowrap text-txt',
   thRow: 'border-b border-line-soft px-2 py-0.75 text-left font-semibold whitespace-nowrap text-txt',
   td: 'border-b border-line-soft px-2 py-0.75 text-right whitespace-nowrap text-mut',

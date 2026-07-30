@@ -1,6 +1,7 @@
 /* TodayBlocks — 오늘 배치된 블록 + 블록별 4단계 흐름/방법론 액션.
    파생 스케줄(useSchedule)에서 오늘 Day를 찾고 layoutDay로 시각을 배정해 표시.
    스타일: 공유는 전역 `ds-*`(card/blk/donechk/swatch/muted/tiny/foot/empty), today 전용은 Tailwind 유틸(C-7). */
+import { completionKey } from '@/lib/domainKeys';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
@@ -33,7 +34,7 @@ function StageBar({ ml }: { ml: number }) {
             role="img"
             aria-label={`${st.name} (~${mins}분) — ${st.action}`}
           >
-            <span className="max-w-full truncate text-xs leading-[1.6] font-semibold">{st.name}</span>
+            <span className="max-w-full truncate text-xs leading-text font-semibold">{st.name}</span>
             <span className="text-2xs text-mut tabular-nums">~{mins}m</span>
           </div>
         );
@@ -114,8 +115,8 @@ export function TodayBlocks() {
       </div>
 
       {items.map((it, idx) => {
-        const key = it.sid + '|' + it.type + '|' + idx;
-        const tb = timeBy[it.sid + '|' + it.type];
+        const key = completionKey(it.sid, it.type) + '|' + idx;
+        const tb = timeBy[completionKey(it.sid, it.type)];
         const tm = tb && tb.start != null && tb.end != null ? toHM(tb.start) + '–' + toHM(tb.end) : '';
         const done = isDone(state, ds2, it.sid, it.type);
         const head = (
@@ -174,7 +175,7 @@ export function TodayBlocks() {
           return (
             <div key={key} className="ds-blk">
               {head}
-              <div className="ds-tiny ds-muted mt-1.75 leading-[1.5]">
+              <div className="ds-tiny ds-muted mt-1.75 leading-body">
                 📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크.
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -222,7 +223,7 @@ export function TodayBlocks() {
         return (
           <div key={key} className="ds-blk">
             {head}
-            {note && <div className="ds-tiny ds-muted mt-1.75 leading-[1.5]">{note}</div>}
+            {note && <div className="ds-tiny ds-muted mt-1.75 leading-body">{note}</div>}
             {ankiLinked && (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>

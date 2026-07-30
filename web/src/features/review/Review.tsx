@@ -3,6 +3,7 @@
    레거시 ui-review.js를 React로 — '공부 방식'을 주 1회 점검:
    계획 vs 실제 · CBMS 분포 · 백로그 회수 · 주간 체크리스트.
 ============================================================ */
+import { weakKey } from '@/lib/domainKeys';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LiveRegion from '@/components/LiveRegion';
@@ -93,9 +94,9 @@ const WEAK_ITEM = 'flex items-baseline justify-between gap-2 text-sm';
 const WEAK_META = 'flex-none text-xs font-bold whitespace-nowrap text-mut';
 const WEAK_ACTIONS = 'flex flex-none items-center gap-1';
 const WEAK_SEED =
-  'flex-none rounded-full! border-line-acc-hover! bg-tint-acc! px-2! py-1! text-xs! leading-[normal]! font-extrabold! whitespace-nowrap text-acc!';
+  'flex-none rounded-full! border-line-acc-hover! bg-tint-acc! px-2! py-1! text-xs! leading-auto! font-extrabold! whitespace-nowrap text-acc!';
 const WEAK_ALLOT =
-  'flex-none rounded-full! bg-transparent! px-2! py-1! text-xs! leading-[normal]! font-extrabold! whitespace-nowrap text-acc!';
+  'flex-none rounded-full! bg-transparent! px-2! py-1! text-xs! leading-auto! font-extrabold! whitespace-nowrap text-acc!';
 const COACH_AI = 'mt-3 flex items-center gap-2';
 const AI_BOX =
   'mt-3 rounded-md border border-line2 bg-panel-acc-faint px-3 py-3 animate-[enter-rise_var(--dur-slow)_var(--ease)_both] motion-reduce:animate-none';
@@ -607,7 +608,7 @@ function WorkbenchCard() {
             {shown.map((c) => {
               const lever = leverFor(c.subject);
               return (
-                <li key={c.sid + '|' + c.chapter} className={RISK_ROW} data-risk={c.risk}>
+                <li key={weakKey(c.sid, c.chapter)} className={RISK_ROW} data-risk={c.risk}>
                   <span className={RISK_DOT} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
                   <span className={RISK_NM}>
                     {c.subject} <small className="ml-1 text-sm font-medium text-mut">{c.chapter}</small>

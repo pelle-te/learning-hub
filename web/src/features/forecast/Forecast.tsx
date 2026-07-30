@@ -21,6 +21,7 @@
    파일 단위로 끈다 — 이 파일은 차트 전용이라 여기 생길 tabIndex 는 전부 같은 패턴이다.
 ============================================================ */
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex */
+import { weakKey } from '@/lib/domainKeys';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
@@ -278,7 +279,7 @@ export default function Forecast() {
               앞당길 후보 —
               {pull.map((p) => (
                 <button
-                  key={p.chapter.sid + '|' + p.chapter.chapter}
+                  key={weakKey(p.chapter.sid, p.chapter.chapter)}
                   type="button"
                   className={PULL_CHIP}
                   onClick={() => pullTo(p)}

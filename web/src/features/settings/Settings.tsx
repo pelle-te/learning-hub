@@ -34,16 +34,16 @@ const S = {
   wrap: 'flex min-w-0 flex-col gap-4',
   hero: `relative flex flex-wrap items-center gap-settings-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-5 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none`,
   heroLeft: 'flex min-w-0 flex-1 flex-col gap-0.75',
-  eyebrow: 'text-xs leading-[1.6] font-extrabold tracking-eyebrow-wide text-acc uppercase',
-  title: 'mt-0.5! mb-0! text-hero-title! font-black! leading-[1.04] tracking-title!', // h2 — 전역 h2{} 를 ! 로 이김(색 ink≡txt 는 동일→클래스 없음)
-  meta: 'text-sm leading-[1.5] text-mut', // 11.5px → 12px(text-sm) 반올림(반픽셀 사다리 밖 · 클리핑 없어 정수 rung)
+  eyebrow: 'text-xs leading-text font-extrabold tracking-eyebrow-wide text-acc uppercase',
+  title: 'mt-0.5! mb-0! text-hero-title! font-black! leading-none tracking-title!', // h2 — 전역 h2{} 를 ! 로 이김(색 ink≡txt 는 동일→클래스 없음)
+  meta: 'text-sm leading-body text-mut', // 11.5px → 12px(text-sm) 반올림(반픽셀 사다리 밖 · 클리핑 없어 정수 rung)
   status: 'flex flex-wrap gap-2.5 max-mobile:w-full',
   accRow: 'mt-1 flex flex-wrap gap-2.5',
   accBtn: 'inline-flex items-center gap-2 rounded-md! font-bold! hover:-translate-y-px', // <button> — r-sm→r-md·w500→700 만 다름(pad/size/color/border 는 전역과 동일 → 클래스 없음)
   accSwatch: 'size-4 flex-none rounded-swatch',
   stepper: 'flex items-stretch gap-1.5',
   stepInput: 'min-w-0 flex-1 text-center',
-  stepBtn: 'w-8.5 flex-none text-lg! font-extrabold! leading-[1]', // <button> — 16px→15px(text-lg) 반올림 · w800 · lh1(전역 pad/border/bg/color 는 동일)
+  stepBtn: 'w-8.5 flex-none text-lg! font-extrabold! leading-none', // <button> — 16px→15px(text-lg) 반올림 · w800 · lh1(전역 pad/border/bg/color 는 동일)
   subLabel: 'inline!', // 전역 label{display:block} 을 이김(div 사용처엔 무해)
   fldBody: 'mt-1.5',
   chkFlush: 'm-0!', // 'ds-chkRow' 의 margin:9px 0 을 이김

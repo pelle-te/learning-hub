@@ -21,7 +21,7 @@ const CAT_ORDER = ['오늘', '기록', '내보내기', '데이터', '백업', '�
    빠뜨리면 치트시트가 540 이 아니라 440 폭으로 조용히 렌더된다(계산스타일 덤프가 잡았다). */
 const SHEET = 'w-cheatsheet! max-w-cheatsheet!';
 const GRID = 'mt-1 mb-3.5 grid grid-cols-2 gap-x-7 gap-y-4.5 max-narrow:grid-cols-1';
-const H = 'mb-2.25! text-sm! leading-[1.6] font-semibold! text-mut';
+const H = 'mb-2.25! text-sm! leading-text font-semibold! text-mut';
 const LIST = 'm-0 flex list-none flex-col gap-2 p-0';
 const LI = 'flex items-center gap-2.5 text-md text-txt';
 // kbd 칩 — UA 기본(monospace)을 유틸로 덮는다. 하단 립 1px 은 --shadow-kbd.

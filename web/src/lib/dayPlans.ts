@@ -5,6 +5,7 @@
    applyDayPlans(scheduler)가 manual인 날 day.items를 이 블록으로 치환하고, layoutDay가 start를 존중.
    변형 헬퍼는 스토어 mutate 안에서 호출(→ persist), 컴포넌트는 blocksForDay 등 선택자로 파생만 읽는다.
 ============================================================ */
+import { completionKey } from './domainKeys';
 import { rid, clamp, reviewBlockMin } from './utils';
 import type { AppState, DayPlan, PlacedBlock, ScheduleResult } from './types';
 
@@ -104,7 +105,7 @@ function syncBlockCompletion(state: AppState, ds: string, sid: string, type: str
   const done = dp.blocks.filter((b) => b.sid === sid && b.type === type && b.done);
   const comps = (state.completions = state.completions || {});
   const day = (comps[ds] = comps[ds] || {});
-  const key = sid + '|' + type;
+  const key = completionKey(sid, type);
   if (done.length) {
     const min = done.reduce((t, b) => t + b.min, 0);
     day[key] = { done: true, min: Math.round(min), doneDs: todayIso };
@@ -240,7 +241,7 @@ export function removeSidFromDayPlans(state: AppState, sid: string): number {
   }
   const comps = state.completions;
   if (comps) {
-    const prefix = sid + '|';
+    const prefix = completionKey(sid, '');
     for (const ds in comps) {
       const day = comps[ds];
       if (!day) continue;

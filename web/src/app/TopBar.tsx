@@ -28,9 +28,9 @@ const BAR =
   'relative z-[var(--z-dropdown)] flex flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
 // 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.
 const WORDMARK =
-  'text-wordmark! leading-[0.94] font-black! tracking-wordmark! uppercase max-mobile:text-wordmark-sm! max-mobile:leading-none';
+  'text-wordmark! leading-flat font-black! tracking-wordmark! uppercase max-mobile:text-wordmark-sm! max-mobile:leading-none';
 const MARK_PART = 'block max-mobile:inline';
-const SUB = 'mt-1.75 text-sm leading-[1.4] tracking-topbar-sub text-mut max-mobile:hidden';
+const SUB = 'mt-1.75 text-sm leading-snug tracking-topbar-sub text-mut max-mobile:hidden';
 // 컨텍스트 리드아웃 — 페이지가 주입(진행률·연속·마감).
 const READOUTS = 'mr-2 flex items-start gap-7.5 self-center max-mobile:hidden';
 const READOUT = 'flex flex-col gap-1';
@@ -47,13 +47,13 @@ const PV = 'text-primary-num leading-none font-black tracking-readout-num text-a
 const PU = 'text-lg leading-none font-bold text-mut';
 const RV_NULL = 'text-mut opacity-55';
 const ACTIONS = 'flex items-center gap-2 self-center';
-/* HUD 칩 버튼 — 각진 헤어라인. 전역 button{} 을 이기는 속성 전부 `!` · 폼 컨트롤이라 leading-[normal].
+/* HUD 칩 버튼 — 각진 헤어라인. 전역 button{} 을 이기는 속성 전부 `!` · 폼 컨트롤이라 leading-auto.
    ⚠ **색·보더색·자간은 base 에 두지 않는다**(SubTabs 와 같은 관용구 · 이식 중 실제로 물렸다):
    `bg-transparent!` 와 `bg-acc!` 처럼 **같은 속성 유틸을 겹쳐 붙이면** 클래스 나열 순서가 아니라
    Tailwind 가 방출한 순서로 갈려 주 액션이 통짜로 죽는다(네온 필이 투명 칩으로 렌더됐다).
    변형(plain/fill)이 자기 속성을 통째로 소유하게 나눈다. */
 const BTN_BASE =
-  'inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-sm! border! px-3.25! py-0! text-sm! leading-[normal] font-bold! transition-colors duration-fast ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:min-h-10';
+  'inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-sm! border! px-3.25! py-0! text-sm! leading-auto font-bold! transition-colors duration-fast ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:min-h-10';
 const BTN_PLAIN =
   'border-line! bg-transparent! tracking-chip! text-ink! hover:border-line-acc-strong! hover:bg-panel2!';
 /* 주 액션 — "네온 채움 필"(데모의 "지금 시작 →"). **2026-07-24 에 되살렸다**(사용자 결정 · §15-9).

@@ -22,7 +22,7 @@ import { ChapterEditor } from './ChapterEditor';
 type Mutate = (recipe: (st: AppState) => void) => void;
 
 // SubjectSheet.module.css → Tailwind 이식(C-7). 상태로 갈리는 것만 정적 맵으로(§15).
-const SEC_TITLE = 'mb-0! text-xs! font-extrabold! tracking-caps text-mut uppercase leading-[1.6]';
+const SEC_TITLE = 'mb-0! text-xs! font-extrabold! tracking-caps text-mut uppercase leading-text';
 const MODE_BASE = 'rounded-full px-1.75 py-0.5 text-2xs font-extrabold tracking-mode-sub';
 const MODE_AUTO = 'text-mut shadow-inset-line2';
 const MODE_MANUAL = 'text-acc shadow-inset-acc-mid';
@@ -30,7 +30,7 @@ const DAY_BASE =
   'flex! flex-col items-center gap-1 m-0! cursor-pointer rounded-sm bg-panel px-1 py-2 max-mobile:px-0.5 max-mobile:py-1.5';
 // 정보 노트 — AllocRow(완료 안내)·시트(매일 과목 안내) 공유.
 const NOTE_INFO =
-  'rounded-md bg-tint-acc-faint px-2.75 py-2.25 text-note-info text-mut shadow-inset-acc-faint leading-[1.5]';
+  'rounded-md bg-tint-acc-faint px-2.75 py-2.25 text-note-info text-mut shadow-inset-acc-faint leading-body';
 
 /** +/- 스텝퍼 — 분/시간 직관 입력(0 미만 방지·소수 첫째자리 반올림). 옛 ItemCard에서 승계. */
 function Stepper({
@@ -141,7 +141,7 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
             const today = iso(date) === todayIso;
             return (
               <label key={i} className={`${DAY_BASE} ${today ? 'shadow-inset-acc' : 'shadow-inset-line2'}`}>
-                <span className={`text-xs leading-[1.6] font-extrabold ${today ? 'text-acc' : 'text-mut'}`}>{lab}</span>
+                <span className={`text-xs leading-text font-extrabold ${today ? 'text-acc' : 'text-mut'}`}>{lab}</span>
                 <NumberField
                   className="min-w-0 text-center font-bold tabular-nums"
                   step={0.5}
@@ -168,7 +168,7 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
           자동으로 얹혀요.
         </div>
       )}
-      <div className="text-xs leading-[1.5] text-mut">
+      <div className="text-xs leading-body text-mut">
         요일 칸은 <b className="font-bold text-txt">새 학습</b> 분배예요(복습·Anki는 엔진이 자동으로 얹어요). 전 과목을
         요일별로 견주려면 <b className="font-bold text-txt">배치 › 배분 보드</b>에서.
       </div>

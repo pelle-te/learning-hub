@@ -19,7 +19,7 @@ const SEG =
 // 전역 button 을 덮는 정지-상태 기반(색·배경은 활성 여부로 분기 — 같은 속성 유틸을 둘 다 붙이면
 // 레이어 순서로 갈려 못 덮는다).
 const BTN_BASE =
-  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-none! border-y-0! border-l-0! border-r! border-line2! px-3.75! py-2! text-sm! leading-[normal] font-bold! tracking-label transition-colors duration-fast ease-[var(--ease)] last:border-r-0! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
+  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-none! border-y-0! border-l-0! border-r! border-line2! px-3.75! py-2! text-sm! leading-auto font-bold! tracking-label transition-colors duration-fast ease-[var(--ease)] last:border-r-0! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 const BTN_ON = 'bg-acc-soft! text-acc! ring-1 ring-inset ring-acc-glow';
 const BTN_OFF = 'bg-transparent! text-mut! hover:bg-panel2! hover:text-ink!';
 
