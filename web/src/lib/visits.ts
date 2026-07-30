@@ -59,7 +59,10 @@ const HINT_TTL = 1000;
 const KEEP_DAYS = 90;
 
 let _hint: { via: Via; at: number } | null = null;
-let _pruned = false;
+/* 마지막으로 청소한 날(ds). ⚠⚠ 종전엔 부울이라 **세션당 1회**였고, 데스크톱 셸은 며칠씩 열려
+   있으므로 보존창이 `KEEP_DAYS + 세션 길이`로 조용히 늘어났다(H24 · 2026-07-30). 90일이라 적고
+   120일을 들고 있는 셈이다 — 날짜를 기억하면 자정을 넘긴 첫 기록이 다시 청소한다(하루 1회 유지). */
+let _prunedOn: string | null = null;
 
 /**
  * "지금부터 일어날 내비게이션은 이 경로로 들어간 것" — 호출 직후 {@link HINT_TTL} 안에만 유효.
@@ -83,7 +86,7 @@ export function takeVia(fallback: Via, now: number = Date.now()): Via {
 /** 테스트 격리용 — 모듈 전역 힌트를 비운다. */
 export function resetVia(): void {
   _hint = null;
-  _pruned = false;
+  _prunedOn = null;
 }
 
 /** 원장 한 줄(요약 읽기용). */
@@ -122,9 +125,9 @@ export async function recordVisit(key: string, via: Via, todayDs: string = today
      ON CONFLICT(key, day, via) DO UPDATE SET n = n + 1`,
     [key, todayDs, via],
   );
-  // 청소는 세션당 1회로 족하다 — 매 내비게이션마다 DELETE 를 쏘면 관측이 관측 대상보다 비싸진다.
-  if (!_pruned) {
-    _pruned = true;
+  // 청소는 **하루 1회**로 족하다 — 매 내비게이션마다 DELETE 를 쏘면 관측이 관측 대상보다 비싸진다.
+  if (_prunedOn !== todayDs) {
+    _prunedOn = todayDs;
     await execDb(`DELETE FROM route_visits WHERE day < ?`, [iso(addDays(parseISO(todayDs), -KEEP_DAYS))]);
   }
 }

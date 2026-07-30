@@ -73,12 +73,16 @@ export async function recordDaySignal(s: DaySignal, todayDs: string = todayISO()
   );
 }
 
-/** 세션당 1회 청소 — 매 갱신마다 DELETE 를 쏘면 관측이 관측 대상보다 비싸진다. */
-let _pruned = false;
+/* **하루 1회** 청소 — 매 갱신마다 DELETE 를 쏘면 관측이 관측 대상보다 비싸진다.
+   ⚠⚠ 종전엔 부울(`_pruned`)이라 **세션당 1회**였다(H24 · 2026-07-30 `/감사 근본`). 데스크톱 셸은
+   며칠씩 열려 있으므로 보존창이 `KEEP_DAYS + 세션 길이`로 조용히 늘어난다 — 90일이라 적어 놓고
+   실제로는 120일을 들고 있었다. 날짜를 기억하면 자정을 넘긴 첫 호출이 다시 청소한다(비용은 그대로
+   하루 1회). ⚠ 부울로 되돌리지 말 것: 이 앱의 세션은 "탭 하나 열었다 닫는" 길이가 아니다. */
+let _prunedOn: string | null = null;
 
 export async function pruneDaySignals(todayDs: string = todayISO()): Promise<void> {
-  if (_pruned || !isSqlitePrimary()) return;
-  _pruned = true;
+  if (_prunedOn === todayDs || !isSqlitePrimary()) return;
+  _prunedOn = todayDs;
   await execDb(`DELETE FROM day_signals WHERE ds < ?`, [iso(addDays(parseISO(todayDs), -KEEP_DAYS))]);
 }
 

@@ -6,10 +6,32 @@
    가득 차는데 값이 거짓이 되고, 거짓 관측은 관측 없음보다 나쁘다(데이터가 있다는 이유로
    더 자신 있게 틀린 결정을 내린다).
 ============================================================ */
-import { describe, expect, it, beforeEach } from 'vitest';
-import { markVia, takeVia, resetVia } from '../src/lib/visits';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 
-beforeEach(() => resetVia());
+/* ⚠ SQLite 층을 대역으로 세운다 — 브라우저(vitest)에선 `isSqlitePrimary()` 가 false 라
+   기록 경로가 통째로 조기 반환하고, 그러면 아래 보존-주기 계약을 **한 줄도 못 잰다**. */
+const db = vi.hoisted(() => ({ sql: [] as string[] }));
+vi.mock('@/lib/db/sqlite', () => ({
+  isSqlitePrimary: (): boolean => true,
+  execDb: (sql: string): Promise<void> => {
+    db.sql.push(sql);
+    return Promise.resolve();
+  },
+  selectDb: (): Promise<unknown[]> => Promise.resolve([]),
+}));
+
+import { markVia, takeVia, resetVia, recordVisit } from '../src/lib/visits';
+
+beforeEach(() => {
+  resetVia();
+  db.sql.length = 0;
+});
+
+/** 주어진 날짜들로 차례로 방문을 기록하고, 그동안 실행된 SQL 전량을 돌려준다. */
+async function recordAndCollect(days: string[]): Promise<string[]> {
+  for (const ds of days) await recordVisit('today', 'rail', ds);
+  return db.sql;
+}
 
 describe('진입 경로 힌트', () => {
   it('힌트가 없으면 폴백이다 — 누락은 오분류이지 유실이 아니다', () => {
@@ -40,5 +62,28 @@ describe('진입 경로 힌트', () => {
     markVia('rail');
     markVia('key');
     expect(takeVia('link')).toBe('key');
+  });
+});
+
+/* ⚠⚠ **보존 청소는 하루 1회다 — 세션당 1회가 아니다**(H24 · 2026-07-30 `/감사 근본`).
+
+   종전엔 모듈 전역 부울 하나로 "이미 청소했다"를 기억했다. 브라우저 탭이라면 맞는 가정이지만
+   이 앱의 배포 형태는 **며칠씩 열려 있는 데스크톱 셸**이다 — 그러면 보존창이 `KEEP_DAYS +
+   세션 길이`로 조용히 늘어난다(90일이라 적어 두고 실제로는 120일을 들고 있다). 무한 성장은
+   아니라서 아무 증상도 없고, 그래서 계약과 실제가 갈렸다는 사실만 남는다.
+
+   ⚠ 아래 두 케이스가 **양쪽**을 잠근다: 같은 날 반복 기록이 DELETE 를 다시 쏘지 않는 것(비용)과,
+   날이 바뀌면 다시 쏘는 것(계약). 한쪽만 보면 "매번 청소"도 통과한다. */
+describe('보존 청소 주기(H24)', () => {
+  const DEL = /DELETE FROM route_visits/;
+
+  it('같은 날 여러 번 기록해도 청소는 한 번이다', async () => {
+    const sql = await recordAndCollect(['2026-07-30', '2026-07-30', '2026-07-30']);
+    expect(sql.filter((s) => DEL.test(s))).toHaveLength(1);
+  });
+
+  it('⚠ 날이 바뀌면 다시 청소한다 — 셸이 며칠 열려 있어도 90일 창이 유지된다', async () => {
+    const sql = await recordAndCollect(['2026-07-30', '2026-07-30', '2026-07-31', '2026-08-01']);
+    expect(sql.filter((s) => DEL.test(s))).toHaveLength(3);
   });
 });

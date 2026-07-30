@@ -44,21 +44,42 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     /* ⚠ 첫 읽기를 이펙트 **본문에서** 부르지 않는다 — 그러면 setState-in-effect 로 막힌다.
        한 틱 뒤로 미루면 콜백이 되고, 헤더가 첫 페인트를 막지 않는 부수 효과도 있다. */
     const first = setTimeout(() => void read(), 0);
+
+    /* ⚠ **틱은 보이는 동안만 돈다**(H24 · 2026-07-30 `/감사 근본`). 종전엔 `document.hidden` 을
+       무시해 창을 내려둔 하루에도 30초마다 리렌더가 났다(≈2,880회). 그런데 이 틱이 갱신하는 것은
+       **상대시각 문구뿐**이다 — 아무도 안 보는 동안의 "3분 전"은 정의상 가치가 0 이고, 복귀
+       시점에 어차피 다시 계산된다. 그래서 멈췄다가 복귀할 때 한 번에 따라잡는다. */
+    let id: ReturnType<typeof setInterval> | null = null;
+    const startTick = (): void => {
+      if (id === null) id = setInterval(() => setNow(Date.now()), TICK_MS);
+    };
+    const stopTick = (): void => {
+      if (id !== null) {
+        clearInterval(id);
+        id = null;
+      }
+    };
+
     const onVis = (): void => {
-      if (document.visibilityState === 'visible') void read();
+      if (document.visibilityState === 'visible') {
+        // 복귀 = 밀린 시간을 즉시 따라잡는다(멈춰 있던 동안의 문구가 한 틱 더 남지 않게).
+        setNow(Date.now());
+        startTick();
+        void read();
+      } else stopTick();
     };
     const onNet = (): void => void read();
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('online', onNet);
     window.addEventListener('offline', onNet);
     // 상대시각만 갱신하는 틱(DB 접근 없음) — "3분 전"이 5분 전인 채로 굳지 않게.
-    const id = setInterval(() => setNow(Date.now()), TICK_MS);
+    if (!document.hidden) startTick();
     return () => {
       clearTimeout(first);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('online', onNet);
       window.removeEventListener('offline', onNet);
-      clearInterval(id);
+      stopTick();
     };
   }, [read]);
 

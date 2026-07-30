@@ -29,6 +29,16 @@ export interface LiveHandle {
 }
 
 const MAX_BACKOFF_MS = 30_000;
+/* ⚠⚠ **오래 못 붙으면 천장을 올린다**(H24 · 2026-07-30 `/감사 근본`).
+   H18 이 *영구* 실패(기기 폐기 등)를 갈라 멈추게 했지만, **일시 실패는 30초 상한으로 영원히**
+   돈다 — 서버가 며칠 내려가 있거나 네트워크가 오래 막힌 상황에서 기기당 하루 ≈2,880회다.
+   일시 실패라도 20회(≈9분)를 넘겨 못 붙었다면 그건 "잠깐"이 아니므로 5분 간격으로 내려앉는다.
+   ⚠ 포기가 아니다 — 계속 재시도하되 빈도만 낮춘다. 실시간은 정확성의 전제가 아니고(머리주석)
+   그동안에도 폴링·포커스 동기화가 돈다. */
+const LONG_OUTAGE_AFTER = 20;
+const LONG_BACKOFF_MS = 5 * 60_000;
+/** 백오프 지터 폭(±%). 0 이면 두 기기가 **같은 초에** 재연결한다 — 복구 순간이 가장 약한 순간이다. */
+const JITTER = 0.25;
 const PING_MS = 45_000; // 유휴 연결이 프록시에 끊기지 않게 keep-alive
 /** 이만큼 **유지된** 연결만 "붙었다"로 본다(H18) — 아래 `onopen` 주석 참조. */
 const STABLE_MS = 30_000;
@@ -58,7 +68,11 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reas
 
   const scheduleReconnect = (): void => {
     if (closed || reconnectTimer) return;
-    const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** Math.min(retry, 5));
+    const ceiling = retry >= LONG_OUTAGE_AFTER ? LONG_BACKOFF_MS : MAX_BACKOFF_MS;
+    const base = Math.min(ceiling, 1000 * 2 ** Math.min(retry, 5));
+    /* 지터 — 같은 계정의 두 기기가 복구 순간에 **동시에** 몰려들지 않게 흩는다. 단일 사용자라
+       군집이 크진 않지만, 몰리는 시점이 하필 서버가 막 살아난 순간이라는 것이 요점이다. */
+    const delay = Math.round(base * (1 - JITTER + Math.random() * 2 * JITTER));
     retry += 1;
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
