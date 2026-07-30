@@ -682,17 +682,59 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     },
     ready: (page) => page.getByRole('dialog').waitFor(),
   },
+  {
+    /* ⚠ **캔버스 좌표를 클릭하지 않는다**(H6-잔여 · 2026-07-31). 노드 위치는 시뮬레이션 결과라
+       비결정적이지만, 이 화면에는 **노드 검색**이 있고 `runSearch` 가 그대로 `setSel` 한다 —
+       즉 상세를 여는 결정적 경로가 이미 제품 안에 있었다(그리고 그건 키보드 사용자의 경로이기도
+       하다 · 오버레이 a11y 를 재기에 오히려 더 맞는 입구다). */
+    key: 'overlay-graph-detail',
+    path: '/graph',
+    열기: async (page) => {
+      // ⚠ `type="search"` 는 role 이 **searchbox** 다(textbox 아님 — 실측으로 물렸다).
+      await page.getByRole('searchbox', { name: '학습 구조도 노드 검색' }).fill('미적분');
+      await page.getByRole('button', { name: '찾기' }).click();
+    },
+    ready: (page) => page.getByRole('dialog').waitFor(),
+  },
+  {
+    /* 어휘 팝오버 — 지문을 고른 뒤 **선택 영역**이 있어야 열린다. 마우스 드래그를 흉내 내는 대신
+       `Selection` API 로 첫 단어를 고른다(제품의 '선택한 단어 찾기' 버튼이 그 선택을 읽는다). */
+    key: 'overlay-reader-vocab',
+    path: '/reads',
+    열기: async (page) => {
+      const para = page.locator('article p, main p').first();
+      await para.waitFor();
+      await para.evaluate((el) => {
+        const r = document.createRange();
+        const t = el.firstChild!;
+        r.setStart(t, 0);
+        r.setEnd(t, Math.min(4, t.textContent?.length ?? 1));
+        const s = window.getSelection()!;
+        s.removeAllRanges();
+        s.addRange(r);
+      });
+      await page.getByRole('button', { name: '선택한 단어 찾기' }).click();
+    },
+    ready: (page) => page.getByRole('dialog', { name: '어휘 뜻' }).waitFor(),
+  },
 ];
 
-/* ⚠ **덮지 못한 오버레이 3종 — 이유를 적어 둔다**(H6 · 2026-07-30).
-   `role="dialog"` 선언부는 여덟이고 위 여섯이 그중 다섯을 연다(`DetailDrawer` 는 과목 시트가
-   대표한다 — 챕터 편집기가 그 안에 렌더된다). 나머지 셋은 **트랙 A 에서 결정적으로 열 수 없다**:
-   · `Markets` AI 브리핑 — 버튼이 `disabled={!online || !indices.length}` 이고 트랙 A 는 백엔드가
-     없어 `online=false` 다(실측: `<button disabled>`). 열려면 백엔드를 흉내 내야 하는데 그건
-     이 트랙의 정의를 어긴다.
-   · `Graph` 상세 — 캔버스 좌표를 클릭해야 한다(노드 위치가 시뮬레이션 결과라 비결정적).
-   · `ReaderVocab` — 지문을 고르고 그 안의 단어를 클릭해야 열린다(2단계 깊이 + 텍스트 의존).
-   셋 다 "안 하기로" 한 것이지 "없는" 것이 아니다 — 로드맵에 남는다. */
+/* ⚠ **덮지 못한 오버레이 1종 — 이유를 적어 둔다**(H6 · 2026-07-30 → H6-잔여로 2종 회수 2026-07-31).
+
+   `role="dialog"` 선언부는 여덟이고 위 여덟이 그중 일곱을 연다(`DetailDrawer` 는 과목 시트가
+   대표한다 — 챕터 편집기가 그 안에 렌더된다). 남은 하나:
+
+   · `Markets` AI 브리핑 — 여는 버튼이 `disabled={!online || !indices.length}` 이고 트랙 A 는
+     백엔드가 없어 `online=false` 다(실측 `<button disabled>`). 열려면 `capabilities` 커맨드를
+     스텁이 **성공**으로 답해야 하는데, 그러면 `integrations` 를 비롯한 여러 화면이 "워크스페이스
+     설정 필요" 대신 연결 상태로 렌더돼 **스냅샷이 통째로 흔들린다**. 오버레이 하나의 a11y 를 위해
+     시각 회귀망의 전제를 바꾸는 거래는 값을 못 한다 — 트랙 B 나 실 백엔드가 붙는 날의 몫이다.
+
+   ⚠ 처음엔 `Graph` 상세와 `ReaderVocab` 도 "결정적으로 열 수 없다"고 적었는데 **둘 다 틀렸다**:
+   그래프는 **노드 검색**(`runSearch` → `setSel`)이 상세를 열고, 어휘는 `Selection` API 로 첫
+   단어를 고르면 제품의 '선택한 단어 찾기' 버튼이 그대로 받는다. 둘 다 **키보드 사용자의 경로**라
+   오버레이 a11y 를 재기에 오히려 더 맞는 입구였다 — "캔버스라서 안 된다"는 마우스만 상상한
+   결론이었다. */
 
 /* ── 폰 웹앱 부팅 — `visual.spec.ts` 에서 승격했다(H6 · 2026-07-30) ────────────────────
    axe 가 폰을 한 번도 안 보고 있었는데(`phone.spec.ts` 에 axe 0건), 폰을 연결 상태로 띄우는
