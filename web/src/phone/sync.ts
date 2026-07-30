@@ -14,7 +14,14 @@ export { runSync as sync, syncSoon } from '@/store/syncController';
 
 /** 부팅 시 1회 설치(연결된 뒤 `main.tsx` 가 부른다). 폰은 폴링을 켜지 않고, 이탈 시 push 한다.
  *  ⚠ **실시간 poke(`live`)는 폰만 켠다**(Phase 2) — 폰은 Workers 오리진의 동일출처 WS 라 붙는다.
- *  데스크톱(Tauri 웹뷰)은 CSP `connect-src 'self' ipc:` 로 막혀 못 붙으므로 StorageGuard 는 안 켠다. */
+ *  데스크톱(Tauri 웹뷰)은 CSP `connect-src 'self' ipc:` 로 막혀 못 붙으므로 StorageGuard 는 안 켠다.
+ *
+ *  ⚠ **`onResult` 를 여기서 주지 않는 것이 지금은 의도다**(H3 · 2026-07-30). 종전엔 이 부재가
+ *  곧 침묵이었다 — 기기 폐기·D1 한도(`push.status:'blocked'`)를 폰이 알 방법이 0이었다. 지금은
+ *  중단이 **원장의 축**(`lib/syncLedger` 의 `blocked`)이 되어 헤더의 `SyncLedger` 가 상시 말하고,
+ *  그 갱신은 `syncController.onSyncResult` 구독이 담당한다 — 즉 트리거 옵션과 무관하게 상속된다.
+ *  데스크톱이 `onResult` 로 토스트를 띄우는 것은 **레일에 상시 자리가 없어서**이지 다른 계약이
+ *  아니다. 폰에 토스트 호스트를 새로 들이면 그 하나를 위해 표면이 늘어난다. */
 export function installSyncTriggers(): () => void {
   const opts: SyncTriggerOptions = { onEdit: true, onPagehide: true, live: true };
   return install(opts);

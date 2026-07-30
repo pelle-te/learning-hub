@@ -8,7 +8,7 @@
    매퍼를 IO 에서 분리한 이유가 여기 있다 — Tauri 런타임 없이 대용량 표본까지 전량 검증한다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { stateToRows, rowsToState, ARRAY_SLICES, diffRows } from '@/lib/db/rows';
+import { stateToRows, rowsToState, ARRAY_SLICES, coalesceStmts, diffRows } from '@/lib/db/rows';
 import { defaults, exportSnapshot, RUNTIME_CACHE_KEYS, EPHEMERAL_ONLY_KEYS } from '@/lib/persistence';
 import { chunkedStamp, _resetStamp } from '@/lib/db/stamp';
 import { MAX_BATCH_ITEMS } from '@/lib/cloud/contract';
@@ -397,5 +397,101 @@ describe('C2 — 대량 단일 flush 의 스탬프 청킹(아웃박스 영구 �
     expect(total).toBeGreaterThan(MAX_BATCH_ITEMS); // 테스트가 헛돌지 않게 — 실제로 상한 초과를 만들었다
     expect(maxGroup).toBeLessThanOrEqual(400); // 어떤 단일 그룹도 청크 상한 이하
     expect(maxGroup).toBeLessThan(MAX_BATCH_ITEMS); // → capBatch 가 못 쪼개는 oversized 가 생기지 않는다
+  });
+});
+
+/* ============================================================
+   H26 — **문장 접기**(2026-07-30 `/감사 근본`).
+
+   셸에는 배치 API 가 없어 문장마다 IPC 왕복 하나다. 가져오기·복구·첫 전량 동기화는 상태를
+   통째로 쓰므로 그게 수천 번이 됐다(폰은 워커라 이미 1왕복 — 같은 코드가 두 백엔드에서
+   100배 다르게 돌고 있었다). Rust 커맨드로 왕복을 1로 만드는 길은 **버렸다**: 플러그인의
+   sqlx 풀은 프런트가 소유하므로 Rust 가 풀을 더 열면 `database is locked` 재현 경로가 된다.
+
+   그래서 왕복이 아니라 **문장 수**를 줄인다. 이 테스트가 잠그는 것은 그 접기가 **의미를 한
+   글자도 바꾸지 않는다**는 것이다 — 인자 순서·문장 순서·접히지 않는 것의 보존까지.
+============================================================ */
+describe('coalesceStmts — 접어도 의미가 같다', () => {
+  const ins = (t: string, n: number) => ({
+    sql: `INSERT OR REPLACE INTO ${t} (a,b) VALUES (?,?)`,
+    args: [n, n * 10],
+  });
+
+  it('같은 SQL 의 연속 INSERT 를 한 문장으로 접는다 — 인자는 **순서 그대로** 이어 붙는다', () => {
+    const out = coalesceStmts([ins('x', 1), ins('x', 2), ins('x', 3)]);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.sql).toBe('INSERT OR REPLACE INTO x (a,b) VALUES (?,?),(?,?),(?,?)');
+    expect(out[0]!.args).toEqual([1, 10, 2, 20, 3, 30]);
+  });
+
+  it('⚠ 다른 테이블은 안 섞는다 — 경계에서 끊고 순서를 지킨다', () => {
+    const out = coalesceStmts([ins('x', 1), ins('y', 2), ins('x', 3)]);
+    expect(out).toHaveLength(3); // 연속이 아니면 접을 것이 없다
+    expect(out.map((s) => s.sql)).toEqual([
+      'INSERT OR REPLACE INTO x (a,b) VALUES (?,?)',
+      'INSERT OR REPLACE INTO y (a,b) VALUES (?,?)',
+      'INSERT OR REPLACE INTO x (a,b) VALUES (?,?)',
+    ]);
+  });
+
+  it('⚠ DELETE 는 손대지 않는다 — 접지 않기로 한 것이 의도다', () => {
+    const del = { sql: 'DELETE FROM x WHERE a = ?', args: [1] };
+    expect(coalesceStmts([del, del])).toEqual([del, del]);
+  });
+
+  it('⚠ "upsert 먼저, 삭제 나중" 계약이 접기 뒤에도 성립한다', () => {
+    const del = { sql: 'DELETE FROM x WHERE a = ?', args: [9] };
+    const out = coalesceStmts([ins('x', 1), ins('x', 2), del]);
+    expect(out).toHaveLength(2);
+    expect(out[0]!.sql).toContain('INSERT');
+    expect(out[1]!.sql).toContain('DELETE');
+  });
+
+  it('⚠ 파라미터 상한에서 쪼갠다 — 넘기면 느려지는 게 아니라 문장이 통째로 실패한다', () => {
+    const many = Array.from({ length: 10 }, (_, i) => ins('x', i));
+    const out = coalesceStmts(many, 6); // 행당 2개 → 그룹당 3행
+    expect(out).toHaveLength(4); // 3+3+3+1
+    expect(out.every((s) => s.args.length <= 6)).toBe(true);
+    expect(out.flatMap((s) => s.args)).toEqual(many.flatMap((s) => s.args));
+  });
+
+  it('⚠ 실제 전량 쓰기에서 문장 수가 실제로 준다(그러지 않으면 이 변경은 무의미하다)', () => {
+    /* `records` 테이블로 내려가는 슬라이스(행 하나 = 항목 하나)를 쓴다 — `items` 는 settings
+       한 행이라 문장 수가 안 늘어 이 축을 못 잰다(실측 18문장). */
+    const s = {
+      ...defaults(),
+      backlog: Array.from({ length: 200 }, (_, i) => ({ id: `b${i}`, topic: `보충${i}` })),
+    };
+    const stmts = diffRows(null, stateToRows(s as AppState), 1000);
+    const folded = coalesceStmts(stmts);
+    expect(stmts.length).toBeGreaterThan(100);
+    expect(folded.length, '접힌 뒤에도 문장이 그대로면 왕복이 안 줄었다').toBeLessThan(stmts.length / 5);
+    // 그리고 **모든 인자가 하나도 빠짐없이** 같은 순서로 남는다.
+    expect(folded.flatMap((x) => x.args)).toEqual(stmts.flatMap((x) => x.args));
+  });
+});
+
+/* ⚠⚠ H31-③ — **복합키를 구분자 없이 붙이고 있었다**(2026-07-30 `/감사 근본`).
+
+   `toTableData` 의 맵 키가 `join('')` 이라 `summaries`(`[sid, id]`)에서 `('a','bc')` 와
+   `('ab','c')` 가 같은 `'abc'` 로 접혔다. 접히면 뒤가 앞을 덮어 **한 행이 조용히 사라진다**
+   (diff 가 "그 행은 없어졌다"고 읽어 삭제 문장까지 낸다). 지금까지 안 터진 이유는 id 길이가
+   우연히 균일해서일 뿐이고, 그건 아무 데도 안 적힌 전제였다 — `cloud/conflicts.snapKey` 는
+   같은 문제에 이미 JSON 튜플을 쓰고 이유까지 적어 뒀는데 이쪽만 못 받고 있었다. */
+describe('복합키 — 경계가 애매해지지 않는다(H31-③)', () => {
+  it('⚠ 붙이면 같아지는 두 키가 **다른 행**으로 남는다', () => {
+    const s = {
+      ...defaults(),
+      summaries: {
+        a: [{ id: 'bc', text: '앞' }],
+        ab: [{ id: 'c', text: '뒤' }],
+      },
+    } as unknown as AppState;
+    /* `toTableData` 의 맵은 `diffRows` 안에서만 산다 — 그래서 충돌은 **낸 문장 수**로만 보인다.
+       접히면 INSERT 가 하나로 줄고, 사라진 쪽은 다음 diff 에서 "없어진 행"으로 읽혀 삭제까지 간다. */
+    const sums = diffRows(null, stateToRows(s), 1000).filter((x) => x.sql.includes('INTO summaries'));
+    expect(sums, '두 키가 한 칸으로 접히면 한 행이 조용히 사라진다').toHaveLength(2);
+    const sids = sums.map((x) => x.args[0]).sort();
+    expect(sids).toEqual(['a', 'ab']);
   });
 });

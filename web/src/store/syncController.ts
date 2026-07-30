@@ -69,7 +69,17 @@ export async function runSync(): Promise<SyncResult> {
     if (r.conflicts?.length) useConflicts.getState().add(r.conflicts);
     // 관측성(설계서 §14 발전 #4) — 마지막 시도 기록. `disconnected`(연결 안 됨)는 "시도"가
     // 아니라 남기지 않는다. 설정 카드가 "마지막 동기화 N분 전"으로 읽는다.
-    if (r.status !== 'disconnected') _lastSync = { at: Date.now(), result: r };
+    if (r.status !== 'disconnected') {
+      _lastSync = { at: Date.now(), result: r };
+      // 구독자에게 알린다(원장 갱신 등). 구독자 하나가 던져도 다른 구독자와 동기화를 막지 않는다.
+      for (const cb of _resultSubs) {
+        try {
+          cb(r);
+        } catch {
+          /* 관측이 동기화를 해치지 않는다 */
+        }
+      }
+    }
     return r;
   } finally {
     /* ⚠ **C1 방어망.** `applyPull` 이 병합 창을 켰는데(`beginMergeApply`) 이후 `commitPullMark`
@@ -115,6 +125,26 @@ export interface LastSync {
 let _lastSync: LastSync | null = null;
 export function lastSync(): LastSync | null {
   return _lastSync;
+}
+
+/* ⚠⚠ **결과 구독 — 원장이 동기화 뒤에 다시 읽히지 않고 있었다**(H3 · 2026-07-30).
+
+   `useSyncLedger` 는 자기 주석에 _"대기 건수는 **동기화 시도 직후**에만 다시 센다"_ 고 적어
+   뒀는데, 실제로 등록한 것은 `visibilitychange`·`online`·`offline` **뿐**이었다 — 동기화가
+   끝났다는 사실을 알 방법이 없었다. 그래서 편집→동기화 뒤에도 헤더는 화면을 떠났다 돌아오기
+   전까지 옛 대기 건수를 들고 있었고, 중단(`blocked`)은 **영원히** 안 보였다.
+
+   구독을 `runSync` 에 두는 것이 요점이다: 동기화 진입점은 여럿이지만(`installSyncTriggers` 의
+   트리거 · `syncSoon` · `CloudCard` 의 "지금 동기화" · 폰) `_lastSync` 를 쓰는 곳은 여기 하나다.
+   `onResult` 옵션에 얹으면 그 옵션을 안 준 소비자(폰)가 상속받지 못한다 — 실제로 그랬다. */
+const _resultSubs = new Set<(r: SyncResult) => void>();
+
+/** 동기화 1회가 끝날 때마다(연결됐을 때만) 부른다. 해제 함수를 돌려준다. */
+export function onSyncResult(cb: (r: SyncResult) => void): () => void {
+  _resultSubs.add(cb);
+  return () => {
+    _resultSubs.delete(cb);
+  };
 }
 
 /** 편집 뒤 동기화까지의 유예. `useApp` 영속 디바운스(400ms)보다 **길어야** 아웃박스가 아직

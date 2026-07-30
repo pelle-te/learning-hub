@@ -9,7 +9,14 @@ import { describe, expect, it } from 'vitest';
 import { ledgerLine, type Ledger } from '@/lib/syncLedger';
 
 const NOW = 1_700_000_000_000;
-const led = (p: Partial<Ledger>): Ledger => ({ online: true, pending: null, at: null, failed: false, ...p });
+const led = (p: Partial<Ledger>): Ledger => ({
+  online: true,
+  pending: null,
+  at: null,
+  failed: false,
+  blocked: null,
+  ...p,
+});
 
 describe('ledgerLine — 언제 말하고 언제 침묵하나', () => {
   it('클라우드를 안 붙였으면 통째로 침묵한다 — 이 앱은 클라우드 없이도 완결된다', () => {
@@ -53,5 +60,46 @@ describe('ledgerLine — 언제 말하고 언제 침묵하나', () => {
     const r = ledgerLine(led({ online: false, pending: null, at: NOW - 60_000 }), NOW);
     expect(r?.text).toContain('0건');
     expect(r?.warn).toBe(true);
+  });
+});
+
+/* ⚠⚠ **H3 — 원장이 "올리는 중"을 무한히 말하고 있었다**(2026-07-30 `/감사 근본`).
+
+   `runSyncOnce` 는 push 가 `blocked` 여도 pull 이 되면 `SyncResult.status:'ok'` 를 돌려준다.
+   그런데 blocked 는 워터마크를 전진시키지 않으므로 대기 건수가 영원히 안 줄고, 원장은
+   `waiting` 분기에 걸려 _"올리는 중 — N건 대기"_ 를 계속 말했다. "올리는 중"은 곧 끝난다는
+   뜻인데 실제로는 사람이 손대기 전까지 아무 일도 안 일어난다 — 관측이 오히려 오해를 만든 자리다. */
+describe('ledgerLine — 중단(blocked)은 스스로 낫지 않는다', () => {
+  it('⚠ "올리는 중"이 아니라 **중단**이라고 말한다 — 대기 건수만으로는 구분이 안 된다', () => {
+    const r = ledgerLine(led({ at: NOW, pending: 3, blocked: 'D1 한도 초과' }), NOW);
+    expect(r?.text).toContain('중단');
+    expect(r?.text).toContain('D1 한도 초과');
+    expect(r?.text, '"올리는 중"으로 읽히면 사용자는 기다리기만 한다').not.toContain('올리는 중');
+    expect(r?.warn).toBe(true);
+  });
+
+  it('편집이 **어디 있는지**를 함께 말한다 — 중단이 곧 유실이라고 읽히지 않게', () => {
+    const r = ledgerLine(led({ pending: 7, blocked: '기기가 폐기됨' }), NOW);
+    expect(r?.text).toContain('7건');
+    expect(r?.text).toContain('이 기기에 남아');
+  });
+
+  it('⚠ 오프라인보다 **먼저**다 — 오프라인은 스스로 낫고 중단은 안 낫는다', () => {
+    const r = ledgerLine(led({ online: false, pending: 2, blocked: '인증 만료' }), NOW);
+    expect(r?.text, '오프라인으로 덮으면 사용자는 네트워크 복귀만 기다린다').toContain('인증 만료');
+    expect(r?.text).not.toContain('오프라인');
+  });
+
+  it('⚠ 실패인데 대기가 0이면 **건수를 말하지 않는다** — 0건 대기는 사실이 아니라 잡음이다', () => {
+    const r = ledgerLine(led({ failed: true, pending: 0 }), NOW);
+    expect(r?.text).toContain('동기화 실패');
+    expect(r?.text).not.toContain('0건');
+    // 대기가 있으면 여전히 건수를 말한다(그때는 사실이다).
+    expect(ledgerLine(led({ failed: true, pending: 4 }), NOW)?.text).toContain('4건');
+  });
+
+  it('중단이 아니면 종전 판정을 한 글자도 안 바꾼다', () => {
+    expect(ledgerLine(led({ at: NOW, pending: 3 }), NOW)?.text).toContain('올리는 중');
+    expect(ledgerLine(led({}), NOW)).toBeNull();
   });
 });

@@ -9,7 +9,7 @@
    그 흐름에 얹는 것으로 충분하다.
 ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
-import { lastSync } from './syncController';
+import { lastSync, onSyncResult } from './syncController';
 import { collectOutbox } from '@/lib/cloud/outbox';
 import { batchSize } from '@/lib/cloud/contract';
 import type { Ledger } from '@/lib/syncLedger';
@@ -18,7 +18,7 @@ import type { Ledger } from '@/lib/syncLedger';
 const TICK_MS = 30_000;
 
 export function useSyncLedger(): { led: Ledger; now: number } {
-  const [led, setLed] = useState<Ledger>({ online: true, pending: null, at: null, failed: false });
+  const [led, setLed] = useState<Ledger>({ online: true, pending: null, at: null, failed: false, blocked: null });
   /* ⚠ '지금'을 **상태로** 든다 — 렌더에서 `Date.now()` 를 부르면 순수성 린트가 막는다(옳다:
      시계는 렌더의 입력이 아니다). 틱이 이 값을 갈아 끼워 상대시각만 다시 계산되게 한다. */
   const [now, setNow] = useState(() => Date.now());
@@ -32,11 +32,19 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     } catch {
       /* 셀 수 없으면 모른다고 둔다 — 관측이 앱을 해치지 않는다. */
     }
+    /* ⚠ `blocked` 는 `SyncResult.status` 가 아니라 **`push.status`** 에서 온다(H3).
+       `runSyncOnce` 는 push 가 막혀도 pull 이 되면 `'ok'` 를 돌려주므로, 바깥 status 만 보면
+       중단이 통째로 안 보인다 — 그게 원장이 "올리는 중"을 무한히 말하던 경로다. */
+    const blocked = ls?.result.push?.status === 'blocked' ? (ls.result.push.error ?? '알 수 없는 이유') : null;
     setLed({
       online: navigator.onLine,
       pending,
-      at: ls && ls.result.status === 'ok' ? ls.at : null,
+      /* ⚠ 중단됐으면 "언제 성공했나"를 말하지 않는다 — pull 은 성공했더라도 **내 편집은 하나도
+         안 올라갔다.** 여기서 `ls.at` 을 주면 "· 방금 동기화" 로 읽힐 수 있는데(blocked 문구가
+         이기긴 하지만) 원장이 서로 모순되는 두 사실을 들고 있게 된다. */
+      at: ls && ls.result.status === 'ok' && !blocked ? ls.at : null,
       failed: ls?.result.status === 'failed',
+      blocked,
     });
   }, []);
 
@@ -69,6 +77,10 @@ export function useSyncLedger(): { led: Ledger; now: number } {
       } else stopTick();
     };
     const onNet = (): void => void read();
+    /* ⚠ **동기화가 끝났다는 사실을 여기서 받는다**(H3). 이 구독이 없어서 위 주석의 "동기화 시도
+       직후에만 다시 센다"가 실제로는 이행되지 않고 있었다 — 화면을 떠났다 돌아오기 전까지
+       원장이 낡은 채였고, 중단은 영원히 안 보였다. */
+    const offResult = onSyncResult(() => void read());
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('online', onNet);
     window.addEventListener('offline', onNet);
@@ -76,6 +88,7 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     if (!document.hidden) startTick();
     return () => {
       clearTimeout(first);
+      offResult();
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('online', onNet);
       window.removeEventListener('offline', onNet);

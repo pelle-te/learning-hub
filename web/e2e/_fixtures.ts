@@ -708,17 +708,24 @@ export const PHONE_VIEWS = ['홈', '일', '주', '복습', '읽기'] as const;
 /** 폰 뷰포트 — `visual.spec.ts` 의 모바일 스냅샷과 **같은 값**이어야 한다(사본 방지로 여기 소유). */
 export const MOBILE = { width: 390, height: 844 };
 
-export async function bootPhone(page: Page, theme: 'dark' | 'light' = 'dark'): Promise<void> {
+/**
+ * @param theme 넘기면 그 테마를 강제한다(a11y 대비 검사용). **생략이 기본이고, 생략하면 종전
+ *   `visual.spec.ts` 의 절차와 한 글자도 다르지 않다** — 승격이 순수 이동이어야 하기 때문이다.
+ *   ⚠ 이 기본값을 `'dark'` 로 두고 무조건 초기화 스크립트를 심었다가 **폰 스냅샷이 깨졌다**
+ *   (액센트가 바뀌어 4,207픽셀 · 실측). 승격은 이동이지 재설정이 아니다.
+ */
+export async function bootPhone(page: Page, theme?: 'dark' | 'light'): Promise<void> {
   await page.setViewportSize(MOBILE);
   await page.clock.setFixedTime(FIXED);
-  await page.addInitScript((t) => {
-    try {
-      localStorage.setItem('lh_ui_v1', JSON.stringify({ accent: 'lime', recentCommands: [] }));
-      document.documentElement.setAttribute('data-theme', t);
-    } catch {
-      /* noop */
-    }
-  }, theme);
+  if (theme) {
+    await page.addInitScript((t) => {
+      try {
+        document.documentElement.setAttribute('data-theme', t);
+      } catch {
+        /* noop */
+      }
+    }, theme);
+  }
   // ⚠ 등록 라우트를 **나중에** 건다 — Playwright 는 나중에 등록한 핸들러가 이긴다.
   await page.route('**/api/**', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
   await page.route('**/api/enroll/claim', (r) =>

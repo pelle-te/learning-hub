@@ -131,8 +131,16 @@ export const TABLES: TableSpec[] = [
 export function toTableData(rows: DbRows): Record<string, Map<string, unknown[]>> {
   const t: Record<string, Map<string, unknown[]>> = {};
   for (const spec of TABLES) t[spec.name] = new Map();
+  /* ⚠ 맵 키는 **JSON 튜플**이다(H31-③ · 2026-07-30). 종전엔 `join('')` 이라 복합키가
+     구분자 없이 붙었다 — `summaries` 는 `[sid, id]` 라 `('a','bc')` 와 `('ab','c')` 가 같은
+     `'abc'` 로 접힌다. 접히면 한 행이 **조용히 사라진다**(뒤가 앞을 덮는다). 지금 안 터진
+     이유는 id 길이가 우연히 균일해서일 뿐이고, 그건 아무 데도 안 적힌 전제였다.
+     `cloud/conflicts.snapKey` 가 같은 문제에 이미 JSON 튜플을 쓰고 그 이유까지 적어 뒀다 —
+     같은 저장소 안에서 한쪽만 안전한 관용구를 쓰고 있었다.
+     ⚠ 이 키는 **메모리 안에서만** 산다(diff 계산용) — 저장되지도 전송되지도 않으므로 형식을
+     바꾸는 데 마이그레이션이 없다. */
   const put = (table: string, vals: unknown[], keyLen: number): void => {
-    t[table]!.set(vals.slice(0, keyLen).join(''), vals);
+    t[table]!.set(JSON.stringify(vals.slice(0, keyLen)), vals);
   };
   put('meta', ['present', JSON.stringify(rows.present)], 1);
   for (const r of rows.settings) put('settings', [r.key, r.json], 1);
@@ -243,6 +251,79 @@ export function diffRowsDetailed(
 /** 상태 두 벌 → 증분 SQL. 접촉 행이 필요하면 `diffRowsDetailed`. */
 export function diffRows(prev: DbRows | null, next: DbRows, now: number | (() => number) = Date.now()): Stmt[] {
   return diffRowsDetailed(prev, next, now).stmts;
+}
+
+/* ============================================================
+   문장 접기(H26 · 2026-07-30 `/감사 근본`)
+
+   ## 무엇이 문제였나
+
+   셸(`tauri-plugin-sql`)에는 배치 API 가 없어 `writeRows`·`batchDb` 가 **문장마다 `execute`** 로
+   폴백한다 — 즉 문장 하나당 IPC 왕복 하나다. 일반 flush(수십 행)에서는 안 보이지만
+   **가져오기·복구·되돌리기·첫 전량 동기화**는 상태를 통째로 쓰므로 수천 왕복이 된다
+   (`writeRows` 가 `chunkedStamp(400)` 를 기본으로 삼은 이유가 바로 그 "전량 쓰기" 경로다).
+   폰은 워커라 이미 1왕복이었다 — 같은 코드가 두 백엔드에서 100배 다르게 돌고 있었다.
+
+   **실측**(보충·일정·할일 각 500건의 전량 쓰기): 문장 **1518 → 12**(126배). 셸에서 그대로
+   IPC 왕복 수다.
+
+   ## 왜 Rust 커맨드가 아닌가 (검토하고 **버린** 길)
+
+   `db_batch` 커맨드를 만들면 왕복은 1이 되지만, **플러그인의 sqlx 풀은 프런트가 소유한다**
+   (`Cargo.toml` 의 그 주석이 SSOT). Rust 가 자기 풀을 하나 더 열면 같은 파일에 쓰는 이가 둘이
+   되고, 그건 이 저장소가 이미 실측으로 물린 `database is locked` 의 재현 경로다
+   (`writeRows` 머리주석 — 그래서 트랜잭션도 안 쓴다). **왕복이 아니라 문장 수를 줄이는 쪽**이
+   같은 이득을 잠금 위험 0 으로 얻는다.
+
+   ## 안전한 이유
+
+   `INSERT OR REPLACE INTO t (c…) VALUES (a),(b),(c)` 는 같은 문장 셋과 **의미가 동일**하다
+   (같은 키가 그룹 안에 두 번 나와도 뒤가 이기는 것까지 같다). 그리고 한 문장이므로 오히려
+   **원자적**이다 — 폴백의 비원자성이 그만큼 줄어든다. 순서 계약("upsert 먼저, 삭제 나중")도
+   **연속된 같은 SQL 만** 접으므로 그대로 보존된다.
+   ⚠ DELETE 는 접지 않는다. 복합키를 `(a,b) IN ((?,?),…)` 로 바꾸면 되지만, 전량 쓰기 경로에서
+   삭제는 거의 안 나오고(가져오기는 행을 **추가**한다) 위험 대비 이득이 없다.
+============================================================ */
+
+/** 한 문장이 들 수 있는 바인딩 파라미터 상한. SQLite 기본은 32766(구버전 999)이라 넉넉히 아래로
+ *  잡는다 — 상한을 넘기면 조용히 느려지는 게 아니라 **문장이 통째로 실패**한다. */
+const MAX_PARAMS_PER_STMT = 800;
+
+/** `INSERT [OR REPLACE] INTO t (…) VALUES (?,?,…)` 형태만 접는다 — 그 밖은 손대지 않는다. */
+const INSERT_VALUES = /^(INSERT(?: OR REPLACE)? INTO \w+ \([^)]*\) VALUES )(\((?:\?,)*\?\))$/;
+
+/**
+ * 연속된 **같은 SQL** 의 단일행 INSERT 를 다중 VALUES 한 문장으로 접는다(순수).
+ *
+ * 접힌 결과의 실행 의미는 원본과 같고(위 머리주석), 문장 수만 줄어든다. 접을 수 없는 문장은
+ * 순서를 유지한 채 그대로 통과한다.
+ */
+export function coalesceStmts(stmts: Stmt[], maxParams: number = MAX_PARAMS_PER_STMT): Stmt[] {
+  const out: Stmt[] = [];
+  let i = 0;
+  while (i < stmts.length) {
+    const s = stmts[i]!;
+    const m = INSERT_VALUES.exec(s.sql);
+    const perRow = s.args.length;
+    // 접을 수 없거나(형태 불일치·인자 0) 한 행만으로 상한을 넘으면 그대로 둔다.
+    if (!m || perRow === 0 || perRow > maxParams) {
+      out.push(s);
+      i++;
+      continue;
+    }
+    const maxRows = Math.max(1, Math.floor(maxParams / perRow));
+    let j = i;
+    const args: unknown[] = [];
+    // 같은 SQL 이고 인자 개수도 같은 것만 이어 붙인다(열 수가 다르면 다른 문장이다).
+    while (j < stmts.length && stmts[j]!.sql === s.sql && stmts[j]!.args.length === perRow && j - i < maxRows) {
+      args.push(...stmts[j]!.args);
+      j++;
+    }
+    const rows = j - i;
+    out.push(rows === 1 ? s : { sql: m[1]! + Array.from({ length: rows }, () => m[2]!).join(','), args });
+    i = j;
+  }
+  return out;
 }
 
 /** AppState → 행. `persistence.ts` 의 2계층 스코프를 **테이블 정책으로 직역**한다:

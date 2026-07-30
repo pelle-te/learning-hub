@@ -100,6 +100,52 @@ export async function commitWatermark(upto: number): Promise<boolean> {
   );
 }
 
+/* ============================================================
+   에코 억제(H31-② · 2026-07-30 `/감사 근본`)
+
+   ## 무엇이 실제로 일어나고 있었나 (측정 결과 — 추정 아님)
+
+   병합은 받아온 행을 **원격 스탬프 그대로** 쓴다(LWW 판정이 그 값에 걸려 있으므로 그래야
+   한다). 그런데 아웃박스는 `updated_at > watermark` 로 훑으므로, 방금 받은 행이 **다음 회차에
+   그대로 되돌아 올라간다.** 서버 LWW(`excluded.updated_at > t.updated_at`)가 동점을 무시해
+   데이터는 안 상하지만, 초기 대량 동기화에서 **받은 만큼을 그대로 다시 올린다.**
+
+   ## 왜 워터마크를 밀지 않는가 (검토하고 **버린** 길)
+
+   "pull 뒤 워터마크를 `upto` 까지 전진"이 한 줄이지만 **안전하지 않다.** push 가 막히거나
+   실패한 회차에는 아직 안 올라간 로컬 편집이 `upto` 아래에 있을 수 있고, 그걸 건너뛰면
+   그건 조용한 유실이다 — 이 저장소가 워터마크로 두 번 물린 바로 그 형태다.
+
+   ## 그래서 **정확히 그 행만** 건너뛴다
+
+   병합이 쓴 `(tbl,k1,k2) → updatedAt` 를 메모리에 적어 두고, 스캔이 **키와 스탬프가 둘 다
+   정확히 일치**하는 행만 건너뛴다. 로컬 편집이 같은 값을 받을 수 없다는 것이 안전 논거다:
+   `nextStamp()` 는 단조 증가이고 `applyPull` 이 원격 스탬프로 `seedStamp` 하므로, 그 뒤의
+   어떤 로컬 편집도 **반드시 더 큰** 스탬프를 받는다(`db/stamp.ts`).
+
+   ⚠ **실패 안전(fail-open)** 이다 — 앱을 다시 켜면 표가 비어 종전처럼 한 번 에코할 뿐이다.
+   즉 이 장치가 없어져도 정확성은 그대로이고, 있으면 유선만 아낀다. 관측·최적화가 정확성의
+   전제가 되면 안 된다는 규율(§9-4)과 같은 방향.
+============================================================ */
+
+/** `tbl|k1|k2` → 그 행이 병합으로 받은 스탬프. 워터마크가 지나가면 스스로 정리된다. */
+const _merged = new Map<string, number>();
+/** 폭주 방지 — 넘으면 통째로 버린다(정확성이 아니라 절약 장치이므로 버려도 안전하다). */
+const MERGED_CAP = 50_000;
+
+const mergedKey = (tbl: string, key: string[]): string => `${tbl}|${key[0] ?? ''}|${key[1] ?? ''}`;
+
+/** 병합이 방금 쓴 행들을 적어 둔다(`merge.ts` 가 부른다). 같은 키는 마지막 스탬프가 이긴다. */
+export function noteMergedRows(rows: readonly { tbl: string; key: string[]; updatedAt: number }[]): void {
+  if (_merged.size + rows.length > MERGED_CAP) _merged.clear();
+  for (const r of rows) _merged.set(mergedKey(r.tbl, r.key), r.updatedAt);
+}
+
+/** 테스트 전용 — 표를 비운다. */
+export function _resetMergedEcho(): void {
+  _merged.clear();
+}
+
 /**
  * 마지막 워터마크 이후 바뀐 행·삭제를 모은다. DB 미가용(브라우저)이면 **null**.
  *
@@ -132,12 +178,12 @@ async function scanOutbox(since?: number): Promise<OutboxBatch | null> {
        같은 함수를 쓰므로, 여기서 인라인으로 다시 자르면 둘이 갈릴 수 있다. */
     const { key, data } = tableCols(spec);
     for (const r of got) {
-      rows.push({
-        tbl: spec.name,
-        key: key.map((c) => String(r[c] ?? '')),
-        data: data.map((c) => r[c]),
-        updatedAt: Number(r['updated_at'] ?? 0),
-      });
+      const k = key.map((c) => String(r[c] ?? ''));
+      const updatedAt = Number(r['updated_at'] ?? 0);
+      /* 방금 병합으로 받은 바로 그 행이면 되돌려 보내지 않는다(H31-② · 위 머리주석).
+       **키와 스탬프가 둘 다 정확히 일치**할 때만이라, 로컬 편집이 걸릴 수 없다. */
+      if (_merged.get(mergedKey(spec.name, k)) === updatedAt) continue;
+      rows.push({ tbl: spec.name, key: k, data: data.map((c) => r[c]), updatedAt });
     }
   }
 

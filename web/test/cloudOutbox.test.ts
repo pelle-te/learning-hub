@@ -58,7 +58,15 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   default: { load: async () => ({ execute: exec, select }) },
 }));
 
-import { collectOutbox, commitWatermark, readWatermark, batchSize, OUTBOX_TABLES } from '@/lib/cloud/outbox';
+import {
+  collectOutbox,
+  commitWatermark,
+  readWatermark,
+  batchSize,
+  noteMergedRows,
+  _resetMergedEcho,
+  OUTBOX_TABLES,
+} from '@/lib/cloud/outbox';
 import { pushOutbox, backoffDelay, PermanentPushError, isPermanent, type CloudTransport } from '@/lib/cloud/push';
 import { nextStamp, seedStamp, currentStamp, chunkedStamp, _resetStamp } from '@/lib/db/stamp';
 import { runExclusive } from '@/lib/db/write';
@@ -443,5 +451,57 @@ describe('밀어올리기 — 재시도와 워터마크 전진 순서', () => {
     const opts = { baseDelayMs: 1000, random: () => 0 };
     expect(backoffDelay(1, opts)).toBeGreaterThan(0);
     expect(backoffDelay(1, { baseDelayMs: 1000, random: () => 1 })).toBe(1000);
+  });
+});
+
+/* ============================================================
+   ⚠⚠ 에코 억제 — H31-② (2026-07-30 `/감사 근본`)
+
+   병합은 받아온 행을 **원격 스탬프 그대로** 쓴다(LWW 가 그 값에 걸려 있다). 그런데 아웃박스는
+   `updated_at > watermark` 로 훑으므로 방금 받은 행이 **다음 회차에 그대로 되돌아 올라갔다** —
+   초기 대량 동기화에서 받은 만큼을 다시 올리는 셈이다(서버 LWW 가 동점을 무시해 데이터는
+   안 상한다 · 유선만 낭비).
+
+   ⚠ "pull 뒤 워터마크를 upto 까지 전진"은 **버린 길**이다: push 가 막힌 회차에는 아직 안
+   올라간 로컬 편집이 그 아래 있을 수 있고, 그걸 건너뛰면 조용한 유실이다.
+   그래서 **키와 스탬프가 둘 다 정확히 일치하는 행만** 건너뛴다. 아래 케이스들이 그 좁음을
+   잠근다 — 넓어지는 순간 이 장치는 유실 장치가 된다.
+============================================================ */
+describe('에코 억제 — 방금 받은 행을 되돌려 올리지 않는다(H31-②)', () => {
+  beforeEach(() => _resetMergedEcho());
+  afterEach(() => _resetMergedEcho());
+
+  it('병합으로 받은 그 행은 다음 스캔에서 빠진다', async () => {
+    tables.set('settings', [{ key: 'k', value: '{"a":1}', updated_at: 150 }]);
+    seedStamp(200);
+    noteMergedRows([{ tbl: 'settings', key: ['k'], updatedAt: 150 }]);
+
+    const batch = await collectOutbox(100);
+    expect(batch!.rows, '받은 행을 그대로 되올리면 초기 동기화가 두 배 든다').toHaveLength(0);
+  });
+
+  it('⚠ **스탬프가 다르면 안 건너뛴다** — 내가 그 뒤에 고친 것이다', async () => {
+    tables.set('settings', [{ key: 'k', value: '{"a":2}', updated_at: 151 }]);
+    seedStamp(200);
+    noteMergedRows([{ tbl: 'settings', key: ['k'], updatedAt: 150 }]); // 받은 건 150
+
+    const batch = await collectOutbox(100);
+    expect(batch!.rows, '내 편집을 에코로 오인하면 그게 곧 조용한 유실이다').toHaveLength(1);
+    expect(batch!.rows[0]!.updatedAt).toBe(151);
+  });
+
+  it('⚠ **키가 다르면 안 건너뛴다** — 스탬프가 우연히 같아도', async () => {
+    tables.set('settings', [{ key: 'other', value: '{}', updated_at: 150 }]);
+    seedStamp(200);
+    noteMergedRows([{ tbl: 'settings', key: ['k'], updatedAt: 150 }]);
+
+    expect((await collectOutbox(100))!.rows).toHaveLength(1);
+  });
+
+  it('실패 안전 — 표가 비면 종전 거동 그대로다(정확성이 이 장치에 기대지 않는다)', async () => {
+    tables.set('settings', [{ key: 'k', value: '{}', updated_at: 150 }]);
+    seedStamp(200);
+    _resetMergedEcho(); // 앱 재시작과 같은 상태
+    expect((await collectOutbox(100))!.rows).toHaveLength(1);
   });
 });

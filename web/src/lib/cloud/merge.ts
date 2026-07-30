@@ -32,6 +32,7 @@ import { runExclusive, beginMergeApply } from '../db/write';
 import { seedStamp } from '../db/stamp';
 import type { AppState } from '../types';
 import { OUTBOX_TABLES, tableCols, type OutboxBatch } from './contract';
+import { noteMergedRows } from './outbox';
 
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
 
@@ -113,9 +114,15 @@ export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
     if (!(await batchDb(stmts))) throw new Error('병합 배치 실패 — pull 을 재개합니다.');
 
     /* ⚠ **씨앗을 심는다.** 받아온 스탬프가 로컬 최대값보다 클 수 있다(다른 기기가 더 최근).
-       안 심으면 다음 로컬 편집이 그보다 작은 스탬프를 받아 "이미 보낸 것"으로 묻힌다. */
+       안 심으면 다음 로컬 편집이 그보다 작은 스탬프를 받아 "이미 보낸 것"으로 묻힌다.
+       ⚠⚠ 이 한 줄이 동기화 코어의 **여러 불변식이 기대는 지점**이다 — 자세히는 `db/stamp.ts`
+       와 `cloud/conflicts.ts` 의 "시계 공간" 절(H31-①). 지우면 조용히 여러 곳이 틀린다. */
     for (const r of batch.rows) seedStamp(r.updatedAt);
     for (const t of batch.tombstones) seedStamp(t.deletedAt);
+
+    /* 방금 받은 행을 적어 둔다 — 다음 아웃박스 스캔이 이 행들을 **되돌려 올리지 않게**(H31-②).
+       정확성 장치가 아니라 유선 절약이고, 표가 비어도 종전 거동일 뿐이다(`outbox.ts` 머리주석). */
+    noteMergedRows(batch.rows);
 
     /* ⚠ 받아온 것에 `docs` 행이 있으면 메모리 사본을 되맞춘다(H1). `docs._cache` 는 부팅에만
        채워져, 안 하면 폰 `ReadsView` 가 받아온 독후감·미러 산출물을 재시작까지 못 본다. */

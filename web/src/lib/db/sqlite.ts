@@ -15,7 +15,7 @@
    503줄(백엔드 커맨드 전량 + zod)이 **두 엔트리의 초기 청크**에 들어간다. 폰은 그 표면을
    한 번도 안 부른다. `dbUrl()` 은 아래 Tauri 분기 안에서 동적으로 가져온다. */
 import { isTauri } from '../isTauri';
-import { diffRowsDetailed, TABLES, type DbRows, type TableSpec, type TouchedRow } from './rows';
+import { coalesceStmts, diffRowsDetailed, TABLES, type DbRows, type TableSpec, type TouchedRow } from './rows';
 
 /** `writeRows` 의 결과 — 성공 여부 + **이번에 실제로 손댄 행**(되읽기 대조의 대상). */
 export interface WriteResult {
@@ -157,9 +157,14 @@ export async function batchDb(stmts: { sql: string; args: unknown[] }[]): Promis
   if (!stmts.length) return true;
   const db = await getDb();
   if (!db) return false;
+  /* ⚠ **접고 나서 보낸다**(H26). 셸은 문장마다 IPC 왕복이라 전량 쓰기 경로에서 수천 번이 됐다 —
+     같은 SQL 의 연속 INSERT 를 다중 VALUES 한 문장으로 접으면 왕복이 두 자릿수로 떨어진다.
+     의미는 동일하고 오히려 원자적이다(근거는 `rows.ts` 의 `coalesceStmts` 머리주석).
+     폰(워커)도 접힌 편이 싸다 — 파싱·바인딩 횟수가 그만큼 준다. */
+  const folded = coalesceStmts(stmts);
   try {
-    if (db.batch) await db.batch(stmts);
-    else for (const s of stmts) await db.execute(s.sql, s.args);
+    if (db.batch) await db.batch(folded);
+    else for (const s of folded) await db.execute(s.sql, s.args);
     return true;
   } catch (e) {
     console.error('[db] batch 실패:', e);
@@ -339,8 +344,9 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
   try {
     /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
        셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */
-    if (db.batch) await db.batch(stmts);
-    else for (const s of stmts) await db.execute(s.sql, s.args);
+    const folded = coalesceStmts(stmts); // H26 — 왕복 수를 문장 수에서 줄인다(rows.ts 머리주석)
+    if (db.batch) await db.batch(folded);
+    else for (const s of folded) await db.execute(s.sql, s.args);
     _last = rows;
     return { ok: true, touched };
   } catch (e) {
