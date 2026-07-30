@@ -8,8 +8,10 @@ import { riskSummary } from '@/lib/spacedReview';
 import { isDone } from '@/lib/persistence';
 import { openBacklog } from '@/lib/methodology';
 import { dayDiff, todayISO } from '@/lib/utils';
-import type { AppState, ScheduleResult } from '@/lib/types';
+import { resolveTheme } from '@/lib/uiState';
+import type { AppState, ScheduleResult, Theme } from '@/lib/types';
 import { useApp } from './useApp';
+import { useUI } from './useUI';
 
 /* 모듈 레벨 1-엔트리 캐시. schedule은 state의 순수 함수이므로 그 입력 슬라이스가 그대로면 결과도 같다.
    컴포넌트별 useMemo와 달리 캐시가 인스턴스 간 공유돼, 한 탭에서 여러 소비처(RitualCard·TodayBlocks 등)가
@@ -81,6 +83,16 @@ export const selectSchedule: (state: AppState) => ScheduleResult = keyed(schedul
 export function useSchedule(): ScheduleResult {
   const state = useApp((s) => s.state);
   return selectSchedule(state);
+}
+
+/** 화면이 입는 테마 — 동기화 정본(`state.theme`) + 기기-로컬 OS 감지값(`ui.autoTheme`)의 해소(H9).
+ *  ⚠ 두 스토어를 걸치므로 여기(파생)에 둔다. 해소 규칙 자체는 `lib/uiState.resolveTheme` 이 소유한다
+ *  — 훅을 못 쓰는 자리(`shell/actions.ts` 의 팔레트 액션)도 같은 규칙을 봐야 하기 때문이다. */
+export function useTheme(): Theme {
+  const saved = useApp((s) => s.state.theme);
+  const themeAuto = useUI((s) => s.ui.themeAuto);
+  const autoTheme = useUI((s) => s.ui.autoTheme);
+  return resolveTheme(saved, { themeAuto, autoTheme });
 }
 
 /* 요일별 공부 가능 시간(분) — schedule 내부에서도 부르고 Routine·Schedule 탭이 따로도 부른다.

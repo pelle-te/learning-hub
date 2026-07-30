@@ -191,3 +191,38 @@ test('items: 챕터 완료 체크가 doneDs(끝낸 날)를 남기고, 해제하�
   await waitFor(() => expect(useApp.getState().state.items[0]!.chapters[0]!.done).toBe(false));
   expect(useApp.getState().state.items[0]!.chapters[0]!.doneDs).toBeUndefined();
 });
+
+/* ⚠⚠ H25(2026-07-30 `/감사 근본`) — **주당 목표 시간을 고쳐 치다 비우면 0h 가 확정됐다.**
+
+   시트의 스텝퍼가 `NumberField` 에 `emptyValue={0}` 을 주고 있었다. 배분 셀에서는 0 이 "이 요일엔
+   배분 안 함"이라는 의미 있는 값이지만, 주당 목표 시간에서 0 은 그저 미완 입력이다. 결과가 특히
+   나쁜 이유는 **표시가 따라오지 않기** 때문이다: 호출부가 `item.weeklyHours || 3` 이라 저장값 0 을
+   화면은 계속 "3h" 로 보여 주고, 스케줄러는 `|| 0` 으로 읽어 그 과목 예산을 0 으로 잡는다.
+   `Settings` 의 같은 이름 스텝퍼는 이미 이 사고를 겪고 주석으로 못박아 뒀는데 이 사본에만 살아
+   있었다(같은 결함이 두 벌 중 한 벌에만 고쳐진 형태). */
+test('items: 주당 목표 시간을 비운 채 떠나도 0h로 확정되지 않는다(H25)', async () => {
+  useApp.getState().mutate((st) => {
+    st.items = [
+      {
+        id: 'sy',
+        source: '직접',
+        name: '선형대수',
+        color: '#4f8ff0',
+        mode: 'weekly',
+        weeklyHours: 3,
+        dailyMin: 30,
+        deadline: '',
+        chapters: [],
+      },
+    ];
+  });
+  renderApp('/items');
+
+  fireEvent.click(await screen.findByText('선형대수'));
+  const field = await screen.findByLabelText('주당 목표 시간');
+  // 고쳐 치려고 칸을 비우고 그대로 떠난다(blur) — 옛 구현은 여기서 0 을 확정했다.
+  fireEvent.change(field, { target: { value: '' } });
+  fireEvent.blur(field);
+
+  expect(useApp.getState().state.items[0].weeklyHours, '비운 것이 0h 로 확정됐다').toBe(3);
+});

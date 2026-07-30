@@ -5,7 +5,8 @@
    useApp과 동일한 KV 주입 패턴(순수)이라 노드/테스트에서도 그대로 동작.
 ============================================================ */
 import { z } from 'zod';
-import type { KV } from './types';
+import { ThemeSchema } from './schema';
+import type { KV, Theme } from './types';
 
 // 배치 세그먼트 뷰(계획개편 §12-5) — [배분·주·일·월]. 배분(alloc)=주간 배분 보드(계획의 중심 · v2).
 // 구 값(overview·cards)은 주(week)로 흡수.
@@ -56,11 +57,33 @@ export const UIStateSchema = z.object({
      zod 가 `.strict()` 로 받는다 — enum 에 값을 늘리면 이 앱과 **서버·다른 기기 클라이언트가
      동시에** 알아야 하고, 모르는 쪽은 상태 전체를 거부한다. 반면 "따라갈까 말까"는 기기별
      취향이지 동기화 대상이 아니다(모니터가 다르면 답도 다르다) → UI 설정에 둔다. 켜져 있으면
-     ThemeProvider 가 감지 결과를 `state.theme` 에 **해소된 값으로** 써넣으므로, 정본은 계속
-     'light'|'dark' 둘 중 하나다. 옛 저장본 호환은 .default. */
+     ⚠⚠ 옛 구현은 _"ThemeProvider 가 감지 결과를 `state.theme` 에 해소된 값으로 써넣는다"_ 였다.
+     그게 H9(2026-07-30 `/감사 근본`)다: `state.theme` 은 **D1 로 동기화되는 앱 데이터**라,
+     PC 에서 해질녘에 OS 가 다크로 바뀌면 그 값이 클라우드를 타고 **폰 테마까지 뒤집었다.**
+     기기별 취향이라 UI 설정에 뒀다고 적어 놓고, 그 취향의 *결과*는 전 기기에 뿌린 셈이다.
+     → 감지 결과는 아래 `autoTheme` 에 **기기-로컬로** 담는다. `state.theme` 은 사람이 고른
+     값만 담고(그건 여전히 동기화된다 — 수동 선택은 의도다), 화면은 둘을 `resolveTheme` 로
+     해소한 값 하나를 본다. 옛 저장본 호환은 .default. */
   themeAuto: z.boolean().default(false),
+  /* 시스템이 지금 말하는 값 — `themeAuto` 가 켜져 있는 동안에만 `state.theme` 을 **덮는다**(H9).
+     ⚠ 영속하지만 정본이 아니다: ThemeProvider 가 마운트마다 OS 를 다시 읽어 덮어쓰므로
+     저장본이 틀려도 한 프레임 뒤 자가 교정된다(영속시키는 이유는 그 한 프레임의 깜빡임 제거).
+     ⚠ 수동으로 테마를 고르면 `null` 로 지운다 — 그래야 "고른 값이 다음 OS 변경까지 유지"라는
+     기존 계약이 그대로 성립한다(그 계약은 사용자가 못박은 것이다 · 절대규칙 #4). */
+  autoTheme: ThemeSchema.nullable().default(null),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
+
+/** 화면이 실제로 입는 테마 한 값 — 동기화되는 정본(`state.theme`)과 기기-로컬 감지값을 해소한다(H9).
+ *
+ *  ⚠ **해소는 여기 한 곳**이다. 예전엔 해소가 아니라 *덮어쓰기*(감지값을 정본에 써넣기)라
+ *  해소 지점이 필요 없었고, 그 대가가 "기기별 취향이 전 기기로 새는" H9 였다. 읽는 쪽이
+ *  둘을 각자 조합하기 시작하면 상단바 버튼이 "다크로 전환"이라 말하며 라이트를 보여 주는
+ *  옛 사고가 되돌아온다 — 그래서 소비처(ThemeProvider·TopBar·팔레트 액션)는 전부 이 함수를 탄다. */
+export function resolveTheme(saved: Theme | undefined, ui: Pick<UIState, 'themeAuto' | 'autoTheme'>): Theme {
+  if (ui.themeAuto && ui.autoTheme) return ui.autoTheme;
+  return saved || 'dark';
+}
 
 export const UI_KEY = 'lh_ui_v1'; // 단일 저장 키
 // 단일화 이전 산재 키 — 부팅 시 1회 흡수 후 제거.

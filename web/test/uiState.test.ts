@@ -3,7 +3,7 @@
    부팅/영속/구키 흡수/LRU를 KV 주입으로 검증(브라우저 없이).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { bootUI, defaultUI, persistUI, pushRecent, UI_KEY } from '@/lib/uiState';
+import { bootUI, defaultUI, persistUI, pushRecent, resolveTheme, UI_KEY } from '@/lib/uiState';
 import { memKV } from '@/lib/kv';
 
 describe('bootUI — 부팅/복원', () => {
@@ -23,6 +23,7 @@ describe('bootUI — 부팅/복원', () => {
       navCollapsed: false,
       ankiAutoRefresh: false,
       themeAuto: false,
+      autoTheme: null,
     });
   });
   it('손상된 JSON은 기본값으로 폴백(throw 없음)', () => {
@@ -60,6 +61,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
       navCollapsed: false,
       ankiAutoRefresh: false,
       themeAuto: false,
+      autoTheme: null,
     });
   });
   it('흡수 후 persist하면 구 키는 정리되고 단일 키만 남는다', () => {
@@ -91,6 +93,7 @@ describe('persistUI — 왕복', () => {
       navCollapsed: false,
       ankiAutoRefresh: false,
       themeAuto: false,
+      autoTheme: null,
     });
   });
 });
@@ -163,5 +166,32 @@ describe('pushRecent — LRU', () => {
     expect(r).toHaveLength(6);
     expect(r[0]).toBe('g');
     expect(r).not.toContain('f'); // 가장 오래된 게 밀려난다
+  });
+});
+
+/* ⚠⚠ H9(2026-07-30 `/감사 근본`) — **시스템 테마 감지는 기기-로컬이어야 한다.**
+
+   옛 구현은 `ThemeProvider` 가 감지 결과를 `state.theme` 에 써넣었다. 그런데 `state.theme` 은
+   D1 로 동기화되는 앱 데이터라, PC 에서 해질녘에 OS 가 다크로 바뀌면 그 값이 클라우드를 타고
+   **폰 테마까지 뒤집었다.** `uiState` 는 "따라갈까 말까는 기기별 취향"이라고 적어 놓고 그
+   취향의 *결과*를 전 기기에 뿌리고 있었다(`accent`·`fxLite` 는 올바르게 로컬이었다).
+
+   → 감지값은 `ui.autoTheme`(로컬)에 담고, 화면이 입는 값은 `resolveTheme` 이 해소한다.
+   아래 세 케이스가 그 계약 전부다 — 특히 마지막이 **사용자가 못박은 계약**(수동 선택은 다음 OS
+   변경까지 유지 · 절대규칙 #4)을 잠근다. */
+describe('resolveTheme — 동기화 정본과 기기-로컬 감지값의 해소(H9)', () => {
+  it('따라가기가 꺼져 있으면 감지값이 있어도 정본이 이긴다', () => {
+    expect(resolveTheme('dark', { themeAuto: false, autoTheme: 'light' })).toBe('dark');
+  });
+  it('따라가기가 켜져 있으면 감지값이 정본을 덮는다 — 덮을 뿐 **쓰지는 않는다**', () => {
+    expect(resolveTheme('dark', { themeAuto: true, autoTheme: 'light' })).toBe('light');
+  });
+  it('감지값이 아직 없으면 정본으로 — 정본도 없으면 다크(첫 페인트 FOUC 방지 기본)', () => {
+    expect(resolveTheme('light', { themeAuto: true, autoTheme: null })).toBe('light');
+    expect(resolveTheme(undefined, { themeAuto: true, autoTheme: null })).toBe('dark');
+  });
+  it('기본 UI 는 감지값이 비어 있다 — 켜기 전엔 아무것도 덮지 않는다', () => {
+    expect(defaultUI().autoTheme).toBeNull();
+    expect(defaultUI().themeAuto).toBe(false);
   });
 });

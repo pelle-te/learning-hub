@@ -19,6 +19,7 @@ import {
   exportSnapshot,
   isPristineState,
 } from '@/lib/persistence';
+import { resolveTheme } from '@/lib/uiState';
 import { loadReads, importReads } from '@/lib/reads';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
@@ -323,13 +324,19 @@ const THEME_CYCLE: Theme[] = ['dark', 'light'];
 const THEME_LABEL: Record<Theme, string> = { dark: '다크', light: '라이트' };
 /** 테마 토글(다크 ↔ 라이트). 에디토리얼 다크가 기본, 라이트는 대안 1종(세피아 폐기). */
 export function toggleTheme(): void {
-  const cur = st().state.theme || 'dark';
+  /* ⚠ **화면이 보고 있는 값**에서 출발한다(H9). 정본(`state.theme`)만 읽으면 시스템 따라가기가
+     켜져 있을 때 "라이트를 보면서 라이트로 전환"이 된다 — 한 번 눌러도 아무 일이 없다. */
+  const ui = useUI.getState().ui;
+  const cur = resolveTheme(st().state.theme, ui);
   const next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length] || 'dark';
   setThemeTo(next);
 }
 /** 특정 테마로 직접 전환(팔레트의 '다크/라이트 모드' 명령). */
 export function setThemeTo(t: Theme): void {
   st().setTheme(t);
+  /* ⚠ 감지값을 지운다(H9) — 안 지우면 `resolveTheme` 이 계속 OS 값을 우선해 **수동 선택이
+     화면에 반영되지 않는다.** "고른 값은 다음 OS 변경까지 유지"라는 기존 계약이 여기서 성립한다. */
+  useUI.getState().setAutoTheme(null);
   toast('테마: ' + (THEME_LABEL[t] || t), 'info', 1600);
 }
 

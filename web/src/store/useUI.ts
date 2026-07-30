@@ -19,6 +19,9 @@ export interface UIStore {
   setAnkiAutoRefresh: (on: boolean) => void;
   /** 시스템 테마 따라가기 토글 — 켜는 즉시 ThemeProvider가 현재 OS 값으로 맞춘다. */
   setThemeAuto: (on: boolean) => void;
+  /** OS 가 지금 말하는 테마(기기-로컬 · H9). `null` = 덮지 않음(정본 `state.theme` 이 보인다).
+   *  ThemeProvider 가 감지 결과를 여기 싣고, 수동 선택(`actions.setThemeTo`)이 `null` 로 지운다. */
+  setAutoTheme: (t: UIState['autoTheme']) => void;
   recordRecent: (id: string) => void;
   recentIds: () => string[];
   /** KV에서 다시 부팅(가져오기 복원 등 화면 밖 경로가 lh_ui_v1을 교체했을 때).
@@ -70,6 +73,15 @@ export const useUI = create<UIStore>()(
       setThemeAuto(on) {
         set((s) => {
           s.ui.themeAuto = on;
+          /* ⚠ 끄면 감지값도 함께 버린다(H9) — 남겨 두면 `resolveTheme` 이 무시하긴 하지만,
+             다시 켜는 순간 **옛 OS 값이 한 프레임 비친다.** 토글이 자기 부산물을 소유한다. */
+          if (!on) s.ui.autoTheme = null;
+        });
+        flush();
+      },
+      setAutoTheme(t) {
+        set((s) => {
+          s.ui.autoTheme = t;
         });
         flush();
       },

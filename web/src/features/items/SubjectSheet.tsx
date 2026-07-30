@@ -53,12 +53,20 @@ function Stepper({
       <Button sm onClick={() => bump(-step)} aria-label={`${unit} 줄이기`}>
         –
       </Button>
+      {/* ⚠⚠ **`emptyValue` 를 주지 않는다**(H25 · 2026-07-30 `/감사 근본`). 이 스텝퍼는 주당 목표
+          시간·매일 학습(분)을 받는데, 값을 고쳐 치려고 칸을 비우고 떠나면 `emptyValue={0}` 은
+          **0 을 확정한다.** 그 결과가 특히 나쁜 이유는 표시가 따라오지 않기 때문이다 —
+          호출부가 `item.weeklyHours || 3` 이라 저장값 0 을 화면은 계속 "3h" 로 보여주고,
+          스케줄러는 `|| 0` 로 읽어 그 과목의 예산을 0 으로 잡는다(**화면과 정본이 갈린다**).
+          `Settings` 의 같은 이름 스텝퍼는 이미 이 사고를 겪고 주석으로 못박아 뒀는데, 이쪽
+          사본에만 살아 있었다. 비우고 떠나면 **직전 값이 되살아난다**(NumberField 기본).
+          ⚠ 아래 요일 칸의 `emptyValue={0}` 은 그대로 둔다 — 거기서 0 은 "이 요일엔 배분 안 함"
+          이라는 **의미 있는 값**이다(같은 기본값이 두 자리에서 뜻이 다르다). */}
       <NumberField
         id={id}
         step={step}
         min={0}
         value={value}
-        emptyValue={0}
         onCommit={(v) => onChange(clamp(v))}
         style={{ textAlign: 'center' }}
       />

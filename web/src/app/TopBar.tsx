@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { actions, io, Icon } from '@/shell';
-import { useApp } from '@/store/useApp';
+import { useTheme } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
 import { useOverlay } from '@/store/useOverlay';
 import { MOD_LABEL, MOD_K_LABEL } from '@/lib/platform';
@@ -80,7 +80,9 @@ export default function TopBar() {
   // `window.dispatchEvent('lh:open-shortcuts')` 라는 DOM 이벤트 우회였다(같은 일, 두 배선).
   const openPalette = useOverlay((s) => s.setPalette);
   const openHelp = useOverlay((s) => s.setHelp);
-  const theme = useApp((s) => s.state.theme) || 'dark';
+  // ⚠ 정본(`state.theme`)이 아니라 **해소된** 테마다(H9) — 시스템 따라가기가 켜져 있으면
+  //    정본과 화면이 다를 수 있고, 그때 정본을 읽으면 이 버튼이 반대 방향을 말한다.
+  const theme = useTheme();
   const readouts = usePageChrome((s) => s.readouts);
   const primary = usePageChrome((s) => s.primary);
   const action = usePageChrome((s) => s.action);
