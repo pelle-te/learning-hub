@@ -33,7 +33,7 @@
     "e2e:smoke": "playwright test smoke",
     "e2e:a11y": "playwright test a11y",
     "e2e:motion": "playwright test -c playwright.motion.config.ts",
-    "_주석:e2e:motion:update": "모션 베이스라인 재생성. ⚠ `--update-snapshots` 를 **값 없이** 주면 기본이 `changed` 라 임계 아래로 드리프트한 낡은 것이 조용히 남는다 — `e2e:update` 가 `=all` 로 못박힌 것과 같은 이유(그쪽만 있고 이쪽은 없어서 손으로 치고 있었다).",
+    "_주석:e2e:motion:update": "모션 베이스라인 재생성. ⚠ --update-snapshots 를 **값 없이** 주면 기본이 changed 라 임계 아래로 드리프트한 낡은 것이 조용히 남는다 — e2e:update 가 =all 로 못박힌 것과 같은 이유(그쪽만 있고 이쪽은 없어서 손으로 치고 있었다). ⚠ 이 설명에 백틱을 쓰지 말 것 — knip 이 스크립트를 셸로 파싱해 명령치환으로 읽고 'unlisted binary' 로 실패한다(실측).",
     "e2e:motion:update": "playwright test -c playwright.motion.config.ts --update-snapshots=all",
     "e2e:shell": "playwright test -c playwright.shell.config.ts",
     "gate": "node scripts/gate.mjs",
