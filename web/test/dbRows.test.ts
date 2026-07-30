@@ -81,7 +81,7 @@ describe('왕복 동형 — 슬라이스별', () => {
     expect(back.summaries.a!.map((x) => x.id)).toEqual(['s1', 's2']);
   });
 
-  it('id 없는 로그(retentionLog)도 왕복한다 — 순번이 정체성', () => {
+  it('`id` 필드가 없는 로그(retentionLog)도 왕복한다', () => {
     const s = defaults() as AppState & Record<string, unknown>;
     s.retentionLog = [
       { wk: 'w1', at: 'a1', due: 1, cards: 1 },
@@ -89,6 +89,95 @@ describe('왕복 동형 — 슬라이스별', () => {
       { wk: 'w3', at: 'a3', due: 3, cards: 3 },
     ];
     expect(roundTrip(s as AppState).retentionLog).toEqual(s.retentionLog);
+  });
+});
+
+/* ============================================================
+   C-3(2026-07-30 `/감사 근본`) — **동기화 행 키는 위치가 아니라 정체성이다.**
+
+   ⚠ 이 절의 첫 케이스는 옛 테스트 이름을 뒤집는다. 종전 케이스는 _"순번이 정체성"_ 이라고
+   **결함을 계약으로 적어** 두고 있었다(retentionLog). 행 단위 LWW 에서 위치를 키로 쓰면:
+
+   · 두 기기의 **동시 추가**가 같은 키를 써서 하나가 툼스톤도 없이 사라진다.
+   · 앞을 잘라내는 로그(`slice(-26)`)에서 **전 행의 키가 한 칸씩 밀려** 통째로 재전송된다.
+   · 중간 삭제가 뒤 행 전부를 "다른 행"으로 만들어 툼스톤을 대량 발생시킨다.
+
+   여기서 잠그는 것은 왕복이 아니라 **키의 안정성**이다 — 왕복은 위 절이 이미 본다.
+============================================================ */
+describe('⚠⚠ C-3 — 행 키가 위치에 흔들리지 않는다', () => {
+  /** `diffRows` 가 낸 문장에서 (테이블, 키) 쌍만 뽑는다. */
+  const keysOf = (stmts: { sql: string; args: unknown[] }[], tbl: string): string[] =>
+    stmts
+      .filter((s) => s.sql.includes(`INTO ${tbl} `) || s.sql.includes(`FROM ${tbl} `))
+      .map((s) => `${s.args[0]}|${s.args[1]}`);
+
+  const withSummaries = (list: { id: string; s1: string }[]): AppState => {
+    const s = defaults() as AppState & Record<string, unknown>;
+    s.summaries = { math: list };
+    return s as AppState;
+  };
+
+  it('같은 과목의 요약 둘은 **서로 다른 행 키**를 갖는다 — 동시 추가가 뭉개지지 않는다', () => {
+    const rows = stateToRows(
+      withSummaries([
+        { id: 'aaa', s1: 'A' },
+        { id: 'bbb', s1: 'B' },
+      ]),
+    );
+    expect(rows.summaries.map((r) => r.id)).toEqual(['aaa', 'bbb']);
+    /* 종전엔 둘 다 ord 0,1 이었고 **다른 기기의 첫 요약도 0** 이었다 — 그래서 충돌했다.
+       지금 키의 두 번째 성분은 위치와 무관한 값이다. */
+    expect(rows.summaries.map((r) => r.ord)).toEqual([0, 1]);
+  });
+
+  it('맨 앞 요약을 지워도 남은 요약의 키가 안 바뀐다 — 툼스톤 대량 발생 차단', () => {
+    _resetStamp();
+    const before = stateToRows(
+      withSummaries([
+        { id: 'aaa', s1: 'A' },
+        { id: 'bbb', s1: 'B' },
+        { id: 'ccc', s1: 'C' },
+      ]),
+    );
+    const after = stateToRows(
+      withSummaries([
+        { id: 'bbb', s1: 'B' },
+        { id: 'ccc', s1: 'C' },
+      ]),
+    );
+    const stmts = diffRows(before, after, 1000);
+
+    // 지워진 것은 'aaa' 하나여야 한다 — 위치 키였다면 세 행 전부가 다른 행이 된다.
+    const tombs = stmts.filter((s) => s.sql.includes('INTO tombstones'));
+    expect(tombs).toHaveLength(1);
+    expect(tombs[0]!.args).toContain('aaa');
+
+    /* 남은 둘은 `ord` 가 1,2 → 0,1 로 바뀌므로 upsert 는 일어난다(표시 순서는 데이터다).
+       핵심은 그것이 **같은 키의 갱신**이라는 것 — 삭제+삽입이 아니다. */
+    const upserted = keysOf(
+      stmts.filter((s) => s.sql.includes('INSERT OR REPLACE INTO summaries')),
+      'summaries',
+    );
+    expect(upserted).toEqual(['math|bbb', 'math|ccc']);
+  });
+
+  it('retentionLog 의 키는 `wk` 다 — 앞을 잘라내도 남은 행의 키가 안 밀린다', () => {
+    _resetStamp();
+    const mk = (wks: string[]): AppState => {
+      const s = defaults() as AppState & Record<string, unknown>;
+      s.retentionLog = wks.map((wk, i) => ({ wk, at: `a${i}`, due: i, cards: i }));
+      return s as AppState;
+    };
+    const before = stateToRows(mk(['w1', 'w2', 'w3']));
+    expect(before.arrays.retentionLog.map((r) => r.id)).toEqual(['w1', 'w2', 'w3']);
+
+    // `slice(-2)` 흉내 — 가장 오래된 주가 떨어진다.
+    const stmts = diffRows(before, stateToRows(mk(['w2', 'w3'])), 1000);
+    const tombs = stmts.filter((s) => s.sql.includes('INTO tombstones'));
+    /* 순번 키였을 때: 'w1' 이 아니라 **index 2** 가 지워지고 0·1 이 재기입됐다(= 매주 26행 전량
+       재전송). 지금은 떨어진 주 하나만 툼스톤이 된다. */
+    expect(tombs).toHaveLength(1);
+    expect(tombs[0]!.args).toContain('w1');
   });
 });
 

@@ -142,33 +142,43 @@ describe('useApp — 멀티탭 스냅샷 채택 정책(마지막 편집자 우�
 });
 
 /* ============================================================
-   C1(2026-07-24 감사) — **병합 반영 창의 flush 게이트**.
+   병합 반영 창 — **게이트가 어디에 있는가**(C1 2026-07-24 → C-2 2026-07-30).
 
-   `applyPull` 이 기준선을 병합-후로 세운 뒤 `applyMerged` 가 메모리를 반영하기 전 창에서
-   디바운스 flush 가 돌면, 낡은 메모리를 병합-후 기준선과 diff 해 받아온 행을 되돌린다(그 되돌림이
-   LWW 로 서버까지 이겨 다른 기기 편집이 조용히 소실 — silent loss). `isMergeApplyPending()` 이
-   그 창에서 flush 를 미루는지 잠근다. 게이트는 `isSqlitePrimary()` 분기 **앞**이라 브라우저
-   (localStorage) 경로에서도 동일하게 발화하므로 jsdom 에서 그대로 검증된다.
+   ⚠⚠ **이 절의 케이스 하나가 2026-07-30 `/감사 근본`(C-2)에서 옮겨졌다. 약화가 아니라 이동이고,
+   왜인지를 여기 남긴다** — 안 남기면 다음 사람이 "회귀 커버리지가 줄었다"고 읽는다.
+
+   옛 케이스는 게이트가 `isSqlitePrimary()` 분기 **앞**에 있다는 점을 이용해 **브라우저
+   (localStorage) 경로**로 검증했다. 편리했지만 두 가지가 문제였다:
+
+   · **위험이 없는 경로를 검사했다.** 이 게이트가 지키는 것은 SQLite **diff 기준선**이다
+     (`readRows`/`setDiffBaseline`). 브라우저엔 그 기준선도, `applyPull` 도 없다 — 지킬 대상이
+     아예 없는 곳에서 게이트가 발화하는지를 봤다.
+   · **결함을 원리적으로 못 봤다.** 옛 케이스는 `beginMergeApply()` 를 **손으로 먼저 켜고**
+     flush 를 불렀다. 실제 결함은 *창이 켜지기 전에 시작된 flush* 였고(플래그는 `applyPull`
+     콜백 마지막 줄에서 켜진다), 그 인터리브는 이 형태로 관측되지 않는다.
+
+   → 판정이 `writeAndVerify` 안으로 들어갔고(C-2), 순서를 잠그는 회귀는
+     **`test/dbMergeWindow.test.ts`** 가 소유한다. 여기 남기는 것은 이 파일의 관심사인
+     **큐 보존**이다: 미룬 회차가 `pending` 을 버리지 않아야 한다.
 ============================================================ */
-describe('useApp — 병합 반영 창(C1) flush 게이트', () => {
-  it('병합 반영 중에는 flush 가 미뤄져 낡은 메모리를 쓰지 않는다', async () => {
+describe('useApp — 병합 반영 창', () => {
+  it('브라우저 경로에는 게이트가 없다 — SQLite 기준선이 없으므로 지킬 대상도 없다', async () => {
+    endMergeApply();
     useApp.getState().mutate((s) => {
-      s.moduleLen = 42; // 디바운스 대기 편집(아직 미저장)
+      s.moduleLen = 42;
     });
-    localStorage.removeItem(KEY); // 이전 저장 흔적 제거
-    beginMergeApply(); // applyPull 이 기준선을 세운 창을 흉내
-    useApp.getState().flushNow(); // 이 창에서 flush 시도 → 미뤄져야 한다
+    localStorage.removeItem(KEY);
+    beginMergeApply(); // 창을 켜도 브라우저 경로는 영향받지 않는다(SQLite 정본이 아니다)
+    useApp.getState().flushNow();
     await tick();
-    expect(localStorage.getItem(KEY), '병합 창에서 flush 가 쓰면 받아온 행을 되돌린다(C1)').toBeNull();
-
-    endMergeApply(); // 메모리 반영 완료 = 창 종료
-    useApp.getState().flushNow(); // 이제 그 편집이 정본에 쓰인다
-    await tick();
+    /* ⚠ 여기서 `toBeNull()` 을 기대하면 안 된다 — 그건 위험이 없는 경로에 게이트를 요구하는
+       것이고, 그 요구가 판정을 체인 밖에 붙들어 두고 있었다(= C-2 의 원인). */
     const saved = JSON.parse(localStorage.getItem(KEY)!) as { moduleLen: number };
     expect(saved.moduleLen).toBe(42);
+    endMergeApply();
   });
 
-  it('창이 닫힌 평시에는 flush 가 정상 동작한다(게이트가 상시가 아님)', async () => {
+  it('창이 닫힌 평시에는 flush 가 정상 동작한다', async () => {
     endMergeApply(); // 방어: 이전 테스트 잔류 없음 보장
     useApp.getState().mutate((s) => {
       s.moduleLen = 43;

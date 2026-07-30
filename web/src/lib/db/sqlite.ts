@@ -247,7 +247,8 @@ export async function readRows(): Promise<DbRows | null> {
     db.select<Row[]>('SELECT ds, k, value FROM completions'),
     db.select<Row[]>('SELECT slice, ds, value FROM ds_map'),
     db.select<Row[]>('SELECT slice, id, ord, value FROM records ORDER BY slice, ord'),
-    db.select<Row[]>('SELECT sid, ord, value FROM summaries ORDER BY sid, ord'),
+    // ⚠ `id` 가 키의 절반이다(C-3 · v9). 정렬은 여전히 `ord` — 표시 순서는 데이터 열이다.
+    db.select<Row[]>('SELECT sid, id, ord, value FROM summaries ORDER BY sid, ord'),
     db.select<Row[]>('SELECT wk, sid, value FROM week_alloc'),
   ]);
 
@@ -261,7 +262,7 @@ export async function readRows(): Promise<DbRows | null> {
     completions: completions.map((r) => ({ ds: str(r.ds), k: str(r.k), json: str(r.value) })),
     dsMaps: { dayOverrides: [], dayPlans: [], rituals: [], resume: [] },
     arrays: { cbms: [], backlog: [], blankResults: [], retentionLog: [], events: [], tasks: [] },
-    summaries: summaries.map((r) => ({ sid: str(r.sid), ord: Number(r.ord), json: str(r.value) })),
+    summaries: summaries.map((r) => ({ sid: str(r.sid), id: str(r.id), ord: Number(r.ord), json: str(r.value) })),
     weekAlloc: weekAlloc.map((r) => ({ wk: str(r.wk), sid: str(r.sid), json: str(r.value) })),
   };
   for (const r of dsMap) {

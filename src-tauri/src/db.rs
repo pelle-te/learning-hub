@@ -163,6 +163,18 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: include_str!("../migrations/008_day_signals.sql"),
         },
+        /* C-3(2026-07-30 `/감사 근본`) — `summaries` 의 동기화 키를 **위치에서 정체성으로**.
+        기본키가 `(sid, ord)` 였고 `ord` 는 배열 인덱스라, 두 기기의 동시 추가가 같은 키를 써서
+        **하나가 툼스톤도 없이 사라졌다**(삭제+편집은 어느 기기에도 없던 목록을 만들었다).
+        안정 id 는 `addSummary` 가 이미 넣고 있었고 동기화 계층만 위치를 쓰고 있었다.
+        ⚠ 기본키 변경이라 표를 다시 만든다 → 기존 행의 id 는 JSON 본문에서 꺼낸다(그러지 않으면
+          다음 부팅의 diff 가 전 요약을 "삭제+삽입"으로 보아 툼스톤이 대량 발생한다). */
+        Migration {
+            version: 9,
+            description: "C-3 summaries 키를 (sid,ord)→(sid,id) — 위치 키가 동시 추가를 삼켰다",
+            kind: MigrationKind::Up,
+            sql: include_str!("../migrations/009_summaries_identity.sql"),
+        },
     ]
 }
 
@@ -392,6 +404,25 @@ mod tests {
         });
 
         for (t, n) in zeros {
+            /* ⚠⚠ **`settings` 는 면제다 — C-1(2026-07-30 `/감사 근본`) 이후 0 이 의도된 값이다.**
+
+            C-1 은 "아직 아무것도 안 한 기기"의 `defaults()` 를 **스탬프 0** 으로 쓴다. 그 0 이
+            세 경로를 동시에 닫아(수집에 안 걸림 · 서버 LWW 에서 못 이김 · 병합에서 짐) 새 PC 의
+            시드 기본값이 계정을 덮는 것을 막는다 — 근거는 `web/src/lib/db/boot.ts` 의
+            `PRISTINE_STAMP` 주석이 SSOT.
+
+            그런 행은 **`settings` 에만** 생긴다: pristine 이란 곧 활동 표가 비어 있다는 뜻이고
+            (`completions`·`records`·`summaries`·`ds_map`·`week_alloc` 는 행이 0개), `routine`·
+            `degree`·`startDate` 같은 시드는 전부 `settings` 로 간다.
+
+            ⚠ 잃는 것을 정직하게 적는다: 이 면제 때문에 *실제 편집이 실수로 0 을 받는* 경우를
+              `settings` 에서는 이 검사가 더 못 잡는다. 그 자리를 대신 지키는 것은
+              `web/test/dbBoot.test.ts` 의 C-1 케이스 셋이다(pristine→0 · 실데이터→청크 스탬프 ·
+              시드에 속지 않음). 활동 표 5개에서는 검사가 **종전 강도 그대로** 남는다 —
+              v6 이 고친 조용한 유실이 자라는 곳이 거기다. */
+            if t == "settings" {
+                continue;
+            }
             assert_eq!(
                 n, 0,
                 "{t} 에 0 스탬프 행이 {n}개 — v6 백필이 안 돌았거나 새로 생겼다(동기화에서 영원히 빠진다)"

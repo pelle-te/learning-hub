@@ -39,6 +39,9 @@ export interface ParityReport {
   /** SQLite 가 **정본인데** 연결에 실패했다(C1). `ok:false` 와 함께 온다 —
    *  호출부는 localStorage 폴백 + 지속 배너로 이어야 한다. */
   unavailable: boolean;
+  /** 병합 반영 창이라 **쓰지 않고 미뤘다**(C-2). 실패가 아니다 — 호출부는 편집 큐를 **되살리고**
+   *  재예약해야 한다. 경고·폴백 대상이 아니므로 `ok:true` 와 함께 온다. */
+  deferred?: boolean;
 }
 
 let _last: ParityReport = { ok: true, mismatched: [], skipped: true, unavailable: false };
@@ -128,7 +131,33 @@ function diffSlices(a: AppState, b: AppState): string[] {
 export function writeAndVerify(state: AppState): Promise<ParityReport> {
   // 체인으로 이어 붙인다 — 동시 실행하면 두 스냅샷 쓰기가 서로 섞여 마지막 것이 정본이 아닐 수 있다.
   // 그리고 `whenSettled()` 가 기다릴 대상이 하나로 모인다.
-  return runExclusive(() => runWrite(state));
+  return runExclusive(async () => {
+    /* ⚠⚠ **병합창 판정은 반드시 체인 *안*에서 한다(C-2 · 2026-07-30 `/감사 근본`).**
+
+       종전엔 `useApp.flush` 가 체인 **밖에서** `isMergeApplyPending()` 을 보고 통과 여부를
+       정했다. 그런데 창을 켜는 `beginMergeApply()` 는 `applyPull` 의 `runExclusive` 콜백
+       **마지막 줄**에 있다 — 즉 그 콜백이 도는 동안(데스크톱 plugin-sql 순차 execute 라
+       pull 200행이면 수백 ms) 플래그는 **아직 false** 다. 그 창에 flush 가 판정하면:
+
+         ① 가드를 통과한다(플래그 false) → ② `writeAndVerify` 가 체인 **뒤에** 줄을 선다
+         → ③ `applyPull` 이 끝나 기준선이 **병합-후**로 세워진다
+         → ④ 이제 우리 차례인데 손에 든 것은 **병합-전 메모리**다
+         → `diffRowsDetailed(병합-후 기준선, 병합-전 메모리)` = **받아온 행을 되돌리는 upsert
+           + 상대 기기가 만든 행의 툼스톤** → 다음 push 가 그걸 서버까지 밀어 **다른 기기
+           편집이 영구 소실**된다.
+
+       가드가 막으려던 결과와 **정확히 같다** — 판정 시점만 창 밖이었다. 체인 안으로 옮기면
+       ①③ 사이가 원자적이 되어 인터리브 자체가 성립하지 않는다.
+
+       ⚠ H4(2026-07-24)가 병합 *쓰기*를 이 체인에 얹었고, C1 이 *플래그*를 더했다. 남아 있던
+         것은 **그 플래그를 어디서 읽는가**였다. 두 수정의 미완이 이 한 줄이다. */
+    if (isMergeApplyPending()) {
+      /* ⚠ `_last` 를 갈아치우지 않는다 — 미룬 것은 대조 결과가 아니다. 여기서 덮으면 설정 탭
+         진단이 "마지막 저장은 skipped" 라고 말하기 시작한다(안 잰 것을 결과로 보고하는 형태). */
+      return { ok: true, mismatched: [], skipped: true, unavailable: false, deferred: true };
+    }
+    return runWrite(state);
+  });
 }
 
 /**

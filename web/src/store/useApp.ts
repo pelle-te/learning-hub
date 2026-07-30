@@ -11,7 +11,8 @@ import { boot, persist, serialize, setDone, defaults, CORRUPT_KEY, KEY } from '@
 import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
-import { writeAndVerify, isMergeApplyPending, endMergeApply } from '@/lib/db/write';
+// ⚠ `isMergeApplyPending` 은 이제 여기서 읽지 않는다 — 판정이 `writeAndVerify` 안으로 갔다(C-2).
+import { writeAndVerify, endMergeApply } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
 import { markDbFallback, setSaveFallback } from '@/lib/db/fallback';
@@ -134,15 +135,16 @@ export const useApp = create<AppStore>()(
         clearTimeout(timer);
         timer = null;
       }
-      /* ⚠⚠ **병합 반영 중이면 쓰지 않고 미룬다(C1).** `applyPull` 이 기준선을 병합-후로 세운 뒤
-         `applyMerged` 가 메모리를 반영하기 전 창에서 여기 쓰면, 낡은 메모리를 병합-후 기준선과 diff 해
-         **받아온 행을 되돌리는** 문장을 만든다(그 되돌림이 LWW 로 서버까지 이겨 다른 기기 편집이 조용히
-         소실된다 · `db/write.ts` `isMergeApplyPending` 주석). 편집은 `pending` 에 남겨 두고 재예약해,
-         `applyMerged` 가 창을 닫은 뒤 그 편집만 병합 스냅샷 위에 diff 로 쓰게 한다. */
-      if (isMergeApplyPending()) {
-        if (pending.length) schedulePersist();
-        return;
-      }
+      /* ⚠⚠ **병합 반영 중이면 쓰지 않고 미룬다(C1) — 그 판정은 이제 `writeAndVerify` 안에 있다(C-2).**
+
+         종전엔 여기서 `isMergeApplyPending()` 을 보고 `return` 했다. 그 판정은 `runExclusive` 체인
+         **밖**이라, 창을 켜는 `beginMergeApply()` 가 `applyPull` 콜백 *마지막 줄*에 있는 동안(=그
+         콜백이 도는 수백 ms) 플래그가 아직 false 여서 **가드를 통과했다**. 통과한 쓰기는 체인 뒤에
+         줄을 서서 *병합-후 기준선* 과 *병합-전 메모리* 를 diff 하고, 그것이 곧 받아온 행을 되돌리는
+         문장이다 — 가드가 막으려던 결과 그대로다. 상세 논증은 `db/write.ts` 의 C-2 절이 SSOT.
+
+         → 판정을 체인 안 한 곳으로 옮기고, 여기서는 그 결과(`r.deferred`)를 **받아서** 큐를
+           되살리고 재예약한다. 판정이 두 곳이면 언젠가 한쪽만 고쳐진다. */
       // 런타임 캐시(useRuntime)는 저장 직전에만 병합 — 디스크 JSON 형태는 분리 이전과 동일(계약 불변).
       const merged = mergeRuntime(get().state);
 
@@ -155,8 +157,22 @@ export const useApp = create<AppStore>()(
          아니지만 SQLite 가 정본이다. 여기를 안 바꾸면 폰 편집이 localStorage 로 가는데
          **아웃박스는 SQLite 만 훑으므로 그 편집은 영원히 동기화되지 않는다**(조용한 유실). */
       if (isSqlitePrimary()) {
-        pending = []; // 셸·폰 모두 단일 윈도우 — rebase 상대가 없으므로 큐를 들고 있을 이유가 없다
+        /* ⚠⚠ **큐를 버리지 말고 이 회차가 빌린다(C-2).** 옛 주석은 _"셸·폰 모두 단일 윈도우 —
+           rebase 상대가 없으므로 큐를 들고 있을 이유가 없다"_ 였는데, **rebase 상대가 있다**:
+           `applyMerged` 가 클라우드 병합 스냅샷 위에 `pending` 을 재적용한다(그 함수 주석이 그것을
+           자기 존재 이유로 든다). 즉 여기서 비우면 병합창에 걸린 편집이 메모리·큐·타이머 어디에도
+           남지 않아 **영구 소실**된다 — C-2 의 두 번째 절반이다.
+           같은 파일 아래 브라우저 경로는 이 규율을 이미 지킨다(_"큐 소진은 저장이 성공한 뒤에만"_). */
+        const borrowed = pending;
+        pending = [];
         void writeAndVerify(merged).then((r) => {
+          /* 미뤘다면 실패가 아니다 — 빌린 큐를 **그 사이 쌓인 것보다 앞에** 돌려놓고(시간 순서
+             보존) 재예약한다. `applyMerged` 가 창을 닫으며 이 recipe 들을 병합 스냅샷에 재적용한다. */
+          if (r.deferred) {
+            pending = [...borrowed, ...pending];
+            schedulePersist();
+            return;
+          }
           /* ⚠⚠ **정본이 죽었으면 여기서 끝내지 않는다(C1 · 2026-07-26 감사).** 예전엔 연결 실패가
              `skipped`(= "브라우저라 정상")로 와서 이 콜백이 아무것도 안 했고, 위 `return` 때문에
              아래 localStorage 폴백도 안 탔다. 결과: 그 세션 편집이 **메모리에만** 살고 재시작하면

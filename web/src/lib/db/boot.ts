@@ -10,7 +10,7 @@
    기본값으로 부팅하면 기존 셸 사용자의 데이터가 통째로 사라진다 — 그 사용자의 정본은 아직
    localStorage 에 있다. 그래서 빈 DB 는 "새 사용자"가 아니라 **"아직 이관 안 됨"**으로 읽는다.
 ============================================================ */
-import { boot } from '../persistence';
+import { boot, isPristineState } from '../persistence';
 import { storage } from '../kv';
 // ⚠ 부팅 경로 — `isTauri` 는 초소형 모듈에서(H7). `dbVersionGuard` 는 셸 분기 안에서 동적으로.
 import { isTauri } from '../isTauri';
@@ -24,6 +24,35 @@ import { chunkedStamp, seedStamp } from './stamp';
 /** 최초 이관의 청크 크기 — `MAX_BATCH_ITEMS`(500) 아래로 여유를 두어 단일 스탬프 그룹이
  *  아웃박스 배치 상한을 넘지 않게 한다(C1 · `stamp.ts`·`cloud/contract.ts` 참조). */
 const MIGRATION_STAMP_CHUNK = 400;
+
+/* ⚠⚠ **아직 아무것도 안 한 기기의 기본값에 찍는 스탬프 = 0**(C-1 · 2026-07-30 `/감사 근본`).
+
+   `updated_at = 0` 은 이 저장소에 이미 있는 규약이다("아주 오래된 것" · `db.rs` v3). 그 한 값이
+   세 경로를 **동시에** 닫는다:
+
+   · 아웃박스 수집(`collectOutbox`)이 `updated_at > watermark(0)` 이라 **애초에 안 걸린다.**
+   · 서버 LWW(`WHERE excluded.updated_at > …`)에서 0 은 **무엇에도 못 이긴다.**
+   · 로컬 병합(`merge.ts`)에서 받아온 행이 항상 이겨 **진짜 데이터가 들어온다.**
+
+   막는 결함: 새 PC(빈 localStorage + 빈 DB)에서 `boot()` 는 `defaults()` 를 주고, 그것을
+   *지금* 스탬프로 쓰면 → 설정 탭에서 클라우드에 연결하는 순간 `runSyncOnce` 가 **push 를 먼저**
+   하므로(`run.ts`) 워터마크 0 에서 전량이 올라가고, 서버 LWW 가 **어제 쓴 진짜 데이터를 오늘
+   스탬프의 시드 기본값에 진다**. 과목·졸업계획·일과·주간배분이 초기화되고 폰·구 PC 가 그것을
+   pull 한다. 사용자 실수도 경합도 필요 없다 — **온보딩 설계 경로 그대로 재현된다.**
+
+   ⚠ 이 규칙은 `initPhoneStore` 가 이미 지키던 것이다(_"빈 DB 에 `defaults()` 를 쓰지 않는다 —
+     첫 부팅이 사용자의 전 데이터를 지우는 경로다"_). 규칙은 적혀 있었고 **집행이 한쪽에만
+     있었다.** 여기가 그 짝이다.
+   ⚠ **`isPristineState` 일 때만** 0 이다. 실제로 쓴 데이터(로컬 정본)를 이관하는 경우는
+     종전 그대로 청크 스탬프로 올라가야 한다 — 그 사용자의 편집은 정말로 최신이다.
+   ⚠ 편집 한 번이 이 상태를 벗어나게 한다: `diffRowsDetailed` 는 **데이터가 바뀐 행에만** 새
+     스탬프를 찍으므로, 손댄 행은 즉시 정상 스탬프를 받고 나머지는 0 으로 남는다. 증분 diff 가
+     폭발 반경을 스스로 가둔다 — 그래서 별도 플래그·별도 경로가 필요 없다.
+   ⚠⚠ **이 0 들을 backfill 하지 말 것.** v6(`006_backfill_stamps.sql`)이 `updated_at=0` 행을
+     실제 스탬프로 올린 것은 `updated_at` 열이 생기기 *전에* 만들어진 레거시 행을 동기화에
+     복귀시키려는 1회성 조치였다. 여기 0 은 **의도된 값**이고, 같은 backfill 을 다시 돌리면
+     이 결함이 그대로 부활한다. */
+const PRISTINE_STAMP = 0;
 
 let _preloaded: AppState | null = null;
 let _migrated = false;
@@ -136,7 +165,9 @@ export async function initAppStore(): Promise<void> {
        `if (!ok)` 로 쓰면 객체는 언제나 truthy 라 **쓰기 실패가 조용히 성공으로 읽힌다**(이관이
        실패했는데 `_migrated = true` 가 되고, 그 다음 부팅은 빈 DB 를 정본으로 본다). 타입은
        이걸 안 잡아 준다 — 그래서 구조분해로 받는다. */
-    const { ok } = await writeRows(stateToRows(fromLocal), chunkedStamp(MIGRATION_STAMP_CHUNK));
+    /* ⚠ 스탬프 선택이 이 줄의 전부다 — 근거는 위 `PRISTINE_STAMP` 주석(C-1). */
+    const stamp = isPristineState(fromLocal) ? PRISTINE_STAMP : chunkedStamp(MIGRATION_STAMP_CHUNK);
+    const { ok } = await writeRows(stateToRows(fromLocal), stamp);
     if (!ok) return; // 쓰기 실패 — localStorage 경로로 부팅(정본은 아직 거기 있다)
     _preloaded = fromLocal;
     _migrated = true;

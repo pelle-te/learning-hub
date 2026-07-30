@@ -138,6 +138,52 @@ describe('⚠ 빈 DB = "새 사용자"가 아니라 "아직 이관 안 됨"', ()
   });
 });
 
+/* ⚠⚠ **C-1(2026-07-30 `/감사 근본`) — 새 기기의 기본값이 계정을 덮던 경로.**
+
+   무엇을 잠그는가: 이관 쓰기에 넘기는 **스탬프**다. 그 한 인자가 세 경로를 결정한다 —
+   아웃박스 수집(`updated_at > watermark`)·서버 LWW(`excluded.updated_at >`)·로컬 병합.
+   `defaults()` 를 *지금* 스탬프로 쓰면 첫 클라우드 연결의 push-먼저 순서(`run.ts`)에서
+   **시드 기본값이 진짜 데이터를 이긴다.**
+
+   ⚠ 여기서 되읽기·서버를 흉내내지 않는다 — 그 층은 `cloudOutbox`·`server/test/roundtrip` 이
+     이미 갖고 있다. 이 파일이 볼 수 있는 **관측 지점은 스탬프 인자 하나**이고, 그것이 정확히
+     결함의 원인이었다. 결과까지 흉내내면 검사가 대상보다 커진다. */
+describe('⚠⚠ 아직 아무것도 안 한 기기는 자기 기본값을 정본처럼 밀어올리지 않는다(C-1)', () => {
+  /** `writeRows(rows, stamp)` 의 두 번째 인자. */
+  const stampArg = (): unknown => writeRows.mock.calls[0]?.[1];
+
+  it('pristine(진짜 새 사용자)이면 스탬프가 0 이다 — 어떤 LWW 비교에서도 못 이긴다', async () => {
+    readRows.mockResolvedValue(null); // 빈 DB + 빈 localStorage = defaults()
+    await initAppStore();
+
+    expect(didMigrate()).toBe(true);
+    /* 0 이어야 한다. 함수(청크 스탬프)나 양수면 그 값이 곧 "지금"이고, 그러면 이 기기의
+       기본값이 서버의 진짜 데이터를 덮는다. */
+    expect(stampArg()).toBe(0);
+  });
+
+  it('실제로 쓴 데이터를 이관하면 종전대로 청크 스탬프다 — 그 편집은 정말로 최신이다', async () => {
+    persist(storage, marked('2026-06-04')); // 활동 흔적 있음 = pristine 아님
+    readRows.mockResolvedValue(null);
+    await initAppStore();
+
+    /* 함수여야 한다(`chunkedStamp`). 여기까지 0 으로 만들면 C1(2026-07-24)이 고친 결함의
+       반대편으로 넘어간다 — 수개월치 로컬 정본이 **영원히 업로드되지 않는다**. */
+    expect(typeof stampArg()).toBe('function');
+  });
+
+  it('pristine 판정이 시드 데이터에 속지 않는다 — defaults 는 일과·졸업시드를 이미 갖고 있다', async () => {
+    readRows.mockResolvedValue(null);
+    await initAppStore();
+    const written = writeRows.mock.calls[0]![0] as ReturnType<typeof stateToRows>;
+    /* `defaults()` 에는 일과 블록 9개가 들어 있다. 그게 있어도 pristine 이어야 한다 —
+       pristine 의 뜻은 "행이 없다"가 아니라 **"사용자가 아직 아무것도 안 했다"**다.
+       이 단언이 없으면 defaults 에 시드가 하나 늘어날 때 위 두 케이스가 조용히 무의미해진다. */
+    expect(written.settings.length).toBeGreaterThan(0);
+    expect(stampArg()).toBe(0);
+  });
+});
+
 describe('실패는 전부 localStorage 폴백으로 수렴한다', () => {
   it('DB 미가용이면 폴백', async () => {
     isDbAvailable.mockResolvedValue(false);

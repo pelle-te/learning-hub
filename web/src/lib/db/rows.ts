@@ -24,7 +24,9 @@ import type { AppState } from '../types';
  *  (정렬·프루닝 어디도 `ds` 를 파싱하지 않는다). 새 테이블 0 · 서버 DDL 0 으로 기기별 1행을
  *  얻는 자리가 여기뿐이라 중요하다: 각 기기가 **자기 행만 쓰므로 동기화 충돌이 원리적으로 없다**. */
 const DS_MAP_SLICES = ['dayOverrides', 'dayPlans', 'rituals', 'resume'] as const;
-/** id 를 가진 배열 슬라이스. retentionLog 만 id 가 없어 순번을 id 로 쓴다. */
+/** 배열 슬라이스(`records` 테이블 = `(slice, id, ord, value)`).
+ *  ⚠ 행 정체성은 `id` 필드 → `ARRAY_ROW_ID` → 순번 순으로 정한다. 옛 주석은 _"retentionLog 만
+ *  id 가 없어 순번을 id 로 쓴다"_ 였는데, 순번은 동기화 키로 쓸 수 없다(C-3 · 아래 참조). */
 export const ARRAY_SLICES = ['cbms', 'backlog', 'blankResults', 'retentionLog', 'events', 'tasks'] as const;
 export type ArraySlice = (typeof ARRAY_SLICES)[number];
 
@@ -47,6 +49,9 @@ export interface OrdRow {
 }
 export interface SummaryRow {
   sid: string;
+  /** 요약의 **안정 id**(`addSummary` 의 `rid()`). ⚠ 동기화 키의 절반이다 — 순번이 아니다(C-3). */
+  id: string;
+  /** 표시 순서. **데이터 열**이다(v9 부터) — 정체성이 아니라 사용자에게 보이는 값. */
   ord: number;
   json: string;
 }
@@ -79,6 +84,18 @@ export interface DbRows {
 
 const isRec = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
+/**
+ * `ARRAY_SLICES` 중 **`id` 필드가 없지만 다른 열이 이미 유일 키인** 슬라이스의 정체성(C-3).
+ *
+ * ⚠ 여기 없는 슬라이스는 `v.id` → 순번 순으로 폴백한다. **순번 폴백은 안전하지 않다** —
+ * 동기화 키가 위치가 되어 두 기기의 동시 추가를 뭉개고, 앞을 잘라내는 로그에서는 전 행이
+ * 밀린다. 그러니 새 배열 슬라이스를 추가할 때는 `id: rid()` 를 넣거나 여기 한 줄을 넣는다.
+ */
+const ARRAY_ROW_ID: Partial<Record<ArraySlice, (v: unknown) => string | undefined>> = {
+  // 주 시작일. `methodology.ts` 가 `filter(x => x.wk !== wk)` 로 upsert 하므로 정의상 유일하다.
+  retentionLog: (v) => (isRec(v) && typeof v.wk === 'string' ? v.wk : undefined),
+};
+
 /* ── 테이블 명세 + 증분 diff (2단계-E) ────────────────────────────────────────
    왜 증분인가: 처음엔 flush 마다 전량 DELETE + INSERT 였는데 두 가지가 동시에 틀렸다.
    ① **SQLITE_BUSY** — `tauri-plugin-sql` 은 sqlx **커넥션 풀**이라 별도 `execute` 로 부른
@@ -104,7 +121,9 @@ export const TABLES: TableSpec[] = [
   { name: 'completions', cols: ['ds', 'k', 'value'], keyLen: 2, sync: true },
   { name: 'ds_map', cols: ['slice', 'ds', 'value'], keyLen: 2, sync: true },
   { name: 'records', cols: ['slice', 'id', 'ord', 'value'], keyLen: 2, sync: true },
-  { name: 'summaries', cols: ['sid', 'ord', 'value'], keyLen: 2, sync: true },
+  /* ⚠ 키가 `(sid, id)` 다 — `ord`(배열 인덱스)를 키로 쓰던 것이 C-3 였다(v9 마이그레이션).
+     위치를 동기화 정체성으로 쓰면 두 기기의 동시 추가가 같은 키를 써서 하나가 소실된다. */
+  { name: 'summaries', cols: ['sid', 'id', 'ord', 'value'], keyLen: 2, sync: true },
   { name: 'week_alloc', cols: ['wk', 'sid', 'value'], keyLen: 2, sync: true },
 ];
 
@@ -121,7 +140,7 @@ export function toTableData(rows: DbRows): Record<string, Map<string, unknown[]>
   for (const r of rows.completions) put('completions', [r.ds, r.k, r.json], 2);
   for (const [slice, rs] of Object.entries(rows.dsMaps)) for (const r of rs) put('ds_map', [slice, r.ds, r.json], 2);
   for (const slice of ARRAY_SLICES) for (const r of rows.arrays[slice]) put('records', [slice, r.id, r.ord, r.json], 2);
-  for (const r of rows.summaries) put('summaries', [r.sid, r.ord, r.json], 2);
+  for (const r of rows.summaries) put('summaries', [r.sid, r.id, r.ord, r.json], 2);
   for (const r of rows.weekAlloc) put('week_alloc', [r.wk, r.sid, r.json], 2);
   return t;
 }
@@ -269,7 +288,17 @@ export function stateToRows(state: AppState): DbRows {
     if (key === 'summaries' && isRec(value)) {
       for (const [sid, list] of Object.entries(value)) {
         if (!Array.isArray(list)) continue;
-        list.forEach((v, ord) => rows.summaries.push({ sid, ord, json: JSON.stringify(v) }));
+        /* ⚠ 행 정체성은 요약 자신의 `id` 다(C-3). `addSummary` 가 `rid()` 로 넣는다.
+           없는 레거시 행만 순번으로 폴백한다 — v9 마이그레이션의 `COALESCE` 와 **같은 규칙**이어야
+           한다(어긋나면 다음 부팅 diff 가 전 요약을 삭제+삽입으로 본다). */
+        list.forEach((v, ord) =>
+          rows.summaries.push({
+            sid,
+            id: isRec(v) && typeof v.id === 'string' ? v.id : String(ord),
+            ord,
+            json: JSON.stringify(v),
+          }),
+        );
       }
       continue;
     }
@@ -288,8 +317,12 @@ export function stateToRows(state: AppState): DbRows {
     if ((ARRAY_SLICES as readonly string[]).includes(key) && Array.isArray(value)) {
       const bucket = rows.arrays[key as ArraySlice];
       value.forEach((v, ord) => {
-        // retentionLog 엔 id 가 없다 — 순번을 id 로 쓴다(순서가 곧 정체성인 로그).
-        const id = isRec(v) && typeof v.id === 'string' ? v.id : String(ord);
+        /* ⚠⚠ **순번을 id 로 쓰지 않는다(C-3).** 옛 주석은 _"retentionLog 엔 id 가 없다 — 순번을
+           id 로 쓴다(순서가 곧 정체성인 로그)"_ 였는데, 그 로그는 `slice(-26)` 으로 앞을 잘라낸다
+           (`methodology.ts`) → **매주 전 행의 순번이 한 칸씩 밀려** 26행이 통째로 재기입·재전송된다.
+           그리고 순번 키는 두 기기의 동시 추가를 같은 행으로 뭉갠다(summaries 와 같은 결함).
+           `wk`(주 시작일)가 **이미 유일 키**다 — 같은 파일이 `x.wk !== wk` 로 dedupe 한다. */
+        const id = ARRAY_ROW_ID[key as ArraySlice]?.(v) ?? (isRec(v) && typeof v.id === 'string' ? v.id : String(ord));
         bucket.push({ id, ord, json: JSON.stringify(v) });
       });
       continue;
