@@ -111,6 +111,17 @@ describe('불변식 ③ 나브 그룹 정합', () => {
    목적지가 사라지는 사건은 **아무 에러도 안 내므로** 손으로는 못 지킨다 — 기계로 잠근다.
 ============================================================ */
 describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에서 파생된다', () => {
+  /* ⚠ **분모를 먼저 못박는다**(2026-07-31 `/감사 근본` F3). 아래 케이스들은 전부 컬렉션 순회인데,
+     컬렉션이 비면 `for … expect` 는 **한 번도 실행되지 않고 통과한다** — 즉 "목록이 통째로
+     사라지는 것"만은 원리적으로 못 잡는다. 이 사각이 가설이 아니라는 것은 같은 세션에
+     `dbRows.test.ts` 에서 실증됐다(`EPHEMERAL_ONLY_KEYS` 를 비웠더니 그 목록을 지키는 케이스가
+     **초록으로 통과**했다). 순회 게이트에는 분모 단언이 짝이다. */
+  it('열거가 비어 있지 않다 — 아래 순회 케이스들이 공허하게 통과하지 않도록', () => {
+    expect(TABS.length).toBeGreaterThan(0);
+    expect(NAV_SHORTCUTS.length).toBeGreaterThan(0);
+    expect(SUBTAB_GROUPS.length).toBeGreaterThan(0);
+    expect(navGroups().flatMap((g) => g.tabs).length).toBeGreaterThan(0);
+  });
   it('레일에 서는 것은 정확히 destination 이다(lens 누출 0)', () => {
     for (const t of navGroups().flatMap((g) => g.tabs)) expect(t.role, t.key).toBe('destination');
   });

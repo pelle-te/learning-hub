@@ -149,6 +149,7 @@ describe('stageIndex / furthestColor', () => {
     expect(furthestColor('verified')).toBe(STAGE_META.verified.color);
   });
   it('STAGE_META는 5단계 전부 라벨·색을 가진다', () => {
+    expect(LEDGER_STAGES.length).toBe(5); // 분모 — 비면 아래 순회가 공허하게 통과한다(2026-07-31 감사 F3)
     for (const s of LEDGER_STAGES) {
       expect(STAGE_META[s].label).toBeTruthy();
       expect(STAGE_META[s].color).toBeTruthy();

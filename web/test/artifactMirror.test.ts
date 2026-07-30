@@ -29,6 +29,9 @@ const ok = (data: unknown) => ({ ok: true, data });
 
 describe('키 공간', () => {
   it('미러 키가 DOC_KEYS 안에 있다 — 밖이면 localStorage 로 새어 폰까지 안 간다', () => {
+    // ⚠ 분모 먼저 — 목록이 비면 아래 순회도 다음 케이스의 `toEqual` 도 **공허하게 통과**한다
+    //    (같은 사각을 `dbRows.test.ts` 에서 실측으로 확인했다 · 2026-07-31 감사 F3).
+    expect(MIRROR_DOC_KEYS.length).toBeGreaterThan(0);
     for (const k of MIRROR_DOC_KEYS) expect(DOC_KEYS).toContain(k);
   });
   it('미러 대상과 키가 1:1 로 대응한다(둘 중 하나만 늘리는 실수 방지)', () => {

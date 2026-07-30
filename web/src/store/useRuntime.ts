@@ -23,7 +23,11 @@ export const RUNTIME_SPLIT_KEYS = RUNTIME_CACHE_KEYS.filter((k) => k !== '_knowS
 /** 각 런타임 캐시 키가 담는 실제 값의 형태. 예전엔 값이 통째로 `unknown`이라 **읽는 쪽마다**
  *  `as AnkiLive | undefined | null` 같은 캐스트가 필요했다 — 경계는 코드로 지켜지는데 타입으로는
  *  새고 있었다. 키별 타입을 여기 한 곳에서 선언해 소비처의 캐스트를 없앤다.
- *  (`_vaultScan`/`_ankiFile`은 현재 읽는 소비처가 없다 — EPHEMERAL_ONLY_KEYS라 로컬 persist에서도 빠진다.) */
+ *  ⚠ `_vaultScan`/`_ankiFile` 은 **쓰는 곳도 읽는 곳도 0이다**(2026-07-31 감사 실측 — 이 스토어의
+ *  `set()` 실호출은 `_ankiLive`·`_icsExport` 둘뿐이다). 그래도 슬롯을 지우지 않는 이유는
+ *  `RuntimeKey` 가 `RUNTIME_CACHE_KEYS` 에서 파생되기 때문이고, **그 목록 자체가 옛 데이터에 대한
+ *  가드**라 지울 수 없다 — 논거는 `persistence.EPHEMERAL_ONLY_KEYS` 주석(지우면 볼트 경로가
+ *  `settings` 행이 되어 D1 으로 나간다). 즉 여기 두 줄은 죽은 코드가 아니라 그 가드의 타입 짝이다. */
 export interface RuntimeCache {
   _vaultScan?: VaultScan | null;
   _ankiFile?: AnkiFile | null;

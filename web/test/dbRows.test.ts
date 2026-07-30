@@ -214,9 +214,37 @@ describe('2계층 스코프 — 런타임 캐시의 처지가 테이블 정책�
   };
 
   it('EPHEMERAL_ONLY_KEYS는 행을 아예 만들지 않는다', () => {
+    /* ⚠ **목록이 비면 아래 루프는 아무것도 단언하지 않는다**(2026-07-31 감사 실측). 실제로 목록을
+       비워 보니 이 케이스는 **통과**했다 — 즉 이 테스트가 막으려던 바로 그 변경에 눈이 멀어 있었다.
+       빈-컬렉션 순회는 이 저장소가 반복해 물린 부류(§15-7 "녹색이 '안 쟀음'을 뜻하게 된다")라
+       분모를 먼저 못박는다. */
+    expect(EPHEMERAL_ONLY_KEYS.length).toBeGreaterThan(0);
+    expect(RUNTIME_CACHE_KEYS.length).toBeGreaterThan(0);
     const rows = stateToRows(withCaches());
     const keys = [...rows.settings, ...rows.runtime].map((r) => r.key);
     for (const k of EPHEMERAL_ONLY_KEYS) expect(keys).not.toContain(k);
+  });
+
+  /* ⚠⚠ 위 테스트는 "행이 안 생긴다"까지만 말한다. **왜 그것이 중요한가**를 여기서 못박는다
+     (2026-07-31 `/감사 근본` F1·F3). `_vaultScan`/`_ankiFile` 은 오늘 쓰는 곳도 읽는 곳도
+     0이라 "죽은 키"로 보이지만, `AppStateSchema` 가 `looseObject` 이고 런타임에서 `.parse` 되지
+     않으므로 **옛 localStorage 의 값이 그대로 통과한다**. 목록에서 빠지는 순간 그 값은 `settings`
+     행이 되고 `settings` 는 `sync: true` 라 — **로컬 볼트 파일 경로가 D1 으로 나간다.**
+     이 테스트는 그 문장을 그대로 검사한다: 유선에 나가는 문장 어디에도 값이 없어야 한다. */
+  it('휘발 캐시는 **유선으로도** 나가지 않는다 — 목록을 지우면 볼트 경로가 D1 에 실린다', () => {
+    const s = defaults() as AppState & Record<string, unknown>;
+    // 옛 셸이 남겼을 법한 실제 형태 — 파일 경로가 들어 있다는 점이 요지다.
+    s._vaultScan = { at: 'x', root: 'D:/atelier/knowledge', files: ['전공/전자기학/3장.md'] };
+    s._ankiFile = { at: 'y', path: 'C:/Users/누군가/AppData/Roaming/Anki2/collection.anki2' };
+
+    const stmts = diffRows(null, stateToRows(s as AppState), 1);
+    const 유선 = stmts.filter((x) => /INTO (settings|completions|ds_map|records|summaries|week_alloc)\b/.test(x.sql));
+    const 실린값 = JSON.stringify(유선.map((x) => x.args));
+    expect(실린값).not.toContain('atelier/knowledge');
+    expect(실린값).not.toContain('collection.anki2');
+    // 그리고 키 자체도 — 값이 비더라도 키가 settings 에 서면 다음 스캔이 채워 넣는다.
+    expect(실린값).not.toContain('_vaultScan');
+    expect(실린값).not.toContain('_ankiFile');
   });
 
   it('나머지 런타임 캐시는 runtime 테이블로, 그 외는 settings 로 갈린다', () => {

@@ -26,9 +26,11 @@
 
   // lint-staged: husky/git 훅이 package.json 설정으로만 부른다(import 없음).
   // stylelint-config-standard: stylelint.config.js가 문자열로 extends 한다(import 없음).
-  // tailwindcss: `@tailwindcss/vite` 플러그인의 피어이고, 소스에서의 참조는 CSS 의
-  // `@import 'tailwindcss'`(src/phone/phone.css) 하나다 — knip 은 CSS 를 안 판다.
-  "ignoreDependencies": ["lint-staged", "stylelint-config-standard", "tailwindcss"],
+  // ⚠ `tailwindcss` 는 **뺐다**(2026-07-31 `/감사 근본` F3). 사유가 _"knip 은 CSS 를 안 판다"_
+  // 였는데 지금은 판다 — knip 자신이 `Remove from ignoreDependencies` 힌트로 그렇게 말했고,
+  // 빼고 돌려 보니 통과한다. **힌트는 실패가 아니라 통과 옆에 뜨므로 게이트가 안 잡는다** →
+  // 사문화된 예외가 남는 경로가 정확히 이것이다(a11y 원장의 사문화 사유와 같은 부류).
+  "ignoreDependencies": ["lint-staged", "stylelint-config-standard"],
 
   "ignoreExportsUsedInFile": true,
 

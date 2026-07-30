@@ -22,9 +22,23 @@ export const BACKUP_AT_KEY = BACKUP_KEY + '_at';
 export const CORRUPT_KEY = KEY + '_corrupt'; // 손상 원본 보존(영구손실 방지 · P1-7)
 /** 런타임 캐시 — 기기-로컬 산출물이라 *파일 내보내기(백업) JSON*에서 제외(F-01·F-10). */
 export const RUNTIME_CACHE_KEYS = ['_vaultScan', '_ankiFile', '_ankiLive', '_icsExport', '_knowState'] as const;
-/** 그중 *로컬 persist에서도* 제외하는 순수 휘발 캐시 — 읽는 소비처가 없어 다음 부팅 때 재계산하면 됨.
+/** 그중 *로컬 persist에서도* 제외하는 순수 휘발 캐시.
  *  나머지(_ankiLive·_knowState·_icsExport)는 reload 후 오늘 탭 KPI·캘린더 신선도 배지가 읽으므로
- *  로컬엔 남겨 즉시 부팅한다(낙관적 캐시). → 제외는 키별이 아니라 '스코프(내보내기 vs 로컬)'별. */
+ *  로컬엔 남겨 즉시 부팅한다(낙관적 캐시). → 제외는 키별이 아니라 '스코프(내보내기 vs 로컬)'별.
+ *
+ *  ⚠⚠ **이 두 키는 오늘 쓰는 곳도 읽는 곳도 0이다 — 그런데 목록은 방치가 아니라 방어다**
+ *  (2026-07-31 `/감사 근본` F1·F3). 종전 주석은 _"읽는 소비처가 없어 다음 부팅 때 재계산하면 됨"_
+ *  이라 적어, 지금은 **쓰는 곳도 없다**는 사실과 **지우면 무슨 일이 나는가**를 둘 다 빠뜨렸다.
+ *  그렇게 읽으면 다음 사람이 "죽은 키"로 보고 목록에서 뺀다. 실제로 빼면:
+ *
+ *   `AppStateSchema` 는 `z.looseObject` 이고 **런타임에서 한 번도 `.parse` 되지 않는다**
+ *   (`schema.ts` 가 그렇게 적어 뒀다) → 옛 localStorage 에 남은 `_vaultScan` 이 **그대로 통과해**
+ *   `stateToRows` 에 도달하고, `RUNTIME_CACHE_KEYS` 도 아니게 되는 순간 `settings` 행이 된다.
+ *   `settings` 는 **`sync: true`** 다 → **로컬 볼트 파일 경로·챕터 이름이 D1 으로 나간다.**
+ *   프라이버시 범위 변경이 코드 리뷰에 "미사용 키 정리"로 보이는 형태다.
+ *
+ *  즉 이 목록은 *현재의 기능*이 아니라 *과거 데이터*에 대한 가드다. 근거 없는 안전은 다음 사람이
+ *  그 줄을 지우는 순간 무너지므로, 논거를 여기 적고 `dbRows.test.ts` 가 잠근다. */
 export const EPHEMERAL_ONLY_KEYS = ['_vaultScan', '_ankiFile'];
 
 /** 졸업 계획 시드 — 졸업요건_정리.md(전자공학과 2020 요람·ABEEK 인증과정)에서 옮긴 실제 수강 이력·요건.
