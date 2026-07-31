@@ -39,11 +39,16 @@ const RV = 'text-readout-num leading-none font-extrabold tracking-readout-num ta
 /* 값 없음(—)은 강조 대신 뮤트 — 액센트 대시가 '검열 바'처럼 읽히는 것 방지. ⚠ 색/그림자는
    `racc` 와 **같은 속성**이라 두 클래스를 겹쳐 붙이면 레이어 순서로 갈린다(SubTabs 관용구):
    붙일 조합을 미리 고른다. */
-const RV_ACC = 'text-acc text-shadow-readout';
+/* W21 — 값의 강조는 **의미 토큰**이 진다: 다크는 네온(`text-shadow-readout` → `--emph-value`),
+   라이트는 그림자가 `none` 이고 중량(`--emph-value-weight`)이 대신 무게를 준다. 한 클래스가
+   두 테마에서 **다른 기전**으로 같은 말을 한다 — 라이트가 정체성 층을 3분의 1로 줄인 판본이
+   되지 않게 하는 것이 이 항목의 전부다(근거는 `tokens.css` 의 `--emph-value` 머리주석). */
+const RV_ACC = 'text-acc text-shadow-readout font-[var(--emph-value-weight)]';
 /* 화면의 첫째 수치(N-15) — 44px. 리드아웃(30px)과 **크기로** 위계를 만든다: 이 자리가 비면
    종전 화면 그대로고, 채우면 그 탭에서 가장 큰 글자가 된다(원칙 2 의 물리적 표현). */
 const PRIMARY = 'flex flex-col gap-1 max-mobile:hidden';
-const PV = 'text-primary-num leading-none font-black tracking-readout-num text-acc tabular-nums text-shadow-readout';
+const PV =
+  'text-primary-num leading-none font-[var(--emph-value-weight)] tracking-readout-num text-acc tabular-nums text-shadow-readout';
 const PU = 'text-lg leading-none font-bold text-mut';
 const RV_NULL = 'text-mut opacity-55';
 const ACTIONS = 'flex items-center gap-2 self-center';
@@ -129,7 +134,9 @@ export default function TopBar() {
     <header className={BAR}>
       <h1 className={WORDMARK}>
         <span className={MARK_PART}>러닝</span>
-        <span className={`${MARK_PART} text-acc text-shadow-wordmark`}>허브</span>
+        {/* W22 — 워드마크의 발광을 껐다(액센트 예산은 **행동과 상태**에만). 색으로 브랜드는 그대로
+            읽히고, 값(44px `primary`)이 크롬과 경쟁하지 않는다. */}
+        <span className={`${MARK_PART} font-[var(--emph-value-weight)] text-acc`}>허브</span>
       </h1>
       <span className={SUB}>오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
       <span className="flex-1" />

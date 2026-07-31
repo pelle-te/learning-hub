@@ -200,49 +200,32 @@ export default function Schedule() {
     return dt.getFullYear() === anchorY && dt.getMonth() === anchorM;
   }).length;
 
+  /* ── W22 앵커 — **44px `primary` 는 뷰가 정한다** ───────────────────────────────────
+     ⚠⚠ 첫 판(2026-07-31)이 `primary` 를 `anki 없이 anchorDay.planMin` 로 **고정**해 두 결함을 냈다:
+     ① 주·월 뷰에서 *그 날* 계획을 말해 화면이 보여 주는 범위와 어긋났다.
+     ② 일 뷰에선 같은 수가 `primary` 와 첫 리드아웃 **두 자리**에 떠서 상단 바가 넘쳤다 —
+        이 배치가 다른 화면에서 강제한 "한 양 = 한 자리"를 정작 여기서 어겼다(실렌더가 잡았다).
+     → 뷰별 헤드라인을 **하나 만들고**, `primary` 가 그것을 가져가면 리드아웃에서는 뺀다. */
+  const head =
+    schedView === 'day'
+      ? { label: `${fmtShort(anchorDate)} 계획`, value: hNum(anchorDay.planMin), unit: 'h' }
+      : schedView === 'month'
+        ? { label: `${anchorM + 1}월`, value: monthUsedH.toFixed(1), unit: 'h' }
+        : { label: '이번 주', value: weekUsedH.toFixed(1), unit: 'h' };
+
   const readouts =
     schedView === 'day'
       ? [
-          {
-            label: `${fmtShort(anchorDate)} 계획`,
-            value: (
-              <>
-                {hNum(anchorDay.planMin)}
-                <small className="text-base14 font-bold text-mut"> h</small>
-              </>
-            ),
-            accent: true,
-          },
           { label: '완료', value: anchorDay.planMin ? `${dayCompRate}%` : '—' },
           { label: '가용', value: hLabel(anchorDay.studyMin) },
         ]
       : schedView === 'month'
         ? [
-            {
-              label: `${anchorM + 1}월`,
-              value: (
-                <>
-                  {monthUsedH.toFixed(1)}
-                  <small className="text-base14 font-bold text-mut"> h</small>
-                </>
-              ),
-              accent: true,
-            },
             { label: '미완 할일', value: monthOpenTasks ? String(monthOpenTasks) : '—' },
             // 라벨은 정본 헬퍼로 — 직접 조립하면 오늘 마감이 "D-0"으로 뜬다(정본은 "D-DAY").
             { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
           ]
         : [
-            {
-              label: '이번 주',
-              value: (
-                <>
-                  {weekUsedH.toFixed(1)}
-                  <small className="text-base14 font-bold text-mut"> h</small>
-                </>
-              ),
-              accent: true,
-            },
             { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
             { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
           ];
@@ -250,13 +233,15 @@ export default function Schedule() {
   // 주 뷰에서 다른 주를 보는 중이면 "이번 주로", 그 외엔 .ics 내보내기.
   usePageChromeEffect(
     () => ({
+      // W22 — 헤드라인은 위 `head` 하나가 소유한다(리드아웃에는 없다 · 한 양 = 한 자리).
+      primary: head,
       readouts,
       action:
         schedView === 'week' && !isThisWeek
           ? { label: '이번 주로 →', onClick: weekToday }
           : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
     }),
-    [schedView, readouts, isThisWeek],
+    [schedView, readouts, isThisWeek, head],
   );
 
   // 뷰 스위치 [일·주·월] — 배분은 독립 세그먼트로 승격돼 여기서 빠졌다(재개편 v4).

@@ -12,14 +12,15 @@ import {
   chaptersFromVault,
   queryVaultPermission,
   requestVaultPermission,
-  scanVaultViaShell,
   type VaultScan,
   type VaultSubject,
   type VaultChapter,
 } from '@/lib/vault';
-import { isTauri, onVaultChanged } from '@/lib/tauri';
+import { isTauri } from '@/lib/tauri';
 import { idbGet, idbPut, idbDel } from '@/lib/idb';
-import { makeItem } from '@/lib/utils';
+import { makeItem, rid } from '@/lib/utils';
+import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
+import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
 
 export function VaultPanel() {
@@ -29,6 +30,8 @@ export function VaultPanel() {
   // 구독형으로 읽어 연동/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
   const handle = useQuery<FileSystemDirectoryHandle>({ queryKey: ['vaultHandle'], queryFn: skipToken }).data;
+  // 원장(W4) — 임포트 직후 "카드까지 갔다"를 물으려면 여기서 실제로 읽어야 한다.
+  const led = useLedger();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<Set<number>>(() => new Set());
@@ -38,26 +41,9 @@ export function VaultPanel() {
 
   /* 셸(3단계) — 볼트는 `<워크스페이스>/knowledge` 라 **묻지 않고 그냥 읽는다.**
      폴더 선택도, 권한 조회/요청도, IDB 핸들 영속도 여기선 존재하지 않는다.
-     그리고 파일이 바뀌면 Rust 가 알려 주므로 "다시 스캔" 버튼을 누를 이유도 없다 —
-     FSA 엔 watch 가 없어 브라우저에선 원리적으로 불가능했던 동작이다. */
-  useEffect(() => {
-    if (!isTauri()) return;
-    let alive = true;
-    let un: (() => void) | undefined;
-    const load = async () => {
-      const s = await scanVaultViaShell();
-      if (alive && s) qc.setQueryData(['vault'], s);
-    };
-    void load();
-    void onVaultChanged(() => void load()).then((u) => {
-      if (alive) un = u;
-      else u(); // 구독이 붙기 전에 언마운트됐다면 즉시 해제(누수 방지)
-    });
-    return () => {
-      alive = false;
-      un?.();
-    };
-  }, [qc]);
+     ⚠ W3(2026-07-31) — 그 스캔+감시는 **`app/VaultSync` 로 올라갔다.** 이 화면에만 있는 동안엔
+     앱이 "볼트에 뭐가 있나"를 이 탭을 열기 전까지 묻지도 않았고, 그게 콜드 스타트가 빈 앱처럼
+     보이던 이유였다. 여기 남은 것은 브라우저(dev·트랙 A)의 FSA 재연결뿐이다. */
 
   // 부팅 재연결(브라우저 전용) — IDB에 저장한 폴더 핸들을 되살린다. 권한이 아직 살아있으면
   // 조용히 재스캔, 아니면 '지난 볼트 다시 연결' 버튼으로 한 번의 제스처만 받아 재선택 없이 붙는다.
@@ -153,16 +139,33 @@ export function VaultPanel() {
       return next;
     });
 
-  const addSubject = (s: VaultSubject) => {
+  const addSubject = async (s: VaultSubject) => {
     if (items.some((x) => x.name === s.name)) {
       ui.toast('이미 추가된 항목입니다.', 'warn');
       return;
     }
     const chapters = chaptersFromVault(s.chapters);
+    const id = rid();
     mutate((st) => {
-      st.items.push(makeItem({ source: '볼트', name: s.name, chapters }));
+      st.items.push(makeItem({ id, source: '볼트', name: s.name, chapters }));
     });
     ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 학습 항목 탭에서 주당 시간·마감 조정하세요.`, 'ok');
+    /* W4 — 원장이 "카드까지 갔다"고 아는 챕터를 **한 번 묻는다**(자동으로 찍지 않는 이유는
+       `lib/ledgerSeed.ts` 머리주석). 임포트 입구가 둘이라 여기도 같은 규칙을 쓴다. */
+    const carded = cardedChapters(led.data, s.name, chapters);
+    if (!carded.length) return;
+    const ok = await ui.confirm(cardedPrompt(s.name, carded.length, chapters.length), {
+      title: '원장과 맞출까요?',
+      okLabel: `${carded.length}개 끝낸 것으로 표시`,
+      cancelLabel: '그대로 두기',
+    });
+    if (!ok) return;
+    let marked = 0;
+    mutate((st) => {
+      const it = st.items.find((x) => x.id === id);
+      if (it) marked = applyCardedDone(it.chapters || [], carded);
+    });
+    ui.toast(`챕터 ${marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
   };
   const addChapter = (s: VaultSubject, c: VaultChapter) => {
     const name = `${s.name} · ${c.name}`;
@@ -272,7 +275,7 @@ export function VaultPanel() {
                     sm
                     onClick={(e) => {
                       e.stopPropagation();
-                      addSubject(s);
+                      void addSubject(s);
                     }}
                   >
                     +학습항목(챕터 포함)

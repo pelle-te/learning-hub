@@ -89,6 +89,14 @@ const S = {
   sweep: 'animate-[commit-ring_var(--dur-slow)_var(--ease)_both]',
   // UX-A1 가장자리 비례 막대 — 셀의 .fill 관용구를 '결론' 칸(주당 예산 · 요일 가용)에 재사용.
   edgeBar: 'pointer-events-none absolute inset-y-0 left-0',
+  /* ── W23 주(週) 실루엣 — **시그니처는 "같은 숫자의 다른 축척"이다**(2026-07-31) ──────────
+     매일 여는 최대 화면 둘(`alloc`·`schedule`)은 `<svg>`·`<canvas>` **0**, 히어로 토큰 **0** 이라
+     시그니처가 아예 없었다. 그런데 시그니처를 새 그래픽으로 얹으면 **세로 공간을 먹고**, 이
+     화면에서 반복 요구된 것은 밀도다(그게 이 안의 미실행 사유였다).
+     → 새 자리를 만들지 않는다. **이미 있는 푸터 행**의 비례 막대를 가로 게이지에서 **바닥 기준
+     세로 막대**로 바꾼다: 같은 수(배분/가용)를 다른 축척으로 읽으면 그 행이 곧 주간 부하의
+     실루엣이 된다. 추가 높이 **0px**. */
+  footBar: 'pointer-events-none absolute inset-x-0 bottom-0',
   // NumberField <input type=number> — 전역 input 규칙(언레이어)을 이기려 다른 값만 `!`.
   // color/font-size(13)/width 는 전역과 동일 → 클래스 없음. ink≡txt.
   cellInput:
@@ -549,11 +557,14 @@ export function AllocBoard({
                   title={`${c.label} 배분 ${hNum(colMins[i]!)}h / 가용 ${hNum(cap)}h`}
                 >
                   {/* UX-A1 — 열은 과목이 없으니 액센트로. "어느 요일이 빡빡한가"가 7개 분수를
-                      비교하지 않고도 읽힌다(가용 0인 날은 분모가 없어 막대도 없다). */}
+                      비교하지 않고도 읽힌다(가용 0인 날은 분모가 없어 막대도 없다).
+                      ⚠ W23 — **가로 게이지에서 세로 막대로 바꿨다.** 행 전체가 한눈에 주간 부하
+                      실루엣으로 읽힌다(같은 숫자의 다른 축척 · 추가 높이 0px). 행 안쪽 셀의
+                      막대는 가로 그대로다 — 축척이 다르면 두 층이 서로를 안 흉내낸다. */}
                   {cap > 0 && (
                     <span
-                      className={`${S.edgeBar} ${over ? 'bg-bad' : 'bg-acc'}`}
-                      style={{ width: `${Math.min(100, (colMins[i]! / cap) * 100)}%`, opacity: EDGE_ALPHA }}
+                      className={`${S.footBar} ${over ? 'bg-bad' : 'bg-acc'}`}
+                      style={{ height: `${Math.min(100, (colMins[i]! / cap) * 100)}%`, opacity: EDGE_ALPHA }}
                       aria-hidden="true"
                     />
                   )}

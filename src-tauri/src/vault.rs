@@ -40,6 +40,25 @@ pub struct Note {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     pub anki_exported: bool,
+    /* ⚠⚠ **경계에서 필드를 버리지 말 것(W2 · 2026-07-31).** 인덱스 노트는 17키인데 여기가
+       5키만 옮기고 있었고, 버려지는 것 중에 `reviewed`(468건에 날짜가 있다)와 `anki_state` 가
+       있었다 — 앱은 "복습 0/0"이라 말하면서 그 답을 아는 파일을 매번 읽고 있었다.
+       ⚠ 여전히 **해석은 하지 않는다**(집계는 프런트 `subjectsFromIndex` 하나 · 3단계-B 규율). */
+    /// 검증 통과일(파이프라인). 인출일이 **아니다** — 프런트가 방향 제약을 걸어 쓴다.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reviewed: Option<String>,
+    /// 'ok' | 'none' | 'stale' — 노트↔카드 동기 상태. 파일 스캔 폴백에선 원리적으로 모른다(파생값).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anki_state: Option<String>,
+    /// 이 노트를 선행으로 삼는 노트 수(링크 인입). 폴백에선 모른다.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prereq_in: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tier_hint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub note_type: Option<String>,
 }
 
 /// 스캔 결과. `src` 는 UI 가 "어디서 온 숫자인지" 보여주는 데 쓴다(기존 문구 승계).
@@ -69,17 +88,17 @@ fn skip_note(name: &str) -> bool {
 
 /// 프론트매터 선두만 읽어 `key: value` 를 뽑는다. YAML 파서가 아니다 —
 /// 프런트 `readFM` 과 같은 수준(첫 콜론 split)이어야 두 경로가 같은 답을 낸다.
-fn read_front_matter(path: &Path) -> (Option<String>, bool) {
+fn read_front_matter(path: &Path) -> (Option<String>, bool, Option<String>) {
     let Ok(text) = std::fs::read_to_string(path) else {
-        return (None, false);
+        return (None, false, None);
     };
     // 선두 1600바이트만 보는 프런트와 동형. char 경계로 잘라 UTF-8 을 깨지 않는다.
     let head: String = text.chars().take(1600).collect();
     let mut lines = head.lines();
     if lines.next().map(str::trim) != Some("---") {
-        return (None, false);
+        return (None, false, None);
     }
-    let (mut status, mut exported) = (None, false);
+    let (mut status, mut exported, mut reviewed) = (None, false, None);
     for line in lines {
         if line.trim() == "---" {
             break;
@@ -91,10 +110,12 @@ fn read_front_matter(path: &Path) -> (Option<String>, bool) {
             // ⚠ 값은 boolean 이 아니라 **날짜 문자열**이다(실측: `anki_exported: 2026-07-11`).
             //    존재 자체가 "내보냄"이므로 비어 있지 않으면 true.
             "anki_exported" => exported = !v.is_empty() && v != "null",
+            // W2 — 폴백도 같은 레코드를 만든다. 빈 값은 None 이어야 프런트의 `''` 와 같은 뜻이 된다.
+            "reviewed" => reviewed = (!v.is_empty() && v != "null").then(|| v.to_string()),
             _ => {}
         }
     }
-    (status, exported)
+    (status, exported, reviewed)
 }
 
 /// 볼트 트리를 **임의 깊이**로 순회한다. 깊이 2단 고정이 노트 46%를 버리던 것이 3단계-B 의 결함이다.
@@ -126,13 +147,20 @@ fn walk_dir(dir: &Path, subject: &str, folder: &str, out: &mut Vec<Note>) {
             }
             walk_dir(&p, subject, &format!("{folder}/{name}"), out);
         } else if !skip_note(&name) {
-            let (status, anki_exported) = read_front_matter(&p);
+            let (status, anki_exported, reviewed) = read_front_matter(&p);
             out.push(Note {
                 subject: subject.to_string(),
                 folder: folder.to_string(),
                 kind: None,
                 status,
                 anki_exported,
+                reviewed,
+                // 아래 넷은 파이프라인 **파생값**이라 프론트매터에 없다 — 폴백은 원리적으로 모른다.
+                anki_state: None,
+                prereq_in: None,
+                tier_hint: None,
+                role: None,
+                note_type: None,
             });
         }
     }
@@ -144,6 +172,13 @@ fn notes_from_index(vault: &Path) -> Option<Vec<Note>> {
     let raw = std::fs::read_to_string(vault.join("_meta/cache/_index.json")).ok()?;
     let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
     let arr = v.get("notes")?.as_array()?;
+    /// 인덱스의 문자열 필드 — `null` 이거나 빈 문자열이면 None(프런트의 `''` 와 같은 뜻).
+    fn s(n: &serde_json::Value, k: &str) -> Option<String> {
+        n.get(k)
+            .and_then(|x| x.as_str())
+            .filter(|x| !x.is_empty())
+            .map(str::to_string)
+    }
     Some(
         arr.iter()
             .map(|n| Note {
@@ -157,10 +192,16 @@ fn notes_from_index(vault: &Path) -> Option<Vec<Note>> {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
-                kind: n.get("kind").and_then(|x| x.as_str()).map(str::to_string),
-                status: n.get("status").and_then(|x| x.as_str()).map(str::to_string),
+                kind: s(n, "kind"),
+                status: s(n, "status"),
                 // 인덱스에선 날짜 문자열이거나 null 이다 — null 이 아니면 내보낸 것.
                 anki_exported: n.get("anki_exported").is_some_and(|x| !x.is_null()),
+                reviewed: s(n, "reviewed"),
+                anki_state: s(n, "anki_state"),
+                prereq_in: n.get("prereq_in").and_then(|x| x.as_f64()),
+                tier_hint: s(n, "tier_hint"),
+                role: s(n, "role"),
+                note_type: s(n, "type"),
             })
             .collect(),
     )

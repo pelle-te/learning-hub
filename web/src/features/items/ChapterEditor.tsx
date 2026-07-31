@@ -111,6 +111,10 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                 {chs.map((c, i) => (
                   <tr
                     key={c.id}
+                    /* W12 — **챕터가 자기 앵커를 얻는다.** ⌘K 의 챕터 히트가 `/subject/:id#ch-<cid>`
+                       로 오면 이 행에 선다. 그전엔 "챕터 단위 앵커가 없으니 소속 과목까지가
+                       정직한 최선"이라 코드가 자백해 뒀던 자리다. */
+                    id={`ch-${c.id}`}
                     draggable
                     onDragStart={() => setDrag(i)}
                     onDragOver={(e) => e.preventDefault()}

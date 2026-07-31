@@ -5,6 +5,7 @@
 import { schedule, studyMinByWeekday } from '@/lib/scheduler';
 import { pickFocus, todayEntries, type FocusEntry, type FocusPick } from '@/lib/focusState';
 import { riskSummary } from '@/lib/spacedReview';
+import { vaultAnchorsVersion } from '@/lib/vaultAnchors';
 import { isDone } from '@/lib/persistence';
 import { openBacklog } from '@/lib/methodology';
 import { dayDiff, todayISO } from '@/lib/utils';
@@ -121,7 +122,10 @@ export function useStudyMinByWeekday(): number[] {
    `reviewTouches`(계획 밖 인출 기록)를 읽는데 그건 스케줄 입력이 아니다 — 빠뜨리면 복습을
    해도 배지가 안 풀리는(=위 감사 #22 와 같은) 무증상 stale 이 된다. `completions`·`blankResults`
    는 이미 스케줄 입력에 있다. */
-const riskInputs = (s: AppState): readonly unknown[] => [...scheduleInputs(s), s.reviewTouches];
+/* ⚠ W2 — 볼트 앵커는 **state 가 아니라 쿼리 캐시** 파생이라 슬라이스 튜플에 안 잡힌다.
+   버전 카운터를 키에 실어야 볼트 스캔이 도착했을 때 배지가 갱신된다(안 실으면 조용히 stale —
+   위 `reviewTouches` 누락과 정확히 같은 무증상 결함이다). */
+const riskInputs = (s: AppState): readonly unknown[] => [...scheduleInputs(s), s.reviewTouches, vaultAnchorsVersion()];
 
 /** 복습 위험 요약(연체/임박 개수) — 입력 슬라이스로 메모이즈. */
 export const selectRiskSummary: (state: AppState) => { overdue: number; due: number } = keyed(riskInputs, (s) =>

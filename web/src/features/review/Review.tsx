@@ -613,6 +613,13 @@ function WorkbenchCard() {
                   <span className={RISK_NM}>
                     {c.subject} <small className="ml-1 text-sm font-medium text-mut">{c.chapter}</small>
                   </span>
+                  {/* ⚠ 볼트 유래 앵커는 배지로 **구분**한다(W2) — `reviewed:` 는 검증 통과일이지
+                      인출일이 아니라, 앱 자신의 기록과 같은 얼굴로 두면 폴백을 승격시키는 셈이다. */}
+                  {c.fromVault && (
+                    <span className="ds-pill ds-tiny" title="앱 인출 기록이 없어 볼트 reviewed: 를 앵커로 쓴 항목">
+                      볼트
+                    </span>
+                  )}
                   <span className={RISK_AGE}>{c.daysSince}일</span>
                   <span className={BENCH_ACTIONS}>
                     {lever && (

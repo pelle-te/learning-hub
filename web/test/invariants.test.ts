@@ -131,6 +131,20 @@ describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에�
   it('모든 `g` 시퀀스가 실존하는 탭을 가리킨다(죽은 목적지 금지)', () => {
     for (const sc of NAV_SHORTCUTS) expect(tabByKey(sc.tab), `g ${sc.seq}`).toBeTruthy();
   });
+  /* ⚠⚠ 아래 셋이 W5 의 집행자다. 옛 불변식은 "실존한다"만 봤고, 그래서 `g` 표가 IA 변경 3건
+     (forecast 승격·markets 강등·atlas 강등)을 **하나도 안 따라간 채 전부 초록**이었다.
+     실측 당시: destination 7 중 2개에 `g` 가 없고, `g` 키 12 중 **6개가 lens** 였다. */
+  it('`g` 표의 tab 은 전부 destination 이다(눌러 가면 레일에 없는 곳에 서는 것 금지)', () => {
+    for (const sc of NAV_SHORTCUTS) expect(tabByKey(sc.tab)?.role, `g ${sc.seq} → ${sc.tab}`).toBe('destination');
+  });
+  it('모든 destination 이 `g` 키를 갖는다(목적지가 손가락에서 빠지는 것 금지)', () => {
+    const covered = new Set(NAV_SHORTCUTS.map((s) => s.tab));
+    for (const t of destinations()) expect(covered.has(t.key), `${t.key} 에 g 키가 없다`).toBe(true);
+  });
+  it('seq 는 고유하다 — 첫 글자 충돌은 `SEQ_OVERRIDE` 에 명시해야 한다(조용한 가림 금지)', () => {
+    const seqs = NAV_SHORTCUTS.map((s) => s.seq);
+    expect(new Set(seqs).size, `중복: ${seqs.join(',')}`).toBe(seqs.length);
+  });
   it('모든 세그먼트 키가 실존하고, 호스트(첫 항목)는 destination 이다', () => {
     for (const g of SUBTAB_GROUPS) {
       for (const k of g) expect(tabByKey(k), k).toBeTruthy();
@@ -186,6 +200,60 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
     // ⚠ 조용한 통과 방지 — 정규식이 망가지거나 경로가 바뀌면 0개가 되고, 그건 녹색이 아니라 고장이다.
     const registrars = files(FEATURES).filter((p) => REGISTERS.test(readFileSync(p, 'utf8')));
     expect(registrars.length).toBeGreaterThanOrEqual(4);
+  });
+
+  /* ── ⚠⚠ 앵커 예산(W22 · 2026-07-31) ────────────────────────────────────────────
+     원칙 ②("제일 큰 픽셀 = 제일 중요한 것")의 **물리적 표현**은 `usePageChrome.primary`(44px)인데,
+     그걸 세우는 곳이 6군데/5 feature 뿐이었다 — 원칙이 21%만 켜져 있었다. 반대로 **상시 크롬**은
+     액센트 발광을 여럿 들고 있어 콘텐츠가 뜨기 전에 예산이 소진됐다.
+
+     ⚠ **필수화는 억지 숫자를 낳을 수 있다**(로드맵이 적어 둔 미실행 사유). `settings` 의 "첫
+     수치"가 무엇인지는 답이 없다. 그래서 규칙은 "전부 세워라"가 아니라 **"세우거나, 왜 없는지를
+     써라"** 다 — `State.next` 가 `{ terminal }` 로 같은 형태를 이미 쓴다(행동이 없으면 이유를
+     쓰게 한다). 사유 없는 결측만 실패한다. */
+  const PRIMARY_면제: Record<string, string> = {
+    today: '히어로 과목명이 72px 로 이 화면의 앵커다 — 44px 리드아웃을 더하면 앵커가 둘이 된다(원칙 ③ 위반).',
+    settings: '수치가 없는 화면이다. 없는 값을 세우면 원칙 ②가 아니라 억지 숫자를 강제하게 된다.',
+  };
+
+  it('모든 destination 이 `primary` 를 세우거나 면제 사유를 갖는다', () => {
+    const missing = destinations()
+      .filter((t) => !PRIMARY_면제[t.key])
+      .filter((t) => {
+        // 그 feature 폴더 전체를 본다 — 리드아웃을 세우는 파일이 탭 진입점이 아닐 수 있다.
+        const dir = join(FEATURES, t.key);
+        let srcs: string[];
+        try {
+          srcs = files(dir).map((p) => readFileSync(p, 'utf8'));
+        } catch {
+          return true; // 폴더가 없으면 그 자체가 결함이다(등록만 되고 화면이 없다)
+        }
+        return !srcs.some((s) => /\bprimary:/.test(s));
+      })
+      .map((t) => t.key);
+    // 실패하면: `usePageChromeEffect` 에 `primary` 를 세우거나, 위 면제 표에 **사유와 함께** 올리세요.
+    expect(missing).toEqual([]);
+  });
+
+  it('면제 표가 사문화하지 않았다 — 목록에 없는 탭·이미 세운 탭이 남아 있으면 실패', () => {
+    for (const key of Object.keys(PRIMARY_면제)) {
+      expect(tabByKey(key)?.role, `${key} 는 destination 이 아니다 — 면제할 이유가 없다`).toBe('destination');
+    }
+  });
+
+  /* ── ⚠⚠ 거짓말하는 뼈대 금지(W15 · 2026-07-31) ────────────────────────────────────
+     로딩 표면이 두 언어로 갈려 있던 것이 W15 의 문제 제기였는데, 갈림의 **해로운 쪽**은
+     `SkeletonText`(= n줄 골격)다: 길이가 데이터에 따라 변하는 목록에 3~4줄을 약속하면
+     **골격이 3행을 약속하고 12행이 오는** 상태가 되고, 그건 로딩이 아니라 오답이다.
+     없애려던 레이아웃 점프를 골격이 스스로 만든다.
+
+     ⚠ `Skeleton`(폭·높이를 명시한 상자)까지 금지하지는 않는다 — `markets`(지수 카드 8칸 고정
+     그리드)·`reads`(2단 리더)처럼 **화면이 실제로 그 형상을 확정하는** 자리가 있고, 그건 거짓말이
+     아니라 예고다. 금지 대상은 **줄 수를 지어내는 프리미티브** 하나다.
+     끝을 모르는 대기는 `<State kind='loading' shape='indeterminate'>` 가 정직한 표현이다. */
+  it('features 는 `SkeletonText`(n줄 골격)를 쓰지 않는다 — 끝을 모르면 indeterminate 다', () => {
+    const offenders = files(FEATURES).filter((p) => /<SkeletonText\b/.test(readFileSync(p, 'utf8')));
+    expect(offenders).toEqual([]);
   });
 });
 

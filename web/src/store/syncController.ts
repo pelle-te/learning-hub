@@ -150,6 +150,10 @@ export function onSyncResult(cb: (r: SyncResult) => void): () => void {
 /** 편집 뒤 동기화까지의 유예. `useApp` 영속 디바운스(400ms)보다 **길어야** 아웃박스가 아직
  *  SQLite 에 안 쓰인 편집을 놓치지 않는다(놓치면 다음 회차로 밀린다). */
 const AFTER_EDIT_MS = 1200;
+
+/** 창 복귀(`focus`) 동기화의 최소 간격(W24) — alt-tab 마다 돌면 Workers 일일 요청 예산을 태운다.
+ *  값이 옛 폴링 주기와 같은 것은 우연이 아니다: **같은 구간을 덮는 장치**라 예산 성격이 같다. */
+const FOCUS_MIN_GAP_MS = 5 * 60 * 1000;
 let _editTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** 설치된 트리거 세트의 실행기(`beforeSync`(산출물 미러)+겹침 가드 포함). 없으면 맨 `runSync`.
@@ -218,6 +222,27 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   };
   document.addEventListener('visibilitychange', onVisible);
 
+  /* ── ⚠⚠ **창 복귀(`focus`) 트리거 — W24 의 실측 질문을 없앤다**(2026-07-31) ─────────────
+     W24 는 "5분 폴링을 은퇴시키자"였고 선행 조건이 **실측 1건**이었다: WebView2 에서 *다른 앱으로
+     포커스를 뺏겼다 돌아올 때* `visibilitychange` 가 발화하는가. 답은 플랫폼 계약상 **아니오**에
+     가깝다 — `document.hidden` 은 창이 가려지거나 최소화될 때 바뀌고, **보이는 채로 포커스만
+     잃는 것**은 그 상태를 안 바꾼다. 즉 폴링이 덮던 구간(“PC 를 열어 둔 채 폰에서 편집하고 다시
+     PC 로 돌아오는 순간”)은 `visibilitychange` 로는 원리적으로 안 잡힌다.
+
+     그래서 **베팅 대신 구간을 직접 덮는다**: `window` 의 `focus` 는 정확히 "이 앱으로 돌아왔다"에
+     발화한다. 실측이 필요했던 이유(그 이벤트가 오는지 모른다)가 사라지므로 폴링을 은퇴시킬 수 있다.
+     ⚠ alt-tab 마다 동기화하면 Workers 일일 요청 예산을 태운다 → **최소 간격**을 둔다. 그 값은
+       옛 폴링 주기와 같게 잡았다(같은 구간을 덮는 장치라 예산 성격이 같다).
+     ⚠ `run()` 자체가 겹침 가드를 갖지만 그건 *동시 실행*만 막는다 — 빈도는 여기서 정한다. */
+  let lastFocusRun = 0;
+  const onFocus = (): void => {
+    const now = Date.now();
+    if (now - lastFocusRun < FOCUS_MIN_GAP_MS) return;
+    lastFocusRun = now;
+    run();
+  };
+  window.addEventListener('focus', onFocus);
+
   const onHide = (): void => run();
   if (onPagehide) window.addEventListener('pagehide', onHide);
 
@@ -234,6 +259,9 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
     });
   }
 
+  /* ⚠ `pollMs` 는 **호환을 위해 남았고 데스크톱은 더 이상 주지 않는다**(W24). 값이 나오는 유일한
+     구간을 위 `focus` 트리거가 이벤트로 덮으므로, 5분마다 깨어나 대개 아무것도 안 하는 타이머는
+     순수 비용이다(항상-켜짐 환경이라는 전제 자체가 실측과 어긋났다 — 켜 놓고 살지 않는다). */
   let pollId: ReturnType<typeof setInterval> | null = null;
   if (pollMs) pollId = setInterval(run, pollMs);
 
@@ -257,6 +285,7 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
 
   return () => {
     document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener('focus', onFocus);
     if (onPagehide) window.removeEventListener('pagehide', onHide);
     unsub?.();
     if (pollId) clearInterval(pollId);

@@ -50,7 +50,8 @@ import {
 import { SESSION_TYPE_META as TAG } from '@/lib/scheduleView';
 // 타임라인 시간↔좌표 변환·겹침 판정은 lib이 소유(순수 · 단위 테스트 대상).
 import { minToPct, timelineSpan, overlaps } from '@/lib/dayPlanGeometry';
-import { TrayRow, EventBand, TimedCard } from './DayPlannerCards';
+import { TrayRow, EventBand, TimedCard, TimeSpine } from './DayPlannerCards';
+import { useTrayCursor } from './useTrayCursor';
 import { useTimeboxDnd } from './useTimeboxDnd';
 import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
 import { Button } from '@/components/ui';
@@ -287,6 +288,9 @@ export function DayPlanner({
     else mutate((st) => placeTask(st, id, ds, at));
     ui.toast(`${toHM(at)}에 배치`, 'ok');
   };
+
+  // W13 — 트레이 행 하나가 탭 스톱 하나(종전 3번째 행 ⤵ 까지 Tab 14회). 배선은 `useTrayCursor`.
+  const trayCursor = useTrayCursor(untimed, trayTasks, { mutate, ds, manual, blockDone, toggleBlock, placeFirstFree });
 
   // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 누를 때마다 별도 블록(같은 과목이어도 병합 안 함).
   // 완료는 블록별(setBlockDone)이라 같은 sid|type 여러 블록을 독립 체크할 수 있다.
@@ -603,6 +607,10 @@ export function DayPlanner({
             {untimed.map((b) => (
               <TrayRow
                 key={b.id}
+                rowRef={trayCursor.register('b:' + b.id)}
+                tabIndex={trayCursor.tabStop === 'b:' + b.id ? 0 : -1}
+                onFocus={() => trayCursor.onItemFocus('b:' + b.id)}
+                selected={trayCursor.cursor === 'b:' + b.id}
                 title={b.name}
                 meta={TAG[b.type].label}
                 color={segColor(b.sid)}
@@ -619,6 +627,10 @@ export function DayPlanner({
             {trayTasks.map((t) => (
               <TrayRow
                 key={t.id}
+                rowRef={trayCursor.register('t:' + t.id)}
+                tabIndex={trayCursor.tabStop === 't:' + t.id ? 0 : -1}
+                onFocus={() => trayCursor.onItemFocus('t:' + t.id)}
+                selected={trayCursor.cursor === 't:' + t.id}
                 title={t.title}
                 /* ⚠ `Task.deadline` 은 스키마에만 있고 **쓰기 0·읽기 0** 이었다 — 사용자가 넣을 수도
                    볼 수도 없는 필드였다. 읽는 자리를 여기 준다: 마감이 있으면 D-day 를 함께 말한다.
@@ -694,6 +706,7 @@ export function DayPlanner({
         {/* ── 우: 하루 타임라인 ── */}
         <div className={DP.timeline}>
           <div className={DP.gutter}>
+            <TimeSpine windows={windows} pos={pos} />
             {ticks.map((m) => (
               <span key={m} className={DP.tick} style={{ top: `${pos(m)}%` }}>
                 {toHM(m)}

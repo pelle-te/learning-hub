@@ -4,6 +4,7 @@
    App이 이 표를 읽어 키 핸들링하고, ShortcutsHelp가 같은 표로 치트시트를 그린다.
 ============================================================ */
 import { MOD_LABEL } from '@/lib/platform';
+import { TABS } from './tabs';
 
 export interface NavShortcut {
   /** 'g' 다음에 누르는 키 */
@@ -12,26 +13,42 @@ export interface NavShortcut {
   tab: string;
 }
 
-/** g-시퀀스 네비게이션(가장 자주 쓰는 탭). 충돌 없는 단일 문자.
- *  ⚠ **모든 seq 의 tab 은 실존해야 한다** — `test/invariants.test.ts` 가 기계로 잠근다.
- *  D-4 이전엔 `g o` 가 은퇴한 `routine`(리다이렉트 shim)을 가리켜, 누르면 죽은 탭에 갔다
- *  `/items` 로 튕겼다. 목적지가 사라지는 것은 조용한 사건이라 표가 스스로 낡는다. */
+/* ⚠⚠ **`g` 표는 이제 `role` 에서 파생된다(W5 · 2026-07-31).**
+
+   D-4 가 "갈 수 있는 곳의 열거 다섯 벌"을 `role` 하나로 접었는데 **이 축만 손 유지 사본으로
+   남아 있었다.** 그 대가는 조용했다 — 실측(2026-07-31): destination 7 중 `forecast`·`reads` 에
+   `g` 가 **없고**(가장 최근에 승격된 목적지가 손가락에 없다), `g` 키 12 중 **6개가 lens** 라
+   눌러 가면 **레일에 없는 곳에 선다**. 사본은 E13(forecast 승격)·H24(markets 강등)·E17(atlas
+   강등)을 하나도 안 따라갔고, 옛 불변식은 _"seq 의 tab 이 실존한다"_ 만 봐서 전부 초록이었다.
+
+   파생 규칙은 하나다: **destination 이면 `g` 를 갖는다 · `g` 는 destination 만 가리킨다.**
+   손으로 유지하는 것은 **첫 글자가 겹칠 때의 예외 표 둘**뿐이고, 그 둘조차 불변식이 잠근다
+   (충돌을 방치하면 seq 가 중복돼 "모든 destination 이 고유 g 를 갖는다"가 깨진다).
+
+   ⚠ E24(모션)가 이미 푼 패턴이다 — *선언은 있는데 집행자가 없어 사본이 표류한다*. 처방도 같다:
+   파생 + 불변식. 새 목적지를 추가할 때 이 파일을 고칠 일은 **첫 글자가 겹칠 때뿐**이다. */
+
+/** 첫 글자가 이미 쓰였을 때의 대체 키(손 유지 · 여기 없는 destination 은 `key[0]` 이 그대로 seq). */
+const SEQ_OVERRIDE: Record<string, string> = {
+  stats: 'a', // 's' 는 schedule(캘린더) — 통계는 analytics 의 a
+  settings: 'e', // 's' 충돌 — 환경설정(environment)의 e
+  /* W17 이 `review-run` 을 목적지로 올리며 'r' 이 겹쳤다 — **불변식이 그 자리에서 잡았다**
+     (파생 + 고유성 단언이 손 유지 사본 시절엔 원리적으로 못 하던 일이다). 인출 축이 매일
+     쓰는 쪽이라 'r' 을 갖고, 읽을거리는 **독서**의 'd' 로 간다(`degree` 가 lens 로 내려가며 빈 키). */
+  reads: 'd',
+};
+
+/** 같은 목적지를 가리키는 **추가** 키(손가락 습관 보존 · 파생이 아니라 명시 예외).
+ *  ⚠ `p`(계획)와 `s`(캘린더)가 같은 곳을 가리키는 것은 **의도된 것이다.** D-4 이전에도 `g p` 는
+ *  plan-host 를 거쳐 `/schedule` 로 튕겼으니 두 키의 착지는 원래 같았다. 셸이 사라졌다고 한
+ *  쪽을 지우면 그 손가락 습관만 깨지고 얻는 것이 없다(이 저장소는 사용자 1인이다). */
+const SEQ_ALIASES: NavShortcut[] = [{ seq: 'p', tab: 'schedule' }];
+
+/** g-시퀀스 네비게이션 — **destination 전량**(파생). 치트시트 라벨은 `TabMeta.label` 파생(C-13).
+ *  ⚠ 불변식(`test/invariants.test.ts`)이 셋을 잠근다: 실존 · 전부 destination · destination 전량. */
 export const NAV_SHORTCUTS: NavShortcut[] = [
-  { seq: 't', tab: 'today' },
-  /* ⚠ `p`(계획)와 `s`(캘린더)가 **같은 곳을 가리킨다 — 의도된 것이다.** D-4 이전에도 `g p` 는
-     plan-host 를 거쳐 `/schedule` 로 튕겼으니 두 키의 착지는 원래 같았다. 셸이 사라졌다고 한
-     쪽을 지우면 그 손가락 습관만 깨지고 얻는 것이 없다(이 저장소는 사용자 1인이다). */
-  { seq: 'p', tab: 'schedule' },
-  { seq: 's', tab: 'schedule' },
-  { seq: 'i', tab: 'items' },
-  { seq: 'j', tab: 'journal' },
-  { seq: 'r', tab: 'review' },
-  { seq: 'a', tab: 'stats' },
-  { seq: 'm', tab: 'mastery' },
-  { seq: 'd', tab: 'degree' },
-  { seq: 'n', tab: 'integrations' },
-  { seq: 'c', tab: 'control' },
-  { seq: 'e', tab: 'settings' },
+  ...TABS.filter((t) => t.role === 'destination').map((t) => ({ seq: SEQ_OVERRIDE[t.key] ?? t.key[0]!, tab: t.key })),
+  ...SEQ_ALIASES,
 ];
 
 /** 치트시트에 함께 보일 전역 단축키(시퀀스 외). 수정자 표기는 플랫폼 파생(lib/platform).

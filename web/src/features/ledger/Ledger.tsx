@@ -8,7 +8,7 @@
    데이터 원본은 볼트 빌드 산출물(읽기전용) — 워크스페이스가 설정돼 있으면 자동, 오프라인이면 안내(mastery와 동형).
 
    ── C-7 아홉 번째 이식(ledger) — Tailwind ─────────────────────────────────────
-   레이아웃이 mastery 와 동형이라 인프라를 크게 승계한다: 지식맵/폴백 그래디언트(--bg-map-mastery),
+   레이아웃이 mastery 와 동형이라 인프라를 크게 승계한다: 지식맵/폴백 그래디언트(--bg-map-panel),
    상단 헤어라인(--bg-sig-top), 마운트 페이드업(enter-rise 키프레임), shadow-hero/card, hero-gap/px.
    새로 이름 준 것: 히어로 그래디언트(violet 층 없는 변형 · --bg-hero-ledger)·퍼널 막대 트랙
    (--bar-track)·2컬럼 트랙(380px)·상세 오버레이 폭·퍼널 gap·eyebrow 자간(0.24em)·상세 그림자(lg).
@@ -43,7 +43,7 @@ import State from '@/components/State';
 // 히어로/지식맵 밴드 상단 1px 발광 헤어라인(--bg-sig-top · review 이식이 깐 것 재사용).
 // 폴백 패널(로딩·에러·셋업) — 지식맵과 동형(그래디언트·그림자 공유). 자식은 m-auto 로 중앙(옛 `.offWrap > *`).
 const OFF_WRAP =
-  'relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-mastery)] p-5.5 shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] motion-reduce:animate-none [scrollbar-width:thin]';
+  'relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-panel)] p-5.5 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] motion-reduce:animate-none [scrollbar-width:thin]';
 
 /** 선택된 챕터 스냅샷(상세 패널). */
 interface Sel {
@@ -399,7 +399,7 @@ export default function Ledger() {
       {led ? (
         <div className="relative grid min-h-0 flex-1 grid-cols-ledger gap-3.5 max-wide:grid-cols-1 max-wide:overflow-y-auto">
           {/* 좌 — 과목별 파이프라인 매트릭스(immersive) */}
-          <div className="ds-glow relative flex min-h-0 min-w-0 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none max-wide:min-h-85">
+          <div className="ds-glow relative flex min-h-0 min-w-0 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-panel)] motion-reduce:animate-none max-wide:min-h-85">
             <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1.5 px-5 pt-4 pb-1">
               <span className="text-xs font-extrabold tracking-caps text-mut uppercase">
                 과목별 파이프라인 — SUBJECT PIPELINE

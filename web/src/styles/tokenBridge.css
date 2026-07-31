@@ -159,7 +159,7 @@
   --grid-template-columns-shell-collapsed: 60px minmax(0, 1fr);
 
   /* 인라인 토큰 글자 크기 — 부모 대비 상대값이라 사다리 칸이 아니다(규약 3과 같은 이유). */
-  --text-token: 0.86em;
+  --text-token: var(--fs-rel-sm);
 
   /* 표 라벨 트랙 — 임의값(`grid-cols-[120px_1fr]`) 대신 테마 항목으로 둔다(규약 2). */
   --grid-template-columns-guide: 120px 1fr;
@@ -206,16 +206,16 @@
   --text-runner-prompt: var(--fs-runner-prompt);
   --text-runner-mark: var(--fs-runner-mark);
   /* control 검색 히어로 제목 — clamp 유동값이라 반올림 예외(규약 3). */
-  --text-control-title: clamp(26px, 4vw, 40px);
+  --text-control-title: var(--fs-fluid-xl);
   /* mastery 히어로 제목(clamp) · 개념행 이름·점 글자(em 상대) — 사다리 밖이라 이름을 준다. */
-  --text-hero-title: clamp(22px, 2.6vw, 30px);
-  --text-concept-nm: 0.92em;
-  --text-msdot: 0.7em;
+  --text-hero-title: var(--fs-fluid-lg);
+  --text-concept-nm: var(--fs-rel-md);
+  --text-msdot: var(--fs-rel-xs);
   /* markets 뉴스 제목·AI 브리핑 본문 14px(=fs-base) — Tailwind 내장 `text-base`(16px)와 이름이
      겹쳐 그 이름을 못 쓴다(겹치면 기존 text-base 사용처가 통째로 14px 로 줄어든다). 별명을 준다. */
   --text-base14: var(--fs-base);
   /* markets 헤더 제목 — clamp 유동값(control-title 과 같은 성격 · 반올림 예외 · 규약 3). */
-  --text-markets-title: clamp(18px, 2.2vw, 23px);
+  --text-markets-title: var(--fs-fluid-sm);
 
   /* ── 시간 사다리(E24) — `duration-fast|base|slow|draw` ─────────────────────
      값은 `tokens.css` 가 갖고 여기는 이름만 잇는다(색과 같은 규약). 리터럴 `duration-150`·
@@ -253,12 +253,21 @@
      `color-mix` 색처럼 계산 결과라 이름을 준다. */
   --shadow-bar: var(--shadow-md);
   --shadow-bar-focus: var(--shadow-md), 0 0 0 3px var(--acc-soft);
+  /* ── ⚠ W21 의 경계 — **여기서 멈춘 이유**(2026-07-31) ────────────────────────────────
+     `--glow` 파생은 아직 여럿이고, 그중 의미 토큰(`--emph-live`·`--emph-value`)으로 옮긴 것은
+     "살아 있음"(점 마커·현재시각 스파크·라이브 펄스)과 "값"(리드아웃·남은 시간)뿐이다.
+     나머지를 **일부러 안 옮겼다**: 라이트의 `--emph-live` 는 `0 0 0 2px` **링**이라 큰 면
+     (`--shadow-go` 28px 확산 · `--shadow-fill-chip` 30px)에 얹으면 확산이 테두리로 바뀌어
+     *형태가 달라진다* — 그건 기전 교체가 아니라 디자인 변경이고, 값 무변경 계약 밖이다.
+     즉 남은 것은 **미완이 아니라 경계**다. 넓히려면 그 자리마다 라이트 기전을 새로 정해야 한다. */
   --shadow-go: 0 0 28px -8px var(--glow);
-  --shadow-dot: 0 0 8px var(--glow);
+  --shadow-dot: var(--emph-live); /* W21 — 점 마커의 '살아 있음'(다크=발광 / 라이트=잉크 링) */
   /* atlas 동향 타임라인 점의 발광 링. */
   --shadow-tl-dot: 0 0 0 3px color-mix(in srgb, var(--signal) 20%, transparent);
   /* 카드/패널 그림자(atlas) — 앱 --shadow-sm 을 가리킨다(Tailwind 기본 shadow-sm 과 이름 분리). */
-  --shadow-card: var(--shadow-sm);
+  /* ⚠ `--shadow-card`(= `--shadow-sm`)가 여기 있었다 — **W14 에서 은퇴**. 바깥 `.hud` 의 유리를
+     걷고 나니 안쪽 면만 드롭섀도로 떠 있는 것이 앞뒤가 안 맞았다(깊이의 근거가 사라졌다).
+     테두리와 배경은 그대로다 — 영역은 계속 읽힌다. 근거는 `global/features.css` 의 `.hud` 주석. */
   /* review 회고 코칭 warn 톤 점의 발광 링(bad). good 톤·계획막대는 shadow-dot 재사용. */
   --shadow-dot-bad: 0 0 8px color-mix(in srgb, var(--bad) 60%, transparent);
   /* integrations 텔레메트리 online 채널 점의 그린 발광(정적 · `live-pulse` 애니가 그 위에 링을 얹는다). */
@@ -313,7 +322,7 @@
   --color-line-acc-mid: var(--line-acc-mid);
   --color-tint-acc-panel2: var(--tint-acc-panel2);
   /* 리더 제목 — clamp 유동값(markets-title 과 같은 성격 · 반올림 예외 · 규약 3). */
-  --text-reader-title: clamp(19px, 2.4vw, 25px);
+  --text-reader-title: var(--fs-fluid-md);
   /* 언어/상태 태그 자간 0.04em · 요약 라벨 0.01em · 별점 글리프 1px(픽셀 letter-spacing) —
      내장 tracking 사다리(wide 0.025 / wider 0.05) 밖의 정확한 값이라 이름을 준다(caps 계열과 같은 논리). */
   --tracking-tag: 0.04em;
@@ -348,16 +357,16 @@
   --grid-template-columns-stats: 88px 248px 1fr 312px;
   /* 회전 스파인 HUD 숫자(=fs-readout 40px) + 모바일 축소(26px) · 완료율 게이지 숫자(38px)·단위(17px). */
   --text-spine: var(--fs-readout);
-  --text-spine-sm: 26px;
-  --text-gauge: 38px;
-  --text-gauge-sm: 17px;
+  --text-spine-sm: var(--fs-display-xs);
+  --text-gauge: var(--fs-display-sm);
+  --text-gauge-sm: var(--fs-lede);
   /* 회전 스파인 자간 — kicker 0.22em(eyebrow 0.2↔wide 0.24 사이) · spineBig 0.04em(wide 0.025↔wider 0.05 사이). */
   --tracking-kicker: 0.22em;
   --tracking-spine: 0.04em;
   /* 잔디 셀·wkSeg·과목 레일 모서리 3px — r-sm(7)·rounded-xs(2) 사다리 밖(13px 셀이라 보존 · settings --radius-swatch 와 같은 처리). */
   --radius-cell: 3px;
   /* 시즌 페이스 이번주 막대 발광(7px) · wkSeg hover inset 링(ink 22%). 앱/Tailwind shadow 이름과 분리(규약 5). */
-  --shadow-spark-now: 0 0 7px var(--glow);
+  --shadow-spark-now: var(--emph-live); /* W21 — 현재시각 스파크(같은 의미·같은 기전 선택) */
   --shadow-wkseg: inset 0 0 0 1px color-mix(in srgb, var(--ink) 22%, transparent);
 
   /* ── alloc(주간 배분 보드) 이식(C-7) ──────────────────────────────────────────
@@ -381,7 +390,9 @@
      링 발광·과목색 레일·요소 inset 헤어라인 링은 shadow(색·기하 계산 결과라 이름을 준다 · 규약 5).
      색값은 tokens.css 를 가리키거나 런타임 --tint 를 참조한다(사용 시점 해석). */
   --shadow-rail: 0 0 10px color-mix(in srgb, var(--tint, var(--acc)) 50%, transparent);
-  --shadow-load: 0 0 10px var(--glow);
+  /* W21 — "지금 살아 있다"의 기전은 테마가 고른다(다크=발광 / 라이트=2px 잉크 링).
+     값이 아니라 **의미**를 참조한다: `tokens.css` 의 `--emph-live` 머리주석이 SSOT. */
+  --shadow-load: var(--emph-live);
   --shadow-load-over: 0 0 10px color-mix(in srgb, var(--bad) 55%, transparent);
   --shadow-daychip: 0 2px 8px -2px var(--acc-glow);
   --shadow-inset-line2: inset 0 0 0 1px var(--line2);
@@ -391,16 +402,16 @@
 
   /* items 타이포 — 링 중앙 디스플레이(46/19px)·눈금(8px)·과목명(19/17px)·반픽셀 라벨
      (12.5/10.5/9.5/11.5px). 전부 --fs-* 사다리 밖의 정확값이라 이름을 준다(§14-3 · 픽셀 보존). */
-  --text-ring-num: 46px;
-  --text-ring-num-unit: 19px;
-  --text-ring-tick: 8px;
-  --text-ring-pct-unit: 9px;
-  --text-item-name: 19px;
-  --text-item-name-sm: 17px;
-  --text-hint: 12.5px;
-  --text-skel-title: 10.5px;
-  --text-day-free: 9.5px;
-  --text-note-info: 11.5px;
+  --text-ring-num: var(--fs-display-lg);
+  --text-ring-num-unit: var(--fs-title-sm);
+  --text-ring-tick: var(--fs-nano);
+  --text-ring-pct-unit: var(--fs-micro);
+  --text-item-name: var(--fs-title-sm);
+  --text-item-name-sm: var(--fs-lede);
+  --text-hint: var(--fs-hint);
+  --text-skel-title: var(--fs-caption);
+  --text-day-free: var(--fs-micro-plus);
+  --text-note-info: var(--fs-note);
   /* items 자간 — 링 숫자(-0.03em)·뼈대 라벨(0.14em)·시트 모드 배지(0.06em). */
   --tracking-ringnum: -0.03em;
   --tracking-skel: 0.14em;
@@ -428,11 +439,11 @@
      (§14-3 · stats/items 와 같은 규율). 반복 크기(12.5/11.5px)는 items 토큰을 재사용한다. */
   --text-subj: var(--fs-subj);
   --text-subj-mobile: var(--fs-subj-mobile);
-  --text-hero-when: 17px;
-  --text-cta-num: 19px;
-  --text-recall-q: 13.5px;
+  --text-hero-when: var(--fs-lede);
+  --text-cta-num: var(--fs-title-sm);
+  --text-recall-q: var(--fs-label);
   /* 링 중앙 분모·지금-노드 퍼센트(9px) — fs-2xs(10) 아래 반픽셀 밖 정확값. */
-  --text-tiny9: 9px;
+  --text-tiny9: var(--fs-micro);
   /* 자간 — 과목명(-0.035em)·CTA(0.01em). 내장 사다리 밖. */
   --tracking-subj: -0.035em;
   --tracking-cta: 0.01em;
@@ -450,12 +461,14 @@
      off-ladder 반픽셀/정수 타이포(17/10.5/11.5/9.5/9px)·좌측거터+요일7열 격자 트랙·off-ladder
      반경(4/5/6px)은 fs 사다리 밖 값이라 이름을 준다(§14-3 · items 반픽셀 예외와 같은 규율).
      색·색믹스·그래디언트는 tokens.css 가 갖고 JSX 가 bg-[var]·shadow-[var] 로 직접 참조한다. */
-  --text-sched-date: 17px; /* 주 뷰 날짜 숫자(모바일은 text-lg 15) */
-  --text-sched-dow: 10.5px; /* 요일 머리글(주·월) */
-  --text-sched-sub: 11.5px; /* 월 부제 */
-  --text-sched-meta: 9.5px; /* 조각 메타·종일 라벨·부하·+N */
-  --text-sched-cap: 9px; /* 현재시각 배지·모바일 마감 칩 */
-  --text-sched-hide: 0px; /* 모바일 칩 텍스트 숨김(색점만 남김) */
+  --text-sched-date: var(--fs-lede); /* 주 뷰 날짜 숫자(모바일은 text-lg 15) */
+  --text-sched-dow: var(--fs-caption); /* 요일 머리글(주·월) */
+  --text-sched-sub: var(--fs-note); /* 월 부제 */
+  --text-sched-meta: var(--fs-micro-plus); /* 조각 메타·종일 라벨·부하·+N */
+  --text-sched-cap: var(--fs-micro); /* 현재시각 배지·모바일 마감 칩 */
+  /* ⚠ `0px` 는 **크기가 아니라 기전**이다(모바일 칩에서 글자를 지우고 색점만 남긴다) → 역할
+     토큰으로 접지 않는다. 사다리에 0 칸을 만들면 그 칸이 "가장 작은 글자"로 오독된다(W11). */
+  --text-sched-hide: 0px;
 
   --radius-seg: 6px; /* 주 seg · 일 tool 버튼 */
   --radius-chip-sm: 4px; /* 월 칩 · 주 현재시각 배지 */
@@ -493,8 +506,8 @@
      워드마크·리드아웃 수치는 **브랜드 마크**다 — 사다리 칸이 아니라 설계도 §1-2 가 정한
      의도값이라 유동값(clamp)과 같은 논리로 이름을 준다(규약 3). 색·발광은 tokens.css 의
      `--glow` 파생이라 여기선 이름만 잇는다(테마가 바뀌면 자동으로 다시 계산된다). */
-  --text-wordmark: 21px;
-  --text-wordmark-sm: 17px; /* 700↓ 단일행 워드마크 */
+  --text-wordmark: var(--fs-title);
+  --text-wordmark-sm: var(--fs-lede); /* 700↓ 단일행 워드마크 */
   /* 30px — 헤더 큰 네온 수치. ⚠ N-15 에서 `--fs-hero` → `--fs-stat` 으로 **이름만** 바꿨다
      (두 토큰 다 30px 이라 픽셀은 불변). 이 자리는 히어로 제목이 아니라 **스탯**이고, HUD
      디스플레이 스케일에 그 이름의 토큰이 이미 있는데 참조가 0회였다 — 죽은 토큰이 아니라
@@ -511,23 +524,31 @@
   --tracking-fill: 0.04em; /* 주 액션(네온 채움) */
   /* 네온 글로우 3종 — 워드마크/리드아웃은 text-shadow, 주 액션은 box-shadow.
      ⚠ Tailwind 의 text-shadow 네임스페이스는 `--text-shadow-*` 다(v4.1~). */
-  --text-shadow-wordmark: 0 0 20px var(--glow);
-  --text-shadow-readout: 0 0 22px var(--glow);
+  /* W21 — "이 수가 이 화면의 값이다". 라이트에선 `none` 이고 무게가 대신 진다
+     (`--emph-value-weight` · 흰 면 위 발광은 인쇄 얼룩으로 읽힌다). */
+  /* ⚠ `--text-shadow-wordmark` 가 여기 있었다 — **W22 에서 워드마크 발광을 끄며 소비처가 0**이
+     됐다(상시 크롬은 액센트 예산을 안 먹는다). 값이 아니라 자리가 사라진 것이라 되살리지 말 것. */
+  --text-shadow-readout: var(--emph-value);
   --shadow-fill-chip: 0 0 30px -6px var(--glow);
   /* ── RailSidebar(셸 티어 4/5) 이식(C-7) ─────────────────────────────────────
      접힘/펼침 두 벌 기하가 한 컴포넌트에 있다. 반픽셀 폰트(13.5/12.5/10.5)는 정수 사다리 밖이라
      이름을 준다(eslint 임의값 금지의 예고된 예외 ① — 값으로 쓰지 말고 이름으로). 반경 9/8px 는
      기존 --radius-blk/--radius-chip 과 값이 같지만 의미가 달라 별칭을 둔다(graph --tracking-kind 선례). */
-  --text-rail-item: 13.5px; /* 나브 행 라벨 */
-  --text-rail-surface: 12.5px; /* 표면 스위처 라벨 */
-  --text-rail-head: 10.5px; /* 그룹 헤더 · 배지 */
+  --text-rail-item: var(--fs-label); /* 나브 행 라벨 */
+  --text-rail-surface: var(--fs-hint); /* 표면 스위처 라벨 */
+  --text-rail-head: var(--fs-caption); /* 그룹 헤더 · 배지 */
   --radius-rail: 9px; /* 나브 행 · 토글 */
   --radius-rail-chip: 8px; /* 로고 · 배지 · 플라이아웃 · 표면 버튼 */
   --radius-rail-seg: 11px; /* 표면 스위처 트랙(펼침) */
   --tracking-rail-logo: -0.04em; /* L 칩 */
   --color-tint-acc-panel-20: var(--tint-acc-panel-20);
   /* 로고 네온 · 표면 활성 칩(inset 링 + 카드 그림자 합성). */
-  --shadow-rail-logo: 0 0 24px -4px var(--glow);
+  /* ⚠⚠ **상시 크롬은 액센트 예산을 안 먹는다(W22 · 2026-07-31).** 워드마크·레일 로고·활성
+     항목·집중 칩이 각자 발광을 들고 있어 **콘텐츠가 뜨기 전에 예산이 이미 소진**됐고, 그러면
+     화면의 값(원칙 ②의 44px `primary`)이 크롬과 같은 무게로 경쟁한다.
+     남긴 둘은 **상태**다(활성 항목·집중 세션) — 그건 지금 무슨 일이 일어나는지를 말하므로
+     장식이 아니다. 로고는 언제나 켜져 있으므로 아무것도 말하지 않는다. */
+  --shadow-rail-logo: none; /* W22 — 상시 크롬은 발광하지 않는다(위 블록 주석) */
   --shadow-rail-surface-on: inset 0 0 0 1px var(--acc-glow), var(--shadow-sm);
   --shadow-rail-item-on: inset 0 0 0 1px var(--acc-glow);
   /* ── FocusChip(셸 티어 5/5) 이식(C-7) ───────────────────────────────────────
@@ -539,8 +560,9 @@
   --color-tint-acc-14: var(--tint-acc-14); /* 본체 hover */
   --color-tint-acc-8: var(--tint-acc-8); /* 중단 버튼 hover */
   --shadow-focus-chip: 0 0 24px -8px var(--glow); /* 칩 외곽 발광 */
-  --shadow-focus-dot: 0 0 10px var(--glow); /* 라이브 펄스 점(spine 과 값만 같다) */
-  --text-shadow-focus-time: 0 0 16px var(--glow); /* 남은 시간 네온 */
+  --shadow-focus-dot: var(--emph-live); /* 라이브 펄스 점 — W21: 기전은 테마가 고른다 */
+  /* W21 — 남은 시간은 **값**이다(라이트에선 그림자 대신 중량이 무게를 진다). */
+  --text-shadow-focus-time: var(--emph-value);
 
   /* ── components/*(공유 프리미티브 티어) 이식(C-7) ────────────────────────────
      feature 가 아니라 **여러 feature 가 함께 쓰는 컴포넌트**들이다(EmptyState·Tooltip·
@@ -604,5 +626,5 @@
   --blur-palette: 2px;
   --spacing-palette-y: 18vh; /* 시트 상단 오프셋 — top-* 는 spacing 스케일을 읽는다 */
   --spacing-palette-list: 50vh; /* 목록 최대 높이 */
-  --text-palette-input: 16px; /* 검색 입력 — 정수 사다리 밖(14↔20 사이) */
+  --text-palette-input: var(--fs-field); /* 검색 입력 — 정수 사다리 밖(14↔20 사이) */
 }

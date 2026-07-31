@@ -13,7 +13,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFocus } from '@/store/useFocus';
+import { useOverlay } from '@/store/useOverlay';
+import { captureSubjects, commitCapture } from '@/shell';
+import { parseCapture } from '@/lib/quickCapture';
 import { mmss } from '@/lib/utils';
+import { setMiniCaptureWindow } from '@/lib/tauri';
 import { exitMini } from '@/lib/miniMode';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
@@ -30,6 +34,8 @@ export default function MiniHud() {
   const stop = useFocus((s) => s.stop);
   const navigate = useNavigate();
   const [now, setNow] = useState(() => Date.now());
+  const capture = useOverlay((s) => s.miniCapture);
+  const setCapture = useOverlay((s) => s.setMiniCapture);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   /* ⚠⚠ **포커스를 이 알약 안에 묶는다(H11 · 2026-07-30 `/감사 근본`).**
@@ -56,11 +62,39 @@ export default function MiniHud() {
     return () => clearInterval(id);
   }, [session]);
 
+  /* W9 — 창 높이는 캡처 열림의 함수다. 닫힐 때 반드시 줄인다(안 줄이면 알약이 영구히 커진다).
+     ⚠ 언마운트에서도 줄인다: 세션이 끝나 미니가 통째로 사라질 때 캡처가 열려 있었으면
+     복귀 크기 계산(`exitMini`)이 132px 을 물고 간다. */
+  useEffect(() => {
+    void setMiniCaptureWindow(capture);
+    return () => {
+      if (capture) void setMiniCaptureWindow(false);
+    };
+  }, [capture]);
+
   const leftSec = session ? Math.max(0, Math.round((session.endsAt - now) / 1000)) : 0;
   const expand = async (): Promise<void> => navigate(await exitMini(), { replace: true });
 
   return (
     <div className={WRAP} data-mini="1" ref={wrapRef} tabIndex={-1}>
+      <div className="flex w-full flex-col gap-2">
+        <div className="flex items-center gap-3">{pill(leftSec, session, expand, stop)}</div>
+        {/* W9 — 전역 캡처 핫키의 착지. 같은 창 · 높이 92→132 · 제출 즉시 알약으로 복귀. */}
+        {capture && <MiniCapture onDone={() => setCapture(false)} />}
+      </div>
+    </div>
+  );
+}
+
+/** 알약 본체(시간·이름·버튼) — 캡처 줄과 세로로 쌓기 위해 한 함수로 뽑았다. */
+function pill(
+  leftSec: number,
+  session: { name: string } | null,
+  expand: () => Promise<void>,
+  stop: () => void,
+): React.JSX.Element {
+  return (
+    <>
       <i className={PULSE} aria-hidden="true" />
       {/* ⚠ `<b>` 는 **제네릭 롤**이라 `aria-label` 이 조용히 무시된다(H11 부수 · 2026-07-30).
           그래서 스크린리더는 맥락 없이 "12:34" 만 읽었다 — 그 숫자가 남은 시간인지 알 수 없다.
@@ -85,6 +119,55 @@ export default function MiniHud() {
       >
         ■
       </button>
-    </div>
+    </>
+  );
+}
+
+/* ── W9 미니 캡처 — 알약이 **그 자리에서** 캡처 한 줄이 된다 ─────────────────────────
+   전역 핫키(`hotkey.rs`)의 유일한 값 구간이 "집중 세션 중"이고 그 구간의 창은 320×92 알약인데,
+   착지는 무조건 풀사이즈 ⌘K 팔레트였다 — 알약 뷰포트 안에서 뜬다. 새 라우트를 만들지 않는 것이
+   이 안의 제약이다(드롭된 `/capture` 를 되살리지 않는다): 같은 창 · 높이 92→132 · 제출 즉시 복귀.
+   ⚠ 저장은 **데스크톱 ⌘Enter·폰 캡처 바와 같은 함수**(`commitCapture`)다 — 캡처 입구가 셋인데
+     결말이 갈리면 그게 곧 조용한 데이터 손실이다(D-2·W8 이 같은 부류에 물렸다). */
+function MiniCapture({ onDone }: { onDone: () => void }): React.JSX.Element {
+  const [text, setText] = useState('');
+  const ref = useRef<HTMLInputElement>(null);
+  /* 마운트 포커스 — 이 컴포넌트는 **열릴 때만** 마운트된다(그래서 입력 초기화도 공짜다:
+     닫으면 언마운트라 다음에 열 때 빈 줄이다. 이펙트에서 setState 로 지우면 그건 캐스케이드다). */
+  useEffect(() => ref.current?.focus(), []);
+
+  const submit = (): void => {
+    const raw = text.trim();
+    if (raw) {
+      const subjects = captureSubjects();
+      commitCapture(
+        parseCapture(
+          raw,
+          new Date(),
+          subjects.map((s) => s.name),
+        ),
+        raw,
+        '',
+      );
+    }
+    onDone();
+  };
+  return (
+    <input
+      ref={ref}
+      type="text"
+      className="w-full text-sm"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={(e) => {
+        // ⚠ 트랩(H11)이 Esc 를 안 먹는다 — 여기서 먼저 잡아 캡처만 닫는다(창은 알약으로 복귀).
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onDone();
+        } else if (e.key === 'Enter') submit();
+      }}
+      placeholder="떠오른 것 한 줄 — Enter 로 보충에 담기"
+      aria-label="빠른 캡처"
+    />
   );
 }

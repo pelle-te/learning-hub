@@ -8,7 +8,7 @@
    액션 표면 3분할(각 함수는 정확히 한 곳): ui(토스트·모달·백업) / io(내보내기·FS·복구) / actions(상태 변형).
 ============================================================ */
 import { toast, toastUndo } from './toast';
-import { confirm, prompt } from './modal';
+import { confirm } from './modal';
 import * as A from './actions';
 
 export { ToastHost } from './toast';
@@ -44,7 +44,6 @@ export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';
 export const ui = {
   toast,
   confirm,
-  prompt,
   backupNow: A.backupNow,
   toastUndo: (msg: string) => toastUndo(msg, A.undoLast),
 };

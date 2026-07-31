@@ -45,7 +45,7 @@ const BRAND = 'flex items-center gap-2.5 pb-3 max-mobile:hidden';
 const BRAND_EXP = 'px-2 pt-0.5';
 const BRAND_COL = 'justify-center px-0 pt-0';
 const LOGO =
-  'grid size-7.5 flex-none place-items-center rounded-rail-chip bg-acc text-lg leading-text font-black tracking-rail-logo text-on-acc shadow-rail-logo';
+  'grid size-7.5 flex-none place-items-center rounded-rail-chip bg-acc text-lg leading-text font-black tracking-rail-logo text-on-acc';
 // ⚠ 규약 6 — `text-lg` 는 **내장 크기명**이라 동반 line-height(1.555)를 방출한다. 원본 `.word` 는
 //    선언이 없어 body 1.6 을 상속했으므로(24px) 명시하지 않으면 줄상자가 23.3px 로 줄어든다.
 const WORD = 'text-lg leading-text font-extrabold tracking-title whitespace-nowrap text-ink';
@@ -217,7 +217,14 @@ export default function RailSidebar() {
             {signal && <span className={SIGNAL}>{signal}</span>}
           </span>
         )}
-        {badge > 0 && (
+        {/* ⚠⚠ **배지는 접힘 전용이다(W7 · 2026-07-31).** 종전엔 `journal` 하나가 같은 두 수를
+            두 번 그렸다 — 배지는 `overdue + backlog` **합계**, 바로 아래 신호줄은 `밀림 N ·
+            보충 M` **분해**. 두 조건이 정확히 일치해 펼침 상태에선 **항상 동시에** 렌더됐다.
+            게다가 합계 형태는 `selectors.ts:151` 이 스스로 _"둘은 성격이 다른 일이라 합치면
+            어느 쪽도 행동으로 안 이어진다"_ 라 금지한 바로 그 형태다 — 주석이 금지한 것을 옆
+            파일이 계속 그리고 있었다. 배지가 필요한 유일한 상태는 **글자가 안 들어가는 42px
+            접힘**이고, 그 근거는 위 `SIGNAL` 주석이 이미 소유한다. */}
+        {badge > 0 && (collapsed || !signal) && (
           <span className={BADGE} aria-hidden="true">
             {badge > 99 ? '99+' : badge}
           </span>

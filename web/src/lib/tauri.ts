@@ -225,6 +225,22 @@ export async function setMiniWindow(on: boolean, box?: WindowBox | null): Promis
 
 /** 알약 크기 — 남은 시간·블록명·중지 버튼 한 줄이 들어가는 최소치. */
 export const MINI_WINDOW: WindowBox = { width: 320, height: 92 };
+/** 알약 + 캡처 한 줄(W9). 폭은 그대로 — **같은 창**이 잠깐 자라는 것이지 새 창이 아니다. */
+export const MINI_CAPTURE_WINDOW: WindowBox = { width: 320, height: 132 };
+
+/** 미니 창 높이만 바꾼다(알약 ↔ 알약+캡처). 실패는 조용히 false — 캡처 UI 는 그래도 뜬다
+ *  (창이 안 자라면 잘려 보이지만, 안 뜨는 것보다는 낫고 Esc 로 즉시 빠진다). */
+export async function setMiniCaptureWindow(on: boolean): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window');
+    const t = on ? MINI_CAPTURE_WINDOW : MINI_WINDOW;
+    await getCurrentWindow().setSize(new LogicalSize(t.width, t.height));
+    return true;
+  } catch {
+    return false;
+  }
+}
 /** 복귀 실측이 없을 때만 쓰는 폴백(tauri.conf.json 의 기본 창 크기와 같은 값). */
 const RESTORE_FALLBACK: WindowBox = { width: 1440, height: 900 };
 

@@ -316,10 +316,13 @@ for (const theme of THEMES) {
   });
 }
 
-// 과목 상세 시트(계획 재개편 v3) — 과목 탭의 핵심 신규 UI. 카드를 누르면 탭 프레임보다 작은 중앙 시트가
-// 뜨고, 그 안에서 과목 정의 + 이번 주 요일 배분을 함께 정한다(옛 아코디언 대체). 뒤 갤러리가 살아 있는지도 함께 잠근다.
+/* ⚠⚠ **과목 상세는 시트가 아니라 페이지다(W12 · 2026-07-31).** 옛 이름은 `subject-sheet` 였고
+   중앙 오버레이(`role=dialog`)를 찍었다 — 카드를 누르면 탭 프레임보다 작은 시트가 떴다.
+   객체 축(`/subject/:id`)이 서면서 오버레이가 걷히고 **과목이 자기 URL 을 갖는다**: 3열
+   [정의·챕터 | 앎(원장·숙달) | 인출·오답]. 이 케이스가 잠그는 것도 바뀌었다 — 시트가 떴는가가
+   아니라 **세 컬럼이 한 화면에 함께 있는가**(그게 "7클릭·6화면"을 없앤 근거다). */
 for (const theme of THEMES) {
-  test(`subject-sheet · ${theme}`, async ({ page }) => {
+  test(`subject · ${theme}`, async ({ page }) => {
     await boot(page, theme);
     await page.goto('/items');
     await expect(page.locator('#main')).toBeVisible();
@@ -327,12 +330,12 @@ for (const theme of THEMES) {
       .getByRole('button', { name: /미적분/ })
       .first()
       .click();
-    await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('heading', { name: '이번 주 요일 배분' })).toBeVisible();
-    // 뷰포트 캡처 — fullPage는 position:fixed 오버레이를 스크롤 오프셋만큼 어긋나게 그려(헤더 누락·좌측 잘림)
-    // 실제 렌더와 다른 상을 박는다. 시트는 뷰포트에 고정된 물건이라 뷰포트로 잡는 게 정직하다.
+    // 앎·인출 컬럼이 함께 있는지 — 한 화면에 모였다는 것이 이 라우트의 존재 이유다.
+    await expect(page.getByRole('heading', { name: /원장/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /복습 위험/ })).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`subject-sheet-${theme}.png`);
+    await expect(page).toHaveScreenshot(`subject-${theme}.png`, { fullPage: true });
   });
 }
 
@@ -474,14 +477,37 @@ for (const theme of THEMES) {
   });
 }
 
-test('mastery · loading · dark', async ({ page }) => {
-  await bootArtifactPhase(page, 'dark', 'knowledge', 'loading');
-  await page.goto('/mastery');
-  // 로딩은 스스로 알린다(role=status) — 이 단언이 곧 E17 의 계약이다.
-  await expect(page.getByRole('status').filter({ hasText: '지식상태를 불러오는 중' })).toBeVisible();
-  await settle(page);
-  await expect(page).toHaveScreenshot('mastery-loading-dark.png');
-});
+/* ⚠⚠ **로딩을 회귀망에 넣는다(W15 · 2026-07-31).** 종전엔 `mastery · loading · dark` **한 장**
+   뿐이었다 — 빈 상태가 12장인데 로딩은 사실상 앱의 한 상태 전체가 시각 게이트 밖이었고,
+   그래서 `State kind='loading'` 을 중앙 스피너에서 **골격 프레임**으로 바꾸는 것 같은 변화가
+   "안 바뀌었다"가 아니라 "본 적이 없다"로 통과한다(E17 이 이미 한 번 물린 형태).
+   두 탭 × 두 테마 = 4장. `State` 의 골격은 `bg-panel2` 라 **라이트에서 대비가 갈리는** 자리다. */
+/* ⚠ 두 형상을 **둘 다** 찍는다(W15 완결 · 2026-07-31):
+   · `frame`(기본) — 페이지 격자를 미리 그린다. ledger·mastery 처럼 착지 레이아웃이 확정된 화면.
+   · `indeterminate` — 끝을 모르는 대기. discovery·goals 처럼 **행 수가 데이터에 따라 변하는** 화면
+     (거기 골격을 그리면 그건 로딩이 아니라 오답이다 — 불변식이 `SkeletonText` 를 금지하는 이유).
+   markets·reads 는 화면이 형상을 확정하는 **고유 골격**이라 셋째 부류다 — 그것도 함께 잠근다.
+   합 12장(2형상 × 화면 6 × … 이 아니라 화면 6 × 2테마)이고, 종전엔 **1장**이었다. */
+const LOADING_SCREENS: { key: string; artifact: string; path: string }[] = [
+  { key: 'ledger', artifact: 'ledger', path: '/ledger' },
+  { key: 'mastery', artifact: 'knowledge', path: '/mastery' },
+  { key: 'discovery', artifact: 'discovery', path: '/discovery' },
+  { key: 'goals', artifact: 'goals', path: '/goals' },
+  { key: 'markets', artifact: 'markets', path: '/markets' },
+  { key: 'reads', artifact: 'reads', path: '/reads' },
+];
+for (const theme of THEMES) {
+  for (const sc of LOADING_SCREENS) {
+    test(`${sc.key} · loading · ${theme}`, async ({ page }) => {
+      await bootArtifactPhase(page, theme, sc.artifact, 'loading');
+      await page.goto(sc.path);
+      // 로딩은 스스로 알린다(role=status) — 이 단언이 곧 E17 의 계약이다(형상이 무엇이든 유지된다).
+      await expect(page.getByRole('status').first()).toBeAttached();
+      await settle(page);
+      await expect(page).toHaveScreenshot(`${sc.key}-loading-${theme}.png`);
+    });
+  }
+}
 
 /* ============================================================
    압력(press) — **누르고 있는 프레임**(E15 · 2026-07-30)

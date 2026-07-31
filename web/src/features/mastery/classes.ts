@@ -12,7 +12,7 @@ export const M = {
   wrap: 'flex h-full min-h-0 min-w-0 flex-col gap-3 px-4 pt-4 pb-3',
 
   // ── 시네마틱 히어로 밴드 ──
-  hero: `relative flex flex-none items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-mastery)] px-hero-px py-4 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`,
+  hero: `relative flex flex-none items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-panel)] px-hero-px py-4 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`,
   heroLeft: 'flex min-w-0 flex-col gap-0.5',
   eyebrow: 'text-xs font-extrabold tracking-eyebrow text-acc uppercase',
   headTitle: 'mt-0.5! mb-0! text-hero-title! font-black! leading-none tracking-tight!', // h2 — 전역 h2{} 를 ! 로 이김
@@ -33,7 +33,7 @@ export const M = {
 
   // ── 본문 2컬럼 ──
   cols: 'grid min-h-0 flex-1 grid-cols-mastery gap-3 max-wide:grid-cols-1 max-wide:overflow-y-auto',
-  mapCol: `relative min-h-0 min-w-0 rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none max-wide:min-h-90`,
+  mapCol: `relative min-h-0 min-w-0 rounded-lg border border-line bg-[image:var(--bg-map-panel)] animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none max-wide:min-h-90`,
   mapScroll: 'h-full overflow-y-auto px-5 pt-4 pb-5 [scrollbar-width:thin]',
   actionCol: 'min-h-0 min-w-0 overflow-y-auto pr-0.5 [scrollbar-width:thin]',
 
@@ -68,7 +68,7 @@ export const M = {
     'm-0! cursor-pointer border-0! bg-transparent! p-0! text-left whitespace-nowrap text-bad! transition-[opacity] hover:underline hover:opacity-80',
 
   // ── 폴백 패널(셋업·로딩·에러) ──
-  offWrap: `relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-mastery)] p-5 shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none [scrollbar-width:thin]`,
+  offWrap: `relative flex min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-[image:var(--bg-map-panel)] p-5 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none [scrollbar-width:thin]`,
   offChild: 'm-auto max-w-off', // 옛 `.offWrap > *` — 자식에 직접 준다(규약 4)
   stateBody: 'px-1.5 py-2',
   stateH3: 'mt-0! mb-2! text-base! font-extrabold! tracking-tight!', // h3 — 전역 h3{} 를 ! 로 이김

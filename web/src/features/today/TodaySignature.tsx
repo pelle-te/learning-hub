@@ -22,9 +22,11 @@ import { openBacklog, CBMS_INFO } from '@/lib/methodology';
 import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
+import { dayCapacity } from '@/lib/dayCapacity';
+import { pickNextStep, pickRetrievalSlot } from '@/lib/todaySlots';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue, ankiFreshness } from '@/lib/anki';
-import { pickRetrieval, retrievableCount, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
+import { pickRetrieval, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { frontierNext } from '@/lib/knowledge';
 import { riskSummary } from '@/lib/spacedReview';
 import { onThisDay } from '@/lib/records';
@@ -68,6 +70,9 @@ const S = {
      (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */
   eyebrow:
     'inline-flex items-center gap-2 text-xs leading-text font-extrabold tracking-eyebrow-wide text-mut uppercase',
+  /* W6 용량 한 줄 — 아이브로(12px)와 리드아웃(30px) 사이의 크기. 판정은 근거보다 크고 요약보다
+     작다. `tabular-nums` 는 시간이 바뀔 때 문장이 흔들리지 않게 한다. */
+  fit: 'mt-1.5 text-base14 leading-body font-semibold text-mut tabular-nums',
   live: 'size-1.75 rounded-full bg-acc shadow-load animate-[live-breathe_var(--tempo)_var(--ease)_infinite] motion-reduce:animate-none',
   subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-flat tracking-subj! text-balance text-[color:var(--subj-col)]!',
   heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-body text-mut',
@@ -95,7 +100,7 @@ const S = {
   presets: 'inline-flex gap-1.5',
   preset:
     'rounded-md! border-0! bg-transparent! px-3! py-2.25! text-mut! font-extrabold! tabular-nums shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-pill)]',
-  flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 shadow-card [--rise-y:12px] animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
+  flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 [--rise-y:12px] animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
   flowHead: 'mb-2.5! flex! items-center gap-3',
   ring: 'relative inline-block size-8.5 flex-none [--ring-w:6]',
   ringNum:
@@ -119,13 +124,22 @@ const S = {
   recallReset: 'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-auto font-bold! text-mut! underline',
   confWrongNote: 'mt-1.5 text-sm leading-body text-mut',
   more: 'mt-3 border-x-0! border-b-0! rounded-none! border-line2! bg-transparent! pt-3.5! text-left text-sm! leading-auto font-bold! text-mut!',
-  strip: 'flex flex-none items-center gap-10 px-1 pt-1 pb-0.5 max-wide:flex-wrap max-wide:gap-x-7 max-wide:gap-y-3.5',
+  /* ⚠⚠ **하단 스트립을 은퇴시키고 레일의 '오늘 밖' 구역으로 옮겼다(W18 · 2026-07-31).**
+     같은 성격의 신호(마감·Anki·보충 / 밀린 복습)가 화면의 **두 자리**에 있었고, 위계가 뒤집혀
+     있었다 — 행동을 바꾸는 것이 11~13px 최하단, 안 바꾸는 것(연속)이 30px 최상단.
+     ⚠ **미실행 사유였던 것이 이 구현의 제약이다**: 레일 컬럼은 이미 스크롤이라 블록 많은 날
+     이 구역이 스크롤 아래로 밀리면 **지금보다 나빠진다** → `flex-none` 고정 구역이어야 한다
+     (`S.rail` 이 `flex-1 overflow-y-auto` 이고 이건 그 형제다 — 스크롤 밖에 있다).
+     함께 사라진 것: 라벨 3 + 구분선 2 = 내용 없는 노드 5개(옛 `S.strip`·`S.vline`). */
+  beyond: 'mt-2 flex flex-none flex-col gap-2 border-t border-line-soft px-1 pt-2.5',
+  reviewCta:
+    'inline-flex items-center gap-2 self-start rounded-md! border-0! bg-[var(--tint-warn-faint)]! px-3! py-2! text-hint! font-bold! shadow-[var(--shadow-inset-line2)] hover:shadow-[var(--shadow-inset-acc-glow)]',
+  reviewDot: 'size-1.75 flex-none rounded-full bg-warn',
   grp: 'flex flex-wrap items-center gap-3',
-  grpL: 'text-2xs font-bold tracking-caps text-mut uppercase',
+  grpL: 'text-xs font-bold tracking-caps text-mut uppercase',
   tag: 'inline-flex cursor-pointer items-center gap-1.5 border-0! bg-transparent! p-0! font-extrabold!',
   tagMut: 'inline-flex cursor-default items-center gap-1.5 text-md font-semibold text-mut',
   dot: 'size-1.75 flex-none rounded-full',
-  vline: 'h-6.5 w-px flex-none bg-line2',
   /* UX-1 하단 스트립 액센트 위계 — 다섯 그룹의 숫자가 **전부** `text-acc` 볼드라 위계가 0이었다
      (DS §0-5: 다 강조하면 아무것도 강조가 아니다). 액센트를 "지금 손봐야 할 것"에만 예약한다:
      임박 마감 · 밀린 Anki · 열린 보충. 나머지(이번 주 누적 시간 · 의식 체크)는 *상태 보고*라
@@ -342,10 +356,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     ? L.free
     : freeWindowsForWeekday(state, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
   const freeLeftMin = freeMinAfter(freeIntervals, nowMin);
-  const freeLeftH = Math.round((freeLeftMin / 60) * 10) / 10;
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
-  const recallN = recall ? retrievableCount(state, ds) : 0; // '회상 N개 대기' — 실제 대기 수량
+  /* ⚠ `recallN`('회상 N개 대기')이 여기 있었다 — **W19 에서 완료 화면의 다음 걸음을 하나로
+     좁히며 사라졌다.** 회상 카드 자체는 레일 아래에 그대로 있고, 그 옆의 대기 수는 카드가
+     이미 존재한다는 사실을 한 번 더 말할 뿐이었다(한 양 = 한 자리). */
   // 회상 카드가 바뀌면(새 날짜·다른 요약) 정답 공개를 초기화 — 다음 카드가 답이 열린 채 뜨는 인출연습 무력화 방지.
   // effect 대신 렌더 중 조건부 setState(React 권장 · 이 코드베이스의 draftFor 관용과 동일).
   const recallKey = recall ? `${ds}|${recall.summary.name || ''}` : '';
@@ -376,30 +391,18 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // 오늘의 흐름 노드 — 학습(체크 가능)+일과 블록을 시간순 단일 리스트로(무지개 가로 트랙 폐기).
   const tl = L?.tl || [];
   type EnrichedItem = (typeof enriched)[number];
-  /* ── E9 "오늘 밖"을 오늘 것처럼 그리지 않는다(2026-07-29) ──────────────────
-     `dayPhase` 는 이미 "남은 창에 가장 짧은 것도 안 들어간다"를 판정하는데, 그 판정의 결과는
-     프리셋 숨김과 닫기 버튼 등장 **둘뿐**이었다. 레일은 그날도 남은 블록 전부를 같은 무게로
-     세웠고, 링은 `3/7` 로 **오늘 불가능한 목표를 분모**로 썼다. 매일 저녁 "다 못 했다"는
-     실패감의 출처가 여기다 — 화면이 "오늘 밖"이라고 알면서도 목록에서는 오늘 것처럼 보여 준다.
-
-     규칙: 남은(미완료) 학습 블록을 시각 순으로 훑으며 분을 누적하고, **남은 창을 넘는 순간부터**
-     아래를 접는다. 새 계수는 0이다 — `freeLeftMin`(가용)과 `it.min`(계획 분) 둘 다 이미 있다.
-     ⚠ 일과 블록은 세지 않는다(내가 하는 학습이 아니라 이미 잡힌 시간이다).
-     ⚠ 완료한 블록도 안 센다 — 이미 쓴 시간은 `freeLeftMin` 에서 빠져 있다(이중 차감 방지). */
-  const beyondKeys = new Set<string>();
-  let beyondMin = 0;
-  {
-    let acc = 0;
-    for (const e of enriched
-      .filter((e) => e.start != null && !e.done)
-      .sort((a, b) => (a.start as number) - (b.start as number))) {
-      acc += e.it.min || 0;
-      if (acc > freeLeftMin) {
-        beyondKeys.add('study|' + completionKey(e.it.sid, e.it.type));
-        beyondMin += e.it.min || 0;
-      }
-    }
-  }
+  /* ── E9 "오늘 밖"을 오늘 것처럼 그리지 않는다 + W6 그 판정을 **문장으로** ────────────
+     판정은 `lib/dayCapacity` 하나가 소유한다(옮긴 이유·규칙·비대칭은 그 파일 머리주석).
+     여기선 블록을 그 함수가 아는 형태로만 바꿔 넘긴다. */
+  const { beyondKeys, fitLine } = dayCapacity(
+    enriched.map((e) => ({
+      key: 'study|' + completionKey(e.it.sid, e.it.type),
+      start: e.start,
+      min: e.it.min || 0,
+      done: e.done,
+    })),
+    freeLeftMin,
+  );
   /* 링의 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는
      블록까지 목표에 넣고 매일 그 목표에 못 미쳤다 — 게이지가 매일 지는 게임을 그린 셈이다. */
   const todayPossible = Math.max(todayDone, todayTotal - beyondKeys.size);
@@ -574,17 +577,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
             </>
           ),
         },
-        /* D-5 — 히어로의 132px 워터마크에 있던 값. 거기선 `aria-hidden` 장식이라 SR 에 아예
-           없었고, 크기가 화면 최대라 위계를 거꾸로 세웠다. 여기선 다른 리드아웃과 같은 무게다. */
-        {
-          label: '남은 가용',
-          value: (
-            <>
-              {freeLeftH}
-              <small className="text-base14 font-bold text-mut"> h</small>
-            </>
-          ),
-        },
+        /* ⚠ `남은 가용` 리드아웃이 여기 있었다 — **W6 이 흡수했다.** 30px 로 크게 그리면서도
+           그 수 혼자서는 "오늘 안에 들어가는가"를 못 말했고(사용자가 남은 계획과 대각선으로
+           눈을 이어 뺄셈을 했다), 지금은 히어로 아이브로 아래 한 줄이 두 수를 **판정과 함께**
+           말한다. 값은 사라지지 않았고 자리와 문법이 바뀌었다. */
         // PL-5: 적응형 용량이 적용된 날만(최근 이행률 저조 → 오늘 가용 축소) 감축률을 노출 — 비가시 해소.
         ...(res.adaptApplied ? [{ label: '용량', value: `−${Math.round((1 - (res.adapt ?? 1)) * 100)}%` }] : []),
       ],
@@ -603,8 +599,24 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                  남긴다 — 중복이 아니라 그 화면의 **유일한** 다음 걸음이다. */
               undefined,
     }),
-    [pct, streak, nearestDday, freeLeftH, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
+    [pct, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
+
+  // W20 — 오늘 띄울 인출 카드 **하나**(회전 규칙·근거는 `lib/todaySlots` 머리주석).
+  const retrievalSlot = pickRetrievalSlot(!!confWrong, !!recall, parseISO(ds).getDate());
+
+  /* ── W19 빈 날은 **1컬럼**이다(2026-07-31) ─────────────────────────────────────
+     빈 날의 우측 컬럼은 링 `0/0` + LIVE 시계 + 종결 캡 + `＋` 로 **내용 0의 골격만** 유지했다.
+     그리고 같은 문장이 두 자리(히어로 · 레일 빈 상태)에 **글자까지 같게** 있었고, 같은 핸들러
+     `goPlanToday` 가 세 자리에 있었다.
+     ⚠⚠ **판정은 `flowNodes.length === 0` 이다 — `todayTotal === 0` 이 아니다.** 후자로 잡으면
+     학습 블록이 없을 뿐 **일과 블록이 있는 날**까지 컬럼을 지워, 그 날의 시간표가 통째로
+     사라진다(로드맵이 이 안의 미실행 사유로 적어 둔 함정 그대로). */
+  const emptyDay = flowNodes.length === 0;
+
+  // W19 — 완료 날의 **다음 걸음 하나**(우선순위·근거는 `lib/todaySlots` 머리주석).
+  const nextStep = pickNextStep(riskN, openBl, frontierTitle);
+  const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/journal', frontier: '/mastery' };
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
 
@@ -651,10 +663,28 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
         </div>
       ),
     });
+  /* W18 '오늘 밖' 구역 — **레일 컬럼 안에 살지만 빈 날엔 히어로 아래로 내려온다**(W19).
+     ⚠ 자리를 옮기는 것이지 지우는 것이 아니다: 빈 날에 컬럼을 접으면서 이 신호까지 함께
+     사라지면, 마감·Anki·보충이 **가장 한가한 날에만 안 보이는** 뒤집힌 상태가 된다. */
+  const beyondNode =
+    riskN > 0 || stripGroups.length > 0 ? (
+      <div className={S.beyond}>
+        {riskN > 0 && (
+          <button type="button" className={S.reviewCta} onClick={() => go('/review-run')}>
+            <span className={S.reviewDot} aria-hidden="true" />
+            복습 {riskN}개 밀림 <b className="ml-0.5 font-extrabold text-acc">복습 세션 →</b>
+          </button>
+        )}
+        {stripGroups.map((g) => (
+          <Fragment key={g.key}>{g.node}</Fragment>
+        ))}
+      </div>
+    ) : null;
+
   return (
     <section className={S.today} aria-label="오늘 대시보드">
       {/* ── 상단 밴드: 포커스 히어로 | 오늘의 블록 ── */}
-      <div className={S.top}>
+      <div className={emptyDay ? `${S.top} grid-cols-1!` : S.top}>
         {/* HERO — 거대 과목명 = 행동의 무대. 과목색 오로라 + 통합 집중 시작. */}
         <div
           ref={heroRef}
@@ -678,6 +708,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               {kicker}
             </span>
           </div>
+          {/* W6 — 용량 판정 한 줄. 아이브로 바로 아래(같은 시선 흐름), 리드아웃보다 작고
+              종결 캡보다 크다 — "판단"은 근거(레일)와 요약(리드아웃) 사이의 크기다. */}
+          {fitLine && <div className={S.fit}>{fitLine}</div>}
 
           <h2 className={S.subj}>{heroMain}</h2>
           <div className={S.heroSub}>
@@ -689,35 +722,31 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
               )
             ) : allDone ? (
-              // A4 — 완료 후 죽은 화면 대신 '다음 동력'(내일·복습 위험·보충 회수·회상).
+              /* ── W19 완료 날은 **단일 포커스**다(2026-07-31) ──────────────────────────
+                 종전엔 클릭 가능한 '다음 걸음'이 최대 11개였고 그중 5개가 **다른 탭으로 흩어졌다**
+                 (프런티어→숙달도 · 복습 위험→리뷰 · 보충→기록 …). 다 한 사람에게 갈 곳 다섯을
+                 늘어놓는 것은 동력이 아니라 목록이다.
+                 → **내일 한 줄 + 지금 가장 값나가는 것 하나**. 나머지는 사라진 게 아니라 레일
+                 아래 '오늘 밖' 구역(W18)이 이미 같은 신호를 같은 자리에서 말한다.
+                 ⚠ **momentum 을 셧다운 뒤로 옮기지 않았다** — 셧다운을 안 누르는 사용자에게
+                 영원히 안 보이게 되고, 그건 `dayPhase.ts` 가 경고한 함정을 반대 방향으로 밟는
+                 것이다(자리를 옮기는 게 아니라 **수를 줄이는** 것이 이 안이다). */
               <span className={S.momentum}>
                 {tmrNew ? (
                   <span className={S.chapter}>내일 · {tmrNew.name}</span>
                 ) : (
                   <span>내일 일정은 아직 비어 있어요</span>
                 )}
-                {/* I-8 — 지식엔진 프런티어: '이걸 배우면 N개가 풀린다' 최대 개념 경량 추천(→ 숙달도). */}
-                {frontierTitle && (
+                {nextStep && (
                   <button
                     type="button"
                     className={S.mChip}
-                    onClick={() => go('/mastery')}
-                    aria-label={`다음 추천 개념 ${frontierTitle} — 숙달도로 이동`}
+                    onClick={() => go(NEXT_TO[nextStep.kind]!)}
+                    aria-label={nextStep.aria}
                   >
-                    다음에 이거 · {frontierTitle}
+                    {nextStep.label}
                   </button>
                 )}
-                {riskN > 0 && (
-                  <button type="button" className={S.mChip} onClick={() => go('/review')}>
-                    복습 위험 {riskN}
-                  </button>
-                )}
-                {openBl > 0 && (
-                  <button type="button" className={S.mChip} onClick={() => go('/journal')}>
-                    보충 {openBl} 회수
-                  </button>
-                )}
-                {recall && <span className={S.upnext}>회상 {recallN}개 대기 ↓</span>}
               </span>
             ) : (
               <>
@@ -803,150 +832,129 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
             {/* E7 — 히어로 시계를 뗐다. 바로 아래 흐름 헤더가 `● 09:00 LIVE` 로 **같은 문자열**을
                 이미 말하고 있었다(한 양이 두 자리). 시각의 소유자는 흐름 헤더 하나다. */}
           </div>
+          {/* 빈 날엔 '오늘 밖' 신호가 히어로 아래로 내려온다(W19) — 컬럼을 접으면서 이 신호까지
+              사라지면 마감·Anki·보충이 **가장 한가한 날에만 안 보이는** 뒤집힌 상태가 된다. */}
+          {emptyDay && beyondNode}
         </div>
 
-        {/* 오늘의 흐름 — now-중심 세로 레일(학습 체크 + 일과, 색 통일). 무지개 트랙 폐기. */}
-        <aside className={S.flow}>
-          <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayPossible} 완료`}>
-            <span
-              className={`${S.ring}${celebrate ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
-              aria-hidden="true"
-            >
-              <ProgressRing
-                size={80}
-                r={34}
-                pct={pct}
-                className="ds-ringSvg"
-                trackClassName={'ds-ringTrack'}
-                arcClassName={'ds-ringArc'}
-              />
-              {/* E15 — 완료 수가 바뀌면 **그 숫자 자리에서** 번쩍인다. 종전엔 그 사실을 화면
+        {/* 오늘의 흐름 — now-중심 세로 레일(학습 체크 + 일과, 색 통일). 무지개 트랙 폐기.
+            ⚠ 빈 날엔 **그리지 않는다**(W19) — 링 0/0·LIVE·종결 캡·＋ 는 내용 0의 골격이고,
+            골격만 남은 컬럼은 "여기 뭔가 있어야 한다"고 말하는 유령이다. */}
+        {!emptyDay && (
+          <aside className={S.flow}>
+            <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayPossible} 완료`}>
+              <span
+                className={`${S.ring}${celebrate ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
+                aria-hidden="true"
+              >
+                <ProgressRing
+                  size={80}
+                  r={34}
+                  pct={pct}
+                  className="ds-ringSvg"
+                  trackClassName={'ds-ringTrack'}
+                  arcClassName={'ds-ringArc'}
+                />
+                {/* E15 — 완료 수가 바뀌면 **그 숫자 자리에서** 번쩍인다. 종전엔 그 사실을 화면
                   구석의 토스트(`좋아요 — n/m 블록 완료`)가 말했는데, 토스트는 *무엇이* 바뀌었는지를
                   말하지 못한다(`lib/motion.ts` 의 `commit` 주석이 그 결함을 적어 뒀다).
                   ⚠ 입구가 여럿이다(블록 체크·레일 토글·폰·클라우드 pull) — 값을 보는 쪽에 붙였으므로
                     전부 한 번에 덮인다. 근거는 `useCommitOnChange` 머리주석. */}
-              <span ref={doneRef} className={S.ringNum}>
-                {todayDone}
-                <small className={S.ringNumSmall}>/{todayPossible}</small>
+                <span ref={doneRef} className={S.ringNum}>
+                  {todayDone}
+                  <small className={S.ringNumSmall}>/{todayPossible}</small>
+                </span>
               </span>
-            </span>
-            <span className={S.flowT}>오늘의 흐름</span>
-            <span className={S.now}>● {toHM(nowMin)} LIVE</span>
-          </h2>
-          <div className={S.rail}>
-            {flowNodes.length ? (
-              <FlowRail
-                nodes={flowNodes}
-                nowMin={nowMin}
-                riskN={riskN}
-                beyond={beyondKeys.size ? { count: beyondKeys.size, min: beyondMin } : null}
-                onToggle={toggle}
-                onFocus={startNodeFocus}
-                onPrefill={prefillNode}
-                onReview={() => go('/review-run')}
-              />
-            ) : (
-              <div className={S.railEmpty}>
-                {hasItems ? (
-                  <>
-                    오늘은 배치된 블록이 없어요 — 오늘 계획을 직접 짜보세요.{' '}
-                    <button type="button" className={S.mChip} onClick={goPlanToday}>
-                      오늘 계획 짜기
+              <span className={S.flowT}>오늘의 흐름</span>
+              <span className={S.now}>● {toHM(nowMin)} LIVE</span>
+            </h2>
+            <div className={S.rail}>
+              {flowNodes.length ? (
+                <FlowRail
+                  nodes={flowNodes}
+                  nowMin={nowMin}
+                  onToggle={toggle}
+                  onFocus={startNodeFocus}
+                  onPrefill={prefillNode}
+                />
+              ) : (
+                /* ⚠ 여기 히어로와 **글자까지 같은 문장** + 같은 핸들러(`goPlanToday`)가 또 있었다 —
+                 W19 에서 빈 날 컬럼 자체가 사라지며 도달 불가가 됐다. 이 분기는 `flowNodes` 가
+                 비었는데 `emptyDay` 가 아닌 경우(있을 수 없다)의 안전망으로만 남긴다. */
+                <div className={S.railEmpty}>오늘 그릴 흐름이 없어요.</div>
+              )}
+            </div>
+            {/* ── W20 인출 슬롯은 **하나**다(2026-07-31) ────────────────────────────────
+                종전엔 `🧠 회상`과 `⚠ 착각 재확인`이 **같은 `S.recall` 형상**으로 나란히 뜰 수
+                있었고(둘은 태그 색만 다르다) 그 위에 `복습 N개 밀림` 칩이 또 있었다 — 최대 3
+                입구. 같은 모양이 셋이면 그건 카드가 아니라 목록이다.
+
+                ⚠⚠ **미실행 사유가 이 구현의 제약이다**: 홈의 인출 카드는 "가려던 게 아닌데 하게
+                되는" **우발적 인출**이 값어치라, 슬롯을 없애면 이 앱이 만드는 학습 증거가 함께
+                준다. 그래서 **없애지 않고 하루 한 장으로 회전**시킨다 — 두 소스 다 이미 날짜
+                해시로 후보를 고르므로(`pickRetrieval`·`pickConfidentWrong`) 회전이 그 규칙의
+                연장이고, 매일 한 장은 계속 뜬다(우발적 인출의 빈도가 유지된다).
+                ⚠ 착각이 있으면 착각이 이긴다 — "확신했는데 틀린 것"은 회상보다 늦게 발견될수록
+                비싸다(그쪽만 오답으로 이미 관측된 사실이다). 회상은 그 다음 날 온다. */}
+            {retrievalSlot === 'recall' && recall && (
+              <div className={`${S.recall} bg-[var(--panel-acc-faint)]`}>
+                <div className={S.recallTop}>
+                  <span className={`${S.recallTag} text-txt`}>🧠 회상</span>
+                  <span className={S.recallMeta}>
+                    {recall.ageDays}일 전 · {recall.summary.name || '요약'}
+                  </span>
+                </div>
+                <div className={S.recallQ}>{recall.summary.s1 || '이 개념을 스스로 다시 설명할 수 있나요?'}</div>
+                {recallShown ? (
+                  <div className={S.recallA}>
+                    {recall.summary.s2 && (
+                      <div>
+                        <b className="mr-1 font-bold text-txt">도구·어떻게</b> {recall.summary.s2}
+                      </div>
+                    )}
+                    {recall.summary.s3 && (
+                      <div>
+                        <b className="mr-1 font-bold text-txt">결과·의미</b> {recall.summary.s3}
+                      </div>
+                    )}
+                    <button type="button" className={S.recallReset} onClick={() => setRecallShown(false)}>
+                      가리기
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    아직 배치된 블록이 없어요. <b className="text-txt">학습 항목</b>·
-                    <b className="text-txt">가용시간</b>을 설정하면 흐름이 채워집니다.
-                  </>
+                  <button type="button" className={S.recallBtn} onClick={() => setRecallShown(true)}>
+                    떠올렸다 · 정답 보기
+                  </button>
                 )}
               </div>
             )}
-          </div>
-          {/* A2 — 회상 위젯: 과거에 쓴 내 요약을 '스스로 다시 설명' 인출 연습으로(테스팅 효과). */}
-          {recall && (
-            <div className={`${S.recall} bg-[var(--panel-acc-faint)]`}>
-              <div className={S.recallTop}>
-                <span className={`${S.recallTag} text-txt`}>🧠 회상</span>
-                <span className={S.recallMeta}>
-                  {recall.ageDays}일 전 · {recall.summary.name || '요약'}
-                </span>
-              </div>
-              <div className={S.recallQ}>{recall.summary.s1 || '이 개념을 스스로 다시 설명할 수 있나요?'}</div>
-              {recallShown ? (
-                <div className={S.recallA}>
-                  {recall.summary.s2 && (
-                    <div>
-                      <b className="mr-1 font-bold text-txt">도구·어떻게</b> {recall.summary.s2}
-                    </div>
-                  )}
-                  {recall.summary.s3 && (
-                    <div>
-                      <b className="mr-1 font-bold text-txt">결과·의미</b> {recall.summary.s3}
-                    </div>
-                  )}
-                  <button type="button" className={S.recallReset} onClick={() => setRecallShown(false)}>
-                    가리기
-                  </button>
+            {/* I-10 — 착각 재확인 카드: 확신했지만 틀렸던 개념을 지금 다시 인출(회상과 같은 언어·시각). */}
+            {retrievalSlot === 'conf' && confWrong && (
+              <div className={`${S.recall} bg-[var(--conf-wrong-bg)]`}>
+                <div className={S.recallTop}>
+                  <span className={`${S.recallTag} text-warn`}>⚠ 착각 재확인</span>
+                  <span className={S.recallMeta}>
+                    {confWrong.ageDays}일 전 · {CBMS_INFO[confWrong.cbms.code].label}
+                    {confWrongN > 1 ? ` · 외 ${confWrongN - 1}` : ''}
+                  </span>
                 </div>
-              ) : (
-                <button type="button" className={S.recallBtn} onClick={() => setRecallShown(true)}>
-                  떠올렸다 · 정답 보기
+                <div className={S.recallQ}>
+                  {confWrong.cbms.name}
+                  {confWrong.cbms.chapter ? ` · ${confWrong.cbms.chapter}` : ''}
+                </div>
+                <div className={S.confWrongNote}>확신했지만 틀렸던 것 — 지금 다시 인출</div>
+                <button type="button" className={S.recallBtn} onClick={() => go('/review-run')}>
+                  다시 확인 · 복습 세션 →
                 </button>
-              )}
-            </div>
-          )}
-          {/* I-10 — 착각 재확인 카드: 확신했지만 틀렸던 개념을 지금 다시 인출(회상과 같은 언어·시각). */}
-          {confWrong && (
-            <div className={`${S.recall} bg-[var(--conf-wrong-bg)]`}>
-              <div className={S.recallTop}>
-                <span className={`${S.recallTag} text-warn`}>⚠ 착각 재확인</span>
-                <span className={S.recallMeta}>
-                  {confWrong.ageDays}일 전 · {CBMS_INFO[confWrong.cbms.code].label}
-                  {confWrongN > 1 ? ` · 외 ${confWrongN - 1}` : ''}
-                </span>
               </div>
-              <div className={S.recallQ}>
-                {confWrong.cbms.name}
-                {confWrong.cbms.chapter ? ` · ${confWrong.cbms.chapter}` : ''}
-              </div>
-              <div className={S.confWrongNote}>확신했지만 틀렸던 것 — 지금 다시 인출</div>
-              <button type="button" className={S.recallBtn} onClick={() => go('/review-run')}>
-                다시 확인 · 복습 세션 →
-              </button>
-            </div>
-          )}
-          <button type="button" className={S.more} onClick={() => onOpenMore()}>
-            ＋ 블록 상세 · 일일 의식 · 흐름 가이드
-          </button>
-        </aside>
+            )}
+            {!emptyDay && beyondNode}
+            <button type="button" className={S.more} onClick={() => onOpenMore()}>
+              ＋ 블록 상세 · 일일 의식 · 흐름 가이드
+            </button>
+          </aside>
+        )}
       </div>
-
-      {/* ── E8 스트립도 침묵한다(2026-07-29) ────────────────────────────────
-          `store/selectors.ts` 가 레일 신호의 계약을 못박아 두었다 — **"0·평온은 아무것도 안
-          그린다. 매일 0을 외치면 신호가 죽는다."** 그런데 같은 데이터가 여기서는 정반대로
-          돌고 있었다: `마감 임박 없음` · `열린 보충 0 건` · `의식 ☐ ☐`. all-clear 인 날 이
-          스트립은 5그룹 + 구분선 4개 = **노드 9개가 전부 "아무것도 없음"을 말하는 데** 화면
-          하단을 썼다. 한 저장소 안에 침묵의 규칙이 두 개일 수는 없다.
-
-          함께 사라진 둘(0 이라서가 아니라 **여기 질문이 아니라서**):
-          · `이번 주 N h` — 그건 오늘의 판단이 아니라 주(週)의 조망이고, `/schedule` 이 그
-            질문을 통째로 소유하는 화면이다. 여기 있으면 매일 보이지만 매일 쓸모는 없다.
-          · `의식 ☑/☐` — 같은 토글이 앱 안에 **세 곳**이었다(여기 · 온디맨드 `RitualCard` ·
-            `하루 닫기` CTA). 닫는 길은 이미 CTA 가 커서까지 놓아 준다.
-
-          ⚠ 구분선은 **보이는 그룹 사이에만** 그린다 — 그룹이 사라져도 선이 남으면 그 선이
-            "여기 뭔가 있었다"고 말하는 유령이 된다. */}
-      {stripGroups.length > 0 && (
-        <div className={S.strip}>
-          {stripGroups.map((g, i) => (
-            <Fragment key={g.key}>
-              {i > 0 && <div className={S.vline} />}
-              {g.node}
-            </Fragment>
-          ))}
-        </div>
-      )}
     </section>
   );
 }

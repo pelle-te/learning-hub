@@ -92,17 +92,20 @@ export default function Reads() {
     () =>
       mode === 'article'
         ? {
+            /* W22 — destination 은 자기 값을 44px 로 말한다(원칙 ②). 기사 모드의 값 = 요약 진척.
+               ⚠ 같은 수를 리드아웃에도 두지 않는다 — 첫 판이 그렇게 했다가 상단 바에 같은 양이
+               두 번 떴다(한 양 = 한 자리 · Journal·Schedule 도 같은 실수를 함께 고쳤다). */
+            primary: st.total > 0 ? { value: String(st.done), unit: `/${st.total}`, label: '요약 완료' } : null,
             readouts: [
-              { label: '요약 완료', value: `${st.done}/${st.total}`, accent: true },
               { label: '영어·한국어', value: `${st.en}·${st.ko}` },
               { label: '워크스페이스', value: online ? '● 연결됨' : pingLoading ? '…' : '미설정' },
               ...(collectedDate ? [{ label: '수집', value: readsStale ? `${collectedMD} · 지남` : collectedMD }] : []),
             ],
           }
         : {
+            primary: { value: String(booksDone), unit: '권', label: '완독' },
             readouts: [
               { label: '읽는 중', value: booksReading, accent: true },
-              { label: '완독', value: booksDone },
               { label: '독후감', value: local.books.filter((b) => b.review.trim()).length },
             ],
           },

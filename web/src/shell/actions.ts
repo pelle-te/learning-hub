@@ -649,12 +649,15 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
   const s = st().state;
   const cap = limit * 3;
   const hits: ContentHit[] = [];
-  /* ⚠ 예전엔 과목·챕터 히트가 전부 `/items`(탭 루트)로만 갔다 — "선형대수"를 찾아 Enter 를 눌러도
-     과목 20개짜리 목록 한복판에 떨어질 뿐, **내가 고른 것이 어디 있는지 표시가 없었다**. 찾아 주는
-     것과 데려다주는 것은 다르다. AN-17 이 `?focus=<itemId>` 앵커(스크롤 + 1.5초 하이라이트)를
-     이미 만들어 뒀으므로(Items.tsx:214) 그 위에 얹는다 — 로드맵이 '앵커 선행'이라 적어 둔 대목.
-     챕터 히트는 챕터 단위 앵커가 없으니 **소속 과목 카드**까지가 정직한 최선이다. */
-  const itemAnchor = (id: string) => '/items?focus=' + encodeURIComponent(id);
+  /* ⚠⚠ **객체가 자기 URL 을 갖는다(W12 · 2026-07-31).** 예전엔 과목·챕터 히트가 전부 `/items`
+     로 갔다 — 처음엔 탭 루트라 "고른 것이 어디 있는지 표시가 없었고", AN-17 이 그 위에
+     `?focus=<itemId>`(스크롤 + 1.5초 하이라이트)를 얹었다. 그 장치는 **"객체에 착지할 화면이
+     없다"의 우회로**였다: 목록에 데려다 놓고 눈으로 찾을 자리를 깜빡여 알려 준 것이다. 그리고
+     바로 아래 주석이 스스로 자백했듯 _"챕터 단위 앵커가 없으니 소속 과목 카드까지가 정직한
+     최선"_ 이었다 — 챕터는 원리적으로 착지 불가였다.
+     이제 둘 다 `/subject/:id` 로 가고, **챕터는 `#ch-<id>` 로 자기 자리에** 선다. */
+  const itemAnchor = (id: string) => '/subject/' + encodeURIComponent(id);
+  const chapterAnchor = (id: string, cid: string) => `${itemAnchor(id)}#ch-${encodeURIComponent(cid)}`;
   for (const it of s.items) {
     if (it.name.toLowerCase().includes(q))
       hits.push({
@@ -672,7 +675,7 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
           id: 'c-chap:' + it.id + ':' + c.id,
           kind: 'chapter',
           label: `${it.name} · ${c.name}`,
-          to: itemAnchor(it.id),
+          to: chapterAnchor(it.id, c.id),
           sid: it.id,
           subject: it.name,
           chapter: c.name,

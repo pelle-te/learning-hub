@@ -1,8 +1,15 @@
 /* ============================================================
-   shell/modal.tsx — confirm/prompt 모달(레거시 ui-kit.js의 confirmModal/promptModal 대체).
-   명령형 Promise API(confirm/prompt) — 호출부가 await. 표시는 <ModalHost/>(앱 루트 1개).
-   CSS는 .modal-ov/.modal/.modal-*(전역) 재사용. Esc=취소, Enter=확인(prompt는 Ctrl/⌘+Enter).
-============================================================ */
+   shell/modal.tsx — confirm 모달(레거시 ui-kit.js의 confirmModal 대체).
+   명령형 Promise API(confirm) — 호출부가 await. 표시는 <ModalHost/>(앱 루트 1개).
+   CSS는 .modal-ov/.modal/.modal-*(전역) 재사용. Esc=취소, Enter=확인.
+
+   ⚠⚠ **`prompt` 는 은퇴했다(W8 · 2026-07-31).** 전 앱 유일한 호출부가 백지 복습의 '막힘 메모'
+   였는데, 취소하면 **"막혔다"는 사실 자체가 기록되지 않았다** — 모달 하나가 데이터를 먹는
+   형태였다. 지금은 사실을 먼저 커밋하고 메모는 그 행 아래 인라인 한 줄로 받는다
+   (`features/today/TodayBlocks.tsx`). 함께 사라진 것: prompt 경로·`PromptOpts`·모달 안의
+   textarea 와 그 Ctrl/⌘+Enter 분기.
+   ⚠ **되살리지 말 것** — "값을 받는 모달"이 필요하다고 느껴지면 그건 대개 *커밋을 값 입력에
+   묶고 있다*는 신호다. 커밋을 먼저 하고 값은 나중에 받는 형태가 이 앱의 규약이다. */
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
@@ -15,23 +22,14 @@ export interface ConfirmOpts {
   cancelLabel?: string;
   danger?: boolean;
 }
-export interface PromptOpts {
-  title?: string;
-  value?: string;
-  placeholder?: string;
-  okLabel?: string;
-}
 interface ModalReq {
   id: number;
-  kind: 'confirm' | 'prompt';
   message: string;
   title?: string;
   okLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
-  value?: string;
-  placeholder?: string;
-  resolve: (v: boolean | string | null) => void;
+  resolve: (v: boolean) => void;
 }
 interface ModalStore {
   current: ModalReq | null;
@@ -50,28 +48,12 @@ export function confirm(message: string, opts: ConfirmOpts = {}): Promise<boolea
   return new Promise((resolve) => {
     useModalStore.getState().open({
       id: ++_id,
-      kind: 'confirm',
       message,
       title: opts.title,
       okLabel: opts.okLabel,
       cancelLabel: opts.cancelLabel,
       danger: opts.danger,
-      resolve: (v) => resolve(v as boolean),
-    });
-  });
-}
-/** 프롬프트 모달 → Promise<string|null>(취소 시 null). */
-export function prompt(message: string, opts: PromptOpts = {}): Promise<string | null> {
-  return new Promise((resolve) => {
-    useModalStore.getState().open({
-      id: ++_id,
-      kind: 'prompt',
-      message,
-      title: opts.title,
-      value: opts.value,
-      placeholder: opts.placeholder,
-      okLabel: opts.okLabel || '확인',
-      resolve: (v) => resolve(v as string | null),
+      resolve,
     });
   });
 }
@@ -79,13 +61,10 @@ export function prompt(message: string, opts: PromptOpts = {}): Promise<string |
 export function ModalHost() {
   const current = useModalStore((s) => s.current);
   const close = useModalStore((s) => s.close);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const initialRef = useRef<HTMLElement | null>(null);
 
-  const isPrompt = current?.kind === 'prompt';
-  const cancelVal = isPrompt ? null : false;
   const titleId = current ? `modal-t-${current.id}` : undefined;
   const bodyId = current ? `modal-b-${current.id}` : undefined;
 
@@ -96,28 +75,26 @@ export function ModalHost() {
      current 를 반드시 null 로 만들어, 연속된 모달 사이에 false 를 한 번 거친다(그래야 새
      모달에서 초기 포커스가 다시 잡힌다). */
   useEffect(() => {
-    initialRef.current = inputRef.current || okRef.current;
+    initialRef.current = okRef.current;
   }, [current]);
   useFocusTrap(!!current, dialogRef, initialRef);
   useScrollLock(!!current);
 
   if (!current) return null;
 
-  const finish = (v: boolean | string | null) => {
+  const finish = (v: boolean) => {
     current.resolve(v);
     close();
   };
-  const okVal = () => (isPrompt ? (inputRef.current?.value.trim() ?? '') : true);
 
   // Tab 순환은 useFocusTrap(document 리스너)이 맡는다 — 여기는 확정/취소 키만.
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      finish(cancelVal);
+      finish(false);
     } else if (e.key === 'Enter') {
-      if (isPrompt && document.activeElement === inputRef.current && !(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      finish(okVal());
+      finish(true);
     }
   };
 
@@ -126,14 +103,10 @@ export function ModalHost() {
   // 시트가 위를 덮었다(시트에서 '과목 삭제' → 확인창이 뒤에 떠 클릭이 안 되던 결함).
   return createPortal(
     /* 오버레이 mousedown-닫기 = 마우스 편의이고, 결과는 취소 버튼과 동일하다. 키보드 경로는
-       위 onKey(ESC 취소 · Enter 확인, prompt 는 Ctrl/⌘+Enter) · trapTab(포커스 순환) ·
+       위 onKey(ESC 취소 · Enter 확인) · trapTab(포커스 순환) ·
        열기 전 포커스 복원 · 취소/확인 진짜 버튼이 전부 갖고 있다. */
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div
-      className="modal-ov in"
-      onMouseDown={(e) => e.target === e.currentTarget && finish(cancelVal)}
-      onKeyDown={onKey}
-    >
+    <div className="modal-ov in" onMouseDown={(e) => e.target === e.currentTarget && finish(false)} onKeyDown={onKey}>
       <div
         ref={dialogRef}
         className="modal"
@@ -150,24 +123,15 @@ export function ModalHost() {
         <div id={bodyId} className="modal-b">
           {current.message}
         </div>
-        {isPrompt && (
-          <textarea
-            ref={inputRef}
-            className="modal-in"
-            rows={3}
-            defaultValue={current.value || ''}
-            placeholder={current.placeholder || ''}
-          />
-        )}
         <div className="modal-a">
-          <button type="button" className="ghost modal-cancel" onClick={() => finish(cancelVal)}>
+          <button type="button" className="ghost modal-cancel" onClick={() => finish(false)}>
             {current.cancelLabel || '취소'}
           </button>
           <button
             ref={okRef}
             type="button"
             className={`primary modal-ok${current.danger ? ' modal-danger' : ''}`}
-            onClick={() => finish(okVal())}
+            onClick={() => finish(true)}
           >
             {current.okLabel || '확인'}
           </button>

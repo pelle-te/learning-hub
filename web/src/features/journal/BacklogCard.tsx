@@ -12,6 +12,7 @@ import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { useListCursor } from '@/hooks/useListCursor';
 import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 
@@ -30,6 +31,13 @@ export default function BacklogCard() {
   usePrefillForm('bl', setSid, topicRef, setTopic);
 
   const open = openBacklog(state);
+  /* W13 — 기록 탭에서 **행동이 있는 목록**이 여기다(`JournalStream` 은 읽기 전용 파생이라
+     커서를 얹어도 동사가 0이다 — 어휘를 닫아 두고 빈 화면에 커서만 주면 침묵이 늘 뿐이다). */
+  const cursor = useListCursor<(typeof open)[number]>({
+    items: open.map((b) => ({ key: b.id, item: b })),
+    docTitle: '이 화면 · 보충',
+    verbs: { x: (b) => toggleUndo(b.id), e: (b) => startEdit(b), d: (b) => del(b.id) },
+  });
   // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
   const {
     editId,
@@ -157,19 +165,43 @@ export default function BacklogCard() {
               </div>
             </div>
           ) : (
-            <div key={b.id} className="ds-rec ds-blOpen">
+            /* W13 커서 — 행 하나가 탭 스톱 하나. 어휘는 `useListCursor` 가 7개로 닫는다:
+               여기선 `x` 회수 · `e` 수정 · `d` 삭제. 안쪽 컨트롤은 `tabIndex={-1}` 이라 Tab 이 안 든다. */
+            <div
+              key={b.id}
+              ref={cursor.register(b.id)}
+              role="group"
+              aria-label={b.topic || '보충'}
+              tabIndex={cursor.tabStop === b.id ? 0 : -1}
+              onFocus={() => cursor.onItemFocus(b.id)}
+              aria-current={cursor.cursor === b.id ? true : undefined}
+              className={`ds-rec ds-blOpen${cursor.cursor === b.id ? ' rounded-md bg-[var(--tint-ink-5)]' : ''}`}
+            >
               <div className="ds-recHead">
-                <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => toggleUndo(b.id)} />
+                <input
+                  type="checkbox"
+                  tabIndex={-1}
+                  aria-label="회수 완료"
+                  checked={false}
+                  onChange={() => toggleUndo(b.id)}
+                />
                 <span className="ds-swatch" style={{ background: itemById(state, b.sid)?.color || 'var(--mut)' }} />
                 <b>{b.topic || '(주제 없음)'}</b>
                 {b.name && <span className="ds-muted ds-tiny"> · {b.name}</span>}
                 <span className="ds-muted ds-tiny" style={{ marginLeft: 6 }}>
                   {b.ds}
                 </span>
-                <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(b)} title="수정">
+                <Button
+                  sm
+                  variant="ghost"
+                  tabIndex={-1}
+                  style={{ marginLeft: 'auto' }}
+                  onClick={() => startEdit(b)}
+                  title="수정"
+                >
                   ✎
                 </Button>
-                <Button sm variant="ghost" danger onClick={() => del(b.id)} title="삭제">
+                <Button sm variant="ghost" danger tabIndex={-1} onClick={() => del(b.id)} title="삭제">
                   ✕
                 </Button>
               </div>

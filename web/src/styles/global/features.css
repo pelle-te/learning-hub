@@ -260,11 +260,8 @@
   color: var(--txt);
   white-space: pre-wrap;
 }
-.modal-in {
-  margin-top: 12px;
-  resize: vertical;
-  min-height: 64px;
-}
+/* ⚠ `.modal-in`(프롬프트 모달의 textarea)이 여기 있었다 — **W8 에서 prompt 경로와 함께 은퇴**.
+   근거는 `shell/modal.tsx` 머리주석(모달이 커밋을 볼모로 잡아 데이터를 먹던 형태). */
 .modal-a {
   display: flex;
   justify-content: flex-end;
@@ -320,23 +317,54 @@
    (Tailwind 에 대응 유틸이 없다). `motion.css` 의 `::view-transition-*` 과 같은 자리다.
    여기(`features.css` = `@layer components`)에 두면 유틸리티가 이길 수 있어, 소비처가 필요할 때
    `className` 으로 덮는 정공법이 열린다(옛 CSS Module 은 언레이어드라 그게 안 됐다). */
+/* ⚠⚠ **유리를 걷었다(W14 · 2026-07-31).**
+
+   원칙 ④가 폐기했다고 선언한 형태 — 테두리 + 2단 그라데이션 + `inset 0 1px 0 rgba(255,255,255,.05)`
+   시트 하이라이트 — 가 **앱의 가장 바깥 표면**이었다. 옛 주석이 스스로 _"유리판처럼 떠 보임"_ 이라
+   적고 있었고, `ds.css` 는 같은 시기 _"`ds-card` 전량 이행 완료"_ 라 적었다. 즉 **클래스**가
+   사라진 것이지 **형태**가 아니었다(2026-07-31 감사가 문서를 뒤집은 5건 중 하나).
+
+   그 안에 카드 표면 38개(래칫 39)가 또 있었으므로, 바깥 유리를 걷으면 시그니처 프레임이
+   화면당 정확히 하나가 되어 **원칙 ③이 자동 충족**된다. 그리고 배경 오로라·그레인이 통과한다 —
+   이 앱의 시그니처는 배경에 있는데 그 위에 반투명 패널을 깔면 자기 시그니처를 자기가 덮는다.
+
+   남긴 것: **노치 브래킷**(`ds-frame` 의 ㄱ자를 페이지 4모서리로) + 노치 컷(clip-path).
+   ⚠ `clip-path` 는 유지한다 — 그건 유리가 아니라 **실루엣**이고, HUD 단면이라는 정체성이 거기 있다.
+   ⚠ 브래킷은 `--line` 톤이다(`ds-frame` 의 `--glow` 가 아니라) — 여기는 페이지 껍데기라
+     시그니처가 아니고, 액센트로 그리면 화면마다 액센트 예산이 콘텐츠 전에 소진된다(W22 와 같은 축).
+   ⚠ **고밀도 매트릭스에 예외를 파지 않았다.** `alloc`·`schedule` 은 셀 경계를 **자기 표면**이
+     그리므로(보드는 애초에 `ds-card` 를 안 썼다 — `ds.css` 가 그렇게 적어 뒀다) 바깥 프레임의
+     유리와 무관하다. 예외를 파는 순간 명제가 무너지는 구조라, 파야 할 이유가 실제로 없는지를
+     먼저 확인한 것이 이 항목의 절반이다. */
 .hud {
   position: relative;
   flex: 1;
   min-height: 0;
-  border: 1px solid var(--line);
-  /* 미묘한 수직 그라데이션 + 상단 시트 하이라이트 → 앰비언트 위에 유리판처럼 떠 보임(깊이). */
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--panel) 64%, transparent),
-    color-mix(in srgb, var(--panel) 46%, transparent)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 70px -34px rgba(0, 0, 0, 0.55);
-  /* 노치: 좌상단·우하단 22px 사선 컷(데모 v6). clip-path가 보더까지 깎아 HUD 단면을 만든다. */
+  /* 노치: 좌상단·우하단 22px 사선 컷(데모 v6). HUD 단면 실루엣 — 유리가 아니라 형태다. */
   clip-path: polygon(22px 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%, 0 22px);
   overflow: hidden;
+}
+/* 노치 브래킷 — 네 귀퉁이에 ㄱ자만 찍고 변은 비운다(`ds-frame` 과 같은 어휘 · 8그라데이션 1의사요소).
+   ⚠ 좌상·우하는 노치로 잘려 있으므로 팔을 컷 바깥에서 시작한다(잘린 모서리에 브래킷을 찍으면
+   clip-path 가 그것부터 먹는다 — 실렌더 없이는 "왜 두 귀퉁이만 안 보이지"가 된다). */
+.hud::after {
+  --hud-w: 2px;
+  --hud-l: 28px;
+
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  /* 브래킷은 **두 귀퉁이만**이다. 좌상·우하는 노치 컷이 이미 그 모서리를 표시하므로(사선 단면),
+     거기 ㄱ자를 또 찍으면 같은 말을 두 번 하고 clip-path 가 그것부터 먹는다. 네 귀퉁이를 다
+     그리는 `ds-frame`(시그니처 · 화면당 하나)과 어휘는 같고 **강도만 낮다** — 여기는 페이지
+     껍데기라 시그니처가 아니다. */
+  background:
+    linear-gradient(var(--line), var(--line)) 100% 0 / var(--hud-l) var(--hud-w) no-repeat,
+    linear-gradient(var(--line), var(--line)) 100% 0 / var(--hud-w) var(--hud-l) no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 100% / var(--hud-l) var(--hud-w) no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 100% / var(--hud-w) var(--hud-l) no-repeat;
 }
 
 /* 내부 스크롤러 — 프레임은 고정, 콘텐츠만 흐른다. 패딩으로 본문 여백 확보. */

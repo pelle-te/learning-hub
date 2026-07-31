@@ -72,7 +72,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
       ref={cardRef}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className="ds-spotHost ds-glow relative self-start rounded-lg border border-line bg-panel bg-[image:var(--bg-item-card)] shadow-card tint-scope"
+      className="ds-spotHost ds-glow relative self-start rounded-lg border border-line bg-panel bg-[image:var(--bg-item-card)] tint-scope"
       style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
     >
       <div className="ds-spotlight" aria-hidden="true" />

@@ -16,6 +16,12 @@ export interface VaultChapter {
   exported: number;
   legacy: number;
   wip: number;
+  /** 이 챕터 노트들의 `reviewed:` 중 **가장 최근**(없으면 ''). 볼트가 아는 유일한 망각 시계다(W2). */
+  reviewedRecent: string;
+  /** `anki_state === 'stale'` 인 노트 수 — 노트는 고쳤는데 카드가 안 따라온 것. */
+  ankiStale: number;
+  /** 이 챕터에서 `prereq_in`(이걸 알면 몇 개가 풀리나) 최댓값. */
+  prereqIn: number;
 }
 export interface VaultSubject extends VaultChapter {
   chapters: VaultChapter[];
@@ -42,26 +48,51 @@ export async function loadVaultIndex(
   }
 }
 
-interface IndexNote {
+/* ⚠⚠ **경계에서 필드를 버리지 말 것(W2 · 2026-07-31).** 종전엔 17키 중 5키만 뽑았고, 증발하는
+   것 중에 **`reviewed`(468건에 날짜가 있다)** 와 **`anki_state`** 가 있었다 — 앱은 "복습 0/0"이라
+   말하면서 그 답을 아는 파일을 매번 읽고 있었다. 인덱스 스키마(`artifacts.gen.ts` `indexArtifactSchema`)
+   는 이 필드를 **이미 전부** 알고 있었으므로, 여기 좁은 인터페이스가 유일한 병목이었다.
+   ⚠ 필드를 늘려도 **집계는 여전히 이 파일 하나**가 소유한다(Rust 는 레코드까지만 · 3단계-B 규율). */
+export interface IndexNote {
   kind?: string;
   subject?: string;
   folder?: string;
   status?: string;
   anki_exported?: boolean;
+  /** 검증 통과일(파이프라인). ⚠ **인출일이 아니다** — 위험을 올리는 방향으로만 쓴다(vaultAnchors). */
+  reviewed?: string | null;
+  /** 'ok' | 'none' | 'stale' — 노트↔카드 동기 상태. */
+  anki_state?: string | null;
+  /** 이 노트를 선행으로 삼는 노트 수(링크 인입). */
+  prereq_in?: number;
+  tier_hint?: string | null;
+  role?: string | null;
+  type?: string | null;
+  flags?: unknown[];
 }
 
 /** _index.json.notes → 과목→챕터 집계. status=null=구버전(verified와 구분 · A-2). */
 export function subjectsFromIndex(idx: { notes?: IndexNote[] }): VaultSubject[] {
   const bySubj: Record<string, VaultSubject & { _ch: Record<string, VaultChapter> }> = {};
+  const zero = { notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0, reviewedRecent: '', ankiStale: 0, prereqIn: 0 };
   for (const n of idx.notes || []) {
     if (n.kind === '실전문제') continue; // 실전문제는 검증%·노트수 분모에서 제외(대시보드 isProb와 정합)
     const sj = n.subject || '?';
     const parts = (n.folder || sj).split('/');
     const ch = parts.length > 1 ? parts.slice(1).join('/') : '(과목 루트)';
-    const S =
-      bySubj[sj] ||
-      (bySubj[sj] = { name: sj, _ch: {}, notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0, chapters: [] });
-    const C = S._ch[ch] || (S._ch[ch] = { name: ch, notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0 });
+    const S = bySubj[sj] || (bySubj[sj] = { name: sj, _ch: {}, ...zero, chapters: [] });
+    const C = S._ch[ch] || (S._ch[ch] = { name: ch, ...zero });
+    // `reviewed` 는 **최댓값**(가장 최근) — 챕터 안에서 한 노트라도 최근에 검증됐으면 그게 앵커다.
+    const rv = n.reviewed || '';
+    if (rv > C.reviewedRecent) C.reviewedRecent = rv;
+    if (rv > S.reviewedRecent) S.reviewedRecent = rv;
+    if (n.anki_state === 'stale') {
+      C.ankiStale++;
+      S.ankiStale++;
+    }
+    const pin = +(n.prereq_in || 0);
+    if (pin > C.prereqIn) C.prereqIn = pin;
+    if (pin > S.prereqIn) S.prereqIn = pin;
     const st = n.status || '';
     const ver = st === 'verified';
     const leg = !st;
@@ -156,6 +187,9 @@ async function notesFromFiles(handle: FileSystemDirectoryHandle): Promise<IndexN
           // ⚠ 값은 boolean 이 아니라 **날짜 문자열**이다(실측: `anki_exported: 2026-07-11`).
           //    존재 자체가 "내보냄"이므로 truthy 판정이 맞다 — boolean 으로 파싱하려 들면 안 된다.
           anki_exported: !!fm.anki_exported,
+          // W2 — 폴백도 같은 레코드를 만든다(인덱스 경로와 모양이 갈리면 같은 볼트에서 숫자가 갈린다).
+          // ⚠ `anki_state`·`prereq_in` 은 프론트매터에 없다(파이프라인 파생) — 폴백에선 원리적으로 모른다.
+          reviewed: fm.reviewed || '',
         });
       }
     }

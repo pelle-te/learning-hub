@@ -2,6 +2,7 @@
    파생 스케줄(useSchedule)에서 오늘 Day를 찾고 layoutDay로 시각을 배정해 표시.
    스타일: 공유는 전역 `ds-*`(card/blk/donechk/swatch/muted/tiny/foot/empty), today 전용은 Tailwind 유틸(C-7). */
 import { completionKey } from '@/lib/domainKeys';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
@@ -43,6 +44,35 @@ function StageBar({ ml }: { ml: number }) {
   );
 }
 
+/** W8 인라인 '막힌 구간' 한 줄 — 모달이 아니다. 기록은 이미 커밋됐고 이건 정밀도만 올린다.
+ *  ⚠ 그래서 취소 경로가 없다: 안 적고 떠나도 잃는 것이 없는 것이 이 위젯의 존재 이유다. */
+function BlankNoteField({ initial, onSave }: { initial: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(initial);
+  /* 마운트 포커스 — 이 컴포넌트는 **열릴 때만** 마운트되므로 이펙트 1회가 곧 "열자마자 커서".
+     `autoFocus` 속성은 쓰지 않는다(jsx-a11y 금지 · 그쪽은 페이지 로드 시 튀는 포커스를 겨냥한 룰). */
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  return (
+    <span className="mt-1.5 flex w-full items-center gap-1.5">
+      <input
+        ref={ref}
+        type="text"
+        className="min-w-0 flex-1"
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSave(v);
+        }}
+        placeholder="어느 구간에서 막혔나요? 예) 파동방정식 유도"
+        aria-label="막힌 구간 메모"
+      />
+      <Button sm onClick={() => onSave(v)}>
+        저장
+      </Button>
+    </span>
+  );
+}
+
 export function TodayBlocks() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
@@ -51,6 +81,8 @@ export function TodayBlocks() {
   const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
   const requestPrefill = usePrefill((s) => s.request);
+  // W8 — 인라인 '막힌 구간' 입력이 열린 행(sid). 모달이 아니라 행 안의 한 줄이다.
+  const [noteFor, setNoteFor] = useState<string | null>(null);
   // '오늘 학습' 블록 → 기록 탭으로 과목 사전선택 + 이동.
   const prefill = (form: 'sum' | 'cbms' | 'bl', sid: string) => {
     requestPrefill(form, sid);
@@ -91,16 +123,25 @@ export function TodayBlocks() {
   };
 
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');
-  const blankBlocked = async (it: ScheduleItem) => {
-    const note = await ui.prompt('어느 구간에서 막혔나요? (이 메모는 CBMS 개념(C) 오답으로 자동 연결됩니다)', {
-      title: '백지 복습 — 막힘 기록',
-      placeholder: '예) 파동방정식 유도에서 막힘',
-    });
-    if (note === null) return; // 취소
-    // 빈 메모여도 CBMS 맥락이 남도록 챕터명으로 폴백(무맥락 '막힘' 방지).
-    const finalNote = note.trim() || (it.chapters || []).join(', ') || '구간 미기재';
-    setBlankResult(ds2, it.sid, it.name, false, finalNote, (it.chapters || []).join(', '));
-    ui.toast('막힘 기록됨 — CBMS(C 개념)로 연결했어요.', 'ok');
+  /* ⚠⚠ **순서를 뒤집었다 — 먼저 커밋하고 메모는 나중에(W8 · 2026-07-31).**
+
+     종전엔 `ui.prompt`(포커스 트랩 모달)로 '막힘 메모'를 먼저 받고, 취소하면 `if (note === null)
+     return` 이라 **"막혔다"는 사실 자체가 기록되지 않았다.** 즉 모달 하나가 데이터를 먹었다 —
+     그리고 그 `ui.prompt` 는 **전 앱 유일한 호출부**였다. 사실은 클릭 한 번으로 확정되고
+     (빈 메모 폴백은 이미 코드에 있었다 — 챕터명), 메모는 그 행 아래 인라인 한 줄로 받는다.
+     함께 사라짐: `shell/modal` 의 prompt 경로·상태·트랩 1종 통째. */
+  const blankBlocked = (it: ScheduleItem) => {
+    // 빈 메모여도 CBMS 맥락이 남도록 챕터명으로 폴백(무맥락 '막힘' 방지) — 옛 경로와 같은 규칙.
+    const chapter = (it.chapters || []).join(', ');
+    setBlankResult(ds2, it.sid, it.name, false, chapter || '구간 미기재', chapter);
+    setNoteFor(it.sid); // 인라인 메모 입력을 그 행에 연다(선택 — 안 적어도 기록은 남았다)
+    ui.toast('막힘 기록됨 — CBMS(C 개념)로 연결했어요. 구간을 적으면 더 정확해져요.', 'ok');
+  };
+  /** 인라인 메모 저장 — 이미 커밋된 '막힘' 레코드의 note 만 덮어쓴다. */
+  const saveBlankNote = (it: ScheduleItem, note: string) => {
+    const chapter = (it.chapters || []).join(', ');
+    setBlankResult(ds2, it.sid, it.name, false, note.trim() || chapter || '구간 미기재', chapter);
+    setNoteFor(null);
   };
   const clearBlank = (sid: string) => mutate((st) => clearBlankResult(st, ds2, sid));
 
@@ -189,9 +230,19 @@ export function TodayBlocks() {
                         <span className="ds-muted ds-tiny">→ CBMS(C) 연결</span>
                       </Pill>
                     )}{' '}
+                    {!res2.passed && noteFor !== it.sid && (
+                      <Button sm variant="ghost" onClick={() => setNoteFor(it.sid)}>
+                        구간 적기
+                      </Button>
+                    )}
                     <Button sm variant="ghost" onClick={() => clearBlank(it.sid)} title="기록 지우기">
                       기록 지우기
                     </Button>
+                    {/* W8 인라인 메모 — 기록은 **이미 남았고** 이건 정밀도만 올린다. 그래서
+                        Esc·닫기·트랩이 필요 없다: 안 적고 떠나도 잃는 것이 없다. */}
+                    {!res2.passed && noteFor === it.sid && (
+                      <BlankNoteField initial={res2.note || ''} onSave={(v) => saveBlankNote(it, v)} />
+                    )}
                   </>
                 ) : (
                   <>

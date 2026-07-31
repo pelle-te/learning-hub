@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { orderedTabs, tabByKey, destinations, hostTabKey, ToastHost, ModalHost, NAV_SHORTCUTS, vtMove } from '@/shell';
@@ -11,11 +11,13 @@ import BootRecovery from '@/app/BootRecovery';
 import MiniHud from '@/app/MiniHud';
 import { MINI_PATH } from '@/lib/miniMode';
 import StorageGuard from '@/app/StorageGuard';
+import VaultSync from '@/app/VaultSync';
 import StorageBanner from '@/app/StorageBanner';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
 import { markVia, recordVisit, takeVia } from '@/lib/visits';
 import { onGlobalCapture } from '@/lib/tauri';
+import { mark as perfMark } from '@/lib/perf';
 import { getReactTab, prefetchTab } from '@/features/registry';
 /* ⚠ 팔레트·단축키 도움말은 **앱 크롬**이다(H10 · 2026-07-26 감사). `components/` 에 있던 동안
    `components → @/shell → store` 라는, 허용표상 금지인 경로가 배럴 한 칸을 거쳐 통과했다 —
@@ -29,6 +31,10 @@ import TooltipHost from '@/components/Tooltip';
 import AmbientCanvas from '@/components/AmbientCanvas';
 import { HudFrame } from '@/components/hud';
 import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
+
+/* W12 객체 축 — **탭이 아니라 라우트**라 `features/registry` 의 `LOADERS` 밖이다(그 표는
+   탭↔컴포넌트 패리티를 불변식으로 잠그므로, 탭이 아닌 것을 넣으면 그 잠금이 거짓이 된다). */
+const SubjectPage = lazy(() => import('@/features/items/Subject'));
 
 /* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3).
 
@@ -65,6 +71,15 @@ function TabLoading({ fill }: { fill: boolean }) {
       {fill ? <SkeletonFill /> : <SkeletonCard />}
     </>
   );
+}
+
+/* W16 부팅 웨이브 ③ — **첫 탭이 실제로 마운트된 시점**(스켈레톤이 아니라).
+   Suspense **안**에 있어야 의미가 있다: 폴백이 떠 있는 동안엔 이 이펙트가 안 돈다.
+   ⚠ 어느 라우트든 첫 마운트 1회만 찍힌다(`perf.mark` 가 중복을 버린다) — 딥링크로 들어와도
+   같은 정의가 성립한다("사용자가 요청한 화면이 데이터로 그려졌다"). */
+function TabReady({ children }: { children: React.ReactNode }) {
+  useEffect(() => perfMark('firstData'), []);
+  return children;
 }
 
 export default function App() {
@@ -104,7 +119,9 @@ export default function App() {
                 <SubTabs tabKey={t.key} />
                 {ReactTab ? (
                   <Suspense fallback={<TabLoading fill={!!t.fill} />}>
-                    <ReactTab />
+                    <TabReady>
+                      <ReactTab />
+                    </TabReady>
                   </Suspense>
                 ) : (
                   <div className="ds-well">알 수 없는 탭: {t.key}</div>
@@ -124,10 +141,31 @@ export default function App() {
      Rust 가 창을 띄우고 포커스한 뒤 "눌렸다"만 보내고, **무엇을 열지는 여기서 정한다** →
      ⌘K 팔레트를 연다(새 라우트·새 창 0 · 되돌리기는 이 블록 삭제 한 번).
      ⚠ 셸이 아니면 구독이 no-op 이라 브라우저·트랙 A 에 영향이 0 이다. */
+  /* W16 부팅 웨이브 ② — App 청크가 실제로 마운트된 시점. `main.tsx` 가 `App` 을 **동적으로**
+     부르는 것은 최적화가 아니라 부팅 순서 계약(SD-7)이라, 그 구간이 얼마나 걸리는지는 정적
+     번들 그래프(`npm run budget` ①축)가 원리적으로 못 본다 — H14 가 그 사각에서 14.7 KB gz 이
+     새던 것을 잡은 자리이고, 여기는 그 **시간 쪽 짝**이다. */
+  useEffect(() => perfMark('app'), []);
+
+  /* ⚠ W9 — **착지가 문맥에 의존한다.** 이 핫키의 유일한 값 구간은 "집중 세션 중"인데
+     (`hotkey.rs:39-41` 이 그렇게 못박았다) 그 구간의 창은 대개 320×92 알약이다. 그런데
+     착지는 무조건 `setPalette(true)` 였고 `CommandPalette` 는 항상 렌더되므로 **풀사이즈
+     팔레트가 알약 뷰포트 안에서** 떴다(게다가 MiniHud 는 H11 포커스 트랩 상태다).
+     새 라우트는 만들지 않는다 — 알약이 그 자리에서 캡처 한 줄로 바뀐다(MiniHud 내부 모드).
+     ⚠ 리스너는 한 번만 붙는다 → 경로는 **구독이 아니라 ref** 로 읽는다(아래 keydown 과 같은 규율). */
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
   useEffect(() => {
     let off: (() => void) | null = null;
     let dead = false;
-    void onGlobalCapture(() => useOverlay.getState().setPalette(true)).then((f) => {
+    const land = () => {
+      const o = useOverlay.getState();
+      if (pathRef.current === MINI_PATH) o.setMiniCapture(true);
+      else o.setPalette(true);
+    };
+    void onGlobalCapture(land).then((f) => {
       // ⚠ 언마운트가 구독 완료보다 빠를 수 있다 — 그때 바로 떼지 않으면 리스너가 샌다.
       if (dead) f();
       else off = f;
@@ -292,6 +330,21 @@ export default function App() {
                   `*` 리다이렉트에 잡혀 /today 로 튕기지 않게 라우트를 **존재하게** 하는 몫이다
                   (탭이 아니라 나브·팔레트·g단축키엔 안 뜬다). */}
               <Route path={MINI_PATH} element={null} />
+              {/* W12 객체 축 — **탭이 아니다.** 레일·`[ ]` 링·`g` 키에 안 뜬다(그 셋은 `role` 파생이고
+                  이건 명사 하나의 상세다). ⌘K 의 과목·챕터 히트와 과목 카드가 여기 착지한다. */}
+              <Route
+                path="/subject/:id"
+                element={
+                  <ErrorBoundary
+                    fallbackRender={(p) => <TabFallback {...p} label="과목" />}
+                    onError={(e) => reportError(e, 'tab:subject')}
+                  >
+                    <Suspense fallback={<TabLoading fill={false} />}>
+                      <SubjectPage />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </HudFrame>
@@ -305,6 +358,7 @@ export default function App() {
       <OnlineStatus />
       <BootRecovery />
       <StorageGuard />
+      <VaultSync />
       <ToastHost />
       <ModalHost />
       <TooltipHost />

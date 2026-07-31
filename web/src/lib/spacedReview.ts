@@ -14,6 +14,7 @@
 ============================================================ */
 import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
 import { isDone } from './persistence';
+import { vaultAnchors } from './vaultAnchors';
 import type { AppState, Day, SessionType } from './types';
 
 export type ReviewRisk = 'fresh' | 'due' | 'overdue';
@@ -28,6 +29,10 @@ export interface ChapterReview {
   risk: ReviewRisk;
   /** 유지(끝낸 챕터) 출신 표식 — 본 사다리 항목엔 없다(N-10). 큐·UI 가 한 배열에서 구분한다. */
   maintenance?: true;
+  /** 앵커가 **볼트 `reviewed:`**(검증 통과일)에서 왔다 — 앱 안에 인출 기록이 아직 없다는 뜻(W2).
+   *  UI 는 이걸 배지로 구분해야 한다: 부모가 라이브 관측이 흐르면 이 지표를 폴백으로 강등하라고
+   *  적었는데, 구분 없이 승격시키면 강등할 주체가 사라진다(`vaultAnchors.ts` 머리주석). */
+  fromVault?: true;
 }
 
 /** 간격반복의 마지막 오프셋(16) 기준: 그 이상 방치=overdue, 마지막 직전(7)↑=due. */
@@ -81,7 +86,10 @@ const TOUCH_TYPES: ReadonlySet<SessionType> = new Set<SessionType>(['new', 'rev'
 
 /** 챕터별 '마지막으로 만진 날' → 경과일·위험도. todayDs 이후(미래) 배치는 무시. 위험 큰 순 정렬. */
 export function chapterReviews(state: AppState, days: Day[], todayDs: string): ChapterReview[] {
-  const last = new Map<string, { ds: string; subject: string; sid: string; color?: string; chapter: string }>();
+  const last = new Map<
+    string,
+    { ds: string; subject: string; sid: string; color?: string; chapter: string; fromVault?: true }
+  >();
   for (const d of days) {
     if (d.ds > todayDs) continue;
     for (const it of d.items) {
@@ -104,6 +112,22 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
     const cur = last.get(k);
     if (cur && ds > cur.ds && ds <= todayDs) cur.ds = ds;
   }
+  /* W2 — 볼트 `reviewed:` 앵커 주입. ⚠ **앱 앵커가 아예 없는 챕터에만** 넣는다(`last.has` 가
+     그 가드다) — 볼트 값은 검증 통과일이라 인출 기록을 절대 이기면 안 된다(방향 제약 · 자세한
+     근거는 `lib/vaultAnchors.ts` 머리주석). 끝낸 챕터는 유지 큐가 소유하므로 여기서 뺀다. */
+  const anchors = vaultAnchors();
+  if (anchors.size) {
+    for (const it of state.items || []) {
+      for (const ch of it.chapters || []) {
+        if (ch.done) continue;
+        const key = it.id + '|' + ch.name;
+        if (last.has(key)) continue;
+        const ds = anchors.get(key);
+        if (!ds || ds > todayDs) continue;
+        last.set(key, { ds, subject: it.name, sid: it.id, color: it.color, chapter: ch.name, fromVault: true });
+      }
+    }
+  }
   // ID-10 — 직전 백지가 막힌 과목은 임계를 한 칸 앞당긴다(성패 가중 · 실패 방향만).
   const failing = failingSids(state, todayDs);
   const out: ChapterReview[] = [];
@@ -117,6 +141,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       lastDs: e.ds,
       daysSince,
       risk: riskOf(daysSince, failing.has(e.sid)),
+      ...(e.fromVault ? { fromVault: true as const } : null),
     });
   }
   return out.sort((a, b) => b.daysSince - a.daysSince || (a.subject < b.subject ? -1 : 1));

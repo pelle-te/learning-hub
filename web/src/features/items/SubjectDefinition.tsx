@@ -1,13 +1,17 @@
 /* ============================================================
-   SubjectSheet — 과목 상세 시트(계획 재개편 v3). 옛 ItemCard 아코디언을 대체한다.
-   왜 오버레이인가: 카드가 제자리에서 펼쳐지면 뒤 카드들이 밀려 목록 조망이 깨졌다(과목이 늘수록 악화).
-   중앙 시트는 뒤 갤러리를 그대로 둔 채 한 과목만 파고든다 — "탭 프레임보다 작은 새 페이지".
+   SubjectDefinition — 과목 객체 화면(`/subject/:id`)의 **정의 컬럼**(W12 · 2026-07-31).
 
    여기서 한 과목에 대해 **정의(주당 목표·챕터·마감)와 이번 주 배분(요일 분배)을 함께** 결정한다.
    배분은 lib/weekAlloc의 allocView/setAllocCell을 그대로 호출 → 배치 탭의 배분 보드와 같은 데이터의
    두 입구(미러). 흡수가 아니다: 요일 열 합계·전 과목 교차 조망은 보드가 계속 소유하고,
    여기선 그 과목의 '한 행'만 + 요일별 여유 힌트로 최소 맥락을 준다.
-============================================================ */
+
+   ⚠⚠ **이 파일은 `SubjectSheet`(중앙 오버레이 시트)였다 — W12 에서 오버레이를 걷고 페이지의
+   한 컬럼이 됐다.** 시트였던 이유("카드가 제자리에서 펼쳐지면 뒤 카드가 밀린다")는 여전히 옳지만,
+   그 해법이 **객체에 URL 을 주지 않는다**는 더 큰 문제를 만들었다: ⌘K 는 과목·챕터를 이미
+   객체 6종으로 인덱싱하는데(`actions.ts` `contentSearch`) 착지할 화면이 없어 4개 탭으로 흩뿌렸고,
+   _"회로이론 지금 어떤가?"_ 가 **7클릭·6화면**이었다. 함께 사라진 것: DetailDrawer 오버레이·
+   포커스 트랩·`morph` prop·`Items` 의 `?focus=` 1회소비+하이라이트+`CSS.escape` 장치 통째. */
 import { useCallback, type CSSProperties } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
@@ -15,7 +19,6 @@ import { allocView, colSumMin, rowSumMin, setAllocCell, isWeekManaged, weekMonOf
 import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo, round1, hNum } from '@/lib/utils';
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
-import DetailDrawer from '@/components/DetailDrawer';
 import type { AppState, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
 
@@ -176,19 +179,14 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   );
 }
 
-export function SubjectSheet({
+export function SubjectDefinition({
   item,
   mutate,
-  onClose,
   onDelete,
-  morph,
 }: {
   item: Item;
   mutate: Mutate;
-  onClose: () => void;
   onDelete: (id: string) => void;
-  /** 카드→시트 View Transitions morph 로 열렸나 — 그러면 시트가 공유 이름을 갖고 진입 애니를 끈다. */
-  morph?: boolean;
 }) {
   const id = item.id;
   // 마감 D-day도 앱 정본 '오늘'에서 — 벽시계 new Date()를 쓰면 `_today` 시드 주입 시 값이 갈렸다.
@@ -208,110 +206,102 @@ export function SubjectSheet({
   );
 
   return (
-    <DetailDrawer
-      open
-      onClose={onClose}
-      title={item.name || '(이름 없음)'}
-      placement="center"
-      morphName={morph ? 'subject-morph' : undefined}
+    <div
+      className="relative flex flex-col gap-4.5 pl-3"
+      style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
     >
-      <div
-        className="relative flex flex-col gap-4.5 pl-3"
-        style={item.color ? ({ ['--tint']: item.color } as CSSProperties) : undefined}
-      >
-        <span
-          className="absolute top-0.5 bottom-0.5 left-0 w-0.75 rounded-cell opacity-90"
-          style={{ background: item.color || 'var(--acc)' }}
-          aria-hidden="true"
-        />
+      <span
+        className="absolute top-0.5 bottom-0.5 left-0 w-0.75 rounded-cell opacity-90"
+        style={{ background: item.color || 'var(--acc)' }}
+        aria-hidden="true"
+      />
 
-        <div className="ds-fieldgrid">
-          <div className="ds-fld ds-wide">
-            <label htmlFor={`it-name-${id}`}>과목 이름</label>
-            <input
-              id={`it-name-${id}`}
-              type="text"
-              value={item.name}
-              onChange={(e) => upd((it) => void (it.name = e.target.value))}
-              style={{ fontWeight: 600 }}
-              placeholder="과목 이름"
-            />
-          </div>
-          <div className="ds-fld">
-            <label htmlFor={`it-mode-${id}`}>유형</label>
-            <select
-              id={`it-mode-${id}`}
-              value={item.mode}
-              onChange={(e) => upd((it) => void (it.mode = e.target.value as Item['mode']))}
-            >
-              <option value="weekly">주당 시간</option>
-              <option value="daily">매일(Anki)</option>
-            </select>
-          </div>
-          <div className="ds-fld">
-            <label htmlFor={`it-amount-${id}`}>{daily ? '매일 학습 (분)' : '주당 목표 시간'}</label>
-            {daily ? (
-              <Stepper
-                id={`it-amount-${id}`}
-                value={item.dailyMin || 30}
-                step={5}
-                unit="분"
-                onChange={(v) => upd((it) => void (it.dailyMin = v))}
-              />
-            ) : (
-              <Stepper
-                id={`it-amount-${id}`}
-                value={item.weeklyHours || 3}
-                step={0.5}
-                unit="h"
-                onChange={(v) => upd((it) => void (it.weeklyHours = v))}
-              />
-            )}
-          </div>
-          <div className="ds-fld">
-            <label htmlFor={`it-dl-${id}`}>마감일 (선택)</label>
-            <input
-              id={`it-dl-${id}`}
-              type="date"
-              value={item.deadline || ''}
-              onChange={(e) => upd((it) => void (it.deadline = e.target.value))}
-            />
-            {item.deadline && (
-              <span className="ds-tiny ds-muted" style={{ marginTop: 4 }}>
-                {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
-              </span>
-            )}
-          </div>
+      <div className="ds-fieldgrid">
+        <div className="ds-fld ds-wide">
+          <label htmlFor={`it-name-${id}`}>과목 이름</label>
+          <input
+            id={`it-name-${id}`}
+            type="text"
+            value={item.name}
+            onChange={(e) => upd((it) => void (it.name = e.target.value))}
+            style={{ fontWeight: 600 }}
+            placeholder="과목 이름"
+          />
         </div>
-
-        {/* 배분은 주간(new) 과목만 — 매일(Anki) 과목은 엔진이 매일 자동으로 얹는다(보드 행에도 없음). */}
-        {daily ? (
-          <div className={NOTE_INFO}>
-            <b className="font-bold text-txt">매일(Anki)</b> 과목은 요일 배분 없이 매일 자동으로 잡혀요. 요일별로 나눠
-            넣으려면 유형을 <b className="font-bold text-txt">주당 시간</b>
-            으로 바꾸세요.
-          </div>
-        ) : (
-          <AllocRow item={item} mutate={mutate} />
-        )}
-
-        {/* ChapterEditor가 자체 헤더('📘 챕터 N개 · 약 Nh')를 갖고 있어 제목을 덧대지 않는다(중복). */}
-        {!daily && (
-          <div className="flex flex-col gap-2">
-            <ChapterEditor item={item} mutate={mutate} />
-          </div>
-        )}
-
-        <div className="ds-itemfoot">
-          <span className="ds-tiny ds-muted">
-            출처 {item.source || '직접'}
-            {!daily && chs.length ? ` · ${chs.length}챕터 · 약 ${totalH}h` : ''}
-          </span>
-          <Button sm variant="ghost" danger onClick={() => onDelete(id)}>
-            과목 삭제
-          </Button>
+        <div className="ds-fld">
+          <label htmlFor={`it-mode-${id}`}>유형</label>
+          <select
+            id={`it-mode-${id}`}
+            value={item.mode}
+            onChange={(e) => upd((it) => void (it.mode = e.target.value as Item['mode']))}
+          >
+            <option value="weekly">주당 시간</option>
+            <option value="daily">매일(Anki)</option>
+          </select>
+        </div>
+        <div className="ds-fld">
+          <label htmlFor={`it-amount-${id}`}>{daily ? '매일 학습 (분)' : '주당 목표 시간'}</label>
+          {daily ? (
+            <Stepper
+              id={`it-amount-${id}`}
+              value={item.dailyMin || 30}
+              step={5}
+              unit="분"
+              onChange={(v) => upd((it) => void (it.dailyMin = v))}
+            />
+          ) : (
+            <Stepper
+              id={`it-amount-${id}`}
+              value={item.weeklyHours || 3}
+              step={0.5}
+              unit="h"
+              onChange={(v) => upd((it) => void (it.weeklyHours = v))}
+            />
+          )}
+        </div>
+        <div className="ds-fld">
+          <label htmlFor={`it-dl-${id}`}>마감일 (선택)</label>
+          <input
+            id={`it-dl-${id}`}
+            type="date"
+            value={item.deadline || ''}
+            onChange={(e) => upd((it) => void (it.deadline = e.target.value))}
+          />
+          {item.deadline && (
+            <span className="ds-tiny ds-muted" style={{ marginTop: 4 }}>
+              {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
+            </span>
+          )}
         </div>
       </div>
-    </DetailDrawer>
+
+      {/* 배분은 주간(new) 과목만 — 매일(Anki) 과목은 엔진이 매일 자동으로 얹는다(보드 행에도 없음). */}
+      {daily ? (
+        <div className={NOTE_INFO}>
+          <b className="font-bold text-txt">매일(Anki)</b> 과목은 요일 배분 없이 매일 자동으로 잡혀요. 요일별로 나눠
+          넣으려면 유형을 <b className="font-bold text-txt">주당 시간</b>
+          으로 바꾸세요.
+        </div>
+      ) : (
+        <AllocRow item={item} mutate={mutate} />
+      )}
+
+      {/* ChapterEditor가 자체 헤더('📘 챕터 N개 · 약 Nh')를 갖고 있어 제목을 덧대지 않는다(중복). */}
+      {!daily && (
+        <div className="flex flex-col gap-2">
+          <ChapterEditor item={item} mutate={mutate} />
+        </div>
+      )}
+
+      <div className="ds-itemfoot">
+        <span className="ds-tiny ds-muted">
+          출처 {item.source || '직접'}
+          {!daily && chs.length ? ` · ${chs.length}챕터 · 약 ${totalH}h` : ''}
+        </span>
+        <Button sm variant="ghost" danger onClick={() => onDelete(id)}>
+          과목 삭제
+        </Button>
+      </div>
+    </div>
   );
 }

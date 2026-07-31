@@ -63,16 +63,18 @@ beforeEach(() => {
 });
 
 describe('contentSearch (E-6)', () => {
-  it('과목명 매칭 → subject 히트(/items)', () => {
+  /* W12 — 객체가 자기 URL 을 갖는다. 옛 목적지는 `/items?focus=<id>`(목록에 데려다 놓고 그 카드를
+     1.5초 깜빡이는 우회로)였고, 챕터는 원리적으로 착지 불가라 소속 과목까지가 최선이었다. */
+  it('과목명 매칭 → subject 히트(/subject/:id)', () => {
     const hits = contentSearch('선형', reads);
-    expect(hits.some((h) => h.kind === 'subject' && h.label === '선형대수' && h.to.startsWith('/items?focus='))).toBe(
-      true,
-    );
+    expect(hits.some((h) => h.kind === 'subject' && h.label === '선형대수' && h.to.startsWith('/subject/'))).toBe(true);
   });
 
-  it('챕터명 매칭 → chapter 히트(과목 · 챕터 라벨)', () => {
+  it('챕터명 매칭 → chapter 히트가 **자기 앵커**(#ch-<id>)에 선다', () => {
     const hits = contentSearch('벡터', reads);
-    expect(hits.some((h) => h.kind === 'chapter' && h.label.includes('벡터공간'))).toBe(true);
+    const ch = hits.find((h) => h.kind === 'chapter' && h.label.includes('벡터공간'));
+    expect(ch).toBeTruthy();
+    expect(ch!.to).toMatch(/^\/subject\/[^#]+#ch-/);
   });
 
   it('책 제목/저자 매칭 → book 히트(/reads)', () => {

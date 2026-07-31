@@ -25,7 +25,7 @@ import {
   type AtlasField,
 } from '@/lib/atlas';
 import { fmtPublished } from '@/lib/markets';
-import { SkeletonText } from '@/components/ui';
+import State from '@/components/State';
 
 /* ── C-7 여섯 번째 이식(atlas) ────────────────────────────────────────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Atlas.module.css`(536줄) 삭제.
@@ -45,13 +45,13 @@ const CHIP_ON = 'bg-acc-soft! border-line-acc-hover! font-semibold! text-txt!';
 const CHIP_OFF = 'bg-panel! text-mut!';
 const CARDS = 'grid grid-cols-atlas gap-2';
 const CARD =
-  'group relative rounded-md border border-line bg-panel shadow-card transition hover:-translate-y-px hover:border-line-acc-hover focus-within:border-acc motion-reduce:transition-none motion-reduce:hover:translate-y-0';
+  'group relative rounded-md border border-line bg-panel transition hover:-translate-y-px hover:border-line-acc-hover focus-within:border-acc motion-reduce:transition-none motion-reduce:hover:translate-y-0';
 const CARDLINK =
   'block py-3 pr-9 pl-3 text-inherit! focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc';
 const BADGE = 'inline-flex items-center gap-1 rounded-full px-2 py-1 text-2xs font-semibold whitespace-nowrap';
 const STAR =
   'absolute top-2 right-2 border-0! bg-transparent! p-1 text-md! leading-none focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-acc';
-const PANEL = 'rounded-md border border-line bg-panel px-4 py-3 shadow-card';
+const PANEL = 'rounded-md border border-line bg-panel px-4 py-3';
 const PANEL_LBL = 'mb-2 flex items-center gap-1.5 text-2xs font-bold tracking-widest text-mut uppercase';
 const TAG = 'rounded-full border border-line-acc bg-acc-soft px-2 py-1 text-sm text-txt';
 const TAG_DIM = 'border-line! bg-panel2! text-mut!';
@@ -267,14 +267,9 @@ export default function Atlas() {
                 </ul>
               </>
             ) : online && news.isLoading ? (
-              /* N-4 — 소식 목록 자리에 목록 형상. 한 줄 문장이 여러 줄 목록으로 바뀌면서
-                 나던 점프를 없앤다. */
-              <>
-                <span className="sr-only" role="status">
-                  최신 소식을 불러오는 중…
-                </span>
-                <SkeletonText lines={3} />
-              </>
+              /* W15 — RSS 는 몇 건이 올지 모른다. 3행 골격은 그 사실에 대해 거짓말하므로
+                 `indeterminate`(끝을 모르는 대기의 정직한 표현). */
+              <State kind="loading" shape="indeterminate" title="최신 소식을 불러오는 중" />
             ) : field.trends.length ? (
               // 폴백(오프라인·서버꺼짐·수집실패) — 시드 동향.
               <ul className={TL}>

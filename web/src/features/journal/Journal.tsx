@@ -219,9 +219,16 @@ export default function Journal() {
 
   usePageChromeEffect(
     () => ({
+      /* W22 앵커 예산 — **destination 은 자기 값을 44px 로 말한다**(원칙 ②의 물리적 표현).
+         0이어도 그린다 — 기록 탭에서 0은 "아직 안 썼다"라는 **행동을 바꾸는 사실**이지 값 부재가 아니다.
+         ⚠⚠ 첫 판은 `sumN + cbmsN` **합계**였고 그 아래 리드아웃이 같은 둘을 **분해**로 또 그렸다 —
+         W7 이 레일 배지에서 금지한 바로 그 형태를 이 배치가 스스로 새로 만든 것이다(실렌더가
+         잡았다). 게다가 `selectors.ts` 는 _"둘은 성격이 다른 일이라 합치면 어느 쪽도 행동으로
+         안 이어진다"_ 라 이미 적어 뒀다. → 헤드라인은 **요약**(이 탭의 주된 산출) 하나이고,
+         리드아웃에서는 그 칸을 뺀다(한 양 = 한 자리). */
+      primary: { value: String(sumN), unit: '건', label: isToday ? '오늘 요약' : `${ds2.slice(5)} 요약` },
       readouts: [
         // 오늘이 아니면 라벨에 날짜를 붙인다 — 안 붙이면 과거 수치가 오늘 수치로 읽힌다.
-        { label: isToday ? '요약' : `요약 · ${ds2.slice(5)}`, value: sumN, accent: true },
         { label: isToday ? '오답' : `오답 · ${ds2.slice(5)}`, value: cbmsN },
         { label: '열린 보충', value: openN },
       ],

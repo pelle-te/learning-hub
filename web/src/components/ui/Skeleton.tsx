@@ -18,6 +18,11 @@ export function Skeleton({ width, height }: { width?: string | number; height?: 
 }
 
 /** 여러 줄 스켈레톤(제목 + 본문 라인들). lines로 본문 줄 수 조절. */
+/* ⚠⚠ **features 에서는 쓰지 않는다(W15 · 2026-07-31 · 불변식이 잠근다).**
+   줄 수를 지어내는 프리미티브라, 길이가 데이터에 따라 변하는 목록에 쓰면 **골격이 3행을 약속하고
+   12행이 오는** 상태가 된다 — 없애려던 레이아웃 점프를 골격이 스스로 만든다. 끝을 모르는 대기는
+   `<State kind='loading' shape='indeterminate'>` 다. 여기 남은 이유는 `SkeletonCard` 가 쓰기 때문
+   (그건 **카드 한 장**이라 줄 수가 형상으로 확정된다 — 지어내는 것이 아니다). */
 export function SkeletonText({ lines = 3 }: { lines?: number }) {
   return (
     <div className={STACK}>
@@ -56,12 +61,15 @@ export function SkeletonCard({ lines = 4 }: { lines?: number }) {
 const FILL_WRAP = 'flex h-full w-full flex-col gap-4 p-5';
 const FILL_ROW = 'flex gap-3';
 
-/** 전면 대시보드 탭(`TabMeta.fill`)의 Suspense 폴백 — 프레임을 실제로 채운다. */
-export function SkeletonFill() {
+/** 전면 대시보드 탭(`TabMeta.fill`)의 Suspense 폴백 — 프레임을 실제로 채운다.
+ *  ⚠ `label` — SR 공지 문구. `components/State` 의 `shape='frame'` 이 **자기 제목**을 넘긴다
+ *  (W15). 넘기지 않으면 일반 문구인데, 그러면 화면마다 "불러오는 중…"만 들려 무엇을 기다리는지
+ *  알 수 없다. 리전을 둘 두지 않는 것도 이유다 — 여기 하나가 공지의 유일한 자리다. */
+export function SkeletonFill({ label = '불러오는 중…' }: { label?: string } = {}) {
   return (
     <div className={FILL_WRAP}>
       <span role="status" className="sr-only">
-        불러오는 중…
+        {label}
       </span>
       {/* 상단 리드아웃 — 세 값이 가로로 서는 형태(usePageChrome 이 세우는 그것). */}
       <div className={FILL_ROW}>

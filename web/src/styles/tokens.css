@@ -81,10 +81,56 @@
   /* 위계용 큰 스케일 — 히어로 제목·디스플레이 숫자. "제일 큰 픽셀 = 제일 중요한 행동". */
   --fs-hero: 30px;
   --fs-display: 44px;
-  /* HUD 에디토리얼 디스플레이 스케일(설계도 §1-1) — 회전 스파인·리드아웃·스탯. */
-  --fs-spine: 72px;
+  /* HUD 에디토리얼 디스플레이 스케일(설계도 §1-1) — 리드아웃·스탯.
+     ⚠ `--fs-spine: 72px`(회전 스파인)이 여기 있었다 — **참조 0회의 죽은 칸이라 W11 에서 지웠다.**
+     설계도가 요구한 회전 스파인은 실제로 구현된 적이 없고, 사다리 최상단이 비어 있다는 사실이
+     원칙 ②("제일 큰 픽셀 = 제일 중요한 것")가 문서에만 있었다는 증거였다(`usePageChrome.ts` 주석). */
   --fs-readout: 40px;
   --fs-stat: 30px;
+
+  /* ── 보조 사다리 — **역할 이름**(W11 1단계 · 2026-07-31) ─────────────────────────
+     ⚠⚠ 이 저장소의 `--text-*` 57종 중 14종이 사다리 밖 생px 이고 **그중 11종이 반픽셀**인데,
+     바로 위 주석이 _"반픽셀 금지 — 확대/고DPI 렌더 흔들림 방지"_ 라 적어 둔 형태였다. 더 나쁜
+     것은 이름이 **값이 아니라 자리**를 가리켰다는 것이다(`--text-sched-cap`·`--text-msdot`·
+     `--text-tiny9`…) — 같은 9.5px 이 두 이름으로 살아 있으면 한쪽만 고쳐지는 것은 시간문제다.
+     E24 직전의 키프레임 32종과 **같은 상태**이고 처방도 같다: 이름을 역할로 접고 집행자를 둔다.
+
+     ⚠ **1단계는 이름만 접는다 — 값은 한 픽셀도 안 바뀐다**(별칭 유지 · 스냅샷 0장). 반올림과
+     중량 3단 축소는 2단계(Later)이고, 그때의 위험을 지금 적어 둔다: 텍스트의 87%가 10~13px 에
+     산다는 것은 **그 구간에 실제로 미세 위계를 쓰고 있다**는 뜻일 수 있어, 6칸으로 접으면
+     `sched-meta`(9.5)와 `sched-cap`(9)이 한 칸이 되어 캘린더가 안 읽힐 수 있다 — 그러면 정리가
+     아니라 손실이다. 그래서 실렌더 1회가 2단계의 선행이다(§15-4). */
+  --fs-micro: 9px; /* 배지·현재시각 칩 — 읽는 것이 아니라 알아보는 것 */
+  --fs-micro-plus: 9.5px; /* 조각 메타·가용 표시 ⚠반픽셀 */
+  --fs-caption: 10.5px; /* 그룹 헤더·요일 머리글·에이브로 ⚠반픽셀 */
+  --fs-note: 11.5px; /* 부제·주석 한 줄 ⚠반픽셀 */
+  --fs-hint: 12.5px; /* 힌트·보조 설명 ⚠반픽셀 */
+  --fs-label: 13.5px; /* 나브 행·질문 라벨 ⚠반픽셀 */
+  --fs-lede: 17px; /* 카드 제목·날짜 숫자·소형 워드마크 */
+  --fs-title-sm: 19px; /* 항목 제목·CTA 숫자 */
+  --fs-title: 21px; /* 워드마크 */
+  --fs-nano: 8px; /* 계기 눈금 — 읽는 것이 아니라 위치를 세는 것 */
+  --fs-field: 16px; /* 큰 입력 필드(정수 사다리 14↔20 사이 — iOS 확대 방지선이기도 하다) */
+  /* 디스플레이 3단 — 게이지·링 숫자처럼 **값 자체가 화면인** 자리.
+     ⚠ `--fs-display`(44)와 `--fs-display-lg`(46)가 2px 차이로 나란히 있다. 2단계(Later)가 반올림할
+     후보 1순위이고, 지금 합치지 않는 이유는 W11 1단계의 계약이 **값 무변경**이기 때문이다. */
+  --fs-display-xs: 26px;
+  --fs-display-sm: 38px;
+  --fs-display-lg: 46px;
+  /* 부모 대비 축소 3단 — `em` 이라 **주변 글자 크기를 따라간다**(px 사다리와 다른 축이다).
+     인라인 배지·글리프처럼 "옆 글자보다 조금 작게"가 규칙인 자리. */
+  --fs-rel-xs: 0.7em;
+  --fs-rel-sm: 0.86em;
+  --fs-rel-md: 0.92em;
+  /* ── 유동 제목 4단(clamp) — **뷰포트에 따라 자라는 축**이라 px 사다리와 섞이지 않는다 ──────
+     C-7 이 `clamp()` 를 "사다리 반올림의 예외"로 못박은 그 자리다(고정 px 로 바꾸면 이식이
+     아니라 동작 변경이다). W11 이 여기서 한 일은 값이 아니라 **이름**이다: `markets-title`·
+     `reader-title` 처럼 *자리*를 가리키던 것을 크기 단으로 바꿔, 새 화면이 자기 이름을 또 만들지
+     않게 한다(그 습관이 57종을 만든 원인이다). */
+  --fs-fluid-sm: clamp(18px, 2.2vw, 23px);
+  --fs-fluid-md: clamp(19px, 2.4vw, 25px);
+  --fs-fluid-lg: clamp(22px, 2.6vw, 30px);
+  --fs-fluid-xl: clamp(26px, 4vw, 40px);
 
   --z-nav: 20;
   --z-dropdown: 40;
@@ -195,15 +241,26 @@
   --tint-bad-faint: color-mix(in srgb, var(--bad) 9%, transparent);
   --fill-plan: color-mix(in srgb, var(--mut) 55%, transparent);
 
-  /* mastery 시네마틱 패널 — 히어로(acc+violet 3층)·지식맵/폴백(acc 2층). 상단 헤어라인은
-     review 의 --bg-sig-top 재사용(값 동일). ringNum 글로우도 --sig-rate-glow 재사용. */
-  --bg-hero-mastery:
+  /* ── ⚠⚠ **시그니처가 3페이지에 공유되면 그건 시그니처가 아니라 테마다**(W23 · 2026-07-31) ──
+     이름이 `mastery` 인 두 토큰이 다른 화면들에 퍼져 있었다: `--bg-hero-panel` 를 **설정 탭이
+     소비**했고(다른 페이지의 히어로를 빌린다) `--bg-map-panel` 는 mastery·ledger·graph **3곳**.
+     원칙 ③은 "한 화면에 시그니처 하나"인데, 같은 시그니처가 세 화면에 있으면 그건 배경 테마다.
+
+     → **이름을 역할로 바꾼다.** 값은 그대로이고(픽셀 0 변화) 이름이 더 이상 거짓말을 하지 않는다:
+     `--bg-hero-panel`(단일 히어로 밴드) · `--bg-map-panel`(캔버스형 지도 패널). 소비처가 여럿인
+     것이 **정상인 형태**로 이름이 맞춰진 것이고, 진짜 시그니처(화면당 하나)는 `ds-frame` 과
+     각 화면 고유 그래픽이 진다.
+     ⚠ 설정 탭은 자기 히어로를 갖는다(`--bg-hero-settings`) — 빌려 쓰던 것을 반납한 자리다. */
+  --bg-hero-panel:
     radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
     radial-gradient(70% 90% at 0% 120%, color-mix(in oklab, var(--violet) 9%, transparent), transparent 64%),
     linear-gradient(165deg, color-mix(in oklab, var(--acc) 7%, var(--panel2)), var(--panel) 62%);
-  --bg-map-mastery:
+  --bg-map-panel:
     radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--acc) 6%, transparent), transparent 56%),
     linear-gradient(168deg, color-mix(in oklab, var(--acc) 4%, var(--panel2)), var(--panel) 64%);
+  /* 설정 히어로(W23) — 빌려 쓰던 `--bg-hero-panel` 의 반납분. violet 층이 **없다**: 그 층은
+     숙달도 지도의 정체성이고, 설정은 조용한 화면이라 액센트 한 겹이면 충분하다. */
+  --bg-hero-settings: linear-gradient(165deg, var(--panel2), var(--panel) 62%);
   /* mastery note(경고 톤 박스) 배경·테두리. */
   --panel-warn-faint: color-mix(in srgb, var(--warn) 10%, var(--panel));
   --line-warn: color-mix(in srgb, var(--warn) 36%, var(--line));
@@ -218,7 +275,7 @@
   --tint-learning: color-mix(in srgb, var(--learning) 18%, transparent);
 
   /* ledger(정본 원장) 히어로 밴드 — mastery 히어로에서 violet 층만 뺀 2층(acc 13% radial + acc 7% linear).
-     지식맵/폴백 패널은 값이 동일해 --bg-map-mastery 를 그대로 공유한다(review→mastery 재사용과 같은 패턴).
+     지식맵/폴백 패널은 값이 동일해 --bg-map-panel 을 그대로 공유한다(W23 에서 이름이 역할로 바뀌었다).
      funBar 트랙은 line 40% 반투명(퍼널 막대 배경). */
   --bg-hero-ledger:
     radial-gradient(80% 120% at 100% 0%, color-mix(in oklab, var(--acc) 13%, transparent), transparent 60%),
@@ -457,7 +514,7 @@
      캔버스 위 부유 크롬(범례·컨트롤·툴팁·상세 패널)의 글래스 배경·경고 테두리·backdrop 블러.
      캔버스 픽셀 자체는 Graph.tsx 가 런타임 그린다 — 여기는 그 프레임의 색뿐이다(전부 --panel/
      --warn 파생이라 테마·액센트 전환에 자동 대응 · 절대규칙 #3). 지식맵/폴백 패널 그래디언트는
-     --bg-map-mastery(mastery 이식) 재사용 · 상단 헤어라인은 --bg-sig-top(review 이식) 재사용. */
+     --bg-map-panel 재사용 · 상단 헤어라인은 --bg-sig-top(review 이식) 재사용. */
   /* 부유 칩/컨트롤 글래스 배경 — panel 을 투명과 섞어 캔버스가 비쳐 보인다(범례 82 · 검색/버튼/
      검색토스트 88 · 툴팁 94 · 상세 패널 96%). backdrop blur 와 짝. */
   --panel-glass-82: color-mix(in srgb, var(--panel) 82%, transparent);
@@ -522,6 +579,25 @@
   --acc-soft: color-mix(in srgb, var(--acc) 14%, transparent);
   --acc-glow: color-mix(in srgb, var(--acc) 40%, transparent);
   --glow: color-mix(in srgb, var(--acc) 55%, transparent);
+
+  /* ── ⚠⚠ 강조는 **의미로 이름 짓고 기전은 테마가 고른다**(W21 · 2026-07-31) ─────────────
+     라이트는 `tokens.css` 안 색 49개가 전부였다 — 이 파일을 뺀 나머지 CSS 에서 `data-theme`
+     규칙이 **0건**이라, 구조·형태·명암 배분에 라이트 고유의 판단이 한 줄도 없었다. 그런데
+     `--glow`(55%→**18%**)·`--acc-glow`(40%→**14%**)에서 파생되는 토큰이 **33종**이고 그게 곧
+     원칙 ①·⑤의 물리적 실체다 → **라이트는 정체성 층을 3분의 1로 줄인 판본**이고 대체 장치가 0.
+     발광은 어두운 면 위에서만 발광이다. 흰 패널 위 7% 워시는 인쇄 얼룩으로 읽힌다.
+
+     그래서 이름을 **무엇을 말하려는가**로 바꾸고 값은 테마가 고른다:
+     · `--emph-live`  — "지금 살아 있다"(진행 중·현재 시각·활성). 다크=발광 / 라이트=잉크 링.
+     · `--emph-value` — "이 수가 이 화면의 값이다"(리드아웃·워드마크). 다크=네온 / 라이트=중량.
+
+     ⚠ 자기비평(로드맵에 적힌 그대로 남긴다): 한 이름 뒤에 두 기전을 두는 것은 드리프트를
+     없애는 게 아니라 **토큰 안으로 숨기는** 것일 수 있고, `accentContrast.test.ts` 같은 계산
+     게이트는 **그림자를 검사하지 못한다**. 그래서 라이트 기전은 그림자가 아니라 **테두리·중량**
+     — 둘 다 대비 계산이 닿는 물리량이다(숨을 곳을 처음부터 안 만든다). */
+  --emph-live: 0 0 10px var(--glow);
+  --emph-value: 0 0 22px var(--glow);
+  --emph-value-weight: 800;
   /* 액센트 채움 그라데이션 — 활성 세그/토글/링 등 "칠해진" 표면 SSOT(--acc에서 파생). */
   --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
   --hairline: rgba(255, 255, 255, 0.06);
@@ -643,6 +719,15 @@
   --acc-soft: color-mix(in srgb, var(--acc) 8%, transparent);
   --acc-glow: color-mix(in srgb, var(--acc) 14%, transparent);
   --glow: color-mix(in srgb, var(--acc) 18%, transparent);
+
+  /* W21 — **라이트는 발광 대신 잉크로 말한다.** 위 다크 정의의 짝이고, 이 두 줄이 이 테마가
+     갖는 **첫 고유 판단**이다(종전엔 색 49개 외에 라이트 전용 규칙이 0건이었다).
+     ⚠ `--emph-live` 는 그림자가 아니라 **2px 링**이다 — 흰 면 위에서 18% 워시는 얼룩이지 신호가
+       아니고, 링은 대비 계산이 닿는 물리량이라 게이트가 볼 수 있다(위 자기비평의 대답).
+     ⚠ `--emph-value` 는 아예 끈다 — 값의 무게는 `--emph-value-weight`(900)가 진다. */
+  --emph-live: 0 0 0 2px var(--acc);
+  --emph-value: none;
+  --emph-value-weight: 900;
   /* 액센트 채움 그라데이션 — 다크와 동일 공식(--acc에서 파생). */
   --acc-fill: linear-gradient(135deg, color-mix(in oklab, var(--acc) 88%, #fff), var(--acc));
   /* ⚠⚠ **헤어라인이 라이트에서 한 픽셀도 안 그려졌다(E4 · 2026-07-29).**

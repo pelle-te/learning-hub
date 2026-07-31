@@ -29,8 +29,23 @@
 
    ⚠ `kind='loading'` 만 `next` 를 요구하지 않는다. 로딩의 정답은 **기다리는 것**이고, 거기에
      CTA 를 요구하면 리포트가 경고한 "억지 CTA"를 타입이 생산하게 된다. 판별 유니온으로 갈랐다.
+
+   ## ⚠⚠ 로딩만 다시 갈려 있었다 — `shape` 가 그 봉합이다(W15 · 2026-07-31)
+
+   E17 이 "성공하지 않은 화면은 하나가 그린다"를 세웠는데 **로딩은 두 언어로 남았다**:
+   `<State kind='loading'>`(중앙 스피너) vs `<Skeleton*>` **19 호출/7파일**. 그리고 더 나쁜 것은
+   **로딩 스냅샷이 0장**이었다는 것이다(빈 상태는 12장) — 앱의 한 상태 전체가 시각 회귀망 밖.
+   fill 대시보드 16탭에서 중앙 스피너는 곧 **그릴 레이아웃을 한 번 지웠다 다시 그리는 점프**다.
+
+   · `shape='frame'`(기본) — 페이지 격자를 미리 그린다. 도착하면 값만 채워진다.
+   · `shape='indeterminate'` — **끝을 모르는 대기에만**(AI 스트림·파이썬 도구·리서치 잡).
+
+   ⚠⚠ **거짓말하는 뼈대는 스피너보다 나쁘다.** 골격이 3행을 약속하고 12행이 오면 그건 로딩이
+     아니라 오답이다 → `frame` 은 **행 수를 약속하지 않는다**(리드아웃 띠 + 본문 한 칸 + 하단 띠).
+     행 수가 데이터에 따라 변하는 목록에는 `indeterminate` 를 쓴다.
 ============================================================ */
 import type { ReactElement, ReactNode } from 'react';
+import { SkeletonFill } from './ui/Skeleton';
 
 /**
  * 이 상태에서 **다음에 할 일**.
@@ -53,7 +68,8 @@ interface Common {
 
 /** 로딩만 `next` 가 없다(정답이 '기다리기'다) · 나머지는 필수. */
 export type StateProps =
-  (Common & { kind: 'loading'; next?: never }) | (Common & { kind?: 'empty' | 'error'; next: StateNext });
+  | (Common & { kind: 'loading'; next?: never; shape?: 'frame' | 'indeterminate' })
+  | (Common & { kind?: 'empty' | 'error'; next: StateNext; shape?: never });
 
 const WRAP = 'mx-auto flex max-w-empty flex-col items-center gap-2 px-6 py-11 text-center';
 // 차분한 네온 글리프 — 1px inset 링은 `--line-acc`(= acc 30% + line) 토큰 그대로.
@@ -81,6 +97,10 @@ const SPIN = (
 
 export default function State(props: StateProps) {
   const { kind = 'empty', title, desc } = props;
+  /* 골격 로딩은 **중앙 정렬 문구 틀을 아예 안 쓴다** — 그 틀이 곧 "가운데 한 덩어리"라
+     레이아웃 점프의 출처다. 제목은 SR 에만 남긴다(`SkeletonFill` 이 role=status 를 갖는다). */
+  if (props.kind === 'loading' && (props.shape ?? 'frame') === 'frame')
+    return <SkeletonFill label={typeof title === 'string' ? title : '불러오는 중…'} />;
   /* 글리프 기본값을 kind 가 정한다 — 호출부마다 이모지를 고르게 하면 그게 곧 다음 드리프트다.
      에러=경고. 빈 상태만 feature 의 성격이라 호출부가 준다(글리프가 곧 그 화면의 정체성인 경우가
      있다 — `items` 의 📚 등). 로딩은 위 `SPIN` 이 웰 없이 직접 그린다. */

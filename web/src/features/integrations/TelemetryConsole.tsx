@@ -5,6 +5,7 @@
 ============================================================ */
 import { useEffect, useState } from 'react';
 import { useQuery, skipToken } from '@tanstack/react-query';
+import { bootWave } from '@/lib/perf';
 import { quietSummary } from '@/lib/daySignals';
 import { usePing } from '@/store/queries';
 import { totalDue, totalCards, type AnkiLive, type AnkiFile } from '@/lib/anki';
@@ -109,6 +110,15 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
      조용한 날로 세면 "안 썼다"가 "평온했다"로 둔갑한다. 관측이 0이면 아예 말하지 않는다. */
   const quietLine = quiet && quiet.observed > 0 ? `최근 ${quiet.observed}일 관측 중 조용한 날 ${quiet.quiet}일` : null;
 
+  /* W16 — **부팅 웨이브를 읽는 유일한 자리.** 계량만 하고 소비처가 없으면 그게 곧 `visits.ts` 가
+     물린 _"쌓이고 있다는 믿음만 쌓인다"_ 라, 마크를 넣은 커밋이 읽는 곳도 함께 낸다.
+     ⚠ 값이 없으면 **줄 자체가 없다**(0 으로 그리지 않는다 — 값 부재와 값 0 은 다른 사실이다). */
+  const wave = bootWave();
+  const waveLine =
+    wave.total != null
+      ? `부팅 ${wave.total}ms(엔트리→App ${wave.entryToApp ?? '?'} · App→첫 화면 ${wave.appToData ?? '?'})`
+      : null;
+
   return (
     <div className={`ds-board${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>
       <div className="mb-3.5 flex items-baseline justify-between">
@@ -116,6 +126,7 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
         {!vertical && <span className="text-2xs text-mut opacity-80">시스템 폴더 /api · 볼트 · Anki 조종석</span>}
       </div>
       {quietLine && <p className="mt-0 mb-3 text-2xs text-mut">{quietLine}</p>}
+      {waveLine && <p className="mt-0 mb-3 text-2xs text-mut tabular-nums">{waveLine}</p>}
       <div
         className={vertical ? 'flex min-h-0 flex-1 flex-col gap-3' : 'grid grid-cols-3 gap-2.5 max-mobile:grid-cols-1'}
       >

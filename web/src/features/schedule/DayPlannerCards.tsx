@@ -51,6 +51,32 @@ const C = {
   resizeHandle: 'absolute inset-x-0 bottom-0 h-1.75 cursor-ns-resize touch-none hover:bg-[var(--seg-handle)]',
 } as const;
 
+/* ── W23 시간 스파인 — **이 화면의 시그니처**(2026-07-31) ────────────────────────────────
+   매일 여는 최대 화면 둘(`alloc`·`schedule`)은 `<svg>`·`<canvas>` **0**, 히어로 토큰 **0** 이라
+   시그니처가 아예 없었다. 새 그래픽을 얹으면 밀도를 파는데(그게 미실행 사유였다), 이 화면엔
+   **이미 시각 눈금 열(gutter)이 있다** → 거기에 하루를 한 줄로 세운다: 회색이 하루 전체,
+   액센트 구간이 **가용 창**. 타임라인이 "무엇이 언제"라면 스파인은 "하루가 어떻게 생겼나"이고,
+   둘은 **같은 숫자의 다른 축척**이다(alloc 의 주간 실루엣과 같은 처방). 추가 폭·높이 0px.
+   ⚠ 액센트 사용은 W22 의 승인된 예외다 — 시그니처는 화면당 하나이고 이 화면의 하나가 이것이다. */
+const SPINE = 'pointer-events-none absolute inset-y-0 right-0 w-0.5 rounded-full bg-line-soft';
+const SPINE_FREE = 'pointer-events-none absolute right-0 w-0.5 rounded-full bg-acc opacity-45';
+
+export function TimeSpine({ windows, pos }: { windows: { s: number; e: number }[]; pos: (m: number) => number }) {
+  return (
+    <>
+      <span className={SPINE} aria-hidden="true" />
+      {windows.map((w, i) => (
+        <span
+          key={i}
+          className={SPINE_FREE}
+          style={{ top: `${pos(w.s)}%`, height: `${Math.max(0, pos(w.e) - pos(w.s))}%` }}
+          aria-hidden="true"
+        />
+      ))}
+    </>
+  );
+}
+
 /* ── 트레이 한 줄 ────────────────────────────────────────────────────── */
 export function TrayRow({
   title,
@@ -66,6 +92,10 @@ export function TrayRow({
   onPlace,
   onDelete,
   onDragStart,
+  rowRef,
+  tabIndex,
+  onFocus,
+  selected,
 }: {
   title: string;
   meta: string;
@@ -81,15 +111,37 @@ export function TrayRow({
   onPlace: () => void;
   onDelete?: () => void;
   onDragStart: (e: React.DragEvent) => void;
+  /* ── W13 커서(2026-07-31) ─────────────────────────────────────────────────
+     ⚠⚠ 이 행은 **탭 스톱이 최대 5개**였다(체크박스·−·＋·⤵·✕). 실측: 트레이 3번째 행의 ⤵ 까지
+     **Tab 14회**, 4번째면 19회 — 마우스는 1클릭이다. 이제 행 자신이 유일한 탭 스톱이고
+     (`role="group"` + roving tabindex) 안쪽 컨트롤은 전부 `tabIndex={-1}` 이라 Tab 이 안 든다.
+     동사는 `useListCursor` 의 닫힌 어휘로 온다: `x` 완료 · `p` 배치 · `d` 삭제.
+     ⚠ 마우스 경로는 한 픽셀도 안 바뀐다 — 안쪽 버튼은 클릭 가능한 진짜 버튼 그대로다. */
+  rowRef?: (el: HTMLElement | null) => void;
+  tabIndex?: number;
+  onFocus?: () => void;
+  selected?: boolean;
 }) {
   return (
     <div
-      className={`${C.trayRow} ${done ? 'opacity-50' : ''} ${free ? '[--seg:var(--mut)]' : ''} ${mock ? '[--seg:var(--bad)]' : ''}`}
+      ref={rowRef}
+      role="group"
+      aria-label={title}
+      tabIndex={tabIndex ?? -1}
+      onFocus={onFocus}
+      aria-current={selected ? true : undefined}
+      className={`${C.trayRow} ${done ? 'opacity-50' : ''} ${free ? '[--seg:var(--mut)]' : ''} ${mock ? '[--seg:var(--bad)]' : ''} ${selected ? 'rounded-md bg-[var(--tint-ink-5)]' : ''}`}
       draggable
       onDragStart={onDragStart}
       style={color ? ({ ['--seg']: color } as React.CSSProperties) : undefined}
     >
-      <input type="checkbox" checked={done} onChange={(e) => onToggle(e.target.checked)} aria-label={`${title} 완료`} />
+      <input
+        type="checkbox"
+        tabIndex={-1}
+        checked={done}
+        onChange={(e) => onToggle(e.target.checked)}
+        aria-label={`${title} 완료`}
+      />
       <span className={C.grabDot} aria-hidden="true" />
       <span className={`${C.rowName} ${done ? 'line-through' : ''}`}>{title}</span>
       <span className={C.rowMeta}>
@@ -111,6 +163,7 @@ export function TrayRow({
           <button
             type="button"
             className={C.durBtn}
+            tabIndex={-1}
             onClick={() => onSetMin(Math.max(SNAP, min - 30))}
             title="길이 30분 줄이기"
             aria-label={`${title} 길이 30분 줄이기`}
@@ -121,6 +174,7 @@ export function TrayRow({
           <button
             type="button"
             className={C.durBtn}
+            tabIndex={-1}
             onClick={() => onSetMin(min + 30)}
             title="길이 30분 늘리기"
             aria-label={`${title} 길이 30분 늘리기`}
@@ -134,6 +188,7 @@ export function TrayRow({
       <button
         type="button"
         className={C.tool}
+        tabIndex={-1}
         onClick={onPlace}
         title="첫 빈 시간에 배치"
         aria-label={`${title} 시간박기`}
@@ -141,7 +196,14 @@ export function TrayRow({
         ⤵
       </button>
       {onDelete && (
-        <button type="button" className={C.tool} onClick={onDelete} title="삭제" aria-label={`${title} 삭제`}>
+        <button
+          type="button"
+          className={C.tool}
+          tabIndex={-1}
+          onClick={onDelete}
+          title="삭제"
+          aria-label={`${title} 삭제`}
+        >
           ✕
         </button>
       )}

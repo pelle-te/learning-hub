@@ -13,19 +13,28 @@
    클래스로 자식에 직접 준다(규약 4 · 동적 조립 금지 — 백지 통과/막힘은 passed 로 가른다).
 ============================================================ */
 import { useApp } from '@/store/useApp';
+import { useListCursor, type ListCursor } from '@/hooks/useListCursor';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
 import { summariesFor, cbmsBetween, CBMS_INFO } from '@/lib/methodology';
-import { itemById, hhmm } from '@/lib/utils';
+import { itemById, hhmm, openVaultSearch } from '@/lib/utils';
 import type { CbmsCode } from '@/lib/types';
 
 // fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
 const BOARD_FILL =
-  'flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! shadow-card animate-[enter-rise_var(--dur-slow)_var(--ease)_both] motion-reduce:animate-none ds-hairline';
+  'flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! animate-[enter-rise_var(--dur-slow)_var(--ease)_both] motion-reduce:animate-none ds-hairline';
 // 스트림 행 · 노드 · 종류 칩의 공유 base(상태별 색은 아래에서 조건부로 얹는다).
 const ROW =
   'relative flex min-h-7.5 items-center gap-2 border-b border-dashed border-line2 py-1.75 pl-5.5 last:border-b-0';
 const NODE = 'absolute top-1/2 left-1.25 size-2.25 -translate-y-1/2';
 const KIND = 'flex-none rounded-xs px-1.5 py-0.5 text-2xs font-extrabold tracking-widest uppercase';
+/* ── W13 커서 — **이 스트림엔 탭 스톱이 0이었다**(2026-07-31) ────────────────────────────
+   순수 파생(읽기 전용)이라 동사가 없다는 이유로 커서를 안 붙였는데, 그 결과 키보드로는 오늘의
+   로그에 **닿을 수조차 없었다**(마우스 전용 화면). 어휘가 7개로 닫혀 있으므로 없는 동사를
+   지어낼 필요는 없다 — 이 화면이 실제로 갖는 동사는 하나, **`v` 볼트에서 찾기**다
+   (`Review` 의 🔎 딥링크와 같은 어휘 · `openVaultSearch`).
+   ⚠ 행은 `<li>` 로 남고 포커스는 안쪽 `<button>` 이 받는다(FlowRail 이 검증한 형태) — `li` 에
+     `tabIndex` 를 주려면 role 을 덮어야 하고 그러면 목록 구조가 깨진다. */
+const ROW_BTN = 'flex min-h-7.5 w-full items-center gap-2 text-left';
 
 /** 헤더 카운트 — 마운트 시 0→값 카운트업(reduced-motion이면 즉시). */
 function Count({ n }: { n: number }) {
@@ -39,6 +48,34 @@ function fmtTime(at?: number): string {
   const d = new Date(at);
   if (isNaN(d.getTime())) return '';
   return hhmm(d);
+}
+
+/** 스트림 한 줄 — 포커스·커서를 받는 껍데기. 내용은 호출부가 그대로 넘긴다(형상 변경 0). */
+function StreamRow({
+  cursor,
+  k,
+  extra,
+  children,
+}: {
+  cursor: ListCursor;
+  k: string;
+  extra?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className={`${ROW}${extra || ''}`}>
+      <button
+        type="button"
+        ref={cursor.register(k)}
+        tabIndex={cursor.tabStop === k ? 0 : -1}
+        onFocus={() => cursor.onItemFocus(k)}
+        aria-current={cursor.cursor === k ? true : undefined}
+        className={ROW_BTN}
+      >
+        {children}
+      </button>
+    </li>
+  );
 }
 
 export default function JournalStream({
@@ -58,6 +95,18 @@ export default function JournalStream({
   const backlogToday = (state.backlog || []).filter((b) => b.ds === dsKey);
   // 백지 복습 결과(통과/막힘) — 7일 활동피드엔 이미 들지만 일일 로그엔 빠져 불일치였다.
   const blanks = (state.blankResults || []).filter((b) => b.ds === dsKey);
+  /* W13 — 커서가 도는 목록(네 종류를 시각 순서 그대로 이어 붙인다). 동사는 `v` 하나뿐이라
+     "여기 없는 동사"의 침묵이 최소다(탈출구는 ⌘K). */
+  const cursor = useListCursor<string>({
+    items: [
+      ...sums.map((x) => ({ key: `s-${x.id}`, item: x.name || '' })),
+      ...cbms.map((e) => ({ key: `c-${e.id}`, item: `${e.name || ''} ${e.chapter || ''}`.trim() })),
+      ...blanks.map((b) => ({ key: `bl-${b.id}`, item: b.name || '' })),
+      ...backlogToday.map((b) => ({ key: `b-${b.id}`, item: b.topic || b.name || '' })),
+    ],
+    docTitle: '이 화면 · 오늘의 로그',
+    verbs: { v: (q) => q && openVaultSearch(q) },
+  });
   const total = sums.length + cbms.length + blanks.length + backlogToday.length;
   // 날짜 스테퍼로 과거일 백필 시 '오늘의 로그'는 모호 → 오늘이 아니면 날짜 표기.
   const [, mm, dd] = dsKey.split('-');
@@ -109,7 +158,7 @@ export default function JournalStream({
           {sums.map((x) => {
             const lead = x.s1?.trim() || x.s2?.trim() || x.s3?.trim() || '(내용 없음)';
             return (
-              <li key={`s-${x.id}`} className={ROW}>
+              <StreamRow key={`s-${x.id}`} cursor={cursor} k={`s-${x.id}`}>
                 <span className={`${NODE} rounded-full bg-bg shadow-node-ring`} />
                 {fmtTime(x.at) && (
                   <span className="w-8.5 flex-none text-2xs font-bold tracking-wide text-mut tabular-nums">
@@ -123,13 +172,13 @@ export default function JournalStream({
                 />
                 <span className="max-w-45 flex-none truncate text-md font-bold">{x.name || '(과목 없음)'}</span>
                 <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{lead}</span>
-              </li>
+              </StreamRow>
             );
           })}
           {cbms.map((e) => {
             const inf = CBMS_INFO[e.code as CbmsCode] || { label: '?', color: 'var(--mut)' };
             return (
-              <li key={`c-${e.id}`} className={ROW}>
+              <StreamRow key={`c-${e.id}`} cursor={cursor} k={`c-${e.id}`}>
                 <span className={`${NODE} rounded-full bg-bg shadow-node-ring`} />
                 {fmtTime(e.at) && (
                   <span className="w-8.5 flex-none text-2xs font-bold tracking-wide text-mut tabular-nums">
@@ -142,11 +191,11 @@ export default function JournalStream({
                 <span className="max-w-45 flex-none truncate text-md font-bold">{e.name || '오답'}</span>
                 {e.chapter && <span className="flex-none text-xs leading-text text-mut">· {e.chapter}</span>}
                 {e.note && <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{e.note}</span>}
-              </li>
+              </StreamRow>
             );
           })}
           {blanks.map((b) => (
-            <li key={`bl-${b.id}`} className={ROW}>
+            <StreamRow key={`bl-${b.id}`} cursor={cursor} k={`bl-${b.id}`}>
               <span className={`${NODE} rounded-full bg-bg shadow-node-ring`} />
               <span className={`${KIND} ${b.passed ? 'bg-tint-good text-good' : 'bg-tint-warn-soft text-warn'}`}>
                 {b.passed ? '백지 통과' : '백지 막힘'}
@@ -157,10 +206,10 @@ export default function JournalStream({
               />
               <span className="max-w-45 flex-none truncate text-md font-bold">{b.name || '(과목 없음)'}</span>
               {b.note && <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{b.note}</span>}
-            </li>
+            </StreamRow>
           ))}
           {backlogToday.map((b) => (
-            <li key={`b-${b.id}`} className={`${ROW}${b.done ? ' opacity-50' : ''}`}>
+            <StreamRow key={`b-${b.id}`} cursor={cursor} k={`b-${b.id}`} extra={b.done ? ' opacity-50' : ''}>
               <span className={`${NODE} rotate-45 rounded-xs bg-acc shadow-dot motion-reduce:shadow-none`} />
               {fmtTime(b.at) && (
                 <span className="w-8.5 flex-none text-2xs font-bold tracking-wide text-mut tabular-nums">
@@ -171,7 +220,7 @@ export default function JournalStream({
               <span className="max-w-45 flex-none truncate text-md font-bold">{b.topic || '(주제 없음)'}</span>
               {b.name && <span className="flex-none text-xs leading-text text-mut">· {b.name}</span>}
               {b.note && <span className="min-w-0 flex-1 truncate text-sm leading-text text-mut">{b.note}</span>}
-            </li>
+            </StreamRow>
           ))}
         </ol>
       )}

@@ -17,6 +17,7 @@
 ============================================================ */
 import { useId, useState } from 'react';
 import { readMirrored } from '@/lib/artifactMirror';
+import { dayDiff, todayISO } from '@/lib/utils';
 
 interface Article {
   id?: string;
@@ -90,11 +91,24 @@ function ArticleRow({ a }: { a: Article }): React.JSX.Element {
   );
 }
 
+/** 산출물이 **만들어진** 날 → "오늘 만든 / 어제 만든 / N일 전" (W10).
+ *  둘 중 최신을 쓴다 — 미러가 함께 돌므로 최신이 곧 "PC 가 마지막으로 켜졌을 때"에 가장 가깝다.
+ *  ⚠ 미래 날짜·파싱 불가는 라벨을 안 만든다(모르면 말하지 않는다 — 없는 신선도를 주장하지 않는다). */
+function madeAgoLabel(...dates: (string | undefined)[]): string | null {
+  const ds = dates.filter((d): d is string => !!d && /^\d{4}-\d{2}-\d{2}/.test(d)).sort();
+  const newest = ds[ds.length - 1];
+  if (!newest) return null;
+  const n = dayDiff(newest.slice(0, 10), todayISO());
+  if (n < 0) return null;
+  return n === 0 ? '오늘 만든' : n === 1 ? '어제 만든' : `${n}일 전`;
+}
+
 export default function ReadsView(): React.JSX.Element {
   const reads = readMirrored<ReadsArtifact>('reads');
   const markets = readMirrored<MarketsArtifact>('markets');
   const articles = reads?.articles ?? [];
   const news = markets?.news ?? markets?.items ?? [];
+  const madeLabel = madeAgoLabel(reads?.date, markets?.date);
 
   if (!reads && !markets) {
     return (
@@ -108,6 +122,17 @@ export default function ReadsView(): React.JSX.Element {
 
   return (
     <div>
+      {/* ── W10 "언제 만들어졌나" — 원장('언제 받았나')과 **다른 자리** ────────────────────
+          미러는 `StorageGuard` 의 `beforeSync` 로만 도는데 그건 `isTauri()` 가드 안이라
+          **PC 셸이 실행 중일 때만** 갱신된다. PC 를 이틀 안 켜면 이 목록은 이틀 전 것인데
+          헤더 원장은 "방금 동기화"라 말한다 — **배관은 신선한데 내용은 낡은** 조합이 화면에서
+          구분되지 않았다. 산출물의 `date` 는 이미 받아 놓고 표시만 안 하고 있었다(새 필드 0).
+          ⚠ 원장 옆에 두지 않는 것이 요점이다: 두 시각이 나란히 있으면 같은 종류로 읽힌다. */}
+      {madeLabel && (
+        <p className="px-3 pt-3 text-xs text-mut" role="status">
+          PC 기준 {madeLabel} 목록
+        </p>
+      )}
       {articles.length > 0 ? (
         <section aria-label="읽을거리">
           <h2 className="px-3 pt-3 pb-1 text-xs font-bold tracking-wider text-mut uppercase">

@@ -16,7 +16,7 @@
 
    ── C-7 열 번째 이식(graph) — Tailwind ──────────────────────────────────────
    캔버스 크롬(호스트 프레임·범례·컨트롤·툴팁·상세 패널·빈 상태)만 옮긴다 — 캔버스 픽셀은 JS 가 그린다.
-   지식맵/폴백 그래디언트(--bg-map-mastery)·상단 헤어라인(--bg-sig-top)·마운트 페이드업(enter-rise)·
+   지식맵/폴백 그래디언트(--bg-map-panel)·상단 헤어라인(--bg-sig-top)·마운트 페이드업(enter-rise)·
    shadow-card/hero 를 mastery/ledger 이식에서 승계한다. 새로 이름 준 것: 부유 크롬 글래스 배경
    (--panel-glass-82/88/94/96)·backdrop 블러(--backdrop-graph)·검색실패 테두리(--line-warn-mid)·
    상세 패널 폭·off-ladder 반경(6/8px)·자간(0.14em)·허브 스와치 발광(--shadow-hub).
@@ -499,7 +499,7 @@ export default function Graph() {
       aria-label="학습 구조도"
     >
       {items.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card">
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-[image:var(--bg-map-panel)]">
           <State
             glyph="🕸"
             title="아직 학습 구조도가 비어 있어요"
@@ -518,7 +518,7 @@ export default function Graph() {
         </div>
       ) : (
         <div
-          className={`ds-hairline relative min-h-0 min-w-0 flex-1 animate-[enter-rise_var(--dur-slow)_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-mastery)] shadow-card motion-reduce:animate-none`}
+          className={`ds-hairline relative min-h-0 min-w-0 flex-1 animate-[enter-rise_var(--dur-slow)_var(--ease)_both] overflow-hidden rounded-lg border border-line bg-[image:var(--bg-map-panel)] motion-reduce:animate-none`}
           ref={wrapRef}
         >
           {/* 검색 + 줌 컨트롤 — 우상단 오버레이. 캔버스는 SR 불투명이라 여기 컨트롤이 접근 경로. */}
@@ -671,7 +671,7 @@ export default function Graph() {
                   type="button"
                   className={DETAIL_BTN}
                   // AN-17 — 목록 최상단이 아니라 이 항목 카드로 딥링크(허브=자기 항목 id, 잎=부모 항목 id 둘 다 sel.itemId).
-                  onClick={() => navigate('/items?focus=' + encodeURIComponent(sel.itemId), { viewTransition: true })}
+                  onClick={() => navigate('/subject/' + encodeURIComponent(sel.itemId), { viewTransition: true })}
                 >
                   학습 항목 열기 →
                 </button>

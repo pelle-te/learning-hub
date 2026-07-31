@@ -24,7 +24,7 @@ import { runTool } from '@/lib/api';
 import { needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useNavigate } from 'react-router-dom';
-import { Button, SkeletonText } from '@/components/ui';
+import { Button } from '@/components/ui';
 import State from '@/components/State';
 
 /* ── C-7 Tailwind 이식(첫 feature) ───────────────────────────────────────
@@ -90,16 +90,13 @@ export default function Discovery() {
 
   if (disc.isLoading) {
     return (
+      /* ⚠⚠ **여기 `SkeletonText lines={4}` 가 있었다 — 거짓말하는 뼈대였다**(W15 · 2026-07-31).
+         N-4 는 "생 문장 대신 형상"을 근거로 골격을 넣었는데, 발견 큐는 **길이가 데이터에 따라
+         변한다**: 골격이 4행을 약속하고 12행이 오면 그건 로딩이 아니라 오답이고, 없애려던
+         레이아웃 점프를 골격이 스스로 만든다. 끝을 모르는 대기의 정직한 표현은 `indeterminate` 다.
+         SR 공지는 `State` 가 `role=status` 로 소유한다(옛 sr-only 사본 제거). */
       <section className={ROOT}>
-        {/* N-4 — 생 문장 대신 형상. 문장은 "무엇이 올지"를 말하지 못하고, 뜨는 순간
-            아래 목록이 밀려 올라오는 레이아웃 점프가 난다. SR 안내는 SkeletonText 밖의
-            role=status 가 소유한다(줄들은 장식이라 aria-hidden 이다). */}
-        <span className="sr-only" role="status">
-          발견 큐를 불러오는 중…
-        </span>
-        <div className="py-3">
-          <SkeletonText lines={4} />
-        </div>
+        <State kind="loading" shape="indeterminate" title="발견 큐를 불러오는 중" />
       </section>
     );
   }

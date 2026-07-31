@@ -6,43 +6,42 @@
      · 상단 = 뼈대 요약 스트립(접힘 기본) → 펼치면 SkeletonPanel(수업·일과 편집)
      · 좌   = 과목 갤러리 + 볼트 불러오기
      · 우   = AvailRail(24h 링·요일 막대 = 가용 위에 배분 적재)
-     · 클릭 = SubjectSheet 중앙 시트(과목 정의 + 그 과목의 이번 주 요일 배분)
+     · 클릭 = **객체 화면 `/subject/:id`**(W12 · 옛 SubjectSheet 중앙 시트를 대체)
 
    배분은 '흡수'가 아니라 '미러' — 전 과목 교차 조망(요일 열 합계)은 배치 탭의 배분 보드가 계속 소유하고,
    여기선 lib/weekAlloc 같은 출처로 한 과목의 행만 편집한다. 두 입구, 한 진실.
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
-import { flushSync } from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { useListCursor } from '@/hooks/useListCursor';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
-import { prefersReducedMotion, reveal } from '@/lib/motion';
+import { prefersReducedMotion } from '@/lib/motion';
 import { ui } from '@/shell';
-import { colorForId, rid, makeItem, ddayInfo, DOW, todayISO, round1, hNum, hLabel } from '@/lib/utils';
+import { colorForId, rid, makeItem, ddayInfo, DOW, todayISO, round1, hNum, hLabel, openVaultSearch } from '@/lib/utils';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
   allocView,
   rowSumMin,
   weekMonOf,
-  removeSidFromAlloc,
   weekAllocTotalMin,
   weekBudgetMin as weekBudgetMinOf,
   weekRequiredMin,
 } from '@/lib/weekAlloc';
 import { deadlineDdays } from '@/lib/scheduleView';
-import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { weakCountBySid } from '@/lib/insights';
 import { Button } from '@/components/ui';
 import State from '@/components/State';
 import DetailDrawer from '@/components/DetailDrawer';
+import type { VaultScan } from '@/lib/vault';
 import type { AppState, Item, ItemStat } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 import { VaultImport } from './VaultImport';
 import { SkeletonPanel } from './SkeletonPanel';
 import { AvailRail } from './AvailRail';
-import { SubjectSheet } from './SubjectSheet';
 
 /** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감.
  *  '오늘'은 벽시계가 아니라 **앱 정본**(todayISO, `_today` 시드 존중)을 호출부에서 받는다 —
@@ -89,14 +88,18 @@ export default function Items() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
   const res = useSchedule();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // sid(=item.id)별 반복 약점 총합 — cbms가 바뀔 때만 롤업 재계산(SR-2). weakCountBySid는 state.cbms만 읽으므로
   // 반응형 cbms 슬라이스를 넘겨 재계산을 그 변화에 묶는다(전체 state 구독으로 인한 불필요 리렌더 회피).
   const weakBySid = useMemo(() => weakCountBySid({ ...useApp.getState().state, cbms }), [cbms]);
-  const [sheetId, setSheetId] = useState<string | null>(null); // 열려 있는 과목 상세 시트
-  const [morphing, setMorphing] = useState(false); // 이 열림이 카드→시트 VT morph 인가(진입 애니 대체)
-  const [showSkeleton, setShowSkeleton] = useState(false); // 뼈대 편집 스트립 펼침(온디맨드 세부)
-  const [showImport, setShowImport] = useState(false); // 인라인 볼트 불러오기 토글(§5-2)
+  /* 온보딩(W3)이 `?import=1`·`?skeleton=1` 로 **서로 다른 목적지**에 착지한다 — 종전엔 3버튼이
+     전부 `/items` 라 "3단계"가 한 화면으로 무너져 있었다. 초기값으로만 읽고(아래 1회 소비),
+     그 뒤로는 평범한 토글이다. */
+  const [showSkeleton, setShowSkeleton] = useState(() => searchParams.get('skeleton') === '1');
+  const [showImport, setShowImport] = useState(() => searchParams.get('import') === '1');
+  // 볼트에 뭐가 있나 — `app/VaultSync` 가 부팅에 채운 캐시만 구독(fetch 0). 빈 상태 위계 판정용(W1).
+  const vaultSubjects = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data?.subjects.length || 0;
   const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 파일 전체가 이것만 쓴다.
   const insight = useInsight(items, todayIso, res.itemStat);
 
@@ -157,11 +160,15 @@ export default function Items() {
   const addItem = useCallback(() => {
     const id = rid();
     mutate((st) => {
-      st.items.push(makeItem({ id, source: '직접', name: '새 과목' }));
+      /* ⚠⚠ **목표를 기본값으로 채우지 않는다(W1 · 2026-07-31).** `makeItem` 기본이
+         `weeklyHours: 3` 이라, 이 버튼 한 번이 온보딩 3단계 중 **2단계를 동시에 충족**시키고
+         `Today` 가 셋업 스크림을 영구히 걷었다 — 사용자는 `새 과목` 하나만 있는 대시보드를
+         받고 볼트 임포트는 영영 안 만난다. 목표는 사람이 정하는 것이므로 빈 채로 시트를 연다
+         (`SetupGuide.setupComplete` 의 2단계 판정이 이 값을 본다). */
+      st.items.push(makeItem({ id, source: '직접', name: '새 과목', weeklyHours: 0 }));
     });
-    setMorphing(false); // 새 과목은 카드가 아직 없어 morph 없이 연다
-    setSheetId(id); // 새 과목은 바로 시트를 열어 편집
-  }, [mutate]);
+    navigate(`/subject/${id}`); // 새 과목은 바로 객체 화면을 열어 편집(카드가 아직 없어 morph 없음)
+  }, [mutate, navigate]);
 
   const recolorAll = useCallback(() => {
     if (!items.length) {
@@ -180,33 +187,9 @@ export default function Items() {
     ui.toastUndo('과목 색을 현재 팔레트로 다시 맞췄어요.');
   }, [items.length, mutate]);
 
-  const removeItem = useCallback(
-    async (id: string) => {
-      const it = items.find((s) => s.id === id);
-      const okConfirm = await ui.confirm(
-        `"${(it && it.name) || '이 과목'}"을(를) 삭제할까요? (챕터·진행 기록도 함께 사라집니다)`,
-        { title: '과목 삭제', okLabel: '삭제', danger: true },
-      );
-      if (!okConfirm) return;
-      /* ⚠ **이 앱에서 가장 파괴적인 삭제인데 유일하게 안전망이 없었다.** 훨씬 작은 형제들 —
-         챕터(`ChapterEditor`)·수업/블록(`SkeletonPanel`)·졸업 과목(`Degree.delCourse`) — 은
-         전부 `backupNow()`+`toastUndo()` 를 갖는데, 챕터·진행·배분·dayPlans 를 **한꺼번에**
-         지우는 여기만 확인창 하나였다. 파괴력과 복구가능성이 정확히 역전돼 있었다. */
-      ui.backupNow();
-      mutate((st) => {
-        st.items = st.items.filter((s) => s.id !== id);
-        // 참조 무결성 — weekAlloc은 sid 맵이라 과목만 지우면 배분이 전 주에 고아로 남고,
-        // 그 잔재가 요일 열 합·가용 초과 경고를 부풀린다("보이는 행 합 1h인데 푸터는 4h").
-        removeSidFromAlloc(st, id);
-        // dayPlans도 같은 이유(sid 참조 무결성 없음) — 남으면 배치·캘린더에 유령 블록이 뜨고
-        // 미러링된 completions[ds]['sid|type'] 집계가 완료 분을 계속 부풀린다.
-        removeSidFromDayPlans(st, id);
-      });
-      setSheetId((cur) => (cur === id ? null : cur)); // 삭제한 과목의 시트는 닫는다
-      ui.toastUndo(`"${(it && it.name) || '과목'}" 삭제됨`);
-    },
-    [items, mutate],
-  );
+  /* ⚠ 과목 삭제는 **객체 화면이 소유한다**(W12) — 삭제 버튼이 거기 있고, 그 화면이 삭제 후
+     목록으로 돌아온다. 여기 사본을 남기면 참조 무결성 3줄(`removeSidFromAlloc`·
+     `removeSidFromDayPlans`)이 두 벌이 되고, 그 부류가 이 저장소가 반복해 물린 형태다. */
 
   // 드래그 정렬 — HTML5 DnD. 색은 **id 파생**이라 순서와 무관하다(0단계-G) → 재정렬 후
   // 색을 다시 유도하던 보정이 필요 없어졌다. 그 보정이 있던 이유(인덱스 파생 → 순서가 색을 바꿈)
@@ -227,72 +210,49 @@ export default function Items() {
     [mutate],
   );
 
-  // AN-17 — 지식맵 등에서 `?focus=<itemId>`로 진입하면 그 항목 카드로 스크롤 + 짧은 하이라이트.
-  // 캔버스(지식맵)의 "학습 항목 열기"가 목록 최상단이 아니라 특정 항목에 정확히 착지하게 한다.
-  // focus는 1회 소비(URL 정리) — 하이라이트는 인라인 스타일로 명령형 적용, 모션 자제 시 트랜지션만 생략.
+  /* 온보딩 딥링크 1회 소비 — 값은 위 `useState` 초기값이 이미 읽었다. 여기선 URL 만 정리한다
+     (안 지우면 뒤로가기·재방문마다 패널이 다시 열린다 — `?focus=` 가 같은 이유로 1회 소비다). */
   useEffect(() => {
-    const focus = searchParams.get('focus');
-    if (!focus) return;
-    // 없는 id여도 URL은 정리(재하이라이트 방지). replace로 히스토리 오염 없이 param만 제거.
+    if (!searchParams.has('import') && !searchParams.has('skeleton')) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.delete('focus');
+        next.delete('import');
+        next.delete('skeleton');
         return next;
       },
       { replace: true },
     );
-    const card = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(focus)}"]`);
-    if (!card) return;
-    const reduce = prefersReducedMotion();
-    reveal(card); // 모션 자제 판정은 `lib/motion` 이 소유한다(H16 — 흩어져 있던 것이 재발 원인이었다)
-    // 1.5s 하이라이트 펄스 후 소멸 — 이전 값을 저장해 원복(CSS 모듈 미변경, 인라인만).
-    const prev = {
-      outline: card.style.outline,
-      outlineOffset: card.style.outlineOffset,
-      boxShadow: card.style.boxShadow,
-      borderRadius: card.style.borderRadius,
-      transition: card.style.transition,
-    };
-    card.style.transition = reduce ? 'none' : 'box-shadow 0.35s ease, outline-color 0.35s ease';
-    card.style.borderRadius = 'var(--r-lg)';
-    card.style.outline = '2px solid var(--acc)';
-    card.style.outlineOffset = '3px';
-    card.style.boxShadow = '0 0 0 4px var(--acc-glow, color-mix(in srgb, var(--acc) 30%, transparent))';
-    const t = window.setTimeout(() => {
-      card.style.outline = prev.outline;
-      card.style.outlineOffset = prev.outlineOffset;
-      card.style.boxShadow = prev.boxShadow;
-      card.style.borderRadius = prev.borderRadius;
-      card.style.transition = prev.transition;
-    }, 1500);
-    return () => window.clearTimeout(t);
   }, [searchParams, setSearchParams]);
 
-  // 카드 → 과목 시트 열기. VT 지원 + 모션 허용이면 클릭된 카드에 공유 이름을 얹어 시트로 morph
-  // 시킨다(카드 위치·크기에서 시트로 보간). flushSync 로 시트를 동기 마운트해야 new 스냅샷이 잡힌다.
-  // 미지원/reduced-motion/fx-lite/새 과목(카드 없음)이면 즉시 열림(무해 폴백).
-  const openSheet = useCallback((id: string) => {
-    const el = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
-    // ⚠ 두 이유(OS·앱 설정)를 여기서 다시 OR 하지 않는다 — 판정은 `lib/motion` 하나다(H19).
-    if (typeof doc.startViewTransition === 'function' && el && !prefersReducedMotion()) {
-      el.style.viewTransitionName = 'subject-morph'; // old 스냅샷: 이 카드가 그 이름
-      doc.startViewTransition(() =>
-        flushSync(() => {
-          el.style.viewTransitionName = ''; // new 스냅샷: 카드는 이름 반납(시트가 이어받는다)
-          setMorphing(true);
-          setSheetId(id);
-        }),
-      );
-    } else {
-      setMorphing(false);
-      setSheetId(id);
-    }
-  }, []);
+  /* ⚠ `?focus=<itemId>` 1회소비 + 카드 하이라이트 + `CSS.escape` 장치 **통째로 사라졌다**(W12).
+     그 장치는 "객체에 URL 이 없다"의 우회로였다 — 지식맵이 과목 하나를 가리키고 싶은데 착지할
+     화면이 목록뿐이라, 목록에 데려다 놓고 **눈으로 찾을 자리를 깜빡여** 알려 줬다. 객체 축이
+     서면 그냥 `/subject/:id` 로 간다. 딥링크 호출부도 그 주소를 쓴다. */
+
+  /* 카드 → **객체 화면**(W12). 종전엔 중앙 시트를 열었고, 그래서 과목이라는 명사에 URL 이 없어
+     ⌘K·딥링크·뒤로가기가 전부 이 화면을 경유해야 했다. VT 지원이면 카드→페이지 morph 로
+     이어 그린다(같은 `subject-morph` 이름 · 이름 반납은 라우트 전환이 자동으로 한다). */
+  const openSubject = useCallback(
+    (id: string) => {
+      const el = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
+      // ⚠ 두 이유(OS·앱 설정)를 여기서 다시 OR 하지 않는다 — 판정은 `lib/motion` 하나다(H19).
+      if (el && !prefersReducedMotion()) el.style.viewTransitionName = 'subject-morph';
+      navigate(`/subject/${id}`, { viewTransition: true });
+    },
+    [navigate],
+  );
+
+  /* W13 — 과목 갤러리 커서. 카드 자체는 이미 탭 스톱 하나였지만(ItemCard 의 role=button 헤드)
+     **동사가 없었다** — 열려면 Enter, 볼트로 가려면 마우스였다. 어휘는 훅이 닫는다: `e` 편집(=열기)
+     · `v` 볼트. 삭제(`d`)는 여기 없다 — 객체 화면이 소유한다(W12 · 확인창+백업이 거기 붙어 있다). */
+  const galleryCursor = useListCursor<Item>({
+    items: items.map((it) => ({ key: it.id, item: it })),
+    docTitle: '이 화면 · 과목',
+    verbs: { e: (it) => openSubject(it.id), v: (it) => openVaultSearch(it.name) },
+  });
 
   const n = items.length;
-  const sheetItem = sheetId ? items.find((i) => i.id === sheetId) : null;
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col" aria-label="과목">
@@ -386,16 +346,20 @@ export default function Items() {
                   </>
                 }
                 next={
+                  /* ⚠ **위계가 뒤집혀 있었다(W1 · 2026-07-31).** primary 는 `+ 첫 과목 추가`,
+                     임포트는 ghost 였다 — 시각적으로 지배적인 버튼이 `새 과목` 하나를 만들고
+                     온보딩을 끝내는 막다른 길이었다. 볼트에 실제로 뭔가 있으면 그쪽이 primary. */
                   <>
-                    <Button variant="primary" onClick={addItem}>
-                      + 첫 과목 추가
-                    </Button>
                     <Button
-                      variant="ghost"
+                      variant={vaultSubjects ? 'primary' : 'default'}
                       onClick={() => setShowImport(true)}
                       title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
                     >
                       📁 볼트/Anki에서 불러오기
+                      {vaultSubjects > 0 && <span className="ds-tiny"> — 과목 {vaultSubjects}개 대기</span>}
+                    </Button>
+                    <Button variant={vaultSubjects ? 'ghost' : 'primary'} onClick={addItem}>
+                      + 첫 과목 추가
                     </Button>
                   </>
                 }
@@ -413,6 +377,8 @@ export default function Items() {
               <div
                 key={s.id}
                 data-item-id={s.id}
+                ref={galleryCursor.register(s.id)}
+                onFocusCapture={() => galleryCursor.onItemFocus(s.id)}
                 className={`cursor-grab rounded-drag transition-opacity duration-fast ease-[var(--ease)]${overId === s.id && dragId !== s.id ? ' outline-2 outline-offset-2 outline-acc outline-dashed' : ''}${dragId === s.id ? ' opacity-45' : ''}`}
                 draggable
                 onDragStart={(e) => {
@@ -446,7 +412,7 @@ export default function Items() {
               >
                 <ItemCard
                   item={s}
-                  onOpen={openSheet}
+                  onOpen={openSubject}
                   weakCount={weakBySid[s.id]}
                   allocMin={rowSumMin(alloc[s.id])}
                   todayIso={todayIso}
@@ -458,16 +424,6 @@ export default function Items() {
 
         <AvailRail />
       </div>
-
-      {sheetItem && (
-        <SubjectSheet
-          item={sheetItem}
-          mutate={mutate}
-          onClose={() => setSheetId(null)}
-          onDelete={removeItem}
-          morph={morphing}
-        />
-      )}
     </section>
   );
 }

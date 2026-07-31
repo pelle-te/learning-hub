@@ -24,6 +24,9 @@ import { setResumeDevice } from '@/lib/resume';
 import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 // H21 — 부팅 체인이 render 에 도달하지 못한 경우의 최후 화면. **의존 0** 이 그 모듈의 계약이다.
 import { showBootFallback } from '@/lib/bootFallbackScreen';
+/* W16 부팅 웨이브 ① — **엔트리 평가 시점**. 이 import 는 SD-7 계약에 안전하다(`lib/perf` 는
+   의존 0 이라 `useApp` 모듈 평가를 유발하지 않는다 — 그게 이 파일의 정적 import 금지 규칙이다). */
+import { mark as perfMark } from '@/lib/perf';
 
 /* ⚠ `ThemeProvider` 를 **정적으로 import 하지 않는다** — 아래 계약이 그것 때문에 깨져 있었다.
    ThemeProvider 는 `useApp` 을 import 하고, ES import 는 호이스팅되므로 그 한 줄이 스토어를
@@ -77,6 +80,7 @@ function DowngradeScreen({ applied, bundled }: { applied: number | null; bundled
    못 잡는데(`lib/utils.ts:84` 가 같은 사실을 적어 뒀다), 지금까지 그쪽이 조용히 죽는 층이었다.
    `initTelemetry` 로 전송처를 켜기 전에는 훅이 수집만 하고 아무것도 보내지 않는다 —
    순서가 이래야 부팅 **자체**의 실패도 잡힌다(전송처는 부팅 뒤에야 알 수 있다). */
+perfMark('entry');
 installGlobalErrorHooks();
 
 void initAppStore()

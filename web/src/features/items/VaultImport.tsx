@@ -4,15 +4,17 @@
    같은 쿼리 캐시(['vault']·['ankiFile']·['vaultHandle'])를 호출한다(코드 이동 아님 · 두 곳에서 같은 훅).
    여기선 '연결→항목 추가'만 — 해제/실시간 due/트리 상세는 연동 탭 소유. 탭 이동 없이 과목을 넣는다.
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { pickAndScanVault, chaptersFromVault, scanVaultViaShell, type VaultScan, type VaultSubject } from '@/lib/vault';
+import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject } from '@/lib/vault';
 import { isTauri } from '@/lib/tauri';
 import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
-import { makeItem, jsq } from '@/lib/utils';
+import { makeItem, jsq, rid } from '@/lib/utils';
+import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
+import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
 
 // Items.module.css → Tailwind 이식(C-7) 잔여 3종. 볼트/Anki 스캔 결과의 컴팩트 행.
@@ -26,21 +28,13 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   const items = useApp((s) => s.state.items);
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
   const anki = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
+  // 원장(W4) — 임포트 직후 "카드까지 갔다"를 물으려면 여기서 실제로 읽어야 한다(구독만으론 비어 있다).
+  const led = useLedger();
   const [busy, setBusy] = useState<'' | 'vault' | 'anki'>('');
   const [err, setErr] = useState('');
 
-  /* 셸에선 통합 탭을 거치지 않고 여기로 바로 올 수 있다 — 그때 `['vault']` 가 비어 있으면
-     "볼트가 없다"처럼 보인다. 캐시가 비었을 때만 읽는다(있으면 그게 더 최신이거나 같다). */
-  useEffect(() => {
-    if (!isTauri() || qc.getQueryData(['vault'])) return;
-    let alive = true;
-    void scanVaultViaShell().then((s) => {
-      if (alive && s) qc.setQueryData(['vault'], s);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [qc]);
+  /* ⚠ 셸의 볼트 스캔은 **`app/VaultSync` 가 부팅에 한다**(W3 · 2026-07-31). 종전엔 여기와
+     연동 탭에 각자 있었고, 그래서 두 화면 중 하나를 열기 전까지 `['vault']` 가 비어 있었다. */
 
   /* 셸(3단계)에선 볼트가 `<워크스페이스>/knowledge` 라 폴더를 묻지 않는다. 부팅에 이미 읽혀
      있고 감시가 갱신하므로 이 버튼 자체가 필요 없다 — 아래 렌더에서 숨긴다.
@@ -79,16 +73,34 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  const addSubject = (s: VaultSubject) => {
+  const addSubject = async (s: VaultSubject) => {
     if (items.some((x) => x.name === s.name)) {
       ui.toast('이미 추가된 항목입니다.', 'warn');
       return;
     }
     const chapters = chaptersFromVault(s.chapters);
+    const id = rid();
     mutate((st) => {
-      st.items.push(makeItem({ source: '볼트', name: s.name, chapters }));
+      st.items.push(makeItem({ id, source: '볼트', name: s.name, chapters }));
     });
     ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 주당 시간·마감을 조정하세요.`, 'ok');
+    /* W4 — 임포트는 모든 챕터를 `done:false` 로 만들어 **가짜 백로그**를 세운다. 원장은 같은
+       챕터에 대해 `carded` 를 이미 아는데, 자동으로 찍으면 안 익힌 챕터가 조용히 유지 큐로
+       내려간다 → **한 번 묻고 사람이 판단한다**(근거는 `lib/ledgerSeed.ts` 머리주석). */
+    const carded = cardedChapters(led.data, s.name, chapters);
+    if (!carded.length) return;
+    const ok = await ui.confirm(cardedPrompt(s.name, carded.length, chapters.length), {
+      title: '원장과 맞출까요?',
+      okLabel: `${carded.length}개 끝낸 것으로 표시`,
+      cancelLabel: '그대로 두기',
+    });
+    if (!ok) return;
+    let marked = 0;
+    mutate((st) => {
+      const it = st.items.find((x) => x.id === id);
+      if (it) marked = applyCardedDone(it.chapters || [], carded);
+    });
+    ui.toast(`챕터 ${marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
   };
   const addAnki = (name: string, mins: number) => {
     const nm = 'Anki: ' + name;
@@ -156,7 +168,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
                   <span className="ds-tiny ds-muted">
                     노트 {s.notes} · 챕터 {s.chapters.length}
                   </span>
-                  <Button sm variant={added ? 'ghost' : 'primary'} disabled={added} onClick={() => addSubject(s)}>
+                  <Button sm variant={added ? 'ghost' : 'primary'} disabled={added} onClick={() => void addSubject(s)}>
                     {added ? '추가됨' : '+ 학습항목'}
                   </Button>
                 </div>

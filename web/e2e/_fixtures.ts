@@ -612,6 +612,14 @@ export const A11Y_EXTRA: ExtraScreen[] = [
     },
     ready: (page) => page.getByRole('progressbar').waitFor(),
   },
+  /* W12 객체 축(`/subject/:id`) — **탭이 아니라 라우트**라 `TABS` 에 없다. `/mini` 와 같은 부류이고,
+     넣지 않으면 새로 생긴 3열 화면이 a11y 로스터 밖으로 나간다(H6 이 오버레이에서 물린 그 구멍).
+     ⚠ id 는 SEED 가 정한다(`m` = 미적분) — 카드를 눌러 여는 대신 직접 가는 것이 결정적이다. */
+  {
+    key: 'subject',
+    path: '/subject/m',
+    ready: (page) => page.getByRole('heading', { name: '이번 주 요일 배분' }).waitFor(),
+  },
 ];
 
 /* ⚠⚠ **오버레이는 어느 로스터에도 없었다(H6 · 2026-07-30 `/감사 근본`).**
@@ -652,14 +660,10 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     열기: (page) => page.getByRole('button', { name: /블록 상세 · 일일 의식/ }).click(),
     ready: (page) => page.getByRole('dialog', { name: '오늘 상세' }).waitFor(),
   },
-  {
-    key: 'overlay-subject-sheet',
-    path: '/items',
-    // 과목 카드 머리는 `div[role=button]` 이다(드래그 핸들과 겸용) — 접근명이 카드 본문 전체라
-    // 앞부분으로만 건다(SEED 의 첫 과목). 이름 전체를 적으면 카드 문구가 바뀔 때마다 깨진다.
-    열기: (page) => page.getByRole('button', { name: /^미적분/ }).click(),
-    ready: (page) => page.getByRole('dialog').waitFor(),
-  },
+  /* ⚠ `overlay-subject-sheet` 가 여기 있었다 — **W12 에서 오버레이가 아니게 됐다**(과목 상세가
+     `/subject/:id` 페이지가 됐다). 오버레이 로스터는 "떠 있는 층"의 a11y 를 보는 자리이므로
+     페이지가 된 화면을 여기 남기면 로스터가 자기 정의에 대해 거짓말을 한다. 그 화면의 a11y 는
+     아래 **경로 로스터**가 본다(구조 + 라이트 대비 둘 다). */
   {
     key: 'overlay-ledger-detail',
     path: '/ledger',

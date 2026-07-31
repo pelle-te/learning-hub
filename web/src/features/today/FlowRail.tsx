@@ -27,10 +27,9 @@
 
    C-7 이식: 노드 전용 Tailwind 클래스 SSOT 는 여기(`N`) — 원래 today 의 `S` 맵에 있던 것을 이 파일로 옮겼다.
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
-import { useKeymapDoc } from '@/hooks/useKeymap';
+import { useListCursor } from '@/hooks/useListCursor';
 import { toHM, hLabel } from '@/lib/utils';
-import { commit, reveal } from '@/lib/motion';
+import { commit } from '@/lib/motion';
 
 /** 흐름 노드 하나. `e` 는 부모가 콜백에서 다시 받는 **불투명 페이로드**(학습 노드면 값, 일과 블록이면 null). */
 export interface FlowNode<TE> {
@@ -61,113 +60,36 @@ const N = {
     'bg-acc scale-130 shadow-[var(--shadow-node-live)] pulse-now animate-[live-pulse_var(--tempo)_var(--ease)_infinite] motion-reduce:animate-none',
   nDotGhost:
     'relative z-[1] size-2 flex-none rounded-full border-2 border-line2 bg-transparent shadow-[var(--shadow-node-panel)]',
-  reviewCta:
-    'mt-1.5 mb-0.5 inline-flex items-center gap-2 rounded-md! border-0! bg-[var(--tint-warn-faint)]! px-3! py-2! text-hint! font-bold! shadow-[var(--shadow-inset-line2)] hover:shadow-[var(--shadow-inset-acc-glow)]',
-  reviewDot: 'size-1.75 flex-none rounded-full bg-warn',
 } as const;
 
 export interface FlowRailProps<TE> {
   nodes: FlowNode<TE>[];
   nowMin: number;
-  /** 밀린 복습 수 — >0 이면 종결 캡 뒤에 복습 딥링크 칩. */
-  riskN: number;
   /** 학습 노드 클릭·완료 토글. */
   onToggle: (e: TE) => void;
   /** Enter — 현재 노드 집중 세션 시작. */
   onFocus: (e: TE) => void;
   /** s — 현재 노드 기록 프리필(부모가 store·toast 를 소유하므로 불투명 콜백). */
   onPrefill: (e: TE) => void;
-  /** 복습 딥링크 칩 클릭. */
-  onReview: () => void;
-  /** E9 — 남은 창을 넘어 **오늘 밖**인 블록 요약. 없으면 null. */
-  beyond?: { count: number; min: number } | null;
 }
 
-export function FlowRail<TE>({
-  nodes,
-  nowMin,
-  riskN,
-  onToggle,
-  onFocus,
-  onPrefill,
-  onReview,
-  beyond = null,
-}: FlowRailProps<TE>) {
-  /* 커서 = **실제 DOM 포커스**(E5). `selKey` 는 그 포커스를 따라가는 거울이라 두 벌이 아니다 —
-     roving tabindex 의 "지금 탭 스톱인 노드"를 정하는 데 쓴다. */
-  const [selKey, setSelKey] = useState<string | null>(null);
-  const nodeRefs = useRef(new Map<string, HTMLElement>());
-
-  // 핸들러가 읽는 최신 값 — 리스너를 재등록하지 않고도 최신 상태/콜백을 보게 하는 통로.
-  // (nodes 는 매 렌더 새 배열이라 deps 에 넣으면 window keydown 이 매 렌더 제거→재등록된다.)
-  /* N-16 — 이 화면의 키를 **치트시트에 등재**한다. 등록은 아래 핸들러가 그대로 하고(Enter 의
-     타깃 가드가 `useKeymap` 의 keys→run 모델로 표현되지 않는다) 설명만 레지스트리로 올린다.
-     이 넷은 이 항목 전까지 **어디에도 문서화돼 있지 않았다** — 있는데 아무도 모르는 키였다. */
-  useKeymapDoc('이 화면 · 오늘 흐름', [
-    { display: 'J / K', label: '다음 / 이전 블록' },
-    { display: 'X', label: '완료 토글' },
-    { display: 'F', label: '집중 시작' },
-    { display: 'S', label: '요약에 채우기' },
-  ]);
-
-  const keyCtx = useRef({ nodes, selKey, onFocus, onPrefill, onToggle });
-  useEffect(() => {
-    keyCtx.current = { nodes, selKey, onFocus, onPrefill, onToggle };
+export function FlowRail<TE>({ nodes, nowMin, onToggle, onFocus, onPrefill }: FlowRailProps<TE>) {
+  /* 커서 = **실제 DOM 포커스**(E5). 상태기계는 **`useListCursor` 가 소유한다**(W13 · 2026-07-31) —
+     이 화면이 검증한 패턴인데 23화면 중 2곳에만 있었고, 나머지는 Tab 순회였다(트레이 3번째 행의
+     ⤵ 까지 실측 14회). 어휘도 그 훅이 7개로 닫는다: `x·e·d·p·f·v·u`.
+     ⚠ `s`(요약 채우기)가 그 어휘에 없어 **`p`(배치)로 옮겼다** — 어휘를 열어 두면 화면마다
+     자기 키가 생기고, 그게 정확히 이 항목이 없애려는 것이다. */
+  const cursor = useListCursor<FlowNode<TE>>({
+    items: nodes.map((n) => ({ key: n.key, item: n })),
+    docTitle: '이 화면 · 오늘 흐름',
+    verbs: {
+      x: (n) => n.e && onToggle(n.e),
+      f: (n) => n.e && onFocus(n.e),
+      p: (n) => n.e && onPrefill(n.e),
+    },
   });
-
-  useEffect(() => {
-    /* 커서를 옮긴다 = **포커스를 옮긴다**(E5). 스크롤 판정(모션 자제)은 `lib/motion` 이 소유하고
-       (H16) 여기선 대상만 고른다. 포커스가 곧 커서라 `setSelKey` 는 `onFocus` 가 대신 해도
-       되지만, 노드가 없는 경우(일과 블록=div)를 위해 여기서도 세운다. */
-    const move = (key: string): void => {
-      setSelKey(key);
-      const el = nodeRefs.current.get(key);
-      reveal(el, 'nearest');
-      el?.focus({ preventScroll: true });
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      const { nodes, selKey, onFocus, onPrefill, onToggle } = keyCtx.current;
-      if (!nodes.length) return;
-      const keys = nodes.map((n) => n.key);
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const idx = selKey ? keys.indexOf(selKey) : -1;
-      if (e.key === 'j') {
-        e.preventDefault();
-        move(keys[Math.min(keys.length - 1, idx + 1)] ?? keys[0]!);
-        return;
-      }
-      if (e.key === 'k') {
-        e.preventDefault();
-        move(idx <= 0 ? keys[0]! : keys[idx - 1]!);
-        return;
-      }
-      /* 동사키 — 전부 **같은 커서**(포커스한 노드)에 대해 돈다.
-         ⚠ `Enter`/`Space` 는 안 다룬다: 포커스한 노드는 버튼이라 네이티브 활성이 곧 완료다.
-            가로채면 한 키가 다시 두 뜻을 갖게 되고, 그게 E5 이전의 결함이었다. */
-      const verb =
-        e.key === 'x' || e.key === 'X'
-          ? onToggle
-          : e.key === 'f' || e.key === 'F'
-            ? onFocus
-            : e.key === 's' || e.key === 'S'
-              ? onPrefill
-              : null;
-      if (!verb) return;
-      const nd = nodes.find((n) => n.key === selKey);
-      if (!nd?.e) return; // 일과 블록엔 동사가 없다(페이로드가 null)
-      e.preventDefault();
-      verb(nd.e);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // deps 빈 배열이 정직하다 — 핸들러가 참조하는 값은 전부 keyCtx.current 에서 읽는다(마운트당 1회 등록).
-  }, []);
-
-  /* roving tabindex — 레일 전체가 탭 스톱 **하나**다. 커서가 없으면 첫 노드가 그 자리를 맡아
-     Tab 으로 들어온 사람도 즉시 `j/k` 를 쓸 수 있다(들어올 문이 없으면 키 계약이 죽는다). */
-  const tabStop = selKey ?? nodes[0]?.key ?? null;
+  const selKey = cursor.cursor;
+  const tabStop = cursor.tabStop;
 
   return (
     <>
@@ -192,11 +114,7 @@ export function FlowRail<TE>({
         // nName 색/굵기: 블록=뮤트·600, 라이브·선택=acc, study hover=acc(group/node), 완료=취소선.
         const nNameCls = `truncate ${block ? 'font-semibold text-mut' : 'font-bold'} ${live || sel ? 'text-acc' : ''} ${nd.done ? 'line-through' : ''} ${nd.e ? 'group-hover/node:text-acc' : ''}`;
         const nDotCls = `${N.nDotBase} ${live ? N.nDotLive : block ? N.nDotBlock : N.nDotStudy}`;
-        const setNodeRef = (el: HTMLElement | null): void => {
-          const m = nodeRefs.current;
-          if (el) m.set(nd.key, el);
-          else m.delete(nd.key);
-        };
+        const setNodeRef = cursor.register(nd.key);
         const inner = (
           <>
             {live && <span className={N.nProg} style={{ width: `${prog}%` }} aria-hidden="true" />}
@@ -231,7 +149,7 @@ export function FlowRail<TE>({
             }}
             /* E5 — 포커스가 곧 커서다. 마우스·Tab 으로 들어와도 `j/k` 가 그 자리에서 이어진다
                (거울을 안 맞추면 Tab 으로 옮긴 뒤 `j` 가 엉뚱한 데서 다시 시작한다). */
-            onFocus={() => setSelKey(nd.key)}
+            onFocus={() => cursor.onItemFocus(nd.key)}
             tabIndex={tabStop === nd.key ? 0 : -1}
             aria-label={`${nd.name} 완료 토글`}
             aria-pressed={nd.done}
@@ -246,30 +164,20 @@ export function FlowRail<TE>({
         );
       })}
       {/* 종결 캡 — 스파인이 끝났다고 읽히게(비인터랙티브).
-          E9: 남은 창을 넘는 블록이 있으면 "이후 일정 없음"은 **거짓말**이다. 그때는 그것들이
-          오늘 밖이라는 사실을 한 줄로 말한다 — 접힌 줄 자체가 "이건 못 한 게 아니라 애초에
-          오늘 것이 아니었다"는 판단이고, 저녁마다 오던 실패감의 출처를 없앤다. */}
+          ⚠ W6(2026-07-31) — 여기 `오늘 밖 N개 · Mh` 를 함께 그렸었다(11px · `opacity-55`).
+          같은 판정이 리드아웃·링 분모와 합쳐 **세 자리**로 쪼개져 있었고 어느 자리도 "오늘 안에
+          들어가는가"라는 문장을 말하지 않았다 → 히어로 아이브로 아래 한 줄이 그 판정을 통째로
+          가져갔다. 여기 남은 것은 스파인의 끝 표시뿐이다(한 양 = 한 자리). */}
       <div className={`${N.node} py-1.75! opacity-55`}>
         <span className={`${N.nTime} leading-text`}>—</span>
         <span className={N.nDotGhost} />
         <span className={N.nBody}>
-          <span className={N.nSub}>
-            {beyond ? `오늘 밖 ${beyond.count}개 · ${hLabel(beyond.min)}` : '이후 일정 없음'}
-          </span>
+          <span className={N.nSub}>이후 일정 없음</span>
         </span>
       </div>
-      {/* I-2 — 밀린 복습이 있으면 종결 캡 뒤에 은은한 딥링크 칩(스케줄 쓰기 아님 → 복습 실행으로). */}
-      {riskN > 0 && (
-        <button
-          type="button"
-          className={N.reviewCta}
-          onClick={onReview}
-          aria-label={`밀린 복습 ${riskN}개 — 복습 세션으로 이동`}
-        >
-          <span className={N.reviewDot} aria-hidden="true" />
-          복습 {riskN}개 밀림 <b className="ml-0.5 font-extrabold text-acc">복습 세션 →</b>
-        </button>
-      )}
+      {/* ⚠ 밀린 복습 칩이 여기 있었다 — **W18 에서 레일 스크롤 밖의 '오늘 밖' 구역으로 옮겼다.**
+          같은 성격의 신호가 이 칩(레일 안)과 화면 최하단 스트립 둘로 갈려 있었고, 이건 스크롤
+          안이라 블록이 많은 날엔 아예 안 보였다(그 자체가 옮길 이유였다). */}
     </>
   );
 }

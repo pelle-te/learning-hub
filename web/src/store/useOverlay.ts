@@ -17,9 +17,14 @@ import { create } from 'zustand';
 interface OverlayStore {
   /** ⌘K 명령 팔레트 */
   palette: boolean;
+  /** W9 — 미니 HUD(알약) 안의 인라인 캡처 한 줄. **새 라우트가 아니다**(MiniHud 내부 모드).
+   *  전역 캡처 핫키의 착지가 문맥 의존이 된 자리: 알약 상태에서 풀사이즈 팔레트를 띄우면
+   *  320×92 뷰포트 안에서 뜬다(게다가 MiniHud 는 포커스 트랩 상태다 · H11). */
+  miniCapture: boolean;
   /** '?' 단축키 치트시트 */
   help: boolean;
   setPalette: (v: boolean) => void;
+  setMiniCapture: (v: boolean) => void;
   togglePalette: () => void;
   setHelp: (v: boolean) => void;
   toggleHelp: () => void;
@@ -27,8 +32,10 @@ interface OverlayStore {
 
 export const useOverlay = create<OverlayStore>()((set) => ({
   palette: false,
+  miniCapture: false,
   help: false,
   setPalette: (v) => set({ palette: v }),
+  setMiniCapture: (v) => set({ miniCapture: v }),
   togglePalette: () => set((s) => ({ palette: !s.palette })),
   setHelp: (v) => set({ help: v }),
   toggleHelp: () => set((s) => ({ help: !s.help })),

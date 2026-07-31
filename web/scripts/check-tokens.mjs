@@ -114,13 +114,14 @@ if (미정의.length) {
    Tailwind 가 유틸을 생성해 소비하지 `var()` 로 참조하지 않는다 → 전량 오탐이 된다.
    ⚠ 예외는 **사유+만료일 원장**이다(SCA·a11y 원장과 같은 규율). 유효기간 없는 예외는 판단이
    아니라 방치다. */
-const 미사용_원장 = [
-  {
-    이름: '--fs-spine',
-    사유: '타이포 사다리의 최상단 단(72px). 소비처는 0이지만 이건 죽은 UI 잔재가 아니라 **스케일의 한 칸**이고, 지우면 사다리가 자기 범위에 대해 거짓말을 한다(원칙 2 의 "제일 큰 픽셀"이 문서에만 남는다). N-15 가 `primary` 44px 을 들이며 남겨 둔 자리.',
-    만료: '2027-01-31',
-  },
-];
+/* ⚠ 지금은 **비어 있다** — `--fs-spine`(72px)이 유일한 항목이었고 W11(2026-07-31)에서 토큰째
+   지웠다. 원장의 옛 사유는 _"지우면 사다리가 자기 범위에 대해 거짓말을 한다"_ 였는데, 실측이
+   그 전제를 뒤집었다: `--fs-subj` 가 `clamp(40px, 5.4vw, 72px)` 라 **72px 은 이미 히어로 과목명이
+   실제로 렌더하는 크기**다. 즉 사다리의 범위는 소비처가 있는 토큰이 이미 증언하고 있었고,
+   `--fs-spine` 은 구현된 적 없는 '회전 스파인'의 잔재였다.
+   ⚠ 배열이 비어도 **기계는 남긴다** — 다음 고아 토큰이 조용히 쌓이는 것을 막는 것이 이 검사의
+   목적이고, 예외는 그때 사유+만료일과 함께 다시 들어온다. */
+const 미사용_원장 = [];
 
 const tokensCss = 주석제거(readFileSync(join(ROOT, 'styles/tokens.css'), 'utf8'));
 const 토큰선언 = new Set([...tokensCss.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)].map((m) => m[1]));
@@ -177,8 +178,36 @@ if (모듈css.length) {
    폰 캡처 바의 입력 하나에 즉시 울었다 — 그런데 그 입력은 `phone/DayView` 의 할일 입력과 **글자
    그대로 같은 관용구**다(`rounded-md border border-line bg-panel px-3`). 즉 검출기가 "카드 면"과
    "폼 컨트롤"을 뭉뚱그린 것이지 코드가 규약을 어긴 것이 아니었다. 여기서 래칫을 올렸다면
-   `max-lines` 가 102줄 헐거워져 있던 것(A16)과 같은 종류의 무신호가 된다 → **검출기를 고쳤다.** */
-const 카드래칫 = 39;
+   `max-lines` 가 102줄 헐거워져 있던 것(A16)과 같은 종류의 무신호가 된다 → **검출기를 고쳤다.**
+
+   ── ⚠⚠ W14(2026-07-31) — **카운터를 파일 원장으로 바꿨다** ──────────────────────────
+   목표가 0인 래칫은 카운터가 아니라 **린트**여야 한다. 숫자 하나로 재면 "한 곳에서 지우고 다른
+   곳에 새로 만드는" 교환이 조용히 통과한다 — 총합은 그대로인데 규약 위반은 **새 파일로 번진다**.
+   지금은 **파일 단위 원장**이다: 여기 없는 파일에 카드 표면이 생기면 즉시 실패하고, 원장에 있는
+   파일이 깨끗해지면 원장에서 빼라고 시끄럽게 말한다(사문화도 실패 — SCA·a11y 원장과 같은 규율).
+   ⚠ 총량 상한도 유지한다(원장 안에서 무한히 늘어나는 것을 막는다). */
+/** 카드 표면이 아직 남아 있는 파일(원장). **여기 없는 파일에 새로 생기면 실패.** */
+const 카드원장 = new Set([
+  'features/atlas/Atlas.tsx',
+  'features/control/Control.tsx',
+  'features/discovery/Discovery.tsx',
+  'features/goals/Goals.tsx',
+  'features/graph/Graph.tsx',
+  'features/guide/Guide.tsx',
+  'features/integrations/VaultPanel.tsx',
+  'features/items/ItemCard.tsx',
+  'features/ledger/Ledger.tsx',
+  'features/mistakes/Mistakes.tsx',
+  'features/reads/ArticlePractice.tsx',
+  'features/reads/BookShelf.tsx',
+  'features/review/Review.tsx',
+  'features/review-run/ReviewRun.tsx',
+  'features/settings/UpdateCard.tsx',
+  'phone/DayView.tsx',
+  'phone/ReviewView.tsx',
+  'phone/TodayView.tsx',
+]);
+const 카드래칫 = 38;
 /** 표면이 아니라 *컨트롤*인 태그 — 여기 붙은 클래스는 원칙 ④의 대상이 아니다. */
 const 컨트롤태그 = /^(input|button|select|textarea|a|label|option)\b/i;
 const 카드표면 = [];
@@ -202,13 +231,24 @@ for (const p of 파일들(ROOT).filter((f) => /\.tsx?$/.test(f))) {
     카드표면.push(p);
   }
 }
-if (카드표면.length > 카드래칫) {
-  console.error(`✗ 둥근 글래스 카드 표면이 늘었다: ${카드표면.length} > 래칫 ${카드래칫}`);
-  console.error('  디자인시스템 §0 원칙 ④가 폐기한 형태다. 표면은 `ds-canvas`·`ds-rule`·`ds-well` 중 하나여야 한다.');
-  console.error(`  파일: ${[...new Set(카드표면)].join(', ')}`);
+/** `src\features\x.tsx` → `features/x.tsx`(원장 키와 같은 모양 · 윈도/POSIX 구분자 흡수). */
+const 정규화 = (p) => p.split(/[\\/]/).slice(1).join('/');
+const 카드파일 = new Set(카드표면.map(정규화));
+const 새파일 = [...카드파일].filter((p) => !카드원장.has(p));
+const 깨끗해진 = [...카드원장].filter((p) => !카드파일.has(p));
+if (새파일.length || 깨끗해진.length || 카드표면.length > 카드래칫) {
+  if (새파일.length) {
+    console.error('✗ 둥근 글래스 카드 표면이 **새 파일**에 생겼다:\n');
+    for (const p of 새파일) console.error(`  ${p}`);
+    console.error('\n  원칙 ④가 폐기한 형태다. 표면은 `ds-canvas`·`ds-rule`·`ds-well`·`ds-frame` 중 하나여야 한다.');
+  }
+  for (const p of 깨끗해진)
+    console.error(`✗ 카드 원장 사문화: ${p} — 카드 표면이 사라졌다. 원장에서 빼세요(그래야 되돌아오면 잡힌다).`);
+  if (카드표면.length > 카드래칫)
+    console.error(`✗ 카드 표면 총량이 늘었다: ${카드표면.length} > ${카드래칫}(원장 안에서도 무한 증식은 막는다)`);
   process.exit(1);
 }
 
 console.log(
-  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}.`,
+  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}(원장 ${카드원장.size}파일).`,
 );
