@@ -10,6 +10,7 @@
    앱 안엔 발급 버튼이 없다 — 그 비밀을 번들에 심지 않기 위해서다.
 ============================================================ */
 import { useState } from 'react';
+import LiveRegion from '@/components/LiveRegion';
 import { enrollDevice } from '@/lib/cloud/client';
 
 export default function Connect({ onDone }: { onDone: () => void }): React.JSX.Element {
@@ -50,11 +51,9 @@ export default function Connect({ onDone }: { onDone: () => void }): React.JSX.E
           className="rounded-md border border-line bg-panel px-3 py-3 text-base text-txt"
           placeholder="예: A1B2-C3D4"
         />
-        {err ? (
-          <p role="alert" className="text-xs text-bad">
-            {err}
-          </p>
-        ) : null}
+        {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다(`SyncLedger` 와 같은 관용구: 보이는 줄은 조건부, 알리는 일만 갈라낸다). */}
+        <LiveRegion message={err ?? ''} assertive />
+        {err ? <p className="text-xs text-bad">{err}</p> : null}
         <button
           type="submit"
           disabled={busy || !code.trim()}

@@ -54,7 +54,10 @@ export function snapshotAutoDraft(res: ScheduleResult, ds: string): PlacedBlock[
     type: it.type,
     sid: it.sid,
     name: it.name,
-    color: it.color,
+    /* ⚠ **색을 굳히지 않는다(H13 · 2026-07-31 `/감사 근본`).** 이 스냅샷은 승격되면 그대로
+       저장되므로, 여기 hex 를 실으면 절대규칙 #3("색 = 파생물 · 저장값 아님")이 승격된 블록에
+       대해 거짓이 된다 — 노브 교체가 그 블록에 영원히 도달하지 않는다. 렌더는 `sid` 로 다시
+       뽑는다(`lib/utils.blockColor`). 필드는 타입에 남지만 **여기서 채우지 않는다**. */
     min: it.min,
     chapters: it.chapters ? it.chapters.slice() : undefined,
   }));

@@ -116,7 +116,12 @@ function SubjectRow({
             /* ⚠ 미착수 칸에만 실선 테두리(H20 후속) — 색이 `--panel2`(패널과 거의 같은 톤)라
                라이트에서 칸 자체가 안 보인다. "빈 슬롯"이 보이지 않으면 진척 대비가 사라진다.
                색을 진하게 되돌리지 않는 이유: 그러면 미착수가 완료보다 강해지는 역전이 재발한다. */
-            className={`size-3.75 cursor-pointer rounded-xs! p-0! transition-transform hover:z-[1] hover:scale-[1.5] hover:outline-1 hover:outline-txt motion-reduce:transition-none ${
+            /* ⚠ **히트영역은 24px 다(H23 · 2026-07-31 `/감사 근본`).** 시각 크기는 15px 그대로 두고
+               (격자 밀도가 이 화면의 정보이고, 키우면 진척 대비가 무너진다) `::after` 로 영역만
+               넓힌다 — WCAG 2.5.8 은 24×24 를 요구하는데 `gap-1` 이라 피치가 19px 이었고 간격
+               예외도 성립하지 않았다. axe 는 `target-size` 를 기본 실행하지 않아 67검사 전량
+               녹색이어도 안 보인다(정적·렌더 검사 둘 다의 사각). `relative` 는 그 의사요소의 기준. */
+            className={`ds-hit24 relative size-3.75 cursor-pointer rounded-xs! p-0! transition-transform hover:z-[1] hover:scale-[1.5] hover:outline-1 hover:outline-txt motion-reduce:transition-none ${
               ch.furthest === 'planned' ? 'border! border-line!' : 'border-0!'
             }`}
             style={{ background: furthestColor(ch.furthest) }}
@@ -324,6 +329,9 @@ export default function Ledger() {
 
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: !led
         ? []
         : [

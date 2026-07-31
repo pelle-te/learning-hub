@@ -3,6 +3,7 @@
    폴더 선택 → 정본 _index.json(또는 .md) 스캔. 결과는 Query 캐시(['vault'])에 — persist X.
    과목/챕터를 '+학습항목'으로 넣는 건 앱상태 변경이라 store.mutate.
 ============================================================ */
+import LiveRegion from '@/components/LiveRegion';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
@@ -228,8 +229,10 @@ export function VaultPanel() {
             ? '워크스페이스의 knowledge 폴더를 읽습니다 — 파일이 바뀌면 자동으로 갱신돼요. 항목 옆 ‘+스케줄’로 바로 학습 항목에 넣어요.'
             : "전공 폴더를 고르면 과목→챕터→노트 수와 검증/Anki 상태(YAML)를 읽습니다. 항목 옆 '+스케줄'로 바로 학습 항목에 넣어요. (Chrome/Edge)"}
         </div>
+        {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
+        <LiveRegion message={err ?? ''} assertive />
         {err && (
-          <div className="ds-warnbox" role="alert" style={{ marginTop: 8 }}>
+          <div className="ds-warnbox" style={{ marginTop: 8 }}>
             {err}
           </div>
         )}

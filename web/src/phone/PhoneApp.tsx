@@ -131,8 +131,13 @@ export default function PhoneApp(): React.JSX.Element {
         {/* ⚠ 정본 연결 실패도 말한다(C1 · 2026-07-26 감사) — 폰도 SQLite 가 정본이라, 워커가
             죽으면 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**. 데스크톱은 배너
             (`app/StorageBanner`)가 같은 사실을 말한다 — 화면은 갈라도 규칙은 하나다. */}
+        {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다(`SyncLedger` 와 같은 관용구: 보이는 줄은 조건부, 알리는 일만 갈라낸다). */}
+        <LiveRegion
+          message={dbBroken ? '저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.' : ''}
+          assertive
+        />
         {dbBroken ? (
-          <p role="alert" className="px-3 pb-2 text-xs text-bad">
+          <p className="px-3 pb-2 text-xs text-bad">
             저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.
           </p>
         ) : null}
@@ -143,11 +148,8 @@ export default function PhoneApp(): React.JSX.Element {
             이 브라우저에선 오프라인 저장을 못 써요 — 새로고침하면 캐시가 사라집니다.
           </p>
         ) : null}
-        {status ? (
-          <p role="status" className="px-3 pb-2 text-xs text-bad">
-            {status}
-          </p>
-        ) : null}
+        <LiveRegion message={status ?? ''} />
+        {status ? <p className="px-3 pb-2 text-xs text-bad">{status}</p> : null}
         {/* ⚠ 여기까지는 전부 **실패했을 때만** 말한다(UX-B4 가 지적한 그 비대칭). 성공·오프라인·
             대기 중이 전부 침묵이면 "폰에서 체크한 게 올라갔나?"에 답이 없고, 그 불확실이
             PC 에서의 중복 입력으로 이어진다. 아래 원장이 그 나머지 절반을 상시로 말한다. */}

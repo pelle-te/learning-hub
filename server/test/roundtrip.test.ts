@@ -434,3 +434,41 @@ describe('무인증 라우트 레이트 리밋', () => {
     expect(other.status, '무관한 IP 가 함께 막혔다').toBe(204);
   });
 });
+
+/* ============================================================
+   ⚠⚠ H4(2026-07-31 `/감사 근본`) — **서버 스키마가 앱보다 낮을 때.**
+
+   `009_summaries_identity.sql` 은 _"적용 전까지 서버는 옛 열 구성이라 push 가 **400** 을 받는다"_
+   라 적어 뒀는데 사실이 아니었다: zod 는 통과하고(스키마 파일을 클라이언트와 **공유**하므로
+   코드끼리는 늘 일치한다) D1 이 `no such column` 을 던지는데 그 문자열이 한도 정규식에 안 걸려
+   **500** 으로 나갔다. 클라이언트는 5xx 를 *일시 오류*로 읽는 것이 옳은 규약이라(`push.ts`)
+   **영구 백오프**를 돈다 — 배포 순서를 틀리면 그 자체가 조용한 정지다.
+
+   ⚠ 이 상태는 **이 파일의 나머지가 원리적으로 못 만든다**: `beforeEach` 가 항상 전 마이그레이션을
+   적용하므로 스큐가 재현되지 않는다. 그래서 여기서만 표를 잠깐 치우고 되돌린다(같은 테스트 안에서
+   `finally` 로 복원 — 이름 변경이라 PK·인덱스까지 그대로 돌아온다).
+
+   ⚠ SQL 문구는 D1/SQLite 가 소유하고 우리가 고정할 수 없다 → 문자열 휴리스틱이다. 그래서 판정이
+   틀렸을 때의 방향을 안전한 쪽으로 잡는다: 못 알아보면 500(재시도 가능)이다.
+============================================================ */
+describe('⚠⚠ 스키마 스큐(서버 D1 이 앱보다 낮다)', () => {
+  it('재시도 불가로 분류한다 — 500 이면 클라이언트가 영구 백오프를 돈다', async () => {
+    const { access } = await enroll();
+    await env.DB.prepare('ALTER TABLE summaries RENAME TO summaries_skew_tmp').run();
+    try {
+      const p = await push(access, {
+        since: 0,
+        upto: 100,
+        rows: [{ tbl: 'summaries', key: ['s1', 'i1'], data: [0, '{}'], updatedAt: 100 }],
+        tombstones: [],
+      });
+      expect(p.status, '5xx 로 나가면 "일시 오류"라 읽혀 하루 종일 헛친다').toBe(400);
+      const body = (await p.json()) as { error?: string; permanent?: boolean; detail?: string };
+      expect(body.permanent, '`permanent` 는 클라이언트가 읽는 계약이다').toBe(true);
+      expect(body.detail, '할 일(마이그레이션 적용)을 말해야 한다').toMatch(/마이그레이션/);
+      expect(JSON.stringify(body), '내부 SQL 을 흘리지 않는다').not.toMatch(/no such|SELECT|INSERT/i);
+    } finally {
+      await env.DB.prepare('ALTER TABLE summaries_skew_tmp RENAME TO summaries').run();
+    }
+  });
+});

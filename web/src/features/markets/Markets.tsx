@@ -97,6 +97,9 @@ export default function Markets() {
   // 리드아웃 — 상단 바에 상승/하락·대표지수·서버상태·수집시각.
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: [
         { label: '상승·하락·보합', value: `${st.up}↑ ${st.down}↓ ${st.flat}＝`, accent: true },
         ...(lead ? [{ label: lead.name, value: fmtPct(lead.changePct) }] : []),

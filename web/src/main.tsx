@@ -9,7 +9,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import '@/styles/tokens.css';
 import '@/styles/global/index.css';
 /* Tailwind(C-7) — **preflight 없이** theme + utilities 만. 왜 없이인지는 `tw.css` 머리주석이
-   소유한다(한 줄 요약: 리셋이 들어오면 스냅샷 59장이 전부 흔들려 "feature 단위 diff"
+   소유한다(한 줄 요약: 리셋이 들어오면 트랙 A 시각 베이스라인이 전부 흔들려 "feature 단위 diff"
    전략이 첫 걸음에서 죽는다). 전역 CSS **뒤에** 온다 — 유틸리티가 이겨야 한다. */
 import '@/styles/tw.css';
 /* 공유 디자인 시스템(옛 CSS Module) — C-7 마지막 티어에서 전역 `ds-*` 로 승격.

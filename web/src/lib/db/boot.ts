@@ -90,7 +90,7 @@ export function resetBootState(): void {
  * 앱 스토어가 만들어지기 전에 저장소를 준비한다. `main.tsx` 가 `await` 한다.
  *
  * · SQLite 미가용(브라우저·dev 서버·트랙 A) → 아무것도 안 하고 기존 localStorage 경로 유지.
- *   **이 폴백은 남긴다** — 없애면 `npm run dev` 와 트랙 A(스냅샷 59장)가 함께 죽는다.
+ *   **이 폴백은 남긴다** — 없애면 `npm run dev` 와 트랙 A(시각 베이스라인 전량)가 함께 죽는다.
  *   배포 진입점이 셸 하나인 것과, 개발·테스트가 브라우저인 것은 다른 이야기다.
  * · DB 에 데이터 있음 → 그게 정본.
  * · DB 비었음 → localStorage 에서 읽어 **SQLite 로 옮긴다**(1회 이관).

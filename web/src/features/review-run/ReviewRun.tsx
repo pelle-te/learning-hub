@@ -44,7 +44,15 @@ import { todayISO, openVaultSearch } from '@/lib/utils';
 import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
 import { toast } from '@/shell/toast';
 import { riskSummary } from '@/lib/spacedReview';
-import { anchorOf, buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import {
+  anchorOf,
+  buildReviewQueue,
+  cardSpeech,
+  chapterCopy,
+  requeue,
+  runItemKey,
+  type RunItem,
+} from '@/lib/reviewQueue';
 import { putResume, clearResume, resumeDevice, type ResumeCursor, type ResumeNav } from '@/lib/resume';
 
 import { CBMS_INFO } from '@/lib/methodology';
@@ -65,7 +73,7 @@ import { Button } from '@/components/ui';
       정공법 대응물이라 린트가 허용한다(그 규칙은 값만 막는다).
 
    ⚠ `'ds-well'`·`'ds-glow'`·`'ds-muted'`·`'ds-tiny'` 는 그대로 둔다 — 공유 디자인 시스템은
-   공유 SSOT 라 **맨 마지막**이다(건드리면 스냅샷 59장이 전부 흔들린다). 혼용이 정상. */
+   공유 SSOT 라 **맨 마지막**이다(건드리면 트랙 A 시각 베이스라인이 전부 흔들린다). 혼용이 정상. */
 const WRAP = 'flex h-full flex-col items-center justify-center gap-4 p-runner-pad';
 const CARD_BASE = 'flex w-full flex-col gap-3';
 const CENTER = 'w-full max-w-runner-narrow items-center text-center';
@@ -204,8 +212,15 @@ export default function ReviewRun() {
 
   usePageChromeEffect(
     () => ({
+      /* ⚠⚠ **목적지인데 앵커가 없었다(H3 · 2026-07-31 `/감사 근본`).** W22 는 destination 마다
+         `primary`(44px)를 요구했고 불변식이 그걸 지킨다고 했는데, 이 화면은 크롬 호출에 `primary`
+         가 **없는 채로 통과**했다 — 검사가 feature 폴더 전체에서 `/\bprimary:/` 를 찾았고 아래
+         키캡 객체의 `primary: true`·`primary: revealed` 두 줄에 걸렸기 때문이다. `review-run` 은
+         가장 최근에 승격된 목적지다(W17).
+         ⚠ 그리고 **같은 양을 두 번 그리지 않는다** — 이 배치가 세 화면에서 자책한 형태다.
+           `남은 복습`을 앵커로 올리면서 아래 리드아웃에서는 뺀다(한 양 = 한 자리). */
+      primary: { value: String(finished ? 0 : remaining), unit: '장', label: '남은 복습' },
       readouts: [
-        { label: '남은 복습', value: finished ? 0 : remaining, accent: !finished && remaining > 0 },
         { label: '해낸 것', value: gotCount },
         { label: '오늘 위험', value: `${risk.overdue}⬤ ${risk.due}◒` },
       ],
@@ -609,29 +624,9 @@ export default function ReviewRun() {
           </h2>
           {/* 유지 카드는 **왜 돌아왔는지**를 말해야 한다 — 끝낸 챕터가 설명 없이 다시 뜨면
               사용자 눈엔 앱이 완료를 잊은 것으로 읽힌다(앵커를 모르는 경우는 그렇다고 말한다). */}
-          <p className="ds-muted">
-            {item.ch.maintenance ? (
-              item.ch.lastDs ? (
-                <>
-                  끝낸 챕터예요. 마지막으로 본 지 {item.ch.daysSince}일({item.ch.lastDs}) — 유지 인출로 붙잡아 둡니다.
-                </>
-              ) : (
-                <>끝낸 챕터인데 마지막으로 본 날이 기록에 없어요. 한 번 인출하면 그때부터 유지 주기가 잡힙니다.</>
-              )
-            ) : item.ch.fromVault ? (
-              /* ⚠ 볼트 유래 앵커는 **구분해서** 말한다(W2) — `reviewed:` 는 인출일이 아니라 검증
-                 통과일이라, 앱의 인출 기록과 같은 말로 적으면 부모가 "라이브 관측이 흐르면 폴백으로
-                 강등하라"고 적어 둔 지표를 앱이 조용히 승격시키는 셈이 된다. */
-              <>
-                볼트 기록으로는 {item.ch.lastDs}에 검증했고 그 뒤 <b>앱에 인출 기록이 없어요</b>({item.ch.daysSince}일).
-                한 번 인출하면 그때부터 앱 자신의 앵커가 잡힙니다.
-              </>
-            ) : (
-              <>
-                배웠지만 {item.ch.daysSince}일 안 봤어요(마지막 {item.ch.lastDs}). 지금 인출해 망각곡선을 리셋하세요.
-              </>
-            )}
-          </p>
+          {/* ⚠ 문구는 **lib 이 소유한다**(H14) — 폰 러너와 같은 문장이어야 한다. 특히 볼트 유래
+              앵커의 구분(W2)이 한쪽에만 있으면 `vaultAnchors.ts` 의 계약이 조용히 깨진다. */}
+          <p className="ds-muted">{chapterCopy(item.ch).body}</p>
         </div>
       )}
 

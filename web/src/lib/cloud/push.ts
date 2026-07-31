@@ -29,7 +29,68 @@ import { batchSize, collectOutbox, commitWatermark, type OutboxBatch } from './o
    물고 있다 — 첫 페인트에 정의상 필요하다. 그래서 여기를 지연시켜도 zod 는 그대로 남고
    `cloud/schema` 자기 정의분(≈0.3KB)만 옮겨간다. 지연을 얻으려면 부팅 검증을 손봐야 하고
    그건 번들 항목이 아니라 설계 결정이다. */
+import { MAX_BATCH_ITEMS, type OutboxRow, type OutboxTomb } from './contract';
 import { parseOutboxBatch } from './schema';
+
+/* 한 요청의 바이트 상한. 서버 `MAX_BODY_BYTES` 가 1MB 라 여유를 두고 자른다 — 건수만 세면
+   `settings` 처럼 **한 행 = 슬라이스 전체**인 표(실측 `settings.items` 17KB)에서 500건이 1MB 를
+   넘겨 본문 거부로 떨어진다. 두 축 중 먼저 걸리는 쪽에서 자른다. */
+const MAX_BATCH_BYTES = 700_000;
+
+/**
+ * 배치를 전송 가능한 조각으로 자른다(H2 · 2026-07-31 `/감사 근본`).
+ *
+ * ## ⚠ 왜 필요한가 — 계약 두 개가 정면으로 어긋나 있었다
+ *
+ * `capBatch`(`contract.ts`)는 **정확성 우선**이라 한 스탬프 그룹이 혼자 상한을 넘어도 통째로
+ * 담고 `oversized:true` 로 알린다(안 그러면 `cut` 이 0 이 되어 빈 배치 + 워터마크 정지 = 영구
+ * 교착). 그런데 `collectOutbox` 가 그 플래그를 버리고, `parseOutboxBatch` 는 `total > 상한` 을
+ * **거부**한다 → `blocked`. 워터마크가 안 움직이므로 그 기기의 **모든 편집이 영원히 안 올라가고**
+ * 다음 시도도 같은 배치를 만들어 자가복구 경로가 없다.
+ *
+ * 유일한 생산자는 `006_backfill_stamps.sql` 이다 — 7개 표의 레거시 행 전부에 `updated_at = 1`
+ * **상수 하나**를 찍는다(= 단일 그룹). 실 DB 에 그 그룹이 실재한다(18행 — 상한 미만이라 이
+ * 기기에선 아직 안 터졌다).
+ *
+ * ## 왜 마이그레이션이 아니라 청크인가
+ *
+ * 대안은 v10 으로 레거시 행을 재스탬프하는 것이었는데, 그건 **되돌리기 힘든 코어 변경**을 이미
+ * 적용된 DB 에 하나 더 얹는다. 청크는 그럴 필요가 없다: fence 계약은 "모든 항목이 (since, upto]
+ * 안에 있을 것"이라 **부분집합도 그대로 만족**하고, 워터마크는 마지막 조각이 성공한 뒤 **한 번만**
+ * 전진한다. 중간에 실패하면 다음 시도가 그룹 전체를 다시 보내지만 **행 단위 LWW 라 재적용이
+ * 무해하다**(이 파일 머리주석의 멱등 논거 그대로).
+ */
+export function chunkBatch(batch: OutboxBatch): OutboxBatch[] {
+  const items: ({ kind: 'row'; v: OutboxRow } | { kind: 'tomb'; v: OutboxTomb })[] = [
+    ...batch.rows.map((v) => ({ kind: 'row' as const, v })),
+    ...batch.tombstones.map((v) => ({ kind: 'tomb' as const, v })),
+  ];
+  if (items.length <= MAX_BATCH_ITEMS) {
+    const bytes = JSON.stringify(batch).length;
+    if (bytes <= MAX_BATCH_BYTES) return [batch];
+  }
+  const out: OutboxBatch[] = [];
+  let rows: OutboxRow[] = [];
+  let tombs: OutboxTomb[] = [];
+  let bytes = 0;
+  const flush = (): void => {
+    if (!rows.length && !tombs.length) return;
+    out.push({ since: batch.since, upto: batch.upto, rows, tombstones: tombs });
+    rows = [];
+    tombs = [];
+    bytes = 0;
+  };
+  for (const it of items) {
+    const b = JSON.stringify(it.v).length;
+    // 한 항목이 혼자 상한을 넘으면 자를 방법이 없다 — 그 항목만 담은 조각으로 보낸다(서버 판정에 맡긴다).
+    if (rows.length + tombs.length >= MAX_BATCH_ITEMS || (bytes > 0 && bytes + b > MAX_BATCH_BYTES)) flush();
+    if (it.kind === 'row') rows.push(it.v);
+    else tombs.push(it.v);
+    bytes += b;
+  }
+  flush();
+  return out;
+}
 
 /** 배치 하나를 서버로 보낸다. 실패는 **throw** 로 알린다(반환값으로 삼키지 않는다). */
 export interface CloudTransport {
@@ -130,35 +191,50 @@ export async function pushOutbox(transport: CloudTransport, opts: PushOptions = 
     return { status: 'idle', sent: 0, attempts: 0 };
   }
 
+  /* ⚠ 한 스탬프 그룹이 혼자 상한을 넘을 수 있다(H2) — `chunkBatch` 주석이 그 계약을 소유한다.
+     대개 조각은 하나이고, 그때는 아래 루프가 종전과 글자 그대로 같은 일을 한다. */
+  const chunks = chunkBatch(batch);
+
   /* ⚠ **보내기 전에 자기 페이로드를 검증한다**(C-2). 서버가 어차피 검증하는데 왜 여기서도
      하냐면 — 깨진 배치는 재시도해도 계속 깨져 있다. 서버까지 갔다 오면 그 왕복이 5번 반복되고
      원인은 "서버가 400 을 준다"로만 보인다. 여기서 걸면 **어느 행의 무엇이 틀렸는지**가 나온다.
-     그리고 서버와 클라이언트가 같은 스키마를 본다는 것을 테스트가 보장하게 된다. */
-  const checked = parseOutboxBatch(batch);
-  if (!checked.ok) {
-    return { status: 'blocked', sent: 0, attempts: 0, error: `배치가 계약을 위반한다 — ${checked.error}` };
+     그리고 서버와 클라이언트가 같은 스키마를 본다는 것을 테스트가 보장하게 된다.
+     ⚠ 검증 단위는 **조각**이다 — 상한 검사가 그 단위로만 의미를 갖기 때문이다(위 주석). */
+  for (const c of chunks) {
+    const checked = parseOutboxBatch(c);
+    if (!checked.ok) {
+      return { status: 'blocked', sent: 0, attempts: 0, error: `배치가 계약을 위반한다 — ${checked.error}` };
+    }
   }
 
   const maxAttempts = opts.maxAttempts ?? 5;
   const sleep = opts.sleep ?? defaultSleep;
   let lastError = '';
+  let attempts = 0;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await transport.push(batch);
-      /* ⚠ **전송 성공 뒤에만** 워터마크가 전진한다. 이 순서가 이 파일의 안전 계약 전부다. */
-      await commitWatermark(batch.upto);
-      return { status: 'pushed', sent: size, attempts: attempt };
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
-      /* 재시도가 무의미한 실패는 **즉시** 끊는다 — 여기서 계속 돌면 하루 종일 헛치면서
-         사용자에겐 정상으로 보인다(`PermanentPushError` 주석 참조). 워터마크는 실패한
-         배치이므로 당연히 전진시키지 않는다. */
-      if (isPermanent(e)) return { status: 'blocked', sent: 0, attempts: attempt, error: lastError };
-      if (attempt < maxAttempts) await sleep(backoffDelay(attempt, opts));
+  for (const c of chunks) {
+    let ok = false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      attempts += 1;
+      try {
+        await transport.push(c);
+        ok = true;
+        break;
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+        /* 재시도가 무의미한 실패는 **즉시** 끊는다 — 여기서 계속 돌면 하루 종일 헛치면서
+           사용자에겐 정상으로 보인다(`PermanentPushError` 주석 참조). 워터마크는 실패한
+           배치이므로 당연히 전진시키지 않는다. */
+        if (isPermanent(e)) return { status: 'blocked', sent: 0, attempts, error: lastError };
+        if (attempt < maxAttempts) await sleep(backoffDelay(attempt, opts));
+      }
     }
+    /* 조각 하나라도 못 보냈으면 워터마크를 건드리지 않고 끝낸다 — 다음 호출이 **그룹 전체**를
+       다시 만든다. 앞 조각을 두 번 보내지만 행 단위 LWW 라 재적용이 무해하다(머리주석의 멱등). */
+    if (!ok) return { status: 'failed', sent: 0, attempts, error: lastError };
   }
 
-  // 워터마크를 건드리지 않고 끝낸다 — 다음 호출이 같은 배치를 다시 만든다.
-  return { status: 'failed', sent: 0, attempts: maxAttempts, error: lastError };
+  /* ⚠ **전 조각 성공 뒤에만** 워터마크가 전진한다. 이 순서가 이 파일의 안전 계약 전부다. */
+  await commitWatermark(batch.upto);
+  return { status: 'pushed', sent: size, attempts };
 }

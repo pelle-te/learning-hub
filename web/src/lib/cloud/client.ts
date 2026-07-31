@@ -330,6 +330,20 @@ export function makeTransport(cfg: CloudConfig): CloudTransport {
  */
 export async function pullChanges(cfg: CloudConfig, since: number, limit = 200): Promise<OutboxBatch> {
   const res = await authed(cfg, `/api/sync/pull?since=${since}&limit=${limit}`);
+  /* ⚠⚠ **수신 축에도 같은 분류가 필요하다(H5 · 2026-07-31 `/감사 근본`).** `app.onError` 는
+     **전역**이라 pull 라우트에도 `429 + {permanent:true}` 를 준다. 그런데 종전엔 push 분기만
+     그 표식을 읽어서, 아웃박스가 빈 상태(= push `idle`)에서 D1 일일 한도가 소진되면 원장이
+     **"다음 시도에 다시 올려요"**(= 곧 낫는다는 뜻)라고 말했다. 실제로는 한도 리셋 전까지 안 낫는다 —
+     H17 이 push 축에서 고친 오분류가 이쪽에 그대로 남아 있었다. 400 도 같다(계약 위반은 재시도로
+     안 낫는다). 5xx·네트워크는 여전히 재시도 대상이다. */
+  if (res.status === 429) {
+    const j = (asJson(res) ?? {}) as { detail?: string; permanent?: boolean };
+    if (j.permanent) throw new PermanentPushError(j.detail ?? '서버가 한도 소진을 알렸습니다.');
+  }
+  if (res.status === 400) {
+    const j = (asJson(res) ?? {}) as { detail?: string; error?: string };
+    throw new PermanentPushError(`서버가 요청을 거부했습니다: ${j.detail ?? j.error ?? '(사유 없음)'}`);
+  }
   if (!res.ok) throw new Error(`pull 실패(${res.status})`);
   /* ⚠ **수신은 관용 파서를 쓴다(H16).** 엄격 스키마를 그대로 쓰면 다음 릴리스에서 테이블이
      하나 늘 때 **업데이트 안 한 기기의 수신이 영구 정지**한다(버전 스큐는 구조적이다 — 데스크톱

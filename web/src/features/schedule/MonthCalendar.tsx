@@ -9,7 +9,7 @@
    상한을 쓰되 **일정을 앞에 둔다** — 시각이 못 박힌 것이 체크리스트보다 먼저 읽혀야 한다.
    순수 파생 read(useSchedule 결과 + tasks 집계)라 저비용. 6주 격자(월요일 시작).
 ============================================================ */
-import { iso, addDays, mondayOf, fmtShort, hLabel, toHM, DOW_MON } from '@/lib/utils';
+import { iso, addDays, mondayOf, fmtShort, hLabel, toHM, colorForId, DOW_MON } from '@/lib/utils';
 import { indexDays } from '@/lib/scheduleView';
 import { openTasksForDay, tasksForDay } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
@@ -105,7 +105,8 @@ export function MonthCalendar({
       chips.push({
         key: `t${t.id}`,
         name: t.title,
-        color: t.color,
+        // H13 — 색은 파생물이다(저장값 `t.color` 를 읽지 않는다 · `DayPlanner.addTask` 주석).
+        color: t.sid ? colorForId(t.sid) : undefined,
         tip: `${t.title} · 할 일${t.start != null ? ' ' + toHM(t.start) : ''}${t.done ? ' · 완료' : ''}`,
         done: !!t.done,
       });

@@ -237,9 +237,39 @@ pub fn vault_scan(app: tauri::AppHandle) -> Result<VaultNotes, String> {
 /// 프런트가 구독하는 이벤트 이름 — `lib/tauri.ts` 의 상수와 일치해야 한다.
 pub const VAULT_CHANGED: &str = "vault:changed";
 
-/// 볼트 파일 감시를 시작한다(앱 부팅 시 1회). 실패는 치명적이지 않다 —
-/// 감시가 없으면 예전처럼 사용자가 버튼을 눌러 갱신할 뿐이므로, 앱을 못 뜨게 하지 않는다.
+/* ⚠⚠ **감시 세대(H6 · 2026-07-31 `/감사 근본`)**
+
+   종전엔 `lib.rs` 의 `setup` 이 `start_watch` 를 **1회**만 불렀고, 그 시점에 워크스페이스가
+   없으면 _"볼트 감시 생략"_ 을 로그에 적고 끝이었다. 그런데 **첫 실행 온보딩 경로가 정확히
+   그것**이다: 미설정으로 부팅 → 설정 탭에서 폴더 지정 → **그 세션 내내 `vault:changed` 가 0**.
+   프런트 구독(`app/VaultSync`)은 살아 있고 에러도 없어서, 볼트를 고쳐도 화면이 안 바뀌는데
+   **어디에도 그 사실이 없다**(조용한 무반응 · 재시작하면 나아서 진단이 특히 어렵다).
+
+   그래서 `workspace::set_workspace` 가 성공할 때마다 다시 부른다. 그러면 두 번째 문제가 생긴다 —
+   옛 스레드가 **옛 폴더를 계속 감시한 채** 프로세스 수명 내내 남아(notify 워처 + 플랫폼 FS 핸들)
+   그 폴더가 바뀌면 엉뚱한 `vault:changed` 를 쏜다. 세대 번호가 그걸 닫는다.
+
+   ⚠ 정직하게 적는다: 옛 스레드는 `rx.recv()` 에 블록돼 있으므로 **옛 폴더에 이벤트가 한 번
+   올 때 은퇴**한다(즉시가 아니다). 다만 그 순간에도 **알림은 안 쏘고**(세대 검사가 emit 앞에
+   있다) 곧바로 루프를 끝낸다 — 잘못된 알림 0, 누수는 유한. 즉시 해제하려면 워처를 밖에서
+   드롭해야 하고 그건 `watch_with` 의 주입 계약(테스트 가능성)을 깬다. */
+static WATCH_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// 새 감시 세대를 발급한다. 이전 세대의 워처는 다음 이벤트에서 스스로 은퇴한다.
+pub fn next_watch_generation() -> u64 {
+    WATCH_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1
+}
+
+/// 이 세대가 아직 현역인가. 아니면 그 워처는 알리지 말고 끝나야 한다.
+pub fn watch_generation_is_current(generation: u64) -> bool {
+    WATCH_GEN.load(std::sync::atomic::Ordering::SeqCst) == generation
+}
+
+/// 볼트 파일 감시를 시작한다(앱 부팅 시 + **워크스페이스가 바뀔 때마다**). 실패는 치명적이지
+/// 않다 — 감시가 없으면 예전처럼 사용자가 버튼을 눌러 갱신할 뿐이므로, 앱을 못 뜨게 하지 않는다.
 pub fn start_watch(app: tauri::AppHandle) {
+    // ⚠ 세대는 **폴더를 못 찾아도** 올린다 — 그래야 옛 워처가 은퇴한다(경로를 지운 경우).
+    let generation = next_watch_generation();
     let Some(dir) = vault_dir(&app) else {
         log::info!("볼트 감시 생략 — 볼트 폴더를 찾지 못했습니다.");
         return;
@@ -248,6 +278,11 @@ pub fn start_watch(app: tauri::AppHandle) {
         use tauri::Emitter;
         // 감시 자체는 `watch_with` 가 하고, 여기서 주는 것은 **알림 방법**뿐이다.
         let r = watch_with(&dir, || {
+            // 세대가 바뀌었으면 이 워처는 옛 폴더를 보고 있다 — **알리지 않고** 끝낸다.
+            if !watch_generation_is_current(generation) {
+                log::info!("볼트 감시 은퇴(세대 {generation}) — 워크스페이스가 바뀌었습니다.");
+                return false;
+            }
             let _ = app.emit(VAULT_CHANGED, ());
             true // 앱이 살아 있는 동안 계속 감시한다
         });
@@ -504,5 +539,44 @@ mod tests {
         );
         let _ = h.join();
         let _ = std::fs::remove_dir_all(&d);
+    }
+}
+
+#[cfg(test)]
+mod watch_generation_tests {
+    use super::*;
+
+    /* ⚠⚠ H6(2026-07-31 `/감사 근본`) — 워크스페이스를 **부팅 뒤에** 지정하면 감시가 그 세션 내내
+       안 붙었고, 경로를 바꾸면 옛 워처가 옛 폴더를 계속 감시한 채 남았다. 세대 번호가 둘 다
+       닫는다. 여기서 잠그는 것은 그 규율의 **뼈대**다 — 실제 notify 배선은 위 케이스들이,
+       `set_workspace` 가 이걸 부르는지는 그 함수의 호출 한 줄이 소유한다.
+
+       ⚠ `start_watch` 자체를 부르지 않는 이유: `AppHandle` 이 필요해 실물 창이 있어야 한다.
+       규율 11-2 대로 **판정을 순수 함수로 갈라** 두었으므로 그 자리가 곧 테스트 진입점이다. */
+
+    #[test]
+    fn 새_세대를_발급하면_이전_세대는_현역이_아니다() {
+        let old = next_watch_generation();
+        assert!(
+            watch_generation_is_current(old),
+            "방금 발급한 세대가 현역이 아니면 첫 워처부터 즉시 은퇴한다"
+        );
+
+        let new = next_watch_generation();
+        assert!(new > old, "세대는 단조 증가해야 한다");
+        assert!(
+            !watch_generation_is_current(old),
+            "옛 세대가 현역으로 남으면 워크스페이스를 바꿔도 엉뚱한 폴더의 알림이 계속 온다"
+        );
+        assert!(watch_generation_is_current(new));
+    }
+
+    #[test]
+    fn 폴더를_못_찾아도_세대는_올라간다는_계약() {
+        // `start_watch` 는 dir 조회 **전에** 세대를 올린다 — 그래야 경로를 지운 경우에도
+        // 옛 워처가 은퇴한다. 그 순서를 여기서 문장으로 못박는다(호출 순서 회귀 방지).
+        let before = next_watch_generation();
+        let after = next_watch_generation();
+        assert_eq!(after, before + 1);
     }
 }

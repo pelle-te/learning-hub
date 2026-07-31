@@ -22,7 +22,7 @@
    부르는 것은 호출부다(⚠ `loadState` 아님 · C1) — `lib/` 는 zustand 를 모른다(I2 레이어 단방향).
 ============================================================ */
 import { execDb, selectDb } from '../db/sqlite';
-import { pushOutbox, type PushResult, type CloudTransport } from './push';
+import { pushOutbox, isPermanent, type PushResult, type CloudTransport } from './push';
 import { makeTransport, pullChanges, readCloudConfig } from './client';
 import { applyPull } from './merge';
 import { scanConflicts } from './conflictScan';
@@ -46,7 +46,13 @@ async function commitPullMark(upto: number): Promise<boolean> {
 }
 
 export interface SyncResult {
-  status: 'ok' | 'disconnected' | 'failed';
+  /**
+   * ⚠ `blocked` 는 **스스로 낫지 않는 실패**다(H5 · 2026-07-31). push 축은 `push.status` 가
+   * 이미 그 구분을 갖고 있었는데 pull 축엔 없어서, 아웃박스가 빈 상태에서 한도가 소진되면
+   * `failed`(= "다음 시도에 다시 올려요")로 보고됐다. 원장은 `blocked` 를 오프라인보다 위로
+   * 올려 말한다(`lib/syncLedger.ts`).
+   */
+  status: 'ok' | 'disconnected' | 'failed' | 'blocked';
   push?: PushResult;
   /** 받아서 적용한 변경 수. */
   pulled: number;
@@ -131,6 +137,9 @@ async function runSyncOnce(): Promise<SyncResult> {
     await commitPullMark(incoming.upto);
     return { status: 'ok', push, pulled: merged.applied, state: merged.state, conflicts };
   } catch (e) {
-    return { status: 'failed', pulled: 0, state: null, error: e instanceof Error ? e.message : String(e) };
+    /* 재시도가 무의미한 실패(한도 소진·인증 폐기·계약 위반)는 **`blocked`** 다 — `failed` 로
+       접으면 원장이 "다음 시도에 다시 올려요"라 말하는데 그건 거짓이다(H5). */
+    const status = isPermanent(e) ? 'blocked' : 'failed';
+    return { status, pulled: 0, state: null, error: e instanceof Error ? e.message : String(e) };
   }
 }

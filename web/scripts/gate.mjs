@@ -36,6 +36,17 @@ const hasCargo = spawnSync('cargo', ['--version'], { encoding: 'utf8', shell: tr
 if (!quick && hasCargo) {
   steps.push(
     ['tauri:check', ['run', 'tauri:check', '--prefix', '..']],
+    /* ⚠⚠ **`cargo test` 가 게이트 밖이었다(F6 · 2026-07-31 `/감사 근본`).**
+
+       이 블록은 cargo 가 있으면 `tauri:build`(수 분 · 번들까지)와 트랙 B(앱 기동)를 돌리면서
+       **실물 통합 83개를 3.6초에 도는 `cargo test` 는 안 돌렸다.** 가장 비싼 Rust 단계를 넣고
+       가장 싼 단계를 뺀 역전이고, CI 는 이미 돌리고 있었다(로컬↔CI 비대칭). CLAUDE.md 는
+       "완료 판정은 `npm run gate`" 라 적으면서 세 줄 뒤에 "gate 가 cargo test 를 안 돌려준다"고
+       경고하는 상태였다 — 경고로 메우던 구멍을 게이트로 옮긴다.
+
+       ⚠ 자리는 `tauri:check` **뒤, `tauri:build` 앞**이다: 컴파일이 깨졌으면 테스트도 못 돌고,
+       테스트가 깨졌으면 수 분짜리 번들을 만들 이유가 없다(싼 신호부터 소진). */
+    ['cargo test', ['run', 'tauri:test', '--prefix', '..']],
     ['tauri:build', ['run', 'tauri:build', '--prefix', '..']],
     ['e2e:shell', ['run', 'e2e:shell']],
   );

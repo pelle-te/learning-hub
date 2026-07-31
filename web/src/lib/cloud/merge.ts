@@ -43,13 +43,30 @@ export interface MergeResult {
   applied: number;
 }
 
+export interface ApplyPullOptions {
+  /**
+   * 이 배치가 **원격에서 온 것**인가. 참이면 적용한 행을 에코 억제표에 적어 다음 아웃박스 스캔이
+   * 되돌려 올리지 않게 한다(H31-②).
+   *
+   * ⚠⚠ **합성 배치는 반드시 `false` 다(C1 · 2026-07-31 `/감사 근본`).** `outbox.ts` 의 억제
+   * 안전 논거는 _"로컬 편집이 같은 값을 받을 수 없다"_ 인데, `restoreConflict` 는 **로컬 편집을
+   * 원격 수신 경로로 통과시키는 유일한 호출자**라 그 전제의 예외다. 참으로 두면 억제표가
+   * `키 → 방금 발급한 로컬 스탬프` 를 갖게 되고, 스캔이 `_merged.get(key) === updatedAt` 로
+   * **정확히 일치**시켜 그 행을 배치에서 뺀다. 워터마크는 fence 까지 전진하므로 **재시작 후에도
+   * 영구 제외** — 로컬은 복원값, 다른 기기는 옛 승자, 양쪽 다 "동기화 완료"라 말하는 조용한
+   * 영구 분기다. 그리고 그 되살리기가 이 저장소가 CRDT 를 기각하며 내세운 **유일한 보상 경로**다.
+   */
+  echo?: boolean;
+}
+
 /**
  * 받아온 배치를 로컬 SQLite 에 병합한다. **행 단위 LWW + 툼스톤 가드**로 서버와 같은 규칙이다.
  *
  * ⚠ 서버(`server/src/index.ts`)와 **같은 SQL 모양**이어야 한다. 한쪽만 고치면 기기마다
  * 병합 결과가 갈린다 — 그게 이 프로젝트에서 가장 비싼 종류의 버그다(재현이 기기 의존).
  */
-export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
+export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {}): Promise<MergeResult> {
+  const echo = opts.echo ?? true;
   /* ⚠ **한 배치로 병합한다**(H-1). 종전엔 행마다 `execDb` 를 순차로 await 했는데, 폰에선
      그게 200 번(pull 상한)의 워커 왕복이었다. 문장 순서는 그대로 유지한다 — 행 upsert 를
      먼저, 그다음 툼스톤(삽입 + 오래된 행 DELETE). 순서가 의미를 가지므로 배치 안에서도 이
@@ -121,8 +138,9 @@ export async function applyPull(batch: OutboxBatch): Promise<MergeResult> {
     for (const t of batch.tombstones) seedStamp(t.deletedAt);
 
     /* 방금 받은 행을 적어 둔다 — 다음 아웃박스 스캔이 이 행들을 **되돌려 올리지 않게**(H31-②).
-       정확성 장치가 아니라 유선 절약이고, 표가 비어도 종전 거동일 뿐이다(`outbox.ts` 머리주석). */
-    noteMergedRows(batch.rows);
+       정확성 장치가 아니라 유선 절약이고, 표가 비어도 종전 거동일 뿐이다(`outbox.ts` 머리주석).
+       ⚠ 합성 배치(되살리기)는 여기 들어오면 안 된다 — `ApplyPullOptions.echo` 주석이 소유한다. */
+    if (echo) noteMergedRows(batch.rows);
 
     /* ⚠ 받아온 것에 `docs` 행이 있으면 메모리 사본을 되맞춘다(H1). `docs._cache` 는 부팅에만
        채워져, 안 하면 폰 `ReadsView` 가 받아온 독후감·미러 산출물을 재시작까지 못 본다. */

@@ -310,13 +310,17 @@ export function DayPlanner({
   const addFreeTask = () => {
     const title = draft.trim();
     if (!title) return;
-    const linked = taskSid ? namedItems.find((it) => it.id === taskSid) : undefined;
     mutate((st) =>
       addTask(st, {
         title,
         ds,
         sid: taskSid || undefined,
-        color: linked?.color,
+        /* ⚠⚠ **색을 저장하지 않는다(H13 · 2026-07-31 `/감사 근본`).** 종전엔 `color: linked?.color`
+           로 과목 hex 를 태스크에 굳혔는데, 그러면 절대규칙 #3("색 = 파생물")이 tasks 에 대해
+           거짓이 된다 — `refineItemColors` 는 `state.items` 만 다시 파생하므로 **노브(`SUBJECT_L`·
+           `SUBJECT_C`) 교체가 이 값에 영원히 도달하지 않는다.** 바로 17줄 아래 블록 생성부가
+           _"색은 저장하지 않는다"_ 라 적고 있었고, 같은 파일이 자기 규약을 두 줄로 어겼다.
+           렌더가 `sid` 로 다시 뽑는다(아래 `segColor`) — 스키마 필드는 남기되 **읽지 않는다**. */
         repeat: repeatMode === 'none' ? undefined : repeatMode,
       }),
     );
@@ -636,7 +640,7 @@ export function DayPlanner({
                    볼 수도 없는 필드였다. 읽는 자리를 여기 준다: 마감이 있으면 D-day 를 함께 말한다.
                    라벨 조립은 `ddayInfo` 가 소유한다(직접 `D-${n}` 을 만들면 오늘 마감이 "D-0"으로 샌다). */
                 meta={t.deadline ? `할 일 · ${ddayInfo(dayDiff(todayIso, t.deadline)).lab}` : '할 일'}
-                color={t.color}
+                color={t.sid ? segColor(t.sid) : undefined}
                 min={t.min ?? 30}
                 free
                 repeat={t.repeat}
@@ -675,7 +679,7 @@ export function DayPlanner({
                   className={DP.trayRow}
                   draggable
                   onDragStart={dnd.onDragStart('task', t.id, t.min || 30)}
-                  style={t.color ? ({ ['--seg']: t.color } as React.CSSProperties) : undefined}
+                  style={t.sid ? ({ ['--seg']: segColor(t.sid) } as React.CSSProperties) : undefined}
                 >
                   <span className={DP.grabDot} aria-hidden="true" />
                   <span className={DP.rowName}>{t.title}</span>
@@ -795,7 +799,7 @@ export function DayPlanner({
                 half={overlaps(evRanges, t.start!, t.min || 30)}
                 title={t.title}
                 meta="할 일"
-                color={t.color}
+                color={t.sid ? segColor(t.sid) : undefined}
                 start={t.start!}
                 min={t.min || 30}
                 spanMin={span}

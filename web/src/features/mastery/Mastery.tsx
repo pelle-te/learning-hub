@@ -70,6 +70,9 @@ export default function Mastery() {
   const weak = k?.states?.weak;
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: !k
         ? []
         : [

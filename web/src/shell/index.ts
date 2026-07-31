@@ -17,6 +17,7 @@ export { Icon } from './icons';
 export {
   orderedTabs,
   tabByKey,
+  routeLabelOf,
   subTabGroupOf,
   hostTabKey,
   navGroups,

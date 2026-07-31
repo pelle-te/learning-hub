@@ -133,7 +133,8 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
       <hr />
       {today.length ? (
         today.map((e) => {
-          const inf = CBMS_INFO[e.code] || { label: '?', tip: '', color: '#888' };
+          // H25 — 미지 코드 폴백도 토큰이어야 한다(라이트에서 #888 은 3.05:1 로 AA 미달이었다).
+          const inf = CBMS_INFO[e.code] || { label: '?', tip: '', color: 'var(--mut)' };
           if (editId === e.id) {
             return (
               <div key={e.id} className="ds-rec border-line-acc-hover! bg-tint-acc-faint!">
@@ -203,12 +204,13 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                 <span className="ds-cbmsChip" style={{ '--c': inf.color } as React.CSSProperties}>
                   {e.code} {inf.label}
                 </span>
+                {/* ⚠ H25 — 여기 `style={{ '--c': '#888' }}` 이 있었다. 처방은 **인라인 style 을 지우는 것**이다:
+                    `ds-cbmsChip` 이 `var(--c, var(--mut))` 폴백을 이미 갖고 있어 테마 대응 + AA 검증된 값으로
+                    떨어진다. 라이트에서 `#888` 은 자기 틴트 위에서 3.05:1(11px bold · AA 미달)이었고,
+                    `methodology.ts:107` 이 **바로 위에서** 같은 결함을 진단해 놓고 이웃 칩 하나를 빼먹은
+                    자리다. `lint:css` 는 CSS 만 · `check:tokens` 는 `var()` 만 보므로 이 부류는 감사만 본다. */}
                 {e.conf && (
-                  <span
-                    className="ds-cbmsChip"
-                    style={{ '--c': '#888' } as React.CSSProperties}
-                    title="확신 없이 맞힘 — 다시 점검 대상"
-                  >
+                  <span className="ds-cbmsChip" title="확신 없이 맞힘 — 다시 점검 대상">
                     🎯 확신없음
                   </span>
                 )}

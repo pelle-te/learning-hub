@@ -127,8 +127,13 @@ function pill(
    전역 핫키(`hotkey.rs`)의 유일한 값 구간이 "집중 세션 중"이고 그 구간의 창은 320×92 알약인데,
    착지는 무조건 풀사이즈 ⌘K 팔레트였다 — 알약 뷰포트 안에서 뜬다. 새 라우트를 만들지 않는 것이
    이 안의 제약이다(드롭된 `/capture` 를 되살리지 않는다): 같은 창 · 높이 92→132 · 제출 즉시 복귀.
-   ⚠ 저장은 **데스크톱 ⌘Enter·폰 캡처 바와 같은 함수**(`commitCapture`)다 — 캡처 입구가 셋인데
-     결말이 갈리면 그게 곧 조용한 데이터 손실이다(D-2·W8 이 같은 부류에 물렸다). */
+   ⚠ 저장은 **데스크톱 ⌘Enter 와 같은 함수**(`commitCapture`)다 — 캡처 입구가 셋인데 결말이
+     갈리면 그게 곧 조용한 데이터 손실이다(D-2·W8 이 같은 부류에 물렸다).
+   ⚠⚠ **"폰 캡처 바와 같은 함수"는 사실이 아니었다(G7 · 2026-07-31 `/감사 근본`).** `phone/CaptureBar`
+     는 레이어 규약상 `@/shell` 을 import 할 수 없어(폰 엔트리는 셸 배럴 밖) **커밋+되돌리기 짝을
+     따로 갖는다** — 공유되는 것은 레코드 조립(`lib/quickCapture.captureRecord`)까지다. 즉 세 입구
+     중 둘만 같은 함수이고, 그 사실을 주석이 덮고 있었다. 진짜 수렴은 `lib/quickCapture` 로 커밋을
+     올리는 것이고 그건 `hooks → shellToast` 정책과 한 몸이라 로드맵(H22)이 든다. */
 function MiniCapture({ onDone }: { onDone: () => void }): React.JSX.Element {
   const [text, setText] = useState('');
   const ref = useRef<HTMLInputElement>(null);

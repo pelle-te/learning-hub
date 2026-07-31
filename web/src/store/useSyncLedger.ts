@@ -35,7 +35,15 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     /* ⚠ `blocked` 는 `SyncResult.status` 가 아니라 **`push.status`** 에서 온다(H3).
        `runSyncOnce` 는 push 가 막혀도 pull 이 되면 `'ok'` 를 돌려주므로, 바깥 status 만 보면
        중단이 통째로 안 보인다 — 그게 원장이 "올리는 중"을 무한히 말하던 경로다. */
-    const blocked = ls?.result.push?.status === 'blocked' ? (ls.result.push.error ?? '알 수 없는 이유') : null;
+    /* ⚠ **축이 둘이다(H5 · 2026-07-31)** — pull 축의 재시도 불가 실패는 바깥 `status` 로 온다
+       (`run.ts` 의 `SyncResult.status` 주석). 하나만 보면 아웃박스가 빈 상태에서 한도가 소진됐을 때
+       "다음 시도에 다시 올려요"라는 **거짓 위로**가 나간다. */
+    const blocked =
+      ls?.result.push?.status === 'blocked'
+        ? (ls.result.push.error ?? '알 수 없는 이유')
+        : ls?.result.status === 'blocked'
+          ? (ls.result.error ?? '알 수 없는 이유')
+          : null;
     setLed({
       online: navigator.onLine,
       pending,

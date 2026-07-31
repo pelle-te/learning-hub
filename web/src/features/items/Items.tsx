@@ -124,6 +124,9 @@ export default function Items() {
   //   주간 가용 총량은 사라지지 않고 '뼈대' 스트립에 `가용 Nh/주`라는 **다른 라벨**로 남는다.
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: !insight
         ? []
         : [
@@ -160,11 +163,13 @@ export default function Items() {
   const addItem = useCallback(() => {
     const id = rid();
     mutate((st) => {
-      /* ⚠⚠ **목표를 기본값으로 채우지 않는다(W1 · 2026-07-31).** `makeItem` 기본이
-         `weeklyHours: 3` 이라, 이 버튼 한 번이 온보딩 3단계 중 **2단계를 동시에 충족**시키고
-         `Today` 가 셋업 스크림을 영구히 걷었다 — 사용자는 `새 과목` 하나만 있는 대시보드를
-         받고 볼트 임포트는 영영 안 만난다. 목표는 사람이 정하는 것이므로 빈 채로 시트를 연다
-         (`SetupGuide.setupComplete` 의 2단계 판정이 이 값을 본다). */
+      /* ⚠⚠ **목표를 기본값으로 채우지 않는다(W1 · 2026-07-31).** 이 버튼 한 번이 온보딩 3단계 중
+         **2단계를 동시에 충족**시키고 `Today` 가 셋업 스크림을 영구히 걷었다 — 사용자는 `새 과목`
+         하나만 있는 대시보드를 받고 볼트 임포트는 영영 안 만난다. 목표는 사람이 정하는 것이므로
+         빈 채로 시트를 연다(`SetupGuide.setupComplete` 의 2단계 판정이 이 값을 본다).
+         ⚠ `weeklyHours: 0` 은 이제 `makeItem` 의 **기본값**이라 여기서 반복하지 않아도 된다.
+           남겨 두는 이유는 이 화면이 그 계약에 **의존한다는 사실을 지역에서 읽히게** 하기
+           위해서다 — 기본이 다시 올라가면 이 줄이 그 자리에서 막는다(H20). */
       st.items.push(makeItem({ id, source: '직접', name: '새 과목', weeklyHours: 0 }));
     });
     navigate(`/subject/${id}`); // 새 과목은 바로 객체 화면을 열어 편집(카드가 아직 없어 morph 없음)

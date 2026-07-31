@@ -24,10 +24,21 @@ export default function SyncLedger({
   led,
   now,
   className = '',
+  hideText = false,
 }: {
   led: Ledger;
   now: number;
   className?: string;
+  /**
+   * 보이는 줄만 숨긴다 — **리전은 남는다**(H12 · 2026-07-31 `/감사 근본`).
+   *
+   * ⚠ 접힌 레일이 이 컴포넌트를 통째로 언마운트하고 있었다. 근거("42px 폭에 문장이 안 들어간다")는
+   * **보이는 `<p>`** 에 대해서만 참인데 컴포넌트째로 걷어내는 바람에, 접힘을 쓰는 사용자는
+   * "동기화 중단 · 3시간째 실패"를 **시각으로도 스크린리더로도** 못 받았다. 접힘은 영속 설정이라
+   * 항구적 상태이고, 이 컴포넌트의 존재 이유(_"두 기기가 서로 다른 조건에서 침묵할 수 없다"_)를
+   * 정확히 그 조건에서 뒤집는다.
+   */
+  hideText?: boolean;
 }): React.JSX.Element {
   const line = ledgerLine(led, now);
   /* ⚠ **공지 리전은 항상 서 있다**(H22). 종전엔 `role="status"` 가 이 `<p>` 에 붙어 있었고
@@ -37,7 +48,9 @@ export default function SyncLedger({
   return (
     <>
       <LiveRegion message={line?.text ?? ''} />
-      {line ? <p className={`text-xs ${line.warn ? 'text-warn' : 'text-mut'} ${className}`}>{line.text}</p> : null}
+      {line && !hideText ? (
+        <p className={`text-xs ${line.warn ? 'text-warn' : 'text-mut'} ${className}`}>{line.text}</p>
+      ) : null}
     </>
   );
 }

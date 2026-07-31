@@ -79,11 +79,23 @@ export function adherenceFactor(
   let doneMin = 0;
   let capMin = 0;
   let activeDays = 0;
-  for (let i = 0; i <= horizon; i++) {
-    const date = addDays(parseISO(start), i);
+  /* ⚠⚠ **버릴 날을 만들려고 Date 를 할당하지 않는다(H29 · 2026-07-31 `/감사 근본`).**
+
+     창은 `ADAPT_WINDOW`(14일) 고정인데 루프는 `startDate` 부터 돌면서 창 밖은 `continue` 로
+     버렸다 — 즉 **루프 길이가 계정 나이에 비례**했고 그 대부분이 순수 낭비였다. 게다가 매 회
+     `parseISO(start)` 를 다시 파싱했다. 실측(과목 5·일정 40):
+
+         startDate 나이  30일 0.07ms · 200일 0.30ms · 900일 1.34ms · **1800일 2.64ms**
+
+     같은 조건의 `schedule()` 전체가 0.82~8.65ms 이므로 **최대 30%가 이 낭비**였다.
+     결과값은 정의상 동일하다 — 건너뛰던 구간을 애초에 안 도는 것뿐이다. */
+  const from = parseISO(start);
+  const begin = Math.max(0, dayDiff(start, today) - ADAPT_WINDOW);
+  for (let i = begin; i <= horizon; i++) {
+    const date = addDays(from, i);
     const ds = iso(date);
     if (ds >= today) break; // 과거만(날짜 오름차순)
-    if (dayDiff(ds, today) > ADAPT_WINDOW) continue; // 최근 N일만
+    if (dayDiff(ds, today) > ADAPT_WINDOW) continue; // 방어적 — 위 `begin` 이 이미 걸러냈다
     capMin += dayStudyMin(state, ds, date.getDay(), capWd);
     const m = c[ds];
     let dm = 0;

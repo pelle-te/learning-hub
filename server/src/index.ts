@@ -882,9 +882,35 @@ app.get('/api/sync/pull', async (c) => {
    사용자에게 잘못 알린다** — 후자가 더 나쁘다.
    ⚠ `permanent: true` 는 클라이언트가 읽는 **계약**이다(`cloud/client.ts` 의 push 분기).
       레이트 리미터의 429 와 구분해야 하므로 상태코드만으로 판정하지 않는다. */
+/* ⚠⚠ **스키마 스큐도 분류한다(H4 · 2026-07-31 `/감사 근본`).**
+
+   `src-tauri/migrations/009_summaries_identity.sql` 은 _"적용 전까지 서버는 옛 열 구성이라
+   push 가 **400** 을 받는다"_ 라 적어 뒀는데, 실제 경로는 그렇지 않았다: zod 는 통과하고(스키마는
+   클라이언트와 **같은 파일**을 공유하므로 코드끼리는 늘 일치한다) D1 이 `no such column: id` 를
+   던지는데, 그 문자열은 위 한도 정규식에 안 걸려 **500** 으로 나갔다. 클라이언트는 5xx 를
+   *일시 오류*로 읽는 것이 옳은 규약이라(`push.ts`) **영구 백오프**를 돈다 — 배포 순서를 틀리면
+   그 자체가 조용한 정지다. 그리고 이 상태는 어느 층도 못 만든다: `test:roundtrip` 은 **항상 전
+   마이그레이션을 적용**하므로 스큐가 원리적으로 재현되지 않는다.
+
+   수신 방향엔 이미 관용 파서(H16)가 있어 버전 스큐를 견딘다. **송신 방향의 짝이 이것**이다 —
+   재시도로 안 낫는 것을 안 낫는다고 말한다. */
+const SCHEMA_SKEW = /no such (column|table)|has no column named|unknown column/i;
+
 app.onError((err, c) => {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(JSON.stringify({ ev: 'unhandled', msg: msg.slice(0, 300) }));
+  if (SCHEMA_SKEW.test(msg)) {
+    return c.json(
+      {
+        error: 'schema',
+        /* ⚠ 사용자에게 보이는 문구다 — 내부 SQL 을 흘리지 않으면서 **할 일**을 말한다.
+           이 상태의 처방은 하나뿐이다(런북 §5: `cd server && npm run migrate:remote`). */
+        detail: '서버 스키마가 앱보다 낮습니다 — D1 마이그레이션을 적용한 뒤 다시 동기화됩니다.',
+        permanent: true,
+      },
+      400,
+    );
+  }
   if (/daily limit|quota|exceeded|too many (rows|writes)/i.test(msg)) {
     return c.json(
       {

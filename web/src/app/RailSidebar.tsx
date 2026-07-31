@@ -262,9 +262,11 @@ export default function RailSidebar() {
       <div className={SPACER} />
       {/* E12 — 데스크톱도 자기 동기화 상태를 말한다. 폰 헤더와 **같은 컴포넌트·같은 판정**이라
           두 기기가 서로 다른 조건에서 침묵할 수 없다(달라지는 것은 여백뿐).
-          ⚠ 접힘(아이콘 전용) 레일에선 그리지 않는다 — 42px 폭에 문장을 넣으면 잘리고, 잘린
-            상태 문구는 없는 것보다 나쁘다(무슨 일이 났는지 모른 채 뭔가 났다는 것만 안다). */}
-      {!collapsed && <SyncLedger {...ledger} className="px-2.5 pb-1.5" />}
+          ⚠ 접힘(아이콘 전용) 레일에선 **문장만** 숨긴다(H12 · 2026-07-31) — 42px 폭에 넣으면
+            잘리고 잘린 상태 문구는 없는 것보다 나쁘다. 그런데 종전엔 컴포넌트를 통째로 언마운트해
+            **상시 라이브 리전까지 함께 사라졌다**: 접힘을 쓰는 사용자는 "동기화 중단"을 시각으로도
+            스크린리더로도 못 받았고, 접힘은 영속 설정이라 그 침묵이 항구적이었다. */}
+      <SyncLedger {...ledger} hideText={collapsed} className="px-2.5 pb-1.5" />
       {bottomGroup && renderGroup(bottomGroup, true)}
       <button
         type="button"

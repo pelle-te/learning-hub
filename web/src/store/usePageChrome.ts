@@ -51,9 +51,25 @@ export const usePageChrome = create<ChromeStore>((set) => ({
 }));
 
 /** 탭 공용 보일러 — mount/deps 변경 시 리드아웃 주입, unmount 시 clear(10개 탭이 복붙하던 골격).
- *  build를 effect 안에서 호출하므로 렌더마다 새 배열이어도 deps가 같으면 재주입하지 않는다. */
+ *  build를 effect 안에서 호출하므로 렌더마다 새 배열이어도 deps가 같으면 재주입하지 않는다.
+ *
+ *  ## ⚠⚠ `primary` 가 **필수 키**인 것이 W22 의 집행자다(H3 · 2026-07-31 `/감사 근본`)
+ *
+ *  W22 는 "원칙 ②(제일 큰 픽셀 = 제일 중요한 것)의 물리적 표현을 목적지마다 세운다"였고,
+ *  집행자를 **불변식의 정규식**(`/\bprimary:/` 을 feature 폴더 전체에서 찾기)에 뒀다. 그게
+ *  그 자리에서 뚫렸다 — `review-run`(가장 최근 승격된 목적지)은 크롬 호출에 `primary` 가
+ *  **없는데**, 같은 파일의 키캡 객체 두 줄(`primary: true`·`primary: revealed`)에 정규식이
+ *  걸려 **통과**했다. 즉 그 배치가 다른 세 축에서 고친 형태("선언은 있는데 집행자가 없다")를
+ *  자기 집행자 안에 새로 하나 만든 셈이다.
+ *
+ *  같은 커밋이 인용한 선례가 정답을 이미 갖고 있었다: `State.next` 는 **타입이** `undefined` 를
+ *  막는다(`ReactNode` 를 쓰면 `next={undefined}` 가 통과해 필수화가 무력해진다고 그 파일이
+ *  적어 뒀다). 그래서 `primary?:` → **`primary:`** 로 바꾼다 — 값이 없어도 `null` 을 **쓰게**
+ *  만드는 것이 요점이다(잊는 것과 없다고 정하는 것은 다르다). 화면 단위 "세웠는가"는 여전히
+ *  불변식이 보되, 이제 **크롬 호출 구간 안에서만** 본다(`test/invariants.test.ts`).
+ */
 export function usePageChromeEffect(
-  build: () => { readouts: ChromeReadout[]; action?: ChromeAction | null; primary?: ChromePrimary | null },
+  build: () => { readouts: ChromeReadout[]; action?: ChromeAction | null; primary: ChromePrimary | null },
   deps: unknown[],
 ): void {
   const setChrome = usePageChrome((s) => s.setChrome);

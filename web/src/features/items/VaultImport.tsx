@@ -4,6 +4,7 @@
    같은 쿼리 캐시(['vault']·['ankiFile']·['vaultHandle'])를 호출한다(코드 이동 아님 · 두 곳에서 같은 훅).
    여기선 '연결→항목 추가'만 — 해제/실시간 due/트리 상세는 연동 탭 소유. 탭 이동 없이 과목을 넣는다.
 ============================================================ */
+import LiveRegion from '@/components/LiveRegion';
 import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
@@ -150,8 +151,10 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
         볼트=전공 폴더의 과목→챕터. Anki=덱을 '매일 복습' 항목으로. 검증/실시간 due 상세·연동 해제는 연동 탭에서.
         (Chrome/Edge)
       </div>
+      {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
+      <LiveRegion message={err ?? ''} assertive />
       {err && (
-        <div className="ds-warnbox" role="alert" style={{ marginTop: 8 }}>
+        <div className="ds-warnbox" style={{ marginTop: 8 }}>
           {err}
         </div>
       )}

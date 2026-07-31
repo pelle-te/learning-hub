@@ -57,6 +57,7 @@ export function addEvent(
     at: input.at ?? Date.now(),
   };
   ensure(state).push(ev);
+  bumpEvents(); // H15 — 날짜 인덱스 무효화(제자리 push 는 참조를 안 바꾼다)
   return ev;
 }
 
@@ -65,6 +66,7 @@ export function addEvent(
 export function updateEvent(state: AppState, id: string, patch: Partial<PlanEvent>): void {
   const ev = ensure(state).find((x) => x.id === id);
   if (!ev) return;
+  bumpEvents(); // H15 — 필드 제자리 수정도 인덱스를 낡게 만든다
   Object.assign(ev, patch);
   if (patch.start !== undefined || patch.min !== undefined) {
     const n = normalize(ev.start, ev.min);
@@ -76,6 +78,7 @@ export function updateEvent(state: AppState, id: string, patch: Partial<PlanEven
 /** 삭제. */
 export function removeEvent(state: AppState, id: string): void {
   state.events = ensure(state).filter((e) => e.id !== id);
+  bumpEvents(); // 참조가 바뀌므로 사실 불필요하지만, 쓰기 API 전부가 같은 계약을 지키게 둔다
 }
 
 /* ── 선택자(순수 파생 · 읽기 전용) ────────────────────────────────────── */
@@ -91,24 +94,74 @@ export function eventsForDay(state: AppState, ds: string): PlanEvent[] {
  *  겹치는 일정(이중 약속)은 **병합하지 않는다**: subtractIntervals가 멱등이라 겹침이 이중 차감되지 않는다.
  *  비수치·폭0 레코드(외부 JSON 오염)는 여기서 걸러 스케줄러로 NaN이 흘러가지 않게 한다. */
 export function eventIntervals(state: AppState, ds: string): [number, number][] {
-  const out: [number, number][] = [];
+  return dayIndex(state).get(ds) ?? EMPTY_INTERVALS;
+}
+
+const EMPTY_INTERVALS: [number, number][] = [];
+
+/* ⚠⚠ **날짜별 인덱스 — 이 함수가 스케줄러 안에서 N+1 이었다(H15 · 2026-07-31 `/감사 근본`).**
+
+   `eventIntervals` 는 호출마다 `state.events` **전량을 선형 스캔 + 정렬**했는데, 소비 경로가
+   `dayStudyMin`(하루 2~3회) ← `engine` 의 **일자 생성 루프**(horizon 일수만큼)라 비용이 곱해졌다.
+   실측 `schedule()` 1회(과목 5×챕터 25 고정):
+
+       일정 0 / days 112 = 0.82ms      일정 0 / days 901 = 3.78ms
+       일정 2000 / days 112 = 5.54ms   일정 2000 / days 901 = **29.52ms**
+
+   일정에서 오는 증분이 +4.7ms → +25.7ms 로 **일수에 비례해 곱해진다**(≈901/112). 그리고
+   `schedule()` 은 items·completions·events·dayPlans 중 **아무 슬라이스나** 바뀌면 재실행되므로,
+   일정이 많고 `startDate` 가 오래된 사용자는 체크 한 번·타이핑 한 글자마다 그 값을 낸다.
+
+   ⚠ 관용구는 새로 만들지 않았다 — `scheduler/windows.ts` 의 `wdCache`(참조 기준 1-엔트리 캐시)와
+   **같은 형태**다. 키가 `state.events` 참조라, immer 가 그 슬라이스를 안 건드린 재계산에서는
+   인덱스가 그대로 재사용된다.
+
+   ⚠⚠ **참조만으로는 부족하다 — 그리고 그걸 테스트가 그 자리에서 잡았다.** 이 모듈의 뮤테이터는
+   `state.events` 를 **제자리**로 바꾼다(`push`·필드 수정). immer 드래프트 아래서는 새 참조가
+   나오지만, 순수 객체를 직접 다루는 경로(테스트·`rowsToState` 조립 중)는 참조가 그대로다 →
+   낡은 인덱스가 조용히 살아난다. 그래서 **이 모듈의 쓰기 API 가 버전을 올린다.** 캐시 무효화를
+   *바깥 규약*(“immer 를 통해서만 고친다”)에 맡기지 않는 것이 요점이다 — 그 규약은 이 파일이
+   강제할 수 없고, 어긋났을 때의 증상이 "일정이 계획에서 사라진다"라 조용하다.
+
+   ⚠ 반환 배열을 **호출부가 수정하지 않는다**는 전제 위에 있다(현 소비처는 전부 읽기 전용 —
+   `subtractIntervals` 는 새 배열을 만든다). 빈 날은 공유 상수를 준다(할당 0). */
+let evVersion = 0;
+/** 이 모듈의 쓰기 API 가 부른다 — 날짜 인덱스를 무효화한다(위 ⚠⚠). */
+function bumpEvents(): void {
+  evVersion++;
+}
+let evIndexCache: { src: unknown; version: number; map: Map<string, [number, number][]> } | null = null;
+
+function dayIndex(state: AppState): Map<string, [number, number][]> {
+  const src = state.events;
+  if (evIndexCache && evIndexCache.src === src && evIndexCache.version === evVersion) return evIndexCache.map;
+  const map = new Map<string, [number, number][]>();
   for (const e of list(state)) {
-    if (e.ds !== ds) continue;
     if (!Number.isFinite(e.start) || !Number.isFinite(e.min)) continue;
     const { start, min } = normalize(e.start, e.min);
-    if (min > 0) out.push([start, start + min]);
+    if (min <= 0) continue;
+    const arr = map.get(e.ds);
+    if (arr) arr.push([start, start + min]);
+    else map.set(e.ds, [[start, start + min]]);
   }
-  return out.sort((a, b) => a[0] - b[0]);
+  for (const arr of map.values()) arr.sort((a, b) => a[0] - b[0]);
+  evIndexCache = { src, version: evVersion, map };
+  return map;
 }
 
 /** 그날 일정 총 분(겹침 병합 후) — 리드아웃 표시용. 가용시간 차감은 구간 기반이라 이 값을 쓰지 않는다
  *  (창 밖·수업 겹침을 반영해야 하므로 scheduler.eventStudyLossMin이 담당). */
 export function eventMinutesForDay(state: AppState, ds: string): number {
+  /* ⚠ **여기서 새 튜플을 만드는 것이 계약이다(H15 후속).** `eventIntervals` 는 이제 **캐시된
+     배열을 그대로** 돌려주므로, 반환값의 튜플을 제자리 수정하면 인덱스가 오염돼 다음 호출부터
+     잘못된 구간을 준다(겹치는 일정이 있는 날에만 나타나는 조용한 오염). 아래 구조분해 →
+     `push([s, e])` 가 이미 값 복사라 **현 코드는 안전하다** — 안전한 이유를 적어 두는 것이지
+     결함을 고친 것이 아니다(다음 사람이 `last` 를 원본에서 끌어오지 않게). */
   const merged: [number, number][] = [];
   for (const [s, e] of eventIntervals(state, ds)) {
     const last = merged[merged.length - 1];
     if (last && s <= last[1]) last[1] = Math.max(last[1], e);
-    else merged.push([s, e]);
+    else merged.push([s, e] as [number, number]);
   }
   return merged.reduce((t, [s, e]) => t + (e - s), 0);
 }

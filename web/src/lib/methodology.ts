@@ -504,6 +504,18 @@ export function recordRetentionSnapshot(state: AppState, decks: DeckLike[]): voi
   const due = decks.reduce((t, d) => t + +(d.new || 0) + +(d.learn || 0) + +(d.review || 0), 0);
   const cards = decks.reduce((t, d) => t + +(d.total || 0), 0);
   const wk = iso(mondayOf(parseISO(todayISO(state)))); // 그 주 월요일 — '오늘' 단일 출처(_today 시드 존중)
+  /* ⚠⚠ **값이 안 바뀌었으면 아무것도 안 한다(H17 · 2026-07-31 `/감사 근본`).**
+
+     `at` 이 매 호출마다 새 ISO 시각이라 `due`·`cards` 가 **완전히 같아도 행이 실제로 변했다.**
+     `retentionLog` 는 `records` 테이블이고 `sync: true` 라, 통합 탭의 자동 새로고침(5분)이
+     `applyLive` → 여기 → `syncedSliceChanged` → `syncSoon()` 로 이어져 **5분마다 Workers 요청
+     한 쌍 + D1 행 쓰기 1건**을 냈다(하루 288회). W24 가 은퇴시킨 5분 폴링이 다른 문으로
+     돌아온 셈이다 — 그리고 `syncController` 는 바로 그 예산을 명시 제약으로 든다.
+
+     `artifactMirror.ts:99`(_"무변경 — 스탬프를 찍지 않는다"_)가 이미 쓰는 관용구다.
+     ⚠ `at` 은 **비교에서 뺀다** — 그게 항상 달라지는 축이라 넣으면 가드가 정의상 무력해진다. */
+  const prev = (state.retentionLog || []).find((x) => x.wk === wk);
+  if (prev && prev.due === due && prev.cards === cards) return;
   state.retentionLog = (state.retentionLog || []).filter((x) => x.wk !== wk);
   state.retentionLog.push({ wk, at: new Date().toISOString(), due, cards });
   state.retentionLog.sort((a, b) => (a.wk < b.wk ? -1 : a.wk > b.wk ? 1 : 0));

@@ -370,12 +370,22 @@ export function TimedCard({
       lastMin = nm;
       onSetMin(nm);
     };
+    /* ⚠⚠ **`pointerup` 만 듣지 않는다(H21 · 2026-07-31 `/감사 근본`).** 포인터 시퀀스가 취소되면
+       (이 카드는 실제로 `draggable` 이라 네이티브 드래그가 개시될 수 있고, 터치에선 브라우저가
+       스크롤을 인수한다) **`pointerup` 이 오지 않는다.** 그러면 `pointermove` 가 window 에 영구히
+       남아, 이후 **마우스를 움직일 때마다** 그 블록 길이가 계속 커밋된다(→ store → flush →
+       동기화 트리거). 이펙트가 아니라 이벤트 핸들러라 React 가 걷어가지도 않는다.
+       `lostpointercapture` 까지 듣는 이유: 캡처를 뺏기는 경로도 같은 결과를 낸다. */
     const onUp = () => {
       window.removeEventListener('pointermove', onMoveP);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('lostpointercapture', onUp);
     };
     window.addEventListener('pointermove', onMoveP);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('lostpointercapture', onUp);
   };
 
   /* 카드는 '누를 수 있는 것'이 아니라 여러 조작(편집·완료·핀·삭제)을 담는 **묶음**이다.

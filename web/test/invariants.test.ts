@@ -216,6 +216,46 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
     settings: '수치가 없는 화면이다. 없는 값을 세우면 원칙 ②가 아니라 억지 숫자를 강제하게 된다.',
   };
 
+  /* ⚠⚠ **검사 범위가 결함이었다(H3 · 2026-07-31 `/감사 근본`).**
+
+     종전엔 feature 폴더 전체에서 `primary:` 를 찾았다. 그래서 `review-run` — 가장 최근에 승격된
+     목적지(W17) — 이 **크롬 호출에 `primary` 가 없는데도 통과**했다: 같은 파일의 키캡 객체 두 줄
+     (`primary: true`·`primary: revealed`)에 정규식이 걸렸기 때문이다. 즉 그 배치가 다른 세 축에서
+     고친 형태("선언은 있는데 집행자가 없다")를 **자기 집행자 안에** 새로 하나 만들었고, 초록불이
+     그 사실을 덮고 있었다.
+
+     지금은 두 겹이다:
+     ① **타입** — `usePageChromeEffect` 의 `primary` 가 **필수 키**라 모든 호출부가 값을 쓴다
+        (`store/usePageChrome.ts` 머리주석 · `State.next` 와 같은 처방).
+     ② **여기** — `usePageChromeEffect(…)` **호출 구간 안**에서만, 그리고 `null` 이 아닌지까지 본다.
+        괄호 균형으로 구간을 잘라내므로 파일 다른 곳의 동명 키에 걸리지 않는다. */
+  /** 파일 안의 모든 `usePageChromeEffect(…)` 호출 본문(괄호 균형으로 잘라낸다). */
+  const chromeCalls = (src: string): string[] => {
+    const out: string[] = [];
+    for (let i = src.indexOf('usePageChromeEffect('); i >= 0; i = src.indexOf('usePageChromeEffect(', i + 1)) {
+      let depth = 0;
+      for (let k = src.indexOf('(', i); k < src.length; k++) {
+        if (src[k] === '(') depth++;
+        else if (src[k] === ')' && --depth === 0) {
+          out.push(src.slice(i, k));
+          break;
+        }
+      }
+    }
+    return out;
+  };
+  /**
+   * 호출 구간 안에서 `primary` 가 **실제 값**으로 세워졌는가(`null` 은 "없다고 정한 것"이다).
+   *
+   * ⚠ 부정 전방탐색(`/primary:\s*(?!null)/`)으로 쓰면 안 된다 — `\s*` 가 0글자로 백트래킹해
+   * `primary: null` 조차 통과한다(실측으로 이 테스트가 그 형태를 한 번 잡았다). **토큰을 뽑아
+   * 비교**한다.
+   */
+  const anchorSet = (call: string): boolean => {
+    const m = /\bprimary:\s*([A-Za-z_{[(]\w*)/.exec(call);
+    return m != null && m[1] !== 'null' && m[1] !== 'undefined';
+  };
+
   it('모든 destination 이 `primary` 를 세우거나 면제 사유를 갖는다', () => {
     const missing = destinations()
       .filter((t) => !PRIMARY_면제[t.key])
@@ -228,11 +268,19 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
         } catch {
           return true; // 폴더가 없으면 그 자체가 결함이다(등록만 되고 화면이 없다)
         }
-        return !srcs.some((s) => /\bprimary:/.test(s));
+        return !srcs.some((s) => chromeCalls(s).some(anchorSet));
       })
       .map((t) => t.key);
     // 실패하면: `usePageChromeEffect` 에 `primary` 를 세우거나, 위 면제 표에 **사유와 함께** 올리세요.
     expect(missing).toEqual([]);
+  });
+
+  it('⚠ 검사가 **크롬 호출 밖의 동명 키**에 걸리지 않는다 — H3 이 뚫린 방식 자체를 잠근다', () => {
+    const decoy = 'usePageChromeEffect(() => ({ readouts: [], primary: null }), []);\nconst k = { primary: true };';
+    expect(chromeCalls(decoy).some(anchorSet), '키캡의 primary 가 앵커로 오인됐다').toBe(false);
+    // 그리고 진짜로 세운 경우는 통과해야 한다(검사가 아무것도 안 잡는 쪽으로 무너지지 않게).
+    const real = "usePageChromeEffect(() => ({ readouts: [], primary: { value: '3', label: '남은' } }), []);";
+    expect(chromeCalls(real).some(anchorSet)).toBe(true);
   });
 
   it('면제 표가 사문화하지 않았다 — 목록에 없는 탭·이미 세운 탭이 남아 있으면 실패', () => {
@@ -689,6 +737,22 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
     ).toEqual([]);
   });
 
+  /* ⚠⚠ **hover 강조 세기도 같은 부류였다(H31 · 2026-07-31 `/감사 근본`).**
+     실측 4값(`1.07`·`1.08`·`1.14`·`1.16`) — 인접 차이가 0.9%·1.8% 다. 모션 규약이 _"2% 이하면
+     드리프트"_ 로 못박은 폭인데 이 축만 집행자가 0 이었다. 줄높이(H29)와 **완전히 같은 처방**의
+     미적용분이라 여기 나란히 둔다(`--brightness-emph`·`--brightness-emph-strong`).
+     ⚠ Tailwind 기본 스케일(`brightness-105` 등)은 막지 않는다 — 그건 이름 있는 사다리다.
+       금지 대상은 **임의값**(`brightness-[…]`) 하나다. */
+  it('`brightness-[…]` 임의값이 없다 — 강조 세기는 `--brightness-emph*` 두 칸에서 고른다', () => {
+    const bad = sources()
+      .flatMap(({ path, code }) => (code.match(/brightness-\[[^\]]+\]/g) ?? []).map((m) => `${path}: ${m}`))
+      .sort();
+    expect(
+      bad,
+      `강조 세기 임의값 ${bad.length}건 — 큰 면은 \`brightness-emph\`, 작은 마커는 \`brightness-emph-strong\`:\n${bad.join('\n')}`,
+    ).toEqual([]);
+  });
+
   it('사다리가 실제로 정의돼 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
     const bridge = readFileSync(join(SRC8, 'styles', 'tokenBridge.css'), 'utf8');
     const steps = [...bridge.matchAll(/--leading-([a-z]+):/g)].map((m) => m[1]);
@@ -696,5 +760,8 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
       8,
     );
     expect(steps).toContain('text');
+    // 강조 세기 사다리도 같은 이유로 **존재**를 단언한다(분모가 없으면 위 검사는 금지만 한다).
+    const emph = [...bridge.matchAll(/--brightness-(emph[a-z-]*):/g)].map((m) => m[1]);
+    expect(emph, '--brightness-emph* 두 칸이 없으면 대안 없이 금지만 하는 셈이다').toEqual(['emph', 'emph-strong']);
   });
 });

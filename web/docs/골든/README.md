@@ -19,6 +19,6 @@
 - boundaries 준수(app/다른 feature import 없음).
 - 계산 로직은 컴포넌트가 아니라 `lib` 순수함수에.
 - 스타일은 Tailwind 유틸리티 + 공유 `ds-*`(`styles/ds.css`) — 전역 클래스·`*.module.css` 신설 없이.
-- 빈 상태 `EmptyState`, reduced-motion 백스톱.
+- 빈 상태 `components/State`(`kind='empty'` · `next` 필수), reduced-motion 백스톱. ⚠ 옛 `EmptyState` 는 E17 에서 삭제됐다.
 
 > 더 나은 표본이 생기면 이 문서의 앵커를 갱신한다(골든은 살아있는 기준).

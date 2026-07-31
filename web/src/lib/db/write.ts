@@ -71,9 +71,51 @@ export function lastParity(): ParityReport {
    기준선-세우기(`applyPull`)와 메모리-반영(`applyMerged`) 사이 동안 flush 를 **미룬다**. */
 let _mergeApplyPending = false;
 
-/** 병합 반영 창 시작 — `applyPull` 이 기준선을 세운 직후(같은 `runExclusive` 안) 켠다. */
+/**
+ * 병합 반영 창 시작 — `applyPull` 이 기준선을 세운 직후(같은 `runExclusive` 안) 켠다.
+ *
+ * ⚠⚠ **이 플래그는 불리언이라 중첩되지 않는다 — 그리고 중첩이 실제로 났었다(H8 · 2026-07-31).**
+ * `runSync` 와 `restoreConflict` 가 둘 다 창을 열고 둘 다 `finally` 에서 무조건 닫는데 겹침
+ * 가드를 공유하지 않아, 안쪽 finally 가 바깥 창을 조기에 닫고 그 틈으로 flush 가 통과했다.
+ * 처방은 카운터가 아니라 **직렬화**다(`store/syncController.ts` 의 `exclusiveMerge`) — 무조건
+ * 닫는 방어망이 C1 의 안전장치라 카운터로 바꾸면 그 방어망이 남의 창을 감산한다.
+ *
+ * 여기 있는 것은 그 처방의 **집행자**다: 이미 열린 창을 또 열면 게이트를 우회한 새 경로가
+ * 생겼다는 뜻이므로 시끄럽게 보고한다(관측 없는 규율은 다음 리팩터에서 조용히 되돌아간다).
+ */
 export function beginMergeApply(): void {
+  if (_mergeApplyPending) {
+    /* 삼키지 않는다 — 그러나 던지지도 않는다(병합 도중 예외는 워터마크·기준선 계약을 흔든다).
+       관측만 하고 창은 열린 채로 둔다(닫히지 않은 쪽이 안전한 방향이다 — flush 를 미룰 뿐이다). */
+    void import('../telemetry').then((m) =>
+      m.reportError(new Error('병합 반영 창이 중첩됐다 — exclusiveMerge 를 우회한 경로가 있다'), 'mergeApply.nested'),
+    );
+  }
   _mergeApplyPending = true;
+}
+
+/**
+ * 병합 반영 창이 닫힐 때까지 **짧게** 기다린다(H9 · 창 닫기 가드 전용).
+ *
+ * ⚠ 왜 필요한가: 병합창에서 `flushNow()` 를 부르면 `writeAndVerify` 가 `deferred:true` 로 즉시
+ * 반환하고 400ms 타이머를 재예약한다. 그런데 `whenSettled()` 는 그 체인 링크가 이미 resolve 됐으므로
+ * **곧바로 통과**하고 창이 파괴된다 — **타이머는 영원히 안 뛴다.** 즉 가드의 존재 이유(비동기 SQL
+ * 쓰기가 잘리는 것을 막는다)가 정확히 이 경우에만 무력화돼 있었다.
+ *
+ * ⚠ 상한을 두는 것이 이 함수의 계약이다. 무한히 기다리면 "인터넷이 죽으면 앱이 안 닫힌다"의
+ * 로컬판이 된다 — 바깥 `installCloseGuard` 가 이미 3초 상한을 걸므로 여기는 그보다 짧아야 한다.
+ */
+export function waitForMergeWindow(timeoutMs = 1200, stepMs = 25): Promise<boolean> {
+  if (!_mergeApplyPending) return Promise.resolve(true);
+  const deadline = Date.now() + timeoutMs;
+  return new Promise<boolean>((resolve) => {
+    const tick = (): void => {
+      if (!_mergeApplyPending) return resolve(true);
+      if (Date.now() >= deadline) return resolve(false);
+      setTimeout(tick, stepMs);
+    };
+    setTimeout(tick, stepMs);
+  });
 }
 
 /** 병합 반영 창 종료 — `applyMerged`(메모리 반영 완료) + `runSync` finally(방어)가 끈다. */

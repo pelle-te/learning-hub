@@ -57,7 +57,35 @@ function syncedSliceChanged(next: AppState, prev: AppState): boolean {
  * ⚠ 병합 결과 적용이 **이 층의 책임**이다 — 안 하면 낡은 메모리가 다음 flush 에서 병합을
  * 덮는다(0단계-E 에서 물린 *낡은 메모리가 복원본을 덮는다*). `lib` 은 zustand 를 모른다.
  */
+/* ⚠⚠ **병합 반영은 한 번에 하나다(H8 · 2026-07-31 `/감사 근본`).**
+
+   `beginMergeApply`/`endMergeApply`(`db/write.ts`)는 **불리언**이라 중첩되지 않는다. 그런데
+   `runSync` 와 `restoreConflict` 는 둘 다 창을 열고 둘 다 `finally` 에서 무조건 닫는데,
+   `restoreConflict` 는 어느 겹침 가드에도 안 들어 있었다. 그래서 `runSync` 가 `commitPullMark`
+   (체인 밖 IPC)를 기다리는 사이 사용자가 "되살리기"를 누르면:
+
+     ① restore 의 `applyPull` 이 창을 다시 켠다 → ② restore 의 finally 가 **먼저** 닫는다
+     → ③ 그 순간 디바운스 flush 가 통과해 *병합-후 기준선* vs *병합-전 메모리* 를 diff 한다
+       (= `write.ts` 의 C-2 절이 기술한 소실 경로)
+     → ④ 이어서 `runSync` 가 **되살리기 이전 스냅샷**으로 `applyMerged` 를 불러 복원값을 되돌리고,
+       다음 flush 가 그 되돌림을 새 스탬프로 써서 **서버까지 밀어올린다.**
+
+   처방으로 카운터를 고르지 않은 이유: 두 호출부가 **무조건 닫는 방어망**을 갖고 있어(그 자체가
+   C1 의 안전장치다) 카운터로 바꾸면 방어망이 남의 창을 감산한다. 겹침을 *세는* 대신 **없앤다** —
+   둘이 한 게이트를 공유하면 중첩이 성립하지 않고, 방어망의 의미도 그대로다.
+   집행자는 `db/write.ts` 의 이중 열림 검출기다(이 게이트를 우회하는 새 경로가 생기면 시끄럽다). */
+let _mergeGate: Promise<unknown> = Promise.resolve();
+function exclusiveMerge<T>(fn: () => Promise<T>): Promise<T> {
+  const next = _mergeGate.catch(() => undefined).then(fn);
+  _mergeGate = next.catch(() => undefined);
+  return next;
+}
+
 export async function runSync(): Promise<SyncResult> {
+  return exclusiveMerge(runSyncInner);
+}
+
+async function runSyncInner(): Promise<SyncResult> {
   try {
     const r = await syncOnce();
     // ⚠ `loadState` 가 아니라 `applyMerged`(C1). `loadState` 는 `pending`(미flush 편집)을 비우고
@@ -102,17 +130,28 @@ export async function runSync(): Promise<SyncResult> {
  * 되살린 값이 LWW 로 이기고, `syncSoon()` 이 다른 기기로도 밀어올린다.
  */
 export async function restoreConflict(shadow: ConflictShadow): Promise<void> {
-  const merged = await applyPull({
-    since: 0,
-    upto: 0,
-    rows: [{ tbl: shadow.tbl, key: shadow.key, data: shadow.localData, updatedAt: nextStamp() }],
-    tombstones: [],
+  /* ⚠ `runSync` 와 **같은 게이트**를 탄다(H8) — 위 `exclusiveMerge` 주석이 이유를 갖는다. */
+  await exclusiveMerge(async () => {
+    const merged = await applyPull(
+      {
+        since: 0,
+        upto: 0,
+        rows: [{ tbl: shadow.tbl, key: shadow.key, data: shadow.localData, updatedAt: nextStamp() }],
+        tombstones: [],
+      },
+      /* ⚠⚠ **`echo:false` 가 이 함수의 정합성 전부다(C1).** 이건 원격 수신이 아니라 *로컬 편집*을
+         검증된 병합 기계에 태운 것이다. 에코 억제표에 적히면 바로 다음 아웃박스 스캔이 이 행을
+         **키·스탬프 정확 일치**로 건너뛰고 워터마크가 그 위로 전진해, 되살린 값이 다른 기기에
+         **영원히 안 간다**(재시작해도 안 낫는다). 근거·실패 시나리오는 `merge.ts` 의
+         `ApplyPullOptions.echo` 주석이 소유한다. */
+      { echo: false },
+    );
+    try {
+      if (merged.state) useApp.getState().applyMerged(merged.state);
+    } finally {
+      endMergeApply(); // C1 방어망 — applyPull 이 연 병합-적용 창을 반드시 닫는다(실패 경로 포함)
+    }
   });
-  try {
-    if (merged.state) useApp.getState().applyMerged(merged.state);
-  } finally {
-    endMergeApply(); // C1 방어망 — applyPull 이 연 병합-적용 창을 반드시 닫는다(실패 경로 포함)
-  }
   useConflicts.getState().dismiss(shadowId(shadow)); // 해소됨
   syncSoon(); // 되살린 값을 다른 기기로 전파
 }
@@ -243,6 +282,24 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   };
   window.addEventListener('focus', onFocus);
 
+  /* ── ⚠⚠ **온라인 복귀 트리거(H1 · 2026-07-31 `/감사 근본`)** ─────────────────────────────
+     W24 가 5분 폴백 폴링을 은퇴시키면서 **"네트워크가 스스로 돌아오는 구간"을 덮던 마지막
+     장치가 사라졌다.** 남은 트리거는 전부 *사람이 뭔가 해야* 발화한다 — 창을 다시 보거나(`focus`,
+     게다가 최소 간격 5분) 편집을 하거나. 그래서 이런 상태가 성립했다:
+
+       PC 를 켜 둔 채 wifi 가 끊긴다 → 편집한다(로컬 저장 OK · push 실패) → wifi 가 돌아온다
+       → 창 포커스를 잃었다 돌아오지 않고 추가 편집도 없다 → **push 재시도가 0회**
+
+     그리고 화면이 서로 모순된 두 문장을 동시에 말했다: `OnlineStatus` 는 "온라인으로 돌아왔어요",
+     원장은 "동기화 실패 — 편집 N건이 대기 중이에요". 앱 전체에서 `online` 을 듣던 두 곳
+     (`components/OnlineStatus`·`store/useSyncLedger`)은 **표시 전용**이라 아무것도 재개하지 않았다.
+
+     ⚠ 최소 간격을 두지 않는다 — `focus` 와 성격이 다르다. 이건 **전이 이벤트**라 연결이 실제로
+       끊겼다 붙을 때만 발화한다(alt-tab 처럼 반복되지 않는다) → W24 가 지키려던 Workers 일일
+       요청 예산을 사실상 안 쓴다. 겹침은 `run()` 자신의 `_running` 가드가 막는다. */
+  const onOnline = (): void => run();
+  window.addEventListener('online', onOnline);
+
   const onHide = (): void => run();
   if (onPagehide) window.addEventListener('pagehide', onHide);
 
@@ -286,6 +343,7 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   return () => {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('focus', onFocus);
+    window.removeEventListener('online', onOnline);
     if (onPagehide) window.removeEventListener('pagehide', onHide);
     unsub?.();
     if (pollId) clearInterval(pollId);

@@ -178,6 +178,20 @@
 /* 발광 효과 줄이기(설정 토글, data-fx=lite) — reduced-motion과 동일하게 모든 애니/전이를 무력화한다.
    상시 도는 발광 펄스·블러 오라의 매 프레임 재합성을 멈춰 GPU/페인트 부담을 크게 줄인다(정적 외형은 유지).
    풀스크린 오로라 셰이더(AmbientCanvas)는 CSS로 못 멈추므로 JS에서 data-fx를 보고 별도로 정지한다. */
+/* ⚠⚠ **`::view-transition-*` 는 `*` 에 매치되지 않는다(H18 · 2026-07-31 `/감사 근본`).**
+   위 reduced-motion 블록은 이 넷을 **명시적으로** 끄는데(그 자리 주석이 "react-router 의
+   viewTransition 은 reduced-motion 을 안 본다"고 경고한다) lite 블록은 `*` 만 덮고 있었다.
+   결과: OS 설정을 안 켠 채 앱 설정만 켠 사용자는 탭을 바꿀 때마다 **전화면 슬라이드를 그대로**
+   봤다 — 이 앱에서 가장 큰 움직임이다. 이 블록 헤더가 스스로 _"모든 애니/전이를 무력화한다"_ 고
+   적고 있어 더 조용했다(선언과 집행이 갈린 자리). H19 가 `lib/motion.ts` 에서 잡은 결함의 CSS 쪽 잔여. */
+html[data-fx='lite'] ::view-transition-old(root),
+html[data-fx='lite'] ::view-transition-new(root),
+html[data-fx='lite']:root[data-vt]::view-transition-old(root),
+html[data-fx='lite']:root[data-vt]::view-transition-new(root),
+html[data-fx='lite'] ::view-transition-group(atlas-hero) {
+  animation: none;
+}
+
 html[data-fx='lite'] *,
 html[data-fx='lite'] *::before,
 html[data-fx='lite'] *::after {
@@ -187,4 +201,6 @@ html[data-fx='lite'] *::after {
   /* reduced-motion과 같은 이유로 delay도 0(스태거 진입이 fill:both로 투명하게 비는 것 방지). */
   animation-delay: 0s !important;
   transition-delay: 0s !important;
+  /* H18 — reduced-motion 블록엔 있고 여기만 빠져 있던 축(부드러운 스크롤도 움직임이다). */
+  scroll-behavior: auto !important;
 }

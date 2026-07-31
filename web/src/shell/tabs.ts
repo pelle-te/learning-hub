@@ -431,3 +431,22 @@ export function orderedTabs(): TabMeta[] {
 export function tabByKey(key: string): TabMeta | undefined {
   return TAB_BY_KEY.get(key);
 }
+
+/* ⚠⚠ **탭이 아닌 라우트에도 이름이 있다(H27 · 2026-07-31 `/감사 근본`).**
+
+   `App` 과 `docTitle` 은 라벨을 `tabByKey(첫 세그먼트)` 로 뽑는데, W12 가 신설한 `/subject/:id`
+   와 미니 모드 `/mini` 는 **탭이 아니다** → `undefined` → 라우트 아나운서가 **무음**이고 문서
+   제목이 `러닝허브` 로 고정된다. `/subject/:id` 는 ⌘K 챕터 히트의 **착지 화면**이라 실제 통행량이
+   있는 경로다(W12 가 만든 값이 그 길로 흐른다).
+
+   ⚠ 이걸 `TABS` 에 넣어 풀지 않는다 — 그러면 레일·`[ ]` 링·`g` 키·`primary` 불변식이 전부
+   따라와서, "탭이 아닌 것"을 탭으로 만들어 IA 를 오염시킨다. 이름만 필요한 자리에는 이름만 준다. */
+const ROUTE_LABELS: Record<string, string> = {
+  subject: '과목',
+  mini: '집중',
+};
+
+/** 라우트 첫 세그먼트 → 사람이 읽는 이름. 탭이면 탭 라벨, 아니면 위 표, 없으면 빈 문자열. */
+export function routeLabelOf(key: string): string {
+  return TAB_BY_KEY.get(key)?.label ?? ROUTE_LABELS[key] ?? '';
+}

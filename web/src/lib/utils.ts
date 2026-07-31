@@ -103,13 +103,23 @@ export function refineItemColors(state: AppState): AppState {
  *  기본은 주간 과목; partial로 source/mode/weeklyHours/dailyMin/chapters 등을 덮어쓴다.
  *  ⚠ 색은 인자로 받지 않는다(0단계-G) — id의 파생물이라 **병합 후** 유도해야 한다.
  *  호출부가 partial.id로 id를 지정하는 경우가 있어(Items.tsx: 시트를 바로 열려고 id를 미리 만든다)
- *  spread 뒤의 최종 id로 계산하지 않으면 저장 색과 부팅 시 재유도 색이 어긋난다. */
+ *  spread 뒤의 최종 id로 계산하지 않으면 저장 색과 부팅 시 재유도 색이 어긋난다.
+ *
+ *  ⚠⚠ **목표(`weeklyHours`)의 기본값은 0 이다(H20 · 2026-07-31 `/감사 근본`).**
+ *  종전 기본이 `3` 이었고, 그것 때문에 **과목을 만드는 행위 자체가 온보딩 2단계(목표 설정)를
+ *  충족**시켜 `Today` 의 셋업 스크림이 영구히 걷혔다(W1). W1 은 그 결함을 `Items.addItem`
+ *  **한 호출부에서만** 고쳤는데, 판정식(`SetupGuide.setupComplete`)의 계약은
+ *  _"사용자가 정한 것만 본다"_ 라 호출부가 아니라 **생성부의 성질**이다 — 그래서
+ *  `Degree.tsx` 로 수강 과목을 먼저 추가하는 경로에는 팬텀 3h/주가 그대로 붙어 같은 결함이
+ *  살아 있었다. 기본을 0 으로 내리면 **모든 문**이 한 번에 닫히고, 값이 필요한 호출부는
+ *  자기가 명시한다(`VaultPanel` 의 `weeklyHours: 2` 처럼).
+ *  ⚠ 판정식은 건드리지 않는다 — 비틀면 "3을 직접 고른 사용자"까지 미완으로 읽는다. */
 export function makeItem(partial: Partial<Item> & { name: string }): Item {
   const merged = {
     id: rid(),
     source: '직접',
     mode: 'weekly',
-    weeklyHours: 3,
+    weeklyHours: 0,
     dailyMin: 30,
     deadline: '',
     chapters: [],
@@ -223,6 +233,12 @@ export function round1(v: number): number {
  * (뒤엣것은 주석이 _"배분 보드 toH와 같은 규칙"_ 이라 **복제임을 스스로 적어 두었다** — 한쪽
  * 반올림만 바뀌면 주석은 계속 "같다"고 말하는 채로 값이 갈린다).
  * 계획·과목·캘린더·복습이 한 화면에 섞여 보이는 수치라 표기 불일치가 매일 눈에 띄던 자리다.
+ *
+ * ⚠⚠ **그 수렴이 `src/phone/` 을 건너뛰었다(H26 · 2026-07-31 `/감사 근본`).** 데스크톱 잔여는
+ * 0 인데 폰에 ②와 그 사촌이 그대로 남아 있었다(`TodayView` 의 `.toFixed(1)}h` · `DayView` 의
+ * `Math.round(min/6)/10}h`) → 4시간이 데스크톱 `4h`·폰 `4.0h`. **위 주석이 "이름으로 지목해
+ * 고쳤다"고 적는 동안 한 엔트리가 통째로 범위 밖이었다** — 설계서 §9-4 의 "화면은 갈라도 규칙은
+ * lib 하나"가 폰에서 부분 이행이던 자리들 중 하나다.
  */
 export function hNum(min: number): string {
   return String(round1(min / 60));
@@ -231,6 +247,19 @@ export function hNum(min: number): string {
 /** 시간(시간 단위) 표시 — 분으로 안 다루도록. `hNum` + 단위. */
 export function hLabel(min: number): string {
   return hNum(min) + 'h';
+}
+
+/**
+ * 계획 블록의 표시 색 — **파생 지점은 하나다**(절대규칙 #3 · H26 · 2026-07-31 `/감사 근본`).
+ *
+ * ⚠ 폴백 규칙이 두 벌이라 같은 데이터가 두 색으로 그려지고 있었다: 데스크톱은 모의 블록을
+ * `var(--bad)` 로 칠하는데(`sid === 'mock'` 이라 과목이 없다) 폰 `DayView` 는 `colorForId(it.sid)`
+ * 를 무조건 불러 **`colorForId('mock')` 의 임의 hue** 를 칠했다. 색은 저장값이 아니라 파생물이고
+ * (절대규칙 #3) 파생이 두 곳이면 그 순간 규칙이 둘이 된다 — `graphData.ts` 가 같은 이유로 이미
+ * 이 형태다.
+ */
+export function blockColor(it: { type?: string; sid: string; color?: string }): string {
+  return it.type === 'mock' ? 'var(--bad)' : it.color || colorForId(it.sid);
 }
 
 /** 0~1 비율 → `"42%"`. `ledger`·`mastery` 3파일에 4벌로 복제돼 있던 것(가드 유무만 달랐다).

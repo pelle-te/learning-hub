@@ -15,8 +15,8 @@
 > **실행 경로 = 셸 하나, 저장 백엔드 = 둘.** 이 둘을 헷갈리지 말 것.
 >
 > - **배포**는 Tauri 셸뿐이다. 옛 브라우저 실행 경로(serve.js + Chrome `--app`)는 2단계-E에서 **은퇴**했다 — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
-> - ⚠ **저장 백엔드가 셋이다**(C-6): 셸=SQLite(plugin-sql) · **폰=SQLite(wasm+OPFS, 워커)** · dev/트랙 A=localStorage. 폰 것은 **`enableBrowserDb()` 로 명시 opt-in** 이고 폰 진입점만 부른다 — 무조건 켜면 dev 와 스냅샷 59장이 통째로 백엔드를 갈아탄다. 그래서 저장 경로의 조건은 `isTauri()` 가 아니라 **`isSqlitePrimary()`** 다(폰은 Tauri 가 아닌데 SQLite 가 정본 — 이걸 틀리면 폰 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**).
-> - **`npm run dev` 와 트랙 A(스냅샷 59장)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 산출물 5종만 invoke 스텁으로 목업한다.
+> - ⚠ **저장 백엔드가 셋이다**(C-6): 셸=SQLite(plugin-sql) · **폰=SQLite(wasm+OPFS, 워커)** · dev/트랙 A=localStorage. 폰 것은 **`enableBrowserDb()` 로 명시 opt-in** 이고 폰 진입점만 부른다 — 무조건 켜면 dev 와 트랙 A 시각 베이스라인이 통째로 백엔드를 갈아탄다. 그래서 저장 경로의 조건은 `isTauri()` 가 아니라 **`isSqlitePrimary()`** 다(폰은 Tauri 가 아닌데 SQLite 가 정본 — 이걸 틀리면 폰 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**).
+> - **`npm run dev` 와 트랙 A(시각 베이스라인 전량)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 산출물 5종만 invoke 스텁으로 목업한다.
 > - ⚠ **오리진이 갈려 데이터는 자동 이관되지 않는다.** Chrome에서 쓰던 데이터가 있으면 반드시 기존 앱에서 내보내기 → 셸에서 가져오기. 셸 자신의 localStorage(1단계에 쓰던 것)는 **첫 부팅에 SQLite로 1회 자동 이관**된다(`initAppStore`).
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
@@ -64,7 +64,7 @@ npm run e2e:a11y # a11y — axe-core 로 렌더된 DOM 을 검사(`serious`+`cri
 npm run e2e:motion # 모션 — **중간 프레임** 시각 회귀(`e2e/motion.spec.ts` · 2026-07-29 신설).
                  #   ⚠ `e2e` 안에 포함돼 있다(별도로 돌릴 때만 이 스크립트). 여기 적는 이유는
                  #   **정지 프레임 게이트가 모션 층을 원리적으로 못 보기** 때문 — `visual.spec.ts` 는
-                 #   reducedMotion 을 명시하므로 duration·키프레임·이징을 어떻게 바꿔도 122장이
+                 #   reducedMotion 을 명시하므로 duration·키프레임·이징을 어떻게 바꿔도 시각 스냅샷이
                  #   전부 통과한다(E24 에서 실증: 어휘 32종→20종 · 길이 15종→토큰 8종에 **정지
                  #   스냅샷은 한 장도 안 움직였다**). 애니를 0ms 에 얼리고 `currentTime` 을 직접
                  #   세워 찍는다.
@@ -90,7 +90,11 @@ npm run e2e:shell # 트랙 B — 빌드된 exe 를 띄워 WebView2 안을 검사
 - ⚠ **`verify` 녹색 ≠ 완료.** SCA·a11y·시각회귀는 `verify` 밖이다. 완료 판정은 `npm run gate`(full) 로 한다.
 
 ```
-cargo test --manifest-path src-tauri/Cargo.toml   # 루트에서 — Rust 유닛 + 실물 통합(73개 · ~4초)
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # 루트에서 — Rust 유닛 + 실물 통합(~4초)
+                 # ⚠ **이제 `npm run gate`(full) 안에 있다**(F6 · 2026-07-31 `/감사 근본`). 종전엔
+                 #   게이트가 `tauri:build`(수 분)와 트랙 B(앱 기동)는 돌리면서 3.6초짜리 이걸 빼서,
+                 #   가장 비싼 Rust 단계를 넣고 가장 싼 것을 빼는 역전이었다(CI 는 이미 돌리고 있었다).
+                 #   여기 남기는 이유는 **단독 실행**을 위해서다 — 개수는 적지 않는다(손베낌은 표류한다).
 ```
 
 ```

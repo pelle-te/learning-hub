@@ -4,6 +4,7 @@
    ① 오늘 탭 KPI가 읽도록 state._ankiLive로 write-through ② 주별 due 스냅샷(retentionLog)은
    앱 데이터라 recordRetentionSnapshot으로 persist(설계도 §1-B).
 ============================================================ */
+import LiveRegion from '@/components/LiveRegion';
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
@@ -220,8 +221,10 @@ export function AnkiPanel() {
           실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765). <b>카드 생성</b>: 그동안 적은 3문장 요약·반복
           오답을 import용 초안(.txt)으로 — Anki에서 추리고 손질(큐레이션).
         </div>
+        {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
+        <LiveRegion message={err ?? ''} assertive />
         {err && (
-          <div className="ds-warnbox" role="alert" style={{ marginTop: 8 }}>
+          <div className="ds-warnbox" style={{ marginTop: 8 }}>
             {err}
           </div>
         )}

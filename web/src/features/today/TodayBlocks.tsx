@@ -11,7 +11,7 @@ import { ui } from '@/shell';
 import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import { blankResultFor, clearBlankResult } from '@/lib/methodology';
-import { toHM, hLabel, fmt, todayISO, colorForId } from '@/lib/utils';
+import { toHM, hLabel, fmt, todayISO, blockColor } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import type { ScheduleItem } from '@/lib/types';
 import { BLOCK_STAGES } from './consts';
@@ -176,10 +176,7 @@ export function TodayBlocks() {
                 ⚠ 폴백은 **id 해시 파생**이다(H8 · 2026-07-30). 종전 `|| '#6ea8fe'` 는 `colorForId`
                 가 원리적으로 만들 수 없는 색이라(OKLCH 고정 L·C 램프 밖) 색이 비는 순간 이 스와치만
                 다른 언어로 튄다 — `graph/graphData.ts` 가 같은 이유로 이미 이 형태다(절대규칙 #3). */}
-            <span
-              className="ds-swatch"
-              style={{ background: it.type === 'mock' ? 'var(--bad)' : it.color || colorForId(it.sid) }}
-            />
+            <span className="ds-swatch" style={{ background: blockColor(it) }} />
             <b className={done ? 'line-through opacity-60' : ''}>{it.name}</b>
             {it.chapters && it.chapters.length > 0 && (
               <span className="ds-muted ds-tiny"> · {it.chapters.join(', ')}</span>

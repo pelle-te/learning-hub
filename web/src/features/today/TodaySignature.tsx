@@ -11,7 +11,7 @@ import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
-import { useSchedule, selectTodayFocus } from '@/store/selectors';
+import { useSchedule, selectTodayFocus, selectRiskSummary } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
@@ -28,7 +28,6 @@ import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue, ankiFreshness } from '@/lib/anki';
 import { pickRetrieval, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { frontierNext } from '@/lib/knowledge';
-import { riskSummary } from '@/lib/spacedReview';
 import { onThisDay } from '@/lib/records';
 import { dayShape } from '@/lib/insights';
 import type { AppState } from '@/lib/types';
@@ -88,7 +87,7 @@ const S = {
   actions: 'mt-actions-top flex items-center gap-4',
   cta: 'relative inline-flex cursor-pointer items-baseline gap-2.5 overflow-hidden rounded-base! border-0! px-6.5! py-3.75! font-extrabold! tracking-cta after:pointer-events-none after:absolute after:inset-0 after:bg-[image:var(--bg-cta-shimmer)] after:[transform:var(--cta-shim-off)] after:transition-transform after:duration-slow after:ease-[var(--ease)] hover:after:[transform:var(--cta-shim-on)] focus-visible:[outline-offset:var(--cta-outline-offset)]! motion-reduce:after:transition-none',
   ctaFill:
-    'bg-[image:var(--acc-fill)]! text-on-acc! shadow-[var(--shadow-cta)] hover:-translate-y-px hover:brightness-[1.07] hover:shadow-[var(--shadow-cta-hover)]',
+    'bg-[image:var(--acc-fill)]! text-on-acc! shadow-[var(--shadow-cta)] hover:-translate-y-px hover:brightness-emph hover:shadow-[var(--shadow-cta-hover)]',
   ctaRun:
     'bg-[var(--bg-cta-run)]! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
   ctaGhost:
@@ -371,7 +370,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   }
   // A4 — 완료 후 다음 동력: 내일 첫 학습 + 복습 위험(개념 간격반복).
   const tmrNew = byDs[iso(addDays(today, 1))]?.items.find((it) => it.type === 'new');
-  const risk = riskSummary(state, res.days || [], ds);
+  /* ⚠ 메모된 셀렉터를 쓴다(S6 · 2026-07-31 `/감사 근본`) — `selectRiskSummary` 가 정확히 이 호출을
+     위해 존재한다(`store/selectors.ts` 주석: _"사이드바가 유일한 무조건 호출부였다"_ 의 재발).
+     이 컴포넌트는 집중 세션 중 `useAdaptiveTick(1000)` 으로 **초당 리렌더**하므로 전수 스캔이
+     초당 한 번 돌고 있었다. 캐시 키가 `reviewTouches`·볼트 앵커 버전까지 포함하므로 값도 더 정확하다. */
+  const risk = selectRiskSummary(state);
   const riskN = risk.overdue + risk.due;
   // I-8 — 프런티어 다음 추천(지식엔진 frontier). 백엔드 사용 가능 시에만 페치(mastery와 KNOWLEDGE_KEY 캐시 공유,
   // 신규 IO 최소). 후보 없거나 미연결이면 frontier=null → 렌더 안 함.
@@ -557,6 +560,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       /* ── E7 한 양 = 한 자리(2026-07-29) ────────────────────────────────
          평일 낮 이 화면의 상시 숫자 26개 중 다음 행동을 바꾸는 것은 5개인데, **6개 양이
          15자리에서** 렌더되고 있었다. 여기서 뗀 둘은 각각 이미 소유자가 있다:

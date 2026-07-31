@@ -261,7 +261,16 @@ describe('C1 — 최초 이관 스탬프 분산', () => {
     expect(nextStamp()).toBeGreaterThan(got[6]!);
   });
 
-  it('⚠ 단일 스탬프 그룹이 상한을 넘으면 push 가 blocked 된다 — 이관이 만들면 안 되는 형태', async () => {
+  /* ⚠⚠ **이 케이스가 뒤집혔다(H2 · 2026-07-31 `/감사 근본`).**
+
+     종전 단언은 `blocked` 였고 제목이 _"이관이 만들면 안 되는 형태"_ 였다 — 즉 **결함을
+     기대값으로 굳혀** 두고, 회피는 아래 `chunkedStamp` 규율(= 이관 경로의 자발적 협조)에만
+     맡기고 있었다. 그런데 그 규율을 안 지키는 생산자가 이미 있다: `006_backfill_stamps.sql` 이
+     7개 표의 레거시 행 전부에 `updated_at = 1` **상수 하나**를 찍는다(실 DB 에 실재).
+
+     즉 "만들면 안 되는 형태"가 **이미 만들어져 있었고**, 그 상태가 되면 워터마크가 0 에서 안
+     움직여 그 기기의 모든 편집이 영원히 안 올라간다. 지금은 전송 층이 조각내어 통과시킨다. */
+  it('⚠ 단일 스탬프 그룹이 상한을 넘어도 push 가 통과한다 — 006 백필이 실제로 만드는 형태다', async () => {
     const n = MAX_BATCH_ITEMS + 100;
     tables.set(
       'completions',
@@ -271,8 +280,9 @@ describe('C1 — 최초 이관 스탬프 분산', () => {
     const t = { batches: [] as unknown[], push: async (b: unknown) => void (t.batches as unknown[]).push(b) };
 
     const res = await pushOutbox(t, { sleep: noSleep });
-    expect(res.status).toBe('blocked'); // 스키마 상한에 걸린다 — 이 형태가 결함이었다
-    expect(await readWatermark()).toBe(0); // 전진하지 못한다(영구 재차단)
+    expect(res.status, '한 그룹이 크다는 이유로 기기 전체가 영구 차단되면 안 된다').toBe('pushed');
+    expect(res.sent).toBe(n);
+    expect(await readWatermark()).toBeGreaterThanOrEqual(100); // 전 조각 성공 뒤 한 번 전진
   });
 
   it('청크 스탬프로 쓰면 상한 넘는 이관도 여러 배치로 전부 나간다(blocked 없음)', async () => {
@@ -503,5 +513,90 @@ describe('에코 억제 — 방금 받은 행을 되돌려 올리지 않는다(H
     seedStamp(200);
     _resetMergedEcho(); // 앱 재시작과 같은 상태
     expect((await collectOutbox(100))!.rows).toHaveLength(1);
+  });
+});
+
+/* ============================================================
+   ⚠⚠ H2(2026-07-31 `/감사 근본`) — **한 스탬프 그룹이 상한을 넘을 때.**
+
+   `capBatch` 는 정확성 우선으로 그 그룹을 통째로 담고(안 그러면 `cut`=0 → 빈 배치 + 워터마크
+   정지 = 영구 교착) `oversized:true` 로 알린다. 그런데 `collectOutbox` 가 그 플래그를 버리고
+   `parseOutboxBatch` 가 `total > 상한` 을 **거부**해 `blocked` 가 됐다 — 워터마크가 안 움직이니
+   그 기기의 **모든 편집이 영원히 안 올라가고** 자가복구 경로도 없다.
+
+   생산자는 가설이 아니다: `006_backfill_stamps.sql` 이 7개 표의 레거시 행 전부에 `updated_at = 1`
+   **상수 하나**를 찍는다(단일 그룹). 실 사용자 DB 에 그 그룹이 실재한다(18행 — 상한 미만이라
+   아직 안 터졌을 뿐이다).
+
+   처방은 마이그레이션이 아니라 **청크 전송**이다: fence 계약("(since, upto] 안")은 부분집합도
+   만족하고, 워터마크는 마지막 조각 뒤 **한 번만** 전진한다(중간 실패 시 재전송은 LWW 멱등).
+============================================================ */
+describe('H2 — 단일 스탬프 그룹이 상한을 넘어도 올라간다', () => {
+  const recorder = (): CloudTransport & { batches: { rows: unknown[]; tombstones: unknown[] }[] } => {
+    const batches: { rows: unknown[]; tombstones: unknown[] }[] = [];
+    return { batches, push: async (b) => void batches.push({ rows: b.rows, tombstones: b.tombstones }) };
+  };
+  /** 006 백필이 만드는 모양 — 전부 같은 스탬프(1). */
+  const legacy = (n: number): void => {
+    tables.set(
+      'settings',
+      Array.from({ length: n }, (_, i) => ({ key: `k${i}`, value: '{}', updated_at: 1 })),
+    );
+  };
+
+  it('⚠ 상한을 넘는 단일 그룹이 `blocked` 로 죽지 않는다', async () => {
+    legacy(MAX_BATCH_ITEMS + 20);
+    seedStamp(100);
+    const t = recorder();
+
+    const res = await pushOutbox(t, { sleep: noSleep });
+    expect(res.status, '한 그룹이 크다는 이유로 기기 전체가 영구 차단되면 안 된다').toBe('pushed');
+    expect(res.sent).toBe(MAX_BATCH_ITEMS + 20);
+  });
+
+  it('조각마다 상한을 지킨다 — 서버가 받을 수 있는 크기여야 한다', async () => {
+    legacy(MAX_BATCH_ITEMS + 20);
+    seedStamp(100);
+    const t = recorder();
+
+    await pushOutbox(t, { sleep: noSleep });
+    expect(t.batches.length).toBeGreaterThan(1);
+    for (const b of t.batches) expect(b.rows.length + b.tombstones.length).toBeLessThanOrEqual(MAX_BATCH_ITEMS);
+    // 쪼개도 **하나도 빠지지 않는다**.
+    expect(t.batches.reduce((n, b) => n + b.rows.length, 0)).toBe(MAX_BATCH_ITEMS + 20);
+  });
+
+  it('⚠ 중간 조각이 실패하면 워터마크가 전진하지 않는다 — 다음 시도가 그룹 전체를 재개한다', async () => {
+    legacy(MAX_BATCH_ITEMS + 20);
+    seedStamp(100);
+    let n = 0;
+    const flaky: CloudTransport = {
+      push: async () => {
+        n += 1;
+        if (n >= 2) throw new Error('두 번째 조각에서 끊김');
+      },
+    };
+
+    const res = await pushOutbox(flaky, { sleep: noSleep, maxAttempts: 2 });
+    expect(res.status).toBe('failed');
+    expect(await readWatermark(), '부분 전송으로 워터마크가 전진하면 나머지가 조용히 유실된다').toBe(0);
+  });
+
+  it('조각 하나가 영구 실패면 즉시 끊는다(백오프를 헛돌리지 않는다)', async () => {
+    legacy(MAX_BATCH_ITEMS + 20);
+    seedStamp(100);
+    const dead: CloudTransport = { push: async () => Promise.reject(new PermanentPushError('한도 소진')) };
+
+    const res = await pushOutbox(dead, { sleep: noSleep });
+    expect(res.status).toBe('blocked');
+    expect(res.error).toBe('한도 소진');
+  });
+
+  it('평소(상한 이하)에는 조각이 하나다 — 종전 거동 그대로', async () => {
+    legacy(3);
+    seedStamp(100);
+    const t = recorder();
+    await pushOutbox(t, { sleep: noSleep });
+    expect(t.batches).toHaveLength(1);
   });
 });

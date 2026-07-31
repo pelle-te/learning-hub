@@ -41,6 +41,52 @@ export function cardSpeech(item: RunCard): { badge: string; subject: string } {
   return { badge, subject: `${item.ch.subject} · ${item.ch.chapter}` };
 }
 
+/**
+ * 챕터 카드가 **왜 돌아왔는지** 한 문단으로 말한다(H14 · 2026-07-31 `/감사 근본`).
+ *
+ * ## ⚠ 여기 있는 이유 — 같은 함수가 두 번째로 갈렸다
+ *
+ * 결정로그가 `chapterCopy` 2벌로 이미 한 번 물렸고, H13 이 그 교훈으로 **배지**만 `cardSpeech`
+ * 로 올렸다. 본문은 두고 갔고 — 그 사이 W2 가 데스크톱에만 **`fromVault` 분기**를 더해 다시
+ * 갈렸다. 관측 가능한 결과: 볼트 유래 앵커 챕터가 폰에서는 앱 인출 기록과 **같은 말**로 떴다.
+ * 그건 `lib/vaultAnchors.ts` 가 _"UI 가 배지로 구분한다"_ 고 적어 둔 계약을 폰이 조용히 깨는
+ * 것이고, 부모(`벌트DB.py`)가 _"라이브 관측이 흐르면 이 지표는 폴백으로 강등돼야 한다"_ 고
+ * 적은 값을 앱이 승격시키는 셈이다.
+ *
+ * 설계서 §9-4 의 계약은 _"화면은 갈라도 규칙(문구·판정·실패 처리)은 `lib/` 하나"_ 다.
+ * 문구는 규칙이다.
+ *
+ * ⚠ 강조(`<b>`)를 담지 않는다 — 마크업은 화면의 것이다. 문장 자체가 이미 그 사실을 말한다.
+ */
+export function chapterCopy(ch: ChapterReview): { badge: string; age: string; body: string } {
+  if (ch.maintenance) {
+    if (!ch.lastDs)
+      return {
+        badge: '유지',
+        age: '',
+        body: '끝낸 챕터인데 마지막으로 본 날이 기록에 없어요. 한 번 인출하면 그때부터 유지 주기가 잡힙니다.',
+      };
+    return {
+      badge: '유지',
+      age: ` · ${ch.daysSince}일 방치`,
+      body: `끝낸 챕터예요. 마지막으로 본 지 ${ch.daysSince}일(${ch.lastDs}) — 유지 인출로 붙잡아 둡니다.`,
+    };
+  }
+  const badge = ch.risk === 'overdue' ? '많이 밀림' : '복습 때';
+  const age = ` · ${ch.daysSince}일 방치`;
+  if (ch.fromVault)
+    return {
+      badge,
+      age,
+      body: `볼트 기록으로는 ${ch.lastDs}에 검증했고 그 뒤 앱에 인출 기록이 없어요(${ch.daysSince}일). 한 번 인출하면 그때부터 앱 자신의 앵커가 잡힙니다.`,
+    };
+  return {
+    badge,
+    age,
+    body: `배웠지만 ${ch.daysSince}일 안 봤어요(마지막 ${ch.lastDs}). 지금 인출해 망각곡선을 리셋하세요.`,
+  };
+}
+
 /** 밀린 챕터 상한 — 한 세션에 몰아넣지 않는다(나머지는 다음 세션으로 자연 이월). */
 export const REVIEW_CHAPTER_CAP = 12;
 /** 유지(끝낸 챕터) 상한 — **세션당 2장**(N-10). 진행 중 복습이 주(主)이고 유지는 꼬리다.

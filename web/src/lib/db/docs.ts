@@ -27,6 +27,7 @@ import { isTauri } from '../isTauri'; // ⚠ 부팅 경로 — 초소형 모듈�
 import { execDb, isSqlitePrimary, selectDb } from './sqlite';
 import { runExclusive } from './write';
 import { nextStamp } from './stamp';
+import { markDbFallback, setSaveFallback } from './fallback'; // C2 — 저작물 쓰기 실패의 표면화
 
 /** SQLite 로 옮긴 키. 여기 없는 키는 `docGet`/`docSet` 이 localStorage 로 그대로 흘린다 —
  *  `lh_ui_v1`(테마·액센트)은 **기기별 설정**이라 일부러 안 옮겼다(폰은 폰의 설정을 쓴다).
@@ -125,6 +126,26 @@ export function docSet(key: string, value: string): boolean {
     void runExclusive(() => execDb(DOC_UPSERT, [key, value, nextStamp()])).then((ok) => {
       if (!ok) {
         console.error('[docs] 저장 실패:', key);
+        /* ⚠⚠ **여기가 침묵이었다(C2 · 2026-07-31 `/감사 근본`).** 위 주석이 든 근거
+           _"메모리엔 있어 화면은 정상이고, **다음 저장이 다시 시도한다**"_ 는 *다음 저장이 있을
+           때만* 참이다. 그런데 이 파일이 스스로 적듯(`:51`) docs 는 정본이 따로 없는 사용자
+           저작물이고, **독후감을 다 쓰고 앱을 닫는 것이 정상 사용**이다 — 그 경우 마지막 편집은
+           메모리에만 있다가 사라지고 앱은 한마디도 안 한다.
+
+           `AppState` 는 같은 사건을 3중으로 덮는다(임시 사본 → 마커 → 지속 배너). docs 에는
+           그중 아무것도 없었다. 새 표면을 만들지 않고 **그 셋을 그대로 재사용**한다:
+           ① 임시 사본 — 브라우저 경로와 **같은 키**라 회수 경로가 이미 아는 자리다
+           ② 마커 — 다음 부팅에 배너 ②("임시 저장본이 있어요" + 내려받기)가 뜬다
+           ③ 지속 배너 — 지금 화면에 "내보내기로 백업하세요"가 선다(내보내기는 `_reads`·`_local`
+              로 docs 내용을 담으므로 그 CTA 가 실제로 이 저작물을 구한다)
+           ⚠ 실패해도 던지지 않는다 — 저장 실패를 알리다 또 실패하면 그게 최악이다. */
+        try {
+          storage.setItem(key, value);
+        } catch {
+          /* 임시 사본조차 못 남기면 남은 것은 배너뿐이다(아래 두 줄은 계속 돈다). */
+        }
+        markDbFallback();
+        setSaveFallback(true);
         return;
       }
       /* ⚠ **쓰기가 끝난 뒤 메모리 사본을 다시 못박는다(H1 · 2026-07-24 감사).** 병합이 `runExclusive`

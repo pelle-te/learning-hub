@@ -17,7 +17,7 @@ import { type Page } from '@playwright/test';
    아니라서 테스트로 수집되지도 않는다(testMatch 기본값).
 
    ⚠ 이 파일은 **순수 이동**이다(2026-07-25). 값·순서·로직을 한 글자도 바꾸지 않았다 —
-   바꿨다면 스냅샷 59장이 전부 흔들렸을 것이고, 그건 a11y 도입의 대가가 아니다.
+   바꿨다면 트랙 A 시각 베이스라인이 전부 흔들렸을 것이고, 그건 a11y 도입의 대가가 아니다.
 ============================================================ */
 
 export const FIXED = new Date('2026-06-15T09:00:00');
@@ -813,7 +813,7 @@ export async function boot(page: Page, theme: string, seed: object = SEED, at: D
      (네트워크가 아니다 — 설계 §6 이 예고한 재작성). 스텁을 심으면 `isTauri()` 가 참이 되어
      `api.ts` 가 셸 경로를 타고, 그 경로를 여기서 답해 준다.
      ⚠ 다른 커맨드는 **의도적으로 reject** 한다 — 그래야 mock 하지 않은 탭이 지금까지처럼
-     '백엔드 없음' 화면을 찍는다(스냅샷 59장이 원래 그 상태를 담고 있다). */
+     '백엔드 없음' 화면을 찍는다(시각 베이스라인이 원래 그 상태를 담고 있다). */
   await page.addInitScript(
     (fixtures: Record<string, unknown>) => {
       (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
@@ -859,7 +859,7 @@ export async function boot(page: Page, theme: string, seed: object = SEED, at: D
    스냅샷에서 **언제나 `empty` 단계**로만 렌더됐다 → `classifyArtifact` 의 4단계 중 **`loading` 과
    `error` 는 스냅샷이 한 장도 없었다.**
 
-   E17 이 그 두 표면을 `components/State` 로 갈아치웠을 때 시각 게이트 122장이 **전량 통과**했고,
+   E17 이 그 두 표면을 `components/State` 로 갈아치웠을 때 시각 게이트가 **전량 통과**했고,
    그건 "안 바뀌었다"가 아니라 **"본 적이 없다"** 였다. 설계서 §15-4 가 못박은 형태 그대로다:
    _"커버리지 0인 화면은 이식 *전에* 스냅샷부터 만든다."_ 이식이 먼저 끝났으므로, 최소한
    출하 전에 만든다.

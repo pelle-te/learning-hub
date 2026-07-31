@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
-import { todayISO, parseISO, fmt, ddayInfo, mmss } from '@/lib/utils';
+import { todayISO, parseISO, fmt, ddayInfo, mmss, hLabel } from '@/lib/utils';
 import { studyStreak, isDone } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
@@ -152,7 +152,7 @@ export default function TodayView({
             {newBlocks.length}
             <span className="text-xs font-medium text-mut">블록</span>
           </span>
-          <span className="text-2xs text-mut tabular-nums">{(plannedMin / 60).toFixed(1)}h</span>
+          <span className="text-2xs text-mut tabular-nums">{hLabel(plannedMin)}</span>
         </div>
         <button type="button" onClick={() => onGo('review')} className={`${STAT} text-left`}>
           <span className="text-2xs text-mut">복습 대기</span>

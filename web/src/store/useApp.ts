@@ -168,10 +168,18 @@ export const useApp = create<AppStore>()(
         void writeAndVerify(merged).then((r) => {
           /* 미뤘다면 실패가 아니다 — 빌린 큐를 **그 사이 쌓인 것보다 앞에** 돌려놓고(시간 순서
              보존) 재예약한다. `applyMerged` 가 창을 닫으며 이 recipe 들을 병합 스냅샷에 재적용한다. */
-          if (r.deferred) {
+          /* ⚠ **쓰기 실패도 큐를 돌려준다(H10 · 2026-07-31 `/감사 근본`).** 종전엔 `deferred` 만
+             복구해서, 쓰기 실패(`!ok` — 되읽기 불일치·SQL 실패)면 빌린 recipe 가 사라졌다. 그 뒤
+             클라우드 병합이 도착하면 `applyMerged` 가 재적용할 것이 없어 **저장 실패한 편집이
+             화면에서도 사라진다** — 바로 아래 브라우저 경로 주석이 "이중 손실"이라 부른 그 형태다.
+             ⚠ `unavailable` 은 **제외한다**: 그 경로는 `persistFallback` 이 전체 스냅샷을 임시
+             사본으로 남기므로 재적용할 것이 이미 있고, 넣으면 DB 가 죽어 있는 동안 400ms 마다
+             재시도하는 **뜨거운 루프**가 되고 큐도 무한히 자란다(막으려던 것보다 나쁘다). */
+          const writeFailed = !r.ok && !r.unavailable;
+          if (r.deferred || writeFailed) {
             pending = [...borrowed, ...pending];
             schedulePersist();
-            return;
+            if (r.deferred) return;
           }
           /* ⚠⚠ **정본이 죽었으면 여기서 끝내지 않는다(C1 · 2026-07-26 감사).** 예전엔 연결 실패가
              `skipped`(= "브라우저라 정상")로 와서 이 콜백이 아무것도 안 했고, 위 `return` 때문에

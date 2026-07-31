@@ -201,9 +201,23 @@ export default function Graph() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [sel]);
-  // AN-5 — 열릴 때(또는 선택 노드가 바뀔 때) 닫기 버튼으로 포커스 1회 이동. React Compiler: 이펙트 내에서만 ref 접근.
+  /* AN-5 — 열릴 때(또는 선택 노드가 바뀔 때) 닫기 버튼으로 포커스 1회 이동. React Compiler: 이펙트 내에서만 ref 접근.
+     ⚠⚠ **닫을 때 되돌린다(H28 · 2026-07-31 `/감사 근본`).** 종전엔 보내기만 하고 복원이 없어서,
+     검색창에서 Enter → 패널이 열리며 포커스가 닫기 버튼으로 가고 → Esc/✕ 로 닫으면 그 버튼이
+     언마운트돼 포커스가 **`<body>` 로 유실**됐다. 매치가 여럿이라 "Enter로 다음"을 반복하려는
+     흐름에서 매번 났고, 되돌아오려면 스킵링크·레일·탑바를 전부 Tab 으로 지나야 했다.
+     `Ledger.tsx:136` 이 못박은 계약 — _"role=dialog 를 선언하면 포커스 관리도 함께 약속하는 것"_ —
+     의 마지막 잔여다. 관용구는 `ReaderVocab` 과 같다(직전 포커스를 들고 있다가 body 로 떨어졌을
+     때만 되돌린다 — 선택 노드만 바뀐 경우엔 포커스가 패널에 남아 있어 건드리지 않는다). */
   useEffect(() => {
-    if (sel) detailCloseRef.current?.focus();
+    if (!sel) return;
+    const prev = document.activeElement as HTMLElement | null;
+    detailCloseRef.current?.focus();
+    return () => {
+      if (prev && prev !== document.body && document.activeElement === document.body) {
+        prev.focus({ preventScroll: true });
+      }
+    };
   }, [sel]);
 
   // 상단 리드아웃 — 항목·챕터·완료율(Mastery가 usePageChromeEffect를 쓰는 방식과 동일).
@@ -212,6 +226,9 @@ export default function Graph() {
   const pct = totalCh ? Math.round((doneCh / totalCh) * 100) : 0;
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: items.length
         ? [
             { label: '완료율', value: `${pct}%`, accent: true },

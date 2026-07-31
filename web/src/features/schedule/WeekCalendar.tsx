@@ -368,7 +368,7 @@ export function WeekCalendar({
                         <button
                           key={e.key}
                           type="button"
-                          className={`${SEG_BASE} ${pad} ${SEG_KIND.study} ${SEG_TYPE[x.type]} hover:brightness-[1.08] focus-visible:outline-offset-1! ${done || past ? 'ds-past' : ''}`}
+                          className={`${SEG_BASE} ${pad} ${SEG_KIND.study} ${SEG_TYPE[x.type]} hover:brightness-emph focus-visible:outline-offset-1! ${done || past ? 'ds-past' : ''}`}
                           style={style}
                           onClick={(ev) => {
                             ev.stopPropagation();
@@ -394,7 +394,7 @@ export function WeekCalendar({
                         <button
                           key={e.key}
                           type="button"
-                          className={`${SEG_BASE} ${pad} ${SEG_KIND.event} [--seg:var(--event)] hover:brightness-[1.08] focus-visible:outline-offset-1! ${past ? 'ds-past' : ''}`}
+                          className={`${SEG_BASE} ${pad} ${SEG_KIND.event} [--seg:var(--event)] hover:brightness-emph focus-visible:outline-offset-1! ${past ? 'ds-past' : ''}`}
                           style={style}
                           onClick={(ev) => {
                             ev.stopPropagation();

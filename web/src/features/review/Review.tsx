@@ -33,7 +33,7 @@ import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TO
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing, useKnowledge } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO, hLabel } from '@/lib/utils';
-import { itemById, openVaultSearch } from '@/lib/utils';
+import { colorForId, openVaultSearch } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
 
@@ -280,7 +280,9 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
           <div key={b.id} className="ds-rec ds-blOpen">
             <div className="ds-recHead">
               <input type="checkbox" aria-label="회수 완료" checked={false} onChange={() => close(b.id)} />
-              <span className="ds-swatch" style={{ background: itemById(state, b.sid)?.color || '#888' }} />
+              {/* H25 — 색은 **파생물**이다(절대규칙 #3). 저장값을 읽고 생 hex 로 폴백하던 자리 —
+                  H8 이 `TodayBlocks` 에 적용한 처방 그대로 `colorForId` 로 유도한다. */}
+              <span className="ds-swatch" style={{ background: colorForId(b.sid) }} />
               <b>{b.topic || '(주제 없음)'}</b>
               {b.name && <span className="ds-muted ds-tiny"> · {b.name}</span>}
               <span className="ds-muted ds-tiny" style={{ marginLeft: 6 }}>
@@ -708,6 +710,9 @@ export default function Review() {
 
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: [
         {
           label: '달성률',

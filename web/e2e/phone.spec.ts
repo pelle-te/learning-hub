@@ -65,7 +65,7 @@ test.describe('폰 웹앱', () => {
 
   test('데스크톱 셸은 브라우저 SQLite 를 켜지 않는다(트랙 A 회귀 방지)', async ({ page }) => {
     /* ⚠ `enableBrowserDb()` 를 폰 진입점만 부른다는 계약을 기계가 지키게 한다. 데스크톱
-       엔트리가 이걸 켜면 `npm run dev` 와 스냅샷 59장이 통째로 저장 백엔드를 갈아탄다 —
+       엔트리가 이걸 켜면 `npm run dev` 와 트랙 A 시각 베이스라인이 통째로 저장 백엔드를 갈아탄다 —
        조용히 일어나고, 그때는 이미 늦다. */
     await page.goto('/');
     await page.waitForLoadState('networkidle');

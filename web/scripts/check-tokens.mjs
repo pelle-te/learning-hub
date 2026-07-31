@@ -45,8 +45,20 @@ const 선언패턴 = [
   /(--[a-zA-Z0-9-]+)['"`\]\s]*(?:as\s+\w+\s*\])?\s*:/g,
   /setProperty\(\s*['"`](--[a-zA-Z0-9-]+)['"`]/g,
 ];
-/** 참조: `var(--name`. */
-const 참조패턴 = /var\(\s*(--[a-zA-Z0-9-]+)/g;
+/* 참조 **두 문법** — `var(--name` 과 `getPropertyValue('--name')`.
+
+   ⚠⚠ 두 번째가 이 게이트의 사각이었다(H24 · 2026-07-31 `/감사 근본`). 캔버스는 `var()` 를
+   해석하지 못해서 JS 가 토큰을 **런타임에 읽어** 넣는데(`Graph.readPalette`·`AmbientCanvas`·
+   `Settings.readAccentPreviews`·`lib/motion`), 그 11곳이 `var(` 문법을 안 쓴다는 이유로 검사
+   범위 밖이었다. 그 자리들은 하필 전부 **다크 전용 hex 폴백**을 함께 들고 있어서, 이름을
+   오타내면 조용히 그 hex 로 렌더되고 **라이트에서 의미가 뒤집힌다** — H20 이 이 검사기를 만든
+   바로 그 실패 형태이고, `lib/ledger.ts:50` 이 _"폴백을 되살리지 말 것"_ 이라 못박은 부류다.
+
+   즉 검사기가 "TS 문자열 속 토큰"을 본다고 말하면서 **한 문법만** 보고 있었다. */
+const 참조패턴들 = [
+  /var\(\s*(--[a-zA-Z0-9-]+)/g,
+  /getPropertyValue\(\s*['"`](--[a-zA-Z0-9-]+)['"`]/g,
+];
 
 /* ⚠ **주석을 걷어낸 뒤 스캔한다**(E24 · 2026-07-30). 이 저장소의 주석은 옛 이름·틀린 이름을
    인용해 *왜 바뀌었는지*를 남기는 문화이고(그게 규약이다), 이 검사기의 탄생 사유 자체가
@@ -80,10 +92,12 @@ for (const 파일 of 파일들(ROOT)) {
   for (const 패턴 of 선언패턴) for (const m of 본문.matchAll(패턴)) 선언.add(m[1]);
   const 줄들 = 본문.split('\n');
   줄들.forEach((줄, i) => {
-    for (const m of 줄.matchAll(참조패턴)) {
-      const 이름 = m[1];
-      if (!참조.has(이름)) 참조.set(이름, []);
-      참조.get(이름).push(`${파일}:${i + 1}`);
+    for (const 패턴 of 참조패턴들) {
+      for (const m of 줄.matchAll(패턴)) {
+        const 이름 = m[1];
+        if (!참조.has(이름)) 참조.set(이름, []);
+        참조.get(이름).push(`${파일}:${i + 1}`);
+      }
     }
   });
 }

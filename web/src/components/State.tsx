@@ -46,6 +46,7 @@
 ============================================================ */
 import type { ReactElement, ReactNode } from 'react';
 import { SkeletonFill } from './ui/Skeleton';
+import LiveRegion from './LiveRegion';
 
 /**
  * 이 상태에서 **다음에 할 일**.
@@ -97,18 +98,42 @@ const SPIN = (
 
 export default function State(props: StateProps) {
   const { kind = 'empty', title, desc } = props;
+  /* ⚠⚠ **공지 리전을 분기 **앞**에 상시 세운다(H19 · 2026-07-31 `/감사 근본`).**
+
+     H7 이 에러 공지를 넣었는데 **기본 경로에서 무력화돼 있었다.** `kind='loading'` +
+     `shape='frame'`(기본값)은 아래 `WRAP` 을 아예 안 쓰고 `SkeletonFill` 을 반환한다 → 로딩→에러
+     전이가 **서브트리 통째 교체**다: `role="status"` 노드가 사라지고 `role="alert"` 노드가
+     **텍스트와 동시에 삽입**된다. 그건 `shell/toast`·`LiveRegion` 머리주석이 세 번 적어 둔
+     "그러면 AT 에 따라 공지가 통째로 씹힌다"의 바로 그 형태다.
+
+     E17 이 성공하지 않은 화면 전부를 이 컴포넌트로 모았고 fill 대시보드 16탭이 기본값 `frame`
+     이므로 파급이 앱 전역이었다. **리전을 분기 위로 올리면 노드가 교체돼도 리전은 계속 서 있다** —
+     노드의 `role` 은 시각·의미용으로 남기고 알리는 일만 갈라낸다(`SyncLedger` 가 쓰는 관용구).
+
+     ⚠ **에러 전용이다.** 로딩은 두 반환 경로가 *각자* `role="status"` 를 이미 갖고 있어
+     (`SkeletonFill` · 아래 `WRAP`) 여기서 또 알리면 **같은 문장이 두 번** 읽힌다 — 실제로 이
+     수정의 첫 판에서 그렇게 됐고 `test/state.test.tsx` 가 그 자리에서 잡았다. 씹히는 쪽은
+     **로딩→에러 전이**이고, 상시 리전이 그 전이만 덮으면 충분하다(로딩 공지는 이미 참이었다). */
+  const region = <LiveRegion message={kind === 'error' && typeof title === 'string' ? title : ''} assertive />;
   /* 골격 로딩은 **중앙 정렬 문구 틀을 아예 안 쓴다** — 그 틀이 곧 "가운데 한 덩어리"라
      레이아웃 점프의 출처다. 제목은 SR 에만 남긴다(`SkeletonFill` 이 role=status 를 갖는다). */
   if (props.kind === 'loading' && (props.shape ?? 'frame') === 'frame')
-    return <SkeletonFill label={typeof title === 'string' ? title : '불러오는 중…'} />;
+    return (
+      <>
+        {region}
+        <SkeletonFill label={typeof title === 'string' ? title : '불러오는 중…'} />
+      </>
+    );
   /* 글리프 기본값을 kind 가 정한다 — 호출부마다 이모지를 고르게 하면 그게 곧 다음 드리프트다.
      에러=경고. 빈 상태만 feature 의 성격이라 호출부가 준다(글리프가 곧 그 화면의 정체성인 경우가
      있다 — `items` 의 📚 등). 로딩은 위 `SPIN` 이 웰 없이 직접 그린다. */
   const glyph = props.glyph ?? (kind === 'error' ? '⚠️' : undefined);
   return (
-    <div
-      className={WRAP}
-      /* ⚠⚠ **에러도 공지한다(H7 · 2026-07-30 `/감사 근본`).** 종전엔 `role`/`aria-live` 를
+    <>
+      {region}
+      <div
+        className={WRAP}
+        /* ⚠⚠ **에러도 공지한다(H7 · 2026-07-30 `/감사 근본`).** 종전엔 `role`/`aria-live` 를
          `loading` 에만 걸었다 → 산출물 읽기가 실패하면 스크린리더 사용자는 "불러오는 중"을 들은
          뒤 **아무 공지도 받지 못했다**. 게다가 같은 노드가 `role=status` → 롤 없음으로 바뀌며
          텍스트가 교체되므로 라이브 공지도 불발한다(리전이 사라지면 변경이 관측되지 않는다).
@@ -116,17 +141,18 @@ export default function State(props: StateProps) {
          같은 이유로 **수정 지점도 한 곳**이다 — 그게 E17 이 사 온 값이다.
          `alert` 인 이유: 실패는 사용자가 하려던 일이 안 됐다는 뜻이라 즉시 알려야 한다.
          빈 상태(`empty`)는 롤이 없다 — 정상 상태이고, 매번 공지하면 그 자체가 소음이다. */
-      role={kind === 'loading' ? 'status' : kind === 'error' ? 'alert' : undefined}
-      aria-live={kind === 'loading' ? 'polite' : undefined}
-    >
-      {kind === 'loading' ? SPIN : glyph != null && <div className={GLYPH}>{glyph}</div>}
-      <div className={TITLE}>{title}</div>
-      {desc != null && <div className={DESC}>{desc}</div>}
-      {props.kind === 'loading' ? null : isTerminal(props.next) ? (
-        <div className={TERMINAL}>{props.next.terminal}</div>
-      ) : (
-        <div className={ACTIONS}>{props.next}</div>
-      )}
-    </div>
+        role={kind === 'loading' ? 'status' : kind === 'error' ? 'alert' : undefined}
+        aria-live={kind === 'loading' ? 'polite' : undefined}
+      >
+        {kind === 'loading' ? SPIN : glyph != null && <div className={GLYPH}>{glyph}</div>}
+        <div className={TITLE}>{title}</div>
+        {desc != null && <div className={DESC}>{desc}</div>}
+        {props.kind === 'loading' ? null : isTerminal(props.next) ? (
+          <div className={TERMINAL}>{props.next.terminal}</div>
+        ) : (
+          <div className={ACTIONS}>{props.next}</div>
+        )}
+      </div>
+    </>
   );
 }

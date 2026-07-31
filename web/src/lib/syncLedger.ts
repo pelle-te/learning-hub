@@ -18,7 +18,13 @@ export interface Ledger {
   at: number | null;
   failed: boolean;
   /**
-   * 재시도가 무의미한 중단 사유(`push.status === 'blocked'`). 없으면 null.
+   * 재시도가 무의미한 중단 사유. 없으면 null.
+   *
+   * ⚠ **출처가 둘이다(H5 · 2026-07-31 `/감사 근본`)**: push 축은 `push.status === 'blocked'`,
+   * pull 축은 바깥 `SyncResult.status === 'blocked'`. 종전엔 앞의 것만 봤는데, 아웃박스가 빈
+   * 상태(= push `idle`)에서 D1 일일 한도가 소진되면 중단이 pull 쪽에서만 나타나 원장이
+   * `failed` 분기의 _"다음 시도에 다시 올려요"_ 를 말했다 — 자기치유를 함의하는 거짓 위로다.
+   * 조립은 `store/useSyncLedger.ts` 가 한다.
    *
    * ⚠⚠ **이 축이 없어서 원장이 거짓말을 하고 있었다**(H3 · 2026-07-30 `/감사 근본`).
    * `runSyncOnce` 는 push 가 `blocked` 여도 `SyncResult.status:'ok'` 를 돌려준다 — pull 은

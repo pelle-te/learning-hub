@@ -4,7 +4,7 @@
    ## 데스크톱 `main.tsx` 와 다른 점 셋
 
    1. **`enableBrowserDb()` 를 부른다** — 이 스위치가 없으면 `getDb()` 는 브라우저에서
-      null 이다. 기본을 꺼 둔 이유는 `npm run dev` 와 트랙 A(스냅샷 59장)가 localStorage
+      null 이다. 기본을 꺼 둔 이유는 `npm run dev` 와 트랙 A(시각 베이스라인 전량)가 localStorage
       경로를 쓰기 때문이다(`db/sqlite.ts` 주석). **폰만 켠다.**
    2. **localStorage → SQLite 이관을 안 한다**(`initPhoneStore`). 폰에 옮길 레거시 정본이 없다.
    3. **라우터·QueryClient 를 안 싣는다.** 폰은 탭이 둘이고 읽기 전용 산출물을 안 본다.

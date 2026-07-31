@@ -1,10 +1,21 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
-import { orderedTabs, tabByKey, destinations, hostTabKey, ToastHost, ModalHost, NAV_SHORTCUTS, vtMove } from '@/shell';
+import {
+  orderedTabs,
+  tabByKey,
+  routeLabelOf,
+  destinations,
+  hostTabKey,
+  ToastHost,
+  ModalHost,
+  NAV_SHORTCUTS,
+  vtMove,
+} from '@/shell';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
+import { useVaultAnchorsVersion } from '@/hooks/useVaultAnchors';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
@@ -88,11 +99,14 @@ export default function App() {
   const helpOpen = useOverlay((s) => s.help);
   const setHelpOpen = useOverlay((s) => s.setHelp);
   const navigate = useNavigate();
+  /* 볼트 앵커(W2)는 스토어가 아니라 모듈 레지스트리라 **아무도 다시 그리지 않았다**(H7).
+     공통 조상 하나가 구독해 그 아래를 전부 덮는다 — 근거는 `hooks/useVaultAnchors.ts` 머리주석. */
+  useVaultAnchorsVersion();
   const { pathname } = useLocation();
   // 현재 라우트 메타는 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목/프레임에 쓴다.
   // 첫 경로 세그먼트 = 기저 탭 key(중첩 라우트 /atlas/:key 대응 — 라벨·fill·나브 활성이 기저 탭을 따르게).
   const routeKey = pathname.split('/')[1] || 'today';
-  const routeLabel = tabByKey(routeKey)?.label ?? '';
+  const routeLabel = routeLabelOf(routeKey); // H27 — 탭이 아닌 라우트도 아나운서가 말한다
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;

@@ -28,6 +28,13 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   default: { load: async () => ({ execute: exec, select }) },
 }));
 
+/* 에코 억제표에 **적히는가**만 본다(C1). 표 자체의 좁음은 `cloudOutbox.test.ts` 가 잠근다. */
+const noteMergedRows = vi.fn();
+vi.mock('@/lib/cloud/outbox', async (orig) => {
+  const m = await orig<typeof import('@/lib/cloud/outbox')>();
+  return { ...m, noteMergedRows: (...a: Parameters<typeof m.noteMergedRows>) => noteMergedRows(...a) };
+});
+
 import { applyPull } from '@/lib/cloud/merge';
 import { currentStamp, _resetStamp } from '@/lib/db/stamp';
 import type { OutboxBatch } from '@/lib/cloud/contract';
@@ -47,6 +54,7 @@ beforeEach(() => {
   exec.mockClear();
   select.mockClear();
   select.mockResolvedValue([]);
+  noteMergedRows.mockClear();
   _resetStamp();
 });
 afterEach(() => {
@@ -115,5 +123,38 @@ describe('⚠ 순서 계약 — 사본 셋이 어긋나지 않게', () => {
     expect(r.applied).toBe(0);
     expect(r.state).toBeNull();
     expect(exec).not.toHaveBeenCalled();
+  });
+});
+
+/* ============================================================
+   ⚠⚠ C1(2026-07-31 `/감사 근본`) — **합성 배치는 에코 억제표에 적히면 안 된다.**
+
+   `restoreConflict`(충돌 되살리기)는 검증된 병합 기계를 재사용하려고 *로컬 편집*을 한 행짜리
+   합성 배치로 만들어 `applyPull` 에 먹인다. 그런데 `applyPull` 이 `noteMergedRows` 를 **무조건**
+   불렀기 때문에, 억제표가 `키 → 방금 발급한 로컬 스탬프` 를 갖게 되고 다음 아웃박스 스캔이
+   그 행을 **키·스탬프 정확 일치**로 건너뛰었다. 워터마크는 fence 까지 전진하므로 **재시작 후에도
+   영구 제외** — 로컬은 복원값, 다른 기기는 옛 승자, 양쪽 다 "동기화 완료"라 말한다.
+
+   그리고 그 되살리기가 이 저장소가 CRDT 를 기각하며 내세운 **유일한 보상 경로**다. 즉 이 한 줄이
+   빠지면 §150 이 약속한 보상이 반쪽만 동작한다.
+============================================================ */
+describe('C1 — 에코 억제는 **원격에서 온 것에만** 적용된다', () => {
+  it('기본(원격 pull)은 억제표에 적는다 — 유선 절약(H31-②)은 그대로다', async () => {
+    await applyPull(batch());
+    expect(noteMergedRows).toHaveBeenCalledTimes(1);
+  });
+
+  it('⚠ `echo:false`(되살리기)는 적지 않는다 — 적으면 그 값이 다른 기기에 영원히 안 간다', async () => {
+    await applyPull(batch(), { echo: false });
+    expect(noteMergedRows, '되살린 행이 다음 배치에서 빠지면 조용한 영구 분기다').not.toHaveBeenCalled();
+  });
+
+  it('억제를 꺼도 나머지 계약은 그대로다 — 씨앗·기준선은 원격 경로와 동일', async () => {
+    select.mockResolvedValue([{ key: 'x', value: '1' }]);
+    await applyPull(batch(), { echo: false });
+    expect(currentStamp(), '씨앗을 안 심으면 다음 로컬 편집이 묻힌다').toBeGreaterThanOrEqual(500);
+    expect(select.mock.calls.some((c) => /SELECT key, value FROM settings/.test(String((c as unknown[])[0])))).toBe(
+      true,
+    );
   });
 });

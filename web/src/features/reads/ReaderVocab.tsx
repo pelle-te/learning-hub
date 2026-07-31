@@ -6,6 +6,7 @@
    컴포넌트가 소유**한다. 부모는 데이터/능력만 넘긴다 — `vocab` 상태 8필드는 부모 지역변수를 하나도
    참조하지 않으므로, 인터페이스는 **3 props**(lang·text·online)로 끝난다(prop-drilling 아님).
 ============================================================ */
+import LiveRegion from '@/components/LiveRegion';
 import { useEffect, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { lookupVocab, type VocabResult } from '@/lib/api';
@@ -162,6 +163,12 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
           {p}
         </p>
       ))}
+      {/* ⚠ 결과·오류 공지는 **상시 리전**이 한다(H19) — 로딩/결과/오류가 조건부 형제 교체라
+          각 노드에 role 을 달면 리전과 텍스트가 동시에 삽입돼 공지가 씹힌다. */}
+      <LiveRegion
+        message={vocab?.error ?? (vocab?.result ? `${vocab.word} 뜻풀이 도착` : '')}
+        assertive={!!vocab?.error}
+      />
       {vocab && (
         <div
           className="absolute z-[var(--z-dropdown)] -translate-x-1/2 rounded-base border border-line bg-panel px-3 py-2.5 text-md leading-body shadow-pop outline-none data-[flip=true]:-translate-y-full"
@@ -195,15 +202,13 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
               📖 국어사전에서 보기 ↗
             </a>
           ) : vocab.loading ? (
-            <div className="text-txt" role="status">
+            <div className="text-txt">
               <span className="ds-spin" /> 뜻 찾는 중…
             </div>
           ) : vocab.error ? (
-            <div className="text-txt" role="alert">
-              {vocab.error}
-            </div>
+            <div className="text-txt">{vocab.error}</div>
           ) : vocab.result ? (
-            <div className="text-txt" role="status">
+            <div className="text-txt">
               {vocab.result.pos && (
                 <span className="mb-1 inline-block rounded-sm border border-line px-1.25 text-2xs font-extrabold text-mut">
                   {vocab.result.pos}
@@ -232,7 +237,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
             </div>
           ) : (
             <button
-              className="w-full border-none! bg-acc-soft! p-1.75! text-md! font-extrabold! text-acc-on-soft! hover:brightness-105 disabled:opacity-60!"
+              className="w-full border-none! bg-acc-soft! p-1.75! text-md! font-extrabold! text-acc-on-soft! enabled:hover:brightness-105 disabled:opacity-60!"
               type="button"
               onClick={doVocab}
               disabled={!online}

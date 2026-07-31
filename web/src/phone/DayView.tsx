@@ -14,7 +14,7 @@ import { useSchedule } from '@/store/selectors';
 import { addTask, removeTask, tasksForDay, toggleTaskDone } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
 import { isDone } from '@/lib/persistence';
-import { colorForId, parseISO, fmt, toHM } from '@/lib/utils';
+import { blockColor, colorForId, parseISO, fmt, toHM, hLabel } from '@/lib/utils';
 import { useMemo, useState } from 'react';
 
 export default function DayView({ ds }: { ds: string }): React.JSX.Element {
@@ -81,7 +81,7 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
               <label
                 key={`${it.sid}|${it.type}`}
                 className="flex min-h-11 items-center gap-3 rounded-md border border-line bg-panel px-3 py-2"
-                style={{ borderLeft: `3px solid ${colorForId(it.sid)}`, paddingLeft: 13 }}
+                style={{ borderLeft: `3px solid ${blockColor(it)}`, paddingLeft: 13 }}
               >
                 <input
                   type="checkbox"
@@ -92,7 +92,7 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
                 <span className={`flex-1 truncate text-sm ${done ? 'text-mut line-through' : 'text-txt'}`}>
                   {it.name}
                 </span>
-                <span className="shrink-0 text-xs text-mut tabular-nums">{Math.round((it.min || 0) / 6) / 10}h</span>
+                <span className="shrink-0 text-xs text-mut tabular-nums">{hLabel(it.min || 0)}</span>
               </label>
             );
           })}

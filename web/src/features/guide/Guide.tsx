@@ -90,6 +90,9 @@ function How({ label, children }: { label: string; children: ReactNode }) {
 export default function Guide() {
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: [
         { label: '핵심 축', value: 3 },
         { label: '저작 지시문', value: 13 },

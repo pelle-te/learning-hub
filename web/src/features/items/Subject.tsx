@@ -185,7 +185,7 @@ export default function Subject() {
      이 화면의 존재 이유가 "그 과목 지금 어떤가"라 리드아웃이 곧 답의 첫 줄이다. */
   usePageChromeEffect(
     () => ({
-      primary: item ? { label: item.name || '(이름 없음)', value: `${doneCh}/${chs.length || 0} 챕터` } : undefined,
+      primary: item ? { label: item.name || '(이름 없음)', value: `${doneCh}/${chs.length || 0} 챕터` } : null,
       readouts: !item
         ? []
         : [

@@ -35,6 +35,28 @@ export type VaultAnchors = ReadonlyMap<string, string>;
 const EMPTY: VaultAnchors = new Map();
 let current: VaultAnchors = EMPTY;
 let version = 0;
+const subs = new Set<() => void>();
+
+/**
+ * 앵커가 갈렸을 때 알림(반환값은 해제 함수).
+ *
+ * ⚠⚠ **버전 카운터만으로는 반쪽이었다(H7 · 2026-07-31 `/감사 근본`).** 카운터는 `selectors` 의
+ * 참조-캐시가 *다시 계산하게* 만들지만, **다시 계산할 계기 자체를 만들지는 않는다** — 소비처는
+ * `useApp((s) => s.state)` 를 구독하는데 앵커는 스토어가 아니라 모듈 상태이기 때문이다. 그래서
+ * ① 콜드 부팅 첫 화면이 앵커 없이 그려지고(스캔은 마운트 뒤에 도착한다) ② **볼트 감시로 갱신이
+ * 도착해도 그 화면에 머무는 한 반영이 0** 이었다(다음 렌더까지). 머리주석이 경고한 _"조용히
+ * stale"_ 이 다른 경로로 성립한 것이다.
+ *
+ * ⚠ 앵커를 `AppState` 로 올려 해결하지 않는다 — 그건 W2 의 제약(스키마 0 · 동기화 0)을 깨고,
+ * 무엇보다 **볼트 유래 값이 `settings` 행을 타고 D1 으로 나가는** 경로를 새로 만든다
+ * (`_vaultScan` 이 정확히 그 이유로 프라이버시 가드였다 — `lib/persistence.ts`).
+ */
+export function subscribeVaultAnchors(cb: () => void): () => void {
+  subs.add(cb);
+  return () => {
+    subs.delete(cb);
+  };
+}
 
 /** 현재 등록된 볼트 앵커(없으면 빈 맵). lib 내부 소비 전용. */
 export function vaultAnchors(): VaultAnchors {
@@ -49,6 +71,14 @@ export function setVaultAnchors(next: VaultAnchors): void {
   if (next.size === current.size && [...next].every(([k, v]) => current.get(k) === v)) return;
   current = next;
   version++;
+  // 구독자에게 알린다 — 하나가 던져도 나머지·레지스트리를 막지 않는다.
+  for (const cb of [...subs]) {
+    try {
+      cb();
+    } catch {
+      /* 관측이 데이터를 해치지 않는다 */
+    }
+  }
 }
 /** 테스트·리셋용 — 레지스트리를 비운다. */
 export function clearVaultAnchors(): void {

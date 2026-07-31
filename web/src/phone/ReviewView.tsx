@@ -30,9 +30,16 @@ import { useApp } from '@/store/useApp';
 import { useSwipe } from '@/hooks/useSwipe';
 import { useSchedule } from '@/store/selectors';
 import { todayISO } from '@/lib/utils';
-import { anchorOf, buildReviewQueue, cardSpeech, requeue, runItemKey, type RunItem } from '@/lib/reviewQueue';
+import {
+  anchorOf,
+  buildReviewQueue,
+  cardSpeech,
+  chapterCopy,
+  requeue,
+  runItemKey,
+  type RunItem,
+} from '@/lib/reviewQueue';
 import { touchReview } from '@/lib/persistence';
-import type { ChapterReview } from '@/lib/spacedReview';
 import { CBMS_INFO } from '@/lib/methodology';
 
 const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
@@ -41,29 +48,12 @@ const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint p
 const PRIMARY = 'min-h-11 flex-1 rounded-md bg-acc px-4 text-sm font-semibold text-on-acc';
 const GHOST = 'min-h-11 rounded-md border border-line px-4 text-sm text-mut';
 
-/** 챕터 카드 문구(N-10) — 유지(끝낸 챕터)는 **왜 돌아왔는지**를 말해야 한다. 설명이 없으면
- *  끝낸 챕터가 다시 뜬 것이 "앱이 완료를 잊었다"로 읽힌다. 앵커를 모르면 모른다고 말한다.
- *  ⚠ 컴포넌트 밖 순수 함수인 이유는 인지복잡도 래칫이다 — 이 컴포넌트는 이미 한계에 붙어 있어
- *  본문에 분기를 더하면 게이트가 깨진다(래칫이 의도대로 작동한 자리). */
-function chapterCopy(ch: ChapterReview): { badge: string; age: string; body: string } {
-  if (!ch.maintenance)
-    return {
-      badge: ch.risk === 'overdue' ? '많이 밀림' : '복습 때',
-      age: ` · ${ch.daysSince}일 방치`,
-      body: `배웠지만 ${ch.daysSince}일 안 봤어요. 지금 머릿속으로 핵심을 인출해 망각곡선을 리셋하세요.`,
-    };
-  if (!ch.lastDs)
-    return {
-      badge: '유지',
-      age: '',
-      body: '끝낸 챕터인데 마지막으로 본 날이 기록에 없어요. 한 번 인출하면 유지 주기가 잡힙니다.',
-    };
-  return {
-    badge: '유지',
-    age: ` · ${ch.daysSince}일 방치`,
-    body: `끝낸 챕터예요. 마지막으로 본 지 ${ch.daysSince}일 — 유지 인출로 붙잡아 둡니다.`,
-  };
-}
+/* ⚠⚠ **`chapterCopy` 지역 사본을 `lib/reviewQueue` 로 올렸다(H14 · 2026-07-31 `/감사 근본`).**
+   여기 있던 3분기에는 W2 가 데스크톱에만 더한 **`fromVault` 분기가 없어서**, 볼트 유래 앵커
+   챕터가 폰에서 앱 인출 기록과 **같은 말**로 떴다 — `lib/vaultAnchors.ts` 가 _"UI 가 배지로
+   구분한다"_ 고 적어 둔 계약을 폰이 조용히 깨는 형태다. 결정로그가 `chapterCopy` 2벌로 이미
+   한 번 물렸고 H13 이 **배지만** 올렸던 것이 여기서 두 번째로 갈렸다.
+   §9-4: 화면은 갈라도 **규칙(문구 포함)은 lib 하나**다. */
 
 /**
  * @param startAt 이어하기로 들어왔을 때의 **0-based 착지 인덱스**(N-7). 탭바로 오면 0.

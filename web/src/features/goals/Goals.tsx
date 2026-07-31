@@ -81,6 +81,9 @@ export default function Goals() {
   // 상단 리드아웃 — 목표 수·활성·프로젝트·명시 링크(하이브리드 콜드 정직).
   usePageChromeEffect(
     () => ({
+      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
+         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
+      primary: null,
       readouts: [
         { label: '목표 노드', value: data?.nodes.length ?? 0 },
         { label: '활성', value: active.length },
