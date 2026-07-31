@@ -27,7 +27,7 @@ const CHIP =
 const BODY =
   'inline-flex min-h-8.5 items-center gap-2 border-0! bg-transparent! px-3! py-0! text-ink! hover:bg-tint-acc-14! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 const PULSE =
-  'size-1.75 rounded-full bg-acc shadow-focus-dot animate-[live-breathe_var(--tempo)_ease-in-out_infinite] motion-reduce:animate-none';
+  'size-1.75 rounded-full bg-acc shadow-focus-dot animate-[live-breathe_var(--tempo)_var(--ease-live)_infinite] motion-reduce:animate-none';
 const TIME = 'text-lg leading-auto font-extrabold tracking-topbar-sub text-acc tabular-nums text-shadow-focus-time';
 const NAME =
   'max-w-30 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-auto font-bold text-mut max-mobile:hidden';

@@ -62,7 +62,7 @@ const S = {
   spotlight:
     'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-slow ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
   heroFill:
-    'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-draw ease-linear motion-reduce:transition-none',
+    'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-draw ease-[var(--ease-draw)] motion-reduce:transition-none',
   heroHead: 'flex items-baseline justify-between gap-3',
   /* D-6 액센트 예산 — 아이브로는 **분류 라벨**이지 손봐야 할 것이 아니다. 액센트는 행동에만.
      (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */

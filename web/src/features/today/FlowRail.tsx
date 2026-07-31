@@ -53,7 +53,7 @@ const N = {
   nNow: 'flex-none text-2xs font-extrabold tracking-mode text-acc [text-shadow:var(--navlink-glow)]',
   nNowSmall: 'text-tiny9 font-extrabold opacity-85',
   nProg:
-    'pointer-events-none absolute bottom-0 left-0 z-[2] h-0.5 rounded-full bg-acc shadow-dot transition-[width] duration-draw ease-linear motion-reduce:transition-none',
+    'pointer-events-none absolute bottom-0 left-0 z-[2] h-0.5 rounded-full bg-acc shadow-dot transition-[width] duration-draw ease-[var(--ease-draw)] motion-reduce:transition-none',
   nDotBase: 'relative z-[1] size-2.5 flex-none rounded-full',
   nDotStudy: 'bg-acc shadow-[var(--shadow-node-live)]',
   nDotBlock: 'bg-mut shadow-[var(--shadow-node-panel)]',

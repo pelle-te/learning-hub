@@ -461,6 +461,35 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     ).toEqual([]);
   });
 
+  /* ⚠⚠ **④ 이징 — 축이 하나 빠져 있었다**(2026-07-31 · 로드맵 E24 잔여의 답).
+     로드맵은 "어휘마다 다른 이징이 필요한지는 실물로 보기 전엔 모른다"로 미뤘는데, 세어 보니
+     **코드가 이미 셋을 쓰고 있었고 둘이 익명 리터럴**이었다(`ease-in-out` 2곳=live-breathe ·
+     `linear` 2곳=진행 바). 즉 필요 여부는 이미 답이 나와 있었고, 문제는 그 답이 이름을 못 가져
+     **게이트 밖에 있었다**는 것이다 — 길이가 정확히 같은 경위로 15종까지 흩어졌던 그 자리다.
+     이름을 준 지금은 흩어질 경로를 막는다. `tokens.css` 만 값을 갖는다. */
+  it('이징이 토큰 밖에서 리터럴로 쓰이지 않는다(tokens.css 만 값을 갖는다)', () => {
+    const bad: string[] = [];
+    const 리터럴 = /\b(cubic-bezier\(|ease-in-out\b|ease-linear\b|(?<![\w-])linear(?![\w-])\s*(?:;|,|\)))/;
+    for (const f of [...cssFiles, ...tsFiles]) {
+      if (f.endsWith(join('styles', 'tokens.css'))) continue; // 값의 주인
+      const src = stripComments(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''));
+      // 이징이 놓이는 자리만 본다: CSS 의 transition/animation 선언 + JSX 의 ease-*/animate-[…].
+      const 자리 = [
+        ...[...src.matchAll(/(?:animation|transition)(?:-timing-function)?\s*:\s*([^;{}]+)/g)].map((m) => m[1]!),
+        ...[...src.matchAll(/\bease-[^\s'"`]+/g)].map((m) => m[0]),
+        ...[...src.matchAll(/animate-\[[^\]]*\]/g)].map((m) => m[0]),
+      ];
+      for (const seg of 자리) if (리터럴.test(seg)) bad.push(`${f.replace(SRC, '')} → ${seg.trim().slice(0, 80)}`);
+    }
+    expect(bad, `이징 리터럴(토큰을 쓸 것 — --ease · --ease-live · --ease-draw):\n${bad.join('\n')}`).toEqual([]);
+  });
+
+  it('이징 토큰 셋이 전부 선언돼 있다(소비만 잠그면 정의가 사라져도 통과한다)', () => {
+    const tokensCss = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8');
+    for (const n of ['--ease', '--ease-live', '--ease-draw'])
+      expect(new RegExp(`${n}:\\s*\\S`).test(tokensCss), `${n} 미정의`).toBe(true);
+  });
+
   it('WAAPI 상수가 tokens.css 의 토큰과 같은 값이다(복제의 유일한 방어선)', () => {
     /* `lib/motion.ts` 의 `COMMIT_MS` 는 `--dur-slow` 의 복제다 — WAAPI 는 `var()` 를 못 읽어서
        (그 파일 머리주석) 복제가 불가피하고, 그래서 여기가 유일한 드리프트 방어선이다. */

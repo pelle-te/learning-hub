@@ -537,7 +537,20 @@
   --r-lg: 16px;
   --r-md: 10px;
   --r-sm: 7px;
+  /* ⚠⚠ **이징은 하나가 아니라 셋이었다 — 둘이 익명이었을 뿐이다**(2026-07-31 · 로드맵 E24 잔여).
+     로드맵은 _"어휘마다 다른 이징이 필요한지는 **실물로 보기 전엔 모른다**"_ 라 미뤘는데, 세어
+     보니 판단할 것이 없었다: 코드가 **이미** 세 개를 쓰고 있었고 둘이 인라인 리터럴이었다.
+       · `--ease`      25곳 — 기본(enter·commit·transit·대부분의 transition)
+       · `ease-in-out`  2곳 — 전부 `live-breathe`(집중 점 호흡 · FocusChip·MiniHud)
+       · `linear`       2곳 — 전부 진행 바 `transition-[width]`(FlowRail·TodaySignature)
+     둘 다 **어휘 축과 정확히 일치한다**(`live` · `draw`) — 즉 "필요한가"는 이미 답이 나와 있었고
+     남은 문제는 그 답이 **이름을 못 가져서 게이트 밖에 있었다**는 것이다. 값은 한 글자도 안 바꾼다
+     (`ease-in-out`·`linear` 은 CSS 키워드 그대로) → 픽셀 변화 0, 얻는 것은 집행이다.
+     ⚠ 소비는 `--ease` 와 **같은 형태**로 한다(`ease-[var(--ease-live)]`) — Tailwind v4 의 이징
+     네임스페이스가 하필 `--ease-*` 라, 브리지에 같은 이름을 두면 자기참조가 된다. */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-live: ease-in-out;
+  --ease-draw: linear;
 }
 
 /* ── 라이트 모드(에디토리얼 대안) — 흰 캔버스 · 인디고-바이올렛 브랜드 · 또렷한 그림자 한 겹 ── */

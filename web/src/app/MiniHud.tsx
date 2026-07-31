@@ -19,7 +19,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const WRAP = 'fixed inset-0 z-[var(--z-modal)] flex items-center gap-3 border border-line-acc-pill bg-bg px-3.5 py-2.5';
 const PULSE =
-  'size-2 shrink-0 rounded-full bg-acc shadow-focus-dot animate-[live-breathe_var(--tempo)_ease-in-out_infinite] motion-reduce:animate-none';
+  'size-2 shrink-0 rounded-full bg-acc shadow-focus-dot animate-[live-breathe_var(--tempo)_var(--ease-live)_infinite] motion-reduce:animate-none';
 const TIME = 'text-4xl leading-none font-extrabold tracking-topbar-sub text-acc tabular-nums text-shadow-focus-time';
 const NAME = 'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold text-mut';
 const BTN =
