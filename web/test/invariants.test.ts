@@ -768,3 +768,84 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
     expect(emph, '--brightness-emph* 두 칸이 없으면 대안 없이 금지만 하는 셈이다').toEqual(['emph', 'emph-strong']);
   });
 });
+
+/* ============================================================
+   불변식 ⑫ — **폰이 쓰는 `ds-*` 는 폰 CSS 안에 있어야 한다** (2026-08-01)
+
+   ## 왜 이게 게이트여야 하는가 — 실사고에서 나왔다
+
+   폰 엔트리(`phone/main.tsx`)는 `tokens.css` + `phone/phone.css` 만 싣는다. `styles/ds.css` 는
+   **데스크톱 `main.tsx` 만** import 한다(번들 분리가 의도다 — 설계서 §9-4: 셀룰러 첫 로드).
+   그래서 폰 화면이 `ds-*` 를 쓰면 **클래스가 아예 존재하지 않아 무스타일로 렌더된다.**
+
+   P-17 에서 정확히 이 일이 났다: 사본 감쇠 4형태를 `ds-shed` 로 수렴시키면서 폰 3곳
+   (`DayView` 2 · `TodayView` 1)도 함께 바꿨는데, 폰에서는 완료된 블록이 취소선도 감쇠도 없이
+   본문색 그대로 나왔다.
+
+   ⚠⚠ **기존 게이트가 원리적으로 못 잡는다** — 이게 이 불변식의 존재 이유다:
+   · 정적 검사·타입: 클래스 *존재*를 안 본다(문자열이다).
+   · 폰 a11y: 무스타일이면 글자가 오히려 **더 밝아져** 대비를 통과한다.
+   · `phone.spec.ts`: 스냅샷을 안 찍는다(설계상 — 베이스라인 두 벌 방지).
+   즉 세 겹이 전부 초록인 채로 화면만 틀린다. 잡은 것은 "폰이 어떤 CSS 를 싣는가"를 손으로
+   읽은 것뿐이었고, 손으로 읽는 것은 다음번에 반복되지 않는다.
+
+   ⚠ 이 불변식은 "폰이 `ds-*` 를 쓰지 마라"가 **아니다** — 데스크톱과 같은 이름을 쓰는 것은
+   오히려 규약(같은 뜻은 같은 이름)이다. 요구하는 것은 **그 이름이 폰 CSS 에도 정의돼 있을 것**
+   하나이고, 정의가 두 곳이면 값이 갈릴 수 있다는 위험은 각 선언의 주석이 진다(포커스 링 선례).
+============================================================ */
+describe('불변식 ⑫ 폰이 쓰는 ds-* 가 폰 번들에 정의돼 있다', () => {
+  const SRC = join(process.cwd(), 'src') + '/';
+  const phoneDir = join(SRC, 'phone');
+
+  function tsxUnder(dir: string): string[] {
+    const out: string[] = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) out.push(...tsxUnder(p));
+      else if (/\.tsx?$/.test(e.name)) out.push(p);
+    }
+    return out;
+  }
+
+  /** ⚠ **주석을 걷어낸다 — 반증으로 잡았다.** 이 저장소의 주석은 옛 이름·근거를 인용하는 문화라
+   *  `phone.css` 의 `.ds-shed` 설명 문단 자체가 "선언"으로 세어졌다. 선언을 통째로 지우고
+   *  돌렸더니 **초록으로 통과**했다 — 불변식 ⑥이 같은 함정을 이미 기록해 뒀는데 안 썼다. */
+  const 주석제거 = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('폰 화면의 모든 ds-* 클래스가 phone.css 에 선언돼 있다', () => {
+    const phoneCss = 주석제거(readFileSync(join(phoneDir, 'phone.css'), 'utf8'));
+    const used = new Set<string>();
+    for (const f of tsxUnder(phoneDir)) {
+      const src = readFileSync(f, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '');
+      for (const m of src.matchAll(/\bds-[a-zA-Z0-9-]+/g)) used.add(m[0]);
+    }
+    // ⚠ `String.raw` — 평범한 템플릿 리터럴이면 `\b` 가 정규식 경계가 아니라 **백스페이스 문자**로
+    //   해석돼 이 검사가 영영 매치에 실패한다(즉 항상 빨갛다). 첫 판이 정확히 그랬다.
+    const 미정의 = [...used].filter((c) => !new RegExp(String.raw`\.${c}\b`).test(phoneCss));
+    expect(
+      미정의,
+      `폰이 쓰지만 phone.css 에 없는 클래스(무스타일로 렌더된다 — ds.css 는 폰 번들에 없다):\n${미정의.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('phone.css 의 ds-* 선언이 ds.css 의 같은 이름과 **같은 속성 집합**이다(값 드리프트 감지)', () => {
+    /* 값까지 문자 비교하면 포맷 차이로 깨지므로 **속성 이름 집합**을 본다 — 한쪽에만 속성이
+       생기거나 사라지는 것이 드리프트의 관측 가능한 형태다(색만 바뀌는 미세 차이는 못 잡지만,
+       그건 두 선언의 주석이 지는 몫이다). */
+    const 속성집합 = (css: string, cls: string): string[] | null => {
+      const m = new RegExp(String.raw`\.${cls}\s*\{([^}]*)\}`).exec(css);
+      if (!m) return null;
+      return [...m[1]!.matchAll(/(^|\n)\s*([a-z-]+)\s*:/g)].map((x) => x[2]!).sort();
+    };
+    const phoneCss = 주석제거(readFileSync(join(phoneDir, 'phone.css'), 'utf8'));
+    const dsCss = 주석제거(readFileSync(join(SRC, 'styles', 'ds.css'), 'utf8'));
+    for (const cls of [...phoneCss.matchAll(/\.(ds-[a-zA-Z0-9-]+)\s*\{/g)].map((m) => m[1]!)) {
+      const a = 속성집합(phoneCss, cls);
+      const b = 속성집합(dsCss, cls);
+      if (!b) continue; // 폰 전용 클래스 — 대조할 원본이 없다
+      expect(a, `${cls} 의 속성이 ds.css 와 갈렸다(같은 뜻이 두 화면에서 다르게 보인다)`).toEqual(b);
+    }
+  });
+});

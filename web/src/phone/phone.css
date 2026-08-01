@@ -66,6 +66,28 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
+/* ⚠⚠ **`.ds-shed` 재선언 — 폰은 `ds.css` 를 안 문다**(P-17 잔여 · 2026-08-01).
+   위 포커스 링과 **정확히 같은 부류의 구멍**이다: 폰 엔트리는 `tokens.css` + 이 파일만 싣고
+   `styles/ds.css` 는 데스크톱 `main.tsx` 만 import 한다. 그래서 폰 화면이 `ds-shed` 를 쓰면
+   **클래스가 존재하지 않아 통째로 무스타일**이 된다 — 완료된 블록이 취소선도 감쇠도 없이
+   본문색 그대로 렌더된다.
+
+   ⚠ 이 구멍은 **게이트가 원리적으로 못 잡는다**: 정적 검사는 클래스 존재를 안 보고, 폰 a11y 는
+   *더 밝아진* 글자라 대비를 통과하며, `phone.spec.ts` 는 스냅샷을 안 찍는다. 실제로 잡은 것은
+   "폰이 어떤 CSS 를 싣는가"를 직접 읽어 본 것뿐이다(§15-4 가 값을 한 자리).
+
+   ⚠ **`ds.css` 의 `.ds-shed` 와 값이 같아야 한다** — 둘이 갈리면 "끝난 것"이 데스크톱과 폰에서
+   다르게 보인다(포커스 링 주석이 같은 계약을 말한다). 투명도를 쓰지 않는 이유도 그쪽과 같다. */
+.ds-shed {
+  color: var(--mut);
+  filter: saturate(0.35);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  transition:
+    color var(--dur-fast) var(--ease-shed),
+    filter var(--dur-fast) var(--ease-shed);
+}
+
 /* 폰 전용 바탕 — 셸의 크롬(레일·상단바)이 없으므로 여기가 앱 프레임이다.
    ⚠ `min-height: 100dvh` — 모바일 브라우저 주소창이 접힐 때 `100vh` 는 실제 뷰포트보다
    커서 바닥이 잘린다. dvh 가 그 축을 따라간다. */
