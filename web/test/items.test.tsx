@@ -77,6 +77,42 @@ test('items: 챕터 추가가 해당 과목에 들어간다', async () => {
   expect(screen.getByDisplayValue('새 챕터')).toBeInTheDocument();
 });
 
+/* ── 회귀 고정: 챕터 이름은 blur/Enter 에서만 커밋된다(H16 · 2026-08-01) ────────────
+   종전엔 `onChange` 가 곧장 `mutate` 라 한 글자마다 `items` 슬라이스가 갈리고 파생 전량이
+   다시 돌았다. 되돌아가면 이 두 단언 중 첫째가 즉시 빨개진다 — 그게 이 케이스의 전부다.
+   ⚠ 커밋이 **id 로** 찾는지도 함께 본다면 좋겠지만, 그건 정렬 변경과 blur 의 순서를 만들어야
+     하는 상호작용이라 여기(jsdom)의 몫이 아니다. 여기서는 커밋 **시점**만 못박는다. */
+test('items: 챕터 이름은 타이핑 중엔 상태를 안 건드리고 blur 에 커밋된다', async () => {
+  useApp.getState().mutate((st) => {
+    st.items = [
+      {
+        id: 'sch',
+        source: '직접',
+        name: '미적분',
+        color: '#4f8ff0',
+        mode: 'weekly',
+        weeklyHours: 3,
+        dailyMin: 30,
+        deadline: '',
+        chapters: [{ id: 'c1', name: '1장', hours: 2, done: false }],
+      },
+    ];
+  });
+  renderApp('/items');
+
+  fireEvent.click(await screen.findByText('미적분'));
+  const input = await screen.findByLabelText('챕터 이름');
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: '1장 — 극한' } });
+
+  // 타이핑 중: 화면은 초안을 보여주지만 앱 상태는 그대로다.
+  expect(input).toHaveValue('1장 — 극한');
+  expect(useApp.getState().state.items[0]!.chapters[0]!.name).toBe('1장');
+
+  fireEvent.blur(input);
+  await waitFor(() => expect(useApp.getState().state.items[0]!.chapters[0]!.name).toBe('1장 — 극한'));
+});
+
 /* ── 회귀 고정: 과목 삭제 · 수정 ───────────────────────────────────────────
    여긴 오래 '추가'만 검증했다. 삭제 경로는 store에서 items만 걷어내는데, weekAlloc은
    `weekAlloc[주][sid]` 맵이라 참조 무결성이 없다 → 지운 과목의 배분이 전 주에 고아로 남아

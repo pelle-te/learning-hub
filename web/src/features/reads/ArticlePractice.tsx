@@ -22,6 +22,18 @@ import type { Article, ArticleWork } from '@/lib/reads';
 type Filter = 'all' | 'en' | 'ko';
 type Progress = 'all' | 'todo' | 'done';
 
+// 필터 라벨 — 값→표시를 정적 표로 둔다(분기 사슬로 쓰면 세그먼트가 늘 때마다 복잡도가 붙는다).
+const LANG_OPTS = [
+  ['all', '전체'],
+  ['en', 'EN'],
+  ['ko', 'KO'],
+] as const satisfies readonly (readonly [Filter, string])[];
+const PROGRESS_OPTS = [
+  ['all', '전체'],
+  ['todo', '미완료'],
+  ['done', '완료'],
+] as const satisfies readonly (readonly [Progress, string])[];
+
 // 언어 태그(EN=acc / KO=good) — 배경만 상태로 분기(§15 부칙 · 정적 클래스). 스팬이라 ! 불필요.
 const LANG_TAG = 'flex-none rounded-sm px-1.5 py-px text-2xs font-black tracking-tag text-on-acc';
 // 언어/진행 필터(button) — 전역 button{} 과 다른 속성만 !. 활성/비활성 배경·색은 정적 분기.
@@ -195,41 +207,7 @@ export default function ArticlePractice({
       query: { isError, error: errorMessage ? new Error(errorMessage) : undefined },
       ping: { ok: online },
     });
-    if (phase === 'loading') {
-      // 2-pane 스켈레톤(markets 미러 · SR-17) — 목록 행 + 리더 라인 형상을 예고해 팝인 레이아웃 점프를 없앤다.
-      return (
-        <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
-          <span className="ds-srOnly" role="status">
-            지문 불러오는 중…
-          </span>
-          <aside className="flex min-h-0 flex-col gap-2.5" aria-hidden="true">
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              {Array.from({ length: 4 }, (_, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col gap-1.75 rounded-base border border-line bg-panel px-3.25 py-2.75"
-                >
-                  <Skeleton width="42%" height={12} />
-                  <Skeleton width="86%" height={14} />
-                  <Skeleton width="55%" height={11} />
-                </div>
-              ))}
-            </div>
-          </aside>
-          <div className="flex min-h-0 min-w-0 flex-col" aria-hidden="true">
-            <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border border-line bg-panel px-6.5 py-5.5">
-              <Skeleton width="30%" height={12} />
-              <Skeleton width="78%" height={24} />
-              <Skeleton width="100%" height={14} />
-              <Skeleton width="100%" height={14} />
-              <Skeleton width="93%" height={14} />
-              <Skeleton width="97%" height={14} />
-              <Skeleton width="60%" height={14} />
-            </div>
-          </div>
-        </div>
-      );
-    }
+    if (phase === 'loading') return <PracticeSkeleton />;
     // 서버는 살아 있는데 진짜 실패(미생성 계열 아님) — '미수집'과 구분해 실제 오류를 노출(SR-9).
     if (phase === 'error') {
       return (
@@ -277,50 +255,14 @@ export default function ArticlePractice({
     );
   }
 
-  // 요약 분량 표기 — KO 지문은 글자수 '자', EN 지문은 어절수 '단어'(지문 길이·독후감 단위와 정렬 · SR-7).
-  const isKoSel = sel?.lang === 'ko';
-  const myCount = isKoSel ? draft.trim().length : draft.trim() ? draft.trim().split(/\s+/).length : 0;
-
   return (
     <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
       {/* 왼쪽 — 지문 목록 + 필터 + 수집 */}
       <aside className="flex min-h-0 flex-col gap-2.5">
         <div className="flex flex-none flex-wrap items-center justify-between gap-2">
-          <div
-            className="inline-flex gap-0.5 rounded-md border border-line bg-panel p-0.75"
-            role="group"
-            aria-label="언어 필터"
-          >
-            {(['all', 'en', 'ko'] as Filter[]).map((f) => (
-              <button
-                key={f}
-                type="button"
-                className={`${LANG_BTN} ${filter === f ? 'bg-acc! text-on-acc!' : 'bg-transparent! text-mut!'}`}
-                aria-pressed={filter === f}
-                onClick={() => setFilter(f)}
-              >
-                {f === 'all' ? '전체' : f === 'en' ? 'EN' : 'KO'}
-              </button>
-            ))}
-          </div>
+          <FilterGroup label="언어 필터" opts={LANG_OPTS} value={filter} onPick={setFilter} />
           {/* 진행 필터 — 요약 완료 기준(전체/미완료/완료). 언어 필터와 독립(SR-3). */}
-          <div
-            className="inline-flex gap-0.5 rounded-md border border-line bg-panel p-0.75"
-            role="group"
-            aria-label="진행 필터"
-          >
-            {(['all', 'todo', 'done'] as Progress[]).map((f) => (
-              <button
-                key={f}
-                type="button"
-                className={`${LANG_BTN} ${progress === f ? 'bg-acc! text-on-acc!' : 'bg-transparent! text-mut!'}`}
-                aria-pressed={progress === f}
-                onClick={() => setProgress(f)}
-              >
-                {f === 'all' ? '전체' : f === 'todo' ? '미완료' : '완료'}
-              </button>
-            ))}
-          </div>
+          <FilterGroup label="진행 필터" opts={PROGRESS_OPTS} value={progress} onPick={setProgress} />
           <Button
             sm
             onClick={() => void collect()}
@@ -332,43 +274,9 @@ export default function ArticlePractice({
         </div>
         <ul className="m-0 flex min-h-0 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0 max-mobile:max-h-[var(--reads-list-vh)]">
           {list.length ? (
-            list.map((a) => {
-              const w = work[a.id];
-              const hasDraft = !w?.done && !!w?.summary?.trim();
-              // 예상 읽기시간 — en≈200어절/분, ko≈500자/분(words 필드 재사용 · SR-18).
-              const mins = Math.max(1, Math.ceil(a.words / (a.lang === 'en' ? 200 : 500)));
-              return (
-                <li key={a.id}>
-                  <button
-                    type="button"
-                    className={`${LIST_ITEM} ${a.id === effId ? 'border-acc! bg-acc-soft!' : 'bg-panel!'}`}
-                    onClick={() => setSelId(a.id)}
-                    aria-current={a.id === effId}
-                  >
-                    <span className="flex items-center gap-1.75">
-                      <span className={`${LANG_TAG} ${a.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
-                        {a.lang === 'en' ? 'EN' : 'KO'}
-                      </span>
-                      <span className="text-xs leading-auto font-bold text-mut">{a.field}</span>
-                      {w?.done ? (
-                        <span className="ml-auto text-sm leading-auto font-black text-good" title="요약 완료">
-                          ✓
-                        </span>
-                      ) : hasDraft ? (
-                        <span className="ml-auto text-sm leading-auto font-bold text-acc" title="작성 중인 초안 있음">
-                          ✎
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="line-clamp-2 text-base14 leading-tight font-bold text-txt">{a.title}</span>
-                    <span className="text-xs leading-auto text-mut tabular-nums">
-                      {a.source} · {a.words}
-                      {a.lang === 'en' ? ' words' : '자'} · 약 {mins}분
-                    </span>
-                  </button>
-                </li>
-              );
-            })
+            list.map((a) => (
+              <ArticleRow key={a.id} a={a} w={work[a.id]} selected={a.id === effId} onSelect={setSelId} />
+            ))
           ) : (
             <li className="px-3 py-4.5 text-center text-md text-mut">
               이 언어의 지문이 없어요 — 필터를 바꾸거나 수집해 보세요.
@@ -381,160 +289,336 @@ export default function ArticlePractice({
       <div className="flex min-h-0 min-w-0 flex-col">
         {sel ? (
           <>
-            {/* lang — 영어 지문은 SR이 영어 음성으로 낭독하도록 부분 언어 전환(WCAG 3.1.2). */}
-            <article
-              className="flex min-h-0 flex-1 [scrollbar-width:thin] overflow-y-auto rounded-lg border border-line bg-panel px-6.5 py-5.5 max-mobile:p-4"
-              lang={sel.lang === 'en' ? 'en' : undefined}
-            >
-              <header className="mb-4 border-b border-line2 pb-3.5">
-                <div className="mb-2 flex items-center gap-2 text-sm leading-text font-bold text-mut" lang="ko">
-                  <span className={`${LANG_TAG} ${sel.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
-                    {sel.lang === 'en' ? 'EN' : 'KO'}
-                  </span>
-                  {sel.field} · {sel.source}
-                  <a
-                    className="ml-auto text-sm leading-text font-bold"
-                    href={/^https?:\/\//i.test(sel.url) ? sel.url : undefined}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    원문 ↗
-                  </a>
-                </div>
-                <h2 className="m-0! text-reader-title! leading-tight font-black! tracking-title!">{sel.title}</h2>
-              </header>
-              <ReaderVocab key={sel.id} lang={sel.lang} text={sel.text} online={online} />
-            </article>
-
-            <div className="mt-3.5 flex-none rounded-lg border border-line bg-panel px-4 py-3.5">
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-sm leading-text font-extrabold tracking-editor text-acc">
-                  {sel.lang === 'en' ? '내 정리 (영어 공부 — 핵심 표현·해석)' : '내 요약 (직접 요약해 보기)'}
-                </span>
-                <span className="text-xs leading-text text-mut tabular-nums">
-                  {myCount}
-                  {isKoSel ? '자' : ' 단어'}
-                </span>
-              </div>
-              <textarea
-                className="min-h-24 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-text!"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={() => commit()}
-                placeholder={
-                  sel.lang === 'en'
-                    ? '모르는 단어·구문, 핵심 문장 해석, 이 글의 요지를 영어/한국어로 정리…'
-                    : '이 글을 한두 문단으로 요약해 보세요. 핵심 주장과 근거를 내 말로…'
-                }
-                aria-label="내 요약"
-              />
-              <div className="mt-2.5 flex gap-2">
-                <Button
-                  sm
-                  variant={work[sel.id]?.done ? 'default' : 'primary'}
-                  onClick={() => commit(!work[sel.id]?.done)}
-                >
-                  {work[sel.id]?.done ? '✓ 완료됨 — 되돌리기' : '요약 완료로 표시'}
-                </Button>
-                <Button sm onClick={askCoach} disabled={grader.busy || !online} title={online ? '' : WORKSPACE_UNSET}>
-                  {grader.busy ? (
-                    <>
-                      <span className="ds-spin" /> 채점 중…
-                    </>
-                  ) : (
-                    '🤖 AI 채점 받기'
-                  )}
-                </Button>
-                <Button
-                  sm
-                  onClick={() => promote(sel)}
-                  disabled={promoted.has(sel.id)}
-                  title={promoted.has(sel.id) ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}
-                >
-                  {promoted.has(sel.id) ? '✓ 보냄' : '📥 학습으로 보내기'}
-                </Button>
-              </div>
-
-              {/* 진행 상태만 간결히 공지(sr-only) — 스트리밍 토큰은 장황해 읽지 않는다. */}
-              {grader.busy && (
-                <span
-                  role="status"
-                  style={{
-                    position: 'absolute',
-                    width: 1,
-                    height: 1,
-                    overflow: 'hidden',
-                    clip: 'rect(0 0 0 0)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  채점 중…
-                </span>
-              )}
-
-              {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 위 상태만 공지). */}
-              {grader.busy && grader.preview && (
-                <p className="mt-3 mb-0 text-md break-words whitespace-pre-wrap text-mut" aria-hidden="true">
-                  {grader.preview}
-                </p>
-              )}
-
-              {/* 결과는 그 지문의 것만 — 방금 채점(transient, 늦게 온 응답 오표시 방지)이 우선,
-                  없으면 저장된 채점(work[id].coach)을 폴백해 이탈·새로고침 후에도 보인다. */}
-              {(() => {
-                const fb = coach && coach.id === sel.id ? coach.fb : work[sel.id]?.coach;
-                const savedAt = coach && coach.id === sel.id ? undefined : work[sel.id]?.coachAt;
-                if (!fb) return null;
-                return (
-                  <div
-                    className="mt-3 rounded-base border border-line-acc bg-acc-soft px-3.5 py-3"
-                    ref={coachResultRef}
-                    tabIndex={-1}
-                    aria-label="AI 채점 결과"
-                  >
-                    <div className="mb-2 flex flex-wrap items-center gap-2.5">
-                      {typeof fb.score === 'number' && (
-                        <span
-                          className={`flex-none rounded-full px-3 py-0.5 text-lg leading-text font-black text-on-acc ${
-                            fb.score >= 70 ? 'bg-good' : 'bg-bad'
-                          }`}
-                        >
-                          {fb.score}점
-                        </span>
-                      )}
-                      {fb.comment && <span className="text-md font-semibold text-txt">{fb.comment}</span>}
-                      {savedAt && (
-                        <span className="ds-tiny text-mut" style={{ marginLeft: 'auto' }}>
-                          저장된 채점
-                        </span>
-                      )}
-                    </div>
-                    {fb.missing?.length ? <CoachList label="빠진 핵심" items={fb.missing} tone="miss" /> : null}
-                    {fb.redundant?.length ? <CoachList label="군더더기" items={fb.redundant} tone="mut" /> : null}
-                    {fb.accuracy?.length ? <CoachList label="정확성" items={fb.accuracy} tone="bad" /> : null}
-                    {fb.corrections?.length ? <CoachList label="바로잡기" items={fb.corrections} tone="bad" /> : null}
-                    {fb.key_expressions?.length ? (
-                      <CoachList
-                        label="핵심 표현"
-                        items={fb.key_expressions.map((k) => `${k.en} — ${k.ko}`)}
-                        tone="mut"
-                      />
-                    ) : null}
-                    {fb.model_summary && (
-                      <div className="mt-2.5 border-t border-line2 pt-2 text-md text-txt">
-                        <span className="mb-0.75 block text-xs leading-text font-extrabold text-acc">모범 요약</span>
-                        {fb.model_summary}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+            <ReaderPane sel={sel} online={online} />
+            <SummaryEditor
+              sel={sel}
+              w={work[sel.id]}
+              draft={draft}
+              setDraft={setDraft}
+              commit={commit}
+              grader={grader}
+              online={online}
+              askCoach={askCoach}
+              promote={promote}
+              promoted={promoted.has(sel.id)}
+              coach={coach}
+              coachResultRef={coachResultRef}
+            />
           </>
         ) : (
           <div className="grid flex-1 place-items-center text-base14 text-mut">왼쪽에서 지문을 선택하세요.</div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** 세그먼트 필터 한 벌(언어·진행) — 라벨은 정적 표에서 온다(동적 분기 금지 · §15 부칙). */
+function FilterGroup<T extends string>({
+  label,
+  opts,
+  value,
+  onPick,
+}: {
+  label: string;
+  opts: readonly (readonly [T, string])[];
+  value: T;
+  onPick: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex gap-0.5 rounded-md border border-line bg-panel p-0.75" role="group" aria-label={label}>
+      {opts.map(([v, text]) => (
+        <button
+          key={v}
+          type="button"
+          className={`${LANG_BTN} ${value === v ? 'bg-acc! text-on-acc!' : 'bg-transparent! text-mut!'}`}
+          aria-pressed={value === v}
+          onClick={() => onPick(v)}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 리더(원문) — 가공하지 않는다. 어휘 팝오버는 `ReaderVocab` 이 소유. */
+function ReaderPane({ sel, online }: { sel: Article; online: boolean }) {
+  const en = sel.lang === 'en';
+  return (
+    // lang — 영어 지문은 SR이 영어 음성으로 낭독하도록 부분 언어 전환(WCAG 3.1.2).
+    <article
+      className="flex min-h-0 flex-1 [scrollbar-width:thin] overflow-y-auto rounded-lg border border-line bg-panel px-6.5 py-5.5 max-mobile:p-4"
+      lang={en ? 'en' : undefined}
+    >
+      <header className="mb-4 border-b border-line2 pb-3.5">
+        <div className="mb-2 flex items-center gap-2 text-sm leading-text font-bold text-mut" lang="ko">
+          <span className={`${LANG_TAG} ${en ? 'bg-acc' : 'bg-good'}`}>{en ? 'EN' : 'KO'}</span>
+          {sel.field} · {sel.source}
+          <a
+            className="ml-auto text-sm leading-text font-bold"
+            href={/^https?:\/\//i.test(sel.url) ? sel.url : undefined}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            원문 ↗
+          </a>
+        </div>
+        <h2 className="m-0! text-reader-title! leading-tight font-black! tracking-title!">{sel.title}</h2>
+      </header>
+      <ReaderVocab key={sel.id} lang={sel.lang} text={sel.text} online={online} />
+    </article>
+  );
+}
+
+/** 내 요약 에디터 + 채점 트리거·스트리밍·결과. 초안 상태·커밋 수명은 호출부가 소유한다. */
+function SummaryEditor({
+  sel,
+  w,
+  draft,
+  setDraft,
+  commit,
+  grader,
+  online,
+  askCoach,
+  promote,
+  promoted,
+  coach,
+  coachResultRef,
+}: {
+  sel: Article;
+  w?: ArticleWork;
+  draft: string;
+  setDraft: (v: string) => void;
+  commit: (done?: boolean) => void;
+  grader: ReturnType<typeof useAiStream>;
+  online: boolean;
+  askCoach: () => void;
+  promote: (a: Article) => void;
+  promoted: boolean;
+  coach: { id: string; fb: CoachFeedback } | null;
+  coachResultRef: React.Ref<HTMLDivElement>;
+}) {
+  const en = sel.lang === 'en';
+  // 요약 분량 표기 — KO 지문은 글자수 '자', EN 지문은 어절수 '단어'(지문 길이·독후감 단위와 정렬 · SR-7).
+  const trimmed = draft.trim();
+  const myCount = en ? (trimmed ? trimmed.split(/\s+/).length : 0) : trimmed.length;
+  return (
+    <div className="mt-3.5 flex-none rounded-lg border border-line bg-panel px-4 py-3.5">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="text-sm leading-text font-extrabold tracking-editor text-acc">
+          {en ? '내 정리 (영어 공부 — 핵심 표현·해석)' : '내 요약 (직접 요약해 보기)'}
+        </span>
+        <span className="text-xs leading-text text-mut tabular-nums">
+          {myCount}
+          {en ? ' 단어' : '자'}
+        </span>
+      </div>
+      <textarea
+        className="min-h-24 resize-y rounded-md! bg-bg! px-3.25! py-2.75! text-base14! leading-text!"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => commit()}
+        placeholder={
+          en
+            ? '모르는 단어·구문, 핵심 문장 해석, 이 글의 요지를 영어/한국어로 정리…'
+            : '이 글을 한두 문단으로 요약해 보세요. 핵심 주장과 근거를 내 말로…'
+        }
+        aria-label="내 요약"
+      />
+      <div className="mt-2.5 flex gap-2">
+        <Button sm variant={w?.done ? 'default' : 'primary'} onClick={() => commit(!w?.done)}>
+          {w?.done ? '✓ 완료됨 — 되돌리기' : '요약 완료로 표시'}
+        </Button>
+        <Button sm onClick={askCoach} disabled={grader.busy || !online} title={online ? '' : WORKSPACE_UNSET}>
+          {grader.busy ? (
+            <>
+              <span className="ds-spin" /> 채점 중…
+            </>
+          ) : (
+            '🤖 AI 채점 받기'
+          )}
+        </Button>
+        <Button
+          sm
+          onClick={() => promote(sel)}
+          disabled={promoted}
+          title={promoted ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}
+        >
+          {promoted ? '✓ 보냄' : '📥 학습으로 보내기'}
+        </Button>
+      </div>
+
+      {/* 진행 상태만 간결히 공지(sr-only) — 스트리밍 토큰은 장황해 읽지 않는다. */}
+      {grader.busy && (
+        <span
+          role="status"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            clip: 'rect(0 0 0 0)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          채점 중…
+        </span>
+      )}
+
+      {/* 채점 스트리밍 미리보기 — 완성 문장부터 타이핑되듯(SR에는 위 상태만 공지). */}
+      {grader.busy && grader.preview && (
+        <p className="mt-3 mb-0 text-md break-words whitespace-pre-wrap text-mut" aria-hidden="true">
+          {grader.preview}
+        </p>
+      )}
+
+      <CoachResult coach={coach} id={sel.id} saved={w} cardRef={coachResultRef} />
+    </div>
+  );
+}
+
+/** 2-pane 스켈레톤(markets 미러 · SR-17) — 목록 행 + 리더 라인 형상을 예고해 팝인 레이아웃 점프를 없앤다. */
+function PracticeSkeleton() {
+  return (
+    <div className="grid min-h-0 flex-1 grid-cols-reads gap-4.5 max-mobile:grid-cols-1 max-mobile:grid-rows-[auto_1fr] max-mobile:overflow-y-auto">
+      <span className="ds-srOnly" role="status">
+        지문 불러오는 중…
+      </span>
+      <aside className="flex min-h-0 flex-col gap-2.5" aria-hidden="true">
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="flex flex-col gap-1.75 rounded-base border border-line bg-panel px-3.25 py-2.75">
+              <Skeleton width="42%" height={12} />
+              <Skeleton width="86%" height={14} />
+              <Skeleton width="55%" height={11} />
+            </div>
+          ))}
+        </div>
+      </aside>
+      <div className="flex min-h-0 min-w-0 flex-col" aria-hidden="true">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 rounded-lg border border-line bg-panel px-6.5 py-5.5">
+          <Skeleton width="30%" height={12} />
+          <Skeleton width="78%" height={24} />
+          <Skeleton width="100%" height={14} />
+          <Skeleton width="100%" height={14} />
+          <Skeleton width="93%" height={14} />
+          <Skeleton width="97%" height={14} />
+          <Skeleton width="60%" height={14} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 지문 목록 한 줄 — 언어 태그·분야·진행 표시(✓ 완료 / ✎ 초안)·제목·출처·예상 읽기시간. */
+function ArticleRow({
+  a,
+  w,
+  selected,
+  onSelect,
+}: {
+  a: Article;
+  w?: ArticleWork;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const hasDraft = !w?.done && !!w?.summary?.trim();
+  // 예상 읽기시간 — en≈200어절/분, ko≈500자/분(words 필드 재사용 · SR-18).
+  const mins = Math.max(1, Math.ceil(a.words / (a.lang === 'en' ? 200 : 500)));
+  return (
+    <li>
+      <button
+        type="button"
+        className={`${LIST_ITEM} ${selected ? 'border-acc! bg-acc-soft!' : 'bg-panel!'}`}
+        onClick={() => onSelect(a.id)}
+        aria-current={selected}
+      >
+        <span className="flex items-center gap-1.75">
+          <span className={`${LANG_TAG} ${a.lang === 'en' ? 'bg-acc' : 'bg-good'}`}>
+            {a.lang === 'en' ? 'EN' : 'KO'}
+          </span>
+          <span className="text-xs leading-auto font-bold text-mut">{a.field}</span>
+          {w?.done ? (
+            <span className="ml-auto text-sm leading-auto font-black text-good" title="요약 완료">
+              ✓
+            </span>
+          ) : hasDraft ? (
+            <span className="ml-auto text-sm leading-auto font-bold text-acc" title="작성 중인 초안 있음">
+              ✎
+            </span>
+          ) : null}
+        </span>
+        <span className="line-clamp-2 text-base14 leading-tight font-bold text-txt">{a.title}</span>
+        <span className="text-xs leading-auto text-mut tabular-nums">
+          {a.source} · {a.words}
+          {a.lang === 'en' ? ' words' : '자'} · 약 {mins}분
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * AI 채점 결과 카드 — 결과가 없으면 아무것도 그리지 않는다.
+ *
+ * 결과는 **그 지문의 것만** 보인다: 방금 채점(transient)이 우선이고, 늦게 온 응답이 다른 지문
+ * 아래 붙는 오표시는 `coach.id === id` 태깅이 막는다(호출부 `grader` 주석이 그 이력의 SSOT).
+ * transient 가 없으면 저장분(`work[id].coach`)으로 폴백해 이탈·새로고침 후에도 보인다 —
+ * 그때는 '저장된 채점' 배지가 붙는다.
+ */
+function CoachResult({
+  coach,
+  id,
+  saved,
+  cardRef,
+}: {
+  coach: { id: string; fb: CoachFeedback } | null;
+  id: string;
+  saved?: ArticleWork;
+  cardRef: React.Ref<HTMLDivElement>;
+}) {
+  const fresh = coach?.id === id ? coach : null;
+  const fb = fresh ? fresh.fb : saved?.coach;
+  const savedAt = fresh ? undefined : saved?.coachAt;
+  if (!fb) return null;
+  return (
+    <div
+      className="mt-3 rounded-base border border-line-acc bg-acc-soft px-3.5 py-3"
+      ref={cardRef}
+      tabIndex={-1}
+      aria-label="AI 채점 결과"
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2.5">
+        {typeof fb.score === 'number' && (
+          <span
+            className={`flex-none rounded-full px-3 py-0.5 text-lg leading-text font-black text-on-acc ${
+              fb.score >= 70 ? 'bg-good' : 'bg-bad'
+            }`}
+          >
+            {fb.score}점
+          </span>
+        )}
+        {fb.comment && <span className="text-md font-semibold text-txt">{fb.comment}</span>}
+        {savedAt && (
+          <span className="ds-tiny text-mut" style={{ marginLeft: 'auto' }}>
+            저장된 채점
+          </span>
+        )}
+      </div>
+      {fb.missing?.length ? <CoachList label="빠진 핵심" items={fb.missing} tone="miss" /> : null}
+      {fb.redundant?.length ? <CoachList label="군더더기" items={fb.redundant} tone="mut" /> : null}
+      {fb.accuracy?.length ? <CoachList label="정확성" items={fb.accuracy} tone="bad" /> : null}
+      {fb.corrections?.length ? <CoachList label="바로잡기" items={fb.corrections} tone="bad" /> : null}
+      {fb.key_expressions?.length ? (
+        <CoachList label="핵심 표현" items={fb.key_expressions.map((k) => `${k.en} — ${k.ko}`)} tone="mut" />
+      ) : null}
+      {fb.model_summary && (
+        <div className="mt-2.5 border-t border-line2 pt-2 text-md text-txt">
+          <span className="mb-0.75 block text-xs leading-text font-extrabold text-acc">모범 요약</span>
+          {fb.model_summary}
+        </div>
+      )}
     </div>
   );
 }

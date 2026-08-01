@@ -17,7 +17,7 @@ import {
   studyMinByWeekday,
   eventStudyLossMin,
 } from '@/lib/scheduler';
-import { addEvent, updateEvent, removeEvent, eventsForDay } from '@/lib/events';
+import { updateEvent, removeEvent, eventsForDay } from '@/lib/events';
 import { DayPlannerEditBar } from './DayPlannerEditBar';
 import {
   blocksForDay,
@@ -28,19 +28,17 @@ import {
   unplaceBlock,
   resizeBlock,
   togglePin,
-  addBlock,
   setBlockDone,
   removeBlock,
   resetDay,
   resolveSlot,
   SNAP,
-  blockMinPresets,
 } from '@/lib/dayPlans';
 import {
+  addTask,
   untimedTasksForDay,
   timedTasksForDay,
   inboxTasks,
-  addTask,
   updateTask,
   removeTask,
   toggleTaskDone,
@@ -54,6 +52,7 @@ import { TrayRow, EventBand, TimedCard, TimeSpine } from './DayPlannerCards';
 import { useTrayCursor } from './useTrayCursor';
 import { useTimeboxDnd } from './useTimeboxDnd';
 import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
+import { DayPlannerTrayAdder } from './DayPlannerTrayAdder';
 import { Button } from '@/components/ui';
 import type { AppState, ScheduleResult, SessionType } from '@/lib/types';
 
@@ -126,11 +125,6 @@ const DP = {
   tool: `${TOOLBASE} text-mut!`,
 } as const;
 
-const EV_FORM_ID = 'dayPlannerEventForm'; // '+ 일정'이 aria-controls로 가리키는 온디맨드 컴포저.
-/** 일정 길이 프리셋 — 자유 입력 대신 셀렉트로 받는다(340px 트레이에서 숫자 입력 하나를 더 끼우면 제목이 뭉개진다).
- *  세밀 조정은 추가 후 편집 바(분 단위)에서 한다 — 추가는 빠르게, 정밀은 온디맨드. */
-const EVENT_MINS = [30, 60, 90, 120, 180, 240] as const;
-
 /** 자유 할일 소요(min) 갱신 — 리사이즈용(placeTask는 start만 다룸). */
 function updateTaskMin(st: AppState, id: string, min: number): void {
   const t = (st.tasks || []).find((x) => x.id === id);
@@ -152,12 +146,7 @@ export function DayPlanner({
   const mutate = useApp((st) => st.mutate);
   const toggleDone = useApp((st) => st.toggleDone);
   const colRef = useRef<HTMLDivElement | null>(null);
-  const [draft, setDraft] = useState('');
   const [inboxDraft, setInboxDraft] = useState('');
-  const [repeatMode, setRepeatMode] = useState<'none' | 'daily' | 'weekly'>('none'); // +할일 반복 모드
-  const [taskSid, setTaskSid] = useState(''); // +할일 과목 링크(선택)
-  const [blockSid, setBlockSid] = useState(''); // +블록 대상 과목
-  const [blockType, setBlockType] = useState<SessionType>('new');
   const [selId, setSelId] = useState<string | null>(null); // 인라인 편집 대상 카드(시각/분 입력)
   /* 일정 제목 초안(H8 · 2026-07-26 감사) — **커밋은 blur/Enter 에서만** 한다.
      종전엔 `onChange` 가 곧장 `mutate` 라, 제목 한 글자마다 `events` 슬라이스가 갈려
@@ -166,11 +155,6 @@ export function DayPlanner({
      없다** — 전 코드베이스에서 텍스트 필드가 키 입력마다 mutate 하던 자리는 여기 하나였고,
      `Today.tsx` 의 '내일 한 줄'은 처음부터 draft+onBlur 로 올바르다. 그 패턴을 그대로 쓴다. */
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
-  // 일정(약속·시험·행사) 컴포저 — 평소엔 접혀 있고 '+ 일정'을 눌러야 펼쳐진다(온디맨드 세부).
-  const [evOpen, setEvOpen] = useState(false);
-  const [evTitle, setEvTitle] = useState('');
-  const [evStart, setEvStart] = useState('09:00');
-  const [evMin, setEvMin] = useState<number>(60);
 
   const date = parseISO(ds);
   const wd = date.getDay();
@@ -295,63 +279,6 @@ export function DayPlanner({
   // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 누를 때마다 별도 블록(같은 과목이어도 병합 안 함).
   // 완료는 블록별(setBlockDone)이라 같은 sid|type 여러 블록을 독립 체크할 수 있다.
   const namedItems = state.items.filter((it) => it.name);
-  const BLOCK_MIN = blockMinPresets(state.moduleLen); // 길이 프리셋은 lib/dayPlans가 소유(도메인 규칙)
-  // ⚠ 라벨은 scheduleView.SESSION_TYPE_META와 **의도적으로 다르다**(new: 여기 '집중' vs 저기 '학습').
-  //   저기는 스케줄 표의 유형 태그, 여기는 "지금 뭘 추가할까" 버튼이라 어휘가 갈린다.
-  //   순서·집합이 어긋나면 곤란하니 바꿀 땐 둘을 함께 볼 것.
-  const BLOCK_TYPES = [
-    { t: 'new', label: '집중' },
-    { t: 'rev', label: '복습' },
-    { t: 'anki', label: 'Anki' },
-    { t: 'blank', label: '백지' },
-    { t: 'mock', label: '모의' },
-  ] as const;
-
-  const addFreeTask = () => {
-    const title = draft.trim();
-    if (!title) return;
-    mutate((st) =>
-      addTask(st, {
-        title,
-        ds,
-        sid: taskSid || undefined,
-        /* ⚠⚠ **색을 저장하지 않는다(H13 · 2026-07-31 `/감사 근본`).** 종전엔 `color: linked?.color`
-           로 과목 hex 를 태스크에 굳혔는데, 그러면 절대규칙 #3("색 = 파생물")이 tasks 에 대해
-           거짓이 된다 — `refineItemColors` 는 `state.items` 만 다시 파생하므로 **노브(`SUBJECT_L`·
-           `SUBJECT_C`) 교체가 이 값에 영원히 도달하지 않는다.** 바로 17줄 아래 블록 생성부가
-           _"색은 저장하지 않는다"_ 라 적고 있었고, 같은 파일이 자기 규약을 두 줄로 어겼다.
-           렌더가 `sid` 로 다시 뽑는다(아래 `segColor`) — 스키마 필드는 남기되 **읽지 않는다**. */
-        repeat: repeatMode === 'none' ? undefined : repeatMode,
-      }),
-    );
-    setDraft('');
-  };
-  const addStudyBlock = () => {
-    const isMock = blockType === 'mock';
-    const sid = isMock ? 'mock' : blockSid || namedItems[0]?.id;
-    if (!isMock && !sid) return;
-    const item = namedItems.find((it) => it.id === sid);
-    const name = isMock ? '모의시험' : item?.name || '과목';
-    mutate((st) =>
-      addBlock(st, res, ds, {
-        type: blockType,
-        sid: sid!,
-        name,
-        // 색은 저장하지 않는다 — 과목 색은 PALETTE 파생이라 렌더에서 segColor(sid)로 다시 뽑고,
-        // 모의처럼 과목이 없는 블록은 CSS 타입 폴백(.mock)이 칠한다(색 리터럴을 상태에 굳히지 않는다).
-        min: BLOCK_MIN[blockType]!,
-        chapters: [],
-      }),
-    );
-    ui.toast(`${name} · ${BLOCK_TYPES.find((x) => x.t === blockType)!.label} 블록 추가`, 'ok');
-  };
-  const REPEAT_NEXT = { none: 'daily', daily: 'weekly', weekly: 'none' } as const;
-  const REPEAT_LABEL = { none: '🔁', daily: '🔁일', weekly: '🔁주' } as const;
-  const REPEAT_TITLE = {
-    none: '반복 없음 — 눌러 매일',
-    daily: '매일 반복 — 눌러 매주',
-    weekly: '매주 반복 — 눌러 끔',
-  } as const;
   const addInboxTask = () => {
     const title = inboxDraft.trim();
     if (!title) return;
@@ -360,144 +287,8 @@ export function DayPlanner({
   };
   const pullToDay = (id: string) => mutate((st) => updateTask(st, id, { ds })); // 인박스 → 이 날 트레이
 
-  // 일정 추가(약속·시험·행사) — 할 일과 달리 **시각이 필수**다(시각이 없으면 그건 그냥 할 일이다).
-  // 그래서 트레이(미지정)를 거치지 않고 곧장 타임라인에 꽂힌다.
-  const addEventNow = () => {
-    const title = evTitle.trim();
-    if (!title) return;
-    mutate((st) => addEvent(st, { ds, title, start: toMin(evStart), min: evMin }));
-    setEvTitle('');
-    ui.toast(`${evStart} · ${title} 일정 추가`, 'ok');
-  };
-
   const trayAdder = (
-    <div className={DP.addWrap}>
-      <div className={DP.addRowTask}>
-        <input
-          className={`${DP.addInput} flex-1`}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addFreeTask()}
-          placeholder="+ 할 일 (예: 과제 제출)"
-          aria-label="자유 할 일 추가"
-        />
-        {namedItems.length > 0 && (
-          <select
-            className={`${DP.addSel} shrink grow-0 basis-21`}
-            value={taskSid}
-            onChange={(e) => setTaskSid(e.target.value)}
-            aria-label="할 일 연결 과목(선택)"
-            title="연결 과목(선택) — 색·필터용"
-          >
-            <option value="">과목—</option>
-            {namedItems.map((it) => (
-              <option key={it.id} value={it.id}>
-                {it.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <button
-          type="button"
-          className={`${DP.addBtn} ${repeatMode !== 'none' ? DP.repeatOn : ''}`}
-          onClick={() => setRepeatMode((m) => REPEAT_NEXT[m])}
-          title={REPEAT_TITLE[repeatMode]}
-          aria-label={`반복: ${repeatMode === 'none' ? '없음' : repeatMode === 'daily' ? '매일' : '매주'}`}
-        >
-          {REPEAT_LABEL[repeatMode]}
-        </button>
-        <button type="button" className={DP.addBtn} onClick={addFreeTask} aria-label="할 일 추가">
-          ＋
-        </button>
-      </div>
-      {namedItems.length > 0 && (
-        <div className={DP.addRow}>
-          {blockType !== 'mock' && (
-            <select
-              className={DP.addSel}
-              value={blockSid || namedItems[0]!.id}
-              onChange={(e) => setBlockSid(e.target.value)}
-              aria-label="공부 블록 과목"
-            >
-              {namedItems.map((it) => (
-                <option key={it.id} value={it.id}>
-                  {it.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <select
-            className={DP.addSel}
-            value={blockType}
-            onChange={(e) => setBlockType(e.target.value as typeof blockType)}
-            aria-label="공부 블록 유형"
-          >
-            {BLOCK_TYPES.map((x) => (
-              <option key={x.t} value={x.t}>
-                {x.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-      {/* 액션 줄 — 전엔 '+ 블록'이 위 격자의 둘째 줄을 전폭으로 먹었다. 같은 자리를 2열로 쪼개
-          '+ 일정'을 나란히 두면 **줄 수가 늘지 않는다**(340px 트레이에 셋째 줄을 새로 만들지 않는 이유).
-          과목이 없는 날은 '+ 일정'만 남아 전폭이 된다 — 일정은 과목과 무관하므로 과목 없이도 추가돼야 한다. */}
-      <div className={DP.addRowBtns}>
-        {namedItems.length > 0 && (
-          <button type="button" className={DP.addBlockBtn} onClick={addStudyBlock} title="공부 블록 추가(트레이로)">
-            + 블록
-          </button>
-        )}
-        <button
-          type="button"
-          className={`${DP.addBlockBtn} ${evOpen ? DP.addBtnOn : ''}`}
-          onClick={() => setEvOpen((v) => !v)}
-          title="일정 추가(약속·시험·행사) — 과목과 무관한 단발 사건"
-          aria-expanded={evOpen}
-          aria-controls={evOpen ? EV_FORM_ID : undefined}
-        >
-          + 일정
-        </button>
-      </div>
-      {/* 온디맨드 세부 — 시각·길이는 일정을 실제로 만들 때만 필요한 정보라 평소엔 숨긴다. */}
-      {evOpen && (
-        <div className={DP.evForm} id={EV_FORM_ID}>
-          <input
-            className={`${DP.addInput} flex-none`}
-            value={evTitle}
-            onChange={(e) => setEvTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addEventNow()}
-            placeholder="일정 (예: 병원 예약)"
-            aria-label="일정 제목"
-          />
-          <div className={DP.evFormRow}>
-            <input
-              type="time"
-              className={DP.evTime}
-              value={evStart}
-              onChange={(e) => e.target.value && setEvStart(e.target.value)}
-              aria-label="일정 시작 시각"
-            />
-            <select
-              className={DP.addSel}
-              value={evMin}
-              onChange={(e) => setEvMin(Number(e.target.value))}
-              aria-label="일정 길이"
-            >
-              {EVENT_MINS.map((m) => (
-                <option key={m} value={m}>
-                  {hLabel(m)}
-                </option>
-              ))}
-            </select>
-            <button type="button" className={DP.addBtn} onClick={addEventNow} aria-label="일정 추가">
-              ＋
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    <DayPlannerTrayAdder cls={DP} ds={ds} res={res} namedItems={namedItems} moduleLen={state.moduleLen} />
   );
 
   // 인라인 시각/분 편집(§6-2) — 타임박스 카드 클릭 시 하단 편집 바로 정밀 입력(드래그/키보드 대안).

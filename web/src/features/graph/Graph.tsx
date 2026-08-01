@@ -40,6 +40,7 @@ import { Button } from '@/components/ui';
 import { buildGraph, type GraphNode } from './graphData';
 import { createGraphSim, type FocusResult } from './graphSim';
 import { drawGraph, type Palette } from './graphDraw';
+import { createPointerHandlers } from './graphPointer';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
 
 // 캔버스 호스트/폴백 상단 1px 발광 헤어라인(--bg-sig-top · review→ledger 이식이 깐 것 재사용).
@@ -113,6 +114,129 @@ function selFrom(n: GraphNode): SelInfo {
     tone: n.tone,
     hours: n.hours,
   };
+}
+
+/**
+ * B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프.
+ *
+ * ⚠ `role="dialog"` 를 선언하면 **포커스 관리도 함께 약속하는 것**이다(`Ledger.tsx:136` 의 계약).
+ * 여는·되돌리는 쪽은 호출부 이펙트가 쥐고(H28), 여기는 그 이펙트가 겨눌 `closeRef` 만 받는다.
+ */
+function NodeDetail({
+  sel,
+  hubRisk,
+  leafRv,
+  closeRef,
+  onClose,
+  go,
+}: {
+  sel: SelInfo;
+  hubRisk: number;
+  leafRv: ChapterReview | null | undefined;
+  closeRef: React.Ref<HTMLButtonElement>;
+  onClose: () => void;
+  go: (to: string) => void;
+}) {
+  return (
+    <div
+      className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[enter-rise_var(--dur)_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
+      role="dialog"
+      aria-label={`${sel.label} 상세`}
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        className="absolute top-2 right-2.25 size-5.5 rounded-detail-x! border-0! bg-transparent! text-mut!"
+        onClick={onClose}
+        aria-label="닫기"
+      >
+        ✕
+      </button>
+      <div className="text-2xs font-extrabold tracking-kind text-acc uppercase">
+        {sel.kind === 'hub' ? '학습 항목' : '챕터'}
+      </div>
+      <div className="mt-0.75 mb-2 pr-5 text-lg leading-tight font-extrabold break-keep text-txt">{sel.label}</div>
+      {sel.kind === 'hub' ? <HubRows sel={sel} hubRisk={hubRisk} /> : <LeafRows sel={sel} leafRv={leafRv} />}
+      <div className="mt-2.75 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={DETAIL_BTN}
+          // AN-17 — 목록 최상단이 아니라 이 항목 카드로 딥링크(허브=자기 항목 id, 잎=부모 항목 id 둘 다 sel.itemId).
+          onClick={() => go('/subject/' + encodeURIComponent(sel.itemId))}
+        >
+          학습 항목 열기 →
+        </button>
+        {(hubRisk > 0 || (leafRv && leafRv.risk !== 'fresh')) && (
+          <button type="button" className={DETAIL_BTN} onClick={() => go('/review')}>
+            복습 위험 보기 →
+          </button>
+        )}
+        {/* E-5: 볼트 딥링크 — obsidian://search는 볼트명 없이도 동작(설치돼 있으면). */}
+        <button
+          type="button"
+          className={DETAIL_BTN}
+          onClick={() => openVaultSearch(sel.label)}
+          title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
+        >
+          🔎 볼트에서 찾기
+        </button>
+        {/* E-5: Anki는 신뢰 가능한 데스크톱 URL 스킴이 없어 연동 탭(덱 상태·내보내기)으로 안내. */}
+        <button
+          type="button"
+          className={DETAIL_BTN}
+          onClick={() => go('/integrations')}
+          title="Anki 덱 상태·카드 내보내기"
+        >
+          📇 Anki 연동 →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 허브(학습 항목) 상세 행 — 진행·총 학습시간·복습 위험. */
+function HubRows({ sel, hubRisk }: { sel: SelInfo; hubRisk: number }) {
+  return (
+    <>
+      <div className={ROW}>
+        진행{' '}
+        <b className={B}>
+          {sel.done ?? 0}/{sel.total ?? 0}
+        </b>{' '}
+        챕터
+      </div>
+      {/* AN-23 — graphData가 이미 집계한 챕터 학습시간 합을 노출(0이면 생략). */}
+      {sel.hours != null && sel.hours > 0 && (
+        <div className={ROW}>
+          총 학습 <b className={B}>{sel.hours.toFixed(1)}h</b>
+        </div>
+      )}
+      {hubRisk > 0 && (
+        <div className={ROW_RISK} data-risk="overdue">
+          복습 위험 <b className={B_RISK}>{hubRisk}개</b>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** 잎(챕터) 상세 행 — 진척 톤과 마지막 학습(간격반복 위험). */
+function LeafRows({ sel, leafRv }: { sel: SelInfo; leafRv: ChapterReview | null | undefined }) {
+  return (
+    <>
+      <div className={ROW}>
+        상태 <b className={B}>{sel.tone === 'done' ? '숙달' : sel.tone === 'learning' ? '학습중' : '미착수'}</b>
+      </div>
+      {leafRv ? (
+        <div className={ROW_RISK} data-risk={leafRv.risk}>
+          마지막 학습 <b className={B_RISK}>{leafRv.daysSince}일 전</b> ·{' '}
+          {leafRv.risk === 'overdue' ? '복습 시급' : leafRv.risk === 'due' ? '복습 권장' : '최근'}
+        </div>
+      ) : (
+        <div className={`${ROW} opacity-80`}>완료된 학습 기록이 아직 없어요</div>
+      )}
+    </>
+  );
 }
 
 export default function Graph() {
@@ -257,16 +381,6 @@ export default function Graph() {
     let cw = 0;
     let ch = 0;
     let dpr = 1;
-    // 클릭(선택) vs 드래그·팬 구분은 포인터 제스처(DOM)라 컴포넌트가 소유한다.
-    let panning = false;
-    let panStartX = 0;
-    let panStartY = 0;
-    let panOrigX = 0;
-    let panOrigY = 0;
-    let downId: string | null = null;
-    let downX = 0;
-    let downY = 0;
-    let moved = false;
 
     /* ⚠ 이 핸들은 **변화를 듣기 위한 것**이고, "지금 자제인가"의 판정은 `lib/motion` 이 한다(H19).
        종전엔 `reduce.matches` 를 직접 읽어 앱 설정('발광 효과 줄이기')을 모르는 사본이었다. */
@@ -328,102 +442,24 @@ export default function Graph() {
       if (el) el.style.display = 'none';
     };
 
-    // ── 포인터(호버 툴팁 + 드래그 + 팬) — 좌표를 캔버스-로컬로 환산해 코어에 위임 ──────
-    const onDown = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const n = sim.hitTest(e.clientX - rect.left, e.clientY - rect.top);
-      if (!n) {
-        // 빈 공간 = 캔버스 팬(뷰 이동) + 선택 해제.
-        panning = true;
-        panStartX = e.clientX;
-        panStartY = e.clientY;
-        const v = sim.view();
-        panOrigX = v.x;
-        panOrigY = v.y;
-        canvas.setPointerCapture(e.pointerId);
-        canvas.style.cursor = 'grabbing';
+    // ── 포인터(호버 툴팁 + 드래그 + 팬 + 휠 줌) — 상태기계는 `graphPointer` 가 소유한다.
+    //    여기 남는 것은 React 상태로 이어지는 세 콜백뿐이다.
+    const { onDown, onMove, onUp, onLeave, onWheel } = createPointerHandlers({
+      canvas,
+      sim,
+      draw,
+      reheat,
+      ensureLoop,
+      showTip,
+      hideTip,
+      tipText,
+      onSelect: (n) => setSel(selFrom(n)),
+      onExpand: (itemId) => {
+        setExpandedHubs((prev) => new Set(prev).add(itemId));
         setSel(null);
-        return;
-      }
-      sim.beginDrag(n.id);
-      downId = n.id;
-      downX = e.clientX;
-      downY = e.clientY;
-      moved = false;
-      canvas.setPointerCapture(e.pointerId);
-      reheat(0.4);
-    };
-    const onMove = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      if (panning) {
-        sim.pan(panOrigX + (e.clientX - panStartX), panOrigY + (e.clientY - panStartY));
-        draw();
-        return;
-      }
-      if (sim.isDragging()) {
-        if (!moved && Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
-        sim.dragTo(px, py);
-        if (prefersReducedMotion()) draw();
-        else ensureLoop();
-        const dn = downId ? sim.node(downId) : undefined;
-        if (dn) showTip(px, py, tipText(dn));
-        return;
-      }
-      const n = sim.hitTest(px, py);
-      canvas.style.cursor = n ? 'grab' : 'default';
-      if (n) showTip(px, py, tipText(n));
-      else hideTip();
-    };
-    const onUp = (e: PointerEvent) => {
-      if (panning) {
-        panning = false;
-        try {
-          canvas.releasePointerCapture(e.pointerId);
-        } catch {
-          /* 이미 해제됨 */
-        }
-        canvas.style.cursor = 'default';
-        return;
-      }
-      if (sim.isDragging()) {
-        const n = downId ? sim.node(downId) : undefined;
-        sim.endDrag();
-        try {
-          canvas.releasePointerCapture(e.pointerId);
-        } catch {
-          /* 이미 해제됨 */
-        }
-        reheat(0.3);
-        // 거의 안 움직였으면 클릭 = 상세 패널 열기(드래그 후엔 열지 않음).
-        if (n && !moved && downId === n.id) {
-          if (n.overflow) {
-            // 오버플로 노드 = 빈 상세 데드엔드였던 것 → 그 허브를 펼쳐 숨은 챕터를 드러낸다.
-            setExpandedHubs((prev) => {
-              const next = new Set(prev);
-              next.add(n.itemId);
-              return next;
-            });
-            setSel(null);
-          } else {
-            setSel(selFrom(n));
-          }
-        }
-      }
-      downId = null;
-      moved = false;
-    };
-    const onLeave = () => {
-      if (!sim.isDragging()) hideTip();
-    };
-
-    // ── 줌(휠) — 커서 아래 지점을 고정한 채 확대/축소(코어가 뷰 계산, 변화 시 draw) ──────
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      if (sim.zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-e.deltaY * 0.0012))) draw();
-    };
+      },
+      onClearSel: () => setSel(null),
+    });
 
     // 명령형 뷰 API — 검색바·버튼이 호출(노드로 이동/센터·리셋·버튼 줌). 코어에 위임하고 draw만 배선.
     viewApi.current = {
@@ -626,101 +662,14 @@ export default function Graph() {
           <div ref={tipRef} className={TIP} role="tooltip" aria-hidden="true" />
           {/* B6 — 노드 클릭 상세: 챕터의 상태·마지막 학습(간격반복)·점프. */}
           {sel && (
-            <div
-              className="absolute bottom-3.5 left-3.5 z-[4] w-full max-w-graph-detail animate-[enter-rise_var(--dur)_var(--ease)_both] rounded-md border border-line bg-panel-glass-96 px-4 pt-3.5 pb-3.25 shadow-hero"
-              role="dialog"
-              aria-label={`${sel.label} 상세`}
-            >
-              <button
-                ref={detailCloseRef}
-                type="button"
-                className="absolute top-2 right-2.25 size-5.5 rounded-detail-x! border-0! bg-transparent! text-mut!"
-                onClick={() => setSel(null)}
-                aria-label="닫기"
-              >
-                ✕
-              </button>
-              <div className="text-2xs font-extrabold tracking-kind text-acc uppercase">
-                {sel.kind === 'hub' ? '학습 항목' : '챕터'}
-              </div>
-              <div className="mt-0.75 mb-2 pr-5 text-lg leading-tight font-extrabold break-keep text-txt">
-                {sel.label}
-              </div>
-              {sel.kind === 'hub' ? (
-                <>
-                  <div className={ROW}>
-                    진행{' '}
-                    <b className={B}>
-                      {sel.done ?? 0}/{sel.total ?? 0}
-                    </b>{' '}
-                    챕터
-                  </div>
-                  {/* AN-23 — graphData가 이미 집계한 챕터 학습시간 합을 노출(0이면 생략). */}
-                  {sel.hours != null && sel.hours > 0 && (
-                    <div className={ROW}>
-                      총 학습 <b className={B}>{sel.hours.toFixed(1)}h</b>
-                    </div>
-                  )}
-                  {hubRisk > 0 && (
-                    <div className={ROW_RISK} data-risk="overdue">
-                      복습 위험 <b className={B_RISK}>{hubRisk}개</b>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className={ROW}>
-                    상태{' '}
-                    <b className={B}>{sel.tone === 'done' ? '숙달' : sel.tone === 'learning' ? '학습중' : '미착수'}</b>
-                  </div>
-                  {leafRv ? (
-                    <div className={ROW_RISK} data-risk={leafRv.risk}>
-                      마지막 학습 <b className={B_RISK}>{leafRv.daysSince}일 전</b> ·{' '}
-                      {leafRv.risk === 'overdue' ? '복습 시급' : leafRv.risk === 'due' ? '복습 권장' : '최근'}
-                    </div>
-                  ) : (
-                    <div className={`${ROW} opacity-80`}>완료된 학습 기록이 아직 없어요</div>
-                  )}
-                </>
-              )}
-              <div className="mt-2.75 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={DETAIL_BTN}
-                  // AN-17 — 목록 최상단이 아니라 이 항목 카드로 딥링크(허브=자기 항목 id, 잎=부모 항목 id 둘 다 sel.itemId).
-                  onClick={() => navigate('/subject/' + encodeURIComponent(sel.itemId), { viewTransition: true })}
-                >
-                  학습 항목 열기 →
-                </button>
-                {(hubRisk > 0 || (leafRv && leafRv.risk !== 'fresh')) && (
-                  <button
-                    type="button"
-                    className={DETAIL_BTN}
-                    onClick={() => navigate('/review', { viewTransition: true })}
-                  >
-                    복습 위험 보기 →
-                  </button>
-                )}
-                {/* E-5: 볼트 딥링크 — obsidian://search는 볼트명 없이도 동작(설치돼 있으면). */}
-                <button
-                  type="button"
-                  className={DETAIL_BTN}
-                  onClick={() => openVaultSearch(sel.label)}
-                  title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
-                >
-                  🔎 볼트에서 찾기
-                </button>
-                {/* E-5: Anki는 신뢰 가능한 데스크톱 URL 스킴이 없어 연동 탭(덱 상태·내보내기)으로 안내. */}
-                <button
-                  type="button"
-                  className={DETAIL_BTN}
-                  onClick={() => navigate('/integrations', { viewTransition: true })}
-                  title="Anki 덱 상태·카드 내보내기"
-                >
-                  📇 Anki 연동 →
-                </button>
-              </div>
-            </div>
+            <NodeDetail
+              sel={sel}
+              hubRisk={hubRisk}
+              leafRv={leafRv}
+              closeRef={detailCloseRef}
+              onClose={() => setSel(null)}
+              go={(to) => navigate(to, { viewTransition: true })}
+            />
           )}
           {/* 스크린리더 대체 — 캔버스는 불투명하므로 항목별 done/total을 목록으로 병행 제공. */}
           <ul className="ds-srOnly">

@@ -167,16 +167,117 @@ interface RunSnap {
   touch?: { sid: string; chapter: string; prev: string | undefined };
 }
 
-/** 커서 쓰기/지우기(N-7) — 미연결이면 무동작. `useFocus` 와 같은 관용구. */
-function writeResume(cur: ResumeCursor): void {
+/** 커서 쓰기/지우기(N-7) — 미연결이면 무동작. `useFocus` 와 같은 관용구.
+ *
+ *  ⚠ `at`(시각)은 **여기서 찍는다** — 호출부는 언제나 "지금"을 뜻하고, 그 `Date.now()` 를
+ *  컴포넌트 본문에 두면 `react-hooks/purity` 가 렌더 중 불순 호출로 잡는다(핸들러 안이라도
+ *  그 핸들러가 렌더 중 호출되는 함수에 인자로 넘어가면 컴파일러는 호출 가능성을 가정한다). */
+function writeResume(cur: Omit<ResumeCursor, 'at'>): void {
   const id = resumeDevice();
   if (!id) return;
-  useApp.getState().mutate((st) => putResume(st, id, cur));
+  useApp.getState().mutate((st) => putResume(st, id, { ...cur, at: Date.now() } as ResumeCursor));
 }
 function dropResume(): void {
   const id = resumeDevice();
   if (!id) return;
   useApp.getState().mutate((st) => clearResume(st, id));
+}
+
+/**
+ * D-3 키보드 계약 — 카드 종류·대조 여부·오답 줄 상태에서 **키 목록**을 조립한다.
+ *
+ * 이 화면엔 keydown 이 0개였다. 12장 세션이 21~27클릭이고 버튼이 카드 우측에 몰려 있어 매 카드
+ * 같은 마우스 왕복을 했다 — 집중을 지키려는 화면이 손을 계속 불러냈다.
+ *
+ * ⚠ **판정은 대조 뒤에만**(`2` 는 펼친 뒤에 생긴다). 안 그러면 1/2 연타가 "12개 인출"로 기록되지만
+ *   실제로는 아무것도 인출하지 않은 세션이 된다 — 학습 지능을 팔아 클릭을 사는 교환이다. 다만
+ *   마찰로 두지 않는다: 펼치기 전에 `2` 를 누르면 **먼저 펼친다**(누른 사람의 의도는 "됐다,
+ *   확인하자"이므로 그 다음 화면이 정확히 필요한 것이다). 키 수는 그대로 둘, 대조 없는 판정만
+ *   원리적으로 불가능해진다.
+ * ⚠ `1`(건너뛰기)은 펼치기 전에도 된다 — "모르겠다, 넘김"은 정직한 결과이고, D-1 재큐가 그 카드를
+ *   세션 안에서 한 번 더 데려온다.
+ * ⚠ 되돌리기(`u`)가 이 계약의 짝이다. 키가 빨라지면 오타도 빨라진다.
+ * ⚠ 되돌리기·중단은 **카드 밖에서도** 산다 — 특히 마지막 카드를 잘못 눌러 리캡으로 튄 순간이
+ *   되돌리기가 가장 필요한 때다. 카드 안에만 두면 그 순간에 정확히 없다.
+ *
+ * ⚠⚠ 이 목록은 keydown 리스너와 발치 `KeyBar` 의 **단일 원천**이다 — 둘이 갈리면 "화면엔 있는데
+ *   안 눌리는 키"(또는 그 반대)가 생기고 그건 조용하다. 조립을 컴포넌트 본문 밖에 두는 이유가
+ *   그것이다: 계약 전체를 한 화면에서 읽을 수 있어야 한다.
+ */
+function buildKeys(d: {
+  cur: RunItem | undefined;
+  revealed: boolean;
+  reveal: () => void;
+  advance: (didIt: boolean, anchor?: boolean) => void;
+  skip: (it: RunItem) => void;
+  startFocus: (it: Extract<RunItem, { kind: 'chapter' }>) => void;
+  askingMiss: boolean;
+  commitMiss: (code: CbmsCode) => void;
+  canUndo: boolean;
+  undo: () => void;
+  abort: () => void;
+}): RunKey[] {
+  const { cur, revealed } = d;
+  const keys: RunKey[] = [];
+  if (cur) {
+    // 챕터 카드엔 펼칠 본문이 없다 — 그래서 Space 도 대조 게이트도 이 종류를 애초에 제외한다.
+    if (cur.kind !== 'chapter' && !revealed)
+      keys.push({
+        k: ' ',
+        cap: 'Space',
+        label: cur.kind === 'retrieval' ? '원래 요약 펼치기' : '당시 메모 펼치기',
+        run: d.reveal,
+      });
+    keys.push({ k: '1', cap: '1', label: '건너뛰기', run: () => d.skip(cur) });
+    if (cur.kind === 'chapter') {
+      keys.push({ k: '2', cap: '2', label: '▶ 집중 시작', primary: true, run: () => d.startFocus(cur) });
+      /* E1 — 챕터 카드의 인출 판정. `2`(집중 시작)와 뜻이 다르다: 저건 "이제 25분 볼게"이고
+         이건 "지금 떠올렸어"다. 앵커를 옮기는 것은 후자뿐이다.
+         ⚠ **대조 게이트를 걸지 않는다.** 볼트 열람을 조건으로 걸면 그건 계약이 아니라 새 마찰이다.
+           자기보고의 위험(대충 누르면 곡선이 리셋된다)은 사용자가 알고 내린 결정이며, 최악이
+           "덜 급한 챕터를 좀 늦게 본다"라 방향이 안전한 쪽이다. */
+      keys.push({ k: '3', cap: '3', label: '떠올렸어요', run: () => d.advance(true, true) });
+    } else
+      keys.push({
+        k: '2',
+        cap: '2',
+        label: revealed ? (cur.kind === 'retrieval' ? '다시 설명했어요' : '다시 확인했어요') : '펼쳐서 대조하기',
+        primary: revealed,
+        // 펼치기 전엔 **바에 안 그린다** — 그리면 Space 와 같은 일을 하는 칩이 둘이 된다.
+        // 그래도 눌리면 펼친다: 계약을 가르치는 것과 실수를 벌하는 것은 다른 일이다.
+        quiet: !revealed,
+        // 착각 재확인은 `sid|chapter` 를 다 갖는 **진짜 인출 사건**이라 앵커를 옮긴다(E1).
+        // 회상은 `Summary` 에 chapter 가 없어 옮길 것이 없다 — `anchorOf` 가 null 을 준다.
+        run: () => (revealed ? d.advance(true, true) : d.reveal()),
+      });
+    if (cur.kind !== 'retrieval')
+      keys.push({
+        k: 'v',
+        cap: 'V',
+        label: '볼트에서 찾기',
+        run: () =>
+          openVaultSearch(
+            cur.kind === 'confident'
+              ? cur.card.cbms.name + ' ' + cur.card.cbms.chapter
+              : cur.ch.subject + ' ' + cur.ch.chapter,
+          ),
+      });
+  }
+  /* P-2 — `quiet` 라 발치 키캡 바에는 안 그린다: 칩 다섯이 그 줄에 이미 **글자와 함께** 있고,
+     바에 또 그리면 같은 것이 두 벌이 된다.
+     ⚠ 키 충돌 확인 — 러너의 기존 키는 `Space·1·2·3·V·U·Esc` 라 다섯 자 어디와도 안 겹친다. */
+  if (d.askingMiss)
+    for (const code of CBMS_CODES)
+      keys.push({
+        k: code.toLowerCase(),
+        cap: code,
+        label: CBMS_INFO[code].label,
+        quiet: true,
+        run: () => d.commitMiss(code),
+      });
+  if (d.canUndo) keys.push({ k: 'u', cap: 'U', label: '되돌리기', run: d.undo });
+  keys.push({ k: 'Escape', cap: 'Esc', label: '중단', run: d.abort });
+  return keys;
 }
 
 export default function ReviewRun() {
@@ -320,7 +421,7 @@ export default function ReviewRun() {
     /* N-7 — 이어하기 커서(복습). **5장마다**만 쓴다: 카드마다 쓰면 한 세션이 아웃박스에 12행을
        남기고, 그 12행이 말하는 것은 같은 한 가지("복습 중")다. 진행 표기는 다음 카드 기준. */
     if ((idx + 1) % 5 === 0 && idx + 1 < queue.length)
-      writeResume({ kind: 'review', label: '복습 세션', at: Date.now(), progress: `${idx + 2}/${queue.length}` });
+      writeResume({ kind: 'review', label: '복습 세션', progress: `${idx + 2}/${queue.length}` });
   };
   /** P-2 — 코드 1키 커밋. 문맥이 sid·과목명·챕터를 이미 알므로 **필드가 4→1** 이 된다. */
   const commitMiss = (code: CbmsCode) => {
@@ -382,117 +483,53 @@ export default function ReviewRun() {
      그 카드를 세션 안에서 한 번 더 데려온다.
      ⚠ 되돌리기(`u`)가 이 계약의 짝이다. 키가 빨라지면 오타도 빨라진다. */
   const cur = queue[idx];
-  const keys: RunKey[] = [];
-  if (cur) {
-    const revealable = cur.kind !== 'chapter';
-    if (revealable && !revealed)
-      keys.push({
-        k: ' ',
-        cap: 'Space',
-        label: cur.kind === 'retrieval' ? '원래 요약 펼치기' : '당시 메모 펼치기',
-        run: reveal,
-      });
-    /* P-2 — `1` 은 여전히 한 번의 키다. 전진은 즉시 일어나고, 방금 넘긴 카드의 "왜 막혔나"가
-       다음 카드 위에 뜬다(안 고르면 아무 일도 안 일어난다 = 순손실 0). */
-    keys.push({
-      k: '1',
-      cap: '1',
-      label: '건너뛰기',
-      run: () => {
-        setMiss(missTarget(cur));
-        setMissId(null);
-        advance(false);
-      },
+  /** `1` — 전진은 즉시. 방금 넘긴 카드의 "왜 막혔나"가 다음 카드 위에 뜬다(안 고르면 순손실 0). */
+  const skip = (it: RunItem) => {
+    setMiss(missTarget(it));
+    setMissId(null);
+    advance(false);
+  };
+  /** 챕터 카드의 `2` — 25분 집중을 연다. 앵커는 **여기서 안 옮긴다**(세션 완주가 옮긴다 · FocusChip). */
+  const startFocus = (it: Extract<RunItem, { kind: 'chapter' }>) => {
+    /* ⚠ **진행 중 세션을 말없이 갈아치우지 않는다(E1).** `useFocus.start` 는 무조건 덮어쓰는데,
+       챕터 카드의 유일한 긍정 동작이 집중 시작이라 러너를 훑으며 `2` 를 두 번 누르면 첫 세션이
+       증발한다 — 그리고 그 세션이 **앵커의 유일한 생산자**였다(위 머리주석). 즉 "러너를 다 봤는데
+       다음 날 그대로 온다"의 실제 메커니즘이 여기였다. */
+    const s = useFocus.getState().session;
+    if (s && s.kind !== 'break') {
+      toast(`이미 "${s.name}" 집중 중이에요 — 끝내거나 중단한 뒤 시작하세요.`, 'warn');
+      return;
+    }
+    useFocus.getState().start({
+      ds: today,
+      sid: it.ch.sid,
+      type: 'rev',
+      name: it.ch.subject,
+      min: 25,
+      blockMin: 25,
+      chapter: it.ch.chapter, // 완료 시 챕터 터치 → 위험모델 lastDs 갱신(감사 #22)
     });
-    if (cur.kind === 'chapter')
-      keys.push({
-        k: '2',
-        cap: '2',
-        label: '▶ 집중 시작',
-        primary: true,
-        run: () => {
-          /* ⚠ **진행 중 세션을 말없이 갈아치우지 않는다(E1).** `useFocus.start` 는 무조건
-             덮어쓰는데, 챕터 카드의 유일한 긍정 동작이 집중 시작이라 러너를 훑으며 `2` 를 두 번
-             누르면 첫 세션이 증발한다 — 그리고 그 세션이 **앵커의 유일한 생산자**였다(위 머리주석).
-             즉 "러너를 다 봤는데 다음 날 그대로 온다"의 실제 메커니즘이 여기였다. */
-          const s = useFocus.getState().session;
-          if (s && s.kind !== 'break') {
-            toast(`이미 "${s.name}" 집중 중이에요 — 끝내거나 중단한 뒤 시작하세요.`, 'warn');
-            return;
-          }
-          useFocus.getState().start({
-            ds: today,
-            sid: cur.ch.sid,
-            type: 'rev',
-            name: cur.ch.subject,
-            min: 25,
-            blockMin: 25,
-            chapter: cur.ch.chapter, // 완료 시 챕터 터치 → 위험모델 lastDs 갱신(감사 #22)
-          });
-          // 앵커는 **여기서 안 옮긴다** — 세션 완주가 옮긴다(FocusChip). 머리주석 ⚠ 첫째.
-          advance(true);
-        },
-      });
-    else
-      keys.push({
-        k: '2',
-        cap: '2',
-        label: revealed ? (cur.kind === 'retrieval' ? '다시 설명했어요' : '다시 확인했어요') : '펼쳐서 대조하기',
-        primary: revealed,
-        // 펼치기 전엔 **바에 안 그린다** — 그리면 Space 와 같은 일을 하는 칩이 둘이 된다.
-        // 그래도 눌리면 펼친다: 계약을 가르치는 것과 실수를 벌하는 것은 다른 일이다.
-        quiet: !revealed,
-        // 착각 재확인은 `sid|chapter` 를 다 갖는 **진짜 인출 사건**이라 앵커를 옮긴다(E1).
-        // 회상은 `Summary` 에 chapter 가 없어 옮길 것이 없다 — `anchorOf` 가 null 을 준다.
-        run: () => (revealed ? advance(true, true) : reveal()),
-      });
-    /* E1 — 챕터 카드의 인출 판정. `2`(집중 시작)와 뜻이 다르다: 저건 "이제 25분 볼게"이고
-       이건 "지금 떠올렸어"다. 앵커를 옮기는 것은 후자뿐이다.
-       ⚠ **대조 게이트를 걸지 않는다.** 챕터 카드엔 펼칠 본문이 없어(`revealable` 이 이 종류를
-         애초에 제외한다) 여기서 요구할 '대조'가 없고, 볼트 열람을 조건으로 걸면 그건 계약이
-         아니라 새 마찰이다. 자기보고의 위험(대충 누르면 곡선이 리셋된다)은 사용자가 알고 내린
-         결정이며, 최악이 "덜 급한 챕터를 좀 늦게 본다"라 방향이 안전한 쪽이다. */
-    if (cur.kind === 'chapter') keys.push({ k: '3', cap: '3', label: '떠올렸어요', run: () => advance(true, true) });
-    if (cur.kind !== 'retrieval')
-      keys.push({
-        k: 'v',
-        cap: 'V',
-        label: '볼트에서 찾기',
-        run: () =>
-          openVaultSearch(
-            cur.kind === 'confident'
-              ? cur.card.cbms.name + ' ' + cur.card.cbms.chapter
-              : cur.ch.subject + ' ' + cur.ch.chapter,
-          ),
-      });
-  }
-  /* ⚠ 되돌리기·중단은 **카드 밖에서도** 산다 — 특히 마지막 카드를 잘못 눌러 리캡으로 튄 순간이
-     되돌리기가 가장 필요한 때다. 카드 안에만 두면 그 순간에 정확히 없다. */
-  /* P-2 — 오답 한 줄이 떠 있는 동안만 c/b/m/s/t 가 산다. `quiet` 라 발치 키캡 바에는 안 그린다:
-     칩 다섯이 그 줄에 이미 **글자와 함께** 있고, 바에 또 그리면 같은 것이 두 벌이 된다.
-     ⚠ 키 충돌 확인 — 러너의 기존 키는 `Space·1·2·3·V·U·Esc` 라 다섯 자 어디와도 안 겹친다. */
-  if (miss && !missId)
-    for (const code of CBMS_CODES)
-      keys.push({
-        k: code.toLowerCase(),
-        cap: code,
-        label: CBMS_INFO[code].label,
-        quiet: true,
-        run: () => commitMiss(code),
-      });
-  /* ⚠ 되돌리기는 이 줄을 **닫기만** 한다 — 이미 커밋된 기록은 안 지운다(위 P-2 주석). */
-  if (past.length)
-    keys.push({
-      k: 'u',
-      cap: 'U',
-      label: '되돌리기',
-      run: () => {
-        setMiss(null);
-        setMissId(null);
-        undo();
-      },
-    });
-  keys.push({ k: 'Escape', cap: 'Esc', label: '중단', run: () => nav('/today') });
+    advance(true);
+  };
+  const keys = buildKeys({
+    cur,
+    revealed,
+    reveal,
+    advance,
+    skip,
+    startFocus,
+    // 오답 한 줄이 떠 있는데 아직 코드를 안 골랐을 때만 c/b/m/s/t 가 산다.
+    askingMiss: !!miss && !missId,
+    commitMiss,
+    canUndo: past.length > 0,
+    // ⚠ 되돌리기는 오답 줄을 **닫기만** 한다 — 이미 커밋된 기록은 안 지운다(위 P-2 주석).
+    undo: () => {
+      setMiss(null);
+      setMissId(null);
+      undo();
+    },
+    abort: () => nav('/today'),
+  });
 
   /* 리스너는 마운트당 1회 — 목록은 이펙트에서 동기화한다(렌더 중 ref 쓰기 금지 · `useWeekNavKeys` 선례). */
   const keysRef = useRef<RunKey[]>([]);

@@ -270,6 +270,37 @@ mod tests {
         "docs",
     ];
 
+    /* ⚠ `tauri-plugin-sql` 이 자기 `Migration` 을 sqlx 로 옮기는 것과 **같은 변환**이다
+    (`lib.rs:91` — `MigrationKind::Up` → `MigrationType::ReversibleUp`, `no_tx:false`).
+    여기서 어긋나면 **체크섬이 달라져 다른 실패를 검사하게 된다** — 아래 두 케이스가 전부
+    체크섬 위에 서 있으므로 변환은 한 곳에만 있어야 한다. */
+    fn bundled_sqlx(upto: i64) -> Vec<sqlx::migrate::Migration> {
+        use sqlx::migrate::{Migration as SqlxMigration, MigrationType};
+        use std::borrow::Cow;
+        super::migrations()
+            .into_iter()
+            .filter(|m| m.version <= upto)
+            .map(|m| {
+                SqlxMigration::new(
+                    m.version,
+                    Cow::Borrowed(m.description),
+                    MigrationType::ReversibleUp,
+                    Cow::Borrowed(m.sql),
+                    false,
+                )
+            })
+            .collect()
+    }
+
+    fn bundled_migrator(upto: i64) -> sqlx::migrate::Migrator {
+        sqlx::migrate::Migrator {
+            migrations: std::borrow::Cow::Owned(bundled_sqlx(upto)),
+            ignore_missing: false, // 플러그인이 쓰는 `Migrator::new` 기본값(commands.rs:22)
+            locking: true,
+            no_tx: false,
+        }
+    }
+
     /* ▶ C2(2026-07-26 감사) — **이 케이스가 단언하는 것은 우리 코드가 아니라 sqlx 의 거동이다.**
 
     그게 요점이다: 처방("다운그레이드는 지원하지 않는다 · 열지 말고 화면으로 말한다")이
@@ -280,38 +311,14 @@ mod tests {
     ⚠ 임시 DB 로만 돈다 — 사용자의 실 DB 를 마이그레이션하는 검사는 만들지 않는다. */
     #[test]
     fn 구버전은_신버전_db_를_못_연다_그래서_가드가_먼저_말해야_한다() {
-        use super::{applied_max_version_at, bundled_max_version, is_downgrade, migrations};
-        use sqlx::migrate::{Migration as SqlxMigration, MigrationType, Migrator};
-        use std::borrow::Cow;
+        use super::{applied_max_version_at, bundled_max_version, is_downgrade};
 
         let dir = std::env::temp_dir().join("lh-downgrade-test");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("임시 폴더 생성 실패");
         let path = dir.join("learning-hub.db");
 
-        /* `tauri-plugin-sql` 이 자기 `Migration` 을 sqlx 로 옮기는 것과 **같은 변환**이다
-        (`lib.rs:91` — `MigrationKind::Up` → `MigrationType::ReversibleUp`, `no_tx:false`).
-        여기서 어긋나면 체크섬이 달라져 다른 실패를 검사하게 된다. */
-        let migrator = |upto: i64| Migrator {
-            migrations: Cow::Owned(
-                migrations()
-                    .into_iter()
-                    .filter(|m| m.version <= upto)
-                    .map(|m| {
-                        SqlxMigration::new(
-                            m.version,
-                            Cow::Borrowed(m.description),
-                            MigrationType::ReversibleUp,
-                            Cow::Borrowed(m.sql),
-                            false,
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-            ),
-            ignore_missing: false, // 플러그인이 쓰는 `Migrator::new` 기본값(commands.rs:22)
-            locking: true,
-            no_tx: false,
-        };
+        let migrator = bundled_migrator;
 
         let newest = bundled_max_version();
         assert!(newest >= 2, "버전이 하나뿐이면 이 검사가 성립하지 않는다");
@@ -428,5 +435,192 @@ mod tests {
                 "{t} 에 0 스탬프 행이 {n}개 — v6 백필이 안 돌았거나 새로 생겼다(동기화에서 영원히 빠진다)"
             );
         }
+    }
+
+    /* ▶ 실 DB 읽기 전용 스모크 (2026-08-01 · 2026-07-31 `/감사 근본` 이 "선행 없음"으로 남긴 항목)
+
+    ## 이 케이스만이 볼 수 있는 것 — 나머지 전부가 원리적으로 못 보는 자리다
+
+    이 파일 머리주석의 ⚠⚠ 절이 그 사각을 정확히 적어 뒀다: 적용된 마이그레이션의 SQL 이
+    1바이트라도 바뀌면 sqlx 가 `_sqlx_migrations.checksum` 대조에서 거부해 **기존 DB 를 아예 못
+    연다.** 그런데 **새 DB 에선 재현되지 않는다** — 개발자는 멀쩡한 앱을 보고 커밋하고, 터지는
+    것은 데이터를 가진 사람뿐이다.
+
+    그 사각을 지금까지 지키던 것은 `web/test/dbMigrations.test.ts` 의 `PINNED_CHECKSUMS` 인데,
+    그건 **2026-07-19 에 실 DB 를 한 번 읽어 손으로 옮겨 적은 표**다. 손베낌은 표류한다(이
+    저장소가 `report-debt.mjs` 임계·게이트 목록·탭 개수로 세 번 물린 형태). 여기서 그 표의
+    출처인 **실물과 매 게이트마다 대조**한다 — 핀이 지키는 명제가 "핀과 SQL 이 같다"에서
+    **"이 빌드가 사용자의 DB 를 실제로 연다"** 로 올라간다.
+
+    ## 그리고 시제(2026-07-31 감사의 중심 발견)
+
+    그 감사는 배포 후 관측을 만들어 놓고 **관측기가 켜진 적이 없던 것**을 실 DB 실측으로
+    잡았다(마이그레이션 v6 인데 현행 v9 · 활동 표 전부 0행 · 최종 쓰기 7일 전). 게이트 전량이
+    녹색인데 **전부 픽스처 위에서만 참**이었다는 뜻이다. 그 실측이 손으로 한 번 도는 것이었기
+    때문에 그 상태가 7일 동안 보이지 않았다 — 그래서 버전 스큐를 **단언**으로 만든다.
+    앱을 한 번 띄우면 해소되고, 해소되기 전까지는 게이트가 자기 유효 범위를 정직하게 말한다.
+
+    ⚠ 읽기 전용으로만 연다. 사용자의 **정본** DB 이고, 이 저장소는 하네스가 정본을 망가뜨린
+    사고를 이미 한 번 냈다(트랙 B 가 `docs.updated_at` 을 0 으로 깎아 그 행이 동기화에서
+    영원히 빠졌다 — 결정로그 2026-07-20). 쓰기를 넣지 마라. */
+    #[test]
+    fn 실_db_스모크_이_빌드가_사용자의_db_를_그대로_연다() {
+        let Some(path) = crate::testkit::real_db() else {
+            crate::testkit::skip!("앱 DB 가 아직 없습니다(앱을 한 번도 안 켠 기계) — 검사 생략");
+        };
+        let bundled = super::bundled_max_version();
+
+        crate::testkit::rt().block_on(async {
+            let pool = sqlx::SqlitePool::connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(&path)
+                    .read_only(true),
+            )
+            .await
+            .expect("실 DB 열기 실패");
+
+            // ① 적용 원장 — 버전·성공여부·체크섬을 그대로 꺼낸다.
+            let applied: Vec<(i64, String, bool, Vec<u8>)> = sqlx::query_as(
+                "SELECT version, description, success, checksum FROM _sqlx_migrations ORDER BY version",
+            )
+            .fetch_all(&pool)
+            .await
+            .expect("_sqlx_migrations 를 못 읽었다 — 앱이 마이그레이션을 한 번도 못 돌린 DB 다");
+
+            assert!(
+                !applied.is_empty(),
+                "적용된 마이그레이션이 0건이다 — 스키마 없는 DB 파일이 남아 있다"
+            );
+
+            let by_version: std::collections::HashMap<i64, Vec<u8>> = super::migrations()
+                .into_iter()
+                .map(|m| {
+                    // 체크섬 계산을 우리가 하지 않는다 — sqlx 의 `Migration::new` 가 낸 값을 쓴다.
+                    let one = bundled_sqlx(m.version)
+                        .into_iter()
+                        .find(|s| s.version == m.version)
+                        .expect("번들 변환 누락");
+                    (m.version, one.checksum.to_vec())
+                })
+                .collect();
+
+            for (version, description, success, checksum) in &applied {
+                // ② 반쯤 적용된 마이그레이션 — 다음 부팅이 어디서부터 이어갈지 정의되지 않는다.
+                assert!(
+                    *success,
+                    "v{version}({description}) 이 실패 상태로 원장에 남아 있다"
+                );
+
+                // ③ 다운그레이드 — 이 빌드가 모르는 버전이 DB 에 있으면 C2 화면이 뜬다.
+                let Some(want) = by_version.get(version) else {
+                    panic!(
+                        "v{version}({description}) 이 DB 에 적용돼 있는데 이 빌드에는 없다 — \
+                         다운그레이드다. 이 exe 는 사용자의 DB 를 열지 못하고 C2 화면으로 떨어진다"
+                    );
+                };
+
+                // ④ ⚠⚠ 본체 — 적용된 SQL 의 SHA-384 가 번들과 같은가.
+                assert_eq!(
+                    checksum,
+                    want,
+                    "v{version}({description}) 의 SQL 이 **적용된 뒤에 바뀌었다** — 이 빌드는 \
+                     사용자의 DB 를 열지 못한다(sqlx 가 체크섬 대조에서 거부한다). \
+                     되돌려라. 스키마를 바꾸려면 새 버전을 추가한다. \
+                     새 DB 에선 재현되지 않으므로 이 케이스가 유일한 검출기다"
+                );
+            }
+
+            // ⑤ 스키마 형상 — 같은 버전까지 새로 마이그레이션한 DB 와 글자 그대로 같아야 한다.
+            let applied_max = applied.iter().map(|a| a.0).max().unwrap();
+            let dir = std::env::temp_dir().join("lh-real-db-smoke");
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).expect("임시 폴더 생성 실패");
+            let fresh = sqlx::SqlitePool::connect_with(
+                sqlx::sqlite::SqliteConnectOptions::new()
+                    .filename(dir.join("fresh.db"))
+                    .create_if_missing(true),
+            )
+            .await
+            .expect("임시 DB 열기 실패");
+            bundled_migrator(applied_max)
+                .run(&fresh)
+                .await
+                .expect("임시 DB 마이그레이션 실패");
+            let (want, got) = (shape(&fresh).await, shape(&pool).await);
+            fresh.close().await;
+            let _ = std::fs::remove_dir_all(&dir);
+            assert_eq!(
+                got, want,
+                "실 DB 의 형상이 v{applied_max} 까지 새로 만든 것과 다르다 — \
+                 마이그레이션 밖에서 스키마가 변했다(수동 편집·중단된 ALTER 등)"
+            );
+
+            /* ⑥ 시제 — 관측 결과를 실패 메시지에 싣는다(cargo 는 통과한 테스트의 출력을 숨긴다).
+            아래 단언이 깨지는 것은 결함이 아니라 **"이 게이트가 지금 픽스처 위에서만 참"** 이라는
+            사실의 보고다. `npm run tauri:dev` 로 앱을 한 번 띄우면 해소된다. */
+            let mut counts = Vec::new();
+            for t in SYNCED {
+                let (n,): (i64,) = sqlx::query_as(&format!("SELECT COUNT(*) FROM {t}"))
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap_or_else(|e| panic!("{t} 질의 실패: {e}"));
+                counts.push(format!("{t} {n}"));
+            }
+            pool.close().await;
+            assert_eq!(
+                applied_max,
+                bundled,
+                "실 DB 가 v{applied_max} 인데 이 빌드는 v{bundled} 다 — 앱을 한 번 띄우기 전까지 \
+                 나머지 게이트는 전부 픽스처 위에서만 참이다(2026-07-31 감사가 7일 동안 이 상태를 \
+                 못 본 것이 그 감사의 중심 발견이었다). 현재 행 수: {}",
+                counts.join(" · ")
+            );
+        });
+    }
+
+    /// DB 의 **형상** — 객체 목록과 각 테이블의 열 정의. 두 DB 를 문자열로 대조하기 위한 정규형.
+    ///
+    /// `_sqlx_migrations` 는 뺀다(적용 이력이라 형상이 아니다). `sqlite_%` 는 자동 인덱스다.
+    async fn shape(pool: &sqlx::SqlitePool) -> Vec<String> {
+        let objs: Vec<(String, String)> = sqlx::query_as(
+            "SELECT type, name FROM sqlite_master \
+             WHERE name NOT LIKE 'sqlite_%' AND name <> '_sqlx_migrations' \
+             ORDER BY type, name",
+        )
+        .fetch_all(pool)
+        .await
+        .expect("sqlite_master 질의 실패");
+
+        let mut out = Vec::new();
+        for (ty, name) in objs {
+            if ty != "table" {
+                out.push(format!("{ty} {name}"));
+                continue;
+            }
+            let cols: Vec<(i64, String, String, i64, Option<String>, i64)> =
+                sqlx::query_as(&format!("PRAGMA table_info({name})"))
+                    .fetch_all(pool)
+                    .await
+                    .unwrap_or_else(|e| panic!("{name} 열 조회 실패: {e}"));
+            let cs: Vec<String> = cols
+                .iter()
+                .map(|(_, col, ty, notnull, dflt, pk)| {
+                    format!(
+                        "{col} {ty}{}{}{}",
+                        if *notnull == 1 { " NOT NULL" } else { "" },
+                        dflt.as_deref()
+                            .map(|d| format!(" DEFAULT {d}"))
+                            .unwrap_or_default(),
+                        if *pk > 0 {
+                            format!(" PK{pk}")
+                        } else {
+                            String::new()
+                        },
+                    )
+                })
+                .collect();
+            out.push(format!("table {name}({})", cs.join(", ")));
+        }
+        out
     }
 }

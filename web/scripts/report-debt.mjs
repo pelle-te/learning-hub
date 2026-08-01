@@ -63,7 +63,9 @@ const order = ['app', 'features', 'components', 'hooks', 'store', 'lib', 'shell'
 const keys = [...new Set([...order, ...Object.keys(byLayer)])].filter((k) => byLayer[k]);
 for (const k of keys) {
   const fs_ = byLayer[k];
-  console.log(`  ${k.padEnd(12)} ${String(fs_.length).padStart(4)}개  ${String(sum(fs_.map((f) => f.lines))).padStart(6)}줄`);
+  console.log(
+    `  ${k.padEnd(12)} ${String(fs_.length).padStart(4)}개  ${String(sum(fs_.map((f) => f.lines))).padStart(6)}줄`,
+  );
 }
 
 /* features:lib 비율 — 로직이 feature에 눌어붙는지(재사용·테스트 가능성 저하) 보는 지표.
@@ -124,9 +126,27 @@ for (const f of [...files].sort((a, b) => b.lines - a.lines).slice(0, 10)) {
   console.log(`  ${String(f.lines).padStart(5)}  ${f.rel}${flag}`);
 }
 
-console.log('\n인지복잡도: npx eslint src --rule \'{"sonarjs/cognitive-complexity":["error",15]}\' 로 상세 확인');
-/* C-7(=6단계 Tailwind) 종료 후 재측정(2026-07-24): 최댓값이 **정확히 77** 이다
-   (ArticlePractice · TodaySignature 둘 다). 즉 래칫은 이미 현재 최댓값에 붙어 있어
-   **리팩터 없이는 내릴 수 없다.** max-lines 도 같다(843 vs 임계 844). 재기준선은
-   "숫자를 내리는 일"이 아니라 그 둘을 실제로 쪼개는 일이고, 그건 설계 결정이 앞선다. */
-console.log('(게이트 임계는 77 래칫 — 내려가기만 한다. C-7 후 실측: 현재 최댓값도 77 이라 여유 0.)');
+/* ⚠⚠ **여기도 손으로 베낀 임계가 표류했다(F5 · 2026-08-01).** 위 `readRatchet` 이 max-lines 를
+   게이트에서 읽게 고친 그 커밋이 **인지복잡도 줄은 그대로 뒀고**, 그래서 이 줄이 `77 … 여유 0`
+   을 계속 찍는 동안 실측 최댓값은 66 이었다(F5 재설계 4건이 45·47·38·37 을 내린 뒤). 리포트가
+   없는 부채를 가리키면 사람은 그 리포트를 안 읽는다 — `readRatchet` 을 만든 이유와 같은 병이다.
+   ⚠ 실측 최댓값까지 여기서 재지는 않는다(전체-src eslint 를 한 번 더 도는 비용). 임계만
+     게이트에서 읽고, 현재값은 아래 명령이 답한다. */
+const CC_RATCHET = readCcRatchet();
+
+function readCcRatchet() {
+  try {
+    const cfg = readFileSync('eslint.config.js', 'utf8');
+    const m = cfg.match(/'sonarjs\/cognitive-complexity':\s*\['error',\s*(\d+)/);
+    if (m) return Number(m[1]);
+  } catch {
+    /* 아래 경고로 떨어진다 */
+  }
+  console.warn('⚠ eslint.config.js 에서 인지복잡도 임계를 못 읽었습니다.');
+  return null;
+}
+
+const ccCmd = `npx eslint src --rule '{"sonarjs/cognitive-complexity":["error",${CC_RATCHET ?? 15}]}'`;
+console.log(`\n인지복잡도 (게이트 임계 ${CC_RATCHET ?? '?'} 래칫 — 내려가기만 한다)`);
+console.log(`  현재 최댓값은 이 명령이 답한다(넘는 게 없으면 여유가 있다는 뜻):`);
+console.log(`  ${ccCmd}`);

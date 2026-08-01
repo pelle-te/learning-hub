@@ -107,11 +107,12 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
      ⚠ 훅은 early return 위에 있어야 한다(훅 규칙) → 현재 카드가 없을 때는 핸들러를 안 준다.
      ⚠ 챕터 카드는 펼칠 것이 없다(원래 요약·메모가 없다) → 그 카드에선 탭을 안 건다. */
   const cur = queue[idx];
+  const reveal = (): void => setRevealedAt(idx);
   const revealable = !!cur && cur.kind !== 'chapter';
   const swipe = useSwipe({
     onSwipeRight: cur ? () => advance(true) : undefined,
     onSwipeLeft: cur ? () => advance(false) : undefined,
-    onTap: revealable && !revealed ? () => setRevealedAt(idx) : undefined,
+    onTap: revealable && !revealed ? reveal : undefined,
   });
 
   if (total === 0) {
@@ -183,108 +184,14 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
       ) : null}
 
       {item.kind === 'retrieval' ? (
-        <div className={CARD}>
-          <div className="flex items-center justify-between gap-2">
-            <span className={BADGE}>회상</span>
-            <span className="text-2xs text-mut">
-              {step} · {item.card.ageDays}일 전 요약
-            </span>
-          </div>
-          <h2 className="m-0 text-base leading-normal font-semibold text-txt">
-            "{item.card.summary.name}" — 보지 않고 스스로 3문장으로 설명해 보세요.
-          </h2>
-          {revealed ? (
-            <ol className={REVEAL}>
-              <li>{item.card.summary.s1}</li>
-              <li>{item.card.summary.s2}</li>
-              <li>{item.card.summary.s3}</li>
-            </ol>
-          ) : (
-            <p className="text-sm text-mut">머릿속으로 먼저 인출한 뒤, 원래 요약과 대조하세요.</p>
-          )}
-          <div className="mt-1 flex gap-2">
-            {!revealed ? (
-              <button type="button" onClick={() => setRevealedAt(idx)} className={GHOST}>
-                원래 요약
-              </button>
-            ) : null}
-            <button type="button" onClick={() => advance(false)} className={GHOST}>
-              건너뛰기
-            </button>
-            <button type="button" onClick={() => advance(true)} className={PRIMARY}>
-              다시 설명했어요
-            </button>
-          </div>
-        </div>
+        <RetrievalCard item={item} step={step} revealed={revealed} onReveal={reveal} onAdvance={advance} />
       ) : null}
 
       {item.kind === 'confident' ? (
-        <div className={CARD}>
-          <div className="flex items-center justify-between gap-2">
-            <span className={`${BADGE} bg-tint-warn text-warn`}>착각 재확인</span>
-            <span className="text-2xs text-mut">
-              {step} · {CBMS_INFO[item.card.cbms.code].label}
-            </span>
-          </div>
-          <h2 className="m-0 text-base leading-normal font-semibold text-txt">
-            {item.card.cbms.name}
-            {item.card.cbms.chapter ? ` · ${item.card.cbms.chapter}` : ''} — 확신했지만 틀렸던 지점. 지금은 설명할 수
-            있나요?
-          </h2>
-          {revealed ? (
-            <div className={REVEAL}>
-              <p className="m-0 whitespace-pre-wrap">{item.card.cbms.note || '(메모 없음)'}</p>
-              <p className="m-0 text-2xs text-mut">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-mut">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
-          )}
-          <div className="mt-1 flex gap-2">
-            {!revealed ? (
-              <button type="button" onClick={() => setRevealedAt(idx)} className={GHOST}>
-                당시 메모
-              </button>
-            ) : null}
-            <button type="button" onClick={() => advance(false)} className={GHOST}>
-              건너뛰기
-            </button>
-            <button type="button" onClick={() => advance(true)} className={PRIMARY}>
-              다시 확인했어요
-            </button>
-          </div>
-        </div>
+        <ConfidentCard item={item} step={step} revealed={revealed} onReveal={reveal} onAdvance={advance} />
       ) : null}
 
-      {item.kind === 'chapter' ? (
-        <div className={CARD}>
-          <div className="flex items-center justify-between gap-2">
-            <span className={`${BADGE} ${item.ch.risk === 'overdue' ? 'bg-tint-bad text-bad' : ''}`}>
-              {chapterCopy(item.ch).badge}
-            </span>
-            <span className="text-2xs text-mut">
-              {step}
-              {chapterCopy(item.ch).age}
-            </span>
-          </div>
-          <h2 className="m-0 flex items-center gap-2 text-base leading-normal font-semibold text-txt">
-            <span
-              className="inline-block size-3 shrink-0 rounded-sm"
-              style={{ background: item.ch.color || 'var(--acc)' }}
-              aria-hidden="true"
-            />
-            {item.ch.subject} <span className="text-sm font-medium text-mut">{item.ch.chapter}</span>
-          </h2>
-          <p className="text-sm text-mut">{chapterCopy(item.ch).body}</p>
-          <div className="mt-1 flex gap-2">
-            <button type="button" onClick={() => advance(false)} className={GHOST}>
-              건너뛰기
-            </button>
-            <button type="button" onClick={() => advance(true)} className={PRIMARY}>
-              인출했어요
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {item.kind === 'chapter' ? <ChapterCard item={item} step={step} onAdvance={advance} /> : null}
 
       {/* 숨은 제스처를 한 줄로 알린다 — 버튼이 정본이라 없어도 쓸 수 있지만, 알려 주지 않으면
           만들어 둔 손맛을 아무도 못 찾는다(폰 할 일 스와이프를 드롭한 근거가 '발견성'이었다).
@@ -293,5 +200,175 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
         ← 건너뛰기 · 인출 →{revealable && !revealed ? ' · 탭하면 펼침' : ''}
       </p>
     </section>
+  );
+}
+
+/* ── 카드 3종 ─────────────────────────────────────────────────────────────────
+   ⚠ 컴포넌트로 갈린 이유는 인지복잡도 래칫이다(F5 · 2026-08-01). 이 화면 본문이 **77** 로
+   저장소 최댓값이었고, 그 대부분이 여기 세 블록의 JSX 분기였다 — 큐·판정 로직은 전부 lib 이
+   갖고 있어서 본문에 남아 있던 것은 사실상 카드 세 벌의 마크업뿐이었다.
+   ⚠ 문구·배지는 여전히 **lib 이 소유**한다(`cardSpeech`·`chapterCopy` · §9-4) — 파일을 갈랐다고
+   말이 갈리면 H14 가 고친 `chapterCopy` 2벌이 세 번째로 재발한다. */
+
+/** 펼치기 전/후로 갈리는 하단 버튼 줄 — 세 카드가 같은 배치를 쓴다(회상·착각). */
+function RevealActions({
+  revealLabel,
+  doneLabel,
+  revealed,
+  onReveal,
+  onAdvance,
+}: {
+  revealLabel: string;
+  doneLabel: string;
+  revealed: boolean;
+  onReveal: () => void;
+  onAdvance: (didIt: boolean) => void;
+}) {
+  return (
+    <div className="mt-1 flex gap-2">
+      {!revealed ? (
+        <button type="button" onClick={onReveal} className={GHOST}>
+          {revealLabel}
+        </button>
+      ) : null}
+      <button type="button" onClick={() => onAdvance(false)} className={GHOST}>
+        건너뛰기
+      </button>
+      <button type="button" onClick={() => onAdvance(true)} className={PRIMARY}>
+        {doneLabel}
+      </button>
+    </div>
+  );
+}
+
+/** 회상 — 내 옛 요약을 보지 않고 3문장으로 재생한다. 앵커는 원리적으로 없다(`Summary` 에 chapter 없음). */
+function RetrievalCard({
+  item,
+  step,
+  revealed,
+  onReveal,
+  onAdvance,
+}: {
+  item: Extract<RunItem, { kind: 'retrieval' }>;
+  step: string;
+  revealed: boolean;
+  onReveal: () => void;
+  onAdvance: (didIt: boolean) => void;
+}) {
+  return (
+    <div className={CARD}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={BADGE}>회상</span>
+        <span className="text-2xs text-mut">
+          {step} · {item.card.ageDays}일 전 요약
+        </span>
+      </div>
+      <h2 className="m-0 text-base leading-normal font-semibold text-txt">
+        "{item.card.summary.name}" — 보지 않고 스스로 3문장으로 설명해 보세요.
+      </h2>
+      {revealed ? (
+        <ol className={REVEAL}>
+          <li>{item.card.summary.s1}</li>
+          <li>{item.card.summary.s2}</li>
+          <li>{item.card.summary.s3}</li>
+        </ol>
+      ) : (
+        <p className="text-sm text-mut">머릿속으로 먼저 인출한 뒤, 원래 요약과 대조하세요.</p>
+      )}
+      <RevealActions
+        revealLabel="원래 요약"
+        doneLabel="다시 설명했어요"
+        revealed={revealed}
+        onReveal={onReveal}
+        onAdvance={onAdvance}
+      />
+    </div>
+  );
+}
+
+/** 착각 재확인 — 확신했지만 틀렸던 지점(CBMS). `sid|chapter` 를 다 갖는 진짜 인출 사건이다. */
+function ConfidentCard({
+  item,
+  step,
+  revealed,
+  onReveal,
+  onAdvance,
+}: {
+  item: Extract<RunItem, { kind: 'confident' }>;
+  step: string;
+  revealed: boolean;
+  onReveal: () => void;
+  onAdvance: (didIt: boolean) => void;
+}) {
+  return (
+    <div className={CARD}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`${BADGE} bg-tint-warn text-warn`}>착각 재확인</span>
+        <span className="text-2xs text-mut">
+          {step} · {CBMS_INFO[item.card.cbms.code].label}
+        </span>
+      </div>
+      <h2 className="m-0 text-base leading-normal font-semibold text-txt">
+        {item.card.cbms.name}
+        {item.card.cbms.chapter ? ` · ${item.card.cbms.chapter}` : ''} — 확신했지만 틀렸던 지점. 지금은 설명할 수
+        있나요?
+      </h2>
+      {revealed ? (
+        <div className={REVEAL}>
+          <p className="m-0 whitespace-pre-wrap">{item.card.cbms.note || '(메모 없음)'}</p>
+          <p className="m-0 text-2xs text-mut">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-mut">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
+      )}
+      <RevealActions
+        revealLabel="당시 메모"
+        doneLabel="다시 확인했어요"
+        revealed={revealed}
+        onReveal={onReveal}
+        onAdvance={onAdvance}
+      />
+    </div>
+  );
+}
+
+/** 밀린 챕터 — 펼칠 본문이 없다(그래서 탭 제스처도 안 건다). 긍정 판정이 곧 앵커 이동이다. */
+function ChapterCard({
+  item,
+  step,
+  onAdvance,
+}: {
+  item: Extract<RunItem, { kind: 'chapter' }>;
+  step: string;
+  onAdvance: (didIt: boolean) => void;
+}) {
+  const copy = chapterCopy(item.ch);
+  return (
+    <div className={CARD}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`${BADGE} ${item.ch.risk === 'overdue' ? 'bg-tint-bad text-bad' : ''}`}>{copy.badge}</span>
+        <span className="text-2xs text-mut">
+          {step}
+          {copy.age}
+        </span>
+      </div>
+      <h2 className="m-0 flex items-center gap-2 text-base leading-normal font-semibold text-txt">
+        <span
+          className="inline-block size-3 shrink-0 rounded-sm"
+          style={{ background: item.ch.color || 'var(--acc)' }}
+          aria-hidden="true"
+        />
+        {item.ch.subject} <span className="text-sm font-medium text-mut">{item.ch.chapter}</span>
+      </h2>
+      <p className="text-sm text-mut">{copy.body}</p>
+      <div className="mt-1 flex gap-2">
+        <button type="button" onClick={() => onAdvance(false)} className={GHOST}>
+          건너뛰기
+        </button>
+        <button type="button" onClick={() => onAdvance(true)} className={PRIMARY}>
+          인출했어요
+        </button>
+      </div>
+    </div>
   );
 }

@@ -6,12 +6,73 @@ import { rid, todayISO } from '@/lib/utils';
 import { chapterSnapshot, riskWord } from '@/lib/chapterView';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
+import { useFlushOnUnmount } from '@/hooks/interactions';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ui } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
 import type { AppState, Item } from '@/lib/types';
 
 type Mutate = (recipe: (st: AppState) => void) => void;
+
+/**
+ * 챕터 이름 — **커밋은 blur/Enter 에서만** 한다(H16 · 2026-07-31 `/감사 근본` → 2026-08-01 출하).
+ *
+ * 종전엔 `onChange` 가 곧장 `mutate` 라, 한 글자마다 `items` 슬라이스가 갈려 파생 전량이 다시
+ * 돌았다(10배 규모 실측 12.3ms/글자 · 현 규모 1.52ms). `DayPlanner` 의 일정 제목(H8)이 같은
+ * 형태였고 처방도 같다 — 이 저장소에서 텍스트 필드가 키 입력마다 `mutate` 하던 자리는 둘뿐이었다.
+ *
+ * ## ⚠ 감사가 이 항목을 미뤄 둔 사유는 **실측으로 성립하지 않았다**
+ *
+ * 로드맵은 _"편집 도중 다른 패널(`AvailRail`·배분 배지)이 같은 값을 실시간으로 읽는다"_ 를 이유로
+ * 실렌더 확인을 선행으로 걸었는데, 그 미러들이 읽는 것은 **`hours`·`done`·챕터 개수**다 —
+ * 챕터 *이름* 을 타이핑 중에 비추는 표면은 이 화면에도 옆 패널에도 **없다**(`AvailRail` 은
+ * `chapters` 를 아예 안 읽고, `Subject` 리드아웃은 과목명과 챕터 **수**만 쓴다).
+ * ⚠ 그래서 같은 처방을 **과목 이름**(`SubjectDefinition`)에는 쓰지 않는다 — 저건 상단 리드아웃과
+ *   카드 헤더가 실시간으로 비추므로 초안으로 바꾸면 타이핑 중 낡은 이름이 보인다.
+ *
+ * ⚠ 커밋은 **id 로** 찾아 쓴다(인덱스가 아니라) — blur 와 커밋 사이에 정렬이 바뀌면 인덱스는
+ *   다른 챕터를 가리킨다.
+ * ⚠ 언마운트 안전망(SR-16) — g키 라우트 이동처럼 blur 없이 떠나는 경로에서 미커밋 초안이 사라지던
+ *   부류를 이 저장소가 이미 한 번 물렸다.
+ */
+function ChapterNameField({
+  value,
+  onCommit,
+  className,
+}: {
+  value: string;
+  onCommit: (v: string) => void;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [editing, setEditing] = useState(false);
+  /* 외부에서 값이 바뀌면(볼트 재조인·되돌리기·클라우드 pull) 따라간다 — 단 **편집 중이 아닐 때만**.
+     렌더 중 조건부 setState 는 React 권장 관용구다(효과가 아니다 · `ArticlePractice` 선례). */
+  if (!editing && draft !== value) setDraft(value);
+
+  const commit = (v: string) => {
+    if (v !== value) onCommit(v);
+  };
+  useFlushOnUnmount(() => commit(draft));
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => setEditing(true)}
+      onBlur={() => {
+        setEditing(false);
+        commit(draft);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit(draft);
+      }}
+      aria-label="챕터 이름"
+      className={className}
+    />
+  );
+}
 
 export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) {
   const id = item.id;
@@ -133,12 +194,15 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       {i + 1}
                     </td>
                     <td>
-                      <input
-                        type="text"
+                      <ChapterNameField
                         value={c.name}
-                        onChange={(e) => upd((it) => void (it.chapters[i]!.name = e.target.value))}
-                        aria-label="챕터 이름"
                         className={c.deferred ? 'ds-shed' : undefined}
+                        onCommit={(v) =>
+                          upd((it) => {
+                            const ch = it.chapters.find((x) => x.id === c.id);
+                            if (ch) ch.name = v;
+                          })
+                        }
                       />
                       {/* 이번 범위에서 빠진 챕터(P-9) — **되돌리기가 여기 산다.** 컷 카드는 부족분이
                           닫히면 사라지므로, 되돌릴 자리가 카드에만 있으면 되돌리기가 함께 사라진다.

@@ -71,12 +71,21 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     plugins: { sonarjs },
     rules: {
-      /* 인지복잡도 **래칫** — 임계는 현재 최댓값(77 · TodaySignature)에 맞춰져 있고
-         **내려가기만 한다**. 기본값 15로 조이면 즉시 34건이 터져 0-F가 리팩터 작업이 되는데,
-         0단계는 "플랫폼 무관 선행"이지 리팩터 단계가 아니다. 지금 막는 건 *새로 생기는* 괴물뿐.
+      /* 인지복잡도 **래칫** — 임계는 현재 최댓값에 맞춰져 있고 **내려가기만 한다**.
+         기본값 15로 조이면 즉시 34건이 터져 0-F가 리팩터 작업이 되는데, 0단계는 "플랫폼 무관
+         선행"이지 리팩터 단계가 아니다. 지금 막는 건 *새로 생기는* 괴물뿐.
          ⚠ 6단계(Tailwind)는 CSS를 JSX로 옮겨 이 수치를 밀어올린다 → max-lines와 함께 재기준선.
-         현황은 `npm run report:debt`. */
-      'sonarjs/cognitive-complexity': ['error', 77],
+         현황은 `npm run report:debt`.
+         ⚠⚠ **77 → 66 으로 조인다(F5 재설계 · 2026-08-01).** 로드맵이 남긴 재설계 4건
+         (ArticlePractice 45→16 · ReviewRun 47→22 · Graph 38→14 · DayPlanner 37→31)에
+         **`phone/ReviewView` 77→38** 을 더해 갚았다 — 실측 최댓값이 **66**(TodaySignature)이 됐고
+         max-lines 때와 같은 규율로 그만큼 조인다.
+         ⚠ 폰 러너를 함께 판 이유를 적어 둔다: 옛 주석은 임계 77 의 주인을 `TodaySignature` 라
+         적었는데 **실측은 `phone/ReviewView`(77)** 였다. 로드맵의 재설계 4건만 갚았다면 래칫은
+         한 칸도 못 내려갔다 — 손으로 베낀 귀속이 "무엇을 고쳐야 내려가는가"를 틀리게 말한 것이다.
+         ⚠ 여유는 다시 **0** 이고, 이제 남은 유일한 지배자가 `TodaySignature` 다. 그 파일은
+         `max-lines`(726/727)에서도 여유가 없다 — 다음에 여기를 더 내리려면 그 하나를 쪼개야 한다. */
+      'sonarjs/cognitive-complexity': ['error', 66],
       // ReDoS — 실측 2건을 0단계-F에서 제거했고(vault 프론트매터·quickCapture 챕터) 재발을 막는다.
       // 이건 취향이 아니라 입력이 커지면 멈추는 버그라 임계 없이 error.
       'sonarjs/super-linear-regex': 'error',
@@ -316,7 +325,15 @@ export default tseslint.config(
                  남는 것은 `@/lib/**`(경계상 lib→lib 뿐)과 `@/styles/**`(CSS) 뿐이고, 그래서
                  `queryClient` 를 `lib/` 로 옮겼다 — `@tanstack/react-query` 만 무는 순수 설정이라
                  원래 app 층에 있을 이유가 없었다(그 위치가 이 규칙의 예외를 강요하고 있었다). */
-              group: ['@/app/**', '@/store/**', '@/features/**', '@/components/**', '@/hooks/**', '@/shell', '@/shell/**'],
+              group: [
+                '@/app/**',
+                '@/store/**',
+                '@/features/**',
+                '@/components/**',
+                '@/hooks/**',
+                '@/shell',
+                '@/shell/**',
+              ],
               message:
                 'main.tsx 는 `useApp` 을 (전이적으로라도) 끌어오는 모듈을 **정적으로** import 할 수 없습니다 — 스토어가 initAppStore() 보다 먼저 만들어져 셸이 낡은 localStorage 로 부팅합니다(SD-7). `.then()` 안에서 동적 import 하세요. 정말 안전하다면 이 allowlist 에 근거와 함께 추가하세요.',
             },
@@ -349,7 +366,7 @@ export default tseslint.config(
             {
               group: ['@/lib/atlas', '@/lib/atlasData'],
               message:
-                'app/ 은 셸 크롬이라 부팅 직후 통째로 로드됩니다 — 진로 지도 시드(14.2 KB gz)를 **정적으로** import 하면 그 웨이브에 실립니다(H14). 필요한 시점에 `await import(\'@/lib/atlas\')` 로 지연 적재하세요.',
+                "app/ 은 셸 크롬이라 부팅 직후 통째로 로드됩니다 — 진로 지도 시드(14.2 KB gz)를 **정적으로** import 하면 그 웨이브에 실립니다(H14). 필요한 시점에 `await import('@/lib/atlas')` 로 지연 적재하세요.",
             },
           ],
         },
