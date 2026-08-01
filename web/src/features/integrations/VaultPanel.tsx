@@ -7,7 +7,7 @@ import LiveRegion from '@/components/LiveRegion';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { actions, ui } from '@/shell';
 import {
   pickAndScanVault,
   chaptersFromVault,
@@ -19,8 +19,7 @@ import {
 } from '@/lib/vault';
 import { isTauri } from '@/lib/tauri';
 import { idbGet, idbPut, idbDel } from '@/lib/idb';
-import { makeItem, rid } from '@/lib/utils';
-import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
+import { makeItem } from '@/lib/utils';
 import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
 
@@ -140,34 +139,10 @@ export function VaultPanel() {
       return next;
     });
 
-  const addSubject = async (s: VaultSubject) => {
-    if (items.some((x) => x.name === s.name)) {
-      ui.toast('이미 추가된 항목입니다.', 'warn');
-      return;
-    }
-    const chapters = chaptersFromVault(s.chapters);
-    const id = rid();
-    mutate((st) => {
-      st.items.push(makeItem({ id, source: '볼트', name: s.name, chapters }));
-    });
-    ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 학습 항목 탭에서 주당 시간·마감 조정하세요.`, 'ok');
-    /* W4 — 원장이 "카드까지 갔다"고 아는 챕터를 **한 번 묻는다**(자동으로 찍지 않는 이유는
-       `lib/ledgerSeed.ts` 머리주석). 임포트 입구가 둘이라 여기도 같은 규칙을 쓴다. */
-    const carded = cardedChapters(led.data, s.name, chapters);
-    if (!carded.length) return;
-    const ok = await ui.confirm(cardedPrompt(s.name, carded.length, chapters.length), {
-      title: '원장과 맞출까요?',
-      okLabel: `${carded.length}개 끝낸 것으로 표시`,
-      cancelLabel: '그대로 두기',
-    });
-    if (!ok) return;
-    let marked = 0;
-    mutate((st) => {
-      const it = st.items.find((x) => x.id === id);
-      if (it) marked = applyCardedDone(it.chapters || [], carded);
-    });
-    ui.toast(`챕터 ${marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
-  };
+  /* 임포트 규칙(W4 포함)은 `shell/actions.importVaultSubject` 가 소유한다 — 과목 탭의
+     볼트 임포트와 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
+  const addSubject = (s: VaultSubject) =>
+    actions.importVaultSubject(s, led.data, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
   const addChapter = (s: VaultSubject, c: VaultChapter) => {
     const name = `${s.name} · ${c.name}`;
     if (items.some((x) => x.name === name)) {

@@ -8,13 +8,12 @@ import LiveRegion from '@/components/LiveRegion';
 import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
-import { pickAndScanVault, chaptersFromVault, type VaultScan, type VaultSubject } from '@/lib/vault';
+import { actions, ui } from '@/shell';
+import { pickAndScanVault, type VaultScan, type VaultSubject } from '@/lib/vault';
 import { isTauri } from '@/lib/tauri';
 import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
-import { makeItem, jsq, rid } from '@/lib/utils';
-import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
+import { makeItem, jsq } from '@/lib/utils';
 import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
 
@@ -74,35 +73,9 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  const addSubject = async (s: VaultSubject) => {
-    if (items.some((x) => x.name === s.name)) {
-      ui.toast('이미 추가된 항목입니다.', 'warn');
-      return;
-    }
-    const chapters = chaptersFromVault(s.chapters);
-    const id = rid();
-    mutate((st) => {
-      st.items.push(makeItem({ id, source: '볼트', name: s.name, chapters }));
-    });
-    ui.toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. 주당 시간·마감을 조정하세요.`, 'ok');
-    /* W4 — 임포트는 모든 챕터를 `done:false` 로 만들어 **가짜 백로그**를 세운다. 원장은 같은
-       챕터에 대해 `carded` 를 이미 아는데, 자동으로 찍으면 안 익힌 챕터가 조용히 유지 큐로
-       내려간다 → **한 번 묻고 사람이 판단한다**(근거는 `lib/ledgerSeed.ts` 머리주석). */
-    const carded = cardedChapters(led.data, s.name, chapters);
-    if (!carded.length) return;
-    const ok = await ui.confirm(cardedPrompt(s.name, carded.length, chapters.length), {
-      title: '원장과 맞출까요?',
-      okLabel: `${carded.length}개 끝낸 것으로 표시`,
-      cancelLabel: '그대로 두기',
-    });
-    if (!ok) return;
-    let marked = 0;
-    mutate((st) => {
-      const it = st.items.find((x) => x.id === id);
-      if (it) marked = applyCardedDone(it.chapters || [], carded);
-    });
-    ui.toast(`챕터 ${marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
-  };
+  /* 임포트 규칙(W4 포함)은 `shell/actions.importVaultSubject` 가 소유한다 — 연동 탭의
+     볼트 패널과 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
+  const addSubject = (s: VaultSubject) => actions.importVaultSubject(s, led.data, '주당 시간·마감을 조정하세요.');
   const addAnki = (name: string, mins: number) => {
     const nm = 'Anki: ' + name;
     if (items.some((x) => x.name === nm)) {

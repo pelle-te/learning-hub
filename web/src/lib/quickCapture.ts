@@ -37,6 +37,8 @@ export interface CaptureResult {
    ⚠ 옛 로컬 addDays는 인자를 자정으로 절삭했지만 utils.addDays는 시각을 보존한다 — 여기 호출부는
    전부 이미 절삭된 base(startOfDay·mondayOf 산출)를 넘기므로 동작은 동일하다. */
 import { iso, addDays, mondayOf, startOfDay } from './utils';
+import { addBacklog } from './methodology';
+import type { AppState } from './types';
 
 /** raw에서 needle(대소문자 무시) 첫 등장을 공백으로 치환 — title 걷어내기용. */
 function stripOnce(hay: string, needle: string): string {
@@ -274,4 +276,37 @@ export function captureRecord(
   const sid = name ? (subjects.find((i) => i.name === name)?.id ?? '') : '';
   const topic = (cap?.title || text).trim() || text;
   return { sid, name, topic, note: topic === text ? '' : text };
+}
+
+/**
+ * 캡처 한 줄을 **보충 백로그에 담기까지** — 파싱·레코드 조립·저장을 한 함수로.
+ *
+ * ## 왜 이게 여기 있나 (G7 → H22 · 2026-08-01)
+ *
+ * 캡처 입구가 셋이다: ⌘K 팔레트 · 미니 HUD · 폰 캡처 바. `MiniHud` 는 오랫동안 자기 주석에
+ * *"폰 캡처 바와 같은 함수"* 라 적고 있었는데 **사실이 아니었다**(G7 이 잡았다) — 폰은 레이어
+ * 규약상 `@/shell` 을 못 물어 커밋 사슬을 **따로 갖고** 있었고, 공유되는 것은 레코드 조립까지였다.
+ * 즉 세 입구 중 둘만 같은 함수였다. 캡처는 "떠올랐을 때 한 줄"을 받는 기능이라 결말이 갈리면
+ * 그게 곧 조용한 데이터 손실이다(D-2·W8 이 같은 부류에 물렸다).
+ *
+ * ⚠ **경계 정책을 바꿀 일이 아니었다.** H22 는 이 수렴을 `hooks → shell/toast` 개방에 묶어
+ * 뒀는데, 갈려 있던 것은 *데이터 경로*이고 그건 순수 lib 이다. 토스트를 쓸 자리가 없어서가
+ * 아니라 **공통부가 lib 으로 안 내려와 있어서** 갈렸다.
+ *
+ * ⚠ **표시는 여기 없다** — 데스크톱은 되돌리기 토스트, 폰은 6초 인라인 확인 줄이다. 그 차이는
+ * 드리프트가 아니라 표면의 차이다(폰엔 토스트 자리가 없다). 되돌리기용 `id` 만 돌려준다.
+ */
+export function fileCapture(state: AppState, raw: string, now: Date): { id: string; rec: CaptureRecord } | null {
+  const items = state.items;
+  const rec = captureRecord(
+    parseCapture(
+      raw,
+      now,
+      items.map((i) => i.name),
+    ),
+    raw,
+    items,
+  );
+  if (!rec) return null;
+  return { id: addBacklog(state, rec.sid, rec.name, rec.topic, rec.note), rec };
 }

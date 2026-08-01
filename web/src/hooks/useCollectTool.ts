@@ -4,6 +4,10 @@
    탭마다 복붙되며 드리프트하던 collect()를 수렴한다(세 번째 수집형 탭 대비).
    수집은 서버 캡(180s)까지 걸릴 수 있어 취소 가능해야 한다 → AbortController를 물려
    collect()에 signal을 넘기고 cancel()을 노출한다(X-5). 반환 모양은 하위호환(필드 추가만).
+
+   ⚠ **`components/` → `hooks/` 로 옮겼다(H22 · 2026-08-01).** 이름부터 훅인데 저기 살던 이유는
+   설계가 아니라 **경계 정책**이었다: `hooks` 가 `shell/toast` 를 못 물어서, 사용자에게 말을 거는
+   훅은 `components` 말고 갈 데가 없었다. 정책이 열리면서 이름과 자리가 처음으로 일치한다.
 ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { runTool } from '@/lib/api';

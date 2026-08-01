@@ -14,8 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFocus } from '@/store/useFocus';
 import { useOverlay } from '@/store/useOverlay';
-import { captureSubjects, commitCapture } from '@/shell';
-import { parseCapture } from '@/lib/quickCapture';
+import { commitCapture } from '@/shell';
 import { mmss } from '@/lib/utils';
 import { setMiniCaptureWindow } from '@/lib/tauri';
 import { exitMini } from '@/lib/miniMode';
@@ -129,11 +128,14 @@ function pill(
    이 안의 제약이다(드롭된 `/capture` 를 되살리지 않는다): 같은 창 · 높이 92→132 · 제출 즉시 복귀.
    ⚠ 저장은 **데스크톱 ⌘Enter 와 같은 함수**(`commitCapture`)다 — 캡처 입구가 셋인데 결말이
      갈리면 그게 곧 조용한 데이터 손실이다(D-2·W8 이 같은 부류에 물렸다).
-   ⚠⚠ **"폰 캡처 바와 같은 함수"는 사실이 아니었다(G7 · 2026-07-31 `/감사 근본`).** `phone/CaptureBar`
-     는 레이어 규약상 `@/shell` 을 import 할 수 없어(폰 엔트리는 셸 배럴 밖) **커밋+되돌리기 짝을
-     따로 갖는다** — 공유되는 것은 레코드 조립(`lib/quickCapture.captureRecord`)까지다. 즉 세 입구
-     중 둘만 같은 함수이고, 그 사실을 주석이 덮고 있었다. 진짜 수렴은 `lib/quickCapture` 로 커밋을
-     올리는 것이고 그건 `hooks → shellToast` 정책과 한 몸이라 로드맵(H22)이 든다. */
+   ⚠⚠ ~~"폰 캡처 바와 같은 함수"는 사실이 아니었다(G7 · 2026-07-31 `/감사 근본`)~~ → **2026-08-01
+     에 참이 됐다.** G7 이 잡은 것은 이랬다: `phone/CaptureBar` 는 레이어 규약상 `@/shell` 을
+     import 할 수 없어 커밋 사슬을 **따로 갖고** 있었고, 공유되는 것은 레코드 조립까지였다 —
+     세 입구 중 둘만 같은 함수였다. 지금은 **파싱부터 저장까지 `lib/quickCapture.fileCapture`**
+     하나이고 세 입구가 전부 그걸 부른다. 갈리는 것은 표시뿐이다(여기·⌘K 는 되돌리기 토스트,
+     폰은 6초 인라인 확인 줄 — 폰엔 토스트 자리가 없다).
+   ⚠ 로드맵(H22)은 이 수렴을 `hooks → shellToast` 정책 변경에 묶어 뒀는데 **필요 없었다** —
+     갈려 있던 것은 데이터 경로이고 그건 순수 lib 이다. */
 function MiniCapture({ onDone }: { onDone: () => void }): React.JSX.Element {
   const [text, setText] = useState('');
   const ref = useRef<HTMLInputElement>(null);
@@ -143,18 +145,7 @@ function MiniCapture({ onDone }: { onDone: () => void }): React.JSX.Element {
 
   const submit = (): void => {
     const raw = text.trim();
-    if (raw) {
-      const subjects = captureSubjects();
-      commitCapture(
-        parseCapture(
-          raw,
-          new Date(),
-          subjects.map((s) => s.name),
-        ),
-        raw,
-        '',
-      );
-    }
+    if (raw) commitCapture(raw, '');
     onDone();
   };
   return (

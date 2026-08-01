@@ -72,4 +72,6 @@ export const actions = {
   /** 되돌릴 백업이 있나·언제 것인가 — 메뉴가 라벨을 정하기 전에 묻는다(읽기만 한다). */
   backupAt: A.backupAt,
   resetAll: A.resetAll,
+  /** 볼트 과목 임포트(W4 확인 포함) — 입구는 둘(과목 탭·연동 탭)이지만 규칙은 하나다(H22). */
+  importVaultSubject: A.importVaultSubject,
 };

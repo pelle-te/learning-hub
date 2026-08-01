@@ -39,10 +39,13 @@ import {
 } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
 import { PROMOTE_TOAST } from '@/lib/promote';
-import { iso, mondayOf, openVaultSearch, todayISO } from '@/lib/utils';
+import { iso, makeItem, mondayOf, openVaultSearch, rid, todayISO } from '@/lib/utils';
+import { chaptersFromVault, type VaultSubject } from '@/lib/vault';
+import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
+import type { Ledger } from '@/lib/ledger';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
-import { captureRecord, type CaptureResult } from '@/lib/quickCapture';
+import { fileCapture } from '@/lib/quickCapture';
 import { isTauri, shellSaveFile } from '@/lib/tauri';
 import { toast, toastUndo } from './toast';
 import { confirm } from './modal';
@@ -757,13 +760,63 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
    기록 탭 보충 목록에서 인라인 편집(`editBacklog`)으로 고칠 수 있으므로 "열어서 고치기" 경로는
    그대로 살아 있다 — 다만 **기본값이 아니게** 됐다.
    ⚠ 되돌리기가 짝이다: 파서가 잘못 뽑으면 곧 잘못된 레코드다. `id` 로 그 한 건만 지운다. */
-export function commitCapture(cap: CaptureResult | null, raw: string, summary: string): void {
-  // 레코드 조립은 lib 이 소유한다 — 폰 캡처 바(`phone/CaptureBar`)와 같은 규칙이어야 한다.
-  const rec = captureRecord(cap, raw, st().state.items);
-  if (!rec) return;
-  let id = '';
+export function commitCapture(raw: string, summary: string): void {
+  /* ⚠ 파싱부터 저장까지 **lib 이 소유한다**(`fileCapture`) — 폰 캡처 바와 *같은 함수*여야 한다.
+     종전엔 여기와 `phone/CaptureBar` 가 각자 조립·저장했고, 그래서 `MiniHud` 주석의 "같은 함수"가
+     거짓이었다(G7). 여기 남는 것은 **표시**뿐이다(되돌리기 토스트). */
+  let out: { id: string; topic: string } | null = null;
   st().mutate((s) => {
-    id = addBacklog(s, rec.sid, rec.name, rec.topic, rec.note);
+    const r = fileCapture(s, raw, new Date());
+    if (r) out = { id: r.id, topic: r.rec.topic };
   });
-  toastUndo('📥 보충에 담았어요 — ' + (summary || rec.topic), () => st().mutate((s) => removeBacklog(s, id)));
+  if (!out) return;
+  const { id, topic } = out as { id: string; topic: string };
+  toastUndo('📥 보충에 담았어요 — ' + (summary || topic), () => st().mutate((s) => removeBacklog(s, id)));
+}
+
+/* ── 볼트 과목 임포트 — **W4 규칙의 단일 원천**(H22 · 2026-08-01) ─────────────────────
+
+⚠ 종전엔 이 28줄이 `features/items/VaultImport` 와 `features/integrations/VaultPanel` 에
+**사본 둘**로 있었다. 임포트 입구가 둘인 것은 의도지만(과목 탭에서도, 연동 탭에서도 볼트를
+붙일 수 있다) **규칙이 둘인 것은 아니다** — 특히 W4(원장이 "카드까지 갔다"고 아는 챕터를
+자동으로 찍지 않고 한 번 묻는다)는 한쪽만 고쳐지면 조용히 갈린다.
+
+⚠ **감사(H22)는 이걸 "`hooks/` 로 승격할 자리가 없다"로 묶어 뒀는데 그건 오진이었다.**
+이 함수가 필요로 하는 것은 스토어(`mutate`·`items`)와 UI(토스트·confirm)이고, 그 둘을 엮는
+자리가 바로 여기(액션 표면)다 — 레이어 계약 변경 없이 처음부터 올 수 있었다. 훅이 아니라서
+훅 레이어에 자리가 없던 것이다.
+
+⚠ `ledger` 를 인자로 받는 이유: 원장은 TanStack 쿼리라 구독은 컴포넌트의 일이다. 여기서
+캐시를 직접 들추면 "누가 원장을 읽는가"가 두 곳이 된다.
+⚠ `tail` 은 화면마다 다른 **길 안내**다(과목 탭에서는 "여기서 조정", 연동 탭에서는 "학습 항목
+탭에서 조정"). 규칙이 아니라 문맥이라 갈리는 것이 맞다. */
+export async function importVaultSubject(s: VaultSubject, ledger: Ledger | undefined, tail: string): Promise<void> {
+  const items = st().state.items;
+  if (items.some((x) => x.name === s.name)) {
+    toast('이미 추가된 항목입니다.', 'warn');
+    return;
+  }
+  const chapters = chaptersFromVault(s.chapters);
+  const id = rid();
+  st().mutate((state) => {
+    state.items.push(makeItem({ id, source: '볼트', name: s.name, chapters }));
+  });
+  toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. ${tail}`, 'ok');
+  /* W4 — 임포트는 모든 챕터를 `done:false` 로 만들어 **가짜 백로그**를 세운다. 원장은 같은
+     챕터에 대해 `carded` 를 이미 아는데, 자동으로 찍으면 안 익힌 챕터가 조용히 유지 큐로
+     내려간다 → **한 번 묻고 사람이 판단한다**(근거는 `lib/ledgerSeed.ts` 머리주석). */
+  const carded = cardedChapters(ledger, s.name, chapters);
+  if (!carded.length) return;
+  const ok = await confirm(cardedPrompt(s.name, carded.length, chapters.length), {
+    title: '원장과 맞출까요?',
+    okLabel: `${carded.length}개 끝낸 것으로 표시`,
+    cancelLabel: '그대로 두기',
+  });
+  if (!ok) return;
+  let marked = 0;
+  st().mutate((state) => {
+    const it = state.items.find((x) => x.id === id);
+    if (it) marked = applyCardedDone(it.chapters || [], carded);
+  });
+  toast(`챕터 ${marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
 }

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useReads } from '@/store/queries';
 import { usePing } from '@/store/queries';
-import { useCollectTool, useAutoCollect } from '@/components/useCollectTool';
+import { useCollectTool, useAutoCollect } from '@/hooks/useCollectTool';
 import { todayISO } from '@/lib/utils';
 import {
   loadReads,

@@ -100,7 +100,7 @@ export function needsWorkspace(what: string): string {
  *
  * 서버가 사유를 정확히 주는데 클라이언트가 한 문장으로 뭉개는 부류이고, H17(D1 한도를
  * "재시도 가능"으로 오분류)·H23①(등록 429)과 **같은 계열**이다. 올바른 형태는 이 저장소에
- * 이미 있었다 — `components/useCollectTool` 은 같은 자리에서 `e.message` 를 그대로 보여 준다.
+ * 이미 있었다 — `hooks/useCollectTool` 은 같은 자리에서 `e.message` 를 그대로 보여 준다.
  *
  * @param what 무엇을 못 했나(예: `'원장 재빌드에 실패했어요'`)
  */

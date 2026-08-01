@@ -230,7 +230,25 @@ export default tseslint.config(
                 { to: { element: { type: 'shellToast' } } },
               ],
             },
-            { from: { element: { type: 'hooks' } }, allow: [{ to: { element: { type: 'lib' } } }] },
+            {
+              /* ⚠⚠ **`hooks → shellToast` 를 연다(H22 · 2026-08-01 · 사용자 승인).**
+
+                 종전엔 `lib` 만이라 **사용자에게 말을 거는 훅은 승격할 자리가 없었다.** 그래서
+                 `useCollectTool`(이름부터 훅인데)이 `components/` 에 살았다 — 설계가 아니라
+                 정책이 고른 자리였다. 원인이 코드가 아니라 경계라는 감사(H22)의 진단이 맞았다.
+
+                 ⚠ 여는 폭은 **잎 하나뿐**이다. 배럴(`shell`)은 여기서도 금지다 — 그러면 한 칸으로
+                 `actions.ts`(스토어·IPC)가 딸려 와 `components → hooks → store` 가 전이로 뚫린다
+                 (H10 이 `components` 에서 막은 것과 같은 구멍). 토스트가 잎인 근거는 위
+                 `components` 정책 주석과 같다.
+                 ⚠ **`shell/modal`(confirm)은 열지 않았다.** 한때 함께 열려다 되돌렸다 — H22 가
+                 묶어 둔 나머지 두 건이 실제로는 훅이 아니었기 때문이다(`addSubject` 는 상태+UI 를
+                 엮는 **액션**이라 `shell/actions` 가 제자리 · 캡처 커밋은 **순수 데이터 경로**라
+                 `lib/quickCapture` 가 제자리). 쓰는 데 없는 정책을 열어 두면 그게 다음 감사의
+                 "선언은 있는데 집행자가 없다"가 된다. 필요해지면 그때 같은 실측(잎인가)으로 연다. */
+              from: { element: { type: 'hooks' } },
+              allow: [{ to: { element: { type: 'lib' } } }, { to: { element: { type: 'shellToast' } } }],
+            },
             {
               /* 스토어가 토스트만 쓰는 것은 의도다 — 저장 실패를 사용자에게 알리는 유일한 통로다
                  (`useApp` 주석). 배럴(`shell`)은 여기서도 금지 — 그러면 store → actions → store 다. */

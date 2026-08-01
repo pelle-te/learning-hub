@@ -29,7 +29,7 @@ import { todayISO } from '@/lib/utils';
 import ArtifactGate from '@/components/ArtifactGate';
 import State from '@/components/State';
 import DetailDrawer from '@/components/DetailDrawer';
-import { useCollectTool, useAutoCollect } from '@/components/useCollectTool';
+import { useCollectTool, useAutoCollect } from '@/hooks/useCollectTool';
 import { useAiStream } from '@/components/useAiStream';
 import { Button, Skeleton } from '@/components/ui';
 import { ui } from '@/shell';

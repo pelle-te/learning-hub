@@ -217,7 +217,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
 
   /** 캡처 실행 — **언제나 커밋**한다(E2). 파싱 결과가 있으면 함께 실린다. */
   const runCapture = () => {
-    commitCapture(cap, search, meaningful(cap) ? summarize(cap) : '');
+    commitCapture(search, meaningful(cap) ? summarize(cap) : '');
   };
 
   /* ── D-2 캡처는 조건부이면 캡처가 아니다 ──────────────────────────────────
