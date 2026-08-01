@@ -398,9 +398,17 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 
 ### 7-3. 검증
 
-- `npx wrangler dev` 로 로컬 `/health` 200
-- `deploy` 후 `https://hub-api.<서브도메인>.workers.dev/health` 200 **(HTTPS 자동 — §10)**
-- **평문 폴백 확인**: `http://…/health` 가 **HTTPS 로 리다이렉트되거나 거부**돼야 한다. ⚠ 200 이 평문으로 오면 P0-1 위반이다 — Oracle 런북 §5-4 의 그 검증은 호스트가 바뀌어도 **그대로 유효하다**
+> ⚠⚠ **아래 체크리스트가 `/health` 라 적혀 있었다 — 그건 라우트가 아니고, 그래서 이 확인은
+> 2026-08-01 까지 *거짓으로 통과*하고 있었다.** 실제 라우트는 **`/api/health`** 하나이며(`index.ts`),
+> C-6 이후 같은 오리진에서 정적 자산이 나가므로 `/health` 는 **SPA 폴백이 index.html 을 200 으로**
+> 돌려준다. 즉 워커가 죽어 있어도 이 줄은 초록이다. 아래 §7-6 표(`/api/health`)와 §마지막 curl 은
+> 이미 맞게 적혀 있었는데 이 체크리스트만 갈려 있었다 — 실측으로 확인하고 고친다.
+> (실측 2026-08-01: `/health` → 200 `text/html`(폴백) · `/api/health` → 200 `{"ok":true}`)
+
+- `npx wrangler dev` 로 로컬 `/api/health` 200 `{"ok":true}`
+- `deploy` 후 `https://<워커>.<서브도메인>.workers.dev/api/health` 가 **JSON** `{"ok":true}` **(HTTPS 자동 — §10)**
+  - ⚠ **본문까지 본다.** 상태코드만 보면 폴백 HTML 도 200 이라 구분이 안 된다.
+- **평문 폴백 확인**: `http://…/api/health` 가 **HTTPS 로 리다이렉트되거나 거부**돼야 한다. ⚠ 200 이 평문으로 오면 P0-1 위반이다 — Oracle 런북 §5-4 의 그 검증은 호스트가 바뀌어도 **그대로 유효하다**
 - `deployments list` 에 두 환경이 **분리돼** 보인다
 - prod D1 에 dev 데이터가 **없다** ← 이걸 꼭 확인해라. 바인딩 이름이 같아서 섞기 쉽다
 - **정적 자산(C-6)** — `/` 와 `/plan` 이 200 `text/html`, `/api/health` 가 JSON. 절차와 함정은 **§7-6**
