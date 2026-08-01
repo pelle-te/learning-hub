@@ -7,6 +7,7 @@ import { dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
+import { EXAM_LABEL, nextExamOf } from '@/lib/semester';
 import type { Item } from '@/lib/types';
 import { Icon } from '@/components/Icon';
 
@@ -48,9 +49,12 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
   const prog = chs.length ? Math.round((doneCh / chs.length) * 100) : 0;
 
   // ── 헤더 요약 칩 ──
+  // T-1. **다가오는** 시험을 본다(마지막 시험이 아니라). 중간이 코앞인데 기말까지의 D-60 을 그리면
+  // 그 숫자는 거짓말이다 — 옛 모델은 마감이 하나뿐이라 이 구분이 존재할 수 없었다.
+  const nextExam = nextExamOf(item, todayIso);
   const ddTone: PillTone = (() => {
-    if (!item.deadline) return 'neutral';
-    const { cls } = ddayInfo(dayDiff(todayIso, item.deadline));
+    if (!nextExam) return 'neutral';
+    const { cls } = ddayInfo(dayDiff(todayIso, nextExam.date));
     return cls === 'bad' ? 'bad' : cls === 'warn' ? 'warn' : 'neutral';
   })();
 
@@ -96,9 +100,9 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
         />
         <div className="flex items-center gap-2.5">
           <span className={`${NAME_BASE} ${item.name ? NAME_FILLED : NAME_EMPTY}`}>{item.name || '(이름 없음)'}</span>
-          {item.deadline && (
+          {nextExam && (
             <Pill tiny tone={ddTone}>
-              {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
+              {EXAM_LABEL[nextExam.kind]} {ddayInfo(dayDiff(todayIso, nextExam.date)).lab}
             </Pill>
           )}
           {noSchedule && (

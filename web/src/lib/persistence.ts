@@ -7,7 +7,7 @@
    IDB 미러는 lib/idb.ts, 테마/되돌리기 UI는 store/features가 조립한다.
    부팅/영속은 KV(localStorage 호환)를 주입받아 순수·테스트 가능하게 만든다.
 ============================================================ */
-import { addDays, iso, parseISO, rid, todayISO } from './utils';
+import { addDays, iso, nowHm, parseISO, rid, todayISO } from './utils';
 import { DEGREE_REQ } from './degree';
 import type { AppState, CompletionEntry, KV, RoutineBlock, SessionType } from './types';
 
@@ -261,8 +261,11 @@ export function migrate(input: unknown): AppState | null {
     dg.semesters.some((se) => Array.isArray(se.courses) && se.courses.length > 0);
   const untouchedReqs = !!dg && !dg.reqMajorReq && !dg.reqMajorSel && !dg.reqLiberal;
   if (!hasCourses && untouchedReqs) s.degree = d.degree;
-  /* _today는 테스트 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거). */
+  /* _today·_nowHm 은 테스트 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거).
+     ⚠ `_nowHm`(T-8)도 같은 규약이다. 빠뜨리면 시드가 실데이터에 눌러앉아 모든 완료 시각이
+     고정값으로 기록된다 — 그러면 T-8 이 쌓으려는 표본이 통째로 거짓이 된다. */
   if (s._today != null) delete s._today;
+  if (s._nowHm != null) delete s._nowHm;
   /* '공부' 블록 개념 폐지: 잔존 공부 블록 제거(그 시간은 자동으로 빈 시간=공부 가능). */
   if (Array.isArray(s.routine)) s.routine = (s.routine as RoutineBlock[]).filter((b) => b && b.type !== '공부');
   return s as unknown as AppState;
@@ -431,6 +434,33 @@ export function completionMin(e: { min?: number; actualMin?: number } | undefine
   return typeof e.actualMin === 'number' && e.actualMin > 0 ? e.actualMin : +(e.min || 0);
 }
 
+/**
+ * **Q-1 진도 커밋** — 챕터의 `done` 을 이름으로 확정한다.
+ *
+ * ## 왜 이 함수가 없었나 (그리고 그게 왜 문제였나)
+ * `setDone`(블록 완료)은 `completions[ds]["sid|type"]` 만 쓰고 **챕터를 안 건드린다** — 아래
+ * 그 함수의 코드가 스스로 자인한다. 그런데 스케줄러의 계획은 **전적으로 `c.done`** 에서 나온다
+ * (`engine.ts` 의 `!c.done && !c.deferred` 필터). 즉 **계획의 유일한 진짜 입력이, 앱에서 가장
+ * 비싼 편집이었다**: 씨앗이 51챕터를 넣은 뒤 30번째 챕터를 체크하려면 챕터 표까지 가서
+ * `<details>` 를 펼치고(기본 접힘) Tab 약 150회를 눌러야 했다. 발산 7각도 중 셋이 독립적으로
+ * 이 지점에 도착했다.
+ *
+ * ## ⚠ 이름으로 찾는다 — 그게 블록이 가진 전부다
+ * `ScheduleItem.chapters` 는 **이름 배열**이다(id 가 아니다). 엔진이 `advance()` 에서 챕터
+ * *이름*을 담기 때문이고, 그 계약을 여기서 바꾸면 블록·복습·볼트 앵커가 전부 따라 움직인다.
+ * 그래서 이 함수만 이름으로 찾는다. 동명 챕터가 있으면 **첫 번째**가 이긴다 — 표시상 구분이
+ * 안 되는 두 행 중 하나를 고르는 것은 어차피 임의이고, 사용자는 챕터 표에서 고칠 수 있다.
+ * ⚠ `doneDs` 를 함께 쓴다 — 복습 사다리가 계획일이 아니라 이 날을 앵커한다(②#23).
+ */
+export function setChapterDone(state: AppState, sid: string, chapterName: string, on: boolean, ds: string): void {
+  const it = (state.items || []).find((x) => x.id === sid);
+  const ch = (it?.chapters || []).find((c) => c.name === chapterName);
+  if (!ch) return;
+  ch.done = on;
+  if (on) ch.doneDs = ds;
+  else delete ch.doneDs;
+}
+
 export function setDone(
   state: AppState,
   ds: string,
@@ -449,6 +479,10 @@ export function setDone(
       done: true,
       min: Math.round(plannedMin),
       doneDs: todayISO(state),
+      // T-8 시각 원장 — **완료를 누른 하루 중 시각**. 지금은 어느 화면도 안 그린다(로드맵 T-8 의
+      // 가장 싼 검증이 "한 필드만 추가하고 2주 방치"다). 이 한 줄이 없어서 T-5·T-8·T-10 이 전부
+      // "표본 대기"로 멈춰 있었다 — 관측을 기다리면서 관측 장치를 안 달고 있었다.
+      doneAt: nowHm(state),
       // 실측은 **있을 때만** 싣는다 — 0/undefined 를 넣으면 "쟀는데 0분"과 "안 쟀다"가 섞인다.
       ...(actualMin && actualMin > 0 ? { actualMin: Math.round(actualMin) } : {}),
     };

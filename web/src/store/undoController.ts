@@ -18,7 +18,7 @@
    ③ **`applyMerged` + `finally endMergeApply`** — `loadState` 가 **아니다**(C1). 진행 중 로컬
       편집을 지우지 않고 스냅샷 위에 재적용하는 진입점이어야 한다.
 ============================================================ */
-import { undoLastWrite } from '@/lib/cloud/undo';
+import { redoLastWrite, undoLastWrite } from '@/lib/cloud/undo';
 import { endMergeApply, whenSettled } from '@/lib/db/write';
 import { toast } from '@/shell/toast';
 import { useApp } from './useApp';
@@ -31,6 +31,37 @@ import { exclusiveMerge, syncSoon } from './syncController';
  * "되돌릴 게 없었다"를 구분할 수 없고, 그 구분이 없으면 다음 ⌘Z 를 더 누른다.
  */
 export async function undoLastEdit(): Promise<void> {
+  return runInverse(undoLastWrite, UNDO_WORDS);
+}
+
+/**
+ * **Q-8 다시 실행(⇧⌘Z).** 방금 되돌린 것을 되돌린다.
+ *
+ * ⚠ 순서 계약 셋(머리주석)이 **그대로 필요하다** — 다시실행도 `applyPull` 을 쓰고 디바운스와
+ * 경쟁하며 병합 창을 연다. 그래서 몸통을 공유한다(문구만 다르다).
+ */
+export async function redoLastEdit(): Promise<void> {
+  return runInverse(redoLastWrite, REDO_WORDS);
+}
+
+/** 방향별 문구. 몸통이 하나라 **말만** 갈린다 — 두 벌로 두면 한쪽 문구가 곧 낡는다. */
+interface InverseWords {
+  empty: string;
+  ok: string;
+  fail: string;
+}
+const UNDO_WORDS: InverseWords = {
+  empty: '되돌릴 편집이 없어요.',
+  ok: '직전 편집을 되돌렸어요.',
+  fail: '되돌리기에 실패했어요',
+};
+const REDO_WORDS: InverseWords = {
+  empty: '다시 실행할 것이 없어요.',
+  ok: '되돌린 편집을 다시 실행했어요.',
+  fail: '다시 실행에 실패했어요',
+};
+
+async function runInverse(run: typeof undoLastWrite, words: InverseWords): Promise<void> {
   // ① 디바운스 대기 중인 편집을 먼저 확정한다(머리주석).
   useApp.getState().flushNow();
   await whenSettled();
@@ -46,7 +77,7 @@ export async function undoLastEdit(): Promise<void> {
        굳으면 이후 flush 가 전부 `deferred`(= `ok:true`)라 **경고 없이 그 세션이 하나도 저장되지
        않는다.** 근거는 `syncController.restoreConflict` 의 같은 자리 주석. */
       try {
-        const out = await undoLastWrite();
+        const out = await run();
         if (out.state) useApp.getState().applyMerged(out.state);
         return out;
       } finally {
@@ -56,12 +87,12 @@ export async function undoLastEdit(): Promise<void> {
   } catch (e) {
     /* 스택은 `peek → apply → drop` 이라 **항목이 그대로 남아 있다** — 재시도가 성립한다
        (`db/undoStack.peekUndo`). 그래서 "다시 눌러 보세요"가 지킬 수 있는 약속이다. */
-    toast(`되돌리기에 실패했어요 — ${e instanceof Error ? e.message : String(e)}`, 'bad', 8000);
+    toast(`${words.fail} — ${e instanceof Error ? e.message : String(e)}`, 'bad', 8000);
     return;
   }
 
   if (r.empty) {
-    toast('되돌릴 편집이 없어요.', 'info');
+    toast(words.empty, 'info');
     return;
   }
   /* ⚠ 건너뛴 행을 **수로 말한다**(착지 조건 ④). "되돌렸어요"만 말하면 일부만 되돌아간 상태를
@@ -70,7 +101,7 @@ export async function undoLastEdit(): Promise<void> {
     const total = r.restored + r.skipped;
     toast(`${total}건 중 ${r.skipped}건은 다른 기기가 지워 되돌리지 않았어요.`, 'warn', 6000);
   } else {
-    toast('직전 편집을 되돌렸어요.', 'ok');
+    toast(words.ok, 'ok');
   }
   if (r.restored) syncSoon(); // 되돌린 값을 다른 기기로 전파
 }

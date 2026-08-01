@@ -9,6 +9,8 @@ import { useApp } from '@/store/useApp';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
+import { isDone } from '@/lib/persistence';
+import { useSchedule } from '@/store/selectors';
 import { dayShape } from '@/lib/insights';
 import { useTodayISO } from '@/hooks/useTodayISO';
 import type { Ritual } from '@/lib/types';
@@ -33,6 +35,20 @@ function RitualCard() {
   const shape = dayShape(state, ds2);
   const [note, setNote] = useState(r.note || '');
   const [justSaved, setJustSaved] = useState(false); // blur 저장이 조용해서 반영 여부를 인라인으로 표시.
+  // T-10 — 오늘 남은 블록 수. 0이면 물을 것이 없으므로 칸 자체가 존재하지 않는다.
+  const res = useSchedule();
+  const pending =
+    (res.days || []).find((d) => d.ds === ds2)?.items.filter((it) => !isDone(state, ds2, it.sid, it.type)).length ?? 0;
+  const [stopWhy, setStopWhy] = useState(r.stopWhy || '');
+  const saveStopWhy = () => {
+    if (stopWhy === (r.stopWhy || '')) return;
+    mutate((st) => {
+      setRitual(st, ds2, 'stopWhy', stopWhy.trim());
+      // 이유만 있고 규모가 없으면 나중에 비교가 안 된다 — 분모를 **같은 순간에** 함께 굳힌다.
+      setRitual(st, ds2, 'stopPending', pending);
+    });
+    ui.toast('중단 지점 기록됨', 'info');
+  };
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
     mutate((st) => setRitual(st, ds2, key, on));
     ui.toast(on ? '기록됨' : '해제됨', 'info');
@@ -99,6 +115,31 @@ function RitualCard() {
           placeholder="예) 내일은 3장 변위전류부터 — 백지 복습 먼저"
         />
       </div>
+      {/* ── T-10 중단 지점 ─────────────────────────────────────────────────────────────
+          **남은 블록이 있을 때만** 존재한다. 매일 물으면 그게 새 죄책감 더미가 되고(P-9 가 같은
+          함정을 만나 같은 방어를 썼다), 다 끝낸 날엔 물을 것이 없다.
+          ⚠ 종전엔 이 사실을 담을 곳이 앱에 **한 군데도 없었다** — 완료를 해제하면 `setDone` 이
+          기록을 통째로 지우기 때문이다. 그래서 "왜 매번 이 과목만 밀리나"의 근거가 0이었다.
+          ⚠ 강제하지 않는다(필수 아님). 비워 두고 떠나도 잃는 것이 없다 — W8 인라인 메모와 같은
+          판단이다: 기록은 이미 남았고 이 칸은 정밀도만 올린다. */}
+      {pending > 0 && (
+        <div className="ds-fld" style={{ marginTop: 8 }}>
+          <label htmlFor="ritual-stop">
+            오늘 못 끝낸 {pending}개 — 왜? <span className="ds-tiny text-mut">(선택 · 나중에 패턴이 된다)</span>
+          </label>
+          <input
+            id="ritual-stop"
+            type="text"
+            value={stopWhy}
+            onChange={(e) => setStopWhy(e.target.value)}
+            onBlur={saveStopWhy}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            placeholder="예) 회로 3장이 예상보다 두 배 걸렸다"
+          />
+        </div>
+      )}
     </div>
   );
 }

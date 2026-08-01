@@ -13,6 +13,7 @@
       사다리**가 별도 함수로 메운다 — 입력이 '스케줄'이 아니라 '챕터 카탈로그'다.
 ============================================================ */
 import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
+import { chapterStrength } from './chapterStrength';
 import { isDone } from './persistence';
 import { CBMS_ADVANCES_REVIEW } from './methodology';
 import { vaultAnchors } from './vaultAnchors';
@@ -44,20 +45,34 @@ const OVERDUE_DAYS = REVIEW_OFFSETS[REVIEW_OFFSETS.length - 1] ?? 16; // 16
    사다리를 고치면 여기가 따라오고, "왜 하필 그 숫자인가"라는 질문이 안 생긴다. */
 const FAIL_DUE_DAYS = REVIEW_OFFSETS[REVIEW_OFFSETS.length - 3] ?? 3; // 3
 const FAIL_OVERDUE_DAYS = DUE_DAYS; // 7
+/* Q-4(통과 방향) — 붙은 챕터는 **한 칸 미룬다**(7→16 · 16→34). 앞당김과 **정확히 대칭**이고
+   폭이 역시 사다리 자신에서 나온다(꼬리 34 = `REVIEW_TAIL_OFFSET`). ⚠ **상한 한 칸**이다 —
+   두 칸을 허용하면 잘 본 챕터가 두 달 뒤로 사라지고, 그건 간격반복이 아니라 방치다. */
+const STRONG_DUE_DAYS = OVERDUE_DAYS; // 16
+const STRONG_OVERDUE_DAYS = REVIEW_TAIL_OFFSET; // 34
 
 /**
- * 경과일 → 위험도. `failing` 이면 임계를 한 칸 앞당긴다(ID-10 · **실패 방향만**).
+ * 경과일 → 위험도. `failing` 이면 한 칸 **앞당기고**(ID-10), `strong` 이면 한 칸 **미룬다**(Q-4).
  *
- * 왜 실패 방향만인가: 이 함수는 러너 큐·오늘탭 배지·통계가 함께 읽는 **핵심 파생 계약**이다.
- * 통과 방향(잘했으니 간격을 늘림)까지 한 번에 넣으면 "복습이 줄었다"가 위험 감소인지 계산
- * 변경인지 구분할 수 없게 된다 — 게다가 통과 방향을 정밀하게 하려면 백지 결과가 챕터 단위여야
- * 하는데(현재는 과목-일 단위 = 토대 B) 그 전엔 잘한 챕터와 못 한 챕터가 한 신호를 공유한다.
- * **앞당김은 그 거친 신호로도 안전하다** — 최악이 "덜 급한 챕터를 조금 일찍 본다"이기 때문이다.
- * 반대 방향은 최악이 "잊은 챕터를 안 보여준다"라 같은 근거로 못 넣는다(비대칭이 설계 결정이다).
+ * ## ⚠⚠ 이 함수는 한동안 의도적으로 **비대칭**이었다 — 그 근거가 2026-08-02 에 무효가 됐다
+ * 옛 주석(그대로 옮긴다): _"통과 방향을 정밀하게 하려면 백지 결과가 챕터 단위여야 하는데
+ * (현재는 과목-일 단위 = 토대 B) 그 전엔 잘한 챕터와 못 한 챕터가 한 신호를 공유한다.
+ * 앞당김은 그 거친 신호로도 안전하다 — 최악이 '덜 급한 챕터를 조금 일찍 본다'이기 때문이다.
+ * 반대 방향은 최악이 '잊은 챕터를 안 보여준다'라 같은 근거로 못 넣는다."_
+ *
+ * **그 전제가 사라졌다**: `blankResults[].chapter` 가 2026-08-01 근본이관 ①로 들어와, 통과/막힘이
+ * **챕터 단위로 관측된다**(`chapterStrength`). 즉 미룸을 정밀하게 걸 수 있게 됐다. 그래서 비대칭을
+ * 유지할 이유가 없어졌고, Q-4 가 통과 방향을 연다.
+ *
+ * ## 그래도 남는 두 안전장치
+ * ① **상한 한 칸.** 두 칸 미룸은 없다 — 최악이 여전히 "잊은 챕터를 안 보여준다"라서다.
+ * ② **`failing` 이 이긴다.** 둘 다 참일 수 없어야 하지만 신호가 갈리면(과목은 막혔는데 이 챕터는
+ *    연속 통과) **앞당김을 택한다** — 위험 쪽으로 틀리는 편이 안전하다.
  */
-export function riskOf(daysSince: number, failing = false): ReviewRisk {
-  const over = failing ? FAIL_OVERDUE_DAYS : OVERDUE_DAYS;
-  const due = failing ? FAIL_DUE_DAYS : DUE_DAYS;
+export function riskOf(daysSince: number, failing = false, strong = false): ReviewRisk {
+  const shift = failing ? 'fail' : strong ? 'strong' : 'base'; // failing 이 strong 을 이긴다(안전 방향)
+  const over = shift === 'fail' ? FAIL_OVERDUE_DAYS : shift === 'strong' ? STRONG_OVERDUE_DAYS : OVERDUE_DAYS;
+  const due = shift === 'fail' ? FAIL_DUE_DAYS : shift === 'strong' ? STRONG_DUE_DAYS : DUE_DAYS;
   if (daysSince >= over) return 'overdue';
   if (daysSince >= due) return 'due';
   return 'fresh';
@@ -172,6 +187,11 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
     const daysSince = dayDiff(e.ds, todayDs);
     const code = cbmsByChapter.get(e.sid + '|' + e.chapter);
     const failingNow = code ? CBMS_ADVANCES_REVIEW.has(code) : failing.has(e.sid);
+    /* Q-4(통과 방향) — 이 **챕터**가 붙어 있으면 한 칸 미룬다. 신호가 챕터 단위라는 것이 요점이다:
+       과목 단위 `failingSids` 로는 못 하던 일이고, 그 불가능이 곧 옛 비대칭의 근거였다.
+       ⚠ `strong` 은 `chapterStrength` 의 3구간 중 하나일 뿐이다 — `unseen`(표본 0)은 미룸에
+       참여하지 않는다. 안 재 본 챕터를 "잘한다"고 가정하면 그게 가장 나쁜 오류다. */
+    const strongNow = chapterStrength(state, e.sid, e.chapter, todayDs).band === 'strong';
     out.push({
       sid: e.sid,
       subject: e.subject,
@@ -179,7 +199,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       chapter: e.chapter,
       lastDs: e.ds,
       daysSince,
-      risk: riskOf(daysSince, failingNow),
+      risk: riskOf(daysSince, failingNow, strongNow),
       ...(e.fromVault ? { fromVault: true as const } : null),
     });
   }

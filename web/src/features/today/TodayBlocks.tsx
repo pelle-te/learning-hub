@@ -10,11 +10,14 @@ import { usePrefill } from '@/store/prefill';
 import { ui } from '@/shell';
 import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
-import { blankResultFor, clearBlankResult } from '@/lib/methodology';
+import { addSummary, blankResultFor, clearBlankResult } from '@/lib/methodology';
 import { toHM, hLabel, fmt, todayISO, blockColor } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import type { ScheduleItem } from '@/lib/types';
 import { BLOCK_STAGES } from './consts';
+
+/** 세 문장의 뜻을 칸이 스스로 말한다 — 라벨 3줄을 더하면 이 조각이 카드가 되어 버린다. */
+const SUMMARY_PLACEHOLDERS = ['무엇을 배웠나', '왜 그런가', '어디에 쓰나'];
 import { Icon } from '@/components/Icon';
 
 /** 블록 4단계 비중 막대(분 추정 포함). */
@@ -74,6 +77,52 @@ function BlankNoteField({ initial, onSave }: { initial: string; onSave: (v: stri
   );
 }
 
+/**
+ * **Q-6 인라인 3문장 요약** — 블록을 막 끝낸 자리에서 바로 쓴다.
+ *
+ * ⚠ W8 인라인 메모·Q-1 진도 커밋과 **같은 관용구**다: 모달이 아니라 행 안의 한 조각이라
+ * Esc·포커스 트랩이 필요 없다(안 쓰고 떠나도 잃는 것이 없다). 저장하면 스스로 닫힌다.
+ * ⚠ 세 칸을 다 채우게 강제하지 않는다 — 한 문장만 남기는 날도 아무것도 안 남기는 날보다 낫다.
+ *   다만 **전부 비어 있으면** 저장 자체를 막는다(빈 기록이 원장을 늘리면 나중에 세기만 어려워진다).
+ */
+function InlineSummary({ sid, name, ds, onDone }: { sid: string; name: string; ds: string; onDone: () => void }) {
+  const mutate = useApp((s) => s.mutate);
+  const [v, setV] = useState(['', '', '']);
+  const empty = v.every((x) => !x.trim());
+  const save = () => {
+    if (empty) return;
+    mutate((st) => addSummary(st, ds, sid, name, v[0]!.trim(), v[1]!.trim(), v[2]!.trim()));
+    ui.toast('요약 저장됨', 'ok');
+    onDone();
+  };
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 rounded-md bg-panel2 px-2.5 py-2 shadow-inset-line2">
+      <span className="ds-tiny text-mut">{name} — 세 문장으로</span>
+      {SUMMARY_PLACEHOLDERS.map((ph, i) => (
+        <input
+          key={i}
+          type="text"
+          value={v[i]}
+          aria-label={`요약 ${i + 1}번째 문장`}
+          placeholder={ph}
+          onChange={(e) => setV((prev) => prev.map((x, k) => (k === i ? e.target.value : x)))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) save();
+          }}
+        />
+      ))}
+      <div className="flex gap-1.5">
+        <Button sm variant="primary" disabled={empty} onClick={save}>
+          저장
+        </Button>
+        <Button sm variant="ghost" onClick={onDone}>
+          닫기
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function TodayBlocks() {
   const state = useApp((s) => s.state);
   const res = useSchedule();
@@ -84,6 +133,11 @@ export function TodayBlocks() {
   const requestPrefill = usePrefill((s) => s.request);
   // W8 — 인라인 '막힌 구간' 입력이 열린 행(sid). 모달이 아니라 행 안의 한 줄이다.
   const [noteFor, setNoteFor] = useState<string | null>(null);
+  // Q-1 — 진도 커밋 줄이 열린 블록(`sid|type`). 완료를 켠 직후에만 열리고, 끄면 닫힌다.
+  const [commitFor, setCommitFor] = useState<string | null>(null);
+  // Q-6 — 인라인 3문장 요약이 열린 블록(sid).
+  const [sumFor, setSumFor] = useState<string | null>(null);
+  const setChapterDone = useApp((s) => s.setChapterDone);
   // '오늘 학습' 블록 → 기록 탭으로 과목 사전선택 + 이동.
   const prefill = (form: 'sum' | 'cbms' | 'bl', sid: string) => {
     requestPrefill(form, sid);
@@ -91,6 +145,9 @@ export function TodayBlocks() {
   };
 
   const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
+  /** Q-1 — 블록이 가진 것은 챕터 **이름**뿐이라(엔진 계약), 표시용 `done` 은 여기서 되찾는다. */
+  const chapterOf = (sid: string, chName: string) =>
+    state.items.find((x) => x.id === sid)?.chapters?.find((c) => c.name === chName);
   const day = (res.days || []).find((d) => d.ds === ds2);
   const items = day ? day.items : [];
 
@@ -121,6 +178,14 @@ export function TodayBlocks() {
      ("되돌리기 필요" · "결과가 화면 밖") **둘 다 해당하지 않는다.** */
   const onToggle = (it: ScheduleItem, on: boolean) => {
     toggleDone(ds2, it.sid, it.type, it.min, on);
+    /* Q-1 진도 커밋 — 완료를 켜는 순간 **그 행에서** 챕터를 확정할 기회를 연다.
+       왜 여기인가: `setDone` 은 `completions` 만 쓰고 **챕터를 안 건드리는데**, 스케줄러의 계획은
+       전적으로 `chapters[].done` 에서 나온다. 그래서 계획의 유일한 진짜 입력이 앱에서 가장 비싼
+       편집이었다(챕터 표 → `<details>` 펼치기 → Tab 약 150회). 발산 7각도 중 셋이 독립적으로
+       이 지점에 도착했다.
+       ⚠ W8 인라인 메모와 **같은 패턴**이다: 먼저 커밋(완료는 이미 기록됨) · 정밀도는 나중.
+       모달이 아니라 행 안의 한 줄이라 Esc·트랩이 필요 없다 — 안 만지고 떠나도 잃는 것이 없다. */
+    setCommitFor(on && it.type === 'new' && it.chapters?.length ? completionKey(it.sid, it.type) : null);
   };
 
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');
@@ -193,9 +258,40 @@ export function TodayBlocks() {
           return (
             <div key={key} className="ds-blk">
               {head}
+              {/* Q-1 진도 커밋 — 이 블록이 덮은 챕터를 **여기서** 끝냈다고 말한다. 계획의 유일한
+                  진짜 입력(`chapters[].done`)이 드디어 그것이 만들어지는 자리에 있다. */}
+              {commitFor === completionKey(it.sid, it.type) && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-panel2 px-2.5 py-2 shadow-inset-line2">
+                  <span className="ds-tiny text-mut">어디까지 끝냈나요?</span>
+                  {(it.chapters || []).map((chName) => {
+                    const ch = chapterOf(it.sid, chName);
+                    return (
+                      <label key={chName} className="flex! cursor-pointer items-center gap-1.25 text-md">
+                        <input
+                          type="checkbox"
+                          checked={!!ch?.done}
+                          onChange={(e) => setChapterDone(it.sid, chName, e.target.checked, ds2)}
+                        />
+                        <span className={ch?.done ? 'ds-shed' : ''}>{chName}</span>
+                      </label>
+                    );
+                  })}
+                  <Button sm variant="ghost" className="ml-auto" onClick={() => setCommitFor(null)}>
+                    닫기
+                  </Button>
+                </div>
+              )}
               <StageBar ml={ML} />
+              {sumFor === it.sid && (
+                <InlineSummary sid={it.sid} name={it.name} ds={ds2} onDone={() => setSumFor(null)} />
+              )}
               <div className="mt-2.25 flex flex-wrap gap-1.5">
-                <Button sm onClick={() => prefill('sum', it.sid)}>
+                {/* Q-6 — 요약을 **이 화면에서** 쓴다. 종전엔 이 버튼이 `/journal` 로 이동시켜
+                    화면 2개를 강제했다(prefill → navigate). 블록을 막 끝낸 그 순간이 세 문장이
+                    가장 잘 나오는 시점인데, 화면을 옮기는 비용이 그 순간을 잡아먹었다.
+                    ⚠ 깊은 편집(수정·삭제·과목 바꾸기·CBMS 연계)은 `/journal` 에 그대로 남는다 —
+                    여기 있는 것은 **최초 작성 한 번**뿐이다. 흡수가 아니라 입구를 하나 더 낸 것. */}
+                <Button sm onClick={() => setSumFor(sumFor === it.sid ? null : it.sid)}>
                   <Icon name="pencil" /> 3문장 요약
                 </Button>
                 <Button sm onClick={() => prefill('cbms', it.sid)}>

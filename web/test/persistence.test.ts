@@ -17,6 +17,8 @@ import {
   restoreReviewTouch,
   reviewTouchOf,
   SCHEMA_VERSION,
+  setChapterDone,
+  setDone,
   studyStreak,
   touchReview,
 } from '@/lib/persistence';
@@ -351,5 +353,80 @@ describe('reviewTouches — 앵커 터치와 되돌리기가 왕복한다', () =
     const s = empty();
     touchReview(s, 'p', '역학', '2026-07-29');
     expect(reviewTouchOf(s, 'm', '역학')).toBeUndefined();
+  });
+});
+
+describe('T-8 시각 원장 — 완료에 하루 중 시각이 붙는다', () => {
+  const st = (over: Record<string, unknown> = {}) =>
+    ({ completions: {}, _today: '2026-08-02', ...over }) as unknown as AppState;
+
+  it('완료를 체크하면 doneAt(HH:MM)이 기록된다', () => {
+    const s = st({ _nowHm: '21:40' });
+    setDone(s, '2026-08-02', 'sub1', 'new', 120, true);
+    expect(s.completions['2026-08-02']!['sub1|new']).toMatchObject({
+      done: true,
+      doneDs: '2026-08-02',
+      doneAt: '21:40',
+    });
+  });
+
+  it('_nowHm 시드가 없으면 벽시계 HH:MM 형식이다', () => {
+    const s = st();
+    setDone(s, '2026-08-02', 'sub1', 'new', 120, true);
+    expect(s.completions['2026-08-02']!['sub1|new']!.doneAt).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it('체크 해제는 종전대로 항목을 지운다 — 이 조각은 완료 의미를 안 건드린다', () => {
+    const s = st({ _nowHm: '21:40' });
+    setDone(s, '2026-08-02', 'sub1', 'new', 120, true);
+    setDone(s, '2026-08-02', 'sub1', 'new', 120, false);
+    expect(s.completions['2026-08-02']).toBeUndefined();
+  });
+
+  it('⚠ _nowHm 시드는 가져온 데이터에서 제거된다 — 안 그러면 전 완료 시각이 고정값이 된다', () => {
+    // 시드 제거의 자리는 `migrate` 다(`sanitizeImported` 가 아니라) — `_today` 가 이미 거기 있고
+    // 부팅 경로가 전부 `migrate` 를 지난다. `_nowHm` 을 다른 자리에 두면 한쪽 입구로만 새어든다.
+    const cleaned = migrate({ ...defaults(), _today: '2026-01-01', _nowHm: '03:00' })!;
+    expect(cleaned._today).toBeUndefined();
+    expect((cleaned as { _nowHm?: string })._nowHm).toBeUndefined();
+  });
+});
+
+describe('Q-1 진도 커밋 — 블록에서 챕터를 확정한다', () => {
+  const mk = () =>
+    ({
+      items: [
+        {
+          id: 'sub1',
+          name: '전자기학',
+          mode: 'weekly',
+          chapters: [
+            { id: 'c1', name: '1장', hours: 2, done: false },
+            { id: 'c2', name: '2장', hours: 2, done: false },
+          ],
+        },
+      ],
+    }) as unknown as AppState;
+
+  it('이름으로 찾아 done + doneDs 를 쓴다 — 블록이 가진 것이 이름뿐이라서', () => {
+    const s = mk();
+    setChapterDone(s, 'sub1', '2장', true, '2026-08-02');
+    expect(s.items[0]!.chapters![1]).toMatchObject({ done: true, doneDs: '2026-08-02' });
+    expect(s.items[0]!.chapters![0]!.done).toBe(false);
+  });
+
+  it('해제하면 doneDs 도 지운다 — 복습 앵커가 유령으로 남지 않게', () => {
+    const s = mk();
+    setChapterDone(s, 'sub1', '2장', true, '2026-08-02');
+    setChapterDone(s, 'sub1', '2장', false, '2026-08-02');
+    expect(s.items[0]!.chapters![1]!.done).toBe(false);
+    expect(s.items[0]!.chapters![1]!.doneDs).toBeUndefined();
+  });
+
+  it('없는 챕터·없는 과목은 조용히 무동작(예외로 블록 토글을 깨뜨리지 않는다)', () => {
+    const s = mk();
+    expect(() => setChapterDone(s, 'sub1', '없는장', true, '2026-08-02')).not.toThrow();
+    expect(() => setChapterDone(s, 'nope', '1장', true, '2026-08-02')).not.toThrow();
+    expect(s.items[0]!.chapters!.every((c) => !c.done)).toBe(true);
   });
 });

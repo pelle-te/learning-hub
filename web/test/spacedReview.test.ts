@@ -568,3 +568,32 @@ describe('spacedReview — 유지 큐(N-10 · 끝낸 챕터가 사라지지 않�
     expect(dueForecast(unknown, [], TODAY).reduce((t, f) => t + f.chapters, 0)).toBe(0);
   });
 });
+
+describe('Q-4 통과 방향 개방 — 비대칭이 풀렸다', () => {
+  it('기본(신호 없음)은 종전 그대로 7=due · 16=overdue', () => {
+    expect(riskOf(6)).toBe('fresh');
+    expect(riskOf(7)).toBe('due');
+    expect(riskOf(16)).toBe('overdue');
+  });
+
+  it('실패 방향은 종전 그대로 한 칸 앞당김(3=due · 7=overdue)', () => {
+    expect(riskOf(3, true)).toBe('due');
+    expect(riskOf(7, true)).toBe('overdue');
+  });
+
+  it('⭐ 통과 방향은 한 칸 미룸(16=due · 34=overdue) — 이게 새로 열린 방향이다', () => {
+    expect(riskOf(7, false, true)).toBe('fresh'); // 종전엔 due 였다
+    expect(riskOf(15, false, true)).toBe('fresh');
+    expect(riskOf(16, false, true)).toBe('due'); // 종전엔 overdue
+    expect(riskOf(33, false, true)).toBe('due');
+    expect(riskOf(34, false, true)).toBe('overdue');
+  });
+
+  it('⚠ 상한은 한 칸이다 — 34일이면 붙은 챕터도 overdue 가 된다(방치 금지)', () => {
+    expect(riskOf(60, false, true)).toBe('overdue');
+  });
+
+  it('⚠ 신호가 갈리면 failing 이 이긴다 — 위험 쪽으로 틀리는 편이 안전하다', () => {
+    expect(riskOf(7, true, true)).toBe('overdue'); // strong 을 무시하고 앞당김
+  });
+});

@@ -6,7 +6,7 @@
    학기·과목 타입과 집계는 lib/degree(DegreeSemester·semesterStat 등)를 단일 출처로 공유한다.
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base.
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
@@ -36,7 +36,19 @@ const sems = (d: DegreeT): DegreeSemester[] => d.semesters;
 
 type DegKey = 'targetTotal' | 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal' | 'targetGpa';
 
-function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; onToggle: (id: string) => void }) {
+function SemCard({
+  sem,
+  open,
+  onToggle,
+  itemOpts,
+}: {
+  sem: DegreeSemester;
+  open: boolean;
+  onToggle: (id: string) => void;
+  /** T-1 연결 셀렉트의 선택지. ⚠ **부모가 한 번 구독해 내려준다** — 카드마다 `items` 를 구독하면
+   *  무관한 항목 편집에 전 학기 카드가 재렌더된다(PL-15 가 피하려던 바로 그 형태). */
+  itemOpts: { id: string; name: string }[];
+}) {
   const mutate = useApp((s) => s.mutate);
 
   const findSem = (st: AppState, id: string) => sems(st.degree).find((x) => x.id === id);
@@ -79,16 +91,31 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
     });
     ui.toastUndoable('학기 삭제됨');
   };
-  const courseToItem = (name: string) => {
+  /**
+   * 수강 과목 → 학습 항목. ⚠⚠ **T-1 이전엔 이 버튼이 다리를 놓고 그 다리를 버렸다** — 항목을
+   * 만들기만 하고 `itemId` 를 안 남겨서, 만들어진 순간부터 두 과목은 이름만 같은 남남이었다.
+   * 같은 과목 상태가 6화면에 흩어진 근본 원인이 이 한 줄의 부재였다. 이제 **만들면서 잇는다.**
+   */
+  const courseToItem = (cid: string, name: string) => {
     // PL-15 — items를 구독하지 않고 핸들러 시점에 스냅샷 조회(무관한 items 편집에 카드 재렌더 방지).
-    if (useApp.getState().state.items.some((s) => s.name === name)) {
-      ui.toast('이미 학습 항목에 있어요.', 'warn');
+    const existing = useApp.getState().state.items.find((s) => s.name === name);
+    if (existing) {
+      // 이미 있으면 만들지 말고 **잇기만** 한다 — 종전엔 그냥 경고만 하고 끝나서, 이름이 같은
+      // 항목이 이미 있는 흔한 경우에 링크가 영영 안 생겼다.
+      mutate((st) => {
+        const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
+        if (c) c.itemId = existing.id;
+      });
+      ui.toast(`"${name}" 이미 있는 학습 항목과 연결했어요.`, 'ok');
       return;
     }
+    const created = makeItem({ source: '수강', name });
     mutate((st) => {
-      st.items.push(makeItem({ source: '수강', name }));
+      st.items.push(created);
+      const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
+      if (c) c.itemId = created.id;
     });
-    ui.toast(`"${name}" 학습 항목에 추가됨 — 학습 항목 탭에서 주당 시간·챕터를 설정하세요.`, 'ok');
+    ui.toast(`"${name}" 학습 항목에 추가·연결됨 — 주당 시간·챕터·시험을 설정하세요.`, 'ok');
   };
 
   // PL-14 — 학기 집계는 lib/degree.semesterStat 단일 출처. cr=총학점·doneCr=완료학점·inprog=수강중 과목 수.
@@ -144,6 +171,29 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
               placeholder="예: 2026-1학기"
             />
           </div>
+          {/* ── T-1 학기 계약 — 학기에 **날짜**가 생겼다 ─────────────────────────────────
+              왜: 종전 `Semester` 는 `id·name·courses` 뿐이라 **날짜가 없었다.** 그래서 앱은
+              "지금이 학기 중인가 방학인가"를 원리적으로 알 수 없었고, 모든 화면이 *지금 상태*만
+              그렸다(시간축이 수개월인 시그니처 0). 이 두 칸이 국면(`semesterPhase`)·주차·개강
+              D-day 의 **유일한 입력**이다 — 비워 두면 그 과목은 국면 판정에 참여하지 않는다. */}
+          <div className="ds-fld">
+            <label htmlFor={`sem-start-${sem.id}`}>개강일 (선택)</label>
+            <input
+              id={`sem-start-${sem.id}`}
+              type="date"
+              value={sem.startDs || ''}
+              onChange={(e) => updSem('startDs', e.target.value)}
+            />
+          </div>
+          <div className="ds-fld">
+            <label htmlFor={`sem-end-${sem.id}`}>종강일 (선택)</label>
+            <input
+              id={`sem-end-${sem.id}`}
+              type="date"
+              value={sem.endDs || ''}
+              onChange={(e) => updSem('endDs', e.target.value)}
+            />
+          </div>
         </div>
         <div className="ds-chaptbl">
           <table>
@@ -154,6 +204,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
                 <th>구분</th>
                 <th>상태</th>
                 <th>성적</th>
+                <th>학습 항목</th>
                 <th />
               </tr>
             </thead>
@@ -217,9 +268,27 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
                         ))}
                       </select>
                     </td>
+                    <td>
+                      {/* T-1. **두 우주를 잇는 칸.** 회계 쪽 과목이 실행 쪽 어느 항목인지 명시한다 —
+                          이름이 달라도(수강편람 이름 vs 내가 부르는 이름) 이어지게. 링크가 있어야
+                          과목 화면이 학점·성적과 챕터·시험을 한 화면에서 말할 수 있다. */}
+                      <select
+                        value={c.itemId && itemOpts.some((i) => i.id === c.itemId) ? c.itemId : ''}
+                        onChange={(e) => updCourse(c.id, 'itemId', e.target.value)}
+                        aria-label="학습 항목 연결"
+                        style={{ width: 110 }}
+                      >
+                        <option value="">연결 안 함</option>
+                        {itemOpts.map((i) => (
+                          <option key={i.id} value={i.id}>
+                            {i.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      {(c.status === '수강중' || c.status === '예정') && (
-                        <Button sm variant="ghost" title="학습 항목으로" onClick={() => courseToItem(c.name)}>
+                      {!c.itemId && (c.status === '수강중' || c.status === '예정') && (
+                        <Button sm variant="ghost" title="학습 항목으로" onClick={() => courseToItem(c.id, c.name)}>
                           <Icon name="inbox" />
                         </Button>
                       )}
@@ -297,6 +366,10 @@ function DegreePlan() {
   const pct = progressPct(d); // 정의는 lib 하나 — 세 화면이 같은 답을 말한다
   const shownPct = useCountUp(Math.min(100, pct)); // 링 기하만 클램프(숫자는 진실을 그대로)
   const list = sems(d);
+  // T-1. 연결 셀렉트의 선택지 — **여기서 한 번만** 구독한다(PL-15 · 카드마다 구독하면 무관한 항목
+  // 편집에 전 학기 카드가 재렌더된다). immer 라 `items` 가 안 바뀐 변경에서는 참조가 유지된다.
+  const items = useApp((s) => s.state.items);
+  const itemOpts = useMemo(() => items.map((i) => ({ id: i.id, name: i.name || '(이름 없음)' })), [items]);
   const avgPerSem = semDone ? earned / semDone : 0;
   const projSem = earned && avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
   // PL-17 — 목표 GPA 역산. 기본값은 현재 GPA를 0.5 단위 올림(없으면 4.0). 저장은 d.targetGpa(옵셔널).
@@ -549,7 +622,7 @@ function DegreePlan() {
       </div>
 
       {list.map((s) => (
-        <SemCard key={s.id} sem={s} open={openSems.has(s.id)} onToggle={toggle} />
+        <SemCard key={s.id} sem={s} open={openSems.has(s.id)} onToggle={toggle} itemOpts={itemOpts} />
       ))}
     </>
   );

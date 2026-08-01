@@ -209,7 +209,9 @@ export default function JournalStream({
             </StreamRow>
           ))}
           {backlogToday.map((b) => (
-            <StreamRow key={`b-${b.id}`} cursor={cursor} k={`b-${b.id}`} extra={b.done ? ' opacity-50' : ''}>
+            /* Q-10 — 끝난 항목은 `ds-shed`(채도 저하 + 취소선)가 어휘다. `opacity-50` 은 뜻도
+               흐리고(끝났나? 비활성인가?) 글자까지 못 읽게 했다. */
+            <StreamRow key={`b-${b.id}`} cursor={cursor} k={`b-${b.id}`} extra={b.done ? ' ds-shed' : ''}>
               <span className={`${NODE} rotate-45 rounded-xs bg-acc shadow-dot motion-reduce:shadow-none`} />
               {fmtTime(b.at) && (
                 <span className="w-8.5 flex-none text-2xs font-bold tracking-wide text-mut tabular-nums">

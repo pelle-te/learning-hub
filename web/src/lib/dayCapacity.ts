@@ -56,6 +56,14 @@ export interface DayCapacity {
    *  ⚠ P-7 이후 이 문자열은 **화면 텍스트가 아니라 막대의 `aria-label`** 이다 — 길이로 옮긴 것을
    *  SR 이 못 읽으면 그건 이전(移轉)이 아니라 손실이다. */
   fitLine: string | null;
+  /**
+   * **Q-2** — 오늘 남은 창에서 남은 계획을 뺀 값(분). 양수=여유 · 음수=초과 · `null`=할 것이 없음.
+   *
+   * ⚠ 왜 문자열(`fitLine`)이 있는데 숫자를 따로 내는가: 상단 44px 리드아웃은 **값과 단위를
+   * 따로** 조판해야 하고(`Readout` 계약), 문자열을 파싱해 되돌리는 코드는 그 순간부터
+   * `fitLine` 문구를 못 바꾸게 만든다. 표시 문자열에서 값을 역산하지 않는다.
+   */
+  slackMin: number | null;
   /** 막대 칸들(시각 순). */
   segments: CapacitySegment[];
   /**
@@ -100,6 +108,9 @@ export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: numbe
     beyondMin,
     remainMin,
     fitLine,
+    // `fitLine` 이 null 인 조건과 **같은 조건**으로 null 이다 — 두 값이 갈리면 화면이 "여유 0"과
+    // "말할 것 없음"을 같은 픽셀로 그린다.
+    slackMin: pending.length ? freeLeftMin - remainMin : null,
     segments,
     scaleMin,
     windowRatio: scaleMin > 0 ? Math.min(1, freeLeftMin / scaleMin) : 0,

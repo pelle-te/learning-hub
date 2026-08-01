@@ -31,6 +31,35 @@ export const ChapterSchema = z.object({
 
 export const ItemModeSchema = z.enum(['weekly', 'daily']);
 
+/* ── T-1 학기 계약 · 시험(Exam) ────────────────────────────────────────────
+   왜 생겼나: 5회차 발산에서 **블라인드 7각도가 독립적으로 같은 지점에 도착**했다 —
+   "여정의 입구와 출구가 통째로 비어 있고, **'학기'가 데이터에 없다**". `Semester` 는 날짜조차
+   없었고(회계용 이름표), 과목이 **두 우주**에 살았다: `Course`(학점·성적) 와 `Item`(챕터·마감)이
+   서로를 전혀 참조하지 않았다.
+
+   ⚠⚠ 이 필드는 `schema.ts` 자신이 P-10 에서 못박은 경고를 **정면으로 뒤집는다**. 옛 주석은
+   _"'시험' 엔티티(과목당 여러 시험·가중치·유형)로 키우고 싶어지는 **금도금 미끄럼틀**"_ 을 경고하며
+   `v1 은 과목당 마감 1개`로 잠갔다. 그 판단은 **실데이터가 0 이던 때** 내려졌다 — 지금은 4과목
+   51챕터가 들어와 있고(`e07074f`) 중간·기말이 범위가 다른 두 사건이라는 사실이 그대로 남아 있다.
+   경고에 대한 답은 **범위를 좁히는 것**이다:
+     - ✅ 만든다: 과목당 시험 **최대 2개**(중간/기말) · 각자 **날짜 + 범위(thru)**.
+     - ❌ 안 만든다: **가중치 · 과제 · 출석 · 시험 유형 자유입력 · 과목당 3개 이상.**
+       이 넷이 미끄럼틀의 실제 경사면이다. 필요해지면 그때 근거를 들고 다시 연다.
+
+   ⚠ `thru` 는 **인덱스가 아니라 챕터 id** 다 — 인덱스는 *위치*라 삽입·재정렬에 밀리고 id 는
+   *정체성*이라 불변이다(과목 색이 `item.id` 를 파생 키로 쓰는 것과 같은 논증).
+   ⚠ 저장 계약: `exams` 는 **옵셔널**이라 기존 저장·서버(D1)·폰 전부 무마이그레이션이다. 서버는
+   `items` 를 `settings` 한 행의 **불투명 JSON** 으로 다루므로 **서버 계약 변경 0**(P-10 실측). */
+export const ExamKindSchema = z.enum(['mid', 'final']);
+export const ExamSchema = z.object({
+  id: z.string(),
+  kind: ExamKindSchema,
+  /** 시험 날짜(ISO `YYYY-MM-DD`). */
+  date: z.string(),
+  /** 이 시험이 덮는 **마지막 챕터 id**. 없으면 "직전 시험 다음부터 끝까지". */
+  thru: z.optional(z.string()),
+});
+
 export const ItemSchema = z.looseObject({
   id: z.string(),
   source: z.optional(z.string()),
@@ -48,6 +77,11 @@ export const ItemSchema = z.looseObject({
    *  ⚠ v1 은 **과목당 마감 1개 · 범위 칸 하나**다. "시험" 엔티티(과목당 여러 시험·가중치·유형)로
    *  키우고 싶어지는 금도금 미끄럼틀이 여기 붙어 있다 — 로드맵 P-10 이 미리 못박아 뒀다. */
   deadlineThru: z.optional(z.string()),
+  /** T-1. 과목의 시험들(최대 2 · 날짜순). **`deadline`/`deadlineThru` 의 상위 집합**이다.
+   *  ⚠ 두 원천을 동시에 읽지 말 것 — 읽기는 **`lib/semester.ts` 의 `examsOf(item)` 하나**로 모은다.
+   *  `exams` 가 없으면 `examsOf` 가 옛 두 필드를 시험 1개로 승격시켜 돌려주므로, 옛 저장은 **한 글자도
+   *  다르게 동작하지 않는다**(`scheduler.test.ts` 가 그 동작 보존을 잠그고 있다). */
+  exams: z.optional(z.array(ExamSchema)),
   chapters: z._default(z.array(ChapterSchema), []),
 });
 
@@ -75,6 +109,16 @@ export const CompletionEntrySchema = z.object({
   min: z.number(),
   doneDs: z.optional(z.string()),
   actualMin: z.optional(z.number()),
+  /** T-8 **시각 원장** — 완료를 체크한 **하루 중 시각**(`HH:MM`, 로컬).
+   *
+   *  ⚠⚠ 이 필드가 없어서 로드맵의 T-8·T-10·T-5 가 **"표본 대기"로 영원히 멈춰 있었다.** 셋 다
+   *  "관측이 쌓이면 판정한다"고 적혀 있었는데, **관측을 만드는 코드가 바로 그 항목 자신**이었다
+   *  (완료에 시각 필드가 없으면 완료 시각은 영원히 안 쌓인다). 순환 대기를 끊는 한 줄이다.
+   *  ⚠ **날짜가 아니라 시각만** 담는다 — 날짜는 이미 `doneDs` 가 갖고 있고, 둘을 한 필드에
+   *  합치면 기존 `doneDs` 소비처(복습 사다리 앵커)가 파싱을 다시 해야 한다.
+   *  ⚠ 지금은 **아무 화면도 이 값을 안 그린다.** 그게 의도다 — 로드맵 T-8 의 "가장 싼 검증"이
+   *  _"`doneAt` 한 필드만 추가하고 2주 방치"_ 다. 표본이 쌓인 뒤에 무엇을 그릴지 정한다. */
+  doneAt: z.optional(z.string()),
 });
 /** completions[ds][`${sid}|${type}`] = {done,min} */
 export const CompletionsSchema = z.record(z.string(), z.record(z.string(), CompletionEntrySchema));
@@ -156,6 +200,18 @@ export const RitualSchema = z.object({
   plan: z.boolean(),
   shutdown: z.boolean(),
   note: z.string(),
+  /* ── T-10 **중단 지점** ────────────────────────────────────────────────────────────
+     왜 여기인가: 미완의 이유를 담을 곳이 앱에 **한 군데도 없었다.** 완료를 해제하면
+     `setDone` 이 `delete m[k]` 로 **기록 자체를 지우므로**(`persistence.ts`), "하려다 못 했다"는
+     사실이 흔적 없이 사라진다. 그래서 "왜 매번 이 과목만 밀리나"를 물을 근거가 0이었다.
+     ⚠ **`completions` 를 건드려 담지 않는다** — 그 맵의 존재=완료라는 뜻을 여러 소비처가
+     의존한다(`adherenceFactor` 는 그 값으로 미래 용량을 깎는다). 하루 단위 의식에 붙이는 편이
+     의미도 맞다: 중단은 블록의 속성이 아니라 **그날의 속성**이다.
+     ⚠ 둘 다 옵셔널 — 옛 저장 무마이그레이션. */
+  /** 그날 못 끝낸 이유 한 줄(자유 입력 · 강제하지 않는다). */
+  stopWhy: z.optional(z.string()),
+  /** 그 시점에 남아 있던 블록 수 — **표본의 분모**다. 이유만 있고 규모가 없으면 나중에 비교가 안 된다. */
+  stopPending: z.optional(z.number()),
 });
 
 // 학기 과목. (이 스키마들은 영속 데이터 검증이 아니라 *타입 출처*로만 쓰인다 — validShape는 손코딩,
@@ -167,11 +223,20 @@ export const CourseSchema = z.object({
   category: z.string(),
   status: z.string(),
   grade: z.optional(z.string()),
+  /** T-1. **두 우주를 잇는 유일한 다리** — 실행 쪽 `Item.id`. 링크는 **한 방향**이다(회계 → 실행):
+   *  양방향으로 두면 갈라질 수 있고, 갈라지면 어느 쪽이 정본인지 말할 수 없다. 역방향 조회는
+   *  `lib/semester.ts` 의 `courseOfItem` 이 순회로 답한다(학기당 과목 수가 한 자릿수라 비용이 0). */
+  itemId: z.optional(z.string()),
 });
 export const SemesterSchema = z.object({
   id: z.string(),
   name: z.string(),
   courses: z._default(z.array(CourseSchema), []),
+  /** T-1. 학기의 **시작·종료 날짜**(ISO). 종전엔 학기에 날짜가 아예 없어서 "지금이 학기 중인가
+   *  방학인가"를 앱이 **원리적으로 알 수 없었다** — 그래서 모든 화면이 *지금 상태*만 그렸고
+   *  시간축이 수개월인 것이 0 이었다(각도 3 의 관측). 둘 다 옵셔널 — 옛 저장 무마이그레이션. */
+  startDs: z.optional(z.string()),
+  endDs: z.optional(z.string()),
 });
 export const DegreeSchema = z.object({
   targetTotal: z.number(),
@@ -328,6 +393,8 @@ export const AppStateSchema = z.looseObject({
   weekAlloc: z.optional(WeekAllocSchema),
   // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
   _today: z.optional(z.string()),
+  /** T-8. `_today` 의 시각판 시드 — `nowHm()` 이 존중한다. 테스트·e2e 결정성 전용(런타임 캐시). */
+  _nowHm: z.optional(z.string()),
   _knowState: z.optional(KnowStateSchema),
   _vaultScan: z.optional(z.unknown()),
   _ankiFile: z.optional(z.unknown()),
@@ -350,6 +417,10 @@ export type Backlog = z.infer<typeof BacklogSchema>;
 export type BlankResult = z.infer<typeof BlankResultSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;
 export type Ritual = z.infer<typeof RitualSchema>;
+export type ExamKind = z.infer<typeof ExamKindSchema>;
+export type Exam = z.infer<typeof ExamSchema>;
+export type Course = z.infer<typeof CourseSchema>;
+export type Semester = z.infer<typeof SemesterSchema>;
 export type Degree = z.infer<typeof DegreeSchema>;
 export type PlacedBlock = z.infer<typeof PlacedBlockSchema>;
 export type DayPlan = z.infer<typeof DayPlanSchema>;

@@ -71,6 +71,15 @@ export function preImageBytes(rows: readonly PreImageRow[]): number {
 /* 최신이 **뒤**다(push/pop). 오래된 것을 버릴 때만 앞에서 shift 한다. */
 let _stack: UndoEntry[] = [];
 let _bytes = 0;
+/* ── Q-8 다시 실행(⇧⌘Z) ────────────────────────────────────────────────────────────────
+   되돌리기 스택과 **완전히 대칭**인 두 번째 스택이다. 예산·축출·항등 대조 규칙을 공유하려고
+   같은 `UndoEntry` 모양을 쓴다.
+
+   ⚠⚠ **왜 필요한가**: 🌍 격차표 _"되돌리기와 다시실행은 짝 — 무를 수 없으면 안 누른다"_ 대비
+   우리 현재는 `redo` 가 **앱 전량 0건**이었다. 되돌리기만 있으면 사용자는 되돌리기 자체를
+   회피한다(잘못 되돌리면 복구가 없으므로). 그래서 짝이 없는 ⌘Z 는 반쪽이다. */
+let _redo: UndoEntry[] = [];
+let _redoBytes = 0;
 
 /**
  * 한 쓰기의 pre-image 를 쌓는다. 빈 목록은 쌓지 않는다(되돌릴 것이 없는 쓰기 = 항목이 아니다 —
@@ -80,6 +89,13 @@ let _bytes = 0;
  */
 export function pushUndo(rows: PreImageRow[], stamp: number): boolean {
   if (!rows.length) return false;
+  /* ⚠⚠ **새 편집은 다시실행 가지를 버린다**(Q-8). 되돌린 뒤 *다른* 편집을 하면 원래의 미래는
+     더 이상 도달 가능한 상태가 아니다 — 그 pre-image 를 남겨 두면 ⇧⌘Z 가 **지금 상태와 아무
+     관계 없는 옛 값**을 fresh 스탬프로 덮어써서 방금 한 편집을 조용히 먹는다. 모든 편집기가
+     같은 규칙을 쓰는 이유가 이것이고, 여기서는 그 위반이 **동기화를 타고 다른 기기까지** 간다.
+     ⚠ `undoLastWrite` 가 부르는 되돌리기 경로는 이 함수를 안 지난다(`pushRedo` 가 따로 있다) —
+     안 그러면 되돌리기 자신이 자기 다시실행 가지를 지운다. */
+  clearRedo();
   const bytes = preImageBytes(rows);
   _stack.push({ stamp, rows, bytes });
   _bytes += bytes;
@@ -127,11 +143,68 @@ export function dropUndo(entry: UndoEntry): void {
 export function clearUndo(): void {
   _stack = [];
   _bytes = 0;
+  /* ⚠ 다시실행도 **함께** 버린다 — 무효화 근거가 글자 그대로 같다(받아온 행 위에서는 어느
+     쪽 pre-image 도 더 이상 "직전"이 아니다). 한쪽만 비우면 ⇧⌘Z 가 원격 편집을 덮는다. */
+  clearRedo();
+}
+
+/**
+ * 다시실행 항목을 쌓는다 — **되돌리기가 덮어쓰기 직전의 값**이다(= 되돌리기의 pre-image).
+ *
+ * ⚠ `pushUndo` 와 달리 여기서는 반대편 스택을 **안 비운다.** 되돌리기를 연속으로 누르면
+ * 다시실행이 그만큼 쌓여야 하고, 다시실행을 연속으로 누르면 되돌리기가 그만큼 쌓여야 한다.
+ */
+export function pushRedo(rows: PreImageRow[], stamp: number): boolean {
+  if (!rows.length) return false;
+  const bytes = preImageBytes(rows);
+  _redo.push({ stamp, rows, bytes });
+  _redoBytes += bytes;
+  while (_redoBytes > UNDO_BYTE_BUDGET && _redo.length > 1) _redoBytes -= _redo.shift()!.bytes;
+  return true;
+}
+
+/** 다시실행 꼭대기를 **보기만** 한다. peek → apply → drop 규율은 되돌리기와 같다(H2). */
+export function peekRedo(): UndoEntry | null {
+  return _redo[_redo.length - 1] ?? null;
+}
+
+/** 적용에 성공한 다시실행 항목을 버린다(항등 대조 — `dropUndo` 와 같은 방어). */
+export function dropRedo(entry: UndoEntry): void {
+  if (_redo[_redo.length - 1] !== entry) return;
+  _redo.pop();
+  _redoBytes -= entry.bytes;
+}
+
+/** 다시실행 가지를 버린다. 새 편집(`pushUndo`)과 pull(`clearUndo`)이 부른다. */
+export function clearRedo(): void {
+  _redo = [];
+  _redoBytes = 0;
+}
+
+/**
+ * 되돌리기가 **쓰기 직전에** 쌓아 두는 항목 — 되돌리기 자신은 `pushUndo` 를 못 쓴다
+ * (그 함수가 다시실행 가지를 비우므로, 되돌리기가 자기 미래를 지워 버린다).
+ *
+ * ⚠ 이 함수는 되돌리기의 **역방향**을 쌓는다: 다시실행을 적용하면 그 직전 값(= 되돌린 값)이
+ * 다시 되돌리기 스택으로 돌아가야 하므로, `redoLastWrite` 가 이걸 부른다.
+ */
+export function pushUndoFromRedo(rows: PreImageRow[], stamp: number): boolean {
+  if (!rows.length) return false;
+  const bytes = preImageBytes(rows);
+  _stack.push({ stamp, rows, bytes });
+  _bytes += bytes;
+  while (_bytes > UNDO_BYTE_BUDGET && _stack.length > 1) _bytes -= _stack.shift()!.bytes;
+  return true;
 }
 
 /** 쌓인 항목 수(진단·테스트). */
 export function undoDepth(): number {
   return _stack.length;
+}
+
+/** 쌓인 다시실행 항목 수(진단·테스트·단축키 활성 판정). */
+export function redoDepth(): number {
+  return _redo.length;
 }
 
 /** 쌓인 총 바이트(진단·테스트). */

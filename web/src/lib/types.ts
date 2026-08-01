@@ -16,6 +16,10 @@ export type {
   BlankResult,
   Weekly,
   Ritual,
+  ExamKind,
+  Exam,
+  Course,
+  Semester,
   Degree,
   PlacedBlock,
   DayPlan,
@@ -102,8 +106,14 @@ export interface Shortfall {
   fitH: number;
   /** 부족분(h) = needH - fitH */
   gapH: number;
-  /** `deadlineThru` 로 범위가 좁혀져 있는가 — 화면이 "전부"와 "시험 범위"를 구분해 말하게 한다. */
+  /** 범위가 좁혀져 있는가 — 화면이 "전부"와 "시험 범위"를 구분해 말하게 한다. */
   scoped: boolean;
+  /** T-1. 어느 시험의 부족분인가. 과목당 **시험마다 하나씩** 나올 수 있다(중간은 벅찬데 기말은
+   *  여유로운 상태가 실재한다 — 옛 모델은 그 둘을 한 덩어리로 뭉개 하나의 경고만 냈다).
+   *  옛 저장(시험 0~1개)에서는 종전처럼 과목당 최대 1건이라 화면이 달라지지 않는다. */
+  examId: string;
+  /** 화면에 쓰는 시험 이름(`중간`·`기말`). 옛 단일 마감에서 승격된 것은 `기말`이다. */
+  examLabel: string;
   /** 컷 후보 — **남은 시간 큰 것부터 · 동률이면 뒤 챕터부터**. 이 규칙은 화면에도 적힌다. */
   candidates: { id: string; name: string; hours: number }[];
   /** 위 규칙으로 부족분을 덮는 최소 접두(챕터 id) — 기본 선택. 사용자가 뒤집을 수 있다. */

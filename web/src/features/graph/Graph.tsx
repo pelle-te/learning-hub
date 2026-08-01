@@ -234,7 +234,7 @@ function LeafRows({ sel, leafRv }: { sel: SelInfo; leafRv: ChapterReview | null 
           {leafRv.risk === 'overdue' ? '복습 시급' : leafRv.risk === 'due' ? '복습 권장' : '최근'}
         </div>
       ) : (
-        <div className={`${ROW} opacity-80`}>완료된 학습 기록이 아직 없어요</div>
+        <div className={`${ROW} text-mut`}>완료된 학습 기록이 아직 없어요</div>
       )}
     </>
   );

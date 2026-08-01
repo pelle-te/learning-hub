@@ -51,10 +51,12 @@ const CAPTURE = 'relative mb-1 border border-acc-glow bg-tint-acc-6';
 const LABEL = 'text-base14';
 /* 힌트 칩 — base 는 기하만 갖고 **색·보더색·투명도는 변형이 통째로 소유**한다(§15-8 ②). */
 const HINT_BASE = 'rounded-full border px-2 py-0.5 text-xs leading-text';
-const HINT = HINT_BASE + ' border-line opacity-60';
+// Q-10 — 컨테이너 `opacity` 대신 **의미 토큰**으로. 투명도는 자기 글자의 대비를 깎는다
+// (a11y 게이트가 이미 두 번 물린 관용구 — `ds.css` 의 `ds-sub` 머리주석이 SSOT).
+const HINT = HINT_BASE + ' border-line text-mut';
 const HINT_CAP = HINT_BASE + ' border-acc-glow text-acc opacity-90';
-const EMPTY = 'p-6 text-center text-md opacity-60';
-const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs leading-text opacity-70';
+const EMPTY = 'p-6 text-center text-md text-mut';
+const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs leading-text text-mut';
 const BRAND = 'font-bold';
 const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-text font-extrabold tracking-label text-acc uppercase';
 

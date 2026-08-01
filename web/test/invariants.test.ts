@@ -884,3 +884,55 @@ describe('불변식 ⑫ 폰이 쓰는 ds-* 가 폰 번들에 정의돼 있다', 
     }
   });
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+   불변식 ⑧ — **뷰 전이 morph 이름은 규약에서만 나온다** (Q-11 · 2026-08-02)
+
+   morph 는 "같은 객체를 따라간다"는 뜻을 픽셀로 말하는 유일한 어휘다. 그런데 종전엔 이름을
+   **호출부가 각자 지었고**(`subject-morph`·`atlas-hero`) 그중 어느 것도 **id 를 담지 않았다**.
+   id 가 없으면 같은 종류의 카드가 둘 이상 이름을 갖는 순간 브라우저가 짝을 못 지어 **전환이
+   통째로 죽는다** — 그리고 그 실패는 조용하다(에러도 로그도 없이 크로스페이드로 떨어진다).
+
+   ⚠ 이 불변식이 못 보는 것: 규약을 쓰되 **entity 를 잘못 고른** 경우(예: 목록은 'subject',
+   상세는 'course'). 짝이 안 맞으면 역시 조용히 죽는다. 그건 §15-4(실렌더 확인)의 몫이다.
+──────────────────────────────────────────────────────────────────────────── */
+/** 윈도우 경로를 POSIX 로 — `endsWith('lib/motion.ts')` 가 플랫폼에 따라 갈리지 않게. */
+const normPath = (p: string): string => p.split(String.fromCharCode(92)).join('/');
+
+describe('불변식 ⑧ morph 이름은 lib/motion 의 규약에서만 나온다', () => {
+  const SRC = join(process.cwd(), 'src') + '/';
+  function tsFilesOf(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(ts|tsx)$/.test(e.name)) out.push(p);
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    return out;
+  }
+  const tsFiles = tsFilesOf();
+
+  it('viewTransitionName 에 문자열 리터럴을 직접 넣지 않는다', () => {
+    const bad: string[] = [];
+    for (const f of tsFiles) {
+      if (normPath(f).endsWith('lib/motion.ts')) continue; // 규약 자신
+      const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      // `viewTransitionName: 'x'` / `viewTransitionName = 'x'` 둘 다 잡는다.
+      for (const m of src.matchAll(/viewTransitionName\s*[:=]\s*(['"`])/g)) {
+        bad.push(`${f.replace(SRC, '')} → ${m[0]}`);
+      }
+    }
+    expect(bad, `morph 이름은 morphName()/applyMorph() 로만 짓는다(id 가 없으면 짝이 유일하지 않다)`).toEqual([]);
+  });
+
+  it('규약이 실제로 쓰이고 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
+    const users = tsFiles.filter((f) => {
+      if (normPath(f).endsWith('lib/motion.ts')) return false;
+      return /\b(applyMorph|morphName)\s*\(/.test(readFileSync(f, 'utf8'));
+    });
+    expect(users.length).toBeGreaterThan(0);
+  });
+});

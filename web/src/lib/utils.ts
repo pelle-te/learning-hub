@@ -164,6 +164,18 @@ export function todayISO(state?: Pick<AppState, '_today'> | null): string {
   if (state && state._today) return state._today;
   return iso(new Date());
 }
+/**
+ * 지금의 **하루 중 시각**(`HH:MM`, 로컬) — T-8 시각 원장의 유일한 시계.
+ *
+ * ⚠ `_nowHm` 시드를 존중한다(`todayISO` 가 `_today` 를 존중하는 것과 **같은 규약**). 시드가 없으면
+ * 벽시계다. 이게 없으면 e2e·유닛이 이 필드를 결정적으로 검사할 방법이 없고, 그러면 "썼다고
+ * 믿지만 아무도 안 재는" 필드가 된다.
+ */
+export function nowHm(state?: (Pick<AppState, '_today'> & { _nowHm?: string }) | null): string {
+  if (state && state._nowHm) return state._nowHm;
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 export function parseISO(s: string): Date {
   const [y, m, d] = s.split('-').map(Number) as [number, number, number];
   return new Date(y, m - 1, d);

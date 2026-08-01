@@ -21,11 +21,20 @@
      남은 항목이 여전히 유효한 이유: 항목 N 을 되돌리면 DB 는 "쓰기 N 직전" = "쓰기 N-1 직후"가
      되고, 그게 정확히 항목 N-1 의 pre-image 가 기대하는 베이스다(체인이 끊기지 않는다).
 ============================================================ */
-import { dropUndo, peekUndo } from '../db/undoStack';
+import {
+  dropRedo,
+  dropUndo,
+  peekRedo,
+  peekUndo,
+  pushRedo,
+  pushUndoFromRedo,
+  type PreImageRow,
+  type UndoEntry,
+} from '../db/undoStack';
 import { selectDb } from '../db/sqlite';
 import { nextStamp } from '../db/stamp';
 import { applyPull } from './merge';
-import { OUTBOX_TABLES, type OutboxRow, type OutboxTomb } from './contract';
+import { OUTBOX_TABLES, tableCols, type OutboxRow, type OutboxTomb } from './contract';
 import type { AppState } from '../types';
 
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
@@ -51,10 +60,35 @@ const tombKey = (tbl: string, k1: string, k2: string): string => JSON.stringify(
  * 안 그러면 아직 쌓이지도 않은 편집을 두고 그 앞 것을 되돌린다.
  */
 export async function undoLastWrite(): Promise<UndoOutcome> {
+  return applyInverse(peekUndo(), dropUndo, pushRedo);
+}
+
+/**
+ * **Q-8 다시 실행(⇧⌘Z).** 되돌리기가 덮기 직전의 값을 되돌려 놓는다.
+ *
+ * ⚠ 별도 경로를 만들지 않는다 — 되돌리기와 **글자 그대로 같은 연산**이고, 다른 것은 (어느
+ * 스택에서 꺼내나 · 어디에 반대편을 쌓나) 둘뿐이다. 몸통을 복제하면 툼스톤 가드나 `echo:false`
+ * 가 한쪽에만 남는 식으로 갈리는데, 그게 이 파일 머리주석이 경고하는 사고 넷의 형태다.
+ */
+export async function redoLastWrite(): Promise<UndoOutcome> {
+  return applyInverse(peekRedo(), dropRedo, pushUndoFromRedo);
+}
+
+/**
+ * 되돌리기·다시실행의 공통 몸통. 방향의 차이는 인자 셋뿐이다.
+ *
+ * @param entry        적용할 항목(없으면 `empty:true`).
+ * @param drop         적용에 **성공한 뒤** 그 항목을 버리는 함수(항등 대조는 그 안에 있다).
+ * @param pushOpposite 덮기 **직전** 값을 반대편 스택에 쌓는 함수 — 이게 방향을 되돌릴 수 있게 한다.
+ */
+async function applyInverse(
+  entry: UndoEntry | null,
+  drop: (e: UndoEntry) => void,
+  pushOpposite: (rows: PreImageRow[], stamp: number) => boolean,
+): Promise<UndoOutcome> {
   /* ⚠⚠ **peek → apply → drop** 이지 pop 이 아니다(H2 · 2026-08-01). 먼저 꺼내면 아래 `applyPull`
      이 던질 때 항목이 이미 사라진 뒤라, ⌘Z 를 누를 때마다 스택이 한 칸씩 **조용히 파괴**된다
      (호출부에 `.catch` 도 없어 화면은 아무 말도 안 했다). 근거는 `db/undoStack.peekUndo` 주석. */
-  const entry = peekUndo();
   if (!entry) return { state: null, restored: 0, skipped: 0, empty: true };
 
   /* ⚠⚠ **툼스톤 가드 — 다른 기기가 지운 행은 되살리지 않는다**(착지 조건 ④).
@@ -98,11 +132,46 @@ export async function undoLastWrite(): Promise<UndoOutcome> {
   /* 쓸 것이 하나도 안 남았다(전부 툼스톤에 막혔다) → 적용은 없지만 **항목은 소비된 것**이다.
      남겨 두면 같은 ⌘Z 가 같은 경고를 영원히 반복한다. */
   if (!rows.length && !tombstones.length) {
-    dropUndo(entry);
+    drop(entry);
     return { state: null, restored: 0, skipped, empty: skipped === 0 };
   }
 
+  /* ⚠⚠ **반대 방향을 먼저 확보한다**(Q-8). 지금 DB 에 있는 값이 곧 "이 되돌리기를 되돌리는 값"
+     이다 — 쓰고 나면 영원히 못 읽으므로 **쓰기 전에** 읽어야 한다. 실패해도 무해하다: 아래
+     `applyPull` 이 던지면 항목이 그대로 남아 재시도가 성립하고, 반대편 스택에 쌓인 것은 다음
+     시도에서 같은 값으로 다시 덮인다. */
+  pushOpposite(await currentImages(rows, tombstones), entry.stamp);
+
   const merged = await applyPull({ since: 0, upto: 0, rows, tombstones }, { echo: false, keepUndo: true });
-  dropUndo(entry); // ⚠ 성공한 **뒤에만**. 던지면 항목이 남아 재시도가 성립한다(H2).
+  drop(entry); // ⚠ 성공한 **뒤에만**. 던지면 항목이 남아 재시도가 성립한다(H2).
   return { state: merged.state, restored: rows.length + tombstones.length, skipped, empty: false };
+}
+
+/**
+ * 이 배치가 손댈 행들의 **현재 모습**을 pre-image 모양으로 읽는다(Q-8 다시실행의 재료).
+ *
+ * ⚠ 없는 행은 `vals: null` 로 담는다 — 되돌리기가 *만든* 행은 다시실행에서 *지워야* 하고,
+ * 그 표현이 곧 `null` 이다(`PreImageRow.vals` 주석과 같은 규약).
+ * ⚠ `updated_at` 은 안 담는다 — 우리가 매번 새로 찍는 값이라 pre-image 의 일부가 아니다.
+ */
+async function currentImages(rows: readonly OutboxRow[], tombs: readonly OutboxTomb[]): Promise<PreImageRow[]> {
+  const targets = [
+    ...rows.map((r) => ({ tbl: r.tbl, key: r.key.map(String) })),
+    ...tombs.map((t) => ({ tbl: t.tbl, key: [t.k1, t.k2] })),
+  ];
+  const out: PreImageRow[] = [];
+  for (const t of targets) {
+    const spec = SPEC.get(t.tbl);
+    if (!spec) continue;
+    const { key } = tableCols(spec);
+    const keyVals = key.map((_, i) => t.key[i] ?? '');
+    const where = key.map((k) => `${k} = ?`).join(' AND ');
+    const got = await selectDb<Record<string, unknown>>(
+      `SELECT ${spec.cols.join(',')} FROM ${spec.name} WHERE ${where}`,
+      keyVals,
+    );
+    const row = got?.[0];
+    out.push({ table: spec.name, key: keyVals, vals: row ? spec.cols.map((c) => row[c]) : null });
+  }
+  return out;
 }

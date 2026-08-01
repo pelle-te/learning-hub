@@ -23,8 +23,9 @@ import {
   todayISO,
 } from '../utils';
 import { isWeekManaged } from '../weekAlloc';
+import { EXAM_LABEL, examScopes, examsOf, scopeIndexFor } from '../semester';
 import { dayStudyMin, studyMinByWeekday } from './windows';
-import { adherenceFactor, itemTotalHours, latestBlank, masteryNeed } from './priority';
+import { adherenceFactor, itemTotalHours, latestBlank, masteryNeed, mistakeNeed } from './priority';
 import { applyDayPlans, reseedManualReviews } from './dayPlanOverride';
 import type { SchedSubject } from './types';
 import type { AppState, Day, ItemStat, ScheduleResult, Shortfall } from '../types';
@@ -45,7 +46,13 @@ export function schedule(state: AppState): ScheduleResult {
     return { days: [], itemStat: [], weekHours: {}, chapterLog: [], warnings, shortfalls, capUsed: 0, capTotal: 0, ML };
 
   /* 1) 기간(horizon) */
-  const lastDL = items.reduce((m, s) => (s.deadline && s.deadline > m ? s.deadline : m), '');
+  // T-1. horizon 이 시험을 넘어서야 하므로 **모든 시험 중 가장 늦은 날짜**를 본다. 시험이 승격된
+  // 옛 저장에서는 `deadline` 하나뿐이라 종전 값과 같다.
+  const lastDL = items.reduce((m, s) => {
+    const ex = examsOf(s);
+    const d = ex.length ? ex[ex.length - 1]!.date : '';
+    return d > m ? d : m;
+  }, '');
   let weeksNeed = 8;
   weeklyRaw.forEach((s) => {
     const th = itemTotalHours(s);
@@ -87,7 +94,10 @@ export function schedule(state: AppState): ScheduleResult {
 
   /* 3) daily(Anki) 먼저 — 매일 고정 분 확보 */
   daily.forEach((s) => {
-    const dlIdx = clamp(s.deadline ? dayDiff(start, s.deadline) : horizon, 0, days.length - 1);
+    // daily(Anki)는 챕터가 없어 구간이 무의미하다 — 과목의 **마지막 시험**까지 매일 돈다.
+    const dailyEx = examsOf(s);
+    const dailyDs = dailyEx.length ? dailyEx[dailyEx.length - 1]!.date : undefined;
+    const dlIdx = clamp(dailyDs ? dayDiff(start, dailyDs) : horizon, 0, days.length - 1);
     for (let j = 0; j <= dlIdx; j++) {
       const d = days[j]!;
       if (d.studyMin - d.used <= 0) continue;
@@ -108,16 +118,26 @@ export function schedule(state: AppState): ScheduleResult {
   /* 4) 과목 진행 상태 초기화 (챕터 포인터) — done 챕터는 계획에서 제외 */
   const weekly: SchedSubject[] = weeklyRaw.map((it) => {
     const all = it.chapters || [];
-    // `deadlineThru`(P-10) = 마감이 덮는 마지막 챕터 id. 못 찾으면(챕터가 지워졌다) 전 범위로 폴백 —
-    // 옛 id 하나 때문에 마감 판정이 통째로 멈추는 것보다 종전 동작으로 되돌아가는 편이 안전하다.
-    const thruIdx = it.deadlineThru ? all.findIndex((c) => c.id === it.deadlineThru) : -1;
-    const scopeEnd = thruIdx >= 0 ? thruIdx : all.length - 1;
+    // T-1. 시험 구간(`examScopes`)이 옛 `deadline`+`deadlineThru` 계산을 **집어삼켰다** — 시험이
+    // 0~1개면 구간 하나가 `0..scopeEnd` 라 결과가 종전과 동일하다(`lib/semester.ts` 머리주석 §2).
+    // 옛 id 를 못 찾으면 전 범위로 폴백하는 P-10 의 판단도 `examScopes` 안으로 옮겨갔다.
+    const scopes = examScopes(it);
     // deferred(P-9)는 done 과 같은 자리에서 빠진다 — 블록도 안 만들고 부족분에도 안 센다.
     // 다만 `_allTotal`·`_done0` 은 원본 그대로라 통계가 포기를 진척으로 세지 않는다.
     const chs = all
       .map((c, i) => ({ c, i }))
       .filter(({ c }) => !c.done && !c.deferred)
-      .map(({ c, i }) => ({ id: c.id, name: c.name, hours: Math.max(0.1, +c.hours || 1), inScope: i <= scopeEnd }));
+      .map(({ c, i }) => {
+        const segIdx = scopeIndexFor(scopes, i);
+        return { id: c.id, name: c.name, hours: Math.max(0.1, +c.hours || 1), inScope: segIdx >= 0, segIdx };
+      });
+    // 구간별 남은 시간과 누적 끝 — `_cum` 과 직접 비교해 **시험마다** 부족분을 낸다.
+    let cum = 0;
+    const segs = scopes.map((sc, si) => {
+      const hours = chs.reduce((t, c) => t + (c.segIdx === si ? c.hours : 0), 0);
+      cum += hours;
+      return { exam: sc.exam, dlIdx: clamp(dayDiff(start, sc.exam.date), 0, days.length - 1), hours, cumEndH: cum };
+    });
     return {
       ...it,
       _allTotal: all.length,
@@ -128,11 +148,15 @@ export function schedule(state: AppState): ScheduleResult {
       _idx: 0,
       _totalH: chs.reduce((t, c) => t + c.hours, 0),
       _scopeH: chs.reduce((t, c) => t + (c.inScope ? c.hours : 0), 0),
-      _dlIdx: it.deadline ? clamp(dayDiff(start, it.deadline), 0, days.length - 1) : horizon,
+      _segs: segs,
+      _dlIdx: segs.length ? segs[segs.length - 1]!.dlIdx : horizon,
       _schedMin: 0,
       _sessions: [],
       _carry: 0,
-      _masteryNeed: masteryNeed(state, it.name),
+      // Q-3. "약한 과목 먼저"의 근거가 **둘**이 됐다: 지식엔진 숙달도(외부 관측)와 반복 오답
+      // (내 기록). 둘을 더해 **정렬 항 하나**로 둔다 — 항을 늘리면 "왜 이 과목이 먼저인가"의
+      // 설명이 조합적으로 불어난다. 둘 다 `graphPriority` 한 스위치가 끈다(기본 off → 영향 0).
+      _masteryNeed: masteryNeed(state, it.name) + mistakeNeed(state, it.id),
       _weekTgt: 0,
       _weekDone: 0,
     };
@@ -161,6 +185,16 @@ export function schedule(state: AppState): ScheduleResult {
     if (!s._hadChapters) return true; // 챕터 없는 과목: 무기한 진행
     if (!s._chs.length) return false; // 모든 챕터 완료
     return s._cum < s._totalH - 1e-6;
+  }
+  /** T-1. **지금 배치하려는 챕터**의 마감 인덱스. 새 챕터 배치·긴급도 정렬이 보는 값이다.
+   *  ⚠ 시험이 0~1개면 항상 `s._dlIdx` 와 같다 — 구간이 하나뿐이고 구간 밖은 폴백이 같은 값이라
+   *  종전 동작이 **한 글자도 안 바뀐다**(`scheduler.test.ts` 가 잠근 계약).
+   *  ⚠ 복습 꼬리(`pushReviewTasks`)는 일부러 이걸 안 쓴다 — 중간고사 범위의 복습은 시험을 지나
+   *  기말까지 이어져야 하므로 바깥 울타리(`_dlIdx`)가 맞다. */
+  function curDl(s: SchedSubject): number {
+    const ch = s._chs[s._idx];
+    const seg = ch && ch.segIdx >= 0 ? s._segs[ch.segIdx] : undefined;
+    return seg ? seg.dlIdx : s._dlIdx;
   }
 
   /* 5) 주(週) 단위 학습 모듈 배분 */
@@ -240,7 +274,7 @@ export function schedule(state: AppState): ScheduleResult {
         const day = days[di]!;
         weekly.forEach((s) => {
           const mins = alloc[s.id]?.[day.wd] || 0;
-          if (mins <= 0 || !chaptersLeft(s) || di > s._dlIdx) return;
+          if (mins <= 0 || !chaptersLeft(s) || di > curDl(s)) return;
           const covered = advance(s, mins);
           pushNewBlock(day, s, mins, covered);
           s._schedMin += mins;
@@ -275,11 +309,11 @@ export function schedule(state: AppState): ScheduleResult {
       const day = days[di]!;
       let cap = day.modLeft;
       while (cap > 0) {
-        const cand = weekly.filter((s) => s._weekDone < s._weekTgt && chaptersLeft(s) && di <= s._dlIdx);
+        const cand = weekly.filter((s) => s._weekDone < s._weekTgt && chaptersLeft(s) && di <= curDl(s));
         if (!cand.length) break;
         cand.sort((a, b) => {
-          const ua = a._dlIdx - di;
-          const ub = b._dlIdx - di; // ① 마감 임박(하드 제약)
+          const ua = curDl(a) - di;
+          const ub = curDl(b) - di; // ① 마감 임박(하드 제약) — T-1 이후 "현재 챕터가 속한 시험"까지
           if (ua !== ub) return ua - ub;
           if (a._masteryNeed !== b._masteryNeed) return b._masteryNeed - a._masteryNeed; // ② 약한 과목
           return a._weekDone / a._weekTgt - b._weekDone / b._weekTgt; // ③ 덜 채운 과목
@@ -451,7 +485,10 @@ export function schedule(state: AppState): ScheduleResult {
       }
     const finishDate = lastIdx >= 0 ? days[lastIdx]!.ds : null;
     const finished = !chaptersLeft(s);
-    const late = finished && finishDate && s.deadline ? Math.max(0, dayDiff(s.deadline, finishDate)) : 0;
+    // T-1. "마감"의 대표값 = **마지막 시험 날짜**. 옛 저장은 시험이 승격된 하나뿐이라 `s.deadline`
+    // 과 같은 값이고, 시험을 안 쓰는 과목은 종전대로 undefined 다.
+    const lastExamDs = s._segs.length ? s._segs[s._segs.length - 1]!.exam.date : s.deadline;
+    const late = finished && finishDate && lastExamDs ? Math.max(0, dayDiff(lastExamDs, finishDate)) : 0;
     // _hadChapters 가드 — 챕터 없는 과목은 chaptersLeft()가 늘 true라 finished가 영영 false다.
     // 그 상태에서 마감만 있으면 경고가 영구히 뜨는 오탐이라 실제 챕터가 있던 과목만 본다.
     // ⚠ 판정 분모가 `_totalH`(전부)에서 `_scopeH`(마감이 덮는 범위)로 바뀌었다 — P-10.
@@ -459,36 +496,52 @@ export function schedule(state: AppState): ScheduleResult {
     // ⚠ 그리고 이 자리는 이제 **문자열 경고를 안 만든다** — P-9. 옛 문장의 유일한 처방이
     //   `주당 시간↑` 이었는데 그건 사용자가 할 수 없는 것이라 액션이 0이었다. 대신 부족분과
     //   컷 후보를 구조로 내보내고, 화면이 "무엇을 뺄까"를 묻는다.
-    if (s.deadline && s._hadChapters && s._cum < s._scopeH - 1e-6) {
-      const inScope = s._chs.filter((c) => c.inScope);
-      // 규칙: **남은 시간 큰 것부터 · 동률이면 뒤 챕터부터.** 화면에도 이 한 줄을 적어 사용자가
-      // 뒤집을 수 있게 한다 — 컷 순서를 학습과학으로 정당화하지 않는다(트리아지 문헌과 깊이-넓이
-      // 문헌이 정면으로 갈린다). 근거 없이 똑똑한 척하는 순위가 이 축에서 가장 위험하다.
-      const candidates = inScope
-        .map((c, i) => ({ c, i }))
-        .sort((a, b) => b.c.hours - a.c.hours || b.i - a.i)
-        .map(({ c }) => ({ id: c.id, name: c.name, hours: round1(c.hours) }));
-      const gapH = s._scopeH - s._cum;
-      const suggest: string[] = [];
-      let acc = 0;
-      for (const c of candidates) {
-        if (acc >= gapH - 1e-6) break;
-        suggest.push(c.id);
-        acc += c.hours;
-      }
-      shortfalls.push({
-        sid: s.id,
-        name: s.name,
-        color: s.color,
-        deadline: s.deadline,
-        needH: round1(s._scopeH),
-        fitH: round1(Math.min(s._cum, s._scopeH)),
-        gapH: round1(gapH),
-        scoped: inScope.length < s._chs.length,
-        candidates,
-        suggest,
+    // ⚠⚠ T-1 이후 이 판정은 **시험 구간마다** 돈다. 옛 모델은 과목당 마감 1개라 부족분도 하나였는데,
+    //   중간은 벅찬데 기말은 여유로운 상태가 실재하고 그 둘은 처방이 다르다(중간 범위를 컷해도 기말
+    //   부족분은 안 줄어든다). 시험이 0~1개면 루프가 1회라 **종전과 결과가 동일**하다.
+    let emitted = false;
+    if (s._hadChapters) {
+      s._segs.forEach((seg, si) => {
+        // 이 구간이 덮는 남은 시간 중 실제로 들어간 만큼 — `_cum` 은 챕터 순서대로 쌓이고 구간도
+        // 챕터 순서대로 이어지므로, 구간 [cumEndH-hours, cumEndH) 와 `_cum` 의 교집합이 곧 커버다.
+        const segStartH = seg.cumEndH - seg.hours;
+        const fit = clamp(s._cum - segStartH, 0, seg.hours);
+        if (seg.hours <= 1e-6 || fit >= seg.hours - 1e-6) return;
+        const inSeg = s._chs.filter((c) => c.segIdx === si);
+        // 규칙: **남은 시간 큰 것부터 · 동률이면 뒤 챕터부터.** 화면에도 이 한 줄을 적어 사용자가
+        // 뒤집을 수 있게 한다 — 컷 순서를 학습과학으로 정당화하지 않는다(트리아지 문헌과 깊이-넓이
+        // 문헌이 정면으로 갈린다). 근거 없이 똑똑한 척하는 순위가 이 축에서 가장 위험하다.
+        const candidates = inSeg
+          .map((c, i) => ({ c, i }))
+          .sort((a, b) => b.c.hours - a.c.hours || b.i - a.i)
+          .map(({ c }) => ({ id: c.id, name: c.name, hours: round1(c.hours) }));
+        const gapH = seg.hours - fit;
+        const suggest: string[] = [];
+        let acc = 0;
+        for (const c of candidates) {
+          if (acc >= gapH - 1e-6) break;
+          suggest.push(c.id);
+          acc += c.hours;
+        }
+        emitted = true;
+        shortfalls.push({
+          sid: s.id,
+          name: s.name,
+          color: s.color,
+          deadline: seg.exam.date,
+          examId: seg.exam.id,
+          examLabel: EXAM_LABEL[seg.exam.kind],
+          needH: round1(seg.hours),
+          fitH: round1(fit),
+          gapH: round1(gapH),
+          // "범위가 좁혀졌나" = 이 구간이 남은 챕터 전부를 덮지는 않는다.
+          scoped: inSeg.length < s._chs.length,
+          candidates,
+          suggest,
+        });
       });
-    } else if (late > 0) warnings.push(`"${s.name}": 학습 종료(${finishDate})가 마감(${s.deadline}) 초과.`);
+    }
+    if (!emitted && late > 0) warnings.push(`"${s.name}": 학습 종료(${finishDate})가 마감(${lastExamDs}) 초과.`);
     return {
       id: s.id,
       name: s.name,
@@ -498,7 +551,7 @@ export function schedule(state: AppState): ScheduleResult {
       doneCh,
       totalH: round1(s._totalH),
       schedH: round1(s._schedMin / 60),
-      deadline: s.deadline,
+      deadline: lastExamDs,
       finishDate,
       finished,
       late,

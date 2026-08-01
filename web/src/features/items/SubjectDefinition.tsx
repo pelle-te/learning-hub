@@ -20,8 +20,15 @@ import { DOW_MON, addDays, iso, parseISO, dayDiff, ddayInfo, round1, hNum } from
 import { useTodayISO } from '@/hooks/useTodayISO';
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
-import type { AppState, Item } from '@/lib/types';
+import { EXAM_LABEL, examsOf } from '@/lib/semester';
+import type { AppState, ExamKind, Item } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
+
+/** 시험 칸의 순서·이름. **이 배열이 곧 "과목당 2개" 상한의 UI 쪽 표현**이다(추가 버튼이 없는 이유). */
+const EXAM_SLOTS: { kind: ExamKind; label: string }[] = [
+  { kind: 'mid', label: `${EXAM_LABEL.mid}고사` },
+  { kind: 'final', label: `${EXAM_LABEL.final}고사` },
+];
 
 type Mutate = (recipe: (st: AppState) => void) => void;
 
@@ -208,6 +215,39 @@ export function SubjectDefinition({
     [mutate, id],
   );
 
+  /** 이 과목의 시험들 — 읽기는 언제나 `examsOf`(옛 `deadline` 은 여기서 승격된다). */
+  const exams = examsOf(item);
+  /**
+   * 시험 한 칸을 쓴다. `patch === null` 이면 그 시험을 지운다.
+   *
+   * ⚠ 여기가 **옛 두 필드를 흡수하는 유일한 지점**이다: 쓰는 순간 `exams` 가 정본이 되고
+   * `deadline`/`deadlineThru` 를 지운다. 남겨 두면 두 원천이 갈려 화면마다 다른 마감을 그린다.
+   * ⚠ 마지막 시험을 지우면 `exams: []` 가 아니라 **`undefined`** 로 되돌린다 — 빈 배열을 남기면
+   * "시험을 안 쓰는 과목"과 "시험을 지운 과목"이 저장에서 구분되지 않는다.
+   */
+  const writeExam = useCallback(
+    (kind: ExamKind, patch: { date?: string; thru?: string } | null) =>
+      upd((it) => {
+        const cur = examsOf(it);
+        const next = cur.filter((e) => e.kind !== kind);
+        if (patch) {
+          const prev = cur.find((e) => e.kind === kind);
+          const date = patch.date ?? prev?.date ?? '';
+          if (date)
+            next.push({
+              id: prev?.id || `${kind}-${date}`,
+              kind,
+              date,
+              thru: 'thru' in patch ? patch.thru : prev?.thru,
+            });
+        }
+        it.exams = next.length ? next.sort((a, b) => (a.date < b.date ? -1 : 1)) : undefined;
+        delete it.deadline;
+        delete it.deadlineThru;
+      }),
+    [upd],
+  );
+
   return (
     <div
       className="relative flex flex-col gap-4.5 pl-3"
@@ -262,41 +302,51 @@ export function SubjectDefinition({
             />
           )}
         </div>
-        <div className="ds-fld">
-          <label htmlFor={`it-dl-${id}`}>마감일 (선택)</label>
-          <input
-            id={`it-dl-${id}`}
-            type="date"
-            value={item.deadline || ''}
-            onChange={(e) => upd((it) => void (it.deadline = e.target.value))}
-          />
-          {item.deadline && (
-            <span className="ds-tiny text-mut" style={{ marginTop: 4 }}>
-              {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
-            </span>
-          )}
-        </div>
-        {/* 시험 범위(P-10) — 마감 옆 셀렉트 **한 칸**. 없으면 앱은 마감을 "안 끝난 챕터 전부"로 읽어,
-            중간고사를 마감으로 넣는 순간 영구히 빨간 경고가 뜬다(= 첫 입력의 보상이 음수).
-            ⚠ 마감과 챕터가 둘 다 있을 때만 그린다 — 하나라도 없으면 이 칸은 물을 것이 없다.
-            ⚠ 값은 **챕터 id**다(인덱스 아님) — 챕터를 삽입·재정렬해도 범위가 밀리지 않게. */}
-        {!daily && item.deadline && chs.length > 0 && (
-          <div className="ds-fld">
-            <label htmlFor={`it-thru-${id}`}>시험 범위</label>
-            <select
-              id={`it-thru-${id}`}
-              value={item.deadlineThru && chs.some((c) => c.id === item.deadlineThru) ? item.deadlineThru : ''}
-              onChange={(e) => upd((it) => void (it.deadlineThru = e.target.value || undefined))}
-            >
-              <option value="">전 챕터</option>
-              {chs.map((c, i) => (
-                <option key={c.id} value={c.id}>
-                  {i + 1}. {c.name} 까지
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* ── T-1 학기 계약 — 마감 1칸이 **시험 2칸**이 됐다 ────────────────────────────────
+            왜: 중간·기말은 날짜도 범위도 다른 **두 사건**인데 옛 모델은 과목당 마감 1개뿐이라
+            그 사실을 표현할 방법이 없었다. 그래서 사용자는 중간을 넣으면 기말이 사라지거나,
+            과목을 둘로 쪼개 우회해야 했다.
+            ⚠ 여기서 **쓰기는 `exams` 하나로만** 한다 — 옛 `deadline`/`deadlineThru` 는 첫 편집에
+            흡수돼 사라진다(읽기는 `examsOf` 가 승격시키므로 그 전까지도 정상 동작).
+            ⚠ 시험은 **최대 2개**다(`MAX_EXAMS`). 이 상한이 가중치·과제·출석으로 미끄러지는 것을
+            막는 방벽이고, 근거는 `schema.ts` 의 `ExamSchema` 머리주석에 있다. */}
+        {EXAM_SLOTS.map(({ kind, label }) => {
+          const exam = exams.find((e) => e.kind === kind);
+          const thruOk = exam?.thru && chs.some((c) => c.id === exam.thru);
+          return (
+            <div className="ds-fld" key={kind}>
+              <label htmlFor={`it-exam-${kind}-${id}`}>{label} (선택)</label>
+              <input
+                id={`it-exam-${kind}-${id}`}
+                type="date"
+                value={exam?.date || ''}
+                onChange={(e) => writeExam(kind, e.target.value ? { date: e.target.value } : null)}
+              />
+              {exam && (
+                <span className="ds-tiny text-mut" style={{ marginTop: 4 }}>
+                  {ddayInfo(dayDiff(todayIso, exam.date)).lab}
+                </span>
+              )}
+              {/* 범위(P-10 계승) — 값은 **챕터 id**다(인덱스 아님). 챕터를 삽입·재정렬해도 안 밀린다.
+                  기말의 범위를 비우면 "중간 다음부터 끝까지"라 대개 그대로 두면 된다. */}
+              {!daily && exam && chs.length > 0 && (
+                <select
+                  className="mt-1"
+                  aria-label={`${label} 범위`}
+                  value={thruOk ? exam.thru : ''}
+                  onChange={(e) => writeExam(kind, { thru: e.target.value || undefined })}
+                >
+                  <option value="">{kind === 'mid' ? '전 챕터' : '중간 다음부터 끝까지'}</option>
+                  {chs.map((c, i) => (
+                    <option key={c.id} value={c.id}>
+                      {i + 1}. {c.name} 까지
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 배분은 주간(new) 과목만 — 매일(Anki) 과목은 엔진이 매일 자동으로 얹는다(보드 행에도 없음). */}

@@ -1,16 +1,17 @@
 /* ChapterEditor — 과목의 챕터 표(추가·삭제·수정·드래그 정렬·일괄 붙여넣기).
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base. */
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { rid, todayISO } from '@/lib/utils';
+import { openVaultSearch, rid, todayISO } from '@/lib/utils';
 import { chapterSnapshot, riskWord } from '@/lib/chapterView';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { useFlushOnUnmount } from '@/hooks/interactions';
+import { useListCursor } from '@/hooks/useListCursor';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ui } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
-import type { AppState, Item } from '@/lib/types';
+import type { AppState, Chapter, Item } from '@/lib/types';
 import { Icon } from '@/components/Icon';
 
 type Mutate = (recipe: (st: AppState) => void) => void;
@@ -77,7 +78,9 @@ function ChapterNameField({
 
 export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) {
   const id = item.id;
-  const chs = item.chapters || [];
+  // ⚠ `useMemo` 로 감싼다 — 아래 커서 목록(Q-7)이 이걸 deps 로 쓰는데, `|| []` 는 매 렌더 새
+  //   배열을 만들어 커서가 매번 재등록된다(린트가 그 사실을 정확히 짚었다).
+  const chs = useMemo(() => item.chapters || [], [item.chapters]);
   const totalH = chs.reduce((t, c) => t + (+c.hours || 0), 0);
   const [drag, setDrag] = useState<number | null>(null);
   const [bulk, setBulk] = useState('');
@@ -87,6 +90,11 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   const snap = peek ? chapterSnapshot(state, res.days || [], todayISO(state), id, peek) : null;
 
   /** 이 과목만 변형. */
+  /* Q-7 — 챕터 표의 커서. 동사는 이 화면이 **실제로 구현한 것만** 준다(없는 키는 조용히 무시).
+     `x` 완료 · `d` 삭제 · `v` 볼트 — `e`(편집)는 주지 않는다: 이름 칸이 이미 인라인 입력이라
+     `e` 가 "포커스를 옮긴다"는 뜻이 되면 다른 화면의 `e`(상세 열기)와 뜻이 갈린다. */
+  const cursorItems = useMemo(() => chs.map((c) => ({ key: c.id, item: c })), [chs]);
+
   const upd = useCallback(
     (fn: (it: Item) => void) =>
       mutate((st) => {
@@ -116,6 +124,16 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
     upd((it) => void it.chapters.splice(i, 1));
     ui.toastUndoable(`"${nm}" 챕터 삭제됨`);
   };
+
+  const cursor = useListCursor<Chapter>({
+    items: cursorItems,
+    docTitle: '이 화면 · 챕터',
+    verbs: {
+      x: (c) => setDone(chs.indexOf(c), !c.done),
+      d: (c) => delCh(chs.indexOf(c)),
+      v: (c) => openVaultSearch(c.name),
+    },
+  });
 
   const drop = (to: number) => {
     const from = drag;
@@ -174,6 +192,16 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                 {chs.map((c, i) => (
                   <tr
                     key={c.id}
+                    /* Q-7 커서 — 행 하나가 탭 스톱 하나가 된다. 종전엔 **행당 5 탭스톱 × 51행**
+                       이라 30번째 챕터에 닿는 데 Tab 약 150회였다(마우스는 1클릭). 어휘는
+                       `useListCursor` 가 닫아 둔 7동사를 그대로 쓴다 — 여기서 새 키를 만들지
+                       않는다(그러면 "이 화면에서 d 가 뭐였지"가 매번 생긴다).
+                       ⚠ **Q-1 이 이 편집의 대부분을 이미 흡수했다** — 진도 커밋이 오늘 화면에서
+                       챕터를 확정하므로, 이 표는 *정리·재정렬*용으로 남는다. 그래서 커서가
+                       있으면 좋지만 없어도 치명적이지 않은 순서로 배치했다. */
+                    ref={cursor.register(c.id)}
+                    tabIndex={cursor.tabStop === c.id ? 0 : -1}
+                    onFocusCapture={() => cursor.onItemFocus(c.id)}
                     /* W12 — **챕터가 자기 앵커를 얻는다.** ⌘K 의 챕터 히트가 `/subject/:id#ch-<cid>`
                        로 오면 이 행에 선다. 그전엔 "챕터 단위 앵커가 없으니 소속 과목까지가
                        정직한 최선"이라 코드가 자백해 뒀던 자리다. */

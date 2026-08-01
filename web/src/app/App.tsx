@@ -213,13 +213,28 @@ export default function App() {
          ⚠ **입력 중에는 안 뺏는다**(`isTyping()`). 글자를 치는 중의 ⌘Z 는 브라우저의 텍스트
            되돌리기이고, 그걸 가로채면 사용자는 *한 글자*를 되돌리려다 **직전 편집 전체**를
            되돌리게 된다 — 되돌리기를 두려운 키로 만드는 가장 빠른 길이다.
-         ⚠ Shift 조합(⌘⇧Z = 다시 실행)은 **집지 않는다.** 다시 실행은 이번 범위 밖이고, 여기서
-           삼키면 아무 일도 안 일어나는 키가 된다(안 잡는 편이 정직하다). */
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+         ⚠⚠ **Shift 조합(⌘⇧Z = 다시 실행)이 2026-08-02 에 붙었다**(Q-8). 종전 주석은 _"다시
+           실행은 이번 범위 밖이고, 여기서 삼키면 아무 일도 안 일어나는 키가 된다"_ 였다 — 그
+           판단은 옳았고, 이제 **실제로 무언가 일어나므로** 잡는다. 되돌리기만 있으면 사용자는
+           되돌리기 자체를 회피한다(잘못 되돌리면 복구가 없다). */
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
         if (isTyping()) return;
         e.preventDefault();
         clearG();
-        void import('@/store/undoController').then((m) => m.undoLastEdit());
+        const shift = e.shiftKey;
+        void import('@/store/undoController').then((m) => (shift ? m.redoLastEdit() : m.undoLastEdit()));
+        return;
+      }
+      /* Q-12 내비 스택 — Alt+←/→ 로 왔던 길을 오간다(`TopBar` 의 `‹ ›` 와 같은 동작).
+         ⚠ **입력 중에도 잡는다**(`isTyping()` 가드 없음): Alt+화살표는 텍스트 편집 관용구가
+           아니라 내비게이션 관용구이고(Windows 탐색기·브라우저가 같은 키), 여기서 안 잡으면
+           브라우저가 잡아 **같은 일**을 한다 — 즉 가로채도 잃는 것이 없다.
+         ⚠ 라우터 히스토리를 그대로 쓴다. 자체 스택을 만들면 딥링크·⌘K·리다이렉트가 만든
+           이동을 놓쳐서 "뒤로"가 사용자가 기억하는 순서와 갈린다. */
+      if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        clearG();
+        navigate(e.key === 'ArrowLeft' ? -1 : 1);
         return;
       }
       /* 단일키 단축키는 수정자 조합이거나 **떠 있는 층이 하나라도 있으면** 무시한다.

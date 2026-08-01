@@ -334,10 +334,12 @@ export function setWeeklyNote(state: AppState, wk: string, note: string): void {
 }
 
 /* ── 일일 의식(아침 계획·저녁 셧다운) ── */
-export function setRitual(state: AppState, ds: string, key: keyof Ritual, val: boolean | string): void {
+// ⚠ `val` 에 `number` 가 붙은 것은 T-10 `stopPending`(그날 남아 있던 블록 수) 때문이다 —
+//   종전엔 의식이 boolean 셋 + 문자열 하나뿐이라 시그니처가 그 둘만 알았다.
+export function setRitual(state: AppState, ds: string, key: keyof Ritual, val: boolean | string | number): void {
   state.rituals = state.rituals || {};
   const r: Ritual = state.rituals[ds] || { plan: false, shutdown: false, note: '' };
-  (r as Record<string, boolean | string>)[key] = val;
+  (r as Record<string, boolean | string | number>)[key] = val;
   state.rituals[ds] = r;
 }
 

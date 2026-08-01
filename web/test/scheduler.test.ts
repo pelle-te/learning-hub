@@ -773,3 +773,119 @@ describe('P-10 시험 범위 · P-9 컷', () => {
     expect(a.shortfalls[0]!.needH).toBe(a.itemStat.find((s) => s.name === '빡센과목')!.totalH);
   });
 });
+
+describe('T-1 학기 계약 — 과목당 시험 2개(중간/기말)', () => {
+  // 12장 x 2h = 24h. 주 12h 면 2주에 24h 라 **전체는 들어간다** — 그래서 아래 케이스들이 검사하는
+  // 것은 "총량이 되나"가 아니라 **"어느 챕터가 어느 시험 전에 놓이나"** 다. 옛 모델은 마감이
+  // 하나뿐이라 이 질문 자체를 표현할 수 없었다.
+  const chs12 = () => mkChapters(Array.from({ length: 12 }, (_, i) => ['c' + i, 2] as ChSpec));
+  const twoExams = (chapters: ReturnType<typeof mkChapters>, midThru: string) => ({
+    exams: [
+      { id: 'mid', kind: 'mid' as const, date: '2026-07-06', thru: midThru },
+      { id: 'fin', kind: 'final' as const, date: '2026-08-17' },
+    ],
+    chapters,
+  });
+
+  it('⭐ 중간 범위 챕터는 중간고사 **뒤로 넘어가지 않는다** — 옛 모델은 기말까지 미룰 수 있었다', () => {
+    // ⚠ 판별력이 있으려면 **주당 시간이 모자라야** 한다. 넉넉하면 어차피 1~2주에 다 들어가서
+    //   게이트가 없어도 같은 결과가 나온다(초록이 아무것도 증명하지 않는 배치). 주 4h · 중간 범위
+    //   12h · 마감까지 2주 → 게이트가 없으면 중간 범위 챕터가 7/6 이후로 흘러넘친다.
+    const chapters = chs12();
+    const midThru = chapters[5]!.id; // c0..c5 = 중간 범위(12h)
+    const r = schedule(baseState([weeklyItem('전자기학', 4, chapters, twoExams(chapters, midThru))]));
+    const midScope = new Set(chapters.slice(0, 6).map((c) => c.name));
+    const placed = newItems(r).flatMap((x) => (x.chapters || []).map((n) => ({ n, ds: x.ds })));
+    const midPlaced = placed.filter((p) => midScope.has(p.n));
+    expect(midPlaced.length).toBeGreaterThan(0);
+    midPlaced.forEach((p) => expect(p.ds <= '2026-07-06').toBe(true));
+    // 그리고 못 들어간 나머지는 **조용히 미뤄지는 게 아니라** 중간 부족분으로 드러난다.
+    expect(r.shortfalls.some((s) => s.name === '전자기학' && s.examLabel === '중간')).toBe(true);
+  });
+
+  it('시험마다 부족분이 따로 나온다 — 중간은 벅찬데 기말은 여유로운 상태가 실재한다', () => {
+    // 주 2h 로 낮춰 중간 범위(12h)가 마감(2주)에 못 들어가게 한다.
+    const chapters = chs12();
+    const midThru = chapters[5]!.id;
+    const r = schedule(baseState([weeklyItem('전자기학', 2, chapters, twoExams(chapters, midThru))]));
+    const mine = r.shortfalls.filter((s) => s.name === '전자기학');
+    expect(mine.length).toBe(2);
+    expect(mine.map((s) => s.examLabel).sort()).toEqual(['기말', '중간']);
+    // 각 부족분의 컷 후보는 **자기 구간 챕터만** 담는다 — 중간을 컷해도 기말 부족분은 안 줄기 때문.
+    const mid = mine.find((s) => s.examLabel === '중간')!;
+    const midIds = new Set(chapters.slice(0, 6).map((c) => c.id));
+    expect(mid.candidates.every((c) => midIds.has(c.id))).toBe(true);
+    expect(mid.deadline).toBe('2026-07-06');
+    expect(mid.examId).toBe('mid');
+  });
+
+  it('시험이 1개면 부족분도 1건 — 옛 저장의 화면이 달라지지 않는다', () => {
+    const chapters = chs12();
+    const r = schedule(baseState([weeklyItem('전자기학', 1, chapters, { deadline: '2026-07-06' })]));
+    const mine = r.shortfalls.filter((s) => s.name === '전자기학');
+    expect(mine.length).toBe(1);
+    expect(mine[0]!.examLabel).toBe('기말'); // 승격된 단일 마감은 "과목의 끝"
+  });
+
+  it('exams 를 쓰면 deadline 없이도 마감이 선다(두 필드를 동시에 안 읽는다)', () => {
+    const chapters = chs12();
+    const r = schedule(
+      baseState([
+        weeklyItem('전자기학', 1, chapters, {
+          exams: [{ id: 'fin', kind: 'final' as const, date: '2026-07-06' }],
+        }),
+      ]),
+    );
+    expect(r.shortfalls.filter((s) => s.name === '전자기학').length).toBe(1);
+    expect(stat(r, '전자기학')!.deadline).toBe('2026-07-06');
+  });
+});
+
+describe('Q-3 약점 → 배분 배선', () => {
+  // 반복 약점(같은 챕터 2건+)이 있는 과목이 먼저 나와야 한다. 종전엔 `weakCountBySid` 의 소비처가
+  // 6곳이었는데 **전부 표시용**이라 배분을 1분도 안 바꿨다.
+  const cbms = (sid: string, name: string, chapter: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `${sid}-${i}`,
+      ds: '2026-06-23',
+      sid,
+      name,
+      chapter,
+      code: 'C',
+      note: '',
+      at: i,
+    }));
+  const twoSubjects = () => {
+    const a = weeklyItem('약한과목', 6, mkChapters([['a1', 20]]));
+    const b = weeklyItem('멀쩡과목', 6, mkChapters([['b1', 20]]));
+    return { a, b };
+  };
+  const firstSid = (r: ScheduleResult) => newItems(r)[0]?.sid;
+
+  it('기본(graphPriority off)에서는 영향이 0이다 — 스위치가 꺼져 있으면 종전과 같다', () => {
+    const { a, b } = twoSubjects();
+    const off = schedule(baseState([a, b], { cbms: cbms(a.id, '약한과목', 'a1', 4) }));
+    const plain = schedule(baseState([a, b]));
+    expect(firstSid(off)).toBe(firstSid(plain));
+  });
+
+  it('⭐ graphPriority 를 켜면 반복 약점이 많은 과목이 먼저 배치된다', () => {
+    const { a, b } = twoSubjects();
+    // 순서 효과를 배제하려고 **약한 과목을 배열 뒤에** 둔다 — 그래도 먼저 나와야 참이다.
+    const on = schedule(baseState([b, a], { graphPriority: true, cbms: cbms(a.id, '약한과목', 'a1', 4) }));
+    expect(firstSid(on)).toBe(a.id);
+  });
+
+  it('약점이 없으면 켜도 종전 순서 — 신호가 없을 때 임의로 흔들지 않는다', () => {
+    const { a, b } = twoSubjects();
+    const on = schedule(baseState([b, a], { graphPriority: true }));
+    const plain = schedule(baseState([b, a]));
+    expect(firstSid(on)).toBe(firstSid(plain));
+  });
+
+  it('오프 스위치는 graphPriority **하나**다 — 약점 전용 스위치를 만들지 않았다', () => {
+    const { a, b } = twoSubjects();
+    const st = baseState([b, a], { graphPriority: false, cbms: cbms(a.id, '약한과목', 'a1', 9) });
+    expect(firstSid(schedule(st))).toBe(firstSid(schedule(baseState([b, a]))));
+  });
+});

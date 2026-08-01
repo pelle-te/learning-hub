@@ -80,3 +80,29 @@ describe('막대 축척 — 넘친 것이 잘리지 않는다', () => {
     expect(dayCapacity([], 0).windowRatio).toBe(0);
   });
 });
+
+describe('Q-2 slackMin — 44px 앵커의 값', () => {
+  const blk = (key: string, start: number, min: number, done = false) => ({ key, start, min, done, name: key });
+
+  it('할 것이 없으면 null — fitLine 과 **같은 조건**이다(여유 0 과 구분)', () => {
+    const c = dayCapacity([], 300);
+    expect(c.slackMin).toBeNull();
+    expect(c.fitLine).toBeNull();
+  });
+
+  it('남은 창 - 남은 계획 = 여유(양수)', () => {
+    const c = dayCapacity([blk('a', 540, 120)], 300);
+    expect(c.slackMin).toBe(180);
+  });
+
+  it('초과하면 **음수**다 — 0 으로 깎지 않는다(넘쳤다는 사실이 값에 남아야 한다)', () => {
+    const c = dayCapacity([blk('a', 540, 240), blk('b', 700, 240)], 300);
+    expect(c.slackMin).toBe(-180);
+    expect(c.beyondKeys.size).toBeGreaterThan(0);
+  });
+
+  it('완료된 블록은 남은 계획에서 빠진다', () => {
+    const c = dayCapacity([blk('a', 540, 120, true), blk('b', 700, 60)], 300);
+    expect(c.slackMin).toBe(240);
+  });
+});

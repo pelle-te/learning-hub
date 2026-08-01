@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { actions, io, Icon } from '@/shell';
 import { useTheme } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
@@ -51,7 +52,9 @@ const PRIMARY = 'flex flex-col gap-1 max-mobile:hidden';
 const PV =
   'text-primary-num leading-none font-[var(--emph-value-weight)] tracking-readout-num text-acc tabular-nums text-shadow-readout';
 const PU = 'text-lg leading-none font-bold text-mut';
-const RV_NULL = 'text-mut opacity-55';
+// Q-10 — `text-mut` 만으로 충분하다. 위에 얹던 `opacity-55` 는 이미 흐린 색을 **한 번 더**
+// 깎아 '—' 를 사실상 안 보이게 했다(값 부재를 못 읽으면 리드아웃이 거짓말이 된다).
+const RV_NULL = 'text-mut';
 const ACTIONS = 'flex items-center gap-2 self-center';
 /* HUD 칩 버튼 — 각진 헤어라인. 전역 button{} 을 이기는 속성 전부 `!` · 폼 컨트롤이라 leading-auto.
    ⚠ **색·보더색·자간은 base 에 두지 않는다**(SubTabs 와 같은 관용구 · 이식 중 실제로 물렸다):
@@ -82,6 +85,9 @@ const THEME_NEXT: Record<string, string> = { light: '다크', dark: '라이트' 
 const THEME_NAME: Record<string, string> = { light: '라이트', dark: '다크' };
 
 export default function TopBar() {
+  // Q-12 — 내비 스택. 라우터가 소유한 히스토리를 그대로 쓴다(자체 스택을 만들면 딥링크·⌘K·
+  // 리다이렉트가 만든 이동을 놓친다).
+  const navigate = useNavigate();
   // 팔레트·치트시트 열기는 스토어가 소유 — 예전엔 전자가 App 에서 내려오는 prop, 후자가
   // `window.dispatchEvent('lh:open-shortcuts')` 라는 DOM 이벤트 우회였다(같은 일, 두 배선).
   const openPalette = useOverlay((s) => s.setPalette);
@@ -163,6 +169,20 @@ export default function TopBar() {
         </div>
       )}
       <div className={ACTIONS}>
+        {/* ── Q-12 내비 스택 ────────────────────────────────────────────────────────────
+            🌍 격차표 _"왔던 길(BackStack) — 뒤로는 이전 위치로"_ 대비 우리 현재는 **없음**
+            이었다(`navigate(-1)`·`history.back` 앱 전량 0건). 그래서 "방금 그 화면"으로
+            돌아가려면 **이름으로 다시 찾아가야** 했다 — `lastLens` 가 있었지만 레일 한 경로·
+            세션 한정이라(자기 주석이 자인) 일반 후퇴가 아니었다.
+            ⚠ 활성/비활성을 그리지 않는다: 브라우저 히스토리 길이는 표준으로 읽을 수 없고
+            (`history.length` 는 다른 오리진 항목까지 센다), 없는 정보를 아는 척하면 비활성
+            버튼이 거짓말이 된다. 눌러서 아무 일도 안 나는 편이 정직하다. */}
+        <button className={BTN_ICON} onClick={() => navigate(-1)} title="뒤로 (Alt+←)" aria-label="이전 화면으로">
+          ‹
+        </button>
+        <button className={BTN_ICON} onClick={() => navigate(1)} title="앞으로 (Alt+→)" aria-label="다음 화면으로">
+          ›
+        </button>
         {action && (
           <button className={`${BTN_BASE} ${BTN_FILL}`} onClick={action.onClick}>
             {action.label}

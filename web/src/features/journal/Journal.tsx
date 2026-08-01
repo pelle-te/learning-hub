@@ -53,7 +53,7 @@ function ActivityFeed({ ds2 }: { ds2: string }) {
               >
                 {e.label}
               </span>
-              <span className="min-w-0 flex-1 truncate text-txt opacity-85">{e.detail}</span>
+              <span className="min-w-0 flex-1 truncate text-txt">{e.detail}</span>
             </li>
           ))}
         </ol>

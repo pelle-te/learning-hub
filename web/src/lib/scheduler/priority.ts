@@ -4,6 +4,7 @@
 ============================================================ */
 import { clamp, dayDiff, iso, addDays, parseISO } from '../utils';
 import { matchSubjectIndex } from '../subjectMatch';
+import { weakCountBySid } from '../insights';
 import { dayStudyMin } from './windows';
 import { completionMin } from '../persistence';
 import type { AppState, Item } from '../types';
@@ -62,6 +63,31 @@ export function masteryNeed(state: AppState, name: string): number {
   if (state.graphPriority !== true) return 0; // 기본 off → 영향 0
   const m = subjectMastery(state, name);
   return m == null ? 0 : 1 - clamp(m, 0, 1); // 약할수록 큰 우선순위
+}
+
+/** 약점 하나가 만드는 우선순위의 만점 기준(건). 5건이면 "이 과목은 확실히 약하다"로 본다.
+ *  ⚠ 이 상수가 곧 판단이다 — 크게 잡으면 약점이 배분을 못 움직이고, 작게 잡으면 오답 2건이
+ *  숙달도 전체를 이긴다. 5는 `masteryNeed` 의 최대치(1.0)와 눈금을 맞추려고 고른 값이다. */
+export const WEAK_FULL = 5;
+
+/**
+ * **Q-3 약점 → 배분 배선.** 반복 오답이 많은 과목을 먼저 배치한다.
+ *
+ * ## 왜 필요한가
+ * `weakCountBySid` 의 소비처가 **6곳인데 전부 표시용**이었다 — 배지·문장으로 "이 과목이 약해요"라고
+ * 말하고 배분을 **1분도 안 바꿨다.** 주간 리뷰는 한 술 더 떠서 _"다음 주 우선순위로 올리세요"_ 라며
+ * **사용자에게 숙제를 넘겼다.** 앱이 이미 계산해 둔 것을 앱이 안 쓰고 사람에게 시킨 것이다
+ * (발산 5회차 수렴점 ①: _"앱은 계산하는 것보다 결과가 적다"_).
+ *
+ * ## ⚠ 오프 스위치는 `graphPriority` **하나**를 공유한다
+ * 스위치를 둘로 나누면 "약점은 켰는데 그래프는 껐다" 같은 조합이 생기고, 그러면 *왜 이 과목이
+ * 먼저 나왔나*를 설명할 경우의 수가 네 배가 된다. 둘 다 "앱이 판단해서 순서를 바꾼다"는 **같은
+ * 종류의 개입**이므로 한 스위치가 맞다(로드맵 Q-3 이 못박은 설계 조건).
+ */
+export function mistakeNeed(state: AppState, sid: string): number {
+  if (state.graphPriority !== true) return 0; // masteryNeed 와 **같은 스위치** — 기본 off → 영향 0
+  const n = weakCountBySid(state)[sid] || 0;
+  return clamp(n / WEAK_FULL, 0, 1);
 }
 
 /* ── 적응형 용량(방법론 1·10절: "계획은 가설") ── */

@@ -162,6 +162,30 @@ const SWEEP_STEP_MS = 45;
 const SWEEP_MAX_DELAY_MS = 540;
 const SWEEP_HOLD_MS = 900;
 
+/**
+ * Q-9 — 격자 이동의 목적지 셀 id(`sid:wd`). 범위를 벗어나면 빈 문자열(= 못 찾음 → 무동작).
+ *
+ * ⚠ **감싸지 않는다**(마지막 열에서 →가 다음 행 첫 칸으로 가지 않는다). 표는 2차원이고 감싸기는
+ * 1차원 은유라, 요일 축을 넘어가면 사용자가 "월요일로 돌아왔다"를 예상하지 못한다. 끝에서 멈추는
+ * 편이 W3C APG 격자 패턴의 기본이기도 하다.
+ */
+function gridId(
+  sid: string,
+  wd: number,
+  dx: number,
+  dy: number,
+  rows: readonly { id: string }[],
+  cols: readonly { wd: number }[],
+): string {
+  const r = rows.findIndex((x) => x.id === sid);
+  const c = cols.findIndex((x) => x.wd === wd);
+  if (r < 0 || c < 0) return '';
+  const nr = r + dy;
+  const nc = c + dx;
+  if (nr < 0 || nr >= rows.length || nc < 0 || nc >= cols.length) return '';
+  return `${rows[nr]!.id}:${cols[nc]!.wd}`;
+}
+
 export function AllocBoard({
   weekMon,
   res,
@@ -508,8 +532,49 @@ export function AllocBoard({
                         // 빈 칸은 비어 보이고(바탕 틴트 없음 · 캘린더 v5 사상), 값 있는 칸만 채움+색띠로 주인공이 된다.
                         placeholder=""
                         onCommit={(v) => setCell(it.id, c.wd, v)}
+                        /* ── Q-9 격자 커서 ────────────────────────────────────────────────
+                           🌍 격차표 _"격자는 화살표로 돌고 Enter 로 편집(Tab 은 격자 밖으로)"_
+                           (W3C APG) 대비 우리 현재는 **없음**이었다: 셀마다 Tab 스톱 1개라
+                           7요일 × 6과목 = **42 스톱**이고, `+1h` 의 **유일한** 빠른 길이
+                           드래그였다(키보드 대안 0 — WCAG 2.1.1 관점에서 접근성 결함이다).
+                           ⚠ 그래서 이 조각은 "1세션당 편집 셀 중앙값" 관측을 **기다리지 않는다**.
+                             빈도는 편의 기능을 정당화하는 근거이지, 키보드 도달성의 근거가 아니다.
+                           ⚠ Tab 은 **그대로 둔다**(APG 의 roving tabindex 를 안 쓴다): 이 격자는
+                             셀이 전부 편집 가능한 입력이라 Tab 순회가 여전히 정당한 경로이고,
+                             뺏으면 기존 사용자의 근육 기억을 깨뜨린다. 화살표는 **덧붙임**이다.
+                           ⚠ `+`/`-` 는 0.5h 씩 — 드래그의 `DROP_STEP` 과 같은 눈금이라
+                             두 입력 경로가 다른 단위를 말하지 않는다. */
+                        onKeyDown={(e) => {
+                          if (e.altKey || e.metaKey || e.ctrlKey) return; // Alt+↑↓ 는 행 재정렬이 쓴다
+                          const step = e.key === '+' || e.key === '=' ? 0.5 : e.key === '-' ? -0.5 : 0;
+                          if (step) {
+                            e.preventDefault();
+                            setCell(it.id, c.wd, Math.max(0, +hNum(cellMin) + step));
+                            return;
+                          }
+                          const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                          const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+                          if (!dx && !dy) return;
+                          // ⚠ ←/→ 는 숫자 입력의 캐럿 이동이기도 하다 — **캐럿이 끝에 있을 때만**
+                          //   격자 이동으로 해석한다(안 그러면 값 안에서 커서를 못 옮긴다).
+                          const el = e.currentTarget;
+                          if (dx) {
+                            const at = el.selectionStart ?? 0;
+                            const len = el.value.length;
+                            if (dx < 0 && at > 0) return;
+                            if (dx > 0 && at < len) return;
+                          }
+                          const next = document.querySelector<HTMLInputElement>(
+                            `[data-cell="${gridId(it.id, c.wd, dx, dy, rows, cols)}"]`,
+                          );
+                          if (!next) return;
+                          e.preventDefault();
+                          next.focus();
+                          next.select();
+                        }}
+                        data-cell={`${it.id}:${c.wd}`}
                         aria-label={`${it.name} · ${c.label}요일 배분(시간)`}
-                        title={`${it.name} · ${c.label} — 시간 입력(0.5 단위)`}
+                        title={`${it.name} · ${c.label} — 시간 입력(0.5 단위 · ←↑↓→ 이동 · +/- 조정)`}
                       />
                     </div>
                   );

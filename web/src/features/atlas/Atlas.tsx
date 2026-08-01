@@ -10,6 +10,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useAtlasNews, usePing } from '@/store/queries';
 import { readJSON, writeJSON } from '@/lib/localStore';
+import { applyMorph, morphName } from '@/lib/motion';
 import { MOD_K_LABEL } from '@/lib/platform';
 import { onSync } from '@/lib/sync';
 import { ATLAS_STARS_KEY as STARS_KEY, ATLAS_NOTES_KEY as NOTES_KEY } from '@/lib/sidecars';
@@ -131,7 +132,11 @@ export default function Atlas() {
         <Link to="/atlas" className="mb-3 inline-block text-sm text-mut! hover:text-acc">
           ← 분야 목록
         </Link>
-        <header className="relative mb-4 border-b border-line2 pb-3" style={{ viewTransitionName: 'atlas-hero' }}>
+        {/* Q-11 — 목록 카드의 짝. 이름이 **같은 규약**에서 나오므로 두 곳이 손으로 맞춰질 일이 없다. */}
+        <header
+          className="relative mb-4 border-b border-line2 pb-3"
+          style={{ viewTransitionName: morphName('atlas', field.key) }}
+        >
           <div className="text-2xs font-bold tracking-widest text-acc uppercase">
             {cat?.num} {cat?.name}
           </div>
@@ -399,7 +404,9 @@ function FieldCard({ f, starred, onToggle }: { f: AtlasField; starred: boolean; 
         viewTransition
         className={CARDLINK}
         onClick={(e) => {
-          e.currentTarget.style.viewTransitionName = 'atlas-hero';
+          // Q-11 — 규약이 이름을 짓는다. 종전 `atlas-hero` 는 **id 가 없어** 카드가 여럿 떠 있을 때
+          // 짝이 유일하지 않았다(브라우저가 짝을 못 지으면 전환이 통째로 죽는다).
+          applyMorph(e.currentTarget, 'atlas', f.key);
         }}
       >
         <h3 className="m-0! text-md! font-semibold! tracking-tight!">{f.name}</h3>

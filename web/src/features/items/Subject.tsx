@@ -35,6 +35,9 @@ import { weakCountBySid } from '@/lib/insights';
 import { removeSidFromAlloc, rowSumMin, allocView, weekMonOf } from '@/lib/weekAlloc';
 import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { todayISO, hNum, ddayInfo, dayDiff, pctLabel } from '@/lib/utils';
+import { EXAM_LABEL, nextExamOf } from '@/lib/semester';
+import { BAND_LABEL, chapterStrength } from '@/lib/chapterStrength';
+import { calibrationLabel, subjectCalibration } from '@/lib/estimateCalibration';
 import { Button, Pill } from '@/components/ui';
 import State from '@/components/State';
 import { SubjectDefinition } from './SubjectDefinition';
@@ -128,13 +131,24 @@ function Retrieval({ sid }: { sid: string }) {
         <h3 className={CARD_T}>복습 위험 — 오래 안 본 챕터</h3>
         {risky.length ? (
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-            {risky.slice(0, 10).map((c) => (
-              <li key={c.chapter} className="flex items-center gap-2 text-md">
-                <span className="min-w-0 flex-1 truncate">{c.chapter}</span>
-                {c.fromVault && <span className="ds-pill ds-tiny">볼트</span>}
-                <b className={`tabular-nums ${c.risk === 'overdue' ? 'text-bad' : 'text-warn'}`}>{c.daysSince}일</b>
-              </li>
-            ))}
+            {risky.slice(0, 10).map((c) => {
+              // T-5 챕터 기억 강도 — "언제 봤나"(일수) 옆에 **"얼마나 붙었나"**를 놓는다.
+              // ⚠ `unseen` 은 **안 그린다**: 표본 0을 칩으로 그리면 값 부재와 값 0 이 같은 픽셀이
+              //   되고, 그게 곧 조용한 거짓말이다(이 파일이 숙달도에서 이미 피한 함정).
+              const st = chapterStrength(state, sid, c.chapter, today);
+              return (
+                <li key={c.chapter} className="flex items-center gap-2 text-md">
+                  <span className="min-w-0 flex-1 truncate">{c.chapter}</span>
+                  {c.fromVault && <span className="ds-pill ds-tiny">볼트</span>}
+                  {st.band !== 'unseen' && (
+                    <Pill tiny tone={st.band === 'shaky' ? 'warn' : 'good'}>
+                      {BAND_LABEL[st.band]} {st.passes}/{st.attempts}
+                    </Pill>
+                  )}
+                  <b className={`tabular-nums ${c.risk === 'overdue' ? 'text-bad' : 'text-warn'}`}>{c.daysSince}일</b>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="ds-tiny text-mut">밀린 챕터가 없어요.</p>
@@ -180,6 +194,10 @@ export default function Subject() {
   const chs = item?.chapters || [];
   const doneCh = chs.filter((c) => c.done).length;
   const weakN = item ? (weakCountBySid(state)[item.id] ?? 0) : 0;
+  const nextExam = item ? nextExamOf(item, today) : null;
+  /* Q-5 — 추정 배율. **표본이 얇으면 null 이고 그때는 안 그린다**(값 부재 ≠ 배율 1.0).
+     게이트는 `lib/estimateCalibration` 이 소유한다 — 화면이 문턱을 다시 판단하면 화면마다 갈린다. */
+  const calib = item ? subjectCalibration(state, item.id) : null;
 
   /* W22 의 짝 — destination 이 아니어도 **객체 화면은 자기 이름과 수를 크게 말한다**(원칙 ②).
      이 화면의 존재 이유가 "그 과목 지금 어떤가"라 리드아웃이 곧 답의 첫 줄이다. */
@@ -191,13 +209,11 @@ export default function Subject() {
         : [
             { label: '이번 주 배분', value: `${hNum(allocMin)} h` },
             { label: '약점', value: weakN || '—' },
+            ...(calib ? [{ label: '추정 대조', value: calibrationLabel(calib) }] : []),
+            // T-1. 다가오는 시험이 있으면 그것이 이 과목의 리드아웃이다("기말"이 아니라 "중간 D-7").
             {
-              label: item.deadline ? '마감' : '유형',
-              value: item.deadline
-                ? ddayInfo(dayDiff(today, item.deadline)).lab
-                : item.mode === 'daily'
-                  ? '매일'
-                  : '주간',
+              label: nextExam ? `${EXAM_LABEL[nextExam.kind]}고사` : '유형',
+              value: nextExam ? ddayInfo(dayDiff(today, nextExam.date)).lab : item.mode === 'daily' ? '매일' : '주간',
             },
           ],
     }),

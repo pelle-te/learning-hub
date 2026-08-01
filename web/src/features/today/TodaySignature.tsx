@@ -33,7 +33,7 @@ import { dayShape } from '@/lib/insights';
 import type { AppState } from '@/lib/types';
 import { FlowRail, type FlowNode } from './FlowRail';
 import { DayBar } from './DayBar';
-import { todayISO, parseISO, addDays, iso, ddayInfo, toHM, mmss } from '@/lib/utils';
+import { todayISO, parseISO, addDays, iso, ddayInfo, hNum, toHM, mmss } from '@/lib/utils';
 import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 import { useCommitOnChange } from '@/hooks/useCommitOnChange';
 import { Icon } from '@/components/Icon';
@@ -599,9 +599,23 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   usePageChromeEffect(
     () => ({
-      /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
-         44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
-      primary: null,
+      /* ⚠⚠ **Q-2 에서 뒤집혔다(2026-08-02).** 종전 주석은 _"이 화면은 렌즈라 44px 앵커를 세우지
+         않는다 — 잊은 것이 아니라 없다고 정한 것이다"_ 였는데, 그 판단의 대가가 뒤늦게 드러났다:
+         **오늘의 여유는 화면에 문자가 0자였다.** 값은 이미 계산돼 있었지만(`dayCapacity`) 막대의
+         `aria-label` 로만 존재해서, 눈으로 읽을 방법이 없었다(P-7 이 길이로 옮기며 생긴 사각).
+         `오늘 여유 1.2h` 는 이 화면에서 **다음 행동을 가장 많이 바꾸는 한 수**다 — 그게 곧 44px
+         앵커의 정의이므로 여기 선다.
+         ⚠ 할 일이 없으면 여전히 `null` 이다(`slackMin === null`) — 말할 것이 없으면 안 그린다. */
+      primary:
+        cap.slackMin == null
+          ? null
+          : // ⚠ `value` 는 **문자열**이고 단위는 `unit` 이다 — 이 자리는 한 값이지 조판이 아니라는
+            //   것이 `ChromePrimary` 의 명시 계약이다(ReactNode 를 받으면 탭마다 조판이 갈린다).
+            {
+              label: cap.slackMin >= 0 ? '오늘 여유' : '오늘 초과',
+              value: String(hNum(Math.abs(cap.slackMin))),
+              unit: 'h',
+            },
       /* ── E7 한 양 = 한 자리(2026-07-29) ────────────────────────────────
          평일 낮 이 화면의 상시 숫자 26개 중 다음 행동을 바꾸는 것은 5개인데, **6개 양이
          15자리에서** 렌더되고 있었다. 여기서 뗀 둘은 각각 이미 소유자가 있다:

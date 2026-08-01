@@ -19,7 +19,7 @@ import { useQuery, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
-import { prefersReducedMotion } from '@/lib/motion';
+import { applyMorph } from '@/lib/motion';
 import { rid, makeItem, ddayInfo, DOW, round1, hNum, hLabel, openVaultSearch } from '@/lib/utils';
 import { useTodayISO } from '@/hooks/useTodayISO';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
@@ -274,8 +274,8 @@ export default function Items() {
   const openSubject = useCallback(
     (id: string) => {
       const el = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
-      // ⚠ 두 이유(OS·앱 설정)를 여기서 다시 OR 하지 않는다 — 판정은 `lib/motion` 하나다(H19).
-      if (el && !prefersReducedMotion()) el.style.viewTransitionName = 'subject-morph';
+      // Q-11 — 이름은 규약이 짓는다(`vt-<entity>-<id>`). reduced-motion 판정도 그 안이다(H19).
+      applyMorph(el, 'subject', id);
       navigate(`/subject/${id}`, { viewTransition: true });
     },
     [navigate],

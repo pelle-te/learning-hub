@@ -113,6 +113,34 @@ const COMMIT_MS = 340;
  * ⚠ 이 파일에 두는 이유: WAAPI 와 같은 부류의 결함이다(전역 CSS 백스톱이 원리적으로 안 닿는
  * 명령형 모션). 머리주석의 논거가 그대로 적용된다.
  */
+/* ── Q-11 뷰 전이 morph 규약 ─────────────────────────────────────────────────────────────
+   목록의 한 카드가 상세 화면의 헤더로 **이어 그려지는** 전환. 종전엔 이 관용구가 **2곳**뿐이었고
+   (`items`→`/subject/:id` · `atlas` 카드→상세) 이름도 각자 지었다(`subject-morph`·`atlas-hero`).
+   나머지 전 라우트 전환은 root 크로스페이드라, 같은 객체를 따라가는 이동과 완전히 다른 곳으로
+   가는 이동이 **같은 픽셀**로 보였다.
+
+   규약: **`vt-<entity>-<id>`**. entity 가 있으면 "무엇을 따라가는가"가 이름에 남고, id 가 있으면
+   같은 종류의 카드가 여럿 떠 있어도 짝이 유일하게 정해진다(종전 이름은 id 가 없어, 두 카드가
+   동시에 이름을 가지면 브라우저가 짝을 못 짓고 전환이 통째로 죽는다).
+   ⚠ id 는 CSS 식별자에 들어가므로 **영숫자·하이픈만 남긴다** — `rid()` 는 안전하지만 과목 이름이
+   id 로 쓰이는 경로가 생기면 곧바로 깨진다(그때 조용히 전환만 안 된다).
+   ⚠ **이름을 반납하지 않는다** — 라우트 전환이 끝나면 그 요소가 언마운트되면서 자동으로 사라진다.
+   손으로 지우면 전환 도중에 지워질 위험이 있다(옛 `subject-morph` 주석이 이미 같은 결론이다). */
+export function morphName(entity: string, id: string): string {
+  return `vt-${entity}-${String(id).replace(/[^a-zA-Z0-9-]/g, '')}`;
+}
+
+/**
+ * 요소에 morph 이름을 붙인다. reduced-motion 이면 **아무것도 안 한다**.
+ *
+ * ⚠ 판정을 호출부에서 다시 OR 하지 말 것 — 이유가 둘(OS·앱 설정)이고 판정은 `prefersReducedMotion`
+ * 하나가 소유한다(H19). 호출부마다 조건을 쓰면 한 곳이 곧 갈린다.
+ */
+export function applyMorph(el: HTMLElement | null | undefined, entity: string, id: string): void {
+  if (!el || prefersReducedMotion()) return;
+  el.style.viewTransitionName = morphName(entity, id);
+}
+
 export function reveal(el: Element | null | undefined, block: ScrollLogicalPosition = 'center'): void {
   el?.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block });
 }

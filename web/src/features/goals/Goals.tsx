@@ -280,8 +280,10 @@ function ProjectCard({ p, k }: { p: ProjectView; k: Knowledge | undefined }) {
     ui.toast(`보충에 담았어요 — ${name}`, 'ok', 4000);
   };
 
+  /* Q-10 — 비활성은 `ds-past`(채도만 낮춤 · 명도 보존). `opacity-55` 는 카드 안 글자를
+     통째로 대비 미달로 떨궜다(H5·H6 와 같은 형태). */
   return (
-    <article className={`${CARD} ${p.node.active ? '' : 'opacity-55'}`}>
+    <article className={`${CARD} ${p.node.active ? '' : 'ds-past'}`}>
       <div className={CARD_HEAD}>
         <h3 className={CARD_TITLE}>{p.node.title}</h3>
         <span className={`${KIND_BASE} ${KIND.project}`}>프로젝트</span>
@@ -372,7 +374,7 @@ function GoalCard({ node, maxWeight }: { node: GoalTreeNode; maxWeight: number }
   const degRows = degreeReqRows(node);
   const kids = byWeightDesc(node.children);
   return (
-    <article className={`${CARD} ${node.active ? '' : 'opacity-55'}`}>
+    <article className={`${CARD} ${node.active ? '' : 'ds-past'}`}>
       <div className={CARD_HEAD}>
         <h2 className={CARD_TITLE}>{node.title}</h2>
         <span className={`${KIND_BASE} ${node.kind === 'project' ? KIND.project : KIND.goal}`}>

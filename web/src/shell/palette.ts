@@ -194,6 +194,13 @@ function baseCommands(): PaletteCommand[] {
       hint: '데이터',
       run: () => void import('@/store/undoController').then((m) => m.undoLastEdit()),
     },
+    {
+      id: 'act:redo',
+      kind: 'act',
+      label: `다시 실행 · 되돌린 편집 (${MOD_LABEL}+⇧+Z)`,
+      hint: '데이터',
+      run: () => void import('@/store/undoController').then((m) => m.redoLastEdit()),
+    },
     /* ⚠⚠ **탭이 아닌 화면은 여기에 손으로 놓는다**(P3 · 2026-08-01). `baseCommands` 의 탭 목록은
        `orderedTabs()`(= `TABS`)만 순회하는데 P-19 가 `graph` 를 그 배열에서 뺐다 → **⌘K 에서
        "학습 구조도"가 통째로 사라졌다.** `tabs.ts` 의 그 커밋 주석은 *"딥링크·⌘K 도달성 손실 0"*

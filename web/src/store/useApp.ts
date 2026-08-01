@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { setAutoFreeze } from 'immer';
-import { boot, persist, serialize, setDone, defaults, CORRUPT_KEY, KEY } from '@/lib/persistence';
+import { boot, persist, serialize, setChapterDone, setDone, defaults, CORRUPT_KEY, KEY } from '@/lib/persistence';
 import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
@@ -115,6 +115,9 @@ export interface AppStore {
   /** 블록 완료 토글. `actualMin` 은 **실제로 집중한 분**(G-1) — 집중 세션이 끝나 그것을 아는
    *  경로만 넘긴다. 손으로 체크한 경우엔 실측이 없으므로 안 넘기고, 회고는 계획 분으로 폴백한다. */
   toggleDone: (ds: string, sid: string, type: SessionType, plannedMin: number, on: boolean, actualMin?: number) => void;
+  /** Q-1 진도 커밋 — 블록 완료 직후 그 행에서 챕터를 확정한다(`chapters[].done`). 챕터는
+   *  **이름**으로 찾는다(블록이 가진 것이 이름뿐이다 — `lib/persistence.setChapterDone` 참조). */
+  setChapterDone: (sid: string, chapterName: string, on: boolean, ds: string) => void;
   addCbms: (
     ds: string,
     sid: string,
@@ -354,6 +357,11 @@ export const useApp = create<AppStore>()(
       toggleDone(ds, sid, type, plannedMin, on, actualMin) {
         commit((s) => {
           setDone(s, ds, sid, type, plannedMin, on, actualMin);
+        });
+      },
+      setChapterDone(sid, chapterName, on, ds) {
+        commit((s) => {
+          setChapterDone(s, sid, chapterName, on, ds);
         });
       },
       addCbms(ds, sid, name, chapter, code, note, conf) {

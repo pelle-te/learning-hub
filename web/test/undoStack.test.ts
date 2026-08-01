@@ -15,14 +15,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { diffRowsDetailed, stateToRows, toTableData, TABLES } from '@/lib/db/rows';
 import {
+  UNDO_BYTE_BUDGET,
   clearUndo,
+  dropRedo,
   dropUndo,
+  peekRedo,
   peekUndo,
   preImageBytes,
+  pushRedo,
   pushUndo,
+  pushUndoFromRedo,
+  redoDepth,
   undoBytes,
   undoDepth,
-  UNDO_BYTE_BUDGET,
 } from '@/lib/db/undoStack';
 import { defaults } from '@/lib/persistence';
 import type { PreImageRow } from '@/lib/db/undoStack';
@@ -203,5 +208,65 @@ describe('⚠ 예산은 바이트다 — 엔트리 수가 아니다', () => {
   it('바이트 계산은 키까지 센다(단일키 테이블의 키가 곧 슬라이스 이름이다)', () => {
     expect(preImageBytes([{ table: 'settings', key: ['ab'], vals: ['ab', 'cde'] }])).toBe(2 + 2 + 3);
     expect(preImageBytes([{ table: 'records', key: ['x', 'y'], vals: null }])).toBe(2);
+  });
+});
+
+describe('Q-8 다시실행 스택 — 되돌리기와 대칭', () => {
+  beforeEach(() => clearUndo());
+
+  const row = (t: string, k: string, v: string | null) => ({ table: t, key: [k], vals: v ? [k, v] : null });
+
+  it('빈 목록은 안 쌓인다(되돌리기와 같은 규칙)', () => {
+    expect(pushRedo([], 1)).toBe(false);
+    expect(redoDepth()).toBe(0);
+  });
+
+  it('쌓고 보고 버린다 — peek → drop 규율이 같다', () => {
+    pushRedo([row('settings', 'theme', '"dark"')], 10);
+    const e = peekRedo()!;
+    expect(e.stamp).toBe(10);
+    expect(redoDepth()).toBe(1);
+    dropRedo(e);
+    expect(redoDepth()).toBe(0);
+  });
+
+  it('⚠ 항등 대조 — 내가 본 그 항목일 때만 버린다', () => {
+    pushRedo([row('settings', 'a', '1')], 10);
+    const stale = peekRedo()!;
+    pushRedo([row('settings', 'b', '2')], 11);
+    dropRedo(stale); // 꼭대기가 이미 남의 것 → 무동작
+    expect(redoDepth()).toBe(2);
+  });
+
+  it('⭐ 새 편집(pushUndo)은 다시실행 가지를 버린다 — 도달 불가능한 미래를 남기지 않는다', () => {
+    pushRedo([row('settings', 'a', '1')], 10);
+    expect(redoDepth()).toBe(1);
+    pushUndo([row('settings', 'b', '2')], 11);
+    expect(redoDepth()).toBe(0);
+  });
+
+  it('⚠ pull(clearUndo)은 **둘 다** 버린다 — 한쪽만 비우면 ⇧⌘Z 가 원격 편집을 덮는다', () => {
+    pushUndo([row('settings', 'a', '1')], 10);
+    pushRedo([row('settings', 'b', '2')], 11);
+    clearUndo();
+    expect(undoDepth()).toBe(0);
+    expect(redoDepth()).toBe(0);
+  });
+
+  it('pushUndoFromRedo 는 다시실행 가지를 **안** 비운다 — 연속 다시실행이 성립해야 한다', () => {
+    pushRedo([row('settings', 'a', '1')], 10);
+    pushRedo([row('settings', 'b', '2')], 11);
+    pushUndoFromRedo([row('settings', 'c', '3')], 12);
+    expect(redoDepth()).toBe(2);
+    expect(undoDepth()).toBe(1);
+  });
+
+  it('다시실행도 바이트 예산으로 축출된다(최근 하나는 남긴다)', () => {
+    const big = () => [row('settings', 'k', 'x'.repeat(UNDO_BYTE_BUDGET))];
+    pushRedo(big(), 1);
+    pushRedo(big(), 2);
+    pushRedo(big(), 3);
+    expect(redoDepth()).toBe(1);
+    expect(peekRedo()!.stamp).toBe(3);
   });
 });
