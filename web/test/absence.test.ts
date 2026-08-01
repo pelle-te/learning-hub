@@ -7,7 +7,7 @@
    ③ **말할 것이 없으면 안 그린다** — `N일 비었어요` 만 남기면 그건 정보가 아니라 지적이다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { ABSENCE_MIN_DAYS, missedSince, returnBriefing, type AbsenceNow } from '@/lib/absence';
+import { ABSENCE_MIN_DAYS, missedSince, returnBriefing, type AbsenceNow, RETURN_REVIEW_CAP } from '@/lib/absence';
 
 const NOW: AbsenceNow = { review: 71, missed: 6, deadline: { name: '전자기', dday: 6 } };
 
@@ -69,5 +69,42 @@ describe('브리핑 한 줄', () => {
     const b = returnBriefing({ lastDs: '2026-07-28', thenReview: 32 }, NOW, '2026-08-01');
     expect(b?.aria).toContain('4일 만의 복귀');
     expect(b?.aria).toContain('32개에서 71개로');
+  });
+});
+
+describe('Q-29 복귀 브리핑 처방 — 숫자 뒤에 하라는 말', () => {
+  const snap = { lastDs: '2026-07-25', thenReview: 2 };
+  const TODAY = '2026-08-02';
+
+  it('마감이 있으면 마감이 이긴다 — 날짜는 협상 대상이 아니다', () => {
+    const b = returnBriefing(snap, { review: 9, missed: 4, deadline: { name: '전자기학', dday: 3 } }, TODAY)!;
+    expect(b.advice).toContain('전자기학');
+    expect(b.advice).toContain('마감');
+  });
+
+  it('⭐ 마감이 없으면 밀린 복습을 **상한만큼만** — "전부"라고 말하지 않는다', () => {
+    const b = returnBriefing(snap, { review: 40, missed: 0, deadline: null }, TODAY)!;
+    expect(b.advice).toContain(String(RETURN_REVIEW_CAP));
+    expect(b.advice).not.toContain('40');
+  });
+
+  it('밀린 복습이 상한보다 적으면 그 수만큼만 말한다', () => {
+    const b = returnBriefing(snap, { review: 2, missed: 0, deadline: null }, TODAY)!;
+    expect(b.advice).toContain('2개');
+  });
+
+  it('복습도 마감도 없으면 "오늘 것부터" — 따라잡으라고 하지 않는다', () => {
+    const b = returnBriefing(snap, { review: 0, missed: 5, deadline: null }, TODAY)!;
+    expect(b.advice).toContain('오늘 블록부터');
+    expect(b.advice).not.toMatch(/따라잡|전부|모두/);
+  });
+
+  it('처방은 aria 에도 실린다 — 화면과 SR 이 다른 말을 하지 않게', () => {
+    const b = returnBriefing(snap, { review: 9, missed: 0, deadline: null }, TODAY)!;
+    expect(b.aria).toContain(b.advice);
+  });
+
+  it('말할 것이 없으면 여전히 null — 처방을 만들려고 브리핑을 억지로 그리지 않는다', () => {
+    expect(returnBriefing(snap, { review: 0, missed: 0, deadline: null }, TODAY)).toBeNull();
   });
 });

@@ -16,6 +16,23 @@ import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import { Icon } from '@/components/Icon';
 
+/**
+ * Q-20 — 같은 폼 안의 **다음 textarea** 로 포커스를 옮긴다. 마지막 칸이면 `false`.
+ *
+ * ⚠ `false` 를 정직하게 돌려주는 것이 계약의 절반이다 — 마지막 칸에서 `true` 를 주면 Enter 가
+ * 그 칸에서만 아무것도 안 하는 죽은 키가 된다(`useFormSubmit` 의 `advance` 주석).
+ */
+function advanceField(from: HTMLElement): boolean {
+  const form = from.closest('.ds-rule, form') ?? from.parentElement;
+  if (!form) return false;
+  const fields = [...form.querySelectorAll<HTMLTextAreaElement>('textarea')];
+  const next = fields[fields.indexOf(from as HTMLTextAreaElement) + 1];
+  if (!next) return false;
+  next.focus();
+  next.setSelectionRange(next.value.length, next.value.length);
+  return true;
+}
+
 export default function SummaryCard({ ds: dsKey }: { ds: string }) {
   const cardRef = useRef<HTMLDivElement>(null); // D-7 commit 착지 대상(값이 바뀐 상자)
   const uid = useId(); // label↔입력 연결용 고유 접두(폼이 여러 개 떠도 id 충돌 없음)
@@ -70,8 +87,11 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
      ⚠ 새 항목 폼엔 `cancel` 을 안 넘긴다: 거기서 Esc 가 입력을 날리면 그게 더 놀랍다.
      ⚠ 옛 인라인 핸들러엔 IME 조합 가드가 없어 **한글 확정 Enter 에 덜 친 내용이 제출**됐다
         (선재 결함 · 근거는 `useFormSubmit` 머리주석). */
-  const addKeys = useFormSubmit(submit);
-  const editKeys = useFormSubmit(saveEdit, cancel);
+  /* Q-20 — 세 칸은 `rows={2}` 짜리 **한 문장 그릇**이라 맨 Enter 의 자연스러운 뜻이 줄바꿈이
+     아니라 "다 썼다"다. 그래서 다음 칸으로 옮긴다(⌘Enter=제출 · ⇧Enter=줄바꿈은 그대로).
+     ⚠ 이동은 **DOM 순서**로 한다 — 칸 id 를 배열로 들고 있으면 순서가 두 곳에 살게 된다. */
+  const addKeys = useFormSubmit(submit, undefined, { advance: advanceField });
+  const editKeys = useFormSubmit(saveEdit, cancel, { advance: advanceField });
   // 오늘 산출물(요약·오답)이 없으면 내보내기는 빈 파일 = 데드엔드 → 비활성화.
   const todayIso = todayISO({ _today: state._today });
   const canExport = summariesFor(state, todayIso).length > 0 || cbmsBetween(state, todayIso, todayIso).length > 0;

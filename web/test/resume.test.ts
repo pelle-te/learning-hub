@@ -11,6 +11,8 @@ import {
   RESUME_TTL_MIN,
   focusRemainingMs,
   type ResumeCursor,
+  RESUME_ROUTE,
+  ownResume,
 } from '@/lib/resume';
 import type { AppState } from '@/lib/types';
 
@@ -135,5 +137,41 @@ describe('focusRemainingMs — 다른 기기가 지금 집중 중인가', () => 
 
   it('옛 저장본(endsAt 없음)은 조용히 null — 무마이그레이션 계약', () => {
     expect(focusRemainingMs(cur({}), NOW)).toBeNull();
+  });
+});
+
+describe("Q-27 'screen' 커서 — 떠날 때 남기는 되돌아갈 곳", () => {
+  const NOW = 1_800_000_000_000;
+  const screen = (over: Partial<ResumeCursor> = {}): ResumeCursor => ({
+    kind: 'screen',
+    label: '복습 예보',
+    at: NOW,
+    route: '/forecast',
+    ...over,
+  });
+
+  it('유효한 커서로 인정된다(다른 기기에서 읽힌다)', () => {
+    const st = { resume: { other: screen() } } as unknown as AppState;
+    expect(latestResume(st, 'me', NOW)?.cur.kind).toBe('screen');
+  });
+
+  it("문구가 '이어하기'가 아니다 — 하던 일이 없으므로 되돌아가기다", () => {
+    expect(resumeLabel(screen())).toBe('직전 화면 — 복습 예보');
+  });
+
+  it('경로를 커서가 들고 온다 — kind 가 화면을 정하는 다른 셋과 성질이 다르다', () => {
+    expect(screen().route).toBe('/forecast');
+    expect(RESUME_ROUTE.screen).toBe('/today'); // route 가 비었을 때의 폴백
+  });
+
+  it('ownResume 는 자기 커서를 본다 — latestResume 과 정반대다', () => {
+    const st = { resume: { me: screen(), other: screen({ label: '남' }) } } as unknown as AppState;
+    expect(ownResume(st, 'me', NOW)?.label).toBe('복습 예보');
+    expect(latestResume(st, 'me', NOW)?.cur.label).toBe('남');
+  });
+
+  it('만료된 자기 커서는 null — 덮어쓰기 판정이 유령을 존중하지 않게', () => {
+    const st = { resume: { me: screen({ at: NOW - 400 * 60_000 }) } } as unknown as AppState;
+    expect(ownResume(st, 'me', NOW)).toBeNull();
   });
 });

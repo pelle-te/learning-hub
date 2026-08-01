@@ -76,10 +76,29 @@ describe('불변식 ① SCHEDULE_INPUT_KEYS는 scheduler가 읽는 슬라이스�
 });
 
 describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
-  it('두 원천의 탭 키 집합이 정확히 일치한다', () => {
+  /* ⚠ `retired`(Q-22)는 **자기 라우트가 없다** — 화면이 다른 곳에 흡수됐고 `to` 가 그곳을
+     가리킨다. 그래서 로더 패리티에서 뺀다. 대신 아래 두 검사가 그만큼을 메운다:
+     ① 은퇴 탭은 `to` 를 반드시 갖는다(가리킬 곳 없는 은퇴는 그냥 삭제다).
+     ② 은퇴 탭도 ⌘K 에서 도달 가능하다(그것이 `retired` 의 존재 이유 전부다). */
+  const live = TABS.filter((t) => t.role !== 'retired');
+
+  it('두 원천의 탭 키 집합이 정확히 일치한다(은퇴 제외)', () => {
     const loaderKeys = Object.keys(LOADERS).sort();
-    const tabKeys = TABS.map((t) => t.key).sort();
+    const tabKeys = live.map((t) => t.key).sort();
     expect(loaderKeys).toEqual(tabKeys);
+  });
+
+  it('은퇴한 탭은 착지 경로(to)를 갖는다 — 가리킬 곳 없는 은퇴는 삭제다', () => {
+    for (const t of TABS.filter((x) => x.role === 'retired')) {
+      expect(t.to, `${t.key} 가 은퇴했는데 to 가 없다`).toBeTruthy();
+    }
+  });
+
+  it('⭐ 은퇴한 탭도 ⌘K 로 도달한다 — `graph` 가 조용히 사라졌던 그 결함의 집행자', () => {
+    const ids = new Set(basePaletteCommands().map((c) => c.id));
+    for (const t of TABS.filter((x) => x.role === 'retired')) {
+      expect(ids.has('tab:' + t.key), `${t.key} 가 ⌘K 에서 사라졌다`).toBe(true);
+    }
   });
 });
 
@@ -934,5 +953,64 @@ describe('불변식 ⑧ morph 이름은 lib/motion 의 규약에서만 나온다
       return /\b(applyMorph|morphName)\s*\(/.test(readFileSync(f, 'utf8'));
     });
     expect(users.length).toBeGreaterThan(0);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+   불변식 ⑦ — **한 화면에 동시에 도는 `live` 는 최대 둘** (Q-18 · 2026-08-02)
+
+   `live` 는 모션 어휘 여섯 마디 중 유일하게 **끝나지 않는** 것이다(맥동·오라·펄스). 그래서
+   개수가 곧 밀도이고, 셋을 넘기면 "지금 무엇이 살아 있는가"가 신호가 아니라 배경이 된다.
+
+   ## ⚠⚠ 이 불변식이 필요한 이유 — 모션 게이트가 **원리적으로** 못 본다
+   `e2e/motion.spec.ts` 머리주석이 스스로 적어 뒀다: _"길이는 잡고 **무한 주기는 픽셀로 못
+   잡는다**"_. 정지 프레임을 아무리 찍어도 무한 애니의 개수는 안 드러난다 — 프레임 하나에는
+   그것들이 우연히 어느 위상에 있든 그냥 정적인 점으로 찍힌다. 즉 이 축은 **세는 검사**로만
+   지킬 수 있고, 안 세면 `live` 는 조용히 늘어난다(23회까지 늘어난 경위가 그것이다).
+
+   ⚠⚠ **무엇을 세는가가 이 검사의 정확도 전부다.** 첫 구현은 `live-*` 문자열을 전부 셌는데,
+   그러면 마커 클래스(`live-aura`)와 키프레임 이름(`live-breathe`)이 **한 줄에서 이중으로**
+   잡혀 "무한 애니 2개"를 3으로 읽었다(실제로 그 오탐이 첫 실행에 나왔다). 세야 하는 것은
+   **애니메이션을 거는 지점**이다 → `animate-[live-…]` 의 등장 횟수.
+
+   ⚠ 세는 단위는 **소스의 등장 횟수**이지 런타임 노드 수가 아니다. 목록 안의 한 줄이 20행으로
+   렌더되면 20개가 도는데 그건 이 검사가 못 본다 — 그 층은 §15-4(실렌더 확인)의 몫이다.
+   여기서 막는 것은 **어휘가 화면마다 늘어나는 것**이다.
+──────────────────────────────────────────────────────────────────────────── */
+describe('불변식 ⑦ 화면 하나가 무한 애니를 셋 이상 걸지 않는다', () => {
+  const SRC7 = join(process.cwd(), 'src') + '/';
+  /** 화면 파일당 상한. 둘까지가 "이것과 저것이 살아 있다"이고, 셋부터는 배경이다. */
+  const LIVE_CAP = 2;
+  /** 어휘 정의부·공유 프리미티브는 제외 — 정의는 한 곳에 모여 있는 것이 정상이다. */
+  const DEFS = /(styles|components\/ui)\//;
+
+  function tsxFiles(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith('.tsx')) out.push(p);
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    return out;
+  }
+
+  it(`화면 파일당 live-* 등장이 ${LIVE_CAP}회 이하다`, () => {
+    const over: string[] = [];
+    for (const f of tsxFiles()) {
+      const rel = normPath(f).replace(normPath(SRC7), '');
+      if (DEFS.test(rel)) continue;
+      const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+      const n = [...src.matchAll(/animate-\[live-[a-z-]+/g)].length;
+      if (n > LIVE_CAP) over.push(`${rel} → ${n}회`);
+    }
+    expect(over, '무한 애니가 화면에 셋 이상이면 그건 신호가 아니라 배경이다').toEqual([]);
+  });
+
+  it('live 어휘가 실제로 쓰이고 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
+    const used = tsxFiles().some((f) => /animate-\[live-[a-z-]+/.test(readFileSync(f, 'utf8')));
+    expect(used).toBe(true);
   });
 });

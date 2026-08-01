@@ -37,6 +37,16 @@ export interface FormKeyProps {
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
 }
 
+export interface FormSubmitOptions {
+  /**
+   * **Q-20** — 여러 줄 칸에서 맨 Enter 를 "다음 칸"으로 쓸 때의 이동 함수.
+   *
+   * @returns 실제로 옮겼는가. **`false` 면 Enter 는 줄바꿈 그대로** — 마지막 칸에서 커서가
+   *   갈 곳이 없는데 `preventDefault` 를 하면 그 칸에서만 Enter 가 죽는다(조용한 고장).
+   */
+  advance?: (from: HTMLElement) => boolean;
+}
+
 /**
  * 폼 키 계약을 입력 요소에 붙일 props 로 돌려준다 — `<input {...keys} />` · `<textarea {...keys} />`.
  *
@@ -44,7 +54,8 @@ export interface FormKeyProps {
  * @param cancel 취소(편집 폼). 없으면 Esc 는 아무 일도 안 한다 — 새 항목 폼에서 Esc 가
  *   입력을 날리면 그게 더 놀랍다.
  */
-export function useFormSubmit(submit: () => void, cancel?: () => void): FormKeyProps {
+export function useFormSubmit(submit: () => void, cancel?: () => void, opts?: FormSubmitOptions): FormKeyProps {
+  const advance = opts?.advance;
   return useMemo(
     () => ({
       onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
@@ -59,12 +70,26 @@ export function useFormSubmit(submit: () => void, cancel?: () => void): FormKeyP
         }
         if (e.key !== 'Enter') return;
         const multiline = (e.currentTarget as HTMLElement).tagName === 'TEXTAREA';
-        if (multiline && !(e.metaKey || e.ctrlKey)) return; // 여러 줄 칸의 맨 Enter = 줄바꿈
         if (e.altKey || e.shiftKey) return; // Shift+Enter 는 줄바꿈 관용구라 뺏지 않는다
+        /* ── Q-20 다음 칸으로 ────────────────────────────────────────────────────────────
+           `advance` 를 넘긴 폼에서는 여러 줄 칸의 맨 Enter 가 **다음 칸**이다(⌘Enter 는 여전히
+           제출 · ⇧Enter 는 줄바꿈).
+           ⚠ 왜 안전한가: 이 옵션은 `rows={2}` 짜리 **"한 문장 그릇"** 에만 붙인다 — 화면이 이미
+           크기로 "여기는 한 문장"이라 말하고 있어서, 맨 Enter 의 자연스러운 뜻이 줄바꿈이 아니라
+           "다 썼다"다. 긴 글을 받는 textarea 에는 **붙이지 않는다**(그때는 줄바꿈이 맞다).
+           ⚠ 옵션으로 둔 이유: 기본값으로 만들면 앱의 모든 textarea 에서 Enter 가 줄바꿈을
+           잃는다. 붙이는 쪽이 틀릴 수 있는 선택지를 없앤다는 이 훅의 규율과 어긋나지 않는다 —
+           여기서 고르는 것은 *칸의 종류*가 아니라 *폼의 성격*이라 호출부만 알 수 있다. */
+        if (multiline && advance && !(e.metaKey || e.ctrlKey)) {
+          if (!advance(e.currentTarget as HTMLElement)) return; // 마지막 칸이면 줄바꿈 그대로
+          e.preventDefault();
+          return;
+        }
+        if (multiline && !(e.metaKey || e.ctrlKey)) return; // 여러 줄 칸의 맨 Enter = 줄바꿈
         e.preventDefault();
         submit();
       },
     }),
-    [submit, cancel],
+    [submit, cancel, advance],
   );
 }

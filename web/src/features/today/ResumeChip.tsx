@@ -32,7 +32,9 @@ export default function ResumeChip() {
      중복 학습을 기능이 보장하던 자리다. */
   const go = (): void => {
     const at = resumeIndex(hit.cur);
-    navigate(RESUME_ROUTE[hit.cur.kind], at === null ? undefined : { state: { resumeAt: at } satisfies ResumeNav });
+    // Q-27 — `screen` 커서는 **자기 경로를 들고 온다**(다른 종류는 kind 가 화면을 정한다).
+    const to = hit.cur.route || RESUME_ROUTE[hit.cur.kind];
+    navigate(to, at === null ? undefined : { state: { resumeAt: at } satisfies ResumeNav });
   };
   return (
     <button type="button" className={CHIP} onClick={go} title="다른 기기에서 하던 것을 이어서">

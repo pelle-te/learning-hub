@@ -16,6 +16,7 @@ import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
 import { useVaultAnchorsVersion } from '@/hooks/useVaultAnchors';
+import { useLeaveCursor } from './useLeaveCursor';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
@@ -108,6 +109,9 @@ export default function App() {
   // 첫 경로 세그먼트 = 기저 탭 key(중첩 라우트 /atlas/:key 대응 — 라벨·fill·나브 활성이 기저 탭을 따르게).
   const routeKey = pathname.split('/')[1] || 'today';
   const routeLabel = routeLabelOf(routeKey); // H27 — 탭이 아닌 라우트도 아나운서가 말한다
+  /* Q-27 — **떠날 때 1회** 이어하기 커서를 남긴다. 탭 이동마다가 아니다(원 주석의 우려는
+     그것이었고 이 훅은 그걸 안 한다). 공통 조상 하나가 걸어야 전 화면이 덮인다. */
+  useLeaveCursor(routeLabel);
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;

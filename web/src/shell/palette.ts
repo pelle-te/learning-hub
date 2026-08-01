@@ -3,7 +3,7 @@
    탭 이동(React Router) + 핵심 데이터/내보내기/백업 액션. tab 항목은 CommandPalette가 navigate,
    act는 run() 호출. 최근 실행한 명령(recent.ts)을 위로 끌어올려 재실행이 빠르다.
 ============================================================ */
-import { orderedTabs, STRUCTURE_VIEW } from './tabs';
+import { orderedTabs } from './tabs';
 import { NAV_SHORTCUTS } from './shortcuts';
 import { recentIds } from './recent';
 import * as A from './actions';
@@ -25,6 +25,11 @@ export type PaletteCommand =
 function baseCommands(): PaletteCommand[] {
   const tabs: PaletteCommand[] = orderedTabs().map((t) => {
     const seq = SEQ_BY_TAB.get(t.key);
+    /* Q-22 — 은퇴한 탭은 **`to` 로 간다**(`key` 가 경로가 아니다). 종전엔 은퇴하면 `TABS` 에서
+       통째로 빼서 ⌘K 에서도 사라졌고, 그 구멍을 `act:graph` 한 줄로 손으로 메우고 있었다. */
+    if (t.role === 'retired') {
+      return { id: 'tab:' + t.key, kind: 'act', label: '이동 · ' + t.label, hint: '은퇴', to: t.to };
+    }
     return {
       id: 'tab:' + t.key,
       kind: 'tab',
@@ -201,18 +206,10 @@ function baseCommands(): PaletteCommand[] {
       hint: '데이터',
       run: () => void import('@/store/undoController').then((m) => m.redoLastEdit()),
     },
-    /* ⚠⚠ **탭이 아닌 화면은 여기에 손으로 놓는다**(P3 · 2026-08-01). `baseCommands` 의 탭 목록은
-       `orderedTabs()`(= `TABS`)만 순회하는데 P-19 가 `graph` 를 그 배열에서 뺐다 → **⌘K 에서
-       "학습 구조도"가 통째로 사라졌다.** `tabs.ts` 의 그 커밋 주석은 *"딥링크·⌘K 도달성 손실 0"*
-       이라 적었는데 **절반만 참**이었다(리다이렉트가 덮는 것은 딥링크뿐이고, 팔레트는 URL 이
-       아니라 배열을 읽는다). 같은 형태가 재발할 자리: **TABS 에서 화면을 내릴 때마다 여기.** */
-    {
-      id: 'act:graph',
-      kind: 'act',
-      label: '이동 · 학습 구조도',
-      hint: '과목',
-      to: '/items?view=' + STRUCTURE_VIEW,
-    },
+    /* ✅ **손으로 놓던 `act:graph` 한 줄이 사라졌다**(Q-22 · 2026-08-02). 종전 주석이 스스로
+       _"TABS 에서 화면을 내릴 때마다 여기"_ 라며 **재발을 예약**해 뒀는데, 은퇴에 어휘를 주니
+       (`role:'retired'`) 배열에 남아 있게 되어 위 `tabs` 매핑이 자동으로 줍는다. 불변식 ②의
+       "은퇴한 탭도 ⌘K 로 도달한다"가 그것을 집행한다. */
     { id: 'act:reset', kind: 'act', label: '전체 초기화…', hint: '위험', run: A.resetAll },
   ];
   return [...tabs, ...acts];

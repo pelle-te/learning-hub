@@ -68,6 +68,11 @@ export default function ReturnSlot() {
     <p role="status" className={BRIEF} title={brief.aria}>
       <Icon name="arrowReturn" />
       <span aria-hidden="true">{brief.line}</span>
+      {/* Q-29 — 숫자 뒤에 **하라는 말**. 강조 색을 주는 이유: 이 칩에서 유일하게 *행동*인 조각이
+          숫자들 사이에 끼면 다시 나열의 일부로 읽힌다. */}
+      <b aria-hidden="true" className="text-acc">
+        {brief.advice}
+      </b>
       <span className="sr-only">{brief.aria}</span>
     </p>
   );

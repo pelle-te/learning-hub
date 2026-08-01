@@ -59,7 +59,20 @@ export interface ReturnBriefing {
   line: string;
   /** SR·title 용 — 같은 사실의 풀어 쓴 형태. */
   aria: string;
+  /**
+   * **Q-29 처방** — 숫자 다음에 오는 *하라는 말* 한 마디.
+   *
+   * ⚠ 종전엔 이 칩이 13px 안에 숫자를 최대 6개 담고 **행동 정보가 0**이었다. 복귀한 사람에게
+   * 필요한 것은 "얼마나 밀렸나"가 아니라 "그래서 지금 뭘 하나"다 — 숫자만 주면 그건 정보가
+   * 아니라 부재에 대한 지적이 된다(방향 §2 (d)의 정반대).
+   * ⚠⚠ 처방의 원칙은 하나다: **재건된 첫 계획은 깨진 계획보다 작아야 한다.** 그래서 어떤
+   * 처방도 "전부 따라잡아라"라고 말하지 않는다 — 그 말이 복귀 첫날을 다시 실패로 만든다.
+   */
+  advice: string;
 }
+
+/** 복귀 첫날에 권하는 복습 상한(개). 밀린 전부가 아니라 **한 줌**이다(위 원칙). */
+export const RETURN_REVIEW_CAP = 3;
 
 /** 부재 기간 판정에 쓰는 블록 한 개. `ds` 는 배치된 날, `done` 은 완료 여부. */
 export interface PlannedBlock {
@@ -118,10 +131,22 @@ export function returnBriefing(snap: AbsenceSnapshot, now: AbsenceNow, todayDs: 
   }
   if (!parts.length) return null;
 
+  /* Q-29 처방 — **순서가 규칙이다**(하나만 말한다 · 셋을 늘어놓으면 다시 목록이 된다):
+       ① 마감이 있으면 그것이 이긴다 — 날짜는 협상 대상이 아니다.
+       ② 아니면 밀린 복습을 **상한만큼만**. "전부"라고 말하지 않는 것이 이 항목의 전부다.
+       ③ 아니면 미완 — 밀린 것을 따라잡는 대신 **오늘 것부터** 시작하라고 말한다.
+     ⚠ 어느 가지도 "따라잡아라"를 말하지 않는다. */
+  const advice = now.deadline
+    ? `${now.deadline.name}부터 — 마감이 가장 가깝습니다.`
+    : now.review > 0
+      ? `오늘은 밀린 복습 중 ${Math.min(RETURN_REVIEW_CAP, now.review)}개만 하세요.`
+      : `밀린 것은 두고 오늘 블록부터 시작하세요.`;
+
   return {
     days,
     line: `${days}일 비었어요 — ${parts.join(' · ')}`,
-    aria: `${days}일 만의 복귀입니다. ${aria.join(', ')}.`,
+    aria: `${days}일 만의 복귀입니다. ${aria.join(', ')}. ${advice}`,
+    advice,
   };
 }
 

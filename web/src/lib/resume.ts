@@ -33,7 +33,13 @@ export function resumeDevice(): string {
 /** 커서가 살아 있는 시간(분) — 6시간. */
 export const RESUME_TTL_MIN = 360;
 
-export type ResumeKind = 'review' | 'focus' | 'journal';
+/**
+ * ⚠ `screen` 은 **Q-27 이 더한 네 번째 종류**(2026-08-02) — "무엇을 하던 중"이 아니라 "어디에
+ * 있었나"다. 앞의 셋은 전부 *진행 중인 작업*이라, 아무 작업도 안 하고 화면만 보다 닫으면
+ * 커서가 **아예 안 생겼다**(쓰기 트리거가 셋뿐이었다). 다른 기기에서 여는 사람에게는 그게
+ * "직전에 뭘 보고 있었는지 모른다"와 같다.
+ */
+export type ResumeKind = 'review' | 'focus' | 'journal' | 'screen';
 
 export interface ResumeCursor {
   kind: ResumeKind;
@@ -43,6 +49,8 @@ export interface ResumeCursor {
   at: number;
   /** 진행 상황 한 줄("3/12") — 있으면 표시한다. */
   progress?: string;
+  /** `kind:'screen'` 전용 착지 경로. 다른 종류는 `RESUME_ROUTE` 가 정한다(Q-27). */
+  route?: string;
   /** 집중 세션 종료 시각(epoch ms) — `kind:'focus'` 에만. E26.
    *  ⚠ 이 값이 **다른 기기에서 읽힐 때만** 값이 있다(내 기기는 `useFocus` 가 이미 안다).
    *  폰이 "PC 에서 집중 중 · N분 남음"을 말하는 근거이고, 그 이상은 하지 않는다 — 조작을 주면
@@ -57,7 +65,7 @@ const isCursor = (v: unknown): v is ResumeCursor => {
   if (!v || typeof v !== 'object') return false;
   const c = v as Partial<ResumeCursor>;
   return (
-    (c.kind === 'review' || c.kind === 'focus' || c.kind === 'journal') &&
+    (c.kind === 'review' || c.kind === 'focus' || c.kind === 'journal' || c.kind === 'screen') &&
     typeof c.label === 'string' &&
     typeof c.at === 'number'
   );
@@ -106,6 +114,20 @@ export function focusRemainingMs(cur: ResumeCursor, now: number): number | null 
 }
 
 /** 커서를 기록한다(자기 행만). `label` 이 비면 아무것도 안 한다 — 이름 없는 이어하기는 못 읽는다. */
+/**
+ * **이 기기 자신의** 커서(없거나 만료면 null) — Q-27 이 "덮어쓸까"를 판정하는 데 쓴다.
+ *
+ * ⚠ `latestResume` 과 정반대다: 저쪽은 자기 것을 **일부러 뺀다**(기기를 넘는 것에만 값이 있다).
+ * 여기서 자기 것을 봐야 하는 이유는 표시가 아니라 **쓰기 판정** 때문이다 — 진행 중 복습 커서를
+ * "직전 화면"으로 덮으면 그건 커서를 지우는 것과 같다.
+ */
+export function ownResume(state: AppState, selfId: string, now: number): ResumeCursor | null {
+  const cur = (state as unknown as { resume?: ResumeMap }).resume?.[selfId];
+  if (!cur || !isCursor(cur) || cur.at > now) return null;
+  if (now - cur.at > RESUME_TTL_MIN * 60_000) return null;
+  return cur;
+}
+
 export function putResume(state: AppState, selfId: string, cur: ResumeCursor): void {
   if (!selfId || !cur.label) return;
   const st = state as unknown as { resume?: ResumeMap };
@@ -126,10 +148,15 @@ export const RESUME_ROUTE: Record<ResumeKind, string> = {
   review: '/review-run',
   focus: '/today',
   journal: '/journal',
+  /** ⚠ `screen` 만 **경로를 커서가 들고 있다**(`label` 이 아니라 `route`). 여기 값은 그 필드가
+   *  비었을 때의 폴백일 뿐이다 — 종류가 화면을 정하는 다른 셋과 성질이 다르다. */
+  screen: '/today',
 };
 
 /** 커서 → 사람이 읽는 행동 문구. */
 export function resumeLabel(cur: ResumeCursor): string {
+  // `screen` 은 "이어하기"가 아니다 — 하던 일이 없으므로 **되돌아가기**라고 말한다.
+  if (cur.kind === 'screen') return `직전 화면 — ${cur.label}`;
   const what = cur.kind === 'review' ? '복습' : cur.kind === 'focus' ? '집중' : '기록';
   return cur.progress ? `${what} 이어하기 — ${cur.label} (${cur.progress})` : `${what} 이어하기 — ${cur.label}`;
 }

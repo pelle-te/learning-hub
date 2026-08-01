@@ -23,6 +23,14 @@
 
    · `destination` — 상시 도달점. 레일에 서고, `[ ]` 링이 순회하고, `g` 키가 가리킨다.
    · `lens`        — 호스트 안의 조망. 세그먼트·⌘K·딥링크로만 간다(레일·링에 없다).
+   · `retired`     — **은퇴한 화면**(Q-22 · 2026-08-02). 나브·세그먼트·링·`g` 어디에도 안 나오지만
+                     **⌘K 와 딥링크로는 여전히 간다.** 화면 코드는 살아 있다.
+
+   ⚠⚠ `retired` 가 왜 필요했나: `graph` 를 내릴 때 그 항목을 **`TABS` 배열에서 통째로 뺐고**, 그
+   순간 ⌘K 에서도 사라졌다(팔레트는 URL 이 아니라 이 배열을 읽는다). 그때 커밋은 _"딥링크·⌘K
+   도달성 손실 0"_ 이라 적었지만 **절반만 참**이었다. 임시 처방으로 `palette.ts` 에 `act:graph`
+   한 줄을 손으로 놓았고, 그 파일 주석이 스스로 _"TABS 에서 화면을 내릴 때마다 여기"_ 라고
+   **재발을 예약**해 뒀다. 은퇴에 어휘를 주면 배열에서 뺄 이유가 사라진다 — 손 유지가 0이 된다.
 
    ⚠ 이 필드는 **선택이 아니라 필수**다. 기본값을 주면 새 탭이 자기도 모르게 한쪽에 들어가고,
    그 순간 다섯 열거가 다시 갈리기 시작한다. */
@@ -32,7 +40,7 @@ import type { IconName } from '@/lib/iconPaths';
  *  (읽는 쪽)와 `shell/palette.ts`(가는 쪽) 둘이라, 문자열을 양쪽에 적으면 한쪽만 고쳐진다(P3). */
 export const STRUCTURE_VIEW = 'structure';
 
-export type TabRole = 'destination' | 'lens';
+export type TabRole = 'destination' | 'lens' | 'retired';
 
 export interface TabMeta {
   key: string;
@@ -48,6 +56,8 @@ export interface TabMeta {
   fill?: boolean;
   /** SubTabs 세그먼트 버튼에 쓸 짧은 라벨(없으면 label). 나브·⌘K·문서 제목은 그대로 label을 쓴다. */
   segLabel?: string;
+  /** `role:'retired'` 전용 착지 경로(Q-22). 은퇴한 화면은 `key` 가 경로가 아니다. */
+  to?: string;
 }
 
 /** 모든 탭(표시 순서·그룹·아이콘). `role` 이 도달 방식을 정한다(destination=레일·링·g키 · lens=세그먼트·⌘K).
@@ -222,9 +232,23 @@ export const TABS: TabMeta[] = [
        호스트만 바꿨다. `Graph.tsx` 는 그 자리에 그대로 있다.
      ⚠⚠ **위 "⌘K 도달성 손실 0" 은 절반만 참이었다**(P3 · 2026-08-01 정정). 리다이렉트가 덮는
        것은 *딥링크*뿐이고, 팔레트는 URL 이 아니라 **이 배열**을 읽는다(`palette.baseCommands` 가
-       `orderedTabs()` 만 순회) → 탭을 빼는 순간 ⌘K 에서도 사라졌다. 지금은 `shell/palette.ts` 가
-       `act:graph` 한 줄을 손으로 놓아 메운다. **TABS 에서 화면을 내릴 때마다 같은 짝이 필요하다.**
+       `orderedTabs()` 만 순회) → 탭을 빼는 순간 ⌘K 에서도 사라졌다.
+     ✅ **Q-22(2026-08-02)가 그 재발 예약을 닫았다** — 종전엔 `shell/palette.ts` 에 `act:graph` 한
+       줄을 **손으로** 놓아 메웠고, 그 파일 주석이 스스로 _"TABS 에서 화면을 내릴 때마다 여기"_ 라
+       적어 뒀다. 이제 은퇴에 어휘가 있다(`role:'retired'`): 배열에 **남아 있으므로** ⌘K 가 자동으로
+       줍고, 나브·세그먼트·링·`g` 어디에도 안 나온다. 손 유지가 0이 됐다.
      ⚠ 그 쿼리 값의 정본은 이 파일 위쪽의 `STRUCTURE_VIEW` 다. */
+  {
+    key: 'graph',
+    label: '학습 구조도',
+    group: 'train',
+    order: 86,
+    role: 'retired',
+    icon: 'graph',
+    /** ⚠ `retired` 만 갖는 필드 — 은퇴한 화면이 **실제로 어디로 가는가**. `key` 로 경로를 만들 수
+     *  없기 때문이다(옛 `/graph` 는 리다이렉트일 뿐 착지점이 아니다). */
+    to: `/items?view=${STRUCTURE_VIEW}`,
+  },
   /* ── 읽을거리 ─────────────────────────────────────────────────────────────
      ⚠⚠ **'수집(collect)' 그룹이 P-4 에서 해체됐다(2026-08-01).** 그 이름은 사용자의 질문이
      아니라 **출처 분류**였다 — 옛 주석이 문자 그대로 자백했다("밖에서 들여오는 것 전부").
