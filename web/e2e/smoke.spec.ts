@@ -75,6 +75,12 @@ test('탐구 수집 탭이 로드되고 검색 히어로를 표시한다', async
 test('치트시트가 떠 있으면 `g` 시퀀스가 뒤의 탭을 바꾸지 않는다 (H10)', async ({ page }) => {
   await boot(page, 'dark');
   await page.goto('/today');
+  /* ⚠ **앱이 붙을 때까지 기다린 뒤에 키를 누른다.** 처음엔 `toHaveURL` 만 걸었는데 그건 `goto`
+     시점에 이미 참이라 **아무것도 안 기다린다** — 리스너가 등록되기 전에 `?` 가 날아가 CI(ubuntu)
+     에서 flaky 로 나타났다(로컬 통과 · 러너 실패). 같은 파일의 첫 스모크가 쓰는 것과 같은 대기를
+     쓴다. ⚠ 재시도로 덮지 않는다 — 이 저장소는 "flaky 를 결함으로, 결함을 flaky 로" 읽는 쪽에
+     이미 물린 적이 있다. */
+  await expect(page.getByLabel('오늘 대시보드')).toBeVisible();
   await expect(page).toHaveURL(/\/today$/);
 
   await page.keyboard.press('?');
