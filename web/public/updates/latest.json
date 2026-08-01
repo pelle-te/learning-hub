@@ -1,11 +1,11 @@
 {
-  "version": "0.2.0",
-  "notes": "재기준선 22건 — 화면이 사실과 다르게 말하던 자리를 고쳤습니다.\n\n· 다른 기기에서 하던 복습을 '이어하기'로 열면 이제 그 카드에서 시작합니다(전엔 1장부터 다시 봤습니다).\n· Anki 대기 숫자가 낡았으면 낡았다고 말합니다 — 어제 값을 오늘 값처럼 그리던 것을 고쳤습니다.\n· 라이트 테마에서 세부 시트가 뒤 배경을 제대로 눌러 줍니다.\n· 과목·학기 삭제에 되돌리기가 생겼고, 되돌리기가 '언제 것'인지 말합니다.\n· 예보의 '앞당길 후보'를 눌러 그날 계획에 바로 넣을 수 있습니다.\n· 오답 메모를 명령 팔레트 검색으로 찾을 수 있습니다.\n· 폰에서 학습 블록을 완료 체크할 수 있습니다.\n· 시간·비율 표기와 졸업 진행률이 화면마다 다르던 것을 하나로 맞췄습니다.",
-  "pub_date": "2026-07-29T12:30:00Z",
+  "version": "0.3.0",
+  "notes": "P절 20건 — 앱이 처음으로 \"이건 하지 마세요\"를 말합니다.\n\n· 마감에 **시험 범위**를 지정할 수 있습니다(챕터 N까지). 전엔 마감을 넣는 순간 \"다 못 끝내요\" 경고가 영구히 떴습니다 — 안 끝난 챕터 *전부*를 그 날짜까지로 읽었기 때문입니다.\n· 마감까지 시간이 모자라면 **무엇을 뺄지 화면이 묻습니다**. 전엔 \"주당 시간을 늘리세요\"라는, 할 수 없는 처방 한 줄뿐이었습니다. 앱은 이미 뒤쪽 챕터를 조용히 버리고 있었고 — 이제 그 결정을 돌려드립니다(삭제가 아니라 이번 범위에서 제외 · 언제든 되돌리기).\n· 오늘의 히어로가 **시각이 아니라 급한 것**으로 정해집니다. 전엔 마감이 화면에 적히기만 하고 선택에는 한 번도 관여하지 않았습니다.\n· 밀린 복습을 \"당분간 안 볼게요\"라고 말할 수 있습니다. 전엔 건너뛰기가 아무것도 안 써서 내일 그대로 돌아왔습니다.\n· 계획 › 과목에서 **목록 / 구조도**를 전환합니다(옛 '학습 구조도' 탭이 이리로 들어왔습니다).\n· 숙달도 링이 **표본이 얇으면 그렇다고 말합니다**. 전엔 표본이 없으면 링이 통째로 사라졌습니다.\n· 끝난 것·뺀 것의 표시가 앱 전체에서 한 가지 모양으로 통일됐습니다(폰 포함).\n· 섹션 라벨이 흐림 대신 글자 굵기로 구분됩니다 — 흐림은 '비활성'으로 읽히던 것을 정리했습니다.\n· ⌘K 캡처가 지키지 못할 약속(시각·세션유형 칩)을 더 이상 보여주지 않습니다.",
+  "pub_date": "2026-08-01T04:50:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbHRUb2FvNUlxUHoxYmtKbnRVWGsxRzFmNnVsTWxsbkRjSFh3UG1CZDdjemRkOXFIdFVhVTUvRlRsZGNmRGhNb0dxZ3p1RlFVaEl3NEYrVWJ6WUMxR3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1MzI4MDQyCWZpbGU665+s64ud7ZeI67iMXzAuMi4wX3g2NC1zZXR1cC5leGUKcGtNWmdESzVuR0t6TkhUR0ZiWnBNUzR5Z3pkYTV1OGl2OE9iNDJ3VWJFalYreFB6c1J6SGJIVm5IVk0rNm5PN1pLak5OcXh2TENGZ1Q5U0RZYU9SQXc9PQo=",
-      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbGpvZGtPTE5LQjREald3Q1o1US9QajAyaDcvRSt2S3BxOHFGM0xRL2I5Q1gyL3pUQlp6ekFtZ3RWeXVHeC9hTjlrSXdER2sxcUo4U0xwSHU3RE9iYkFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1NTU5NzAxCWZpbGU665+s64ud7ZeI67iMXzAuMy4wX3g2NC1zZXR1cC5leGUKR2R3S3ZCa0NxVW1QWU1HdHNSRFMxaUpWdFBaNFpoVFFoK1dHYXFDcmhhUWRKdS8wa01ybVM4S1NMZWNkamhtcC9nSi92OERaME5HZ0NzSGZ1eTZGREE9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.3.0_x64-setup.exe"
     }
   }
 }
