@@ -197,7 +197,29 @@ jobs:
           LEARNING_HUB_NO_REAL_ENV: '1'
       # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
       # `cargo check` 만으로는 1단계에서 겪은 WiX/NSIS 번들 실패를 못 잡는다.
-      - run: npm run tauri:build
+      #
+      # ⚠⚠ **일회용 서명키를 여기서 만든다(2026-08-02).** `createUpdaterArtifacts: true` 라서 이
+      #   스텝은 `TAURI_SIGNING_PRIVATE_KEY` 없이는 **원리적으로 통과할 수 없다.** 그리고 진짜
+      #   개인키는 **일부러 GitHub 에 두지 않는다** — `릴리스.md` 가 그 판단을 이미 내렸다
+      #   (*"저장소·조직이 침해되면 서명 능력이 함께 간다 … 지금은 일부러 로컬"*).
+      #   두 결정이 정면으로 부딪혀 있었고, 그 결과가 C2 의 재발이다: 2026-08-01 실행에서
+      #   `cargo test`(C2-①)·`cloud-server`(②)·`secret-scan`(③)이 전부 되살아났는데 **`npm run e2e`
+      #   174케이스는 여전히 skipped** 였다. 병목이 사라진 게 아니라 한 스텝 뒤로 옮겨갔을 뿐이다.
+      #
+      #   → 매 실행마다 **버리는 키**를 만들어 서명한다. 셋 다 지킨다: 번들(NSIS)·서명 경로가
+      #     실제로 돌고, 진짜 키는 로컬에 남고, 뒤 스텝이 skip 되지 않는다.
+      #   ⚠ **키가 안 맞는 것이 안전장치다.** tauri 는 경고만 내고 진행하며(실측 2026-08-02),
+      #     그 경고가 말하는 *"런타임에 수락되지 않는다"* 가 곧 이 산출물이 **진짜 업데이트로
+      #     위장할 수 없다**는 뜻이다. CI 는 인스톨러를 업로드하지도 않는다(아래 upload-artifact
+      #     는 `if: failure()` + playwright 리포트뿐).
+      #   ⚠ 그래서 **이 스텝은 "업데이트를 낼 수 있는가"를 검증하지 않는다.** 그건 로컬
+      #     릴리스 절차(`릴리스.md`)와 배포 후 content-type 확인(C1)이 계속 소유한다.
+      - name: 번들 — 일회용 서명키(CI 전용 · 진짜 키는 로컬에만 있다)
+        run: |
+          npm run tauri -- signer generate -w ci-updater.key -p "" --force
+          $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content ci-updater.key -Raw
+          $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+          npm run tauri:build
 
       # ── 시각 회귀(2026-07-25 신설) ───────────────────────────────────────────
       # 종전에 CI 밖이던 유일한 게이트다. 이유는 정당했다 — 베이스라인 106장이 **win32**
