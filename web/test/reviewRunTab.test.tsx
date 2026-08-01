@@ -4,14 +4,13 @@
    빈 큐 폴백 + 회상 카드 흐름(카드 렌더 → 전진 → 세션 완료 리캡).
 ============================================================ */
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/app/ThemeProvider';
 import App from '@/app/App';
 import { useApp } from '@/store/useApp';
-import { usePrefill } from '@/store/prefill';
 
 function renderApp(path: string, state?: unknown) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -269,7 +268,12 @@ test('review-run 키: u 는 앵커까지 되돌린다 — 화면과 모델이 �
    완주 화면은 "될 줄 알았는데 안 된 게 N개(과신)"라 말하고 **끝났다**. `insights.ts` 가 그
    방향을 "가장 위험한 부류"라 적어 두고도 다음 행동이 없던 자리이고, 그 마찰이 CBMS 0행의
    직접 원인이다(3화면·6클릭이면 아무도 안 한다). */
-test('review-run: 과신 카드가 완주 화면에 이름으로 서고, 오답 폼으로 보낸다', async () => {
+/* ⚠ 옛 제목은 _"…이름으로 서고, **오답 폼으로 보낸다**"_ 였다. 그 버튼(`오답으로 남기기 →`)은
+   **P-2 에서 은퇴했다**(2026-08-01) — `/journal` 로 보내는 길이라 러너 문맥을 잃고 필드를 넷
+   다시 채워야 했고, 그래서 `cbms` 가 0행이었다. 지금은 `1`(못 떠올림) **직후 그 자리**에서
+   1키로 커밋된다(아래 케이스가 그걸 잠근다). 완주 화면은 여전히 과신을 *짚지만*, 남기는 것은
+   세션 중에 이미 끝나 있다. */
+test('review-run: 과신 카드가 완주 화면에 이름으로 선다', async () => {
   seedOneRetrieval();
   renderApp('/review-run');
   await screen.findByText('회상');
@@ -278,11 +282,47 @@ test('review-run: 과신 카드가 완주 화면에 이름으로 서고, 오답 
   // 실제로는 건너뛴다 → predicted=true · recalled=false = 과신
   press('1');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
-  expect(screen.getByText(/될 줄 알았는데 안 됐어요/)).toBeInTheDocument();
   // 어떤 카드였는지를 말한다 — 카운트만으로는 무엇을 남길지 알 수 없다.
-  expect(screen.getByText('선형대수')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /오답으로 남기기/ }));
-  expect(usePrefill.getState().form).toBe('cbms');
+  // ⚠ 그 줄 **안에서** 찾는다: P-2 의 "왜 막혔나" 한 줄도 같은 과목명을 말하므로(둘 다 방금 그
+  //   카드에 대한 문장이다) 화면 전체에서 찾으면 "Found multiple"로 죽는다.
+  const line = screen.getByText(/될 줄 알았는데 안 됐어요/).closest('p')!;
+  expect(within(line).getByText('선형대수')).toBeInTheDocument();
+  // 은퇴한 경로가 되살아나지 않게 못박는다(재추가 금지 · 근거는 로드맵 P-2).
+  expect(screen.queryByRole('button', { name: /오답으로 남기기/ })).toBeNull();
+});
+
+/* ── P-2 러너 인라인 CBMS(2026-08-01) ────────────────────────────────────────
+   여기서 잠그는 것은 **경로의 길이**다. 종전에 러너에서 오답을 남기는 길은 완주 화면의 버튼
+   하나였고 그것도 `/journal` 이동이라 3화면·6클릭이었다 — 이 파일이 검사하던 그 버튼이
+   `cbms` 0행의 원인이었다. 지금은 `1` 다음 키 하나다. */
+test('review-run: 못 떠올린 직후 1키로 오답이 남는다(3화면·6클릭 → 키 2번)', async () => {
+  seedOneRetrieval();
+  useApp.getState().mutate((st) => {
+    st.cbms = [];
+  });
+  renderApp('/review-run');
+  await screen.findByText('회상');
+  press('1'); // 못 떠올림 — 카드는 **즉시** 전진하고
+  // …방금 넘긴 카드의 "왜 막혔나"가 뜬다(모달이 아니라 한 줄).
+  expect(await screen.findByRole('group', { name: '못 떠올린 이유 분류' })).toBeInTheDocument();
+  press('c'); // 개념 — 1키 커밋
+  await waitFor(() => expect(useApp.getState().state.cbms?.length).toBe(1));
+  const rec = useApp.getState().state.cbms![0]!;
+  expect(rec.code).toBe('C');
+  // 문맥이 과목을 이미 안다 — 사용자가 고른 필드는 코드 하나뿐이다(필드 4→1).
+  expect(rec.name).toBe('선형대수');
+});
+
+test('review-run: 유형을 안 고르고 지나가면 아무것도 안 남는다(순손실 0)', async () => {
+  seedOneRetrieval();
+  useApp.getState().mutate((st) => {
+    st.cbms = [];
+  });
+  renderApp('/review-run');
+  await screen.findByText('회상');
+  press('1');
+  expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
+  expect(useApp.getState().state.cbms?.length ?? 0).toBe(0);
 });
 
 test('review-run: 예측이 맞았으면 과신 항목이 안 뜬다 — 성공에 마찰을 걸지 않는다', async () => {

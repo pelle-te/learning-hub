@@ -14,8 +14,9 @@
 ============================================================ */
 import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
 import { isDone } from './persistence';
+import { CBMS_ADVANCES_REVIEW } from './methodology';
 import { vaultAnchors } from './vaultAnchors';
-import type { AppState, Day, SessionType } from './types';
+import type { AppState, CbmsCode, Day, SessionType } from './types';
 
 export type ReviewRisk = 'fresh' | 'due' | 'overdue';
 
@@ -82,6 +83,33 @@ export function failingSids(state: AppState, todayDs: string): Set<string> {
   return out;
 }
 
+/**
+ * (과목|챕터) → **가장 최근 CBMS 코드**(P-3 입력). 챕터가 빈 기록은 안 센다 — 사다리는 챕터
+ * 단위라 붙일 자리가 없다.
+ *
+ * ⚠ `failingSids` 와 **입도가 다른 것이 이 함수의 전부다.** 저쪽은 백지 결과가 (날짜, 과목)
+ * 단위라(토대 B) 신호가 과목 전체에 걸리고, 그래서 같은 과목의 안 막힌 챕터까지 함께
+ * 앞당겨진다. CBMS 기록은 **챕터를 알고 있으므로** 그 번짐을 안 만든다.
+ * ⚠ 과거의 실패가 영원히 따라다니지 않게 **가장 최근 하나만** 본다(`failingSids` 와 같은 규율 —
+ * 오래된 실패가 영원히 남으면 그건 간격반복이 아니라 낙인이다).
+ */
+export function latestCbmsByChapter(state: AppState, todayDs: string): Map<string, CbmsCode> {
+  const latest = new Map<string, { ds: string; at: number; code: CbmsCode }>();
+  for (const e of state.cbms || []) {
+    const chapter = (e.chapter || '').trim();
+    if (!e.sid || !chapter) continue;
+    if (!e.ds || e.ds > todayDs) continue; // 미래 기록 무시(시드·시계 어긋남 방어)
+    const key = e.sid + '|' + chapter;
+    const cur = latest.get(key);
+    // 같은 날 여러 건이면 작성시각(`at`)이 동률을 깬다 — 없으면 뒤에 온 것이 이긴다(안정 정렬).
+    if (!cur || e.ds > cur.ds || (e.ds === cur.ds && (e.at ?? 0) >= cur.at))
+      latest.set(key, { ds: e.ds, at: e.at ?? 0, code: e.code });
+  }
+  const out = new Map<string, CbmsCode>();
+  for (const [k, v] of latest) out.set(k, v.code);
+  return out;
+}
+
 const TOUCH_TYPES: ReadonlySet<SessionType> = new Set<SessionType>(['new', 'rev', 'blank']);
 
 /** 챕터별 '마지막으로 만진 날' → 경과일·위험도. todayDs 이후(미래) 배치는 무시. 위험 큰 순 정렬. */
@@ -128,11 +156,22 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       }
     }
   }
-  // ID-10 — 직전 백지가 막힌 과목은 임계를 한 칸 앞당긴다(성패 가중 · 실패 방향만).
+  /* ID-10 — 직전 백지가 막힌 과목은 임계를 한 칸 앞당긴다(성패 가중 · 실패 방향만).
+     ⚠⚠ **P-3(2026-08-01) — 그 트리거를 챕터의 CBMS 코드가 가른다.** 순서가 규칙이다:
+       ① 이 챕터에 최근 CBMS 코드가 있으면 **그것이 결정한다**(지식 결손 계열만 앞당긴다).
+       ② 없으면 종전대로 과목 단위 백지 신호(`failingSids`)로 떨어진다.
+     ①이 ②를 이기는 이유: CBMS 는 **챕터를 알고** 백지 결과는 과목만 안다. 더 정밀한 신호가
+     있는데 거친 신호로 덮으면, 검산 한 번 놓친 챕터(`S`)가 정말 모르는 챕터와 같은 급함을
+     갖는다 — 그게 이 항목이 없앤 오탐이다.
+     ⚠ 백지 실패는 대개 자기 CBMS('C')를 자동 생성하므로(`setBlankResult`) ①로 흡수된다.
+       즉 ②는 "CBMS 를 안 남긴 옛 기록"의 폴백이지 경쟁 경로가 아니다. */
   const failing = failingSids(state, todayDs);
+  const cbmsByChapter = latestCbmsByChapter(state, todayDs);
   const out: ChapterReview[] = [];
   for (const e of last.values()) {
     const daysSince = dayDiff(e.ds, todayDs);
+    const code = cbmsByChapter.get(e.sid + '|' + e.chapter);
+    const failingNow = code ? CBMS_ADVANCES_REVIEW.has(code) : failing.has(e.sid);
     out.push({
       sid: e.sid,
       subject: e.subject,
@@ -140,7 +179,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       chapter: e.chapter,
       lastDs: e.ds,
       daysSince,
-      risk: riskOf(daysSince, failing.has(e.sid)),
+      risk: riskOf(daysSince, failingNow),
       ...(e.fromVault ? { fromVault: true as const } : null),
     });
   }

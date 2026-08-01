@@ -100,6 +100,68 @@ describe('spacedReview — 성패 가중 간격(ID-10 · 실패 방향만)', () 
   });
 });
 
+/* ── P-3 CBMS 코드가 사다리를 가른다(2026-08-01) ─────────────────────────────
+   여기까지 CBMS 는 **아무것도 안 바꿨다**(`grep cbms lib/scheduler/ lib/spacedReview.ts` 0건).
+   잠그는 것 둘: ① 지식 결손 계열(C·B·M)만 앞당긴다 ② 챕터 코드가 **과목 단위 백지 신호를
+   이긴다** — 더 정밀한 신호가 있는데 거친 신호로 덮으면 오탐이 남는다. */
+describe('spacedReview — CBMS 코드가 복습 사다리를 가른다(P-3)', () => {
+  const days = [day('2026-06-26', [newIt('m', '수학', ['5장'])])]; // age 8 → 평소 due
+  const base = stateWith([['2026-06-26', 'm', 'new']]);
+  const withCbms = (code: string, chapter = '5장', ds = '2026-06-27'): AppState =>
+    ({
+      ...base,
+      cbms: [{ id: 'x', ds, sid: 'm', name: '수학', chapter, code, note: '', conf: false, at: 1 }],
+    }) as unknown as AppState;
+  /** 과목 단위 백지 실패 — 위 ID-10 블록의 헬퍼와 같은 형태(스코프가 달라 여기 한 벌 더 둔다). */
+  const blankFail = (ds: string, sid: string) => ({
+    blankResults: [{ id: 'b0', ds, sid, name: '', passed: false, note: '' }],
+  });
+
+  it("'개념(C)'은 앞당긴다 — 몰라서 틀렸다", () => {
+    expect(chapterReviews(withCbms('C'), days, TODAY)[0]!.risk).toBe('overdue');
+  });
+
+  it("⚠ '실수(S)'는 앞당기지 않는다 — 알지만 틀린 것은 개념 결손이 아니다", () => {
+    expect(chapterReviews(withCbms('S'), days, TODAY)[0]!.risk).toBe('due');
+  });
+
+  it("'시간(T)'도 앞당기지 않는다(속도 문제이지 지식 결손이 아니다)", () => {
+    expect(chapterReviews(withCbms('T'), days, TODAY)[0]!.risk).toBe('due');
+  });
+
+  it("'경계(B)'·'수학(M)'은 앞당긴다", () => {
+    expect(chapterReviews(withCbms('B'), days, TODAY)[0]!.risk).toBe('overdue');
+    expect(chapterReviews(withCbms('M'), days, TODAY)[0]!.risk).toBe('overdue');
+  });
+
+  /* ⚠⚠ 이 케이스가 "오탐 제거"의 본체다. 종전엔 과목 백지가 막히면 **그 과목 전 챕터**가
+     앞당겨졌다 — 검산 한 번 놓친 챕터가 정말 모르는 챕터와 같은 급함을 가졌다. */
+  it('⚠ 챕터의 CBMS 코드가 과목 단위 백지 신호를 이긴다', () => {
+    const st = { ...withCbms('S'), ...blankFail('2026-06-27', 'm') } as AppState;
+    expect(chapterReviews(st, days, TODAY)[0]!.risk).toBe('due'); // 백지는 실패했지만 실수였다
+  });
+
+  it('CBMS 가 없는 챕터는 종전대로 과목 단위 백지 신호로 떨어진다(폴백)', () => {
+    const st = { ...withCbms('S', '다른장'), ...blankFail('2026-06-27', 'm') } as AppState;
+    expect(chapterReviews(st, days, TODAY)[0]!.risk).toBe('overdue');
+  });
+
+  it('가장 최근 코드만 본다 — 옛 실패가 영원히 따라다니지 않는다(낙인 금지)', () => {
+    const st = {
+      ...base,
+      cbms: [
+        { id: 'a', ds: '2026-06-27', sid: 'm', name: '수학', chapter: '5장', code: 'C', note: '', conf: false, at: 1 },
+        { id: 'b', ds: '2026-06-29', sid: 'm', name: '수학', chapter: '5장', code: 'S', note: '', conf: false, at: 2 },
+      ],
+    } as unknown as AppState;
+    expect(chapterReviews(st, days, TODAY)[0]!.risk).toBe('due'); // 최근 것이 실수 → 안 앞당김
+  });
+
+  it('미래 기록은 무시한다(시드·시계 어긋남 방어)', () => {
+    expect(chapterReviews(withCbms('C', '5장', '2026-09-01'), days, TODAY)[0]!.risk).toBe('due');
+  });
+});
+
 describe('spacedReview — chapterReviews', () => {
   const days = [
     day('2026-06-18', [newIt('m', '수학', ['1장'])]), // age 16 → overdue (완료)

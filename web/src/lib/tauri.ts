@@ -475,6 +475,54 @@ export async function shellSaveFile(filename: string, contents: string): Promise
   return true;
 }
 
+/**
+ * 시스템 알림 하나(P-8 · 2026-08-01). 셸이 아니면 **아무 일도 안 한다**(브라우저엔 채널이 없다).
+ *
+ * ## ⚠⚠ 웹 `Notification` 을 쓰지 않는 이유 — 실측
+ *
+ * `FocusChip` 은 `Notification.permission === 'granted'` 가드 뒤에서 `new Notification(...)` 을
+ * 쐈다. 실 셸(릴리스 exe · CDP 프로브)에서 재 보니:
+ *
+ *     origin=http://tauri.localhost · permissionBefore="denied"
+ *     await Notification.requestPermission() → "denied"  (프롬프트 없이 즉시)
+ *     new Notification(...) → 객체는 생기지만 `onerror` 발화 · **표시 안 됨**
+ *
+ * 즉 그 가드가 **항상 거짓**이라 이 앱은 알림을 한 번도 쏜 적이 없다 — 개입 채널이 1개인 줄
+ * 알았는데 **0개**였다. 웹 API 로는 못 고친다(그 오리진에 알림 권한이 없다).
+ *
+ * ⚠ **실패해도 조용히 넘어간다.** 알림은 부가 신호이고 같은 사실을 화면 안 토스트가 말한다 —
+ *   알림 때문에 세션 종료 처리가 죽으면 그건 훨씬 나쁜 교환이다.
+ * ⚠ **액션 버튼은 못 붙인다**(Windows 에서 원리적으로 · Actions API 는 모바일 전용). 그래서
+ *   행동 선택지는 앱 안이 진다 — 이 함수는 "지금 끝났다"만 나른다.
+ */
+/**
+ * 알림 권한을 **미리** 받아 둔다 — 세션 *시작* 때 부른다(P-8).
+ *
+ * ⚠ 끝날 때 처음 요청하면 권한 대화상자가 뜨는 사이 그 세션의 알림은 이미 놓친다. 그리고
+ * 시작을 누른 순간이 "끝나면 알려 달라"는 뜻이므로, 물어보기에 가장 정직한 시점이기도 하다.
+ * ⚠ 실패는 조용하다(권한 거부는 정당한 답이고, 화면 안 토스트가 같은 사실을 말한다).
+ */
+export async function shellNotifyPrime(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const api = await import('@tauri-apps/plugin-notification');
+    if (!(await api.isPermissionGranted())) await api.requestPermission();
+  } catch {
+    /* 권한 거부·플러그인 부재 — 토스트가 커버한다 */
+  }
+}
+
+export async function shellNotify(title: string, body: string): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const api = await import('@tauri-apps/plugin-notification');
+    if (!(await api.isPermissionGranted()) && (await api.requestPermission()) !== 'granted') return;
+    api.sendNotification({ title, body });
+  } catch {
+    /* 권한 거부·플러그인 부재 — 토스트가 커버한다 */
+  }
+}
+
 /** AnkiConnect 액션 중계(4단계-F). 브라우저 직통은 셸 오리진이 CORS 화이트리스트에 없어 막힌다. */
 export function shellAnkiConnect<T>(action: string, params: Record<string, unknown>): Promise<T> {
   return call<T>('anki_connect', { action, params });

@@ -51,3 +51,32 @@ describe('한 줄 판정 — 여유가 있으면 여유를 먼저 말한다', ()
     expect(dayCapacity([b('done', 540, 60, true)], 300).fitLine).toBeNull();
   });
 });
+
+/* ── P-7 막대 축척 ────────────────────────────────────────────────────────────
+   여기서 잠그는 것 하나: **분모가 창이 아니라 둘 중 큰 값**이라는 것. 창으로 나누면 초과분이
+   100% 에서 잘려 *넘쳤다는 사실 자체가 안 보이고*, 그건 이 앱이 `beyondKeys` 를 조용히 필터로
+   지우던 실패를 그래픽으로 반복하는 것이다. */
+describe('막대 축척 — 넘친 것이 잘리지 않는다', () => {
+  it('남은 계획이 창보다 크면 축척은 계획 쪽이다(초과분이 밖으로 삐져나온다)', () => {
+    const r = dayCapacity([b('a', 540, 120), b('b', 720, 120)], 100);
+    expect(r.scaleMin).toBe(240);
+    expect(r.windowRatio).toBeCloseTo(100 / 240);
+  });
+
+  it('여유가 있으면 축척은 창이고 막대 끝에 빈 자리가 남는다', () => {
+    const r = dayCapacity([b('a', 540, 60)], 300);
+    expect(r.scaleMin).toBe(300);
+    expect(r.windowRatio).toBe(1);
+  });
+
+  it('칸은 시각 순이고 beyondKeys 와 같은 규칙으로 갈린다(막대와 레일이 다른 말을 하지 않는다)', () => {
+    const r = dayCapacity([b('c', 900, 60), b('a', 540, 120), b('b', 720, 120)], 150);
+    expect(r.segments.map((s) => s.key)).toEqual(['a', 'b', 'c']);
+    expect(r.segments.filter((s) => s.beyond).map((s) => s.key)).toEqual([...r.beyondKeys]);
+  });
+
+  it('그릴 것이 없으면 축척이 0이다(호출부가 그걸로 안 그린다를 판정한다)', () => {
+    expect(dayCapacity([], 0).scaleMin).toBe(0);
+    expect(dayCapacity([], 0).windowRatio).toBe(0);
+  });
+});

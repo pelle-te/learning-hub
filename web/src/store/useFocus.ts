@@ -9,6 +9,7 @@ import { bootFocus, persistFocus, focusMinutes, type FocusSession } from '@/lib/
 import { todayISO, minutesOfDay } from '@/lib/utils';
 import type { SessionType } from '@/lib/types';
 import { toast } from '@/shell/toast';
+import { shellNotifyPrime } from '@/lib/tauri';
 import { putResume, clearResume, resumeDevice, type ResumeCursor } from '@/lib/resume';
 import { useApp } from './useApp';
 import { selectTodayFocus } from './selectors';
@@ -37,7 +38,11 @@ interface FocusStore {
   startFree: (min: number, label?: string) => void;
   /** 세션 중단(완료 아님). */
   stop: () => void;
-  /** 집중 종료 직후 자동 휴식(포모도로 회복 구간) — 완료 토글 없는 'break' 세션. */
+  /** 회복 휴식(포모도로) — 완료 토글 없는 'break' 세션.
+   *  ⚠ **P-8(2026-08-01)부터 자동이 아니다.** 종전엔 집중이 끝나면 `FocusChip` 이 곧바로
+   *  `startBreak(5)` 를 불렀고, 그게 **사용자가 요청하지 않은 세션을 앱이 시작하는 유일한
+   *  자리**였다(완료 토스트를 읽는 동안 이미 다음 타이머가 흐르고 있었다). 지금은 종료
+   *  토스트의 선택지 하나다 — 없어진 것은 자동성이지 기능이 아니다. */
   startBreak: (min?: number) => void;
   /** 종료 처리 후 정리(FocusChip 전용 — 토스트/알림은 호출부가). */
   clear: () => void;
@@ -60,9 +65,11 @@ export const useFocus = create<FocusStore>((set, get) => ({
   session: bootFocus(storage, Date.now()),
 
   start(t) {
-    // 알림 권한은 첫 시작 때 지연 요청 — 종료 알림(백그라운드에서도 보이게)용.
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default')
-      void Notification.requestPermission();
+    /* 알림 권한은 **시작할 때** 미리 받아 둔다 — 종료 알림(백그라운드에서도 보이게)용.
+       ⚠⚠ 여기 웹 `Notification.requestPermission()` 이 있었는데 `tauri://` 오리진에서는
+       `permission` 이 항상 `'denied'` 라 `=== 'default'` 조건이 **한 번도 참이 아니었다**
+       (실측 2026-08-01 · P-8). 즉 이 두 줄은 죽은 코드였고, 그 결과 종료 알림도 죽어 있었다. */
+    void shellNotifyPrime();
     const now = Date.now();
     const session: FocusSession = {
       endsAt: now + t.min * 60_000,
@@ -106,9 +113,8 @@ export const useFocus = create<FocusStore>((set, get) => ({
   },
 
   startFree(min, label = '즉석 집중') {
-    // 알림 권한은 첫 시작 때 지연 요청(종료 축하 알림용) — start()와 동일.
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default')
-      void Notification.requestPermission();
+    // 알림 권한은 시작할 때 미리(종료 축하 알림용) — start()와 동일. 근거는 그쪽 주석.
+    void shellNotifyPrime();
     const m = Math.max(1, Math.round(min));
     const now = Date.now();
     const session: FocusSession = {
@@ -154,6 +160,6 @@ export const useFocus = create<FocusStore>((set, get) => ({
   clear() {
     set({ session: null });
     persistFocus(storage, null);
-    dropResume(); // 세션 종료 = 이어할 것 없음(자동 휴식은 커서를 만들지 않는다)
+    dropResume(); // 세션 종료 = 이어할 것 없음(휴식은 커서를 만들지 않는다)
   },
 }));

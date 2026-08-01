@@ -19,9 +19,9 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { mistakeArchive, mistakeTotals, type MistakeRow } from '@/lib/mistakes';
+import { mistakeArchive, mistakeTotals, todayMistakes, type MistakeRow } from '@/lib/mistakes';
 import { CBMS_INFO, CBMS_CODES, addBacklog } from '@/lib/methodology';
-import { openVaultSearch } from '@/lib/utils';
+import { openVaultSearch, todayISO } from '@/lib/utils';
 import { ui } from '@/shell';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
@@ -40,6 +40,12 @@ const CH = 'text-sm text-mut';
 const META = 'ml-auto flex flex-wrap items-center gap-2 text-xs text-mut tabular-nums';
 const CODE_CHIP = 'rounded-full px-2 py-0.5 text-2xs font-bold';
 const NOTE = 'truncate text-xs text-mut';
+/* P-14 행동 한 줄 — 메모(회색)보다 위계가 높다. 이건 *과거 기록*이 아니라 *다음 걸음*이라
+   같은 색으로 그리면 읽을 이유가 없어진다. 액센트는 안 쓴다(행동 버튼이 바로 아래 있다 · D-6). */
+const ACTION = 'text-xs leading-body font-semibold text-txt';
+/* 오늘 볼 것 / 전량 아카이브의 경계. `<summary>` 는 전역 button{} 을 안 타므로 유틸만으로 선다. */
+const FOLD = 'mt-1 cursor-pointer text-xs font-bold text-mut hover:text-txt';
+const TODAY_HEAD = 'flex flex-none items-baseline gap-2 text-xs font-bold tracking-caps text-mut uppercase';
 const ACTS = 'mt-0.5 flex flex-wrap gap-2';
 const MINI = 'cursor-pointer rounded-sm border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-txt';
 
@@ -56,7 +62,18 @@ function CodeChip({ code, n }: { code: CbmsCode; n?: number }) {
   );
 }
 
-function MistakeCard({ row, onDrill, onSeed }: { row: MistakeRow; onDrill: () => void; onSeed: () => void }) {
+function MistakeCard({
+  row,
+  onDrill,
+  onSeed,
+  action,
+}: {
+  row: MistakeRow;
+  onDrill: () => void;
+  onSeed: () => void;
+  /** P-14 — '다음에 무엇을 할지' 한 줄. 오늘 3건에만 붙는다(전량 목록에서는 스무 번 반복될 뿐이다). */
+  action?: boolean;
+}) {
   return (
     <article className={ROW}>
       <div className={ROW_TOP}>
@@ -73,6 +90,18 @@ function MistakeCard({ row, onDrill, onSeed }: { row: MistakeRow; onDrill: () =>
           <span title="마지막으로 틀린 날">{row.lastDs}</span>
         </span>
       </div>
+      {/* ── P-14 행동 한 줄 ─────────────────────────────────────────────────
+          이 화면은 "무엇이 반복해서 나를 막는가"까지 답하고 **끝났다** — 읽고 나서 무엇을
+          할지가 없으니 다시 안 읽혔다. 처방은 `CBMS_INFO.tip` 의 **파생**이라 새 저장 필드가
+          0이다(항목별 행동을 사용자가 적게 하면 그건 새 입력이고 §1-b 대상이 된다).
+          ⚠ 오늘 3건에만 붙인다 — 전량 목록에 붙이면 같은 다섯 문장이 스무 번 반복돼
+            처방이 배경 무늬가 된다. */}
+      {action && (
+        <p className={ACTION}>
+          <span aria-hidden="true">→ </span>
+          {CBMS_INFO[row.topCode].tip}
+        </p>
+      )}
       {row.notes.slice(0, NOTE_CAP).map((n) => (
         <div key={n.ds + n.text} className={NOTE} title={n.text}>
           {n.ds} — {n.text}
@@ -108,6 +137,9 @@ export default function Mistakes() {
 
   const rows = mistakeArchive(state, { sid: sid || undefined, code: code || undefined });
   const totals = mistakeTotals(rows);
+  /* P-14 — 오늘 볼 창(날짜 회전 · 규칙은 `lib/mistakes` 가 소유). 필터가 걸려 있으면 그 결과
+     안에서 돈다 — 데려온 필터를 무시하고 전체에서 뽑으면 딥링크가 엉뚱한 것을 보여 준다. */
+  const picks = todayMistakes(rows, todayISO(state));
   // 필터 칩은 **전 기간에 실제로 기록이 있는 과목**만 — 안 틀린 과목까지 나열하면 필터가 소음이 된다.
   const subjects = [...new Map((state.cbms || []).map((e) => [e.sid, e.name || '?'])).entries()];
 
@@ -208,10 +240,29 @@ export default function Mistakes() {
           이 조건에 맞는 오답이 없어요 — 필터를 풀어 보세요.
         </p>
       ) : (
+        /* ── P-14 오늘 볼 것이 먼저, 전량은 접힘 뒤로(2026-08-01) ─────────────────
+           종전엔 전 기간 전량이 **상시**였다. 도달은 쉬웠지만(클릭 2) 도착한 뒤 무엇부터
+           볼지가 다시 사용자의 일이었고, 그래서 다시 안 읽혔다.
+           ⚠ **필터는 상시로 남긴다**(위 칩) — 접는 것은 *목록*이지 *찾는 길*이 아니다.
+             `/mistakes?sid=…` 로 데려온 사람은 그 필터 결과를 보러 온 것이므로, 필터가 걸려
+             있으면 오늘 창도 그 안에서 돈다(같은 `rows` 에서 뽑는다). */
         <div className={LIST}>
-          {rows.map((r) => (
-            <MistakeCard key={r.key} row={r} onDrill={() => nav('/review-run')} onSeed={() => seed(r)} />
+          <h2 className={TODAY_HEAD}>
+            오늘 볼 것<span className="font-semibold normal-case">— 하루 1~3분이면 충분해요</span>
+          </h2>
+          {picks.map((r) => (
+            <MistakeCard key={r.key} row={r} action onDrill={() => nav('/review-run')} onSeed={() => seed(r)} />
           ))}
+          {rows.length > picks.length && (
+            <details>
+              <summary className={FOLD}>전체 {rows.length}칸 보기 — 아카이브</summary>
+              <div className="mt-2 flex flex-col gap-2">
+                {rows.map((r) => (
+                  <MistakeCard key={r.key} row={r} onDrill={() => nav('/review-run')} onSeed={() => seed(r)} />
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       )}
     </section>

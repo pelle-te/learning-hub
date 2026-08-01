@@ -133,6 +133,24 @@ export function anchorOf(item: RunCard): { sid: string; chapter: string } | null
   return null;
 }
 
+/**
+ * 이 카드를 **못 떠올렸을 때 오답으로 남길 대상**(P-2). `anchorOf` 와 다른 함수인 이유가 요지다.
+ *
+ * `anchorOf` 는 *망각곡선을 리셋해도 되는가*를 답하므로 챕터가 없으면 `null` 이다(아무 챕터나
+ * 리셋하는 것은 오염이다). 오답 기록은 그 제약이 없다 — `mistakeArchive` 가 `chapter: ''` 를
+ * **정당한 칸**으로 이미 다루고(`sid|''`), 과목 단위 오답은 그 자체로 읽을 수 있는 사실이다.
+ * 두 질문을 한 함수로 합치면 회상 카드(요약 = 과목 단위)에서 **오답 경로가 통째로 막힌다.**
+ *
+ * ⚠ 코드(C/B/M/S/T)는 여기서 정하지 않는다 — 앱이 아는 것은 "못 떠올렸다"뿐이고 분류는 사람이
+ * 고른다. `insights.ts` 가 _"LLM 자동 CBMS 분류가 조용한 오분류로 드롭됐다"_ 고 못박은 경계다.
+ */
+export function missTarget(item: RunCard): { sid: string; name: string; chapter: string } {
+  if (item.kind === 'chapter') return { sid: item.ch.sid, name: item.ch.subject, chapter: item.ch.chapter };
+  if (item.kind === 'confident')
+    return { sid: item.card.cbms.sid, name: item.card.cbms.name, chapter: item.card.cbms.chapter || '' };
+  return { sid: item.card.summary.sid, name: item.card.summary.name, chapter: '' };
+}
+
 /** 카드의 세션 내 정체성 — 재삽입본과 원본이 **같은 카드**임을 세는 키(분모가 흔들리지 않게). */
 export function runItemKey(item: RunItem): string {
   if (item.kind === 'retrieval') return `r:${item.card.summary.id}`;

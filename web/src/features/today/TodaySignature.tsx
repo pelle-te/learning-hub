@@ -31,8 +31,8 @@ import { frontierNext } from '@/lib/knowledge';
 import { onThisDay } from '@/lib/records';
 import { dayShape } from '@/lib/insights';
 import type { AppState } from '@/lib/types';
-import { ProgressRing } from '@/components/ProgressRing';
 import { FlowRail, type FlowNode } from './FlowRail';
+import { DayBar } from './DayBar';
 import { todayISO, parseISO, addDays, iso, ddayInfo, toHM, mmss } from '@/lib/utils';
 import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 import { useCommitOnChange } from '@/hooks/useCommitOnChange';
@@ -69,9 +69,9 @@ const S = {
      (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */
   eyebrow:
     'inline-flex items-center gap-2 text-xs leading-text font-extrabold tracking-eyebrow-wide text-mut uppercase',
-  /* W6 용량 한 줄 — 아이브로(12px)와 리드아웃(30px) 사이의 크기. 판정은 근거보다 크고 요약보다
-     작다. `tabular-nums` 는 시간이 바뀔 때 문장이 흔들리지 않게 한다. */
-  fit: 'mt-1.5 text-base14 leading-body font-semibold text-mut tabular-nums',
+  /* ⚠ W6 용량 **한 줄**(`fit`)이 여기 있었다 — P-7 이 그 판정을 길이로 옮기며 사라졌다.
+     스타일이 `DayBar` 로 간 것이 아니라 **문장 자체가 그래픽이 됐다**(문자열은 그 막대의
+     `aria-label` 로만 남는다). 되살리려면 먼저 "왜 길이로 부족한가"를 적을 것. */
   live: 'size-1.75 rounded-full bg-acc shadow-load animate-[live-breathe_var(--tempo)_var(--ease)_infinite] motion-reduce:animate-none',
   subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-flat tracking-subj! text-balance text-[color:var(--subj-col)]!',
   heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-body text-mut',
@@ -102,8 +102,9 @@ const S = {
   flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 [--rise-y:12px] animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
   flowHead: 'mb-2.5! flex! items-center gap-3',
   ring: 'relative inline-block size-8.5 flex-none [--ring-w:6]',
-  ringNum:
-    'absolute inset-0 flex items-center justify-center text-lg leading-text font-extrabold tracking-ringnum text-txt',
+  /* ⚠ `ring`(도넛 래퍼)이 여기 있었다 — P-7 에서 **링을** 지웠다(숫자가 아니라 · 근거는 JSX 주석).
+     `ringNum` 은 이제 링 *안*이 아니라 흐름 헤더의 첫 칸이라 `absolute` 를 뗀다. */
+  ringNum: 'flex-none text-lg leading-text font-extrabold tracking-ringnum text-txt',
   ringNumSmall: 'text-tiny9 font-bold text-mut',
   flowT: 'flex-1 text-xs leading-text font-extrabold tracking-caps text-mut uppercase',
   // D-6 — '● 09:00 LIVE'는 시계다(내가 손볼 것이 아니다). 살아 있다는 신호는 점 하나로 충분.
@@ -397,25 +398,37 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   /* ── E9 "오늘 밖"을 오늘 것처럼 그리지 않는다 + W6 그 판정을 **문장으로** ────────────
      판정은 `lib/dayCapacity` 하나가 소유한다(옮긴 이유·규칙·비대칭은 그 파일 머리주석).
      여기선 블록을 그 함수가 아는 형태로만 바꿔 넘긴다. */
-  const { beyondKeys, fitLine } = dayCapacity(
+  const cap = dayCapacity(
     enriched.map((e) => ({
       key: 'study|' + completionKey(e.it.sid, e.it.type),
       start: e.start,
       min: e.it.min || 0,
       done: e.done,
+      name: e.it.name,
+      color: e.it.color,
     })),
     freeLeftMin,
   );
-  /* 링의 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는
-     블록까지 목표에 넣고 매일 그 목표에 못 미쳤다 — 게이지가 매일 지는 게임을 그린 셈이다. */
+  const { beyondKeys } = cap;
+  /* 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는
+     블록까지 목표에 넣고 매일 그 목표에 못 미쳤다 — 게이지가 매일 지는 게임을 그린 셈이다.
+     ⚠ P-7 이 레일 필터는 없앴지만 이 분모는 **그대로 둔다**: 저건 "안 보여준다"였고 이건
+     "오늘 목표가 무엇인가"라, 같은 `beyondKeys` 를 쓰지만 다른 질문이다. */
   const todayPossible = Math.max(todayDone, todayTotal - beyondKeys.size);
-  /* E15 — 완료 수가 바뀌면 링 숫자가 스스로 번쩍인다(`commit` 어휘). 마운트엔 안 번쩍인다. */
+  /* E15 — 완료 수가 바뀌면 그 숫자가 스스로 번쩍인다(`commit` 어휘). 마운트엔 안 번쩍인다. */
   const doneRef = useCommitOnChange(todayDone);
-  const pct = todayPossible ? Math.round((todayDone / todayPossible) * 100) : 0;
+  /* ⚠ `pct`(링 호 길이)가 여기 있었다 — P-7 에서 링과 함께 사라졌다. 진행률을 다시 그리고
+     싶어지면 먼저 "왜 `DayBar` 로 부족한가"를 적을 것(시그니처는 페이지마다 하나 · 원칙 ③). */
 
+  /* ⚠⚠ **레일에서 '오늘 밖' 블록을 지우던 필터가 P-7 에서 사라졌다(2026-08-01).**
+     종전엔 `dayCapacity` 가 접은 블록을 여기서 **조용히 제외**했고, 화면에 남는 흔적은 14px
+     한 줄(`fitLine`)뿐이었다 — 무엇이 잘렸는지 보려면 `/schedule` 로 1클릭·2화면이었다.
+     그리고 기준이 "시각이 늦은 것"이라 **마감 D-1 과목이 오후 배치면 그게 잘렸다.**
+     이제 `DayBar` 가 그 컷을 **창 밖으로 삐져나온 칸**으로 명시적으로 그리므로, 레일에서까지
+     지울 이유가 없다(지우면 막대가 가리키는 것을 레일에서 못 찾는다). */
   const flowNodes: FlowNode<EnrichedItem>[] = [
     ...enriched
-      .filter((e) => e.start != null && !beyondKeys.has('study|' + completionKey(e.it.sid, e.it.type)))
+      .filter((e) => e.start != null)
       .map((e): FlowNode<EnrichedItem> => ({
         key: 'study|' + completionKey(e.it.sid, e.it.type),
         kind: 'study',
@@ -462,8 +475,34 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     freeLeftMin,
     // 남은 것 중 가장 짧은 블록 — "자리에 들어가는가"의 기준(dayPhase 머리주석).
     shortestPendingMin: pending.reduce((m, e) => Math.min(m, e.it.min || 0), Number.POSITIVE_INFINITY),
+    underway: !!current,
   });
   const closing = phase === 'closing';
+  /* ── P-15 국면이 서로의 객체를 지운다(2026-08-01) ─────────────────────────────
+     종전엔 국면 의존 렌더가 **셋뿐**이었다(`Presets` !closing · `ShapeLine` closing ·
+     `CloseDayCta` closing) — 즉 *낮 화면이 기본이고 마감에서 둘이 붙었다 떨어질 뿐*이었고,
+     히어로에 동시 존재 가능한 표면이 18~19개였다.
+
+     배분 규칙은 취향이 아니라 **그 표면이 답하는 질문이 이 국면의 질문인가** 하나다:
+       · opening("오늘 무엇부터") — 하루를 *여는* 회고(어제 한 줄 · On This Day)가 여기 산다.
+         두 번째 블록(`upNext`)과 길이 대안(`Presets`)은 아직 첫 번째도 안 열었으므로 없다.
+       · run("지금 이것")         — 실행 도구가 산다. 여는 회고는 실행 중엔 소음이라 빠진다.
+       · closing("오늘 어땠나")   — 오늘의 모양·하루 닫기. 오늘 안 할 것(`upNext`)은 없다.
+
+     ⚠ **인출 카드는 어느 국면에서도 안 지운다.** `todaySlots.ts` 가 그 값어치를 명시적으로
+     방어해 뒀다(_"슬롯을 없애면 이 앱이 만드는 학습 증거가 함께 준다"_) — 아침에 안 그리면
+     그날 우발적 인출 한 장이 통째로 사라지고, 그건 국면 분리가 사려던 것보다 비싸다. */
+  /** 하루를 *여는* 회고 — 여는 국면에만. 실행 중·닫는 중엔 같은 문장이 소음이다.
+   *  ⚠⚠ **빈 날을 함께 넣는다.** `dayPhase` 는 `todayTotal <= 0` 을 'run' 으로 답하는데
+   *  (_"빈 날은 닫을 하루가 없다"_), 그건 *닫기* 관점의 답이지 여는 관점의 답이 아니다 —
+   *  배치가 0인 날의 질문은 정확히 "오늘 무엇을 할까"이고 그게 여는 국면의 질문이다.
+   *  이 한 줄이 없으면 **아무것도 계획되지 않은 날에 어제 한 줄·회고가 통째로 사라진다**
+   *  (실렌더 확인이 잡았다 — `today · onthisday` 스냅샷이 빈 히어로로 떨어졌다).
+   *  ⚠ `dayPhase` 자체를 고치지 않는 이유: 'opening' 을 빈 날까지 넓히면 `Presets`·`upNext`
+   *  같은 *실행* 분기까지 그 판정을 따라가는데, 빈 날엔 실행할 대상이 애초에 없어 무의미하고
+   *  그 함수의 계약(_"빈 날은 닫을 하루가 없다"_)만 흐려진다. 판정은 그대로 두고 **이 화면이
+   *  자기 문장에 대해** 범위를 정한다. */
+  const showOpeningRecall = phase === 'opening' || todayTotal === 0;
 
   const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
   const focusMin = focusMinutes(focus);
@@ -605,7 +644,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                  남긴다 — 중복이 아니라 그 화면의 **유일한** 다음 걸음이다. */
               undefined,
     }),
-    [pct, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
+    // ⚠ `pct` 가 여기 있었다 — 링과 함께 사라졌다(P-7). 완료 수는 `todayDone` 이 대신한다.
+    [todayDone, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
 
   // W20 — 오늘 띄울 인출 카드 **하나**(회전 규칙·근거는 `lib/todaySlots` 머리주석).
@@ -714,9 +754,16 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               {kicker}
             </span>
           </div>
-          {/* W6 — 용량 판정 한 줄. 아이브로 바로 아래(같은 시선 흐름), 리드아웃보다 작고
-              종결 캡보다 크다 — "판단"은 근거(레일)와 요약(리드아웃) 사이의 크기다. */}
-          {fitLine && <div className={S.fit}>{fitLine}</div>}
+          {/* P-7 — W6 의 판정 **문장**이 여기 있었다. 같은 판정을 이제 길이로 말한다(`DayBar`).
+              문장은 사라진 것이 아니라 막대의 `aria-label` 이 됐다 — 길이로 옮긴 것을 SR 이
+              못 읽으면 그건 이전(移轉)이 아니라 손실이다. */}
+          <DayBar
+            segments={cap.segments}
+            scaleMin={cap.scaleMin}
+            windowRatio={cap.windowRatio}
+            fitLine={cap.fitLine}
+            beyondMin={cap.beyondMin}
+          />
 
           <h2 className={S.subj}>{heroMain}</h2>
           <div className={S.heroSub}>
@@ -759,7 +806,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 <span className={S.chapter}>{heroSub}</span>
                 {/* D-5 — "왜 이것인가". 고르는 함수가 이유까지 돌려주므로 화면과 규칙이 갈릴 수 없다. */}
                 {focusReason && <span className={S.why}>{focusReason}</span>}
-                {upNext && (
+                {/* P-15 — '다음 ·'은 **굴리는 중**의 객체다. 여는 국면엔 첫 번째도 아직 안 열었고,
+                    닫는 국면엔 오늘 안 할 것이다. 두 경우 다 둘째 줄을 읽을 이유가 없다. */}
+                {upNext && phase === 'run' && (
                   <span className={S.upnext}>
                     다음 · {upNext.it.name}
                     {upNext.start != null ? ` ${toHM(upNext.start)}` : ''}
@@ -768,16 +817,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               </>
             )}
           </div>
-          {/* A1 — 어제 남긴 '내일 한 줄'(아직 오늘 진행 중일 때만; 완료 화면은 동력에 집중). */}
-          {prevNote && !allDone && (
+          {/* A1 — 어제 남긴 '내일 한 줄'.
+              ⚠ P-15 — **하루를 여는 국면에만.** 종전엔 완료 전까지 하루 종일 떠 있었는데, 이건
+              *어제의 나에게서 온 메모*라 오늘을 여는 순간에 값이 있고 세 시간 뒤엔 소음이다. */}
+          {prevNote && showOpeningRecall && (
             <div className={S.yesterday}>
               <span aria-hidden="true">🌙</span> 어제 남긴 한 줄 —{' '}
               <b className="font-bold text-[color:var(--yesterday-b)]">{prevNote}</b>
             </div>
           )}
           <ShapeLine state={state} ds={ds} when={closing} />
-          {/* ID-4 — On This Day 회고: 달력상 같은 날의 과거 실기록 한 줄(회상 카드와 달리 달력 정합). */}
-          {onThis && (
+          {/* ID-4 — On This Day 회고: 달력상 같은 날의 과거 실기록 한 줄(회상 카드와 달리 달력 정합).
+              ⚠ P-15 — 같은 이유로 여는 국면에만. 이것도 *과거를 여는* 문장이다. */}
+          {onThis && showOpeningRecall && (
             <div className={S.yesterday}>
               <span aria-hidden="true">📅</span> {onThis.offsetLabel} —{' '}
               {onThis.subject && <b className="font-bold text-[color:var(--yesterday-b)]">{onThis.subject}</b>}{' '}
@@ -816,7 +868,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                     크게 띄우며 있지도 않은 시간을 쓰라고 했다. 시작을 **지우지는 않는다**
                     (밤샘은 사용자의 선택이다) — 닫는 길을 옆에 낼 뿐이고, 그래서 채움 버튼은
                     여전히 하나다(D-6 액센트 예산). */}
-                <Presets focusMin={focusMin} onPick={startTimer} when={!closing} />
+                {/* ⚠ P-15 — 여는 국면에도 안 그린다. 25·50분은 *기본 길이를 바꾸는* 도구인데,
+                    아직 한 번도 안 시작한 시점의 기본은 블록이 정한 길이(`focusMinutes`)가 맞다.
+                    고를 것을 먼저 보여 주면 여는 화면의 질문이 "무엇부터"에서 "몇 분"으로 바뀐다. */}
+                <Presets focusMin={focusMin} onPick={startTimer} when={phase === 'run'} />
               </>
             ) : hasItems ? (
               // §7: 과목은 있으나 오늘 포커스가 없음 → 오늘 계획을 직접 짜는 단일 목적지(계획 › 캘린더 일 뷰).
@@ -849,27 +904,28 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
         {!emptyDay && (
           <aside className={S.flow}>
             <h2 className={S.flowHead} aria-label={`오늘의 흐름 ${todayDone}/${todayPossible} 완료`}>
+              {/* ⚠⚠ **여기 `ProgressRing` 이 있었고 그 한가운데 `3/7` 이 겹쳐 있었다 — P-7 에서
+                  **링을** 지웠다(숫자가 아니라).**
+
+                  로드맵은 "링의 중복 숫자"를 지우라고 적었고 처음엔 그렇게 했는데, **실렌더
+                  확인**(§15-4)이 그게 틀렸음을 보여 줬다: 숫자 없는 34px 링은 진행 0%인 아침에
+                  **빈 원**이라 로딩 스피너처럼 읽혔고, 분모(오늘 몇 칸인가)를 말할 자리가 통째로
+                  사라졌다. 로드맵도 그 가능성을 적어 뒀다 — _"링 숫자 제거가 첫 걸음이지만
+                  충분하지 않을 수 있다."_
+
+                  같은 원칙(한 양 = 한 부호화 · 시그니처는 페이지마다 하나)을 반대쪽으로 적용한다:
+                  **길이 그래픽은 위 `DayBar` 하나**가 갖고, 여기는 세는 것만 남긴다. 34px 도넛은
+                  애초에 약한 그래픽이었고(NN/g 가 게이지·도넛을 비권장한 그 형태다) 막대가
+                  들어온 이상 둘을 같은 화면에 둘 이유가 없다.
+                  ⚠ E15 의 `commit` 번쩍임과 완주 셀레브레이션은 이제 **숫자 자리**에서 난다 —
+                    값이 바뀐 그 자리다(`useCommitOnChange` 머리주석의 원래 의도 그대로). */}
               <span
-                className={`${S.ring}${celebrate ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
+                ref={doneRef}
+                className={`${S.ringNum}${celebrate ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
                 aria-hidden="true"
               >
-                <ProgressRing
-                  size={80}
-                  r={34}
-                  pct={pct}
-                  className="ds-ringSvg"
-                  trackClassName={'ds-ringTrack'}
-                  arcClassName={'ds-ringArc'}
-                />
-                {/* E15 — 완료 수가 바뀌면 **그 숫자 자리에서** 번쩍인다. 종전엔 그 사실을 화면
-                  구석의 토스트(`좋아요 — n/m 블록 완료`)가 말했는데, 토스트는 *무엇이* 바뀌었는지를
-                  말하지 못한다(`lib/motion.ts` 의 `commit` 주석이 그 결함을 적어 뒀다).
-                  ⚠ 입구가 여럿이다(블록 체크·레일 토글·폰·클라우드 pull) — 값을 보는 쪽에 붙였으므로
-                    전부 한 번에 덮인다. 근거는 `useCommitOnChange` 머리주석. */}
-                <span ref={doneRef} className={S.ringNum}>
-                  {todayDone}
-                  <small className={S.ringNumSmall}>/{todayPossible}</small>
-                </span>
+                {todayDone}
+                <small className={S.ringNumSmall}>/{todayPossible}</small>
               </span>
               <span className={S.flowT}>오늘의 흐름</span>
               <span className={S.now}>● {toHM(nowMin)} LIVE</span>

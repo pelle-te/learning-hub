@@ -3,18 +3,25 @@
 
    데스크톱 TodaySignature(756줄 · 발광 히어로·흐름 레일)를 옮기지 않는다 — 폰은 화면만 새로
    짜고(§9-4) **견고한 신호 몇 개**만 압축해 보여준다: 오늘의 초점(가장 큰 새 학습), 새 학습량,
-   복습 대기, 가장 가까운 마감, 스트릭. 상세 편집은 '일' 탭, 복습 실행은 '복습' 탭으로 넘긴다.
+   복습 대기, 가장 가까운 마감. 상세 편집은 '일' 탭, 복습 실행은 '복습' 탭으로 넘긴다.
 
-   규칙은 lib 것을 그대로 쓴다(studyStreak·riskSummary·deadlineDdays·useSchedule) — 픽셀만 새로.
+   규칙은 lib 것을 그대로 쓴다(absence·riskSummary·deadlineDdays·useSchedule) — 픽셀만 새로.
+
+   ⚠⚠ **스트릭 칸이 여기 있었다 — P-1 에서 은퇴했다(2026-08-01).** 스트릭은 *부재 길이의 열등한
+   대리지표*다: 0 을 보여줄 뿐 **무엇이 무너졌는지 안 말한다**. 같은 자리에 오는 복귀 브리핑이
+   그 정보의 상위집합이고(며칠 · 복습 델타 · 미완 · 마감), 그래서 자리를 늘리지 않고 **바꿨다**.
+   ⚠ 데스크톱 `연속` 리드아웃과 혼동 금지 — 그건 PL-9 가 의도적으로 키운 동기 지표라 절대규칙
+   #4 사정거리이고 **그대로 있다**. 여기서 은퇴한 것은 폰 홈의 칸 하나뿐이다.
 ============================================================ */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { todayISO, parseISO, fmt, ddayInfo, mmss, hLabel } from '@/lib/utils';
-import { studyStreak, isDone } from '@/lib/persistence';
+import { isDone } from '@/lib/persistence';
 import { riskSummary } from '@/lib/spacedReview';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { pickFocus, type FocusEntry } from '@/lib/focusState';
+import { loadAbsence, missedSince, returnBriefing, type AbsenceSnapshot, type PlannedBlock } from '@/lib/absence';
 import {
   latestResume,
   resumeDevice,
@@ -69,21 +76,57 @@ export default function TodayView({
   const focusDone = focusPick.focus?.done ?? false;
   const toggleDone = useApp((s) => s.toggleDone);
 
-  const streak = studyStreak(state);
   const risk = riskSummary(state, res.days, today);
   const reviewN = risk.overdue + risk.due;
   const nearest = deadlineDdays(res.itemStat, today)[0] || null;
+
+  /* P-1 복귀 브리핑 — 원장 읽기는 **마운트 1회**(부재 길이는 하루 안에 안 변한다).
+     ⚠ 폰은 `day_signals` 를 **쓰지 않는다**(그 관측기는 데스크톱 오늘 탭이 소유한다) → 여기선
+     `thenReview` 가 null 인 경우가 흔하고, 그러면 문장이 화살표 없이 현재값만 말한다.
+     관측이 없을 때 과거를 지어내지 않는 것이 `lib/absence` 의 계약이다. */
+  const [snap, setSnap] = useState<AbsenceSnapshot | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadAbsence(today).then((s) => {
+      if (live) setSnap(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [today]);
+  const blocks: PlannedBlock[] = res.days.flatMap((d) =>
+    d.items.map((it) => ({ ds: d.ds, done: isDone(state, d.ds, it.sid, it.type) })),
+  );
+  const brief =
+    snap?.lastDs != null
+      ? returnBriefing(
+          snap,
+          {
+            review: reviewN,
+            missed: missedSince(blocks, snap.lastDs, today),
+            deadline: nearest ? { name: nearest.name, dday: nearest.dday } : null,
+          },
+          today,
+        )
+      : null;
 
   return (
     <section className="flex flex-col gap-4 p-4">
       <header className="flex items-baseline justify-between">
         <h2 className="text-lg font-bold text-txt">{fmt(parseISO(today))}</h2>
-        {streak > 0 ? (
-          <span className="text-sm font-semibold text-acc">🔥 {streak}일 연속</span>
-        ) : (
-          <span className="text-xs text-mut">오늘 시작해요</span>
-        )}
       </header>
+
+      {/* 복귀 자리 **하나**(P-1) — 브리핑이 있으면 브리핑, 아니면 아래 이어하기 칩. 스트릭 칸은
+          이 자리로 흡수되며 은퇴했다(머리주석). */}
+      {brief && (
+        /* ⚠ 테두리를 안 준다 — 액센트 틴트가 이미 이 줄을 갈라 놓고, 테두리를 더하면 원칙 ④가
+           폐기한 **둥근 글래스 카드**가 한 장 더 생긴다(`check:tokens` 의 카드 래칫이 잡는다).
+           이건 카드가 아니라 **한 줄**이다. */
+        <p role="status" className="m-0 rounded-md bg-tint-acc px-3 py-2 text-sm font-semibold text-ink">
+          <span aria-hidden="true">↩ {brief.line}</span>
+          <span className="sr-only">{brief.aria}</span>
+        </p>
+      )}
 
       {/* N-7 이어하기 — 데스크톱에서 하던 것이 살아 있을 때만 뜬다. 폰이 이 기능의 주 수혜자다:
           "PC 에서 어디까지 했더라"가 그동안 기억 재구성이었고, 틀리면 같은 걸 두 번 했다.

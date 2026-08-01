@@ -24,6 +24,25 @@ export interface CapacityBlock {
   start: number | null;
   min: number;
   done: boolean;
+  /** 막대 세그먼트 라벨·툴팁용. 판정에는 안 쓴다. */
+  name?: string;
+  /** 과목색(파생값 · 절대규칙 #3). 판정에는 안 쓴다. */
+  color?: string;
+}
+
+/**
+ * 막대 한 칸(P-7). **시각 순서 그대로**이고, `beyond` 인 것이 곧 남은 창 밖으로 삐져나온 부분이다.
+ *
+ * ⚠ 부분 절단을 하지 않는다 — 창 경계에 걸친 블록도 통째로 `beyond` 다. `beyondKeys` 와 **같은
+ * 규칙**이어야 막대와 레일이 서로 다른 말을 하지 않는다(한 양 = 한 판정). 경계에 걸친 블록을
+ * 반만 칠하면 "반은 오늘 안"이라는 없는 개념이 생기고, 스케줄러엔 그런 개념이 없다.
+ */
+export interface CapacitySegment {
+  key: string;
+  min: number;
+  beyond: boolean;
+  name: string;
+  color?: string;
 }
 
 export interface DayCapacity {
@@ -33,23 +52,41 @@ export interface DayCapacity {
   beyondMin: number;
   /** 아직 안 한 학습 블록의 합(분) — 접힌 것 포함. */
   remainMin: number;
-  /** 한 줄 판정. 오늘 할 것이 없으면 null(말할 것이 없으면 안 그린다 — 레일 신호와 같은 규칙). */
+  /** 한 줄 판정. 오늘 할 것이 없으면 null(말할 것이 없으면 안 그린다 — 레일 신호와 같은 규칙).
+   *  ⚠ P-7 이후 이 문자열은 **화면 텍스트가 아니라 막대의 `aria-label`** 이다 — 길이로 옮긴 것을
+   *  SR 이 못 읽으면 그건 이전(移轉)이 아니라 손실이다. */
   fitLine: string | null;
+  /** 막대 칸들(시각 순). */
+  segments: CapacitySegment[];
+  /**
+   * 막대의 가로 축척(분) = `max(남은 창, 남은 계획)`.
+   *
+   * ⚠⚠ **분모가 창이 아니라 둘 중 큰 값인 것이 이 안의 핵심이다.** 창으로 나누면 초과분이
+   * 100% 를 넘어 잘리고, 그러면 **넘쳤다는 사실 자체가 안 보인다** — 지금 앱이 `beyondKeys` 를
+   * 조용히 필터로 지우던 것과 같은 실패를 그래픽으로 반복하는 셈이다. 0 이면 그릴 것이 없다.
+   */
+  scaleMin: number;
+  /** 남은 창이 축척에서 차지하는 비율(0~1). 이 지점이 곧 "오늘의 끝" 표시다. */
+  windowRatio: number;
 }
 
 export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: number): DayCapacity {
   const beyondKeys = new Set<string>();
+  const segments: CapacitySegment[] = [];
   let beyondMin = 0;
   let remainMin = 0;
   let acc = 0;
   const pending = blocks.filter((b) => b.start != null && !b.done).sort((a, b) => a.start! - b.start!);
   for (const b of pending) {
-    remainMin += b.min || 0;
-    acc += b.min || 0;
-    if (acc > freeLeftMin) {
+    const min = b.min || 0;
+    remainMin += min;
+    acc += min;
+    const beyond = acc > freeLeftMin;
+    if (beyond) {
       beyondKeys.add(b.key);
-      beyondMin += b.min || 0;
+      beyondMin += min;
     }
+    segments.push({ key: b.key, min, beyond, name: b.name ?? '', color: b.color });
   }
   const head = `창 ${hLabel(freeLeftMin)} · 남은 계획 ${hLabel(remainMin)}`;
   const fitLine = !pending.length
@@ -57,5 +94,14 @@ export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: numbe
     : beyondKeys.size
       ? `${head} — ${beyondKeys.size}개는 오늘 밖`
       : `${head} — 여유 ${hLabel(Math.max(0, freeLeftMin - remainMin))}`;
-  return { beyondKeys, beyondMin, remainMin, fitLine };
+  const scaleMin = Math.max(freeLeftMin, remainMin);
+  return {
+    beyondKeys,
+    beyondMin,
+    remainMin,
+    fitLine,
+    segments,
+    scaleMin,
+    windowRatio: scaleMin > 0 ? Math.min(1, freeLeftMin / scaleMin) : 0,
+  };
 }

@@ -27,6 +27,7 @@ import {
 } from '@/lib/methodology';
 import { indexDays } from '@/lib/scheduleView';
 import { weeklyInsights, weakSpots } from '@/lib/insights';
+import { adherenceLine } from '@/lib/adherence';
 import { riskChapters } from '@/lib/spacedReview';
 import { rootCauseRollup } from '@/lib/knowledge';
 import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TOAST } from '@/lib/promote';
@@ -707,6 +708,10 @@ export default function Review() {
   const cnt = cbmsCounts(state, ds0, ds6);
   const cbmsT = cbmsTop(cnt); // 최다 오답 코드 + 합 — 리드아웃·분포 카드가 공유.
   const openN = openBacklog(state).length;
+  /* P-5 — 적응형 용량 한 줄(적용된 주에만). ⚠ 주(週)와 무관하게 **현재** 계수를 말한다:
+     `adherenceFactor` 의 창은 오늘 기준 최근 14일이라 과거 주로 이동해도 그 값은 안 바뀐다.
+     그래서 문장도 "이번 주"라고 말하지 않는다(모르는 것을 우기지 않는다). */
+  const adhere = adherenceLine(res.adapt, res.adaptApplied === true);
 
   usePageChromeEffect(
     () => ({
@@ -756,6 +761,21 @@ export default function Review() {
             주 1회 15~20분, <b>공부 방식</b>을 점검하는 자리. 시간(투입)이 아니라 <i>CBMS 분포 축소·진행률</i> 같은
             나아진 증거가 가장 강한 동기.
           </div>
+          {/* ── P-5 적응형 용량을 문장으로(2026-08-01) ─────────────────────────────
+              `adherenceFactor` 가 최근 14일 이행률로 계획 용량을 0.5~1.0배로 **실제로 깎는다.**
+              그 수는 오늘 탭 리드아웃에 `용량 −30%` 로 이미 있었지만(PL-5) 숫자뿐이라
+              "이게 뭔가 · 왜 · 어떻게 되돌리나"를 못 말했다 — 사용자가 "계획이 왜 헐거워졌지"를
+              물을 곳이 없던 것이 그 공백이다.
+              ⚠ 문장 **순서가 규칙**이다(조정 사실 → 근거 → 회복 조건). 하락을 앞세우면 같은
+                사실이 죄책감 계기판이 되고, 그건 이 화면이 하려는 일의 정반대다. 판정·문구는
+                `lib/adherence` 가 소유한다(판정=lib · 그리기=feature).
+              ⚠ 안 깎인 주에는 **줄 자체가 없다**(0·평온은 아무것도 안 그린다). */}
+          {adhere && (
+            <p className={HINT} role="status">
+              <span aria-hidden="true">⚖ </span>
+              {adhere.line}
+            </p>
+          )}
           {/* key=주 — 주를 이동하면 AI 코칭(ai/aiErr/aiBusy)이 리셋된다(이전 주 코칭이 그대로 남던 오표시 방지). */}
           <CoachCard key={ds0} ds0={ds0} />
           <PlanActualCard pa={pa} />

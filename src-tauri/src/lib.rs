@@ -66,6 +66,21 @@ pub fn run() {
         `hotkey::status()` 가 보관하고 `capabilities` 가 프런트로 실어 보낸다 — 조용히 죽지 않는다). */
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        /* ⚠⚠ **알림(P-8 · 2026-08-01) — 이 앱의 개입 채널은 지금까지 0개였다.**
+        `FocusChip` 은 세션이 끝나면 웹 `new Notification(...)` 을 쐈고 그 앞에
+        `Notification.permission === 'granted'` 가드가 있었다. 실 셸에서 재 보니(CDP 프로브):
+
+            origin=http://tauri.localhost · permissionBefore="denied"
+            requestPermission() → "denied" (프롬프트 없이 즉시)
+            new Notification(...) → 객체는 만들어지나 onerror 발화 · 표시 안 됨
+
+        즉 그 가드가 **항상 거짓**이라 알림이 단 한 번도 뜬 적이 없다. 로드맵이 예약해 두고
+        1년 가까이 미이행이던 30분 실측이 이것이었고, 답은 "1개가 아니라 0개"였다.
+        웹 API 로는 못 고친다(tauri:// 오리진에 알림 권한이 없다) → 플러그인이 유일한 길이다.
+        ⚠ **액션 버튼은 안 붙인다 — Windows 에서 원리적으로 불가**다(Actions API 는 모바일
+        전용 · v2 문서 실측). 그래서 세 갈래(완료·휴식·계속)는 **앱 안**의 시한 없는 토스트가
+        진다. 알림이 하는 일은 "지금 끝났다"를 알리고 앱으로 부르는 것까지다. */
+        .plugin(tauri_plugin_notification::init())
         // 2단계 — SQLite. 스키마는 db.rs 가 단일 원천이고 프런트는 데이터만 넣고 뺀다.
         .plugin(
             tauri_plugin_sql::Builder::default()

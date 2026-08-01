@@ -199,6 +199,12 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
               artifact.rs=산출물 8종 · news.rs=뉴스 RSS · files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
               ⚠ **여는 포트가 없다**(4단계). 1단계의 '고아 sidecar 선점' 로직은 serve.js 와 함께
               사라졌다 — 포트를 물고 남을 프로세스 자체가 없어졌기 때문. `single-instance`는 유지.
+              ⚠⚠ **알림은 `tauri-plugin-notification` 이다 — 웹 `Notification` 을 쓰지 말 것**(P-8 ·
+              2026-08-01). `tauri://` 오리진에서 `Notification.permission` 은 **항상 `denied`** 이고
+              `requestPermission()` 도 프롬프트 없이 즉시 거부한다(릴리스 exe + CDP 실측). 그래서
+              옛 코드의 `=== 'granted'` 가드가 항상 거짓이라 **이 앱은 알림을 한 번도 쏜 적이 없었다.**
+              프런트 진입점은 `lib/tauri.ts` 의 `shellNotify`/`shellNotifyPrime` 하나(불변식 I2).
+              ⚠ **액션 버튼은 Windows 에서 불가**(Actions API 는 모바일 전용) — 선택지는 앱 안이 진다.
 ```
 
 - **탭 추가 = 2곳 한 줄씩**: `shell/tabs.ts` TABS 배열 + `features/registry.tsx` LOADERS. 그 외는 나브·팔레트·g단축키가 자동 순회.

@@ -63,6 +63,7 @@ getrandom = "0.2"
 #   존재해 DB 가 WAL 모드이고(설계 §5-0-4), WAL 은 읽기가 쓰기를 막지 않는다.
 #   버전을 0.8 로 맞춰 플러그인과 **같은 sqlx 를 공유**한다(둘로 갈리면 링크 부피가 두 배).
 sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+tauri-plugin-notification = "2.3.3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 # 러닝허브_실행.bat 의 "포트 8000 stale 서버 강제종료"를 대체 — 두 번째 실행은 기존 창을 깨운다.

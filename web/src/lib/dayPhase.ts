@@ -13,16 +13,31 @@
    남았는가**. 새벽 2시에도 창이 남아 있으면 아직 닫을 때가 아니고, 오후 4시에 일과가 꽉
    차 있으면 그날의 학습은 이미 끝난 것이다.
 
-   ## 왜 '아침' 국면은 아직 없나
+   ## '여는 국면'(opening) — 옛 주석이 막았던 것과 **다른 신호**로 열었다 (P-15 · 2026-08-01)
 
-   시작 국면을 구분하려면 "오늘 계획을 이미 훑었는가"를 알아야 하는데, 그 신호는
-   `rituals[ds].plan` 체크박스뿐이고 그건 사용자가 눌러 줘야 존재한다 — 즉 안 누르는
-   사람에게는 하루 종일 아침이다. 없는 신호로 국면을 나누면 위 ⚠ 를 스스로 어긴다.
-   관측(N-11)이 쌓인 뒤에 다시 본다.
+   ⚠⚠ 이 자리에 _"왜 '아침' 국면은 아직 없나"_ 가 있었다. 논거는 **"시작 국면을 알려면
+   `rituals[ds].plan` 체크박스가 필요한데 그건 사용자가 눌러 줘야 존재한다"** 였고, 그건
+   **옳았다** — 그 신호로 나눴다면 안 누르는 사람에게 하루 종일 아침이었을 것이다.
+
+   바뀐 것은 판단이 아니라 **신호**다. 여는 국면은 시계로도 체크박스로도 아니라 위와 같은
+   원천(`layoutDay` 산출물)에서 나온다: **아직 아무것도 안 했고, 진행 중인 자리도 아니다.**
+   둘 다 계획에서 파생되므로 임의 상수가 0인 것은 그대로다.
+
+   ⚠⚠ **세 번째 조건을 넣었다가 뺐다(2026-08-01 · 같은 세션).** 첫 판은 `freeLeftMin >= remainMin`
+   ("남은 창이 아직 계획을 담는다")을 밤샘 오발화의 자물쇠로 달았는데, **그 자물쇠는 잠그려던
+   문을 안 잠갔다**: 일과가 잠(00–07) 뿐인 새벽 2시엔 `freeLeftMin` 이 오히려 크다(그날 남은
+   자유시간 전체가 잡힌다) → 조건이 참이라 여전히 'opening' 이다. 정작 걸린 것은 **초과 배정된
+   평범한 아침**이었다 — 밀린 계획이 있으면 오전 7시에도 여는 국면이 아니게 되어, 그 축이
+   실제 사용자에게 거의 성립하지 않았다(실측: 공유 e2e 시드가 09:00 에 'run' 으로 떨어져
+   On This Day 회고 줄이 통째로 사라졌다).
+   → **국면과 용량을 섞지 않는다.** "오늘 안에 들어가는가"는 `DayBar`(P-7)가 이미 길이로
+   말하는 별개의 축이고, 여기서 다시 물으면 한 사실에 기계가 둘이 된다. 밤샘의 진짜 방어는
+   그 아래 `freeLeftMin < shortestPendingMin` → 'closing' 이다(자리가 안 나면 여는 국면 이전에
+   이미 닫는 국면이다).
 ============================================================ */
 
-/** 하루의 국면. 지금은 '굴리는 중'과 '닫을 때' 둘뿐이다(머리주석). */
-export type DayPhase = 'run' | 'closing';
+/** 하루의 국면 — 여는 중 · 굴리는 중 · 닫을 때(머리주석). */
+export type DayPhase = 'opening' | 'run' | 'closing';
 
 export interface DayPhaseInput {
   /** 오늘 배치된 학습 블록 수. 0이면 국면 자체가 성립하지 않는다(닫을 하루가 없다). */
@@ -33,12 +48,14 @@ export interface DayPhaseInput {
   freeLeftMin: number;
   /** 남은 블록 중 **가장 짧은 것**의 분. 남은 블록이 없으면 의미 없음(0). */
   shortestPendingMin: number;
+  /** 지금 시각이 어느 블록의 자리 안에 있는가(`current`). 있으면 하루는 이미 굴러가는 중이다. */
+  underway: boolean;
 }
 
 /**
- * 지금이 **하루를 닫을 때**인가.
+ * 지금이 하루의 어느 국면인가.
  *
- * 참이 되는 두 경로:
+ * **닫을 때**가 되는 두 경로:
  * · 오늘 블록을 전부 체크했다 — 더 굴릴 것이 없다.
  * · 남은 창에 **남은 것 중 가장 짧은 것도 안 들어간다** — 오늘 안에 할 자리가 없다.
  *
@@ -50,9 +67,16 @@ export interface DayPhaseInput {
  * 라면 남은 창은 자정 직전까지 양수라, 판정이 사실상 "자정이 지났는가"가 된다(= 우회로로
  * 되돌아온 시각 상수다). 실렌더 확인이 그걸 잡았다 — 23:40 에도 창이 20분 남아 있었다.
  * 지금 기준은 **자리에 들어가는가**이고, 그건 여전히 시계가 아니라 계획에서 온다.
+ *
+ * **여는 중**(P-15)은 닫을 때를 **먼저 배제한 뒤**에만 성립한다 — 순서가 이 함수의 안전장치다.
+ * 밀린 하루가 여는 국면으로 잘못 잡히면 화면이 "무엇부터"를 크게 묻는데, 그건 그날 가장
+ * 쓸모없는 질문이다.
  */
-export function dayPhase({ todayTotal, pending, freeLeftMin, shortestPendingMin }: DayPhaseInput): DayPhase {
+export function dayPhase({ todayTotal, pending, freeLeftMin, shortestPendingMin, underway }: DayPhaseInput): DayPhase {
   if (todayTotal <= 0) return 'run'; // 빈 날은 닫을 하루가 없다 — 그 화면은 '계획 짜기'가 소유한다
   if (pending === 0) return 'closing';
-  return freeLeftMin < shortestPendingMin ? 'closing' : 'run';
+  if (freeLeftMin < shortestPendingMin) return 'closing';
+  // ⚠ 순서 주의: 닫을 때를 배제한 **뒤**에만 여는 국면을 본다(머리주석).
+  if (pending === todayTotal && !underway) return 'opening';
+  return 'run';
 }

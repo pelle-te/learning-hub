@@ -38,7 +38,6 @@ import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { useOverlay } from '@/store/useOverlay';
-import { usePrefill } from '@/store/prefill';
 import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch } from '@/lib/utils';
 import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
@@ -49,13 +48,15 @@ import {
   buildReviewQueue,
   cardSpeech,
   chapterCopy,
+  missTarget,
   requeue,
   runItemKey,
   type RunItem,
 } from '@/lib/reviewQueue';
 import { putResume, clearResume, resumeDevice, type ResumeCursor, type ResumeNav } from '@/lib/resume';
 
-import { CBMS_INFO } from '@/lib/methodology';
+import { CBMS_INFO, CBMS_CODES, addCbms, editCbms } from '@/lib/methodology';
+import type { CbmsCode } from '@/lib/types';
 import { jolSummary, overconfidentCards, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
 
@@ -97,6 +98,12 @@ const JOL_BAR = 'flex w-full max-w-runner flex-wrap items-center justify-end gap
 const RESUME_NOTE = 'm-0 flex w-full max-w-runner flex-wrap items-center gap-2 text-xs text-mut';
 const JOL_BTN =
   'cursor-pointer rounded-full border border-line bg-none px-3 py-1 text-xs text-mut hover:border-acc hover:text-txt';
+/* P-2 오답 한 줄 — JOL 바와 **같은 형상**을 의도적으로 쓴다. 둘 다 "카드가 아닌, 카드 앞뒤의
+   한 줄짜리 질문"이라 같은 어휘여야 하고, 서로 동시에 뜨지 않으므로(askJol 이 `!miss`) 자리도
+   겹치지 않는다. 왼쪽 정렬인 것만 다르다 — 이건 방금 지나간 것에 대한 말이라 진행 방향의 반대다. */
+const MISS_BAR = 'flex w-full max-w-runner flex-wrap items-center justify-start gap-2';
+const MISS_BTN =
+  'flex cursor-pointer items-center gap-1.5 rounded-full border border-line bg-none px-3 py-1 text-xs text-mut hover:border-acc hover:text-txt';
 /** 세션 앞 N개만 묻는다 — 매 카드마다 물으면 러너가 설문이 되고 대답이 무성의해진다. */
 const JOL_MAX = 3;
 const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint py-3 pr-4 pl-8 leading-relaxed';
@@ -105,6 +112,35 @@ const BADGE =
   'rounded-full bg-tint-acc px-2 py-1 text-xs font-bold tracking-wide text-acc-on-soft whitespace-nowrap ' +
   'data-[kind=confident]:bg-tint-warn data-[kind=confident]:text-warn ' +
   'data-[risk=overdue]:bg-tint-bad data-[risk=overdue]:text-bad';
+
+/** P-2 커밋 **뒤**의 선택 메모 한 줄 — W8 `BlankNoteField` 와 같은 계약이다.
+ *  ⚠ 취소 버튼이 없다: 기록은 이미 커밋됐고 이건 정밀도만 올린다. 안 적고 떠나도 잃는 것이 0.
+ *  ⚠ 자동 포커스를 **주지 않는다**(W8 과 다른 점). 저기는 사용자가 그 줄을 열어서 마운트되지만,
+ *    여기는 코드 한 키의 부수효과로 나타나므로 커서를 뺏으면 러너 키보드가 통째로 죽는다. */
+function MissNoteField({ target, onSave }: { target: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState('');
+  return (
+    <>
+      <span className="ds-tiny">
+        ✓ <strong>{target}</strong> 오답으로 남겼어요 — 한 줄 덧붙이기(선택)
+      </span>
+      <input
+        type="text"
+        className="min-w-0 flex-1"
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSave(v);
+        }}
+        placeholder="예) 경계조건 부호를 반대로 잡음"
+        aria-label="오답 메모(선택)"
+      />
+      <Button sm variant="ghost" onClick={() => onSave(v)}>
+        {v.trim() ? '저장' : '닫기'}
+      </Button>
+    </>
+  );
+}
 
 /** 발치 키캡 하나 — `k` 는 KeyboardEvent.key 그대로(리스너와 라벨이 같은 값을 쓴다). */
 interface RunKey {
@@ -194,9 +230,28 @@ export default function ReviewRun() {
   const [jol, setJol] = useState<JolEntry[]>([]);
   const [pred, setPred] = useState<boolean | null>(null);
   const [past, setPast] = useState<RunSnap[]>([]);
+  /* ── P-2 인라인 CBMS(2026-08-01) ────────────────────────────────────────────
+     러너 안에서 실패한 카드를 오답으로 남기는 **경로가 0**이었다. 완주 화면의 과신 카드만
+     버튼 하나였고 그것도 `/journal` 이동이라 러너 문맥을 잃었다. 오늘 탭에서 시작하면
+     **3클릭·2화면·4필드**. 이 파일이 자기 손으로 적어 뒀다: _"그 2개를 오답으로 남기려면
+     3화면·6클릭이라 아무도 안 했다."_ 그 결과가 `cbms` **0행**이고, 0행이
+     `mistakeArchive`·`weakSpots`·`pickConfidentWrong`·복습 사다리(P-3)를 전부 굶긴다.
+     외부 근거: 오답 로그는 규율이 아니라 **항목당 시간**에서 죽는다(60초를 넘으면 단순화하라
+     — mistaketomastery.com · 확인 2026-08-01).
+
+     ## ⚠ W8 패턴 그대로: **먼저 커밋 · 메모는 나중 · 취소 경로 없음**
+     `1`(못 떠올림)은 **하나도 안 느려진다** — 카드는 즉시 전진하고, 방금 넘긴 카드에 대한
+     "왜 막혔나" 한 줄이 다음 카드 위에 뜬다. 안 고르고 지나가도 잃는 것이 0이라 마찰이 아니다.
+     ⚠ 되돌리기(`u`)는 이 줄을 **닫기만** 하고 이미 커밋된 기록은 지우지 않는다 — "못 떠올렸다"는
+       관측은 세션 내비게이션과 무관하게 참이고, 정정 경로는 오답 아카이브의 삭제다. */
+  const [miss, setMiss] = useState<{ sid: string; name: string; chapter: string } | null>(null);
+  /** 코드를 고른 뒤의 기록 id — 메모만 덧붙이는 데 쓴다. null 이면 아직 안 골랐다. */
+  const [missId, setMissId] = useState<string | null>(null);
   // 재큐된 카드에는 안 묻는다 — 예측은 첫 대면에서만 의미가 있고(두 번째는 이미 답을 봤다),
   // 같은 카드가 대조 기록에 두 번 들어가면 jolSummary 의 표본이 부풀어 오른다.
-  const askJol = !revealed && pred === null && jol.length < JOL_MAX && !queue[idx]?.again;
+  /* ⚠ `!miss` — 오답 한 줄이 떠 있으면 예측은 안 묻는다. 둘은 **다른 카드**에 대한 질문이라
+     같이 뜨면 화면이 무엇을 묻는지 흐려지고, JOL 은 선택이지만 CBMS 표본은 지금 0행이다. */
+  const askJol = !revealed && pred === null && jol.length < JOL_MAX && !queue[idx]?.again && !miss;
 
   const total = queue.length;
   const finished = idx >= total;
@@ -266,6 +321,23 @@ export default function ReviewRun() {
     if ((idx + 1) % 5 === 0 && idx + 1 < queue.length)
       writeResume({ kind: 'review', label: '복습 세션', at: Date.now(), progress: `${idx + 2}/${queue.length}` });
   };
+  /** P-2 — 코드 1키 커밋. 문맥이 sid·과목명·챕터를 이미 알므로 **필드가 4→1** 이 된다. */
+  const commitMiss = (code: CbmsCode) => {
+    const t = miss;
+    if (!t) return;
+    let id = '';
+    useApp.getState().mutate((st) => {
+      id = addCbms(st, today, t.sid, t.name, t.chapter, code, '', false);
+    });
+    setMissId(id);
+  };
+  /** 커밋 **뒤에만** 부르는 메모 덧붙이기(정밀도만 올린다 — 없어도 기록은 이미 있다). */
+  const saveMissNote = (note: string) => {
+    const id = missId;
+    if (id) useApp.getState().mutate((st) => editCbms(st, id, { note: note.trim() }));
+    setMiss(null);
+    setMissId(null);
+  };
   const reveal = () => setRevealedAt(idx);
   /* D-3 되돌리기 — 오타 한 번(1 을 눌러야 할 때 2)이 세션 기록을 조용히 오염시키던 것을 닫는다.
      상태 전량을 스냅샷으로 되돌린다: 재큐가 큐를 바꿨을 수도, JOL 이 기록됐을 수도 있어
@@ -319,7 +391,18 @@ export default function ReviewRun() {
         label: cur.kind === 'retrieval' ? '원래 요약 펼치기' : '당시 메모 펼치기',
         run: reveal,
       });
-    keys.push({ k: '1', cap: '1', label: '건너뛰기', run: () => advance(false) });
+    /* P-2 — `1` 은 여전히 한 번의 키다. 전진은 즉시 일어나고, 방금 넘긴 카드의 "왜 막혔나"가
+       다음 카드 위에 뜬다(안 고르면 아무 일도 안 일어난다 = 순손실 0). */
+    keys.push({
+      k: '1',
+      cap: '1',
+      label: '건너뛰기',
+      run: () => {
+        setMiss(missTarget(cur));
+        setMissId(null);
+        advance(false);
+      },
+    });
     if (cur.kind === 'chapter')
       keys.push({
         k: '2',
@@ -384,7 +467,30 @@ export default function ReviewRun() {
   }
   /* ⚠ 되돌리기·중단은 **카드 밖에서도** 산다 — 특히 마지막 카드를 잘못 눌러 리캡으로 튄 순간이
      되돌리기가 가장 필요한 때다. 카드 안에만 두면 그 순간에 정확히 없다. */
-  if (past.length) keys.push({ k: 'u', cap: 'U', label: '되돌리기', run: undo });
+  /* P-2 — 오답 한 줄이 떠 있는 동안만 c/b/m/s/t 가 산다. `quiet` 라 발치 키캡 바에는 안 그린다:
+     칩 다섯이 그 줄에 이미 **글자와 함께** 있고, 바에 또 그리면 같은 것이 두 벌이 된다.
+     ⚠ 키 충돌 확인 — 러너의 기존 키는 `Space·1·2·3·V·U·Esc` 라 다섯 자 어디와도 안 겹친다. */
+  if (miss && !missId)
+    for (const code of CBMS_CODES)
+      keys.push({
+        k: code.toLowerCase(),
+        cap: code,
+        label: CBMS_INFO[code].label,
+        quiet: true,
+        run: () => commitMiss(code),
+      });
+  /* ⚠ 되돌리기는 이 줄을 **닫기만** 한다 — 이미 커밋된 기록은 안 지운다(위 P-2 주석). */
+  if (past.length)
+    keys.push({
+      k: 'u',
+      cap: 'U',
+      label: '되돌리기',
+      run: () => {
+        setMiss(null);
+        setMissId(null);
+        undo();
+      },
+    });
   keys.push({ k: 'Escape', cap: 'Esc', label: '중단', run: () => nav('/today') });
 
   /* 리스너는 마운트당 1회 — 목록은 이펙트에서 동기화한다(렌더 중 ref 쓰기 금지 · `useWeekNavKeys` 선례). */
@@ -425,6 +531,37 @@ export default function ReviewRun() {
 
   const jolStat = jolSummary(jol);
 
+  /* P-2 — 방금 넘긴 카드의 "왜 막혔나". 코드 하나로 커밋되고, 그 뒤 메모는 선택이다.
+     ⚠ 카드 **위**의 한 줄이다(모달이 아니다) — 러너 흐름을 멈추지 않는 것이 이 위젯의 전부다.
+     ⚠⚠ **완주 화면에도 그린다.** 마지막 카드를 못 떠올린 순간이 정확히 이 줄이 가장 필요한
+       때인데, 그때 러너는 이미 리캡으로 넘어가 있다 — 카드 분기 안에만 두면 그 경우에만
+       조용히 사라진다(되돌리기·중단 키를 카드 밖에도 둔 것과 같은 이유). */
+  const missRow = miss ? (
+    <div className={MISS_BAR} role="group" aria-label="못 떠올린 이유 분류">
+      {missId ? (
+        <MissNoteField target={`${miss.name}${miss.chapter ? ` · ${miss.chapter}` : ''}`} onSave={saveMissNote} />
+      ) : (
+        <>
+          <span className="ds-tiny">
+            왜 막혔나 — <strong>{miss.name}</strong>
+            {miss.chapter ? ` · ${miss.chapter}` : ''}
+          </span>
+          {CBMS_CODES.map((code) => (
+            <button
+              key={code}
+              type="button"
+              className={MISS_BTN}
+              onClick={() => commitMiss(code)}
+              aria-label={`${CBMS_INFO[code].label}으로 남기기 (단축키 ${code})`}
+            >
+              <b className={KEYCAP}>{code}</b> {CBMS_INFO[code].label}
+            </button>
+          ))}
+        </>
+      )}
+    </div>
+  ) : null;
+
   // 완주 — 이 세션 리캡.
   if (finished) {
     return (
@@ -450,30 +587,19 @@ export default function ReviewRun() {
               {jolStat.under > 0 && <> · 애매하다 했는데 된 게 {jolStat.under}개</>}
             </p>
           )}
-          {/* ── E6 과신 카드를 오답으로 착지시킨다 ─────────────────────────────
-              위 문장은 "가장 위험한 방향"을 짚고 **끝났다**. 여기서 그 항목을 그 자리에 세우고
-              클릭 하나로 오답 폼(`usePrefill`)에 과목·챕터를 실어 보낸다.
-              ⚠ **코드(C/B/M/S/T)는 지어내지 않는다** — 앱이 아는 것은 "본인이 될 거라 했고
-                안 됐다"는 관측 사실뿐이다. 분류는 사람이 고른다(자동 분류가 조용한 오분류로
-                드롭된 경계를 지킨다).
-              ⚠ 마찰을 더하는 방향이지만 안 누르면 종전과 동일하다(순손실 0). 그리고 이 자리가
-                CBMS 표본이 생기는 유일한 경로다 — 0행이 `mistakeArchive`·`weakSpots`·
-                `pickConfidentWrong`·러너 대조면을 전부 굶기고 있다. */}
+          {/* ── E6 과신 카드 · P-2 에서 **버튼이 사라졌다**(2026-08-01) ────────────────
+              E6 은 여기 `오답으로 남기기 →` 를 뒀고 그게 러너에서 CBMS 표본이 생기는 **유일한**
+              경로였다. 그런데 그 버튼은 `/journal` 로 이동한다 — 러너 문맥을 잃고 폼에서 필드
+              넷을 다시 채우는 길이라, 이 파일이 스스로 적었듯 **아무도 안 눌렀다**(cbms 0행).
+              지금은 `1`(못 떠올림) 직후 그 자리에서 1키로 커밋되므로(P-2) 이 버튼은
+              *항상 도달 가능하고 엄격히 나은 대체*에 밀려 은퇴했다.
+              ⚠ **문장은 남긴다** — 과신은 복습을 건너뛰게 하는 방향이라 완주 화면이 짚어야 하고,
+                그 카드들은 세션 중에 이미 각자의 `1` 자리에서 오답으로 남길 기회를 지났다. */}
           {overconfidentCards(jol).map((r, i) => (
             <p key={`${r.label}-${i}`} className={RESUME_NOTE}>
               <span>
                 ⚠ <strong>{r.label}</strong> — 될 줄 알았는데 안 됐어요
               </span>
-              <Button
-                sm
-                variant="ghost"
-                onClick={() => {
-                  usePrefill.getState().request('cbms', r.sid ?? '', '', r.chapter ?? '');
-                  nav('/journal');
-                }}
-              >
-                오답으로 남기기 →
-              </Button>
             </p>
           ))}
           <div className={ACTS_CENTER}>
@@ -483,6 +609,8 @@ export default function ReviewRun() {
             <Button onClick={() => nav('/today')}>오늘 학습으로</Button>
           </div>
         </div>
+        {/* P-2 — 마지막 카드를 못 떠올린 채 여기 도착했으면 그 "왜 막혔나"가 여기서 이어진다. */}
+        {missRow}
         {/* 마지막 카드를 잘못 눌러 여기 도착했을 수 있다 — 되돌리기가 가장 필요한 순간이다. */}
         <KeyBar keys={keys} />
       </div>
@@ -550,6 +678,8 @@ export default function ReviewRun() {
           </button>
         </div>
       )}
+
+      {missRow}
 
       {item.kind === 'retrieval' && (
         <div className={`ds-well ${CARD_BASE} max-w-runner`} data-kind="retrieval">

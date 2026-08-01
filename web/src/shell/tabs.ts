@@ -223,11 +223,17 @@ export const TABS: TabMeta[] = [
     icon: 'graph',
     fill: true,
   },
-  // ── 수집(collect) — 피드·읽을거리 ──
+  /* ── 읽을거리 ─────────────────────────────────────────────────────────────
+     ⚠⚠ **'수집(collect)' 그룹이 P-4 에서 해체됐다(2026-08-01).** 그 이름은 사용자의 질문이
+     아니라 **출처 분류**였다 — 옛 주석이 문자 그대로 자백했다("밖에서 들여오는 것 전부").
+     그래서 `reads` 로 들어가면 세그먼트 바에 `markets`·`atlas`·`discovery` 가 늘 함께 떴고,
+     그중 앞의 둘은 **학습 상태 소비 0**(자기 탭 주석이 자인) · 뒤 하나는 콜드 게이트다.
+     즉 **읽으려는 순간에 딴짓 셋이 제시됐다.** 지금 `reads` 는 세그먼트 그룹이 자기 하나뿐이라
+     `SubTabs` 가 바를 통째로 안 그린다(`segs.length < 2`). */
   {
     key: 'reads',
     label: '읽을거리',
-    group: 'collect',
+    group: 'train',
     order: 45,
     role: 'destination',
     icon: 'reads',
@@ -240,10 +246,23 @@ export const TABS: TabMeta[] = [
        ⚠ **지우지 않는다.** ⌘K·`g` 단축키·딥링크(`/markets`)는 그대로다 — 도달성은 유지하고
        "매일 보이는 자리"만 회수한다. 그래야 `route_visits` 로 **레일을 지웠을 때 ⌘K 방문이
        남는가**를 물을 수 있다(`visits.ts` 머리주석이 이 탭을 1순위 후보로 지목한 그 질문).
-       재판정: 관측 2주 뒤. 되돌리기는 이 두 글자다. */
+       재판정: 관측 2주 뒤. 되돌리기는 이 두 글자다.
+
+       ⚠⚠ **판정 규칙을 결과보다 먼저 적는다(P-4 사전등록 · 2026-08-01).**
+         **2026-08-12 판정:** 강등 이후의 `route_visits` 에서 `palette` + `key` + `link`(딥링크)
+         합계가 **3 이상이면 유지, 미만이면 삭제**한다.
+         · **`rail` 은 계산에서 제외** — 강등으로 레일에서 내렸으니 0 이 자명하고, 자명한 0 을
+           근거로 쓰면 그건 관측이 아니라 순환이다.
+         · **`seg` 도 제외** — 아래 시스템 호스트에 얹혀 있어 지나가다 눌릴 수 있고, 그건
+           "찾아왔다"가 아니다. 이 탭에 대해 물어야 하는 것은 **이름을 알고 찾아왔는가**다.
+         · 임계 3 의 근거: 2주 관측에서 "우연히 한 번"과 "쓴다"를 가르는 최소치. 큰 수를 쓰면
+           저사용을 가치 부재로 읽는 함정에 더 깊이 들어간다(`visits.ts` 머리주석의 경고).
+         ⚠ **이 탭의 강등 근거는 사용률이 아니라 목적 불일치였다** — 방문 수가 얼마가 나오든
+           그 판단은 안 뒤집힌다. 위 규칙은 *삭제까지 갈 것인가*만 정한다.
+         판정 입력은 이미 화면에 있다(`Settings` 의 방문 원장이 `visitSummary()` 를 읽는다). */
     key: 'markets',
     label: '증시 동향',
-    group: 'collect',
+    group: 'discover',
     order: 47,
     role: 'lens',
     icon: 'trend',
@@ -254,7 +273,7 @@ export const TABS: TabMeta[] = [
   {
     key: 'atlas',
     label: '진로 지도',
-    group: 'collect',
+    group: 'discover',
     order: 48,
     role: 'lens',
     icon: 'radio',
@@ -264,7 +283,7 @@ export const TABS: TabMeta[] = [
   {
     key: 'discovery',
     label: '발견',
-    group: 'collect',
+    group: 'discover',
     order: 49,
     role: 'lens',
     icon: 'discovery',
@@ -340,21 +359,39 @@ export const SUBTAB_GROUPS: string[][] = [
   /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 지식맵 → 정본 원장(어디까지 아는가).
      `ledger` 가 배관(연동) 밑에서 여기로 왔다. */
   ['stats', 'mastery', 'graph', 'ledger'],
-  /* 수집 호스트 — 밖에서 들여오는 것 전부. H24(`markets`)에 이어 `atlas`·`discovery` 가
-     같은 논증으로 합류했다(학습 상태 소비 0 · 콜드면 안내문). */
-  ['reads', 'markets', 'atlas', 'discovery'],
+  /* ⚠⚠ **읽을거리는 혼자다(P-4 · 2026-08-01).** 옛 '수집 호스트'는 `reads` 밑에
+     `markets`·`atlas`·`discovery` 를 달고 있었는데, 그 묶음의 기준은 사용자의 질문이 아니라
+     **출처 분류**("밖에서 들여온 것")였다. 결과는 **읽으려는 순간에 딴짓 셋**이었다.
+     원소가 하나면 `SubTabs` 가 바를 통째로 안 그린다(`segs.length < 2`) — 그래서 여기 남는
+     한 줄이 곧 "바가 없다"는 뜻이다. 지우지 말 것(지우면 `hostTabKey` 가 달라진다). */
+  ['reads'],
   /* 시스템 호스트 — 설정(호스트) + 배관·도구·매뉴얼. 매일 볼 것이 아닌 것들의 집이다.
      ⚠ `integrations` 는 **호스트에서 렌즈로 내려왔다** — 그러면서 자기 밑에 있던 `ledger` 의
-     호스트 자격도 사라졌으므로 그 탭을 앎 호스트로 옮겼다(불변식 ③-b: 호스트는 destination). */
-  ['settings', 'integrations', 'control', 'guide'],
+     호스트 자격도 사라졌으므로 그 탭을 앎 호스트로 옮겼다(불변식 ③-b: 호스트는 destination).
+     ⚠⚠ **`discovery`·`atlas`·`markets` 가 P-4 에서 여기로 왔다(2026-08-01).**
+       · `discovery` 는 **운영 큐**다(후보를 승격/기각한다) — `control` 과 같은 파이프라인의
+         앞뒤라 여기가 제 집이다. 로드맵이 지정한 목적지 그대로.
+       · `atlas`·`markets` 는 **잠정 거처**다. 로드맵 P-4 는 `atlas` 를 `path` 로 보내라고
+         적었지만 **`path` 는 존재하지 않고 신설은 사용자 결정 대기**다(같은 발산의 IA 표가
+         "신설 0"이고, `goals`+`degree` 병합이 🧊 반려와 IA 표에서 **서로 엇갈린 채** 남아 있다).
+         그렇다고 그룹 없이 둘 수는 없다 — 불변식 ③-b 가 _"lens 는 반드시 어느 세그먼트 그룹에
+         속한다(도달 경로 없는 탭 금지)"_ 로 막는다. 둘 다 "학습 상태 소비 0 · 콜드면 안내문"
+         이라 **매일 볼 것이 아닌 것들의 집**이라는 이 호스트의 정의에는 정확히 맞는다.
+         ⚠ `path` 판정이 나면 `atlas` 는 여기서 나간다 — 그때 이 줄도 함께 줄어든다. */
+  ['settings', 'integrations', 'control', 'discovery', 'atlas', 'markets', 'guide'],
 ];
 /* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
    TabMeta.group(plan/train/collect/discover/settings) → 사이드바 섹션 헤더 라벨. 빈도 위계를 시각적 청킹으로.
    settings 그룹은 하단(스페이서 아래)에 렌더 — 저빈도 운영/설정(두 표면 공통). */
+/* ⚠ **`collect: '수집'` 이 P-4 에서 사라졌다(2026-08-01).** 그 섹션의 유일한 destination 이
+   `reads` 하나였고(나머지 셋은 lens 라 레일에 애초에 안 선다), 즉 헤더 하나가 항목 하나를
+   덮고 있었다. `reads` 는 '숙련'으로 갔다 — 읽는 것도 학습 입력이고, 그 섹션이 이미 기록·
+   복습·통계를 갖는다. ⚠ 옛 `discover: '발견'` 은 **어느 탭도 안 쓰던 고아 라벨**이었는데
+   이제 `markets`·`atlas`·`discovery` 가 그 이름을 쓴다(라벨은 lens 라 렌더되지 않지만,
+   불변식 ③이 "모든 탭 group 은 라벨을 갖는다"를 요구하므로 뜻이 맞는 이름을 준다). */
 export const GROUP_LABELS: Record<string, string> = {
   plan: '계획',
   train: '숙련',
-  collect: '수집',
   discover: '발견',
   settings: '설정',
 };

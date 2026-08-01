@@ -456,6 +456,9 @@
   --spacing-hero-x-today: clamp(22px, 3vw, 40px);
   --spacing-subj-top: clamp(6px, 1vw, 12px);
   --spacing-actions-top: clamp(18px, 2.4vw, 28px);
+  /* P-7 하루 막대 높이 — 사다리 밖 값이라 이름을 준다. 12px 은 라벨(2xs=10px)이 겨우 앉는
+     최소이고, 더 두꺼우면 아이브로~과목명 사이에서 자기가 시그니처인 척한다(원칙 ③). */
+  --spacing-day-bar: 12px;
 
   /* ── schedule(캘린더 · 주/월/일) 이식(C-7) ───────────────────────────────────
      off-ladder 반픽셀/정수 타이포(17/10.5/11.5/9.5/9px)·좌측거터+요일7열 격자 트랙·off-ladder

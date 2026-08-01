@@ -14,7 +14,7 @@ import { todayISO } from '@/lib/utils';
 import type { Ritual } from '@/lib/types';
 import { TodaySignature } from './TodaySignature';
 import { SetupGuide, setupComplete } from './SetupGuide';
-import ResumeChip from './ResumeChip';
+import ReturnSlot from './ReturnSlot';
 import { TodayBlocks } from './TodayBlocks';
 import { BLOCK_STAGES, PRINCIPLES } from './consts';
 
@@ -189,11 +189,13 @@ export default function Today() {
 
   return (
     <div className="relative h-full min-h-0">
-      {/* N-7 — 다른 기기에서 하던 것(있을 때만). 히어로 위 오른쪽 구석에 얹어 착지 화면의
-          레이아웃을 건드리지 않는다: 커서가 없는 대부분의 시간엔 이 노드 자체가 없다. */}
+      {/* 복귀 자리 **하나**(P-1) — 며칠 만의 복귀면 부재 델타, 아니면 다른 기기의 이어하기,
+          둘 다 없으면 노드 자체가 없다. 히어로 위 오른쪽 구석에 얹어 착지 화면의 레이아웃을
+          건드리지 않는다. ⚠ 종전엔 여기 `ResumeChip` 하나였고 TTL 6시간이라 **대부분의 시간엔
+          비어 있었다** — 그 빈 자리를 상위집합이 먹은 것이 이 항목이다(`ReturnSlot` 머리주석). */}
       <div className="pointer-events-none absolute top-0 right-0 z-4 p-1 max-mobile:static max-mobile:p-0">
         <div className="pointer-events-auto">
-          <ResumeChip />
+          <ReturnSlot />
         </div>
       </div>
       {/* ⚠⚠ **콜드 스타트에는 시그니처를 렌더하지 않는다(H14 · 2026-07-26 감사).**

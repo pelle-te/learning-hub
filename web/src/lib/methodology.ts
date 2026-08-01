@@ -116,6 +116,24 @@ export const CBMS_INFO: Record<CbmsCode, { label: string; tip: string; color: st
    `['C','B','M','S','T']`/`Object.keys(CBMS_INFO)`를 재선언하던 드리프트 위험을 봉쇄. */
 export const CBMS_CODES = Object.keys(CBMS_INFO) as CbmsCode[];
 
+/* ── P-3 복습 사다리를 **앞당기는** 유형(2026-08-01) ──────────────────────────
+   여기까지 CBMS 코드는 **아무것도 안 바꿨다**: 5분류 + 코드별 처방까지 갖춰 놓고
+   `grep cbms lib/scheduler/ lib/spacedReview.ts` 가 **0건**이었다. 즉 사용자가 매번 고르던
+   5지선다가 화면 문구 말고는 어디에도 안 닿았다 — 방향 §1-b 의 세 번째 규율("넣었을 때 무엇이
+   즉시 달라지는가")이 **이미 만들어 둔 슬롯에서** 위반되고 있던 자리다.
+
+   가르는 축은 **지식 결손인가**다:
+   · `C`(개념)·`B`(경계)·`M`(수학) — 몰라서 틀렸다. 다시 만나는 시점을 앞당길 근거가 된다.
+   · `S`(실수)·`T`(시간)          — **알지만** 틀렸다. 부주의 오류는 개념 결손을 뜻하지 않으며
+     피로·촉박에서 급증한다(IRIS/Vanderbilt · 확인 2026-08-01). 이걸 개념 오답과 같은 사다리에
+     태우면 검산 한 번 놓친 챕터가 정말 모르는 챕터와 같은 급함을 갖는다 — 그게 **오탐**이다.
+
+   ⚠ 임의 계수가 안 생긴다: *얼마나* 앞당길지는 여전히 `REVIEW_OFFSETS` 자신에서 나오고
+     (`spacedReview.FAIL_DUE_DAYS`), 여기서 정하는 것은 *앞당길 것인가* 뿐이다.
+   ⚠ **자동 분류는 하지 않는다** — `insights.ts` 가 _"LLM 자동 CBMS 분류가 조용한 오분류로
+     드롭됐다"_ 고 못박았다. 이 표는 **사람이 고른 코드**의 뜻을 적을 뿐이다. */
+export const CBMS_ADVANCES_REVIEW: ReadonlySet<CbmsCode> = new Set<CbmsCode>(['C', 'B', 'M']);
+
 /** 코드별 카운트에서 최다 코드 + 전체합 — 임계 없는 argmax(문턱이 있는 dominantCbms와 별개).
    Stats(sort)·Review(reduce)가 각자 인라인하던 두 관용구를 하나로. 오답 0이면 null. */
 export function cbmsTop(counts: Record<CbmsCode, number>): { code: CbmsCode; n: number; total: number } | null {
@@ -128,7 +146,9 @@ export function cbmsTop(counts: Record<CbmsCode, number>): { code: CbmsCode; n: 
   }
   return total ? { code: top, n: counts[top] || 0, total } : null;
 }
-/** conf: '찍어서 맞음/확신 없었음' 플래그(6절·E5). */
+/** conf: '찍어서 맞음/확신 없었음' 플래그(6절·E5).
+ *  @returns 만들어진 기록의 id — 커밋 **뒤에** 메모만 덧붙이는 호출부(P-2 러너 인라인)가 쓴다.
+ *    ⚠ 반환값을 안 쓰는 호출부가 대부분이다(그래서 추가여도 안전하다). */
 export function addCbms(
   state: AppState,
   ds: string,
@@ -138,10 +158,11 @@ export function addCbms(
   code: CbmsCode,
   note: string,
   conf?: boolean,
-): void {
+): string {
   state.cbms = state.cbms || [];
+  const id = rid();
   state.cbms.push({
-    id: rid(),
+    id,
     ds: ds || todayISO(state), // '오늘' 단일 출처(_today 시드 존중) — 벽시계 직접 참조 금지
     sid: sid || '',
     name: name || '',
@@ -151,6 +172,7 @@ export function addCbms(
     conf: !!conf,
     at: Date.now(),
   });
+  return id;
 }
 /** CBMS 오답 인라인 편집 — 챕터·유형·메모·확신플래그를 갈아끼운다(id·날짜·작성시각 보존). */
 export function editCbms(

@@ -15,8 +15,12 @@ interface ToastItem {
   id: number;
   msg: string;
   type: ToastType;
+  /** 자동 소멸까지의 ms. **0 이하면 시한이 없다**(사용자가 닫거나 액션을 누를 때까지 — P-8). */
   ms: number;
+  /** 액션 **하나** — 대부분의 호출부가 쓰는 형태. `actions` 와 함께 쓰지 않는다. */
   action?: ToastAction;
+  /** 액션 **여럿**(P-8). 갈래가 셋 이상인 사건에만 — 하나면 위 `action` 이 맞다. */
+  actions?: ToastAction[];
 }
 interface ToastStore {
   items: ToastItem[];
@@ -46,6 +50,21 @@ export function toastUndo(msg: string, onUndo: () => void): void {
   toast(msg, 'info', 6500, { label: '되돌리기', onAction: onUndo });
 }
 
+/**
+ * **시한 없는** 갈림길 토스트(P-8 · 2026-08-01) — 누르기 전엔 안 사라진다.
+ *
+ * ⚠ 왜 필요한가: 집중 세션 종료의 '블록 완료로 표시'가 **10초 창**에만 있었다. 자리를 떴다면
+ * 앱 복귀 1회 + 10초 안에 클릭 1회를 해내야 했고, 놓치면 계획 탭에서 손으로 찾아 체크하는
+ * 길뿐이었다(화면 1개·클릭 3+). 그런데 그 세션은 **자리를 뜨라고 만든 것**이다.
+ * ⚠ 원래 설계는 이 갈래들을 **OS 알림 액션 버튼**에 두려 했는데 **Windows 에서 불가**다
+ * (Tauri 알림 Actions API 는 모바일 전용 · 실측). 그래서 앱 안이 진다.
+ * ⚠ **남용 금지** — 시한 없는 토스트는 사용자가 치워야 하는 빚이다. 사용자가 *스스로 시작한*
+ * 일이 끝나 답을 기다리는 자리에만 쓴다. 그 조건은 `FocusChip` 머리주석이 소유한다.
+ */
+export function toastChoice(msg: string, type: ToastType, actions: ToastAction[]): void {
+  useToastStore.getState().push({ id: ++_id, msg, type, ms: 0, actions });
+}
+
 const ICON: Record<ToastType, string> = { ok: '✓', bad: '⚠', warn: '⚠', info: 'ℹ' };
 
 function Toast({ item }: { item: ToastItem }) {
@@ -59,7 +78,8 @@ function Toast({ item }: { item: ToastItem }) {
   const leftRef = useRef(item.ms);
   const sinceRef = useRef(0); // 렌더 순수성 — 시각은 이펙트에서만 찍는다
   useEffect(() => {
-    if (paused || leaving) return;
+    // ⚠ ms<=0 = 시한 없음(P-8). 타이머를 아예 안 건다 — 0ms 타이머를 걸면 즉시 사라진다.
+    if (paused || leaving || item.ms <= 0) return;
     sinceRef.current = Date.now();
     // setState 를 타이머 콜백에서 — 이펙트 본문의 동기 setState 가 아니라 React Compiler
     // `set-state-in-effect` 를 발화시키지 않는다(이 저장소가 여러 번 쓴 회피).
@@ -68,7 +88,7 @@ function Toast({ item }: { item: ToastItem }) {
       clearTimeout(t);
       leftRef.current = Math.max(600, leftRef.current - (Date.now() - sinceRef.current));
     };
-  }, [item.id, paused, leaving]);
+  }, [item.id, item.ms, paused, leaving]);
   useEffect(() => {
     if (!leaving) return;
     const t = setTimeout(() => remove(item.id), TOAST_OUT_MS);
@@ -106,7 +126,8 @@ function Toast({ item }: { item: ToastItem }) {
       {/* UX-3 — 되돌리기 창이 얼마나 남았는지 보여준다. 되돌릴 게 있는 토스트에만 붙고,
           위 hover/focus 일시정지와 **같은 `paused` 상태**를 쓴다(바가 멈춰 있는데 타이머는
           돌아가는 식으로 갈리면, 보이는 것이 곧 거짓이 된다). 나머지는 CSS 가 소유한다. */}
-      {item.action && (
+      {/* ⚠ 시한이 없으면 수명 바를 안 그린다 — 안 줄어드는 바는 거짓말이다(P-8). */}
+      {item.action && item.ms > 0 && (
         <span
           className="toast-life"
           style={{ animationDuration: `${item.ms}ms`, animationPlayState: paused ? 'paused' : 'running' }}
@@ -115,23 +136,26 @@ function Toast({ item }: { item: ToastItem }) {
       )}
       <span className="toast-i">{ICON[item.type]}</span>
       <span className="toast-m">{item.msg}</span>
-      {item.action && (
+      {/* 액션 하나(`action`)든 여럿(`actions`)이든 같은 버튼으로 그린다 — 형태가 갈리면
+          두 벌이 되고, 그중 하나만 고쳐지는 드리프트가 시작된다. */}
+      {(item.actions ?? (item.action ? [item.action] : [])).map((a) => (
         <button
+          key={a.label}
           type="button"
           className="toast-act"
           onClick={(e) => {
             e.stopPropagation();
             try {
-              item.action!.onAction();
+              a.onAction();
             } catch {
               /* 액션 오류는 토스트를 닫는 걸 막지 않음 */
             }
             dismiss();
           }}
         >
-          {item.action.label}
+          {a.label}
         </button>
-      )}
+      ))}
     </div>
   );
 }

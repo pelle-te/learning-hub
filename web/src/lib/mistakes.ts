@@ -107,6 +107,39 @@ export function mistakeArchive(state: AppState, filter?: MistakeFilter): Mistake
   );
 }
 
+/* ── P-14 오늘 볼 것 (2026-08-01) ────────────────────────────────────────────
+   `mistakeArchive` 는 전 기간 전량을 **상한 없이** 돌려준다. 문제는 도달(클릭 2)이 아니라
+   **도착 후**다 — 스무 칸짜리 목록 앞에서 무엇부터 볼지가 다시 사용자의 일이 된다.
+   외부 근거: 오답 노트가 다시 안 읽히는 이유는 _"다음에 같은 상황에서 무엇을 할지"_ 가 없어
+   읽어도 행동으로 안 이어지기 때문이고, 권고는 전부가 아니라 **매일 1~3분**이다
+   (note.com/toge0000 · 확인 2026-08-01).
+
+   ⚠ **회전은 새 계수가 아니다** — 이 저장소는 같은 문제(매일 한 장을 고른다)를 이미 날짜 해시로
+     풀어 뒀다(`retrieval.pickRetrieval`·`pickConfidentWrong`). 같은 규칙을 쓰는 것이 규약이고,
+     새 규칙을 지어내는 것이 일탈이다.
+   ⚠ **정렬을 다시 정하지 않는다** — 창이 도는 대상은 `mistakeArchive` 가 이미 정한 순서
+     (횟수 내림차순 → 최근 순)다. 즉 첫날 창은 *가장 자주 막히는 것*에서 시작하고, 날이 가며
+     아카이브 전체를 훑는다. 여기서 순위를 새로 매기면 두 화면이 다른 이야기를 한다. */
+export const TODAY_PICK_N = 3;
+
+/** 안정 해시(문자열→비음수 정수) — 같은 날 같은 창, 날이 바뀌면 회전. `retrieval.ts` 와 같은 식. */
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/**
+ * 오늘 볼 몇 건 — 정렬 순서 위를 **날짜로 회전하는 창**. 행이 `n` 이하면 그대로 전부.
+ *
+ * ⚠ 순수·결정론: 벽시계를 안 본다(`todayDs` 를 받는다). 같은 날 여러 번 열어도 같은 창이다.
+ */
+export function todayMistakes(rows: readonly MistakeRow[], todayDs: string, n = TODAY_PICK_N): MistakeRow[] {
+  if (rows.length <= n) return [...rows];
+  const start = hashStr(todayDs) % rows.length;
+  return Array.from({ length: n }, (_, i) => rows[(start + i) % rows.length]!);
+}
+
 /** 아카이브 한눈 집계 — 화면 상단 리드아웃(칸·기록·과신). 행이 없으면 전부 0. */
 export function mistakeTotals(rows: MistakeRow[]): { spots: number; records: number; confident: number } {
   let records = 0;

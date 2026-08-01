@@ -9,9 +9,9 @@ import { useFocus } from '@/store/useFocus';
 import { useApp } from '@/store/useApp';
 import { touchReview } from '@/lib/persistence';
 import { mmss } from '@/lib/utils';
-import { isTauri } from '@/lib/tauri';
+import { isTauri, shellNotify } from '@/lib/tauri';
 import { MINI_PATH, enterMini, exitMini } from '@/lib/miniMode';
-import { toast } from '@/shell/toast';
+import { toast, toastChoice } from '@/shell/toast';
 import { confirm } from '@/shell/modal';
 import { routeTitle } from './docTitle';
 
@@ -85,22 +85,24 @@ export default function FocusChip() {
        제안을 반복해서 거절해 왔다(로드맵 드롭 목록의 Web Push·넛지 항목들이 같은 판단이다).
        사용자가 시작을 눌렀다는 것이 곧 "끝나면 알려 달라"는 요청이라, 여기만 예외다.
        → "마감 알림도 넣자"는 재제안은 이 주석 한 줄로 끝난다.
-       ⚠ 권한이 없으면 **조용히 아무 일도 안 한다**(아래 조건). 그게 맞다 — 알림은 부가 신호이고
-       같은 사실을 토스트가 화면 안에서 이미 말한다. 다만 그래서 "실제로 뜬 적 있나"는 이 코드만
-       보고는 알 수 없다 — 그 실측은 실 셸에서 한 번 해야 하고, 아직 안 했다(로드맵 Later). */
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try {
-        new Notification(isBreak ? '휴식 끝 ☕' : '집중 세션 완료 🎉', {
-          body: isBreak
-            ? '재충전 완료 — 다음 블록을 시작해볼까요?'
-            : isFree
-              ? `${name} — 수고했어요.`
-              : `${name} — 수고했어요. 블록을 완료로 표시할까요?`,
-        });
-      } catch {
-        /* 알림 실패는 토스트가 커버 */
-      }
-    }
+       **P-8 은 이 트리거를 한 글자도 안 건드렸다** — 트리거는 그대로 하나이고, 그 하나의
+       *내용*이 두꺼워졌을 뿐이다.
+
+       ⚠⚠ **여기 `new Notification(...)` 이 있었고, 단 한 번도 뜬 적이 없다(실측 2026-08-01).**
+       가드가 `Notification.permission === 'granted'` 였는데 `tauri://` WebView2 에서 그 값은
+       **항상 `denied`** 이고 `requestPermission()` 도 프롬프트 없이 즉시 거부한다(CDP 프로브).
+       즉 옛 주석이 _"실측은 아직 안 했다"_ 고 적어 둔 바로 그 자리에서, 이 앱의 개입 채널은
+       1개가 아니라 **0개**였다. 지금은 Tauri 알림 플러그인이 진짜로 쏜다(`shellNotify`).
+       ⚠ 실패는 여전히 조용하다 — 알림은 부가 신호이고 같은 사실을 아래 토스트가 화면 안에서
+       말한다. 다만 이제 그 침묵이 "권한 없음"이지 "코드가 죽어 있음"이 아니다. */
+    void shellNotify(
+      isBreak ? '휴식 끝 ☕' : '집중 세션 완료 🎉',
+      isBreak
+        ? '재충전 완료 — 다음 블록을 시작해볼까요?'
+        : isFree
+          ? `${name} — 수고했어요.`
+          : `${name} — 수고했어요. 앱에서 블록을 완료로 표시할 수 있어요.`,
+    );
     if (isBreak) {
       toast('휴식 끝 ☕ — 다음 블록을 시작해볼까요?', 'info', 10_000, {
         label: '▶ 집중 시작',
@@ -110,22 +112,38 @@ export default function FocusChip() {
       // 완료 액션 없음 — 즉석 세션은 기록에 남기지 않는다(수고 인정만).
       toast(`즉석 집중 완료 🎉 — ${name}. 수고했어요.`, 'info', 8_000);
     } else {
-      toast(`집중 세션 완료 🎉 — ${name}`, 'info', 10_000, {
-        label: '블록 완료로 표시',
-        onAction: () => {
-          const app = useApp.getState();
-          /* G-1 — **실제로 집중한 분**을 함께 남긴다. 지금까지 회고 넷은 계획 분을 "집중한
-             시간"으로 읽었고, 그중 `adherenceFactor` 는 그 값으로 미래 용량을 깎았다. 이 경로가
-             실측을 아는 유일한 자리다(세션 총 길이 = `total` 초). 세션을 중간에 멈췄다면 그 세션은
-             완료 토스트 자체가 안 뜨므로 여기 오는 값은 언제나 '끝까지 한 세션'이다. */
-          app.toggleDone(ds, sid, type, blockMin, true, Math.round(session.total / 60));
-          // ReviewRun發 세션은 챕터를 아니까 챕터 터치도 기록 — 위험모델 lastDs 갱신(감사 #22).
-          if (chapter) app.mutate((st) => touchReview(st, sid, chapter, ds));
+      /* ── P-8 세 갈래 · 시한 없음(2026-08-01) ────────────────────────────────
+         ⚠⚠ 종전엔 이 토스트가 **10초**였고 액션이 **'블록 완료로 표시' 하나**였다. 그런데 이
+         세션은 **자리를 뜨라고 만든 것**이라, 돌아왔을 땐 대개 이미 사라져 있었다 — 그러면
+         완료 체크는 계획 탭에서 손으로 찾는 길뿐이다(화면 1개·클릭 3+). 즉 **가장 값나가는
+         기록(G-1 실측 분)이 10초짜리 창에 걸려 있었다.** 이제 누를 때까지 안 사라진다.
+         ⚠ 원래 이 갈래들은 **OS 알림 액션 버튼**에 두려던 것인데 Windows 에서 불가라
+         (Actions API 는 모바일 전용 · 실측) 앱 안이 진다. */
+      toastChoice(`집중 세션 완료 🎉 — ${name}`, 'info', [
+        {
+          label: '블록 완료로 표시',
+          onAction: () => {
+            const app = useApp.getState();
+            /* G-1 — **실제로 집중한 분**을 함께 남긴다. 지금까지 회고 넷은 계획 분을 "집중한
+               시간"으로 읽었고, 그중 `adherenceFactor` 는 그 값으로 미래 용량을 깎았다. 이 경로가
+               실측을 아는 유일한 자리다(세션 총 길이 = `total` 초). 세션을 중간에 멈췄다면 그 세션은
+               완료 토스트 자체가 안 뜨므로 여기 오는 값은 언제나 '끝까지 한 세션'이다. */
+            app.toggleDone(ds, sid, type, blockMin, true, Math.round(session.total / 60));
+            // ReviewRun發 세션은 챕터를 아니까 챕터 터치도 기록 — 위험모델 lastDs 갱신(감사 #22).
+            if (chapter) app.mutate((st) => touchReview(st, sid, chapter, ds));
+          },
         },
-      });
+        /* ⚠⚠ **자동 휴식 5분이 여기서 은퇴했다(P-8).** 종전엔 세션이 끝나는 즉시
+           `startBreak(5)` 가 돌아 **사용자가 요청하지 않은 세션을 앱이 시작하는 유일한 자리**
+           였다 — 게다가 완료 토스트를 읽는 동안 이미 다음 타이머가 흐르고 있었다. 같은 5분을
+           **선택지로** 옮긴다: 없어진 것은 자동성이지 기능이 아니다.
+           ⚠ `startBreak` 의 유일한 호출부가 이 줄이다 — 지우면 휴식이 도달 불가가 된다. */
+        { label: '☕ 5분 휴식', onAction: () => useFocus.getState().startBreak(5) },
+        // '계속' 은 아무것도 안 한다 — 시한 없는 토스트를 닫는 정직한 출구다(닫기는 공통 처리).
+        { label: '계속', onAction: () => {} },
+      ]);
     }
     clear();
-    if (!isBreak) useFocus.getState().startBreak(5); // 자동 휴식 — 포모도로 회복 구간
   }, [session, leftSec, clear]);
 
   /* 미니 모드 자동 복귀(N-8) — 세션이 끝나면 알약을 접고 원래 창·원래 탭으로 돌아온다.

@@ -467,6 +467,8 @@
   --aura-bottom: -40%;
   --filter-aura: blur(6px);
   --yesterday-max: 62ch;
+  /* P-1 복귀 브리핑 칩 폭 상한 — 히어로 우상단에 얹히므로 제목을 밀어내지 않을 길이. */
+  --brief-max: 52ch;
   --cta-shim-off: translateX(-130%);
   --cta-shim-on: translateX(130%);
   --cta-outline-offset: 3px;
