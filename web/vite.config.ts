@@ -123,7 +123,37 @@ export default defineConfig({
             return { manifest: keep, warnings };
           },
         ],
+        /* ⚠⚠ **폴백을 `/phone` 으로 좁힌다 — 안 좁히면 SW 가 오리진 전체를 먹는다**
+           (2026-08-01 · 라이브 배포 첫날 사용자 보고 → 재현으로 확인).
+
+           ## 무슨 일이 났나
+
+           `navigateFallback` 은 **모든 내비게이션 요청**에 대해 그 문서를 돌려준다. 데스크톱 셸이
+           `tauri://` 로컬 파일이던 동안에는 이 SW 가 폰 오리진에만 살아서 해가 없었다. 그런데
+           C-6 이후 **같은 Workers 오리진에서 `index.html`(웹) 과 `phone.html`(폰) 이 함께 나간다.**
+           그래서 사용자가 `/phone` 을 **한 번이라도** 열면 SW 가 등록되고, 그 뒤로는 같은 오리진의
+           `/`·`/items`·`/today` 전부가 **폰의 등록 코드 화면**으로 바뀐다. 웹 진입점이 통째로
+           도달 불가가 된다(캐시를 지우기 전까지 · `registerType:'autoUpdate'` 라 되돌아오지도 않는다).
+
+           ## 왜 어느 게이트도 못 잡았나 — 이게 이 주석의 요점이다
+
+           · 트랙 A(`visual`·`a11y`): `serviceWorkers: 'block'` 이다. **정의상 SW 를 안 본다.**
+           · `phone.spec.ts`: 폰이 뜨는지와 OPFS 가 생기는지만 본다 — *다른 엔트리에 미치는 영향*은
+             그 스펙의 관심사가 아니다.
+           · 트랙 B: `tauri://` 라 SW 가 없다.
+           · 로컬 `npm run dev`: SW 를 안 만든다(빌드 산출물이다).
+           즉 **"두 엔트리가 한 오리진을 공유한다"는 사실 자체가 어느 하네스에도 표현돼 있지 않았다.**
+           프로브를 새 컨텍스트로 돌리면 매번 초록이라(SW 미등록) 나도 첫 확인에서 놓쳤다.
+
+           ## 규칙
+
+           폰은 **라우터가 없다** — 탭이 상태이고 경로는 `/phone` 하나다(`PhoneApp.tsx` 의 `goTab`).
+           그러니 폴백이 필요한 URL 도 그 하나뿐이다. 허용 목록으로 못박아 두면 폰에 라우터가
+           생기더라도 여기를 먼저 고치게 된다(조용히 번지지 않는다).
+           ⚠ 웹 루트(`index.html`)는 precache 대상이 아니므로 **오프라인 지원이 원래 없다** —
+             네트워크로 가는 것이 정직한 동작이지 손실이 아니다. */
         navigateFallback: 'phone.html',
+        navigateFallbackAllowlist: [/^\/phone(?:\.html)?$/],
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           { urlPattern: /\/api\//, handler: 'NetworkOnly' }, // 서버/외부 데이터는 캐시 안 함(설계도 §6)
