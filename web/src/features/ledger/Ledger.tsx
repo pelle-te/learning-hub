@@ -103,7 +103,7 @@ function SubjectRow({
     <div className="mb-4">
       <div className="mb-1.5 flex items-baseline gap-2">
         <b className="truncate text-md font-bold text-txt">{roll.subject}</b>
-        <span className="ds-tiny ds-muted">
+        <span className="ds-tiny text-mut">
           {roll.abbr} · {roll.total}챕터 · 진척 {pctLabel(roll.progress)}
           {!roll.srcPresent ? ' · 출처 없음' : ''}
         </span>
@@ -169,7 +169,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
       >
         ✕
       </button>
-      <div className="ds-tiny ds-muted">
+      <div className="ds-tiny text-mut">
         {sel.subject} · {ch.chapter_id}
       </div>
       <div className="mt-0.5 mb-2.5 pr-6.5 text-lg font-extrabold text-txt">{ch.arc}</div>
@@ -196,7 +196,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
                 {done ? '✓' : ''}
               </span>
               <span className={`text-sm ${cur ? 'font-bold text-txt' : 'text-mut'}`}>
-                {m.label} <span className="ds-tiny ds-muted">{m.desc}</span>
+                {m.label} <span className="ds-tiny text-mut">{m.desc}</span>
               </span>
             </div>
           );
@@ -205,14 +205,14 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-mut">
         <span>
           노트 <b className="text-txt tabular-nums">{ch.notes}</b>
-          {ch.concept ? <span className="ds-muted"> (개념 {ch.concept})</span> : null}
+          {ch.concept ? <span className="text-mut"> (개념 {ch.concept})</span> : null}
         </span>
         <span>
           검증률 <b className="text-txt tabular-nums">{pctLabel(ch.verified_ratio)}</b>
         </span>
         <span>
           카드 <b className="text-txt tabular-nums">{ch.cards}</b>
-          {ch.reps ? <span className="ds-muted"> · {ch.reps}회</span> : null}
+          {ch.reps ? <span className="text-mut"> · {ch.reps}회</span> : null}
         </span>
         {ch.reviewed_recent ? (
           <span>
@@ -239,11 +239,11 @@ function Backlog({ l: led }: { l: Ledger }) {
   return (
     <div className="ds-rule">
       <h3>
-        📥 백로그 <span className="ds-muted ds-tiny">(파이프라인에 아직 안 들어온 것)</span>
+        📥 백로그 <span className="ds-tiny text-mut">(파이프라인에 아직 안 들어온 것)</span>
       </h3>
       {unp.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-1.25">
-          <div className="ds-tiny ds-muted">미처리 참고자료 — 폴더는 있으나 노트 미작성 ({unp.length})</div>
+          <div className="ds-tiny text-mut">미처리 참고자료 — 폴더는 있으나 노트 미작성 ({unp.length})</div>
           <div className="flex flex-wrap gap-1.25">
             {unp.map((s) => (
               <span key={s} className="ds-chip">
@@ -255,7 +255,7 @@ function Backlog({ l: led }: { l: Ledger }) {
       )}
       {nosrc.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-1.25">
-          <div className="ds-tiny ds-muted">출처 없는 과목 — 참고자료 폴더 미연결 ({nosrc.length})</div>
+          <div className="ds-tiny text-mut">출처 없는 과목 — 참고자료 폴더 미연결 ({nosrc.length})</div>
           <div className="flex flex-wrap gap-1.25">
             {nosrc.map((s) => (
               <span key={s} className="ds-chip border-line-warn! text-warn!">
@@ -305,13 +305,13 @@ function Setup() {
       <ol className="ds-foot" style={{ lineHeight: 1.9 }}>
         <li>
           원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
-          <span className="ds-muted"> (또는 아래 “원장 재빌드” 버튼)</span>
+          <span className="text-mut"> (또는 아래 “원장 재빌드” 버튼)</span>
         </li>
         <li>
           한 명령 전체 빌드: <code>python pipeline/_도구/빌드.py</code>
         </li>
       </ol>
-      <div className="ds-foot ds-muted">
+      <div className="ds-foot text-mut">
         원장은 <code>subjects.json</code>(정본 slug·src) + 볼트 인덱스 + Anki 신호를 조인해 과목×챕터의 5단계 진척을
         집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
       </div>
@@ -409,9 +409,7 @@ export default function Ledger() {
           {/* 좌 — 과목별 파이프라인 매트릭스(immersive) */}
           <div className="ds-glow relative flex min-h-0 min-w-0 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] flex-col rounded-lg border border-line bg-[image:var(--bg-map-panel)] motion-reduce:animate-none max-wide:min-h-85">
             <div className="flex flex-none flex-wrap items-baseline gap-x-3 gap-y-1.5 px-5 pt-4 pb-1">
-              <span className="text-xs font-extrabold tracking-caps text-mut uppercase">
-                과목별 파이프라인 — SUBJECT PIPELINE
-              </span>
+              <span className="ds-caps">과목별 파이프라인 — SUBJECT PIPELINE</span>
               <span className="text-xs text-mut">셀 하나가 챕터 · 색 = 가장 멀리 간 단계 · 클릭으로 세부</span>
             </div>
             <div className="flex flex-none flex-wrap gap-x-3 gap-y-1 px-5 pt-1.5 pb-2.5 text-2xs text-mut">

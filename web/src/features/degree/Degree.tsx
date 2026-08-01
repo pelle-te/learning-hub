@@ -117,7 +117,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
       }}
     >
       <span className="ds-chev">{open ? '▾' : '▸'}</span>
-      <span className="ds-itemname">{sem.name || <span className="ds-muted">(이름 없음)</span>}</span>
+      <span className="ds-itemname">{sem.name || <span className="text-mut">(이름 없음)</span>}</span>
       <span className="ds-itemmeta">
         <span className="ds-pill ds-tiny">
           {cr}학점 · {sem.courses.length}과목
@@ -248,7 +248,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
           </Button>
         </div>
         <div className="ds-itemfoot">
-          <span className="ds-tiny ds-muted">
+          <span className="ds-tiny text-mut">
             {cr}학점 · {sem.courses.length}과목{doneCr > 0 ? ` · 완료 ${doneCr}학점` : ''}
           </span>
           <Button sm variant="ghost" danger onClick={delSem}>
@@ -355,7 +355,7 @@ function DegreePlan() {
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
       <div className="ds-rule">
-        <div className="mb-3.5 text-xs font-extrabold tracking-caps text-mut uppercase">졸업 현황</div>
+        <div className="ds-caps mb-3.5">졸업 현황</div>
         <div className="flex flex-wrap items-center gap-7">
           <div
             className={`relative size-23 flex-none${celeFlash ? ' animate-[commit-cele_var(--dur-cele)_var(--ease)] motion-reduce:animate-none' : ''}`}
@@ -434,11 +434,11 @@ function DegreePlan() {
           </div>
           <div className="text-md text-txt tabular-nums">
             {gpa == null ? (
-              <span className="ds-muted">성적을 입력하면 목표까지 필요한 평점을 계산해요.</span>
+              <span className="text-mut">성적을 입력하면 목표까지 필요한 평점을 계산해요.</span>
             ) : fc.alreadyMet ? (
               <span style={{ color: 'var(--good)' }}>이미 목표 달성 ✓</span>
             ) : fc.neededAvg == null ? (
-              <span className="ds-muted">남은 과목이 없어요.</span>
+              <span className="text-mut">남은 과목이 없어요.</span>
             ) : (
               <>
                 남은 <b className="font-extrabold">{fc.futureCr}</b>학점을 평균{' '}
@@ -531,7 +531,7 @@ function DegreePlan() {
         <div className="ds-row" style={{ alignItems: 'center' }}>
           <h2 style={{ flex: 1, margin: 0 }}>
             학기별 수강{' '}
-            <span className="ds-muted ds-tiny" style={{ fontWeight: 400 }}>
+            <span className="ds-tiny text-mut" style={{ fontWeight: 400 }}>
               {list.length ? `(${list.length})` : ''}
             </span>
           </h2>
@@ -564,7 +564,7 @@ export default function Degree() {
   return (
     <div className="min-w-0">
       <div className="mb-4 flex items-center gap-3.5">
-        <h2 className="mb-0! text-md! font-extrabold! tracking-caps! text-mut! uppercase">🎓 졸업</h2>
+        <h2 className="ds-caps mb-0!">🎓 졸업</h2>
         <div className="ds-seg ml-auto">
           <button
             type="button"

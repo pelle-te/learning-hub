@@ -64,7 +64,7 @@ const S = {
   // 3 — 시그니처
   signature: 'flex min-h-0 min-w-0 flex-col gap-3.5 p-5.5',
   sigHead: 'flex items-baseline justify-between',
-  sigTitle: 'text-xs leading-text font-extrabold tracking-caps text-mut uppercase',
+  sigTitle: 'ds-caps',
   sigMeta: 'text-xs leading-text text-mut tabular-nums',
   sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none`,
   verdicts: 'flex flex-col gap-3 border-t border-line2 pt-3.5 max-wide:mt-3.5',
@@ -82,7 +82,7 @@ const S = {
   // 4 — 과목별 진행
   subjects:
     'flex min-h-0 min-w-0 flex-col border-l border-line2 p-5.5 max-wide:min-h-75 max-wide:border-t max-wide:border-l-0 max-wide:border-line2',
-  subjectsH2: 'mb-3! flex-none text-xs! leading-text font-extrabold! tracking-caps! text-mut! uppercase',
+  subjectsH2: 'mb-3! flex-none ds-caps',
   subjList: '-mx-1 flex min-h-0 flex-1 flex-col gap-2.25 overflow-y-auto px-1 [scrollbar-width:thin]',
   subj: "relative flex flex-col gap-1.5 overflow-hidden rounded-md border border-line bg-panel pt-2.75 pr-3.25 pb-3 pl-3.75 transition-[border-color,transform,box-shadow] duration-fast ease-[var(--ease)] before:absolute before:top-2.25 before:bottom-2.25 before:left-0 before:w-0.75 before:scale-y-0 before:rounded-cell before:bg-acc before:shadow-spine before:transition-transform before:duration-fast before:ease-[var(--ease)] before:content-[''] hover:-translate-y-px hover:border-line-acc hover:shadow-hero hover:before:scale-y-100",
   subjTop: 'flex items-center gap-2',
@@ -180,7 +180,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
           </div>
         </div>
       </div>
-      <div className={`${S.hmLegend} ds-muted ds-tiny`}>
+      <div className={`${S.hmLegend} ds-tiny text-mut`}>
         <span>적음</span>
         {[0, 1, 2, 3, 4].map((l) => (
           <div key={l} className={`${S.cellLg} ${LVL[l]}`} />
@@ -192,7 +192,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
       {/* 잔디 셀은 탭스톱 폭주 방지로 비포커스(role=img+aria-label) — 대신 키보드/스크린리더용
           접이식 표(주 × 요일 · 분)로 동일 정보를 순회 없이 읽게. 기본 접힘·비침습. */}
       <details className={S.hmTable} onToggle={(e) => setTableOpen(e.currentTarget.open)}>
-        <summary className={`${S.hmSummary} ds-muted ds-tiny`}>표로 보기 — 주 × 요일(분)</summary>
+        <summary className={`${S.hmSummary} ds-tiny text-mut`}>표로 보기 — 주 × 요일(분)</summary>
         {tableOpen && (
           <div className={S.hmTableScroll}>
             <table className={S.hmTableEl}>
@@ -232,7 +232,7 @@ function StreakHeatmap({ bare }: { bare?: boolean }) {
   return (
     <div className="ds-rule">
       <h2>
-        학습 스트릭 <span className="ds-muted ds-tiny">— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
+        학습 스트릭 <span className="ds-tiny text-mut">— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
       </h2>
       {heat}
     </div>
@@ -509,7 +509,7 @@ export default function Stats() {
           `detailOpen &&`로 감싸 마운트 자체를 미루므로 닫힌 상태에선 네트워크 요청도 없다. */}
       <DetailDrawer open={detailOpen} onClose={() => setDetailOpen(false)} title="학습 리포트 — 상세">
         {detailOpen && (
-          <Suspense fallback={<div className="ds-muted ds-tiny">상세 리포트를 불러오는 중…</div>}>
+          <Suspense fallback={<div className="ds-tiny text-mut">상세 리포트를 불러오는 중…</div>}>
             <StatsDetail r={r} />
           </Suspense>
         )}

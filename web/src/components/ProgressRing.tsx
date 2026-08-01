@@ -13,6 +13,7 @@ export function ProgressRing({
   className,
   trackClassName,
   arcClassName,
+  tentative,
 }: {
   /** viewBox 한 변(px 아님 — 실제 크기는 CSS가 결정). */
   size: number;
@@ -23,6 +24,15 @@ export function ProgressRing({
   className?: string;
   trackClassName?: string;
   arcClassName?: string;
+  /** 잠정값 — 획을 흐리게(P-12). 판정은 `lib/confidence.ts` 가, 그리기만 여기가 한다.
+   *
+   *  ⚠ **그라데이션 페이드가 아니라 균일 투명이다.** 로드맵은 stroke 그라데이션을 적었는데 두
+   *  가지가 막았다: ① `strokeDasharray` 는 **호 길이 자체에 이미 쓰이고 있어** 대시로는 불확실성을
+   *  표현할 수 없다 ② `<stop currentColor>` 는 그라데이션 요소의 `color` 로 풀리는데 이 링의 색은
+   *  호출부 클래스가 `stroke` 로 주므로 **둘이 안 맞는다**(호출부마다 색이 다르다).
+   *  인용된 근거가 허용하는 부호화는 채도저하·블러·**투명**·스케치니스이고, 균일 투명은 그중
+   *  하나다 — 그리고 캡션이 분모를 함께 말하므로 "비활성"으로 오독될 여지가 닫힌다. */
+  tentative?: boolean;
 }) {
   const c = 2 * Math.PI * r;
   const mid = size / 2;
@@ -35,7 +45,11 @@ export function ProgressRing({
         cx={mid}
         cy={mid}
         r={r}
-        style={{ strokeDasharray: c, strokeDashoffset: c * (1 - clamped / 100) }}
+        style={{
+          strokeDasharray: c,
+          strokeDashoffset: c * (1 - clamped / 100),
+          ...(tentative ? { strokeOpacity: 0.45 } : null),
+        }}
       />
     </svg>
   );

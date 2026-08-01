@@ -45,7 +45,7 @@ const NOTE = 'truncate text-xs text-mut';
 const ACTION = 'text-xs leading-body font-semibold text-txt';
 /* 오늘 볼 것 / 전량 아카이브의 경계. `<summary>` 는 전역 button{} 을 안 타므로 유틸만으로 선다. */
 const FOLD = 'mt-1 cursor-pointer text-xs font-bold text-mut hover:text-txt';
-const TODAY_HEAD = 'flex flex-none items-baseline gap-2 text-xs font-bold tracking-caps text-mut uppercase';
+const TODAY_HEAD = 'flex flex-none items-baseline gap-2 ds-caps';
 const ACTS = 'mt-0.5 flex flex-wrap gap-2';
 const MINI = 'cursor-pointer rounded-sm border border-line px-2 py-1 text-xs text-mut hover:border-acc hover:text-txt';
 
@@ -236,7 +236,7 @@ export default function Mistakes() {
 
       {rows.length === 0 ? (
         /* 필터가 만든 빈 상태 — 위 '기록 없음'과 다른 사건이라 다른 문장을 준다(막다른 골목 금지). */
-        <p className="ds-muted py-4 text-sm" role="status">
+        <p className="py-4 text-sm text-mut" role="status">
           이 조건에 맞는 오답이 없어요 — 필터를 풀어 보세요.
         </p>
       ) : (

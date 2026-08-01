@@ -89,7 +89,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
     <details open={chs.length === 0} className="ds-chapwrap">
       <summary>
         📖 챕터{' '}
-        <span className="ds-muted" style={{ fontWeight: 400 }}>
+        <span className="text-mut" style={{ fontWeight: 400 }}>
           {chs.length ? `${chs.length}개 · 약 ${totalH}h` : '추가'}
         </span>
       </summary>
@@ -126,7 +126,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       move(i, i + (e.key === 'ArrowDown' ? 1 : -1));
                     }}
                   >
-                    <td className="ds-muted ds-tiny" style={{ whiteSpace: 'nowrap' }}>
+                    <td className="ds-tiny text-mut" style={{ whiteSpace: 'nowrap' }}>
                       <span className="ds-draghandle" title="드래그 또는 Alt+↑↓로 순서 변경">
                         ⠿
                       </span>{' '}
@@ -138,7 +138,21 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                         value={c.name}
                         onChange={(e) => upd((it) => void (it.chapters[i]!.name = e.target.value))}
                         aria-label="챕터 이름"
+                        className={c.deferred ? 'ds-shed' : undefined}
                       />
+                      {/* 이번 범위에서 빠진 챕터(P-9) — **되돌리기가 여기 산다.** 컷 카드는 부족분이
+                          닫히면 사라지므로, 되돌릴 자리가 카드에만 있으면 되돌리기가 함께 사라진다.
+                          그러면 '제외'와 '조용한 삭제'가 사용자 입장에서 구분되지 않는다. */}
+                      {c.deferred && (
+                        <Button
+                          sm
+                          variant="ghost"
+                          onClick={() => upd((it) => void delete it.chapters[i]!.deferred)}
+                          title="이번 범위에 다시 넣기"
+                        >
+                          이번 범위 제외됨 · 되돌리기
+                        </Button>
+                      )}
                     </td>
                     <td>
                       {/* emptyValue 없음 — 예상시간을 비운 채 떠나면 0h가 아니라 직전 값이 남아야 한다
@@ -194,7 +208,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
             + 챕터 추가
           </Button>
           <span style={{ flex: 1 }} />
-          <span className="ds-tiny ds-muted">↕ 드래그로 순서 변경</span>
+          <span className="ds-tiny text-mut">↕ 드래그로 순서 변경</span>
         </div>
 
         <details className="ds-bulkwrap" style={{ marginTop: 10 }}>
@@ -226,20 +240,20 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
       >
         {snap && (
           <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-md">
-            <dt className="ds-muted">분량</dt>
+            <dt className="text-mut">분량</dt>
             <dd className="m-0 font-bold">{snap.hours ? `${snap.hours}h` : '—'}</dd>
-            <dt className="ds-muted">진행</dt>
+            <dt className="text-mut">진행</dt>
             <dd className="m-0 font-bold">
               {snap.done ? `끝냄${snap.doneDs ? ` · ${snap.doneDs}` : ' · 날짜 기록 없음'}` : '진행 중'}
             </dd>
-            <dt className="ds-muted">복습</dt>
+            <dt className="text-mut">복습</dt>
             <dd className="m-0 font-bold">
               {riskWord(snap)}
               {snap.lastDs && (
-                <span className="ds-muted ds-tiny">{` · 마지막 ${snap.lastDs} (${snap.daysSince}일 전)`}</span>
+                <span className="ds-tiny text-mut">{` · 마지막 ${snap.lastDs} (${snap.daysSince}일 전)`}</span>
               )}
             </dd>
-            <dt className="ds-muted">오답 기록</dt>
+            <dt className="text-mut">오답 기록</dt>
             {/* ⚠ 숫자만 있으면 막다른 골목이다 — "3건"을 보고 그 3건을 보려면 오답 탭에서 과목을
                 다시 골라야 했다. 서랍이 표방한 "객체가 목적지"와 어긋나던 유일한 칸이라 링크를 준다.
                 ⚠ 조인은 **과목 id** 로만 한다(챕터 이름 매칭이 아니다) → 실패가 원리적으로 없다. */}

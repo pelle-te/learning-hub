@@ -40,7 +40,7 @@ import State from '@/components/State';
 import { SubjectDefinition } from './SubjectDefinition';
 
 const COL = 'flex min-h-0 min-w-0 flex-col gap-3.5 overflow-y-auto [scrollbar-width:thin]';
-const CARD_T = 'mb-2! text-xs! leading-text font-extrabold! tracking-caps text-mut! uppercase';
+const CARD_T = 'mb-2! ds-caps';
 
 /** 앎 컬럼 — 원장 5단계(이 과목) + 지식엔진 숙달. **계산은 각 lib 이 이미 소유한다.** */
 function Knowing({ name }: { name: string }) {
@@ -91,7 +91,7 @@ function Knowing({ name }: { name: string }) {
             </Button>
           </>
         ) : (
-          <p className="ds-muted ds-tiny">볼트 원장에 이 과목이 아직 없어요(워크스페이스·빌드 필요).</p>
+          <p className="ds-tiny text-mut">볼트 원장에 이 과목이 아직 없어요(워크스페이스·빌드 필요).</p>
         )}
       </div>
       <div className="ds-rule">
@@ -106,7 +106,7 @@ function Knowing({ name }: { name: string }) {
         ) : (
           /* ⚠ "0%" 로 그리지 않는다 — 값 부재와 값 0 이 같은 픽셀이 되면 그게 곧 조용한 거짓말이다
              (`visits.ts` 가 물린 "쌓이고 있다는 믿음만 쌓인다"와 같은 부류). */
-          <p className="ds-muted ds-tiny">아직 관측이 없어요 — 지식엔진이 이 과목을 아직 모릅니다.</p>
+          <p className="ds-tiny text-mut">아직 관측이 없어요 — 지식엔진이 이 과목을 아직 모릅니다.</p>
         )}
       </div>
     </div>
@@ -137,7 +137,7 @@ function Retrieval({ sid }: { sid: string }) {
             ))}
           </ul>
         ) : (
-          <p className="ds-muted ds-tiny">밀린 챕터가 없어요.</p>
+          <p className="ds-tiny text-mut">밀린 챕터가 없어요.</p>
         )}
         <Button sm variant="ghost" className="mt-2.5" onClick={() => navigate('/review-run')}>
           지금 인출 →
@@ -149,13 +149,13 @@ function Retrieval({ sid }: { sid: string }) {
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
             {weak.slice(0, 8).map((c) => (
               <li key={c.id} className="truncate text-md">
-                <span className="ds-muted ds-tiny mr-1.5">{c.code}</span>
+                <span className="ds-tiny mr-1.5 text-mut">{c.code}</span>
                 {c.chapter || '(챕터 미기재)'}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="ds-muted ds-tiny">기록된 약점이 없어요.</p>
+          <p className="ds-tiny text-mut">기록된 약점이 없어요.</p>
         )}
         {/* `?sid=` 를 원래 받던 유일한 화면 — 객체 축이 서면 그 관용구가 예외가 아니라 규칙이 된다. */}
         <Button sm variant="ghost" className="mt-2.5" onClick={() => navigate(`/mistakes?sid=${sid}`)}>

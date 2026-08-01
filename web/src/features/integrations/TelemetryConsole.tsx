@@ -122,7 +122,7 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   return (
     <div className={`ds-board${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>
       <div className="mb-3.5 flex items-baseline justify-between">
-        <span className="text-xs font-extrabold tracking-caps text-mut uppercase">연동 텔레메트리 — TELEMETRY</span>
+        <span className="ds-caps">연동 텔레메트리 — TELEMETRY</span>
         {!vertical && <span className="text-2xs text-mut opacity-80">시스템 폴더 /api · 볼트 · Anki 조종석</span>}
       </div>
       {quietLine && <p className="mt-0 mb-3 text-2xs text-mut">{quietLine}</p>}

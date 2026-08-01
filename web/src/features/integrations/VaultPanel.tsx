@@ -237,7 +237,7 @@ export function VaultPanel() {
           </div>
         )}
         {scan && (
-          <div className="ds-muted ds-tiny" style={{ marginTop: 6 }}>
+          <div className="ds-tiny text-mut" style={{ marginTop: 6 }}>
             📂 {isTauri() ? '감시 중' : '연동됨'}: <b style={{ color: 'var(--ink)' }}>{handle?.name || 'knowledge'}</b>{' '}
             · 스캔 {scan.at} · 과목 {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
           </div>
@@ -269,7 +269,7 @@ export function VaultPanel() {
                   }}
                 >
                   <b style={{ flex: 1 }}>{s.name}</b>
-                  <span className="ds-tiny ds-muted">
+                  <span className="ds-tiny text-mut">
                     노트 {s.notes} · 검증 {s.verified}({vp}%){s.wip ? ` · 진행중 ${s.wip}` : ''}
                     {s.legacy ? ` · 구버전 ${s.legacy}` : ''} · Anki {s.exported}({ep}%)
                     {uncovered > 0 ? ` · 🃏 미출력 ${uncovered}` : ''}
@@ -296,7 +296,7 @@ export function VaultPanel() {
                           className="flex items-center gap-2 border-b border-dashed border-line-soft py-1.25 text-md last:border-b-0"
                         >
                           <span className="flex-1">{c.name}</span>
-                          <span className="ds-tiny ds-muted">
+                          <span className="ds-tiny text-mut">
                             {c.notes}노트 · 검증 {c.verified}
                             {c.wip ? ` · 진행중 ${c.wip}` : ''}
                             {c.legacy ? ` · 구버전 ${c.legacy}` : ''} · Anki {c.exported}
@@ -307,7 +307,7 @@ export function VaultPanel() {
                         </div>
                       ))
                     ) : (
-                      <div className="ds-muted ds-tiny">하위 챕터 없음</div>
+                      <div className="ds-tiny text-mut">하위 챕터 없음</div>
                     )}
                   </div>
                 )}

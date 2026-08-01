@@ -86,7 +86,7 @@ function VisitLedger() {
       <div className="ds-tiny mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
         {rows.slice(0, 16).map((r) => (
           <span key={`${r.key}:${r.via}`}>
-            {r.key} <span className="ds-muted">· {r.via}</span> {r.n}
+            {r.key} <span className="text-mut">· {r.via}</span> {r.n}
           </span>
         ))}
       </div>
@@ -305,7 +305,7 @@ export default function Settings() {
 
       <div className="ds-rule">
         <h2>
-          테마 · 액센트 <span className="ds-muted ds-tiny">— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
+          테마 · 액센트 <span className="ds-tiny text-mut">— 네온 색을 고르세요(다크/라이트 전환은 우측 상단 ◐)</span>
         </h2>
         <div className={S.accRow}>
           {ACCENTS.map((a) => (
@@ -382,7 +382,7 @@ export default function Settings() {
         <div className="ds-row">
           <div className="ds-fld">
             <label htmlFor="set-blank" className={S.subLabel}>
-              백지 복습 자동 배치 <span className="ds-muted ds-tiny">(방법론 9절 — 주 1회 단원 재구성)</span>
+              백지 복습 자동 배치 <span className="ds-tiny text-mut">(방법론 9절 — 주 1회 단원 재구성)</span>
             </label>
             <div className={S.fldBody}>
               <label className={`ds-chkRow ${S.chkFlush}`}>
@@ -398,7 +398,7 @@ export default function Settings() {
           </div>
           <div>
             <label htmlFor="set-mock">
-              모의시험 주기 (주) <span className="ds-muted ds-tiny">0=끔 (방법론 12절)</span>
+              모의시험 주기 (주) <span className="ds-tiny text-mut">0=끔 (방법론 12절)</span>
             </label>
             <Stepper
               id="set-mock"
@@ -423,7 +423,7 @@ export default function Settings() {
                 role=group/aria-labelledby 로 묶어야 스크린리더가 "적응형 용량 그룹"으로 읽는다.
                 .subLabel 이 display:inline 을 명시하므로 div 로 바꿔도 픽셀은 동일. */}
             <div className={S.subLabel} id="set-adaptive-cap">
-              적응형 용량 <span className="ds-muted ds-tiny">(방법론 1·10절 — "계획은 가설")</span>
+              적응형 용량 <span className="ds-tiny text-mut">(방법론 1·10절 — "계획은 가설")</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-adaptive-cap">
               <label className={`ds-chkRow ${S.chkFlush}`}>
@@ -438,7 +438,7 @@ export default function Settings() {
           </div>
           <div className="ds-fld">
             <div className={S.subLabel} id="set-review-anki">
-              복습은 Anki에 위임 <span className="ds-muted ds-tiny">(시간 이중계상 방지)</span>
+              복습은 Anki에 위임 <span className="ds-tiny text-mut">(시간 이중계상 방지)</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-review-anki">
               <label className={`ds-chkRow ${S.chkFlush}`}>
@@ -453,7 +453,7 @@ export default function Settings() {
           </div>
           <div className="ds-fld">
             <div className={S.subLabel} id="set-graph-prio">
-              그래프 우선순위 <span className="ds-muted ds-tiny">(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
+              그래프 우선순위 <span className="ds-tiny text-mut">(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-graph-prio">
               <label className={`ds-chkRow ${S.chkFlush}`}>
@@ -473,7 +473,7 @@ export default function Settings() {
         <div className="ds-row">
           <div>
             <label htmlFor="set-peak0">
-              각성도 최고 시간대 시작 <span className="ds-muted ds-tiny">(방법론 1절 — 어려운 새 학습을 맑을 때)</span>
+              각성도 최고 시간대 시작 <span className="ds-tiny text-mut">(방법론 1절 — 어려운 새 학습을 맑을 때)</span>
             </label>
             <input
               id="set-peak0"
@@ -519,7 +519,7 @@ export default function Settings() {
 
       <div className="ds-rule">
         <h2>
-          데이터 백업·정리 <span className="ds-muted ds-tiny">— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
+          데이터 백업·정리 <span className="ds-tiny text-mut">— localStorage 한 곳에만 있으면 캐시 삭제 시 전소</span>
         </h2>
         <div className={`ds-row ${S.pillRow}`}>
           <span className={`ds-pill ${stale ? 'ds-warn' : 'ds-good'}`}>{backupLine}</span>

@@ -102,11 +102,16 @@ export function buildReviewQueue(state: AppState, days: Day[], today: string): R
   if (rc) q.push({ kind: 'retrieval', card: rc });
   const cw = pickConfidentWrong(state, today);
   if (cw) q.push({ kind: 'confident', card: cw });
+  /* ⚠ 보류 선반(P-11) — 사용자가 "이건 안 볼게"라고 말한 챕터는 큐에서 빠진다.
+     **cap 앞에서** 거른다: cap 뒤에 거르면 뺀 자리가 빈 채로 남아 세션이 조용히 짧아지고,
+     그러면 "뺐는데 아무것도 안 달라졌다"가 된다(뺀 만큼 다음 챕터가 올라와야 의미가 있다).
+     `risk !== 'fresh'` 필터와 같은 자리인 이유도 같다 — 둘 다 *큐에 들어갈 자격*의 문제다. */
+  const held = (c: ChapterReview): boolean => !!state.reviewHold?.[`${c.sid}|${c.chapter}`];
   // 위험 챕터 전체를 과목 인터리빙 후 cap — riskChapters(cap 먼저)를 쓰지 않는 이유는 위 주석 참고.
-  const risk = chapterReviews(state, days || [], today).filter((c) => c.risk !== 'fresh');
+  const risk = chapterReviews(state, days || [], today).filter((c) => c.risk !== 'fresh' && !held(c));
   for (const ch of interleaveBySubject(risk).slice(0, REVIEW_CHAPTER_CAP)) q.push({ kind: 'chapter', ch });
   // 유지(끝낸 챕터)는 **맨 뒤**에 상한만큼. 앞에 끼우면 진행 중 overdue 가 밀린다(강등 불변식의 배치판).
-  const keep = maintenanceReviews(state, today).filter((c) => c.risk !== 'fresh');
+  const keep = maintenanceReviews(state, today).filter((c) => c.risk !== 'fresh' && !held(c));
   for (const ch of interleaveBySubject(keep).slice(0, MAINTENANCE_CAP)) q.push({ kind: 'chapter', ch });
   return q;
 }

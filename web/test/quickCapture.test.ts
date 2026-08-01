@@ -62,58 +62,22 @@ describe('quickCapture — 절대 날짜', () => {
   });
 });
 
-describe('quickCapture — 시간', () => {
-  it('오후 3시 → 900', () => {
+/* ⚠⚠ **'시간' · '세션 유형' describe 두 개가 여기서 통째로 사라졌다**(P-18 · 2026-08-01).
+   파서가 그 둘을 정확히 뽑았고 팔레트가 칩으로 보여줬는데 착지 지점(`captureRecord`)은
+   `sid·name·topic·note` 넷만 만든다 — 화면이 약속한 것의 절반이 어디에도 안 갔다.
+   근거와 "왜 과목·챕터는 남기나"는 `lib/quickCapture.ts` 머리주석이 SSOT.
+   ⚠ 아래 케이스가 그 삭제를 **잠근다** — 다시 뽑기 시작하면 여기가 깨진다. */
+describe('quickCapture — 지우기로 한 토큰은 다시 안 생긴다(P-18)', () => {
+  it('시각·세션유형은 파싱되지 않고, 그 글자는 title 에 온전히 남는다', () => {
     const r = parseCapture('오후 3시 복습', NOW)!;
-    expect(r.minute).toBe(900);
-    expect(r.timeLabel).toBe('오후 3:00');
+    expect(Object.keys(r)).toEqual(['title']);
+    expect(r.title).toBe('오후 3시 복습'); // 안 뽑으니 안 걷어낸다 = 글자가 사라지지 않는다
   });
-  it('오전 9시 → 540', () => {
-    expect(parseCapture('오전 9시', NOW)?.minute).toBe(540);
-  });
-  it('HH:MM (14:30 → 870)', () => {
-    const r = parseCapture('14:30 미팅', NOW)!;
-    expect(r.minute).toBe(870);
-    expect(r.timeLabel).toBe('오후 2:30');
-  });
-  it('H시 M분 (9시 30분 → 570)', () => {
-    expect(parseCapture('9시 30분', NOW)?.minute).toBe(570);
-  });
-  it('12시 → 720 · 오후 12시 → 720 · 오전 12시 → 0', () => {
-    expect(parseCapture('12시', NOW)?.minute).toBe(720);
-    expect(parseCapture('오후 12시', NOW)?.minute).toBe(720);
-    expect(parseCapture('오전 12시', NOW)?.minute).toBe(0);
-  });
-  it("'반' → :30 (오후 3시 반 → 930, 3시 반 → 210)", () => {
-    expect(parseCapture('오후 3시 반', NOW)?.minute).toBe(930);
-    expect(parseCapture('3시 반', NOW)?.minute).toBe(210);
-  });
-});
-
-describe('quickCapture — 세션 유형', () => {
-  it('복습/리뷰/rev → rev', () => {
-    expect(parseCapture('복습', NOW)?.sessionType).toBe('rev');
-    expect(parseCapture('리뷰', NOW)?.sessionType).toBe('rev');
-    expect(parseCapture('rev', NOW)?.sessionType).toBe('rev');
-  });
-  it('새/신규/new → new', () => {
-    expect(parseCapture('신규 진도', NOW)?.sessionType).toBe('new');
-    expect(parseCapture('new topic', NOW)?.sessionType).toBe('new');
-  });
-  it('백지/blank → blank', () => {
-    expect(parseCapture('백지', NOW)?.sessionType).toBe('blank');
-    expect(parseCapture('blank test', NOW)?.sessionType).toBe('blank');
-  });
-  it('모의/모의고사/mock → mock', () => {
-    expect(parseCapture('모의고사', NOW)?.sessionType).toBe('mock');
-    expect(parseCapture('mock', NOW)?.sessionType).toBe('mock');
-  });
-  it('anki/암기/카드 → anki', () => {
-    expect(parseCapture('암기', NOW)?.sessionType).toBe('anki');
-    expect(parseCapture('카드 뽑기', NOW)?.sessionType).toBe('anki');
-  });
-  it('키워드 없으면 undefined', () => {
-    expect(parseCapture('그냥 메모', NOW)?.sessionType).toBeUndefined();
+  it('날짜·과목·챕터는 그대로 뽑는다(착지가 있는 셋)', () => {
+    const r = parseCapture('내일 알고리즘 2챕터', NOW, ['알고리즘'])!;
+    expect(r.dateISO).toBe('2026-07-04');
+    expect(r.subject).toBe('알고리즘');
+    expect(r.chapter).toBe('2챕터');
   });
 });
 
@@ -147,20 +111,18 @@ describe('quickCapture — 과목 매칭', () => {
 describe('quickCapture — title 추출 & 견고성', () => {
   it('토큰 걷어낸 나머지가 title', () => {
     const r = parseCapture('내일 알고리즘 복습 중요', NOW, ['알고리즘'])!;
-    expect(r.title).toBe('중요');
+    // '복습'은 더 이상 걷어내지 않으므로(P-18) title 에 남는다 — 뽑지 않은 글자는 버리지 않는다.
+    expect(r.title).toBe('복습 중요');
     expect(r.dateISO).toBe('2026-07-04');
-    expect(r.sessionType).toBe('rev');
     expect(r.subject).toBe('알고리즘');
   });
-  it('종합 문장 — 모든 필드 채우고 title은 raw로 폴백(나머지 비면)', () => {
+  it('종합 문장 — 착지 있는 셋을 채우고 나머지 글자는 title 에 남는다', () => {
     const raw = '내일 오후 3시 알고리즘 2챕터 복습';
     const r = parseCapture(raw, NOW, SUBJECTS)!;
     expect(r.dateISO).toBe('2026-07-04');
-    expect(r.minute).toBe(900);
-    expect(r.sessionType).toBe('rev');
     expect(r.chapter).toBe('2챕터');
     expect(r.subject).toBe('알고리즘');
-    expect(r.title).toBe(raw); // 나머지가 비어 원본으로 폴백
+    expect(r.title).toBe('오후 3시 복습');
   });
   it('공백/빈 문자열 → null', () => {
     expect(parseCapture('', NOW)).toBeNull();
@@ -170,7 +132,5 @@ describe('quickCapture — title 추출 & 견고성', () => {
     const r = parseCapture('asdf qwerty', NOW)!;
     expect(r.title).toBe('asdf qwerty');
     expect(r.dateISO).toBeUndefined();
-    expect(r.minute).toBeUndefined();
-    expect(r.sessionType).toBeUndefined();
   });
 });

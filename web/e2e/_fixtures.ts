@@ -559,9 +559,9 @@ export const TABS = [
   'mistakes',
   'guide',
   'ledger',
-  // graph 는 <canvas> 힘-방향 뷰지만 초기 좌표가 id 해시 시드로 **결정론적**이고(graphData.ts:
-  // "Math.random 금지 · 스냅샷/테스트 안정") reduced-motion 에선 동기 1회 렌더라 캡처가 안정적이다.
-  'graph',
+  // ⚠ `graph` 는 **탭이 아니라 `/items?view=structure` 뷰다**(P-19 · 2026-08-01). 로스터는
+  // 경로로 도는데 그 경로는 이제 `items` 의 쿼리 변형이라, 탭 로스터가 아니라 아래 개별
+  // 케이스가 본다(로스터에 두면 `items` 를 두 번 찍고 뷰 전환은 여전히 안 본다).
 ];
 export const THEMES = ['dark', 'light'] as const;
 
@@ -611,6 +611,15 @@ export const A11Y_EXTRA: ExtraScreen[] = [
       await page.clock.install({ time: new Date('2026-09-01T09:00:00') });
     },
     ready: (page) => page.getByRole('progressbar').waitFor(),
+  },
+  /* ⚠ **과목 › 구조도**(P-19 · 2026-08-01) — 탭이었을 때는 `TABS` 로스터가 알아서 봤는데
+     `/items` 의 쿼리 변형이 되면서 로스터 밖으로 나갔다. 안 넣으면 **탭을 뷰로 내린 대가로
+     a11y 커버리지 2건이 조용히 사라진다**(H6 이 오버레이에서 물린 그 구멍과 같은 형태).
+     캔버스 자체는 `검사()` 가 `exclude('canvas')` 하지만 범례·검색·줌 컨트롤은 그대로 검사된다. */
+  {
+    key: 'items-structure',
+    path: '/items?view=structure',
+    ready: (page) => page.getByRole('searchbox', { name: '학습 구조도 노드 검색' }).waitFor(),
   },
   /* W12 객체 축(`/subject/:id`) — **탭이 아니라 라우트**라 `TABS` 에 없다. `/mini` 와 같은 부류이고,
      넣지 않으면 새로 생긴 3열 화면이 a11y 로스터 밖으로 나간다(H6 이 오버레이에서 물린 그 구멍).
@@ -692,7 +701,7 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
        즉 상세를 여는 결정적 경로가 이미 제품 안에 있었다(그리고 그건 키보드 사용자의 경로이기도
        하다 · 오버레이 a11y 를 재기에 오히려 더 맞는 입구다). */
     key: 'overlay-graph-detail',
-    path: '/graph',
+    path: '/items?view=structure',
     열기: async (page) => {
       // ⚠ `type="search"` 는 role 이 **searchbox** 다(textbox 아님 — 실측으로 물렸다).
       await page.getByRole('searchbox', { name: '학습 구조도 노드 검색' }).fill('미적분');
@@ -930,4 +939,4 @@ export const SEED_EMPTY = {
   cbms: [],
   degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
 };
-export const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'journal', 'graph'];
+export const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'journal'];

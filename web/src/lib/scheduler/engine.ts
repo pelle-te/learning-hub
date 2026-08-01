@@ -27,7 +27,7 @@ import { dayStudyMin, studyMinByWeekday } from './windows';
 import { adherenceFactor, itemTotalHours, latestBlank, masteryNeed } from './priority';
 import { applyDayPlans, reseedManualReviews } from './dayPlanOverride';
 import type { SchedSubject } from './types';
-import type { AppState, Day, ItemStat, ScheduleResult } from '../types';
+import type { AppState, Day, ItemStat, ScheduleResult, Shortfall } from '../types';
 
 export function schedule(state: AppState): ScheduleResult {
   // 시작일 방어 — 사용자가 시작일을 빈 값으로 지우면 parseISO('')=Invalid → dayDiff=NaN →
@@ -35,13 +35,14 @@ export function schedule(state: AppState): ScheduleResult {
   const start = Number.isNaN(parseISO(state.startDate).getTime()) ? todayISO(state) : state.startDate;
   const items = state.items.filter((s) => s.name);
   const warnings: string[] = [];
+  const shortfalls: Shortfall[] = [];
   const capWd = studyMinByWeekday(state);
   const ML = state.moduleLen || 120;
   const revFrac = (state.reviewRatio || 0) / 100;
   const weeklyRaw = items.filter((s) => s.mode !== 'daily' && +(s.weeklyHours || 0) > 0);
   const daily = items.filter((s) => s.mode === 'daily' && +(s.dailyMin || 0) > 0);
   if (!items.length)
-    return { days: [], itemStat: [], weekHours: {}, chapterLog: [], warnings, capUsed: 0, capTotal: 0, ML };
+    return { days: [], itemStat: [], weekHours: {}, chapterLog: [], warnings, shortfalls, capUsed: 0, capTotal: 0, ML };
 
   /* 1) 기간(horizon) */
   const lastDL = items.reduce((m, s) => (s.deadline && s.deadline > m ? s.deadline : m), '');
@@ -107,7 +108,16 @@ export function schedule(state: AppState): ScheduleResult {
   /* 4) 과목 진행 상태 초기화 (챕터 포인터) — done 챕터는 계획에서 제외 */
   const weekly: SchedSubject[] = weeklyRaw.map((it) => {
     const all = it.chapters || [];
-    const chs = all.filter((c) => !c.done).map((c) => ({ name: c.name, hours: Math.max(0.1, +c.hours || 1) }));
+    // `deadlineThru`(P-10) = 마감이 덮는 마지막 챕터 id. 못 찾으면(챕터가 지워졌다) 전 범위로 폴백 —
+    // 옛 id 하나 때문에 마감 판정이 통째로 멈추는 것보다 종전 동작으로 되돌아가는 편이 안전하다.
+    const thruIdx = it.deadlineThru ? all.findIndex((c) => c.id === it.deadlineThru) : -1;
+    const scopeEnd = thruIdx >= 0 ? thruIdx : all.length - 1;
+    // deferred(P-9)는 done 과 같은 자리에서 빠진다 — 블록도 안 만들고 부족분에도 안 센다.
+    // 다만 `_allTotal`·`_done0` 은 원본 그대로라 통계가 포기를 진척으로 세지 않는다.
+    const chs = all
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => !c.done && !c.deferred)
+      .map(({ c, i }) => ({ id: c.id, name: c.name, hours: Math.max(0.1, +c.hours || 1), inScope: i <= scopeEnd }));
     return {
       ...it,
       _allTotal: all.length,
@@ -117,6 +127,7 @@ export function schedule(state: AppState): ScheduleResult {
       _cum: 0,
       _idx: 0,
       _totalH: chs.reduce((t, c) => t + c.hours, 0),
+      _scopeH: chs.reduce((t, c) => t + (c.inScope ? c.hours : 0), 0),
       _dlIdx: it.deadline ? clamp(dayDiff(start, it.deadline), 0, days.length - 1) : horizon,
       _schedMin: 0,
       _sessions: [],
@@ -442,10 +453,42 @@ export function schedule(state: AppState): ScheduleResult {
     const finished = !chaptersLeft(s);
     const late = finished && finishDate && s.deadline ? Math.max(0, dayDiff(s.deadline, finishDate)) : 0;
     // _hadChapters 가드 — 챕터 없는 과목은 chaptersLeft()가 늘 true라 finished가 영영 false다.
-    // 그 상태에서 마감만 있으면 "다 못 끝내요" 경고가 영구히 뜨는 오탐이라 실제 챕터가 있던 과목만 경고.
-    if (s.deadline && s._hadChapters && !finished)
-      warnings.push(`⚠ "${s.name}": 마감(${s.deadline})까지 주 ${s.weeklyHours}h로는 챕터를 다 못 끝내요. 주당 시간↑.`);
-    else if (late > 0) warnings.push(`⚠ "${s.name}": 학습 종료(${finishDate})가 마감(${s.deadline}) 초과.`);
+    // 그 상태에서 마감만 있으면 경고가 영구히 뜨는 오탐이라 실제 챕터가 있던 과목만 본다.
+    // ⚠ 판정 분모가 `_totalH`(전부)에서 `_scopeH`(마감이 덮는 범위)로 바뀌었다 — P-10.
+    //   `deadlineThru` 가 없으면 둘이 같으므로 종전 동작과 한 글자도 다르지 않다.
+    // ⚠ 그리고 이 자리는 이제 **문자열 경고를 안 만든다** — P-9. 옛 문장의 유일한 처방이
+    //   `주당 시간↑` 이었는데 그건 사용자가 할 수 없는 것이라 액션이 0이었다. 대신 부족분과
+    //   컷 후보를 구조로 내보내고, 화면이 "무엇을 뺄까"를 묻는다.
+    if (s.deadline && s._hadChapters && s._cum < s._scopeH - 1e-6) {
+      const inScope = s._chs.filter((c) => c.inScope);
+      // 규칙: **남은 시간 큰 것부터 · 동률이면 뒤 챕터부터.** 화면에도 이 한 줄을 적어 사용자가
+      // 뒤집을 수 있게 한다 — 컷 순서를 학습과학으로 정당화하지 않는다(트리아지 문헌과 깊이-넓이
+      // 문헌이 정면으로 갈린다). 근거 없이 똑똑한 척하는 순위가 이 축에서 가장 위험하다.
+      const candidates = inScope
+        .map((c, i) => ({ c, i }))
+        .sort((a, b) => b.c.hours - a.c.hours || b.i - a.i)
+        .map(({ c }) => ({ id: c.id, name: c.name, hours: round1(c.hours) }));
+      const gapH = s._scopeH - s._cum;
+      const suggest: string[] = [];
+      let acc = 0;
+      for (const c of candidates) {
+        if (acc >= gapH - 1e-6) break;
+        suggest.push(c.id);
+        acc += c.hours;
+      }
+      shortfalls.push({
+        sid: s.id,
+        name: s.name,
+        color: s.color,
+        deadline: s.deadline,
+        needH: round1(s._scopeH),
+        fitH: round1(Math.min(s._cum, s._scopeH)),
+        gapH: round1(gapH),
+        scoped: inScope.length < s._chs.length,
+        candidates,
+        suggest,
+      });
+    } else if (late > 0) warnings.push(`⚠ "${s.name}": 학습 종료(${finishDate})가 마감(${s.deadline}) 초과.`);
     return {
       id: s.id,
       name: s.name,
@@ -501,6 +544,7 @@ export function schedule(state: AppState): ScheduleResult {
     weekHours,
     chapterLog,
     warnings: [...new Set(warnings)],
+    shortfalls,
     capUsed,
     capTotal,
     ML,

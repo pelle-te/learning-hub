@@ -72,7 +72,12 @@ describe('pickFocus — 시각이 없는 후보끼리는 급한 것이 이긴다
   });
 });
 
-describe('pickFocus — 시각이 박힌 날에는 시간이 이긴다(계획을 배신하지 않는다)', () => {
+/* ⚠⚠ **이 describe 의 제목이 P-6 에서 뒤집혔다**(2026-08-01).
+   옛 제목은 _"시각이 박힌 날에는 시간이 이긴다"_ 였고 그게 정확히 결함이었다: 배치된 평일에는
+   시각이 전부 다르므로 **마감이 히어로 선택에 관여한 적이 0회**인데, 화면은 그 선택 옆에
+   `마감 D-3` 을 붙였다(선택의 원인이 아닌 라벨).
+   지금 계획을 배신하지 않게 지키는 것은 **`current` 하나**다 — 진행 중인 블록은 무조건 이긴다. */
+describe('pickFocus — 급함이 고르고 시각은 동률을 깬다(단 진행 중은 무조건 이긴다)', () => {
   it('지금 시간대의 블록이 급한 블록을 이긴다', () => {
     const now = 10 * 60 + 30;
     const stats = [stat('urgent', { deadline: '2026-07-25' })];
@@ -89,9 +94,33 @@ describe('pickFocus — 시각이 박힌 날에는 시간이 이긴다(계획을
   });
 
   it('stat 없이도 옛 호출부처럼 동작한다(가장 이른 미완료)', () => {
+    // 급함이 동률(둘 다 마감 없음·같은 크기)이라 시각이 갈린다 — 동률 깨기가 살아 있는 증거.
     const p = pickFocus([timed('b', 14 * 60), timed('a', 9 * 60)], 20 * 60);
     expect(p.focus?.it.sid).toBe('a');
     // 예정 시각이 이미 지났다 — 그 사실이 가장 정확한 이유다("가장 큰 학습"이라 하면 거짓말).
     expect(p.reason).toBe('09:00 예정 · 아직 안 함');
+  });
+
+  /* ── P-6 의 본체 — **배치된 평일에 마감이 실제로 관여한다** ─────────────────────────── */
+  it('배치된 평일에 오후의 마감 임박 블록이 오전 블록을 이긴다', () => {
+    const stats = [stat('urgent', { deadline: '2026-07-26' })];
+    const p = pickFocus([timed('morning', 9 * 60), timed('urgent', 15 * 60)], 8 * 60, stats, TODAY);
+    expect(p.focus?.it.sid).toBe('urgent'); // 옛 규칙이라면 'morning'
+    expect(p.reason).toContain('마감'); // 그리고 이유가 이제 **선택의 원인**이다
+  });
+
+  it('진도 밀림도 시각을 이긴다', () => {
+    const stats = [stat('late', { late: 3 })];
+    const p = pickFocus([timed('early', 9 * 60), timed('late', 16 * 60)], 8 * 60, stats, TODAY);
+    expect(p.focus?.it.sid).toBe('late');
+    expect(p.reason).toBe('진도 밀림');
+  });
+
+  it('마감도 밀림도 없으면 이유는 크기다 — 시각을 원인이라 말하지 않는다', () => {
+    // 급함에 남은 성분이 블록 크기뿐이라 큰 것이 이긴다. 옛 코드는 여기서 `다음 예정 14:00` 이라
+    // 말했는데, 시각은 더 이상 선택의 원인이 아니므로 그 문구는 거짓이 된다.
+    const p = pickFocus([timed('small', 9 * 60, 30), timed('big', 14 * 60, 120)], 8 * 60, [], TODAY);
+    expect(p.focus?.it.sid).toBe('big');
+    expect(p.reason).toBe('오늘 가장 큰 학습');
   });
 });

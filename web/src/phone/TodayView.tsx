@@ -174,9 +174,7 @@ export default function TodayView({
                 className="size-5 shrink-0 accent-acc"
                 aria-label={`${focus.name} 완료`}
               />
-              <span className={`text-base font-bold ${focusDone ? 'text-mut line-through' : 'text-txt'}`}>
-                {focus.name}
-              </span>
+              <span className={`text-base font-bold ${focusDone ? 'ds-shed' : 'text-txt'}`}>{focus.name}</span>
             </label>
             {focus.chapters && focus.chapters.length > 0 ? (
               <div className="mt-0.5 truncate text-sm text-mut">{focus.chapters.join(' · ')}</div>

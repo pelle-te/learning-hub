@@ -69,7 +69,7 @@ export default function UpdateCard() {
   return (
     <section className="ds-rule">
       <h2 className="text-lg! leading-text tracking-price! text-txt">앱 업데이트</h2>
-      <p className="ds-muted ds-tiny m-0">
+      <p className="ds-tiny m-0 text-mut">
         새 버전이 있는지 확인합니다. <strong>자동으로 설치하지 않습니다</strong> — 학습 중에 앱이 재시작되지 않도록
         확인과 설치를 따로 둡니다.
       </p>
@@ -78,18 +78,18 @@ export default function UpdateCard() {
         <Button sm onClick={() => void onCheck()} disabled={busy}>
           {busy ? '확인 중…' : '업데이트 확인'}
         </Button>
-        {info && !info.available && <span className="ds-muted ds-tiny">현재 {info.current} · 최신</span>}
+        {info && !info.available && <span className="ds-tiny text-mut">현재 {info.current} · 최신</span>}
       </div>
 
       {info?.available && (
         <div className="mt-3 rounded-md border border-line-acc bg-acc-soft p-3">
           <p className="m-0 text-sm font-bold text-txt">
-            새 버전 {info.version} <span className="ds-muted font-normal">(현재 {info.current})</span>
+            새 버전 {info.version} <span className="font-normal text-mut">(현재 {info.current})</span>
           </p>
           {info.notes && (
             /* 릴리스 노트를 보여 주는 것이 "두 번째 클릭"의 값이다 — 무엇이 바뀌는지 모르고
                누르는 설치는 자동 설치와 다르지 않다. `whitespace-pre-wrap` 으로 원문 줄바꿈 유지. */
-            <p className="ds-muted mt-2 mb-0 max-h-40 overflow-y-auto text-sm whitespace-pre-wrap">{info.notes}</p>
+            <p className="mt-2 mb-0 max-h-40 overflow-y-auto text-sm whitespace-pre-wrap text-mut">{info.notes}</p>
           )}
           <div className="mt-3">
             <Button sm variant="primary" onClick={() => void onInstall()} disabled={busy}>

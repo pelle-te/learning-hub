@@ -57,7 +57,7 @@ function TabFallback({ error, resetErrorBoundary, label }: FallbackProps & { lab
   return (
     <div className="ds-well">
       <h2>{label ? `‘${label}’ 탭에서 오류가 발생했어요` : '이 탭에서 오류가 발생했어요'}</h2>
-      <p className="ds-muted ds-tiny">{String((error as Error)?.message || error)}</p>
+      <p className="ds-tiny text-mut">{String((error as Error)?.message || error)}</p>
       <Button variant="primary" sm onClick={resetErrorBoundary}>
         다시 시도
       </Button>
@@ -344,6 +344,10 @@ export default function App() {
                   `*` 리다이렉트에 잡혀 /today 로 튕기지 않게 라우트를 **존재하게** 하는 몫이다
                   (탭이 아니라 나브·팔레트·g단축키엔 안 뜬다). */}
               <Route path={MINI_PATH} element={null} />
+              {/* ⚠ **옛 `/graph` 딥링크 보존**(P-19 · 2026-08-01). 탭은 은퇴했지만 화면은
+                  `/items` 의 뷰로 살아 있다 — 리다이렉트가 없으면 `*` 가 `/today` 로 튕겨
+                  "탭을 없앤 대가로 도달성을 잃는" 형태가 된다(북마크·문서 링크·옛 ⌘K 이력). */}
+              <Route path="/graph" element={<Navigate to="/items?view=structure" replace />} />
               {/* W12 객체 축 — **탭이 아니다.** 레일·`[ ]` 링·`g` 키에 안 뜬다(그 셋은 `role` 파생이고
                   이건 명사 하나의 상세다). ⌘K 의 과목·챕터 히트와 과목 카드가 여기 착지한다. */}
               <Route

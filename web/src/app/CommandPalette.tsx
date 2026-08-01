@@ -77,27 +77,20 @@ const CONTENT_HINT: Record<ContentHit['kind'], string> = {
   mistake: '오답 메모',
 };
 
-const TYPE_LABEL: Record<NonNullable<CaptureResult['sessionType']>, string> = {
-  anki: 'Anki',
-  new: '새 학습',
-  rev: '복습',
-  blank: '백지',
-  mock: '모의',
-};
-
-/** 파싱 결과가 '캡처할 가치'가 있는지 — 제목만 남으면(날짜·시간·유형·과목 무) 일반 검색으로 둔다. */
+/** 파싱 결과가 '캡처할 가치'가 있는지 — 제목만 남으면(날짜·과목·챕터 무) 일반 검색으로 둔다. */
 function meaningful(c: CaptureResult | null): c is CaptureResult {
-  return !!c && !!(c.dateISO || c.minute != null || c.sessionType || c.subject || c.chapter);
+  return !!c && !!(c.dateISO || c.subject || c.chapter);
 }
 
-/** 파싱 결과를 한 줄 칩 요약으로(팔레트 힌트·확인 토스트 공용). */
+/** 파싱 결과를 한 줄 칩 요약으로(팔레트 힌트·확인 토스트 공용).
+ *  ⚠ **시각 칩과 세션유형 칩이 여기서 사라졌다**(P-18). 근거는 `lib/quickCapture.ts` 머리주석 —
+ *  요지는 그 둘이 *블록을 만들겠다는 약속*으로 읽히는데 이 경로는 블록을 만들지 않는다는 것이다.
+ *  남은 셋은 전부 착지가 있다: 날짜·과목은 저널 프리필로, 챕터는 `topic`/원문으로. */
 function summarize(c: CaptureResult): string {
   const parts: string[] = [];
   if (c.dateLabel) parts.push(c.dateLabel + (c.dateISO ? ` (${c.dateISO.slice(5)})` : ''));
-  if (c.timeLabel) parts.push(c.timeLabel);
   if (c.subject) parts.push(c.subject);
   if (c.chapter) parts.push(c.chapter);
-  if (c.sessionType) parts.push(TYPE_LABEL[c.sessionType]);
   return parts.join(' · ');
 }
 

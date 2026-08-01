@@ -84,7 +84,7 @@ export default function BacklogCard() {
   return (
     <div ref={cardRef} className="ds-well">
       <h2>
-        보충 필요 백로그 <span className="ds-muted ds-tiny">— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>
+        보충 필요 백로그 <span className="ds-tiny text-mut">— 회수되지 않는 라벨은 "공부했다는 착각"의 온상</span>
       </h2>
       <div className="ds-row" style={{ marginBottom: 6 }}>
         <span className={`ds-pill ${open.length ? 'ds-warn' : 'ds-good'}`}>열림 {open.length}</span>
@@ -110,7 +110,7 @@ export default function BacklogCard() {
         </div>
         <div className="ds-fld ds-wide">
           <label htmlFor={`${uid}-note`}>
-            메모 <span className="ds-muted ds-tiny">(가정·결과식·물리적 의미만)</span>
+            메모 <span className="ds-tiny text-mut">(가정·결과식·물리적 의미만)</span>
           </label>
           <input
             id={`${uid}-note`}
@@ -126,7 +126,7 @@ export default function BacklogCard() {
         <Button variant="primary" onClick={submit} title={`백로그 추가 (Enter · ${MOD_ENTER_LABEL})`}>
           백로그 추가
         </Button>
-        <span className="ds-muted ds-tiny" style={{ marginLeft: 8 }}>
+        <span className="ds-tiny text-mut" style={{ marginLeft: 8 }}>
           회수처: 컨디션 좋은 오전 블록 / 백지 복습 / 질문 목록
         </span>
       </div>
@@ -187,8 +187,8 @@ export default function BacklogCard() {
                 />
                 <span className="ds-swatch" style={{ background: itemById(state, b.sid)?.color || 'var(--mut)' }} />
                 <b>{b.topic || '(주제 없음)'}</b>
-                {b.name && <span className="ds-muted ds-tiny"> · {b.name}</span>}
-                <span className="ds-muted ds-tiny" style={{ marginLeft: 6 }}>
+                {b.name && <span className="ds-tiny text-mut"> · {b.name}</span>}
+                <span className="ds-tiny text-mut" style={{ marginLeft: 6 }}>
                   {b.ds}
                 </span>
                 <Button

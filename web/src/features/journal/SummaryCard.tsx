@@ -77,7 +77,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
   return (
     <div ref={cardRef} className="ds-well">
       <h2>
-        3문장 요약 <span className="ds-muted ds-tiny">— 압축이 안 되면 이해한 게 아니다(파인만)</span>
+        3문장 요약 <span className="ds-tiny text-mut">— 압축이 안 되면 이해한 게 아니다(파인만)</span>
       </h2>
       <div className="ds-fieldgrid">
         <div className="ds-fld">
@@ -89,7 +89,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
           "편집, 비어 있음"으로만 읽어 1/2/3을 구별할 수 없었다. id는 useId(폼이 여러 개 동시에
           떠도 충돌하지 않게 — 편집 폼이 목록마다 열린다). */}
       <label htmlFor={`${uid}-s1`}>
-        1 — What &amp; Why <span className="ds-muted ds-tiny">해석하려는 핵심 현상·문제</span>
+        1 — What &amp; Why <span className="ds-tiny text-mut">해석하려는 핵심 현상·문제</span>
       </label>
       <textarea
         id={`${uid}-s1`}
@@ -101,7 +101,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
         placeholder="예) 시변 환경에서 자기장과 전기장이 어떻게 퍼져 나가는지 해석하려고…"
       />
       <label htmlFor={`${uid}-s2`}>
-        2 — How <span className="ds-muted ds-tiny">도입한 핵심 수식·가정·전개</span>
+        2 — How <span className="ds-tiny text-mut">도입한 핵심 수식·가정·전개</span>
       </label>
       <textarea
         id={`${uid}-s2`}
@@ -112,7 +112,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
         placeholder="예) 변위전류가 든 앙페르 법칙과 패러데이 법칙을 연립해 파동방정식을 세웠고…"
       />
       <label htmlFor={`${uid}-s3`}>
-        3 — Result &amp; Meaning <span className="ds-muted ds-tiny">결과와 물리적 직관</span>
+        3 — Result &amp; Meaning <span className="ds-tiny text-mut">결과와 물리적 직관</span>
       </label>
       <textarea
         id={`${uid}-s3`}
@@ -214,13 +214,13 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
               </div>
               <ol className="ds-rec3">
                 <li>
-                  <span className="ds-muted ds-tiny">현상·왜</span> {x.s1}
+                  <span className="ds-tiny text-mut">현상·왜</span> {x.s1}
                 </li>
                 <li>
-                  <span className="ds-muted ds-tiny">도구·어떻게</span> {x.s2}
+                  <span className="ds-tiny text-mut">도구·어떻게</span> {x.s2}
                 </li>
                 <li>
-                  <span className="ds-muted ds-tiny">결과·의미</span> {x.s3}
+                  <span className="ds-tiny text-mut">결과·의미</span> {x.s3}
                 </li>
               </ol>
             </div>

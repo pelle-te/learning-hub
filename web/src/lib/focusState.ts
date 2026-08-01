@@ -127,9 +127,12 @@ function reasonFor(
   const dd = st?.deadline && !st.finished ? dayDiff(today, st.deadline) : null;
   if (dd != null && dd >= 0 && dd <= URGENT_DEADLINE_DAYS) return `마감 ${ddayInfo(dd).lab}`;
   if ((st?.late || 0) > 0) return '진도 밀림';
-  /* ⚠ 시각이 있을 때만 시각을 말한다 — 시각 없는 블록에 '다음 예정'이라 하면 없는 약속을
-     지어낸다. 시각이 있는데 이미 지났으면 그 사실 자체가 가장 정확한 이유다. */
-  if (e.start != null) return where === 'next' ? `다음 예정 ${toHM(e.start)}` : `${toHM(e.start)} 예정 · 아직 안 함`;
+  /* ⚠⚠ **`다음 예정 HH:MM` 이 여기서 사라졌다**(P-6). 1차 키가 시각에서 급함으로 바뀌었으므로
+     시각은 더 이상 선택의 원인이 아니다 — 그런데 그 문구는 시각이 원인이라고 말한다. 여기까지
+     내려온 경우 급함에 남은 성분은 **블록 크기**뿐이라(마감도 밀림도 없다) 원인은 정확히
+     "오늘 가장 큰 학습"이다. ⚠ 시각이 있고 그것이 이미 지났으면(=`earliest` 경로) 그 사실이
+     여전히 참이고 더 쓸모 있으므로 남긴다. */
+  if (e.start != null && where === 'earliest') return `${toHM(e.start)} 예정 · 아직 안 함`;
   return '오늘 가장 큰 학습';
 }
 
@@ -143,10 +146,22 @@ export function pickFocus(entries: FocusEntry[], nowMin: number, stat: ItemStat[
   const statBySid = new Map(stat.map((s) => [s.id, s]));
   const pending = entries.filter((e) => !e.done);
   const current = pending.find((e) => e.start != null && e.end != null && nowMin >= e.start && nowMin < e.end) || null;
-  /* 정렬 = 이른 시각 먼저, **동률(특히 시각 없음)이면 급한 것 먼저**. 배치된 날은 시각이 전부
-     다르므로 옛 동작과 한 글자도 다르지 않고, 시각이 없는 날(폰·미배치)에만 급함이 갈린다. */
+  /* ⚠⚠ **1차 키가 시각에서 급함으로 뒤집혔다**(P-6 · 2026-08-01).
+     종전 주석은 이 정렬을 이렇게 자백하고 있었다: _"배치된 날은 시각이 전부 다르므로 옛 동작과
+     한 글자도 다르지 않다."_ 그 말이 뜻하는 바가 결함이었다 — **배치된 평일에 마감이 히어로
+     선택에 관여한 적은 0회**인데, `reasonFor()` 는 그 선택 옆에 `마감 D-3` 을 붙였다. 즉 화면
+     최대 픽셀이 *선택의 원인이 아닌 라벨*을 달고 있었다.
+
+     이제 급함(마감 > 진도 밀림 > 크기)이 고르고 시각은 동률을 깬다. 시간표를 완전히 배신하지는
+     않는다 — **`current`(지금 진행 중인 블록)는 아래에서 여전히 무조건 이긴다**(9시 블록을
+     12시에 하라고 말하면 일과 블록과 충돌한다).
+
+     ⚠ 이 정렬은 **단독으로 출하하면 안 됐다.** `urgency` 의 가중치(`10000 - dd*100 + late*10 +
+     min/60`)는 반증 불가능한 숨은 사슬이고, 1차 키로 올리면 그 임의성이 매일 화면 최대 픽셀에
+     노출된다. 함께 나가는 P-9(컷 카드)가 같은 사슬을 **문장으로** 화면에 적어 사용자가 반박할
+     수 있게 만든다 — 그 조건이 이 변경의 전제다. */
   const byOrder = (a: FocusEntry, b: FocusEntry) =>
-    startKey(a) - startKey(b) || urgency(b, statBySid, today) - urgency(a, statBySid, today);
+    urgency(b, statBySid, today) - urgency(a, statBySid, today) || startKey(a) - startKey(b);
   const next = pending.filter((e) => startKey(e) >= nowMin).sort(byOrder)[0] || null;
   const earliest = pending.slice().sort(byOrder)[0] || null;
   const focus = current || next || earliest || null;

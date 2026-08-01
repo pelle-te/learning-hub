@@ -34,7 +34,6 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   ledger: () => import('./ledger/Ledger'),
   control: () => import('./control/Control'),
   mastery: () => import('./mastery/Mastery'),
-  graph: () => import('./graph/Graph'),
 };
 
 /** key → React 탭 컴포넌트(lazy). LOADERS를 1:1로 감싼다. */

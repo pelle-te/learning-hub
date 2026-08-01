@@ -224,7 +224,7 @@ export default function DayRing({
             </>
           )}
         </span>
-        <span className="mt-1.25 text-xs leading-text font-extrabold tracking-caps text-mut uppercase">공부 가능</span>
+        <span className="ds-caps mt-1.25">공부 가능</span>
         <span className="text-xs leading-text text-mut tabular-nums opacity-80">
           {asleep ? `${toHM(wake0)}–${toHM(wake1)} 활동` : '하루 종일 활동'}
         </span>

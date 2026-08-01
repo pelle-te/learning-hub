@@ -21,9 +21,10 @@ function seg(tabKey: string) {
 }
 
 test('roving tabindex — 활성 버튼만 0, 나머지 -1', () => {
-  const g = seg('stats'); // 그룹 ['stats','forecast','mastery','graph']
+  // 그룹 ['stats','mastery','ledger'] — `graph` 는 P-19 에서 `items` 의 뷰로 내려갔다.
+  const g = seg('stats');
   const btns = within(g).getAllByRole('button');
-  expect(btns).toHaveLength(4);
+  expect(btns).toHaveLength(3);
   const active = btns.find((b) => b.getAttribute('aria-current') === 'page')!;
   expect(active).toHaveAttribute('tabindex', '0');
   btns.filter((b) => b !== active).forEach((b) => expect(b).toHaveAttribute('tabindex', '-1'));
@@ -31,7 +32,7 @@ test('roving tabindex — 활성 버튼만 0, 나머지 -1', () => {
 
 test('방향키 — →는 다음, ←는 이전(순환), Home/End는 양끝으로 포커스 이동', () => {
   const g = seg('stats');
-  const btns = within(g).getAllByRole('button'); // [통계, 예보, 숙달도 지도, 지식맵]
+  const btns = within(g).getAllByRole('button'); // [통계, 숙달도 지도, 정본 원장]
   const last = btns.length - 1;
   btns[0]!.focus();
 

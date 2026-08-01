@@ -37,6 +37,7 @@ import { timedTasksForDay } from '@/lib/tasks';
 import { WeekCalendar } from './WeekCalendar';
 import { DayPlanner } from './DayPlanner';
 import { MonthCalendar } from './MonthCalendar';
+import { CutCard } from './CutCard';
 
 /* ── C-7 이식(Schedule 셸) — Tailwind 클래스 SSOT ───────────────────────────────
    상단 네비(줄바꿈 금지 · 좁으면 서술 텍스트를 sr-only 로 접어 화살표만) · 본문(뷰별 fill) ·
@@ -64,7 +65,7 @@ const S = {
   warn: 'flex-none mt-3 text-sm leading-body',
   emptyBoard: 'flex h-full flex-col items-center justify-center gap-3 text-center text-mut',
   finStrip: 'flex flex-none flex-wrap items-center gap-4 border-t border-line px-5.5 py-1.5',
-  grpL: 'flex-none text-2xs font-bold tracking-caps text-mut uppercase',
+  grpL: 'flex-none ds-caps-sm',
   fin: 'inline-flex items-center gap-1.5 text-sm leading-text font-semibold text-mut',
   finDday: 'font-semibold text-mut',
   ddMut: 'text-md font-semibold text-mut',
@@ -99,6 +100,7 @@ function IcsFreshnessNote() {
 
 export default function Schedule() {
   const state = useApp((s) => s.state);
+  const mutate = useApp((s) => s.mutate);
   const res = useSchedule();
   // 주(週) 네비는 공용 기계가 소유 — todayOff 산식·useState·`,`/`.` 단축키·오프셋 배지가
   // Alloc과 글자까지 같은 복제였다(useWeekOffset이 단일 출처). 내부 상태가 '오늘 기준 상대 주'라
@@ -334,6 +336,13 @@ export default function Schedule() {
     <section className={S.wrap} aria-label="주간 스케줄">
       {navBar}
 
+      {/* 컷 카드(P-9) — **옛 "다 못 끝내요" 경고 줄이 있던 자리**. 그 줄은 은퇴했다: 앱이 부족분을
+          알면서 유일한 처방으로 `주당 시간↑`(사용자가 할 수 없는 것)을 내놓고 있었고, 그래서
+          액션이 0이었다. 지금은 같은 자리에서 "무엇을 뺄까"를 묻는다. 새 탭 0 · IA 변경 0. */}
+      {res.shortfalls.map((sf) => (
+        <CutCard key={sf.sid} sf={sf} mutate={mutate} />
+      ))}
+
       {/* 편성 경고 — 뷰(개요/카드) 무관 공통 스트립(카드뷰에서 소실되지 않도록 분기 밖으로 승격). */}
       {res.warnings.length > 0 && (
         <div
@@ -345,69 +354,75 @@ export default function Schedule() {
         </div>
       )}
 
-      <div className={S.body}>
-        {schedView === 'day' ? (
-          <DayPlanner ds={anchorDs} res={res} nowMin={nowMin} todayIso={todayIso} />
-        ) : schedView === 'month' ? (
-          <MonthCalendar anchor={parseISO(anchorDs)} res={res} todayIso={todayIso} onPick={monthPick} />
-        ) : (
-          <div className={S.board2}>
-            {/* 위크보드 — 정보의 주인공(발광 카드 + 포인터 스포트라이트). */}
-            <div
-              ref={boardRef}
-              onMouseMove={boardMove}
-              onMouseLeave={boardLeave}
-              className={`${S.boardCard} ds-spotHost ds-glow`}
-            >
-              <div className="ds-spotlight" aria-hidden="true" />
-              {hasStudyItems ? (
-                <div className={S.boardWrap}>
-                  {weekPlanMin === 0 && (
-                    // 과목은 있는데 이 주에 학습 블록이 하나도 안 잡힌 경우(모두 완료·마감 지남·가용 없음) —
-                    // 일과만 뜬 캘린더가 왜 비었는지 조용히 두지 않고 짚어준다.
-                    <div className={`ds-note ${S.weekEmptyNote}`}>
-                      이 주에는 배치된 <b>학습 블록</b>이 없어요 — 마감이 지났거나 가용시간이 부족할 수 있어요.
-                      일과(수면·수업)만 표시됩니다.
+      {/* ⚠ **컷 카드가 있으면 본문을 스크롤로 돌린다**(실렌더로 잡았다 · §15-4). 이 화면은 fill
+          프레임(`h-full`)이라 위에 카드가 끼면 캘린더 몫이 그대로 줄고, 실측에서 **격자가 0px 로
+          납작해졌다** — 무엇을 뺄지 고르라면서 그 판단의 근거인 주간 격자를 지운 셈이다.
+          카드가 없을 때는 종전 그대로다(스크롤 없음 · 베이스라인 무변화). */}
+      <div className={res.shortfalls.length ? `${S.body} [scrollbar-width:thin] overflow-y-auto` : S.body}>
+        <div className={res.shortfalls.length ? 'h-104' : 'h-full'}>
+          {schedView === 'day' ? (
+            <DayPlanner ds={anchorDs} res={res} nowMin={nowMin} todayIso={todayIso} />
+          ) : schedView === 'month' ? (
+            <MonthCalendar anchor={parseISO(anchorDs)} res={res} todayIso={todayIso} onPick={monthPick} />
+          ) : (
+            <div className={S.board2}>
+              {/* 위크보드 — 정보의 주인공(발광 카드 + 포인터 스포트라이트). */}
+              <div
+                ref={boardRef}
+                onMouseMove={boardMove}
+                onMouseLeave={boardLeave}
+                className={`${S.boardCard} ds-spotHost ds-glow`}
+              >
+                <div className="ds-spotlight" aria-hidden="true" />
+                {hasStudyItems ? (
+                  <div className={S.boardWrap}>
+                    {weekPlanMin === 0 && (
+                      // 과목은 있는데 이 주에 학습 블록이 하나도 안 잡힌 경우(모두 완료·마감 지남·가용 없음) —
+                      // 일과만 뜬 캘린더가 왜 비었는지 조용히 두지 않고 짚어준다.
+                      <div className={`ds-note ${S.weekEmptyNote}`}>
+                        이 주에는 배치된 <b>학습 블록</b>이 없어요 — 마감이 지났거나 가용시간이 부족할 수 있어요.
+                        일과(수면·수업)만 표시됩니다.
+                      </div>
+                    )}
+                    <div className={S.calHost}>
+                      <WeekCalendar
+                        parts={parts}
+                        nowMin={nowMin}
+                        dows={DOW_MON}
+                        deadlines={deadlines}
+                        tasksByDay={parts.map((p) => timedTasksForDay(state, p.ds))}
+                        // 요일 클릭 = 그날 일 계획 창으로. 옛 우측 아젠다(선택 요일 세부)를 대체한다 —
+                        // 같은 화면에 요약을 또 그리느니 편집까지 되는 일 뷰로 보내는 게 낫다.
+                        onOpenDay={(dsPick) => {
+                          setAnchorDs(dsPick);
+                          setView('day');
+                        }}
+                      />
                     </div>
-                  )}
-                  <div className={S.calHost}>
-                    <WeekCalendar
-                      parts={parts}
-                      nowMin={nowMin}
-                      dows={DOW_MON}
-                      deadlines={deadlines}
-                      tasksByDay={parts.map((p) => timedTasksForDay(state, p.ds))}
-                      // 요일 클릭 = 그날 일 계획 창으로. 옛 우측 아젠다(선택 요일 세부)를 대체한다 —
-                      // 같은 화면에 요약을 또 그리느니 편집까지 되는 일 뷰로 보내는 게 낫다.
-                      onOpenDay={(dsPick) => {
-                        setAnchorDs(dsPick);
-                        setView('day');
-                      }}
+                  </div>
+                ) : (
+                  <div className={S.emptyBoard}>
+                    <State
+                      glyph="🗓"
+                      title="주간 보드가 비어 있어요"
+                      desc={
+                        <>
+                          학습 항목을 추가하면 이 캘린더에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
+                          일과(수면·식사)만 보여요.
+                        </>
+                      }
+                      next={
+                        <Button sm variant="primary" onClick={() => navigate('/items')}>
+                          학습 항목 추가하기 →
+                        </Button>
+                      }
                     />
                   </div>
-                </div>
-              ) : (
-                <div className={S.emptyBoard}>
-                  <State
-                    glyph="🗓"
-                    title="주간 보드가 비어 있어요"
-                    desc={
-                      <>
-                        학습 항목을 추가하면 이 캘린더에 <b>공부·복습 블록</b>이 자동 배치됩니다. 지금은 기본
-                        일과(수면·식사)만 보여요.
-                      </>
-                    }
-                    next={
-                      <Button sm variant="primary" onClick={() => navigate('/items')}>
-                        학습 항목 추가하기 →
-                      </Button>
-                    }
-                  />
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* 예상 완료 스트립 — 과목별 스케줄러 산출 완료일(온디맨드 리드아웃, 완료/지연 표식).

@@ -166,12 +166,12 @@ export default function CloudCard() {
   return (
     <div className="ds-rule">
       <h2>
-        클라우드 동기화 <span className="ds-muted ds-tiny">— 여러 기기에서 같은 계획을 보고 편집합니다</span>
+        클라우드 동기화 <span className="ds-tiny text-mut">— 여러 기기에서 같은 계획을 보고 편집합니다</span>
       </h2>
 
       <div className="ds-row">
-        <span className={`ds-pill ${cfg ? 'ds-good' : 'ds-muted'}`}>{cfg ? '연결됨' : '연결 안 됨'}</span>
-        {cfg && <span className="ds-muted ds-tiny">{cfg.baseUrl}</span>}
+        <span className={`ds-pill ${cfg ? 'ds-good' : 'text-mut'}`}>{cfg ? '연결됨' : '연결 안 됨'}</span>
+        {cfg && <span className="ds-tiny text-mut">{cfg.baseUrl}</span>}
       </div>
 
       {cfg ? (
@@ -207,14 +207,14 @@ export default function CloudCard() {
               </div>
               {devices.devices.map((d) => (
                 <div key={d.id} className="ds-row">
-                  <span className={`ds-pill ${d.revokedAt ? 'ds-muted' : 'ds-good'}`}>
+                  <span className={`ds-pill ${d.revokedAt ? 'text-mut' : 'ds-good'}`}>
                     {d.revokedAt ? '폐기됨' : '활성'}
                   </span>
                   <span>
                     {d.name}
-                    {d.id === devices.self && <span className="ds-muted ds-tiny"> (이 기기)</span>}
+                    {d.id === devices.self && <span className="ds-tiny text-mut"> (이 기기)</span>}
                   </span>
-                  <span className="ds-muted ds-tiny">마지막 접속 {new Date(d.lastSeenAt * 1000).toLocaleString()}</span>
+                  <span className="ds-tiny text-mut">마지막 접속 {new Date(d.lastSeenAt * 1000).toLocaleString()}</span>
                   {!d.revokedAt && d.id !== devices.self && (
                     <Button sm variant="ghost" onClick={() => void revoke(d)} disabled={busy}>
                       폐기

@@ -58,7 +58,7 @@ function ConceptList<T extends ConceptRow>({
   return (
     <div className="ds-rule">
       <h3>
-        {heading} <span className="ds-muted ds-tiny">{subtitle}</span>
+        {heading} <span className="ds-tiny text-mut">{subtitle}</span>
       </h3>
       <div className={M.mslist}>
         {shown.map((it, i) => (
@@ -67,7 +67,7 @@ function ConceptList<T extends ConceptRow>({
               {dot}
             </span>
             <span className={M.nm}>{it.title || it.basename}</span>
-            <span className="ds-tiny ds-muted">{it.subject || ''}</span>
+            <span className="ds-tiny text-mut">{it.subject || ''}</span>
             {renderMeta(it)}
             {/* AN-12 — 개념명으로 볼트 딥링크(행 자체는 비대화형이라 명시 아이콘 버튼). */}
             <VaultLink query={it.title || it.basename || ''} />
@@ -89,7 +89,7 @@ export function Frontier({ k }: { k: Knowledge }) {
     <ConceptList
       heading="🎯 다음 배울 개념"
       subtitle="(ZPD · 선수 충족·고레버리지순 — 이걸 배우면 가장 많은 게 풀린다)"
-      empty={<div className="ds-muted ds-tiny">프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
+      empty={<div className="ds-tiny text-mut">프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
       items={k.frontier || []}
       dot="⬡"
       dotColor="var(--acc2)"
@@ -130,7 +130,7 @@ export function Sequencing() {
     <div className="ds-rule">
       <h3>
         🧭 다음 학습 순서{' '}
-        <span className="ds-muted ds-tiny">
+        <span className="ds-tiny text-mut">
           (커리큘럼 arc 단위 — 개념 단위는 위 🎯 · 선수게이트+약점+ZPD+삶연관성 결합 랭크)
         </span>
       </h3>
@@ -177,14 +177,14 @@ export function Sequencing() {
       </div>
       {counts.remediate === 0 && (
         /* 콜드스타트 정직성 — '보강 0'을 '약점 없음'으로 오해하지 않게(KnowledgeMap의 미관측 배너와 대칭). */
-        <div className="ds-foot ds-muted ds-tiny" style={{ marginBottom: 8 }}>
+        <div className="ds-foot ds-tiny text-mut" style={{ marginBottom: 8 }}>
           보강 0 — 약점이 없다기보다 인출 관측(Anki·CBMS)이 아직 없어서일 수 있어요. 관측이 쌓이면 약점 arc가 보강으로
           올라옵니다.
         </div>
       )}
       {!relActive && (
         /* 연관성 콜드 정직성 — 역할/깊이는 파생 기본값(중심·숙련)이고 삶연관성 가중은 아직 0. */
-        <div className="ds-foot ds-muted ds-tiny" style={{ marginBottom: 8 }}>
+        <div className="ds-foot ds-tiny text-mut" style={{ marginBottom: 8 }}>
           역할·깊이 배지는 지금 <b>파생 기본값</b>(핵심=중심·숙련)이에요. 핵심 노트에 <code>goals:</code> 링크를 달면
           삶-연관성이 켜지고(relevance) 순서가 목표 그래디언트로 갈립니다.
         </div>
@@ -208,7 +208,7 @@ export function Sequencing() {
                 {meta.icon}
               </span>
               <span className={M.nm}>{it.arc || it.arc_id}</span>
-              <span className="ds-tiny ds-muted">{it.slug || ''}</span>
+              <span className="ds-tiny text-mut">{it.slug || ''}</span>
               {/* 역할 배지(삶-연관 축 · 액센트 틴트) — 콜드면 파생기본 중심. */}
               {role ? (
                 <span
@@ -287,7 +287,7 @@ export function Sequencing() {
         })}
       </div>
       {total > seq.length ? (
-        <div className="ds-foot ds-muted ds-tiny">
+        <div className="ds-foot ds-tiny text-mut">
           +{total - seq.length}개 더 (커리큘럼 시퀀싱 전체 {total})
         </div>
       ) : null}
@@ -308,11 +308,11 @@ export function EngineHealth() {
   return (
     <div className="ds-rule">
       <h3>
-        📈 엔진 건강 <span className="ds-muted ds-tiny">(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
+        📈 엔진 건강 <span className="ds-tiny text-mut">(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
       </h3>
       {cold ? (
         /* 콜드 정직성 — 라이브 인출 신호 0(P8 콜드)이라 평균숙달이 없음. 스캐폴드만 켜고 판정은 신호 축적 후. */
-        <div className="ds-foot ds-muted ds-tiny" style={{ marginBottom: 8 }}>
+        <div className="ds-foot ds-tiny text-mut" style={{ marginBottom: 8 }}>
           라이브 인출 신호가 아직 없어요(P8 콜드) — 연관성↑ 노트가 더 숙달됐는지는 <b>판정 유예</b>. 인출 관측이 쌓이는
           순간 아래 분위별 평균 숙달로 배분 논지가 검증됩니다.
         </div>
@@ -328,7 +328,7 @@ export function EngineHealth() {
           >
             {monotone ? '연관성↑ → 숙달↑ 성립' : '아직 단조 아님'}
           </span>
-          <span className="ds-tiny ds-muted">증거 노트 {health?.evidenced_notes ?? 0}</span>
+          <span className="ds-tiny text-mut">증거 노트 {health?.evidenced_notes ?? 0}</span>
         </div>
       ) : null}
       <div className={M.mslist}>
@@ -342,7 +342,7 @@ export function EngineHealth() {
               <span className={M.nm} title={t.hint}>
                 연관성 {t.label}위
               </span>
-              <span className="ds-tiny ds-muted">{t.bucket.n}개 노트</span>
+              <span className="ds-tiny text-mut">{t.bucket.n}개 노트</span>
               {typeof mm === 'number' ? (
                 <span
                   className="ds-chip"
@@ -376,7 +376,7 @@ export function Gaps({ k }: { k: Knowledge }) {
     <ConceptList
       heading="🩹 약점 진단"
       subtitle="(약한 순 · 근본원인을 먼저 메우면 상류가 같이 풀린다)"
-      empty={<div className="ds-foot ds-muted">증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
+      empty={<div className="ds-foot text-mut">증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
       items={k.gaps || []}
       dot="✗"
       dotColor="var(--bad)"
@@ -410,7 +410,7 @@ export function RootCauses({ k }: { k: Knowledge }) {
     <div className="ds-rule">
       <h3>
         🌱 약점의 뿌리{' '}
-        <span className="ds-muted ds-tiny">
+        <span className="ds-tiny text-mut">
           (한 선수개념이 여러 약점의 공통 근본원인 — 먼저 메우면 상류가 같이 풀린다)
         </span>
       </h3>
@@ -444,7 +444,7 @@ export function Calibration({ k }: { k: Knowledge }) {
     return (
       <div className="ds-rule">
         <h3>🎚 메타인지 캘리브레이션</h3>
-        <div className="ds-foot ds-muted">
+        <div className="ds-foot text-mut">
           CBMS 오답·백지 기록이 없습니다 — 러닝허브에서 기록 후 <b>볼트 백업</b>→<code>지식엔진.py build --export</code>
           로 인제스트하면 '확신했는데 틀린' 과신율이 잡힙니다(투입 아닌 출력 지표 · 설계 E).
         </div>
@@ -456,7 +456,7 @@ export function Calibration({ k }: { k: Knowledge }) {
     <div className="ds-rule">
       <h3>
         🎚 메타인지 캘리브레이션{' '}
-        <span className="ds-muted ds-tiny">(확신도 vs 정확도 — 낮을수록 자기 앎을 정확히 안다)</span>
+        <span className="ds-tiny text-mut">(확신도 vs 정확도 — 낮을수록 자기 앎을 정확히 안다)</span>
       </h3>
       <div className="ds-row" style={{ gap: 24, flexWrap: 'wrap' }}>
         <div>
@@ -503,7 +503,7 @@ export function Calibration({ k }: { k: Knowledge }) {
           </div>
         );
       })()}
-      <div className="ds-foot ds-muted ds-tiny" style={{ marginTop: 6 }}>
+      <div className="ds-foot ds-tiny text-mut" style={{ marginTop: 6 }}>
         과신 오답 = 다음 복습에서 우선 표적. 백지 통과율 = '꺼낼 수 있는가'의 직접 증거.
       </div>
     </div>

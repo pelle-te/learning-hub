@@ -25,7 +25,7 @@ import { ChapterEditor } from './ChapterEditor';
 type Mutate = (recipe: (st: AppState) => void) => void;
 
 // SubjectSheet.module.css → Tailwind 이식(C-7). 상태로 갈리는 것만 정적 맵으로(§15).
-const SEC_TITLE = 'mb-0! text-xs! font-extrabold! tracking-caps text-mut uppercase leading-text';
+const SEC_TITLE = 'mb-0! ds-caps leading-text';
 const MODE_BASE = 'rounded-full px-1.75 py-0.5 text-2xs font-extrabold tracking-mode-sub';
 const MODE_AUTO = 'text-mut shadow-inset-line2';
 const MODE_MANUAL = 'text-acc shadow-inset-acc-mid';
@@ -76,7 +76,7 @@ function Stepper({
       <Button sm onClick={() => bump(step)} aria-label={`${unit} 늘리기`}>
         +
       </Button>
-      <span className="ds-muted ds-tiny">{unit}</span>
+      <span className="ds-tiny text-mut">{unit}</span>
     </div>
   );
 }
@@ -268,11 +268,32 @@ export function SubjectDefinition({
             onChange={(e) => upd((it) => void (it.deadline = e.target.value))}
           />
           {item.deadline && (
-            <span className="ds-tiny ds-muted" style={{ marginTop: 4 }}>
+            <span className="ds-tiny text-mut" style={{ marginTop: 4 }}>
               {ddayInfo(dayDiff(todayIso, item.deadline)).lab}
             </span>
           )}
         </div>
+        {/* 시험 범위(P-10) — 마감 옆 셀렉트 **한 칸**. 없으면 앱은 마감을 "안 끝난 챕터 전부"로 읽어,
+            중간고사를 마감으로 넣는 순간 영구히 빨간 경고가 뜬다(= 첫 입력의 보상이 음수).
+            ⚠ 마감과 챕터가 둘 다 있을 때만 그린다 — 하나라도 없으면 이 칸은 물을 것이 없다.
+            ⚠ 값은 **챕터 id**다(인덱스 아님) — 챕터를 삽입·재정렬해도 범위가 밀리지 않게. */}
+        {!daily && item.deadline && chs.length > 0 && (
+          <div className="ds-fld">
+            <label htmlFor={`it-thru-${id}`}>시험 범위</label>
+            <select
+              id={`it-thru-${id}`}
+              value={item.deadlineThru && chs.some((c) => c.id === item.deadlineThru) ? item.deadlineThru : ''}
+              onChange={(e) => upd((it) => void (it.deadlineThru = e.target.value || undefined))}
+            >
+              <option value="">전 챕터</option>
+              {chs.map((c, i) => (
+                <option key={c.id} value={c.id}>
+                  {i + 1}. {c.name} 까지
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* 배분은 주간(new) 과목만 — 매일(Anki) 과목은 엔진이 매일 자동으로 얹는다(보드 행에도 없음). */}
@@ -294,7 +315,7 @@ export function SubjectDefinition({
       )}
 
       <div className="ds-itemfoot">
-        <span className="ds-tiny ds-muted">
+        <span className="ds-tiny text-mut">
           출처 {item.source || '직접'}
           {!daily && chs.length ? ` · ${chs.length}챕터 · 약 ${totalH}h` : ''}
         </span>

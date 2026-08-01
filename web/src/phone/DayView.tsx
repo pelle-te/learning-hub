@@ -89,9 +89,7 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
                   onChange={() => toggleDone(ds, it.sid, it.type, it.min || 0, !done)}
                   className="size-5 shrink-0 accent-acc"
                 />
-                <span className={`flex-1 truncate text-sm ${done ? 'text-mut line-through' : 'text-txt'}`}>
-                  {it.name}
-                </span>
+                <span className={`flex-1 truncate text-sm ${done ? 'ds-shed' : 'text-txt'}`}>{it.name}</span>
                 <span className="shrink-0 text-xs text-mut tabular-nums">{hLabel(it.min || 0)}</span>
               </label>
             );
@@ -113,7 +111,7 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
                 className="size-5 shrink-0"
               />
               <span
-                className={`truncate text-sm ${t.done ? 'text-mut line-through' : 'text-txt'}`}
+                className={`truncate text-sm ${t.done ? 'ds-shed' : 'text-txt'}`}
                 style={t.sid ? { borderLeft: `3px solid ${colorForId(t.sid)}`, paddingLeft: 8 } : undefined}
               >
                 {t.title}

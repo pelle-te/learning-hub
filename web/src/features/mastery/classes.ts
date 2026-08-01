@@ -22,7 +22,7 @@ export const M = {
     'absolute inset-0 flex items-center justify-center text-3xl font-black tracking-tight text-acc tabular-nums [text-shadow:var(--sig-rate-glow)]',
   ringNumSmall: 'ml-px text-md font-extrabold text-mut',
   heroDistWrap: 'flex min-w-45 flex-1 flex-col gap-2',
-  distLab: 'text-2xs font-extrabold tracking-caps text-mut uppercase',
+  distLab: 'ds-caps-sm',
   dist: 'flex flex-col gap-2',
   msbar: 'flex h-4 overflow-hidden rounded-full bg-panel2 ring-1 ring-line-soft ring-inset',
   msbarSeg: 'h-full transition-[width] duration-draw ease-[var(--ease)] motion-reduce:transition-none',
@@ -39,7 +39,7 @@ export const M = {
 
   // ── 지식맵 ──
   mapHead: 'mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1.5',
-  mapTitle: 'text-xs font-extrabold tracking-caps text-mut uppercase',
+  mapTitle: 'ds-caps',
   mapMeta: 'text-xs text-mut',
   note: 'mb-3 rounded-md border border-line-warn bg-panel-warn-faint px-3 py-2 text-xs leading-snug text-warn',
   mssub: 'mb-4',

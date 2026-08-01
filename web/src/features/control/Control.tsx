@@ -331,7 +331,7 @@ export default function Control() {
         <div className={JOBS}>
           <div className="mb-2 text-xs font-extrabold tracking-caps text-acc uppercase">
             진행 중 · {running.length}
-            <span className="ds-muted ds-tiny"> — 새로고침해도 계속돼요(앱을 닫으면 멈춤)</span>
+            <span className="ds-tiny text-mut"> — 새로고침해도 계속돼요(앱을 닫으면 멈춤)</span>
           </div>
           {running.map((j) => (
             <div key={j.id} className="flex flex-wrap items-center gap-2 border-t border-line2 py-2">
@@ -367,7 +367,7 @@ export default function Control() {
 
       {/* 최근 수집 기록 — 완료/실패 이력(localStorage, 서버 재시작에도 유지). */}
       <div className="mx-auto min-h-0 w-full max-w-runner flex-1">
-        <div className="mb-2 text-xs font-extrabold tracking-caps text-mut uppercase">최근 수집 기록</div>
+        <div className="ds-caps mb-2">최근 수집 기록</div>
         {history.length ? (
           <div className="flex flex-col">
             {history.map((h) => (

@@ -148,14 +148,14 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
                     {item.weeklyHours || 0}
                     <small className="text-xs leading-none font-bold text-mut">h</small>
                   </span>
-                  <span className="text-2xs font-bold tracking-caps-sm text-mut uppercase">주당</span>
+                  <span className="ds-caps-sm">주당</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xl leading-none font-extrabold tracking-title text-txt tabular-nums">
                     {doneCh}
                     <small className="text-xs leading-none font-bold text-mut">/{chs.length}</small>
                   </span>
-                  <span className="text-2xs font-bold tracking-caps-sm text-mut uppercase">챕터</span>
+                  <span className="ds-caps-sm">챕터</span>
                 </div>
                 {totalH > 0 && (
                   <div className="flex flex-col gap-0.5">
@@ -163,7 +163,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
                       {totalH}
                       <small className="text-xs leading-none font-bold text-mut">h</small>
                     </span>
-                    <span className="text-2xs font-bold tracking-caps-sm text-mut uppercase">분량</span>
+                    <span className="ds-caps-sm">분량</span>
                   </div>
                 )}
               </div>

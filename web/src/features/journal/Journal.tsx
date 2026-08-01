@@ -101,7 +101,7 @@ function BatchCapture() {
           placeholder={'한 줄에 하나씩 — 예)\n미적분 7장 부분적분 요약\n어제 선형대수 고윳값 정리'}
         />
         <div className="mt-2 flex items-center justify-between gap-2.5">
-          <span className="ds-muted ds-tiny">
+          <span className="ds-tiny text-mut">
             {parsed.length ? `${parsed.length}건 인식 — 요약 폼으로 순차 프리필` : '한 줄씩 적으면 요약 폼을 채워요'}
           </span>
           <Button sm variant="primary" onClick={apply} disabled={!parsed.length}>
@@ -272,9 +272,7 @@ export default function Journal() {
         </div>
         {/* 우 — 기록 입력(온화면 패널, 스크롤) */}
         <div className="min-w-0 [scrollbar-width:thin] overflow-y-auto border-l border-line2 px-5 pt-5 pb-7 max-wide:border-t max-wide:border-l-0">
-          <div className="mb-3 text-xs leading-text font-extrabold tracking-caps text-mut uppercase">
-            기록 입력 — 요약 · 오답 · 보충
-          </div>
+          <div className="ds-caps mb-3">기록 입력 — 요약 · 오답 · 보충</div>
           {/* 날짜 스테퍼 — 과거 보충 진입점. 오늘이면 담백하게, 과거면 강조 배너. */}
           <div
             className={`mb-3.5 flex items-center gap-2 rounded-base border px-2.5 py-1.75 ${isToday ? 'border-line bg-panel2' : 'border-line-warn-strong bg-tint-warn-faint'}`}
@@ -284,7 +282,7 @@ export default function Journal() {
             </Button>
             <span className="text-md font-bold text-txt">
               {fmt(new Date(ds2 + 'T00:00:00'))}
-              {isToday ? <span className="ds-muted ds-tiny"> · 오늘</span> : <b> · 과거 보충</b>}
+              {isToday ? <span className="ds-tiny text-mut"> · 오늘</span> : <b> · 과거 보충</b>}
             </span>
             <Button sm variant="ghost" onClick={() => stepDay(1)} disabled={isToday} aria-label="다음 날">
               ▶

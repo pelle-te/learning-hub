@@ -79,7 +79,6 @@ const S = {
   // D-5 선택 근거 — 액센트로 한 줄. 크기는 챕터 줄과 같되 무게로만 낮춘다(위계는 색·굵기로).
   // D-5 선택 근거 — 보조 설명이라 조용하게(D-6: 액센트는 행동 하나에만).
   why: 'text-md font-semibold text-mut',
-  upnext: 'text-md text-mut',
   yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-body text-mut',
   momentum: 'inline-flex flex-wrap items-center gap-x-3.5 gap-y-2',
   mChip:
@@ -106,7 +105,7 @@ const S = {
      `ringNum` 은 이제 링 *안*이 아니라 흐름 헤더의 첫 칸이라 `absolute` 를 뗀다. */
   ringNum: 'flex-none text-lg leading-text font-extrabold tracking-ringnum text-txt',
   ringNumSmall: 'text-tiny9 font-bold text-mut',
-  flowT: 'flex-1 text-xs leading-text font-extrabold tracking-caps text-mut uppercase',
+  flowT: 'flex-1 ds-caps',
   // D-6 — '● 09:00 LIVE'는 시계다(내가 손볼 것이 아니다). 살아 있다는 신호는 점 하나로 충분.
   now: 'text-sm leading-text font-extrabold text-mut tabular-nums',
   rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
@@ -136,7 +135,7 @@ const S = {
     'inline-flex items-center gap-2 self-start rounded-md! border-0! bg-[var(--tint-warn-faint)]! px-3! py-2! text-hint! font-bold! shadow-[var(--shadow-inset-line2)] hover:shadow-[var(--shadow-inset-acc-glow)]',
   reviewDot: 'size-1.75 flex-none rounded-full bg-warn',
   grp: 'flex flex-wrap items-center gap-3',
-  grpL: 'text-xs font-bold tracking-caps text-mut uppercase',
+  grpL: 'ds-caps',
   tag: 'inline-flex cursor-pointer items-center gap-1.5 border-0! bg-transparent! p-0! font-extrabold!',
   tagMut: 'inline-flex cursor-default items-center gap-1.5 text-md font-semibold text-mut',
   dot: 'size-1.75 flex-none rounded-full',
@@ -323,15 +322,13 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const todayDone = enriched.filter((e) => e.done).length;
   const todayTotal = items.length;
 
-  const startKey = (e: (typeof enriched)[number]) => e.start ?? 9999;
   const pending = enriched.filter((e) => !e.done);
   const allDone = todayTotal > 0 && pending.length === 0;
 
-  const after = focus?.end ?? nowMin;
-  const upNext =
-    pending.filter((e) => e !== focus && startKey(e) >= after).sort((a, b) => startKey(a) - startKey(b))[0] ||
-    pending.filter((e) => e !== focus).sort((a, b) => startKey(a) - startKey(b))[0] ||
-    null;
+  /* ⚠ **히어로의 `다음 ·` 줄이 여기서 사라졌다**(P-6 · 2026-08-01). 히어로의 선택 기준이 시각에서
+     급함으로 바뀌었으므로(`focusState.ts`) 히어로 안에서 "다음"을 시각 순으로 말하면 **한 위젯이
+     두 개의 다른 정렬을 동시에 주장한다.** 시각 순서는 흐름 레일(`FlowRail`)이 온전히 갖는다 —
+     원칙 ③(시그니처는 페이지마다 하나)과 같은 논증이고, 여기선 정렬 축이 그 대상이다. */
 
   /* E8 — 주(週) 누적 시간 계산이 여기서 사라졌다(스트립의 `이번 주 N h` 와 함께). 그건 오늘의
      판단이 아니라 주의 조망이고, `/schedule` 이 그 질문을 통째로 소유하는 화면이다. 매일 7일을
@@ -806,14 +803,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 <span className={S.chapter}>{heroSub}</span>
                 {/* D-5 — "왜 이것인가". 고르는 함수가 이유까지 돌려주므로 화면과 규칙이 갈릴 수 없다. */}
                 {focusReason && <span className={S.why}>{focusReason}</span>}
-                {/* P-15 — '다음 ·'은 **굴리는 중**의 객체다. 여는 국면엔 첫 번째도 아직 안 열었고,
-                    닫는 국면엔 오늘 안 할 것이다. 두 경우 다 둘째 줄을 읽을 이유가 없다. */}
-                {upNext && phase === 'run' && (
-                  <span className={S.upnext}>
-                    다음 · {upNext.it.name}
-                    {upNext.start != null ? ` ${toHM(upNext.start)}` : ''}
-                  </span>
-                )}
               </>
             )}
           </div>

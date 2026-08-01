@@ -96,7 +96,7 @@ export function SetupGuide() {
   return (
     <div className="ds-well w-full max-w-runner-narrow border border-[color:var(--line-setup)]! shadow-[var(--shadow-setup-card)]!">
       <h2>
-        시작하기 <span className="ds-muted ds-tiny">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span>
+        시작하기 <span className="ds-tiny text-mut">— 3단계만 채우면 오늘의 블록이 자동으로 잡혀요</span>
       </h2>
       {/* W3 — **볼트에 무엇이 있는지 먼저 말한다.** `scanVaultViaShell()` 은 폴더 선택도 권한도
           없는 한 번의 Rust 호출인데, 그걸 부르는 화면이 연동 탭과 임포트 패널뿐이라 콜드 화면은
@@ -106,7 +106,7 @@ export function SetupGuide() {
           <b className="text-txt">
             볼트에 과목 {vaultSubjects}개 · 노트 {vaultNotes}개가 있어요
           </b>
-          <span className="ds-muted">— 아래 1단계에서 통째로 가져오면 챕터까지 함께 채워집니다.</span>
+          <span className="text-mut">— 아래 1단계에서 통째로 가져오면 챕터까지 함께 채워집니다.</span>
         </div>
       )}
       <div className="ds-row" style={{ alignItems: 'center', marginBottom: 6 }}>
@@ -130,7 +130,7 @@ export function SetupGuide() {
             <div className="mb-px text-base14 font-semibold">
               {s.ok ? <s className="text-mut [text-decoration-color:var(--setup-strike)]">{s.title}</s> : s.title}
             </div>
-            <div className="ds-muted ds-tiny">{s.desc}</div>
+            <div className="ds-tiny text-mut">{s.desc}</div>
             {!s.ok && <div className="mt-2 flex flex-wrap gap-1.75">{s.actions}</div>}
           </div>
         </div>

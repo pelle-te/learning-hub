@@ -37,16 +37,72 @@ for (const theme of THEMES) {
       // 그러면 카피가 바뀌었을 때 count 0 으로 조용히 통과해 flaky 가 되살아난다. 여기(존재 단정)는
       // 카피가 바뀌면 timeout 으로 시끄럽게 깨진다.
       if (tab === 'integrations') await expect(page.getByText('워크스페이스 설정 필요(설정 탭)')).toBeVisible();
-      // ⚠ graph 도 같은 부류다(2026-07-24 계산-스타일 대조에서 발견 — 픽셀 게이트는 못 잡고 있었다).
-      // 범례의 '의미 연결' 칩은 `semStatus` 가 settle 한 뒤에야 붙는다: 트랙 A 에선 임베딩 커맨드가
-      // reject 되어 반드시 'unavailable'(= Ollama 필요) 로 끝나는데, 그 전에 찍으면 칩이 통째로
-      // 빠진 상을 박는다(실측: 같은 실행에서 dark 는 50노드, light 는 48노드). integrations 와 같은
-      // **존재 단정**으로 전이 완료를 보장한다(카피가 바뀌면 조용히 통과하지 않고 timeout).
-      if (tab === 'graph') await expect(page.getByText('의미 연결 — Ollama 필요')).toBeVisible();
       await settle(page);
       await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
     });
   }
+}
+
+/* ── 과목 › 구조도 뷰 — **탭이 아니라 뷰가 됐다**(P-19 · 2026-08-01) ────────────────────
+   종전엔 `graph` 가 탭 로스터의 한 원소라 위 루프가 알아서 찍었다. 지금은 `/items` 의 쿼리
+   변형이므로 로스터로는 못 닿는다 — §15-4 가 요구하는 "커버리지 0 인 화면을 만들지 않는다"를
+   지키려면 여기 개별 케이스가 필요하다(안 만들면 뷰 전환이 통째로 시각 게이트 밖이 된다).
+
+   ⚠ `<canvas>` 힘-방향 뷰지만 초기 좌표가 id 해시 시드라 **결정론적**이고(`graphData.ts`:
+     "Math.random 금지 · 스냅샷/테스트 안정") reduced-motion 에선 동기 1회 렌더다.
+   ⚠ 범례의 '의미 연결' 칩은 `semStatus` 가 settle 한 뒤에야 붙는다: 트랙 A 에선 임베딩 커맨드가
+     reject 되어 반드시 'unavailable'(= Ollama 필요) 로 끝나는데, 그 전에 찍으면 칩이 통째로
+     빠진 상을 박는다(실측: 같은 실행에서 dark 는 50노드, light 는 48노드). **존재 단정**으로
+     전이 완료를 보장한다 — 카피가 바뀌면 조용히 통과하지 않고 timeout 으로 시끄럽게 깨진다. */
+for (const theme of THEMES) {
+  test(`items-structure · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/items?view=structure');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.getByText('의미 연결 — Ollama 필요')).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`items-structure-${theme}.png`, { fullPage: true });
+  });
+}
+
+/* ── 컷 카드(P-9) — **초과하는 날에만 존재한다** ─────────────────────────────────────
+   공유 `SEED` 는 두 과목이 마감 안에 끝나므로 이 카드가 안 뜬다. 그건 제품이 옳은 것이지만,
+   그대로 두면 **이 발산의 본체가 시각 게이트 밖**에 남는다(§15-4 가 금지한 "커버리지 0인 화면").
+   그래서 시드를 여기서만 초과로 비튼다: 미적분에 큰 챕터 셋을 더하고 마감을 D-8 로 당긴다.
+
+   ⚠ 시드를 바꾸는 것이 아니라 **파생한다** — 공유 SEED 를 건드리면 전 탭 베이스라인이 흔들린다. */
+const SEED_OVER = {
+  ...SEED,
+  items: [
+    {
+      ...SEED.items[0]!,
+      // 주 3h · 마감 D-8 · 남은 22h → 들어가는 것은 12h(부족 10h · 후보 4 · 기본 선택 2).
+      // ⚠ 이 수는 **엔진으로 직접 재서** 골랐다 — 눈대중으로 고르면 카드가 안 떠서
+      //   `toHaveScreenshot` 이 빈 화면을 정답으로 굳힌다(그래서 위 존재 단정이 함께 있다).
+      weeklyHours: 3,
+      deadline: '2026-06-23',
+      chapters: [
+        { id: 'c1', name: '극한', hours: 3, done: true },
+        { id: 'c2', name: '미분', hours: 4, done: false },
+        { id: 'c4', name: '적분', hours: 6, done: false },
+        { id: 'c5', name: '급수', hours: 5, done: false },
+        { id: 'c6', name: '미분방정식', hours: 7, done: false },
+      ],
+    },
+    SEED.items[1]!,
+  ],
+};
+
+for (const theme of THEMES) {
+  test(`schedule-cut · ${theme}`, async ({ page }) => {
+    await boot(page, theme, SEED_OVER);
+    await page.goto('/schedule');
+    await expect(page.locator('#main')).toBeVisible();
+    // 존재 단정 — 카드가 안 뜨면 timeout 으로 시끄럽게 깨진다(빈 화면을 조용히 굳히지 않는다).
+    await expect(page.getByRole('region', { name: '미적분 범위 조정' })).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`schedule-cut-${theme}.png`, { fullPage: true });
+  });
 }
 
 // 빈 상태(신규 사용자) — 데이터 의존 탭이 텅 비지 않고 의도적으로 보이는지.

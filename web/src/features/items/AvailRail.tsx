@@ -64,7 +64,7 @@ export function AvailRail() {
       aria-label="가용시간"
     >
       <div className="ds-well mb-0! flex flex-col items-center gap-4.5">
-        <div className="flex w-full items-baseline justify-between text-xs leading-text font-extrabold tracking-caps text-mut uppercase">
+        <div className="ds-caps flex w-full items-baseline justify-between">
           가용시간 — AVAILABILITY
           <span className="text-sm leading-text font-extrabold tracking-normal text-acc normal-case">
             {DOW[ringDow]}요일

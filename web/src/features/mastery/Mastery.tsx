@@ -28,6 +28,7 @@ import { M } from './classes';
 import { OverallRing, Distribution, KnowledgeMap } from './KnowledgeMap';
 import { Frontier, Sequencing, EngineHealth, Gaps, RootCauses, Calibration } from './NextActions';
 import { pctLabel } from '@/lib/utils';
+import { overallConfidence } from '@/lib/confidence';
 
 function Setup() {
   // 카드 크롬은 offWrap(발광 패널)이 제공 — 본문은 투명 콘텐츠만(지식맵 패널과 같은 언어).
@@ -49,7 +50,7 @@ function Setup() {
           위 <b>📁 볼트에서 불러오기</b> 클릭 → 전공 폴더 선택
         </li>
       </ol>
-      <div className="ds-foot ds-muted">
+      <div className="ds-foot text-mut">
         엔진은 선수개념 그래프로 "지금 배울 준비된 것(ZPD)"과 "약점의 근본원인"을 진단합니다. 인출 관측(Anki/CBMS)이
         쌓일수록 추정이 날카로워집니다.
       </div>
@@ -68,6 +69,8 @@ export default function Mastery() {
 
   // 전체 유효숙달·노트·약점 리드아웃을 상단 바로(데모 v6 헤더).
   const weak = k?.states?.weak;
+  // P-12 — 확신 판정은 lib 하나가 소유하고, 링·리드아웃 두 표면이 같은 답을 쓴다.
+  const conf = overallConfidence(k);
   usePageChromeEffect(
     () => ({
       /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
@@ -76,12 +79,18 @@ export default function Mastery() {
       readouts: !k
         ? []
         : [
-            { label: '전체 숙달', value: pctLabel(k.overall), accent: true },
+            /* P-12 — 리드아웃도 확신을 말한다. 종전엔 `62%` 와 `미측정` 두 값밖에 없어서
+               "62% 가 어디서 나왔는지"를 물으려면 산출물 JSON 을 직접 열어야 했다. */
+            {
+              label: conf.level === 'tentative' ? '전체 숙달 (잠정)' : '전체 숙달',
+              value: pctLabel(k.overall),
+              accent: true,
+            },
             { label: '노트', value: k.n_notes ?? 0 },
             { label: '약점', value: weak ?? 0 },
           ],
     }),
-    [k, weak],
+    [k, weak, conf],
   );
 
   // 볼트 폴더에서 수동 로드(백엔드가 없을 때) → 같은 ['knowledge'] 캐시에 주입 + write-through.
@@ -150,7 +159,9 @@ export default function Mastery() {
             )}
           </span>
         </div>
-        {k && k.overall != null && <OverallRing overall={k.overall} />}
+        {/* ⚠ 종전엔 `k.overall != null &&` 였다 — 검역이 걸리면 페이지 시그니처가 통째로 사라졌다(P-12).
+            지금은 링이 남고 **모른다는 사실 자체를** 그린다. */}
+        {k && <OverallRing overall={k.overall ?? null} conf={conf} />}
         {k && (
           <div className={M.heroDistWrap}>
             <span className={M.distLab}>지식 상태 분포</span>

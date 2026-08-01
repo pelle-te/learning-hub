@@ -148,7 +148,7 @@
    `forwards` 로 끝 상태를 물려야 애니 종료와 언마운트 사이에 한 프레임 되살아나지 않는다.
    ⚠ 길이가 등장(`--dur`)보다 짧은 것은 의도다 — 사라지는 것을 기다리게 하지 않는다. */
 .toast.out {
-  animation: exit-pop var(--dur-fast) var(--ease) forwards;
+  animation: shed-pop var(--dur-fast) var(--ease-shed) forwards;
 }
 .toast .toast-i {
   flex: none;

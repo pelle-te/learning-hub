@@ -148,7 +148,7 @@ export function TodayBlocks() {
   return (
     <div className="ds-rule" id="today-blocks">
       <h2>
-        오늘의 블록 <span className="ds-muted ds-tiny">{fmt(new Date(ds2 + 'T00:00:00'))}</span>
+        오늘의 블록 <span className="ds-tiny text-mut">{fmt(new Date(ds2 + 'T00:00:00'))}</span>
       </h2>
       {/* 70% 룰 안내는 카드 상단에 한 번만(블록마다 반복하면 노이즈). 자세한 단계는 아래 흐름 가이드로. */}
       <div className="ds-foot" style={{ margin: '-2px 0 12px' }}>
@@ -177,11 +177,11 @@ export function TodayBlocks() {
                 가 원리적으로 만들 수 없는 색이라(OKLCH 고정 L·C 램프 밖) 색이 비는 순간 이 스와치만
                 다른 언어로 튄다 — `graph/graphData.ts` 가 같은 이유로 이미 이 형태다(절대규칙 #3). */}
             <span className="ds-swatch" style={{ background: blockColor(it) }} />
-            <b className={done ? 'line-through opacity-60' : ''}>{it.name}</b>
+            <b className={done ? 'ds-shed' : ''}>{it.name}</b>
             {it.chapters && it.chapters.length > 0 && (
-              <span className="ds-muted ds-tiny"> · {it.chapters.join(', ')}</span>
+              <span className="ds-tiny text-mut"> · {it.chapters.join(', ')}</span>
             )}
-            <span className="ds-muted ds-tiny ml-auto">
+            <span className="ds-tiny ml-auto text-mut">
               {tm ? tm + ' · ' : ''}
               {hLabel(it.min)}
             </span>
@@ -213,7 +213,7 @@ export function TodayBlocks() {
           return (
             <div key={key} className="ds-blk">
               {head}
-              <div className="ds-tiny ds-muted mt-1.75 leading-body">
+              <div className="ds-tiny mt-1.75 leading-body text-mut">
                 📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크.
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -224,7 +224,7 @@ export function TodayBlocks() {
                     ) : (
                       <Pill tone="warn">
                         ⚠ 막힘 기록됨{res2.note ? ' · ' + res2.note : ''}{' '}
-                        <span className="ds-muted ds-tiny">→ CBMS(C) 연결</span>
+                        <span className="ds-tiny text-mut">→ CBMS(C) 연결</span>
                       </Pill>
                     )}{' '}
                     {!res2.passed && noteFor !== it.sid && (
@@ -271,7 +271,7 @@ export function TodayBlocks() {
         return (
           <div key={key} className="ds-blk">
             {head}
-            {note && <div className="ds-tiny ds-muted mt-1.75 leading-body">{note}</div>}
+            {note && <div className="ds-tiny mt-1.75 leading-body text-mut">{note}</div>}
             {ankiLinked && (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>

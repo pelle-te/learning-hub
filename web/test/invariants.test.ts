@@ -476,7 +476,7 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
 
   /** 선언된 어휘 접두사. 여기 없는 이름의 키프레임을 만들려면 **어휘를 먼저 늘려야** 한다
    *  (그 판단은 `lib/motion.ts` 머리주석 = 어휘 SSOT 에 남는다). */
-  const VOCAB = /^(enter|exit|live|commit|draw|vt)-/;
+  const VOCAB = /^(enter|shed|live|commit|draw|vt)-/;
   /** 어휘 밖 예외 — 사유가 코드에 적혀 있어야 하고, 늘어나면 그게 곧 문법 붕괴의 신호다. */
   const VOCAB_EXCEPTIONS = new Set([
     // 토스트 되돌리기 창의 남은 시간 바. 움직임이 장식이 아니라 **정보**이고 길이가 런타임값
@@ -514,7 +514,7 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     const stray = names.filter((n) => !VOCAB.test(n) && !VOCAB_EXCEPTIONS.has(n));
     expect(
       stray,
-      `어휘 밖 키프레임(enter|exit|live|commit|draw|vt 접두사 필요 · 어휘 SSOT=lib/motion.ts):\n${stray.join('\n')}`,
+      `어휘 밖 키프레임(enter|shed|live|commit|draw|vt 접두사 필요 · 어휘 SSOT=lib/motion.ts):\n${stray.join('\n')}`,
     ).toEqual([]);
   });
 
@@ -597,12 +597,15 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
       ];
       for (const seg of 자리) if (리터럴.test(seg)) bad.push(`${f.replace(SRC, '')} → ${seg.trim().slice(0, 80)}`);
     }
-    expect(bad, `이징 리터럴(토큰을 쓸 것 — --ease · --ease-live · --ease-draw):\n${bad.join('\n')}`).toEqual([]);
+    expect(
+      bad,
+      `이징 리터럴(토큰을 쓸 것 — --ease · --ease-live · --ease-draw · --ease-shed):\n${bad.join('\n')}`,
+    ).toEqual([]);
   });
 
-  it('이징 토큰 셋이 전부 선언돼 있다(소비만 잠그면 정의가 사라져도 통과한다)', () => {
+  it('이징 토큰 넷이 전부 선언돼 있다(소비만 잠그면 정의가 사라져도 통과한다)', () => {
     const tokensCss = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8');
-    for (const n of ['--ease', '--ease-live', '--ease-draw'])
+    for (const n of ['--ease', '--ease-live', '--ease-draw', '--ease-shed'])
       expect(new RegExp(`${n}:\\s*\\S`).test(tokensCss), `${n} 미정의`).toBe(true);
   });
 

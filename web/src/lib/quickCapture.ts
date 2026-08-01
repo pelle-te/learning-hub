@@ -7,18 +7,27 @@
    ① 결정적: 기준시각 now를 '주입'받아 상대날짜를 계산 → 테스트가 벽시계에 흔들리지 않음.
    ② 절대 throw 금지: 인식 실패는 조용히 넘기고, raw가 공백일 때만 null.
    ③ title은 매칭된 토큰(날짜/시간/유형/과목/챕터)을 raw에서 걷어낸 '나머지' — 비면 raw로 폴백(항상 비지 않음).
-   한국어 우선, 영어(today/tomorrow/new/rev/blank/mock/anki/ch) 관용 표현도 수용.
-============================================================ */
+   한국어 우선, 영어(today/tomorrow/ch) 관용 표현도 수용.
 
-export type CaptureSessionType = 'anki' | 'new' | 'rev' | 'blank' | 'mock';
+   ⚠⚠ **시각(`minute`·`timeLabel`)과 세션 유형(`sessionType`)이 여기서 삭제됐다**(P-18 · 2026-08-01).
+   파서는 그 둘을 정확히 뽑았고 팔레트가 `오후 3:00 · 복습` 이라고 **칩으로 보여줬는데**, 착지
+   지점인 `captureRecord` 는 `sid·name·topic·note` 넷만 만든다 — 즉 화면이 약속한 것의 절반이
+   어디에도 안 갔다. 없는 기능을 있는 것처럼 그리는 것이 없는 것보다 나쁘다.
+
+   ⚠ 왜 과목·챕터는 남기고 이 둘만 지웠나 — **약속하는 토큰과 서술하는 토큰이 다르다.**
+   `알고리즘 · 2챕터` 는 이 캡처가 *무엇에 관한 것인지*를 말하고 그건 실제로 레코드가 담는다
+   (`sid`·`topic`, 못 담은 조각은 `note` 의 원문에 남는다). 반면 `오후 3:00 · 복습` 은 *블록을
+   만들겠다*는 약속으로 읽히는데 이 경로는 블록을 만들지 않는다.
+
+   ⚠ 반대 선택지(⇧⌘Enter 로 그 날짜에 실제 블록 꽂기)를 안 고른 이유는 부작용이다: 하루에 수동
+   블록 하나를 꽂으면 그 날이 `mode:'manual'` 로 굳어 자동 배분에서 통째로 빠진다. _"메모 하나
+   남겼는데 그날 계획이 얼었다"_ 가 되고, 그 부작용 설계가 본체라 파서에 얹을 일이 아니다.
+============================================================ */
 
 export interface CaptureResult {
   title: string; // 토큰 제거 후 남은 텍스트(트림). 절대 비지 않음 — 비면 원본 raw.
   dateISO?: string; // 'YYYY-MM-DD'(로컬), now 기준으로 산출.
   dateLabel?: string; // 확인칩용 사람말 라벨: '내일' · '금요일' · '3월 2일'
-  minute?: number; // 자정으로부터의 분(오후 3시 → 900, 14:30 → 870)
-  timeLabel?: string; // '오후 3:00'
-  sessionType?: CaptureSessionType;
   subject?: string; // 제공된 목록과 매칭된 정확한 항목명
   chapter?: string; // '2챕터' · '3장' · 'ch 5' (매칭된 형태 보존)
 }
@@ -27,7 +36,7 @@ export interface CaptureResult {
    재구현했다(주석이 "utils와 동일 규약"이라 자인까지 했다). 같은 lib 계층이라 import에 제약도 없다.
    ⚠ 옛 로컬 addDays는 인자를 자정으로 절삭했지만 utils.addDays는 시각을 보존한다 — 여기 호출부는
    전부 이미 절삭된 base(startOfDay·mondayOf 산출)를 넘기므로 동작은 동일하다. */
-import { iso, addDays, mondayOf, startOfDay, pad2 } from './utils';
+import { iso, addDays, mondayOf, startOfDay } from './utils';
 
 /** raw에서 needle(대소문자 무시) 첫 등장을 공백으로 치환 — title 걷어내기용. */
 function stripOnce(hay: string, needle: string): string {
@@ -126,81 +135,6 @@ function matchDate(raw: string, now: Date): DateHit | null {
   return null;
 }
 
-interface TimeHit {
-  minute: number;
-  label: string;
-  strips: string[];
-}
-
-/** minute(자정 기준) → '오전/오후 H:MM' 라벨(12시간제). */
-function timeLabelOf(minute: number): string {
-  const h24 = Math.floor(minute / 60);
-  const mm = minute % 60;
-  const period = h24 < 12 ? '오전' : '오후';
-  let h12 = h24 % 12;
-  if (h12 === 0) h12 = 12;
-  return `${period} ${h12}:${pad2(mm)}`;
-}
-
-/** 시간 인식 — 오전/오후 접두, HH:MM, H시 M분, H시 반, H시. 없으면 null. */
-function matchTime(raw: string, meridiem: '오전' | '오후' | null): TimeHit | null {
-  const strips: string[] = [];
-  let hour: number | null = null;
-  let minute = 0;
-
-  // HH:MM
-  let m = raw.match(/(\d{1,2}):(\d{2})/);
-  if (m) {
-    hour = Number(m[1]);
-    minute = Number(m[2]);
-    strips.push(m[0]);
-  }
-  // H시 M분
-  if (hour === null && (m = raw.match(/(\d{1,2})\s*시\s*(\d{1,2})\s*분/))) {
-    hour = Number(m[1]);
-    minute = Number(m[2]);
-    strips.push(m[0]);
-  }
-  // H시 반 → :30
-  if (hour === null && (m = raw.match(/(\d{1,2})\s*시\s*반/))) {
-    hour = Number(m[1]);
-    minute = 30;
-    strips.push(m[0]);
-  }
-  // H시
-  if (hour === null && (m = raw.match(/(\d{1,2})\s*시/))) {
-    hour = Number(m[1]);
-    minute = 0;
-    strips.push(m[0]);
-  }
-  if (hour === null) return null;
-
-  // 오전/오후 보정: 오후 → +12(단 12시는 유지), 오전 12시 → 0.
-  if (meridiem === '오후' && hour !== 12) hour += 12;
-  else if (meridiem === '오전' && hour === 12) hour = 0;
-
-  hour = Math.max(0, Math.min(23, hour));
-  minute = Math.max(0, Math.min(59, minute));
-  const total = hour * 60 + minute;
-  return { minute: total, label: timeLabelOf(total), strips };
-}
-
-/** 세션 유형 키워드 — 우선순위 순으로 첫 매칭 채택. */
-function matchSession(raw: string): { type: CaptureSessionType; strip: string } | null {
-  const rules: Array<[RegExp, CaptureSessionType]> = [
-    [/복습|리뷰|\brev\b/i, 'rev'],
-    [/모의고사|모의|\bmock\b/i, 'mock'],
-    [/백지|\bblank\b/i, 'blank'],
-    [/신규|새로|새|\bnew\b/i, 'new'],
-    [/암기|카드|\banki\b/i, 'anki'],
-  ];
-  for (const [re, type] of rules) {
-    const m = raw.match(re);
-    if (m) return { type, strip: m[0] };
-  }
-  return null;
-}
-
 /** 챕터 인식 — 'N챕터' · 'N장' · 'ch N' · 'chapter N'. 매칭된 형태를 그대로 라벨로. */
 function matchChapter(raw: string): { chapter: string; strip: string } | null {
   // 수량자를 상한 있는 형태로 — 무한 `\d+`/`\s*`는 매칭 실패 시 시작위치마다 재스캔해
@@ -261,24 +195,6 @@ export function parseCapture(raw: string, now: Date, subjects?: string[]): Captu
       result.dateISO = d.dateISO;
       result.dateLabel = d.label;
       strips.push(d.strip);
-    }
-
-    // 시간(오전/오후 접두는 별도로 잡아 보정·strip)
-    const mer = raw.match(/(오전|오후)/);
-    const meridiem = mer ? (mer[1] as '오전' | '오후') : null;
-    const t = matchTime(raw, meridiem);
-    if (t) {
-      result.minute = t.minute;
-      result.timeLabel = t.label;
-      strips.push(...t.strips);
-      if (meridiem) strips.push(mer![0]);
-    }
-
-    // 세션 유형
-    const s = matchSession(raw);
-    if (s) {
-      result.sessionType = s.type;
-      strips.push(s.strip);
     }
 
     // 챕터

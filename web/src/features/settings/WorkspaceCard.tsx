@@ -54,13 +54,13 @@ export default function WorkspaceCard() {
   return (
     <div className="ds-rule">
       <h2>
-        워크스페이스 폴더 <span className="ds-muted ds-tiny">— 파이썬 도구·산출물이 이 폴더 기준으로 돕니다</span>
+        워크스페이스 폴더 <span className="ds-tiny text-mut">— 파이썬 도구·산출물이 이 폴더 기준으로 돕니다</span>
       </h2>
       <div className="ds-row">
         <span className={`ds-pill ${bad ? 'ds-warn' : 'ds-good'}`}>
           {bad ? '확인 필요' : status.inferred ? '자동 추론됨' : '설정됨'}
         </span>
-        <span className="ds-muted ds-tiny">{status.path || '경로 없음'}</span>
+        <span className="ds-tiny text-mut">{status.path || '경로 없음'}</span>
       </div>
       {bad && (
         <div className="ds-foot">

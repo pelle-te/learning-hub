@@ -161,7 +161,9 @@ describe('scheduler (T1~T21 parity)', () => {
     });
   });
 
-  it('T7 주당 시간 부족 시 마감 경고', () => {
+  it('T7 주당 시간 부족 시 마감 부족분(shortfall)', () => {
+    // ⚠ P-9 에서 **문자열 경고가 구조로 바뀌었다.** 옛 경고의 유일한 처방이 `주당 시간↑`(사용자가
+    //   할 수 없는 것)이라 액션이 0이었고, 그래서 그 줄은 은퇴하고 컷 카드가 그 자리를 받았다.
     const r = schedule(
       baseState([
         weeklyItem('빡센과목', 1, mkChapters(Array.from({ length: 20 }, (_, i) => ['c' + i, 2] as ChSpec)), {
@@ -169,8 +171,11 @@ describe('scheduler (T1~T21 parity)', () => {
         }),
       ]),
     );
-    expect(r.warnings.length > 0).toBe(true);
-    expect(r.warnings.some((w) => w.includes('빡센과목'))).toBe(true);
+    const sf = r.shortfalls.find((s) => s.name === '빡센과목');
+    expect(sf).toBeTruthy();
+    expect(sf!.gapH).toBeGreaterThan(0);
+    expect(sf!.needH).toBe(40);
+    expect(sf!.scoped).toBe(false); // deadlineThru 없음 → 범위=전 챕터
   });
 
   it('T8 daily 항목은 매일 dailyMin 확보', () => {
@@ -506,15 +511,15 @@ describe('scheduler (T1~T21 parity)', () => {
   });
 
   // ── 버그 회귀(2026-07-10 · N-6) ──
-  it('T29 챕터 없는 과목은 마감이 있어도 "다 못 끝내요" 경고를 내지 않는다', () => {
+  it('T29 챕터 없는 과목은 마감이 있어도 부족분을 내지 않는다', () => {
     // _hadChapters=false면 chaptersLeft()가 늘 true → finished가 영영 false라 옛 코드는 경고를 영구 오탐.
     const r = schedule(baseState([weeklyItem('무챕터과목', 5, [], { deadline: '2027-01-01' })]));
-    expect(r.warnings.some((w) => w.includes('다 못 끝내요'))).toBe(false);
+    expect(r.shortfalls.length).toBe(0);
     expect(r.warnings.some((w) => w.includes('무챕터과목'))).toBe(false);
   });
 
-  it('T30 챕터가 있는데 주당 시간 부족하면 마감 경고는 그대로 뜬다', () => {
-    // 가드가 정상 경고(T7 계열)까지 삼키지 않는지 — 챕터 있는 과목은 여전히 경고.
+  it('T30 챕터가 있는데 주당 시간 부족하면 부족분은 그대로 뜬다', () => {
+    // 가드가 정상 판정(T7 계열)까지 삼키지 않는지 — 챕터 있는 과목은 여전히 부족분을 낸다.
     const r = schedule(
       baseState([
         weeklyItem('빡센과목', 1, mkChapters(Array.from({ length: 20 }, (_, i) => ['c' + i, 2] as ChSpec)), {
@@ -522,7 +527,7 @@ describe('scheduler (T1~T21 parity)', () => {
         }),
       ]),
     );
-    expect(r.warnings.some((w) => w.includes('빡센과목') && w.includes('다 못 끝내요'))).toBe(true);
+    expect(r.shortfalls.some((s) => s.name === '빡센과목' && s.gapH > 0)).toBe(true);
   });
 
   // ── 버그 회귀(2026-07-10 · X-2·X-10·L-9·L-10) ──
@@ -685,5 +690,86 @@ describe('복습 사다리 적응(②#23)', () => {
       .flatMap((d, di) => d.items.filter((x) => x.type === 'rev' && x.sid === it.id).map(() => di))
       .sort((a, b) => a - b);
     expect(revDis).toEqual([di0 + 1, di0 + 3, di0 + 7, di0 + 16, di0 + 34]);
+  });
+});
+
+/* ── P-10 시험 범위(`deadlineThru`) · P-9 컷(`deferred`) — 2026-08-01 ────────────────────
+   이 두 필드가 푸는 것은 **첫 입력의 보상이 음수**였다는 문제다: 마감을 넣으면 앱이 그것을
+   "안 끝난 챕터 전부"로 읽어, 중간고사를 마감으로 넣는 순간 영구히 빨간 경고가 떴다. */
+describe('P-10 시험 범위 · P-9 컷', () => {
+  // 20장 x 2h = 40h. 마감까지 한 주뿐이라 주 4h 로는 전 범위가 절대 안 들어간다(부족분 확실).
+  // 반면 **범위를 1장(2h)으로 좁히면 들어간다** — 두 경우의 차이가 이 절이 검사하는 전부다.
+  const 빡센 = () =>
+    weeklyItem('빡센과목', 4, mkChapters(Array.from({ length: 20 }, (_, i) => ['c' + i, 2] as ChSpec)), {
+      deadline: '2026-06-30',
+    });
+
+  it('deadlineThru 가 범위를 좁히면 들어오는 만큼은 부족분이 사라진다', () => {
+    const it = 빡센();
+    const first = (it.chapters as { id: string }[])[0]!;
+    const scoped = schedule(baseState([{ ...it, deadlineThru: first.id }]));
+    // 1장(2h)만 범위 → 마감까지 충분히 들어가므로 부족분 0. 같은 데이터·같은 마감·같은 주당 시간인데
+    // **범위 한 칸**이 거짓 경고를 없앤다 — 이 항목의 전부가 이 한 줄이다.
+    expect(scoped.shortfalls.length).toBe(0);
+  });
+
+  it('deadlineThru 는 범위 안만 분모로 센다(scoped 플래그가 화면의 어휘를 가른다)', () => {
+    const it = 빡센();
+    const chs = it.chapters as { id: string }[];
+    const r = schedule(baseState([{ ...it, deadlineThru: chs[9]!.id }]));
+    const sf = r.shortfalls.find((s) => s.name === '빡센과목');
+    expect(sf).toBeTruthy();
+    expect(sf!.needH).toBe(20); // 10장 × 2h — 40h(전 챕터)가 아니다
+    expect(sf!.scoped).toBe(true);
+    expect(sf!.candidates.every((c) => chs.slice(0, 10).some((x) => x.id === c.id))).toBe(true);
+  });
+
+  it('없는 id 를 가리키면 전 범위로 폴백한다(옛 id 하나가 판정을 멈추지 않는다)', () => {
+    const r = schedule(baseState([{ ...빡센(), deadlineThru: '지워진챕터' }]));
+    expect(r.shortfalls[0]!.needH).toBe(40);
+    expect(r.shortfalls[0]!.scoped).toBe(false);
+  });
+
+  it('컷 후보는 남은 시간 큰 것부터 · 동률이면 뒤 챕터부터', () => {
+    const chs = mkChapters([
+      ['작은', 1],
+      ['같음A', 3],
+      ['같음B', 3],
+      ['큰', 5],
+    ]);
+    const r = schedule(baseState([weeklyItem('편중', 1, chs, { deadline: '2026-06-30' })]));
+    const sf = r.shortfalls.find((s) => s.name === '편중')!;
+    expect(sf.candidates.map((c) => c.name)).toEqual(['큰', '같음B', '같음A', '작은']);
+  });
+
+  it('제안(suggest)은 부족분을 덮는 최소 접두다', () => {
+    const r = schedule(baseState([빡센()]));
+    const sf = r.shortfalls.find((s) => s.name === '빡센과목')!;
+    const sum = sf.suggest
+      .map((id) => sf.candidates.find((c) => c.id === id)!.hours)
+      .reduce((a: number, b: number) => a + b, 0);
+    expect(sum).toBeGreaterThanOrEqual(sf.gapH);
+    // 최소성 — 마지막 하나를 빼면 부족분을 못 덮는다.
+    expect(sum - sf.candidates.find((c) => c.id === sf.suggest[sf.suggest.length - 1])!.hours).toBeLessThan(sf.gapH);
+  });
+
+  it('deferred 챕터는 블록도 부족분도 만들지 않는다 — 다만 완료로 세지도 않는다', () => {
+    const it = 빡센();
+    const chs = it.chapters as { id: string; deferred?: boolean }[];
+    chs.slice(1).forEach((c) => (c.deferred = true)); // 1장만 남긴다
+    const r = schedule(baseState([it]));
+    expect(r.shortfalls.length).toBe(0);
+    const s = stat(r, '빡센과목')!;
+    expect(s.totalCh).toBe(20); // 포기가 챕터 수를 줄이지 않는다(삭제가 아니다)
+    expect(s.doneCh).toBeLessThanOrEqual(1); // 그리고 진척으로도 세지 않는다
+    const names = newItems(r).flatMap((x) => x.chapters || []);
+    expect(names.some((n) => n !== 'c0')).toBe(false); // 뺀 챕터엔 블록이 안 생긴다
+  });
+
+  it('deadlineThru·deferred 가 없으면 판정 분모가 종전(전 챕터)과 같다', () => {
+    // 옛 판정은 `!finished`(= `_cum < _totalH`)였고 새 판정은 `_cum < _scopeH` 다. 둘 다 없으면
+    // `_scopeH === _totalH` 라 **한 글자도 다르지 않다** — 그 등식을 여기서 잠근다.
+    const a = schedule(baseState([빡센()]));
+    expect(a.shortfalls[0]!.needH).toBe(a.itemStat.find((s) => s.name === '빡센과목')!.totalH);
   });
 });

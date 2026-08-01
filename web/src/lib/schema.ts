@@ -15,12 +15,18 @@ export type Theme = z.infer<typeof ThemeSchema>;
  *  **과거 날짜와의 링크까지 통째로 끊긴다** — 계획이 매번 재생성되기 때문이다. 그래서 "언제
  *  끝냈나"는 여기 남기지 않으면 앱 어디에도 없다(로드맵 N-10 의 "데이터는 전부 있다"는 전제
  *  정정). 없는 옛 챕터는 '모름'으로 다루고 유지 큐의 세션 상한이 그 불확실성을 감당한다. */
+/** deferred = **이번 범위에서 제외**(P-9 컷 리스트). `done` 과 엄격히 다르다 — done 은 "끝냈다",
+ *  deferred 는 "이번엔 안 한다". 둘을 한 필드로 합치면 통계(`doneCh`)가 포기를 진척으로 세고,
+ *  되돌리기가 "완료 취소"와 구분되지 않는다. 옵셔널이라 기존 저장은 무마이그레이션.
+ *  ⚠ **삭제가 아니다.** 로드맵이 못박은 설계 조건 — 삭제로 만들면 아무도 안 누른다. 챕터는 목록에
+ *  남고 스케줄러만 이번 회차에서 뺀다. */
 export const ChapterSchema = z.object({
   id: z.string(),
   name: z.string(),
   hours: z.number(),
   done: z.boolean(),
   doneDs: z.optional(z.string()),
+  deferred: z.optional(z.boolean()),
 });
 
 export const ItemModeSchema = z.enum(['weekly', 'daily']);
@@ -34,6 +40,14 @@ export const ItemSchema = z.looseObject({
   weeklyHours: z.optional(z.number()),
   dailyMin: z.optional(z.number()),
   deadline: z.optional(z.string()),
+  /** deadlineThru = **마감이 덮는 범위**의 마지막 챕터 id(P-10). 없으면 종전대로 "안 끝난 챕터 전부".
+   *  ⚠ 왜 필요한가: 없으면 중간고사를 마감으로 넣는 순간 **영구히 빨간 경고**가 뜬다 — 마감을 넣은
+   *  첫 입력의 보상이 음수라 사용자가 마감을 아예 안 쓰게 된다(`engine.ts` 의 `!finished` 판정).
+   *  ⚠ **인덱스가 아니라 id 다** — 인덱스는 *위치*라 챕터 삽입·재정렬에 밀리고, id 는 *정체성*이라
+   *  불변이다(과목 색이 `item.id` 를 파생 키로 쓰는 것과 같은 논증).
+   *  ⚠ v1 은 **과목당 마감 1개 · 범위 칸 하나**다. "시험" 엔티티(과목당 여러 시험·가중치·유형)로
+   *  키우고 싶어지는 금도금 미끄럼틀이 여기 붙어 있다 — 로드맵 P-10 이 미리 못박아 뒀다. */
+  deadlineThru: z.optional(z.string()),
   chapters: z._default(z.array(ChapterSchema), []),
 });
 
@@ -278,6 +292,12 @@ export const AppStateSchema = z.looseObject({
   /** reviewTouches[`${sid}|${chapter}`] = ds(YYYY-MM-DD) — ReviewRun의 챕터 단위 인출 기록.
    *  위험모델(spacedReview)의 lastDs를 계획 밖 복습에서도 갱신(감사 #22). 구버전엔 없음. */
   reviewTouches: z.optional(z.record(z.string(), z.string())),
+  /** reviewHold[`${sid}|${chapter}`] = ds(뺀 날) — **복습 보류 선반**(P-11). 규약·근거는
+   *  `lib/reviewHold.ts` 머리주석이 SSOT. 요지: `건너뛰기` 가 아무것도 안 써서 밀린 챕터가
+   *  **내일 완전히 동일하게 돌아왔고**, 앱 안에 "이건 안 볼게"라고 말할 문법이 없었다.
+   *  ⚠ 값이 날짜인 것은 선반이 "언제 뺐나"를 말하기 위해서다 — **자동 만료용이 아니다**
+   *  (P-9 와 같은 되돌리기 규칙을 공유해야 하고, 거긴 만료가 없다). */
+  reviewHold: z.optional(z.record(z.string(), z.string())),
   /** 일일 배치 오버라이드(§4-1) — 키=ds(YYYY-MM-DD). manual인 날은 그날 배치의 진리=사용자.
    *  옵셔널·무마이그레이션(구버전 저장 무손상 로드). RUNTIME_CACHE_KEYS 아님 → 영속·백업·.ics 대상. */
   dayPlans: z.optional(z.record(z.string(), DayPlanSchema)),

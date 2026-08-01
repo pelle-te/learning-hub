@@ -43,6 +43,7 @@ import { todayISO, openVaultSearch } from '@/lib/utils';
 import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
 import { toast } from '@/shell/toast';
 import { riskSummary } from '@/lib/spacedReview';
+import { holdReview, isHeld } from '@/lib/reviewHold';
 import {
   anchorOf,
   buildReviewQueue,
@@ -73,7 +74,7 @@ import { Button } from '@/components/ui';
    ③ **속성 셀렉터**(`.badge[data-kind]`) → `data-[kind=…]:` 변형. CSS 에서 하던 것의
       정공법 대응물이라 린트가 허용한다(그 규칙은 값만 막는다).
 
-   ⚠ `'ds-well'`·`'ds-glow'`·`'ds-muted'`·`'ds-tiny'` 는 그대로 둔다 — 공유 디자인 시스템은
+   ⚠ `'ds-well'`·`'ds-glow'`·`'text-mut'`·`'ds-tiny'` 는 그대로 둔다 — 공유 디자인 시스템은
    공유 SSOT 라 **맨 마지막**이다(건드리면 트랙 A 시각 베이스라인이 전부 흔들린다). 혼용이 정상. */
 const WRAP = 'flex h-full flex-col items-center justify-center gap-4 p-runner-pad';
 const CARD_BASE = 'flex w-full flex-col gap-3';
@@ -520,7 +521,7 @@ export default function ReviewRun() {
             ✓
           </div>
           <h2>복습할 게 없어요</h2>
-          <p className="ds-muted">밀린 챕터도, 다시 인출할 요약·착각도 없습니다. 오늘 새 학습에 집중하세요.</p>
+          <p className="text-mut">밀린 챕터도, 다시 인출할 요약·착각도 없습니다. 오늘 새 학습에 집중하세요.</p>
           <div className={ACTS_CENTER}>
             <Button onClick={() => nav('/today')}>오늘 학습으로</Button>
           </div>
@@ -530,6 +531,18 @@ export default function ReviewRun() {
   }
 
   const jolStat = jolSummary(jol);
+
+  /* ── P-11 보류 선반의 입구 — **끝내 못 인출한 챕터**가 그 결정을 내릴 정확한 자리 ────────
+     `건너뛰기` 는 아무것도 안 써서 이 챕터들이 **내일 완전히 동일하게 돌아온다.** 12장을 다
+     밀어도 내일 큐는 여전히 12장이라, 사용자가 할 수 있는 유일한 행동이 매일 같은 것을 다시
+     미는 의식이었다. 여기서 "당분간 안 볼게"라고 말할 수 있게 한다.
+     ⚠ 세션 중 카드마다 묻지 않는다 — 인출 흐름을 끊고, 무엇보다 **그 순간엔 판단할 정보가
+       없다**(몇 개를 못 했는지 모른다). 완주 화면이 그 전량을 아는 유일한 시점이다. */
+  const missedChapters = queue
+    .filter((i) => !i.again && i.kind === 'chapter' && !gotKeys.includes(runItemKey(i)))
+    .map((i) => (i as Extract<RunItem, { kind: 'chapter' }>).ch)
+    .filter((ch, i, arr) => arr.findIndex((x) => x.sid === ch.sid && x.chapter === ch.chapter) === i)
+    .filter((ch) => !isHeld(state, ch.sid, ch.chapter));
 
   /* P-2 — 방금 넘긴 카드의 "왜 막혔나". 코드 하나로 커밋되고, 그 뒤 메모는 선택이다.
      ⚠ 카드 **위**의 한 줄이다(모달이 아니다) — 러너 흐름을 멈추지 않는 것이 이 위젯의 전부다.
@@ -573,7 +586,7 @@ export default function ReviewRun() {
           <h2>복습 세션 완료</h2>
           {/* D-1 — 분모는 **서로 다른 카드 수**다. 옛 문구는 큐 길이를 분모로 썼는데 재큐가 그
               길이를 늘리므로 "12개 중 14개"가 나올 수 있었다(같은 카드를 두 번 세는 형태). */}
-          <p className="ds-muted">
+          <p className="text-mut">
             카드 {cardCount}장 중 <strong>{gotCount}</strong>개를 인출했어요
             {againCount > 0 && <> · 놓친 {againCount}개는 세션 안에서 한 번 더 만났어요</>}. 남은 챕터는 볼트에서
             이어가세요.
@@ -581,7 +594,7 @@ export default function ReviewRun() {
           {/* ID-11 — 예측이 얼마나 맞았나. **비율을 안 쓴다**(표본이 최대 3건이라 %는 정밀해 보이는
               소음이다) · 과신은 따로 짚는다: "될 줄 알았는데 안 됨"이 복습을 건너뛰게 하는 방향이다. */}
           {jolStat && (
-            <p className="ds-muted ds-tiny">
+            <p className="ds-tiny text-mut">
               떠오를지 미리 답한 {jolStat.n}개 중 <strong>{jolStat.hit}개</strong>를 맞혔어요
               {jolStat.over > 0 && <> · 될 줄 알았는데 안 된 게 {jolStat.over}개(과신)</>}
               {jolStat.under > 0 && <> · 애매하다 했는데 된 게 {jolStat.under}개</>}
@@ -602,6 +615,35 @@ export default function ReviewRun() {
               </span>
             </p>
           ))}
+          {/* P-11 — 못 인출한 챕터를 **큐에서 뺄 수 있게**. P-9(컷 리스트)와 같은 동사(`빼기`)·
+              같은 되돌리기(`되돌리기`)·같은 시각 어휘(`ds-shed`)를 쓴다 — 사용자에게 두 개의
+              다른 "버리기"가 생기면 안 된다는 것이 이 항목의 착수 조건이었다.
+              ⚠ 자동 만료를 두지 않는다. 되돌릴 때까지 빠져 있고, 되돌릴 자리는 예보 탭 선반이다. */}
+          {missedChapters.length > 0 && (
+            <div className="mt-1 flex w-full max-w-runner flex-col gap-1.5 text-left">
+              <p className="m-0! text-xs leading-body text-mut">
+                못 떠올린 {missedChapters.length}개는 <b className="font-bold text-txt">내일 그대로 돌아와요</b>. 당분간
+                안 볼 것은 지금 빼 두세요 — 삭제가 아니고 예보 탭에서 되돌릴 수 있어요.
+              </p>
+              <ul className="m-0! flex list-none flex-wrap gap-1.5 p-0!">
+                {missedChapters.map((ch) => (
+                  <li key={`${ch.sid}|${ch.chapter}`} className="m-0!">
+                    <Button
+                      sm
+                      variant="ghost"
+                      onClick={() =>
+                        useApp.getState().mutate((st) => {
+                          holdReview(st, ch.sid, ch.chapter, today);
+                        })
+                      }
+                    >
+                      {ch.subject} · {ch.chapter} 복습에서 빼기
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className={ACTS_CENTER}>
             <Button onClick={restart} variant="ghost">
               처음부터
@@ -702,7 +744,7 @@ export default function ReviewRun() {
               <li>{item.card.summary.s3}</li>
             </ol>
           ) : (
-            <p className="ds-muted">머릿속으로 먼저 인출한 뒤, 아래로 내 원래 요약과 대조하세요.</p>
+            <p className="text-mut">머릿속으로 먼저 인출한 뒤, 아래로 내 원래 요약과 대조하세요.</p>
           )}
         </div>
       )}
@@ -728,7 +770,7 @@ export default function ReviewRun() {
               <p className="ds-tiny">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
             </div>
           ) : (
-            <p className="ds-muted">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
+            <p className="text-mut">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>
           )}
         </div>
       )}
@@ -756,7 +798,7 @@ export default function ReviewRun() {
               사용자 눈엔 앱이 완료를 잊은 것으로 읽힌다(앵커를 모르는 경우는 그렇다고 말한다). */}
           {/* ⚠ 문구는 **lib 이 소유한다**(H14) — 폰 러너와 같은 문장이어야 한다. 특히 볼트 유래
               앵커의 구분(W2)이 한쪽에만 있으면 `vaultAnchors.ts` 의 계약이 조용히 깨진다. */}
-          <p className="ds-muted">{chapterCopy(item.ch).body}</p>
+          <p className="text-mut">{chapterCopy(item.ch).body}</p>
         </div>
       )}
 

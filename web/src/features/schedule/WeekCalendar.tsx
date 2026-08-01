@@ -381,7 +381,7 @@ export function WeekCalendar({
                           data-tip={`${x.name} · ${tag.label}\n${toHM(pl.start)}–${toHM(pl.end)}${x.chapters?.length ? '\n' + x.chapters.join(', ') : ''}`}
                           title={h < 26 ? `${x.name} · ${tag.label}` : undefined}
                         >
-                          <span className={`${segNameCls(dens, 'study')} ${done ? 'line-through' : ''}`}>{e.name}</span>
+                          <span className={`${segNameCls(dens, 'study')} ${done ? 'ds-shed' : ''}`}>{e.name}</span>
                           <span className={segMetaCls(dens)}>{e.meta}</span>
                         </button>
                       );
@@ -423,9 +423,7 @@ export function WeekCalendar({
                         title={h < 26 ? e.name : undefined}
                         aria-label={`${e.name} ${e.meta}`}
                       >
-                        <span
-                          className={`${segNameCls(dens, e.kind)} ${e.kind === 'task' && e.done ? 'line-through' : ''}`}
-                        >
+                        <span className={`${segNameCls(dens, e.kind)} ${e.kind === 'task' && e.done ? 'ds-shed' : ''}`}>
                           {e.name}
                         </span>
                         <span className={segMetaCls(dens)}>{e.meta}</span>

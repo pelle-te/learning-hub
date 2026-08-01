@@ -40,7 +40,7 @@ function ShellFallback() {
     <div className="wrap">
       <div className="ds-well">
         <h2>앱을 시작하지 못했어요</h2>
-        <p className="ds-muted ds-tiny">새로고침하거나 ⋯ 메뉴 → 데이터 내보내기로 백업 후 점검하세요.</p>
+        <p className="ds-tiny text-mut">새로고침하거나 ⋯ 메뉴 → 데이터 내보내기로 백업 후 점검하세요.</p>
       </div>
     </div>
   );
@@ -57,11 +57,11 @@ function DowngradeScreen({ applied, bundled }: { applied: number | null; bundled
     <div className="wrap">
       <div className="ds-well">
         <h2>더 새 버전이 만든 데이터예요</h2>
-        <p className="ds-muted">
+        <p className="text-mut">
           이 데이터(v{applied})는 지금 실행 중인 앱(v{bundled})보다 새 버전이 만들었습니다. 구버전으로 열면 데이터가
           갈리기 때문에 시작을 멈췄어요 — <b>최신 버전으로 업데이트</b>한 뒤 다시 실행하세요.
         </p>
-        <p className="ds-muted ds-tiny">
+        <p className="ds-tiny text-mut">
           이 앱은 다운그레이드를 지원하지 않습니다. 되돌려야 한다면 최신 버전에서 먼저 데이터를 내보내세요.
         </p>
       </div>

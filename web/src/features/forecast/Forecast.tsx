@@ -28,6 +28,7 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { heldReviews, releaseReview } from '@/lib/reviewHold';
 import { dueForecast, pullForwardCandidates, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
 import { addOrMergeBlock } from '@/lib/dayPlans';
 import { ui } from '@/shell';
@@ -128,6 +129,8 @@ export default function Forecast() {
      ⚠ 이 탭이 그 자리인 이유(E13): 여기가 **볼트 due 와 Anki due 를 한 화면에 쥔** 유일한
      화면이고, 인출 축의 호스트다. 연동 탭은 "붙었나"만 말한다. */
   const ankiBy = ankiLive?.decks ? dueBySubject(ankiLive.decks, state.items) : null;
+
+  const held = heldReviews(state);
 
   const forecast = useMemo(() => dueForecast(state, res.days || [], today), [state, res.days, today]);
 
@@ -249,10 +252,44 @@ export default function Forecast() {
           )}
         </p>
       )}
+      {/* ── P-11 보류 선반 — **되돌릴 수 있는 유일한 자리** ─────────────────────────────
+          러너에서 뺀 챕터는 큐에서 사라지므로, 여기 목록이 없으면 사용자 입장에서 '보류'와
+          '조용한 삭제'가 구분되지 않는다. 이 탭인 이유: 복습 부하를 묻는 화면이고, "왜 예보가
+          가벼워졌지"의 답이 정확히 이 줄이다.
+          ⚠ 자동 만료를 두지 않으므로(P-9 와 같은 규칙) 이 선반은 **비지 않는다** — 그래서
+            상시 노출이 아니라 있을 때만 그린다. */}
+      {held.length > 0 && (
+        <details className="ds-note m-0!">
+          <summary className="cursor-pointer text-xs font-bold text-txt">
+            복습에서 뺀 챕터 {held.length}개 — 되돌리기
+          </summary>
+          <ul className="m-0! mt-1.5 flex list-none flex-col gap-1 p-0!">
+            {held.map((h) => (
+              <li key={`${h.sid}|${h.chapter}`} className="m-0! flex items-center gap-2">
+                <span className="ds-shed flex-1 truncate text-xs">
+                  {h.name ?? '(없어진 과목)'} · {h.chapter}
+                </span>
+                <span className="text-2xs text-mut">{h.ds}</span>
+                <Button
+                  sm
+                  variant="ghost"
+                  onClick={() =>
+                    mutate((st) => {
+                      releaseReview(st, h.sid, h.chapter);
+                    })
+                  }
+                >
+                  되돌리기
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0">
           복습 부하 예보{' '}
-          <span className="ds-muted ds-tiny">
+          <span className="ds-tiny text-mut">
             — 앞 {FORECAST_HORIZON}일 볼트 챕터. 막대 = 복습 블록(1블록 {revMin}분) · 점선 = 그날 가용
           </span>
         </h2>

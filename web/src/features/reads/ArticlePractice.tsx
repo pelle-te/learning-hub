@@ -504,7 +504,7 @@ export default function ArticlePractice({
                       )}
                       {fb.comment && <span className="text-md font-semibold text-txt">{fb.comment}</span>}
                       {savedAt && (
-                        <span className="ds-muted ds-tiny" style={{ marginLeft: 'auto' }}>
+                        <span className="ds-tiny text-mut" style={{ marginLeft: 'auto' }}>
                           저장된 채점
                         </span>
                       )}

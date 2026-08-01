@@ -98,10 +98,21 @@
     transform: none;
   }
 }
-/* 퇴장 — enter-pop 의 거울. 어휘에 `exit` 이 따로 없는 이유는 **구성원이 하나**이기 때문이고
-   (토스트만 자기 퇴장을 그린다), 그 비대칭을 컴포넌트 이름(`toastOut`)에 숨기지 않고 여기
-   드러내 둔다. 둘째가 생기면 그때 어휘가 된다. */
-@keyframes exit-pop {
+/* ── shed — **사라짐**. 어휘의 여섯째 마디(P-17 · 2026-08-01) ──────────────────────────
+   옛 주석은 여기 이렇게 적혀 있었다: _"어휘에 `exit` 이 따로 없는 이유는 **구성원이 하나**이기
+   때문이고(토스트만 자기 퇴장을 그린다) … 둘째가 생기면 그때 어휘가 된다."_ 둘째가 생겼다.
+
+   다섯 마디(enter·commit·live·transit·draw)가 전부 등장·반영·진행·전이·성장이라 **소멸이 없었고**,
+   그 공백의 대가는 목록에서 항목이 빠질 때의 **0프레임 언마운트**였다 — 아래 목록이 점프하고
+   "방금 뭘 지웠지"의 복구를 토스트 문구가 혼자 졌다.
+
+   축은 둘이다:
+   · `shed-pop` — 완전 퇴장(토스트). `enter-pop` 의 거울.
+   · `shed-row` — 자리째 접힘(높이가 0으로). 카드·행이 **자기가 차지하던 공간까지** 가져간다.
+   정적 상태(끝난 것·이번 회차에서 빠진 것)는 키프레임이 아니라 `ds.css` 의 `.ds-shed` 가 진다.
+
+   ⚠ 길이는 `--dur-fast` 다 — **퇴장은 진입보다 빨라야 한다**(Fluent 2). 이징은 `--ease-shed`. */
+@keyframes shed-pop {
   from {
     opacity: 1;
     transform: none;
@@ -109,6 +120,31 @@
   to {
     opacity: 0;
     transform: translateY(8px) scale(0.98);
+  }
+}
+/* 접힘 — 채도를 잃고 왼쪽으로 빠지면서 자기 높이를 0으로 준다. `grid-template-rows` 가 아니라
+   `max-height` 를 쓰는 이유는 소비처가 하나(부모가 grid 가 아니다)이고, 접히는 값이 알려진
+   상한이면 충분하기 때문이다. */
+@keyframes shed-row {
+  from {
+    opacity: 1;
+    max-height: var(--shed-h, 320px);
+    transform: none;
+    filter: none;
+  }
+  60% {
+    opacity: 0;
+    max-height: var(--shed-h, 320px);
+    transform: translateX(-12px);
+    filter: saturate(0.2);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    margin-block: 0;
+    padding-block: 0;
+    transform: translateX(-12px);
+    filter: saturate(0.2);
   }
 }
 

@@ -68,7 +68,7 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
     <div className="ds-rule">
       <h2>
         인출 증거{' '}
-        <span className="ds-muted ds-tiny">— "이해했다"가 아니라 "꺼낼 수 있다"의 증거(투입 아닌 출력 지표)</span>
+        <span className="ds-tiny text-mut">— "이해했다"가 아니라 "꺼낼 수 있다"의 증거(투입 아닌 출력 지표)</span>
       </h2>
       <div className="ds-kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <div className="ds-kpi">
@@ -77,7 +77,7 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
           </div>
           <div className="ds-l">
             오답 추세{' '}
-            <span className="ds-muted ds-tiny">
+            <span className="ds-tiny text-mut">
               (지난주 {tr.lastW} → 이번주 {tr.thisW})
             </span>
           </div>
@@ -86,13 +86,13 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
           <div className="ds-v">{blankPlan ? `${blankRate}%` : '—'}</div>
           <div className="ds-l">
             백지 복습 완료{' '}
-            <span className="ds-muted ds-tiny">{blankPlan ? `(${blankDone}/${blankPlan})` : '(계획 없음)'}</span>
+            <span className="ds-tiny text-mut">{blankPlan ? `(${blankDone}/${blankPlan})` : '(계획 없음)'}</span>
           </div>
         </div>
         <div className="ds-kpi">
           <div className="ds-v">{recallActs}</div>
           <div className="ds-l">
-            능동 인출 활동 <span className="ds-muted ds-tiny">요약+백지+모의</span>
+            능동 인출 활동 <span className="ds-tiny text-mut">요약+백지+모의</span>
           </div>
         </div>
       </div>
@@ -152,7 +152,7 @@ function ConfSpark() {
             );
           })}
         </div>
-        <div className="ds-muted ds-tiny" style={{ minWidth: 96, textAlign: 'right' }}>
+        <div className="ds-tiny text-mut" style={{ minWidth: 96, textAlign: 'right' }}>
           최근 {withData.length}주 과신율
           <br />
           최근 {latest.rate}%
@@ -170,7 +170,7 @@ function RetentionSpark() {
     return (
       <div className="ds-rule">
         <h2>
-          유지율 추세 <span className="ds-muted ds-tiny">— 기억 유지의 출력 지표</span>
+          유지율 추세 <span className="ds-tiny text-mut">— 기억 유지의 출력 지표</span>
         </h2>
         <div className="ds-empty ds-tiny">
           아직 데이터가 없어요. <b>Anki 현황</b> 탭에서 <b>🔌 AnkiConnect 실시간 due</b>를 누르면 그 주의 due가
@@ -189,7 +189,7 @@ function RetentionSpark() {
     <div className="ds-rule">
       <h2>
         유지율 추세{' '}
-        <span className="ds-muted ds-tiny">— Anki 복습 빚(due)의 주별 추세. 투입 아닌 '기억 유지'의 출력 지표</span>
+        <span className="ds-tiny text-mut">— Anki 복습 빚(due)의 주별 추세. 투입 아닌 '기억 유지'의 출력 지표</span>
       </h2>
       <div className="ds-row" style={{ alignItems: 'center', gap: 14 }}>
         <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 50, flex: 1, minWidth: 120 }}>
@@ -210,7 +210,7 @@ function RetentionSpark() {
         </div>
         <div style={{ textAlign: 'right', minWidth: 96 }}>
           <div style={{ fontSize: 20, fontWeight: 700, color: col }}>{icon}</div>
-          <div className="ds-muted ds-tiny">
+          <div className="ds-tiny text-mut">
             이번주 {t.latest.due} due{t.prev ? ` · 지난주 ${t.prev.due}` : ''}
           </div>
         </div>
@@ -244,7 +244,7 @@ function CbmsRadar() {
     return (
       <div className="ds-rule">
         <h2>
-          오답 분포(CBMS) <span className="ds-muted ds-tiny">— 약점 유형의 모양</span>
+          오답 분포(CBMS) <span className="ds-tiny text-mut">— 약점 유형의 모양</span>
         </h2>
         <div className="ds-empty ds-tiny">
           오답을 기록하면(오늘 학습 탭) 유형 분포가 레이더로 보여요. 모양이 작아질수록 약점이 닫히는 중.
@@ -263,7 +263,7 @@ function CbmsRadar() {
   return (
     <div className="ds-rule">
       <h2>
-        오답 분포(CBMS) <span className="ds-muted ds-tiny">— 약점 유형의 모양(전체 {total}건)</span>
+        오답 분포(CBMS) <span className="ds-tiny text-mut">— 약점 유형의 모양(전체 {total}건)</span>
       </h2>
       <div className="ds-row" style={{ alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <svg viewBox="0 0 220 208" width={220} height={208} style={{ flex: 'none' }} aria-label="CBMS 오답 분포 레이더">
@@ -336,7 +336,7 @@ function CbmsRadar() {
                 <div className="ds-bar" style={{ flex: 1, margin: 0 }}>
                   <i style={{ width: `${pctv}%`, background: info.color }} />
                 </div>
-                <span className="ds-muted ds-tiny" style={{ width: 28, textAlign: 'right' }}>
+                <span className="ds-tiny text-mut" style={{ width: 28, textAlign: 'right' }}>
                   {v}
                 </span>
               </div>
@@ -381,7 +381,7 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
           const tot = Object.values(segs).reduce((t, v) => t + v, 0);
           return (
             <div key={w} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 46 }}>
-              <div className="ds-tiny ds-muted">{Math.round(tot)}h</div>
+              <div className="ds-tiny text-mut">{Math.round(tot)}h</div>
               <div style={{ display: 'flex', flexDirection: 'column-reverse', width: 30, gap: 1 }}>
                 {Object.entries(segs).map(([sid, h]) => {
                   const lab = `${byId[sid]?.name || ''}: ${round1(h)}h`;
@@ -401,14 +401,14 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
                   );
                 })}
               </div>
-              <div className="ds-tiny ds-muted" style={{ marginTop: 4 }}>
+              <div className="ds-tiny text-mut" style={{ marginTop: 4 }}>
                 {fmtShort(parseISO(w))}
               </div>
             </div>
           );
         })}
       </div>
-      <div className="ds-tiny ds-muted" style={{ marginTop: 6 }}>
+      <div className="ds-tiny text-mut" style={{ marginTop: 6 }}>
         {r.itemStat.map((s) => (
           <span key={s.id}>
             <span className="ds-swatch" style={{ background: s.color }} />
@@ -434,7 +434,7 @@ function SeasonPaceCard() {
   return (
     <div className="ds-rule">
       <h2>
-        시즌 페이스 <span className="ds-muted ds-tiny">— 이번 주 학습량 vs 직전 4주 평균(완료율 아닌 '리듬')</span>
+        시즌 페이스 <span className="ds-tiny text-mut">— 이번 주 학습량 vs 직전 4주 평균(완료율 아닌 '리듬')</span>
       </h2>
       <div className="ds-row" style={{ alignItems: 'center', gap: 14 }}>
         <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 50, flex: 1, minWidth: 120 }}>
@@ -458,7 +458,7 @@ function SeasonPaceCard() {
           <div style={{ fontSize: 18, fontWeight: 700, color: col }}>
             {hasHist ? `${arrow} ${Math.abs(p.deltaPct)}%` : hLabel(p.thisWeekMin)}
           </div>
-          <div className="ds-muted ds-tiny">
+          <div className="ds-tiny text-mut">
             이번주 {hLabel(p.thisWeekMin)}
             {hasHist ? ` · 평균 ${hLabel(p.avgWeekMin)}` : ''}
           </div>
@@ -491,7 +491,7 @@ function ChapterTimeline({ r }: { r: ScheduleResult }) {
   return (
     <div style={{ maxHeight: 360, overflow: 'auto' }}>
       {hidden > 0 && (
-        <div className="ds-tiny ds-muted" style={{ marginBottom: 6 }}>
+        <div className="ds-tiny text-mut" style={{ marginBottom: 6 }}>
           ⋯ 이전 {hidden}일은 생략(부분 렌더 — 대용량서도 가볍게). 전체 보관은 <b>일과 탭 → 오래된 기록 정리</b>로
           아카이빙 권장.
         </div>
@@ -507,7 +507,7 @@ function ChapterTimeline({ r }: { r: ScheduleResult }) {
               {byDs[dsk]!.map((e, i) => (
                 <span key={i}>
                   <span className="ds-swatch" style={{ background: e.color }} />
-                  {e.name} <span className="ds-muted ds-tiny">{e.chapters.join(', ')}</span>
+                  {e.name} <span className="ds-tiny text-mut">{e.chapters.join(', ')}</span>
                   {i < byDs[dsk]!.length - 1 ? ' / ' : ''}
                 </span>
               ))}

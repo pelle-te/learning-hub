@@ -229,7 +229,7 @@ export function AnkiPanel() {
           </div>
         )}
         {file && (
-          <div className="ds-muted ds-tiny" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="ds-tiny text-mut" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>
               📂 카드 스캔: {file.at}
               {file.src ? ' · ' + file.src : ''}
@@ -241,7 +241,7 @@ export function AnkiPanel() {
         )}
         {live && (
           <div
-            className="ds-muted ds-tiny"
+            className="ds-tiny text-mut"
             style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
           >
             <span>🔌 실시간 연결됨: {live.at}</span>
@@ -276,7 +276,7 @@ export function AnkiPanel() {
                       <th rowSpan={dks.length} scope="rowgroup">
                         <b>{s}</b>
                         <br />
-                        <span className="ds-tiny ds-muted">{totalCards(dks)}장</span>
+                        <span className="ds-tiny text-mut">{totalCards(dks)}장</span>
                       </th>
                     )}
                     <th className="ds-tiny" scope="row">
@@ -325,7 +325,7 @@ export function AnkiPanel() {
             >
               📥 오늘 due 합계 → 복습 시간예산
             </Button>
-            <span className="ds-muted ds-tiny">
+            <span className="ds-tiny text-mut">
               오늘 풀 due 합 <b>{dueTot}</b>장
             </span>
           </div>

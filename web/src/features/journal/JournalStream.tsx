@@ -122,7 +122,7 @@ export default function JournalStream({
       <div className="ds-spotlight" aria-hidden="true" />
       <div className="ds-aura" aria-hidden="true" />
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="text-xs leading-text font-extrabold tracking-caps text-mut uppercase">{titleLabel} — LOG</span>
+        <span className="ds-caps">{titleLabel} — LOG</span>
         <span className="flex gap-3.5 text-xs leading-text text-mut">
           <span>
             <Count n={sums.length} /> 요약

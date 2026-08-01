@@ -58,9 +58,9 @@ export default function ConflictsNotice() {
   return (
     <div className="ds-well">
       <h2>
-        동기화 충돌 <span className="ds-muted ds-tiny">— 다른 기기 편집에 덮인 내 편집 {shadows.length}건</span>
+        동기화 충돌 <span className="ds-tiny text-mut">— 다른 기기 편집에 덮인 내 편집 {shadows.length}건</span>
       </h2>
-      <p className="ds-muted ds-tiny">
+      <p className="ds-tiny text-mut">
         같은 항목을 두 기기에서 고쳐, 늦게 저장된 쪽이 이겼어요. 아래는 <b>덮이기 전 이 기기의 값</b>입니다.
         <b>되살리기</b>를 누르면 이 값으로 되돌리고(다른 기기에도 반영), <b>확인</b>은 기록만 지워요.
       </p>

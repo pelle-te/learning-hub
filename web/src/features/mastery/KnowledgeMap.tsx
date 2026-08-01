@@ -10,6 +10,7 @@ import { useCountUp } from '@/hooks/interactions';
 import { masteryColor, openVaultSearch, pctLabel } from '@/lib/utils';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { Knowledge, KnowledgeSubject } from '@/lib/knowledge';
+import { subjectConfidence, type Confidence } from '@/lib/confidence';
 import { M } from './classes';
 
 /** AN-12 — 볼트 딥링크. obsidian://search는 볼트명 없이도 동작(설치돼 있으면).
@@ -43,29 +44,56 @@ export function VaultLink({
   );
 }
 
-/** 전체 숙달 — 발광 원형 링(마운트 시 0→target 카운트업). 히어로의 시선 집중점. */
-export function OverallRing({ overall }: { overall: number }) {
-  const target = Math.round((overall || 0) * 100);
-  const shown = useCountUp(target);
+/**
+ * 전체 숙달 — 발광 원형 링. 히어로의 시선 집중점.
+ *
+ * ⚠⚠ **P-12 — 이 링은 이제 사라지지 않는다.** 종전 호출부가 `k.overall != null &&` 로 감싸고
+ * 있어서, 상류가 사전분포 검역을 걸면(= 표본이 얇아 평균이 사실이 아닐 때) **페이지의 시그니처가
+ * 통째로 증발했다.** 사용자 입장에서 "아직 안 불러왔다"와 "불러왔는데 표본이 없다"가 같은 화면이
+ * 된다 — 그 가드가 곧 사라짐이었다.
+ *
+ * 세 등급을 다르게 그린다(`lib/confidence.ts` 가 판정 · 여기는 그리기만):
+ * · `solid`     — 종전과 동일(0→target 카운트업).
+ * · `tentative` — **카운트업을 생략한다.** 자기 크기까지 자라지 않는 것이 곧 "자기 크기를 모른다"
+ *                 이고, 이건 `draw` 어휘를 **의도적으로 안 쓰는** 자리다. 획은 흐리다.
+ * · `unknown`   — 빈 링 + `—`. 캡션이 분모를 말한다.
+ */
+export function OverallRing({ overall, conf }: { overall: number | null; conf: Confidence }) {
+  const target = overall == null ? 0 : Math.round(overall * 100);
+  const counted = useCountUp(target);
+  // ⚠ 훅은 항상 부른다(조건부 호출 금지) — 값만 고른다.
+  const shown = conf.level === 'solid' ? counted : target;
+  const label = conf.level === 'unknown' ? `전체 숙달 미측정 — ${conf.speech}` : `전체 숙달 ${target}%`;
   return (
-    <div
-      className={M.ring}
-      style={{ '--ring-w': 8, '--ring-glow-r': '8px' } as CSSProperties}
-      role="img"
-      aria-label={`전체 숙달 ${target}%`}
-    >
-      <ProgressRing
-        size={120}
-        r={46}
-        pct={shown}
-        className="ds-ringSvg"
-        trackClassName={'ds-ringTrack'}
-        arcClassName={'ds-ringArc'}
-      />
-      <span className={M.ringNum}>
-        {Math.round(shown)}
-        <small className={M.ringNumSmall}>%</small>
-      </span>
+    <div className="flex flex-none flex-col items-center gap-1">
+      <div
+        className={M.ring}
+        style={{ '--ring-w': 8, '--ring-glow-r': '8px' } as CSSProperties}
+        role="img"
+        aria-label={conf.level === 'tentative' ? `${label} · ${conf.speech}` : label}
+      >
+        <ProgressRing
+          size={120}
+          r={46}
+          pct={shown}
+          className="ds-ringSvg"
+          trackClassName={'ds-ringTrack'}
+          arcClassName={'ds-ringArc'}
+          tentative={conf.level !== 'solid'}
+        />
+        <span className={M.ringNum}>
+          {conf.level === 'unknown' ? (
+            '—'
+          ) : (
+            <>
+              {Math.round(shown)}
+              <small className={M.ringNumSmall}>%</small>
+            </>
+          )}
+        </span>
+      </div>
+      {/* 캡션 — 값 옆에 **분모**를 둔다. 이게 없으면 흐린 획이 "비활성"으로 읽힌다(NN/g). */}
+      {conf.caption && <span className="text-2xs text-mut tabular-nums">{conf.caption}</span>}
     </div>
   );
 }
@@ -181,8 +209,13 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
           <div key={s.subject} className={M.mssub}>
             <div className={M.subHead}>
               <b className={M.subNm}>{s.subject}</b>
-              <span className="ds-tiny ds-muted">
+              {/* P-12 — 과목 줄도 확신을 말한다. `pctLabel` 은 `62%` 아니면 `미측정` 2진이라
+                  "62% 가 3개 관측에서 나온 값"인지 "40개에서 나온 값"인지 구분이 없었다. */}
+              <span className="ds-tiny text-mut">
                 {s.n}개 · 숙달 {pctLabel(s.mastery)}
+                {subjectConfidence(s).level === 'tentative' && (
+                  <span className="text-2xs"> (잠정 {subjectConfidence(s).caption})</span>
+                )}
                 {s.weak ? ` · 약점 ${s.weak}` : ''}
                 {s.unknown ? ` · 미관측 ${s.unknown}` : ''}
               </span>
@@ -191,7 +224,7 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
           </div>
         ))
       ) : (
-        <div className="ds-muted ds-tiny">과목 없음</div>
+        <div className="ds-tiny text-mut">과목 없음</div>
       )}
       <div className={M.mapFoot}>테두리 친 셀 ⬡ = 프런티어(지금 배울 준비됨).</div>
     </>

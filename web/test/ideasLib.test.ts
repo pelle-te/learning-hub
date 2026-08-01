@@ -255,7 +255,8 @@ describe('parseCaptureBatch (I-11)', () => {
     const now = new Date('2026-07-08T09:00:00');
     const out = parseCaptureBatch('내일 알고리즘 복습\n\n   \n오늘 3문장 요약', now);
     expect(out.length).toBe(2);
-    expect(out[0]!.sessionType).toBe('rev');
+    // P-18 — `sessionType` 은 삭제됐다. 이 케이스가 검사하는 것은 **줄 분리**이므로 날짜로 본다.
+    expect(out[0]!.dateISO).toBeTruthy();
   });
   it('빈 입력 → 빈 배열', () => {
     expect(parseCaptureBatch('\n\n  ', new Date('2026-07-08T09:00:00'))).toEqual([]);

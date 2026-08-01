@@ -44,16 +44,16 @@ function RitualCard() {
   return (
     <div className="ds-rule">
       <h2>
-        일일 의식 <span className="ds-muted ds-tiny">— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span>
+        일일 의식 <span className="ds-tiny text-mut">— 아침 계획 → 저녁 셧다운(작은 의식이 일관성을 만든다)</span>
       </h2>
       <div className="flex flex-wrap gap-2.5">
         <label className="flex! min-w-55 flex-1 cursor-pointer items-center gap-1.75 rounded-md border border-line bg-panel2 px-2.75 py-2.25 text-md! hover:border-[color:var(--line-acc-hover)]">
           <input type="checkbox" checked={r.plan} onChange={(e) => toggle('plan', e.target.checked)} /> 🌅{' '}
-          <b>아침 계획</b> <span className="ds-muted ds-tiny">블록 훑고 오늘 가장 중요한 1개 정하기</span>
+          <b>아침 계획</b> <span className="ds-tiny text-mut">블록 훑고 오늘 가장 중요한 1개 정하기</span>
         </label>
         <label className="flex! min-w-55 flex-1 cursor-pointer items-center gap-1.75 rounded-md border border-line bg-panel2 px-2.75 py-2.25 text-md! hover:border-[color:var(--line-acc-hover)]">
           <input type="checkbox" checked={r.shutdown} onChange={(e) => toggle('shutdown', e.target.checked)} /> 🌙{' '}
-          <b>저녁 셧다운</b> <span className="ds-muted ds-tiny">완료 체크 · 내일 한 줄 · 끝내기</span>
+          <b>저녁 셧다운</b> <span className="ds-tiny text-mut">완료 체크 · 내일 한 줄 · 끝내기</span>
         </label>
       </div>
       {/* ID-5 오늘의 모양 — 하루 회고 한 줄(완료 세션·요약 있을 때만). 셧다운 전 '오늘이 어땠나'. */}
@@ -70,7 +70,7 @@ function RitualCard() {
       )}
       <div className="ds-fld" style={{ marginTop: 8 }}>
         <label htmlFor="ritual-note">
-          내일 한 줄 <span className="ds-muted ds-tiny">— 셧다운의 마지막 조각, 내일의 나에게 남기는 메모</span>
+          내일 한 줄 <span className="ds-tiny text-mut">— 셧다운의 마지막 조각, 내일의 나에게 남기는 메모</span>
           {justSaved && note.trim() === (r.note || '').trim() && (
             <span className="ds-pill ds-good ds-tiny" style={{ marginLeft: 8 }}>
               ✓ 저장됨
@@ -130,7 +130,7 @@ function FlowGuide() {
                 <td>
                   <b>{st.name}</b>
                 </td>
-                <td className="ds-muted ds-tiny">
+                <td className="ds-tiny text-mut">
                   {st.start}–{st.end}%
                 </td>
                 <td>{st.action}</td>

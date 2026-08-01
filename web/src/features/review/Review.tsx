@@ -70,7 +70,7 @@ const HINT = 'mb-4 text-xs leading-normal text-mut';
 const SIG_CHART =
   'ds-frame bg-[image:var(--bg-sig-chart)] animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none';
 const SIG_HEAD = 'mb-2 flex items-baseline justify-between';
-const SIG_TITLE = 'text-xs font-extrabold tracking-caps text-mut uppercase';
+const SIG_TITLE = 'ds-caps';
 const SIG_RATE = 'text-2xl font-black tracking-tight text-acc tabular-nums [text-shadow:var(--sig-rate-glow)]';
 const PA_EMPTY = 'flex min-h-38 items-center justify-center px-3 py-2 text-center text-sm leading-normal text-mut';
 const PA_CHART = 'flex min-h-38 items-end justify-around gap-2 px-1 pt-2 pb-0.5';
@@ -195,7 +195,7 @@ function PlanActualCard({ pa }: { pa: WeekPA }) {
                   <i className={I_PLAN} style={{ height: ph, animationDelay: `${x.k * 45}ms` }} />
                   <i className={I_DONE} style={{ height: dh, animationDelay: `${x.k * 45 + 80}ms` }} />
                 </span>
-                <span className="ds-tiny ds-muted">{DOW_MON[x.k]}</span>
+                <span className="ds-tiny text-mut">{DOW_MON[x.k]}</span>
               </div>
             );
           })}
@@ -233,7 +233,7 @@ function CbmsDistCard({ cnt }: { cnt: Record<CbmsCode, number> }) {
   return (
     <div className="ds-rule">
       <h2>
-        오답 CBMS 분포 <span className="ds-muted ds-tiny">— 약점의 분포</span>
+        오답 CBMS 분포 <span className="ds-tiny text-mut">— 약점의 분포</span>
       </h2>
       {CBMS_CODES.map((c) => {
         const inf = CBMS_INFO[c];
@@ -270,7 +270,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   return (
     <div className="ds-rule">
       <h2>
-        보충 필요 회수 <span className="ds-muted ds-tiny">— 백로그를 닫는 고리</span>
+        보충 필요 회수 <span className="ds-tiny text-mut">— 백로그를 닫는 고리</span>
       </h2>
       <div className="ds-row" style={{ marginBottom: 8 }}>
         <span className={`ds-pill ${open.length ? 'ds-warn' : 'ds-good'}`}>열림 {open.length}</span>
@@ -285,8 +285,8 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
                   H8 이 `TodayBlocks` 에 적용한 처방 그대로 `colorForId` 로 유도한다. */}
               <span className="ds-swatch" style={{ background: colorForId(b.sid) }} />
               <b>{b.topic || '(주제 없음)'}</b>
-              {b.name && <span className="ds-muted ds-tiny"> · {b.name}</span>}
-              <span className="ds-muted ds-tiny" style={{ marginLeft: 6 }}>
+              {b.name && <span className="ds-tiny text-mut"> · {b.name}</span>}
+              <span className="ds-tiny text-mut" style={{ marginLeft: 6 }}>
                 열린 지 {dayDiff(b.ds, todayISO(state))}일
               </span>
             </div>
@@ -338,7 +338,7 @@ function ChecklistCard({ wk }: { wk: string }) {
         </label>
       ))}
       <label htmlFor="wk-note" style={{ marginTop: 10 }}>
-        이번 주 메모 <span className="ds-muted ds-tiny">(무엇을 바꿀까)</span>
+        이번 주 메모 <span className="ds-tiny text-mut">(무엇을 바꿀까)</span>
         {draft.trim() && <span className="ds-pill ds-good ds-tiny"> ✓ 자동 저장됨</span>}
       </label>
       <textarea
@@ -421,7 +421,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
   return (
     <div className="ds-rule">
       <h2>
-        회고 코칭 <span className="ds-muted ds-tiny">— 이번 주 데이터가 말하는 다음 주 우선순위</span>
+        회고 코칭 <span className="ds-tiny text-mut">— 이번 주 데이터가 말하는 다음 주 우선순위</span>
       </h2>
       {hasData ? (
         <>
@@ -437,7 +437,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
           )}
           {weak.length > 0 && (
             <div className={WEAK_BOX}>
-              <div className="ds-muted ds-tiny">반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
+              <div className="ds-tiny text-mut">반복 약점 — 같은 곳에서 여러 번 막힌 지점</div>
               <ul className={WEAK_LIST}>
                 {weak.map((w) => {
                   const lever = leverFor(w.subject);
@@ -479,7 +479,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
           )}
           {roots.length > 0 && (
             <div className={WEAK_BOX}>
-              <div className="ds-muted ds-tiny">
+              <div className="ds-tiny text-mut">
                 약점의 뿌리 — 한 선수개념이 여러 약점의 공통 근본원인(먼저 메우면 상류가 함께 풀림)
               </div>
               <ul className={WEAK_LIST}>
@@ -531,7 +531,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
         </Button>
         {aiErr && (
           <>
-            <span className="ds-muted ds-tiny">{aiErr}</span>
+            <span className="ds-tiny text-mut">{aiErr}</span>
             <Button sm variant="ghost" onClick={askAI} disabled={aiBusy || !online}>
               다시 시도
             </Button>
@@ -599,7 +599,7 @@ function WorkbenchCard() {
   return (
     <div className="ds-rule">
       <h2>
-        약점 워크벤치 <span className="ds-muted ds-tiny">— 오래 안 본 개념을 식별에서 행동으로</span>
+        약점 워크벤치 <span className="ds-tiny text-mut">— 오래 안 본 개념을 식별에서 행동으로</span>
       </h2>
       <div className="ds-row" style={{ marginBottom: 8 }}>
         <span className={`ds-pill ${all.length ? 'ds-warn' : 'ds-good'}`}>복습 위험 {all.length}</span>

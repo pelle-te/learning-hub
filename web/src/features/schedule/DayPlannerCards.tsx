@@ -143,7 +143,7 @@ export function TrayRow({
         aria-label={`${title} 완료`}
       />
       <span className={C.grabDot} aria-hidden="true" />
-      <span className={`${C.rowName} ${done ? 'line-through' : ''}`}>{title}</span>
+      <span className={`${C.rowName} ${done ? 'ds-shed' : ''}`}>{title}</span>
       <span className={C.rowMeta}>
         {repeat && <span title={repeat === 'daily' ? '매일 반복' : '매주 반복'}>🔁 </span>}
         {meta}
@@ -414,7 +414,7 @@ export function TimedCard({
       data-tip={`${title}\n${meta} · ${toHM(start)}–${toHM(start + min)}`}
     >
       <div className={C.cardMain}>
-        <span className={`${C.cardName} ${done ? 'line-through' : ''}`}>
+        <span className={`${C.cardName} ${done ? 'ds-shed' : ''}`}>
           {pinned && '📌 '}
           {title}
         </span>

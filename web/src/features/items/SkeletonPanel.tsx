@@ -303,7 +303,7 @@ export function SkeletonPanel() {
     <div className="flex min-w-0 flex-col gap-3 pt-3 pb-1">
       <div className="ds-rule">
         <h2>
-          수업 (요일별) <span className="ds-muted ds-tiny">— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
+          수업 (요일별) <span className="ds-tiny text-mut">— 요일을 고르고 그 날 수업의 시작~끝을 직접 추가</span>
         </h2>
         {/* 편집 중인 요일 = 단일 선택. tablist 계약(화살표 이동·tabpanel)을 이행하지 않으므로
             group+aria-pressed가 정직하다(AvailRail 요일 막대와 동일 · WCAG 1.4.1 색 단독 금지). */}
@@ -335,7 +335,7 @@ export function SkeletonPanel() {
       <div className="ds-rule">
         <h2>
           그 밖의 일과 블록{' '}
-          <span className="ds-muted ds-tiny">— 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다</span>
+          <span className="ds-tiny text-mut">— 수면·식사·취미 등. 비운 시간은 자동으로 공부 가능 시간이 됩니다</span>
         </h2>
         <div className={BLK_GRID}>
           <BlockList />

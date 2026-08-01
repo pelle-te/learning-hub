@@ -51,6 +51,17 @@ describe('buildReviewQueue — 밀린 챕터가 과목 인터리빙으로 나온
     // 회전 순 m→p: [m1,p1],[m2],[m3] → m1,p1,m2,m3. p가 두 번째로 끼어든다(블록 학습 방지).
     expect(chapters).toEqual(['m1', 'p1', 'm2', 'm3']);
   });
+
+  /* ── P-11 보류 선반 — **이 필터가 없으면 큐가 매일 같다** ─────────────────────────── */
+  it('뺀 챕터는 큐에서 사라지고, 되돌리면 원래 자리로 돌아온다', () => {
+    const withHold = { ...state, reviewHold: { 'm|m2': '2026-07-03' } } as AppState;
+    const q = buildReviewQueue(withHold, days, TODAY);
+    const chapters = q.filter((x) => x.kind === 'chapter').map((x) => (x.kind === 'chapter' ? x.ch.chapter : ''));
+    expect(chapters).toEqual(['m1', 'p1', 'm3']);
+    // 되돌리기 = 키 삭제 하나. 별도 복원 상태가 없으므로 원래 위험 티어 그대로 복귀한다.
+    const back = buildReviewQueue(state, days, TODAY);
+    expect(back.filter((x) => x.kind === 'chapter').length).toBe(4);
+  });
 });
 
 /* ── D-1 재큐(세션 내 확장 인출) ─────────────────────────────────────────

@@ -75,7 +75,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
   return (
     <div ref={cardRef} className="ds-well">
       <h2>
-        오답 분류 CBMS <span className="ds-muted ds-tiny">— 틀린 이유별로 처방이 다르다</span>
+        오답 분류 CBMS <span className="ds-tiny text-mut">— 틀린 이유별로 처방이 다르다</span>
       </h2>
       <div className="ds-fieldgrid">
         <div className="ds-fld">
@@ -106,7 +106,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
         </div>
         <div className="ds-fld ds-wide">
           <label htmlFor={`${uid}-note`}>
-            메모 <span className="ds-muted ds-tiny">(어디서 왜 막혔나)</span>
+            메모 <span className="ds-tiny text-mut">(어디서 왜 막혔나)</span>
           </label>
           <input
             id={`${uid}-note`}
@@ -120,13 +120,13 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
       </div>
       <label className="ds-tiny" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
         <input type="checkbox" checked={conf} onChange={(e) => setConf(e.target.checked)} /> 🎯{' '}
-        <b>찍어서 맞음/확신 없었음</b> <span className="ds-muted">— 맞아도 다시 점검 대상(확신도 보정)</span>
+        <b>찍어서 맞음/확신 없었음</b> <span className="text-mut">— 맞아도 다시 점검 대상(확신도 보정)</span>
       </label>
       <div style={{ marginTop: 10 }}>
         <Button variant="primary" onClick={submit} title={`오답 추가 (Enter · ${MOD_ENTER_LABEL})`}>
           오답 추가
         </Button>
-        <span className="ds-muted ds-tiny" style={{ marginLeft: 8 }}>
+        <span className="ds-tiny text-mut" style={{ marginLeft: 8 }}>
           C 개념 · B 경계 · M 수학 · S 실수 · T 시간부족(모의시험)
         </span>
       </div>
@@ -215,7 +215,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                   </span>
                 )}
                 <b>{e.name || ''}</b>
-                {e.chapter && <span className="ds-muted ds-tiny"> · {e.chapter}</span>}
+                {e.chapter && <span className="ds-tiny text-mut"> · {e.chapter}</span>}
                 <Button sm variant="ghost" style={{ marginLeft: 'auto' }} onClick={() => startEdit(e)} title="수정">
                   ✎
                 </Button>
@@ -224,7 +224,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                 </Button>
               </div>
               {e.note && <div className="ds-tiny">{e.note}</div>}
-              <div className="ds-tiny ds-muted">처방: {inf.tip}</div>
+              <div className="ds-tiny text-mut">처방: {inf.tip}</div>
             </div>
           );
         })

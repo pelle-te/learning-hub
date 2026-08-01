@@ -54,7 +54,7 @@ export default function SeasonRoadmap({
   return (
     <div className="ds-board mb-4! pb-3.5!">
       <div className="mb-4 flex items-baseline justify-between">
-        <span className="text-xs font-extrabold tracking-caps text-mut uppercase">졸업 로드맵 — ROADMAP</span>
+        <span className="ds-caps">졸업 로드맵 — ROADMAP</span>
         <span className="flex items-baseline gap-1.5 tabular-nums">
           <b className="text-2xl font-extrabold text-acc">{earned}</b>
           <span className="text-sm text-mut">/ {targetTotal}</span>
