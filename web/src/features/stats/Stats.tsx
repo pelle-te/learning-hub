@@ -67,7 +67,10 @@ const S = {
   sigHead: 'flex items-baseline justify-between',
   sigTitle: 'ds-caps',
   sigMeta: 'text-xs leading-text text-mut tabular-nums',
-  sigMap: `relative flex flex-1 flex-col justify-center rounded-lg border border-line bg-[image:var(--bg-sig-stats)] px-4.5 pt-4.5 pb-3.5 animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none`,
+  /* Q-14 — **hero 가 아니라 여기가 이 화면의 시그니처다**(위 `// 3 — 시그니처` 주석이 원천).
+     hero 는 지표 컬럼의 게이지 리드아웃이라 `ds-frame` 을 달면 한 화면에 둘이 되고, 그건
+     ds.css 가 못박은 계약(`한 화면에 하나`)을 어긴다 — 그래서 hero 는 그대로 둔다. */
+  sigMap: `ds-frame mb-0! relative flex flex-1 flex-col justify-center bg-[image:var(--bg-sig-stats)] px-4.5! pt-4.5! pb-3.5! animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] ds-hairline motion-reduce:animate-none`,
   verdicts: 'flex flex-col gap-3 border-t border-line2 pt-3.5 max-wide:mt-3.5',
   verdict: 'flex items-start gap-3',
   vIcon: 'min-w-16 flex-none pt-px text-md font-extrabold',
@@ -446,7 +449,7 @@ export default function Stats() {
             <span className={S.sigTitle}>학습 스트릭 — STREAK</span>
             <span className={S.sigMeta}>꾸준함의 리듬</span>
           </div>
-          <div ref={mapRef} onMouseMove={mapMove} onMouseLeave={mapLeave} className={`${S.sigMap} ds-spotHost ds-glow`}>
+          <div ref={mapRef} onMouseMove={mapMove} onMouseLeave={mapLeave} className={`${S.sigMap} ds-spotHost`}>
             <div className="ds-spotlight" aria-hidden="true" />
             <div className="ds-aura" aria-hidden="true" />
             <StreakHeatmap bare />

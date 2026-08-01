@@ -130,7 +130,10 @@ test('모달: 포커스 복원 + aria 라벨링(role=dialog)', async () => {
   trigger.focus();
   expect(document.activeElement).toBe(trigger);
 
-  const p = ui.confirm('정말 진행할까요?', { title: '확인' });
+  /* ⚠ Q-13 이후 `ui.confirm` 은 없다 — 파괴적 동작은 3단 사다리 어휘로만 말한다
+     (`shell/destructive.ts`). 이 케이스가 재는 것은 **모달 자체의 a11y 계약**이라 어느 단으로
+     띄우든 같다. ②단(재구성 가능)이 중립적이라 그것으로 띄운다. */
+  const p = ui.confirmLossy('정말 진행할까요?', { title: '확인' });
   const dialog = await screen.findByRole('dialog');
   expect(dialog).toHaveAttribute('aria-modal', 'true');
   expect(dialog).toHaveAttribute('aria-labelledby');

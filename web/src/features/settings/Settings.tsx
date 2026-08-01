@@ -33,7 +33,8 @@ import { Icon } from '@/components/Icon';
 
 const S = {
   wrap: 'flex min-w-0 flex-col gap-4',
-  hero: `relative flex flex-wrap items-center gap-settings-gap rounded-lg border border-line bg-[image:var(--bg-hero-settings)] px-hero-px py-5 shadow-hero animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none`,
+  // Q-14 — 노치 HUD 통일(사유는 `styles/ds.css` 의 `ds-frame` 절).
+  hero: `ds-frame mb-0! relative flex flex-wrap items-center gap-settings-gap bg-[image:var(--bg-hero-settings)] px-hero-px! py-5! animate-[enter-rise_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:animate-none`,
   heroLeft: 'flex min-w-0 flex-1 flex-col gap-0.75',
   eyebrow: 'text-xs leading-text font-extrabold tracking-eyebrow-wide text-acc uppercase',
   title: 'mt-0.5! mb-0! text-hero-title! font-black! leading-none tracking-title!', // h2 — 전역 h2{} 를 ! 로 이김(색 ink≡txt 는 동일→클래스 없음)
@@ -298,7 +299,8 @@ export default function Settings() {
   const backupLine = days == null ? '볼트 백업 기록 없음' : days === 0 ? '볼트 백업: 오늘' : `볼트 백업: ${days}일 전`;
 
   const archiveOldConfirm = async () => {
-    const ok = await ui.confirm(
+    /* Q-13 ②단 — 비우기 전에 **파일로 먼저 내려받으므로** 밖에 원본이 남는다(재구성 가능). */
+    const ok = await ui.confirmLossy(
       '6개월 이전의 완료기록·요약·오답·회수된 백로그를 보관 파일(.json)로 내려받고 앱에서 비울까요? (통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)',
       { title: '오래된 기록 정리', okLabel: '정리' },
     );
@@ -308,7 +310,7 @@ export default function Settings() {
   return (
     <section className={S.wrap} aria-label="설정">
       {/* ── 시네마틱 상태 밴드 — 무엇을 설정하나 + 핵심 상태(백업·저장·기록) ── */}
-      <div ref={heroRef} onMouseMove={heroMove} onMouseLeave={heroLeave} className={`${S.hero} ds-spotHost ds-glow`}>
+      <div ref={heroRef} onMouseMove={heroMove} onMouseLeave={heroLeave} className={`${S.hero} ds-spotHost`}>
         <div className="ds-spotlight" aria-hidden="true" />
         <div className="ds-aura" aria-hidden="true" />
         <div className={S.heroLeft}>

@@ -59,7 +59,10 @@ const TYPE_LABEL: Record<string, string> = {
 const S = {
   today: 'flex h-full min-w-0 min-h-0 flex-col gap-4 px-5 pt-4.5 pb-3.5 max-wide:px-3.5 max-wide:pt-3.5',
   top: 'grid min-h-0 flex-auto grid-cols-today-top gap-4 max-wide:grid-cols-1',
-  hero: 'tint-scope group relative isolate flex flex-col justify-center overflow-hidden rounded-lg border border-line bg-[image:var(--bg-hero-today)] px-hero-x-today py-hero-y-today shadow-hero transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease),border-color_0.2s_var(--ease)] animate-[enter-fade_var(--dur-slow)_var(--ease)_both] ds-hairline hover:border-[color:var(--line-hero-hover)] motion-reduce:transform-none motion-reduce:animate-none',
+  /* Q-14 — 노치 HUD 통일. 뗀 것: `rounded-lg`·`border border-line`·`shadow-hero`·그 border 를
+     겨냥하던 hover/transition 절. **유지한 것: 이 화면 전용 패딩 토큰**(`--hero-x/y-today`) —
+     `ds-frame` 기본값 18/20 으로 덮으면 가장 많이 튜닝된 화면의 기하가 조용히 바뀐다. */
+  hero: 'ds-frame mb-0! tint-scope group relative isolate flex flex-col justify-center overflow-hidden bg-[image:var(--bg-hero-today)] px-hero-x-today! py-hero-y-today! transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease)] animate-[enter-fade_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:transform-none motion-reduce:animate-none',
   aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] live-aura animate-[live-breathe_var(--tempo-slow)_var(--ease)_infinite] motion-reduce:animate-none',
   spotlight:
     'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-slow ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
@@ -543,10 +546,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const stopTimer = async () => {
     if (timer?.kind === 'break') return stopSession();
     if (
-      await ui.confirm('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
+      await ui.confirmIrreversible('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
         title: '집중 중단',
         okLabel: '중단',
-        danger: true,
       })
     )
       stopSession();

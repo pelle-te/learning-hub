@@ -17,6 +17,7 @@ import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
 import { useVaultAnchorsVersion } from '@/hooks/useVaultAnchors';
 import { useLeaveCursor } from './useLeaveCursor';
+import { useFrameMemory } from './useFrameMemory';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
@@ -75,13 +76,14 @@ function TabFallback({ error, resetErrorBoundary, label }: FallbackProps & { lab
    띄워서, 프레임 상단의 작은 카드가 화면 전체로 갈아 끼워지는 레이아웃 점프가 매 진입마다
    났다(스켈레톤이 막으려던 현상을 스켈레톤이 만들고 있었다). 판정은 `TabMeta.fill` 단일
    원천에서 온다 — 여기서 탭 목록을 다시 세면 그 순간 두 번째 SSOT 가 생긴다. */
-function TabLoading({ fill }: { fill: boolean }) {
+function TabLoading({ fill, tabKey }: { fill: boolean; tabKey: string }) {
   return (
     <>
       <span className="sr-only" role="status">
         탭을 불러오는 중
       </span>
-      {fill ? <SkeletonFill /> : <SkeletonCard />}
+      {/* Q-16 — 청크가 아직 없는 이 순간이 형상 기억이 값을 내는 유일한 자리다(Skeleton.tsx 주석). */}
+      {fill ? <SkeletonFill tabKey={tabKey} /> : <SkeletonCard />}
     </>
   );
 }
@@ -112,6 +114,9 @@ export default function App() {
   /* Q-27 — **떠날 때 1회** 이어하기 커서를 남긴다. 탭 이동마다가 아니다(원 주석의 우려는
      그것이었고 이 훅은 그걸 안 한다). 공통 조상 하나가 걸어야 전 화면이 덮인다. */
   useLeaveCursor(routeLabel);
+  /* Q-16 — 성공 렌더의 형상(리드아웃 수·앵커 유무)을 기억해 **다음 진입의 뼈대**가 그 화면을
+     닮게 한다. 여기 있는 이유는 `useLeaveCursor` 와 같다(라우트와 스토어가 여기서만 만난다). */
+  useFrameMemory(routeKey);
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;
@@ -137,7 +142,7 @@ export default function App() {
               >
                 <SubTabs tabKey={t.key} />
                 {ReactTab ? (
-                  <Suspense fallback={<TabLoading fill={!!t.fill} />}>
+                  <Suspense fallback={<TabLoading fill={!!t.fill} tabKey={t.key} />}>
                     <TabReady>
                       <ReactTab />
                     </TabReady>
@@ -392,7 +397,7 @@ export default function App() {
                     fallbackRender={(p) => <TabFallback {...p} label="과목" />}
                     onError={(e) => reportError(e, 'tab:subject')}
                   >
-                    <Suspense fallback={<TabLoading fill={false} />}>
+                    <Suspense fallback={<TabLoading fill={false} tabKey="subject" />}>
                       <SubjectPage />
                     </Suspense>
                   </ErrorBoundary>

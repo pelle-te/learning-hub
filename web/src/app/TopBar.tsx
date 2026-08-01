@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { actions, io, Icon } from '@/shell';
 import { useTheme } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
+import { Num } from '@/components/Num';
 import { useOverlay } from '@/store/useOverlay';
 import { MOD_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { agoLabel } from '@/lib/utils';
@@ -51,7 +52,9 @@ const RV_ACC = 'text-acc text-shadow-readout font-[var(--emph-value-weight)]';
 const PRIMARY = 'flex flex-col gap-1 max-mobile:hidden';
 const PV =
   'text-primary-num leading-none font-[var(--emph-value-weight)] tracking-readout-num text-acc tabular-nums text-shadow-readout';
-const PU = 'text-lg leading-none font-bold text-mut';
+/* ⚠ **`PU` 가 사라졌다**(Q-17 · 2026-08-02) — 단위 조판은 `ds-num-unit`(`em` 상대)이 소유한다.
+   여기 `text-lg`(절대 15px)로 있던 동안 이 위계는 **이 한 자리에서만** 재사용 가능했다: 13px
+   리드아웃에 같은 클래스를 얹으면 단위가 값보다 커진다. */
 // Q-10 — `text-mut` 만으로 충분하다. 위에 얹던 `opacity-55` 는 이미 흐린 색을 **한 번 더**
 // 깎아 '—' 를 사실상 안 보이게 했다(값 부재를 못 읽으면 리드아웃이 거짓말이 된다).
 const RV_NULL = 'text-mut';
@@ -152,10 +155,9 @@ export default function TopBar() {
       {primary && (
         <div className={`${PRIMARY} ${readouts.length > 0 ? 'mr-7.5' : 'mr-2'}`}>
           <span className={RL}>{primary.label}</span>
-          <span className={PV}>
-            {primary.value}
-            {primary.unit && <span className={PU}>{primary.unit}</span>}
-          </span>
+          {/* Q-17 — 이 자리가 `<Num>` 이 추출된 원본이다. 크기·색·중량은 계속 `PV` 가 갖고,
+              "단위는 값보다 작고 흐리다"는 비율만 프리미티브로 갔다(`components/Num` 머리주석). */}
+          <Num className={PV} value={primary.value} unit={primary.unit} />
         </div>
       )}
       {readouts.length > 0 && (

@@ -54,7 +54,16 @@ export default function UpdateCard() {
   const onInstall = useCallback(async () => {
     /* ⚠ 확인 대화가 **필수**다. 아래 호출은 정상 경로에서 돌아오지 않는다(프로세스가 갈아탄다) —
        진행 중인 집중 세션·미저장 편집이 있는 사람에게 그건 예고 없는 종료다. */
-    if (!confirm('지금 내려받아 설치하고 앱을 재시작합니다.\n진행 중인 작업이 있으면 먼저 저장하세요.')) return;
+    /* ⚠⚠ 종전엔 **전역 `window.confirm`** 이었다(Q-13 발견) — 앱 모달이 아니라 OS 대화상자라
+       포커스 트랩·`isModalOpen()` 키 게이트 밖이었고, 앱에서 가장 파괴적인 확인 하나만 다른
+       시각 언어로 떠 있었다. ②단인 이유: 재시작은 못 되돌리지만 **앱은 다시 뜬다.** */
+    if (
+      !(await ui.confirmLossy('지금 내려받아 설치하고 앱을 재시작합니다.\n진행 중인 작업이 있으면 먼저 저장하세요.', {
+        title: '업데이트 설치',
+        okLabel: '설치하고 재시작',
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await installUpdate(await endpoint());

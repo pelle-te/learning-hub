@@ -343,6 +343,67 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
     }
   });
 
+  /* ── ⚠⚠ 원칙 ③ 재정의(Q-15 · 2026-08-02) — **"페이지마다"가 아니라 "목적지마다"** ──────
+     디자인시스템 §0 원칙 ③은 _"시그니처 = 페이지마다 하나"_ 라 선언했는데 실측은 **23화면 중
+     7곳**이었다(30%). 로드맵은 이걸 "선언과 코드의 드리프트"로만 적었지만, 어느 7곳인지 세어
+     보니 **훨씬 날카로운 사실**이 나왔다:
+
+     · 시그니처 보유 7 = today·journal·stats·settings(destination) + **review·ledger(lens)**
+       + **graph(은퇴 탭)** → **셋(43%)이 목적지가 아닌 화면에 붙어 있다.**
+     · destination 7 중 시그니처가 있는 것은 **4**(today·journal·stats·settings)고,
+       `schedule`·`reads`·`review-run` 셋이 비어 있다.
+
+     즉 문제는 "16화면이 미달"이 아니라 **분배가 도달 구조와 무관하다**는 것이다. 매일 여는
+     목적지 셋에는 없고, 세그먼트로만 닿는 렌즈 둘과 **은퇴한 탭 하나**에는 있다. "페이지마다"가
+     23곳을 약속하는 바람에 이 어긋남이 30% 라는 한 덩어리 숫자에 묻혀 있었다 — 원칙 ②가
+     2026-07-29 에 다시 쓰인 것과 **같은 형태**다(선언의 범위가 코드의 범위와 다르면 새 화면마다
+     두 언어가 섞인다).
+
+     ⚠ `review-run` 은 H3 이 `primary` 검사를 뚫었던 그 탭이다 — **탭 키와 feature 폴더가 같아야
+     한다는 가정**(`review-run` ≠ `review`)이 그때도 지금도 함정이었다. 여기선 폴더를 키로 찾으므로
+     `review` 의 시그니처가 `review-run` 에 잘못 귀속되지 않는다.
+
+     ⚠ **재정의는 야심을 줄인 것이 아니라 자리를 정한 것이다.** lens 는 목적지에 딸린 렌즈라
+     자기 앵커를 세우면 호스트와 겨루고(원칙 ⑤ 단일 포커스), 은퇴 탭은 새로 만들 이유가 없다.
+     기존 `ledger`·`graph` 의 시그니처는 **뜯지 않는다** — 되돌리는 비용이 얻는 것보다 크고,
+     이 규칙이 막는 것은 *신설*이다.
+     ⚠ 이 검사가 못 보는 것: 시그니처의 **질**("그 페이지 기능을 압축했는가"). 표면이 붙어
+     있는지만 센다. */
+  const SIG_면제: Record<string, string> = {
+    schedule:
+      '주간 격자 자체가 화면 전체를 덮는 fill 이라 그 안에 시그니처를 또 두면 격자와 겨룬다. Q-15 가 남긴 격차 ①.',
+    reads:
+      '수집 지문에 의존하는 화면이라 오프라인이면 그릴 대상이 없다 — 빈 시그니처는 계기가 아니다. Q-15 가 남긴 격차 ②.',
+    'review-run':
+      '러너는 한 번에 한 객체만 있는 화면이고 그 표면은 `ds-well`(단독·집중)이 맡는다 — 시그니처를 더하면 카드와 겨룬다(원칙 ⑤ 단일 포커스). 격차가 아니라 결정이다.',
+  };
+  /** 시그니처 표면의 표식 — 노치 HUD 이거나, 액센트 베이크 면(`--bg-sig-*`/`--bg-hero-*`)이거나. */
+  const SIG_MARK = /ds-frame|bg-\[image:var\(--bg-(sig|hero)-/;
+
+  it('모든 destination 이 시그니처 표면을 갖거나 면제 사유를 갖는다', () => {
+    const missing = destinations()
+      .filter((t) => !SIG_면제[t.key])
+      .filter((t) => {
+        const dir = join(FEATURES, t.key);
+        try {
+          return !files(dir).some((p) => SIG_MARK.test(readFileSync(p, 'utf8')));
+        } catch {
+          return true;
+        }
+      })
+      .map((t) => t.key);
+    expect(missing, '원칙 ③ — 목적지는 시그니처 하나를 갖는다(없다면 위 표에 사유와 함께)').toEqual([]);
+  });
+
+  it('시그니처 면제 표가 사문화하지 않았다', () => {
+    for (const key of Object.keys(SIG_면제)) {
+      expect(tabByKey(key)?.role, `${key} 는 destination 이 아니다 — 면제할 이유가 없다`).toBe('destination');
+      const dir = join(FEATURES, key);
+      const has = files(dir).some((p) => SIG_MARK.test(readFileSync(p, 'utf8')));
+      expect(has, `${key} 는 이미 시그니처를 갖는다 — 면제 표에서 빼라`).toBe(false);
+    }
+  });
+
   /* ── ⚠⚠ 거짓말하는 뼈대 금지(W15 · 2026-07-31) ────────────────────────────────────
      로딩 표면이 두 언어로 갈려 있던 것이 W15 의 문제 제기였는데, 갈림의 **해로운 쪽**은
      `SkeletonText`(= n줄 골격)다: 길이가 데이터에 따라 변하는 목록에 3~4줄을 약속하면
@@ -905,7 +966,7 @@ describe('불변식 ⑫ 폰이 쓰는 ds-* 가 폰 번들에 정의돼 있다', 
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
-   불변식 ⑧ — **뷰 전이 morph 이름은 규약에서만 나온다** (Q-11 · 2026-08-02)
+   불변식 ⑨ — **뷰 전이 morph 이름은 규약에서만 나온다** (Q-11 · 2026-08-02)
 
    morph 는 "같은 객체를 따라간다"는 뜻을 픽셀로 말하는 유일한 어휘다. 그런데 종전엔 이름을
    **호출부가 각자 지었고**(`subject-morph`·`atlas-hero`) 그중 어느 것도 **id 를 담지 않았다**.
@@ -918,7 +979,7 @@ describe('불변식 ⑫ 폰이 쓰는 ds-* 가 폰 번들에 정의돼 있다', 
 /** 윈도우 경로를 POSIX 로 — `endsWith('lib/motion.ts')` 가 플랫폼에 따라 갈리지 않게. */
 const normPath = (p: string): string => p.split(String.fromCharCode(92)).join('/');
 
-describe('불변식 ⑧ morph 이름은 lib/motion 의 규약에서만 나온다', () => {
+describe('불변식 ⑨ morph 이름은 lib/motion 의 규약에서만 나온다', () => {
   const SRC = join(process.cwd(), 'src') + '/';
   function tsFilesOf(): string[] {
     const out: string[] = [];
@@ -957,7 +1018,7 @@ describe('불변식 ⑧ morph 이름은 lib/motion 의 규약에서만 나온다
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
-   불변식 ⑦ — **한 화면에 동시에 도는 `live` 는 최대 둘** (Q-18 · 2026-08-02)
+   불변식 ⑩ — **한 화면에 동시에 도는 `live` 는 최대 둘** (Q-18 · 2026-08-02)
 
    `live` 는 모션 어휘 여섯 마디 중 유일하게 **끝나지 않는** 것이다(맥동·오라·펄스). 그래서
    개수가 곧 밀도이고, 셋을 넘기면 "지금 무엇이 살아 있는가"가 신호가 아니라 배경이 된다.
@@ -977,7 +1038,7 @@ describe('불변식 ⑧ morph 이름은 lib/motion 의 규약에서만 나온다
    렌더되면 20개가 도는데 그건 이 검사가 못 본다 — 그 층은 §15-4(실렌더 확인)의 몫이다.
    여기서 막는 것은 **어휘가 화면마다 늘어나는 것**이다.
 ──────────────────────────────────────────────────────────────────────────── */
-describe('불변식 ⑦ 화면 하나가 무한 애니를 셋 이상 걸지 않는다', () => {
+describe('불변식 ⑩ 화면 하나가 무한 애니를 셋 이상 걸지 않는다', () => {
   const SRC7 = join(process.cwd(), 'src') + '/';
   /** 화면 파일당 상한. 둘까지가 "이것과 저것이 살아 있다"이고, 셋부터는 배경이다. */
   const LIVE_CAP = 2;
@@ -1012,5 +1073,65 @@ describe('불변식 ⑦ 화면 하나가 무한 애니를 셋 이상 걸지 않�
   it('live 어휘가 실제로 쓰이고 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
     const used = tsxFiles().some((f) => /animate-\[live-[a-z-]+/.test(readFileSync(f, 'utf8')));
     expect(used).toBe(true);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+   불변식 ⑪ — **파괴적 동작은 3단 사다리 어휘로만 말한다** (Q-13 · 2026-08-02)
+
+   이 앱에는 파괴를 다루는 관용구가 **두 벌 공존**했다: `ui.confirm`(7파일 14곳)과 전역 ⌘Z.
+   둘이 만나는 자리가 증상이었다 — 학기 삭제·과목 삭제는 **확인창을 띄운 뒤** "⌘Z 로 되돌리기"를
+   알렸다(같은 안전장치 이중 과금). 반대편엔 `UpdateCard` 의 **`window.confirm`** 이 있었다:
+   앱에서 가장 파괴적인 확인 하나가 포커스 트랩·`isModalOpen()` 키 게이트 **밖**에 있었다.
+
+   그래서 어휘를 세 마디로 닫고(`shell/destructive.ts` 가 SSOT) 여기서 **직접 호출을 0으로**
+   잠근다. 어휘를 강제해야 하는 이유는 모션 어휘(⑥)와 같다 — 주석으로만 둔 규약은 다음 삭제
+   버튼이 `confirm(` 을 한 번 더 부르는 순간 조용히 무너지고, 그 무너짐은 **아무 게이트도 안
+   빨개진다**(둘 다 동작하기 때문이다).
+
+   ⚠ 이 불변식이 **못 보는 것**: 어느 단을 골랐는지의 타당성. ①(안 묻는다)로 분류했는데 실은
+   ⌘Z 스택에 안 들어가는 편집이면 되돌릴 수 없는 삭제가 조용히 일어난다 — 실제로 `BookShelf`
+   가 그 경계선이었다(`useApp` 이 아니라 읽을거리 블롭이라 ③이 맞다). 그 판정은 사람이 한다.
+──────────────────────────────────────────────────────────────────────────── */
+describe('불변식 ⑪ confirm 직접 호출이 사다리 밖에 없다', () => {
+  const SRC11 = join(process.cwd(), 'src') + '/';
+  /** 어휘의 정의부 둘 — 여기서만 `confirm(` 이 등장하는 것이 정상이다. */
+  const LADDER = ['shell/modal.tsx', 'shell/destructive.ts'];
+
+  function sources11(): { rel: string; code: string }[] {
+    const out: { rel: string; code: string }[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(ts|tsx)$/.test(e.name))
+          out.push({ rel: normPath(p).replace(normPath(SRC11), ''), code: readFileSync(p, 'utf8') });
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    return out;
+  }
+
+  /* ⚠ 주석을 걷어낸 뒤 본다 — 이 저장소는 *왜 그렇게 했는지*를 주석에 옛 코드로 인용하는
+     습관이 있어(⑤·⑥이 같은 처리를 하는 이유), 근거를 남길수록 빨개지면 역인센티브가 된다. */
+  const strip = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  it('사다리 정의부 밖에서 confirm( 을 부르지 않는다', () => {
+    const bad: string[] = [];
+    for (const { rel, code } of sources11()) {
+      if (LADDER.includes(rel)) continue;
+      // `confirmLossy(`·`confirmIrreversible(` 는 사다리 어휘다 — 뒤에 영문자가 오면 통과.
+      const hits = [...strip(code).matchAll(/(?<![A-Za-z])confirm\((?!\s*['"`]?\s*\))/g)];
+      if (hits.length) bad.push(`${rel} → ${hits.length}회`);
+    }
+    expect(bad, '파괴적 동작은 shell/destructive 의 세 마디로만 말한다(그 파일 머리주석)').toEqual([]);
+  });
+
+  it('사다리 세 마디가 실제로 쓰이고 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
+    const all = sources11()
+      .filter(({ rel }) => !LADDER.includes(rel))
+      .map(({ code }) => code)
+      .join('\n');
+    for (const w of ['commitUndoable', 'confirmLossy', 'confirmIrreversible']) expect(all).toContain(w);
   });
 });

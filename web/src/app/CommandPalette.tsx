@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Command, useCommandState } from 'cmdk';
+import { Command, defaultFilter, useCommandState } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
 import {
   paletteCommands,
@@ -133,11 +133,63 @@ function NoMatchFallback({ search, suppressed }: { search: string; suppressed: b
 /* CommandPalette — cmdk 기반 ⌘K 팔레트(손코딩 ui-command.js 대체, 설계도 §3).
    명령 목록은 네이티브 shell/palette(탭+액션)에서. 이동은 React Router, 액션은 shell/actions를 호출.
    open/onOpenChange는 부모(App)가 소유 — 전역 단축키도 거기서. */
+/* ── Q-21 **객체 우선 팔레트** (2026-08-02) ────────────────────────────────────
+   기본 항목이 **48개**(이동 22 + 액션 26)이고 그것들이 콘텐츠 히트와 **평평하게** 섞였다. 즉
+   ⌘K 를 열면 제일 먼저 보이는 것이 *앱의 IA 를 다시 나열한 목록*이었다 — 레일이 이미 하는 일을
+   한 번 더 하고, 정작 사용자가 찾는 객체(과목·챕터·보충·책)는 그 아래로 밀렸다.
+
+   ## 시길 둘이 목록을 가른다 — 필터가 아니라 **의도 선언**이다
+
+   · `>` — **명령만**. "무엇을 실행할지 이미 안다."
+   · `@` — **이동만**. "어디로 갈지 이미 안다."
+   · 없음 — **객체 우선**. 명령·탭은 검색어가 있을 때만 따라 나온다.
+
+   ⚠⚠ **핵심은 마지막 줄이다.** 시길을 추가하는 것만으로는 아무것도 안 고쳐진다(아무도 안 치면
+   기본 화면은 그대로 48개다). 기본 모드에서 **빈 검색어일 때 명령 목록을 접는 것**이 이 항목의
+   실제 내용이고, 시길은 그렇게 접힌 것에 **여전히 한 글자로 닿는 길**이다. 접기만 하고 길을
+   안 내면 그건 기능 삭제다.
+
+   ⚠ 최근 명령(LRU)은 빈 검색어에서도 남는다 — `recordRecent` 가 쌓아 온 것이 정확히 "이 사람이
+   실제로 쓰는 명령"이고, 그걸 숨기면 팔레트가 매번 처음부터가 된다.
+   ⚠ 시길은 **첫 글자일 때만** 뜻을 갖는다. 검색어 중간의 `>` 는 그냥 글자다(챕터 제목에 화살표를
+   쓰는 사람이 있다). 그리고 시길만 친 상태(`>` 한 글자)는 **빈 검색어와 같다** — 목록 전체를
+   보여 줘야 고를 수 있다. */
+export type PaletteMode = 'object' | 'command' | 'nav';
+export interface PaletteQuery {
+  mode: PaletteMode;
+  /** 시길을 걷어낸 실제 검색어. 아래 모든 검색이 이것을 쓴다. */
+  q: string;
+}
+export function parsePaletteQuery(raw: string): PaletteQuery {
+  if (raw.startsWith('>')) return { mode: 'command', q: raw.slice(1).trim() };
+  if (raw.startsWith('@')) return { mode: 'nav', q: raw.slice(1).trim() };
+  return { mode: 'object', q: raw.trim() };
+}
+
+/** 빈 검색어의 객체 모드에서 남기는 최근 명령 수 — 48개 나열과 0개 사이의 타협점. */
+export const RECENT_KEEP = 5;
+
 export default function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  /* Q-21 — 입력에서 **의도(모드)** 와 **검색어**를 가른다. 아래 모든 검색은 `q` 를 쓴다(시길이
+     검색어에 섞이면 `>테마` 가 아무것도 못 찾는다). 매칭은 cmdk 의 `defaultFilter` 에 그대로
+     위임하되 시길만 벗겨 넘긴다 — 직접 `includes` 로 갈면 퍼지 매칭 품질을 잃는다. */
+  const { mode, q } = useMemo(() => parsePaletteQuery(search), [search]);
   // 열릴 때만 계산(최근 명령 LRU가 외부에서 바뀌므로 재오픈 시 최신 순서 반영). 닫히면 빈 목록.
   const cmds = useMemo(() => (open ? paletteCommands() : []), [open]);
+  /* Q-21 — **모드가 목록을 가른다.** 기본(객체) 모드에서 검색어가 비면 최근 명령 몇 개만 남긴다:
+     48개 나열이 곧 "팔레트가 IA 를 재나열한다"의 실체였다. 시길 둘이 그렇게 접힌 것에 한 글자로
+     닿는 길이고, `RECENT_KEEP` 근거는 `parsePaletteQuery` 머리주석에 있다.
+     ⚠ `nav` 모드가 `id.startsWith('tab:')` 까지 보는 이유: **은퇴한 탭**은 `kind:'act'` 인데
+     (착지 라우트로 보내야 해서) 여전히 *이동*이다. `kind` 만 보면 은퇴 탭이 이동 모드에서
+     사라지고, 그건 불변식 ②가 잠근 "graph 가 ⌘K 에서 조용히 사라졌던" 그 형태다. */
+  const shownCmds = useMemo(() => {
+    if (mode === 'command') return cmds.filter((c) => c.kind === 'act' && !c.id.startsWith('tab:'));
+    if (mode === 'nav') return cmds.filter((c) => c.kind === 'tab' || c.id.startsWith('tab:'));
+    return q ? cmds : cmds.slice(0, RECENT_KEEP);
+  }, [cmds, mode, q]);
+
   // 과목 스냅샷(파서 입력) — 열릴 때만. store 접근은 shell(captureSubjects)에 위임(components→store 금지).
   const subjects = useMemo(() => (open ? captureSubjects() : []), [open]);
   // C-1: 읽을거리 스냅샷도 열릴 때 1회만 — contentSearch가 타이핑 매 키마다 localStorage 재파싱하던 것 제거.
@@ -161,29 +213,28 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
   // 순수 lib(quickCapture)라 여기선 결과만 미리보고, 선택 시 shell 액션으로 기록 프리필에 넘긴다.
   const cap = useMemo(
     () =>
-      open && search.trim()
+      open && mode === 'object' && q
         ? parseCapture(
-            search,
+            q,
             new Date(),
             subjects.map((s) => s.name),
           )
         : null,
-    [open, search, subjects],
+    [open, mode, q, subjects],
   );
   const showCapture = meaningful(cap);
 
   // E-6/C-3: 오프라인 통합 검색 — 학습 항목·독서·보충·반복약점을 부분문자열로(Ollama 불필요, 항상 동작).
   const content = useMemo(
-    () => (open && readsSnap && search.trim() ? contentSearch(search, readsSnap) : []),
-    [open, search, readsSnap],
+    () => (open && readsSnap && mode === 'object' && q ? contentSearch(q, readsSnap) : []),
+    [open, mode, q, readsSnap],
   );
 
   // 의미 검색(로컬 임베딩) — 350ms 디바운스, 늦은 응답은 버림. Ollama 불가면 조용히 빈 목록.
   // 짧은 질의는 렌더에서 걸러낸다(이펙트 내 동기 setState 회피 — 상태는 마지막 결과만 유지).
   const [semHits, setSemHits] = useState<SemHit[]>([]);
   useEffect(() => {
-    if (!open) return;
-    const q = search.trim();
+    if (!open || mode !== 'object') return;
     if (q.length < 2) return;
     let stale = false;
     const t = setTimeout(() => {
@@ -197,8 +248,8 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
       stale = true;
       clearTimeout(t);
     };
-  }, [open, search]);
-  const shownSem = search.trim().length >= 2 ? semHits : [];
+  }, [open, mode, q]);
+  const shownSem = mode === 'object' && q.length >= 2 ? semHits : [];
 
   /* 진로 지도 분야 인덱스 — **열릴 때 지연 적재**(H14 · 2026-07-30 감사).
 
@@ -229,7 +280,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
 
   /** 캡처 실행 — **언제나 커밋**한다(E2). 파싱 결과가 있으면 함께 실린다. */
   const runCapture = () => {
-    commitCapture(search, meaningful(cap) ? summarize(cap) : '');
+    commitCapture(q, meaningful(cap) ? summarize(cap) : '');
   };
 
   /* ── D-2 캡처는 조건부이면 캡처가 아니다 ──────────────────────────────────
@@ -248,7 +299,8 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
      생 문장=즉시 저장), 그래서 **입력이 정교할수록 덜 저장되는** 역전이 있었다. 지금은 어느
      쪽이든 커밋하고, 파싱 결과는 버려지는 대신 레코드에 실린다(`commitCapture` 머리주석). */
   const captureNow = () => {
-    if (!search.trim()) return;
+    // Q-21 — 시길은 의도 선언이지 문장의 일부가 아니다. 객체 모드에서만 캡처가 성립한다.
+    if (mode !== 'object' || !q) return;
     runCapture();
     close();
   };
@@ -311,6 +363,9 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         closeAll();
       }}
       label="명령 팔레트"
+      /* Q-21 — 시길만 벗겨 cmdk 의 기본 매칭에 **그대로 위임한다.** 직접 `includes` 로 갈면
+         퍼지 매칭(오타·머리글자)을 잃고, 그건 시길이 주는 것보다 크게 잃는 것이다. */
+      filter={(value, raw, keywords) => defaultFilter(value, parsePaletteQuery(raw).q, keywords)}
       className={DIALOG}
       overlayClassName={OVERLAY}
       contentClassName={CONTENT}
@@ -452,7 +507,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
             {/* 진로 지도 분야 바로가기 — 검색어가 있을 때만(빈 상태 28개 홍수 방지). cmdk 부분문자열 필터가 좁힌다.
                 ⚠ `atlasFields.length` 도 함께 본다 — 시드가 지연 적재라(H14) 첫 프레임엔 비어 있고,
                    그때 그룹만 렌더하면 항목 없는 머리글이 한 프레임 스친다. */}
-            {search.trim() && atlasFields.length > 0 && (
+            {mode === 'object' && q && atlasFields.length > 0 && (
               <Command.Group heading={<span className={GROUP_HEAD}>진로 지도 — 분야</span>}>
                 {atlasFields.map((f) => (
                   <Command.Item
@@ -472,7 +527,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 ))}
               </Command.Group>
             )}
-            {cmds.map((c) => (
+            {shownCmds.map((c) => (
               <Command.Item
                 key={c.id}
                 value={c.label + ' ' + c.hint}
@@ -511,7 +566,11 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
             </>
           ) : (
             <>
-              <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>Esc</b> 닫기
+              <b>↑↓</b> 이동 · <b>Enter</b> 실행 ·{' '}
+              {/* Q-21 — 시길은 안 보이면 없는 것과 같다(D-2 가 캡처에서 세운 그 규율). 지금 쓰고
+                  있는 모드를 액센트로 표시해, 무엇이 걸러지고 있는지를 목록이 아니라 힌트가 말한다. */}
+              <b className={mode === 'command' ? 'text-acc' : undefined}>&gt;</b> 명령 ·{' '}
+              <b className={mode === 'nav' ? 'text-acc' : undefined}>@</b> 이동
             </>
           )}
         </span>
@@ -520,7 +579,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
             <b>→</b> 이 항목으로 할 일
           </span>
         ) : (
-          <span className={search.trim() ? 'text-acc' : undefined}>
+          <span className={mode === 'object' && q ? 'text-acc' : undefined}>
             <b>{MOD_ENTER_LABEL}</b> 캡처 — 보충에 담기
           </span>
         )}

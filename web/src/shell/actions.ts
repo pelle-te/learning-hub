@@ -28,6 +28,7 @@ import { dbFallbackSnapshot } from '@/lib/db/fallback';
 import { storage } from '@/lib/kv';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData, addBacklog, toggleBacklog } from '@/lib/methodology';
+import { bumpWeeklyHours } from '@/lib/weekAlloc';
 import { contentSearch as searchContent, type ContentHit } from '@/lib/contentSearch';
 import { PROMOTE_TOAST } from '@/lib/promote';
 import { iso, makeItem, mondayOf, openVaultSearch, rid, todayISO, vaultQuery } from '@/lib/utils';
@@ -39,7 +40,7 @@ import type { AppState, Theme } from '@/lib/types';
 import { fileCapture } from '@/lib/quickCapture';
 import { isTauri, shellSaveFile } from '@/lib/tauri';
 import { toast, toastUndo, toastUndoable } from './toast';
-import { confirm } from './modal';
+import { confirmIrreversible, confirmLossy } from './destructive';
 
 const st = () => useApp.getState();
 /* ⚠ 예전엔 여기 `safeLS()` 라는 자체 헬퍼가 localStorage 를 **직접** 잡았다. 그건 앱의 KV 단일
@@ -111,9 +112,9 @@ export function backupAt(): { at: number | null } | null {
 /** 파괴적 동작 전 백업 — 실패하면 되돌리기 불가를 경고하고 진행 여부를 묻는다. */
 async function backupOrConfirm(): Promise<boolean> {
   if (backupNow()) return true;
-  return confirm(
+  return confirmIrreversible(
     '백업 저장 실패(저장공간이 가득 찼을 수 있음) — 지금 진행하면 "되돌리기"가 불가능합니다. 그래도 계속할까요? (먼저 내보내기로 백업 권장)',
-    { title: '백업 실패', okLabel: '계속', danger: true },
+    { title: '백업 실패', okLabel: '계속' },
   );
 }
 
@@ -261,10 +262,9 @@ export function undoLast(): void {
 /** 전체 초기화 — 확인 → 백업 → 기본값. */
 export async function resetAll(): Promise<void> {
   if (
-    !(await confirm('모든 데이터를 지울까요? (직후 [⋯ 메뉴 → 되돌리기]로 복구 가능)', {
+    !(await confirmIrreversible('모든 데이터를 지울까요? (직후 [⋯ 메뉴 → 되돌리기]로 복구 가능)', {
       title: '전체 초기화',
       okLabel: '초기화',
-      danger: true,
     }))
   )
     return;
@@ -527,6 +527,57 @@ export interface HitVerb {
   to?: string;
 }
 
+/* ── Q-19 계획 동사 ─────────────────────────────────────────────────────────
+   여기 오기 전까지 `verbsFor` 의 동사는 **전부 기록 동사**였다(요약·오답·보충·볼트). 즉 팔레트에서
+   약점을 찾아도 할 수 있는 일은 *적는 것*뿐이고, 계획을 바꾸려면 화면을 옮겨야 했다 — 그런데
+   발산이 짚은 수렴 ①이 정확히 그것이다(_"앱은 계산하는 것보다 결과가 적다"_).
+
+   ⚠ **새 동사를 짓지 않았다.** `+1h` 는 `Review.tsx` 의 E-4 레버 그대로이고(식은 이제 둘이 공유하는
+   `lib/weekAlloc.bumpWeeklyHours`), `이번 주 쉼` 은 **이미 있는 상태에 이름을 준 것**이다 —
+   `weeklyHours = 0` 은 스케줄러가 이미 "이번 주 제외"로 읽는 값이다(`weekAlloc.isUnschedulable`).
+   없던 개념을 만들었다면 이 동사는 팔레트를 두 번째 IA 로 만들었을 것이다.
+   ⚠ `mode === 'daily'` 과목엔 안 붙는다 — 그 레버 자체가 없다(`Review.tsx` 의 `leverFor` 와 같은
+   판정). 없는 레버를 팔레트에서만 보이게 하면 눌렀을 때 아무 일도 안 일어난다. */
+function weeklyItem(sid: string): { id: string; name: string; weeklyHours?: number } | null {
+  const it = st().state.items.find((x) => x.id === sid);
+  return it && it.mode !== 'daily' ? it : null;
+}
+
+function planVerbs(sid: string, subject: string): HitVerb[] {
+  const it = sid ? weeklyItem(sid) : null;
+  if (!it) return [];
+  const name = subject || it.name || '과목';
+  const setWeekly = (next: number): void =>
+    st().mutate((s) => {
+      const t = s.items.find((x) => x.id === it.id);
+      if (t) t.weeklyHours = next;
+    });
+  const verbs: HitVerb[] = [
+    {
+      id: 'v:allot',
+      label: '주간 배정 +1h',
+      hint: '계획',
+      run: () => {
+        setWeekly(bumpWeeklyHours(it.weeklyHours, 1));
+        toastUndoable(`"${name}" 주간 배정 +1h`);
+      },
+    },
+  ];
+  /* 이미 0 이면 "쉼"은 아무것도 바꾸지 않는다 — 바뀌지 않는 동사를 보여 주는 것은
+     `verbsFor` 가 빈 배열일 때 단계를 안 여는 것과 같은 이유로 틀렸다. */
+  if ((it.weeklyHours || 0) > 0)
+    verbs.push({
+      id: 'v:rest',
+      label: '이번 주 쉼',
+      hint: '계획',
+      run: () => {
+        setWeekly(0);
+        toastUndoable(`"${name}" 이번 주 배정 0h`);
+      },
+    });
+  return verbs;
+}
+
 /** 보충 담기 — `Review.tsx` 의 I-1 경로(addBacklog + 승격 토스트)를 그대로 승격한 것. */
 function seedBacklog(sid: string, name: string, topic: string, note: string): void {
   st().mutate((s) => addBacklog(s, sid, name, topic, note));
@@ -578,6 +629,7 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
           hint: '보충',
           run: () => seedBacklog(sid, subject || hit.label, chapter || subject || hit.label, ''),
         },
+        ...planVerbs(sid, subject),
         openVault,
       ];
     case 'weak':
@@ -590,6 +642,9 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
           hint: '처방',
           run: () => seedBacklog(sid, '반복 약점', `${subject} — ${chapter}`, '2회 이상 막힌 지점 — 백지로 인출'),
         },
+        /* 약점 위에서는 계획 동사가 **기록보다 앞이다** — 이미 진단된 것이라 처방이 먼저라는
+           그 순서 규율(위 주석)의 연장이고, `+1h` 는 보충보다도 직접적인 처방이다. */
+        ...planVerbs(sid, subject),
         {
           id: 'v:cbms',
           label: '오답(CBMS) 기록',
@@ -693,7 +748,8 @@ export async function importVaultSubject(s: VaultSubject, ledger: Ledger | undef
      내려간다 → **한 번 묻고 사람이 판단한다**(근거는 `lib/ledgerSeed.ts` 머리주석). */
   const carded = cardedChapters(ledger, s.name, chapters);
   if (!carded.length) return;
-  const ok = await confirm(cardedPrompt(s.name, carded.length, chapters.length), {
+  /* Q-13 ②단 — 원장이 밖에 그대로 있으니 언제든 다시 맞출 수 있다(재구성 가능). */
+  const ok = await confirmLossy(cardedPrompt(s.name, carded.length, chapters.length), {
     title: '원장과 맞출까요?',
     okLabel: `${carded.length}개 끝낸 것으로 표시`,
     cancelLabel: '그대로 두기',

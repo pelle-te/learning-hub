@@ -220,24 +220,19 @@ export default function Subject() {
     [item, doneCh, chs.length, allocMin, weakN, today],
   );
 
+  /* Q-13 ①단 — 확인창 없이 커밋하고 ⌘Z 로 가리킨다(사다리 SSOT `shell/destructive.ts`).
+     ⚠ 세 줄이 **한 `mutate` 안**이어야 하는 이유는 그대로다(참조 무결성) — 그리고 그게 곧
+     ⌘Z 한 번이 셋을 함께 되돌리는 조건이다. */
   const removeItem = useCallback(
-    async (sid: string) => {
+    (sid: string) => {
       const it = items.find((s) => s.id === sid);
-      const ok = await ui.confirm(
-        `"${(it && it.name) || '이 과목'}"을(를) 삭제할까요? (챕터·진행 기록도 함께 사라집니다)`,
-        {
-          title: '과목 삭제',
-          okLabel: '삭제',
-          danger: true,
-        },
-      );
-      if (!ok) return;
-      mutate((st) => {
-        st.items = st.items.filter((s) => s.id !== sid);
-        removeSidFromAlloc(st, sid); // 참조 무결성 — Items 의 삭제와 **같은 세 줄**이어야 한다
-        removeSidFromDayPlans(st, sid);
+      ui.commitUndoable(`"${(it && it.name) || '과목'}" 삭제됨 (챕터·진행 기록도 함께)`, () => {
+        mutate((st) => {
+          st.items = st.items.filter((s) => s.id !== sid);
+          removeSidFromAlloc(st, sid); // 참조 무결성 — Items 의 삭제와 **같은 세 줄**이어야 한다
+          removeSidFromDayPlans(st, sid);
+        });
       });
-      ui.toastUndoable(`"${(it && it.name) || '과목'}" 삭제됨`);
       navigate('/items', { replace: true });
     },
     [items, mutate, navigate],
@@ -267,7 +262,7 @@ export default function Subject() {
             ← 과목 목록
           </Button>
         </div>
-        <SubjectDefinition item={item} mutate={mutate} onDelete={(sid) => void removeItem(sid)} />
+        <SubjectDefinition item={item} mutate={mutate} onDelete={removeItem} />
       </div>
       <Knowing name={item.name} />
       <Retrieval sid={item.id} />

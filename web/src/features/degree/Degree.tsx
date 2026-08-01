@@ -77,20 +77,15 @@ function SemCard({
       const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
       if (c) (c as unknown as Record<string, string | number>)[k] = v;
     });
-  const delSem = async () => {
-    if (
-      !(await ui.confirm('이 학기를 삭제할까요? (소속 과목도 함께 삭제됩니다)', {
-        title: '학기 삭제',
-        okLabel: '삭제',
-        danger: true,
-      }))
-    )
-      return;
-    mutate((st) => {
-      st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id);
+  /* Q-13 ①단 — 확인창을 뗐다. `mutate` 는 ⌘Z 스택에 pre-image 를 남기므로 이미 되돌릴 수
+     있었는데, 종전엔 **확인창을 띄우고 나서** "⌘Z 로 되돌리기"를 알렸다(같은 안전장치 이중 과금).
+     사다리 SSOT 는 `shell/destructive.ts`. */
+  const delSem = () =>
+    ui.commitUndoable('학기 삭제됨 (소속 과목도 함께)', () => {
+      mutate((st) => {
+        st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id);
+      });
     });
-    ui.toastUndoable('학기 삭제됨');
-  };
   /**
    * 수강 과목 → 학습 항목. ⚠⚠ **T-1 이전엔 이 버튼이 다리를 놓고 그 다리를 버렸다** — 항목을
    * 만들기만 하고 `itemId` 를 안 남겨서, 만들어진 순간부터 두 과목은 이름만 같은 남남이었다.

@@ -227,3 +227,60 @@ test('H14: 진로 지도 분야는 첫 프레임에 없고, 적재된 뒤 팔레
   fireEvent.click(await screen.findByText(/안테나 설계/));
   expect(seen.path).toBe('/atlas/antenna');
 });
+
+/* ============================================================
+   Q-21 — **객체 우선 팔레트**. 여기서 잠그는 것은 두 가지다:
+   ① 시길 파싱이 *첫 글자에서만* 뜻을 갖는다(검색어 중간의 `>` 는 글자다)
+   ② 접기와 길내기가 **함께** 있다 — 빈 검색어에서 명령이 접히되, `>` 한 글자로 다시 전부 온다.
+      ②가 없으면 이 항목은 기능 삭제다.
+
+   ⚠ 행을 셀 때 `render` 의 `container` 를 쓰지 말 것 — `Command.Dialog` 는 Radix 포털이라
+   **body 직속**이다(위 케이스들이 `screen.*` 만 쓰는 이유가 그것이다). `container` 로 세면
+   언제나 0 이고, 그러면 "접혔다"는 단언이 **공허하게 통과**한다(실제로 그렇게 한 번 통과했다).
+============================================================ */
+import { parsePaletteQuery, RECENT_KEEP } from '@/app/CommandPalette';
+import { paletteCommands } from '@/shell/palette';
+
+/** 지금 목록에 서 있는 행들의 텍스트. body 직속 포털을 본다(위 주석). */
+const rowTexts = (): string[] => [...document.querySelectorAll('[cmdk-item]')].map((n) => n.textContent ?? '');
+
+test('Q-21 시길은 첫 글자일 때만 모드다', () => {
+  expect(parsePaletteQuery('>테마')).toEqual({ mode: 'command', q: '테마' });
+  expect(parsePaletteQuery('@오늘')).toEqual({ mode: 'nav', q: '오늘' });
+  expect(parsePaletteQuery('알고리즘')).toEqual({ mode: 'object', q: '알고리즘' });
+  // 중간의 시길은 그냥 글자다 — 챕터 제목에 화살표를 쓰는 사람이 있다.
+  expect(parsePaletteQuery('A > B')).toEqual({ mode: 'object', q: 'A > B' });
+  // 시길만 친 상태는 빈 검색어와 같다(목록 전체를 봐야 고를 수 있다).
+  expect(parsePaletteQuery('>')).toEqual({ mode: 'command', q: '' });
+});
+
+test('Q-21 빈 검색어의 기본 화면이 명령 전량을 나열하지 않는다', () => {
+  open();
+  // 검사가 공허하지 않다는 것부터 — 행이 실제로 있다.
+  expect(rowTexts().length).toBeGreaterThan(0);
+  expect(rowTexts().length).toBeLessThanOrEqual(RECENT_KEEP);
+  expect(paletteCommands().length).toBeGreaterThan(RECENT_KEEP * 3);
+});
+
+test('Q-21 `>` 한 글자로 접힌 명령에 다시 닿는다 — 접기만 하면 기능 삭제다', () => {
+  open();
+  fireEvent.change(input(), { target: { value: '>' } });
+  expect(rowTexts().length).toBeGreaterThan(RECENT_KEEP);
+});
+
+test('Q-21 `@` 는 이동만 남긴다 — 은퇴한 탭도 이동이다', () => {
+  open();
+  fireEvent.change(input(), { target: { value: '@' } });
+  const labels = rowTexts();
+  expect(labels.length).toBeGreaterThan(0);
+  // 이동 목록에 액션(내보내기 같은 것)이 섞이지 않는다.
+  expect(labels.some((l) => l.includes('내보내기'))).toBe(false);
+  // 은퇴한 탭은 `kind:'act'` 인데 여전히 이동이다 — 불변식 ②가 잠근 그 도달성.
+  expect(labels.some((l) => l.includes('이동 · '))).toBe(true);
+});
+
+test('Q-21 명령 모드에서 검색해도 매칭이 산다 — 시길만 벗겨 cmdk 에 위임한다', () => {
+  open();
+  fireEvent.change(input(), { target: { value: '>테마' } });
+  expect(rowTexts().some((l) => l.includes('테마'))).toBe(true);
+});

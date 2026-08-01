@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -119,14 +119,15 @@ test('items: 챕터 이름은 타이핑 중엔 상태를 안 건드리고 blur �
    요일 열 합·가용 초과 경고를 부풀렸다("보이는 행 합 1h인데 푸터는 4h"). 아래 테스트가 그 청소를
    못박는다(removeSidFromAlloc 배선이 빠지면 즉시 빨개진다). */
 
-/** 시트를 열고 '과목 삭제' → confirm 모달의 '삭제'까지 눌러 실제 삭제 경로를 태운다. */
+/** 시트를 열고 '과목 삭제' 를 눌러 실제 삭제 경로를 태운다.
+ *
+ *  ⚠⚠ **확인 모달 단계가 Q-13 에서 사라졌다**(2026-08-02). 과목 삭제는 `mutate` 라 ⌘Z 가 이미
+ *  덮는데 종전엔 **확인창을 띄우고 나서** "⌘Z 로 되돌리기" 토스트를 띄웠다(같은 안전장치 이중
+ *  과금). 되돌리기 3단 사다리의 ①단 = 묻지 않는다 — 근거는 `shell/destructive.ts` 머리주석.
+ *  이 헬퍼가 검증하는 것(참조 무결성 청소)은 그대로다. */
 async function deleteSubjectViaUI(name: string) {
   fireEvent.click(await screen.findByText(name));
   fireEvent.click(await screen.findByRole('button', { name: '과목 삭제' }));
-  // ui.confirm 모달(shell/modal) — 취소면 아무 일도 없어야 하므로 '삭제'를 명시적으로 누른다.
-  const dialogs = await screen.findAllByRole('dialog');
-  const confirmBtn = await within(dialogs[dialogs.length - 1]!).findByRole('button', { name: '삭제' });
-  fireEvent.click(confirmBtn);
 }
 
 test('items: 과목을 지우면 그 sid의 주간 배분도 함께 사라진다(고아 방지)', async () => {

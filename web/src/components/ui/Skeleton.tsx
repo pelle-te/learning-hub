@@ -1,4 +1,5 @@
 import { Card } from './Card';
+import { recallFrame } from '@/lib/frameMemory';
 
 /* Skeleton — 콘텐츠 로딩 자리표시. 탭 청크가 로드되는 짧은 순간 "불러오는 중…" 텍스트 대신
    레이아웃 형태를 미리 보여줘 체감 지연을 줄이고 레이아웃 시프트를 막는다.
@@ -61,21 +62,38 @@ export function SkeletonCard({ lines = 4 }: { lines?: number }) {
 const FILL_WRAP = 'flex h-full w-full flex-col gap-4 p-5';
 const FILL_ROW = 'flex gap-3';
 
+/* ── Q-16 — **뼈대가 마지막 성공 렌더의 형상을 기억한다**(2026-08-02) ────────────────
+   W15 의 결정("행 수를 약속하지 않는다")은 옳았지만 대가로 뼈대가 아무 말도 안 하게 됐다 —
+   어느 탭을 열든 같은 띠 3개가 떴다. 기억하는 값은 **데이터가 아니라 구조**뿐이다(리드아웃
+   개수 · `primary` 유무). 근거·경계는 `lib/frameMemory.ts` 머리주석이 SSOT.
+
+   ⚠ **`tabKey` 를 주는 곳은 App 의 Suspense 폴백 하나다.** `components/State` 의
+   `shape='frame'` 은 안 준다 — 그 순간엔 feature 가 **이미 마운트돼** `usePageChromeEffect` 가
+   진짜 리드아웃을 TopBar 에 넣은 뒤라, 뼈대의 상단 띠는 이미 실물 옆의 장식이다. 기억이 필요한
+   것은 **탭 청크가 아직 없는** 진입 순간이고 그건 App 쪽뿐이다. */
+const READOUT_W = ['18%', '12%', '12%', '10%', '10%', '10%'] as const;
+
 /** 전면 대시보드 탭(`TabMeta.fill`)의 Suspense 폴백 — 프레임을 실제로 채운다.
  *  ⚠ `label` — SR 공지 문구. `components/State` 의 `shape='frame'` 이 **자기 제목**을 넘긴다
  *  (W15). 넘기지 않으면 일반 문구인데, 그러면 화면마다 "불러오는 중…"만 들려 무엇을 기다리는지
- *  알 수 없다. 리전을 둘 두지 않는 것도 이유다 — 여기 하나가 공지의 유일한 자리다. */
-export function SkeletonFill({ label = '불러오는 중…' }: { label?: string } = {}) {
+ *  알 수 없다. 리전을 둘 두지 않는 것도 이유다 — 여기 하나가 공지의 유일한 자리다.
+ *  ⚠ `tabKey` — 주면 그 탭의 기억된 형상으로, 없으면 종전의 일반 형상으로 그린다(Q-16). */
+export function SkeletonFill({ label = '불러오는 중…', tabKey }: { label?: string; tabKey?: string } = {}) {
+  const shape = tabKey ? recallFrame(tabKey) : null;
+  // 기억이 없으면 종전 값(3띠 · 앵커 없음) — 기본값이 곧 "기억 없음"의 표현이다.
+  const readouts = shape ? shape.readouts : 3;
   return (
     <div className={FILL_WRAP}>
       <span role="status" className="sr-only">
         {label}
       </span>
-      {/* 상단 리드아웃 — 세 값이 가로로 서는 형태(usePageChrome 이 세우는 그것). */}
+      {/* 앵커 — 이 화면이 44px `primary` 를 세운다고 기억할 때만(원칙 ②의 자리를 비워 둔다). */}
+      {shape?.primary && <Skeleton width="26%" height={44} />}
+      {/* 상단 리드아웃 — 기억된 개수만큼. 개수는 코드가 정하는 값이라 데이터로 변하지 않는다. */}
       <div className={FILL_ROW}>
-        <Skeleton width="18%" height={13} />
-        <Skeleton width="12%" height={13} />
-        <Skeleton width="12%" height={13} />
+        {Array.from({ length: readouts }, (_, i) => (
+          <Skeleton key={i} width={READOUT_W[i] ?? '10%'} height={13} />
+        ))}
       </div>
       {/* 본문 — 남는 높이를 전부 먹는다. 이 한 칸이 '점프 없음'의 대부분을 만든다. */}
       <Skeleton width="100%" height="100%" />

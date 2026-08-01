@@ -30,6 +30,7 @@ import { weeklyInsights, weakSpots } from '@/lib/insights';
 import { adherenceLine } from '@/lib/adherence';
 import { riskChapters } from '@/lib/spacedReview';
 import { rootCauseRollup } from '@/lib/knowledge';
+import { bumpWeeklyHours } from '@/lib/weekAlloc';
 import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TOAST } from '@/lib/promote';
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing, useKnowledge } from '@/store/queries';
@@ -363,10 +364,12 @@ function useWeeklyAllot() {
   const items = useApp((s) => s.state.items);
   const mutate = useApp((s) => s.mutate);
   const leverFor = (subject: string) => items.find((it) => it.name === subject && it.mode !== 'daily');
+  /* Q-19 — 식은 `lib/weekAlloc.bumpWeeklyHours` 로 내려갔다(⌘K 가 같은 동사를 갖게 되면서
+     훅 밖에서도 불러야 했다). 여기 남은 것은 스토어 접합뿐이다. */
   const bumpWeekly = (id: string, delta: number) =>
     mutate((st) => {
       const t = st.items.find((x) => x.id === id);
-      if (t) t.weeklyHours = Math.max(0, Math.round((+(t.weeklyHours || 0) + delta + Number.EPSILON) * 10) / 10);
+      if (t) t.weeklyHours = bumpWeeklyHours(t.weeklyHours, delta);
     });
   const allotMore = (subject: string, id: string) => {
     bumpWeekly(id, 1);

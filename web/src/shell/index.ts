@@ -8,7 +8,7 @@
    액션 표면 3분할(각 함수는 정확히 한 곳): ui(토스트·모달·백업) / io(내보내기·FS·복구) / actions(상태 변형).
 ============================================================ */
 import { toast, toastUndoable } from './toast';
-import { confirm } from './modal';
+import { commitUndoable, confirmIrreversible, confirmLossy } from './destructive';
 import * as A from './actions';
 
 export { ToastHost } from './toast';
@@ -56,7 +56,16 @@ export const ui = {
   toast,
   /** 되돌릴 수 있는 편집을 알린다(⌘Z 힌트 포함) — 옛 `toastUndo` 자리. */
   toastUndoable,
-  confirm,
+  /* ⚠⚠ **`confirm` 이 여기서 사라졌다**(Q-13 · 2026-08-02). 대신 사다리 세 마디를 노출한다 —
+     `shell/destructive.ts` 머리주석이 어느 단인지 고르는 기준의 SSOT 이고, **불변식 ⑨** 가
+     `confirm(` 직접 호출을 0건으로 잠근다. 종전엔 "삭제 = 확인창"이 반사였고, 그래서 ⌘Z 가 이미
+     덮는 편집(학기·과목 삭제)까지 물어보고 나서 "⌘Z 로 되돌리기"를 알렸다. */
+  /** ①단 — 묻지 않는다. ⌘Z 가 덮는 편집을 커밋하고 되돌릴 수 있다고만 알린다. */
+  commitUndoable,
+  /** ②단 — 못 되돌리지만 재구성 가능. 평범한 확인창. */
+  confirmLossy,
+  /** ③단 — 비가역. 확인창 + 빨간 확인 버튼. */
+  confirmIrreversible,
   backupNow: A.backupNow,
 };
 

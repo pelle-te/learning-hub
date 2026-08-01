@@ -13,7 +13,7 @@ import { isTauri, shellNotify } from '@/lib/tauri';
 import { MINI_PATH, enterMini, exitMini } from '@/lib/miniMode';
 import { toast, toastChoice } from '@/shell/toast';
 import { Icon } from '@/components/Icon';
-import { confirm } from '@/shell/modal';
+import { confirmIrreversible } from '@/shell/destructive';
 import { routeTitle } from './docTitle';
 
 /* ── C-7 셸 티어 5/5 이식(Tailwind) ─────────────────────────────────────────────
@@ -190,10 +190,9 @@ export default function FocusChip() {
   const stopAsk = async () => {
     if (isBreak) return stop();
     if (
-      await confirm('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
+      await confirmIrreversible('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
         title: '집중 중단',
         okLabel: '중단',
-        danger: true,
       })
     )
       stop();

@@ -20,8 +20,10 @@ import { itemById, hhmm, openVaultSearch } from '@/lib/utils';
 import type { CbmsCode } from '@/lib/types';
 
 // fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
+/* Q-14 — 노치 HUD 통일. `ds-board` 위에 얹던 `rounded-lg!` 를 `ds-frame` 으로 바꾼다(둥근
+   글래스 → 계기판). 나머지 `!` 델타는 그대로다: `ds-board` 의 전역 규칙을 이겨야 하기 때문. */
 const BOARD_FILL =
-  'flex h-full min-h-0 flex-col rounded-lg! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! animate-[enter-rise_var(--dur-slow)_var(--ease)_both] motion-reduce:animate-none ds-hairline';
+  'ds-frame flex h-full min-h-0 flex-col rounded-none! mb-0! bg-[image:var(--bg-sig-chart)]! px-5! pt-4.5! pb-4! animate-[enter-rise_var(--dur-slow)_var(--ease)_both] motion-reduce:animate-none ds-hairline';
 // 스트림 행 · 노드 · 종류 칩의 공유 base(상태별 색은 아래에서 조건부로 얹는다).
 const ROW =
   'relative flex min-h-7.5 items-center gap-2 border-b border-dashed border-line2 py-1.75 pl-5.5 last:border-b-0';

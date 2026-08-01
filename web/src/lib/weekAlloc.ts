@@ -273,3 +273,18 @@ export function weekDoneNewMin(state: AppState, wk: string): number {
   }
   return total;
 }
+
+/* ── E-4 레버의 SSOT (Q-19 · 2026-08-02) ──────────────────────────────────────
+   `Review.tsx` 의 `useWeeklyAllot` 이 반올림까지 포함한 이 계산을 갖고 있었는데, 그건 React 훅
+   이라 **화면 안에서만** 부를 수 있었다. ⌘K 가 같은 동사를 갖게 되면서(팔레트는 훅이 아니다)
+   같은 식이 두 벌 될 참이었고, 그 파일 자신이 이미 그 위험을 적어 뒀다(_"CoachCard·WorkbenchCard가
+   바이트 동일 복붙하던 것 … 반올림 로직 드리프트=실버그 위험"_). 그래서 **식을 여기로 내린다** —
+   훅은 이 함수를 부르는 껍데기가 되고, 팔레트도 같은 것을 부른다.
+
+   ⚠ 반올림이 계산의 일부다: `weeklyHours` 는 0.5 단위로 편집되는데 부동소수 누적이 `2.9999…`
+   를 만들면 화면에 그대로 샌다. `Number.EPSILON` 보정 후 소수 1자리 — **옮기면서 바꾸지 않았다.**
+   ⚠ 하한이 0 인 것도 계약이다. 0 은 "안 함"이 아니라 **이번 주 스케줄 제외**라는 뜻이고
+   (`isUnschedulable` 이 그렇게 읽는다), 음수는 그 어휘에 없다. */
+export function bumpWeeklyHours(cur: number | undefined, delta: number): number {
+  return Math.max(0, Math.round((+(cur || 0) + delta + Number.EPSILON) * 10) / 10);
+}

@@ -108,7 +108,7 @@ export default function CloudCard() {
   const disconnect = useCallback(async () => {
     /* ⚠ 되돌리기 어려운 동작이라 확인을 받는다. 다만 **로컬 데이터는 지우지 않는다** —
        끊는 것은 이 기기의 자격증명뿐이고, 그 사실을 문구로 정확히 말한다. */
-    if (!(await ui.confirm('이 기기의 클라우드 연결을 끊을까요? 로컬 데이터는 그대로 남습니다.'))) return;
+    if (!(await ui.confirmIrreversible('이 기기의 클라우드 연결을 끊을까요? 로컬 데이터는 그대로 남습니다.'))) return;
     const { serverRevoked } = await disconnectCloud();
     setCfg(null);
     setDevices(null);
@@ -138,7 +138,11 @@ export default function CloudCard() {
       if (!cfg) return;
       /* ⚠ 되돌릴 수 없다 — 재등록하려면 등록 코드를 새로 발급해야 한다. 그 사실을 확인 문구가
          말한다(되돌리기 어려운 동작은 확인을 받는다는 이 앱의 규약). */
-      if (!(await ui.confirm(`'${d.name}' 을(를) 폐기할까요? 되돌릴 수 없고, 다시 쓰려면 등록 코드가 필요합니다.`)))
+      if (
+        !(await ui.confirmIrreversible(
+          `'${d.name}' 을(를) 폐기할까요? 되돌릴 수 없고, 다시 쓰려면 등록 코드가 필요합니다.`,
+        ))
+      )
         return;
       setBusy(true);
       try {

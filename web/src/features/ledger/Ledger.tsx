@@ -373,7 +373,9 @@ export default function Ledger() {
     <section className="flex h-full min-h-0 min-w-0 flex-col gap-3.5 px-4.5 pt-4 pb-3.5" aria-label="정본 원장">
       {/* ── 히어로 밴드 — 파이프라인 퍼널 + 생성일 + 재빌드 ── */}
       <div
-        className={`ds-hairline ds-glow relative flex flex-none animate-[enter-rise_var(--dur-slow)_var(--ease)_both] items-center gap-hero-gap rounded-lg border border-line bg-[image:var(--bg-hero-ledger)] px-hero-px py-4.5 shadow-hero motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`}
+        /* Q-14 — 노치 HUD 통일. `ds-glow`(테두리 hover)도 함께 뗀다: 테두리가 없으면 빛낼 것이 없다
+             (ds.css 가 3종 이행 때 15곳에서 같은 이유로 뗀 그 짝). */
+        className={`ds-frame ds-hairline relative mb-0! flex flex-none animate-[enter-rise_var(--dur-slow)_var(--ease)_both] items-center gap-hero-gap bg-[image:var(--bg-hero-ledger)] px-hero-px! py-4.5! motion-reduce:animate-none max-wide:flex-wrap max-wide:gap-x-6 max-wide:gap-y-4`}
       >
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>

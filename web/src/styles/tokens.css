@@ -417,9 +417,11 @@
   --bg-setup-prog: linear-gradient(90deg, var(--acc), var(--acc2));
   /* 3D 틸트 트랜스폼(--tiltX/Y 런타임 · 정지 시 rotate 0 = 항등). */
   /* 거대 과목명 색 — 과목색(--tint) 52% 를 잉크에 섞어 채도만 얹음. --tint 없으면 잉크로 우아하게 폴백. */
-  /* 히어로/흐름 hover 테두리 · 어제 한 줄 강조 · 지금-노드 하이라이트.
-     (워터마크 게이지 스트로크/단위 색은 D-5 에서 그 UI 와 함께 사라졌다 — 2026-07-29 정리.) */
-  --line-hero-hover: color-mix(in srgb, var(--acc) 26%, var(--line));
+  /* 흐름 hover 테두리 · 어제 한 줄 강조 · 지금-노드 하이라이트.
+     (워터마크 게이지 스트로크/단위 색은 D-5 에서 그 UI 와 함께 사라졌다 — 2026-07-29 정리.)
+     ⚠ **`--line-hero-hover` 도 같은 길로 사라졌다**(Q-14 · 2026-08-02): 오늘 히어로가 노치
+     HUD(`ds-frame`)가 되면서 **테두리 자체가 없어졌고**, 없는 테두리의 hover 색은 정의될 자리가
+     없다. `check:tokens` 가 그 자리에서 잡았다 — 주인 UI 가 사라진 토큰은 지운다. */
   --line-flow-hover: color-mix(in srgb, var(--acc) 18%, var(--line));
   --yesterday-b: color-mix(in oklab, var(--acc) 40%, var(--ink));
   --tint-ink-5: color-mix(in srgb, var(--ink) 5%, transparent);

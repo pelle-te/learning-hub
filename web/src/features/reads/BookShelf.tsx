@@ -77,8 +77,11 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
       finishedAt: b.status === 'done' ? null : new Date().toISOString(),
     });
 
+  /* Q-13 ③단 — **①이 아니다.** 책은 `useApp` 이 아니라 읽을거리 블롭(`saveReads`)에 살아서
+     ⌘Z 스택(`lib/db/undoStack`)에 pre-image 가 남지 않는다. 독후감은 앱 밖에 원본이 없으므로
+     비가역이고, 그래서 빨간 확인이다(사다리 SSOT `shell/destructive.ts`). */
   const remove = async (b: Book) => {
-    if (await ui.confirm(`"${b.title}"을(를) 삭제할까요? 독후감도 함께 지워집니다.`)) {
+    if (await ui.confirmIrreversible(`"${b.title}"을(를) 삭제할까요? 독후감도 함께 지워지고 되돌릴 수 없습니다.`)) {
       setBooks(books.filter((x) => x.id !== b.id));
     }
   };
