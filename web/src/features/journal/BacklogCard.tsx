@@ -1,13 +1,13 @@
 /* ============================================================
    BacklogCard — '보충 필요' 백로그(학습방법론 5절). 그때 못 메운 구멍을 잊지 않게 쌓아두고
-   닫을 때마다 회수한다. 토글은 되돌리기 토스트와 짝(useToggleBacklogUndo).
+   닫을 때마다 회수한다. 토글은 확인 토스트와 짝(useToggleBacklog · 되돌리기는 전역 ⌘Z).
 ============================================================ */
 import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
-import { useToggleBacklogUndo } from '@/shell/useBacklog';
+import { useToggleBacklog } from '@/shell/useBacklog';
 import { useRecordEditor } from '@/shell/useRecordEditor';
-import { openBacklog, addBacklog, editBacklog, delBacklog, restoreBacklog } from '@/lib/methodology';
+import { openBacklog, addBacklog, editBacklog, delBacklog } from '@/lib/methodology';
 import { itemById } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
@@ -22,7 +22,7 @@ export default function BacklogCard() {
   const uid = useId(); // label↔입력 연결용 고유 접두
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
-  const toggleUndo = useToggleBacklogUndo();
+  const toggleUndo = useToggleBacklog();
   const [sid, setSid] = useState('');
   const [topic, setTopic] = useState('');
   const [note, setNote] = useState('');
@@ -38,7 +38,7 @@ export default function BacklogCard() {
     docTitle: '이 화면 · 보충',
     verbs: { x: (b) => toggleUndo(b.id), e: (b) => startEdit(b), d: (b) => del(b.id) },
   });
-  // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
+  // 인라인 편집 + 삭제 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
   const {
     editId,
     draft: edraft,
@@ -47,14 +47,12 @@ export default function BacklogCard() {
     cancel,
     saveEdit,
     del,
-  } = useRecordEditor({
-    list: open,
+  } = useRecordEditor<(typeof open)[number], { topic: string; note: string }>({
     emptyDraft: { topic: '', note: '' },
     toDraft: (b) => ({ topic: b.topic, note: b.note }),
     validate: (d) => (!d.topic.trim() ? '막힌 주제는 비울 수 없어요.' : null),
     save: (st, id, d) => editBacklog(st, id, { topic: d.topic.trim(), note: d.note.trim() }),
     remove: (st, id) => delBacklog(st, id),
-    restore: (st, rec) => restoreBacklog(st, rec),
     deleteLabel: '백로그 삭제됨',
     savedToast: '보충 항목 수정됨',
   });

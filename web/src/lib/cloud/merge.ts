@@ -29,6 +29,7 @@ import { readRows, setDiffBaseline } from '../db/sqlite';
 import { rowsToState } from '../db/rows';
 import { reloadDocs } from '../db/docs';
 import { runExclusive, beginMergeApply } from '../db/write';
+import { clearUndo } from '../db/undoStack';
 import { seedStamp } from '../db/stamp';
 import type { AppState } from '../types';
 import { OUTBOX_TABLES, tableCols, type OutboxBatch } from './contract';
@@ -57,6 +58,18 @@ export interface ApplyPullOptions {
    * 영구 분기다. 그리고 그 되살리기가 이 저장소가 CRDT 를 기각하며 내세운 **유일한 보상 경로**다.
    */
   echo?: boolean;
+  /**
+   * 되돌리기 스택을 **살려 둘 것인가**(기본 거짓 = 비운다 · 전역 ⌘Z 착지 조건 ①).
+   *
+   * ⚠⚠ 기본이 "비운다"인 이유: 받아온 행이 로컬 행을 덮으면 쌓아 둔 pre-image 는 *더 이상 어떤
+   * 상태의 직전도 아니다.* 그걸 그대로 다시 쓰면 다른 기기의 편집을 fresh 스탬프로 덮어 **LWW 로
+   * 이겨 서버까지 밀어올린다** — 되돌리기가 조용한 원격 소실 장치가 된다.
+   *
+   * ⚠ 참을 주는 곳은 **되돌리기 자신뿐**이다(`cloud/undo.ts`). 그건 스택을 *소비하는* 쪽이라
+   * 여기서 비우면 **1단계 되돌리기**가 되어 버린다(한 번 누르면 나머지가 사라진다). 남은 항목이
+   * 여전히 유효한 근거는 그쪽 머리주석이 갖는다.
+   */
+  keepUndo?: boolean;
 }
 
 /**
@@ -129,6 +142,12 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
        전진시키지 않아 다음 pull 이 같은 구간을 재개한다. 종전 per-row `execDb` 는 실패를
        삼켜서 한 행이 실패해도 워터마크가 전진해 그 행이 조용히 유실될 수 있었다. */
     if (!(await batchDb(stmts))) throw new Error('병합 배치 실패 — pull 을 재개합니다.');
+
+    /* ⚠ **되돌리기 스택을 무효화한다**(전역 ⌘Z). 근거는 `ApplyPullOptions.keepUndo` 주석이
+       소유한다 — 요지는 "받아온 행 위에서는 pre-image 가 더 이상 직전이 아니다"이고, 그대로
+       쓰면 되돌리기가 다른 기기 편집을 LWW 로 이겨 서버까지 지운다. 쓰기가 **성공한 뒤**에
+       비우는 것이 맞다: 실패하면 로컬은 안 바뀌었으므로 스택도 여전히 유효하다. */
+    if (!opts.keepUndo) clearUndo();
 
     /* ⚠ **씨앗을 심는다.** 받아온 스탬프가 로컬 최대값보다 클 수 있다(다른 기기가 더 최근).
        안 심으면 다음 로컬 편집이 그보다 작은 스탬프를 받아 "이미 보낸 것"으로 묻힌다.

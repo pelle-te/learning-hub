@@ -17,6 +17,7 @@
 ============================================================ */
 import { EPHEMERAL_ONLY_KEYS, RUNTIME_CACHE_KEYS } from '../persistence';
 import type { AppState } from '../types';
+import type { PreImageRow } from './undoStack';
 
 /** 키 맵 슬라이스(`ds_map` 테이블 = `(slice, key, value)`) — completions 는 2단 중첩이라 따로 다룬다.
  *  ⚠ 열 이름은 역사적으로 `ds` 지만 **의미는 '그 슬라이스의 키'**다. N-7 의 `resume` 은 키가
@@ -175,17 +176,24 @@ export interface TouchedRow {
 }
 
 /**
- * `diffRows` 의 상세판 — 문장과 **접촉 행**을 **한 번의 순회**에서 함께 낸다.
+ * `diffRows` 의 상세판 — 문장·**접촉 행**·**pre-image** 를 **한 번의 순회**에서 함께 낸다.
  *
  * ⚠ 두 함수로 나눠 각자 순회하게 만들면 언젠가 한쪽만 고쳐져 **검증이 엉뚱한 행을 본다** —
  * 그때 증상은 "대조는 통과하는데 저장이 틀렸다"이고, 그건 이 층이 막으려던 바로 그것이다.
  * `diffRows` 는 이 함수의 얇은 래퍼다.
+ *
+ * ## ⚠ pre-image 를 여기서 내는 이유 (착수 계획을 실측이 정정했다)
+ *
+ * 계획은 _"`diffRowsDetailed` 를 고칠 필요가 없다 — `writeRows` 가 `_last` 와 `touched` 를 둘 다
+ * 손에 쥐고 있다"_ 였는데 **`touched` 는 upsert 만 담는다.** 삭제된 행(할일·요약·보충 제거)은
+ * 거기 없으므로, 그것만으로 만든 되돌리기는 **"지운 것"을 영원히 못 살린다** — 되돌리기가 가장
+ * 필요한 바로 그 부류다. 두 축(전/후)을 한 번에 보는 자리가 여기뿐이라 여기서 낸다.
  */
 export function diffRowsDetailed(
   prev: DbRows | null,
   next: DbRows,
   now: number | (() => number) = Date.now(),
-): { stmts: Stmt[]; touched: TouchedRow[] } {
+): { stmts: Stmt[]; touched: TouchedRow[]; preImages: PreImageRow[] } {
   /* 스탬프는 **동기화 행마다** 배급한다. 상수(일반 flush)면 모든 행·툼스톤이 같은 값을 받아
      종전과 한 글자도 다르지 않고(한 flush = 한 스탬프 그룹), 함수(최초 이관의 `chunkedStamp`)면
      청크마다 값이 갈려 단일 그룹이 배치 상한을 넘지 않는다(C1 · `stamp.ts` 참조). */
@@ -196,6 +204,11 @@ export function diffRowsDetailed(
   const tombs: Stmt[] = [];
   const deletes: Stmt[] = [];
   const touched: TouchedRow[] = [];
+  /* ⚠ **기준선이 없으면 pre-image 도 없다.** `prev === null` 은 첫 쓰기(부팅 이관·기준선 유실 복구)라
+     "직전"이 존재하지 않는다 — 그때 전 행을 "없었다"로 담으면 ⌘Z 한 번이 **DB 를 통째로 비운다.**
+     빈 목록을 내면 `undoStack` 이 항목 자체를 안 만든다(그쪽 `pushUndo` 계약). */
+  const preImages: PreImageRow[] = [];
+  const capture = prev !== null;
   /** 툼스톤 기본키 — 단일키 테이블은 k2 를 빈 문자열로 채운다(db.rs v3 와 같은 규약). */
   const tomb = (spec: TableSpec, vals: unknown[]): unknown[] => [spec.name, vals[0], spec.keyLen === 2 ? vals[1] : ''];
 
@@ -207,6 +220,12 @@ export function diffRowsDetailed(
       /* ⚠ 비교는 **데이터 열만** 본다. `updated_at` 은 우리가 매번 새로 찍는 값이라
          비교에 넣으면 모든 행이 항상 "변경됨"이 되어 증분 쓰기가 전량 쓰기로 퇴화한다. */
       if (old && old.length === vals.length && old.every((v, i) => v === vals[i])) continue;
+      /* ⚠ **동기화 테이블만 담는다.** 되돌리기는 `applyPull`(병합 기계)로 적용하는데 그것은
+         `OUTBOX_TABLES`(= `sync:true` + docs)만 안다 — `meta`(파생 `present`)·`runtime_cache`
+         (기기별 재계산 캐시)를 담아 봐야 조용히 버려진다. **버려질 것을 담으면 스택 바이트만
+         먹고 "N건 되돌렸다"는 수가 거짓이 된다.** */
+      if (capture && spec.sync)
+        preImages.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals: old ?? null });
       const cols = spec.sync ? [...spec.cols, 'updated_at'] : spec.cols;
       const args = spec.sync ? [...vals, stampFor()] : vals;
       upserts.push({
@@ -227,6 +246,8 @@ export function diffRowsDetailed(
     }
     for (const [key, vals] of before) {
       if (after.has(key)) continue;
+      // 삭제의 pre-image = 그 행 자체. 되돌리기는 이걸 다시 넣는다(부활 가드는 `cloud/undo.ts` 참조).
+      if (capture && spec.sync) preImages.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals });
       const where = spec.cols
         .slice(0, spec.keyLen)
         .map((c) => `${c} = ?`)
@@ -245,7 +266,7 @@ export function diffRowsDetailed(
       deletes.push({ sql: `DELETE FROM ${spec.name} WHERE ${where}`, args: vals.slice(0, spec.keyLen) });
     }
   }
-  return { stmts: [...upserts, ...tombs, ...deletes], touched };
+  return { stmts: [...upserts, ...tombs, ...deletes], touched, preImages };
 }
 
 /** 상태 두 벌 → 증분 SQL. 접촉 행이 필요하면 `diffRowsDetailed`. */

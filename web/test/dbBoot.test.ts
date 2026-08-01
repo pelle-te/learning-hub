@@ -70,7 +70,7 @@ beforeEach(() => {
   /* ⚠ `writeRows` 는 **객체**를 준다(`{ ok, touched }`) — 되읽기 대조가 행축으로 바뀌며
      "이번에 손댄 행"을 함께 돌려주게 됐다(2026-07-29). 목이 boolean 을 주면 호출부의
      `const { ok } = …` 이 undefined 를 받아 **쓰기 성공이 실패로 읽힌다**. */
-  writeRows.mockReset().mockResolvedValue({ ok: true, touched: [] });
+  writeRows.mockReset().mockResolvedValue({ ok: true, touched: [], preImages: [], stamp: 0 });
   isDbAvailable.mockReset().mockResolvedValue(true);
   dbVersionGuard.mockReset().mockResolvedValue(null); // 기본은 "가드 없음"(구 배포본·브라우저)
   asTauri(true);

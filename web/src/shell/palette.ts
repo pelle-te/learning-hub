@@ -10,6 +10,7 @@ import * as A from './actions';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
 import { useOverlay } from '@/store/useOverlay';
+import { MOD_LABEL } from '@/lib/platform';
 
 // C-5: 탭 → g-시퀀스 매핑(치트시트가 이미 정의). 팔레트 hint에 노출해 사용 중 키보드 내비를 학습시킨다.
 const SEQ_BY_TAB = new Map(NAV_SHORTCUTS.map((s) => [s.tab, s.seq]));
@@ -178,7 +179,19 @@ function baseCommands(): PaletteCommand[] {
     { id: 'act:vault-backup', kind: 'act', label: '볼트 폴더에 백업', hint: '백업', run: A.backupToVault },
     { id: 'act:idb-restore', kind: 'act', label: 'IndexedDB에서 복구', hint: '백업', run: A.restoreFromIDB },
     { id: 'act:archive', kind: 'act', label: '오래된 기록 보관·정리', hint: '데이터', run: () => A.archiveOld() },
-    { id: 'act:undo', kind: 'act', label: '되돌리기 · 직전 상태로', hint: '데이터', run: A.undoLast },
+    /* ⚠ **옛 `act:undo`(= `BACKUP_KEY` 스냅샷 복원)를 이 자리에서 뺐다**(근본① · 2026-08-01).
+       라벨이 _"직전 상태로"_ 였는데 그건 거짓이었다 — 스냅샷은 *마지막으로 `backupNow()` 를 부른
+       시점*이라 며칠 전일 수 있었다. 그 복원은 이제 성질에 맞는 자리(⋯ 메뉴 · 시각을 함께
+       보여주는 곳)에만 있고, 여기에는 **진짜 직전 편집**을 되돌리는 전역 ⌘Z 를 둔다.
+       ⚠ 동적 import 인 이유: 되돌리기는 병합 기계(`applyPull`)를 끌고 오므로 팔레트를 여는 것만으로
+       그 사슬이 초기 청크에 들어오면 안 된다(H7 과 같은 규율). */
+    {
+      id: 'act:undo',
+      kind: 'act',
+      label: `되돌리기 · 직전 편집 (${MOD_LABEL}+Z)`,
+      hint: '데이터',
+      run: () => void import('@/store/undoController').then((m) => m.undoLastEdit()),
+    },
     { id: 'act:reset', kind: 'act', label: '전체 초기화…', hint: '위험', run: A.resetAll },
   ];
   return [...tabs, ...acts];

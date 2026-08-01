@@ -53,12 +53,11 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
       });
     });
   const delCourse = (cid: string, name: string) => {
-    ui.backupNow(); // 되돌리기용 1단계 백업 — 형제 삭제(학기·수업·블록)와 동일한 안전장치
     mutate((st) => {
       const s = findSem(st, sem.id);
       if (s) s.courses = s.courses.filter((c) => c.id !== cid);
     });
-    ui.toastUndo(`"${name || '과목'}" 삭제됨`);
+    ui.toastUndoable(`"${name || '과목'}" 삭제됨`);
   };
   const updCourse = (cid: string, k: keyof DegreeCourse, v: string | number) =>
     mutate((st) => {
@@ -74,13 +73,10 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
       }))
     )
       return;
-    // 소속 과목(=성적 입력 전량)이 함께 사라진다 — 형제 `delCourse` 가 이미 쓰는 안전망을
-    // **더 큰 삭제**가 안 쓰고 있었다(파괴력과 복구가능성의 역전).
-    ui.backupNow();
     mutate((st) => {
       st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id);
     });
-    ui.toastUndo('학기 삭제됨');
+    ui.toastUndoable('학기 삭제됨');
   };
   const courseToItem = (name: string) => {
     // PL-15 — items를 구독하지 않고 핸들러 시점에 스냅샷 조회(무관한 items 편집에 카드 재렌더 방지).

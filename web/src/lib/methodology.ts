@@ -8,7 +8,7 @@
 import { keySid } from './domainKeys';
 import { addDays, iso, mondayOf, parseISO, rid, todayISO } from './utils';
 import { SCHEMA_VERSION, isDone } from './persistence';
-import type { AppState, Backlog, BlankResult, Cbms, CbmsCode, Ritual, ScheduleResult, Summary } from './types';
+import type { AppState, Backlog, BlankResult, CbmsCode, Ritual, ScheduleResult, Summary } from './types';
 
 /* ── 인출 증거·추세 파생(통계 리드아웃·인출카드 공용 · 중복 제거 SSOT) ── */
 
@@ -215,21 +215,11 @@ export function confRate(
   const conf = rows.filter((e) => e.conf).length;
   return { conf, total: rows.length, rate: Math.round((conf / rows.length) * 100) };
 }
-/* ── 삭제 되돌리기 복원 — feature가 state 내부구조(배열 형태·원위치 idx)를 알지 않게 삭제와 대칭.
-   스냅샷 rec만 넘기면 lib이 복원 위치를 소유(단방향 레이어 경계). ── */
-export function restoreSummary(state: AppState, ds: string, idx: number, rec: Summary): void {
-  state.summaries = state.summaries || {};
-  const arr = (state.summaries[ds] = state.summaries[ds] || []);
-  arr.splice(Math.min(idx < 0 ? arr.length : idx, arr.length), 0, { ...rec });
-}
-export function restoreCbms(state: AppState, rec: Cbms): void {
-  state.cbms = state.cbms || [];
-  state.cbms.push({ ...rec });
-}
-export function restoreBacklog(state: AppState, rec: Backlog): void {
-  state.backlog = state.backlog || [];
-  state.backlog.push({ ...rec });
-}
+/* ⚠ **삭제 되돌리기 복원 3종(`restoreSummary`·`restoreCbms`·`restoreBacklog`)이 사라졌다**
+   (근본① · 2026-08-01). 그것들은 `useRecordEditor` 가 6.5초 토스트 창 안에서 부르던 역연산이고,
+   전역 ⌘Z 가 **행 단위 pre-image** 로 같은 일을 테이블 무관하게 한다(`lib/db/undoStack`).
+   되살릴 이유가 생긴다면 그건 "역연산이 필요하다"가 아니라 "⌘Z 가 그 슬라이스를 못 덮는다"는
+   뜻이므로, 먼저 그쪽을 보라 — 사본을 두 벌 두는 것이 이 저장소가 반복해 물린 형태다. */
 
 /* ── 백지 복습 결과(9절·E4) — 통과/막힘 실측. 하루·과목당 1개(중복 갱신).
    막힘+메모는 CBMS(C 개념)로 자동 연결(직전이 이미 막힘이면 중복 생성 금지). ── */

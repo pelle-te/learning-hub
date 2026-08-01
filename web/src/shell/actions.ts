@@ -34,7 +34,6 @@ import {
   archiveOldData,
   openBacklog,
   addBacklog,
-  removeBacklog,
   toggleBacklog,
 } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
@@ -47,7 +46,7 @@ import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsA
 import type { AppState, Theme } from '@/lib/types';
 import { fileCapture } from '@/lib/quickCapture';
 import { isTauri, shellSaveFile } from '@/lib/tauri';
-import { toast, toastUndo } from './toast';
+import { toast, toastUndo, toastUndoable } from './toast';
 import { confirm } from './modal';
 
 const st = () => useApp.getState();
@@ -759,19 +758,21 @@ export function contentSearch(query: string, reads: ReturnType<typeof loadReads>
    ⚠ **화면을 옮기지 않는다.** 캡처는 떠올랐을 때 쓰는 것이라 문맥 이탈이 곧 비용이다. 담은 것은
    기록 탭 보충 목록에서 인라인 편집(`editBacklog`)으로 고칠 수 있으므로 "열어서 고치기" 경로는
    그대로 살아 있다 — 다만 **기본값이 아니게** 됐다.
-   ⚠ 되돌리기가 짝이다: 파서가 잘못 뽑으면 곧 잘못된 레코드다. `id` 로 그 한 건만 지운다. */
+   ⚠ 되돌리기가 짝이다: 파서가 잘못 뽑으면 곧 잘못된 레코드다. 그 짝은 이제 **전역 ⌘Z** 이고
+   (근본① · 2026-08-01) 6.5초 창이 아니다 — 캡처는 "떠올랐을 때" 쓰는 것이라, 되돌릴 수 있는
+   시간이 *다른 창으로 넘어가기 전까지*로 잘려 있는 것이 이 기능의 목적과 정면으로 어긋났다. */
 export function commitCapture(raw: string, summary: string): void {
   /* ⚠ 파싱부터 저장까지 **lib 이 소유한다**(`fileCapture`) — 폰 캡처 바와 *같은 함수*여야 한다.
      종전엔 여기와 `phone/CaptureBar` 가 각자 조립·저장했고, 그래서 `MiniHud` 주석의 "같은 함수"가
-     거짓이었다(G7). 여기 남는 것은 **표시**뿐이다(되돌리기 토스트). */
-  let out: { id: string; topic: string } | null = null;
+     거짓이었다(G7). 여기 남는 것은 **표시**뿐이다(확인 토스트). */
+  let out: { topic: string } | null = null;
   st().mutate((s) => {
     const r = fileCapture(s, raw, new Date());
-    if (r) out = { id: r.id, topic: r.rec.topic };
+    if (r) out = { topic: r.rec.topic };
   });
   if (!out) return;
-  const { id, topic } = out as { id: string; topic: string };
-  toastUndo('📥 보충에 담았어요 — ' + (summary || topic), () => st().mutate((s) => removeBacklog(s, id)));
+  const { topic } = out as { topic: string };
+  toastUndoable('📥 보충에 담았어요 — ' + (summary || topic));
 }
 
 /* ── 볼트 과목 임포트 — **W4 규칙의 단일 원천**(H22 · 2026-08-01) ─────────────────────

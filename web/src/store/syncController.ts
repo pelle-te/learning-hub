@@ -74,8 +74,12 @@ function syncedSliceChanged(next: AppState, prev: AppState): boolean {
    C1 의 안전장치다) 카운터로 바꾸면 방어망이 남의 창을 감산한다. 겹침을 *세는* 대신 **없앤다** —
    둘이 한 게이트를 공유하면 중첩이 성립하지 않고, 방어망의 의미도 그대로다.
    집행자는 `db/write.ts` 의 이중 열림 검출기다(이 게이트를 우회하는 새 경로가 생기면 시끄럽다). */
+/* ⚠ **export 다 — 병합 창을 여는 새 경로는 반드시 이 게이트를 타야 한다.** 지금 호출자는 셋이다:
+   `runSync` · `restoreConflict` · `undoController.undoLastEdit`(전역 ⌘Z). 되돌리기도 `applyPull` 을
+   쓰므로 H8 의 중첩 조건에 그대로 해당한다 — 게이트 밖에 두면 그 사고가 세 번째 호출자로 재현된다.
+   (집행자는 `db/write.ts` 의 이중 열림 검출기다: 우회 경로가 생기면 시끄럽게 보고한다.) */
 let _mergeGate: Promise<unknown> = Promise.resolve();
-function exclusiveMerge<T>(fn: () => Promise<T>): Promise<T> {
+export function exclusiveMerge<T>(fn: () => Promise<T>): Promise<T> {
   const next = _mergeGate.catch(() => undefined).then(fn);
   _mergeGate = next.catch(() => undefined);
   return next;

@@ -208,6 +208,19 @@ export default function App() {
         ov.togglePalette();
         return;
       }
+      /* ⌘Z/Ctrl+Z — **전역 되돌리기**(근본① · 2026-08-01). 되돌릴 것이 없으면 그쪽이 말한다.
+         ⚠ **입력 중에는 안 뺏는다**(`isTyping()`). 글자를 치는 중의 ⌘Z 는 브라우저의 텍스트
+           되돌리기이고, 그걸 가로채면 사용자는 *한 글자*를 되돌리려다 **직전 편집 전체**를
+           되돌리게 된다 — 되돌리기를 두려운 키로 만드는 가장 빠른 길이다.
+         ⚠ Shift 조합(⌘⇧Z = 다시 실행)은 **집지 않는다.** 다시 실행은 이번 범위 밖이고, 여기서
+           삼키면 아무 일도 안 일어나는 키가 된다(안 잡는 편이 정직하다). */
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        if (isTyping()) return;
+        e.preventDefault();
+        clearG();
+        void import('@/store/undoController').then((m) => m.undoLastEdit());
+        return;
+      }
       // 단일키 단축키는 수정자/입력 포커스/팔레트 열림 시 무시
       if (e.metaKey || e.ctrlKey || e.altKey || isTyping() || useOverlay.getState().palette) return;
 

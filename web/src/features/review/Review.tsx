@@ -9,8 +9,8 @@ import { useNavigate } from 'react-router-dom';
 import LiveRegion from '@/components/LiveRegion';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { toast, toastUndo } from '@/shell/toast';
-import { useToggleBacklogUndo } from '@/shell/useBacklog';
+import { toast, toastUndoable } from '@/shell/toast';
+import { useToggleBacklog } from '@/shell/useBacklog';
 import { useHeroPointer, useWeekNavKeys, useFlushOnUnmount } from '@/hooks/interactions';
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
@@ -266,7 +266,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
   const open = openBacklog(state);
   const closedThisWeek = backlogClosedBetween(state, ds0, ds6);
   // 회수 체크는 목록에서 즉시 사라진다 — 실수 클릭 대비 되돌리기 토스트(Journal과 단일 출처).
-  const close = useToggleBacklogUndo();
+  const close = useToggleBacklog();
   return (
     <div className="ds-rule">
       <h2>
@@ -369,7 +369,7 @@ function useWeeklyAllot() {
     });
   const allotMore = (subject: string, id: string) => {
     bumpWeekly(id, 1);
-    toastUndo(`"${subject}" 주간 배정 +1h`, () => bumpWeekly(id, -1));
+    toastUndoable(`"${subject}" 주간 배정 +1h`);
   };
   return { leverFor, allotMore };
 }

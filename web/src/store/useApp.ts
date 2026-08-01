@@ -128,7 +128,9 @@ export const useApp = create<AppStore>()(
        '건너뛰기(스냅샷 단위 LWW · 상대 탭 편집 통째 소실)' 대신 '채택 후 내 recipe 재적용(rebase)'.
        recipe는 상태 변형 의도(semantic op)라 새 베이스 위 재적용이 곧 필드 단위 병합이 된다. */
     let pending: Array<(s: AppState) => void> = [];
-    const flush = () => {
+    /** @param captureUndo 이 쓰기를 전역 ⌘Z 스택에 쌓을 것인가 — `loadState` 만 거짓이다
+     *  (근거는 `db/write.ts` 의 `WriteOptions.undo` 주석이 SSOT). */
+    const flush = (captureUndo = true) => {
       // 대기/만료 타이머 정리 — 만료된 핸들이 남으면 onSync의 '내 편집 대기 중' 가드가 영구 참이 돼
       // 첫 편집 이후 외부 스냅샷 채택(대시보드 모드)이 조용히 죽는다(감사 추가#3에서 테스트로 발견).
       if (timer) {
@@ -165,7 +167,7 @@ export const useApp = create<AppStore>()(
            같은 파일 아래 브라우저 경로는 이 규율을 이미 지킨다(_"큐 소진은 저장이 성공한 뒤에만"_). */
         const borrowed = pending;
         pending = [];
-        void writeAndVerify(merged).then((r) => {
+        void writeAndVerify(merged, { undo: captureUndo }).then((r) => {
           /* 미뤘다면 실패가 아니다 — 빌린 큐를 **그 사이 쌓인 것보다 앞에** 돌려놓고(시간 순서
              보존) 재예약한다. `applyMerged` 가 창을 닫으며 이 recipe 들을 병합 스냅샷에 재적용한다. */
           /* ⚠ **쓰기 실패도 큐를 돌려준다(H10 · 2026-07-31 `/감사 근본`).** 종전엔 `deferred` 만
@@ -273,7 +275,11 @@ export const useApp = create<AppStore>()(
         set((s) => {
           s.state = splitRuntime(next); // 가져온 스냅샷에 남아있던 런타임 캐시도 분리(디스크 왕복 대칭)
         });
-        flush(); // 통째 교체는 즉시 영속(디바운스 X) — 가져오기/복구 직후 새로고침해도 안전.
+        /* 통째 교체는 즉시 영속(디바운스 X) — 가져오기/복구 직후 새로고침해도 안전.
+           ⚠ **⌘Z 스택엔 안 쌓는다**(false). 이 경로의 되돌리기는 사용자 결정대로 `BACKUP_KEY`
+           스냅샷이 계속 맡고, 손댄 행이 곧 전체라 쌓으면 바이트 예산을 통째로 먹어 **평범한
+           편집의 되돌리기가 전부 밀려난다**(`db/write.ts` 의 `WriteOptions.undo` 가 SSOT). */
+        flush(false);
       },
       applyMerged(next) {
         /* ⚠ C1 — 병합 반영 전용. `loadState` 와 갈라 두는 이유가 이 함수의 존재 이유다.

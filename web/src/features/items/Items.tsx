@@ -214,7 +214,6 @@ export default function Items() {
       ui.toast('재배정할 과목이 없어요.', 'warn');
       return;
     }
-    ui.backupNow(); // 되돌리기용 1단계 백업
     // 0단계-G 이후 색은 id 파생이라 '순서 재배정'이라는 개념이 없다 — 이 버튼은 이제
     // **저장된 색을 현재 PALETTE로 다시 맞추는** 복구 동작이다(옛 팔레트로 내보낸 백업을
     // 가져왔을 때처럼 저장값이 낡은 경우). 부팅 시 refineItemColors가 하는 일과 같다.
@@ -223,7 +222,7 @@ export default function Items() {
         s.color = colorForId(s.id);
       });
     });
-    ui.toastUndo('과목 색을 현재 팔레트로 다시 맞췄어요.');
+    ui.toastUndoable('과목 색을 현재 팔레트로 다시 맞췄어요.');
   }, [items.length, mutate]);
 
   /* ⚠ 과목 삭제는 **객체 화면이 소유한다**(W12) — 삭제 버튼이 거기 있고, 그 화면이 삭제 후

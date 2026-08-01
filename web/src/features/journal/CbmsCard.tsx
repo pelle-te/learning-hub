@@ -6,7 +6,7 @@ import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { useRecordEditor } from '@/shell/useRecordEditor';
-import { cbmsBetween, editCbms, delCbms, restoreCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
+import { cbmsBetween, editCbms, delCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -29,7 +29,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
   usePrefillForm('cbms', setSid, chRef);
 
   const today = cbmsBetween(state, dsKey, dsKey);
-  // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
+  // 인라인 편집 + 삭제 — 공용 SSOT(useRecordEditor). draft를 edraft로 받아 JSX 유지.
   const {
     editId,
     draft: edraft,
@@ -39,13 +39,11 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
     saveEdit,
     del,
   } = useRecordEditor<(typeof today)[number], { chapter: string; code: CbmsCode; note: string; conf: boolean }>({
-    list: today,
     emptyDraft: { chapter: '', code: CBMS_CODES[0]!, note: '', conf: false },
     toDraft: (e) => ({ chapter: e.chapter, code: e.code, note: e.note, conf: !!e.conf }),
     save: (st, id, d) =>
       editCbms(st, id, { chapter: d.chapter.trim(), code: d.code, note: d.note.trim(), conf: d.conf }),
     remove: (st, id) => delCbms(st, id),
-    restore: (st, rec) => restoreCbms(st, rec),
     deleteLabel: '오답 삭제됨',
     savedToast: '오답 수정됨',
   });

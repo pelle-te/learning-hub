@@ -16,11 +16,16 @@
    한 번도 안 부른다. `dbUrl()` 은 아래 Tauri 분기 안에서 동적으로 가져온다. */
 import { isTauri } from '../isTauri';
 import { coalesceStmts, diffRowsDetailed, TABLES, type DbRows, type TableSpec, type TouchedRow } from './rows';
+import type { PreImageRow } from './undoStack';
 
 /** `writeRows` 의 결과 — 성공 여부 + **이번에 실제로 손댄 행**(되읽기 대조의 대상). */
 export interface WriteResult {
   ok: boolean;
   touched: TouchedRow[];
+  /** 손대기 **직전** 그 행들의 모습(전역 ⌘Z). 기준선이 없던 쓰기면 빈 배열(`rows.ts` 참조). */
+  preImages: PreImageRow[];
+  /** 이 쓰기가 발급한 **최대 스탬프**(동기화 행이 없었으면 0). 되돌리기의 툼스톤 기준선이 된다. */
+  stamp: number;
 }
 import { chunkedStamp } from './stamp';
 
@@ -322,7 +327,7 @@ export function setDiffBaseline(rows: DbRows | null): void {
  */
 export async function writeRows(rows: DbRows, stamp?: number | (() => number)): Promise<WriteResult> {
   const db = await getDb();
-  if (!db) return { ok: false, touched: [] };
+  if (!db) return { ok: false, touched: [], preImages: [], stamp: 0 };
   // 기준선이 없으면(첫 쓰기·이관 직후) DB 를 한 번 읽어 세운다 — 없다고 전량 삭제하면
   // 위에 적은 안전 속성이 그대로 깨진다.
   if (!_last) _last = await readRows();
@@ -340,7 +345,19 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
   /* ⚠ `diffRowsDetailed` 로 문장과 **접촉 행**을 한 순회에서 함께 받는다 — 되읽기 대조(`write.ts`)가
      "방금 쓴 행"만 확인할 수 있게. 두 번 순회해 따로 만들면 언젠가 한쪽만 고쳐져 **검증이 엉뚱한
      행을 본다**(그때 증상은 "대조는 통과하는데 저장이 틀렸다"다). */
-  const { stmts, touched } = diffRowsDetailed(_last, rows, stamp ?? chunkedStamp(WRITE_STAMP_CHUNK));
+  /* ⚠ 발급을 한 겹 감싸 **이번 쓰기가 쓴 최대 스탬프**를 안다(전역 ⌘Z). 되돌리기는 그 값으로
+     "이 쓰기 뒤에 생긴 툼스톤"을 가려낸다 — 없으면 다른 기기가 지운 행을 조용히 되살린다.
+     `currentStamp()` 로 대신 읽지 않는 이유: 그건 *전역* 최대라 이 쓰기가 안 쓴 값(병합 씨앗
+     등)까지 포함하고, 그러면 가려내기가 실제보다 관대해진다(= 가드가 헐거워진다). */
+  const issuer = stamp ?? chunkedStamp(WRITE_STAMP_CHUNK);
+  const provider = typeof issuer === 'function' ? issuer : (): number => issuer;
+  let maxStamp = 0;
+  const issue = (): number => {
+    const v = provider();
+    if (v > maxStamp) maxStamp = v;
+    return v;
+  };
+  const { stmts, touched, preImages } = diffRowsDetailed(_last, rows, issue);
   try {
     /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
        셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */
@@ -348,10 +365,12 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
     if (db.batch) await db.batch(folded);
     else for (const s of folded) await db.execute(s.sql, s.args);
     _last = rows;
-    return { ok: true, touched };
+    return { ok: true, touched, preImages, stamp: maxStamp };
   } catch (e) {
     console.error('[db] 쓰기 실패', e);
     _last = null; // 부분 적용됐을 수 있다 — 다음 쓰기가 DB 를 다시 읽어 기준선을 세우게 한다
-    return { ok: false, touched: [] };
+    /* ⚠ 실패한 쓰기의 pre-image 는 **주지 않는다.** 부분 적용됐을 수 있어 "직전"이 무엇인지
+       모르는 상태이고, 그걸 스택에 얹으면 되돌리기가 실제로 없던 상태를 만들어 낸다. */
+    return { ok: false, touched: [], preImages: [], stamp: 0 };
   }
 }

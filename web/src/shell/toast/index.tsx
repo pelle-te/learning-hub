@@ -5,6 +5,7 @@
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
+import { MOD_LABEL } from '@/lib/platform';
 
 export type ToastType = 'ok' | 'bad' | 'warn' | 'info';
 export interface ToastAction {
@@ -45,9 +46,28 @@ const useToastStore = create<ToastStore>((set) => ({
 export function toast(msg: string, type: ToastType = 'ok', ms?: number, action?: ToastAction): void {
   useToastStore.getState().push({ id: ++_id, msg, type, ms: ms ?? (type === 'bad' ? 6000 : 2600), action });
 }
-/** 파괴적 동작 뒤 '되돌리기' 액션을 단 토스트. */
+/**
+ * 파괴적 동작 뒤 '되돌리기' 액션을 단 토스트 — **6.5초 경주**다.
+ *
+ * ⚠⚠ **남은 호출부는 둘뿐이다: 가져오기·초기화**(근본① · 2026-08-01). 그 둘만 `BACKUP_KEY`
+ * 스냅샷(`actions.undoLast`)을 되돌릴 수 있고, 나머지 평범한 편집은 **전역 ⌘Z** 가 덮는다
+ * (`store/undoController`). 새 호출부를 여기 붙이지 말 것 — 이 형태의 값은 "지금 안 누르면
+ * 영영 못 되돌린다"는 창을 여는 것이고, 그건 되돌리기가 *없을 때만* 옳은 UI 다
+ * ([NN/g] 확인 문구 vs 되돌리기 · 로드맵 근본① 의 외부 근거).
+ */
 export function toastUndo(msg: string, onUndo: () => void): void {
   toast(msg, 'info', 6500, { label: '되돌리기', onAction: onUndo });
+}
+
+/**
+ * 되돌릴 수 있는 편집을 알리는 토스트 — 문구에 **⌘Z 힌트**를 붙인다(근본①).
+ *
+ * ⚠ 힌트가 이 한 곳에 있는 것이 요점이다. 종전 `toastUndo` 는 호출부마다 6.5초 창을 열었고 그
+ * 창을 놓치면 사용자는 되돌릴 방법이 있다는 것조차 몰랐다 — 실제로 `GLOBAL_SHORTCUTS` 에 ⌘Z 가
+ * 없었다. 지금은 창이 아니라 **가리킴**이다: 토스트가 사라져도 되돌리기는 그대로 살아 있다.
+ */
+export function toastUndoable(msg: string): void {
+  toast(`${msg} — ${MOD_LABEL}+Z 로 되돌리기`, 'info', 4000);
 }
 
 /**

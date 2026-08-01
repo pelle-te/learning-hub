@@ -69,11 +69,10 @@ function ClassList({ dow }: { dow: number }) {
       if (b) (b as Record<string, unknown>)[k] = v;
     });
   const del = (id: string, name: string) => {
-    ui.backupNow();
     mutate((st) => {
       st.routine = st.routine.filter((b) => b.id !== id);
     });
-    ui.toastUndo(`"${name || '수업'}" 삭제됨`);
+    ui.toastUndoable(`"${name || '수업'}" 삭제됨`);
   };
 
   const cls = routine
@@ -121,11 +120,10 @@ function BlockList() {
       if (b) recipe(b);
     });
   const del = (id: string, name: string) => {
-    ui.backupNow();
     mutate((st) => {
       st.routine = st.routine.filter((b) => b.id !== id);
     });
-    ui.toastUndo(`"${name || '블록'}" 삭제됨`);
+    ui.toastUndoable(`"${name || '블록'}" 삭제됨`);
   };
   const toggleDay = (id: string, d: number) =>
     upd(id, (b) => {

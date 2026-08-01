@@ -7,7 +7,7 @@
    잎 모듈로 따로 허용). 금지된 것을 기능으로 광고하는 문장이 남아 있으면 다음 사람이 그걸 믿는다.)
    액션 표면 3분할(각 함수는 정확히 한 곳): ui(토스트·모달·백업) / io(내보내기·FS·복구) / actions(상태 변형).
 ============================================================ */
-import { toast, toastUndo } from './toast';
+import { toast, toastUndoable } from './toast';
 import { confirm } from './modal';
 import * as A from './actions';
 
@@ -41,12 +41,20 @@ export {
 export { recordRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';
 
-/** 공용 UI(토스트/확인·프롬프트 모달/백업) — feature 탭이 쓰는 표면(옛 legacy/load.ui). */
+/** 공용 UI(토스트/확인·프롬프트 모달/백업) — feature 탭이 쓰는 표면(옛 legacy/load.ui).
+ *
+ *  ⚠ **`toastUndo` 가 여기서 사라졌다**(근본① · 2026-08-01). 그것은 `msg` 를 받아
+ *  `A.undoLast`(= `BACKUP_KEY` 스냅샷 복원)를 6.5초 창에 매다는 것이었는데, 두 가지가 동시에
+ *  틀렸다: ① 스냅샷은 **손으로 부른 `backupNow()` 직전**의 상태라 "직전 편집"이 아니고(며칠 전일
+ *  수 있었다) ② 그래서 삭제마다 `backupNow()` 를 불러야 했고 그 호출이 *가져오기·초기화*용
+ *  스냅샷을 계속 덮어썼다. 지금은 전역 ⌘Z 가 **행 단위 pre-image** 로 덮는다(`lib/db/undoStack`).
+ *  스냅샷은 남아 있고 그 소비처는 가져오기·초기화 토스트 둘뿐이다(사용자 결정). */
 export const ui = {
   toast,
+  /** 되돌릴 수 있는 편집을 알린다(⌘Z 힌트 포함) — 옛 `toastUndo` 자리. */
+  toastUndoable,
   confirm,
   backupNow: A.backupNow,
-  toastUndo: (msg: string) => toastUndo(msg, A.undoLast),
 };
 
 /** 부수효과가 본질인 IO/다운로드/FS 액션(내보내기·백업·복구·아카이빙·캘린더 서명). */

@@ -7,7 +7,7 @@ import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 import { useRecordEditor } from '@/shell/useRecordEditor';
-import { summariesFor, addSummary, editSummary, delSummary, restoreSummary, cbmsBetween } from '@/lib/methodology';
+import { summariesFor, addSummary, editSummary, delSummary, cbmsBetween } from '@/lib/methodology';
 import { itemById, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
@@ -28,9 +28,11 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
   usePrefillForm('sum', setSid, firstField);
 
   const list = summariesFor(state, dsKey);
-  // 인라인 편집 + 삭제-되돌리기 — 공용 SSOT(useRecordEditor). 요약은 되돌리기 시 원래 위치(idx)로 복원.
-  const { editId, draft, setDraft, startEdit, cancel, saveEdit, del } = useRecordEditor({
-    list,
+  // 인라인 편집 + 삭제 — 공용 SSOT(useRecordEditor). 되돌리기는 전역 ⌘Z 가 행 단위로 덮는다(근본①).
+  const { editId, draft, setDraft, startEdit, cancel, saveEdit, del } = useRecordEditor<
+    (typeof list)[number],
+    { sid: string; s1: string; s2: string; s3: string }
+  >({
     emptyDraft: { sid: '', s1: '', s2: '', s3: '' },
     toDraft: (x) => ({ sid: x.sid, s1: x.s1, s2: x.s2, s3: x.s3 }),
     validate: (d) => (!d.s1.trim() && !d.s2.trim() && !d.s3.trim() ? '세 문장 중 최소 하나는 남겨주세요.' : null),
@@ -43,7 +45,6 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
         s3: d.s3.trim(),
       }),
     remove: (st, id) => delSummary(st, dsKey, id),
-    restore: (st, rec, idx) => restoreSummary(st, dsKey, idx, rec),
     deleteLabel: '요약 삭제됨',
     savedToast: '요약 수정됨',
   });

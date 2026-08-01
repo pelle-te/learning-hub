@@ -7,7 +7,7 @@
 ============================================================ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/shell/toast', () => ({ toast: vi.fn(), toastUndo: vi.fn(), ToastHost: () => null }));
+vi.mock('@/shell/toast', () => ({ toast: vi.fn(), toastUndo: vi.fn(), toastUndoable: vi.fn(), ToastHost: () => null }));
 vi.mock('@/lib/idb', () => ({
   idbMirror: vi.fn(),
   idbLoad: vi.fn(async () => null),

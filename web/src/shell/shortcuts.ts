@@ -57,6 +57,10 @@ export const NAV_SHORTCUTS: NavShortcut[] = [
  *  이제 `useKeymap` 이 화면과 함께 등록하고 치트시트 '이 화면' 섹션이 문맥에 맞게 그린다. */
 export const GLOBAL_SHORTCUTS: { keys: string; label: string }[] = [
   { keys: `${MOD_LABEL} + K`, label: '명령 팔레트' },
+  /* 근본① — **직전 편집**을 되돌린다(파괴적 동작 직전 백업이 아니다). 라벨이 그 단위를 말하는
+     것이 중요하다: 옛 ⋯메뉴 '되돌리기'는 *마지막 파괴적 동작 시점*으로 갔고 그게 며칠 전일 수
+     있었다. ⚠ 글자를 치는 중에는 안 먹는다(그때는 텍스트 되돌리기 · `App.tsx` 가 이유를 갖는다). */
+  { keys: `${MOD_LABEL} + Z`, label: '직전 편집 되돌리기' },
   // D-2 — 팔레트 안에서만 유효하지만 여기 있는 이유: 캡처는 "떠올랐을 때" 쓰는 것이라
   // 팔레트를 열어 힌트 바를 읽고 나서 배우면 이미 늦다.
   { keys: `${MOD_LABEL} + Enter`, label: '팔레트에 친 문장을 그대로 캡처' },

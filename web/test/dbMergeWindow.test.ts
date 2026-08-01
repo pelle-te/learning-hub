@@ -50,7 +50,7 @@ import { defaults } from '@/lib/persistence';
 
 beforeEach(() => {
   endMergeApply(); // 이전 케이스 잔류 방지 — 창이 열린 채 남으면 다음 케이스가 전부 미뤄진다
-  writeRows.mockReset().mockResolvedValue({ ok: true, touched: [] });
+  writeRows.mockReset().mockResolvedValue({ ok: true, touched: [], preImages: [], stamp: 0 });
   isDbAvailable.mockReset().mockResolvedValue(true);
   isSqlitePrimary.mockReset().mockReturnValue(true);
   readTouched.mockReset().mockResolvedValue(new Map());

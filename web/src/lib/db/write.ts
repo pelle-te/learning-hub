@@ -26,6 +26,7 @@
 ============================================================ */
 import { stateToRows, rowsToState } from './rows';
 import { readRows, readTouched, touchedKey, writeRows, isDbAvailable, isSqlitePrimary } from './sqlite';
+import { pushUndo } from './undoStack';
 import type { AppState } from '../types';
 
 /** 대조 결과 — 소비처(개발 콘솔·설정 탭 진단)가 읽는다. */
@@ -170,7 +171,20 @@ function diffSlices(a: AppState, b: AppState): string[] {
  * `ParityReport.ok` 가 거짓이면 호출부가 사용자에게 경고한다. 옛 이름 `mirrorAndVerify` 의
  * "mirror" 는 부차적 사본을 뜻해 오해를 불렀다(정본을 미러라 부르면 실패를 가볍게 다루게 된다).
  */
-export function writeAndVerify(state: AppState): Promise<ParityReport> {
+export interface WriteOptions {
+  /**
+   * 이 쓰기의 pre-image 를 **되돌리기 스택에 쌓을 것인가**(기본 참 · 전역 ⌘Z).
+   *
+   * ⚠ **`loadState` 경로(가져오기·초기화·복구)는 거짓을 준다.** 두 이유가 겹친다:
+   * ① 그건 "편집"이 아니라 상태 통째 교체라 되돌리기 단위가 다르고, 사용자 결정대로 그 층은
+   *    **`BACKUP_KEY` 스냅샷**이 계속 맡는다. ② 손댄 행이 곧 전체(2년 근사 상태에서 5,348행 ·
+   *    166KB)라 한 번에 예산을 통째로 먹고, 그러면 **평범한 편집의 되돌리기가 전부 밀려난다** —
+   *    스냅샷이 이미 덮는 사건 하나를 위해 안 덮는 사건 수십 개를 버리는 교환이다.
+   */
+  undo?: boolean;
+}
+
+export function writeAndVerify(state: AppState, opts: WriteOptions = {}): Promise<ParityReport> {
   // 체인으로 이어 붙인다 — 동시 실행하면 두 스냅샷 쓰기가 서로 섞여 마지막 것이 정본이 아닐 수 있다.
   // 그리고 `whenSettled()` 가 기다릴 대상이 하나로 모인다.
   return runExclusive(async () => {
@@ -198,7 +212,7 @@ export function writeAndVerify(state: AppState): Promise<ParityReport> {
          진단이 "마지막 저장은 skipped" 라고 말하기 시작한다(안 잰 것을 결과로 보고하는 형태). */
       return { ok: true, mismatched: [], skipped: true, unavailable: false, deferred: true };
     }
-    return runWrite(state);
+    return runWrite(state, opts.undo ?? true);
   });
 }
 
@@ -221,7 +235,7 @@ export function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-async function runWrite(state: AppState): Promise<ParityReport> {
+async function runWrite(state: AppState, captureUndo: boolean): Promise<ParityReport> {
   if (!(await isDbAvailable())) {
     /* ⚠ 여기가 C1 의 자리다. 같은 `null` 이 두 뜻이었다 — 아래 두 갈래로 가른다.
        (`isDbAvailable()` 이 `getDb()` 를 부르며 가용성 플래그를 갱신하므로 순서가 중요하다.) */
@@ -238,6 +252,12 @@ async function runWrite(state: AppState): Promise<ParityReport> {
       _last = { ok: false, mismatched: ['<쓰기 실패>'], skipped: false, unavailable: false };
       return _last;
     }
+    /* ⚠ **성공한 뒤에만 쌓는다**(전역 ⌘Z). 쓰기가 실패했으면 DB 는 pre-image 그대로이거나 부분
+       적용이라 "직전"이 무엇인지 모른다 — 그 상태를 되돌릴 수 있다고 말하는 것이 더 나쁘다.
+       ⚠ 이 자리가 **캡처의 유일한 지점**이다: 병합 쓰기(`applyPull`)는 `batchDb` 로 가고
+       (내 편집이 아니다), 최초 이관(`boot.ts`)은 `writeRows` 를 직접 부른다(기준선이 없어
+       `preImages` 가 애초에 빈 배열이다). 즉 여기 없는 경로는 원리적으로 안 쌓인다. */
+    if (captureUndo) pushUndo(wrote.preImages, wrote.stamp);
     /* ── 되읽기 대조의 이력(읽는 순서대로) ──────────────────────────────────
        ① 처음엔 **매 flush 전량**이었다. 쓰기는 증분(diff)인데 검증만 O(전체) — 8테이블을 통째로
           읽고(`readRows`) 상태로 되돌린 뒤 양쪽을 stringify 했다. 2년 근사 상태(10,380행/0.67MB)

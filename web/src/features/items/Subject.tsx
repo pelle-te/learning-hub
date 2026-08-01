@@ -216,13 +216,12 @@ export default function Subject() {
         },
       );
       if (!ok) return;
-      ui.backupNow();
       mutate((st) => {
         st.items = st.items.filter((s) => s.id !== sid);
         removeSidFromAlloc(st, sid); // 참조 무결성 — Items 의 삭제와 **같은 세 줄**이어야 한다
         removeSidFromDayPlans(st, sid);
       });
-      ui.toastUndo(`"${(it && it.name) || '과목'}" 삭제됨`);
+      ui.toastUndoable(`"${(it && it.name) || '과목'}" 삭제됨`);
       navigate('/items', { replace: true });
     },
     [items, mutate, navigate],

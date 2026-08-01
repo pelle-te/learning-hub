@@ -107,12 +107,13 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
       if (on) ch.doneDs = todayISO(st);
       else delete ch.doneDs;
     });
-  // 챕터 삭제 — 진행 기록도 함께 사라지므로 1단계 백업 + 되돌리기 토스트(과목 삭제·색 재배정과 동일 언두 관용).
+  /* 챕터 삭제 — 진행 기록도 함께 사라진다. ⚠ 종전엔 여기서 `ui.backupNow()` 로 `BACKUP_KEY`
+     스냅샷을 덮었는데, 그 스냅샷의 소비처는 **가져오기·초기화의 되돌리기**다 → 챕터 하나를 지울
+     때마다 *그쪽* 되돌림 지점이 여기로 끌려왔다. 지금은 전역 ⌘Z 가 행 단위로 덮는다(근본①). */
   const delCh = (i: number) => {
     const nm = chs[i]?.name || '이 챕터';
-    ui.backupNow();
     upd((it) => void it.chapters.splice(i, 1));
-    ui.toastUndo(`"${nm}" 챕터 삭제됨`);
+    ui.toastUndoable(`"${nm}" 챕터 삭제됨`);
   };
 
   const drop = (to: number) => {
