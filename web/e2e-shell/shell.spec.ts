@@ -387,3 +387,42 @@ test('미니 HUD — 접기가 창을 알약으로 줄이고, 펼치기가 원�
   await stopChip.click();
   await shell.page.getByRole('button', { name: '중단' }).click(); // 조기중단 confirm
 });
+
+/* ============================================================
+   부팅 계량 — **WebView2 에서 재야 하는 이유**(2026-08-02).
+
+   감사의 검증사각 표가 성능 264ms 의 닫는 법을 *"릴리스 exe + 트랙B 하네스에 Performance 트레이스"*
+   라 처방했다. 그 처방을 처음엔 지키지 않았다 — 원인 특정도 A/B 도 **Chromium(`vite preview`)** 에서
+   했고, 그건 트랙 A 다. 트랙 A/B 를 나눈 이유가 정확히 *"무효화되는 도구로 무효화되지 않았음을
+   증명"* 하지 않기 위해서인데, 그 규율을 성능에만 적용하지 않고 있었다.
+
+   ⚠ 여기서만 참인 것들: WebView2 는 **다른 엔진**(Chromium 계열이지만 버전·플래그가 다르다) ·
+   오리진이 `tauri://` 라 청크가 **네트워크가 아니라 로컬 파일**로 온다 · `modulepreload` 의 타이밍이
+   다를 수 있다. 그중 어느 하나만 달라도 `React.lazy` 의 첫 렌더 throw → Suspense 억제 경로가
+   다르게 나타날 수 있다.
+
+   ⚠ **임계는 대기(gap)에만 건다.** 절대 부팅 시간은 러너·디스크·콜드캐시에 좌우되지만, 이 결함이
+   만든 것은 **아무것도 안 하면서 기다리는 시간**이라 그 축은 하드웨어에 둔감하다(고치기 전 260ms ·
+   고친 뒤 0ms 대 — 5배 이상 벌어져 있다).
+   ⚠ 마크가 없으면 **통과로 읽지 않는다** — 계량이 죽은 것과 회귀가 없는 것은 다르다. */
+test('부팅 계량 — 실 WebView2 에서도 첫 라우트가 Suspense 폴백을 안 거친다', async () => {
+  const shell = await sharedShell();
+  // 공유 셸은 이미 부팅을 마쳤다 — 마크는 그 부팅의 것이다(다시 띄우지 않는다).
+  const wave = await shell.page.evaluate(() => {
+    const at = (n: string) => performance.getEntriesByName(n, 'mark')[0]?.startTime ?? null;
+    return { entry: at('hub:entry'), app: at('hub:app'), data: at('hub:first-data') };
+  });
+
+  expect(wave.entry, '`hub:entry` 가 없다 — 계량이 죽었다(부팅 웨이브를 아무도 안 재고 있다)').not.toBeNull();
+  expect(wave.app, '`hub:app` 이 없다 — App 이 마운트되지 않았거나 마크가 빠졌다').not.toBeNull();
+  expect(wave.data, '`hub:first-data` 가 없다 — 첫 탭이 데이터로 그려진 적이 없다').not.toBeNull();
+
+  const gap = wave.data! - wave.app!;
+  const total = wave.data! - wave.entry!;
+  console.log(
+    `[boot] entry→app ${(wave.app! - wave.entry!).toFixed(1)}ms · app→first-data ${gap.toFixed(1)}ms · total ${total.toFixed(1)}ms`,
+  );
+  expect(gap, 'React Suspense 억제(≈248ms)가 WebView2 에서 살아 있다 — `registry.warmTab` 머리주석 참조').toBeLessThan(
+    50,
+  );
+});

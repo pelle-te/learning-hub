@@ -57,6 +57,43 @@ test('탐구 수집 탭이 로드되고 검색 히어로를 표시한다', async
   await expect(page.getByLabel('탐구 주제')).toBeVisible({ timeout: 15000 });
 });
 
+/* ============================================================
+   H10 — **떠 있는 층 위에서 단일키가 뒤를 움직이면 안 된다**(2026-08-01 `/감사 근본`).
+
+   감사의 검증사각 표가 이 케이스를 **처방했다**(*"H10~H13 키보드 전이 → e2e 키보드 케이스 신설 ·
+   axe 는 렌더된 기본 상태만 본다"*). 사각인 이유가 그 괄호다: axe 도 시각 스냅샷도 **정지한 한
+   상태**를 보는데, 이 결함은 *상태 사이를 옮겨 다니는 동안*에만 나타난다.
+
+   관측된 형태: `?` 치트시트를 열고 **거기 적힌 `g`+키를 그대로 눌러 보면** 뒤에서 탭이 바뀐다.
+   리스너가 **캡처 단계**라 다이얼로그보다 먼저 돌고, 게이트는 `isTyping() || palette` 둘뿐이라
+   `help` 를 몰랐다. 배우려고 누른 키가 배우려던 화면을 치우는 셈이다.
+
+   ⚠ **음성만 잠그면 안 된다** — "아무 키도 안 먹는다"로 고쳐도 이 단언은 통과한다. 그래서 닫은
+   뒤 같은 키가 **실제로 이동시키는지**를 짝으로 본다(양성 대조). 유닛(`test/keyGate.test.tsx`)이
+   게이트 *판정*을 잠그고, 여기서는 **전이**를 본다 — 둘은 다른 것을 지킨다.
+============================================================ */
+test('치트시트가 떠 있으면 `g` 시퀀스가 뒤의 탭을 바꾸지 않는다 (H10)', async ({ page }) => {
+  await boot(page, 'dark');
+  await page.goto('/today');
+  await expect(page).toHaveURL(/\/today$/);
+
+  await page.keyboard.press('?');
+  await expect(page.getByRole('dialog').first()).toBeVisible();
+
+  // 치트시트에 적힌 그대로: `g` 그다음 `a`(= 통계 · SEQ_OVERRIDE). 열려 있는 동안엔 먹으면 안 된다.
+  await page.keyboard.press('g');
+  await page.keyboard.press('a');
+  await expect(page.getByRole('dialog').first(), '단일키가 새면 오버레이도 함께 흔들린다').toBeVisible();
+  await expect(page, '치트시트를 읽는 중에 뒤에서 탭이 바뀌었다(H10)').toHaveURL(/\/today$/);
+
+  // ⚠ 양성 대조 — 닫으면 같은 키가 **실제로** 이동시킨다(게이트가 키를 죽인 게 아니다).
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.keyboard.press('g');
+  await page.keyboard.press('a');
+  await expect(page, '게이트가 단일키를 통째로 죽였다면 이 단언이 잡는다').toHaveURL(/\/stats$/);
+});
+
 /* ⚠ **부팅 대기 260ms 회귀 가드**(2026-08-01 실측). `test/tabWarm.test.ts` 가 *배선*(첫 라우트가
    `lazy` 가 아니다)을 잠그고, 여기서는 *결과*(실제로 안 기다린다)를 본다 — 배선이 맞아도 다른
    경로에서 Suspense 가 다시 걸리면 유닛은 녹색이다.
