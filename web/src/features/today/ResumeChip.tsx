@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { latestResume, resumeDevice, resumeLabel, resumeIndex, RESUME_ROUTE, type ResumeNav } from '@/lib/resume';
+import { Icon } from '@/components/Icon';
 
 const CHIP =
   'inline-flex items-center gap-2 rounded-chip border! border-line-acc-pill! bg-tint-acc-9! px-3! py-1.5! text-sm! leading-auto font-bold! text-ink! hover:bg-tint-acc-14! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
@@ -35,7 +36,7 @@ export default function ResumeChip() {
   };
   return (
     <button type="button" className={CHIP} onClick={go} title="다른 기기에서 하던 것을 이어서">
-      <span aria-hidden="true">↪</span>
+      <Icon name="arrowForward" />
       {resumeLabel(hit.cur)}
     </button>
   );

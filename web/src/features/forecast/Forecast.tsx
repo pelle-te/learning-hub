@@ -36,6 +36,7 @@ import { totalDue, dueBySubject, ankiFreshness } from '@/lib/anki';
 import { todayISO, fmtShort, reviewBlockMin, DOW } from '@/lib/utils';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 const WRAP = 'flex h-full flex-col gap-4 p-6';
 const CHART = 'flex min-h-0 flex-1 items-end gap-1.5';
@@ -72,7 +73,7 @@ function DayColumn({ d, axisMax }: { d: ForecastDay; axisMax: number }) {
     d.chapters === 0
       ? `${short(d.ds)} 복습 없음${capTxt}`
       : `${short(d.ds)} (${DOW[d.wd]}) 복습 ${d.blocks}블록 · 챕터 ${d.chapters}개${capTxt}` +
-        (d.over ? ' ⚠ 가용 초과' : '') +
+        (d.over ? ' · 가용 초과' : '') +
         ' — ' +
         d.subjects.map((s) => `${s.subject} ${s.count}`).join(', ');
   return (
@@ -217,7 +218,7 @@ export default function Forecast() {
     return (
       <section className={WRAP} aria-label="복습 부하 예보">
         <State
-          glyph="📈"
+          glyph="trend"
           title="다가오는 복습 파도가 아직 없어요"
           desc={
             <>
@@ -308,7 +309,8 @@ export default function Forecast() {
       {firstOver && (
         <div className={OVER_STRIP} role="status" aria-label="가용 초과">
           <span className="ds-tiny font-bold text-bad">
-            ⚠ {short(firstOver.ds)} ({DOW[firstOver.wd]}) 복습 {firstOver.blocks}블록 · 가용 {firstOver.capBlocks}블록
+            <Icon name="alert" /> {short(firstOver.ds)} ({DOW[firstOver.wd]}) 복습 {firstOver.blocks}블록 · 가용{' '}
+            {firstOver.capBlocks}블록
             {overDays.length > 1 && ` · 외 ${overDays.length - 1}일 초과`}
           </span>
           {pull.length > 0 && (

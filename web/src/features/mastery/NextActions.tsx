@@ -19,6 +19,7 @@ import { rootCauseRollup, type Knowledge } from '@/lib/knowledge';
 import { masteryColor, pctLabel } from '@/lib/utils';
 import { VaultLink } from './KnowledgeMap';
 import { M } from './classes';
+import { Icon } from '@/components/Icon';
 
 interface ConceptRow {
   title?: string;
@@ -36,7 +37,8 @@ function ConceptList<T extends ConceptRow>({
   renderMeta,
   cap = 18,
 }: {
-  heading: string;
+  /** ⚠ `ReactNode` 다 — 제목 앞 아이콘이 요소이기 때문(옛 이모지 문자열 자리 · 2026-08-01). */
+  heading: ReactNode;
   subtitle: string;
   empty: ReactNode;
   items: T[];
@@ -87,7 +89,11 @@ function ConceptList<T extends ConceptRow>({
 export function Frontier({ k }: { k: Knowledge }) {
   return (
     <ConceptList
-      heading="🎯 다음 배울 개념"
+      heading={
+        <>
+          <Icon name="target" /> 다음 배울 개념
+        </>
+      }
       subtitle="(ZPD · 선수 충족·고레버리지순 — 이걸 배우면 가장 많은 게 풀린다)"
       empty={<div className="ds-tiny text-mut">프런티어 없음(선수 미충족 또는 충분 숙달).</div>}
       items={k.frontier || []}
@@ -129,9 +135,9 @@ export function Sequencing() {
   return (
     <div className="ds-rule">
       <h3>
-        🧭 다음 학습 순서{' '}
+        <Icon name="compass" /> 다음 학습 순서{' '}
         <span className="ds-tiny text-mut">
-          (커리큘럼 arc 단위 — 개념 단위는 위 🎯 · 선수게이트+약점+ZPD+삶연관성 결합 랭크)
+          (커리큘럼 arc 단위 — 개념 단위는 위 '다음 배울 개념' · 선수게이트+약점+ZPD+삶연관성 결합 랭크)
         </span>
       </h3>
       <div className="ds-row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -308,7 +314,8 @@ export function EngineHealth() {
   return (
     <div className="ds-rule">
       <h3>
-        📈 엔진 건강 <span className="ds-tiny text-mut">(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
+        <Icon name="trend" /> 엔진 건강{' '}
+        <span className="ds-tiny text-mut">(연관성↑ 노트가 실제 더 숙달됐나 — 배분 논지 회고 · D11)</span>
       </h3>
       {cold ? (
         /* 콜드 정직성 — 라이브 인출 신호 0(P8 콜드)이라 평균숙달이 없음. 스캐폴드만 켜고 판정은 신호 축적 후. */
@@ -374,7 +381,11 @@ export function EngineHealth() {
 export function Gaps({ k }: { k: Knowledge }) {
   return (
     <ConceptList
-      heading="🩹 약점 진단"
+      heading={
+        <>
+          <Icon name="bandage" /> 약점 진단
+        </>
+      }
       subtitle="(약한 순 · 근본원인을 먼저 메우면 상류가 같이 풀린다)"
       empty={<div className="ds-foot text-mut">증거상 약점 없음 — 인출 관측이 쌓이면 약점이 드러납니다.</div>}
       items={k.gaps || []}
@@ -390,7 +401,7 @@ export function Gaps({ k }: { k: Knowledge }) {
           ) : x.root_cause ? (
             /* AN-12 — 선수약점(root_cause)도 볼트에서 열 수 있게 텍스트 딥링크로(VaultLink text 변형). */
             <VaultLink query={x.root_cause} label={`선수약점 "${x.root_cause}"`} variant="text">
-              ← 선수약점: {x.root_cause} 🔎
+              ← 선수약점: {x.root_cause} <Icon name="search" />
             </VaultLink>
           ) : null}
         </>
@@ -409,7 +420,7 @@ export function RootCauses({ k }: { k: Knowledge }) {
   return (
     <div className="ds-rule">
       <h3>
-        🌱 약점의 뿌리{' '}
+        <Icon name="sprout" /> 약점의 뿌리{' '}
         <span className="ds-tiny text-mut">
           (한 선수개념이 여러 약점의 공통 근본원인 — 먼저 메우면 상류가 같이 풀린다)
         </span>
@@ -418,7 +429,7 @@ export function RootCauses({ k }: { k: Knowledge }) {
         {roll.map(({ cause, count }) => (
           <div key={cause} className={M.msrow}>
             <span className={M.msdot} style={{ background: 'var(--bad)' }}>
-              🌱
+              <Icon name="sprout" />
             </span>
             <span className={M.nm}>{cause}</span>
             <span
@@ -443,7 +454,9 @@ export function Calibration({ k }: { k: Knowledge }) {
   if (!c.n_errors && !c.blank_total)
     return (
       <div className="ds-rule">
-        <h3>🎚 메타인지 캘리브레이션</h3>
+        <h3>
+          <Icon name="sliders" /> 메타인지 캘리브레이션
+        </h3>
         <div className="ds-foot text-mut">
           CBMS 오답·백지 기록이 없습니다 — 러닝허브에서 기록 후 <b>볼트 백업</b>→<code>지식엔진.py build --export</code>
           로 인제스트하면 '확신했는데 틀린' 과신율이 잡힙니다(투입 아닌 출력 지표 · 설계 E).
@@ -455,7 +468,7 @@ export function Calibration({ k }: { k: Knowledge }) {
   return (
     <div className="ds-rule">
       <h3>
-        🎚 메타인지 캘리브레이션{' '}
+        <Icon name="sliders" /> 메타인지 캘리브레이션{' '}
         <span className="ds-tiny text-mut">(확신도 vs 정확도 — 낮을수록 자기 앎을 정확히 안다)</span>
       </h3>
       <div className="ds-row" style={{ gap: 24, flexWrap: 'wrap' }}>

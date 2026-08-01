@@ -36,6 +36,7 @@ import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromNews, PROMOTE_TOAST } from '@/lib/promote';
+import { Icon } from '@/components/Icon';
 
 const DIR_GLYPH = { up: '▲', down: '▼', flat: '＝' } as const;
 const DIR_WORD = { up: '상승', down: '하락', flat: '보합' } as const;
@@ -235,7 +236,7 @@ export default function Markets() {
               void refetchPing();
               void markets.refetch();
             }}
-            glyph="📈"
+            glyph="trend"
             offlineDesc={
               <>
                 증시 동향은 러닝허브가 직접 수집해요. {workspaceHint('전세계 지수 등락과 금융 뉴스를 가져옵니다')} 피드
@@ -274,7 +275,7 @@ export default function Markets() {
             {collecting ? <span className="ds-spin" /> : '↻'} 수집
           </Button>
           <Button variant="primary" sm onClick={askBrief} disabled={!online || !indices.length}>
-            🤖 오늘 왜 움직였나
+            <Icon name="bot" /> 오늘 왜 움직였나
           </Button>
         </div>
       </header>
@@ -336,7 +337,7 @@ export default function Markets() {
       </div>
 
       {/* 온디맨드 AI 브리핑 — 공용 DetailDrawer(포커스 트랩·Esc·바깥클릭·복원 일원화) */}
-      <DetailDrawer open={briefOpen} onClose={closeBrief} title="🤖 오늘의 증시 브리핑">
+      <DetailDrawer open={briefOpen} onClose={closeBrief} title="오늘의 증시 브리핑">
         {brief.busy ? (
           <>
             <div className={PANEL_BUSY} role="status">
@@ -405,7 +406,7 @@ export default function Markets() {
                 void askBrief();
               }}
             >
-              🔄 다시 생성
+              <Icon name="refresh" /> 다시 생성
             </Button>
           </div>
         ) : (
@@ -509,7 +510,7 @@ const NewsCard = memo(function NewsCard({
           {n.field ? <span className="rounded-sm border border-line px-1.25 text-mut">{n.field}</span> : null}
           {fmtPublished(n.published) ? <span className="font-medium text-mut">{fmtPublished(n.published)}</span> : null}
           <span className="ml-auto text-mut" aria-hidden="true">
-            ↗
+            <Icon name="arrowUpRight" />
           </span>
         </div>
         <div className="text-base14 leading-snug font-bold text-txt">{n.title}</div>
@@ -522,7 +523,13 @@ const NewsCard = memo(function NewsCard({
         disabled={done}
         title={done ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}
       >
-        {done ? '✓ 보냄' : '📥 학습으로 보내기'}
+        {done ? (
+          '✓ 보냄'
+        ) : (
+          <>
+            <Icon name="inbox" /> 학습으로 보내기
+          </>
+        )}
       </button>
     </li>
   );

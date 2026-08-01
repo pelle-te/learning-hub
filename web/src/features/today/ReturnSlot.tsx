@@ -25,6 +25,7 @@ import { deadlineDdays } from '@/lib/scheduleView';
 import { todayISO } from '@/lib/utils';
 import { loadAbsence, missedSince, returnBriefing, type AbsenceSnapshot, type PlannedBlock } from '@/lib/absence';
 import ResumeChip from './ResumeChip';
+import { Icon } from '@/components/Icon';
 
 const BRIEF =
   'inline-flex max-w-[var(--brief-max)] items-center gap-2 rounded-chip border border-line-acc-pill bg-tint-acc-9 px-3 py-1.5 text-sm leading-auto font-bold text-ink';
@@ -65,7 +66,7 @@ export default function ReturnSlot() {
   if (!brief) return <ResumeChip />;
   return (
     <p role="status" className={BRIEF} title={brief.aria}>
-      <span aria-hidden="true">↩</span>
+      <Icon name="arrowReturn" />
       <span aria-hidden="true">{brief.line}</span>
       <span className="sr-only">{brief.aria}</span>
     </p>

@@ -122,7 +122,7 @@ export function weeklyInsights(state: AppState, weekMonDs: string): Insight[] {
     const prev = passRate(state, prev0, prev6);
     const pct = Math.round(cur * 100);
     if (prev != null && cur > prev + 0.001) {
-      out.push({ kind: 'blank', tone: 'good', text: `백지 통과율 ${Math.round(prev * 100)}% → ${pct}%로 올랐어요 👍` });
+      out.push({ kind: 'blank', tone: 'good', text: `백지 통과율 ${Math.round(prev * 100)}% → ${pct}%로 올랐어요` });
     } else if (cur < 0.6) {
       out.push({
         kind: 'blank',

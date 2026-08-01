@@ -42,6 +42,7 @@ import { createGraphSim, type FocusResult } from './graphSim';
 import { drawGraph, type Palette } from './graphDraw';
 import { createPointerHandlers } from './graphPointer';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
+import { Icon } from '@/components/Icon';
 
 // 캔버스 호스트/폴백 상단 1px 발광 헤어라인(--bg-sig-top · review→ledger 이식이 깐 것 재사용).
 // 범례 스와치(9px 원) 공통 · 칩(span). 의미연결(lSem)은 점선 선분이라 따로 준다.
@@ -178,7 +179,7 @@ function NodeDetail({
           onClick={() => openVaultSearch(sel.label)}
           title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
         >
-          🔎 볼트에서 찾기
+          <Icon name="search" /> 볼트에서 찾기
         </button>
         {/* E-5: Anki는 신뢰 가능한 데스크톱 URL 스킴이 없어 연동 탭(덱 상태·내보내기)으로 안내. */}
         <button
@@ -187,7 +188,7 @@ function NodeDetail({
           onClick={() => go('/integrations')}
           title="Anki 덱 상태·카드 내보내기"
         >
-          📇 Anki 연동 →
+          <Icon name="cards" /> Anki 연동 →
         </button>
       </div>
     </div>
@@ -554,7 +555,7 @@ export default function Graph() {
       {items.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-[image:var(--bg-map-panel)]">
           <State
-            glyph="🕸"
+            glyph="graph"
             title="아직 학습 구조도가 비어 있어요"
             desc={
               <>

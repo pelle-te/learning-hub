@@ -18,6 +18,7 @@ import { useFlushOnUnmount } from '@/hooks/interactions';
 import { addBacklog } from '@/lib/methodology';
 import { backlogFromArticle, PROMOTE_TOAST } from '@/lib/promote';
 import type { Article, ArticleWork } from '@/lib/reads';
+import { Icon } from '@/components/Icon';
 
 type Filter = 'all' | 'en' | 'ko';
 type Progress = 'all' | 'todo' | 'done';
@@ -232,7 +233,7 @@ export default function ArticlePractice({
             void refetchPing();
             void refetch();
           }}
-          glyph="📰"
+          glyph="reads"
           offlineDesc={
             <>
               읽을거리 지문은 러닝허브가 직접 수집해요. {workspaceHint('내 RSS 피드에서 원문을 가져옵니다')} 피드 설정:{' '}
@@ -361,7 +362,7 @@ function ReaderPane({ sel, online }: { sel: Article; online: boolean }) {
             target="_blank"
             rel="noreferrer noopener"
           >
-            원문 ↗
+            원문 <Icon name="arrowUpRight" />
           </a>
         </div>
         <h2 className="m-0! text-reader-title! leading-tight font-black! tracking-title!">{sel.title}</h2>
@@ -436,7 +437,9 @@ function SummaryEditor({
               <span className="ds-spin" /> 채점 중…
             </>
           ) : (
-            '🤖 AI 채점 받기'
+            <>
+              <Icon name="bot" /> AI 채점 받기
+            </>
           )}
         </Button>
         <Button
@@ -445,7 +448,13 @@ function SummaryEditor({
           disabled={promoted}
           title={promoted ? '이미 백로그로 보냈어요' : '보충 백로그로 보내기'}
         >
-          {promoted ? '✓ 보냄' : '📥 학습으로 보내기'}
+          {promoted ? (
+            '✓ 보냄'
+          ) : (
+            <>
+              <Icon name="inbox" /> 학습으로 보내기
+            </>
+          )}
         </Button>
       </div>
 

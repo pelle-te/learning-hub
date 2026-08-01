@@ -11,6 +11,7 @@ import { useKeymapDoc } from '@/hooks/useKeymap';
 import { pxToMin } from '@/lib/dayPlanGeometry';
 import { SNAP, snap as snapMin } from '@/lib/dayPlans';
 import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 이식(DayPlannerCards) — Tailwind 클래스 SSOT ────────────────────────────
    TrayRow(트레이 한 줄) · EventBand(일정 띠) · TimedCard(타임박스 카드) 셋 다 무상태 프레젠테이션.
@@ -145,7 +146,11 @@ export function TrayRow({
       <span className={C.grabDot} aria-hidden="true" />
       <span className={`${C.rowName} ${done ? 'ds-shed' : ''}`}>{title}</span>
       <span className={C.rowMeta}>
-        {repeat && <span title={repeat === 'daily' ? '매일 반복' : '매주 반복'}>🔁 </span>}
+        {repeat && (
+          <span title={repeat === 'daily' ? '매일 반복' : '매주 반복'}>
+            <Icon name="refresh" />{' '}
+          </span>
+        )}
         {meta}
       </span>
       {/* 길이 편집(§6-2 인라인) — 스테퍼로 30분 단위(입력창은 draggable 행과 충돌해 버튼으로). */}
@@ -193,7 +198,7 @@ export function TrayRow({
         title="첫 빈 시간에 배치"
         aria-label={`${title} 시간박기`}
       >
-        ⤵
+        <Icon name="arrowDownRight" />
       </button>
       {onDelete && (
         <button
@@ -415,7 +420,11 @@ export function TimedCard({
     >
       <div className={C.cardMain}>
         <span className={`${C.cardName} ${done ? 'ds-shed' : ''}`}>
-          {pinned && '📌 '}
+          {pinned && (
+            <>
+              <Icon name="pin" />{' '}
+            </>
+          )}
           {title}
         </span>
         {!compact && (
@@ -453,7 +462,7 @@ export function TimedCard({
             aria-label="핀 토글"
             aria-pressed={!!pinned}
           >
-            📌
+            <Icon name="pin" />
           </button>
         )}
         <button
@@ -463,7 +472,7 @@ export function TimedCard({
           title="트레이로(미지정)"
           aria-label="트레이로 되돌리기"
         >
-          ⤴
+          <Icon name="arrowUpRight" />
         </button>
         {onDelete && (
           <button type="button" className={C.tool} onClick={onDelete} title="삭제" aria-label="삭제">

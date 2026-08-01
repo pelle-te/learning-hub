@@ -29,6 +29,7 @@ import {
 } from '@/lib/degree';
 import DegreeReq from './DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
+import { Icon } from '@/components/Icon';
 
 /** 학기·과목 타입은 lib/degree가 SSOT(DegreeSemester/DegreeCourse). d.semesters가 이미 그 타입. */
 const sems = (d: DegreeT): DegreeSemester[] => d.semesters;
@@ -219,7 +220,7 @@ function SemCard({ sem, open, onToggle }: { sem: DegreeSemester; open: boolean; 
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {(c.status === '수강중' || c.status === '예정') && (
                         <Button sm variant="ghost" title="학습 항목으로" onClick={() => courseToItem(c.name)}>
-                          📥
+                          <Icon name="inbox" />
                         </Button>
                       )}
                       <Button sm variant="ghost" danger onClick={() => delCourse(c.id, c.name)} aria-label="과목 삭제">
@@ -308,7 +309,7 @@ function DegreePlan() {
   useEffect(() => {
     if (pct >= 100 && !degreeCele && !celebrated.current) {
       celebrated.current = true; // 마운트당 1회 가드(TodaySignature wasDone 패턴).
-      ui.toast('🎓 졸업 요건 충족 — 축하해요!', 'info');
+      ui.toast('졸업 요건 충족 — 축하해요!', 'info');
       mutate((st) => {
         st._degreeCele = true;
       });
@@ -560,7 +561,9 @@ export default function Degree() {
   return (
     <div className="min-w-0">
       <div className="mb-4 flex items-center gap-3.5">
-        <h2 className="ds-caps mb-0!">🎓 졸업</h2>
+        <h2 className="ds-caps mb-0! flex items-center gap-1.5">
+          <Icon name="cap" /> 졸업
+        </h2>
         <div className="ds-seg ml-auto">
           <button
             type="button"

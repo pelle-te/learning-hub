@@ -36,6 +36,7 @@ import { DayBar } from './DayBar';
 import { todayISO, parseISO, addDays, iso, ddayInfo, toHM, mmss } from '@/lib/utils';
 import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 import { useCommitOnChange } from '@/hooks/useCommitOnChange';
+import { Icon } from '@/components/Icon';
 // 'ds'는 이 파일서 날짜문자열 지역변수라 별칭 회피
 
 const TYPE_LABEL: Record<string, string> = {
@@ -216,7 +217,7 @@ function ShapeLine({ state, ds, when }: { state: AppState; ds: string; when: boo
   if (shape.sessions === 0 && !shape.learned) return null;
   return (
     <div className={S.yesterday}>
-      <span aria-hidden="true">🌙</span> 오늘의 모양 — {shape.subjects}과목 · {shape.sessions}세션 · {shape.focusMin}분
+      <Icon name="moon" /> 오늘의 모양 — {shape.subjects}과목 · {shape.sessions}세션 · {shape.focusMin}분
       {shape.learned && (
         <>
           {' '}
@@ -261,7 +262,9 @@ function CloseDayCta({
   if (!when) return null;
   return (
     <button type="button" className={`${S.cta} ${S.ctaGhost}`} onClick={() => onOpenMore('ritual')}>
-      <span className={S.ctaGo}>🌙 하루 닫기</span>
+      <span className={S.ctaGo}>
+        <Icon name="moon" /> 하루 닫기
+      </span>
       <span className={S.ctaCap}>{cap}</span>
     </button>
   );
@@ -459,7 +462,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   };
   const prefillNode = (e: EnrichedItem): void => {
     usePrefill.getState().request('sum', e.it.sid, ds);
-    ui.toast(`${e.it.name} — 기록 프리필됨 ✍`, 'info');
+    ui.toast(`${e.it.name} — 기록 프리필됨`, 'info');
   };
 
   /* ── N-5 하루의 국면 ────────────────────────────────────────────────
@@ -556,7 +559,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     if (allDone && !wasDone.current) {
       wasDone.current = true;
       setCelebrate(true);
-      ui.toast('오늘 블록 완료! 🎉', 'info');
+      ui.toast('오늘 블록 완료!', 'info');
       const id = setTimeout(() => setCelebrate(false), 1400);
       return () => clearTimeout(id);
     }
@@ -570,7 +573,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     const hit = MILE.filter((m) => streak >= m && last < m);
     if (hit.length) {
       const top = Math.max(...hit);
-      ui.toast(`🔥 ${top}일 연속 — 불씨 살아있어요`, 'info');
+      ui.toast(`${top}일 연속 — 불씨 살아있어요`, 'info');
       mutate((st) => {
         st._lastStreakCele = top;
       });
@@ -610,10 +613,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
       readouts: [
         {
           label: '연속',
-          // PL-9: streak≥2면 🔥 프리픽스(Stats 탭 prefix="🔥 "와 통일 — 불씨 살아있음 시각화).
+          // PL-9: streak≥2면 불꽃 아이콘 프리픽스(Stats 탭 `Readout prefix` 와 통일 — 불씨 살아있음 시각화).
           value: (
             <>
-              {streak >= 2 && '🔥 '}
+              {streak >= 2 && (
+                <>
+                  <Icon name="flame" />{' '}
+                </>
+              )}
               {streak}
               <small className="text-base14 font-bold text-mut"> 일</small>
             </>
@@ -811,7 +818,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               *어제의 나에게서 온 메모*라 오늘을 여는 순간에 값이 있고 세 시간 뒤엔 소음이다. */}
           {prevNote && showOpeningRecall && (
             <div className={S.yesterday}>
-              <span aria-hidden="true">🌙</span> 어제 남긴 한 줄 —{' '}
+              <Icon name="moon" /> 어제 남긴 한 줄 —{' '}
               <b className="font-bold text-[color:var(--yesterday-b)]">{prevNote}</b>
             </div>
           )}
@@ -820,7 +827,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
               ⚠ P-15 — 같은 이유로 여는 국면에만. 이것도 *과거를 여는* 문장이다. */}
           {onThis && showOpeningRecall && (
             <div className={S.yesterday}>
-              <span aria-hidden="true">📅</span> {onThis.offsetLabel} —{' '}
+              <Icon name="calendar" /> {onThis.offsetLabel} —{' '}
               {onThis.subject && <b className="font-bold text-[color:var(--yesterday-b)]">{onThis.subject}</b>}{' '}
               {onThis.detail}
             </div>
@@ -836,7 +843,15 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 aria-label={timer.kind === 'break' ? '휴식 타이머 정지' : '집중 타이머 정지'}
               >
                 <span className={S.ctaNum}>{timerLabel}</span>
-                <span className={S.ctaCap}>{timer.kind === 'break' ? '☕ 휴식 · ■ 정지' : '■ 정지'}</span>
+                <span className={S.ctaCap}>
+                  {timer.kind === 'break' ? (
+                    <>
+                      <Icon name="coffee" /> 휴식 · ■ 정지
+                    </>
+                  ) : (
+                    '■ 정지'
+                  )}
+                </span>
               </button>
             ) : allDone ? (
               /* N-5 — 다 한 날의 다음 걸음은 '기록 보기'가 아니라 **하루를 닫는 것**이다.
@@ -850,7 +865,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                   onClick={() => startTimer()}
                   aria-label="집중 타이머 시작"
                 >
-                  <span className={S.ctaGo}>▶ 집중 시작</span>
+                  <span className={S.ctaGo}>
+                    <Icon name="play" /> 집중 시작
+                  </span>
                   <span className={S.ctaCap}>{focusMin}분</span>
                 </button>
                 {/* N-5 — 못 한 채로 끝나는 날. 남은 창이 0인데도 화면은 계속 "집중 시작"만
@@ -950,7 +967,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
             {retrievalSlot === 'recall' && recall && (
               <div className={`${S.recall} bg-[var(--panel-acc-faint)]`}>
                 <div className={S.recallTop}>
-                  <span className={`${S.recallTag} text-txt`}>🧠 회상</span>
+                  <span className={`${S.recallTag} text-txt`}>
+                    <Icon name="brain" /> 회상
+                  </span>
                   <span className={S.recallMeta}>
                     {recall.ageDays}일 전 · {recall.summary.name || '요약'}
                   </span>
@@ -983,7 +1002,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
             {retrievalSlot === 'conf' && confWrong && (
               <div className={`${S.recall} bg-[var(--conf-wrong-bg)]`}>
                 <div className={S.recallTop}>
-                  <span className={`${S.recallTag} text-warn`}>⚠ 착각 재확인</span>
+                  <span className={`${S.recallTag} text-warn`}>
+                    <Icon name="alert" /> 착각 재확인
+                  </span>
                   <span className={S.recallMeta}>
                     {confWrong.ageDays}일 전 · {CBMS_INFO[confWrong.cbms.code].label}
                     {confWrongN > 1 ? ` · 외 ${confWrongN - 1}` : ''}

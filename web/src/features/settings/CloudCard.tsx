@@ -38,6 +38,7 @@ import { collectOutbox, batchSize } from '@/lib/cloud/outbox';
 import { runSync, lastSync } from '@/store/syncController';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
+import { Icon } from '@/components/Icon';
 
 /** 상대 시각 문구(관측성 readout 전용). 렌더 시점 계산이라 라이브 갱신은 아니다. */
 function relTime(at: number): string {
@@ -182,13 +183,13 @@ export default function CloudCard() {
           </div>
           <div className="ds-row">
             <Button sm variant="ghost" onClick={() => void syncNow()} disabled={busy}>
-              🔄 지금 동기화
+              <Icon name="refresh" /> 지금 동기화
             </Button>
             <Button sm variant="ghost" onClick={() => void loadDevices()} disabled={busy}>
-              📱 연결된 기기
+              <Icon name="plug" /> 연결된 기기
             </Button>
             <Button sm variant="ghost" onClick={() => void disconnect()} disabled={busy}>
-              ⛔ 연결 끊기
+              <Icon name="alert" /> 연결 끊기
             </Button>
           </div>
 
@@ -251,7 +252,9 @@ export default function CloudCard() {
               연결
             </Button>
           </div>
-          <div className="ds-foot">⚠ 성적·일정·메모가 인터넷을 건너갑니다. 신뢰하는 서버 주소인지 확인하세요.</div>
+          <div className="ds-foot">
+            <Icon name="alert" /> 성적·일정·메모가 인터넷을 건너갑니다. 신뢰하는 서버 주소인지 확인하세요.
+          </div>
         </>
       )}
     </div>

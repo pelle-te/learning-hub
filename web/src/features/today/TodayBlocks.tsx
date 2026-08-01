@@ -15,6 +15,7 @@ import { toHM, hLabel, fmt, todayISO, blockColor } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import type { ScheduleItem } from '@/lib/types';
 import { BLOCK_STAGES } from './consts';
+import { Icon } from '@/components/Icon';
 
 /** 블록 4단계 비중 막대(분 추정 포함). */
 function StageBar({ ml }: { ml: number }) {
@@ -195,13 +196,13 @@ export function TodayBlocks() {
               <StageBar ml={ML} />
               <div className="mt-2.25 flex flex-wrap gap-1.5">
                 <Button sm onClick={() => prefill('sum', it.sid)}>
-                  ✍ 3문장 요약
+                  <Icon name="pencil" /> 3문장 요약
                 </Button>
                 <Button sm onClick={() => prefill('cbms', it.sid)}>
                   ✗ 오답 기록
                 </Button>
                 <Button sm variant="ghost" onClick={() => prefill('bl', it.sid)}>
-                  🏷 보충 필요
+                  <Icon name="tag" /> 보충 필요
                 </Button>
               </div>
             </div>
@@ -214,16 +215,19 @@ export function TodayBlocks() {
             <div key={key} className="ds-blk">
               {head}
               <div className="ds-tiny mt-1.75 leading-body text-mut">
-                📝 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌 구간 체크.
+                <Icon name="pencil" /> 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌
+                구간 체크.
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {res2 ? (
                   <>
                     {res2.passed ? (
-                      <Pill tone="good">✅ 통과 기록됨</Pill>
+                      <Pill tone="good">
+                        <Icon name="check" /> 통과 기록됨
+                      </Pill>
                     ) : (
                       <Pill tone="warn">
-                        ⚠ 막힘 기록됨{res2.note ? ' · ' + res2.note : ''}{' '}
+                        <Icon name="alert" /> 막힘 기록됨{res2.note ? ' · ' + res2.note : ''}{' '}
                         <span className="ds-tiny text-mut">→ CBMS(C) 연결</span>
                       </Pill>
                     )}{' '}
@@ -244,10 +248,10 @@ export function TodayBlocks() {
                 ) : (
                   <>
                     <Button sm onClick={() => blankPass(it.sid, it.name)}>
-                      ✅ 통과
+                      <Icon name="check" /> 통과
                     </Button>
                     <Button sm onClick={() => blankBlocked(it)}>
-                      ⚠ 막힘(→CBMS)
+                      <Icon name="alert" /> 막힘(→CBMS)
                     </Button>
                   </>
                 )}
@@ -258,11 +262,11 @@ export function TodayBlocks() {
 
         const note =
           it.type === 'rev'
-            ? '🔁 간격 복습 — Anki 카드 인출. 막히면 그 구간을 CBMS로 분류.'
+            ? '간격 복습 — Anki 카드 인출. 막히면 그 구간을 CBMS로 분류.'
             : it.type === 'anki'
-              ? '🃏 자동 생성 카드 30초 큐레이션 — 쓰레기 버리고 ≤5장, 한두 장은 "왜?/응용"형으로.'
+              ? '자동 생성 카드 30초 큐레이션 — 쓰레기 버리고 ≤5장, 한두 장은 "왜?/응용"형으로.'
               : it.type === 'mock'
-                ? '🧪 모의시험 — 타이머 ON · 노트 닫기 · 혼합/누적 · 끝까지 깔끔히. 끝나면 CBMS(+시간부족 T)로 분류.'
+                ? '모의시험 — 타이머 ON · 노트 닫기 · 혼합/누적 · 끝까지 깔끔히. 끝나면 CBMS(+시간부족 T)로 분류.'
                 : '';
         // rev·anki 블록은 설명만 있던 액션 데드엔드였다 → Anki(연동 탭) 바로가기로 실행 가능하게.
         const ankiLinked = it.type === 'rev' || it.type === 'anki';
@@ -275,7 +279,7 @@ export function TodayBlocks() {
             {ankiLinked && (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>
-                  🃏 Anki 열기 →
+                  <Icon name="cards" /> Anki 열기 →
                 </Button>
               </div>
             )}

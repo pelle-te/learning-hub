@@ -55,6 +55,7 @@ import { COL_CLASS, EDIT_BAR_ID, type DragKind } from './dayPlannerShared';
 import { DayPlannerTrayAdder } from './DayPlannerTrayAdder';
 import { Button } from '@/components/ui';
 import type { AppState, ScheduleResult, SessionType } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 이식(DayPlanner) — Tailwind 클래스 SSOT ────────────────────────────────
    좌 트레이(폼 위주) | 우 하루 타임라인. ⚠ 폼 컨트롤(input/select/button)은 전역 요소규칙
@@ -387,7 +388,9 @@ export function DayPlanner({
                      다 해냈다고 축하하면 거짓말이다. 실제로 배치된 게 있을 때만 축하한다.
                      (여기 남는 '계획할 게 없다' 경로는 인박스만 있는 날 — 그땐 갈 곳을 가리킨다.) */
               (timed.length + timedTasks.length > 0 ? (
-                <div className={DP.trayEmpty}>모두 시간박기 완료 🎉</div>
+                <div className={DP.trayEmpty}>
+                  <Icon name="celebrate" /> 모두 시간박기 완료
+                </div>
               ) : (
                 <div className={DP.trayEmpty}>
                   이 날엔 계획할 항목이 없어요.
@@ -481,7 +484,7 @@ export function DayPlanner({
                     title="이 날로 가져오기"
                     aria-label={`${t.title} 이 날로 가져오기`}
                   >
-                    ↙
+                    <Icon name="arrowDownLeft" />
                   </button>
                   <button
                     type="button"

@@ -20,6 +20,7 @@ import { RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import { WORKSPACE_UNSET, WORKSPACE_UNSET_SHORT, workspaceHint } from '@/lib/artifactState';
 import State from '@/components/State';
 import { ui } from '@/shell';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 다섯 번째 이식(control) — 첫 폼 위주 feature ──────────────────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Control.module.css`(384줄) 삭제.
@@ -263,7 +264,9 @@ export default function Control() {
     <section className={WRAP} aria-label="탐구 수집">
       {/* 검색 히어로 — 검색엔진 느낌. */}
       <div className={HERO}>
-        <div className={EYEBROW}>🔭 탐구 수집</div>
+        <div className={EYEBROW}>
+          <Icon name="telescope" /> 탐구 수집
+        </div>
         {/* h2 — TopBar 워드마크가 페이지 영속 h1이라 본문 최상위는 h2(전 탭 일관). 시각 스타일은 클래스 유지. */}
         <h2 className={TITLE}>무엇을 새로 알아볼까요?</h2>
         <div className={`${SEARCHBAR}${starting ? ' opacity-75' : ''}`}>
@@ -312,7 +315,7 @@ export default function Control() {
           {offline ? (
             <b className="font-bold text-warn">
               {' '}
-              ⚠ {WORKSPACE_UNSET} — {workspaceHint('수집할 수 있어요')}
+              <Icon name="alert" /> {WORKSPACE_UNSET} — {workspaceHint('수집할 수 있어요')}
             </b>
           ) : (
             /* ⚠ 잡 소유 모델이 4단계에서 바뀌었다 — **앱이 곧 잡 소유자**다(별도 서버가 없다).
@@ -389,7 +392,7 @@ export default function Control() {
                   href={obsidianLink(h.topic)}
                   title="옵시디언 _탐구 폴더에서 이 주제 열기"
                 >
-                  옵시디언 ↗
+                  옵시디언 <Icon name="arrowUpRight" />
                 </a>
                 <button
                   type="button"
@@ -418,7 +421,7 @@ export default function Control() {
           </div>
         ) : (
           <State
-            glyph="🔭"
+            glyph="telescope"
             title="아직 수집한 탐구가 없어요"
             desc="웹에서 새로 조사해 볼트에 초안을 만듭니다."
             /* 행동은 **같은 화면 위**에 이미 있다 — 여기 버튼을 또 두면 같은 일을 하는 컨트롤이

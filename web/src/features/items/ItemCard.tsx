@@ -8,6 +8,7 @@ import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { Item } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 // 과목명 톤 — 정적 맵(§15). 이름 유무로 색·굵기만 가른다(head 는 div[role=button] 이라
 // 폼 컨트롤이 아니다 → 커스텀 크기 text-item-name 은 LH 를 안 흘리고 본문 1.6 을 상속).
@@ -107,7 +108,7 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
           )}
           {weakCount != null && weakCount >= 2 && (
             <Pill tiny tone="bad">
-              ⚠ 반복 {weakCount}
+              <Icon name="alert" /> 반복 {weakCount}
             </Pill>
           )}
           <span className="w-3.5 flex-none text-center text-sm leading-text text-mut" aria-hidden="true">

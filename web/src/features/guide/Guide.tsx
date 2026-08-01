@@ -6,6 +6,7 @@
 ============================================================ */
 import type { ReactNode } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 세 번째 이식 ────────────────────────────────────────────────────
    규약은 설계서 §15 가 SSOT. 이 파일에서 처음 만난 것 둘:
@@ -119,7 +120,7 @@ export default function Guide() {
       {/* ── ① 전공 학습 ── */}
       <Section
         n="① "
-        glyph="📚"
+        glyph="books"
         title="전공 학습 — 교재를 노트로"
         what={
           <>
@@ -157,7 +158,7 @@ export default function Guide() {
       {/* ── ② 복습(Anki) ── */}
       <Section
         n="② "
-        glyph="🔁"
+        glyph="refresh"
         title="복습 — Anki 신호 루프"
         what={
           <>
@@ -178,7 +179,7 @@ export default function Guide() {
           <Tab>숙달도 지도</Tab>에서 확인.
         </How>
         <p className={WARN}>
-          ⚠ 지금 <b className="text-learning">콜드</b> — Anki 컬렉션 0카드라 인출 신호가 없음.{' '}
+          <Icon name="alert" /> 지금 <b className="text-learning">콜드</b> — Anki 컬렉션 0카드라 인출 신호가 없음.{' '}
           <b className="text-learning">카드 재연결(사람 + Anki)</b>이 신호의 출발점이다 (자동화 불가).{' '}
           <code className={REF}>pipeline/안내/카드_재연결_런북.md</code> 참고.
         </p>
@@ -187,7 +188,7 @@ export default function Guide() {
       {/* ── ③ 수집·발견 ── */}
       <Section
         n="③ "
-        glyph="✦"
+        glyph="discovery"
         title="수집·발견 — 자료 축"
         what={
           <>
@@ -216,7 +217,7 @@ export default function Guide() {
       {/* ── ④ 목표·연관성 ── */}
       <Section
         n="④ "
-        glyph="🧭"
+        glyph="compass"
         title="목표·연관성 — 왜 이 순서로 배우나"
         what={
           <>
@@ -246,7 +247,7 @@ export default function Guide() {
 
       {/* ── 허브 도구(제어판) ── */}
       <Section
-        glyph="🛠"
+        glyph="tools"
         title="허브 도구 (제어판)"
         what={<>산출물을 다시 만들거나 신호를 갱신하는 운영 도구. 일부는 허브 탭 버튼, 일부는 터미널.</>}
       >
@@ -323,7 +324,7 @@ export default function Guide() {
 
       {/* ── 바꾼 뒤 재빌드 ── */}
       <Section
-        glyph="♻"
+        glyph="refresh"
         title="바꾼 뒤 재빌드 순서"
         what={<>노트나 frontmatter(역할·깊이·goals 링크)를 바꿨으면 산출물을 다시 만들어야 허브에 반영된다.</>}
       >

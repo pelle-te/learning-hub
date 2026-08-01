@@ -23,6 +23,7 @@ import { onSync } from '@/lib/sync';
 import { ui } from '@/shell';
 import ArticlePractice from './ArticlePractice';
 import BookShelf from './BookShelf';
+import { Icon } from '@/components/Icon';
 
 // 상단 세그먼트(지문/독서 토글) — 전역 button{} 과 다른 속성만 ! · 활성/비활성은 정적 분기(규약 4).
 const SEG_BTN = 'rounded-md! border-none! px-5! py-2! text-base14! font-extrabold!';
@@ -144,7 +145,7 @@ export default function Reads() {
           className={`${SEG_BTN} ${mode === 'article' ? SEG_ON : SEG_OFF}`}
           onClick={() => setMode('article')}
         >
-          📰 지문 연습
+          <Icon name="reads" /> 지문 연습
         </button>
         <button
           type="button"
@@ -152,7 +153,7 @@ export default function Reads() {
           className={`${SEG_BTN} ${mode === 'book' ? SEG_ON : SEG_OFF}`}
           onClick={() => setMode('book')}
         >
-          📖 독서
+          <Icon name="book" /> 독서
         </button>
       </div>
 

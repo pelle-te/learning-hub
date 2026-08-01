@@ -41,6 +41,7 @@ import {
 } from '@/lib/reviewQueue';
 import { touchReview } from '@/lib/persistence';
 import { CBMS_INFO } from '@/lib/methodology';
+import { Icon } from '@/components/Icon';
 
 const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
 const BADGE = 'inline-flex w-fit rounded-full bg-tint-acc px-2 py-1 text-2xs font-bold tracking-wide text-acc-on-soft';
@@ -130,9 +131,7 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
   if (finished) {
     return (
       <section className="flex flex-col items-center gap-3 p-6 text-center">
-        <div className="text-5xl" aria-hidden="true">
-          🎯
-        </div>
+        <Icon name="target" className="size-12! stroke-[1.4]" />
         <h2 className="text-base font-semibold text-txt">복습 세션 완료</h2>
         <p className="text-sm text-mut">
           카드 {cardCount}장 중 <strong className="text-txt">{gotKeys.length}</strong>개를 인출했어요

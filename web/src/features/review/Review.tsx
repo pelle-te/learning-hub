@@ -37,6 +37,7 @@ import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON
 import { colorForId, openVaultSearch } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 일곱 번째 이식(review) — 지금까지 최대(689줄 TSX · 515 CSS) ──────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Review.module.css` 삭제.
@@ -294,7 +295,7 @@ function BacklogReviewCard({ ds0, ds6 }: { ds0: string; ds6: string }) {
           </div>
         ))
       ) : (
-        <div className="ds-empty ds-tiny">열린 백로그가 없어요 👍</div>
+        <div className="ds-empty ds-tiny">열린 백로그가 없어요.</div>
       )}
       <div className="ds-foot" style={{ marginTop: 8 }}>
         오래 열린 항목일수록 위로. 더 안 중요하면 과감히 버린다(재시작 루틴). 추가는{' '}
@@ -485,7 +486,9 @@ function CoachCard({ ds0 }: { ds0: string }) {
               <ul className={WEAK_LIST}>
                 {roots.map((c) => (
                   <li key={c.cause} className={WEAK_ITEM}>
-                    <b className="font-bold text-txt">🌱 {c.cause}</b>
+                    <b className="font-bold text-txt">
+                      <Icon name="sprout" /> {c.cause}
+                    </b>
                     <span className={WEAK_META}>{c.count}개 약점의 뿌리</span>
                     <span className={WEAK_ACTIONS}>
                       <button
@@ -526,7 +529,9 @@ function CoachCard({ ds0 }: { ds0: string }) {
               <span className="ds-spin" /> 코칭 중…
             </>
           ) : (
-            '🤖 AI 회고 받기'
+            <>
+              <Icon name="bot" /> AI 회고 받기
+            </>
           )}
         </Button>
         {aiErr && (
@@ -653,7 +658,7 @@ function WorkbenchCard() {
                       title="Obsidian에서 이 개념 검색 (설치돼 있어야 함)"
                       aria-label={`${c.subject} ${c.chapter} 볼트에서 검색`}
                     >
-                      🔎
+                      <Icon name="search" />
                     </button>
                     <button
                       type="button"
@@ -676,7 +681,7 @@ function WorkbenchCard() {
           )}
         </>
       ) : (
-        <div className="ds-foot">위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요 👍</div>
+        <div className="ds-foot">위험한 챕터가 없어요 — 최근 학습을 잘 따라가고 있어요.</div>
       )}
       <div className="ds-foot">
         오래될수록 붉게 — 배정으로 시간을 주거나 · 보충 큐로 넣거나 · 볼트에서 찾아 · 복습 실행으로 인출.
@@ -740,14 +745,14 @@ export default function Review() {
     <section className={WRAP} aria-label="주간 리뷰">
       <div className={NAV}>
         <Button sm onClick={() => setWeekOffset((o) => o - 1)}>
-          ◀ 이전 주
+          <Icon name="chevronLeft" /> 이전 주
         </Button>
         <div className={WKBOX}>
           <b className={WKLAB}>{weekLabel(mon)}</b>
           <span className={WKOFF}>{isThis ? '이번 주' : weekOffset > 0 ? `+${weekOffset}주` : `${weekOffset}주`}</span>
         </div>
         <Button sm onClick={() => setWeekOffset((o) => Math.min(0, o + 1))} disabled={weekOffset >= 0}>
-          다음 주 ▶
+          다음 주 <Icon name="chevronRight" />
         </Button>
         <Button sm variant="ghost" onClick={() => setWeekOffset(0)} disabled={weekOffset === 0}>
           이번 주

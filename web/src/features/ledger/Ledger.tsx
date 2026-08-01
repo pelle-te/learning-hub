@@ -16,6 +16,7 @@
    런타임 색 주입(퍼널 채움·셀·범례 스와치·단계 점 = style={{ background }})은 절대규칙 #3 구현이라 인라인 유지.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from '@/components/Icon';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -80,7 +81,7 @@ function Funnel({ l: led }: { l: Ledger }) {
             </div>
             <div className="text-lg leading-none font-black text-txt tabular-nums">{n}</div>
             <div className="text-2xs whitespace-nowrap text-mut">
-              <span aria-hidden="true">{m.glyph}</span> {m.label}
+              <Icon name={m.glyph} /> {m.label}
             </div>
           </div>
         );
@@ -226,7 +227,7 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
         onClick={() => openVaultSearch(ch.arc.replace(/^\d+\s*/, ''))}
         title="Obsidian에서 이 챕터 검색 (설치돼 있어야 함)"
       >
-        🔎 볼트에서 열기
+        <Icon name="search" /> 볼트에서 열기
       </button>
     </div>
   );
@@ -239,7 +240,7 @@ function Backlog({ l: led }: { l: Ledger }) {
   return (
     <div className="ds-rule">
       <h3>
-        📥 백로그 <span className="ds-tiny text-mut">(파이프라인에 아직 안 들어온 것)</span>
+        <Icon name="inbox" /> 백로그 <span className="ds-tiny text-mut">(파이프라인에 아직 안 들어온 것)</span>
       </h3>
       {unp.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-1.25">
@@ -277,10 +278,12 @@ function Bottleneck({ l: led }: { l: Ledger }) {
   const gap = b.from - b.passed;
   return (
     <div className="ds-rule">
-      <h3>🎯 병목</h3>
+      <h3>
+        <Icon name="target" /> 병목
+      </h3>
       <div className="flex flex-col gap-1.5">
         <span className="ds-kpi" style={{ color: m.color }}>
-          {m.glyph} {m.label}
+          <Icon name={m.glyph} /> {m.label}
         </span>
         <div className="ds-foot">
           직전 단계 <b>{b.from}</b>챕터 중 <b>{b.passed}</b>만 {m.label} 통과 — <b>{gap}</b>챕터 대기.
@@ -374,7 +377,9 @@ export default function Ledger() {
       >
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-xs font-extrabold tracking-eyebrow-wide text-acc uppercase">정본 축</span>
-          <h2 className="mt-0.5! mb-0! text-hero-title! leading-none font-black! tracking-tight!">📒 정본 원장</h2>
+          <h2 className="mt-0.5! mb-0! flex items-center gap-2 text-hero-title! leading-none font-black! tracking-tight!">
+            <Icon name="notebook" /> 정본 원장
+          </h2>
           <span className="text-xs text-mut tabular-nums">
             {led ? (
               <>
@@ -398,7 +403,9 @@ export default function Ledger() {
                 <span className="ds-spin" /> 빌드 중…
               </>
             ) : (
-              <>🔁 원장 재빌드</>
+              <>
+                <Icon name="refresh" /> 원장 재빌드
+              </>
             )}
           </Button>
         </div>

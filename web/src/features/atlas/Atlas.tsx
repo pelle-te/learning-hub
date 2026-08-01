@@ -280,7 +280,7 @@ export default function Atlas() {
                     낡은 시드를 '최신 소식'으로 오인했다(실패와 오프라인이 구분되지 않았다). */}
                 <li className={`${TLITEM} text-sm text-mut`}>
                   {news.isError
-                    ? '⚠ 최신 소식을 못 불러왔어요 — 아래는 저장된 참고 동향이에요.'
+                    ? '최신 소식을 못 불러왔어요 — 아래는 저장된 참고 동향이에요.'
                     : '· 서버 미연결 — 아래는 저장된 참고 동향이에요(최신 아님).'}
                 </li>
                 {[...field.trends]

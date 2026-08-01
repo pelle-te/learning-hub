@@ -144,7 +144,7 @@ describe('오답 노트 화면', () => {
   it('각 행이 행동을 준다 — 재인출·보충·볼트(아카이브가 읽기 전용으로 끝나지 않게)', () => {
     useApp.getState().mutate((s) => void (s.cbms = [cb({ chapter: '극한' })]));
     renderTab();
-    for (const name of ['↻ 다시 인출하기', '📥 보충에 담기', '🔎 볼트']) {
+    for (const name of ['↻ 다시 인출하기', '보충에 담기', '볼트']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
   });
@@ -155,7 +155,7 @@ describe('오답 노트 화면', () => {
       s.backlog = [];
     });
     renderTab();
-    fireEvent.click(screen.getByRole('button', { name: '📥 보충에 담기' }));
+    fireEvent.click(screen.getByRole('button', { name: '보충에 담기' }));
     const bl = useApp.getState().state.backlog!;
     expect(bl).toHaveLength(1);
     expect(bl[0]!.topic).toBe('극한');

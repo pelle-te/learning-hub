@@ -31,6 +31,7 @@ import {
   type ResumeKind,
   type ResumeCursor,
 } from '@/lib/resume';
+import { Icon } from '@/components/Icon';
 
 const CARD = 'rounded-lg border border-line bg-panel p-4';
 const STAT = 'flex flex-col gap-0.5 rounded-md border border-line bg-panel2 px-3 py-2.5';
@@ -123,7 +124,9 @@ export default function TodayView({
            폐기한 **둥근 글래스 카드**가 한 장 더 생긴다(`check:tokens` 의 카드 래칫이 잡는다).
            이건 카드가 아니라 **한 줄**이다. */
         <p role="status" className="m-0 rounded-md bg-tint-acc px-3 py-2 text-sm font-semibold text-ink">
-          <span aria-hidden="true">↩ {brief.line}</span>
+          <span aria-hidden="true">
+            <Icon name="arrowReturn" /> {brief.line}
+          </span>
           <span className="sr-only">{brief.aria}</span>
         </p>
       )}
@@ -135,7 +138,7 @@ export default function TodayView({
           같은 블록을 체크했고, PC 종료 토스트의 완료 제안과 이중이 됐다. */}
       {resumeLeft != null && (
         <p role="status" className="m-0 flex items-center gap-2 text-xs text-mut">
-          <span aria-hidden="true">⏱</span>
+          <Icon name="clock" />
           다른 기기에서 집중 중 — {mmss(Math.round(resumeLeft / 1000))} 남음
         </p>
       )}
@@ -146,7 +149,7 @@ export default function TodayView({
           onClick={() => onResume(resume.cur.kind, resume.cur)}
           className="flex min-h-11 w-full items-center gap-2 rounded-md border border-line-acc-pill bg-tint-acc px-3 text-left text-sm font-semibold text-ink"
         >
-          <span aria-hidden="true">↪</span>
+          <Icon name="arrowForward" />
           {resumeLabel(resume.cur)}
         </button>
       )}

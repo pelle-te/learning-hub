@@ -38,6 +38,7 @@ import { WeekCalendar } from './WeekCalendar';
 import { DayPlanner } from './DayPlanner';
 import { MonthCalendar } from './MonthCalendar';
 import { CutCard } from './CutCard';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 이식(Schedule 셸) — Tailwind 클래스 SSOT ───────────────────────────────
    상단 네비(줄바꿈 금지 · 좁으면 서술 텍스트를 sr-only 로 접어 화살표만) · 본문(뷰별 fill) ·
@@ -81,7 +82,12 @@ const S = {
 function IcsFreshnessNote() {
   const x = useRuntime((s) => s.cache._icsExport);
   const today = useApp((s) => todayISO(s.state)); // 렌더 순수성: Date.now() 대신 앱 정본 '오늘'(테스트 _today 존중)
-  if (!x || !x.at) return <span className={`${S.icsNote} text-mut`}>📅 캘린더(.ics) 미내보내기</span>;
+  if (!x || !x.at)
+    return (
+      <span className={`${S.icsNote} text-mut`}>
+        <Icon name="calendar" /> 캘린더(.ics) 미내보내기
+      </span>
+    );
   const when = new Date(x.at);
   const days = isNaN(when.getTime()) ? null : dayDiff(iso(when), today);
   const ago = days == null ? '' : days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`;
@@ -89,13 +95,17 @@ function IcsFreshnessNote() {
   if (stale)
     return (
       <span className={`${S.icsNote} text-warn`}>
-        📅 .ics 계획과 어긋남({ago})
+        <Icon name="calendar" /> .ics 계획과 어긋남({ago})
         <Button sm onClick={() => io.exportICS()}>
-          🔄 재내보내기
+          <Icon name="refresh" /> 재내보내기
         </Button>
       </span>
     );
-  return <span className={`${S.icsNote} text-mut`}>📅 .ics 최신 · 마지막 {ago}</span>;
+  return (
+    <span className={`${S.icsNote} text-mut`}>
+      <Icon name="calendar" /> .ics 최신 · 마지막 {ago}
+    </span>
+  );
 }
 
 export default function Schedule() {
@@ -270,7 +280,8 @@ export default function Schedule() {
       {schedView === 'day' && (
         <div className={S.wknav}>
           <Button sm className={S.navBtn} onClick={() => dayNav(-1)} aria-label="이전 날">
-            ◀<span className={S.navLong}> 이전 날</span>
+            <Icon name="chevronLeft" />
+            <span className={S.navLong}> 이전 날</span>
           </Button>
           <div className={S.wk}>
             <b className={S.wkLab}>{fmtShort(anchorDate)}</b>
@@ -279,7 +290,8 @@ export default function Schedule() {
             </span>
           </div>
           <Button sm className={S.navBtn} onClick={() => dayNav(1)} aria-label="다음 날">
-            <span className={S.navLong}>다음 날 </span>▶
+            <span className={S.navLong}>다음 날 </span>
+            <Icon name="chevronRight" />
           </Button>
           {anchorDs !== todayIso && (
             <Button sm className={S.navBtn} variant="ghost" onClick={() => dayNav(0, true)}>
@@ -293,7 +305,8 @@ export default function Schedule() {
       {schedView === 'month' && (
         <div className={S.wknav}>
           <Button sm className={S.navBtn} onClick={() => monthNav(-1)} aria-label="이전 달">
-            ◀<span className={S.navLong}> 이전 달</span>
+            <Icon name="chevronLeft" />
+            <span className={S.navLong}> 이전 달</span>
           </Button>
           <div className={S.wk}>
             <b className={S.wkLab}>
@@ -302,7 +315,8 @@ export default function Schedule() {
             <span className={S.wkOff}>{monthUsedH.toFixed(1)}h</span>
           </div>
           <Button sm className={S.navBtn} onClick={() => monthNav(1)} aria-label="다음 달">
-            <span className={S.navLong}>다음 달 </span>▶
+            <span className={S.navLong}>다음 달 </span>
+            <Icon name="chevronRight" />
           </Button>
           <Button sm className={S.navBtn} variant="ghost" onClick={() => monthNav(0, true)}>
             오늘
@@ -314,14 +328,16 @@ export default function Schedule() {
           {/* aria-label로 이름을 고정한다 — 라벨을 span으로 쪼개면 접근가능한 이름 계산이 조각 사이 공백을
               버려 "◀이전 주"가 된다(폭에 따라 이름이 흔들리는 것도 곤란). 일·월 네비와 같은 문법. */}
           <Button sm className={S.navBtn} onClick={weekPrev} aria-label="이전 주">
-            ◀<span className={S.navLong}> 이전 주</span>
+            <Icon name="chevronLeft" />
+            <span className={S.navLong}> 이전 주</span>
           </Button>
           <div className={S.wk}>
             <b className={S.wkLab}>{weekLabel(curMon)}</b>
             <span className={S.wkOff}>{offsetLabel}</span>
           </div>
           <Button sm className={S.navBtn} onClick={weekNext} aria-label="다음 주">
-            <span className={S.navLong}>다음 주 </span>▶
+            <span className={S.navLong}>다음 주 </span>
+            <Icon name="chevronRight" />
           </Button>
           <Button sm className={S.navBtn} variant="ghost" onClick={weekToday}>
             오늘
@@ -403,7 +419,7 @@ export default function Schedule() {
                 ) : (
                   <div className={S.emptyBoard}>
                     <State
-                      glyph="🗓"
+                      glyph="calendar"
                       title="주간 보드가 비어 있어요"
                       desc={
                         <>

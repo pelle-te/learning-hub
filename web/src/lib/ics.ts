@@ -24,12 +24,15 @@ function icsDt(ds: string, min: number): string {
   return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(h)}${pad2(m)}00`;
 }
 
+/* ⚠ 여기 이모지를 되살리지 말 것 — 이 문자열은 **캘린더 앱이 그리는 이벤트 제목**이라 아이콘
+   컴포넌트가 닿지 않는다(계획 §3-2 ②: 문자열 자리는 교체가 아니라 제거가 답이다). 유형 구분은
+   단어가 이미 하고 있었고, 이모지는 캘린더마다 다르게(또는 두부로) 렌더됐다. */
 const LABEL: Record<string, string> = {
-  new: '📘 학습',
-  rev: '🔁 복습',
-  blank: '📝 백지복습',
-  mock: '🧪 모의시험',
-  anki: '🃏 Anki',
+  new: '학습',
+  rev: '복습',
+  blank: '백지복습',
+  mock: '모의시험',
+  anki: 'Anki',
 };
 
 /** 현재 계획을 VCALENDAR 문자열로(학습 세션만 이벤트화). */
@@ -50,7 +53,7 @@ export function buildICS(state: AppState): string {
     L.tl
       .filter((x) => x.kind === 'study' && x.start != null)
       .forEach((x, i) => {
-        const label = LABEL[x.type || 'anki'] || '🃏 Anki';
+        const label = LABEL[x.type || 'anki'] || 'Anki';
         const ch = x.chapters && x.chapters.length ? ' — ' + x.chapters.join(', ') : '';
         lines.push(
           'BEGIN:VEVENT',

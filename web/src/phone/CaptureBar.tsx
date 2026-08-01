@@ -29,6 +29,7 @@ import { useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { removeBacklog } from '@/lib/methodology';
 import { fileCapture } from '@/lib/quickCapture';
+import { Icon } from '@/components/Icon';
 
 /** 확인 줄이 스스로 사라지기까지(ms) — 되돌리기를 누를 시간은 주되 화면에 눌러앉지 않는다. */
 const CONFIRM_MS = 6000;
@@ -74,7 +75,9 @@ export default function CaptureBar(): React.JSX.Element {
     <div className="border-t border-line bg-bg px-3 pt-2">
       {done ? (
         <p role="status" className="m-0 flex items-center justify-between gap-2 pb-2 text-xs text-mut">
-          <span className="min-w-0 truncate">📥 보충에 담았어요 — {done.topic}</span>
+          <span className="min-w-0 truncate">
+            <Icon name="inbox" /> 보충에 담았어요 — {done.topic}
+          </span>
           <button type="button" onClick={undo} className="min-h-8 shrink-0 rounded-md border border-line px-2 text-xs">
             되돌리기
           </button>

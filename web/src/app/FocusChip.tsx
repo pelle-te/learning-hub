@@ -12,6 +12,7 @@ import { mmss } from '@/lib/utils';
 import { isTauri, shellNotify } from '@/lib/tauri';
 import { MINI_PATH, enterMini, exitMini } from '@/lib/miniMode';
 import { toast, toastChoice } from '@/shell/toast';
+import { Icon } from '@/components/Icon';
 import { confirm } from '@/shell/modal';
 import { routeTitle } from './docTitle';
 
@@ -96,7 +97,7 @@ export default function FocusChip() {
        ⚠ 실패는 여전히 조용하다 — 알림은 부가 신호이고 같은 사실을 아래 토스트가 화면 안에서
        말한다. 다만 이제 그 침묵이 "권한 없음"이지 "코드가 죽어 있음"이 아니다. */
     void shellNotify(
-      isBreak ? '휴식 끝 ☕' : '집중 세션 완료 🎉',
+      isBreak ? '휴식 끝' : '집중 세션 완료',
       isBreak
         ? '재충전 완료 — 다음 블록을 시작해볼까요?'
         : isFree
@@ -104,13 +105,13 @@ export default function FocusChip() {
           : `${name} — 수고했어요. 앱에서 블록을 완료로 표시할 수 있어요.`,
     );
     if (isBreak) {
-      toast('휴식 끝 ☕ — 다음 블록을 시작해볼까요?', 'info', 10_000, {
-        label: '▶ 집중 시작',
+      toast('휴식 끝 — 다음 블록을 시작해볼까요?', 'info', 10_000, {
+        label: '집중 시작',
         onAction: () => useFocus.getState().startOnCurrent(),
       });
     } else if (isFree) {
       // 완료 액션 없음 — 즉석 세션은 기록에 남기지 않는다(수고 인정만).
-      toast(`즉석 집중 완료 🎉 — ${name}. 수고했어요.`, 'info', 8_000);
+      toast(`즉석 집중 완료 — ${name}. 수고했어요.`, 'info', 8_000);
     } else {
       /* ── P-8 세 갈래 · 시한 없음(2026-08-01) ────────────────────────────────
          ⚠⚠ 종전엔 이 토스트가 **10초**였고 액션이 **'블록 완료로 표시' 하나**였다. 그런데 이
@@ -119,7 +120,7 @@ export default function FocusChip() {
          기록(G-1 실측 분)이 10초짜리 창에 걸려 있었다.** 이제 누를 때까지 안 사라진다.
          ⚠ 원래 이 갈래들은 **OS 알림 액션 버튼**에 두려던 것인데 Windows 에서 불가라
          (Actions API 는 모바일 전용 · 실측) 앱 안이 진다. */
-      toastChoice(`집중 세션 완료 🎉 — ${name}`, 'info', [
+      toastChoice(`집중 세션 완료 — ${name}`, 'info', [
         {
           label: '블록 완료로 표시',
           onAction: () => {
@@ -138,7 +139,7 @@ export default function FocusChip() {
            였다 — 게다가 완료 토스트를 읽는 동안 이미 다음 타이머가 흐르고 있었다. 같은 5분을
            **선택지로** 옮긴다: 없어진 것은 자동성이지 기능이 아니다.
            ⚠ `startBreak` 의 유일한 호출부가 이 줄이다 — 지우면 휴식이 도달 불가가 된다. */
-        { label: '☕ 5분 휴식', onAction: () => useFocus.getState().startBreak(5) },
+        { label: '5분 휴식', onAction: () => useFocus.getState().startBreak(5) },
         // '계속' 은 아무것도 안 한다 — 시한 없는 토스트를 닫는 정직한 출구다(닫기는 공통 처리).
         { label: '계속', onAction: () => {} },
       ]);
@@ -160,7 +161,7 @@ export default function FocusChip() {
   // 문서 제목에 남은 시간 미러 — 다른 앱/탭에 가 있어도 세션이 보인다.
   useEffect(() => {
     if (!session) return;
-    document.title = `${fmt(leftSec)} ⏱ ${session.name} — 러닝허브`;
+    document.title = `${fmt(leftSec)} · ${session.name} — 러닝허브`;
     return () => {
       // 모듈로드 스냅샷이 아니라 종료 시점의 *현재* 라우트로 재계산 — App의 제목 이펙트는
       // 라우트 변경에만 발화하므로 여기서 복원하지 않으면 stale 제목이 남는다(X-9).
@@ -194,7 +195,15 @@ export default function FocusChip() {
       >
         <i className={PULSE} aria-hidden="true" />
         <b className={TIME}>{mmss}</b>
-        <span className={NAME}>{isBreak ? '☕ 휴식' : session.name}</span>
+        <span className={NAME}>
+          {isBreak ? (
+            <>
+              <Icon name="coffee" /> 휴식
+            </>
+          ) : (
+            session.name
+          )}
+        </span>
       </button>
       {/* 접기(N-8) — 셸에서만 뜬다. 브라우저(dev·트랙 A)엔 창 개념이 없어 눌러도 할 일이 없고,
           휴식은 5분짜리라 창을 접었다 펴는 비용이 값보다 크다. */}

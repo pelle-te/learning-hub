@@ -216,9 +216,9 @@ describe('AllocBoard — 행 합·예산 잔여·열 합', () => {
       completions: { '2026-06-14': { 'phy|new': { done: true, min: 60 } } }, // TODAY=06-24 → 10일
     });
     renderBoard();
-    expect(within(subjectRow('물리')).getByText(/💤\s*10/)).toBeInTheDocument();
+    expect(within(subjectRow('물리')).getByText('10')).toBeInTheDocument();
     expect(within(subjectRow('물리')).getByLabelText('10일째 손 안 댐')).toBeInTheDocument();
-    expect(within(subjectRow('영어')).queryByText(/💤/)).toBeNull(); // 완료 이력 없는 과목은 안 몬다
+    expect(within(subjectRow('영어')).queryByLabelText(/손 안 댐/)).toBeNull(); // 완료 이력 없는 과목은 안 몬다
   });
 
   it('ID-7 방치 배지 — 최근(7일 미만) 손 댔으면 배분 있어도 안 뜬다', () => {

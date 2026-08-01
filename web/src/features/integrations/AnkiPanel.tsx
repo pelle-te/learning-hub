@@ -16,6 +16,7 @@ import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
 import { makeItem, clamp, jsq, hhmm } from '@/lib/utils';
 import { Button } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 export function AnkiPanel() {
   const qc = useQueryClient();
@@ -145,12 +146,12 @@ export function AnkiPanel() {
 
   const dueBudget = () => {
     if (!live || !live.decks.length) {
-      ui.toast('먼저 "🔌 AnkiConnect 실시간 due"로 현황을 불러오세요.', 'warn');
+      ui.toast('먼저 "AnkiConnect 실시간 due"로 현황을 불러오세요.', 'warn');
       return;
     }
     const due = totalDue(live.decks);
     if (due <= 0) {
-      ui.toast('오늘 풀 due가 0이에요 — 잡을 예산이 없어요. 👍', 'info');
+      ui.toast('오늘 풀 due가 0이에요 — 잡을 예산이 없어요.', 'info');
       return;
     }
     const mins = clamp(Math.round(due * 0.5), 10, 180);
@@ -194,7 +195,9 @@ export function AnkiPanel() {
                 <span className="ds-spin" /> 스캔 중
               </>
             ) : (
-              '📁 볼트 카드 스캔'
+              <>
+                <Icon name="folder" /> 볼트 카드 스캔
+              </>
             )}
           </Button>
           <Button sm disabled={busy === 'live'} onClick={goLive}>
@@ -203,7 +206,9 @@ export function AnkiPanel() {
                 <span className="ds-spin" /> 연결 중
               </>
             ) : (
-              '🔌 AnkiConnect 실시간 due'
+              <>
+                <Icon name="plug" /> AnkiConnect 실시간 due
+              </>
             )}
           </Button>
           <Button
@@ -212,7 +217,7 @@ export function AnkiPanel() {
             onClick={() => io.exportAnkiCards('all')}
             title="전체 3문장 요약·오답을 Anki import용 .txt 카드 초안으로"
           >
-            🃏 요약·오답 → 카드(.txt)
+            <Icon name="cards" /> 요약·오답 → 카드(.txt)
           </Button>
           <div style={{ flex: 2 }} />
         </div>
@@ -231,7 +236,7 @@ export function AnkiPanel() {
         {file && (
           <div className="ds-tiny text-mut" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>
-              📂 카드 스캔: {file.at}
+              <Icon name="folder" /> 카드 스캔: {file.at}
               {file.src ? ' · ' + file.src : ''}
             </span>
             <Button sm variant="ghost" danger onClick={clearFile} title="카드 스캔 결과 비우기">
@@ -244,7 +249,9 @@ export function AnkiPanel() {
             className="ds-tiny text-mut"
             style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
           >
-            <span>🔌 실시간 연결됨: {live.at}</span>
+            <span>
+              <Icon name="plug" /> 실시간 연결됨: {live.at}
+            </span>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
               <input type="checkbox" checked={autoRefresh} onChange={toggleAuto} /> 자동 새로고침(5분)
             </label>
@@ -323,7 +330,7 @@ export function AnkiPanel() {
               onClick={dueBudget}
               title={`오늘 풀 due 합계(${dueTot}장)를 '매일 복습' 분 예산으로 — FSRS due를 시간으로 역연동`}
             >
-              📥 오늘 due 합계 → 복습 시간예산
+              <Icon name="inbox" /> 오늘 due 합계 → 복습 시간예산
             </Button>
             <span className="ds-tiny text-mut">
               오늘 풀 due 합 <b>{dueTot}</b>장

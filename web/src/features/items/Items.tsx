@@ -42,6 +42,7 @@ import { ItemCard } from './ItemCard';
 import { VaultImport } from './VaultImport';
 import { SkeletonPanel } from './SkeletonPanel';
 import { AvailRail } from './AvailRail';
+import { Icon } from '@/components/Icon';
 
 /* ── P-19 — **`graph`(학습 구조도)가 탭에서 이 화면의 뷰로 내려왔다**(2026-08-01) ────────────
    둘은 **같은 로컬 데이터의 두 시각화**다: 여기가 항목→챕터를 목록으로, 저기가 같은 것을 힘-방향
@@ -353,7 +354,7 @@ export default function Items() {
               aria-pressed={showImport}
               title="옵시디언 볼트에서 과목을 불러와요(탭 이동 없이)"
             >
-              📁 불러오기
+              <Icon name="folder" /> 불러오기
             </Button>
           )}
           {!structure && (
@@ -422,7 +423,7 @@ export default function Items() {
               <div className="px-5.5 pt-1.5 pb-5.5">
                 <div className="ds-rule">
                   <State
-                    glyph="📚"
+                    glyph="books"
                     title="아직 과목이 없어요"
                     desc={
                       <>
@@ -440,7 +441,7 @@ export default function Items() {
                           onClick={() => setShowImport(true)}
                           title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
                         >
-                          📁 볼트/Anki에서 불러오기
+                          <Icon name="folder" /> 볼트/Anki에서 불러오기
                           {vaultSubjects > 0 && <span className="ds-tiny"> — 과목 {vaultSubjects}개 대기</span>}
                         </Button>
                         <Button variant={vaultSubjects ? 'ghost' : 'primary'} onClick={addItem}>

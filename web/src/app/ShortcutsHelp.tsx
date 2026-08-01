@@ -4,6 +4,7 @@ import { useActiveKeymaps } from '@/hooks/useKeymap';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { MOD_K_LABEL } from '@/lib/platform';
+import { Icon } from '@/components/Icon';
 
 // C-12: 팔레트 액션 카탈로그 — ⌘K를 열어 검색해야만 발견되던 강력 액션들을 치트시트에 노출.
 // 카테고리(hint) 순으로 묶어 스캔성 확보. 단일 원천(palette.ts) 재사용이라 표류 없음.
@@ -74,7 +75,9 @@ export default function ShortcutsHelp({ open, onClose }: { open: boolean; onClos
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className="modal-ov in" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={panelRef} className={`modal ${SHEET}`} role="dialog" aria-modal="true" aria-label="키보드 단축키">
-        <div className="modal-t">⌨ 키보드 단축키</div>
+        <div className="modal-t">
+          <Icon name="keyboard" /> 키보드 단축키
+        </div>
         <div className={GRID}>
           <section>
             <h3 className={H}>

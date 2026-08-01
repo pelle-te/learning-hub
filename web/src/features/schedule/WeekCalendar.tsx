@@ -21,6 +21,7 @@ import { eventsForDay } from '@/lib/events';
 import { toHM, pad2, hNum, hLabel } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, packLanes, timeSpan, type DayData, type Row } from '@/lib/scheduleView';
 import type { SessionType, Task } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 이식(WeekCalendar) — Tailwind 클래스 SSOT ──────────────────────────────
    [머리글 고정 / 종일 행 / 스크롤 시간축]. 좌측 거터 44px(모바일 34) + 요일 7열은 격자 트랙 토큰
@@ -293,7 +294,7 @@ export function WeekCalendar({
               <div key={p.ds} className={CAL.alldayCell}>
                 {dls.map((name) => (
                   <span key={name} className={`${CAL.chipBase} ${CAL.chipDeadline}`} title={`마감: ${name}`}>
-                    🚩 {name}
+                    <Icon name="flag" /> {name}
                   </span>
                 ))}
                 {unplaced > 0 && (

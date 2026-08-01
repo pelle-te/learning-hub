@@ -15,6 +15,7 @@ import { openTasksForDay, tasksForDay } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
 import { useApp } from '@/store/useApp';
 import type { ScheduleResult } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /** 한 칸에 보일 칩 최대 개수. 넘으면 "+N". 칸 최소 높이 76px 기준 2개가 온전히 들어가는 한계 —
  *  이보다 늘리면 마지막 칩이 잘려 "있는데 안 읽히는" 상태가 된다. */
@@ -89,7 +90,7 @@ export function MonthCalendar({
     //   (사용자는 숨은 게 있다는 사실조차 알 수 없다). 같은 목록의 맨 앞에 넣어 캡과 +N이 전부를 센다.
     //   순서: 마감(가장 시급) → 일정 → 할 일.
     for (const name of state.items.filter((it) => it.deadline === dsKey && it.name).map((it) => it.name)) {
-      chips.push({ key: `d${name}`, name: `🚩 ${name}`, tip: `마감: ${name}`, kind: 'deadline', noDot: true });
+      chips.push({ key: `d${name}`, name, tip: `마감: ${name}`, kind: 'deadline', noDot: true });
     }
     const evs = eventsForDay(state, dsKey);
     for (const ev of evs) {
@@ -166,12 +167,15 @@ export function MonthCalendar({
                     title={ch.tip}
                   >
                     {/* 색점의 기본값은 종류별 클래스가 갖는다(일정=event · 그 외=acc) — 인라인은 실제 색이 있을 때만. */}
-                    {!ch.noDot && (
+                    {!ch.noDot ? (
                       <i
                         className={`${S.dot} ${ch.kind === 'event' ? 'bg-[var(--event)]' : 'bg-acc'}`}
                         style={ch.color ? { background: ch.color } : undefined}
                         aria-hidden="true"
                       />
+                    ) : (
+                      /* 마감 칩은 점 대신 깃발 — 점 자리를 그대로 쓰므로 폭이 안 바뀐다(옛 `🚩` 자리). */
+                      <Icon name="flag" className="size-3!" />
                     )}
                     {ch.name}
                   </span>

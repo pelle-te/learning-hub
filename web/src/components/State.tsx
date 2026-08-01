@@ -47,6 +47,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { SkeletonFill } from './ui/Skeleton';
 import LiveRegion from './LiveRegion';
+import { Icon } from './Icon';
 
 /**
  * 이 상태에서 **다음에 할 일**.
@@ -62,7 +63,11 @@ function isTerminal(n: StateNext): n is { terminal: string } {
 }
 
 interface Common {
-  glyph?: ReactNode;
+  /** 글리프 — **아이콘 이름**이다(`components/Icon` 의 `ICON_PATHS` 키). ⚠ 종전엔 `ReactNode` 라
+   *  호출부가 이모지 문자열을 직접 넣었고, 그래서 같은 개념이 화면마다 다른 글리프로 갈렸다
+   *  (📚·📖·📗이 전부 "문서"였다). 이름으로 바꾸면 그 증식이 아이콘 목록 한 파일에 모인다.
+   *  ⚠ 없는 이름은 아무것도 안 그린다 — `scripts/check-icons.mjs` 가 그 조합을 막는다. */
+  glyph?: string;
   title: ReactNode;
   desc?: ReactNode;
 }
@@ -76,6 +81,9 @@ const WRAP = 'mx-auto flex max-w-empty flex-col items-center gap-2 px-6 py-11 te
 // 차분한 네온 글리프 — 1px inset 링은 `--line-acc`(= acc 30% + line) 토큰 그대로.
 const GLYPH =
   'mb-1 flex size-16 items-center justify-center rounded-empty-glyph bg-acc-soft text-empty-glyph inset-ring inset-ring-line-acc';
+/* ⚠ 아이콘 크기는 **웰의 절반쯤**이다(옛 이모지의 시각 무게와 맞춘 값 · 실렌더로 정했다).
+   `.ic` 가 언레이어드라 크기 override 엔 `!` 가 필요하다(`Icon` 머리주석). */
+const GLYPH_IC = 'size-8! stroke-[1.4]';
 const TITLE = 'text-empty-title font-extrabold tracking-empty-title text-ink';
 const DESC = 'text-md leading-text text-mut';
 const ACTIONS = 'mt-2.5 flex flex-wrap justify-center gap-2';
@@ -127,7 +135,7 @@ export default function State(props: StateProps) {
   /* 글리프 기본값을 kind 가 정한다 — 호출부마다 이모지를 고르게 하면 그게 곧 다음 드리프트다.
      에러=경고. 빈 상태만 feature 의 성격이라 호출부가 준다(글리프가 곧 그 화면의 정체성인 경우가
      있다 — `items` 의 📚 등). 로딩은 위 `SPIN` 이 웰 없이 직접 그린다. */
-  const glyph = props.glyph ?? (kind === 'error' ? '⚠️' : undefined);
+  const glyph = props.glyph ?? (kind === 'error' ? 'alert' : undefined);
   return (
     <>
       {region}
@@ -144,7 +152,13 @@ export default function State(props: StateProps) {
         role={kind === 'loading' ? 'status' : kind === 'error' ? 'alert' : undefined}
         aria-live={kind === 'loading' ? 'polite' : undefined}
       >
-        {kind === 'loading' ? SPIN : glyph != null && <div className={GLYPH}>{glyph}</div>}
+        {kind === 'loading'
+          ? SPIN
+          : glyph != null && (
+              <div className={GLYPH}>
+                <Icon name={glyph} className={GLYPH_IC} />
+              </div>
+            )}
         <div className={TITLE}>{title}</div>
         {desc != null && <div className={DESC}>{desc}</div>}
         {props.kind === 'loading' ? null : isTerminal(props.next) ? (

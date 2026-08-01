@@ -31,6 +31,7 @@ import { commit } from '@/lib/motion';
 import { Button, NumberField } from '@/components/ui';
 import State from '@/components/State';
 import type { ScheduleResult } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* ── AllocBoard — CSS Module → Tailwind 유틸 이식(C-7) ────────────────────────────
    1px 그리드선은 grid gap + 배경(cell=panel/panel2, gap=line)으로 그린다. 셀은 role 정직한 표.
@@ -295,7 +296,7 @@ export function AllocBoard({
     return (
       <div className={S.wrap}>
         <State
-          glyph="🎛"
+          glyph="sliders"
           title="배분할 과목이 없어요"
           desc={
             <>
@@ -450,7 +451,8 @@ export function AllocBoard({
                       title={`이번 주 배분했지만 ${nds}일째 실제 학습이 없어요 — 계획과 실행이 벌어지는 중`}
                       aria-label={`${nds}일째 손 안 댐`}
                     >
-                      💤{nds}
+                      <Icon name="sleep" />
+                      {nds}
                     </span>
                   )}
                 </div>

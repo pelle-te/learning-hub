@@ -10,6 +10,7 @@ import LiveRegion from '@/components/LiveRegion';
 import { useEffect, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { lookupVocab, type VocabResult } from '@/lib/api';
+import { Icon } from '@/components/Icon';
 
 interface VocabState {
   x: number;
@@ -199,7 +200,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
               target="_blank"
               rel="noreferrer noopener"
             >
-              📖 국어사전에서 보기 ↗
+              <Icon name="book" /> 국어사전에서 보기 <Icon name="arrowUpRight" />
             </a>
           ) : vocab.loading ? (
             <div className="text-txt">
@@ -232,7 +233,7 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                영어사전 ↗
+                영어사전 <Icon name="arrowUpRight" />
               </a>
             </div>
           ) : (
@@ -242,7 +243,13 @@ export function ReaderVocab({ lang, text, online }: { lang: 'ko' | 'en'; text: s
               onClick={doVocab}
               disabled={!online}
             >
-              {online ? '🔍 뜻 보기' : '워크스페이스 미설정'}
+              {online ? (
+                <>
+                  <Icon name="search" /> 뜻 보기
+                </>
+              ) : (
+                '워크스페이스 미설정'
+              )}
             </button>
           )}
         </div>

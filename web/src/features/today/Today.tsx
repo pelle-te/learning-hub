@@ -17,6 +17,7 @@ import { SetupGuide, setupComplete } from './SetupGuide';
 import ReturnSlot from './ReturnSlot';
 import { TodayBlocks } from './TodayBlocks';
 import { BLOCK_STAGES, PRINCIPLES } from './consts';
+import { Icon } from '@/components/Icon';
 
 /** 일일 의식(아침 계획·저녁 셧다운) — 핵심 통계는 TodaySignature가 보여주고, 여기선 의식 체크만. */
 function RitualCard() {
@@ -31,14 +32,14 @@ function RitualCard() {
   const [justSaved, setJustSaved] = useState(false); // blur 저장이 조용해서 반영 여부를 인라인으로 표시.
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
     mutate((st) => setRitual(st, ds2, key, on));
-    ui.toast(on ? '기록됨 👍' : '해제됨', 'info');
+    ui.toast(on ? '기록됨' : '해제됨', 'info');
   };
   // '내일 한 줄'은 blur 시 저장(키 입력마다 mutate 방지).
   const saveNote = () => {
     if (note === (r.note || '')) return;
     mutate((st) => setRitual(st, ds2, 'note', note.trim()));
     setJustSaved(true);
-    ui.toast('내일 한 줄 저장됨 🌙', 'info');
+    ui.toast('내일 한 줄 저장됨', 'info');
   };
 
   return (
@@ -48,18 +49,21 @@ function RitualCard() {
       </h2>
       <div className="flex flex-wrap gap-2.5">
         <label className="flex! min-w-55 flex-1 cursor-pointer items-center gap-1.75 rounded-md border border-line bg-panel2 px-2.75 py-2.25 text-md! hover:border-[color:var(--line-acc-hover)]">
-          <input type="checkbox" checked={r.plan} onChange={(e) => toggle('plan', e.target.checked)} /> 🌅{' '}
-          <b>아침 계획</b> <span className="ds-tiny text-mut">블록 훑고 오늘 가장 중요한 1개 정하기</span>
+          <input type="checkbox" checked={r.plan} onChange={(e) => toggle('plan', e.target.checked)} />{' '}
+          <Icon name="sunrise" /> <b>아침 계획</b>{' '}
+          <span className="ds-tiny text-mut">블록 훑고 오늘 가장 중요한 1개 정하기</span>
         </label>
         <label className="flex! min-w-55 flex-1 cursor-pointer items-center gap-1.75 rounded-md border border-line bg-panel2 px-2.75 py-2.25 text-md! hover:border-[color:var(--line-acc-hover)]">
-          <input type="checkbox" checked={r.shutdown} onChange={(e) => toggle('shutdown', e.target.checked)} /> 🌙{' '}
-          <b>저녁 셧다운</b> <span className="ds-tiny text-mut">완료 체크 · 내일 한 줄 · 끝내기</span>
+          <input type="checkbox" checked={r.shutdown} onChange={(e) => toggle('shutdown', e.target.checked)} />{' '}
+          <Icon name="moon" /> <b>저녁 셧다운</b>{' '}
+          <span className="ds-tiny text-mut">완료 체크 · 내일 한 줄 · 끝내기</span>
         </label>
       </div>
       {/* ID-5 오늘의 모양 — 하루 회고 한 줄(완료 세션·요약 있을 때만). 셧다운 전 '오늘이 어땠나'. */}
       {(shape.sessions > 0 || shape.learned) && (
         <div className="ds-foot" style={{ marginTop: 8 }}>
-          🌙 <b>오늘의 모양</b> — {shape.subjects}과목 · {shape.sessions}세션 · {shape.focusMin}분 집중
+          <Icon name="moon" /> <b>오늘의 모양</b> — {shape.subjects}과목 · {shape.sessions}세션 · {shape.focusMin}분
+          집중
           {shape.learned && (
             <>
               {' '}

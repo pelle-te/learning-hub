@@ -29,6 +29,7 @@ import { OverallRing, Distribution, KnowledgeMap } from './KnowledgeMap';
 import { Frontier, Sequencing, EngineHealth, Gaps, RootCauses, Calibration } from './NextActions';
 import { pctLabel } from '@/lib/utils';
 import { overallConfidence } from '@/lib/confidence';
+import { Icon } from '@/components/Icon';
 
 function Setup() {
   // 카드 크롬은 offWrap(발광 패널)이 제공 — 본문은 투명 콘텐츠만(지식맵 패널과 같은 언어).
@@ -47,7 +48,7 @@ function Setup() {
           지식상태 빌드: <code>python pipeline/_도구/지식엔진.py build --export 러닝허브_백업.json</code>
         </li>
         <li>
-          위 <b>📁 볼트에서 불러오기</b> 클릭 → 전공 폴더 선택
+          위 <b>볼트에서 불러오기</b> 클릭 → 전공 폴더 선택
         </li>
       </ol>
       <div className="ds-foot text-mut">
@@ -148,7 +149,9 @@ export default function Mastery() {
         <div className="ds-aura" aria-hidden="true" />
         <div className={M.heroLeft}>
           <span className={M.eyebrow}>지식 지도</span>
-          <h2 className={M.headTitle}>🧠 숙달도 지도</h2>
+          <h2 className={M.headTitle}>
+            <Icon name="brain" /> 숙달도 지도
+          </h2>
           <span className={M.headMeta}>
             {k ? (
               <>
@@ -180,7 +183,10 @@ export default function Mastery() {
                 <span className="ds-spin" /> 읽는 중…
               </>
             ) : (
-              <>📁 {isTauri() ? '볼트에서 새로고침' : `볼트에서 ${k ? '새로고침' : '지식상태 불러오기'}`}</>
+              <>
+                <Icon name="folder" />{' '}
+                {isTauri() ? '볼트에서 새로고침' : `볼트에서 ${k ? '새로고침' : '지식상태 불러오기'}`}
+              </>
             )}
           </Button>
         </div>

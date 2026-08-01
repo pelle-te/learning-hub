@@ -12,6 +12,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import type { Knowledge, KnowledgeSubject } from '@/lib/knowledge';
 import { subjectConfidence, type Confidence } from '@/lib/confidence';
 import { M } from './classes';
+import { Icon } from '@/components/Icon';
 
 /** AN-12 — 볼트 딥링크. obsidian://search는 볼트명 없이도 동작(설치돼 있으면).
    Graph 탭 E-5 패턴 미러 — 죽은 개념 텍스트를 "볼트에서 이 개념 열기"로 살린다.
@@ -39,7 +40,7 @@ export function VaultLink({
       title={`Obsidian에서 ${label || `"${q}"`} 검색 (설치돼 있어야 함)`}
       aria-label={`Obsidian에서 ${label || q} 검색`}
     >
-      {variant === 'text' ? children : '🔎'}
+      {variant === 'text' ? children : <Icon name="search" />}
     </button>
   );
 }
@@ -200,8 +201,8 @@ export function KnowledgeMap({ k }: { k: Knowledge }) {
       </div>
       {manyUnknown && (
         <div className={M.note}>
-          ⚠ 미관측이 과반 — 인출 데이터(Anki due·CBMS·백지)가 쌓이면 회색이 색을 찾습니다. 그래프 기반{' '}
-          <b className="text-txt">프런티어</b>는 관측 없이도 작동하니 우측에서 다음 배울 개념을 보세요.
+          <Icon name="alert" /> 미관측이 과반 — 인출 데이터(Anki due·CBMS·백지)가 쌓이면 회색이 색을 찾습니다. 그래프
+          기반 <b className="text-txt">프런티어</b>는 관측 없이도 작동하니 우측에서 다음 배울 개념을 보세요.
         </div>
       )}
       {subs.length ? (

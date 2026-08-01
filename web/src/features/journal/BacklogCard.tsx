@@ -208,7 +208,7 @@ export default function BacklogCard() {
           ),
         )
       ) : (
-        <div className="ds-empty ds-tiny">열린 '보충 필요' 항목이 없어요. 👍 백로그를 닫아 두는 게 메타인지.</div>
+        <div className="ds-empty ds-tiny">열린 '보충 필요' 항목이 없어요 — 백로그를 닫아 두는 게 메타인지.</div>
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import JournalStream from './JournalStream';
 import SummaryCard from './SummaryCard';
 import CbmsCard from './CbmsCard';
 import BacklogCard from './BacklogCard';
+import { Icon } from '@/components/Icon';
 
 /** 최근 활동(7일) — 완료·요약·오답·보충·백지를 시간역순 단일 피드로(온디맨드 <details>). */
 function ActivityFeed({ ds2 }: { ds2: string }) {
@@ -158,7 +159,9 @@ function ShutdownChain() {
       <div className="mb-2 flex items-center gap-2">
         <span className="text-xs leading-text font-extrabold tracking-widest text-mut">셧다운 체인</span>
         {chain.streak > 0 && (
-          <span className="text-xs leading-text font-extrabold text-acc tabular-nums">🔥 {chain.streak}일 연속</span>
+          <span className="text-xs leading-text font-extrabold text-acc tabular-nums">
+            <Icon name="flame" /> {chain.streak}일 연속
+          </span>
         )}
       </div>
       <div className="mb-2.5 flex flex-wrap gap-1.25" role="img" aria-label={`최근 14일 중 ${doneN}일 셧다운 완료`}>
@@ -234,9 +237,7 @@ export default function Journal() {
       ],
       // 무데이터면 빈 파일 데드엔드 → 상단바 액션 자체를 미노출(카드 내부 버튼은 canExport로 별도 가드).
       action:
-        todaySumN || todayCbmsN
-          ? { label: '🃏 Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') }
-          : undefined,
+        todaySumN || todayCbmsN ? { label: 'Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') } : undefined,
     }),
     [sumN, cbmsN, openN, isToday, ds2, todaySumN, todayCbmsN],
   );
@@ -278,14 +279,14 @@ export default function Journal() {
             className={`mb-3.5 flex items-center gap-2 rounded-base border px-2.5 py-1.75 ${isToday ? 'border-line bg-panel2' : 'border-line-warn-strong bg-tint-warn-faint'}`}
           >
             <Button sm variant="ghost" onClick={() => stepDay(-1)} aria-label="이전 날">
-              ◀
+              <Icon name="chevronLeft" />
             </Button>
             <span className="text-md font-bold text-txt">
               {fmt(new Date(ds2 + 'T00:00:00'))}
               {isToday ? <span className="ds-tiny text-mut"> · 오늘</span> : <b> · 과거 보충</b>}
             </span>
             <Button sm variant="ghost" onClick={() => stepDay(1)} disabled={isToday} aria-label="다음 날">
-              ▶
+              <Icon name="chevronRight" />
             </Button>
             {!isToday && (
               <Button sm variant="ghost" onClick={() => setDs2(today)} style={{ marginLeft: 'auto' }}>

@@ -11,6 +11,7 @@ import { useApp } from '@/store/useApp';
 import { Button, Pill } from '@/components/ui';
 import type { VaultScan } from '@/lib/vault';
 import type { AppState } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /** 셋업 완료 판정 — 과목 1개 이상 + 목표(일일분/주당시간/챕터) 1개 이상. Today와 공유(단일 원천).
  *
@@ -52,13 +53,13 @@ export function SetupGuide() {
       title: '공부할 과목 추가',
       desc: vaultSubjects
         ? '볼트를 통째로 가져오면 과목과 챕터(1·2단계)가 한 번에 채워져요. 직접 입력도 됩니다.'
-        : '계획 › 과목에서 직접 입력하거나 “📁 불러오기”로 볼트(전공 폴더)를 통째로 가져오세요.',
+        : '계획 › 과목에서 직접 입력하거나 “불러오기”로 볼트(전공 폴더)를 통째로 가져오세요.',
       actions: (
         <>
           {/* ⚠ **볼트가 있으면 그쪽이 primary 다**(W1). 종전엔 지배적인 버튼이 `+ 첫 과목 추가`
               였고 임포트는 그 옆 ghost 였다 — 눈에 띄는 쪽이 막다른 길이었다. */}
           <Button sm variant={vaultSubjects ? 'primary' : 'default'} onClick={() => navigate('/items?import=1')}>
-            📁 볼트에서 불러오기
+            <Icon name="folder" /> 볼트에서 불러오기
           </Button>
           <Button sm variant={vaultSubjects ? 'default' : 'primary'} onClick={() => navigate('/items')}>
             직접 추가

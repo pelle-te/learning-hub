@@ -16,6 +16,7 @@ import { idbPut } from '@/lib/idb';
 import { makeItem, jsq } from '@/lib/utils';
 import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 // Items.module.css → Tailwind 이식(C-7) 잔여 3종. 볼트/Anki 스캔 결과의 컴팩트 행.
 const VAULT_LIST = 'mt-2.5 flex max-h-[var(--vault-list-vh)] flex-col gap-1.5 overflow-y-auto';
@@ -91,7 +92,9 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   return (
     <div className="ds-rule" style={{ marginBottom: 14 }}>
       <div className="ds-row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-        <b style={{ flex: 1 }}>📁 볼트 / Anki에서 불러오기</b>
+        <b style={{ flex: 1 }}>
+          <Icon name="folder" /> 볼트 / Anki에서 불러오기
+        </b>
         {!isTauri() && (
           <Button sm variant="primary" disabled={!!busy} onClick={doScanVault}>
             {busy === 'vault' ? (
@@ -99,7 +102,9 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
                 <span className="ds-spin" /> 스캔 중…
               </>
             ) : scan ? (
-              '🔄 볼트 다시 스캔'
+              <>
+                <Icon name="refresh" /> 볼트 다시 스캔
+              </>
             ) : (
               '볼트 폴더 연동'
             )}
@@ -111,7 +116,9 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
               <span className="ds-spin" /> 스캔 중…
             </>
           ) : (
-            '🃏 Anki 카드 스캔'
+            <>
+              <Icon name="cards" /> Anki 카드 스캔
+            </>
           )}
         </Button>
         {onClose && (
@@ -160,7 +167,9 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
             const added = items.some((x) => x.name === nm);
             return (
               <div key={d.file} className={VAULT_ROW}>
-                <span className={VAULT_NAME}>🃏 {d.file}</span>
+                <span className={VAULT_NAME}>
+                  <Icon name="cards" /> {d.file}
+                </span>
                 <span className="ds-tiny text-mut">{d.cards}장</span>
                 <Button
                   sm

@@ -228,7 +228,7 @@ export default function BookShelf({ books, setBooks }: { books: Book[]; setBooks
         ) : (
           <div className="grid min-h-0 flex-1 place-items-center p-6">
             <State
-              glyph="📖"
+              glyph="book"
               title="독서 기록을 시작해 보세요"
               desc="읽은 책을 추가하고 독후감을 남기면, 무엇을 읽고 무엇을 얻었는지가 쌓입니다."
               /* 추가 폼은 같은 화면 왼쪽 위에 있다 — 중복 CTA 대신 위치를 가리킨다(Control 과 같은 판단). */

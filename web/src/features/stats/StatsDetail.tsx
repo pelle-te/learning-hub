@@ -35,6 +35,7 @@ import { parseISO, fmtShort, hLabel, DOW, round1 } from '@/lib/utils';
 import { radarPoint, radarPolygon, radarRing, type RadarGeom } from '@/lib/statsView';
 import State from '@/components/State';
 import type { ScheduleResult } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 const TIMELINE_CAP = 60; // 최근 N일만 그려 다년 누적에도 비용 상한.
 
@@ -98,7 +99,7 @@ function RetrievalCard({ r }: { r: ScheduleResult }) {
       </div>
       <div className="ds-foot">
         {trGood ? (
-          '오답이 줄고 있어요 — 약점이 닫히는 방향. 👍'
+          '오답이 줄고 있어요 — 약점이 닫히는 방향.'
         ) : (
           <>
             오답이 늘었어요 — 가장 많은 코드의 처방에 다음 주 시간을 더 주세요.
@@ -173,8 +174,8 @@ function RetentionSpark() {
           유지율 추세 <span className="ds-tiny text-mut">— 기억 유지의 출력 지표</span>
         </h2>
         <div className="ds-empty ds-tiny">
-          아직 데이터가 없어요. <b>Anki 현황</b> 탭에서 <b>🔌 AnkiConnect 실시간 due</b>를 누르면 그 주의 due가
-          기록돼요(주 1회면 충분). due가 꾸준히 줄면 복습 빚이 닫히는 중.
+          아직 데이터가 없어요. <b>Anki 현황</b> 탭에서 <b>AnkiConnect 실시간 due</b>를 누르면 그 주의 due가 기록돼요(주
+          1회면 충분). due가 꾸준히 줄면 복습 빚이 닫히는 중.
         </div>
       </div>
     );
@@ -218,14 +219,14 @@ function RetentionSpark() {
       {/* 능동 넛지 — 방향 표시(색)를 넘어, 악화가 유의미할 때만 경고 박스로 승격. */}
       {nudge && (
         <div className="ds-warnbox" role="status">
-          ⚠ {nudge}
+          <Icon name="alert" /> {nudge}
         </div>
       )}
       <div className="ds-foot">
         {flat
           ? '추세를 보려면 매주 한 번 due를 기록하세요(Anki 탭).'
           : good
-            ? '복습 빚이 줄고 있어요 — 기억이 유지되는 방향. 👍'
+            ? '복습 빚이 줄고 있어요 — 기억이 유지되는 방향.'
             : 'due가 늘었어요 — 밀린 복습을 따라잡을 시간을 확보하세요(due→복습 시간예산 역연동 활용).'}
       </div>
     </div>
@@ -358,7 +359,7 @@ function WeeklyBars({ r }: { r: ScheduleResult }) {
   if (!weeks.length)
     return (
       <State
-        glyph="📊"
+        glyph="chart"
         title="아직 주별 데이터가 없어요"
         desc="블록을 완료하면 주별 학습시간이 여기 쌓여요."
         next={
@@ -468,9 +469,9 @@ function SeasonPaceCard() {
         {!hasHist
           ? '직전 주 이력이 쌓이면 평소 대비 페이스를 보여줘요 — 이번 주는 기준선을 만드는 중.'
           : flat
-            ? '평소와 같은 페이스예요 — 리듬을 유지하는 중. 👍'
+            ? '평소와 같은 페이스예요 — 리듬을 유지하는 중.'
             : good
-              ? `평소보다 ${p.deltaPct}% 앞서 있어요 — 리듬이 살아있는 방향. 👍`
+              ? `평소보다 ${p.deltaPct}% 앞서 있어요 — 리듬이 살아있는 방향.`
               : `평소보다 ${Math.abs(p.deltaPct)}% 뒤처져 있어요 — 짧게라도 매일 이어가면 리듬이 회복돼요.`}
       </div>
     </div>

@@ -26,6 +26,7 @@ import { ui } from '@/shell';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
 import type { CbmsCode } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 const WRAP = 'flex h-full flex-col gap-3 p-6';
 const FILTERS = 'flex flex-none flex-wrap items-center gap-2';
@@ -112,10 +113,10 @@ function MistakeCard({
           ↻ 다시 인출하기
         </button>
         <button type="button" className={MINI} onClick={onSeed}>
-          📥 보충에 담기
+          <Icon name="inbox" /> 보충에 담기
         </button>
         <button type="button" className={MINI} onClick={() => openVaultSearch(row.chapter || row.subject)}>
-          🔎 볼트
+          <Icon name="search" /> 볼트
         </button>
       </div>
     </article>
@@ -165,7 +166,7 @@ export default function Mistakes() {
     return (
       <section className={WRAP}>
         <State
-          glyph="✗"
+          glyph="alert"
           title="아직 오답 기록이 없어요"
           desc={
             <>
@@ -186,7 +187,7 @@ export default function Mistakes() {
   const seed = (row: MistakeRow) => {
     const topic = row.chapter || row.subject;
     mutate((st) => addBacklog(st, row.sid, row.subject, topic, `오답 ${row.count}회 · ${CBMS_INFO[row.topCode].tip}`));
-    ui.toast(`📥 보충에 담았어요 — ${topic}`, 'ok', 4000);
+    ui.toast(`보충에 담았어요 — ${topic}`, 'ok', 4000);
   };
 
   return (

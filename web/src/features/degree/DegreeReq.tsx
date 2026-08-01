@@ -27,7 +27,7 @@ export default function DegreeReq() {
   if (totalCourses === 0) {
     return (
       <State
-        glyph="🎓"
+        glyph="cap"
         title="아직 등록된 과목이 없어요"
         desc={
           <>
@@ -167,7 +167,7 @@ export default function DegreeReq() {
           </>
         ) : (
           <div className="text-sm leading-text text-mut">
-            재수강 후보가 없어요 — 이수한 과목이 모두 <b>C+ 초과</b>입니다. 👍
+            재수강 후보가 없어요 — 이수한 과목이 모두 <b>C+ 초과</b>입니다.
           </div>
         )}
       </Card>

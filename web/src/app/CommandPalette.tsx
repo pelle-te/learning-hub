@@ -16,6 +16,7 @@ import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
 import { loadReads } from '@/lib/reads';
 import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { markVia } from '@/lib/visits';
+import { Icon } from '@/components/Icon';
 import type { SemHit, SemKind } from '@/lib/semantic';
 
 /* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
@@ -59,14 +60,22 @@ const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-text font-extrabold tra
 /** 팔레트가 진로 지도에서 실제로 쓰는 전부 — key·이름·대분류명(H14 의 지연 적재 결과물). */
 type AtlasEntry = { key: string; name: string; cat: string };
 
-const SEM_ICON: Record<SemKind, string> = { chapter: '📚', summary: '📝', book: '📖', backlog: '📥', mistake: '✗' };
+/* ⚠ 값은 **아이콘 이름**이다(`components/Icon`) — 이모지가 아니다(2026-08-01). 같은 개념이
+   두 표에서 다른 글리프였던 자리이기도 하다(📚 vs 📗 이 둘 다 '학습 항목'). */
+const SEM_ICON: Record<SemKind, string> = {
+  chapter: 'books',
+  summary: 'pencil',
+  book: 'book',
+  backlog: 'inbox',
+  mistake: 'alert',
+};
 const CONTENT_ICON: Record<ContentHit['kind'], string> = {
-  subject: '📗',
-  chapter: '📚',
-  book: '📖',
-  backlog: '📥',
-  weak: '⚠️',
-  mistake: '✗',
+  subject: 'books',
+  chapter: 'books',
+  book: 'book',
+  backlog: 'inbox',
+  weak: 'alert',
+  mistake: 'alert',
 };
 const CONTENT_HINT: Record<ContentHit['kind'], string> = {
   subject: '학습 항목',
@@ -387,7 +396,9 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                   close();
                 }}
               >
-                <span className={LABEL}>📌 빠른 캡처 — 보충에 담기</span>
+                <span className={LABEL}>
+                  <Icon name="pin" /> 빠른 캡처 — 보충에 담기
+                </span>
                 <span className={HINT_CAP}>{summarize(cap)}</span>
               </Command.Item>
             )}
@@ -406,7 +417,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                     }}
                   >
                     <span className={LABEL}>
-                      {CONTENT_ICON[h.kind]} {h.label}
+                      <Icon name={CONTENT_ICON[h.kind]} /> {h.label}
                     </span>
                     <span className={HINT}>{CONTENT_HINT[h.kind]}</span>
                   </Command.Item>
@@ -428,7 +439,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                     }}
                   >
                     <span className={LABEL}>
-                      {SEM_ICON[h.kind]} {h.label}
+                      <Icon name={SEM_ICON[h.kind]} /> {h.label}
                     </span>
                     <span className={HINT}>{Math.round(h.sim * 100)}% 유사</span>
                   </Command.Item>
@@ -450,7 +461,9 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                       go(`/atlas/${f.key}`);
                     }}
                   >
-                    <span className={LABEL}>📡 {f.name}</span>
+                    <span className={LABEL}>
+                      <Icon name="radio" /> {f.name}
+                    </span>
                     <span className={HINT}>진로 지도</span>
                   </Command.Item>
                 ))}

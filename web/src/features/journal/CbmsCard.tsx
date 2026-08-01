@@ -13,6 +13,7 @@ import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
 import type { CbmsCode } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* ── CBMS 오답 분류(방법론 6절) ── */
 export default function CbmsCard({ ds: dsKey }: { ds: string }) {
@@ -117,7 +118,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
         </div>
       </div>
       <label className="ds-tiny" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-        <input type="checkbox" checked={conf} onChange={(e) => setConf(e.target.checked)} /> 🎯{' '}
+        <input type="checkbox" checked={conf} onChange={(e) => setConf(e.target.checked)} /> <Icon name="target" />{' '}
         <b>찍어서 맞음/확신 없었음</b> <span className="text-mut">— 맞아도 다시 점검 대상(확신도 보정)</span>
       </label>
       <div style={{ marginTop: 10 }}>
@@ -183,7 +184,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                     checked={edraft.conf}
                     onChange={(ev) => setEdraft((d) => ({ ...d, conf: ev.target.checked }))}
                   />{' '}
-                  🎯 찍어서 맞음/확신 없었음
+                  <Icon name="target" /> 찍어서 맞음/확신 없었음
                 </label>
                 <div className="mt-2 flex gap-2">
                   <Button sm variant="primary" onClick={saveEdit}>
@@ -209,7 +210,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                     자리다. `lint:css` 는 CSS 만 · `check:tokens` 는 `var()` 만 보므로 이 부류는 감사만 본다. */}
                 {e.conf && (
                   <span className="ds-cbmsChip" title="확신 없이 맞힘 — 다시 점검 대상">
-                    🎯 확신없음
+                    <Icon name="target" /> 확신없음
                   </span>
                 )}
                 <b>{e.name || ''}</b>

@@ -60,6 +60,7 @@ import { CBMS_INFO, CBMS_CODES, addCbms, editCbms } from '@/lib/methodology';
 import type { CbmsCode } from '@/lib/types';
 import { jolSummary, overconfidentCards, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 Tailwind 이식(두 번째 feature) ──────────────────────────────────
    `ReviewRun.module.css` 를 없앴다. discovery 에 없던 마찰 3종을 여기서 처음 만났고,
@@ -230,7 +231,7 @@ function buildKeys(d: {
       });
     keys.push({ k: '1', cap: '1', label: '건너뛰기', run: () => d.skip(cur) });
     if (cur.kind === 'chapter') {
-      keys.push({ k: '2', cap: '2', label: '▶ 집중 시작', primary: true, run: () => d.startFocus(cur) });
+      keys.push({ k: '2', cap: '2', label: '집중 시작', primary: true, run: () => d.startFocus(cur) });
       /* E1 — 챕터 카드의 인출 판정. `2`(집중 시작)와 뜻이 다르다: 저건 "이제 25분 볼게"이고
          이건 "지금 떠올렸어"다. 앵커를 옮기는 것은 후자뿐이다.
          ⚠ **대조 게이트를 걸지 않는다.** 볼트 열람을 조건으로 걸면 그건 계약이 아니라 새 마찰이다.
@@ -617,8 +618,9 @@ export default function ReviewRun() {
     return (
       <div className={WRAP}>
         <div className={`ds-well ${CENTER}`}>
+          {/* 크기는 부모의 `--fs-runner-mark` 사다리를 그대로 탄다 — `.ic` 가 1em 이라 별도 수치가 필요 없다. */}
           <div className="text-runner-mark leading-none" aria-hidden="true">
-            🎯
+            <Icon name="target" className="stroke-[1.4]" />
           </div>
           <h2>복습 세션 완료</h2>
           {/* D-1 — 분모는 **서로 다른 카드 수**다. 옛 문구는 큐 길이를 분모로 썼는데 재큐가 그
@@ -648,7 +650,7 @@ export default function ReviewRun() {
           {overconfidentCards(jol).map((r, i) => (
             <p key={`${r.label}-${i}`} className={RESUME_NOTE}>
               <span>
-                ⚠ <strong>{r.label}</strong> — 될 줄 알았는데 안 됐어요
+                <Icon name="alert" /> <strong>{r.label}</strong> — 될 줄 알았는데 안 됐어요
               </span>
             </p>
           ))}

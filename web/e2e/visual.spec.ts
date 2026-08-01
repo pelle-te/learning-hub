@@ -305,7 +305,7 @@ test('alloc-board · neglect · dark', async ({ page }) => {
   }, SEED_NEGLECT);
   await page.goto('/alloc');
   await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
-  await expect(page.getByText(/💤\d+/).first()).toBeVisible(); // 방치 배지 렌더 확인
+  await expect(page.getByLabel(/일째 손 안 댐/).first()).toBeVisible(); // 방치 배지 렌더 확인(글리프→아이콘 이후 라벨로)
   await settle(page);
   await expect(page).toHaveScreenshot('alloc-board-neglect-dark.png', { fullPage: true });
 });

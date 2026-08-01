@@ -28,6 +28,7 @@ import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discov
 import State from '@/components/State';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 네 번째 이식(goals) ─────────────────────────────────────────────
    `Goals.module.css`(307줄) 를 없앴다. 규약은 설계서 §15 + `styles/tokenBridge.css`
@@ -109,7 +110,7 @@ export default function Goals() {
     return (
       <section className={ROOT}>
         <State
-          glyph="🧭"
+          glyph="compass"
           title="내 길이 아직 안 보여요"
           desc={
             <>
@@ -252,7 +253,7 @@ function NeedChip({ row, seeded, onSeed }: { row: NeedKnowledgeRow; seeded: bool
       title={`'${row.name}'은(는) 지금 약점이에요 — 보충('나중에 볼 것')에 담기`}
       aria-label={`${row.name} — 약점, 보충에 담기`}
     >
-      ⚠ {row.name}
+      <Icon name="alert" /> {row.name}
     </button>
   );
 }
@@ -276,7 +277,7 @@ function ProjectCard({ p, k }: { p: ProjectView; k: Knowledge | undefined }) {
 
   const seed = (name: string): void => {
     mutate((s) => addBacklog(s, '', '', name, `프로젝트 '${p.node.title}'의 필요지식`));
-    ui.toast(`📥 보충에 담았어요 — ${name}`, 'ok', 4000);
+    ui.toast(`보충에 담았어요 — ${name}`, 'ok', 4000);
   };
 
   return (

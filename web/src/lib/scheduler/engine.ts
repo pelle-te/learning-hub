@@ -347,11 +347,11 @@ export function schedule(state: AppState): ScheduleResult {
   });
   if (revMissed > 0)
     warnings.push(
-      `⚠ 복습 ${revMissed}개가 용량 부족으로 미배치됐어요 — 주당 시간↑·복습비중↑ 또는 가용시간 확보를 검토하세요.`,
+      `복습 ${revMissed}개가 용량 부족으로 미배치됐어요 — 주당 시간↑·복습비중↑ 또는 가용시간 확보를 검토하세요.`,
     );
   if (revOver > 0)
     warnings.push(
-      `⚠ 복습 ${revOver}개가 여유 없는 날에 끼워졌어요(그날 계획이 가용시간을 초과) — 일부 복습을 줄이거나 날을 비우세요.`,
+      `복습 ${revOver}개가 여유 없는 날에 끼워졌어요(그날 계획이 가용시간을 초과) — 일부 복습을 줄이거나 날을 비우세요.`,
     );
 
   /* 6.5) 백지 복습(방법론 9절) — 단원(챕터) 단위로 마지막 학습 직후 여유 날에 1개씩. */
@@ -488,7 +488,7 @@ export function schedule(state: AppState): ScheduleResult {
         candidates,
         suggest,
       });
-    } else if (late > 0) warnings.push(`⚠ "${s.name}": 학습 종료(${finishDate})가 마감(${s.deadline}) 초과.`);
+    } else if (late > 0) warnings.push(`"${s.name}": 학습 종료(${finishDate})가 마감(${s.deadline}) 초과.`);
     return {
       id: s.id,
       name: s.name,

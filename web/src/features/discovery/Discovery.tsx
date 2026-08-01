@@ -26,6 +26,7 @@ import { ui } from '@/shell';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import State from '@/components/State';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 Tailwind 이식(첫 feature) ───────────────────────────────────────
    `Discovery.module.css` 를 없앴다. 규약은 `styles/tokenBridge.css` + `phone/phone.css`
@@ -109,7 +110,7 @@ export default function Discovery() {
     return (
       <section className={ROOT}>
         <State
-          glyph="✦"
+          glyph="discovery"
           title={counts.promoted + counts.dismissed > 0 ? '미결 후보가 없어요' : '발견 큐가 아직 비어 있어요'}
           /* ⚠ 두 상태는 **처방이 다르다**. "다 처리했다"는 정상 종착이라 억지 CTA 를 두면
              성공한 사람에게 할 일을 만들어 주는 꼴이고, "큐가 비었다"는 파이프라인이 안 돈
@@ -200,7 +201,7 @@ function Candidate({
               role="img"
               aria-label={`이 개념이 잇는 활성 하위목표: ${goals.join(', ')}`}
             >
-              🎯 {goals.join(' · ')}
+              <Icon name="target" /> {goals.join(' · ')}
             </span>
           )}
           <span

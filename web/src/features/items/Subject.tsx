@@ -231,7 +231,7 @@ export default function Subject() {
     return (
       <State
         kind="empty"
-        glyph="🔍"
+        glyph="search"
         title="그 과목이 없어요"
         desc="삭제됐거나 링크가 낡았어요."
         next={

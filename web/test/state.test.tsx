@@ -54,8 +54,12 @@ test('로딩은 스크린리더에 스스로 알린다(role=status)', () => {
   expect(screen.getByRole('status')).toHaveTextContent('지식상태를 불러오는 중');
 });
 
-test('에러는 글리프를 스스로 갖는다 — 호출부가 이모지를 고르지 않는다', () => {
-  render(<State kind="error" title="불러오지 못했어요" next={<button type="button">다시 시도</button>} />);
-  expect(screen.getByText('⚠️')).toBeInTheDocument();
+test('에러는 글리프를 스스로 갖는다 — 호출부가 이름을 고르지 않는다', () => {
+  const { container } = render(
+    <State kind="error" title="불러오지 못했어요" next={<button type="button">다시 시도</button>} />,
+  );
+  /* ⚠ 옛 단언은 `getByText('⚠️')` 였다 — 이제 글리프가 **SVG 아이콘**이라 텍스트가 아니다
+     (2026-08-01 이모지 이식). 보는 것은 그대로다: **호출부가 안 줘도 에러는 자기 표식을 갖는다.** */
+  expect(container.querySelector('svg.ic')).toBeTruthy();
   expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
 });

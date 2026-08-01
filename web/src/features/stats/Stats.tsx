@@ -22,6 +22,7 @@ import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel } from '@/lib/u
 import { buildStreakGrid } from '@/lib/statsView';
 import { sortSubjectsByUrgency } from '@/lib/scheduleView';
 import type { ScheduleResult } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 const StatsDetail = lazy(() => import('./StatsDetail'));
 
@@ -309,7 +310,7 @@ function Gauge({ pct }: { pct: number }) {
 }
 
 /** 보조 리드아웃 — 공용 CountReadout에 이 탭의 클래스만 입힘(카운트업 정본 공유). */
-function Readout(props: { value: number; lab: ReactNode; prefix?: string; suffix?: ReactNode }) {
+function Readout(props: { value: number; lab: ReactNode; prefix?: ReactNode; suffix?: ReactNode }) {
   return <CountReadout {...props} className="ds-ro ds-glow" numClassName={'ds-roNum'} labClassName={'ds-roLab'} />;
 }
 
@@ -373,7 +374,7 @@ export default function Stats() {
       <section aria-label="학습 통계">
         <div className="ds-rule">
           <State
-            glyph="📊"
+            glyph="chart"
             title="아직 통계가 없어요"
             desc={
               <>
@@ -420,14 +421,14 @@ export default function Stats() {
             </div>
           </div>
           <div className={S.ros}>
-            <Readout value={streak} prefix="🔥 " lab="연속 학습일" />
+            <Readout value={streak} prefix={<Icon name="flame" />} lab="연속 학습일" />
             <Readout value={doneCh} suffix={<small>/{totalCh}</small>} lab="완료 챕터" />
             <Readout value={recallActs} lab="능동 인출(요약+백지+모의)" />
             <Readout value={revCount} lab="복습 세션(계획)" />
             {/* 개인 기록(I-6) — 기록이 있을 때만(과장 금지). 최고 집중일은 hLabel(분→시간)로 정적 표기. */}
             {pb.totalDays > 0 && (
               <>
-                <Readout value={pb.longestStreak} prefix="🏆 " lab="최장 연속(개인 기록)" />
+                <Readout value={pb.longestStreak} prefix={<Icon name="trophy" />} lab="최장 연속(개인 기록)" />
                 <div className="ds-ro ds-glow">
                   <span className="ds-roNum">{hLabel(pb.bestFocusMin)}</span>
                   <span className="ds-roLab">
@@ -455,7 +456,7 @@ export default function Stats() {
               <span className={`${S.vIcon} ${trGood ? S.vIconGood : S.vIconBad}`}>{trIcon}</span>
               <span className={S.vText}>
                 <b className="text-txt">오답 추세</b> — 지난주 {tr.lastW} → 이번주 {tr.thisW}.{' '}
-                {trGood ? '약점이 닫히는 방향. 👍' : '가장 잦은 유형의 처방에 다음 주 시간을 더 주세요.'}
+                {trGood ? '약점이 닫히는 방향.' : '가장 잦은 유형의 처방에 다음 주 시간을 더 주세요.'}
               </span>
             </div>
             <div className={S.verdict}>

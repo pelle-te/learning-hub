@@ -13,7 +13,10 @@ import * as A from './actions';
 
 export { ToastHost } from './toast';
 export { ModalHost } from './modal';
-export { Icon } from './icons';
+/* ⚠ **재수출이다** — 실체는 `components/Icon.tsx` 로 갔다(이모지 이식의 선행 · 그 파일 머리주석).
+   `app/` 셋이 이 배럴로 쓰고 있어 경로를 안 깨뜨리려 남긴다. 새 소비처는 `@/components/Icon` 을 직접 쓸 것 —
+   `components`·`phone` 은 이 배럴을 물 수 없다(H10·H27). */
+export { Icon } from '@/components/Icon';
 export {
   orderedTabs,
   tabByKey,

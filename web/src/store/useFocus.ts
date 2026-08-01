@@ -88,7 +88,7 @@ export const useFocus = create<FocusStore>((set, get) => ({
        "PC 에서 뭘 하고 있었지"가 기억 재구성이었다. 클라우드 미연결이면 무동작이다. */
     // E26 — 종료 시각을 함께 실어 **다른 기기가** 남은 시간을 말할 수 있게 한다(읽기 전용).
     writeResume({ kind: 'focus', label: t.name, at: now, endsAt: session.endsAt });
-    toast(`집중 ${t.min}분 시작 — 화이팅 🔥`, 'info');
+    toast(`집중 ${t.min}분 시작 — 화이팅!`, 'info');
   },
 
   startOnCurrent() {
@@ -130,7 +130,7 @@ export const useFocus = create<FocusStore>((set, get) => ({
     };
     set({ session });
     persistFocus(storage, session);
-    toast(`집중 ${m}분 시작 — 화이팅 🔥`, 'info');
+    toast(`집중 ${m}분 시작 — 화이팅!`, 'info');
   },
 
   stop() {
@@ -154,7 +154,7 @@ export const useFocus = create<FocusStore>((set, get) => ({
     };
     set({ session });
     persistFocus(storage, session);
-    toast(`☕ ${min}분 휴식 — 끝나면 알려드려요.`, 'info');
+    toast(`${min}분 휴식 — 끝나면 알려드려요.`, 'info');
   },
 
   clear() {

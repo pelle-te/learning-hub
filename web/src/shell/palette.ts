@@ -36,7 +36,7 @@ function baseCommands(): PaletteCommand[] {
     {
       id: 'act:focus-start',
       kind: 'act',
-      label: '▶ 집중 시작 — 지금 블록',
+      label: '집중 시작 — 지금 블록',
       hint: '오늘',
       run: () => void useFocus.getState().startOnCurrent(),
       to: '/today',
@@ -51,21 +51,21 @@ function baseCommands(): PaletteCommand[] {
     {
       id: 'act:focus-free-25',
       kind: 'act',
-      label: '⏱ 즉석 집중 25분 — 예약 없이',
+      label: '즉석 집중 25분 — 예약 없이',
       hint: '오늘',
       run: () => useFocus.getState().startFree(25),
     },
     {
       id: 'act:focus-free-15',
       kind: 'act',
-      label: '⏱ 즉석 집중 15분 — 예약 없이',
+      label: '즉석 집중 15분 — 예약 없이',
       hint: '오늘',
       run: () => useFocus.getState().startFree(15),
     },
     {
       id: 'act:focus-free-50',
       kind: 'act',
-      label: '⏱ 즉석 집중 50분 — 예약 없이',
+      label: '즉석 집중 50분 — 예약 없이',
       hint: '오늘',
       run: () => useFocus.getState().startFree(50),
     },
@@ -73,7 +73,7 @@ function baseCommands(): PaletteCommand[] {
     {
       id: 'act:review-run',
       kind: 'act',
-      label: '↻ 복습 세션 — 밀린 챕터·회상·착각 재확인',
+      label: '복습 세션 — 밀린 챕터·회상·착각 재확인',
       hint: '복습',
       run: () => {},
       to: '/review-run',

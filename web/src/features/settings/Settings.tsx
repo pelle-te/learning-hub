@@ -23,6 +23,7 @@ import ConflictsNotice from './ConflictsNotice';
 import UpdateCard from './UpdateCard';
 import { lastParity } from '@/lib/db/write';
 import type { AppState } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* ── C-7 이식(settings) — Tailwind 클래스 ─────────────────────────────────────
    상단 시네마틱 상태 밴드 + 컨트롤 패널. ds.* 공유 클래스·런타임 색 주입(액센트 스와치
@@ -104,10 +105,21 @@ function VisitLedger() {
 function ParityLine() {
   const p = lastParity();
   if (p.skipped) return null;
-  if (p.unavailable) return <div className={`ds-foot ${S.bdLine}`}>⚠ 저장소에 연결하지 못했습니다(임시 저장 중)</div>;
+  if (p.unavailable)
+    return (
+      <div className={`ds-foot ${S.bdLine}`}>
+        <Icon name="alert" /> 저장소에 연결하지 못했습니다(임시 저장 중)
+      </div>
+    );
   return (
     <div className={`ds-foot ${S.bdLine}`}>
-      {p.ok ? '✓ 저장 경로 정상(쓴 값과 되읽은 값 일치)' : `⚠ 저장 경로 불일치: ${p.mismatched.join(', ')}`}
+      {p.ok ? (
+        '✓ 저장 경로 정상(쓴 값과 되읽은 값 일치)'
+      ) : (
+        <>
+          <Icon name="alert" /> 저장 경로 불일치: {p.mismatched.join(', ')}
+        </>
+      )}
     </div>
   );
 }
@@ -495,7 +507,7 @@ export default function Settings() {
         </div>
         {peakInverted && (
           <div className="ds-warnbox ds-bad">
-            ⚠ 끝 시각이 시작보다 빨라요 — 피크 구간이 비어 우선 배치가 동작하지 않습니다.
+            <Icon name="alert" /> 끝 시각이 시작보다 빨라요 — 피크 구간이 비어 우선 배치가 동작하지 않습니다.
           </div>
         )}
         <div className="ds-foot">
@@ -535,13 +547,13 @@ export default function Settings() {
         <VisitLedger />
         <div className="ds-row">
           <Button sm onClick={() => io.backupToVault()}>
-            📁 볼트 폴더에 백업
+            <Icon name="folder" /> 볼트 폴더에 백업
           </Button>
           <Button sm variant="ghost" onClick={() => io.exportJSON()}>
-            💾 파일로 내보내기
+            <Icon name="save" /> 파일로 내보내기
           </Button>
           <Button sm variant="ghost" onClick={() => impRef.current?.click()}>
-            📂 파일에서 복원
+            <Icon name="folder" /> 파일에서 복원
           </Button>
           {/* 숨은 파일 인풋 — importJSON이 HTMLInputElement를 받으므로 버튼이 대리 클릭(백업가드·언두 토스트는 내장). */}
           <input
@@ -561,7 +573,7 @@ export default function Settings() {
             onClick={() => io.restoreFromIDB()}
             title="localStorage가 지워졌을 때 IndexedDB 자동 미러에서 복구"
           >
-            ♻ IndexedDB에서 복구
+            <Icon name="refresh" /> IndexedDB에서 복구
           </Button>
           {hasCorrupt && (
             <Button
@@ -573,7 +585,7 @@ export default function Settings() {
               }}
               title="부팅이 살리지 못해 보존해 둔 손상 원본(raw)을 파일로 회수합니다 — 내려받으면 보존 키를 정리(감사 ③#9)"
             >
-              🧯 손상 원본 내려받기
+              <Icon name="alert" /> 손상 원본 내려받기
             </Button>
           )}
           <Button
@@ -587,7 +599,7 @@ export default function Settings() {
                 : `6개월 이전 ${archN}건을 보관 파일로 내려받고 앱에서 비웁니다`
             }
           >
-            🗄 오래된 기록 정리(6개월 이전)
+            <Icon name="archive" /> 오래된 기록 정리(6개월 이전)
           </Button>
         </div>
         {/* 아카이브 사전 미리보기 — 블라인드 위험버튼을 "N건 보관 가능" 정보형으로 승격. */}
@@ -613,13 +625,13 @@ export default function Settings() {
         )}
         <div className="ds-foot">
           볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 저장 때마다{' '}
-          <b>IndexedDB에 자동 미러</b>되어, 사이트 데이터가 지워져도 <b>♻ 복구</b>로 되살릴 수 있어요(같은 브라우저
-          한정). 정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.
+          <b>IndexedDB에 자동 미러</b>되어, 사이트 데이터가 지워져도 <b>복구</b>로 되살릴 수 있어요(같은 브라우저 한정).
+          정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.
         </div>
         {/* 위험구역 — 되돌리기(직전 백업본 복원)·전체 초기화. TopBar ⋯메뉴에만 있던 걸 설정탭에도. */}
         <div className={`ds-row ${S.dangerRow}`}>
           <Button sm variant="ghost" onClick={() => actions.undoLast()}>
-            ↩ 되돌리기
+            <Icon name="undo" /> 스냅샷 복원
           </Button>
           <Button sm danger onClick={() => actions.resetAll()}>
             전체 초기화…

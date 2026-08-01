@@ -60,14 +60,16 @@ export interface Ledger {
    `var(--tx)` 오타에 대해 세운 규율과 같은 자리).
    ⚠ 폴백을 되살리지 말 것. "SSR 안전"·"토큰 로드 전"은 이 앱에 없는 상황이다(토큰 CSS 는
      `main.tsx` 의 첫 import 다). */
+/** ⚠ `glyph` 는 **아이콘 이름**이다(`components/Icon`) — 이모지가 아니다(2026-08-01). 소비처가
+ *  둘(원장 범례·행)이라 이름을 lib 이 소유하고 그리기는 feature 가 한다. */
 export const STAGE_META: Record<LedgerStage, { label: string; glyph: string; color: string; desc: string }> = {
-  sourced: { label: '출처', glyph: '📂', color: 'var(--line)', desc: '참고자료 폴더 연결' },
-  noted: { label: '노트', glyph: '📝', color: 'var(--mut)', desc: '원자 노트 작성' },
+  sourced: { label: '출처', glyph: 'folder', color: 'var(--line)', desc: '참고자료 폴더 연결' },
+  noted: { label: '노트', glyph: 'pencil', color: 'var(--mut)', desc: '원자 노트 작성' },
   /* ⚠ `--sky` 는 **정의된 적이 없는 이름**이었다(H20 · 2026-07-26 감사) — 폴백 hex 로만 그려져
      테마와 무관하게 고정색이었다. 파란 계열의 실제 토큰은 `--signal` 이다. */
-  verified: { label: '검증', glyph: '✓', color: 'var(--signal)', desc: '개념 노트 검증 통과' },
-  carded: { label: '카드', glyph: '🃏', color: 'var(--learning)', desc: 'Anki 카드 발급' },
-  reviewed: { label: '복습', glyph: '🔁', color: 'var(--good)', desc: '최근 인출(복습) 관측' },
+  verified: { label: '검증', glyph: 'check', color: 'var(--signal)', desc: '개념 노트 검증 통과' },
+  carded: { label: '카드', glyph: 'cards', color: 'var(--learning)', desc: 'Anki 카드 발급' },
+  reviewed: { label: '복습', glyph: 'refresh', color: 'var(--good)', desc: '최근 인출(복습) 관측' },
 };
 
 /**

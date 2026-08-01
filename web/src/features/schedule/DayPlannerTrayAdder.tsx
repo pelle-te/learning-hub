@@ -25,6 +25,7 @@ import { hLabel, toMin } from '@/lib/utils';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
 import type { Item, ScheduleResult, SessionType } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 const EV_FORM_ID = 'dayPlannerEventForm'; // '+ 일정'이 aria-controls로 가리키는 온디맨드 컴포저.
 
@@ -44,7 +45,8 @@ const BLOCK_TYPES = [
 ] as const;
 
 const REPEAT_NEXT = { none: 'daily', daily: 'weekly', weekly: 'none' } as const;
-const REPEAT_LABEL = { none: '🔁', daily: '🔁일', weekly: '🔁주' } as const;
+/** 반복 토글 라벨 — 아이콘 뒤에 붙는 **접미사**다(아이콘은 아래 렌더가 그린다). */
+const REPEAT_LABEL = { none: '', daily: '일', weekly: '주' } as const;
 const REPEAT_TITLE = {
   none: '반복 없음 — 눌러 매일',
   daily: '매일 반복 — 눌러 매주',
@@ -162,6 +164,7 @@ export function DayPlannerTrayAdder({
           title={REPEAT_TITLE[repeatMode]}
           aria-label={`반복: ${REPEAT_ARIA[repeatMode]}`}
         >
+          <Icon name="refresh" />
           {REPEAT_LABEL[repeatMode]}
         </button>
         <button type="button" className={cls.addBtn} onClick={addFreeTask} aria-label="할 일 추가">

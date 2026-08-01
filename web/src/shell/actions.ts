@@ -772,7 +772,7 @@ export function commitCapture(raw: string, summary: string): void {
   });
   if (!out) return;
   const { topic } = out as { topic: string };
-  toastUndoable('📥 보충에 담았어요 — ' + (summary || topic));
+  toastUndoable('보충에 담았어요 — ' + (summary || topic));
 }
 
 /* ── 볼트 과목 임포트 — **W4 규칙의 단일 원천**(H22 · 2026-08-01) ─────────────────────

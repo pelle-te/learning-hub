@@ -14,6 +14,7 @@ import { commit } from '@/lib/motion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { MOD_ENTER_LABEL } from '@/lib/platform';
 import { SubjectSelect, usePrefillForm, nameOf } from './shared';
+import { Icon } from '@/components/Icon';
 
 export default function SummaryCard({ ds: dsKey }: { ds: string }) {
   const cardRef = useRef<HTMLDivElement>(null); // D-7 commit 착지 대상(값이 바뀐 상자)
@@ -137,7 +138,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
           disabled={!canExport}
           title={canExport ? '오늘 요약·오답을 Anki import용 .txt 카드 초안으로' : '오늘 기록한 요약·오답이 없어요'}
         >
-          🃏 오늘 → Anki 카드(.txt)
+          <Icon name="cards" /> 오늘 → Anki 카드(.txt)
         </Button>
         <Button
           sm
@@ -151,7 +152,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
               : '오늘 기록한 요약이 없어요'
           }
         >
-          📓 오늘 → 노트(.md)
+          <Icon name="book" /> 오늘 → 노트(.md)
         </Button>
       </div>
       <div className="ds-foot ds-tiny">

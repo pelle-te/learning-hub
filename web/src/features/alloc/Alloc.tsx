@@ -19,6 +19,7 @@ import { deadlineDdays } from '@/lib/scheduleView';
 import { Button } from '@/components/ui';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
 import { AllocBoard } from './AllocBoard';
+import { Icon } from '@/components/Icon';
 
 /* Alloc 세그먼트 셸 — 옛 CSS Module 을 Tailwind 유틸로 이식(C-7). 주 네비 크롬만 소유(보드는 AllocBoard).
    ⚠ 내장 크기 이름(text-lg/sm)은 preflight 없는 이 앱에서 companion line-height 를 흘리므로 정상흐름
@@ -106,14 +107,14 @@ export default function Alloc() {
       <div className={C.nav}>
         <div className={C.wknav}>
           <Button sm className="whitespace-nowrap" onClick={prev}>
-            ◀ 이전 주
+            <Icon name="chevronLeft" /> 이전 주
           </Button>
           <div className={C.wk}>
             <b className={C.wkLab}>{weekLabel(curMon)}</b>
             <span className={C.wkOff}>{offsetLabel}</span>
           </div>
           <Button sm className="whitespace-nowrap" onClick={next}>
-            다음 주 ▶
+            다음 주 <Icon name="chevronRight" />
           </Button>
           <Button sm variant="ghost" className="whitespace-nowrap" onClick={weekToday}>
             오늘

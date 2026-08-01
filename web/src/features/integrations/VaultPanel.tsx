@@ -22,6 +22,7 @@ import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
 import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 export function VaultPanel() {
   const qc = useQueryClient();
@@ -168,9 +169,13 @@ export function VaultPanel() {
                   <span className="ds-spin" /> 스캔 중...
                 </>
               ) : scan ? (
-                '🔄 다시 스캔'
+                <>
+                  <Icon name="refresh" /> 다시 스캔
+                </>
               ) : (
-                '📁 볼트 폴더 연동'
+                <>
+                  <Icon name="folder" /> 볼트 폴더 연동
+                </>
               )}
             </Button>
           )}
@@ -182,7 +187,7 @@ export function VaultPanel() {
               onClick={reconnect}
               title="지난번 연동한 폴더에 재선택 없이 다시 연결"
             >
-              🔗 지난 볼트 다시 연결{pending.name ? ` (${pending.name})` : ''}
+              <Icon name="link" /> 지난 볼트 다시 연결{pending.name ? ` (${pending.name})` : ''}
             </Button>
           )}
           {!isTauri() && scan && (
@@ -213,8 +218,9 @@ export function VaultPanel() {
         )}
         {scan && (
           <div className="ds-tiny text-mut" style={{ marginTop: 6 }}>
-            📂 {isTauri() ? '감시 중' : '연동됨'}: <b style={{ color: 'var(--ink)' }}>{handle?.name || 'knowledge'}</b>{' '}
-            · 스캔 {scan.at} · 과목 {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
+            <Icon name="folder" /> {isTauri() ? '감시 중' : '연동됨'}:{' '}
+            <b style={{ color: 'var(--ink)' }}>{handle?.name || 'knowledge'}</b> · 스캔 {scan.at} · 과목{' '}
+            {scan.subjects.length}개{scan.src ? ' · ' + scan.src : ''}
           </div>
         )}
       </div>
@@ -247,7 +253,7 @@ export function VaultPanel() {
                   <span className="ds-tiny text-mut">
                     노트 {s.notes} · 검증 {s.verified}({vp}%){s.wip ? ` · 진행중 ${s.wip}` : ''}
                     {s.legacy ? ` · 구버전 ${s.legacy}` : ''} · Anki {s.exported}({ep}%)
-                    {uncovered > 0 ? ` · 🃏 미출력 ${uncovered}` : ''}
+                    {uncovered > 0 ? ` · 미출력 ${uncovered}` : ''}
                   </span>
                   <Button
                     sm

@@ -11,6 +11,7 @@ import { ui } from '@/shell';
 import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 /* Skeleton.module.css → Tailwind 이식(C-7). 폼 위주라 전역 요소규칙(button/input/select)을
    `!` 로 이기는 자리가 많다 — 값이 전역과 같으면 클래스 없음, 다를 때만 `!`(§15 · tokenBridge 머리주석).
@@ -54,7 +55,7 @@ function BadRange({ start, end }: { start: string; end: string }) {
   if (toMin(start) < toMin(end)) return null;
   return (
     <div className="ds-tiny" style={{ color: 'var(--bad)', marginTop: 4 }}>
-      ⚠ 끝 시각이 시작보다 빨라요 — 이 블록은 무시됩니다.
+      <Icon name="alert" /> 끝 시각이 시작보다 빨라요 — 이 블록은 무시됩니다.
     </div>
   );
 }

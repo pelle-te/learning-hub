@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { isTauri, pickWorkspace, workspaceStatus, type WorkspaceStatus } from '@/lib/tauri';
 import { Button } from '@/components/ui';
 import { ui } from '@/shell';
+import { Icon } from '@/components/Icon';
 
 export default function WorkspaceCard() {
   const [status, setStatus] = useState<WorkspaceStatus | null>(null);
@@ -72,7 +73,7 @@ export default function WorkspaceCard() {
       )}
       <div className="ds-row">
         <Button sm variant={bad ? 'primary' : 'ghost'} onClick={() => void pick()} disabled={busy}>
-          📁 폴더 지정
+          <Icon name="folder" /> 폴더 지정
         </Button>
       </div>
     </div>

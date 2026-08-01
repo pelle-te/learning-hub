@@ -11,6 +11,7 @@ import DetailDrawer from '@/components/DetailDrawer';
 import { ui } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
 import type { AppState, Item } from '@/lib/types';
+import { Icon } from '@/components/Icon';
 
 type Mutate = (recipe: (st: AppState) => void) => void;
 
@@ -150,7 +151,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   return (
     <details open={chs.length === 0} className="ds-chapwrap">
       <summary>
-        📖 챕터{' '}
+        <Icon name="book" /> 챕터{' '}
         <span className="text-mut" style={{ fontWeight: 400 }}>
           {chs.length ? `${chs.length}개 · 약 ${totalH}h` : '추가'}
         </span>
@@ -273,7 +274,9 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
             + 챕터 추가
           </Button>
           <span style={{ flex: 1 }} />
-          <span className="ds-tiny text-mut">↕ 드래그로 순서 변경</span>
+          <span className="ds-tiny text-mut">
+            <Icon name="arrowUpDown" /> 드래그로 순서 변경
+          </span>
         </div>
 
         <details className="ds-bulkwrap" style={{ marginTop: 10 }}>
