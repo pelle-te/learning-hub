@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 /* ============================================================
-   gate.mjs — web 품질 게이트 러너. verify(+build·budget·e2e)를 돌려 압축 요약만 출력.
+   gate.mjs — **저장소 전체** 품질 게이트 러너(web + server + Rust 셸). 압축 요약만 출력해
    서브에이전트/슬래시 명령이 전체 로그 대신 짧은 통과/실패 보고를 받게 한다.
-   사용: cd web && node scripts/gate.mjs [quick]   (quick=verify만, build·budget·e2e 생략)
+   사용: cd web && node scripts/gate.mjs [quick]   (quick=verify만 — 그 뒤 전부 생략)
    반환: 전부 통과 exit 0, 실패 exit 1. 첫 실패 단계에서 멈춘다.
-   full 모드는 번들 예산(bundle-budget)도 검증한다(감사 #25: CI에만 있던 예산 게이트를
-   로컬 완료 판정에 배선 — budget은 dist를 재므로 build가 선행).
+
+   full 순서: verify → audit(SCA) → build → budget → **server verify** → e2e
+              (+ cargo 있으면) tauri:fmt → tauri:clippy → tauri:check → cargo test → tauri:build → e2e:shell
+
+   ⚠ 순서에 계약이 셋 있다: budget·server verify 는 `dist` 를 재므로 **build 뒤**, `e2e:shell` 은
+   빌드된 exe 를 검사하므로 **tauri:build 뒤**, 나머지는 **싼 신호부터** 소진한다.
+
+   ⚠⚠ **이 목록이 "완료"의 정의다.** 여기 없는 검사는 사람이 기억해야 하는 검사가 되고, 이 저장소는
+   그걸로 세 번 물렸다 — `cargo test`(F6 · 2026-07-31) · `server verify`·`tauri:fmt/clippy`
+   (패리티 사고 · 2026-08-01). 셋 다 "CI 엔 있는데 로컬엔 없다"는 같은 형태였다.
 ============================================================ */
 import { spawnSync } from 'node:child_process';
 
@@ -20,6 +28,16 @@ if (!quick)
     ['audit', ['run', 'audit']],
     ['build', ['run', 'build']],
     ['budget', ['run', 'budget']],
+    /* ⚠⚠ **`server verify` 가 어떤 로컬 게이트에도 없었다**(2026-08-01 `/감사 근본` · 패리티 사고).
+       2026-07-20 감사가 *"server 게이트를 빼먹지 말 것 — 인터넷에 노출되고 인증·입력검증을 다루는
+       유일한 층인데 CI 도 로컬도 안 돌고 있었다"* 를 발견해 **CI 에** 넣었는데, **로컬에는 끝내
+       안 들어왔다.** 그리고 그 CI 잡은 2026-07-19 이후 상시 빨간불이었다(C2) — 즉 고쳤다고 적힌
+       뒤로도 그 층은 **양쪽 어디에서도 검증되지 않았다.** 같은 진단이 두 번 반복된 것이 요점이다.
+       ⚠ 자리가 `build` **뒤**인 것은 계약이다 — `server/test/assets.test.ts` 가 `../web/dist` 를
+         진짜 miniflare 로 재므로(그 파일이 "없으면 시끄럽게 실패한다"고 적어 뒀다) 빌드가 선행이다.
+       ⚠ `server audit` 은 넣지 않는다 — `audit` 과 같은 이유(네트워크)이고, 그쪽 원장은 비어 있는
+         상태를 유지하는 것이 목표라 CI 가 그 축을 쥔다. */
+    ['server verify', ['run', 'verify', '--prefix', '../server']],
     ['e2e', ['run', 'e2e']],
   );
 
@@ -35,6 +53,14 @@ if (!quick)
 const hasCargo = spawnSync('cargo', ['--version'], { encoding: 'utf8', shell: true }).status === 0;
 if (!quick && hasCargo) {
   steps.push(
+    /* ⚠⚠ **Rust 린트가 사실상 무게이트였다**(2026-08-01 `/감사 근본` · 패리티 사고). `tauri:fmt`·
+       `tauri:clippy` 는 **CI 에만** 있었고 그 CI 잡은 13일·8런 연속 빨간불이었다(C2) — 두 조건이
+       겹쳐 clippy 경고가 몇 주째 아무 데서도 안 읽혔다. web 쪽은 `lint` 가 `verify` 안에 있는데
+       Rust 만 그 대칭이 없던 것이고, 이유는 설계가 아니라 **누락**이다.
+       ⚠ 자리가 `tauri:check` 앞인 것은 싼 신호부터 소진하는 이 블록의 규율 그대로다(fmt 는 초,
+         clippy 는 check 와 같은 분석을 공유한다). */
+    ['tauri:fmt', ['run', 'tauri:fmt', '--prefix', '..']],
+    ['tauri:clippy', ['run', 'tauri:clippy', '--prefix', '..']],
     ['tauri:check', ['run', 'tauri:check', '--prefix', '..']],
     /* ⚠⚠ **`cargo test` 가 게이트 밖이었다(F6 · 2026-07-31 `/감사 근본`).**
 
@@ -56,11 +82,28 @@ const results = [];
 for (const [name, args] of steps) {
   const r = spawnSync('npm', args, { cwd: process.cwd(), encoding: 'utf8', shell: true });
   const ok = r.status === 0;
+  /* ⚠ **증상 한 줄이 아니라 원인까지 담는다**(F6 · 2026-08-01 `/감사 근본`). 종전엔 `/error|fail/`
+     **첫 매칭 줄**만 200자로 잘랐다 — 그건 거의 항상 *증상*(`test failed`)이고 진짜 원인(panic
+     사유·`Cannot find module`·assertion 본문)은 그 아래 줄에 있어 통째로 버려졌다. 실제로 C2 의
+     독립 원인 3개가 이 요약기를 통과하며 하나로 뭉개졌다.
+     → 매칭 줄을 **최대 3개**까지, 중복을 접어서 싣는다.
+
+     ⚠⚠ **통과 줄을 먼저 버린다.** 넓히자마자 물렸다(같은 날 실측): 이 저장소의 테스트 *제목*에
+     `error` 가 들어간다(`ledger · error · dark` 등) → 러너의 **`ok` 줄**이 매칭돼 실패 보고가
+     "통과한 테스트 이름 셋"이 됐다. 즉 넓히는 것만으로는 나빠질 수 있다 — 필터는 *어느 줄이
+     원인인가*를 알아야 하고, 최소한 **통과 표시로 시작하는 줄은 원인이 아니다**. */
   let firstErr = '';
   if (!ok) {
     const out = `${r.stdout || ''}\n${r.stderr || ''}`;
-    const line = out.split('\n').find((l) => /\b(error|fail(ed)?|✗|✘)\b/i.test(l));
-    firstErr = (line || '').trim().replace(/\s+/g, ' ').slice(0, 200);
+    const hits = [];
+    for (const l of out.split('\n')) {
+      if (/^\s*(ok|✓|√|passed|PASS)\b/i.test(l)) continue; // 통과 줄 — 제목에 error 가 있어도 원인이 아니다
+      if (!/\b(error|fail(ed)?|panic(ked)?)\b|✗|✘/i.test(l)) continue;
+      const t = l.trim().replace(/\s+/g, ' ').slice(0, 200);
+      if (t && !hits.includes(t)) hits.push(t);
+      if (hits.length === 3) break;
+    }
+    firstErr = hits.join(' ‖ ');
   }
   results.push({ name, ok, firstErr });
   if (!ok) break; // 첫 실패에서 중단

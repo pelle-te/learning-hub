@@ -120,6 +120,30 @@ describe('③ 스택 무효화 계약', () => {
     expect(undoDepth()).toBe(0);
   });
 
+  /* ⚠⚠ H2 회귀 — **⌘Z 가 실패하면 그 항목이 남아 있어야 한다.** 종전 순서는 `pop → apply` 라
+     적용이 던지면 항목은 이미 사라진 뒤였고, 호출부에 `.catch` 도 없어 화면은 아무 말도 안 했다:
+     누를 때마다 스택이 한 칸씩 조용히 파괴됐다. 지금은 `peek → apply → drop` 이다. */
+  it('⚠⚠ 되돌리기 **적용이 실패하면** 항목이 스택에 남는다 — 재시도가 성립한다(H2)', async () => {
+    pushUndo([{ table: 'settings', key: ['theme'], vals: ['theme', '"dark"'] }], 100);
+    exec.mockRejectedValueOnce(new Error('boom'));
+    await expect(undoLastWrite()).rejects.toThrow();
+    expect(undoDepth(), 'pop-먼저 순서면 여기가 0 이 되고 되돌릴 것이 조용히 사라진다').toBe(1);
+    // 그리고 다시 누르면 이번엔 성공한다.
+    const r = await undoLastWrite();
+    expect(r.restored).toBe(1);
+    expect(undoDepth()).toBe(0);
+  });
+
+  it('툼스톤에 전부 막혀 쓸 것이 없어도 **항목은 소비된다** — 안 그러면 같은 경고가 영원히 반복된다', async () => {
+    select.mockImplementation(async (q: string) =>
+      /FROM tombstones/.test(q) ? [{ tbl: 'settings', k1: 'theme', k2: '' }] : [],
+    );
+    pushUndo([{ table: 'settings', key: ['theme'], vals: ['theme', '"dark"'] }], 100);
+    const r = await undoLastWrite();
+    expect(r).toMatchObject({ restored: 0, skipped: 1 });
+    expect(undoDepth()).toBe(0);
+  });
+
   it('병합 쓰기가 실패하면 스택을 안 비운다 — 로컬이 안 바뀌었으므로 pre-image 는 여전히 유효하다', async () => {
     pushUndo([{ table: 'settings', key: ['theme'], vals: ['theme', '"dark"'] }], 100);
     exec.mockRejectedValueOnce(new Error('boom'));

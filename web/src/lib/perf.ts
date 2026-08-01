@@ -65,16 +65,36 @@ export interface BootWave {
   total: number | null;
 }
 
-/** 현재까지 기록된 부팅 웨이브. 아직 안 끝났으면 해당 칸이 null 이다(0 이 아니다 — 값 부재와 값 0 을 안 섞는다). */
+/**
+ * 현재까지 기록된 부팅 웨이브. 아직 안 끝났으면 해당 칸이 null 이다(0 이 아니다 — 값 부재와 값 0 을 안 섞는다).
+ *
+ * ⚠⚠ **마크에서 직접 뺀다 — `measure` 엔트리를 읽지 않는다**(2026-08-01). 종전엔 위 `measure()` 가
+ * 남긴 엔트리를 읽었는데, 그건 **`app` 이 `first-data` 보다 먼저 찍힌다**는 순서 가정에 기대고
+ * 있었다. 그 가정이 `warmTab`(부팅 260ms 제거)으로 **깨졌다**: 첫 라우트가 더는 Suspense 를 타지
+ * 않으면서 두 마크가 **같은 커밋**에 들어갔고, React 는 자식 이펙트(`TabReady`)를 부모 이펙트
+ * (`App`)보다 **먼저** 돌리므로 `first-data` 가 앞선다. 그러면 `measure('boot:app→first-data')`
+ * 는 시작 마크가 아직 없어 **조용히 안 만들어지고**, 리드아웃의 그 칸이 영구히 빈다 —
+ * 이 저장소가 반복해서 물린 *"녹색이 '회귀 없음'이 아니라 '안 쟀음'을 뜻하는"* 형태다.
+ * 마크 뺄셈은 순서와 무관하다. `measure` 는 DevTools 타임라인용으로만 남긴다(있으면 좋고 없어도 됨).
+ *
+ * ⚠ 음수는 **0 으로 접는다.** 위 순서 뒤집힘은 "App 마운트 뒤 데이터까지 -0.8ms"가 아니라
+ * **"같은 커밋에 들어왔다 = 대기 0"** 이라는 뜻이다. 음수를 그대로 보이면 계량이 고장 난 것처럼
+ * 읽히고, 이 값은 사람이 보는 리드아웃이다.
+ */
 export function bootWave(): BootWave {
   if (!ok()) return { entryToApp: null, appToData: null, total: null };
-  const dur = (label: string): number | null => {
-    const e = performance.getEntriesByName(label, 'measure');
-    return e.length ? Math.round(e[e.length - 1]!.duration) : null;
+  const at = (id: string): number | null => {
+    const e = performance.getEntriesByName(id, 'mark');
+    return e.length ? e[0]!.startTime : null;
   };
+  const entry = at(BOOT_MARKS.entry);
+  const app = at(BOOT_MARKS.app);
+  const data = at(BOOT_MARKS.firstData);
+  const span = (from: number | null, to: number | null): number | null =>
+    from == null || to == null ? null : Math.max(0, Math.round(to - from));
   return {
-    entryToApp: dur('boot:entry→app'),
-    appToData: dur('boot:app→first-data'),
-    total: dur('boot:entry→first-data'),
+    entryToApp: span(entry, app),
+    appToData: span(app, data),
+    total: span(entry, data),
   };
 }

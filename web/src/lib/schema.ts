@@ -121,6 +121,23 @@ export const BlankResultSchema = z.object({
   name: z.string(),
   passed: z.boolean(),
   note: z.string(),
+  /* ⚠⚠ **챕터 단위 실패 기록**(근본이관 ① · 2026-08-01 `/감사 근본` · 사용자 승인).
+
+     로드맵은 이 한 줄에서 **갈림길을 만나 멈춰** 있었다: *"스키마 추가가 D1·서버 strict zod·
+     폰까지 번진다 — `ds_map` 슬라이스로 실을 수 있는지가 갈림길"*. 감사가 그 갈림길을 측정으로
+     해소했다 — `blankResults` 는 `records` 슬라이스이고(`db/rows.ts:31 ARRAY_SLICES`),
+     `records.value` 는 `JSON.stringify` 된 **불투명 문자열**이라 서버 `TABLE_COLS`
+     (`server/src/index.ts:76`)가 그 안을 **한 번도 안 본다.**
+     → **D1 DDL 0 · 서버 zod 0 · 폰 전파 0 · 별도 `reviewMiss` 맵 불필요.**
+     선례는 같은 파일의 `conf`·`at` 이고, 이 필드는 그 관용구를 그대로 따른다.
+
+     ⚠ **옵셔널인 것이 계약이다** — 구버전 저장본·다른 기기가 보내온 행에는 이 키가 없다.
+     필수로 두면 `parseState` 가 옛 데이터를 통째로 거부한다(가져오기·pull 이 함께 죽는다).
+
+     ⚠ **남은 위험 둘은 이 필드가 안 푼다**(로드맵이 이미 적어 둔 것): ① 기록은 여전히
+     *하루·과목당 하나*라 한 과목에서 두 챕터를 본 날은 뒤엣것이 앞엣것을 덮는다 ② '넘김'과
+     '실패'는 다르다. 둘은 이 줄이 아니라 기록 단위·어휘의 문제다. */
+  chapter: z.optional(z.string()),
 });
 
 export const RetentionSchema = z.object({

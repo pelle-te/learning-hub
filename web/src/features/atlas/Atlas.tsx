@@ -26,6 +26,7 @@ import {
 } from '@/lib/atlas';
 import { fmtPublished } from '@/lib/markets';
 import State from '@/components/State';
+import { daysAgoLabel } from '@/lib/utils';
 
 /* ── C-7 여섯 번째 이식(atlas) ────────────────────────────────────────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Atlas.module.css`(536줄) 삭제.
@@ -58,13 +59,6 @@ const TAG_DIM = 'border-line! bg-panel2! text-mut!';
 const TL = 'm-0 list-none p-0';
 const TLITEM =
   "relative pb-3 pl-4 before:absolute before:top-1 before:left-0.5 before:size-1.5 before:rounded-full before:bg-signal before:shadow-tl-dot before:content-[''] after:absolute after:top-3 after:bottom-0 after:left-1.5 after:w-px after:bg-line2 after:content-[''] last:pb-0 last:after:hidden";
-
-/** 상대일 라벨 — 0=오늘, 1=어제, 그 외 'N일 전'. */
-function agoLabel(days: number): string {
-  if (days <= 0) return '오늘';
-  if (days === 1) return '어제';
-  return `${days}일 전`;
-}
 
 export default function Atlas() {
   const { pathname } = useLocation();
@@ -289,7 +283,7 @@ export default function Atlas() {
                     <li key={t.id} className={TLITEM}>
                       <div className="text-md leading-snug">{t.text}</div>
                       <div className="mt-0.5 text-2xs text-mut">
-                        <b className="font-semibold text-signal">{t.source}</b> · {agoLabel(t.daysAgo)}
+                        <b className="font-semibold text-signal">{t.source}</b> · {daysAgoLabel(t.daysAgo)}
                       </div>
                     </li>
                   ))}

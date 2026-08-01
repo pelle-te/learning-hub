@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn 실_워크스페이스의_산출물을_읽는다() {
-        let ws = crate::testkit::real_workspace().expect("환경 가정 위반 — testkit 참조");
+        let ws = crate::testkit::ws_or_skip!();
 
         // 볼트 파생물 — serve.js 도 여기는 맞게 보고 있었다.
         let knowledge = read_at(&ws, "knowledge").expect("knowledge 산출물 읽기 실패");
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn 실_워크스페이스에서도_화이트리스트_밖은_거부한다() {
         // 프런트가 '미생성'으로 분류하는 접두를 실물 경로에서도 그대로 쓰는지.
-        let ws = crate::testkit::real_workspace().expect("환경 가정 위반 — testkit 참조");
+        let ws = crate::testkit::ws_or_skip!();
         let err = read_at(&ws, "../../etc/passwd").unwrap_err();
         assert!(err.starts_with(NOT_FOUND), "{err}");
     }

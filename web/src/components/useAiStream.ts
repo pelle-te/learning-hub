@@ -4,7 +4,7 @@
    결과 처리(성공 상태·도메인 오류문구·포커스 이동)는 호출부에 남긴다 — 얇게 유지해 누수 방지(SR-15).
    reads(coach)·markets(brief)·review(coach)의 복붙 보일러플레이트를 수렴한다.
 ============================================================ */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { previewFromJsonStream } from '@/lib/api';
 
 /** run() 결과 — 성공(value)이거나 실패(aborted=사용자 취소면 조용히, 아니면 error 문구). */
@@ -25,6 +25,23 @@ export function useAiStream(): AiStream {
   const abortRef = useRef<AbortController | null>(null);
 
   const cancel = useCallback(() => abortRef.current?.abort(), []);
+
+  /* ⚠⚠ **언마운트가 곧 취소다**(H18 · 2026-08-01).
+
+     종전엔 취소를 **호출부가** 붙였고, 실제로 붙인 곳은 `Markets` 의 *드로어 닫기* 하나였다.
+     그래서 브리핑이 도는 중에 **탭을 떠나면** `ollama_cancel` 이 안 나가고 Rust 가 최대 120초
+     동안 생성을 계속 돌았다 — 화면은 이미 없는데 로컬 GPU/CPU 는 계속 탄다(그리고 사용자는
+     이유를 볼 방법이 없다). 같은 훅을 쓰는 `ArticlePractice` 는 아예 아무 데도 안 붙여 뒀다.
+
+     처방을 훅에 두는 이유는 `useCommitOnChange`(E15)와 같다: **입구가 여럿인 수명은 값 쪽에
+     붙이면 한 번에 전부 덮인다.** 호출부의 명시적 `cancel()`(드로어 닫기)은 그대로 유효하다 —
+     그건 "화면은 남았는데 이 작업만 그만"이고, 여기는 "화면 자체가 사라졌다"다. */
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+    },
+    [],
+  );
 
   const run = useCallback(async function run<T>(
     fn: (o: { signal: AbortSignal; onDelta: (t: string) => void }) => Promise<T>,

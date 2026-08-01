@@ -11,8 +11,8 @@
     "_주석:build:fast": "트랙 B 는 target/release/learning-hub.exe 만 검사한다(shellApp.ts:16) — NSIS 인스톨러는 매번 만들고 매번 안 쓴다. --no-bundle 은 그 단계만 건너뛰고 exe 는 동일하게 낸다. 배포본을 만들 때는 tauri:build 를 쓸 것.",
     "tauri:build:fast": "tauri build --no-bundle",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "_주석:test": "Rust 유닛 + **실물 통합**(진짜 워크스페이스·볼트·DB). 옛날엔 트랙 B 가 앱을 띄워 재던 것들이 여기 있다 — 근거는 src-tauri/src/testkit.rs 머리주석.",
-    "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
+    "_주석:test": "Rust 유닛 + **실물 통합**(진짜 워크스페이스·볼트·DB). 옛날엔 트랙 B 가 앱을 띄워 재던 것들이 여기 있다 — 근거는 src-tauri/src/testkit.rs 머리주석. ⚠ `--show-output` 은 장식이 아니다(F6 · 2026-08-01): cargo 는 **통과한** 테스트의 stderr 를 캡처하므로 그 플래그 없이는 testkit 의 `skip!` 이 실제로는 조용하고, '녹색인데 아무것도 안 쟀다'가 SKIP 0회로 보인다. 손으로 `cargo test` 를 치면 그 눈이 없다 — 이 스크립트를 쓸 것.",
+    "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml --lib -- --show-output",
     "tauri:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "tauri:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings"
   },

@@ -242,6 +242,12 @@ export function setBlankResult(
     name: name || '',
     passed: !!passed,
     note: note || '',
+    /* ⚠ 챕터를 **기록에도 남긴다**(근본이관 ① · 2026-08-01). 종전엔 이 인자를 받아 놓고
+       아래 `addCbms` 로 흘려보내기만 했다 — 즉 "어느 챕터에서 막혔나"는 CBMS 항목에만 남고
+       `blankResults` 자신은 과목 단위로만 알았다. 그래서 통과율은 과목 단위로만 낼 수 있었고,
+       되먹임 루프(②)가 필요로 하는 **챕터당 증거**가 원리적으로 안 모였다.
+       빈 문자열은 안 담는다 — `undefined` 와 `''` 가 같은 뜻이면 소비처마다 둘 다 검사해야 한다. */
+    ...(chapter ? { chapter } : {}),
   });
   if (!passed && (note || chapter) && !(prior && !prior.passed))
     addCbms(state, ds, sid, name, chapter || '', 'C', '[백지복습 막힘] ' + (note || ''), false);

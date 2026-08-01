@@ -34,6 +34,13 @@ export function AnkiPanel() {
   const autoRefresh = useUI((s) => s.ui.ankiAutoRefresh);
   const setAutoRefresh = useUI((s) => s.setAnkiAutoRefresh);
   const [lastAuto, setLastAuto] = useState<string>('');
+  /* ⚠⚠ **자동 갱신 실패를 상태로 남긴다(H8 · 2026-08-01).** 아래 이펙트의 `catch` 가 비어 있고
+     `lastAuto` 는 **성공했을 때만** 갱신되므로, Anki 를 끄면 화면은 마지막 성공 시각(`↻ 09:14
+     갱신`)을 **하루 뒤까지** 계속 보여 준다 — 그건 "9시 14분에 갱신됐고 그 뒤로도 정상"이라는
+     뜻으로 읽힌다. 실제로는 그 시점 이후 한 번도 못 받았다.
+     조용한 것 자체는 옳다(5분마다 토스트는 소음이다). 틀린 것은 **아무 데도 안 남는다**는
+     것이었다 — `useCollectTool.lastError` 가 같은 계열에서 이미 쓴 처방을 그대로 옮긴다. */
+  const [autoErr, setAutoErr] = useState<string | null>(null);
 
   // 개별 해제 — 각 연동을 독립적으로 끊는다(다른 채널엔 영향 없음).
   const clearFile = () => {
@@ -116,8 +123,11 @@ export function AnkiPanel() {
         applyLive(l);
         const now = new Date();
         setLastAuto(hhmm(now));
-      } catch {
-        /* AnkiConnect 순간 단절 — 다음 주기/포커스에 복구 */
+        setAutoErr(null); // 성공이 사유를 지운다 — 낡은 경고가 남으면 그게 다음 오진이다
+      } catch (e) {
+        /* AnkiConnect 순간 단절 — 다음 주기/포커스에 복구된다. 토스트는 안 띄우되(소음)
+         **표시가 거짓말을 하지 않도록** 사유를 남긴다(H8). */
+        if (alive) setAutoErr(String((e as Error)?.message || e).slice(0, 120) || '연결 실패');
       }
     };
     const id = setInterval(refresh, 5 * 60 * 1000);
@@ -255,7 +265,23 @@ export function AnkiPanel() {
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
               <input type="checkbox" checked={autoRefresh} onChange={toggleAuto} /> 자동 새로고침(5분)
             </label>
-            {autoRefresh && lastAuto && <span>↻ {lastAuto} 갱신</span>}
+            {/* ⚠ 실패했으면 **마지막 성공 시각을 그대로 두지 않는다**(H8) — 그 표시는 "그 뒤로도
+                정상"으로 읽힌다. 시각은 남기되 *멈췄다는 사실*을 같은 자리에 붙인다. */}
+            {autoRefresh &&
+              lastAuto &&
+              (autoErr ? (
+                <span className="text-warn" title={autoErr}>
+                  ↻ {lastAuto} 이후 갱신 실패 — Anki 가 꺼져 있을 수 있어요
+                </span>
+              ) : (
+                <span>↻ {lastAuto} 갱신</span>
+              ))}
+            {/* 한 번도 성공하지 못한 채 실패한 경우 — 시각조차 없으므로 사실만 말한다. */}
+            {autoRefresh && !lastAuto && autoErr && (
+              <span className="text-warn" title={autoErr}>
+                ↻ 자동 갱신 실패
+              </span>
+            )}
             <Button sm variant="ghost" danger onClick={clearLive} title="실시간 due 연결 해제">
               ✕ 해제
             </Button>

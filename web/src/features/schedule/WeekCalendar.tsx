@@ -18,7 +18,7 @@ import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import { eventsForDay } from '@/lib/events';
-import { toHM, pad2, hNum, hLabel } from '@/lib/utils';
+import { toHM, pad2, hNum, hLabel, itemById } from '@/lib/utils';
 import { SESSION_TYPE_META as STYPE, packLanes, timeSpan, type DayData, type Row } from '@/lib/scheduleView';
 import type { SessionType, Task } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -208,7 +208,13 @@ export function WeekCalendar({
           key: `t${t.id}`,
           name: t.title,
           meta: `할 일 · ${toHM(t.start)}`,
-          color: t.color,
+          /* ⚠⚠ **`sid` 로 재파생한다 — `t.color`(굳은 hex)를 읽지 않는다**(D2 · 2026-08-01).
+             H13(2026-07-31)이 *"스키마 필드는 남기되 읽지 않는다"* 라 못박고 **writer 만** 닫아서,
+             그 이전에 만들어진 할 일은 여전히 옛 hex 를 들고 있었다 → 같은 할 일이 **일 뷰에선
+             현재 파생색**(`DayPlanner.segColor`)으로, **주 뷰에선 옛 색**으로 그려졌고 노브
+             (`SUBJECT_L`·`SUBJECT_C`) 교체가 주 뷰에 영원히 도달하지 않았다.
+             reader 를 닫는 것이 마이그레이션을 대신한다(절대규칙 #3 — 색은 저장값이 아니다). */
+          color: t.sid ? itemById(state, t.sid)?.color : undefined,
           done: !!t.done,
         },
         start: t.start,
@@ -218,7 +224,9 @@ export function WeekCalendar({
     // 일정 — 완료 개념이 없는 '그 시각에 일어나는 것'. 시각이 반드시 있어 종일 행으로 새지 않는다.
     for (const ev of eventsForDay(state, p.ds)) {
       segs.push({
-        item: { kind: 'event', key: `e${ev.id}`, name: ev.title, meta: `일정 · ${toHM(ev.start)}`, color: ev.color },
+        /* ⚠ 색을 안 싣는다(D2) — 일정색은 `--event` 토큰 하나이고 아래 렌더가 클래스로 준다
+           (`[--seg:var(--event)]`). 인라인으로 실으면 **인라인이 클래스를 이겨** 그 일정만 갈린다. */
+        item: { kind: 'event', key: `e${ev.id}`, name: ev.title, meta: `일정 · ${toHM(ev.start)}` },
         start: ev.start,
         end: ev.start + ev.min,
       });

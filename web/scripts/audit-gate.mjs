@@ -121,6 +121,18 @@ try {
 const today = new Date().toISOString().slice(0, 10);
 const byPkg = new Map(allow.map((a) => [a.패키지, a]));
 
+/** 텍스트에서 GHSA id 를 뽑는다(대문자 정규화). 원장의 `권고` 는 "GHSA-… — 제목" 형태다. */
+const ghsaIn = (text) =>
+  new Set((String(text ?? '').match(/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/gi) ?? []).map((s) => s.toUpperCase()));
+/** npm audit 항목이 실제로 걸고 있는 GHSA 집합(`via` 의 권고 객체 url 에서). */
+const ghsaOf = (v) =>
+  new Set(
+    (v.via ?? [])
+      .filter((x) => typeof x !== 'string')
+      .flatMap((x) => [...ghsaIn(x.url)])
+      .map((s) => s.toUpperCase()),
+  );
+
 const 미등록 = [];
 const 만료 = [];
 const 허용중 = [];
@@ -136,6 +148,23 @@ for (const [name, v] of Object.entries(vulns)) {
   /* 필수 필드 검사 — 사유 없는 허용은 허용이 아니라 방치다. */
   if (!entry.사유 || !entry.재검토) {
     미등록.push({ name, sev: v.severity, via: [], note: '원장 항목에 사유/재검토 누락' });
+    continue;
+  }
+  /* ⚠⚠ **권고 id 대조**(2026-08-01 `/감사 근본`). 위까지의 매칭은 **패키지명 하나**였다 — 즉
+     같은 패키지에 **새 CVE** 가 뜨면 옛 항목의 사유·재검토일 아래로 **조용히 흡수**된다. 사유는
+     특정 취약점의 도달 가능성을 논증한 것이지 그 패키지에 대한 영구 면죄부가 아닌데, 기계는
+     그 둘을 구분하지 못했다. 사문화·사유노후를 사람이 눈으로 잡아야 했던 한 계열이 여기서
+     기계 검출로 내려온다.
+     ⚠ 실제 권고에 GHSA 가 없으면(전이 재노출은 `via` 가 패키지명 문자열뿐이다) 대조할 것이
+     없으므로 자연히 통과한다 — 그 경우는 뿌리 항목이 자기 GHSA 로 이미 검사받는다. */
+  const 새권고 = [...ghsaOf(v)].filter((g) => !ghsaIn(entry.권고).has(g));
+  if (새권고.length) {
+    미등록.push({
+      name,
+      sev: v.severity,
+      via: [],
+      note: `원장에 없는 **새 권고** ${새권고.join(', ')} — 기존 사유(${entry.권고 ?? '권고 미기재'})는 이 취약점을 논증하지 않는다. 새로 판단해 항목을 갱신할 것.`,
+    });
     continue;
   }
   if (entry.재검토 < today) 만료.push({ name, sev: v.severity, due: entry.재검토 });

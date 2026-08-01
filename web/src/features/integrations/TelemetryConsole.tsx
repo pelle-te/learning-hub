@@ -102,6 +102,9 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
      ⚠ 실패 판정은 **사유의 존재**다(`hotkey === false` 가 아니다 — Rust 쪽과 같은 계약). */
   const hotkeyErr = ping.data?.hotkeyError ?? null;
   const hotkeyShown = ping.data?.hotkey !== undefined || !!hotkeyErr;
+  /* 볼트 **감시** 실패(H7 · 2026-08-01) — 값이 있을 때만 실패다(hotkey 와 같은 계약).
+     감시가 죽으면 볼트를 고쳐도 화면이 안 바뀌는데 종전엔 그 사실이 Rust 로그에만 있었다. */
+  const vaultWatchErr = ping.data?.vaultWatchError ?? null;
   const vaultNotes = vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0;
   const due = live ? totalDue(live.decks) : 0;
   const cards = file ? totalCards(file.decks) : 0;
@@ -176,6 +179,18 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
             vertical={vertical}
             value={ping.data?.hotkey ? '⌘⇧␣' : '—'}
             sub={hotkeyErr ? `등록 실패 — 다른 앱이 선점했을 수 있어요: ${hotkeyErr}` : '전역 캡처 · 앱 밖에서도 열림'}
+          />
+        )}
+        {/* ⚠ 볼트 감시(H7) — 위 HOTKEY 와 **같은 형태**다: 사유가 있을 때만 칸을 세우고 실패로 그린다.
+            감시가 죽었을 때의 증상("볼트를 고쳐도 화면이 안 바뀐다")은 "볼트가 비었다"와 화면상
+            구분되지 않아서, 관측 채널이 없으면 사용자가 원인에 도달할 방법이 0 이다. */}
+        {vaultWatchErr && (
+          <Channel
+            label="VAULT-WATCH"
+            status="offline"
+            vertical={vertical}
+            value="—"
+            sub={`자동 갱신이 멈췄어요 — 새로고침하거나 앱을 다시 여세요: ${vaultWatchErr}`}
           />
         )}
       </div>

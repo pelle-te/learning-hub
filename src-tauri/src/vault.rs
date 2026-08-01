@@ -41,9 +41,9 @@ pub struct Note {
     pub status: Option<String>,
     pub anki_exported: bool,
     /* ⚠⚠ **경계에서 필드를 버리지 말 것(W2 · 2026-07-31).** 인덱스 노트는 17키인데 여기가
-       5키만 옮기고 있었고, 버려지는 것 중에 `reviewed`(468건에 날짜가 있다)와 `anki_state` 가
-       있었다 — 앱은 "복습 0/0"이라 말하면서 그 답을 아는 파일을 매번 읽고 있었다.
-       ⚠ 여전히 **해석은 하지 않는다**(집계는 프런트 `subjectsFromIndex` 하나 · 3단계-B 규율). */
+    5키만 옮기고 있었고, 버려지는 것 중에 `reviewed`(468건에 날짜가 있다)와 `anki_state` 가
+    있었다 — 앱은 "복습 0/0"이라 말하면서 그 답을 아는 파일을 매번 읽고 있었다.
+    ⚠ 여전히 **해석은 하지 않는다**(집계는 프런트 `subjectsFromIndex` 하나 · 3단계-B 규율). */
     /// 검증 통과일(파이프라인). 인출일이 **아니다** — 프런트가 방향 제약을 걸어 쓴다.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reviewed: Option<String>,
@@ -239,20 +239,20 @@ pub const VAULT_CHANGED: &str = "vault:changed";
 
 /* ⚠⚠ **감시 세대(H6 · 2026-07-31 `/감사 근본`)**
 
-   종전엔 `lib.rs` 의 `setup` 이 `start_watch` 를 **1회**만 불렀고, 그 시점에 워크스페이스가
-   없으면 _"볼트 감시 생략"_ 을 로그에 적고 끝이었다. 그런데 **첫 실행 온보딩 경로가 정확히
-   그것**이다: 미설정으로 부팅 → 설정 탭에서 폴더 지정 → **그 세션 내내 `vault:changed` 가 0**.
-   프런트 구독(`app/VaultSync`)은 살아 있고 에러도 없어서, 볼트를 고쳐도 화면이 안 바뀌는데
-   **어디에도 그 사실이 없다**(조용한 무반응 · 재시작하면 나아서 진단이 특히 어렵다).
+종전엔 `lib.rs` 의 `setup` 이 `start_watch` 를 **1회**만 불렀고, 그 시점에 워크스페이스가
+없으면 _"볼트 감시 생략"_ 을 로그에 적고 끝이었다. 그런데 **첫 실행 온보딩 경로가 정확히
+그것**이다: 미설정으로 부팅 → 설정 탭에서 폴더 지정 → **그 세션 내내 `vault:changed` 가 0**.
+프런트 구독(`app/VaultSync`)은 살아 있고 에러도 없어서, 볼트를 고쳐도 화면이 안 바뀌는데
+**어디에도 그 사실이 없다**(조용한 무반응 · 재시작하면 나아서 진단이 특히 어렵다).
 
-   그래서 `workspace::set_workspace` 가 성공할 때마다 다시 부른다. 그러면 두 번째 문제가 생긴다 —
-   옛 스레드가 **옛 폴더를 계속 감시한 채** 프로세스 수명 내내 남아(notify 워처 + 플랫폼 FS 핸들)
-   그 폴더가 바뀌면 엉뚱한 `vault:changed` 를 쏜다. 세대 번호가 그걸 닫는다.
+그래서 `workspace::set_workspace` 가 성공할 때마다 다시 부른다. 그러면 두 번째 문제가 생긴다 —
+옛 스레드가 **옛 폴더를 계속 감시한 채** 프로세스 수명 내내 남아(notify 워처 + 플랫폼 FS 핸들)
+그 폴더가 바뀌면 엉뚱한 `vault:changed` 를 쏜다. 세대 번호가 그걸 닫는다.
 
-   ⚠ 정직하게 적는다: 옛 스레드는 `rx.recv()` 에 블록돼 있으므로 **옛 폴더에 이벤트가 한 번
-   올 때 은퇴**한다(즉시가 아니다). 다만 그 순간에도 **알림은 안 쏘고**(세대 검사가 emit 앞에
-   있다) 곧바로 루프를 끝낸다 — 잘못된 알림 0, 누수는 유한. 즉시 해제하려면 워처를 밖에서
-   드롭해야 하고 그건 `watch_with` 의 주입 계약(테스트 가능성)을 깬다. */
+⚠ 정직하게 적는다: 옛 스레드는 `rx.recv()` 에 블록돼 있으므로 **옛 폴더에 이벤트가 한 번
+올 때 은퇴**한다(즉시가 아니다). 다만 그 순간에도 **알림은 안 쏘고**(세대 검사가 emit 앞에
+있다) 곧바로 루프를 끝낸다 — 잘못된 알림 0, 누수는 유한. 즉시 해제하려면 워처를 밖에서
+드롭해야 하고 그건 `watch_with` 의 주입 계약(테스트 가능성)을 깬다. */
 static WATCH_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// 새 감시 세대를 발급한다. 이전 세대의 워처는 다음 이벤트에서 스스로 은퇴한다.
@@ -267,13 +267,37 @@ pub fn watch_generation_is_current(generation: u64) -> bool {
 
 /// 볼트 파일 감시를 시작한다(앱 부팅 시 + **워크스페이스가 바뀔 때마다**). 실패는 치명적이지
 /// 않다 — 감시가 없으면 예전처럼 사용자가 버튼을 눌러 갱신할 뿐이므로, 앱을 못 뜨게 하지 않는다.
+/* ── 감시 실패의 **관측 가능한 자리**(H7 · 2026-08-01) ──────────────────────────────────
+감시 스레드가 죽으면 볼트를 고쳐도 화면이 안 바뀌는데, 종전엔 그 사실이 **로그 한 줄**로만
+남았다(아래 `log::error!`). `capabilities.ok` 는 워크스페이스 유효성만 보므로 참이고, 그래서
+콜드 게이트 문구도 안 뜬다 — 사용자에게는 "볼트가 조용하다"와 "감시가 죽었다"가 구분되지
+않는다. 같은 파일이 `hotkey` 에 대해서는 정확히 반대 판단을 내려 두고 있었다(`hotkey.rs`
+머리주석: *"조용히 삼키면 사용자는 키가 안 먹는 이유를 알 방법이 없다"*).
+→ **같은 형태**로 사유를 싣는다: 여기 한 필드 + `capabilities` 한 줄 + 프런트 한 줄. */
+static WATCH_ERR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+fn set_watch_error(v: Option<String>) {
+    *WATCH_ERR.lock().expect("vault watch err") = v;
+}
+
+/// 마지막 감시 실패 사유(없으면 None). `capabilities` 가 이 값을 실어 프런트로 보낸다.
+///
+/// ⚠ "폴더를 못 찾음"은 **실패가 아니다** — 워크스페이스 미설정은 정상 상태이고 그건 콜드
+/// 게이트가 이미 말한다. 여기 실리는 것은 *감시를 걸려다 실패했거나 루프가 죽은* 경우뿐이다.
+pub fn watch_error() -> Option<String> {
+    WATCH_ERR.lock().expect("vault watch err").clone()
+}
+
 pub fn start_watch(app: tauri::AppHandle) {
     // ⚠ 세대는 **폴더를 못 찾아도** 올린다 — 그래야 옛 워처가 은퇴한다(경로를 지운 경우).
     let generation = next_watch_generation();
     let Some(dir) = vault_dir(&app) else {
         log::info!("볼트 감시 생략 — 볼트 폴더를 찾지 못했습니다.");
+        // 미설정은 실패가 아니다 — 옛 실패 사유만 지운다(경로를 바꾼 뒤 유령 경고가 남지 않게).
+        set_watch_error(None);
         return;
     };
+    set_watch_error(None); // 새 세대 시작 — 앞 세대의 사유를 물려주지 않는다
     std::thread::spawn(move || {
         use tauri::Emitter;
         // 감시 자체는 `watch_with` 가 하고, 여기서 주는 것은 **알림 방법**뿐이다.
@@ -288,6 +312,11 @@ pub fn start_watch(app: tauri::AppHandle) {
         });
         if let Err(e) = r {
             log::error!("볼트 감시 실패: {e}");
+            /* ⚠ 현역 세대일 때만 싣는다 — 은퇴한 워처의 실패는 사용자에게 참이 아니다
+            (워크스페이스를 바꾸면 옛 워처가 정상적으로 끝난다). */
+            if watch_generation_is_current(generation) {
+                set_watch_error(Some(format!("볼트 감시가 멈췄습니다: {e}")));
+            }
         }
     });
 }
@@ -460,7 +489,7 @@ mod tests {
 
     #[test]
     fn 실_볼트를_폴더_선택_없이_읽는다() {
-        let vault = crate::testkit::real_vault().expect("환경 가정 위반 — testkit 참조");
+        let vault = crate::testkit::vault_or_skip!();
         let out = scan_at(&vault);
         assert!(!out.notes.is_empty(), "실 볼트에서 노트를 하나도 못 읽었다");
         assert!(
@@ -547,12 +576,12 @@ mod watch_generation_tests {
     use super::*;
 
     /* ⚠⚠ H6(2026-07-31 `/감사 근본`) — 워크스페이스를 **부팅 뒤에** 지정하면 감시가 그 세션 내내
-       안 붙었고, 경로를 바꾸면 옛 워처가 옛 폴더를 계속 감시한 채 남았다. 세대 번호가 둘 다
-       닫는다. 여기서 잠그는 것은 그 규율의 **뼈대**다 — 실제 notify 배선은 위 케이스들이,
-       `set_workspace` 가 이걸 부르는지는 그 함수의 호출 한 줄이 소유한다.
+    안 붙었고, 경로를 바꾸면 옛 워처가 옛 폴더를 계속 감시한 채 남았다. 세대 번호가 둘 다
+    닫는다. 여기서 잠그는 것은 그 규율의 **뼈대**다 — 실제 notify 배선은 위 케이스들이,
+    `set_workspace` 가 이걸 부르는지는 그 함수의 호출 한 줄이 소유한다.
 
-       ⚠ `start_watch` 자체를 부르지 않는 이유: `AppHandle` 이 필요해 실물 창이 있어야 한다.
-       규율 11-2 대로 **판정을 순수 함수로 갈라** 두었으므로 그 자리가 곧 테스트 진입점이다. */
+    ⚠ `start_watch` 자체를 부르지 않는 이유: `AppHandle` 이 필요해 실물 창이 있어야 한다.
+    규율 11-2 대로 **판정을 순수 함수로 갈라** 두었으므로 그 자리가 곧 테스트 진입점이다. */
 
     #[test]
     fn 새_세대를_발급하면_이전_세대는_현역이_아니다() {

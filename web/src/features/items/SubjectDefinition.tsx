@@ -16,7 +16,8 @@ import { useCallback, type CSSProperties } from 'react';
 import { useApp } from '@/store/useApp';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { allocView, colSumMin, rowSumMin, setAllocCell, isWeekManaged, weekMonOf } from '@/lib/weekAlloc';
-import { DOW_MON, addDays, iso, parseISO, todayISO, dayDiff, ddayInfo, round1, hNum } from '@/lib/utils';
+import { DOW_MON, addDays, iso, parseISO, dayDiff, ddayInfo, round1, hNum } from '@/lib/utils';
+import { useTodayISO } from '@/hooks/useTodayISO';
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
 import type { AppState, Item } from '@/lib/types';
@@ -86,12 +87,12 @@ function AllocRow({ item, mutate }: { item: Item; mutate: Mutate }) {
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const capWd = useStudyMinByWeekday(); // 요일 기본값 — 날짜별 실제 가용은 아래 dayStudyMin이 유도(보드와 동일)
-  const wk = weekMonOf(todayISO(state));
+  const todayIso = useTodayISO(state);
+  const wk = weekMonOf(todayIso);
   const alloc = allocView(state, res, wk);
   const managed = isWeekManaged(state, wk);
   const vec = alloc[item.id];
   const monday = parseISO(wk);
-  const todayIso = todayISO(state);
 
   // 고아 방어 — 삭제된 과목의 잔여 배분이 요일 '여유' 계산을 오염시키지 않게 유효 sid만 센다
   // (정상 경로 청소는 removeSidFromAlloc가 하지만, 이미 오염된 저장본에 대한 표시 단계 방어선).
@@ -190,7 +191,9 @@ export function SubjectDefinition({
 }) {
   const id = item.id;
   // 마감 D-day도 앱 정본 '오늘'에서 — 벽시계 new Date()를 쓰면 `_today` 시드 주입 시 값이 갈렸다.
-  const todayIso = useApp((s) => todayISO(s.state));
+  // ⚠ 훅으로 읽는다(H20) — 자정을 넘긴 채 열려 있으면 D-day 가 하루 틀린 채로 남았다.
+  const seed = useApp((s) => s.state._today);
+  const todayIso = useTodayISO({ _today: seed });
   const daily = item.mode === 'daily';
   const chs = item.chapters || [];
   const totalH = chs.reduce((t, ch) => t + (+ch.hours || 0), 0);

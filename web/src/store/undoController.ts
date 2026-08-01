@@ -35,15 +35,30 @@ export async function undoLastEdit(): Promise<void> {
   useApp.getState().flushNow();
   await whenSettled();
 
-  const r = await exclusiveMerge(async () => {
-    const out = await undoLastWrite();
-    try {
-      if (out.state) useApp.getState().applyMerged(out.state);
-    } finally {
-      endMergeApply(); // C1 방어망 — `applyPull` 이 연 병합-적용 창을 실패 경로에서도 닫는다
-    }
-    return out;
-  });
+  /* ⚠⚠ **실패 보고를 이 층이 소유한다**(H2 · 2026-08-01) — 근거는 `syncController.reportFailure`
+     주석. ⌘Z 입구는 둘(`App.tsx` 캡처 리스너 · `palette.ts` 명령)이고 **둘 다 `void`** 로 부른다:
+     여기서 안 잡으면 실패가 unhandled rejection 으로 사라지고 화면은 아무 말도 안 한다. */
+  let r: Awaited<ReturnType<typeof undoLastWrite>>;
+  try {
+    r = await exclusiveMerge(async () => {
+      /* ⚠⚠ **`undoLastWrite` 자신이 `try` 안이어야 한다(H1 · 2026-08-01).** 그 안에서 `applyPull` 이
+       병합 창을 켜므로, 켠 뒤 던지는 경로가 `try` 밖이면 아래 `finally` 에 도달하지 못한다.
+       굳으면 이후 flush 가 전부 `deferred`(= `ok:true`)라 **경고 없이 그 세션이 하나도 저장되지
+       않는다.** 근거는 `syncController.restoreConflict` 의 같은 자리 주석. */
+      try {
+        const out = await undoLastWrite();
+        if (out.state) useApp.getState().applyMerged(out.state);
+        return out;
+      } finally {
+        endMergeApply(); // C1 방어망 — `applyPull` 이 연 병합-적용 창을 실패 경로에서도 닫는다
+      }
+    });
+  } catch (e) {
+    /* 스택은 `peek → apply → drop` 이라 **항목이 그대로 남아 있다** — 재시도가 성립한다
+       (`db/undoStack.peekUndo`). 그래서 "다시 눌러 보세요"가 지킬 수 있는 약속이다. */
+    toast(`되돌리기에 실패했어요 — ${e instanceof Error ? e.message : String(e)}`, 'bad', 8000);
+    return;
+  }
 
   if (r.empty) {
     toast('되돌릴 편집이 없어요.', 'info');

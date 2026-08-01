@@ -19,6 +19,26 @@
    ⚠ `Enter`/`Space` 는 **다루지 않는다.** 포커스한 행이 버튼이면 네이티브 활성이 곧 기본 동작이고,
    가로채면 한 키가 두 뜻을 갖는다(E5 이전의 결함이 정확히 그 형태였다).
    ⚠ 입력 중(INPUT·TEXTAREA·contentEditable)과 수정자 조합에서는 전부 무시한다.
+
+   ## ⚠⚠ 소유권 — 한 화면에 목록이 둘이면 누가 키를 갖나 (H12 · 2026-08-01)
+
+   리스너가 `window` 라 **마운트된 모든 목록이 같은 키를 동시에 받았다.** `/journal` 은 목록이
+   둘(`BacklogCard`·`JournalStream`)이라 `j` 한 번에 **하이라이트가 두 줄**에 뜨고, 이어서 `d` 를
+   누르면 **보이는 포커스와 다른 목록**의 행이 지워졌다 — 파괴적 동사가 오조준된다.
+   같은 뿌리에서 더 나쁜 것: 확인창·치트시트가 떠 있어도(포커스는 그 안에 갇혀 있는데) 뒤의
+   목록이 `d` 를 받았다.
+
+   규칙은 **포커스가 정한다** — 세 줄로 닫힌다:
+     ① 등록된 내 행 중 하나가 `document.activeElement` 를 품고 있으면 **내 것이다.**
+     ② 아니고 포커스가 *어딘가에는* 있으면(다이얼로그·다른 목록·버튼) **내 것이 아니다.**
+     ③ 포커스가 아무 데도 없고(`body`) **화면에 목록이 나 하나뿐이면** 내 것이다.
+        (여기서 "첫 마운트 우선" 같은 임의 규칙을 두지 않는 이유: 둘 중 누구를 골라도 사용자가
+         보는 근거가 없다. 모르면 아무도 안 받고, Tab·클릭 한 번이 소유자를 정한다.)
+   ③ 이 필요한 이유는 단일 목록 화면의 **들어오는 문**이다 — 포커스 없이 `j` 를 눌러 시작하는
+   동작을 잃으면 이 훅의 값 대부분이 사라진다(E5 가 세운 계약).
+
+   ⚠ 포커스가 내 행을 떠나면 **커서를 지운다.** 안 그러면 다른 목록으로 옮겨간 뒤에도 옛
+   하이라이트가 남아 "지금 무엇이 선택돼 있나"를 화면이 두 군데로 답한다.
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { reveal } from '@/lib/motion';
@@ -58,9 +78,24 @@ export interface ListCursor {
   onItemFocus: (key: string) => void;
 }
 
+/** 지금 화면에 살아 있는(그리고 켜져 있는) 커서 목록 — 위 규칙 ③의 "나 하나뿐인가"를 센다. */
+const MOUNTED = new Set<object>();
+
 export function useListCursor<T>({ items, verbs, docTitle, enabled = true }: ListCursorOptions<T>): ListCursor {
   const [cursor, setCursor] = useState<string | null>(null);
   const refs = useRef(new Map<string, HTMLElement>());
+  const id = useRef({});
+
+  /* 등록/해제는 `enabled` 를 따른다 — 꺼진 목록이 정원을 차지하면 켜진 단일 목록이 규칙 ③을
+     못 쓰게 된다(= 화면에 목록이 하나뿐인데 키가 안 먹는다). */
+  useEffect(() => {
+    if (!enabled) return;
+    const key = id.current;
+    MOUNTED.add(key);
+    return () => {
+      MOUNTED.delete(key);
+    };
+  }, [enabled]);
 
   /* 치트시트 — 이 화면이 **실제로 구현한** 동사만 등재한다. 어휘가 닫혀 있어도 화면마다
      구현 여부가 다르므로, 표를 그대로 베끼면 `?` 가 거짓말을 한다(N-16 이 `,`/`.` 로 물린 부류). */
@@ -89,12 +124,27 @@ export function useListCursor<T>({ items, verbs, docTitle, enabled = true }: Lis
       reveal(el, 'nearest'); // 모션 자제 판정은 `lib/motion` 이 소유한다(H16)
       el?.focus({ preventScroll: true });
     };
+    /** 등록된 행 중 하나가 지금 포커스를 품고 있나(= 규칙 ①). */
+    const ownsFocus = (): boolean => {
+      const ae = document.activeElement;
+      if (!ae) return false;
+      for (const el of refs.current.values()) if (el.contains(ae)) return true;
+      return false;
+    };
+    /** 이 목록이 지금 키를 받아야 하나 — 머리주석의 규칙 ①②③. */
+    const mine = (): boolean => {
+      if (ownsFocus()) return true; // ①
+      const ae = document.activeElement;
+      if (ae && ae !== document.body) return false; // ② 포커스가 다른 곳(다이얼로그·다른 목록)에 있다
+      return MOUNTED.size <= 1; // ③ 포커스가 없고 목록이 나 하나뿐일 때만
+    };
     const onKey = (e: KeyboardEvent): void => {
       const { items, verbs, cursor, enabled } = ctx.current;
       if (!enabled || !items.length) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!mine()) return;
       const keys = items.map((n) => n.key);
       const idx = cursor ? keys.indexOf(cursor) : -1;
       if (e.key === 'j') {
@@ -116,8 +166,20 @@ export function useListCursor<T>({ items, verbs, docTitle, enabled = true }: Lis
       e.preventDefault();
       run(hit.item);
     };
+    /* 포커스가 내 행을 떠나면 커서를 지운다 — 두 목록이 동시에 하이라이트되던 것의 절반이 이것이다.
+       ⚠ `document.body` 로 빠지는 경우(행이 사라져 포커스가 풀림)는 **안 지운다**: 그건 사용자가
+       다른 곳으로 간 것이 아니라 DOM 이 바뀐 것이고, 지우면 목록이 갱신될 때마다 커서를 잃는다. */
+    const onFocusIn = (): void => {
+      const ae = document.activeElement;
+      if (!ae || ae === document.body) return;
+      if (!ownsFocus()) setCursor(null);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('focusin', onFocusIn);
+    };
     // deps 빈 배열이 정직하다 — 핸들러가 참조하는 값은 전부 ctx.current 에서 읽는다(마운트당 1회 등록).
   }, []);
 

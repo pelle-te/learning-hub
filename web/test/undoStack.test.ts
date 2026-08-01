@@ -16,7 +16,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { diffRowsDetailed, stateToRows, toTableData, TABLES } from '@/lib/db/rows';
 import {
   clearUndo,
-  popUndo,
+  dropUndo,
+  peekUndo,
   preImageBytes,
   pushUndo,
   undoBytes,
@@ -159,7 +160,7 @@ describe('⚠ 예산은 바이트다 — 엔트리 수가 아니다', () => {
     expect(undoBytes(), '엔트리 수로 상한을 걸었다면 여기서 694KB 가 남는다').toBeLessThanOrEqual(UNDO_BYTE_BUDGET);
     expect(undoDepth()).toBeLessThan(40);
     // 남은 것은 **최신** 쪽이어야 한다 — 방금 한 편집을 못 되돌리면 되돌리기가 아니다.
-    expect(popUndo()!.stamp).toBe(40);
+    expect(peekUndo()!.stamp).toBe(40);
   });
 
   it('⚠ 한 항목이 예산보다 커도 **가장 최근 하나는 남긴다**(정확성이 예산보다 우선)', () => {
@@ -167,19 +168,36 @@ describe('⚠ 예산은 바이트다 — 엔트리 수가 아니다', () => {
     pushUndo([row('huge', UNDO_BYTE_BUDGET * 2)], 2);
     expect(undoDepth()).toBe(1);
     expect(undoBytes()).toBeGreaterThan(UNDO_BYTE_BUDGET);
-    expect(popUndo()!.stamp).toBe(2);
+    expect(peekUndo()!.stamp).toBe(2);
   });
 
-  it('pop 은 최신부터 · 비면 null · clear 는 회계까지 되돌린다', () => {
+  it('peek 은 최신부터 · drop 이 회계까지 줄인다 · 비면 null · clear 는 통째로 되돌린다', () => {
     pushUndo([row('a', 10)], 1);
     pushUndo([row('b', 10)], 2);
-    expect(popUndo()!.stamp).toBe(2);
-    expect(popUndo()!.stamp).toBe(1);
-    expect(popUndo()).toBeNull();
+    const top = peekUndo()!;
+    expect(top.stamp).toBe(2);
+    expect(peekUndo(), 'peek 은 소비하지 않는다 — 그게 H2 처방의 전부다').toBe(top);
+    dropUndo(top);
+    expect(peekUndo()!.stamp).toBe(1);
+    dropUndo(peekUndo()!);
+    expect(peekUndo()).toBeNull();
     pushUndo([row('c', 10)], 3);
     clearUndo();
     expect(undoDepth()).toBe(0);
     expect(undoBytes(), '바이트 회계가 안 따라오면 다음 push 부터 예산이 거짓말을 한다').toBe(0);
+  });
+
+  /* ⚠⚠ H2 회귀 — **적용이 실패해도 항목이 남아야 한다.** 종전엔 `cloud/undo.ts` 가 맨 처음
+     `popUndo()` 를 불러서, 그 뒤 `applyPull` 이 던지면 항목이 이미 사라진 뒤였다(= ⌘Z 를 누를
+     때마다 스택이 한 칸씩 조용히 파괴). 여기서 잠그는 것은 그 순서 계약이다. */
+  it('⚠ drop 은 **그 항목이 아직 꼭대기일 때만** 버린다(적용 중 pull 이 오면 남의 것을 안 버린다)', () => {
+    pushUndo([row('a', 10)], 1);
+    const held = peekUndo()!;
+    clearUndo(); // 적용 도중 pull 병합 도착 → 스택 무효화
+    pushUndo([row('b', 10)], 2);
+    dropUndo(held); // 들고 있던 옛 항목으로 버리려 한다
+    expect(undoDepth(), '항등 대조가 없으면 여기서 남의 항목이 사라진다').toBe(1);
+    expect(peekUndo()!.stamp).toBe(2);
   });
 
   it('바이트 계산은 키까지 센다(단일키 테이블의 키가 곧 슬라이스 이름이다)', () => {

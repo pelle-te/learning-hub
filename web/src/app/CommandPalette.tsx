@@ -18,6 +18,7 @@ import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { markVia } from '@/lib/visits';
 import { Icon } from '@/components/Icon';
 import type { SemHit, SemKind } from '@/lib/semantic';
+import type { IconName } from '@/lib/iconPaths';
 
 /* ── C-7 컴포넌트 티어 이식(Tailwind) ──────────────────────────────────────────
    ⚠⚠ **검색 입력은 "한 번도 적용된 적 없는 CSS" 였고, 2026-07-24 에 되살렸다(사용자 결정).**
@@ -62,14 +63,14 @@ type AtlasEntry = { key: string; name: string; cat: string };
 
 /* ⚠ 값은 **아이콘 이름**이다(`components/Icon`) — 이모지가 아니다(2026-08-01). 같은 개념이
    두 표에서 다른 글리프였던 자리이기도 하다(📚 vs 📗 이 둘 다 '학습 항목'). */
-const SEM_ICON: Record<SemKind, string> = {
+const SEM_ICON: Record<SemKind, IconName> = {
   chapter: 'books',
   summary: 'pencil',
   book: 'book',
   backlog: 'inbox',
   mistake: 'alert',
 };
-const CONTENT_ICON: Record<ContentHit['kind'], string> = {
+const CONTENT_ICON: Record<ContentHit['kind'], IconName> = {
   subject: 'books',
   chapter: 'books',
   book: 'book',
@@ -480,7 +481,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                   try {
                     if (c.kind === 'tab') go('/' + c.key);
                     else {
-                      c.run();
+                      c.run?.(); // ⚠ 이동만 하는 항목은 `run` 이 없다(P3 — `act:graph`).
                       // 액션이 특정 탭에서 이어지는 경우(집중 시작·기록 프리필) 실행 후 이동.
                       if (c.to) go(c.to);
                     }

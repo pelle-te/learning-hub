@@ -24,6 +24,7 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
 
 import { docGet, docSet, initDocs, _resetDocs } from '@/lib/db/docs';
 import { loadReads, saveReads } from '@/lib/reads';
+import { clearUndo, peekUndo, undoDepth } from '@/lib/db/undoStack';
 
 function enterShell() {
   (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
@@ -108,6 +109,78 @@ describe('사용자 저작물 저장소 — 셸', () => {
     docSet('lh_ui_v1', '{"accent":"lime"}');
     expect(localStorage.getItem('lh_ui_v1')).toBe('{"accent":"lime"}');
     expect(exec).not.toHaveBeenCalledWith(expect.stringContaining('docs'), expect.arrayContaining(['lh_ui_v1']));
+  });
+});
+
+/* ============================================================
+   H3 — **저작물 쓰기도 ⌘Z 스택에 든다**(2026-08-01 `/감사 근본` · 사용자 승인).
+
+   고친 것은 침묵이 아니라 **거짓말**이다: `docSet` 이 pre-image 를 안 잡아서, 독후감을 쓴 뒤
+   ⌘Z 를 누르면 *10분 전 챕터 편집*이 되돌아가는데 토스트는 "직전 편집을 되돌렸어요"라 말했다.
+   그래서 여기서 잠그는 것은 "쌓이는가" 하나가 아니라 **누가 쌓고 누가 안 쌓는가** 둘 다다 —
+   기계가 낸 쓰기(미러·가져오기·복구)가 섞이면 같은 형태의 거짓말이 되돌아온다.
+============================================================ */
+describe('저작물 쓰기의 ⌘Z 캡처 (H3)', () => {
+  it('독후감 저장은 **직전 값**을 pre-image 로 쌓는다', async () => {
+    enterShell();
+    select.mockResolvedValue([{ key: 'lh:reads', value: '{"work":{},"books":[{"id":"old"}]}' }]);
+    await initDocs();
+    clearUndo();
+
+    saveReads({ work: {}, books: [{ id: 'new' } as never] });
+
+    await vi.waitFor(() => expect(undoDepth()).toBe(1));
+    const e = peekUndo()!;
+    expect(e.rows).toHaveLength(1);
+    expect(e.rows[0]!.table, 'docs 는 OUTBOX_TABLES 에 DOCS_SPEC 으로 있다').toBe('docs');
+    expect(e.rows[0]!.key).toEqual(['lh:reads']);
+    // vals = [key, 직전 value] — `cloud/undo.ts` 가 keyLen 만큼 slice 해 data 로 쓴다.
+    expect(e.rows[0]!.vals?.[1], '되돌리면 이 값이 다시 쓰여야 한다').toContain('old');
+    expect(e.stamp, '스탬프가 없으면 툼스톤 가드가 기준을 잃는다').toBeGreaterThan(0);
+  });
+
+  it('처음 쓰는 키는 `vals: null` — 되돌리기가 *삭제*여야 한다', async () => {
+    enterShell();
+    await initDocs(); // 빈 DB · localStorage 도 비어 있다
+    clearUndo();
+
+    saveReads({ work: {}, books: [{ id: 'first' } as never] });
+
+    await vi.waitFor(() => expect(undoDepth()).toBe(1));
+    expect(peekUndo()!.rows[0]!.vals, 'null 이 아니면 "추가"를 영원히 못 되돌린다').toBeNull();
+  });
+
+  it('⚠ 기계가 낸 쓰기(`undo` 미지정)는 **안 쌓는다** — 미러·가져오기·IDB 복구', async () => {
+    enterShell();
+    await initDocs();
+    clearUndo();
+
+    docSet('atlas.notes', '{"n":1}'); // 옵션 없음 = 기본 비캡처
+    docSet('artifact:reads', '{"a":1}');
+
+    await vi.waitFor(() =>
+      expect(exec.mock.calls.filter(([q]) => String(q).includes('INSERT OR REPLACE INTO docs')).length).toBe(2),
+    );
+    expect(undoDepth(), '내 편집이 아닌 쓰기가 ⌘Z 를 오염시키면 H3 이 되돌아온다').toBe(0);
+  });
+
+  it('무변경 저장은 안 쌓는다 — ⌘Z 한 번이 "아무 일도 안 함"이 되지 않게', async () => {
+    enterShell();
+    const same = '{"work":{},"books":[]}';
+    select.mockResolvedValue([{ key: 'lh:reads', value: same }]);
+    await initDocs();
+    clearUndo();
+
+    saveReads({ work: {}, books: [] });
+
+    // 쓰기 자체는 나가되(스탬프 갱신) 스택은 안 는다.
+    await vi.waitFor(() =>
+      expect(exec).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT OR REPLACE INTO docs'),
+        expect.arrayContaining(['lh:reads']),
+      ),
+    );
+    expect(undoDepth()).toBe(0);
   });
 });
 

@@ -113,6 +113,39 @@ export async function visitSummary(days = 14, todayDs: string = todayISO()): Pro
 }
 
 /**
+ * 표본이 판정을 지지하는가 — **분모**(P1/P2 · 2026-08-01 `/감사 근본` · 사용자 승인).
+ *
+ * ## ⚠⚠ 왜 합계와 따로 있는가
+ *
+ * `visitSummary()` 는 **분자**만 준다("이 탭이 몇 번 열렸나"). 그런데 `shell/tabs.ts` 가
+ * 사전등록한 은퇴 규칙은 그 분자만 보고 *"미만이면 삭제"* 한다 — 그래서 **관측이 없는 상태와
+ * 안 쓰는 상태를 구분하지 못한다.** 실측(2026-08-01): 실 DB 의 `route_visits` 는 **2행 · 키 1개 ·
+ * 날짜 1일**이었다. 그 규칙을 그대로 실행하면 8/12 에 합계 0 이 나오고 탭이 지워지는데, 그 0 은
+ * "안 쓴다"가 아니라 **"앱이 두 번 열렸을 뿐"** 이다.
+ *
+ * 이 파일 머리주석이 이미 경고한 순환(*"자명한 0 을 근거로 쓰면 그건 관측이 아니라 순환"*)이
+ * 정확히 그 규칙에 발동한 것이고, 이 저장소가 스냅샷·a11y 에서 두 번 물린 **"녹색이 '회귀 없음'이
+ * 아니라 '안 쟀음'을 뜻하는"** 형태와 같다. 그래서 분모를 **화면에 올린다** — 판정하는 사람이
+ * 분자만 보고 결론 내릴 수 없게.
+ *
+ * @returns `days` = 실제 관측된 **서로 다른 날짜 수**, `total` = 전 출처 방문 합.
+ */
+export async function visitSample(days = 14, todayDs: string = todayISO()): Promise<{ days: number; total: number }> {
+  const from = iso(addDays(parseISO(todayDs), -days));
+  const rows = await selectDb<{ d: number; t: number }>(
+    `SELECT COUNT(DISTINCT day) AS d, COALESCE(SUM(n), 0) AS t FROM route_visits WHERE day >= ?`,
+    [from],
+  );
+  const r = rows?.[0];
+  return { days: Number(r?.d) || 0, total: Number(r?.t) || 0 };
+}
+
+/** 판정을 내릴 만큼 표본이 쌓였는가(`tabs.ts` 의 은퇴 규칙 ①단계와 **같은 임계**). */
+export const SAMPLE_MIN = { days: 10, total: 30 } as const;
+export const hasSample = (s: { days: number; total: number }): boolean =>
+  s.days >= SAMPLE_MIN.days && s.total >= SAMPLE_MIN.total;
+
+/**
  * 방문 1회를 기록한다. **실패해도 조용히 넘어간다** — 관측이 앱 동작을 막으면 안 된다.
  *
  * ⚠ `await` 하지 않는 호출을 전제로 만들었다(내비게이션은 사용자 입력 경로다).

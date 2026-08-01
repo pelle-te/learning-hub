@@ -21,7 +21,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { mistakeArchive, mistakeTotals, todayMistakes, type MistakeRow } from '@/lib/mistakes';
 import { CBMS_INFO, CBMS_CODES, addBacklog } from '@/lib/methodology';
-import { openVaultSearch, todayISO } from '@/lib/utils';
+import { openVaultSearch, todayISO, vaultQuery } from '@/lib/utils';
 import { ui } from '@/shell';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
@@ -115,7 +115,12 @@ function MistakeCard({
         <button type="button" className={MINI} onClick={onSeed}>
           <Icon name="inbox" /> 보충에 담기
         </button>
-        <button type="button" className={MINI} onClick={() => openVaultSearch(row.chapter || row.subject)}>
+        <button
+          type="button"
+          className={MINI} /* H14 — 종전엔 `chapter || subject` 라 챕터가 있으면 **과목을 버렸다**(다른 화면 넷과
+           정반대). 질의 조립은 `lib/utils.vaultQuery` 하나가 소유한다. */
+          onClick={() => openVaultSearch(vaultQuery(row.subject, row.chapter))}
+        >
           <Icon name="search" /> 볼트
         </button>
       </div>

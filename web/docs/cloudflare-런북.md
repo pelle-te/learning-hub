@@ -412,6 +412,21 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 - `deployments list` 에 두 환경이 **분리돼** 보인다
 - prod D1 에 dev 데이터가 **없다** ← 이걸 꼭 확인해라. 바인딩 이름이 같아서 섞기 쉽다
 - **정적 자산(C-6)** — `/` 와 `/plan` 이 200 `text/html`, `/api/health` 가 JSON. 절차와 함정은 **§7-6**
+- **업데이터 자산(C1 · 2026-08-01)** — `/updates/<인스톨러>.exe` 가 **`application/octet-stream`**
+
+```bash
+# ⚠⚠ 상태코드로는 원리적으로 판정할 수 없다 — SPA 폴백이 **무엇을 물어도 200 을 준다.**
+#    실측: 존재하지 않는 zzz-nonexistent.exe 도 200 text/html 1433 B(= dist/index.html 크기).
+curl.exe -sI "https://<워커>.workers.dev/updates/러닝허브_0.3.0_x64-setup.exe" \
+  | grep -qi 'content-type: application/octet-stream' \
+  && echo OK || echo '❌ SPA 폴백 HTML — release:stage 를 건너뛰었다'
+```
+
+> 이것이 `/health` 와 **같은 함정의 두 번째 발현**이다(§401). 2026-08-01 배포가 `release:stage` 를
+> 건너뛰어 매니페스트는 살아 있고 서명도 유효한데 **가리키는 exe 가 1433 바이트 HTML** 이었고,
+> v0.2.0 사용자는 0.3.0 을 제안받고 minisign 검증에 실패했다. 재발 방지의 **1차**는 이 확인이
+> 아니라 `server/package.json` 의 `predeploy` 훅이다(순서를 계약이 아니라 의존으로) — 여기는
+> 이미 나간 뒤의 2차 확인이다.
 
 ### 7-4. 왕복 검증은 **자동화돼 있다**(2026-07-20 신설)
 
@@ -525,9 +540,12 @@ npx wrangler deploy --env prod # → prod
 curl.exe -I https://<워커>.workers.dev/            # 200 · content-type: text/html
 curl.exe -I https://<워커>.workers.dev/plan        # 200 · text/html  ← SPA 폴백
 curl.exe -s  https://<워커>.workers.dev/api/health # {"ok":true}      ← 자산에 안 삼켜짐
+curl.exe -sI https://<워커>.workers.dev/updates/<인스톨러>.exe  # application/octet-stream ← §7-3
 ```
 
 > ⚠ 세 번째가 `<!DOCTYPE html>` 을 뱉으면 `run_worker_first` 가 안 먹은 것이다. 두 번째가 404 면 `not_found_handling` 이 안 먹은 것이다. **폰으로 직접 열어 보기 전에 이 세 줄을 먼저 쳐라.**
+>
+> ⚠⚠ **네 번째는 상태코드를 보면 안 된다** — `not_found_handling` 이 그 경로에도 걸려 있어 존재하지 않는 exe 도 200 을 준다. 판정은 **content-type** 이다(C1 · §7-3).
 
 ---
 

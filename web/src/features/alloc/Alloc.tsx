@@ -13,7 +13,8 @@ import { useUI } from '@/store/useUI';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { io } from '@/shell';
-import { weekLabel, todayISO, ddayInfo, hNum, hLabel, iso, addDays, parseISO } from '@/lib/utils';
+import { weekLabel, ddayInfo, hNum, hLabel, iso, addDays, parseISO } from '@/lib/utils';
+import { useTodayISO } from '@/hooks/useTodayISO';
 import { weekAllocTotalMin, weekBudgetMin as weekBudgetMinOf, weekDoneNewMin } from '@/lib/weekAlloc';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { Button } from '@/components/ui';
@@ -43,7 +44,7 @@ export default function Alloc() {
   const capWd = useStudyMinByWeekday();
   const navigate = useNavigate();
   const setSchedView = useUI((s) => s.setSchedView);
-  const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중)
+  const todayIso = useTodayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중 · 자정 자동 롤오버 H20)
 
   // 주 네비(오프셋 상태 · , / . 단축키 · 배지 라벨)는 useWeekOffset 단일 기계가 소유 —
   // 예전엔 todayOff 산식·useState·useWeekNavKeys가 캘린더와 글자까지 같은 모양으로 복제돼 있었다.

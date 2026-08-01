@@ -53,7 +53,12 @@ export function addEvent(
     min,
     title: input.title,
     note: input.note,
-    color: input.color,
+    /* ⚠⚠ **`color` 를 받지 않는다**(D2 · 2026-08-01). 일정의 색은 `--event` **토큰 하나**이고
+       (주·월·일 세 뷰가 그 하나를 쓴다 — `tokens.css` 의 `--event` 주석) 저장값이 아니다.
+       writer 는 이미 0이었지만 **입구가 열려 있는 것 자체가 결함**이었다: pull·가져오기가
+       `color` 를 실은 일정을 데려오면 `WeekCalendar` 의 인라인 `--seg` 가 클래스의
+       `[--seg:var(--event)]` 를 이겨(인라인 > 클래스) 그 일정만 다른 색으로 그려진다.
+       H13 이 tasks 에 대해 못박은 것과 **같은 규율**이다: 스키마 필드는 남기되 읽지도 쓰지도 않는다. */
     at: input.at ?? Date.now(),
   };
   ensure(state).push(ev);

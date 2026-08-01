@@ -18,6 +18,7 @@ import { commitCapture } from '@/shell';
 import { mmss } from '@/lib/utils';
 import { setMiniCaptureWindow } from '@/lib/tauri';
 import { exitMini } from '@/lib/miniMode';
+import { toast } from '@/shell/toast';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const WRAP = 'fixed inset-0 z-[var(--z-modal)] flex items-center gap-3 border border-line-acc-pill bg-bg px-3.5 py-2.5';
@@ -72,7 +73,13 @@ export default function MiniHud() {
   }, [capture]);
 
   const leftSec = session ? Math.max(0, Math.round((session.endsAt - now) / 1000)) : 0;
-  const expand = async (): Promise<void> => navigate(await exitMini(), { replace: true });
+  /* ⚠ 복원 실패면 그대로 알약에 머문다(H9 · `lib/miniMode.exitMini` 주석이 근거) — 나가는 문을
+     들고 있는 것이 이 화면이라, 여기서 라우팅해 버리면 그 문이 사라진다. */
+  const expand = async (): Promise<void> => {
+    const back = await exitMini();
+    if (back) navigate(back, { replace: true });
+    else toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
+  };
 
   return (
     <div className={WRAP} data-mini="1" ref={wrapRef} tabIndex={-1}>

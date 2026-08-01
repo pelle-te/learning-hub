@@ -27,6 +27,7 @@ import { isTauri } from '../isTauri'; // ⚠ 부팅 경로 — 초소형 모듈�
 import { execDb, isSqlitePrimary, selectDb } from './sqlite';
 import { runExclusive } from './write';
 import { nextStamp } from './stamp';
+import { pushUndo, type PreImageRow } from './undoStack'; // H3 — 저작물 쓰기도 ⌘Z 스택에 든다
 import { markDbFallback, setSaveFallback } from './fallback'; // C2 — 저작물 쓰기 실패의 표면화
 
 /** SQLite 로 옮긴 키. 여기 없는 키는 `docGet`/`docSet` 이 localStorage 로 그대로 흘린다 —
@@ -110,11 +111,40 @@ export function docGet(key: string): string | null {
   return storage.getItem(key);
 }
 
-/** 저작물 쓰기 — 셸이면 메모리 즉시 + DB 비동기, 아니면 localStorage(동기).
- *  반환은 **동기 성공 여부**다: 셸에선 메모리 반영이 곧 화면 반영이라 항상 true 이고,
- *  브라우저에선 쿼터 초과가 여기서 드러난다(호출부가 그걸로 안내한다). */
-export function docSet(key: string, value: string): boolean {
+/**
+ * 저작물 쓰기 — 셸이면 메모리 즉시 + DB 비동기, 아니면 localStorage(동기).
+ * 반환은 **동기 성공 여부**다: 셸에선 메모리 반영이 곧 화면 반영이라 항상 true 이고,
+ * 브라우저에선 쿼터 초과가 여기서 드러난다(호출부가 그걸로 안내한다).
+ *
+ * ## ⚠⚠ `undo` — 전역 ⌘Z 캡처(H3 · 2026-08-01 `/감사 근본` · 사용자 승인)
+ *
+ * 이 경로는 `writeRows` 가 아니라 별도 `runExclusive(execDb)` 라 **pre-image 가 안 잡혔다.**
+ * 결과는 침묵이 아니라 **거짓말**이었다: 독후감을 쓰고 ⌘Z 를 누르면 되돌아가는 것은 *10분 전
+ * 챕터 편집*인데 토스트는 "직전 편집을 되돌렸어요"라고 말했다. 사용자는 방금 한 일이 취소된 줄
+ * 알고, 실제로는 아무 관련 없는 옛 편집이 사라진다.
+ *
+ * 기계는 이미 준비돼 있었다 — `docs` 는 `cloud/contract.OUTBOX_TABLES` 에 `DOCS_SPEC` 으로 들어
+ * 있고 `merge.applyPull` 이 `docs` 행을 쓰면 `reloadDocs()` 로 사본까지 되맞춘다. **빠진 것은
+ * 캡처 하나뿐**이었다.
+ *
+ * ⚠ **기본값이 `write.ts`(기본 캡처)와 반대인 것이 의도다.** 거기선 `runWrite` 에 닿는 경로가
+ * 사용자 flush 하나뿐이라 기본 참이 안전하다. 여기 호출부는 다섯인데 **사용자 편집은 하나**다
+ * (`reads.saveReads`) — 나머지 넷은 IDB 복구·`_local` 가져오기·산출물 미러링, 전부 *내 편집이
+ * 아니다*. 기본을 참으로 두면 새 호출부가 깜빡하는 순간 기계가 낸 쓰기가 ⌘Z 를 오염시키고,
+ * 그게 정확히 이 항목이 고치는 형태다. 틀렸을 때의 결말이 **"되돌릴 수 없다" < "엉뚱한 것을
+ * 되돌린다"** 이므로 안전한 쪽으로 기본을 잡는다.
+ */
+export function docSet(key: string, value: string, opts?: { undo?: boolean }): boolean {
   if (_cache && isDocKey(key)) {
+    const prev = _cache.get(key);
+    /* ⚠ 무변경 쓰기는 안 쌓는다 — `rows.ts:222` 가 AppState 쪽에서 지키는 규율과 같다. 쌓으면
+       ⌘Z 한 번이 "아무 일도 안 일어남"이 되고, 그건 사용자에게 고장으로 보인다
+       (`undoStack.pushUndo` 머리주석). */
+    const capture: PreImageRow[] =
+      opts?.undo && prev !== value
+        ? // DOCS_SPEC.cols = ['key','value'] · keyLen 1 → vals 는 키 포함 전량(`undo.ts` 가 slice 한다).
+          [{ table: 'docs', key: [key], vals: prev === undefined ? null : [key, prev] }]
+        : [];
     _cache.set(key, value);
     /* ⚠ DB 쓰기 실패를 삼키지 않는다 — 정본을 쥔 층의 침묵이 2단계-E 에서 원인 추적을 막았다.
        사용자 토스트까지 띄우진 않는다: 메모리엔 있어 화면은 정상이고, 다음 저장이 다시 시도한다.
@@ -123,7 +153,11 @@ export function docSet(key: string, value: string): boolean {
        왕복이 절단될 수 있었고, docs 는 정본이 따로 없어 유실이 곧 소실이다. 체인에 얹으면 AppState
        flush 와 같은 배리어를 공유해 닫기 가드가 함께 기다린다(스탬프는 실행 시점에 발급해 쓰기
        순서와 일치). 로컬 쓰기라 §5-2 "로컬만 기다린다"를 어기지 않는다(원격 push 는 이 체인 밖). */
-    void runExclusive(() => execDb(DOC_UPSERT, [key, value, nextStamp()])).then((ok) => {
+    let stamp = 0;
+    void runExclusive(() => {
+      stamp = nextStamp();
+      return execDb(DOC_UPSERT, [key, value, stamp]);
+    }).then((ok) => {
       if (!ok) {
         console.error('[docs] 저장 실패:', key);
         /* ⚠⚠ **여기가 침묵이었다(C2 · 2026-07-31 `/감사 근본`).** 위 주석이 든 근거
@@ -154,6 +188,12 @@ export function docSet(key: string, value: string): boolean {
          재시작 전까지 화면에서 사라졌다. 이 쓰기는 항상 `reloadDocs` 뒤(같은 체인 순서)에 완결되므로,
          완결 시 값을 되박으면 클로버가 복원된다. DB·서버는 이미 이 값이라 되박음이 정본과 어긋나지 않는다. */
       if (_cache && isDocKey(key)) _cache.set(key, value);
+      /* ⚠ **성공한 뒤에만 쌓는다** — `write.ts:260` 과 같은 규율이다. 쓰기가 실패했으면 DB 는
+         pre-image 그대로이거나 부분 적용이라 "직전"이 무엇인지 모르고, 그 상태를 되돌릴 수
+         있다고 말하는 것이 침묵보다 나쁘다(위 실패 분기는 임시 사본·배너로 이미 응답한다).
+         ⚠ 스탬프는 **실행 시점의 그것**이어야 한다 — `undo.ts` 의 툼스톤 가드가 "이 쓰기 뒤에
+         생긴 삭제"를 이 값으로 가려낸다. 그래서 `nextStamp()` 를 위 클로저 안으로 옮겼다. */
+      if (capture.length) pushUndo(capture, stamp);
     });
     return true;
   }

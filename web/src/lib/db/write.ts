@@ -282,13 +282,24 @@ async function runWrite(state: AppState, captureUndo: boolean): Promise<ParityRe
 
        ⚠ 건너뛰지 않으므로 "안 잰 회차"가 없다 — H6 이 걱정한 "안 잰 것을 일치라고 보고"할
        여지 자체가 사라진다. */
-    if (wrote.touched.length && wrote.touched.length <= ROW_VERIFY_MAX) {
-      const back = await readTouched(wrote.touched);
+    /* ⚠⚠ **삭제도 대조 대상이다**(H6 · 2026-08-01). 종전엔 `touched`(= upsert 만)로만 판정해서
+       삭제만 있는 flush 는 `touched.length === 0` 으로 빠져 **직전 결과를 재사용**했다:
+       직전이 `unavailable` 이면 성공한 삭제가 실패로 보고되고, 직전이 `ok` 면 삭제 반영을
+       **한 번도 확인하지 않고** "일치"라 말한다 — 이 층이 존재하는 이유의 정반대다.
+       (할일·요약·보충 제거가 전부 이 부류다: 지우기만 하는 편집은 흔하다.)
+       ⚠ 지운 행은 **없어야** 통과다 — 있으면 SQL 이 안 먹은 것이고, 그건 다음 pull 에서
+       삭제가 부활하는 경로다. */
+    const probes = [...wrote.touched, ...wrote.removed];
+    if (probes.length && probes.length <= ROW_VERIFY_MAX) {
+      const back = await readTouched(probes);
       if (!back) {
         _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false, unavailable: false };
         return _last;
       }
       const bad = new Set<string>();
+      for (const r of wrote.removed) {
+        if (back.has(touchedKey(r.table, r.key))) bad.add(r.table);
+      }
       for (const t of wrote.touched) {
         const got = back.get(touchedKey(t.table, t.key));
         /* ⚠ 비교는 **문자열로** 한다. SQLite 는 열 친화성에 따라 숫자를 number 로 돌려주는데
@@ -304,7 +315,7 @@ async function runWrite(state: AppState, captureUndo: boolean): Promise<ParityRe
       if (mismatched.length) console.warn('[db] 쓴 행과 되읽은 행이 다릅니다:', mismatched);
       return _last;
     }
-    if (!wrote.touched.length) return _last; // 바뀐 행이 없다 = 검증할 것도 없다(직전 결과 유지)
+    if (!probes.length) return _last; // 바뀐 행이 없다 = 검증할 것도 없다(직전 결과 유지)
     const back = await readRows();
     if (!back) {
       _last = { ok: false, mismatched: ['<되읽기 실패>'], skipped: false, unavailable: false };

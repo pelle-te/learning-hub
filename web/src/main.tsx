@@ -105,10 +105,19 @@ void initAppStore()
       .catch(() => {});
     collectWebVitals();
     // 이 두 줄이 `useApp` 모듈 평가를 처음 유발한다 — 그래서 반드시 위 await 뒤여야 한다.
-    const [{ default: App }, { default: ThemeProvider }] = await Promise.all([
+    const [{ default: App }, { default: ThemeProvider }, { warmTab }] = await Promise.all([
       import('@/app/App'),
       import('@/app/ThemeProvider'),
+      import('@/features/registry'),
     ]);
+    /* ⚠⚠ **부팅 260ms 를 없앤다**(2026-08-01 실측 · 근거 SSOT 는 `features/registry.warmTab` 머리주석).
+       그 구간은 CPU 도 네트워크도 아니었다 — React 가 Suspense **폴백을 이미 커밋한 뒤** 깜빡임을
+       피하려고 노출을 억제하는 `setTimeout(≈248ms)` 였다. 청크는 `modulepreload` 로 이미 와 있어
+       113ms 에 준비되는데 360ms 까지 붙잡혔다. 첫 라우트의 lazy 를 **렌더 전에** 확정시키면
+       폴백 자체가 안 뜨고 억제할 대상도 사라진다.
+       ⚠ 라우트 키 산출은 `App.tsx:109` 와 **같은 식**이다(둘이 갈리면 엉뚱한 청크를 덥힌다).
+       ⚠ `warmTab` 이 상한을 갖는다 — 최악이 "이득 없음"이지 "흰 화면"이 아니게. */
+    await warmTab(window.location.pathname.split('/')[1] || 'today');
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
         {/* ⚠ `onError` — 종전엔 폴백 UI 만 그리고 **아무것도 기록하지 않았다.** 셸 전체가

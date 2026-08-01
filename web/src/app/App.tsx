@@ -21,6 +21,7 @@ import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
 import MiniHud from '@/app/MiniHud';
 import { MINI_PATH } from '@/lib/miniMode';
+import { singleKeyBlocked } from '@/shell/keyGate';
 import StorageGuard from '@/app/StorageGuard';
 import VaultSync from '@/app/VaultSync';
 import StorageBanner from '@/app/StorageBanner';
@@ -221,8 +222,10 @@ export default function App() {
         void import('@/store/undoController').then((m) => m.undoLastEdit());
         return;
       }
-      // 단일키 단축키는 수정자/입력 포커스/팔레트 열림 시 무시
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping() || useOverlay.getState().palette) return;
+      /* 단일키 단축키는 수정자 조합이거나 **떠 있는 층이 하나라도 있으면** 무시한다.
+         ⚠ 판정은 `shell/keyGate` 하나가 소유한다(H10~H11) — 여기 조건을 늘리면 새 오버레이가
+         생길 때마다 목록이 갈린다(실제로 `help` 는 아무도 안 보고 있었다). 근거는 그 파일. */
+      if (e.metaKey || e.ctrlKey || e.altKey || singleKeyBlocked(window.location.pathname)) return;
 
       if (e.key === '?') {
         e.preventDefault();

@@ -139,10 +139,10 @@ pub fn set_workspace(app: tauri::AppHandle, path: String) -> Result<WorkspaceSta
         },
     )?;
     /* ⚠⚠ **감시를 다시 건다(H6 · 2026-07-31 `/감사 근본`).** 종전엔 `setup` 이 부팅에 1회만
-       걸어서, 워크스페이스를 **부팅 뒤에** 지정하면(= 첫 실행 온보딩의 정상 경로다) 그 세션 내내
-       `vault:changed` 가 0 이었다 — 볼트를 고쳐도 화면이 안 바뀌는데 안내가 어디에도 없는
-       조용한 무반응이고, 재시작하면 나아서 진단이 특히 어려웠다. 세대 번호가 옛 워처의 은퇴까지
-       맡는다(근거는 `vault.rs` 의 `WATCH_GEN` 주석). */
+    걸어서, 워크스페이스를 **부팅 뒤에** 지정하면(= 첫 실행 온보딩의 정상 경로다) 그 세션 내내
+    `vault:changed` 가 0 이었다 — 볼트를 고쳐도 화면이 안 바뀌는데 안내가 어디에도 없는
+    조용한 무반응이고, 재시작하면 나아서 진단이 특히 어려웠다. 세대 번호가 옛 워처의 은퇴까지
+    맡는다(근거는 `vault.rs` 의 `WATCH_GEN` 주석). */
     crate::vault::start_watch(app.clone());
     Ok(WorkspaceStatus {
         path: Some(pb.to_string_lossy().into_owned()),

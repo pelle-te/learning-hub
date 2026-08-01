@@ -103,7 +103,10 @@ export async function recoverReadsFromIDB(): Promise<ReadsLocal | null> {
 export function saveReads(r: ReadsLocal): boolean {
   const json = JSON.stringify(r);
   idbMirror(json, IDB_KEY); // 브라우저 전용 방어층(셸엔 '사이트 데이터 삭제' 위협이 없다)
-  const ok = docSet(LKEY, json);
+  /* ⚠ `undo: true` — **docs 호출부 다섯 중 여기 하나만** 사용자 편집이다(H3 · 2026-08-01).
+     나머지 넷(IDB 복구·`_local` 가져오기·산출물 미러 2종)은 기계가 낸 쓰기라 ⌘Z 에 실리면
+     "내가 방금 한 편집"이 아닌 것을 되돌리게 된다 — 근거는 `db/docs.docSet` 머리주석. */
+  const ok = docSet(LKEY, json, { undo: true });
   if (ok) announce({ kind: 'reads' }); // 다른 탭의 읽을거리 화면 라이브 갱신
   return ok;
 }

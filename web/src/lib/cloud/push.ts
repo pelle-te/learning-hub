@@ -22,7 +22,7 @@
    응답만 유실된 경우 **같은 행을 두 번 보내지만**, 행 단위 LWW 라 재적용이 무해하다(멱등).
    반대 방향(성공 확신 없이 전진)은 조용한 유실이라 복구가 없다.
 ============================================================ */
-import { batchSize, collectOutbox, commitWatermark, type OutboxBatch } from './outbox';
+import { batchSize, collectOutboxScan, commitWatermark, type OutboxBatch } from './outbox';
 /* ⚠ **동적 import 로 바꾸지 말 것 — 2026-07-29 에 재 봤고 이득이 0.3KB 였다.**
    "이 줄이 zod 18KB 를 초기 청크로 끈다"는 진단이 있었는데 실측은 달랐다: zod 는 이미
    `db/boot`·`db/rows`·`db/write`·폰 엔트리가 **영속 계층의 부팅 검증**(C-2 경계 파싱)으로
@@ -141,6 +141,14 @@ export interface PushResult {
   attempts: number;
   /** `failed`·`blocked` 일 때 마지막 오류 메시지. */
   error?: string;
+  /**
+   * **이 배치 뒤에 아웃박스가 더 남았는가**(H4 · 2026-08-01).
+   *
+   * 종전 드레인 조건은 `sent >= MAX_BATCH_ITEMS` 였는데 `capBatch` 는 **스탬프 그룹 경계**에서
+   * 자르므로 그 수가 상한과 같아지는 일이 거의 없다 → 드레인이 사실상 안 돌았다. 판정은
+   * 스캔한 쪽만 할 수 있어서(`upto < fence`) 여기까지 실어 온다 — 근거는 `outbox.OutboxScan`.
+   */
+  more: boolean;
 }
 
 export interface PushOptions {
@@ -178,8 +186,9 @@ export function backoffDelay(attempt: number, opts: PushOptions = {}): number {
  * 언제 불러도 안전하고, 보낼 게 없으면 싸게 끝난다.
  */
 export async function pushOutbox(transport: CloudTransport, opts: PushOptions = {}): Promise<PushResult> {
-  const batch = await collectOutbox();
-  if (!batch) return { status: 'unavailable', sent: 0, attempts: 0 };
+  const scan = await collectOutboxScan();
+  if (!scan) return { status: 'unavailable', sent: 0, attempts: 0, more: false };
+  const { batch, more } = scan;
 
   const size = batchSize(batch);
   if (size === 0) {
@@ -188,7 +197,7 @@ export async function pushOutbox(transport: CloudTransport, opts: PushOptions = 
        무한히 넓어진다**(인덱스가 있어도 범위 스캔이 커진다). 빈 배치의 전진은 유실 위험이 없다 —
        그 구간에 보낼 것이 실제로 없었기 때문이다. */
     await commitWatermark(batch.upto);
-    return { status: 'idle', sent: 0, attempts: 0 };
+    return { status: 'idle', sent: 0, attempts: 0, more };
   }
 
   /* ⚠ 한 스탬프 그룹이 혼자 상한을 넘을 수 있다(H2) — `chunkBatch` 주석이 그 계약을 소유한다.
@@ -203,7 +212,7 @@ export async function pushOutbox(transport: CloudTransport, opts: PushOptions = 
   for (const c of chunks) {
     const checked = parseOutboxBatch(c);
     if (!checked.ok) {
-      return { status: 'blocked', sent: 0, attempts: 0, error: `배치가 계약을 위반한다 — ${checked.error}` };
+      return { status: 'blocked', sent: 0, attempts: 0, more, error: `배치가 계약을 위반한다 — ${checked.error}` };
     }
   }
 
@@ -225,16 +234,16 @@ export async function pushOutbox(transport: CloudTransport, opts: PushOptions = 
         /* 재시도가 무의미한 실패는 **즉시** 끊는다 — 여기서 계속 돌면 하루 종일 헛치면서
            사용자에겐 정상으로 보인다(`PermanentPushError` 주석 참조). 워터마크는 실패한
            배치이므로 당연히 전진시키지 않는다. */
-        if (isPermanent(e)) return { status: 'blocked', sent: 0, attempts, error: lastError };
+        if (isPermanent(e)) return { status: 'blocked', sent: 0, attempts, more, error: lastError };
         if (attempt < maxAttempts) await sleep(backoffDelay(attempt, opts));
       }
     }
     /* 조각 하나라도 못 보냈으면 워터마크를 건드리지 않고 끝낸다 — 다음 호출이 **그룹 전체**를
        다시 만든다. 앞 조각을 두 번 보내지만 행 단위 LWW 라 재적용이 무해하다(머리주석의 멱등). */
-    if (!ok) return { status: 'failed', sent: 0, attempts, error: lastError };
+    if (!ok) return { status: 'failed', sent: 0, attempts, more, error: lastError };
   }
 
   /* ⚠ **전 조각 성공 뒤에만** 워터마크가 전진한다. 이 순서가 이 파일의 안전 계약 전부다. */
   await commitWatermark(batch.upto);
-  return { status: 'pushed', sent: size, attempts };
+  return { status: 'pushed', sent: size, attempts, more };
 }

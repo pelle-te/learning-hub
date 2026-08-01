@@ -48,6 +48,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { SkeletonFill } from './ui/Skeleton';
 import LiveRegion from './LiveRegion';
 import { Icon } from './Icon';
+import type { IconName } from '@/lib/iconPaths';
 
 /**
  * 이 상태에서 **다음에 할 일**.
@@ -63,11 +64,12 @@ function isTerminal(n: StateNext): n is { terminal: string } {
 }
 
 interface Common {
-  /** 글리프 — **아이콘 이름**이다(`components/Icon` 의 `ICON_PATHS` 키). ⚠ 종전엔 `ReactNode` 라
+  /** 글리프 — **아이콘 이름**이다(`lib/iconPaths` 의 키). ⚠ 종전엔 `ReactNode` 라
    *  호출부가 이모지 문자열을 직접 넣었고, 그래서 같은 개념이 화면마다 다른 글리프로 갈렸다
    *  (📚·📖·📗이 전부 "문서"였다). 이름으로 바꾸면 그 증식이 아이콘 목록 한 파일에 모인다.
-   *  ⚠ 없는 이름은 아무것도 안 그린다 — `scripts/check-icons.mjs` 가 그 조합을 막는다. */
-  glyph?: string;
+   *  ⚠ 타입이 `IconName` 이라 없는 이름은 **typecheck 에서 죽는다**(H22 · 2026-08-01). 여기
+   *  집행자로 적혀 있던 `scripts/check-icons.mjs` 는 존재한 적이 없다. */
+  glyph?: IconName;
   title: ReactNode;
   desc?: ReactNode;
 }

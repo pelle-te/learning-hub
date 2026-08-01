@@ -17,6 +17,8 @@ import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
 import { TABS, GROUP_LABELS, navGroups, destinations, SUBTAB_GROUPS, tabByKey, subTabGroupOf } from '@/shell/tabs';
 import { NAV_SHORTCUTS } from '@/shell/shortcuts';
+// ⚠ 불변식 ③-b 가 ⌘K 도달을 **세어야** 하므로 팔레트 목록을 실제로 읽는다(믿지 않는다).
+import { paletteCommands as basePaletteCommands } from '@/shell/palette';
 import type { AppState } from '@/lib/types';
 
 /* Proxy 내부 접근·상속 프로퍼티 등 슬라이스가 아닌 잡음 키(캐시 입력이 아님). */
@@ -152,9 +154,42 @@ describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에�
       for (const k of g.slice(1)) expect(tabByKey(k)?.role, `seg ${k}`).toBe('lens');
     }
   });
-  it('lens 는 반드시 어느 세그먼트 그룹에 속한다(도달 경로 없는 탭 금지)', () => {
-    const inGroup = new Set(SUBTAB_GROUPS.flat());
-    for (const t of TABS) if (t.role === 'lens') expect(inGroup.has(t.key), `${t.key} 는 어디로도 못 간다`).toBe(true);
+  /* ⚠⚠ **완화됐다: "세그먼트 그룹" → "라우트·⌘K·세그먼트 중 최소 하나"**
+     (P5+P6 · 2026-08-01 `/감사 근본` · 사용자 승인).
+
+     옛 형태는 _"lens 는 반드시 어느 세그먼트 그룹에 속한다"_ 였다. 막으려던 것은 옳았다 —
+     **도달 경로 없는 탭**. 그런데 요구한 것은 그보다 좁았다: *특정* 도달 경로 하나. 라우트·⌘K·
+     `g` 단축키가 이미 도달을 보장하는데도, 그것들과 무관하게 **세그먼트 바에 자리를 요구**한 것이다.
+
+     결과는 측정 가능했다: `atlas`·`markets` 는 "학습 상태 소비 0 · 콜드면 안내문"이라 매일 볼
+     화면이 아닌데도 갈 곳이 없어 시스템 호스트에 얹혔고(그 파일이 *"잠정 거처"* 라 자인한다),
+     설정 세그먼트가 **7개 — 앱 최장**이 됐다. 즉 이 불변식이 "매일 안 볼 것"을 매일 보이는 바에
+     세우는 **압력**이었다. 게다가 `group:'discover'` 라는 두 번째 IA 원천과 어긋나서
+     `GROUP_LABELS.discover` 는 **한 번도 렌더되지 않았고**, 옛 불변식은 "라벨이 존재하는가"만
+     봐서 그 사실을 못 봤다.
+
+     ⚠ **느슨해지되 공허해지지 않는 것이 요점이다.** 열거 셋을 *실제로* 훑는다 — `paletteCommands()`
+     를 불러 세지, "어차피 ⌘K 가 탭을 다 담으니 항상 참"이라고 **믿지 않는다**. 그래서 세그먼트에서
+     내린 렌즈가 나중에 ⌘K 목록에서까지 빠지면 여기서 빨간불이 뜬다.
+
+     ⚠⚠ **이 불변식이 못 보는 것을 적어 둔다(알리바이 방지).** 순회 대상이 `TABS` 라, **`TABS`
+     에서 통째로 내려간 화면**은 애초에 여기 안 들어온다 — P3 이 잡은 `graph` 가 정확히 그 형태였다
+     (P-19 가 배열에서 빼자 ⌘K 에서 사라졌는데 딥링크는 살아 있어 "도달성 손실 0"으로 보였다).
+     그 구멍을 막는 것은 이 불변식이 아니라 `palette.ts` 의 손수 놓은 `act:graph` 항목과 그 옆
+     주석이다(*"TABS 에서 화면을 내릴 때마다 여기"*). 둘은 서로 다른 것을 지킨다. */
+  it('lens 는 라우트·⌘K·세그먼트 중 **최소 하나**로 도달 가능하다', () => {
+    const inSeg = new Set(SUBTAB_GROUPS.flat());
+    const inPalette = new Set(
+      basePaletteCommands()
+        .filter((c) => c.kind === 'tab')
+        .map((c) => c.key),
+    );
+    const inShortcut = new Set(NAV_SHORTCUTS.map((s) => s.tab));
+    for (const t of TABS) {
+      if (t.role !== 'lens') continue;
+      const paths = [inSeg.has(t.key) && '세그먼트', inPalette.has(t.key) && '⌘K', inShortcut.has(t.key) && 'g단축키'];
+      expect(paths.some(Boolean), `${t.key} 는 어느 경로로도 못 간다(세그먼트·⌘K·g 전부 없음)`).toBe(true);
+    }
   });
 });
 

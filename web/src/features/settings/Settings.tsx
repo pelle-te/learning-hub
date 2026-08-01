@@ -14,7 +14,7 @@ import { ui, io, actions } from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
-import { visitSummary, type VisitRow } from '@/lib/visits';
+import { visitSummary, visitSample, hasSample, SAMPLE_MIN, type VisitRow } from '@/lib/visits';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
@@ -77,13 +77,28 @@ const ACC_STATE = { on: 'border-acc! bg-acc-soft!', off: 'bg-transparent!' } as 
  */
 function VisitLedger() {
   const [rows, setRows] = useState<VisitRow[] | null>(null);
+  /* ⚠ **분모를 함께 보여 준다**(P1/P2 · 2026-08-01). 합계만 보이면 "안 쓴다"와 "안 쟀다"가
+     같은 0 으로 보이고, `shell/tabs.ts` 의 은퇴 규칙이 그 0 을 근거로 탭을 지운다. */
+  const [sample, setSample] = useState<{ days: number; total: number } | null>(null);
   useEffect(() => {
     void visitSummary().then(setRows);
+    void visitSample().then(setSample);
   }, []);
   if (!rows?.length) return null;
+  const enough = sample ? hasSample(sample) : false;
   return (
     <details className={`ds-foot ${S.bdLine}`}>
       <summary>방문 원장(최근 14일) — 어디를 얼마나 열었나</summary>
+      {sample && (
+        <div className="ds-tiny mt-1.5">
+          <b>표본</b> — 관측 {sample.days}일 · 총 {sample.total}회{' '}
+          <span className={enough ? 'text-mut' : 'text-warn'}>
+            {enough
+              ? `(기준 ${SAMPLE_MIN.days}일·${SAMPLE_MIN.total}회 충족 — 탭 은퇴 판정 가능)`
+              : `(기준 ${SAMPLE_MIN.days}일·${SAMPLE_MIN.total}회 미달 — 판정 불가. 이 수치로 탭을 지우지 말 것)`}
+          </span>
+        </div>
+      )}
       <div className="ds-tiny mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
         {rows.slice(0, 16).map((r) => (
           <span key={`${r.key}:${r.via}`}>

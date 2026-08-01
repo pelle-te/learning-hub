@@ -6,6 +6,7 @@ import { useOverlay } from '@/store/useOverlay';
 import { MOD_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { agoLabel } from '@/lib/utils';
 import FocusChip from './FocusChip';
+import type { IconName } from '@/lib/iconPaths';
 
 /* TopBar — 에디토리얼 헤더(설계도 §1-2). 현 Header(.top) 대체.
    워드마크 + 컨텍스트 서브 + 우측 액션 칩(⌘K·테마·⋯ 데이터 메뉴). 설정 진입은 레일 하단 ⚙가 담당.
@@ -76,7 +77,7 @@ const BTN = `${BTN_BASE} ${BTN_PLAIN}`;
 // 정사각 아이콘 전용 버튼(테마·설정·메뉴).
 const BTN_ICON = `${BTN} w-8.5 px-0! max-mobile:w-10`;
 
-const THEME_ICON: Record<string, string> = { light: 'sun', dark: 'moon' };
+const THEME_ICON: Record<'light' | 'dark', IconName> = { light: 'sun', dark: 'moon' };
 const THEME_NEXT: Record<string, string> = { light: '다크', dark: '라이트' };
 const THEME_NAME: Record<string, string> = { light: '라이트', dark: '다크' };
 

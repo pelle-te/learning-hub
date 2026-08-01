@@ -13,10 +13,20 @@
    `📥`→`inbox`, `📂`·`📁`→`folder` 처럼 **동의어 글리프가 한 이름으로 접힌다**(72종 → 14개념).
    그게 이모지 교체의 절반이다: 이모지는 "비슷한데 다른" 것들이 자유롭게 늘어나는 표면이었고,
    이름을 쓰면 그 증식이 **이 파일의 목록**이 된다.
-   ⚠ 없는 이름을 쓰면 **아무것도 안 그려지고 게이트는 녹색**이다(정적 검사가 원리적으로 못 보는
-   자리) → `scripts/check-icons.mjs` 가 그 조합을 막는다.
+
+   ## ⚠⚠ 없는 이름은 **타입이 막는다** (H22 · 2026-08-01)
+
+   여기 머리주석은 그 방어의 집행자로 `scripts/check-icons.mjs` 를 지목하고 있었는데 —
+   **그 파일은 존재한 적이 없다.** 즉 "없는 이름을 쓰면 아무것도 안 그려지고 게이트는 녹색"이
+   진단이 아니라 **그 시점의 실제 상태**였다(`Icon.tsx` 의 `name?: string` + 여기의
+   `Record<string, string>` 조합이라 타입도 못 잡았다).
+
+   약속된 스크립트를 만드는 대신 **타입으로** 닫는다: `as const satisfies …` 로 값 타입을
+   좁히고 `IconName` 을 키 유니온으로 내보내면, `Icon.tsx` 의 `name?: IconName` 이 오타를
+   **typecheck 에서** 잡는다 — 게이트 단계가 0개 늘고 검출 시점은 오히려 빨라진다
+   (`satisfies` 를 함께 쓰는 이유: 값이 문자열임은 계속 강제하면서 키 리터럴은 잃지 않는다).
 ============================================================ */
-export const ICON_PATHS: Record<string, string> = {
+export const ICON_PATHS = {
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   chart:
@@ -134,4 +144,11 @@ export const ICON_PATHS: Record<string, string> = {
   // 입력 — ⌨
   keyboard:
     '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01"/><path d="M10 13h4"/>',
-};
+  /* 균형 · 계획 대비 실제 — 저울(D3 · 2026-08-01). `acab94e` 가 이모지 69종을 갈면서 놓친
+     마지막 하나(U+2696 ⚖)의 자리다. 대상은 `Review` 의 준수율 한 줄뿐이라 개념 이름이 곧 그 뜻. */
+  balance:
+    '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/><path d="M7 21h10M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+} as const satisfies Record<string, string>;
+
+/** 이 앱에 **존재하는** 아이콘 이름. `Icon` 의 `name` 이 이 타입이라 오타가 typecheck 에서 죽는다. */
+export type IconName = keyof typeof ICON_PATHS;

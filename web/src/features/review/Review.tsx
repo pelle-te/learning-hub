@@ -34,7 +34,7 @@ import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TO
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing, useKnowledge } from '@/store/queries';
 import { mondayOf, addDays, iso, weekLabel, fmtShort, parseISO, dayDiff, DOW_MON, todayISO, hLabel } from '@/lib/utils';
-import { colorForId, openVaultSearch } from '@/lib/utils';
+import { colorForId, openVaultSearch, vaultQuery } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -599,7 +599,9 @@ function WorkbenchCard() {
     mutate((s) => addBacklog(s, '', seed.name, seed.topic, seed.note));
     toast(PROMOTE_TOAST);
   };
-  const openVault = (c: { subject: string; chapter: string }) => openVaultSearch(c.subject + ' ' + c.chapter);
+  // 질의 조립은 `lib/utils.vaultQuery` 하나가 소유한다(H14) — 여기 있던 `+ ' ' +` 는 챕터가
+  // 없으면 끝에 공백을 붙였다.
+  const openVault = (c: { subject: string; chapter: string }) => openVaultSearch(vaultQuery(c.subject, c.chapter));
 
   return (
     <div className="ds-rule">
@@ -777,8 +779,7 @@ export default function Review() {
               ⚠ 안 깎인 주에는 **줄 자체가 없다**(0·평온은 아무것도 안 그린다). */}
           {adhere && (
             <p className={HINT} role="status">
-              <span aria-hidden="true">⚖ </span>
-              {adhere.line}
+              <Icon name="balance" /> {adhere.line}
             </p>
           )}
           {/* key=주 — 주를 이동하면 AI 코칭(ai/aiErr/aiBusy)이 리셋된다(이전 주 코칭이 그대로 남던 오표시 방지). */}

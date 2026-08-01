@@ -165,6 +165,14 @@ export interface Stmt {
  * ⚠ **upsert 를 먼저, 삭제를 나중에** 낸다 — 중간에 죽으면 남는 쪽이 "여분의 옛 행"이어야지
  * "사라진 행"이면 안 된다. 여분은 다음 쓰기가 정리하지만 유실은 복구할 수 없다.
  */
+/** 이번 쓰기가 **지운 행** 하나 — 되읽기 대조에서 *없어야 하는* 쪽(H6 · 2026-08-01).
+ *  ⚠ `TouchedRow` 와 나눈 이유: 지운 행에는 대조할 `vals` 가 없다. 한 타입에 옵셔널로 접으면
+ *  "값이 없는 upsert"라는 표현 불가능한 상태가 생긴다. */
+export interface RemovedRow {
+  table: string;
+  key: unknown[];
+}
+
 /** 이번 쓰기가 **실제로 손댄 행** 하나 — 되읽기 대조의 단위. */
 export interface TouchedRow {
   /** 테이블 이름(`TABLES[].name`). */
@@ -193,7 +201,7 @@ export function diffRowsDetailed(
   prev: DbRows | null,
   next: DbRows,
   now: number | (() => number) = Date.now(),
-): { stmts: Stmt[]; touched: TouchedRow[]; preImages: PreImageRow[] } {
+): { stmts: Stmt[]; touched: TouchedRow[]; removed: RemovedRow[]; preImages: PreImageRow[] } {
   /* 스탬프는 **동기화 행마다** 배급한다. 상수(일반 flush)면 모든 행·툼스톤이 같은 값을 받아
      종전과 한 글자도 다르지 않고(한 flush = 한 스탬프 그룹), 함수(최초 이관의 `chunkedStamp`)면
      청크마다 값이 갈려 단일 그룹이 배치 상한을 넘지 않는다(C1 · `stamp.ts` 참조). */
@@ -204,6 +212,12 @@ export function diffRowsDetailed(
   const tombs: Stmt[] = [];
   const deletes: Stmt[] = [];
   const touched: TouchedRow[] = [];
+  /* ⚠⚠ **삭제도 검증 대상이다**(H6 · 2026-08-01). `touched` 는 upsert 만 담는데(바로 위 pre-image
+     절이 그 사실을 이미 적었다) `write.ts` 의 되읽기 대조는 그것만 봤다 → 삭제만 있는 flush 는
+     `touched.length === 0` 이라 **직전 결과를 그대로 재사용**했다: 직전이 `unavailable` 이면
+     성공한 삭제가 실패로 보고되고, 직전이 `ok` 면 **삭제 반영을 한 번도 확인하지 않고** "일치"라
+     말한다. 후자가 이 파일이 반복해 거부해 온 형태다(안 잰 것을 결과로 보고). */
+  const removed: RemovedRow[] = [];
   /* ⚠ **기준선이 없으면 pre-image 도 없다.** `prev === null` 은 첫 쓰기(부팅 이관·기준선 유실 복구)라
      "직전"이 존재하지 않는다 — 그때 전 행을 "없었다"로 담으면 ⌘Z 한 번이 **DB 를 통째로 비운다.**
      빈 목록을 내면 `undoStack` 이 항목 자체를 안 만든다(그쪽 `pushUndo` 계약). */
@@ -264,9 +278,10 @@ export function diffRowsDetailed(
         });
       }
       deletes.push({ sql: `DELETE FROM ${spec.name} WHERE ${where}`, args: vals.slice(0, spec.keyLen) });
+      removed.push({ table: spec.name, key: vals.slice(0, spec.keyLen) });
     }
   }
-  return { stmts: [...upserts, ...tombs, ...deletes], touched, preImages };
+  return { stmts: [...upserts, ...tombs, ...deletes], touched, removed, preImages };
 }
 
 /** 상태 두 벌 → 증분 SQL. 접촉 행이 필요하면 `diffRowsDetailed`. */

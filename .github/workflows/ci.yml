@@ -82,12 +82,17 @@ jobs:
         run: |
           set -euo pipefail
           VER=8.28.0
+          TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
           BASE="https://github.com/gitleaks/gitleaks/releases/download/v${VER}"
-          curl -sSL --fail -o gitleaks.tar.gz "${BASE}/gitleaks_${VER}_linux_x64.tar.gz"
+          # ⚠⚠ **파일명을 바꿔 받지 말 것**(C2 · 2026-08-01). 종전엔 `-o gitleaks.tar.gz` 로
+          #   받아 놓고 `sha256sum -c` 에 **원래 이름이 적힌 줄**을 먹였다 — 그 도구는 줄에
+          #   적힌 경로를 열므로 "그런 파일이 없다"로 죽었고, 그래서 이 잡은 **도입 이래
+          #   스캔을 한 번도 못 돌렸다**(0회). 대조 자체는 옳았고 이름만 어긋나 있었다.
+          curl -sSL --fail -o "${TARBALL}" "${BASE}/${TARBALL}"
           curl -sSL --fail -o checksums.txt "${BASE}/gitleaks_${VER}_checksums.txt"
           # ⚠ 대조를 **실제로** 한다. 안 하면 "핀 고정했다"는 말이 태그만 고정한 것이 된다.
-          grep "gitleaks_${VER}_linux_x64.tar.gz" checksums.txt | sha256sum -c -
-          tar -xzf gitleaks.tar.gz gitleaks
+          grep "${TARBALL}" checksums.txt | sha256sum -c -
+          tar -xzf "${TARBALL}" gitleaks
           ./gitleaks version
       - name: 스캔
         run: ./gitleaks detect --source . --redact --verbose --exit-code 1
@@ -112,12 +117,27 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: server/package-lock.json
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
       - run: npm ci
       # ⚠ 이 층은 web/ 과 달리 **devDependency 도 신뢰면**이다 — wrangler 가 배포 자격증명을
       # 다룬다. 그래서 원장이 비어 있는 상태를 유지하는 것이 목표다(현재 0건).
       # 스크립트는 ../web/scripts/audit-gate.mjs 를 공유하므로 web 의존성 설치가 필요 없다(순수 Node).
       - run: npm run audit
+      # ⚠⚠ **이 잡은 web/ 없이는 원리적으로 못 돈다**(C2 · 2026-08-01). 종전엔 `server/` 만
+      #   설치해서 2026-07-19 부터 상시 빨간불이었다(`Cannot find module 'zod/mini'` 외 16).
+      #   이유는 이 층의 설계 그 자체다 — server 는 web 의 zod 스키마·테이블 계약을 **문자
+      #   그대로 공유**하고(그게 Cloudflare 를 고른 실익이다) `tsconfig.json` 의 include 가
+      #   `../web/src/lib/{cloud/contract,cloud/schema,db/rows,persistence}.ts` 를 든다.
+      #   즉 "server 만 설치하면 된다"는 전제가 애초에 이 구조와 모순이었다.
+      - run: npm ci
+        working-directory: web
+      # ⚠ 그리고 `test/assets.test.ts` 는 **`../web/dist` 를 요구한다**(정적 자산 라우팅을
+      #   진짜 miniflare 로 잰다). 그 파일이 스스로 "없으면 조용히 건너뛰지 않고 시끄럽게
+      #   실패한다"고 적어 뒀고, 실제로 그랬다. 빌드가 위 typecheck 보다 먼저다.
+      - run: npm run build
+        working-directory: web
       # typecheck + format:check + 계약(SQL 의미론) + 왕복(실 workerd·D1)
       - run: npm run verify
 
@@ -158,7 +178,23 @@ jobs:
       # Windows 전용 계약(taskkill /T 손자 정리 · WebView2)은 이제 **Rust 쪽에 있다** —
       # `cargo test` 가 위 tauri:clippy 와 같은 잡에서 돈다. 4단계-G 에서 serve.js 와 함께
       # `npm run test -- serve` 를 지웠다(그 26케이스의 처지는 설계 문서 대조표 참조).
-      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+      #
+      # ⚠⚠ **`LEARNING_HUB_NO_REAL_ENV` 가 이 잡을 13일 만에 되살렸다**(C2 · 2026-08-01).
+      #   CI 는 hub 를 **독립 repo 로 체크아웃**하므로 `atelier/{knowledge,pipeline}` 형제
+      #   폴더가 원리적으로 없고, 실물 대상 통합 검사 6종이 그 위에 서 있어 2026-07-19 부터
+      #   8런 연속 실패였다. **가장 나쁜 귀결은 이 스텝이 아니라 그 다음이었다** — 아래
+      #   `tauri:build` 와 **`npm run e2e`(시각 회귀 174케이스)가 전부 skipped** 였다.
+      #   즉 2026-07-25 감사가 "UI 안전망이 누가 로컬에서 기억하는가에 걸려 있다"고 진단해
+      #   여기 넣은 그 스텝이, 진단된 상태 그대로 살아 있었다.
+      #
+      #   픽스처 워크스페이스로는 못 고친다(실측 기각 — 근거는 `testkit.rs` 머리주석):
+      #   이 검사들은 폴더 존재가 아니라 **내용**을 단언하고, 파이썬 도구는 애초에 다른
+      #   저장소에 있다. 빈 껍데기로 통과시키면 그게 정확히 "녹색인데 아무것도 안 쟀다"다.
+      #   → 스위치를 켜서 **그 6종만** 명시적으로 끄고, 건너뛴 사실은 `--show-output` 으로
+      #   로그에 남긴다. 스위치는 자기 자신도 검사한다(실물이 잡히는데 켜져 있으면 실패).
+      - run: npm run tauri:test
+        env:
+          LEARNING_HUB_NO_REAL_ENV: '1'
       # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
       # `cargo check` 만으로는 1단계에서 겪은 WiX/NSIS 번들 실패를 못 잡는다.
       - run: npm run tauri:build

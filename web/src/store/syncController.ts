@@ -133,29 +133,54 @@ async function runSyncInner(): Promise<SyncResult> {
  * `nextStamp()` 는 단조 최대라 원격 승자(remoteUpdatedAt · 원 병합에서 이미 seed됨)보다 크다 →
  * 되살린 값이 LWW 로 이기고, `syncSoon()` 이 다른 기기로도 밀어올린다.
  */
+/* ⚠⚠ **실패 보고는 이 층이 소유한다 — 호출부 넷에 흩지 않는다**(H2 · 2026-08-01).
+
+   종전엔 `restoreConflict` 도 `undoLastEdit` 도 던지기만 했고 호출부(`ConflictsNotice` ·
+   `phone/ConflictsView` · `App.tsx` ⌘Z · `palette.ts`) 어디에도 `.catch` 가 없었다. 결과는
+   **확인창까지 눌러 놓고 토스트 0 · 라이브리전 0** — 사용자에게는 "눌렀는데 아무 일도 안
+   일어났다"이고, 그건 성공과 구분되지 않는다(그래서 다시 누른다).
+
+   호출부마다 `.catch` 를 다는 대신 여기에 두는 이유는 `useCommitOnChange` 와 같다(E15):
+   **입구가 여럿인 사건은 값 쪽에 붙이면 한 번에 전부 덮인다.** 새 호출부가 생겨도 상속된다. */
+function reportFailure(what: string, e: unknown): void {
+  toast(`${what} — ${e instanceof Error ? e.message : String(e)}`, 'bad', 8000);
+}
+
 export async function restoreConflict(shadow: ConflictShadow): Promise<void> {
   /* ⚠ `runSync` 와 **같은 게이트**를 탄다(H8) — 위 `exclusiveMerge` 주석이 이유를 갖는다. */
-  await exclusiveMerge(async () => {
-    const merged = await applyPull(
-      {
-        since: 0,
-        upto: 0,
-        rows: [{ tbl: shadow.tbl, key: shadow.key, data: shadow.localData, updatedAt: nextStamp() }],
-        tombstones: [],
-      },
-      /* ⚠⚠ **`echo:false` 가 이 함수의 정합성 전부다(C1).** 이건 원격 수신이 아니라 *로컬 편집*을
-         검증된 병합 기계에 태운 것이다. 에코 억제표에 적히면 바로 다음 아웃박스 스캔이 이 행을
-         **키·스탬프 정확 일치**로 건너뛰고 워터마크가 그 위로 전진해, 되살린 값이 다른 기기에
-         **영원히 안 간다**(재시작해도 안 낫는다). 근거·실패 시나리오는 `merge.ts` 의
-         `ApplyPullOptions.echo` 주석이 소유한다. */
-      { echo: false },
-    );
-    try {
-      if (merged.state) useApp.getState().applyMerged(merged.state);
-    } finally {
-      endMergeApply(); // C1 방어망 — applyPull 이 연 병합-적용 창을 반드시 닫는다(실패 경로 포함)
-    }
-  });
+  try {
+    await exclusiveMerge(async () => {
+      /* ⚠⚠ **`applyPull` 자신이 `try` 안이어야 한다(H1 · 2026-08-01).** 종전엔 이 호출이 `try` 밖에
+       있어, `beginMergeApply()` 를 켠 **뒤** 던지는 경로(정본 쓰기 실패·되읽기 대조 실패)에서
+       아래 `finally` 에 도달하지 못했다. 그러면 병합-적용 창이 영영 열린 채로 굳고, 이후 flush 가
+       전부 `deferred`(= `ok:true`)로 돌아와 **경고 하나 없이 그 세션의 편집이 하나도 저장되지
+       않는다.** `merge.ts` 의 계약은 두 closer 를 명시하는데 `runSync` 쪽만 바깥 `finally` 로
+       덮여 있어서 이 구멍이 안 보였다 — 열림과 닫힘은 **같은 try 로** 묶는다. */
+      try {
+        const merged = await applyPull(
+          {
+            since: 0,
+            upto: 0,
+            rows: [{ tbl: shadow.tbl, key: shadow.key, data: shadow.localData, updatedAt: nextStamp() }],
+            tombstones: [],
+          },
+          /* ⚠⚠ **`echo:false` 가 이 함수의 정합성 전부다(C1).** 이건 원격 수신이 아니라 *로컬 편집*을
+           검증된 병합 기계에 태운 것이다. 에코 억제표에 적히면 바로 다음 아웃박스 스캔이 이 행을
+           **키·스탬프 정확 일치**로 건너뛰고 워터마크가 그 위로 전진해, 되살린 값이 다른 기기에
+           **영원히 안 간다**(재시작해도 안 낫는다). 근거·실패 시나리오는 `merge.ts` 의
+           `ApplyPullOptions.echo` 주석이 소유한다. */
+          { echo: false },
+        );
+        if (merged.state) useApp.getState().applyMerged(merged.state);
+      } finally {
+        endMergeApply(); // C1 방어망 — applyPull 이 연 병합-적용 창을 반드시 닫는다(실패 경로 포함)
+      }
+    });
+  } catch (e) {
+    /* ⚠ 해소 표시(`dismiss`)를 **안 한다** — 실패했는데 목록에서 지우면 되살릴 기회가 사라진다. */
+    reportFailure('되살리기에 실패했어요', e);
+    return;
+  }
   useConflicts.getState().dismiss(shadowId(shadow)); // 해소됨
   syncSoon(); // 되살린 값을 다른 기기로 전파
 }

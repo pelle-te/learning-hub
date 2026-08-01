@@ -9,6 +9,7 @@ import { getArtifact } from './api';
 import { parseArtifact } from './artifacts';
 // 5단계(furthest 순서)는 부모 ledger 스키마에서 생성 — 손유지 복제 제거(챕터원장.py STAGES와 동일 SSOT).
 import { LEDGER_STAGES, type LedgerStage } from './artifacts.gen';
+import type { IconName } from '@/lib/iconPaths';
 export { LEDGER_STAGES, type LedgerStage };
 /** 어떤 마일스톤도 못 밟은 챕터(furthest 없음). */
 export type Furthest = LedgerStage | 'planned';
@@ -62,7 +63,7 @@ export interface Ledger {
      `main.tsx` 의 첫 import 다). */
 /** ⚠ `glyph` 는 **아이콘 이름**이다(`components/Icon`) — 이모지가 아니다(2026-08-01). 소비처가
  *  둘(원장 범례·행)이라 이름을 lib 이 소유하고 그리기는 feature 가 한다. */
-export const STAGE_META: Record<LedgerStage, { label: string; glyph: string; color: string; desc: string }> = {
+export const STAGE_META: Record<LedgerStage, { label: string; glyph: IconName; color: string; desc: string }> = {
   sourced: { label: '출처', glyph: 'folder', color: 'var(--line)', desc: '참고자료 폴더 연결' },
   noted: { label: '노트', glyph: 'pencil', color: 'var(--mut)', desc: '원자 노트 작성' },
   /* ⚠ `--sky` 는 **정의된 적이 없는 이름**이었다(H20 · 2026-07-26 감사) — 폴백 hex 로만 그려져

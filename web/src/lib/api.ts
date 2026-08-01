@@ -32,6 +32,9 @@ export interface PingResponse {
   /** 등록 실패 사유 — **이 값이 있을 때만 실패다.** `hotkey === false` 만 보고 경고를 띄우면
    *  브라우저·dev 에서 상시 경고가 되고, 상시 경고는 곧 무시된다(Rust `hotkey.rs` 와 같은 계약). */
   hotkeyError?: string | null;
+  /** 볼트 **감시** 실패 사유(H7 · 셸 전용). `hotkeyError` 와 같은 계약 — **값이 있을 때만 실패**다.
+   *  감시가 죽으면 볼트를 고쳐도 화면이 안 바뀌는데, 종전엔 그 사실이 Rust 로그에만 있었다. */
+  vaultWatchError?: string | null;
 }
 
 export interface RunResult {

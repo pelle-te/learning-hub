@@ -196,7 +196,7 @@ mod tests {
     (원래 주석도 "FSA 가 깨져서 옮긴 게 아니다"라고 적고 있었다.) */
     #[test]
     fn 실_볼트에서_덱을_읽는다() {
-        let vault = crate::testkit::real_vault().expect("환경 가정 위반 — testkit 참조");
+        let vault = crate::testkit::vault_or_skip!();
         let s = scan_at(&vault).expect("실 볼트 스캔 실패");
         // 출처 문구는 프런트가 그대로 보여준다 — 둘 중 하나여야 한다.
         assert!(

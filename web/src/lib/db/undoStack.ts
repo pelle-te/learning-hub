@@ -90,11 +90,30 @@ export function pushUndo(rows: PreImageRow[], stamp: number): boolean {
   return true;
 }
 
-/** 가장 최근 항목을 꺼낸다(없으면 null). */
-export function popUndo(): UndoEntry | null {
-  const e = _stack.pop() ?? null;
-  if (e) _bytes -= e.bytes;
-  return e;
+/**
+ * 가장 최근 항목을 **보기만** 한다(없으면 null).
+ *
+ * ⚠⚠ **꺼내기(pop)가 아니라 보기(peek)가 기본인 이유**(H2 · 2026-08-01). 종전엔 `cloud/undo.ts`
+ * 가 맨 처음 `popUndo()` 를 불렀고, 그 뒤 `applyPull` 이 던지면 **항목은 이미 사라진 뒤**였다.
+ * 호출부에 `.catch` 도 없어서 화면엔 아무 말도 안 나왔다 — 즉 **⌘Z 를 누를 때마다 스택이 한 칸씩
+ * 조용히 파괴**되고, 사용자는 "안 눌렸나" 하며 더 누른다(누를수록 되돌릴 것이 사라진다).
+ * 순서를 **peek → apply → drop** 으로 뒤집으면 실패는 무해해진다: 항목이 그대로 남아 재시도가
+ * 성립한다. 예외를 잡아 `pushUndo` 로 되돌리는 대안은 *복구를 또 하나의 실패 가능 경로로* 만든다.
+ */
+export function peekUndo(): UndoEntry | null {
+  return _stack[_stack.length - 1] ?? null;
+}
+
+/**
+ * 적용에 **성공한** 항목을 버린다. `peekUndo()` 가 준 바로 그 항목일 때만 버린다.
+ *
+ * ⚠ 항등 대조가 방어의 전부다 — 적용 중 pull 이 와서 `clearUndo()` 가 돌았다면 스택 꼭대기는
+ * 이미 남의 것(혹은 없음)이다. 무조건 `pop()` 하면 그 항목을 대신 버린다.
+ */
+export function dropUndo(entry: UndoEntry): void {
+  if (_stack[_stack.length - 1] !== entry) return;
+  _stack.pop();
+  _bytes -= entry.bytes;
 }
 
 /**

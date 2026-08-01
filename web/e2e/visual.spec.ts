@@ -527,7 +527,15 @@ for (const theme of THEMES) {
   test(`ledger · error · ${theme}`, async ({ page }) => {
     await bootArtifactPhase(page, theme, 'ledger', 'error');
     await page.goto('/ledger');
-    await expect(page.getByRole('alert').or(page.getByText('챕터 원장을 불러오지 못했어요'))).toBeVisible();
+    /* ⚠ **locator 를 좁혔다(2026-08-01).** 옛 형태 `getByRole('alert').or(getByText(제목))` 은
+       **네 개**에 매칭된다(State 의 sr-only 공지 · State 본체 · 그 안의 제목 div · 라우트
+       아나운서의 빈 라이브리전). 그런데도 통과하고 있었던 것은 **타이밍 우연**이었다: 탭이
+       Suspense 스켈레톤에 260ms 묶여 있는 동안 아나운서가 비워질 시간이 있었다. 부팅 대기를
+       없애자(`registry.warmTab`) 그 우연이 사라지며 strict mode 위반으로 드러났다 —
+       즉 이 단언은 **원래부터 자기가 무엇을 보는지 몰랐다.**
+       → 뜻을 그대로 적는다: *"에러 상태 블록이 자기 행동(`next`)과 함께 떠 있다"*. `State` 는
+       `next` 를 필수로 요구하므로(E17) 이 조합은 정의상 유일하다. */
+    await expect(page.getByRole('alert').filter({ hasText: '다시 시도' })).toBeVisible();
     await settle(page);
     await expect(page).toHaveScreenshot(`ledger-error-${theme}.png`);
   });

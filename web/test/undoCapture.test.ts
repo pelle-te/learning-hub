@@ -30,7 +30,7 @@ vi.mock('@/lib/db/sqlite', () => ({
 }));
 
 import { writeAndVerify, endMergeApply } from '@/lib/db/write';
-import { clearUndo, popUndo, undoDepth } from '@/lib/db/undoStack';
+import { clearUndo, dropUndo, peekUndo, undoDepth } from '@/lib/db/undoStack';
 import { defaults } from '@/lib/persistence';
 
 const PRE = [{ table: 'settings', key: ['theme'], vals: ['theme', '"dark"'] }];
@@ -49,7 +49,8 @@ describe('평범한 편집은 쌓인다', () => {
   it('성공한 쓰기의 pre-image 와 **그 쓰기가 발급한 스탬프**를 함께 쌓는다', async () => {
     await writeAndVerify(defaults());
     expect(undoDepth()).toBe(1);
-    const e = popUndo()!;
+    const e = peekUndo()!;
+    dropUndo(e);
     expect(e.rows).toEqual(PRE);
     expect(e.stamp, '스탬프가 없으면 툼스톤 가드가 기준을 잃는다').toBe(777);
   });

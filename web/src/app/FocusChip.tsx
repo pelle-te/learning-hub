@@ -155,7 +155,12 @@ export default function FocusChip() {
   const inMini = location.pathname === MINI_PATH;
   useEffect(() => {
     if (!inMini || session) return;
-    void exitMini().then((back) => navigate(back, { replace: true }));
+    /* ⚠ 창 복원이 실패하면 **라우팅하지 않는다**(H9) — 알약 크기 그대로 다른 화면으로 넘어가면
+       나갈 문(알약의 확장 버튼)까지 사라져 재시작 외 탈출이 없다. 알약에 머물면 다시 누를 수 있다. */
+    void exitMini().then((back) => {
+      if (back) navigate(back, { replace: true });
+      else toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
+    });
   }, [inMini, session, navigate]);
 
   // 문서 제목에 남은 시간 미러 — 다른 앱/탭에 가 있어도 세션이 보인다.

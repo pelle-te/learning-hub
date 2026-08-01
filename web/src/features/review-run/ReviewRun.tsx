@@ -39,7 +39,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { useOverlay } from '@/store/useOverlay';
 import { isTyping } from '@/hooks/interactions';
-import { todayISO, openVaultSearch } from '@/lib/utils';
+import { todayISO, openVaultSearch, vaultQuery } from '@/lib/utils';
 import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
 import { toast } from '@/shell/toast';
 import { riskSummary } from '@/lib/spacedReview';
@@ -257,10 +257,11 @@ function buildKeys(d: {
         cap: 'V',
         label: '볼트에서 찾기',
         run: () =>
+          // 질의 조립은 `lib/utils.vaultQuery` 하나(H14).
           openVaultSearch(
             cur.kind === 'confident'
-              ? cur.card.cbms.name + ' ' + cur.card.cbms.chapter
-              : cur.ch.subject + ' ' + cur.ch.chapter,
+              ? vaultQuery(cur.card.cbms.name, cur.card.cbms.chapter)
+              : vaultQuery(cur.ch.subject, cur.ch.chapter),
           ),
       });
   }

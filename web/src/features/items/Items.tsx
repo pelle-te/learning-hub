@@ -20,8 +20,8 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { prefersReducedMotion } from '@/lib/motion';
-import { ui } from '@/shell';
-import { colorForId, rid, makeItem, ddayInfo, DOW, todayISO, round1, hNum, hLabel, openVaultSearch } from '@/lib/utils';
+import { rid, makeItem, ddayInfo, DOW, round1, hNum, hLabel, openVaultSearch } from '@/lib/utils';
+import { useTodayISO } from '@/hooks/useTodayISO';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
   allocView,
@@ -43,6 +43,7 @@ import { VaultImport } from './VaultImport';
 import { SkeletonPanel } from './SkeletonPanel';
 import { AvailRail } from './AvailRail';
 import { Icon } from '@/components/Icon';
+import { STRUCTURE_VIEW } from '@/shell/tabs';
 
 /* ── P-19 — **`graph`(학습 구조도)가 탭에서 이 화면의 뷰로 내려왔다**(2026-08-01) ────────────
    둘은 **같은 로컬 데이터의 두 시각화**다: 여기가 항목→챕터를 목록으로, 저기가 같은 것을 힘-방향
@@ -59,8 +60,10 @@ import { Icon } from '@/components/Icon';
    호스트에 있다. 여기서 합치는 짝은 `graph` 대 `items` — 같은 로컬 데이터다. */
 const Graph = lazy(() => import('../graph/Graph'));
 
-/** 이 화면의 두 뷰. URL 이 정본이다(딥링크·⌘K·옛 `/graph` 리다이렉트가 전부 여기 착지한다). */
-const STRUCTURE = 'structure';
+/* 이 화면의 두 뷰. URL 이 정본이다(딥링크·⌘K·옛 `/graph` 리다이렉트가 전부 여기 착지한다).
+   ⚠ 쿼리 값은 `shell/tabs` 가 소유한다(P3) — ⌘K 의 `act:graph` 가 같은 문자열로 이동하므로,
+   여기에 사본을 두면 한쪽만 고쳐졌을 때 팔레트가 조용히 목록 뷰로 착지한다. */
+const STRUCTURE = STRUCTURE_VIEW;
 
 /** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감.
  *  '오늘'은 벽시계가 아니라 **앱 정본**(todayISO, `_today` 시드 존중)을 호출부에서 받는다 —
@@ -135,7 +138,7 @@ export default function Items() {
   const [showImport, setShowImport] = useState(() => searchParams.get('import') === '1');
   // 볼트에 뭐가 있나 — `app/VaultSync` 가 부팅에 채운 캐시만 구독(fetch 0). 빈 상태 위계 판정용(W1).
   const vaultSubjects = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data?.subjects.length || 0;
-  const todayIso = todayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중) — 파일 전체가 이것만 쓴다.
+  const todayIso = useTodayISO(state); // 앱의 '오늘' 단일 출처(_today 시드 존중 · 자정 롤오버 H20) — 파일 전체가 이것만 쓴다.
   const insight = useInsight(items, todayIso, res.itemStat);
 
   // 이번 주 배분(과목별 합) — 카드 배지 공용. 보드/시트와 같은 출처(lib/weekAlloc).
@@ -210,21 +213,17 @@ export default function Items() {
     navigate(`/subject/${id}`); // 새 과목은 바로 객체 화면을 열어 편집(카드가 아직 없어 morph 없음)
   }, [mutate, navigate]);
 
-  const recolorAll = useCallback(() => {
-    if (!items.length) {
-      ui.toast('재배정할 과목이 없어요.', 'warn');
-      return;
-    }
-    // 0단계-G 이후 색은 id 파생이라 '순서 재배정'이라는 개념이 없다 — 이 버튼은 이제
-    // **저장된 색을 현재 PALETTE로 다시 맞추는** 복구 동작이다(옛 팔레트로 내보낸 백업을
-    // 가져왔을 때처럼 저장값이 낡은 경우). 부팅 시 refineItemColors가 하는 일과 같다.
-    mutate((st) => {
-      st.items.forEach((s) => {
-        s.color = colorForId(s.id);
-      });
-    });
-    ui.toastUndoable('과목 색을 현재 팔레트로 다시 맞췄어요.');
-  }, [items.length, mutate]);
+  /* ⚠⚠ **`색 재배정` 버튼을 지웠다 — 구조적 no-op 이었다**(P4 · 2026-08-01).
+
+     하던 일은 `s.color = colorForId(s.id)` 였고 그건 `lib/utils.refineItemColors` 와 **문자 그대로
+     같다.** 그리고 그 함수는 상태가 메모리로 들어오는 **진입 3경로 전부**에서 이미 돈다
+     (`useApp.ts:78` 부팅 · `:91` 기본값 · `:281` `loadState`). 주석이 든 유일한 존치 사유
+     ("옛 팔레트로 내보낸 백업을 가져왔을 때")도 그 셋째 경로가 덮는다 — 즉 버튼을 누르든 안
+     누르든 저장값은 항상 같다. title 의 *"새 팔레트 **순서**로"* 는 2026-07-24 에 OKLCH 파생이
+     배열 팔레트를 대체하며 죽은 어휘의 화석이었다(색에 '순서'가 없어진 지 오래다).
+
+     ⚠ 되살리지 말 것: 색이 저장값처럼 보이는 순간(절대규칙 #3) 이런 버튼이 다시 필요해 보인다.
+     필요한 것은 버튼이 아니라 **파생이 1곳인가**이고, 그 답은 이미 예다. */
 
   /* ⚠ 과목 삭제는 **객체 화면이 소유한다**(W12) — 삭제 버튼이 거기 있고, 그 화면이 삭제 후
      목록으로 돌아온다. 여기 사본을 남기면 참조 무결성 3줄(`removeSidFromAlloc`·
@@ -341,11 +340,6 @@ export default function Items() {
           ))}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-          {!structure && n > 1 && (
-            <Button sm variant="ghost" onClick={recolorAll} title="모든 과목 색을 새 팔레트 순서로 재배정">
-              색 재배정
-            </Button>
-          )}
           {!structure && (
             <Button
               sm

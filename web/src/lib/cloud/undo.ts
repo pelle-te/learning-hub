@@ -21,7 +21,7 @@
      남은 항목이 여전히 유효한 이유: 항목 N 을 되돌리면 DB 는 "쓰기 N 직전" = "쓰기 N-1 직후"가
      되고, 그게 정확히 항목 N-1 의 pre-image 가 기대하는 베이스다(체인이 끊기지 않는다).
 ============================================================ */
-import { popUndo } from '../db/undoStack';
+import { dropUndo, peekUndo } from '../db/undoStack';
 import { selectDb } from '../db/sqlite';
 import { nextStamp } from '../db/stamp';
 import { applyPull } from './merge';
@@ -51,7 +51,10 @@ const tombKey = (tbl: string, k1: string, k2: string): string => JSON.stringify(
  * 안 그러면 아직 쌓이지도 않은 편집을 두고 그 앞 것을 되돌린다.
  */
 export async function undoLastWrite(): Promise<UndoOutcome> {
-  const entry = popUndo();
+  /* ⚠⚠ **peek → apply → drop** 이지 pop 이 아니다(H2 · 2026-08-01). 먼저 꺼내면 아래 `applyPull`
+     이 던질 때 항목이 이미 사라진 뒤라, ⌘Z 를 누를 때마다 스택이 한 칸씩 **조용히 파괴**된다
+     (호출부에 `.catch` 도 없어 화면은 아무 말도 안 했다). 근거는 `db/undoStack.peekUndo` 주석. */
+  const entry = peekUndo();
   if (!entry) return { state: null, restored: 0, skipped: 0, empty: true };
 
   /* ⚠⚠ **툼스톤 가드 — 다른 기기가 지운 행은 되살리지 않는다**(착지 조건 ④).
@@ -92,8 +95,14 @@ export async function undoLastWrite(): Promise<UndoOutcome> {
     else tombstones.push({ tbl: p.table, k1, k2, deletedAt: stamp });
   }
 
-  if (!rows.length && !tombstones.length) return { state: null, restored: 0, skipped, empty: skipped === 0 };
+  /* 쓸 것이 하나도 안 남았다(전부 툼스톤에 막혔다) → 적용은 없지만 **항목은 소비된 것**이다.
+     남겨 두면 같은 ⌘Z 가 같은 경고를 영원히 반복한다. */
+  if (!rows.length && !tombstones.length) {
+    dropUndo(entry);
+    return { state: null, restored: 0, skipped, empty: skipped === 0 };
+  }
 
   const merged = await applyPull({ since: 0, upto: 0, rows, tombstones }, { echo: false, keepUndo: true });
+  dropUndo(entry); // ⚠ 성공한 **뒤에만**. 던지면 항목이 남아 재시도가 성립한다(H2).
   return { state: merged.state, restored: rows.length + tombstones.length, skipped, empty: false };
 }

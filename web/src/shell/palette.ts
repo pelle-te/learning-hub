@@ -3,7 +3,7 @@
    탭 이동(React Router) + 핵심 데이터/내보내기/백업 액션. tab 항목은 CommandPalette가 navigate,
    act는 run() 호출. 최근 실행한 명령(recent.ts)을 위로 끌어올려 재실행이 빠르다.
 ============================================================ */
-import { orderedTabs } from './tabs';
+import { orderedTabs, STRUCTURE_VIEW } from './tabs';
 import { NAV_SHORTCUTS } from './shortcuts';
 import { recentIds } from './recent';
 import * as A from './actions';
@@ -17,8 +17,10 @@ const SEQ_BY_TAB = new Map(NAV_SHORTCUTS.map((s) => [s.tab, s.seq]));
 
 export type PaletteCommand =
   | { id: string; kind: 'tab'; key: string; label: string; hint: string }
-  /** act — run() 실행 후 to가 있으면 해당 탭으로 이동(팔레트가 navigate). */
-  | { id: string; kind: 'act'; label: string; hint: string; run: () => void; to?: string };
+  /** act — run() 실행 후 to가 있으면 해당 탭으로 이동(팔레트가 navigate).
+   *  ⚠ `run` 이 **선택**인 것은 P3 의 산물이다: 탭이 아닌 **화면**(`/items?view=structure`)으로
+   *  가는 항목은 부수효과가 없고 이동이 전부다. 빈 `() => {}` 를 놓는 것보다 타입이 사실이다. */
+  | { id: string; kind: 'act'; label: string; hint: string; run?: () => void; to?: string };
 
 function baseCommands(): PaletteCommand[] {
   const tabs: PaletteCommand[] = orderedTabs().map((t) => {
@@ -191,6 +193,18 @@ function baseCommands(): PaletteCommand[] {
       label: `되돌리기 · 직전 편집 (${MOD_LABEL}+Z)`,
       hint: '데이터',
       run: () => void import('@/store/undoController').then((m) => m.undoLastEdit()),
+    },
+    /* ⚠⚠ **탭이 아닌 화면은 여기에 손으로 놓는다**(P3 · 2026-08-01). `baseCommands` 의 탭 목록은
+       `orderedTabs()`(= `TABS`)만 순회하는데 P-19 가 `graph` 를 그 배열에서 뺐다 → **⌘K 에서
+       "학습 구조도"가 통째로 사라졌다.** `tabs.ts` 의 그 커밋 주석은 *"딥링크·⌘K 도달성 손실 0"*
+       이라 적었는데 **절반만 참**이었다(리다이렉트가 덮는 것은 딥링크뿐이고, 팔레트는 URL 이
+       아니라 배열을 읽는다). 같은 형태가 재발할 자리: **TABS 에서 화면을 내릴 때마다 여기.** */
+    {
+      id: 'act:graph',
+      kind: 'act',
+      label: '이동 · 학습 구조도',
+      hint: '과목',
+      to: '/items?view=' + STRUCTURE_VIEW,
     },
     { id: 'act:reset', kind: 'act', label: '전체 초기화…', hint: '위험', run: A.resetAll },
   ];

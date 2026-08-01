@@ -15,6 +15,7 @@ import type { ReactNode } from 'react';
 import State from './State';
 import { Button } from './ui';
 import { WORKSPACE_UNSET } from '@/lib/artifactState';
+import type { IconName } from '@/lib/iconPaths';
 
 export default function ArtifactGate({
   online,
@@ -29,7 +30,7 @@ export default function ArtifactGate({
   collectError,
 }: {
   online: boolean;
-  glyph: string;
+  glyph: IconName;
   offlineDesc: ReactNode;
   emptyTitle: string;
   emptyDesc: ReactNode;

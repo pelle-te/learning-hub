@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { MOD_LABEL } from '@/lib/platform';
-import { ICON_PATHS } from '@/lib/iconPaths';
+import { ICON_PATHS, type IconName } from '@/lib/iconPaths';
 
 export type ToastType = 'ok' | 'bad' | 'warn' | 'info';
 export interface ToastAction {
@@ -90,7 +90,7 @@ export function toastChoice(msg: string, type: ToastType, actions: ToastAction[]
    ⚠ `components/Icon` 을 쓰지 않는 이유는 레이어 계약이다 — `shell/toast` 는 잎 모듈이라
    `components` 를 import 할 수 없다(H10·H22). 그래서 **데이터만** 공유하고 이 5줄짜리 래퍼는
    여기가 갖는다(경로를 두 벌 두는 것보다 훨씬 싸다). */
-const ICON: Record<ToastType, string> = { ok: 'check', bad: 'alert', warn: 'alert', info: 'info' };
+const ICON: Record<ToastType, IconName> = { ok: 'check', bad: 'alert', warn: 'alert', info: 'info' };
 function ToastIcon({ tone }: { tone: ToastType }) {
   return (
     <svg

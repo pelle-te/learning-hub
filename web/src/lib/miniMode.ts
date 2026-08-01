@@ -30,9 +30,25 @@ export async function enterMini(from: string): Promise<boolean> {
   return true;
 }
 
-/** 미니 모드 종료 — 창을 되돌리고 **돌아갈 경로**를 알려준다(왔던 탭으로 복귀). */
-export async function exitMini(): Promise<string> {
-  await setMiniWindow(false, restore);
+/**
+ * 미니 모드 종료 — 창을 되돌리고 **돌아갈 경로**를 알려준다(왔던 탭으로 복귀).
+ * 창 복원에 실패하면 **`null`** 이다 — 호출부는 라우팅을 취소해야 한다.
+ *
+ * ⚠⚠ **`setMiniWindow` 의 반환값을 버리지 않는다**(H9 · 2026-08-01). 그 안에서
+ * `setResizable(false)` 뒤 `setSize` 가 던지는 경로가 있는데, 종전엔 결과를 무시하고 무조건
+ * 라우팅해서 **전체 앱이 320×92 창에 감금**됐다 — 창을 못 늘리고(resizable 이 false 로 남는다)
+ * 알약 UI 도 없으니 나갈 문이 화면에 하나도 없다. **재시작 외 탈출 경로가 없는 상태**이고,
+ * 그건 이 앱에서 낼 수 있는 가장 나쁜 실패다. `enterMini` 는 이미 같은 규율을 지키고 있었다
+ * (_"작아지지 않았는데 알약 화면만 뜨는 반쪽 상태가 최악"_) — 나가는 쪽만 비대칭이었다.
+ *
+ * ⚠ 실패해도 `restore`·`origin` 을 **비우지 않는다**: 다음 시도가 같은 크기로 복귀해야 한다.
+ */
+export async function exitMini(): Promise<string | null> {
+  /* ⚠ 셸이 아니면 **되돌릴 창이 없다** — 여기서 null 을 주면 "해당 없음"을 "실패"로 보고하게
+     된다(브라우저에선 `enterMini` 가 애초에 false 라 알약에 들어갈 수도 없다). 실패 판정은
+     Tauri 안에서만 의미가 있다. */
+  const restored = await setMiniWindow(false, restore);
+  if (isTauri() && !restored) return null;
   restore = null;
   const back = origin;
   origin = '/today';

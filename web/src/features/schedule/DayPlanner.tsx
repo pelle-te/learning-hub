@@ -275,7 +275,22 @@ export function DayPlanner({
   };
 
   // W13 — 트레이 행 하나가 탭 스톱 하나(종전 3번째 행 ⤵ 까지 Tab 14회). 배선은 `useTrayCursor`.
-  const trayCursor = useTrayCursor(untimed, trayTasks, { mutate, ds, manual, blockDone, toggleBlock, placeFirstFree });
+  const trayCursor = useTrayCursor(untimed, trayTasks, {
+    mutate,
+    ds,
+    manual,
+    blockDone,
+    toggleBlock,
+    placeFirstFree,
+    /* H13 — `e`(길이 편집)가 −/＋ 스테퍼와 **같은 뮤테이션**을 탄다. 블록은 수동 배치일 때만
+       (자동 계획 블록은 엔진이 다시 만들므로 아래 행의 스테퍼도 그때만 뜬다 — `:419`). */
+    setMin: (it, m) =>
+      it.kind === 'task'
+        ? mutate((st) => updateTaskMin(st, it.id, Math.max(SNAP, m)))
+        : manual
+          ? mutate((st) => resizeBlock(st, res, ds, it.id, m))
+          : undefined,
+  });
 
   // 공부 블록 수동 추가(§6-2 "+블록"/과목 칩) — 누를 때마다 별도 블록(같은 과목이어도 병합 안 함).
   // 완료는 블록별(setBlockDone)이라 같은 sid|type 여러 블록을 독립 체크할 수 있다.

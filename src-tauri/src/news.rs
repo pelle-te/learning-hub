@@ -256,10 +256,13 @@ pub async fn atlas_news(query: String) -> serde_json::Value {
         }
         Err(e) => return serde_json::json!({ "ok": false, "items": [], "error": e.to_string() }),
     };
-    let body = match resp.bytes().await {
-        Ok(b) if b.len() <= MAX_BYTES => b,
-        Ok(_) => return serde_json::json!({ "ok": false, "items": [], "error": "news too-large" }),
-        Err(e) => return serde_json::json!({ "ok": false, "items": [], "error": e.to_string() }),
+    /* ⚠⚠ **`bytes()` 는 전량을 먼저 버퍼링한다**(H17 · 2026-08-01) — 상한을 넘는 응답도 일단
+    메모리에 다 올린 뒤 거절하게 되어, 자원을 지키려는 검사가 그 자원을 먼저 쓴다.
+    청크를 세다 넘으면 스트림을 버리는 구현을 `cloud::read_capped` 가 소유한다(상한 값도
+    거기 하나 · **상한은 여기 값을 그대로 넘긴다** — RSS 에 8MB 를 허용할 이유가 없다). */
+    let body = match crate::cloud::read_capped(resp, MAX_BYTES).await {
+        Ok(b) => b,
+        Err(e) => return serde_json::json!({ "ok": false, "items": [], "error": e }),
     };
     let items = parse_news_rss(&String::from_utf8_lossy(&body));
     store(q, &items);

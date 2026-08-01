@@ -100,23 +100,9 @@ export default function ArticlePractice({
     ui.toast(PROMOTE_TOAST, 'ok');
   };
 
-  // Ollama 코치(내 요약 채점) — Ollama 필요. 원문 요약은 하지 않는다.
-  // busy·preview·abort 수명은 useAiStream이 소유(SR-15); 결과 상태·id 태깅·work 병합은 아래 호출부에 남긴다.
-  // 결과에 지문 id를 태깅한다: 응답(수십 초)이 오기 전 다른 지문으로 옮기면
-  // 옛 지문의 채점이 새 지문 아래 붙는 오표시(레이스)가 났었다 — 현재 지문일 때만 렌더.
-  const grader = useAiStream();
-  const [coach, setCoach] = useState<{ id: string; fb: CoachFeedback } | null>(null);
-  // 채점 결과가 도착하면 결과 카드로 포커스를 옮긴다 — 전체를 role=status로 장황하게 읽지 않고
-  // 간결히 '결과가 왔다'만 알린다(막 채점한 transient 결과일 때만; 지문 전환 시엔 옮기지 않음).
-  const coachResultRef = useRef<HTMLDivElement>(null);
-
-  // 채점(수십 초)이 도는 동안 사용자가 요약을 편집·완료토글할 수 있다 — 완료 시점에 클릭시점 캡처값이 아닌
-  // '지금 저장된' work를 읽어 coach 필드만 병합하려고 최신 work를 ref로 미러(캡처값으로 덮으면 편집이 되돌려짐).
-  const workRef = useRef(work);
-  useEffect(() => {
-    workRef.current = work;
-  }, [work]);
-
+  /* ⚠ **요약 편집·AI 채점의 상태는 여기 없다**(F5 · 2026-08-01). 초안·`useAiStream`·채점 결과·
+     결과 포커스·`workRef` 미러·언마운트 flush 가 전부 `SummaryEditor` 로 내려갔고, 그 수명은
+     아래 `key={sel.id}` 리마운트가 정한다. 이 컴포넌트에 남은 일은 **지문 목록과 선택**이다. */
   const list = useMemo(() => {
     let xs = filter === 'all' ? articles : articles.filter((a) => a.lang === filter);
     // 진행 필터 — 요약 완료(work[id].done) 기준 한 겹(BookShelf 상태필터 미러 · SR-3).
@@ -126,77 +112,6 @@ export default function ArticlePractice({
   // 유효 선택 파생 — 저장 selId가 목록에 없으면(필터 변경·수집) 첫 지문으로(효과 없이 렌더에서 계산).
   const effId = selId && list.some((a) => a.id === selId) ? selId : (list[0]?.id ?? null);
   const sel = articles.find((a) => a.id === effId) ?? null;
-
-  // 선택이 바뀌면 내 요약 초안을 work에서 로드 — 렌더 중 조건부 setState(React 권장; effect 아님).
-  const [draftFor, setDraftFor] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
-  if (effId !== draftFor) {
-    setDraftFor(effId);
-    setDraft(effId ? (work[effId]?.summary ?? '') : '');
-    // 지문 전환 시 열려 있던 어휘 팝오버는 `<ReaderVocab key={sel.id}>` 리마운트가 초기화한다.
-  }
-  // 지문이 바뀌거나 떠나면 진행 중 채점을 중단(생성 낭비 방지 — 오표시는 id 태깅이 이미 막는다).
-  const cancelGrade = grader.cancel;
-  useEffect(() => () => cancelGrade(), [effId, cancelGrade]);
-
-  const commit = (done?: boolean) => {
-    if (!effId) return;
-    const cur = work[effId];
-    setWork(effId, {
-      summary: draft,
-      done: done ?? cur?.done ?? false,
-      updatedAt: new Date().toISOString(),
-    });
-  };
-
-  // 언마운트 안전망 — g키 라우트 이동 등 blur 없이 떠나면 미커밋 초안이 유실됐다(SR-16 통일).
-  useFlushOnUnmount(() => {
-    if (!effId) return;
-    const cur = work[effId];
-    if ((cur?.summary ?? '') !== draft) {
-      setWork(effId, { summary: draft, done: cur?.done ?? false, updatedAt: new Date().toISOString() });
-    }
-  });
-
-  // 채점이 방금 도착하면(현재 지문의 transient 결과) 결과 카드로 포커스 이동 — SR에 간결히 알림.
-  useEffect(() => {
-    if (coach && sel && coach.id === sel.id) coachResultRef.current?.focus();
-  }, [coach, sel]);
-
-  // 내 요약 채점 — 현재 초안을 원문과 대조(Ollama 스트리밍). 원문 요약은 시키지 않는다.
-  // busy/preview/abort는 grader(useAiStream)가 소유 — 여기선 성공·실패 처리와 지문 id 태깅만.
-  const askCoach = async () => {
-    if (!sel || grader.busy) return;
-    if (!draft.trim()) {
-      ui.toast('먼저 요약을 써 보세요.', 'warn');
-      return;
-    }
-    const target = sel; // 요청 시점의 지문 고정 — 응답 도착 시점의 선택과 무관하게 태깅
-    commit(); // 채점 전 현재 초안 저장
-    setCoach(null);
-    const res = await grader.run(({ signal, onDelta }) =>
-      coachSummary(target.text, draft, target.lang, { signal, onDelta }),
-    );
-    if (!res.ok) {
-      // aborted(지문 전환·언마운트로 인한 취소)는 조용히, 그 외만 오류 토스트.
-      if (!res.aborted) ui.toast('AI 채점 실패: ' + res.error, 'bad');
-      return;
-    }
-    const cs = res.value;
-    if (cs.ok && cs.feedback) {
-      setCoach({ id: target.id, fb: cs.feedback });
-      // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존. ⚠ 클릭시점 캡처(work/draft)로 덮으면
-      // 채점 중 한 편집·완료토글이 되돌려진다(X-6) → 최신 work를 ref로 읽어 coach 필드만 병합한다.
-      const cur = workRef.current[target.id];
-      setWork(target.id, {
-        summary: cur?.summary ?? draft,
-        done: cur?.done ?? false,
-        updatedAt: cur?.updatedAt ?? new Date().toISOString(),
-        coach: cs.feedback,
-        coachAt: new Date().toISOString(),
-      });
-    } else ui.toast(cs.error || '채점 실패', 'bad');
-  };
 
   // ── 빈/오프라인 상태 ─────────────────────────────────────────
   if (!articles.length) {
@@ -291,19 +206,17 @@ export default function ArticlePractice({
         {sel ? (
           <>
             <ReaderPane sel={sel} online={online} />
+            {/* ⚠ `key` 가 계약이다(F5) — 지문이 바뀌면 초안·채점 상태를 **구조가** 새로 만든다
+                (부모가 위 `ReaderVocab` 에서 쓰는 것과 같은 수법). 이걸 빼면 옛 지문의 초안이
+                새 지문 아래 남고, 옛 채점 응답이 새 지문에 착지한다. */}
             <SummaryEditor
+              key={sel.id}
               sel={sel}
               w={work[sel.id]}
-              draft={draft}
-              setDraft={setDraft}
-              commit={commit}
-              grader={grader}
+              setWork={setWork}
               online={online}
-              askCoach={askCoach}
               promote={promote}
               promoted={promoted.has(sel.id)}
-              coach={coach}
-              coachResultRef={coachResultRef}
             />
           </>
         ) : (
@@ -372,34 +285,105 @@ function ReaderPane({ sel, online }: { sel: Article; online: boolean }) {
   );
 }
 
-/** 내 요약 에디터 + 채점 트리거·스트리밍·결과. 초안 상태·커밋 수명은 호출부가 소유한다. */
+/* ============================================================
+   SummaryEditor — 내 요약 초안 + AI 채점(트리거·스트리밍·결과). **자기 상태를 소유한다.**
+
+   ## ⚠ F5 추출(2026-08-01 `/감사 근본`) — 오라클은 줄 수가 아니라 **드릴된 prop 개수**였다
+
+   종전 시그니처는 **12 props** 였고 그중 여덟(`draft`·`setDraft`·`commit`·`grader`·`askCoach`·
+   `coach`·`coachResultRef`·`promoted`)이 부모에 있을 이유가 없었다 — 부모는 그 값들을 **쓰지
+   않고 그대로 내려보내기만** 했다. 그래서 `ArticlePractice` 본문은 "지문 목록을 그리는 일"과
+   "요약 하나를 편집·채점하는 일" 둘을 동시에 들고 있었고, 후자의 수명 규율(초안 리셋·채점 취소·
+   언마운트 flush)이 전부 부모의 `effId` 에 손으로 배선돼 있었다.
+
+   → **`key={sel.id}` 로 리마운트**해 그 배선을 구조가 대신하게 한다(부모가 `ReaderVocab` 에서
+   **이미 쓰던 수법**이다 — 새 관용구가 아니다). 그 한 줄이 셋을 한꺼번에 없앤다:
+   · 초안 리셋 — `useState(w?.summary ?? '')` 초기값이 곧 리셋이다(옛 `draftFor` 비교 렌더 setState 제거)
+   · 채점 취소 — 언마운트가 `useAiStream` 의 abort 를 부른다(H18 이 그 훅에 넣었다 · 옛 `cancelGrade` 효과 제거)
+   · 결과 오표시 — 옛 `coach.id === sel.id` 태깅은 *한 컴포넌트가 여러 지문을 섬기던 시절*의 방어다.
+     리마운트되면 옛 지문의 응답이 착지할 컴포넌트 자체가 없다.
+
+   ⚠ **`workRef` 는 남는다.** 채점은 수십 초라 그동안 사용자가 요약을 고치거나 완료를 토글할 수
+   있고, 클릭 시점에 캡처한 `w` 로 덮으면 **그 편집이 되돌려진다**(X-6). 리마운트는 이 문제를
+   안 풀어 준다 — 같은 지문 안에서 벌어지는 일이기 때문이다.
+============================================================ */
 function SummaryEditor({
   sel,
   w,
-  draft,
-  setDraft,
-  commit,
-  grader,
+  setWork,
   online,
-  askCoach,
   promote,
   promoted,
-  coach,
-  coachResultRef,
 }: {
   sel: Article;
   w?: ArticleWork;
-  draft: string;
-  setDraft: (v: string) => void;
-  commit: (done?: boolean) => void;
-  grader: ReturnType<typeof useAiStream>;
+  setWork: (id: string, v: ArticleWork) => void;
   online: boolean;
-  askCoach: () => void;
   promote: (a: Article) => void;
   promoted: boolean;
-  coach: { id: string; fb: CoachFeedback } | null;
-  coachResultRef: React.Ref<HTMLDivElement>;
 }) {
+  /* ⚠ 초기값이 곧 초안 리셋이다 — 호출부의 `key={sel.id}` 가 지문 전환마다 이 상태를 새로 만든다. */
+  const [draft, setDraft] = useState(w?.summary ?? '');
+  const grader = useAiStream();
+  const [coach, setCoach] = useState<CoachFeedback | null>(null);
+  /* 채점 결과가 도착하면 결과 카드로 포커스를 옮긴다 — 전체를 role=status 로 장황하게 읽지 않고
+     간결히 '결과가 왔다'만 알린다. */
+  const coachResultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (coach) coachResultRef.current?.focus();
+  }, [coach]);
+
+  /* 최신 `w` 미러 — 위 머리주석의 X-6. 비동기 채점 핸들러의 클로저가 낡은 값을 들지 않게. */
+  const wRef = useRef(w);
+  useEffect(() => {
+    wRef.current = w;
+  }, [w]);
+
+  const commit = (done?: boolean) => {
+    const cur = wRef.current;
+    setWork(sel.id, { summary: draft, done: done ?? cur?.done ?? false, updatedAt: new Date().toISOString() });
+  };
+  // 언마운트 안전망 — g키 라우트 이동·지문 전환처럼 blur 없이 떠나면 미커밋 초안이 유실됐다(SR-16).
+  useFlushOnUnmount(() => {
+    const cur = wRef.current;
+    if ((cur?.summary ?? '') !== draft) {
+      setWork(sel.id, { summary: draft, done: cur?.done ?? false, updatedAt: new Date().toISOString() });
+    }
+  });
+
+  // 내 요약 채점 — 현재 초안을 원문과 대조(Ollama 스트리밍). 원문 요약은 시키지 않는다.
+  // busy/preview/abort 는 grader(useAiStream)가 소유 — 여기선 성공·실패 처리만.
+  const askCoach = async () => {
+    if (grader.busy) return;
+    if (!draft.trim()) {
+      ui.toast('먼저 요약을 써 보세요.', 'warn');
+      return;
+    }
+    commit(); // 채점 전 현재 초안 저장
+    setCoach(null);
+    const res = await grader.run(({ signal, onDelta }) => coachSummary(sel.text, draft, sel.lang, { signal, onDelta }));
+    if (!res.ok) {
+      // aborted(지문 전환·언마운트로 인한 취소)는 조용히, 그 외만 오류 토스트.
+      if (!res.aborted) ui.toast('AI 채점 실패: ' + res.error, 'bad');
+      return;
+    }
+    const cs = res.value;
+    if (!cs.ok || !cs.feedback) {
+      ui.toast(cs.error || '채점 실패', 'bad');
+      return;
+    }
+    setCoach(cs.feedback);
+    // 영속화 — 수십 초 걸린 채점을 이탈·새로고침에도 보존(최신 work 위에 coach 필드만 병합 · X-6).
+    const cur = wRef.current;
+    setWork(sel.id, {
+      summary: cur?.summary ?? draft,
+      done: cur?.done ?? false,
+      updatedAt: cur?.updatedAt ?? new Date().toISOString(),
+      coach: cs.feedback,
+      coachAt: new Date().toISOString(),
+    });
+  };
+
   const en = sel.lang === 'en';
   // 요약 분량 표기 — KO 지문은 글자수 '자', EN 지문은 어절수 '단어'(지문 길이·독후감 단위와 정렬 · SR-7).
   const trimmed = draft.trim();
@@ -431,7 +415,12 @@ function SummaryEditor({
         <Button sm variant={w?.done ? 'default' : 'primary'} onClick={() => commit(!w?.done)}>
           {w?.done ? '✓ 완료됨 — 되돌리기' : '요약 완료로 표시'}
         </Button>
-        <Button sm onClick={askCoach} disabled={grader.busy || !online} title={online ? '' : WORKSPACE_UNSET}>
+        <Button
+          sm
+          onClick={() => void askCoach()}
+          disabled={grader.busy || !online}
+          title={online ? '' : WORKSPACE_UNSET}
+        >
           {grader.busy ? (
             <>
               <span className="ds-spin" /> 채점 중…
@@ -482,7 +471,7 @@ function SummaryEditor({
         </p>
       )}
 
-      <CoachResult coach={coach} id={sel.id} saved={w} cardRef={coachResultRef} />
+      <CoachResult coach={coach} saved={w} cardRef={coachResultRef} />
     </div>
   );
 }
@@ -571,25 +560,26 @@ function ArticleRow({
 /**
  * AI 채점 결과 카드 — 결과가 없으면 아무것도 그리지 않는다.
  *
- * 결과는 **그 지문의 것만** 보인다: 방금 채점(transient)이 우선이고, 늦게 온 응답이 다른 지문
- * 아래 붙는 오표시는 `coach.id === id` 태깅이 막는다(호출부 `grader` 주석이 그 이력의 SSOT).
- * transient 가 없으면 저장분(`work[id].coach`)으로 폴백해 이탈·새로고침 후에도 보인다 —
- * 그때는 '저장된 채점' 배지가 붙는다.
+ * 방금 채점(transient)이 우선이고, 없으면 저장분(`work[id].coach`)으로 폴백해 이탈·새로고침
+ * 후에도 보인다 — 그때는 '저장된 채점' 배지가 붙는다.
+ *
+ * ⚠ **옛 `coach.id === id` 태깅이 사라졌다**(F5 · 2026-08-01). 그 방어의 전제는 *한 에디터
+ * 컴포넌트가 여러 지문을 차례로 섬긴다*였다 — 수십 초짜리 응답이 오기 전에 지문을 옮기면 옛
+ * 채점이 새 지문 아래 붙었다. 이제 호출부가 `key={sel.id}` 로 리마운트하므로 **옛 응답이 착지할
+ * 컴포넌트 자체가 없고**, 그 전에 언마운트 abort 가 스트림을 끊는다(H18). 태그를 남겨 두면
+ * 사라진 위험에 대한 방어가 코드에 남아 다음 사람에게 *아직 그 위험이 있다*고 말한다.
  */
 function CoachResult({
   coach,
-  id,
   saved,
   cardRef,
 }: {
-  coach: { id: string; fb: CoachFeedback } | null;
-  id: string;
+  coach: CoachFeedback | null;
   saved?: ArticleWork;
   cardRef: React.Ref<HTMLDivElement>;
 }) {
-  const fresh = coach?.id === id ? coach : null;
-  const fb = fresh ? fresh.fb : saved?.coach;
-  const savedAt = fresh ? undefined : saved?.coachAt;
+  const fb = coach ?? saved?.coach;
+  const savedAt = coach ? undefined : saved?.coachAt;
   if (!fb) return null;
   return (
     <div

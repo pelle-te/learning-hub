@@ -14,7 +14,8 @@ import { summariesFor, cbmsBetween, openBacklog, activityFeed, setRitual } from 
 import { weeklyRecap } from '@/lib/insights';
 import { shutdownChain } from '@/lib/records';
 import { parseCaptureBatch } from '@/lib/quickCapture';
-import { addDays, fmt, hLabel, iso, mondayOf, parseISO, todayISO } from '@/lib/utils';
+import { addDays, fmt, hLabel, iso, mondayOf, parseISO } from '@/lib/utils';
+import { useTodayISO } from '@/hooks/useTodayISO';
 import { Button } from '@/components/ui';
 import JournalStream from './JournalStream';
 import SummaryCard from './SummaryCard';
@@ -117,7 +118,8 @@ function BatchCapture() {
 /** I-12 주간 리캡 — '이번 주 해낸 것'(격려 톤). review(처방)와 분리. 좌 컬럼. */
 function WeeklyRecapCard() {
   const state = useApp((s) => s.state);
-  const weekMon = iso(mondayOf(parseISO(todayISO(state))));
+  const today = useTodayISO(state);
+  const weekMon = iso(mondayOf(parseISO(today)));
   const recap = weeklyRecap(state, weekMon);
   return (
     <div className="mt-3 flex-none rounded-base border border-line-acc bg-tint-acc-faint px-3.5 py-3">
@@ -150,7 +152,7 @@ function ShutdownChain() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
   const chain = shutdownChain(state, 14);
-  const today = todayISO(state);
+  const today = useTodayISO(state);
   const todayDone = chain.days[chain.days.length - 1]?.done ?? false;
   const doneN = chain.days.filter((d) => d.done).length;
   const toggle = () => mutate((st) => setRitual(st, today, 'shutdown', !todayDone));
@@ -188,7 +190,7 @@ function ShutdownChain() {
 export default function Journal() {
   const state = useApp((s) => s.state);
   const navigate = useNavigate();
-  const today = todayISO({ _today: state._today }); // '오늘' 단일 출처 존중
+  const today = useTodayISO(state); // '오늘' 단일 출처 존중 (+ 자정 자동 롤오버 H20)
   // 기록 대상 날짜 — 기본 오늘, 과거로 이동해 어제 놓친 블록을 백필할 수 있다(미래로는 못 감).
   const [ds2, setDs2] = useState(today);
   const isToday = ds2 === today;

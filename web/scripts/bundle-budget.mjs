@@ -102,8 +102,47 @@ const WAVE = { entry: 'index.html', then: 'src/app/App.tsx', js: 240, label: '�
    챕터 서랍 · 반사실 완주일). **여유가 1% 밖에 안 남아 있던 것이 더 문제였다** — 이 파일이 스스로
    경고한 flaky 조건(측정치에 붙여 둔 천장)에 이미 들어와 있었다. 실측 대비 ~6% 여유로 다시 앉힌다.
    ⚠ 올릴 때의 규율: **측정치를 적고, 무엇이 그만큼을 썼는지 이름을 대고, 여유를 남긴다.**
-   셋 중 하나라도 빠지면 그건 예산이 아니라 그때그때의 변명이 된다. */
-const TOTAL = { js: 660, css: 110, wasm: 600 };
+   셋 중 하나라도 빠지면 그건 예산이 아니라 그때그때의 변명이 된다.
+
+   ## ⚠⚠ 축 ③을 **플랫폼별로 갈랐다**(H23 · 2026-08-01 `/감사 근본`)
+
+   갈라야 했던 이유는 잔여 3.9KB(656.1/660)가 아니라 **그 잔여가 누구 것이냐**였다: 총합의
+   **20.3%(133.5 KB gz)가 폰 전용 SQLite 글루**(wasm + 워커 3종)다. 데스크톱은 그걸 1바이트도
+   안 받는데, 한 통에 담아 두면 **데스크톱만 만지는 변경이 폰 wasm 때문에 막힌다.** 그건 축 ①이
+   C-6 에서 이미 고친 거짓말(*"어느 사용자도 실제로 다운로드하지 않는 양"*)이 축 ③에 그대로
+   남아 있던 것이다 — 그때 엔트리별로 가른 근거가 여기에도 똑같이 성립한다.
+
+   ⚠ **한도만 올리는 것은 처방이 아니다.** 660→700 은 같은 거짓말을 40KB 뒤로 미룰 뿐이고,
+   그때 다시 "누구 예산인지 모르는 초과"를 만난다. 축이 답해야 하는 질문은 "총합이 얼마인가"가
+   아니라 **"이 플랫폼 사용자가 받는 양이 얼마인가"** 다.
+
+   ⚠ 공유 청크는 **양쪽에 모두 센다**(중복 계상이 아니라 각 축의 정의 그대로다 — 데스크톱
+   사용자도 폰 사용자도 그 바이트를 실제로 받는다).
+
+   ⚠ **매니페스트 밖 파일**(워커·wasm)은 그래프로 귀속할 수 없다 → `OFF_MANIFEST` 가 패턴으로
+   이름을 대고 귀속한다. 목록에 없는 새 파일이 나오면 **조용히 빠지지 않고 실패한다** — 그게
+   옛 "폴더 총합"이 지키던 유일한 것이고, 여기서 잃으면 안 되는 성질이다. */
+const TOTAL = {
+  /* 데스크톱 = `index.html` 에서 도달 가능한 전부(지연 탭 20개 포함).
+     실측 **js 498.7 · css 32.7**(2026-08-01) → 여유 ~15%.
+     ⚠ 옛 단일 축의 656.1 중 이만큼이 데스크톱 몫이었다 — 나머지는 폰 전용이거나 공유분이다. */
+  desktop: { js: 575, css: 38 },
+  /* 폰 = `phone.html` 에서 도달 가능한 전부 + SQLite 글루(아래 OFF_MANIFEST).
+     실측 **js 294.2 · css 10.6 · wasm 392.5**(2026-08-01) → 여유 ~15%.
+     ⚠ 폰 js 294 가 데스크톱 499 의 60% 인 것은 화면이 커서가 아니라 **공유 청크(React·lib)가
+       양쪽에 세어지기** 때문이다 + sqlite 워커 3종(js 로 잡힌다 · wasm 축이 아니다).
+       폰 *고유* 화면이 불어나는지는 축 ①의 `phone.html` 초기 로드(120)가 본다 — 두 축이 다른
+       것을 잡는다는 이 파일의 전제 그대로다.
+     ⚠ wasm 축은 폰에만 있다. 데스크톱 셸은 plugin-sql 을 쓰므로 `.wasm` 을 **한 바이트도 안 받는다**. */
+  phone: { js: 340, css: 12.5, wasm: 450 },
+};
+
+/** 매니페스트에 없는 산출물의 귀속(패턴 → 플랫폼). Vite 는 워커·wasm 을 매니페스트에 안 싣는다. */
+const OFF_MANIFEST = [
+  /* sqlite wasm + 워커 3종 = C-6 폰 저장 백엔드(`enableBrowserDb()`). 데스크톱 셸은 plugin-sql 을
+     쓰므로 이 파일들을 **부르는 코드 자체가 없다**(`isSqlitePrimary()` 분기). */
+  { re: /^assets\/sqlite/, platform: 'phone' },
+];
 
 const dist = join(process.cwd(), 'dist');
 let manifest;
@@ -171,23 +210,65 @@ if (!manifest[WAVE.then]) {
   console.log(`${over ? 'OVER' : '  ok'}  js total ${total.toFixed(1)} / ${WAVE.js}`);
 }
 
-/* 전체 총합 — 위 엔트리별 수치가 못 보는 축.
-   ⚠ **매니페스트가 아니라 폴더를 훑는다.** 워커 청크와 `.wasm` 은 매니페스트에 안 들어가는데
-   폰은 그걸 실제로 받는다(sqlite wasm 만 gzip 수백 KB). 매니페스트로 재면 그 비용이
-   게이트에서 통째로 사라져 "총합이 줄었다"는 착시가 생긴다 — 실제로 이 재작성 중에 한 번
-   그렇게 나왔다(557.7 → 422.0, 줄어든 게 아니라 135.7 이 안 보이게 된 것). */
-console.log('\n--- 전체 산출물(지연 청크·워커·wasm 포함) ---');
+/* 축 ③ — **플랫폼별 전체 산출물**(지연 청크·워커·wasm 포함). 위 엔트리별 수치가 못 보는 축.
+   ⚠ **폴더도 함께 훑는다.** 워커 청크와 `.wasm` 은 매니페스트에 안 들어가는데 폰은 그걸 실제로
+   받는다(sqlite wasm 만 gzip 수백 KB). 그래프만 보면 그 비용이 게이트에서 통째로 사라져
+   "총합이 줄었다"는 착시가 생긴다 — 실제로 C-6 재작성 중에 한 번 그렇게 나왔다
+   (557.7 → 422.0, 줄어든 게 아니라 135.7 이 안 보이게 된 것). */
+
+/** 엔트리에서 도달 가능한 **전부**(정적 `imports` + 지연 `dynamicImports` + css + assets). */
+function reachableFiles(entryKey) {
+  const out = new Set();
+  const seen = new Set();
+  const walk = (key) => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    const c = manifest[key];
+    if (!c) return;
+    if (c.file) out.add(c.file);
+    for (const f of c.css ?? []) out.add(f);
+    for (const f of c.assets ?? []) out.add(f);
+    for (const dep of [...(c.imports ?? []), ...(c.dynamicImports ?? [])]) walk(dep);
+  };
+  walk(entryKey);
+  return out;
+}
+
+console.log('\n--- 플랫폼별 전체 산출물(지연 청크·워커·wasm 포함) ---');
 {
-  const files = readdirSync(join(dist, 'assets'));
-  for (const [kind, ext] of [
-    ['js', '.js'],
-    ['css', '.css'],
-    ['wasm', '.wasm'],
-  ]) {
-    const total = files.filter((f) => f.endsWith(ext)).reduce((a, f) => a + gz(join('assets', f)), 0);
-    const over = total > TOTAL[kind];
-    if (over) failed = true;
-    console.log(`${over ? 'OVER' : '  ok'}  ${kind} total ${total.toFixed(1)} / ${TOTAL[kind]}`);
+  const onDisk = readdirSync(join(dist, 'assets')).map((f) => 'assets/' + f);
+  const graph = { desktop: reachableFiles('index.html'), phone: reachableFiles('phone.html') };
+
+  // 매니페스트 밖 파일 귀속 — 이름을 못 대는 것이 하나라도 있으면 실패한다(조용한 누락 금지).
+  const known = new Set([...graph.desktop, ...graph.phone]);
+  for (const f of onDisk) {
+    if (known.has(f)) continue;
+    const rule = OFF_MANIFEST.find((r) => r.re.test(f));
+    if (!rule) {
+      console.error(
+        `❌ 어느 플랫폼에도 귀속되지 않는 산출물: ${f}\n` +
+          `   매니페스트 그래프에 없고 OFF_MANIFEST 패턴에도 안 걸린다 — 새 워커·wasm 이라면 그 목록에\n` +
+          `   **이름과 사유를 적어** 귀속시킬 것. 여기서 조용히 넘기면 그만큼이 예산 밖으로 사라진다.`,
+      );
+      failed = true;
+      continue;
+    }
+    graph[rule.platform].add(f);
+  }
+
+  for (const [platform, budget] of Object.entries(TOTAL)) {
+    console.log(`\n  [${platform === 'desktop' ? '데스크톱' : '폰'}]`);
+    for (const [kind, ext] of [
+      ['js', '.js'],
+      ['css', '.css'],
+      ['wasm', '.wasm'],
+    ]) {
+      if (budget[kind] === undefined) continue; // 데스크톱엔 wasm 축이 없다(받는 파일이 없다).
+      const total = [...graph[platform]].filter((f) => f.endsWith(ext)).reduce((a, f) => a + gz(f), 0);
+      const over = total > budget[kind];
+      if (over) failed = true;
+      console.log(`${over ? 'OVER' : '  ok'}  ${kind} total ${total.toFixed(1)} / ${budget[kind]}`);
+    }
   }
 }
 

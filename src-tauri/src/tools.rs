@@ -218,6 +218,14 @@ pub struct Capabilities {
     /// 지금까지 `rename_all` 이 필요하지 않았다(첫 복합어가 이 필드다).
     #[serde(rename = "hotkeyError")]
     pub hotkey_error: Option<String>,
+    /// 볼트 **감시**가 죽었나(H7 · 2026-08-01). 값이 있을 때만 실패다 — `hotkey_error` 와 같은 계약.
+    ///
+    /// 이 필드가 없던 동안 감시 스레드 사망은 `vault.rs` 의 로그 한 줄이 전부였고, `ok` 는
+    /// 워크스페이스 유효성만 보므로 참이라 **콜드 게이트 문구도 안 떴다** — 사용자에게는
+    /// "볼트를 고쳐도 화면이 안 바뀐다"만 남고 이유가 어디에도 없었다.
+    /// ⚠ `rename` 은 위 필드와 같은 이유로 **필수**다(이 구조체엔 `rename_all` 이 없다).
+    #[serde(rename = "vaultWatchError")]
+    pub vault_watch_error: Option<String>,
 }
 
 /// ⚠ **python·Ollama 살아있음 플래그는 일부러 넣지 않았다.**
@@ -238,6 +246,7 @@ pub fn capabilities(app: tauri::AppHandle) -> Capabilities {
             .unwrap_or_default(),
         hotkey,
         hotkey_error,
+        vault_watch_error: crate::vault::watch_error(),
     }
 }
 
@@ -590,7 +599,7 @@ mod tests {
 
     #[test]
     fn 실_워크스페이스에서_파이썬_도구가_돈다() {
-        let cwd = crate::testkit::real_workspace().expect("환경 가정 위반 — testkit 참조");
+        let cwd = crate::testkit::ws_or_skip!();
         let py = std::env::var("PYTHON").unwrap_or_else(|_| "python".into());
         let tool = lookup("vault-stats").expect("vault-stats 가 화이트리스트에서 사라졌다");
 

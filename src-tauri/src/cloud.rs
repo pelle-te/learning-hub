@@ -28,6 +28,11 @@ CSP 를 푸는 대신 요청을 Rust 로 내린 이유는 **이 앱의 기존 �
   `Authorization` 헤더가 **다른 호스트로 실려 간다**. 이 커맨드는 `Bearer` 토큰을 나르므로
   기본값을 그대로 두면 자격증명 유출 경로가 된다.
 - **응답 크기 상한.** 서버가 무한 스트림을 주면 웹뷰로 올리기 전에 메모리가 터진다.
+  ⚠⚠ **그 약속이 지켜지지 않고 있었다(H17 · 2026-08-01).** 구현은 `res.bytes().await` 로
+  **전부 버퍼링한 뒤** 길이를 봤다 — 즉 무한 스트림이면 **OOM 이 검사보다 먼저** 난다.
+  상한의 목적이 자원 보호인데 방어가 그 자원을 먼저 다 쓰는 형태였다. 지금은 청크를 세다
+  넘는 순간 응답을 **버리고** 끝낸다(정상 응답은 읽는 바이트가 종전과 같다).
+  같은 형태의 옳은 구현이 `server/src/index.ts` 의 본문 계량(M2)에 이미 있었다.
 */
 use serde::Serialize;
 use std::collections::HashMap;
@@ -106,14 +111,33 @@ pub async fn cloud_http(
 
     let res = req.send().await.map_err(|e| e.to_string())?;
     let status = res.status().as_u16();
-    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
-    if bytes.len() > MAX_BYTES {
-        return Err(format!("응답이 너무 큽니다({} bytes)", bytes.len()));
-    }
+    let bytes = read_capped(res, MAX_BYTES).await?;
     Ok(CloudResponse {
         status,
         body: String::from_utf8_lossy(&bytes).into_owned(),
     })
+}
+
+/// 응답 본문을 **상한까지만** 읽는다. 넘으면 그 자리에서 스트림을 버리고 오류(H17).
+///
+/// ⚠ `bytes()` 를 쓰면 안 되는 이유가 이 함수의 존재 이유다 — 그건 전량을 먼저 메모리에
+/// 올린다. 여기서는 청크를 누적하다 상한을 넘는 순간 `res` 를 drop 해 연결을 끊는다.
+///
+/// ⚠ 상한을 **인자로 받는다.** 호출부마다 정당한 값이 다르다(클라우드 pull 8MB vs 뉴스 RSS
+/// 800KB) — 한 상수로 묶으면 둘 중 하나는 반드시 헐거워진다. 공유하는 것은 *읽는 방식*이다.
+pub(crate) async fn read_capped(res: reqwest::Response, max: usize) -> Result<Vec<u8>, String> {
+    use futures_util::StreamExt;
+    let mut out: Vec<u8> = Vec::new();
+    let mut stream = res.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let c = chunk.map_err(|e| e.to_string())?;
+        if out.len() + c.len() > max {
+            // ⚠ drop 이 곧 취소다 — 남은 바이트를 받지 않는다(그게 이 방어의 전부다).
+            return Err(format!("응답이 너무 큽니다(상한 {max} bytes)"));
+        }
+        out.extend_from_slice(&c);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

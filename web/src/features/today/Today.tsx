@@ -10,7 +10,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { ui } from '@/shell';
 import { setRitual } from '@/lib/methodology';
 import { dayShape } from '@/lib/insights';
-import { todayISO } from '@/lib/utils';
+import { useTodayISO } from '@/hooks/useTodayISO';
 import type { Ritual } from '@/lib/types';
 import { TodaySignature } from './TodaySignature';
 import { SetupGuide, setupComplete } from './SetupGuide';
@@ -24,7 +24,10 @@ function RitualCard() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
 
-  const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
+  /* ⚠ **훅이어야 한다**(H20). 이 카드는 오버레이라 자기 틱이 없어, 순수 `todayISO(state)` 로 두면
+     열어 둔 채 자정을 넘겼을 때 아래 `toggle`·`saveNote` 가 **어제 날짜 키에 쓴다**. 읽기가
+     하루 틀리는 것보다 나쁘다 — 사용자는 오늘을 체크했다고 믿는다. */
+  const ds2 = useTodayISO(state); // '오늘' 단일 출처(_today 시드 존중 · 자정 자동 롤오버).
   const r: Ritual = state.rituals?.[ds2] || { plan: false, shutdown: false, note: '' };
   // ID-5 오늘의 모양 — 셧다운 순간의 회고 한 줄(완료·요약 있을 때만).
   const shape = dayShape(state, ds2);

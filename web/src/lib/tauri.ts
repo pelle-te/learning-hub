@@ -268,8 +268,12 @@ export async function vaultScan(): Promise<VaultNotesFromRust | null> {
   if (!isTauri()) return null;
   try {
     return await call('vault_scan', undefined, VaultNotesSchema);
-  } catch {
-    // 볼트 폴더를 못 찾는 경우 등 — 호출부가 "연결 안 됨"으로 다루게 null.
+  } catch (e) {
+    /* 볼트 폴더를 못 찾는 경우 등 — 호출부가 "연결 안 됨"으로 다루게 null.
+       ⚠ **조용히 접지는 않는다**(H7 · 2026-08-01). null 하나로는 "볼트가 비었다"와 "읽다 죽었다"가
+       구분되지 않고, 후자는 원인이 화면 어디에도 안 남는다. 사용자 표면은 감시 채널이 맡는다
+       (`capabilities.vaultWatchError` → `TelemetryConsole`) — 여기는 개발자 절반을 닫는다. */
+    console.error('[vault] 스캔 실패 — 볼트를 읽지 못했습니다.', e);
     return null;
   }
 }
@@ -281,7 +285,9 @@ export async function onVaultChanged(cb: () => void): Promise<() => void> {
   try {
     const { listen } = await import('@tauri-apps/api/event');
     return await listen('vault:changed', () => cb()); // 이름은 src-tauri/src/vault.rs 의 VAULT_CHANGED
-  } catch {
+  } catch (e) {
+    // ⚠ 구독 실패 = 이후 자동 갱신이 **영원히 없다**. no-op 으로 접되 흔적은 남긴다(H7).
+    console.error('[vault] 변경 구독 실패 — 자동 갱신이 동작하지 않습니다.', e);
     return () => {};
   }
 }

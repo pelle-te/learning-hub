@@ -2,6 +2,7 @@
   "//": "SCA 원장(web/) — `npm run audit` 이 읽는다. 규칙과 실패 조건은 scripts/audit-gate.mjs 머리주석이 SSOT.",
   "//기준일": "2026-07-25 — 최초 작성. `npm audit fix`(비파괴)로 fast-uri 1건 해소 후 남은 14건.",
   "//⚠": "여기 적는 것은 '무시'가 아니라 '기한부 판단'이다. 상향 픽스가 생기면 원장에서 지우고 올린다. 실측 결과 14건 전부 npm 이 제안하는 fix 가 **현재보다 낮은 버전**(다운그레이드)이라 지금은 올릴 곳이 없다.",
+  "//brace-expansion-해소": "⚠ 2026-08-01 `/감사 근본` 후속 — **`npm audit fix` 로 해소돼 삭제됐다**(항목이 사라진 것이 결말이다). 그 항목은 세 겹으로 낡아 있었다: ① 사유가 *'위 eslint 항목의 논증이 그대로 적용된다'* 인데 **그 항목은 같은 날 삭제됐다** → 사유가 허공을 가리켰다 ② 해소조건 'ESLint 10 승격' 이 틀렸다 — `npm ls` 실측 뿌리는 **넷**(jsx-a11y·sonarjs·typescript-eslint·vite-plugin-pwa)이라 ESLint 를 올려도 안 사라진다. ⚠ 감사가 함께 든 셋째(*'기록된 GHSA 는 더 이상 근거가 아니고 현재는 다른 신규 권고'*)는 **재측정에서 성립하지 않았다** — 지금 걸린 것도 같은 `GHSA-mh99-v99m-4gvg` 이고 제목만 'ReDoS' → 'DoS via unbounded expansion length' 로 바뀌었다. 그래도 아래 권고 id 대조는 그대로 값어치가 있다(같은 패키지의 *다른* CVE 가 옛 사유 아래로 흡수되는 구멍은 실재한다).",
   "//체인": "⚠ 2026-08-01 에 **11건이 사문화돼 삭제됐다**(취약점이 상향에서 사라짐). 옛 뿌리 셋 중 ① eslint(brace-expansion ReDoS 체인 · minimatch·config-array·eslintrc 포함)와 ② vite-plugin-pwa(ejs→jake→filelist·workbox-build·off-main-thread)가 통째로 해소됐다. 남은 것은 ③ react-router 계열과 직접 참조 brace-expansion 뿐이다. ⚠ 그래서 **ESLint 10 차단의 근거였던 그 항목도 함께 사라졌다** — 재시도 조건(jsx-a11y 의 peer)은 이제 이 원장이 아니라 그 패키지를 직접 확인해야 한다.",
   "허용": [
     {
@@ -12,15 +13,6 @@
       "사유": "⚠ 이 목록에서 **유일하게 사용자에게 배포되는** 항목이라 가장 짧은 재검토 주기를 준다. 취약 경로는 RSC(React Server Components) 모드의 서버 액션 처리인데, 이 앱에는 그 코드가 존재하지 않는다: 엔트리 둘 다 `BrowserRouter`(main.tsx) 이고 폰은 라우터를 아예 안 싣는다(phone/main.tsx 머리주석 3번). loader/action·서버 렌더·RSC 어느 것도 쓰지 않으므로 취약 함수에 도달하는 호출 경로가 없다. npm 제안 fix 는 7.11.0 = **다운그레이드**(현재 7.18.1)라 올릴 곳이 없다.",
       "해소조건": "react-router 7.19+ 에 패치가 실리면 즉시 올린다. Renovate 가 patch+minor 를 automerge 하므로 대개 자동으로 사라진다(그때 이 항목은 '사문' 으로 게이트를 깨뜨려 삭제를 강제한다).",
       "재검토": "2026-09-01"
-    },
-    {
-      "패키지": "brace-expansion",
-      "심각도": "high",
-      "범위": "dev",
-      "권고": "GHSA-mh99-v99m-4gvg — ReDoS",
-      "사유": "이 체인의 **뿌리**. 위 `eslint` 항목의 도달 가능성 논증이 그대로 적용된다.",
-      "해소조건": "ESLint 10 승격.",
-      "재검토": "2026-10-01"
     },
     {
       "패키지": "react-router-dom",

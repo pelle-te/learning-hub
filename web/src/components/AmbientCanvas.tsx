@@ -3,6 +3,22 @@
    fbm 노이즈로 흘려 "비싼" 깊이를 만든다. 콘텐츠 뒤(z-1)·포인터 무시.
    안전장치: WebGL 없으면 CSS 그라데이션 폴백 · 저해상도(0.6x)+12fps 캡 · 탭 숨김/reduced-motion 시 정지.
    순수 표현(외부 상태 없음). 테마 변경은 data-theme 변동을 관찰해 색 유니폼만 갱신.
+
+   ⚠⚠ **컨텍스트 손실은 "일어날 수도 있는 일"이 아니라 관측된 일이다**(H19 · 2026-08-01).
+   사용자 PC 에서 화면이 한 번씩 검게 꺼진다 — Windows TDR(디스플레이 드라이버 타임아웃 리셋)이고,
+   그 순간 살아 있던 WebGL 컨텍스트는 **전부** 죽는다. sleep/resume·드라이버 업데이트·GPU 전환도
+   같은 결과를 낸다. 종전 코드에는 전 저장소를 통틀어 `webglcontextlost` 핸들러가 **0개**였고,
+   그래서 그 뒤 벌어지는 일은:
+     ① 캔버스가 투명해져 **배경이 영구히 빈 채로 남는다**(앱을 껐다 켜야 돌아온다)
+     ② `drawArrays` 는 조용한 no-op 이 되는데 **12fps 루프는 계속 돈다** — 아무것도 안 그리며
+     ③ 정지 프레임 게이트는 이걸 **원리적으로 못 본다**(스냅샷은 손실 전 프레임을 찍는다)
+   → 셋 다 닫는다. `preventDefault()` 가 **복구의 전제조건**이다(안 부르면 브라우저는
+   `webglcontextrestored` 를 영원히 안 쏜다).
+
+   ⚠ **손실 예산이 있다**(`MAX_LOSS`). 무한 복구는 틀린 처방이다 — 드라이버가 반복 리셋되는
+   기계에서 앱 최대 상시 부하(풀스크린 프래그먼트 셰이더)를 매번 다시 세우는 것은 리셋을
+   *다시 유발할* 쪽에 가깝다. 예산을 넘기면 **영구히 CSS 폴백**으로 내려가 GPU 를 더는 건드리지
+   않는다. 즉 이 컴포넌트의 실패 모드는 "빈 화면"이 아니라 "덜 화려한 배경"이다.
 ============================================================ */
 import { prefersReducedMotion } from '@/lib/motion';
 import { useEffect, useRef } from 'react';
@@ -98,74 +114,98 @@ function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLSha
   return sh;
 }
 
+/* 컴파일·링크·버퍼·유니폼 위치를 한 번에 세운다. **컨텍스트 손실 후 복구가 이 함수를 그대로 다시
+   부른다** — 그래서 초기화가 효과 본문에 흩어져 있으면 안 된다(종전 형태). GL 객체는 컨텍스트에
+   묶여 있어 손실 시 전부 무효가 되므로, 재사용할 수 있는 것은 **소스 문자열뿐**이다. */
+type Rig = {
+  gl: WebGLRenderingContext;
+  uRes: WebGLUniformLocation | null;
+  uTime: WebGLUniformLocation | null;
+  uBg: WebGLUniformLocation | null;
+  uC1: WebGLUniformLocation | null;
+  uC2: WebGLUniformLocation | null;
+  uC3: WebGLUniformLocation | null;
+};
+
+function buildRig(canvas: HTMLCanvasElement): Rig | null {
+  const gl = canvas.getContext('webgl', {
+    antialias: false,
+    alpha: false,
+    depth: false,
+    powerPreference: 'low-power',
+  });
+  if (!gl) return null;
+
+  const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+  const prog = gl.createProgram();
+  if (!vs || !fs || !prog) return null;
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  gl.useProgram(prog);
+
+  // 풀스크린 트라이앵글.
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'a');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  return {
+    gl,
+    uRes: gl.getUniformLocation(prog, 'u_res'),
+    uTime: gl.getUniformLocation(prog, 'u_time'),
+    uBg: gl.getUniformLocation(prog, 'u_bg'),
+    uC1: gl.getUniformLocation(prog, 'u_c1'),
+    uC2: gl.getUniformLocation(prog, 'u_c2'),
+    uC3: gl.getUniformLocation(prog, 'u_c3'),
+  };
+}
+
+/* 복구 시도 상한. 1회면 TDR·resume 한 번은 넘기지만 반복 리셋 기계에서 루프가 된다. 2회로 두면
+   "우연한 두 번"까지 흡수하고 세 번째부터는 원인이 우연이 아니라고 판정한다 — 그때 GPU 를
+   놓는 것이 사용자에게 이롭다(위 머리주석). */
+const MAX_LOSS = 2;
+
 export default function AmbientCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const gl = canvas.getContext('webgl', {
-      antialias: false,
-      alpha: false,
-      depth: false,
-      powerPreference: 'low-power',
-    });
-    // WebGL 미지원 → CSS 그라데이션 폴백.
-    if (!gl) {
+
+    let rig = buildRig(canvas);
+    // WebGL 미지원(또는 컴파일·링크 실패) → CSS 그라데이션 폴백.
+    if (!rig) {
       canvas.style.background = FALLBACK_BG;
       return;
     }
-
-    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
-    const prog = gl.createProgram();
-    if (!vs || !fs || !prog) {
-      canvas.style.background = FALLBACK_BG;
-      return;
-    }
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      canvas.style.background = FALLBACK_BG;
-      return;
-    }
-    gl.useProgram(prog);
-
-    // 풀스크린 트라이앵글.
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, 'a');
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, 'u_res');
-    const uTime = gl.getUniformLocation(prog, 'u_time');
-    const uBg = gl.getUniformLocation(prog, 'u_bg');
-    const uC1 = gl.getUniformLocation(prog, 'u_c1');
-    const uC2 = gl.getUniformLocation(prog, 'u_c2');
-    const uC3 = gl.getUniformLocation(prog, 'u_c3');
 
     const SCALE = 0.6; // 내부 렌더 해상도(노이즈라 저해상도여도 부드러움 → GPU 부담↓).
     const setColors = () => {
+      if (!rig) return;
+      const { gl } = rig;
       const cs = getComputedStyle(document.documentElement);
       const bg = hexToRgb(cs.getPropertyValue('--bg')) || [0.02, 0.02, 0.024];
       const c1 = hexToRgb(cs.getPropertyValue('--acc')) || [0.6, 0.55, 1];
       const c2 = hexToRgb(cs.getPropertyValue('--acc2')) || [0.37, 0.85, 0.74];
       const c3 = hexToRgb(cs.getPropertyValue('--violet')) || [0.72, 0.58, 0.96];
-      gl.uniform3fv(uBg, bg);
-      gl.uniform3fv(uC1, c1);
-      gl.uniform3fv(uC2, c2);
-      gl.uniform3fv(uC3, c3);
+      gl.uniform3fv(rig.uBg, bg);
+      gl.uniform3fv(rig.uC1, c1);
+      gl.uniform3fv(rig.uC2, c2);
+      gl.uniform3fv(rig.uC3, c3);
     };
     const resize = () => {
       const w = Math.max(1, Math.floor(window.innerWidth * SCALE));
       const h = Math.max(1, Math.floor(window.innerHeight * SCALE));
       canvas.width = w;
       canvas.height = h;
-      gl.viewport(0, 0, w, h);
-      gl.uniform2f(uRes, w, h);
+      if (!rig) return;
+      rig.gl.viewport(0, 0, w, h);
+      rig.gl.uniform2f(rig.uRes, w, h);
     };
     setColors();
     resize();
@@ -189,19 +229,22 @@ export default function AmbientCanvas() {
        도는 유일한 상시 루프라 유휴 전력에서는 공짜가 아니다.
        ⚠ 정지 프레임은 불변이다(그리는 시점·내용이 그대로) → 스냅샷 영향 0. */
     const draw = (ms: number) => {
-      gl.uniform1f(uTime, ms / 1000);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (!rig) return; // 손실 중 — 루프를 되살리는 것은 restore 핸들러의 일이다.
+      rig.gl.uniform1f(rig.uTime, ms / 1000);
+      rig.gl.drawArrays(rig.gl.TRIANGLES, 0, 3);
       timer = window.setTimeout(() => {
         raf = requestAnimationFrame(draw);
       }, FRAME);
     };
     const drawOnce = () => {
-      gl.uniform1f(uTime, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (!rig) return;
+      rig.gl.uniform1f(rig.uTime, 0);
+      rig.gl.drawArrays(rig.gl.TRIANGLES, 0, 3);
     };
     const start = () => {
       cancelAnimationFrame(raf);
       clearTimeout(timer);
+      if (!rig) return; // ⚠ 손실 중엔 12fps 루프를 돌리지 않는다(종전의 "아무것도 안 그리며 도는" 상태).
       if (paused()) {
         drawOnce();
         return;
@@ -217,6 +260,34 @@ export default function AmbientCanvas() {
       setColors();
       start(); // 색 갱신 후 모션 재평가(data-fx 토글 해제 시 재개, 설정 시 정지).
     };
+
+    /* ⚠ **컨텍스트 손실·복구**(H19). 순서가 계약이다:
+       ① `preventDefault()` — 이걸 안 부르면 브라우저는 `webglcontextrestored` 를 **영원히 안 쏜다**.
+       ② 루프 정지 + `rig = null` — 손실된 컨텍스트의 GL 객체는 전부 무효다.
+       ③ CSS 폴백을 **즉시** 켠다. `alpha:false` 라 살아 있을 땐 캔버스가 불투명해 이 배경을 가리고,
+          손실되면 캔버스가 투명해지므로 같은 한 줄이 "정상 시 무해 · 손실 시 즉시 대체"를 겸한다.
+       복구 쪽은 `buildRig` 를 다시 부르는 것이 전부다 — 그래서 초기화가 함수로 나와 있다. */
+    let losses = 0;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      rig = null;
+      losses += 1;
+      canvas.style.background = FALLBACK_BG;
+    };
+    const onRestored = () => {
+      // 예산 초과 — 여기서 멈추는 것이 처방이다(GPU 를 더 건드리지 않는다). 폴백은 이미 켜져 있다.
+      if (losses > MAX_LOSS) return;
+      rig = buildRig(canvas);
+      if (!rig) return; // 복구했는데 다시 세우지 못함 → 폴백 유지.
+      canvas.style.background = '';
+      setColors();
+      resize();
+      start();
+    };
+    canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
 
     window.addEventListener('resize', onResize);
     document.addEventListener('visibilitychange', start);
@@ -235,13 +306,19 @@ export default function AmbientCanvas() {
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(timer);
+      /* ⚠ 손실 리스너를 **먼저** 뗀다. 아래 `loseContext()` 는 진짜 `webglcontextlost` 를 쏘는데,
+         언마운트 중에 그게 `onLost` 를 타면 이미 버린 클로저가 `losses` 를 올리고 폴백 배경을
+         켠다(관측 불가한 부작용). 자발적 해제와 드라이버 사고는 같은 이벤트를 쓰므로 **구분은
+         리스너를 떼는 순서로만** 할 수 있다. */
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       window.removeEventListener('resize', onResize);
       document.removeEventListener('visibilitychange', start);
       window.removeEventListener('focus', start);
       window.removeEventListener('blur', start);
       reduce.removeEventListener('change', start);
       mo.disconnect();
-      const lose = gl.getExtension('WEBGL_lose_context');
+      const lose = rig?.gl.getExtension('WEBGL_lose_context');
       if (lose) lose.loseContext();
     };
   }, []);

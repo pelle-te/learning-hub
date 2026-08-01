@@ -29,6 +29,12 @@ import type { AppState, CbmsCode, SessionType, Theme } from '@/lib/types';
 // 쓰기경로(add*/set*/restore*)의 지연초기화는 전부 mutate 드래프트 안이라 동결 대상이 아니다(무해).
 setAutoFreeze(true);
 
+/** 편집 → 정본 쓰기까지의 디바운스. ⚠ `syncController.AFTER_EDIT_MS`(1200) 가 이보다 **길어야**
+ *  아웃박스가 아직 안 쓰인 편집을 놓치지 않는다(그 상수 주석이 짝을 이룬다). */
+const PERSIST_MS = 400;
+/** 쓰기 **실패** 재시도 백오프의 상한(H5). 400ms 에서 배로 늘어 여기서 멈춘다. */
+const PERSIST_RETRY_MAX_MS = 30_000;
+
 /* 저장 실패 안내 — 편집 중 매 flush(400ms 디바운스)마다 뜨면 소음이라 ~30초에 1번만.
    (shell/toast는 zustand 단독 모듈이라 store→toast import에 순환 없음 — actions.ts와 무관.) */
 let _lastSaveFailToastAt = 0;
@@ -180,7 +186,14 @@ export const useApp = create<AppStore>()(
           const writeFailed = !r.ok && !r.unavailable;
           if (r.deferred || writeFailed) {
             pending = [...borrowed, ...pending];
-            schedulePersist();
+            /* ⚠⚠ **쓰기 실패에는 백오프가 붙는다(H5 · 2026-08-01).** 위 주석이 `unavailable` 을
+               제외한 이유로 "뜨거운 루프"를 명시해 놓고, 같이 넣은 `writeFailed` 축엔 그 방어가
+               없었다. 그런데 `writeFailed` 의 주된 원인(**되읽기 대조 불일치 = 매퍼 드리프트**)은
+               *고쳐질 때까지 영구히 참*이다 — 즉 400ms 고정 재시도는 시간당 9,000회 전량 쓰기가
+               된다. `deferred` 는 평시 400ms 그대로 둔다: 병합 창은 곧 닫히는 **일시적** 상태라
+               여기에 백오프를 붙이면 병합 직후 저장이 이유 없이 늦어진다. */
+            if (writeFailed) scheduleRetry();
+            else schedulePersist();
             if (r.deferred) return;
           }
           /* ⚠⚠ **정본이 죽었으면 여기서 끝내지 않는다(C1 · 2026-07-26 감사).** 예전엔 연결 실패가
@@ -190,9 +203,17 @@ export const useApp = create<AppStore>()(
              지금은 임시 사본을 남기고(다음 부팅에 DB 가 여전히 죽어 있으면 `boot(storage)` 가
              이걸 읽는다) 마커를 찍는다 — 지속 배너(`app/StorageBanner`)가 그 사실을 말한다.
              토스트가 아니라 배너인 이유: 30초 스로틀 토스트는 자리를 비운 사이 통째로 놓친다. */
-          setSaveFallback(r.unavailable);
-          if (r.unavailable) persistFallback(merged);
-          else if (!r.ok && !r.skipped) warnSaveFailure();
+          /* ⚠⚠ **폴백의 기준은 "연결이 죽었나"가 아니라 "내 편집이 정본에 못 갔나"다**(H5 ·
+             2026-08-01). 종전엔 세 줄이 전부 `r.unavailable` 에만 걸려 있어서, 되읽기 대조가
+             어긋나 쓰기가 **실패**한 경우엔 배너도 안 뜨고 임시 사본도 안 남았다 — 그 세션의
+             편집이 메모리 말고 **어디에도 없는** 상태다(재시작하면 통째로 사라진다).
+             `db/fallback.ts` 머리주석이 이미 *"사용자에게 참인 사실은 '내가 방금 한 편집이
+             정본에 못 갔다'"* 라 적어 뒀다 — 그 원칙이 코드보다 넓었다. */
+          const lost = !r.ok && !r.skipped; // skipped = 브라우저(정본이 SQLite 가 아님) — 정상
+          setSaveFallback(lost);
+          if (lost) persistFallback(merged);
+          else retryMs = 0; // 성공 → 다음 실패는 다시 400ms 부터(백오프 리셋)
+          if (lost && !r.unavailable) warnSaveFailure();
         });
         return;
       }
@@ -222,7 +243,17 @@ export const useApp = create<AppStore>()(
     /** 텍스트 입력마다 쓰지 않게 디바운스(설계도 §1-A). */
     const schedulePersist = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(flush, 400);
+      timer = setTimeout(flush, PERSIST_MS);
+    };
+
+    /* 쓰기 **실패** 재시도 — 지수 백오프(H5). 성공하면 `retryMs = 0` 으로 리셋된다(위 flush 콜백).
+       ⚠ 상한이 있는 것이 요점이다: 원인이 영구적이어도(매퍼 드리프트) 재시도 자체는 계속돼야
+       한다(원인이 배포로 고쳐지면 그때 저장이 살아나야 하므로) — 다만 **초당이 아니라 30초당**. */
+    let retryMs = 0;
+    const scheduleRetry = () => {
+      retryMs = retryMs ? Math.min(retryMs * 2, PERSIST_RETRY_MAX_MS) : PERSIST_MS;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(flush, retryMs);
     };
 
     /* 언로드 안전망 — 디바운스(400ms) 대기 중 탭이 닫히면 마지막 편집이 유실됐다.

@@ -155,13 +155,33 @@ export function _resetMergedEcho(): void {
  * 전진한 뒤 다음 호출이 가져간다 — 즉 큰 동기화는 여러 배치로 나뉘어 **자연히 재개**된다.
  */
 export async function collectOutbox(since?: number): Promise<OutboxBatch | null> {
+  return (await collectOutboxScan(since))?.batch ?? null;
+}
+
+/** 스캔 1회의 결과 — 배치와 **뒤에 더 있는가**. */
+export interface OutboxScan {
+  batch: OutboxBatch;
+  /**
+   * `capBatch` 가 상한에서 잘랐는가 = **이 배치 뒤에 아직 아웃박스가 남았다.**
+   *
+   * ⚠⚠ 이걸 밖으로 내는 이유(H4 · 2026-08-01): `push.ts` 의 드레인 루프가 종전엔
+   * `res.sent >= MAX_BATCH_ITEMS` 로 "가득 찼나"를 판정했는데, `capBatch` 는 **스탬프 그룹
+   * 경계**에서 자르므로 그 조건이 **거의 항상 거짓**이다(상한 500에 400건 그룹이면 `sent=400`).
+   * 즉 드레인이 사실상 한 번도 안 돌았고, 5,348행을 비우는 데 **사용자 트리거 14회**가 필요했다.
+   * 잘렸는지는 스캔한 쪽만 안다(`upto < fence`) — 그래서 여기서 실어 보낸다.
+   */
+  more: boolean;
+}
+
+/** `collectOutbox` + **뒤에 더 있는가**. 드레인 루프(`push.drainPush`)만 이걸 쓴다. */
+export async function collectOutboxScan(since?: number): Promise<OutboxScan | null> {
   /* ⚠ **쓰기와 같은 직렬화 단위에서 돈다(C4).** fence 발급과 스캔 사이가 아니라, *스탬프는
      발급됐는데 아직 커밋 전인 쓰기* 가 문제였다 — 머리주석의 C4 절이 SSOT. 전송은 여전히
      이 체인 밖이다(호출부 `push.ts` 가 수집과 전송을 나눠 부른다). */
   return runExclusive(() => scanOutbox(since));
 }
 
-async function scanOutbox(since?: number): Promise<OutboxBatch | null> {
+async function scanOutbox(since?: number): Promise<OutboxScan | null> {
   const from = since ?? (await readWatermark());
   // 상한선을 **스캔 전에** 발급한다 — 이유는 머리주석 "fence" 참조.
   const fence = nextStamp();
@@ -201,5 +221,11 @@ async function scanOutbox(since?: number): Promise<OutboxBatch | null> {
   }));
 
   const capped = capBatch(rows, tombstones, fence);
-  return { since: from, upto: capped.upto, rows: capped.rows, tombstones: capped.tombstones };
+  return {
+    batch: { since: from, upto: capped.upto, rows: capped.rows, tombstones: capped.tombstones },
+    /* 잘렸으면 상한선이 fence 보다 **앞**에서 멈춘다 — 그게 "뒤에 더 있다"의 관측 가능한 형태다.
+       ⚠ `oversized`(한 그룹이 혼자 상한 초과)는 여기 안 넣는다: 그건 잘린 게 아니라 통째로
+       담은 것이라 다음 회차가 이어받을 것이 없다(`capBatch` 의 `taken > 0` 가드 참조). */
+    more: capped.upto < fence,
+  };
 }

@@ -131,14 +131,22 @@ export function makeItem(partial: Partial<Item> & { name: string }): Item {
 /** 고정 일과 블록 유형(색). '공부' 개념은 폐지 — 가용시간은 '깨어있는 시간 − 블록'으로 자동 계산. */
 /** 일과 블록 색 — 과목 팔레트와 같은 더스티 계열로 통일(타임라인에선 옅은 틴트로 깔림). */
 /** 일과 블록도 종류별 고유색 — 단 '조용한 슬레이트·뉴트럴' 키로(과거 코랄·mauve 등 따뜻한 색 폐기).
- *  학습=녹색 가족 / 일과=차분한 슬레이트 / 액센트=라임 → 3티어가 hue로 갈려 한눈에 구분되고 딥블랙과 조화.
- *  타임라인에선 .muted로 발광 없이 깔리므로, 색을 가져도 학습 세그(발광)와 위계가 또렷이 갈린다. */
+ *  학습=녹색 가족 / 일과=차분한 슬레이트 / 액센트=라임 → 3티어가 hue로 갈려 한눈에 구분된다.
+ *  타임라인에선 .muted로 발광 없이 깔리므로, 색을 가져도 학습 세그(발광)와 위계가 또렷이 갈린다.
+ *
+ *  ⚠⚠ **값이 hex 가 아니라 토큰 참조다**(H21 · 2026-08-01). 종전엔 생 hex 5개였고 그게 **실제
+ *  렌더 색**이었다 — `scheduler/layout.ts` 가 `color` 로 싣고 `WeekCalendar` 가 인라인 `--seg` 로
+ *  주입해 `tw.css` 의 `seg-scope` 파생 전부가 거기서 나왔다. 즉 색 규율(절대규칙 #3) 밖에 있는
+ *  5색이었고, 바로 위 줄이 *"딥블랙과 조화"* 라고 **다크 전용**임을 자백하는데 라이트에서도
+ *  그대로 쓰였다. 값·테마별 재정의는 `styles/tokens.css` 가 소유한다.
+ *  ⚠ 문자열이 `var(--…)` 형태여야 `scripts/check-tokens.mjs` 의 검사 범위에 들어온다(hex 는
+ *  stylelint 도 check-tokens 도 원리적으로 못 본다 — 그게 이 결함이 살아남은 이유다). */
 export const BLOCK_TYPES: Record<string, string> = {
-  수면: '#586a96',
-  식사: '#9a8676',
-  취미: '#7d7397',
-  수업: '#6f8bb0',
-  기타: '#7a8294',
+  수면: 'var(--block-sleep)',
+  식사: 'var(--block-meal)',
+  취미: 'var(--block-hobby)',
+  수업: 'var(--block-class)',
+  기타: 'var(--block-etc)',
 };
 export const SKIP = new Set(['attachments', 'images', '_assets', '.obsidian', '.trash', '_복습시스템', '_인터랙티브']);
 
@@ -279,6 +287,22 @@ export function pctLabel(x?: number | null): string {
  * ⚠ `now` 주입 가능 — 렌더 중 `Date.now()` 는 순수성 린트가 막고, 테스트도 그래야 결정적이다.
  * ⚠ 미래 시각(시계 오차)은 '방금'으로 접는다 — "-3분 전"은 결함으로 읽힌다.
  */
+/**
+ * **일수** → 상대일 라벨(오늘/어제/N일 전).
+ *
+ * ⚠⚠ 아래 `agoLabel` 과 **축이 다르다**(H16 · 2026-08-01): 이건 *며칠 전인가*(정수 일수),
+ * 저건 *언제인가*(epoch ms). 둘 다 `number` 하나를 받아 문자열을 주므로 **타입이 혼동을 못
+ * 막는다** — 실제로 `Atlas.tsx` 가 같은 이름의 지역 함수로 이걸 갖고 있었고, 그 파일이
+ * `@/lib/utils` 를 import 하는 날 `agoLabel(3)` 이 **"56년 전"** 을 그리면서 타입은 통과했을
+ * 것이다(1970-01-01 + 3ms). 그래서 사본을 없애되 **이름을 갈라** 둔다.
+ */
+export function daysAgoLabel(days: number): string {
+  if (days <= 0) return '오늘';
+  if (days === 1) return '어제';
+  return `${days}일 전`;
+}
+
+/** **시각**(epoch ms) → 상대 시각 라벨. 일수 축은 위 `daysAgoLabel`(⚠ 이름이 갈린 이유는 거기). */
 export function agoLabel(t: number, now: number): string {
   const mins = Math.round((now - t) / 60000);
   if (mins < 1) return '방금';
@@ -301,6 +325,22 @@ export function minutesOfDay(d: Date): number {
  *  볼트명 없이도 동작한다(설치돼 있으면). 링크 형식이 바뀌어도 여기 한 곳만 고친다. */
 export function vaultSearchUrl(query: string): string {
   return `obsidian://search?query=${encodeURIComponent(query)}`;
+}
+
+/**
+ * 과목·챕터 → **볼트 검색 질의**. 둘 다 있으면 공백으로 잇고, 하나만 있으면 그것만.
+ *
+ * ⚠⚠ **이게 5벌이었고 서로 달랐다**(H14 · 2026-08-01):
+ * `actions.ts` `[subject, chapter].filter(Boolean).join(' ')` · `Review.tsx` `subject+' '+chapter`
+ * (챕터가 없으면 **끝에 공백**이 붙는다) · `Mistakes.tsx` `chapter || subject`(**과목을 아예 뺀다**)
+ * · `ReviewRun.tsx` 두 벌. 같은 버튼("볼트에서 열기")이 화면마다 다른 것을 검색했다.
+ *
+ * ⚠ 그리고 `actions.ts` 의 주석이 그 사실을 **거꾸로** 적고 있었다 — *"`Mistakes.tsx` 가 같은
+ * 폴백을 쓴다"* 라고 했는데 그쪽은 `chapter || subject` 라 **정반대**다(챕터가 있으면 과목을
+ * 버린다). 사본이 갈리는 것보다 나쁜 것은 **주석이 사본들을 같다고 말하는 것**이다.
+ */
+export function vaultQuery(subject?: string, chapter?: string): string {
+  return [subject, chapter].filter(Boolean).join(' ');
 }
 
 /** 볼트 검색을 새 창으로 연다(대부분의 호출부 형태). URL 만 필요하면 `vaultSearchUrl`.

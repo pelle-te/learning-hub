@@ -43,6 +43,11 @@ const useModalStore = create<ModalStore>((set) => ({
   close: () => set({ current: null }),
 }));
 
+/** 확인창이 떠 있는가 — 구독 없이(전역 keydown 게이트 전용 · `shell/keyGate`). */
+export function isModalOpen(): boolean {
+  return useModalStore.getState().current !== null;
+}
+
 /** 확인 모달 → Promise<boolean>. */
 export function confirm(message: string, opts: ConfirmOpts = {}): Promise<boolean> {
   return new Promise((resolve) => {
