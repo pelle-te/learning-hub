@@ -388,6 +388,19 @@ export const AppStateSchema = z.looseObject({
   /** T-7 문항 원장. **옵셔널이 계약이다** — 구버전 저장본·다른 기기 pull 에는 이 키가 없고,
    *  필수로 두면 `parseState` 가 옛 데이터를 통째로 거부한다(가져오기·pull 이 함께 죽는다). */
   questions: z.optional(z.array(QuestionSchema)),
+  /** T-9 지연 JOL — **예측만** 적는다(해소는 `blankResults` 에서 파생 · `lib/delayedJol` 머리주석).
+   *  옵셔널이 계약인 이유는 `questions` 와 같다. */
+  jolAsks: z.optional(
+    z.array(
+      z.object({
+        id: z.string(),
+        ds: z.string(),
+        sid: z.string(),
+        chapter: z.string(),
+        predicted: z.boolean(),
+      }),
+    ),
+  ),
   backlog: z.array(BacklogSchema),
   blankResults: z.array(BlankResultSchema),
   retentionLog: z.array(RetentionSchema),
@@ -465,6 +478,7 @@ export type Summary = z.infer<typeof SummarySchema>;
 export type CbmsCode = z.infer<typeof CbmsCodeSchema>;
 export type Cbms = z.infer<typeof CbmsSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
+export type JolAsk = NonNullable<z.infer<typeof AppStateSchema>['jolAsks']>[number];
 export type Backlog = z.infer<typeof BacklogSchema>;
 export type BlankResult = z.infer<typeof BlankResultSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;

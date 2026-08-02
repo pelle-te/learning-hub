@@ -14,6 +14,8 @@ export type {
   Cbms,
   /** T-7 문항 원장 한 건. */
   Question,
+  /** T-9 지연 JOL 예측 한 건. ⚠ 해소는 저장하지 않는다(`lib/delayedJol` 머리주석). */
+  JolAsk,
   Backlog,
   BlankResult,
   Weekly,

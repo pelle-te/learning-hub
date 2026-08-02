@@ -338,7 +338,7 @@ describe('대용량 표본 — 규모에서도 동형', () => {
      원장이 2026-08-02 에 더한 것이고, 이 케이스가 그때 정확히 실패했다. */
   it('행 슬라이스 목록에 배열 슬라이스가 전부 들어 있다(신규 슬라이스 누락 감지)', () => {
     expect([...ARRAY_SLICES].sort()).toEqual(
-      ['backlog', 'blankResults', 'cbms', 'events', 'questions', 'retentionLog', 'tasks'].sort(),
+      ['backlog', 'blankResults', 'cbms', 'events', 'jolAsks', 'questions', 'retentionLog', 'tasks'].sort(),
     );
   });
 });

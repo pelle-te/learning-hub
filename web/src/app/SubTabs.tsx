@@ -9,6 +9,9 @@ import { useNavigate } from 'react-router-dom';
 import { subTabGroupOf, Icon } from '@/shell';
 import { prefetchTab } from '@/features/registry';
 import { markVia } from '@/lib/visits';
+import { useApp } from '@/store/useApp';
+import { useUI } from '@/store/useUI';
+import { sinceCount } from '@/lib/since';
 
 /* ⚠ C-7 셸 이식 — raw <button> 은 **언레이어드 전역 `button{}`**(styles/global/components.css)에서
    배경·보더·radius·padding·font-size(13px) 를 받는다. Tailwind 유틸은 `@layer utilities` 라
@@ -22,11 +25,18 @@ const BTN_BASE =
   'inline-flex items-center gap-1.5 whitespace-nowrap rounded-none! border-y-0! border-l-0! border-r! border-line2! px-3.75! py-2! text-sm! leading-auto font-bold! tracking-label transition-colors duration-fast ease-[var(--ease)] last:border-r-0! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 const BTN_ON = 'bg-acc-soft! text-acc-on-soft! ring-1 ring-inset ring-acc-glow';
 const BTN_OFF = 'bg-transparent! text-mut! hover:bg-panel2! hover:text-ink!';
+/* T-13 — "지난번 이후" 표식. **수를 그린다**(점이 아니라) — 점은 "뭔가 있다"까지만 말하고,
+   이 레이어의 값은 *얼마나*에 있다(적으면 지금 보고, 많으면 나중에 본다는 판단이 갈린다).
+   ⚠ 소음 문턱을 넘으면 `sinceCount` 가 아예 `null` 을 준다 → 이 뱃지는 **작은 수만** 그린다. */
+const SINCE = 'ml-0.5 rounded-full bg-acc-soft px-1.25 text-2xs font-extrabold text-acc-on-soft tabular-nums';
 
 export default function SubTabs({ tabKey }: { tabKey: string }) {
   const navigate = useNavigate();
   const group = subTabGroupOf(tabKey);
   const btns = useRef<Array<HTMLButtonElement | null>>([]);
+  // T-13 — 판정은 `lib/since` 가 소유한다. 여기는 두 입력(상태·마지막 본 날)만 건네고 그린다.
+  const state = useApp((s) => s.state);
+  const seenAt = useUI((s) => s.ui.seenAt);
   // D-4 — 옛 `shell` 플래그(화면 없는 호스트를 버튼에서 제외)는 사라졌다. 이제 호스트는 자기 화면을
   // 가진 세그먼트 자신이라(계획 = 캘린더) 걸러낼 것이 없다.
   const segs = group ?? [];
@@ -60,6 +70,9 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
       <div className={SEG} role="group" aria-label="페이지 섹션" onKeyDown={onKeyDown}>
         {segs.map((t, i) => {
           const active = t.key === tabKey;
+          /* ⚠ **활성 탭엔 안 그린다** — 지금 보고 있는 화면에 "새 것 3건"은 정보가 아니다
+             (그리고 떠나는 순간 `useMarkSeen` 이 지운다). */
+          const fresh = active ? null : sinceCount(state, t.key, seenAt[t.key]);
           return (
             <button
               key={t.key}
@@ -79,6 +92,11 @@ export default function SubTabs({ tabKey }: { tabKey: string }) {
             >
               <Icon name={t.icon} className="size-3.5!" />
               <span>{t.segLabel ?? t.label}</span>
+              {fresh !== null && (
+                <span className={SINCE} aria-label={`지난번 이후 ${fresh}건 새로 생김`}>
+                  {fresh}
+                </span>
+              )}
             </button>
           );
         })}

@@ -25,6 +25,8 @@ export interface UIStore {
   setReminderAt: (at: string | null) => void;
   /** 오늘 몫을 쓴 것으로 표시. ⚠ 알림 전송 **전에** 부른다(`useDailyReminder` 머리주석). */
   setReminderFired: (ds: string) => void;
+  /** T-13 — 이 화면을 오늘 봤다고 표시. 같은 날 두 번째는 아무것도 안 한다(쓰기 낭비 방지). */
+  markSeen: (key: string, ds: string) => void;
   /** OS 가 지금 말하는 테마(기기-로컬 · H9). `null` = 덮지 않음(정본 `state.theme` 이 보인다).
    *  ThemeProvider 가 감지 결과를 여기 싣고, 수동 선택(`actions.setThemeTo`)이 `null` 로 지운다. */
   setAutoTheme: (t: UIState['autoTheme']) => void;
@@ -95,6 +97,13 @@ export const useUI = create<UIStore>()(
       setReminderFired(ds) {
         set((s) => {
           s.ui.reminderLastDs = ds;
+        });
+        flush();
+      },
+      markSeen(key, ds) {
+        if (get().ui.seenAt[key] === ds) return; // 같은 날 재방문은 쓰기가 아니다
+        set((s) => {
+          s.ui.seenAt[key] = ds;
         });
         flush();
       },

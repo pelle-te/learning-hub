@@ -21,6 +21,7 @@ import { useLeaveCursor } from './useLeaveCursor';
 import { useFrameMemory } from './useFrameMemory';
 import { useTaskbarBadge } from './useTaskbarBadge';
 import { useDailyReminder } from './useDailyReminder';
+import { useMarkSeen } from './useMarkSeen';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
@@ -125,6 +126,11 @@ export default function App() {
   /* T-6 — 예약 한 발(하루 최대 1회). 배지와 **같은 수**를 쓴다: 셋이 갈리면 알림이 3 이라 하고
      레일이 5 라 하는 상태가 생긴다. 상주(T-3)가 켜져 있어야 앱을 안 여는 날에도 뜬다. */
   useDailyReminder();
+  /* T-13 — "지난번 이후". 이 화면을 오늘 봤다고 기기-로컬로 표시한다.
+     ⚠ 여기 있는 이유는 `useLeaveCursor`·`useFrameMemory` 와 같다(라우트가 스토어를 만나는 유일한
+     자리). ⚠ 델타를 **여기서 계산하지 않는다** — 판정은 `lib/since` 가 소유하고, 소음 문턱을
+     넘으면 표식을 아예 안 준다(그 파일 머리주석이 그 규율의 SSOT). */
+  useMarkSeen(routeKey);
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;

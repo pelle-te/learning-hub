@@ -95,6 +95,12 @@ export const UIStateSchema = z.object({
      ⚠ 영속해야 한다 — 메모리에만 두면 앱을 껐다 켤 때마다 다시 쏜다(상주 모드가 아닌
        기기에서 하루 여러 발이 되는 정확한 경로). */
   reminderLastDs: z._default(z.nullable(z.string()), null),
+  /* T-13 "지난번 이후" — 화면 key → 마지막으로 본 날(ISO).
+     ⚠ **기기별이다 · 동기화하지 않는다.** "내가 마지막으로 본 시점"은 이 기기의 *주의*에 대한
+       사실이지 앱 데이터가 아니다 — PC 에서 본 것이 폰의 새 것 표시를 지우면 폰 사용자는 본 적
+       없는 것을 본 것으로 처리당한다(`themeAuto`·`trayResident` 와 같은 논증).
+     ⚠ 날짜만 담는다(시각 아님). 같은 날 두 번 여는 것은 델타가 아니다. */
+  seenAt: z._default(z.record(z.string(), z.string()), {}),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

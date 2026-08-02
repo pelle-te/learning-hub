@@ -39,6 +39,7 @@ import { colorForId, openVaultSearch, vaultQuery } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState, CbmsCode, ScheduleResult } from '@/lib/types';
 import { Icon } from '@/components/Icon';
+import JolCard from './JolCard';
 
 /* ── C-7 일곱 번째 이식(review) — 지금까지 최대(689줄 TSX · 515 CSS) ──────────
    규약은 §15 + `styles/tokenBridge.css` 머리주석이 SSOT. `Review.module.css` 삭제.
@@ -794,6 +795,9 @@ export default function Review() {
         <div className={SIDECOL}>
           {/* key=주 — 주 이동 시 리마운트해 메모 draft를 그 주 note로 재동기화(+언마운트 flush). */}
           <ChecklistCard key={wk} wk={wk} />
+          {/* T-9 지연 JOL — **조건부 한 줄**. 물을 것이 없으면 스스로 사라진다(그 카드 머리주석).
+              여기(리뷰)인 이유는 러너에서 물으면 묻고 바로 푸는 즉시 JOL 이 되기 때문이다. */}
+          <JolCard />
           <WorkbenchCard />
           <BacklogReviewCard ds0={ds0} ds6={ds6} />
         </div>

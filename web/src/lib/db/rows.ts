@@ -39,6 +39,9 @@ export const ARRAY_SLICES = [
      `(slice, id, ord, value)` 이고 슬라이스는 *데이터 열*이다. 그래서 D1 마이그레이션 0 ·
      서버 zod 0 · 폰 전파 0 이고, `value` 는 불투명 JSON 이라 서버가 안을 안 본다. */
   'questions',
+  /* T-9 지연 JOL 의 예측 원장. 위 `questions` 와 같은 이유로 DDL 0 이고, 같은 이유로
+     `dbRows.test.ts` 의 누락 감지 케이스를 **의도적으로** 갱신해야 한다. */
+  'jolAsks',
 ] as const;
 export type ArraySlice = (typeof ARRAY_SLICES)[number];
 
@@ -385,7 +388,16 @@ export function stateToRows(state: AppState): DbRows {
     runtime: [],
     completions: [],
     dsMaps: { dayOverrides: [], dayPlans: [], rituals: [], resume: [] },
-    arrays: { cbms: [], backlog: [], blankResults: [], retentionLog: [], events: [], tasks: [], questions: [] },
+    arrays: {
+      cbms: [],
+      backlog: [],
+      blankResults: [],
+      retentionLog: [],
+      events: [],
+      tasks: [],
+      questions: [],
+      jolAsks: [],
+    },
     summaries: [],
     weekAlloc: [],
   };
