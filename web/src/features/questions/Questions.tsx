@@ -195,7 +195,10 @@ export default function Questions() {
   const chapters = (item?.chapters || []).map((c) => c.name);
 
   return (
-    <div className={WRAP}>
+    /* ⚠ `<section aria-label>` 이다 — 탭 본문은 **h2 또는 라벨된 섹션**을 가져야 한다는 계약이
+       있고(`visual.spec.ts` 가 그걸 집행한다), 그건 스냅샷 편의가 아니라 **랜드마크**다.
+       처음엔 `<div>` 로 두었다가 그 검사에 잡혔다. */
+    <section className={WRAP} aria-label="문항 원장">
       <div className="flex flex-none flex-wrap items-center gap-2">
         <label htmlFor="q-sid" className="ds-caps">
           과목
@@ -297,6 +300,6 @@ export default function Questions() {
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }

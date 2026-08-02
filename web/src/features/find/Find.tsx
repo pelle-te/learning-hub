@@ -65,7 +65,8 @@ export default function Find() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-3.5 p-6">
+    /* ⚠ `<section aria-label>` — 탭 본문의 랜드마크 계약(`visual.spec.ts` 가 집행). */
+    <section className="flex h-full flex-col gap-3.5 p-6" aria-label="찾기">
       <div className="ds-fld flex-none">
         <label htmlFor="find-q">무엇을 찾나요</label>
         <input
@@ -116,6 +117,6 @@ export default function Find() {
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }

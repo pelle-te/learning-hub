@@ -558,6 +558,12 @@ export const TABS = [
   // 공유 SEED 에 CBMS 기록이 있어 **빈 상태가 아니라 실제 카드**가 그려진다(§15-4).
   'mistakes',
   'guide',
+  /* T-7 문항 원장 + T-2 회수 창(2026-08-02). 로스터에 넣는 이유는 `mistakes` 와 같다 —
+     라우트가 살아 있고 공유 SEED 로 **빈 상태가 아닌 실제 화면**이 그려진다(§15-4). */
+  'questions',
+  /* T-25 검색 화면(2026-08-02). 질의가 없는 첫 진입은 `State` 안내 화면이라, 여기서 잡히는
+     것은 **그 안내가 실제로 그려지는가**다(빈 화면과 고장은 구분돼야 한다). */
+  'find',
   'ledger',
   // ⚠ `graph` 는 **탭이 아니라 `/items?view=structure` 뷰다**(P-19 · 2026-08-01). 로스터는
   // 경로로 도는데 그 경로는 이제 `items` 의 쿼리 변형이라, 탭 로스터가 아니라 아래 개별
@@ -684,14 +690,19 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
   {
     /* `shell/modal` 의 명령형 confirm — 파괴적 동작의 마지막 관문이라 오버레이 중에서도
      **틀리면 대가가 가장 큰** 자리다. 학기를 펼친 뒤 삭제를 누르면 뜬다(확인은 누르지 않는다). */
+    /* ⚠⚠ **입구를 옮겼다(2026-08-02).** 종전엔 `/degree` 의 `학기 삭제` 였는데, **Q-13 이 그
+       확인창을 되돌리기 토스트로 바꿨다**(`ui.commitUndoable`) — 즉 그 경로엔 이제 `dialog` 가
+       없고 이 케이스는 30초를 기다리다 죽는다. 검사 대상은 *그 버튼*이 아니라 **`role="dialog"`
+       라는 형상**이므로, 확인창이 정당하게 남아 있는 자리로 옮기면 검사력은 그대로다.
+       ⚠ 고른 자리가 `설정 → 전체 초기화…`인 이유: `confirmIrreversible` 은 Q-13 사다리의 **③단**
+         이라 앞으로도 토스트로 강등될 일이 없고, **조건 없이 늘 렌더된다**(기록 수·콜드 게이트에
+         안 걸린다 — `오래된 기록 정리` 를 먼저 써 봤다가 그 이유로 클릭이 타임아웃했다).
+       ⚠ 여기서 **확인을 누르지 않는다** — 여는 것까지가 이 검사의 범위다(누르면 데이터를
+         지운다). 오버레이 a11y 는 *떠 있는 상태*의 성질이다. */
     key: 'overlay-confirm',
-    path: '/degree',
+    path: '/settings',
     열기: async (page) => {
-      await page
-        .getByRole('button', { name: /2026-1학기/ })
-        .last()
-        .click();
-      await page.getByRole('button', { name: '학기 삭제' }).click();
+      await page.getByRole('button', { name: /전체 초기화/ }).click();
     },
     ready: (page) => page.getByRole('dialog').waitFor(),
   },
