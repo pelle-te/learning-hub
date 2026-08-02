@@ -27,6 +27,7 @@ import State from '@/components/State';
 import { Button } from '@/components/ui';
 import type { CbmsCode } from '@/lib/types';
 import { Icon } from '@/components/Icon';
+import LapseCard from './LapseCard';
 
 const WRAP = 'flex h-full flex-col gap-3 p-6';
 const FILTERS = 'flex flex-none flex-wrap items-center gap-2';
@@ -271,6 +272,12 @@ export default function Mistakes() {
           )}
         </div>
       )}
+
+      {/* T-19 — 같은 질문("무엇이 반복해서 틀리나")의 **더 큰 표본이 Anki 안에 이미 있다**.
+          여기 나란히 두면 "앱에는 안 적었지만 Anki 는 알고 있는 것"이 보인다.
+          ⚠ 누를 때만 부른다 — 왕복 셋 + Anki 가 꺼져 있으면 타임아웃이라, 화면 열 때마다
+            내면 오답 노트가 느려진다. */}
+      <LapseCard />
     </section>
   );
 }

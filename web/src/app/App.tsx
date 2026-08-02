@@ -44,6 +44,8 @@ import { getReactTab, prefetchTab } from '@/features/registry';
 import CommandPalette from '@/app/CommandPalette';
 import SubTabs from '@/app/SubTabs';
 import ShortcutsHelp from '@/app/ShortcutsHelp';
+import KeycapBar from '@/app/KeycapBar';
+import GlanceMode from '@/app/GlanceMode';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
 import AmbientCanvas from '@/components/AmbientCanvas';
@@ -448,6 +450,11 @@ export default function App() {
       {pathname === MINI_PATH && <MiniHud />}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {/* T-22 — `Alt` 를 **누르는 동안만** 이 화면의 키를 아래 한 줄로. 상태가 없어 도움말
+          오버레이(`?`)와 겹치지 않는다: 저긴 "찾아보는" 곳, 여긴 "곁눈으로 보는" 곳. */}
+      <KeycapBar />
+      {/* T-20 — 거리 표면(`⇧G`). 새 데이터 0: `usePageChrome` 의 수를 크게 그릴 뿐이다. */}
+      <GlanceMode />
       <OnlineStatus />
       <BootRecovery />
       <StorageGuard />
