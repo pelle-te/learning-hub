@@ -29,6 +29,7 @@ import {
 } from '@/lib/degree';
 import DegreeReq from './DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
+import PhaseBoard from './PhaseBoard';
 import { Icon } from '@/components/Icon';
 
 /** 학기·과목 타입은 lib/degree가 SSOT(DegreeSemester/DegreeCourse). d.semesters가 이미 그 타입. */
@@ -416,6 +417,9 @@ function DegreePlan() {
 
   return (
     <>
+      {/* T-4·T-15·T-16 — **학기의 경계**. 로드맵(가로 트랙) 바로 아래가 자리다: 트랙이 "어디까지
+          왔나"를 말하고, 이 판이 "지금 국면에서 뭘 하나"를 말한다. */}
+      <PhaseBoard />
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}

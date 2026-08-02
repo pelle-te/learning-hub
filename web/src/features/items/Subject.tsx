@@ -41,6 +41,7 @@ import { calibrationLabel, subjectCalibration } from '@/lib/estimateCalibration'
 import { Button, Pill } from '@/components/ui';
 import State from '@/components/State';
 import { SubjectDefinition } from './SubjectDefinition';
+import { CourseContext } from './CourseContext';
 
 const COL = 'flex min-h-0 min-w-0 flex-col gap-3.5 overflow-y-auto [scrollbar-width:thin]';
 const CARD_T = 'mb-2! ds-caps';
@@ -263,6 +264,8 @@ export default function Subject() {
           </Button>
         </div>
         <SubjectDefinition item={item} mutate={mutate} onDelete={removeItem} />
+        {/* T-17·T-27 — 이 과목이 **다른 것과 어떻게 맞물리나**(시간축·의존축). 정의 아래가 자리다. */}
+        <CourseContext item={item} mutate={mutate} />
       </div>
       <Knowing name={item.name} />
       <Retrieval sid={item.id} />
