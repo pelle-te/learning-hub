@@ -20,6 +20,7 @@ import {
   isPristineState,
 } from '@/lib/persistence';
 import { resolveTheme } from '@/lib/uiState';
+import { routeLabelOf } from './tabs';
 import { loadReads, importReads } from '@/lib/reads';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
@@ -486,6 +487,15 @@ export function runCloseout(): void {
    (components→store 금지 경계 준수). 캡처는 기록 프리필 요청 = 오늘탭 블록 버튼과 같은 동선 재사용. */
 
 /** 빠른 캡처가 파서에 넘길 과목 스냅샷(id·name). */
+/* T-26 — 지금 화면 고정/해제. ⚠ 경로·라벨을 **부를 때** 읽는다(모듈 로드 시점이 아니라):
+   팔레트 명령 목록은 열 때 한 번 만들어지므로, 여기서 값을 굳히면 "지금" 화면이 아니라
+   *팔레트를 처음 연* 화면이 고정된다. 상한 규칙은 `lib/pins` 가 소유한다. */
+export function toggleCurrentPin(): void {
+  const to = window.location.pathname;
+  const key = to.split('/')[1] || 'today';
+  useUI.getState().togglePin(to, routeLabelOf(key), Date.now());
+}
+
 export function captureSubjects(): { id: string; name: string }[] {
   return st().state.items.map((i) => ({ id: i.id, name: i.name }));
 }

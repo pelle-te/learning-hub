@@ -17,6 +17,9 @@ import { loadReads } from '@/lib/reads';
 import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { markVia } from '@/lib/visits';
 import { Icon } from '@/components/Icon';
+import { parsePlanCommand } from '@/lib/planCommand';
+import { bumpWeeklyHours } from '@/lib/weekAlloc';
+import { useApp } from '@/store/useApp';
 import type { SemHit, SemKind } from '@/lib/semantic';
 import type { IconName } from '@/lib/iconPaths';
 
@@ -222,7 +225,15 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         : null,
     [open, mode, q, subjects],
   );
+  const mutate = useApp((st) => st.mutate);
   const showCapture = meaningful(cap);
+
+  /* T-12 — 문장을 계획 변경으로 읽는다. 객체 모드에서만(시길은 의도 선언이지 문장이 아니다 · Q-21).
+     ⚠ 판정은 `lib/planCommand` 가 소유한다 — 여기선 결과를 그리고 커밋만 한다. */
+  const planCmd = useMemo(
+    () => (open && mode === 'object' && q ? parsePlanCommand(q, subjects) : null),
+    [open, mode, q, subjects],
+  );
 
   // E-6/C-3: 오프라인 통합 검색 — 학습 항목·독서·보충·반복약점을 부분문자열로(Ollama 불필요, 항상 동작).
   const content = useMemo(
@@ -439,6 +450,40 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         ) : (
           <>
             <NoMatchFallback search={search} suppressed={showCapture || content.length > 0 || shownSem.length > 0} />
+            {/* ── T-12 명령줄이 계획을 쓴다 ─────────────────────────────────────────
+                문장이 계획 변경으로 읽히면 **맨 위**에 둔다. 캡처보다 위인 이유: 계획 변경은
+                *지금 바로 반영되는 행동*이고 캡처는 나중에 볼 기록이라 되돌리는 비용이 다르다.
+                ⚠ 못 알아들었을 때 조용히 사라지지 않는다 — 판정·문구는 `lib/planCommand` 가
+                  소유하고(화면마다 새로 지으면 갈린다) 여기선 그 결과를 그린다. */}
+            {planCmd?.kind === 'ok' && (
+              <Command.Item
+                key="plan-cmd"
+                forceMount
+                value={'plan-cmd ' + search}
+                className={`${ITEM} ${CAPTURE}`}
+                onSelect={() => {
+                  const c = planCmd.cmd;
+                  mutate((st) => {
+                    const it = st.items.find((i) => i.id === c.sid);
+                    if (it) it.weeklyHours = bumpWeeklyHours(it.weeklyHours, c.deltaH);
+                  });
+                  close();
+                }}
+              >
+                <span className={LABEL}>
+                  <Icon name="balance" /> 계획 바꾸기 — {planCmd.echo}
+                </span>
+                <span className={HINT_CAP}>Enter 로 적용 · ⌘Z 로 되돌리기</span>
+              </Command.Item>
+            )}
+            {planCmd?.kind === 'unknown-subject' && (
+              <Command.Item key="plan-cmd-miss" forceMount value={'plan-cmd ' + search} className={ITEM} disabled>
+                <span className={LABEL}>
+                  <Icon name="balance" /> “{planCmd.typed}” 과목을 못 찾았어요
+                </span>
+                <span className={HINT_CAP}>예: {planCmd.candidates.join(' · ')}</span>
+              </Command.Item>
+            )}
             {showCapture && cap && (
               <Command.Item
                 key="quick-capture"

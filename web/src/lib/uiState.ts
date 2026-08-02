@@ -101,6 +101,12 @@ export const UIStateSchema = z.object({
        없는 것을 본 것으로 처리당한다(`themeAuto`·`trayResident` 와 같은 논증).
      ⚠ 날짜만 담는다(시각 아님). 같은 날 두 번 여는 것은 델타가 아니다. */
   seenAt: z._default(z.record(z.string(), z.string()), {}),
+  /* T-26 핀 슬롯 — 어느 화면이든 고정해 상단에 띄운다.
+     ⚠ 기기별이다(`seenAt` 과 같은 논증): 무엇을 눈앞에 두고 싶은가는 이 기기의 주의에 대한
+       사실이고, PC 의 선택이 폰의 좁은 화면 위쪽을 차지하면 그건 방해다.
+     ⚠ 상한(`MAX_PINS`)은 `lib/pins` 가 소유한다 — 스키마에 넣으면 초과분이 **저장 시점에
+       거부**되고 사용자는 왜 안 붙었는지 모른다(선수 관계 순환에서 내린 것과 같은 판단). */
+  pins: z._default(z.array(z.object({ to: z.string(), label: z.string(), at: z.number() })), []),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

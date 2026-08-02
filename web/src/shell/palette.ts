@@ -125,6 +125,10 @@ function baseCommands(): PaletteCommand[] {
       run: () => useOverlay.getState().setHelp(true),
     },
     // 테마
+    /* T-26 — 지금 화면 고정/해제. **팔레트가 그 입구인 이유**: 고정은 화면마다 있는 버튼이
+       아니라 *어느 화면에서든* 부르는 동작이라, 크롬에 버튼을 23개 심는 대신 명령 하나를 둔다.
+       ⚠ 라벨·경로는 부를 때 읽는다(모듈 로드 시점이 아니라) — 그래야 "지금" 화면이 잡힌다. */
+    { id: 'act:pin', kind: 'act', label: '이 화면 고정 / 해제', hint: '핀', run: A.toggleCurrentPin },
     { id: 'act:theme', kind: 'act', label: '테마 전환(다크↔라이트)', hint: '설정', run: A.toggleTheme },
     { id: 'act:theme-dark', kind: 'act', label: '다크 모드', hint: '테마', run: () => A.setThemeTo('dark') },
     { id: 'act:theme-light', kind: 'act', label: '라이트 모드', hint: '테마', run: () => A.setThemeTo('light') },

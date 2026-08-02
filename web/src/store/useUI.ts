@@ -8,6 +8,7 @@ import { immer } from 'zustand/middleware/immer';
 import { storage } from '@/lib/kv';
 import { idbMirror } from '@/lib/idb';
 import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
+import { canPin, togglePin as togglePinPure } from '@/lib/pins';
 
 export interface UIStore {
   ui: UIState;
@@ -27,6 +28,8 @@ export interface UIStore {
   setReminderFired: (ds: string) => void;
   /** T-13 — 이 화면을 오늘 봤다고 표시. 같은 날 두 번째는 아무것도 안 한다(쓰기 낭비 방지). */
   markSeen: (key: string, ds: string) => void;
+  /** T-26 — 지금 화면을 고정/해제. 상한 규칙은 `lib/pins.togglePin` 이 소유한다. */
+  togglePin: (to: string, label: string, at: number) => void;
   /** OS 가 지금 말하는 테마(기기-로컬 · H9). `null` = 덮지 않음(정본 `state.theme` 이 보인다).
    *  ThemeProvider 가 감지 결과를 여기 싣고, 수동 선택(`actions.setThemeTo`)이 `null` 로 지운다. */
   setAutoTheme: (t: UIState['autoTheme']) => void;
@@ -97,6 +100,14 @@ export const useUI = create<UIStore>()(
       setReminderFired(ds) {
         set((s) => {
           s.ui.reminderLastDs = ds;
+        });
+        flush();
+      },
+      togglePin(to, label, at) {
+        if (!canPin(to, label)) return;
+        const next = togglePinPure(get().ui.pins, { to, label, at });
+        set((s) => {
+          s.ui.pins = next;
         });
         flush();
       },

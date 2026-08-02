@@ -31,6 +31,7 @@ import { singleKeyBlocked } from '@/shell/keyGate';
 import StorageGuard from '@/app/StorageGuard';
 import VaultSync from '@/app/VaultSync';
 import StorageBanner from '@/app/StorageBanner';
+import PinBar from '@/app/PinBar';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
 import { markVia, recordVisit, takeVia } from '@/lib/visits';
@@ -405,6 +406,9 @@ export default function App() {
       {/* 본문 컬럼 — TopBar(고정) + 라우트 본문(HudFrame 안에서 흐름). */}
       <div className="flex h-screen min-w-0 flex-col overflow-hidden max-mobile:h-auto max-mobile:min-h-screen max-mobile:overflow-visible max-mobile:pb-16">
         <TopBar />
+        {/* T-26 — 고정한 것들. 아무것도 없으면 **줄 자체가 없다**(빈 슬롯을 그리면 높이가
+            늘 흔들린다 · 레일 신호줄이 조건부인 것과 같은 이유). */}
+        <PinBar />
         {/* 정본 저장소 실패의 지속 표시(C1) — 정상 경로·브라우저에선 null 이라 레이아웃 영향 0. */}
         <StorageBanner />
         {/* 라우트 본문 = 페이지의 주 콘텐츠 → <main> 랜드마크. 스킵 링크 타깃(tabIndex=-1로 프로그램 포커스). */}
