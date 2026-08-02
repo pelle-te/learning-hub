@@ -22,6 +22,7 @@ const led = (p: Partial<Ledger>): Ledger => ({
   at: null,
   failed: false,
   blocked: null,
+  checking: false, // Q-23 — 기본은 "확인 중 아님"(클라우드 미연결이 이 앱의 완결된 상태다)
   ...p,
 });
 

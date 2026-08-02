@@ -54,6 +54,9 @@ export default function Discovery() {
   const qc = useQueryClient();
   const data = disc.data;
   const [busy, setBusy] = useState<string | null>(null); // 결정 진행 중인 후보 id(행 잠금).
+  /* Q-24 — 낙관 표시(어느 행을 어느 쪽으로 눌렀나). ⚠ `data` 를 복제하지 않는다 — 목록의 정본은
+     여전히 재조회이고, 이건 *이 클릭*의 시각적 되먹임일 뿐이다(멱등 규율). */
+  const [optimistic, setOptimistic] = useState<{ id: string; decision: DiscoveryDecision } | null>(null);
 
   const counts = useMemo(() => discoveryStatusCounts(data), [data]);
   const pending = useMemo(() => pendingEntries(data), [data]);
@@ -72,24 +75,40 @@ export default function Discovery() {
     [counts.pending, counts.promoted, counts.dismissed],
   );
 
-  // 사람 결정 — 백엔드가 살아 있으면 승격.py 를 호출하고 큐를 재페치(낙관 갱신 대신 SSOT 재조회 = 멱등 규율 존중).
+  /* 사람 결정 — 백엔드가 살아 있으면 승격.py 를 호출하고 큐를 재페치.
+     ⚠ **SSOT 재조회는 그대로다(멱등 규율 유지)** — 아래 낙관은 `data` 를 건드리지 않고 *이 화면이
+     방금 무엇을 눌렀는지*만 기억한다. 서버 응답이 오면 재조회가 진실을 덮는다.
+
+     ## Q-24 — 낙관 + **명시 롤백**(2026-08-02)
+     종전엔 누른 행이 `opacity-50` 으로 흐려지고 버튼 글자가 `…` 가 됐다. 셋 다 문제였다:
+     ① 컨테이너 `opacity` 는 **자기 글자를 대비 미달로 떨군다**(a11y 게이트가 두 번 물린 관용구 ·
+        `ds-shed` 머리주석이 그 기전을 적어 뒀다) ② 흐림은 "처리 중"과 "비활성"을 구분 못 한다
+     ③ 실패하면 행이 **소리 없이 원래대로** 돌아왔다 — 사용자에겐 "안 눌렸다"로 보이고, 그게
+        재클릭을 만든다(이 항목의 근거). 되돌렸다는 사실은 **말해야 한다.** */
   const decide = async (id: string, decision: DiscoveryDecision) => {
     if (busy) return;
     setBusy(id);
+    setOptimistic({ id, decision }); // 즉시 결과를 보여 준다(자리는 유지 — 재조회가 진짜로 걷어낸다)
     try {
       const r = await runTool(DISCOVERY_DECISION_TOOL[decision], { subject: id });
       if (r.ok && r.code === 0) {
         ui.toast(decision === 'promote' ? '후보를 승격했어요(→ 개론 분해 핸드오프).' : '후보를 기각했어요.', 'ok');
         await qc.invalidateQueries({ queryKey: DISCOVERY_KEY });
       } else {
-        ui.toast((r.out || '').slice(0, 140) || `${needsWorkspace('결정을 반영하지 못했어요')}.`, 'bad');
+        rollback(decision, (r.out || '').slice(0, 140) || `${needsWorkspace('결정을 반영하지 못했어요')}.`);
       }
     } catch (e) {
       // H23 — 사유를 버리지 않는다(같은 오진이 두 곳에 있었다).
-      ui.toast(`${toolFailureCopy(e, '결정을 반영하지 못했어요')}.`, 'bad');
+      rollback(decision, `${toolFailureCopy(e, '결정을 반영하지 못했어요')}.`);
     } finally {
       setBusy(null);
+      setOptimistic(null);
     }
+  };
+
+  /** 낙관을 접고 **되돌렸다는 사실을 말한다** — 조용한 원복이 재클릭의 원인이었다. */
+  const rollback = (decision: DiscoveryDecision, why: string): void => {
+    ui.toast(`${why} — ${decision === 'promote' ? '승격' : '기각'}을 되돌렸어요(후보는 큐에 그대로예요).`, 'bad', 8000);
   };
 
   if (disc.isLoading) {
@@ -155,7 +174,13 @@ export default function Discovery() {
 
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {pending.map((e) => (
-          <Candidate key={e.id} entry={e} busy={busy === e.id} disabled={busy != null} onDecide={decide} />
+          <Candidate
+            key={e.id}
+            entry={e}
+            pending={optimistic?.id === e.id ? optimistic.decision : null}
+            disabled={busy != null}
+            onDecide={decide}
+          />
         ))}
       </ul>
     </section>
@@ -165,12 +190,13 @@ export default function Discovery() {
 /** 후보 1건 — kind 배지 · 제목 · (다리개념이면) 잇는 목표 · source · score + 승격/기각. */
 function Candidate({
   entry,
-  busy,
+  pending,
   disabled,
   onDecide,
 }: {
   entry: DiscoveryEntry;
-  busy: boolean;
+  /** Q-24 — 방금 누른 결정(낙관). `null` 이면 평상시. */
+  pending: DiscoveryDecision | null;
   disabled: boolean;
   onDecide: (id: string, decision: DiscoveryDecision) => void;
 }) {
@@ -178,7 +204,17 @@ function Candidate({
   const goals = entryGoals(entry);
   return (
     <li
-      className={`flex items-center gap-3 rounded-md border border-line bg-panel px-3 py-3 transition-colors hover:border-line-acc-strong ${busy ? 'pointer-events-none opacity-50' : ''}`}
+      /* Q-24 — 낙관 표시. **기각은 `ds-shed`**(빠짐 어휘 · 채도 저하 + 취소선 · 투명도 금지)이고
+         **승격은 액센트 테두리**다: 둘은 반대 방향의 사건이라 같은 표기를 쓰면 무엇이 일어났는지
+         모른다. 종전의 `opacity-50` 은 둘을 같게 만들면서 대비까지 깎았다. */
+      className={`flex items-center gap-3 rounded-md border bg-panel px-3 py-3 transition-colors ${
+        pending === 'dismiss'
+          ? 'ds-shed pointer-events-none border-line'
+          : pending === 'promote'
+            ? 'pointer-events-none border-line-acc-strong'
+            : 'border-line hover:border-line-acc-strong'
+      }`}
+      aria-busy={pending != null}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2">
@@ -223,11 +259,13 @@ function Candidate({
         </div>
       </div>
       <div className="flex flex-none gap-1">
+        {/* ⚠ 라벨이 **무엇이 일어나는 중인지**를 말한다 — `…` 은 어느 버튼을 눌렀든 같아서
+            "승격 중"과 "기각 중"을 구분 못 했다(그리고 그건 실패 시 무엇이 안 됐는지도 못 말한다). */}
         <Button sm variant="primary" disabled={disabled} onClick={() => onDecide(entry.id, 'promote')}>
-          {busy ? '…' : '승격'}
+          {pending === 'promote' ? '승격 중…' : '승격'}
         </Button>
         <Button sm variant="ghost" danger disabled={disabled} onClick={() => onDecide(entry.id, 'dismiss')}>
-          기각
+          {pending === 'dismiss' ? '기각 중…' : '기각'}
         </Button>
       </div>
     </li>

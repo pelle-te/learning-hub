@@ -14,15 +14,17 @@ import {
 } from '@/shell';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
+import { useFocus } from '@/store/useFocus';
 import { isTyping } from '@/hooks/interactions';
 import { useVaultAnchorsVersion } from '@/hooks/useVaultAnchors';
 import { useLeaveCursor } from './useLeaveCursor';
 import { useFrameMemory } from './useFrameMemory';
+import { useTaskbarBadge } from './useTaskbarBadge';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
 import MiniHud from '@/app/MiniHud';
-import { MINI_PATH } from '@/lib/miniMode';
+import { MINI_PATH, enterMini } from '@/lib/miniMode';
 import { singleKeyBlocked } from '@/shell/keyGate';
 import StorageGuard from '@/app/StorageGuard';
 import VaultSync from '@/app/VaultSync';
@@ -117,6 +119,8 @@ export default function App() {
   /* Q-16 — 성공 렌더의 형상(리드아웃 수·앵커 유무)을 기억해 **다음 진입의 뼈대**가 그 화면을
      닮게 한다. 여기 있는 이유는 `useLeaveCursor` 와 같다(라우트와 스토어가 여기서만 만난다). */
   useFrameMemory(routeKey);
+  /* Q-30 — 작업표시줄 배지. 레일 배지와 **같은 식**을 쓴다(그 훅 머리주석이 이유의 SSOT). */
+  useTaskbarBadge();
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;
@@ -184,10 +188,27 @@ export default function App() {
   useEffect(() => {
     let off: (() => void) | null = null;
     let dead = false;
+    /* ── Q-26 캡처 착지 — **창을 복원하지 않고 알약으로 받는다**(2026-08-02) ──────────────
+       종전엔 핫키가 1440×900 창을 복원했다. 한 줄을 적어 두려고 눌렀는데 화면 전체가 뜨고
+       레일·리드아웃·오늘 계획이 통째로 눈에 들어온다 — 그건 캡처가 아니라 **문맥 전환**이고,
+       핫키가 지키려던 집중을 핫키가 깨뜨리는 형태다.
+
+       ⚠⚠ **집중 세션 중에만 그렇게 한다.** `hotkey.rs` 머리주석이 실측으로 못박은 범위가 그것이고
+       (_"값이 나오는 구간은 집중 세션 중"_), 그 파일이 **드롭했다고 적은 것은 `/capture` 라는 새
+       상시 인박스 라우트**다 — 여기서 하는 것은 새 라우트가 아니라 **`/mini` 기하 재사용**이다.
+       닫힌 결정을 다시 여는 것이 아니라 그 결정이 남긴 좁은 값을 제대로 착지시키는 것이다.
+       ⚠ 세션이 없으면 착지할 알약이 없다 → 종전 그대로 팔레트. 미니 진입이 실패해도 같다
+       (작아지지 않았는데 알약 화면만 뜨는 반쪽 상태 금지 — `lib/miniMode` 가 세운 규율). */
     const land = () => {
       const o = useOverlay.getState();
-      if (pathRef.current === MINI_PATH) o.setMiniCapture(true);
-      else o.setPalette(true);
+      if (pathRef.current === MINI_PATH) return o.setMiniCapture(true);
+      if (!useFocus.getState().session) return o.setPalette(true);
+      const from = pathRef.current;
+      void enterMini(from, true).then((ok) => {
+        if (!ok) return o.setPalette(true);
+        navigate(MINI_PATH, { replace: true });
+        o.setMiniCapture(true);
+      });
     };
     void onGlobalCapture(land).then((f) => {
       // ⚠ 언마운트가 구독 완료보다 빠를 수 있다 — 그때 바로 떼지 않으면 리스너가 샌다.
@@ -198,6 +219,10 @@ export default function App() {
       dead = true;
       off?.();
     };
+    /* ⚠ `navigate` 를 deps 에 넣지 않는다 — react-router 가 그것을 안정 참조로 보장하지 않아
+       넣으면 라우팅마다 **전역 핫키 구독이 떼였다 붙는다**(IPC 왕복 포함). 바로 아래 전역
+       단축키 이펙트가 같은 이유로 오버레이 상태를 `getState` 로 읽는다 — 같은 규율이다. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 전역 단축키: ⌘K/Ctrl+K 팔레트 · '?' 도움말 · 'g'+키 탭 이동(입력 중엔 단일키 무시).

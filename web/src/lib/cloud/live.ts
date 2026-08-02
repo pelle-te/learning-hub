@@ -8,16 +8,31 @@
 
    연결 실패·끊김은 지수 백오프로 재시도하되, **못 붙어도 앱은 기존 이벤트/폴링 동기화로 그대로
    돈다**(syncController). 그래서 실패를 조용히 삼킨다 — 실시간은 최신성의 *향상*이지 정확성의
-   전제가 아니다. (데스크톱 Tauri 웹뷰는 CSP `connect-src 'self' ipc:` 로 이 WS 가 막히므로,
-   syncController 가 **폰에서만** 이걸 켠다.)
+   전제가 아니다.
+
+   ## ⚠⚠ 전송이 둘, 정책은 하나 (Q-28 · 2026-08-02)
+
+   데스크톱 웹뷰는 CSP `connect-src 'self' ipc:` 라 브라우저 `WebSocket` 이 **원리적으로 못 나간다**
+   → 종전엔 실시간이 폰에만 켜져 있었고 PC 는 다른 기기의 편집을 창 복귀까지 못 봤다. 소켓을 Rust 로
+   내려 그 구간을 덮는데(`src-tauri/src/live.rs`), **갈리는 것은 전송뿐이다**:
+
+   - 아래 `MAX_BACKOFF_MS`·`LONG_OUTAGE_AFTER`·`JITTER`·`STABLE_MS`·`isPermanent` 는 실사고 둘
+     (H18 · H24)이 다듬은 값이라 **한 벌로 남는다.** 전송별로 복제하면 폰과 PC 가 서로 다르게
+     재시도하고, 다음 사고 때 어느 쪽 값이 물렸는지 알 수 없게 된다.
+   - 그래서 이 파일이 아는 전송의 형태는 `LiveTransport` **하나**다 — 열면 `onOpen`/`onPoke`/
+     `onClose` 를 부르고 `close()` 로 끝난다. 그 세 콜백이 정확히 위 정책이 필요로 하는 관측이다.
+   - ⚠ 셸 전송에서 "못 붙었다"와 "붙었다 끊겼다"는 **같은 `onClose`** 로 온다(Rust 가 그렇게 보낸다).
+     둘을 가르는 것은 `onOpen` 을 봤는가이고, 그건 이 파일이 이미 하던 판정이다(`openedAt`).
 
    ## 인증
 
    브라우저 WebSocket 은 Authorization 헤더를 못 싣는다 → 액세스 토큰을 **서브프로토콜**로 싣는다
    (`new WebSocket(url, [token])`). 서버가 검증(+폐기 확인)하고 그 프로토콜을 되돌려준다(§P0-2 연장).
+   ⚠ 셸 전송도 **같은 형태**로 싣는다(헤더로 바꾸면 서버 검증 경로가 둘이 된다 — `live.rs` 머리주석).
 ============================================================ */
 import { currentAccessToken, type CloudConfig } from './client';
 import { isPermanent } from './push';
+import { isTauri, onShellLive, shellLiveClose, shellLiveOpen } from '@/lib/tauri';
 
 /** https→wss · http→ws(루프백 dev). */
 function wsUrl(baseUrl: string): string {
@@ -27,6 +42,116 @@ function wsUrl(baseUrl: string): string {
 export interface LiveHandle {
   close: () => void;
 }
+
+/* ── 전송 계층 ────────────────────────────────────────────────────────────────────────────
+   ⚠ 이 세 콜백이 **정책이 필요로 하는 관측의 전부**다. 늘리고 싶어지면 그건 정책이 전송으로
+   새고 있다는 신호다(예: "재시도 몇 번째인가"는 여기 오면 안 된다 — 아래가 세고 있다). */
+interface LiveHooks {
+  onOpen: () => void;
+  onPoke: () => void;
+  /** 못 붙었든 붙었다 끊겼든 **정확히 한 번**. 둘을 가르는 것은 `onOpen` 을 봤는가다. */
+  onClose: () => void;
+}
+interface LiveSocket {
+  /** 끊는다. 이 뒤로 훅은 **안 불린다**(재연결 판단은 정책이 이미 내렸다). */
+  close: () => void;
+}
+type LiveTransport = (url: string, token: string, h: LiveHooks) => LiveSocket;
+
+/** 브라우저 `WebSocket`(폰·dev). keep-alive 타이머가 여기 있는 이유는 아래 `PING_MS` 주석. */
+const browserTransport: LiveTransport = (url, token, h) => {
+  let ws: WebSocket | null = null;
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
+  let done = false;
+  const stopPing = (): void => {
+    if (pingTimer) clearInterval(pingTimer);
+    pingTimer = null;
+  };
+  const finish = (): void => {
+    if (done) return;
+    done = true;
+    stopPing();
+    h.onClose();
+  };
+  try {
+    ws = new WebSocket(url, [token]);
+  } catch {
+    /* 생성 자체가 던지는 경우(잘못된 URL 등) — 정책이 `onClose` 하나로 다루게 **비동기로** 알린다.
+       동기로 부르면 호출부가 아직 `socket` 을 대입하기 전이라 재연결이 자기 자신을 덮어쓴다. */
+    queueMicrotask(finish);
+    return { close: () => void (done = true) };
+  }
+  ws.onopen = (): void => {
+    pingTimer = setInterval(() => {
+      try {
+        ws?.send('ping');
+      } catch {
+        // 닫히는 중이면 무시.
+      }
+    }, PING_MS);
+    h.onOpen();
+  };
+  ws.onmessage = (e: MessageEvent): void => {
+    if (e.data === 'poke') h.onPoke();
+  };
+  ws.onclose = finish;
+  // onerror 는 따로 두지 않는다 — 브라우저가 error 뒤 close 를 이어 쏘고, 재연결은 onclose 가 잡는다.
+  return {
+    close(): void {
+      done = true;
+      stopPing();
+      try {
+        ws?.close();
+      } catch {
+        // 이미 닫혔으면 무시.
+      }
+      ws = null;
+    },
+  };
+};
+
+/** 셸(데스크톱) — 소켓은 Rust 가 쥐고 우리는 이벤트만 듣는다(파일 머리주석 §전송이 둘). */
+const shellTransport: LiveTransport = (url, token, h) => {
+  let un: (() => void) | null = null;
+  let done = false;
+  const finish = (): void => {
+    if (done) return;
+    done = true;
+    un?.();
+    un = null;
+    h.onClose();
+  };
+  void (async () => {
+    try {
+      /* ⚠ **구독이 먼저다.** `cloud_live_open` 은 즉시 돌아오고 결과가 이벤트로 오므로, 순서가
+         뒤집히면 붙자마자 끊긴 연결의 `close` 를 놓쳐 **재연결이 영영 안 걸린다**. */
+      un = await onShellLive((ev) => {
+        if (done) return;
+        if (ev.kind === 'open') h.onOpen();
+        else if (ev.kind === 'poke') h.onPoke();
+        else finish();
+      });
+      if (done) {
+        un(); // 구독하는 사이에 호출부가 껐다
+        un = null;
+        return;
+      }
+      await shellLiveOpen(url, token, PING_MS);
+    } catch {
+      // 커맨드 거부(허용되지 않은 주소 등) — 열기 실패도 정책엔 `onClose` 하나다.
+      finish();
+    }
+  })();
+  return {
+    close(): void {
+      if (done) return;
+      done = true;
+      un?.();
+      un = null;
+      void shellLiveClose();
+    },
+  };
+};
 
 const MAX_BACKOFF_MS = 30_000;
 /* ⚠⚠ **오래 못 붙으면 천장을 올린다**(H24 · 2026-07-30 `/감사 근본`).
@@ -51,20 +176,14 @@ const STABLE_MS = 30_000;
  * 사용자에게 알린다 — 이 상태는 사람이 조치해야 풀리기 때문이다(H18).
  */
 export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reason: string) => void): LiveHandle {
-  let ws: WebSocket | null = null;
+  /* 전송 선택은 **여기 한 곳**이다 — 아래 정책 코드는 어느 쪽인지 알지 않는다. */
+  const transport: LiveTransport = isTauri() ? shellTransport : browserTransport;
+  let socket: LiveSocket | null = null;
   let closed = false;
   let retry = 0;
   /** 마지막 연결이 성립한 시각(0 = 연결 없음). 백오프 리셋 판정용(H18). */
   let openedAt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let pingTimer: ReturnType<typeof setInterval> | null = null;
-
-  const stopPing = (): void => {
-    if (pingTimer) {
-      clearInterval(pingTimer);
-      pingTimer = null;
-    }
-  };
 
   const scheduleReconnect = (): void => {
     if (closed || reconnectTimer) return;
@@ -92,7 +211,6 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reas
          정작 사용자는 조치가 필요하다는 사실을 모른다. 영구 실패면 멈추고 **한 번 말한다**. */
       if (isPermanent(e)) {
         closed = true;
-        stopPing();
         onDead?.(e instanceof Error ? e.message : '실시간 연결이 거부되었습니다.');
         return;
       }
@@ -100,38 +218,22 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reas
       return;
     }
     if (closed) return;
-    try {
-      ws = new WebSocket(wsUrl(cfg.baseUrl), [token]);
-    } catch {
-      scheduleReconnect();
-      return;
-    }
-    ws.onopen = (): void => {
-      /* ⚠ **여기서 백오프를 리셋하지 않는다(H18).** 서버가 붙자마자 끊는 상태(플래핑)에서
-         `retry = 0` 은 백오프를 통째로 무력화해 초당 재연결이 된다. "붙었다"의 근거는 연결
-         **성립**이 아니라 **유지**다 — 아래 `onclose` 가 `STABLE_MS` 이상 살아 있었을 때만 리셋한다. */
-      openedAt = Date.now();
-      stopPing();
-      pingTimer = setInterval(() => {
-        try {
-          ws?.send('ping');
-        } catch {
-          // 닫히는 중이면 무시.
-        }
-      }, PING_MS);
-    };
-    ws.onmessage = (e: MessageEvent): void => {
-      if (e.data === 'poke') onPoke();
-    };
-    ws.onclose = (): void => {
-      stopPing();
-      // 충분히 유지된 연결이었으면 그때만 백오프를 처음으로 되돌린다(H18).
-      if (openedAt && Date.now() - openedAt >= STABLE_MS) retry = 0;
-      openedAt = 0;
-      ws = null;
-      scheduleReconnect();
-    };
-    // onerror 는 따로 두지 않는다 — 브라우저가 error 뒤 close 를 이어 쏘고, 재연결은 onclose 가 잡는다.
+    socket = transport(wsUrl(cfg.baseUrl), token, {
+      onOpen: (): void => {
+        /* ⚠ **여기서 백오프를 리셋하지 않는다(H18).** 서버가 붙자마자 끊는 상태(플래핑)에서
+           `retry = 0` 은 백오프를 통째로 무력화해 초당 재연결이 된다. "붙었다"의 근거는 연결
+           **성립**이 아니라 **유지**다 — 아래 `onClose` 가 `STABLE_MS` 이상 살아 있었을 때만 리셋한다. */
+        openedAt = Date.now();
+      },
+      onPoke,
+      onClose: (): void => {
+        // 충분히 유지된 연결이었으면 그때만 백오프를 처음으로 되돌린다(H18).
+        if (openedAt && Date.now() - openedAt >= STABLE_MS) retry = 0;
+        openedAt = 0;
+        socket = null;
+        scheduleReconnect();
+      },
+    });
   };
 
   void open();
@@ -139,17 +241,12 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reas
   return {
     close(): void {
       closed = true;
-      stopPing();
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
-      try {
-        ws?.close();
-      } catch {
-        // 이미 닫혔으면 무시.
-      }
-      ws = null;
+      socket?.close();
+      socket = null;
     },
   };
 }

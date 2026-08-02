@@ -15,6 +15,7 @@ import { Button } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ProgressRing } from '@/components/ProgressRing';
 import { CountReadout } from '@/components/CountReadout';
+import { Num } from '@/components/Num';
 import { totalDoneHours, studyStreak } from '@/lib/persistence';
 import { cbmsCounts, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence, CBMS_INFO } from '@/lib/methodology';
 import { personalBests } from '@/lib/records';
@@ -389,6 +390,18 @@ export default function Stats() {
               <Button variant="primary" onClick={() => navigate('/items')}>
                 + 학습 항목 추가
               </Button>
+            }
+            /* Q-31 — 문구는 *무엇이 쌓이는지* 이름만 대고, 형상은 못 보여 준다. 여기 두 줄이
+               "완료율 74%"가 어떤 모양으로 서는지를 말한다. ⚠ 수는 **명백히 남의 것**이어야
+               한다(캡션이 그렇게 말하고, `inert` 가 만지지 못하게 한다 — `State` 머리주석). */
+            preview={
+              <div className="flex items-center gap-4">
+                <Num className="text-gauge font-black text-acc tabular-nums" value={74} unit="%" />
+                <div className="flex flex-col gap-0.5 text-left">
+                  <span className="text-sm font-bold text-txt">완료율 · 실제/계획</span>
+                  <span className="text-xs text-mut tabular-nums">이번 주 8.5h / 11.5h · 스트릭 6일</span>
+                </div>
+              </div>
             }
           />
         </div>

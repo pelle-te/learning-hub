@@ -37,6 +37,19 @@ export interface Ledger {
    * 덮으면 사용자는 네트워크가 돌아오기를 기다리며 계속 편집한다.
    */
   blocked: string | null;
+  /**
+   * **이 세션에서 아직 한 번도 동기화가 끝나지 않았다**(Q-23 · 2026-08-02).
+   *
+   * ⚠⚠ 이 필드가 없던 동안 부팅 직후 원장은 **완전히 침묵했다.** `at === null && pending === null
+   * && !failed` 이 곧 아래 "클라우드를 안 붙였으면 침묵한다" 분기와 **구분되지 않았기** 때문이다.
+   * 그런데 이 앱은 로컬이 정본이라 화면이 **즉시 그려진다** — 즉 첫 pull 이 도착하기 전에도
+   * 어제 상태가 아무 유보 없이 *확정된 오늘*처럼 보였고, 다른 기기에서 한 편집은 몇 초 뒤에
+   * 소리 없이 나타났다. "아직 모른다"와 "볼 것이 없다"는 다른 사실이다.
+   *
+   * ⚠ **연결 안 됨과 구분되어야 한다.** 클라우드를 안 붙인 사용자에게 "확인 중"은 영원히 끝나지
+   * 않는 거짓말이다 — 그래서 이 값은 `store/useSyncLedger` 가 **자격증명이 있을 때만** 켠다.
+   */
+  checking: boolean;
 }
 
 /**
@@ -56,6 +69,10 @@ export function ledgerLine(led: Ledger, now: number): { text: string; warn: bool
   if (led.blocked) {
     return { text: `동기화 중단 — ${led.blocked} (편집 ${led.pending ?? 0}건은 이 기기에 남아 있어요)`, warn: true };
   }
+  /* ⚠ **첫 확인은 오프라인보다 아래, blocked 보다 위가 아니다** — 중단은 스스로 안 낫지만 첫
+     확인은 몇 초 뒤 스스로 끝난다. 그래서 blocked 다음, 나머지보다 앞이다. 오프라인이면 확인이
+     시작조차 못 하므로 그쪽 문구가 더 정확하다. */
+  if (led.checking && led.online) return { text: '확인 중 — 다른 기기의 편집을 받아오는 중이에요', warn: false };
   if (led.at === null && led.pending === null && !led.failed) return null;
   const waiting = led.pending != null && led.pending > 0;
   const warn = !led.online || led.failed || waiting;

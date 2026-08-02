@@ -74,10 +74,35 @@ interface Common {
   desc?: ReactNode;
 }
 
+/* ── Q-31 **빈 상태가 채워질 모습을 보여준다**(2026-08-02) ────────────────────────────
+   셋업 전 이 앱은 대시보드를 **아예 안 그린다** — 미리보기가 0화면이다. 그래서 사용자는 "무엇을
+   채우면 무엇이 보이는가"를 알 방법이 채우고 나서밖에 없고, 그건 채울 이유를 채운 뒤에 아는
+   순서다. 문구는 *무엇을 하라*고 말할 수 있지만 *무엇이 생기는지*는 못 보여 준다.
+
+   ## ⚠⚠ 샘플이 실데이터로 **오해될 수 없어야** 한다 — 그게 이 기능의 전부다
+
+   이 저장소가 반복해 물린 부류가 "안 잰 것을 결과로 보고"이고, 라벨 없는 미리보기는 그것의 시각
+   판본이다(빈 화면에 그럴듯한 수가 있으면 그건 내 수로 읽힌다). 그래서 셋을 강제한다:
+
+   ① **캡션이 먼저 온다** — 샘플 위에, 접히지 않는 문장으로.
+   ② **`inert`** — 샘플 안의 무엇도 포커스·클릭을 받지 않는다. 눌러지는데 아무 일도 안 일어나는
+      가짜 버튼은 빈 화면보다 나쁘다.
+   ③ **투명도로 흐리지 않는다** — 컨테이너 `opacity` 는 a11y 를 두 번 깨뜨린 관용구이고
+      (`styles/ds.css` 의 `ds-shed` 절), 무엇보다 *흐림은 라벨이 아니다*. 구분은 말로 한다.
+
+   ⚠ `empty` 에만 붙는다. 에러 밑의 샘플은 소음이고(사용자는 방금 실패를 읽었다), 로딩 밑의
+   샘플은 **곧 올 진짜와 겹쳐** 어느 쪽이 내 것인지 흐린다. */
 /** 로딩만 `next` 가 없다(정답이 '기다리기'다) · 나머지는 필수. */
 export type StateProps =
-  | (Common & { kind: 'loading'; next?: never; shape?: 'frame' | 'indeterminate' })
-  | (Common & { kind?: 'empty' | 'error'; next: StateNext; shape?: never });
+  | (Common & { kind: 'loading'; next?: never; shape?: 'frame' | 'indeterminate'; preview?: never })
+  | (Common & { kind: 'error'; next: StateNext; shape?: never; preview?: never })
+  | (Common & {
+      kind?: 'empty';
+      next: StateNext;
+      shape?: never;
+      /** 채우면 이렇게 보인다는 **라벨된 샘플**(Q-31). 실데이터가 아님을 캡션이 말한다. */
+      preview?: ReactNode;
+    });
 
 const WRAP = 'mx-auto flex max-w-empty flex-col items-center gap-2 px-6 py-11 text-center';
 // 차분한 네온 글리프 — 1px inset 링은 `--line-acc`(= acc 30% + line) 토큰 그대로.
@@ -91,6 +116,10 @@ const DESC = 'text-md leading-text text-mut';
 const ACTIONS = 'mt-2.5 flex flex-wrap justify-center gap-2';
 /** 종착 상태 안내 — 행동이 아니라 **이유**라 톤을 낮춘다(CTA 처럼 보이면 누를 것을 찾게 된다). */
 const TERMINAL = 'mt-1.5 text-xs text-mut';
+/* Q-31 미리보기 — 점선 테두리가 "이건 아직 없는 것"이라는 시각 관용구다(실선 = 있는 것).
+   ⚠ 폭은 문구 틀(`max-w-empty`)을 넘긴다 — 샘플은 한 줄 문장이 아니라 *형상*이라 좁으면 접힌다. */
+const PREVIEW = 'mt-4 flex w-full max-w-preview flex-col gap-1.5 rounded-md border border-dashed border-line p-3';
+const PREVIEW_CAP = 'ds-caps text-mut';
 
 /**
  * 로딩 글리프 — 스피너는 **글리프 웰에 넣지 않는다.**
@@ -167,6 +196,15 @@ export default function State(props: StateProps) {
           <div className={TERMINAL}>{props.next.terminal}</div>
         ) : (
           <div className={ACTIONS}>{props.next}</div>
+        )}
+        {/* Q-31 — `<figure>`+`<figcaption>` 이 의미상 정확하다: 캡션이 그림에 **속한** 설명이라
+            스크린리더가 둘을 묶어 읽는다(별도 `<div>` 두 개면 순서만 인접할 뿐 관계가 없다).
+            ⚠ `inert` 는 React 19 네이티브 속성이다 — 샘플 안의 버튼·입력이 탭 순서에서 빠진다. */}
+        {kind === 'empty' && props.preview != null && (
+          <figure className={PREVIEW}>
+            <figcaption className={PREVIEW_CAP}>예시 — 채우면 이렇게 보여요(내 데이터 아님)</figcaption>
+            <div inert>{props.preview}</div>
+          </figure>
         )}
       </div>
     </>

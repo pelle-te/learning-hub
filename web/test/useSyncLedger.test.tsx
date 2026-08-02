@@ -27,12 +27,19 @@ vi.mock('@/store/syncController', () => ({
 }));
 vi.mock('@/lib/cloud/outbox', () => ({ collectOutbox: () => Promise.resolve({ rows: [], tombstones: [] }) }));
 vi.mock('@/lib/cloud/contract', () => ({ batchSize: () => 3 }));
+/* Q-23 — 원장이 "확인 중"을 말할 자격은 **자격증명의 존재**에서만 온다. 여기서 갈아 끼울 수
+   있어야 "붙였을 때만 말한다"와 "안 붙였으면 침묵한다"를 둘 다 잴 수 있다.
+   ⚠ 모킹의 또 다른 이유: 실제 `client.ts` 는 push/schema 체인을 끌어와 위 `contract` 부분
+   모킹과 충돌한다(실제로 이 파일이 그 자리에서 한 번 죽었다). */
+let cloudCfg: unknown = null;
+vi.mock('@/lib/cloud/client', () => ({ readCloudConfig: () => Promise.resolve(cloudCfg) }));
 
 const { useSyncLedger } = await import('@/store/useSyncLedger');
 
 beforeEach(() => {
   subs.clear();
   last = null;
+  cloudCfg = null;
 });
 afterEach(cleanup);
 
@@ -81,4 +88,32 @@ test('⚠ H3: 동기화가 끝나면 **구독으로** 다시 읽는다 — 종�
     for (const cb of subs) cb(last);
   });
   await waitFor(() => expect(result.current.led.blocked).toBe('기기가 폐기됨'));
+});
+
+/* ── Q-23 첫 확인 표식 ────────────────────────────────────────────────────────
+   부팅 직후 이 앱은 **로컬 정본이라 화면을 즉시 그린다.** 그래서 첫 pull 이 오기 전 화면이
+   아무 유보 없이 확정처럼 보였고, 다른 기기의 편집은 몇 초 뒤 소리 없이 나타났다.
+   ⚠ 그리고 그 상태는 "클라우드를 안 붙임"과 **같은 모양**이었다(`at===null && pending===null`) —
+   그래서 어휘를 주는 것만으로는 부족하고, **갈라서** 줘야 한다. 아래 두 케이스가 그 짝이다. */
+test('Q-23 클라우드가 붙어 있고 이번 세션 결과가 없으면 "확인 중"이다', async () => {
+  cloudCfg = { baseUrl: 'https://x', deviceId: 'd', refresh: 'r' };
+  const { result } = renderHook(() => useSyncLedger());
+  await waitFor(() => expect(result.current.led.checking).toBe(true));
+});
+
+test('Q-23 클라우드를 안 붙였으면 "확인 중"이 아니다 — 끝나지 않을 확인을 약속하지 않는다', async () => {
+  cloudCfg = null;
+  const { result } = renderHook(() => useSyncLedger());
+  // 첫 읽기가 끝난 뒤에도 여전히 false 여야 한다(초깃값과 구분하려고 pending 갱신을 기다린다).
+  await waitFor(() => expect(result.current.led.pending).toBe(3));
+  expect(result.current.led.checking).toBe(false);
+});
+
+test('Q-23 한 번이라도 결과가 오면 확인이 끝난다', async () => {
+  cloudCfg = { baseUrl: 'https://x', deviceId: 'd', refresh: 'r' };
+  const { result } = renderHook(() => useSyncLedger());
+  await waitFor(() => expect(result.current.led.checking).toBe(true));
+  last = { at: 1_700_000_000_000, result: { status: 'ok', pulled: 0, state: null } };
+  act(() => subs.forEach((cb) => cb(null)));
+  await waitFor(() => expect(result.current.led.checking).toBe(false));
 });

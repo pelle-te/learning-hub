@@ -16,6 +16,8 @@ mod anki;
 mod anki_scan;
 mod artifact;
 mod cloud;
+/// Q-28 — 실시간 poke 소켓(데스크톱). 정책은 프런트, 소켓 수명만 여기(그 파일 머리주석).
+mod live;
 mod db;
 mod files;
 mod hotkey;
@@ -118,6 +120,8 @@ pub fn run() {
             /* C-5 후속 — 클라우드 HTTP 중계. 웹뷰가 직접 fetch 하면 CSP(C-3)에 막힌다(실측).
             뉴스·Ollama·Anki 와 같은 규약: 외부로 나가는 연결은 전부 Rust 가 소유한다. */
             cloud::cloud_http,
+            live::cloud_live_open,
+            live::cloud_live_close,
             /* 자동 업데이트(2026-07-25) — 관측(텔레메트리)의 짝. **확인과 설치를 가른다**:
             확인은 부작용이 없고, 설치는 앱을 재시작하므로 사용자가 명시적으로 누른 뒤에만
             불린다(근거는 updater.rs 머리주석). */

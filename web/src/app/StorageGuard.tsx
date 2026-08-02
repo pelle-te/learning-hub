@@ -64,6 +64,14 @@ export default function StorageGuard() {
          구간을 이벤트로 정확히 덮으므로 5분마다 깨어나는 타이머가 필요 없다. */
       onEdit: true,
       onPagehide: false,
+      /* ⚠⚠ **데스크톱 실시간(Q-28 · 2026-08-02).** 종전엔 여기가 꺼져 있었고 그 근거는 CSP 였다 —
+         웹뷰의 `WebSocket` 은 `connect-src 'self' ipc:` 를 못 넘는다. 그래서 PC 는 폰에서 한 편집을
+         **창으로 돌아올 때까지** 못 봤다(`focus` 최소 간격 5분). 소켓이 Rust 로 내려가 그 제약이
+         사라졌으므로 켠다 — 전송만 갈리고 백오프·안정 판정은 폰과 **같은 한 벌**이다
+         (`lib/cloud/live.ts` 머리주석 §전송이 둘, 정책은 하나).
+         ⚠ 셸에서만 켠다. 브라우저 dev·트랙 A 는 클라우드에 연결돼 있지 않은 것이 기본이고,
+           거기서 실시간을 켜면 시각 베이스라인이 네트워크 상태에 의존하게 된다. */
+      live: isTauri(),
       /* 산출물 미러(설계 §13-8) — **동기화보다 먼저**. 그래야 이번 사이클에 함께 올라간다.
          셸 전용이다(원본 파일이 PC 에만 있다). 내용이 안 바뀌었으면 스탬프를 안 찍으므로 유선 0. */
       beforeSync: isTauri() ? () => mirrorArtifacts().then(() => undefined) : undefined,

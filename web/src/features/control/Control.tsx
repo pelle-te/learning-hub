@@ -120,6 +120,8 @@ export default function Control() {
   const [topic, setTopic] = useState('');
   const [scope, setScope] = useState('');
   const [starting, setStarting] = useState(false);
+  /** Q-24 — 서버 응답 전까지 목록에 세울 주제(정본 아님 · 응답이 오면 무조건 걷힌다). */
+  const [startingJob, setStartingJob] = useState<string | null>(null);
   // 잡 목록·폴링·재부착·구조공유는 react-query가 소유(enabled=online, running 있으면 3초 refetch).
   const { data: jobsData } = useResearchJobs(online);
   const jobs = jobsData || EMPTY_JOBS;
@@ -215,6 +217,13 @@ export default function Control() {
     }
     if (starting) return;
     setStarting(true);
+    /* Q-24 — **누른 즉시 목록에 선다**(2026-08-02). 종전엔 서버 왕복이 끝날 때까지 진행 중 목록이
+       비어 있었고(무효화는 응답 *뒤에* 건다), 화면에서 바뀌는 것은 버튼 비활성뿐이었다 — 그게
+       "눌렸나?" 재클릭의 원인이다.
+       ⚠ **정본을 건드리지 않는다**: 캐시에 가짜 잡을 삽입하는 것이 아니라 이 화면이 *방금 무엇을
+       요청했는지*만 기억한다(멱등 규율 유지 · 목록의 진실은 여전히 재조회다). 그래서 응답이 오면
+       무조건 걷어낸다 — 실패든 성공이든. */
+    setStartingJob(tq);
     try {
       const r = await startResearch(tq, sc.trim());
       if (r.ok && r.job) {
@@ -223,12 +232,14 @@ export default function Control() {
         qc.invalidateQueries({ queryKey: RESEARCH_JOBS_KEY });
         ui.toast(`탐구 시작 — “${tq}” 백그라운드 수집 중`, 'info');
       } else {
-        ui.toast(r.error || '수집을 시작하지 못했어요.', 'bad');
+        // ⚠ **되돌렸다는 사실을 말한다** — 조용히 사라진 낙관 행은 "안 눌렸다"로 읽힌다.
+        ui.toast(`${r.error || '수집을 시작하지 못했어요.'} — 시작을 되돌렸어요(친 주제는 그대로예요).`, 'bad', 8000);
       }
     } catch (e) {
-      ui.toast('요청 실패: ' + ((e as Error).message || e), 'bad');
+      ui.toast(`요청 실패: ${(e as Error).message || e} — 시작을 되돌렸어요.`, 'bad', 8000);
     } finally {
       setStarting(false);
+      setStartingJob(null);
     }
   };
 
@@ -328,6 +339,18 @@ export default function Control() {
           )}
         </div>
       </div>
+
+      {/* Q-24 낙관 행 — 서버가 잡 id 를 줄 때까지의 몇 초. **취소 버튼을 주지 않는다**: 아직 id 가
+          없어 취소할 대상이 없고, 누를 수 없는 버튼을 그리면 그 자체가 새 "눌렸나?"를 만든다. */}
+      {startingJob && (
+        <div className={JOBS}>
+          <div className="flex flex-wrap items-center gap-2 py-2">
+            <span className="ds-spin" />
+            <span className="max-w-jobtopic truncate text-md font-bold text-txt">{startingJob}</span>
+            <span className="text-sm text-mut">시작하는 중…</span>
+          </div>
+        </div>
+      )}
 
       {/* 진행 중 잡 — 백그라운드 수집. reload해도 이 목록으로 재부착된다. */}
       {running.length > 0 && (

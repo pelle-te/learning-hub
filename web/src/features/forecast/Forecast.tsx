@@ -227,6 +227,19 @@ export default function Forecast() {
             </>
           }
           next={<Button onClick={() => nav('/today')}>오늘 학습으로</Button>}
+          /* Q-31 — 예보는 **막대의 모양이 곧 정보**라(어느 날이 무거운가) 문장으로 대체되지 않는다.
+             합성 7일치로 그 형상만 보여 준다 — 수는 캡션이 남의 것이라고 말한다. */
+          preview={
+            <div className="flex h-16 items-end justify-between gap-1.5">
+              {[3, 7, 2, 9, 5, 1, 4].map((h, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 rounded-t-xs ${h >= 8 ? 'bg-bad' : 'bg-acc'}`}
+                  style={{ height: `${h * 11}%` }}
+                />
+              ))}
+            </div>
+          }
         />
       </section>
     );

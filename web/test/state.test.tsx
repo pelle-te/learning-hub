@@ -13,7 +13,7 @@
    **런타임 계약**만 본다: 세 kind 가 서로 다르게 렌더되는가(로딩엔 행동이 없어야 하고, 에러는
    기본 글리프를 스스로 갖고, terminal 은 버튼처럼 보이지 않아야 한다).
 ============================================================ */
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, describe, expect, it, test } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import State from '@/components/State';
@@ -62,4 +62,44 @@ test('에러는 글리프를 스스로 갖는다 — 호출부가 이름을 고�
      (2026-08-01 이모지 이식). 보는 것은 그대로다: **호출부가 안 줘도 에러는 자기 표식을 갖는다.** */
   expect(container.querySelector('svg.ic')).toBeTruthy();
   expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+});
+
+/* ============================================================
+   Q-31 — **빈 상태가 채워질 모습을 보여준다**(2026-08-02).
+
+   이 기능의 위험은 명백하다: 빈 화면에 그럴듯한 수를 그리면 **그게 내 수로 읽힌다**. 이 저장소가
+   반복해 물린 "안 잰 것을 결과로 보고"의 시각 판본이다. 그래서 여기서 잠그는 것은 미리보기가
+   보인다는 사실이 아니라 **오해될 수 없다**는 세 조건이다(캡션 · `inert` · empty 전용).
+============================================================ */
+describe('Q-31 미리보기', () => {
+  it('캡션이 실데이터가 아님을 말한다 — 샘플만 그리는 것은 거짓말이다', () => {
+    render(<State title="아직 통계가 없어요" next={<button type="button">추가</button>} preview={<b>74%</b>} />);
+    const fig = document.querySelector('figure');
+    expect(fig).not.toBeNull();
+    expect(fig?.querySelector('figcaption')?.textContent).toContain('예시');
+    expect(fig?.querySelector('figcaption')?.textContent).toContain('내 데이터 아님');
+  });
+
+  it('샘플은 `inert` 다 — 눌러지는데 아무 일도 없는 가짜 버튼은 빈 화면보다 나쁘다', () => {
+    render(
+      <State
+        title="비었어요"
+        next={<button type="button">추가</button>}
+        preview={<button type="button">가짜 버튼</button>}
+      />,
+    );
+    const holder = document.querySelector('figure > div');
+    expect(holder?.hasAttribute('inert')).toBe(true);
+  });
+
+  it('투명도로 흐리지 않는다 — 흐림은 라벨이 아니고, 컨테이너 opacity 는 a11y 를 깨뜨린 관용구다', () => {
+    render(<State title="비었어요" next={<button type="button">추가</button>} preview={<b>74%</b>} />);
+    const cls = document.querySelector('figure')?.className ?? '';
+    expect(cls).not.toMatch(/\bopacity-/);
+  });
+
+  it('미리보기를 안 주면 아무것도 안 그린다(종전 동작 그대로)', () => {
+    render(<State title="비었어요" next={<button type="button">추가</button>} />);
+    expect(document.querySelector('figure')).toBeNull();
+  });
 });

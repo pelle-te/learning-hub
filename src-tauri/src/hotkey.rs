@@ -158,8 +158,28 @@ mod tests {
     그게 실제로 틀릴 수 있는 부분이다: "아직 시도 안 함"과 "실패"를 뭉개면 브라우저·테스트가
     전부 실패로 보이고, 그러면 프런트가 상시 경고를 띄워 그 표면이 곧 무시된다. */
 
+    /* ⚠⚠ **이 모듈의 케이스들은 직렬로 돈다**(2026-08-02 실측 · Q-28 배치에서 드러났다).
+
+    다섯 케이스가 전부 같은 전역 둘(`STATUS`·`LAST_FIRE_ERR`)을 **쓰고 나서 읽는데**, cargo 는
+    테스트를 스레드 병렬로 돌린다 — 즉 한 케이스의 `set_status` 와 다른 케이스의 `status()`
+    사이에 순서 보장이 없었다. 실제로 `등록_실패가_발동_사유에_덮이지_않는다` 가 첫 실행에서
+    실패하고 재실행에서 통과했다.
+
+    이건 사소한 잡음이 아니다: 이 저장소는 **flaky 를 결함으로, 결함을 flaky 로** 읽는 것을
+    반복 위험으로 적어 뒀고(CLAUDE.md 의 게이트 절), 흔들리는 게이트는 다음 사람이 빨간불을
+    "또 그거겠지"로 넘기게 만든다. 상태가 전역인 것 자체는 옳다(등록 결과는 프로세스에 하나다) —
+    고칠 것은 **테스트가 그 전역을 공유한다는 사실을 인정하지 않은 것**이다.
+
+    ⚠ 포이즌을 무시한다(`into_inner`) — 앞 케이스가 패닉했다는 이유로 뒤 케이스가 *실행조차*
+    못 하면 실패 하나가 다섯으로 불어나 원인이 묻힌다. */
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+    fn 직렬() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn 시도_전은_실패가_아니다() {
+        let _g = 직렬();
         set_status(None);
         let (ok, err) = status();
         assert!(!ok, "등록되지 않았다");
@@ -171,12 +191,14 @@ mod tests {
 
     #[test]
     fn 성공은_사유가_없다() {
+        let _g = 직렬();
         set_status(Some(Ok(())));
         assert_eq!(status(), (true, None));
     }
 
     #[test]
     fn 실패는_사유를_보존한다() {
+        let _g = 직렬();
         set_status(Some(Err("HotKey already registered".into())));
         let (ok, err) = status();
         assert!(!ok);
@@ -189,6 +211,7 @@ mod tests {
     받아도 어느 쪽인지 모른다. 여기서 잠그는 것은 **두 실패가 서로를 덮지 않는다**는 것이다. */
     #[test]
     fn 등록은_됐는데_발동이_실패하면_등록됨_true_에_사유가_실린다() {
+        let _g = 직렬();
         set_status(Some(Ok(())));
         *LAST_FIRE_ERR.lock().unwrap() = None;
         note_fire_err("창 표시", "테스트 사유");
@@ -207,6 +230,7 @@ mod tests {
 
     #[test]
     fn 등록_실패가_발동_사유에_덮이지_않는다() {
+        let _g = 직렬();
         set_status(Some(Err("HotKey already registered".into())));
         note_fire_err("포커스", "나중에 난 실패");
 

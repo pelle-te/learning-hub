@@ -18,16 +18,29 @@ export const MINI_PATH = '/mini';
 
 let restore: WindowBox | null = null;
 let origin = '/today';
+let transient = false;
 
-/** 미니 모드 진입. 창 조작이 실패하면 **false 를 돌려주고 아무것도 안 바꾼다** —
- *  호출부는 라우팅을 취소한다(작아지지 않았는데 알약 화면만 뜨는 반쪽 상태가 최악이다). */
-export async function enterMini(from: string): Promise<boolean> {
+/**
+ * 미니 모드 진입. 창 조작이 실패하면 **false 를 돌려주고 아무것도 안 바꾼다** —
+ * 호출부는 라우팅을 취소한다(작아지지 않았는데 알약 화면만 뜨는 반쪽 상태가 최악이다).
+ *
+ * @param transient **Q-26** — 캡처 한 건을 받으려고 잠깐 들어온 것인가. `true` 면 캡처가 끝날 때
+ *   `wasTransient()` 를 보고 호출부가 자동으로 되돌린다. 사용자가 손으로 들어온 미니 모드는
+ *   캡처를 닫아도 **머물러야 한다**(그게 그 사람이 요청한 창 모드다) — 이 플래그가 그 둘을 가른다.
+ */
+export async function enterMini(from: string, transientCapture = false): Promise<boolean> {
   if (!isTauri()) return false;
   const box = await windowInnerSize(); // 줄이기 **전에** 재야 의미가 있다
   if (!(await setMiniWindow(true))) return false;
   restore = box;
   origin = from && from !== MINI_PATH ? from : '/today';
+  transient = transientCapture;
   return true;
+}
+
+/** 지금의 미니 모드가 **캡처용 잠깐**인가(Q-26). `exitMini` 가 끝내면서 지운다. */
+export function wasTransient(): boolean {
+  return transient;
 }
 
 /**
@@ -50,6 +63,7 @@ export async function exitMini(): Promise<string | null> {
   const restored = await setMiniWindow(false, restore);
   if (isTauri() && !restored) return null;
   restore = null;
+  transient = false;
   const back = origin;
   origin = '/today';
   return back;

@@ -17,7 +17,7 @@ import { useOverlay } from '@/store/useOverlay';
 import { commitCapture } from '@/shell';
 import { mmss } from '@/lib/utils';
 import { setMiniCaptureWindow } from '@/lib/tauri';
-import { exitMini } from '@/lib/miniMode';
+import { exitMini, wasTransient } from '@/lib/miniMode';
 import { toast } from '@/shell/toast';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
@@ -81,12 +81,26 @@ export default function MiniHud() {
     else toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
   };
 
+  /* Q-26 — 캡처를 닫는다. 잠깐 들어온 것이면 창까지 되돌린다.
+     ⚠ **복원 실패면 알약에 머문다** — `expand` 와 같은 규율이다(라우팅해 버리면 나갈 문이
+     사라진다). 대신 그 사실을 말한다: 조용히 남으면 "왜 안 커지지"가 된다. */
+  const doneCapture = async (): Promise<void> => {
+    setCapture(false);
+    if (!wasTransient()) return;
+    const back = await exitMini();
+    if (back) navigate(back, { replace: true });
+    else toast('창을 되돌리지 못했어요 — 펼치기로 다시 시도해 주세요.', 'bad');
+  };
+
   return (
     <div className={WRAP} data-mini="1" ref={wrapRef} tabIndex={-1}>
       <div className="flex w-full flex-col gap-2">
         <div className="flex items-center gap-3">{pill(leftSec, session, expand, stop)}</div>
-        {/* W9 — 전역 캡처 핫키의 착지. 같은 창 · 높이 92→132 · 제출 즉시 알약으로 복귀. */}
-        {capture && <MiniCapture onDone={() => setCapture(false)} />}
+        {/* W9 — 전역 캡처 핫키의 착지. 같은 창 · 높이 92→132 · 제출 즉시 알약으로 복귀.
+            ⚠ Q-26 — **잠깐 들어온 미니는 캡처가 끝나면 나간다.** 손으로 들어온 미니 모드는
+            그대로 머문다(그게 그 사람이 요청한 창 모드다) — `wasTransient()` 가 그 둘을 가른다.
+            판정을 여기서 하는 이유: 나가는 문을 들고 있는 것이 이 화면이다(위 `expand` 와 같은 논거). */}
+        {capture && <MiniCapture onDone={() => void doneCapture()} />}
       </div>
     </div>
   );

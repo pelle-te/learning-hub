@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { lastSync, onSyncResult } from './syncController';
 import { collectOutbox } from '@/lib/cloud/outbox';
+import { readCloudConfig } from '@/lib/cloud/client';
 import { batchSize } from '@/lib/cloud/contract';
 import type { Ledger } from '@/lib/syncLedger';
 
@@ -18,13 +19,32 @@ import type { Ledger } from '@/lib/syncLedger';
 const TICK_MS = 30_000;
 
 export function useSyncLedger(): { led: Ledger; now: number } {
-  const [led, setLed] = useState<Ledger>({ online: true, pending: null, at: null, failed: false, blocked: null });
+  const [led, setLed] = useState<Ledger>({
+    online: true,
+    pending: null,
+    at: null,
+    failed: false,
+    blocked: null,
+    /* ⚠ **초깃값이 `false` 인 것이 계약이다**(Q-23). `true` 로 두면 클라우드를 안 붙인 사용자도
+       첫 프레임에 "확인 중"을 보고, 그건 영원히 끝나지 않는다 — 아래 첫 읽기가 자격증명을 확인한
+       **뒤에만** 켠다. 이 앱은 클라우드 없이도 완결된다는 것이 그 침묵의 근거다. */
+    checking: false,
+  });
   /* ⚠ '지금'을 **상태로** 든다 — 렌더에서 `Date.now()` 를 부르면 순수성 린트가 막는다(옳다:
      시계는 렌더의 입력이 아니다). 틱이 이 값을 갈아 끼워 상대시각만 다시 계산되게 한다. */
   const [now, setNow] = useState(() => Date.now());
 
   const read = useCallback(async (): Promise<void> => {
     const ls = lastSync();
+    /* Q-23 — "아직 모른다"와 "볼 것이 없다"를 가르는 유일한 사실이 **자격증명의 존재**다.
+       ⚠ 매 읽기마다 확인한다(캐시하지 않는다) — 설정 탭에서 연결/해제하면 그 즉시 뜻이 뒤집히고,
+       한 번 캐시하면 연결 직후 세션 내내 침묵하거나 해제 뒤 영원히 "확인 중"이 된다. */
+    let cloud = false;
+    try {
+      cloud = (await readCloudConfig()) !== null;
+    } catch {
+      /* 읽을 수 없으면 없는 것으로 — 없는 확인을 약속하지 않는다. */
+    }
     let pending: number | null = null;
     try {
       const b = await collectOutbox();
@@ -53,6 +73,9 @@ export function useSyncLedger(): { led: Ledger; now: number } {
       at: ls && ls.result.status === 'ok' && !blocked ? ls.at : null,
       failed: ls?.result.status === 'failed',
       blocked,
+      /* 클라우드가 붙어 있는데 **이번 세션에 결과가 하나도 없다** = 첫 확인이 아직 안 끝났다.
+         `_lastSync` 는 모듈 상태라 새로고침마다 null 로 돌아온다(그게 "이번 세션"의 정의다). */
+      checking: cloud && ls === null,
     });
   }, []);
 

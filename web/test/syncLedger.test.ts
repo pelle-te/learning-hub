@@ -15,6 +15,7 @@ const led = (p: Partial<Ledger>): Ledger => ({
   at: null,
   failed: false,
   blocked: null,
+  checking: false, // Q-23 — 기본은 "확인 중 아님"(클라우드 미연결이 이 앱의 완결된 상태다)
   ...p,
 });
 
@@ -101,5 +102,23 @@ describe('ledgerLine — 중단(blocked)은 스스로 낫지 않는다', () => {
   it('중단이 아니면 종전 판정을 한 글자도 안 바꾼다', () => {
     expect(ledgerLine(led({ at: NOW, pending: 3 }), NOW)?.text).toContain('올리는 중');
     expect(ledgerLine(led({}), NOW)).toBeNull();
+  });
+});
+
+/* ── Q-23 첫 확인 ────────────────────────────────────────────────────────────
+   ⚠ 우선순위가 이 케이스들의 내용이다. `checking` 은 blocked **아래**(중단은 스스로 안 낫는다)
+   이고 오프라인 **아래**(확인이 시작조차 못 한다)다. 그 순서를 틀리면 원장이 스스로 낫지 않는
+   상태를 "곧 끝난다"로 덮는데, 그건 H3 이 잡은 거짓 위로와 정확히 같은 형태다. */
+describe('Q-23 첫 확인 표식', () => {
+  it('확인 중은 말할 것이 있다 — 종전엔 이 상태가 통째로 침묵했다', () => {
+    expect(ledgerLine(led({ checking: true }), NOW)?.text).toContain('확인 중');
+    expect(ledgerLine(led({ checking: true }), NOW)?.warn).toBe(false);
+    // 짝: 클라우드를 안 붙였으면 같은 입력에서 여전히 침묵한다.
+    expect(ledgerLine(led({ checking: false }), NOW)).toBeNull();
+  });
+
+  it('중단·오프라인이 확인 중을 이긴다', () => {
+    expect(ledgerLine(led({ checking: true, blocked: 'D1 한도 초과' }), NOW)?.text).toContain('동기화 중단');
+    expect(ledgerLine(led({ checking: true, online: false, pending: 2 }), NOW)?.text).toContain('오프라인');
   });
 });
