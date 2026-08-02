@@ -176,6 +176,18 @@ export const TABS: TabMeta[] = [
     icon: 'notebook',
     fill: true,
   },
+  /* T-7 문항 원장 + T-2 시험 회수 창(2026-08-02). 오답 노트 **옆**이지 안이 아니다:
+     `cbms` 는 틀린 *사건*(코드·메모)이고 여기는 다시 풀 수 있는 *대상*이다 — 시험 2주 전에
+     열리는 것은 후자라 수명이 다르다(섞으면 오답 노트가 문제은행이 되고 시제가 흐려진다). */
+  {
+    key: 'questions',
+    label: '문항',
+    group: 'train',
+    order: 76,
+    role: 'lens',
+    icon: 'notebook',
+    fill: true,
+  },
   {
     key: 'stats',
     label: '통계',
@@ -397,7 +409,7 @@ export const SUBTAB_GROUPS: string[][] = [
      복습 실행(지금 굴리기 · 호스트) → 예보(앞으로 무엇이 밀리나) → 오답 노트(전 기간 아카이브).
      순서가 곧 판단이다: 이 축의 최상위는 **하는 화면**이고 보는 화면은 그 옆이다(근거는
      `review-run` 의 탭 메타 주석). 새 화면 0 · 라우트·⌘K 그대로(도달성 손실 0). */
-  ['review-run', 'forecast', 'mistakes'],
+  ['review-run', 'forecast', 'mistakes', 'questions'],
   /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 지식맵 → 정본 원장(어디까지 아는가).
      `ledger` 가 배관(연동) 밑에서 여기로 왔다. */
   ['stats', 'mastery', 'ledger'],

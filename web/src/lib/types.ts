@@ -12,6 +12,8 @@ export type {
   Summary,
   CbmsCode,
   Cbms,
+  /** T-7 문항 원장 한 건. */
+  Question,
   Backlog,
   BlankResult,
   Weekly,

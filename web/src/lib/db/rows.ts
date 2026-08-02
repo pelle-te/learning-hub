@@ -28,7 +28,18 @@ const DS_MAP_SLICES = ['dayOverrides', 'dayPlans', 'rituals', 'resume'] as const
 /** 배열 슬라이스(`records` 테이블 = `(slice, id, ord, value)`).
  *  ⚠ 행 정체성은 `id` 필드 → `ARRAY_ROW_ID` → 순번 순으로 정한다. 옛 주석은 _"retentionLog 만
  *  id 가 없어 순번을 id 로 쓴다"_ 였는데, 순번은 동기화 키로 쓸 수 없다(C-3 · 아래 참조). */
-export const ARRAY_SLICES = ['cbms', 'backlog', 'blankResults', 'retentionLog', 'events', 'tasks'] as const;
+export const ARRAY_SLICES = [
+  'cbms',
+  'backlog',
+  'blankResults',
+  'retentionLog',
+  'events',
+  'tasks',
+  /* T-7 문항 원장(2026-08-02). ⚠ **여기 이름을 더하는 것은 DDL 이 아니다** — `records` 는
+     `(slice, id, ord, value)` 이고 슬라이스는 *데이터 열*이다. 그래서 D1 마이그레이션 0 ·
+     서버 zod 0 · 폰 전파 0 이고, `value` 는 불투명 JSON 이라 서버가 안을 안 본다. */
+  'questions',
+] as const;
 export type ArraySlice = (typeof ARRAY_SLICES)[number];
 
 /** 행 테이블로 내려가는 최상위 필드 전부 — 나머지는 settings 로. */
@@ -374,7 +385,7 @@ export function stateToRows(state: AppState): DbRows {
     runtime: [],
     completions: [],
     dsMaps: { dayOverrides: [], dayPlans: [], rituals: [], resume: [] },
-    arrays: { cbms: [], backlog: [], blankResults: [], retentionLog: [], events: [], tasks: [] },
+    arrays: { cbms: [], backlog: [], blankResults: [], retentionLog: [], events: [], tasks: [], questions: [] },
     summaries: [],
     weekAlloc: [],
   };

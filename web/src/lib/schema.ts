@@ -165,6 +165,35 @@ export const CbmsSchema = z.object({
   at: z.optional(z.number()), // 작성 시각(epoch ms) — 구버전엔 없음(로그 타임스탬프)
 });
 
+/* ── T-7 문항 원장 · T-2 시험 회수 창 ──────────────────────────────────────
+   왜 CBMS 로 안 되나: `cbms` 는 **틀린 사건**의 기록이다(코드·메모). 문항은 *다시 풀 수 있는
+   대상*이라 수명이 다르다 — 시험 2주 전에 열리는 것은 "무엇을 틀렸나"가 아니라 "그 문제"다.
+   둘을 한 배열에 섞으면 오답 노트가 문제은행이 되고, 오답의 시제(과거 사건)가 흐려진다.
+
+   ⚠ **`records` 슬라이스라 D1 DDL 0 · 서버 zod 0 이다** — `records` 는 `(slice, id, ord, value)`
+   이고 `value` 는 불투명 JSON 이라 서버가 그 안을 한 번도 안 본다(`blankResults` 가 P-11 에서
+   같은 경로로 들어간 선례). 슬라이스 이름은 **데이터**이지 스키마가 아니다.
+
+   ⚠ 안 만드는 것: 정답·해설 본문 · 이미지 · 태그 분류 체계 · 자동 채점. 문항 하나에 30초라는
+   전제가 이 항목의 근거인데, 그 넷이 붙는 순간 30초가 5분이 되고 아무도 안 적는다. */
+export const QuestionSchema = z.object({
+  id: z.string(),
+  ds: z.string(),
+  sid: z.string(),
+  /** 챕터 이름(있으면). ⚠ `cbms.chapter` 와 **같은 축**이다(이름 문자열) — 거기서 이미
+   *  이름으로 다니고 있어 id 로 바꾸면 두 원장이 다른 키로 같은 챕터를 가리킨다. */
+  chapter: z.optional(z.string()),
+  /** 문제 자체(짧게 · 4칸 중 첫 칸). */
+  prompt: z.string(),
+  /** 어디서 나왔나 — `교재 3-2` · `중간 5번` · `퀴즈`. */
+  source: z.optional(z.string()),
+  /** 무엇이 관건이었나 / 왜 틀렸나. */
+  why: z.optional(z.string()),
+  /** T-2 회수 창에서 들어왔나. **직후 20분의 기억은 나중보다 정확하다**는 전제가 이 항목의
+   *  근거라, 그 사실을 값에 남긴다 — 안 남기면 나중에 신뢰도를 가를 수 없다. */
+  fromRecall: z.optional(z.boolean()),
+});
+
 export const BacklogSchema = z.object({
   id: z.string(),
   ds: z.string(),
@@ -356,6 +385,9 @@ export const AppStateSchema = z.looseObject({
   items: z.array(ItemSchema),
   summaries: z.record(z.string(), z.array(SummarySchema)),
   cbms: z.array(CbmsSchema),
+  /** T-7 문항 원장. **옵셔널이 계약이다** — 구버전 저장본·다른 기기 pull 에는 이 키가 없고,
+   *  필수로 두면 `parseState` 가 옛 데이터를 통째로 거부한다(가져오기·pull 이 함께 죽는다). */
+  questions: z.optional(z.array(QuestionSchema)),
   backlog: z.array(BacklogSchema),
   blankResults: z.array(BlankResultSchema),
   retentionLog: z.array(RetentionSchema),
@@ -432,6 +464,7 @@ export type CompletionEntry = z.infer<typeof CompletionEntrySchema>;
 export type Summary = z.infer<typeof SummarySchema>;
 export type CbmsCode = z.infer<typeof CbmsCodeSchema>;
 export type Cbms = z.infer<typeof CbmsSchema>;
+export type Question = z.infer<typeof QuestionSchema>;
 export type Backlog = z.infer<typeof BacklogSchema>;
 export type BlankResult = z.infer<typeof BlankResultSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;

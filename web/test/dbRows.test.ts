@@ -332,9 +332,13 @@ describe('대용량 표본 — 규모에서도 동형', () => {
     expect(stmts.every((s) => s.sql.startsWith('INSERT OR REPLACE'))).toBe(true);
   });
 
+  /* ⚠ 이 목록을 늘릴 때는 **의도적으로** 늘려라 — 이 케이스의 존재 이유가 그것이다. 슬라이스
+     이름은 `records` 의 데이터 열이라 DDL 이 안 따라오는데(그래서 D1·서버 zod 변경이 0 이다)
+     바로 그 이유로 **아무 검사도 안 걸린 채 조용히 늘어날 수 있다**. `questions` 는 T-7 문항
+     원장이 2026-08-02 에 더한 것이고, 이 케이스가 그때 정확히 실패했다. */
   it('행 슬라이스 목록에 배열 슬라이스가 전부 들어 있다(신규 슬라이스 누락 감지)', () => {
     expect([...ARRAY_SLICES].sort()).toEqual(
-      ['backlog', 'blankResults', 'cbms', 'events', 'retentionLog', 'tasks'].sort(),
+      ['backlog', 'blankResults', 'cbms', 'events', 'questions', 'retentionLog', 'tasks'].sort(),
     );
   });
 });
