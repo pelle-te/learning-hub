@@ -19,6 +19,12 @@ export interface UIStore {
   setAnkiAutoRefresh: (on: boolean) => void;
   /** 시스템 테마 따라가기 토글 — 켜는 즉시 ThemeProvider가 현재 OS 값으로 맞춘다. */
   setThemeAuto: (on: boolean) => void;
+  /** T-3 상주 트레이 토글(기기별). 다음 닫기부터 적용된다 — 닫기 가드가 **매번** 이 값을 읽는다. */
+  setTrayResident: (on: boolean) => void;
+  /** T-6 예약 알림 시각(`HH:MM`) 또는 `null`(끔). 바꾸면 **오늘 몫이 되살아난다**(아래 참조). */
+  setReminderAt: (at: string | null) => void;
+  /** 오늘 몫을 쓴 것으로 표시. ⚠ 알림 전송 **전에** 부른다(`useDailyReminder` 머리주석). */
+  setReminderFired: (ds: string) => void;
   /** OS 가 지금 말하는 테마(기기-로컬 · H9). `null` = 덮지 않음(정본 `state.theme` 이 보인다).
    *  ThemeProvider 가 감지 결과를 여기 싣고, 수동 선택(`actions.setThemeTo`)이 `null` 로 지운다. */
   setAutoTheme: (t: UIState['autoTheme']) => void;
@@ -67,6 +73,28 @@ export const useUI = create<UIStore>()(
       setAnkiAutoRefresh(on) {
         set((s) => {
           s.ui.ankiAutoRefresh = on;
+        });
+        flush();
+      },
+      setTrayResident(on) {
+        set((s) => {
+          s.ui.trayResident = on;
+        });
+        flush();
+      },
+      setReminderAt(at) {
+        set((s) => {
+          s.ui.reminderAt = at;
+          /* ⚠ 시각을 바꾸면 **오늘 몫을 되살린다.** 안 그러면 "9시로 해 놨다가 오늘 이미
+             받았는데 14시로 바꾸면 오늘은 안 온다"가 되고, 사용자는 설정이 안 먹었다고 읽는다.
+             끄는 경우(`null`)엔 그대로 둔다 — 되살릴 대상이 없다. */
+          if (at !== null) s.ui.reminderLastDs = null;
+        });
+        flush();
+      },
+      setReminderFired(ds) {
+        set((s) => {
+          s.ui.reminderLastDs = ds;
         });
         flush();
       },

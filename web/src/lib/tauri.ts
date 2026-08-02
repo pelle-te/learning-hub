@@ -156,7 +156,14 @@ export async function dbVersionGuard(): Promise<DbGuard | null> {
  *  타임아웃을 두는 이유도 같다 — 저장이 걸리면 사용자는 앱을 끌 수 없게 된다.
  *
  *  브라우저에선 no-op(창 개념이 셸 전용). 해제 함수를 돌려준다. */
-export async function installCloseGuard(beforeClose: () => Promise<void>, timeoutMs = 3000): Promise<() => void> {
+export async function installCloseGuard(
+  beforeClose: () => Promise<void>,
+  timeoutMs = 3000,
+  /* T-3 상주 모드 — **닫기가 무엇을 뜻하나**는 프런트가 정한다. Rust 로 옮기면 flush 계약이
+     두 곳으로 갈린다(`src-tauri/src/tray.rs` 머리주석). 매번 물어보는 이유는 설정이 세션
+     중에 바뀌기 때문 — 등록 시점의 값을 붙잡으면 켠 직후의 닫기가 옛 동작을 한다. */
+  resident: () => boolean = () => false,
+): Promise<() => void> {
   if (!isTauri()) return () => {};
   try {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
@@ -168,12 +175,70 @@ export async function installCloseGuard(beforeClose: () => Promise<void>, timeou
       } catch {
         /* 저장 실패가 앱을 못 닫게 만들지는 않는다 */
       }
+      /* ⚠ 상주 모드에서도 **flush 는 똑같이 한다** — 숨긴 뒤 강제 종료·크래시가 나면 그
+         쓰기는 영영 없다. 달라지는 것은 마지막 한 줄뿐이다. */
+      if (resident()) {
+        await win.hide();
+        return;
+      }
       await win.destroy();
     });
     return un;
   } catch {
     // 훅 등록 자체가 실패하면 **가드 없이 평소대로 닫히게** 둔다(닫힘 > 저장).
     return () => {};
+  }
+}
+
+/* ── T-3 상주 트레이 · 자동 시작 ────────────────────────────────────────────
+   ⚠ 둘 다 **기본 꺼짐**이고 켜는 것은 설정의 사용자 결정이다 — 설치만으로 자동 시작을 등록
+   하거나 "닫아도 안 죽는" 프로세스를 만드는 것은 사용자가 안 본 사이의 시스템 상태 변경이다. */
+
+/** 트레이 `종료` 구독(셸 전용). 받으면 **호출부가 flush 후 스스로 꺼야 한다** —
+ *  Rust 는 3초 뒤 폴백으로 끄고, 그건 저장을 기다려 주지 않는다(`tray.rs` 머리주석). */
+export async function onShellQuit(cb: () => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    return await listen('tray:quit', () => cb()); // src-tauri/src/tray.rs TRAY_QUIT
+  } catch {
+    return () => {};
+  }
+}
+
+/** 창을 실제로 파괴하고 앱을 끝낸다(상주 모드에서 트레이 종료가 부른다). */
+export async function shellQuit(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().destroy();
+  } catch {
+    /* 못 끄면 Rust 폴백이 끈다 — 여기서 더 할 수 있는 일이 없다 */
+  }
+}
+
+/** 자동 시작이 등록돼 있나. 브라우저·실패 시 `false`(모르면 꺼진 것으로 본다). */
+export async function autostartEnabled(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { isEnabled } = await import('@tauri-apps/plugin-autostart');
+    return await isEnabled();
+  } catch {
+    return false;
+  }
+}
+
+/** 자동 시작을 켜거나 끈다. **실제 상태**를 돌려준다 — 요청값을 그대로 믿으면 등록이 조용히
+ *  실패했을 때 설정 화면이 거짓을 말한다(레지스트리 쓰기는 정책으로 막힐 수 있다). */
+export async function setAutostart(on: boolean): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { enable, disable, isEnabled } = await import('@tauri-apps/plugin-autostart');
+    if (on) await enable();
+    else await disable();
+    return await isEnabled();
+  } catch {
+    return await autostartEnabled();
   }
 }
 

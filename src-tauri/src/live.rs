@@ -83,10 +83,9 @@ pub enum LiveEvent {
 pub fn ws_to_http(url: &str) -> Option<String> {
     if let Some(rest) = url.strip_prefix("wss://") {
         Some(format!("https://{rest}"))
-    } else if let Some(rest) = url.strip_prefix("ws://") {
-        Some(format!("http://{rest}"))
     } else {
-        None
+        url.strip_prefix("ws://")
+            .map(|rest| format!("http://{rest}"))
     }
 }
 
@@ -227,8 +226,14 @@ mod tests {
 
     #[test]
     fn ws_스킴만_되돌린다() {
-        assert_eq!(ws_to_http("wss://x.dev/api/sync/live").as_deref(), Some("https://x.dev/api/sync/live"));
-        assert_eq!(ws_to_http("ws://localhost:8787/l").as_deref(), Some("http://localhost:8787/l"));
+        assert_eq!(
+            ws_to_http("wss://x.dev/api/sync/live").as_deref(),
+            Some("https://x.dev/api/sync/live")
+        );
+        assert_eq!(
+            ws_to_http("ws://localhost:8787/l").as_deref(),
+            Some("http://localhost:8787/l")
+        );
         // ws/wss 가 아니면 이 채널의 주소가 아니다 — http 를 그대로 통과시키면 안 된다.
         assert_eq!(ws_to_http("https://x.dev"), None);
         assert_eq!(ws_to_http("file:///etc/passwd"), None);

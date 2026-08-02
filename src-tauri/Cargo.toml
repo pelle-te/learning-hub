@@ -27,7 +27,10 @@ log = "0.4"
 # 5단계-C — 매퍼가 TS 의 `Map`(삽입 순서)과 같은 순서를 내야 5-D 대조가 단순해진다.
 # serde_json 의 preserve_order 가 이미 끌고 오는 크레이트라 새 트리가 생기지 않는다.
 indexmap = "2"
-tauri = { version = "2.11.3", features = [] }
+# ⚠ `tray-icon` 은 T-3(상주 트레이)에서 켰다 — `tauri::tray` 모듈 전체가 이 피처 뒤에 있다
+#   (없으면 `unresolved import tauri::tray`). 이미지 디코딩이 딸려 오므로 트레이를 지우면
+#   이 피처도 함께 지울 것.
+tauri = { version = "2.11.3", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 # 폴더 선택(워크스페이스 경로 설정) — 1단계 신설 작업의 UI 진입점.
 tauri-plugin-dialog = "2"
@@ -76,6 +79,15 @@ tauri-plugin-single-instance = "2"
 # ⚠ 네트워크는 **Rust 가 낸다**. 웹뷰는 CSP `connect-src 'self' ipc:` 라 밖으로 못 나가고,
 #   그 규약("셸에서 외부로 나가는 연결이 하나도 없다")은 cloud.rs·news.rs 와 동일하다.
 tauri-plugin-updater = "2"
+
+# 자동 시작(T-3 · 2026-08-02) — **상주 트레이의 짝**. 트레이만 있으면 "창을 닫아도 살아 있다"
+# 까지이고, 재부팅 뒤 다시 살아나려면 사용자가 앱을 열어야 한다. 그러면 T-6(예약 한 발)이
+# 원리적으로 못 선다: `tauri-plugin-notification` 에 **스케줄 API 가 없어**(v2 문서 확인
+# 2026-08-02) 발사 시각에 프로세스가 살아 있어야 하기 때문이다.
+# ⚠ **기본 꺼짐이다.** 사용자가 설정에서 켜야 등록된다 — 설치만으로 자동 시작을 켜는 것은
+#   사용자가 안 본 사이에 시스템 상태를 바꾸는 것이고, 이 앱은 그 형태를 금지한다.
+# ⚠ 데스크톱 전용 블록 — 모바일엔 개념이 없다.
+tauri-plugin-autostart = "2"
 
 # 전역 단축키(E20 · 2026-07-30) — 앱이 포커스가 아닐 때도 캡처 입구를 연다.
 # ⚠ 새 창·새 WebView 를 만들지 않으므로 SQLite 커넥션·부팅 순서·single-instance 계약은 그대로다.

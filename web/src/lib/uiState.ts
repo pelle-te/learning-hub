@@ -79,6 +79,22 @@ export const UIStateSchema = z.object({
      ⚠ 수동으로 테마를 고르면 `null` 로 지운다 — 그래야 "고른 값이 다음 OS 변경까지 유지"라는
      기존 계약이 그대로 성립한다(그 계약은 사용자가 못박은 것이다 · 절대규칙 #4). */
   autoTheme: z._default(z.nullable(ThemeSchema), null),
+  /* T-3 상주 트레이 — 창을 닫아도 프로세스가 트레이에 남는다.
+     ⚠ **기기별 취향이라 여기다**(`themeAuto` 와 같은 논증): PC 는 켜 두고 노트북은 끄는 것이
+     자연스럽고, 앱 데이터로 동기화하면 한 기기의 결정이 다른 기기의 프로세스 수명을 바꾼다.
+     ⚠ 자동 시작은 여기 **없다** — 그건 OS 레지스트리가 정본이라 앱이 사본을 들면 둘이 갈린다
+     (실제 상태는 `autostartEnabled()` 로 매번 묻는다 · `lib/tauri.ts`).
+     ⚠ 기본 false = 종전 동작(닫으면 끝난다). */
+  trayResident: z._default(z.boolean(), false),
+  /* T-6 예약 한 발 — 알림을 쏠 시각(`HH:MM`). `null` = 안 쏜다(기본).
+     ⚠ **하루 최대 1회**가 이 항목의 전부다. 여러 발이면 그건 다른 항목(알림 스트림)이고,
+       로드맵이 걸러낸 것(_"같은 사실을 두 번 말할 위험 — 알림 피로의 교과서적 시작"_)이다.
+     ⚠ 기기별이다 — 폰과 PC 가 같은 시각에 각자 쏘면 그게 곧 두 발이다. */
+  reminderAt: z._default(z.nullable(z.string()), null),
+  /* 마지막으로 쏜 날(ISO). "하루 1회"를 지키는 유일한 장치다.
+     ⚠ 영속해야 한다 — 메모리에만 두면 앱을 껐다 켤 때마다 다시 쏜다(상주 모드가 아닌
+       기기에서 하루 여러 발이 되는 정확한 경로). */
+  reminderLastDs: z._default(z.nullable(z.string()), null),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

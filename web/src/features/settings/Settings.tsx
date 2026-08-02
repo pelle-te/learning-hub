@@ -22,6 +22,7 @@ import CloudCard from './CloudCard';
 import ConflictsNotice from './ConflictsNotice';
 import UpdateCard from './UpdateCard';
 import { lastParity } from '@/lib/db/write';
+import { autostartEnabled, isTauri, setAutostart } from '@/lib/tauri';
 import type { AppState } from '@/lib/types';
 import { Icon } from '@/components/Icon';
 
@@ -266,6 +267,16 @@ export default function Settings() {
   const setFxLite = useUI((s) => s.setFxLite);
   const themeAuto = useUI((s) => s.ui.themeAuto);
   const setThemeAuto = useUI((s) => s.setThemeAuto);
+  /* T-3 상주 트레이 · 자동 시작. **자동 시작만 OS 에 물어본다** — 그 정본은 레지스트리라
+     앱이 사본을 들면 둘이 갈린다(사용자가 밖에서 지울 수 있고, 그러면 화면이 거짓을 말한다). */
+  const trayResident = useUI((s) => s.ui.trayResident);
+  const setTrayResident = useUI((s) => s.setTrayResident);
+  const reminderAt = useUI((s) => s.ui.reminderAt);
+  const setReminderAt = useUI((s) => s.setReminderAt);
+  const [autostart, setAutostartState] = useState(false);
+  useEffect(() => {
+    void autostartEnabled().then(setAutostartState);
+  }, []);
   // 포인터 추적 스포트라이트 — 상태 밴드가 커서를 따라 발광(틸트 없는 큰 보드).
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
   // 파일에서 복원 — 숨은 파일 인풋을 버튼이 대리 클릭(importJSON은 HTMLInputElement를 받는다).
@@ -366,6 +377,43 @@ export default function Settings() {
           <input type="checkbox" checked={themeAuto} onChange={(e) => setThemeAuto(e.target.checked)} />
           시스템 테마 따라가기 (OS 가 밝기를 바꾸면 앱도 함께 — 끄면 수동 선택 유지)
         </label>
+        {/* T-3 — 셸에서만 뜬다. 브라우저엔 트레이도 자동 시작도 개념이 없어, 그리면 끄고 켜도
+            아무 일이 안 일어나는 스위치가 된다(이 앱이 반복해 피한 형태). */}
+        {isTauri() && (
+          <>
+            <label className="ds-chkRow">
+              <input type="checkbox" checked={trayResident} onChange={(e) => setTrayResident(e.target.checked)} />
+              창을 닫아도 트레이에 남기 (알림·예약이 살아 있으려면 필요 — 종료는 트레이 메뉴에서)
+            </label>
+            <label className="ds-chkRow">
+              <input
+                type="checkbox"
+                checked={autostart}
+                onChange={(e) => {
+                  /* ⚠ 요청값이 아니라 **실제 상태**를 받아 그린다 — 레지스트리 쓰기는 정책으로
+                     막힐 수 있고, 그때 화면이 "켜짐"이라 말하면 사용자는 왜 안 뜨는지 모른다. */
+                  void setAutostart(e.target.checked).then(setAutostartState);
+                }}
+              />
+              로그인할 때 자동 시작 (예약 알림이 재부팅을 넘기려면 필요)
+            </label>
+            {/* T-6 — 하루 **한 발**. 비우면 끈다. ⚠ 할 일이 0 이면 안 쏜다(`lib/reminder`). */}
+            <div className="ds-row">
+              <div>
+                <label htmlFor="set-reminder">하루 한 번 알림</label>
+                <input
+                  id="set-reminder"
+                  type="time"
+                  value={reminderAt ?? ''}
+                  onChange={(e) => setReminderAt(e.target.value || null)}
+                />
+              </div>
+              <div className="ds-foot">
+                이 시각에 <b>대기 건수가 있을 때만</b> 한 번 알려요. 밀린 것이 없으면 아무 말도 하지 않습니다.
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="ds-rule">

@@ -1,0 +1,131 @@
+/*! 상주 트레이 + 자동 시작 — **T-3**(2026-08-02).
+
+## 무엇이 없었나
+
+창을 닫으면 프로세스가 없었다. 그래서 이 앱은 **사용자가 여는 순간에만** 존재했고, 그 사실이
+다른 항목을 원리적으로 막고 있었다: `tauri-plugin-notification` 에 **스케줄 API 가 없어서**
+(v2 문서 확인 2026-08-02) 예약 알림(T-6)은 발사 시각에 프로세스가 살아 있어야 한다. 우회가
+없다 — 그래서 로드맵이 `T-3 → T-6` 을 **원리적 선행**으로 적었다.
+
+## ⚠⚠ 기본값은 **종전 동작**이다
+
+상주도 자동 시작도 **꺼져 있다.** 켜는 것은 설정의 사용자 결정이고, 설치만으로 시스템 상태를
+바꾸는 것(자동 시작 등록 · 닫아도 안 죽는 프로세스)은 사용자가 안 본 사이에 벌어지는 변화라
+이 앱이 금지하는 형태다. 꺼져 있는 동안 이 파일이 하는 일은 **트레이 아이콘 하나**뿐이다.
+
+## 닫기를 누가 해석하나 — 프런트다
+
+닫기 가드(`lib/tauri.ts` 의 `installCloseGuard`)는 **미저장 SQL 을 flush 한 뒤** 창을 파괴한다.
+상주 모드에서 달라지는 것은 마지막 한 줄(`destroy` → `hide`)뿐이라, 그 판단을 여기로 옮기면
+flush 계약이 두 곳으로 갈린다. 그래서 Rust 는 **트레이와 자동 시작만** 알고, "닫기가 무엇을
+뜻하나"는 프런트가 정한다(`hotkey.rs` 가 _"눌렸다만 보낸다"_ 로 세운 경계와 같은 형태).
+
+## 종료는 왜 이벤트인가
+
+트레이의 `종료` 가 곧바로 `app.exit(0)` 이면 **디바운스 대기 중인 쓰기가 잘린다** — 그건
+2단계-C 트랙 B 케이스가 실제로 관측한 실패이고, 닫기 가드가 존재하는 이유 그 자체다.
+그래서 `TRAY_QUIT` 이벤트를 올리고 프런트가 flush 후 종료한다. ⚠ 프런트가 죽어 있으면
+아무도 안 끄므로 **Rust 가 폴백 타임아웃으로 끈다**(닫힘 > 저장 · 가드와 같은 우선순위).
+*/
+
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{Emitter, Manager};
+
+/// 프런트가 듣는 종료 요청. 받으면 flush 후 스스로 끈다.
+pub const TRAY_QUIT: &str = "tray:quit";
+
+/// 프런트가 응답하지 않을 때 Rust 가 직접 끄기까지의 시간.
+///
+/// ⚠ 닫기 가드의 3초와 **같은 값**이다 — 같은 것을 지키는 두 타이머가 다른 값을 가지면
+/// 어느 쪽이 이겼는지 사고 때 알 수 없다.
+const QUIT_FALLBACK_MS: u64 = 3000;
+
+/// 트레이를 세운다. 실패해도 앱은 뜬다 — 트레이는 부가 표면이다.
+///
+/// ⚠ 실패를 **삼키지 않는다**(`hotkey.rs` 규율). 다만 여기서 할 수 있는 일은 로그뿐이다.
+pub fn setup(app: &tauri::AppHandle) {
+    if let Err(e) = build(app) {
+        log::warn!("트레이를 세우지 못했습니다: {e}");
+    }
+}
+
+fn build(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "open", "러닝허브 열기", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().cloned().ok_or_else(|| {
+            tauri::Error::AssetNotFound(
+                "기본 창 아이콘이 없어 트레이 아이콘을 만들 수 없습니다".into(),
+            )
+        })?)
+        .tooltip("러닝허브")
+        .menu(&menu)
+        /* 좌클릭으로 메뉴가 뜨지 않게 한다 — Windows 관용은 **좌클릭=열기 · 우클릭=메뉴**이고,
+        메뉴가 좌클릭에도 뜨면 "열기"가 두 걸음이 된다. */
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, ev| match ev.id.as_ref() {
+            "open" => show(app),
+            "quit" => quit_gracefully(app),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, ev| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = ev
+            {
+                show(tray.app_handle());
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
+/// 창을 보이게 하고 포커스한다 — 상주 모드에서 숨겨진 창을 되살리는 유일한 경로.
+fn show(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// 프런트에 종료를 요청하고, 응답이 없으면 직접 끈다(머리주석 §종료).
+fn quit_gracefully(app: &tauri::AppHandle) {
+    let emitted = app.emit(TRAY_QUIT, ()).is_ok();
+    if !emitted {
+        app.exit(0);
+        return;
+    }
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(QUIT_FALLBACK_MS)).await;
+        /* 여기 도달했다는 것은 프런트가 스스로 안 껐다는 뜻이다. 저장을 더 기다리지 않는다 —
+        사용자가 끄겠다고 눌렀는데 안 꺼지는 것이 이 앱에서 가장 나쁜 실패다(1단계 실측). */
+        handle.exit(0);
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /* 트레이 자체는 실물 OS 표면이라 유닛으로 못 잡는다(트랙 B 도 못 본다 — WebView2 밖이다).
+    여기서 잠글 수 있는 것은 **두 타이머가 같은 값**이라는 계약 하나뿐이고, 그건 사고 때
+    "어느 쪽이 이겼나"를 답할 수 있게 하는 조건이다. */
+    #[test]
+    fn 폴백_타임아웃이_닫기_가드와_같은_값이다() {
+        // web/src/lib/tauri.ts 의 installCloseGuard 기본 timeoutMs.
+        assert_eq!(QUIT_FALLBACK_MS, 3000);
+    }
+
+    #[test]
+    fn 종료_이벤트_이름은_프런트와_짝이다() {
+        // web/src/lib/tauri.ts 의 onShellQuit 구독 이름.
+        assert_eq!(TRAY_QUIT, "tray:quit");
+    }
+}

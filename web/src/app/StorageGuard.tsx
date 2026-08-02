@@ -8,7 +8,8 @@
 ============================================================ */
 import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
-import { installCloseGuard, isTauri } from '@/lib/tauri';
+import { installCloseGuard, isTauri, onShellQuit, shellQuit } from '@/lib/tauri';
+import { useUI } from '@/store/useUI';
 import { whenSettled, waitForMergeWindow } from '@/lib/db/write';
 import { installSyncTriggers } from '@/store/syncController';
 import { mirrorArtifacts } from '@/lib/artifactMirror';
@@ -23,18 +24,48 @@ export default function StorageGuard() {
   useEffect(() => {
     let un: (() => void) | undefined;
     let dead = false;
-    void installCloseGuard(async () => {
-      useApp.getState().flushNow(); // 디바운스 건너뛰고 동기 정본부터 확정
-      /* ⚠⚠ **병합창에 닫으면 그 flush 는 아무것도 안 쓴다(H9 · 2026-07-31 `/감사 근본`).**
+    void installCloseGuard(
+      async () => {
+        useApp.getState().flushNow(); // 디바운스 건너뛰고 동기 정본부터 확정
+        /* ⚠⚠ **병합창에 닫으면 그 flush 는 아무것도 안 쓴다(H9 · 2026-07-31 `/감사 근본`).**
          `writeAndVerify` 가 `deferred:true` 로 즉시 반환하고 400ms 타이머를 재예약하는데,
          `whenSettled()` 는 그 링크가 이미 resolve 됐으므로 **곧바로 통과**하고 창이 파괴된다 —
          타이머는 영원히 안 뛴다. 즉 이 가드의 존재 이유(비동기 SQL 쓰기가 잘리는 것을 막는다)가
          정확히 이 경우에만 무력화돼 있었다. 창이 닫히길 짧게 기다렸다 **한 번 더** 확정한다.
          ⚠ 상한이 계약이다(1.2초 < 바깥 가드 3초) — 무한 대기는 "앱이 안 닫힌다"의 로컬판이다. */
-      if (await waitForMergeWindow()) useApp.getState().flushNow();
-      await whenSettled(); // 그 flush 가 띄운 SQL 쓰기까지 대기
-    }).then((u) => {
+        if (await waitForMergeWindow()) useApp.getState().flushNow();
+        await whenSettled(); // 그 flush 가 띄운 SQL 쓰기까지 대기
+        /* T-3 — 상주 모드면 파괴 대신 숨긴다. **flush 는 위에서 똑같이 끝냈다**: 숨긴 뒤
+         강제 종료·크래시가 나면 그 쓰기는 영영 없다(달라지는 것은 마지막 한 줄뿐). */
+      },
+      3000,
+      () => useUI.getState().ui.trayResident,
+    ).then((u) => {
       // 언마운트가 구독 완료보다 빠를 수 있다 — 그때 바로 떼지 않으면 리스너가 샌다(L12-4).
+      if (dead) u();
+      else un = u;
+    });
+    return () => {
+      dead = true;
+      un?.();
+    };
+  }, []);
+
+  /* T-3 — 트레이 `종료`. 상주 모드에서는 창이 숨어 있어 `onCloseRequested` 가 영영 안 오므로
+     **이 경로가 유일한 정상 종료**다. 위 가드와 같은 순서로 확정한 뒤 스스로 끈다.
+     ⚠ Rust 는 3초 뒤 폴백으로 끄고 그건 저장을 기다려 주지 않는다(`tray.rs`) — 그 값보다
+       늦으면 여기서 하는 일이 무의미해지므로, 위 가드와 **같은 상한**을 쓴다. */
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    let dead = false;
+    void onShellQuit(() => {
+      void (async () => {
+        useApp.getState().flushNow();
+        if (await waitForMergeWindow()) useApp.getState().flushNow();
+        await whenSettled();
+        await shellQuit();
+      })();
+    }).then((u) => {
       if (dead) u();
       else un = u;
     });

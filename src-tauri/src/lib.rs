@@ -16,15 +16,18 @@ mod anki;
 mod anki_scan;
 mod artifact;
 mod cloud;
-/// Q-28 — 실시간 poke 소켓(데스크톱). 정책은 프런트, 소켓 수명만 여기(그 파일 머리주석).
-mod live;
 mod db;
 mod files;
 mod hotkey;
+/// Q-28 — 실시간 poke 소켓(데스크톱). 정책은 프런트, 소켓 수명만 여기(그 파일 머리주석).
+mod live;
 mod news;
 mod ollama;
 mod paths;
 mod research;
+/// T-3 — 상주 트레이. **T-6(예약 알림)의 원리적 선행**(그 파일 머리주석).
+#[cfg(desktop)]
+mod tray;
 /* 통합 테스트 공용 헬퍼(2026-07-20 층 재배치). 트랙 B 에 잘못 올라가 있던 실물 검사들이
 여기 헬퍼를 딛고 `cargo test` 로 내려왔다 — 근거는 `testkit.rs` 머리주석. */
 #[cfg(test)]
@@ -61,6 +64,13 @@ pub fn run() {
         ⚠ 서명 검증은 플러그인이 한다(공개키는 `tauri.conf.json`). 개인키를 잃으면 이 앱에
         다시는 업데이트를 못 낸다 — 절차와 백업 책임은 `web/docs/릴리스.md` 가 SSOT. */
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+        /* 자동 시작(T-3) — **등록만 하고 켜지 않는다.** `MacosLauncher` 인자는 macOS 전용
+        경로이고 Windows 에선 무시된다. 실제 등록/해제는 프런트가 설정에서 부를 때만 돈다
+        (`tray.rs` 머리주석 §기본값은 종전 동작). */
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ));
     }
 
     builder
@@ -169,6 +179,11 @@ pub fn run() {
             /* 전역 캡처 단축키(E20) — 등록 실패는 **삼키지 않는다**(다른 앱이 조합을 선점할 수
             있다). 사유는 `capabilities.hotkey_error` 로 프런트까지 간다. */
             hotkey::register(app.handle());
+            /* 상주 트레이(T-3) — **기본 동작은 안 바뀐다**. 상주·자동시작은 둘 다 꺼져 있고,
+            여기서 생기는 것은 트레이 아이콘 하나뿐이다(근거는 tray.rs 머리주석). 실패해도
+            앱은 뜬다 — 트레이는 부가 표면이다. */
+            #[cfg(desktop)]
+            tray::setup(app.handle());
             log::info!("워크스페이스: {:?}", workspace::resolve(app.handle()));
             Ok(())
         })

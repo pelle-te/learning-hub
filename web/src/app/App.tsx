@@ -20,6 +20,7 @@ import { useVaultAnchorsVersion } from '@/hooks/useVaultAnchors';
 import { useLeaveCursor } from './useLeaveCursor';
 import { useFrameMemory } from './useFrameMemory';
 import { useTaskbarBadge } from './useTaskbarBadge';
+import { useDailyReminder } from './useDailyReminder';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
@@ -121,6 +122,9 @@ export default function App() {
   useFrameMemory(routeKey);
   /* Q-30 — 작업표시줄 배지. 레일 배지와 **같은 식**을 쓴다(그 훅 머리주석이 이유의 SSOT). */
   useTaskbarBadge();
+  /* T-6 — 예약 한 발(하루 최대 1회). 배지와 **같은 수**를 쓴다: 셋이 갈리면 알림이 3 이라 하고
+     레일이 5 라 하는 상태가 생긴다. 상주(T-3)가 켜져 있어야 앱을 안 여는 날에도 뜬다. */
+  useDailyReminder();
   // 단일 화면 대시보드 탭(프레임을 가득 채우고 내부 스크롤 없음) 여부는 TabMeta.fill 단일 원천에서 파생 —
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;
