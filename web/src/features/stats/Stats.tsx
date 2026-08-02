@@ -15,6 +15,8 @@ import { Button } from '@/components/ui';
 import DetailDrawer from '@/components/DetailDrawer';
 import { ProgressRing } from '@/components/ProgressRing';
 import { CountReadout } from '@/components/CountReadout';
+import Trellis from '@/components/Trellis';
+import { weekSeries } from '@/lib/series';
 import { Num } from '@/components/Num';
 import { totalDoneHours, studyStreak } from '@/lib/persistence';
 import { cbmsCounts, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence, CBMS_INFO } from '@/lib/methodology';
@@ -338,6 +340,15 @@ export default function Stats() {
   // 능동 인출 활동(북극성 출력 지표) = 요약 + 백지 완료 + 모의 완료. (인출카드와 공용 헬퍼 · SSOT)
   const { recallActs } = recallEvidence(state, r);
 
+  /* T-14·T-23 — 과목별 주간 시계열. **판정(점이 충분한가)은 `lib/series`** 가 하고 여기선
+     행만 만든다. `weekHours` 는 스케줄러가 이미 내는 값이라 새 계산이 0 이다. */
+  const trellisRows = r.itemStat.map((s) => ({
+    key: s.id,
+    label: s.name,
+    series: weekSeries(r.weekHours, s.id),
+    value: `${(s.schedH || 0).toFixed(1)}h`,
+  }));
+
   // 오답 추세(약점이 닫히는 방향?).
   const tr = cbmsTrend(state);
   const { icon: trIcon, good: trGood } = cbmsTrendGlyph(tr);
@@ -520,6 +531,17 @@ export default function Stats() {
           </div>
         </div>
       </div>
+
+      {/* T-14·T-23 — **작은 배수**(과목별 주간 추세). 여기 있는 이유: 바로 위 과목 목록이 전부
+          *지금 값 하나*를 말하고, 추세를 보려면 아래 상세 드로어를 열어야 했다(같은 화면 안에서
+          한 번 더 이동). 데이터워드는 그 답을 목록 옆 20px 에 둔다.
+          ⚠ 공유 척도가 아니면 작은 배수가 아니다 · 점이 모자란 과목은 **비운다**(0 으로 안 그린다).
+             둘 다 판정은 `lib/series` 가 소유한다. */}
+      {trellisRows.length > 0 && (
+        <div className="ds-rule">
+          <Trellis rows={trellisRows} caption="과목별 주간 추세 — TREND" />
+        </div>
+      )}
 
       {/* 깊은 차트는 온디맨드 드로어로 — 인출 증거·유지율·CBMS 레이더·주별 시간·챕터 타임라인 */}
       {/* 상세 리포트는 lazy — 열기 전엔 코드조차 받지 않는다(첫 화면 청크에서 제외).

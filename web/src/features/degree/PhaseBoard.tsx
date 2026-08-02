@@ -23,6 +23,8 @@ import { useApp } from '@/store/useApp';
 import { phaseRamp, staleSemesterLinks } from '@/lib/phaseRamp';
 import { rehearsalSteps, simulateSemester } from '@/lib/semesterEntry';
 import { hNum, todayISO } from '@/lib/utils';
+import { useSchedule } from '@/store/selectors';
+import StrataStrip from '@/components/StrataStrip';
 import { Button, Pill } from '@/components/ui';
 
 /** 부하 비율의 어휘. **1.0 이 벽이 아니라 0.85 가 벽이다** — 계획은 늘 100% 로 차지 않는다. */
@@ -36,6 +38,7 @@ function loadTone(ratio: number): { tone: 'good' | 'warn' | 'bad'; label: string
 export default function PhaseBoard() {
   const state = useApp((s) => s.state);
   const navigate = useNavigate();
+  const res = useSchedule();
   const ds = todayISO(state);
   const ramp = phaseRamp(state, ds);
   const stale = staleSemesterLinks(state, ds);
@@ -65,6 +68,17 @@ export default function PhaseBoard() {
           아래에서 학기 날짜 넣기
         </Button>
       )}
+
+      {/* T-21 지층 — **학기가 어떻게 흘러왔나**를 12px 한 줄로. 이 앱의 시그니처 7종이 전부
+          *지금 상태*였고 시간축이 수개월인 것이 0 이었다(각도 3). 6주 미만이면 스스로 사라진다
+          (`lib/series.strata` — 3주짜리 띠는 지층이 아니라 막대 세 개다). */}
+      <div className="mt-3">
+        <StrataStrip
+          matrix={res.weekHours}
+          keys={state.items.map((i) => i.id)}
+          nameOf={(id) => state.items.find((i) => i.id === id)?.name ?? id}
+        />
+      </div>
 
       {/* T-16 — 감당 되나. 근거(`basis`)를 함께 말한다: 근거 없는 수는 믿을지 판단할 수 없다. */}
       {sim && sim.rows.length > 0 && (
