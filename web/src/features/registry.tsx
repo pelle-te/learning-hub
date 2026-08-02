@@ -17,6 +17,7 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   items: () => import('./items/Items'),
   goals: () => import('./goals/Goals'),
   guide: () => import('./guide/Guide'),
+  find: () => import('./find/Find'),
   reads: () => import('./reads/Reads'),
   markets: () => import('./markets/Markets'),
   atlas: () => import('./atlas/Atlas'),

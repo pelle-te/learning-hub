@@ -12,9 +12,16 @@ import { selectNavSignals, selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
 import { markVia } from '@/lib/visits';
 
-// C-9: 복습 밀림·열린 보충은 review/mastery 탭 안에서만 보여 다른 탭에 있으면 알 길이 없었다.
-// 로그 그룹 진입점(학습 기록=review 호스트)에 은은한 카운트 배지로 어디서든 신호(발광·펄스 금지).
-const NAV_BADGE_TAB = 'journal';
+/* C-9: 복습 밀림·열린 보충은 review/mastery 탭 안에서만 보여 다른 탭에 있으면 알 길이 없었다.
+   → 어디서든 보이는 카운트 배지(발광·펄스 금지).
+
+   ⚠⚠ **W7 IA 재편(2026-08-02) — 배지가 틀린 탭에 붙어 있었다.** `journal`(학습 기록)은
+   *적는* 화면인데 그 배지가 세는 것은 **인출 축의 대기**(밀린 복습 + 열린 보충)다. 즉 "복습이
+   3건 밀렸다"를 기록 탭이 말하고 있었고, 눌러 가면 거기엔 그 3건이 없다 — 배지는 자기가
+   가리키는 일이 **있는 곳**에 붙어야 한다. IA 판정 표가 이 어긋남을 `journal` 강등의 근거로
+   적었다(_"인출 축의 대기 숫자가 기록 탭에 붙어 있다"_).
+   → `review-run`(복습 실행 · 인출 축의 얼굴 · W17 이 destination 으로 올린 그 화면)으로 옮긴다. */
+const NAV_BADGE_TAB = 'review-run';
 
 /* RailSidebar — 라벨+그룹 접이식 사이드바(설계도 §1-2 확장).
    - 펼침(기본): 그룹 헤더(계획·자료·분석·설정) 아래 아이콘+라벨 행. 탭이 늘어도 청킹으로 스캔 가능.
