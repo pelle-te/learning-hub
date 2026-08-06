@@ -37,8 +37,6 @@ mod updater;
 mod vault;
 mod workspace;
 
-use tauri::Manager;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default();
@@ -47,11 +45,13 @@ pub fn run() {
     // .bat 가 하던 "포트 8000 stale 서버 강제종료"의 근본 원인(중복 실행) 자체를 없앤다.
     #[cfg(desktop)]
     {
+        /* ⚠ **트레이와 같은 함수를 쓴다**(H-3 · 2026-08-06 감사). 종전엔 여기서 `unminimize`
+        + `set_focus` 만 손으로 불렀는데, 상주 모드의 창은 `hide()` 로 숨겨져 있고 **숨김은
+        `unminimize` 로 안 돌아온다** → 시작 메뉴로 다시 실행하면 **무반응**이었다(프로세스가
+        이미 떠 있으니 새 창도 안 뜬다). 되살리기 경로가 둘인데 한쪽만 `show()` 를 부르고
+        있었던 것 — 근거는 `tray::show` 주석이 소유한다. */
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
+            tray::show(app);
         }));
         /* 자동 업데이트(2026-07-25) — **관측의 짝**. 텔레메트리로 결함을 알게 돼도 종전엔
         전달 경로가 NSIS 수동 재설치뿐이었다. 그 비대칭을 여기서 닫는다.
@@ -112,6 +112,11 @@ pub fn run() {
             vault::vault_touched,
             // T-18 — 시험 전날 한 장: 챕터 폴더의 노트 본문(해석은 프런트).
             vault::vault_notes_text,
+            /* M-9 — **관측의 짝**. 두 채널(전역 단축키 등록 · 볼트 감시)은 실패 사유를 화면까지
+            실어 나르면서 처방이 "앱 재시작"뿐이었다. 둘 다 일시적 원인(선점·폴더 잠금)이 흔해
+            *다시 걸기*가 맞는 행동이다. */
+            vault::vault_watch_retry,
+            hotkey::hotkey_retry,
             // 4단계-B — serve.js /api/artifact/:name 대체.
             artifact::artifact_read,
             // 4단계-C — serve.js /api/run/:tool 대체(파이썬 도구 11종).

@@ -109,6 +109,12 @@ fn set_status(v: Option<Result<(), String>>) {
 pub fn register(app: &tauri::AppHandle) {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
+    /* ⚠ **먼저 해제한다 — 그래야 이 함수가 재시도 진입점이 될 수 있다**(M-9 · 2026-08-06 감사).
+    같은 가속기를 두 번 등록하면 플러그인이 거부하므로, 해제 없이 다시 부르면 재시도가 *항상*
+    "이미 등록됨"으로 실패한다. 등록된 적이 없으면 해제할 것도 없으니 실패는 무시한다.
+    부팅 1회 호출에서는 아무 일도 하지 않으므로 종전 동작과 같다. */
+    let _ = app.global_shortcut().unregister(CAPTURE_ACCELERATOR);
+
     let handle = app.clone();
     let result = app
         .global_shortcut()
@@ -148,6 +154,22 @@ pub fn register(app: &tauri::AppHandle) {
         ),
     }
     *STATUS.lock().expect("hotkey status") = Some(result);
+}
+
+/// 등록을 **다시 시도**한다. 성공하면 `Ok`, 실패하면 사유를 돌려준다.
+///
+/// ⚠⚠ **관측에는 짝이 있어야 한다**(M-9 · 2026-08-06 감사). 이 채널은 실패 *사유*를 화면까지
+/// 실어 나르면서 사용자가 할 수 있는 일은 **앱 재시작**뿐이었다 — 그리고 선점은 대개 다른 앱이
+/// 잡고 있다가 놓는 일시적 상태라, 재시작이 아니라 **다시 눌러 보기**가 맞는 처방이다.
+/// (같은 비대칭을 2026-07-25 감사가 업데이터에서 지적했다: 결함을 알게 돼도 전달 경로가 없었다.)
+#[tauri::command]
+pub fn hotkey_retry(app: tauri::AppHandle) -> Result<(), String> {
+    register(&app);
+    match status() {
+        (true, _) => Ok(()),
+        (false, Some(e)) => Err(e),
+        (false, None) => Err("등록 상태를 알 수 없습니다.".into()),
+    }
 }
 
 #[cfg(test)]

@@ -479,6 +479,21 @@ pub fn watch_error() -> Option<String> {
     WATCH_ERR.lock().expect("vault watch err").clone()
 }
 
+/// 볼트 감시를 **다시 건다**. 새 세대를 올리므로 옛 워처는 스스로 은퇴한다.
+///
+/// ⚠⚠ **관측에는 짝이 있어야 한다**(M-9 · 2026-08-06 감사). H7 이 감시 실패를 화면까지 실어
+/// 나르게 만들었지만(_"감시가 죽으면 볼트를 고쳐도 화면이 안 바뀐다"_) 사용자가 할 수 있는 일은
+/// **앱 재시작**뿐이었다. 감시 실패는 대개 일시적(폴더 잠금·네트워크 드라이브 끊김)이라
+/// 다시 거는 것이 맞는 처방이다.
+///
+/// ⚠ 즉시 성공/실패를 못 돌려준다 — 감시는 스레드에서 서고 실패 사유는 `WATCH_ERR` 에 나중에
+/// 앉는다. 그래서 반환이 없고, 화면은 다음 `ping` 에서 사유가 사라졌는지로 판단한다
+/// (없는 확신을 지어내지 않는다).
+#[tauri::command]
+pub fn vault_watch_retry(app: tauri::AppHandle) {
+    start_watch(app);
+}
+
 pub fn start_watch(app: tauri::AppHandle) {
     // ⚠ 세대는 **폴더를 못 찾아도** 올린다 — 그래야 옛 워처가 은퇴한다(경로를 지운 경우).
     let generation = next_watch_generation();

@@ -156,9 +156,16 @@ export async function dbVersionGuard(): Promise<DbGuard | null> {
  *  타임아웃을 두는 이유도 같다 — 저장이 걸리면 사용자는 앱을 끌 수 없게 된다.
  *
  *  브라우저에선 no-op(창 개념이 셸 전용). 해제 함수를 돌려준다. */
+/** 닫기 가드가 저장을 기다리는 상한(ms). **`tray.rs` 의 `QUIT_FALLBACK_MS` 와 같은 값이어야
+ *  한다** — 갈리면 트레이 종료와 창 닫기 중 어느 쪽이 이겼는지 사고 때 답할 수 없다.
+ *  ⚠ 그 정합은 `test/shellContract.test.ts` 가 **Rust 원본을 파싱해** 대조한다(M-8). */
+export const CLOSE_GUARD_MS = 3000;
+/** 트레이 종료 요청 이벤트 이름 — 정본은 `tray.rs` 의 `TRAY_QUIT`(같은 테스트가 대조한다). */
+export const TRAY_QUIT_EVENT = 'tray:quit';
+
 export async function installCloseGuard(
   beforeClose: () => Promise<void>,
-  timeoutMs = 3000,
+  timeoutMs = CLOSE_GUARD_MS,
   /* T-3 상주 모드 — **닫기가 무엇을 뜻하나**는 프런트가 정한다. Rust 로 옮기면 flush 계약이
      두 곳으로 갈린다(`src-tauri/src/tray.rs` 머리주석). 매번 물어보는 이유는 설정이 세션
      중에 바뀌기 때문 — 등록 시점의 값을 붙잡으면 켠 직후의 닫기가 옛 동작을 한다. */
@@ -200,7 +207,7 @@ export async function onShellQuit(cb: () => void): Promise<() => void> {
   if (!isTauri()) return () => {};
   try {
     const { listen } = await import('@tauri-apps/api/event');
-    return await listen('tray:quit', () => cb()); // src-tauri/src/tray.rs TRAY_QUIT
+    return await listen(TRAY_QUIT_EVENT, () => cb()); // 정본은 src-tauri/src/tray.rs 의 TRAY_QUIT
   } catch {
     return () => {};
   }
@@ -327,6 +334,24 @@ const VaultNotesSchema = z.looseObject({
   src: z.string(),
   path: z.string(),
 }) as z.ZodMiniType<VaultNotesFromRust>;
+
+/* ── 복구 행동(M-9 · 2026-08-06) ─────────────────────────────────────────────────
+   두 채널은 실패 *사유*를 화면까지 실어 나르면서 사용자가 할 수 있는 일이 **앱 재시작**뿐이었다.
+   둘 다 원인이 일시적인 경우가 흔하다(단축키 선점 · 폴더 잠금·네트워크 드라이브 끊김) —
+   그때 맞는 처방은 재시작이 아니라 **다시 걸기**다. 근거 전문은 Rust 쪽 두 커맨드 주석이 갖는다. */
+
+/** 전역 캡처 단축키 등록 재시도. 성공하면 true, 실패하면 사유를 던진다. */
+export async function shellHotkeyRetry(): Promise<void> {
+  if (!isTauri()) return;
+  await call('hotkey_retry');
+}
+
+/** 볼트 감시 재시작. ⚠ 성공 여부를 안 돌려준다 — 감시는 스레드에서 서고 사유가 나중에 앉는다.
+ *  화면은 다음 `ping` 에서 사유가 사라졌는지로 판단한다(없는 확신을 지어내지 않는다). */
+export async function shellVaultWatchRetry(): Promise<void> {
+  if (!isTauri()) return;
+  await call('vault_watch_retry');
+}
 
 /** 셸에서 볼트를 읽는다. 브라우저면 null(호출부가 File System Access 폴백으로 간다). */
 export async function vaultScan(): Promise<VaultNotesFromRust | null> {
@@ -636,14 +661,24 @@ export async function shellNotifyPrime(): Promise<void> {
   }
 }
 
-export async function shellNotify(title: string, body: string): Promise<void> {
-  if (!isTauri()) return;
+/**
+ * OS 알림 1발. **전달됐는지를 돌려준다** — 호출부가 폴백을 걸 수 있어야 한다.
+ *
+ * ⚠⚠ 종전엔 `Promise<void>` 였고 권한 거부를 조용히 삼키며 _"토스트가 커버한다"_ 고 적어
+ * 뒀는데, **그 토스트가 어디에도 없었다**(H-9 · 2026-08-06 감사 · grep 0건). 그래서
+ * `useDailyReminder` 는 "쐈다"고 기록만 하고 **아무 소리도 안 나는** 상태가 매일 반복될 수
+ * 있었다 — 사용자는 알림을 켜 놓고 영원히 못 받는다. 삼키는 것 자체는 맞다(알림 실패가 앱을
+ * 멈추면 안 된다) 틀린 것은 **호출부가 그 사실을 알 수 없던 것**이다.
+ */
+export async function shellNotify(title: string, body: string): Promise<boolean> {
+  if (!isTauri()) return false;
   try {
     const api = await import('@tauri-apps/plugin-notification');
-    if (!(await api.isPermissionGranted()) && (await api.requestPermission()) !== 'granted') return;
+    if (!(await api.isPermissionGranted()) && (await api.requestPermission()) !== 'granted') return false;
     api.sendNotification({ title, body });
+    return true;
   } catch {
-    /* 권한 거부·플러그인 부재 — 토스트가 커버한다 */
+    return false; // 권한 거부·플러그인 부재 — 호출부가 폴백을 고른다
   }
 }
 

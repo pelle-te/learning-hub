@@ -85,8 +85,15 @@ fn build(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// 창을 보이게 하고 포커스한다 — 상주 모드에서 숨겨진 창을 되살리는 유일한 경로.
-fn show(app: &tauri::AppHandle) {
+/// 창을 보이게 하고 포커스한다 — **숨겨진 창을 되살리는 유일한 경로**.
+///
+/// ⚠⚠ 되살리기 진입점은 둘이다(트레이 클릭·메뉴 · **두 번째 실행**), 그런데 종전엔
+/// `lib.rs` 의 single-instance 핸들러가 이 함수를 안 쓰고 `unminimize + set_focus` 만
+/// 손으로 적고 있었다(H-3 · 2026-08-06 감사). `hide()` 로 숨긴 창은 **`unminimize` 로 안
+/// 돌아온다** — 즉 상주 모드에서 시작 메뉴로 다시 실행하면 **아무 일도 안 일어났다**
+/// (프로세스는 이미 떠 있으니 새 창도 안 뜬다). 두 경로가 비대칭이면 한쪽만 고쳐진다 →
+/// `pub(crate)` 로 열어 **같은 함수를 쓴다.**
+pub(crate) fn show(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -114,18 +121,26 @@ fn quit_gracefully(app: &tauri::AppHandle) {
 mod tests {
     use super::*;
 
-    /* 트레이 자체는 실물 OS 표면이라 유닛으로 못 잡는다(트랙 B 도 못 본다 — WebView2 밖이다).
-    여기서 잠글 수 있는 것은 **두 타이머가 같은 값**이라는 계약 하나뿐이고, 그건 사고 때
-    "어느 쪽이 이겼나"를 답할 수 있게 하는 조건이다. */
+    /* ⚠⚠ **프런트와의 상수 정합은 여기서 못 잡는다 — `web/test/shellContract.test.ts` 로
+    옮겼다**(M-8 · 2026-08-06 감사).
+
+    종전엔 이 자리에 `assert_eq!(QUIT_FALLBACK_MS, 3000)` 과 `assert_eq!(TRAY_QUIT, "tray:quit")`
+    가 있었다. 둘 다 **자기 자신을 손베낌 상수와 비교**하므로 TS 쪽이 5000 이 되어도, 이벤트
+    이름이 바뀌어도 통과한다 — 계약의 한쪽 끝만 보는 검사였다. 옳은 방향은 `dbMigrations.test.ts`
+    의 선례다: **한쪽이 상대의 원본을 파싱해서** 대조한다. TS→Rust 방향인 이유는 반대로 하면
+    cargo 빌드가 `web/` 에 결합되기 때문(cargo 만 도는 CI 에서 깨진다).
+
+    여기 남는 것은 **Rust 안에서만 성립하는 것**이다 — 트레이 표면 자체는 실물 OS 라 유닛으로도
+    트랙 B 로도(WebView2 밖) 못 본다. */
     #[test]
-    fn 폴백_타임아웃이_닫기_가드와_같은_값이다() {
-        // web/src/lib/tauri.ts 의 installCloseGuard 기본 timeoutMs.
-        assert_eq!(QUIT_FALLBACK_MS, 3000);
+    fn 폴백_타임아웃이_0이_아니다() {
+        /* 0 이면 프런트가 flush 할 틈 없이 즉시 죽는다 — 값의 *크기*는 위 TS 테스트가 프런트와
+        대조하고, 여기서는 "기다리기는 한다"만 잠근다(두 파일이 같은 것을 재지 않게). */
+        assert!(QUIT_FALLBACK_MS > 0);
     }
 
     #[test]
-    fn 종료_이벤트_이름은_프런트와_짝이다() {
-        // web/src/lib/tauri.ts 의 onShellQuit 구독 이름.
-        assert_eq!(TRAY_QUIT, "tray:quit");
+    fn 종료_이벤트_이름이_비어_있지_않다() {
+        assert!(!TRAY_QUIT.is_empty());
     }
 }

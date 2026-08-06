@@ -21,6 +21,7 @@ import { selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
 import { reminderBody, shouldFire } from '@/lib/reminder';
 import { isTauri, shellNotify } from '@/lib/tauri';
+import { toast } from '@/shell/toast';
 import { todayISO } from '@/lib/utils';
 
 /** 시각 판정 주기(ms). 분 경계를 놓치지 않을 만큼만 촘촘하다. */
@@ -47,7 +48,15 @@ export function useDailyReminder(): void {
          오늘 몫은 쓴 것으로 친다 — 안 그러면 실패하는 환경에서 30초마다 재시도하고, 그건
          "하루 1회"라는 이 항목의 유일한 계약을 깨는 경로다. */
       setReminderFired(todayISO(st));
-      void shellNotify(title, body);
+      /* ⚠⚠ **못 쐈으면 앱 안에서라도 말한다**(H-9 · 2026-08-06 감사). 종전엔 결과를 안 봤고
+         `shellNotify` 의 _"토스트가 커버한다"_ 는 주석은 **거짓**이었다(그런 토스트가 없었다).
+         위에서 오늘 몫을 이미 쓴 뒤이므로, 여기서 폴백을 안 걸면 권한이 거부된 환경에서 이
+         기능은 **영구 무음**이다 — 사용자는 켜 놓고 매일 아무것도 못 받는다.
+         ⚠ 토스트는 앱이 떠 있을 때만 보이지만, 그 경우가 곧 "알림이 안 오는데 앱은 켜져
+         있는" 상황이라 정확히 이 폴백이 필요한 자리다. */
+      void shellNotify(title, body).then((sent) => {
+        if (!sent) toast(`${title} — ${body}`, 'warn', 12_000);
+      });
     };
     const id = setInterval(tick, TICK_MS);
     tick(); // 부팅 직후 1회 — 시각을 지나쳐 켠 경우를 덮는다(`lib/reminder` 머리주석)

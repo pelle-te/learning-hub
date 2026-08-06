@@ -10,6 +10,9 @@ import { quietSummary } from '@/lib/daySignals';
 import { usePing } from '@/store/queries';
 import { totalDue, totalCards, type AnkiLive, type AnkiFile } from '@/lib/anki';
 import type { VaultScan } from '@/lib/vault';
+import { Button } from '@/components/ui';
+import { shellHotkeyRetry, shellVaultWatchRetry } from '@/lib/tauri';
+import { toast } from '@/shell/toast';
 import type { ReactNode } from 'react';
 
 type Status = 'online' | 'idle' | 'offline' | 'probing';
@@ -53,12 +56,15 @@ function Channel({
   value,
   sub,
   vertical,
+  action,
 }: {
   label: string;
   status: Status;
   value: ReactNode;
   sub: string;
   vertical?: boolean;
+  /** 실패했을 때 사용자가 **할 수 있는 일**(M-9). 없으면 안 그린다 — 관측만 있는 칸이 기본이다. */
+  action?: { label: string; onClick: () => void };
 }) {
   return (
     <div
@@ -75,6 +81,13 @@ function Channel({
         {value}
       </span>
       <span className="truncate text-2xs text-mut">{sub}</span>
+      {/* ⚠ **관측에는 짝이 있어야 한다**(M-9) — 사유만 적고 처방이 "앱 재시작"이면 그건 관측이
+          아니라 통보다. 두 채널 다 원인이 일시적인 경우가 흔해 *다시 걸기*가 맞는 행동이다. */}
+      {action && (
+        <Button sm className="mt-1 self-start" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }
@@ -179,6 +192,23 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
             vertical={vertical}
             value={ping.data?.hotkey ? '⌘⇧␣' : '—'}
             sub={hotkeyErr ? `등록 실패 — 다른 앱이 선점했을 수 있어요: ${hotkeyErr}` : '전역 캡처 · 앱 밖에서도 열림'}
+            action={
+              hotkeyErr
+                ? {
+                    label: '다시 등록',
+                    onClick: () => {
+                      void shellHotkeyRetry().then(
+                        () => {
+                          toast('전역 단축키를 다시 등록했어요.', 'ok');
+                          void ping.refetch();
+                        },
+                        (e: unknown) =>
+                          toast(`아직 선점돼 있어요 — ${e instanceof Error ? e.message : String(e)}`, 'bad'),
+                      );
+                    },
+                  }
+                : undefined
+            }
           />
         )}
         {/* ⚠ 볼트 감시(H7) — 위 HOTKEY 와 **같은 형태**다: 사유가 있을 때만 칸을 세우고 실패로 그린다.
@@ -190,7 +220,22 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
             status="offline"
             vertical={vertical}
             value="—"
-            sub={`자동 갱신이 멈췄어요 — 새로고침하거나 앱을 다시 여세요: ${vaultWatchErr}`}
+            sub={`자동 갱신이 멈췄어요: ${vaultWatchErr}`}
+            action={{
+              label: '감시 다시 걸기',
+              onClick: () => {
+                /* ⚠ 성공을 단언하지 않는다 — 감시는 스레드에서 서고 사유가 나중에 앉는다.
+                   다음 `ping` 에서 이 칸이 사라지는 것이 성공의 증거다(`lib/tauri` 주석). */
+                void shellVaultWatchRetry().then(
+                  () => {
+                    toast('볼트 감시를 다시 걸었어요 — 잠시 후 상태가 갱신됩니다.', 'info');
+                    void ping.refetch();
+                  },
+                  (e: unknown) =>
+                    toast(`감시를 다시 걸지 못했어요 — ${e instanceof Error ? e.message : String(e)}`, 'bad'),
+                );
+              },
+            }}
           />
         )}
       </div>

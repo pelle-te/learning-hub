@@ -9,6 +9,7 @@ import { storage } from '@/lib/kv';
 import { idbMirror } from '@/lib/idb';
 import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
 import { canPin, togglePin as togglePinPure } from '@/lib/pins';
+import { shellNotifyPrime } from '@/lib/tauri';
 
 export interface UIStore {
   ui: UIState;
@@ -95,6 +96,11 @@ export const useUI = create<UIStore>()(
              끄는 경우(`null`)엔 그대로 둔다 — 되살릴 대상이 없다. */
           if (at !== null) s.ui.reminderLastDs = null;
         });
+        /* ⚠ **켤 때 알림 권한을 미리 받는다**(H-9 · 2026-08-06 감사). 종전엔 `shellNotifyPrime`
+           을 부르는 곳이 **집중 세션뿐**이었다 — 집중을 한 번도 안 쓴 사용자는 권한이 없는
+           채로 이 기능을 켜고, 첫 발화가 조용히 실패한다(그리고 그 실패가 안 보였다).
+           권한 요청은 사용자가 **방금 알림을 켠 순간**이 가장 자연스러운 자리다. */
+        if (at !== null) void shellNotifyPrime();
         flush();
       },
       setReminderFired(ds) {
