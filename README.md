@@ -30,7 +30,7 @@
 
 > ⚠️ **복습 슬롯 ≠ 실제 Anki due:** `lib/utils.ts`의 `REVIEW_OFFSETS=[1,3,7,16]`은 _학습 계획용_ 고정 간격 휴리스틱이다. 실제 카드 복습 시점은 **Anki/FSRS가 소유**(시스템 본체는 네이티브 FSRS). 이 앱의 복습 슬롯은 "그날 배운 챕터를 언제 다시 볼지"의 계획 보조일 뿐.
 
-> 🔗 **방법론 ↔ 앱:** `학습방법론.md`의 절차가 탭과 1:1로 대응한다. 블록 배분/인터리빙(스케줄러) · 1·3·7·16 복습 슬롯 · **블록 4단계·3문장·CBMS·백로그**(오늘 학습) · **주간 메타인지**(주간 리뷰) · 백지복습·모의시험 자동 배치는 _일과 탭 설정_(`blankReviewWeekly`/`mockEveryWeeks`)로 켜고 끈다.
+> 🔗 **방법론 ↔ 앱:** 방법론 절차(`lib/methodology.ts` 가 코드 정본)가 탭과 1:1로 대응한다. 블록 배분/인터리빙(스케줄러) · 1·3·7·16 복습 슬롯 · **블록 4단계·3문장·CBMS·백로그**(오늘 학습) · **주간 메타인지**(주간 리뷰) · 백지복습·모의시험 자동 배치는 _일과 탭 설정_(`blankReviewWeekly`/`mockEveryWeeks`)로 켜고 끈다.
 
 ## 배분 엔진 (요약)
 
@@ -51,17 +51,18 @@
    │  ├─ store/             Zustand(앱상태 useApp) · selectors(파생 schedule) · queries(TanStack Query)
    │  ├─ lib/               ★ 순수 도메인: persistence·scheduler·methodology·ics·vault·anki·knowledge·api·utils (+ zod schema)
    │  ├─ features/          탭 1개 = 폴더 1개 · registry.tsx(key→lazy 컴포넌트)
-   │  ├─ components/ui/      공용 프리미티브(Card/Button/Pill/Kpi…, CSS Modules)
-   │  └─ styles/            tokens.css(테마 변수) + ds.module.css(공유 클래스 DS) + global/(앱 크롬)
+   │  ├─ components/ui/      공용 프리미티브(Card/Button/Pill/Kpi…) · 스타일은 Tailwind 유틸 + 공유 `ds-*`
+   │  └─ styles/            tokens.css(테마 변수) + ds.css(공유 `ds-*`) + tw.css(Tailwind 진입점) + global/(앱 크롬)
    ├─ test/                 Vitest(lib) · RTL(컴포넌트)  · e2e/  Playwright(스모크 + 비주얼 회귀)
    └─ package.json          scripts: dev·build·test·lint·typecheck·e2e
 ```
 
 ## 수정 가이드
 
-- 배분 규칙 → `web/src/lib/scheduler.ts`의 `schedule()`. 복습 주기는 `lib/utils.ts`의 `REVIEW_OFFSETS`,
+- 배분 규칙 → `web/src/lib/scheduler/`(디렉터리 · 배럴은 `index.ts`)의 `schedule()`. 복습 주기는 `lib/utils.ts`의 `REVIEW_OFFSETS`,
   모듈 길이/복습비중은 앱의 "일과 & 가용시간" 탭(설정)에서.
-- 화면(탭) → `web/src/features/<탭>/`. 스타일 → 토큰은 `styles/tokens.css`, 전역 클래스는 `styles/global/`, 컴포넌트 고유는 `*.module.css`.
+- 화면(탭) → `web/src/features/<탭>/`. 스타일 → 토큰은 `styles/tokens.css`, 공유 클래스는 `styles/ds.css`, 앱 크롬은 `styles/global/`.
+  ⚠ **`*.module.css` 를 만들지 말 것** — C-7 이후 이 저장소에 CSS Module 은 **0개**이고 `check:tokens` 가 신설을 막는다(언레이어드라 Tailwind 유틸을 이기고 집행자 검사 범위 밖으로 나간다).
 - 도메인 로직(스케줄·방법론·영속·볼트/Anki/지식)은 **프레임워크 무관 `lib/`** 에 모여 Vitest로 검증된다. 앱상태는 Zustand(`store/useApp`), 서버/외부(볼트·Anki·`/api`)는 TanStack Query(`store/queries`)가 소유.
 - 볼트/Anki 패널은 정본 `_index.json`을 읽으므로(`lib/vault.ts`), 데이터가 안 보이면 먼저 부모 파이프라인 도구로 인덱스를 만든다(`bash ../pipeline/_도구/검사.sh --index` — pipeline 소관 · 정본 산출물 = `../knowledge/_meta/cache/_index.json`).
 - 검증: `cd web` 후 `npm run typecheck && npm run lint && npm test` · 비주얼 회귀 `npm run e2e`(베이스라인 갱신 `npm run e2e:update`).
@@ -69,7 +70,7 @@
 ## 문서·감사
 
 - **현행 정본은 `web/docs/`** — `아키텍처.md`(레이어·경계 계약) · `디자인시스템.md`(토큰·컴포넌트 규격) · `결정로그.md`("왜 이렇게?") · `로드맵.md`("다음 뭐") · `protocols/`(반복작업 절차서) · `평가루브릭.md`·`평가기록.md`.
-- 학습 이론: `학습방법론.md` · 졸업 요건: `졸업요건_정리.md`.
+- ⚠ 종전에 여기 있던 `학습방법론.md`·`졸업요건_정리.md` 는 **워크스페이스 어디에도 없다**(2026-08-06 실측 · 전수 grep 0건). 방법론의 코드 정본은 `web/src/lib/methodology.ts`, 졸업요건은 `/degree` 화면과 그 feature 다.
 - **시스템 전수 평가:** 감사 리포트는 atelier `../docs/감사/`로 이관됨 — `/감사`의 **클러스터 E(러닝 허브 웹앱)**로 무결성·데이터·스케줄러·방법론 정합·학습효과·UX·연동·코드·보안·문서 축을 점검(옛 12축 흡수) → `감사_리포트.md`에 _개선/추가/수정/방향_ 갱신. 옛 결과(종합 48/60·열린 P0/P1 0): `../docs/감사/_아카이브/hub_감사_리포트_2026-06-28.md`.
 
 ## 테스트
@@ -78,7 +79,7 @@
 
 - **단위/컴포넌트**: `cd web && npm run test`(Vitest — lib·store·features · 커버리지 게이트는 `test:coverage`).
 - **e2e/비주얼**: `npm run e2e`(Playwright 스모크+시각 스냅샷 · 신규 스냅샷은 `e2e:update`).
-- **원커맨드**: `node scripts/gate.mjs`(verify+build+budget+e2e — CLAUDE.md '게이트' 절이 SSOT).
+- **원커맨드**: `node scripts/gate.mjs` — **단계 목록의 정본은 그 파일의 `ALL` 배열**이다(CLAUDE.md 의 게이트 절은 요약이고, 스스로 정본이 아니라고 적는다 · 2026-08-06 순환 정정).
 - 해당 레이어를 고친 뒤엔 그 테스트를 돌려 회귀를 확인하세요.
 
 ## 데이터

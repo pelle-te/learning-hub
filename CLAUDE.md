@@ -63,7 +63,10 @@ npm run e2e:a11y # a11y — axe-core 로 렌더된 DOM 을 검사(`serious`+`cri
                  #   ⚠ **컨테이너 `opacity` 로 "흐리게"를 표현하지 말 것** — 통과 최솟값이 0.8~0.95라
                  #   원본과 구분되지 않는다(실측 2건). 배경만 흐리게 하거나 마커로 대상을 좁힌다.
                  #   ⚠ 알려진 위반 원장은 **노드 단위**다(화면 단위로 적으면 그 화면의 새 결함까지
-                 #   덮는다). 남은 것은 액센트 계열뿐이고 그건 사용자 결정 대기다(절대규칙 #4).
+                 #   덮는다). ⚠ **원장은 현재 비어 있다**(`알려진위반 = {}` · 2026-08-06 실측).
+                 #   종전 이 줄의 "남은 것은 액센트 계열"은 **사문**이었다 — 액센트 대비는
+                 #   `test/accentContrast.test.ts`(계산)로 이관돼 해소됐다. 판단에 유효기간이
+                 #   없으면 방치라던 규율이 이 줄 자신에게 적용된 형태.
 npm run e2e:motion # 모션 — **중간 프레임** 시각 회귀(`e2e/motion.spec.ts` · 2026-07-29 신설).
                  #   ⚠ `e2e` 안에 포함돼 있다(별도로 돌릴 때만 이 스크립트). 여기 적는 이유는
                  #   **정지 프레임 게이트가 모션 층을 원리적으로 못 보기** 때문 — `visual.spec.ts` 는
@@ -224,7 +227,7 @@ src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · *
 - **Tailwind 전환(C-7) 완료 · `*.module.css` 0개.** 스타일은 ① JSX 유틸리티 ② 공유 `ds-*`(`styles/ds.css`) ③ 앱 리셋·크롬(`styles/global/`) 셋 중 하나다.
   - ⚠ **레이어가 계약이다**: `@layer base, components, theme, utilities` — `global/{base,components}.css`=base · `global/features.css`=components · **`ds.css` 와 `motion.css` 는 언레이어드**(유틸을 이긴다 → 덮으려면 `!`). 순서는 **최초 등장 순**이라 `main.tsx` 가 `global/index.css` → `tw.css` → `ds.css` 순으로 import 하는 것이 그 계약이다.
   - ⚠ **모션은 어휘 여섯 마디 + 시간 사다리로 닫혀 있다**(E24 · 2026-07-30 · **여섯째는 P-17 이 2026-08-01 에 채웠다**). 어휘 SSOT = `lib/motion.ts` 머리주석(**enter · commit · live · transit · draw · shed**) · 키프레임 SSOT = **`styles/tw.css`**
-    - ⚠ **`shed`(사라짐 = 끝남·이번 회차에서 빠짐·퇴장)를 빠뜨리지 말 것** — 이 줄이 "다섯 마디"로 하루 넘게 낡아 있었다(2026-08-02 발견). 상태는 `.ds-shed`(채도 저하 + 취소선 · **투명도 금지** — 컨테이너 opacity 가 a11y 를 깨뜨린 그 관용구다), 전이는 `shed-pop`·`shed-row`, 이징은 `--ease-shed`(ease-in — **퇴장은 진입보다 빨라야 한다**). 개수를 여기 손으로 적는 한 또 표류하므로, 의심되면 `lib/motion.ts` 머리주석을 읽어라.(그 파일 밖에 `@keyframes` 를 만들지 말 것). 길이는 **토큰만** 쓴다(`--dur-fast|--dur|--dur-slow` · `--dur-cele` · `--draw` · `--tempo-*` · `--stagger`; transition 은 `duration-fast|base|slow|draw` 유틸). 새 움직임은 **축이 다르면 새 이름, 같은 축의 크기 차이면 노브**다. 집행자는 **불변식 ⑥**(`test/invariants.test.ts`)이고, 시간 리터럴·어휘 밖 키프레임 이름·`duration-<이름>` 브리지 누락을 전부 막는다.
+    - ⚠ **`shed`(사라짐 = 끝남·이번 회차에서 빠짐·퇴장)를 빠뜨리지 말 것** — 이 줄이 "다섯 마디"로 하루 넘게 낡아 있었다(2026-08-02 발견). 상태는 `.ds-shed`(채도 저하 + 취소선 · **투명도 금지** — 컨테이너 opacity 가 a11y 를 깨뜨린 그 관용구다), 전이는 `shed-pop`·`shed-row`, 이징은 `--ease-shed`(ease-in — **퇴장은 진입보다 빨라야 한다**). 개수를 여기 손으로 적는 한 또 표류하므로, 의심되면 `lib/motion.ts` 머리주석을 읽어라.(⚠ 집행자는 **어휘 밖 이름**을 막는 것이지 파일 위치를 막는 게 아니다 — `vt-*`·`toastLife` 는 그 밖에 살아 있고 정당하다. 종전 이 괄호가 _"그 파일 밖에 만들지 말 것"_ 이라 적어 집행자보다 좁게 말했다 · 2026-08-06 정정). 길이는 **토큰만** 쓴다(`--dur-fast|--dur|--dur-slow` · `--dur-cele` · `--draw` · `--tempo-*` · `--stagger`; transition 은 `duration-fast|base|slow|draw` 유틸). 새 움직임은 **축이 다르면 새 이름, 같은 축의 크기 차이면 노브**다. 집행자는 **불변식 ⑥**(`test/invariants.test.ts`)이고, 시간 리터럴·어휘 밖 키프레임 이름·`duration-<이름>` 브리지 누락을 전부 막는다.
     - ⚠ `duration-*` 의 Tailwind 네임스페이스는 **`--transition-duration-*`** 다(`--duration-*` 아님 · v4 실측). 틀리면 클래스가 **생성되지 않고** transition 이 기본 150ms 로 조용히 떨어지는데 **전 게이트가 녹색**이다 — 실제로 E24 에서 물렸다.
   - ⚠ **버튼 hover 장식엔 `enabled:`** 를 붙인다 — 전역은 `:not(:disabled)` 로 자기를 가드하지만 유틸은 그 가드를 상속하지 않는다(비활성 버튼이 hover 에서 밝아진 실사고).
   - 남은 CSS 와 그 존재 이유는 설계서 **§15-15 표**가 SSOT.
