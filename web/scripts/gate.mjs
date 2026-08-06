@@ -5,8 +5,9 @@
    사용: cd web && node scripts/gate.mjs [quick]   (quick=verify만 — 그 뒤 전부 생략)
    반환: 전부 통과 exit 0, 실패 exit 1. 첫 실패 단계에서 멈춘다.
 
-   full 순서: verify → audit(SCA) → build → budget → **server verify** → e2e
-              (+ cargo 있으면) tauri:fmt → tauri:clippy → tauri:check → cargo test → tauri:build → e2e:shell
+   ⚠ **단계 목록을 여기 적지 않는다** — 정본은 아래 `ALL` 배열이고, 손으로 베낀 목록은 표류한다
+   (그게 H-23 이 잡은 결함 자체다: 생략 안내 두 줄이 각자 낡아 있었다). 순서만 말하면 `verify` 로
+   시작해 싼 신호부터 소진하고, cargo 가 없으면 Rust 단계 전부가 빠진다.
 
    ⚠ 순서에 계약이 셋 있다: budget·server verify 는 `dist` 를 재므로 **build 뒤**, `e2e:shell` 은
    빌드된 exe 를 검사하므로 **tauri:build 뒤**, 나머지는 **싼 신호부터** 소진한다.
@@ -39,6 +40,19 @@ const ALL = [
      거기에 네트워크를 섞으면 비행기 모드에서 게이트가 통째로 죽는다(그러면 사람이 verify 를
      건너뛰기 시작한다 — 게이트를 잃는 가장 흔한 경로). 자리는 여기와 CI 다. */
   { name: 'audit', args: ['run', 'audit'], mode: 'full' },
+  /* ⚠⚠ **`server audit` 이 빠져 있었고, 빠뜨린 근거가 성립하지 않았다**(2026-08-06 실측).
+
+     종전 주석은 _"`audit` 과 같은 이유(네트워크)이고, 그쪽 원장은 비어 있는 상태를 유지하는 것이
+     목표라 **CI 가 그 축을 쥔다**"_ 였다. 두 절 다 틀렸다:
+     ① 네트워크는 **가르는 근거가 못 된다** — 바로 윗줄 `audit` 이 이미 네트워크를 타고 full 에 있다.
+     ② "CI 가 쥔다"가 실제로 뜻한 것은 **아무도 안 본다**였다. 이 잡은 5일간(2026-08-01~06)
+        한 번도 안 돌았고, 다시 돌린 첫 실행에서 `undici` high 5건으로 즉시 빨간불이었다 —
+        그동안 로컬 게이트는 `RESULT: ✅ all green` 을 찍고 있었다.
+
+     이 저장소는 같은 형태에 **세 번째** 물린 것이다(`cargo test` · `server verify`·`tauri:fmt/clippy`).
+     매번 진단이 같다: **"CI 엔 있는데 로컬엔 없다"는 곧 "아무 데도 없다"가 된다.**
+     ⚠ 자리가 `audit` 바로 뒤인 것은 규율 그대로다 — 같은 종류의 신호를 붙여 둔다. */
+  { name: 'server audit', args: ['run', 'audit', '--prefix', '../server'], mode: 'full' },
   { name: 'build', args: ['run', 'build'], mode: 'full' },
   { name: 'budget', args: ['run', 'budget'], mode: 'full' },
   /* ⚠⚠ **`server verify` 가 어떤 로컬 게이트에도 없었다**(2026-08-01 `/감사 근본` · 패리티 사고).
@@ -48,8 +62,7 @@ const ALL = [
      뒤로도 그 층은 **양쪽 어디에서도 검증되지 않았다.** 같은 진단이 두 번 반복된 것이 요점이다.
      ⚠ 자리가 `build` **뒤**인 것은 계약이다 — `server/test/assets.test.ts` 가 `../web/dist` 를
        진짜 miniflare 로 재므로(그 파일이 "없으면 시끄럽게 실패한다"고 적어 뒀다) 빌드가 선행이다.
-     ⚠ `server audit` 은 넣지 않는다 — `audit` 과 같은 이유(네트워크)이고, 그쪽 원장은 비어 있는
-       상태를 유지하는 것이 목표라 CI 가 그 축을 쥔다. */
+     ⚠ `server audit` 은 위에 따로 있다(2026-08-06 에 편입 — 그 자리 주석이 근거를 갖는다). */
   { name: 'server verify', args: ['run', 'verify', '--prefix', '../server'], mode: 'full' },
   { name: 'e2e', args: ['run', 'e2e'], mode: 'full' },
   /* ⚠⚠ **Rust 린트가 사실상 무게이트였다**(2026-08-01 `/감사 근본` · 패리티 사고). `tauri:fmt`·

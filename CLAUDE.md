@@ -40,7 +40,11 @@ npm run verify   # codegen:check + typecheck + lint + lint:css + **check:tokens*
                  #   ⚠ `check:tokens` 가 이 목록에서 빠져 있었다(2026-07-30 감사). H20 이 만든,
                  #   **TS 문자열 속 미정의 `var(--x)`** 의 유일한 검출기다(stylelint 는 CSS 만 본다).
                  #   목록을 손으로 베끼면 이렇게 드리프트한다 — 정본은 `package.json` 이다.
-npm run audit    # SCA — 알려진 CVE 게이트(2026-07-25). ⚠ **verify 에 없다**: 레지스트리 네트워크를
+npm run audit    # SCA — 알려진 CVE 게이트(2026-07-25). ⚠ **server 쪽도 함께 돈다**(`npm run gate` 가
+                 #   `server audit` 을 별도 단계로 가진다 · 2026-08-06 편입). 종전엔 web 만 돌고 server 는
+                 #   "CI 가 쥔다"였는데, 그 CI 잡이 5일간 안 돌아 `undici` high 5건이 로컬 녹색 뒤에
+                 #   숨어 있었다 — **"CI 엔 있는데 로컬엔 없다"는 곧 "아무 데도 없다"** 다(세 번째 재발).
+                 # ⚠ **verify 에 없다**: 레지스트리 네트워크를
                  #   타므로 오프라인에서 verify 가 통째로 죽는다. 자리는 여기와 CI.
                  #   예외는 `audit-allowlist.json` 의 **사유+만료일 원장**이고, 만료·사문화도 실패다
                  #   (근거는 scripts/audit-gate.mjs 머리주석).

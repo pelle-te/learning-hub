@@ -35,5 +35,9 @@
     "esbuild@0.28.1": true,
     "sharp@0.34.5": true,
     "workerd@1.20260714.1": true
+  },
+  "_주석:overrides": "⚠ **원장이 아니라 상향이다**(2026-08-06 · SCA 게이트 규약: _\"상향 픽스가 있으면 원장에 적지 말고 올리세요\"_). `undici` high 5건(GHSA-4cwx-7wf7-3272 외)의 픽스는 7.29.0 인데, 그걸 무는 `miniflare` 가 7.28.0 을 **고정**해 wrangler·vitest-pool-workers 를 최신으로 올려도 따라오지 않는다(실측: miniflare 4.20260730.0 도 7.28.0). 즉 픽스는 **존재하는데 경로가 막힌 것**이고, override 가 그 경로를 뚫는 표준 수단이다. ⚠ 검증은 `test:roundtrip`(진짜 workerd + D1 왕복)이 한다 — miniflare 가 7.28 고유 동작에 기대고 있었다면 거기서 깨진다. 상류가 7.29+ 로 올라오면 이 줄을 지운다.",
+  "overrides": {
+    "undici": "^7.29.0"
   }
 }
