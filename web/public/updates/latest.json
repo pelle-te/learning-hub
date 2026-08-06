@@ -1,11 +1,11 @@
 {
-  "version": "0.4.0",
-  "notes": "감사가 잡은 결함 30여 건을 한 번에 고쳤습니다. 대부분은 **화면에 아무 표시가 없던 것들**입니다.\n\n· **동기화가 되돌림을 서버로 올리던 경로 셋**을 닫았습니다. 받아오다 중간에 실패하면 그 다음 편집이 받아온 내용을 되돌리고 다른 기기의 행을 지우는 문장을 만들고 있었습니다 — 화면엔 \"동기화 완료\"라고 떴습니다.\n· **가져오기·복구 직후 ⌘Z** 가 가져오기 전 값을 서버까지 되돌리던 것을 막았습니다.\n· 클라우드를 **끊었다 다른 곳에 다시 연결**하면 일부 데이터가 영영 안 올라가던 것을 고쳤습니다.\n· **시험을 넣으면 달력·주 그리드에서 그 과목 마감이 사라지던 것**을 고쳤습니다. 그리고 시험이 둘이면 표식도 둘입니다(중간/기말 구분).\n· **D-day 가 다가오는 시험을 가리킵니다.** 전엔 중간고사가 코앞이어도 기말까지의 날짜를 보여 줬습니다.\n· 상주 모드에서 **시작 메뉴로 다시 실행하면 무반응**이던 것을 고쳤습니다.\n· **하루 한 번 알림이 영원히 조용할 수 있던 것**을 고쳤습니다 — 못 쏘면 앱 안에서라도 말합니다.\n· 글랜스 모드(⇧G)에 포커스 가둠·스크롤 잠금이 붙었고, 흡수된 화면들이 스크린리더에 제 이름을 말합니다.\n· 배분 보드의 **화살표 이동·`+`/`-` 0.5시간**이 단축키 도움말(`?`)에 등재됐습니다 — 만들어 놓고 어디에도 안 적혀 있었습니다.\n· 화면 방문·하루 신호 기록이 **백업에 포함**됩니다(재설치해도 관측이 0 으로 돌아가지 않습니다).\n· 클라우드를 안 쓰는 경우 편집할 때마다 돌던 불필요한 작업을 없앴습니다.",
-  "pub_date": "2026-08-06T07:10:00Z",
+  "version": "0.4.1",
+  "notes": "감사 잔여분을 마무리했습니다. 이번 판의 절반은 **있는 줄 알았는데 실행된 적 없던 경로**를 고친 것입니다.\n\n· **볼트 백업이 앱에서 동작합니다.** 지식엔진이 읽는 `러닝허브_백업.json` 을 만드는 경로가 브라우저 전용이라, 데스크톱 앱에서는 **한 번도 만들어질 수 없었습니다**(이름은 맞아서 조용했습니다). 이제 설정 탭의 \"지금 볼트에 백업\"이 워크스페이스 폴더에 바로 씁니다 — 폴더를 다시 묻지 않습니다.\n· **동기화 중 ⌘Z 가 엉뚱한 편집을 지우던 것**을 고쳤습니다. 되돌리기 전에 방금 편집을 확정하는 단계가 있는데, 동기화가 도는 동안에는 그 확정이 미뤄져 *그 앞의* 편집이 지워졌습니다.\n· 서버가 **이 버전이 모르는 항목**을 갖고 있으면 이제 화면이 말합니다(\"앱을 업데이트해 주세요\"). 전엔 조용히 건너뛰고 개발자 콘솔에만 적었습니다 — 앱에는 그 콘솔을 볼 사람이 없습니다.\n· **앎 탭의 세그먼트 바**가 다섯 칸 고른 폭이 됐습니다(위치로 기억하는 컨트롤이라 폭이 흔들리면 매번 다시 읽게 됩니다).\n· 클라우드 중계가 **주소·메서드·헤더**를 우리 프로토콜 모양으로만 허용합니다(심층 방어).\n· 그 밖: 시계가 어긋난 기기의 삭제가 최신 기록을 지우지 못하게 · 정상 동작마다 울리던 내부 오경보 제거 · 중복 정리(이어하기 커서·화면 복귀 감지).",
+  "pub_date": "2026-08-06T11:30:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbHFrYkRIWGVmRklmMUtSbE4yNEs0N3pRS3pzWUEzMWt3L0U4WkRaUU8zRTdNRDFqNmtaOU9ObU1JaFUvVDZ1ajlJci8wTzZKd0tGdGUrem42Z2h3S3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1OTk5Nzc5CWZpbGU665+s64ud7ZeI67iMXzAuNC4wX3g2NC1zZXR1cC5leGUKS1F2VW5lem1kR2x6bmdvRE5pekpSQkRUejBaOU9BeDRSc0lDYjFjaDJPMDhEK0FXdE5qWFZtMjNFRkJady90WEtUNWhrZjVFL1ZhNEl3aU9EUUxBQ2c9PQo=",
-      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.4.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbGcvZndhUTQzR2pGQWtQNXBLc2ljQVBzL2k2Q2xWUEk4YWVtK1kwd3NDVzJZNnd3b3Q2eW8vdWwyczJvTHIyK2J2OFFLa3AzaW9KcWkzZEFzZkx2S2dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDE1NDk3CWZpbGU665+s64ud7ZeI67iMXzAuNC4xX3g2NC1zZXR1cC5leGUKK29ybTVhL29GR0hMVy9iTE5oOEZTRmk4N0VHa1hqbXlNSlYvekx5azlsdkl2aEVxeE1heWRYdXoyZ1dVSmdSNjhJdEtKYmJkR1hWOWswcmpDQlVjQlE9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.4.1_x64-setup.exe"
     }
   }
 }
