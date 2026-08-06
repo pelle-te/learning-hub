@@ -14,17 +14,22 @@ export interface DeadlineDday {
   deadline: string;
   dday: number;
 }
-/** 마감 있고 미완료인 과목의 D-day 목록(가까운 순 정렬) — Today·Schedule 공유 SSOT.
+/** 마감 있고 미완료인 과목의 D-day 목록(가까운 순 정렬) — Today·Schedule·폰·`/alloc` 공유 SSOT.
  *  dday<0(마감 지남)·finished(다 끝낸 과목)는 제외해 두 탭이 항상 같은 '가장 가까운 마감'을 본다
- *  (N-9의 두 탭 복붙 파생을 하나로 수렴 → 규칙 변경 시 재드리프트 예방). */
+ *  (N-9의 두 탭 복붙 파생을 하나로 수렴 → 규칙 변경 시 재드리프트 예방).
+ *
+ *  ⚠⚠ **기준은 `nextExam`(다가오는 시험)이지 `deadline`(마지막 시험)이 아니다**(H-2 · 2026-08-06
+ *  감사). 종전엔 이 함수가 `deadline` 을 읽어서, 중간고사가 사흘 뒤인데 화면 전체가 기말까지의
+ *  D-60 을 그렸다 — 그리고 이 함수가 SSOT 라 **다섯 화면이 한꺼번에** 그 값을 그렸다.
+ *  근거 문장은 `semester.ts` 의 `nextExamOf` 가 소유한다. */
 export function deadlineDdays(itemStat: ItemStat[] | undefined, todayIso: string): DeadlineDday[] {
   return (itemStat || [])
-    .filter((st) => st.deadline && !st.finished)
+    .filter((st) => st.nextExam && !st.finished)
     .map((st) => ({
       name: st.name,
       color: st.color,
-      deadline: st.deadline as string,
-      dday: dayDiff(todayIso, st.deadline as string),
+      deadline: st.nextExam as string,
+      dday: dayDiff(todayIso, st.nextExam as string),
     }))
     .filter((st) => st.dday >= 0)
     .sort((a, b) => a.dday - b.dday);
@@ -39,7 +44,8 @@ export function subjectUrgency(st: ItemStat, todayIso: string): number {
   if (st.daily || !st.deadline) return 0;
   if ((st.late || 0) > 0) return 3;
   if (!st.finished) return 2;
-  const d = dayDiff(todayIso, st.deadline);
+  // ⚠ '임박'은 **다가오는** 시험 기준이다(H-2) — 마지막 시험으로 재면 중간고사 주간이 평온으로 나온다.
+  const d = st.nextExam ? dayDiff(todayIso, st.nextExam) : -1;
   return d >= 0 && d <= 7 ? 1 : 0;
 }
 

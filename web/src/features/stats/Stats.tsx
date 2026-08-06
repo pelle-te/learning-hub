@@ -281,10 +281,12 @@ function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today
       </div>
       <div className={S.subjMeta}>
         {s.doneCh}/{s.totalCh} 챕터 · {s.schedH}h/{s.totalH}h
-        {s.deadline ? (
+        {/* ⚠ 표시는 **다가오는 시험**이다(H-2) — `deadline`(마지막 시험)을 그리면 중간고사가
+            사흘 뒤인데 D-60 이 뜬다. 배지(위 `pill`)는 과목의 *끝* 을 말하므로 계속 `deadline`. */}
+        {s.nextExam ? (
           <>
             {' · 마감 '}
-            {fmtShort(parseISO(s.deadline))} <b>({ddayInfo(dayDiff(today, s.deadline)).lab})</b>
+            {fmtShort(parseISO(s.nextExam))} <b>({ddayInfo(dayDiff(today, s.nextExam)).lab})</b>
           </>
         ) : (
           ''

@@ -17,13 +17,19 @@
 ============================================================ */
 import { useApp } from '@/store/useApp';
 import { askToday, jolAccuracy, pendingAsks, recordAsk } from '@/lib/delayedJol';
-import { rid, todayISO } from '@/lib/utils';
+import { rid } from '@/lib/utils';
+import { useTodayISO } from '@/hooks/useTodayISO';
 import { Button, Pill } from '@/components/ui';
 
 export default function JolCard() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
-  const ds = todayISO(state);
+  /* ⚠ **`todayISO` 가 아니라 `useTodayISO` 다**(H-17 · 2026-08-06 감사). 이 카드는 렌더에서
+     `ds` 를 캡처하고 **핸들러가 그 값으로 쓴다**(`recordAsk(... ds ...)`) — 주간 리뷰를 열어 둔
+     채 자정을 넘겨 답하면 **어제 날짜에 기록**되고, 그러면 `askToday` 가 "오늘 이미 물었다"로
+     읽어 오늘 문항이 조용히 사라진다. `RitualCard` 가 물렸던 것과 **같은 형태**이고, 그때
+     처방으로 만든 훅이 여기엔 안 붙어 있었다(채택 5/34). */
+  const ds = useTodayISO(state);
   const ask = askToday(state, ds);
   const pending = pendingAsks(state);
   const acc = jolAccuracy(state);

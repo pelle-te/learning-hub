@@ -163,8 +163,17 @@ describe('scheduleView/computeDay — 배치·미배치·세그먼트·빈입력
 });
 
 describe('scheduleView/deadlineDdays — Today·Schedule 공유 마감 D-day', () => {
+  /* ⚠ `deadline`(과목의 끝)만 주면 화면 D-day 의 기준인 `nextExam`(다가오는 시험 · H-2)이 비어
+     행이 통째로 빠진다. **시험이 하나면 next == last** 이므로 여기서 그렇게 채운다 — 엔진이
+     단일 시험 과목에 내는 값과 같다(둘이 갈리는 시나리오는 엔진 테스트가 소유한다). */
   const stat = (over: Partial<ItemStat>): ItemStat =>
-    ({ id: over.name || 'x', name: 'X', schedH: 0, ...over }) as ItemStat;
+    ({
+      id: over.name || 'x',
+      name: 'X',
+      schedH: 0,
+      ...(over.deadline ? { nextExam: over.deadline } : {}),
+      ...over,
+    }) as ItemStat;
 
   it('가까운 순 정렬 + dday 계산(오늘 기준)', () => {
     const rows = deadlineDdays(
@@ -200,8 +209,17 @@ describe('scheduleView/deadlineDdays — Today·Schedule 공유 마감 D-day', (
 });
 
 describe('scheduleView/sortSubjectsByUrgency — 통계 과목 표시 순서(UX-2)', () => {
+  /* ⚠ `deadline`(과목의 끝)만 주면 화면 D-day 의 기준인 `nextExam`(다가오는 시험 · H-2)이 비어
+     행이 통째로 빠진다. **시험이 하나면 next == last** 이므로 여기서 그렇게 채운다 — 엔진이
+     단일 시험 과목에 내는 값과 같다(둘이 갈리는 시나리오는 엔진 테스트가 소유한다). */
   const stat = (over: Partial<ItemStat>): ItemStat =>
-    ({ id: over.name || 'x', name: 'X', schedH: 0, ...over }) as ItemStat;
+    ({
+      id: over.name || 'x',
+      name: 'X',
+      schedH: 0,
+      ...(over.deadline ? { nextExam: over.deadline } : {}),
+      ...over,
+    }) as ItemStat;
 
   it('위험군을 위로 — 마감초과 > 시간부족 > 마감임박 > 평온', () => {
     const rows = sortSubjectsByUrgency(

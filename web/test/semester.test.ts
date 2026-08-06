@@ -13,6 +13,7 @@ import {
   MAX_EXAMS,
   activeSemester,
   courseOfItem,
+  examMarks,
   examScopes,
   examsOf,
   hasExams,
@@ -258,5 +259,53 @@ describe('Course ↔ Item — 단방향 다리', () => {
 
     const noItem = unlinkedCourses({ items: [] } as unknown as AppState, semester);
     expect(noItem.map((c) => c.id)).toEqual(['c-emag', 'c-solo']);
+  });
+});
+
+/* ============================================================
+   H-1(2026-08-06 감사) — **달력의 마감 표식은 `exams` 에서 나와야 한다.**
+
+   `examsOf` 는 스스로 _"시험을 읽는 유일한 입구"_ 라 선언했는데, 실제로는 세 곳이 원시
+   `it.deadline === ds` 로 옆문을 쓰고 있었다(월 캘린더 2 · 주 그리드 1). 그리고 시험을 편집하면
+   `SubjectDefinition` 이 `delete it.deadline` 을 한다 → **시험을 넣는 순간 달력에서 그 과목
+   마감이 조용히 사라졌다.** 새 모델을 켜는 것이 옛 표시를 끄는 형태이고 오류는 어디에도 안 난다.
+============================================================ */
+describe('examMarks — 달력·주 그리드의 마감 표식', () => {
+  it('옛 저장(deadline 만)도 그 날짜에 표식이 선다 — 무마이그레이션 계약', () => {
+    const marks = examMarks([item({ deadline: '2026-10-20' })], '2026-10-20');
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.name).toBe('전자기학');
+    expect(marks[0]!.exam.kind).toBe('final');
+  });
+
+  it('⚠⚠ `exams` 로 옮겨 `deadline` 이 지워져도 표식이 남는다 — 이게 사라지던 결함이다', () => {
+    const it2 = item({
+      deadline: undefined,
+      exams: [
+        { id: 'e1', kind: 'mid', date: '2026-10-20' },
+        { id: 'e2', kind: 'final', date: '2026-12-15' },
+      ],
+    });
+    expect(examMarks([it2], '2026-10-20').map((m) => m.exam.kind)).toEqual(['mid']);
+    expect(examMarks([it2], '2026-12-15').map((m) => m.exam.kind)).toEqual(['final']);
+  });
+
+  it('시험이 둘이면 **표식도 둘**이다 — 옛 필드는 한 날짜만 표현할 수 있었다', () => {
+    const it2 = item({
+      exams: [
+        { id: 'e1', kind: 'mid', date: '2026-10-20' },
+        { id: 'e2', kind: 'final', date: '2026-12-15' },
+      ],
+    });
+    const 날짜들 = ['2026-10-20', '2026-12-15'].map((ds) => examMarks([it2], ds).length);
+    expect(날짜들).toEqual([1, 1]);
+  });
+
+  it('이름 없는 과목(빈 슬롯)은 표식을 안 만든다 — 달력에 빈 칩이 서면 안 된다', () => {
+    expect(examMarks([item({ name: '', deadline: '2026-10-20' })], '2026-10-20')).toEqual([]);
+  });
+
+  it('그 날짜에 시험이 없으면 빈 배열', () => {
+    expect(examMarks([item({ deadline: '2026-10-20' })], '2026-10-19')).toEqual([]);
   });
 });

@@ -13,6 +13,7 @@ import { iso, addDays, mondayOf, fmtShort, hLabel, toHM, colorForId, DOW_MON } f
 import { indexDays } from '@/lib/scheduleView';
 import { openTasksForDay, tasksForDay } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
+import { EXAM_LABEL, examMarks } from '@/lib/semester';
 import { useApp } from '@/store/useApp';
 import type { ScheduleResult } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -89,8 +90,16 @@ export function MonthCalendar({
     //   그 초과분만 셌다. 그래서 마감 3개인 날은 4줄을 48px 칸에 그려 2줄이 **표시도 없이 잘렸다**
     //   (사용자는 숨은 게 있다는 사실조차 알 수 없다). 같은 목록의 맨 앞에 넣어 캡과 +N이 전부를 센다.
     //   순서: 마감(가장 시급) → 일정 → 할 일.
-    for (const name of state.items.filter((it) => it.deadline === dsKey && it.name).map((it) => it.name)) {
-      chips.push({ key: `d${name}`, name, tip: `마감: ${name}`, kind: 'deadline', noDot: true });
+    /* ⚠ 원시 `it.deadline` 이 아니라 `examsOn` 이다(H-1) — 근거는 그 함수 주석이 소유한다.
+       요지: 시험을 넣으면 `deadline` 이 지워져 이 표식이 조용히 사라졌다. */
+    for (const { name, exam } of examMarks(state.items, dsKey)) {
+      chips.push({
+        key: `d${name}${exam.id}`,
+        name,
+        tip: `${EXAM_LABEL[exam.kind]}: ${name}`,
+        kind: 'deadline',
+        noDot: true,
+      });
     }
     const evs = eventsForDay(state, dsKey);
     for (const ev of evs) {
@@ -121,7 +130,7 @@ export function MonthCalendar({
       isWeekend: date.getDay() === 0 || date.getDay() === 6,
       used,
       chips,
-      deadlines: state.items.filter((it) => it.deadline === dsKey && it.name).map((it) => it.name),
+      deadlines: examMarks(state.items, dsKey).map((m) => m.name),
       open: openTasksForDay(state, dsKey).length,
       events: evs.map((e) => e.title),
     };

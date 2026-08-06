@@ -33,6 +33,7 @@ import { Button } from '@/components/ui';
 import { useHeroPointer, useNowMin } from '@/hooks/interactions';
 import { useWeekOffset } from '@/hooks/useWeekOffset';
 import { computeDay, indexDays, deadlineDdays } from '@/lib/scheduleView';
+import { examMarks } from '@/lib/semester';
 import { timedTasksForDay } from '@/lib/tasks';
 import { WeekCalendar } from './WeekCalendar';
 import { DayPlanner } from './DayPlanner';
@@ -163,8 +164,10 @@ export default function Schedule() {
     return Array.from({ length: 7 }, (_, k) => computeDay(state, byDs, capWd, nowMin, todayIso, curMon, k));
   }, [state, res, capWd, nowMin, todayIso, curMon]);
 
-  // 줄마다 마감 플래그 — 그날이 마감인 과목명(네온 위크-그리드에 표시).
-  const deadlines = parts.map((p) => state.items.filter((it) => it.deadline === p.ds).map((it) => it.name));
+  /* 줄마다 마감 플래그 — 그날 시험이 있는 과목명(네온 위크-그리드에 표시).
+     ⚠ 원시 `it.deadline` 이 아니라 `examMarks` 다(H-1) — 시험을 넣으면 그 필드가 지워져
+     **이 표식이 조용히 사라졌다.** 근거는 `lib/semester.ts` 의 `examsOn` 주석이 소유한다. */
+  const deadlines = parts.map((p) => examMarks(state.items, p.ds).map((m) => m.name));
   const hasStudyItems = state.items.some((it) => it.name);
 
   // 주간 합계·완료율(리드아웃) — 이번 화면 주(週) 기준.
@@ -191,7 +194,7 @@ export default function Schedule() {
       finished: !!st.finished,
       late: st.late || 0,
       md: st.finishDate ? fmtShort(parseISO(st.finishDate)) : null,
-      dday: st.deadline ? dayDiff(todayIso, st.deadline) : null,
+      dday: st.nextExam ? dayDiff(todayIso, st.nextExam) : null, // ⚠ 다가오는 시험 기준(H-2)
       gain: gainById.get(st.id),
     }));
 

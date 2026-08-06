@@ -488,6 +488,18 @@ export function schedule(state: AppState): ScheduleResult {
     // T-1. "마감"의 대표값 = **마지막 시험 날짜**. 옛 저장은 시험이 승격된 하나뿐이라 `s.deadline`
     // 과 같은 값이고, 시험을 안 쓰는 과목은 종전대로 undefined 다.
     const lastExamDs = s._segs.length ? s._segs[s._segs.length - 1]!.exam.date : s.deadline;
+    /* ⚠⚠ **D-day 는 마지막 시험이 아니라 다가오는 시험이다**(H-2 · 2026-08-06 감사).
+       `semester.ts` 의 `nextExamOf` 가 정확히 이 이유로 만들어졌는데(_"중간고사가 코앞인데
+       기말까지의 D-60 을 보여주면 그 숫자는 거짓말"_) 화면 다섯이 계속 `deadline` 을 그리고
+       있었다 — 새 어휘를 만들고 소비처를 안 옮기면 옛 값이 그대로 산다.
+       여기서 함께 내보내 **파생이 한 곳**이 되게 한다(화면마다 `nextExamOf` 를 부르면 그 다섯이
+       각자 today 를 구하게 되고, 그건 H-17 이 잡은 자정 넘김 버그의 생산 라인이다). */
+    /* ⚠ 기준은 `start`(스케줄 시작일)가 아니라 **`today`** 다 — 시작일은 학기 시작이라 과거일 수
+       있고, 그걸로 재면 이미 지난 중간고사가 "다가오는 시험"이 된다. 반대로 시작일이 미래면
+       코앞의 시험이 통째로 빠진다(실측: 이 실수로 `/today` 의 마감 스트립이 비었다). */
+    const nextExamDs =
+      s._segs.find((g) => g.exam.date >= today)?.exam.date ??
+      (s.deadline && s.deadline >= today ? s.deadline : undefined);
     const late = finished && finishDate && lastExamDs ? Math.max(0, dayDiff(lastExamDs, finishDate)) : 0;
     // _hadChapters 가드 — 챕터 없는 과목은 chaptersLeft()가 늘 true라 finished가 영영 false다.
     // 그 상태에서 마감만 있으면 경고가 영구히 뜨는 오탐이라 실제 챕터가 있던 과목만 본다.
@@ -552,6 +564,7 @@ export function schedule(state: AppState): ScheduleResult {
       totalH: round1(s._totalH),
       schedH: round1(s._schedMin / 60),
       deadline: lastExamDs,
+      nextExam: nextExamDs,
       finishDate,
       finished,
       late,

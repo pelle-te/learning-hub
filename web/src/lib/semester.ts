@@ -50,6 +50,25 @@ export function hasExams(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>
 }
 
 /**
+ * 그 날짜에 있는 시험들(없으면 빈 배열). **달력·주 그리드의 마감 표식은 이걸 써야 한다.**
+ *
+ * ⚠⚠ 종전엔 세 곳이 `it.deadline === ds` 로 **원시 필드**를 직접 읽었다(H-1 · 2026-08-06 감사).
+ * 그런데 시험을 편집하면 `SubjectDefinition` 이 `delete it.deadline` 을 한다 — 즉 **시험을 넣는
+ * 순간 월 캘린더·주 그리드에서 그 과목 마감이 조용히 사라졌다.** 새 모델을 켠 것이 옛 표시를
+ * 끄는 형태이고, 어디에도 오류가 안 난다. `examsOf` 가 *유일한 입구*라고 적혀 있었는데 이 셋이
+ * 그 밖에 있었다 — 입구를 선언만 하면 새 소비처가 옆문으로 들어온다.
+ * 그리고 시험이 둘이면 **표식도 둘**이어야 한다(옛 필드는 애초에 한 날짜만 표현할 수 있었다).
+ */
+function examsOn(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>, ds: string): Exam[] {
+  return examsOf(item).filter((e) => e.date === ds);
+}
+
+/** 그 날짜에 시험이 있는 **이름 있는 과목**들을 시험 하나당 한 줄로 편다. 위 주석이 근거를 갖는다. */
+export function examMarks(items: readonly Item[], ds: string): { id: string; name: string; exam: Exam }[] {
+  return items.flatMap((it) => (it.name ? examsOn(it, ds).map((exam) => ({ id: it.id, name: it.name, exam })) : []));
+}
+
+/**
  * **다가오는** 시험(오늘 이후 중 가장 가까운 것). 없으면 null.
  *
  * ⚠ 화면의 D-day 는 **마지막 시험이 아니라 이것**을 써야 한다 — 중간고사가 코앞인데 기말까지의

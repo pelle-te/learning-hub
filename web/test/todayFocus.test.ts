@@ -23,7 +23,16 @@ const timed = (sid: string, start: number, min = 60): FocusEntry => ({
   end: start + min,
   done: false,
 });
-const stat = (id: string, over: Partial<ItemStat> = {}): ItemStat => ({ id, name: id, schedH: 1, ...over });
+/* ⚠ `deadline`(과목의 끝)만 주면 `nextExam`(다가오는 시험 · 화면 D-day 의 기준 · H-2)이 비어
+   급함이 0 이 된다. **시험이 하나인 과목은 next == last** 이므로 여기서 그렇게 채운다 —
+   엔진이 단일 시험 과목에 대해 내는 값과 같다(두 값이 갈리는 시나리오는 엔진 테스트의 몫). */
+const stat = (id: string, over: Partial<ItemStat> = {}): ItemStat => ({
+  id,
+  name: id,
+  schedH: 1,
+  ...(over.deadline ? { nextExam: over.deadline } : {}),
+  ...over,
+});
 
 describe('pickFocus — 시각이 없는 후보끼리는 급한 것이 이긴다(옛 pickTodayFocus 규칙)', () => {
   it('후보가 없으면 focus 도 이유도 없다', () => {

@@ -109,7 +109,8 @@ const URGENT_DEADLINE_DAYS = 7; // 이유 문구를 '마감'으로 바꾸는 임
 /** 급함 점수 — 마감 임박(지배적) > 진도 밀림 > 블록 크기. `stat` 이 없으면 크기만 본다. */
 function urgency(e: FocusEntry, statBySid: Map<string, ItemStat>, today: string): number {
   const st = statBySid.get(e.it.sid);
-  const dd = st?.deadline && !st.finished ? dayDiff(today, st.deadline) : null;
+  // ⚠ **다가오는** 시험 기준(H-2) — 마지막 시험으로 재면 중간고사 주간에 급함이 안 오른다.
+  const dd = st?.nextExam && !st.finished ? dayDiff(today, st.nextExam) : null;
   const deadlineScore = dd != null && dd >= 0 ? 10000 - dd * 100 : 0;
   return deadlineScore + (st?.late || 0) * 10 + (e.it.min || 0) / 60;
 }
@@ -124,7 +125,8 @@ function reasonFor(
   if (!e || !where) return '';
   if (where === 'current') return '지금 시간대';
   const st = statBySid.get(e.it.sid);
-  const dd = st?.deadline && !st.finished ? dayDiff(today, st.deadline) : null;
+  // ⚠ **다가오는** 시험 기준(H-2) — 마지막 시험으로 재면 중간고사 주간에 급함이 안 오른다.
+  const dd = st?.nextExam && !st.finished ? dayDiff(today, st.nextExam) : null;
   if (dd != null && dd >= 0 && dd <= URGENT_DEADLINE_DAYS) return `마감 ${ddayInfo(dd).lab}`;
   if ((st?.late || 0) > 0) return '진도 밀림';
   /* ⚠⚠ **`다음 예정 HH:MM` 이 여기서 사라졌다**(P-6). 1차 키가 시각에서 급함으로 바뀌었으므로

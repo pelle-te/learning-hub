@@ -839,6 +839,46 @@ describe('T-1 학기 계약 — 과목당 시험 2개(중간/기말)', () => {
     expect(r.shortfalls.filter((s) => s.name === '전자기학').length).toBe(1);
     expect(stat(r, '전자기학')!.deadline).toBe('2026-07-06');
   });
+
+  /* ⚠⚠ **D-day 가 두 값이었다**(H-2 · 2026-08-06 감사). `ItemStat.deadline` 은 T-1 이후
+     *마지막* 시험이라 과목의 *끝*을 뜻하는데, 화면 다섯(`/today`·`/schedule`·`/alloc`·`/items`·폰)이
+     그걸 D-day 로 그렸다 — 중간고사가 사흘 뒤인데 기말까지의 D-42 가 뜬다. `semester.ts` 가
+     `nextExamOf` 를 만들며 _"그 숫자는 거짓말이다"_ 라 못박아 뒀는데 소비처가 안 옮겨졌다.
+     이제 엔진이 `nextExam` 을 함께 내고 파생이 한 곳이다(화면마다 today 를 구하면 그게 H-17 의
+     생산 라인이 된다). */
+  it('⚠⚠ `nextExam` 은 **다가오는** 시험이다 — `deadline`(마지막 시험)과 갈린다', () => {
+    const chapters = chs12();
+    const r = schedule(
+      baseState([weeklyItem('전자기학', 4, chapters, twoExams(chapters, chapters[5]!.id))], {
+        _today: '2026-07-01', // 중간(7/06) 전 · 기말(8/17) 한참 전
+      }),
+    );
+    const st = stat(r, '전자기학')!;
+    expect(st.deadline, '과목의 끝 = 마지막 시험(late·finished 판정의 기준)').toBe('2026-08-17');
+    expect(st.nextExam, '화면 D-day 의 기준 = 다가오는 시험').toBe('2026-07-06');
+  });
+
+  it('중간이 지나면 `nextExam` 이 기말로 넘어간다 — 지난 시험이 D-day 로 남으면 음수가 된다', () => {
+    const chapters = chs12();
+    const r = schedule(
+      baseState([weeklyItem('전자기학', 4, chapters, twoExams(chapters, chapters[5]!.id))], {
+        _today: '2026-07-07', // 중간 다음날
+      }),
+    );
+    expect(stat(r, '전자기학')!.nextExam).toBe('2026-08-17');
+  });
+
+  it('모든 시험이 지났으면 `nextExam` 이 없다 — "지난 마감"이 D-day 스트립에 남으면 안 된다', () => {
+    const chapters = chs12();
+    const r = schedule(
+      baseState([weeklyItem('전자기학', 4, chapters, twoExams(chapters, chapters[5]!.id))], {
+        _today: '2026-09-01',
+      }),
+    );
+    const st = stat(r, '전자기학')!;
+    expect(st.nextExam).toBeUndefined();
+    expect(st.deadline, '끝은 여전히 남는다 — late 판정이 그 값에 걸려 있다').toBe('2026-08-17');
+  });
 });
 
 describe('Q-3 약점 → 배분 배선', () => {

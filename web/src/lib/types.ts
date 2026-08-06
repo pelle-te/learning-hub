@@ -76,7 +76,17 @@ export interface ItemStat {
   doneCh?: number;
   totalH?: number;
   schedH: number;
+  /**
+   * 이 과목의 **끝** = 마지막 시험 날짜(T-1). `late`·`finished` 판정의 기준이다.
+   *
+   * ⚠⚠ **화면의 D-day 로 쓰지 말 것 — 그건 `nextExam` 이다**(H-2 · 2026-08-06 감사).
+   * 중간고사가 코앞인데 기말까지의 D-60 을 보여주면 그 숫자는 거짓말이다. `semester.ts` 가
+   * `nextExamOf` 를 만들며 그 문장을 그대로 적어 뒀는데도, 실제로는 `/today`·`/schedule`·
+   * `/alloc`·`/items`·폰이 전부 이 필드를 그리고 있었다(선언이 코드에 안 닿은 형태).
+   */
   deadline?: string;
+  /** **다가오는** 시험 날짜(오늘 이후 중 가장 가까운 것 · 없으면 undefined). 화면 D-day 는 이것. */
+  nextExam?: string;
   finishDate?: string | null;
   finished?: boolean;
   late?: number;
