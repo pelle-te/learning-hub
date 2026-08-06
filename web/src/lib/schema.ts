@@ -60,10 +60,28 @@ export const ExamSchema = z.object({
   thru: z.optional(z.string()),
 });
 
+/* ── Subject 일반화 · 과목 구분(P10 D6) ────────────────────────────────────
+   왜 생겼나: 이 앱의 데이터 모델은 **전공 전제**였다 — 과목은 교재 챕터를 갖고, 시험(중간·기말)이
+   있고, 학기의 `Course`(학점·성적)에 이어 붙는다. 그런데 언어 학습은 *학습 그 자체*라 이 앱의
+   엔진(복습 주기·숙달도·주간 배분)이 그대로 적용되는데도(D6) 위 셋이 전부 헛돈다: 중간고사가 없고,
+   학점으로 세지 않으며, 교수의 주차 진도가 없다. 그래서 소양 과목은 **화면마다 빈 칸으로 남았다.**
+
+   ⚠ 처방이 "필러 이사"가 아닌 이유는 P10 D6 이 못박았다 — 언어를 `survey` 로 빼면 복습·배분 엔진을
+   **두 벌** 만들어야 한다. 옮길 것은 과목이 아니라 **전제**다.
+
+   ⚠⚠ 노브는 **하나**다. 여기서 늘리고 싶어지는 것들(과목 유형 자유입력 · 유형별 스케줄러 정책 ·
+   '무한 진행' 과목 · 유형별 통계 분리)은 전부 **안 만든다** — `ExamSchema` 머리주석이 시험에 대해
+   그은 것과 같은 선이다. 필요해지면 그때 근거를 들고 다시 연다.
+   ⚠ 저장 계약: 옵셔널이고 **없으면 `'major'`** 다(옛 저장·서버·폰 전부 무마이그레이션). 읽기는
+   `lib/semester.ts` 의 `isSoftSubject()` 하나로 모은다 — `item.kind === 'soft'` 를 직접 쓰지 말 것. */
+export const SubjectKindSchema = z.enum(['major', 'soft']);
+
 export const ItemSchema = z.looseObject({
   id: z.string(),
   source: z.optional(z.string()),
   name: z.string(),
+  /** P10 D6. `'soft'` = 학기 회계 밖의 과목(언어 등). 없으면 `'major'`. */
+  kind: z.optional(SubjectKindSchema),
   color: z.optional(z.string()),
   mode: ItemModeSchema,
   weeklyHours: z.optional(z.number()),
@@ -471,6 +489,7 @@ export const AppStateSchema = z.looseObject({
 });
 
 export type Chapter = z.infer<typeof ChapterSchema>;
+export type SubjectKind = z.infer<typeof SubjectKindSchema>;
 export type Item = z.infer<typeof ItemSchema>;
 export type RoutineBlock = z.infer<typeof RoutineBlockSchema>;
 export type CompletionEntry = z.infer<typeof CompletionEntrySchema>;

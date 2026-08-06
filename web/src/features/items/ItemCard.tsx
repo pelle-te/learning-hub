@@ -7,7 +7,7 @@ import { dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { Pill, type PillTone } from '@/components/ui';
 import { useHeroPointer } from '@/hooks/interactions';
 import { ProgressRing } from '@/components/ProgressRing';
-import { EXAM_LABEL, nextExamOf } from '@/lib/semester';
+import { EXAM_LABEL, isSoftSubject, nextExamOf } from '@/lib/semester';
 import type { Item } from '@/lib/types';
 import { Icon } from '@/components/Icon';
 
@@ -100,6 +100,10 @@ function ItemCardImpl({ item, onOpen, weakCount, allocMin, todayIso }: ItemCardP
         />
         <div className="flex items-center gap-2.5">
           <span className={`${NAME_BASE} ${item.name ? NAME_FILLED : NAME_EMPTY}`}>{item.name || '(이름 없음)'}</span>
+          {/* P10 D6 — 구분은 **목록에서 보여야 한다.** 안 그리면 소양인지 아닌지가 편집 화면에만
+              살고, "왜 이 과목만 시험 칸이 없지"가 카드에서 답이 안 된다. 톤은 중립이다 —
+              소양은 경고도 성취도 아니고 **분류**다. */}
+          {isSoftSubject(item) && <Pill tiny>소양</Pill>}
           {nextExam && (
             <Pill tiny tone={ddTone}>
               {EXAM_LABEL[nextExam.kind]} {ddayInfo(dayDiff(todayIso, nextExam.date)).lab}

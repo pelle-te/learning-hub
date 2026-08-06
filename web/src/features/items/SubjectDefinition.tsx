@@ -20,8 +20,8 @@ import { DOW_MON, addDays, iso, parseISO, dayDiff, ddayInfo, round1, hNum } from
 import { useTodayISO } from '@/hooks/useTodayISO';
 import { dayStudyMin } from '@/lib/scheduler';
 import { Button, NumberField, Pill, type PillTone } from '@/components/ui';
-import { EXAM_LABEL, examsOf } from '@/lib/semester';
-import type { AppState, ExamKind, Item } from '@/lib/types';
+import { EXAM_LABEL, courseOfItem, examsOf, isSoftSubject } from '@/lib/semester';
+import type { AppState, ExamKind, Item, SubjectKind } from '@/lib/types';
 import { ChapterEditor } from './ChapterEditor';
 
 /** 시험 칸의 순서·이름. **이 배열이 곧 "과목당 2개" 상한의 UI 쪽 표현**이다(추가 버튼이 없는 이유). */
@@ -202,6 +202,13 @@ export function SubjectDefinition({
   const seed = useApp((s) => s.state._today);
   const todayIso = useTodayISO({ _today: seed });
   const daily = item.mode === 'daily';
+  /* P10 D6 — 소양 과목이면 **학기 회계 칸만** 접는다(시험 2칸). 챕터·배분·복습은 그대로다. */
+  const soft = isSoftSubject(item);
+  /* ⚠ 이미 학기 과목(`Course`)에 이어져 있으면 소양으로 못 바꾼다. 바꾸면 그 링크가 **살아 있는 채로
+     안 보이게** 된다 — 졸업요건 탭의 셀렉트는 소양을 후보에서 빼므로 빈 칸으로 그려지고(연결은
+     그대로 학점을 센다), 사용자에게는 되돌릴 손잡이가 없다. 막는 자리는 노브가 있는 여기다.
+     ⚠ 셀렉터가 **문자열**을 돌려주게 한다 — 객체를 돌려주면 매 렌더가 새 참조라 재렌더가 돈다. */
+  const linkedCourse = useApp((s) => courseOfItem(s.state, id)?.course.name ?? null);
   const chs = item.chapters || [];
   const totalH = chs.reduce((t, ch) => t + (+ch.hours || 0), 0);
 
@@ -271,6 +278,31 @@ export function SubjectDefinition({
             placeholder="과목 이름"
           />
         </div>
+        {/* ── P10 D6 · 과목 구분 ──────────────────────────────────────────────────────────
+            언어처럼 **학점으로 세지 않는 과목**을 표현할 자리가 없어서, 그런 과목은 시험 칸·주차
+            싱크·학기 연결이 전부 빈 채로 남았다. 노브는 이것 **하나**이고 가르는 것은 오직 학기
+            회계다 — 챕터·복습 주기·주간 배분은 소양도 똑같이 돈다(그게 D6 이 언어를 hub 에
+            남긴 이유다). ⚠ 저장은 전공일 때 **`undefined`** 다(옛 저장과 바이트 동일). */}
+        <div className="ds-fld">
+          <label htmlFor={`it-kind-${id}`}>구분</label>
+          <select
+            id={`it-kind-${id}`}
+            value={soft ? 'soft' : 'major'}
+            onChange={(e) =>
+              upd((it) => void (it.kind = (e.target.value as SubjectKind) === 'soft' ? 'soft' : undefined))
+            }
+          >
+            <option value="major">전공 (학기 과목)</option>
+            <option value="soft" disabled={!!linkedCourse}>
+              소양 (학점 밖)
+            </option>
+          </select>
+          {linkedCourse && (
+            <span className="ds-tiny text-mut" style={{ marginTop: 4 }}>
+              학기 과목 「{linkedCourse}」에 연결돼 있어요 — 소양으로 바꾸려면 졸업요건 탭에서 연결을 먼저 푸세요.
+            </span>
+          )}
+        </div>
         <div className="ds-fld">
           <label htmlFor={`it-mode-${id}`}>유형</label>
           <select
@@ -310,43 +342,47 @@ export function SubjectDefinition({
             흡수돼 사라진다(읽기는 `examsOf` 가 승격시키므로 그 전까지도 정상 동작).
             ⚠ 시험은 **최대 2개**다(`MAX_EXAMS`). 이 상한이 가중치·과제·출석으로 미끄러지는 것을
             막는 방벽이고, 근거는 `schema.ts` 의 `ExamSchema` 머리주석에 있다. */}
-        {EXAM_SLOTS.map(({ kind, label }) => {
-          const exam = exams.find((e) => e.kind === kind);
-          const thruOk = exam?.thru && chs.some((c) => c.id === exam.thru);
-          return (
-            <div className="ds-fld" key={kind}>
-              <label htmlFor={`it-exam-${kind}-${id}`}>{label} (선택)</label>
-              <input
-                id={`it-exam-${kind}-${id}`}
-                type="date"
-                value={exam?.date || ''}
-                onChange={(e) => writeExam(kind, e.target.value ? { date: e.target.value } : null)}
-              />
-              {exam && (
-                <span className="ds-tiny text-mut" style={{ marginTop: 4 }}>
-                  {ddayInfo(dayDiff(todayIso, exam.date)).lab}
-                </span>
-              )}
-              {/* 범위(P-10 계승) — 값은 **챕터 id**다(인덱스 아님). 챕터를 삽입·재정렬해도 안 밀린다.
+        {/* ⚠ 소양 과목은 시험 칸이 없다 — 그리고 **저장값도 안 지운다**: `examsOf` 가 소양이면 빈
+            배열을 돌려주므로 엔진·달력도 함께 조용해지고, 구분을 되돌리면 그대로 살아난다
+            (근거는 `lib/semester.ts` 의 `examsOf` 머리주석). */}
+        {!soft &&
+          EXAM_SLOTS.map(({ kind, label }) => {
+            const exam = exams.find((e) => e.kind === kind);
+            const thruOk = exam?.thru && chs.some((c) => c.id === exam.thru);
+            return (
+              <div className="ds-fld" key={kind}>
+                <label htmlFor={`it-exam-${kind}-${id}`}>{label} (선택)</label>
+                <input
+                  id={`it-exam-${kind}-${id}`}
+                  type="date"
+                  value={exam?.date || ''}
+                  onChange={(e) => writeExam(kind, e.target.value ? { date: e.target.value } : null)}
+                />
+                {exam && (
+                  <span className="ds-tiny text-mut" style={{ marginTop: 4 }}>
+                    {ddayInfo(dayDiff(todayIso, exam.date)).lab}
+                  </span>
+                )}
+                {/* 범위(P-10 계승) — 값은 **챕터 id**다(인덱스 아님). 챕터를 삽입·재정렬해도 안 밀린다.
                   기말의 범위를 비우면 "중간 다음부터 끝까지"라 대개 그대로 두면 된다. */}
-              {!daily && exam && chs.length > 0 && (
-                <select
-                  className="mt-1"
-                  aria-label={`${label} 범위`}
-                  value={thruOk ? exam.thru : ''}
-                  onChange={(e) => writeExam(kind, { thru: e.target.value || undefined })}
-                >
-                  <option value="">{kind === 'mid' ? '전 챕터' : '중간 다음부터 끝까지'}</option>
-                  {chs.map((c, i) => (
-                    <option key={c.id} value={c.id}>
-                      {i + 1}. {c.name} 까지
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          );
-        })}
+                {!daily && exam && chs.length > 0 && (
+                  <select
+                    className="mt-1"
+                    aria-label={`${label} 범위`}
+                    value={thruOk ? exam.thru : ''}
+                    onChange={(e) => writeExam(kind, { thru: e.target.value || undefined })}
+                  >
+                    <option value="">{kind === 'mid' ? '전 챕터' : '중간 다음부터 끝까지'}</option>
+                    {chs.map((c, i) => (
+                      <option key={c.id} value={c.id}>
+                        {i + 1}. {c.name} 까지
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {/* 배분은 주간(new) 과목만 — 매일(Anki) 과목은 엔진이 매일 자동으로 얹는다(보드 행에도 없음). */}

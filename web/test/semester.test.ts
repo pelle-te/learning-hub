@@ -17,7 +17,9 @@ import {
   examScopes,
   examsOf,
   hasExams,
+  isSoftSubject,
   itemOfCourse,
+  linkableItems,
   scopeIndexFor,
   semesterPhase,
   unlinkedCourses,
@@ -307,5 +309,43 @@ describe('examMarks — 달력·주 그리드의 마감 표식', () => {
 
   it('그 날짜에 시험이 없으면 빈 배열', () => {
     expect(examMarks([item({ deadline: '2026-10-20' })], '2026-10-19')).toEqual([]);
+  });
+});
+
+/* ============================================================
+   P10 D6 — **Subject 일반화**(소양 과목). 계약 셋:
+   1. 기본값이 전공이다 — `kind` 없는 옛 저장은 **한 글자도 다르게 동작하지 않는다**.
+   2. 소양은 시험 세계에 없다 — 입구(`examsOf`) 하나가 그걸 집행하므로 달력·엔진·화면이 함께 조용해진다.
+   3. **저장값은 안 지운다** — 구분을 되돌리면 넣어 뒀던 시험이 그대로 살아난다.
+============================================================ */
+describe('isSoftSubject / linkableItems — 학기 회계의 경계', () => {
+  const soft = (over: Partial<Item> = {}) => item({ id: 'lang', name: '스페인어', kind: 'soft', ...over });
+
+  it('`kind` 가 없으면 전공이다 — 옛 저장 무마이그레이션', () => {
+    expect(isSoftSubject(item())).toBe(false);
+    expect(isSoftSubject(item({ kind: 'major' }))).toBe(false);
+    expect(isSoftSubject(soft())).toBe(true);
+  });
+
+  it('소양 과목의 시험은 **읽기 입구에서** 빈다 — 화면과 엔진이 갈리지 않는다', () => {
+    const withExam = soft({ exams: [{ id: 'e1', kind: 'mid', date: '2026-10-20' }] });
+    expect(examsOf(withExam)).toEqual([]);
+    expect(hasExams(withExam)).toBe(false);
+    expect(examScopes({ ...withExam, chapters: [ch('c1'), ch('c2')] })).toEqual([]);
+    expect(examMarks([withExam], '2026-10-20')).toEqual([]);
+  });
+
+  it('옛 `deadline` 만 있는 소양 과목도 마찬가지다 — 승격 경로도 함께 막힌다', () => {
+    expect(examsOf(soft({ deadline: '2026-10-20' }))).toEqual([]);
+  });
+
+  it('⚠ 저장값은 남는다 — 전공으로 되돌리면 그 시험이 되살아난다(파괴하지 않는다)', () => {
+    const stored = { ...soft({ exams: [{ id: 'e1', kind: 'mid' as const, date: '2026-10-20' }] }) };
+    expect(examsOf(stored)).toEqual([]);
+    expect(examsOf({ ...stored, kind: undefined }).map((e) => e.id)).toEqual(['e1']);
+  });
+
+  it('linkableItems — 소양은 학기 과목 연결 후보에서 빠진다(학점으로 안 센다)', () => {
+    expect(linkableItems([item(), soft()]).map((i) => i.id)).toEqual(['sub1']);
   });
 });

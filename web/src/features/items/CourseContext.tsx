@@ -19,7 +19,7 @@
 ============================================================ */
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
-import { semesterPhase } from '@/lib/semester';
+import { isSoftSubject, semesterPhase } from '@/lib/semester';
 import { clearSyllabusMark, setSyllabusMark, syllabusOf, syncGap } from '@/lib/syllabus';
 import { addPrereq, prereqChain, prereqGaps, removePrereq } from '@/lib/prereq';
 import { todayISO } from '@/lib/utils';
@@ -213,9 +213,14 @@ function PrereqCard({ item, mutate }: { item: Item; mutate: Mutate }) {
 }
 
 export function CourseContext({ item, mutate }: { item: Item; mutate: Mutate }) {
+  /* P10 D6 — 소양 과목엔 **주차 싱크를 안 그린다.** 그 카드가 묻는 것은 _"교수가 지금 어디까지
+     나갔나"_ 인데 소양엔 교수도 강의 주차도 없다. 위 규율("빈 카드는 고장과 구분되지 않는다")을
+     그대로 적용하면 답은 *안내를 다르게 쓰는 것*이 아니라 **안 그리는 것**이다 — 채울 방법이
+     아예 없는 칸이라 어디로 보낼 곳도 없다.
+     ⚠ 선수 관계는 남긴다: 소양 과목에도 "이게 먼저다"는 성립한다(학기 회계와 무관한 축이다). */
   return (
     <>
-      <SyllabusCard item={item} mutate={mutate} />
+      {!isSoftSubject(item) && <SyllabusCard item={item} mutate={mutate} />}
       <PrereqCard item={item} mutate={mutate} />
     </>
   );

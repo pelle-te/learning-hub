@@ -6,6 +6,8 @@
 export type {
   Theme,
   Chapter,
+  /** P10 D6 과목 구분(`'major'|'soft'`). 판정은 `lib/semester.isSoftSubject` 하나로 모은다. */
+  SubjectKind,
   Item,
   RoutineBlock,
   CompletionEntry,

@@ -34,8 +34,16 @@ export const EXAM_LABEL: Record<Exam['kind'], string> = { mid: '중간', final: 
  * 옛 저장(`deadline`/`deadlineThru`)은 여기서 **시험 1개로 승격**된다. 그래서 `exams` 를 한 번도
  * 안 쓴 사용자에게도 아래 모든 계산이 종전과 동일하게 성립한다(무마이그레이션).
  * ⚠ 승격된 시험의 `kind` 는 `'final'` 이다 — 옛 모델의 마감은 "이 과목의 끝"을 뜻했으므로.
+ *
+ * ⚠⚠ **소양 과목(P10 D6)은 언제나 빈 배열이다.** 저장값은 **지우지 않는다** — 구분을 되돌리면
+ * 넣어 뒀던 시험이 그대로 살아난다. 여기서 거르는 이유는 대안이 둘 다 나쁘기 때문이다:
+ *   ① 전환할 때 `exams` 를 지우면 → 셀렉트 한 번이 사용자가 타이핑한 날짜를 **말없이 파괴**한다.
+ *   ② 그냥 두면 → 화면엔 없는 시험이 **엔진에는 보인다**(`engine.ts` 가 `examScopes` 로 마감을
+ *      압박한다). 이 저장소가 반복해 물린 *"화면과 정본이 갈린다"* 가 정확히 그 형태다.
+ * 입구가 하나라서 이 판정을 **한 곳**에 둘 수 있다 — 이 파일 규율 1의 값이 여기서 회수된다.
  */
-export function examsOf(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>): Exam[] {
+export function examsOf(item: Pick<Item, 'kind' | 'exams' | 'deadline' | 'deadlineThru'>): Exam[] {
+  if (isSoftSubject(item)) return [];
   const list = item.exams?.length
     ? item.exams
     : item.deadline
@@ -45,7 +53,7 @@ export function examsOf(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>)
 }
 
 /** 과목이 시험을 하나라도 갖고 있나(= 마감 모델이 켜져 있나). */
-export function hasExams(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>): boolean {
+export function hasExams(item: Pick<Item, 'kind' | 'exams' | 'deadline' | 'deadlineThru'>): boolean {
   return examsOf(item).length > 0;
 }
 
@@ -59,7 +67,7 @@ export function hasExams(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>
  * 그 밖에 있었다 — 입구를 선언만 하면 새 소비처가 옆문으로 들어온다.
  * 그리고 시험이 둘이면 **표식도 둘**이어야 한다(옛 필드는 애초에 한 날짜만 표현할 수 있었다).
  */
-function examsOn(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>, ds: string): Exam[] {
+function examsOn(item: Pick<Item, 'kind' | 'exams' | 'deadline' | 'deadlineThru'>, ds: string): Exam[] {
   return examsOf(item).filter((e) => e.date === ds);
 }
 
@@ -75,7 +83,7 @@ export function examMarks(items: readonly Item[], ds: string): { id: string; nam
  * D-60 을 보여주면 그 숫자는 거짓말이다. 옛 모델은 마감이 하나뿐이라 이 구분이 존재할 수 없었고,
  * 그래서 모든 화면이 자동으로 "마지막 마감"을 그렸다.
  */
-export function nextExamOf(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru'>, ds: string): Exam | null {
+export function nextExamOf(item: Pick<Item, 'kind' | 'exams' | 'deadline' | 'deadlineThru'>, ds: string): Exam | null {
   return examsOf(item).find((e) => e.date >= ds) || null;
 }
 
@@ -98,7 +106,7 @@ export interface ExamScope {
  * ⚠ 날짜순으로 정렬돼 있는데 `thru` 가 역행하면(중간고사 범위가 기말보다 뒤) 구간이 비므로
  * `fromIdx > thruIdx` 가 될 수 있다 — 호출부는 **빈 구간을 정상 값으로** 다뤄야 한다.
  */
-export function examScopes(item: Pick<Item, 'exams' | 'deadline' | 'deadlineThru' | 'chapters'>): ExamScope[] {
+export function examScopes(item: Pick<Item, 'kind' | 'exams' | 'deadline' | 'deadlineThru' | 'chapters'>): ExamScope[] {
   const all: Chapter[] = item.chapters || [];
   const exams = examsOf(item);
   const out: ExamScope[] = [];
@@ -188,6 +196,29 @@ export function semesterPhase(state: Pick<AppState, 'degree' | '_today'>, ds = t
 /** 학기 중이면 그 학기, 개강 전이면 다가오는 학기. 국면이 필요 없을 때 쓰는 얇은 래퍼. */
 export function activeSemester(state: Pick<AppState, 'degree' | '_today'>, ds?: string): Semester | null {
   return semesterPhase(state, ds).semester;
+}
+
+/* ── Subject 일반화 · 학기 세계 안인가 밖인가 (P10 D6) ─────────────────────── */
+
+/**
+ * 이 과목이 **학기 회계 밖**인가(언어 등 소양 과목).
+ *
+ * 이 파일이 이 판정의 집인 이유: 소양 과목이란 정확히 _"위의 학기 계약이 적용되지 않는 과목"_ 이다 —
+ * 시험(중간·기말)도 학점도 교수 주차도 없다. 학기 계약을 읽는 자리와 그 계약의 **경계**를 읽는
+ * 자리가 갈리면, 화면마다 "이 과목은 예외인가"를 각자 판단하게 된다.
+ *
+ * ⚠ **`item.kind === 'soft'` 를 화면에서 직접 쓰지 말 것.** 저장 기본값이 `undefined`(= 전공)라
+ * 직접 비교는 옳게 쓰기 쉬운 반면 **부정형**(`!== 'soft'`, `=== 'major'`)에서 갈린다.
+ * ⚠ 소양 과목도 **학습은 똑같이 한다** — 챕터·복습 주기·주간 배분·숙달도는 전부 그대로다(D6).
+ * 이 함수가 가르는 것은 오직 **학기 회계**(시험 칸 · 주차 싱크 · `Course` 연결)다.
+ */
+export function isSoftSubject(item: Pick<Item, 'kind'>): boolean {
+  return item.kind === 'soft';
+}
+
+/** 학기 과목(`Course`)에 이어 붙일 수 있는 과목들 — 소양은 후보가 아니다(학점으로 안 센다). */
+export function linkableItems(items: readonly Item[]): Item[] {
+  return items.filter((i) => !isSoftSubject(i));
 }
 
 /* ── 두 우주 잇기 (Course ↔ Item) ───────────────────────────────────────── */

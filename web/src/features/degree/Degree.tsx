@@ -14,6 +14,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
 import { rid, makeItem } from '@/lib/utils';
+import { linkableItems } from '@/lib/semester';
 import { useCountUp } from '@/hooks/interactions';
 import { Button, NumberField } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -97,7 +98,9 @@ function SemCard({
    */
   const courseToItem = (cid: string, name: string) => {
     // PL-15 — items를 구독하지 않고 핸들러 시점에 스냅샷 조회(무관한 items 편집에 카드 재렌더 방지).
-    const existing = useApp.getState().state.items.find((s) => s.name === name);
+    /* ⚠ 후보 목록과 **같은 렌즈**로 찾는다(P10 D6) — 여기만 전체 `items` 를 보면 이름이 같은
+       소양 과목에 학기 과목이 붙어 버리고, 셀렉트에는 그 항목이 안 보여 되돌릴 수도 없다. */
+    const existing = linkableItems(useApp.getState().state.items).find((s) => s.name === name);
     if (existing) {
       // 이미 있으면 만들지 말고 **잇기만** 한다 — 종전엔 그냥 경고만 하고 끝나서, 이름이 같은
       // 항목이 이미 있는 흔한 경우에 링크가 영영 안 생겼다.
@@ -368,7 +371,13 @@ function DegreePlan() {
   // T-1. 연결 셀렉트의 선택지 — **여기서 한 번만** 구독한다(PL-15 · 카드마다 구독하면 무관한 항목
   // 편집에 전 학기 카드가 재렌더된다). immer 라 `items` 가 안 바뀐 변경에서는 참조가 유지된다.
   const items = useApp((s) => s.state.items);
-  const itemOpts = useMemo(() => items.map((i) => ({ id: i.id, name: i.name || '(이름 없음)' })), [items]);
+  /* ⚠ P10 D6 — **소양 과목은 후보가 아니다.** 학점으로 안 세는 과목을 `Course` 에 이어 붙이면
+     이 화면의 모든 집계(이수 학점·GPA·졸업 진척)가 그 과목을 세기 시작한다. 판정은 `lib/semester`
+     하나가 소유한다(`linkableItems`) — 화면이 `kind` 를 직접 보면 후보 목록과 잇기 버튼이 갈린다. */
+  const itemOpts = useMemo(
+    () => linkableItems(items).map((i) => ({ id: i.id, name: i.name || '(이름 없음)' })),
+    [items],
+  );
   const avgPerSem = semDone ? earned / semDone : 0;
   const projSem = earned && avgPerSem > 0 ? Math.ceil(remain / avgPerSem) : null;
   // PL-17 — 목표 GPA 역산. 기본값은 현재 GPA를 0.5 단위 올림(없으면 4.0). 저장은 d.targetGpa(옵셔널).
