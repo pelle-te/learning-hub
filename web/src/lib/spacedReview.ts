@@ -35,6 +35,10 @@ export interface ChapterReview {
    *  UI 는 이걸 배지로 구분해야 한다: 부모가 라이브 관측이 흐르면 이 지표를 폴백으로 강등하라고
    *  적었는데, 구분 없이 승격시키면 강등할 주체가 사라진다(`vaultAnchors.ts` 머리주석). */
   fromVault?: true;
+  /** **만성 실패**(A-4). 이 챕터는 앞당김을 받지 않는다 — 처방이 간격이 아니라 자료다.
+   *  ⚠ UI 는 이걸 *다른 문구*로 그려야 한다. 표식 없이 빈도만 낮추면 사용자에겐 그냥
+   *  "앱이 이 챕터를 잊었다"로 보이고, 그건 이 항목이 만들려던 것의 정반대다. */
+  leech?: true;
 }
 
 /** 간격반복의 마지막 오프셋(16) 기준: 그 이상 방치=overdue, 마지막 직전(7)↑=due. */
@@ -125,6 +129,116 @@ export function latestCbmsByChapter(state: AppState, todayDs: string): Map<strin
   return out;
 }
 
+/* ── 만성 실패(leech · A-4) ────────────────────────────────────────────────
+   ⚠⚠ **처방이 한 방향뿐이었다.** 막히면 사다리를 앞당기고(ID-10), 그게 전부다 — 4회째 무너진
+   챕터도 10회째 무너진 챕터도 **같은 처방**을 받는다. 그 사이 그 챕터는 큐 앞자리를 계속
+   점유하는데, 그것이 밖에서 부르는 `leech` 의 정의 그대로다: *더 자주 보여줘서 시간을 빨아먹는
+   항목*. Anki 는 그 지점에서 **스케줄을 만지는 대신 자동으로 멈추고 사람에게 넘긴다** —
+   "간격이 문제가 아니라 **자료가 문제**"라는 판정이기 때문이다.
+
+   그래서 이 앱의 두 번째 처방: **앞당김을 멈춘다.** 멈추면 기본 사다리로 되돌아가 등장이
+   드물어지고(사라지지 않는다 — 그건 방치다), 대신 화면이 *다른 것*을 요구한다(챕터를 쪼개라 ·
+   3문장 요약을 다시 써라 · 문항으로 내려가라).
+
+   ⚠ **임계를 지어내지 않는다** — 이 파일의 규율은 계수를 만들지 않는 것이고(`FAIL_DUE_DAYS`·
+   `MAINTENANCE_OFFSETS` 가 전부 사다리에서 파생됐다), 여기서도 임계가 **사다리의 칸 수**다.
+   사다리가 바뀌면 이 수가 따라오고 "왜 하필 4인가"가 안 생긴다. */
+export const LEECH_FAILS = REVIEW_OFFSETS.length; // 4
+
+export interface Leech {
+  sid: string;
+  subject: string;
+  color?: string;
+  chapter: string;
+  /** 채점된 시도 중 **막힘**의 수. */
+  fails: number;
+  /** 총 시도 수(막힘 비율의 분모). */
+  attempts: number;
+  /** 최근 실패 사이의 간격(일 · 오래된 것 → 최근). **줄어드는데도 계속 실패했다**는 증거. */
+  gaps: number[];
+}
+
+/**
+ * 만성 실패 챕터. `LEECH_FAILS` 회 이상 막혔고 **마지막 시도도 막힘**인 것만.
+ *
+ * ⚠ 마지막이 통과면 제외한다 — 과거의 실패가 영원히 따라다니면 그건 간격반복이 아니라 낙인이고,
+ * 이 파일이 `failingSids`·`latestCbmsByChapter` 에서 이미 두 번 세운 규율이다.
+ */
+export function leechChapters(state: AppState, todayDs: string, cap = 5): Leech[] {
+  /* ⚠ 키로 쪼개지 않고 `sid`·`chapter` 를 **값에 함께 담는다.** 이 파일의 다른 곳은 `sid+'|'+ch`
+     를 조회 키로만 쓰는데, 되돌리려고 `split('|')` 하면 챕터명에 `|` 가 있는 순간 조용히 어긋난다. */
+  const byChapter = new Map<string, { sid: string; chapter: string; rows: { ds: string; passed: boolean }[] }>();
+  for (const b of state.blankResults || []) {
+    const chapter = (b.chapter || '').trim();
+    if (!b.sid || !chapter || !b.ds || b.ds > todayDs) continue;
+    const key = b.sid + '|' + chapter;
+    const row = { ds: b.ds, passed: !!b.passed };
+    const g = byChapter.get(key);
+    if (g) g.rows.push(row);
+    else byChapter.set(key, { sid: b.sid, chapter, rows: [row] });
+  }
+  const itemOf = new Map((state.items || []).map((it) => [it.id, it]));
+  const out: Leech[] = [];
+  for (const { sid, chapter, rows } of byChapter.values()) {
+    rows.sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0));
+    if (rows[rows.length - 1]!.passed) continue; // 마지막이 통과 → 지금은 leech 가 아니다
+    const fails = rows.filter((r) => !r.passed);
+    if (fails.length < LEECH_FAILS) continue;
+    const it = itemOf.get(sid);
+    const gaps: number[] = [];
+    for (let i = 1; i < fails.length; i++) gaps.push(dayDiff(fails[i - 1]!.ds, fails[i]!.ds));
+    out.push({
+      sid,
+      subject: it?.name || sid,
+      color: it?.color,
+      chapter,
+      fails: fails.length,
+      attempts: rows.length,
+      gaps,
+    });
+  }
+  return out
+    .sort((a, b) => b.fails - a.fails || (a.subject + a.chapter < b.subject + b.chapter ? -1 : 1))
+    .slice(0, cap);
+}
+
+/** 사다리 이동 판정에 필요한 것 전부 — 한 번 만들어 여러 챕터에 재사용한다(과목 스캔 반복 방지). */
+export interface ShiftContext {
+  failing: Set<string>;
+  cbmsByChapter: Map<string, CbmsCode>;
+  /** `sid|chapter` 집합. */
+  leeches: Set<string>;
+  strong: (sid: string, chapter: string) => boolean;
+}
+
+/** 위 컨텍스트를 만든다. `chapterReviews`·`examStaleChapters` 가 **같은 것을** 쓴다. */
+export function shiftContext(state: AppState, todayDs: string): ShiftContext {
+  return {
+    failing: failingSids(state, todayDs),
+    cbmsByChapter: latestCbmsByChapter(state, todayDs),
+    leeches: new Set(leechChapters(state, todayDs, Infinity).map((l) => l.sid + '|' + l.chapter)),
+    strong: (sid, chapter) => chapterStrength(state, sid, chapter, todayDs).band === 'strong',
+  };
+}
+
+/**
+ * 이 챕터의 사다리 이동(앞당김/미룸) 판정 — **`chapterReviews` 와 `examStaleChapters` 가 공유**한다.
+ *
+ * 두 곳이 각자 판정하면 오늘 화면은 "급함"이라 하고 시험 예보는 "괜찮음"이라 말하는 상태가
+ * 생기고, 어느 쪽이 맞는지 화면 어디에도 안 적힌다. 규칙 자체는 `riskOf` 머리주석이 소유한다.
+ */
+export function chapterShift(sid: string, chapter: string, ctx: ShiftContext): { failing: boolean; strong: boolean } {
+  /* A-4 — **leech 는 앞당기지 않는다.** 앞당김이 이미 여러 번 실패한 챕터라, 한 번 더 앞당기는
+     것은 같은 처방의 반복이다. 기본 사다리로 되돌리면 등장이 드물어지고, 그 자리를 *다른 처방*
+     (쪼개기·요약 재작성)이 받는다. ⚠ 미룸(`strong`)도 안 준다 — 붙지 않은 것을 미루면 방치다. */
+  if (ctx.leeches.has(sid + '|' + chapter)) return { failing: false, strong: false };
+  const code = ctx.cbmsByChapter.get(sid + '|' + chapter);
+  return {
+    failing: code ? CBMS_ADVANCES_REVIEW.has(code) : ctx.failing.has(sid),
+    strong: ctx.strong(sid, chapter),
+  };
+}
+
 const TOUCH_TYPES: ReadonlySet<SessionType> = new Set<SessionType>(['new', 'rev', 'blank']);
 
 /** 챕터별 '마지막으로 만진 날' → 경과일·위험도. todayDs 이후(미래) 배치는 무시. 위험 큰 순 정렬. */
@@ -180,18 +294,17 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
      갖는다 — 그게 이 항목이 없앤 오탐이다.
      ⚠ 백지 실패는 대개 자기 CBMS('C')를 자동 생성하므로(`setBlankResult`) ①로 흡수된다.
        즉 ②는 "CBMS 를 안 남긴 옛 기록"의 폴백이지 경쟁 경로가 아니다. */
-  const failing = failingSids(state, todayDs);
-  const cbmsByChapter = latestCbmsByChapter(state, todayDs);
+  /* Q-4(통과 방향) — 이 **챕터**가 붙어 있으면 한 칸 미룬다. 신호가 챕터 단위라는 것이 요점이다:
+     과목 단위 `failingSids` 로는 못 하던 일이고, 그 불가능이 곧 옛 비대칭의 근거였다.
+     ⚠ `strong` 은 `chapterStrength` 의 3구간 중 하나일 뿐이다 — `unseen`(표본 0)은 미룸에
+     참여하지 않는다. 안 재 본 챕터를 "잘한다"고 가정하면 그게 가장 나쁜 오류다.
+     ⚠⚠ 판정 자체는 **`chapterShift` 한 곳**이 소유한다(A-3 시험 앵커가 같은 규칙을 쓴다). */
+  const ctx = shiftContext(state, todayDs);
   const out: ChapterReview[] = [];
   for (const e of last.values()) {
     const daysSince = dayDiff(e.ds, todayDs);
-    const code = cbmsByChapter.get(e.sid + '|' + e.chapter);
-    const failingNow = code ? CBMS_ADVANCES_REVIEW.has(code) : failing.has(e.sid);
-    /* Q-4(통과 방향) — 이 **챕터**가 붙어 있으면 한 칸 미룬다. 신호가 챕터 단위라는 것이 요점이다:
-       과목 단위 `failingSids` 로는 못 하던 일이고, 그 불가능이 곧 옛 비대칭의 근거였다.
-       ⚠ `strong` 은 `chapterStrength` 의 3구간 중 하나일 뿐이다 — `unseen`(표본 0)은 미룸에
-       참여하지 않는다. 안 재 본 챕터를 "잘한다"고 가정하면 그게 가장 나쁜 오류다. */
-    const strongNow = chapterStrength(state, e.sid, e.chapter, todayDs).band === 'strong';
+    const key = e.sid + '|' + e.chapter;
+    const { failing: failingNow, strong: strongNow } = chapterShift(e.sid, e.chapter, ctx);
     out.push({
       sid: e.sid,
       subject: e.subject,
@@ -201,6 +314,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       daysSince,
       risk: riskOf(daysSince, failingNow, strongNow),
       ...(e.fromVault ? { fromVault: true as const } : null),
+      ...(ctx.leeches.has(key) ? { leech: true as const } : null),
     });
   }
   return out.sort((a, b) => b.daysSince - a.daysSince || (a.subject < b.subject ? -1 : 1));
@@ -476,6 +590,76 @@ export function dueForecast(
     });
   }
   return out;
+}
+
+/* ── 시험일 앵커(A-3 · 2026-08-07) ────────────────────────────────────────
+   ⚠⚠ **예보가 시험을 못 본다.** `FORECAST_HORIZON` 은 14일 고정이라 시험이 20일 뒤면 예보의
+   지평 밖이고, `exam.date` 의 소비처는 D-day 라벨과 엔진 배치뿐이었다. 즉 앱 전체가 **주 단위
+   배분**으로 도는데 시험은 **D-day 역산**이라는 어긋남이 여기서 드러난다.
+
+   그런데 시험 대비에서 실제로 답이 필요한 질문은 "며칠 남았나"가 아니라 **"그날 내가 이걸
+   기억하고 있나"** 다. 사다리는 그 답을 이미 갖고 있다 — 각 챕터가 시험 전 마지막으로 걸리는
+   칸이 언제인지 투영하면, 시험 당일의 **나이**가 나온다.
+
+   설계 결정 둘:
+   ① **투영은 공유 사다리(`FORECAST_OFFSETS`), 판정은 챕터별 이동(`chapterShift`).** 예보와 같은
+      모델로 투영해야 두 화면이 다른 세계를 말하지 않고, 판정은 "이 챕터가 얼마나 붙었나"에
+      달렸으니 이동을 반영해야 한다.
+   ② **새 임계를 안 만든다** — `riskOf` 를 그대로 쓴다. "시험용 위험"을 따로 정의하면 그 순간
+      같은 챕터가 두 개의 위험도를 갖고, 어느 쪽이 진짜인지 화면 어디에도 안 적힌다. */
+
+export interface ExamStale extends ForecastChapter {
+  /** 시험 전 이 챕터가 **마지막으로 사다리에 걸리는 날**. 시험 전에 한 칸도 안 걸리면 `lastDs`. */
+  lastBefore: string;
+  /** 시험 당일 기준 "마지막으로 본 지 며칠". */
+  ageAtExam: number;
+  /** 그 나이의 위험도(챕터별 이동 반영). `fresh` 는 목록에 안 들어온다. */
+  riskAtExam: ReviewRisk;
+  /** 시험 전에 사다리가 한 칸도 안 걸린다 — **지금 넣지 않으면 시험까지 다시 안 본다.** */
+  untouched: boolean;
+}
+
+/**
+ * 시험일에 흔들릴 챕터 — 시험 당일 나이가 큰 순.
+ *
+ * ⚠ 시험일이 과거면 빈 배열이다(지난 시험으로 오늘을 겁주지 않는다).
+ * ⚠ `fresh` 는 제외한다 — 그날 괜찮을 챕터는 이 목록의 목적이 아니고, 넣으면 전 챕터가 나열돼
+ * "무엇이 급한가"를 다시 사람이 골라야 한다(이 앱이 반복해서 고쳐 온 그 형태).
+ */
+export function examStaleChapters(state: AppState, days: Day[], todayDs: string, examDs: string, cap = 8): ExamStale[] {
+  const toExam = dayDiff(todayDs, examDs);
+  if (toExam < 0) return [];
+  const ctx = shiftContext(state, todayDs);
+  const hoursOf = chapterHours(state);
+  const base = parseISO(todayDs);
+  const out: ExamStale[] = [];
+  for (const ch of chapterReviews(state, days, todayDs)) {
+    // 시험 전(당일 포함)에 걸리는 칸 중 **가장 늦은 것** — 그게 시험 전 마지막 복습이다.
+    let bestIn = -1;
+    for (const off of FORECAST_OFFSETS) {
+      const d = off - ch.daysSince; // 오늘로부터 그 복습까지 남은 일수
+      if (d >= 0 && d <= toExam && d > bestIn) bestIn = d;
+    }
+    const untouched = bestIn < 0;
+    const ageAtExam = untouched ? ch.daysSince + toExam : toExam - bestIn;
+    const { failing, strong } = chapterShift(ch.sid, ch.chapter, ctx);
+    const riskAtExam = riskOf(ageAtExam, failing, strong);
+    if (riskAtExam === 'fresh') continue;
+    out.push({
+      sid: ch.sid,
+      subject: ch.subject,
+      color: ch.color,
+      chapter: ch.chapter,
+      hours: hoursOf.get(ch.sid + '|' + ch.chapter) ?? 1,
+      lastBefore: untouched ? ch.lastDs : iso(addDays(base, bestIn)),
+      ageAtExam,
+      riskAtExam,
+      untouched,
+    });
+  }
+  return out
+    .sort((a, b) => b.ageAtExam - a.ageAtExam || (a.subject + a.chapter < b.subject + b.chapter ? -1 : 1))
+    .slice(0, cap);
 }
 
 /** 앞당길 후보 — 가용선을 넘는 날의 챕터를, **그 전에 여유가 있는 가장 이른 날**로 옮긴다.

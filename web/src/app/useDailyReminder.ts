@@ -17,12 +17,13 @@
 import { useEffect } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
-import { selectRiskSummary } from '@/store/selectors';
+import { selectRiskSummary, selectSchedule } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
-import { reminderBody, shouldFire } from '@/lib/reminder';
+import { pickReminderLead, reminderBody, shouldFire } from '@/lib/reminder';
+import { riskChapters } from '@/lib/spacedReview';
 import { isTauri, shellNotify } from '@/lib/tauri';
 import { toast } from '@/shell/toast';
-import { todayISO } from '@/lib/utils';
+import { reviewBlockMin, todayISO } from '@/lib/utils';
 
 /** 시각 판정 주기(ms). 분 경계를 놓치지 않을 만큼만 촘촘하다. */
 const TICK_MS = 30_000;
@@ -43,7 +44,17 @@ export function useDailyReminder(): void {
         pending: selectRiskSummary(st).overdue + openBacklog(st).length,
       });
       if (!verdict.fire) return;
-      const { title, body } = reminderBody(selectRiskSummary(st).overdue + openBacklog(st).length);
+      /* A-1 — **무엇을** 말할지는 lib 이 고른다. 여기서 하는 일은 재료를 모으는 것뿐이고,
+         그 재료는 위 `pending` 과 **같은 두 원천**이다(밀린 챕터 + 열린 보충) — 세는 식과
+         부르는 식이 갈리면 알림이 하나를 부르면서 다른 것을 셌다는 뜻이 된다.
+         ⚠ `riskChapters` 는 위험 큰 순이라 `[0]` 이 곧 "가장 오래 방치된 것"이다. */
+      const ds = todayISO(st);
+      const { lead, rest } = pickReminderLead({
+        chapters: riskChapters(st, selectSchedule(st).days, ds, 1),
+        backlog: openBacklog(st),
+        reviewMin: reviewBlockMin(st.moduleLen || 120),
+      });
+      const { title, body } = reminderBody(lead, rest);
       /* ⚠ **쐈다는 표시를 먼저 남긴다.** `shellNotify` 가 실패해도(권한 거부·플러그인 부재)
          오늘 몫은 쓴 것으로 친다 — 안 그러면 실패하는 환경에서 30초마다 재시도하고, 그건
          "하루 1회"라는 이 항목의 유일한 계약을 깨는 경로다. */

@@ -62,10 +62,67 @@ export function shouldFire(i: ReminderInput): { fire: boolean; why: string } {
   return { fire: true, why: '보냄' };
 }
 
-/** 알림 본문. **수와 다음 행동 하나**만 — 세 줄을 넘으면 알림이 화면이 된다. */
-export function reminderBody(pending: number): { title: string; body: string } {
-  return {
-    title: `대기 ${pending}건`,
-    body: pending === 1 ? '한 건 남았어요 — 지금이면 5분입니다.' : `${pending}건 남았어요 — 밀린 것부터 하나만.`,
-  };
+/* ── 본문(A-1 · 2026-08-07) ────────────────────────────────────────────────
+   ⚠⚠ **이 앱이 먼저 거는 유일한 말이 곧 회피 유발자였다.** 종전 본문은 제목 `대기 N건` +
+   본문 `N건 남았어요` 로, **한 알림에 수를 두 번** 말했다. 밖에서 캔 것의 요지가 정확히
+   그것이다 — 밀린 수를 본 순간이 이탈 지점이고("열었더니 밀린 수가 보여서 닫았다"), 그
+   숫자는 **어떤 행동으로도 오늘 안에 0이 될 수 없어서** 마비를 만든다.
+
+   그래서 규칙 하나: **수를 말하지 않고 한 조각을 이름으로 부른다.** 알림이 "무엇을"까지
+   말하면 앱을 여는 행위가 *확인*이 아니라 *시작*이 된다(알림 → 앱 → 판단에서 중간 한 홉이
+   사라진다).
+
+   ⚠ 나머지는 **개수가 아니라 오늘 몫의 언어**로 말한다("오늘은 이거 하나면 충분") — 그게
+   A-10 이 '오늘 밖' 스트립에 거는 것과 같은 화법이고, 두 표면이 다른 말을 하면 안 된다.
+   ⚠ `lead` 가 없으면(이름을 못 뽑는 상태) **그때도 수로 돌아가지 않는다.** 이름을 모르는 것은
+   앱의 사정이지 사용자의 사정이 아니다. */
+
+/** 알림이 가리킬 **첫 행동 하나**. */
+export interface ReminderLead {
+  /** 사람이 읽는 한 줄(예: `회로이론 · 3장 변위전류`). */
+  label: string;
+  /** 예상 소요(분). 0 이하·미상이면 안 적는다 — 틀린 소요는 없는 소요보다 나쁘다. */
+  min?: number;
+}
+
+/** 리드를 고를 재료. **훅은 시계와 채널만 안다** — *무엇을 말할까* 는 이 파일이 소유한다. */
+export interface ReminderCandidates {
+  /** 밀린 챕터, **위험 큰 순**(`riskChapters` 산출 순서 그대로). */
+  chapters: readonly { subject: string; chapter: string }[];
+  /** 열린 보충. */
+  backlog: readonly { name: string; topic: string }[];
+  /** 복습 1블록 분(`reviewBlockMin`) — 챕터 리드의 소요. 새 상수를 만들지 않는다. */
+  reviewMin: number;
+}
+
+/**
+ * 무엇을 첫 조각으로 부를까 + 나머지가 있나.
+ *
+ * ⚠ **챕터가 보충을 이긴다.** 밀린 복습은 시간이 갈수록 비용이 커지고(망각) 보충은 안 그렇다 —
+ * 순서를 뒤집으면 알림이 매일 가장 안 급한 것을 부른다.
+ * ⚠ 소요는 **챕터에만** 붙인다. 보충은 분량이 데이터에 없고, 없는 값을 지어내면 그 알림은
+ * 한 번 틀린 뒤로 아무도 안 믿는다.
+ */
+export function pickReminderLead(c: ReminderCandidates): { lead: ReminderLead | null; rest: number } {
+  const total = c.chapters.length + c.backlog.length;
+  const head = c.chapters[0];
+  if (head) return { lead: { label: `${head.subject} · ${head.chapter}`, min: c.reviewMin }, rest: total - 1 };
+  const b = c.backlog[0];
+  if (b) return { lead: { label: `${b.name} · ${b.topic}`.trim() }, rest: total - 1 };
+  return { lead: null, rest: 0 };
+}
+
+/**
+ * 알림 본문. **수가 아니라 한 조각**을 말한다(A-1).
+ *
+ * @param lead 첫 행동. `null` 이면 이름 없는 폴백(그래도 수는 안 쓴다).
+ * @param rest `lead` 를 뺀 나머지 개수 — **문구에 숫자로 안 들어간다.** 있고 없고만 가른다.
+ */
+export function reminderBody(lead: ReminderLead | null, rest = 0): { title: string; body: string } {
+  if (!lead) {
+    return { title: '밀린 것부터 하나만', body: '가장 오래된 것 하나면 오늘 몫은 충분합니다.' };
+  }
+  const dur = typeof lead.min === 'number' && lead.min > 0 ? `${Math.round(lead.min)}분` : null;
+  const tail = rest > 0 ? '오늘은 이거 하나면 충분합니다.' : '이거면 오늘 몫은 끝입니다.';
+  return { title: lead.label, body: dur ? `${dur} — ${tail}` : tail };
 }

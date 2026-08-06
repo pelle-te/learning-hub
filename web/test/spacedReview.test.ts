@@ -4,17 +4,23 @@
 import { describe, expect, it } from 'vitest';
 import {
   chapterReviews,
+  chapterShift,
   dueForecast,
+  examStaleChapters,
   pullForwardCandidates,
   interleaveBySubject,
+  leechChapters,
   maintenanceReviews,
   riskChapters,
   failingSids,
   riskOf,
   riskSummary,
+  shiftContext,
+  LEECH_FAILS,
   type ChapterReview,
   type ReviewRisk,
 } from '@/lib/spacedReview';
+import { REVIEW_OFFSETS } from '@/lib/utils';
 import { touchReview } from '@/lib/persistence';
 import { freeMinAfter } from '@/lib/scheduler';
 import type { AppState, Day, ScheduleItem } from '@/lib/types';
@@ -595,5 +601,111 @@ describe('Q-4 통과 방향 개방 — 비대칭이 풀렸다', () => {
 
   it('⚠ 신호가 갈리면 failing 이 이긴다 — 위험 쪽으로 틀리는 편이 안전하다', () => {
     expect(riskOf(7, true, true)).toBe('overdue'); // strong 을 무시하고 앞당김
+  });
+});
+
+/* ── A-4 만성 실패(leech) ─────────────────────────────────────────────────
+   `blankResults` 를 직접 세는 함수라 위 `stateWith`(completions 기반) 대신 자체 픽스처를 쓴다. */
+function stateWithBlanks(rows: [string, string, string, boolean][], itemNames: [string, string][] = []): AppState {
+  return {
+    items: itemNames.map(([id, name]) => ({ id, name, chapters: [] })),
+    blankResults: rows.map(([ds, sid, chapter, passed], i) => ({ id: 'b' + i, ds, sid, chapter, passed })),
+    completions: {},
+  } as unknown as AppState;
+}
+const fail = (ds: string, ch = '3장'): [string, string, string, boolean] => [ds, 'c', ch, false];
+
+describe('A-4 leechChapters — 만성 실패는 처방이 다르다', () => {
+  it('임계는 **사다리의 칸 수**에서 파생한다(임의 계수 금지)', () => {
+    expect(LEECH_FAILS).toBe(REVIEW_OFFSETS.length);
+  });
+
+  it('LEECH_FAILS 회 미만이면 leech 가 아니다', () => {
+    const st = stateWithBlanks([fail('2026-06-01'), fail('2026-06-10'), fail('2026-06-20')], [['c', '회로이론']]);
+    expect(leechChapters(st, TODAY)).toEqual([]);
+  });
+
+  it('LEECH_FAILS 회 이상 + 마지막도 막힘이면 leech — 간격과 과목명을 함께 낸다', () => {
+    const st = stateWithBlanks(
+      [fail('2026-06-01'), fail('2026-06-08'), fail('2026-06-11'), fail('2026-06-14')],
+      [['c', '회로이론']],
+    );
+    const [l] = leechChapters(st, TODAY);
+    expect(l).toMatchObject({ sid: 'c', subject: '회로이론', chapter: '3장', fails: 4, attempts: 4 });
+    // 간격이 **줄어드는데도** 계속 실패했다 = "더 자주 보기"가 안 통했다는 증거
+    expect(l!.gaps).toEqual([7, 3, 3]);
+  });
+
+  it('⚠ 마지막이 통과면 제외한다 — 과거의 실패가 영원히 따라다니면 그건 낙인이다', () => {
+    const st = stateWithBlanks(
+      [
+        fail('2026-06-01'),
+        fail('2026-06-08'),
+        fail('2026-06-11'),
+        fail('2026-06-14'),
+        ['2026-06-20', 'c', '3장', true],
+      ],
+      [['c', '회로이론']],
+    );
+    expect(leechChapters(st, TODAY)).toEqual([]);
+  });
+
+  it('미래 기록은 안 센다(시드·시계 어긋남 방어)', () => {
+    const st = stateWithBlanks([fail('2026-06-01'), fail('2026-06-08'), fail('2026-06-11'), fail('2099-01-01')]);
+    expect(leechChapters(st, TODAY)).toEqual([]);
+  });
+
+  it('⭐ leech 는 **앞당김을 받지 않는다** — 같은 처방의 반복을 멈추는 것이 이 항목의 전부다', () => {
+    const rows: [string, string, string, boolean][] = [
+      fail('2026-06-01'),
+      fail('2026-06-08'),
+      fail('2026-06-11'),
+      fail('2026-06-14'),
+    ];
+    const st = stateWithBlanks(rows, [['c', '회로이론']]);
+    const ctx = shiftContext(st, TODAY);
+    expect(ctx.leeches.has('c|3장')).toBe(true);
+    // 막힌 기록이 넷인데도 failing 이 false 다(= 기본 사다리로 되돌아간다)
+    expect(chapterShift('c', '3장', ctx)).toEqual({ failing: false, strong: false });
+    // 대조군: 세 번만 막힌 다른 챕터는 종전대로 앞당겨진다
+    const st3 = stateWithBlanks([fail('2026-06-01', '5장'), fail('2026-06-08', '5장'), fail('2026-06-11', '5장')]);
+    expect(chapterShift('c', '5장', shiftContext(st3, TODAY)).failing).toBe(true);
+  });
+});
+
+/* ── A-3 시험일 앵커 ────────────────────────────────────────────────────── */
+describe('A-3 examStaleChapters — "그날 내가 이걸 기억하고 있나"', () => {
+  // TODAY=2026-07-04 기준. 사다리 투영은 예보와 같은 오프셋(1·3·7·16·34)을 쓴다.
+  const days3 = [day('2026-07-01', [newIt('c', '회로이론', ['3장'])])];
+  const st3 = stateWith([['2026-07-01', 'c', 'new']]);
+
+  it('시험 전 마지막으로 걸리는 칸을 찾아 **시험 당일의 나이**를 낸다', () => {
+    // daysSince=3 · 시험까지 21일 → 걸리는 칸은 +0·+4·+13 → 마지막은 +13 → 나이 21-13=8(due)
+    const [s] = examStaleChapters(st3, days3, TODAY, '2026-07-25');
+    expect(s).toMatchObject({ chapter: '3장', ageAtExam: 8, riskAtExam: 'due', untouched: false });
+    expect(s!.lastBefore).toBe('2026-07-17');
+  });
+
+  it('⭐ 시험 전에 한 칸도 안 걸리면 `untouched` — **지금 넣지 않으면 시험까지 다시 안 본다**', () => {
+    // daysSince=20(6/14 학습) · 시험까지 5일 → 다음 칸은 +14 로 시험 뒤 → 나이 20+5=25(overdue)
+    const days20 = [day('2026-06-14', [newIt('c', '회로이론', ['3장'])])];
+    const st20 = stateWith([['2026-06-14', 'c', 'new']]);
+    const [s] = examStaleChapters(st20, days20, TODAY, '2026-07-09');
+    expect(s).toMatchObject({ ageAtExam: 25, riskAtExam: 'overdue', untouched: true });
+    expect(s!.lastBefore).toBe('2026-06-14'); // 마지막으로 **본** 날 그대로
+  });
+
+  it('그날 괜찮을 챕터(fresh)는 목록에 없다 — 나열하면 다시 사람이 골라야 한다', () => {
+    // 시험이 4일 뒤면 +4 칸에 걸려 나이 0
+    expect(examStaleChapters(st3, days3, TODAY, '2026-07-08')).toEqual([]);
+  });
+
+  it('지난 시험으로 오늘을 겁주지 않는다', () => {
+    expect(examStaleChapters(st3, days3, TODAY, '2026-06-30')).toEqual([]);
+  });
+
+  it('⚠ 판정은 `riskOf` 를 그대로 쓴다 — "시험용 위험"을 따로 정의하지 않는다', () => {
+    const [s] = examStaleChapters(st3, days3, TODAY, '2026-07-25');
+    expect(s!.riskAtExam).toBe(riskOf(s!.ageAtExam));
   });
 });

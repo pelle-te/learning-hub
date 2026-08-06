@@ -72,3 +72,52 @@ export function calibrationLabel(c: Calibration): string {
   if (Math.abs(pct) < 5) return '추정 대체로 맞음';
   return pct > 0 ? `추정보다 ${pct}% 더 걸림` : `추정보다 ${-pct}% 덜 걸림`;
 }
+
+/* ── 반영(A-5 · 2026-08-07) ────────────────────────────────────────────────
+   ⚠⚠ **배율은 계산되는데 반영이 손이었다.** 이 파일이 배율을 내고 과목 상세가 그것을 그렸지만,
+   실제로 주당 시간을 고치는 것은 사람이었다 — 과목 수만큼(현재 4회) 화면을 찾아 들어가 숫자를
+   바꾼다. 그래서 *알고도 안 고치는* 구간이 생겼고, 계획 오류가 **사람이 알면서 반복되는 편향**
+   이라는 문헌의 요지가 정확히 그 자리에 있다.
+
+   ⚠ **0.5h 격자로 반올림한다.** 배율은 `Σactual/Σplanned` 라 소수점이 길게 나오는데, 그걸 그대로
+   주당 시간에 넣으면 `8.7333h` 같은 값이 계획에 박힌다 — 가짜 정밀이고, 이 파일이 이미
+   `calibrationLabel` 에서 같은 이유로 소수점을 잘랐다.
+   ⚠ **최소 0.5h.** 배율이 아주 작아도 과목을 0으로 만들지 않는다(0은 "안 한다"는 뜻이고 그건
+   배율이 내릴 판단이 아니다). */
+
+/** 배율을 적용한 주당 시간(0.5h 격자 · 최소 0.5). */
+export function recalibratedWeekly(weeklyHours: number, c: Calibration): number {
+  return Math.max(0.5, Math.round(weeklyHours * c.ratio * 2) / 2);
+}
+
+export interface Recalibration {
+  sid: string;
+  name: string;
+  /** 지금 주당 시간. */
+  from: number;
+  /** 배율 적용 후. */
+  to: number;
+  calibration: Calibration;
+}
+
+/**
+ * 배율을 아는 과목의 재산정 제안 — **바뀌는 것만**.
+ *
+ * ⚠ `subjectCalibration` 이 `null` 이면 건너뛴다(표본 게이트가 이 파일의 존재 이유의 절반이다).
+ * ⚠ **`to === from` 인 과목은 안 낸다** — "고칠 것 없음"을 목록에 넣으면 사용자가 다시 훑어야 한다.
+ * ⚠ 주당 시간이 없는 과목(`daily` 모드 등)도 건너뛴다: 이 배율은 *주당 시간* 축의 값이고,
+ * 다른 축에 밀어 넣으면 같은 수가 두 뜻을 갖는다.
+ */
+export function recalibrationPlan(state: AppState): Recalibration[] {
+  const out: Recalibration[] = [];
+  for (const it of state.items || []) {
+    const from = +(it.weeklyHours || 0);
+    if (!(from > 0)) continue;
+    const c = subjectCalibration(state, it.id);
+    if (!c) continue;
+    const to = recalibratedWeekly(from, c);
+    if (to === from) continue;
+    out.push({ sid: it.id, name: it.name, from, to, calibration: c });
+  }
+  return out.sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from) || (a.name < b.name ? -1 : 1));
+}
