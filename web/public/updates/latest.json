@@ -1,11 +1,11 @@
 {
-  "version": "0.4.1",
-  "notes": "감사 잔여분을 마무리했습니다. 이번 판의 절반은 **있는 줄 알았는데 실행된 적 없던 경로**를 고친 것입니다.\n\n· **볼트 백업이 앱에서 동작합니다.** 지식엔진이 읽는 `러닝허브_백업.json` 을 만드는 경로가 브라우저 전용이라, 데스크톱 앱에서는 **한 번도 만들어질 수 없었습니다**(이름은 맞아서 조용했습니다). 이제 설정 탭의 \"지금 볼트에 백업\"이 워크스페이스 폴더에 바로 씁니다 — 폴더를 다시 묻지 않습니다.\n· **동기화 중 ⌘Z 가 엉뚱한 편집을 지우던 것**을 고쳤습니다. 되돌리기 전에 방금 편집을 확정하는 단계가 있는데, 동기화가 도는 동안에는 그 확정이 미뤄져 *그 앞의* 편집이 지워졌습니다.\n· 서버가 **이 버전이 모르는 항목**을 갖고 있으면 이제 화면이 말합니다(\"앱을 업데이트해 주세요\"). 전엔 조용히 건너뛰고 개발자 콘솔에만 적었습니다 — 앱에는 그 콘솔을 볼 사람이 없습니다.\n· **앎 탭의 세그먼트 바**가 다섯 칸 고른 폭이 됐습니다(위치로 기억하는 컨트롤이라 폭이 흔들리면 매번 다시 읽게 됩니다).\n· 클라우드 중계가 **주소·메서드·헤더**를 우리 프로토콜 모양으로만 허용합니다(심층 방어).\n· 그 밖: 시계가 어긋난 기기의 삭제가 최신 기록을 지우지 못하게 · 정상 동작마다 울리던 내부 오경보 제거 · 중복 정리(이어하기 커서·화면 복귀 감지).",
-  "pub_date": "2026-08-06T11:30:00Z",
+  "version": "0.4.2",
+  "notes": "**앱이 작아졌습니다.** 수집·교양 화면 다섯(읽을거리 · 증시 동향 · 진로 지도 · 발견 · 탐구 수집)이 이 앱에서 **사라졌습니다.**\n\n· 없어진 게 아니라 **거처를 옮겼습니다.** 밖에서 읽을거리를 들여오고 개론을 만드는 일은 이제 별도 필러(`survey`)가 하고, 이 앱은 **학습 대상으로 등록된 것의 상태**(진척 · 숙달 · 복습 · 요건)만 봅니다. 교양이 여기로 오는 길은 **승격** 하나입니다.\n· 이 다섯은 지난 다섯 번의 개편에서 매번 강등 대상이었고 근거는 늘 같았습니다 — *학습 상태를 하나도 안 쓴다.* 문제는 화면 배치(IA)가 아니라 **있어야 할 집이 여기가 아니었다**는 것이었습니다.\n· ⚠ 이번엔 도달성까지 회수했습니다(⌘K·딥링크로도 안 열립니다). 다른 저장소로의 이사라 남겨 두면 같은 기능이 두 벌이 되기 때문입니다.\n\n그 결과 앱이 실제로 가벼워졌습니다 — 첫 화면 자바스크립트 **107KB**(예산 한도도 160 → 124 로 함께 내렸습니다) · 화면 코드 3,150줄 · 백그라운드 도구 11종 → 7종 · 산출물 9종 → 6종.",
+  "pub_date": "2026-08-06T17:30:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbGcvZndhUTQzR2pGQWtQNXBLc2ljQVBzL2k2Q2xWUEk4YWVtK1kwd3NDVzJZNnd3b3Q2eW8vdWwyczJvTHIyK2J2OFFLa3AzaW9KcWkzZEFzZkx2S2dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDE1NDk3CWZpbGU665+s64ud7ZeI67iMXzAuNC4xX3g2NC1zZXR1cC5leGUKK29ybTVhL29GR0hMVy9iTE5oOEZTRmk4N0VHa1hqbXlNSlYvekx5azlsdkl2aEVxeE1heWRYdXoyZ1dVSmdSNjhJdEtKYmJkR1hWOWswcmpDQlVjQlE9PQo=",
-      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.4.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbG02RzR3d2dsUGFWVzZHaEtCbFdSaGp1eEVGZWNkQ3ZNOWpRcEZkSFM0R29GWFN6dnk2NDhMdlVLQXVCTzd5MEhWdFYyNW80VnI0dzFJaXhiK2RhVmd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDM2MTYxCWZpbGU665+s64ud7ZeI67iMXzAuNC4yX3g2NC1zZXR1cC5leGUKVUQ5ZHJReGRSRDU4RGNHN09qUGEyYlZWL1RIcm1RNlpFb0p6Um8vV3lhQi9UbXRPSHpOZ2d3K2V4bXU3WTZ1K3hjRGNSSjNBY2hqWWZmOVJBS2RjQ3c9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.4.2_x64-setup.exe"
     }
   }
 }
