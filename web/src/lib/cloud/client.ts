@@ -22,7 +22,7 @@ import { execDb, isSqlitePrimary, selectDb } from '../db/sqlite';
 // ⚠ 부팅 경로 — `isTauri` 는 초소형 모듈에서, `cloudHttp` 는 셸 분기 안에서 동적으로(H7).
 import { isTauri } from '../isTauri';
 import { PermanentPushError, type CloudTransport } from './push';
-import { PULL_MARK_KEY, WATERMARK_KEY } from './outbox';
+import { PULL_MARK_KEY, WATERMARK_KEY, resetMergedEcho } from './outbox';
 // ⚠ 지연 import 로 바꾸지 말 것 — 근거는 `push.ts` 의 같은 import 위 주석(실측 0.3KB).
 import { parseInboundBatch } from './schema';
 import type { OutboxBatch } from './contract';
@@ -187,6 +187,11 @@ export async function disconnectCloud(): Promise<{ serverRevoked: boolean }> {
   }
   for (const k of [...Object.values(KEYS), WATERMARK_KEY, PULL_MARK_KEY])
     await execDb('DELETE FROM sync_state WHERE key = ?', [k]);
+  /* ⚠⚠ **에코 억제표도 함께 비운다**(H-5 · 2026-08-06 감사). 워터마크 둘을 지우는 위 한 줄과
+     **같은 이유이고 같은 실패 형태**다: 표가 남으면 "이 행은 서버에서 받은 것"이라는 판정이
+     새 백엔드에도 그대로 적용돼, 워터마크를 0 으로 되돌려 놓고도 그 행들이 스캔에서 제외된다
+     → 새 서버가 그 데이터를 **영영 못 받는다**(앱은 "연결됨·최신"). 근거 전문은 그 함수 주석. */
+  resetMergedEcho();
   _access = null;
   return { serverRevoked };
 }

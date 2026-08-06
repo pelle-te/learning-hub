@@ -15,6 +15,7 @@ import { idbMirror } from '@/lib/idb';
 import { writeAndVerify, endMergeApply } from '@/lib/db/write';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
+import { clearUndo } from '@/lib/db/undoStack';
 import { markDbFallback, setSaveFallback } from '@/lib/db/fallback';
 import { storage } from '@/lib/kv';
 import { announce, onSync } from '@/lib/sync';
@@ -309,6 +310,13 @@ export const useApp = create<AppStore>()(
         set((s) => {
           s.state = splitRuntime(next); // 가져온 스냅샷에 남아있던 런타임 캐시도 분리(디스크 왕복 대칭)
         });
+        /* ⚠⚠ **쌓인 스택을 버린다**(H-4 · 2026-08-06 감사). 근거는 `applyPull` 이 pull 병합에서
+           `clearUndo()` 를 부르는 것과 **글자 그대로 같다**: 정본이 통째로 갈렸으면 쌓아 둔
+           pre-image 는 *더 이상 어떤 상태의 직전도 아니다.* 그런데 이 경로만 그 호출이 없어서,
+           가져오기·복구 직후 ⌘Z 를 누르면 **가져오기 전 값이 fresh 스탬프로 다시 쓰이고 LWW 로
+           이겨 서버까지 올라갔다** — 다른 기기에서도 가져오기가 취소된다. 아래 `undo:false` 는
+           *새 항목을 안 쌓는다*는 뜻이라 이 축을 못 막는다(둘은 다른 이야기다). */
+        clearUndo();
         /* 통째 교체는 즉시 영속(디바운스 X) — 가져오기/복구 직후 새로고침해도 안전.
            ⚠ **⌘Z 스택엔 안 쌓는다**(false). 이 경로의 되돌리기는 사용자 결정대로 `BACKUP_KEY`
            스냅샷이 계속 맡고, 손댄 행이 곧 전체라 쌓으면 바이트 예산을 통째로 먹어 **평범한

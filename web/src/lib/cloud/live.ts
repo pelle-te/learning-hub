@@ -169,6 +169,23 @@ const PING_MS = 45_000; // 유휴 연결이 프록시에 끊기지 않게 keep-a
 const STABLE_MS = 30_000;
 
 /**
+ * 재연결 지연의 **지터 전 기준값**(ms). 순수 — `push.ts` 의 `backoffDelay` 와 같은 자리다.
+ *
+ * ⚠⚠ **지수 클램프가 긴 천장보다 낮으면 그 천장은 도달 불가다**(H-10 · 2026-08-06 감사).
+ * 종전 지수는 `Math.min(retry, 5)` 라 최대 `1000 × 2⁵ = 32초` 였다 — 즉 `ceiling` 이
+ * `LONG_BACKOFF_MS`(5분)로 바뀌어도 `Math.min` 이 항상 32초를 골라, **H24 가 넣은 장기 장애
+ * 완화가 한 번도 발동한 적이 없다.** 두 상수가 서로를 모르고 각자 맞아 보이는 형태였고,
+ * 계산이 클로저 안에 묻혀 있어 어떤 테스트도 그 정합을 볼 수 없었다(그래서 여기로 뺐다).
+ *
+ * → 지수는 긴 천장을 **넘길 수 있을 만큼** 열어 두고(`2⁹ = 512초 > 5분`) 실제 상한은 `ceiling`
+ *   이 정한다. 짧은 구간(retry < `LONG_OUTAGE_AFTER`)은 `MAX_BACKOFF_MS` 가 그대로 잘라 거동 불변.
+ */
+export function liveBackoffBase(retry: number): number {
+  const ceiling = retry >= LONG_OUTAGE_AFTER ? LONG_BACKOFF_MS : MAX_BACKOFF_MS;
+  return Math.min(ceiling, 1000 * 2 ** Math.min(retry, 9));
+}
+
+/**
  * 실시간 poke 채널을 연다. `onPoke` 는 "변경 있음" 수신마다 호출된다(호출부가 pull 을 돌린다).
  * `close()` 로 완전히 끈다(재연결도 멈춘다).
  *
@@ -187,8 +204,7 @@ export function connectLive(cfg: CloudConfig, onPoke: () => void, onDead?: (reas
 
   const scheduleReconnect = (): void => {
     if (closed || reconnectTimer) return;
-    const ceiling = retry >= LONG_OUTAGE_AFTER ? LONG_BACKOFF_MS : MAX_BACKOFF_MS;
-    const base = Math.min(ceiling, 1000 * 2 ** Math.min(retry, 5));
+    const base = liveBackoffBase(retry);
     /* 지터 — 같은 계정의 두 기기가 복구 순간에 **동시에** 몰려들지 않게 흩는다. 단일 사용자라
        군집이 크진 않지만, 몰리는 시점이 하필 서버가 막 살아난 순간이라는 것이 요점이다. */
     const delay = Math.round(base * (1 - JITTER + Math.random() * 2 * JITTER));

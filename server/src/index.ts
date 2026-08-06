@@ -23,9 +23,12 @@ import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import {
   capBatch,
+  deleteRowSql,
   MAX_BATCH_ITEMS,
   OUTBOX_TABLES,
   tableCols,
+  UPSERT_TOMBSTONE_SQL,
+  upsertRowSql,
   type OutboxRow,
   type OutboxTomb,
 } from '../../web/src/lib/cloud/contract';
@@ -654,51 +657,33 @@ app.post('/api/sync/push', async (c) => {
   const stmts: D1PreparedStatement[] = [];
   for (const r of batch.rows) {
     const cols = TABLE_COLS[r.tbl]!;
-    const names = [...cols.key, ...cols.data, 'updated_at'];
-    const setters = [...cols.data, 'updated_at'].map((cn) => `${cn} = excluded.${cn}`).join(', ');
     const k1 = r.key[0] ?? '';
     const k2 = cols.key.length === 2 ? (r.key[1] ?? '') : '';
-    /* ⚠⚠ **툼스톤 가드가 `ON CONFLICT` 만으로는 안 된다** — 실측으로 잡은 결함이다.
-       행이 이미 삭제됐으면 INSERT 에 **충돌이 없어서** `WHERE excluded.updated_at > …` 가
-       아예 발동하지 않고, 오래된 편집이 새 행으로 조용히 들어온다. 그게 설계서 G2 가
-       금지한 **"삭제가 부활한다"** 그 자체다(폰에서 지운 할일이 PC 동기화 때 돌아오는 형태).
-
-       그래서 `INSERT … SELECT … WHERE NOT EXISTS(더 새 툼스톤)` 으로 바꾼다. 두 경로를
-       모두 막는다: ① 행이 남아 있으면 ON CONFLICT 가 LWW 로 판정하고 ② 지워졌으면
-       이 WHERE 가 삽입 자체를 거부한다.
-       `>=` 인 이유: 같은 스탬프면 삭제가 이긴다(동점에서 부활보다 삭제가 안전한 선택이다). */
+    /* ⚠⚠ **SQL 은 `cloud/contract.ts` 가 소유한다**(H-15 · 2026-08-06 감사). 종전엔 이 문장이
+       클라이언트 병합·계약 테스트와 **셋으로 복제**돼 있었고, 그중 테스트 사본은 자기가 만든
+       문자열을 검증하고 있어서 여기를 `>=` → `>` 로 바꿔도 녹색이었다(실제로 그 사본의 툼스톤
+       DELETE 는 이미 옛 `<` 판이었다). 부활 가드·동점 규칙의 근거 전문은 그 파일이 갖는다. */
     stmts.push(
-      c.env.DB.prepare(
-        `INSERT INTO ${r.tbl} (${names.join(',')})
-         SELECT ${names.map(() => '?').join(',')}
-         WHERE NOT EXISTS (
-           SELECT 1 FROM tombstones WHERE tbl = ? AND k1 = ? AND k2 = ? AND deleted_at >= ?
-         )
-         ON CONFLICT(${cols.key.join(',')}) DO UPDATE SET ${setters}
-         WHERE excluded.updated_at > ${r.tbl}.updated_at`,
-      ).bind(...r.key, ...r.data, clamp(r.updatedAt), r.tbl, k1, k2, clamp(r.updatedAt)),
+      c.env.DB.prepare(upsertRowSql(r.tbl, cols.key, cols.data)).bind(
+        ...r.key,
+        ...r.data,
+        clamp(r.updatedAt),
+        r.tbl,
+        k1,
+        k2,
+        clamp(r.updatedAt),
+      ),
     );
   }
   for (const t of batch.tombstones) {
-    stmts.push(
-      c.env.DB.prepare(
-        `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
-         ON CONFLICT(tbl,k1,k2) DO UPDATE SET deleted_at = excluded.deleted_at
-         WHERE excluded.deleted_at > tombstones.deleted_at`,
-      ).bind(t.tbl, t.k1, t.k2, clamp(t.deletedAt)),
-    );
+    stmts.push(c.env.DB.prepare(UPSERT_TOMBSTONE_SQL).bind(t.tbl, t.k1, t.k2, clamp(t.deletedAt)));
     /* 툼스톤보다 오래된 행은 지운다. 부활 방지의 실행부이고, `diffRows` 가 클라이언트에서
        일부러 미룬 정리(rows.ts 주석)를 정본이 대신 하는 지점이다.
-       ⚠ `<=` 다(H3) — 위 부활 가드가 `deleted_at >= …`(동점 삭제 승)이므로 이 DELETE 도 동점을
-       지워야 방향이 맞는다. `<` 였을 때 같은 ms 삭제↔편집이 기기별로 반대로 판정돼 영구 분기했다.
-       클라이언트 병합(`web/src/lib/cloud/merge.ts`)과 **같은 값**이어야 한다. */
+       ⚠ 동점 규칙(`<=` = 삭제 승)의 근거는 `cloud/contract.ts` 의 병합 SQL 절이 갖는다(H3·H-15). */
     const cols = TABLE_COLS[t.tbl];
     if (cols) {
-      const where = cols.key.map((k) => `${k} = ?`).join(' AND ');
       const keys = cols.key.length === 2 ? [t.k1, t.k2] : [t.k1];
-      stmts.push(
-        c.env.DB.prepare(`DELETE FROM ${t.tbl} WHERE ${where} AND updated_at <= ?`).bind(...keys, t.deletedAt),
-      );
+      stmts.push(c.env.DB.prepare(deleteRowSql(t.tbl, cols.key)).bind(...keys, t.deletedAt));
     }
   }
 

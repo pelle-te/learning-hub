@@ -102,6 +102,59 @@ export function tableCols(spec: TableSpec): { key: string[]; data: string[] } {
   return { key: spec.cols.slice(0, spec.keyLen), data: spec.cols.slice(spec.keyLen) };
 }
 
+/* ============================================================
+   병합 SQL — **한 벌**(H-15 · 2026-08-06 감사)
+
+   ⚠⚠ 이 세 문장은 클라이언트(`cloud/merge.ts`)와 서버(`server/src/index.ts`)가 **글자 그대로
+   같아야** 한다. 한쪽만 고치면 기기마다 병합 결과가 갈리고, 그건 이 프로젝트에서 가장 비싼
+   종류의 버그다(재현이 기기 의존).
+
+   그런데 실제로는 **사본이 셋**이었고 셋째가 `server/test/contract.test.ts` 안의 `upsertSql`
+   이었다 — 즉 계약 테스트가 **자기가 만든 문자열**의 의미론을 검증하고 있었다. 그래서 서버의
+   부활 가드가 `>=` → `>` 로 바뀌어도 그 테스트는 **녹색**이다. 그 파일 주석 스스로
+   _"C-5 에서 SQL 생성을 순수 함수로 빼면 이 복제가 사라진다"_ 라 예약해 뒀고, 여기가 그 자리다.
+   ⚠ 실제로 사본은 이미 갈라져 있었다: 테스트 사본의 툼스톤 DELETE 가 `updated_at < ?` 로, H3
+   이 `<=` 로 통일한 **그 전 판**이었다(동점에서 삭제↔편집이 기기별로 반대로 판정되던 형태).
+
+   동점 규칙(두 문장이 서로에게 기대는 지점):
+   · 부활 가드는 `deleted_at >= updatedAt` — 같은 ms 면 **삭제 승**.
+   · 툼스톤 DELETE 는 `updated_at <= deletedAt` — 같은 ms 면 **삭제 승**.
+   방향이 엇갈리면 같은 ms 에 A 가 삭제·B 가 편집했을 때 A=삭제·B=존재로 **영구 분기**한다
+   (양쪽 다 "동기화 완료"라 말한다 · H3 실사고).
+============================================================ */
+
+/**
+ * 행 upsert — **행 단위 LWW + 툼스톤 부활 가드**.
+ *
+ * ⚠ `ON CONFLICT` 만으로는 안 된다: 행이 이미 지워졌으면 **충돌이 없어서** LWW 조건이 아예
+ * 평가되지 않고 오래된 편집이 새 행으로 조용히 들어온다(설계서 G2 가 금지한 "삭제 부활").
+ * 그래서 `INSERT … SELECT … WHERE NOT EXISTS(더 새 툼스톤)` 이다 — ① 행이 남아 있으면
+ * ON CONFLICT 가 LWW 로 판정하고 ② 지워졌으면 이 WHERE 가 삽입 자체를 거부한다.
+ *
+ * 바인딩 순서: `[...key, ...data, updatedAt, tbl, k1, k2, updatedAt]`.
+ */
+export function upsertRowSql(tbl: string, key: string[], data: string[]): string {
+  const names = [...key, ...data, 'updated_at'];
+  const setters = [...data, 'updated_at'].map((c) => `${c} = excluded.${c}`).join(', ');
+  return `INSERT INTO ${tbl} (${names.join(',')})
+       SELECT ${names.map(() => '?').join(',')}
+       WHERE NOT EXISTS (
+         SELECT 1 FROM tombstones WHERE tbl = ? AND k1 = ? AND k2 = ? AND deleted_at >= ?
+       )
+       ON CONFLICT(${key.join(',')}) DO UPDATE SET ${setters}
+       WHERE excluded.updated_at > ${tbl}.updated_at`;
+}
+
+/** 툼스톤 upsert(더 새 삭제만 이긴다). 바인딩: `[tbl, k1, k2, deletedAt]`. */
+export const UPSERT_TOMBSTONE_SQL = `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
+       ON CONFLICT(tbl,k1,k2) DO UPDATE SET deleted_at = excluded.deleted_at
+       WHERE excluded.deleted_at > tombstones.deleted_at`;
+
+/** 툼스톤보다 오래된(또는 동점인) 행을 지운다. 바인딩: `[...keys, deletedAt]`. 동점 규칙은 위 절. */
+export function deleteRowSql(tbl: string, key: string[]): string {
+  return `DELETE FROM ${tbl} WHERE ${key.map((k) => `${k} = ?`).join(' AND ')} AND updated_at <= ?`;
+}
+
 /**
  * 배치를 상한 이하로 자르고 그에 맞는 워터마크를 정한다.
  *

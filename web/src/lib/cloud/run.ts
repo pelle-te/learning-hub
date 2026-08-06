@@ -21,7 +21,7 @@
    이 함수는 **메모리 상태를 건드리지 않는다.** 병합된 상태를 돌려주기만 하고, `applyMerged()` 를
    부르는 것은 호출부다(⚠ `loadState` 아님 · C1) — `lib/` 는 zustand 를 모른다(I2 레이어 단방향).
 ============================================================ */
-import { execDb, selectDb } from '../db/sqlite';
+import { execDb, selectDb, setDiffBaseline } from '../db/sqlite';
 import { pushOutbox, isPermanent, type PushResult, type CloudTransport } from './push';
 import { makeTransport, pullChanges, readCloudConfig } from './client';
 import { applyPull } from './merge';
@@ -141,6 +141,20 @@ async function runSyncOnce(): Promise<SyncResult> {
     let pulled = 0;
     let state: SyncResult['state'] = null;
     const conflicts: NonNullable<SyncResult['conflicts']> = [];
+    /* ⚠⚠ **충돌 스캔의 기준선은 동기화 *시작* 시점의 마크다 — 회차마다 다시 읽으면 안 된다**
+       (H-16 · 2026-08-06 감사).
+
+       `detectConflicts` 의 조건 (2)는 `cur.updatedAt <= pullMark` 면 "지난 pull 이후 로컬이
+       안 바뀜 = 정상 최신화"로 보고 건너뛴다. 그런데 드레인은 **회차마다 마크를 전진시키므로**
+       2회차부터 그 기준선이 *이번 동기화 도중의* 값이 된다 → 이 동기화 전에 한 로컬 편집이
+       전부 "이미 동기화된 것"으로 접히고 **그림자가 안 잡힌다.** 200행이 넘는 pull(=드레인이
+       실제로 도는 경우)에서만 나타나므로 조용하다.
+
+       왜 중요한가: §150 이 CRDT 를 기각하며 내세운 **유일한 보상 경로**가 이 그림자다("LWW 로
+       덮되 사람이 되살릴 수 있다"). 그 절반이 새면 기각 논거 자체가 무효가 된다.
+       ⚠ `pullChanges` 는 계속 **전진하는** 마크를 써야 한다(안 그러면 같은 구간을 반복한다) —
+       두 값의 의미가 다르므로 겸직시키지 않는다. 이 파일 머리주석의 "워터마크가 둘"과 같은 규율. */
+    const scanSince = await readPullMark();
     for (let i = 0; i < MAX_PULL_DRAIN; i++) {
       const since = await readPullMark();
       const incoming = await pullChanges(cfg, since);
@@ -153,7 +167,7 @@ async function runSyncOnce(): Promise<SyncResult> {
 
       /* ③ 병합 **직전** 충돌 스캔 — 이 시점 로컬은 아직 병합-전이라 "덮이기 직전 값"을 본다.
          읽기 전용이라 병합의 LWW 불변식(merge.ts)에 손대지 않는다(§150 조용한 손실 보완). */
-      const round = await scanConflicts(incoming, since);
+      const round = await scanConflicts(incoming, scanSince);
       if (round?.length) conflicts.push(...round);
 
       // ④ 병합. 기준선 정리까지 `applyPull` 이 하고, 메모리 반영은 호출부 몫이다.
@@ -164,11 +178,41 @@ async function runSyncOnce(): Promise<SyncResult> {
       pulled += merged.applied;
       /* ⚠ **마지막 회차의 상태만 쓴다.** `applyPull` 은 매번 정본 전량을 다시 읽어 오므로
          마지막 것이 곧 누적 결과다 — 중간 스냅샷을 메모리에 싣지 않는 것이 요점이다(그게
-         "UI 가 갈린 중간 상태로 30초"의 원인이었다). */
-      state = merged.state;
+         "UI 가 갈린 중간 상태로 30초"의 원인이었다).
+
+         ⚠⚠ **`null` 로는 덮지 않는다**(C-1 · 2026-08-06 감사 · 실패 형태 ⓑ). `applyPull` 은
+         되읽기(`readRows`)가 실패하면 **던지지 않고 `state:null` 을 돌려준다** — 그런데 종전엔
+         그 null 이 앞 회차의 **유효한** 스냅샷을 덮었다. 그러면 드레인 끝에 `state:null` 이라
+         호출부가 `applyMerged` 를 부르지 않고, 메모리는 병합-전 · DB 는 병합-후로 갈린다.
+         그 어긋남의 대가는 조용하지 않다: 다음 편집의 flush 가 **받아온 행을 되돌리는 upsert 와
+         상대 기기 행의 툼스톤**을 만들고, LWW 라 그게 서버까지 이긴다. */
+      if (merged.state) state = merged.state;
+      /* 스냅샷이 안 나온 회차(되읽기 실패) — 기준선은 이 회차에서 안 섰지만(merge.ts 가 `back` 이
+         있을 때만 세운다) **DB 는 이미 앞서 갔다.** 기준선을 무효화해 다음 쓰기가 DB 를 재독하게
+         만든다. 비싼 선택이 아니고(다음 쓰기 1회의 전량 읽기) 정합이 회복된다.
+         ⚠ **드레인을 끊지는 않는다** — 끊으면 H4 가 세운 "한 동기화가 끝까지 비운다"를 되돌리게
+         되고, 뒤 회차가 성공하면 그쪽이 기준선·스냅샷을 정상으로 다시 세운다. */ else setDiffBaseline(null);
     }
     return { status: 'ok', push, pulled, state, conflicts: conflicts.length ? conflicts : undefined };
   } catch (e) {
+    /* ⚠⚠ **드레인 중간에 죽으면 기준선을 무효화한다**(C-1 · 2026-08-06 감사 · 실패 형태 ⓐ).
+
+       H4(2026-08-01)가 pull 을 드레인 루프로 만들면서 **"병합에 성공한 회차 뒤에 실패하는"**
+       경로가 정상 경로가 됐다(그전엔 병합이 `try` 의 마지막 문장이라 성립 불가였다). 루프는
+       종료조건이 `n===0` 이라 **데이터가 있는 모든 pull 뒤에 요청을 한 번 더** 내므로, 그 요청이
+       실패하면 여기로 온다 — 이때 DB·기준선은 라운드 N-1 까지 병합-후인데 아래 `state:null` 때문에
+       `applyMerged` 가 안 불려 **메모리만 병합-전**으로 남는다.
+
+       그 어긋남은 조용히 끝나지 않는다: `syncController` 의 C1 방어망은 병합 창만 닫고(그 주석은
+       *반대* 방향만 다룬다) 이 불일치는 보지 않으므로, 다음 편집의 flush 가 병합-전 메모리를
+       병합-후 기준선과 대조해 **받아온 행을 되돌리는 upsert + 상대 기기 행의 툼스톤**을 만든다.
+       LWW 라 그 되돌림이 서버까지 이긴다.
+
+       처방으로 기준선 무효화를 고른 이유는 **실패 형태 둘 양쪽에서 안전**하기 때문이다(누적
+       `state` 를 실어 보내는 쪽은 ⓑ 에서 틀린다 — DB 보다 뒤처진 스냅샷을 메모리에 싣게 된다).
+       다음 쓰기가 `writeRows` 안에서 DB 를 재독하므로 어느 쪽이든 정합이 회복된다.
+       ⚠ `writeRows` 실패 경로가 이미 쓰는 관용구라 새 개념이 아니다. */
+    setDiffBaseline(null);
     /* 재시도가 무의미한 실패(한도 소진·인증 폐기·계약 위반)는 **`blocked`** 다 — `failed` 로
        접으면 원장이 "다음 시도에 다시 올려요"라 말하는데 그건 거짓이다(H5). */
     const status = isPermanent(e) ? 'blocked' : 'failed';

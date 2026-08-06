@@ -32,7 +32,14 @@ import { runExclusive, beginMergeApply } from '../db/write';
 import { clearUndo } from '../db/undoStack';
 import { seedStamp } from '../db/stamp';
 import type { AppState } from '../types';
-import { OUTBOX_TABLES, tableCols, type OutboxBatch } from './contract';
+import {
+  OUTBOX_TABLES,
+  UPSERT_TOMBSTONE_SQL,
+  deleteRowSql,
+  tableCols,
+  upsertRowSql,
+  type OutboxBatch,
+} from './contract';
 import { noteMergedRows } from './outbox';
 
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
@@ -90,42 +97,24 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
     const spec = SPEC.get(r.tbl);
     if (!spec) continue; // 스키마가 이미 걸렀어야 한다(방어적)
     const { key, data } = tableCols(spec);
-    const names = [...key, ...data, 'updated_at'];
-    const setters = [...data, 'updated_at'].map((c) => `${c} = excluded.${c}`).join(', ');
     const k1 = r.key[0] ?? '';
     const k2 = key.length === 2 ? (r.key[1] ?? '') : '';
-    /* ⚠ 툼스톤 가드가 `ON CONFLICT` 만으로는 안 된다 — 행이 이미 지워졌으면 **충돌이 없어**
-       LWW 조건이 평가되지 않고 오래된 편집이 부활한다. 서버에서 실측으로 잡은 결함이고
-       (`server/test/contract.test.ts`), 로컬 병합도 같은 함정을 그대로 갖는다. */
+    /* ⚠ SQL 은 `contract.ts` 가 소유한다(H-15) — 서버·이 파일·계약 테스트가 **한 문장**을 쓴다.
+       툼스톤 부활 가드가 왜 `ON CONFLICT` 만으로 안 되는지는 그 함수 주석이 갖는다. */
     stmts.push({
-      sql: `INSERT INTO ${spec.name} (${names.join(',')})
-       SELECT ${names.map(() => '?').join(',')}
-       WHERE NOT EXISTS (
-         SELECT 1 FROM tombstones WHERE tbl = ? AND k1 = ? AND k2 = ? AND deleted_at >= ?
-       )
-       ON CONFLICT(${key.join(',')}) DO UPDATE SET ${setters}
-       WHERE excluded.updated_at > ${spec.name}.updated_at`,
+      sql: upsertRowSql(spec.name, key, data),
       args: [...r.key, ...r.data, r.updatedAt, r.tbl, k1, k2, r.updatedAt],
     });
   }
 
   for (const t of batch.tombstones) {
-    stmts.push({
-      sql: `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
-       ON CONFLICT(tbl,k1,k2) DO UPDATE SET deleted_at = excluded.deleted_at
-       WHERE excluded.deleted_at > tombstones.deleted_at`,
-      args: [t.tbl, t.k1, t.k2, t.deletedAt],
-    });
+    stmts.push({ sql: UPSERT_TOMBSTONE_SQL, args: [t.tbl, t.k1, t.k2, t.deletedAt] });
     const spec = SPEC.get(t.tbl);
     if (!spec) continue;
     const { key } = tableCols(spec);
-    const where = key.map((k) => `${k} = ?`).join(' AND ');
     const keys = key.length === 2 ? [t.k1, t.k2] : [t.k1];
-    /* ⚠ `<=` 다(H3). 부활 가드(위 `deleted_at >= updatedAt`)는 동점이면 **삭제 승**인데, 이
-       DELETE 가 `<` 면 동점 행을 안 지워 **행 승**이라 방향이 엇갈렸다 — 같은 ms 에 A 가 삭제·
-       B 가 편집하면 A=삭제·B=존재로 영구 분기했다(양쪽 "동기화 완료"). 두 규칙을 삭제 승으로
-       통일한다. 서버(`server/src/index.ts`)도 같은 값이어야 한다(안 그러면 기기별 병합이 갈린다). */
-    stmts.push({ sql: `DELETE FROM ${spec.name} WHERE ${where} AND updated_at <= ?`, args: [...keys, t.deletedAt] });
+    /* ⚠ 동점 규칙(`<=` = 삭제 승)과 그 근거는 `contract.ts` 의 병합 SQL 절이 소유한다(H3·H-15). */
+    stmts.push({ sql: deleteRowSql(spec.name, key), args: [...keys, t.deletedAt] });
   }
 
   if (!stmts.length) return { state: null, applied: 0 };

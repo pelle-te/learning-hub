@@ -39,39 +39,31 @@ function freshDb(): DatabaseSync {
   return db;
 }
 
-/* ⚠ 아래 두 SQL 은 `server/src/index.ts` 의 push 핸들러와 **같은 모양**이어야 한다.
-   지금 문자열이 복제돼 있는 것은 Worker 핸들러가 D1 바인딩에 묶여 있어 노드에서 직접 부를 수
-   없기 때문이다. 이 테스트의 값은 "SQL 의미론이 의도대로인가"에 있고, 핸들러와의 정합은
-   로컬 wrangler 요청으로 따로 확인했다. C-5 에서 SQL 생성을 순수 함수로 빼면 이 복제가 사라진다. */
-function upsertSql(tbl: string, key: string[], data: string[]): string {
-  const names = [...key, ...data, 'updated_at'];
-  const setters = [...data, 'updated_at'].map((c) => `${c} = excluded.${c}`).join(', ');
-  return `INSERT INTO ${tbl} (${names.join(',')})
-          SELECT ${names.map(() => '?').join(',')}
-          WHERE NOT EXISTS (
-            SELECT 1 FROM tombstones WHERE tbl = ? AND k1 = ? AND k2 = ? AND deleted_at >= ?
-          )
-          ON CONFLICT(${key.join(',')}) DO UPDATE SET ${setters}
-          WHERE excluded.updated_at > ${tbl}.updated_at`;
-}
+/* ⚠⚠ **이 파일은 자기가 만든 SQL 을 검증하고 있었다**(H-15 · 2026-08-06 감사).
+
+   여기 `upsertSql` 이라는 **사본**이 있었다. 그래서 `server/src/index.ts` 의 부활 가드가
+   `>=` → `>` 로 바뀌어도 이 테스트는 **녹색**이었다 — 즉 "계약 테스트"가 계약을 안 보고 있었다.
+   그리고 실제로 이미 갈라져 있었다: 아래 `tomb` 의 DELETE 가 `updated_at < ?` 로, H3 이 `<=` 로
+   통일한 **그 전 판**이었다(동점에서 삭제↔편집이 기기별로 반대 판정 → 영구 분기).
+
+   옛 주석은 _"Worker 핸들러가 D1 바인딩에 묶여 노드에서 직접 부를 수 없다"_ 를 이유로 들었는데,
+   묶여 있는 것은 **실행**이지 SQL **생성**이 아니었다. 생성을 순수 함수로 빼면(그 주석 자신이
+   _"C-5 에서 …"_ 로 예약해 뒀다) 서버·클라이언트 병합·이 테스트가 한 문장을 공유한다. */
+import { deleteRowSql, UPSERT_TOMBSTONE_SQL, upsertRowSql } from '../../web/src/lib/cloud/contract';
 
 let db: DatabaseSync;
 beforeEach(() => {
   db = freshDb();
 });
 
-/** settings 에 한 행 밀어올린다(서버 push 와 같은 문장). */
+/** settings 에 한 행 밀어올린다 — **서버가 쓰는 바로 그 문장**(사본 아님). */
 const push = (key: string, value: string, at: number): void => {
-  db.prepare(upsertSql('settings', ['key'], ['value'])).run(key, value, at, 'settings', key, '', at);
+  db.prepare(upsertRowSql('settings', ['key'], ['value'])).run(key, value, at, 'settings', key, '', at);
 };
-/** 툼스톤 + 그보다 오래된 행 삭제(서버 push 의 툼스톤 경로와 같은 문장). */
+/** 툼스톤 + 그보다 오래된(동점 포함) 행 삭제 — 서버 push 의 툼스톤 경로와 **같은 문장**. */
 const tomb = (key: string, at: number): void => {
-  db.prepare(
-    `INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)
-     ON CONFLICT(tbl,k1,k2) DO UPDATE SET deleted_at = excluded.deleted_at
-     WHERE excluded.deleted_at > tombstones.deleted_at`,
-  ).run('settings', key, '', at);
-  db.prepare('DELETE FROM settings WHERE key = ? AND updated_at < ?').run(key, at);
+  db.prepare(UPSERT_TOMBSTONE_SQL).run('settings', key, '', at);
+  db.prepare(deleteRowSql('settings', ['key'])).run(key, at);
 };
 const read = (key: string): { value: string; updated_at: number } | undefined =>
   db.prepare('SELECT value, updated_at FROM settings WHERE key = ?').get(key) as never;
@@ -135,6 +127,19 @@ describe('⚠⚠ 삭제가 부활하지 않는다 — 이 파일이 만들어진
     push('k', 'v', 700);
     tomb('k', 600); // 삭제가 편집보다 오래됨 → 지우면 안 된다
     expect(read('k')?.value).toBe('v');
+  });
+
+  /* ⚠⚠ **두 문장의 동점 규칙이 같은 방향인가**(H3 → H-15 · 2026-08-06 감사).
+
+     위 "동점이면 삭제가 이긴다"는 **행이 없는 상태**에서 부활 가드만 본다. 그런데 동점 규칙은
+     문장이 **둘**이고(부활 가드 `deleted_at >= updatedAt` · 툼스톤 DELETE `updated_at <= deletedAt`)
+     엇갈리면 같은 ms 에 A=삭제·B=존재로 **영구 분기**한다 — 그게 H3 실사고다. 이 케이스가
+     **행이 있는 상태**에서 DELETE 쪽 동점을 본다. 없어서 이 파일의 사본이 옛 `<` 판인 채로
+     몇 달을 통과했다. */
+  it('⚠⚠ 행이 **남아 있을 때도** 동점이면 삭제가 이긴다 — DELETE 가 `<` 면 여기서 갈린다', () => {
+    push('k', 'v', 600);
+    tomb('k', 600); // 같은 ms 에 한쪽은 편집, 다른 쪽은 삭제
+    expect(read('k'), '두 동점 규칙의 방향이 엇갈리면 기기마다 다른 답이 남는다').toBeUndefined();
   });
 });
 

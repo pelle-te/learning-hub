@@ -141,8 +141,20 @@ export function noteMergedRows(rows: readonly { tbl: string; key: string[]; upda
   for (const r of rows) _merged.set(mergedKey(r.tbl, r.key), r.updatedAt);
 }
 
-/** 테스트 전용 — 표를 비운다. */
-export function _resetMergedEcho(): void {
+/**
+ * 표를 비운다.
+ *
+ * ⚠⚠ **연결 해제가 이걸 안 불렀다**(H-5 · 2026-08-06 감사). 이 표는 "이 행은 방금 *서버에서*
+ * 받은 것이니 되올리지 않는다"는 뜻인데, `disconnectCloud()` 는 워터마크 둘까지 지우면서
+ * 이 메모리 표는 그대로 뒀다. 그래서 **끊었다가 다른 백엔드에 재등록하면** 그 행들이
+ * `updated_at > 0` 스캔에는 걸리는데 여기서 정확히 걸러져 **영영 안 올라간다** — 앱은
+ * "연결됨·최신"이라 말한다. 워터마크 삭제(H2)가 고친 것과 **같은 계열의 조용한 유실**이고,
+ * 그때 이 표가 아직 없어서 함께 못 고쳐진 것이다.
+ *
+ * ⚠ 그전까지 이름이 `_resetMergedEcho`(테스트 전용)였다 — *프로덕션 호출부가 없다*는 표시가
+ * 곧 이 결함의 모양이었다. 이제 `disconnectCloud` 가 부른다.
+ */
+export function resetMergedEcho(): void {
   _merged.clear();
 }
 

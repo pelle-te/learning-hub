@@ -64,9 +64,10 @@ import {
   readWatermark,
   batchSize,
   noteMergedRows,
-  _resetMergedEcho,
+  resetMergedEcho,
   OUTBOX_TABLES,
 } from '@/lib/cloud/outbox';
+import { disconnectCloud } from '@/lib/cloud/client';
 import { pushOutbox, backoffDelay, PermanentPushError, isPermanent, type CloudTransport } from '@/lib/cloud/push';
 import { nextStamp, seedStamp, currentStamp, chunkedStamp, _resetStamp } from '@/lib/db/stamp';
 import { runExclusive } from '@/lib/db/write';
@@ -478,8 +479,8 @@ describe('밀어올리기 — 재시도와 워터마크 전진 순서', () => {
    잠근다 — 넓어지는 순간 이 장치는 유실 장치가 된다.
 ============================================================ */
 describe('에코 억제 — 방금 받은 행을 되돌려 올리지 않는다(H31-②)', () => {
-  beforeEach(() => _resetMergedEcho());
-  afterEach(() => _resetMergedEcho());
+  beforeEach(() => resetMergedEcho());
+  afterEach(() => resetMergedEcho());
 
   it('병합으로 받은 그 행은 다음 스캔에서 빠진다', async () => {
     tables.set('settings', [{ key: 'k', value: '{"a":1}', updated_at: 150 }]);
@@ -511,8 +512,23 @@ describe('에코 억제 — 방금 받은 행을 되돌려 올리지 않는다(H
   it('실패 안전 — 표가 비면 종전 거동 그대로다(정확성이 이 장치에 기대지 않는다)', async () => {
     tables.set('settings', [{ key: 'k', value: '{}', updated_at: 150 }]);
     seedStamp(200);
-    _resetMergedEcho(); // 앱 재시작과 같은 상태
+    resetMergedEcho(); // 앱 재시작과 같은 상태
     expect((await collectOutbox(100))!.rows).toHaveLength(1);
+  });
+
+  /* ⚠⚠ **연결 해제가 이 표를 안 지웠다**(H-5 · 2026-08-06 감사). `disconnectCloud` 는 워터마크
+     둘까지 지우면서(H2) 메모리 표는 남겼다 — 그러면 새 백엔드에 재등록해도 그 행들이 "받은
+     것"으로 걸러져 **영영 안 올라간다.** 앱은 "연결됨·최신"이라 말하므로 증상이 없다.
+     H2 가 고친 것과 같은 계열이고, 그때는 이 표가 아직 없어서 함께 못 고쳐졌다. */
+  it('⚠⚠ 연결을 끊으면 표가 비어 — 재연결 시 그 행들이 다시 올라간다', async () => {
+    tables.set('settings', [{ key: 'k', value: '{}', updated_at: 150 }]);
+    seedStamp(200);
+    noteMergedRows([{ tbl: 'settings', key: ['k'], updatedAt: 150 }]);
+    expect((await collectOutbox(100))!.rows, '전제: 지금은 에코로 걸러진다').toHaveLength(0);
+
+    await disconnectCloud();
+
+    expect((await collectOutbox(100))!.rows, '표가 남으면 새 서버가 이 데이터를 영영 못 받는다').toHaveLength(1);
   });
 });
 

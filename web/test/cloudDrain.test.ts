@@ -26,16 +26,19 @@ vi.mock('@/lib/cloud/client', () => ({
   pullChanges: (...a: unknown[]) => pullChanges(...a),
 }));
 vi.mock('@/lib/cloud/merge', () => ({ applyPull: (...a: unknown[]) => applyPull(...a) }));
-vi.mock('@/lib/cloud/conflictScan', () => ({ scanConflicts: async () => [] }));
+const scanConflicts = vi.fn(async () => []);
+vi.mock('@/lib/cloud/conflictScan', () => ({ scanConflicts: (...a: unknown[]) => scanConflicts(...(a as [])) }));
 
 /** 마크는 인메모리로 — 여기서 재는 것은 SQL 이 아니라 **회차 수**다. */
 let mark = 0;
+const setDiffBaseline = vi.fn();
 vi.mock('@/lib/db/sqlite', () => ({
   selectDb: async () => [{ value: String(mark) }],
   execDb: async (_q: string, args: unknown[]) => {
     mark = Math.max(mark, Number(args[1]));
     return true;
   },
+  setDiffBaseline: (...a: unknown[]) => setDiffBaseline(...a),
 }));
 
 import { syncOnce } from '@/lib/cloud/run';
@@ -58,6 +61,8 @@ beforeEach(() => {
   mark = 0;
   pushOutbox.mockReset();
   pullChanges.mockReset();
+  setDiffBaseline.mockReset();
+  scanConflicts.mockClear();
   applyPull.mockReset().mockImplementation(async (b: OutboxBatch) => ({ applied: b.rows.length, state: null }));
 });
 
@@ -106,6 +111,25 @@ describe('pull 드레인 — 빌 때까지 받는다(종전엔 루프 자체가 
     expect(pullChanges.mock.calls.map((c) => c[1])).toEqual([0, 10]);
   });
 
+  /* ⚠⚠ H-16(2026-08-06 감사) — 그림자의 기준선은 **동기화 시작 시점**이다.
+     `detectConflicts` 는 `cur.updatedAt <= pullMark` 를 "정상 최신화"로 접는다. 회차마다 전진한
+     마크를 넘기면 2회차부터 *이번 동기화 도중의* 값이 기준이 되어, 이 동기화 전에 한 로컬
+     편집이 전부 접히고 **그림자가 안 잡힌다**(200행 초과 pull 에서만 나타나 조용하다).
+     §150 이 CRDT 를 기각하며 내세운 유일한 보상 경로가 이것이라 절반이 새면 그 논거가 무효다. */
+  it('⚠⚠ 충돌 스캔은 **모든 회차에 같은 기준선**을 쓴다 — 전진한 마크를 쓰면 2회차부터 과소 탐지', async () => {
+    pullChanges
+      .mockResolvedValueOnce(batch(10, 1))
+      .mockResolvedValueOnce(batch(20, 1))
+      .mockResolvedValueOnce(batch(30, 1))
+      .mockResolvedValueOnce(batch(30, 0));
+
+    await syncOnce();
+    const 기준선들 = scanConflicts.mock.calls.map((c) => (c as unknown as [unknown, number])[1]);
+    expect(기준선들, '전진한 마크를 넘기면 [0,10,20] 이 된다').toEqual([0, 0, 0]);
+    // 반면 pull 질의는 계속 전진해야 한다 — 두 값의 의미가 다르다(겸직 금지).
+    expect(pullChanges.mock.calls.map((c) => c[1])).toEqual([0, 10, 20, 30]);
+  });
+
   it('받을 게 없으면 1회로 끝난다(평시 동기화 비용이 안 는다)', async () => {
     pullChanges.mockResolvedValue(batch(7, 0));
     await syncOnce();
@@ -122,5 +146,55 @@ describe('pull 드레인 — 빌 때까지 받는다(종전엔 루프 자체가 
       .mockResolvedValueOnce(batch(20, 0));
     const r = await syncOnce();
     expect(r.state).toBe(last);
+  });
+});
+
+/* ============================================================
+   C-1 — **드레인 중간에 죽었을 때 기준선이 DB 보다 앞서 있으면 안 된다**(2026-08-06 감사).
+
+   ⚠ 이 축은 이 파일에 **원리적으로 없었다**: 위 케이스들은 `applyPull` 을 통째로 mock 해
+   *회차 수*만 재므로, 병합에 성공한 회차 뒤에 실패하는 경로가 만드는 **기준선↔메모리 어긋남**을
+   볼 수 없다. 그리고 그 경로를 정상 경로로 만든 것이 바로 H4 의 드레인 루프다 — 즉 C-1 은
+   이 파일이 검증한 그 변경이 낳은 결함이고, 여기에 축이 없어서 잡히지 않았다.
+
+   ⚠⚠ 단언 대상을 기준선 **값**으로 잡지 않는다 — `sqlite.ts` 에는 `setDiffBaseline` 만 있고
+   게터가 없다(실측). 게터를 새로 export 하면 테스트만 쓰는 표면이 하나 늘고 `knip` 도 그것을
+   본다. 대신 **무효화가 일어났는가**(= 다음 쓰기가 DB 를 재독하게 되는 유일한 신호)를 본다.
+============================================================ */
+describe('C-1 — 드레인 중 실패는 기준선을 무효화한다', () => {
+  beforeEach(() => {
+    pushOutbox.mockResolvedValue(emptyPush);
+  });
+
+  it('ⓐ 병합에 성공한 회차 **뒤** 요청이 실패하면 기준선을 무효화한다 — 안 하면 다음 편집이 받아온 행을 되돌린다', async () => {
+    applyPull.mockResolvedValue({ applied: 1, state: { marker: 'r1' } as never });
+    // 종료조건이 `n===0` 이라 데이터가 있는 pull 뒤엔 **항상 한 번 더** 묻는다. 그게 실패하는 경로.
+    pullChanges.mockResolvedValueOnce(batch(10, 1)).mockRejectedValueOnce(new Error('네트워크'));
+
+    const r = await syncOnce();
+    expect(r.status, '재시도 가능한 실패다').toBe('failed');
+    expect(r.state, '호출부가 applyMerged 를 부르지 않는다 = 메모리는 병합-전으로 남는다').toBeNull();
+    expect(setDiffBaseline, '기준선(병합-후)만 남으면 flush 가 되돌리는 문장을 만든다').toHaveBeenCalledWith(null);
+  });
+
+  it('ⓑ `applyPull` 이 되읽기 실패로 `state:null` 을 돌려줘도 **앞 회차의 유효 스냅샷을 덮지 않는다**', async () => {
+    const first = { marker: 'r1' } as never;
+    applyPull.mockResolvedValueOnce({ applied: 1, state: first }).mockResolvedValueOnce({ applied: 1, state: null }); // 되읽기 실패 — 던지지 않는다
+    // 종료조건이 `n===0` 이라 데이터가 있는 회차 뒤엔 빈 회차가 하나 더 온다(드레인은 정상 종료).
+    pullChanges
+      .mockResolvedValueOnce(batch(10, 1))
+      .mockResolvedValueOnce(batch(20, 1))
+      .mockResolvedValueOnce(batch(20, 0));
+
+    const r = await syncOnce();
+    expect(r.state, 'null 로 덮으면 applyMerged 가 안 불려 ⓐ 와 같은 어긋남이 된다').toBe(first);
+    expect(setDiffBaseline, 'DB 는 앞서 갔으므로 재독을 강제한다').toHaveBeenCalledWith(null);
+  });
+
+  it('정상 드레인은 기준선을 건드리지 않는다 — 무효화가 상시 발생하면 매 동기화가 전량 재독이 된다', async () => {
+    applyPull.mockResolvedValue({ applied: 1, state: { marker: 'ok' } as never });
+    pullChanges.mockResolvedValueOnce(batch(10, 1)).mockResolvedValueOnce(batch(10, 0));
+    await syncOnce();
+    expect(setDiffBaseline).not.toHaveBeenCalled();
   });
 });

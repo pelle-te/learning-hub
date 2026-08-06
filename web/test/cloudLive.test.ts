@@ -44,7 +44,7 @@ vi.mock('@/lib/cloud/client', () => ({
   currentAccessToken: () => Promise.resolve('tok'),
 }));
 
-const { connectLive } = await import('@/lib/cloud/live');
+const { connectLive, liveBackoffBase } = await import('@/lib/cloud/live');
 
 const CFG = { baseUrl: 'https://hub.example.dev', deviceId: 'd', deviceSecret: 's' } as never;
 
@@ -134,5 +134,28 @@ describe('connectLive — 브라우저 전송', () => {
     h.close();
     expect(made[0]?.close).toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+});
+
+/* ============================================================
+   백오프 — **값이 아니라 관계를 잠근다**(H-10 · 2026-08-06 감사).
+
+   이 파일 머리주석은 정책 *값*을 단언하지 않기로 했다(값이 두 벌이 되면 조정의 걸림돌이 된다).
+   그 원칙은 지금도 옳지만, 그래서 **아무도 상수들 사이의 정합을 안 봤다**: 지수 클램프가
+   `Math.min(retry, 5)`(=32초 천장)라 H24 가 넣은 5분 장기 백오프가 **도달 불가**였고, 두 상수는
+   각자 보면 멀쩡했다. 값을 베끼지 않고 *관계*만 단언하면 그 사각이 닫힌다.
+============================================================ */
+describe('재연결 백오프 — 관계 불변식', () => {
+  it('⚠⚠ 장기 장애 구간의 지연이 **단기 구간의 최대치보다 크다** — 아니면 그 완화는 죽은 코드다', () => {
+    const 단기최대 = Math.max(...Array.from({ length: 20 }, (_, i) => liveBackoffBase(i)));
+    expect(liveBackoffBase(20), '지수 클램프가 긴 천장보다 낮으면 여기서 같아진다').toBeGreaterThan(단기최대);
+  });
+
+  it('단조 증가한다 — 재시도가 늘수록 간격이 줄면 장애 중에 더 몰린다', () => {
+    for (let r = 0; r < 30; r++) expect(liveBackoffBase(r + 1)).toBeGreaterThanOrEqual(liveBackoffBase(r));
+  });
+
+  it('천장에서 멈춘다 — 무한히 자라면 복구를 못 알아챈다', () => {
+    expect(liveBackoffBase(1000)).toBe(liveBackoffBase(30));
   });
 });
