@@ -15,7 +15,7 @@
    · 파이썬 도구       → `tools.rs`    (실 cwd·인코딩·파이프)
    · 볼트 읽기·감시    → `vault.rs`    (실 볼트 + notify 실발화)
    · Anki 덱 스캔      → `anki_scan.rs`(실 볼트)
-   · 탐구 잡 이력·중단 → `research.rs` (복원 전이 + 실제 프로세스 트리 종료)
+   · ⚠ '탐구 잡 이력·중단'(`research.rs`)은 P10 W4 에서 사라졌다 — 그 모듈이 `survey/` 로 갔다.
    · 서버·WAL 동시성   → `server.rs`   (진짜 소켓 + 쓰기 풀 보유 중 읽기)
    · 실 DB 스탬프      → `db.rs`       (updated_at=0 검사)
    근거와 공용 헬퍼는 `src-tauri/src/testkit.rs` 머리주석.
@@ -228,11 +228,14 @@ test('Ollama Channel 배선 — 델타가 실제 IPC 채널로 흘러온다', as
     });
 
     const out = (await w.invoke('ollama_run', {
-      kind: 'reads/coach',
-      body: { source: '고양이는 포유류이고 밤에 잘 본다.', summary: '고양이는 밤눈이 밝은 포유류다.', lang: 'ko' },
+      /* ⚠ 옛 `reads/coach` 가 P10 W4 에서 사라졌다(2026-08-07) — 읽을거리 화면과 함께 갔다.
+         `review/coach` 로 갈았다: 이 케이스가 잠그는 것은 특정 프롬프트가 아니라 **IPC Channel
+         배선**(증분이 실제로 흘러오는가)이고, 그건 남은 AI 경로 하나로도 그대로 물어진다. */
+      kind: 'review/coach',
+      body: { facts: ['이번 주 복습을 세 번 했다.'], weakSpots: ['전자기학 맥스웰 방정식'] },
       requestId: 'e2e-ollama-1',
       onDelta: `__CHANNEL__:${id}`,
-    })) as { ok: boolean; error?: string; feedback?: unknown };
+    })) as { ok: boolean; error?: string; coach?: unknown };
 
     return { out, deltaCount: deltas.length };
   });
@@ -245,7 +248,7 @@ test('Ollama Channel 배선 — 델타가 실제 IPC 채널로 흘러온다', as
   );
 
   expect(r.out.ok, `생성 실패: ${r.out.error}`).toBe(true);
-  expect(r.out.feedback, '봉투의 feedback 키가 비었다 — wrap 키가 틀리면 화면이 조용히 빈다').toBeTruthy();
+  expect(r.out.coach, '봉투의 coach 키가 비었다 — wrap 키가 틀리면 화면이 조용히 빈다').toBeTruthy();
   // Channel 이 안 붙었으면 여기가 0 이 된다.
   expect(r.deltaCount, 'Channel 로 델타가 하나도 안 왔다 — 스트리밍 배선이 끊겼다').toBeGreaterThan(0);
 });

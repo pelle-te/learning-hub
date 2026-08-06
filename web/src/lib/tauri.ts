@@ -505,55 +505,6 @@ export function shellRunTool(tool: string, subject?: string): Promise<RunToolOut
   return call('run_tool', { tool, subject: subject ?? null }, RunToolOutSchema);
 }
 
-/** 탐구 잡 — Rust `research::Job` 과 1:1(필드명 camelCase 까지). `api.ts` 의 `ResearchJob` 과 같다. */
-export interface ShellResearchJob {
-  id: string;
-  topic: string;
-  scope: string;
-  status: 'running' | 'done' | 'error' | 'canceled';
-  code: number | null;
-  startedAt: number;
-  endedAt: number | null;
-  out: string;
-}
-
-const ShellResearchJobSchema = z.looseObject({
-  id: z.string(),
-  topic: z.string(),
-  scope: z.string(),
-  /* ⚠ `status` 만 enum 이다 — 이 값으로 UI 가 분기하므로, Rust 가 새 상태를 추가하면
-       프런트는 조용히 "모르는 상태"를 렌더한다. 그게 여기서 잡고 싶은 드리프트다. */
-  status: z.enum(['running', 'done', 'error', 'canceled']),
-  code: z.nullable(z.number()),
-  startedAt: z.number(),
-  endedAt: z.nullable(z.number()),
-  out: z.string(),
-}) as z.ZodMiniType<ShellResearchJob>;
-
-export function shellResearchStart(topic: string, scope?: string): Promise<ShellResearchJob> {
-  return call('research_start', { topic, scope: scope ?? null }, ShellResearchJobSchema);
-}
-
-export function shellResearchJobs(): Promise<ShellResearchJob[]> {
-  return call<ShellResearchJob[]>('research_jobs');
-}
-
-export function shellResearchCancel(id: string): Promise<void> {
-  return call<void>('research_cancel', { id });
-}
-
-/** 탐구 잡이 바뀌면(진행 출력·상태 전이) 부르는 구독. 해제 함수를 돌려준다(브라우저면 no-op).
- *  **이게 3초 폴링을 대체한다** — 바뀐 게 없으면 아무것도 오지 않는다(설계 갭 ⑤). */
-export async function onResearchChanged(cb: () => void): Promise<() => void> {
-  if (!isTauri()) return () => {};
-  try {
-    const { listen } = await import('@tauri-apps/api/event');
-    return await listen('research:changed', () => cb()); // src-tauri/src/research.rs RESEARCH_CHANGED
-  } catch {
-    return () => {};
-  }
-}
-
 /** 로컬 Ollama 생성 5종(4단계-E). `onDelta` 를 주면 스트리밍, 안 주면 단발.
  *
  *  ⚠ **반환은 항상 봉투**(`{ok, error?, …}`)다 — Rust 가 실패도 값으로 준다. 소비처가 `.ok` 로
@@ -600,14 +551,10 @@ export async function shellOllamaEmbed<T>(texts: string[]): Promise<T> {
  *  ⚠ `ok` 의 의미가 **"서버가 떠 있는가"에서 "워크스페이스가 유효한가"로 옮겨졌다.** 셸에선
  *  프로세스가 곧 백엔드라 전자는 항상 참인 상수가 되고, 그러면 10개 탭의 에러 UI 가 통째로
  *  무력화된다(설계 §4-4단계 경고). 워크스페이스가 무효면 도구 11종·산출물 8종이 전부 조용히
- *  빈 결과를 내므로, 그 순간이 정확히 셋업 안내를 띄워야 하는 순간이다. */
+ *  빈 결과를 내므로, 그 순간이 정확히 셋업 안내를 띄워야 하는 순간이다.
+ *  ⚠ 도구·산출물 수는 P10 W4 에서 줄었다(도구 11→8 · 산출물 9→6) — 수집 계열이 `survey/` 로 갔다. */
 export function shellCapabilities<T>(): Promise<T> {
   return call<T>('capabilities');
-}
-
-/** 진로 지도 동향(Google 뉴스 RSS) — 5분 캐시는 Rust 가 소유한다. */
-export function shellAtlasNews<T>(query: string): Promise<T> {
-  return call<T>('atlas_news', { query });
 }
 
 /** 파일 내보내기 — 저장 위치를 묻고 쓴다(4단계-F). 저장했으면 true, 사용자가 취소하면 false.

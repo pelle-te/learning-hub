@@ -12,7 +12,6 @@ import { installCloseGuard, isTauri, onShellQuit, shellQuit } from '@/lib/tauri'
 import { useUI } from '@/store/useUI';
 import { whenSettled, waitForMergeWindow } from '@/lib/db/write';
 import { installSyncTriggers } from '@/store/syncController';
-import { mirrorArtifacts } from '@/lib/artifactMirror';
 import { useApp } from '@/store/useApp';
 import { ui, io } from '@/shell';
 
@@ -103,9 +102,10 @@ export default function StorageGuard() {
          ⚠ 셸에서만 켠다. 브라우저 dev·트랙 A 는 클라우드에 연결돼 있지 않은 것이 기본이고,
            거기서 실시간을 켜면 시각 베이스라인이 네트워크 상태에 의존하게 된다. */
       live: isTauri(),
-      /* 산출물 미러(설계 §13-8) — **동기화보다 먼저**. 그래야 이번 사이클에 함께 올라간다.
-         셸 전용이다(원본 파일이 PC 에만 있다). 내용이 안 바뀌었으면 스탬프를 안 찍으므로 유선 0. */
-      beforeSync: isTauri() ? () => mirrorArtifacts().then(() => undefined) : undefined,
+      /* ⚠ **산출물 미러(설계 §13-8)가 P10 W4 에서 빠졌다**(2026-08-07). 미러 대상은 `reads`·
+         `markets` 둘뿐이었고(그 표의 판정은 "폰에 화면이 있는가"), 둘 다 `survey/` 로 갔다 —
+         즉 폰이 볼 산출물이 0이 됐다. `beforeSync` 훅 자체는 컨트롤러에 남아 있으므로 폰 화면이
+         생기면 다시 붙이면 된다. */
       /* 실패는 컨트롤러가 조용히 넘긴다. 단 `blocked`(기기 폐기·한도 소진)는 사용자가 조치해야
          풀리므로 알린다. */
       onResult: (r) => {

@@ -16,7 +16,6 @@ import { recordVisit } from '@/lib/visits';
 import TodayView from './TodayView';
 import DayView from './DayView';
 import WeekView from './WeekView';
-import ReadsView from './ReadsView';
 import ReviewView from './ReviewView';
 import LiveRegion from '@/components/LiveRegion';
 import SyncLedger from '@/components/SyncLedger';
@@ -25,9 +24,12 @@ import { useSyncLedger } from '@/store/useSyncLedger';
 import CaptureBar from './CaptureBar';
 import { sync } from './sync';
 
-type View = 'today' | 'day' | 'week' | 'review' | 'reads';
-const VIEW_LABEL: Record<View, string> = { today: '홈', day: '일', week: '주', review: '복습', reads: '읽기' };
-const VIEWS = ['today', 'day', 'week', 'review', 'reads'] as const;
+/* ⚠ **`reads`(읽기) 뷰가 P10 W4 에서 빠졌다**(2026-08-07 · 다섯 → 넷). 폰이 데스크톱 6탭 중
+   유일하게 데려간 것이 그 화면이었는데(옛 `tabs.ts` 머리주석), 그건 폰에서 읽기가 자연스러워서지
+   그게 *학습 상태*여서가 아니었다 — 지금 그 화면은 `survey/` 사이트에 있다. */
+type View = 'today' | 'day' | 'week' | 'review';
+const VIEW_LABEL: Record<View, string> = { today: '홈', day: '일', week: '주', review: '복습' };
+const VIEWS = ['today', 'day', 'week', 'review'] as const;
 /** 날짜 이동이 의미 있는 뷰 — 홈·복습·읽을거리는 날짜 축이 아니라 '오늘/가장 최근' 하나다. */
 const DATED: View[] = ['day', 'week'];
 
@@ -183,7 +185,6 @@ export default function PhoneApp(): React.JSX.Element {
           />
         ) : null}
         {view === 'review' ? <ReviewView startAt={reviewStart} /> : null}
-        {view === 'reads' ? <ReadsView /> : null}
       </main>
 
       {/* E14 캡처 바 — 탭바 **위**(엄지 도달권 안, 그러나 내비게이션보다 아래). 이 화면의

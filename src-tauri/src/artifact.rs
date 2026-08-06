@@ -1,23 +1,23 @@
 /*! 산출물(아티팩트) 읽기 — 4단계-B. `serve.js` `/api/artifact/:name`(L625-635) 대체.
 
-파이썬 파이프라인이 떨군 읽기 전용 JSON 8종을 프런트에 넘긴다. 로직은 두 가지뿐이다:
+파이썬 파이프라인이 떨군 읽기 전용 JSON 5종을 프런트에 넘긴다. 로직은 두 가지뿐이다:
 **화이트리스트 조회**와 **JSON 파싱 실패 시 원문 폴백**. 둘 다 순수 함수로 갈라 두어
 Tauri 런타임 없이 `cargo test` 로 검증한다(2단계-B 에서 매퍼/IO 를 가른 것과 같은 규율).
 
-⚠ **경로 기준을 워크스페이스로 통일했다 — serve.js 와 다르다.**
-`serve.js:83-84` 는 `reads`·`markets` 만 `ROOT`(= serve.js 자신의 폴더) 기준으로 찾았다.
-개발 중엔 `ROOT` 와 `<워크스페이스>/hub` 가 같은 폴더라 일치했지만, **번들 배포본에선
-serve.js 가 리소스 폴더에 놓여 `<설치경로>/_읽을거리/latest.json` 을 보게 된다 — 영원히 없는 경로다.**
-정작 수집기는 워크스페이스 기준으로 쓴다(`읽을거리_수집.py:55` · `증시_수집.py:70` 둘 다
-`HERE.parents[2] / "hub" / …`). 즉 파일을 쓰는 쪽과 읽는 쪽의 기준이 갈려 있었고,
-1단계 실행 검증이 dev 경로에서 돌아 두 기준이 우연히 겹치는 바람에 가려져 있었다.
-→ 8종 전부를 **워크스페이스 상대경로**로 적는다. 쓰는 쪽과 같은 기준이 되어 배포본에서도 맞는다.
+⚠ **경로 기준은 워크스페이스다.** 전부 `<워크스페이스>/…` 상대경로로 적는다 — 파일을 쓰는 쪽
+(파이썬 도구)과 같은 기준이라 배포본에서도 맞는다. 옛 serve.js 는 `reads`·`markets` 만 자기 폴더
+기준으로 찾아, 번들에서 영원히 없는 경로를 보고 있었다(dev 에선 두 기준이 우연히 겹쳐 가려졌다).
+
+⚠⚠ **8 → 5**(P10 W4 · 2026-08-07). `reads`·`markets`·`discovery` 를 뺐다 — 셋 다 `survey/` 필러
+소유이고, hub 은 *학습 대상으로 등록된 것의 상태*만 읽는다(불변식 I-4). 위 문단의 경로 기준
+사고가 정확히 그 셋에서 났다는 것이 사후적으로 읽히는 신호였다: hub 이 자기 것이 아닌 파일의
+자리를 알고 있어야 했던 것이다. 지금 그 셋의 산출은 볼트 안(`_meta/cache/_읽을거리/…`)이고
+소비자는 survey 사이트다.
 */
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// 산출물 화이트리스트 — key → 워크스페이스 기준 상대경로 조각.
-/// serve.js 의 `ARTIFACTS` 테이블(L75-85)과 1:1 대응한다.
 const ARTIFACTS: &[(&str, &[&str])] = &[
     // 볼트 파생물(knowledge/_meta/) — 지식엔진·벌트DB·챕터원장·커리큘럼 산출
     (
@@ -30,15 +30,8 @@ const ARTIFACTS: &[(&str, &[&str])] = &[
         "curriculum",
         &["knowledge", "_meta", "cache", "_커리큘럼.json"],
     ),
-    // 손저작 계약('내 길')과 발견 triage 큐 — cache 가 아니라 각각 contract/·state/
+    // 손저작 계약('내 길') — cache 가 아니라 contract/
     ("goals", &["knowledge", "_meta", "contract", "goals.json"]),
-    (
-        "discovery",
-        &["knowledge", "_meta", "state", "_발견큐.json"],
-    ),
-    // 러닝허브 로컬 수집물 — hub/ 아래. 위 ⚠ 참조(serve.js 는 여기 기준이 틀려 있었다).
-    ("reads", &["hub", "_읽을거리", "latest.json"]),
-    ("markets", &["hub", "_증시", "latest.json"]),
 ];
 
 /// 프런트 계약 — `api.ts` 의 `getArtifact` 반환형과 같다.
@@ -121,35 +114,25 @@ mod tests {
     }
 
     #[test]
-    fn 여덟_종이_모두_등록돼_있다() {
-        // serve.js ARTIFACTS 와 개수·이름이 일치해야 한다(포팅 누락 방지).
+    fn 다섯_종이_모두_등록돼_있다() {
         let names: Vec<&str> = ARTIFACTS.iter().map(|(k, _)| *k).collect();
-        assert_eq!(names.len(), 8);
-        for k in [
-            "knowledge",
-            "anki",
-            "ledger",
-            "curriculum",
-            "goals",
-            "discovery",
-            "reads",
-            "markets",
-        ] {
+        assert_eq!(names.len(), 5);
+        for k in ["knowledge", "anki", "ledger", "curriculum", "goals"] {
             assert!(names.contains(&k), "{k} 누락");
         }
     }
 
     #[test]
-    fn reads_markets_는_워크스페이스_hub_기준이다() {
-        // 이 테스트가 잡는 것: 수집기(읽을거리_수집.py:55 `parents[2]/"hub"`)와 기준이 갈리는 회귀.
-        assert_eq!(
-            artifact_rel("reads").unwrap(),
-            PathBuf::from("hub").join("_읽을거리").join("latest.json")
-        );
-        assert_eq!(
-            artifact_rel("markets").unwrap(),
-            PathBuf::from("hub").join("_증시").join("latest.json")
-        );
+    fn 교양축_산출물은_hub_이_읽지_않는다() {
+        /* P10 불변식 I-4 의 집행자 — `survey/` 로 간 셋이 다시 화이트리스트에 들어오면 RED.
+        개수 단언(위)만으로는 *다른 것이 빠지고 이것이 들어온* 경우를 못 잡는다. */
+        for k in ["reads", "markets", "discovery"] {
+            assert!(artifact_rel(k).is_none(), "{k} 는 hub 의 아티팩트가 아니다");
+        }
+        // 그리고 어떤 산출물도 `hub/` 아래를 가리키지 않는다(I-1: 경로가 곧 경계다).
+        for (name, rel) in ARTIFACTS {
+            assert_ne!(rel[0], "hub", "{name} 이 hub/ 안을 가리킨다");
+        }
     }
 
     #[test]
@@ -177,11 +160,11 @@ mod tests {
     #[test]
     fn 실재하는_파일을_읽어_돌려준다() {
         let dir = std::env::temp_dir().join("lh-artifact-read");
-        let target = dir.join("hub").join("_읽을거리");
+        let target = dir.join("knowledge").join("_meta").join("cache");
         std::fs::create_dir_all(&target).unwrap();
-        std::fs::write(target.join("latest.json"), r#"{"items":[1,2]}"#).unwrap();
+        std::fs::write(target.join("_챕터원장.json"), r#"{"items":[1,2]}"#).unwrap();
 
-        let out = read_at(&dir, "reads").unwrap();
+        let out = read_at(&dir, "ledger").unwrap();
         assert!(out.ok);
         assert_eq!(out.data.unwrap()["items"][1], 2);
         let _ = std::fs::remove_dir_all(&dir);
@@ -203,12 +186,13 @@ mod tests {
         let knowledge = read_at(&ws, "knowledge").expect("knowledge 산출물 읽기 실패");
         assert!(knowledge.data.is_some(), "knowledge 가 JSON 으로 안 풀렸다");
 
-        /* ⚠ 이 두 줄이 이 케이스의 존재 이유다.
-        serve.js 기준(자기 폴더)이었다면 배포본에서 영원히 빈손이었을 자리 — 수집기는
-        워크스페이스 기준으로 쓴다(읽을거리_수집.py:55 · 증시_수집.py:70). */
-        for name in ["reads", "markets"] {
-            let out = read_at(&ws, name)
-                .unwrap_or_else(|e| panic!("{name} 읽기 실패(경로 기준이 수집기와 갈렸다): {e}"));
+        /* ⚠ 종전 이 자리는 `reads`·`markets` 를 읽어 **쓰는 쪽과 기준이 갈리는 회귀**를 잡았다.
+        그 둘은 P10 W4 에서 빠졌으므로 같은 질문을 남은 산출물로 옮긴다 — 물어야 하는 것은
+        *어느 이름이냐*가 아니라 **파이썬이 쓴 자리를 Rust 가 그대로 보는가**다. */
+        for name in ["ledger", "curriculum"] {
+            let out = read_at(&ws, name).unwrap_or_else(|e| {
+                panic!("{name} 읽기 실패(경로 기준이 파이썬 도구와 갈렸다): {e}")
+            });
             assert!(out.data.is_some(), "{name} 이 JSON 으로 안 풀렸다");
         }
     }

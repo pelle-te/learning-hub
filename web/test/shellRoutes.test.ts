@@ -18,18 +18,7 @@ class FakeChannel {
 }
 vi.mock('@tauri-apps/api/core', () => ({ invoke, Channel: FakeChannel }));
 
-import {
-  cancelResearch,
-  coachSummary,
-  embedTexts,
-  getArtifact,
-  listResearchJobs,
-  lookupVocab,
-  marketsBrief,
-  previewFromJsonStream,
-  runTool,
-  startResearch,
-} from '@/lib/api';
+import { embedTexts, getArtifact, previewFromJsonStream, reviewCoach, runTool } from '@/lib/api';
 import { isNotYetError } from '@/lib/artifactState';
 
 /** 셸 안에서 도는 척한다 — `isTauri()` 가 보는 것은 이 전역 하나뿐. */
@@ -62,7 +51,7 @@ describe('getArtifact — 셸(Rust 커맨드) 경로', () => {
   it('파싱 실패 원문(raw)도 그대로 넘어온다', async () => {
     enterShell();
     invoke.mockResolvedValue({ ok: true, raw: '깨진 내용{{' });
-    await expect(getArtifact('reads')).resolves.toMatchObject({ ok: true, raw: '깨진 내용{{' });
+    await expect(getArtifact('anki')).resolves.toMatchObject({ ok: true, raw: '깨진 내용{{' });
   });
 
   it("NOT_FOUND 는 'HTTP 404' 로 번역돼 '미생성'으로 분류된다", async () => {
@@ -106,13 +95,13 @@ describe('runTool — 셸(Rust 커맨드) 경로 · 4단계-C', () => {
     enterShell();
     const f = vi.fn();
     vi.stubGlobal('fetch', f);
-    invoke.mockResolvedValue({ ok: true, out: '완료', code: 0, label: '발견 후보 승격' });
+    invoke.mockResolvedValue({ ok: true, out: '완료', code: 0, label: '지식상태 재빌드' });
 
-    const r = await runTool('discovery-promote', { subject: '개념::미적분' });
+    const r = await runTool('knowledge-build', { subject: '미적분' });
 
     expect(invoke).toHaveBeenCalledWith('run_tool', {
-      tool: 'discovery-promote',
-      subject: '개념::미적분',
+      tool: 'knowledge-build',
+      subject: '미적분',
     });
     expect(f).not.toHaveBeenCalled();
     expect(r).toMatchObject({ ok: true, code: 0 });
@@ -140,60 +129,9 @@ describe('runTool — 셸(Rust 커맨드) 경로 · 4단계-C', () => {
   });
 });
 
-describe('탐구 잡 — 셸(Rust 커맨드) 경로 · 4단계-D', () => {
-  it('시작 성공은 {ok:true, job} 봉투로 되싼다', async () => {
-    enterShell();
-    const job = {
-      id: 'r1',
-      topic: '위상수학',
-      scope: '',
-      status: 'running',
-      code: null,
-      startedAt: 1,
-      endedAt: null,
-      out: '',
-    };
-    invoke.mockResolvedValue(job);
-
-    const r = await startResearch('위상수학');
-
-    expect(invoke).toHaveBeenCalledWith('research_start', { topic: '위상수학', scope: null });
-    expect(r).toEqual({ ok: true, job });
-  });
-
-  /* 이 두 케이스가 4-D 의 진짜 위험이다. Rust 는 실패를 reject 로 주는데 소비처(Control)는
-     `ok`/`error` 로 분기한다 — 되싸기를 빠뜨리면 캡 초과가 **처리되지 않은 rejection** 이 되어
-     "시작 버튼을 눌렀는데 아무 반응이 없다"가 된다(에러 토스트조차 안 뜬다). */
-  it('캡 초과는 throw 가 아니라 {ok:false, error} 로 온다', async () => {
-    enterShell();
-    invoke.mockRejectedValue('이미 수집 중인 탐구가 많아요 — 잠시 후 다시.');
-
-    const r = await startResearch('주제');
-
-    expect(r.ok).toBe(false);
-    expect(r.error).toContain('이미 수집 중인');
-  });
-
-  it('중단 실패도 봉투로 온다(이미 끝난 잡)', async () => {
-    enterShell();
-    invoke.mockRejectedValue('이미 끝난 잡이에요.');
-    await expect(cancelResearch('r1')).resolves.toMatchObject({ ok: false });
-  });
-
-  it('목록 조회 실패는 빈 목록으로 접는다(잡 없음과 같은 화면)', async () => {
-    enterShell();
-    invoke.mockRejectedValue('boom');
-    await expect(listResearchJobs()).resolves.toEqual({ ok: false, jobs: [] });
-  });
-
-  it('셸이 아니면 기존 /api 를 탄다', async () => {
-    const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, jobs: [] }) }));
-    vi.stubGlobal('fetch', f);
-    await listResearchJobs();
-    expect(f).toHaveBeenCalledWith('/api/research/jobs');
-    expect(invoke).not.toHaveBeenCalled();
-  });
-});
+/* ⚠ '탐구 잡'(4단계-D) 5케이스가 P10 W4 에서 사라졌다(2026-08-07) — `research.rs` 와 함께.
+   그 케이스들이 잠그던 계약(**Rust 의 reject 를 경계에서 봉투로 되싼다**)은 지금 이 파일에
+   남은 소비자가 없다. 다시 잡을 커맨드가 생기면 같은 형태로 되살려라. */
 
 describe('Ollama — 셸(Rust 커맨드 + Channel) 경로 · 4단계-E', () => {
   /** Rust 가 Channel 로 증분을 밀어 넣는 것을 흉내낸다. */
@@ -207,43 +145,35 @@ describe('Ollama — 셸(Rust 커맨드 + Channel) 경로 · 4단계-E', () => {
 
   it('델타는 증분으로 오지만 onDelta 에는 누적으로 전달된다', async () => {
     enterShell();
-    streamDeltas(['{"sco', 're": 8', '0}'], { ok: true, feedback: { score: 80 } });
+    streamDeltas(['{"sco', 're": 8', '0}'], { ok: true, coach: { score: 80 } });
 
     const seen: string[] = [];
-    const r = await coachSummary('원문', '내 요약', 'ko', { onDelta: (acc) => seen.push(acc) });
+    const r = await reviewCoach(['사실'], [], { onDelta: (acc) => seen.push(acc) });
 
     /* ⚠ 이게 4-E 의 핵심 계약이다. Rust 는 증분만 보내는데 `StreamOpts.onDelta` 의 계약은
        **누적 원문**이다(previewFromJsonStream 이 누적을 전제로 값만 뽑는다). 여기서 누적을
        안 하면 미리보기가 매번 조각 하나만 보고 깜빡인다 — 에러 없이 UX 만 망가지는 부류. */
     expect(seen).toEqual(['{"sco', '{"score": 8', '{"score": 80}']);
-    expect(r).toMatchObject({ ok: true, feedback: { score: 80 } });
+    expect(r).toMatchObject({ ok: true, coach: { score: 80 } });
   });
 
   it('누적본이 previewFromJsonStream 과 그대로 맞물린다', async () => {
     enterShell();
-    streamDeltas(['{"overview": "오늘 시', '장은 상승"}'], { ok: true, brief: {} });
+    streamDeltas(['{"headline": "오늘 시', '장은 상승"}'], { ok: true, coach: {} });
 
     let last = '';
-    await marketsBrief([], [], { onDelta: (acc) => (last = acc) });
+    await reviewCoach(['사실'], [], { onDelta: (acc) => (last = acc) });
 
     expect(previewFromJsonStream(last)).toBe('오늘 시장은 상승');
   });
 
-  it('스트리밍을 안 쓰는 어휘 조회는 onDelta 없이 부른다(단발 경로)', async () => {
-    enterShell();
-    invoke.mockResolvedValue({ ok: true, vocab: { meaning: '사과' } });
-
-    await lookupVocab('apple', '문맥', 'ko');
-
-    const args = invoke.mock.calls[0]![1] as { kind: string; onDelta?: unknown };
-    expect(args.kind).toBe('reads/vocab');
-    expect(args.onDelta, '단발 경로인데 채널이 붙었다 — Rust 가 스트림 모드로 돈다').toBeUndefined();
-  });
+  /* ⚠ '단발 경로'(어휘 조회) 케이스가 P10 W4 에서 사라졌다 — `reads/vocab` 이 유일한 비-스트리밍
+     AI 경로였다. `aiCall(…, streaming=false)` 분기는 코드에 남아 있으나 **지금 호출부가 0**이다. */
 
   it('실패는 throw 가 아니라 봉투로 온다(소비처가 .ok 로 분기한다)', async () => {
     enterShell();
     invoke.mockResolvedValue({ ok: false, error: 'AI가 이미 처리 중이에요 — 잠시 후 다시.' });
-    await expect(coachSummary('a', 'b', 'ko')).resolves.toMatchObject({ ok: false });
+    await expect(reviewCoach(['a'], [])).resolves.toMatchObject({ ok: false });
   });
 
   it('취소 신호는 ollama_cancel 을 같은 requestId 로 부른다', async () => {
@@ -259,7 +189,7 @@ describe('Ollama — 셸(Rust 커맨드 + Channel) 경로 · 4단계-E', () => {
       return undefined;
     });
 
-    await marketsBrief([], [], { signal: ctrl.signal });
+    await reviewCoach(['사실'], [], { signal: ctrl.signal });
 
     const cancel = invoke.mock.calls.find(([c]) => c === 'ollama_cancel');
     expect(cancel, '취소가 Rust 까지 안 갔다 — 생성이 계속 돈다').toBeTruthy();
@@ -274,10 +204,15 @@ describe('Ollama — 셸(Rust 커맨드 + Channel) 경로 · 4단계-E', () => {
   });
 
   it('셸이 아니면 기존 /api 를 탄다', async () => {
-    const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) }));
+    const f = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ ok: true }),
+    }));
     vi.stubGlobal('fetch', f);
-    await lookupVocab('apple', 'ctx', 'ko');
-    expect(f.mock.calls[0]![0]).toBe('/api/reads/vocab');
+    await reviewCoach(['사실'], []);
+    expect(f.mock.calls[0]![0]).toBe('/api/review/coach');
     expect(invoke).not.toHaveBeenCalled();
   });
 });

@@ -12,13 +12,9 @@ import {
   ARTIFACT_NOT_FOUND,
   artifactRead,
   isTauri,
-  shellAtlasNews,
   shellCapabilities,
   shellOllamaEmbed,
   shellOllamaRun,
-  shellResearchCancel,
-  shellResearchJobs,
-  shellResearchStart,
   shellRunTool,
 } from './tauri';
 
@@ -67,7 +63,9 @@ export function getPing(): Promise<PingResponse> {
   return getJSON<PingResponse>('/api/ping');
 }
 
-/** 산출물(읽기 전용) — knowledge | anki | ledger | curriculum | goals | discovery | reads | markets.
+/** 산출물(읽기 전용) — knowledge | anki | ledger | curriculum | goals | index.
+ *  ⚠ 종전 이 줄은 `discovery`·`reads`·`markets` 도 세었다 — 셋 다 P10 W4 에서 `survey/` 로 갔다
+ *  (아티팩트 9종 → 6종 · 불변식 I-4 가 "교양 도메인이 늘어도 이 수는 안 는다"를 잠근다).
  *
  *  4단계-B 부터 **셸에선 Rust 커맨드**(`artifact_read`)가 읽고, 브라우저에선 기존 `/api` 를 탄다.
  *  전송이 갈렸어도 **반환 계약과 에러 분류는 하나로 유지**한다 — 미생성·알 수 없는 이름은
@@ -88,23 +86,6 @@ export async function getArtifact<T = unknown>(
     }
   }
   return getJSON(`/api/artifact/${encodeURIComponent(name)}`);
-}
-
-/* ── 진로 지도 동향(Google 뉴스 RSS · 셸 커맨드) ─────────────────
-   분야 상세를 열 때 온디맨드로 최신 소식을 가져온다. 네트워크 실패면 items 빈 목록
-   또는 fetch reject → 호출부(useAtlasNews)가 시드 동향으로 우아 폴백. */
-export interface AtlasNewsItem {
-  id: string;
-  title: string;
-  url: string;
-  source: string;
-  published: string;
-}
-
-/** 분야 검색어로 최신 동향 뉴스. 실패는 {ok:false} 봉투로 온다. */
-export function fetchAtlasNews(query: string): Promise<{ ok: boolean; items: AtlasNewsItem[]; error?: string }> {
-  if (isTauri()) return shellAtlasNews(query);
-  return getJSON(`/api/atlas/news?q=${encodeURIComponent(query)}`);
 }
 
 /** 화이트리스트 도구 실행(지식상태 재빌드·볼트 건강검진 등).
@@ -137,86 +118,6 @@ export async function runTool(
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return (await r.json()) as RunResult;
-}
-
-/* ── 탐구 수집 잡(백그라운드) ─────────────────────────────────────
-   research는 수십 분짜리라 서버가 잡으로 소유한다. 클라이언트는 시작 요청을 즉시 돌려받고,
-   /api/research/jobs를 폴링해 진행/완료를 본다. reload/새 탭도 이 목록으로 in-flight 잡에 재부착. */
-export type ResearchStatus = 'running' | 'done' | 'error' | 'canceled';
-export interface ResearchJob {
-  id: string;
-  topic: string;
-  scope: string;
-  status: ResearchStatus;
-  code: number | null;
-  startedAt: number;
-  endedAt: number | null;
-  out: string;
-}
-
-/* 셸(4단계-D)에선 Rust 가 잡을 소유한다. **반환 계약은 그대로 `{ok, …}` 봉투**를 유지한다 —
-   소비처(`Control.tsx`)가 `ok`/`error` 로 분기하고 있어서, 여기서 throw 로 바꾸면 그 분기가
-   전부 깨진다. Rust 는 실패를 `Err(String)` 으로 주므로 **경계에서 봉투로 되싼다**. */
-
-/** 탐구 수집 잡 시작 — 즉시 반환(백그라운드 spawn). 캡이 차 있거나 실패면 ok:false. */
-export async function startResearch(
-  topic: string,
-  scope?: string,
-): Promise<{ ok: boolean; error?: string; job?: ResearchJob }> {
-  if (isTauri()) {
-    try {
-      return { ok: true, job: await shellResearchStart(topic, scope) };
-    } catch (e) {
-      return { ok: false, error: String(e) };
-    }
-  }
-  return postJSON('/api/research/start', { topic, scope: scope || '' });
-}
-
-/** 아는 탐구 잡(진행 중 + 최근 종료) — reload 후 재부착용. */
-export async function listResearchJobs(): Promise<{ ok: boolean; jobs: ResearchJob[] }> {
-  if (isTauri()) {
-    try {
-      return { ok: true, jobs: await shellResearchJobs() };
-    } catch {
-      return { ok: false, jobs: [] };
-    }
-  }
-  return getJSON('/api/research/jobs');
-}
-
-/** 진행 중 탐구 잡 중단 — 프로세스를 트리킬하고 'canceled'로 전이. */
-export async function cancelResearch(id: string): Promise<{ ok: boolean; error?: string }> {
-  if (isTauri()) {
-    try {
-      await shellResearchCancel(id);
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: String(e) };
-    }
-  }
-  return postJSON('/api/research/cancel', { id });
-}
-
-/* ── 읽을거리 코치·어휘 (로컬 Ollama · 셸 커맨드) ─────────────────
-   ⚠ 원문 요약은 서버가 하지 않는다. 코치=내 요약 채점, 어휘=단어 뜻만. */
-export interface CoachFeedback {
-  score?: number;
-  missing?: string[];
-  redundant?: string[];
-  accuracy?: string[];
-  corrections?: string[];
-  key_expressions?: { en: string; ko: string }[];
-  model_summary?: string;
-  comment?: string;
-}
-export interface VocabResult {
-  word?: string;
-  pos?: string;
-  meaning?: string;
-  synonyms?: string[];
-  example?: string;
-  example_ko?: string;
 }
 
 async function postJSON<T>(url: string, body: Record<string, unknown>): Promise<T> {
@@ -299,48 +200,12 @@ export function previewFromJsonStream(text: string): string {
 
 /* ── Ollama 라우트 5종의 전송 분기(4단계-E) ────────────────────────
    셸이면 Rust 커맨드, 브라우저면 기존 /api. **분기를 이 한 함수에 가둔다** — 아래 네 개의
-   공개 함수와 소비 3곳(ArticlePractice·Markets·Review)은 전송을 모른다.
+   공개 함수와 소비처(`Review` 의 회고 코치)는 전송을 모른다.
+   ⚠ 종전 소비는 셋이었다(읽을거리 코치·어휘 · 증시 브리핑) — P10 W4 에서 그 화면들이 갔다.
    `kind` 가 곧 경로 조각이라 브라우저 경로는 `/api/${kind}` 로 그대로 재구성된다. */
 async function aiCall<T>(kind: string, body: Record<string, unknown>, opts?: StreamOpts, streaming = true): Promise<T> {
   if (isTauri()) return shellOllamaRun<T>(kind, body, opts);
   return streaming ? postStream<T>(`/api/${kind}`, body, opts) : postJSON<T>(`/api/${kind}`, body);
-}
-
-/** 내가 쓴 요약을 원문과 대조해 채점·피드백(Ollama 스트리밍). Ollama 꺼져 있으면 ok:false. */
-export function coachSummary(
-  source: string,
-  summary: string,
-  lang: 'en' | 'ko',
-  opts?: StreamOpts,
-): Promise<{ ok: boolean; error?: string; feedback?: CoachFeedback }> {
-  return aiCall('reads/coach', { source, summary, lang }, opts);
-}
-
-/** 지문에서 선택한 단어 하나의 뜻·예문(Ollama). */
-export function lookupVocab(
-  word: string,
-  context: string,
-  lang: 'en' | 'ko',
-): Promise<{ ok: boolean; error?: string; vocab?: VocabResult }> {
-  return aiCall('reads/vocab', { word, context, lang }, undefined, false);
-}
-
-/* ── 증시 브리핑 (로컬 Ollama · 셸 커맨드) ─────────────────
-   그날 지수 등락 + 뉴스 헤드라인 → "왜 움직였나" 해설. 숫자를 새로 짓지 않는다. */
-export interface MarketBriefResult {
-  overview?: string;
-  drivers?: { title: string; detail: string }[];
-  watch?: string[];
-  caveat?: string;
-}
-
-/** 온디맨드 증시 해설(Ollama 스트리밍). Ollama 꺼져 있으면 reject/에러. */
-export function marketsBrief(
-  indices: { name: string; symbol: string; changePct: number; price: number }[],
-  headlines: { title: string; source: string }[],
-  opts?: StreamOpts,
-): Promise<{ ok: boolean; error?: string; brief?: MarketBriefResult }> {
-  return aiCall('markets/brief', { indices, headlines }, opts);
 }
 
 /* ── 주간 회고 코치 (로컬 Ollama · 셸 커맨드) ─────────────────

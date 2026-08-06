@@ -7,7 +7,7 @@
 ============================================================ */
 import { useMemo } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useGoals, useDiscovery, useKnowledge, usePing } from '@/store/queries';
+import { useGoals, useKnowledge, usePing } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { addBacklog, openBacklog } from '@/lib/methodology';
@@ -24,7 +24,6 @@ import {
   type NeedKnowledgeRow,
   type ProjectView,
 } from '@/lib/goals';
-import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
 import State from '@/components/State';
 import { artifactErrorMessage, classifyArtifact } from '@/lib/artifactState';
 import { useNavigate } from 'react-router-dom';
@@ -68,8 +67,11 @@ export default function Goals() {
   const ping = usePing();
   const data = goals.data;
 
-  // 발견 큐(capability-unlock 가능신호 · D10 양방향). 콜드면 404→undefined(내 길 렌더 무영향).
-  const disc = useDiscovery();
+  /* ⚠ **capability-unlock 가능신호가 P10 W4 에서 빠졌다**(2026-08-07). 그 신호의 출처는 발견
+     큐(`discovery` 아티팩트)였고 그 화면·아티팩트가 `survey/` 필러로 갔다. D10 의 양방향 앵커
+     중 **상향(축적→"이제 가능")** 이 여기서 끊긴 셈인데, 그게 P10 D2 의 뜻이다 — 교양축이 hub 에
+     닿는 길은 **승격 → pipeline → 아티팩트** 하나이고 hub 이 그 큐를 직접 들여다보지 않는다.
+     하향(프로젝트→필요지식 분해)은 `goals` 계약 안에 있으므로 그대로 남는다. */
   /* ID-8 하향 루프 — 필요지식이 **약점인가**를 알려면 지식엔진 산출물이 필요하다. 숙달도·리뷰 탭이
      이미 쓰는 같은 쿼리라 캐시를 공유한다(신규 IO 0에 가깝다). 콜드면 undefined → 칩은 지금까지처럼
      정적으로 남는다(조인 실패를 '약점 아님'으로 조용히 바꾸지 않는다는 뜻이기도 하다). */
@@ -79,7 +81,6 @@ export default function Goals() {
   const active = useMemo(() => activeGoals(data), [data]);
   const projects = useMemo(() => projectNodes(data), [data]);
   const projViews = useMemo(() => projectViews(data), [data]);
-  const capSignals = useMemo(() => capabilitySignals(disc.data), [disc.data]);
 
   // 상단 리드아웃 — 목표 수·활성·프로젝트·명시 링크(하이브리드 콜드 정직).
   usePageChromeEffect(
@@ -91,10 +92,9 @@ export default function Goals() {
         { label: '목표 노드', value: data?.nodes.length ?? 0 },
         { label: '활성', value: active.length },
         { label: '프로젝트', value: projects.length },
-        { label: '가능신호', value: capSignals.length },
       ],
     }),
-    [data?.nodes.length, active.length, projects.length, capSignals.length],
+    [data?.nodes.length, active.length, projects.length],
   );
 
   if (goals.isLoading) {
@@ -161,7 +161,7 @@ export default function Goals() {
       ))}
 
       {/* 프로젝트·활용 표면(D10) — 선언 프로젝트(진행 중) + capability-unlock 가능신호(양방향). */}
-      <ProjectsSection projects={projViews} signals={capSignals} k={knowledge} />
+      <ProjectsSection projects={projViews} k={knowledge} />
 
       {/* 노트→목표 연관 — 하이브리드 모델 안내(핵심만 명시링크·나머지 개념그래프 거리 Phase 4). */}
       <div className="mt-5 flex gap-2 rounded-md border border-dashed border-line bg-panel px-4 py-3 text-sm leading-normal text-mut">
@@ -176,20 +176,12 @@ export default function Goals() {
   );
 }
 
-/** 프로젝트·활용 표면(D10) — 학습을 응용에 붙이는 앵커. 두 축을 한 화면에:
-   ① 선언된 프로젝트(kind:project · 진행 중) = 앵커목표↑·필요지식↓·산출물(done)·capability임계.
-   ② capability-unlock 가능신호 = 발견 큐가 "이제 이 프로젝트 가능"으로 surface 한 후보(승격은 발견 탭).
-   둘 다 콜드(프로젝트 미명시·신호 없음)면 억지 시드 없이 D10 모델을 정직하게 안내(과설계 금지). */
-function ProjectsSection({
-  projects,
-  signals,
-  k,
-}: {
-  projects: ProjectView[];
-  signals: DiscoveryEntry[];
-  k: Knowledge | undefined;
-}) {
-  const cold = projects.length === 0 && signals.length === 0;
+/** 프로젝트·활용 표면(D10) — 학습을 응용에 붙이는 앵커.
+   선언된 프로젝트(kind:project · 진행 중) = 앵커목표↑·필요지식↓·산출물(done)·capability임계.
+   콜드(프로젝트 미명시)면 억지 시드 없이 D10 모델을 정직하게 안내(과설계 금지).
+   ⚠ 둘째 축이던 *가능신호*(발견 큐 surface)는 P10 W4 에서 빠졌다 — 위 훅 자리의 주석 참조. */
+function ProjectsSection({ projects, k }: { projects: ProjectView[]; k: Knowledge | undefined }) {
+  const cold = projects.length === 0;
   return (
     <section className="mt-6" aria-label="프로젝트·활용 표면">
       <div className="mb-3 flex flex-wrap items-baseline gap-2">
@@ -199,10 +191,9 @@ function ProjectsSection({
 
       {cold ? (
         <div className="rounded-md border border-dashed border-line-acc2-strong bg-panel-acc2-faint px-4 py-3 text-sm leading-relaxed text-mut">
-          <b className="text-txt">아직 선언된 프로젝트가 없어요.</b> 분야 개론이 임계에 도달하면 “이제 이 프로젝트
-          가능”(capability-unlock)이<b className="text-txt"> 발견 큐</b>에 가능신호로 뜨고, 여기{' '}
-          <code>kind:project</code> 노드(분야·산출물·필요지식·capability임계)를 더하면 진행 중 프로젝트가 그려집니다.
-          상향(축적→가능) · 하향(프로젝트→필요지식 분해)의 양방향 앵커예요.
+          <b className="text-txt">아직 선언된 프로젝트가 없어요.</b> 목표 계약에 <code>kind:project</code>{' '}
+          노드(분야·산출물·필요지식·capability임계)를 더하면 진행 중 프로젝트가 그려집니다. 프로젝트를 필요지식으로
+          분해하는 <b className="text-txt">하향</b> 앵커예요.
         </div>
       ) : (
         <>
@@ -211,28 +202,6 @@ function ProjectsSection({
               {projects.map((p) => (
                 <ProjectCard key={p.node.id} p={p} k={k} />
               ))}
-            </div>
-          )}
-
-          {/* capability-unlock 가능신호 — 발견 큐가 surface. 여기선 읽기만(승격은 발견 탭). */}
-          {signals.length > 0 && (
-            <div className="mt-3 rounded-md border border-line-acc2 bg-panel px-3 py-3">
-              <div className="mb-2 flex items-center gap-2 text-sm">
-                <span className="h-2 w-2 flex-none rounded-full bg-acc2" />
-                <b className="text-txt">가능신호</b>{' '}
-                <span className="text-xs text-mut">필요지식이 임계 도달 — 발견 큐에서 승격</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {signals.map((e) => (
-                  <span
-                    key={e.id}
-                    className="rounded-full bg-tint-acc2 px-2 py-1 text-xs text-acc2"
-                    title="발견 큐에서 승격/기각(사람 결정)"
-                  >
-                    {entryTitle(e)}
-                  </span>
-                ))}
-              </div>
             </div>
           )}
         </>

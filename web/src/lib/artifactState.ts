@@ -71,18 +71,13 @@ export function artifactErrorMessage(err: unknown): string | undefined {
      **8종의 공통부가 1종이 된다.**
 ============================================================ */
 
-/** 워크스페이스 미설정 — 제목·툴팁 공용(실측: 3곳에 글자까지 같은 문장이 있었다). */
-export const WORKSPACE_UNSET = '워크스페이스가 설정되지 않았어요';
-/** 같은 사실의 **상태 칩** 표현. 칩은 한 낱말이라 문장을 실을 수 없다(같은 뜻, 다른 레지스터). */
+/* ⚠ `WORKSPACE_UNSET`(문장)·`workspaceHint`·`artifactErrorCopy` 셋이 P10 W4 에서 빠졌다
+   (2026-08-07). 셋 다 **콜드 게이트를 그리는 화면**이 소비자였는데(`ArtifactGate`·`reads`·
+   `markets`·`discovery`·`control`), 그 화면들이 `survey/` 필러로 갔다. 남은 소비자는 칩 하나와
+   실패 토스트 둘이라 문장형 공용부가 통째로 고아가 됐다 — E17 이 이 파일을 만든 근거("복제된
+   머리·처방만 모은다")가 소비자 수와 함께 사라진 형태다. 되살리려면 `git show 1c21ad5:`. */
+/** 워크스페이스 미설정의 **상태 칩** 표현. 칩은 한 낱말이라 문장을 실을 수 없다(같은 뜻, 다른 레지스터). */
 export const WORKSPACE_UNSET_SHORT = '미설정';
-
-/**
- * 콜드 게이트 안내 — 처방(공통) + `gains`(이 화면이 얻는 것 · 호출부가 준다).
- * @param gains 예: `'전세계 지수 등락과 금융 뉴스가 채워집니다'`
- */
-export function workspaceHint(gains: string): string {
-  return `설정 탭에서 워크스페이스 폴더를 지정하면 ${gains}.`;
-}
 
 /** 실패 토스트·문장 꼬리 — `…에 실패했어요(워크스페이스 설정 필요)` 형태를 한곳에서 만든다. */
 export function needsWorkspace(what: string): string {
@@ -111,20 +106,4 @@ export function toolFailureCopy(e: unknown, what: string): string {
   if (msg) return `${what} — ${msg.slice(0, 140)}`;
   // 사유를 못 얻은 경우에만 종전 추측으로 폴백한다. 그때도 그것이 추측임이 문장에 드러난다.
   return needsWorkspace(what);
-}
-
-/**
- * 산출물 로드 실패 문구 — 옛 `components/ArtifactError` 가 컴포넌트로 들고 있던 것.
- *
- * ⚠ **컴포넌트가 아니라 문구여야 한다**(E17). `ArtifactError` 는 `State` 를 한 겹 감싸 제목·설명을
- * 조립하기만 했는데, 그 결과 "에러를 그리는 것"이 앱 안에 둘(`ArtifactError` · Ledger/Mastery 의
- * 손코딩 바디)이 됐다. 조립은 문구고 그리기는 `State` 다 — 이 저장소의 층 규율 그대로.
- * @param label 무엇을(예: `'지문을'` · `'증시 데이터를'`)
- * @param detail 오류 메시지(있으면 뒤에 붙는다)
- */
-export function artifactErrorCopy(label: string, detail?: string): { title: string; desc: string } {
-  return {
-    title: `${label} 불러오지 못했어요`,
-    desc: `워크스페이스는 연결됐지만 응답에 문제가 있어요${detail ? ` — ${detail}` : '.'}`,
-  };
 }

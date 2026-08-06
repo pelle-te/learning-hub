@@ -3,15 +3,7 @@
    외부 의존(네트워크)이라 fetch를 stub해 HTTP 오류·네트워크 실패·POST 계약을 검증한다.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  getArtifact,
-  getPing,
-  runTool,
-  coachSummary,
-  previewFromJsonStream,
-  startResearch,
-  listResearchJobs,
-} from '@/lib/api';
+import { getArtifact, getPing, runTool, reviewCoach, previewFromJsonStream } from '@/lib/api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -69,43 +61,9 @@ describe('runTool — POST 계약 + 오류', () => {
   });
 });
 
-describe('탐구 수집 잡 API — 백그라운드 시작 + 재부착 목록', () => {
-  it('startResearch: topic·scope를 POST하고 잡을 반환한다', async () => {
-    const job = {
-      id: 'r1',
-      topic: '반도체',
-      scope: '2026',
-      status: 'running',
-      code: null,
-      startedAt: 1,
-      endedAt: null,
-      out: '',
-    };
-    const f = stubFetch(async () => res({ ok: true, job }));
-    const r = await startResearch('반도체', '2026');
-    expect(r).toMatchObject({ ok: true, job: { id: 'r1', status: 'running' } });
-    const [url, opts] = f.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('/api/research/start');
-    expect(opts.method).toBe('POST');
-    expect(JSON.parse(opts.body as string)).toEqual({ topic: '반도체', scope: '2026' });
-  });
-  it('startResearch: scope 없으면 빈 문자열로 보낸다', async () => {
-    const f = stubFetch(async () => res({ ok: true }));
-    await startResearch('트랜스포머');
-    const [, opts] = f.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(opts.body as string)).toEqual({ topic: '트랜스포머', scope: '' });
-  });
-  it('listResearchJobs: GET으로 잡 목록을 가져온다', async () => {
-    const f = stubFetch(async () => res({ ok: true, jobs: [{ id: 'r1', status: 'done' }] }));
-    const r = await listResearchJobs();
-    expect(r.jobs).toHaveLength(1);
-    expect(f).toHaveBeenCalledWith('/api/research/jobs');
-  });
-  it('listResearchJobs: HTTP 오류는 throw한다', async () => {
-    stubFetch(async () => res(null, { ok: false, status: 500 }));
-    await expect(listResearchJobs()).rejects.toThrow('HTTP 500');
-  });
-});
+/* ⚠ 옛 '탐구 수집 잡 API' 4케이스가 P10 W4 에서 사라졌다(2026-08-07) — `research.rs` 와 함께.
+   스트리밍 케이스의 대역은 `coachSummary` → **`reviewCoach`** 로 갈았다: 지키려던 것은 특정
+   기능이 아니라 **`postStream` 의 NDJSON 계약**이고, 그건 남은 AI 경로 하나로도 그대로 물어진다. */
 
 describe('previewFromJsonStream — 스트리밍 미리보기(값만, 키 제외)', () => {
   it('완성된 문자열 값만 이어붙인다(키·미완성 리터럴 제외)', () => {
@@ -140,20 +98,20 @@ describe('postStream — NDJSON 스트리밍/단발 JSON 폴백', () => {
   }
   it('델타를 누적해 onDelta로 주고 마지막 done 줄을 결과로 반환한다', async () => {
     stubFetch(async () =>
-      ndjsonRes(['{"d":"{\\"sc"}', '{"d":"ore\\": 90}"}', '{"done":true,"ok":true,"feedback":{"score":90}}']),
+      ndjsonRes(['{"d":"{\\"sc"}', '{"d":"ore\\": 90}"}', '{"done":true,"ok":true,"coach":{"headline":"좋다"}}']),
     );
     const deltas: string[] = [];
-    const r = await coachSummary('원문', '요약', 'ko', { onDelta: (t) => deltas.push(t) });
-    expect(r).toMatchObject({ ok: true, feedback: { score: 90 } });
+    const r = await reviewCoach(['사실'], [], { onDelta: (t) => deltas.push(t) });
+    expect(r).toMatchObject({ ok: true, coach: { headline: '좋다' } });
     expect(deltas.at(-1)).toBe('{"score": 90}');
   });
   it('스트림이 아닌 단발 JSON(가드 폴백)도 같은 자리로 수렴한다', async () => {
     stubFetch(async () => res({ ok: false, error: '허용되지 않은 출처' }));
-    const r = await coachSummary('원문', '요약', 'ko');
+    const r = await reviewCoach(['사실'], []);
     expect(r).toMatchObject({ ok: false, error: '허용되지 않은 출처' });
   });
   it('결과 없이 끝난 스트림은 throw한다', async () => {
     stubFetch(async () => ndjsonRes(['{"d":"x"}']));
-    await expect(coachSummary('원문', '요약', 'ko')).rejects.toThrow('스트림이 결과 없이 끝났어요');
+    await expect(reviewCoach(['사실'], [])).rejects.toThrow('스트림이 결과 없이 끝났어요');
   });
 });

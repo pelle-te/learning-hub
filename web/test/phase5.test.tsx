@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ThemeProvider from '@/app/ThemeProvider';
 import App from '@/app/App';
 
-/* Phase 5 — 서버/외부 탭(integrations·control·mastery)이 React+TanStack Query로 동작.
+/* Phase 5 — 서버/외부 탭(integrations·mastery)이 React+TanStack Query로 동작.
    jsdom엔 serve.js(/api)·AnkiConnect·FS Access가 없으므로 Query는 isError → 우아한 폴백 카드.
    모두 레거시 #page를 쓰지 않음(전 탭 React화 확인). */
 function renderApp(initialPath: string) {
@@ -34,15 +34,9 @@ test('mastery: 지식상태가 없으면(/api 없음) 셋업 안내로 폴백하
   expect(document.getElementById('page')).toBeNull();
 });
 
-test('control(탐구 수집): 검색 히어로가 뜨고 워크스페이스 미설정이면 오프라인 안내', async () => {
-  renderApp('/control');
-  // 옛 OPS 콘솔 폐기 → 탐구 수집 검색 탭(검색 히어로 + 최근 기록).
-  await waitFor(() => expect(screen.getByRole('heading', { name: /무엇을 새로 알아볼까요/ })).toBeInTheDocument());
-  expect(screen.getByLabelText('탐구 주제')).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByText(/워크스페이스가 설정되지 않았어요/)).toBeInTheDocument());
-  expect(document.getElementById('page')).toBeNull();
-});
-
+/* ⚠ `control`(탐구 수집) 케이스가 P10 W4 에서 사라졌다(2026-08-07) — 화면이 `survey/` 로 갔다.
+   이 파일이 잠그던 것은 *"서버/외부 의존 탭이 백엔드 없이도 우아하게 안내한다"* 이고, 그 계약은
+   남은 둘(`mastery`·`integrations`)이 계속 진다. */
 test('integrations: 볼트·Anki 두 패널이 렌더된다(#page 미사용)', async () => {
   renderApp('/integrations');
   await waitFor(() => expect(screen.getByRole('heading', { name: '옵시디언 볼트 현황' })).toBeInTheDocument());

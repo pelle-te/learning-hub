@@ -38,10 +38,10 @@ describe('useApp — 멀티탭 스냅샷 채택 정책(마지막 편집자 우�
     expect(useApp.getState().state.moduleLen).toBe(97);
   });
 
-  it("kind가 'app'이 아니면 채택하지 않는다(reads 방송은 무관)", async () => {
+  it("kind가 'app'이 아니면 채택하지 않는다(local 방송은 무관)", async () => {
     const before = useApp.getState().state.moduleLen;
     otherTabPersists(96);
-    announce({ kind: 'reads' }, true);
+    announce({ kind: 'local' }, true);
     await tick();
     expect(useApp.getState().state.moduleLen).toBe(before);
   });

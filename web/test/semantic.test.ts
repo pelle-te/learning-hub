@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { hashText, cosine, topK, buildCorpus, crossChapterEdges, vectorsFor, type SemEntry } from '@/lib/semantic';
 import { defaults } from '@/lib/persistence';
 import type { AppState } from '@/lib/types';
-import type { ReadsLocal } from '@/lib/reads';
 
 // vectorsFor(IO) 검증용 — 임베딩·IDB를 목킹(모델명은 mock 접두 변수로 런타임 제어).
 let mockModel = 'model-A';
@@ -91,40 +90,15 @@ function seedState(): AppState {
 }
 
 describe('buildCorpus — 상태 → 임베딩 코퍼스', () => {
-  it('챕터·요약·독후감·백로그를 모으고 빈 것은 건너뛴다', () => {
-    const reads: ReadsLocal = {
-      work: {},
-      books: [
-        {
-          id: 'bk1',
-          title: '사피엔스',
-          author: '유발 하라리',
-          status: 'done',
-          review: '인류사 통찰',
-          rating: 5,
-          startedAt: '',
-          finishedAt: null,
-        },
-        {
-          id: 'bk2',
-          title: '빈 독후감',
-          author: '',
-          status: 'reading',
-          review: '',
-          rating: 0,
-          startedAt: '',
-          finishedAt: null,
-        },
-      ],
-    };
-    const corpus = buildCorpus(seedState(), reads);
+  /* ⚠ **독후감 축이 P10 W4 에서 빠졌다**(2026-08-07) — 그 화면이 `survey/` 로 갔고 `reads`
+     인자도 함께 사라졌다. 남은 세 축(챕터·요약·백로그)의 계약은 그대로 묻는다. */
+  it('챕터·요약·백로그를 모으고 빈 것은 건너뛴다', () => {
+    const corpus = buildCorpus(seedState());
     const ids = corpus.map((e) => e.id);
     expect(ids).toContain('ch:i1:c1');
     expect(ids).not.toContain('ch:i1:c2'); // 이름 없는 챕터
     expect(ids).not.toContain('ch:i2:c3'); // 과목명 없는 항목
     expect(ids).toContain('sum:2026-07-01:s1');
-    expect(ids).toContain('book:bk1');
-    expect(ids).not.toContain('book:bk2'); // 독후감 없음
     expect(ids).toContain('bl:b1');
     expect(ids).not.toContain('bl:b2'); // 빈 주제
     // 라벨·이동 라우트가 팔레트에서 쓸 수 있는 형태인지
@@ -132,9 +106,6 @@ describe('buildCorpus — 상태 → 임베딩 코퍼스', () => {
     expect(ch.label).toBe('전자기학 — 맥스웰 방정식');
     // 챕터 히트는 지식맵이 아니라 **소속 과목의 객체 화면**으로 앵커링한다(contentSearch 와 같은 목적지 · W12).
     expect(ch.to).toBe('/subject/i1');
-  });
-  it('reads가 null이어도 동작한다', () => {
-    expect(() => buildCorpus(seedState(), null)).not.toThrow();
   });
 });
 

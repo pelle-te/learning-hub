@@ -37,17 +37,20 @@ const schemasDir = schemasArg
   : join(root, '..', '..', 'knowledge', '_meta', 'contract', 'schemas');
 const outPath = join(root, 'src', 'lib', 'artifacts.gen.ts');
 
-// 아티팩트 이름 → 스키마 파일. 순서는 부모 artifact_schema.py ARTIFACTS 와 동일(결정론).
+/* 아티팩트 이름 → 스키마 파일. 순서는 부모 artifact_schema.py ARTIFACTS 와 동일(결정론).
+   ⚠⚠ **9 → 6**(P10 W4 · 2026-08-07). `reads`·`markets`·`discovery` 를 뺐다 — 그 셋을 읽던 화면이
+   `survey/` 필러로 갔고, 불변식 I-4 가 *"hub 이 읽는 아티팩트는 6종 이하 · 교양 도메인이 늘어도
+   이 수는 안 는다"* 를 잠근다.
+   ⚠ **부모의 스키마 파일은 지우지 않았다.** 셋 다 여전히 survey 수집기의 *write 검증* 계약이다
+   (`artifact_schema.stamp_and_validate`). 이 목록은 "hub 이 읽는 것"이지 "존재하는 것"이 아니다 —
+   그래서 이 배열이 스키마 디렉터리를 스캔하지 않고 **명시 목록**인 것이 여기서 값을 한다. */
 const ARTIFACTS = [
   ['index', 'index.schema.json'],
   ['knowledge', 'knowledge.schema.json'],
   ['ledger', 'ledger.schema.json'],
   ['anki', 'anki.schema.json'],
-  ['reads', 'reads.schema.json'],
-  ['markets', 'markets.schema.json'],
   ['curriculum', 'curriculum.schema.json'],
   ['goals', 'goals.schema.json'],
-  ['discovery', 'discovery.schema.json'],
 ];
 
 function die(msg) {

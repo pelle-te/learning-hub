@@ -9,8 +9,10 @@
 
 /** 'local' = 사이드카 KV(아틀라스 메모·리서치 이력·UI 설정)가 밖에서 교체됨(가져오기 복원).
     구독자는 메모리 상태를 KV에서 다시 읽어야 한다 — 안 하면 다음 편집이 복원본을 덮는다. */
-export type SyncMsg = { kind: 'app' } | { kind: 'reads' } | { kind: 'local' };
-const KINDS: readonly SyncMsg['kind'][] = ['app', 'reads', 'local'];
+/* ⚠ `'reads'` 가 P10 W4 에서 빠졌다(2026-08-07) — 그 방송의 유일한 발신·수신자가 읽을거리
+   화면이었고 `survey/` 로 갔다. 종류를 미리 만들어 두지 않는다(수신자 없는 방송은 관측 불가). */
+export type SyncMsg = { kind: 'app' } | { kind: 'local' };
+const KINDS: readonly SyncMsg['kind'][] = ['app', 'local'];
 
 const CHANNEL = 'lh-sync';
 const listeners = new Set<(m: SyncMsg) => void>();

@@ -487,13 +487,13 @@ for (const theme of THEMES) {
   });
 }
 
-/* ⚠⚠ **W9 흡수 뷰 셋**(2026-08-06) — `goals`·`atlas`·`guide` 가 탭에서 호스트의 뷰로 내려갔다.
+/* ⚠⚠ **W9 흡수 뷰**(2026-08-06) — `goals`·`guide` 가 탭에서 호스트의 뷰로 내려갔다(셋째였던
+   `atlas` 는 흡수한 호스트째로 P10 W4 에서 `survey/` 로 갔다).
    `TABS` 루프에서 빠졌으므로 여기가 그 화면들의 **유일한 시각 커버리지**다. 잠그는 것은 둘:
    ① 그 뷰가 실제로 그려지는가(리다이렉트만 되고 호스트 기본 뷰가 뜨면 조용한 도달성 손실이다)
    ② 세그먼트 바에 **자기 칸이 눌린 상태로** 서는가(눌린 칸이 없으면 사용자는 어디 있는지 모른다). */
 const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
   { key: 'degree-path', path: '/degree?view=path', ready: '내 길' },
-  { key: 'discovery-atlas', path: '/discovery?view=atlas', ready: '진로 지도' },
   { key: 'find-guide', path: '/find?view=guide', ready: '이 시스템이 할 수 있는 것' },
 ];
 for (const theme of THEMES) {
@@ -509,18 +509,9 @@ for (const theme of THEMES) {
   }
 }
 
-/* 진로 지도 상세 — **옛 딥링크 `/atlas/<key>` 로 들어간다.** W9 이후 그 경로는 리다이렉트라,
-   이 케이스는 상세 렌더뿐 아니라 **북마크가 살아 있는가**까지 함께 잠근다(경로 조각 → 쿼리 이관). */
-for (const theme of THEMES) {
-  test(`atlas-detail · ${theme}`, async ({ page }) => {
-    await boot(page, theme);
-    await page.goto('/atlas/ran');
-    await expect(page.locator('#main')).toBeVisible();
-    await expect(page.locator('#main h1')).toBeVisible(); // 상세 표제(그리드엔 h1 없음)
-    await settle(page);
-    await expect(page).toHaveScreenshot(`atlas-detail-${theme}.png`, { fullPage: true });
-  });
-}
+/* ⚠ '진로 지도 상세'(옛 딥링크 `/atlas/<key>`) 케이스가 P10 W4 에서 빠졌다(2026-08-07) —
+   화면·경로가 함께 사라졌다. 그 케이스가 잠그던 것은 *"경로 조각을 쿼리로 옮겨도 북마크가
+   산다"* 였고, 같은 형태가 다시 생기면 그때 되살릴 값이 있다. */
 
 // 반응형(모바일 390px) — 레일이 하단 탭바로, 시그니처 보드가 단일 컬럼으로 스택되는지(가로 넘침 없이).
 // 모바일 — routine 자리를 items가 잇는다(병합 탭은 900px에서 레일이 갤러리 아래로 접히므로 회귀 가치가 크다).
@@ -589,9 +580,9 @@ test('phone · 본문 좌우 스와이프가 날짜를 옮긴다(UX-B3)', async 
    "안 바뀌었다"가 아니라 **"본 적이 없다"** 였다. 근거·구현은 `_fixtures.ts` 의
    `bootArtifactPhase` 머리주석.
 
-   ⚠ 두 탭만 찍는다(ledger·mastery). 넷 다 찍으면 베이스라인이 8장 늘어나는데, 이 둘이 **옛
-   손코딩 블록을 글자까지 같게 복제하고 있던 쌍**이라 수렴의 증거로 충분하다(markets·reads 는
-   같은 `State` 를 같은 문구 함수로 부른다 → 새 정보가 없다).
+   ⚠ 두 탭만 찍는다(ledger·mastery). 이 둘이 **옛 손코딩 블록을 글자까지 같게 복제하고 있던
+   쌍**이라 수렴의 증거로 충분하다 — 나머지 산출물 화면은 같은 `State` 를 같은 문구 함수로
+   부른다(새 정보가 없다).
    ⚠ 라이트도 찍는다 — `State` 의 글리프가 `bg-acc-soft` + inset 링이라 **라이트에서 대비가
    갈리는** 자리다(E4 가 헤어라인에서 물린 것과 같은 부류).
 ============================================================ */
@@ -620,18 +611,16 @@ for (const theme of THEMES) {
    두 탭 × 두 테마 = 4장. `State` 의 골격은 `bg-panel2` 라 **라이트에서 대비가 갈리는** 자리다. */
 /* ⚠ 두 형상을 **둘 다** 찍는다(W15 완결 · 2026-07-31):
    · `frame`(기본) — 페이지 격자를 미리 그린다. ledger·mastery 처럼 착지 레이아웃이 확정된 화면.
-   · `indeterminate` — 끝을 모르는 대기. discovery·goals 처럼 **행 수가 데이터에 따라 변하는** 화면
+   · `indeterminate` — 끝을 모르는 대기. `goals` 처럼 **행 수가 데이터에 따라 변하는** 화면
      (거기 골격을 그리면 그건 로딩이 아니라 오답이다 — 불변식이 `SkeletonText` 를 금지하는 이유).
-   markets·reads 는 화면이 형상을 확정하는 **고유 골격**이라 셋째 부류다 — 그것도 함께 잠근다.
-   합 12장(2형상 × 화면 6 × … 이 아니라 화면 6 × 2테마)이고, 종전엔 **1장**이었다. */
+   ⚠ **여섯에서 셋으로**(P10 W4 · 2026-08-07): `discovery`·`markets`·`reads` 가 `survey/` 로 갔다.
+   셋째 부류였던 '고유 골격'(화면이 형상을 확정)의 표본이 그 둘이었으므로 **그 부류는 지금
+   표본이 0이다** — 다시 생기면 여기 한 줄이다. 종전엔 이 축 전체가 **1장**이었다. */
 const LOADING_SCREENS: { key: string; artifact: string; path: string }[] = [
   { key: 'ledger', artifact: 'ledger', path: '/ledger' },
   { key: 'mastery', artifact: 'knowledge', path: '/mastery' },
-  { key: 'discovery', artifact: 'discovery', path: '/discovery' },
   // W9 — `goals` 는 이제 `degree` 의 뷰다. 경로를 안 고치면 리다이렉트 뒤 **다른 화면의 로딩**을 찍는다.
   { key: 'goals', artifact: 'goals', path: '/degree?view=path' },
-  { key: 'markets', artifact: 'markets', path: '/markets' },
-  { key: 'reads', artifact: 'reads', path: '/reads' },
 ];
 for (const theme of THEMES) {
   for (const sc of LOADING_SCREENS) {

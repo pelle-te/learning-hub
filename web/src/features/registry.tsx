@@ -15,14 +15,14 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   mistakes: () => import('./mistakes/Mistakes'),
   questions: () => import('./questions/Questions'),
   items: () => import('./items/Items'),
-  /* ⚠ `goals`·`guide`·`atlas` 가 여기서 빠졌다(W9 · 2026-08-06). 셋 다 **은퇴**했고, 은퇴한 탭은
+  /* ⚠ `goals`·`guide` 가 여기서 빠졌다(W9 · 2026-08-06). 둘 다 **은퇴**했고, 은퇴한 탭은
      자기 라우트가 없다(불변식 ②가 그것을 요구한다 — 화면이 다른 곳에 흡수됐다는 뜻이므로).
      화면 코드는 살아 있고 흡수한 호스트가 `lazy` 로 띄운다:
-       goals → `degree`(`?view=path`) · atlas → `discovery`(`?view=atlas`) · guide → `find`(`?view=guide`) */
+       goals → `degree`(`?view=path`) · guide → `find`(`?view=guide`)
+     ⚠⚠ **`reads`·`markets`·`discovery`·`atlas`·`control` 은 은퇴가 아니라 _제거_ 다**(P10 W4 ·
+     2026-08-07). 흡수한 호스트가 없다 — 다른 필러(`survey/`)로 갔다. 강등과 혼동하지 말 것:
+     강등은 같은 앱 안에서 자리를 옮기는 것이라 코드가 살아야 하지만, 이건 **이사**라 두 벌이 된다. */
   find: () => import('./find/Find'),
-  reads: () => import('./reads/Reads'),
-  markets: () => import('./markets/Markets'),
-  discovery: () => import('./discovery/Discovery'),
   today: () => import('./today/Today'),
   schedule: () => import('./schedule/Schedule'),
   alloc: () => import('./alloc/Alloc'),
@@ -35,7 +35,6 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   settings: () => import('./settings/Settings'),
   integrations: () => import('./integrations/Integrations'),
   ledger: () => import('./ledger/Ledger'),
-  control: () => import('./control/Control'),
   mastery: () => import('./mastery/Mastery'),
 };
 

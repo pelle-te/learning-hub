@@ -11,10 +11,10 @@ describe('sync — announce/onSync', () => {
   it('alsoLocal=true면 같은 탭 구독자에게 비동기로 전달된다', async () => {
     const got: SyncMsg[] = [];
     const off = onSync((m) => got.push(m));
-    announce({ kind: 'reads' }, true);
+    announce({ kind: 'local' }, true);
     expect(got).toEqual([]); // 동기 재진입 setState 방지 — 마이크로태스크 이후 전달
     await tick();
-    expect(got).toEqual([{ kind: 'reads' }]);
+    expect(got).toEqual([{ kind: 'local' }]);
     off();
   });
   it('alsoLocal 기본(false)이면 같은 탭에는 전달되지 않는다(BC는 발신 탭 미배달)', async () => {
@@ -39,9 +39,9 @@ describe('sync — announce/onSync', () => {
       throw new Error('boom');
     });
     const off2 = onSync((m) => got.push(m));
-    announce({ kind: 'reads' }, true);
+    announce({ kind: 'local' }, true);
     await tick();
-    expect(got).toEqual([{ kind: 'reads' }]);
+    expect(got).toEqual([{ kind: 'local' }]);
     off1();
     off2();
   });

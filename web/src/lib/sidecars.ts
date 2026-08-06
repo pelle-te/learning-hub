@@ -18,20 +18,17 @@ import { docGet, docSet } from './db/docs';
 import { announce } from './sync';
 import { UI_KEY } from './uiState';
 
-/** 아틀라스 관심 표시(string[]) — features/atlas가 소비하는 키 SSOT. */
-export const ATLAS_STARS_KEY = 'atlas.stars';
-/** 아틀라스 분야별 내 메모(Record<key,string>) — 사용자의 대체 불가 저작물. */
-export const ATLAS_NOTES_KEY = 'atlas.notes';
-/** 리서치 실행 이력(HistEntry[]) — features/control이 소비. */
-export const RESEARCH_HISTORY_KEY = 'lh:research-history';
-
 /** 백업 페이로드의 사이드카 필드명. */
 export const LOCAL_EXTRAS_FIELD = '_local';
 
 /* 백업에 동봉할 KV 키 화이트리스트.
    화이트리스트인 이유: 가져오기는 **신뢰 불가 파일**이라 임의 키 쓰기를 허용하면
    백업 파일 하나로 앱 상태 키(study_planner_v3)나 손상 보존 키를 덮어쓸 수 있다. */
-export const LOCAL_EXTRA_KEYS = [ATLAS_STARS_KEY, ATLAS_NOTES_KEY, RESEARCH_HISTORY_KEY, UI_KEY] as const;
+/* ⚠ 셋이 P10 W4 에서 빠졌다(2026-08-07): `atlas.stars`·`atlas.notes`(진로 지도 관심·메모) ·
+   `lh:research-history`(탐구 목록). 세 화면 다 `survey/` 필러로 갔다 — 남은 것은 UI 설정뿐이라
+   이 사이드카는 지금 **한 칸짜리**다. 목록 형태를 유지하는 이유는 다음 사이드카가 곧 한 줄이기
+   때문이고, `_local` 봉투 이름은 옛 백업 파일과의 호환을 위해 안 바꾼다. */
+export const LOCAL_EXTRA_KEYS = [UI_KEY] as const;
 export type LocalExtraKey = (typeof LOCAL_EXTRA_KEYS)[number];
 
 /** 내보내기 — 저장된 키를 파싱해 값째로 담는다(원문 문자열이 아니라 JSON 값: 파일 가독성·안정성).

@@ -21,7 +21,6 @@ import {
 } from '@/lib/persistence';
 import { resolveTheme } from '@/lib/uiState';
 import { routeLabelOf } from './tabs';
-import { loadReads, importReads } from '@/lib/reads';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { exportObservations, importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
@@ -172,8 +171,11 @@ export function downloadFallbackSnapshot(): void {
   download('러닝허브_임시저장본.json', raw, 'application/json');
 }
 
-/** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 읽을거리 저작물(_reads: 내 요약·독후감)
-    + 앱 상태 밖 로컬 키(_local: 아틀라스 메모·관심·리서치 이력·UI 설정 · 0단계-E ③).
+/** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 앱 상태 밖 로컬 키(_local: UI 설정 등).
+    ⚠ **`_reads`(내 요약·독후감)가 P10 W4 에서 빠졌다**(2026-08-07). 그 화면이 `survey/` 로 갔고
+    정본이 **볼트 노트 파일**이 됐으므로, 이 앱의 백업이 그것을 담으면 같은 사실이 두 집을 갖는다.
+    ⚠ 옛 백업 파일의 `_reads` 는 **조용히 무시된다** — 이관 시점 실측이 요약 1건(빈 문자열)·
+      독후감 0건이라 잃을 것이 없었다. 그보다 큰 백업을 들고 있다면 볼트로 손으로 옮겨야 한다.
     사이드카가 없으면 "내보내기로 백업하세요" 안내(저장실패 토스트)와 실제 백업 범위가 어긋난다. */
 export function exportJSON(): void {
   const s = st().state;
@@ -193,7 +195,6 @@ export function exportJSON(): void {
 export async function backupPayload(s: AppState): Promise<Record<string, unknown>> {
   return {
     ...exportSnapshot(s),
-    _reads: loadReads(),
     [LOCAL_EXTRAS_FIELD]: exportLocalExtras(),
     [OBSERVATIONS_FIELD]: await exportObservations(),
   };
@@ -212,10 +213,9 @@ export function importJSON(input: HTMLInputElement): void {
       toast('읽기 실패: JSON 형식이 아닙니다.', 'bad');
       return;
     }
-    // _reads(내 요약·독후감)·_local(아틀라스 메모·리서치 이력·UI 설정)은 앱 상태가 아니라
-    // 별도 블롭 — 분리해 각자 복원한다. 구 백업엔 없으므로 undefined면 조용히 건너뛴다.
+    // _local(UI 설정 등)·관측 원장은 앱 상태가 아니라 별도 블롭 — 분리해 각자 복원한다.
+    // 구 백업엔 없으므로 undefined면 조용히 건너뛴다.
     const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
-    const reads = obj?._reads;
     const localExtras = obj?.[LOCAL_EXTRAS_FIELD];
     const observations = obj?.[OBSERVATIONS_FIELD];
     const migrated = migrate(parsed);
@@ -232,12 +232,10 @@ export function importJSON(input: HTMLInputElement): void {
         /* noop */
       }
     });
-    delete (s as Record<string, unknown>)._reads;
     delete (s as Record<string, unknown>)[LOCAL_EXTRAS_FIELD];
     delete (s as Record<string, unknown>)[OBSERVATIONS_FIELD];
     if (!(await backupOrConfirm())) return;
     st().loadState(s);
-    const restored = reads ? importReads(reads) : null;
     // 사이드카 KV 복원 → announce({kind:'local'})가 아틀라스·리서치·UI의 메모리 상태를 되읽게 한다.
     const localCount = localExtras ? importLocalExtras(localExtras).length : 0;
     /* 관측 원장(H-14) — 실패해도 가져오기 전체를 막지 않는다. 이건 앱 데이터가 아니라 *관측*이고,
@@ -246,9 +244,7 @@ export function importJSON(input: HTMLInputElement): void {
     // UI 스토어는 sync 구독자가 아니다(부팅 시 1회 read) → 복원 후 명시적으로 되읽어야
     // 다음 설정 변경의 flush가 복원된 lh_ui_v1을 메모리 기본값으로 덮지 않는다.
     if (localCount) useUI.getState().reloadUI();
-    const extras = [restored ? '읽을거리 요약·독후감' : '', localCount ? '아틀라스 메모·설정' : '']
-      .filter(Boolean)
-      .join(' · ');
+    const extras = localCount ? '설정' : '';
     toastUndo(extras ? `데이터를 가져왔어요(${extras} 포함).` : '데이터를 가져왔어요.', undoLast);
   };
   r.readAsText(f);
@@ -542,11 +538,11 @@ export function captureSubjects(): { id: string; name: string }[] {
   return st().state.items.map((i) => ({ id: i.id, name: i.name }));
 }
 
-/** ⌘K 의미 검색 — store 스냅샷 + 읽을거리 블롭을 모아 lib/semantic에 위임
+/** ⌘K 의미 검색 — store 스냅샷을 lib/semantic에 위임
    (components→store 금지 경계: 팔레트는 이 shell 표면만 부른다). Ollama 불가면 []. */
 export function semanticPalette(query: string): Promise<SemHit[]> {
   if (!semanticAvailable()) return Promise.resolve([]);
-  return semanticSearch(query, st().state, loadReads());
+  return semanticSearch(query, st().state);
 }
 
 /* ⚠ `ContentHit` 은 **`lib/contentSearch` 가 소유한다**(H15). 여기서는 기존 소비처(`shell` 배럴·
@@ -719,9 +715,6 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
           },
         },
       ];
-    /* `book` 은 동사가 없다 — 읽을거리에서 할 수 있는 일(정독·연습·요약)이 전부 그 화면의
-       상태에 붙어 있어 여기로 들어올리면 화면 하나를 팔레트에 다시 짓게 된다. 기본 동작
-       (열기)이 정직한 최선이다. */
     default:
       return [];
   }
@@ -729,8 +722,8 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
 
 /** ⌘K 오프라인 통합 검색 — **엔진은 `lib/contentSearch` 가 소유한다**(H15). 여기 남는 것은
     스토어 스냅샷을 채우는 한 줄뿐이다(`components→store` 금지 경계상 팔레트는 이 셸 표면을 부른다). */
-export function contentSearch(query: string, reads: ReturnType<typeof loadReads>, limit = 8): ContentHit[] {
-  return searchContent(query, st().state, reads, limit);
+export function contentSearch(query: string, limit = 8): ContentHit[] {
+  return searchContent(query, st().state, limit);
 }
 
 /* ── E2 캡처는 **언제나 커밋한다**(2026-07-29) ─────────────────────────────

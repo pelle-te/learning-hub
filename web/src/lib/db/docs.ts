@@ -30,15 +30,21 @@ import { nextStamp } from './stamp';
 import { pushUndo, type PreImageRow } from './undoStack'; // H3 — 저작물 쓰기도 ⌘Z 스택에 든다
 import { markDbFallback, setSaveFallback } from './fallback'; // C2 — 저작물 쓰기 실패의 표면화
 
-/** SQLite 로 옮긴 키. 여기 없는 키는 `docGet`/`docSet` 이 localStorage 로 그대로 흘린다 —
- *  `lh_ui_v1`(테마·액센트)은 **기기별 설정**이라 일부러 안 옮겼다(폰은 폰의 설정을 쓴다).
- *  `lh:research-history` 도 남겼다: 탐구 *결과*는 볼트에 파일로 남고 이건 화면용 목록이다. */
-/** PC → 폰 단방향 산출물 미러(`lib/artifactMirror.ts`). 키 공간의 주인이 여기라 여기서 선언한다
- *  — 반대로 두면 `artifactMirror ↔ docs` 순환 import 가 되고, 로드 순서에 따라 `DOC_KEYS` 가
- *  TDZ 로 터진다(둘 중 어느 모듈이 먼저 평가되느냐에 달린 조용한 폭탄). */
-export const MIRROR_DOC_KEYS = ['artifact:reads', 'artifact:markets'] as const;
+/* ── ⚠⚠ **세입자가 0이다**(P10 W4 · 2026-08-07) ────────────────────────────────
+   이 표에는 다섯이 있었다: `lh:reads`(내 요약·독후감) · `atlas.notes`·`atlas.stars`(진로 지도
+   메모·관심) · `artifact:reads`·`artifact:markets`(PC→폰 산출물 미러). **다섯 다 그 화면이
+   `survey/` 필러로 가면서 사라졌다.**
 
-export const DOC_KEYS = ['lh:reads', 'atlas.notes', 'atlas.stars', ...MIRROR_DOC_KEYS] as const;
+   왜 배관은 남기나: `docs` 는 P10 이 만든 발판이 아니라 **앱 인프라**다(SQLite 표 · 클라우드
+   `DOCS_SPEC.sync` · 아웃박스 · ⌘Z 프리이미지 · pull 뒤 `reloadDocs`). 세입자가 없다고 그것을
+   걷으면 스키마 마이그레이션 + 서버 계약 + 왕복 테스트가 한 벌 더 필요한데, 그건 W4 의 범위
+   (화면·아티팩트·Rust)가 아니고 되돌리기도 비싸다. 그래서 **빈 채로 두되 빈 것을 명시**한다.
+   존치 근거·재검토일은 `docs/유예_원장.md` — 다음 저작물 키가 생기면 여기 한 줄이면 된다.
+
+   ⚠ 빈 배열의 대가: `DocKey` 가 `never` 라 `docGet`/`docSet` 은 **전량 localStorage 로 흐른다**.
+   즉 지금 이 파일은 *동작상* 얇은 KV 래퍼이고, SQLite 경로는 세입자가 돌아오는 순간 다시 산다.
+   그 사실을 숨기지 않는 것이 요점이다(조용히 죽은 배관이 이 저장소가 반복해 만든 형태다). */
+export const DOC_KEYS = [] as const;
 export type DocKey = (typeof DOC_KEYS)[number];
 
 const isDocKey = (k: string): k is DocKey => (DOC_KEYS as readonly string[]).includes(k);

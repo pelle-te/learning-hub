@@ -30,8 +30,6 @@ vi.mock('@/lib/idb', () => ({
 }));
 
 import { defaults, exportSnapshot } from '@/lib/persistence';
-import { loadReads, saveReads, type ReadsLocal } from '@/lib/reads';
-import { ATLAS_NOTES_KEY, ATLAS_STARS_KEY, RESEARCH_HISTORY_KEY } from '@/lib/sidecars';
 import { UI_KEY, defaultUI, persistUI } from '@/lib/uiState';
 import { storage } from '@/lib/kv';
 import { useApp } from '@/store/useApp';
@@ -211,26 +209,11 @@ function bigState(): AppState {
   return s as AppState;
 }
 
-function bigReads(): ReadsLocal {
-  return {
-    work: Object.fromEntries(
-      Array.from({ length: 120 }, (_, i) => [
-        `art-${i}`,
-        { summary: `내가 쓴 요약 ${i}. `.repeat(30), done: i % 3 === 0, updatedAt: `2026-03-${(i % 28) + 1}` },
-      ]),
-    ),
-    books: Array.from({ length: 40 }, (_, i) => ({
-      id: `bk-${i}`,
-      title: `책 ${i}`,
-      author: `저자 ${i}`,
-      status: i % 2 ? 'done' : 'reading',
-      review: `독후감 ${i}. `.repeat(60),
-      rating: int(0, 5),
-      startedAt: '2026-02-01T00:00:00.000Z',
-      finishedAt: null,
-    })),
-  } as ReadsLocal;
-}
+/* ⚠ **사이드카 표본이 P10 W4 에서 줄었다**(2026-08-07). 옛 표본은 읽을거리 저작물(요약 120 ·
+   독후감 40)과 진로 메모·리서치 이력을 함께 실어 "대용량 왕복에서 사이드카가 바이트 동일하게
+   복원되는가"를 물었다. 그 셋 다 `survey/` 필러로 갔고 백업 계약(`_reads`)에서도 빠졌다.
+   남은 사이드카는 UI 설정 하나라 표본의 *부피*는 줄지만, 이 파일의 본론(앱 상태 1MB+ 왕복이
+   바이트 동일한가)은 그대로다 — 부피를 만드는 것은 처음부터 `AppState` 쪽이었다. */
 
 /** 실제 importJSON을 구동 — FileReader까지 앱과 같은 경로를 탄다. */
 function driveImport(json: string): Promise<void> {
@@ -262,13 +245,6 @@ describe('대용량 이관 왕복 (1단계 이월 ②)', () => {
   it('내보내기 페이로드를 조립한다 — 규모와 바이트 크기를 기록', async () => {
     ORIGINAL = bigState();
     useApp.getState().loadState(ORIGINAL);
-    saveReads(bigReads());
-    localStorage.setItem(ATLAS_NOTES_KEY, JSON.stringify({ rf: '증폭기 진로 메모. '.repeat(40) }));
-    localStorage.setItem(ATLAS_STARS_KEY, JSON.stringify(['rf', 'sat', 'dsp']));
-    localStorage.setItem(
-      RESEARCH_HISTORY_KEY,
-      JSON.stringify(Array.from({ length: 60 }, (_, i) => ({ topic: `LNA ${i}`, ok: true }))),
-    );
     // 앱이 실제로 쓰는 형태로 시드한다 — 손으로 만든 객체는 UIStateSchema를 통과하지 못해
     // bootUI가 조용히 기본값으로 떨어지고, 그러면 이 테스트가 복원을 검증하지 못한다.
     persistUI(storage, { ...defaultUI(), accent: 'cyan', navCollapsed: true });
@@ -287,14 +263,13 @@ describe('대용량 이관 왕복 (1단계 이월 ②)', () => {
     const stateJson = JSON.stringify(exportSnapshot(ORIGINAL));
     const u8 = (s: string): number => new TextEncoder().encode(s).length;
     // localStorage에 동시에 앉는 것: 앱 상태(KEY) + 되돌리기 백업(BACKUP_KEY, 파괴적 동작 전마다
-    // backupNow가 통째로 복사) + 읽을거리(lh:reads). 즉 절벽까지의 여유는 상태 1벌 기준이 아니다.
-    const readsJson = JSON.stringify(loadReads());
+    // backupNow가 통째로 복사). 즉 절벽까지의 여유는 상태 1벌 기준이 아니다.
     // ×2 = UTF-16 바이트 환산. 상태가 2벌인 이유는 KEY와 BACKUP_KEY가 동시에 앉기 때문.
-    const resident = (stateJson.length * 2 + readsJson.length) * 2;
+    const resident = stateJson.length * 2 * 2;
     console.info(
       `[대용량 표본] 백업 파일 ${mb(u8(PAYLOAD))}MB(UTF-8) · ` +
         `앱 상태 ${mb(u8(stateJson))}MB(UTF-8) / ${mb(stateJson.length * 2)}MB(UTF-16) · ` +
-        `localStorage 상주 ≈${mb(resident)}MB(UTF-16, KEY+BACKUP_KEY+reads) / 한도 ≈5MB`,
+        `localStorage 상주 ≈${mb(resident)}MB(UTF-16, KEY+BACKUP_KEY) / 한도 ≈5MB`,
     );
     expect(u8(PAYLOAD)).toBeGreaterThan(1_000_000); // 표본이 실제로 크다는 것 자체를 잠근다
   });
@@ -333,19 +308,12 @@ describe('대용량 이관 왕복 (1단계 이월 ②)', () => {
     expect(after._lastStreakCele).toBe(12);
   });
 
-  it('사이드카(_reads·_local)가 대용량에서도 바이트 동일하게 복원된다', async () => {
+  it('사이드카(_local)가 대용량에서도 바이트 동일하게 복원된다', async () => {
     localStorage.clear();
     useApp.getState().loadState(defaults());
     await driveImport(PAYLOAD);
 
-    const reads = loadReads();
-    expect(Object.keys(reads.work).length).toBe(120);
-    expect(reads.books.length).toBe(40);
-    expect(reads).toEqual(JSON.parse(PAYLOAD)._reads);
-
     const local = JSON.parse(PAYLOAD)._local;
-    expect(JSON.parse(localStorage.getItem(ATLAS_NOTES_KEY)!)).toEqual(local[ATLAS_NOTES_KEY]);
-    expect(JSON.parse(localStorage.getItem(RESEARCH_HISTORY_KEY)!)).toEqual(local[RESEARCH_HISTORY_KEY]);
     expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual(local[UI_KEY]);
 
     // 0단계-E의 핵심 교훈: KV만 복원하면 낡은 메모리가 다음 편집에서 복원본을 덮는다.

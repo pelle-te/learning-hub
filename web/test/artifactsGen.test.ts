@@ -10,21 +10,22 @@ import {
   LEDGER_STAGES,
   ARTIFACT_SCHEMAS,
   ledgerArtifactSchema,
-  marketsArtifactSchema,
+  goalsArtifactSchema,
 } from '@/lib/artifacts.gen';
 
 describe('artifacts.gen — 생성 상수', () => {
-  it('EXPECTED_SCHEMA_VERSION 은 9 아티팩트(부모 스키마 const 파생 · curriculum v4=P9 Phase4 연관성 · knowledge v2=②#54 사전분포 검역 · goals/discovery=P9 Phase6)', () => {
+  /* ⚠ **9 → 6**(P10 W4 · 2026-08-07). `reads`·`markets`·`discovery` 가 빠졌다 — 그 셋을 읽던
+     화면이 `survey/` 필러로 갔다. 이 단언이 곧 불변식 I-4("hub 이 읽는 아티팩트는 6종 이하 ·
+     교양 도메인이 늘어도 안 는다")의 집행자다 — 부모 스키마 파일 자체는 남아 있으므로
+     `gen-artifacts.mjs` 의 목록에 한 줄만 되돌리면 조용히 7종이 된다. 여기서 시끄럽게 깨진다. */
+  it('EXPECTED_SCHEMA_VERSION 은 6 아티팩트(부모 스키마 const 파생 · curriculum v4=P9 Phase4 연관성 · knowledge v2=②#54 사전분포 검역)', () => {
     expect(EXPECTED_SCHEMA_VERSION).toEqual({
       index: 1,
       knowledge: 2,
       ledger: 1,
       anki: 1,
-      reads: 1,
-      markets: 1,
       curriculum: 4,
       goals: 1,
-      discovery: 1,
     });
   });
 
@@ -68,13 +69,10 @@ describe('artifacts.gen — zod 경계 스키마', () => {
   it('관대함: 계약 밖 추가 키는 보존(passthrough) — 생산자 확장 무회귀', () => {
     const extra = {
       _schemaVersion: 1,
-      at: 'x',
-      date: 'x',
-      indices: [],
-      news: [],
+      nodes: [],
       future_field: 'ok',
     };
-    const r = marketsArtifactSchema.safeParse(extra);
+    const r = goalsArtifactSchema.safeParse(extra);
     expect(r.success).toBe(true);
   });
 });

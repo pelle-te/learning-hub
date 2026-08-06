@@ -54,13 +54,6 @@ test('테마 토글이 <html data-theme>를 바꾼다(다크 기본 → 라이�
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
-test('탐구 수집 탭이 로드되고 검색 히어로를 표시한다', async ({ page }) => {
-  await page.goto('/control');
-  // 옛 OPS 콘솔 폐기 → 탐구 수집 검색 탭. 검색 히어로 + 주제 입력.
-  await expect(page.getByRole('heading', { name: /무엇을 새로 알아볼까요/ })).toBeVisible();
-  await expect(page.getByLabel('탐구 주제')).toBeVisible({ timeout: 15000 });
-});
-
 /* ============================================================
    H10 — **떠 있는 층 위에서 단일키가 뒤를 움직이면 안 된다**(2026-08-01 `/감사 근본`).
 

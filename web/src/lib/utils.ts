@@ -299,22 +299,11 @@ export function pctLabel(x?: number | null): string {
  * ⚠ `now` 주입 가능 — 렌더 중 `Date.now()` 는 순수성 린트가 막고, 테스트도 그래야 결정적이다.
  * ⚠ 미래 시각(시계 오차)은 '방금'으로 접는다 — "-3분 전"은 결함으로 읽힌다.
  */
-/**
- * **일수** → 상대일 라벨(오늘/어제/N일 전).
- *
- * ⚠⚠ 아래 `agoLabel` 과 **축이 다르다**(H16 · 2026-08-01): 이건 *며칠 전인가*(정수 일수),
- * 저건 *언제인가*(epoch ms). 둘 다 `number` 하나를 받아 문자열을 주므로 **타입이 혼동을 못
- * 막는다** — 실제로 `Atlas.tsx` 가 같은 이름의 지역 함수로 이걸 갖고 있었고, 그 파일이
- * `@/lib/utils` 를 import 하는 날 `agoLabel(3)` 이 **"56년 전"** 을 그리면서 타입은 통과했을
- * 것이다(1970-01-01 + 3ms). 그래서 사본을 없애되 **이름을 갈라** 둔다.
- */
-export function daysAgoLabel(days: number): string {
-  if (days <= 0) return '오늘';
-  if (days === 1) return '어제';
-  return `${days}일 전`;
-}
-
-/** **시각**(epoch ms) → 상대 시각 라벨. 일수 축은 위 `daysAgoLabel`(⚠ 이름이 갈린 이유는 거기). */
+/** **시각**(epoch ms) → 상대 시각 라벨.
+ *  ⚠ 짝이던 `daysAgoLabel`(*며칠 전인가* · 정수 일수)이 P10 W4 에서 빠졌다(2026-08-07) — 소비처가
+ *  `atlas`·`discovery` 였다. H16 이 그 둘의 **이름을 가른** 이유는 지금도 유효하다: 둘 다 `number`
+ *  하나를 받아 문자열을 주므로 타입이 혼동을 못 막는다(`agoLabel(3)` → "56년 전"). 일수 축이
+ *  다시 필요해지면 **같은 이름을 재사용하지 말고** 그때도 이름을 갈라라. */
 export function agoLabel(t: number, now: number): string {
   const mins = Math.round((now - t) / 60000);
   if (mins < 1) return '방금';

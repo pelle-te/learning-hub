@@ -16,12 +16,11 @@
 import { keySid } from '@/lib/domainKeys';
 import { openBacklog } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
-import type { loadReads } from '@/lib/reads';
 import type { AppState } from '@/lib/types';
 
 export type ContentHit = {
   id: string;
-  kind: 'subject' | 'chapter' | 'book' | 'backlog' | 'weak' | 'mistake';
+  kind: 'subject' | 'chapter' | 'backlog' | 'weak' | 'mistake';
   label: string;
   to: string;
   /* ── 동사가 작용할 대상(N-1) ──────────────────────────────────────────
@@ -40,14 +39,11 @@ export type ContentHit = {
 
 /** E-6/C-3: ⌘K 오프라인 통합 검색 — Ollama 불필요. 메모리에 이미 있는 학습 항목(과목·챕터)·독서(책)·
    열린 보충(backlog)·반복 약점(weak)을 부분문자열로 찾아 해당 탭으로 이동. 의미검색(semanticPalette)의
-   오프라인 보완(임베딩 없이 항상 동작). 수집 지문(articles)은 react-query 캐시라 여기서 안 닿음(온라인 담당).
-   C-1: reads는 팔레트가 열릴 때 1회 스냅샷해 주입 — 타이핑 매 키마다 localStorage 재파싱을 피한다. */
-export function contentSearch(
-  query: string,
-  s: AppState,
-  reads: ReturnType<typeof loadReads>,
-  limit = 8,
-): ContentHit[] {
+   오프라인 보완(임베딩 없이 항상 동작).
+   ⚠ **독서(책) 축이 P10 W4 에서 빠졌다** — 그 화면이 `survey/` 로 갔다. 함께 사라진 것이
+   `reads` 인자이고, 그래서 이 함수는 이제 `AppState` 하나만 본다(옛 C-1 의 '팔레트가 열릴 때
+   1회 스냅샷' 최적화도 필요 없어졌다 — 스냅샷할 것이 없다). */
+export function contentSearch(query: string, s: AppState, limit = 8): ContentHit[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const cap = limit * 3;
@@ -84,16 +80,6 @@ export function contentSearch(
           chapter: c.name,
         });
     }
-  }
-  for (const b of reads.books) {
-    if (hits.length >= cap) break;
-    if (b.title.toLowerCase().includes(q) || (b.author || '').toLowerCase().includes(q))
-      hits.push({
-        id: 'c-book:' + b.id,
-        kind: 'book',
-        label: b.author ? `${b.title} — ${b.author}` : b.title,
-        to: '/reads',
-      });
   }
   // C-3: 열린 보충 — topic/과목/근거 텍스트를 이미 메모리에 들고 있으나 ⌘K서 못 찾던 것.
   for (const bl of openBacklog(s)) {

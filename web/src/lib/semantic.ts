@@ -11,9 +11,8 @@
 import { embedTexts } from './api';
 import { idbMirror, idbLoad } from './idb';
 import type { AppState } from './types';
-import type { ReadsLocal } from './reads';
 
-export type SemKind = 'chapter' | 'summary' | 'book' | 'backlog' | 'mistake';
+export type SemKind = 'chapter' | 'summary' | 'backlog' | 'mistake';
 
 export interface SemEntry {
   id: string;
@@ -63,8 +62,11 @@ export function topK(query: number[], entries: { entry: SemEntry; vec: number[] 
     .slice(0, k);
 }
 
-/** 앱 상태 + 읽을거리 블롭 → 임베딩 코퍼스. 순수(입력만 사용) — 테스트 가능. */
-export function buildCorpus(state: AppState, reads: ReadsLocal | null): SemEntry[] {
+/** 앱 상태 → 임베딩 코퍼스. 순수(입력만 사용) — 테스트 가능.
+ *  ⚠ 종전엔 독후감(읽을거리 로컬 블롭)이 셋째 축이었다. P10 W4 에서 그 화면이 `survey/` 로 가며
+ *  빠졌고, **`reads` 인자도 함께 뺐다** — 항상 `null` 인 인자를 남기면 호출부가 그걸 채울 것을
+ *  계속 찾는다(그게 이 저장소가 반복해 만든 '사문 배선'의 형태다). */
+export function buildCorpus(state: AppState): SemEntry[] {
   const out: SemEntry[] = [];
   // ① 챕터 — 과목명과 함께(짧은 이름만으론 의미가 빈약).
   for (const it of state.items || []) {
@@ -101,19 +103,7 @@ export function buildCorpus(state: AppState, reads: ReadsLocal | null): SemEntry
       });
     }
   }
-  // ③ 독후감(읽을거리 로컬 블롭).
-  for (const b of reads?.books || []) {
-    const review = (b.review || '').trim();
-    if (!b.title || !review) continue;
-    out.push({
-      id: `book:${b.id}`,
-      kind: 'book',
-      label: `독서 · ${b.title}`,
-      text: `${b.title} ${b.author || ''} ${review}`.slice(0, 2000),
-      to: '/reads',
-    });
-  }
-  // ④ 보충 백로그(승격된 소비물 포함 — 소비→학습 루프의 의미 검색).
+  // ③ 보충 백로그(승격된 소비물 포함 — 소비→학습 루프의 의미 검색).
   for (const bl of state.backlog || []) {
     const topic = (bl.topic || '').trim();
     if (!topic) continue;
@@ -292,15 +282,10 @@ export async function semanticChapterEdges(items: AppState['items'], minSim = 0.
 }
 
 /** 의미 검색 — 질의를 임베딩해 코퍼스 상위 k. Ollama 불가·코퍼스 빈 경우 []. */
-export async function semanticSearch(
-  query: string,
-  state: AppState,
-  reads: ReadsLocal | null,
-  k = 5,
-): Promise<SemHit[]> {
+export async function semanticSearch(query: string, state: AppState, k = 5): Promise<SemHit[]> {
   const q = query.trim();
   if (!q || _disabled) return [];
-  const corpus = buildCorpus(state, reads);
+  const corpus = buildCorpus(state);
   if (!corpus.length) return [];
   const indexed = await indexCorpus(corpus);
   if (!indexed || !indexed.length) return [];

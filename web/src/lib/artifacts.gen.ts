@@ -12,11 +12,8 @@ export const EXPECTED_SCHEMA_VERSION = {
   knowledge: 2,
   ledger: 1,
   anki: 1,
-  reads: 1,
-  markets: 1,
   curriculum: 4,
   goals: 1,
-  discovery: 1,
 } as const;
 
 export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
@@ -147,59 +144,6 @@ export const ankiArtifactSchema = z.looseObject({
   ),
 });
 export type AnkiArtifact = z.infer<typeof ankiArtifactSchema>;
-
-/** `reads.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
-export const readsArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(1),
-  at: z.string(),
-  date: z.string(),
-  articles: z.array(
-    z.looseObject({
-      id: z.string(),
-      lang: z.optional(z.string()),
-      field: z.optional(z.string()),
-      source: z.optional(z.string()),
-      title: z.string(),
-      url: z.string(),
-      published: z.optional(z.nullable(z.string())),
-      words: z.optional(z.number()),
-      text: z.optional(z.string()),
-    }),
-  ),
-});
-export type ReadsArtifact = z.infer<typeof readsArtifactSchema>;
-
-/** `markets.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
-export const marketsArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(1),
-  at: z.string(),
-  date: z.string(),
-  indices: z.array(
-    z.looseObject({
-      symbol: z.string(),
-      name: z.string(),
-      region: z.optional(z.string()),
-      currency: z.optional(z.string()),
-      price: z.nullable(z.number()),
-      prevClose: z.optional(z.nullable(z.number())),
-      change: z.optional(z.nullable(z.number())),
-      changePct: z.optional(z.nullable(z.number())),
-      spark: z.optional(z.array(z.unknown())),
-    }),
-  ),
-  news: z.array(
-    z.looseObject({
-      id: z.string(),
-      source: z.optional(z.string()),
-      field: z.optional(z.string()),
-      title: z.string(),
-      url: z.string(),
-      published: z.optional(z.nullable(z.string())),
-      summary: z.optional(z.string()),
-    }),
-  ),
-});
-export type MarketsArtifact = z.infer<typeof marketsArtifactSchema>;
 
 /** `curriculum.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
 export const curriculumArtifactSchema = z.looseObject({
@@ -340,31 +284,12 @@ export const goalsArtifactSchema = z.looseObject({
 });
 export type GoalsArtifact = z.infer<typeof goalsArtifactSchema>;
 
-/** `discovery.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
-export const discoveryArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(1),
-  entries: z.array(
-    z.looseObject({
-      id: z.string(),
-      kind: z.enum(['uncovered', 'bridge', 'survey_context', 'capability']),
-      source: z.string(),
-      score: z.number(),
-      status: z.enum(['pending', 'promoted', 'dismissed']),
-      detail: z.record(z.string(), z.unknown()),
-    }),
-  ),
-});
-export type DiscoveryArtifact = z.infer<typeof discoveryArtifactSchema>;
-
 /** 이름 → 경계 zod 스키마(런타임 검증·소비처 선택 사용). */
 export const ARTIFACT_SCHEMAS = {
   index: indexArtifactSchema,
   knowledge: knowledgeArtifactSchema,
   ledger: ledgerArtifactSchema,
   anki: ankiArtifactSchema,
-  reads: readsArtifactSchema,
-  markets: marketsArtifactSchema,
   curriculum: curriculumArtifactSchema,
   goals: goalsArtifactSchema,
-  discovery: discoveryArtifactSchema,
 } as const;

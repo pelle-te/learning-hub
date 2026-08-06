@@ -49,9 +49,6 @@ fn base_url() -> String {
 fn chat_model() -> String {
     std::env::var("READS_OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:8b".into())
 }
-fn markets_model() -> String {
-    std::env::var("MARKETS_OLLAMA_MODEL").unwrap_or_else(|_| chat_model())
-}
 fn embed_model() -> String {
     std::env::var("OLLAMA_EMBED_MODEL").unwrap_or_else(|_| "bge-m3".into())
 }
@@ -112,189 +109,8 @@ impl Spec {
     }
 }
 
-fn s(body: &Value, key: &str, max: usize) -> String {
-    body.get(key)
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .chars()
-        .take(max)
-        .collect::<String>()
-        .trim()
-        .to_string()
-}
-
-fn lang_of(body: &Value) -> String {
-    if body.get("lang").and_then(Value::as_str) == Some("en") {
-        "en".into()
-    } else {
-        "ko".into()
-    }
-}
-
-/// 내 요약 채점 — 원문과 대조. 원문은 참조만, 새 요약을 대신 쓰지 않는다.
-fn build_coach(body: &Value) -> Result<Spec, String> {
-    let summary = s(body, "summary", 8000);
-    let source = s(body, "source", 6000);
-    let lang = lang_of(body);
-    if summary.is_empty() {
-        return Err("내 요약이 비어 있어요.".into());
-    }
-    if source.is_empty() {
-        return Err("원문이 없어요.".into());
-    }
-    /* 프롬프트: 스키마를 '값이 든 템플릿'으로 주면 8B 가 그 예시 문자열을 그대로 베낀다 →
-    키를 산문으로 설명(값 예시 없이)하고 실제 [원문]/[요약]만 뒤에 붙인다. */
-    let prompt = if lang == "ko" {
-        format!(
-            "너는 국어 선생님이다. 학생이 아래 [원문]을 읽고 [학생요약]을 썼다.\n\
-             학생요약이 원문의 핵심을 잘 담았는지 채점해라. 원문을 대신 요약하지 말고 학생요약을 평가만 해라.\n\
-             아래 키를 가진 JSON 하나만 한국어로 출력해라(각 항목은 원문과 학생요약의 실제 내용으로 채운다):\n\
-             - score: 0~100 정수(핵심 반영도)\n\
-             - missing: 원문의 핵심인데 학생요약에 빠진 내용들의 배열\n\
-             - redundant: 학생요약에서 불필요하거나 늘어진 부분들의 배열(없으면 [])\n\
-             - accuracy: 학생요약에서 사실과 다른 부분들의 배열(없으면 [])\n\
-             - model_summary: 원문 내용을 한두 문장으로 요약한 모범답안(문자열)\n\
-             - comment: 학생에게 주는 격려 한 문장\n\n\
-             [원문]\n{source}\n\n[학생요약]\n{summary}"
-        )
-    } else {
-        format!(
-            "You are an English tutor. The student read the [SOURCE] and wrote [NOTES] (comprehension/translation notes).\n\
-             Do NOT summarize the source for them. Only evaluate their notes and help them learn.\n\
-             Output ONE JSON object with these keys (fill each from the actual SOURCE and NOTES):\n\
-             - score: integer 0-100 (comprehension quality)\n\
-             - missing: array of key points from the source the student missed\n\
-             - corrections: array of misunderstandings/mistranslations to fix (empty [] if none)\n\
-             - key_expressions: array of {{\"en\": useful phrase from the source, \"ko\": its Korean meaning}}\n\
-             - model_summary: a 1-2 sentence model summary of the SOURCE, in English (string)\n\
-             - comment: one encouraging remark in Korean\n\n\
-             [SOURCE]\n{source}\n\n[NOTES]\n{summary}"
-        )
-    };
-    Ok(Spec {
-        prompt,
-        model: chat_model(),
-        wrap_key: "feedback",
-        lang: Some(lang),
-    })
-}
-
-/// 어휘 도우미 — 지문에서 고른 단어 하나의 뜻·예문(원문 문맥 반영).
-fn build_vocab(body: &Value) -> Result<Spec, String> {
-    let word = s(body, "word", 80);
-    let context = s(body, "context", 600);
-    let lang = lang_of(body);
-    if word.is_empty() {
-        return Err("단어가 없어요.".into());
-    }
-    let prompt = if lang == "en" {
-        format!(
-            "Explain the English word/phrase below to a Korean learner, using the sentence context.\n\
-             Output ONE JSON object with keys: word(the word), pos(품사 in Korean), \
-             meaning(문맥에 맞는 한국어 뜻), example(a natural English example sentence), example_ko(그 예문의 한국어 해석).\n\n\
-             WORD: {word}\nCONTEXT: {context}"
-        )
-    } else {
-        format!(
-            "아래 [문맥]에서 단어 \"{word}\"가 쓰인 의미를 국어사전 뜻에 근거해 정확히 설명해라.\n\
-             JSON 하나만 출력: 키는 word(그 단어), meaning(문맥에 맞는 뜻), \
-             synonyms(그 의미의 유의어 배열), example(그 단어를 같은 의미로 쓴 새 예문 문자열).\n\n\
-             단어: {word}\n[문맥]\n{context}"
-        )
-    };
-    Ok(Spec {
-        prompt,
-        model: chat_model(),
-        wrap_key: "vocab",
-        lang: Some(lang),
-    })
-}
-
-/// 증시 브리핑 — 지수 등락 + 뉴스 헤드라인으로 "왜 이렇게 움직였나"를 해설.
-/// ⚠ 숫자를 새로 지어내지 않는다(주어진 등락만 사용).
-fn build_brief(body: &Value) -> Result<Spec, String> {
-    let empty = vec![];
-    let indices = body
-        .get("indices")
-        .and_then(Value::as_array)
-        .unwrap_or(&empty);
-    let headlines = body
-        .get("headlines")
-        .and_then(Value::as_array)
-        .unwrap_or(&empty);
-    if indices.is_empty() && headlines.is_empty() {
-        return Err("브리핑할 데이터가 없어요 — 먼저 수집하세요.".into());
-    }
-    let idx_lines = indices
-        .iter()
-        .take(20)
-        .map(|i| {
-            let name: String = i
-                .get("name")
-                .or_else(|| i.get("symbol"))
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .chars()
-                .take(30)
-                .collect();
-            let pct = i
-                .get("changePct")
-                .and_then(Value::as_f64)
-                .unwrap_or(f64::NAN);
-            let price = i.get("price").cloned().unwrap_or(Value::Null);
-            format!("- {name}: {pct:.2}% ({price})")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let news_lines = headlines
-        .iter()
-        .take(25)
-        .enumerate()
-        .map(|(n, h)| {
-            let title: String = h
-                .get("title")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .chars()
-                .take(160)
-                .collect();
-            let src = h.get("source").and_then(Value::as_str).map(|x| {
-                let t: String = x.chars().take(20).collect();
-                format!(" [{t}]")
-            });
-            format!("{}. {title}{}", n + 1, src.unwrap_or_default())
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let idx_block = if idx_lines.is_empty() {
-        "(지수 데이터 없음)"
-    } else {
-        &idx_lines
-    };
-    let news_block = if news_lines.is_empty() {
-        "(뉴스 없음)"
-    } else {
-        &news_lines
-    };
-    let prompt = format!(
-        "너는 금융시장 브리핑 애널리스트다. 아래 [지수]의 오늘 등락과 [뉴스] 헤드라인이 주어진다.\n\
-         주어진 숫자만 사용하고 새 수치를 지어내지 마라. 뉴스와 지수 움직임을 연결해 \"오늘 왜 이렇게 움직였나\"를 한국어로 해설해라.\n\
-         아래 키를 가진 JSON 하나만 출력해라(실제 [지수]/[뉴스] 내용으로 채운다):\n\
-         - overview: 오늘 시장을 2~3문장으로 요약(문자열)\n\
-         - drivers: 오늘 움직임의 동인 배열, 각 항목은 {{\"title\": 짧은 제목, \"detail\": 한두 문장 설명}}\n\
-         - watch: 앞으로 지켜볼 포인트들의 배열(문자열 배열)\n\
-         - caveat: 이 해설은 지연·요약 데이터 기반 참고용이라는 한 문장 경고\n\n\
-         [지수]\n{idx_block}\n\n[뉴스]\n{news_block}"
-    );
-    Ok(Spec {
-        prompt,
-        model: markets_model(),
-        wrap_key: "brief",
-        lang: None,
-    })
-}
-
-/// 주간 회고 코치 — 앱이 이미 계산한 결정적 인사이트를 받아 '다음 주에 무엇을 바꿀지'를 구체화.
+/// 주간 회고 코치 — 앱이 계산한 사실을 받아 '다음 주에 뭘 바꿀지'로 구체화한다. 숫자를 새로
+/// 짓지 않는다. ⚠ 이 파일에 남은 **유일한** 프롬프트 빌더다(P10 W4 에서 셋이 빠졌다).
 fn build_review(body: &Value) -> Result<Spec, String> {
     let take = |key: &str, n: usize, len: usize| -> Vec<String> {
         body.get(key)
@@ -349,10 +165,11 @@ fn build_review(body: &Value) -> Result<Spec, String> {
 /// serve.js `OLLAMA_ROUTES`(L499-504) — 경로 대신 kind 로 고른다.
 pub fn build(kind: &str, body: &Value) -> Result<Spec, String> {
     match kind {
-        "reads/coach" => build_coach(body),
-        "reads/vocab" => build_vocab(body),
-        "markets/brief" => build_brief(body),
         "review/coach" => build_review(body),
+        /* ⚠ **셋이 P10 W4 에서 빠졌다**(2026-08-07): `reads/coach`(내 요약 채점) ·
+        `reads/vocab`(단어 뜻) · `markets/brief`(증시 해설). 소비 화면이 `survey/` 로 갔고,
+        그 사이트는 Ollama 를 안 문다(D5: 규모가 다르다) — 즉 프롬프트를 옮긴 것이 아니라
+        **기능이 이번 이사에서 빠진 것**이고, 그 사실은 `docs/유예_원장.md` 에 행으로 있다. */
         _ => Err(format!("알 수 없는 AI 경로: {kind}")),
     }
 }
@@ -616,73 +433,24 @@ mod tests {
         assert_eq!(parse_model_json("{\"a\": ").unwrap()["raw"], "{\"a\":");
     }
 
-    /* ── 빌더 — 검증과 봉투 ── */
+    /* ── 빌더 — 검증과 봉투 ──
+    ⚠ 케이스 다섯이 P10 W4 에서 사라졌다(코치·어휘·브리핑 빌더와 함께). 남는 것은 회고 코치 하나라
+    커버리지가 줄었는데, **그건 표면이 줄어서지 검증을 뺀 것이 아니다** — 남은 빌더에 대해 같은
+    세 질문(필수 입력 검증 · 봉투 키 · 입력 상한)을 그대로 묻는다. */
 
     #[test]
-    fn 코치는_요약과_원문이_둘_다_있어야_한다() {
-        assert!(build_coach(&json!({ "source": "원문" })).is_err());
-        assert!(build_coach(&json!({ "summary": "요약" })).is_err());
-        let spec = build_coach(&json!({ "source": "원문", "summary": "요약" })).unwrap();
-        assert!(spec.prompt.contains("[원문]") && spec.prompt.contains("원문"));
-    }
-
-    #[test]
-    fn 영어_코치는_영어_프롬프트를_쓴다() {
-        let spec =
-            build_coach(&json!({ "source": "src", "summary": "sum", "lang": "en" })).unwrap();
-        assert!(spec.prompt.contains("[SOURCE]"));
-        assert_eq!(spec.lang.as_deref(), Some("en"));
-    }
-
-    #[test]
-    fn 봉투가_라우트마다_다른_키를_쓴다() {
-        // 이 키가 틀리면 소비처가 `r.feedback` 을 못 찾아 **에러 없이 빈 화면**이 된다.
-        let coach = build_coach(&json!({ "source": "a", "summary": "b" })).unwrap();
-        assert_eq!(coach.wrap(json!({"score":1}))["feedback"]["score"], 1);
-        assert_eq!(coach.wrap(json!({}))["lang"], "ko");
-
-        let brief =
-            build_brief(&json!({ "indices": [{"name":"KOSPI","changePct":1.5,"price":2600}] }))
-                .unwrap();
-        assert_eq!(
-            brief.wrap(json!({"overview":"x"}))["brief"]["overview"],
-            "x"
-        );
-        assert!(
-            brief.wrap(json!({})).get("lang").is_none(),
-            "브리핑엔 lang 이 없다"
-        );
-
+    fn 회고는_봉투_키가_coach_다() {
+        // 이 키가 틀리면 소비처가 `r.coach` 를 못 찾아 **에러 없이 빈 화면**이 된다.
         let review = build_review(&json!({ "facts": ["a"] })).unwrap();
         assert_eq!(
             review.wrap(json!({"headline":"h"}))["coach"]["headline"],
             "h"
-        );
-
-        let vocab = build_vocab(&json!({ "word": "apple" })).unwrap();
-        assert_eq!(
-            vocab.wrap(json!({"meaning":"사과"}))["vocab"]["meaning"],
-            "사과"
-        );
-    }
-
-    #[test]
-    fn 브리핑은_등락률을_소수_둘째까지_찍는다() {
-        // serve.js `toFixed(2)` 승계 — 자릿수가 흔들리면 모델이 숫자를 재해석한다.
-        let spec =
-            build_brief(&json!({ "indices": [{"name":"KOSPI","changePct":-1.234,"price":2600}] }))
-                .unwrap();
-        assert!(
-            spec.prompt.contains("- KOSPI: -1.23% (2600)"),
-            "{}",
-            spec.prompt
         );
     }
 
     #[test]
     fn 데이터가_없으면_모델을_안_부른다() {
         // 빈 요청으로 8B 를 깨우는 건 순수 낭비 — serve.js 도 여기서 잘랐다.
-        assert!(build_brief(&json!({})).is_err());
         assert!(build_review(&json!({})).is_err());
     }
 
@@ -693,9 +461,9 @@ mod tests {
 
     #[test]
     fn 긴_입력은_상한에서_잘린다() {
-        let long = "가".repeat(20_000);
-        let spec = build_coach(&json!({ "source": long.clone(), "summary": long })).unwrap();
-        // source 6,000 + summary 8,000 + 안내문 — 원문이 통째로 들어가면 num_ctx 를 넘겨 생성이 죽는다.
+        let long: Vec<Value> = (0..500).map(|_| json!("가".repeat(200))).collect();
+        let spec = build_review(&json!({ "facts": long.clone(), "weakSpots": long })).unwrap();
+        // 입력이 통째로 들어가면 num_ctx 를 넘겨 생성이 죽는다 — 빌더가 상한에서 자른다.
         assert!(
             spec.prompt.chars().count() < 16_000,
             "{}",

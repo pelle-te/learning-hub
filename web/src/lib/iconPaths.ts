@@ -54,12 +54,11 @@ export const ICON_PATHS = {
   panelLeft: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
   // 증시 동향 — 상승 추세선+화살촉(trending-up). chart(막대)·graph(노드)와 시각 구분.
   trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-  // 내 길 지도(goals) — 나침반(방향·목표). target(과녁)·radio(신호)와 시각 구분.
+  // 내 길 지도(goals) — 나침반(방향·목표). target(과녁)과 시각 구분.
   compass: '<circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88"/>',
-  // 진로 지도(전파·통신 아틀라스) — 방송 신호(양측 동심호 + 중심점). trend(추세)·graph(노드)와 시각 구분.
-  radio:
-    '<circle cx="12" cy="12" r="2"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/>',
-  // 발견 큐(serendipity) — 큰 별+작은 별(발견·insight). compass(방향)·target(과녁)·radio(신호)와 시각 구분.
+  /* 발견(serendipity) — 큰 별+작은 별. ⚠ 발견 **큐**는 P10 W4 에서 `survey/` 로 갔지만 이 글리프는
+     `guide` 본문이 계속 쓴다(그 화면이 시스템의 능력을 설명한다). 함께 있던 `radio`(진로 지도)는
+     쓰는 곳이 사라져 지웠다 — `icons.test.ts` 의 '죽은 아이콘 0' 단언이 그걸 시끄럽게 잡았다. */
   discovery:
     '<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18.5 15l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
   // 읽을거리 — 신문(칼럼·뉴스 지문 + 독서). file(문서)·book(독서 글리프)와 시각 구분.
@@ -110,9 +109,7 @@ export const ICON_PATHS = {
     '<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>',
   bandage:
     '<rect x="2" y="7.5" width="20" height="9" rx="4.5" transform="rotate(-45 12 12)"/><path d="M9.5 9.5 14.5 14.5"/><path d="M10.5 13.5h.01M13.5 10.5h.01"/>',
-  // 탐색·검색 — 🔎 🔍 🔭 (🧭·🔗 은 위 compass·link)
-  telescope:
-    '<path d="m10.1 7.6-6.3 2.5a2 2 0 0 0-1.1 2.6l.8 2a2 2 0 0 0 2.6 1.1l6.3-2.5z"/><path d="m14.9 5.7 4-1.6a2 2 0 0 1 2.6 1.1l.8 2a2 2 0 0 1-1.1 2.6l-4 1.6z"/><path d="M9 15.5 6.5 22M13 14l4 8"/>',
+  // 탐색·검색 — 🔎 🔍 (🧭·🔗 은 위 compass·link. `telescope` 는 탐구 수집 화면과 함께 P10 W4 에서 삭제)
   // 정보 — ℹ
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   // 시간·일정 — 🌅 ☕ 💤 (📅 🗓 ⏱ 🌙 은 위 calendar·clock·moon)
@@ -129,7 +126,7 @@ export const ICON_PATHS = {
   play: '<polygon points="6 3 20 12 6 21"/>',
   arrowUpDown: '<path d="m7 15 3 3 3-3M10 18V6"/><path d="m14 9 3-3 3 3M17 6v12"/>',
   arrowForward: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h4"/>',
-  // 동기화·연결 — 🔌 (🔄 은 위 refresh · 📡 은 위 radio)
+  // 동기화·연결 — 🔌 (🔄 은 위 refresh)
   plug: '<path d="M12 22v-5"/><path d="M9 7V2M15 7V2"/><path d="M5 7h14v3a7 7 0 0 1-14 0z"/>',
   // 목표·집중 — 🧠 🔥 📌 (🎯 🎓 은 위 target·cap)
   brain:

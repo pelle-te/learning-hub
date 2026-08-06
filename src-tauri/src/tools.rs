@@ -94,7 +94,7 @@ pub struct Tool {
     pub timeout_ms: u64,
 }
 
-/// serve.js `TOOLS`(L59-72)와 1:1. 순서·인자·타임아웃까지 그대로 옮겼다.
+/// 화이트리스트 도구. 옛 serve.js `TOOLS`(L59-72)의 자리 — **11 → 7**(P10 W4).
 pub const TOOLS: &[(&str, Tool)] = &[
     (
         "knowledge-build",
@@ -152,39 +152,11 @@ pub const TOOLS: &[(&str, Tool)] = &[
             timeout_ms: 60_000,
         },
     ),
-    (
-        "reads-collect",
-        Tool {
-            cmd: &["pipeline/_도구/읽을거리_수집.py"],
-            label: "읽을거리 수집",
-            timeout_ms: 180_000,
-        },
-    ),
-    (
-        "markets-collect",
-        Tool {
-            cmd: &["pipeline/_도구/증시_수집.py"],
-            label: "증시 동향 수집",
-            timeout_ms: 180_000,
-        },
-    ),
-    // 발견 triage — 승격.py 가 --promote/--dismiss 뒤 위치인자(후보 id `kind::key`)를 받는다.
-    (
-        "discovery-promote",
-        Tool {
-            cmd: &["pipeline/_도구/승격.py", "--promote"],
-            label: "발견 후보 승격",
-            timeout_ms: 60_000,
-        },
-    ),
-    (
-        "discovery-dismiss",
-        Tool {
-            cmd: &["pipeline/_도구/승격.py", "--dismiss"],
-            label: "발견 후보 기각",
-            timeout_ms: 60_000,
-        },
-    ),
+    /* ⚠⚠ **수집 계열 4종이 P10 W4 에서 빠졌다**(2026-08-07): `reads-collect` · `markets-collect` ·
+    `discovery-promote` · `discovery-dismiss`. 넷 다 `survey/` 필러 소유이고, 그 도구들은 이미
+    `survey/_도구/` 로 이사했다(W2) — 여기 남아 있던 `pipeline/_도구/…` 경로는 W2 이후 **죽은
+    경로**였다(누르면 파일 없음). 승격/기각은 이제 survey 사이트의 미들웨어가 `승격.py` 를 부른다.
+    ⚠ 실행 트리거를 hub 에 다시 만들지 말 것 — 수집은 스케줄러(`아침.ps1`)가 소유한다(P10 D5). */
 ];
 
 pub fn lookup(key: &str) -> Option<&'static Tool> {
@@ -514,8 +486,8 @@ mod tests {
     /* ── 화이트리스트·인자 정제 ── */
 
     #[test]
-    fn 열한_종이_모두_등록돼_있다() {
-        assert_eq!(TOOLS.len(), 11);
+    fn 일곱_종이_모두_등록돼_있다() {
+        assert_eq!(TOOLS.len(), 7);
         for k in [
             "knowledge-build",
             "vault-health",
@@ -524,10 +496,6 @@ mod tests {
             "eval",
             "anki-signal",
             "ledger-build",
-            "reads-collect",
-            "markets-collect",
-            "discovery-promote",
-            "discovery-dismiss",
         ] {
             assert!(lookup(k).is_some(), "{k} 누락");
         }
@@ -541,11 +509,12 @@ mod tests {
         프런트(`Control`·`Integrations`)가 이 목록으로 실행 가능한 도구를 그리므로,
         키가 바뀌면 버튼이 조용히 사라진다. */
         let keys: Vec<String> = TOOLS.iter().map(|(k, _)| (*k).to_string()).collect();
-        assert_eq!(keys.len(), 11);
+        assert_eq!(keys.len(), 7);
         assert!(keys.contains(&"knowledge-build".to_string()));
-        // 발견 triage 는 프런트의 DISCOVERY_DECISION_TOOL 이 이 두 키를 그대로 쓴다.
-        assert!(keys.contains(&"discovery-promote".to_string()));
-        assert!(keys.contains(&"discovery-dismiss".to_string()));
+        // ⚠ 수집 계열 4종은 P10 W4 에서 빠졌다 — **이 단언이 그 경계를 지킨다**(다시 들어오면 RED).
+        assert!(!keys
+            .iter()
+            .any(|k| k.contains("collect") || k.contains("discovery")));
     }
 
     #[test]

@@ -25,7 +25,6 @@ import { FIND_GUIDE_VIEW } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { contentSearch, type ContentHit } from '@/lib/contentSearch';
-import { loadReads } from '@/lib/reads';
 import { destinations } from '@/shell';
 import State from '@/components/State';
 import { Button, Pill } from '@/components/ui';
@@ -36,7 +35,6 @@ const LIMIT = 40;
 const KIND_LABEL: Record<ContentHit['kind'], string> = {
   subject: '과목',
   chapter: '챕터',
-  book: '읽을거리',
   backlog: '보충',
   weak: '약점',
   mistake: '오답',
@@ -61,8 +59,7 @@ export default function Find() {
   const navigate = useNavigate();
   const q = params.get('q') ?? '';
 
-  const reads = useMemo(() => loadReads(), []);
-  const hits = useMemo(() => (q.trim() ? contentSearch(q, state, reads, LIMIT) : []), [q, state, reads]);
+  const hits = useMemo(() => (q.trim() ? contentSearch(q, state, LIMIT) : []), [q, state]);
   /* 화면 이름도 함께 찾는다 — 내용이 주(主)지만 "그 탭 이름이 뭐였지"도 실재하는 질문이다.
      ⚠ 은퇴한 화면은 여기 안 나온다(`destinations()` 가 이미 걸러 준다 · Q-22). */
   const screens = useMemo(

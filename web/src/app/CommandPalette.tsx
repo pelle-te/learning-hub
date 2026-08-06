@@ -13,7 +13,6 @@ import {
   type HitVerb,
 } from '@/shell';
 import { parseCapture, type CaptureResult } from '@/lib/quickCapture';
-import { loadReads } from '@/lib/reads';
 import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { markVia } from '@/lib/visits';
 import { Icon } from '@/components/Icon';
@@ -63,22 +62,17 @@ const FOOT = 'flex justify-between border-t border-line px-3.5 py-2 text-xs lead
 const BRAND = 'font-bold';
 const GROUP_HEAD = 'block px-3 pt-2 pb-1 text-xs leading-text font-extrabold tracking-label text-acc uppercase';
 
-/** 팔레트가 진로 지도에서 실제로 쓰는 전부 — key·이름·대분류명(H14 의 지연 적재 결과물). */
-type AtlasEntry = { key: string; name: string; cat: string };
-
 /* ⚠ 값은 **아이콘 이름**이다(`components/Icon`) — 이모지가 아니다(2026-08-01). 같은 개념이
    두 표에서 다른 글리프였던 자리이기도 하다(📚 vs 📗 이 둘 다 '학습 항목'). */
 const SEM_ICON: Record<SemKind, IconName> = {
   chapter: 'books',
   summary: 'pencil',
-  book: 'book',
   backlog: 'inbox',
   mistake: 'alert',
 };
 const CONTENT_ICON: Record<ContentHit['kind'], IconName> = {
   subject: 'books',
   chapter: 'books',
-  book: 'book',
   backlog: 'inbox',
   weak: 'alert',
   mistake: 'alert',
@@ -86,7 +80,6 @@ const CONTENT_ICON: Record<ContentHit['kind'], IconName> = {
 const CONTENT_HINT: Record<ContentHit['kind'], string> = {
   subject: '학습 항목',
   chapter: '학습 항목',
-  book: '읽을거리',
   backlog: '보충',
   weak: '반복 약점',
   mistake: '오답 메모',
@@ -195,9 +188,6 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
 
   // 과목 스냅샷(파서 입력) — 열릴 때만. store 접근은 shell(captureSubjects)에 위임(components→store 금지).
   const subjects = useMemo(() => (open ? captureSubjects() : []), [open]);
-  // C-1: 읽을거리 스냅샷도 열릴 때 1회만 — contentSearch가 타이핑 매 키마다 localStorage 재파싱하던 것 제거.
-  const readsSnap = useMemo(() => (open ? loadReads() : null), [open]);
-
   // 닫힐 때 입력 초기화(이벤트 핸들러에서 — effect 내 setState 회피). 캡처 실행/Esc 모두 이 경로로.
   const close = () => {
     setSearch('');
@@ -235,11 +225,8 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     [open, mode, q, subjects],
   );
 
-  // E-6/C-3: 오프라인 통합 검색 — 학습 항목·독서·보충·반복약점을 부분문자열로(Ollama 불필요, 항상 동작).
-  const content = useMemo(
-    () => (open && readsSnap && mode === 'object' && q ? contentSearch(q, readsSnap) : []),
-    [open, mode, q, readsSnap],
-  );
+  // E-6/C-3: 오프라인 통합 검색 — 학습 항목·보충·반복약점을 부분문자열로(Ollama 불필요, 항상 동작).
+  const content = useMemo(() => (open && mode === 'object' && q ? contentSearch(q) : []), [open, mode, q]);
 
   // 의미 검색(로컬 임베딩) — 350ms 디바운스, 늦은 응답은 버림. Ollama 불가면 조용히 빈 목록.
   // 짧은 질의는 렌더에서 걸러낸다(이펙트 내 동기 setState 회피 — 상태는 마지막 결과만 유지).
@@ -261,33 +248,6 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     };
   }, [open, mode, q]);
   const shownSem = mode === 'object' && q.length >= 2 ? semHits : [];
-
-  /* 진로 지도 분야 인덱스 — **열릴 때 지연 적재**(H14 · 2026-07-30 감사).
-
-     이 한 줄이 `import { FIELDS } from '@/lib/atlas'` 였는데, 팔레트는 App 이 정적으로 끌고
-     App 은 부팅 직후 항상 로드된다 → 811줄 시드(`atlasData.ts` · 실측 **14.2 KB gz** 청크)가
-     데스크톱 콜드 스타트의 두 번째 웨이브에 무조건 실렸다. 그런데 여기서 쓰는 것은 분야 25개의
-     **key·이름·대분류명뿐**이고, 그마저 `search.trim()` 이 있을 때만 그린다.
-     ⚠ 엔트리 예산(`npm run budget` 축 ①)은 App 이 동적 import 라 이 비용을 **못 본다** —
-     "게이트가 녹색이니 없다"가 성립하지 않는 자리다(축 ②의 총합에만 잡혔다).
-
-     인덱스를 손으로 베껴 두지 않는다 — 그건 이 저장소가 반복해 물린 SSOT 사본이다. 대신
-     원본을 그대로 두고 **적재 시점만** 옮긴다. 실패해도 이 그룹만 비고 팔레트는 계속 돈다
-     (부팅 청크와 달리 여기는 부분 기능이라 조용한 폴백이 맞다). */
-  const [atlasFields, setAtlasFields] = useState<AtlasEntry[]>([]);
-  useEffect(() => {
-    if (!open || atlasFields.length) return;
-    let stale = false;
-    void import('@/lib/atlas')
-      .then(({ FIELDS, categoryOf }) => {
-        if (stale) return;
-        setAtlasFields(FIELDS.map((f) => ({ key: f.key, name: f.name, cat: categoryOf(f)?.name ?? '' })));
-      })
-      .catch(() => {});
-    return () => {
-      stale = true;
-    };
-  }, [open, atlasFields.length]);
 
   /** 캡처 실행 — **언제나 커밋**한다(E2). 파싱 결과가 있으면 함께 실린다. */
   const runCapture = () => {
@@ -545,29 +505,6 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                       <Icon name={SEM_ICON[h.kind]} /> {h.label}
                     </span>
                     <span className={HINT}>{Math.round(h.sim * 100)}% 유사</span>
-                  </Command.Item>
-                ))}
-              </Command.Group>
-            )}
-            {/* 진로 지도 분야 바로가기 — 검색어가 있을 때만(빈 상태 28개 홍수 방지). cmdk 부분문자열 필터가 좁힌다.
-                ⚠ `atlasFields.length` 도 함께 본다 — 시드가 지연 적재라(H14) 첫 프레임엔 비어 있고,
-                   그때 그룹만 렌더하면 항목 없는 머리글이 한 프레임 스친다. */}
-            {mode === 'object' && q && atlasFields.length > 0 && (
-              <Command.Group heading={<span className={GROUP_HEAD}>진로 지도 — 분야</span>}>
-                {atlasFields.map((f) => (
-                  <Command.Item
-                    key={'atlas:' + f.key}
-                    value={`atlas ${f.name} ${f.cat}`}
-                    className={ITEM}
-                    onSelect={() => {
-                      close();
-                      go(`/atlas/${f.key}`);
-                    }}
-                  >
-                    <span className={LABEL}>
-                      <Icon name="radio" /> {f.name}
-                    </span>
-                    <span className={HINT}>진로 지도</span>
                   </Command.Item>
                 ))}
               </Command.Group>

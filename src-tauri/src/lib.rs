@@ -21,10 +21,12 @@ mod files;
 mod hotkey;
 /// Q-28 — 실시간 poke 소켓(데스크톱). 정책은 프런트, 소켓 수명만 여기(그 파일 머리주석).
 mod live;
-mod news;
+/* ⚠ **`news`·`research` 가 P10 W4 에서 사라졌다**(2026-08-07). `news.rs` 는 진로 지도의 RSS,
+`research.rs` 는 탐구 수집 잡이었고 둘 다 교양축(`survey/`) 소관이다. 탐구는 이미 W2 에서
+`survey/_도구/탐구_수집.py` 로 이사했으므로, 여기 남아 있던 잡 러너는 **없는 스크립트를 부르는
+배관**이었다(판정 ⓑ). 되살리려면 `git show 1c21ad5:src-tauri/src/{news,research}.rs`. */
 mod ollama;
 mod paths;
-mod research;
 /// T-3 — 상주 트레이. **T-6(예약 알림)의 원리적 선행**(그 파일 머리주석).
 #[cfg(desktop)]
 mod tray;
@@ -119,18 +121,14 @@ pub fn run() {
             hotkey::hotkey_retry,
             // 4단계-B — serve.js /api/artifact/:name 대체.
             artifact::artifact_read,
-            // 4단계-C — serve.js /api/run/:tool 대체(파이썬 도구 11종).
+            // 4단계-C — serve.js /api/run/:tool 대체(파이썬 도구 7종 · P10 W4 에서 11 → 7).
             tools::run_tool,
-            // 4단계-D — serve.js /api/research/{start,jobs,cancel} 대체.
-            research::research_start,
-            research::research_jobs,
-            research::research_cancel,
-            // 4단계-E — serve.js Ollama 5종(코치·어휘·브리핑·회고·임베딩) 대체.
+            /* 4단계-E — Ollama. ⚠ **5종에서 2종으로**(P10 W4): 코치·어휘·브리핑이 읽을거리·증시와
+            함께 갔다. 남은 것은 회고 코치와 임베딩(⌘K 의미 검색)이다 — 커맨드는 `kind` 로
+            갈리므로 등록은 그대로고 줄어든 것은 프런트의 호출부다. */
             ollama::ollama_run,
             ollama::ollama_cancel,
             ollama::ollama_embed,
-            // 4단계-F — serve.js /api/atlas/news · /api/ping 대체.
-            news::atlas_news,
             tools::capabilities,
             anki::anki_connect,
             files::save_text_file,
@@ -182,9 +180,6 @@ pub fn run() {
             )?;
             // 볼트 파일 감시(3단계) — 실패해도 앱은 뜬다(감시가 없으면 수동 갱신으로 돌아갈 뿐).
             vault::start_watch(app.handle().clone());
-            // 탐구 잡 이력 복원(4단계-D). running 이던 잡은 '중단됨'으로 내린다 —
-            // 앱이 죽으면 자식 python 도 죽으므로 그 잡은 실제로 안 돈다.
-            research::restore(app.handle());
             /* 전역 캡처 단축키(E20) — 등록 실패는 **삼키지 않는다**(다른 앱이 조합을 선점할 수
             있다). 사유는 `capabilities.hotkey_error` 로 프런트까지 간다. */
             hotkey::register(app.handle());
@@ -201,13 +196,14 @@ pub fn run() {
             ⚠ 이 경로는 **정상 종료에만** 탄다 — 강제 종료·크래시에선 안 불린다. 4단계 이전엔
                그게 "고아 node 가 포트 8000 을 물고 남는" 문제였고 `sidecar::spawn` 이 선점으로
                받아냈지만, **serve.js 가 사라지면서 그 실패 모드 자체가 없어졌다**(포트를 여는
-               프로세스가 없다). 남은 건 탐구 잡의 python 뿐이고, 그건 앱이 죽으면 부모가 없어져
-               대개 함께 죽는다 — 부팅 시 `research::restore` 가 잔여 'running' 을 정리한다.
+               프로세스가 없다).
             ⚠ 5단계-A 가 잠시 포트를 여는 프로세스(LAN 서버)를 되살렸었지만 **§9-1 결정으로
-               은퇴했다**(2026-07-20). 그래서 이 앱은 다시 **여는 포트가 0** 이다. */
-            if let tauri::WindowEvent::Destroyed = event {
-                research::shutdown();
-            }
+               은퇴했다**(2026-07-20). 그래서 이 앱은 다시 **여는 포트가 0** 이다.
+            ⚠⚠ **이 핸들러가 P10 W4 에서 비었다.** 마지막 세입자는 탐구 잡의 python 트리킬
+               (`research::shutdown`)이었고 그 모듈이 사라졌다 — 지금 이 앱이 띄우는 장수
+               자식 프로세스는 **0** 이다. 핸들러 자체는 남긴다: 다음에 자식을 띄우는 순간
+               정리할 자리가 없으면 같은 고아 프로세스 문제를 다시 만든다. */
+            let _ = event;
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

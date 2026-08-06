@@ -1,70 +1,59 @@
 // @vitest-environment jsdom
 /* ============================================================
    sidecars.test.ts — 백업 범위 정정(0단계-E ③).
-   회귀 대상: 아틀라스 메모·관심·리서치 이력·UI 설정이 **어떤 백업에도 안 들어가던** 결함.
-   Tauri 이행(1단계)은 오리진이 갈려 수동 export→import가 유일한 경로라, 이 왕복이
-   깨지면 사용자가 직접 쓴 진로 메모가 영구 유실된다.
+   회귀 대상: 앱 상태 **밖**의 로컬 키가 어떤 백업에도 안 들어가던 결함. Tauri 이행(1단계)은
+   오리진이 갈려 수동 export→import 가 유일한 경로라, 이 왕복이 깨지면 그 값은 영구 유실된다.
+   ⚠ **화이트리스트가 넷에서 하나로 줄었다**(P10 W4 · 2026-08-07 · `atlas.*`·리서치 이력이
+   `survey/` 로 갔다). 남은 것은 UI 설정뿐이고, 이 파일이 잠그는 것은 *어느 키냐*가 아니라
+   **화이트리스트 계약**(밖의 키는 못 덮는다 · 프로토타입 오염 방지 · 손상 격리)이다.
 ============================================================ */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  exportLocalExtras,
-  importLocalExtras,
-  ATLAS_NOTES_KEY,
-  ATLAS_STARS_KEY,
-  RESEARCH_HISTORY_KEY,
-  LOCAL_EXTRA_KEYS,
-} from '@/lib/sidecars';
+import { exportLocalExtras, importLocalExtras, LOCAL_EXTRA_KEYS } from '@/lib/sidecars';
 import { UI_KEY } from '@/lib/uiState';
 
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 
 describe('exportLocalExtras', () => {
-  it('저장된 4개 키를 값째로 담는다', () => {
-    localStorage.setItem(ATLAS_STARS_KEY, JSON.stringify(['rf', 'sat']));
-    localStorage.setItem(ATLAS_NOTES_KEY, JSON.stringify({ rf: '증폭기 공부' }));
-    localStorage.setItem(RESEARCH_HISTORY_KEY, JSON.stringify([{ topic: 'LNA', ok: true }]));
+  it('화이트리스트 키를 값째로 담는다', () => {
     localStorage.setItem(UI_KEY, JSON.stringify({ accent: 'cyan' }));
     const out = exportLocalExtras();
     expect(Object.keys(out).sort()).toEqual([...LOCAL_EXTRA_KEYS].sort());
-    expect(out[ATLAS_NOTES_KEY]).toEqual({ rf: '증폭기 공부' });
-    expect(out[ATLAS_STARS_KEY]).toEqual(['rf', 'sat']);
+    expect(out[UI_KEY]).toEqual({ accent: 'cyan' });
   });
 
   it('미저장 키는 생략(빈 앱은 빈 객체)', () => {
     expect(exportLocalExtras()).toEqual({});
   });
 
-  it('손상된 키 하나가 나머지 백업을 막지 않는다', () => {
-    localStorage.setItem(ATLAS_NOTES_KEY, '{깨진');
-    localStorage.setItem(ATLAS_STARS_KEY, JSON.stringify(['rf']));
-    const out = exportLocalExtras();
-    expect(out).not.toHaveProperty(ATLAS_NOTES_KEY);
-    expect(out[ATLAS_STARS_KEY]).toEqual(['rf']);
+  it('손상된 키는 백업에서 빠지되 예외로 번지지 않는다', () => {
+    localStorage.setItem(UI_KEY, '{깨진');
+    expect(() => exportLocalExtras()).not.toThrow();
+    expect(exportLocalExtras()).not.toHaveProperty(UI_KEY);
   });
 });
 
 describe('importLocalExtras', () => {
   it('내보내기→가져오기 왕복으로 값이 보존된다', () => {
-    localStorage.setItem(ATLAS_NOTES_KEY, JSON.stringify({ rf: '내가 쓴 메모' }));
+    localStorage.setItem(UI_KEY, JSON.stringify({ accent: 'cyan' }));
     const backup = exportLocalExtras();
     localStorage.clear(); // 새 오리진(Tauri WebView2) 시뮬레이션
-    expect(importLocalExtras(backup)).toEqual([ATLAS_NOTES_KEY]);
-    expect(JSON.parse(localStorage.getItem(ATLAS_NOTES_KEY)!)).toEqual({ rf: '내가 쓴 메모' });
+    expect(importLocalExtras(backup)).toEqual([UI_KEY]);
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual({ accent: 'cyan' });
   });
 
   it('화이트리스트 밖 키는 무시(신뢰 불가 파일이 앱 상태 키를 덮지 못한다)', () => {
     localStorage.setItem('study_planner_v3', 'REAL');
-    importLocalExtras({ study_planner_v3: 'HIJACK', evil: 1, [ATLAS_STARS_KEY]: ['ok'] });
+    importLocalExtras({ study_planner_v3: 'HIJACK', evil: 1, [UI_KEY]: { accent: 'ok' } });
     expect(localStorage.getItem('study_planner_v3')).toBe('REAL');
     expect(localStorage.getItem('evil')).toBeNull();
-    expect(JSON.parse(localStorage.getItem(ATLAS_STARS_KEY)!)).toEqual(['ok']);
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual({ accent: 'ok' });
   });
 
   it('프로토타입 상속 속성은 복원하지 않는다', () => {
-    const proto = { [ATLAS_NOTES_KEY]: { evil: 'x' } };
+    const proto = { [UI_KEY]: { evil: 'x' } };
     importLocalExtras(Object.create(proto) as object);
-    expect(localStorage.getItem(ATLAS_NOTES_KEY)).toBeNull();
+    expect(localStorage.getItem(UI_KEY)).toBeNull();
   });
 
   it('구 백업(_local 없음)·비객체는 조용히 no-op', () => {
@@ -78,7 +67,7 @@ describe('importLocalExtras', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('quota');
     });
-    expect(() => importLocalExtras({ [ATLAS_STARS_KEY]: ['x'] })).not.toThrow();
-    expect(importLocalExtras({ [ATLAS_STARS_KEY]: ['x'] })).toEqual([]);
+    expect(() => importLocalExtras({ [UI_KEY]: { accent: 'x' } })).not.toThrow();
+    expect(importLocalExtras({ [UI_KEY]: { accent: 'x' } })).toEqual([]);
   });
 });

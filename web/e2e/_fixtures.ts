@@ -22,11 +22,6 @@ import { type Page } from '@playwright/test';
 
 export const FIXED = new Date('2026-06-15T09:00:00');
 
-/* P8 E-3 — reads/markets 결정론화: 두 탭은 변동 수집데이터(_읽을거리/latest·_증시/latest)에 그려져
-   매 수집마다 스냅샷이 RED였다(vite preview는 /api 프록시 없음 · 로컬 serve.js면 실데이터 유입).
-   고정 fixture 를 page.route 로 mock 해 수집 상태·serve.js 유무와 무관하게 '데이터 상태'를 안정 캡처.
-   date=오늘(고정시계)로 두어 useAutoCollect 재수집을 막고, published는 TZ 없는 로컬시각(고정시계 기준
-   상대표기 결정론). */
 // 내 길(goals) — 손저작 goals.json 을 고정 fixture 로(P9 Phase 6 · 실 계약과 동형 · 결정론 캡처).
 export const GOALS_FIXTURE = {
   _schemaVersion: 1,
@@ -79,7 +74,7 @@ export const GOALS_FIXTURE = {
 
 /* 지식상태(knowledge) — 숙달도 지도·주간리뷰가 소비. 로컬 serve.js 가 켜진 채 기록하면 라이브 볼트
    데이터(노트 수·생성일)가 스냅샷에 새어들어 다음 환경에서 RED(mastery 회귀의 실제 원인이었음).
-   reads/markets 와 동일하게 고정 fixture 로 봉인 — 데이터 있는 상태를 결정론 캡처. */
+   고정 fixture 로 봉인 — 데이터 있는 상태를 결정론 캡처(옛 reads/markets 와 같은 규율 · P8 E-3). */
 export const KNOWLEDGE_FIXTURE = {
   _schemaVersion: 1,
   generated: '2026-06-15T08:00:00',
@@ -139,7 +134,7 @@ export const KNOWLEDGE_FIXTURE = {
 };
 
 /* 정본 원장(ledger) — 과목×챕터 5단계 파이프라인. C-7 Tailwind 이식 전 시각 커버리지가 0이었다
-   (mastery·atlas 처럼 볼트 산출물에 그려지므로 트랙 A 에선 목업 없이는 '셋업 안내'만 뜬다). 이식이
+   (mastery 처럼 볼트 산출물에 그려지므로 트랙 A 에선 목업 없이는 '셋업 안내'만 뜬다). 이식이
    퍼널·매트릭스·병목·백로그를 통째로 픽셀 교체하므로 그 전에 데이터 있는 상태를 잠근다(§15-4). */
 export const LEDGER_FIXTURE = {
   _schemaVersion: 1,
@@ -305,116 +300,6 @@ export const LEDGER_FIXTURE = {
   },
 };
 
-export const MARKETS_FIXTURE = {
-  at: '2026-06-15T08:30:00',
-  date: '2026-06-15',
-  indices: [
-    {
-      symbol: 'KOSPI',
-      name: '코스피',
-      region: '국내',
-      currency: 'KRW',
-      price: 2712.34,
-      prevClose: 2698.1,
-      change: 14.24,
-      changePct: 0.53,
-      spark: [2680, 2690, 2685, 2700, 2695, 2712],
-    },
-    {
-      symbol: 'KOSDAQ',
-      name: '코스닥',
-      region: '국내',
-      currency: 'KRW',
-      price: 861.2,
-      prevClose: 867.55,
-      change: -6.35,
-      changePct: -0.73,
-      spark: [872, 869, 865, 868, 863, 861],
-    },
-    {
-      symbol: 'SPX',
-      name: 'S&P 500',
-      region: '미국',
-      currency: 'USD',
-      price: 5431.6,
-      prevClose: 5405.0,
-      change: 26.6,
-      changePct: 0.49,
-      spark: [5390, 5400, 5395, 5410, 5420, 5431],
-    },
-    {
-      symbol: 'IXIC',
-      name: '나스닥',
-      region: '미국',
-      currency: 'USD',
-      price: 17689.36,
-      prevClose: 17650.2,
-      change: 39.16,
-      changePct: 0.22,
-      spark: [17600, 17620, 17640, 17610, 17670, 17689],
-    },
-  ],
-  news: [
-    {
-      id: 'n1',
-      source: '한국경제',
-      field: '증시',
-      title: '반도체株 강세에 코스피 상승 마감',
-      url: 'https://example.com/n1',
-      published: '2026-06-15T06:00:00',
-      summary: '외국인 순매수가 이어지며 지수가 0.5% 올랐다.',
-    },
-    {
-      id: 'n2',
-      source: 'Reuters',
-      field: '글로벌',
-      title: 'Fed officials signal patience on rate cuts',
-      url: 'https://example.com/n2',
-      published: '2026-06-14T21:00:00',
-      summary: 'Policymakers reiterated a data-dependent stance ahead of the next meeting.',
-    },
-    {
-      id: 'n3',
-      source: '연합뉴스',
-      field: '환율',
-      title: '원/달러 환율 소폭 하락',
-      url: 'https://example.com/n3',
-      published: '2026-06-13T09:00:00',
-      summary: '달러 약세에 환율이 4원 내렸다.',
-    },
-  ],
-};
-
-export const READS_FIXTURE = {
-  at: '2026-06-15T08:30:00',
-  date: '2026-06-15',
-  articles: [
-    {
-      id: 'a1',
-      lang: 'ko',
-      field: '경제',
-      source: '한겨레',
-      title: '금리 인하 논쟁, 무엇이 쟁점인가',
-      url: 'https://example.com/a1',
-      published: '2026-06-15T06:00:00',
-      words: 820,
-      text: '중앙은행의 통화정책을 둘러싼 논쟁이 다시 뜨겁다. 물가와 고용이라는 두 목표 사이에서 정책 결정자들은 신중한 태도를 유지하고 있다.',
-    },
-    {
-      id: 'a2',
-      lang: 'en',
-      field: 'science',
-      source: 'Nature',
-      title: 'How mRNA vaccines are being adapted for new targets',
-      url: 'https://example.com/a2',
-      published: '2026-06-14T21:00:00',
-      words: 1140,
-      text: 'Researchers are extending the mRNA platform beyond infectious disease toward oncology and rare genetic disorders, adapting delivery and stability along the way.',
-    },
-  ],
-};
-
-// validShape 충족 최소 시드(나머지 필드는 migrate가 채움). 차트가 보이게 챕터·완료·마감 포함.
 export const SEED = {
   schemaVersion: 3,
   theme: 'light',
@@ -487,54 +372,11 @@ export const SEED = {
 };
 
 // P9 Phase 6 Wave④: 발견 triage 큐 fixture(pending 후보 세 유형 · 결정 버튼 렌더 결정론 캡처).
-export const DISCOVERY_FIXTURE = {
-  _schemaVersion: 1,
-  entries: [
-    {
-      id: 'bridge::ofdm-symmetry',
-      kind: 'bridge',
-      source: '매개중심성',
-      score: 1.42,
-      status: 'pending',
-      detail: { title: 'OFDM 대칭성', goals: ['communication-theory', 'signal-processing'] },
-    },
-    {
-      id: 'uncovered::channel-coding',
-      kind: 'uncovered',
-      source: 'surface_uncovered',
-      score: 0.88,
-      status: 'pending',
-      detail: { title: '채널 부호화' },
-    },
-    {
-      id: 'survey_context::rf-noise',
-      kind: 'survey_context',
-      source: 'surface_survey_context',
-      score: 0.61,
-      status: 'pending',
-      detail: { title: 'RF 잡음 개론' },
-    },
-    {
-      // P9 Wave⑤: capability-unlock 가능신호(D10) — 발견 inbox 렌더 + 내 길 프로젝트 섹션 양방향 참조 결정론 캡처.
-      id: 'capability::sdr-rx',
-      kind: 'capability',
-      source: 'capability_unlock',
-      score: 0.72,
-      status: 'pending',
-      detail: { title: 'SDR 수신기 — 필요지식 임계 도달' },
-    },
-    {
-      id: 'uncovered::already-dismissed',
-      kind: 'uncovered',
-      source: 'surface_uncovered',
-      score: 0.4,
-      status: 'dismissed',
-      detail: { title: '기각됨' },
-    },
-  ],
-};
 
-/* ⚠ **은퇴한 탭 셋(`goals`·`atlas`·`guide`)이 W9 에서 이 로스터를 떠났다**(2026-08-06).
+/* ⚠ 픽스처 셋(`READS`·`MARKETS`·`DISCOVERY`)이 P10 W4 에서 사라졌다(2026-08-07). 그 셋은
+ *변동 수집 데이터에 그려지는 탭*을 결정론화하려고 있었는데(P8 E-3), 화면이 `survey/` 로 갔다. */
+
+/* ⚠ **은퇴한 탭 둘(`goals`·`guide`)이 W9 에서 이 로스터를 떠났다**(2026-08-06).
    경로로 도는 로스터인데 그 경로들은 이제 리다이렉트라, 여기 두면 흡수한 호스트를 **두 번**
    찍으면서 정작 *뷰 전환*은 여전히 안 본다(`graph` 가 P-19 에서 나간 것과 같은 이유).
    대신 아래 `A11Y_EXTRA` + `visual.spec.ts` 의 개별 케이스가 **뷰 자체**를 본다. */
@@ -568,13 +410,13 @@ status: verified
 > $v = 8$ V, $i = 25$ mA.
 `;
 
+/* ⚠⚠ **다섯이 P10 W4 에서 로스터를 떠났다**(2026-08-07): `reads`·`markets`·`discovery`·`atlas`·
+   `control`. 은퇴가 아니라 **제거**라 리다이렉트도 없다 — `survey/` 필러의 사이트가 그 화면들의
+   새 집이고, 그 사이트는 이 앱의 트랙 A 로스터가 아니라 자기 게이트(`just survey-check`)를 탄다. */
 export const TABS = [
   'today',
-  'discovery',
   'schedule',
   'items',
-  'reads',
-  'markets',
   'journal',
   'degree',
   'stats',
@@ -583,7 +425,6 @@ export const TABS = [
   // 남겨두면 items와 픽셀 동일한 스냅샷이 두 벌 생겨 리뷰 노이즈만 는다.
   'settings',
   'mastery',
-  'control',
   'integrations',
   'review',
   // ID-9 오답 노트 — 나브에 없는(hidden) 세그먼트지만 로스터에 넣는다. 라우트는 살아 있고,
@@ -669,19 +510,15 @@ export const A11Y_EXTRA: ExtraScreen[] = [
   /* T-18 **시험 전날 한 장**(`/subject/:id?view=sheet`) — 위 `items-structure` 와 같은 이유로 여기
      있다. 뷰는 탭이 아니라서 `TABS` 로스터가 안 본다. 브라우저에선 오른쪽 칸이 콜드 게이트지만
      **왼쪽 선택 목록은 실제로 렌더된다** — 체크박스 라벨·비활성 버튼이 이 화면의 a11y 표면이다. */
-  /* ⚠⚠ **W9 흡수 뷰 셋**(2026-08-06) — `goals`·`atlas`·`guide` 가 탭에서 호스트의 뷰로 내려갔다.
+  /* ⚠⚠ **W9 흡수 뷰**(2026-08-06) — `goals`·`guide` 가 탭에서 호스트의 뷰로 내려갔다.
      `items-structure` 와 정확히 같은 이유로 여기 있다: 뷰는 `TABS` 로스터 밖이라, 안 넣으면
-     **탭을 접은 대가로 a11y 커버리지 셋이 조용히 사라진다.** */
+     **탭을 접은 대가로 a11y 커버리지가 조용히 사라진다.**
+     ⚠ 셋째였던 `discovery-atlas` 는 P10 W4 에서 빠졌다 — 흡수한 호스트째로 `survey/` 로 갔다. */
   {
     key: 'degree-path',
     path: '/degree?view=path',
     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
-  },
-  {
-    key: 'discovery-atlas',
-    path: '/discovery?view=atlas',
-    ready: (page) => page.getByRole('heading', { level: 2, name: '이동통신 네트워크' }).waitFor(),
   },
   {
     key: 'find-guide',
@@ -778,27 +615,8 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     },
     ready: (page) => page.getByRole('dialog').waitFor(),
   },
-  {
-    /* 어휘 팝오버 — 지문을 고른 뒤 **선택 영역**이 있어야 열린다. 마우스 드래그를 흉내 내는 대신
-       `Selection` API 로 첫 단어를 고른다(제품의 '선택한 단어 찾기' 버튼이 그 선택을 읽는다). */
-    key: 'overlay-reader-vocab',
-    path: '/reads',
-    열기: async (page) => {
-      const para = page.locator('article p, main p').first();
-      await para.waitFor();
-      await para.evaluate((el) => {
-        const r = document.createRange();
-        const t = el.firstChild!;
-        r.setStart(t, 0);
-        r.setEnd(t, Math.min(4, t.textContent?.length ?? 1));
-        const s = window.getSelection()!;
-        s.removeAllRanges();
-        s.addRange(r);
-      });
-      await page.getByRole('button', { name: '선택한 단어 찾기' }).click();
-    },
-    ready: (page) => page.getByRole('dialog', { name: '어휘 뜻' }).waitFor(),
-  },
+  /* ⚠ '어휘 팝오버' 오버레이가 P10 W4 에서 빠졌다(2026-08-07) — 읽을거리 화면과 함께 갔다.
+     H6 이 이 로스터를 만든 근거(*"오버레이는 어느 로스터에도 없었다"*)는 그대로다. */
   {
     /* ⚠⚠ **글랜스 모드(⇧G)가 이 로스터 밖이었다**(H-11 · 2026-08-06 감사). `role="dialog"
        aria-modal` 을 선언한 여덟 파일 중 하나인데, 이 목록의 근거 주석이 _"여덟 중 일곱을
@@ -844,7 +662,8 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
 
    ⚠ `clock.install` 이 아니라 `setFixedTime` 이다. install 은 타이머를 통째로 가짜로 만드는데
      폰 부팅은 wasm·워커·OPFS 라 그 위에서 멈출 수 있다. 여기 필요한 건 '오늘'의 고정뿐이다. */
-export const PHONE_VIEWS = ['홈', '일', '주', '복습', '읽기'] as const;
+/* ⚠ `'읽기'` 가 P10 W4 에서 빠졌다(2026-08-07 · 다섯 → 넷) — 폰의 읽을거리 뷰가 `survey/` 로 갔다. */
+export const PHONE_VIEWS = ['홈', '일', '주', '복습'] as const;
 /** 폰 뷰포트 — `visual.spec.ts` 의 모바일 스냅샷과 **같은 값**이어야 한다(사본 방지로 여기 소유). */
 export const MOBILE = { width: 390, height: 844 };
 
@@ -921,10 +740,7 @@ export async function boot(page: Page, theme: string, seed: object = SEED, at: D
       };
     },
     {
-      reads: READS_FIXTURE,
-      markets: MARKETS_FIXTURE,
       goals: GOALS_FIXTURE,
-      discovery: DISCOVERY_FIXTURE,
       knowledge: KNOWLEDGE_FIXTURE,
       ledger: LEDGER_FIXTURE,
     } as Record<string, unknown>,
@@ -949,7 +765,7 @@ export async function boot(page: Page, theme: string, seed: object = SEED, at: D
    ## ⚠⚠ 왜 필요했나 — 커버리지가 0이었다
 
    트랙 A 는 백엔드가 없고, `boot` 의 스텁은 `capabilities` 를 **거절**한다(의도 · 목업 안 한 탭이
-   '백엔드 없음' 화면을 찍게 하려는 것). 그 결과 산출물 탭 4개(ledger·mastery·markets·reads)가
+   '백엔드 없음' 화면을 찍게 하려는 것). 그 결과 산출물 탭(ledger·mastery · 당시엔 markets·reads 도)이
    스냅샷에서 **언제나 `empty` 단계**로만 렌더됐다 → `classifyArtifact` 의 4단계 중 **`loading` 과
    `error` 는 스냅샷이 한 장도 없었다.**
 
@@ -996,10 +812,7 @@ export async function bootArtifactPhase(
     },
     [
       {
-        reads: READS_FIXTURE,
-        markets: MARKETS_FIXTURE,
         goals: GOALS_FIXTURE,
-        discovery: DISCOVERY_FIXTURE,
         knowledge: KNOWLEDGE_FIXTURE,
         ledger: LEDGER_FIXTURE,
       } as Record<string, unknown>,

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import {
   orderedTabs,
@@ -12,7 +12,6 @@ import {
   NAV_SHORTCUTS,
   vtMove,
 } from '@/shell';
-import { DISCOVERY_ATLAS_VIEW } from '@/shell/tabs';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { useFocus } from '@/store/useFocus';
@@ -57,12 +56,6 @@ import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
 /* W12 객체 축 — **탭이 아니라 라우트**라 `features/registry` 의 `LOADERS` 밖이다(그 표는
    탭↔컴포넌트 패리티를 불변식으로 잠그므로, 탭이 아닌 것을 넣으면 그 잠금이 거짓이 된다). */
 const SubjectPage = lazy(() => import('@/features/items/Subject'));
-
-/** 옛 `/atlas/<분야>` 딥링크 → 흡수한 호스트의 같은 상세(W9). 경로 조각을 쿼리로 옮긴다. */
-function AtlasFieldRedirect() {
-  const { field = '' } = useParams();
-  return <Navigate to={`/discovery?view=${DISCOVERY_ATLAS_VIEW}&field=${encodeURIComponent(field)}`} replace />;
-}
 
 /* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3).
 
@@ -173,7 +166,7 @@ export default function App() {
         return (
           <Route
             key={t.key}
-            path={t.key === 'atlas' ? '/atlas/*' : '/' + t.key}
+            path={'/' + t.key}
             /* ⚠ `onError` — 탭 하나가 죽어도 셸은 살아 있어 사용자가 다른 탭으로 넘어간다.
                그래서 이 경계의 사고는 **특히 조용히 지나간다**(2026-07-25 감사). 어느 탭이
                죽었는지를 컨텍스트로 싣는다 — 그게 없으면 스택만 보고 화면을 못 특정한다. */
@@ -455,11 +448,6 @@ export default function App() {
               {/* ⚠ 옛 `/graph` 리다이렉트가 여기 손으로 놓여 있었다 — **위 `routeEls` 가 은퇴 탭
                   전량에 대해 파생**하므로 지웠다(같은 경로가 둘이면 먼저 선언된 쪽이 이겨서 이
                   줄은 애초에 죽어 있었다 · 근거는 그 자리 주석). */}
-              {/* ⚠⚠ 옛 `/atlas/<분야>` **상세 딥링크**만은 파생으로 못 덮는다 — 은퇴 리다이렉트는
-                  `to` 하나로 가는데 여기는 **경로 조각을 쿼리로 옮겨야** 한다. 이 줄이 없으면
-                  북마크한 분야 상세가 `*` 에 잡혀 `/today` 로 튕긴다(탭을 접은 대가로 도달성을
-                  잃는 형태). 그리드(`/atlas`)는 위 파생이 덮는다. */}
-              <Route path="/atlas/:field" element={<AtlasFieldRedirect />} />
               {/* W12 객체 축 — **탭이 아니다.** 레일·`[ ]` 링·`g` 키에 안 뜬다(그 셋은 `role` 파생이고
                   이건 명사 하나의 상세다). ⌘K 의 과목·챕터 히트와 과목 카드가 여기 착지한다. */}
               <Route

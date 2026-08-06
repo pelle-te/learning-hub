@@ -7,13 +7,21 @@
 >
 > hub 이 소비하는 것은 **"학습 대상으로 등록된 것의 상태"**다(진척·숙달·복습 due·요건). 교양 지식은 **승격되기 전까지 등록되지 않으므로** hub 에 넘어올 것이 정의상 없다. `survey` 와 **양방향 계약 0**이고, 교양이 hub 에 닿는 유일한 길은 **승격 → pipeline → 아티팩트**다.
 >
-> **W4 에서 hub 이 작아진다**(아직 미착수 · 착수 전엔 아래 화면·아티팩트가 그대로 있다):
-> - 화면 5: `features/{control,discovery,atlas,markets,reads}`
-> - 아티팩트 3: `reads`·`markets`·`discovery` → `artifacts.gen.ts` **9종 → 6종**
-> - Rust: `news.rs`(RSS) · `tools.rs` 의 수집 계열 커맨드
-> - 탭 메타: `shell/tabs.ts` 해당 항목 · `SUBTAB_GROUPS` · `GROUP_LABELS.discover`
+> ✅ **W4 완료 — hub 이 작아졌다**(2026-08-07 · 게이트 13/13 · 근거 = P10 §4-7):
+> - 화면 5 삭제: `features/{control,discovery,atlas,markets,reads}` **3,150줄 → 0**
+> - 아티팩트: `reads`·`markets`·`discovery` 제거 → `artifacts.gen.ts` **9종 → 6종**(불변식 I-4)
+> - Rust: `news.rs`·`research.rs` 삭제 · 도구 화이트리스트 **11 → 7** · Ollama 빌더 **4 → 1**
+> - 탭 메타: `shell/tabs.ts` 항목 5 · `SUBTAB_GROUPS` 의 `['reads']` 그룹 · `GROUP_LABELS.discover`
+> - 예산: 엔트리 js **107.1**(한도 160 → **124**) · 데스크톱 전체 **481.2**(575 → **555**)
+>   ⚠ **한도를 함께 내렸다** — 큰 삭제 뒤 한도를 두면 여유 33% 라 게이트가 아무것도 안 지킨다.
+>   ⚠ 부팅 웨이브(축 ②)만 늘었다(211.4 → 216.1): 사라진 건 **지연 로드 탭 청크**라 그 축 밖이었다.
+> - 함께 걷은 잔재: `docs` 표 세입자 5 → **0**(배관은 유예 행) · 사이드카 4 → **1** ·
+>   `artifactMirror.ts` · `components/{ArtifactGate,useAiStream}` · 아이콘 2 · eslint H14 블록 ·
+>   트랙 A 스냅샷 18장 · 테스트 파일 11개. **빠진 기능 넷은 `../docs/유예_원장.md` 에 행이 있다**
+>   (증시 수집 소비처 · `docs` 세입자 · 읽을거리 AI 코치 · 독서/독후감).
 >
 > ⚠ **새 수집·교양 기능을 hub 에 만들지 말 것.** 이 앱은 그 이유로 다섯 번 강등을 반복했다(H24·E17-IA·N-6·P-4·W9 — 전부 *"학습 상태 소비 0"* 이 근거였다). 그 반복이 IA 문제가 아니라 **거처 문제**였다는 것이 P10 의 진단이다.
+> ⚠⚠ **강등과 제거를 혼동하지 말 것**(W4 가 남긴 어휘 구분). 이 저장소엔 *"지우지 않는다 — 도달성만 회수한다"* 는 규율이 있고(`markets` 강등 · `graph` 은퇴) 그건 **같은 앱 안에서 자리를 옮길 때** 옳다(⌘K·딥링크가 여전히 닿아야 하므로 코드가 살아야 한다). W4 는 **다른 필러로의 이사**라 남기면 두 벌이 되고, 그건 워크스페이스 제1원칙(사실마다 집 하나) 위반이다 — **도달성 손실이 의도**다. 되살리려면 `git show 1c21ad5:<경로>`.
 > ⚠ **언어 학습은 예외로 hub 이다**(P10 D6) — 복습 주기·숙달도·주간 배분이 필요한 **학습 그 자체**라 이 앱의 엔진이 그대로 적용된다. 걸림돌은 데이터 모델이 전공 전제(과목→챕터→졸업요건)라는 것이고, 처방은 이사가 아니라 **Subject 일반화**다(로드맵 항목).
 
 러닝 허브는 **볼트(knowledge/)·Anki·일과 데이터를 한눈에 보는 로컬 학습 대시보드**다. 구성:
@@ -228,9 +236,12 @@ web/src/
               2026-07-26 감사에서 "api.ts 안에만"이 사실과 달라 정정).
 src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
               **hotkey.rs=전역 캡처 단축키(E20 · 등록 실패를 `capabilities.hotkeyError` 로 관측)** ·
-              **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 11종+RAII 동시성 캡 ·
-              research.rs=탐구 잡(이벤트 진행·JSON 이력) · ollama.rs=AI 5종(Channel 스트리밍) ·
-              artifact.rs=산출물 8종 · news.rs=뉴스 RSS · files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
+              **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 7종+RAII 동시성 캡 ·
+              ollama.rs=AI(Channel 스트리밍 · 프롬프트 빌더는 회고 코치 1종) · artifact.rs=산출물 5종 ·
+              files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
+              ⚠ **개수를 여기 손으로 적었으므로 표류한다** — 정본은 각 파일의 `TOOLS`·`ARTIFACTS`
+              상수이고, `tools.rs`·`artifact.rs` 의 `#[test]` 가 그 수를 단언한다(P10 W4 에서
+              11→7 · 8→5 로 바뀌며 이 줄이 실제로 낡았다).
               ⚠ **여는 포트가 없다**(4단계). 1단계의 '고아 sidecar 선점' 로직은 serve.js 와 함께
               사라졌다 — 포트를 물고 남을 프로세스 자체가 없어졌기 때문. `single-instance`는 유지.
               ⚠⚠ **알림은 `tauri-plugin-notification` 이다 — 웹 `Notification` 을 쓰지 말 것**(P-8 ·

@@ -201,10 +201,9 @@ if (모듈css.length) {
    파일이 깨끗해지면 원장에서 빼라고 시끄럽게 말한다(사문화도 실패 — SCA·a11y 원장과 같은 규율).
    ⚠ 총량 상한도 유지한다(원장 안에서 무한히 늘어나는 것을 막는다). */
 /** 카드 표면이 아직 남아 있는 파일(원장). **여기 없는 파일에 새로 생기면 실패.** */
+/* ⚠ 다섯이 P10 W4 에서 빠졌다(2026-08-07 · `atlas`·`control`·`discovery`·`reads` 둘) — 파일이
+   사라졌고, 원장이 없는 파일을 가리키면 그 자체가 사문이다(이 검출기가 스스로 그렇게 말한다). */
 const 카드원장 = new Set([
-  'features/atlas/Atlas.tsx',
-  'features/control/Control.tsx',
-  'features/discovery/Discovery.tsx',
   'features/goals/Goals.tsx',
   'features/graph/Graph.tsx',
   'features/guide/Guide.tsx',
@@ -212,8 +211,6 @@ const 카드원장 = new Set([
   'features/items/ItemCard.tsx',
   'features/ledger/Ledger.tsx',
   'features/mistakes/Mistakes.tsx',
-  'features/reads/ArticlePractice.tsx',
-  'features/reads/BookShelf.tsx',
   'features/review/Review.tsx',
   'features/review-run/ReviewRun.tsx',
   'features/settings/UpdateCard.tsx',
