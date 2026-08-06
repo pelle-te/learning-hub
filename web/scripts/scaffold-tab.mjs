@@ -3,8 +3,15 @@
    scaffold-tab.mjs — 새 탭 보일러플레이트를 아키텍처 규약대로 결정적으로 생성.
    ① shell/tabs.ts TABS 등록  ② features/registry.tsx LOADERS 등록
    ③ features/<key>/<Key>.tsx (Tailwind — C-7 이후 *.module.css 는 0개)  ④ test/<key>.test.tsx 스텁
-   사용: cd web && node scripts/scaffold-tab.mjs <key> [label] [--group=plan] [--surface=study] [--icon=file] [--dry]
+   사용: cd web && node scripts/scaffold-tab.mjs <key> [label] [--group=plan] [--role=destination] [--icon=file] [--dry]
    본 기능 구현·레이아웃은 하지 않는다(스텁만). 이후 protocols/새탭추가.md의 나머지 단계를 사람이 진행.
+
+   ⚠⚠ **이 스크립트는 컴파일 안 되는 탭을 만들고 있었다**(H-8 · 2026-08-06 감사). N-6 이 `surface`
+   축을 해체하고 D-4 가 `hidden` 을 **필수** `role` 로 바꿨는데, 스캐폴딩은 계속 `surface:` 를 쓰고
+   `role` 을 빼고 있었다 — 즉 `/새탭` 을 실행하면 **타입 오류 둘로 시작**하고, 없어진 `collect`
+   그룹도 통과시켰다. 코드가 계약을 바꿀 때 **그 계약의 생성기**가 같이 안 움직인 형태다.
+   → 이제 세 축(`group`·`role`·`icon`) 전부를 **정본 파일에서 읽어** 검증한다. 손으로 적은 목록을
+     두면 같은 드리프트가 다시 시작된다.
 ============================================================ */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -18,28 +25,59 @@ const opt = (name, def) => {
   return hit ? hit.split('=')[1] : def;
 };
 const positional = args.filter((a) => !a.startsWith('--'));
+const USAGE =
+  '사용: node scripts/scaffold-tab.mjs <key: camelCase> [label] [--group=plan] [--role=destination] [--icon=file] [--dry]';
 const key = positional[0];
 if (!key || !/^[a-z][a-zA-Z0-9]*$/.test(key)) {
-  console.error(
-    '사용: node scripts/scaffold-tab.mjs <key: camelCase> [label] [--group=plan] [--surface=study] [--icon=file] [--dry]',
-  );
+  console.error(USAGE);
   process.exit(1);
 }
 const label = positional[1] || key;
-// group → 기본 surface (tabs.ts GROUP_LABELS·불변식 ③과 정합 — 감사 #24: 옛 do/src/log 택소노미로
-// 생성된 탭이 invariants.test를 즉시 깨던 것). settings 그룹만 전역(surface 미지정).
-const GROUP_SURFACE = { plan: 'study', train: 'study', collect: 'materials', discover: 'materials', settings: null };
-const group = opt('group', 'plan'); // plan | train | collect | discover | settings
-if (!(group in GROUP_SURFACE)) {
-  console.error(`❌ 잘못된 group: ${group} (plan|train|collect|discover|settings — tabs.ts GROUP_LABELS)`);
+
+/* ── 세 축을 **정본에서 읽는다**(손목록 금지 · H-8) ─────────────────────────────
+   `GROUP_LABELS` 는 N-6 이후 4개다(옛 `collect` 는 사라졌는데 이 스크립트가 계속 받아 줬다).
+   `IconName` 은 `lib/iconPaths.ts` 의 키 유니온이고, 오타는 종전에 **아이콘 없는 탭**으로
+   조용히 렌더됐다(H22 — 그래서 tabs.ts 가 타입을 좁혔다). 생성기도 같은 검사를 해야 한다. */
+const 정본 = (rel) => readFileSync(join(root, rel), 'utf8');
+/** 정본 파일에서 객체 리터럴 한 덩어리의 최상위 키를 뽑는다. 못 찾으면 **빈 배열이 아니라 실패**다 —
+ *  조용히 통과하면 이 스크립트가 다시 "검증하는 척"이 된다(그게 H-8 의 형태였다). */
+const 키뽑기 = (rel, re) => {
+  const blk = 정본(rel).match(re);
+  if (!blk) {
+    console.error(`❌ ${rel} 에서 정본 목록을 못 찾았다 — 그 파일이 바뀌었다면 이 스크립트의 앵커를 고칠 것.`);
+    process.exit(1);
+  }
+  return [...blk[1].matchAll(/^\s{2}([a-zA-Z0-9]+):/gm)].map((m) => m[1]);
+};
+const GROUP_KEYS = 키뽑기('src/shell/tabs.ts', /GROUP_LABELS: Record<string, string> = \{([\s\S]*?)\n\};/);
+const ICON_KEYS = 키뽑기('src/lib/iconPaths.ts', /ICON_PATHS = \{([\s\S]*?)\n\} as const/);
+
+const group = opt('group', 'plan');
+if (!GROUP_KEYS.includes(group)) {
+  console.error(`❌ 잘못된 group: ${group} (${GROUP_KEYS.join('|')} — tabs.ts GROUP_LABELS 가 정본)`);
   process.exit(1);
 }
-const surface = group === 'settings' ? null : opt('surface', GROUP_SURFACE[group]); // study | materials
-if (surface !== null && surface !== 'study' && surface !== 'materials') {
-  console.error(`❌ 잘못된 surface: ${surface} (study|materials — settings 그룹만 생략)`);
+/* `role` 은 tabs.ts 에서 **필수 필드**다(D-4) — 기본값을 주면 새 탭이 자기도 모르게 한쪽에
+   들어가고, 그 순간 "갈 수 있는 곳"의 다섯 열거가 다시 갈리기 시작한다.
+
+   ⚠⚠ **기본이 `lens` 인 것은 겁이 아니라 실측이다**(2026-08-06). `destination` 으로 스캐폴딩해 보니
+   typecheck 는 통과하는데 **불변식 셋이 즉시 깨졌다**: ③-b `seq` 고유성(첫 글자 충돌) · ③-c
+   `primary` 앵커 · ③ 시그니처 표면. 셋 다 *본 구현*이 채우는 것이라 스텁이 만들 수 없다.
+   즉 destination 기본값은 "게이트를 빨갛게 만든 채 시작한다"를 뜻했다 — 그건 H-8 이 고치려는
+   바로 그 형태(생성기가 규약을 모른다)의 다른 판이다. lens 는 그 셋의 적용 대상이 아니라
+   **녹색으로 시작**하고, 승격은 아래 체크리스트를 보고 사람이 한다. `retired` 는 `to` 가 필요한
+   은퇴 전용 값이라 받지 않는다. */
+const role = opt('role', 'lens');
+if (role !== 'destination' && role !== 'lens') {
+  console.error(`❌ 잘못된 role: ${role} (destination|lens — 'retired' 는 은퇴시킬 때 손으로 붙인다)`);
   process.exit(1);
 }
 const icon = opt('icon', 'file');
+if (ICON_KEYS.length && !ICON_KEYS.includes(icon)) {
+  console.error(`❌ 없는 icon: ${icon} — lib/iconPaths.ts 의 ICON_PATHS 키여야 한다(${ICON_KEYS.length}종).`);
+  console.error(`   예: ${ICON_KEYS.slice(0, 12).join(' · ')} …`);
+  process.exit(1);
+}
 const Comp = key[0].toUpperCase() + key.slice(1);
 
 const changes = []; // {path, action, apply()}
@@ -58,10 +96,10 @@ if (!tabs.includes(tabsAnchor)) {
   console.error('❌ tabs.ts 앵커를 못 찾음 — 수동 등록 필요.');
   process.exit(1);
 }
-const tabLine = `  { key: '${key}', label: '${label}', group: '${group}',${surface ? ` surface: '${surface}',` : ''} order: ${order}, icon: '${icon}' },`;
+const tabLine = `  { key: '${key}', label: '${label}', group: '${group}', order: ${order}, role: '${role}', icon: '${icon}' },`;
 changes.push({
   path: 'src/shell/tabs.ts',
-  action: `TABS에 등록 (order ${order})`,
+  action: `TABS에 등록 (order ${order} · role ${role})`,
   apply: () => writeFileSync(tabsPath, tabs.replace(tabsAnchor, `${tabsAnchor}\n${tabLine}`)),
 });
 
@@ -136,4 +174,13 @@ if (dry) {
 }
 for (const c of changes) c.apply();
 console.log('\n✅ 스캐폴딩 완료. 다음: protocols/새탭추가.md 4~6단계(본 구현·스타일·e2e·게이트).');
-console.log('   아이콘이 없으면 shell/icons.tsx에 추가 필요.');
+console.log(`   아이콘 정본은 lib/iconPaths.ts 의 ICON_PATHS 다(현재 ${ICON_KEYS.length}종 · 없으면 거기 추가).`);
+console.log(`   role='${role}' — destination 은 레일·[ ]링·g키에 서고, lens 는 세그먼트·⌘K·딥링크로만 간다.`);
+if (role === 'destination') {
+  /* 실측으로 확인된 세 의무(위 role 주석) — 안 적으면 `npm run verify` 가 이유 셋을 한꺼번에 던진다. */
+  console.log('\n⚠ destination 은 **불변식 셋을 더 채워야** 게이트가 녹색이 된다(스텁이 못 채운다):');
+  console.log(`   ① seq 고유성 — g키 첫 글자가 이미 쓰였으면 tabs.ts 의 SEQ_OVERRIDE 에 명시(③-b)`);
+  console.log(`   ② primary 앵커 — usePageChromeEffect(() => ({ readouts, primary: {...} }))(③-c)`);
+  console.log(`   ③ 시그니처 표면 — ds-frame 또는 --bg-sig-*/--bg-hero- 베이크 면(원칙 ③)`);
+  console.log('   셋 다 면제 표가 있다(test/invariants.test.ts) — 사유 없이 넣지 말 것.');
+}

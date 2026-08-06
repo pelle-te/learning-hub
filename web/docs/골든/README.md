@@ -14,6 +14,8 @@
 
 `node scripts/scaffold-tab.mjs`가 만드는 스텁이 **레이어 규약을 만족하는 최소 골격**이다(default export·Tailwind 유틸리티 스타일·boundaries 준수·테스트 스텁 · C-7 이후 `*.module.css` 안 만든다). 새 탭은 여기서 출발해 today의 사상으로 채운다.
 
+- ⚠ **스텁의 기본 `role` 은 `lens` 다** — `destination` 은 세 의무(`seq` 고유성 · `primary` 앵커 · 시그니처 표면)를 더 요구하고 그건 *본 구현*이 채운다(실측: destination 스텁은 불변식 셋을 즉시 깬다). 승격 체크리스트는 스캐폴딩이 실행 끝에 출력하고, 절차는 `protocols/새탭추가.md` 1번이 SSOT.
+
 ## 앵커로 삼을 때 확인할 것
 
 - boundaries 준수(app/다른 feature import 없음).

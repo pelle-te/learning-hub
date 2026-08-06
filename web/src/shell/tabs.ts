@@ -74,8 +74,9 @@ export interface TabMeta {
 }
 
 /** 모든 탭(표시 순서·그룹·아이콘). `role` 이 도달 방식을 정한다(destination=레일·링·g키 · lens=세그먼트·⌘K).
-   `group` 이 레일 섹션이다: 계획(plan) · 숙련(train) · 수집(collect) · 발견(discover) · 설정(settings).
-   빈도 위계: 매일(계획) > 주간(숙련·수집) > 드묾(발견·설정은 하단·⌘K 진입). N-6 이후 표면 구분은 없다 —
+   `group` 이 레일 섹션이다 — **로스터 정본은 아래 `GROUP_LABELS`** 다(여기 손으로 베끼면 표류한다:
+   실제로 `collect` 가 P-4 에서 사라진 뒤에도 이 줄에 남아 있었다 · 2026-08-06 감사).
+   빈도 위계: 매일(계획) > 주간(숙련) > 드묾(발견·설정은 하단·⌘K 진입). N-6 이후 표면 구분은 없다 —
    그룹 헤더가 그 일을 하고 있었고, 그 위에 표면을 또 얹은 것이 중복이었다. */
 export const TABS: TabMeta[] = [
   // ── 계획(plan) ──
@@ -516,8 +517,8 @@ export const SUBTAB_GROUPS: string[][] = [
   ['settings', 'integrations', 'control', 'discovery', 'find'],
 ];
 /* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
-   TabMeta.group(plan/train/collect/discover/settings) → 사이드바 섹션 헤더 라벨. 빈도 위계를 시각적 청킹으로.
-   settings 그룹은 하단(스페이서 아래)에 렌더 — 저빈도 운영/설정(두 표면 공통). */
+   TabMeta.group → 사이드바 섹션 헤더 라벨(**이 표가 그 로스터의 정본**). 빈도 위계를 시각적 청킹으로.
+   settings 그룹은 하단(스페이서 아래)에 렌더 — 저빈도 운영/설정. */
 /* ⚠ **`collect: '수집'` 이 P-4 에서 사라졌다(2026-08-01).** 그 섹션의 유일한 destination 이
    `reads` 하나였고(나머지 셋은 lens 라 레일에 애초에 안 선다), 즉 헤더 하나가 항목 하나를
    덮고 있었다. `reads` 는 '숙련'으로 갔다 — 읽는 것도 학습 입력이고, 그 섹션이 이미 기록·
