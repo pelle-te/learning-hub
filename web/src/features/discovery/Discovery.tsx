@@ -8,7 +8,7 @@
 ============================================================ */
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useDiscovery, DISCOVERY_KEY } from '@/store/queries';
+import { useDiscovery, DISCOVERY_KEY, usePing } from '@/store/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   discoveryStatusCounts,
@@ -21,7 +21,7 @@ import {
   type DiscoveryDecision,
 } from '@/lib/discovery';
 import { runTool } from '@/lib/api';
-import { needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
+import { artifactErrorMessage, classifyArtifact, needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { ui } from '@/shell';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DISCOVERY_ATLAS_VIEW } from '@/shell/tabs';
@@ -52,6 +52,7 @@ const ROOT = 'px-5 pt-4 pb-6';
 function DiscoveryQueue() {
   const navigate = useNavigate();
   const disc = useDiscovery();
+  const ping = usePing();
   const qc = useQueryClient();
   const data = disc.data;
   const [busy, setBusy] = useState<string | null>(null); // 결정 진행 중인 후보 id(행 잠금).
@@ -125,6 +126,30 @@ function DiscoveryQueue() {
     );
   }
 
+  /* ⚠⚠ **진짜 읽기 실패를 '비어 있음'으로 접고 있었다**(H-21 · 2026-08-06 감사). `disc.isError`
+     를 무조건 콜드로 흡수하면 *산출물이 아직 없다*(404·오프라인 · 정상)와 *읽다 죽었다*(파싱
+     실패·권한·백엔드 오류)가 같은 화면이 된다 — 후자는 원인이 어디에도 안 남고 사용자는
+     "파이프라인이 아직 안 돌았나 보다"로 읽는다. 형제 화면 넷(`reads`·`markets`·`mastery`·
+     `ledger`)은 이미 `classifyArtifact` SSOT 를 쓴다. 그 파일 머리주석이 _"이 구분엔 버그
+     이력이 있다(오프라인을 장애로 오판·'미수집'을 에러로 노출)"_ 라 적어 둔 그 축이다.
+     ⚠ 판정만 SSOT 로 옮기고 **콜드 화면의 문구·처방은 그대로**다(여기 두 갈래는 이 화면의 지식). */
+  const 진짜실패 = classifyArtifact({ hasData: !!data, query: disc, ping }) === 'error';
+  if (진짜실패) {
+    return (
+      <section className={ROOT}>
+        <State
+          kind="error"
+          title="발견 큐를 읽지 못했어요"
+          desc={artifactErrorMessage(disc.error)}
+          next={
+            <Button sm variant="primary" onClick={() => void disc.refetch()}>
+              다시 시도
+            </Button>
+          }
+        />
+      </section>
+    );
+  }
   // 콜드 정직성 — 파일 부재(404)나 pending 0. 발견 루프가 아직 안 돌았을 뿐(약점 없음 아님과 동형).
   if (disc.isError || !data || pending.length === 0) {
     return (

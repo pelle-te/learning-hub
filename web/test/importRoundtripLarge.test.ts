@@ -259,7 +259,7 @@ beforeEach(() => {
 });
 
 describe('대용량 이관 왕복 (1단계 이월 ②)', () => {
-  it('내보내기 페이로드를 조립한다 — 규모와 바이트 크기를 기록', () => {
+  it('내보내기 페이로드를 조립한다 — 규모와 바이트 크기를 기록', async () => {
     ORIGINAL = bigState();
     useApp.getState().loadState(ORIGINAL);
     saveReads(bigReads());
@@ -273,7 +273,7 @@ describe('대용량 이관 왕복 (1단계 이월 ②)', () => {
     // bootUI가 조용히 기본값으로 떨어지고, 그러면 이 테스트가 복원을 검증하지 못한다.
     persistUI(storage, { ...defaultUI(), accent: 'cyan', navCollapsed: true });
 
-    PAYLOAD = JSON.stringify(backupPayload(useApp.getState().state), null, 2);
+    PAYLOAD = JSON.stringify(await backupPayload(useApp.getState().state), null, 2);
 
     // 규모 확인 — "수백 완료·dayPlans"라는 이월 조건을 실제로 만족하는지.
     expect(Object.keys(ORIGINAL.completions).length).toBe(DAYS);

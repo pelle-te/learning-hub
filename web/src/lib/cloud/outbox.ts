@@ -198,13 +198,30 @@ async function scanOutbox(since?: number): Promise<OutboxScan | null> {
   // 상한선을 **스캔 전에** 발급한다 — 이유는 머리주석 "fence" 참조.
   const fence = nextStamp();
 
-  const rows: OutboxRow[] = [];
-  for (const spec of OUTBOX_TABLES) {
-    const cols = spec.cols.join(', ');
-    const got = await selectDb<Record<string, unknown>>(
-      `SELECT ${cols}, updated_at FROM ${spec.name} WHERE updated_at > ? AND updated_at <= ? ORDER BY updated_at`,
+  /* ⚠ **표별 질의를 병렬로 낸다**(M-18 · 2026-08-06 감사). 종전엔 `for` 안에서 하나씩 await 해
+     표 7개 + 툼스톤 = **순차 IPC 8왕복**이었다. 편집 디바운스(1.2초)마다 도는 경로라 폰(워커
+     +OPFS)에서는 왕복 비용이 특히 크고, 이 질의들은 **서로를 안 본다**(같은 `from`·`fence` 를
+     쓰는 독립 SELECT). 순서 의존이 없으므로 동시에 내도 결과가 같다 —
+     ⚠ `runExclusive` 안이라는 사실은 그대로다: 직렬화 단위는 *쓰기와의 배타*이지 이 안의
+       읽기끼리가 아니다(C4 가 요구한 것은 fence 발급과 스캔이 한 임계구역에 있는 것). */
+  const [표들, tombs] = await Promise.all([
+    Promise.all(
+      OUTBOX_TABLES.map((spec) =>
+        selectDb<Record<string, unknown>>(
+          `SELECT ${spec.cols.join(', ')}, updated_at FROM ${spec.name} WHERE updated_at > ? AND updated_at <= ? ORDER BY updated_at`,
+          [from, fence],
+        ),
+      ),
+    ),
+    selectDb<Record<string, unknown>>(
+      'SELECT tbl, k1, k2, deleted_at FROM tombstones WHERE deleted_at > ? AND deleted_at <= ? ORDER BY deleted_at',
       [from, fence],
-    );
+    ),
+  ]);
+
+  const rows: OutboxRow[] = [];
+  for (const [i, spec] of OUTBOX_TABLES.entries()) {
+    const got = 표들[i];
     if (got == null) return null; // DB 미가용 — 부분 배치를 만들지 않는다(불완전을 완전으로 착각시킨다)
     /* 키/데이터 열 가르기는 **공유 계약이 소유한다**(`contract.ts`) — 서버의 SQL 생성이
        같은 함수를 쓰므로, 여기서 인라인으로 다시 자르면 둘이 갈릴 수 있다. */
@@ -219,10 +236,6 @@ async function scanOutbox(since?: number): Promise<OutboxScan | null> {
     }
   }
 
-  const tombs = await selectDb<Record<string, unknown>>(
-    'SELECT tbl, k1, k2, deleted_at FROM tombstones WHERE deleted_at > ? AND deleted_at <= ? ORDER BY deleted_at',
-    [from, fence],
-  );
   if (tombs == null) return null;
 
   const tombstones: OutboxTomb[] = tombs.map((t) => ({

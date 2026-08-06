@@ -271,7 +271,14 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   const run = (): void => {
     if (_running) return; // 이미 도는 중 — 겹쳐 미러/동기화하지 않는다
     _running = (async () => {
-      if (beforeSync) await beforeSync();
+      /* ⚠⚠ **미연결 사용자도 편집마다 이걸 돌리고 있었다**(H-20 · 2026-08-06 감사).
+         `beforeSync` 는 산출물 미러(파일 6종 IPC 읽기 + 해시 대조)인데, 그 뒤의 `runSync` 는
+         설정이 없으면 즉시 `disconnected` 로 빠진다 — 즉 **클라우드를 안 쓰는 사람이 편집할
+         때마다** 아무 데도 안 갈 미러를 돌았다(디바운스가 1.2초라 타이핑 중에도 걸린다).
+         비용이 조용하고(화면에 아무 표시가 없다) 셸에서만 돌아 개발 중에 안 보인다.
+         → 연결돼 있을 때만 돈다. 판정은 `readCloudConfig()` 하나이고 그건 `syncOnce` 가 쓰는
+         것과 **같은 함수**다(사본을 두면 둘이 갈린다). 읽기 1회(sync_state 3키)는 미러보다 싸다. */
+      if (beforeSync && (await readCloudConfig())) await beforeSync();
       const r = await runSync();
       onResult?.(r);
     })()

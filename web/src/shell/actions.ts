@@ -23,6 +23,7 @@ import { resolveTheme } from '@/lib/uiState';
 import { routeLabelOf } from './tabs';
 import { loadReads, importReads } from '@/lib/reads';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
+import { exportObservations, importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
 import { semanticSearch, semanticAvailable, type SemHit } from '@/lib/semantic';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { dbFallbackSnapshot } from '@/lib/db/fallback';
@@ -176,15 +177,26 @@ export function downloadFallbackSnapshot(): void {
     사이드카가 없으면 "내보내기로 백업하세요" 안내(저장실패 토스트)와 실제 백업 범위가 어긋난다. */
 export function exportJSON(): void {
   const s = st().state;
-  download(`러닝허브_${s.startDate}.json`, JSON.stringify(backupPayload(s), null, 2), 'application/json');
+  void backupPayload(s).then((p) =>
+    download(`러닝허브_${s.startDate}.json`, JSON.stringify(p, null, 2), 'application/json'),
+  );
 }
 
 /** 백업 페이로드 SSOT — 파일 내보내기와 볼트 백업이 **같은 범위**를 쓰게 한다.
     (두 곳이 각자 조립하던 탓에 사이드카 추가가 한쪽에만 반영될 수 있었다.)
     export인 이유: `test/importRoundtripLarge.test.ts`가 **진짜 내보내기 범위**로 왕복을 검증한다.
     테스트가 페이로드를 자기 손으로 조립하면 "내가 값을 복사했다"만 증명하게 된다(1단계 교훈). */
-export function backupPayload(s: AppState): Record<string, unknown> {
-  return { ...exportSnapshot(s), _reads: loadReads(), [LOCAL_EXTRAS_FIELD]: exportLocalExtras() };
+/* ⚠ **비동기다**(H-14 · 2026-08-06 감사). 관측 원장(`route_visits`·`day_signals`)은 KV 가 아니라
+   SQL 표라 읽기가 비동기이고, 그 둘이 **어떤 백업에도 없어서** 재설치·오리진 이동 때 0 이
+   됐다(그것을 기다리는 로드맵 판정이 일곱이고 게이트가 관측일 10·방문 30이라 대기가 몇 주다).
+   근거 전문은 `lib/observations.ts` 머리주석이 소유한다. */
+export async function backupPayload(s: AppState): Promise<Record<string, unknown>> {
+  return {
+    ...exportSnapshot(s),
+    _reads: loadReads(),
+    [LOCAL_EXTRAS_FIELD]: exportLocalExtras(),
+    [OBSERVATIONS_FIELD]: await exportObservations(),
+  };
 }
 
 /** 데이터 가져오기 — 파일 → migrate → (백업 후) 통째 교체. */
@@ -205,6 +217,7 @@ export function importJSON(input: HTMLInputElement): void {
     const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
     const reads = obj?._reads;
     const localExtras = obj?.[LOCAL_EXTRAS_FIELD];
+    const observations = obj?.[OBSERVATIONS_FIELD];
     const migrated = migrate(parsed);
     if (!migrated) {
       toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).', 'bad', 5000);
@@ -221,11 +234,15 @@ export function importJSON(input: HTMLInputElement): void {
     });
     delete (s as Record<string, unknown>)._reads;
     delete (s as Record<string, unknown>)[LOCAL_EXTRAS_FIELD];
+    delete (s as Record<string, unknown>)[OBSERVATIONS_FIELD];
     if (!(await backupOrConfirm())) return;
     st().loadState(s);
     const restored = reads ? importReads(reads) : null;
     // 사이드카 KV 복원 → announce({kind:'local'})가 아틀라스·리서치·UI의 메모리 상태를 되읽게 한다.
     const localCount = localExtras ? importLocalExtras(localExtras).length : 0;
+    /* 관측 원장(H-14) — 실패해도 가져오기 전체를 막지 않는다. 이건 앱 데이터가 아니라 *관측*이고,
+       없으면 판정이 늦어질 뿐 앱은 정상 동작한다(`observations.ts` 의 방문 수 MAX 규칙 참조). */
+    if (observations) await importObservations(observations).catch(() => 0);
     // UI 스토어는 sync 구독자가 아니다(부팅 시 1회 read) → 복원 후 명시적으로 되읽어야
     // 다음 설정 변경의 flush가 복원된 lh_ui_v1을 메모리 기본값으로 덮지 않는다.
     if (localCount) useUI.getState().reloadUI();
@@ -369,7 +386,7 @@ export async function backupToVault(): Promise<void> {
     }
     const fh = await h.getFileHandle('러닝허브_백업.json', { create: true });
     const w = await fh.createWritable();
-    await w.write(JSON.stringify(backupPayload(st().state), null, 2));
+    await w.write(JSON.stringify(await backupPayload(st().state), null, 2));
     await w.close();
     st().mutate((s) => void ((s as AppState)._lastBackupAt = new Date().toISOString()));
     toast('볼트 폴더에 러닝허브_백업.json 저장 완료.', 'ok');

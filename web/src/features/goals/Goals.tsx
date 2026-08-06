@@ -7,7 +7,7 @@
 ============================================================ */
 import { useMemo } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { useGoals, useDiscovery, useKnowledge } from '@/store/queries';
+import { useGoals, useDiscovery, useKnowledge, usePing } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { ui } from '@/shell';
 import { addBacklog, openBacklog } from '@/lib/methodology';
@@ -26,6 +26,7 @@ import {
 } from '@/lib/goals';
 import { capabilitySignals, entryTitle, type DiscoveryEntry } from '@/lib/discovery';
 import State from '@/components/State';
+import { artifactErrorMessage, classifyArtifact } from '@/lib/artifactState';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -64,6 +65,7 @@ const PROJ_K = 'min-w-projk flex-none text-xs text-mut';
 export default function Goals() {
   const navigate = useNavigate();
   const goals = useGoals();
+  const ping = usePing();
   const data = goals.data;
 
   // 발견 큐(capability-unlock 가능신호 · D10 양방향). 콜드면 404→undefined(내 길 렌더 무영향).
@@ -105,6 +107,28 @@ export default function Goals() {
     );
   }
 
+  /* ⚠⚠ **진짜 읽기 실패를 '비어 있음'으로 접고 있었다**(H-21 · 2026-08-06 감사 · `Discovery` 와
+     같은 결함·같은 처방). `goals.isError` 를 무조건 콜드로 흡수하면 *계약 파일이 아직 없다*
+     (정상)와 *읽다 죽었다*(파싱 실패·백엔드 오류)가 같은 화면이 된다 — 후자는 원인이 어디에도
+     안 남는다. 형제 화면 넷은 이미 `classifyArtifact` SSOT 를 쓴다.
+     ⚠ 판정만 SSOT 로 옮기고 아래 콜드 화면의 문구·처방(손저작 계약 안내)은 그대로 둔다. */
+  const 진짜실패 = classifyArtifact({ hasData: !!data, query: goals, ping }) === 'error';
+  if (진짜실패) {
+    return (
+      <section className={ROOT}>
+        <State
+          kind="error"
+          title="내 길을 읽지 못했어요"
+          desc={artifactErrorMessage(goals.error)}
+          next={
+            <Button sm variant="primary" onClick={() => void goals.refetch()}>
+              다시 시도
+            </Button>
+          }
+        />
+      </section>
+    );
+  }
   // 워크스페이스 미설정/계약 부재 → 빈 상태(goals.json 은 손저작이라 실전에선 항상 실재 · 서버 없을 때만).
   if (goals.isError || !data || roots.length === 0) {
     return (
