@@ -11,6 +11,7 @@ import {
   MOBILE,
   SEED,
   SEED_EMPTY,
+  SHEET_NOTE_FIXTURE,
   TABS,
   TABS_EMPTY,
   THEMES,
@@ -454,6 +455,35 @@ for (const view of ['month', 'day'] as const) {
     await expect(page.locator('#main section[aria-label]').first()).toBeVisible();
     await settle(page);
     await expect(page).toHaveScreenshot(`calendar-${view}-dark.png`, { fullPage: true });
+  });
+}
+
+/* T-18 — **접힌 결과**를 찍는다. 위 `subject-sheet` 는 *고르는 화면*이라 결과 렌더(항목 카드·종류
+   배지·수식 코드 블록)는 여전히 **커버리지 0**이었다 — §15-4 가 경고하는 그 상태다.
+   볼트는 셸에만 있으므로 `vault_notes_text` 만 스텁으로 답한다(다른 커맨드는 원래대로 reject). */
+for (const theme of THEMES) {
+  test(`subject-sheet-filled · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.addInitScript((note: string) => {
+      const t = (window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string, a?: unknown) => Promise<unknown> } })
+        .__TAURI_INTERNALS__;
+      const prev = t.invoke;
+      t.invoke = (cmd: string, args?: unknown) =>
+        cmd === 'vault_notes_text'
+          ? Promise.resolve([
+              { folder: (args as { folder: string }).folder, title: 'CIRC 05 - Power and Energy', text: note },
+            ])
+          : prev(cmd, args);
+    }, SHEET_NOTE_FIXTURE);
+    await page.goto('/subject/m?view=sheet');
+    await page.getByRole('button', { name: '한 장 만들기' }).click();
+    // 종류 넷이 전부 접혔다는 증거 — 하나만 보면 파서 회귀 절반을 놓친다.
+    // ⚠ `.first()` — 고른 챕터가 둘이라 같은 스텁 노트가 두 번 접힌다(챕터별로 폴더가 다르다).
+    await expect(page.getByText('전력 (power)').first()).toBeVisible();
+    await expect(page.getByText('p = dw/dt (1.5-1)').first()).toBeVisible();
+    await expect(page.getByText('전력과 에너지는 다른 양').first()).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`subject-sheet-filled-${theme}.png`, { fullPage: true });
   });
 }
 

@@ -538,6 +538,36 @@ export const DISCOVERY_FIXTURE = {
    경로로 도는 로스터인데 그 경로들은 이제 리다이렉트라, 여기 두면 흡수한 호스트를 **두 번**
    찍으면서 정작 *뷰 전환*은 여전히 안 본다(`graph` 가 P-19 에서 나간 것과 같은 이유).
    대신 아래 `A11Y_EXTRA` + `visual.spec.ts` 의 개별 케이스가 **뷰 자체**를 본다. */
+/* T-18 시험 전날 한 장 — **실 볼트 노트에서 그대로 떠 온** 발췌(회로이론 CIRC 05).
+   손으로 지어낸 마크업을 쓰면 "우리가 상상한 볼트"를 찍게 된다 — 이 항목의 전제가 *실제 마크업이
+   일관한가* 였으므로 그건 검증이 아니라 순환이다(`test/examSheet.test.ts` 와 같은 근거). */
+// ⚠ **`String.raw` 가 필수다** — 평범한 템플릿 리터럴이면 백슬래시 f·t 가 폼피드·탭으로
+// 해석돼 픽스처가 조용히 다른 문자열이 된다(실측으로 물렸다: 수식 단언이 안 걸렸다).
+export const SHEET_NOTE_FIXTURE = String.raw`---
+title: CIRC 05 - Power and Energy
+status: verified
+---
+
+# CIRC 05 - Power and Energy
+
+> [!info] 이 모듈에서
+> **전력 $p = dw/dt = vi$ — 요소가 에너지를 공급/수취하는 시간율.**
+
+> [!abstract] 정의 — 전력 (power)
+> 에너지를 공급하거나 수취하는 **시간율**.
+> $$p = \frac{dw}{dt} \tag{1.5-1}$$
+
+> [!info] 정리 — 전력은 전압 × 전류
+> 요소 양단 전압 × 요소를 지나는 전류가 그 요소의 전력.
+> $$p = v \cdot i \tag{1.5-2}$$
+
+> [!warning] ⚡ 함정 — 전력과 에너지는 다른 양
+> 전력은 **율**(W = J/s), 에너지는 **양**(J).
+
+> [!example]- 예제 — Example 1.5-1
+> $v = 8$ V, $i = 25$ mA.
+`;
+
 export const TABS = [
   'today',
   'discovery',

@@ -16,6 +16,7 @@
    (패리티 사고 · 2026-08-01). 셋 다 "CI 엔 있는데 로컬엔 없다"는 같은 형태였다.
 ============================================================ */
 import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 
 const quick = process.argv.includes('quick');
 const steps = [['verify', ['run', 'verify']]];
@@ -78,9 +79,30 @@ if (!quick && hasCargo) {
   );
 }
 
+/* ⚠⚠ **게이트가 비밀 하나를 말없이 요구하고 있었다**(2026-08-06 · W9 실측).
+
+   `tauri.conf.json` 에 업데이터 공개키가 있으면 `tauri build` 는 **개인키를 환경변수로 요구**하고,
+   없으면 _"A public key has been found, but no private key"_ 로 죽는다. 그런데 게이트는 그 변수를
+   안 넘겼다 → `npm run gate` 는 **환경을 손으로 준비한 사람에게만** 통과했고, 그 준비 절차는
+   `docs/릴리스.md` 안에 있어 게이트를 도는 사람이 볼 이유가 없는 자리였다.
+   이 저장소가 반복해 물린 형태 그대로다: **"완료의 정의"가 문서 밖 지식에 의존한다.**
+
+   → 이미 설정된 값이 있으면 존중하고, 없으면 **gitignore 된 로컬 키 파일**에서 읽는다. 키가 없는
+     환경(CI·새 클론)은 종전과 똑같이 실패한다 — 없는 키를 만들어 내지는 않는다.
+   ⚠ 값은 절대 출력하지 않는다(자식 프로세스 env 로만 넘긴다). 키의 성질은 릴리스 문서가 SSOT:
+     **재생성 불가 · 유출되면 업데이트 사칭 · 잃으면 영구히 배포 불가.** */
+const env = { ...process.env };
+if (!env.TAURI_SIGNING_PRIVATE_KEY) {
+  const keyPath = new URL('../../src-tauri/.updater-key', import.meta.url);
+  if (existsSync(keyPath)) {
+    env.TAURI_SIGNING_PRIVATE_KEY = readFileSync(keyPath, 'utf8').trim();
+    env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= '';
+  }
+}
+
 const results = [];
 for (const [name, args] of steps) {
-  const r = spawnSync('npm', args, { cwd: process.cwd(), encoding: 'utf8', shell: true });
+  const r = spawnSync('npm', args, { cwd: process.cwd(), encoding: 'utf8', shell: true, env });
   const ok = r.status === 0;
   /* ⚠ **증상 한 줄이 아니라 원인까지 담는다**(F6 · 2026-08-01 `/감사 근본`). 종전엔 `/error|fail/`
      **첫 매칭 줄**만 200자로 잘랐다 — 그건 거의 항상 *증상*(`test failed`)이고 진짜 원인(panic
