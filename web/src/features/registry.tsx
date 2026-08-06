@@ -15,12 +15,13 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   mistakes: () => import('./mistakes/Mistakes'),
   questions: () => import('./questions/Questions'),
   items: () => import('./items/Items'),
-  goals: () => import('./goals/Goals'),
-  guide: () => import('./guide/Guide'),
+  /* ⚠ `goals`·`guide`·`atlas` 가 여기서 빠졌다(W9 · 2026-08-06). 셋 다 **은퇴**했고, 은퇴한 탭은
+     자기 라우트가 없다(불변식 ②가 그것을 요구한다 — 화면이 다른 곳에 흡수됐다는 뜻이므로).
+     화면 코드는 살아 있고 흡수한 호스트가 `lazy` 로 띄운다:
+       goals → `degree`(`?view=path`) · atlas → `discovery`(`?view=atlas`) · guide → `find`(`?view=guide`) */
   find: () => import('./find/Find'),
   reads: () => import('./reads/Reads'),
   markets: () => import('./markets/Markets'),
-  atlas: () => import('./atlas/Atlas'),
   discovery: () => import('./discovery/Discovery'),
   today: () => import('./today/Today'),
   schedule: () => import('./schedule/Schedule'),

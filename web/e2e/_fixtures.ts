@@ -534,15 +534,17 @@ export const DISCOVERY_FIXTURE = {
   ],
 };
 
+/* ⚠ **은퇴한 탭 셋(`goals`·`atlas`·`guide`)이 W9 에서 이 로스터를 떠났다**(2026-08-06).
+   경로로 도는 로스터인데 그 경로들은 이제 리다이렉트라, 여기 두면 흡수한 호스트를 **두 번**
+   찍으면서 정작 *뷰 전환*은 여전히 안 본다(`graph` 가 P-19 에서 나간 것과 같은 이유).
+   대신 아래 `A11Y_EXTRA` + `visual.spec.ts` 의 개별 케이스가 **뷰 자체**를 본다. */
 export const TABS = [
   'today',
-  'goals',
   'discovery',
   'schedule',
   'items',
   'reads',
   'markets',
-  'atlas',
   'journal',
   'degree',
   'stats',
@@ -557,7 +559,6 @@ export const TABS = [
   // ID-9 오답 노트 — 나브에 없는(hidden) 세그먼트지만 로스터에 넣는다. 라우트는 살아 있고,
   // 공유 SEED 에 CBMS 기록이 있어 **빈 상태가 아니라 실제 카드**가 그려진다(§15-4).
   'mistakes',
-  'guide',
   /* T-7 문항 원장 + T-2 회수 창(2026-08-02). 로스터에 넣는 이유는 `mistakes` 와 같다 —
      라우트가 살아 있고 공유 SEED 로 **빈 상태가 아닌 실제 화면**이 그려진다(§15-4). */
   'questions',
@@ -638,6 +639,25 @@ export const A11Y_EXTRA: ExtraScreen[] = [
   /* T-18 **시험 전날 한 장**(`/subject/:id?view=sheet`) — 위 `items-structure` 와 같은 이유로 여기
      있다. 뷰는 탭이 아니라서 `TABS` 로스터가 안 본다. 브라우저에선 오른쪽 칸이 콜드 게이트지만
      **왼쪽 선택 목록은 실제로 렌더된다** — 체크박스 라벨·비활성 버튼이 이 화면의 a11y 표면이다. */
+  /* ⚠⚠ **W9 흡수 뷰 셋**(2026-08-06) — `goals`·`atlas`·`guide` 가 탭에서 호스트의 뷰로 내려갔다.
+     `items-structure` 와 정확히 같은 이유로 여기 있다: 뷰는 `TABS` 로스터 밖이라, 안 넣으면
+     **탭을 접은 대가로 a11y 커버리지 셋이 조용히 사라진다.** */
+  {
+    key: 'degree-path',
+    path: '/degree?view=path',
+    // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+  },
+  {
+    key: 'discovery-atlas',
+    path: '/discovery?view=atlas',
+    ready: (page) => page.getByRole('heading', { level: 2, name: '이동통신 네트워크' }).waitFor(),
+  },
+  {
+    key: 'find-guide',
+    path: '/find?view=guide',
+    ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
+  },
   {
     key: 'subject-sheet',
     path: '/subject/m?view=sheet',

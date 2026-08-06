@@ -43,6 +43,16 @@ export const STRUCTURE_VIEW = 'structure';
 /** `/subject/:id` 의 **시험 전날 한 장** 뷰를 여는 쿼리 값(T-18). 위와 같은 이유로 여기가 정본이다. */
 export const SHEET_VIEW = 'sheet';
 
+/* ── W9 통합(2026-08-06) — 흡수한 화면을 여는 쿼리 값 ────────────────────────────────
+   셋 다 `role:'retired'` 의 `to` 가 가리키는 값이라, 사본을 만들면 **은퇴 탭이 호스트의 기본
+   뷰에 착지**한다(조용한 도달성 손실 — 화면은 떴는데 찾던 것이 없다). 여기가 정본이다. */
+/** `/degree` — 내 길 지도(옛 `goals` 탭). */
+export const DEGREE_PATH_VIEW = 'path';
+/** `/discovery` — 진로 지도(옛 `atlas` 탭). */
+export const DISCOVERY_ATLAS_VIEW = 'atlas';
+/** `/find` — 이 시스템이 할 수 있는 것(옛 `guide` 탭). */
+export const FIND_GUIDE_VIEW = 'guide';
+
 export type TabRole = 'destination' | 'lens' | 'retired';
 
 export interface TabMeta {
@@ -92,8 +102,23 @@ export const TABS: TabMeta[] = [
     icon: 'calendar',
     fill: true,
   },
-  // 내 길(goals) — 축 A '내 길 지도'(P9 Phase 6). 전략 앵커(전파통신 연구원 자립 트리)라 오늘 다음, 계획 상단.
-  { key: 'goals', label: '내 길', group: 'plan', order: 15, role: 'lens', segLabel: '내 길', icon: 'compass' },
+  /* ⚠⚠ **`goals`(내 길)가 `degree` 에 흡수됐다 — 화면은 살아 있다**(W9 · 2026-08-06 · IA 판정표).
+     둘 다 **"졸업까지의 길"** 에 답하는데 호스트가 갈려 있었다: `goals` 는 목표 트리(왜 이 길인가),
+     `degree` 는 학점·요건·학기(그 길의 회계). 계획 세그먼트 다섯 중 둘이 같은 질문의 두 면이었고,
+     그래서 "멀리 보는 화면"을 열려면 어느 쪽 이름을 기억하는지에 따라 착지가 갈렸다.
+     `/degree?view=path` 의 세 번째 세그먼트가 됐다 — `graph`→`/items?view=structure` 와 같은
+     관용구(호스트만 바꾸고 파일은 안 옮긴다 · 420줄을 다른 파일에 붙이는 교환을 피한다).
+     ⚠ 도달성: ⌘K(은퇴 탭도 나온다) · `/goals` 딥링크(`routeEls` 가 `to` 로 리다이렉트) · 세그먼트. */
+  {
+    key: 'goals',
+    label: '내 길',
+    group: 'plan',
+    order: 15,
+    role: 'retired',
+    segLabel: '내 길',
+    icon: 'compass',
+    to: `/degree?view=${DEGREE_PATH_VIEW}`,
+  },
   // 배분 세그먼트(주간 배분 보드) — 옛 배치 탭의 alloc 뷰를 승격(재개편 v4). 캘린더 바로 뒤.
   {
     key: 'alloc',
@@ -121,12 +146,19 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // ── 숙련(train) — '내가 뭘 아는가·무엇을 익힐까' ──
+  /* ⚠⚠ **강등: destination → lens**(W9 · 2026-08-06 · IA 판정표의 마지막 절반).
+     배지 이관(`journal`→`review-run`)은 W7 이 이미 했다 — 인출 축의 대기 숫자가 기록 탭에 붙어
+     있던 것이 그 근거였고, 숫자가 떠난 자리에 남은 것은 **매일 열 이유가 없는 아카이브**다.
+     증거 둘: ① 폰은 같은 5슬롯 제약에서 이 탭을 **버렸다**(그리고 상시 캡처 바를 달았다)
+     ② Q-6 이 3문장 요약을 오늘 화면 인라인으로 올리면서 *적는 일*의 입구가 여기가 아니게 됐다.
+     ⚠ 지우지 않는다 — `stats` 호스트의 세그먼트로 내려간다(아래 SUBTAB_GROUPS). */
   {
     key: 'journal',
     label: '학습 기록',
     group: 'train',
     order: 60,
-    role: 'destination',
+    role: 'lens',
+    segLabel: '기록',
     icon: 'notebook',
     fill: true,
   },
@@ -327,13 +359,20 @@ export const TABS: TabMeta[] = [
   /* E17-IA 콜드 강등 — 이 탭은 학습 상태 소비가 0이고(시드+RSS만 본다) 워크스페이스가 없으면
      본문이 안내문이다. H24(`markets`)와 **같은 논증**이라 같은 처분을 한다: 지우지 않고
      "매일 보이는 자리"만 회수한다(⌘K·`g`·딥링크 그대로). */
+  /* ⚠⚠ **`atlas` 가 `discovery` 에 흡수됐다**(W9 · 2026-08-06 · IA 판정표). 로드맵이 이 탭에
+     적어 둔 판정은 _"목적지 `path` 가 **존재하지 않는다** — 목적지 없는 지도는 큐의 입력"_ 이다.
+     실제로 이 화면이 만드는 것(진로 신호·요구 역량 후보)은 `discovery` 가 승격/기각하는 **큐의
+     재료**이고, 그 둘이 다른 탭에 있어서 "발견했는데 처리할 곳이 다른 화면"이었다.
+     ⚠ 위 E17-IA 강등 주석이 남긴 조건(`매일 보이는 자리만 회수 · 지우지 않는다`)은 그대로다 —
+       여기서 달라진 것은 **자리가 아니라 집**이다. */
   {
     key: 'atlas',
     label: '진로 지도',
     group: 'discover',
     order: 48,
-    role: 'lens',
+    role: 'retired',
     icon: 'radio',
+    to: `/discovery?view=${DISCOVERY_ATLAS_VIEW}`,
   },
   // ── 발견(discover) — surface·triage·연동 ──
   // 발견 큐(discovery) — 축 C '발견 루프'(P9 Phase 6 Wave④). 수집·surface·다리개념 후보를 사람이 승격/기각(D5).
@@ -382,7 +421,21 @@ export const TABS: TabMeta[] = [
      (T-22). 남은 하나가 _"이 시스템이 할 수 있는 것"_ 본문이고, 그건 갈 곳이 아직 없다.
      ⚠ 위 옛 주석이 건 조건(_"내용 분해는 비가역이라 흡수가 끝난 뒤"_)이 정확히 이걸 막고 있었고,
        불변식이 그 조건을 코드로 집행했다. **본문의 착지처가 생기기 전에는 은퇴시키지 말 것.** */
-  { key: 'guide', label: '안내', group: 'settings', order: 185, role: 'lens', icon: 'book' },
+  /* ⚠⚠⚠ **은퇴가 W9(2026-08-06)에 닫혔다 — 조건을 만족시켜서다.** 위 W7 주석이 건 조건은
+     _"본문의 착지처가 생기기 전에는 은퇴시키지 말 것"_ 이었고, 그 착지처가 `/find?view=guide` 다
+     (근거는 `features/find/Find.tsx` 머리 옆 주석: 찾기="그게 어디 있나" · 매뉴얼="무엇을 할 수
+     있나" — 한 축의 두 끝이고 둘 다 머무는 참조 화면이다). 흡수 셋이 이제 셋 다 있다:
+     찾기→`/find` · 화면별 키→`KeycapBar` · 본문→`/find?view=guide`.
+     ⚠ 도달성: ⌘K · `/guide` 딥링크(리다이렉트) · 찾기 화면 빈 상태의 **버튼**. */
+  {
+    key: 'guide',
+    label: '안내',
+    group: 'settings',
+    order: 185,
+    role: 'retired',
+    icon: 'book',
+    to: `/find?view=${FIND_GUIDE_VIEW}`,
+  },
   /* T-25 검색 화면 — `guide` 은퇴의 짝. 이 앱에서 찾는 것은 **탭 이름이 아니라 내용**이고,
      그 답을 아는 곳(⌘K)은 떠 있는 동안만 존재해 훑어보기가 안 됐다(그 파일 머리주석). */
   { key: 'find', label: '찾기', group: 'settings', order: 186, role: 'lens', icon: 'search' },
@@ -414,19 +467,25 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
 export const SUBTAB_GROUPS: string[][] = [
   // 계획 호스트: 캘린더(schedule)가 **자기 자신이 호스트**다(D-4 — 옛 plan-host 셸 은퇴).
   // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대) → 멀리(N-14).
-  ['schedule', 'alloc', 'items', 'goals', 'degree'],
-  /* 기록 호스트 — 시제가 **과거**인 것만 남았다(E13). 적기(journal) → 이번 주 처방(review).
-     옛 목록은 여기에 `review-run`·`mistakes` 까지 넣어 네 개였는데, 그 둘은 *다시 꺼내는 일*이라
-     시제가 다르다. 그래서 "복습하려면 기록 탭으로 간다"는 설명 불가능한 동선이 있었다. */
-  ['journal', 'review'],
+  /* ⚠ **다섯에서 넷으로**(W9 · 2026-08-06). `goals` 가 `degree` 안으로 들어가면서 이 바에서
+     빠졌다 — 로드맵 IA 표의 _"`goals`·`degree` 를 '멀리' 하나로"_ 가 그것이다.
+     ⚠ 표는 "5 → 3"이라 적었지만 **실제로 닿는 수는 4**다(캘린더·배분·과목·졸업). 남은 넷은
+       서로 다른 질문이라 더 합칠 근거가 없다 — 숫자를 맞추려고 억지로 합치지 않고, 표가 3이라
+       적힌 근거가 무엇이었는지 모른다는 사실을 여기 적어 둔다(추정으로 덮지 않는다). */
+  ['schedule', 'alloc', 'items', 'degree'],
   /* ⚠ **인출 호스트 — E13 신설(2026-07-29) · W17 이 얼굴을 뒤집었다(2026-07-31).**
      복습 실행(지금 굴리기 · 호스트) → 예보(앞으로 무엇이 밀리나) → 오답 노트(전 기간 아카이브).
      순서가 곧 판단이다: 이 축의 최상위는 **하는 화면**이고 보는 화면은 그 옆이다(근거는
      `review-run` 의 탭 메타 주석). 새 화면 0 · 라우트·⌘K 그대로(도달성 손실 0). */
   ['review-run', 'forecast', 'mistakes', 'questions'],
-  /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 지식맵 → 정본 원장(어디까지 아는가).
-     `ledger` 가 배관(연동) 밑에서 여기로 왔다. */
-  ['stats', 'mastery', 'ledger'],
+  /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 정본 원장(어디까지 아는가).
+     `ledger` 가 배관(연동) 밑에서 여기로 왔다.
+     ⚠⚠ **옛 '기록 호스트'(`journal`·`review`)가 W9 에서 여기로 접혔다**(2026-08-06). `journal` 이
+     렌즈로 내려가면서 그 그룹은 **호스트가 없어졌다**(불변식 ③-b: 첫 항목은 destination) — 즉
+     강등의 대가로 두 화면이 갈 곳을 잃는다. 접을 자리는 여기다: 이 호스트의 질문은 "내가 무엇을
+     얼마나 했고 어디까지 아는가"이고, 기록(했다)·주간 리뷰(그래서 이번 주 처방)는 그 질문의 과거
+     끝이다. 순서가 곧 시제다 — 얼마나 했나 → 무엇을 적었나 → 이번 주 처방 → 숙달 → 원장. */
+  ['stats', 'journal', 'review', 'mastery', 'ledger'],
   /* ⚠⚠ **읽을거리는 혼자다(P-4 · 2026-08-01).** 옛 '수집 호스트'는 `reads` 밑에
      `markets`·`atlas`·`discovery` 를 달고 있었는데, 그 묶음의 기준은 사용자의 질문이 아니라
      **출처 분류**("밖에서 들여온 것")였다. 결과는 **읽으려는 순간에 딴짓 셋**이었다.
@@ -450,7 +509,11 @@ export const SUBTAB_GROUPS: string[][] = [
        ⚠ 남은 것은 여전히 IA 판단이다: `atlas` 의 목적지로 로드맵이 적은 `path` 는 **존재하지
          않고 신설은 사용자 결정 대기**다. 달라진 것은 그 결정이 날 때까지 **매일 보이는 바에
          세워 두지 않아도 된다**는 것뿐이다. */
-  ['settings', 'integrations', 'control', 'discovery', 'find', 'guide'],
+  /* ⚠ **여섯에서 넷으로**(W9 · 2026-08-06). `guide` 는 은퇴해 `find` 안으로 들어갔고,
+     `atlas` 는 애초에 여기 없었지만 `discovery` 가 그것을 흡수하며 이 바의 한 칸이 두 화면을
+     쥔다. 로드맵 IA 표의 _"시스템 5 → 섹션 목록(다섯이 서로 형제가 아니다)"_ 중 **개수는
+     닿았고 섹션화는 안 했다** — 넷이면 바가 목록처럼 읽히지 않는다(섹션은 길 때 필요하다). */
+  ['settings', 'integrations', 'control', 'discovery', 'find'],
 ];
 /* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
    TabMeta.group(plan/train/collect/discover/settings) → 사이드바 섹션 헤더 라벨. 빈도 위계를 시각적 청킹으로.

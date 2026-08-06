@@ -21,10 +21,11 @@ function seg(tabKey: string) {
 }
 
 test('roving tabindex — 활성 버튼만 0, 나머지 -1', () => {
-  // 그룹 ['stats','mastery','ledger'] — `graph` 는 P-19 에서 `items` 의 뷰로 내려갔다.
+  /* 앎 호스트 ['stats','journal','review','mastery','ledger'] — `graph` 는 P-19 에서 `items` 의
+     뷰로 내려갔고, `journal`·`review` 는 W9 에서 여기로 접혔다(journal 강등의 짝). */
   const g = seg('stats');
   const btns = within(g).getAllByRole('button');
-  expect(btns).toHaveLength(3);
+  expect(btns).toHaveLength(5);
   const active = btns.find((b) => b.getAttribute('aria-current') === 'page')!;
   expect(active).toHaveAttribute('tabindex', '0');
   btns.filter((b) => b !== active).forEach((b) => expect(b).toHaveAttribute('tabindex', '-1'));

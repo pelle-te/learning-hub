@@ -19,8 +19,9 @@
    필터를 짜면 팔레트와 이 화면이 **같은 질의에 다르게 답하고**, 그때 어느 쪽이 규칙인지 말할 수
    없다. 늘어난 것은 결과 개수 상한 하나뿐이다(화면이 넓으니 더 보여 준다).
 ============================================================ */
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FIND_GUIDE_VIEW } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { contentSearch, type ContentHit } from '@/lib/contentSearch';
@@ -40,6 +41,19 @@ const KIND_LABEL: Record<ContentHit['kind'], string> = {
   weak: '약점',
   mistake: '오답',
 };
+
+/* ⚠⚠ **`guide`(안내)가 이 화면의 두 번째 뷰가 됐다 — 은퇴가 여기서 닫힌다**(W9 · 2026-08-06).
+
+   W7(2026-08-02)이 `guide` 를 은퇴시키려다 되돌린 이유는 정확했다: 불변식 ②가 _"은퇴한 탭은
+   **착지 경로**를 갖는다"_ 를 요구하는데 `to: '/guide'` 는 자기 자신이라 그 계약을 못 만족한다.
+   흡수가 **셋 중 둘**이었기 때문이다 — 찾기는 이 화면(T-25)이, 화면별 키는 `KeycapBar`(T-22)가
+   가져갔고, 남은 하나 _"이 시스템이 할 수 있는 것"_ 본문의 갈 곳이 없었다.
+
+   그 갈 곳이 여기다. 두 화면이 답하는 질문은 **한 축의 두 끝**이다: 이 화면이 *"그게 어디
+   있나"*, 매뉴얼이 *"무엇을 할 수 있나"*. 둘 다 참조물이고, 둘 다 머무는 화면이며, 검색이
+   빈손일 때 갈 곳이 있다는 것 자체가 이 화면의 결말을 낫게 한다.
+   ⚠ **lazy** — 351줄 정적 매뉴얼이라 찾으러 온 방문에 내려받을 이유가 없다. */
+const Guide = lazy(() => import('../guide/Guide'));
 
 export default function Find() {
   const state = useApp((s) => s.state);
@@ -64,6 +78,23 @@ export default function Find() {
     [q, hits.length, screens.length],
   );
 
+  if (params.get('view') === FIND_GUIDE_VIEW)
+    return (
+      <div className="flex min-h-0 flex-col">
+        {/* ⚠ 돌아가는 문이 **화면 안에** 있어야 한다. 세그먼트 바는 이미 `찾기` 가 눌린 상태라
+            (매뉴얼도 이 탭이다) 거기서는 여기를 벗어나는 방법이 보이지 않는다 — 은퇴 흡수가
+            만드는 전형적인 막다른 골목이고, 한 줄로 닫힌다. */}
+        <div className="flex-none px-6 pt-4">
+          <Button sm variant="ghost" onClick={() => setParams({}, { replace: true })}>
+            ← 찾기
+          </Button>
+        </div>
+        <Suspense fallback={<State kind="loading" title="안내 여는 중…" shape="frame" />}>
+          <Guide />
+        </Suspense>
+      </div>
+    );
+
   return (
     /* ⚠ `<section aria-label>` — 탭 본문의 랜드마크 계약(`visual.spec.ts` 가 집행). */
     <section className="flex h-full flex-col gap-3.5 p-6" aria-label="찾기">
@@ -86,7 +117,13 @@ export default function Find() {
           glyph="search"
           title="내용으로 찾습니다"
           desc="탭 이름이 아니라 과목·챕터·보충·약점·오답·읽을거리를 직접 찾아요. ⌘K 와 같은 규칙이지만, 여기선 결과가 남아 있어 여러 개를 훑을 수 있습니다."
-          next={{ terminal: '위 칸에 한 단어만 넣어 보세요.' }}
+          /* ⚠ 종전엔 `terminal`(행동 없음)이었다. 매뉴얼이 이 화면으로 들어오면서 **행동이
+             생겼다** — 그리고 그 문은 여기밖에 없다(은퇴한 탭은 나브에 안 선다). */
+          next={
+            <Button variant="primary" onClick={() => setParams({ view: FIND_GUIDE_VIEW }, { replace: true })}>
+              이 시스템이 할 수 있는 것
+            </Button>
+          }
         />
       ) : hits.length + screens.length === 0 ? (
         <State

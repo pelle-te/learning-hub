@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import {
   orderedTabs,
@@ -12,6 +12,7 @@ import {
   NAV_SHORTCUTS,
   vtMove,
 } from '@/shell';
+import { DISCOVERY_ATLAS_VIEW } from '@/shell/tabs';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { useFocus } from '@/store/useFocus';
@@ -56,6 +57,12 @@ import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
 /* W12 객체 축 — **탭이 아니라 라우트**라 `features/registry` 의 `LOADERS` 밖이다(그 표는
    탭↔컴포넌트 패리티를 불변식으로 잠그므로, 탭이 아닌 것을 넣으면 그 잠금이 거짓이 된다). */
 const SubjectPage = lazy(() => import('@/features/items/Subject'));
+
+/** 옛 `/atlas/<분야>` 딥링크 → 흡수한 호스트의 같은 상세(W9). 경로 조각을 쿼리로 옮긴다. */
+function AtlasFieldRedirect() {
+  const { field = '' } = useParams();
+  return <Navigate to={`/discovery?view=${DISCOVERY_ATLAS_VIEW}&field=${encodeURIComponent(field)}`} replace />;
+}
 
 /* 탭 렌더 중 한 탭이 던져도 앱이 안 죽게 — 라우트별 에러 경계(설계도 §3).
 
@@ -143,6 +150,21 @@ export default function App() {
   const routeEls = useMemo(
     () =>
       tabs.map((t) => {
+        /* ⚠⚠ **은퇴한 탭의 라우트는 착지 경로로 보내는 리다이렉트다**(W9 · 2026-08-06).
+
+           종전엔 이 자리에서 `retired` 를 구분하지 않았다. 은퇴 탭은 로더가 없으므로(불변식 ②가
+           그걸 **요구**한다) `getReactTab` 이 `undefined` 를 주고 화면은 `알 수 없는 탭: graph`
+           를 그렸다. 그리고 아래에 손으로 놓은 `<Route path="/graph" element={<Navigate…/>}>` 는
+           **한 번도 이긴 적이 없다** — 같은 경로가 둘이면 React Router 는 먼저 선언된 쪽을 고르고,
+           `routeEls` 가 먼저다. 즉 P-19 의 _"딥링크 도달성 손실 0"_ 은 실렌더에서 거짓이었다
+           (실측 2026-08-06: `/graph` → `알 수 없는 탭: graph`).
+
+           손으로 리다이렉트를 하나 더 놓는 것은 처방이 아니다 — 그건 은퇴할 때마다 두 곳을
+           고치는 형태이고, `palette.ts` 의 `act:graph` 한 줄이 정확히 그래서 재발을 예약했었다
+           (Q-22 가 그 사본을 없앤 이유). 착지 경로는 이미 `TabMeta.to` 에 **있다**(불변식 ②가
+           은퇴 탭에 그 필드를 강제한다). 여기서는 그걸 읽기만 한다. */
+        if (t.role === 'retired')
+          return <Route key={t.key} path={'/' + t.key} element={<Navigate to={t.to!} replace />} />;
         const ReactTab = getReactTab(t.key);
         return (
           <Route
@@ -425,10 +447,14 @@ export default function App() {
                   `*` 리다이렉트에 잡혀 /today 로 튕기지 않게 라우트를 **존재하게** 하는 몫이다
                   (탭이 아니라 나브·팔레트·g단축키엔 안 뜬다). */}
               <Route path={MINI_PATH} element={null} />
-              {/* ⚠ **옛 `/graph` 딥링크 보존**(P-19 · 2026-08-01). 탭은 은퇴했지만 화면은
-                  `/items` 의 뷰로 살아 있다 — 리다이렉트가 없으면 `*` 가 `/today` 로 튕겨
-                  "탭을 없앤 대가로 도달성을 잃는" 형태가 된다(북마크·문서 링크·옛 ⌘K 이력). */}
-              <Route path="/graph" element={<Navigate to="/items?view=structure" replace />} />
+              {/* ⚠ 옛 `/graph` 리다이렉트가 여기 손으로 놓여 있었다 — **위 `routeEls` 가 은퇴 탭
+                  전량에 대해 파생**하므로 지웠다(같은 경로가 둘이면 먼저 선언된 쪽이 이겨서 이
+                  줄은 애초에 죽어 있었다 · 근거는 그 자리 주석). */}
+              {/* ⚠⚠ 옛 `/atlas/<분야>` **상세 딥링크**만은 파생으로 못 덮는다 — 은퇴 리다이렉트는
+                  `to` 하나로 가는데 여기는 **경로 조각을 쿼리로 옮겨야** 한다. 이 줄이 없으면
+                  북마크한 분야 상세가 `*` 에 잡혀 `/today` 로 튕긴다(탭을 접은 대가로 도달성을
+                  잃는 형태). 그리드(`/atlas`)는 위 파생이 덮는다. */}
+              <Route path="/atlas/:field" element={<AtlasFieldRedirect />} />
               {/* W12 객체 축 — **탭이 아니다.** 레일·`[ ]` 링·`g` 키에 안 뜬다(그 셋은 `role` 파생이고
                   이건 명사 하나의 상세다). ⌘K 의 과목·챕터 히트와 과목 카드가 여기 착지한다. */}
               <Route

@@ -6,7 +6,7 @@
    콜드(수집·발견 미가동 · goals: 링크 0)면 파일 부재→404→빈 inbox 정직 안내.
    레이어: store(queries·usePageChrome)·lib(discovery·api)만 소비. app/다른 feature import 금지(boundaries).
 ============================================================ */
-import { useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useDiscovery, DISCOVERY_KEY } from '@/store/queries';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,7 +23,8 @@ import {
 import { runTool } from '@/lib/api';
 import { needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { ui } from '@/shell';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { DISCOVERY_ATLAS_VIEW } from '@/shell/tabs';
 import { Button } from '@/components/ui';
 import State from '@/components/State';
 import { Icon } from '@/components/Icon';
@@ -48,7 +49,7 @@ const KIND_CLASS: Record<string, string> = {
 };
 const ROOT = 'px-5 pt-4 pb-6';
 
-export default function Discovery() {
+function DiscoveryQueue() {
   const navigate = useNavigate();
   const disc = useDiscovery();
   const qc = useQueryClient();
@@ -184,6 +185,60 @@ export default function Discovery() {
         ))}
       </ul>
     </section>
+  );
+}
+
+/* ⚠⚠ **`atlas`(진로 지도)가 이 화면의 두 번째 뷰가 됐다**(W9 · 2026-08-06 · IA 판정표).
+   로드맵의 판정은 _"목적지 `path` 가 존재하지 않는다 — 목적지 없는 지도는 큐의 입력"_ 이고,
+   그 말대로 두 화면은 **같은 파이프라인의 앞뒤**다: 진로 지도가 "어느 갈래가 있나"를 펼치고
+   발견 큐가 그 갈래에서 나온 후보를 승격/기각한다. 탭이 갈려 있던 동안은 "발견했는데 처리할
+   곳이 다른 화면"이었다.
+   ⚠ **lazy** — 아틀라스는 시드 데이터가 크고 뉴스 쿼리를 문다. 큐만 보는 방문엔 안 내려온다.
+   ⚠ 두 뷰가 **동시에 마운트되지 않는다** — 둘 다 `usePageChromeEffect` 를 갖고 있어서, 겹치면
+     상단 리드아웃이 마지막에 실행된 효과에 따라 깜빡인다(조건부 렌더가 그 계약이다). */
+const Atlas = lazy(() => import('../atlas/Atlas'));
+
+export default function Discovery() {
+  const [params, setParams] = useSearchParams();
+  const view = params.get('view') === DISCOVERY_ATLAS_VIEW ? 'atlas' : 'queue';
+  /** 뷰 전환은 **쿼리를 갈아 끼운다** — 아틀라스 상세(`field`)를 들고 큐로 갔다 오면 그 상세가
+   *  되살아나야 하므로 `field` 는 지우지 않는다. */
+  const go = (v: 'queue' | 'atlas') => {
+    const p = new URLSearchParams(params);
+    if (v === 'atlas') p.set('view', DISCOVERY_ATLAS_VIEW);
+    else p.delete('view');
+    setParams(p, { replace: true });
+  };
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex items-center gap-3.5 px-5 pt-4">
+        <div className="ds-seg ml-auto">
+          <button
+            type="button"
+            aria-pressed={view === 'queue'}
+            className={view === 'queue' ? 'ds-on' : ''}
+            onClick={() => go('queue')}
+          >
+            발견 큐
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === 'atlas'}
+            className={view === 'atlas' ? 'ds-on' : ''}
+            onClick={() => go('atlas')}
+          >
+            진로 지도
+          </button>
+        </div>
+      </div>
+      {view === 'atlas' ? (
+        <Suspense fallback={<State kind="loading" title="진로 지도 여는 중…" shape="frame" />}>
+          <Atlas />
+        </Suspense>
+      ) : (
+        <DiscoveryQueue />
+      )}
+    </div>
   );
 }
 

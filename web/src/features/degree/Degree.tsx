@@ -6,7 +6,10 @@
    학기·과목 타입과 집계는 lib/degree(DegreeSemester·semesterStat 등)를 단일 출처로 공유한다.
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base.
 ============================================================ */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { DEGREE_PATH_VIEW } from '@/shell/tabs';
+import State from '@/components/State';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
@@ -627,9 +630,30 @@ function DegreePlan() {
   );
 }
 
-/** 졸업 탭 — 계획(편집)과 요건 정리(읽기전용)를 세그먼트로 전환. 기본은 자주 보는 '졸업 계획'. */
+/* ⚠⚠ **`goals`(내 길 지도)가 이 탭의 세 번째 뷰가 됐다**(W9 · 2026-08-06 · IA 판정표).
+   둘 다 답하는 질문이 **"졸업까지의 길"** 이다 — 여기가 그 길의 *회계*(학점·요건·GPA)이고
+   내 길이 그 길의 *이유*(목표 트리·필요 역량)다. 계획 세그먼트 다섯 중 둘이 같은 질문의 두 면
+   이었고, 그래서 "멀리 보는 화면"의 착지가 어느 이름을 기억하느냐로 갈렸다.
+   ⚠ **lazy** — 목표 트리는 지식엔진 쿼리 셋을 문다(콜드면 안내문). 학점만 보러 온 방문에
+     그 코드를 내려받을 이유가 없다(`graph`→`items` 이식과 같은 판단).
+
+   ⚠⚠ **뷰가 URL 에 있다**(종전엔 `useState`). 은퇴한 `goals` 탭의 착지 경로가
+   `/degree?view=path` 이므로, 상태가 메모리에만 있으면 그 리다이렉트가 **기본 뷰(졸업 계획)에
+   착지**한다 — 화면은 떴는데 찾던 것이 없는, 가장 알아채기 어려운 형태의 도달성 손실이다. */
+const Goals = lazy(() => import('../goals/Goals'));
+
+type DegView = 'plan' | 'req' | typeof DEGREE_PATH_VIEW;
+const VIEWS: { key: DegView; label: string }[] = [
+  { key: 'plan', label: '졸업 계획' },
+  { key: 'req', label: '졸업요건 정리' },
+  { key: DEGREE_PATH_VIEW, label: '내 길' },
+];
+
+/** 졸업 탭 — 계획(편집)·요건 정리(읽기전용)·내 길(목표 트리)을 세그먼트로 전환. 기본은 '졸업 계획'. */
 export default function Degree() {
-  const [view, setView] = useState<'plan' | 'req'>('plan');
+  const [params, setParams] = useSearchParams();
+  const raw = params.get('view');
+  const view: DegView = VIEWS.some((v) => v.key === raw) ? (raw as DegView) : 'plan';
   return (
     <div className="min-w-0">
       <div className="mb-4 flex items-center gap-3.5">
@@ -637,25 +661,33 @@ export default function Degree() {
           <Icon name="cap" /> 졸업
         </h2>
         <div className="ds-seg ml-auto">
-          <button
-            type="button"
-            aria-pressed={view === 'plan'}
-            className={view === 'plan' ? 'ds-on' : ''}
-            onClick={() => setView('plan')}
-          >
-            졸업 계획
-          </button>
-          <button
-            type="button"
-            aria-pressed={view === 'req'}
-            className={view === 'req' ? 'ds-on' : ''}
-            onClick={() => setView('req')}
-          >
-            졸업요건 정리
-          </button>
+          {VIEWS.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              aria-pressed={view === v.key}
+              className={view === v.key ? 'ds-on' : ''}
+              onClick={() => {
+                const p = new URLSearchParams(params);
+                if (v.key === 'plan') p.delete('view');
+                else p.set('view', v.key);
+                setParams(p, { replace: true });
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
       </div>
-      {view === 'plan' ? <DegreePlan /> : <DegreeReq />}
+      {view === DEGREE_PATH_VIEW ? (
+        <Suspense fallback={<State kind="loading" title="내 길 여는 중…" shape="frame" />}>
+          <Goals />
+        </Suspense>
+      ) : view === 'req' ? (
+        <DegreeReq />
+      ) : (
+        <DegreePlan />
+      )}
     </div>
   );
 }

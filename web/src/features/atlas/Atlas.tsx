@@ -6,7 +6,7 @@
    레이어: store(usePageChrome)·lib(atlas·localStore)만 소비. app/다른 feature import 금지(boundaries).
 ============================================================ */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useAtlasNews, usePing } from '@/store/queries';
 import { readJSON, writeJSON } from '@/lib/localStore';
@@ -61,10 +61,28 @@ const TL = 'm-0 list-none p-0';
 const TLITEM =
   "relative pb-3 pl-4 before:absolute before:top-1 before:left-0.5 before:size-1.5 before:rounded-full before:bg-signal before:shadow-tl-dot before:content-[''] after:absolute after:top-3 after:bottom-0 after:left-1.5 after:w-px after:bg-line2 after:content-[''] last:pb-0 last:after:hidden";
 
+/* ⚠⚠ **주소가 경로에서 쿼리로 옮겨 갔다**(W9 · 2026-08-06 · `atlas`→`discovery` 흡수).
+   종전엔 상세를 `/atlas/<key>` 로 읽었는데, 이 화면이 `discovery` 의 뷰가 되면서 그 경로가
+   더는 존재하지 않는다(그대로 두면 `pathname.split('/')[2]` 가 늘 빈 문자열이라 **상세가
+   영원히 안 열린다** — 조용한 도달성 손실). 그래서 `?field=<key>` 로 옮겼고, 링크는 **현재
+   쿼리를 보존한 채** 그 키만 갈아 끼운다(호스트의 `view=atlas` 를 지우면 큐로 튕긴다).
+   ⚠ 옛 `/atlas/<key>` 딥링크는 `app/App.tsx` 의 리다이렉트가 이 형태로 옮겨 준다. */
+export const ATLAS_FIELD_PARAM = 'field';
+
 export default function Atlas() {
-  const { pathname } = useLocation();
-  const key = pathname.split('/')[2] || ''; // /atlas/<key>
+  const [params] = useSearchParams();
+  const key = params.get(ATLAS_FIELD_PARAM) || '';
   const field = key ? fieldByKey(key) : undefined;
+  /** 이 화면 안의 이동 — 쿼리 하나만 바꾼다(호스트 뷰·필터를 잃지 않게 나머지는 그대로). */
+  const hrefFor = useCallback(
+    (k: string | null) => {
+      const p = new URLSearchParams(params);
+      if (k) p.set(ATLAS_FIELD_PARAM, k);
+      else p.delete(ATLAS_FIELD_PARAM);
+      return { search: `?${p.toString()}` };
+    },
+    [params],
+  );
 
   const [catFilter, setCatFilter] = useState<string | null>(null);
   const [stars, setStars] = useState<Set<string>>(() => new Set(readJSON<string[]>(STARS_KEY, [])));
@@ -129,7 +147,7 @@ export default function Atlas() {
     const on = stars.has(field.key);
     return (
       <section className={ROOT}>
-        <Link to="/atlas" className="mb-3 inline-block text-sm text-mut! hover:text-acc">
+        <Link to={hrefFor(null)} className="mb-3 inline-block text-sm text-mut! hover:text-acc">
           ← 분야 목록
         </Link>
         {/* Q-11 — 목록 카드의 짝. 이름이 **같은 규약**에서 나오므로 두 곳이 손으로 맞춰질 일이 없다. */}
@@ -362,7 +380,7 @@ export default function Atlas() {
           </div>
           <div className={CARDS}>
             {starred.map((f) => (
-              <FieldCard key={f.key} f={f} starred onToggle={toggleStar} />
+              <FieldCard key={f.key} f={f} starred onToggle={toggleStar} hrefFor={hrefFor} />
             ))}
           </div>
         </div>
@@ -377,7 +395,7 @@ export default function Atlas() {
           </div>
           <div className={CARDS}>
             {g.fields.map((f) => (
-              <FieldCard key={f.key} f={f} starred={stars.has(f.key)} onToggle={toggleStar} />
+              <FieldCard key={f.key} f={f} starred={stars.has(f.key)} onToggle={toggleStar} hrefFor={hrefFor} />
             ))}
           </div>
         </div>
@@ -387,9 +405,20 @@ export default function Atlas() {
 }
 
 /** 분야 카드 — 상세로 가는 링크 + 관심 토글(중첩 인터랙티브 회피: Link + 절대배치 star). */
-function FieldCard({ f, starred, onToggle }: { f: AtlasField; starred: boolean; onToggle: (k: string) => void }) {
+function FieldCard({
+  f,
+  starred,
+  onToggle,
+  hrefFor,
+}: {
+  f: AtlasField;
+  starred: boolean;
+  onToggle: (k: string) => void;
+  /** 상세로 가는 주소 — 호스트가 어디든 **현재 쿼리를 보존**해 만든다(위 `ATLAS_FIELD_PARAM` 절). */
+  hrefFor: (k: string | null) => { search: string };
+}) {
   const nt = newTrendCount(f);
-  const to = `/atlas/${f.key}`;
+  const to = hrefFor(f.key);
   return (
     <article className={CARD}>
       {/* 그리드→상세 공유요소 morph(View Transitions). `viewTransition` 이 이 이동을

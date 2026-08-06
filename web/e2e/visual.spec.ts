@@ -457,7 +457,30 @@ for (const view of ['month', 'day'] as const) {
   });
 }
 
-// 진로 지도 상세(딥링크 /atlas/<key>) — 전체폭 상세 라우트가 그리드가 아닌 상세 화면을 그리는지.
+/* ⚠⚠ **W9 흡수 뷰 셋**(2026-08-06) — `goals`·`atlas`·`guide` 가 탭에서 호스트의 뷰로 내려갔다.
+   `TABS` 루프에서 빠졌으므로 여기가 그 화면들의 **유일한 시각 커버리지**다. 잠그는 것은 둘:
+   ① 그 뷰가 실제로 그려지는가(리다이렉트만 되고 호스트 기본 뷰가 뜨면 조용한 도달성 손실이다)
+   ② 세그먼트 바에 **자기 칸이 눌린 상태로** 서는가(눌린 칸이 없으면 사용자는 어디 있는지 모른다). */
+const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
+  { key: 'degree-path', path: '/degree?view=path', ready: '내 길' },
+  { key: 'discovery-atlas', path: '/discovery?view=atlas', ready: '진로 지도' },
+  { key: 'find-guide', path: '/find?view=guide', ready: '이 시스템이 할 수 있는 것' },
+];
+for (const theme of THEMES) {
+  for (const v of MERGED_VIEWS) {
+    test(`${v.key} · ${theme}`, async ({ page }) => {
+      await boot(page, theme);
+      await page.goto(v.path);
+      await expect(page.locator('#main')).toBeVisible();
+      await expect(page.getByText(v.ready).first()).toBeVisible();
+      await settle(page);
+      await expect(page).toHaveScreenshot(`${v.key}-${theme}.png`, { fullPage: true });
+    });
+  }
+}
+
+/* 진로 지도 상세 — **옛 딥링크 `/atlas/<key>` 로 들어간다.** W9 이후 그 경로는 리다이렉트라,
+   이 케이스는 상세 렌더뿐 아니라 **북마크가 살아 있는가**까지 함께 잠근다(경로 조각 → 쿼리 이관). */
 for (const theme of THEMES) {
   test(`atlas-detail · ${theme}`, async ({ page }) => {
     await boot(page, theme);
@@ -575,7 +598,8 @@ const LOADING_SCREENS: { key: string; artifact: string; path: string }[] = [
   { key: 'ledger', artifact: 'ledger', path: '/ledger' },
   { key: 'mastery', artifact: 'knowledge', path: '/mastery' },
   { key: 'discovery', artifact: 'discovery', path: '/discovery' },
-  { key: 'goals', artifact: 'goals', path: '/goals' },
+  // W9 — `goals` 는 이제 `degree` 의 뷰다. 경로를 안 고치면 리다이렉트 뒤 **다른 화면의 로딩**을 찍는다.
+  { key: 'goals', artifact: 'goals', path: '/degree?view=path' },
   { key: 'markets', artifact: 'markets', path: '/markets' },
   { key: 'reads', artifact: 'reads', path: '/reads' },
 ];
