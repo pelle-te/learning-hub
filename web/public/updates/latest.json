@@ -1,11 +1,11 @@
 {
-  "version": "0.3.0",
-  "notes": "P절 20건 — 앱이 처음으로 \"이건 하지 마세요\"를 말합니다.\n\n· 마감에 **시험 범위**를 지정할 수 있습니다(챕터 N까지). 전엔 마감을 넣는 순간 \"다 못 끝내요\" 경고가 영구히 떴습니다 — 안 끝난 챕터 *전부*를 그 날짜까지로 읽었기 때문입니다.\n· 마감까지 시간이 모자라면 **무엇을 뺄지 화면이 묻습니다**. 전엔 \"주당 시간을 늘리세요\"라는, 할 수 없는 처방 한 줄뿐이었습니다. 앱은 이미 뒤쪽 챕터를 조용히 버리고 있었고 — 이제 그 결정을 돌려드립니다(삭제가 아니라 이번 범위에서 제외 · 언제든 되돌리기).\n· 오늘의 히어로가 **시각이 아니라 급한 것**으로 정해집니다. 전엔 마감이 화면에 적히기만 하고 선택에는 한 번도 관여하지 않았습니다.\n· 밀린 복습을 \"당분간 안 볼게요\"라고 말할 수 있습니다. 전엔 건너뛰기가 아무것도 안 써서 내일 그대로 돌아왔습니다.\n· 계획 › 과목에서 **목록 / 구조도**를 전환합니다(옛 '학습 구조도' 탭이 이리로 들어왔습니다).\n· 숙달도 링이 **표본이 얇으면 그렇다고 말합니다**. 전엔 표본이 없으면 링이 통째로 사라졌습니다.\n· 끝난 것·뺀 것의 표시가 앱 전체에서 한 가지 모양으로 통일됐습니다(폰 포함).\n· 섹션 라벨이 흐림 대신 글자 굵기로 구분됩니다 — 흐림은 '비활성'으로 읽히던 것을 정리했습니다.\n· ⌘K 캡처가 지키지 못할 약속(시각·세션유형 칩)을 더 이상 보여주지 않습니다.",
-  "pub_date": "2026-08-01T04:50:00Z",
+  "version": "0.4.0",
+  "notes": "감사가 잡은 결함 30여 건을 한 번에 고쳤습니다. 대부분은 **화면에 아무 표시가 없던 것들**입니다.\n\n· **동기화가 되돌림을 서버로 올리던 경로 셋**을 닫았습니다. 받아오다 중간에 실패하면 그 다음 편집이 받아온 내용을 되돌리고 다른 기기의 행을 지우는 문장을 만들고 있었습니다 — 화면엔 \"동기화 완료\"라고 떴습니다.\n· **가져오기·복구 직후 ⌘Z** 가 가져오기 전 값을 서버까지 되돌리던 것을 막았습니다.\n· 클라우드를 **끊었다 다른 곳에 다시 연결**하면 일부 데이터가 영영 안 올라가던 것을 고쳤습니다.\n· **시험을 넣으면 달력·주 그리드에서 그 과목 마감이 사라지던 것**을 고쳤습니다. 그리고 시험이 둘이면 표식도 둘입니다(중간/기말 구분).\n· **D-day 가 다가오는 시험을 가리킵니다.** 전엔 중간고사가 코앞이어도 기말까지의 날짜를 보여 줬습니다.\n· 상주 모드에서 **시작 메뉴로 다시 실행하면 무반응**이던 것을 고쳤습니다.\n· **하루 한 번 알림이 영원히 조용할 수 있던 것**을 고쳤습니다 — 못 쏘면 앱 안에서라도 말합니다.\n· 글랜스 모드(⇧G)에 포커스 가둠·스크롤 잠금이 붙었고, 흡수된 화면들이 스크린리더에 제 이름을 말합니다.\n· 배분 보드의 **화살표 이동·`+`/`-` 0.5시간**이 단축키 도움말(`?`)에 등재됐습니다 — 만들어 놓고 어디에도 안 적혀 있었습니다.\n· 화면 방문·하루 신호 기록이 **백업에 포함**됩니다(재설치해도 관측이 0 으로 돌아가지 않습니다).\n· 클라우드를 안 쓰는 경우 편집할 때마다 돌던 불필요한 작업을 없앴습니다.",
+  "pub_date": "2026-08-06T07:10:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbGpvZGtPTE5LQjREald3Q1o1US9QajAyaDcvRSt2S3BxOHFGM0xRL2I5Q1gyL3pUQlp6ekFtZ3RWeXVHeC9hTjlrSXdER2sxcUo4U0xwSHU3RE9iYkFFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1NTU5NzAxCWZpbGU665+s64ud7ZeI67iMXzAuMy4wX3g2NC1zZXR1cC5leGUKR2R3S3ZCa0NxVW1QWU1HdHNSRFMxaUpWdFBaNFpoVFFoK1dHYXFDcmhhUWRKdS8wa01ybVM4S1NMZWNkamhtcC9nSi92OERaME5HZ0NzSGZ1eTZGREE9PQo=",
-      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.3.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbHFrYkRIWGVmRklmMUtSbE4yNEs0N3pRS3pzWUEzMWt3L0U4WkRaUU8zRTdNRDFqNmtaOU9ObU1JaFUvVDZ1ajlJci8wTzZKd0tGdGUrem42Z2h3S3dRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg1OTk5Nzc5CWZpbGU665+s64ud7ZeI67iMXzAuNC4wX3g2NC1zZXR1cC5leGUKS1F2VW5lem1kR2x6bmdvRE5pekpSQkRUejBaOU9BeDRSc0lDYjFjaDJPMDhEK0FXdE5qWFZtMjNFRkJady90WEtUNWhrZjVFL1ZhNEl3aU9EUUxBQ2c9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.4.0_x64-setup.exe"
     }
   }
 }
