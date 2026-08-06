@@ -23,7 +23,15 @@ import { useSchedule, selectRiskSummary } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import { deadlineDdays } from '@/lib/scheduleView';
 import { todayISO } from '@/lib/utils';
-import { loadAbsence, missedSince, returnBriefing, type AbsenceSnapshot, type PlannedBlock } from '@/lib/absence';
+import {
+  loadAbsence,
+  loadOutside,
+  missedSince,
+  returnBriefing,
+  type AbsenceOutside,
+  type AbsenceSnapshot,
+  type PlannedBlock,
+} from '@/lib/absence';
 import ResumeChip from './ResumeChip';
 import { Icon } from '@/components/Icon';
 
@@ -35,12 +43,21 @@ export default function ReturnSlot() {
   const res = useSchedule();
   const ds = todayISO(state);
   const [snap, setSnap] = useState<AbsenceSnapshot | null>(null);
+  const [outside, setOutside] = useState<AbsenceOutside | null>(null);
   /* 원장 읽기는 **마운트 1회**다 — 부재 길이는 하루 안에 안 변하고, 이 화면은 집중 세션 중
      초당 리렌더한다(`useAdaptiveTick`). 매 렌더에 두 쿼리를 쏘면 관측이 관측 대상보다 비싸진다. */
   useEffect(() => {
     let live = true;
     void loadAbsence(ds).then((s) => {
-      if (live) setSnap(s);
+      if (!live) return;
+      setSnap(s);
+      /* T-11 — 밖에서 일어난 일은 **부재가 확정된 뒤에만** 묻는다. 볼트 순회와 AnkiConnect 는
+         둘 다 앱 밖으로 나가는 호출이라, 어제 앱을 연 사람에게까지 쏘면 매일 부팅마다 값 없는
+         IO 가 된다(브리핑 자체가 안 그려지는 경우다). */
+      if (s.lastDs)
+        void loadOutside(s.lastDs, ds).then((o) => {
+          if (live) setOutside(o);
+        });
     });
     return () => {
       live = false;
@@ -62,6 +79,7 @@ export default function ReturnSlot() {
       deadline: nearest ? { name: nearest.name, dday: nearest.dday } : null,
     },
     ds,
+    outside,
   );
   if (!brief) return <ResumeChip />;
   return (

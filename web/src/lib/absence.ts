@@ -25,7 +25,7 @@
    `lastDs` 가 null 이고, 그러면 브리핑은 **그리지 않는다**. 시각 베이스라인은 안 흔들린다.
 ============================================================ */
 import { selectDb } from './db/sqlite';
-import { dayDiff, todayISO } from './utils';
+import { addDays, dayDiff, iso, parseISO, todayISO } from './utils';
 
 /** 브리핑을 그리는 최소 부재 일수. 어제 열었으면(1) 부재가 아니다 — 그 화면은 '오늘'이 소유한다. */
 export const ABSENCE_MIN_DAYS = 2;
@@ -51,6 +51,27 @@ export interface AbsenceNow {
   /** 가장 가까운 마감(있으면). */
   deadline: { name: string; dday: number } | null;
 }
+
+/**
+ * **밖에서 일어난 일**(T-11). 앱이 꺼져 있던 동안의 볼트 편집·Anki 복습.
+ *
+ * ⚠ 위 `AbsenceNow` 와 시제가 같고 **부호가 반대**다. 저기 셋(밀린 복습·미완·마감)은 전부
+ * *무너진 것*이라, 그것만 그리면 며칠 만에 연 화면이 **한 일을 없던 것처럼** 말한다 — 볼트에
+ * 노트를 다섯 개 쓰고 Anki 를 120장 돌고 온 사람에게 "3개 밀렸어요"만 보여주는 형태다.
+ * ⚠⚠ **모르는 것은 `null` 이고 0 이 아니다.** 볼트를 못 읽었거나 Anki 가 안 떠 있는 것과
+ * "그 기간에 아무것도 안 했다"는 다른 사실인데, 0 으로 접으면 화면에서 구분이 사라진다.
+ */
+export interface AbsenceOutside {
+  /** 부재 기간에 수정된 볼트 노트 수. 모르면 null. */
+  notes: number | null;
+  /** 그 노트들의 과목(빈도 순 · 최대 [`OUTSIDE_SUBJECTS`]개). 칩이 아니라 **풀어 쓴 문장**에만 쓴다. */
+  subjects: string[];
+  /** 부재 기간에 복습한 Anki 카드 수. 모르면 null. */
+  ankiCards: number | null;
+}
+
+/** 문장에 이름을 대는 과목 수 상한. 셋을 넘기면 그건 문장이 아니라 목록이다. */
+export const OUTSIDE_SUBJECTS = 3;
 
 export interface ReturnBriefing {
   /** 비어 있던 일수(마지막 방문일 → 오늘). */
@@ -105,7 +126,13 @@ export function missedSince(blocks: readonly PlannedBlock[], lastDs: string, tod
  * 그건 정보가 아니라 **부재 자체에 대한 지적**이다(방향 §2 (d)의 정반대). 부재 길이는 델타의
  * *맥락*이지 델타가 아니다.
  */
-export function returnBriefing(snap: AbsenceSnapshot, now: AbsenceNow, todayDs: string): ReturnBriefing | null {
+export function returnBriefing(
+  snap: AbsenceSnapshot,
+  now: AbsenceNow,
+  todayDs: string,
+  /** T-11 — 밖에서 일어난 일. 안 주면 종전 동작 그대로(브라우저·폰이 그 경로다). */
+  outside?: AbsenceOutside | null,
+): ReturnBriefing | null {
   if (!snap.lastDs) return null;
   const days = dayDiff(snap.lastDs, todayDs);
   if (days < ABSENCE_MIN_DAYS) return null;
@@ -129,22 +156,40 @@ export function returnBriefing(snap: AbsenceSnapshot, now: AbsenceNow, todayDs: 
     parts.push(`${now.deadline.name} D-${now.deadline.dday}`);
     aria.push(`가장 가까운 마감은 ${now.deadline.name} D-${now.deadline.dday}`);
   }
-  if (!parts.length) return null;
+  /* T-11 — **밖에서 한 일**은 위 목록에 섞지 않고 괄호로 뒤에 붙인다. 같은 ` · ` 목록에 넣으면
+     "복습 18 · 미완 3 · 노트 5" 가 되어 *한 일*이 *밀린 일*과 같은 픽셀로 읽힌다(부호가 반대인데). */
+  const did: string[] = [];
+  if (outside?.notes) did.push(`노트 ${outside.notes}`);
+  if (outside?.ankiCards) did.push(`카드 ${outside.ankiCards}`);
+  if (did.length) {
+    const where = outside?.subjects.length ? `${outside.subjects.join('·')} 쪽으로 ` : '';
+    aria.push(`그동안 앱 밖에서 ${where}${did.join(', ')}만큼 했습니다`);
+  }
+
+  // ⚠ 밖에서 한 일**만** 있어도 브리핑은 그린다 — 그게 이 항목의 요지다(할 말이 생겼다).
+  if (!parts.length && !did.length) return null;
 
   /* Q-29 처방 — **순서가 규칙이다**(하나만 말한다 · 셋을 늘어놓으면 다시 목록이 된다):
        ① 마감이 있으면 그것이 이긴다 — 날짜는 협상 대상이 아니다.
        ② 아니면 밀린 복습을 **상한만큼만**. "전부"라고 말하지 않는 것이 이 항목의 전부다.
        ③ 아니면 미완 — 밀린 것을 따라잡는 대신 **오늘 것부터** 시작하라고 말한다.
-     ⚠ 어느 가지도 "따라잡아라"를 말하지 않는다. */
+       ④ (T-11) 앱 안이 평온하고 밖에서만 일이 있었으면 **진도 반영**이 유일하게 남는 행동이다.
+     ⚠ 어느 가지도 "따라잡아라"를 말하지 않는다.
+     ⚠ 밖에서 한 일이 ①~③ 을 이기지 않는 이유: 그건 *이미 한 일*이라 마감보다 급할 수 없다. */
   const advice = now.deadline
     ? `${now.deadline.name}부터 — 마감이 가장 가깝습니다.`
     : now.review > 0
       ? `오늘은 밀린 복습 중 ${Math.min(RETURN_REVIEW_CAP, now.review)}개만 하세요.`
-      : `밀린 것은 두고 오늘 블록부터 시작하세요.`;
+      : now.missed > 0
+        ? `밀린 것은 두고 오늘 블록부터 시작하세요.`
+        : outside?.notes
+          ? `밖에서 쓴 노트 ${outside.notes}개를 진도에 반영하세요.`
+          : `밀린 것은 두고 오늘 블록부터 시작하세요.`;
 
+  const tail = did.length ? ` (밖에서 ${did.join(' · ')})` : '';
   return {
     days,
-    line: `${days}일 비었어요 — ${parts.join(' · ')}`,
+    line: `${days}일 비었어요${parts.length ? ` — ${parts.join(' · ')}` : ''}${tail}`,
     aria: `${days}일 만의 복귀입니다. ${aria.join(', ')}. ${advice}`,
     advice,
   };
@@ -154,6 +199,41 @@ export function returnBriefing(snap: AbsenceSnapshot, now: AbsenceNow, todayDs: 
  * 두 원장에서 스냅샷을 읽는다. **실패하면 빈 스냅샷** — 관측이 화면을 막으면 안 된다
  * (`visits.ts`·`daySignals.ts` 와 같은 계약).
  */
+/**
+ * T-11 — 부재 기간에 **밖에서** 일어난 일을 모은다. 실패하면 그 축만 `null`(화면은 그대로 뜬다).
+ *
+ * ⚠ **창의 시작은 `lastDs` 의 *다음날* 자정**이다. `lastDs` 당일에 한 볼트 편집은 사용자가 앱을
+ * 열어 놓고 한 것일 수 있어 "밖에서"라고 부를 수 없다.
+ * ⚠ **끝은 지금이다 — `missedSince` 와 경계가 다르고, 그게 의도다.** 저기가 오늘을 빼는 것은
+ * *미완을 부재 탓으로 세지 않기 위해서*고(오늘은 아직 안 지나갔다), 여기는 반대다: 오늘 아침
+ * 앱을 열기 전에 돈 Anki 도 **앱이 모르는 사이에 일어난 일**이라 브리핑의 대상이다.
+ *
+ * ⚠ import 를 동적으로 하는 이유: 이 모듈은 **폰 홈**(`phone/TodayView`)도 쓰는데 폰은 이 조각을
+ * 부르지 않는다(셸 전용 커맨드 + Anki 는 PC 에 있다). 정적으로 끌면 폰 번들이 볼트·Anki 계열을
+ * 통째로 데려간다 — 예산 축 ③(플랫폼별 산출물)이 정확히 그런 새는 것을 잡으라고 있는 축이다.
+ */
+export async function loadOutside(lastDs: string, todayDs: string): Promise<AbsenceOutside> {
+  const fromDs = iso(addDays(parseISO(lastDs), 1));
+  const [{ vaultTouched }, { ankiReviewedBetween }] = await Promise.all([import('./tauri'), import('./anki')]);
+  const [touched, ankiCards] = await Promise.all([
+    vaultTouched(parseISO(fromDs).getTime()),
+    ankiReviewedBetween(fromDs, todayDs),
+  ]);
+
+  /* 과목은 **빈도 순**이다 — 알파벳 순이면 한 과목에 몰아 쓴 날에도 엉뚱한 이름이 앞에 온다. */
+  const freq = new Map<string, number>();
+  for (const n of touched?.notes ?? []) {
+    const s = n.subject;
+    if (s) freq.set(s, (freq.get(s) ?? 0) + 1);
+  }
+  const subjects = [...freq.entries()]
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    .slice(0, OUTSIDE_SUBJECTS)
+    .map(([s]) => s);
+
+  return { notes: touched ? touched.count : null, subjects, ankiCards };
+}
+
 export async function loadAbsence(todayDs: string = todayISO()): Promise<AbsenceSnapshot> {
   const empty: AbsenceSnapshot = { lastDs: null, thenReview: null };
   try {

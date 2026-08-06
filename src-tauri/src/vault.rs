@@ -234,6 +234,197 @@ pub fn vault_scan(app: tauri::AppHandle) -> Result<VaultNotes, String> {
     Ok(scan_at(&vault))
 }
 
+/* ── T-11 부재 브리핑: "앱이 꺼져 있던 동안 **밖에서** 무슨 일이 있었나" ──────────────
+   앱의 부재 브리핑(`lib/absence.ts`)은 여태 **앱 안에서 무너진 것**만 말했다(밀린 복습·미완
+   블록·마감). 그런데 이 사용자의 학습은 앱 밖에서도 일어난다 — 볼트에 노트를 쓰고 Anki 를 돈다.
+   그 사실이 데이터 모델에 통째로 없어서, 4일 만에 연 화면은 **밖에서 한 일을 없던 것처럼**
+   그렸다(로드맵 T-11 의 _"'달라짐'이 데이터 모델에 없다"_ 가 이 말이다).
+
+   ⚠ **mtime 만 본다 — 내용을 안 읽는다.** 프론트매터를 읽으면 노트 수백 개를 매번 열게 되고,
+   그건 복귀 첫 화면에 붙일 비용이 아니다. 여기서 답하는 질문은 *무엇이 바뀌었나*가 아니라
+   **바뀐 것이 있었나**다.
+   ⚠ 여전히 **해석은 하지 않는다**(이 파일의 규율). 접기·문장 만들기는 `lib/absence.ts` 가 한다. */
+
+/// 부재 기간에 손댄 노트 하나. `scan_at` 의 `Note` 와 같은 좌표계(과목=최상위 폴더).
+#[derive(Debug, Clone, Serialize)]
+pub struct TouchedNote {
+    pub subject: String,
+    /// 볼트 루트 기준 폴더(과목부터). 프런트가 챕터명을 만들 때 쓰는 것과 같은 형식.
+    pub folder: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VaultTouched {
+    /// 손댄 노트 **전체 수**. `notes` 는 상한에 잘리지만 이 수는 안 잘린다.
+    pub count: usize,
+    /// 표본(최대 [`TOUCHED_CAP`]개). 브리핑은 과목 이름 두어 개만 쓰므로 전량이 필요 없다.
+    pub notes: Vec<TouchedNote>,
+}
+
+/// 표본 상한. 방학에 볼트를 통째로 손보면 500개가 넘을 수 있는데, 그 경우에도 화면이 쓰는 것은
+/// **수 하나 + 과목 몇 개**다 — 전량을 IPC 로 넘기는 것은 값 없는 비용이다.
+pub const TOUCHED_CAP: usize = 64;
+
+/// `vault` 아래에서 mtime 이 `since_ms` **이후**인 노트를 센다.
+///
+/// ⚠ `AppHandle` 을 안 받는다(규율 11-2) — 임시 폴더와 실 볼트 양쪽에서 그대로 부를 수 있다.
+pub fn touched_since_at(vault: &Path, since_ms: u64) -> VaultTouched {
+    let mut out = VaultTouched {
+        count: 0,
+        notes: Vec::new(),
+    };
+    let Ok(top) = std::fs::read_dir(vault) else {
+        return out;
+    };
+    for subj in top.flatten() {
+        let name = subj.file_name().to_string_lossy().into_owned();
+        if !subj.path().is_dir() || skip_dir(&name) {
+            continue;
+        }
+        walk_touched(&subj.path(), &name, &name, since_ms, &mut out);
+    }
+    out
+}
+
+fn walk_touched(dir: &Path, subject: &str, folder: &str, since_ms: u64, out: &mut VaultTouched) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let p = e.path();
+        if p.is_dir() {
+            if !skip_dir(&name) {
+                walk_touched(&p, subject, &format!("{folder}/{name}"), since_ms, out);
+            }
+        } else if !skip_note(&name) && modified_ms(&p).is_some_and(|m| m >= since_ms) {
+            out.count += 1;
+            if out.notes.len() < TOUCHED_CAP {
+                out.notes.push(TouchedNote {
+                    subject: subject.to_string(),
+                    folder: folder.to_string(),
+                });
+            }
+        }
+    }
+}
+
+/// 파일 수정 시각(epoch ms). 플랫폼이 mtime 을 안 주면 None — **모르면 세지 않는다.**
+fn modified_ms(path: &Path) -> Option<u64> {
+    let t = std::fs::metadata(path).ok()?.modified().ok()?;
+    let d = t.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some(d.as_millis() as u64)
+}
+
+/// 볼트가 없으면 **에러가 아니라 0** 이다 — 복귀 화면은 볼트 미설정에서도 그려져야 하고,
+/// "밖에서 한 것이 없다"와 "볼트를 모른다"를 프런트가 굳이 가를 이유가 없다(둘 다 할 말이 없다).
+#[tauri::command]
+pub fn vault_touched(app: tauri::AppHandle, since_ms: u64) -> VaultTouched {
+    match vault_dir(&app) {
+        Some(v) => touched_since_at(&v, since_ms),
+        None => VaultTouched {
+            count: 0,
+            notes: Vec::new(),
+        },
+    }
+}
+
+/* ── T-18 시험 전날 한 장: 챕터 폴더의 노트 **본문**을 그대로 넘긴다 ─────────────────
+   `vault_scan` 은 프론트매터만 읽는다 — 그래서 앱은 노트가 *있다*는 것만 알고 그 안에 무엇이
+   적혀 있는지는 한 번도 안 봤다. 시험 전날에 필요한 것(정의·정리·함정·식)은 전부 본문에 있고,
+   그래서 사용자는 그걸 **손으로 옮겨 적고** 있었다.
+
+   ⚠ **여기서도 해석은 하지 않는다.** 마크업을 읽어 항목으로 접는 것은 `lib/examSheet.ts` 다
+   (순수 함수라 픽스처로 잠글 수 있다 — Rust 에 두면 그 검사가 통합 테스트로 올라간다).
+   이 커맨드의 책임은 **경로를 안전하게 풀고 본문을 상한 안에서 넘기는 것**까지다. */
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NoteText {
+    /// 볼트 루트 기준 폴더(요청한 챕터 아래 하위 폴더면 그 경로까지).
+    pub folder: String,
+    /// 파일명에서 확장자를 뗀 것 — 노트 제목의 정본(파이프라인이 `title` 과 맞춰 둔다).
+    pub title: String,
+    pub text: String,
+}
+
+/// 한 번에 읽는 노트 수 상한. 챕터 하나가 이보다 크면 그건 챕터가 아니라 과목이다.
+pub const SHEET_NOTE_CAP: usize = 80;
+/// 노트당 바이트 상한. 실측 노트가 4~12 KB 라 넉넉하고, 이상치 하나가 IPC 를 막지 못하게 한다.
+pub const SHEET_BYTES_CAP: usize = 64 * 1024;
+
+/// 볼트 안으로만 내려가는 상대경로 결합. `..`·절대경로·드라이브 접두를 **전부 거절**한다.
+///
+/// ⚠ 이 함수가 없으면 프런트가 보낸 문자열 하나로 디스크 어디든 읽을 수 있다. 폴더 이름은
+/// 사용자 데이터(볼트)에서 오지만, **경계에서 신뢰하지 않는 것**이 규약이다.
+fn safe_join(vault: &Path, rel: &str) -> Option<PathBuf> {
+    let mut p = vault.to_path_buf();
+    for comp in Path::new(rel).components() {
+        match comp {
+            std::path::Component::Normal(c) => p.push(c),
+            // `.` 은 무해하지만 나머지(부모·루트·접두)는 볼트를 벗어나는 유일한 수단이다.
+            std::path::Component::CurDir => {}
+            _ => return None,
+        }
+    }
+    p.starts_with(vault).then_some(p)
+}
+
+/// `<vault>/<rel>` 아래 노트들의 본문. 폴더가 없거나 경로가 볼트를 벗어나면 빈 벡터.
+pub fn notes_text_at(vault: &Path, rel: &str) -> Vec<NoteText> {
+    let mut out = Vec::new();
+    let Some(dir) = safe_join(vault, rel) else {
+        return out;
+    };
+    if !dir.is_dir() {
+        return out;
+    }
+    collect_text(&dir, rel, &mut out);
+    out
+}
+
+fn collect_text(dir: &Path, folder: &str, out: &mut Vec<NoteText>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut names: Vec<_> = entries.flatten().map(|e| e.path()).collect();
+    // 파일명 순 — 노트가 `CIRC 01`, `CIRC 02` 처럼 번호를 달고 있어 그게 곧 교재 순서다.
+    names.sort();
+    for p in names {
+        if out.len() >= SHEET_NOTE_CAP {
+            return;
+        }
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if p.is_dir() {
+            if !skip_dir(&name) {
+                collect_text(&p, &format!("{folder}/{name}"), out);
+            }
+        } else if !skip_note(&name) {
+            let Ok(text) = std::fs::read_to_string(&p) else {
+                continue;
+            };
+            out.push(NoteText {
+                folder: folder.to_string(),
+                title: name.trim_end_matches(".md").to_string(),
+                // char 경계로 자른다 — 바이트로 자르면 한글 노트가 UTF-8 중간에서 깨진다.
+                text: if text.len() > SHEET_BYTES_CAP {
+                    text.chars().take(SHEET_BYTES_CAP / 3).collect()
+                } else {
+                    text
+                },
+            });
+        }
+    }
+}
+
+#[tauri::command]
+pub fn vault_notes_text(app: tauri::AppHandle, folder: String) -> Result<Vec<NoteText>, String> {
+    let vault = vault_dir(&app).ok_or("볼트 폴더를 찾지 못했습니다(워크스페이스/knowledge).")?;
+    Ok(notes_text_at(&vault, &folder))
+}
+
 /// 프런트가 구독하는 이벤트 이름 — `lib/tauri.ts` 의 상수와 일치해야 한다.
 pub const VAULT_CHANGED: &str = "vault:changed";
 
@@ -430,6 +621,82 @@ mod tests {
                 "기초 수학/미적분/02 미분/더 깊이"
             ]
         );
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// 지금(epoch ms). 테스트는 **파일을 지금 쓰므로** 창의 양쪽을 이걸로 만든다
+    /// (mtime 을 인위로 세우려면 크레이트가 하나 더 필요하고, 그 값은 여기서 안 필요하다).
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
+    }
+
+    #[test]
+    fn 부재_창_안에_쓰인_노트만_센다() {
+        let d = tmp();
+        write(&d, "회로이론/03 과도응답/a.md", "본문");
+        write(&d, "회로이론/03 과도응답/b.md", "본문");
+        write(&d, "전자기학/개요.md", "본문");
+        let t = now_ms();
+
+        let hit = touched_since_at(&d, t - 60_000);
+        assert_eq!(hit.count, 3, "방금 쓴 노트가 창 안에 안 들어오면 브리핑이 늘 0을 말한다");
+        let mut subs: Vec<_> = hit.notes.iter().map(|n| n.subject.clone()).collect();
+        subs.sort();
+        subs.dedup();
+        assert_eq!(subs, vec!["전자기학", "회로이론"], "과목은 최상위 폴더다");
+
+        // ⚠ 창의 반대편 — 미래를 기준으로 물으면 **아무것도 없어야** 한다. 이 단언이 없으면
+        //    "전부 센다"는 구현도 위 케이스를 통과한다(경계를 안 보는 검사가 된다).
+        assert_eq!(touched_since_at(&d, t + 60_000).count, 0);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn 손댄_노트도_스캔과_같은_분모를_쓴다() {
+        let d = tmp();
+        write(&d, "회로이론/01 기초/a.md", "본문");
+        write(&d, "회로이론/01 기초/MOC.md", "본문"); // 집계 밖(파일명 규칙)
+        write(&d, "회로이론/01 기초/메모.txt", "본문"); // .md 아님
+        write(&d, "_복습시스템/x.md", "본문"); // 스킵 폴더
+        // 같은 볼트를 두 경로로 세면 같은 분모여야 한다 — 안 그러면 "밖에서 3"과 화면의
+        // 노트 수가 어긋나고, 사용자는 어느 쪽이 거짓인지 알 방법이 없다.
+        assert_eq!(
+            touched_since_at(&d, now_ms() - 60_000).count,
+            walk_notes(&d).len()
+        );
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn 챕터_폴더의_본문을_파일명_순으로_읽는다() {
+        let d = tmp();
+        write(&d, "회로이론/01 기초/CIRC 02.md", "둘");
+        write(&d, "회로이론/01 기초/CIRC 01.md", "하나");
+        write(&d, "회로이론/01 기초/CIRC-01 대표문제.md", "제외 대상 아님");
+        write(&d, "회로이론/02 저항/x.md", "다른 챕터");
+        let got = notes_text_at(&d, "회로이론/01 기초");
+        let titles: Vec<_> = got.iter().map(|n| n.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            vec!["CIRC 01", "CIRC 02", "CIRC-01 대표문제"],
+            "번호가 곧 교재 순서라 파일명 정렬이 계약이다"
+        );
+        assert_eq!(got[0].text, "하나");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn 볼트_밖을_가리키는_경로는_거절한다() {
+        let d = tmp();
+        write(&d, "회로이론/01 기초/a.md", "안");
+        std::fs::write(d.join("비밀.md"), "밖").unwrap();
+        // ⚠ 이게 통과하면 프런트가 보낸 문자열 하나로 디스크 어디든 읽힌다.
+        assert!(notes_text_at(&d, "회로이론/../..").is_empty(), "부모 참조");
+        assert!(notes_text_at(&d, "/etc").is_empty(), "절대경로");
+        assert_eq!(notes_text_at(&d, "회로이론/01 기초").len(), 1, "정상 경로는 그대로 읽힌다");
         std::fs::remove_dir_all(&d).unwrap();
     }
 

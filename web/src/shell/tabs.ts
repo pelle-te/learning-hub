@@ -40,6 +40,9 @@ import type { IconName } from '@/lib/iconPaths';
  *  (읽는 쪽)와 `shell/palette.ts`(가는 쪽) 둘이라, 문자열을 양쪽에 적으면 한쪽만 고쳐진다(P3). */
 export const STRUCTURE_VIEW = 'structure';
 
+/** `/subject/:id` 의 **시험 전날 한 장** 뷰를 여는 쿼리 값(T-18). 위와 같은 이유로 여기가 정본이다. */
+export const SHEET_VIEW = 'sheet';
+
 export type TabRole = 'destination' | 'lens' | 'retired';
 
 export interface TabMeta {

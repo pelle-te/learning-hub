@@ -395,6 +395,25 @@ for (const theme of THEMES) {
   });
 }
 
+/* T-18 시험 전날 한 장 — 같은 과목의 **두 번째 뷰**. 잠그는 것은 둘이다:
+   ① 기본 선택이 **시험 범위**로 미리 채워져 있는가(빈 목록으로 시작하면 화면이 일을 안 한 것이다)
+   ② **왼쪽은 살아 있고 오른쪽만** 유보 상태인가(전면 게이트로 덮으면 이 표면이 시각 회귀망에서
+      통째로 사라진다 — 그 판단을 픽셀로 못박는다).
+   ⚠ 트랙 A 는 `invoke` 스텁을 깔아서 `isTauri()` 가 **참**이다 — 그래서 여기 서는 것은 셸 전용
+      문구가 아니라 "아직 안 만들었다"는 유보다(브라우저 전용 문구는 dev 에서만 보인다). */
+for (const theme of THEMES) {
+  test(`subject-sheet · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/subject/m?view=sheet');
+    await expect(page.getByRole('heading', { name: /챕터 고르기/ })).toBeVisible();
+    // 시험 범위(= 미적분의 전 챕터)가 미리 체크돼 있다.
+    await expect(page.getByRole('checkbox', { name: '극한' })).toBeChecked();
+    await expect(page.getByText('고른 챕터로 한 장을 만들어요')).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`subject-sheet-${theme}.png`, { fullPage: true });
+  });
+}
+
 // 뼈대 스트립 펼침 — 병합으로 흡수한 수업·일과 편집기가 과목 탭 안에서 열리는지(옛 routine 탭의 회귀 자리).
 for (const theme of THEMES) {
   test(`skeleton-open · ${theme}`, async ({ page }) => {

@@ -21,8 +21,8 @@
    1단계는 **흡수를 하지 않는다** — `ledger`·`mastery` 탭은 그대로 살아 있고 여기선 그 화면들이
    이미 계산하는 파생을 *이 과목 한 줄로* 요약해 보여 주고 딥링크만 건다.
 ============================================================ */
-import { useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Suspense, lazy, useCallback } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -42,6 +42,12 @@ import { Button, Pill } from '@/components/ui';
 import State from '@/components/State';
 import { SubjectDefinition } from './SubjectDefinition';
 import { CourseContext } from './CourseContext';
+import { SHEET_VIEW } from '@/shell/tabs';
+
+/* T-18 — **시험 전날 한 장**은 이 화면의 두 번째 뷰다(`?view=sheet`). `graph` 가 `/items` 의 뷰로
+   내려온 것과 같은 관용구(P-19): 호스트는 그대로, 탭은 안 늘어난다.
+   ⚠ **lazy** — 볼트 본문 파서는 시트를 여는 방문에만 필요하다. */
+const ExamSheet = lazy(() => import('./ExamSheet'));
 
 const COL = 'flex min-h-0 min-w-0 flex-col gap-3.5 overflow-y-auto [scrollbar-width:thin]';
 const CARD_T = 'mb-2! ds-caps';
@@ -184,6 +190,8 @@ function Retrieval({ sid }: { sid: string }) {
 export default function Subject() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const sheet = params.get('view') === SHEET_VIEW;
   const items = useApp((s) => s.state.items);
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -254,6 +262,14 @@ export default function Subject() {
       />
     );
 
+  /* T-18 뷰 — 같은 과목의 두 번째 표현. `lazy` 라 상세만 보는 방문엔 안 내려온다. */
+  if (sheet)
+    return (
+      <Suspense fallback={<State kind="loading" title="한 장 준비 중…" shape="frame" />}>
+        <ExamSheet item={item} todayDs={today} />
+      </Suspense>
+    );
+
   return (
     <section className="grid min-h-0 flex-1 grid-cols-3 gap-4 px-5.5 pt-2 pb-5.5 max-wide:grid-cols-1 max-wide:overflow-y-auto">
       <div className={COL}>
@@ -261,6 +277,10 @@ export default function Subject() {
           <Pill tiny>{item.source || '직접'}</Pill>
           <Button sm variant="ghost" onClick={() => navigate('/items')}>
             ← 과목 목록
+          </Button>
+          {/* T-18 — 시험 전날에 여는 문. 시험이 있으면 그 사실을 라벨이 말한다. */}
+          <Button sm variant="ghost" onClick={() => setParams({ view: SHEET_VIEW })}>
+            {nextExam ? `${EXAM_LABEL[nextExam.kind]} 한 장` : '한 장'} →
           </Button>
         </div>
         <SubjectDefinition item={item} mutate={mutate} onDelete={removeItem} />

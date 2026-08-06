@@ -213,6 +213,32 @@ export function dueBySubject(decks: AnkiDeck[], items: readonly { id: string; na
   return { rows, unmatchedDecks, unmatchedDue };
 }
 
+/**
+ * T-11 — `fromDs`~`toDs`(**양끝 포함**) 사이에 Anki 에서 실제로 복습한 카드 수.
+ *
+ * 부재 브리핑이 답해야 하는 질문은 "앱이 꺼져 있던 동안 밖에서 학습이 있었나"이고, Anki 는
+ * 그 답을 날짜별로 이미 갖고 있다(`getNumCardsReviewedByDay` → `[["2026-08-01", 40], …]`).
+ *
+ * ⚠ **Rust 변경 0** — `ankiConnect` 가 액션 이름을 인자로 받는 범용 통로다(T-19 와 같은 근거).
+ * ⚠ **못 물어보면 `null`이고 0 이 아니다.** Anki 가 안 떠 있는 것과 "그 기간에 한 장도 안 했다"는
+ *   완전히 다른 사실인데 0 으로 접으면 화면에서 구분이 사라진다(`ankiLapses` 의 `unavailable` 규율).
+ */
+export async function ankiReviewedBetween(fromDs: string, toDs: string): Promise<number | null> {
+  try {
+    const rows = await ankiConnect<[string, number][]>('getNumCardsReviewedByDay');
+    if (!Array.isArray(rows)) return null;
+    let n = 0;
+    for (const row of rows) {
+      const [ds, cnt] = row ?? [];
+      // 날짜 문자열은 사전순=시간순이라 그대로 비교한다(`iso` 와 같은 형식).
+      if (typeof ds === 'string' && typeof cnt === 'number' && ds >= fromDs && ds <= toDs) n += cnt;
+    }
+    return n;
+  } catch {
+    return null;
+  }
+}
+
 /** 볼트 카드 파일덱들의 총 카드 수 합 — totalDue와 대칭. 인라인 reduce 3중복 수렴(SR-11). */
 export function totalCards(decks: AnkiFileDeck[]): number {
   return decks.reduce((t, d) => t + (+d.cards || 0), 0);

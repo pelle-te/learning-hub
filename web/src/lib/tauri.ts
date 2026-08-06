@@ -343,6 +343,59 @@ export async function vaultScan(): Promise<VaultNotesFromRust | null> {
   }
 }
 
+/** T-11 — 부재 기간에 **밖에서** 손댄 볼트 노트(mtime 기준). Rust `vault_touched` 와 1:1. */
+export interface VaultTouched {
+  /** 손댄 노트 전체 수(표본 상한에 안 잘린다). */
+  count: number;
+  /** 표본(Rust 상한 64개). 브리핑은 과목 이름 두어 개만 쓴다. */
+  notes: { subject?: string; folder?: string }[];
+}
+
+const VaultTouchedSchema = z.looseObject({
+  count: z.number(),
+  notes: z.array(z.looseObject({})),
+}) as z.ZodMiniType<VaultTouched>;
+
+/**
+ * `sinceMs` **이후**에 수정된 볼트 노트. 브라우저면 null — 부재 브리핑의 이 조각은
+ * 원리적으로 셸 전용이다(FSA 엔 폴더 mtime 순회가 없다).
+ *
+ * ⚠ **실패는 null 이고 0 이 아니다.** 0 은 "밖에서 아무것도 안 했다"라는 *사실 주장*이라,
+ * 읽기가 죽은 것을 그렇게 그리면 화면이 조용히 거짓말한다(`ankiLapses` 의 `no-tags` 와 같은 규율).
+ */
+export async function vaultTouched(sinceMs: number): Promise<VaultTouched | null> {
+  if (!isTauri()) return null;
+  try {
+    return await call('vault_touched', { sinceMs }, VaultTouchedSchema);
+  } catch (e) {
+    console.error('[vault] 부재 델타 조회 실패 — 밖에서 바뀐 노트를 세지 못했습니다.', e);
+    return null;
+  }
+}
+
+/** T-18 — 챕터 폴더의 노트 **본문**. Rust `vault_notes_text` 와 1:1(해석은 `lib/examSheet`). */
+export interface VaultNoteText {
+  folder: string;
+  title: string;
+  text: string;
+}
+
+const VaultNoteTextSchema = z.array(
+  z.looseObject({ folder: z.string(), title: z.string(), text: z.string() }),
+) as z.ZodMiniType<VaultNoteText[]>;
+
+/**
+ * 볼트의 한 폴더(챕터) 아래 노트 본문 전량. 브라우저면 null — 이 조각은 셸 전용이다
+ * (FSA 로도 가능하긴 하나 폴더 권한을 매번 다시 묻게 되고, 시험 전날에 그건 마찰이다).
+ *
+ * ⚠ 실패는 **throw** 다. `vaultScan` 과 달리 여기는 사용자가 **버튼을 눌러 명시적으로** 요청한
+ * 것이라, 조용히 빈 결과를 주면 "노트에 아무것도 없다"로 읽힌다(`artifactRead` 와 같은 판단).
+ */
+export async function vaultNotesText(folder: string): Promise<VaultNoteText[] | null> {
+  if (!isTauri()) return null;
+  return await call('vault_notes_text', { folder }, VaultNoteTextSchema);
+}
+
 /** 볼트 파일이 바뀌면 부르는 구독. 해제 함수를 돌려준다(브라우저면 no-op).
  *  FSA 엔 watch 가 없어 브라우저에선 **원리적으로** 불가능했던 것이라, 이 구독은 셸 전용이다. */
 export async function onVaultChanged(cb: () => void): Promise<() => void> {

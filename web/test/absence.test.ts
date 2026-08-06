@@ -108,3 +108,39 @@ describe('Q-29 복귀 브리핑 처방 — 숫자 뒤에 하라는 말', () => {
     expect(returnBriefing(snap, { review: 0, missed: 0, deadline: null }, TODAY)).toBeNull();
   });
 });
+
+describe('T-11 밖에서 일어난 일 — 부호가 반대인 사실', () => {
+  const snap = { lastDs: '2026-07-28', thenReview: 32 };
+  const TODAY = '2026-08-01';
+  const QUIET: AbsenceNow = { review: 0, missed: 0, deadline: null };
+
+  it('⭐ 앱 안이 평온해도 밖에서 한 일이 있으면 그린다 — 그게 이 항목의 요지다', () => {
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: ['회로이론'], ankiCards: 120 })!;
+    expect(b.line).toBe('4일 비었어요 (밖에서 노트 5 · 카드 120)');
+  });
+
+  it('⚠ 밀린 것 목록에 섞지 않는다 — 부호가 반대인 사실이 같은 픽셀로 읽히면 안 된다', () => {
+    const b = returnBriefing(snap, NOW, TODAY, { notes: 5, subjects: [], ankiCards: null })!;
+    // 무너진 것은 ` — ` 뒤 목록, 한 일은 괄호 안. 둘이 한 목록에 들어가면 이 단언이 깨진다.
+    expect(b.line).toBe('4일 비었어요 — 복습 32→71 · 미완 6 · 전자기 D-6 (밖에서 노트 5)');
+  });
+
+  it('⚠⚠ 모르는 것(null)은 0 으로 접지 않는다 — Anki 가 꺼져 있는 것과 "안 했다"는 다른 사실', () => {
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: null, subjects: [], ankiCards: null });
+    expect(b).toBeNull(); // 할 말이 하나도 없다 = 안 그린다(0 을 지어내지 않았다는 뜻)
+  });
+
+  it('밖에서만 일이 있으면 처방은 진도 반영 — 마감·복습·미완을 이기지는 않는다', () => {
+    const outside = { notes: 5, subjects: ['회로이론'], ankiCards: null };
+    expect(returnBriefing(snap, QUIET, TODAY, outside)!.advice).toContain('진도에 반영');
+    // 마감이 있으면 여전히 마감이 이긴다(이미 한 일이 아직 안 온 마감보다 급할 수 없다)
+    const urgent: AbsenceNow = { review: 0, missed: 0, deadline: { name: '전자기', dday: 2 } };
+    expect(returnBriefing(snap, urgent, TODAY, outside)!.advice).toContain('마감');
+  });
+
+  it('과목 이름은 칩이 아니라 풀어 쓴 문장에만 — 13px 안에 이름을 더 넣지 않는다', () => {
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: ['회로이론', '전자기학'], ankiCards: 0 })!;
+    expect(b.line).not.toContain('회로이론');
+    expect(b.aria).toContain('회로이론·전자기학 쪽으로');
+  });
+});

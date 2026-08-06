@@ -635,6 +635,14 @@ export const A11Y_EXTRA: ExtraScreen[] = [
     path: '/subject/m',
     ready: (page) => page.getByRole('heading', { name: '이번 주 요일 배분' }).waitFor(),
   },
+  /* T-18 **시험 전날 한 장**(`/subject/:id?view=sheet`) — 위 `items-structure` 와 같은 이유로 여기
+     있다. 뷰는 탭이 아니라서 `TABS` 로스터가 안 본다. 브라우저에선 오른쪽 칸이 콜드 게이트지만
+     **왼쪽 선택 목록은 실제로 렌더된다** — 체크박스 라벨·비활성 버튼이 이 화면의 a11y 표면이다. */
+  {
+    key: 'subject-sheet',
+    path: '/subject/m?view=sheet',
+    ready: (page) => page.getByRole('heading', { name: /챕터 고르기/ }).waitFor(),
+  },
 ];
 
 /* ⚠⚠ **오버레이는 어느 로스터에도 없었다(H6 · 2026-07-30 `/감사 근본`).**

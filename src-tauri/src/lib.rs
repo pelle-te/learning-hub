@@ -108,6 +108,10 @@ pub fn run() {
             workspace::workspace_status,
             workspace::set_workspace,
             vault::vault_scan,
+            // T-11 — 부재 기간에 밖에서 손댄 노트(mtime 만 본다).
+            vault::vault_touched,
+            // T-18 — 시험 전날 한 장: 챕터 폴더의 노트 본문(해석은 프런트).
+            vault::vault_notes_text,
             // 4단계-B — serve.js /api/artifact/:name 대체.
             artifact::artifact_read,
             // 4단계-C — serve.js /api/run/:tool 대체(파이썬 도구 11종).
