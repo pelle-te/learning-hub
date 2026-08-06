@@ -34,7 +34,7 @@ import StorageBanner from '@/app/StorageBanner';
 import PinBar from '@/app/PinBar';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
-import { markVia, recordVisit, takeVia } from '@/lib/visits';
+import { markVia, recordHop, recordVisit, takeVia } from '@/lib/visits';
 import { onGlobalCapture } from '@/lib/tauri';
 import { mark as perfMark } from '@/lib/perf';
 import { getReactTab, prefetchTab } from '@/features/registry';
@@ -397,10 +397,16 @@ export default function App() {
      ⚠ `await` 하지 않는다. 관측이 내비게이션을 늦추면 관측 대상이 관측 때문에 달라진다.
      브라우저(dev·트랙 A)에선 `recordVisit` 이 통째로 무동작이다. */
   const firstVisit = useRef(true);
+  /* W2 — **직전 경로 한 칸**(발산 6회차). 같은 이펙트에서 세는 것이 요점이다: 홉을 별도
+     자리에서 세면 두 원장이 서로 다른 내비게이션 집합을 보게 되고, 그 어긋남은 합계가
+     비슷해서 눈에 안 띈다. `recordHop` 은 `from` 이 없거나 같으면 스스로 안 쓴다. */
+  const prevKey = useRef<string | null>(null);
   useEffect(() => {
     const via = firstVisit.current ? 'boot' : takeVia('link');
     firstVisit.current = false;
     void recordVisit(routeKey, via);
+    void recordHop(prevKey.current, routeKey);
+    prevKey.current = routeKey;
   }, [pathname, routeKey]);
 
   return (

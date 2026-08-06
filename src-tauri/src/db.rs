@@ -175,6 +175,16 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: include_str!("../migrations/009_summaries_identity.sql"),
         },
+        /* W2(발산 6회차) — 홉 원장. 007 이 "어디를 열었나"를 셌고 여기는 **"무엇 다음에 무엇을,
+        몇 시에"** 를 센다. 열을 더하지 않고 표를 하나 더 두는 이유는 그 파일 머리주석(007 의
+        기본키를 바꾸면 이미 쌓인 행의 뜻이 달라진다). 007·008 과 같은 부류라 `updated_at` 이
+        없고, 그래서 동기화 대상이 아니라는 사실이 플래그가 아니라 **스키마로** 표현된다. */
+        Migration {
+            version: 10,
+            description: "W2 홉 원장 — 왕복쌍·시각 분포(동기화 대상 아님)",
+            kind: MigrationKind::Up,
+            sql: include_str!("../migrations/010_route_hops.sql"),
+        },
     ]
 }
 

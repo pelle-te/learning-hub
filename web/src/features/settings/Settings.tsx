@@ -14,7 +14,17 @@ import { ui, io, actions } from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
-import { visitSummary, visitSample, hasSample, SAMPLE_MIN, type VisitRow } from '@/lib/visits';
+import {
+  visitSummary,
+  visitSample,
+  hasSample,
+  hourHistogram,
+  eveningShare,
+  roundTrips,
+  SAMPLE_MIN,
+  type RoundTrip,
+  type VisitRow,
+} from '@/lib/visits';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
@@ -82,12 +92,20 @@ function VisitLedger() {
   /* ⚠ **분모를 함께 보여 준다**(P1/P2 · 2026-08-01). 합계만 보이면 "안 쓴다"와 "안 쟀다"가
      같은 0 으로 보이고, `shell/tabs.ts` 의 은퇴 규칙이 그 0 을 근거로 탭을 지운다. */
   const [sample, setSample] = useState<{ days: number; total: number } | null>(null);
+  /* W2(발산 6회차) — 홉 원장. **이 두 줄이 결정 셋을 막고 있던 것**이다: 두 페인(왕복이
+     실재하나) · 시간 조명(하루에 여러 번 여나) · 확정판의 시제(저녁에 여나).
+     ⚠ 여기 보이는 것도 판단이 아니라 **입력**이다 — 위 표와 같은 규율. */
+  const [trips, setTrips] = useState<RoundTrip[] | null>(null);
+  const [hours, setHours] = useState<number[] | null>(null);
   useEffect(() => {
     void visitSummary().then(setRows);
     void visitSample().then(setSample);
+    void roundTrips().then(setTrips);
+    void hourHistogram().then(setHours);
   }, []);
   if (!rows?.length) return null;
   const enough = sample ? hasSample(sample) : false;
+  const peak = hours ? Math.max(...hours) : 0;
   return (
     <details className={`ds-foot ${S.bdLine}`}>
       <summary>방문 원장(최근 14일) — 어디를 얼마나 열었나</summary>
@@ -108,6 +126,37 @@ function VisitLedger() {
           </span>
         ))}
       </div>
+      {/* 왕복쌍 — **양방향이 다 있어야** 한 줄이 된다(단방향은 경로이지 왕복이 아니다). */}
+      <div className="ds-tiny mt-2">
+        <b>왕복쌍</b>{' '}
+        {trips?.length ? (
+          <span className="inline-flex flex-wrap gap-x-3 gap-y-1">
+            {trips.slice(0, 6).map((t) => (
+              <span key={`${t.a}:${t.b}`}>
+                {t.a} <span className="text-mut">↔</span> {t.b} {t.n}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="text-mut">아직 없음 — 오간 화면이 없으면 두 페인은 만들 이유가 없다</span>
+        )}
+      </div>
+      {/* 시각 분포 — 24칸. 한 칸에 몰려 있으면 "캔버스가 하루를 싣는" 안은 상수가 된다. */}
+      {hours && peak > 0 && (
+        <div className="ds-tiny mt-2">
+          <b>여는 시각</b> <span className="text-mut">· 저녁(18~24시) {Math.round(eveningShare(hours) * 100)}%</span>
+          <div className="mt-1 flex items-end gap-px" aria-hidden="true">
+            {hours.map((n, h) => (
+              <span
+                key={h}
+                className="w-1.5 bg-acc"
+                style={{ height: `${Math.max(1, Math.round((n / peak) * 16))}px`, opacity: n ? 1 : 0.25 }}
+              />
+            ))}
+          </div>
+          <div className="mt-0.5 text-mut">0시 — 6 — 12 — 18 — 23</div>
+        </div>
+      )}
     </details>
   );
 }

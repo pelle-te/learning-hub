@@ -145,6 +145,101 @@ export const SAMPLE_MIN = { days: 10, total: 30 } as const;
 export const hasSample = (s: { days: number; total: number }): boolean =>
   s.days >= SAMPLE_MIN.days && s.total >= SAMPLE_MIN.total;
 
+/* ── 홉 원장(W2 · 발산 6회차) ───────────────────────────────────────────────
+   007 이 "어디를 열었나"를 셌다면 여기는 **"무엇 다음에 무엇을, 몇 시에"** 를 센다.
+   막고 있던 결정 셋이 여기 걸려 있다(마이그레이션 010 머리주석이 SSOT):
+   ① 두 페인 — `A→B→A` 왕복이 실재하나 ② 조명이 상수인가 ③ 저녁에 앱을 여나.
+
+   ⚠⚠ **셋 다 "안 만든다"가 정당한 답이다.** 그래서 계측이 먼저다 — 이 저장소는 관측을
+   기다리면서 관측 장치를 안 다는 순환에 T-5·T-8·T-10 에서 이미 물렸다. */
+
+/** 왕복쌍 한 줄 — `a` 와 `b` 사이를 오간 횟수(방향 합산). */
+export interface RoundTrip {
+  a: string;
+  b: string;
+  /** `a→b` + `b→a` 합. 한 방향만 있으면 왕복이 아니다(아래 참조). */
+  n: number;
+}
+
+/**
+ * 최근 `days` 일의 **왕복쌍**(많은 순).
+ *
+ * ⚠⚠ **양방향이 모두 있어야 왕복이다.** `a→b` 만 100번인 것은 왕복이 아니라 *경로*이고
+ * (예: 레일 → 호스트), 두 페인이 없애려는 마찰은 **오가는 것**이지 가는 것이 아니다.
+ * 한 방향만 세면 목록 상단이 전부 단방향 경로로 차서 판정이 뒤집힌다.
+ * ⚠ 자기 자신으로의 홉(`a===b`)은 안 센다 — 같은 화면 안의 쿼리 변경이 그렇게 보인다.
+ */
+export async function roundTrips(days = 14, todayDs: string = todayISO()): Promise<RoundTrip[]> {
+  const from = iso(addDays(parseISO(todayDs), -days));
+  const rows = await selectDb<{ from_key: string; to_key: string; n: number }>(
+    `SELECT from_key, to_key, SUM(n) AS n FROM route_hops WHERE day >= ? AND from_key <> to_key GROUP BY from_key, to_key`,
+    [from],
+  );
+  const dir = new Map<string, number>();
+  for (const r of rows ?? []) dir.set(`${r.from_key} ${r.to_key}`, Number(r.n) || 0);
+  const seen = new Set<string>();
+  const out: RoundTrip[] = [];
+  for (const [k, n] of dir) {
+    const [a = '', b = ''] = k.split(' ');
+    const back = dir.get(`${b} ${a}`);
+    if (!back) continue; // 단방향 = 경로이지 왕복이 아니다
+    const pair = a < b ? `${a} ${b}` : `${b} ${a}`;
+    if (seen.has(pair)) continue;
+    seen.add(pair);
+    out.push({ a: a < b ? a : b, b: a < b ? b : a, n: n + back });
+  }
+  return out.sort((x, y) => y.n - x.n || (x.a + x.b < y.a + y.b ? -1 : 1));
+}
+
+/**
+ * 최근 `days` 일의 **시각 분포** — 길이 24 배열(로컬 시각 버킷).
+ *
+ * ⚠ 이 값이 답하는 것은 "몇 번 썼나"가 아니라 **"하루 중 언제 여나"** 다. 한 시각에 몰려
+ * 있으면 조명(캔버스가 하루의 위치를 싣는 안)은 상수가 되어 값이 0이고, 저녁이 비어 있으면
+ * 내일 확정판은 **저녁판이 아니라 아침판**이어야 한다.
+ */
+export async function hourHistogram(days = 14, todayDs: string = todayISO()): Promise<number[]> {
+  const from = iso(addDays(parseISO(todayDs), -days));
+  const rows = await selectDb<{ hour: number; n: number }>(
+    `SELECT hour, SUM(n) AS n FROM route_hops WHERE day >= ? GROUP BY hour`,
+    [from],
+  );
+  const out = Array<number>(24).fill(0);
+  for (const r of rows ?? []) {
+    const h = Number(r.hour);
+    if (Number.isInteger(h) && h >= 0 && h < 24) out[h] = (out[h] ?? 0) + (Number(r.n) || 0);
+  }
+  return out;
+}
+
+/** 저녁(18~24시) 방문 비율 — 내일 확정판이 **저녁판인가 아침판인가**를 가르는 유일한 수. */
+export function eveningShare(hist: readonly number[]): number {
+  const total = hist.reduce((t, n) => t + n, 0);
+  if (!total) return 0;
+  return hist.slice(18, 24).reduce((t, n) => t + n, 0) / total;
+}
+
+/**
+ * 홉 1회를 기록한다. **실패해도 조용히 넘어간다**(`recordVisit` 과 같은 계약).
+ *
+ * ⚠ `from` 이 없으면(부팅 첫 착지) 기록하지 않는다 — 홉이 아니라 시작점이고, `boot` 는
+ * `route_visits` 가 이미 `via` 로 센다. 여기에 빈 문자열을 넣으면 그 행이 왕복쌍 집계에서
+ * 유령 노드가 된다.
+ */
+export async function recordHop(
+  from: string | null,
+  to: string,
+  todayDs: string = todayISO(),
+  hour: number = new Date().getHours(),
+): Promise<void> {
+  if (!isSqlitePrimary() || !from || from === to) return;
+  await execDb(
+    `INSERT INTO route_hops (from_key, to_key, day, hour, n) VALUES (?, ?, ?, ?, 1)
+     ON CONFLICT(from_key, to_key, day, hour) DO UPDATE SET n = n + 1`,
+    [from, to, todayDs, hour],
+  );
+}
+
 /**
  * 방문 1회를 기록한다. **실패해도 조용히 넘어간다** — 관측이 앱 동작을 막으면 안 된다.
  *
@@ -161,6 +256,11 @@ export async function recordVisit(key: string, via: Via, todayDs: string = today
   // 청소는 **하루 1회**로 족하다 — 매 내비게이션마다 DELETE 를 쏘면 관측이 관측 대상보다 비싸진다.
   if (_prunedOn !== todayDs) {
     _prunedOn = todayDs;
-    await execDb(`DELETE FROM route_visits WHERE day < ?`, [iso(addDays(parseISO(todayDs), -KEEP_DAYS))]);
+    const cutoff = iso(addDays(parseISO(todayDs), -KEEP_DAYS));
+    await execDb(`DELETE FROM route_visits WHERE day < ?`, [cutoff]);
+    /* ⚠ 홉 원장도 **같은 자리에서** 청소한다. 별도 게이트를 두면 두 표의 보존창이 갈리고,
+       그건 007 이 `_prunedOn` 을 부울에서 날짜로 고치며 이미 한 번 물린 형태다(90일이라
+       적고 120일을 들고 있던 것). 한 번 도는 김에 둘 다 자른다. */
+    await execDb(`DELETE FROM route_hops WHERE day < ?`, [cutoff]);
   }
 }

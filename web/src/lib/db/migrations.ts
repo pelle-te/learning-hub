@@ -25,6 +25,7 @@ import m006 from '../../../../src-tauri/migrations/006_backfill_stamps.sql?raw';
 import m007 from '../../../../src-tauri/migrations/007_route_visits.sql?raw';
 import m008 from '../../../../src-tauri/migrations/008_day_signals.sql?raw';
 import m009 from '../../../../src-tauri/migrations/009_summaries_identity.sql?raw';
+import m010 from '../../../../src-tauri/migrations/010_route_hops.sql?raw';
 
 export interface Migration {
   version: number;
@@ -43,4 +44,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 7, file: '007_route_visits.sql', sql: m007 },
   { version: 8, file: '008_day_signals.sql', sql: m008 },
   { version: 9, file: '009_summaries_identity.sql', sql: m009 },
+  { version: 10, file: '010_route_hops.sql', sql: m010 },
 ];
