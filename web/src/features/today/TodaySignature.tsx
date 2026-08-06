@@ -18,12 +18,13 @@ import { usePrefill } from '@/store/prefill';
 import { usePing, useKnowledge } from '@/store/queries';
 import { studyStreak } from '@/lib/persistence';
 import { focusMinutes } from '@/lib/focusState';
-import { openBacklog, CBMS_INFO } from '@/lib/methodology';
+import { openBacklog } from '@/lib/methodology';
 import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { dayCapacity } from '@/lib/dayCapacity';
 import { pickNextStep, pickRetrievalSlot } from '@/lib/todaySlots';
+import RetrievalSlot from './RetrievalSlot';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue, ankiFreshness } from '@/lib/anki';
 import { pickRetrieval, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
@@ -293,7 +294,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     setSchedView('day');
     go(`/schedule?ds=${todayISO(state)}`); // '오늘'은 앱 단일 출처(_today 시드 존중) — new Date() 금지
   };
-  const [recallShown, setRecallShown] = useState(false); // A2 — 회상 정답 공개 여부
 
   // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.
   const { ref: heroRef, onMouseMove: onHeroMove, onMouseLeave: onHeroLeave } = useHeroPointer(7);
@@ -366,12 +366,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      이미 존재한다는 사실을 한 번 더 말할 뿐이었다(한 양 = 한 자리). */
   // 회상 카드가 바뀌면(새 날짜·다른 요약) 정답 공개를 초기화 — 다음 카드가 답이 열린 채 뜨는 인출연습 무력화 방지.
   // effect 대신 렌더 중 조건부 setState(React 권장 · 이 코드베이스의 draftFor 관용과 동일).
+  /* 카드 정체성 — **`RetrievalSlot` 의 `key`** 다. 종전엔 이 값으로 부모가 직접 공개 여부를
+     되돌렸는데(파생 상태 방어 2종 + 렌더 중 setState), 리마운트가 그걸 구조로 대체했다. */
   const recallKey = recall ? `${ds}|${recall.summary.name || ''}` : '';
-  const [recallKeyShown, setRecallKeyShown] = useState(recallKey);
-  if (recallKey !== recallKeyShown) {
-    setRecallKeyShown(recallKey);
-    setRecallShown(false);
-  }
   // A4 — 완료 후 다음 동력: 내일 첫 학습 + 복습 위험(개념 간격반복).
   const tmrNew = byDs[iso(addDays(today, 1))]?.items.find((it) => it.type === 'new');
   /* ⚠ 메모된 셀렉터를 쓴다(S6 · 2026-07-31 `/감사 근본`) — `selectRiskSummary` 가 정확히 이 호출을
@@ -980,62 +977,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 연장이고, 매일 한 장은 계속 뜬다(우발적 인출의 빈도가 유지된다).
                 ⚠ 착각이 있으면 착각이 이긴다 — "확신했는데 틀린 것"은 회상보다 늦게 발견될수록
                 비싸다(그쪽만 오답으로 이미 관측된 사실이다). 회상은 그 다음 날 온다. */}
-            {retrievalSlot === 'recall' && recall && (
-              <div className={`${S.recall} bg-[var(--panel-acc-faint)]`}>
-                <div className={S.recallTop}>
-                  <span className={`${S.recallTag} text-txt`}>
-                    <Icon name="brain" /> 회상
-                  </span>
-                  <span className={S.recallMeta}>
-                    {recall.ageDays}일 전 · {recall.summary.name || '요약'}
-                  </span>
-                </div>
-                <div className={S.recallQ}>{recall.summary.s1 || '이 개념을 스스로 다시 설명할 수 있나요?'}</div>
-                {recallShown ? (
-                  <div className={S.recallA}>
-                    {recall.summary.s2 && (
-                      <div>
-                        <b className="mr-1 font-bold text-txt">도구·어떻게</b> {recall.summary.s2}
-                      </div>
-                    )}
-                    {recall.summary.s3 && (
-                      <div>
-                        <b className="mr-1 font-bold text-txt">결과·의미</b> {recall.summary.s3}
-                      </div>
-                    )}
-                    <button type="button" className={S.recallReset} onClick={() => setRecallShown(false)}>
-                      가리기
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" className={S.recallBtn} onClick={() => setRecallShown(true)}>
-                    떠올렸다 · 정답 보기
-                  </button>
-                )}
-              </div>
-            )}
-            {/* I-10 — 착각 재확인 카드: 확신했지만 틀렸던 개념을 지금 다시 인출(회상과 같은 언어·시각). */}
-            {retrievalSlot === 'conf' && confWrong && (
-              <div className={`${S.recall} bg-[var(--conf-wrong-bg)]`}>
-                <div className={S.recallTop}>
-                  <span className={`${S.recallTag} text-warn`}>
-                    <Icon name="alert" /> 착각 재확인
-                  </span>
-                  <span className={S.recallMeta}>
-                    {confWrong.ageDays}일 전 · {CBMS_INFO[confWrong.cbms.code].label}
-                    {confWrongN > 1 ? ` · 외 ${confWrongN - 1}` : ''}
-                  </span>
-                </div>
-                <div className={S.recallQ}>
-                  {confWrong.cbms.name}
-                  {confWrong.cbms.chapter ? ` · ${confWrong.cbms.chapter}` : ''}
-                </div>
-                <div className={S.confWrongNote}>확신했지만 틀렸던 것 — 지금 다시 인출</div>
-                <button type="button" className={S.recallBtn} onClick={() => go('/review-run')}>
-                  다시 확인 · 복습 세션 →
-                </button>
-              </div>
-            )}
+            {/* F5 추출(2026-08-06) — 카드 두 장의 마크업이 여기 70줄로 있었고, 그와 함께
+                `recallShown`·`recallKeyShown`·**렌더 중 조건부 setState** 셋이 이 컴포넌트에
+                살았다. 셋 중 둘은 오로지 첫째를 리셋하려고 있던 것이라 `key` 리마운트가 통째로
+                대체한다(`SummaryEditor` 가 세운 F5 선례와 같은 수법).
+                ⚠ `key={recallKey}` 가 그 계약이다 — 빼면 카드가 바뀌어도 정답이 펼쳐진 채 남는다. */}
+            <RetrievalSlot
+              key={recallKey}
+              slot={retrievalSlot}
+              recall={recall}
+              confWrong={confWrong}
+              confWrongN={confWrongN}
+              onGo={go}
+            />
             {!emptyDay && beyondNode}
             <button type="button" className={S.more} onClick={() => onOpenMore()}>
               ＋ 블록 상세 · 일일 의식 · 흐름 가이드

@@ -67,3 +67,73 @@ describe('chapterSnapshot — 앱이 스스로 쓴 값만(조인 실패가 불�
     expect(riskWord(chapterSnapshot(st, [], TODAY, 'p', '열')!)).toBe('기록 없음');
   });
 });
+
+/* ============================================================
+   N-2 **2단계** — 볼트 조인(2026-08-06). 이 절이 잠그는 것은 조인의 성공이 아니라 **실패**다.
+
+   1단계가 조인을 미룬 근거는 _"실패하면 서랍 절반이 빈칸이고, 빈 서랍은 '데이터 없음'이 아니라
+   '이 도구가 나를 모른다'로 읽힌다"_ 였다. 실측(과목 4/4 · 개념 626/626)이 그 위험을 부정했지만
+   **부정된 것은 이 볼트에서의 발생 확률이지 그 형태 자체가 아니다** — 사용자가 챕터 이름을 손으로
+   고치면 그 순간 되살아난다. 그래서 실패 경로가 `null` 로 끝나는지를 성공 경로보다 먼저 잠근다.
+============================================================ */
+import { chapterVault } from '@/lib/chapterView';
+import type { Ledger } from '@/lib/ledger';
+
+const LED = {
+  _schemaVersion: 1,
+  generated: '',
+  generated_by: '',
+  n_chapters: 1,
+  stage_counts: { sourced: 1, noted: 1, verified: 0, carded: 0, reviewed: 0 },
+  backlog: { unprocessed_src: [], subjects_without_src: [] },
+  subjects: {
+    회로이론: {
+      slug: 'circ',
+      abbr: '회로',
+      domain: '전공',
+      src: '',
+      src_present: true,
+      chapters: [
+        {
+          chapter_id: 'c1',
+          arc: '01 회로 변수',
+          notes: 7,
+          concept: 5,
+          status: { verified: 4, drafted: 3, raw: 0, 구버전: 0 },
+          verified_ratio: 0.57,
+          carded_notes: 4,
+          cards: 21,
+          reps: 0,
+          reviewed_recent: '2026-07-11',
+          milestones: { sourced: true, noted: true, verified: false, carded: true, reviewed: false },
+          furthest: 'carded',
+        },
+      ],
+    },
+  },
+} as unknown as Ledger;
+
+describe('N-2 2단계 — 볼트 조인은 성립할 때만 존재한다', () => {
+  it('과목·챕터가 붙으면 원장의 사실을 그대로 싣는다(재계산 0)', () => {
+    const v = chapterVault(LED, '회로이론', '01 회로 변수')!;
+    expect(v).toEqual({ notes: 7, verified: 4, cards: 21, furthest: 'carded', reviewedRecent: '2026-07-11' });
+  });
+
+  it('⭐ 챕터 이름이 갈리면 **null** — 빈칸을 그리지 않는다(1단계 유보의 취지)', () => {
+    expect(chapterVault(LED, '회로이론', '01 회로변수')).toBeNull(); // 공백 하나 차이
+    expect(chapterVault(LED, '회로이론', '02 저항')).toBeNull();
+  });
+
+  it('⚠ 챕터는 **퍼지로 붙이지 않는다** — `01 극한`과 `01 극한과 연속`이 서로를 먹으면 안 된다', () => {
+    expect(chapterVault(LED, '회로이론', '01 회로')).toBeNull();
+  });
+
+  it('원장이 아직 없으면(콜드·미가동) null — 서랍은 종전 모습 그대로다', () => {
+    expect(chapterVault(undefined, '회로이론', '01 회로 변수')).toBeNull();
+    expect(chapterVault(null, '회로이론', '01 회로 변수')).toBeNull();
+  });
+
+  it('모르는 과목은 null', () => {
+    expect(chapterVault(LED, '없는과목', '01 회로 변수')).toBeNull();
+  });
+});

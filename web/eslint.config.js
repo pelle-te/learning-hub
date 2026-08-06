@@ -84,8 +84,15 @@ export default tseslint.config(
          적었는데 **실측은 `phone/ReviewView`(77)** 였다. 로드맵의 재설계 4건만 갚았다면 래칫은
          한 칸도 못 내려갔다 — 손으로 베낀 귀속이 "무엇을 고쳐야 내려가는가"를 틀리게 말한 것이다.
          ⚠ 여유는 다시 **0** 이고, 이제 남은 유일한 지배자가 `TodaySignature` 다. 그 파일은
-         `max-lines`(726/727)에서도 여유가 없다 — 다음에 여기를 더 내리려면 그 하나를 쪼개야 한다. */
-      'sonarjs/cognitive-complexity': ['error', 66],
+         `max-lines`(726/727)에서도 여유가 없다 — 다음에 여기를 더 내리려면 그 하나를 쪼개야 한다.
+         ⚠⚠ **66 → 62 로 조인다(F5 후보 소진 · 2026-08-06).** 그 "하나를 쪼개야 한다"를 실제로
+         했다: `RetrievalSlot` 추출로 `TodaySignature` 가 66→**62**. 여유는 다시 0이고 지배자도
+         그대로다(2위는 `lib/db/rows.ts` 56).
+         ⚠ F5 남은 후보 셋은 **추출하지 않기로 판정**했다(근거는 `결정로그.md` 2026-08-06):
+         ReviewRun 인라인 CBMS 는 전제(_"세션 상태기계와 공유 상태 0"_)가 **실측에서 거짓**이고
+         (`missId` 를 키보드 게이트 `askingMiss` 와 `undo` 가 읽는다), Graph·CommandPalette 는
+         드릴 prop 이 2개·제어값 누출이라 F5 오라클 아래다. **개수가 아니라 오라클이 정한다.** */
+      'sonarjs/cognitive-complexity': ['error', 62],
       // ReDoS — 실측 2건을 0단계-F에서 제거했고(vault 프론트매터·quickCapture 챕터) 재발을 막는다.
       // 이건 취향이 아니라 입력이 커지면 멈추는 버그라 임계 없이 error.
       'sonarjs/super-linear-regex': 'error',

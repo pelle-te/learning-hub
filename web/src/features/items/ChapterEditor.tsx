@@ -3,7 +3,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { openVaultSearch, rid, todayISO } from '@/lib/utils';
-import { chapterSnapshot, riskWord } from '@/lib/chapterView';
+import { chapterSnapshot, chapterVault, riskWord } from '@/lib/chapterView';
+import { STAGE_META } from '@/lib/ledger';
+import { useLedger } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { useFlushOnUnmount } from '@/hooks/interactions';
@@ -88,6 +90,10 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   const state = useApp((s) => s.state);
   const res = useSchedule();
   const snap = peek ? chapterSnapshot(state, res.days || [], todayISO(state), id, peek) : null;
+  /* N-2 2단계 — 원장은 이미 다른 화면들이 쓰는 **같은 쿼리 캐시**다(추가 페치 0). 서랍이 안 열려
+     있어도 훅은 최상위에서 부른다(조건부 훅 금지) — 캐시 히트라 비용이 없다. */
+  const led = useLedger().data;
+  const vault = snap ? chapterVault(led, snap.subject, snap.chapter) : null;
 
   /** 이 과목만 변형. */
   /* Q-7 — 챕터 표의 커서. 동사는 이 화면이 **실제로 구현한 것만** 준다(없는 키는 조용히 무시).
@@ -325,9 +331,9 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
         </details>
       </div>
 
-      {/* N-2 첫 조각 — 챕터 상태 서랍(읽기 전용). 볼트 산출물(mastery·ledger) 조인은 **일부러
-          안 넣었다**: 조인 키가 basename 정확일치라 실패하면 절반이 빈칸인데, 빈 서랍은
-          "데이터 없음"이 아니라 "이 도구가 나를 모른다"로 읽힌다(`lib/chapterView` 머리주석). */}
+      {/* N-2 — 챕터 상태 서랍(읽기 전용). **2단계에서 볼트 조인이 들어왔다**(2026-08-06):
+          유보의 근거였던 "조인 실패 → 절반이 빈칸"이 실측으로 부정됐다(과목 4/4 · 개념 626/626).
+          ⚠ 그래도 **못 붙으면 그 칸을 아예 안 그린다** — 유보의 원래 취지(빈칸 금지)는 유지한다. */}
       <DetailDrawer
         open={!!snap}
         onClose={() => setPeek(null)}
@@ -362,6 +368,27 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                 '없음'
               )}
             </dd>
+            {/* N-2 2단계 — 볼트 진척. **조인이 성립할 때만** 두 줄이 존재한다(`vault === null` 이면
+                `<dt>` 자체가 없다). 원장이 아직 안 돌았거나 이름이 갈리면 서랍은 종전 모습 그대로다. */}
+            {vault && (
+              <>
+                <dt className="text-mut">자료</dt>
+                <dd className="m-0 font-bold">
+                  노트 {vault.notes}
+                  {vault.verified ? <span className="ds-tiny text-mut">{` · 검증 ${vault.verified}`}</span> : null}
+                  {vault.cards ? <span className="ds-tiny text-mut">{` · 카드 ${vault.cards}`}</span> : null}
+                </dd>
+                <dt className="text-mut">파이프라인</dt>
+                <dd className="m-0 font-bold">
+                  {/* ⚠ `planned` 는 5단계 **밖**이다(원장에 이름만 있고 아직 아무것도 안 만든 챕터).
+                      `STAGE_META` 에 그 키가 없어서 타입이 잡아 줬다 — 없는 칸을 지어내지 않는다. */}
+                  {vault.furthest === 'planned' ? '아직 시작 안 함' : STAGE_META[vault.furthest].label}
+                  {vault.reviewedRecent && (
+                    <span className="ds-tiny text-mut">{` · 검증일 ${vault.reviewedRecent}`}</span>
+                  )}
+                </dd>
+              </>
+            )}
           </dl>
         )}
       </DetailDrawer>
