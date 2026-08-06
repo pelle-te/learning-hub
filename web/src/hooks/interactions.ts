@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { minutesOfDay } from '@/lib/utils';
 import { prefersReducedMotion } from '@/lib/motion';
+import { onVisible, onHidden } from '@/lib/visibility';
 import { useKeymap } from './useKeymap';
 
 /** 현재 표시값→target으로 부드럽게 카운트업/다운(easeOutCubic). reduced-motion·SSR이면 즉시 target.
@@ -55,13 +56,10 @@ export function useNowMin(): number {
       setNowMin(minutesOfDay(d));
     };
     const id = setInterval(tick, 60_000);
-    const onVis = () => {
-      if (document.visibilityState === 'visible') tick(); // 백그라운드 복귀 시 즉시 캐치업.
-    };
-    document.addEventListener('visibilitychange', onVis);
+    const off = onVisible(tick); // 백그라운드 복귀 시 즉시 캐치업.
     return () => {
       clearInterval(id);
-      document.removeEventListener('visibilitychange', onVis);
+      off();
     };
   }, []);
   return nowMin;
@@ -85,18 +83,16 @@ export function useAdaptiveTick(periodMs: number): void {
         id = null;
       }
     };
-    const onVis = (): void => {
-      if (document.hidden) stop();
-      else {
-        bump(); // 복귀 즉시 캐치업
-        start();
-      }
-    };
     start();
-    document.addEventListener('visibilitychange', onVis);
+    const offHide = onHidden(stop);
+    const offShow = onVisible(() => {
+      bump(); // 복귀 즉시 캐치업
+      start();
+    });
     return () => {
       stop();
-      document.removeEventListener('visibilitychange', onVis);
+      offHide();
+      offShow();
     };
   }, [periodMs]);
 }

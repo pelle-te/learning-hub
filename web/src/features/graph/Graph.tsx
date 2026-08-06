@@ -42,6 +42,7 @@ import { createGraphSim, type FocusResult } from './graphSim';
 import { drawGraph, type Palette } from './graphDraw';
 import { createPointerHandlers } from './graphPointer';
 import { semanticChapterEdges, semanticAvailable, type SemEdge } from '@/lib/semantic';
+import { onVisible } from '@/lib/visibility';
 import { Icon } from '@/components/Icon';
 
 // 캔버스 호스트/폴백 상단 1px 발광 헤어라인(--bg-sig-top · review→ledger 이식이 깐 것 재사용).
@@ -485,9 +486,6 @@ export default function Graph() {
       palette = readPalette();
       draw();
     };
-    const onVis = () => {
-      if (!document.hidden) ensureLoop();
-    };
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
     const mo = new MutationObserver(onTheme);
@@ -498,7 +496,7 @@ export default function Graph() {
     canvas.addEventListener('pointercancel', onUp);
     canvas.addEventListener('pointerleave', onLeave);
     canvas.addEventListener('wheel', onWheel, { passive: false });
-    document.addEventListener('visibilitychange', onVis);
+    const offVisible = onVisible(ensureLoop);
     reduce.addEventListener('change', onTheme);
 
     // 초기화 — 모션 비선호면 동기로 정착시킨 뒤 1회 그림. 아니면 RAF 루프.
@@ -523,7 +521,7 @@ export default function Graph() {
       canvas.removeEventListener('pointercancel', onUp);
       canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('wheel', onWheel);
-      document.removeEventListener('visibilitychange', onVis);
+      offVisible();
       reduce.removeEventListener('change', onTheme);
       viewApi.current = null;
     };

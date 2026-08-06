@@ -625,6 +625,36 @@ export async function shellSaveFile(filename: string, contents: string): Promise
 }
 
 /**
+ * **워크스페이스 루트**에 파일 하나를 쓴다 — 대화상자 없이 경로가 파생된다(볼트 백업).
+ *
+ * ## ⚠⚠ 왜 필요했나 — 되먹임 루프가 셸에서 원리적으로 막혀 있었다(2026-08-06)
+ *
+ * 지식엔진(`pipeline/_도구/지식엔진.py`)은 워크스페이스 루트나 `knowledge/` 에서
+ * **`러닝허브_백업.json`** 을 찾아 앱 관측을 인제스트한다. 그 파일을 만드는 유일한 경로가
+ * `shell/actions.ts` 의 `backupToVault()` 였는데, 그건 **File System Access API** 를 쓴다 —
+ * 즉 **브라우저에서만** 동작한다. 그런데 이 앱의 배포 진입점은 2단계-E 이후 **셸 하나**다.
+ * 결과: 사용자의 실제 앱에서는 그 파일이 **한 번도 만들어질 수 없었고**, 로드맵의 "되먹임 루프
+ * 재개"는 선행 조건이 다 충족된 뒤에도 계속 막혀 있었다. 2026-08-01 감사는 이걸 _"파일명 하나"_
+ * 로 적었는데, 실측하면 이름이 아니라 **경로 자체가 없었다**(앱은 그 이름으로 쓰고 있다).
+ *
+ * ⚠ `save_text_file` 의 머리주석은 경로 출처가 "사용자가 방금 고른 저장 대화상자"라고 적는다.
+ * 여기서는 **Rust 가 소유한 워크스페이스 경로 + 고정 파일명**이라 그 신뢰 근거가 더 좁다
+ * (프런트가 만든 임의 문자열이 아니다). 파일명을 호출부에서 받되 경로 조각은 못 받는 이유가 그것.
+ *
+ * @returns 쓴 절대경로. 셸이 아니거나 워크스페이스가 무효면 `null`(호출부가 폴백한다).
+ */
+export async function shellSaveInWorkspace(filename: string, contents: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  if (filename.includes('/') || filename.includes('\\')) throw new Error('파일명에 경로를 담을 수 없습니다.');
+  const ws = await workspaceStatus();
+  if (!ws?.valid || !ws.path) return null;
+  const sep = ws.path.includes('\\') ? '\\' : '/';
+  const path = `${ws.path}${sep}${filename}`;
+  await call<void>('save_text_file', { path, contents });
+  return path;
+}
+
+/**
  * 시스템 알림 하나(P-8 · 2026-08-01). 셸이 아니면 **아무 일도 안 한다**(브라우저엔 채널이 없다).
  *
  * ## ⚠⚠ 웹 `Notification` 을 쓰지 않는 이유 — 실측

@@ -56,12 +56,44 @@ pub fn is_allowed(url: &str) -> bool {
     let Ok(u) = reqwest::Url::parse(url) else {
         return false;
     };
-    match u.scheme() {
+    let scheme_ok = match u.scheme() {
         "https" => true,
         // 루프백 평문만 허용 — `wrangler dev` 를 로컬에서 칠 때 필요하다.
         "http" => matches!(u.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
         _ => false,
-    }
+    };
+    scheme_ok && is_allowed_path(u.path())
+}
+
+/* ⚠⚠ **경로·메서드·헤더를 좁힌다(M-5 · 2026-08-06 감사).**
+
+종전 판정은 스킴 하나였다 — 즉 이 커맨드는 **임의의 https 주소로 임의의 메서드와 임의의
+헤더를 보내는 범용 HTTP 클라이언트**였고, CSP 밖에 있다(그게 존재 이유다). 오늘 그것을
+악용할 경로는 없지만(웹뷰가 원격 콘텐츠를 안 싣는다), 이 커맨드의 성질은 "웹뷰가 못 하게
+막아 둔 일을 대신 해 주는 창"이라 **창의 폭 자체가 위험의 크기**다.
+
+호스트로 못 좁히는 이유는 등록(onboarding)이다 — 사용자가 주소를 **처음 입력하는 순간**이
+그 호스트를 아는 유일한 시점이고, 그 전에 핀을 걸 근거가 없다. 그래서 호스트 대신 **모양**을
+좁힌다: 이 앱이 실제로 쓰는 것은 `/api/…` 뿐이고(등록·토큰·기기·동기화·텔레메트리 전부),
+메서드는 GET·POST, 헤더는 `authorization`·`content-type` 둘이다. 그 밖은 정당한 용도가 없다.
+
+⚠ **화이트리스트가 아니라 블랙리스트로 쓰지 말 것.** 새 헤더가 필요해지면 여기 추가하는 것이
+맞다 — 목록이 짧다는 사실이 곧 이 창이 좁다는 증거이고, 조용히 넓히면 그 증거가 사라진다. */
+fn is_allowed_path(path: &str) -> bool {
+    path == "/api" || path.starts_with("/api/")
+}
+
+/// 이 중계가 나르는 메서드. 프런트가 쓰는 것은 이 둘뿐이다(`cloud/client.ts`).
+fn is_allowed_method(m: &str) -> bool {
+    matches!(m.to_ascii_uppercase().as_str(), "GET" | "POST")
+}
+
+/// 이 중계가 나르는 헤더. `Authorization`(Bearer)·`Content-Type` 외엔 정당한 용도가 없다.
+fn is_allowed_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "authorization" | "content-type"
+    )
 }
 
 /// 공용 HTTP 클라이언트(M3) — **한 번 만들어 재사용**한다.
@@ -94,7 +126,12 @@ pub async fn cloud_http(
     body: Option<String>,
 ) -> Result<CloudResponse, String> {
     if !is_allowed(&url) {
-        return Err(format!("허용되지 않는 주소입니다(https 만 가능): {url}"));
+        return Err(format!(
+            "허용되지 않는 주소입니다(https + `/api/…` 만 가능): {url}"
+        ));
+    }
+    if !is_allowed_method(&method) {
+        return Err(format!("허용되지 않는 메서드: {method}"));
     }
 
     let client = shared_client()?;
@@ -103,6 +140,12 @@ pub async fn cloud_http(
         .map_err(|_| format!("알 수 없는 메서드: {method}"))?;
     let mut req = client.request(m, &url);
     for (k, v) in headers {
+        /* ⚠ 모르는 헤더는 **조용히 버리지 않고 거절한다**(M-5). 버리면 호출부는 보냈다고 믿고
+        서버는 못 받아 — 그 어긋남은 인증 헤더에서 특히 나쁘게 끝난다(401 을 네트워크 문제로
+        읽는다). 좁히는 것과 삼키는 것은 다른 일이다. */
+        if !is_allowed_header(&k) {
+            return Err(format!("허용되지 않는 헤더: {k}"));
+        }
         req = req.header(k, v);
     }
     if let Some(b) = body {
@@ -168,5 +211,38 @@ mod tests {
         assert!(!is_allowed("file:///C:/secrets.txt"));
         assert!(!is_allowed("ftp://example.com/x"));
         assert!(!is_allowed("주소가 아님"));
+    }
+
+    /* ── M-5: 창의 폭 ─────────────────────────────────────────────────────
+    이 커맨드는 CSP 밖에 있다(그게 존재 이유다) → **폭 자체가 위험의 크기**다. 호스트로는
+    못 좁히므로(등록 전에는 아는 주소가 없다) 모양으로 좁혔고, 아래가 그 계약이다. */
+
+    #[test]
+    fn api_밖_경로는_막는다() {
+        // 이 앱이 이 중계로 부르는 것은 `/api/**` 뿐이다(등록·토큰·기기·동기화·텔레메트리).
+        assert!(is_allowed(
+            "https://hub.example.workers.dev/api/sync/pull?since=0"
+        ));
+        assert!(!is_allowed("https://evil.example.com/collect"));
+        assert!(!is_allowed("https://hub.example.workers.dev/"));
+        // 접두사 비교가 경계를 지킨다 — `/apiary` 는 `/api` 가 아니다.
+        assert!(!is_allowed("https://hub.example.workers.dev/apiary"));
+    }
+
+    #[test]
+    fn 메서드는_둘뿐이다() {
+        assert!(is_allowed_method("GET"));
+        assert!(is_allowed_method("post")); // 대소문자는 안 따진다
+        assert!(!is_allowed_method("PUT"));
+        assert!(!is_allowed_method("DELETE"));
+    }
+
+    #[test]
+    fn 헤더는_둘뿐이다() {
+        assert!(is_allowed_header("Authorization"));
+        assert!(is_allowed_header("content-type"));
+        // 쿠키·프록시 지시·임의 헤더를 이 창으로 실어 보내지 않는다.
+        assert!(!is_allowed_header("Cookie"));
+        assert!(!is_allowed_header("X-Forwarded-For"));
     }
 }

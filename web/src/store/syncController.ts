@@ -24,8 +24,9 @@ import { applyPull } from '@/lib/cloud/merge';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { connectLive, type LiveHandle } from '@/lib/cloud/live';
 import { nextStamp } from '@/lib/db/stamp';
-import { endMergeApply } from '@/lib/db/write';
+import { endMergeApply, withMergeSession } from '@/lib/db/write';
 import { RUNTIME_CACHE_KEYS } from '@/lib/persistence';
+import { onVisible } from '@/lib/visibility';
 import type { AppState } from '@/lib/types';
 import type { ConflictShadow } from '@/lib/cloud/conflicts';
 import { toast } from '@/shell/toast'; // zustand 단독 모듈이라 store→shell 순환이 없다(useApp 과 같은 근거)
@@ -78,9 +79,16 @@ function syncedSliceChanged(next: AppState, prev: AppState): boolean {
    `runSync` · `restoreConflict` · `undoController.undoLastEdit`(전역 ⌘Z). 되돌리기도 `applyPull` 을
    쓰므로 H8 의 중첩 조건에 그대로 해당한다 — 게이트 밖에 두면 그 사고가 세 번째 호출자로 재현된다.
    (집행자는 `db/write.ts` 의 이중 열림 검출기다: 우회 경로가 생기면 시끄럽게 보고한다.) */
+/** 모르는 스키마 경고를 이 세션에 이미 말했나(M-10) — 아래 `runSyncInner` 가 읽는다. */
+let _unknownToasted = false;
+
 let _mergeGate: Promise<unknown> = Promise.resolve();
 export function exclusiveMerge<T>(fn: () => Promise<T>): Promise<T> {
-  const next = _mergeGate.catch(() => undefined).then(fn);
+  /* ⚠ `withMergeSession` 은 직렬화가 아니라 **"게이트를 탔다"는 표식**이다(M-2). 직렬화는 위
+     체인이 하고, 표식은 `lib` 의 우회 검출기(`beginMergeApply`)가 읽는다 — 그 검출기가
+     *중첩*이 아니라 *게이트 밖*을 보게 되면서 드레인 다회차의 상시 오경보가 사라졌다.
+     둘을 여기 한 문장에 묶어 두는 것이 요점이다: 게이트를 타면 표식도 반드시 선다. */
+  const next = _mergeGate.catch(() => undefined).then(() => withMergeSession(fn));
   _mergeGate = next.catch(() => undefined);
   return next;
 }
@@ -99,6 +107,15 @@ async function runSyncInner(): Promise<SyncResult> {
     // ⚠ 병합이 덮은 동시 편집을 기록한다(Phase 4 · 관측만 — 병합 결과는 이미 위에서 확정됐다).
     // 로컬 전용 store 라 여기(store 층)가 접합점이다(`lib` 은 zustand 를 모른다 · run.ts 가 결과만 실어 온다).
     if (r.conflicts?.length) useConflicts.getState().add(r.conflicts);
+    /* ⚠ **서버가 이 빌드보다 새 스키마를 안다**(M-10 · 2026-08-06). 관용 파서가 버린 것은 실패가
+       아니지만 사용자가 알아야 하는 사실이다 — 지금 화면이 **전부가 아닐 수 있다**는 뜻이고,
+       처방은 앱 업데이트다. `lib` 은 토스트를 모르므로 그 말은 이 층이 한다(H2 와 같은 배치).
+       ⚠ 세션 1회다: 이 상태는 업데이트 전까지 계속 참이라 매번 말하면 소음이 되고, 소음이 된
+       경고는 곧 무시된다(같은 이유로 텔레메트리도 세션 1회 · `client.ts`). */
+    if (r.unknownDropped && !_unknownToasted) {
+      _unknownToasted = true;
+      toast(`서버에 이 버전이 모르는 항목 ${r.unknownDropped}건이 있어요 — 앱을 업데이트해 주세요.`, 'warn', 8000);
+    }
     // 관측성(설계서 §14 발전 #4) — 마지막 시도 기록. `disconnected`(연결 안 됨)는 "시도"가
     // 아니라 남기지 않는다. 설정 카드가 "마지막 동기화 N분 전"으로 읽는다.
     if (r.status !== 'disconnected') {
@@ -292,10 +309,7 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   // 편집 디바운스(`syncSoon`)가 이 실행기를 거치게 한다 — beforeSync·겹침 가드를 함께 상속(H5).
   _activeRun = run;
 
-  const onVisible = (): void => {
-    if (document.visibilityState === 'visible') run();
-  };
-  document.addEventListener('visibilitychange', onVisible);
+  const offVisible = onVisible(run);
 
   /* ── ⚠⚠ **창 복귀(`focus`) 트리거 — W24 의 실측 질문을 없앤다**(2026-07-31) ─────────────
      W24 는 "5분 폴링을 은퇴시키자"였고 선행 조건이 **실측 1건**이었다: WebView2 에서 *다른 앱으로
@@ -377,7 +391,7 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   run(); // 설치 즉시 1회 — 열었다 = 최신을 보고 싶다.
 
   return () => {
-    document.removeEventListener('visibilitychange', onVisible);
+    offVisible();
     window.removeEventListener('focus', onFocus);
     window.removeEventListener('online', onOnline);
     if (onPagehide) window.removeEventListener('pagehide', onHide);

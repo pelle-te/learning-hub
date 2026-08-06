@@ -45,11 +45,22 @@ vi.mock('@/lib/db/sqlite', () => ({
   touchedKey: (t: string, k: unknown[]) => [t, ...k].join('|'),
 }));
 
-import { writeAndVerify, runExclusive, beginMergeApply, endMergeApply, lastParity } from '@/lib/db/write';
+const reportError = vi.fn();
+vi.mock('@/lib/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
+
+import {
+  writeAndVerify,
+  runExclusive,
+  beginMergeApply,
+  endMergeApply,
+  withMergeSession,
+  lastParity,
+} from '@/lib/db/write';
 import { defaults } from '@/lib/persistence';
 
 beforeEach(() => {
   endMergeApply(); // 이전 케이스 잔류 방지 — 창이 열린 채 남으면 다음 케이스가 전부 미뤄진다
+  reportError.mockReset();
   writeRows.mockReset().mockResolvedValue({ ok: true, touched: [], preImages: [], stamp: 0 });
   isDbAvailable.mockReset().mockResolvedValue(true);
   isSqlitePrimary.mockReset().mockReturnValue(true);
@@ -64,11 +75,15 @@ describe('⚠⚠ 병합창 판정은 직렬화 체인 *안*에서 일어난다(C
       release = r;
     });
 
-    /* `applyPull` 흉내 — 체인을 잡고 있다가 **마지막 줄**에서 창을 켠다(merge.ts 의 실제 순서). */
-    const pull = runExclusive(async () => {
-      await gate;
-      beginMergeApply();
-    });
+    /* `applyPull` 흉내 — 체인을 잡고 있다가 **마지막 줄**에서 창을 켠다(merge.ts 의 실제 순서).
+       ⚠ 바깥의 `withMergeSession` 까지가 실물의 모양이다(`exclusiveMerge` → `applyPull` →
+       `runExclusive`). 이걸 빼면 이 테스트가 곧 "게이트 우회"라 검출기가 발화한다(M-2). */
+    const pull = withMergeSession(() =>
+      runExclusive(async () => {
+        await gate;
+        beginMergeApply();
+      }),
+    );
 
     /* 이 시점 `isMergeApplyPending()` 은 **false** 다. 종전엔 여기서 판정해 통과했다. */
     const flushing = writeAndVerify(defaults());
@@ -82,7 +97,7 @@ describe('⚠⚠ 병합창 판정은 직렬화 체인 *안*에서 일어난다(C
   });
 
   it('미룸은 실패가 아니다 — ok/unavailable 이 경고·폴백을 유발하지 않는다', async () => {
-    beginMergeApply();
+    await withMergeSession(async () => beginMergeApply());
     const r = await writeAndVerify(defaults());
     expect(r.deferred).toBe(true);
     /* `ok:false` 면 호출부가 "저장 실패" 토스트를 띄우고, `unavailable` 이면 localStorage
@@ -103,10 +118,43 @@ describe('⚠⚠ 병합창 판정은 직렬화 체인 *안*에서 일어난다(C
     await writeAndVerify(defaults());
     const before = lastParity();
 
-    beginMergeApply();
+    await withMergeSession(async () => beginMergeApply());
     await writeAndVerify(defaults());
     /* 미룬 회차가 `_last` 를 덮으면 설정 탭 진단이 "마지막 저장은 skipped" 라고 말하기
        시작한다 — 안 잰 것을 결과로 보고하는 형태(이 저장소가 H6 에서 못박은 규율). */
     expect(lastParity()).toEqual(before);
+  });
+});
+
+/* ============================================================
+   M-2 — **우회 검출기는 중첩이 아니라 "게이트 밖"을 본다**(2026-08-06 감사).
+
+   종전 검출기는 _이미 열린 창을 또 열면_ 보고했다. H4 의 드레인 루프가 한 동기화에서
+   `applyPull` 을 여러 회차 부르면서 그 조건이 **정상 경로에서 상시 참**이 됐고(창을 닫는 것은
+   드레인이 끝난 뒤다), 동시에 *혼자 도는* 우회는 여전히 안 잡혔다. 거짓 양성과 거짓 음성을
+   같은 판정이 함께 갖고 있었던 셈이다 — 그래서 판정 대상을 바꿨다.
+============================================================ */
+describe('M-2 — 우회 검출', () => {
+  it('한 세션 안의 **여러 회차**는 정상이다 — 드레인이 이 모양이다', async () => {
+    await withMergeSession(async () => {
+      beginMergeApply(); // 1회차
+      beginMergeApply(); // 2회차 — 종전 구현은 여기서 울렸다
+      beginMergeApply(); // 3회차
+    });
+    expect(reportError, '상시 우는 검출기는 곧 안 읽히는 검출기다').not.toHaveBeenCalled();
+  });
+
+  it('게이트 **밖**에서 한 번만 열어도 보고한다 — 종전 판정이 원리적으로 못 보던 경우', async () => {
+    beginMergeApply();
+    // 보고는 동적 import 뒤라 다음 틱이다(그 지연이 이 층의 계약이다 — 텔레메트리를 정적으로
+    // 끌어오면 `db/write.ts` 가 부팅 청크에 텔레메트리를 싣는다).
+    await vi.waitFor(() => expect(reportError).toHaveBeenCalledTimes(1));
+    expect(String(reportError.mock.calls[0]?.[1])).toContain('ungated');
+  });
+
+  it('보고해도 창은 켠다 — 안 켜면 flush 가 통과해 받아온 행을 되돌린다', async () => {
+    beginMergeApply();
+    const r = await writeAndVerify(defaults());
+    expect(r.deferred, '관측이 방어를 대체하지 않는다').toBe(true);
   });
 });

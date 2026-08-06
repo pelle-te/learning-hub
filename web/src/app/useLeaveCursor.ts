@@ -24,7 +24,9 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
-import { ownResume, putResume, resumeDevice } from '@/lib/resume';
+import { ownResume, resumeDevice } from '@/lib/resume';
+import { writeResume } from '@/store/resumeCursor';
+import { onHidden } from '@/lib/visibility';
 
 /** 커서를 남길 가치가 없는 화면 — 여기서 나가는 건 "돌아갈 곳"이 아니다. */
 const SKIP = new Set(['/', '/today']);
@@ -33,16 +35,16 @@ export function useLeaveCursor(label: string): void {
   const { pathname } = useLocation();
   useEffect(() => {
     const onHide = (): void => {
-      if (document.visibilityState !== 'hidden') return;
       const id = resumeDevice();
       if (!id || SKIP.has(pathname)) return;
       const st = useApp.getState().state;
       // 진행 중 작업 커서가 살아 있으면 그쪽이 이긴다(위 ⚠).
       const cur = ownResume(st, id, Date.now());
       if (cur && cur.kind !== 'screen') return;
-      useApp.getState().mutate((s) => putResume(s, id, { kind: 'screen', label, at: Date.now(), route: pathname }));
+      /* ⚠ 쓰기는 `store/resumeCursor` 하나가 소유한다(M-3) — 여기 손으로 `putResume` 을 부르던
+         것이 세 사본 중 하나였고, `at` 규약이 갈린 지점이기도 했다. 판정(위 두 줄)만 이 훅의 몫. */
+      writeResume({ kind: 'screen', label, route: pathname });
     };
-    document.addEventListener('visibilitychange', onHide);
-    return () => document.removeEventListener('visibilitychange', onHide);
+    return onHidden(onHide);
   }, [pathname, label]);
 }

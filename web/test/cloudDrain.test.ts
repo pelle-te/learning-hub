@@ -24,7 +24,10 @@ vi.mock('@/lib/cloud/client', () => ({
   readCloudConfig: async () => ({ baseUrl: 'https://x', deviceId: 'd', refresh: 'r' }),
   makeTransport: () => ({ push: async () => undefined }),
   pullChanges: (...a: unknown[]) => pullChanges(...a),
+  unknownDroppedTotal: () => unknownTotal,
 }));
+/** 모르는 테이블 누계(M-10) — 케이스가 세운 값을 `run.ts` 가 앞뒤로 재서 델타를 만든다. */
+let unknownTotal = 0;
 vi.mock('@/lib/cloud/merge', () => ({ applyPull: (...a: unknown[]) => applyPull(...a) }));
 const scanConflicts = vi.fn(async () => []);
 vi.mock('@/lib/cloud/conflictScan', () => ({ scanConflicts: (...a: unknown[]) => scanConflicts(...(a as [])) }));
@@ -59,6 +62,7 @@ const batch = (upto: number, rows: number): OutboxBatch => ({
 
 beforeEach(() => {
   mark = 0;
+  unknownTotal = 0;
   pushOutbox.mockReset();
   pullChanges.mockReset();
   setDiffBaseline.mockReset();
@@ -196,5 +200,35 @@ describe('C-1 — 드레인 중 실패는 기준선을 무효화한다', () => {
     pullChanges.mockResolvedValueOnce(batch(10, 1)).mockResolvedValueOnce(batch(10, 0));
     await syncOnce();
     expect(setDiffBaseline).not.toHaveBeenCalled();
+  });
+});
+
+/* ============================================================
+   M-10 — **모르는 스키마를 버린 사실이 호출부까지 올라오는가**(2026-08-06 감사).
+
+   관용 파서(`schema.ts` H16)가 버리는 것 자체는 정상이다. 결함은 그 사실이 `console.warn`
+   에서 끝나 **배포된 앱에서는 아무에게도 안 갔다**는 것이었다 — 그래서 여기서 재는 것은
+   "버렸는가"가 아니라 **"버린 수가 결과에 실리는가"**(= store 층이 말을 걸 수 있는가)다.
+============================================================ */
+describe('M-10 — 모르는 항목을 버렸다는 사실이 결과에 실린다', () => {
+  beforeEach(() => {
+    pushOutbox.mockResolvedValue(emptyPush);
+    pullChanges.mockResolvedValue(batch(0, 0));
+  });
+
+  it('버린 것이 있으면 이번 동기화의 **델타**로 실린다', async () => {
+    unknownTotal = 3; // 파서가 세션 누계를 올려 둔 상태에서 시작
+    pullChanges.mockImplementationOnce(async () => {
+      unknownTotal = 5; // 이번 pull 이 2건을 더 버렸다
+      return batch(10, 1);
+    });
+    const r = await syncOnce();
+    expect(r.unknownDropped, '누계(5)가 아니라 이번 회차의 델타(2)여야 한다').toBe(2);
+  });
+
+  it('버린 것이 없으면 필드를 만들지 않는다 — 0 을 실으면 호출부가 매번 판정해야 한다', async () => {
+    unknownTotal = 7;
+    const r = await syncOnce();
+    expect(r.unknownDropped).toBeUndefined();
   });
 });

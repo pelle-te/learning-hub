@@ -679,11 +679,17 @@ app.post('/api/sync/push', async (c) => {
     stmts.push(c.env.DB.prepare(UPSERT_TOMBSTONE_SQL).bind(t.tbl, t.k1, t.k2, clamp(t.deletedAt)));
     /* 툼스톤보다 오래된 행은 지운다. 부활 방지의 실행부이고, `diffRows` 가 클라이언트에서
        일부러 미룬 정리(rows.ts 주석)를 정본이 대신 하는 지점이다.
-       ⚠ 동점 규칙(`<=` = 삭제 승)의 근거는 `cloud/contract.ts` 의 병합 SQL 절이 갖는다(H3·H-15). */
+       ⚠ 동점 규칙(`<=` = 삭제 승)의 근거는 `cloud/contract.ts` 의 병합 SQL 절이 갖는다(H3·H-15).
+       ⚠⚠ **여기도 `clamp` 다 — 한 줄 위와 같은 값이어야 한다**(M-7 · 2026-08-06 감사). 종전엔
+       이 한 곳만 원시 `t.deletedAt` 을 썼고, 그 비대칭이 곧 결함이었다: 시계가 몇 년 앞선 기기가
+       삭제를 올리면 저장되는 툼스톤은 `now+유예`로 잘리는데 **지우는 범위는 서기 2100까지**라,
+       그 툼스톤이 LWW 로 **못 이기는 최신 행까지 지운다.** 그러면 서버엔 행이 없고 다른 기기엔
+       (클램프된 툼스톤에 진 적이 없으니) 남아 — 정본과 기기가 갈린다. 클램프의 존재 이유가
+       "권위 시계를 쥐고도 안 쓰고 있었다"인데, 파괴적인 쪽 문장에서만 안 쓰고 있었다. */
     const cols = TABLE_COLS[t.tbl];
     if (cols) {
       const keys = cols.key.length === 2 ? [t.k1, t.k2] : [t.k1];
-      stmts.push(c.env.DB.prepare(deleteRowSql(t.tbl, cols.key)).bind(...keys, t.deletedAt));
+      stmts.push(c.env.DB.prepare(deleteRowSql(t.tbl, cols.key)).bind(...keys, clamp(t.deletedAt)));
     }
   }
 

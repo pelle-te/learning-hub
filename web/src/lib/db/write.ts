@@ -72,6 +72,40 @@ export function lastParity(): ParityReport {
    기준선-세우기(`applyPull`)와 메모리-반영(`applyMerged`) 사이 동안 flush 를 **미룬다**. */
 let _mergeApplyPending = false;
 
+/* ⚠⚠ **우회 검출을 "중첩"이 아니라 "게이트 밖"으로 판정한다(M-2 · 2026-08-06).**
+
+   종전 검출기는 _이미 열린 창을 또 열면_ 보고했다. 그 판정에는 결함이 둘 있었다:
+
+   · **거짓 양성이 상시였다.** H4(2026-08-01)가 pull 을 드레인 루프로 만든 뒤부터 한 동기화가
+     `applyPull` 을 **여러 회차** 부르고, 창을 닫는 것은 드레인이 다 끝난 뒤의 `applyMerged`
+     /`finally` 다 → **2회차부터 매번** "중첩"이었다. 200행 넘는 pull 마다 텔레메트리가 울렸고,
+     상시 우는 검출기는 곧 아무도 안 보는 검출기다.
+   · **거짓 음성이 남았다.** 우회 경로가 *혼자* 돌면(동시 병합 없음) 중첩이 성립하지 않아
+     **아무것도 보고되지 않는다** — 정작 잡으려던 것이 조용한 경우다.
+
+   막으려는 것은 겹침이 아니라 **게이트(`exclusiveMerge`)를 안 타는 것**이므로, 그것을 직접
+   본다: 병합 세션 안에서 창을 여는 것은 몇 번이든 정상이고(드레인), 세션 **밖**에서 여는 것은
+   한 번이라도 우회다. 세션을 여닫는 곳은 `store/syncController.ts` 의 `exclusiveMerge` 하나다. */
+let _mergeSessions = 0;
+
+/**
+ * 병합 세션 안에서 `fn` 을 돌린다 — **`exclusiveMerge` 의 짝**이고 유일한 정상 진입로다.
+ *
+ * ⚠ 게이트(직렬화) 자체는 store 층이 갖는다(`exclusiveMerge`). 여기 있는 것은 그 게이트를
+ * **탔다는 사실**뿐이다 — `lib` 은 zustand 를 모르므로 게이트를 여기로 내릴 수 없고, 반대로
+ * 검출기(`beginMergeApply`)는 `lib` 에 있어야 하므로 이 표식이 경계를 잇는다.
+ * ⚠ 카운터인 이유: 세션이 중첩될 일은 없지만, 언젠가 생겨도 바깥 세션을 조기에 닫지 않는다
+ * (불리언이면 안쪽 `finally` 가 바깥 표식을 지운다 — H8 이 창에서 겪은 그 형태).
+ */
+export async function withMergeSession<T>(fn: () => Promise<T>): Promise<T> {
+  _mergeSessions++;
+  try {
+    return await fn();
+  } finally {
+    _mergeSessions--;
+  }
+}
+
 /**
  * 병합 반영 창 시작 — `applyPull` 이 기준선을 세운 직후(같은 `runExclusive` 안) 켠다.
  *
@@ -81,15 +115,18 @@ let _mergeApplyPending = false;
  * 처방은 카운터가 아니라 **직렬화**다(`store/syncController.ts` 의 `exclusiveMerge`) — 무조건
  * 닫는 방어망이 C1 의 안전장치라 카운터로 바꾸면 그 방어망이 남의 창을 감산한다.
  *
- * 여기 있는 것은 그 처방의 **집행자**다: 이미 열린 창을 또 열면 게이트를 우회한 새 경로가
- * 생겼다는 뜻이므로 시끄럽게 보고한다(관측 없는 규율은 다음 리팩터에서 조용히 되돌아간다).
+ * 여기 있는 것은 그 처방의 **집행자**다: 게이트 밖에서 창을 열면 시끄럽게 보고한다(관측 없는
+ * 규율은 다음 리팩터에서 조용히 되돌아간다). 판정 기준의 근거는 위 M-2 절.
  */
 export function beginMergeApply(): void {
-  if (_mergeApplyPending) {
+  if (_mergeSessions === 0) {
     /* 삼키지 않는다 — 그러나 던지지도 않는다(병합 도중 예외는 워터마크·기준선 계약을 흔든다).
-       관측만 하고 창은 열린 채로 둔다(닫히지 않은 쪽이 안전한 방향이다 — flush 를 미룰 뿐이다). */
+       관측만 하고 창은 그대로 켠다(안 켜면 flush 가 통과해 받아온 행을 되돌린다 — 더 나쁘다). */
     void import('../telemetry').then((m) =>
-      m.reportError(new Error('병합 반영 창이 중첩됐다 — exclusiveMerge 를 우회한 경로가 있다'), 'mergeApply.nested'),
+      m.reportError(
+        new Error('병합 반영 창이 exclusiveMerge 밖에서 열렸다 — 게이트를 우회한 경로가 있다'),
+        'mergeApply.ungated',
+      ),
     );
   }
   _mergeApplyPending = true;

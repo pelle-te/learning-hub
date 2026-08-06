@@ -13,6 +13,7 @@ import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 // ⚠ `isMergeApplyPending` 은 이제 여기서 읽지 않는다 — 판정이 `writeAndVerify` 안으로 갔다(C-2).
 import { writeAndVerify, endMergeApply } from '@/lib/db/write';
+import { onHidden } from '@/lib/visibility';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
 import { clearUndo } from '@/lib/db/undoStack';
@@ -270,8 +271,8 @@ export const useApp = create<AppStore>()(
       window.addEventListener('pagehide', () => {
         if (timer) flush();
       });
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden' && timer) flush();
+      onHidden(() => {
+        if (timer) flush();
       });
 
       /* 멀티탭 동기화(수신) — 다른 탭이 저장하면 그 스냅샷을 채택한다. 내 편집이 디바운스 대기

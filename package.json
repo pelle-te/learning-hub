@@ -14,7 +14,7 @@
     "_주석:test": "Rust 유닛 + **실물 통합**(진짜 워크스페이스·볼트·DB). 옛날엔 트랙 B 가 앱을 띄워 재던 것들이 여기 있다 — 근거는 src-tauri/src/testkit.rs 머리주석. ⚠ `--show-output` 은 장식이 아니다(F6 · 2026-08-01): cargo 는 **통과한** 테스트의 stderr 를 캡처하므로 그 플래그 없이는 testkit 의 `skip!` 이 실제로는 조용하고, '녹색인데 아무것도 안 쟀다'가 SKIP 0회로 보인다. 손으로 `cargo test` 를 치면 그 눈이 없다 — 이 스크립트를 쓸 것.",
     "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml --lib -- --show-output",
     "tauri:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
-    "tauri:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings"
+    "tauri:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",

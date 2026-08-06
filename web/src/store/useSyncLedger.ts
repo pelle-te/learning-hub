@@ -13,6 +13,7 @@ import { lastSync, onSyncResult } from './syncController';
 import { collectOutbox } from '@/lib/cloud/outbox';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { batchSize } from '@/lib/cloud/contract';
+import { onVisible, onHidden } from '@/lib/visibility';
 import type { Ledger } from '@/lib/syncLedger';
 
 /** 30초 — 상대시각("3분 전")이 어긋나 보이지 않을 만큼만. 이 값이 DB 를 두드리지는 않는다. */
@@ -99,20 +100,18 @@ export function useSyncLedger(): { led: Ledger; now: number } {
       }
     };
 
-    const onVis = (): void => {
-      if (document.visibilityState === 'visible') {
-        // 복귀 = 밀린 시간을 즉시 따라잡는다(멈춰 있던 동안의 문구가 한 틱 더 남지 않게).
-        setNow(Date.now());
-        startTick();
-        void read();
-      } else stopTick();
-    };
+    const offVisible = onVisible(() => {
+      // 복귀 = 밀린 시간을 즉시 따라잡는다(멈춰 있던 동안의 문구가 한 틱 더 남지 않게).
+      setNow(Date.now());
+      startTick();
+      void read();
+    });
+    const offHidden = onHidden(stopTick);
     const onNet = (): void => void read();
     /* ⚠ **동기화가 끝났다는 사실을 여기서 받는다**(H3). 이 구독이 없어서 위 주석의 "동기화 시도
        직후에만 다시 센다"가 실제로는 이행되지 않고 있었다 — 화면을 떠났다 돌아오기 전까지
        원장이 낡은 채였고, 중단은 영원히 안 보였다. */
     const offResult = onSyncResult(() => void read());
-    document.addEventListener('visibilitychange', onVis);
     window.addEventListener('online', onNet);
     window.addEventListener('offline', onNet);
     // 상대시각만 갱신하는 틱(DB 접근 없음) — "3분 전"이 5분 전인 채로 굳지 않게.
@@ -120,7 +119,8 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     return () => {
       clearTimeout(first);
       offResult();
-      document.removeEventListener('visibilitychange', onVis);
+      offVisible();
+      offHidden();
       window.removeEventListener('online', onNet);
       window.removeEventListener('offline', onNet);
       stopTick();

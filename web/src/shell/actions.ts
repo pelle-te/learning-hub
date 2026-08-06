@@ -40,7 +40,7 @@ import type { Ledger } from '@/lib/ledger';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
 import { fileCapture } from '@/lib/quickCapture';
-import { isTauri, shellSaveFile } from '@/lib/tauri';
+import { isTauri, shellSaveFile, shellSaveInWorkspace } from '@/lib/tauri';
 import { toast, toastUndo, toastUndoable } from './toast';
 import { confirmIrreversible, confirmLossy } from './destructive';
 
@@ -365,8 +365,33 @@ export function exportICS(): void {
   useRuntime.getState().set('_icsExport', { at: new Date().toISOString(), sig: sigOf(s) });
 }
 
-/** 볼트 폴더에 러닝허브_백업.json 쓰기(FS Access). */
+/** 볼트 폴더에 러닝허브_백업.json 쓰기 — 셸은 워크스페이스 경로로, 브라우저는 FS Access 로.
+ *
+ * ⚠⚠ **셸 경로가 없어서 되먹임 루프가 막혀 있었다**(2026-08-06). 지식엔진은 이 파일을 찾아 앱
+ * 관측을 인제스트하는데, 이 함수는 FS Access 전용이라 **브라우저에서만** 동작했다 — 그리고
+ * 배포 진입점은 2단계-E 이후 셸 하나다. 즉 사용자의 실제 앱에서는 이 파일이 **만들어질 수
+ * 없었고**, 로드맵의 "되먹임 루프 재개(선행 ① 출하됨)"가 그 뒤로도 계속 막혔다. 근거·실측은
+ * `lib/tauri.ts` 의 `shellSaveInWorkspace` 머리주석이 갖는다.
+ * ⚠ 셸에선 **폴더를 묻지 않는다** — 워크스페이스가 이미 그 답이고(설정에서 한 번 고른다),
+ * 매번 물으면 "저장 때마다 자동으로"라는 이 기능의 성질과 어긋난다. */
 export async function backupToVault(): Promise<void> {
+  if (isTauri()) {
+    try {
+      const path = await shellSaveInWorkspace(
+        '러닝허브_백업.json',
+        JSON.stringify(await backupPayload(st().state), null, 2),
+      );
+      if (!path) {
+        toast('워크스페이스가 설정되지 않았어요 — 설정 탭에서 폴더를 먼저 지정하세요.', 'warn', 5000);
+        return;
+      }
+      st().mutate((s) => void ((s as AppState)._lastBackupAt = new Date().toISOString()));
+      toast('워크스페이스에 러닝허브_백업.json 저장 완료.', 'ok');
+    } catch (e) {
+      toast('볼트 백업 실패: ' + ((e as Error).message || e), 'bad', 5000);
+    }
+    return;
+  }
   if (!isFsAccessSupported()) {
     toast(
       '이 브라우저는 폴더 쓰기를 지원하지 않아요(Chrome/Edge 권장). 대신 [⋯ 메뉴 → 데이터 내보내기]로 파일 백업하세요.',

@@ -13,6 +13,8 @@
       편집이 사라지고, 뒤이어 디바운스가 깨어나 방금 편집을 쓴다 — 사용자에겐 "엉뚱한 게
       지워졌다"로 보인다. `whenSettled()` 로 기다리는 것까지가 한 짝이다(`flushNow` 는 비동기
       SQL 쓰기를 *시작*만 한다 · `db/write.ts` 주석).
+      ⚠ **자리가 계약의 일부다 — ② 안이어야 한다**(M-2 후속 · 2026-08-06). 게이트 밖에서 부르면
+      병합 창에 걸려 `deferred` 로 돌아오고, 그때 ①은 아무것도 확정하지 못한 채 통과한다.
    ② **`exclusiveMerge`** — 되돌리기도 `applyPull` 을 쓰므로 병합 창을 연다. H8 의 중첩 조건에
       그대로 해당한다(`syncController` 의 그 주석이 SSOT).
    ③ **`applyMerged` + `finally endMergeApply`** — `loadState` 가 **아니다**(C1). 진행 중 로컬
@@ -62,16 +64,27 @@ const REDO_WORDS: InverseWords = {
 };
 
 async function runInverse(run: typeof undoLastWrite, words: InverseWords): Promise<void> {
-  // ① 디바운스 대기 중인 편집을 먼저 확정한다(머리주석).
-  useApp.getState().flushNow();
-  await whenSettled();
-
   /* ⚠⚠ **실패 보고를 이 층이 소유한다**(H2 · 2026-08-01) — 근거는 `syncController.reportFailure`
      주석. ⌘Z 입구는 둘(`App.tsx` 캡처 리스너 · `palette.ts` 명령)이고 **둘 다 `void`** 로 부른다:
      여기서 안 잡으면 실패가 unhandled rejection 으로 사라지고 화면은 아무 말도 안 한다. */
   let r: Awaited<ReturnType<typeof undoLastWrite>>;
   try {
     r = await exclusiveMerge(async () => {
+      /* ① 디바운스 대기 중인 편집을 먼저 확정한다 — **게이트 안에서**(M-2 후속 · 2026-08-06).
+
+         ⚠⚠ 종전엔 이 두 줄이 `exclusiveMerge` **밖**에 있었고, 그러면 확정하지 않는다:
+         동기화가 진행 중이면 병합 반영 창이 열려 있어 `flushNow()` 의 쓰기가 `deferred`
+         (= `ok:true` · 400ms 뒤 재예약)로 돌아온다. `whenSettled()` 는 그 체인 링크가 이미
+         resolve 됐으므로 **곧바로 통과**하고(같은 함정을 `waitForMergeWindow` 가 창 닫기
+         가드에서 이미 겪었다), 우리는 *아직 쓰이지 않은 편집*을 두고 되돌리기에 들어간다 →
+         **그 앞의 편집이 지워지고**, 뒤이어 디바운스가 깨어나 방금 편집을 쓴다. 머리주석 ①이
+         막으려던 그 증상 그대로다.
+
+         게이트 안에서는 앞선 병합이 이미 끝나 창이 닫혀 있으므로(닫기는 `finally` 라 게이트가
+         풀리기 전에 일어난다) `deferred` 가 성립하지 않는다 — 확정이 실제로 확정이 된다. */
+      useApp.getState().flushNow();
+      await whenSettled();
+
       /* ⚠⚠ **`undoLastWrite` 자신이 `try` 안이어야 한다(H1 · 2026-08-01).** 그 안에서 `applyPull` 이
        병합 창을 켜므로, 켠 뒤 던지는 경로가 `try` 밖이면 아래 `finally` 에 도달하지 못한다.
        굳으면 이후 flush 가 전부 `deferred`(= `ok:true`)라 **경고 없이 그 세션이 하나도 저장되지

@@ -11,6 +11,21 @@ on:
     paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', '.github/workflows/ci.yml']
   workflow_dispatch: {}
 
+# ── 공급망(M-6 · 2026-08-06 감사) ────────────────────────────────────────────────
+#
+# ⚠⚠ **최소 권한을 명시한다.** `permissions:` 가 없으면 저장소 기본값이 적용되는데, 그 기본값은
+#   저장소 설정에 달려 있고(조직/개인 설정에 따라 `contents: write` 까지) **워크플로 파일을 읽어서는
+#   알 수 없다.** 즉 이 파일이 자기 권한을 모르는 상태였다. 여기 잡는 전부 *읽기만* 한다 —
+#   배포는 하지 않고(릴리스는 로컬 `server npm run deploy`), 아티팩트 업로드는 런타임 토큰을 쓴다.
+#
+# ⚠ **액션은 SHA 로 핀 고정한다.** `@v4` 는 **움직이는 태그**라 같은 워크플로가 어제와 다른 코드를
+#   실행할 수 있다. 이 저장소는 이미 그 판단을 한 번 했다 — gitleaks 를 마켓플레이스 액션 대신
+#   *버전 핀 + 체크섬 대조한 릴리스 바이너리*로 받는다(아래 secret-scan 주석). 그 규율이 나머지
+#   다섯 액션에는 적용돼 있지 않았다. 뒤 주석의 버전은 사람이 읽기 위한 것이고 **정본은 SHA** 다.
+#   갱신은 Renovate 가 SHA 와 주석을 함께 올린다.
+permissions:
+  contents: read
+
 jobs:
   # 웹 게이트 — OS 무관이라 ubuntu(저렴). 아래 shell 잡과 **일부러 분리**한다(설계 §6):
   # 린트·타입·테스트는 Rust 툴체인이 필요 없고, windows 러너는 2배 과금이다.
@@ -20,8 +35,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -75,7 +90,7 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # 전 이력을 본다 — 지금 지웠어도 과거 커밋에 남아 있으면 유출이다
       - name: gitleaks 설치(버전 핀 + 체크섬 대조)
@@ -112,8 +127,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -155,17 +170,21 @@ jobs:
   shell-build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      # ⚠ `@stable` 은 **태그가 아니라 브랜치**다(이 액션은 브랜치 이름으로 툴체인을 고른다) →
+      #   핀을 걸면 선택자가 사라지므로 `toolchain:` 을 명시로 옮긴다. 설치되는 Rust 는 여전히
+      #   그때의 stable 이다(핀이 얼리는 것은 **액션 코드**이지 툴체인이 아니다).
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable 브랜치(2026-08-05)
         with:
+          toolchain: stable
           components: rustfmt, clippy
       # windows 러너 과금이 2배라 캐시가 선택이 아니다(설계 §6 명시).
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri
       # 루트와 web 양쪽 설치가 필요하다: `tauri:*` 는 **루트 스크립트**라 루트의 @tauri-apps/cli 를
@@ -244,7 +263,7 @@ jobs:
       - run: npm run e2e
         working-directory: web
       # 실패했을 때 **눈으로 볼 수 있어야** 위 판단이 가능하다. 실패 시에만 올린다.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-report

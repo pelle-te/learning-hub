@@ -689,7 +689,8 @@ export default function Settings() {
           </div>
         )}
         <div className="ds-foot">
-          볼트 백업은 볼트 폴더에 <code>러닝허브_백업.json</code>을 씁니다(Chrome/Edge). 저장 때마다{' '}
+          볼트 백업은 <code>러닝허브_백업.json</code>을 씁니다 — 셸에서는 <b>워크스페이스 폴더</b>에 바로,
+          브라우저에서는 폴더를 골라(Chrome/Edge). 이 파일이 지식엔진의 입력이에요. 저장 때마다{' '}
           <b>IndexedDB에 자동 미러</b>되어, 사이트 데이터가 지워져도 <b>복구</b>로 되살릴 수 있어요(같은 브라우저 한정).
           정리는 6개월 이전 기록을 보관 파일로 내려받고 앱에서 비워 쿼터·성능을 지킵니다.
         </div>

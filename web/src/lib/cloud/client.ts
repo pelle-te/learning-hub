@@ -327,6 +327,17 @@ export function makeTransport(cfg: CloudConfig): CloudTransport {
   };
 }
 
+/* 모르는 테이블이라 버린 누계(M-10) — `run.ts` 가 동기화 1회의 **델타**를 재서 결과에 싣는다.
+   ⚠ 읽는 쪽에서 리셋하는 게터로 만들지 않는다: 소비자가 둘이 되는 순간 한쪽이 굶는다
+   (누계를 주고 델타는 읽는 쪽이 계산하는 편이 소비자 수와 무관하다). */
+let _unknownDropped = 0;
+let _unknownReported = false;
+
+/** 이 세션에서 모르는 테이블이라 버린 항목의 **누계**(M-10). */
+export function unknownDroppedTotal(): number {
+  return _unknownDropped;
+}
+
 /**
  * 서버에서 `since` 이후 변경을 받아온다.
  *
@@ -357,10 +368,25 @@ export async function pullChanges(cfg: CloudConfig, since: number, limit = 200):
   if (!parsed.ok) throw new Error(parsed.error);
   if (parsed.dropped > 0) {
     /* 조용히 버리지 않는다 — 이 앱이 모르는 테이블이 서버에 있다는 것은 **업데이트가 필요하다**는
-       신호이고, 그건 사용자가 알아야 하는 사실이다(관측 없는 관용은 침묵과 같다). */
+       신호이고, 그건 사용자가 알아야 하는 사실이다(관측 없는 관용은 침묵과 같다).
+
+       ⚠⚠ **그렇게 적어 놓고 `console.warn` 하나였다**(M-10 · 2026-08-06 감사). 배포된 셸에는
+       콘솔을 볼 사람이 없다(WebView2 릴리스 빌드에 devtools 가 없고, 폰도 마찬가지다) — 즉 위
+       문장이 약속한 두 수신자(사용자·개발자) 중 **아무에게도 안 갔다.** 콘솔은 dev 진단으로
+       남기고, 실제 채널 둘을 여기서 연다: 세션 1회 텔레메트리(개발자) + 아래 `unknownDropped`
+       를 타고 올라가는 토스트(사용자 · `store/syncController.ts`).
+       ⚠ 세션 1회인 이유: 이 상태는 **앱을 업데이트할 때까지 계속 참**이라 매 pull 마다 보고하면
+       원장이 같은 사실로 도배된다(그리고 도배된 신호는 안 읽힌다). */
     console.warn(
       `[cloud] pull: 이 버전이 모르는 항목 ${parsed.dropped}건을 건너뜁니다 — 앱 업데이트가 필요할 수 있어요.`,
     );
+    _unknownDropped += parsed.dropped;
+    if (!_unknownReported) {
+      _unknownReported = true;
+      void import('../telemetry').then((m) =>
+        m.reportError(new Error(`서버에 이 버전이 모르는 항목이 있다(${parsed.dropped}건)`), 'pull.unknownTable'),
+      );
+    }
   }
   return parsed.batch;
 }

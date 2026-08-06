@@ -61,6 +61,12 @@
       "matchPackageNames": ["@playwright/test"],
       "automerge": false,
       "labels": ["deps", "e2e-snapshot-risk"]
+    },
+    {
+      "//": "2026-08-06 M-6 — GitHub Actions를 SHA로 핀 고정했다(움직이는 @v4 태그는 같은 워크플로가 어제와 다른 코드를 돌린다). 핀을 걸면 갱신이 사람 손으로 돌아오므로 Renovate가 SHA와 뒤 주석 버전을 함께 올리게 한다. pinDigests가 없으면 새로 추가되는 액션이 다시 태그 참조로 들어와 규율이 조용히 새 나간다.",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true,
+      "groupName": "github-actions"
     }
   ],
 

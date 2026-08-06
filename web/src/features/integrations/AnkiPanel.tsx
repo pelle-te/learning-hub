@@ -14,6 +14,7 @@ import { ui, io } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
+import { onVisible } from '@/lib/visibility';
 import { makeItem, clamp, jsq, hhmm } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -131,14 +132,11 @@ export function AnkiPanel() {
       }
     };
     const id = setInterval(refresh, 5 * 60 * 1000);
-    const onVis = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    document.addEventListener('visibilitychange', onVis);
+    const off = onVisible(refresh);
     return () => {
       alive = false;
       clearInterval(id);
-      document.removeEventListener('visibilitychange', onVis);
+      off();
     };
   }, [autoRefresh, everConnected, applyLive]);
 

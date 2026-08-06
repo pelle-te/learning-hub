@@ -23,7 +23,7 @@
 ============================================================ */
 import { execDb, selectDb, setDiffBaseline } from '../db/sqlite';
 import { pushOutbox, isPermanent, type PushResult, type CloudTransport } from './push';
-import { makeTransport, pullChanges, readCloudConfig } from './client';
+import { makeTransport, pullChanges, readCloudConfig, unknownDroppedTotal } from './client';
 import { applyPull } from './merge';
 import { scanConflicts } from './conflictScan';
 import { batchSize } from './contract';
@@ -60,6 +60,14 @@ export interface SyncResult {
   state: AppState | null;
   /** 이번 pull 이 LWW 로 덮은 **동시 로컬 편집**(있으면). 병합에는 영향 없는 관측 결과다(§150 보완). */
   conflicts?: ConflictShadow[];
+  /**
+   * 이번 동기화가 **이 버전이 모르는 테이블이라 버린** 항목 수(M-10 · 있으면).
+   *
+   * ⚠ 실패가 아니다 — 관용 파서의 정상 동작이다(`schema.ts` H16 절). 다만 "서버가 이 빌드보다
+   * 새 스키마를 안다"는 뜻이라 **사용자가 알아야** 하고(앱 업데이트), 그 말을 거는 자리는
+   * `lib` 이 아니라 store 층이다(`lib` 은 토스트를 모른다).
+   */
+  unknownDropped?: number;
   error?: string;
 }
 
@@ -154,6 +162,9 @@ async function runSyncOnce(): Promise<SyncResult> {
        덮되 사람이 되살릴 수 있다"). 그 절반이 새면 기각 논거 자체가 무효가 된다.
        ⚠ `pullChanges` 는 계속 **전진하는** 마크를 써야 한다(안 그러면 같은 구간을 반복한다) —
        두 값의 의미가 다르므로 겸직시키지 않는다. 이 파일 머리주석의 "워터마크가 둘"과 같은 규율. */
+    /* 모르는 테이블로 버린 항목의 **이번 동기화 델타**(M-10) — 누계 게터를 앞뒤로 재서 구한다.
+       드레인이 여러 회차라 회차마다 세지 않고 구간으로 잡는다. */
+    const droppedBefore = unknownDroppedTotal();
     const scanSince = await readPullMark();
     for (let i = 0; i < MAX_PULL_DRAIN; i++) {
       const since = await readPullMark();
@@ -193,7 +204,15 @@ async function runSyncOnce(): Promise<SyncResult> {
          ⚠ **드레인을 끊지는 않는다** — 끊으면 H4 가 세운 "한 동기화가 끝까지 비운다"를 되돌리게
          되고, 뒤 회차가 성공하면 그쪽이 기준선·스냅샷을 정상으로 다시 세운다. */ else setDiffBaseline(null);
     }
-    return { status: 'ok', push, pulled, state, conflicts: conflicts.length ? conflicts : undefined };
+    const unknownDropped = unknownDroppedTotal() - droppedBefore;
+    return {
+      status: 'ok',
+      push,
+      pulled,
+      state,
+      conflicts: conflicts.length ? conflicts : undefined,
+      unknownDropped: unknownDropped > 0 ? unknownDropped : undefined,
+    };
   } catch (e) {
     /* ⚠⚠ **드레인 중간에 죽으면 기준선을 무효화한다**(C-1 · 2026-08-06 감사 · 실패 형태 ⓐ).
 

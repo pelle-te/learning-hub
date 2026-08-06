@@ -54,7 +54,8 @@ import {
   runItemKey,
   type RunItem,
 } from '@/lib/reviewQueue';
-import { putResume, clearResume, resumeDevice, type ResumeCursor, type ResumeNav } from '@/lib/resume';
+import { type ResumeNav } from '@/lib/resume';
+import { writeResume, dropResume } from '@/store/resumeCursor';
 
 import { CBMS_INFO, CBMS_CODES, addCbms, editCbms } from '@/lib/methodology';
 import type { CbmsCode } from '@/lib/types';
@@ -166,22 +167,6 @@ interface RunSnap {
   jol: JolEntry[];
   pred: boolean | null;
   touch?: { sid: string; chapter: string; prev: string | undefined };
-}
-
-/** 커서 쓰기/지우기(N-7) — 미연결이면 무동작. `useFocus` 와 같은 관용구.
- *
- *  ⚠ `at`(시각)은 **여기서 찍는다** — 호출부는 언제나 "지금"을 뜻하고, 그 `Date.now()` 를
- *  컴포넌트 본문에 두면 `react-hooks/purity` 가 렌더 중 불순 호출로 잡는다(핸들러 안이라도
- *  그 핸들러가 렌더 중 호출되는 함수에 인자로 넘어가면 컴파일러는 호출 가능성을 가정한다). */
-function writeResume(cur: Omit<ResumeCursor, 'at'>): void {
-  const id = resumeDevice();
-  if (!id) return;
-  useApp.getState().mutate((st) => putResume(st, id, { ...cur, at: Date.now() } as ResumeCursor));
-}
-function dropResume(): void {
-  const id = resumeDevice();
-  if (!id) return;
-  useApp.getState().mutate((st) => clearResume(st, id));
 }
 
 /**

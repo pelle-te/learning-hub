@@ -15,6 +15,7 @@ import { toast, toastChoice } from '@/shell/toast';
 import { Icon } from '@/components/Icon';
 import { confirmIrreversible } from '@/shell/destructive';
 import { routeTitle } from './docTitle';
+import { onVisible } from '@/lib/visibility';
 
 /* ── C-7 셸 티어 5/5 이식(Tailwind) ─────────────────────────────────────────────
    TopBar 상주 칩 — 네온 헤어라인 + 라이브 펄스 + 모노 숫자. 색은 전부 --acc/--glow 파생
@@ -59,11 +60,10 @@ export default function FocusChip() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 세션 시작/복귀 시 스테일 now 즉시 보정.
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
-    const onVis = () => setNow(Date.now());
-    document.addEventListener('visibilitychange', onVis);
+    const off = onVisible(() => setNow(Date.now())); // 복귀 시 스테일 now 캐치업
     return () => {
       clearInterval(id);
-      document.removeEventListener('visibilitychange', onVis);
+      off();
     };
   }, [session]);
 
