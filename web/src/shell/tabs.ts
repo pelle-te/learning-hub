@@ -169,6 +169,10 @@ export const TABS: TabMeta[] = [
     group: 'train',
     order: 70,
     role: 'lens',
+    /* ⚠ 앎 바는 이 저장소에서 **가장 긴 세그먼트 바**다(5칸 · H-24). `segLabel` 이 없으면
+       바가 `label` 로 떨어져 "주간 리뷰 · 숙달도 지도 · 정본 원장" 이 되고, 그 셋만 14자다 —
+       나브·⌘K·문서 제목은 계속 `label` 을 쓰므로 **바에서만** 줄인다(그게 이 필드의 계약). */
+    segLabel: '리뷰',
     icon: 'refresh',
     fill: true,
   },
@@ -264,6 +268,7 @@ export const TABS: TabMeta[] = [
     group: 'train',
     order: 85,
     role: 'lens',
+    segLabel: '숙달', // 앎 바 축약(H-24) — 근거는 `review` 의 같은 필드 주석
     icon: 'grid',
     fill: true,
   },
@@ -406,6 +411,7 @@ export const TABS: TabMeta[] = [
     group: 'train',
     order: 88,
     role: 'lens',
+    segLabel: '원장', // 앎 바 축약(H-24) — 근거는 `review` 의 같은 필드 주석
     icon: 'grid',
     fill: true,
   },

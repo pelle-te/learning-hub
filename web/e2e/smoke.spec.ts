@@ -31,8 +31,12 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
      ⚠ **2026-07-29(E13) 에 대상이 바뀌었다.** 옛 단언은 `예보` 를 눌러 descend 를 봤는데,
      `forecast` 가 인출 축의 **호스트로 승격**하면서 통계↔예보는 이제 *형제*(lateral)다 —
      테스트가 틀린 게 아니라 관계가 바뀐 것이고, 그래서 descend 를 보려면 실제로 통계 **안에**
-     있는 렌즈를 눌러야 한다. 이 케이스가 IA 변경을 조용히 통과시키지 않은 것이 요점이다. */
-  await page.getByRole('button', { name: '숙달도 지도' }).click();
+     있는 렌즈를 눌러야 한다. 이 케이스가 IA 변경을 조용히 통과시키지 않은 것이 요점이다.
+     ⚠ 두 번째로 그 일을 했다(H-24 · 2026-08-06): 앎 바가 `segLabel` 을 얻으면서 이 버튼의
+     **접근명이 `숙달도 지도` → `숙달`** 로 바뀌었다(세그먼트 버튼의 접근명은 보이는 글자
+     그대로다 — `SubTabs` 에 `aria-label` 이 없다). 나브·⌘K·문서 제목은 계속 `label` 을 쓰므로
+     여기만 짧아진다. */
+  await page.getByRole('button', { name: '숙달' }).click();
   await expect(page).toHaveURL(/\/mastery$/);
   await expect(page.locator('html')).toHaveAttribute('data-vt', 'descend');
 
