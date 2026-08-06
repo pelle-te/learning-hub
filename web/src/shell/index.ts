@@ -21,6 +21,7 @@ export {
   orderedTabs,
   tabByKey,
   routeLabelOf,
+  routeLabelOfLocation,
   subTabGroupOf,
   hostTabKey,
   navGroups,

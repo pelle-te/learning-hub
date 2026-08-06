@@ -22,14 +22,26 @@
    소문자 `g` 는 **이동 접두사**다(`g` → `t` = 오늘). 거기에 단독 `g` 를 얹으면 접두사가 매번
    150ms 를 기다리게 되거나 이동이 깨진다 — 둘 다 기존 계약을 해친다.
 ============================================================ */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePageChrome } from '@/store/usePageChrome';
 import { isTyping } from '@/hooks/interactions';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 export default function GlanceMode() {
   const [on, setOn] = useState(false);
   const primary = usePageChrome((s) => s.primary);
   const readouts = usePageChrome((s) => s.readouts);
+  const panelRef = useRef<HTMLDivElement>(null);
+  /* ⚠⚠ **`role="dialog" aria-modal` 을 선언해 놓고 그 계약을 하나도 안 지키고 있었다**
+     (H-11 · 2026-08-06 감사). `aria-modal="true"` 는 보조기술에게 _"이 밖은 없는 셈 쳐라"_ 라고
+     말하는 선언인데, 포커스 트랩·복원·스크롤 락이 전부 없어서 Tab 이 뒤 화면으로 새어 나갔다 —
+     스크린리더 사용자에게는 **닫히지 않는 오버레이 뒤를 더듬는** 상태가 된다. 선언만 있고
+     구현이 없으면 aria 는 도움이 아니라 거짓말이다.
+     ⚠ 두 훅은 이미 있었다(`useFocusTrap`·`useScrollLock` · 오버레이 6종이 쓴다) — 이 화면만
+     그 목록 밖이었고, a11y 로스터(`_fixtures.ts`)에도 안 들어 있어 axe 가 볼 기회조차 없었다. */
+  useFocusTrap(on, panelRef);
+  useScrollLock(on);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -55,6 +67,7 @@ export default function GlanceMode() {
        키보드 사용자에게 그 경로가 없기 때문. **전면 버튼**으로 두면 Enter/Space 가 공짜로
        따라오고 포커스 순서에도 들어간다(Esc·⇧G 는 위 전역 핸들러가 이미 소유한다). */
     <div
+      ref={panelRef}
       className="fixed inset-0 z-[var(--z-modal)] flex flex-col items-center justify-center gap-6 bg-bg/95 p-8"
       role="dialog"
       aria-modal="true"

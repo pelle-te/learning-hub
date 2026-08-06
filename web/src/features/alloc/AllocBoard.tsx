@@ -29,6 +29,7 @@ import {
 import { dayStudyMin } from '@/lib/scheduler';
 import { commit } from '@/lib/motion';
 import { Button, NumberField } from '@/components/ui';
+import { useKeymapDoc } from '@/hooks/useKeymap';
 import State from '@/components/State';
 import type { ScheduleResult } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -202,6 +203,18 @@ export function AllocBoard({
   const state = useApp((st) => st.state);
   const mutate = useApp((st) => st.mutate);
   const navigate = useNavigate();
+
+  /* ⚠⚠ **격자 키보드 경로가 UI 어디에도 안 적혀 있었다**(M-13 · 2026-08-06 감사). Q-9 이
+     화살표 이동·`+`/`-` 0.5h 를 붙이면서 _"드래그의 키보드 대안"_ 을 만들었는데, 그 존재를
+     알 방법이 **소스 주석뿐**이었다 — 즉 접근성 경로를 만들고 **발견 가능성을 안 만들었다**
+     (그걸 필요로 하는 사용자가 정확히 그것을 못 찾는다). `Items`·`Graph`·`Ledger` 는 이미
+     같은 훅으로 자기 키를 치트시트(`?`)에 등재한다 — 이 화면만 그 목록 밖이었다.
+     ⚠ Alt+↑/↓ 는 이 격자가 **일부러 비켜 주는** 키다(행 재정렬이 쓴다) — 그 사실도 함께 적는다. */
+  useKeymapDoc('이 화면 · 배분 보드', [
+    { display: '← → ↑ ↓', label: '칸 이동(값 끝에서)' },
+    { display: '+ / −', label: '0.5시간씩 늘리기 / 줄이기' },
+    { display: 'Alt + ↑ / ↓', label: '과목 행 순서 바꾸기' },
+  ]);
 
   // 드래그 배분(§12-2 예산 칩) — 과목 행을 잡아 요일 칸에 놓으면 그날 +1h. 숫자 입력은 키보드 접근 경로로 병존(WCAG 2.1.1).
   const [dragSid, setDragSid] = useState<string | null>(null);

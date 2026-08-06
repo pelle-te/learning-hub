@@ -623,3 +623,25 @@ const ROUTE_LABELS: Record<string, string> = {
 export function routeLabelOf(key: string): string {
   return TAB_BY_KEY.get(key)?.label ?? ROUTE_LABELS[key] ?? '';
 }
+
+/**
+ * **경로 + 쿼리** → 사람이 읽는 이름. `?view=` 로 갈라지는 화면까지 본다.
+ *
+ * ⚠⚠ **W9 이 만든 회귀다**(H-12 · 2026-08-06 감사). W9 은 탭 셋을 호스트의 뷰로 접으면서
+ * 도달 경로를 `/degree?view=path` 같은 **쿼리**로 옮겼는데, 아나운서와 문서 제목은 여전히
+ * **첫 경로 세그먼트만** 읽었다 → 흡수된 화면으로 가면 스크린리더는 `졸업 계획` 이라 말하고
+ * 제목도 그대로다(실제로는 `내 길 지도`). 즉 W9 의 "도달성 손실 0" 약속이 **이름 축에서** 깨져
+ * 있었다 — 탭 셋이 통째로 이름을 잃었고, 그건 화면으로는 안 보인다.
+ *
+ * ⚠ 로스터를 손으로 적지 않는다 — `TABS` 의 `to` 를 그대로 대조한다(은퇴 탭이 늘거나 뷰 값이
+ * 바뀌어도 따라온다). `retired` 만 보는 게 아니라 `to` 를 가진 전부를 본다.
+ */
+export function routeLabelOfLocation(pathname: string, search: string): string {
+  const view = new URLSearchParams(search).get('view');
+  if (view) {
+    const base = `/${pathname.split('/')[1] || ''}`;
+    const hit = TABS.find((t) => t.to === `${base}?view=${view}`);
+    if (hit) return hit.label;
+  }
+  return routeLabelOf(pathname.split('/')[1] || 'today');
+}

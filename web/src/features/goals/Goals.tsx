@@ -350,7 +350,14 @@ function GoalBranch({ node, maxWeight, isRoot }: { node: GoalTreeNode; maxWeight
       <>
         <header className={HERO}>
           <div className="font-mono text-xs font-semibold tracking-wide text-acc uppercase">내 길 · 성취목표</div>
-          <h1 className="mt-1! mb-2! text-xl! tracking-tight!">{node.title}</h1>
+          {/* ⚠ **`h1` 이 아니라 `h2` 다**(M-12 · 2026-08-06 감사). W9 이 이 화면을 `/degree` 의
+              뷰로 접으면서 페이지의 `h1` 은 앱 셸이 갖게 됐는데(`러닝허브`), 이 히어로가 계속
+              `h1` 이라 **한 페이지에 h1 이 둘**이고 호스트의 `h2 졸업` **뒤에** h1 이 오는
+              역전이 생겼다(실측). 흡수는 도달 경로만 바꾼 게 아니라 **문서 구조상의 깊이**도
+              바꾼다 — 그 축이 안 따라온 것이다.
+              ⚠ `font-extrabold` 는 픽셀 보존용이다: 전역 `h1`=800 · `h2`=700 이고 크기·자간·여백은
+              이미 `!` 로 못박혀 있어 **굵기만** 달라진다(유틸리티 레이어가 base 를 이긴다). */}
+          <h2 className="mt-1! mb-2! text-xl! font-extrabold tracking-tight!">{node.title}</h2>
           <p className="m-0 max-w-prose text-sm text-mut">
             이 단일 목표를 하위목표로 분해해 학습 노력의 연관성 그래디언트를 만듭니다.
           </p>

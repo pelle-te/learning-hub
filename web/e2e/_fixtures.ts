@@ -799,12 +799,28 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     },
     ready: (page) => page.getByRole('dialog', { name: '어휘 뜻' }).waitFor(),
   },
+  {
+    /* ⚠⚠ **글랜스 모드(⇧G)가 이 로스터 밖이었다**(H-11 · 2026-08-06 감사). `role="dialog"
+       aria-modal` 을 선언한 여덟 파일 중 하나인데, 이 목록의 근거 주석이 _"여덟 중 일곱을
+       연다"_ 로 세면서 `GlanceMode` 를 **아예 세지 않았다** — 개수를 손으로 적는 목록의 전형적
+       실패다(그래서 그 문장은 아래에서 지웠다). 검사된 적이 없으니 포커스 트랩·복원·스크롤 락이
+       전부 빠져 있는 것도 아무도 몰랐다.
+       ⚠ 입구가 **전역 키**라 경로 무관이다 — `/today` 에서 연다(primary 가 있는 화면이어야
+       빈 안내가 아니라 실제 리드아웃이 렌더된다 · 빈 화면의 a11y 는 거의 아무것도 재지 않는다). */
+    key: 'overlay-glance',
+    path: '/today',
+    열기: (page) => page.keyboard.press('Shift+G'),
+    ready: (page) => page.getByRole('dialog', { name: '글랜스 모드' }).waitFor(),
+  },
 ];
 
 /* ⚠ **덮지 못한 오버레이 1종 — 이유를 적어 둔다**(H6 · 2026-07-30 → H6-잔여로 2종 회수 2026-07-31).
 
-   `role="dialog"` 선언부는 여덟이고 위 여덟이 그중 일곱을 연다(`DetailDrawer` 는 과목 시트가
-   대표한다 — 챕터 편집기가 그 안에 렌더된다). 남은 하나:
+   ⚠ **개수를 여기 적지 않는다.** 종전엔 _"선언부는 여덟이고 위 여덟이 그중 일곱을 연다"_ 라
+   적혀 있었는데, 그 셈이 `GlanceMode` 를 통째로 빠뜨리고 있었고 그래서 그 화면은 **한 번도
+   검사된 적이 없었다**(H-11 · 2026-08-06). 로스터 정본은 **위 배열**이고, 무엇이 빠졌는지는
+   `role="dialog"` 를 grep 해서 대조할 것. `DetailDrawer` 는 과목 시트가 대표한다(챕터 편집기가
+   그 안에 렌더된다). 지금 못 덮는 것 하나:
 
    · `Markets` AI 브리핑 — 여는 버튼이 `disabled={!online || !indices.length}` 이고 트랙 A 는
      백엔드가 없어 `online=false` 다(실측 `<button disabled>`). 열려면 `capabilities` 커맨드를

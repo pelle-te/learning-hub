@@ -101,3 +101,27 @@ body {
   /* 폰에서 당겨서 새로고침·고무줄 스크롤이 앱 프레임을 흔드는 것을 막는다. */
   overscroll-behavior-y: none;
 }
+
+/* ⚠⚠ **모션 자제 백스톱이 폰에 없었다**(M-11 · 2026-08-06 감사).
+
+   데스크톱은 `styles/global/motion.css` 가 `*`·`::before`·`::after` 로 애니/전이를 사실상
+   즉시 처리하는데(컴포넌트별 가드가 빠뜨린 것까지 덮는 그물), **폰은 그 파일을 안 물어서**
+   그 그물이 통째로 없었다 — 포커스 링(2026-07-24)·`.ds-shed` 가 같은 이유로 여기 복사돼 있는데
+   이 하나만 빠져 있던 것이다. 폰 화면에는 `animate-*` 유틸과 뷰 전환이 실재하므로 공백이 아니다.
+
+   ⚠ 값은 데스크톱과 **같아야 한다**(위 두 계약과 같은 이유 — 갈리면 같은 설정이 기기마다 다르게
+     동작한다). 근거 전문은 `styles/global/motion.css` 의 그 블록이 소유한다: duration 만 죽이면
+     `fill-mode:both` 스태거가 지연 구간 내내 `opacity:0` 에 머물러 "즉시"가 아니게 되므로
+     **delay 도 0** 으로 내린다. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    animation-delay: 0s !important;
+    transition-delay: 0s !important;
+  }
+}

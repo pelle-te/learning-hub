@@ -4,11 +4,17 @@
    FocusChip이 모듈로드 스냅샷(BASE_TITLE)을 복원하면 stale 제목이 남던 문제(X-9)를
    종료 시점의 *현재* 라우트로 재계산해 해소한다.
 ============================================================ */
-import { routeLabelOf } from '@/shell';
+import { routeLabelOfLocation } from '@/shell';
 
-/** pathname(기본: 현재 URL) → `<라벨> · 러닝허브`. 라벨을 못 찾으면 '러닝허브'. */
-export function routeTitle(pathname: string = window.location.pathname): string {
+/** pathname+search(기본: 현재 URL) → `<라벨> · 러닝허브`. 라벨을 못 찾으면 '러닝허브'.
+ *
+ * ⚠ **쿼리까지 본다**(H-12) — W9 이 탭 셋을 `?view=` 뷰로 접었는데 여기가 첫 세그먼트만 읽어
+ * 그 셋이 호스트 이름으로 불렸다. 근거는 `shell/tabs.ts` 의 `routeLabelOfLocation` 이 소유한다. */
+export function routeTitle(
+  pathname: string = window.location.pathname,
+  search: string = window.location.search,
+): string {
   // H27 — 탭이 아닌 라우트(`/subject/:id`·`/mini`)도 이름을 갖는다(`shell/tabs.ts`).
-  const label = routeLabelOf(pathname.split('/')[1] || 'today');
+  const label = routeLabelOfLocation(pathname, search);
   return label ? `${label} · 러닝허브` : '러닝허브';
 }

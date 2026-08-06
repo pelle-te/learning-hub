@@ -4,7 +4,7 @@ import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import {
   orderedTabs,
   tabByKey,
-  routeLabelOf,
+  routeLabelOfLocation,
   destinations,
   hostTabKey,
   ToastHost,
@@ -120,11 +120,15 @@ export default function App() {
   /* 볼트 앵커(W2)는 스토어가 아니라 모듈 레지스트리라 **아무도 다시 그리지 않았다**(H7).
      공통 조상 하나가 구독해 그 아래를 전부 덮는다 — 근거는 `hooks/useVaultAnchors.ts` 머리주석. */
   useVaultAnchorsVersion();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // 현재 라우트 메타는 pathname의 순수 파생(별도 state 불필요) — 렌더마다 계산해 아나운서/제목/프레임에 쓴다.
   // 첫 경로 세그먼트 = 기저 탭 key(중첩 라우트 /atlas/:key 대응 — 라벨·fill·나브 활성이 기저 탭을 따르게).
   const routeKey = pathname.split('/')[1] || 'today';
-  const routeLabel = routeLabelOf(routeKey); // H27 — 탭이 아닌 라우트도 아나운서가 말한다
+  /* ⚠ **쿼리까지 읽는다**(H-12 · 2026-08-06 감사). W9 이 탭 셋을 `?view=` 뷰로 접었는데 여기가
+     첫 세그먼트만 봐서, 흡수된 화면에 가면 아나운서가 **호스트 이름**을 말했다(도달성 손실 0
+     이라는 W9 의 약속이 이름 축에서 깨져 있었다). 근거는 `routeLabelOfLocation` 이 소유한다.
+     ⚠ `routeKey` 는 그대로 첫 세그먼트다 — fill 프레임·나브 활성은 **호스트** 기준이 맞다. */
+  const routeLabel = routeLabelOfLocation(pathname, search); // H27 — 탭이 아닌 라우트도 아나운서가 말한다
   /* Q-27 — **떠날 때 1회** 이어하기 커서를 남긴다. 탭 이동마다가 아니다(원 주석의 우려는
      그것이었고 이 훅은 그걸 안 한다). 공통 조상 하나가 걸어야 전 화면이 덮인다. */
   useLeaveCursor(routeLabel);
@@ -384,8 +388,9 @@ export default function App() {
   // SPA 라우트 전환을 문서 제목에 반영 — 탭마다 별개 '페이지'처럼 동작하는데도 제목이 '러닝허브'
   // 고정이던 문제(WCAG 2.4.2). document.title은 외부 시스템이라 effect가 적법(아나운서 텍스트는 파생).
   useEffect(() => {
-    document.title = routeTitle(pathname); // FocusChip 세션 종료 복원과 공유하는 단일 출처(X-9).
-  }, [pathname]);
+    document.title = routeTitle(pathname, search); // FocusChip 세션 종료 복원과 공유하는 단일 출처(X-9).
+    // ⚠ `search` 도 deps 다(H-12) — 없으면 `?view=` 전환에서 제목이 안 바뀐다(같은 pathname).
+  }, [pathname, search]);
 
   /* ── N-11 방문 원장 ───────────────────────────────────────────────────
      계수는 **여기 한 곳**이다. 22개 내비게이션 호출부에 기록을 흩으면 새 링크가 생길 때마다

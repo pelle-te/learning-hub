@@ -216,8 +216,15 @@ export function ToastHost() {
     const it = items[items.length - 1];
     if (!it || lastId.current === it.id) return;
     lastId.current = it.id;
-    // 액션이 있으면 그 사실도 말한다 — 눈에 보이는 버튼이 SR 에는 존재를 알릴 길이 없다.
-    const msg = it.action ? `${it.msg} — ${it.action.label}` : it.msg;
+    /* 액션이 있으면 그 사실도 말한다 — 눈에 보이는 버튼이 SR 에는 존재를 알릴 길이 없다.
+       ⚠⚠ **`actions`(복수)를 안 읽고 있었다**(H-22 · 2026-08-06 감사). 이 줄이 `it.action`(단수)만
+       봤는데 `toastChoice` 는 `actions` + **`ms: 0`**(자동으로 안 닫힘)로 쌓는다 — 즉 *사용자의
+       선택을 기다리는* 토스트가 하필 SR 에는 **선택지가 있다는 사실조차** 안 알렸다. 그리고
+       안 닫히므로 화면을 보지 않는 사용자는 그 상태에서 벗어날 단서가 0 이다.
+       ⚠ 렌더 쪽은 이미 `actions ?? [action]` 으로 합쳐 그린다 — **여기만 그 합침을 안 했다**
+       (같은 값의 두 표현이 두 곳에서 갈린 형태). */
+    const labels = (it.actions ?? (it.action ? [it.action] : [])).map((a) => a.label);
+    const msg = labels.length ? `${it.msg} — ${labels.join(' · ')}` : it.msg;
     setLive(it.type === 'bad' ? { polite: '', assertive: msg } : { polite: msg, assertive: '' });
   }, [items]);
 
