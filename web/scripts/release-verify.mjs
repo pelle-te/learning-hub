@@ -41,6 +41,28 @@ if (!existsSync(MANIFEST)) {
 }
 const local = JSON.parse(readFileSync(MANIFEST, 'utf8'));
 
+/* ⚠⚠ **소스 버전 ↔ 매니페스트 버전 — 이 축을 아무도 안 보고 있었다**(2026-08-06 감사 H-13).
+
+   2026-08-01~06 동안 `tauri.conf.json` 은 **0.4.0** 인데 배포 매니페스트는 **0.3.0** 이었다.
+   그 상태의 증상은 오류가 아니라 **침묵**이다: 업데이터는 *현재 버전 < 매니페스트 버전* 일 때만
+   업데이트를 제안하므로, 매니페스트가 뒤처지면 아무 일도 안 일어난다. 그래서 나흘치 수정이
+   사용자에게 도달하지 않은 사실을 **아무도 몰랐고**, 로드맵의 「관측 대기」 일곱 행은 시간이
+   아니라 **닿지 않은 빌드**를 기다리고 있었다.
+
+   ⚠ 배포 *시점*에 거는 것이 맞는 자리다 — 개발 중에 소스 버전을 먼저 올리는 것은 정상이라
+   게이트에 넣으면 상시 거짓 경보가 된다. "릴리스한다"고 선언한 순간에만 둘이 같아야 한다. */
+const CONF = new URL('../../src-tauri/tauri.conf.json', import.meta.url);
+if (existsSync(CONF)) {
+  const src = JSON.parse(readFileSync(CONF, 'utf8')).version;
+  if (src !== local.version) {
+    console.error(`❌ 소스 버전 ${src} ≠ 매니페스트 ${local.version}`);
+    console.error('   → 매니페스트가 뒤처지면 업데이터는 **조용히 아무것도 제안하지 않는다**(H-13 이 그 상태였다).');
+    console.error('   → `docs/릴리스.md` §2-3 대로 매니페스트를 이번 버전으로 갱신하고 다시 배포할 것.');
+    process.exit(1);
+  }
+  console.log(`  ok 소스 ↔ 매니페스트 버전 ${src}`);
+}
+
 /** 오리진은 매니페스트의 `url` 에서 뽑는다 — 값을 두 벌로 두지 않는다. */
 const first = Object.values(local.platforms ?? {})[0];
 const origin = first?.url ? new URL(first.url).origin : null;
