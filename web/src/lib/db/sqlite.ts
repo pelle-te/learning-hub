@@ -292,6 +292,7 @@ export async function readRows(): Promise<DbRows | null> {
       tasks: [],
       questions: [],
       jolAsks: [],
+      retrievals: [],
     },
     summaries: summaries.map((r) => ({ sid: str(r.sid), id: str(r.id), ord: Number(r.ord), json: str(r.value) })),
     weekAlloc: weekAlloc.map((r) => ({ wk: str(r.wk), sid: str(r.sid), json: str(r.value) })),

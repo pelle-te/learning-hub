@@ -419,6 +419,42 @@ export const AppStateSchema = z.looseObject({
       }),
     ),
   ),
+  /* ── A-2 **인출 지연 원장**(발산 6회차 · 2026-08-07) ─────────────────────────
+     카드를 띄운 순간부터 '펼치기'까지의 경과 ms + 그 카드의 판정.
+
+     ## 왜 새 슬라이스인가 — **숙주를 한 번 잘못 골랐다**
+     처음엔 `blankResults` 에 필드를 달았다. 틀렸다: 그 배열을 쓰는 곳은 `TodayBlocks`
+     (백지 복습)뿐이고 **`ReviewRun` 은 안 쓴다**. 러너의 인출은 `reviewTouches`(날짜 문자열
+     하나)만 남기므로 담을 자리가 원리적으로 없었다. 아무도 안 쓰는 필드를 남기면 이 저장소가
+     반복해서 잡아 온 *"쓰기 0 · 소비처 0"* 결함이 된다 → 되돌리고 여기로 옮겼다.
+
+     ## 왜 이 신호인가
+     이 앱의 인출 관측은 **통과/막힘 1비트가 전부**였다(`ReviewRun.tsx` 에 `performance.now`
+     0건). 같은 통과라도 3초와 40초는 다른 상태다 — 후자는 붙은 것이 아니라 *더듬어 찾아낸*
+     것이고, 시험은 그것을 통과로 안 쳐 준다. CBMS 의 `T`(시간) 코드가 사후 자기보고로 같은
+     것을 잡고 있었는데 그건 이미 늦은 관측이다.
+     ⚠⚠ **사용자가 아무것도 더 안 해도 생기는 유일한 신호다.** 이 회차의 다른 신규 신호는
+     전부 새 입력을 요구한다 — 그래서 이것을 가장 먼저 단다. 표본은 시간이 만든다.
+
+     ⚠ `records` 슬라이스라 **D1 DDL 0 · 서버 zod 0 · 폰 전파 0**(`questions`·`jolAsks` 선례).
+     ⚠ **옵셔널이 계약**이다 — 옛 저장·다른 기기 pull 에 이 키가 없다.
+     ⚠ **지금은 아무 화면도 이 값을 안 그린다.** 그게 의도다(`doneAt`(T-8)이 세운 관용구):
+     관측 며칠치로 챕터를 줄 세우면 `chapterStrength` 가 이미 거절한 정밀도의 착시가 된다.
+     소비처는 표본이 쌓인 뒤에 정한다. */
+  retrievals: z.optional(
+    z.array(
+      z.object({
+        id: z.string(),
+        ds: z.string(),
+        sid: z.string(),
+        chapter: z.string(),
+        /** 카드 노출 → 펼치기까지의 ms. */
+        ms: z.number(),
+        /** 그 카드를 떠올렸나(펼친 뒤의 판정). 넘김이면 false. */
+        got: z.boolean(),
+      }),
+    ),
+  ),
   backlog: z.array(BacklogSchema),
   blankResults: z.array(BlankResultSchema),
   retentionLog: z.array(RetentionSchema),
@@ -498,6 +534,8 @@ export type CbmsCode = z.infer<typeof CbmsCodeSchema>;
 export type Cbms = z.infer<typeof CbmsSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
 export type JolAsk = NonNullable<z.infer<typeof AppStateSchema>['jolAsks']>[number];
+/** A-2 인출 지연 한 건. */
+export type Retrieval = NonNullable<z.infer<typeof AppStateSchema>['retrievals']>[number];
 export type Backlog = z.infer<typeof BacklogSchema>;
 export type BlankResult = z.infer<typeof BlankResultSchema>;
 export type Weekly = z.infer<typeof WeeklySchema>;

@@ -58,6 +58,7 @@ import { type ResumeNav } from '@/lib/resume';
 import { writeResume, dropResume } from '@/store/resumeCursor';
 
 import { CBMS_INFO, CBMS_CODES, addCbms, editCbms } from '@/lib/methodology';
+import { addRetrieval, setRetrievalGot } from '@/lib/retrievalLatency';
 import type { CbmsCode } from '@/lib/types';
 import { jolSummary, overconfidentCards, type JolEntry } from '@/lib/insights';
 import { Button } from '@/components/ui';
@@ -517,6 +518,55 @@ export default function ReviewRun() {
     },
     abort: () => nav('/today'),
   });
+
+  /* ── A-2 인출 지연(발산 6회차 · 2026-08-07) ─────────────────────────────────
+     창은 **카드가 뜬 순간 → 펼치기**다. 그 사이가 "떠올리려 애쓴 시간"이고, 펼친 뒤는
+     대조 시간이라 다른 것이다.
+
+     ⚠⚠ **전부 이펙트 안이다.** 처음엔 `reveal`·`advance` 안에서 쟀는데 React Compiler purity
+     규칙이 막았다 — 그 둘은 `buildKeys` 에 **인자로 넘어가고**, 린트는 인자로 넘긴 콜백을
+     렌더 중 호출로 본다(그래서 그 안의 ref 접근이 "렌더 중 ref 접근"이 된다). 이 파일이
+     `keysRef` 에 대해 이미 같은 결론에 도달해 있었다(아래 주석).
+
+     ⚠ **`Date.now` 가 아니라 `performance.now`** — 벽시계는 NTP 보정으로 뒤로 갈 수 있고,
+     그러면 음수 지연이 원장에 들어간다(문턱이 아니라 *의미*가 깨진다).
+     ⚠ 재큐된 카드(`again`)는 안 담는다 — 두 번째 대면은 이미 답을 본 뒤라 인출이 아니다
+     (`askJol` 이 같은 이유로 같은 카드를 두 번 안 묻는다).
+     ⚠ 문턱(연타 · 자리 뜸)은 `lib/retrieval` 이 판정한다. 여기서 자르면 기준이 두 벌이 된다. */
+  const shownAt = useRef(0);
+  const lastRetrievalId = useRef<string | null>(null);
+  const gotSeen = useRef(0);
+  useEffect(() => {
+    shownAt.current = performance.now();
+    lastRetrievalId.current = null; // 카드가 바뀌면 직전 카드의 판정 창은 닫힌다
+  }, [idx]);
+  useEffect(() => {
+    if (revealedAt !== idx) return;
+    const cur = queue[idx];
+    const a = cur ? anchorOf(cur) : null;
+    if (!a || cur?.again) return;
+    const ms = performance.now() - shownAt.current;
+    /* ⚠ 판정(`got`)은 아직 없다 — 펼치는 순간엔 떠올렸는지 모른다. 낙관적으로 `true` 를
+       넣으면 넘긴 카드까지 전부 "떠올림"이 되어 `gotRate` 가 통째로 거짓이 된다. */
+    let id: string | null = null;
+    useApp.getState().mutate((st) => {
+      id = addRetrieval(st, a.sid, a.chapter, ms, false);
+    });
+    lastRetrievalId.current = id;
+  }, [revealedAt, idx, queue]);
+  /* 판정 채우기 — `gotKeys` 가 늘어난 것이 곧 "떠올렸다"다. 이벤트 핸들러에서 ref 를 만지지
+     않으려고 **결과를 보고** 채운다(위 purity 근거). */
+  useEffect(() => {
+    if (gotKeys.length > gotSeen.current) {
+      const id = lastRetrievalId.current;
+      if (id) {
+        useApp.getState().mutate((st) => setRetrievalGot(st, id, true));
+        lastRetrievalId.current = null;
+      }
+    }
+    gotSeen.current = gotKeys.length;
+    // ⚠ ref 객체는 정체성이 불변이라 의존성으로 무해하다 — 규칙을 끄는 대신 만족시킨다.
+  }, [gotKeys, gotSeen]);
 
   /* 리스너는 마운트당 1회 — 목록은 이펙트에서 동기화한다(렌더 중 ref 쓰기 금지 · `useWeekNavKeys` 선례). */
   const keysRef = useRef<RunKey[]>([]);

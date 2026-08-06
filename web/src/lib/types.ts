@@ -18,6 +18,8 @@ export type {
   Question,
   /** T-9 지연 JOL 예측 한 건. ⚠ 해소는 저장하지 않는다(`lib/delayedJol` 머리주석). */
   JolAsk,
+  /** A-2 인출 지연 한 건(카드 노출 → 펼치기 ms). ⚠ 소비처는 표본이 쌓인 뒤다. */
+  Retrieval,
   Backlog,
   BlankResult,
   Weekly,

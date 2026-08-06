@@ -42,6 +42,12 @@ export const ARRAY_SLICES = [
   /* T-9 지연 JOL 의 예측 원장. 위 `questions` 와 같은 이유로 DDL 0 이고, 같은 이유로
      `dbRows.test.ts` 의 누락 감지 케이스를 **의도적으로** 갱신해야 한다. */
   'jolAsks',
+  /* A-2 인출 지연 원장(발산 6회차 · 2026-08-07). 위 둘과 같은 이유로 DDL 0.
+     ⚠ 이 슬라이스가 여기 온 것은 **숙주를 한 번 잘못 골랐기 때문**이다 — `blankResults` 에
+     필드로 달았다가 되돌렸다(그 배열은 백지 복습 전용이고 러너가 안 쓴다). 근거는 `schema.ts`
+     의 `retrievals` 머리주석. 순수 로직은 `lib/retrievalLatency.ts`(파일명이 다른 이유는
+     그 파일 머리주석 — `lib/retrieval.ts` 는 **회상 카드 선택**이라는 다른 것이 이미 쓰고 있다). */
+  'retrievals',
 ] as const;
 export type ArraySlice = (typeof ARRAY_SLICES)[number];
 
@@ -397,6 +403,7 @@ export function stateToRows(state: AppState): DbRows {
       tasks: [],
       questions: [],
       jolAsks: [],
+      retrievals: [],
     },
     summaries: [],
     weekAlloc: [],
