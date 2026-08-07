@@ -647,8 +647,22 @@ export async function shellNotifyPrime(): Promise<void> {
  * 있었다 — 사용자는 알림을 켜 놓고 영원히 못 받는다. 삼키는 것 자체는 맞다(알림 실패가 앱을
  * 멈추면 안 된다) 틀린 것은 **호출부가 그 사실을 알 수 없던 것**이다.
  */
-export async function shellNotify(title: string, body: string): Promise<boolean> {
+export async function shellNotify(title: string, body: string, route?: string): Promise<boolean> {
   if (!isTauri()) return false;
+  /* ⚠⚠ **착지가 있으면 플러그인을 안 쓴다**(W3 · 발산 6회차). 플러그인의 Windows 경로는
+     토스트 핸들을 버려서(`desktop.rs`: `let _ = notification.show()`) `onAction` 이 **영원히
+     안 불린다** — 리스너를 달아 두면 "클릭 착지가 있다"는 착시만 남는다(P-8 이 잡은 것과
+     같은 형태: 항상 거짓인 가드 뒤에서 아무 일도 안 일어났다). 그래서 착지가 필요한 알림은
+     Rust 가 `tauri-winrt-notification` 을 직접 쓴다(`src-tauri/src/notify.rs`).
+     ⚠ 실패하면 **아래 플러그인 경로로 떨어진다** — 착지 없는 알림이 알림 없는 것보다 낫다. */
+  if (route) {
+    try {
+      await call<void>('notify_landing', { title, body, route });
+      return true;
+    } catch {
+      /* 플랫폼·AUMID·권한 — 폴백은 바로 아래다 */
+    }
+  }
   try {
     const api = await import('@tauri-apps/plugin-notification');
     if (!(await api.isPermissionGranted()) && (await api.requestPermission()) !== 'granted') return false;
@@ -656,6 +670,40 @@ export async function shellNotify(title: string, body: string): Promise<boolean>
     return true;
   } catch {
     return false; // 권한 거부·플러그인 부재 — 호출부가 폴백을 고른다
+  }
+}
+
+/** 알림을 클릭했을 때 부르는 구독(셸 전용) — 인자는 **착지 경로**다.
+ *
+ *  ⚠ 창을 되살리는 것은 **Rust 가 이미 했다**(`notify.rs` 가 `tray::show` 를 부른다) — 상주
+ *  모드의 숨은 창은 프런트에서 못 깨우기 때문이다. 여기 남는 일은 라우팅뿐이다.
+ *  ⚠ 이벤트 이름은 `notify.rs` 의 `NOTIFY_CLICK` 과 짝이고, `test/shellContract.test.ts` 가
+ *  그 파일을 파싱해 이 상수와 대조한다(손베낌 두 벌이 조용히 갈리는 것을 막는 유일한 자리). */
+export const NOTIFY_CLICK_EVENT = 'notify:click';
+
+export async function onNotifyClick(cb: (route: string) => void): Promise<() => void> {
+  if (!isTauri()) return () => {};
+  try {
+    const { listen } = await import('@tauri-apps/api/event');
+    return await listen<string>(NOTIFY_CLICK_EVENT, (e) => {
+      if (typeof e.payload === 'string' && e.payload.startsWith('/')) cb(e.payload);
+    });
+  } catch {
+    return () => {};
+  }
+}
+
+/** 시스템 전역 유휴 시간(초 · N-8). 브라우저·비Windows·실패는 **0**(= 방금 입력함).
+ *
+ *  ⚠ 웹 이벤트로는 못 잰다 — 창이 뒤에 있으면 앱이 보는 입력은 항상 0이라 *유휴*와
+ *  *다른 창에서 일하는 중*이 구분되지 않는다. 그 구분이 이 신호의 전부다(`notify.rs`). */
+export async function systemIdleSeconds(): Promise<number> {
+  if (!isTauri()) return 0;
+  try {
+    const n = await call<number>('system_idle_seconds');
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
   }
 }
 

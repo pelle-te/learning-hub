@@ -523,6 +523,10 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                       c.run?.(); // ⚠ 이동만 하는 항목은 `run` 이 없다(P3 — `act:graph`).
                       // 액션이 특정 탭에서 이어지는 경우(집중 시작·기록 프리필) 실행 후 이동.
                       if (c.to) go(c.to);
+                      /* ⚠ `enter` 는 **실패하면 안 가는** 진입이다(N-20) — 창 모드처럼 부수효과가
+                         실패했을 때 이동하면 반쪽 상태가 된다(`lib/miniMode` H9). 그래서 `to` 와
+                         달리 결과를 기다린다. */
+                      if (c.enter) void c.enter().then((dest) => dest && go(dest));
                     }
                   } catch (e) {
                     console.error(e);

@@ -21,6 +21,7 @@ import { useLeaveCursor } from './useLeaveCursor';
 import { useFrameMemory } from './useFrameMemory';
 import { useTaskbarBadge } from './useTaskbarBadge';
 import { useDailyReminder } from './useDailyReminder';
+import { useIdleLedger } from './useIdleLedger';
 import { useMarkSeen } from './useMarkSeen';
 import TopBar from '@/app/TopBar';
 import RailSidebar from '@/app/RailSidebar';
@@ -35,7 +36,7 @@ import PinBar from '@/app/PinBar';
 import { routeTitle } from '@/app/docTitle';
 import { reportError } from '@/lib/telemetry';
 import { markVia, recordHop, recordVisit, takeVia } from '@/lib/visits';
-import { onGlobalCapture } from '@/lib/tauri';
+import { onGlobalCapture, onNotifyClick } from '@/lib/tauri';
 import { mark as perfMark } from '@/lib/perf';
 import { getReactTab, prefetchTab } from '@/features/registry';
 /* ⚠ 팔레트·단축키 도움말은 **앱 크롬**이다(H10 · 2026-07-26 감사). `components/` 에 있던 동안
@@ -133,6 +134,9 @@ export default function App() {
   /* T-6 — 예약 한 발(하루 최대 1회). 배지와 **같은 수**를 쓴다: 셋이 갈리면 알림이 3 이라 하고
      레일이 5 라 하는 상태가 생긴다. 상주(T-3)가 켜져 있어야 앱을 안 여는 날에도 뜬다. */
   useDailyReminder();
+  /* N-8(W3) — 유휴 원장. **알림은 안 쏜다** — 재수신성 트리거의 전제(앱이 떠 있는 채로 자리를
+     비우는 구간이 실재하나)를 3일 재는 자다. 근거는 `lib/idleLedger` 머리주석. */
+  useIdleLedger();
   /* T-13 — "지난번 이후". 이 화면을 오늘 봤다고 기기-로컬로 표시한다.
      ⚠ 여기 있는 이유는 `useLeaveCursor`·`useFrameMemory` 와 같다(라우트가 스토어를 만나는 유일한
      자리). ⚠ 델타를 **여기서 계산하지 않는다** — 판정은 `lib/since` 가 소유하고, 소음 문턱을
@@ -218,7 +222,6 @@ export default function App() {
     pathRef.current = pathname;
   }, [pathname]);
   useEffect(() => {
-    let off: (() => void) | null = null;
     let dead = false;
     /* ── Q-26 캡처 착지 — **창을 복원하지 않고 알약으로 받는다**(2026-08-02) ──────────────
        종전엔 핫키가 1440×900 창을 복원했다. 한 줄을 적어 두려고 눌렀는데 화면 전체가 뜨고
@@ -236,20 +239,38 @@ export default function App() {
       if (pathRef.current === MINI_PATH) return o.setMiniCapture(true);
       if (!useFocus.getState().session) return o.setPalette(true);
       const from = pathRef.current;
-      void enterMini(from, true).then((ok) => {
+      void enterMini(from, 'capture').then((ok) => {
         if (!ok) return o.setPalette(true);
         navigate(MINI_PATH, { replace: true });
         o.setMiniCapture(true);
       });
     };
-    void onGlobalCapture(land).then((f) => {
+    /* ── W3 알림 **착지**(발산 6회차) — 같은 이펙트에 둔다 ────────────────────────────
+       A-1 이 알림을 *수*에서 *한 조각의 이름*으로 바꿨는데, 그 이름을 눌러도 앱이 그냥 뜨기만
+       했다 — 절약한 홉("확인이 아니라 시작")이 착지 없이는 도로 생긴다.
+       ⚠ 창을 되살리는 것은 **Rust 가 이미 했다**(`notify.rs` → `tray::show`). 상주 모드의 숨은
+         창은 프런트가 못 깨우기 때문이고, 여기 남는 일은 라우팅뿐이다.
+       ⚠ 미니 모드일 때는 **라우팅하지 않는다** — 320×92 알약 뷰포트에 풀사이즈 화면을 밀어
+         넣는 것이 Q-26 이 고친 바로 그 실패다. 알약은 사용자가 펼칠 때 왔던 곳으로 간다.
+       ⚠ **이펙트를 따로 파지 않는 이유**: 둘 다 *셸 이벤트를 화면에 착지시키는* 같은 수명이고,
+         가르면 `exhaustive-deps` 억제가 하나 더 생긴다 — 그 억제는 곧 React Compiler 바일아웃
+         이라(`scripts/compiler-ratchet.mjs`) 같은 규율을 두 번 적는 대가가 최적화 손실이다. */
+    const landNotify = (route: string): void => {
+      if (pathRef.current === MINI_PATH) return;
+      markVia('link');
+      navigate(route);
+    };
+    const offs: (() => void)[] = [];
+    const keep = (f: () => void): void => {
       // ⚠ 언마운트가 구독 완료보다 빠를 수 있다 — 그때 바로 떼지 않으면 리스너가 샌다.
       if (dead) f();
-      else off = f;
-    });
+      else offs.push(f);
+    };
+    void onGlobalCapture(land).then(keep);
+    void onNotifyClick(landNotify).then(keep);
     return () => {
       dead = true;
-      off?.();
+      for (const f of offs) f();
     };
     /* ⚠ `navigate` 를 deps 에 넣지 않는다 — react-router 가 그것을 안정 참조로 보장하지 않아
        넣으면 라우팅마다 **전역 핫키 구독이 떼였다 붙는다**(IPC 왕복 포함). 바로 아래 전역

@@ -25,6 +25,7 @@ import {
   type RoundTrip,
   type VisitRow,
 } from '@/lib/visits';
+import { idleSample, idleSummary, idleVerdict, type IdleRow } from '@/lib/idleLedger';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
@@ -157,7 +158,42 @@ function VisitLedger() {
           <div className="mt-0.5 text-mut">0시 — 6 — 12 — 18 — 23</div>
         </div>
       )}
+      <IdleLedger />
     </details>
+  );
+}
+
+/**
+ * 유휴 원장 리드아웃(N-8 · W3) — **트리거를 만들지 말지의 유일한 근거**.
+ *
+ * ⚠ 판정 문장을 여기서 조립하지 않는다(`idleVerdict` 가 낸다). 화면이 판정하면 "관측 0일"과
+ * "부재 0회"가 같은 회색 문장으로 보이고, 그 구분이 정확히 이 원장의 값이다.
+ * ⚠ 같은 `<details>` 안에 두는 이유: 둘 다 **판단의 입력**이지 화면이 아니다. 새 섹션을 파면
+ * 설정이 계측 대시보드가 되기 시작한다(그건 이 앱이 다섯 번 강등한 부류다).
+ */
+function IdleLedger() {
+  const [rows, setRows] = useState<IdleRow[] | null>(null);
+  const [sample, setSample] = useState<{ days: number; spells: number } | null>(null);
+  useEffect(() => {
+    void idleSummary().then(setRows);
+    void idleSample().then(setSample);
+  }, []);
+  if (!rows || !sample) return null;
+  const v = idleVerdict(rows, sample);
+  return (
+    <div className="ds-tiny mt-2">
+      <b>자리 비움</b> <span className="text-mut">· 5분+ 무입력 · 최근 14일</span>
+      <div className={v.ok ? 'text-mut' : 'text-warn'}>{v.text}</div>
+      {rows.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          {rows.map((r) => (
+            <span key={r.hour}>
+              {r.hour}시 <span className="text-mut">·</span> {r.n}회 {Math.round(r.sec / 60)}분
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

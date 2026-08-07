@@ -26,15 +26,17 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { CLOSE_GUARD_MS, TRAY_QUIT_EVENT } from '@/lib/tauri';
+import { CLOSE_GUARD_MS, NOTIFY_CLICK_EVENT, TRAY_QUIT_EVENT } from '@/lib/tauri';
 
 const TRAY_RS = fileURLToPath(new URL('../../src-tauri/src/tray.rs', import.meta.url));
+const NOTIFY_RS = fileURLToPath(new URL('../../src-tauri/src/notify.rs', import.meta.url));
 const src = readFileSync(TRAY_RS, 'utf8');
+const notifySrc = readFileSync(NOTIFY_RS, 'utf8');
 
 /** Rust 소스에서 상수 하나를 뽑는다. 못 찾으면 던진다(조용한 skip 금지). */
-function rustConst(name: string, re: RegExp): string {
-  const m = re.exec(src);
-  if (!m?.[1]) throw new Error(`tray.rs 에서 ${name} 를 못 찾았다 — 선언이 바뀌었다면 이 파싱을 고칠 것.`);
+function rustConst(name: string, re: RegExp, from: string = src): string {
+  const m = re.exec(from);
+  if (!m?.[1]) throw new Error(`Rust 소스에서 ${name} 를 못 찾았다 — 선언이 바뀌었다면 이 파싱을 고칠 것.`);
   return m[1];
 }
 
@@ -47,6 +49,13 @@ describe('셸↔프런트 상수 계약 — Rust 원본을 파싱해 대조한�
   it('트레이 종료 이벤트 이름이 프런트 구독 이름과 짝이다', () => {
     const rust = rustConst('TRAY_QUIT', /TRAY_QUIT:\s*&str\s*=\s*"([^"]+)"/);
     expect(rust, '이름이 갈리면 트레이 종료가 프런트에 영영 안 닿는다(무증상)').toBe(TRAY_QUIT_EVENT);
+  });
+
+  /* W3(발산 6회차) — 알림 **착지**. 이름이 갈리면 토스트를 눌러도 아무 데도 안 가고, 그건
+     화면에 아무 증상도 안 남긴다(P-8 이 잡은 "한 번도 안 쐈다"와 같은 종류의 무증상 결함). */
+  it('알림 클릭 이벤트 이름이 프런트 구독 이름과 짝이다', () => {
+    const rust = rustConst('NOTIFY_CLICK', /NOTIFY_CLICK:\s*&str\s*=\s*"([^"]+)"/, notifySrc);
+    expect(rust, '갈리면 알림을 눌러도 착지가 영영 안 일어난다(무증상)').toBe(NOTIFY_CLICK_EVENT);
   });
 
   it('⚠ 파싱 자체가 살아 있다 — 없는 상수를 찾으면 던진다(조용한 통과 금지)', () => {

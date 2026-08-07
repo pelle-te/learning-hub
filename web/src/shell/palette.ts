@@ -11,6 +11,7 @@ import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
 import { useOverlay } from '@/store/useOverlay';
 import { MOD_LABEL } from '@/lib/platform';
+import { MINI_PATH, enterMini } from '@/lib/miniMode';
 
 // C-5: 탭 → g-시퀀스 매핑(치트시트가 이미 정의). 팔레트 hint에 노출해 사용 중 키보드 내비를 학습시킨다.
 const SEQ_BY_TAB = new Map(NAV_SHORTCUTS.map((s) => [s.tab, s.seq]));
@@ -20,7 +21,19 @@ export type PaletteCommand =
   /** act — run() 실행 후 to가 있으면 해당 탭으로 이동(팔레트가 navigate).
    *  ⚠ `run` 이 **선택**인 것은 P3 의 산물이다: 탭이 아닌 **화면**(`/items?view=structure`)으로
    *  가는 항목은 부수효과가 없고 이동이 전부다. 빈 `() => {}` 를 놓는 것보다 타입이 사실이다. */
-  | { id: string; kind: 'act'; label: string; hint: string; run?: () => void; to?: string };
+  /** ⚠ `enter` 는 **실패할 수 있는 진입**이다(N-20 · W3). `run`+`to` 조합은 부수효과가 성공했든
+   *  말든 이동하는데, 창 모드 전환처럼 *실패하면 이동하면 안 되는* 동작이 있다 — 작아지지
+   *  않았는데 알약 화면만 뜨면 나갈 문이 화면에서 사라진다(`lib/miniMode` 가 H9 에서 세운 규율).
+   *  성공하면 갈 경로를, 실패하면 `null` 을 준다. 팔레트는 `null` 이면 **아무 데도 안 간다**. */
+  | {
+      id: string;
+      kind: 'act';
+      label: string;
+      hint: string;
+      run?: () => void;
+      to?: string;
+      enter?: () => Promise<string | null>;
+    };
 
 function baseCommands(): PaletteCommand[] {
   const tabs: PaletteCommand[] = orderedTabs().map((t) => {
@@ -75,6 +88,20 @@ function baseCommands(): PaletteCommand[] {
       label: '즉석 집중 50분 — 예약 없이',
       hint: '오늘',
       run: () => useFocus.getState().startFree(50),
+    },
+    /* ── N-20 **상주 알약**(W3 · 발산 6회차) ─────────────────────────────────────
+       320×92 always-on-top 알약은 이 앱의 유일한 *상시* 표면인데, 지금까지 **집중 세션의
+       부속물**이었다 — 세션이 없으면 들어갈 입구조차 없었고(FocusChip 이 세션 없으면 null)
+       억지로 들어가면 `'세션 종료'` 라는 죽은 문자열만 있었다. 그 자리에서 다음 조각 하나를
+       말하게 한다(알림·트레이와 **같은 리드**).
+       ⚠ 셸 전용이다 — 브라우저엔 창 개념이 없어 `enterMini` 가 즉시 false 를 준다(그러면
+         이 항목은 아무 일도 안 하고 아무 데도 안 간다 · 위 `enter` 계약). */
+    {
+      id: 'act:mini',
+      kind: 'act',
+      label: '미니 알약 — 항상 위에 뜨는 작은 창',
+      hint: '창',
+      enter: () => enterMini(window.location.pathname, 'resident').then((ok) => (ok ? MINI_PATH : null)),
     },
     // I-9: 복습 세션 러너 진입(오늘 인출할 것을 한 흐름으로).
     {

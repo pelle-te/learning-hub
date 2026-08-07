@@ -83,7 +83,17 @@ export interface ReminderLead {
   label: string;
   /** 예상 소요(분). 0 이하·미상이면 안 적는다 — 틀린 소요는 없는 소요보다 나쁘다. */
   min?: number;
+  /** 클릭했을 때 **착지할 경로**(W3). 이름을 말한 알림이 그 이름으로 데려가지 않으면
+   *  절약한 홉이 도로 생긴다 — A-1 이 "알림을 확인이 아니라 시작으로" 만든 그 값이 반쪽이 된다. */
+  route: string;
 }
+
+/* ── 착지 경로(W3 · 발산 6회차) ─────────────────────────────────────────────
+   ⚠ **여기가 정본이다.** 훅이 정하면 채널마다(알림·트레이·배지) 다른 곳으로 데려갈 수 있고,
+   그 셋은 같은 리드를 말한다 — `pickReminderLead` 가 리드를 소유하므로 착지도 여기가 진다.
+   ⚠ 리드 종류마다 갈린다: 밀린 챕터는 **인출을 굴리는 화면**, 보충은 **오늘 화면**이다
+   (보충은 오늘의 몫으로 배치되는 것이라 러너 큐에 없다). */
+const LEAD_ROUTE = { chapter: '/review-run', backlog: '/today' } as const;
 
 /** 리드를 고를 재료. **훅은 시계와 채널만 안다** — *무엇을 말할까* 는 이 파일이 소유한다. */
 export interface ReminderCandidates {
@@ -106,9 +116,12 @@ export interface ReminderCandidates {
 export function pickReminderLead(c: ReminderCandidates): { lead: ReminderLead | null; rest: number } {
   const total = c.chapters.length + c.backlog.length;
   const head = c.chapters[0];
-  if (head) return { lead: { label: `${head.subject} · ${head.chapter}`, min: c.reviewMin }, rest: total - 1 };
+  if (head) {
+    const label = `${head.subject} · ${head.chapter}`;
+    return { lead: { label, min: c.reviewMin, route: LEAD_ROUTE.chapter }, rest: total - 1 };
+  }
   const b = c.backlog[0];
-  if (b) return { lead: { label: `${b.name} · ${b.topic}`.trim() }, rest: total - 1 };
+  if (b) return { lead: { label: `${b.name} · ${b.topic}`.trim(), route: LEAD_ROUTE.backlog }, rest: total - 1 };
   return { lead: null, rest: 0 };
 }
 

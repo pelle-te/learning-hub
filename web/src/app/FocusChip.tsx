@@ -10,7 +10,7 @@ import { useApp } from '@/store/useApp';
 import { touchReview } from '@/lib/persistence';
 import { mmss } from '@/lib/utils';
 import { isTauri, shellNotify } from '@/lib/tauri';
-import { MINI_PATH, enterMini, exitMini } from '@/lib/miniMode';
+import { MINI_PATH, enterMini, exitMini, miniMode } from '@/lib/miniMode';
 import { toast, toastChoice } from '@/shell/toast';
 import { Icon } from '@/components/Icon';
 import { confirmIrreversible } from '@/shell/destructive';
@@ -161,9 +161,12 @@ export default function FocusChip() {
      자기 종료를 감시하게 만들면 감시자가 둘이 되고, 그러면 알림·완료 토스트가 두 번 뜬다.
      ⚠ `session` 이 null 이 되는 순간에 걸린다 — 자동 휴식이 곧바로 새 세션을 만들지만 그건
      다음 렌더의 새 session 이라 이 이펙트는 이미 복귀를 걸었다(휴식은 알약에 안 가둔다). */
+  /* ⚠ **상주 알약(N-20)은 자동으로 안 나간다.** 이 이펙트가 감시하는 것은 *세션을 접은* 알약이
+     세션 종료와 함께 펼쳐지는 것이고, 세션 없이 들어온 알약에는 그 계약이 없다 — 여기서 걸러
+     내지 않으면 상주 모드가 **켜지자마자 스스로 나간다**(session 이 처음부터 null 이므로). */
   const inMini = location.pathname === MINI_PATH;
   useEffect(() => {
-    if (!inMini || session) return;
+    if (!inMini || session || miniMode() === 'resident') return;
     /* ⚠ 창 복원이 실패하면 **라우팅하지 않는다**(H9) — 알약 크기 그대로 다른 화면으로 넘어가면
        나갈 문(알약의 확장 버튼)까지 사라져 재시작 외 탈출이 없다. 알약에 머물면 다시 누를 수 있다. */
     void exitMini().then((back) => {

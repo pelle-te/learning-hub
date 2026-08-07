@@ -185,6 +185,15 @@ pub fn migrations() -> Vec<Migration> {
             kind: MigrationKind::Up,
             sql: include_str!("../migrations/010_route_hops.sql"),
         },
+        /* W3(발산 6회차) — 유휴 원장(N-8). **알림을 쏘려는 것이 아니라 전제를 재려는 것**이다:
+        재수신성 트리거의 근거로 인용되던 실측은 트레이·자동시작 이전 것이라 지금 유효하지
+        않다. 010 에 열을 못 더하는 이유(사건 ↔ 구간이라 `n` 의 단위가 섞인다)는 그 파일 머리주석. */
+        Migration {
+            version: 11,
+            description: "W3 유휴 원장 — 5분+ 무입력 구간의 시각·길이(동기화 대상 아님)",
+            kind: MigrationKind::Up,
+            sql: include_str!("../migrations/011_idle_spells.sql"),
+        },
     ]
 }
 

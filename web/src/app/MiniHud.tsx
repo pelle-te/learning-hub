@@ -10,20 +10,30 @@
    ⚠ 창을 되돌리는 책임도 나눠 갖지 않는다: 사용자가 펼치면 여기서, 세션이 끝나면 FocusChip
    에서 `exitMini()` 를 부른다(둘 다 같은 함수 · 복귀 크기 원천은 `miniMode` 하나).
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useApp } from '@/store/useApp';
 import { useFocus } from '@/store/useFocus';
 import { useOverlay } from '@/store/useOverlay';
+import { selectSchedule } from '@/store/selectors';
 import { commitCapture } from '@/shell';
-import { mmss } from '@/lib/utils';
+import { mmss, reviewBlockMin, todayISO } from '@/lib/utils';
+import { openBacklog } from '@/lib/methodology';
+import { pickReminderLead } from '@/lib/reminder';
+import { riskChapters } from '@/lib/spacedReview';
 import { setMiniCaptureWindow } from '@/lib/tauri';
-import { exitMini, wasTransient } from '@/lib/miniMode';
+import { exitMini, miniMode } from '@/lib/miniMode';
 import { toast } from '@/shell/toast';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { Icon } from '@/components/Icon';
 
 const WRAP = 'fixed inset-0 z-[var(--z-modal)] flex items-center gap-3 border border-line-acc-pill bg-bg px-3.5 py-2.5';
 const PULSE =
   'size-2 shrink-0 rounded-full bg-acc shadow-focus-dot animate-[live-breathe_var(--tempo)_var(--ease-live)_infinite] motion-reduce:animate-none';
+/* N-20 상주 알약의 점 — **맥동하지 않는다.** `live` 어휘는 *지금 흐르는 것*을 뜻하는데(모션
+   어휘 SSOT: `lib/motion.ts`) 상주 알약에는 흐르는 타이머가 없다. 같은 자리에 같은 모양으로
+   두되 움직임만 뺀다: 움직이면 "세션 중"으로 읽힌다. */
+const DOT = 'size-2 shrink-0 rounded-full bg-mut';
 const TIME = 'text-4xl leading-none font-extrabold tracking-topbar-sub text-acc tabular-nums text-shadow-focus-time';
 const NAME = 'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold text-mut';
 const BTN =
@@ -86,7 +96,7 @@ export default function MiniHud() {
      사라진다). 대신 그 사실을 말한다: 조용히 남으면 "왜 안 커지지"가 된다. */
   const doneCapture = async (): Promise<void> => {
     setCapture(false);
-    if (!wasTransient()) return;
+    if (miniMode() !== 'capture') return;
     const back = await exitMini();
     if (back) navigate(back, { replace: true });
     else toast('창을 되돌리지 못했어요 — 펼치기로 다시 시도해 주세요.', 'bad');
@@ -95,7 +105,9 @@ export default function MiniHud() {
   return (
     <div className={WRAP} data-mini="1" ref={wrapRef} tabIndex={-1}>
       <div className="flex w-full flex-col gap-2">
-        <div className="flex items-center gap-3">{pill(leftSec, session, expand, stop)}</div>
+        <div className="flex items-center gap-3">
+          {session ? pill(leftSec, session, expand, stop) : <ResidentPill expand={expand} />}
+        </div>
         {/* W9 — 전역 캡처 핫키의 착지. 같은 창 · 높이 92→132 · 제출 즉시 알약으로 복귀.
             ⚠ Q-26 — **잠깐 들어온 미니는 캡처가 끝나면 나간다.** 손으로 들어온 미니 모드는
             그대로 머문다(그게 그 사람이 요청한 창 모드다) — `wasTransient()` 가 그 둘을 가른다.
@@ -106,10 +118,61 @@ export default function MiniHud() {
   );
 }
 
+/* ── N-20 **상주 알약**(W3 · 발산 6회차) ─────────────────────────────────────────
+   ⚠⚠ 종전에 세션이 없는 알약이 말하던 것은 문자열 `'세션 종료'` 하나였다 — 즉 이 창은
+   **집중 세션의 부속물**이라 세션 밖에서는 죽은 표면이었다. 그런데 320×92 always-on-top 알약은
+   이 앱이 가진 유일한 *상시* 표면이고(작업표시줄 배지는 창을 숨기면 사라지고 트레이 툴팁은
+   마우스를 올려야 보인다), 그 자리에 아무것도 안 쓰는 것은 표면을 버리는 것이다.
+
+   말할 것은 **이미 있다**: 알림(A-1)·트레이 툴팁(A-6)이 쓰는 그 리드다. 세 채널이 같은 함수를
+   쓰는 것이 요지 — 하나는 "회로이론 3장"이라 하고 다른 하나는 "대기 3건"이라 하면 사용자는
+   둘을 다른 것으로 읽는다(`lib/reminder.trayTooltip` 주석이 세운 규율).
+   ⚠ 여기서도 **수를 안 쓴다.** 알약은 시야 안에 상주하므로 알림과 같은 부류다(말을 건다) —
+     밀린 수를 상시 노출하면 그게 곧 A-1 이 없앤 회피 유발자의 영구판이 된다. */
+function ResidentPill({ expand }: { expand: () => Promise<void> }): React.JSX.Element {
+  const st = useApp((s) => s.state);
+  const navigate = useNavigate();
+  const { lead } = useMemo(
+    () =>
+      pickReminderLead({
+        chapters: riskChapters(st, selectSchedule(st).days, todayISO(st), 1),
+        backlog: openBacklog(st),
+        reviewMin: reviewBlockMin(st.moduleLen || 120),
+      }),
+    [st],
+  );
+  /* 펼치면서 그 조각으로 간다 — 알약이 이름을 말했는데 펼침이 왔던 곳으로 돌아가면
+     "말한 것"과 "간 곳"이 어긋난다(알림 착지가 고친 것과 같은 어긋남). */
+  const go = async (): Promise<void> => {
+    if (!(await exitMini())) return toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
+    navigate(lead?.route ?? '/today', { replace: true });
+  };
+  return (
+    <>
+      <i className={DOT} aria-hidden="true" />
+      <span className="min-w-0 flex-1 overflow-hidden text-sm font-bold text-ellipsis whitespace-nowrap text-ink">
+        {lead ? lead.label : '오늘 몫은 끝났어요'}
+      </span>
+      <button
+        type="button"
+        className={BTN}
+        onClick={() => void go()}
+        title={lead ? `${lead.label} 하러 가기` : '앱 창으로 펼치기'}
+        aria-label={lead ? `${lead.label} 화면으로 펼치기` : '앱 창으로 펼치기'}
+      >
+        <Icon name="play" />
+      </button>
+      <button type="button" className={BTN} onClick={() => void expand()} title="펼치기" aria-label="앱 창으로 펼치기">
+        ⤢
+      </button>
+    </>
+  );
+}
+
 /** 알약 본체(시간·이름·버튼) — 캡처 줄과 세로로 쌓기 위해 한 함수로 뽑았다. */
 function pill(
   leftSec: number,
-  session: { name: string } | null,
+  session: { name: string },
   expand: () => Promise<void>,
   stop: () => void,
 ): React.JSX.Element {
@@ -123,7 +186,7 @@ function pill(
       <b className={TIME} role="img" aria-label={`남은 시간 ${mmss(leftSec)}`}>
         {mmss(leftSec)}
       </b>
-      <span className={NAME}>{session ? session.name : '세션 종료'}</span>
+      <span className={NAME}>{session.name}</span>
       <button type="button" className={BTN} onClick={() => void expand()} title="펼치기" aria-label="앱 창으로 펼치기">
         ⤢
       </button>

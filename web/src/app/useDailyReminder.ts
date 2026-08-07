@@ -65,7 +65,9 @@ export function useDailyReminder(): void {
          기능은 **영구 무음**이다 — 사용자는 켜 놓고 매일 아무것도 못 받는다.
          ⚠ 토스트는 앱이 떠 있을 때만 보이지만, 그 경우가 곧 "알림이 안 오는데 앱은 켜져
          있는" 상황이라 정확히 이 폴백이 필요한 자리다. */
-      void shellNotify(title, body).then((sent) => {
+      /* W3 — **착지 경로를 함께 보낸다.** 이름을 부르는 알림(A-1)이 그 이름으로 데려가지
+         않으면 절약한 홉이 도로 생긴다. 리드가 없으면 오늘 화면이 기본 착지다. */
+      void shellNotify(title, body, lead?.route ?? '/today').then((sent) => {
         if (!sent) toast(`${title} — ${body}`, 'warn', 12_000);
       });
     };

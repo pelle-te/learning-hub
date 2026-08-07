@@ -92,3 +92,18 @@ tauri-plugin-autostart = "2"
 # 전역 단축키(E20 · 2026-07-30) — 앱이 포커스가 아닐 때도 캡처 입구를 연다.
 # ⚠ 새 창·새 WebView 를 만들지 않으므로 SQLite 커넥션·부팅 순서·single-instance 계약은 그대로다.
 tauri-plugin-global-shortcut = "2"
+
+[target.'cfg(windows)'.dependencies]
+# 알림 **착지**(W3 · 발산 6회차) — `tauri-plugin-notification` 의 Windows 경로는 토스트 핸들을
+# 버리므로(`desktop.rs`: `let _ = notification.show()`) 클릭 콜백이 원리적으로 안 온다. 그 경로가
+# 내부적으로 부르는 크레이트가 이것이고, 여기엔 `on_activated` 가 있다.
+# ⚠ **새 트리가 아니다** — `notify-rust` 를 통해 이미 의존성 그래프 안에 있던 것을 직접 부를 뿐이다.
+tauri-winrt-notification = "0.7"
+# 시스템 전역 유휴(N-8) — `GetLastInputInfo`. 웹뷰는 자기 창의 입력만 보므로 원리적으로 못 잰다.
+# ⚠ `windows`(full) 가 아니라 `windows-sys` 다: 필요한 것이 함수 둘이라 링크 부피를 살 이유가 없고,
+#   0.59 는 tauri 트리에 이미 있다.
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_System_SystemInformation",
+  "Win32_UI_Input_KeyboardAndMouse",
+] }

@@ -16,31 +16,41 @@ import { isTauri, setMiniWindow, windowInnerSize, type WindowBox } from './tauri
 /** 미니 HUD 라우트 — 탭이 아니다(나브·팔레트·g단축키 어디에도 안 뜬다). */
 export const MINI_PATH = '/mini';
 
+/* ── 왜 들어왔는가(N-20 · W3) ─────────────────────────────────────────────────
+   ⚠⚠ 종전엔 이 축이 **부울 하나**(`transient`)였고, 그 비트가 답하던 질문은 *"캡처가 끝나면
+   나갈까"* 였다. N-20 이 세 번째 이유를 추가한다: **세션 없이 상주하는 알약**. 부울로는
+   표현 불가라(둘 다 false 인 상태가 두 뜻을 갖게 된다) 어휘를 준다 — `shell/tabs.ts` 가
+   `hidden` 부울을 `role` 로 바꾼 것과 같은 형태이고, 이유도 같다: **부정으로 정의된 비트는
+   소비처마다 자기 해석을 덧붙인다.**
+
+   · `session`  — 집중 세션을 접었다. 세션이 끝나면 **자동으로 펼친다**(FocusChip 이 감시).
+   · `capture`  — 캡처 한 줄을 받으러 잠깐(Q-26). 캡처가 닫히면 자동으로 나간다.
+   · `resident` — 세션과 무관한 **상주**(N-20). 아무도 자동으로 안 내보낸다. */
+export type MiniMode = 'session' | 'capture' | 'resident';
+
 let restore: WindowBox | null = null;
 let origin = '/today';
-let transient = false;
+let mode: MiniMode = 'session';
 
 /**
  * 미니 모드 진입. 창 조작이 실패하면 **false 를 돌려주고 아무것도 안 바꾼다** —
  * 호출부는 라우팅을 취소한다(작아지지 않았는데 알약 화면만 뜨는 반쪽 상태가 최악이다).
  *
- * @param transient **Q-26** — 캡처 한 건을 받으려고 잠깐 들어온 것인가. `true` 면 캡처가 끝날 때
- *   `wasTransient()` 를 보고 호출부가 자동으로 되돌린다. 사용자가 손으로 들어온 미니 모드는
- *   캡처를 닫아도 **머물러야 한다**(그게 그 사람이 요청한 창 모드다) — 이 플래그가 그 둘을 가른다.
+ * @param how 왜 들어왔는가(위 `MiniMode`). 나가는 조건이 여기서 갈린다.
  */
-export async function enterMini(from: string, transientCapture = false): Promise<boolean> {
+export async function enterMini(from: string, how: MiniMode = 'session'): Promise<boolean> {
   if (!isTauri()) return false;
   const box = await windowInnerSize(); // 줄이기 **전에** 재야 의미가 있다
   if (!(await setMiniWindow(true))) return false;
   restore = box;
   origin = from && from !== MINI_PATH ? from : '/today';
-  transient = transientCapture;
+  mode = how;
   return true;
 }
 
-/** 지금의 미니 모드가 **캡처용 잠깐**인가(Q-26). `exitMini` 가 끝내면서 지운다. */
-export function wasTransient(): boolean {
-  return transient;
+/** 지금의 미니 모드가 **왜** 켜졌나. `exitMini` 가 끝내면서 기본값으로 되돌린다. */
+export function miniMode(): MiniMode {
+  return mode;
 }
 
 /**
@@ -63,7 +73,7 @@ export async function exitMini(): Promise<string | null> {
   const restored = await setMiniWindow(false, restore);
   if (isTauri() && !restored) return null;
   restore = null;
-  transient = false;
+  mode = 'session';
   const back = origin;
   origin = '/today';
   return back;
