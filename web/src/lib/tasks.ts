@@ -126,10 +126,11 @@ export function inboxTasks(state: AppState): Task[] {
    ⚠ **소요를 적은 것만** 센다. 안 적은 할 일에 임의 값을 씌우면 그 수는 관측이 아니라
    추측이고, 추측으로 창을 깎으면 사용자는 왜 여유가 줄었는지 화면 어디서도 못 읽는다.
    ⚠ **미완만** 센다 — 끝낸 일의 시간은 이미 지나갔고, `freeLeftMin` 에서 빠져 있다
-   (`dayCapacity` 가 완료 블록을 안 세는 것과 같은 이중 차감 방지). */
-export function choreMinForDay(state: AppState, ds: string): number {
-  return (state.tasks || []).reduce((t, k) => (k.ds === ds && !k.done && k.min ? t + Math.max(0, k.min) : t), 0);
-}
+   (`dayCapacity` 가 완료 블록을 안 세는 것과 같은 이중 차감 방지).
+
+   ⚠⚠ **여기 있던 `choreMinForDay`(시각 유무를 안 가리는 총합)는 W8 에서 지웠다.** N-1 이
+   시각 박힌 과제를 *구간*으로 창에서 빼기 시작하면서 그 값을 쓰면 **두 번 깎인다**. 남은
+   소비처가 테스트 하나였는데, 그건 이 저장소가 반복해 잡아 온 *"쓰기 0 · 소비처 0"* 이다. */
 
 /* ── N-1 **과제가 시간 예산의 1급 시민이 된다**(W8 · 2026-08-07) ────────────────
    7-I4(W2)는 **오늘 화면의 문장**만 고쳤다 — `dayCapacity` 가 창에서 할 일을 뺐다. 그런데
@@ -162,8 +163,8 @@ export function taskIntervals(state: AppState, ds: string): [number, number][] {
 }
 
 /** 그날 **시각이 없는**(트레이·인박스 아님 — 날짜만 정해진) 미완 과제의 총 분.
- *  ⚠ `choreMinForDay` 와 다르다: 저건 시각 유무를 안 가린다(오늘 화면이 창을 이미 구간으로
- *  깎기 **전**의 값을 쓰던 시절의 형태). 창에서 구간을 빼는 경로가 생긴 뒤로는 이 값이 맞다. */
+ *  ⚠ **시각이 박힌 것은 여기서 안 센다** — 그건 위 `taskIntervals` 가 구간으로 빼므로, 총합에
+ *  또 넣으면 두 번 깎인다(옛 `choreMinForDay` 가 그 총합이었고 W8 에서 지웠다 · 위 ⚠⚠). */
 export function untimedChoreMin(state: AppState, ds: string): number {
   return (state.tasks || []).reduce(
     (t, k) => (k.ds === ds && !k.done && k.start == null && k.min ? t + Math.max(0, k.min) : t),

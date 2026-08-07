@@ -5,7 +5,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { dayCapacity } from '@/lib/dayCapacity';
-import { choreMinForDay } from '@/lib/tasks';
+import { untimedChoreMin } from '@/lib/tasks';
 import type { AppState } from '@/lib/types';
 
 const b = (key: string, start: number | null, min: number, done = false) => ({ key, start, min, done });
@@ -178,7 +178,10 @@ describe('7-I4 choreMin — 할 일도 하루를 먹는다', () => {
   });
 });
 
-describe('7-I4 choreMinForDay — 무엇을 세고 무엇을 안 세나', () => {
+/* ⚠ 옛 이름은 `choreMinForDay`(시각 유무를 안 가리는 총합)였고 **W8 에서 지웠다** — N-1 이
+   시각 박힌 과제를 창에서 *구간*으로 빼기 시작해, 그 총합을 쓰면 두 번 깎인다. 여기서 잠그는
+   성질(소요를 적은 미완만 · 그날 것만)은 그대로다. */
+describe('7-I4 untimedChoreMin — 무엇을 세고 무엇을 안 세나', () => {
   const st = (tasks: unknown[]): AppState => ({ tasks }) as unknown as AppState;
 
   it('소요를 적은 미완 할 일만 센다', () => {
@@ -188,10 +191,10 @@ describe('7-I4 choreMinForDay — 무엇을 세고 무엇을 안 세나', () => 
       { id: '3', title: 'c', ds: '2026-08-07' }, // 소요 미기재 → 추측하지 않는다
       { id: '4', title: 'd', ds: '2026-08-08', min: 90 }, // 다른 날
     ]);
-    expect(choreMinForDay(s, '2026-08-07')).toBe(60);
+    expect(untimedChoreMin(s, '2026-08-07')).toBe(60);
   });
 
   it('할 일이 없으면 0(창을 안 건드린다)', () => {
-    expect(choreMinForDay(st([]), '2026-08-07')).toBe(0);
+    expect(untimedChoreMin(st([]), '2026-08-07')).toBe(0);
   });
 });
