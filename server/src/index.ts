@@ -305,8 +305,57 @@ const rateGuard: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (
 app.use('/api/enroll/*', rateGuard);
 app.use('/api/token', rateGuard);
 
-/** 헬스체크 — 인증 없이 열려 있는 유일한 GET. 비밀도 데이터도 노출하지 않는다. */
+/** 헬스체크 — 비밀도 데이터도 노출하지 않는다. */
 app.get('/api/health', (c) => c.json({ ok: true }));
+
+/* ── N-7 **살아 있는 ics 구독 피드**(W8 · 2026-08-07) ────────────────────────────────
+
+   ## 이 라우트가 서버에서 하는 일의 전부: `docs` 한 행을 읽어 문자열을 돌려준다
+
+   계획을 **여기서 계산하지 않는다.** 스케줄러를 서버에 이식하면 계획 규칙이 두 벌이 되고,
+   그건 이 저장소가 `rows.ts` ↔ `rows.rs` 로 이미 두 번 물린 형태다. 앱이 `buildICS()` 로 만든
+   문자열을 `docs['ics:feed']` 에 넣어 **기존 push 경로로** 올리고(새 쓰기 라우트 0), 여기서는
+   그것을 그대로 나른다. 값의 형태는 `web/src/lib/icsFeed.ts` 가 소유한다.
+
+   ## ⚠ 인증이 없는 것이 설계다 — 열쇠는 경로 안에 있다
+
+   캘린더 구독은 **인증 헤더를 못 싣는다**(iCalendar 구독의 표준 형태다: 캘린더 앱이 주기적으로
+   URL 을 GET 한다). 그래서 방어는 셋이다:
+   ① **추측 불가능성** — 토큰은 128비트 난수이고 이 라우트는 그것을 **상수 시간**으로 대조한다.
+   ② **레이트 리밋** — 무인증 라우트라 `/api/enroll/*`·`/api/log` 와 **같은 가드**를 붙인다.
+      토큰 열거를 막는 것이 아니라(128비트는 열거할 수 없다) 이 라우트가 D1 을 두드리는 횟수를
+      묶는 것이다.
+   ③ **노출 범위** — 담기는 것은 학습 블록의 제목·시각뿐이다(성적·오답·메모는 `buildICS` 에 없다).
+   그리고 폐기가 1급 동작이다 — 앱에서 토큰을 새로 뽑으면 옛 URL 은 아래 대조에서 즉시 떨어진다.
+
+   ⚠ **404 를 두 경우에 함께 준다**(없는 토큰 · 폐기된 피드). 이유를 가르면 그 차이가 곧
+   "이 워크스페이스에 피드가 있다"는 신호가 된다.
+   ⚠ `.ics` 확장자를 **선택적으로** 받는다 — 일부 캘린더 앱은 확장자로 형식을 판정한다. */
+app.use('/api/ics/*', rateGuard);
+app.get('/api/ics/:token', async (c) => {
+  const token = (c.req.param('token') || '').replace(/\.ics$/i, '');
+  /* ⚠ 길이 가드가 먼저다 — 이상한 길이의 토큰으로 D1 을 두드리게 두지 않는다(hex 32자 고정). */
+  if (!/^[0-9a-f]{32}$/.test(token)) return c.text('not found', 404);
+  const row = await c.env.DB.prepare('SELECT value FROM docs WHERE key = ?1')
+    .bind('ics:feed')
+    .first<{ value: string }>();
+  if (!row?.value) return c.text('not found', 404);
+  let feed: { token?: unknown; body?: unknown };
+  try {
+    feed = JSON.parse(row.value) as { token?: unknown; body?: unknown };
+  } catch {
+    return c.text('not found', 404);
+  }
+  const stored = typeof feed.token === 'string' ? feed.token : '';
+  const body = typeof feed.body === 'string' ? feed.body : '';
+  /* ⚠ 상수 시간 비교는 `auth.ts` 의 것을 쓴다 — 리프레시 토큰 대조가 이미 그 함수를 쓰고 있고,
+     두 벌이면 한쪽만 고쳐진다(이 파일이 SQL 사본에서 이미 물린 형태). */
+  if (!stored || !body || !timingSafeEqual(stored, token)) return c.text('not found', 404);
+  return c.body(body, 200, {
+    'Content-Type': 'text/calendar; charset=utf-8',
+    'Content-Disposition': 'inline; filename="learning-hub.ics"',
+  });
+});
 
 /* ── 관측 가능성: 클라이언트 오류·성능 수집(2026-07-25 감사) ────────────────────
 

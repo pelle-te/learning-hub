@@ -130,3 +130,43 @@ export function inboxTasks(state: AppState): Task[] {
 export function choreMinForDay(state: AppState, ds: string): number {
   return (state.tasks || []).reduce((t, k) => (k.ds === ds && !k.done && k.min ? t + Math.max(0, k.min) : t), 0);
 }
+
+/* ── N-1 **과제가 시간 예산의 1급 시민이 된다**(W8 · 2026-08-07) ────────────────
+   7-I4(W2)는 **오늘 화면의 문장**만 고쳤다 — `dayCapacity` 가 창에서 할 일을 뺐다. 그런데
+   *계획을 만드는 쪽*(`schedule()`)은 여전히 할 일을 모른다: 자동초안은 과제가 3시간 있는
+   날에도 창을 가득 채워 학습 블록을 놓고, 그래서 그날은 **만들어지는 순간부터** 넘친다.
+   오늘 화면이 그 사실을 사후에 말해 줄 뿐이었다(진단은 있고 처방이 없는 상태).
+
+   ⚠⚠ 이것은 명시 결정 하나를 뒤집는다(로드맵 W0 표): T-1 이 _"가중치·과제·출석은 안 만든다"_
+   고 못박았다. 그 경고가 겨눈 것은 **성적 회계**(과제 점수 · 반영 비율)이고 여기서 만드는 것은
+   **시간 소비**다 — 그 둘을 가르는 것이 이 뒤집기의 전부다. 점수는 여전히 안 만든다.
+
+   ⚠ **시각이 있는 것과 없는 것을 가른다.** 시각이 박힌 과제는 *구간*이라 창에서 빼야 겹침이
+   정확하다(수업 시간과 겹치는 과제를 두 번 빼지 않는다 — `eventStudyLossMin` 이 세운 규율).
+   시각이 없는 과제는 구간이 없으니 **총량**으로 뺀다. 한쪽으로 통일하면 둘 중 하나가 틀린다:
+   전부 구간으로 보면 트레이의 과제가 통째로 안 세어지고(지금 상태), 전부 총량으로 보면
+   수업과 겹치게 적은 과제가 이중 차감된다. */
+
+/** 그날 **시각이 박힌** 미완 과제의 점유 구간 — 창 차감이 소비하는 유일한 형태(`events` 와 같은 계약).
+ *  ⚠ 겹침을 병합하지 않는다: `subtractIntervals` 가 멱등이라 이중 차감이 생기지 않는다. */
+export function taskIntervals(state: AppState, ds: string): [number, number][] {
+  const out: [number, number][] = [];
+  for (const t of state.tasks || []) {
+    if (t.ds !== ds || t.done || t.start == null || !t.min) continue;
+    if (!Number.isFinite(t.start) || !Number.isFinite(t.min)) continue;
+    const s = Math.max(0, Math.min(1439, Math.round(t.start)));
+    const e = Math.min(1440, s + Math.max(1, Math.round(t.min)));
+    if (e > s) out.push([s, e]);
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}
+
+/** 그날 **시각이 없는**(트레이·인박스 아님 — 날짜만 정해진) 미완 과제의 총 분.
+ *  ⚠ `choreMinForDay` 와 다르다: 저건 시각 유무를 안 가린다(오늘 화면이 창을 이미 구간으로
+ *  깎기 **전**의 값을 쓰던 시절의 형태). 창에서 구간을 빼는 경로가 생긴 뒤로는 이 값이 맞다. */
+export function untimedChoreMin(state: AppState, ds: string): number {
+  return (state.tasks || []).reduce(
+    (t, k) => (k.ds === ds && !k.done && k.start == null && k.min ? t + Math.max(0, k.min) : t),
+    0,
+  );
+}

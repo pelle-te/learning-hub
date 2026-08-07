@@ -22,6 +22,8 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { phaseRamp, staleSemesterLinks } from '@/lib/phaseRamp';
 import { rehearsalSteps, simulateSemester } from '@/lib/semesterEntry';
+import { upcomingMarks } from '@/lib/semester';
+import { MARK_LABEL } from '@/lib/syllabusIntake';
 import { hNum, todayISO } from '@/lib/utils';
 import { useSchedule } from '@/store/selectors';
 import StrataStrip from '@/components/StrataStrip';
@@ -43,6 +45,7 @@ export default function PhaseBoard() {
   const ramp = phaseRamp(state, ds);
   const stale = staleSemesterLinks(state, ds);
   const steps = rehearsalSteps(state, ds);
+  const marks = upcomingMarks(state, ds);
   const sim = ramp.semester && ramp.kind !== 'off' ? simulateSemester(state, ramp.semester, ds) : null;
   const open = steps.filter((s) => !s.done);
 
@@ -89,8 +92,12 @@ export default function PhaseBoard() {
               {loadTone(sim.ratio).label}
             </Pill>
           </div>
-          <div className="flex items-baseline gap-2 text-md">
+          {/* ⚠⚠ **N-1(W8) — 예산이 2단이다.** 진도와 과제를 한 수로 합치면 "감당 된다"가 어느 쪽
+              덕인지 말할 수 없고, 감당이 안 될 때 **뺄 수 있는 것**(과제는 못 뺀다 · 진도는
+              조절된다)이 구분되지 않는다. 과제 칸이 비어 있으면 그 단은 안 그린다(0을 외치지 않는다). */}
+          <div className="flex flex-wrap items-baseline gap-2 text-md">
             <b className="tabular-nums">주 {sim.weeklyH}h</b>
+            {sim.choreWeeklyH > 0 && <span className="text-mut">+ 과제 {sim.choreWeeklyH}h</span>}
             <span className="text-mut">/ 가용 {sim.capacityH}h</span>
             <span className="ds-tiny text-mut">
               · 총 {sim.totalH}h / {sim.weeks}주
@@ -113,6 +120,26 @@ export default function PhaseBoard() {
               학점 환산은 기본값({sim.rate.hoursPerCredit}h/학점)이에요 — 한 학기를 끝내면 실투입에서 배웁니다.
             </p>
           )}
+        </div>
+      )}
+
+      {/* N-19(W8) — **학사일정 눈금.** 정정·철회·휴강·보강은 전부 *되돌릴 수 없는 마감*인데
+          지금까지 머릿속과 포털에만 있었다. 지난 것은 안 그린다(지나면 정보가 아니라 자책이다 ·
+          `upcomingMarks` 가 그 판정을 소유한다). 없으면 이 절이 통째로 사라진다. */}
+      {marks.length > 0 && (
+        <div className="mt-3.5 border-t border-line pt-3">
+          <div className="ds-caps mb-2">학사일정</div>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {marks.map(({ mark, daysLeft }) => (
+              <li key={mark.id} className="flex items-center gap-2 text-md">
+                <Pill tiny tone={daysLeft <= 3 ? 'warn' : undefined}>
+                  {MARK_LABEL[mark.kind]}
+                </Pill>
+                <span className="min-w-0 flex-1 truncate text-mut">{mark.label}</span>
+                <span className="ds-tiny tabular-nums">{daysLeft === 0 ? '오늘' : `D-${daysLeft}`}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

@@ -15,7 +15,7 @@ import {
   freeWindowsForDay,
   dayStudyMin,
   studyMinByWeekday,
-  eventStudyLossMin,
+  dayOccupancyLossMin,
 } from '@/lib/scheduler';
 import { updateEvent, removeEvent, eventsForDay } from '@/lib/events';
 import { DayPlannerEditBar } from './DayPlannerEditBar';
@@ -227,9 +227,10 @@ export function DayPlanner({
   // 배치 합계(공부 블록 + 자유 할일) vs 가용 — 초과 경고(§6-3).
   const planMin = blocks.reduce((t, b) => t + b.min, 0) + timedTasks.reduce((t, x) => t + (x.min || 0), 0);
   const over = capMin > 0 && planMin > capMin + 1;
-  // 초과의 '원인'까지 그 자리에서 — 일정이 가용을 깎아 초과가 났다면 얼마나 깎였는지 칩 툴팁에 덧붙인다
-  // (일정 없는 날엔 scheduler가 창 계산 자체를 생략하므로 0). 별도 경고를 새로 만들진 않는다.
-  const evLoss = eventStudyLossMin(state, ds, wd);
+  // 초과의 '원인'까지 그 자리에서 — 일정·과제가 가용을 깎아 초과가 났다면 얼마나 깎였는지 칩 툴팁에 덧붙인다
+  // (점유 없는 날엔 scheduler가 창 계산 자체를 생략하므로 0). 별도 경고를 새로 만들진 않는다.
+  // ⚠ N-1(W8) 이후 이 값은 **일정 + 시각 박힌 과제**다(`dayOccupancyLossMin`).
+  const evLoss = dayOccupancyLossMin(state, ds, wd);
 
   /* ── 드래그 시간박기 ─────────────────────────────────────────────── */
   // 점유 구간(고정 일과 + 타임박스 카드) — 겹침 해소용. excludeId=드래그/이동 대상은 제외(자기와 안 겹침).
@@ -366,7 +367,7 @@ export function DayPlanner({
           {over && (
             <span
               className={DP.over}
-              title={`계획 ${hLabel(planMin)} · 가용 ${hLabel(capMin)}${evLoss > 0 ? ` (일정 ${hLabel(evLoss)} 반영)` : ''}`}
+              title={`계획 ${hLabel(planMin)} · 가용 ${hLabel(capMin)}${evLoss > 0 ? ` (일정·과제 ${hLabel(evLoss)} 반영)` : ''}`}
             >
               가용 초과 +{hLabel(planMin - capMin)}
             </span>

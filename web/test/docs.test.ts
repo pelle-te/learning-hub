@@ -46,9 +46,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('사용자 저작물 저장소 — 세입자 0 (P10 W4)', () => {
-  it('레지스트리가 비어 있다 — 이 수가 곧 SQLite 경로의 도달성이다', () => {
-    expect([...DOC_KEYS]).toEqual([]);
+describe('사용자 저작물 저장소 — 세입자 (N-7 이 P10 W4 의 0 을 되돌렸다)', () => {
+  it('레지스트리가 곧 SQLite·동기화 경로의 도달성이다', () => {
+    /* ⚠⚠ 이 배열은 **비어 있었다**(P10 W4 · 화면 다섯이 필러로 이사하며 세입자가 0 이 됐다).
+       그 상태의 대가는 `DocKey` 가 `never` 라 이 표가 *동작상* 얇은 localStorage 래퍼였던 것이다.
+       N-7(W8)이 첫 세입자를 들였다 — ics 피드는 **서버가 읽을 수 있는 곳**에 있어야 하는데
+       `docs` 가 D1 까지 동기화되는 유일한 자유 KV 다. 새 테이블·마이그레이션·인증 경로가 0. */
+    expect([...DOC_KEYS]).toEqual(['ics:feed']);
   });
 
   it('셸에서도 모든 키가 localStorage 로 흐르고 SQL 은 안 나간다', async () => {

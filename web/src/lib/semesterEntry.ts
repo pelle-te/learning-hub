@@ -83,6 +83,14 @@ export interface LoadSim {
   totalH: number;
   /** 주당 예상 시간(h) — 학기 길이로 나눈 값. 길이를 모르면 15주로 본다. */
   weeklyH: number;
+  /**
+   * **N-1** — 주당 과제 시간(h)의 합. `weeklyH`(진도)와 **따로 낸다**.
+   *
+   * ⚠⚠ 예산이 2단인 것이 이 항목의 요지다. 한 수로 합치면 "감당 된다"가 어느 쪽 덕인지 말할 수
+   * 없고, 감당이 안 될 때 **뺄 수 있는 것**(과제는 못 뺀다 · 진도는 조절된다)이 구분되지 않는다.
+   * 그리고 개강 전에는 `tasks` 가 0이라 이 경상비 칸이 없으면 시뮬이 과제를 **원리적으로 못 센다**.
+   */
+  choreWeeklyH: number;
   /** 주당 가용 시간(h) — 일과·수면·수업을 뺀 실제 자유창. */
   capacityH: number;
   /** `weeklyH / capacityH`. 1.0 을 넘으면 **주당 시간이 모자란다**. */
@@ -122,13 +130,20 @@ export function simulateSemester(state: AppState, semester: Semester, ds: string
       : DEFAULT_WEEKS;
   const weeklyH = Math.round((totalH / weeks) * 10) / 10;
   const capacityH = Math.round((studyMinByWeekday(state).reduce((a, b) => a + b, 0) / 60) * 10) / 10;
+  /* N-1 — 진도 옆의 두 번째 단. ⚠ 실행 과목이 안 이어진 `Course` 는 **셀 수 없다**(그 칸이
+     `Item` 에 있다) — 없는 값을 학점에서 추정하지 않는다: 과제 부하는 학점과 상관이 약하고
+     (3학점 이론 과목과 3학점 설계 과목이 정반대다) 추정한 수로 "감당 안 됨"을 말하면 그 판정을
+     사용자가 검증할 방법이 없다. */
+  const choreWeeklyH = Math.round(rows.reduce((a, r) => a + Math.max(0, r.item?.choreWeeklyH || 0), 0) * 10) / 10;
   return {
     semester,
     rows,
     totalH,
     weeklyH,
+    choreWeeklyH,
     capacityH,
-    ratio: capacityH > 0 ? Math.round((weeklyH / capacityH) * 100) / 100 : Infinity,
+    /** ⚠ 분자는 **두 단의 합**이다 — 과제를 뺀 비율로 "감당 돼요"를 말하면 그 말이 매주 틀린다. */
+    ratio: capacityH > 0 ? Math.round(((weeklyH + choreWeeklyH) / capacityH) * 100) / 100 : Infinity,
     rate,
     weeks,
   };
@@ -188,9 +203,11 @@ export function rehearsalSteps(state: AppState, ds: string): RehearsalStep[] {
     {
       id: 'exams',
       label: '중간·기말 날짜 넣기',
-      why: '시험이 없으면 모든 챕터가 같은 급함으로 보입니다.',
+      why: '시험이 없으면 모든 챕터가 같은 급함으로 보입니다. 강의계획서를 붙여 넣으면 한 번에 들어와요.',
       done: linked.length > 0 && withExams.length === linked.length,
-      to: '/items',
+      /* ⚠ N-2(W8) — 착지를 **인입구**로 바꿨다. 종전엔 `/items` 로 보내 과목마다 날짜를 손으로
+         치게 했는데, 그 날짜의 출처는 예외 없이 강의계획서다(사람이 그것을 눈으로 옮기고 있었다). */
+      to: '/degree?view=intake',
     },
     {
       id: 'prereq',

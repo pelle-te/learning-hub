@@ -13,7 +13,8 @@ import { iso, addDays, mondayOf, fmtShort, hLabel, toHM, colorForId, DOW_MON } f
 import { indexDays } from '@/lib/scheduleView';
 import { openTasksForDay, tasksForDay } from '@/lib/tasks';
 import { eventsForDay } from '@/lib/events';
-import { EXAM_LABEL, examMarks } from '@/lib/semester';
+import { EXAM_LABEL, examMarks, marksOn } from '@/lib/semester';
+import { MARK_LABEL } from '@/lib/syllabusIntake';
 import { useApp } from '@/store/useApp';
 import type { ScheduleResult } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -97,6 +98,19 @@ export function MonthCalendar({
         key: `d${name}${exam.id}`,
         name,
         tip: `${EXAM_LABEL[exam.kind]}: ${name}`,
+        kind: 'deadline',
+        noDot: true,
+      });
+    }
+    /* N-19(W8) — **학사일정 눈금**도 그날의 "특별한 것"이다. 마감 다음·일정 앞이 자리다:
+       정정·철회는 되돌릴 수 없는 마감이라 약속보다 시급하고, 시험보다는 뒤다.
+       ⚠ 일정(`events`)으로 만들지 않는 이유는 길이가 없기 때문이다 — 그러면 그날 가용이
+       통째로 비는 조용한 오작동이 된다(`schema.ts` 의 `AcademicMarkSchema` 주석). */
+    for (const m of marksOn(state, dsKey)) {
+      chips.push({
+        key: `m${m.id}`,
+        name: MARK_LABEL[m.kind],
+        tip: `${MARK_LABEL[m.kind]}${m.label && m.label !== MARK_LABEL[m.kind] ? ` — ${m.label}` : ''}`,
         kind: 'deadline',
         noDot: true,
       });

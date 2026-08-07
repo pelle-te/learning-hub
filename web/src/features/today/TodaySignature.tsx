@@ -20,10 +20,10 @@ import { studyStreak } from '@/lib/persistence';
 import { focusKey, focusMinutes, type FocusEntry } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
-import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
+import { layoutDay, freeWindowsForDay, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { dayCapacity } from '@/lib/dayCapacity';
-import { choreMinForDay } from '@/lib/tasks';
+import { untimedChoreMin } from '@/lib/tasks';
 import { pickNextStep, pickRetrievalSlot } from '@/lib/todaySlots';
 import RetrievalSlot from './RetrievalSlot';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
@@ -280,7 +280,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // 빈 날(L 없음)이면 순수 루틴 창으로 폴백. now 이후로 클램프해 빡빡한 날 과대표시를 막는다.
   const freeIntervals: [number, number][] = L
     ? L.free
-    : freeWindowsForWeekday(state, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
+    : /* ⚠ N-1(W8) — 빈 날 폴백도 **날짜 창**이다. 요일 창은 일정·과제를 모르므로, 계획이 없는
+         날에만 창이 과대 표시되던 비대칭이 있었다(같은 하루를 배치 유무로 다르게 말한다). */
+      freeWindowsForDay(state, ds, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
   const freeLeftMin = freeMinAfter(freeIntervals, nowMin);
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
@@ -331,9 +333,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
       color: e.it.color,
     })),
     freeLeftMin,
-    /* 7-I4 — 오늘 배정된 미완 할 일 중 **소요를 적은 것**을 창에서 먼저 뺀다. 스키마 0 ·
-       스케줄러 계약 0(주기적 과제 모델은 N-1 이 W8 에서 연다). 근거는 `lib/tasks.choreMinForDay`. */
-    choreMinForDay(state, ds),
+    /* 7-I4 — 오늘 배정된 미완 할 일 중 **소요를 적은 것**을 창에서 먼저 뺀다.
+       ⚠⚠ **N-1(W8)이 이 인자의 뜻을 좁혔다**: 이제 시각이 박힌 과제는 `freeWindowsForDay` 가
+       구간으로 이미 빼므로(= `L.free` 안에 반영돼 있다) 여기서는 **시각 없는 것만** 넘긴다.
+       종전 값(`choreMinForDay`)을 그대로 두면 타임박스한 과제가 두 번 깎인다. */
+    untimedChoreMin(state, ds),
     /* A-11(W7) — **실측 배율을 아침 문장에 먹인다.** 배율은 지금까지 과목 상세에만 있었고
        (`/items` → 카드 → 상세 = 3화면·2클릭) 오늘 화면과 연결이 0이었다 — 앱이 "내 추정이 20%
        낙관적이다"를 알면서 아침에 한 번도 말하지 않았다.

@@ -73,6 +73,8 @@ describe('H9 — 무관 슬라이스 쓰기는 재계산을 부르지 않는다(
     const nav = selectNavSignals(s);
     const s2 = { ...s, backlog: [{ id: 'y', text: '보충', done: false }] } as unknown as AppState;
     expect(selectNavSignals(s2)).not.toBe(nav);
-    expect(selectNavSignals(s2).journal).toContain('보충 1');
+    /* ⚠ 키가 `journal` 이었다 — 그 탭은 W4(N-12)에서 레일을 떠났고, 레일은 **보이는 탭에만**
+       신호를 붙이므로 그 문자열은 한 번도 렌더된 적이 없었다(W8 에서 발견 · `selectors.ts` 주석). */
+    expect(selectNavSignals(s2)['review-run']).toContain('보충 1');
   });
 });

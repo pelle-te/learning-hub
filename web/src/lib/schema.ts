@@ -86,6 +86,16 @@ export const ItemSchema = z.looseObject({
   mode: ItemModeSchema,
   weeklyHours: z.optional(z.number()),
   dailyMin: z.optional(z.number()),
+  /** N-1 **주당 과제 시간**(h). 이 과목이 매주 먹는 *공부 아닌* 시간 — 문제풀이 숙제·레포트.
+   *
+   *  ⚠ `weeklyHours`(주당 학습 시간)와 **다른 예산이다.** 합치면 "챕터를 나가는 시간"과
+   *  "제출물을 만드는 시간"이 한 통에 들어가고, 그러면 과제가 많은 주에 진도가 조용히 밀린다 —
+   *  지금 상태가 정확히 그것이고, 그 밀림이 어디서 왔는지 화면 어디에도 안 적힌다.
+   *  ⚠ **날짜가 정해진 과제는 `tasks` 가 갖는다.** 이 필드는 *경상비*(매주 반복되는 부하)이고
+   *  `tasks` 는 *특정일의 소비*다. 둘을 한 곳에 담으면 학기 부하 시뮬(`simulateSemester`)이
+   *  아직 안 만든 과제를 셀 방법이 없어진다(개강 전엔 tasks 가 0이다).
+   *  ⚠ 옵셔널 — 없으면 0. 옛 저장·서버·폰 전부 무마이그레이션. */
+  choreWeeklyH: z.optional(z.number()),
   deadline: z.optional(z.string()),
   /** deadlineThru = **마감이 덮는 범위**의 마지막 챕터 id(P-10). 없으면 종전대로 "안 끝난 챕터 전부".
    *  ⚠ 왜 필요한가: 없으면 중간고사를 마감으로 넣는 순간 **영구히 빨간 경고**가 뜬다 — 마감을 넣은
@@ -232,6 +242,17 @@ export const QuestionSchema = z.object({
   /** T-2 회수 창에서 들어왔나. **직후 20분의 기억은 나중보다 정확하다**는 전제가 이 항목의
    *  근거라, 그 사실을 값에 남긴다 — 안 남기면 나중에 신뢰도를 가를 수 없다. */
   fromRecall: z.optional(z.boolean()),
+  /* ── A-14 **다시 만날 날**(발산 6회차 · 2026-08-07) ──────────────────────────
+     이 원장의 결함은 내용이 아니라 **시제**였다: 아카이브는 *사용자가 갈 때만* 존재하는데,
+     갈 이유가 발생하지 않는다(문항이 스스로 부르지 않는다). 챕터는 `spacedReview` 사다리가
+     불러 주고 오답(`cbms`)은 약점 배분이 불러 주는데, 문항만 부르는 사람이 없었다.
+
+     ⚠ **새 사다리를 만들지 않는다.** 간격은 `REVIEW_OFFSETS`(1·3·7·16 → 34) 그대로이고,
+     `met` 의 길이가 사다리의 몇 번째 칸인지를 말한다 — 별도 `nextDs` 를 저장하지 않는 이유는
+     그것이 **파생값**이기 때문이다(저장하면 자정마다 낡는다 · `semesterPhase` 와 같은 논증).
+     ⚠ 배열인 것이 계약: "몇 번 다시 만났나"와 "마지막이 언제였나"를 한 필드가 함께 답한다. */
+  /** 다시 만난 날들(ISO · 오름차순). 없으면 아직 한 번도 안 만난 것. */
+  met: z.optional(z.array(z.string())),
 });
 
 export const BacklogSchema = z.object({
@@ -316,10 +337,56 @@ export const CourseSchema = z.object({
    *  `lib/semester.ts` 의 `courseOfItem` 이 순회로 답한다(학기당 과목 수가 한 자릿수라 비용이 0). */
   itemId: z.optional(z.string()),
 });
+/* ── N-19 **학사일정 눈금**(발산 6회차 · 2026-08-07) ──────────────────────────
+   정정·철회·휴강·보강. 지금 이 넷은 **머릿속 + 포털**에 있고, 앱은 학기가 *언제 시작해 언제
+   끝나는지*만 안다. 그런데 이 넷은 전부 **되돌릴 수 없는 마감**이다 — 철회 기한을 넘기면 그
+   과목은 학기 내내 분모에 남고(`staleSemesterLinks` 가 사후에 그 대가를 잰다), 휴강·보강은
+   그 주의 가용 시간을 통째로 바꾼다.
+
+   ⚠ **일정(`events`)이 아니다.** 일정은 *그 시간에 일어나는 일*이라 가용 시간을 깎는데, 눈금은
+   **날짜의 성질**이라 길이가 없다(정정 기간은 하루 종일 공부할 수 있다). 같은 배열에 넣으면
+   `eventIntervals` 가 그것을 점유로 읽어 그날 계획이 통째로 비는, 조용한 오작동이 된다.
+   ⚠ 종류를 **넷으로 닫는다** — 자유 입력을 열면 눈금이 일정의 다른 이름이 된다(`ExamSchema`
+   머리주석이 시험에 그은 것과 같은 선). 파서·라벨의 SSOT 는 `lib/syllabus.ts`.
+   ⚠ 옵셔널이라 옛 저장·서버(`items`·`degree` 는 `settings` 한 행의 불투명 JSON)·폰 전부
+   무마이그레이션이다. */
+export const MarkKindSchema = z.enum(['fix', 'drop', 'off', 'makeup']);
+export const AcademicMarkSchema = z.object({
+  id: z.string(),
+  kind: MarkKindSchema,
+  /** ISO `YYYY-MM-DD`. */
+  ds: z.string(),
+  label: z.string(),
+});
+
+/* ── N-18 **이번 학기 목표**(발산 6회차 · 2026-08-07) ─────────────────────────
+   장기 목표는 지금 **볼트 손저작**(= 다른 앱)에 있고, 그래서 앱의 수와 한 번도 만나지 않는다.
+   목표를 적는 칸을 만드는 것은 쉽지만 그건 메모장이다 — 이 항목의 값은 **판정하는 수를 함께
+   고르게 하는 것**이다(로드맵의 가장 싼 검증이 정확히 _"목표 3줄 옆에 앱의 어느 수가 판정하나"_).
+
+   ⚠ `metric` 을 **닫힌 넷**으로 두는 이유: 자유 텍스트 목표는 앱이 진척을 말할 수 없고, 말할 수
+   없으면 학기 말에 아무도 다시 안 본다(= 볼트 메모와 같아진다). 판정은 `lib/semesterGoals.ts`
+   하나가 소유한다.
+   ⚠ **셋까지**다(읽기에서 자른다). 넷째 목표는 우선순위가 없다는 뜻이고, 이 항목이 없애려는
+   것이 정확히 그것이다. */
+export const GoalMetricSchema = z.enum(['gpa', 'hours', 'chapters', 'adherence']);
+export const SemesterGoalSchema = z.object({
+  id: z.string(),
+  /** 사람의 말로 쓴 목표 한 줄. */
+  text: z.string(),
+  metric: GoalMetricSchema,
+  /** 그 지표의 목표값(GPA 는 점, hours 는 시간, chapters 는 개, adherence 는 %). */
+  target: z.number(),
+});
+
 export const SemesterSchema = z.object({
   id: z.string(),
   name: z.string(),
   courses: z._default(z.array(CourseSchema), []),
+  /** N-19 학사일정 눈금(위 주석). 옵셔널 — 옛 저장 무마이그레이션. */
+  marks: z.optional(z.array(AcademicMarkSchema)),
+  /** N-18 이번 학기 목표(최대 3 · 위 주석). 옵셔널 — 옛 저장 무마이그레이션. */
+  goals: z.optional(z.array(SemesterGoalSchema)),
   /** T-1. 학기의 **시작·종료 날짜**(ISO). 종전엔 학기에 날짜가 아예 없어서 "지금이 학기 중인가
    *  방학인가"를 앱이 **원리적으로 알 수 없었다** — 그래서 모든 화면이 *지금 상태*만 그렸고
    *  시간축이 수개월인 것이 0 이었다(각도 3 의 관측). 둘 다 옵셔널 — 옛 저장 무마이그레이션. */
@@ -565,6 +632,14 @@ export type Ritual = z.infer<typeof RitualSchema>;
 export type ExamKind = z.infer<typeof ExamKindSchema>;
 export type Exam = z.infer<typeof ExamSchema>;
 export type Course = z.infer<typeof CourseSchema>;
+/** N-19 학사일정 눈금의 종류(정정·철회·휴강·보강). 라벨은 `lib/syllabus.MARK_LABEL`. */
+export type MarkKind = z.infer<typeof MarkKindSchema>;
+/** N-19 학사일정 눈금 한 건. */
+export type AcademicMark = z.infer<typeof AcademicMarkSchema>;
+/** N-18 학기 목표가 바인딩하는 지표. 판정은 `lib/semesterGoals.ts` 하나가 소유한다. */
+export type GoalMetric = z.infer<typeof GoalMetricSchema>;
+/** N-18 학기 목표 한 줄. */
+export type SemesterGoal = z.infer<typeof SemesterGoalSchema>;
 export type Semester = z.infer<typeof SemesterSchema>;
 export type Degree = z.infer<typeof DegreeSchema>;
 export type PlacedBlock = z.infer<typeof PlacedBlockSchema>;

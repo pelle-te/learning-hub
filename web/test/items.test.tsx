@@ -193,7 +193,9 @@ test('items: 시트에서 과목 이름·주당 시간 수정이 store에 반영
   await waitFor(() => expect(useApp.getState().state.items[0]!.name).toBe('새이름'));
 
   // 주당 목표 스텝퍼(+0.5h) — 시트가 소유한 유일한 시간 편집 입구.
-  fireEvent.click(screen.getByRole('button', { name: 'h 늘리기' }));
+  /* ⚠ N-1(W8) 이후 같은 화면에 `h` 스텝퍼가 **둘**이다(진도 · 주당 과제). 진도 쪽은 접근명이
+     그대로이고 과제 쪽이 `주당 과제 h …` 로 좁혀졌다 — 정확 일치로 그 구분을 여기서 잠근다. */
+  fireEvent.click(screen.getByRole('button', { name: 'h 늘리기', exact: true }));
   await waitFor(() => expect(useApp.getState().state.items[0]!.weeklyHours).toBe(3.5));
 });
 

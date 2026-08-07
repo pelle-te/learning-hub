@@ -18,7 +18,7 @@
    3. **여기서 파생하고 저장하지 않는다.** 국면(학기중/방학/개강 전)·주차는 전부 날짜에서 계산한다 —
       저장하면 자정을 넘길 때마다 낡는다(과목 색이 저장값이 아닌 것과 같은 논증).
 ============================================================ */
-import type { AppState, Chapter, Course, Exam, Item, Semester } from './types';
+import type { AcademicMark, AppState, Chapter, Course, Exam, Item, Semester } from './types';
 import { dayDiff, todayISO } from './utils';
 
 /** 시험 최대 개수(v1). ⚠ **이 상수를 올리는 것이 금도금 미끄럼틀의 첫 걸음이다** — `schema.ts` 의
@@ -246,4 +246,45 @@ export function itemOfCourse(state: Pick<AppState, 'items'>, course: Pick<Course
 export function unlinkedCourses(state: Pick<AppState, 'items'>, semester: Semester): Course[] {
   const ids = new Set((state.items || []).map((i) => i.id));
   return (semester.courses || []).filter((c) => !c.itemId || !ids.has(c.itemId));
+}
+
+/** 학기에 속한 실행 과목들(링크가 있는 것만) — 결산·목표가 "이 학기의 수"를 셀 때 쓰는 렌즈. */
+export function itemsOfSemester(state: Pick<AppState, 'items'>, semester: Semester): Item[] {
+  return (semester.courses || []).map((c) => itemOfCourse(state, c)).filter((i): i is Item => !!i);
+}
+
+/* ── N-19 학사일정 눈금 ────────────────────────────────────────────────────
+   ⚠ 읽기가 여기 있는 이유는 이 파일 규율 1 과 같다: 눈금은 **학기의 속성**이고, 학기를 읽는
+   입구가 둘이 되면 "이번 학기 정정 마감"이 화면마다 달라진다. 종류·라벨은 `lib/syllabus`. */
+
+/** 그 학기의 눈금 — **날짜순**. 없으면 빈 배열. */
+export function marksOf(semester: Semester | null): AcademicMark[] {
+  if (!semester?.marks?.length) return [];
+  return [...semester.marks].sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0));
+}
+
+/** 눈금 하나 + 남은 일수(D-day). 지난 것은 음수 — **거르지 않는다**(거르는 것은 화면의 판단). */
+export interface MarkDue {
+  mark: AcademicMark;
+  /** `ds` 기준 남은 일수. 0 = 오늘. */
+  daysLeft: number;
+}
+
+/**
+ * **지금 국면의 학기**에서 오늘 이후 `within` 일 안에 있는 눈금들 — 가까운 순.
+ *
+ * ⚠ 지난 눈금은 안 준다. 정정·철회는 **지나면 되돌릴 수 없어** 지난 것을 계속 띄우면 그건
+ * 정보가 아니라 자책이고(T-4 가 국면 처방에서 세운 규율), 휴강·보강은 지나면 그냥 과거다.
+ */
+export function upcomingMarks(state: Pick<AppState, 'degree' | '_today'>, ds: string, within = 21): MarkDue[] {
+  const sem = activeSemester(state, ds);
+  return marksOf(sem)
+    .map((mark) => ({ mark, daysLeft: dayDiff(ds, mark.ds) }))
+    .filter((m) => m.daysLeft >= 0 && m.daysLeft <= within)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
+/** 그 **날짜**에 있는 눈금들 — 달력이 하루 칸에 표식을 놓을 때 쓴다(시험 표식 `examMarks` 와 같은 형태). */
+export function marksOn(state: Pick<AppState, 'degree' | '_today'>, ds: string): AcademicMark[] {
+  return (state.degree?.semesters || []).flatMap((s) => (s.marks || []).filter((m) => m.ds === ds));
 }

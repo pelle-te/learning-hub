@@ -35,6 +35,7 @@ import {
 import DegreeReq from './DegreeReq';
 import SeasonRoadmap from './SeasonRoadmap';
 import PhaseBoard from './PhaseBoard';
+import SemesterGoals from './SemesterGoals';
 import { Icon } from '@/components/Icon';
 
 /** 학기·과목 타입은 lib/degree가 SSOT(DegreeSemester/DegreeCourse). d.semesters가 이미 그 타입. */
@@ -433,6 +434,9 @@ function DegreePlan() {
       {/* T-4·T-15·T-16 — **학기의 경계**. 로드맵(가로 트랙) 바로 아래가 자리다: 트랙이 "어디까지
           왔나"를 말하고, 이 판이 "지금 국면에서 뭘 하나"를 말한다. */}
       <PhaseBoard />
+      {/* N-18(W8) — 목표는 국면 **바로 아래**다: 국면이 "지금 어디쯤"이고 목표가 "그래서 어디로".
+          학기가 없으면 스스로 사라진다(담을 그릇이 없다). */}
+      <SemesterGoals />
       <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
@@ -652,9 +656,20 @@ function DegreePlan() {
    착지**한다 — 화면은 떴는데 찾던 것이 없는, 가장 알아채기 어려운 형태의 도달성 손실이다. */
 const Goals = lazy(() => import('./PathView'));
 
-type DegView = 'plan' | 'req' | typeof DEGREE_PATH_VIEW;
+/* ⚠⚠ **W8(2026-08-07) — 학기의 입구와 출구가 여기 붙는다**(N-2 인입구 · N-3 결산).
+   왜 새 탭이 아닌가: 둘 다 **학기라는 명사**의 두 끝이고, 그 명사의 회계를 쥔 화면이 여기다.
+   이 저장소는 "학습 상태 소비 0"인 화면을 새 탭으로 세웠다가 다섯 번 강등한 이력이 있다 —
+   뷰로 내리면 도달성(⌘K·딥링크·`?view=`)은 그대로이고 레일 한 칸을 안 쓴다.
+   ⚠ 둘 다 **lazy** 다: 인입구는 파서를, 결산은 완료 기록 전수 스캔을 문다. 학점만 보러 온
+   방문에 그 코드를 내려받을 이유가 없다(`PathView` 와 같은 판단). */
+const Intake = lazy(() => import('./SyllabusIntake'));
+const Close = lazy(() => import('./SemesterClose'));
+
+type DegView = 'plan' | 'req' | 'intake' | 'close' | typeof DEGREE_PATH_VIEW;
 const VIEWS: { key: DegView; label: string }[] = [
   { key: 'plan', label: '졸업 계획' },
+  { key: 'intake', label: '계획서 인입' },
+  { key: 'close', label: '학기 결산' },
   { key: 'req', label: '졸업요건 정리' },
   { key: DEGREE_PATH_VIEW, label: '내 길' },
 ];
@@ -719,6 +734,14 @@ export default function Degree() {
       {view === DEGREE_PATH_VIEW ? (
         <Suspense fallback={<State kind="loading" title="내 길 여는 중…" shape="frame" />}>
           <Goals />
+        </Suspense>
+      ) : view === 'intake' ? (
+        <Suspense fallback={<State kind="loading" title="인입구 여는 중…" shape="frame" />}>
+          <Intake />
+        </Suspense>
+      ) : view === 'close' ? (
+        <Suspense fallback={<State kind="loading" title="결산 여는 중…" shape="frame" />}>
+          <Close />
         </Suspense>
       ) : view === 'req' ? (
         <DegreeReq />

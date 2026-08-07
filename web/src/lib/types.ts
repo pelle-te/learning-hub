@@ -27,6 +27,14 @@ export type {
   ExamKind,
   Exam,
   Course,
+  /** N-19 학사일정 눈금의 종류. 라벨의 SSOT 는 `lib/syllabus.MARK_LABEL`. */
+  MarkKind,
+  /** N-19 학사일정 눈금 한 건(정정·철회·휴강·보강). */
+  AcademicMark,
+  /** N-18 학기 목표가 바인딩하는 지표. */
+  GoalMetric,
+  /** N-18 학기 목표 한 줄 — 판정은 `lib/semesterGoals.ts`. */
+  SemesterGoal,
   Semester,
   Degree,
   PlacedBlock,

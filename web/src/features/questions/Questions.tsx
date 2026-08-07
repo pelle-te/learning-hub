@@ -26,7 +26,16 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { addQuestion, chapterHotspots, questionsOf, recallWindows, removeQuestion } from '@/lib/questions';
+import {
+  addQuestion,
+  chapterHotspots,
+  dueQuestions,
+  markMet,
+  nextMeetDs,
+  questionsOf,
+  recallWindows,
+  removeQuestion,
+} from '@/lib/questions';
 import { EXAM_LABEL, examsOf } from '@/lib/semester';
 import { rid, todayISO } from '@/lib/utils';
 import { ui } from '@/shell';
@@ -162,6 +171,9 @@ export default function Questions() {
     [all, sid],
   );
   const hotspots = useMemo(() => chapterHotspots(state, sid), [state, sid]);
+  /* A-14 — **다시 만날 때가 된 문항.** 과목을 안 가린다: 이 목록의 존재 이유가 *찾아가지 않아도
+     떠오르는 것*이라, 과목 셀렉트 뒤에 숨기면 이 항목이 없애려는 마찰이 그대로 남는다. */
+  const due = useMemo(() => dueQuestions(state, today), [state, today]);
   const win = windows.find((w) => w.item.id === sid) ?? windows[0] ?? null;
 
   usePageChromeEffect(
@@ -169,12 +181,14 @@ export default function Questions() {
       primary: { label: '문항 원장', value: `${all.length}건` },
       readouts: [
         { label: '이 과목', value: mine.length },
+        /* A-14 — 0 이면 `—` 다(빈 수를 외치지 않는다 · 레일 신호와 같은 규칙). */
+        { label: '다시 만날 것', value: due.length || '—' },
         // 밀집이 이 원장의 값 판정이다 — 리드아웃이 그것을 1급으로 말한다.
         { label: '챕터 밀집', value: hotspots.length ? `${hotspots.length}곳` : '—' },
         ...(win ? [{ label: '회수 창', value: `${EXAM_LABEL[win.exam.kind]} 직후` }] : []),
       ],
     }),
-    [all.length, mine.length, hotspots.length, win],
+    [all.length, mine.length, hotspots.length, win, due.length],
   );
 
   if (!items.length)
@@ -243,6 +257,36 @@ export default function Questions() {
         </div>
       )}
 
+      {/* ── A-14(W8) — **문항이 스스로 부른다** ─────────────────────────────────────
+          이 원장의 결함은 내용이 아니라 시제였다: 아카이브는 *사용자가 갈 때만* 존재하는데
+          갈 이유가 발생하지 않았다. 간격은 앱의 복습 사다리 그대로이고(`nextMeetDs`), "다시
+          봤어요"가 그 사다리를 한 칸 올린다.
+          ⚠ **정답을 안 묻는다.** 이 원장에는 정답이 없고(30초 계약), 맞았는지를 물으면 그 순간
+          문제은행이 된다 — 여기서 재는 것은 *다시 만났나*뿐이다. */}
+      {due.length > 0 && (
+        <div className="ds-rule flex-none">
+          <div className="mb-2 flex items-baseline gap-2">
+            <h3 className="ds-caps mb-0!">다시 만날 문항</h3>
+            <Pill tiny tone="warn">
+              {due.length}건
+            </Pill>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+            {due.slice(0, 5).map(({ q, over }) => (
+              <li key={q.id} className="flex flex-wrap items-baseline gap-2 text-md">
+                <span className="min-w-0 flex-1 truncate">{q.prompt}</span>
+                <span className="ds-tiny text-mut">{items.find((i) => i.id === q.sid)?.name ?? ''}</span>
+                <span className="ds-tiny text-mut tabular-nums">{over === 0 ? '오늘' : `${over}일 지남`}</span>
+                <Button sm onClick={() => mutate((st) => markMet(st, q.id, today))}>
+                  다시 봤어요
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {due.length > 5 && <p className="ds-tiny mt-1.5 mb-0 text-mut">외 {due.length - 5}건</p>}
+        </div>
+      )}
+
       {hotspots.length > 0 ? (
         <div className="flex flex-none flex-wrap items-center gap-2">
           <span className="ds-caps">챕터 밀집</span>
@@ -283,6 +327,8 @@ export default function Questions() {
                   )}
                   {q.source && <span>{q.source}</span>}
                   <span>{q.ds}</span>
+                  {/* A-14 — 다음에 만날 날. 저장값이 아니라 파생이다(`met` 에서 계산). */}
+                  <span title={`${(q.met || []).length}번 다시 봄`}>↻ {nextMeetDs(q)}</span>
                   <Button
                     sm
                     variant="ghost"

@@ -8,6 +8,7 @@ import { riskSummary } from '@/lib/spacedReview';
 import { vaultAnchorsVersion } from '@/lib/vaultAnchors';
 import { isDone } from '@/lib/persistence';
 import { openBacklog } from '@/lib/methodology';
+import { dueQuestions } from '@/lib/questions';
 import { dayDiff, todayISO } from '@/lib/utils';
 import { resolveTheme } from '@/lib/uiState';
 import type { AppState, ScheduleResult, Theme } from '@/lib/types';
@@ -54,6 +55,11 @@ export const SCHEDULE_INPUT_KEYS = [
   'blankResults', // ②#23 복습 사다리 적응 — latestBlank가 읽는다(백지 결과 갱신 시 재스케줄)
   'dayPlans', // §4-2 일일 배치 오버라이드 — applyDayPlans가 읽어 manual인 날 items를 치환(변경 시 재스케줄)
   'events', // Wave 5 일정 — dayStudyMin/freeWindowsForDay가 읽어 가용시간을 깎는다(일정 추가 시 재스케줄)
+  /* ⚠⚠ **N-1(W8 · 2026-08-07) — 할 일이 스케줄러 입력이 됐다.** `lib/tasks.ts` 머리에 그 뒤집기의
+     근거가 있다(T-1 이 거절한 것은 *성적 회계*이고 이건 *시간 소비*다). 이 줄이 없으면 과제를
+     넣어도 계획이 다시 계산되지 않는다 — I-6 이 `cbms` 에서 방금 겪은 것과 **글자 그대로 같은
+     결함**이고, 그래서 여기 적는 것이 그 항목이 남긴 교훈의 회수다. */
+  'tasks',
   'weekAlloc', // §12-4 주간 배분 — 배분 있는 주는 new 블록을 요일 벡터로 구동(배분 변경 시 재스케줄)
 ] as const;
 
@@ -149,8 +155,10 @@ export const selectRiskSummary: (state: AppState) => { overdue: number; due: num
    ⚠ **없는 신호를 지어내지 않는다.** 상태가 있는 항목만 여기 있다(오늘·기록). 나머지 도달점은
    지금 앱이 싸게 셀 수 있는 '지금 뭔가 있음'이 없어서 비운 것이지, 자리가 없어서가 아니다 —
    신호가 생기면 이 표에 한 줄을 더한다. */
-/* 키 = 위험 입력 + `openBacklog` 이 읽는 `backlog`(보충 개수). */
-const navInputs = (s: AppState): readonly unknown[] => [...riskInputs(s), s.backlog];
+/* 키 = 위험 입력 + `openBacklog` 이 읽는 `backlog`(보충 개수) + `questions`(A-14 다시 만날 것).
+   ⚠ 새 신호를 더하면 **그 신호가 읽는 슬라이스를 여기 더한다** — 안 그러면 문항을 적어도 레일이
+   안 바뀐다(캐시가 그대로다). `SCHEDULE_INPUT_KEYS` 가 같은 형태의 결함으로 두 번 물린 자리다. */
+const navInputs = (s: AppState): readonly unknown[] => [...riskInputs(s), s.backlog, s.questions];
 
 export const selectNavSignals: (state: AppState) => Record<string, string> = keyed(navInputs, (state) => {
   const out: Record<string, string> = {};
@@ -159,14 +167,25 @@ export const selectNavSignals: (state: AppState) => Record<string, string> = key
   const day = (selectSchedule(state).days || []).find((d) => d.ds === today);
   const left = (day?.items || []).filter((it) => !isDone(state, today, it.sid, it.type)).length;
   if (left > 0) out.today = `남은 ${left}`;
-  // 기록 — 옛 배지는 밀림+보충을 **한 숫자로 합쳐** 무엇이 밀렸는지 말하지 않았다. 둘은 성격이
+  // 밀림·보충 — 옛 배지는 둘을 **한 숫자로 합쳐** 무엇이 밀렸는지 말하지 않았다. 둘은 성격이
   // 다른 일이라(인출 vs 보충 학습) 합치면 어느 쪽도 행동으로 안 이어진다.
   const { overdue } = selectRiskSummary(state);
   const backlog = openBacklog(state).length;
   const parts: string[] = [];
   if (overdue > 0) parts.push(`밀림 ${overdue}`);
   if (backlog > 0) parts.push(`보충 ${backlog}`);
-  if (parts.length) out.journal = parts.join(' · ');
+  /* ⚠⚠ **키가 `journal` 이었다 — 그 탭은 W4(N-12)에서 레일을 떠났다**(2026-08-07 · W8 에서 발견).
+     `RailSidebar` 는 `signals[t.key]` 로 **레일에 그려지는 탭**에만 신호를 붙이는데 `journal` 은
+     `role:'retired'`(→ `/day`)라 후보에 없다 → 이 두 문장은 **한 번도 렌더되지 않았다.** 배지가
+     같은 수를 `review-run` 에 이미 옮겨 놓았기 때문에(그 파일의 `NAV_BADGE_TAB`) 화면에서 값이
+     사라진 것처럼 보이지 않았고, 그래서 조용했다 — *도달성 손실은 조용하다*의 또 한 판.
+     → 배지와 **같은 탭**에 붙인다. 둘이 겹치지 않는 것은 `RailSidebar` 가 이미 보장한다
+     (펼침이면 신호 · 접힘이면 배지). */
+  if (parts.length) out['review-run'] = parts.join(' · ');
+  /* A-14 — **문항이 스스로 부른다.** 이 원장의 결함은 내용이 아니라 시제였다(아카이브는 사용자가
+     갈 때만 존재하는데 갈 이유가 발생하지 않는다). 레일 한 줄이 그 "부름"이고, 없으면 침묵한다. */
+  const dueQ = dueQuestions(state, today).length;
+  if (dueQ > 0) out.questions = `다시 만날 ${dueQ}`;
   return out;
 });
 

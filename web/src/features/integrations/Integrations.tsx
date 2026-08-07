@@ -15,6 +15,8 @@ import { WORKSPACE_UNSET_SHORT } from '@/lib/artifactState';
 import TelemetryConsole from './TelemetryConsole';
 import { VaultPanel } from './VaultPanel';
 import { AnkiPanel } from './AnkiPanel';
+import CoveragePanel from './CoveragePanel';
+import IcsFeedPanel from './IcsFeedPanel';
 
 export default function Integrations() {
   // 상단 바 리드아웃 — TelemetryConsole과 같은 캐시(skipToken=fetch 없이 구독) + usePing로 연결 요약만.
@@ -90,6 +92,14 @@ export default function Integrations() {
           <VaultPanel />
           <div style={{ marginTop: 6 }}>
             <AnkiPanel />
+          </div>
+          {/* N-6(W8) — 카드 커버리지. Anki 연결을 쥔 호스트 바로 아래가 자리다(조회가 그 연결을 탄다). */}
+          <div style={{ marginTop: 6 }}>
+            <CoveragePanel />
+          </div>
+          {/* N-7(W8) — ics 구독 피드. **밖으로 나가는 유일한 읽기 통로**라 연동 현황이 그 집이다. */}
+          <div style={{ marginTop: 6 }}>
+            <IcsFeedPanel />
           </div>
         </div>
         {/* 우 — 텔레메트리 조종석(백엔드·볼트·Anki 라이브 채널) */}

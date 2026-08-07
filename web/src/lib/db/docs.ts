@@ -43,8 +43,14 @@ import { markDbFallback, setSaveFallback } from './fallback'; // C2 — 저작�
 
    ⚠ 빈 배열의 대가: `DocKey` 가 `never` 라 `docGet`/`docSet` 은 **전량 localStorage 로 흐른다**.
    즉 지금 이 파일은 *동작상* 얇은 KV 래퍼이고, SQLite 경로는 세입자가 돌아오는 순간 다시 산다.
-   그 사실을 숨기지 않는 것이 요점이다(조용히 죽은 배관이 이 저장소가 반복해 만든 형태다). */
-export const DOC_KEYS = [] as const;
+   그 사실을 숨기지 않는 것이 요점이다(조용히 죽은 배관이 이 저장소가 반복해 만든 형태다).
+
+   ✅ **세입자가 돌아왔다 — `ics:feed`**(N-7 · W8 · 2026-08-07). 위 문단이 예약한 "한 줄"이 이것이고,
+   이 표가 왜 앱 인프라인지를 그 항목이 실증한다: 살아 있는 캘린더 구독은 **서버가 읽을 수 있는
+   곳**에 계획을 놓아야 하는데, `docs` 는 이미 D1 까지 동기화되는 유일한 자유 KV 다
+   (`cloud/contract.DOCS_SPEC`). 새 테이블·새 마이그레이션·새 인증 경로가 **전부 0**이고,
+   Worker 는 이 한 행을 읽는 **공개 GET 하나**만 는다. 값의 형태는 `lib/icsFeed.ts` 가 소유한다. */
+export const DOC_KEYS = ['ics:feed'] as const;
 export type DocKey = (typeof DOC_KEYS)[number];
 
 const isDocKey = (k: string): k is DocKey => (DOC_KEYS as readonly string[]).includes(k);

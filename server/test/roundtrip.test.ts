@@ -505,3 +505,65 @@ describe('⚠⚠ 스키마 스큐(서버 D1 이 앱보다 낮다)', () => {
     }
   });
 });
+
+/* ============================================================
+   N-7 **ics 구독 피드** — 앱이 밀어올린 `docs` 한 행을 무인증 GET 이 나른다(W8 · 2026-08-07).
+
+   이 층에서만 잡히는 것: **라우팅·미들웨어 순서**. 이 라우트는 `/api/*` 아래인데 인증을
+   요구하지 않는 셋째 예외이고(헬스·로그·여기), 그 예외가 **의도한 것**임을 여기서 잠근다.
+   반대로 잘못된 토큰이 통과하면 그건 개인 데이터 노출이라, 실패 방향도 함께 못박는다.
+============================================================ */
+describe('N-7 ics 구독 피드', () => {
+  const TOKEN = 'a'.repeat(32);
+  const feedRow = (value: unknown, at = 100) => ({
+    tbl: 'docs',
+    key: ['ics:feed'],
+    data: [JSON.stringify(value)],
+    updatedAt: at,
+  });
+
+  it('발행한 피드를 토큰으로 받아온다 — 인증 없이', async () => {
+    const { access } = await enroll();
+    const body = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR';
+    const p = await push(access, {
+      since: 0,
+      upto: 100,
+      rows: [feedRow({ token: TOKEN, body, at: 1, sig: 'x' })],
+      tombstones: [],
+    });
+    expect(p.status).toBe(200);
+
+    const got = await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`);
+    expect(got.status, '캘린더 앱은 Authorization 헤더를 못 싣는다').toBe(200);
+    expect(got.headers.get('content-type')).toMatch(/text\/calendar/);
+    expect(await got.text()).toBe(body);
+    // 확장자 없이도 같은 것을 준다(캘린더 앱마다 형식 판정이 다르다).
+    expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}`)).status).toBe(200);
+  });
+
+  it('⚠⚠ 틀린 토큰·폐기된 피드·형식 위반은 전부 404 — 이유를 가르지 않는다', async () => {
+    const { access } = await enroll();
+    await push(access, {
+      since: 0,
+      upto: 100,
+      rows: [feedRow({ token: TOKEN, body: 'X', at: 1, sig: '' })],
+      tombstones: [],
+    });
+
+    expect((await SELF.fetch(`${BASE}/api/ics/${'b'.repeat(32)}.ics`)).status, '다른 토큰').toBe(404);
+    expect((await SELF.fetch(`${BASE}/api/ics/short.ics`)).status, '형식 위반은 D1 을 두드리지 않는다').toBe(404);
+
+    // 폐기 = 빈 토큰·빈 본문으로 덮어쓴다(툼스톤이 없는 docs 의 "없음" 표현).
+    await push(access, {
+      since: 100,
+      upto: 200,
+      rows: [feedRow({ token: '', body: '', at: 2, sig: '' }, 200)],
+      tombstones: [],
+    });
+    expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`)).status, '폐기 뒤엔 옛 URL 이 죽는다').toBe(404);
+  });
+
+  it('피드가 없으면 404다(가입 여부를 흘리지 않는다)', async () => {
+    expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`)).status).toBe(404);
+  });
+});

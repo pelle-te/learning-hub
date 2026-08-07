@@ -22,7 +22,7 @@
 ============================================================ */
 import type { AppState, Exam, Item, Question } from './types';
 import { examScopes } from './semester';
-import { dayDiff } from './utils';
+import { addDays, dayDiff, iso, parseISO, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET } from './utils';
 
 /** 회수 창이 열려 있는 기간(일). 시험 **당일과 다음 날**까지 — 직후 20분이 이상적이지만
  *  앱을 그 자리에서 열지 않는 일이 흔하고, 이틀이 지나면 전제 자체가 무너진다. */
@@ -115,6 +115,56 @@ export function recallWindows(
     }
   }
   return out;
+}
+
+/* ── A-14 **다시 만날 날** ─────────────────────────────────────────────────
+   이 원장의 결함은 내용이 아니라 **시제**였다: 아카이브는 *사용자가 갈 때만* 존재하는데 갈
+   이유가 발생하지 않는다. 챕터는 `spacedReview` 사다리가 불러 주고 오답은 약점 배분이 불러
+   주는데, 문항만 부르는 사람이 없었다 — 그래서 시험 2주 전에 "그 문제"를 다시 만나려면
+   **사용자가 그 원장을 기억해야** 했다(기억해야 하는 도구는 안 쓰인다).
+
+   ⚠ **새 사다리를 만들지 않는다.** 간격은 앱의 복습 사다리 그대로다(`REVIEW_OFFSETS` + 꼬리).
+   문항에만 다른 곡선을 주면 "왜 이건 3일이고 저건 4일인가"를 설명할 근거가 앱 안에 없다.
+   ⚠ **다음 날짜를 저장하지 않는다** — `met` 에서 파생한다(저장하면 자정마다 낡는 값이 하나 더
+   늘고, 그건 `semesterPhase` 가 이미 거절한 형태다). */
+
+/** 이 문항을 **다시 만날 날**(ISO). 아직 한 번도 안 만났으면 적은 날 + 1일. */
+export function nextMeetDs(q: Pick<Question, 'ds' | 'met'>): string {
+  const met = q.met || [];
+  const anchor = met.length ? met[met.length - 1]! : q.ds;
+  const off = met.length < REVIEW_OFFSETS.length ? REVIEW_OFFSETS[met.length]! : REVIEW_TAIL_OFFSET;
+  return iso(addDays(parseISO(anchor), off));
+}
+
+/** 오늘 다시 만날 문항 한 건. `over` = 지난 일수(0 = 오늘). */
+export interface QuestionDue {
+  q: Question;
+  dueDs: string;
+  over: number;
+}
+
+/**
+ * `ds` 기준 **다시 만날 때가 된** 문항들 — 오래 지난 것부터.
+ *
+ * ⚠ 과목을 안 가린다: 문항은 시험 범위로 묶이기 전에 *내가 틀린 것*이고, 그 목록을 과목별로
+ * 가르면 다시 이 원장을 **찾아가야** 한다(이 항목이 없애려는 마찰 그 자체).
+ */
+export function dueQuestions(state: Pick<AppState, 'questions'>, ds: string): QuestionDue[] {
+  return questionsOf(state)
+    .map((q) => ({ q, dueDs: nextMeetDs(q), over: dayDiff(nextMeetDs(q), ds) }))
+    .filter((d) => d.over >= 0)
+    .sort((a, b) => b.over - a.over);
+}
+
+/** "다시 봤다"를 기록한다 — 사다리를 한 칸 올린다. ⚠ 뮤테이터.
+ *  ⚠ 같은 날 두 번 누르면 **한 번으로 친다**: 하루에 두 번 본 것은 인출 두 번이 아니다
+ *  (`reviewTouches` 가 챕터에 대해 세운 것과 같은 규칙). */
+export function markMet(state: AppState, id: string, ds: string): void {
+  const q = (state.questions || []).find((x) => x.id === id);
+  if (!q) return;
+  q.met = q.met || [];
+  if (q.met[q.met.length - 1] === ds) return;
+  q.met.push(ds);
 }
 
 /** 문항을 넣는다. ⚠ 뮤테이터 — immer 초안 위에서 부른다.

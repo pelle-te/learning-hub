@@ -5,6 +5,7 @@
 ============================================================ */
 import { toMin } from '../utils';
 import { eventIntervals } from '../events';
+import { taskIntervals, untimedChoreMin } from '../tasks';
 import type { AppState, FreeWindows, RoutineBlock } from '../types';
 
 /** 빈 구간 배열에서 여러 [a,b]를 빼서 새 배열을 만든다(중간을 빼면 둘로 쪼갬). */
@@ -126,9 +127,24 @@ function computeFreeWindowsForWeekday(state: AppState, wd: number): FreeWindows 
  *  ⚠ 기존 freeWindowsForWeekday의 시그니처·거동은 **불변**(호출처 다수 · 회귀 위험) — 여기서 재사용만 한다.
  *  일정이 없는 날은 요일 창을 **그대로 반환**(추가 계산 0) → 거동 100% 종전(자동 불변식).
  *  wake0/wake1(깨어있는 경계)은 일정이 바꾸지 않는다 — 일정은 창 안의 점유일 뿐 기상/취침이 아니다. */
+/** 그날 창을 먹는 **점유 구간 전부** — 일정(events) ∪ 시각이 박힌 미완 과제(N-1).
+ *
+ *  ⚠⚠ 과제가 여기 들어온 것이 N-1 이다(W8 · 2026-08-07). 종전엔 캘린더가 과제 카드를 그리면서
+ *  스케줄러는 그 시간에 학습 블록을 **그대로 겹쳐 놓았다** — 화면에는 둘 다 있는데 시간은 한
+ *  번뿐이라, 그 날은 만들어지는 순간부터 넘쳤다. 근거·구간과 총량을 가르는 이유는
+ *  `lib/tasks.ts` 의 N-1 주석이 SSOT.
+ *  ⚠ 배열을 새로 만든다 — `eventIntervals` 는 **캐시된 배열을 그대로** 돌려주므로 여기에
+ *  `push` 하면 그 인덱스가 오염된다(그 함수 주석이 경고한 형태). */
+function dayOccupancy(state: AppState, ds: string): [number, number][] {
+  const ev = eventIntervals(state, ds);
+  const tk = taskIntervals(state, ds);
+  if (!tk.length) return ev;
+  return [...ev, ...tk].sort((a, b) => a[0] - b[0]);
+}
+
 export function freeWindowsForDay(state: AppState, ds: string, wd: number): FreeWindows {
   const base = freeWindowsForWeekday(state, wd);
-  const occ = eventIntervals(state, ds);
+  const occ = dayOccupancy(state, ds);
   if (!occ.length) return base;
   const segs = subtractIntervals(
     base.windows.map((w): [number, number] => [w.s, w.e]),
@@ -138,14 +154,18 @@ export function freeWindowsForDay(state: AppState, ds: string, wd: number): Free
   return { wake0: base.wake0, wake1: base.wake1, windows, freeMin: windows.reduce((t, w) => t + (w.e - w.s), 0) };
 }
 
-/** 그날 일정이 '공부 가능 시간'에서 **실제로** 깎는 분 = 요일 자유창 총합 − 일정 뺀 창 총합.
- *  ⚠ 이중 차감 방지의 핵심: 일정 길이를 그냥 빼지 않고 **창과의 교집합**만 뺀다. 그래서
+/** 그날 **점유 구간**(일정 + 시각 박힌 과제)이 '공부 가능 시간'에서 실제로 깎는 분
+ *  = 요일 자유창 총합 − 점유를 뺀 창 총합.
+ *
+ *  ⚠ 이중 차감 방지의 핵심: 길이를 그냥 빼지 않고 **창과의 교집합**만 뺀다. 그래서
  *   · 수업/일과와 겹치는 일정(이미 공부시간이 아님) → 추가 차감 0
  *   · 수면 등 깨어있는 창 밖의 일정 → 차감 0
- *   · 겹치는 두 일정(이중 약속) → 합집합만큼만 1회 차감(subtractIntervals 멱등)
- *  이 유도 방식이 "가장 정직한" 경로다 — (a)총량과 (b)구간이 같은 창 계산에서 파생돼 서로 어긋날 수 없다. */
-export function eventStudyLossMin(state: AppState, ds: string, wd: number): number {
-  if (!eventIntervals(state, ds).length) return 0; // 일정 없는 날 = 창 계산 자체를 생략(핫패스 비용 0)
+ *   · 겹치는 둘(이중 약속 · 과제와 겹친 약속) → 합집합만큼만 1회 차감(subtractIntervals 멱등)
+ *  이 유도 방식이 "가장 정직한" 경로다 — (a)총량과 (b)구간이 같은 창 계산에서 파생돼 서로 어긋날 수 없다.
+ *  ⚠ 옛 이름은 `eventStudyLossMin` 이었다 — N-1 이 과제를 같은 축에 넣으며 이름이 좁아졌다.
+ *  이름이 `event` 면 소비처가 "과제는 왜 여기 있나"를 매번 다시 물어야 한다(`railTabs` 개명과 같은 판단). */
+export function dayOccupancyLossMin(state: AppState, ds: string, wd: number): number {
+  if (!dayOccupancy(state, ds).length) return 0; // 점유 없는 날 = 창 계산 자체를 생략(핫패스 비용 0)
   return Math.max(0, freeWindowsForWeekday(state, wd).freeMin - freeWindowsForDay(state, ds, wd).freeMin);
 }
 
@@ -168,7 +188,10 @@ export function studyMinByWeekday(state: AppState): number[] {
  *   일정은 여기서 추가로 깎이지 않는다(그 시간은 애초에 capWd에 없다). 근거는 그 함수 주석 참조.
  *  ⚠ 음수 방지 — 종일 일정이 오버라이드보다 길어도 0 아래로 내려가지 않는다. */
 export function dayStudyMin(state: AppState, ds: string, wd: number, capWd: number[]): number {
-  const loss = eventStudyLossMin(state, ds, wd);
+  /* ⚠ N-1(W8) — 점유 구간 차감에 **시각 없는 과제의 총량**을 더한다. 트레이의 과제는 구간이
+     없어 창 산술에 안 잡히는데, 시간은 똑같이 먹는다. 오버라이드에도 똑같이 빼는 이유는 위
+     ⚠ 문단(일정)과 같다: 오버라이드는 *공부 가능 시간의 선언*이지 '과제 포함 총량'이 아니다. */
+  const loss = dayOccupancyLossMin(state, ds, wd) + untimedChoreMin(state, ds);
   const ov = state.dayOverrides && state.dayOverrides[ds];
   if (ov !== undefined && ov !== null && ov !== '') {
     // 비수치 오버라이드(+ov=NaN)가 그날 studyMin을 오염시키지 않게 가드 — 부적합하면 요일 기본값으로 폴백(L-10).

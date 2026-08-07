@@ -31,7 +31,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useScrollLock } from '@/hooks/useScrollLock';
 import { dayBuffer, type BufferBlock } from '@/lib/dayBuffer';
 import { dayCapacity } from '@/lib/dayCapacity';
-import { choreMinForDay } from '@/lib/tasks';
+import { untimedChoreMin } from '@/lib/tasks';
 import { summariesFor, cbmsBetween } from '@/lib/methodology';
 import { isDone } from '@/lib/persistence';
 import { todayISO } from '@/lib/utils';
@@ -87,7 +87,9 @@ export default function DayBufferOverlay() {
     const cap = dayCapacity(
       blocks.filter((b) => !b.routine).map((b, i) => ({ key: String(i), start: b.start, min: b.min, done: b.done })),
       L ? L.free.reduce((t, [a, z]) => t + (z - a), 0) : 0,
-      choreMinForDay(state, ds),
+      /* ⚠ N-1(W8) — **시각 없는 것만** 뺀다. `L.free` 는 이제 시각 박힌 과제를 구간으로 이미
+         뺀 값이라(`freeWindowsForDay`), 총량을 다시 빼면 그 과제가 두 번 깎인다. */
+      untimedChoreMin(state, ds),
     );
     return dayBuffer({
       ds,

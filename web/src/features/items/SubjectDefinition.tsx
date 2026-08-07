@@ -49,19 +49,26 @@ function Stepper({
   value,
   step,
   unit,
+  what,
   onChange,
 }: {
   id?: string; // 바깥 <label htmlFor>와 잇기 위한 통로(감싸는 래퍼라 id가 안쪽까지 내려와야 한다)
   value: number;
   step: number;
   unit: string;
+  /** 무엇의 스텝퍼인가 — 버튼 접근명에 들어간다.
+   *  ⚠⚠ **단위만으로는 부족하다**(N-1 이 그 자리에서 실증했다). 주당 과제 칸이 생기며 같은
+   *  화면에 `h 늘리기` 버튼이 **둘**이 됐고, 스크린리더 사용자는 어느 것이 진도이고 어느 것이
+   *  과제인지 구분할 방법이 없다(테스트도 같은 이유로 즉시 깨졌다 — 그게 이 결함의 관측이다). */
+  what?: string;
   onChange: (v: number) => void;
 }) {
+  const of = (verb: string): string => `${what ? `${what} ` : ''}${unit} ${verb}`;
   const clamp = (v: number) => Math.max(0, round1(v));
   const bump = (d: number) => onChange(clamp(value + d));
   return (
     <div className="ds-row" style={{ gap: 4, alignItems: 'center', maxWidth: 170 }}>
-      <Button sm onClick={() => bump(-step)} aria-label={`${unit} 줄이기`}>
+      <Button sm onClick={() => bump(-step)} aria-label={of('줄이기')}>
         –
       </Button>
       {/* ⚠⚠ **`emptyValue` 를 주지 않는다**(H25 · 2026-07-30 `/감사 근본`). 이 스텝퍼는 주당 목표
@@ -81,7 +88,7 @@ function Stepper({
         onCommit={(v) => onChange(clamp(v))}
         style={{ textAlign: 'center' }}
       />
-      <Button sm onClick={() => bump(step)} aria-label={`${unit} 늘리기`}>
+      <Button sm onClick={() => bump(step)} aria-label={of('늘리기')}>
         +
       </Button>
       <span className="ds-tiny text-mut">{unit}</span>
@@ -333,6 +340,23 @@ export function SubjectDefinition({
               onChange={(v) => upd((it) => void (it.weeklyHours = v))}
             />
           )}
+        </div>
+        {/* ── N-1(W8) — **주당 과제 시간**. 진도 예산 바로 옆이 자리다(두 단이 나란해야 비교가 된다).
+            ⚠ 왜 `weeklyHours` 에 합치지 않나: 챕터를 나가는 시간과 제출물을 만드는 시간을 한 통에
+            담으면 과제가 많은 주에 **진도가 조용히 밀린다** — 그게 지금 상태이고, 밀린 이유가
+            앱 어디에도 안 적힌다. 소비처는 학기 부하 시뮬(`simulateSemester`)이다.
+            ⚠ 날짜가 정해진 과제는 여기가 아니라 **할 일**이 갖는다(그건 특정일의 소비이고 이건
+            매주 반복되는 경상비다 · `schema.ts` 의 이 필드 주석이 SSOT). */}
+        <div className="ds-fld">
+          <label htmlFor={`it-chore-${id}`}>주당 과제 (h)</label>
+          <Stepper
+            id={`it-chore-${id}`}
+            value={item.choreWeeklyH || 0}
+            step={0.5}
+            unit="h"
+            what="주당 과제"
+            onChange={(v) => upd((it) => void (it.choreWeeklyH = v))}
+          />
         </div>
         {/* ── T-1 학기 계약 — 마감 1칸이 **시험 2칸**이 됐다 ────────────────────────────────
             왜: 중간·기말은 날짜도 범위도 다른 **두 사건**인데 옛 모델은 과목당 마감 1개뿐이라
