@@ -7,6 +7,7 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
 import { usePrefill } from '@/store/prefill';
+import { useOverlay } from '@/store/useOverlay';
 import {
   BACKUP_KEY,
   BACKUP_AT_KEY,
@@ -532,6 +533,19 @@ export function toggleCurrentPin(): void {
   const to = window.location.pathname;
   const key = to.split('/')[1] || 'today';
   useUI.getState().togglePin(to, routeLabelOf(key), Date.now());
+}
+
+/* ── N-13 작업대 — **지금 화면을 옆에 붙든다**(W9 · 2026-08-07) ──────────────────────
+   ⚠ `toggleCurrentPin` 과 같은 이유로 경로를 **부를 때** 읽는다(팔레트 목록은 열 때 한 번
+   만들어지므로 여기서 굳히면 *팔레트를 처음 연* 화면이 붙들린다).
+   ⚠ 쿼리까지 싣는다 — `?view=` 로 갈라지는 화면이 여럿이라(`/degree?view=close`) 경로만
+   싣으면 붙들어 둔 것이 다른 뷰가 된다.
+   ⚠ 같은 화면을 두 번 붙들면 **닫는다**(토글) — 여는 명령과 닫는 명령을 따로 두면 팔레트에
+   줄이 둘이 되고, 그중 하나는 항상 아무 일도 안 한다. */
+export function toggleBench(): void {
+  const cur = window.location.pathname + window.location.search;
+  const { bench, setBench } = useOverlay.getState();
+  setBench(bench === cur ? null : cur);
 }
 
 export function captureSubjects(): { id: string; name: string }[] {

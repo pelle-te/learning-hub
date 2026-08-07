@@ -131,6 +131,34 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
     ui.toastUndoable(`"${nm}" 챕터 삭제됨`);
   };
 
+  /* ── A-12(W9 · 2026-08-07) — **일괄 완료·삭제는 한 번의 쓰기다** ────────────────────
+     로드맵의 관측이 이 화면 것이다: _"챕터 7개 완료 = 25 키스트로크 · 토스트 7장 · ⌘Z 7회"_.
+     키스트로크는 절반이 되고(`j m` 씩 찍고 `x` 한 번), **되돌림이 하나**가 되는 것이 요지다 —
+     한 번의 결정이 일곱 개의 ⌘Z 로 쪼개지면 사용자는 그것을 되돌릴 수 없는 것으로 여긴다.
+     ⚠ 개별 동사를 반복 호출하지 않는다(그러면 결함이 그대로다) — 아래는 **한 `mutate`** 다.
+     ⚠ 완료의 뜻은 단일 판과 같아야 한다: `doneDs` 를 함께 찍고, 해제하면 지운다(N-10).
+     ⚠ 섞여 있으면(일부만 완료) **전부 완료**로 민다 — 토글은 여럿에 대해 뜻이 없다. */
+  const bulkDone = (list: Chapter[]) => {
+    const ids = new Set(list.map((c) => c.id));
+    const on = list.some((c) => !c.done); // 하나라도 안 끝났으면 전부 완료 · 전부 끝났으면 전부 해제
+    mutate((st) => {
+      const it = st.items.find((x) => x.id === id);
+      if (!it) return;
+      for (const ch of it.chapters) {
+        if (!ids.has(ch.id)) continue;
+        ch.done = on;
+        if (on) ch.doneDs = todayISO(st);
+        else delete ch.doneDs;
+      }
+    });
+    ui.toastUndoable(`챕터 ${list.length}개 ${on ? '완료' : '완료 해제'}`);
+  };
+  const bulkDel = (list: Chapter[]) => {
+    const ids = new Set(list.map((c) => c.id));
+    upd((it) => void (it.chapters = it.chapters.filter((c) => !ids.has(c.id))));
+    ui.toastUndoable(`챕터 ${list.length}개 삭제됨`);
+  };
+
   const cursor = useListCursor<Chapter>({
     items: cursorItems,
     docTitle: '이 화면 · 챕터',
@@ -139,6 +167,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
       d: (c) => delCh(chs.indexOf(c)),
       v: (c) => openVaultSearch(c.name),
     },
+    bulk: { x: bulkDone, d: bulkDel },
   });
 
   const drop = (to: number) => {
@@ -227,6 +256,8 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                       <span className="ds-draghandle" title="드래그 또는 Alt+↑↓로 순서 변경">
                         ⠿
                       </span>{' '}
+                      {/* A-12 — 표시된 행. **문자로** 말한다(색만으로 상태를 표현하지 않는다 · 대비 규율). */}
+                      {cursor.marked.has(c.id) ? <span className="font-extrabold text-acc">✓ </span> : null}
                       {i + 1}
                     </td>
                     <td>

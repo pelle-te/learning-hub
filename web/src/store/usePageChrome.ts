@@ -4,7 +4,7 @@
    휘발성 UI 상태(persist X) — 페이지가 mount 시 set, unmount 시 clear.
 ============================================================ */
 import { create } from 'zustand';
-import { useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 
 export interface ChromeReadout {
   label: string;
@@ -50,6 +50,16 @@ export const usePageChrome = create<ChromeStore>((set) => ({
   clear: () => set({ readouts: [], action: null, primary: null }),
 }));
 
+/* ── N-13 **두 번째 페인에서는 크롬을 주입하지 않는다**(W9 · 2026-08-07) ──────────────
+   작업대(옆 페인)는 **같은 화면 컴포넌트를 다시 마운트**한다. 그런데 이 슬롯은 전역 스토어
+   하나라, 그대로 두면 옆에 붙든 화면이 상단 바의 수를 **덮어쓴다** — 그리고 그 화면이 닫힐 때
+   `clear()` 가 돌아 주 화면의 리드아웃까지 함께 사라진다(마지막에 마운트된 쪽이 이긴다).
+
+   ⚠ 판정을 화면에 맡기지 않는다(“페인 안이면 넘기지 마세요”는 화면 스물몇 개의 계약이 된다) —
+   **컨텍스트가 그 자리에서 끈다.** 페인을 그리는 쪽(`app/WorkbenchPane`)만 이걸 안다. */
+const ChromeMuted = createContext(false);
+export const ChromeMuteProvider = ChromeMuted.Provider;
+
 /** 탭 공용 보일러 — mount/deps 변경 시 리드아웃 주입, unmount 시 clear(10개 탭이 복붙하던 골격).
  *  build를 effect 안에서 호출하므로 렌더마다 새 배열이어도 deps가 같으면 재주입하지 않는다.
  *
@@ -74,7 +84,9 @@ export function usePageChromeEffect(
 ): void {
   const setChrome = usePageChrome((s) => s.setChrome);
   const clear = usePageChrome((s) => s.clear);
+  const muted = useContext(ChromeMuted);
   useEffect(() => {
+    if (muted) return; // N-13 — 옆 페인은 상단 바를 안 건드린다(위 주석)
     const { readouts, action, primary } = build();
     setChrome(readouts, action ?? null, primary ?? null);
     return () => clear();

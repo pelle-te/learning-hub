@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Command, defaultFilter, useCommandState } from 'cmdk';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -315,6 +315,30 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
     close();
   };
 
+  /* ── A-8 **⇧Enter — 실행하고 머무른다**(W9 · 2026-08-07) ────────────────────────
+     모든 `onSelect` 가 닫았다. 그래서 연속 네 동작(과목 넷을 차례로 열기 · 명령 몇 개를 잇달아
+     실행)이 **⌘K 네 번 + 검색어 네 벌**이었고, 그 사이 팔레트가 열리고 닫히는 애니메이션이
+     네 번 돈다. 팔레트는 *찾아서 실행하는 곳*인데 한 번에 하나만 하도록 강제돼 있었다.
+
+     ⚠ **기본은 그대로 닫는다.** Enter 의 뜻을 바꾸면 근육기억이 통째로 깨진다(D-2 가 캡처를
+     첫 줄에 안 박은 그 논증). 머무름은 **다른 키**여야 하고, ⇧+실행은 목록 UI 의 표준 관용구다.
+     ⚠ cmdk 는 Enter 를 자기가 처리하므로 `preventDefault` 를 **하지 않는다** — 여기서는
+     "이번 실행은 닫지 말라"는 플래그만 세우고, 실행 자체는 그대로 `onSelect` 가 한다.
+     ⚠ 머무를 때 **검색어를 비운다**: 방금 친 말은 방금 실행한 것을 찾던 말이라, 남겨 두면
+     다음 타이핑이 그 뒤에 이어 붙어 아무것도 안 맞는다(그리고 지우려면 백스페이스를 눌러야 한다). */
+  const keepOpenRef = useRef(false);
+  /** 실행 뒤 정리 — ⇧Enter 였으면 팔레트를 **유지**하고 다음 입력을 받을 준비만 한다. */
+  const finish = () => {
+    if (!keepOpenRef.current) {
+      closeAll();
+      return;
+    }
+    keepOpenRef.current = false;
+    setVerbHit(null);
+    setSel('');
+    setSearch('');
+  };
+
   return (
     <Command.Dialog
       open={open}
@@ -350,6 +374,8 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
           captureNow();
           return;
         }
+        // A-8 — 이번 Enter 는 닫지 않는다(실행은 cmdk 가 그대로 한다 · 위 ⚠).
+        if (e.key === 'Enter' && e.shiftKey) keepOpenRef.current = true;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         const el = e.target as HTMLInputElement;
         const atEnd = el.selectionStart == null || el.selectionStart >= (el.value?.length ?? 0);
@@ -398,7 +424,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                   } catch (e) {
                     console.error(e);
                   }
-                  closeAll();
+                  finish();
                   if (v.to) go(v.to);
                 }}
               >
@@ -427,7 +453,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                     const it = st.items.find((i) => i.id === c.sid);
                     if (it) it.weeklyHours = bumpWeeklyHours(it.weeklyHours, c.deltaH);
                   });
-                  close();
+                  finish();
                 }}
               >
                 <span className={LABEL}>
@@ -456,7 +482,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                   } catch (e) {
                     console.error(e);
                   }
-                  close();
+                  finish();
                 }}
               >
                 <span className={LABEL}>
@@ -475,7 +501,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                     value={contentValue(h, search)}
                     className={ITEM}
                     onSelect={() => {
-                      close();
+                      finish();
                       go(h.to);
                     }}
                   >
@@ -497,7 +523,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                     value={'semantic ' + h.id + ' ' + search}
                     className={ITEM}
                     onSelect={() => {
-                      close();
+                      finish();
                       go(h.to);
                     }}
                   >
@@ -515,7 +541,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 value={c.label + ' ' + c.hint}
                 className={ITEM}
                 onSelect={() => {
-                  close();
+                  finish();
                   recordRecent(c.id); // 최근 명령 LRU — 다음 ⌘K에서 위로.
                   try {
                     if (c.kind === 'tab') go('/' + c.key);
@@ -548,11 +574,11 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
         <span>
           {verbHit ? (
             <>
-              <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>←</b> 뒤로
+              <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>⇧Enter</b> 계속 · <b>←</b> 뒤로
             </>
           ) : (
             <>
-              <b>↑↓</b> 이동 · <b>Enter</b> 실행 ·{' '}
+              <b>↑↓</b> 이동 · <b>Enter</b> 실행 · <b>⇧Enter</b> 계속 ·{' '}
               {/* Q-21 — 시길은 안 보이면 없는 것과 같다(D-2 가 캡처에서 세운 그 규율). 지금 쓰고
                   있는 모드를 액센트로 표시해, 무엇이 걸러지고 있는지를 목록이 아니라 힌트가 말한다. */}
               <b className={mode === 'command' ? 'text-acc' : undefined}>&gt;</b> 명령 ·{' '}

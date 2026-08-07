@@ -625,6 +625,14 @@
      (blur 와 backdrop-blur 가 스케일을 공유). 이름을 틀리면 유틸이 아예 생성되지 않는다. */
   --blur-overlay: 3px; /* = tokens.css --backdrop-overlay */
 
+  /* WorkbenchPane(N-13) — 옆에 붙드는 페인의 폭. **세 값이 한 벌**이다: 비율로 줄되 상·하한을
+     둔다(넓은 화면에서 절반을 먹지 않고, 좁아지면 두 조각이 되기 전에 스스로 숨는다).
+     ⚠ 이름을 `pane` 으로 두지 않는다 — 이 앱에서 '패널'은 이미 표면 색(`--panel`)의 이름이라
+     `w-pane` 이 어느 네임스페이스로 풀릴지 모호해진다(치트시트가 `sheet` 를 피한 그 규약). */
+  --width-bench: 38%;
+  --container-bench: 560px; /* max-w-bench */
+  --spacing-bench-min: 320px; /* min-w-bench */
+
   /* CommandPalette — 팔레트 스크림은 테마 무관 검정 45%(다른 오버레이의 --overlay-bg 와 다르다). */
   --color-scrim: var(--scrim);
   --color-tint-acc-6: var(--tint-acc-6);

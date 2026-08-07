@@ -12,6 +12,7 @@ import {
   vtMove,
 } from '@/shell';
 import { ChapterRedirect, ExamRedirect, WeekRedirect } from './NounRoutes';
+import WorkbenchPane from './WorkbenchPane';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { useFocus } from '@/store/useFocus';
@@ -510,6 +511,10 @@ export default function App() {
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </HudFrame>
+          {/* N-13 작업대(W9) — 옆에 붙든 화면 하나. 닫혀 있으면 **아무것도 안 그린다**(기본값이
+              그것이고, 그래서 이 줄은 기존 레이아웃을 한 픽셀도 안 바꾼다). 좁은 화면에선
+              스스로 숨는다 — 두 페인이 각각 320px 미만이면 그건 두 화면이 아니라 두 조각이다. */}
+          <WorkbenchPane />
         </main>
       </div>
       {/* 미니 HUD 는 **셸을 덮는다**(걷어내지 않는다) — 세션 종료의 단일 감시자인 FocusChip 이

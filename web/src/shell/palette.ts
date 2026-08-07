@@ -165,6 +165,15 @@ function baseCommands(): PaletteCommand[] {
        아니라 *어느 화면에서든* 부르는 동작이라, 크롬에 버튼을 23개 심는 대신 명령 하나를 둔다.
        ⚠ 라벨·경로는 부를 때 읽는다(모듈 로드 시점이 아니라) — 그래야 "지금" 화면이 잡힌다. */
     { id: 'act:pin', kind: 'act', label: '이 화면 고정 / 해제', hint: '핀', run: A.toggleCurrentPin },
+    /* N-13 작업대 — **옆에 붙든다**. 고정(`act:pin`)과 이웃인 것이 맞다: 둘 다 *지금 화면을
+       나중에도 쓰겠다*는 선언이고, 다른 것은 **시제**다(핀=다시 오기 · 작업대=지금 같이 보기). */
+    {
+      id: 'act:bench',
+      kind: 'act',
+      label: '작업대 — 이 화면을 옆에 붙들기 / 놓기',
+      hint: '두 페인',
+      run: A.toggleBench,
+    },
     { id: 'act:theme', kind: 'act', label: '테마 전환(다크↔라이트)', hint: '설정', run: A.toggleTheme },
     { id: 'act:theme-dark', kind: 'act', label: '다크 모드', hint: '테마', run: () => A.setThemeTo('dark') },
     { id: 'act:theme-light', kind: 'act', label: '라이트 모드', hint: '테마', run: () => A.setThemeTo('light') },
