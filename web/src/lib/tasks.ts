@@ -116,3 +116,17 @@ export function openTasksForDay(state: AppState, ds: string): Task[] {
 export function inboxTasks(state: AppState): Task[] {
   return (state.tasks || []).filter((t) => t.ds == null);
 }
+
+/* ── 7-I4 **할 일이 먹는 시간**(발산 6회차 · 2026-08-07) ──────────────────
+   ⚠⚠ 이 파일 이웃인 `events.ts` 가 자백하고 있었다: *"일정은 tasks 와 달리 **스케줄러
+   입력**이다"*. 즉 3시에 2시간 약속이 있으면 가용이 줄지만, **오늘 3시간짜리 과제가
+   있어도 앱은 "여유 3.2h" 라고 말한다.** 공학 전공 학기 시간의 큰 몫이 그렇게 모델 밖에
+   있었고, 그 결과가 매주 반복되는 "왜 계획대로 안 됐지"다(발산 6회차 각도 7 · N-1).
+
+   ⚠ **소요를 적은 것만** 센다. 안 적은 할 일에 임의 값을 씌우면 그 수는 관측이 아니라
+   추측이고, 추측으로 창을 깎으면 사용자는 왜 여유가 줄었는지 화면 어디서도 못 읽는다.
+   ⚠ **미완만** 센다 — 끝낸 일의 시간은 이미 지나갔고, `freeLeftMin` 에서 빠져 있다
+   (`dayCapacity` 가 완료 블록을 안 세는 것과 같은 이중 차감 방지). */
+export function choreMinForDay(state: AppState, ds: string): number {
+  return (state.tasks || []).reduce((t, k) => (k.ds === ds && !k.done && k.min ? t + Math.max(0, k.min) : t), 0);
+}

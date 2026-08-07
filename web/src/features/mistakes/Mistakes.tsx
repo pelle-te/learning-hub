@@ -25,6 +25,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { mistakeArchive, mistakeTotals, todayMistakes, type MistakeRow } from '@/lib/mistakes';
 import { CBMS_INFO, CBMS_CODES, addBacklog } from '@/lib/methodology';
+import { chapterKc, knownKc, tagChapter, untagChapter } from '@/lib/knowledgeElements';
 import { openVaultSearch, todayISO, vaultQuery } from '@/lib/utils';
 import { ui } from '@/shell';
 import State from '@/components/State';
@@ -58,6 +59,88 @@ const MINI = 'cursor-pointer rounded-sm border border-line px-2 py-1 text-xs tex
 /** 한 칸에 보여줄 최근 메모 수 — 아카이브는 목록이지 읽을거리가 아니다(펼침은 볼트가 한다). */
 const NOTE_CAP = 2;
 
+/* ── N-4 지식요소 태그(발산 6회차 · 2026-08-07) ────────────────────────────
+   여기가 입구인 이유: 이 축의 검증이 *"기존 오답에 손으로 달아 본다"* 이고, 기존 오답이
+   모여 있는 화면이 여기 하나다. 러너에 달면 매 오답마다 질문이 하나 늘어 그 화면이 설문이
+   된다(`ReviewRun` 이 이미 인용한 근거: 오답 로그는 규율이 아니라 **항목당 시간**에서 죽는다).
+
+   ⚠ **칸 단위로 단다** — 기록 단위면 30번을 눌러야 해서 실험 자체가 안 일어난다. 이 축이
+   보려는 것(챕터를 가로지르는 번짐)은 칸 단위로도 그대로 관측된다.
+   ⚠ 태그가 없는 칸엔 **입력 칸을 안 그린다** — 전 행에 빈 입력을 두면 아카이브가 서식이
+   된다. 접힌 버튼 하나로 시작하고, 누른 사람에게만 열린다. */
+const KC_CHIP =
+  'cursor-pointer rounded-full border border-line-acc-hover bg-acc-glow px-2 py-0.5 text-2xs font-bold text-acc hover:border-bad hover:text-bad';
+const KC_ROW = 'mt-0.5 flex flex-wrap items-center gap-1.5';
+
+function KcTags({
+  tags,
+  onAdd,
+  onRemove,
+  known,
+}: {
+  tags: string[];
+  onAdd: (v: string) => void;
+  onRemove: (v: string) => void;
+  known: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [v, setV] = useState('');
+  const listId = 'kc-known';
+  return (
+    <div className={KC_ROW}>
+      {tags.map((t) => (
+        <button
+          key={t}
+          type="button"
+          className={KC_CHIP}
+          title="이 칸에서 이 요소를 뗍니다"
+          onClick={() => onRemove(t)}
+        >
+          {t} ×
+        </button>
+      ))}
+      {open ? (
+        <>
+          {/* 이미 쓴 말을 다시 제안한다 — 새 분류 체계를 만들지 않는 대신 이것이 동의어 난립을 막는다. */}
+          <datalist id={listId}>
+            {known.map((k) => (
+              <option key={k} value={k} />
+            ))}
+          </datalist>
+          <input
+            type="text"
+            list={listId}
+            className="w-40 min-w-0"
+            value={v}
+            placeholder="예) 라플라스 역변환"
+            aria-label="지식요소 태그"
+            onChange={(e) => setV(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                onAdd(v);
+                setV('');
+              }
+              if (e.key === 'Escape') setOpen(false);
+            }}
+            onBlur={() => {
+              if (v.trim()) onAdd(v);
+              setV('');
+              setOpen(false);
+            }}
+          />
+        </>
+      ) : (
+        /* ⚠ 자동 포커스를 **주지 않는다** — `MissNoteField` 가 같은 결론을 이미 적어 뒀고
+           (a11y 린트도 막는다), 여기선 이유가 하나 더 있다: 아카이브는 스크롤하며 훑는
+           화면이라 커서를 뺏으면 그 스크롤이 죽는다. */
+        <button type="button" className={MINI} onClick={() => setOpen(true)}>
+          + 요소
+        </button>
+      )}
+    </div>
+  );
+}
+
 function CodeChip({ code, n }: { code: CbmsCode; n?: number }) {
   const info = CBMS_INFO[code];
   return (
@@ -71,11 +154,14 @@ function CodeChip({ code, n }: { code: CbmsCode; n?: number }) {
 function MistakeCard({
   row,
   onDrill,
+  kc,
   onSeed,
   action,
 }: {
   row: MistakeRow;
   onDrill: () => void;
+  /** N-4 — 이 칸에 붙은 지식요소 태그와 그 편집(칸 단위 · 근거는 위 KcTags 주석). */
+  kc?: { tags: string[]; known: string[]; add: (v: string) => void; remove: (v: string) => void };
   onSeed: () => void;
   /** P-14 — '다음에 무엇을 할지' 한 줄. 오늘 3건에만 붙는다(전량 목록에서는 스무 번 반복될 뿐이다). */
   action?: boolean;
@@ -113,6 +199,7 @@ function MistakeCard({
           {n.ds} — {n.text}
         </div>
       ))}
+      {kc && <KcTags tags={kc.tags} known={kc.known} onAdd={kc.add} onRemove={kc.remove} />}
       <div className={ACTS}>
         <button type="button" className={MINI} onClick={onDrill}>
           ↻ 다시 인출하기
@@ -194,6 +281,14 @@ export default function Mistakes() {
     );
   }
 
+  /* N-4 — 칸 단위 요소 태그. 한 곳에서 만들어 두 목록(오늘·아카이브)이 같은 것을 쓴다. */
+  const known = knownKc(state, todayISO(state));
+  const kcFor = (row: MistakeRow) => ({
+    tags: chapterKc(state, row.sid, row.chapter),
+    known,
+    add: (v: string) => mutate((st) => void tagChapter(st, row.sid, row.chapter, v)),
+    remove: (v: string) => mutate((st) => void untagChapter(st, row.sid, row.chapter, v)),
+  });
   const seed = (row: MistakeRow) => {
     const topic = row.chapter || row.subject;
     mutate((st) => addBacklog(st, row.sid, row.subject, topic, `오답 ${row.count}회 · ${CBMS_INFO[row.topCode].tip}`));
@@ -262,14 +357,27 @@ export default function Mistakes() {
             오늘 볼 것<span className="font-semibold normal-case">— 하루 1~3분이면 충분해요</span>
           </h2>
           {picks.map((r) => (
-            <MistakeCard key={r.key} row={r} action onDrill={() => nav('/review-run')} onSeed={() => seed(r)} />
+            <MistakeCard
+              key={r.key}
+              row={r}
+              action
+              kc={kcFor(r)}
+              onDrill={() => nav('/review-run')}
+              onSeed={() => seed(r)}
+            />
           ))}
           {rows.length > picks.length && (
             <details>
               <summary className={FOLD}>전체 {rows.length}칸 보기 — 아카이브</summary>
               <div className="mt-2 flex flex-col gap-2">
                 {rows.map((r) => (
-                  <MistakeCard key={r.key} row={r} onDrill={() => nav('/review-run')} onSeed={() => seed(r)} />
+                  <MistakeCard
+                    key={r.key}
+                    row={r}
+                    kc={kcFor(r)}
+                    onDrill={() => nav('/review-run')}
+                    onSeed={() => seed(r)}
+                  />
                 ))}
               </div>
             </details>

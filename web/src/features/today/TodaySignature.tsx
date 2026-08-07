@@ -23,6 +23,7 @@ import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { dayCapacity } from '@/lib/dayCapacity';
+import { choreMinForDay } from '@/lib/tasks';
 import { pickNextStep, pickRetrievalSlot } from '@/lib/todaySlots';
 import RetrievalSlot from './RetrievalSlot';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
@@ -408,6 +409,9 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
       color: e.it.color,
     })),
     freeLeftMin,
+    /* 7-I4 — 오늘 배정된 미완 할 일 중 **소요를 적은 것**을 창에서 먼저 뺀다. 스키마 0 ·
+       스케줄러 계약 0(주기적 과제 모델은 N-1 이 W8 에서 연다). 근거는 `lib/tasks.choreMinForDay`. */
+    choreMinForDay(state, ds),
   );
   const { beyondKeys } = cap;
   /* 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는

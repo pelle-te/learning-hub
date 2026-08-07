@@ -5,6 +5,8 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { dayCapacity } from '@/lib/dayCapacity';
+import { choreMinForDay } from '@/lib/tasks';
+import type { AppState } from '@/lib/types';
 
 const b = (key: string, start: number | null, min: number, done = false) => ({ key, start, min, done });
 
@@ -104,5 +106,50 @@ describe('Q-2 slackMin — 44px 앵커의 값', () => {
   it('완료된 블록은 남은 계획에서 빠진다', () => {
     const c = dayCapacity([blk('a', 540, 120, true), blk('b', 700, 60)], 300);
     expect(c.slackMin).toBe(240);
+  });
+});
+
+/* ── 7-I4 할 일이 창을 먼저 깎는다 ────────────────────────────────────────── */
+describe('7-I4 choreMin — 할 일도 하루를 먹는다', () => {
+  const blocks = [{ key: 'a', start: 540, min: 120, done: false }];
+
+  it('창에서 **먼저** 뺀다 — 시각 없는 할 일도 하루를 먹기 때문', () => {
+    const before = dayCapacity(blocks, 240);
+    const after = dayCapacity(blocks, 240, 60);
+    expect(before.slackMin).toBe(120);
+    expect(after.slackMin).toBe(60); // 240-60 창에서 120 계획
+  });
+
+  it('⭐ 깎였으면 **그 사실을 말한다** — 조용히 줄면 왜 여유가 없는지 못 읽는다', () => {
+    expect(dayCapacity(blocks, 240, 60).fitLine).toContain('할 일');
+    expect(dayCapacity(blocks, 240, 0).fitLine).not.toContain('할 일');
+  });
+
+  it('할 일이 창을 넘겨도 창은 음수가 안 된다(막대 축척이 뒤집힌다)', () => {
+    const cap = dayCapacity(blocks, 60, 999);
+    expect(cap.slackMin).toBe(-120); // 창 0 · 계획 120 → 초과 판정은 살아 있다
+    expect(cap.scaleMin).toBeGreaterThan(0);
+  });
+
+  it('기본값 0 — 기존 호출부는 한 글자도 안 바뀐다', () => {
+    expect(dayCapacity(blocks, 240)).toEqual(dayCapacity(blocks, 240, 0));
+  });
+});
+
+describe('7-I4 choreMinForDay — 무엇을 세고 무엇을 안 세나', () => {
+  const st = (tasks: unknown[]): AppState => ({ tasks }) as unknown as AppState;
+
+  it('소요를 적은 미완 할 일만 센다', () => {
+    const s = st([
+      { id: '1', title: 'a', ds: '2026-08-07', min: 60 },
+      { id: '2', title: 'b', ds: '2026-08-07', min: 30, done: true }, // 완료 → 이미 지나간 시간
+      { id: '3', title: 'c', ds: '2026-08-07' }, // 소요 미기재 → 추측하지 않는다
+      { id: '4', title: 'd', ds: '2026-08-08', min: 90 }, // 다른 날
+    ]);
+    expect(choreMinForDay(s, '2026-08-07')).toBe(60);
+  });
+
+  it('할 일이 없으면 0(창을 안 건드린다)', () => {
+    expect(choreMinForDay(st([]), '2026-08-07')).toBe(0);
   });
 });

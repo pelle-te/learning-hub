@@ -78,7 +78,28 @@ export interface DayCapacity {
   windowRatio: number;
 }
 
-export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: number): DayCapacity {
+/* ── 7-I4 **할 일도 하루를 먹는다**(발산 6회차 · 2026-08-07) ─────────────────
+   ⚠⚠ `lib/events.ts` 가 자백하고 있었다: *"일정은 tasks 와 달리 **스케줄러 입력**이다"*.
+   즉 3시에 2시간 약속이 있으면 가용이 줄지만, **오늘 3시간짜리 과제가 있어도 앱은 "여유
+   3.2h" 라고 말한다.** 공학 전공 학기 시간의 큰 몫이 그렇게 모델 밖에 있었고, 그 결과가
+   매주 반복되는 "왜 계획대로 안 됐지"다.
+
+   ⚠ **창에서 먼저 뺀다 — 블록으로 넣지 않는다.** 두 이유:
+   ① 할 일은 `start` 가 없을 수 있고(트레이·인박스) `dayCapacity` 는 시각 없는 블록을
+      정의상 제외한다. 블록으로 넣으면 **시각을 안 적은 과제가 통째로 안 세어진다** — 그게
+      정확히 지금 상태다.
+   ② 이 값은 *배분 대상*이 아니라 **고정 소모**다(N-1 이 배분 보드에서 예산을 2단으로
+      가르는 것과 같은 판단). 막대 세그먼트로 그리면 "옮길 수 있는 것"처럼 보인다.
+
+   ⚠ 이건 N-1(과제 부하)의 **값싼 첫 조각**이다 — 스키마 0 · 스케줄러 계약 0. 주기적 과제
+   모델은 W8 이 연다. */
+
+export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: number, choreMin = 0): DayCapacity {
+  /* ⚠ 창을 먼저 깎고 그 뒤 계산은 **한 글자도 안 바뀐다** — 판정 규칙을 두 벌로 만들지 않는다.
+     ⚠ 0 미만으로 안 내려간다: 음수 창은 "이미 넘었다"를 뜻하는데 그 판정은 `slackMin` 부호가
+     이미 하고 있고, 창 자체를 음수로 두면 막대 축척(`scaleMin`)이 뒤집힌다. */
+  const chore = Math.max(0, choreMin);
+  freeLeftMin = Math.max(0, freeLeftMin - chore);
   const beyondKeys = new Set<string>();
   const segments: CapacitySegment[] = [];
   let beyondMin = 0;
@@ -96,7 +117,12 @@ export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: numbe
     }
     segments.push({ key: b.key, min, beyond, name: b.name ?? '', color: b.color });
   }
-  const head = `창 ${hLabel(freeLeftMin)} · 남은 계획 ${hLabel(remainMin)}`;
+  /* ⚠ 깎였으면 **그 사실을 말한다.** 안 말하면 창이 조용히 줄어 사용자가 "왜 갑자기 여유가
+     없지"를 화면 어디서도 못 읽는다 — 이 저장소가 `adherenceFactor` 에서 이미 물린 형태다
+     (앱이 용량을 깎으면서 그 사실을 말하지 않던 것 · P-5 가 고쳤다). */
+  const head =
+    (chore > 0 ? `창 ${hLabel(freeLeftMin)}(할 일 ${hLabel(chore)} 뺀 뒤)` : `창 ${hLabel(freeLeftMin)}`) +
+    ` · 남은 계획 ${hLabel(remainMin)}`;
   const fitLine = !pending.length
     ? null
     : beyondKeys.size
