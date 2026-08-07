@@ -1,6 +1,6 @@
 [package]
 name = "learning-hub"
-version = "0.4.2"
+version = "0.5.0"
 description = "러닝허브 — 볼트·Anki·일과를 한눈에 보는 로컬 학습 대시보드"
 authors = ["jin"]
 license = ""

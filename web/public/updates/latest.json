@@ -1,11 +1,11 @@
 {
-  "version": "0.4.2",
-  "notes": "**앱이 작아졌습니다.** 수집·교양 화면 다섯(읽을거리 · 증시 동향 · 진로 지도 · 발견 · 탐구 수집)이 이 앱에서 **사라졌습니다.**\n\n· 없어진 게 아니라 **거처를 옮겼습니다.** 밖에서 읽을거리를 들여오고 개론을 만드는 일은 이제 별도 필러(`survey`)가 하고, 이 앱은 **학습 대상으로 등록된 것의 상태**(진척 · 숙달 · 복습 · 요건)만 봅니다. 교양이 여기로 오는 길은 **승격** 하나입니다.\n· 이 다섯은 지난 다섯 번의 개편에서 매번 강등 대상이었고 근거는 늘 같았습니다 — *학습 상태를 하나도 안 쓴다.* 문제는 화면 배치(IA)가 아니라 **있어야 할 집이 여기가 아니었다**는 것이었습니다.\n· ⚠ 이번엔 도달성까지 회수했습니다(⌘K·딥링크로도 안 열립니다). 다른 저장소로의 이사라 남겨 두면 같은 기능이 두 벌이 되기 때문입니다.\n\n그 결과 앱이 실제로 가벼워졌습니다 — 첫 화면 자바스크립트 **107KB**(예산 한도도 160 → 124 로 함께 내렸습니다) · 화면 코드 3,150줄 · 백그라운드 도구 11종 → 7종 · 산출물 9종 → 6종.",
-  "pub_date": "2026-08-06T17:30:00Z",
+  "version": "0.5.0",
+  "notes": "**학기가 입구와 출구를 갖습니다.**\n\n· **강의계획서를 붙여 넣으면 네 가지가 한 번에 들어옵니다** — 주차 진도 · 중간/기말 날짜 · 과제 마감 · 학사일정(정정·철회·휴강·보강). 졸업 계획 › **계획서 인입**. 읽은 것을 먼저 보여 주고, 고른 것만 반영합니다(못 읽은 줄 수도 그대로 말합니다).\n· **과제가 시간을 먹습니다.** 지금까지 계획은 과제를 몰랐습니다 — 3시간짜리 과제가 있는 날에도 창을 가득 채워 학습을 배치했고, 그래서 그 날은 만들어지는 순간부터 넘쳤습니다. 이제 시각을 박은 과제는 그 시간을 비켜 가고, 시각 없는 과제는 총량만큼 가용을 줄입니다. 과목마다 **주당 과제 시간**을 적으면 학기 부하가 *진도 + 과제* **2단**으로 보입니다.\n· **학기 목표 세 줄** — 목표 옆에 *앱의 어느 수가 판정하나*(평점 · 투입 시간 · 끝낸 챕터 · 이행률)를 함께 고릅니다. 학기 말에 기억이 아니라 수가 답합니다.\n· **학기 결산** — 끝난 학기의 성적을 여기서 넣으면, 그 학기가 **학점당 실제 시간**과 추정 배율을 다음 학기 부하 계산에 넘깁니다.\n· **캘린더 구독** — 이제 `.ics` 를 매번 다시 내보내지 않아도 됩니다. 연동 현황에서 주소를 한 번 발행하면 캘린더 앱이 알아서 가져갑니다(주소를 아는 사람은 인증 없이 일정을 봅니다 — 언제든 폐기·재발급).\n· **오답 문항이 스스로 부릅니다** — 적어 둔 문항이 복습 사다리를 타고 \"다시 만날 날\"에 레일에 뜹니다. 아카이브는 찾아갈 때만 존재했는데, 갈 이유가 생기지 않는 것이 그 원장의 문제였습니다.\n· **카드 커버리지** — 챕터마다 Anki 카드가 있는지 지도로 봅니다. 카드가 없는 챕터는 어느 경고에도 안 뜨던 가장 조용한 구멍입니다.\n\n**손이 빨라집니다.**\n\n· ⌘K 에서 **⇧Enter** 는 실행하고 **머무릅니다**(연속으로 여러 개).\n· 목록에서 **M** 으로 여럿을 표시하고 동사를 한 번 — 챕터 일곱 개 완료가 **되돌리기 한 번**이 됩니다.\n· **작업대** — ⌘K 로 지금 화면을 옆에 붙들어 두면, 다른 화면을 오가는 동안에도 그대로 남아 있습니다.",
+  "pub_date": "2026-08-07T05:15:00.000Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbG02RzR3d2dsUGFWVzZHaEtCbFdSaGp1eEVGZWNkQ3ZNOWpRcEZkSFM0R29GWFN6dnk2NDhMdlVLQXVCTzd5MEhWdFYyNW80VnI0dzFJaXhiK2RhVmd3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDM2MTYxCWZpbGU665+s64ud7ZeI67iMXzAuNC4yX3g2NC1zZXR1cC5leGUKVUQ5ZHJReGRSRDU4RGNHN09qUGEyYlZWL1RIcm1RNlpFb0p6Um8vV3lhQi9UbXRPSHpOZ2d3K2V4bXU3WTZ1K3hjRGNSSjNBY2hqWWZmOVJBS2RjQ3c9PQo=",
-      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.4.2_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbHRRLzFNdnJpQU5aVDZKRHg0ZXQrd2VQMWg0QjdnZ1hic2IxMkpyYURjRDVnTXduMFJhRmRyc1RSZXdrNWw3ZDVJcklOb0xweWJxckltRnNnS2M1YndVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MDc5NTQ1CWZpbGU665+s64ud7ZeI67iMXzAuNS4wX3g2NC1zZXR1cC5leGUKNVVCdHdVRWRZZ3ZKT05BTVc2MStzeU5INkRaWmNDSC9ZMzlrWU14SlJBakVZWXdld0NGZ29PQ2haaXVyTGozc0I2TXpQSWlMWS9rRlIxUS9wRXdoREE9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.5.0_x64-setup.exe"
     }
   }
 }
