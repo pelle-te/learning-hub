@@ -20,7 +20,7 @@
    ⚠ 호출부는 한 줄도 안 바뀐다(`navigate(to, {viewTransition:true})` 22곳 그대로). App 의
      레이아웃 이펙트가 경로 변화를 보고 `<html data-vt>` 를 세우고, CSS 가 그것을 읽는다.
 ============================================================ */
-import { hostTabKey, tabByKey } from './tabs';
+import { sectionOf, tabByKey } from './tabs';
 
 export type VtKind = 'lateral' | 'descend' | 'ascend' | 'immerse';
 export interface VtMove {
@@ -49,13 +49,14 @@ export function vtMove(from: string, to: string): VtMove {
   if (IMMERSE.has(t)) return { kind: 'immerse' };
   if (IMMERSE.has(f)) return { kind: 'ascend' };
 
-  const fh = hostTabKey(f);
-  const th = hostTabKey(t);
-  if (fh === th) {
-    // 같은 호스트 안 — 호스트에서 조망으로 들어가면 descend, 그 반대는 ascend, 조망끼리는 lateral.
-    if (f === fh) return { kind: 'descend' };
-    if (t === th) return { kind: 'ascend' };
-    return { kind: 'lateral', dir: orderOf(t) >= orderOf(f) ? 'fwd' : 'back' };
-  }
-  return { kind: 'lateral', dir: orderOf(th) >= orderOf(fh) ? 'fwd' : 'back' };
+  /* ⚠⚠ **N-14(W5) 이 `descend`/`ascend` 의 근거를 없앴다.** 그 둘은 *호스트 → 그 안의 조망*
+     이라는 두 층 구조의 문법인데, 레일이 평탄해지면서 층이 하나가 됐다 — 모든 화면이 형제다.
+     어휘를 지우지는 않는다(`immerse` 의 짝으로 `ascend` 가 여전히 산다): 지운 것은 **없어진
+     관계를 지어내던 판정**이고, 그러지 않으면 같은 층의 이동에 위아래 애니가 붙어 사용자가
+     구조를 잘못 배운다.
+     ⚠ 같은 섹션 안이라고 다르게 움직이지 않는다 — 섹션은 *읽는 묶음*이지 계층이 아니다. */
+  const fs = sectionOf(f);
+  const ts = sectionOf(t);
+  if (fs === ts) return { kind: 'lateral', dir: orderOf(t) >= orderOf(f) ? 'fwd' : 'back' };
+  return { kind: 'lateral', dir: orderOf(t) >= orderOf(f) ? 'fwd' : 'back' };
 }

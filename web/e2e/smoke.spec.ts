@@ -27,7 +27,14 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
   await expect(page.locator('html')).toHaveAttribute('data-vt', 'lateral');
   await expect(page.locator('html')).toHaveAttribute('data-vt-dir', 'fwd');
 
-  /* 통계 → 그 안의 조망(숙달도)으로 = 안으로 들어감(descend). 세그먼트 바가 그 경로다.
+  /* ⚠⚠ **N-14(W5 · 2026-08-07) — 세그먼트 바가 은퇴했고 `descend` 의 근거도 함께 사라졌다.**
+     그 문법은 *호스트 → 그 안의 조망* 이라는 두 층 구조의 것이었는데, 레일이 평탄해지며 모든
+     화면이 형제가 됐다. 그래서 여기서 재는 것도 바뀐다: **레일에서 렌즈로 직접 간다**(옛
+     세그먼트 클릭 = 레일 1 + 세그먼트 1 이 1클릭이 된 것이 이 웨이브의 산출 그 자체다).
+     ⚠ 아래 옛 주석 둘은 **이 케이스가 IA 변경을 두 번 잡아낸 기록**이라 남긴다.
+
+     ── 옛 주석 ──
+     통계 → 그 안의 조망(숙달도)으로 = 안으로 들어감(descend). 세그먼트 바가 그 경로다.
      ⚠ **2026-07-29(E13) 에 대상이 바뀌었다.** 옛 단언은 `예보` 를 눌러 descend 를 봤는데,
      `forecast` 가 인출 축의 **호스트로 승격**하면서 통계↔예보는 이제 *형제*(lateral)다 —
      테스트가 틀린 게 아니라 관계가 바뀐 것이고, 그래서 descend 를 보려면 실제로 통계 **안에**
@@ -36,9 +43,11 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
      **접근명이 `숙달도 지도` → `숙달`** 로 바뀌었다(세그먼트 버튼의 접근명은 보이는 글자
      그대로다 — `SubTabs` 에 `aria-label` 이 없다). 나브·⌘K·문서 제목은 계속 `label` 을 쓰므로
      여기만 짧아진다. */
-  await page.getByRole('button', { name: '숙달' }).click();
-  await expect(page).toHaveURL(/\/mastery$/);
-  await expect(page.locator('html')).toHaveAttribute('data-vt', 'descend');
+  /* ⚠ `mastery` 는 A-19 에서 `ledger` 로 통합됐다 — 레일에 서는 것은 `정본 원장` 이고,
+     같은 섹션의 형제라 전이는 `lateral` 이다. */
+  await page.getByRole('button', { name: '정본 원장' }).click();
+  await expect(page).toHaveURL(/\/ledger$/);
+  await expect(page.locator('html')).toHaveAttribute('data-vt', 'lateral');
 
   // ⌘K 명령 팔레트.
   await page.keyboard.press('Control+k');

@@ -40,8 +40,9 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   degree: () => import('./degree/Degree'),
   settings: () => import('./settings/Settings'),
   integrations: () => import('./integrations/Integrations'),
+  /* ⚠ `mastery` 가 여기서 빠졌다(A-19 · W5 · 2026-08-07) — `ledger` 로 통합됐고 은퇴한 탭은
+     자기 라우트가 없다(불변식 ②). 화면은 `/ledger?view=mastery` 가 lazy 로 띄운다. */
   ledger: () => import('./ledger/Ledger'),
-  mastery: () => import('./mastery/Mastery'),
 };
 
 /** key → React 탭 컴포넌트(lazy). LOADERS를 1:1로 감싼다. */

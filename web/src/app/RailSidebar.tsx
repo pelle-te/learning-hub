@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import { navGroups, hostTabKey, Icon, type TabMeta } from '@/shell';
-import { noteLens, railTarget } from '@/shell/lastLens';
+import { navGroups, Icon, type TabMeta } from '@/shell';
+import { railLayout } from '@/shell/railLayout';
 import SyncLedger from '@/components/SyncLedger';
 import { useSyncLedger } from '@/store/useSyncLedger';
 import { prefetchTab } from '@/features/registry';
@@ -60,7 +59,10 @@ const GROUPS = 'flex flex-col gap-0.5 max-mobile:contents';
 const GROUPS_COL = 'items-center gap-1';
 const GROUP = 'flex flex-col gap-0.5 max-mobile:contents';
 const GROUP_COL = 'items-center';
-// 그룹 헤더(펼침 전용) — 소문자 캡스, 저채도. 구분선은 접힘 전용.
+/* 섹션 헤더(펼침 전용 · N-16) — **질문**이 뜬다. 저채도·작은 글자로 항목보다 뒤로 물리되
+   섹션 사이 간격(mt)이 경계를 만든다. ⚠ 첫 섹션은 브랜드 바로 아래라 위 간격을 안 준다. */
+const HEAD = 'mt-3 mb-0.5 px-2.5 text-rail-head font-extrabold tracking-widest text-mut first:mt-0 max-mobile:hidden';
+// 구분선은 접힘 전용.
 const DIVIDER = 'my-1 h-px w-6 flex-none bg-line2 max-mobile:hidden';
 const SPACER = 'min-h-2 flex-1 max-mobile:hidden';
 // 탭 버튼 — 펼침=아이콘+라벨 행, 접힘=42px 아이콘 칩. 모바일=44px 터치 타깃.
@@ -114,31 +116,31 @@ export default function RailSidebar() {
   // 동기화 충돌(다른 기기 편집에 덮인 로컬 편집) 대기 수 — 설정 탭 코너 배지(Phase 4).
   const conflictBadge = useConflicts((s) => s.shadows.length);
   const curKey = loc.pathname.split('/')[1] || 'today';
-  const cur = hostTabKey(curKey);
-  /* 지금 보는 탭을 기억한다(렌더 중 부수효과 금지 → 이펙트).
-     ⚠ 호스트 자신이면 기억이 지워진다 — 조망으로 돌아온 의도를 다음 클릭이 존중하게. */
-  useEffect(() => {
-    noteLens(curKey);
-  }, [curKey]);
+  const cur = curKey; // N-14 — 평탄한 레일에서는 **자기 자신**이 활성이다(호스트 개념이 없다)
   /* @param animate 뷰 전환(크로스페이드)을 쓸지. ⚠ 방향키 roving 은 **끈다** — 화살표를 누르고
      있으면 키 반복(초당 20~30회)마다 View Transition 이 시작되고, 각 전환이 이전 것을 중단시켜
      레일·본문이 계속 반투명 상태로 깜빡인다(원하는 탭에 도착해도 잔상이 남는다). 클릭·⌘K 처럼
      '한 번의 의도적 이동'에서만 애니가 의미가 있다. */
   /* N-11 — 레일에서 출발한 내비게이션임을 표시한다. 방향키 roving 도 레일이다(같은 목록을
      같은 손으로 돈다). */
-  /* E27 — 레일 클릭은 그 호스트에서 **마지막으로 보던 렌즈**로 간다(세션 한정). 종전엔 항상
-     첫 렌즈라, 배분 보드를 보려면 매번 레일 1 + 세그먼트 1 = 2클릭이었다.
-     ⚠ `g` 키·⌘K·딥링크는 렌즈를 이름으로 지목하므로 이 기억을 안 탄다 — 이 규칙은 레일 클릭
-       한 경로만 상대한다(`shell/lastLens` 머리주석). */
+  /* ⚠⚠ **E27 `lastLens` 가 여기 있었다 — N-14(W5) 가 그 이유를 없앴다.** 그 장치는 *"레일 클릭이
+     호스트의 첫 렌즈로만 가서 배분 보드까지 2클릭"* 을 덧대는 것이었는데, 평탄화 뒤에는 렌즈가
+     자기 줄을 가지므로 **1클릭**이다. 덧댈 것이 없으면 덧대는 장치도 없앤다(그 기억은 세션
+     한정 전역 상태였고, 그런 상태는 없을수록 좋다). */
   const go = (key: string, animate = true) => {
     markVia('rail');
-    navigate('/' + railTarget(key), { viewTransition: animate });
+    navigate('/' + key, { viewTransition: animate });
   };
 
   const ledger = useSyncLedger();
-  const groups = navGroups();
-  const topGroups = groups.filter((g) => g.key !== 'settings');
-  const bottomGroup = groups.find((g) => g.key === 'settings');
+  /* N-17 — 선언된 섹션에 **사용자 취향**(숨김·순서)을 적용한다. 판정은 순수 lib 이 하고
+     여기는 그리기만 한다(전부 숨겨 나브가 비는 사고는 화면으로 "아무 일도 안 일어남"이라
+     조용하므로, 그 규칙은 유닛으로 잠근다 · `shell/railLayout` 머리주석). */
+  const railHidden = useUI((st) => st.ui.railHidden);
+  const railOrder = useUI((st) => st.ui.railOrder);
+  const groups = railLayout(navGroups(), { hidden: railHidden, order: railOrder });
+  const topGroups = groups.filter((g) => g.key !== 'system');
+  const bottomGroup = groups.find((g) => g.key === 'system');
 
   // roving tabindex 대상 = 모든 나브 탭(그룹 순서대로 평면화). 활성 탭이 목록에 없으면(예외) 첫 버튼을 tab stop으로.
   const flat = groups.flatMap((g) => g.tabs);
@@ -245,15 +247,29 @@ export default function RailSidebar() {
      그룹은 4개다 — 그룹당 1.75개. 헤더가 항목 수의 절반을 차지하는 청킹은 구조를 주는 것이
      아니라 줄 수를 늘리는 것이다(재편 전에도 11개/5그룹 = 2.2 였다).
 
-     ⚠ 그룹 자체를 지우지는 않았다 — `TabMeta.group` 은 **레일 순서**를 정하는 데 계속 쓰인다
-     (빈도 위계: 계획 > 숙련 > 수집 > 설정). `buildNavGroups` 머리주석이 경고하는 함정,
-     즉 `order` 만으로 정렬하면 `reads`(45)가 `journal`(60)보다 앞서는 문제가 그대로 살아 있다.
-     바뀐 것은 **무엇이 그려지는가** 하나다.
-     ⚠ SR 용 `role="group" aria-label` 도 뗐다 — 보이지 않는 그룹을 스크린리더에만 알리면
-     시각 사용자와 다른 구조를 듣게 된다(없는 경계를 있다고 말하는 셈). */
+     ⚠⚠ **N-14+N-16(W5 · 2026-08-07)이 그 전제를 뒤집어 헤더를 되살렸다.** 평탄화로 레일이
+     열넷이 됐다 — 즉 E22 가 근거로 든 수(destination 7 · 그룹당 1.75)가 더는 사실이 아니고,
+     청킹이 값을 내는 구간(7+)에 정확히 들어왔다.
+     그런데 **이름이 바뀌었다**: 라벨이 명사(계획·숙련)면 그건 *분류*라 사용자가 외워야 하고,
+     질문이면 자기가 지금 묻는 것과 **맞춰 보기만** 하면 된다(N-16 질문 축). 그래서 헤더에
+     뜨는 것은 `RAIL_SECTIONS[].question` 이다.
+     ⚠ 접힘(42px)에서는 여전히 **구분선**이다 — 질문 한 줄이 들어갈 폭이 없고, 잘린 질문은
+       없는 것보다 나쁘다(H12 가 동기화 문구에서 내린 것과 같은 판정).
+     ⚠ SR 에는 `aria-label` 로 같은 질문을 준다 — 시각 사용자에게 보이는 경계이므로 이번엔
+       "보이지 않는 그룹을 SR 에만 알리는" 문제가 아니다(E22 가 뗀 이유가 바로 그것이었다). */
   const renderGroup = (g: { key: string; label: string; tabs: TabMeta[] }, showSep: boolean) => (
-    <div key={g.key} className={`${GROUP} ${collapsed ? GROUP_COL : ''}`}>
+    <div
+      key={g.key}
+      className={`${GROUP} ${collapsed ? GROUP_COL : ''}`}
+      role={collapsed ? undefined : 'group'}
+      aria-label={collapsed ? undefined : g.label}
+    >
       {showSep && collapsed && <div className={DIVIDER} aria-hidden="true" />}
+      {!collapsed && (
+        <h2 className={HEAD} aria-hidden="true">
+          {g.label}
+        </h2>
+      )}
       {g.tabs.map(renderBtn)}
     </div>
   );

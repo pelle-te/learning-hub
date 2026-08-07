@@ -28,14 +28,35 @@ export interface NavShortcut {
    ⚠ E24(모션)가 이미 푼 패턴이다 — *선언은 있는데 집행자가 없어 사본이 표류한다*. 처방도 같다:
    파생 + 불변식. 새 목적지를 추가할 때 이 파일을 고칠 일은 **첫 글자가 겹칠 때뿐**이다. */
 
-/** 첫 글자가 이미 쓰였을 때의 대체 키(손 유지 · 여기 없는 destination 은 `key[0]` 이 그대로 seq). */
+/* ⚠⚠ **①-6(W5 · 2026-08-07) — `g` 가 렌즈까지 간다.** 종전 파생 규칙은 *"destination 이면 `g`
+   를 갖고 `g` 는 destination 만 가리킨다"* 였고, 그 규칙이 옳았던 이유는 **렌즈가 레일에 없었기
+   때문**이다(레일에 없는 곳으로 손가락이 데려가면 사용자가 자기 위치를 잃는다). N-14 가 레일을
+   평탄화하면서 그 전제가 사라졌다 — 이제 렌즈도 레일에 자기 줄을 갖는다.
+   → 규칙을 **한 단어만** 고친다: *레일에 서면 `g` 를 갖고, `g` 는 레일에 선 것만 가리킨다.*
+   ⚠ 원래 로드맵은 이걸 "①-6 g키를 lens 까지"로 적었는데, 그 항목이 N-14 에 흡수된 이유가
+   여기 있다 — **규칙이 아니라 로스터가 바뀐다.** 규칙 문장은 그대로다.
+
+   ⚠ 대체 키가 늘어난 것은 첫 글자 충돌이 늘었기 때문이지 예외가 늘어난 게 아니다. 고유성은
+   불변식이 잠근다(중복이면 `g` 하나가 다른 하나를 조용히 가린다). */
+/** 첫 글자가 이미 쓰였을 때의 대체 키(손 유지 · 여기 없는 레일 탭은 `key[0]` 이 그대로 seq). */
 const SEQ_OVERRIDE: Record<string, string> = {
   stats: 'a', // 's' 는 schedule(캘린더) — 통계는 analytics 의 a
   settings: 'e', // 's' 충돌 — 환경설정(environment)의 e
   /* W17 이 `review-run` 을 목적지로 올리며 'r' 이 겹쳤다 — **불변식이 그 자리에서 잡았다**
      (파생 + 고유성 단언이 손 유지 사본 시절엔 원리적으로 못 하던 일이다). 인출 축이 매일
-     쓰는 쪽이라 'r' 을 갖고, 읽을거리는 **독서**의 'd' 로 간다(`degree` 가 lens 로 내려가며 빈 키). */
-  reads: 'd',
+     쓰는 쪽이라 'r' 을 갖는다.
+     ⚠ `reads: 'd'` 가 여기 있었다 — 그 탭은 P10 W4 에서 `survey/` 필러로 갔다(사문 · 삭제). */
+  /* ── ①-6 이 데려온 렌즈들의 키 ─────────────────────────────────────────────
+     `r` 은 `review-run`(매일) 이 갖고, 주간 리뷰는 **weekly** 의 `w`.
+     `d` 는 `day`(매일 여는 하루) 가 갖고, 졸업 계획은 **graduation** 의 `g`… 는 접두사와
+     겹치므로(`g g` 는 칠 수 있지만 헷갈린다) **cap** 의 `c` 로 간다(그 탭 아이콘 이름과 같다).
+     `alloc` 은 `a` 가 통계에 있으므로 **배분**의 `b`, `integrations` 는 `i` 가 과목에 있으므로
+     **연동**의 `n`. 전부 *한국어 이름의 소리* 또는 *이미 코드에 있는 이름*에서 왔다 — 지어낸
+     연상은 다음 사람이 못 따라온다. */
+  review: 'w',
+  degree: 'c',
+  alloc: 'b',
+  integrations: 'n',
 };
 
 /** 같은 목적지를 가리키는 **추가** 키(손가락 습관 보존 · 파생이 아니라 명시 예외).
@@ -44,10 +65,13 @@ const SEQ_OVERRIDE: Record<string, string> = {
  *  쪽을 지우면 그 손가락 습관만 깨지고 얻는 것이 없다(이 저장소는 사용자 1인이다). */
 const SEQ_ALIASES: NavShortcut[] = [{ seq: 'p', tab: 'schedule' }];
 
-/** g-시퀀스 네비게이션 — **destination 전량**(파생). 치트시트 라벨은 `TabMeta.label` 파생(C-13).
- *  ⚠ 불변식(`test/invariants.test.ts`)이 셋을 잠근다: 실존 · 전부 destination · destination 전량. */
+/** g-시퀀스 네비게이션 — **레일 탭 전량**(파생 · ①-6). 치트시트 라벨은 `TabMeta.label` 파생(C-13).
+ *  ⚠ 불변식(`test/invariants.test.ts`)이 셋을 잠근다: 실존 · 전부 레일 탭 · 레일 탭 전량. */
 export const NAV_SHORTCUTS: NavShortcut[] = [
-  ...TABS.filter((t) => t.role === 'destination').map((t) => ({ seq: SEQ_OVERRIDE[t.key] ?? t.key[0]!, tab: t.key })),
+  ...TABS.filter((t) => t.role === 'destination' || t.role === 'lens').map((t) => ({
+    seq: SEQ_OVERRIDE[t.key] ?? t.key[0]!,
+    tab: t.key,
+  })),
   ...SEQ_ALIASES,
 ];
 

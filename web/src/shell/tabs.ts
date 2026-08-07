@@ -64,6 +64,8 @@ export const DEGREE_PATH_VIEW = 'path';
 export const FIND_GUIDE_VIEW = 'guide';
 /** `/review-run` — 앞 14일 복습 파도(옛 `forecast` 탭 · A-16 · 2026-08-07). 위 둘과 같은 이유로 여기가 정본. */
 export const FORECAST_VIEW = 'forecast';
+/** `/ledger` — 볼트 산출 개념 히트맵(옛 `mastery` 탭 · A-19 · 2026-08-07). 위와 같은 이유로 여기가 정본. */
+export const MASTERY_VIEW = 'mastery';
 
 export type TabRole = 'destination' | 'lens' | 'retired' | 'object';
 
@@ -74,7 +76,6 @@ export const DAY_PATH = '/day';
 export interface TabMeta {
   key: string;
   label: string;
-  group: string;
   order: number;
   /** 도달 방식(위 주석) — 레일·`[ ]` 링·`g` 키의 단일 원천. */
   role: TabRole;
@@ -95,11 +96,10 @@ export interface TabMeta {
   altRoute?: string;
 }
 
-/** 모든 탭(표시 순서·그룹·아이콘). `role` 이 도달 방식을 정한다(destination=레일·링·g키 · lens=세그먼트·⌘K).
-   `group` 이 레일 섹션이다 — **로스터 정본은 아래 `GROUP_LABELS`** 다(여기 손으로 베끼면 표류한다:
-   실제로 `collect` 가 P-4 에서 사라진 뒤에도 이 줄에 남아 있었다 · 2026-08-06 감사).
-   빈도 위계: 매일(계획) > 주간(숙련) > 드묾(발견·설정은 하단·⌘K 진입). N-6 이후 표면 구분은 없다 —
-   그룹 헤더가 그 일을 하고 있었고, 그 위에 표면을 또 얹은 것이 중복이었다. */
+/** 모든 탭(전역 표시 순서·아이콘). `role` 이 도달 방식을 정하고, **묶음은 `RAIL_SECTIONS` 가**
+   소유한다(N-14 · 2026-08-07). 종전엔 `group` 필드가 그 일을 겸했는데 그러면 IA 원천이 둘이 되고,
+   실제로 어긋났다 — 근거는 그 상수 옆 주석.
+   ⚠ `order` 는 이제 **전역 표시 순서**만 정한다(⌘K 목록). 레일 순서는 섹션이 적은 순서다. */
 export const TABS: TabMeta[] = [
   /* ── 찾기(find) — **레일 최상단**(A-9 · 2026-08-07) ─────────────────────────────
      ⚠⚠ 이 화면은 *막혔을 때* 가는 곳인데 `settings` 그룹 안 두 번째 세그먼트에 있었다 —
@@ -107,16 +107,15 @@ export const TABS: TabMeta[] = [
      말하고 이 화면은 "무엇이 어디 있나"에 답한다.
      ⚠ `guide` 흡수(W9) 뒤로 *"이 시스템이 무엇을 할 수 있나"* 의 유일한 답도 여기다 —
      매뉴얼을 찾아 헤매는 것 자체가 이 화면이 없애려는 마찰인데 그 화면을 찾아 헤맸다.
-     ⚠ 그룹을 따로 판 이유: 레일 그룹 순서는 `GROUP_LABELS` 선언 순이라(그 함수 주석) 최상단은
-     새 그룹이어야 한다. 헤더는 E22 에서 은퇴했으므로 **보이는 것은 구분선 하나**다. */
+     ⚠ 자리는 `RAIL_SECTIONS` 의 첫 섹션 첫 줄이다 — 그 섹션의 질문이 *"지금 뭐부터?"* 이고
+     막혔을 때 던지는 질문이 정확히 그것이다(N-16 · W5 가 그 섹션을 세웠다). */
   /* ⚠ `fill` 은 안 붙인다 — 이 화면은 스크롤 페이지다(승격은 *자리*를 바꾸는 것이지 프레임을
      바꾸는 것이 아니다 · 절대규칙 #4). */
-  { key: 'find', label: '찾기', group: 'find', order: 5, role: 'destination', icon: 'search' },
+  { key: 'find', label: '찾기', order: 5, role: 'destination', icon: 'search' },
   // ── 계획(plan) ──
   {
     key: 'today',
     label: '오늘 학습',
-    group: 'plan',
     order: 10,
     role: 'destination',
     icon: 'target',
@@ -129,7 +128,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'schedule',
     label: '계획',
-    group: 'plan',
     order: 12,
     role: 'destination',
     segLabel: '캘린더',
@@ -150,7 +148,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'alloc',
     label: '주간 배분',
-    group: 'plan',
     order: 22,
     role: 'lens',
     segLabel: '배분',
@@ -158,14 +155,13 @@ export const TABS: TabMeta[] = [
     fill: true,
   },
   // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
-  { key: 'degree', label: '졸업 계획', group: 'plan', order: 35, role: 'lens', segLabel: '졸업', icon: 'cap' },
+  { key: 'degree', label: '졸업 계획', order: 35, role: 'lens', segLabel: '졸업', icon: 'cap' },
   // 과목(items) — 전공 과목·챕터 카탈로그 + 뼈대(가용시간·수업·일과) + 과목별 요일 배분(계획 재개편 v3).
   // 계획의 lens. 세그먼트 라벨='과목' — 계획은 [캘린더 · 배분 · 과목] 3세그먼트다(v4).
   // fill: 좌 갤러리 / 우 가용 레일이 화면을 꽉 채우는 프레임이라 여백 래퍼 없이 붙인다.
   {
     key: 'items',
     label: '과목',
-    group: 'plan',
     order: 40,
     role: 'lens',
     segLabel: '과목',
@@ -203,7 +199,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'journal',
     label: '학습 기록',
-    group: 'train',
     order: 60,
     role: 'retired',
     segLabel: '기록',
@@ -215,7 +210,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'day',
     label: '하루',
-    group: 'train',
     order: 60,
     role: 'lens',
     segLabel: '하루',
@@ -226,7 +220,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'review',
     label: '주간 리뷰',
-    group: 'train',
     order: 70,
     role: 'lens',
     /* ⚠ 앎 바는 이 저장소에서 **가장 긴 세그먼트 바**다(5칸 · H-24). `segLabel` 이 없으면
@@ -255,7 +248,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'review-run',
     label: '복습',
-    group: 'train',
     order: 72,
     role: 'destination',
     segLabel: '복습 실행',
@@ -270,7 +262,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'mistakes',
     label: '오답 노트',
-    group: 'train',
     order: 74,
     role: 'lens',
     icon: 'notebook',
@@ -282,7 +273,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'questions',
     label: '문항',
-    group: 'train',
     order: 76,
     role: 'lens',
     icon: 'notebook',
@@ -291,7 +281,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'stats',
     label: '통계',
-    group: 'train',
     order: 80,
     role: 'destination',
     icon: 'chart',
@@ -330,22 +319,28 @@ export const TABS: TabMeta[] = [
   {
     key: 'forecast',
     label: '복습 예보',
-    group: 'train',
     order: 75,
     role: 'retired',
     segLabel: '예보',
     icon: 'chart',
     to: `/review-run?view=${FORECAST_VIEW}`,
   },
+  /* ⚠⚠ **A-19(W5 · 2026-08-07) — `ledger` 로 통합.** 둘은 같은 `과목 × 무언가` 그리드다:
+     여기는 *볼트 산출 개념 히트맵*, 저기는 *과목×챕터 5단계 파이프라인*. 그리고 `Subject.tsx` 가
+     **이미 둘을 한 컬럼에 나란히** 그려서 그 통합을 실증하고 있었다 — 화면 축만 안 따라왔다.
+     ⚠ E10 이 남긴 판정(_"인접해 보인다고 같은 질문이 아니다"_)과 충돌하지 않는다: 그 판정이
+     가른 짝은 `graph` 대 `mastery` 였고(힘-방향 그래프 대 히트맵), 여기 짝은 `mastery` 대
+     `ledger` 다 — 둘 다 **같은 축(과목×진척)의 다른 눈금**이고 데이터 원본까지 같은 볼트 산출물이다.
+     ⚠ 파일은 `features/ledger/mastery/` 로 옮겼다(로스터가 바뀌면 파일 배치도 따라간다 · W4 교훈).
+     ⚠ 덤: `g m` 충돌이 함께 풀렸다(`mistakes` 와 `mastery` 가 같은 첫 글자였다). */
   {
     key: 'mastery',
     label: '숙달도 지도',
-    group: 'train',
     order: 85,
-    role: 'lens',
-    segLabel: '숙달', // 앎 바 축약(H-24) — 근거는 `review` 의 같은 필드 주석
+    role: 'retired',
+    segLabel: '숙달',
     icon: 'grid',
-    fill: true,
+    to: `/ledger?view=${MASTERY_VIEW}`,
   },
   /* ⚠⚠ **`graph`(학습 구조도) 탭이 은퇴했다 — 화면은 살아 있다**(P-19 · 2026-08-01 · 사용자 결정).
      `/items?view=structure` 의 **뷰 전환**으로 내려갔다(`features/items/Items.tsx` 가 lazy 로 띄운다).
@@ -369,7 +364,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'graph',
     label: '학습 구조도',
-    group: 'train',
     order: 86,
     role: 'retired',
     icon: 'graph',
@@ -399,7 +393,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'integrations',
     label: '연동 현황',
-    group: 'settings',
     order: 50,
     role: 'lens',
     icon: 'link',
@@ -412,7 +405,6 @@ export const TABS: TabMeta[] = [
   {
     key: 'ledger',
     label: '정본 원장',
-    group: 'train',
     order: 88,
     role: 'lens',
     segLabel: '원장', // 앎 바 축약(H-24) — 근거는 `review` 의 같은 필드 주석
@@ -449,7 +441,7 @@ export const TABS: TabMeta[] = [
   /* ⚠ `settings` 는 **destination 이다** — 레일 하단에 상시 서 있다. 옛 `hidden:true` 는 사실이
      아니었고(레일 빌더가 `|| t.key === 'settings'` 로 예외를 팠다), 그 거짓말 때문에 `[ ]` 링에서만
      조용히 빠져 있었다. 예외를 파야 했다는 것 자체가 그 비트가 틀렸다는 신호였다. */
-  { key: 'settings', label: '설정', group: 'settings', order: 200, role: 'destination', icon: 'gear' },
+  { key: 'settings', label: '설정', order: 200, role: 'destination', icon: 'gear' },
   /* ── 명사 주소(A-7 `object` · N-12 패밀리 · 2026-08-07) ────────────────────────────
      탭이 아니다 — **어느 하나를 여는 주소**다. 여기 있는 이유는 하나: *이름*. 종전엔 이 다섯이
      `ROUTE_LABELS` 라는 두 번째 표에 있거나(둘) 아예 없었고(셋), 이름이 없으면 라우트 아나운서가
@@ -464,22 +456,21 @@ export const TABS: TabMeta[] = [
      만들지 않는다 — 명사에 주소를 주는 것과 화면을 하나 더 만드는 것은 다른 일이고, 후자는
      이 저장소가 다섯 번 강등한 부류다. 착지 계산은 매개변수를 봐야 해서 `App` 이 진다(정적
      문자열로 못 적는다 — 그게 `to` 와 `route` 를 가른 이유). */
-  { key: 'subject', label: '과목', group: 'object', order: 300, role: 'object', icon: 'file', route: '/subject/:id' },
-  { key: 'mini', label: '집중', group: 'object', order: 301, role: 'object', icon: 'target', route: '/mini' },
+  { key: 'subject', label: '과목', order: 300, role: 'object', icon: 'file', route: '/subject/:id' },
+  { key: 'mini', label: '집중', order: 301, role: 'object', icon: 'target', route: '/mini' },
   {
     key: 'chapter',
     label: '챕터',
-    group: 'object',
     order: 302,
     role: 'object',
     icon: 'file',
     route: '/chapter/:sid/:chapter',
   },
-  { key: 'week', label: '주', group: 'object', order: 303, role: 'object', icon: 'calendar', route: '/week/:ws' },
+  { key: 'week', label: '주', order: 303, role: 'object', icon: 'calendar', route: '/week/:ws' },
   /* ⚠ **`:idx` 를 안 붙였다.** 한 과목의 시험은 둘까지인데(T-1) 착지 화면(`?view=sheet` — 시험
      전날 한 장)은 *다음 시험*을 그린다. 인덱스를 받아 놓고 아무도 안 읽으면 그건 죽은 매개변수이고,
      주소가 약속한 것을 화면이 안 지키는 형태다 — 필요해지면 그때 붙인다. */
-  { key: 'exam', label: '시험', group: 'object', order: 304, role: 'object', icon: 'cap', route: '/exam/:sid' },
+  { key: 'exam', label: '시험', order: 304, role: 'object', icon: 'cap', route: '/exam/:sid' },
 ];
 
 /* TABS는 런타임 불변 상수 → 표시순 정렬·key 조회를 모듈 로드 시 1회만 계산하고 재사용(C-8).
@@ -493,110 +484,97 @@ export const TABS: TabMeta[] = [
 export const ORDERED_TABS: TabMeta[] = TABS.filter((t) => t.role !== 'object').sort((a, b) => a.order - b.order);
 const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
 
-/* ── 섹션 세그먼트(lens 묶음) ───────────────────────────────────────────
-   한 호스트 탭의 '페이지 안 섹션'으로 묶이는 탭들(첫 항목=레일에 서는 호스트=destination).
-   나브 정리: 매일 안 쓰는 계획/분석 화면을 호스트 상단 세그먼트로 접어 1차 나브를 6개로 줄인다.
-   라우트는 전부 살아있어 딥링크·⌘K·g단축키가 그대로 동작한다. */
-export const SUBTAB_GROUPS: string[][] = [
-  // 계획 호스트: 캘린더(schedule)가 **자기 자신이 호스트**다(D-4 — 옛 plan-host 셸 은퇴).
-  // 순서 = 화면 착지 순서: 캘린더(언제 할까) → 배분(무엇을 얼마씩) → 과목(무엇을·뼈대) → 멀리(N-14).
-  /* ⚠ **다섯에서 넷으로**(W9 · 2026-08-06). `goals` 가 `degree` 안으로 들어가면서 이 바에서
-     빠졌다 — 로드맵 IA 표의 _"`goals`·`degree` 를 '멀리' 하나로"_ 가 그것이다.
-     ⚠ 표는 "5 → 3"이라 적었지만 **실제로 닿는 수는 4**다(캘린더·배분·과목·졸업). 남은 넷은
-       서로 다른 질문이라 더 합칠 근거가 없다 — 숫자를 맞추려고 억지로 합치지 않고, 표가 3이라
-       적힌 근거가 무엇이었는지 모른다는 사실을 여기 적어 둔다(추정으로 덮지 않는다). */
-  ['schedule', 'alloc', 'items', 'degree'],
-  /* ⚠ **인출 호스트 — E13 신설(2026-07-29) · W17 이 얼굴을 뒤집었다(2026-07-31).**
-     복습 실행(지금 굴리기 · 호스트) → 예보(앞으로 무엇이 밀리나) → 오답 노트(전 기간 아카이브).
-     순서가 곧 판단이다: 이 축의 최상위는 **하는 화면**이고 보는 화면은 그 옆이다(근거는
-     `review-run` 의 탭 메타 주석). 새 화면 0 · 라우트·⌘K 그대로(도달성 손실 0). */
-  /* ⚠ **`forecast` 가 빠졌다**(A-16 · W4). 반쪽 예보가 세그먼트 한 칸을 쓰는 대신 호스트의
-     리드아웃 한 줄이 됐다 — 그 판정의 근거는 그 탭 메타 주석이 소유한다. */
-  ['review-run', 'mistakes', 'questions'],
-  /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 정본 원장(어디까지 아는가).
-     `ledger` 가 배관(연동) 밑에서 여기로 왔다.
-     ⚠⚠ **옛 '기록 호스트'(`journal`·`review`)가 W9 에서 여기로 접혔다**(2026-08-06). `journal` 이
-     렌즈로 내려가면서 그 그룹은 **호스트가 없어졌다**(불변식 ③-b: 첫 항목은 destination) — 즉
-     강등의 대가로 두 화면이 갈 곳을 잃는다. 접을 자리는 여기다: 이 호스트의 질문은 "내가 무엇을
-     얼마나 했고 어디까지 아는가"이고, 기록(했다)·주간 리뷰(그래서 이번 주 처방)는 그 질문의 과거
-     끝이다. 순서가 곧 시제다 — 얼마나 했나 → 무엇을 적었나 → 이번 주 처방 → 숙달 → 원장. */
-  /* ⚠ `journal` 자리에 **`day`** 가 섰다(N-12 · W4) — 같은 화면이고 이름과 주소만 바뀌었다.
-     시제 순서는 그대로다: 얼마나 했나 → 무엇을 적었나(그 하루) → 이번 주 처방 → 숙달 → 원장. */
-  ['stats', 'day', 'review', 'mastery', 'ledger'],
-  /* 시스템 호스트 — 설정(호스트) + 배관·도구·매뉴얼. 매일 볼 것이 아닌 것들의 집이다.
-     ⚠ `integrations` 는 **호스트에서 렌즈로 내려왔다** — 그러면서 자기 밑에 있던 `ledger` 의
-     호스트 자격도 사라졌으므로 그 탭을 앎 호스트로 옮겼다(불변식 ③-b: 호스트는 destination).
-     ⚠⚠ **`control`·`discovery` 가 P10 W4 에서 사라졌다**(2026-08-07 · 필러 이사). 이 바가
-       한때 일곱 칸이었던 것은 IA 판단이 아니라 옛 불변식 ③-b 가 _"lens 는 반드시 어느 세그먼트
-       그룹에 속한다"_ 라 갈 곳 없는 화면을 여기로 밀어 넣었기 때문이다. 그 압력은 완화로 풀렸고,
-       화면 자체는 이제 다른 필러에 있다. */
-  /* ⚠ **여섯에서 넷으로**(W9 · 2026-08-06). `guide` 는 은퇴해 `find` 안으로 들어갔고,
-     `atlas` 는 애초에 여기 없었지만 `discovery` 가 그것을 흡수하며 이 바의 한 칸이 두 화면을
-     쥔다. 로드맵 IA 표의 _"시스템 5 → 섹션 목록(다섯이 서로 형제가 아니다)"_ 중 **개수는
-     닿았고 섹션화는 안 했다** — 넷이면 바가 목록처럼 읽히지 않는다(섹션은 길 때 필요하다). */
-  /* ⚠ **`find` 가 빠졌다**(A-9 · W4) — 레일 최상단 destination 으로 승격했고, 세그먼트에
-     남기면 같은 화면이 두 자리를 갖는다(불변식 ③-b 도 호스트 아닌 칸에 destination 을 금지한다). */
-  ['settings', 'integrations'],
-];
-/* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
-   TabMeta.group → 사이드바 섹션 헤더 라벨(**이 표가 그 로스터의 정본**). 빈도 위계를 시각적 청킹으로.
-   settings 그룹은 하단(스페이서 아래)에 렌더 — 저빈도 운영/설정. */
-/* ⚠ **`collect: '수집'` 이 P-4 에서, `discover: '발견'` 이 P10 W4 에서 사라졌다.** 둘 다 같은
-   형태의 잔재였다 — 헤더가 항목보다 오래 산 것. `collect` 는 유일한 destination(`reads`)이 다른
-   섹션으로 옮겨가며 비었고, `discover` 는 그 이름을 쓰던 셋(`markets`·`atlas`·`discovery`)이
-   `survey/` 필러로 이사하며 비었다. ⚠ 라벨을 미리 만들어 두지 말 것 — 불변식 ③은 "모든 탭
-   group 은 라벨을 갖는다"만 요구하지 그 역은 요구하지 않아, 빈 라벨은 게이트에 안 걸린다. */
-export const GROUP_LABELS: Record<string, string> = {
-  /* A-9 — **찾기가 맨 위다.** 그룹 순서 = 이 표의 선언 순서(아래 `buildNavGroups` 주석).
-     막혔을 때 가는 화면이라 빈도 위계(매일 > 주간 > 드묾)의 밖에 있다 — 위계 안에 넣으면
-     "자주 쓰나"로 자리가 정해지는데, 이 화면의 값은 빈도가 아니라 **급할 때 가깝나**다. */
-  find: '찾기',
-  plan: '계획',
-  train: '숙련',
-  settings: '설정',
-  /* ⚠ `object` 는 **레일에 절대 안 뜬다** — 이 그룹엔 destination 이 하나도 없고
-     `buildNavGroups` 는 빈 그룹을 건너뛴다. 라벨이 있는 이유는 불변식 ③(모든 탭 group 은
-     라벨을 갖는다)이 `TABS` 전량을 훑기 때문이고, 그 불변식이 지키는 것은 *고아 group 키*다.
-     ⚠ 위 `collect`·`discover` 의 교훈("헤더가 항목보다 오래 산다")과 다른 경우다: 저 둘은
-     **항목이 사라진 뒤 남은** 라벨이고 이건 **항목이 있는데 레일에 안 서는** 것이다. */
-  object: '명사',
-};
+/* ── 레일 섹션 — **질문이 묶는다**(N-14 평탄화 + N-16 질문 축 · W5 · 2026-08-07) ────────────
+   ⚠⚠ **여기 있던 것은 "호스트 상단 세그먼트 바"였고, 그 바가 은퇴했다.**
 
+   옛 구조: 한 호스트(destination) 아래 렌즈들을 접어 **1차 나브를 6개로 줄인다**가 목표였다.
+   그 목표의 출처는 NN/g 의 수평 나브 권고인데, 그 상한은 **수평 나브의 시각 제약**이다 —
+   가로 폭이 유한하니 6개다. 이 앱의 나브는 **세로 레일**이라 그 제약이 애초에 없었고,
+   그래서 우리는 없는 제약을 지키려고 화면 열넷을 **두 층**(레일 + 세그먼트)에 나눠 뒀다.
+   대가는 측정 가능했다: 배분 보드를 열려면 레일 1 + 세그먼트 1 = **2클릭**이었고(E27 이
+   `lastLens` 라는 기억 장치로 그걸 덧댔다), 어느 렌즈가 어느 호스트 밑인지를 **사람이 외워야**
+   했다. 그리고 `tabs.ts` 는 통합·은퇴를 **일곱 번** *"한 번의 클릭"* 으로 정당화했는데,
+   클릭 수는 판정 기준이 아니다(NN/g 3-click rule 이 기각한 그 지표다).
+
+   → **평탄화한다.** 렌즈도 레일에 한 줄씩 선다. 층이 하나면 `lastLens` 도, "어느 호스트
+   밑인가"라는 암기도, 두 층 사이의 활성 표기 규칙도 함께 사라진다.
+
+   ## 그러면 열넷을 무엇이 묶는가 — **질문**(N-16)
+
+   E22 가 그룹 헤더를 은퇴시킨 근거는 *"destination 7 · 그룹 4 → 그룹당 1.75개라 청킹이 값을
+   못 낸다"* 였다. 평탄화가 그 전제를 뒤집는다(항목이 7+ 면 청킹이 값을 낸다) — 그래서 헤더가
+   **돌아오되 이름이 바뀐다.** 라벨이 명사(계획·숙련)면 그건 *분류*이고, 사용자는 분류를 외워야
+   한다. 질문이면 자기가 지금 묻는 것과 **맞춰 보기만** 하면 된다.
+
+   ⚠ `role` 은 죽지 않았다 — 뜻이 좁아졌다: `destination` 은 **그 질문의 얼굴**(섹션 첫 줄),
+   `lens` 는 같은 질문에 답하는 이웃. 레일에는 둘 다 선다.
+   ⚠ 순서가 곧 판단이다. 섹션 안은 *답하는 순서*로 둔다(무엇부터 보나 → 그 다음). */
+export interface RailSection {
+  key: string;
+  /** 레일 헤더에 그대로 뜨는 **질문**. 분류명이 아니다(N-16). */
+  question: string;
+  tabs: string[];
+}
+
+export const RAIL_SECTIONS: RailSection[] = [
+  /* ⚠ 첫 섹션이 "지금 뭐부터?"인 것이 A-9(찾기 최상단)의 진짜 이유이기도 하다 — 막혔을 때
+     던지는 질문이 이것이고, 그 답 셋(어디 있나 · 오늘 뭐 · 무엇을 인출하나)이 여기 모인다. */
+  { key: 'now', question: '지금 뭐부터?', tabs: ['find', 'today', 'review-run'] },
+  { key: 'plan', question: '언제 얼마나 할까?', tabs: ['schedule', 'alloc', 'items', 'degree'] },
+  /* 시제 순서 그대로: 얼마나 했나 → 그 하루엔 무엇을 → 이번 주 처방 → 무엇을 틀렸나 →
+     다시 풀 것 → 어디까지 정본이 됐나. */
+  { key: 'know', question: '무엇을 아는가?', tabs: ['stats', 'day', 'review', 'mistakes', 'questions', 'ledger'] },
+  { key: 'system', question: '앱을 손보려면?', tabs: ['settings', 'integrations'] },
+];
+
+/** ⚠ 옛 이름 — 세그먼트 바가 은퇴해도 **묶음 자체는 남는다**(이제 레일 섹션이다). 소비처
+ *  (`vt.ts` 방향 판정 · 불변식)가 형상만 쓰므로 파생으로 둔다: 두 벌이 될 수 없다. */
+export const SUBTAB_GROUPS: string[][] = RAIL_SECTIONS.map((s) => s.tabs);
+
+/* ⚠⚠ **옛 묶음 넷의 근거 주석(약 40줄)이 여기 있었다 — `git show e0ed394:web/src/shell/tabs.ts`.**
+   무엇이 어느 호스트로 왜 갔는지의 이력(D-4 plan-host 은퇴 · E13 인출 호스트 신설 · W17 얼굴
+   뒤집기 · W9 기록 호스트 접힘 · P10 W4 필러 이사)이고, 그 판단들은 **위 `RAIL_SECTIONS` 의
+   조합에 그대로 살아 있다**(같은 화면들이 같은 순서로 묶여 있다 — 바뀐 것은 묶음의 *이름*과
+   그것이 렌더되는 *자리*뿐이다). 여기 남기면 세그먼트 바를 전제한 문장 40줄이 레일 섹션
+   정의 옆에 상주하게 되고, 그게 이 저장소가 반복해서 잡아 온 **낡은 주석**의 형태다. */
+/* ── 레일 그룹 — **섹션에서 파생한다**(N-14 · W5 · 2026-08-07) ──────────────────────
+   ⚠⚠ **`GROUP_LABELS` 와 `TabMeta.group` 이 함께 사라졌다.** 둘은 IA 의 **두 번째 원천**이었다:
+   묶음이 `SUBTAB_GROUPS`(세그먼트)와 `group`(레일 섹션) 두 곳에 각각 적혀 있었고, 실제로
+   어긋났다 — `ledger` 는 `group:'train'` 인데 세그먼트는 시스템 호스트 밑이었고(W9 이 옮겼다),
+   `discover` 라벨은 **한 번도 렌더되지 않은 채** 항목보다 오래 살았다(P10 W4 가 지웠다).
+   평탄화가 그 둘을 한 축으로 만든다: **레일에 보이는 묶음 = 섹션 = `RAIL_SECTIONS`.**
+
+   ⚠ 순서를 `order` 로 정하지 않는다(옛 `buildNavGroups` 가 경고하던 역전 — `reads`(45)가
+   `journal`(60)보다 작아 수집 그룹이 숙련 위로 올라갔던 것). 섹션 안 순서는 **섹션이 적은
+   순서 그대로**다: 그게 "무엇부터 답하나"라는 판단이고, 숫자로 표현하면 그 판단이 사라진다.
+   ⚠ `order` 필드는 남는다 — ⌘K 목록·`ORDERED_TABS` 가 여전히 쓴다(전역 표시 순서). */
 export interface NavGroup {
   key: string;
+  /** 레일 헤더 문구 — **질문**이다(N-16). 분류명이 아니다. */
   label: string;
   tabs: TabMeta[];
 }
 
-/** 상시 노출되는 도달점(내부) — `role==='destination'` 전부. 그룹 묶기의 입력이다. */
-function destinationTabs(): TabMeta[] {
-  return ORDERED_TABS.filter((t) => t.role === 'destination');
+/** 레일에 **설 수 있는** 것 전부 — `destination` + `lens`(N-14 평탄화). 은퇴·명사는 안 선다.
+ *  ⚠ *설 수 있는* 이다: 사용자가 접은 것(N-17)은 여기 남아 있고 그리기 직전에 빠진다
+ *  (`shell/railLayout`). 숨김은 도달성이 아니라 표시의 문제라 로스터를 안 건드린다. */
+function railCandidates(): TabMeta[] {
+  return TABS.filter((t) => t.role === 'destination' || t.role === 'lens');
 }
 
-/** 도달점을 그룹으로 묶는다. 설정 그룹은 레일 하단(스페이서 아래).
- *  TABS 가 불변이라 모듈 로드 시 1회 계산해 재사용한다(C-8 · 매 렌더 재빌드 금지).
- *
- *  ⚠ **그룹 순서는 `GROUP_LABELS` 의 선언 순서다**(빈도 위계: 계획 > 숙련 > 설정).
- *  탭 `order` 의 첫 등장으로 정하면 안 된다 — 옛 `reads`(45)·`markets`(47) 가 `journal`(60) 보다
- *  작아서 **수집·발견 그룹이 숙련 위로 올라갔다**. 표면이 있던 시절엔 두 그룹이 아예 다른 화면에
- *  있어 이 어긋남이 보이지 않았고, N-6 이 합치는 순간 드러났다(실렌더 확인이 잡았다).
- *  ⚠ 그 두 그룹은 이제 없지만(P10 W4) 규칙은 남는다 — 다음에 `order` 가 작은 탭이 새 그룹으로
- *  들어오면 같은 역전이 다시 난다.
- *  탭 `order` 는 **그룹 안에서의** 순서만 정한다. */
 function buildNavGroups(): NavGroup[] {
-  const byGroup = new Map<string, TabMeta[]>();
-  for (const t of destinationTabs()) {
-    const g = byGroup.get(t.group);
-    if (g) g.push(t);
-    else byGroup.set(t.group, [t]);
-  }
+  const byKey = new Map(railCandidates().map((t) => [t.key, t]));
   const groups: NavGroup[] = [];
-  for (const key of Object.keys(GROUP_LABELS)) {
-    const tabs = byGroup.get(key);
-    if (tabs?.length) groups.push({ key, label: GROUP_LABELS[key] ?? key, tabs });
+  for (const sec of RAIL_SECTIONS) {
+    const tabs = sec.tabs.map((k) => byKey.get(k)).filter((t): t is TabMeta => !!t);
+    if (tabs.length) groups.push({ key: sec.key, label: sec.question, tabs });
   }
-  // 라벨 표에 없는 그룹(신설 직후)도 잃지 않는다 — 불변식 테스트가 라벨 누락을 따로 잡는다.
-  for (const [key, tabs] of byGroup) if (!groups.some((g) => g.key === key)) groups.push({ key, label: key, tabs });
+  /* ⚠ 섹션에 안 적힌 레일 탭은 **잃지 않는다** — 마지막 섹션 뒤에 붙이고, 불변식이 그 사실을
+     따로 잡는다. 조용히 사라지는 것이 이 파일이 반복해서 막아 온 실패다(`graph` 가 배열에서
+     빠지며 ⌘K 에서 사라진 그 형태). */
+  const placed = new Set(groups.flatMap((g) => g.tabs.map((t) => t.key)));
+  const orphans = railCandidates().filter((t) => !placed.has(t.key));
+  if (orphans.length) groups.push({ key: 'unplaced', label: '섹션 미지정', tabs: orphans });
   return groups;
 }
 const NAV_GROUPS: NavGroup[] = buildNavGroups();
@@ -611,22 +589,25 @@ export function navGroups(): NavGroup[] {
  *  그러면 `]` 를 눌렀을 때 레일에서 아래가 아닌 엉뚱한 칸으로 튄다 — 눈에 보이는 순서와 손이
  *  기대하는 순서가 어긋나는, 설명 없이는 못 알아채는 부류다. 이제 두 벌이 될 수 없다.
  *  (`test/invariants.test.ts` 가 같은 목록임을 계속 잠근다 — 이 파생이 뒤집히면 즉시 빨개진다.) */
-const DESTINATIONS: TabMeta[] = NAV_GROUPS.flatMap((g) => g.tabs);
-export function destinations(): TabMeta[] {
-  return DESTINATIONS;
+const RAIL_TABS: TabMeta[] = NAV_GROUPS.flatMap((g) => g.tabs);
+/** ⚠ 옛 이름은 `destinations()` 였다 — N-14 전에는 레일 = destination 이라 두 뜻이 같았는데,
+ *  평탄화 뒤에는 **렌즈도 레일에 선다**. 이름이 `destination` 이면 이 목록을 쓰는 곳마다
+ *  "왜 렌즈가 여기 있지"를 다시 물어야 하고, 그게 곧 다음 사람의 오독이다. */
+export function railTabs(): TabMeta[] {
+  return RAIL_TABS;
 }
 
-/** key가 속한 섹션 그룹의 탭 메타 배열(첫 항목=호스트). 그룹에 없으면 null. */
-export function subTabGroupOf(key: string): TabMeta[] | null {
-  const g = SUBTAB_GROUPS.find((arr) => arr.includes(key));
-  if (!g) return null;
-  return g.map((k) => tabByKey(k)).filter((t): t is TabMeta => !!t);
-}
+/* ⚠⚠ **`subTabGroupOf`·`hostTabKey` 가 여기 있었다 — 세그먼트 바와 함께 은퇴했다**(N-14 · W5).
+   둘의 존재 이유는 *"이 렌즈는 어느 호스트 밑인가"* 였고, 평탄화가 그 질문 자체를 없앴다(모든
+   화면이 레일에 자기 줄을 갖는다 → 활성 표기도 링 인덱스도 **자기 자신**이다).
+   ⚠ `lastLens`(호스트별 마지막 렌즈 기억 · E27)도 같은 이유로 사라졌다: 그건 두 층 구조가
+   만든 2클릭을 덧대던 장치였고, 층이 하나면 덧댈 것이 없다.
+   되살리려면 `git show e0ed394:web/src/shell/tabs.ts`. */
 
-/** 나브가 1차 활성으로 칠 호스트 key — 흡수 탭이면 그 호스트, 아니면 자기 자신. */
-export function hostTabKey(key: string): string {
-  const g = SUBTAB_GROUPS.find((arr) => arr.includes(key));
-  return g ? g[0]! : key;
+/** key 가 속한 **레일 섹션 key**(없으면 자기 자신 — 섹션 밖 화면도 방향 판정이 필요하다).
+ *  ⚠ 소비처는 `vt.ts` 하나다: 같은 질문 안의 이동인지 다른 질문으로 넘어가는지를 가른다. */
+export function sectionOf(key: string): string {
+  return RAIL_SECTIONS.find((s) => s.tabs.includes(key))?.key ?? key;
 }
 
 /** 표시 순서대로 정렬된 탭(모듈 로드 시 1회 계산된 상수 반환 — 제자리 변형 금지). */

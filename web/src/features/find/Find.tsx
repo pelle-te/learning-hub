@@ -25,7 +25,7 @@ import { FIND_GUIDE_VIEW } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { contentSearch, type ContentHit } from '@/lib/contentSearch';
-import { destinations } from '@/shell';
+import { railTabs } from '@/shell';
 import State from '@/components/State';
 import { Button, Pill } from '@/components/ui';
 
@@ -61,9 +61,10 @@ export default function Find() {
 
   const hits = useMemo(() => (q.trim() ? contentSearch(q, state, LIMIT) : []), [q, state]);
   /* 화면 이름도 함께 찾는다 — 내용이 주(主)지만 "그 탭 이름이 뭐였지"도 실재하는 질문이다.
-     ⚠ 은퇴한 화면은 여기 안 나온다(`destinations()` 가 이미 걸러 준다 · Q-22). */
+     ⚠ 은퇴한 화면은 여기 안 나온다(`railTabs()` 가 이미 걸러 준다 · Q-22).
+     ⚠ N-14(W5) 이후 **렌즈도 나온다** — 레일에 서는 것이 곧 찾을 수 있는 화면이다. */
   const screens = useMemo(
-    () => (q.trim() ? destinations().filter((t) => t.label.toLowerCase().includes(q.trim().toLowerCase())) : []),
+    () => (q.trim() ? railTabs().filter((t) => t.label.toLowerCase().includes(q.trim().toLowerCase())) : []),
     [q],
   );
 

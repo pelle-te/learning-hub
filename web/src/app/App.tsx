@@ -5,8 +5,7 @@ import {
   orderedTabs,
   tabByKey,
   routeLabelOfLocation,
-  destinations,
-  hostTabKey,
+  railTabs,
   ToastHost,
   ModalHost,
   NAV_SHORTCUTS,
@@ -45,7 +44,6 @@ import { getReactTab, prefetchTab } from '@/features/registry';
    `components` 는 재사용 프리미티브(무상태에 가깝게)라는 계약을 그 둘이 애초에 만족하지 않았다
    (App 만 렌더하고, 액션·스토어·IPC 를 문다). 자리를 사실에 맞추면 계약 위반이 사라진다. */
 import CommandPalette from '@/app/CommandPalette';
-import SubTabs from '@/app/SubTabs';
 import ShortcutsHelp from '@/app/ShortcutsHelp';
 import KeycapBar from '@/app/KeycapBar';
 import GlanceMode from '@/app/GlanceMode';
@@ -180,7 +178,6 @@ export default function App() {
             resetKeys={[t.key]}
             onError={(e) => reportError(e, `tab:${t.key}`)}
           >
-            <SubTabs tabKey={t.key} />
             {ReactTab ? (
               <Suspense fallback={<TabLoading fill={!!t.fill} tabKey={t.key} />}>
                 <TabReady>
@@ -350,8 +347,10 @@ export default function App() {
          세그먼트(lens)에 있을 땐 그 **호스트** 위치에서 도는 것이 링의 뜻과 맞다. */
       if (e.key === '[' || e.key === ']') {
         const cur = window.location.pathname.replace(/^\//, '') || 'today';
-        const visible = destinations();
-        let i = visible.findIndex((t) => t.key === hostTabKey(cur));
+        const visible = railTabs();
+        /* N-14(W5) — 레일이 평탄해져 **현재 화면이 곧 링의 자리**다. 종전엔 `hostTabKey(cur)`
+           로 호스트를 찾아야 했다(렌즈는 링에 없었으므로) — 그 간접이 사라졌다. */
+        let i = visible.findIndex((t) => t.key === cur);
         if (i < 0) i = 0;
         const n = e.key === ']' ? (i + 1) % visible.length : (i - 1 + visible.length) % visible.length;
         e.preventDefault();

@@ -32,6 +32,7 @@ import WorkspaceCard from './WorkspaceCard';
 import CloudCard from './CloudCard';
 import ConflictsNotice from './ConflictsNotice';
 import UpdateCard from './UpdateCard';
+import RailAssembly from './RailAssembly';
 import { lastParity } from '@/lib/db/write';
 import { autostartEnabled, isTauri, setAutostart } from '@/lib/tauri';
 import type { AppState } from '@/lib/types';
@@ -462,6 +463,7 @@ export default function Settings() {
           <input type="checkbox" checked={themeAuto} onChange={(e) => setThemeAuto(e.target.checked)} />
           시스템 테마 따라가기 (OS 가 밝기를 바꾸면 앱도 함께 — 끄면 수동 선택 유지)
         </label>
+        <RailAssembly />
         {/* T-3 — 셸에서만 뜬다. 브라우저엔 트레이도 자동 시작도 개념이 없어, 그리면 끄고 켜도
             아무 일이 안 일어나는 스위치가 된다(이 앱이 반복해 피한 형태). */}
         {isTauri() && (

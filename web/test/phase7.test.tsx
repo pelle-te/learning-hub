@@ -34,7 +34,14 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-/* ⚠⚠ **아래 세 케이스는 2026-07-30 `/감사 근본`(H10)에서 계약이 뒤집혔다.**
+/* ⚠⚠ **N-14(W5 · 2026-08-07) — 레일이 평탄해졌다.** 렌즈도 레일에 자기 줄을 갖고, 섹션은
+   질문으로 묶인다(N-16). 그래서 *이웃이 누구인가* 가 통째로 바뀌었다:
+   `찾기 · 오늘 학습 · 복습` → `계획 · 배분 · 과목 · 졸업` → `통계 · 하루 · …` → `설정 · 연동`.
+   아래 케이스들이 지키는 명제(포커스만 옮긴다 · Enter 가 활성화한다 · 순환한다)는 **그대로**이고,
+   갱신한 것은 그 명제를 재는 **좌표**뿐이다. 좌표를 옛 값에 두면 케이스가 통과하지 못하거나
+   (지금처럼) 통과하더라도 아무것도 안 재게 된다.
+
+   ⚠⚠ **아래 세 케이스는 2026-07-30 `/감사 근본`(H10)에서 계약이 뒤집혔다.**
 
    종전 이름은 _"ArrowRight로 다음 탭 **자동 활성**"_ 이었고, 화살표 한 번에 라우트가 바뀌는 것을
    **계약으로 적어** 두고 있었다. 그 거동이 두 가지를 깼다: ① SR 사용자가 레일을 훑을 수 없다
@@ -53,31 +60,32 @@ test('레일 나브: ArrowRight 는 포커스만 옮기고 라우트를 바꾸�
 
   fireEvent.keyDown(today, { key: 'ArrowRight' });
 
-  // 포커스는 다음 도달점으로 간다(계획 개편: today(10) 다음 order 12 = '계획').
-  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-schedule')));
+  // 포커스는 레일의 **다음 줄**로 간다(N-14: `지금 뭐부터?` 섹션에서 오늘 다음은 복습).
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-review-run')));
   // 그러나 현재 페이지는 그대로다 — 이게 H10 이 되찾은 성질이다.
   expect(today).toHaveAttribute('aria-current', 'page');
-  expect(document.getElementById('rail-schedule')).not.toHaveAttribute('aria-current', 'page');
+  expect(document.getElementById('rail-review-run')).not.toHaveAttribute('aria-current', 'page');
 });
 
 test('레일 나브: 포커스를 옮긴 뒤 Enter 가 실제로 활성화한다(도달성은 유지)', async () => {
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'ArrowRight' });
-  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-schedule')));
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-review-run')));
 
   /* 네이티브 버튼의 Enter = click. 화살표에서 활성화를 뺐어도 **키보드로 도달 가능**해야 한다 —
      그게 빠지면 접근성을 고치려다 접근성을 깨는 것이다. */
-  fireEvent.click(document.getElementById('rail-schedule')!);
-  await waitFor(() => expect(document.getElementById('rail-schedule')).toHaveAttribute('aria-current', 'page'));
+  fireEvent.click(document.getElementById('rail-review-run')!);
+  await waitFor(() => expect(document.getElementById('rail-review-run')).toHaveAttribute('aria-current', 'page'));
 });
 
-test('레일 나브: End 는 마지막 항목(설정)으로 포커스를 옮긴다', async () => {
+test('레일 나브: End 는 마지막 항목으로 포커스를 옮긴다', async () => {
   renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'End' });
-  // roving 대상 = 라벨+그룹 사이드바의 모든 나브 항목(설정 그룹 포함): …·control·settings → 마지막은 '설정'.
-  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-settings')));
+  /* roving 대상 = 레일의 모든 줄(섹션 순 · 하단 시스템 섹션 포함). ⚠ N-14 이후 마지막은
+     `설정` 이 아니라 그 섹션의 **끝줄**(연동)이다 — 설정은 그 섹션의 *얼굴*이라 첫 줄이다. */
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-integrations')));
   expect(today).toHaveAttribute('aria-current', 'page'); // 라우트는 불변
 });
 
@@ -86,21 +94,21 @@ test('레일 나브: End 는 마지막 항목(설정)으로 포커스를 옮긴�
    첫 항목인가* 뿐이라, 시작점을 로스터에 맞춰 옮긴다(검사를 지우지 않고 대역을 간다).
    ⚠ `today` 에서 시작하던 옛 형태를 되살리지 말 것: 지금 `today` 는 첫 항목이 아니라
    `find` 로 한 칸 갈 뿐이고, 그러면 이 케이스가 **순환을 안 재게 된다**(공허한 통과). */
-test('레일 나브: ArrowLeft 가 첫 항목에서 마지막(설정)으로 순환한다', async () => {
+test('레일 나브: ArrowLeft 가 첫 항목에서 마지막으로 순환한다', async () => {
   renderApp('/today');
   const first = await screen.findByRole('button', { name: /찾기/ });
   fireEvent.keyDown(first, { key: 'ArrowLeft' });
-  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-settings')));
+  await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-integrations')));
   expect(document.getElementById('rail-today')).toHaveAttribute('aria-current', 'page'); // 라우트는 불변
 });
 
-test('단축키: ]는 다음 도달점(today → 계획), [는 이전(today → 찾기 · 링이 레일 순서를 돈다)', async () => {
+test('단축키: ]는 레일의 다음 줄(today → 복습), [는 이전(today → 찾기)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
-  // 계획 개편: today 다음 도달점 = 계획(schedule · order 12).
+  // N-14 — 링은 **레일에 보이는 순서**를 돈다: 찾기 · 오늘 · 복습 · 계획 · …
   const { unmount } = renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: ']' });
-  await waitFor(() => expect(document.getElementById('rail-schedule')).toHaveAttribute('aria-current', 'page'));
+  await waitFor(() => expect(document.getElementById('rail-review-run')).toHaveAttribute('aria-current', 'page'));
   unmount();
 
   renderApp('/today');

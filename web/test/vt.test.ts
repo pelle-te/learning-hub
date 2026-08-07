@@ -26,12 +26,20 @@ describe('vtMove — 형제 사이는 lateral, 방향은 order 대소', () => {
   });
 });
 
-describe('vtMove — 안으로/밖으로', () => {
-  it('호스트 → 조망은 descend(계획 → 과목)', () => {
-    expect(vtMove('/schedule', '/items')).toEqual({ kind: 'descend' });
+/* ⚠⚠ **N-14(W5 · 2026-08-07) — `descend`/`ascend` 의 근거가 사라졌다.**
+   그 둘은 *호스트 → 그 안의 조망* 이라는 **두 층 구조**의 문법이었고, 레일 평탄화가 그 구조를
+   없앴다(모든 화면이 형제다). 옛 케이스는 `/schedule → /items` 를 `descend` 로 잠갔는데, 지금
+   그 둘은 같은 섹션의 이웃이라 위아래가 없다 — **관계가 바뀐 것이지 테스트가 틀린 게 아니다**
+   (E13 때 이 파일이 같은 이유로 한 번 갱신됐다).
+   ⚠ 어휘를 지우지 않는 것이 중요하다: `ascend` 는 **`immerse` 의 짝**으로 살아 있고(아래 케이스),
+   그게 이 문법이 지금도 말하는 유일한 위아래다. 그래서 여기서는 *같은 층의 이동에 위아래가
+   붙지 않는다*를 잠근다 — 지어낸 계층이 다시 생기면 사용자가 구조를 잘못 배운다. */
+describe('vtMove — 같은 층에는 위아래가 없다(N-14)', () => {
+  it('같은 섹션의 이웃은 lateral 이다(계획 → 과목)', () => {
+    expect(vtMove('/schedule', '/items')).toEqual({ kind: 'lateral', dir: 'fwd' });
   });
-  it('조망 → 호스트는 ascend(나오는 길이 있다)', () => {
-    expect(vtMove('/items', '/schedule')).toEqual({ kind: 'ascend' });
+  it('되돌아오면 방향만 뒤집힌다 — 층을 지어내지 않는다', () => {
+    expect(vtMove('/items', '/schedule')).toEqual({ kind: 'lateral', dir: 'back' });
   });
 });
 
@@ -41,7 +49,7 @@ describe('vtMove — 몰입', () => {
   });
   it('러너에서 나오면 ascend — 어디로 나가든 "열림"이다', () => {
     expect(vtMove('/review-run', '/today')).toEqual({ kind: 'ascend' });
-    expect(vtMove('/review-run', '/journal')).toEqual({ kind: 'ascend' });
+    expect(vtMove('/review-run', '/day')).toEqual({ kind: 'ascend' }); // N-12 — `journal` → `day`
   });
 });
 

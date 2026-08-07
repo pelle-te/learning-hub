@@ -19,7 +19,9 @@
    전역 요소 규칙을 이기는 `!`(control §15-7): h2 히어로 제목·셋업/에러 h3·셀/딥링크 버튼(border/padding/radius).
    런타임 색 주입(퍼널 채움·셀·범례 스와치·단계 점 = style={{ background }})은 절대규칙 #3 구현이라 인라인 유지.
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { MASTERY_VIEW } from '@/shell/tabs';
 import { Icon } from '@/components/Icon';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
@@ -326,7 +328,33 @@ function Setup() {
   );
 }
 
-export default function Ledger() {
+/* ── A-19(W5) — 은퇴한 `mastery` 가 이 호스트의 **뷰**로 내려왔다 ──────────────────────
+   `Find`·`Degree`·`ReviewRun` 이 흡수한 화면을 띄우는 것과 같은 관용구다(lazy — 원장 청크에
+   히트맵을 싣지 않는다). ⚠ 분기를 **껍데기**가 한다: 이 화면은 훅이 여럿이라 중간 조기 반환을
+   놓으면 뷰를 오갈 때 훅 순서가 갈린다(`ReviewRun` 이 같은 이유로 같은 형태를 썼다). */
+const MasteryView = lazy(() => import('./mastery/Mastery'));
+
+export default function LedgerHost() {
+  const [params, setParams] = useSearchParams();
+  if (params.get('view') === MASTERY_VIEW)
+    return (
+      <div className="flex min-h-0 flex-col">
+        {/* ⚠ 돌아가는 문이 **화면 안에** 있어야 한다 — 세그먼트 바가 은퇴해(N-14) 뷰에서 나가는
+            길이 브라우저 뒤로가기뿐이면 그건 막다른 골목이다(`Find` 가 같은 판단을 적어 뒀다). */}
+        <div className="flex-none px-6 pt-4">
+          <Button sm variant="ghost" onClick={() => setParams({}, { replace: true })}>
+            ← 정본 원장
+          </Button>
+        </div>
+        <Suspense fallback={<div className="ds-well">숙달도 지도 여는 중…</div>}>
+          <MasteryView />
+        </Suspense>
+      </div>
+    );
+  return <Ledger />;
+}
+
+function Ledger() {
   const { data: led, isLoading, isFetching, isError, error, refetch } = useLedger();
   const ping = usePing();
   const [sel, setSel] = useState<Sel | null>(null);

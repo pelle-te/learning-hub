@@ -429,7 +429,9 @@ export const TABS = [
   // 'routine' 제거 — 계획 재개편 v3에서 '뼈대'가 '과목'으로 병합돼 /routine은 /items 리다이렉트다.
   // 남겨두면 items와 픽셀 동일한 스냅샷이 두 벌 생겨 리뷰 노이즈만 는다.
   'settings',
-  'mastery',
+  /* ⚠ **`mastery` 가 빠졌다**(A-19 · W5 · 2026-08-07) — `ledger` 로 통합돼
+     `/ledger?view=mastery` 뷰가 됐다. 탭 경로로 찍으면 리다이렉트 뒤의 원장이 찍힌다
+     (이름은 숙달인데 그림은 다른 화면). 뷰 자체는 아래 `A11Y_EXTRA` 가 본다. */
   'integrations',
   'review',
   // ID-9 오답 노트 — 나브에 없는(hidden) 세그먼트지만 로스터에 넣는다. 라우트는 살아 있고,
@@ -540,6 +542,12 @@ export const A11Y_EXTRA: ExtraScreen[] = [
      조용히 사라진다**(로스터에서 뺐으니 아무도 안 본다).
      ⚠ 시계를 미는 이유는 `review-run` 과 같다 — 파도가 없으면 빈 화면이고 그건 거의 아무것도
      안 잰다. */
+  /* ⚠ **A-19(W5)** — `mastery` → `ledger` 의 뷰. 위 흡수 뷰들과 같은 이유로 여기 있다. */
+  {
+    key: 'ledger-mastery',
+    path: '/ledger?view=mastery',
+    ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
+  },
   {
     key: 'review-run-forecast',
     path: '/review-run?view=forecast',

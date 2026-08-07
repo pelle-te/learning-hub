@@ -17,9 +17,9 @@ import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
 import {
   TABS,
-  GROUP_LABELS,
+  RAIL_SECTIONS,
   navGroups,
-  destinations,
+  railTabs,
   objectRoutes,
   orderedTabs,
   SUBTAB_GROUPS,
@@ -160,8 +160,31 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
 
 // ── 불변식 ③ 표면 스위처(Wave⑥) — 표면·그룹 정합 ──
 describe('불변식 ③ 나브 그룹 정합', () => {
-  it('모든 탭 group은 GROUP_LABELS에 라벨이 있다(고아 헤더 방지)', () => {
-    for (const t of TABS) expect(GROUP_LABELS[t.group], `group '${t.group}' (${t.key})`).toBeTruthy();
+  /* ⚠⚠ **`GROUP_LABELS`·`TabMeta.group` 이 N-14(W5)에서 사라졌다.** 묶음의 원천이 둘이던 것을
+     하나(`RAIL_SECTIONS`)로 접었으므로, 이 케이스가 지키던 것("고아 group 키")도 형태가 바뀐다:
+     이제 위험한 것은 *라벨 없는 그룹* 이 아니라 **어느 섹션에도 안 적힌 레일 탭**이다(그러면
+     레일 맨 끝 `섹션 미지정` 으로 밀려나 조용히 이름을 잃는다). */
+  it('레일에 설 수 있는 탭은 전부 어느 섹션엔가 적혀 있다', () => {
+    const inSection = new Set(RAIL_SECTIONS.flatMap((s) => s.tabs));
+    const rail = TABS.filter((t) => t.role === 'destination' || t.role === 'lens');
+    expect(rail.length, '레일 탭이 0개면 이 케이스가 아무것도 안 잰다').toBeGreaterThan(0);
+    for (const t of rail) expect(inSection.has(t.key), `${t.key} 가 어느 섹션에도 없다`).toBe(true);
+  });
+
+  it('섹션이 가리키는 탭이 전부 실존하고 레일에 설 수 있다', () => {
+    for (const sec of RAIL_SECTIONS)
+      for (const k of sec.tabs) {
+        const t = tabByKey(k);
+        expect(t, `${sec.key} 섹션의 ${k} 가 없는 탭이다`).toBeTruthy();
+        expect(['destination', 'lens'], `${k} 는 레일에 설 수 없는 역할이다`).toContain(t?.role);
+      }
+  });
+
+  /* ⚠ **질문이어야 한다**(N-16). 라벨이 명사면 그건 분류이고, 분류는 외워야 한다 —
+     이 축의 값 전부가 *묻는 대로 읽힌다*는 데 있으므로 형태를 잠근다. */
+  it('섹션 헤더가 질문이다 — 분류명으로 되돌아가지 않게', () => {
+    expect(RAIL_SECTIONS.length).toBeGreaterThan(0);
+    for (const sec of RAIL_SECTIONS) expect(sec.question, `${sec.key}`).toMatch(/\?$/);
   });
   /* ⚠ 옛 '표면 정합' 3케이스는 N-6 과 함께 사라졌다 — 표면이 없으니 "다른 표면으로 누출"이라는
      사건 자체가 표현 불가능해졌다(테스트를 지운 게 아니라 지킬 대상이 없어진 것이다).
@@ -196,11 +219,17 @@ describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에�
     expect(SUBTAB_GROUPS.length).toBeGreaterThan(0);
     expect(navGroups().flatMap((g) => g.tabs).length).toBeGreaterThan(0);
   });
-  it('레일에 서는 것은 정확히 destination 이다(lens 누출 0)', () => {
-    for (const t of navGroups().flatMap((g) => g.tabs)) expect(t.role, t.key).toBe('destination');
+  /* ⚠⚠ **N-14(W5) 이 이 케이스를 뒤집었다.** 옛 명제는 *"레일에 서는 것은 정확히
+     destination"* 이었고, 그건 두 층 구조(레일 + 세그먼트)의 계약이었다. 평탄화 뒤에는
+     **렌즈도 레일에 선다** — 지켜야 할 것은 "렌즈 누출 0"이 아니라 **은퇴·명사 누출 0**이다
+     (은퇴한 화면이 레일에 서면 그건 은퇴가 아니고, 명사가 서면 매개변수 없는 죽은 링크다). */
+  it('레일에 서는 것은 destination 이거나 lens 다(은퇴·명사 누출 0)', () => {
+    const rail = navGroups().flatMap((g) => g.tabs);
+    expect(rail.length).toBeGreaterThan(0);
+    for (const t of rail) expect(['destination', 'lens'], t.key).toContain(t.role);
   });
   it('`[ ]` 링은 레일과 같은 목록을 돈다(같은 함수에서 파생 — 두 벌이 될 수 없다)', () => {
-    expect(destinations().map((t) => t.key)).toEqual(navGroups().flatMap((g) => g.tabs.map((t) => t.key)));
+    expect(railTabs().map((t) => t.key)).toEqual(navGroups().flatMap((g) => g.tabs.map((t) => t.key)));
   });
   it('모든 `g` 시퀀스가 실존하는 탭을 가리킨다(죽은 목적지 금지)', () => {
     for (const sc of NAV_SHORTCUTS) expect(tabByKey(sc.tab), `g ${sc.seq}`).toBeTruthy();
@@ -208,22 +237,28 @@ describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에�
   /* ⚠⚠ 아래 셋이 W5 의 집행자다. 옛 불변식은 "실존한다"만 봤고, 그래서 `g` 표가 IA 변경 3건
      (forecast 승격·markets 강등·atlas 강등)을 **하나도 안 따라간 채 전부 초록**이었다.
      실측 당시: destination 7 중 2개에 `g` 가 없고, `g` 키 12 중 **6개가 lens** 였다. */
-  it('`g` 표의 tab 은 전부 destination 이다(눌러 가면 레일에 없는 곳에 서는 것 금지)', () => {
-    for (const sc of NAV_SHORTCUTS) expect(tabByKey(sc.tab)?.role, `g ${sc.seq} → ${sc.tab}`).toBe('destination');
+  /* ⚠ ①-6(W5) — 규칙의 **한 단어**가 바뀌었다: destination → *레일에 서는 것*. 렌즈가 레일에
+     서게 됐으므로(N-14) `g` 가 렌즈를 가리켜도 "레일에 없는 곳에 선다"가 아니다. */
+  it('`g` 표의 tab 은 전부 레일에 선다(눌러 가면 레일에 없는 곳에 서는 것 금지)', () => {
+    for (const sc of NAV_SHORTCUTS)
+      expect(['destination', 'lens'], `g ${sc.seq} → ${sc.tab}`).toContain(tabByKey(sc.tab)?.role);
   });
-  it('모든 destination 이 `g` 키를 갖는다(목적지가 손가락에서 빠지는 것 금지)', () => {
+  it('레일에 서는 것 전부가 `g` 키를 갖는다(손가락에서 빠지는 것 금지)', () => {
     const covered = new Set(NAV_SHORTCUTS.map((s) => s.tab));
-    for (const t of destinations()) expect(covered.has(t.key), `${t.key} 에 g 키가 없다`).toBe(true);
+    for (const t of railTabs()) expect(covered.has(t.key), `${t.key} 에 g 키가 없다`).toBe(true);
   });
   it('seq 는 고유하다 — 첫 글자 충돌은 `SEQ_OVERRIDE` 에 명시해야 한다(조용한 가림 금지)', () => {
     const seqs = NAV_SHORTCUTS.map((s) => s.seq);
     expect(new Set(seqs).size, `중복: ${seqs.join(',')}`).toBe(seqs.length);
   });
-  it('모든 세그먼트 키가 실존하고, 호스트(첫 항목)는 destination 이다', () => {
+  /* ⚠ 세그먼트 바는 N-14 에서 은퇴했지만 **묶음은 남았다**(레일 섹션). 그래서 이 케이스가
+     지키는 것도 남는다 — 다만 요구는 하나로 준다: **섹션의 첫 줄은 그 질문의 얼굴**이다
+     (`destination`). 나머지가 lens 여야 한다는 요구는 뺐다 — 한 섹션에 얼굴이 둘이면
+     안 되는 이유가 두 층 구조에 있었고, 그 구조가 없다. */
+  it('각 섹션의 첫 항목은 그 질문의 얼굴(destination)이다', () => {
     for (const g of SUBTAB_GROUPS) {
       for (const k of g) expect(tabByKey(k), k).toBeTruthy();
-      expect(tabByKey(g[0]!)?.role, `host ${g[0]}`).toBe('destination');
-      for (const k of g.slice(1)) expect(tabByKey(k)?.role, `seg ${k}`).toBe('lens');
+      expect(tabByKey(g[0]!)?.role, `섹션 얼굴 ${g[0]}`).toBe('destination');
     }
   });
   /* ⚠⚠ **완화됐다: "세그먼트 그룹" → "라우트·⌘K·세그먼트 중 최소 하나"**
@@ -368,7 +403,11 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
   };
 
   it('모든 destination 이 `primary` 를 세우거나 면제 사유를 갖는다', () => {
-    const missing = destinations()
+    /* ⚠ **레일 탭 전량이 아니라 `destination` 만** 본다(N-14 · W5). 평탄화로 `railTabs()` 가
+       렌즈까지 담게 됐는데, 44px 앵커는 *그 질문의 얼굴*에 요구하는 것이지 모든 화면에
+       요구하는 것이 아니다 — 전부에 걸면 조망 화면마다 억지 숫자가 하나씩 생긴다(원칙 ②가
+       금지하는 그 형태). */
+    const missing = TABS.filter((t) => t.role === 'destination')
       .filter((t) => !PRIMARY_면제[t.key])
       .filter((t) => {
         // 그 feature 폴더 전체를 본다 — 리드아웃을 세우는 파일이 탭 진입점이 아닐 수 있다.
@@ -439,7 +478,8 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
   const SIG_MARK = /ds-frame|bg-\[image:var\(--bg-(sig|hero)-/;
 
   it('모든 destination 이 시그니처 표면을 갖거나 면제 사유를 갖는다', () => {
-    const missing = destinations()
+    // ⚠ 위 `primary` 와 같은 이유로 `destination` 만 본다(N-14).
+    const missing = TABS.filter((t) => t.role === 'destination')
       .filter((t) => !SIG_면제[t.key])
       .filter((t) => {
         const dir = join(FEATURES, t.key);

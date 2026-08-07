@@ -23,6 +23,8 @@ export interface UIStore {
   setThemeAuto: (on: boolean) => void;
   /** T-3 상주 트레이 토글(기기별). 다음 닫기부터 적용된다 — 닫기 가드가 **매번** 이 값을 읽는다. */
   setTrayResident: (on: boolean) => void;
+  /** N-17 — 레일 조립(숨김 목록·선호 순서). 판정은 `shell/railLayout` 이 소유하고 여기는 담기만 한다. */
+  setRailLayout: (v: { hidden?: string[]; order?: string[] }) => void;
   /** T-6 예약 알림 시각(`HH:MM`) 또는 `null`(끔). 바꾸면 **오늘 몫이 되살아난다**(아래 참조). */
   setReminderAt: (at: string | null) => void;
   /** 오늘 몫을 쓴 것으로 표시. ⚠ 알림 전송 **전에** 부른다(`useDailyReminder` 머리주석). */
@@ -85,6 +87,15 @@ export const useUI = create<UIStore>()(
       setTrayResident(on) {
         set((s) => {
           s.ui.trayResident = on;
+        });
+        flush();
+      },
+      /* N-17 — 둘을 한 setter 로 받는 이유: 순서 이동은 숨김을 안 건드리고 그 반대도 마찬가지라
+         따로 두면 호출부가 매번 "다른 하나는 그대로"를 적어야 한다(부분 갱신이 기본이 맞다). */
+      setRailLayout(v) {
+        set((s) => {
+          if (v.hidden) s.ui.railHidden = v.hidden;
+          if (v.order) s.ui.railOrder = v.order;
         });
         flush();
       },
