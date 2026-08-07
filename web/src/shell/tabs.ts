@@ -25,6 +25,18 @@
    · `lens`        — 호스트 안의 조망. 세그먼트·⌘K·딥링크로만 간다(레일·링에 없다).
    · `retired`     — **은퇴한 화면**(Q-22 · 2026-08-02). 나브·세그먼트·링·`g` 어디에도 안 나오지만
                      **⌘K 와 딥링크로는 여전히 간다.** 화면 코드는 살아 있다.
+   · `object`      — **탭이 아닌 명사**(A-7 · 2026-08-07). `/subject/:id` 처럼 *어느 하나*를 여는
+                     주소다. 로스터에 있지만 **화면 탭이 아니다**: 레일·링·`g`·⌘K·라우트 생성
+                     전부에서 빠지고, 갖는 것은 **이름과 라우트 패턴**뿐이다.
+
+   ⚠⚠ **`object` 가 왜 생겼나 — 이름표 표가 둘이었다**(H27 의 처방이 남긴 빚). `/subject/:id` 와
+   `/mini` 는 탭이 아니라 `tabByKey` 가 `undefined` 를 줬고, 그래서 아나운서가 무음이 되는 것을
+   막으려고 **`ROUTE_LABELS` 라는 두 번째 표**를 팠다. 그 순간 `routeLabelOf` 는 표 둘을 순서대로
+   뒤지는 함수가 됐고, 새 명사 주소가 생길 때마다 *어느 표에 적을지*를 사람이 골라야 했다 —
+   즉 D-4 가 없앤 "다섯 벌의 열거"가 이름 축에서 재발한 것이다. 로스터를 하나로 되돌리되
+   **역할로 구분**한다(옛 처방이 `hidden` 부울을 `role` 로 바꾼 것과 정확히 같은 형태).
+   ⚠ 그때 이걸 `TABS` 에 안 넣은 이유(_"레일·링·g키·primary 불변식이 전부 따라온다"_)는
+   **역할이 없을 때만** 참이었다. 지금은 그 열거들이 전부 `role` 에서 파생하므로 따라오지 않는다.
 
    ⚠⚠ `retired` 가 왜 필요했나: `graph` 를 내릴 때 그 항목을 **`TABS` 배열에서 통째로 뺐고**, 그
    순간 ⌘K 에서도 사라졌다(팔레트는 URL 이 아니라 이 배열을 읽는다). 그때 커밋은 _"딥링크·⌘K
@@ -50,8 +62,14 @@ export const SHEET_VIEW = 'sheet';
 export const DEGREE_PATH_VIEW = 'path';
 /** `/find` — 이 시스템이 할 수 있는 것(옛 `guide` 탭). */
 export const FIND_GUIDE_VIEW = 'guide';
+/** `/review-run` — 앞 14일 복습 파도(옛 `forecast` 탭 · A-16 · 2026-08-07). 위 둘과 같은 이유로 여기가 정본. */
+export const FORECAST_VIEW = 'forecast';
 
-export type TabRole = 'destination' | 'lens' | 'retired';
+export type TabRole = 'destination' | 'lens' | 'retired' | 'object';
+
+/** `/day` 의 **오늘** 주소(N-12). 날짜 세그먼트가 없으면 오늘이다 — 정본이 여기인 이유는
+ *  `STRUCTURE_VIEW` 와 같다(읽는 쪽·가는 쪽이 갈리면 한쪽만 고쳐진다). */
+export const DAY_PATH = '/day';
 
 export interface TabMeta {
   key: string;
@@ -69,6 +87,12 @@ export interface TabMeta {
   segLabel?: string;
   /** `role:'retired'` 전용 착지 경로(Q-22). 은퇴한 화면은 `key` 가 경로가 아니다. */
   to?: string;
+  /** `role:'object'` 전용 라우트 패턴(A-7). 명사 주소는 **매개변수를 가지므로** `key` 에서
+   *  경로를 만들 수 없다(`/subject` 가 아니라 `/subject/:id`). 착지는 `App` 이 그린다. */
+  route?: string;
+  /** **같은 화면의 매개변수 형태**(N-12). `/day` 는 오늘, `/day/:ds` 는 그 하루 — 화면은 하나다.
+   *  `route`(=object 의 유일한 주소)와 다르다: 이건 *덤*이고 저건 *본체*다. */
+  altRoute?: string;
 }
 
 /** 모든 탭(표시 순서·그룹·아이콘). `role` 이 도달 방식을 정한다(destination=레일·링·g키 · lens=세그먼트·⌘K).
@@ -77,6 +101,17 @@ export interface TabMeta {
    빈도 위계: 매일(계획) > 주간(숙련) > 드묾(발견·설정은 하단·⌘K 진입). N-6 이후 표면 구분은 없다 —
    그룹 헤더가 그 일을 하고 있었고, 그 위에 표면을 또 얹은 것이 중복이었다. */
 export const TABS: TabMeta[] = [
+  /* ── 찾기(find) — **레일 최상단**(A-9 · 2026-08-07) ─────────────────────────────
+     ⚠⚠ 이 화면은 *막혔을 때* 가는 곳인데 `settings` 그룹 안 두 번째 세그먼트에 있었다 —
+     즉 **가장 급할 때 가장 먼 자리**였다. 정보 냄새가 정반대다: 설정은 "이 앱을 조정한다"고
+     말하고 이 화면은 "무엇이 어디 있나"에 답한다.
+     ⚠ `guide` 흡수(W9) 뒤로 *"이 시스템이 무엇을 할 수 있나"* 의 유일한 답도 여기다 —
+     매뉴얼을 찾아 헤매는 것 자체가 이 화면이 없애려는 마찰인데 그 화면을 찾아 헤맸다.
+     ⚠ 그룹을 따로 판 이유: 레일 그룹 순서는 `GROUP_LABELS` 선언 순이라(그 함수 주석) 최상단은
+     새 그룹이어야 한다. 헤더는 E22 에서 은퇴했으므로 **보이는 것은 구분선 하나**다. */
+  /* ⚠ `fill` 은 안 붙인다 — 이 화면은 스크롤 페이지다(승격은 *자리*를 바꾸는 것이지 프레임을
+     바꾸는 것이 아니다 · 절대규칙 #4). */
+  { key: 'find', label: '찾기', group: 'find', order: 5, role: 'destination', icon: 'search' },
   // ── 계획(plan) ──
   {
     key: 'today',
@@ -101,23 +136,16 @@ export const TABS: TabMeta[] = [
     icon: 'calendar',
     fill: true,
   },
-  /* ⚠⚠ **`goals`(내 길)가 `degree` 에 흡수됐다 — 화면은 살아 있다**(W9 · 2026-08-06 · IA 판정표).
-     둘 다 **"졸업까지의 길"** 에 답하는데 호스트가 갈려 있었다: `goals` 는 목표 트리(왜 이 길인가),
-     `degree` 는 학점·요건·학기(그 길의 회계). 계획 세그먼트 다섯 중 둘이 같은 질문의 두 면이었고,
-     그래서 "멀리 보는 화면"을 열려면 어느 쪽 이름을 기억하는지에 따라 착지가 갈렸다.
-     `/degree?view=path` 의 세 번째 세그먼트가 됐다 — `graph`→`/items?view=structure` 와 같은
-     관용구(호스트만 바꾸고 파일은 안 옮긴다 · 420줄을 다른 파일에 붙이는 교환을 피한다).
-     ⚠ 도달성: ⌘K(은퇴 탭도 나온다) · `/goals` 딥링크(`routeEls` 가 `to` 로 리다이렉트) · 세그먼트. */
-  {
-    key: 'goals',
-    label: '내 길',
-    group: 'plan',
-    order: 15,
-    role: 'retired',
-    segLabel: '내 길',
-    icon: 'compass',
-    to: `/degree?view=${DEGREE_PATH_VIEW}`,
-  },
+  /* ⚠⚠ **`goals`(내 길) 행이 여기 있었다 — 삭제됐다**(W4 · 발산 6회차 · 2026-08-07 · IA 판정표).
+     W9 이 `/degree?view=path` 로 흡수하며 `role:'retired'` 를 붙였는데, 그 어휘의 뜻은 *"화면이
+     다른 곳으로 갔지만 ⌘K·딥링크는 계속 닿는다"* 이고 **한시적 상태**를 전제한다. 이 행은 그
+     상태에 무기한 머물렀고, 감사가 잰 것이 그 대가였다: 은퇴 탭의 화면 코드가 **호스트의 lazy
+     자식으로 상주**(파일 배치가 로스터를 따라오지 않았다). 즉 은퇴 어휘가 *"영원히 유예"* 의
+     도구가 되고 있었다.
+     → 로스터 행을 지우고 **파일을 호스트 안으로 옮긴다**(`features/degree/PathView.tsx`).
+     ⚠ **화면은 그대로다** — `/degree?view=path` 가 여전히 그 뷰를 연다(도달성의 정본은 그 쿼리다).
+     사라진 것은 ⌘K 의 `이동 · 내 길` 한 줄과 `/goals` 리다이렉트뿐이고, 그건 *탭이 아닌 것을
+     탭으로 세어 온* 흔적이다. 되살리려면 `git show 444285d:web/src/shell/tabs.ts`. */
   // 배분 세그먼트(주간 배분 보드) — 옛 배치 탭의 alloc 뷰를 승격(재개편 v4). 캘린더 바로 뒤.
   {
     key: 'alloc',
@@ -164,15 +192,36 @@ export const TABS: TabMeta[] = [
      담는가)는 다른 축이고, 이 화면의 입력은 실제로 쓰인다 — 즉 위 어긋남은 **관찰이지 결함이
      아니다.** 기각한 대안 둘과 재판정 조건은 `web/docs/결정로그.md` 「journal 범위」가 SSOT.
      ⚠ 이 문단을 지우지 말 것: 다음 감사가 같은 관찰을 항목으로 다시 올리는 것을 막는 자리다. */
+  /* ⚠⚠ **`journal` 이 `/day` 로 은퇴했다**(N-12 · W4 · 2026-08-07 · IA 판정표).
+     이 화면의 유일무이한 값은 **과거 백필**(날짜 스테퍼로 어제 놓친 블록을 채우는 것)이고,
+     M-15 가 그것을 근거로 *범위 축소*를 기각했다. 그 판정은 유효하다 — 여기서 바뀌는 것은
+     범위가 아니라 **호스트**다: 그 값은 *기록 탭*의 기능이 아니라 **하루라는 객체**의 기능이다.
+     종전엔 보고 있는 날이 `useState` 라 "그 하루"를 다시 열 방법이 경로 재현뿐이었다(어제를
+     보려면 탭을 열고 스테퍼를 누른다 · 링크로 가리킬 수 없다).
+     → `/day`(오늘) · `/day/:ds`(그 하루). 날짜가 주소가 된다.
+     ⚠ M-15 와 충돌 아님: 그때 기각된 것은 *입력 패널을 걷어내는 것*이고 여기는 *이사*다. */
   {
     key: 'journal',
     label: '학습 기록',
     group: 'train',
     order: 60,
-    role: 'lens',
+    role: 'retired',
     segLabel: '기록',
     icon: 'notebook',
+    to: DAY_PATH,
+  },
+  /* N-12 — **하루라는 객체**. `journal` 은퇴의 짝이고, 폰이 이미 `day` 를 4슬롯 중 하나로
+     세웠다는 것이 이 명사가 실재한다는 증거다(데스크톱만 그 축에 이름이 없었다). */
+  {
+    key: 'day',
+    label: '하루',
+    group: 'train',
+    order: 60,
+    role: 'lens',
+    segLabel: '하루',
+    icon: 'notebook',
     fill: true,
+    altRoute: `${DAY_PATH}/:ds`,
   },
   {
     key: 'review',
@@ -263,15 +312,30 @@ export const TABS: TabMeta[] = [
      ⚠⚠ **W17 이 그 마지막 문장을 끝까지 밀었다(2026-07-31 · `destination` → `lens`).** 반쪽이
      축의 얼굴이 될 수 없다면 얼굴은 *하는 화면*이어야 한다 — 위 `review-run` 주석이 근거를 든다.
      여기는 그 호스트의 **첫 세그먼트**로 남는다(도달성 손실 0 · 라우트·⌘K 그대로). */
+  /* ⚠⚠ **W4(2026-08-07) — 은퇴시켰다. 이 탭의 주석이 스스로 근거를 다 적어 뒀다.**
+     위 두 문단이 말하는 것: 이 화면은 *"Anki 미래 due 를 원리적으로 못 그린다 · 반쪽"* 이고,
+     그래서 W17 이 destination 을 회수해 `review-run` 의 첫 세그먼트로 내렸다. 남은 질문은
+     **반쪽짜리 조망에 자기 화면이 필요한가**였고, 답은 아니다: 이 화면이 실제로 나르는 값은
+     ① 오늘 due 합계 ② 앞 14일 파도 둘인데 **둘 다 한 줄로 접힌다**.
+     → 그 한 줄을 `review-run` **리드아웃**으로 올린다(`forecastPeak`). 화면 하나가 아니라
+     *리드아웃 한 줄*이 되는 것이 이 값의 정직한 크기다.
+     ⚠⚠ **그래도 화면을 지우지는 않는다.** 리드아웃으로 안 접히는 것이 하나 있다 — **앞당길
+     후보**(과부하 날의 챕터를 그 전 여유일로 옮기는 동작). 그건 *조망*이 아니라 **동사**라
+     한 줄에 안 들어가고, 지우면 파도를 미리 더는 유일한 경로가 사라진다. 그래서
+     `graph`·`goals`·`guide` 와 같은 관용구를 쓴다: **호스트의 뷰로 내려간다**
+     (`/review-run?view=forecast` · 파일도 그 폴더로 옮겼다 — 로스터가 바뀌면 파일 배치도
+     따라간다는 것이 이번 웨이브가 `goals`·`guide` 에서 배운 것이다).
+     ⚠ 즉 이 항목이 회수하는 것은 **세그먼트 한 칸**이다. 값은 리드아웃으로 올라가고 동사는
+     뷰로 남는다 — 한 문장으로 줄이면 *"반쪽 조망이 축의 얼굴 옆에 설 이유가 없다"*. */
   {
     key: 'forecast',
     label: '복습 예보',
     group: 'train',
     order: 75,
-    role: 'lens',
+    role: 'retired',
     segLabel: '예보',
     icon: 'chart',
-    fill: true,
+    to: `/review-run?view=${FORECAST_VIEW}`,
   },
   {
     key: 'mastery',
@@ -374,27 +438,59 @@ export const TABS: TabMeta[] = [
      있나" — 한 축의 두 끝이고 둘 다 머무는 참조 화면이다). 흡수 셋이 이제 셋 다 있다:
      찾기→`/find` · 화면별 키→`KeycapBar` · 본문→`/find?view=guide`.
      ⚠ 도달성: ⌘K · `/guide` 딥링크(리다이렉트) · 찾기 화면 빈 상태의 **버튼**. */
-  {
-    key: 'guide',
-    label: '안내',
-    group: 'settings',
-    order: 185,
-    role: 'retired',
-    icon: 'book',
-    to: `/find?view=${FIND_GUIDE_VIEW}`,
-  },
-  /* T-25 검색 화면 — `guide` 은퇴의 짝. 이 앱에서 찾는 것은 **탭 이름이 아니라 내용**이고,
-     그 답을 아는 곳(⌘K)은 떠 있는 동안만 존재해 훑어보기가 안 됐다(그 파일 머리주석). */
-  { key: 'find', label: '찾기', group: 'settings', order: 186, role: 'lens', icon: 'search' },
+  /* ⚠⚠ **`guide` 행이 여기 있었다 — 삭제됐다**(W4 · 2026-08-07). `goals` 와 **글자 그대로 같은
+     이유**이고(위 그 자리의 주석이 SSOT) 같은 처방이다: 로스터 행을 지우고 파일을 흡수한 호스트
+     안으로 옮긴다(`features/find/GuideView.tsx`). 본문의 착지처는 **이미** `/find?view=guide` 이고
+     (W9 이 그 조건을 만족시켜 은퇴시켰다) 그 쿼리가 도달성의 정본이다 — 즉 **본문 분해는 여전히
+     유예 상태이고 이 삭제는 그것과 무관하다**(지금 지우는 것은 *탭 행*이지 매뉴얼이 아니다).
+     ⚠ 위 세 문단(W7 의 되돌림 · 불변식 ②가 집행한 조건 · W9 의 닫힘)을 **지우지 않는다**:
+     "가리킬 곳 없는 은퇴는 그냥 삭제다"라는 판정이 어떻게 코드로 집행됐는지의 기록이다. */
+  // (`find` 는 이 파일 맨 위로 승격했다 — A-9)
   /* ⚠ `settings` 는 **destination 이다** — 레일 하단에 상시 서 있다. 옛 `hidden:true` 는 사실이
      아니었고(레일 빌더가 `|| t.key === 'settings'` 로 예외를 팠다), 그 거짓말 때문에 `[ ]` 링에서만
      조용히 빠져 있었다. 예외를 파야 했다는 것 자체가 그 비트가 틀렸다는 신호였다. */
   { key: 'settings', label: '설정', group: 'settings', order: 200, role: 'destination', icon: 'gear' },
+  /* ── 명사 주소(A-7 `object` · N-12 패밀리 · 2026-08-07) ────────────────────────────
+     탭이 아니다 — **어느 하나를 여는 주소**다. 여기 있는 이유는 하나: *이름*. 종전엔 이 다섯이
+     `ROUTE_LABELS` 라는 두 번째 표에 있거나(둘) 아예 없었고(셋), 이름이 없으면 라우트 아나운서가
+     무음이고 문서 제목이 `러닝허브` 로 굳는다 — **화면으로는 안 보이는** 손실이다.
+
+     ⚠⚠ **왜 명사마다 주소인가**(N-12): 이 앱에서 URL 을 가진 명사는 `subject` 하나였고, 나머지는
+     전부 화면 안의 `useState` 였다(보고 있는 날 · 주 오프셋 · 고른 챕터 · 다가오는 시험). 그래서
+     "그 하루를 다시 열기"가 **경로 재현**이었다: 탭을 열고 스테퍼를 N번 누른다. 링크로 가리킬 수
+     없는 것은 ⌘K 로도 못 찾고, 알림도 못 데려가고, 자기 자신을 참조하지도 못한다.
+
+     ⚠ **셋은 리다이렉트다.** `chapter`·`week`·`exam` 은 답하는 화면이 이미 있으므로 새 화면을
+     만들지 않는다 — 명사에 주소를 주는 것과 화면을 하나 더 만드는 것은 다른 일이고, 후자는
+     이 저장소가 다섯 번 강등한 부류다. 착지 계산은 매개변수를 봐야 해서 `App` 이 진다(정적
+     문자열로 못 적는다 — 그게 `to` 와 `route` 를 가른 이유). */
+  { key: 'subject', label: '과목', group: 'object', order: 300, role: 'object', icon: 'file', route: '/subject/:id' },
+  { key: 'mini', label: '집중', group: 'object', order: 301, role: 'object', icon: 'target', route: '/mini' },
+  {
+    key: 'chapter',
+    label: '챕터',
+    group: 'object',
+    order: 302,
+    role: 'object',
+    icon: 'file',
+    route: '/chapter/:sid/:chapter',
+  },
+  { key: 'week', label: '주', group: 'object', order: 303, role: 'object', icon: 'calendar', route: '/week/:ws' },
+  /* ⚠ **`:idx` 를 안 붙였다.** 한 과목의 시험은 둘까지인데(T-1) 착지 화면(`?view=sheet` — 시험
+     전날 한 장)은 *다음 시험*을 그린다. 인덱스를 받아 놓고 아무도 안 읽으면 그건 죽은 매개변수이고,
+     주소가 약속한 것을 화면이 안 지키는 형태다 — 필요해지면 그때 붙인다. */
+  { key: 'exam', label: '시험', group: 'object', order: 304, role: 'object', icon: 'cap', route: '/exam/:sid' },
 ];
 
 /* TABS는 런타임 불변 상수 → 표시순 정렬·key 조회를 모듈 로드 시 1회만 계산하고 재사용(C-8).
    매 내비게이션마다 slice().sort()/find 선형스캔이 헛돌던 것 제거. 반환 배열은 읽기 전용으로 다룬다(제자리 변형 금지). */
-export const ORDERED_TABS: TabMeta[] = [...TABS].sort((a, b) => a.order - b.order);
+/* ⚠⚠ **`object` 는 여기서 빠진다**(A-7 · 2026-08-07). 이 상수의 소비처는 둘 — `App` 의 라우트
+   생성과 ⌘K 탭 목록 — 이고 **둘 다 "열 수 있는 화면"** 을 뜻한다. 명사 주소는 매개변수 없이는
+   열 수 없으므로(`/subject` 는 어느 과목도 아니다) 그 둘에 들어가면 죽은 라우트와 죽은 팔레트
+   항목이 된다. 전량이 필요하면 `TABS` 를, 이름 하나면 `tabByKey`/`routeLabelOf` 를 쓴다.
+   ⚠ 이름을 `ORDERED_TABS` 그대로 두는 이유: 이 파일에서 "탭"은 처음부터 *화면*을 뜻했고,
+   `object` 가 그 뜻을 넓힌 것이 아니라 **로스터**의 뜻을 넓혔다. */
+export const ORDERED_TABS: TabMeta[] = TABS.filter((t) => t.role !== 'object').sort((a, b) => a.order - b.order);
 const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
 
 /* ── 섹션 세그먼트(lens 묶음) ───────────────────────────────────────────
@@ -414,7 +510,9 @@ export const SUBTAB_GROUPS: string[][] = [
      복습 실행(지금 굴리기 · 호스트) → 예보(앞으로 무엇이 밀리나) → 오답 노트(전 기간 아카이브).
      순서가 곧 판단이다: 이 축의 최상위는 **하는 화면**이고 보는 화면은 그 옆이다(근거는
      `review-run` 의 탭 메타 주석). 새 화면 0 · 라우트·⌘K 그대로(도달성 손실 0). */
-  ['review-run', 'forecast', 'mistakes', 'questions'],
+  /* ⚠ **`forecast` 가 빠졌다**(A-16 · W4). 반쪽 예보가 세그먼트 한 칸을 쓰는 대신 호스트의
+     리드아웃 한 줄이 됐다 — 그 판정의 근거는 그 탭 메타 주석이 소유한다. */
+  ['review-run', 'mistakes', 'questions'],
   /* 앎 호스트 — 통계(얼마나 했나) → 숙달도 → 정본 원장(어디까지 아는가).
      `ledger` 가 배관(연동) 밑에서 여기로 왔다.
      ⚠⚠ **옛 '기록 호스트'(`journal`·`review`)가 W9 에서 여기로 접혔다**(2026-08-06). `journal` 이
@@ -422,7 +520,9 @@ export const SUBTAB_GROUPS: string[][] = [
      강등의 대가로 두 화면이 갈 곳을 잃는다. 접을 자리는 여기다: 이 호스트의 질문은 "내가 무엇을
      얼마나 했고 어디까지 아는가"이고, 기록(했다)·주간 리뷰(그래서 이번 주 처방)는 그 질문의 과거
      끝이다. 순서가 곧 시제다 — 얼마나 했나 → 무엇을 적었나 → 이번 주 처방 → 숙달 → 원장. */
-  ['stats', 'journal', 'review', 'mastery', 'ledger'],
+  /* ⚠ `journal` 자리에 **`day`** 가 섰다(N-12 · W4) — 같은 화면이고 이름과 주소만 바뀌었다.
+     시제 순서는 그대로다: 얼마나 했나 → 무엇을 적었나(그 하루) → 이번 주 처방 → 숙달 → 원장. */
+  ['stats', 'day', 'review', 'mastery', 'ledger'],
   /* 시스템 호스트 — 설정(호스트) + 배관·도구·매뉴얼. 매일 볼 것이 아닌 것들의 집이다.
      ⚠ `integrations` 는 **호스트에서 렌즈로 내려왔다** — 그러면서 자기 밑에 있던 `ledger` 의
      호스트 자격도 사라졌으므로 그 탭을 앎 호스트로 옮겼다(불변식 ③-b: 호스트는 destination).
@@ -434,7 +534,9 @@ export const SUBTAB_GROUPS: string[][] = [
      `atlas` 는 애초에 여기 없었지만 `discovery` 가 그것을 흡수하며 이 바의 한 칸이 두 화면을
      쥔다. 로드맵 IA 표의 _"시스템 5 → 섹션 목록(다섯이 서로 형제가 아니다)"_ 중 **개수는
      닿았고 섹션화는 안 했다** — 넷이면 바가 목록처럼 읽히지 않는다(섹션은 길 때 필요하다). */
-  ['settings', 'integrations', 'find'],
+  /* ⚠ **`find` 가 빠졌다**(A-9 · W4) — 레일 최상단 destination 으로 승격했고, 세그먼트에
+     남기면 같은 화면이 두 자리를 갖는다(불변식 ③-b 도 호스트 아닌 칸에 destination 을 금지한다). */
+  ['settings', 'integrations'],
 ];
 /* ── 나브 그룹(라벨+그룹 사이드바) ────────────────────────────────────────
    TabMeta.group → 사이드바 섹션 헤더 라벨(**이 표가 그 로스터의 정본**). 빈도 위계를 시각적 청킹으로.
@@ -445,9 +547,19 @@ export const SUBTAB_GROUPS: string[][] = [
    `survey/` 필러로 이사하며 비었다. ⚠ 라벨을 미리 만들어 두지 말 것 — 불변식 ③은 "모든 탭
    group 은 라벨을 갖는다"만 요구하지 그 역은 요구하지 않아, 빈 라벨은 게이트에 안 걸린다. */
 export const GROUP_LABELS: Record<string, string> = {
+  /* A-9 — **찾기가 맨 위다.** 그룹 순서 = 이 표의 선언 순서(아래 `buildNavGroups` 주석).
+     막혔을 때 가는 화면이라 빈도 위계(매일 > 주간 > 드묾)의 밖에 있다 — 위계 안에 넣으면
+     "자주 쓰나"로 자리가 정해지는데, 이 화면의 값은 빈도가 아니라 **급할 때 가깝나**다. */
+  find: '찾기',
   plan: '계획',
   train: '숙련',
   settings: '설정',
+  /* ⚠ `object` 는 **레일에 절대 안 뜬다** — 이 그룹엔 destination 이 하나도 없고
+     `buildNavGroups` 는 빈 그룹을 건너뛴다. 라벨이 있는 이유는 불변식 ③(모든 탭 group 은
+     라벨을 갖는다)이 `TABS` 전량을 훑기 때문이고, 그 불변식이 지키는 것은 *고아 group 키*다.
+     ⚠ 위 `collect`·`discover` 의 교훈("헤더가 항목보다 오래 산다")과 다른 경우다: 저 둘은
+     **항목이 사라진 뒤 남은** 라벨이고 이건 **항목이 있는데 레일에 안 서는** 것이다. */
+  object: '명사',
 };
 
 export interface NavGroup {
@@ -525,23 +637,26 @@ export function tabByKey(key: string): TabMeta | undefined {
   return TAB_BY_KEY.get(key);
 }
 
-/* ⚠⚠ **탭이 아닌 라우트에도 이름이 있다(H27 · 2026-07-31 `/감사 근본`).**
+/* ⚠⚠ **여기 `ROUTE_LABELS` 라는 두 번째 이름표 표가 있었다 — A-7 이 없앴다**(2026-08-07).
 
-   `App` 과 `docTitle` 은 라벨을 `tabByKey(첫 세그먼트)` 로 뽑는데, W12 가 신설한 `/subject/:id`
-   와 미니 모드 `/mini` 는 **탭이 아니다** → `undefined` → 라우트 아나운서가 **무음**이고 문서
-   제목이 `러닝허브` 로 고정된다. `/subject/:id` 는 ⌘K 챕터 히트의 **착지 화면**이라 실제 통행량이
-   있는 경로다(W12 가 만든 값이 그 길로 흐른다).
+   H27(2026-07-31)이 고친 문제는 옳았다: `/subject/:id`·`/mini` 는 탭이 아니라 `tabByKey` 가
+   `undefined` 를 줬고, 그래서 라우트 아나운서가 **무음**이고 문서 제목이 `러닝허브` 로 굳었다.
+   틀린 것은 처방이었다 — **표를 하나 더 판 것**. 그 순간 이 함수는 표 둘을 순서대로 뒤지는
+   함수가 됐고, 새 명사 주소가 생길 때마다 *어느 표에 적을지*를 사람이 고르게 됐다. D-4 가
+   "갈 수 있는 곳"의 다섯 열거를 하나로 되돌린 그 문제가 **이름 축에서 재발**한 것이다.
 
-   ⚠ 이걸 `TABS` 에 넣어 풀지 않는다 — 그러면 레일·`[ ]` 링·`g` 키·`primary` 불변식이 전부
-   따라와서, "탭이 아닌 것"을 탭으로 만들어 IA 를 오염시킨다. 이름만 필요한 자리에는 이름만 준다. */
-const ROUTE_LABELS: Record<string, string> = {
-  subject: '과목',
-  mini: '집중',
-};
+   당시 그러지 않은 이유(_"`TABS` 에 넣으면 레일·링·`g`·`primary` 불변식이 전부 따라온다"_)는
+   **역할 어휘가 없을 때만** 참이었다. 지금은 그 열거들이 전부 `role` 에서 파생하므로,
+   `role:'object'` 는 어디에도 안 따라 들어간다(`ORDERED_TABS` 가 그 파생의 첫 관문이다). */
 
-/** 라우트 첫 세그먼트 → 사람이 읽는 이름. 탭이면 탭 라벨, 아니면 위 표, 없으면 빈 문자열. */
+/** 라우트 첫 세그먼트 → 사람이 읽는 이름. 로스터에 없으면 빈 문자열(표는 하나다). */
 export function routeLabelOf(key: string): string {
-  return TAB_BY_KEY.get(key)?.label ?? ROUTE_LABELS[key] ?? '';
+  return TAB_BY_KEY.get(key)?.label ?? '';
+}
+
+/** 명사 주소 전부(`role:'object'`) — `App` 이 라우트를 그릴 때 순회한다. */
+export function objectRoutes(): TabMeta[] {
+  return TABS.filter((t) => t.role === 'object');
 }
 
 /**

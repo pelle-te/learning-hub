@@ -7,7 +7,7 @@
    보드 자체(과목행×요일열 매트릭스)는 AllocBoard가 소유 — 여긴 주 네비·리드아웃·드릴다운 배선만.
    ⚠ features → features import 금지(boundaries)라 AllocBoard가 schedule/에서 여기로 물리 이주했다.
 ============================================================ */
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
@@ -49,7 +49,13 @@ export default function Alloc() {
   // 주 네비(오프셋 상태 · , / . 단축키 · 배지 라벨)는 useWeekOffset 단일 기계가 소유 —
   // 예전엔 todayOff 산식·useState·useWeekNavKeys가 캘린더와 글자까지 같은 모양으로 복제돼 있었다.
   // ⚠ 훅이 내부에서 useWeekNavKeys를 등록하므로 여기서 또 등록하면 이중 이동이 된다.
-  const { rel, prev, next, weekToday, isThisWeek, offsetLabel, curMon, weekMon } = useWeekOffset(state);
+  /* N-12(W4) — **주가 주소를 갖는다.** `/week/:ws` 가 여기로 착지하고 `?week=` 로 어느 주인지를
+     말한다. 초기값일 뿐이라 그 뒤엔 `,`/`.` 가 이긴다(주소가 상태를 계속 강제하면 화면 안에서
+     주를 못 넘긴다 · 근거는 `useWeekOffset` 의 `startMon` 주석). */
+  const [params] = useSearchParams();
+  const { rel, prev, next, weekToday, isThisWeek, offsetLabel, curMon, weekMon } = useWeekOffset(state, {
+    startMon: params.get('week') ?? undefined,
+  });
 
   // 분자·분모 모두 weekAlloc의 단일 집계를 쓴다 — 각자 필터를 굴리던 시절엔 주당 0h 과목이
   // 분자에만 들어가 "4.0 / 2.0h · 예산 달성 200%" 같은 오염이 났다(집합 불일치).

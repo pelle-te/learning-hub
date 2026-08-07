@@ -204,9 +204,12 @@ if (모듈css.length) {
 /* ⚠ 다섯이 P10 W4 에서 빠졌다(2026-08-07 · `atlas`·`control`·`discovery`·`reads` 둘) — 파일이
    사라졌고, 원장이 없는 파일을 가리키면 그 자체가 사문이다(이 검출기가 스스로 그렇게 말한다). */
 const 카드원장 = new Set([
-  'features/goals/Goals.tsx',
+  /* ⚠ W4(발산 6회차 · 2026-08-07) — `goals`·`guide` 가 흡수한 호스트 폴더로 **이사**했다
+     (로스터 행을 지우면 파일 배치도 따라간다). 원장은 *경로*로 재므로 같은 표면이 새 경로에서
+     "새 위반"으로 잡히는데, 그건 이 검출기가 옳게 동작한 것이다 — 이름만 갈아 준다. */
+  'features/degree/PathView.tsx',
+  'features/find/GuideView.tsx',
   'features/graph/Graph.tsx',
-  'features/guide/Guide.tsx',
   'features/integrations/VaultPanel.tsx',
   'features/items/ItemCard.tsx',
   'features/ledger/Ledger.tsx',

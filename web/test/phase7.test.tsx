@@ -81,15 +81,20 @@ test('레일 나브: End 는 마지막 항목(설정)으로 포커스를 옮긴�
   expect(today).toHaveAttribute('aria-current', 'page'); // 라우트는 불변
 });
 
+/* ⚠ **A-9(2026-08-07) — 레일의 첫 항목이 `find` 로 바뀌었다.** 이 케이스가 지키는 것은
+   *"첫 항목에서 ← 를 누르면 마지막으로 감긴다"* 이고 그 명제는 그대로다 — 바뀐 것은 *누가
+   첫 항목인가* 뿐이라, 시작점을 로스터에 맞춰 옮긴다(검사를 지우지 않고 대역을 간다).
+   ⚠ `today` 에서 시작하던 옛 형태를 되살리지 말 것: 지금 `today` 는 첫 항목이 아니라
+   `find` 로 한 칸 갈 뿐이고, 그러면 이 케이스가 **순환을 안 재게 된다**(공허한 통과). */
 test('레일 나브: ArrowLeft 가 첫 항목에서 마지막(설정)으로 순환한다', async () => {
   renderApp('/today');
-  const today = await screen.findByRole('button', { name: /오늘 학습/ });
-  fireEvent.keyDown(today, { key: 'ArrowLeft' });
+  const first = await screen.findByRole('button', { name: /찾기/ });
+  fireEvent.keyDown(first, { key: 'ArrowLeft' });
   await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-settings')));
-  expect(today).toHaveAttribute('aria-current', 'page');
+  expect(document.getElementById('rail-today')).toHaveAttribute('aria-current', 'page'); // 라우트는 불변
 });
 
-test('단축키: ]는 다음 도달점(today → 계획), [는 이전(today → 설정 · 링이 표면 안에서 순환)', async () => {
+test('단축키: ]는 다음 도달점(today → 계획), [는 이전(today → 찾기 · 링이 레일 순서를 돈다)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
   // 계획 개편: today 다음 도달점 = 계획(schedule · order 12).
   const { unmount } = renderApp('/today');
@@ -101,10 +106,13 @@ test('단축키: ]는 다음 도달점(today → 계획), [는 이전(today → 
   renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: '[' });
-  /* D-4 — 링이 **레일과 같은 목록**(학습 표면의 destination)을 돈다. 그 마지막은 '설정'이다.
-     예전엔 전역 목록을 돌아 학습 화면에서 자료 표면 탭으로 새어 나갔고(레일엔 없는 곳), 정작
-     레일 마지막인 '설정'은 링에서 빠져 있었다 — 둘 다 조용한 결함이었다. */
-  await waitFor(() => expect(document.getElementById('rail-settings')).toHaveAttribute('aria-current', 'page'));
+  /* D-4 — 링이 **레일과 같은 목록**(destination)을 돈다. 예전엔 전역 목록을 돌아 학습 화면에서
+     자료 표면 탭으로 새어 나갔고(레일엔 없는 곳), 정작 레일 마지막인 '설정'은 링에서 빠져
+     있었다 — 둘 다 조용한 결함이었다.
+     ⚠ **A-9(2026-08-07): `today` 의 이전은 이제 `find` 다**(레일 최상단 승격). 링이 레일에서
+     파생된다는 이 케이스의 명제 자체가 그 변화를 따라온 것이라 값을 갱신한다 — 여기가 옛
+     값에 머물면 그건 링이 레일을 안 따라간다는 뜻이 되고, 정확히 이 검사가 막으려는 상태다. */
+  await waitFor(() => expect(document.getElementById('rail-find')).toHaveAttribute('aria-current', 'page'));
 });
 
 test('레일 나브: 접기 토글이 사이드바를 접고 펼친다(navCollapsed)', async () => {

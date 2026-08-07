@@ -5,7 +5,8 @@
    스타일: 공유 디자인 시스템은 styles/ds.css(`ds-*` 전역), 요소·토큰은 전역 base.
 ============================================================ */
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { DAY_PATH } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePrefill } from '@/store/prefill';
@@ -187,13 +188,28 @@ function ShutdownChain() {
   );
 }
 
-export default function Journal() {
+/* ── N-12 **하루가 주소를 갖는다**(W4 · 2026-08-07) ──────────────────────────────────
+   보고 있는 날이 `useState` 였다. 그래서 "7/12 를 다시 열기"가 **경로 재현**이었다 — 탭을 열고
+   스테퍼를 N번 누른다. 링크로 못 가리키는 것은 ⌘K 로도 못 찾고, 알림도 못 데려가고, 이 앱이
+   자기 자신을 참조하지도 못한다(`journal` 이 로드맵에서 "매일 열 이유가 없는 아카이브"로 읽힌
+   것과 무관하지 않다: 아카이브인데 **주소가 없어** 갈 이유가 발생하지 않았다).
+
+   ⚠ **경로가 정본이고 `useState` 는 없다.** 스테퍼는 이제 `navigate` 다 — 뒤로가기가 날짜를
+   되돌리고, 오늘로 오면 URL 이 `/day` 로 접힌다(오늘은 파라미터를 안 쓴다: 어제 남긴 `/day`
+   링크가 오늘 열면 오늘을 보여 주는 것이 이 주소의 뜻이다).
+   ⚠ 미래는 못 간다 — 주소로 들어와도 마찬가지다. `ds` 를 URL 에서 받으므로 **입력을 신뢰하지
+   않는다**: 형식이 아니거나 미래면 오늘로 접는다(잘못된 주소가 빈 화면을 그리는 것보다 낫다). */
+export default function Day() {
   const state = useApp((s) => s.state);
   const navigate = useNavigate();
+  const { ds } = useParams<{ ds: string }>();
   const today = useTodayISO(state); // '오늘' 단일 출처 존중 (+ 자정 자동 롤오버 H20)
-  // 기록 대상 날짜 — 기본 오늘, 과거로 이동해 어제 놓친 블록을 백필할 수 있다(미래로는 못 감).
-  const [ds2, setDs2] = useState(today);
+  const ds2 = ds && /^\d{4}-\d{2}-\d{2}$/.test(ds) && ds <= today ? ds : today;
   const isToday = ds2 === today;
+  const setDs2 = (next: string): void => {
+    // 오늘이면 파라미터 없는 주소로 접는다 — 그 주소의 뜻이 "오늘"이다.
+    navigate(next === today ? DAY_PATH : `${DAY_PATH}/${next}`, { replace: true });
+  };
   // C-10: 빠른 캡처가 파싱한 날짜로 기록 탭을 이동(백필). nonce 변화 시점에만 반응(usePrefillForm과 같은 규율).
   // 로컬 setState는 컴파일러 set-state-in-effect에 걸려(usePrefillForm의 prop setter는 불투명해 통과) setTimeout 비동기 커밋으로 회피.
   const prefillNonce = usePrefill((s) => s.nonce);

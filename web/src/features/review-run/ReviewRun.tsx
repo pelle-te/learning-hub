@@ -30,9 +30,9 @@
    ⚠ **회상 카드는 앵커가 원리적으로 없다** — `Summary` 에 `chapter` 필드 자체가 없다(요약은 과목
      단위다). sid 만으로 아무 챕터나 리셋하는 것은 인출 기록이 아니라 오염이라 하지 않는다.
 ============================================================ */
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -42,7 +42,8 @@ import { isTyping } from '@/hooks/interactions';
 import { todayISO, openVaultSearch, vaultQuery } from '@/lib/utils';
 import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistence';
 import { toast } from '@/shell/toast';
-import { riskSummary } from '@/lib/spacedReview';
+import { FORECAST_VIEW } from '@/shell/tabs';
+import { dueForecast, forecastPeak, riskSummary } from '@/lib/spacedReview';
 import { holdReview, isHeld } from '@/lib/reviewHold';
 import {
   anchorOf,
@@ -268,7 +269,26 @@ function buildKeys(d: {
   return keys;
 }
 
-export default function ReviewRun() {
+/* ── A-16(W4) — 은퇴한 `forecast` 탭이 이 호스트의 **뷰**로 내려왔다 ─────────────────────
+   `Find`·`Degree` 가 흡수한 화면을 띄우는 것과 글자 그대로 같은 관용구다(lazy — 러너 청크에
+   예보를 싣지 않는다).
+   ⚠⚠ **분기를 러너 안에 넣지 않는다.** 러너는 훅이 스무 개 넘는 화면이라, 중간에 조기 반환을
+   놓으면 뷰를 오갈 때 훅 순서가 갈린다(React 가 그 자리에서 죽는다). 그래서 **껍데기 하나**가
+   위에서 고른다 — 훅이 하나뿐인 컴포넌트라 그 위험이 원리적으로 없다. */
+const ForecastView = lazy(() => import('./ForecastView'));
+
+export default function ReviewRunHost() {
+  const [params] = useSearchParams();
+  if (params.get('view') === FORECAST_VIEW)
+    return (
+      <Suspense fallback={<div className="ds-well">불러오는 중…</div>}>
+        <ForecastView />
+      </Suspense>
+    );
+  return <ReviewRun />;
+}
+
+function ReviewRun() {
   const state = useApp((s) => s.state);
   /* E16 — 이 화면은 앱에서 키가 가장 많은데 **치트시트에 없었다**. 발치 `KeyBar` 가 화면 위에서
      가르치지만 그건 *이 카드에 지금 뜨는 것*만 보여준다 — `?` 를 눌러 전체 어휘를 물었을 때
@@ -288,6 +308,10 @@ export default function ReviewRun() {
   const today = todayISO(state);
 
   const risk = riskSummary(state, res.days || [], today);
+  /* A-16 — 은퇴한 `forecast` 탭의 한 줄. ⚠ 예보 계산은 챕터 전량을 훑으므로 매 렌더 돌리지
+     않는다(러너는 키 입력마다 리렌더된다) — 리드아웃 하나 때문에 큐 조립만큼 비싼 계산을
+     반복하면 그건 이식이 아니라 회귀다. */
+  const peak = useMemo(() => forecastPeak(dueForecast(state, res.days || [], today)), [state, res.days, today]);
 
   /* 큐는 **세션 시작 시점의 스냅샷**이다(D-1). 재큐가 큐를 늘리므로 상태가 아니면 안 되고,
      파생으로 두면 세션 중 상태 변화(챕터 '집중 시작' → completions 갱신 · 클라우드 pull 병합)가
@@ -368,10 +392,16 @@ export default function ReviewRun() {
       readouts: [
         { label: '해낸 것', value: gotCount },
         { label: '오늘 위험', value: `${risk.overdue}⬤ ${risk.due}◒` },
+        /* A-16(W4) — **`forecast` 탭이 여기로 접혔다.** 그 화면이 나르던 값은 둘("앞 14일 중
+           가장 높은 날"과 "그날이 가용선을 넘는가")이고 둘 다 한 줄에 들어간다. 화면 하나가
+           아니라 리드아웃 한 줄이 이 값의 정직한 크기다 — 근거는 그 탭 메타 주석.
+           ⚠ 파도가 없으면 **줄을 안 건다**: `0장` 이라 적으면 *예보가 비었다*와 *앞으로 할 일이
+           없다*가 같은 문자열이 된다. */
+        ...(peak ? [{ label: peak.over ? '파도 · 넘침' : '파도', value: `+${peak.offset}일 ${peak.chapters}장` }] : []),
       ],
       action: { label: '오늘 학습', onClick: () => nav('/today') },
     }),
-    [remaining, gotCount, finished, risk.overdue, risk.due],
+    [remaining, gotCount, finished, risk.overdue, risk.due, peak?.offset, peak?.chapters, peak?.over],
   );
 
   /**

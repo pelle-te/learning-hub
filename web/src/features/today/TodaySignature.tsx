@@ -657,7 +657,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
             ? { label: '오늘 계획 짜기 →', onClick: goPlanToday }
             : { label: '학습 항목 설정 →', onClick: () => go('/items') }
           : allDone
-            ? { label: '기록 보기', onClick: () => go('/journal') }
+            ? { label: '기록 보기', onClick: () => go('/day') }
             : /* ⚠ D-6 — 여기 '지금 시작 →' 네온 버튼이 있었다. 히어로의 '▶ 집중 시작'과 **거의 같은
                  동작**을 하면서 화면 대각선 반대쪽에 앉아, 한 화면에 채움 버튼이 둘이었다.
                  액센트 예산은 채움 1개다 → 오늘 탭에서 상단 액션을 비운다(진행 중 세부 패널은
@@ -683,7 +683,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   // W19 — 완료 날의 **다음 걸음 하나**(우선순위·근거는 `lib/todaySlots` 머리주석).
   const nextStep = pickNextStep(riskN, openBl, frontierTitle);
-  const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/journal', frontier: '/mastery' };
+  const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/day', frontier: '/mastery' };
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
 
@@ -724,7 +724,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
       node: (
         <div className={S.grp}>
           <span className={S.grpL}>열린 보충</span>
-          <button type="button" className={S.tag} onClick={() => go('/journal')}>
+          <button type="button" className={S.tag} onClick={() => go('/day')}>
             <b className={tone(true)}>{openBl}</b> 건
           </button>
         </div>

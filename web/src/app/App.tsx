@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Fragment, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import {
@@ -12,6 +12,7 @@ import {
   NAV_SHORTCUTS,
   vtMove,
 } from '@/shell';
+import { ChapterRedirect, ExamRedirect, WeekRedirect } from './NounRoutes';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
 import { useFocus } from '@/store/useFocus';
@@ -167,33 +168,38 @@ export default function App() {
         if (t.role === 'retired')
           return <Route key={t.key} path={'/' + t.key} element={<Navigate to={t.to!} replace />} />;
         const ReactTab = getReactTab(t.key);
-        return (
-          <Route
-            key={t.key}
-            path={'/' + t.key}
-            /* ⚠ `onError` — 탭 하나가 죽어도 셸은 살아 있어 사용자가 다른 탭으로 넘어간다.
-               그래서 이 경계의 사고는 **특히 조용히 지나간다**(2026-07-25 감사). 어느 탭이
-               죽었는지를 컨텍스트로 싣는다 — 그게 없으면 스택만 보고 화면을 못 특정한다. */
-            element={
-              <ErrorBoundary
-                fallbackRender={(p) => <TabFallback {...p} label={t.label} />}
-                resetKeys={[t.key]}
-                onError={(e) => reportError(e, `tab:${t.key}`)}
-              >
-                <SubTabs tabKey={t.key} />
-                {ReactTab ? (
-                  <Suspense fallback={<TabLoading fill={!!t.fill} tabKey={t.key} />}>
-                    <TabReady>
-                      <ReactTab />
-                    </TabReady>
-                  </Suspense>
-                ) : (
-                  <div className="ds-well">알 수 없는 탭: {t.key}</div>
-                )}
-              </ErrorBoundary>
-            }
-          />
+        /* N-12 — **한 화면에 주소가 둘일 수 있다**(`/day` = 오늘 · `/day/:ds` = 그 하루).
+           엘리먼트를 두 번 적지 않는다: 경계·Suspense·아나운서 배선이 갈리면 매개변수 있는
+           주소만 조용히 다른 계약을 갖게 된다(이 파일이 `/graph` 리다이렉트에서 이미 물린 형태).
+           ⚠ `onError` — 탭 하나가 죽어도 셸은 살아 있어 사용자가 다른 탭으로 넘어간다. 그래서
+           이 경계의 사고는 **특히 조용히 지나간다**(2026-07-25 감사). 어느 탭이 죽었는지를
+           컨텍스트로 싣는다 — 그게 없으면 스택만 보고 화면을 못 특정한다. */
+        const el = (
+          <ErrorBoundary
+            fallbackRender={(p) => <TabFallback {...p} label={t.label} />}
+            resetKeys={[t.key]}
+            onError={(e) => reportError(e, `tab:${t.key}`)}
+          >
+            <SubTabs tabKey={t.key} />
+            {ReactTab ? (
+              <Suspense fallback={<TabLoading fill={!!t.fill} tabKey={t.key} />}>
+                <TabReady>
+                  <ReactTab />
+                </TabReady>
+              </Suspense>
+            ) : (
+              <div className="ds-well">알 수 없는 탭: {t.key}</div>
+            )}
+          </ErrorBoundary>
         );
+        if (t.altRoute)
+          return (
+            <Fragment key={t.key}>
+              <Route path={'/' + t.key} element={el} />
+              <Route path={t.altRoute} element={el} />
+            </Fragment>
+          );
+        return <Route key={t.key} path={'/' + t.key} element={el} />;
       }),
     [tabs],
   );
@@ -490,6 +496,17 @@ export default function App() {
                   </ErrorBoundary>
                 }
               />
+              {/* ── N-12 명사 주소 패밀리(W4 · 2026-08-07) ─────────────────────────────
+                  `/day` 는 화면 탭(`routeEls` 가 그린다)이고, 여기 있는 넷은 **명사가 자기 주소를
+                  갖는다**의 나머지다. 셋은 리다이렉트다 — 답하는 화면이 이미 있으므로 새 화면을
+                  만들지 않는다(명사에 주소를 주는 것과 화면을 하나 더 만드는 것은 다른 일이고,
+                  후자는 이 앱이 다섯 번 강등한 부류다).
+                  ⚠ 로스터는 `TABS` 의 `role:'object'` 이고 여기는 **착지**다. 매개변수를 봐야
+                  갈 곳이 정해지므로 정적 문자열(`to`)로는 못 적는다 — 그게 `route` 필드를 따로
+                  둔 이유이고, 로스터가 주는 것은 *이름*(아나운서·문서 제목)이다. */}
+              <Route path="/chapter/:sid/:chapter" element={<ChapterRedirect />} />
+              <Route path="/week/:ws" element={<WeekRedirect />} />
+              <Route path="/exam/:sid" element={<ExamRedirect />} />
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </HudFrame>

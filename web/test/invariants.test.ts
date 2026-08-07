@@ -15,7 +15,16 @@ import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { LOADERS } from '@/features/registry';
-import { TABS, GROUP_LABELS, navGroups, destinations, SUBTAB_GROUPS, tabByKey } from '@/shell/tabs';
+import {
+  TABS,
+  GROUP_LABELS,
+  navGroups,
+  destinations,
+  objectRoutes,
+  orderedTabs,
+  SUBTAB_GROUPS,
+  tabByKey,
+} from '@/shell/tabs';
 import { NAV_SHORTCUTS } from '@/shell/shortcuts';
 // ⚠ 불변식 ③-b 가 ⌘K 도달을 **세어야** 하므로 팔레트 목록을 실제로 읽는다(믿지 않는다).
 import { paletteCommands as basePaletteCommands } from '@/shell/palette';
@@ -80,7 +89,11 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
      가리킨다. 그래서 로더 패리티에서 뺀다. 대신 아래 두 검사가 그만큼을 메운다:
      ① 은퇴 탭은 `to` 를 반드시 갖는다(가리킬 곳 없는 은퇴는 그냥 삭제다).
      ② 은퇴 탭도 ⌘K 에서 도달 가능하다(그것이 `retired` 의 존재 이유 전부다). */
-  const live = TABS.filter((t) => t.role !== 'retired');
+  /* ⚠ `object`(A-7 · 2026-08-07)도 **로더가 없다** — 명사 주소는 화면 탭이 아니라 *이름과
+     라우트 패턴*이고, 착지는 기존 화면이 진다(`app/NounRoutes.tsx`). 로더 패리티에 넣으면
+     "탭이 아닌 것"에 컴포넌트를 요구하게 되어 A-7 이 없앤 두 번째 표가 다른 형태로 돌아온다.
+     대신 아래 케이스가 그만큼을 메운다: **object 는 이름과 라우트를 반드시 갖는다.** */
+  const live = TABS.filter((t) => t.role !== 'retired' && t.role !== 'object');
 
   it('두 원천의 탭 키 집합이 정확히 일치한다(은퇴 제외)', () => {
     const loaderKeys = Object.keys(LOADERS).sort();
@@ -99,6 +112,49 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
     for (const t of TABS.filter((x) => x.role === 'retired')) {
       expect(ids.has('tab:' + t.key), `${t.key} 가 ⌘K 에서 사라졌다`).toBe(true);
     }
+  });
+
+  /* ── A-7 명사 주소(`role:'object'` · 2026-08-07) ─────────────────────────────
+     이 역할이 로스터에 있는 이유는 **이름 하나**다(라우트 아나운서·문서 제목). 이름이 없으면
+     H27 이 고쳤던 무음이 그대로 돌아오고, 라우트 패턴이 없으면 로스터가 *어떤 주소를 말하는지*
+     알 수 없어 두 번째 표가 다시 필요해진다 — 즉 이 두 필드가 `object` 의 존재 이유 전부다.
+     ⚠ 분모 단언을 붙인다: 목록이 비면 아래 순회가 **한 번도 안 돌고 통과**한다(F3 규율). */
+  it('명사 주소는 이름과 라우트 패턴을 갖는다 — 그 둘이 `object` 의 존재 이유다', () => {
+    const objects = TABS.filter((t) => t.role === 'object');
+    expect(objects.length, '명사 주소가 0개면 이 케이스가 아무것도 안 잰다').toBeGreaterThan(0);
+    for (const t of objects) {
+      expect(t.label, `${t.key} 에 이름이 없다 — 아나운서가 무음이 된다`).toBeTruthy();
+      expect(t.route?.startsWith('/'), `${t.key} 의 route 가 경로가 아니다`).toBe(true);
+    }
+  });
+
+  /* ⚠⚠ **로스터에 있는데 라우터에 없으면 그건 이름만 있는 유령이다.** A-7 이 `ROUTE_LABELS` 를
+     없앤 이유가 *두 표가 갈린다*였는데, 로스터와 라우터가 갈리면 같은 병이 한 칸 옮겨간 것뿐이다
+     (이 저장소는 `/graph` 에서 정확히 그 형태에 물렸다 — 리다이렉트를 손으로 놓고 그게 한 번도
+     이기지 못했다). 착지는 매개변수의 함수라 파생시킬 수 없으므로, **대조**로 잠근다. */
+  it('명사 주소의 라우트 패턴이 실제로 라우터에 등록돼 있다', () => {
+    const src = ['src/app/App.tsx', 'src/app/NounRoutes.tsx']
+      .map((p) => readFileSync(join(process.cwd(), p), 'utf8'))
+      .join('\n');
+    for (const t of objectRoutes()) {
+      /* `/day/:ds` 처럼 상수로 조립되는 패턴도 있으므로 **첫 세그먼트**로 찾는다 — 문자열 전량
+         일치를 요구하면 상수화가 곧 실패가 되고, 그러면 이 검사가 상수화를 벌한다. */
+      /* ⚠ 대소문자를 안 가린다 — 상수로 넘기는 자리(`path={MINI_PATH}`)가 실재한다. 그 형태를
+         실패로 치면 검사가 "리터럴로 적어라"를 강요하게 되고, 그건 이 파일이 반복해서 반대해 온
+         것이다(손베낌 문자열은 표류한다). */
+      const seg = t.route!.split('/')[1]!;
+      expect(new RegExp(`path=[{"'\`][^\\n]*${seg}`, 'i').test(src), `${t.key}(${t.route}) 가 라우터에 없다`).toBe(
+        true,
+      );
+    }
+  });
+
+  it('명사 주소는 **화면 탭 열거에 안 샌다** — 레일·링·⌘K·라우트 생성 전부', () => {
+    const objectKeys = new Set(TABS.filter((t) => t.role === 'object').map((t) => t.key));
+    for (const k of orderedTabs().map((t) => t.key))
+      expect(objectKeys.has(k), `${k} 가 화면 탭 목록에 샜다`).toBe(false);
+    const ids = new Set(basePaletteCommands().map((c) => c.id));
+    for (const k of objectKeys) expect(ids.has('tab:' + k), `${k} 가 ⌘K 탭 목록에 샜다`).toBe(false);
   });
 });
 
@@ -265,6 +321,10 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
   const PRIMARY_면제: Record<string, string> = {
     today: '히어로 과목명이 72px 로 이 화면의 앵커다 — 44px 리드아웃을 더하면 앵커가 둘이 된다(원칙 ③ 위반).',
     settings: '수치가 없는 화면이다. 없는 값을 세우면 원칙 ②가 아니라 억지 숫자를 강제하게 된다.',
+    /* A-9(2026-08-07) — 승격은 *자리*를 바꾼 것이지 화면을 바꾼 것이 아니다(절대규칙 #4).
+       그리고 이 화면의 수는 **입력의 함수**다(빈 질의면 결과가 0): 44px 자리에 질의 전엔 0,
+       치는 동안 요동치는 수를 올리면 앵커가 아니라 노이즈가 된다. `settings` 와 같은 부류. */
+    find: '질의 전에는 셀 것이 없고, 치는 동안의 결과 수는 앵커가 아니라 노이즈다.',
   };
 
   /* ⚠⚠ **검사 범위가 결함이었다(H3 · 2026-07-31 `/감사 근본`).**
@@ -371,6 +431,9 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
       '주간 격자 자체가 화면 전체를 덮는 fill 이라 그 안에 시그니처를 또 두면 격자와 겨룬다. Q-15 가 남긴 격차 ①.',
     'review-run':
       '러너는 한 번에 한 객체만 있는 화면이고 그 표면은 `ds-well`(단독·집중)이 맡는다 — 시그니처를 더하면 카드와 겨룬다(원칙 ⑤ 단일 포커스). 격차가 아니라 결정이다.',
+    /* A-9(2026-08-07) — 이 화면의 표면은 **결과 목록**이고, 시그니처를 얹으면 사용자가 방금 친
+       질의의 답 위에 장식이 앉는다. 막혔을 때 오는 화면이라 *빨리 읽히는 것*이 유일한 값이다. */
+    find: '결과 목록이 곧 표면이다 — 질의의 답 위에 시각 자산을 얹으면 읽는 속도만 깎는다.',
   };
   /** 시그니처 표면의 표식 — 노치 HUD 이거나, 액센트 베이크 면(`--bg-sig-*`/`--bg-hero-*`)이거나. */
   const SIG_MARK = /ds-frame|bg-\[image:var\(--bg-(sig|hero)-/;

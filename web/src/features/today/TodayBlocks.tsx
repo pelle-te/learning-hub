@@ -141,7 +141,7 @@ export function TodayBlocks() {
   // '오늘 학습' 블록 → 기록 탭으로 과목 사전선택 + 이동.
   const prefill = (form: 'sum' | 'cbms' | 'bl', sid: string) => {
     requestPrefill(form, sid);
-    navigate('/journal');
+    navigate('/day');
   };
 
   const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).

@@ -170,7 +170,10 @@ const SEED_FORECAST = {
 for (const theme of THEMES) {
   test(`forecast · full · ${theme}`, async ({ page }) => {
     await boot(page, theme, SEED_FORECAST);
-    await page.goto('/forecast');
+    /* ⚠ **A-16(W4 · 2026-08-07)** — `forecast` 는 이제 탭이 아니라 `review-run` 의 뷰다.
+       `/forecast` 로 가면 리다이렉트가 먹어 **러너**를 찍는다(스냅샷 이름은 예보인데 그림은
+       다른 화면 — 회귀를 못 잡는 가장 나쁜 형태). 착지 주소로 바꾼다. */
+    await page.goto('/review-run?view=forecast');
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('#main h2').first()).toBeVisible(); // 막대 화면(빈 상태 아님)

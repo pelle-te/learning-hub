@@ -99,7 +99,7 @@ export function buildCorpus(state: AppState): SemEntry[] {
         kind: 'summary',
         label: `${ds.slice(5)} 요약 · ${s.name || '무제'}`,
         text: `${s.name || ''} ${text}`.slice(0, 2000),
-        to: '/journal',
+        to: '/day',
       });
     }
   }
@@ -112,7 +112,7 @@ export function buildCorpus(state: AppState): SemEntry[] {
       kind: 'backlog',
       label: `백로그 · ${topic}`,
       text: `${topic} ${bl.note || ''}`.slice(0, 1200),
-      to: '/journal',
+      to: '/day',
     });
   }
   /* ⑤ 오답 메모 — 의미 검색이 이 코퍼스에서만 빠져 있었다. "적분 치환에서 왜 막혔더라"처럼

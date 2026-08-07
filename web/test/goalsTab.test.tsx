@@ -11,7 +11,12 @@ import type { GoalsArtifact } from '@/lib/goals';
 
 /* 내 길(goals) 탭 — P9 Phase 6 Wave②. 손저작 goals.json 을 트리로 렌더하는지 런타임 확인.
    데이터는 serve.js 쿼리(useGoals)라 QueryClient 캐시에 시드해 콜드/서버 없이 결정론 렌더.
-   레지스트리 분기 + lazy/Suspense + buildGoalTree 파생이 맞물리는지 본다. */
+   레지스트리 분기 + lazy/Suspense + buildGoalTree 파생이 맞물리는지 본다. 
+   ⚠⚠ **주소가 바뀌었다(W4 · 2026-08-07): `/goals` → `/degree?view=path`.** `goals` 는 W9 에
+   `degree` 로 흡수됐고 W4 가 로스터 행까지 지웠다(은퇴 어휘가 "영원한 유예"의 도구가 되고
+   있었다는 판정 · `shell/tabs.ts` 그 자리 주석이 SSOT). **검사를 지우지 않고 대역을 갈았다** —
+   화면은 그대로 살아 있고 사라진 것은 탭 행 하나이므로, 여기서 지켜야 할 것도 그대로다.
+*/
 const GOALS: GoalsArtifact = {
   _schemaVersion: 1,
   nodes: [
@@ -61,7 +66,7 @@ function renderApp(initialPath: string, seed?: GoalsArtifact) {
 afterEach(() => cleanup());
 
 test('내 길 탭: 시드된 goals 트리를 루트 히어로 + 하위목표 카드(학위요건 롤업)로 렌더', async () => {
-  renderApp('/goals', GOALS);
+  renderApp('/degree?view=path', GOALS);
   // 루트 성취목표 히어로.
   await waitFor(() => expect(screen.getByText('전파통신 분야 연구원으로 자립')).toBeInTheDocument());
   // 하위목표 카드.
@@ -75,6 +80,6 @@ test('내 길 탭: 시드된 goals 트리를 루트 히어로 + 하위목표 카
 });
 
 test('내 길 탭: 콜드(서버 없음·시드 없음) → 빈 상태로 우아하게', async () => {
-  renderApp('/goals'); // 시드 없음 → 쿼리 error(retry 없음) → EmptyState
+  renderApp('/degree?view=path'); // 시드 없음 → 쿼리 error(retry 없음) → EmptyState
   await waitFor(() => expect(screen.getByText('내 길이 아직 안 보여요')).toBeInTheDocument());
 });

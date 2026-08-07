@@ -272,7 +272,7 @@ export default function Mistakes() {
             </>
           }
           next={
-            <Button sm variant="primary" onClick={() => nav('/journal')}>
+            <Button sm variant="primary" onClick={() => nav('/day')}>
               기록하러 가기 →
             </Button>
           }

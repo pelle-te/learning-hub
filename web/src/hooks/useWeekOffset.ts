@@ -19,6 +19,19 @@ export interface WeekOffsetOpts {
   maxRel?: number;
   /** 이동 가능한 상대 주 하한. 미지정=무한. */
   minRel?: number;
+  /**
+   * **처음 보여 줄 주의 월요일**(ISO) — N-12 명사 주소(`/week/:ws`)의 입구.
+   *
+   * ⚠⚠ 이 옵션이 없던 동안 "주"는 **주소를 가질 수 없었다**: 오프셋이 이 훅의 `useState` 라
+   * 밖에서 세울 방법이 0 이었고, 그래서 특정 주를 링크로 가리키려면 *"배분 탭을 열고 `.` 를
+   * 두 번 누르세요"* 라고 말하는 수밖에 없었다. 명사에 주소를 주려면 그 상태의 소유자에게
+   * 초기값 입구를 내야 한다 — 쿼리를 화면에서 읽어 `setWeekOffset` 을 이펙트로 부르는 것은
+   * 첫 프레임에 **엉뚱한 주를 그렸다가 튀는** 형태라 답이 아니다.
+   * ⚠ **초기값일 뿐이다**(마운트 1회). 그 뒤엔 사용자의 `,`/`.` 가 이긴다 — 주소가 상태를
+   *   계속 강제하면 화면 안에서 주를 넘길 수 없다.
+   * ⚠ 형식이 아니면 무시한다(0 = 이번 주). URL 은 신뢰하지 않는 입력이다.
+   */
+  startMon?: string;
 }
 
 export interface WeekOffsetNav {
@@ -42,7 +55,9 @@ export interface WeekOffsetNav {
 
 /** 주 네비 상태 + `,`/`.` 단축키 + 라벨. state는 인자로 받는다(hooks는 store를 import할 수 없다 · 레이어 규약). */
 export function useWeekOffset(state: AppState, opts: WeekOffsetOpts = {}): WeekOffsetNav {
-  const [rel0, setRel] = useState(0);
+  /* ⚠ 지연 초기화다 — 인자로 주면 매 렌더 `parseISO` 를 돌리고도 **첫 값만** 쓰인다.
+     `state` 를 여기서 읽는 것은 안전하다: 초기화는 마운트 1회이고 `todayISO(state)` 는 순수다. */
+  const [rel0, setRel] = useState(() => relOfMon(state, opts.startMon));
   const rel = clampRel(rel0, opts);
 
   const todayMon = mondayOf(parseISO(todayISO(state)));
@@ -68,6 +83,15 @@ export function useWeekOffset(state: AppState, opts: WeekOffsetOpts = {}): WeekO
     curMon,
     weekMon: iso(curMon),
   };
+}
+
+/** 월요일 ISO → 오늘 기준 상대 주. 형식이 아니거나 없으면 0(이번 주) — URL 은 신뢰하지 않는다. */
+function relOfMon(state: AppState, mon?: string): number {
+  if (!mon || !/^\d{4}-\d{2}-\d{2}$/.test(mon)) return 0;
+  const todayMon = mondayOf(parseISO(todayISO(state)));
+  // ⚠ 월요일이 아닌 날짜를 줘도 그 주의 월요일로 접는다(주는 하루가 아니라 구간이다).
+  const d = Math.round(dayDiff(iso(todayMon), iso(mondayOf(parseISO(mon)))) / 7);
+  return Number.isFinite(d) ? d : 0;
 }
 
 function clampRel(r: number, opts: WeekOffsetOpts): number {

@@ -649,7 +649,7 @@ function DegreePlan() {
    ⚠⚠ **뷰가 URL 에 있다**(종전엔 `useState`). 은퇴한 `goals` 탭의 착지 경로가
    `/degree?view=path` 이므로, 상태가 메모리에만 있으면 그 리다이렉트가 **기본 뷰(졸업 계획)에
    착지**한다 — 화면은 떴는데 찾던 것이 없는, 가장 알아채기 어려운 형태의 도달성 손실이다. */
-const Goals = lazy(() => import('../goals/Goals'));
+const Goals = lazy(() => import('./PathView'));
 
 type DegView = 'plan' | 'req' | typeof DEGREE_PATH_VIEW;
 const VIEWS: { key: DegView; label: string }[] = [

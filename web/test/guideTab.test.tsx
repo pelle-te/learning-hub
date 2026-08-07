@@ -8,7 +8,11 @@ import ThemeProvider from '@/app/ThemeProvider';
 import App from '@/app/App';
 
 /* 안내(guide) 탭 — 정적 매뉴얼. serve.js 무관하게 항상 렌더(순수 참조)임을 확인.
-   레지스트리 분기 + lazy/Suspense + 세 축 섹션이 뜨는지 본다. */
+   레지스트리 분기 + lazy/Suspense + 세 축 섹션이 뜨는지 본다. 
+   ⚠⚠ **주소가 바뀌었다(W4 · 2026-08-07): `/guide` → `/find?view=guide`.** 근거는 위 goals 와
+   같다(`shell/tabs.ts`). 본문 분해는 **여전히 유예 상태**이고 이 삭제는 그것과 무관하다 —
+   지운 것은 탭 행이지 매뉴얼이 아니다.
+*/
 function renderApp(initialPath: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -25,7 +29,7 @@ function renderApp(initialPath: string) {
 afterEach(() => cleanup());
 
 test('안내 탭: 히어로 + 세 축 섹션 + 도구 표를 정적으로 렌더(serve.js 무관)', async () => {
-  renderApp('/guide');
+  renderApp('/find?view=guide');
   await waitFor(() => expect(screen.getByText('이 시스템이 할 수 있는 것 · 하는 법')).toBeInTheDocument());
   // 세 축 섹션 제목(전공 학습·수집·목표).
   expect(screen.getByText(/전공 학습 — 교재를 노트로/)).toBeInTheDocument();

@@ -417,10 +417,15 @@ export const TABS = [
   'today',
   'schedule',
   'items',
-  'journal',
+  /* ⚠ **`journal` → `day`**(N-12 · W4 · 2026-08-07). 같은 화면이고 이름과 주소만 바뀌었다
+     (`/day` = 오늘 · `/day/:ds` = 그 하루). 로스터가 옛 키에 머물면 스냅샷이 **리다이렉트
+     착지**를 찍게 되고, 그건 회귀를 못 잡는 그림이다. */
+  'day',
   'degree',
   'stats',
-  'forecast',
+  /* ⚠ **`forecast` 가 빠졌다**(A-16 · W4). 은퇴해 `/review-run?view=forecast` 뷰가 됐다 —
+     탭 경로(`/forecast`)로 찍으면 리다이렉트 뒤의 러너가 찍힌다. 그 뷰 자체는 아래
+     `A11Y_EXTRA` 가 본다(W9 이 `?view=` 뷰 셋을 거기 넣은 것과 같은 처리). */
   // 'routine' 제거 — 계획 재개편 v3에서 '뼈대'가 '과목'으로 병합돼 /routine은 /items 리다이렉트다.
   // 남겨두면 items와 픽셀 동일한 스냅샷이 두 벌 생겨 리뷰 노이즈만 는다.
   'settings',
@@ -529,6 +534,19 @@ export const A11Y_EXTRA: ExtraScreen[] = [
     key: 'subject-sheet',
     path: '/subject/m?view=sheet',
     ready: (page) => page.getByRole('heading', { name: /챕터 고르기/ }).waitFor(),
+  },
+  /* ⚠ **A-16(W4 · 2026-08-07)** — `forecast` 가 탭에서 `review-run` 의 뷰로 내려갔다. 위 흡수 뷰
+     셋과 정확히 같은 이유로 여기 있다: 안 넣으면 **탭을 접은 대가로 a11y 커버리지 한 화면이
+     조용히 사라진다**(로스터에서 뺐으니 아무도 안 본다).
+     ⚠ 시계를 미는 이유는 `review-run` 과 같다 — 파도가 없으면 빈 화면이고 그건 거의 아무것도
+     안 잰다. */
+  {
+    key: 'review-run-forecast',
+    path: '/review-run?view=forecast',
+    prep: async (page) => {
+      await page.clock.install({ time: new Date('2026-09-01T09:00:00') });
+    },
+    ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
   },
 ];
 
@@ -837,4 +855,4 @@ export const SEED_EMPTY = {
   cbms: [],
   degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
 };
-export const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'journal'];
+export const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'day'];

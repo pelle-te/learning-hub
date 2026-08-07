@@ -3,7 +3,12 @@
    forecastTab.test.tsx — 복습 부하 예보(ID-1) 컴포넌트 회귀.
    빈 상태 폴백 + 실제 App 셸에서 마운트되며 상단 리드아웃을 주입하는지(스모크).
    막대 차트의 '부하 형태' 렌더는 e2e 스냅샷(실 시드 데이터)이 소유한다(§15-4).
-============================================================ */
+============================================================ 
+   ⚠⚠ **주소가 바뀌었다(A-16 · W4 · 2026-08-07): `/forecast` → `/review-run?view=forecast`.**
+   반쪽 조망(Anki 미래 due 를 원리적으로 못 그린다)이 축의 얼굴 옆 세그먼트를 쓸 이유가 없다는
+   판정이고, 값(파도 최고점)은 호스트 리드아웃으로 올라갔다. 화면은 **앞당길 후보**라는 동사를
+   갖고 있어 지우지 않았다 — 그 근거는 `shell/tabs.ts` 의 그 탭 메타 주석이 소유한다.
+*/
 import { afterEach, expect, test } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -42,7 +47,7 @@ test('forecast: 완료 챕터가 없으면 EmptyState로 폴백', async () => {
     st.items = [];
     st.completions = {};
   });
-  renderApp('/forecast');
+  renderApp('/review-run?view=forecast');
   // lazy 로드 → Suspense 해제까지 findBy로 대기.
   expect(await screen.findByText('다가오는 복습 파도가 아직 없어요')).toBeInTheDocument();
   // 상단 리드아웃(페이지 크롬)이 주입된다 — 실제 셸에 마운트됐다는 관측 가능한 증거.
@@ -74,7 +79,7 @@ test('forecast: 가용을 넘는 날이 있으면 초과 스트립과 앞당길 
     st.completions = { '2026-07-08': { 'p|new': { done: true, min: 120 } } } as never;
     st.dayOverrides = { '2026-07-09': 0.5 } as never; // 그날 가용 30분 = 복습 1블록
   });
-  renderApp('/forecast');
+  renderApp('/review-run?view=forecast');
   // 초과 스트립 — 날짜·부하·가용을 같은 단위로 말한다.
   const strip = await screen.findByRole('status', { name: '가용 초과' });
   expect(strip).toHaveTextContent('7/9');

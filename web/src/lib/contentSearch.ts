@@ -89,7 +89,7 @@ export function contentSearch(query: string, s: AppState, limit = 8): ContentHit
         id: 'c-bl:' + bl.id,
         kind: 'backlog',
         label: bl.topic || bl.name || '보충',
-        to: '/journal',
+        to: '/day',
         blId: bl.id,
       });
   }

@@ -19,6 +19,10 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
      자기 라우트가 없다(불변식 ②가 그것을 요구한다 — 화면이 다른 곳에 흡수됐다는 뜻이므로).
      화면 코드는 살아 있고 흡수한 호스트가 `lazy` 로 띄운다:
        goals → `degree`(`?view=path`) · guide → `find`(`?view=guide`)
+     ⚠⚠ **W4(2026-08-07)가 그 다음 칸을 채웠다 — 로스터 행까지 지웠다.** 은퇴는 *한시적 상태*를
+     전제하는 어휘인데 둘은 거기 무기한 머물렀고, 그 대가가 **파일 배치**였다: 존재하지 않는
+     탭의 feature 폴더 둘이 남아 호스트의 lazy 자식을 담고 있었다. 이제 파일이 호스트 안이다
+     (`degree/PathView.tsx` · `find/GuideView.tsx`) — 화면과 도달 경로(`?view=`)는 그대로다.
      ⚠⚠ **`reads`·`markets`·`discovery`·`atlas`·`control` 은 은퇴가 아니라 _제거_ 다**(P10 W4 ·
      2026-08-07). 흡수한 호스트가 없다 — 다른 필러(`survey/`)로 갔다. 강등과 혼동하지 말 것:
      강등은 같은 앱 안에서 자리를 옮기는 것이라 코드가 살아야 하지만, 이건 **이사**라 두 벌이 된다. */
@@ -26,11 +30,13 @@ export const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> 
   today: () => import('./today/Today'),
   schedule: () => import('./schedule/Schedule'),
   alloc: () => import('./alloc/Alloc'),
-  journal: () => import('./journal/Journal'),
+  /* N-12(W4) — `journal` → **`day`**. 같은 화면이고 바뀐 것은 이름과 주소다: 보고 있는 날이
+     `useState` 에서 URL 로 나왔다(`/day` = 오늘 · `/day/:ds` = 그 하루). 폴더도 함께 옮겼다 —
+     `goals`·`guide` 가 남긴 교훈이 *로스터가 바뀌면 파일 배치도 따라가야 한다* 였다. */
+  day: () => import('./day/Day'),
   review: () => import('./review/Review'),
   'review-run': () => import('./review-run/ReviewRun'),
   stats: () => import('./stats/Stats'),
-  forecast: () => import('./forecast/Forecast'),
   degree: () => import('./degree/Degree'),
   settings: () => import('./settings/Settings'),
   integrations: () => import('./integrations/Integrations'),

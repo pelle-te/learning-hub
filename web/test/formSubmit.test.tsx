@@ -14,8 +14,8 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import SummaryCard from '@/features/journal/SummaryCard';
-import BacklogCard from '@/features/journal/BacklogCard';
+import SummaryCard from '@/features/day/SummaryCard';
+import BacklogCard from '@/features/day/BacklogCard';
 import { useApp } from '@/store/useApp';
 import { summariesFor, openBacklog } from '@/lib/methodology';
 

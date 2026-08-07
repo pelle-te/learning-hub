@@ -662,6 +662,34 @@ export function examStaleChapters(state: AppState, days: Day[], todayDs: string,
     .slice(0, cap);
 }
 
+/* ── A-16 예보의 **한 줄**(W4 · 발산 6회차) ────────────────────────────────────────
+   `forecast` 탭이 은퇴하면서 그 화면이 나르던 값을 리드아웃으로 옮긴다. 그 화면은 스스로
+   *"Anki 미래 due 를 원리적으로 못 그린다 · 반쪽"* 이라 적었고, 실제로 나른 것은 둘이다:
+   ① 앞 14일 파도의 **가장 높은 날** ② 그날이 **가용선을 넘는가**. 둘 다 한 줄에 들어간다.
+
+   ⚠ **평균이 아니라 최대다.** 예보가 답하는 질문은 "언제 무너지나"이고, 평균은 그 질문에
+   답하지 않는다(고른 부하와 하루에 몰린 부하가 같은 값이 된다).
+   ⚠ 파도가 없으면 `null` — "0장"이라 적으면 *예보가 비었다*와 *앞으로 할 일이 없다*가 같은
+   문자열이 된다(이 저장소가 반복해서 물린 형태). 화면은 `null` 이면 리드아웃 자체를 안 건다. */
+export interface ForecastPeak {
+  /** 오늘로부터 며칠 뒤. */
+  offset: number;
+  /** 그날 복습 예정 챕터 수. */
+  chapters: number;
+  /** 그날 부하가 가용선을 넘는가(모르면 false — `capBlocks` 가 null 인 날). */
+  over: boolean;
+}
+
+/** 앞 14일 중 **가장 높은 날**. 같은 높이면 더 이른 날(대비할 시간이 적은 쪽이 답이다). */
+export function forecastPeak(forecast: readonly ForecastDay[]): ForecastPeak | null {
+  let best: ForecastDay | null = null;
+  for (const d of forecast) {
+    if (!d.chapters) continue;
+    if (!best || d.chapters > best.chapters) best = d;
+  }
+  return best ? { offset: best.offset, chapters: best.chapters, over: best.over } : null;
+}
+
 /** 앞당길 후보 — 가용선을 넘는 날의 챕터를, **그 전에 여유가 있는 가장 이른 날**로 옮긴다.
  *  분량 큰 것부터(같은 수의 클릭으로 가장 많이 던다) 최대 cap개. 목적지를 못 찾으면 `toOffset:null`
  *  = "오늘 미리 보기"(복습을 앞당기는 건 언제나 가능하다 — 예보에 없는 오늘이 마지막 답).

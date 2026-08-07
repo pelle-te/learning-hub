@@ -661,7 +661,7 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
           label: '3문장 요약 남기기',
           hint: '기록',
           run: () => usePrefill.getState().request('sum', sid),
-          to: '/journal',
+          to: '/day',
         },
         {
           id: 'v:cbms',
@@ -669,7 +669,7 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
           hint: '기록',
           // 보충 폼과 달리 요약 폼엔 챕터 칸이 없다 — 챕터는 CBMS 로만 넘긴다(runQuickCapture 와 같은 판단).
           run: () => usePrefill.getState().request('cbms', sid, '', chapter),
-          to: '/journal',
+          to: '/day',
         },
         {
           id: 'v:bl',
@@ -698,7 +698,7 @@ export function verbsFor(hit: ContentHit): HitVerb[] {
           label: '오답(CBMS) 기록',
           hint: '기록',
           run: () => usePrefill.getState().request('cbms', sid, '', chapter),
-          to: '/journal',
+          to: '/day',
         },
         openVault,
       ];

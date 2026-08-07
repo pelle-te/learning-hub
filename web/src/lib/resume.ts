@@ -147,7 +147,7 @@ export function clearResume(state: AppState, selfId: string): void {
 export const RESUME_ROUTE: Record<ResumeKind, string> = {
   review: '/review-run',
   focus: '/today',
-  journal: '/journal',
+  journal: '/day',
   /** ⚠ `screen` 만 **경로를 커서가 들고 있다**(`label` 이 아니라 `route`). 여기 값은 그 필드가
    *  비었을 때의 폴백일 뿐이다 — 종류가 화면을 정하는 다른 셋과 성질이 다르다. */
   screen: '/today',

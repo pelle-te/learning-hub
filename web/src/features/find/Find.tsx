@@ -51,7 +51,7 @@ const KIND_LABEL: Record<ContentHit['kind'], string> = {
    있나"*, 매뉴얼이 *"무엇을 할 수 있나"*. 둘 다 참조물이고, 둘 다 머무는 화면이며, 검색이
    빈손일 때 갈 곳이 있다는 것 자체가 이 화면의 결말을 낫게 한다.
    ⚠ **lazy** — 351줄 정적 매뉴얼이라 찾으러 온 방문에 내려받을 이유가 없다. */
-const Guide = lazy(() => import('../guide/Guide'));
+const Guide = lazy(() => import('./GuideView'));
 
 export default function Find() {
   const state = useApp((s) => s.state);

@@ -127,7 +127,7 @@ function baseCommands(): PaletteCommand[] {
       label: '기록 · 3문장 요약 남기기',
       hint: '기록',
       run: () => usePrefill.getState().request('sum', ''),
-      to: '/journal',
+      to: '/day',
     },
     /* ⚠ `act:add-cbms`(기록 · 오답(CBMS) 기록)은 **P-2 에서 은퇴**했다(2026-08-01).
        하는 일이 "과목·챕터·유형·메모를 빈 채로 오답 폼을 여는 것"이었고, 그게 러너 밖에서
