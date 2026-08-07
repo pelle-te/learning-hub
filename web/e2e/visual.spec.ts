@@ -621,7 +621,9 @@ for (const theme of THEMES) {
    표본이 0이다** — 다시 생기면 여기 한 줄이다. 종전엔 이 축 전체가 **1장**이었다. */
 const LOADING_SCREENS: { key: string; artifact: string; path: string }[] = [
   { key: 'ledger', artifact: 'ledger', path: '/ledger' },
-  { key: 'mastery', artifact: 'knowledge', path: '/mastery' },
+  // A-19(W5) — `mastery` 는 이제 `ledger` 의 뷰다. `goals` 와 같은 이유로 착지 주소를 쓴다
+  // (탭 경로로 두면 리다이렉트 뒤 **다른 화면의 로딩**을 찍는다).
+  { key: 'mastery', artifact: 'knowledge', path: '/ledger?view=mastery' },
   // W9 — `goals` 는 이제 `degree` 의 뷰다. 경로를 안 고치면 리다이렉트 뒤 **다른 화면의 로딩**을 찍는다.
   { key: 'goals', artifact: 'goals', path: '/degree?view=path' },
 ];

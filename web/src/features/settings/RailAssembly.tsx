@@ -5,7 +5,9 @@
    막으려는 것이 정확히 이것이다 — 설정 화면이 "모든 것의 서랍"이 되는 것. 조립은 자기
    관심사가 뚜렷하므로 자기 파일을 갖는 것이 맞다.
 ============================================================ */
+import { useRef } from 'react';
 import { useUI } from '@/store/useUI';
+import { deny, shift } from '@/lib/motion';
 import { navGroups } from '@/shell';
 import { moveRailTab, railLayout, toggleRailHidden } from '@/shell/railLayout';
 import { toast } from '@/shell/toast';
@@ -23,6 +25,15 @@ import { Icon } from '@/components/Icon';
  * ⚠ 숨겨도 ⌘K·`g`·딥링크는 그대로다 — 그 사실을 문구에 적는다(안 적으면 '삭제'로 읽힌다).
  */
 export default function RailAssembly() {
+  /* A-17/A-18(W6) — **움직인 것과 거절된 것을 그 자리에서 말한다.** 이 화면이 두 어휘의 첫
+     소비처인 것은 우연이 아니다: 여기서 일어나는 일이 정확히 *재정렬*과 *거절*이고, 둘 다
+     종전엔 0프레임 점프 + 토스트 한 장이었다.
+     ⚠ 행 참조를 키로 들고 있는다 — 재정렬 뒤 **그 행**만 애니한다(전부 걸면 목록이 출렁인다). */
+  const rowRef = useRef(new Map<string, HTMLDivElement | null>());
+  const shiftRow = (key: string, dir: -1 | 1): void => {
+    const el = rowRef.current.get(key);
+    if (el) shift(el, dir);
+  };
   const hidden = useUI((s) => s.ui.railHidden);
   const order = useUI((s) => s.ui.railOrder);
   const setRailLayout = useUI((s) => s.setRailLayout);
@@ -44,14 +55,25 @@ export default function RailAssembly() {
               const off = hidden.includes(t.key);
               const members = shownOf(g.key);
               return (
-                <div key={t.key} className="ds-tiny flex items-center gap-2">
+                <div
+                  key={t.key}
+                  ref={(el) => {
+                    rowRef.current.set(t.key, el);
+                  }}
+                  className="ds-tiny flex items-center gap-2"
+                >
                   <label className="ds-chkRow m-0! flex-1">
                     <input
                       type="checkbox"
                       checked={!off}
-                      onChange={() => {
+                      onChange={(e) => {
                         const next = toggleRailHidden(hidden, t.key, allKeys);
-                        if (!next.ok) return toast('레일에 하나는 남아야 해요.', 'warn');
+                        if (!next.ok) {
+                          /* A-18 — **거절을 그 자리에서** 말한다. 토스트는 여전히 *왜* 를 말하고,
+                             이건 *어디서* 안 됐는지를 더한다(둘은 대체재가 아니다). */
+                          deny(e.currentTarget);
+                          return toast('레일에 하나는 남아야 해요.', 'warn');
+                        }
                         setRailLayout({ hidden: next.hidden });
                       }}
                     />
@@ -61,7 +83,10 @@ export default function RailAssembly() {
                     sm
                     variant="ghost"
                     disabled={off || members[0] === t.key}
-                    onClick={() => setRailLayout({ order: moveRailTab(order, members, t.key, -1) })}
+                    onClick={() => {
+                      setRailLayout({ order: moveRailTab(order, members, t.key, -1) });
+                      shiftRow(t.key, -1);
+                    }}
                     aria-label={`${t.label} 위로`}
                   >
                     <Icon name="chevronRight" className="-rotate-90" />
@@ -70,7 +95,10 @@ export default function RailAssembly() {
                     sm
                     variant="ghost"
                     disabled={off || members[members.length - 1] === t.key}
-                    onClick={() => setRailLayout({ order: moveRailTab(order, members, t.key, 1) })}
+                    onClick={() => {
+                      setRailLayout({ order: moveRailTab(order, members, t.key, 1) });
+                      shiftRow(t.key, 1);
+                    }}
                     aria-label={`${t.label} 아래로`}
                   >
                     <Icon name="chevronRight" className="rotate-90" />

@@ -29,6 +29,8 @@
   --color-line2: var(--line2);
   --color-txt: var(--txt);
   --color-mut: var(--mut);
+  /* A-15 — 세 번째 값 평면(주석: 단위·눈금·반복 라벨). `text-anno` 로 쓴다. */
+  --color-anno: var(--anno);
   --color-ink: var(--ink);
   --color-acc: var(--acc);
   --color-acc2: var(--acc2);

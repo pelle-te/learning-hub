@@ -156,7 +156,8 @@ function VisitLedger() {
               />
             ))}
           </div>
-          <div className="mt-0.5 text-mut">0시 — 6 — 12 — 18 — 23</div>
+          {/* A-15 — 축 눈금은 **주석**이다(읽지 않아도 문장이 성립한다) → 세 번째 값 평면. */}
+          <div className="mt-0.5 text-anno">0시 — 6 — 12 — 18 — 23</div>
         </div>
       )}
       <IdleLedger />

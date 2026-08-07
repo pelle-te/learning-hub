@@ -56,7 +56,8 @@ const S = {
   scroll: 'min-h-0 flex-initial overflow-auto [scrollbar-width:thin]',
   grid: 'grid min-w-140 grid-cols-alloc gap-px rounded-base border border-line bg-line',
   // 네 모서리 셀 라운딩(overflow:hidden 대체) + 스티키 프레임.
-  corner: `${CELL} sticky top-0 left-0 z-[5] rounded-tl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
+  // A-15 — 격자 모서리 라벨은 **주석**이다(값도 내용도 아니다) → 세 번째 값 평면.
+  corner: `${CELL} sticky top-0 left-0 z-[5] rounded-tl-base bg-panel2 text-2xs font-extrabold tracking-widest text-anno uppercase`,
   // 요일 열머리글 <button> — 전역 button 패딩(8/13)을 .cell(7/9)로 이겨야 해 px/py 에 `!`.
   colHead: 'flex min-h-12 flex-col items-center justify-center gap-px px-2.25! py-1.75! text-center',
   colToday: 'bg-alloc-col-today!',

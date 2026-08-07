@@ -13,7 +13,8 @@ import State from '@/components/State';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { ui } from '@/shell';
-import { rid, makeItem } from '@/lib/utils';
+import { colorForId, rid, makeItem } from '@/lib/utils';
+import { investedBySubject, semesterFingerprint } from '@/lib/semesterFingerprint';
 import { linkableItems } from '@/lib/semester';
 import { useCountUp } from '@/hooks/interactions';
 import { Button, NumberField } from '@/components/ui';
@@ -659,6 +660,32 @@ const VIEWS: { key: DegView; label: string }[] = [
 ];
 
 /** 졸업 탭 — 계획(편집)·요건 정리(읽기전용)·내 길(목표 트리)을 세그먼트로 전환. 기본은 '졸업 계획'. */
+/**
+ * **학기 지문**(N-22 · W6) — 그리지 않고 **자란다**.
+ *
+ * 학기가 끝나면 남는 시각 자산이 0이었다. 여기 도형은 전부 그 학기의 실제 값에서 나온다:
+ * 가지 수 = 과목 수 · 길이 = 실제 투입 시간 · 각도 = id 해시(색과 **같은 파생 키**).
+ * 즉 균등하게 한 학기와 한 과목에 몰린 학기는 **다르게 생긴다** — 그 명제가 이 안의 유일한
+ * 검증이고 `test/semesterFingerprint.test.ts` 가 잠근다.
+ *
+ * ⚠ 자리를 **크게 안 준다**(28px). 이건 조망이 아니라 *표식*이고, 크게 그리면 그 순간
+ *   "숫자를 읽는 화면"과 겨룬다(원칙 ⑤ 단일 포커스).
+ * ⚠ 색은 `colorForId` — 여기서 정하지 않는다(절대규칙 #3).
+ * ⚠ 과목이 없으면 **아무것도 안 그린다**: 빈 지문은 장식이고, 장식은 이 항목이 거부한 것이다.
+ */
+function SemesterFingerprint() {
+  const state = useApp((s) => s.state);
+  const branches = useMemo(() => semesterFingerprint(investedBySubject(state)), [state]);
+  if (!branches.length) return null;
+  return (
+    <svg viewBox="0 0 100 100" className="size-7 shrink-0 opacity-70" role="img" aria-label="이번 학기 지문">
+      {branches.map((b) => (
+        <path key={b.id} d={b.d} fill="none" stroke={colorForId(b.id)} strokeWidth={5} strokeLinecap="round" />
+      ))}
+    </svg>
+  );
+}
+
 export default function Degree() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('view');
@@ -669,6 +696,7 @@ export default function Degree() {
         <h2 className="ds-caps mb-0! flex items-center gap-1.5">
           <Icon name="cap" /> 졸업
         </h2>
+        <SemesterFingerprint />
         <div className="ds-seg ml-auto">
           {VIEWS.map((v) => (
             <button

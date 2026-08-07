@@ -689,7 +689,10 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
 
   /** 선언된 어휘 접두사. 여기 없는 이름의 키프레임을 만들려면 **어휘를 먼저 늘려야** 한다
    *  (그 판단은 `lib/motion.ts` 머리주석 = 어휘 SSOT 에 남는다). */
-  const VOCAB = /^(enter|shed|live|commit|draw|vt)-/;
+  /* ⚠ **여덟 마디다**(A-17 `shift` · A-18 `deny` 가 W6 에서 붙었다 · 2026-08-07). 이 정규식이
+     어휘의 집행자이므로 여기 늘리는 것이 곧 "어휘를 늘렸다"는 선언이고, 근거는 `lib/motion.ts`
+     머리주석이 진다 — 두 곳이 갈리면 집행자가 SSOT 보다 관대해진다(그 순간 문법이 없어진다). */
+  const VOCAB = /^(enter|shed|shift|deny|live|commit|draw|vt)-/;
   /** 어휘 밖 예외 — 사유가 코드에 적혀 있어야 하고, 늘어나면 그게 곧 문법 붕괴의 신호다. */
   const VOCAB_EXCEPTIONS = new Set([
     // 토스트 되돌리기 창의 남은 시간 바. 움직임이 장식이 아니라 **정보**이고 길이가 런타임값
@@ -727,7 +730,7 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     const stray = names.filter((n) => !VOCAB.test(n) && !VOCAB_EXCEPTIONS.has(n));
     expect(
       stray,
-      `어휘 밖 키프레임(enter|shed|live|commit|draw|vt 접두사 필요 · 어휘 SSOT=lib/motion.ts):\n${stray.join('\n')}`,
+      `어휘 밖 키프레임(enter|shed|shift|deny|live|commit|draw|vt 접두사 필요 · 어휘 SSOT=lib/motion.ts):\n${stray.join('\n')}`,
     ).toEqual([]);
   });
 
@@ -834,6 +837,21 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     expect(commitMs, 'lib/motion.ts 에 COMMIT_MS 상수가 있어야 한다').not.toBeNull();
 
     expect(Number(commitMs![1]), 'COMMIT_MS ≠ --dur-slow — 둘 중 하나만 고쳤다').toBe(Number(durSlow![1]));
+
+    /* A-18(W6) — `DENY_MS` 는 `--dur-fast` 의 복제다. 같은 이유로 같은 방어선이 필요하다:
+       복제가 하나 늘었는데 검사가 안 늘면, 그 순간 이 케이스는 *일부만* 지키는 검사가 된다. */
+    const durFast = /--dur-fast:\s*(\d+)ms/.exec(tokensCss);
+    expect(durFast, 'tokens.css 에 --dur-fast 가 ms 단위로 정의돼 있어야 한다').not.toBeNull();
+    const denyMs = /const DENY_MS = (\d+);/.exec(motionTs);
+    expect(denyMs, 'lib/motion.ts 에 DENY_MS 상수가 있어야 한다').not.toBeNull();
+    expect(Number(denyMs![1]), 'DENY_MS ≠ --dur-fast — 둘 중 하나만 고쳤다').toBe(Number(durFast![1]));
+
+    // A-17(W6) — `SHIFT_MS` 는 `--dur` 의 복제다(위 둘과 같은 논거).
+    const dur = /--dur:\s*(\d+)ms/.exec(tokensCss);
+    expect(dur, 'tokens.css 에 --dur 가 ms 단위로 정의돼 있어야 한다').not.toBeNull();
+    const shiftMs = /const SHIFT_MS = (\d+);/.exec(motionTs);
+    expect(shiftMs, 'lib/motion.ts 에 SHIFT_MS 상수가 있어야 한다').not.toBeNull();
+    expect(Number(shiftMs![1]), 'SHIFT_MS ≠ --dur — 둘 중 하나만 고쳤다').toBe(Number(dur![1]));
   });
 });
 

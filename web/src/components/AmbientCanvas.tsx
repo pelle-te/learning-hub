@@ -32,7 +32,7 @@ const VERT = `attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`
 
 // fbm 노이즈로 액센트 글로우 3겹을 딥 베이스 위에 흘린다(은은하게).
 const FRAG = `precision highp float;
-uniform vec2 u_res; uniform float u_time;
+uniform vec2 u_res; uniform float u_time; uniform float u_sun;
 uniform vec3 u_bg, u_c1, u_c2, u_c3;
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
 float noise(vec2 p){
@@ -65,7 +65,18 @@ void main(){
   // 가산 블로우아웃(헤더가 하얗게 타버림). 가로(aspect>=1.15)는 1.0 그대로 = 데스크톱 픽셀 불변.
   float aspect = u_res.x / u_res.y;
   float att = mix(0.30, 1.0, smoothstep(0.75, 1.15, aspect));
-  glow *= att; wsum *= att;
+  /* -- N-21 캔버스가 하루의 위치를 싣는다(발산 6회차  ·  2026-08-07) --------------------
+     이 배경은 지금까지 시간을 몰랐다 — 새벽 2시와 오후 2시가 같은 조도로 떴다. 창밖이
+     말해 주는 것을 화면이 부정하는 셈이고, 그 사실이 "지금이 하루의 어디쯤인가"를 매번
+     시계로 계산하게 만든다(그 계산이 이 앱의 계획 판단에 실제로 들어간다  ·  dayPhase).
+     u_sun 은 0(한밤) ~ 1(정오)이고, 하는 일은 글로우 세기 한 축뿐이다.
+     ! 색상(hue)은 안 건드린다. 시간에 따라 색을 돌리면 원칙 1(단일 네온)이 하루 종일
+       흔들리고, 액센트 교체(절대규칙 #3)와도 싸운다. 시간이 말하는 것은 *밝기*다.
+     ! 범위를 좁게 잡는다(0.82~1.06) — 배경은 읽는 화면의 바닥이라, 크게 흔들면 같은 화면이
+       아침저녁으로 다른 대비를 갖는다(a11y 가 시각의 함수가 된다).
+     !! 폐기 조건: 하루당 세션 시각이 한 칸에 몰리면 이 축은 상수이고 값이 0이다. 그
+       분포는 W2 의 홉 원장(hourHistogram)이 재고 있다 — 판정은 그 데이터가 쌓인 뒤. */
+  glow *= att * u_sun; wsum *= att;
   /* 가산 합성은 밝은 캔버스에서 색을 지운다(라이트 테마).
      u_bg + glow 는 딥블랙(약 0.02)에서는 정확히 원하는 것 — 어둠 위에 빛을 더한다. 그런데
      라이트의 --bg 는 #fafbfc(약 0.98)라 어느 채널이든 곧장 1.0 으로 클램프되고, 남는 것은
@@ -121,6 +132,7 @@ type Rig = {
   gl: WebGLRenderingContext;
   uRes: WebGLUniformLocation | null;
   uTime: WebGLUniformLocation | null;
+  uSun: WebGLUniformLocation | null;
   uBg: WebGLUniformLocation | null;
   uC1: WebGLUniformLocation | null;
   uC2: WebGLUniformLocation | null;
@@ -158,6 +170,7 @@ function buildRig(canvas: HTMLCanvasElement): Rig | null {
     gl,
     uRes: gl.getUniformLocation(prog, 'u_res'),
     uTime: gl.getUniformLocation(prog, 'u_time'),
+    uSun: gl.getUniformLocation(prog, 'u_sun'),
     uBg: gl.getUniformLocation(prog, 'u_bg'),
     uC1: gl.getUniformLocation(prog, 'u_c1'),
     uC2: gl.getUniformLocation(prog, 'u_c2'),
@@ -168,6 +181,21 @@ function buildRig(canvas: HTMLCanvasElement): Rig | null {
 /* 복구 시도 상한. 1회면 TDR·resume 한 번은 넘기지만 반복 리셋 기계에서 루프가 된다. 2회로 두면
    "우연한 두 번"까지 흡수하고 세 번째부터는 원인이 우연이 아니라고 판정한다 — 그때 GPU 를
    놓는 것이 사용자에게 이롭다(위 머리주석). */
+/**
+ * 시각(0~23) → 글로우 세기(N-21). 정오에 가장 밝고 한밤에 가장 어둡다.
+ *
+ * ⚠ **순수 함수로 뽑은 이유**: 셰이더 안에서 계산하면 유닛으로 못 재고, 이 곡선은 "새벽 3시와
+ * 오후 3시가 구분되는가"라는 관측 가능한 명제를 갖는다.
+ * ⚠ 범위가 좁다(0.82~1.06) — 배경은 읽는 화면의 바닥이라 크게 흔들면 대비가 시각의 함수가
+ * 된다(a11y 가 시계에 달리는 것은 이 앱이 허용하지 않는 형태다).
+ */
+export function sunFactor(hour: number): number {
+  const h = ((hour % 24) + 24) % 24;
+  // 정오(12시)에 1, 자정에 0 인 코사인 — 계절·위도는 안 본다(그건 이 값이 답할 질문이 아니다).
+  const noonness = (1 - Math.cos((h / 24) * 2 * Math.PI)) / 2;
+  return 0.82 + noonness * 0.24;
+}
+
 const MAX_LOSS = 2;
 
 export default function AmbientCanvas() {
@@ -193,6 +221,10 @@ export default function AmbientCanvas() {
       const c1 = hexToRgb(cs.getPropertyValue('--acc')) || [0.6, 0.55, 1];
       const c2 = hexToRgb(cs.getPropertyValue('--acc2')) || [0.37, 0.85, 0.74];
       const c3 = hexToRgb(cs.getPropertyValue('--violet')) || [0.72, 0.58, 0.96];
+      /* N-21 — 하루의 위치. **색 갱신과 같은 자리**에서 세운다(테마·액센트가 바뀌는 그 순간이
+         곧 "다시 그린다"이고, 시각은 그보다 훨씬 느리게 변하므로 별도 타이머가 필요 없다).
+         ⚠ 트랙 A 는 시계를 고정하므로(`page.clock.install`) 스냅샷은 결정적이다. */
+      gl.uniform1f(rig.uSun, sunFactor(new Date().getHours()));
       gl.uniform3fv(rig.uBg, bg);
       gl.uniform3fv(rig.uC1, c1);
       gl.uniform3fv(rig.uC2, c2);

@@ -28,7 +28,16 @@ describe('warmTab — 부팅 라우트가 Suspense 를 안 타게 한다', () =>
     expect(isLazy(getReactTab('stats')), 'lazy 가 아니면 전 탭이 초기 번들에 실린다').toBe(true);
   });
 
+  /* ⚠⚠ **모듈 캐시를 먼저 덥힌다 — 이 케이스가 시계에 의존하지 않게**(2026-08-07 · W6).
+     `warmTab` 은 설계상 `WARM_CAP_MS`(1500ms) 와 **경주**한다(느린 청크에 부팅을 인질로 잡히지
+     않으려는 제품 결정이고, 그 경주 자체는 옳다). 그런데 전체 스위트를 한 번에 돌리면 vitest 의
+     변환 부하 때문에 첫 `import` 가 그 상한을 넘길 수 있고, 그러면 이 케이스만 **단독 실행에선
+     통과하고 전체에선 실패**한다 — 즉 결함이 아니라 부하를 재게 된다(이 저장소가 flaky 를
+     "결함으로, 결함을 flaky 로" 읽는다고 경고한 그 형태).
+     먼저 같은 로더를 await 해 모듈 캐시를 채우면 `warmTab` 안의 `loader()` 가 즉시 이행되고,
+     그 뒤 재는 것은 **`warmed` 에 실제 컴포넌트가 들어가는가** 하나로 좁혀진다(원래 명제). */
   it('덥힌 뒤에는 **lazy 가 아닌 실제 컴포넌트**를 돌려준다', async () => {
+    await LOADERS.today!();
     await warmTab('today');
     const c = getReactTab('today');
     expect(c).toBeTruthy();

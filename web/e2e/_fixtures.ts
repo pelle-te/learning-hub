@@ -637,7 +637,10 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     열기: async (page) => {
       // ⚠ `type="search"` 는 role 이 **searchbox** 다(textbox 아님 — 실측으로 물렸다).
       await page.getByRole('searchbox', { name: '학습 구조도 노드 검색' }).fill('미적분');
-      await page.getByRole('button', { name: '찾기' }).click();
+      /* ⚠ **`main` 안으로 좁힌다**(A-9 · W4 · 2026-08-07). `찾기` 가 레일의 탭 이름이 되면서
+         페이지 전역에 같은 접근명의 버튼이 둘이 됐고, 이 픽스처가 그 순간 멈췄다(strict 모드).
+         고칠 것은 제품이 아니라 **선택자의 범위**다 — 오버레이를 여는 버튼은 본문 안에 있다. */
+      await page.locator('#main').getByRole('button', { name: '찾기' }).click();
     },
     ready: (page) => page.getByRole('dialog').waitFor(),
   },
