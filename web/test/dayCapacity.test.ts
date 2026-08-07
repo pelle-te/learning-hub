@@ -110,6 +110,48 @@ describe('Q-2 slackMin — 44px 앵커의 값', () => {
 });
 
 /* ── 7-I4 할 일이 창을 먼저 깎는다 ────────────────────────────────────────── */
+/* ── A-11(W7) — **실측 배율을 아침 판정 문장에** ─────────────────────────────────────
+   배율은 과목 상세에만 있었고 오늘 화면과 연결이 0이었다: 앱이 "내 추정이 20% 낙관적"임을
+   알면서 아침에 한 번도 말하지 않았다. 여기서 잠그는 것 셋 —
+   ① 배율이 문장에 실제로 들어간다 ② **±5% 안쪽은 말하지 않는다**(잡음을 신호로 올리지 않는다)
+   ③ `slackMin` 을 **덮지 않는다**(계획된 여유와 보정 여유는 다른 값이다). */
+describe('A-11 실측 배율 — 아침 문장이 그것을 말한다', () => {
+  const blocks = [{ key: 'a', start: 540, min: 120, done: false, name: 'A' }];
+
+  it('낙관적이었으면(배율>1) 모자란다고 말한다', () => {
+    const c = dayCapacity(blocks, 150, 0, 1.4);
+    expect(c.calibratedSlackMin).toBe(150 - 168);
+    expect(c.fitLine).toContain('실측대로면');
+    expect(c.fitLine).toContain('모자람');
+  });
+
+  it('덜 걸렸으면(배율<1) 여유를 말한다', () => {
+    const c = dayCapacity(blocks, 150, 0, 0.7);
+    expect(c.calibratedSlackMin).toBe(150 - 84);
+    expect(c.fitLine).toContain('실측대로면 여유');
+  });
+
+  it('⭐ ±5% 안쪽은 **말하지 않는다** — 잡음을 아침 문장에 얹으면 그 문장 전체가 안 믿긴다', () => {
+    const c = dayCapacity(blocks, 150, 0, 1.03);
+    expect(c.calibratedSlackMin).toBeNull();
+    expect(c.fitLine).not.toContain('실측');
+  });
+
+  it('배율이 없으면(표본 부족) 종전 문장 그대로다', () => {
+    expect(dayCapacity(blocks, 150, 0, null).fitLine).toBe(dayCapacity(blocks, 150).fitLine);
+  });
+
+  it('`slackMin` 을 덮지 않는다 — 계획된 여유와 보정 여유는 다른 값이다', () => {
+    const c = dayCapacity(blocks, 150, 0, 1.4);
+    expect(c.slackMin).toBe(30);
+    expect(c.calibratedSlackMin).not.toBe(c.slackMin);
+  });
+
+  it('할 것이 없으면 배율이 있어도 조용하다(없는 일에 판정을 붙이지 않는다)', () => {
+    expect(dayCapacity([], 150, 0, 1.4).calibratedSlackMin).toBeNull();
+  });
+});
+
 describe('7-I4 choreMin — 할 일도 하루를 먹는다', () => {
   const blocks = [{ key: 'a', start: 540, min: 120, done: false }];
 

@@ -5,7 +5,7 @@
    세부(블록 액션·일일 의식·흐름 가이드)는 onOpenMore 패널로 — 기본은 한 화면, 무스크롤.
 ============================================================ */
 import { completionKey } from '@/lib/domainKeys';
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ui } from '@/shell';
 import { useApp } from '@/store/useApp';
@@ -17,7 +17,7 @@ import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
 import { usePing, useKnowledge } from '@/store/queries';
 import { studyStreak } from '@/lib/persistence';
-import { focusMinutes } from '@/lib/focusState';
+import { focusKey, focusMinutes, type FocusEntry } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
 import { layoutDay, freeWindowsForWeekday, freeMinAfter } from '@/lib/scheduler';
@@ -35,7 +35,11 @@ import { dayShape } from '@/lib/insights';
 import type { AppState } from '@/lib/types';
 import { FlowRail, type FlowNode } from './FlowRail';
 import { DayBar } from './DayBar';
-import { todayISO, parseISO, addDays, iso, ddayInfo, hNum, toHM, mmss } from '@/lib/utils';
+import { todayISO, parseISO, addDays, iso, hNum, toHM, mmss, reviewBlockMin } from '@/lib/utils';
+import { shareLine, todayShare } from '@/lib/todayShare';
+import { buildBeyondStrip } from './BeyondStrip';
+import { S } from './signatureParts';
+import { subjectCalibration } from '@/lib/estimateCalibration';
 import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 import { useCommitOnChange } from '@/hooks/useCommitOnChange';
 import { Icon } from '@/components/Icon';
@@ -49,6 +53,31 @@ const TYPE_LABEL: Record<string, string> = {
   mock: '모의시험',
 };
 
+/**
+ * **A-11** — 오늘 계획된 과목들의 실측 배율(가중 평균). 표본이 없으면 `null`.
+ *
+ * ⚠ 가중치는 **오늘 계획된 분**이다: 3시간짜리 과목의 배율이 30분짜리보다 오늘 판정을 더
+ * 좌우해야 한다(단순 평균이면 작은 블록이 하루의 판정을 흔든다).
+ * ⚠ 배율을 모르는 과목은 **1**로 센다 — 모르는 것을 다른 값으로 채우면 지어낸 근거가 된다.
+ */
+function todayEstimateRatio(
+  state: AppState,
+  enriched: readonly { it: { sid: string; min?: number } }[],
+): number | null {
+  let w = 0;
+  let sum = 0;
+  let known = 0;
+  for (const e of enriched) {
+    const min = e.it.min || 0;
+    if (min <= 0) continue;
+    const c = subjectCalibration(state, e.it.sid);
+    if (c) known += min;
+    w += min;
+    sum += min * (c?.ratio ?? 1);
+  }
+  return w > 0 && known > 0 ? sum / w : null;
+}
+
 /* ── C-7 이식(today) — Tailwind 클래스 SSOT ────────────────────────────────────────
    시그니처 히어로(과목색 --tint 베이크·포인터 스포트라이트·3D 틸트) + 통합 집중 CTA + now-중심
    발광 흐름 레일 + 하단 스트립. 색·그래디언트·발광·틸트는 tokens.css 에 이름 주고 bg-[var]·
@@ -58,152 +87,39 @@ const TYPE_LABEL: Record<string, string> = {
    유틸을 이기므로 다른 값만 `!`(§ global element rules). 내장 크기(text-xs/sm/base/lg)는 companion
    line-height 를 흘리므로 leading 명시(폼컨트롤/그 자손=normal · 일반 흐름=1.6 또는 원본값 · line-height 트랩).
    ds.ringSvg/Track/Arc 는 공용 스켈레톤이라 유지. `TodaySignature.module.css` 삭제. */
-const S = {
-  today: 'flex h-full min-w-0 min-h-0 flex-col gap-4 px-5 pt-4.5 pb-3.5 max-wide:px-3.5 max-wide:pt-3.5',
-  top: 'grid min-h-0 flex-auto grid-cols-today-top gap-4 max-wide:grid-cols-1',
-  /* Q-14 — 노치 HUD 통일. 뗀 것: `rounded-lg`·`border border-line`·`shadow-hero`·그 border 를
-     겨냥하던 hover/transition 절. **유지한 것: 이 화면 전용 패딩 토큰**(`--hero-x/y-today`) —
-     `ds-frame` 기본값 18/20 으로 덮으면 가장 많이 튜닝된 화면의 기하가 조용히 바뀐다. */
-  hero: 'ds-frame mb-0! tint-scope group relative isolate flex flex-col justify-center overflow-hidden bg-[image:var(--bg-hero-today)] px-hero-x-today! py-hero-y-today! transform-3d [transform:var(--tilt-today)] [transition:transform_0.25s_var(--ease)] animate-[enter-fade_var(--dur-slow)_var(--ease)_both] ds-hairline motion-reduce:transform-none motion-reduce:animate-none',
-  aura: 'pointer-events-none absolute bottom-[var(--aura-bottom)] left-[var(--aura-left)] z-[-1] h-[var(--aura-h)] w-9/10 bg-[image:var(--bg-aura-today)] [filter:var(--filter-aura)] live-aura animate-[live-breathe_var(--tempo-slow)_var(--ease)_infinite] motion-reduce:animate-none',
-  spotlight:
-    'pointer-events-none absolute inset-0 z-[-1] bg-[image:var(--bg-spotlight-today)] opacity-0 transition-opacity duration-slow ease-[var(--ease)] group-hover:opacity-100 motion-reduce:transition-none',
-  heroFill:
-    'absolute bottom-0 left-0 z-[-1] h-0.75 bg-acc shadow-[var(--shadow-fill)] transition-[width] duration-draw ease-[var(--ease-draw)] motion-reduce:transition-none',
-  heroHead: 'flex items-baseline justify-between gap-3',
-  /* D-6 액센트 예산 — 아이브로는 **분류 라벨**이지 손봐야 할 것이 아니다. 액센트는 행동에만.
-     (같은 화면에서 acc 표면이 20곳을 넘었고, 다 강조하면 아무것도 강조가 아니다 · DS §0-5.) */
-  eyebrow:
-    'inline-flex items-center gap-2 text-xs leading-text font-extrabold tracking-eyebrow-wide text-mut uppercase',
-  /* ⚠ W6 용량 **한 줄**(`fit`)이 여기 있었다 — P-7 이 그 판정을 길이로 옮기며 사라졌다.
-     스타일이 `DayBar` 로 간 것이 아니라 **문장 자체가 그래픽이 됐다**(문자열은 그 막대의
-     `aria-label` 로만 남는다). 되살리려면 먼저 "왜 길이로 부족한가"를 적을 것. */
-  live: 'size-1.75 rounded-full bg-acc shadow-load animate-[live-breathe_var(--tempo)_var(--ease)_infinite] motion-reduce:animate-none',
-  subj: 'mt-subj-top! mb-0! text-subj! max-wide:text-subj-mobile! font-black! leading-flat tracking-subj! text-balance text-[color:var(--subj-col)]!',
-  heroSub: 'mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-lg leading-body text-mut',
-  chapter: 'font-semibold text-txt',
-  // D-5 선택 근거 — 액센트로 한 줄. 크기는 챕터 줄과 같되 무게로만 낮춘다(위계는 색·굵기로).
-  // D-5 선택 근거 — 보조 설명이라 조용하게(D-6: 액센트는 행동 하나에만).
-  why: 'text-md font-semibold text-mut',
-  yesterday: 'mt-3 max-w-[var(--yesterday-max)] text-hint leading-body text-mut',
-  momentum: 'inline-flex flex-wrap items-center gap-x-3.5 gap-y-2',
-  mChip:
-    'inline-flex items-center rounded-full! border-0! bg-[var(--tint-acc-12)]! px-2.75! py-1! text-sm! leading-auto font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
-  actions: 'mt-actions-top flex items-center gap-4',
-  cta: 'relative inline-flex cursor-pointer items-baseline gap-2.5 overflow-hidden rounded-base! border-0! px-6.5! py-3.75! font-extrabold! tracking-cta after:pointer-events-none after:absolute after:inset-0 after:bg-[image:var(--bg-cta-shimmer)] after:[transform:var(--cta-shim-off)] after:transition-transform after:duration-slow after:ease-[var(--ease)] hover:after:[transform:var(--cta-shim-on)] focus-visible:[outline-offset:var(--cta-outline-offset)]! motion-reduce:after:transition-none',
-  ctaFill:
-    'bg-[image:var(--acc-fill)]! text-on-acc! shadow-[var(--shadow-cta)] hover:-translate-y-px hover:brightness-emph hover:shadow-[var(--shadow-cta-hover)]',
-  ctaRun:
-    'bg-[var(--bg-cta-run)]! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
-  ctaGhost:
-    'bg-transparent! text-txt! shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-hover)]',
-  ctaGo: 'relative z-[1] text-base leading-auto',
-  ctaCap: 'relative z-[1] text-sm leading-auto font-bold opacity-72',
-  ctaNum: 'relative z-[1] text-cta-num font-extrabold tracking-label tabular-nums',
-  clock: 'text-base14 font-bold tracking-tag text-mut tabular-nums',
-  presets: 'inline-flex gap-1.5',
-  preset:
-    'rounded-md! border-0! bg-transparent! px-3! py-2.25! text-mut! font-extrabold! tabular-nums shadow-[var(--shadow-inset-line)] hover:shadow-[var(--shadow-inset-line-acc-pill)]',
-  flow: 'flex min-h-0 flex-col rounded-lg border border-line bg-[image:var(--bg-flow-today)] px-4.5 pt-4.5 pb-3 [--rise-y:12px] animate-[enter-rise_var(--dur-slow)_var(--ease)_var(--stagger)_both] hover:border-[color:var(--line-flow-hover)] motion-reduce:animate-none',
-  flowHead: 'mb-2.5! flex! items-center gap-3',
-  ring: 'relative inline-block size-8.5 flex-none [--ring-w:6]',
-  /* ⚠ `ring`(도넛 래퍼)이 여기 있었다 — P-7 에서 **링을** 지웠다(숫자가 아니라 · 근거는 JSX 주석).
-     `ringNum` 은 이제 링 *안*이 아니라 흐름 헤더의 첫 칸이라 `absolute` 를 뗀다. */
-  ringNum: 'flex-none text-lg leading-text font-extrabold tracking-ringnum text-txt',
-  ringNumSmall: 'text-tiny9 font-bold text-mut',
-  flowT: 'flex-1 ds-caps',
-  // D-6 — '● 09:00 LIVE'는 시계다(내가 손볼 것이 아니다). 살아 있다는 신호는 점 하나로 충분.
-  now: 'text-sm leading-text font-extrabold text-mut tabular-nums',
-  rail: 'min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]',
-  railEmpty: 'px-1 py-3.5 text-hint leading-text text-mut',
-  recall:
-    'mt-2.5 flex-none rounded-base border border-line2 px-3.5 py-3 animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
-  recallTop: 'mb-1.5 flex items-baseline gap-2',
-  recallTag: 'flex-none text-2xs font-extrabold tracking-skel uppercase',
-  recallMeta: 'truncate text-xs leading-text font-bold text-mut',
-  recallQ: 'text-recall-q leading-snug font-bold text-txt',
-  recallBtn:
-    'mt-2.5 w-full rounded-blk! border-0! bg-[var(--acc-soft)]! px-3! py-2! text-hint! font-extrabold! text-acc! shadow-[var(--shadow-inset-acc-glow)] hover:shadow-[var(--shadow-inset-acc-solid)]',
-  recallA:
-    'mt-2 flex flex-col gap-1.25 text-hint leading-body text-mut animate-[enter-fade_var(--dur-slow)_var(--ease)_both]',
-  recallReset: 'mt-0.5 self-start border-0! bg-transparent! p-0! text-xs! leading-auto font-bold! text-mut! underline',
-  confWrongNote: 'mt-1.5 text-sm leading-body text-mut',
-  more: 'mt-3 border-x-0! border-b-0! rounded-none! border-line2! bg-transparent! pt-3.5! text-left text-sm! leading-auto font-bold! text-mut!',
-  /* ⚠⚠ **하단 스트립을 은퇴시키고 레일의 '오늘 밖' 구역으로 옮겼다(W18 · 2026-07-31).**
-     같은 성격의 신호(마감·Anki·보충 / 밀린 복습)가 화면의 **두 자리**에 있었고, 위계가 뒤집혀
-     있었다 — 행동을 바꾸는 것이 11~13px 최하단, 안 바꾸는 것(연속)이 30px 최상단.
-     ⚠ **미실행 사유였던 것이 이 구현의 제약이다**: 레일 컬럼은 이미 스크롤이라 블록 많은 날
-     이 구역이 스크롤 아래로 밀리면 **지금보다 나빠진다** → `flex-none` 고정 구역이어야 한다
-     (`S.rail` 이 `flex-1 overflow-y-auto` 이고 이건 그 형제다 — 스크롤 밖에 있다).
-     함께 사라진 것: 라벨 3 + 구분선 2 = 내용 없는 노드 5개(옛 `S.strip`·`S.vline`). */
-  beyond: 'mt-2 flex flex-none flex-col gap-2 border-t border-line-soft px-1 pt-2.5',
-  reviewCta:
-    'inline-flex items-center gap-2 self-start rounded-md! border-0! bg-[var(--tint-warn-faint)]! px-3! py-2! text-hint! font-bold! shadow-[var(--shadow-inset-line2)] hover:shadow-[var(--shadow-inset-acc-glow)]',
-  reviewDot: 'size-1.75 flex-none rounded-full bg-warn',
-  grp: 'flex flex-wrap items-center gap-3',
-  grpL: 'ds-caps',
-  tag: 'inline-flex cursor-pointer items-center gap-1.5 border-0! bg-transparent! p-0! font-extrabold!',
-  tagMut: 'inline-flex cursor-default items-center gap-1.5 text-md font-semibold text-mut',
-  dot: 'size-1.75 flex-none rounded-full',
-  /* UX-1 하단 스트립 액센트 위계 — 다섯 그룹의 숫자가 **전부** `text-acc` 볼드라 위계가 0이었다
-     (DS §0-5: 다 강조하면 아무것도 강조가 아니다). 액센트를 "지금 손봐야 할 것"에만 예약한다:
-     임박 마감 · 밀린 Anki · 열린 보충. 나머지(이번 주 누적 시간 · 의식 체크)는 *상태 보고*라
-     `txt` 로 내린다 — 굵기는 그대로라 여전히 읽히고, 색만 조용해진다.
-     ⚠ 임계는 보수적으로. 요일마다 색이 튀면 "액센트가 의미를 갖는다"는 신호 자체가 흔들린다
-       → 0/미연결은 무조건 cool, 양수일 때만 hot. 새 요소는 0개(조건은 이미 계산돼 있었다). */
-  hot: 'text-acc',
-  cool: 'text-txt',
-} as const;
 
 /** UX-1 액센트 게이트 — hot 이면 액센트, 아니면 조용한 상태 보고색.
  *  ⚠ 판정을 컴포넌트 **밖**에 두는 건 취향이 아니라 래칫이 실제로 걸린 결과다: 조건을 JSX 안에
  *    흩었더니 이 컴포넌트의 인지복잡도가 77→80 이 되어 `sonarjs/cognitive-complexity` 가 막았다.
  *    이름 붙은 술어로 밖에 내면 복잡도도 내려가고 "왜 이것만 강조인가"도 JSX 밖에서 읽힌다. */
-const tone = (hot: boolean): string => (hot ? S.hot : S.cool);
-/** Anki 는 **미연결(null)이 hot 이 아니다** — 설정 문제라 매일 뜨고, 매일 뜨는 액센트는 소음이 된다. */
-const ankiTone = (due: number | null | undefined): string => tone(due != null && due > 0);
-
 /**
- * 하단 스트립의 Anki 대기 칸.
+ * **A-13 확정 토글**(W7) — 오늘의 히어로를 못박거나 푼다.
  *
- * ⚠⚠ **이 숫자는 `runtime` 테이블에 남은 캐시라 어제 것일 수 있다.** `AnkiPanel` 을 열어야만
- * 갱신되는데(그 컴포넌트의 이펙트가 유일한 갱신 경로다) 오늘 탭은 그 사실을 말하지 않고
- * 오늘 값과 똑같이 그렸다. Anki due 는 날이 바뀌면 통째로 갈리므로 어제 숫자는 **틀린 숫자**다.
- * → 낡았으면 액센트를 빼고 title·aria 가 언제 것인지 말한다. 판정은 `lib/anki.ankiFreshness`.
- *
- * ⚠ 컴포넌트로 뗀 이유는 스타일이 아니라 **분기**다 — `TodaySignature` 는 인지복잡도 래칫(77)
- * 바로 아래라 조건부 JSX 를 더 쌓으면 게이트가 막는다(N-5 가 같은 이유로 조각을 뗀 선례).
- * 래칫이 "더 나빠지지 않는다"만 보장한다는 뜻이 정확히 이것이다: 새 분기는 새 이름을 갖는다.
+ * ⚠ 컴포넌트로 뺀 이유는 응집이자 래칫이다: 본체가 인지복잡도 상한에 붙어 있어(그 파일의
+ * 다른 추출들과 같은 사정) 조건부 JSX 를 더 쌓으면 게이트가 막는다 — *새 분기는 새 이름을
+ * 갖는다*는 이 파일의 기존 규율 그대로.
+ * ⚠ 해제도 같은 버튼이다(상태를 두 곳에 두지 않는다). `onToggle(null)` 이 해제다.
  */
-function AnkiTag({
-  due,
-  fresh,
-  onGo,
+function FocusLockButton({
+  focus,
+  locked,
+  onToggle,
 }: {
-  due: number | null;
-  fresh: { stale: boolean; label: string } | null;
-  onGo: () => void;
+  focus: FocusEntry | null;
+  locked: boolean;
+  onToggle: (key: string | null) => void;
 }) {
-  const stale = due != null && fresh?.stale === true;
-  const body = due == null ? '미연결 — 연동 탭에서 실시간 연결' : `복습 대기 ${due}장`;
-  const note = stale ? ` — ${fresh.label}. 연동 탭에서 새로고침` : '';
+  if (!focus) return null;
   return (
-    <div className={S.grp}>
-      <span className={S.grpL}>Anki 대기</span>
-      <button
-        type="button"
-        className={S.tag}
-        onClick={onGo}
-        title={`${body}${note}`}
-        aria-label={`Anki ${body}${note} — 연동 탭으로`}
-      >
-        {/* ⚠ 낡은 값은 **액센트만 뺀다**(숫자는 지우지 않는다). 지우면 '연결 필요'와 구분이
-            사라져 이미 연결한 사용자가 다시 연결하려 들고, 그대로 강조하면 어제 숫자를 오늘
-            것으로 읽는다 — 톤을 낮추는 것이 "이건 오늘 것이 아니다"의 시각 표현이다. */}
-        <b className={stale ? tone(false) : ankiTone(due)}>{due == null ? '연결' : due}</b>{' '}
-        {due == null ? '필요' : '장'}
-      </button>
-    </div>
+    <button
+      type="button"
+      className={S.why}
+      aria-pressed={locked}
+      onClick={() => onToggle(locked ? null : focusKey(focus))}
+      title={locked ? '확정을 풀면 앱이 다시 고릅니다' : '오늘은 이걸로 확정합니다'}
+    >
+      <Icon name={locked ? 'pin' : 'flag'} /> {locked ? '확정됨' : '이걸로 확정'}
+    </button>
   );
 }
 
@@ -325,7 +241,13 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      `useFocus.startOnCurrent` 가 `stat`·`today` 를 안 넘겨(기본값 `[]`·`''`) 급함 계산이 죽었고,
      그래서 히어로는 "마감 임박 블록", ⌘K·FocusChip 의 집중 시작은 "가장 큰 블록"을 가리켰다.
      재료 조립을 셀렉터에 두면 **인자 선택권이 호출부에서 사라져** 같은 일이 재발할 수 없다. */
-  const { entries: enriched, current, focus, reason: focusReason } = selectTodayFocus(state, nowMin);
+  /* A-13(W7) — **오늘의 확정**. 히어로 입력이 전부 시간 의존이라 하루에 여러 번 바뀌었고,
+     그건 *"결정이 끝나 있다"* 는 이 화면의 약속과 정반대다. 판정은 `lib/focusState` 가 하고
+     여기는 저장된 키만 넘긴다(날짜가 다르면 무효 — 어제 확정이 오늘을 붙들지 않게). */
+  const focusLock = useUI((st) => st.ui.focusLock);
+  const setFocusLock = useUI((st) => st.setFocusLock);
+  const lockedKey = focusLock && focusLock.ds === ds ? focusLock.key : null;
+  const { entries: enriched, current, focus, reason: focusReason, locked } = selectTodayFocus(state, nowMin, lockedKey);
   const todayDone = enriched.filter((e) => e.done).length;
   const todayTotal = items.length;
 
@@ -412,6 +334,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     /* 7-I4 — 오늘 배정된 미완 할 일 중 **소요를 적은 것**을 창에서 먼저 뺀다. 스키마 0 ·
        스케줄러 계약 0(주기적 과제 모델은 N-1 이 W8 에서 연다). 근거는 `lib/tasks.choreMinForDay`. */
     choreMinForDay(state, ds),
+    /* A-11(W7) — **실측 배율을 아침 문장에 먹인다.** 배율은 지금까지 과목 상세에만 있었고
+       (`/items` → 카드 → 상세 = 3화면·2클릭) 오늘 화면과 연결이 0이었다 — 앱이 "내 추정이 20%
+       낙관적이다"를 알면서 아침에 한 번도 말하지 않았다.
+       ⚠ **오늘 계획된 과목들의 가중 평균**이다: 오늘 실제로 걸린 것을 말하려면 오늘 하는
+         과목의 배율이어야 하고, 전 과목 평균은 안 하는 과목의 오차까지 오늘에 얹는다.
+       ⚠ 표본이 얇은 과목은 `subjectCalibration` 이 `null` 을 준다 → 그 과목은 배율 1로 센다
+         (모르는 것을 1이 아닌 값으로 채우면 그게 곧 지어낸 근거다). */
+    todayEstimateRatio(state, enriched),
   );
   const { beyondKeys } = cap;
   /* 분모는 **오늘 가능한 것**이다(E9). 종전엔 `todayTotal` 이라, 남은 창에 안 들어가는
@@ -600,72 +530,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     void pruneDaySignals(ds);
   }, [pending.length, riskN, openBl, due, soon.length, ds]);
 
+  /* ⚠ 크롬 설정을 **모듈 함수로 뺐다**(W7 · 2026-08-07). A-10·A-13 이 붙으며 이 컴포넌트가
+     인지복잡도 래칫(62)을 넘었고, 이 블록은 그 복잡도의 큰 몫이다(중첩 삼항 넷 + 조건부 스프레드).
+     응집도 맞다 — "상단 44px 과 리드아웃에 무엇을 세우나" 하나에만 답한다. */
   usePageChromeEffect(
-    () => ({
-      /* ⚠⚠ **Q-2 에서 뒤집혔다(2026-08-02).** 종전 주석은 _"이 화면은 렌즈라 44px 앵커를 세우지
-         않는다 — 잊은 것이 아니라 없다고 정한 것이다"_ 였는데, 그 판단의 대가가 뒤늦게 드러났다:
-         **오늘의 여유는 화면에 문자가 0자였다.** 값은 이미 계산돼 있었지만(`dayCapacity`) 막대의
-         `aria-label` 로만 존재해서, 눈으로 읽을 방법이 없었다(P-7 이 길이로 옮기며 생긴 사각).
-         `오늘 여유 1.2h` 는 이 화면에서 **다음 행동을 가장 많이 바꾸는 한 수**다 — 그게 곧 44px
-         앵커의 정의이므로 여기 선다.
-         ⚠ 할 일이 없으면 여전히 `null` 이다(`slackMin === null`) — 말할 것이 없으면 안 그린다. */
-      primary:
-        cap.slackMin == null
-          ? null
-          : // ⚠ `value` 는 **문자열**이고 단위는 `unit` 이다 — 이 자리는 한 값이지 조판이 아니라는
-            //   것이 `ChromePrimary` 의 명시 계약이다(ReactNode 를 받으면 탭마다 조판이 갈린다).
-            {
-              label: cap.slackMin >= 0 ? '오늘 여유' : '오늘 초과',
-              value: String(hNum(Math.abs(cap.slackMin))),
-              unit: 'h',
-            },
-      /* ── E7 한 양 = 한 자리(2026-07-29) ────────────────────────────────
-         평일 낮 이 화면의 상시 숫자 26개 중 다음 행동을 바꾸는 것은 5개인데, **6개 양이
-         15자리에서** 렌더되고 있었다. 여기서 뗀 둘은 각각 이미 소유자가 있다:
-         · 진행률 → 흐름 헤더의 `ProgressRing`(호(弧) + `3/7`)이 두 표현으로 말한다.
-         · 마감   → 하단 스트립 '마감 임박'이 D-day 와 **이름까지** 말한다(같은 `ddays[0]`).
-         ⚠ 마감을 상단에서 떼면 급한 D-day 를 보려고 시선이 하단까지 내려간다 — 대신 이 화면은
-           무스크롤이라 내려갈 거리가 화면 안이고, 스트립은 E8 에서 *있을 때만* 그린다(0인 날은
-           아예 없으므로 마감이 떠 있으면 그 자체가 신호다). */
-      readouts: [
-        {
-          label: '연속',
-          // PL-9: streak≥2면 불꽃 아이콘 프리픽스(Stats 탭 `Readout prefix` 와 통일 — 불씨 살아있음 시각화).
-          value: (
-            <>
-              {streak >= 2 && (
-                <>
-                  <Icon name="flame" />{' '}
-                </>
-              )}
-              {streak}
-              <small className="text-base14 font-bold text-mut"> 일</small>
-            </>
-          ),
-        },
-        /* ⚠ `남은 가용` 리드아웃이 여기 있었다 — **W6 이 흡수했다.** 30px 로 크게 그리면서도
-           그 수 혼자서는 "오늘 안에 들어가는가"를 못 말했고(사용자가 남은 계획과 대각선으로
-           눈을 이어 뺄셈을 했다), 지금은 히어로 아이브로 아래 한 줄이 두 수를 **판정과 함께**
-           말한다. 값은 사라지지 않았고 자리와 문법이 바뀌었다. */
-        // PL-5: 적응형 용량이 적용된 날만(최근 이행률 저조 → 오늘 가용 축소) 감축률을 노출 — 비가시 해소.
-        ...(res.adaptApplied ? [{ label: '용량', value: `−${Math.round((1 - (res.adapt ?? 1)) * 100)}%` }] : []),
-      ],
-      action:
-        todayTotal === 0
-          ? // PL-1: 이미 과목이 있는 사용자(hasItems)에게 "항목 설정"은 모순 — 오늘만 빈 것이므로 스케줄로 안내.
-            hasItems
-            ? { label: '오늘 계획 짜기 →', onClick: goPlanToday }
-            : { label: '학습 항목 설정 →', onClick: () => go('/items') }
-          : allDone
-            ? { label: '기록 보기', onClick: () => go('/day') }
-            : /* ⚠ D-6 — 여기 '지금 시작 →' 네온 버튼이 있었다. 히어로의 '▶ 집중 시작'과 **거의 같은
-                 동작**을 하면서 화면 대각선 반대쪽에 앉아, 한 화면에 채움 버튼이 둘이었다.
-                 액센트 예산은 채움 1개다 → 오늘 탭에서 상단 액션을 비운다(진행 중 세부 패널은
-                 흐름 카드의 '+ 블록 상세…'가 연다). 빈 날·완주 화면의 액션은 히어로에 짝이 없어
-                 남긴다 — 중복이 아니라 그 화면의 **유일한** 다음 걸음이다. */
-              undefined,
-    }),
-    // ⚠ `pct` 가 여기 있었다 — 링과 함께 사라졌다(P-7). 완료 수는 `todayDone` 이 대신한다.
+    () => chromeFor({ cap, streak, todayDone, todayTotal, allDone, hasItems, res, nearestDday, goPlanToday, go }),
     [todayDone, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
 
@@ -683,6 +552,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
   // W19 — 완료 날의 **다음 걸음 하나**(우선순위·근거는 `lib/todaySlots` 머리주석).
   const nextStep = pickNextStep(riskN, openBl, frontierTitle);
+  /* ── A-10(W7) — **적재량이 아니라 오늘 몫** ────────────────────────────────────────
+     이 화면은 `freeLeftMin` 을 이미 알면서도 세 신호를 **적재량**으로 말했다(`복습 12개 밀림`).
+     그 12는 어떤 행동으로도 오늘 안에 0이 될 수 없어 **마비를 만든다** — 알림(A-1)이 정확히
+     같은 이유로 수를 버렸는데 화면만 남아 있었다(두 표면이 같은 사실을 다르게 말한 것).
+     ⚠ 판정은 순수 lib 이 한다(`lib/todayShare`) — "12가 3이 된다"는 규칙 자체가 유닛으로
+       잠겨야 하고, 화면은 문장을 놓기만 한다. */
+  const share = todayShare({
+    overdue: riskN,
+    backlog: openBl,
+    freeLeftMin,
+    reviewMin: reviewBlockMin(state.moduleLen || 120),
+  });
+  const shareText = shareLine(share);
   const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/day', frontier: '/mastery' };
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
@@ -694,59 +576,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      ⚠ Anki 는 `due > 0` 일 때만 — `due == null`(이 기기에서 연결한 적 없음)까지 그리면 Anki 를
        안 쓰는 날마다 "연결 필요"를 외치게 되고, 그건 N-13 이 금지한 바로 그 형태다. 연결 상태의
        소유자는 연동 탭이다. */
-  const stripGroups: { key: string; node: React.ReactNode }[] = [];
-  if (soon.length)
-    stripGroups.push({
-      key: 'dday',
-      node: (
-        <div className={S.grp}>
-          <span className={S.grpL}>마감 임박</span>
-          {soon.map((st) => {
-            const { lab } = ddayInfo(st.dday);
-            return (
-              <button key={st.name} type="button" className={S.tag} onClick={() => go('/items')}>
-                <span className={S.dot} style={{ background: st.color || 'var(--acc)' }} />
-                {st.name} <b className={S.hot}>{lab}</b>
-              </button>
-            );
-          })}
-        </div>
-      ),
-    });
-  if (due != null && due > 0)
-    stripGroups.push({
-      key: 'anki',
-      node: <AnkiTag due={due} fresh={ankiFresh} onGo={() => go('/integrations')} />,
-    });
-  if (openBl > 0)
-    stripGroups.push({
-      key: 'backlog',
-      node: (
-        <div className={S.grp}>
-          <span className={S.grpL}>열린 보충</span>
-          <button type="button" className={S.tag} onClick={() => go('/day')}>
-            <b className={tone(true)}>{openBl}</b> 건
-          </button>
-        </div>
-      ),
-    });
-  /* W18 '오늘 밖' 구역 — **레일 컬럼 안에 살지만 빈 날엔 히어로 아래로 내려온다**(W19).
-     ⚠ 자리를 옮기는 것이지 지우는 것이 아니다: 빈 날에 컬럼을 접으면서 이 신호까지 함께
-     사라지면, 마감·Anki·보충이 **가장 한가한 날에만 안 보이는** 뒤집힌 상태가 된다. */
-  const beyondNode =
-    riskN > 0 || stripGroups.length > 0 ? (
-      <div className={S.beyond}>
-        {riskN > 0 && (
-          <button type="button" className={S.reviewCta} onClick={() => go('/review-run')}>
-            <span className={S.reviewDot} aria-hidden="true" />
-            복습 {riskN}개 밀림 <b className="ml-0.5 font-extrabold text-acc">복습 세션 →</b>
-          </button>
-        )}
-        {stripGroups.map((g) => (
-          <Fragment key={g.key}>{g.node}</Fragment>
-        ))}
-      </div>
-    ) : null;
+  /* ⚠ **스트립 조립을 함수로 뺐다**(W7 · 2026-08-07). A-10·A-13 이 붙으며 이 컴포넌트의 인지
+     복잡도가 래칫(62)을 넘었고, 래칫이 막으려는 것이 정확히 이것이다 — 한 함수가 화면 전체의
+     분기를 다 쥐는 것. 뺀 기준은 *응집*이다: 이 덩어리는 "오늘 밖에 무엇이 있나"라는 한 질문에만
+     답한다(히어로·타이머·흐름과 상태를 공유하지 않는다).
+     ⚠ 컴포넌트가 아니라 **함수**인 것도 의도다 — 렌더 상태가 없고 인자만으로 결정된다. */
+  const beyondNode = buildBeyondStrip({ soon, due, ankiFresh, openBl, riskN, share, shareText, go });
 
   return (
     <section className={S.today} aria-label="오늘 대시보드">
@@ -827,6 +662,14 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
                 <span className={S.chapter}>{heroSub}</span>
                 {/* D-5 — "왜 이것인가". 고르는 함수가 이유까지 돌려주므로 화면과 규칙이 갈릴 수 없다. */}
                 {focusReason && <span className={S.why}>{focusReason}</span>}
+                {/* A-13 — 확정 토글. ⚠ **앱이 자동으로 잠그지 않는다**: 그러면 또 하나의
+                    알고리즘이 되고, 이 항목이 고치려는 것은 *알고리즘이 자꾸 말을 바꾸는 것*이다.
+                    ⚠ 해제는 같은 버튼이다(상태를 두 곳에 두지 않는다). */}
+                <FocusLockButton
+                  focus={focus}
+                  locked={locked}
+                  onToggle={(k) => setFocusLock(k ? { ds, key: k } : null)}
+                />
               </>
             )}
           </div>
@@ -1003,4 +846,87 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
       </div>
     </section>
   );
+}
+
+/** 상단 크롬(44px 앵커 + 리드아웃 + 액션) — 위 컴포넌트에서 뺀 설정부. 근거는 그 호출부 주석. */
+function chromeFor(p: {
+  cap: ReturnType<typeof dayCapacity>;
+  streak: number;
+  todayDone: number;
+  todayTotal: number;
+  allDone: boolean;
+  hasItems: boolean;
+  res: ReturnType<typeof useSchedule>;
+  nearestDday: number | null;
+  goPlanToday: () => void;
+  go: (to: string) => void;
+}) {
+  /* ⚠ `todayDone`·`nearestDday` 는 **deps 로만** 쓰인다(E7 이 그 둘을 상단에서 뗐다 — 각각
+     흐름 헤더의 링과 하단 '마감 임박' 이 소유자다). 인자로 받는 이유는 호출부의 deps 와 이
+     함수의 입력이 갈리지 않게 하기 위함이고, 그 사실을 여기 적어 둔다. */
+  const { cap, streak, todayTotal, allDone, hasItems, res, goPlanToday, go } = p;
+  return {
+    /* ⚠⚠ **Q-2 에서 뒤집혔다(2026-08-02).** 종전 주석은 _"이 화면은 렌즈라 44px 앵커를 세우지
+         않는다 — 잊은 것이 아니라 없다고 정한 것이다"_ 였는데, 그 판단의 대가가 뒤늦게 드러났다:
+         **오늘의 여유는 화면에 문자가 0자였다.** 값은 이미 계산돼 있었지만(`dayCapacity`) 막대의
+         `aria-label` 로만 존재해서, 눈으로 읽을 방법이 없었다(P-7 이 길이로 옮기며 생긴 사각).
+         `오늘 여유 1.2h` 는 이 화면에서 **다음 행동을 가장 많이 바꾸는 한 수**다 — 그게 곧 44px
+         앵커의 정의이므로 여기 선다.
+         ⚠ 할 일이 없으면 여전히 `null` 이다(`slackMin === null`) — 말할 것이 없으면 안 그린다. */
+    primary:
+      cap.slackMin == null
+        ? null
+        : // ⚠ `value` 는 **문자열**이고 단위는 `unit` 이다 — 이 자리는 한 값이지 조판이 아니라는
+          //   것이 `ChromePrimary` 의 명시 계약이다(ReactNode 를 받으면 탭마다 조판이 갈린다).
+          {
+            label: cap.slackMin >= 0 ? '오늘 여유' : '오늘 초과',
+            value: String(hNum(Math.abs(cap.slackMin))),
+            unit: 'h',
+          },
+    /* ── E7 한 양 = 한 자리(2026-07-29) ────────────────────────────────
+         평일 낮 이 화면의 상시 숫자 26개 중 다음 행동을 바꾸는 것은 5개인데, **6개 양이
+         15자리에서** 렌더되고 있었다. 여기서 뗀 둘은 각각 이미 소유자가 있다:
+         · 진행률 → 흐름 헤더의 `ProgressRing`(호(弧) + `3/7`)이 두 표현으로 말한다.
+         · 마감   → 하단 스트립 '마감 임박'이 D-day 와 **이름까지** 말한다(같은 `ddays[0]`).
+         ⚠ 마감을 상단에서 떼면 급한 D-day 를 보려고 시선이 하단까지 내려간다 — 대신 이 화면은
+           무스크롤이라 내려갈 거리가 화면 안이고, 스트립은 E8 에서 *있을 때만* 그린다(0인 날은
+           아예 없으므로 마감이 떠 있으면 그 자체가 신호다). */
+    readouts: [
+      {
+        label: '연속',
+        // PL-9: streak≥2면 불꽃 아이콘 프리픽스(Stats 탭 `Readout prefix` 와 통일 — 불씨 살아있음 시각화).
+        value: (
+          <>
+            {streak >= 2 && (
+              <>
+                <Icon name="flame" />{' '}
+              </>
+            )}
+            {streak}
+            <small className="text-base14 font-bold text-mut"> 일</small>
+          </>
+        ),
+      },
+      /* ⚠ `남은 가용` 리드아웃이 여기 있었다 — **W6 이 흡수했다.** 30px 로 크게 그리면서도
+           그 수 혼자서는 "오늘 안에 들어가는가"를 못 말했고(사용자가 남은 계획과 대각선으로
+           눈을 이어 뺄셈을 했다), 지금은 히어로 아이브로 아래 한 줄이 두 수를 **판정과 함께**
+           말한다. 값은 사라지지 않았고 자리와 문법이 바뀌었다. */
+      // PL-5: 적응형 용량이 적용된 날만(최근 이행률 저조 → 오늘 가용 축소) 감축률을 노출 — 비가시 해소.
+      ...(res.adaptApplied ? [{ label: '용량', value: `−${Math.round((1 - (res.adapt ?? 1)) * 100)}%` }] : []),
+    ],
+    action:
+      todayTotal === 0
+        ? // PL-1: 이미 과목이 있는 사용자(hasItems)에게 "항목 설정"은 모순 — 오늘만 빈 것이므로 스케줄로 안내.
+          hasItems
+          ? { label: '오늘 계획 짜기 →', onClick: goPlanToday }
+          : { label: '학습 항목 설정 →', onClick: () => go('/items') }
+        : allDone
+          ? { label: '기록 보기', onClick: () => go('/day') }
+          : /* ⚠ D-6 — 여기 '지금 시작 →' 네온 버튼이 있었다. 히어로의 '▶ 집중 시작'과 **거의 같은
+                 동작**을 하면서 화면 대각선 반대쪽에 앉아, 한 화면에 채움 버튼이 둘이었다.
+                 액센트 예산은 채움 1개다 → 오늘 탭에서 상단 액션을 비운다(진행 중 세부 패널은
+                 흐름 카드의 '+ 블록 상세…'가 연다). 빈 날·완주 화면의 액션은 히어로에 짝이 없어
+                 남긴다 — 중복이 아니라 그 화면의 **유일한** 다음 걸음이다. */
+            undefined,
+  };
 }

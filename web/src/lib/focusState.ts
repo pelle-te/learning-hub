@@ -91,6 +91,13 @@ export interface FocusPick {
   focus: FocusEntry | null;
   /** **왜 이것인가** 한 줄(D-5). 고른 이유를 고른 자리에서 말한다 — 없으면 ''. */
   reason: string;
+  /** A-13 — 이 선택이 **사용자가 확정한 것**인가. 화면이 잠금 표식을 그릴 근거. */
+  locked: boolean;
+}
+
+/** A-13 확정 키 — 완료 키와 **같은 식**을 쓴다(두 벌이면 잠근 것과 완료 판정이 어긋난다). */
+export function focusKey(e: FocusEntry): string {
+  return completionKey(e.it.sid, e.it.type);
 }
 
 /* ── D-5: 초점은 한 함수가 고르고, 고른 이유를 함께 말한다 ─────────────────
@@ -143,7 +150,28 @@ function reasonFor(
  * 순서: 지금 진행 중 → 다음 예정 → (시간 없는 것 중) 가장 급한 것.
  * `stat`·`today` 를 주면 급함(마감·진도)이 반영된다 — 없으면 옛 동작(가장 이른 것).
  */
-export function pickFocus(entries: FocusEntry[], nowMin: number, stat: ItemStat[] = [], today = ''): FocusPick {
+/**
+ * @param lockedKey **A-13(W7)** — 사용자가 오늘 **확정한** 블록의 키. 있으면 그것이 히어로다.
+ *
+ * ## ⚠⚠ 왜 확정이 필요한가
+ * 이 함수의 입력은 **전부 시간 의존**이다(`nowMin` · `dayPhase` 를 타는 `urgency`). 그래서
+ * 히어로가 **하루에 여러 번 바뀐다** — 아침에 "회로이론 3장"이라고 말해 놓고 점심에 다른 것을
+ * 말한다. 그건 *"결정이 끝나 있다"* 라는 이 화면의 약속과 정반대다: 사용자는 아침에 한 번 보고
+ * 그것을 오늘의 답으로 삼는데, 앱은 계속 답을 고쳐 쓴다.
+ *
+ * ⚠ **자동으로 잠그지 않는다.** 앱이 스스로 확정하면 그건 또 하나의 알고리즘이고, 이 항목이
+ *   고치려는 것은 *알고리즘이 자꾸 말을 바꾸는 것*이다 — 사용자가 "이걸로 한다"고 말할 때만 선다.
+ * ⚠ **끝난 블록은 못 잠근다.** 완료된 것을 히어로에 붙들면 화면이 오늘 남은 일을 못 말한다 —
+ *   그 경우 잠금을 무시하고 평소 선택으로 돌아간다(잠금이 화면을 망가뜨리지 않는다).
+ * ⚠ 잠금은 **하루짜리**다(저장은 `ui.focusLock` 의 `{ds,key}`) — 날짜가 바뀌면 무효다.
+ */
+export function pickFocus(
+  entries: FocusEntry[],
+  nowMin: number,
+  stat: ItemStat[] = [],
+  today = '',
+  lockedKey: string | null = null,
+): FocusPick {
   const startKey = (e: FocusEntry) => e.start ?? 9999;
   const statBySid = new Map(stat.map((s) => [s.id, s]));
   const pending = entries.filter((e) => !e.done);
@@ -166,9 +194,19 @@ export function pickFocus(entries: FocusEntry[], nowMin: number, stat: ItemStat[
     urgency(b, statBySid, today) - urgency(a, statBySid, today) || startKey(a) - startKey(b);
   const next = pending.filter((e) => startKey(e) >= nowMin).sort(byOrder)[0] || null;
   const earliest = pending.slice().sort(byOrder)[0] || null;
-  const focus = current || next || earliest || null;
-  const where = current ? 'current' : next ? 'next' : earliest ? 'earliest' : null;
-  return { current, next, earliest, focus, reason: reasonFor(focus, where, statBySid, today) };
+  /* A-13 — 확정이 있으면 **그것이 이긴다**(`current` 보다도). 시간표가 다른 말을 하더라도
+     사용자가 오늘 이걸로 하겠다고 정한 것이 우선이고, 그게 '확정'의 뜻이다. */
+  const locked = lockedKey ? pending.find((e) => focusKey(e) === lockedKey) || null : null;
+  const focus = locked || current || next || earliest || null;
+  const where = locked ? 'locked' : current ? 'current' : next ? 'next' : earliest ? 'earliest' : null;
+  return {
+    current,
+    next,
+    earliest,
+    focus,
+    locked: !!locked,
+    reason: locked ? '내가 확정한 것' : reasonFor(focus, where === 'locked' ? 'current' : where, statBySid, today),
+  };
 }
 
 /** 집중 세션 길이(분) — 블록 분량을 따르되 50분 상한, 없으면 25분(포모도로). */

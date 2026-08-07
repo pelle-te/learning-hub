@@ -25,6 +25,8 @@ export interface UIStore {
   setTrayResident: (on: boolean) => void;
   /** N-17 — 레일 조립(숨김 목록·선호 순서). 판정은 `shell/railLayout` 이 소유하고 여기는 담기만 한다. */
   setRailLayout: (v: { hidden?: string[]; order?: string[] }) => void;
+  /** A-13 — 오늘의 히어로를 확정/해제. `null` 이면 해제(평소 선택으로 돌아간다). */
+  setFocusLock: (v: { ds: string; key: string } | null) => void;
   /** T-6 예약 알림 시각(`HH:MM`) 또는 `null`(끔). 바꾸면 **오늘 몫이 되살아난다**(아래 참조). */
   setReminderAt: (at: string | null) => void;
   /** 오늘 몫을 쓴 것으로 표시. ⚠ 알림 전송 **전에** 부른다(`useDailyReminder` 머리주석). */
@@ -92,6 +94,12 @@ export const useUI = create<UIStore>()(
       },
       /* N-17 — 둘을 한 setter 로 받는 이유: 순서 이동은 숨김을 안 건드리고 그 반대도 마찬가지라
          따로 두면 호출부가 매번 "다른 하나는 그대로"를 적어야 한다(부분 갱신이 기본이 맞다). */
+      setFocusLock(v) {
+        set((s) => {
+          s.ui.focusLock = v;
+        });
+        flush();
+      },
       setRailLayout(v) {
         set((s) => {
           if (v.hidden) s.ui.railHidden = v.hidden;

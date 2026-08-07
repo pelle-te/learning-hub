@@ -47,6 +47,7 @@ import CommandPalette from '@/app/CommandPalette';
 import ShortcutsHelp from '@/app/ShortcutsHelp';
 import KeycapBar from '@/app/KeycapBar';
 import GlanceMode from '@/app/GlanceMode';
+import DayBufferOverlay from '@/app/DayBufferOverlay';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
 import AmbientCanvas from '@/components/AmbientCanvas';
@@ -521,6 +522,8 @@ export default function App() {
       <KeycapBar />
       {/* T-20 — 거리 표면(`⇧G`). 새 데이터 0: `usePageChrome` 의 수를 크게 그릴 뿐이다. */}
       <GlanceMode />
+      {/* N-15 — 오늘 버퍼(읽기 전용 한 장). ⌘K 로 연다 · 근거는 그 파일 머리주석. */}
+      <DayBufferOverlay />
       <OnlineStatus />
       <BootRecovery />
       <StorageGuard />

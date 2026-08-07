@@ -151,6 +151,15 @@ function baseCommands(): PaletteCommand[] {
       // 도움말 열림이 App 의 useState 라 여기서 닿을 방법이 그것뿐이었다. 이제 스토어가 소유한다.
       run: () => useOverlay.getState().setHelp(true),
     },
+    /* N-15 — **오늘 버퍼**. 라우트가 아니라 오버레이라 `to` 가 없다(⌘K·`?` 와 같은 부류 ·
+       근거는 `app/DayBufferOverlay` 머리주석). */
+    {
+      id: 'act:day-buffer',
+      kind: 'act',
+      label: '오늘 버퍼 — 하루를 텍스트 한 장으로',
+      hint: '오늘',
+      run: () => useOverlay.getState().setDayBuffer(true),
+    },
     // 테마
     /* T-26 — 지금 화면 고정/해제. **팔레트가 그 입구인 이유**: 고정은 화면마다 있는 버튼이
        아니라 *어느 화면에서든* 부르는 동작이라, 크롬에 버튼을 23개 심는 대신 명령 하나를 둔다.

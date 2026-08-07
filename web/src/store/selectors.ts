@@ -44,6 +44,13 @@ export const SCHEDULE_INPUT_KEYS = [
   'peakStart',
   'peakEnd',
   '_today',
+  /* ⚠⚠ **I-6(W7 · 2026-08-07)이 이 줄을 필요하게 만들었다.** `graphPriority` 를 기본 on 으로
+     뒤집자 불변식 ①이 **그 자리에서** 잡았다: 켜진 스케줄러는 `priority.ts` 를 통해 `cbms`(오답
+     기록)를 읽는데 이 목록에 없어서, **오답을 남겨도 계획이 다시 계산되지 않는** 상태였다.
+     즉 기본값이 off 인 동안 그 결함은 **원리적으로 관측되지 않았다** — 스위치를 켜는 것이
+     비로소 검사망에 도달시킨 것이고, 그게 "켜야 작동하는 상태로 남기지 말라"는 I-6 의 논거를
+     한 번 더 실증한다(꺼진 배선은 검사도 못 받는다). */
+  'cbms',
   'blankResults', // ②#23 복습 사다리 적응 — latestBlank가 읽는다(백지 결과 갱신 시 재스케줄)
   'dayPlans', // §4-2 일일 배치 오버라이드 — applyDayPlans가 읽어 manual인 날 items를 치환(변경 시 재스케줄)
   'events', // Wave 5 일정 — dayStudyMin/freeWindowsForDay가 읽어 가용시간을 깎는다(일정 추가 시 재스케줄)
@@ -181,10 +188,15 @@ export const selectNavSignals: (state: AppState) => Record<string, string> = key
    *새 학습 블록만*으로 좁히고 시각을 일부러 0 으로 준다(그 두 결정의 근거는 그 파일 주석).
    "무엇을 후보로 볼지"는 화면의 결정이고 "그중 무엇이 먼저인지"만 lib 의 결정이다 —
    그쪽은 이미 `stat`·`today` 를 넘기고 있어 H4 의 결함(재료 누락)이 없다. */
-export function selectTodayFocus(state: AppState, nowMin: number): FocusPick & { entries: FocusEntry[] } {
+/** @param lockedKey **A-13** — 오늘 확정한 블록 키(`ui.focusLock`). 화면이 넘긴다(스토어를 안 읽는다). */
+export function selectTodayFocus(
+  state: AppState,
+  nowMin: number,
+  lockedKey: string | null = null,
+): FocusPick & { entries: FocusEntry[] } {
   const res = selectSchedule(state);
   const entries = todayEntries(state, res);
-  return { entries, ...pickFocus(entries, nowMin, res.itemStat, todayISO(state)) };
+  return { entries, ...pickFocus(entries, nowMin, res.itemStat, todayISO(state), lockedKey) };
 }
 
 /* ── 반사실 완주일(N-3) ─────────────────────────────────────────────────────

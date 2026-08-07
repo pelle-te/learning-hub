@@ -13,7 +13,7 @@
       사다리**가 별도 함수로 메운다 — 입력이 '스케줄'이 아니라 '챕터 카탈로그'다.
 ============================================================ */
 import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
-import { chapterStrength } from './chapterStrength';
+import { chapterCoefficient, chapterStrength } from './chapterStrength';
 import { isDone } from './persistence';
 import { CBMS_ADVANCES_REVIEW } from './methodology';
 import { vaultAnchors } from './vaultAnchors';
@@ -73,10 +73,23 @@ const STRONG_OVERDUE_DAYS = REVIEW_TAIL_OFFSET; // 34
  * ② **`failing` 이 이긴다.** 둘 다 참일 수 없어야 하지만 신호가 갈리면(과목은 막혔는데 이 챕터는
  *    연속 통과) **앞당김을 택한다** — 위험 쪽으로 틀리는 편이 안전하다.
  */
-export function riskOf(daysSince: number, failing = false, strong = false): ReviewRisk {
+/**
+ * @param coef **I-1(W7)** — 챕터별 연속 계수(`chapterCoefficient`). 사다리 칸을 곱해 늘리거나
+ *   줄인다. `null` 이면 종전 그대로(칸 이동만).
+ *
+ * ⚠⚠ **`failing` 은 계수를 안 탄다.** 막힌 챕터에 1.4 를 곱하면 *방금 막힌 것을 더 늦게*
+ *   보게 되는데, 그건 이 함수 머리주석의 안전 방향(위험 쪽으로 틀린다)을 정면으로 뒤집는다.
+ *   계수는 **base·strong 에만** 적용된다.
+ * ⚠ 최소 1일 — 계수가 아무리 작아도 "오늘 보고 오늘 또"가 되지 않게.
+ */
+export function riskOf(daysSince: number, failing = false, strong = false, coef: number | null = null): ReviewRisk {
   const shift = failing ? 'fail' : strong ? 'strong' : 'base'; // failing 이 strong 을 이긴다(안전 방향)
-  const over = shift === 'fail' ? FAIL_OVERDUE_DAYS : shift === 'strong' ? STRONG_OVERDUE_DAYS : OVERDUE_DAYS;
-  const due = shift === 'fail' ? FAIL_DUE_DAYS : shift === 'strong' ? STRONG_DUE_DAYS : DUE_DAYS;
+  let over = shift === 'fail' ? FAIL_OVERDUE_DAYS : shift === 'strong' ? STRONG_OVERDUE_DAYS : OVERDUE_DAYS;
+  let due = shift === 'fail' ? FAIL_DUE_DAYS : shift === 'strong' ? STRONG_DUE_DAYS : DUE_DAYS;
+  if (coef != null && Number.isFinite(coef) && shift !== 'fail') {
+    over = Math.max(1, Math.round(over * coef));
+    due = Math.max(1, Math.round(due * coef));
+  }
   if (daysSince >= over) return 'overdue';
   if (daysSince >= due) return 'due';
   return 'fresh';
@@ -209,6 +222,8 @@ export interface ShiftContext {
   /** `sid|chapter` 집합. */
   leeches: Set<string>;
   strong: (sid: string, chapter: string) => boolean;
+  /** I-1 — 챕터별 연속 계수(`chapterCoefficient`). 표본이 얇으면 `null`. */
+  coef: (sid: string, chapter: string) => number | null;
 }
 
 /** 위 컨텍스트를 만든다. `chapterReviews`·`examStaleChapters` 가 **같은 것을** 쓴다. */
@@ -218,6 +233,10 @@ export function shiftContext(state: AppState, todayDs: string): ShiftContext {
     cbmsByChapter: latestCbmsByChapter(state, todayDs),
     leeches: new Set(leechChapters(state, todayDs, Infinity).map((l) => l.sid + '|' + l.chapter)),
     strong: (sid, chapter) => chapterStrength(state, sid, chapter, todayDs).band === 'strong',
+    /* ⚠ `strong` 과 **같은 관측**에서 나온다(같은 `chapterStrength`) — 하나는 3구간으로 접고
+       하나는 연속으로 쓴다. 두 축이 서로 다른 표본을 보면 화면이 "붙었다"고 말하면서 사다리는
+       줄어드는 상태가 생긴다. */
+    coef: (sid, chapter) => chapterCoefficient(chapterStrength(state, sid, chapter, todayDs)),
   };
 }
 
@@ -227,15 +246,23 @@ export function shiftContext(state: AppState, todayDs: string): ShiftContext {
  * 두 곳이 각자 판정하면 오늘 화면은 "급함"이라 하고 시험 예보는 "괜찮음"이라 말하는 상태가
  * 생기고, 어느 쪽이 맞는지 화면 어디에도 안 적힌다. 규칙 자체는 `riskOf` 머리주석이 소유한다.
  */
-export function chapterShift(sid: string, chapter: string, ctx: ShiftContext): { failing: boolean; strong: boolean } {
+export function chapterShift(
+  sid: string,
+  chapter: string,
+  ctx: ShiftContext,
+): { failing: boolean; strong: boolean; coef: number | null } {
   /* A-4 — **leech 는 앞당기지 않는다.** 앞당김이 이미 여러 번 실패한 챕터라, 한 번 더 앞당기는
      것은 같은 처방의 반복이다. 기본 사다리로 되돌리면 등장이 드물어지고, 그 자리를 *다른 처방*
      (쪼개기·요약 재작성)이 받는다. ⚠ 미룸(`strong`)도 안 준다 — 붙지 않은 것을 미루면 방치다. */
-  if (ctx.leeches.has(sid + '|' + chapter)) return { failing: false, strong: false };
+  /* ⚠ leech 는 계수도 안 받는다 — 계수는 *얼마나 붙었나*의 함수인데, 만성 실패 챕터에 대해
+     그 질문은 이미 답이 나와 있고(안 붙는다) 처방이 간격이 아니다(A-4). */
+  if (ctx.leeches.has(sid + '|' + chapter)) return { failing: false, strong: false, coef: null };
   const code = ctx.cbmsByChapter.get(sid + '|' + chapter);
   return {
     failing: code ? CBMS_ADVANCES_REVIEW.has(code) : ctx.failing.has(sid),
     strong: ctx.strong(sid, chapter),
+    // I-1(W7) — 간격만 연속으로. **표시는 3구간 그대로**(`chapterStrength` 머리주석의 범위 분할).
+    coef: ctx.coef(sid, chapter),
   };
 }
 
@@ -304,7 +331,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
   for (const e of last.values()) {
     const daysSince = dayDiff(e.ds, todayDs);
     const key = e.sid + '|' + e.chapter;
-    const { failing: failingNow, strong: strongNow } = chapterShift(e.sid, e.chapter, ctx);
+    const { failing: failingNow, strong: strongNow, coef } = chapterShift(e.sid, e.chapter, ctx);
     out.push({
       sid: e.sid,
       subject: e.subject,
@@ -312,7 +339,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       chapter: e.chapter,
       lastDs: e.ds,
       daysSince,
-      risk: riskOf(daysSince, failingNow, strongNow),
+      risk: riskOf(daysSince, failingNow, strongNow, coef),
       ...(e.fromVault ? { fromVault: true as const } : null),
       ...(ctx.leeches.has(key) ? { leech: true as const } : null),
     });
@@ -642,8 +669,9 @@ export function examStaleChapters(state: AppState, days: Day[], todayDs: string,
     }
     const untouched = bestIn < 0;
     const ageAtExam = untouched ? ch.daysSince + toExam : toExam - bestIn;
-    const { failing, strong } = chapterShift(ch.sid, ch.chapter, ctx);
-    const riskAtExam = riskOf(ageAtExam, failing, strong);
+    const { failing, strong, coef } = chapterShift(ch.sid, ch.chapter, ctx);
+    // I-1 — 시험 앵커도 **같은 계수**를 쓴다(두 곳이 갈리면 오늘 화면과 시험 예보가 다른 말을 한다).
+    const riskAtExam = riskOf(ageAtExam, failing, strong, coef);
     if (riskAtExam === 'fresh') continue;
     out.push({
       sid: ch.sid,

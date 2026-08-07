@@ -5,7 +5,7 @@
    값 부재를 값 0 으로 그리게 되고, 그게 이 저장소가 반복해서 물린 "조용한 거짓말"의 형태다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { BAND_LABEL, chapterStrength } from '@/lib/chapterStrength';
+import { BAND_LABEL, chapterCoefficient, chapterStrength, type ChapterStrength } from '@/lib/chapterStrength';
 import type { AppState } from '@/lib/types';
 
 let n = 0;
@@ -97,5 +97,51 @@ describe('chapterStrength — 3구간(연속값을 안 낸다)', () => {
 
   it('구간 어휘는 한 곳에서만 나온다', () => {
     expect(Object.keys(BAND_LABEL).sort()).toEqual(['shaky', 'strong', 'unseen']);
+  });
+});
+
+/* ── I-1 **연속 계수**(W7 · 2026-08-07) ─────────────────────────────────────────────
+   이 파일의 대상(`chapterStrength`)은 *"연속값을 안 낸다"* 를 머리주석으로 못박았고, I-1 은 그
+   판단을 **뒤집지 않고 범위를 가른다**: 그 결정이 겨눈 것은 **표시**(회상확률 소수점 = 정밀도의
+   착시)이고, 계수가 쓰이는 곳은 **간격**(스케줄러 내부 값)이다. 그래서 여기서 잠그는 것은
+   *계수가 존재한다*가 아니라 **그 범위 분할이 지켜지는가**다:
+   ① 표본이 얇으면 계수가 없다(= 종전 동작) ② 범위가 좁다 ③ **`band` 는 안 바뀐다**(표시 불변).
+*/
+describe('I-1 chapterCoefficient — 간격만 연속, 표시는 3구간', () => {
+  const st = (attempts: number, passes: number): ChapterStrength => ({
+    attempts,
+    passes,
+    lastPassed: passes > 0,
+    lastTouchDs: null,
+    daysSince: null,
+    band: 'shaky',
+  });
+
+  it('표본이 얇으면 계수가 없다 — 두 번 관측으로 배율을 내면 그게 정밀도의 착시다', () => {
+    expect(chapterCoefficient(st(0, 0))).toBeNull();
+    expect(chapterCoefficient(st(1, 1))).toBeNull();
+  });
+
+  it('많이 붙었으면 사다리를 늘리고, 자주 막혔으면 줄인다', () => {
+    expect(chapterCoefficient(st(6, 6))!).toBeGreaterThan(1);
+    expect(chapterCoefficient(st(6, 0))!).toBeLessThan(1);
+  });
+
+  it('⭐ 범위가 좁다(0.7~1.4) — 넓히면 "잊은 챕터를 안 보여준다"가 커진다', () => {
+    for (const [a, p] of [
+      [2, 0],
+      [2, 2],
+      [10, 0],
+      [10, 10],
+      [50, 25],
+    ] as const) {
+      const c = chapterCoefficient(st(a, p))!;
+      expect(c).toBeGreaterThanOrEqual(0.7);
+      expect(c).toBeLessThanOrEqual(1.4);
+    }
+  });
+
+  it('라플라스 평활 — 1전 1승이 곧바로 최대 배율을 받지 않는다', () => {
+    expect(chapterCoefficient(st(2, 2))!).toBeLessThan(chapterCoefficient(st(20, 20))!);
   });
 });

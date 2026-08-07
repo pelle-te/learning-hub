@@ -665,8 +665,11 @@ describe('A-4 leechChapters — 만성 실패는 처방이 다르다', () => {
     const st = stateWithBlanks(rows, [['c', '회로이론']]);
     const ctx = shiftContext(st, TODAY);
     expect(ctx.leeches.has('c|3장')).toBe(true);
-    // 막힌 기록이 넷인데도 failing 이 false 다(= 기본 사다리로 되돌아간다)
-    expect(chapterShift('c', '3장', ctx)).toEqual({ failing: false, strong: false });
+    /* 막힌 기록이 넷인데도 failing 이 false 다(= 기본 사다리로 되돌아간다).
+       ⚠ I-1(W7) — `coef` 도 **null** 이다: 계수는 *얼마나 붙었나*의 함수인데 leech 는 그 질문의
+       답이 이미 나와 있고(안 붙는다) 처방이 간격이 아니다. 계수를 주면 A-4 가 멈춘 앞당김이
+       다른 이름으로 되살아난다. */
+    expect(chapterShift('c', '3장', ctx)).toEqual({ failing: false, strong: false, coef: null });
     // 대조군: 세 번만 막힌 다른 챕터는 종전대로 앞당겨진다
     const st3 = stateWithBlanks([fail('2026-06-01', '5장'), fail('2026-06-08', '5장'), fail('2026-06-11', '5장')]);
     expect(chapterShift('c', '5장', shiftContext(st3, TODAY)).failing).toBe(true);

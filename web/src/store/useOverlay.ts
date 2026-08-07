@@ -23,20 +23,27 @@ interface OverlayStore {
   miniCapture: boolean;
   /** '?' 단축키 치트시트 */
   help: boolean;
+  /** N-15 — **오늘 버퍼**(하루를 텍스트 한 장으로). 읽기 전용 전면 오버레이 · ⌘K 로 연다.
+   *  ⚠ 라우트가 아닌 이유: 이건 *가는 곳*이 아니라 **지금 화면 위에서 훑는 것**이다(⌘K·`?` 와
+   *  같은 부류). 라우트로 만들면 명사 축(N-12)에 "하루"가 둘이 된다(`/day` 와 겹친다). */
+  dayBuffer: boolean;
   setPalette: (v: boolean) => void;
   setMiniCapture: (v: boolean) => void;
   togglePalette: () => void;
   setHelp: (v: boolean) => void;
   toggleHelp: () => void;
+  setDayBuffer: (v: boolean) => void;
 }
 
 export const useOverlay = create<OverlayStore>()((set) => ({
   palette: false,
   miniCapture: false,
   help: false,
+  dayBuffer: false,
   setPalette: (v) => set({ palette: v }),
   setMiniCapture: (v) => set({ miniCapture: v }),
   togglePalette: () => set((s) => ({ palette: !s.palette })),
   setHelp: (v) => set({ help: v }),
   toggleHelp: () => set((s) => ({ help: !s.help })),
+  setDayBuffer: (v) => set({ dayBuffer: v }),
 }));

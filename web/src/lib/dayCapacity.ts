@@ -76,6 +76,17 @@ export interface DayCapacity {
   scaleMin: number;
   /** 남은 창이 축척에서 차지하는 비율(0~1). 이 지점이 곧 "오늘의 끝" 표시다. */
   windowRatio: number;
+  /**
+   * **A-11** — 실측 배율을 먹였을 때의 여유(분). 배율이 없으면 `null`.
+   *
+   * ⚠⚠ 배율은 지금까지 **과목 상세에만** 있었다: 보려면 `/items` → 카드 → 상세 = 3화면·2클릭이고,
+   * 오늘 화면과 연결이 **0**이었다. 그래서 앱은 "내 추정이 20% 낙관적이다"를 알면서도 아침에
+   * 그 사실을 한 번도 말하지 않았다 — A-5 가 그 배율을 *계획 숫자*에 먹였다면 이건 **오늘의
+   * 판정 문장**에 먹인다(같은 값이 두 시제에서 각각 쓰인다).
+   * ⚠ `slackMin` 을 **덮어쓰지 않는다.** 계획된 여유와 실측 보정 여유는 다른 값이고, 하나로
+   *   합치면 "계획이 틀렸다"와 "오늘이 빡빡하다"가 구분되지 않는다.
+   */
+  calibratedSlackMin: number | null;
 }
 
 /* ── 7-I4 **할 일도 하루를 먹는다**(발산 6회차 · 2026-08-07) ─────────────────
@@ -94,7 +105,16 @@ export interface DayCapacity {
    ⚠ 이건 N-1(과제 부하)의 **값싼 첫 조각**이다 — 스키마 0 · 스케줄러 계약 0. 주기적 과제
    모델은 W8 이 연다. */
 
-export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: number, choreMin = 0): DayCapacity {
+/**
+ * @param estimateRatio **A-11** — 실측 배율(`Σactual/Σplanned`). 1.2 면 *내 추정이 20% 낙관적*.
+ *   `null`·1 이면 아무것도 더하지 않는다(없는 근거로 문장을 늘리지 않는다).
+ */
+export function dayCapacity(
+  blocks: readonly CapacityBlock[],
+  freeLeftMin: number,
+  choreMin = 0,
+  estimateRatio: number | null = null,
+): DayCapacity {
   /* ⚠ 창을 먼저 깎고 그 뒤 계산은 **한 글자도 안 바뀐다** — 판정 규칙을 두 벌로 만들지 않는다.
      ⚠ 0 미만으로 안 내려간다: 음수 창은 "이미 넘었다"를 뜻하는데 그 판정은 `slackMin` 부호가
      이미 하고 있고, 창 자체를 음수로 두면 막대 축척(`scaleMin`)이 뒤집힌다. */
@@ -123,11 +143,23 @@ export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: numbe
   const head =
     (chore > 0 ? `창 ${hLabel(freeLeftMin)}(할 일 ${hLabel(chore)} 뺀 뒤)` : `창 ${hLabel(freeLeftMin)}`) +
     ` · 남은 계획 ${hLabel(remainMin)}`;
+  /* A-11 — 실측 배율을 먹인 남은 계획. ⚠ 배율이 1에 가까우면(±5%) **말하지 않는다**: 그
+     구간은 `calibrationLabel` 이 이미 "대체로 맞음"이라 부르는 잡음이고, 아침 문장에 잡음을
+     한 조각 더 얹으면 그 문장 전체의 신뢰가 깎인다. */
+  const ratio = typeof estimateRatio === 'number' && Number.isFinite(estimateRatio) ? estimateRatio : null;
+  const useRatio = ratio != null && Math.abs(ratio - 1) >= 0.05;
+  const calibratedSlackMin = pending.length && useRatio ? Math.round(freeLeftMin - remainMin * ratio) : null;
+  const calTail =
+    calibratedSlackMin == null
+      ? ''
+      : calibratedSlackMin < 0
+        ? ` · 실측대로면 ${hLabel(-calibratedSlackMin)} 모자람`
+        : ` · 실측대로면 여유 ${hLabel(calibratedSlackMin)}`;
   const fitLine = !pending.length
     ? null
     : beyondKeys.size
-      ? `${head} — ${beyondKeys.size}개는 오늘 밖`
-      : `${head} — 여유 ${hLabel(Math.max(0, freeLeftMin - remainMin))}`;
+      ? `${head} — ${beyondKeys.size}개는 오늘 밖${calTail}`
+      : `${head} — 여유 ${hLabel(Math.max(0, freeLeftMin - remainMin))}${calTail}`;
   const scaleMin = Math.max(freeLeftMin, remainMin);
   return {
     beyondKeys,
@@ -138,6 +170,7 @@ export function dayCapacity(blocks: readonly CapacityBlock[], freeLeftMin: numbe
     // "말할 것 없음"을 같은 픽셀로 그린다.
     slackMin: pending.length ? freeLeftMin - remainMin : null,
     segments,
+    calibratedSlackMin,
     scaleMin,
     windowRatio: scaleMin > 0 ? Math.min(1, freeLeftMin / scaleMin) : 0,
   };
