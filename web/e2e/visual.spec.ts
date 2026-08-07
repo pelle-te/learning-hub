@@ -498,6 +498,11 @@ for (const theme of THEMES) {
 const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
   { key: 'degree-path', path: '/degree?view=path', ready: '내 길' },
   { key: 'find-guide', path: '/find?view=guide', ready: '이 시스템이 할 수 있는 것' },
+  /* ⚠ **W8(2026-08-07) — 학기의 입구·출구는 처음부터 여기 있다.** 흡수된 뷰가 아니라 새 뷰지만
+     로스터 밖인 것은 같고(`TABS` 는 화면 탭만 안다), 그러면 커버리지가 0이 된다 — §15-4 가
+     _"커버리지 0인 화면은 이식 **전에** 스냅샷부터"_ 라 적어 둔 자리다. */
+  { key: 'degree-intake', path: '/degree?view=intake', ready: '강의계획서 붙여넣기' },
+  { key: 'degree-close', path: '/degree?view=close', ready: '다음 학기가 배운 것' },
 ];
 for (const theme of THEMES) {
   for (const v of MERGED_VIEWS) {

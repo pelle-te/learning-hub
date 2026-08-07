@@ -532,6 +532,18 @@ export const A11Y_EXTRA: ExtraScreen[] = [
     path: '/find?view=guide',
     ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
   },
+  /* ⚠ **W8(2026-08-07)** — 학기 인입구·결산. 흡수 뷰들과 같은 이유로 여기 있다(로스터 밖이라
+     안 넣으면 아무도 안 본다). 인입구는 **폼이 많은 화면**이라 a11y 표면이 넓다(라벨·체크박스). */
+  {
+    key: 'degree-intake',
+    path: '/degree?view=intake',
+    ready: (page) => page.getByLabel('어느 과목').waitFor(),
+  },
+  {
+    key: 'degree-close',
+    path: '/degree?view=close',
+    ready: (page) => page.getByText('다음 학기가 배운 것').waitFor(),
+  },
   {
     key: 'subject-sheet',
     path: '/subject/m?view=sheet',
