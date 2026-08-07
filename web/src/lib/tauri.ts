@@ -855,3 +855,14 @@ export function installUpdate(endpoint?: string): Promise<void> {
   // ⚠ 확인 때와 **같은 엔드포인트**를 넘겨야 한다(본 것과 다른 것을 설치하지 않게).
   return call('install_update', { endpoint: endpoint ?? null }, z.unknown() as z.ZodMiniType<void>);
 }
+
+/** A-6 — 트레이 툴팁을 세운다. 문구는 프런트가 만든다(`lib/reminder.trayTooltip`).
+ *  ⚠ 실패는 조용하다 — 트레이는 부가 표면이다(`shellBadge`·`shellNotify` 와 같은 판단). */
+export async function shellTrayTooltip(text: string): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await call<void>('tray_tooltip', { text });
+  } catch {
+    /* 트레이가 안 섰거나 플랫폼이 다르다 — 앱을 막지 않는다 */
+  }
+}

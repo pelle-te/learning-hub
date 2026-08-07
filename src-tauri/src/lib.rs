@@ -144,6 +144,9 @@ pub fn run() {
             불린다(근거는 updater.rs 머리주석). */
             updater::check_update,
             updater::install_update,
+            /* A-6(발산 6회차) — 트레이 툴팁. 상주 모드에서 정보가 있는 유일한 표면이다
+            (창을 숨기면 작업표시줄 배지가 함께 사라진다 · 근거는 tray.rs 의 그 절). */
+            tray::tray_tooltip,
         ])
         .setup(|app| {
             /* ⚠⚠ **릴리스에도 로거를 등록한다(H1 · 2026-07-30 `/감사 근본`).**

@@ -186,6 +186,39 @@ export default defineConfig({
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
         ],
+        /* ── N-9 **앱을 열지 않고 넣는 두 입구**(발산 6회차 · 2026-08-07) ─────────────
+           폰에서 이 앱에 닿는 길이 *잠금해제 → PWA 찾기 → 탭 → 캡처 바* 네 걸음뿐이었다.
+           그래서 지하철에서 떠오른 것은 실제로는 **폰 기본 메모**에 적히고, 나중에 손으로
+           옮겨야 하는데 안 옮겨져서 유실된다(`CaptureBar` 머리주석이 이미 적은 그 경로).
+
+           ⚠ **새 화면을 안 만든다.** 착지는 기존 캡처 바 하나이고, 매니페스트 두 줄이 그
+           입구를 OS 층으로 끌어낼 뿐이다 — 로드맵 N-9 의 "기존 한 줄" 이 이 뜻이다.
+           ⚠ `share_target` 은 **GET** 이다. POST(multipart)는 서비스워커가 요청을 가로채
+           처리해야 해서 SW 에 라우트가 생기고, 그건 오프라인 계약을 건드린다. 텍스트만
+           받으면 GET 쿼리로 충분하고 배관이 0이다.
+           ⚠ **iOS 는 `share_target` 을 지원하지 않는다**(Android 설치형 PWA 전용). 값이 기기에
+             달렸다는 사실을 여기 적어 둔다 — 안 뜬다고 배선을 의심하지 말 것. */
+        share_target: {
+          action: '/phone.html',
+          method: 'GET',
+          params: { title: 'share_title', text: 'share_text', url: 'share_url' },
+        },
+        shortcuts: [
+          {
+            name: '빠른 캡처',
+            short_name: '캡처',
+            description: '떠오른 것을 바로 담기 — 앱을 훑지 않고',
+            url: '/phone.html?capture=1',
+            icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' }],
+          },
+          {
+            name: '오늘 복습',
+            short_name: '복습',
+            description: '오늘 인출할 것을 바로 굴리기',
+            url: '/phone.html?view=review',
+            icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' }],
+          },
+        ],
       },
       devOptions: { enabled: false }, // dev 서버에선 SW 등록 안 함
     }),

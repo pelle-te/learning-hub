@@ -37,7 +37,13 @@ export default function PhoneApp(): React.JSX.Element {
   const ledger = useSyncLedger();
   const today = useApp((s) => todayISO(s.state));
   const [ds, setDs] = useState(today);
-  const [view, setView] = useState<View>('today'); // 열면 홈 대시보드가 먼저
+  /* N-9 — 아이콘 바로가기(`?view=review`)는 그 뷰로 바로 착지한다. 그 외엔 종전대로 홈.
+     ⚠ 값 검증을 `VIEWS` 로 한다 — 임의 문자열이 `View` 로 들어오면 탭바가 아무것도 활성으로
+     못 그리고, 그 상태는 화면상 "빈 앱"과 구분되지 않는다. */
+  const [view, setView] = useState<View>(() => {
+    const v = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
+    return (VIEWS as readonly string[]).includes(v || '') ? (v as View) : 'today';
+  });
   const [status, setStatus] = useState<string | null>(null);
   const dbBroken = useSyncExternalStore(onSaveFallback, isSaveFallback, () => false);
 

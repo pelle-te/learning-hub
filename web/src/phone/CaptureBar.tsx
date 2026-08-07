@@ -34,8 +34,25 @@ import { Icon } from '@/components/Icon';
 /** 확인 줄이 스스로 사라지기까지(ms) — 되돌리기를 누를 시간은 주되 화면에 눌러앉지 않는다. */
 const CONFIRM_MS = 6000;
 
+/* ── N-9 공유 시트 착지(발산 6회차 · 2026-08-07) ────────────────────────────
+   매니페스트의 `share_target`(GET)이 여기로 온다 — 다른 앱에서 한 문장을 공유하면 **앱을
+   "연" 적 없이** 이 바에 채워져 있다. 그리고 아이콘 길게 눌러 나오는 `?capture=1` 도 같은 곳.
+
+   ⚠ **자동 저장하지 않는다.** 공유는 사용자의 *의도*이지 *확정*이 아니고, 자동 커밋하면
+   오공유 하나가 조용히 원장에 남는다(되돌릴 자리도 그때는 화면에 없다). 채워만 두고 손가락
+   하나를 남긴다 — `fileCapture` 의 파싱 실패도 그 한 걸음에서 보인다.
+   ⚠ URL 은 **본문 뒤에 붙인다** — 공유 시트가 제목·본문·URL 을 따로 주는데 셋을 다 버리면
+   출처가 사라지고, 앞에 붙이면 파서가 첫 토큰을 과목명으로 읽는다.
+   ⚠ **쿼리를 한 번만 읽는다**(마운트 시). 남겨 두면 새로고침마다 같은 것이 다시 채워진다. */
+function sharedText(): string {
+  if (typeof window === 'undefined') return '';
+  const q = new URLSearchParams(window.location.search);
+  const parts = [q.get('share_title'), q.get('share_text'), q.get('share_url')].map((s) => (s || '').trim());
+  return parts.filter(Boolean).join(' ').trim();
+}
+
 export default function CaptureBar(): React.JSX.Element {
-  const [text, setText] = useState('');
+  const [text, setText] = useState(sharedText);
   const [done, setDone] = useState<{ id: string; topic: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

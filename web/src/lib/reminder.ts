@@ -126,3 +126,23 @@ export function reminderBody(lead: ReminderLead | null, rest = 0): { title: stri
   const tail = rest > 0 ? '오늘은 이거 하나면 충분합니다.' : '이거면 오늘 몫은 끝입니다.';
   return { title: lead.label, body: dur ? `${dur} — ${tail}` : tail };
 }
+
+/* ── A-6 트레이 툴팁(발산 6회차 · 2026-08-07) ──────────────────────────────
+   ⚠⚠ 상주 모드를 켜면 **정보가 있는 표면이 0이 된다**: 창을 숨기면 작업표시줄 버튼이 사라지고
+   거기 붙은 오버레이 배지(Q-30)도 함께 사라진다. 남는 것은 아무것도 말하지 않는 아이콘 하나다.
+
+   ⚠ 문구를 **여기서** 만드는 이유: A-1(알림)과 **같은 어휘**여야 한다. 두 채널이 같은 사실을
+   다르게 말하면(하나는 "회로이론 3장", 하나는 "대기 3건") 사용자는 둘을 다른 것으로 읽는다.
+   그래서 리드 선택은 `pickReminderLead` 를 그대로 재사용하고, 이 함수는 **조판만** 한다.
+
+   ⚠ 여기서는 **수를 써도 된다.** 알림이 수를 안 쓰는 이유는 *말을 걸기 때문*이고(밀린 수를
+   들이밀면 회피가 된다), 툴팁은 **보러 간 사람에게만** 보인다 — 갔다는 것 자체가 알고 싶다는
+   뜻이다. Q-30 이 배지를 "말 걸지 않는 알림"이라 부른 것과 같은 구분이다. */
+
+/** 트레이 툴팁(여러 줄). 첫 줄은 앱 이름 — OS 가 그 자리를 이름으로 기대한다. */
+export function trayTooltip(lead: ReminderLead | null, pending: number): string {
+  const lines = ['러닝허브'];
+  if (lead) lines.push(lead.min ? `다음 · ${lead.label} (${Math.round(lead.min)}분)` : `다음 · ${lead.label}`);
+  lines.push(pending > 0 ? `대기 ${pending}건` : '대기 없음');
+  return lines.join('\n');
+}
