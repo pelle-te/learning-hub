@@ -55,7 +55,9 @@ const TOAST =
 // 검색 입력 — type=search 는 전역 input[type=text]{} 밖(글래스 배경 직접). 전역 input{font-size:13}
 // 만 겹쳐 text-sm! · 키보드 포커스링(acc55)은 로컬이 이겼던 것이라 focus-visible:…! 로 되찾는다.
 const SEARCH =
-  'h-7 w-37.5 rounded-md border border-line bg-panel-glass-88 px-2.25 text-sm! leading-auto text-txt [backdrop-filter:var(--backdrop-graph)] [transition:border-color_0.16s_var(--ease)] focus-visible:border-line-acc-focus!';
+  /* ⚠ `py-0` 은 장식이 아니다 — 전역 폼 스킨의 타입 목록에 `search` 가 들어오면서(2026-08-08)
+     이 칸도 세로 패딩 8px 을 상속받는데, 높이가 28px 로 고정돼 있어 글자가 눌린다. */
+  'h-7 w-37.5 rounded-md border border-line bg-panel-glass-88 px-2.25 py-0 text-sm! leading-auto text-txt [backdrop-filter:var(--backdrop-graph)] [transition:border-color_0.16s_var(--ease)] focus-visible:border-line-acc-focus!';
 // 줌/찾기 버튼 — 전역 button{} 과 다른 속성만 !(배경·색·반경). border/padding/cursor 는 전역과 동일해 생략.
 const CTRL_BTN =
   'grid size-7 place-items-center rounded-md! bg-panel-glass-88! text-base! leading-auto text-mut! [backdrop-filter:var(--backdrop-graph)]';

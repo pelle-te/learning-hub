@@ -1251,3 +1251,97 @@ describe('불변식 ⑪ confirm 직접 호출이 사다리 밖에 없다', () =>
     for (const w of ['commitUndoable', 'confirmLossy', 'confirmIrreversible']) expect(all).toContain(w);
   });
 });
+
+/* ============================================================
+   불변식 ⑬ — **폼 스킨의 타입 목록이 실제 쓰이는 타입을 덮는다** (2026-08-08)
+
+   `styles/global/components.css` 는 텍스트형 입력의 겉모습(폭·배경·테두리·패딩·포커스링)을
+   **타입 열거**로 건다. 열거인 것은 의도다 — 뒤집으면(`input:not([type='checkbox'], …)`)
+   타입 없는 인라인 입력 열(스케줄 추가칸·폰 캡처바·ics 주소)이 통째로 이 스킨을 뒤집어쓴다.
+
+   ## 왜 게이트여야 하는가 — 실제로 표류했고, 기존 게이트 전부가 못 봤다
+
+   `type='search'`(찾기 화면의 **유일한 컨트롤**)와 `type='url'`(설정›클라우드 서버 주소)이
+   목록에 없어서 **아무 스킨도 안 입은 네이티브 상자**로 렌더되고 있었다. 못 잡은 이유:
+   · 타입·린트: CSS 셀렉터와 JSX 속성의 관계를 모른다.
+   · 시각 스냅샷: **회귀가 아니라 처음부터 그랬다** → 베이스라인이 그 모습으로 굳어 있었다.
+   · a11y(axe): 무스타일 입력은 흰 배경 + 검은 글자라 대비를 오히려 **더 잘** 통과한다.
+   즉 세 겹이 초록인 채로 화면만 낡아 보였다.
+
+   ⚠ 이 불변식이 **못 보는 것**: 예외 목록에 넣는 판단의 타당성(그건 사람이 한다). 잡는 것은
+   *새 타입이 조용히 스킨 없이 들어오는 것* 하나다.
+──────────────────────────────────────────────────────────────────────────── */
+describe('불변식 ⑬ <input type> 이 전역 폼 스킨에 등재돼 있다', () => {
+  const SRC13 = join(process.cwd(), 'src');
+  /** 텍스트형 스킨을 **의도적으로 안 받는** 타입 — 각자 자기 규칙이 이미 있다. */
+  const EXEMPT = new Set([
+    'checkbox', // 커스텀 체크박스(같은 파일에 자기 절이 있다)
+    'radio',
+    'file', // 두 곳 다 `hidden` — 버튼이 대리 클릭한다
+    'range',
+    'color',
+    'button',
+    'submit',
+    'reset',
+    'hidden',
+    'image',
+  ]);
+
+  /** `src/**` 의 모든 `<input …>` 여는 태그. */
+  function inputTags(): { rel: string; tag: string }[] {
+    const out: { rel: string; tag: string }[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.tsx$/.test(e.name)) {
+          const code = readFileSync(p, 'utf8');
+          const rel = normPath(p).replace(normPath(SRC13) + '/', '');
+          /* JSX 는 속성 안에 `>` 를 품을 수 있다(`onChange={(e) => …}`) → 중괄호 깊이를 세며
+             태그 끝을 찾는다. 정규식 하나로 끊으면 타입 속성이 잘려 **거짓 통과**가 된다. */
+          for (const m of code.matchAll(/<input\b/g)) {
+            let depth = 0;
+            let end = m.index;
+            for (let j = m.index; j < code.length; j++) {
+              const c = code[j];
+              if (c === '{') depth++;
+              else if (c === '}') depth--;
+              else if (c === '>' && depth === 0) {
+                end = j;
+                break;
+              }
+            }
+            out.push({ rel, tag: code.slice(m.index, end + 1) });
+          }
+        }
+      }
+    };
+    walk(SRC13);
+    return out;
+  }
+
+  /** `components.css` 가 실제로 스킨을 거는 타입(문서를 믿지 않고 CSS 를 읽는다). */
+  function skinnedTypes(): Set<string> {
+    const css = readFileSync(join(SRC13, 'styles', 'global', 'components.css'), 'utf8');
+    /* 셀렉터 목록 → `{` 직전까지. 텍스트형 스킨 블록은 `width: 100%` 로 시작하는 그 하나다. */
+    const block = css.match(/((?:input\[type='[a-z]+'\],\s*)+[\s\S]*?)\{\s*width:\s*100%/);
+    return new Set([...(block?.[1].matchAll(/input\[type='([a-z]+)'\]/g) ?? [])].map((m) => m[1]));
+  }
+
+  it('스킨 블록이 실제로 존재한다(0이면 아래 검사가 아무것도 안 잰다)', () => {
+    expect(skinnedTypes().size, 'components.css 의 텍스트형 입력 스킨 블록을 못 찾았다').toBeGreaterThanOrEqual(6);
+  });
+
+  it('쓰이는 모든 <input type> 이 스킨 목록이거나 면제 목록에 있다', () => {
+    const skinned = skinnedTypes();
+    const bad = inputTags()
+      .map(({ rel, tag }) => ({ rel, type: /\btype=["']([a-z]+)["']/.exec(tag)?.[1] }))
+      .filter(({ type }) => type && !skinned.has(type) && !EXEMPT.has(type))
+      .map(({ rel, type }) => `${rel}: type="${type}"`)
+      .sort();
+    expect(
+      [...new Set(bad)],
+      `스킨 없는 입력 타입 — styles/global/components.css 의 타입 열거에 추가하거나, 안 받는 것이 의도라면 EXEMPT 에 이유와 함께 적어라:\n${bad.join('\n')}`,
+    ).toEqual([]);
+  });
+});

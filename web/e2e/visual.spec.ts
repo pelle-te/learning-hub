@@ -517,6 +517,24 @@ for (const theme of THEMES) {
   }
 }
 
+/* ── 찾기 › **질의가 있는 상태** — 커버리지가 0이었다(2026-08-08) ────────────────────
+   `TABS` 루프의 `find` 는 질의 없는 첫 진입(안내 화면)만 찍는다. 즉 이 화면이 실제로 하는 일
+   — 입력 칸에 값이 있고 결과 행이 늘어선 상태 — 은 **한 번도 안 찍혔다.** 그 사각에서 진짜
+   결함이 살고 있었다: `type='search'` 가 전역 폼 스킨의 타입 목록에 없어 검색 칸이 네이티브
+   흰 상자로 렌더됐는데, 회귀가 아니라 **처음부터 그랬으므로** 스냅샷은 영원히 초록이었다.
+   ⚠ 지우기 버튼은 **질의가 있을 때만** 존재한다 → 여기가 그 버튼의 유일한 시각 커버리지다. */
+for (const theme of THEMES) {
+  test(`find-results · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    // SEED 의 과목 둘·챕터 셋에 걸리는 질의(`미적분`·`극한`·`미분`) — 화면·내용 두 종류가 함께 뜬다.
+    await page.goto('/find?q=' + encodeURIComponent('미'));
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.getByRole('button', { name: '검색어 지우기' })).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`find-results-${theme}.png`, { fullPage: true });
+  });
+}
+
 /* ⚠ '진로 지도 상세'(옛 딥링크 `/atlas/<key>`) 케이스가 P10 W4 에서 빠졌다(2026-08-07) —
    화면·경로가 함께 사라졌다. 그 케이스가 잠그던 것은 *"경로 조각을 쿼리로 옮겨도 북마크가
    산다"* 였고, 같은 형태가 다시 생기면 그때 되살릴 값이 있다. */

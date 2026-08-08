@@ -21,7 +21,23 @@ textarea {
   font-family: inherit;
   font-size: 13px;
 }
+/* ⚠⚠ **이 타입 목록이 표류했다 — 그리고 화면으로 드러났다**(2026-08-08).
+   `search`·`url` 이 빠져 있어서 그 두 입력은 **아무 스킨도 안 입은 네이티브 상자**로 렌더됐다:
+   ① `/find` 의 검색 칸 — 그 화면의 *유일한* 컨트롤인데 다크 배경 한복판에 흰 상자였다.
+   ② `설정›클라우드` 의 서버 주소 칸 — **바로 아래 등록 코드 칸(text)과 다르게** 생겼다.
+   ⚠ 시각 스냅샷이 못 잡았다. 베이스라인이 이미 그 모습으로 굳어 있었기 때문이다(회귀가 아니라
+   **처음부터 그랬던 것**은 스냅샷의 사각이다) → 집행자는 **불변식 ⑬**(`test/invariants.test.ts`)
+   이고, 새 타입이 나타나면 여기 등재되거나 예외 목록에 근거를 적기 전까지 게이트가 빨개진다.
+
+   ⚠ **뒤집지 않는다**(`input:not([type='checkbox'], …)`). 타입이 **없는** `<input>` 이 10곳
+   있고(스케줄 인라인 추가·폰 캡처·ics 주소 등) 전부 자기 유틸리티로 형상을 갖는다 — 뒤집으면
+   그 열이 통째로 이 스킨(폭 100% · 패널 배경 · 8px 패딩)을 뒤집어쓴다. 열거인 것이 의도다. */
 input[type='text'],
+input[type='search'],
+input[type='url'],
+input[type='email'],
+input[type='password'],
+input[type='tel'],
 input[type='number'],
 input[type='date'],
 input[type='time'],
@@ -54,6 +70,14 @@ textarea:focus {
   border-color: var(--acc);
   background: var(--panel);
   box-shadow: 0 0 0 3px var(--acc-soft);
+}
+/* `type='search'` 의 네이티브 지우기 X 제거 — UA 가 그리는 회색 비트맵이라 **테마 토큰을 안 타고**
+   다크에서 사실상 안 보인다(위 스피너 제거와 같은 부류의 '투박한 기본'). 지우기가 필요한 화면은
+   자기 버튼으로 준다(`features/find` — 그래야 색·포커스링·히트영역이 앱 것이 된다). */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 /* 숫자 입력의 투박한 기본 스피너(위/아래 화살표) 제거 — 값은 타이핑, 주요 항목은 –/+ 스텝퍼 사용 */
 input[type='number'] {

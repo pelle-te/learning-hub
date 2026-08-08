@@ -27,10 +27,24 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { contentSearch, type ContentHit } from '@/lib/contentSearch';
 import { railTabs } from '@/shell';
 import State from '@/components/State';
+import { Icon } from '@/components/Icon';
 import { Button, Pill } from '@/components/ui';
 
 /** 화면이 넓으니 팔레트(8)보다 많이 보여 준다 — **유일하게 다른 값**이다(머리주석). */
 const LIMIT = 40;
+
+/* ⚠⚠ **결과 행이 가운데 정렬돼 있었다 — `justify-start!` 가 무효였다**(2026-08-08).
+   전역 `button{}` 은 `display` 를 안 정하므로 UA 기본 `inline-block` 이고, 그러면
+   `justify-content` 는 **적용될 자리가 없다**(플렉스 컨테이너가 아니다). 대신 UA 의
+   `text-align: center` 가 남아 행 전체가 가운데로 몰렸고, 과목 이름의 `ml-auto` 도 같은
+   이유로 죽어 **이름과 과목이 붙어 렌더**됐다(`미적분미적분`).
+   ⚠ 아무 게이트도 못 잡았다 — 질의가 있는 상태의 스냅샷이 **한 장도 없었다**(그래서 이번에
+   `find-results` 케이스를 함께 만들었다). `flex` 를 주면 두 유틸이 그제야 뜻대로 동작한다. */
+const ROW = 'flex w-full items-center justify-start! text-left';
+
+/** 검색어 지우기 — 전역 `button{}`(패널 배경·테두리·13px 패딩)을 이겨야 하므로 그 속성만 `!`. */
+const CLEAR =
+  'absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 place-items-center rounded-chip! border-0! bg-transparent! p-0! text-mut! hover:bg-panel2! hover:text-txt!';
 
 const KIND_LABEL: Record<ContentHit['kind'], string> = {
   subject: '과목',
@@ -98,15 +112,38 @@ export default function Find() {
     <section className="flex h-full flex-col gap-3.5 p-6" aria-label="찾기">
       <div className="ds-fld flex-none">
         <label htmlFor="find-q">무엇을 찾나요</label>
-        <input
-          id="find-q"
-          type="search"
-          value={q}
-          /* ⚠ `autoFocus` 는 린트가 (옳게) 막는다 — 스크린리더 사용자를 화면 중간으로 순간이동
-             시킨다. 이 화면은 ⌘K 와 달리 **머무는** 곳이라 자동 포커스의 이득도 작다. */
-          placeholder="과목·챕터·보충·약점·오답·읽을거리"
-          onChange={(e) => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })}
-        />
+        {/* ⚠ 이 칸은 화면의 **유일한 컨트롤**이다 — 크기·아이콘은 장식이 아니라 그 사실의 표현이다.
+            종전엔 폭 185px 짜리 네이티브 흰 상자였는데, 원인은 이 화면이 아니라 전역 폼 스킨의
+            타입 목록에 `search` 가 없던 것이다(`styles/global/components.css` · 불변식 ⑬이 잠갔다).
+            ⚠ `max-w-160` — 한 줄이 화면 폭 전체로 늘어나면 검색창이 아니라 *구분선*처럼 읽힌다. */}
+        <div className="relative max-w-160">
+          <Icon
+            name="search"
+            className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-mut"
+          />
+          <input
+            id="find-q"
+            type="search"
+            className="h-11 pr-11 pl-10.5 text-base"
+            value={q}
+            /* ⚠ `autoFocus` 는 린트가 (옳게) 막는다 — 스크린리더 사용자를 화면 중간으로 순간이동
+               시킨다. 이 화면은 ⌘K 와 달리 **머무는** 곳이라 자동 포커스의 이득도 작다. */
+            placeholder="과목·챕터·보충·약점·오답·읽을거리"
+            onChange={(e) => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })}
+          />
+          {/* 네이티브 지우기 X 는 전역에서 껐다(테마 토큰을 안 탄다) → 앱이 자기 것으로 준다.
+              ⚠ `replace: true` 로 지운다 — 검색은 되돌아갈 이력이 아니다(입력 때와 같은 규칙). */}
+          {q !== '' && (
+            <button
+              type="button"
+              className={CLEAR}
+              aria-label="검색어 지우기"
+              onClick={() => setParams({}, { replace: true })}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {!q.trim() ? (
@@ -132,10 +169,10 @@ export default function Find() {
           next={{ terminal: '검색어를 줄여 보세요.' }}
         />
       ) : (
-        <ul className="m-0 flex min-h-0 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0">
+        <ul className="m-0 flex min-h-0 max-w-160 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0">
           {screens.map((t) => (
             <li key={`s-${t.key}`}>
-              <Button variant="ghost" className="w-full justify-start!" onClick={() => navigate('/' + t.key)}>
+              <Button variant="ghost" className={ROW} onClick={() => navigate('/' + t.key)}>
                 <Pill tiny>화면</Pill>
                 <span className="ml-2">{t.label}</span>
               </Button>
@@ -143,10 +180,10 @@ export default function Find() {
           ))}
           {hits.map((h) => (
             <li key={h.id}>
-              <Button variant="ghost" className="w-full justify-start!" onClick={() => navigate(h.to)}>
+              <Button variant="ghost" className={ROW} onClick={() => navigate(h.to)}>
                 <Pill tiny>{KIND_LABEL[h.kind]}</Pill>
                 <span className="ml-2 min-w-0 truncate">{h.label}</span>
-                {h.subject && <span className="ds-tiny ml-auto text-mut">{h.subject}</span>}
+                {h.subject && <span className="ds-tiny ml-auto pl-2 text-mut">{h.subject}</span>}
               </Button>
             </li>
           ))}
