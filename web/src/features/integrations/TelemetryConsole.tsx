@@ -92,6 +92,46 @@ function Channel({
   );
 }
 
+/** 채널 리드아웃 파생 — **표현만 있고 상태는 없다**(이 파일 머리주석의 "순수 표현에 가깝게").
+ *  컴포넌트 본문에 두면 훅과 삼항 열댓 개가 한 함수에 섞여, 무엇이 구독이고 무엇이 계산인지가
+ *  읽는 순서로만 구분된다. 값 계산을 통째로 여기 모으면 컴포넌트에는 *구독 + JSX* 만 남는다.
+ *  ⚠ 반환값의 **이름과 값이 종전과 한 글자도 다르지 않다** — 렌더 트리가 안 변한다는 뜻이다.
+ *
+ *  · 전역 캡처 단축키(E20)는 셸에서만 존재하는 채널이다. 브라우저·dev 에선 필드가 아예 안 오므로
+ *    칸을 세우지 않는다(없는 기능을 'IDLE' 로 그리면 "고장난 것"으로 읽힌다).
+ *    ⚠ 실패 판정은 **사유의 존재**다(`hotkey === false` 가 아니다 — Rust 쪽과 같은 계약).
+ *  · 볼트 **감시** 실패(H7 · 2026-08-01)도 값이 있을 때만 실패다(hotkey 와 같은 계약). 감시가
+ *    죽으면 볼트를 고쳐도 화면이 안 바뀌는데 종전엔 그 사실이 Rust 로그에만 있었다.
+ *  · `quietLine` 의 분모는 14 가 아니라 **관측된 날**이다 — 앱을 안 연 날은 조용했는지 알 수 없고,
+ *    그걸 조용한 날로 세면 "안 썼다"가 "평온했다"로 둔갑한다. 관측이 0이면 아예 말하지 않는다.
+ *  · `waveLine`(W16)은 **부팅 웨이브를 읽는 유일한 자리**다. 계량만 하고 소비처가 없으면 그게 곧
+ *    `visits.ts` 가 물린 _"쌓이고 있다는 믿음만 쌓인다"_ 라, 마크를 넣은 커밋이 읽는 곳도 함께 낸다.
+ *    ⚠ 값이 없으면 **줄 자체가 없다**(0 으로 그리지 않는다 — 값 부재와 값 0 은 다른 사실이다). */
+function readouts(
+  ping: ReturnType<typeof usePing>,
+  vault: VaultScan | undefined,
+  live: AnkiLive | undefined,
+  file: AnkiFile | undefined,
+  quiet: { observed: number; quiet: number } | null,
+) {
+  const hotkeyErr = ping.data?.hotkeyError ?? null;
+  const wave = bootWave();
+  return {
+    serve: (ping.isLoading ? 'probing' : ping.isSuccess && ping.data?.ok ? 'online' : 'offline') as Status,
+    hotkeyErr,
+    hotkeyShown: ping.data?.hotkey !== undefined || !!hotkeyErr,
+    vaultWatchErr: ping.data?.vaultWatchError ?? null,
+    vaultNotes: vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0,
+    due: live ? totalDue(live.decks) : 0,
+    cards: file ? totalCards(file.decks) : 0,
+    quietLine: quiet && quiet.observed > 0 ? `최근 ${quiet.observed}일 관측 중 조용한 날 ${quiet.quiet}일` : null,
+    waveLine:
+      wave.total != null
+        ? `부팅 ${wave.total}ms(엔트리→App ${wave.entryToApp ?? '?'} · App→첫 화면 ${wave.appToData ?? '?'})`
+        : null,
+  };
+}
+
 export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const ping = usePing();
   /* ── E23 소비처 — **쓰기만 하는 계측은 계측이 아니다** ──────────────────
@@ -109,31 +149,13 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], queryFn: skipToken }).data;
   const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
 
-  const serve: Status = ping.isLoading ? 'probing' : ping.isSuccess && ping.data?.ok ? 'online' : 'offline';
-  /* 전역 캡처 단축키(E20) — 셸에서만 존재하는 채널이다. 브라우저·dev 에선 필드가 아예 안 오므로
-     칸을 세우지 않는다(없는 기능을 'IDLE' 로 그리면 "고장난 것"으로 읽힌다).
-     ⚠ 실패 판정은 **사유의 존재**다(`hotkey === false` 가 아니다 — Rust 쪽과 같은 계약). */
-  const hotkeyErr = ping.data?.hotkeyError ?? null;
-  const hotkeyShown = ping.data?.hotkey !== undefined || !!hotkeyErr;
-  /* 볼트 **감시** 실패(H7 · 2026-08-01) — 값이 있을 때만 실패다(hotkey 와 같은 계약).
-     감시가 죽으면 볼트를 고쳐도 화면이 안 바뀌는데 종전엔 그 사실이 Rust 로그에만 있었다. */
-  const vaultWatchErr = ping.data?.vaultWatchError ?? null;
-  const vaultNotes = vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0;
-  const due = live ? totalDue(live.decks) : 0;
-  const cards = file ? totalCards(file.decks) : 0;
-
-  /* 분모가 14 가 아니라 **관측된 날**이다 — 앱을 안 연 날은 조용했는지 알 수 없고, 그걸
-     조용한 날로 세면 "안 썼다"가 "평온했다"로 둔갑한다. 관측이 0이면 아예 말하지 않는다. */
-  const quietLine = quiet && quiet.observed > 0 ? `최근 ${quiet.observed}일 관측 중 조용한 날 ${quiet.quiet}일` : null;
-
-  /* W16 — **부팅 웨이브를 읽는 유일한 자리.** 계량만 하고 소비처가 없으면 그게 곧 `visits.ts` 가
-     물린 _"쌓이고 있다는 믿음만 쌓인다"_ 라, 마크를 넣은 커밋이 읽는 곳도 함께 낸다.
-     ⚠ 값이 없으면 **줄 자체가 없다**(0 으로 그리지 않는다 — 값 부재와 값 0 은 다른 사실이다). */
-  const wave = bootWave();
-  const waveLine =
-    wave.total != null
-      ? `부팅 ${wave.total}ms(엔트리→App ${wave.entryToApp ?? '?'} · App→첫 화면 ${wave.appToData ?? '?'})`
-      : null;
+  const { serve, hotkeyErr, hotkeyShown, vaultWatchErr, vaultNotes, due, cards, quietLine, waveLine } = readouts(
+    ping,
+    vault,
+    live,
+    file,
+    quiet,
+  );
 
   return (
     <div className={`ds-board${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>

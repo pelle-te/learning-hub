@@ -132,6 +132,44 @@ function updateTaskMin(st: AppState, id: string, min: number): void {
   if (t) t.min = min;
 }
 
+/** 왜 비었는가 — "다 배치됐다"와 "애초에 할 게 없다"는 다른 상태라, 후자를 '완료'로 축하하면
+ *  거짓말이 된다. 다만 이걸로 화면을 덮진 않는다(사용자 지적) — 트레이 안 **한 줄 힌트**로만
+ *  원인을 짚는다. 분기는 손댈 수 있는 것 위주로 3개만: 과목 없음 / 가용 0 / 그 외. 더 쪼개면 과설계다. */
+function emptyHintFor(isEmpty: boolean, hasSubjects: boolean, capMin: number): string {
+  if (!isEmpty) return '';
+  if (!hasSubjects) return '과목을 추가하면 자동초안이 깔려요.';
+  if (capMin <= 0) return '이 날은 가용 학습시간이 0h예요 — 설정에서 늘리거나 아래에서 직접 추가하세요.';
+  return '자동초안이 이 날엔 배분한 게 없어요 — 아래에서 직접 넣을 수 있어요.';
+}
+
+/** 타임라인 범위·눈금 — **깨어있는 창(wake0~wake1) 전체**.
+ *  옛 방식은 '일정 있는 구간 ±1h'로 좁혔다. 이유는 "창 전체를 그리면 빈 구간 때문에 일정이
+ *  납작해진다"였는데, 시간 행이 프레임을 채우도록 신축하면서 그 우려가 사라졌다. 반대로 좁은
+ *  범위는 실제 버그를 냈다 — 일정이 하나도 없는 날엔 폴백이 `wake0 + 8h`라 07시 기상이면
+ *  **07:00–15:00만** 그렸다(사용자 지적). 수면 블록은 창 산정에서 빠져 있다(넣으면 lo가 0시로 끌려간다).
+ *  ⚠ 창 **밖**의 일정(새벽 블록 등)은 union 해 잘리지 않게 한다 — 안 그러면 화면 밖으로 사라진다. */
+function timelineOf(src: {
+  wake0: number;
+  wake1: number;
+  timed: { start?: number | null; min: number }[];
+  timedTasks: { start?: number | null; min?: number }[];
+  events: { start: number; min: number }[];
+  routine: { type: string; start: string; end: string }[];
+}): { lo: number; hi: number; span: number; ticks: number[] } {
+  const ms: number[] = [];
+  src.timed.forEach((b) => ms.push(b.start!, b.start! + b.min));
+  src.timedTasks.forEach((t) => ms.push(t.start!, t.start! + (t.min || 30)));
+  src.events.forEach((e) => ms.push(e.start, e.start + e.min));
+  src.routine.forEach((b) => {
+    if (b.type === BLOCK_SLEEP) return;
+    ms.push(toMin(b.start), toMin(b.end));
+  });
+  const { lo, hi, span } = timelineSpan(src.wake0, src.wake1, ms);
+  const ticks: number[] = [];
+  for (let m = Math.ceil(lo / 60) * 60; m <= hi; m += 60) ticks.push(m);
+  return { lo, hi, span, ticks };
+}
+
 export function DayPlanner({
   ds,
   res,
@@ -194,35 +232,15 @@ export function DayPlanner({
   // sid를 못 찾으면(모의=sid 'mock') undefined → CSS 타입 폴백(.mock)이 색을 준다.
   const segColor = (sid: string) => itemById(state, sid)?.color;
 
-  // 왜 비었는가 — "다 배치됐다"와 "애초에 할 게 없다"는 다른 상태라, 후자를 '완료'로 축하하면 거짓말이 된다.
-  // 다만 이걸로 화면을 덮진 않는다(사용자 지적) — 트레이 안 **한 줄 힌트**로만 원인을 짚는다.
-  // 분기는 손댈 수 있는 것 위주로 3개만: 과목 없음 / 가용 0 / 그 외. 더 쪼개면 과설계다.
-  const emptyHint = !isEmpty
-    ? ''
-    : !hasSubjects
-      ? '과목을 추가하면 자동초안이 깔려요.'
-      : capMin <= 0
-        ? '이 날은 가용 학습시간이 0h예요 — 설정에서 늘리거나 아래에서 직접 추가하세요.'
-        : '자동초안이 이 날엔 배분한 게 없어요 — 아래에서 직접 넣을 수 있어요.';
+  const emptyHint = emptyHintFor(isEmpty, hasSubjects, capMin);
 
   // 타임라인 범위 — **깨어있는 창(wake0~wake1) 전체**.
   // 옛 방식은 '일정 있는 구간 ±1h'로 좁혔다. 이유는 "창 전체를 그리면 빈 구간 때문에 일정이 납작해진다"였는데,
   // 시간 행이 프레임을 채우도록 신축하면서 그 우려가 사라졌다. 반대로 좁은 범위는 실제 버그를 냈다 —
   // 일정이 하나도 없는 날엔 폴백이 `wake0 + 8h`라 07시 기상이면 **07:00–15:00만** 그렸다(사용자 지적).
   // 수면 블록은 창 산정에서 빠져 있다(넣으면 lo가 0시로 끌려간다).
-  const ms: number[] = [];
-  timed.forEach((b) => ms.push(b.start!, b.start! + b.min));
-  timedTasks.forEach((t) => ms.push(t.start!, t.start! + (t.min || 30)));
-  events.forEach((e) => ms.push(e.start, e.start + e.min)); // 새벽 일정도 화면 밖으로 잘리지 않게 union
-  routine.forEach((b) => {
-    if (b.type === BLOCK_SLEEP) return;
-    ms.push(toMin(b.start), toMin(b.end));
-  });
-  // 창 **밖**의 일정(새벽 블록 등)은 union해 잘리지 않게 한다 — 안 그러면 화면 밖으로 사라진다.
-  const { lo, hi, span } = timelineSpan(wake0, wake1, ms);
+  const { lo, hi, span, ticks } = timelineOf({ wake0, wake1, timed, timedTasks, events, routine });
   const pos = (m: number) => minToPct(clamp(m, lo, hi) - lo, span);
-  const ticks: number[] = [];
-  for (let m = Math.ceil(lo / 60) * 60; m <= hi; m += 60) ticks.push(m);
 
   // 배치 합계(공부 블록 + 자유 할일) vs 가용 — 초과 경고(§6-3).
   const planMin = blocks.reduce((t, b) => t + b.min, 0) + timedTasks.reduce((t, x) => t + (x.min || 0), 0);

@@ -114,37 +114,42 @@ export default tseslint.config(
   /* ── 인지복잡도 **기한부 예외 원장**(M-14 · 2026-08-20) ─────────────────────────
      위 임계(25)를 넘는 함수를 가진 파일. **목록은 줄어드는 방향으로만 편집한다.**
 
-     ⚠ 착수 당시 16파일 18함수였고, 그날 **8함수로 갚았다**(순수 lib 전량):
-       `lib/db/rows`(56·45→분해) · `lib/persistence`(37·28) · `lib/spacedReview`(45) ·
-       `lib/contentSearch`(30) · `lib/quickCapture`(35) · `lib/dayPlans`(28) · `lib/absence`(26) ·
-       `lib/scheduler/dayPlanOverride`(43) — 여덟 파일이 원장에서 **빠졌다**.
+     ## 18함수 → **1함수** (2026-08-20 · 두 회차)
 
-     ## 남은 것이 왜 남았나 — 개수가 아니라 **오라클**이 정한다
+     · 1회차 — 순수 lib 여덟을 갚았다: `lib/db/rows`(56·45) · `lib/persistence`(37·28) ·
+       `lib/spacedReview`(45) · `lib/contentSearch`(30) · `lib/quickCapture`(35) ·
+       `lib/dayPlans`(28) · `lib/absence`(26) · `lib/scheduler/dayPlanOverride`(43).
+     · 2회차 — 그때 "오라클이 막는다"고 적었던 React 컴포넌트 **일곱을 전부 갚았다**:
+       `TodaySignature`(59→25) · `phone/ReviewView`(38) · `phone/PhoneApp`(36) ·
+       `Schedule`(33) · `TelemetryConsole`(32) · `DayPlanner`(31) · `FlowRail`(27).
 
-     · `lib/scheduler/engine.ts` `schedule()`(50) — 이 파일은 스스로 *"회귀로 동결된 코어"* 라
-       적는다. 독립적인 두 단계(daily 배치·복습 대상 날 고르기)는 이미 뺐고, 남은 50은 phase 4·5
-       (과목 진행 상태 초기화 ↔ 주간 모듈 배분)가 **같은 가변 상태를 주고받는** 부분이다.
-       거기를 가르려면 그 상태를 인자로 흘려야 하고, 그건 "위치만 옮긴다"가 아니라 **설계 변경**이다.
-     · React 컴포넌트 일곱 — `결정로그.md` 2026-08-06 이 F5 남은 후보를 **추출하지 않기로 판정**했다
-       (드릴 prop 2개·제어값 누출·공유 상태 실측). 그 판정을 개수 때문에 뒤집지 않는다.
-       ⚠ 그리고 이쪽은 절단면이 DOM 을 바꿀 수 있어 시각 스냅샷이 안전망이 아니라 **공범**이 된다
-       (`--update-snapshots` 가 깨진 결과를 정답으로 굳힌다 · §15-4 가 두 번 물린 형태).
+     ## ⚠ 오라클을 뒤집은 게 아니라 **절단면을 바꿨다**
+
+     1회차의 판정("컴포넌트는 절단면이 DOM 을 바꿔 스냅샷이 안전망이 아니라 공범이 된다")은
+     **JSX 를 자르는 절단면**에 대해 옳았고 지금도 옳다. 2회차가 한 것은 그 절단면을 피한 것이다:
+     자른 것은 대부분 **값 계산**(클래스 문자열·리드아웃·파생 상수)이고, JSX 를 뺀 셋
+     (`PhoneHeader`·`HeroSubline`·`ReviewCard`)은 **래퍼를 하나도 안 늘리고** 같은 노드를 그대로
+     반환한다. 그래서 스냅샷이 공범이 될 여지가 없다 — 그리고 실제로 **시각 167장·모션 5장이
+     한 장도 안 움직였다**(`--update-snapshots` 는 한 번도 안 돌렸다. 그게 이 판정의 증거다).
+
+     ## 남은 하나가 왜 남았나 — 개수가 아니라 **오라클**이 정한다
+
+     · `lib/scheduler/engine.ts` `schedule()`(50 → **44**) — 이 파일은 스스로 *"회귀로 동결된
+       코어"* 라 적는다. 이번에 뺀 것은 `weekIndices`(주의 날 인덱스) 하나인데, 그것만이
+       **스칼라만 받는** 블록이라 문자 그대로 위치 이동이었다(−6 · `scheduler.test.ts` 63 통과).
+       남은 44 의 본체는 주 배분 루프이고, 그 안에서 부르는 `advance`·`curDl`·`pushNewBlock`·
+       `pushReviewTasks` 는 전부 **`schedule()` 의 내부 클로저**다(실측). 빼려면 그 넷을 인자로
+       흘려야 하고, 그건 "위치만 옮긴다"가 아니라 **설계 변경**이다 — 1회차의 이 판정은 이번
+       실측으로도 그대로 유지된다.
 
      재검토 만료: **2026-11-20**. 그때까지 안 줄었으면 이 블록을 지우고 게이트가 깨지게 둔다
      (판단에 유효기간이 없으면 그건 판단이 아니라 방치다 — SCA 원장이 세운 규율).
-     ⚠ 상한을 62 로 두는 것은 **현 상태 동결**이다(이 파일들 안에서도 더 나빠지지 못한다). */
+     ⚠ 상한 44 는 **현 상태 동결**이다(이 파일 안에서도 더 나빠지지 못한다). 62 에서 내렸다 —
+     목록이 줄면 상한도 함께 내린다(안 내리면 남은 하나에 18의 여유를 선물하는 것이고, 그게
+     이 원장이 처음 고치려던 형태다). */
   {
-    files: [
-      'src/features/today/TodaySignature.tsx',
-      'src/features/today/FlowRail.tsx',
-      'src/features/schedule/Schedule.tsx',
-      'src/features/schedule/DayPlanner.tsx',
-      'src/features/integrations/TelemetryConsole.tsx',
-      'src/phone/ReviewView.tsx',
-      'src/phone/PhoneApp.tsx',
-      'src/lib/scheduler/engine.ts',
-    ],
-    rules: { 'sonarjs/cognitive-complexity': ['error', 62] },
+    files: ['src/lib/scheduler/engine.ts'],
+    rules: { 'sonarjs/cognitive-complexity': ['error', 44] },
   },
   /* 파일 크기 래칫 — 임계는 **현재 최댓값**이고 내려가기만 한다.
      주석·빈 줄 제외: 이 저장소는 "왜"를 주석으로 남기는 걸 규약으로 삼는데(결정로그와 짝),

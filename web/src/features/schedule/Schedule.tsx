@@ -109,6 +109,53 @@ function IcsFreshnessNote() {
   );
 }
 
+/* ── W22 앵커 — **44px `primary` 는 뷰가 정한다** ───────────────────────────────────
+   ⚠⚠ 첫 판(2026-07-31)이 `primary` 를 `anki 없이 anchorDay.planMin` 로 **고정**해 두 결함을 냈다:
+   ① 주·월 뷰에서 *그 날* 계획을 말해 화면이 보여 주는 범위와 어긋났다.
+   ② 일 뷰에선 같은 수가 `primary` 와 첫 리드아웃 **두 자리**에 떠서 상단 바가 넘쳤다 —
+      이 배치가 다른 화면에서 강제한 "한 양 = 한 자리"를 정작 여기서 어겼다(실렌더가 잡았다).
+   → 뷰별 헤드라인을 **하나 만들고**, `primary` 가 그것을 가져가면 리드아웃에서는 뺀다.
+
+   ⚠ 컴포넌트 밖으로 뺀 이유(2026-08-20): 뷰 셋 × (헤드라인 + 리드아웃 2)가 **중첩 삼항 두 벌**
+   이라 이것만으로 컴포넌트 인지복잡도의 3분의 1이었다. 값·라벨이 한 글자도 안 바뀌므로 렌더
+   트리는 동일하다 — 절단면을 JSX 가 아니라 *값 계산*에 두는 규율(§15-4). */
+function chromeFor(
+  view: 'day' | 'week' | 'month',
+  c: {
+    anchorDate: Date;
+    anchorM: number;
+    planMin: number;
+    studyMin: number;
+    dayCompRate: number;
+    monthUsedH: number;
+    monthOpenTasks: number;
+    weekUsedH: number;
+    weekPlanMin: number;
+    compRate: number;
+    nearestDday: number | null;
+  },
+) {
+  // 라벨은 정본 헬퍼로 — 직접 조립하면 오늘 마감이 "D-0"으로 뜬다(정본은 "D-DAY").
+  const dday = { label: '마감', value: c.nearestDday == null ? '—' : ddayInfo(c.nearestDday).lab };
+  if (view === 'day')
+    return {
+      head: { label: `${fmtShort(c.anchorDate)} 계획`, value: hNum(c.planMin), unit: 'h' },
+      readouts: [
+        { label: '완료', value: c.planMin ? `${c.dayCompRate}%` : '—' },
+        { label: '가용', value: hLabel(c.studyMin) },
+      ],
+    };
+  if (view === 'month')
+    return {
+      head: { label: `${c.anchorM + 1}월`, value: c.monthUsedH.toFixed(1), unit: 'h' },
+      readouts: [{ label: '미완 할일', value: c.monthOpenTasks ? String(c.monthOpenTasks) : '—' }, dday],
+    };
+  return {
+    head: { label: '이번 주', value: c.weekUsedH.toFixed(1), unit: 'h' },
+    readouts: [{ label: '완료', value: c.weekPlanMin ? `${c.compRate}%` : '—' }, dday],
+  };
+}
+
 export default function Schedule() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -221,29 +268,19 @@ export default function Schedule() {
      ② 일 뷰에선 같은 수가 `primary` 와 첫 리드아웃 **두 자리**에 떠서 상단 바가 넘쳤다 —
         이 배치가 다른 화면에서 강제한 "한 양 = 한 자리"를 정작 여기서 어겼다(실렌더가 잡았다).
      → 뷰별 헤드라인을 **하나 만들고**, `primary` 가 그것을 가져가면 리드아웃에서는 뺀다. */
-  const head =
-    schedView === 'day'
-      ? { label: `${fmtShort(anchorDate)} 계획`, value: hNum(anchorDay.planMin), unit: 'h' }
-      : schedView === 'month'
-        ? { label: `${anchorM + 1}월`, value: monthUsedH.toFixed(1), unit: 'h' }
-        : { label: '이번 주', value: weekUsedH.toFixed(1), unit: 'h' };
-
-  const readouts =
-    schedView === 'day'
-      ? [
-          { label: '완료', value: anchorDay.planMin ? `${dayCompRate}%` : '—' },
-          { label: '가용', value: hLabel(anchorDay.studyMin) },
-        ]
-      : schedView === 'month'
-        ? [
-            { label: '미완 할일', value: monthOpenTasks ? String(monthOpenTasks) : '—' },
-            // 라벨은 정본 헬퍼로 — 직접 조립하면 오늘 마감이 "D-0"으로 뜬다(정본은 "D-DAY").
-            { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
-          ]
-        : [
-            { label: '완료', value: weekPlanMin ? `${compRate}%` : '—' },
-            { label: '마감', value: nearestDday == null ? '—' : ddayInfo(nearestDday).lab },
-          ];
+  const { head, readouts } = chromeFor(schedView, {
+    anchorDate,
+    anchorM,
+    planMin: anchorDay.planMin,
+    studyMin: anchorDay.studyMin,
+    dayCompRate,
+    monthUsedH,
+    monthOpenTasks,
+    weekUsedH,
+    weekPlanMin,
+    compRate,
+    nearestDday,
+  });
 
   // 주 뷰에서 다른 주를 보는 중이면 "이번 주로", 그 외엔 .ics 내보내기.
   usePageChromeEffect(

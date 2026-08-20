@@ -24,7 +24,7 @@ import { layoutDay, freeWindowsForDay, freeMinAfter } from '@/lib/scheduler';
 import { dayPhase } from '@/lib/dayPhase';
 import { dayCapacity } from '@/lib/dayCapacity';
 import { untimedChoreMin } from '@/lib/tasks';
-import { pickNextStep, pickRetrievalSlot } from '@/lib/todaySlots';
+import { pickNextStep, pickRetrievalSlot, type NextStep } from '@/lib/todaySlots';
 import RetrievalSlot from './RetrievalSlot';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue, ankiFreshness } from '@/lib/anki';
@@ -191,6 +191,153 @@ function CloseDayCta({
   );
 }
 
+/** 오늘의 확정 키 — **날짜가 다르면 무효**다(어제 확정이 오늘을 붙들지 않게 · A-13/W7). */
+function lockedKeyFor(lock: { ds: string; key: string } | null | undefined, ds: string): string | null {
+  return lock && lock.ds === ds ? lock.key : null;
+}
+
+/** 프런티어 표시명 — 제목이 없으면 파일명, 그것도 없으면 빈 문자열(그러면 호출부가 안 그린다). */
+function frontierLabel(f: { title?: string; basename?: string } | null | undefined): string {
+  return f?.title || f?.basename || '';
+}
+
+/** Anki due 합 — 캐시가 아예 없으면(`decks` 부재) **null 이지 0 이 아니다**. 0 으로 그리면
+ *  "복습할 게 없다"가 되는데 사실은 "모른다"이고, 이 화면은 그 둘을 다르게 말한다. */
+function dueOf(live: { decks?: unknown } | null | undefined): number | null {
+  return live?.decks ? totalDue(live.decks as Parameters<typeof totalDue>[0]) : null;
+}
+
+/** 오늘 남은 가용 구간 — 배치된 날이면 `layoutDay` 의 잔여 `free`(학습 세션·일과 차감 + 당일
+ *  오버라이드 캡 반영), 빈 날이면 순수 날짜 창 폴백.
+ *  ⚠ N-1(W8) — 빈 날 폴백도 **날짜 창**이다. 요일 창은 일정·과제를 모르므로, 계획이 없는 날에만
+ *  창이 과대 표시되던 비대칭이 있었다(같은 하루를 배치 유무로 다르게 말한다). */
+function freeIntervalsOf(
+  state: AppState,
+  ds: string,
+  today: Date,
+  L: { free: [number, number][] } | null,
+): [number, number][] {
+  if (L) return L.free;
+  return freeWindowsForDay(state, ds, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
+}
+
+/** 히어로 문장 — **큰 자리에 무엇을 쓸 것인가**.
+ *  ── D-5 히어로의 주어를 행동으로 ──────────────────────────────────────
+ *  72px 자리에 **과목명**이 있었다 — 내가 이미 아는 것이다. 정작 무엇을 하는지(챕터·유형)는
+ *  18px 였고 "왜 이것인가"는 화면 어디에도 없었다. 큰 자리를 행동에 준다.
+ *  ⚠ 챕터가 없는 블록(Anki·모의 등)이면 큰 자리는 **과목명으로 폴백**한다 — 그때는 그것이
+ *    유일하게 구체적인 이름이고, 유형은 바로 아래 줄이 말한다.
+ *  ⚠ 큰 자리에 챕터가 섰으면 아래 줄은 `과목 · 유형`, 아니면 유형만이다(같은 말을 두 번 하지 않는다).
+ *  ⚠ 컴포넌트 밖으로 뺀 이유(2026-08-20): 여섯 값이 전부 `focus`·`allDone`·`todayTotal` 세 입력의
+ *    삼항 조합이라, 이 묶음 하나가 컴포넌트 인지복잡도의 상당 부분이었다. **문자열만 낸다** —
+ *    JSX 를 자르지 않으므로 렌더 트리가 원리적으로 안 변한다(§15-4). */
+function heroCopy(s: { focus: FocusEntry | null; current: unknown; allDone: boolean; todayTotal: number }): {
+  kicker: string;
+  focusMin: number;
+  heroMain: string;
+  heroSub: string;
+  dispColor: string | undefined;
+} {
+  const { focus, allDone, todayTotal } = s;
+  const focusType = focus ? TYPE_LABEL[focus.it.type] || '학습' : '';
+  const chapter = focus?.it.chapters?.length ? focus.it.chapters.join(', ') : '';
+  return {
+    kicker: todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : s.current ? '지금 할 일' : '다음 할 일',
+    focusMin: focusMinutes(focus),
+    heroMain: allDone ? '완료' : focus ? chapter || focus.it.name : todayTotal === 0 ? '비어 있음' : '—',
+    heroSub: focus ? (chapter ? `${focus.it.name} · ${focusType}` : focusType) : '—',
+    dispColor: !allDone && focus ? focus.it.color : undefined,
+  };
+}
+
+/** 포모도로 표시값 — 남은 초·진행%·MM:SS. 세션이 없으면 0/0/`00:00`(값 부재를 0 으로 그리는
+ *  것이 여기서는 옳다 — 타이머는 "안 돌고 있음"이 곧 0이다). */
+function timerView(
+  timer: { endsAt: number; total?: number } | null,
+  nowMs: number,
+): { timerLeft: number; timerPct: number; timerLabel: string } {
+  const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
+  return {
+    timerLeft,
+    timerPct: timer && timer.total ? Math.min(100, ((timer.total - timerLeft) / timer.total) * 100) : 0,
+    timerLabel: mmss(timerLeft),
+  };
+}
+
+/** 히어로 부제 — **오늘이 어떤 날인가**로 세 갈래다: 배치 0 / 다 함 / 진행 중.
+ *
+ *  ⚠ 컴포넌트로 뺀 이유(2026-08-20): 여기가 3중 중첩 삼항이었고 각 가지가 또 자기 분기를 품어,
+ *  이 한 블록이 `TodaySignature` 인지복잡도의 큰 몫이었다. **`<div className={S.heroSub}>` 은
+ *  호출부에 남겨** 이 컴포넌트가 그 안의 내용만 그대로 낸다 — 래퍼가 하나도 안 늘어난다(§15-4).
+ *
+ *  ── W19 완료 날은 **단일 포커스**다(2026-07-31) ──────────────────────────
+ *  종전엔 클릭 가능한 '다음 걸음'이 최대 11개였고 그중 5개가 **다른 탭으로 흩어졌다**
+ *  (프런티어→숙달도 · 복습 위험→리뷰 · 보충→기록 …). 다 한 사람에게 갈 곳 다섯을 늘어놓는 것은
+ *  동력이 아니라 목록이다. → **내일 한 줄 + 지금 가장 값나가는 것 하나**. 나머지는 사라진 게
+ *  아니라 레일 아래 '오늘 밖' 구역(W18)이 이미 같은 신호를 같은 자리에서 말한다.
+ *  ⚠ **momentum 을 셧다운 뒤로 옮기지 않았다** — 셧다운을 안 누르는 사용자에게 영원히 안 보이게
+ *  되고, 그건 `dayPhase.ts` 가 경고한 함정을 반대 방향으로 밟는 것이다(자리를 옮기는 게 아니라
+ *  **수를 줄이는** 것이 이 안이다). */
+const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/day', frontier: '/mastery' };
+
+function HeroSubline(p: {
+  todayTotal: number;
+  hasItems: boolean;
+  allDone: boolean;
+  tmrNew: { name: string } | undefined;
+  nextStep: NextStep | null;
+  go: (to: string) => void;
+  heroSub: string;
+  focus: FocusEntry | null;
+  focusReason: string;
+  locked: boolean;
+  ds: string;
+  setFocusLock: (v: { ds: string; key: string } | null) => void;
+}): React.JSX.Element {
+  if (p.todayTotal === 0)
+    return p.hasItems ? (
+      // §7: 히어로 중복 CTA(.mChip) 제거 — 안내 텍스트만. '오늘 계획 짜기'는 아래 큰 버튼 단일.
+      <span>오늘은 배치된 블록이 없어요</span>
+    ) : (
+      <>학습 항목을 추가하면 오늘의 흐름이 그려져요.</>
+    );
+  if (p.allDone)
+    return (
+      <span className={S.momentum}>
+        {p.tmrNew ? (
+          <span className={S.chapter}>내일 · {p.tmrNew.name}</span>
+        ) : (
+          <span>내일 일정은 아직 비어 있어요</span>
+        )}
+        {p.nextStep && (
+          <button
+            type="button"
+            className={S.mChip}
+            onClick={() => p.go(NEXT_TO[p.nextStep!.kind]!)}
+            aria-label={p.nextStep.aria}
+          >
+            {p.nextStep.label}
+          </button>
+        )}
+      </span>
+    );
+  return (
+    <>
+      <span className={S.chapter}>{p.heroSub}</span>
+      {/* D-5 — "왜 이것인가". 고르는 함수가 이유까지 돌려주므로 화면과 규칙이 갈릴 수 없다. */}
+      {p.focusReason && <span className={S.why}>{p.focusReason}</span>}
+      {/* A-13 — 확정 토글. ⚠ **앱이 자동으로 잠그지 않는다**: 그러면 또 하나의 알고리즘이 되고,
+          이 항목이 고치려는 것은 *알고리즘이 자꾸 말을 바꾸는 것*이다.
+          ⚠ 해제는 같은 버튼이다(상태를 두 곳에 두지 않는다). */}
+      <FocusLockButton
+        focus={p.focus}
+        locked={p.locked}
+        onToggle={(k) => p.setFocusLock(k ? { ds: p.ds, key: k } : null)}
+      />
+    </>
+  );
+}
+
 export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') => void }) {
   const state = useApp((s) => s.state);
   const ankiLive = useRuntime((s) => s.cache._ankiLive);
@@ -246,7 +393,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      여기는 저장된 키만 넘긴다(날짜가 다르면 무효 — 어제 확정이 오늘을 붙들지 않게). */
   const focusLock = useUI((st) => st.ui.focusLock);
   const setFocusLock = useUI((st) => st.setFocusLock);
-  const lockedKey = focusLock && focusLock.ds === ds ? focusLock.key : null;
+  const lockedKey = lockedKeyFor(focusLock, ds);
   const { entries: enriched, current, focus, reason: focusReason, locked } = selectTodayFocus(state, nowMin, lockedKey);
   const todayDone = enriched.filter((e) => e.done).length;
   const todayTotal = items.length;
@@ -264,7 +411,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      순회하던 비용과 `useCountUp` 훅 하나도 같이 없어진다. */
 
   const streak = studyStreak(state);
-  const due = ankiLive?.decks ? totalDue(ankiLive.decks) : null;
+  const due = dueOf(ankiLive);
   const ankiFresh = ankiFreshness(ankiLive, ds); // 이 숫자가 오늘 것인가(캐시라 어제 것일 수 있다)
   const openBl = openBacklog(state).length;
   // 셋업은 됐지만(과목 있음) 오늘 배치가 0인 경우를 콜드스타트와 구분 — 빈 메시지가 이미 설정한 사용자에게
@@ -278,12 +425,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // A3 — 오늘 '일과 블록·이미 배치된 학습 뺀' 남은 가용시간(now 이후) — 워터마크를 정보성으로.
   // 배치된 날이면 layoutDay의 잔여 free(학습 세션·일과 차감 + 당일 오버라이드 캡 반영)를 쓰고,
   // 빈 날(L 없음)이면 순수 루틴 창으로 폴백. now 이후로 클램프해 빡빡한 날 과대표시를 막는다.
-  const freeIntervals: [number, number][] = L
-    ? L.free
-    : /* ⚠ N-1(W8) — 빈 날 폴백도 **날짜 창**이다. 요일 창은 일정·과제를 모르므로, 계획이 없는
-         날에만 창이 과대 표시되던 비대칭이 있었다(같은 하루를 배치 유무로 다르게 말한다). */
-      freeWindowsForDay(state, ds, today.getDay()).windows.map((w) => [w.s, w.e] as [number, number]);
-  const freeLeftMin = freeMinAfter(freeIntervals, nowMin);
+  const freeLeftMin = freeMinAfter(freeIntervalsOf(state, ds, today, L), nowMin);
   // A2 — 회상 카드(내 과거 요약을 인출 연습으로). 후보 없으면 null.
   const recall = pickRetrieval(state, ds);
   /* ⚠ `recallN`('회상 N개 대기')이 여기 있었다 — **W19 에서 완료 화면의 다음 걸음을 하나로
@@ -307,7 +449,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const ping = usePing();
   const know = useKnowledge(ping.isSuccess).data;
   const frontier = frontierNext(know);
-  const frontierTitle = frontier?.title || frontier?.basename || '';
+  const frontierTitle = frontierLabel(frontier);
   // I-10 — 착각 재확인 카드: conf('확신했지만 틀림') 선 과거 오답 1건(날짜 해시로 하루 회전). 후보 없으면 null.
   const confWrong = pickConfidentWrong(state, ds);
   const confWrongN = confWrong ? confidentWrongCount(state, ds) : 0;
@@ -315,7 +457,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // 마감 임박(스트립) + 가장 가까운 마감(상단 리드아웃). 파생 로직은 lib/scheduleView.deadlineDdays로 위임.
   const ddays = deadlineDdays(res.itemStat, ds);
   const soon = ddays.filter((st) => st.dday <= 14).slice(0, 3); // 14=D-day 임박 임계 · 3=스트립 최대 표시
-  const nearestDday = ddays.length ? ddays[0]!.dday : null;
+  const nearestDday = ddays[0]?.dday ?? null;
 
   // 오늘의 흐름 노드 — 학습(체크 가능)+일과 블록을 시간순 단일 리스트로(무지개 가로 트랙 폐기).
   const tl = L?.tl || [];
@@ -442,29 +584,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
    *  자기 문장에 대해** 범위를 정한다. */
   const showOpeningRecall = phase === 'opening' || todayTotal === 0;
 
-  const kicker = todayTotal === 0 ? '오늘 할 일' : allDone ? '오늘 학습' : current ? '지금 할 일' : '다음 할 일';
-  const focusMin = focusMinutes(focus);
-  const focusType = focus ? TYPE_LABEL[focus.it.type] || '학습' : '';
-  const focusChapterName = focus?.it.chapters?.length ? focus.it.chapters.join(', ') : '';
-  /* ── D-5 히어로의 주어를 행동으로 ──────────────────────────────────────
-     72px 자리에 **과목명**이 있었다 — 내가 이미 아는 것이다. 정작 무엇을 하는지(챕터·유형)는
-     18px 였고 "왜 이것인가"는 화면 어디에도 없었다. 큰 자리를 행동에 준다.
-     ⚠ 챕터가 없는 블록(Anki·모의 등)이면 큰 자리는 과목명으로 폴백한다 — 그때는 그것이
-       유일하게 구체적인 이름이고, 유형은 바로 아래 줄이 말한다. */
-  const heroMain = allDone ? '완료' : focus ? focusChapterName || focus.it.name : todayTotal === 0 ? '비어 있음' : '—';
-  // 큰 자리에 챕터가 섰으면 아래 줄은 과목 · 유형, 아니면 유형만(같은 말을 두 번 하지 않는다).
-  const heroSub = focus ? (focusChapterName ? `${focus.it.name} · ${focusType}` : focusType) : '—';
-
-  const dispColor = !allDone && focus ? focus.it.color : undefined;
+  const { kicker, focusMin, heroMain, heroSub, dispColor } = heroCopy({
+    focus,
+    current,
+    allDone,
+    todayTotal,
+  });
 
   /* E8 — 일일 의식 토글이 스트립에서 빠졌다. 같은 토글이 앱 안에 셋이었고(여기 · 온디맨드
      `RitualCard` · `하루 닫기` CTA), 닫는 길은 CTA 가 이미 커서까지 놓아 준다. 상태 읽기도
      그 카드가 소유한다. */
 
   // 집중 타이머(포모도로) — 남은 초·진행%·MM:SS(1초 틱으로 갱신). 종료 알림·완료 연결은 FocusChip이.
-  const timerLeft = timer ? Math.max(0, Math.round((timer.endsAt - nowMs) / 1000)) : 0;
-  const timerPct = timer && timer.total ? Math.min(100, ((timer.total - timerLeft) / timer.total) * 100) : 0;
-  const timerLabel = mmss(timerLeft);
+  const { timerPct, timerLabel } = timerView(timer, nowMs);
   // 포모도로 프리셋 — 기본은 블록 파생(focusMinutes), 25/50은 명시 선택.
   const startTimer = (min?: number) => {
     if (!focus) return;
@@ -579,7 +711,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     reviewMin: reviewBlockMin(state.moduleLen || 120),
   });
   const shareText = shareLine(share);
-  const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/day', frontier: '/mastery' };
 
   const toggle = (e: (typeof enriched)[number]) => toggleDone(ds, e.it.sid, e.it.type, e.it.min, !e.done);
 
@@ -637,55 +768,20 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 
           <h2 className={S.subj}>{heroMain}</h2>
           <div className={S.heroSub}>
-            {todayTotal === 0 ? (
-              hasItems ? (
-                // §7: 히어로 중복 CTA(.mChip) 제거 — 안내 텍스트만. '오늘 계획 짜기'는 아래 큰 버튼 단일.
-                <span>오늘은 배치된 블록이 없어요</span>
-              ) : (
-                '학습 항목을 추가하면 오늘의 흐름이 그려져요.'
-              )
-            ) : allDone ? (
-              /* ── W19 완료 날은 **단일 포커스**다(2026-07-31) ──────────────────────────
-                 종전엔 클릭 가능한 '다음 걸음'이 최대 11개였고 그중 5개가 **다른 탭으로 흩어졌다**
-                 (프런티어→숙달도 · 복습 위험→리뷰 · 보충→기록 …). 다 한 사람에게 갈 곳 다섯을
-                 늘어놓는 것은 동력이 아니라 목록이다.
-                 → **내일 한 줄 + 지금 가장 값나가는 것 하나**. 나머지는 사라진 게 아니라 레일
-                 아래 '오늘 밖' 구역(W18)이 이미 같은 신호를 같은 자리에서 말한다.
-                 ⚠ **momentum 을 셧다운 뒤로 옮기지 않았다** — 셧다운을 안 누르는 사용자에게
-                 영원히 안 보이게 되고, 그건 `dayPhase.ts` 가 경고한 함정을 반대 방향으로 밟는
-                 것이다(자리를 옮기는 게 아니라 **수를 줄이는** 것이 이 안이다). */
-              <span className={S.momentum}>
-                {tmrNew ? (
-                  <span className={S.chapter}>내일 · {tmrNew.name}</span>
-                ) : (
-                  <span>내일 일정은 아직 비어 있어요</span>
-                )}
-                {nextStep && (
-                  <button
-                    type="button"
-                    className={S.mChip}
-                    onClick={() => go(NEXT_TO[nextStep.kind]!)}
-                    aria-label={nextStep.aria}
-                  >
-                    {nextStep.label}
-                  </button>
-                )}
-              </span>
-            ) : (
-              <>
-                <span className={S.chapter}>{heroSub}</span>
-                {/* D-5 — "왜 이것인가". 고르는 함수가 이유까지 돌려주므로 화면과 규칙이 갈릴 수 없다. */}
-                {focusReason && <span className={S.why}>{focusReason}</span>}
-                {/* A-13 — 확정 토글. ⚠ **앱이 자동으로 잠그지 않는다**: 그러면 또 하나의
-                    알고리즘이 되고, 이 항목이 고치려는 것은 *알고리즘이 자꾸 말을 바꾸는 것*이다.
-                    ⚠ 해제는 같은 버튼이다(상태를 두 곳에 두지 않는다). */}
-                <FocusLockButton
-                  focus={focus}
-                  locked={locked}
-                  onToggle={(k) => setFocusLock(k ? { ds, key: k } : null)}
-                />
-              </>
-            )}
+            <HeroSubline
+              todayTotal={todayTotal}
+              hasItems={hasItems}
+              allDone={allDone}
+              tmrNew={tmrNew}
+              nextStep={nextStep}
+              go={go}
+              heroSub={heroSub}
+              focus={focus}
+              focusReason={focusReason}
+              locked={locked}
+              ds={ds}
+              setFocusLock={setFocusLock}
+            />
           </div>
           {/* A1 — 어제 남긴 '내일 한 줄'.
               ⚠ P-15 — **하루를 여는 국면에만.** 종전엔 완료 전까지 하루 종일 떠 있었는데, 이건

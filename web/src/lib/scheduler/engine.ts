@@ -52,6 +52,21 @@ function placeDaily(days: Day[], s: Item, start: string, horizon: number): void 
   }
 }
 
+/** ⑤ 그 주의 **날 인덱스** — 월요일부터 7일 중 지평 안에 드는 것만. 부분주(시작일이 월요일이
+ *  아닌 첫 주 · 지평 끝의 잘린 주)에서 배열이 7보다 짧아지는 것이 정상이고, 통째로 비면 호출부가
+ *  그 주를 건너뛴다.
+ *  ⚠ **스칼라만 받는다** — `days` 배열도 안 보고 길이만 본다. 그래서 이 추출은 이 파일이 경계하는
+ *  *"공유 가변 상태를 인자로 흘리는 설계 변경"* 이 아니라 문자 그대로 **위치 이동**이다
+ *  (`schedule()` 안에서 이 블록만이 그 성질을 가졌다 — 2026-08-20). */
+function weekIndices(start: string, wStart: Date, dayCount: number): number[] {
+  const widx: number[] = [];
+  for (let k = 0; k < 7; k++) {
+    const di = dayDiff(start, iso(addDays(wStart, k)));
+    if (di >= 0 && di < dayCount) widx.push(di);
+  }
+  return widx;
+}
+
 /** ⑥ 복습 대상 날 — **세 순위**로 고른다. 못 찾으면 `-1`(= 미배치, 호출부가 센다).
  *  ① 복습예산(`revLeft`)이 남은 첫 날 → ② 그냥 여유가 남은 첫 날 → ③ 여유가 **가장 큰** 날.
  *  ⚠ ③이 있는 이유가 "no silent caps" 다 — 창 안이 전부 빡빡해도 조용히 버리지 않고 가장 덜
@@ -302,11 +317,7 @@ export function schedule(state: AppState): ScheduleResult {
   for (let w = 0; w * 7 <= horizon + 6; w++) {
     const wStart = addDays(firstMon, w * 7);
     const wk = iso(wStart);
-    const widx: number[] = [];
-    for (let k = 0; k < 7; k++) {
-      const di = dayDiff(start, iso(addDays(wStart, k)));
-      if (di >= 0 && di < days.length) widx.push(di);
-    }
+    const widx = weekIndices(start, wStart, days.length);
     if (!widx.length) continue;
     // ── 배분 주도(managed week, §12-4) — 그 주 weekAlloc가 있으면 사용자 요일 벡터로 new 블록을 구동. ──
     // 배분에 없는 sid는 그 주 0. 챕터 소진/마감 초과 셀은 스킵(경고는 보드 소관). 복습은 배치된 covered에서 자동(동일 헬퍼).

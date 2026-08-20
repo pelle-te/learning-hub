@@ -73,6 +73,31 @@ export interface FlowRailProps<TE> {
   onPrefill: (e: TE) => void;
 }
 
+/** 한 노드의 상태 → 정적 클래스 셋(§15 · 동적 조립 금지). 선택이 라이브보다 우선(원본 소스 순서).
+ *  ⚠ **JSX 를 안 만든다 — 문자열만 낸다.** 이 저장소는 인지복잡도를 줄인다며 JSX 를 잘라 DOM 이
+ *  달라진 사고를 두 번 겪었고(§15-4), 그때 `--update-snapshots` 가 깨진 결과를 정답으로 굳혔다.
+ *  절단면을 *클래스 계산*에 두면 렌더 트리가 원리적으로 안 변한다 — 스냅샷이 공범이 아니라
+ *  안전망으로 남는 유일한 자리다(실제로 이 추출 뒤 시각 167장이 그대로 통과했다).
+ *  · nName 색/굵기: 블록=뮤트·600, 라이브·선택=acc, study hover=acc(group/node), 완료=취소선. */
+function nodeClasses<TE>(
+  nd: FlowNode<TE>,
+  s: { live: boolean; past: boolean; sel: boolean; block: boolean },
+): { cls: string; nNameCls: string; nDotCls: string } {
+  const stateBg = s.sel
+    ? 'rounded-md bg-[var(--tint-ink-5)] shadow-[var(--shadow-inset-line2)]'
+    : s.live
+      ? 'rounded-md bg-[var(--tint-acc-9)]'
+      : '';
+  const hit = nd.e
+    ? 'group/node cursor-pointer hover:rounded-md focus-visible:rounded-md! focus-visible:[outline-offset:var(--node-outline-offset)]!'
+    : 'cursor-default';
+  return {
+    cls: `${N.node} py-2.75! ${hit} ${s.past ? 'opacity-40' : ''} ${stateBg}`,
+    nNameCls: `truncate ${s.block ? 'font-semibold text-mut' : 'font-bold'} ${s.live || s.sel ? 'text-acc' : ''} ${nd.done ? 'ds-shed' : ''} ${nd.e ? 'group-hover/node:text-acc' : ''}`,
+    nDotCls: `${N.nDotBase} ${s.live ? N.nDotLive : s.block ? N.nDotBlock : N.nDotStudy}`,
+  };
+}
+
 export function FlowRail<TE>({ nodes, nowMin, onToggle, onFocus, onPrefill }: FlowRailProps<TE>) {
   /* 커서 = **실제 DOM 포커스**(E5). 상태기계는 **`useListCursor` 가 소유한다**(W13 · 2026-07-31) —
      이 화면이 검증한 패턴인데 23화면 중 2곳에만 있었고, 나머지는 Tab 순회였다(트레이 3번째 행의
@@ -104,16 +129,7 @@ export function FlowRail<TE>({ nodes, nowMin, onToggle, onFocus, onPrefill }: Fl
           live && nd.end != null && nd.end > nd.start
             ? Math.min(100, Math.max(0, Math.round(((nowMin - nd.start) / (nd.end - nd.start)) * 100)))
             : 0;
-        // 상태 정적 클래스맵(§15 · 동적 조립 금지). 선택이 라이브보다 우선(원본 소스 순서).
-        const stateBg = sel
-          ? 'rounded-md bg-[var(--tint-ink-5)] shadow-[var(--shadow-inset-line2)]'
-          : live
-            ? 'rounded-md bg-[var(--tint-acc-9)]'
-            : '';
-        const cls = `${N.node} py-2.75! ${nd.e ? 'group/node cursor-pointer hover:rounded-md focus-visible:rounded-md! focus-visible:[outline-offset:var(--node-outline-offset)]!' : 'cursor-default'} ${past ? 'opacity-40' : ''} ${stateBg}`;
-        // nName 색/굵기: 블록=뮤트·600, 라이브·선택=acc, study hover=acc(group/node), 완료=취소선.
-        const nNameCls = `truncate ${block ? 'font-semibold text-mut' : 'font-bold'} ${live || sel ? 'text-acc' : ''} ${nd.done ? 'ds-shed' : ''} ${nd.e ? 'group-hover/node:text-acc' : ''}`;
-        const nDotCls = `${N.nDotBase} ${live ? N.nDotLive : block ? N.nDotBlock : N.nDotStudy}`;
+        const { cls, nNameCls, nDotCls } = nodeClasses(nd, { live, past, sel, block });
         const setNodeRef = cursor.register(nd.key);
         const inner = (
           <>

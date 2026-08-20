@@ -59,6 +59,70 @@ const GHOST = 'min-h-11 rounded-md border border-line px-4 text-sm text-mut';
    한 번 물렸고 H13 이 **배지만** 올렸던 것이 여기서 두 번째로 갈렸다.
    §9-4: 화면은 갈라도 **규칙(문구 포함)은 lib 하나**다. */
 
+/** 큐가 비었을 때 — "다 했다"가 아니라 **애초에 없다**. 둘을 같은 화면으로 그리면 거짓 축하가 된다. */
+function NothingDue(): React.JSX.Element {
+  return (
+    <section className="flex flex-col items-center gap-3 p-6 text-center">
+      <div className="text-5xl" aria-hidden="true">
+        ✓
+      </div>
+      <h2 className="text-base font-semibold text-txt">복습할 게 없어요</h2>
+      <p className="text-sm text-mut">밀린 챕터도, 다시 인출할 요약·착각도 없습니다.</p>
+    </section>
+  );
+}
+
+/** 세션을 끝까지 본 뒤 — 분모는 **again 을 뺀 카드 수**다(다시 만난 것을 두 번 세면 인출률이 내려간다). */
+function SessionDone({
+  cardCount,
+  got,
+  again,
+  onRestart,
+}: {
+  cardCount: number;
+  got: number;
+  again: number;
+  onRestart: () => void;
+}): React.JSX.Element {
+  return (
+    <section className="flex flex-col items-center gap-3 p-6 text-center">
+      <Icon name="target" className="size-12! stroke-[1.4]" />
+      <h2 className="text-base font-semibold text-txt">복습 세션 완료</h2>
+      <p className="text-sm text-mut">
+        카드 {cardCount}장 중 <strong className="text-txt">{got}</strong>개를 인출했어요
+        {again > 0 ? ` · 놓친 ${again}개는 한 번 더 만났어요` : ''}.
+      </p>
+      <button type="button" onClick={onRestart} className={GHOST}>
+        처음부터
+      </button>
+    </section>
+  );
+}
+
+/** 카드 종류 → 카드 컴포넌트. 종전엔 본문에 `kind === …` 삼항이 **셋 나란히** 있었고, 그래서
+ *  종류가 하나 늘 때마다 본문이 자랐다. 분기를 여기로 모으면 본문은 "카드 하나를 그린다"만 안다.
+ *  ⚠ 래퍼를 안 두고 카드를 **그대로** 반환한다 — DOM 이 한 노드도 안 늘어난다(§15-4). */
+function ReviewCard({
+  item,
+  step,
+  revealed,
+  onReveal,
+  onAdvance,
+}: {
+  item: RunItem;
+  step: string;
+  revealed: boolean;
+  onReveal: () => void;
+  onAdvance: (didIt: boolean) => void;
+}): React.JSX.Element | null {
+  if (item.kind === 'retrieval')
+    return <RetrievalCard item={item} step={step} revealed={revealed} onReveal={onReveal} onAdvance={onAdvance} />;
+  if (item.kind === 'confident')
+    return <ConfidentCard item={item} step={step} revealed={revealed} onReveal={onReveal} onAdvance={onAdvance} />;
+  if (item.kind === 'chapter') return <ChapterCard item={item} step={step} onAdvance={onAdvance} />;
+  return null;
+}
+
 /**
  * @param startAt 이어하기로 들어왔을 때의 **0-based 착지 인덱스**(N-7). 탭바로 오면 0.
  *   ⚠ 커서를 이 화면이 직접 읽지 않는 이유는 데스크톱과 같다 — 그러면 탭바로 그냥 연 사람도
@@ -127,33 +191,10 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
     onTap: revealable && !revealed ? reveal : undefined,
   });
 
-  if (total === 0) {
-    return (
-      <section className="flex flex-col items-center gap-3 p-6 text-center">
-        <div className="text-5xl" aria-hidden="true">
-          ✓
-        </div>
-        <h2 className="text-base font-semibold text-txt">복습할 게 없어요</h2>
-        <p className="text-sm text-mut">밀린 챕터도, 다시 인출할 요약·착각도 없습니다.</p>
-      </section>
-    );
-  }
+  if (total === 0) return <NothingDue />;
 
-  if (finished) {
-    return (
-      <section className="flex flex-col items-center gap-3 p-6 text-center">
-        <Icon name="target" className="size-12! stroke-[1.4]" />
-        <h2 className="text-base font-semibold text-txt">복습 세션 완료</h2>
-        <p className="text-sm text-mut">
-          카드 {cardCount}장 중 <strong className="text-txt">{gotKeys.length}</strong>개를 인출했어요
-          {againCount > 0 ? ` · 놓친 ${againCount}개는 한 번 더 만났어요` : ''}.
-        </p>
-        <button type="button" onClick={restart} className={GHOST}>
-          처음부터
-        </button>
-      </section>
-    );
-  }
+  if (finished)
+    return <SessionDone cardCount={cardCount} got={gotKeys.length} again={againCount} onRestart={restart} />;
 
   const item = queue[idx]!;
   const step = `${item.again ? '↻ 다시 · ' : ''}${idx + 1} / ${total}`;
@@ -193,15 +234,7 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
         </p>
       ) : null}
 
-      {item.kind === 'retrieval' ? (
-        <RetrievalCard item={item} step={step} revealed={revealed} onReveal={reveal} onAdvance={advance} />
-      ) : null}
-
-      {item.kind === 'confident' ? (
-        <ConfidentCard item={item} step={step} revealed={revealed} onReveal={reveal} onAdvance={advance} />
-      ) : null}
-
-      {item.kind === 'chapter' ? <ChapterCard item={item} step={step} onAdvance={advance} /> : null}
+      <ReviewCard item={item} step={step} revealed={revealed} onReveal={reveal} onAdvance={advance} />
 
       {/* 숨은 제스처를 한 줄로 알린다 — 버튼이 정본이라 없어도 쓸 수 있지만, 알려 주지 않으면
           만들어 둔 손맛을 아무도 못 찾는다(폰 할 일 스와이프를 드롭한 근거가 '발견성'이었다).

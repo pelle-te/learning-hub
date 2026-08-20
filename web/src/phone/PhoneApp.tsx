@@ -33,6 +33,87 @@ const VIEWS = ['today', 'day', 'week', 'review'] as const;
 /** 날짜 이동이 의미 있는 뷰 — 홈·복습·읽을거리는 날짜 축이 아니라 '오늘/가장 최근' 하나다. */
 const DATED: View[] = ['day', 'week'];
 
+/** 폰 상단 — 날짜 화살표 · 화면 이름 · **실패 배너 셋**(정본 연결 · 영속 · 동기화) · 원장.
+ *  ⚠ 컴포넌트로 뺀 이유(2026-08-20): `PhoneApp` 인지복잡도의 절반이 이 헤더의 조건부 렌더
+ *  일곱이었다. **같은 `<header>` 엘리먼트를 그대로 반환**하므로 렌더 트리는 한 노드도 안 바뀐다
+ *  (래퍼를 하나라도 더 두면 그 순간 스냅샷이 안전망이 아니라 공범이 된다 · §15-4). */
+function PhoneHeader({
+  view,
+  status,
+  dbBroken,
+  ledger,
+  shift,
+}: {
+  view: View;
+  status: string | null;
+  dbBroken: boolean;
+  ledger: ReturnType<typeof useSyncLedger>;
+  shift: (n: number) => void;
+}): React.JSX.Element {
+  return (
+    <header className="sticky top-0 z-[var(--z-nav)] border-b border-line bg-bg">
+      {/* ⚠ 날짜 화살표는 날짜 축이 있는 뷰에서만 **자리를 유지한 채** 비활성이 아니라
+          아예 숨긴다 — 읽을거리에는 이전/다음 날이 없고, 눌러도 아무 일이 없는 버튼을
+          남기면 "고장난 화살표"가 된다. 가운데 탭 묶음이 밀리지 않게 폭만 예약한다. */}
+      <div className="flex items-center justify-between px-2 py-2">
+        <span className="w-11">
+          {DATED.includes(view) ? (
+            <button
+              type="button"
+              aria-label="이전"
+              onClick={() => shift(view === 'day' ? -1 : -7)}
+              className="min-h-11 px-3"
+            >
+              ‹
+            </button>
+          ) : null}
+        </span>
+        {/* 상단 가운데는 이제 '지금 어느 화면인가'만 말한다 — 전환은 하단 탭바(UX-B1)가 갖는다. */}
+        <span className="text-sm font-semibold text-txt">{VIEW_LABEL[view]}</span>
+        <span className="w-11 text-right">
+          {DATED.includes(view) ? (
+            <button
+              type="button"
+              aria-label="다음"
+              onClick={() => shift(view === 'day' ? 1 : 7)}
+              className="min-h-11 px-3"
+            >
+              ›
+            </button>
+          ) : null}
+        </span>
+      </div>
+
+      {/* ⚠ 정본 연결 실패도 말한다(C1 · 2026-07-26 감사) — 폰도 SQLite 가 정본이라, 워커가
+          죽으면 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**. 데스크톱은 배너
+          (`app/StorageBanner`)가 같은 사실을 말한다 — 화면은 갈라도 규칙은 하나다. */}
+      {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다(`SyncLedger` 와 같은 관용구: 보이는 줄은 조건부, 알리는 일만 갈라낸다). */}
+      <LiveRegion
+        message={dbBroken ? '저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.' : ''}
+        assertive
+      />
+      {dbBroken ? (
+        <p className="px-3 pb-2 text-xs text-bad">
+          저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.
+        </p>
+      ) : null}
+      {/* ⚠ 영속 실패는 말한다 — OPFS 를 못 잡으면 새로고침 한 번에 오프라인 캐시가 증발한다.
+          조용히 두면 "저장되는 것처럼 보이면서 아무것도 안 쓰는" 상태가 된다. */}
+      {!isDurable() ? (
+        <p role="status" className="px-3 pb-2 text-xs text-warn">
+          이 브라우저에선 오프라인 저장을 못 써요 — 새로고침하면 캐시가 사라집니다.
+        </p>
+      ) : null}
+      <LiveRegion message={status ?? ''} />
+      {status ? <p className="px-3 pb-2 text-xs text-bad">{status}</p> : null}
+      {/* ⚠ 여기까지는 전부 **실패했을 때만** 말한다(UX-B4 가 지적한 그 비대칭). 성공·오프라인·
+          대기 중이 전부 침묵이면 "폰에서 체크한 게 올라갔나?"에 답이 없고, 그 불확실이
+          PC 에서의 중복 입력으로 이어진다. 아래 원장이 그 나머지 절반을 상시로 말한다. */}
+      <SyncLedger {...ledger} className="px-3 pb-2" />
+    </header>
+  );
+}
+
 export default function PhoneApp(): React.JSX.Element {
   const ledger = useSyncLedger();
   const today = useApp((s) => todayISO(s.state));
@@ -103,66 +184,7 @@ export default function PhoneApp(): React.JSX.Element {
        `sticky bottom-0` 만으로는 내용이 짧은 화면(복습 완료·빈 날)에서 탭바가 본문 바로 아래
        중간 높이에 뜬다 — sticky 는 '흐름상 위치가 뷰포트 밖일 때만' 붙잡기 때문이다. */
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-[var(--z-nav)] border-b border-line bg-bg">
-        {/* ⚠ 날짜 화살표는 날짜 축이 있는 뷰에서만 **자리를 유지한 채** 비활성이 아니라
-            아예 숨긴다 — 읽을거리에는 이전/다음 날이 없고, 눌러도 아무 일이 없는 버튼을
-            남기면 "고장난 화살표"가 된다. 가운데 탭 묶음이 밀리지 않게 폭만 예약한다. */}
-        <div className="flex items-center justify-between px-2 py-2">
-          <span className="w-11">
-            {DATED.includes(view) ? (
-              <button
-                type="button"
-                aria-label="이전"
-                onClick={() => shift(view === 'day' ? -1 : -7)}
-                className="min-h-11 px-3"
-              >
-                ‹
-              </button>
-            ) : null}
-          </span>
-          {/* 상단 가운데는 이제 '지금 어느 화면인가'만 말한다 — 전환은 하단 탭바(UX-B1)가 갖는다. */}
-          <span className="text-sm font-semibold text-txt">{VIEW_LABEL[view]}</span>
-          <span className="w-11 text-right">
-            {DATED.includes(view) ? (
-              <button
-                type="button"
-                aria-label="다음"
-                onClick={() => shift(view === 'day' ? 1 : 7)}
-                className="min-h-11 px-3"
-              >
-                ›
-              </button>
-            ) : null}
-          </span>
-        </div>
-
-        {/* ⚠ 정본 연결 실패도 말한다(C1 · 2026-07-26 감사) — 폰도 SQLite 가 정본이라, 워커가
-            죽으면 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**. 데스크톱은 배너
-            (`app/StorageBanner`)가 같은 사실을 말한다 — 화면은 갈라도 규칙은 하나다. */}
-        {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다(`SyncLedger` 와 같은 관용구: 보이는 줄은 조건부, 알리는 일만 갈라낸다). */}
-        <LiveRegion
-          message={dbBroken ? '저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.' : ''}
-          assertive
-        />
-        {dbBroken ? (
-          <p className="px-3 pb-2 text-xs text-bad">
-            저장소에 연결하지 못했어요 — 지금 한 편집은 이 기기에만 남고 동기화되지 않습니다.
-          </p>
-        ) : null}
-        {/* ⚠ 영속 실패는 말한다 — OPFS 를 못 잡으면 새로고침 한 번에 오프라인 캐시가 증발한다.
-            조용히 두면 "저장되는 것처럼 보이면서 아무것도 안 쓰는" 상태가 된다. */}
-        {!isDurable() ? (
-          <p role="status" className="px-3 pb-2 text-xs text-warn">
-            이 브라우저에선 오프라인 저장을 못 써요 — 새로고침하면 캐시가 사라집니다.
-          </p>
-        ) : null}
-        <LiveRegion message={status ?? ''} />
-        {status ? <p className="px-3 pb-2 text-xs text-bad">{status}</p> : null}
-        {/* ⚠ 여기까지는 전부 **실패했을 때만** 말한다(UX-B4 가 지적한 그 비대칭). 성공·오프라인·
-            대기 중이 전부 침묵이면 "폰에서 체크한 게 올라갔나?"에 답이 없고, 그 불확실이
-            PC 에서의 중복 입력으로 이어진다. 아래 원장이 그 나머지 절반을 상시로 말한다. */}
-        <SyncLedger {...ledger} className="px-3 pb-2" />
-      </header>
+      <PhoneHeader view={view} status={status} dbBroken={dbBroken} ledger={ledger} shift={shift} />
 
       {/* ⚠ **진 편집을 폰에서도 보고 되살린다**(H20 · 2026-07-30). 그림자는 폰에서도 정상
           적재되는데 읽는 화면이 데스크톱에만 있었다 — 하필 폰이 더 자주 지는 쪽이다(짧게 켜고

@@ -915,17 +915,63 @@ binary) → 그 세 파일의 `git diff` 는 영원히 `Bin 6024 -> 5979 bytes` 
   저장소 자신의 규율이므로, 그 규율을 여기에도 적용할지는 설계 결정으로 남긴다.
 - 마이그레이션 11종 · 러너/빌드 설정 24종 · `src-tauri/examples` 3종: **통과**.
 
+## 기한부 원장 둘 — **둘 다 닫았다**(2026-08-20 · 2회차)
+
+앞 회차는 "만료 2026-11-20 까지 안 줄면 게이트를 깨뜨린다"로 남겨 뒀는데, 만료를 기다릴 이유가
+실측상 없었다.
+
+### ① 인지복잡도 — 18함수 → **1함수** · 상한 62 → **44**
+
+1회차가 남긴 여덟(React 컴포넌트 일곱 + `engine.ts`) 중 **일곱을 갚았다**:
+
+| 파일 | 전 | 후 | 무엇을 뺐나 |
+|---|---|---|---|
+| `features/today/TodaySignature.tsx` | **59** | ≤25 | `heroCopy`·`timerView`·`freeIntervalsOf`·`dueOf`·`frontierLabel`·`lockedKeyFor`(값 계산) + `HeroSubline`(JSX) |
+| `phone/ReviewView.tsx` | 38 | ≤25 | `NothingDue`·`SessionDone`·`ReviewCard`(JSX) |
+| `phone/PhoneApp.tsx` | 36 | ≤25 | `PhoneHeader`(JSX) |
+| `features/schedule/Schedule.tsx` | 33 | ≤25 | `chromeFor`(뷰별 중첩 삼항 2벌) |
+| `features/integrations/TelemetryConsole.tsx` | 32 | ≤25 | `readouts`(파생 9종) |
+| `features/schedule/DayPlanner.tsx` | 31 | ≤25 | `emptyHintFor`·`timelineOf` |
+| `features/today/FlowRail.tsx` | 27 | ≤25 | `nodeClasses` |
+
+⚠⚠ **1회차의 판정을 뒤집은 게 아니라 절단면을 바꿨다.** 그때 적은 이유는
+*"컴포넌트는 절단면이 DOM 을 바꿔 시각 스냅샷이 안전망이 아니라 **공범**이 된다"* 였고 그건
+**JSX 를 자르는 절단면**에 대해 지금도 옳다. 2회차가 한 것은 그 절단면을 피한 것이다 — 자른 것은
+대부분 **값 계산**이고, JSX 를 뺀 셋은 **래퍼를 하나도 안 늘리고** 같은 노드를 그대로 반환한다.
+
+증거는 말이 아니라 측정이다: **시각 167장 · 모션 5장이 한 장도 안 움직였고 `--update-snapshots`
+는 한 번도 안 돌렸다.** a11y 65 · 트랙 B 9 도 그대로다.
+
+### ⚠ 그리고 여덟째는 **안 갚았다** — 오라클이 그대로 막았다
+
+`lib/scheduler/engine.ts` `schedule()`은 50 → **44** 로만 내려갔다. 뺀 것은 `weekIndices`
+(그 주의 날 인덱스) 하나인데, `schedule()` 안에서 **스칼라만 받는 블록이 그것뿐**이라 문자
+그대로 위치 이동이었다(`scheduler.test.ts` 63 통과).
+
+남은 44 의 본체인 주 배분 루프는 `advance`·`curDl`·`pushNewBlock`·`pushReviewTasks` 를 부르는데
+**넷 다 `schedule()` 의 내부 클로저다**(실측). 빼려면 그 넷을 인자로 흘려야 하고, 그건 1회차가
+*"위치만 옮긴다가 아니라 설계 변경"* 이라 적은 바로 그것이다. 이 파일은 스스로 *"회귀로 동결된
+코어"* 라 적는다 — **개수를 맞추려고 그 판정을 뒤집지 않았다.**
+
+상한은 62 → **44** 로 함께 내렸다. 목록이 줄었는데 상한을 안 내리면 남은 하나에 18의 여유를
+선물하는 것이고, 그게 이 원장이 처음 고치려던 형태다.
+
+### ② `.ds-sub` — **은퇴**
+
+Q-10(2026-08-02)이 *디밍이 아닌 위계 축*(괘선 + 들여쓰기)으로 신설했고 진단은 옳았다. 그런데
+**18일 동안 어느 화면도 안 썼고**, 지우기 전에 붙일 자리를 찾아봤더니 **0 이었다** — 중첩 위계를
+흐림으로 표현하는 자리 자체가 이 앱에 없다. 즉 문제를 만난 적이 없는, 문제를 예상해 만든 이름이다.
+
+`ds.css` 는 같은 부류를 이미 셋 지웠고(`ds-card`·`ds-muted`·`ds-canvas`) 그때 규칙도 적어 뒀다:
+*"되살릴 거라면 **쓸 자리를 함께 지정할 것** — 이름만 다시 만드는 것은 같은 드리프트다."*
+그 규칙을 그대로 적용했고, 은퇴 사유는 `ds.css` 그 자리에 남겼다.
+
+⚠ 원장을 비우자 **검사기가 "사문화"로 실패했다**(원장에 있는데 정의가 없다) — 원장이 자기
+일관성을 지키고 있다는 관측이고, 비운 뒤 통과한다.
+
 ## 남은 것
 
-없음 — 원 46건 + 정독에서 나온 2건, 전부 닫혔다. **기한부 원장 둘**이 남는다:
-
-| 원장 | 어디 | 만료 |
-|---|---|---|
-| 인지복잡도 예외 8파일 | `eslint.config.js` | 2026-11-20 |
-| `.ds-sub`(소비처 0) | `scripts/check-tokens.mjs` 의 `ds_원장` | 2026-11-20 |
-
-그때까지 해소되지 않으면 **게이트가 깨지게 두는 것이 계약**이다(이 저장소의 다른 원장 둘과 같은
-규율 — 판단에 유효기간이 없으면 그건 판단이 아니라 방치다).
+없음. 원 46건 + 정독 2건 + 기한부 원장 2건, 전부 닫혔다. **열린 원장이 0 이다.**
 
 ## 최종 게이트 (전량 · 2026-08-20)
 
@@ -934,9 +980,9 @@ binary) → 그 세 파일의 `git diff` 는 영원히 `Bin 6024 -> 5979 bytes` 
 | `web verify`(codegen·tsc·eslint·stylelint·check:tokens·format·knip·coverage) | ✅ 184 파일 / **2,029 케이스** |
 | `web audit`(SCA) | ✅ critical 0 · high 0 · moderate 0 |
 | `web build` + `budget`(4축) | ✅ 데스크톱 511.0/555 · 폰 306.1/348 · wasm 392.5/450 · 오염 0 |
-| `web e2e`(트랙 A 시각 + 모션) | ✅ **167 + 5** |
+| `web e2e`(트랙 A 시각 + 모션) | ✅ **167 + 5** — 2회차에도 **재생성 0장** |
 | `web e2e:a11y`(axe) | ✅ **65** |
-| `server verify`(실 workerd·D1 왕복 포함) | ✅ **27** |
+| `server verify`(실 workerd·D1 왕복 포함) | ✅ **31 + 27** |
 | `cargo test --lib` | ✅ **75** |
 | `tauri:fmt` · `tauri:clippy` | ✅ |
-| `e2e:shell`(트랙 B · 실 exe + WebView2) | ✅ **9** (부팅 130.5ms) |
+| `e2e:shell`(트랙 B · 실 exe + WebView2) | ✅ **9** (부팅 124.4ms) |
