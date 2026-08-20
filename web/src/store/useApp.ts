@@ -12,7 +12,7 @@ import { mergeRuntime, splitRuntime } from './useRuntime';
 import { refineItemColors } from '@/lib/utils';
 import { idbMirror } from '@/lib/idb';
 // ⚠ `isMergeApplyPending` 은 이제 여기서 읽지 않는다 — 판정이 `writeAndVerify` 안으로 갔다(C-2).
-import { writeAndVerify, endMergeApply } from '@/lib/db/write';
+import { writeAndVerify, endMergeApply, nextRetryMs, PERSIST_MS } from '@/lib/db/write';
 import { onHidden } from '@/lib/visibility';
 import { preloadedState } from '@/lib/db/boot';
 import { isSqlitePrimary } from '@/lib/db/sqlite';
@@ -31,11 +31,10 @@ import type { AppState, CbmsCode, SessionType, Theme } from '@/lib/types';
 // 쓰기경로(add*/set*/restore*)의 지연초기화는 전부 mutate 드래프트 안이라 동결 대상이 아니다(무해).
 setAutoFreeze(true);
 
-/** 편집 → 정본 쓰기까지의 디바운스. ⚠ `syncController.AFTER_EDIT_MS`(1200) 가 이보다 **길어야**
- *  아웃박스가 아직 안 쓰인 편집을 놓치지 않는다(그 상수 주석이 짝을 이룬다). */
-const PERSIST_MS = 400;
-/** 쓰기 **실패** 재시도 백오프의 상한(H5). 400ms 에서 배로 늘어 여기서 멈춘다. */
-const PERSIST_RETRY_MAX_MS = 30_000;
+/* ⚠ 디바운스·백오프 **정책은 `lib/db/write` 가 소유한다**(M-11 · 2026-08-20). 여기 지역 상수로
+   두면 수열을 단언할 방법이 없어 "초당 재시도"로의 회귀가 조용히 통과한다(그 파일의 ⚠⚠ 참조).
+   ⚠ `syncController.AFTER_EDIT_MS`(1200) 가 `PERSIST_MS` 보다 **길어야** 아웃박스가 아직 안 쓰인
+   편집을 놓치지 않는다(그 상수 주석이 짝을 이룬다). */
 
 /* 저장 실패 안내 — 편집 중 매 flush(400ms 디바운스)마다 뜨면 소음이라 ~30초에 1번만.
    (shell/toast는 zustand 단독 모듈이라 store→toast import에 순환 없음 — actions.ts와 무관.) */
@@ -256,7 +255,7 @@ export const useApp = create<AppStore>()(
        한다(원인이 배포로 고쳐지면 그때 저장이 살아나야 하므로) — 다만 **초당이 아니라 30초당**. */
     let retryMs = 0;
     const scheduleRetry = () => {
-      retryMs = retryMs ? Math.min(retryMs * 2, PERSIST_RETRY_MAX_MS) : PERSIST_MS;
+      retryMs = nextRetryMs(retryMs); // 수열·상한은 `lib/db/write` 가 소유한다(M-11)
       if (timer) clearTimeout(timer);
       timer = setTimeout(flush, retryMs);
     };

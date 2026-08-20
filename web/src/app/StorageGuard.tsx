@@ -13,7 +13,7 @@ import { useUI } from '@/store/useUI';
 import { whenSettled, waitForMergeWindow } from '@/lib/db/write';
 import { installSyncTriggers } from '@/store/syncController';
 import { useApp } from '@/store/useApp';
-import { ui, io } from '@/shell';
+import { exportJSON, toast } from '@/shell';
 
 export default function StorageGuard() {
   /* 창 닫기 가드(2단계-C) — 셸에서만. 디바운스 대기 중 창을 닫으면 동기 localStorage 는
@@ -113,7 +113,7 @@ export default function StorageGuard() {
         const why =
           r.push?.status === 'blocked' ? (r.push.error ?? '') : r.status === 'blocked' ? (r.error ?? '') : null;
         if (why !== null) {
-          ui.toast(`클라우드 동기화가 중단됐어요 — ${why}`, 'warn', 12000);
+          toast(`클라우드 동기화가 중단됐어요 — ${why}`, 'warn', 12000);
         }
       },
     });
@@ -128,9 +128,9 @@ export default function StorageGuard() {
       if (!isQuotaTight(r)) return;
       const pct = Math.round((r.ratio ?? 0) * 100);
       const detail = r.usage != null && r.quota != null ? ` (${fmtBytes(r.usage)}/${fmtBytes(r.quota)})` : '';
-      ui.toast(`저장공간이 ${pct}% 찼어요${detail} — 지금 내보내기로 백업해 두세요.`, 'warn', 12000, {
+      toast(`저장공간이 ${pct}% 찼어요${detail} — 지금 내보내기로 백업해 두세요.`, 'warn', 12000, {
         label: '내보내기',
-        onAction: () => io.exportJSON(),
+        onAction: () => exportJSON(),
       });
     });
     return () => {

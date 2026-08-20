@@ -4,7 +4,7 @@
    계획 vs 실제 · CBMS 분포 · 백로그 회수 · 주간 체크리스트.
 ============================================================ */
 import { weakKey } from '@/lib/domainKeys';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LiveRegion from '@/components/LiveRegion';
 import { useApp } from '@/store/useApp';
@@ -30,7 +30,7 @@ import { weeklyInsights, weakSpots } from '@/lib/insights';
 import { adherenceLine } from '@/lib/adherence';
 import { riskChapters } from '@/lib/spacedReview';
 import { rootCauseRollup } from '@/lib/knowledge';
-import { bumpWeeklyHours } from '@/lib/weekAlloc';
+import { applyWeeklyHours } from '@/lib/weekAlloc';
 import { backlogFromWeakSpot, backlogFromRootCause, type BacklogSeed, PROMOTE_TOAST } from '@/lib/promote';
 import { reviewCoach, previewFromJsonStream, type ReviewCoachResult } from '@/lib/api';
 import { usePing, useKnowledge } from '@/store/queries';
@@ -365,13 +365,10 @@ function useWeeklyAllot() {
   const items = useApp((s) => s.state.items);
   const mutate = useApp((s) => s.mutate);
   const leverFor = (subject: string) => items.find((it) => it.name === subject && it.mode !== 'daily');
-  /* Q-19 — 식은 `lib/weekAlloc.bumpWeeklyHours` 로 내려갔다(⌘K 가 같은 동사를 갖게 되면서
-     훅 밖에서도 불러야 했다). 여기 남은 것은 스토어 접합뿐이다. */
-  const bumpWeekly = (id: string, delta: number) =>
-    mutate((st) => {
-      const t = st.items.find((x) => x.id === id);
-      if (t) t.weeklyHours = bumpWeeklyHours(t.weeklyHours, delta);
-    });
+  /* Q-19 → M-9 — 산술뿐 아니라 **찾아서 쓰는 것까지** `lib/weekAlloc.applyWeeklyHours` 가
+     소유한다(종전엔 이 세 줄이 팔레트·⌘K 에도 글자단위로 복제돼 있었다). 여기 남은 것은
+     `mutate` 한 겹뿐이다. */
+  const bumpWeekly = (id: string, delta: number) => mutate((st) => void applyWeeklyHours(st, id, { delta }));
   const allotMore = (subject: string, id: string) => {
     bumpWeekly(id, 1);
     toastUndoable(`"${subject}" 주간 배정 +1h`);
@@ -585,8 +582,12 @@ function WorkbenchCard() {
   const navigate = useNavigate();
   const today = todayISO(state);
   const [expanded, setExpanded] = useState(false);
-  // 조용한 절단 금지 — 전체를 받아 접기/펼치기로 숨은 수를 밝힌다.
-  const all = riskChapters(state, res.days || [], today, 100);
+  /* 조용한 절단 금지 — 전체를 받아 접기/펼치기로 숨은 수를 밝힌다.
+     ⚠ 메모가 필수다: 이 컴포넌트는 `useApp((s) => s.state)` 로 **루트 참조**를 구독하므로 앱의
+     어떤 편집이든 리렌더되고, `riskChapters` 는 그 안에서 챕터 전량의 사다리를 다시 판정한다.
+     `expanded` 토글·상위 리렌더에서 그것이 다시 도는 것은 순수 낭비다(2026-08-20 리뷰 m-9 ·
+     같은 파일군의 `features/items/Items.tsx` 가 이미 이 형태를 쓴다). */
+  const all = useMemo(() => riskChapters(state, res.days || [], today, 100), [state, res.days, today]);
   const shown = expanded ? all : all.slice(0, 6);
   const hidden = all.length - shown.length;
   const openN = openBacklog(state).length; // 워크벤치가 채우는 큐의 현재 깊이(맥락).

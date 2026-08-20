@@ -15,7 +15,7 @@
 ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { isDone } from '@/lib/persistence';
 import { eventsForDay } from '@/lib/events';
 import { toHM, pad2, hNum, hLabel, itemById } from '@/lib/utils';
@@ -383,7 +383,7 @@ export function WeekCalendar({
                             ev.stopPropagation();
                             const next = !done;
                             toggleDone(p.ds, x.sid, x.type, e.row.plannedMin, next);
-                            if (next) ui.toast(`${x.name} · ${tag.label} 완료`, 'ok');
+                            if (next) toast(`${x.name} · ${tag.label} 완료`, 'ok');
                           }}
                           aria-label={`${x.name} ${tag.label} ${toHM(pl.start)} 완료 토글`}
                           aria-pressed={done}

@@ -37,7 +37,7 @@ import {
 import { collectOutbox, batchSize } from '@/lib/cloud/outbox';
 import { runSync, lastSync } from '@/store/syncController';
 import { Button } from '@/components/ui';
-import { ui } from '@/shell';
+import { confirmIrreversible, toast } from '@/shell';
 import { Icon } from '@/components/Icon';
 import { agoLabel } from '@/lib/utils';
 
@@ -91,15 +91,15 @@ export default function CloudCard() {
       const next = await enrollDevice(url.trim(), code.trim(), 'PC');
       setCfg(next);
       setCode('');
-      ui.toast('클라우드에 연결했어요 — 첫 동기화를 시작합니다.', 'ok', 5000);
+      toast('클라우드에 연결했어요 — 첫 동기화를 시작합니다.', 'ok', 5000);
       /* 연결 직후 한 번 돌린다. 5분 주기를 기다리게 하면 "연결했는데 아무 일도 안 난다"로
          보이고, 사용자는 실패로 읽는다. */
       const r = await runSync(); // 병합 결과 메모리 반영은 runSync 가 한다(컨트롤러 계약).
-      if (r.status === 'failed') ui.toast(`첫 동기화에 실패했어요 — ${r.error ?? ''}`, 'warn', 8000);
+      if (r.status === 'failed') toast(`첫 동기화에 실패했어요 — ${r.error ?? ''}`, 'warn', 8000);
       void refreshStatus();
     } catch (e) {
       // 서버가 준 사유(코드 만료·틀린 주소)를 그대로 보여주는 게 가장 친절하다.
-      ui.toast(String((e as Error)?.message || e), 'bad', 8000);
+      toast(String((e as Error)?.message || e), 'bad', 8000);
     } finally {
       setBusy(false);
     }
@@ -108,14 +108,14 @@ export default function CloudCard() {
   const disconnect = useCallback(async () => {
     /* ⚠ 되돌리기 어려운 동작이라 확인을 받는다. 다만 **로컬 데이터는 지우지 않는다** —
        끊는 것은 이 기기의 자격증명뿐이고, 그 사실을 문구로 정확히 말한다. */
-    if (!(await ui.confirmIrreversible('이 기기의 클라우드 연결을 끊을까요? 로컬 데이터는 그대로 남습니다.'))) return;
+    if (!(await confirmIrreversible('이 기기의 클라우드 연결을 끊을까요? 로컬 데이터는 그대로 남습니다.'))) return;
     const { serverRevoked } = await disconnectCloud();
     setCfg(null);
     setDevices(null);
     /* ⚠ 서버 폐기 실패를 **삼키지 않는다.** 로컬만 지워지고 서버엔 기기가 살아 있으면
        사용자는 "끊었다"고 믿는데 리프레시 토큰은 여전히 유효하다 — 정확히 반대로 알려 준다. */
-    if (serverRevoked) ui.toast('클라우드 연결을 끊고 서버에서도 이 기기를 폐기했어요.', 'ok', 5000);
-    else ui.toast('이 기기에서는 끊었지만 서버 폐기에 실패했어요 — 다른 기기에서 폐기하세요.', 'warn', 10000);
+    if (serverRevoked) toast('클라우드 연결을 끊고 서버에서도 이 기기를 폐기했어요.', 'ok', 5000);
+    else toast('이 기기에서는 끊었지만 서버 폐기에 실패했어요 — 다른 기기에서 폐기하세요.', 'warn', 10000);
   }, []);
 
   /* ── 기기 관리 ──────────────────────────────────────────────
@@ -127,7 +127,7 @@ export default function CloudCard() {
     try {
       setDevices(await listDevices(cfg));
     } catch (e) {
-      ui.toast(String((e as Error)?.message || e), 'bad', 6000);
+      toast(String((e as Error)?.message || e), 'bad', 6000);
     } finally {
       setBusy(false);
     }
@@ -139,7 +139,7 @@ export default function CloudCard() {
       /* ⚠ 되돌릴 수 없다 — 재등록하려면 등록 코드를 새로 발급해야 한다. 그 사실을 확인 문구가
          말한다(되돌리기 어려운 동작은 확인을 받는다는 이 앱의 규약). */
       if (
-        !(await ui.confirmIrreversible(
+        !(await confirmIrreversible(
           `'${d.name}' 을(를) 폐기할까요? 되돌릴 수 없고, 다시 쓰려면 등록 코드가 필요합니다.`,
         ))
       )
@@ -147,10 +147,10 @@ export default function CloudCard() {
       setBusy(true);
       try {
         await revokeDevice(cfg, d.id);
-        ui.toast(`'${d.name}' 을(를) 폐기했어요.`, 'ok', 5000);
+        toast(`'${d.name}' 을(를) 폐기했어요.`, 'ok', 5000);
         setDevices(await listDevices(cfg));
       } catch (e) {
-        ui.toast(String((e as Error)?.message || e), 'bad', 6000);
+        toast(String((e as Error)?.message || e), 'bad', 6000);
       } finally {
         setBusy(false);
       }
@@ -162,8 +162,8 @@ export default function CloudCard() {
     setBusy(true);
     try {
       const r = await runSync(); // 병합 결과 메모리 반영은 runSync 가 한다(컨트롤러 계약).
-      if (r.status === 'failed') ui.toast(`동기화 실패 — ${r.error ?? ''}`, 'bad', 8000);
-      else ui.toast(r.pulled ? `${r.pulled}건을 받아왔어요.` : '최신 상태예요.', 'ok', 4000);
+      if (r.status === 'failed') toast(`동기화 실패 — ${r.error ?? ''}`, 'bad', 8000);
+      else toast(r.pulled ? `${r.pulled}건을 받아왔어요.` : '최신 상태예요.', 'ok', 4000);
       void refreshStatus();
     } finally {
       setBusy(false);

@@ -28,7 +28,49 @@ import { dayStudyMin, studyMinByWeekday } from './windows';
 import { adherenceFactor, itemTotalHours, latestBlank, masteryNeed, mistakeNeed } from './priority';
 import { applyDayPlans, reseedManualReviews } from './dayPlanOverride';
 import type { SchedSubject } from './types';
-import type { AppState, Day, ItemStat, ScheduleResult, Shortfall } from '../types';
+import type { AppState, Day, Item, ItemStat, ScheduleResult, Shortfall } from '../types';
+
+/* ── `schedule()` 의 두 단계 (2026-08-20 리뷰 M-14 원장 축소) ──────────────────────
+   ⚠⚠ **이 파일은 회귀로 동결된 코어다**(머리주석). 그래서 여기 옮긴 것은 **문장이 아니라 위치**뿐
+   이다 — 조건·순서·반올림 어느 것도 안 바꿨고 `scheduler.test.ts` 가 그것을 잠근다.
+   단계 둘을 뺀 이유는 크기가 아니라 **독립성**이다: daily 배치는 weekly 를 모르고, 복습 대상 날
+   고르기는 복습 내용을 모른다. */
+
+/** ③ daily(Anki) — 매일 고정 분 확보. 챕터가 없어 구간이 무의미하므로 과목의 **마지막 시험**까지
+ *  매일 돈다(시험이 없으면 지평 끝까지). */
+function placeDaily(days: Day[], s: Item, start: string, horizon: number): void {
+  const dailyEx = examsOf(s);
+  const dailyDs = dailyEx.length ? dailyEx[dailyEx.length - 1]!.date : undefined;
+  const dlIdx = clamp(dailyDs ? dayDiff(start, dailyDs) : horizon, 0, days.length - 1);
+  for (let j = 0; j <= dlIdx; j++) {
+    const d = days[j]!;
+    if (d.studyMin - d.used <= 0) continue;
+    const m = Math.min(+(s.dailyMin || 0), d.studyMin - d.used);
+    if (m <= 0) continue;
+    d.items.push({ type: 'anki', sid: s.id, name: s.name, min: Math.round(m), color: s.color });
+    d.used += m;
+  }
+}
+
+/** ⑥ 복습 대상 날 — **세 순위**로 고른다. 못 찾으면 `-1`(= 미배치, 호출부가 센다).
+ *  ① 복습예산(`revLeft`)이 남은 첫 날 → ② 그냥 여유가 남은 첫 날 → ③ 여유가 **가장 큰** 날.
+ *  ⚠ ③이 있는 이유가 "no silent caps" 다 — 창 안이 전부 빡빡해도 조용히 버리지 않고 가장 덜
+ *  빡빡한 날에 넘겨 끼우고, 그 사실을 호출부가 경고로 말한다. */
+function pickReviewDay(days: Day[], from: number, min: number): number {
+  const end = Math.min(days.length - 1, from + 6);
+  for (let j = from; j <= end; j++) if (days[j]!.revLeft >= min) return j;
+  for (let j = from; j <= end; j++) if (days[j]!.studyMin - days[j]!.used >= min) return j;
+  let best = -1;
+  let bestRoom = -1;
+  for (let j = from; j <= end; j++) {
+    const rm = days[j]!.studyMin - days[j]!.used;
+    if (rm > bestRoom) {
+      bestRoom = rm;
+      best = j;
+    }
+  }
+  return best;
+}
 
 export function schedule(state: AppState): ScheduleResult {
   // 시작일 방어 — 사용자가 시작일을 빈 값으로 지우면 parseISO('')=Invalid → dayDiff=NaN →
@@ -82,8 +124,12 @@ export function schedule(state: AppState): ScheduleResult {
   /* 2) 일자 생성 + (적응형) 가용 용량 */
   const adapt = adherenceFactor(state, start, horizon, capWd, today);
   const days: Day[] = [];
+  /* ⚠ 루프 밖에서 한 번만 판다(2026-08-20 리뷰 n-3) — 종전엔 `addDays(parseISO(start), i)` 로 매 회 같은 문자열을
+     다시 파싱했다(`parseISO` 는 split 배열 + map 배열 + Date 를 할당한다). `priority.ts` 의
+     H29 주석이 **바로 이웃에서** 같은 결함을 명시하고 이 처방을 적용했는데 이 루프엔 안 왔다. */
+  const startDate = parseISO(start);
   for (let i = 0; i <= horizon; i++) {
-    const date = addDays(parseISO(start), i);
+    const date = addDays(startDate, i);
     const ds = iso(date);
     const wd = date.getDay();
     let sMin = dayStudyMin(state, ds, wd, capWd);
@@ -93,20 +139,7 @@ export function schedule(state: AppState): ScheduleResult {
   const adaptApplied = adapt < 1;
 
   /* 3) daily(Anki) 먼저 — 매일 고정 분 확보 */
-  daily.forEach((s) => {
-    // daily(Anki)는 챕터가 없어 구간이 무의미하다 — 과목의 **마지막 시험**까지 매일 돈다.
-    const dailyEx = examsOf(s);
-    const dailyDs = dailyEx.length ? dailyEx[dailyEx.length - 1]!.date : undefined;
-    const dlIdx = clamp(dailyDs ? dayDiff(start, dailyDs) : horizon, 0, days.length - 1);
-    for (let j = 0; j <= dlIdx; j++) {
-      const d = days[j]!;
-      if (d.studyMin - d.used <= 0) continue;
-      const m = Math.min(+(s.dailyMin || 0), d.studyMin - d.used);
-      if (m <= 0) continue;
-      d.items.push({ type: 'anki', sid: s.id, name: s.name, min: Math.round(m), color: s.color });
-      d.used += m;
-    }
-  });
+  daily.forEach((s) => placeDaily(days, s, start, horizon));
   /* 남은 시간 → 학습 모듈 + 복습예산 */
   days.forEach((d) => {
     const rem = Math.max(0, d.studyMin - d.used);
@@ -155,12 +188,24 @@ export function schedule(state: AppState): ScheduleResult {
       _carry: 0,
       // Q-3. "약한 과목 먼저"의 근거가 **둘**이 됐다: 지식엔진 숙달도(외부 관측)와 반복 오답
       // (내 기록). 둘을 더해 **정렬 항 하나**로 둔다 — 항을 늘리면 "왜 이 과목이 먼저인가"의
-      // 설명이 조합적으로 불어난다. 둘 다 `graphPriority` 한 스위치가 끈다(기본 off → 영향 0).
+      // 설명이 조합적으로 불어난다. 둘 다 `graphPriority` 한 스위치가 끈다.
+      // ⚠ 종전 이 줄은 "(기본 off → 영향 0)"이라 적었는데 **사실과 다르다** — I-6(W7)이 기본을
+      //   `true` 로 뒤집었다(`persistence.ts` 의 `defaults()`). 그 오해 때문에 `mistakeNeed` 의
+      //   전량 스캔 비용이 검토 밖에 남아 있었다(2026-08-20 리뷰 m-6). 지금은 그쪽에 참조 캐시가
+      //   붙어 과목 수와 무관하게 1회만 돈다.
       _masteryNeed: masteryNeed(state, it.name) + mistakeNeed(state, it.id),
       _weekTgt: 0,
       _weekDone: 0,
     };
   });
+
+  /* ⚠ **과목당 한 번만 판다**(2026-08-20 리뷰 M-4). `latestBlank(state, sid)` 는
+     `(blankResults, sid)` 의 순수 함수인데 `pushReviewTasks` 가 **new 블록을 놓을 때마다**
+     불렀다 — 자동 경로(일자 × modLeft) + 배분 경로(주 × 7 × 과목) + 수동 배치(날 × 블록)라
+     호출이 네 자릿수가 되고, 매 호출이 `blankResults` 전량 스캔이었다. sid 는 과목 수만큼만
+     존재하므로 여기서 한 번 접어 두면 그 축이 통째로 사라진다. */
+  const blankBySid = new Map<string, boolean | null>();
+  for (const s of weekly) blankBySid.set(s.id, latestBlank(state, s.id));
   function advance(s: SchedSubject, addMin: number): string[] {
     if (!s._chs.length) return [];
     const addH = addMin / 60;
@@ -238,7 +283,7 @@ export function schedule(state: AppState): ScheduleResult {
     if (reviewViaAnki) return;
     const comp = state.completions?.[days[di]!.ds]?.[s.id + '|new'];
     const anchor = comp?.done && comp.doneDs ? clamp(dayDiff(start, comp.doneDs), 0, days.length - 1) : di;
-    const blank = latestBlank(state, s.id);
+    const blank = blankBySid.get(s.id) ?? null; // 위에서 과목당 1회 계산(M-4)
     const offsets =
       blank === false ? REVIEW_OFFSETS_WEAK : blank === true ? [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET] : REVIEW_OFFSETS;
     offsets.forEach((off) => {
@@ -338,29 +383,7 @@ export function schedule(state: AppState): ScheduleResult {
   let revMissed = 0;
   let revOver = 0;
   reviewTasks.forEach((t) => {
-    const end = Math.min(days.length - 1, t.idx + 6);
-    let tg = -1;
-    for (let j = t.idx; j <= end; j++)
-      if (days[j]!.revLeft >= t.min) {
-        tg = j;
-        break;
-      }
-    if (tg < 0)
-      for (let j = t.idx; j <= end; j++)
-        if (days[j]!.studyMin - days[j]!.used >= t.min) {
-          tg = j;
-          break;
-        }
-    if (tg < 0) {
-      let br = -1;
-      for (let j = t.idx; j <= end; j++) {
-        const rm = days[j]!.studyMin - days[j]!.used;
-        if (rm > br) {
-          br = rm;
-          tg = j;
-        }
-      }
-    }
+    const tg = pickReviewDay(days, t.idx, t.min);
     if (tg < 0) {
       revMissed++;
       return;

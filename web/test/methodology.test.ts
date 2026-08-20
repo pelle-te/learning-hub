@@ -41,7 +41,6 @@ import {
   summaryCount,
   toggleBacklog,
 } from '@/lib/methodology';
-import type { AppState } from '@/lib/types';
 
 const st = (over?: Record<string, unknown>): AppState => ({ items: [], ...(over || {}) }) as unknown as AppState;
 

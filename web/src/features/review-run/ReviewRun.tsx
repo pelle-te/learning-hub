@@ -54,6 +54,7 @@ import {
   requeue,
   runItemKey,
   type RunItem,
+  cursorOp,
 } from '@/lib/reviewQueue';
 import { type ResumeNav } from '@/lib/resume';
 import { writeResume, dropResume } from '@/store/resumeCursor';
@@ -436,10 +437,11 @@ function ReviewRun() {
     }
     setPred(null);
     setIdx((i) => i + 1);
-    /* N-7 — 이어하기 커서(복습). **5장마다**만 쓴다: 카드마다 쓰면 한 세션이 아웃박스에 12행을
-       남기고, 그 12행이 말하는 것은 같은 한 가지("복습 중")다. 진행 표기는 다음 카드 기준. */
-    if ((idx + 1) % 5 === 0 && idx + 1 < queue.length)
-      writeResume({ kind: 'review', label: '복습 세션', progress: `${idx + 2}/${queue.length}` });
+    /* N-7 — 이어하기 커서. **판정은 `lib/reviewQueue.cursorOp` 이 소유한다**(M-10) — 폰 러너와
+       같은 규칙을 쓰기 위해서다(종전엔 쓰기가 데스크톱에만 있어 커서가 단방향이었다). */
+    const op = cursorOp(idx, queue.length);
+    if (op?.kind === 'write') writeResume({ kind: 'review', label: '복습 세션', progress: op.progress });
+    else if (op?.kind === 'drop') dropResume();
   };
   /** P-2 — 코드 1키 커밋. 문맥이 sid·과목명·챕터를 이미 알므로 **필드가 4→1** 이 된다. */
   const commitMiss = (code: CbmsCode) => {

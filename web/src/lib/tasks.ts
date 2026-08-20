@@ -12,7 +12,9 @@ function ensure(state: AppState): Task[] {
   return (state.tasks = state.tasks || []);
 }
 
-/* ── 변형(스토어 mutate 안에서 호출 · 이후 persist) ───────────────────── */
+/* ── 변형(스토어 mutate 안에서 호출 · 이후 persist) ─────────────────────
+   ⚠ 이 절의 모든 쓰기는 끝에서 **`bumpTasks()`** 를 부른다 — 아래 날짜 인덱스의 무효화다.
+   근거는 그 인덱스의 ⚠⚠ 블록(`events.ts` 의 `bumpEvents` 와 같은 이유·같은 모양). */
 
 /** 새 자유 할 일 추가 — id·at 자동 부여. 반환=생성된 Task(undefined 필드는 직렬화 시 자동 탈락). */
 export function addTask(state: AppState, input: Partial<Task> & { title: string }): Task {
@@ -31,6 +33,7 @@ export function addTask(state: AppState, input: Partial<Task> & { title: string 
     repeat: input.repeat,
   };
   ensure(state).push(task);
+  bumpTasks();
   return task;
 }
 
@@ -38,11 +41,13 @@ export function addTask(state: AppState, input: Partial<Task> & { title: string 
 export function updateTask(state: AppState, id: string, patch: Partial<Task>): void {
   const t = ensure(state).find((x) => x.id === id);
   if (t) Object.assign(t, patch);
+  bumpTasks();
 }
 
 /** 삭제. */
 export function removeTask(state: AppState, id: string): void {
   state.tasks = ensure(state).filter((t) => t.id !== id);
+  bumpTasks();
 }
 
 /** 완료 토글 — on이면 done + doneDs(오늘), 아니면 미완으로 되돌림(doneDs 제거).
@@ -59,6 +64,7 @@ export function toggleTaskDone(state: AppState, id: string, on: boolean): void {
     t.done = false;
     delete t.doneDs;
   }
+  bumpTasks();
 }
 
 /** 반복 할일의 다음 occurrence 생성 — daily=+1일·weekly=+7일. 같은 날 미완 중복이 있으면 생략(멱등). */
@@ -86,12 +92,14 @@ export function placeTask(state: AppState, id: string, ds: string, start: number
   if (!t) return;
   t.ds = ds;
   t.start = start;
+  bumpTasks();
 }
 
 /** 미지정 복귀 — 시각 제거(캘린더→트레이). ds는 유지(그날 트레이). */
 export function unplaceTask(state: AppState, id: string): void {
   const t = ensure(state).find((x) => x.id === id);
   if (t) delete t.start;
+  bumpTasks();
 }
 
 /* ── 선택자(순수 파생 · 읽기 전용) ────────────────────────────────────── */
@@ -151,23 +159,73 @@ export function inboxTasks(state: AppState): Task[] {
 /** 그날 **시각이 박힌** 미완 과제의 점유 구간 — 창 차감이 소비하는 유일한 형태(`events` 와 같은 계약).
  *  ⚠ 겹침을 병합하지 않는다: `subtractIntervals` 가 멱등이라 이중 차감이 생기지 않는다. */
 export function taskIntervals(state: AppState, ds: string): [number, number][] {
-  const out: [number, number][] = [];
-  for (const t of state.tasks || []) {
-    if (t.ds !== ds || t.done || t.start == null || !t.min) continue;
+  return tkIndex(state).timed.get(ds) ?? EMPTY_INTERVALS;
+}
+
+const EMPTY_INTERVALS: [number, number][] = [];
+let tkVersion = 0;
+/** 위 변형 API 가 부른다 — 날짜 인덱스를 무효화한다(아래 ⚠⚠). */
+function bumpTasks(): void {
+  tkVersion++;
+}
+let tkIndexCache: {
+  src: unknown;
+  version: number;
+  timed: Map<string, [number, number][]>;
+  untimed: Map<string, number>;
+} | null = null;
+
+/* ⚠⚠ **날짜별 인덱스 — 이 둘이 스케줄러 안에서 N+1 이었다(2026-08-20 리뷰 M-3).**
+
+   `taskIntervals`/`untimedChoreMin` 은 호출마다 `state.tasks` **전량을 선형 스캔**했고(앞엣것은
+   `sort` 까지), 소비 경로가 `dayStudyMin` ← `scheduler/engine.ts` 의 **일자 생성 루프**(horizon
+   일수만큼)라 비용이 곱해졌다 — `schedule()` 1회당 전량 스캔이 일수 × 3 회 수준이다. 그리고
+   `schedule()` 은 `SCHEDULE_INPUT_KEYS` 중 아무 슬라이스나 바뀌면 재실행되므로 **체크 한 번·
+   타이핑 한 글자마다** 그 값을 낸다.
+
+   ⚠ **관용구를 새로 만들지 않았다** — `lib/events.ts` 의 `dayIndex` 가 H15 에서 *정확히 같은
+   결함*을 고치며 세운 형태(참조 + 모듈 버전 카운터)를 그대로 복제한 것이다. 그 파일 머리주석에
+   실측표까지 있다. N-1(W8)이 `dayOccupancy` 에 과제를 넣으면서 그 인덱스를 안 받아, 한 함수
+   안에서 두 축이 서로 다른 방식으로 살고 있었다.
+
+   ⚠⚠ **참조만으로는 부족하다** — 이 모듈의 뮤테이터는 `state.tasks` 를 **제자리**로 바꾼다
+   (`push`·필드 수정). immer 드래프트 아래서는 새 참조가 나오지만 순수 객체를 직접 다루는
+   경로(테스트·`rowsToState` 조립 중)는 참조가 그대로라 낡은 인덱스가 조용히 살아난다.
+   그래서 쓰기 API 가 버전을 올린다 — `events.ts` 가 같은 이유로 내린 결론이다.
+
+   ⚠ 반환 배열을 **호출부가 수정하지 않는다**는 전제 위에 있다: `windows.dayOccupancy` 는
+   `[...ev, ...tk]` 로 새 배열을 만들고 `subtractIntervals` 도 새 배열을 만든다(확인함).
+   빈 날은 공유 상수를 준다(할당 0). */
+function tkIndex(state: AppState): {
+  timed: Map<string, [number, number][]>;
+  untimed: Map<string, number>;
+} {
+  const src = state.tasks;
+  if (tkIndexCache && tkIndexCache.src === src && tkIndexCache.version === tkVersion) return tkIndexCache;
+  const timed = new Map<string, [number, number][]>();
+  const untimed = new Map<string, number>();
+  for (const t of src || []) {
+    if (t.done || !t.min || !t.ds) continue;
+    if (t.start == null) {
+      untimed.set(t.ds, (untimed.get(t.ds) ?? 0) + Math.max(0, t.min));
+      continue;
+    }
     if (!Number.isFinite(t.start) || !Number.isFinite(t.min)) continue;
     const s = Math.max(0, Math.min(1439, Math.round(t.start)));
     const e = Math.min(1440, s + Math.max(1, Math.round(t.min)));
-    if (e > s) out.push([s, e]);
+    if (e <= s) continue;
+    const arr = timed.get(t.ds);
+    if (arr) arr.push([s, e]);
+    else timed.set(t.ds, [[s, e]]);
   }
-  return out.sort((a, b) => a[0] - b[0]);
+  for (const arr of timed.values()) arr.sort((a, b) => a[0] - b[0]);
+  tkIndexCache = { src, version: tkVersion, timed, untimed };
+  return tkIndexCache;
 }
 
 /** 그날 **시각이 없는**(트레이·인박스 아님 — 날짜만 정해진) 미완 과제의 총 분.
  *  ⚠ **시각이 박힌 것은 여기서 안 센다** — 그건 위 `taskIntervals` 가 구간으로 빼므로, 총합에
  *  또 넣으면 두 번 깎인다(옛 `choreMinForDay` 가 그 총합이었고 W8 에서 지웠다 · 위 ⚠⚠). */
 export function untimedChoreMin(state: AppState, ds: string): number {
-  return (state.tasks || []).reduce(
-    (t, k) => (k.ds === ds && !k.done && k.start == null && k.min ? t + Math.max(0, k.min) : t),
-    0,
-  );
+  return tkIndex(state).untimed.get(ds) ?? 0;
 }

@@ -5,6 +5,7 @@
    ③ lib/weekAlloc: 자동 파생·승격·셀 설정·이전주 복사·리셋·행/열 합.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import { schedulerState } from './_fixtures';
 import { schedule } from '@/lib/scheduler';
 import {
   allocView,
@@ -28,7 +29,6 @@ import {
   weeklyItems,
   zeroVec,
 } from '@/lib/weekAlloc';
-import type { AppState } from '@/lib/types';
 
 let _id = 0;
 const nid = () => 'id' + ++_id;
@@ -39,17 +39,9 @@ function mkChapters(spec: ChSpec[]) {
 function weeklyItem(name: string, weeklyHours: number, chapters?: unknown[], extra?: Record<string, unknown>) {
   return { id: nid(), name, mode: 'weekly', weeklyHours, chapters: chapters || [], ...(extra || {}) };
 }
-function baseState(items: unknown[], over?: Record<string, unknown>): AppState {
-  return {
-    startDate: '2026-06-23', // 화요일 → 그 주 월요일 = 2026-06-22
-    moduleLen: 120,
-    reviewRatio: 20,
-    routine: [], // 빈 routine = 하루 종일 가용(결정적)
-    dayOverrides: {},
-    items: items || [],
-    ...(over || {}),
-  } as unknown as AppState;
-}
+/** ⚠ 픽스처는 `test/_fixtures` 한 벌이다(M-13) — 종전엔 이 함수가 세 파일에 바이트 동일로
+ *  복제돼 있었고, 날짜 상수가 한쪽만 바뀌면 두 파일이 다른 주(週)를 재게 된다. */
+const baseState = schedulerState;
 
 const WK0 = '2026-06-22'; // schedule()가 쓰는 첫 주 월요일(firstMon)
 const newOn = (r: ReturnType<typeof schedule>, ds: string, sid: string) =>

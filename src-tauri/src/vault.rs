@@ -18,7 +18,16 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
-/// 순회에서 통째로 건너뛸 폴더 — 프런트 `lib/utils.ts` 의 `SKIP` 과 같은 목록이어야 한다.
+/// 순회에서 통째로 건너뛸 폴더 — 프런트 `lib/utils.ts` 의 `SKIP` 과 **같은 목록이어야 한다.**
+///
+/// ⚠⚠ 두 목록은 **동시에 살아 있다**: 셸은 이 Rust 경로로, 브라우저 `npm run dev` 는 File
+/// System Access 경로(`lib/vault.ts`)로 각자 자기 것을 쓴다. 갈리면 같은 볼트에서 노트 수·
+/// 검증%가 실행 경로에 따라 달라지고, 그 차이가 `vaultAnchors` 를 타고 복습 사다리까지 간다 —
+/// 화면 어디에도 안 적힌다.
+///
+/// ⚠ 종전엔 이 주석 한 줄이 **유일한 집행자**였다(2026-08-20 리뷰 m-11). 이 저장소는 정확히
+/// 그 형태(`rows.ts` ↔ `rows.rs`)에 두 번 물려 "공유 원본" 처방을 세웠는데 여기만 예외로
+/// 남아 있었다. 지금은 아래 `스킵_목록이_프런트와_같다` 가 양방향으로 대조한다.
 const SKIP: [&str; 7] = [
     "attachments",
     "images",
@@ -86,14 +95,39 @@ fn skip_note(name: &str) -> bool {
     !name.ends_with(".md") || name.contains("MOC") || name.contains("실전문제")
 }
 
+/// 프론트매터를 찾기 위해 읽는 선두 길이(**바이트**).
+/// ⚠ 프런트 `web/src/lib/vault.ts` 의 `FM_HEAD_BYTES` 와 **같은 값·같은 단위**여야 한다.
+const FM_HEAD_BYTES: usize = 1600;
+
+/// 선두 `n` 바이트를 char 경계로 잘라 돌려준다(UTF-8 을 깨지 않는다).
+/// 경계에 정확히 맞으면 그대로, 아니면 **직전 문자까지**로 줄인다 — 프런트의 `Blob.slice` 는
+/// 잘린 바이트를 U+FFFD 로 만들지만 그 자리는 프론트매터 본문 밖(1600B 근처)이라 판정에
+/// 영향이 없고, 여기서 굳이 깨진 문자를 만들 이유도 없다.
+fn head_bytes(text: &str, n: usize) -> &str {
+    if text.len() <= n {
+        return text;
+    }
+    let mut end = n;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
 /// 프론트매터 선두만 읽어 `key: value` 를 뽑는다. YAML 파서가 아니다 —
 /// 프런트 `readFM` 과 같은 수준(첫 콜론 split)이어야 두 경로가 같은 답을 낸다.
 fn read_front_matter(path: &Path) -> (Option<String>, bool, Option<String>) {
     let Ok(text) = std::fs::read_to_string(path) else {
         return (None, false, None);
     };
-    // 선두 1600바이트만 보는 프런트와 동형. char 경계로 잘라 UTF-8 을 깨지 않는다.
-    let head: String = text.chars().take(1600).collect();
+    /* ⚠⚠ **바이트다 — 문자가 아니다**(2026-08-20 리뷰 m-12).
+    종전엔 `text.chars().take(1600)` 였고 주석은 *"선두 1600**바이트**만 보는 프런트와 동형"*
+    이라 적었다. 즉 불일치를 알아본 뒤 반대로 서술한 것이다: 한글은 UTF-8 3바이트/문자라
+    Rust 쪽이 최대 3배를 읽었다. 닫는 `---` 가 바이트 1600 과 문자 1600 사이에 오는 노트가
+    생기면 **셸은 프론트매터를 읽고 dev 브라우저(FSA 경로)는 못 읽어** 같은 노트가 실행
+    경로에 따라 검증됨/미검증으로 집계되고, 그게 `vaultAnchors` 를 타고 복습 앵커까지 간다.
+    프런트 짝은 `lib/vault.ts` 의 `f.slice(0, FM_HEAD_BYTES)`(Blob.slice = 바이트)다. */
+    let head = head_bytes(&text, FM_HEAD_BYTES);
     let mut lines = head.lines();
     if lines.next().map(str::trim) != Some("---") {
         return (None, false, None);
@@ -588,6 +622,47 @@ pub fn watch_with(dir: &Path, mut on_change: impl FnMut() -> bool) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⚠⚠ **언어 경계를 넘는 사본의 집행자**(2026-08-20 리뷰 m-11). `SKIP` 은 Rust 와 TS 에
+    /// 각각 있고 둘 다 실행 경로가 살아 있다 — 이 테스트가 없으면 규약이 주석 한 줄에 걸린다.
+    ///
+    /// 양방향으로 본다: ① Rust 의 모든 이름이 TS 에 있는가 ② TS 배열의 원소 수가 같은가.
+    /// ②가 없으면 TS 쪽에만 항목이 늘어난 경우를 못 잡는다(그쪽이 더 흔한 방향이다).
+    ///
+    /// ⚠ 파일을 못 읽으면 **조용히 통과시키지 않는다** — `testkit` 규율(환경 가정은 시끄럽게)
+    /// 과 같은 이유다. hub 단독 체크아웃에도 `web/src/lib/utils.ts` 는 항상 있다(같은 저장소).
+    #[test]
+    fn 스킵_목록이_프런트와_같다() {
+        let ts_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../web/src/lib/utils.ts");
+        let ts = std::fs::read_to_string(&ts_path)
+            .unwrap_or_else(|e| panic!("프런트 SKIP 을 읽지 못했다 {}: {e}", ts_path.display()));
+
+        // `export const SKIP = new Set([...]);` 의 배열 리터럴만 잘라낸다.
+        let start = ts.find("export const SKIP = new Set([").expect(
+            "`export const SKIP = new Set([` 선언을 못 찾았다 — 프런트에서 이름이 바뀌었나?",
+        );
+        let body = &ts[start..];
+        let inner = &body[body.find('[').unwrap() + 1..body.find(']').unwrap()];
+        let ts_items: Vec<String> = inner
+            .split(',')
+            .map(|s| s.trim().trim_matches('\'').trim_matches('"').to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for name in SKIP {
+            assert!(
+                ts_items.iter().any(|t| t == name),
+                "프런트 SKIP 에 `{name}` 이 없다 — 셸과 dev 브라우저가 다른 볼트를 세게 된다"
+            );
+        }
+        assert_eq!(
+            ts_items.len(),
+            SKIP.len(),
+            "SKIP 길이가 갈렸다 (Rust {:?} vs TS {:?})",
+            SKIP,
+            ts_items
+        );
+    }
 
     fn write(root: &Path, rel: &str, body: &str) {
         let p = root.join(rel);

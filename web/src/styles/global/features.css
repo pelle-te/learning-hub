@@ -6,15 +6,20 @@
    (명령 팔레트 cmd-*는 C-7 에서 JSX 유틸로 옮겨 갔다 → 전역 정의 삭제.)
 ============================================================ */
 
-/* ── 모션 환경설정(전역) ── */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
-  }
-}
+/* ⚠⚠ **전역 reduced-motion 리셋은 여기 없다 — `motion.css` 하나가 소유한다**(2026-08-20 리뷰 m-25).
+
+   종전엔 이 자리에 같은 `*, *::before, *::after` 블록이 한 벌 더 있었고(`animation-duration`·
+   `transition-duration` 둘만), `motion.css:163` 의 상위집합과 **겹쳐** 있었다. 무해해 보였지만
+   두 가지가 틀려 있었다:
+
+   ① **어느 쪽이 이기는지가 문서와 반대였다.** `!important` 선언의 캐스케이드 레이어 우선순위는
+      일반 선언과 **뒤집힌다** — 언레이어드가 가장 **약하다**. 그런데 `global/index.css` 머리주석은
+      "`motion.css` 는 언레이어드라 유틸을 이긴다"를 근거로 삼는다. 그 논증은 일반 선언에선
+      맞지만 이 구간에선 성립하지 않아, 실제로는 여기(layer components)가 duration 을 이겼다.
+   ② 이 파일의 머리주석은 스스로 feature 스타일이 "Phase 9 에서 이전 완료"라고 말한다 — 모션
+      규칙은 `motion.css` 소관이고, 이 블록은 그 이사에서 빠진 잔재였다.
+
+   지금은 값이 갈릴 여지 자체가 없다(사본이 하나다). */
 
 /* ── 헤더 오버플로 메뉴(⋯) — 드롭다운 패널만 전역(TopBar.tsx가 className="menu"로 직접 사용).
    래퍼(.menuwrap)는 C-7 에서 `TopBar.tsx` 의 JSX 유틸로 옮겨 갔으므로 전역판은 제거됨. */

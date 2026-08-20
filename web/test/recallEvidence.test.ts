@@ -4,7 +4,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { recallEvidence, cbmsTrendGlyph } from '@/lib/methodology';
-import type { AppState, ScheduleResult, Summary } from '@/lib/types';
+import type { ScheduleResult, Summary } from '@/lib/types';
 
 const sum = (id: string): Summary => ({ id, sid: 'a', name: 'n', s1: '1', s2: '2', s3: '3' });
 const S = (summaries: object, completions: object): AppState =>

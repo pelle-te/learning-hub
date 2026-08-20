@@ -10,6 +10,7 @@ import { minutesOfDay } from '@/lib/utils';
 import { prefersReducedMotion } from '@/lib/motion';
 import { onVisible, onHidden } from '@/lib/visibility';
 import { useKeymap } from './useKeymap';
+import { isTyping } from '@/lib/typing';
 
 /** 현재 표시값→target으로 부드럽게 카운트업/다운(easeOutCubic). reduced-motion·SSR이면 즉시 target.
  *  target 변경 시 0이 아니라 *현재값*에서 트윈 — 데이터 갱신마다 KPI가 0으로 튀는 깜빡임 방지(L-8). */
@@ -107,13 +108,11 @@ export function useFlushOnUnmount(fn: () => void): void {
   useEffect(() => () => ref.current(), []);
 }
 
-/** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시 — App·탭 로컬 키가 공유. */
-export function isTyping(): boolean {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
-}
+/** 포커스가 입력 요소(텍스트 편집)에 있으면 전역 단일키 단축키를 무시.
+ *  ⚠ 구현은 `lib/typing.ts` 로 내려갔다 — 이 파일과 `useKeymap.ts` 사이의 **순환을 끊기 위해서**다
+ *  (m-15 · 근거는 그 파일 머리주석). 여기 재수출은 기존 소비처 보존용이고, 새 코드는 `@/lib/typing`
+ *  을 직접 물어라. */
+export { isTyping };
 
 /** 주 이동 `,`/`.` — **N-16 이후 `useKeymap` 위에 얹힌 얇은 래퍼**다.
  *  옛 구현은 자기 리스너를 직접 걸었고, 그래서 이 키가 *어느 화면에 사는지* 앱이 몰랐다

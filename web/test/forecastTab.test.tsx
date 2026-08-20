@@ -10,26 +10,10 @@
    갖고 있어 지우지 않았다 — 그 근거는 `shell/tabs.ts` 의 그 탭 메타 주석이 소유한다.
 */
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
-
-function renderApp(path: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[path]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 afterEach(() => {
   cleanup();

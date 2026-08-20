@@ -3,7 +3,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { pickRetrieval, retrievableCount } from '@/lib/retrieval';
-import type { AppState, Summary } from '@/lib/types';
+import type { Summary } from '@/lib/types';
 
 let _n = 0;
 const sum = (name: string): Summary => ({ id: 's' + ++_n, sid: 'a', name, s1: '핵심', s2: '도구', s3: '의미' });

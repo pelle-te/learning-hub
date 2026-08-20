@@ -7,28 +7,12 @@
    (일반 진입 = 나브 '계획'·⌘K·g p는 영속 뷰 존중 — 그건 v4에서 사용자가 못박은 "기본 착지=캘린더 주 뷰".)
 ============================================================ */
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { todayISO, parseISO, fmtShort } from '@/lib/utils';
-
-function renderApp(initialPath: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 beforeEach(() => {
   // 과목은 있으나(hasItems) 챕터가 없어 오늘 블록이 0 → Today가 "오늘 계획 짜기" CTA를 띄우는 상태.

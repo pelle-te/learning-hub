@@ -5,7 +5,7 @@
 ============================================================ */
 import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui, io } from '@/shell';
+import { exportAnkiCards, exportSummaryNotes, toast } from '@/shell';
 import { useRecordEditor } from '@/shell/useRecordEditor';
 import { summariesFor, addSummary, editSummary, delSummary, cbmsBetween } from '@/lib/methodology';
 import { itemById, todayISO } from '@/lib/utils';
@@ -70,7 +70,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
      화면 구석에서 뜨고 사라졌고, "무엇이" 바뀌었는지는 말하지 못했다(모션 어휘 `commit`). */
   const submit = () => {
     if (!s1.trim() && !s2.trim() && !s3.trim()) {
-      ui.toast('세 문장 중 최소 하나는 적어주세요.', 'warn');
+      toast('세 문장 중 최소 하나는 적어주세요.', 'warn');
       return;
     }
     mutate((st) => addSummary(st, dsKey, sid, nameOf(st, sid), s1.trim(), s2.trim(), s3.trim()));
@@ -154,7 +154,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
           sm
           variant="ghost"
           style={{ marginLeft: 8 }}
-          onClick={() => io.exportAnkiCards('today')}
+          onClick={() => exportAnkiCards('today')}
           disabled={!canExport}
           title={canExport ? '오늘 요약·오답을 Anki import용 .txt 카드 초안으로' : '오늘 기록한 요약·오답이 없어요'}
         >
@@ -164,7 +164,7 @@ export default function SummaryCard({ ds: dsKey }: { ds: string }) {
           sm
           variant="ghost"
           style={{ marginLeft: 6 }}
-          onClick={() => io.exportSummaryNotes('today')}
+          onClick={() => exportSummaryNotes('today')}
           disabled={!canExport}
           title={
             canExport

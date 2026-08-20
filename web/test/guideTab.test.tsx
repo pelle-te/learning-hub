@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 
 /* 안내(guide) 탭 — 정적 매뉴얼. serve.js 무관하게 항상 렌더(순수 참조)임을 확인.
    레지스트리 분기 + lazy/Suspense + 세 축 섹션이 뜨는지 본다. 
@@ -13,18 +10,6 @@ import App from '@/app/App';
    같다(`shell/tabs.ts`). 본문 분해는 **여전히 유예 상태**이고 이 삭제는 그것과 무관하다 —
    지운 것은 탭 행이지 매뉴얼이 아니다.
 */
-function renderApp(initialPath: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 afterEach(() => cleanup());
 

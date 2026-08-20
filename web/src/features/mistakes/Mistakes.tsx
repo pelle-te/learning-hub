@@ -27,7 +27,7 @@ import { mistakeArchive, mistakeTotals, todayMistakes, type MistakeRow } from '@
 import { CBMS_INFO, CBMS_CODES, addBacklog } from '@/lib/methodology';
 import { chapterKc, knownKc, tagChapter, untagChapter } from '@/lib/knowledgeElements';
 import { openVaultSearch, todayISO, vaultQuery } from '@/lib/utils';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
 import type { CbmsCode } from '@/lib/types';
@@ -292,7 +292,7 @@ export default function Mistakes() {
   const seed = (row: MistakeRow) => {
     const topic = row.chapter || row.subject;
     mutate((st) => addBacklog(st, row.sid, row.subject, topic, `오답 ${row.count}회 · ${CBMS_INFO[row.topCode].tip}`));
-    ui.toast(`보충에 담았어요 — ${topic}`, 'ok', 4000);
+    toast(`보충에 담았어요 — ${topic}`, 'ok', 4000);
   };
 
   return (

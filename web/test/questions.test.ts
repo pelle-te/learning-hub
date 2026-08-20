@@ -21,7 +21,7 @@ import {
   removeQuestion,
 } from '@/lib/questions';
 import { examsOf } from '@/lib/semester';
-import type { AppState, Item, Question } from '@/lib/types';
+import type { Item, Question } from '@/lib/types';
 
 const q = (over: Partial<Question>): Question =>
   ({ id: over.id || 'q', ds: '2026-08-01', sid: 's', prompt: 'p', ...over }) as Question;

@@ -22,7 +22,7 @@ import { addBlock, blockMinPresets } from '@/lib/dayPlans';
 import { addTask } from '@/lib/tasks';
 import { addEvent } from '@/lib/events';
 import { hLabel, toMin } from '@/lib/utils';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { useApp } from '@/store/useApp';
 import type { Item, ScheduleResult, SessionType } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -35,14 +35,27 @@ const EVENT_MINS = [30, 60, 90, 120, 180, 240] as const;
 
 /* ⚠ 라벨은 `scheduleView.SESSION_TYPE_META` 와 **의도적으로 다르다**(new: 여기 '집중' vs 저기
    '학습'). 저기는 스케줄 표의 유형 태그, 여기는 "지금 뭘 추가할까" 버튼이라 어휘가 갈린다.
-   순서·집합이 어긋나면 곤란하니 바꿀 땐 둘을 함께 볼 것. */
-const BLOCK_TYPES = [
+
+   ⚠⚠ **이름이 `BLOCK_TYPES` 였다**(2026-08-20 리뷰 m-24). 그건 `lib/utils` 의 *일과 유형 →
+   CSS 토큰* 표와 **글자까지 같은 이름인데 도메인이 다르다** — 둘 다 "하루 계획" 코드에 살고 같은
+   화면군(`features/schedule`)에서 쓰여서, 코드를 옮기다 `BLOCK_TYPES[b.type]` 을 그대로 가져오면
+   한쪽에선 색이 나오고 한쪽에선 `undefined` 가 나온다(하나는 `Record`, 하나는 배열이다).
+
+   ⚠ 그리고 집합이 `SessionType` 에 **안 묶여 있었다** — 짝인 `SESSION_TYPE_META` 는
+   `Record<SessionType, …>` 라 타입이 강제하는데 여기만 사람 규율("바꿀 땐 둘을 함께 볼 것")에
+   맡겨져 있었다. 아래 `_EXHAUSTIVE` 가 그 비대칭을 없앤다: 유형이 하나 늘면 컴파일이 막는다. */
+const SESSION_ADD_BUTTONS: readonly { t: SessionType; label: string }[] = [
   { t: 'new', label: '집중' },
   { t: 'rev', label: '복습' },
   { t: 'anki', label: 'Anki' },
   { t: 'blank', label: '백지' },
   { t: 'mock', label: '모의' },
 ] as const;
+/** 집합 누락을 **컴파일에서** 잡는다 — 값은 쓰지 않는다(존재가 곧 검사다). */
+const _EXHAUSTIVE: Record<SessionType, true> = Object.fromEntries(
+  SESSION_ADD_BUTTONS.map((x) => [x.t, true]),
+) as Record<SessionType, true>;
+void _EXHAUSTIVE;
 
 const REPEAT_NEXT = { none: 'daily', daily: 'weekly', weekly: 'none' } as const;
 /** 반복 토글 라벨 — 아이콘 뒤에 붙는 **접미사**다(아이콘은 아래 렌더가 그린다). */
@@ -119,7 +132,7 @@ export function DayPlannerTrayAdder({
         chapters: [],
       }),
     );
-    ui.toast(`${name} · ${BLOCK_TYPES.find((x) => x.t === blockType)!.label} 블록 추가`, 'ok');
+    toast(`${name} · ${SESSION_ADD_BUTTONS.find((x) => x.t === blockType)!.label} 블록 추가`, 'ok');
   };
 
   const addEventNow = () => {
@@ -127,7 +140,7 @@ export function DayPlannerTrayAdder({
     if (!title) return;
     mutate((st) => addEvent(st, { ds, title, start: toMin(evStart), min: evMin }));
     setEvTitle('');
-    ui.toast(`${evStart} · ${title} 일정 추가`, 'ok');
+    toast(`${evStart} · ${title} 일정 추가`, 'ok');
   };
 
   return (
@@ -193,7 +206,7 @@ export function DayPlannerTrayAdder({
             onChange={(e) => setBlockType(e.target.value as SessionType)}
             aria-label="공부 블록 유형"
           >
-            {BLOCK_TYPES.map((x) => (
+            {SESSION_ADD_BUTTONS.map((x) => (
               <option key={x.t} value={x.t}>
                 {x.label}
               </option>

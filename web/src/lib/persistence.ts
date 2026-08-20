@@ -9,6 +9,7 @@
 ============================================================ */
 import { addDays, iso, nowHm, parseISO, rid, todayISO } from './utils';
 import { DEGREE_REQ } from './degree';
+import { CbmsCodeSchema } from './schema';
 import type { AppState, CompletionEntry, KV, RoutineBlock, SessionType } from './types';
 
 export const KEY = 'study_planner_v3'; // localStorage 키 (모델 변경으로 v3)
@@ -41,6 +42,16 @@ export const RUNTIME_CACHE_KEYS = ['_vaultScan', '_ankiFile', '_ankiLive', '_ics
  *  그 줄을 지우는 순간 무너지므로, 논거를 여기 적고 `dbRows.test.ts` 가 잠근다. */
 export const EPHEMERAL_ONLY_KEYS = ['_vaultScan', '_ankiFile'];
 
+/* ⚠⚠ **이 시드는 `defaults()` 가 아니다**(2026-08-20 리뷰 m-14).
+
+   종전엔 `defaults()` 가 아래 40과목(F 2건 포함)을 무조건 실었다. 그러면 두 가지가 틀린다:
+   ① **"전체 초기화"의 결과가 빈 상태가 아니라 옛 성적표 복원**이 된다 — 사용자가 지운 데이터가
+      되살아나는 것을 초기화라고 부를 수 없다.
+   ② `npm run dev`·부팅 폴백 등 기본값이 쓰이는 모든 경로가 **특정인의 성적** 위에서 돈다.
+   그래서 기본값은 요건 임계만 갖고(`DEGREE_REQ`) 학기는 비운다. 데이터를 지우는 것이 아니라
+   **명시적 행위로 옮긴** 것이다 — 설정 › 데이터의 "졸업 계획 시드 불러오기"(`shell/actions`)가
+   유일한 호출부이고, 이미 저장된 상태는 SQLite 에 그대로 남아 아무 영향이 없다.
+   ⚠ e2e 는 자기 픽스처를 쓴다(`e2e/_fixtures.ts` 의 `SEED.degree`) — 이 함수와 무관하다. */
 /** 졸업 계획 시드 — 졸업요건_정리.md(전자공학과 2020 요람·ABEEK 인증과정)에서 옮긴 실제 수강 이력·요건.
  *  SD-2에서 하드코딩 참조표(degreeReq/data.ts)를 폐기하고 state.degree 구동으로 바꾸며 비었던 데이터를 복원.
  *  · 요건: 총 128 / 전공필수(인증필수) 41 · 전공선택(인증선택) 27 · 교양(학과기초31+전문교양18+대학필수2) 51.
@@ -180,7 +191,9 @@ export function defaults(): AppState {
        ⚠ **기존 사용자는 안 건드린다**: 아래 마이그레이션은 `== null` 일 때만 채우므로, 이미
        `false` 로 저장된 상태는 그대로 꺼진 채 남는다(사용자가 끈 것을 앱이 되켜지 않는다). */
     graphPriority: true,
-    degree: degreeSeed(),
+    /* 요건 임계만 — 학기는 비운다(근거는 `degreeSeed` 위 ⚠⚠). `DEGREE_REQ` 는 부모 `goals.json`
+       에서 codegen 이 파생하므로 여기 리터럴이 아니고, `validShape` 도 `semesters` 배열만 본다. */
+    degree: { ...DEGREE_REQ, semesters: [] },
     anki: { source: 'file' },
   };
 }
@@ -233,6 +246,52 @@ export function validShape(s: unknown): boolean {
   );
 }
 
+/* ── `migrate` 의 표 (2026-08-20 리뷰 M-14 원장 축소) ──────────────────────────
+   ⚠ **동작은 한 글자도 안 바뀐다.** 종전엔 같은 모양의 `if` 가 열아홉 줄 늘어서 있었고 그게
+   `migrate` 인지복잡도의 대부분이었다 — 어려운 분기가 아니라 **많은 분기**였다. 표로 옮기면
+   "새 필드가 생기면 여기 한 줄"이라는 규칙이 코드 모양으로 드러나고, 분기 수는 셋이 된다.
+   ⚠ `migrate` 자체는 여전히 **회귀로 동결**이다(byte-exact) — 그래서 표의 키 순서도 옛 코드
+   순서 그대로 뒀다(순서 의존은 없지만, 대조를 사람이 눈으로 할 수 있어야 한다). */
+
+/** `null`/`undefined` 면 기본값에서 채우는 키. */
+const FILL_FROM_DEFAULTS = [
+  'dayOverrides',
+  'blankReviewWeekly',
+  'mockEveryWeeks',
+  'adaptiveCapacity',
+  'peakStart',
+  'peakEnd',
+  'reviewViaAnki',
+  'graphPriority',
+] as const;
+/** 객체가 아니면 `{}` 로 세우는 키(값의 내용은 안 본다 — 그건 `sanitizeImported` 몫). */
+const ENSURE_OBJECT = ['completions', 'summaries', 'weekly', 'rituals'] as const;
+/** 배열이 아니면 `[]` 로 세우는 키. */
+const ENSURE_ARRAY = ['cbms', 'backlog', 'blankResults', 'retentionLog'] as const;
+
+function fillDefaults(s: Record<string, unknown>, d: AppState): void {
+  const dd = d as unknown as Record<string, unknown>;
+  // 테마는 **정규화**라 표와 다르다: 폐기된 값(세피아 등)도 다크로 되돌린다.
+  if (s.theme !== 'light' && s.theme !== 'dark') s.theme = d.theme;
+  for (const k of FILL_FROM_DEFAULTS) if (s[k] == null) s[k] = dd[k];
+  for (const k of ENSURE_OBJECT) if (s[k] == null || typeof s[k] !== 'object') s[k] = {};
+  for (const k of ENSURE_ARRAY) if (!Array.isArray(s[k])) s[k] = [];
+}
+
+/** 졸업 계획 백필 — '손대지 않은 기본값'(과목 0 + 요건 3값 모두 0 = 옛 defaults)일 때만 1회.
+ *  과목을 하나라도 편성했거나 요건을 설정한 사용자는 절대 건드리지 않는다(빈 상태 존중).
+ *  ⚠ m-14 이후 `d.degree` 는 **요건 임계 + 빈 학기**다(옛 성적표 시드가 아니다). */
+function backfillDegree(s: Record<string, unknown>, d: AppState): void {
+  const dg = s.degree as
+    | { reqMajorReq?: number; reqMajorSel?: number; reqLiberal?: number; semesters?: { courses?: unknown[] }[] }
+    | undefined;
+  if (!dg) return;
+  const hasCourses =
+    Array.isArray(dg.semesters) && dg.semesters.some((se) => Array.isArray(se.courses) && se.courses.length > 0);
+  const untouchedReqs = !dg.reqMajorReq && !dg.reqMajorSel && !dg.reqLiberal;
+  if (!hasCourses && untouchedReqs) s.degree = d.degree;
+}
+
 /** 불러온 데이터에 새 필드 채우기(구버전 호환). 무효 입력은 null. 동작은 레거시와 동일. */
 export function migrate(input: unknown): AppState | null {
   if (!input || typeof input !== 'object') return null;
@@ -240,38 +299,8 @@ export function migrate(input: unknown): AppState | null {
   const s = input as Record<string, unknown>;
   const d = defaults();
   s.schemaVersion = SCHEMA_VERSION;
-  if (s.theme == null) s.theme = d.theme;
-  if (s.theme !== 'light' && s.theme !== 'dark') s.theme = d.theme; // 폐기된 세피아 등 → 다크로 정규화
-  if (s.completions == null || typeof s.completions !== 'object') s.completions = {};
-  if (s.dayOverrides == null) s.dayOverrides = {};
-  /* 학습방법론 실행 레이어 보강 */
-  if (s.summaries == null || typeof s.summaries !== 'object') s.summaries = {};
-  if (!Array.isArray(s.cbms)) s.cbms = [];
-  if (!Array.isArray(s.backlog)) s.backlog = [];
-  if (!Array.isArray(s.blankResults)) s.blankResults = [];
-  if (!Array.isArray(s.retentionLog)) s.retentionLog = [];
-  if (s.weekly == null || typeof s.weekly !== 'object') s.weekly = {};
-  if (s.rituals == null || typeof s.rituals !== 'object') s.rituals = {};
-  if (s.blankReviewWeekly == null) s.blankReviewWeekly = d.blankReviewWeekly;
-  if (s.mockEveryWeeks == null) s.mockEveryWeeks = d.mockEveryWeeks;
-  /* 적응·배치 설정 보강 */
-  if (s.adaptiveCapacity == null) s.adaptiveCapacity = d.adaptiveCapacity;
-  if (s.peakStart == null) s.peakStart = d.peakStart;
-  if (s.peakEnd == null) s.peakEnd = d.peakEnd;
-  if (s.reviewViaAnki == null) s.reviewViaAnki = d.reviewViaAnki;
-  if (s.graphPriority == null) s.graphPriority = d.graphPriority;
-  /* 졸업 계획 시드 백필 — SD-2에서 state.degree 구동으로 바뀌며 비어 있던 기존 데이터를 복원.
-     '손대지 않은 기본값'(과목 0 + 요건 3값 모두 0=옛 defaults)일 때만 1회 채운다.
-     과목을 하나라도 편성했거나 요건을 설정한 사용자는 절대 건드리지 않는다(빈 상태 존중). */
-  const dg = s.degree as
-    | { reqMajorReq?: number; reqMajorSel?: number; reqLiberal?: number; semesters?: { courses?: unknown[] }[] }
-    | undefined;
-  const hasCourses =
-    !!dg &&
-    Array.isArray(dg.semesters) &&
-    dg.semesters.some((se) => Array.isArray(se.courses) && se.courses.length > 0);
-  const untouchedReqs = !!dg && !dg.reqMajorReq && !dg.reqMajorSel && !dg.reqLiberal;
-  if (!hasCourses && untouchedReqs) s.degree = d.degree;
+  fillDefaults(s, d);
+  backfillDegree(s, d);
   /* _today·_nowHm 은 테스트 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거).
      ⚠ `_nowHm`(T-8)도 같은 규약이다. 빠뜨리면 시드가 실데이터에 눌러앉아 모든 완료 시각이
      고정값으로 기록된다 — 그러면 T-8 이 쌓으려는 표본이 통째로 거짓이 된다. */
@@ -288,53 +317,77 @@ export function migrate(input: unknown): AppState | null {
     ⚠ 전체 zod 스키마 필터를 쓰지 않는 이유: schema.ts의 element 스키마는 '타입 출처'로만 유지돼 실제 영속
     데이터와 정밀히 대조된 적이 없다(schema.ts:114 주석) — 필터로 쓰면 정상 레코드를 오폭 삭제할 위험이 있다.
     그래서 실제로 소비처를 깨는 필드(cbms.code 열거·completions.min 수치·dayOverrides 타입)만 좁게 검사한다. */
-export function sanitizeImported(state: AppState): AppState {
-  const s = state as unknown as Record<string, unknown>;
-  const CBMS = new Set(['C', 'B', 'M', 'S', 'T']); // CBMS_CODES 롤업이 이 열거를 가정 — 이탈 code는 집계를 깬다.
-  if (Array.isArray(s.cbms))
-    s.cbms = (s.cbms as Record<string, unknown>[]).filter(
-      (c) => !!c && typeof c === 'object' && CBMS.has(c.code as string),
-    );
-  // completions: sid → ds → {done, min}. min은 학습분 합산의 입력 — 비수치면 NaN 전파.
-  if (s.completions && typeof s.completions === 'object') {
-    for (const days of Object.values(s.completions as Record<string, Record<string, unknown>>)) {
-      if (!days || typeof days !== 'object') continue;
-      for (const [ds, e] of Object.entries(days)) {
-        const ent = e as { min?: unknown } | null;
-        if (!ent || typeof ent !== 'object' || typeof ent.min !== 'number' || !Number.isFinite(ent.min))
-          delete days[ds];
-      }
+/* ── `sanitizeImported` 의 필드별 방어선 (2026-08-20 리뷰 M-14 원장 축소) ────────────
+   ⚠ **동작은 안 바뀐다.** 종전엔 일곱 축(cbms·completions·events·tasks·items·routine·dayOverrides)이
+   한 함수 안에 순서대로 있었고, 각각이 다시 조건 서넛을 품어 인지복잡도의 전부를 만들었다.
+   축끼리는 서로를 모른다 — 각자 *한 슬라이스가 어떻게 소비처를 깨뜨리는가* 만 안다.
+   ⚠ 처방이 축마다 다르다는 것이 이 절의 요점이다: **레코드째 거를지, 필드만 뗄지**가 다르고
+   그 근거가 각 함수 주석에 있다. 한 함수에 뭉쳐 있으면 그 차이가 안 보인다. */
+
+/** cbms — 코드 열거 이탈은 롤업 집계를 깬다.
+ *  ⚠⚠ **열거를 손으로 다시 적지 않는다 — 정본은 `schema.ts` 의 `CbmsCodeSchema` 다.**
+ *  종전엔 여기 생 리터럴 `['C','B','M','S','T']` 가 있었고, 그건 그 열거의 **네 번째 사본**
+ *  이었다(스키마 · `CBMS_INFO` · `CBMS_CODES` · 여기). 그리고 `methodology.ts` 의 `CBMS_CODES`
+ *  주석은 바로 그 드리프트를 *"봉쇄했다"* 고 선언하고 있었다 — 사실이 아니었다.
+ *  이 자리가 특히 나쁜 이유: 여기는 **가져오기(백업 복원) 경로의 필터**다. 여섯 번째 코드가
+ *  생기면 `CBMS_INFO` 는 `Record<CbmsCode,…>` 라 TS 가 키 추가를 강제하지만 이 `Set` 은
+ *  아무 신호도 안 내고, 그 코드가 붙은 오답 레코드가 **복원에서 통째로 삭제된다.**
+ *  (`uiState.ts` 의 `AccentSchema.options` 가 같은 관용구 — 순환 없음: persistence → schema.) */
+function sanitizeCbms(s: Record<string, unknown>): void {
+  if (!Array.isArray(s.cbms)) return;
+  const codes = new Set<string>(CbmsCodeSchema.options);
+  s.cbms = (s.cbms as Record<string, unknown>[]).filter(
+    (c) => !!c && typeof c === 'object' && codes.has(c.code as string),
+  );
+}
+
+/** completions: sid → ds → {done, min}. `min` 은 학습분 합산의 입력 — 비수치면 NaN 전파. */
+function sanitizeCompletions(s: Record<string, unknown>): void {
+  if (!s.completions || typeof s.completions !== 'object') return;
+  for (const days of Object.values(s.completions as Record<string, Record<string, unknown>>)) {
+    if (!days || typeof days !== 'object') continue;
+    for (const [ds, e] of Object.entries(days)) {
+      const ent = e as { min?: unknown } | null;
+      if (!ent || typeof ent !== 'object' || typeof ent.min !== 'number' || !Number.isFinite(ent.min)) delete days[ds];
     }
   }
-  // events(Wave 5): 일정은 **스케줄 입력**(가용시간 차감)이라 비수치 start/min이 NaN 구간을 만들어
-  // 그날 studyMin 전체를 오염시킨다. ds(문자열)·start/min(유한수)만 통과시킨다.
-  if (Array.isArray(s.events))
-    s.events = (s.events as Record<string, unknown>[]).filter(
-      (e) =>
-        !!e &&
-        typeof e === 'object' &&
-        typeof e.ds === 'string' &&
-        Number.isFinite(e.start as number) &&
-        Number.isFinite(e.min as number),
-    );
-  // tasks(§4-4): events 와 같은 위험인데 방어가 빠져 있었다(2026-07-19 감사 ⑤ — ACTIVITY_KEYS·
-  // TaskSchema 에는 들어갔는데 여기만 누락). start/min 이 문자열이면 캘린더 배치 산술이 NaN 이 된다.
-  // ⚠ events 와 달리 **레코드를 지우지 않는다** — start/min 이 옵셔널이라 그 필드만 떼면 할 일이
-  //   '미지정 트레이 항목'으로 살아남는다. 사용자 저작물이라 최소 파괴가 옳다(events 는 시각이 필수라
-  //   시각 없는 일정이 성립하지 않아 레코드째 걸렀다).
-  if (Array.isArray(s.tasks)) {
-    s.tasks = (s.tasks as unknown[]).filter((t) => !!t && typeof t === 'object');
-    for (const t of s.tasks as Record<string, unknown>[]) {
-      if (t.start !== undefined && !Number.isFinite(t.start as number)) delete t.start;
-      if (t.min !== undefined && !Number.isFinite(t.min as number)) delete t.min;
-    }
+}
+
+/** events(Wave 5): 일정은 **스케줄 입력**(가용시간 차감)이라 비수치 start/min 이 NaN 구간을 만들어
+ *  그날 studyMin 전체를 오염시킨다. ds(문자열)·start/min(유한수)만 통과시킨다. */
+function sanitizeEvents(s: Record<string, unknown>): void {
+  if (!Array.isArray(s.events)) return;
+  s.events = (s.events as Record<string, unknown>[]).filter(
+    (e) =>
+      !!e &&
+      typeof e === 'object' &&
+      typeof e.ds === 'string' &&
+      Number.isFinite(e.start as number) &&
+      Number.isFinite(e.min as number),
+  );
+}
+
+/** tasks(§4-4): events 와 같은 위험인데 방어가 빠져 있었다(2026-07-19 감사 ⑤ — ACTIVITY_KEYS·
+ *  TaskSchema 에는 들어갔는데 여기만 누락). start/min 이 문자열이면 캘린더 배치 산술이 NaN 이 된다.
+ *  ⚠ events 와 달리 **레코드를 지우지 않는다** — start/min 이 옵셔널이라 그 필드만 떼면 할 일이
+ *  '미지정 트레이 항목'으로 살아남는다. 사용자 저작물이라 최소 파괴가 옳다(events 는 시각이 필수라
+ *  시각 없는 일정이 성립하지 않아 레코드째 걸렀다). */
+function sanitizeTasks(s: Record<string, unknown>): void {
+  if (!Array.isArray(s.tasks)) return;
+  s.tasks = (s.tasks as unknown[]).filter((t) => !!t && typeof t === 'object');
+  for (const t of s.tasks as Record<string, unknown>[]) {
+    if (t.start !== undefined && !Number.isFinite(t.start as number)) delete t.start;
+    if (t.min !== undefined && !Number.isFinite(t.min as number)) delete t.min;
   }
-  // items: 비객체 원소는 refineItemColors(부팅 경로·렌더 밖)에서 throw해 앱을 영구 백지로 만든다.
-  // 여기서 걸러야 손상 백업이 localStorage에 영속되는 것 자체를 막는다.
+}
+
+/** items·routine — 둘 다 **부팅·스케줄 경로에서 throw** 하는 부류다(렌더 밖이라 폴백도 못 잡는다).
+ *  items: 비객체 원소는 `refineItemColors` 에서 throw 해 앱을 영구 백지로 만든다.
+ *  routine: `days` 가 배열이 아니면 `blocksForWeekday` 의 `.includes` 에서, `start/end` 가
+ *  문자열이 아니면 `toMin` 의 `.split` 에서 TypeError → `schedule()` 전체가 throw 하고
+ *  스케줄을 읽는 모든 탭이 폴백으로 떨어진다. */
+function sanitizeSchedInputs(s: Record<string, unknown>): void {
   if (Array.isArray(s.items)) s.items = (s.items as unknown[]).filter((it) => !!it && typeof it === 'object');
-  // routine: 요일 블록은 **스케줄 입력**이다. days가 배열이 아니면 blocksForWeekday의 .includes에서,
-  // start/end가 문자열이 아니면 toMin의 .split에서 TypeError → schedule() 전체가 throw하고
-  // 스케줄을 읽는 모든 탭이 폴백으로 떨어진다.
   if (Array.isArray(s.routine))
     s.routine = (s.routine as Record<string, unknown>[]).filter(
       (b) =>
@@ -344,11 +397,23 @@ export function sanitizeImported(state: AppState): AppState {
         typeof b.start === 'string' &&
         typeof b.end === 'string',
     );
-  // dayOverrides: ds → 분(number) | 프리셋(string). 그 외 타입은 가용시간 계산을 깬다.
-  if (s.dayOverrides && typeof s.dayOverrides === 'object') {
-    const ov = s.dayOverrides as Record<string, unknown>;
-    for (const [ds, v] of Object.entries(ov)) if (typeof v !== 'number' && typeof v !== 'string') delete ov[ds];
-  }
+}
+
+/** dayOverrides: ds → 분(number) | 프리셋(string). 그 외 타입은 가용시간 계산을 깬다. */
+function sanitizeOverrides(s: Record<string, unknown>): void {
+  if (!s.dayOverrides || typeof s.dayOverrides !== 'object') return;
+  const ov = s.dayOverrides as Record<string, unknown>;
+  for (const [ds, v] of Object.entries(ov)) if (typeof v !== 'number' && typeof v !== 'string') delete ov[ds];
+}
+
+export function sanitizeImported(state: AppState): AppState {
+  const s = state as unknown as Record<string, unknown>;
+  sanitizeCbms(s);
+  sanitizeCompletions(s);
+  sanitizeEvents(s);
+  sanitizeTasks(s);
+  sanitizeSchedInputs(s);
+  sanitizeOverrides(s);
   return state;
 }
 

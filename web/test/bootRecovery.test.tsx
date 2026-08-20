@@ -23,7 +23,6 @@ import { toast } from '@/shell/toast';
 import { idbGet, idbLoad, idbPreserveBackup } from '@/lib/idb';
 import { memKV } from '@/lib/kv';
 import { boot, defaults, persist } from '@/lib/persistence';
-import type { AppState } from '@/lib/types';
 import BootRecovery from '@/app/BootRecovery';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));

@@ -35,6 +35,27 @@ export function applyDayPlans(state: AppState, days: Day[]): void {
  *  일반 경우엔 자동 패스가 만든 하류 rev가 이미 그 챕터를 덮으므로 실질 무보강(사용자가 새 챕터의
  *  new 블록을 손수 얹었을 때만 그 하류 복습이 새로 생긴다). 대상 날이 manual이면 사용자 소유라 주입 안 함.
  *  reviewViaAnki면 복습은 Anki/FSRS 소유라 생략(자동 패스와 동일 규칙). */
+/* ⚠ **복습 한 칸 주입**을 갈라 둔다(2026-08-20 리뷰 M-14 원장 축소). 종전엔 `reseedManualReviews`
+   안에 루프 셋이 중첩돼 있었고(날 → 블록 → 오프셋) 가장 안쪽이 다시 조건 넷을 품었다.
+   이 함수는 *한 날에 한 복습을 어떻게 얹는가* 만 안다 — 어느 날에 얹을지는 호출부가 정한다. */
+function injectReview(
+  td: Day,
+  src: { sid: string; name: string; color?: string; chapters?: string[] },
+  revMin: number,
+  plans: NonNullable<AppState['dayPlans']>,
+): void {
+  if (plans[td.ds]?.mode === 'manual') return; // 사용자 소유 날 — 주입 안 함
+  const ex = td.items.find((x) => x.type === 'rev' && x.sid === src.sid);
+  const missing = (src.chapters ?? []).filter((c) => !(ex && ex.chapters && ex.chapters.includes(c)));
+  if (!missing.length) return; // 이미 하류 rev 가 그 챕터를 덮음 → 이중계상 방지
+  if (ex && ex.chapters) {
+    missing.forEach((c) => ex.chapters!.push(c)); // 기존 rev 에 챕터만 병합(min 보수적 유지)
+    return;
+  }
+  td.items.push({ type: 'rev', sid: src.sid, name: src.name, color: src.color, min: revMin, chapters: missing });
+  td.used += revMin;
+}
+
 export function reseedManualReviews(
   state: AppState,
   days: Day[],
@@ -47,41 +68,47 @@ export function reseedManualReviews(
   if (reviewViaAnki) return;
   if (!days.some((d) => plans[d.ds]?.mode === 'manual')) return; // auto-only → 무동작
   const revMin = reviewBlockMin(ML);
+  /* ⚠ 아래 두 조회는 **블록마다** 불린다(manual 인 날 × 그날 new 블록). 종전엔 각각
+     `state.items` 선형 탐색과 `blankResults` 전량 스캔이라 그 곱이 그대로 비용이었다
+     (2026-08-20 리뷰 M-4 · `engine.ts` 의 `blankBySid` 와 같은 처방). sid 는 과목 수만큼만
+     존재하므로 한 번 접어 두면 그 축이 사라진다. */
+  const itemById = new Map((state.items || []).map((x) => [x.id, x]));
   const dlIdxOf = (sid: string): number => {
-    const it = state.items.find((x) => x.id === sid);
+    const it = itemById.get(sid);
     return it?.deadline ? dayDiff(start, it.deadline) : Infinity;
+  };
+  const blankCache = new Map<string, boolean | null>();
+  const blankOf = (sid: string): boolean | null => {
+    let v = blankCache.get(sid);
+    if (v === undefined) {
+      v = latestBlank(state, sid);
+      blankCache.set(sid, v);
+    }
+    return v;
   };
   for (const d of days) {
     if (plans[d.ds]?.mode !== 'manual') continue;
-    const di = dayDiff(start, d.ds);
     for (const it of d.items) {
       if (it.type !== 'new' || !it.chapters || !it.chapters.length) continue;
-      // 앵커 = 실제 완료일(doneDs) 우선(자동 패스와 동일 규칙), 없으면 배치일.
-      const comp = state.completions?.[d.ds]?.[it.sid + '|new'];
-      const anchor = comp?.done && comp.doneDs ? clamp(dayDiff(start, comp.doneDs), 0, days.length - 1) : di;
-      const blank = latestBlank(state, it.sid);
-      const offsets =
-        blank === false
-          ? REVIEW_OFFSETS_WEAK
-          : blank === true
-            ? [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET]
-            : REVIEW_OFFSETS;
-      const dl = dlIdxOf(it.sid);
-      for (const off of offsets) {
+      const anchor = anchorIdx(state, d.ds, it.sid, start, days.length);
+      for (const off of offsetsFor(blankOf(it.sid))) {
         const ti = anchor + off;
-        if (ti >= days.length || ti > dl) continue;
-        const td = days[ti]!;
-        if (plans[td.ds]?.mode === 'manual') continue; // 사용자 소유 날 — 주입 안 함
-        const ex = td.items.find((x) => x.type === 'rev' && x.sid === it.sid);
-        const missing = it.chapters.filter((c) => !(ex && ex.chapters && ex.chapters.includes(c)));
-        if (!missing.length) continue; // 이미 하류 rev가 그 챕터를 덮음 → 이중계상 방지
-        if (ex && ex.chapters) {
-          missing.forEach((c) => ex.chapters!.push(c)); // 기존 rev에 챕터만 병합(min 보수적 유지)
-        } else {
-          td.items.push({ type: 'rev', sid: it.sid, name: it.name, color: it.color, min: revMin, chapters: missing });
-          td.used += revMin;
-        }
+        if (ti >= days.length || ti > dlIdxOf(it.sid)) continue;
+        injectReview(days[ti]!, it, revMin, plans);
       }
     }
   }
+}
+
+/** 하류 복습의 앵커 인덱스 — **실제 완료일(`doneDs`) 우선**, 없으면 배치일(자동 패스와 동일 규칙). */
+function anchorIdx(state: AppState, ds: string, sid: string, start: string, len: number): number {
+  const comp = state.completions?.[ds]?.[sid + '|new'];
+  return comp?.done && comp.doneDs ? clamp(dayDiff(start, comp.doneDs), 0, len - 1) : dayDiff(start, ds);
+}
+
+/** 백지 성과에 따른 사다리 — 막힘이면 단축, 통과면 꼬리 연장, 기록 없으면 기본(②#23). */
+function offsetsFor(blank: boolean | null): readonly number[] {
+  if (blank === false) return REVIEW_OFFSETS_WEAK;
+  if (blank === true) return [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET];
+  return REVIEW_OFFSETS;
 }

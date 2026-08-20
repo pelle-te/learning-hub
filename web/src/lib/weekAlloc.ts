@@ -288,3 +288,27 @@ export function weekDoneNewMin(state: AppState, wk: string): number {
 export function bumpWeeklyHours(cur: number | undefined, delta: number): number {
   return Math.max(0, Math.round((+(cur || 0) + delta + Number.EPSILON) * 10) / 10);
 }
+
+/* ⚠⚠ **레버의 진짜 SSOT 는 산술이 아니라 이 recipe 다**(2026-08-20 리뷰 M-9).
+
+   위 함수를 내리고도 *"과목을 찾아서 그 필드에 쓴다"* 는 부분이 **세 층에 그대로 남아** 있었다
+   (`features/review/Review.tsx` 의 훅 · `shell/actions.ts` 의 팔레트 동사 · `app/CommandPalette.tsx`
+   의 계획 명령). 셋 다 `mutate(st => { const t = st.items.find(x => x.id === id); … })` 로 문자
+   그대로 같았고, 그래서 이 파일과 `Review.tsx` 가 각각 *"팔레트도 같은 것을 부른다"* ·
+   *"E-4 레버 SSOT"* 라 적은 문장이 둘 다 사실이 아니었다.
+
+   그리고 네 번째 변종이 이미 계약을 어기고 있었다 — `planVerbs` 의 "이번 주 쉼"이 `setWeekly(0)`
+   으로 `bumpWeeklyHours` 를 통째로 건너뛰어, 위 ⚠ 의 *"하한이 0 인 것도 계약이다"* 가 한
+   호출부에서만 강제됐다. `{ set }` 가지를 여기 두면 그 어휘가 한 곳으로 돌아온다.
+
+   ⚠ `mode === 'daily'` 가드도 여기가 자리다 — 세 호출부 중 그걸 가진 것은 훅 하나뿐이었다
+   (`leverFor`). 레버가 없는 과목에 레버를 거는 것은 어느 입구에서든 틀렸다.
+
+   ⚠ 이 저장소의 관용구를 따른다: 순수 recipe 를 `mutate(s => …)` 안에서 부른다
+   (`addBacklog`·`setWeeklyCheck` 와 같은 형태). 스토어를 모르므로 전량 유닛 테스트가 붙는다. */
+export function applyWeeklyHours(s: AppState, sid: string, op: { delta: number } | { set: number }): number | null {
+  const it = (s.items || []).find((x) => x.id === sid);
+  if (!it || it.mode === 'daily') return null;
+  it.weeklyHours = 'set' in op ? Math.max(0, op.set) : bumpWeeklyHours(it.weeklyHours, op.delta);
+  return it.weeklyHours;
+}

@@ -13,7 +13,6 @@ import {
   recalibratedWeekly,
   subjectCalibration,
 } from '@/lib/estimateCalibration';
-import type { AppState } from '@/lib/types';
 
 /** n건의 완료를 만든다. `withActual` 건에만 실측을 싣는다. */
 const st = (n: number, withActual: number, plannedMin = 100, actualMin = 150) => {

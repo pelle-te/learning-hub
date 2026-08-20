@@ -10,7 +10,7 @@ import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
-import { ui, io } from '@/shell';
+import { exportAnkiCards, toast } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
@@ -46,12 +46,12 @@ export function AnkiPanel() {
   // 개별 해제 — 각 연동을 독립적으로 끊는다(다른 채널엔 영향 없음).
   const clearFile = () => {
     qc.removeQueries({ queryKey: ['ankiFile'], exact: true });
-    ui.toast('Anki 카드 스캔을 비웠어요.', 'info');
+    toast('Anki 카드 스캔을 비웠어요.', 'info');
   };
   const clearLive = () => {
     qc.removeQueries({ queryKey: ['ankiLive'], exact: true });
     setAnkiLive('_ankiLive', null); // 오늘 탭 due KPI도 초기화
-    ui.toast('실시간 due 연결을 해제했어요.', 'info');
+    toast('실시간 due 연결을 해제했어요.', 'info');
   };
 
   const scanFiles = async () => {
@@ -143,23 +143,23 @@ export function AnkiPanel() {
   const addAnki = (name: string, mins: number) => {
     const nm = 'Anki: ' + name;
     if (items.some((s) => s.name === nm)) {
-      ui.toast('이미 추가됨', 'warn');
+      toast('이미 추가됨', 'warn');
       return;
     }
     mutate((st) => {
       st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
     });
-    ui.toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
+    toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
   };
 
   const dueBudget = () => {
     if (!live || !live.decks.length) {
-      ui.toast('먼저 "AnkiConnect 실시간 due"로 현황을 불러오세요.', 'warn');
+      toast('먼저 "AnkiConnect 실시간 due"로 현황을 불러오세요.', 'warn');
       return;
     }
     const due = totalDue(live.decks);
     if (due <= 0) {
-      ui.toast('오늘 풀 due가 0이에요 — 잡을 예산이 없어요.', 'info');
+      toast('오늘 풀 due가 0이에요 — 잡을 예산이 없어요.', 'info');
       return;
     }
     const mins = clamp(Math.round(due * 0.5), 10, 180);
@@ -175,7 +175,7 @@ export function AnkiPanel() {
         st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
       }
     });
-    ui.toast(
+    toast(
       ex
         ? `"${nm}" 복습예산을 ${mins}분으로 갱신(due ${due}장).`
         : `"${nm}" 매일 ${mins}분 복습예산으로 추가(due ${due}장 → 시간 역연동).`,
@@ -222,7 +222,7 @@ export function AnkiPanel() {
           <Button
             sm
             variant="ghost"
-            onClick={() => io.exportAnkiCards('all')}
+            onClick={() => exportAnkiCards('all')}
             title="전체 3문장 요약·오답을 Anki import용 .txt 카드 초안으로"
           >
             <Icon name="cards" /> 요약·오답 → 카드(.txt)

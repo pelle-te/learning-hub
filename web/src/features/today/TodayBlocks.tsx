@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePrefill } from '@/store/prefill';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import { addSummary, blankResultFor, clearBlankResult } from '@/lib/methodology';
@@ -92,7 +92,7 @@ function InlineSummary({ sid, name, ds, onDone }: { sid: string; name: string; d
   const save = () => {
     if (empty) return;
     mutate((st) => addSummary(st, ds, sid, name, v[0]!.trim(), v[1]!.trim(), v[2]!.trim()));
-    ui.toast('요약 저장됨', 'ok');
+    toast('요약 저장됨', 'ok');
     onDone();
   };
   return (
@@ -191,9 +191,9 @@ export function TodayBlocks() {
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');
   /* ⚠⚠ **순서를 뒤집었다 — 먼저 커밋하고 메모는 나중에(W8 · 2026-07-31).**
 
-     종전엔 `ui.prompt`(포커스 트랩 모달)로 '막힘 메모'를 먼저 받고, 취소하면 `if (note === null)
+     종전엔 `prompt`(포커스 트랩 모달)로 '막힘 메모'를 먼저 받고, 취소하면 `if (note === null)
      return` 이라 **"막혔다"는 사실 자체가 기록되지 않았다.** 즉 모달 하나가 데이터를 먹었다 —
-     그리고 그 `ui.prompt` 는 **전 앱 유일한 호출부**였다. 사실은 클릭 한 번으로 확정되고
+     그리고 그 `prompt` 는 **전 앱 유일한 호출부**였다. 사실은 클릭 한 번으로 확정되고
      (빈 메모 폴백은 이미 코드에 있었다 — 챕터명), 메모는 그 행 아래 인라인 한 줄로 받는다.
      함께 사라짐: `shell/modal` 의 prompt 경로·상태·트랩 1종 통째. */
   const blankBlocked = (it: ScheduleItem) => {
@@ -201,7 +201,7 @@ export function TodayBlocks() {
     const chapter = (it.chapters || []).join(', ');
     setBlankResult(ds2, it.sid, it.name, false, chapter || '구간 미기재', chapter);
     setNoteFor(it.sid); // 인라인 메모 입력을 그 행에 연다(선택 — 안 적어도 기록은 남았다)
-    ui.toast('막힘 기록됨 — CBMS(C 개념)로 연결했어요. 구간을 적으면 더 정확해져요.', 'ok');
+    toast('막힘 기록됨 — CBMS(C 개념)로 연결했어요. 구간을 적으면 더 정확해져요.', 'ok');
   };
   /** 인라인 메모 저장 — 이미 커밋된 '막힘' 레코드의 note 만 덮어쓴다. */
   const saveBlankNote = (it: ScheduleItem, note: string) => {

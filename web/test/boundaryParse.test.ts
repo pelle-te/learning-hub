@@ -15,7 +15,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { parseArtifact } from '@/lib/artifacts';
 import { sanitizeImported, defaults } from '@/lib/persistence';
-import type { AppState } from '@/lib/types';
 
 afterEach(() => vi.restoreAllMocks());
 

@@ -13,7 +13,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRecordEditor } from '@/shell/useRecordEditor';
 import { useApp } from '@/store/useApp';
 import * as toast from '@/shell/toast';
-import type { AppState } from '@/lib/types';
 
 interface Row {
   id: string;

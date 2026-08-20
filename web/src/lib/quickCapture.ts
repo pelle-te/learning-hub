@@ -59,10 +59,14 @@ interface DateHit {
   strip: string;
 }
 
-/** 날짜 인식 — 우선순위: 상대어 → 절대(N월 N일) → N/N → 요일. 첫 매칭만 채택. */
-function matchDate(raw: string, now: Date): DateHit | null {
-  const base = startOfDay(now);
+/* ── 날짜 인식의 네 전략 (2026-08-20 리뷰 M-14 원장 축소) ────────────────────────
+   ⚠ **동작은 안 바뀐다 — 순서가 곧 우선순위다**: 상대어 → 절대(N월 N일) → N/N → 요일.
+   첫 매칭만 채택한다. 종전엔 넷이 한 함수 안에 순서대로 있었고 각자 루프·조건을 품어
+   인지복잡도의 전부를 만들었다. 전략끼리는 서로를 모른다 — 각자 *이 표기를 아는가* 만 안다.
+   ⚠ 우선순위를 바꾸려면 아래 `DATE_STRATEGIES` 배열 순서를 바꾼다. 그게 유일한 자리다. */
+type DateStrategy = (raw: string, base: Date) => DateHit | null;
 
+const relativeDate: DateStrategy = (raw, base) => {
   // ① 상대어: 오늘/내일/모레/글피 + 영어 today/tomorrow
   const rel: Array<[RegExp, number, string]> = [
     [/모레/, 2, '모레'],
@@ -76,7 +80,10 @@ function matchDate(raw: string, now: Date): DateHit | null {
     const m = raw.match(re);
     if (m) return { dateISO: iso(addDays(base, off)), label, strip: m[0] };
   }
+  return null;
+};
 
+const absoluteDate: DateStrategy = (raw, base) => {
   // ② 절대 N월 N일 — 올해 기준, 이미 지났으면 내년으로 롤.
   const mAbs = raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
   if (mAbs) {
@@ -88,7 +95,10 @@ function matchDate(raw: string, now: Date): DateHit | null {
       return { dateISO: iso(cand), label: `${mo}월 ${dy}일`, strip: mAbs[0] };
     }
   }
+  return null;
+};
 
+const slashDate: DateStrategy = (raw, base) => {
   // ③ N/N (슬래시) — 시간 HH:MM(콜론)과 구문이 겹치지 않음.
   const mSlash = raw.match(/(\d{1,2})\/(\d{1,2})/);
   if (mSlash) {
@@ -100,7 +110,10 @@ function matchDate(raw: string, now: Date): DateHit | null {
       return { dateISO: iso(cand), label: `${mo}/${dy}`, strip: mSlash[0] };
     }
   }
+  return null;
+};
 
+const weekdayDate: DateStrategy = (raw, base) => {
   // ④ 요일 — '이번주/다음주/담주' 접두 + X요일, 또는 X요일, 또는 홀로 선 X요일 문자.
   //    접두+요일(요일 옵션) → 접두없는 요일 → 홀로 선 문자 순으로 시도.
   const weekRes: RegExp[] = [
@@ -133,7 +146,19 @@ function matchDate(raw: string, now: Date): DateHit | null {
     const label = (prefix ? `${prefix} ` : '') + `${ch}요일`;
     return { dateISO: iso(target), label, strip: m[0] };
   }
+  return null;
+};
 
+/** 우선순위 = 이 순서. 첫 매칭만 채택한다. */
+const DATE_STRATEGIES: readonly DateStrategy[] = [relativeDate, absoluteDate, slashDate, weekdayDate];
+
+/** 날짜 인식 — 우선순위는 위 `DATE_STRATEGIES` 가 소유한다. */
+function matchDate(raw: string, now: Date): DateHit | null {
+  const base = startOfDay(now);
+  for (const strategy of DATE_STRATEGIES) {
+    const hit = strategy(raw, base);
+    if (hit) return hit;
+  }
   return null;
 }
 

@@ -8,7 +8,7 @@ import LiveRegion from '@/components/LiveRegion';
 import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
-import { actions, ui } from '@/shell';
+import { importVaultSubject, toast } from '@/shell';
 import { pickAndScanVault, type VaultScan, type VaultSubject } from '@/lib/vault';
 import { isTauri } from '@/lib/tauri';
 import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
@@ -74,19 +74,19 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  /* 임포트 규칙(W4 포함)은 `shell/actions.importVaultSubject` 가 소유한다 — 연동 탭의
+  /* 임포트 규칙(W4 포함)은 `shell/importVaultSubject` 가 소유한다 — 연동 탭의
      볼트 패널과 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
-  const addSubject = (s: VaultSubject) => actions.importVaultSubject(s, led.data, '주당 시간·마감을 조정하세요.');
+  const addSubject = (s: VaultSubject) => importVaultSubject(s, led.data, '주당 시간·마감을 조정하세요.');
   const addAnki = (name: string, mins: number) => {
     const nm = 'Anki: ' + name;
     if (items.some((x) => x.name === nm)) {
-      ui.toast('이미 추가됨', 'warn');
+      toast('이미 추가됨', 'warn');
       return;
     }
     mutate((st) => {
       st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
     });
-    ui.toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
+    toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
   };
 
   return (

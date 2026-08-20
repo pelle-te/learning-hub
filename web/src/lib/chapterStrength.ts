@@ -102,6 +102,60 @@ export function chapterStrength(state: AppState, sid: string, chapter: string, t
   return { attempts: tries.length, passes, lastPassed, lastTouchDs, daysSince, band };
 }
 
+/**
+ * **전 챕터의 강도를 한 번에** — `sid|chapter` → 강도.
+ *
+ * ## 왜 배치판이 따로 있나 (2026-08-20 리뷰 M-5)
+ *
+ * 위 단건판은 호출마다 `blankResults` **전량을 `.filter().sort()`** 한다. 소비처 하나가
+ * `spacedReview.chapterShift` 인데 거기서는 챕터마다, 그것도 `strong`·`coef` 두 클로저를 통해
+ * **두 번** 불렸다. 그래서 `chapterReviews` 한 번에 (챕터 수 × 2) 회의 전량 스캔이 났다 —
+ * 그 파일의 `ShiftContext` 가 스스로 *"한 번 만들어 여러 챕터에 재사용한다(과목 스캔 반복 방지)"*
+ * 라 선언해 둔 계약이 실제로는 그 두 필드에서 지켜지지 않고 있었다.
+ *
+ * 여기서 한 번 접으면 전량 스캔이 **1회**가 되고 조회는 Map 이 된다.
+ *
+ * ⚠ **단건판을 지우지 않는다** — 화면 소비처(`features/items/Subject.tsx` 등)는 챕터 하나만
+ *   보므로 그쪽엔 전량 인덱스가 과하다. 두 판의 결과는 **동형이어야 한다**: 표본 없는 챕터에
+ *   대해 배치판은 항목을 안 만들고, 호출부가 `UNSEEN`(+ `lastTouchDs`/`daysSince`)으로 메운다.
+ *   그 메움을 `unseenAt` 이 소유해 두 판이 갈리지 않게 한다.
+ */
+export function chapterStrengths(state: AppState, todayDs: string): Map<string, ChapterStrength> {
+  const rows = new Map<string, { ds: string; passed: boolean }[]>();
+  for (const b of state.blankResults || []) {
+    const chapter = (b.chapter || '').trim();
+    if (!b.sid || !chapter) continue;
+    const k = b.sid + '|' + chapter;
+    const g = rows.get(k);
+    if (g) g.push({ ds: b.ds, passed: !!b.passed });
+    else rows.set(k, [{ ds: b.ds, passed: !!b.passed }]);
+  }
+  const touches = state.reviewTouches || {};
+  const out = new Map<string, ChapterStrength>();
+  for (const [k, tries] of rows) {
+    tries.sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0));
+    const lastTouchDs = touches[k] || null;
+    const passes = tries.filter((t) => t.passed).length;
+    const lastPassed = !!tries[tries.length - 1]!.passed;
+    out.set(k, {
+      attempts: tries.length,
+      passes,
+      lastPassed,
+      lastTouchDs,
+      daysSince: lastTouchDs ? dayDiff(lastTouchDs, todayDs) : null,
+      band: !lastPassed || passes * 2 < tries.length ? 'shaky' : 'strong',
+    });
+  }
+  return out;
+}
+
+/** 배치판에 항목이 없는 챕터의 값 — **단건판의 `!tries.length` 가지와 같은 모양**이어야 한다. */
+export function unseenAt(state: AppState, sid: string, chapter: string, todayDs: string): ChapterStrength {
+  if (!chapter) return UNSEEN;
+  const lastTouchDs = (state.reviewTouches || {})[sid + '|' + chapter] || null;
+  return { ...UNSEEN, lastTouchDs, daysSince: lastTouchDs ? dayDiff(lastTouchDs, todayDs) : null };
+}
+
 /** 화면 어휘 — 라벨을 호출부마다 지으면 같은 구간이 화면마다 다른 말이 된다. */
 export const BAND_LABEL: Record<StrengthBand, string> = {
   strong: '붙음',

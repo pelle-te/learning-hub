@@ -176,14 +176,14 @@ export async function roundTrips(days = 14, todayDs: string = todayISO()): Promi
     [from],
   );
   const dir = new Map<string, number>();
-  for (const r of rows ?? []) dir.set(`${r.from_key} ${r.to_key}`, Number(r.n) || 0);
+  for (const r of rows ?? []) dir.set(`${r.from_key}\x00${r.to_key}`, Number(r.n) || 0);
   const seen = new Set<string>();
   const out: RoundTrip[] = [];
   for (const [k, n] of dir) {
-    const [a = '', b = ''] = k.split(' ');
-    const back = dir.get(`${b} ${a}`);
+    const [a = '', b = ''] = k.split('\x00');
+    const back = dir.get(`${b}\x00${a}`);
     if (!back) continue; // 단방향 = 경로이지 왕복이 아니다
-    const pair = a < b ? `${a} ${b}` : `${b} ${a}`;
+    const pair = a < b ? `${a}\x00${b}` : `${b}\x00${a}`;
     if (seen.has(pair)) continue;
     seen.add(pair);
     out.push({ a: a < b ? a : b, b: a < b ? b : a, n: n + back });

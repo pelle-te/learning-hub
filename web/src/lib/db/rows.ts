@@ -217,16 +217,124 @@ export interface TouchedRow {
  * 거기 없으므로, 그것만으로 만든 되돌리기는 **"지운 것"을 영원히 못 살린다** — 되돌리기가 가장
  * 필요한 바로 그 부류다. 두 축(전/후)을 한 번에 보는 자리가 여기뿐이라 여기서 낸다.
  */
+/* ── diff 의 두 국면 (2026-08-20 리뷰 M-14 원장 축소) ────────────────────────────
+   ⚠ **동작은 안 바뀐다.** 종전엔 `diffRowsDetailed` 안에 테이블 루프 하나와 그 안의 루프 둘이
+   중첩돼 있었고, 각 루프 몸통이 다시 조건 서넛을 품었다 — 그게 인지복잡도의 전부였다.
+   두 국면은 서로를 모른다: 하나는 *생겼거나 바뀐 행*, 하나는 *사라진 행*만 본다.
+   ⚠ **문장 순서 계약은 호출부가 소유한다**(`[...upserts, ...tombs, ...deletes]`) — 여기서는
+   각자 자기 배열에만 담는다. 그 순서가 왜 중요한지는 아래 `diffRemovals` 의 ⚠ 가 적는다. */
+interface DiffAcc {
+  upserts: Stmt[];
+  tombs: Stmt[];
+  deletes: Stmt[];
+  touched: TouchedRow[];
+  removed: RemovedRow[];
+  preImages: PreImageRow[];
+  /** 기준선이 있는가 — 없으면 pre-image 를 만들지 않는다(근거는 호출부 ⚠). */
+  capture: boolean;
+  stampFor: () => number;
+}
+
+/** 툼스톤 기본키 — 단일키 테이블은 k2 를 빈 문자열로 채운다(db.rs v3 와 같은 규약). */
+const tombKeyOf = (spec: TableSpec, vals: unknown[]): unknown[] => [
+  spec.name,
+  vals[0],
+  spec.keyLen === 2 ? vals[1] : '',
+];
+
+/** 생겼거나 값이 바뀐 행 → upsert. */
+function diffUpserts(
+  acc: DiffAcc,
+  spec: TableSpec,
+  before: Map<string, unknown[]>,
+  after: Map<string, unknown[]>,
+): void {
+  for (const [key, vals] of after) {
+    const old = before.get(key);
+    /* ⚠ 비교는 **데이터 열만** 본다. `updated_at` 은 우리가 매번 새로 찍는 값이라
+       비교에 넣으면 모든 행이 항상 "변경됨"이 되어 증분 쓰기가 전량 쓰기로 퇴화한다. */
+    if (old && old.length === vals.length && old.every((v, i) => v === vals[i])) continue;
+    /* ⚠ **동기화 테이블만 담는다.** 되돌리기는 `applyPull`(병합 기계)로 적용하는데 그것은
+       `OUTBOX_TABLES`(= `sync:true` + docs)만 안다 — `meta`(파생 `present`)·`runtime_cache`
+       (기기별 재계산 캐시)를 담아 봐야 조용히 버려진다. **버려질 것을 담으면 스택 바이트만
+       먹고 "N건 되돌렸다"는 수가 거짓이 된다.** */
+    if (acc.capture && spec.sync)
+      acc.preImages.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals: old ?? null });
+    const cols = spec.sync ? [...spec.cols, 'updated_at'] : spec.cols;
+    const args = spec.sync ? [...vals, acc.stampFor()] : vals;
+    acc.upserts.push({
+      sql: `INSERT OR REPLACE INTO ${spec.name} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
+      args,
+    });
+    // ⚠ `vals` 는 **데이터 열만**이다(`updated_at` 제외) — 그 값은 우리가 매번 새로 찍으므로
+    //    되읽기 대조에 넣으면 항상 불일치가 된다(위 비교가 같은 이유로 제외한다).
+    acc.touched.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals });
+    /* ⚠ **부활(지웠다가 같은 키로 다시 만들기)을 여기서 처리하지 않는다.**
+       처음엔 툼스톤을 지우는 문장을 같이 냈는데, 그러면 ① 이 목록에 DELETE 가 섞여
+       "삭제는 upsert 뒤" 계약이 형식적으로 깨지고 ② 기준선이 없는 첫 쓰기에서 전 행에
+       대해 쓸모없는 DELETE 가 N개 붙고 ③ 무엇보다 **정리 문장이 실행돼야만 맞는**
+       설계가 된다(중간에 죽으면 행과 툼스톤이 공존).
+       → 대신 병합이 `updated_at` vs `deleted_at` 을 **비교**하게 한다(5-E). 다시 만든
+       행은 updated_at 이 더 크므로 이긴다. 정리는 correctness 가 아니라 청소이므로
+       나중에 오래된 툼스톤을 일괄 GC 하면 된다. */
+  }
+}
+
+/** 사라진 행 → 툼스톤 + DELETE.
+ *  ⚠ 삭제 사실을 **먼저** 남긴다 — 없으면 다른 기기에서 "없는 행"과 구분이 안 돼 삭제가
+ *  부활한다. 툼스톤을 데이터 삭제보다 앞에 두는 게 안전한 방향이다: 중간에 죽으면 "행은
+ *  남았는데 툼스톤이 있는" 상태가 되고, 병합은 `deleted_at > updated_at` 이므로 **지워진
+ *  것으로 올바르게** 판정한다. 반대 순서면 "행은 지웠는데 툼스톤이 없는" 상태 — 상대 기기가
+ *  되살린다. (그 순서는 호출부의 `[...upserts, ...tombs, ...deletes]` 가 최종적으로 보장한다.) */
+function diffRemovals(
+  acc: DiffAcc,
+  spec: TableSpec,
+  before: Map<string, unknown[]>,
+  after: Map<string, unknown[]>,
+): void {
+  for (const [key, vals] of before) {
+    if (after.has(key)) continue;
+    // 삭제의 pre-image = 그 행 자체. 되돌리기는 이걸 다시 넣는다(부활 가드는 `cloud/undo.ts` 참조).
+    if (acc.capture && spec.sync) acc.preImages.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals });
+    const where = spec.cols
+      .slice(0, spec.keyLen)
+      .map((c) => `${c} = ?`)
+      .join(' AND ');
+    if (spec.sync) {
+      acc.tombs.push({
+        sql: `INSERT OR REPLACE INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)`,
+        args: [...tombKeyOf(spec, vals), acc.stampFor()],
+      });
+    }
+    acc.deletes.push({ sql: `DELETE FROM ${spec.name} WHERE ${where}`, args: vals.slice(0, spec.keyLen) });
+    acc.removed.push({ table: spec.name, key: vals.slice(0, spec.keyLen) });
+  }
+}
+
 export function diffRowsDetailed(
   prev: DbRows | null,
   next: DbRows,
   now: number | (() => number) = Date.now(),
-): { stmts: Stmt[]; touched: TouchedRow[]; removed: RemovedRow[]; preImages: PreImageRow[] } {
+  /* ⚠ **기준선의 테이블 표현을 이미 갖고 있으면 넘긴다**(2026-08-20 리뷰 m-5).
+     `toTableData` 는 행마다 `JSON.stringify(키)` 로 Map 키를 만든다. 그런데 `prev` 는 직전
+     flush 가 방금 쓴 바로 그 `rows` 이고(`sqlite.writeRows` 가 `_last = rows` 로 들고 있다),
+     그 표현은 그때 이미 만들어졌다 — 즉 flush 마다 **절반이 바이트 동일한 재계산**이었다.
+     편집 하나가 바꾸는 행은 한 자릿수인데 diff 준비만 O(전체 × 2) 였다.
+     기본값이 있어 기존 호출부·테스트는 한 글자도 안 바뀐다. */
+  prevTables?: Record<string, Map<string, unknown[]>> | null,
+): {
+  stmts: Stmt[];
+  touched: TouchedRow[];
+  removed: RemovedRow[];
+  preImages: PreImageRow[];
+  /** `next` 의 테이블 표현 — 호출부가 다음 회차의 `prevTables` 로 재사용한다. */
+  nextTables: Record<string, Map<string, unknown[]>>;
+} {
   /* 스탬프는 **동기화 행마다** 배급한다. 상수(일반 flush)면 모든 행·툼스톤이 같은 값을 받아
      종전과 한 글자도 다르지 않고(한 flush = 한 스탬프 그룹), 함수(최초 이관의 `chunkedStamp`)면
      청크마다 값이 갈려 단일 그룹이 배치 상한을 넘지 않는다(C1 · `stamp.ts` 참조). */
   const stampFor = typeof now === 'function' ? now : (): number => now;
-  const a = prev ? toTableData(prev) : null;
+  const a = prevTables !== undefined ? prevTables : prev ? toTableData(prev) : null;
   const b = toTableData(next);
   const upserts: Stmt[] = [];
   const tombs: Stmt[] = [];
@@ -243,65 +351,15 @@ export function diffRowsDetailed(
      빈 목록을 내면 `undoStack` 이 항목 자체를 안 만든다(그쪽 `pushUndo` 계약). */
   const preImages: PreImageRow[] = [];
   const capture = prev !== null;
-  /** 툼스톤 기본키 — 단일키 테이블은 k2 를 빈 문자열로 채운다(db.rs v3 와 같은 규약). */
-  const tomb = (spec: TableSpec, vals: unknown[]): unknown[] => [spec.name, vals[0], spec.keyLen === 2 ? vals[1] : ''];
 
+  const acc: DiffAcc = { upserts, tombs, deletes, touched, removed, preImages, capture, stampFor };
   for (const spec of TABLES) {
     const before = a?.[spec.name] ?? new Map<string, unknown[]>();
     const after = b[spec.name]!;
-    for (const [key, vals] of after) {
-      const old = before.get(key);
-      /* ⚠ 비교는 **데이터 열만** 본다. `updated_at` 은 우리가 매번 새로 찍는 값이라
-         비교에 넣으면 모든 행이 항상 "변경됨"이 되어 증분 쓰기가 전량 쓰기로 퇴화한다. */
-      if (old && old.length === vals.length && old.every((v, i) => v === vals[i])) continue;
-      /* ⚠ **동기화 테이블만 담는다.** 되돌리기는 `applyPull`(병합 기계)로 적용하는데 그것은
-         `OUTBOX_TABLES`(= `sync:true` + docs)만 안다 — `meta`(파생 `present`)·`runtime_cache`
-         (기기별 재계산 캐시)를 담아 봐야 조용히 버려진다. **버려질 것을 담으면 스택 바이트만
-         먹고 "N건 되돌렸다"는 수가 거짓이 된다.** */
-      if (capture && spec.sync)
-        preImages.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals: old ?? null });
-      const cols = spec.sync ? [...spec.cols, 'updated_at'] : spec.cols;
-      const args = spec.sync ? [...vals, stampFor()] : vals;
-      upserts.push({
-        sql: `INSERT OR REPLACE INTO ${spec.name} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`,
-        args,
-      });
-      // ⚠ `vals` 는 **데이터 열만**이다(`updated_at` 제외) — 그 값은 우리가 매번 새로 찍으므로
-      //    되읽기 대조에 넣으면 항상 불일치가 된다(위 비교가 같은 이유로 제외한다).
-      touched.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals });
-      /* ⚠ **부활(지웠다가 같은 키로 다시 만들기)을 여기서 처리하지 않는다.**
-         처음엔 툼스톤을 지우는 문장을 같이 냈는데, 그러면 ① 이 목록에 DELETE 가 섞여
-         "삭제는 upsert 뒤" 계약이 형식적으로 깨지고 ② 기준선이 없는 첫 쓰기에서 전 행에
-         대해 쓸모없는 DELETE 가 N개 붙고 ③ 무엇보다 **정리 문장이 실행돼야만 맞는**
-         설계가 된다(중간에 죽으면 행과 툼스톤이 공존).
-         → 대신 병합이 `updated_at` vs `deleted_at` 을 **비교**하게 한다(5-E). 다시 만든
-         행은 updated_at 이 더 크므로 이긴다. 정리는 correctness 가 아니라 청소이므로
-         나중에 오래된 툼스톤을 일괄 GC 하면 된다. */
-    }
-    for (const [key, vals] of before) {
-      if (after.has(key)) continue;
-      // 삭제의 pre-image = 그 행 자체. 되돌리기는 이걸 다시 넣는다(부활 가드는 `cloud/undo.ts` 참조).
-      if (capture && spec.sync) preImages.push({ table: spec.name, key: vals.slice(0, spec.keyLen), vals });
-      const where = spec.cols
-        .slice(0, spec.keyLen)
-        .map((c) => `${c} = ?`)
-        .join(' AND ');
-      /* 삭제 사실을 **먼저** 남긴다 — 없으면 다른 기기에서 "없는 행"과 구분이 안 돼
-         삭제가 부활한다. 툼스톤을 데이터 삭제보다 앞에 두는 게 안전한 방향이다:
-         중간에 죽으면 "행은 남았는데 툼스톤이 있는" 상태가 되고, 병합은
-         deleted_at > updated_at 이므로 **지워진 것으로 올바르게** 판정한다.
-         반대 순서면 "행은 지웠는데 툼스톤이 없는" 상태 — 상대 기기가 되살린다. */
-      if (spec.sync) {
-        tombs.push({
-          sql: `INSERT OR REPLACE INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)`,
-          args: [...tomb(spec, vals), stampFor()],
-        });
-      }
-      deletes.push({ sql: `DELETE FROM ${spec.name} WHERE ${where}`, args: vals.slice(0, spec.keyLen) });
-      removed.push({ table: spec.name, key: vals.slice(0, spec.keyLen) });
-    }
+    diffUpserts(acc, spec, before, after);
+    diffRemovals(acc, spec, before, after);
   }
-  return { stmts: [...upserts, ...tombs, ...deletes], touched, removed, preImages };
+  return { stmts: [...upserts, ...tombs, ...deletes], touched, removed, preImages, nextTables: b };
 }
 
 /** 상태 두 벌 → 증분 SQL. 접촉 행이 필요하면 `diffRowsDetailed`. */
@@ -386,6 +444,89 @@ export function coalesceStmts(stmts: Stmt[], maxParams: number = MAX_PARAMS_PER_
     · EPHEMERAL_ONLY_KEYS(_vaultScan·_ankiFile) = 저장 자체를 안 한다
     · 나머지 RUNTIME_CACHE_KEYS(_ankiLive·_icsExport·_knowState) = runtime 테이블(내보내기 제외)
     · 그 외 전부 = settings 또는 행 테이블(내보내기 포함) */
+/* ── `stateToRows` 의 슬라이스 확장기 (2026-08-20 리뷰 M-14 원장 축소) ─────────────
+   ⚠ **동작은 안 바뀐다.** 종전엔 슬라이스별 `if (key === …)` 블록 다섯이 한 함수 안에 중첩
+   루프째로 늘어서 있었고, 그게 `stateToRows` 인지복잡도의 전부였다. 각 블록은 서로를 모르고
+   *한 슬라이스를 어떻게 행으로 펴는가* 만 안다 — 절단면이 이미 데이터 모양에 있었다.
+   ⚠ 행 정체성 규칙(C-3)은 각 확장기가 그대로 들고 간다. 그 규칙이 갈리면 다음 부팅 diff 가
+   전 행을 삭제+삽입으로 보므로, 옮기면서 한 글자도 바꾸지 않았다. */
+
+/** `completions` — 2단 중첩(`ds → key → entry`)이라 다른 슬라이스와 모양이 다르다. */
+function expandCompletions(rows: DbRows, value: Record<string, unknown>): void {
+  for (const [dsKey, day] of Object.entries(value)) {
+    if (!isRec(day)) continue;
+    for (const [k, entry] of Object.entries(day)) rows.completions.push({ ds: dsKey, k, json: JSON.stringify(entry) });
+  }
+}
+
+/** `summaries` — 행 정체성은 요약 자신의 `id` 다(C-3). `addSummary` 가 `rid()` 로 넣는다.
+ *  없는 레거시 행만 순번으로 폴백한다 — v9 마이그레이션의 `COALESCE` 와 **같은 규칙**이어야
+ *  한다(어긋나면 다음 부팅 diff 가 전 요약을 삭제+삽입으로 본다). */
+function expandSummaries(rows: DbRows, value: Record<string, unknown>): void {
+  for (const [sid, list] of Object.entries(value)) {
+    if (!Array.isArray(list)) continue;
+    list.forEach((v, ord) =>
+      rows.summaries.push({
+        sid,
+        id: isRec(v) && typeof v.id === 'string' ? v.id : String(ord),
+        ord,
+        json: JSON.stringify(v),
+      }),
+    );
+  }
+}
+
+/** `weekAlloc` — `(주, 과목) → 7요일 분배`. */
+function expandWeekAlloc(rows: DbRows, value: Record<string, unknown>): void {
+  for (const [wk, bySid] of Object.entries(value)) {
+    if (!isRec(bySid)) continue;
+    for (const [sid, mins] of Object.entries(bySid)) rows.weekAlloc.push({ wk, sid, json: JSON.stringify(mins) });
+  }
+}
+
+/** 배열 슬라이스 — ⚠⚠ **순번을 id 로 쓰지 않는다(C-3).** 옛 주석은 *"retentionLog 엔 id 가 없다 —
+ *  순번을 id 로 쓴다(순서가 곧 정체성인 로그)"* 였는데, 그 로그는 `slice(-26)` 으로 앞을 잘라낸다
+ *  (`methodology.ts`) → **매주 전 행의 순번이 한 칸씩 밀려** 26행이 통째로 재기입·재전송된다.
+ *  그리고 순번 키는 두 기기의 동시 추가를 같은 행으로 뭉갠다(summaries 와 같은 결함).
+ *  `wk`(주 시작일)가 **이미 유일 키**다 — 같은 파일이 `x.wk !== wk` 로 dedupe 한다. */
+function expandArray(rows: DbRows, key: ArraySlice, value: unknown[]): void {
+  const bucket = rows.arrays[key];
+  value.forEach((v, ord) => {
+    const id = ARRAY_ROW_ID[key]?.(v) ?? (isRec(v) && typeof v.id === 'string' ? v.id : String(ord));
+    bucket.push({ id, ord, json: JSON.stringify(v) });
+  });
+}
+
+/** 한 슬라이스를 행으로 편다. **처리했으면 `true`** — 아니면 호출부가 settings 폴백으로 보낸다.
+ *  ⚠ 각 확장기는 서로를 모른다: 여기는 *어느 확장기를 부를지*만 정한다. */
+function expandSlice(rows: DbRows, key: string, value: unknown): boolean {
+  if (isRec(value)) {
+    if (key === 'completions') {
+      expandCompletions(rows, value);
+      return true;
+    }
+    if (key === 'summaries') {
+      expandSummaries(rows, value);
+      return true;
+    }
+    if (key === 'weekAlloc') {
+      expandWeekAlloc(rows, value);
+      return true;
+    }
+    if ((DS_MAP_SLICES as readonly string[]).includes(key)) {
+      const bucket = rows.dsMaps[key as (typeof DS_MAP_SLICES)[number]];
+      for (const [dsKey, v] of Object.entries(value)) bucket.push({ ds: dsKey, json: JSON.stringify(v) });
+      return true;
+    }
+    return false;
+  }
+  if (Array.isArray(value) && (ARRAY_SLICES as readonly string[]).includes(key)) {
+    expandArray(rows, key as ArraySlice, value);
+    return true;
+  }
+  return false;
+}
+
 export function stateToRows(state: AppState): DbRows {
   const s = state as unknown as Record<string, unknown>;
   const rows: DbRows = {
@@ -424,56 +565,8 @@ export function stateToRows(state: AppState): DbRows {
     }
     rows.present.push(key); // 행이 0개여도 "있었다"는 사실은 남긴다
 
-    if (key === 'completions' && isRec(value)) {
-      for (const [dsKey, day] of Object.entries(value)) {
-        if (!isRec(day)) continue;
-        for (const [k, entry] of Object.entries(day))
-          rows.completions.push({ ds: dsKey, k, json: JSON.stringify(entry) });
-      }
-      continue;
-    }
-    if (key === 'summaries' && isRec(value)) {
-      for (const [sid, list] of Object.entries(value)) {
-        if (!Array.isArray(list)) continue;
-        /* ⚠ 행 정체성은 요약 자신의 `id` 다(C-3). `addSummary` 가 `rid()` 로 넣는다.
-           없는 레거시 행만 순번으로 폴백한다 — v9 마이그레이션의 `COALESCE` 와 **같은 규칙**이어야
-           한다(어긋나면 다음 부팅 diff 가 전 요약을 삭제+삽입으로 본다). */
-        list.forEach((v, ord) =>
-          rows.summaries.push({
-            sid,
-            id: isRec(v) && typeof v.id === 'string' ? v.id : String(ord),
-            ord,
-            json: JSON.stringify(v),
-          }),
-        );
-      }
-      continue;
-    }
-    if (key === 'weekAlloc' && isRec(value)) {
-      for (const [wk, bySid] of Object.entries(value)) {
-        if (!isRec(bySid)) continue;
-        for (const [sid, mins] of Object.entries(bySid)) rows.weekAlloc.push({ wk, sid, json: JSON.stringify(mins) });
-      }
-      continue;
-    }
-    if ((DS_MAP_SLICES as readonly string[]).includes(key) && isRec(value)) {
-      const bucket = rows.dsMaps[key as (typeof DS_MAP_SLICES)[number]];
-      for (const [dsKey, v] of Object.entries(value)) bucket.push({ ds: dsKey, json: JSON.stringify(v) });
-      continue;
-    }
-    if ((ARRAY_SLICES as readonly string[]).includes(key) && Array.isArray(value)) {
-      const bucket = rows.arrays[key as ArraySlice];
-      value.forEach((v, ord) => {
-        /* ⚠⚠ **순번을 id 로 쓰지 않는다(C-3).** 옛 주석은 _"retentionLog 엔 id 가 없다 — 순번을
-           id 로 쓴다(순서가 곧 정체성인 로그)"_ 였는데, 그 로그는 `slice(-26)` 으로 앞을 잘라낸다
-           (`methodology.ts`) → **매주 전 행의 순번이 한 칸씩 밀려** 26행이 통째로 재기입·재전송된다.
-           그리고 순번 키는 두 기기의 동시 추가를 같은 행으로 뭉갠다(summaries 와 같은 결함).
-           `wk`(주 시작일)가 **이미 유일 키**다 — 같은 파일이 `x.wk !== wk` 로 dedupe 한다. */
-        const id = ARRAY_ROW_ID[key as ArraySlice]?.(v) ?? (isRec(v) && typeof v.id === 'string' ? v.id : String(ord));
-        bucket.push({ id, ord, json: JSON.stringify(v) });
-      });
-      continue;
-    }
+    if (expandSlice(rows, key, value)) continue;
+
     // 선언된 행 슬라이스인데 형태가 예상과 다르다(손상 저장본 등) — 통째로 settings 에 보존한다.
     // 떨구면 왕복이 데이터 유실이 된다. 행으로 안 갔으니 present 에서도 빼야
     // 되읽을 때 settings 의 원본을 빈 컨테이너가 덮지 않는다.

@@ -18,7 +18,7 @@
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { clearDbFallback, dbFallbackAt, isSaveFallback, onSaveFallback } from '@/lib/db/fallback';
 import { Button } from '@/components/ui/Button';
-import { io } from '@/shell';
+import { downloadFallbackSnapshot, exportJSON } from '@/shell';
 
 const fmt = (ms: number): string =>
   new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -41,7 +41,7 @@ export default function StorageBanner() {
         <span className="min-w-0 flex-1">
           이번 세션의 편집은 <b>임시 저장</b>만 됩니다 — 지금 내보내기로 백업하세요.
         </span>
-        <Button sm variant="primary" onClick={() => io.exportJSON()}>
+        <Button sm variant="primary" onClick={() => exportJSON()}>
           내보내기
         </Button>
       </div>
@@ -56,7 +56,7 @@ export default function StorageBanner() {
           {fmt(fallbackAt)}에 저장소 연결이 끊겨 임시로만 저장된 편집이 있습니다. 파일로 회수해 확인하세요(가져오기로
           되살릴 수 있어요).
         </span>
-        <Button sm onClick={() => io.downloadFallbackSnapshot()}>
+        <Button sm onClick={() => downloadFallbackSnapshot()}>
           내려받기
         </Button>
         <Button sm variant="ghost" onClick={dismiss}>

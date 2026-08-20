@@ -13,6 +13,11 @@ Rust 에서 부르면 `Origin` 헤더가 붙지 않고, AnkiConnect 는 오리�
 */
 use std::time::Duration;
 
+/// AnkiConnect 기본 주소. ⚠ 프런트 폴백 `web/src/lib/anki.ts` 의 `ANKI_CONNECT_URL` 과
+/// **같은 값이어야 한다** — 포트는 애드온 설정으로 바뀔 수 있는데 주입 경로가 없다
+/// (2026-08-20 리뷰 m-23). 필요해지면 `ollama.rs` 의 `OLLAMA_BASE_URL` 과 같은 형태로 연다.
+const ANKI_CONNECT_URL: &str = "http://127.0.0.1:8765";
+
 /// AnkiConnect 액션 1건을 중계한다. **액션 이름과 파라미터는 프런트가 정한다** —
 /// serve.js 시절에도 이 경로는 프록시가 아니라 브라우저 직통이었으므로 화이트리스트가 없었고,
 /// 대상이 `127.0.0.1:8765` 로 고정이라 SSRF 표면도 없다(URL 을 인자로 받지 않는다).
@@ -28,12 +33,7 @@ pub async fn anki_connect(action: String, params: serde_json::Value) -> serde_js
         Ok(c) => c,
         Err(e) => return serde_json::json!({ "error": e.to_string() }),
     };
-    match client
-        .post("http://127.0.0.1:8765")
-        .json(&payload)
-        .send()
-        .await
-    {
+    match client.post(ANKI_CONNECT_URL).json(&payload).send().await {
         Ok(r) => match r.json::<serde_json::Value>().await {
             Ok(v) => v,
             Err(e) => serde_json::json!({ "error": format!("Anki 응답 파싱 실패: {e}") }),

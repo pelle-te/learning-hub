@@ -21,7 +21,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeItem } from '@/lib/utils';
 import { setupComplete } from '@/features/today/SetupGuide';
-import type { AppState } from '@/lib/types';
 
 const items = (...xs: ReturnType<typeof makeItem>[]): AppState['items'] => xs as AppState['items'];
 

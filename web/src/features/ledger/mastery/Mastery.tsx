@@ -15,7 +15,7 @@ import { useKnowledge, usePing, KNOWLEDGE_KEY } from '@/store/queries';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer } from '@/hooks/interactions';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { fetchKnowledgeArtifact, loadKnowledgeStateFromVault } from '@/lib/knowledge';
 import { classifyArtifact } from '@/lib/artifactState';
 import { isFsAccessSupported, pickDirectory } from '@/lib/fsAccess';
@@ -111,21 +111,21 @@ export default function Mastery() {
         return;
       }
       if (!isFsAccessSupported()) {
-        ui.toast('이 브라우저는 폴더 연결 미지원(Chrome/Edge). 러닝허브 앱으로 열면 자동 로드됩니다.', 'warn');
+        toast('이 브라우저는 폴더 연결 미지원(Chrome/Edge). 러닝허브 앱으로 열면 자동 로드됩니다.', 'warn');
         return;
       }
       const handle = await pickDirectory();
       if (!handle) return; // 취소
       const loaded = await loadKnowledgeStateFromVault(handle);
       if (!loaded) {
-        ui.toast('_지식상태.json을 못 찾았어요. 전공 폴더를 골랐는지, 지식엔진.py build를 돌렸는지 확인하세요.', 'bad');
+        toast('_지식상태.json을 못 찾았어요. 전공 폴더를 골랐는지, 지식엔진.py build를 돌렸는지 확인하세요.', 'bad');
         return;
       }
       qc.setQueryData(KNOWLEDGE_KEY, loaded);
       setRuntimeCache('_knowState', slimKnowState(loaded)); // 슬림 write-through(감사 ②#25 · queries.useKnowledge와 대칭)
     } catch (e) {
       // 셸 경로는 산출물 미생성이면 throw 한다 — 조용히 넘기면 버튼이 먹통처럼 보인다.
-      ui.toast('지식상태를 불러오지 못했어요 — 지식엔진.py build 를 먼저 돌려주세요.', 'bad');
+      toast('지식상태를 불러오지 못했어요 — 지식엔진.py build 를 먼저 돌려주세요.', 'bad');
       void e;
     } finally {
       setVaultLoading(false);

@@ -3,7 +3,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { dayShape, dominantCbms, weakCountBySid, weakSpots, weeklyInsights } from '@/lib/insights';
-import type { AppState, CbmsCode } from '@/lib/types';
+import type { CbmsCode } from '@/lib/types';
 
 let _n = 0;
 const cbms = (ds: string, name: string, chapter: string, code: CbmsCode) => ({

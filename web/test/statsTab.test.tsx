@@ -4,26 +4,10 @@
    "빈 상태·드로어 차트가 한 번도 마운트되지 않음" 갭을 메운다.
 ============================================================ */
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
-
-function renderApp(path: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[path]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 afterEach(() => cleanup());
 

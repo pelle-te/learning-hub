@@ -12,7 +12,6 @@ import {
   slowButPassing,
   usable,
 } from '@/lib/retrievalLatency';
-import type { AppState } from '@/lib/types';
 
 const st = (): AppState => ({ retrievals: [], _today: '2026-08-07' }) as unknown as AppState;
 

@@ -60,7 +60,10 @@ export function subjectMastery(state: AppState, name: string): number | null {
   return typeof m === 'number' ? m : null;
 }
 export function masteryNeed(state: AppState, name: string): number {
-  if (state.graphPriority !== true) return 0; // 기본 off → 영향 0
+  // ⚠ 스위치는 `graphPriority` 다. **기본값은 `true`** 다(I-6·W7 이 뒤집었다 · `persistence.defaults`).
+  //   종전 이 줄의 "기본 off → 영향 0" 은 사실이 아니었고, 그 오해가 아래 `mistakeNeed` 의
+  //   비용을 검토 밖에 두었다(2026-08-20 리뷰 m-6).
+  if (state.graphPriority !== true) return 0;
   const m = subjectMastery(state, name);
   return m == null ? 0 : 1 - clamp(m, 0, 1); // 약할수록 큰 우선순위
 }
@@ -84,9 +87,16 @@ export const WEAK_FULL = 5;
  * 먼저 나왔나*를 설명할 경우의 수가 네 배가 된다. 둘 다 "앱이 판단해서 순서를 바꾼다"는 **같은
  * 종류의 개입**이므로 한 스위치가 맞다(로드맵 Q-3 이 못박은 설계 조건).
  */
+/* ⚠ 참조 기준 1-엔트리 캐시(`windows.ts` 의 `wdCache` 와 같은 관용구). `weakCountBySid` 는
+   `cbms` 전량 순회 + Map + 정렬 + slice 인데 `mistakeNeed` 는 **과목마다** 불린다 — 즉 같은
+   결과를 과목 수만큼 다시 계산하고 있었다(2026-08-20 리뷰 m-6). 키가 `state.cbms` 참조라
+   immer 가 그 슬라이스를 안 건드린 재계산에서는 그대로 재사용된다. */
+let weakCache: { src: unknown; map: Record<string, number> } | null = null;
+
 export function mistakeNeed(state: AppState, sid: string): number {
-  if (state.graphPriority !== true) return 0; // masteryNeed 와 **같은 스위치** — 기본 off → 영향 0
-  const n = weakCountBySid(state)[sid] || 0;
+  if (state.graphPriority !== true) return 0; // masteryNeed 와 **같은 스위치**(기본값은 그쪽 ⚠ 참조)
+  if (!weakCache || weakCache.src !== state.cbms) weakCache = { src: state.cbms, map: weakCountBySid(state) };
+  const n = weakCache.map[sid] || 0;
   return clamp(n / WEAK_FULL, 0, 1);
 }
 

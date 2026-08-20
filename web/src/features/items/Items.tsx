@@ -20,7 +20,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useSchedule } from '@/store/selectors';
 import { applyMorph } from '@/lib/motion';
-import { rid, makeItem, ddayInfo, DOW, round1, hNum, hLabel, openVaultSearch } from '@/lib/utils';
+import { BLOCK_CLASS, rid, makeItem, ddayInfo, DOW, round1, hNum, hLabel, openVaultSearch } from '@/lib/utils';
 import { useTodayISO } from '@/hooks/useTodayISO';
 import { freeWindowsForWeekday } from '@/lib/scheduler';
 import {
@@ -151,7 +151,7 @@ export default function Items() {
 
   // 뼈대 요약 — 스트립이 접혀 있어도 "가용이 얼마고 뭐가 잡혀 있나"는 항상 보인다.
   const weekFreeMin = DOW.reduce((t, _, i) => t + freeWindowsForWeekday(state, i).freeMin, 0);
-  const classCount = routine.filter((b) => b.type === '수업').length;
+  const classCount = routine.filter((b) => b.type === BLOCK_CLASS).length;
   const blockCount = routine.length - classCount;
 
   // 과목 수·이번 주 배분·챕터 진행·마감 리드아웃을 상단 크롬으로.

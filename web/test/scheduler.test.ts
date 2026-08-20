@@ -4,8 +4,9 @@
    순수 함수라 state를 인자로 주입(전역·DOM 없음). iso()는 로컬 날짜라 TZ 무관.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import { schedulerState } from './_fixtures';
 import { layoutDay, schedule, subjectMastery, sessionTimeMap } from '@/lib/scheduler';
-import type { AppState, Day, ScheduleItem, ScheduleResult } from '@/lib/types';
+import type { Day, ScheduleItem, ScheduleResult } from '@/lib/types';
 
 let _id = 0;
 const nid = () => 'id' + ++_id;
@@ -19,18 +20,9 @@ function weeklyItem(name: string, weeklyHours: number, chapters?: unknown[], ext
 function dailyItem(name: string, dailyMin: number, extra?: Record<string, unknown>) {
   return { id: nid(), name, mode: 'daily', dailyMin, ...(extra || {}) };
 }
-function baseState(items: unknown[], over?: Record<string, unknown>): AppState {
-  // 빈 routine = 하루 종일(1440분) 공부 가능 → 결정적 테스트에 유리
-  return {
-    startDate: '2026-06-23',
-    moduleLen: 120,
-    reviewRatio: 20,
-    routine: [],
-    dayOverrides: {},
-    items: items || [],
-    ...(over || {}),
-  } as unknown as AppState;
-}
+/** ⚠ 픽스처는 `test/_fixtures` 한 벌이다(M-13) — 종전엔 이 함수가 세 파일에 바이트 동일로
+ *  복제돼 있었고, 날짜 상수가 한쪽만 바뀌면 두 파일이 다른 주(週)를 재게 된다. */
+const baseState = schedulerState;
 function blk(name: string, type: string, s: string, e: string, days: number[]) {
   return { id: nid(), name, type, start: s, end: e, days };
 }

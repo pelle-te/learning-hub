@@ -15,7 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import State from '@/components/State';
 import { selectFinishGains, useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { io } from '@/shell';
+import { exportICS, planSignature } from '@/shell';
 import {
   iso,
   parseISO,
@@ -92,12 +92,12 @@ function IcsFreshnessNote() {
   const when = new Date(x.at);
   const days = isNaN(when.getTime()) ? null : dayDiff(iso(when), today);
   const ago = days == null ? '' : days <= 0 ? '오늘' : days === 1 ? '어제' : `${days}일 전`;
-  const stale = x.sig !== io.planSignature();
+  const stale = x.sig !== planSignature();
   if (stale)
     return (
       <span className={`${S.icsNote} text-warn`}>
         <Icon name="calendar" /> .ics 계획과 어긋남({ago})
-        <Button sm onClick={() => io.exportICS()}>
+        <Button sm onClick={() => exportICS()}>
           <Icon name="refresh" /> 재내보내기
         </Button>
       </span>
@@ -254,7 +254,7 @@ export default function Schedule() {
       action:
         schedView === 'week' && !isThisWeek
           ? { label: '이번 주로 →', onClick: weekToday }
-          : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
+          : { label: '캘린더(.ics) 내보내기', onClick: () => exportICS() },
     }),
     [schedView, readouts, isThisWeek, head],
   );

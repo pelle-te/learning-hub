@@ -16,7 +16,7 @@ import { dayStudyMin, freeWindowsForDay, studyMinByWeekday } from '@/lib/schedul
 import { simulateSemester } from '@/lib/semesterEntry';
 import { taskIntervals, untimedChoreMin } from '@/lib/tasks';
 import { defaults } from '@/lib/persistence';
-import type { AppState, Task } from '@/lib/types';
+import type { Task } from '@/lib/types';
 
 /** 2026-08-07 은 금요일(wd=5). */
 const DS = '2026-08-07';

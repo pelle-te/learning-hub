@@ -3,7 +3,7 @@
    수면·고정 블록 = 뮤트 호, 비운 시간(공부 가능 창) = 네온 호로 발광.
    순수 표현(components → lib만): freeWindowsForWeekday가 빚은 창/블록을 받아 그린다.
 ============================================================ */
-import { toHM, toMin, hLabel } from '@/lib/utils';
+import { BLOCK_SLEEP, toHM, toMin, hLabel } from '@/lib/utils';
 import type { RoutineBlock } from '@/lib/types';
 
 // 라이브 도트 톤 — 정적 클래스 맵(§15 · 동적 조립 금지). 배경색만 구간으로 가른다.
@@ -99,7 +99,7 @@ export default function DayRing({
   nowMin: number | null;
   peak: [number, number] | null;
 }) {
-  const fixed = blocks.filter((b) => b.type !== '수면');
+  const fixed = blocks.filter((b) => b.type !== BLOCK_SLEEP);
   const asleep = wake0 > 0 || wake1 < 1440; // 수면 블록으로 깨어있는 범위가 좁혀졌으면 자정 가로질러 호를 그림
   const h = Math.floor(freeMin / 60);
   const m = freeMin % 60;

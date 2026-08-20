@@ -1,30 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
-import { ui } from '@/shell';
+import { renderApp } from './_render';
+import { confirmLossy } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 
 /* Phase 7 — 성능/UX/접근성 보강 회귀 고정:
    - 레일 나브 방향키 탐색(roving tabindex · **수동 활성** — H10/2026-07-30) — 활성 표기는 aria-current="page"
    - 모달 포커스 복원 + aria-labelledby/describedby(접근성) */
-function renderApp(initialPath = '/today') {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 beforeEach(() => {
   useApp.getState().mutate((st) => {
@@ -149,7 +134,7 @@ test('모달: 포커스 복원 + aria 라벨링(role=dialog)', async () => {
   /* ⚠ Q-13 이후 `ui.confirm` 은 없다 — 파괴적 동작은 3단 사다리 어휘로만 말한다
      (`shell/destructive.ts`). 이 케이스가 재는 것은 **모달 자체의 a11y 계약**이라 어느 단으로
      띄우든 같다. ②단(재구성 가능)이 중립적이라 그것으로 띄운다. */
-  const p = ui.confirmLossy('정말 진행할까요?', { title: '확인' });
+  const p = confirmLossy('정말 진행할까요?', { title: '확인' });
   const dialog = await screen.findByRole('dialog');
   expect(dialog).toHaveAttribute('aria-modal', 'true');
   expect(dialog).toHaveAttribute('aria-labelledby');

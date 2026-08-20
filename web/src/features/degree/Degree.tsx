@@ -12,7 +12,7 @@ import { DEGREE_PATH_VIEW } from '@/shell/tabs';
 import State from '@/components/State';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { ui } from '@/shell';
+import { commitUndoable, toast, toastUndoable } from '@/shell';
 import { colorForId, rid, makeItem } from '@/lib/utils';
 import { investedBySubject, semesterFingerprint } from '@/lib/semesterFingerprint';
 import { linkableItems } from '@/lib/semester';
@@ -24,6 +24,7 @@ import {
   CATS,
   STATUSES,
   GRADE_KEYS,
+  categoryReq,
   degreeStats,
   progressPct,
   semesterGpa,
@@ -77,7 +78,7 @@ function SemCard({
       const s = findSem(st, sem.id);
       if (s) s.courses = s.courses.filter((c) => c.id !== cid);
     });
-    ui.toastUndoable(`"${name || '과목'}" 삭제됨`);
+    toastUndoable(`"${name || '과목'}" 삭제됨`);
   };
   const updCourse = (cid: string, k: keyof DegreeCourse, v: string | number) =>
     mutate((st) => {
@@ -88,7 +89,7 @@ function SemCard({
      있었는데, 종전엔 **확인창을 띄우고 나서** "⌘Z 로 되돌리기"를 알렸다(같은 안전장치 이중 과금).
      사다리 SSOT 는 `shell/destructive.ts`. */
   const delSem = () =>
-    ui.commitUndoable('학기 삭제됨 (소속 과목도 함께)', () => {
+    commitUndoable('학기 삭제됨 (소속 과목도 함께)', () => {
       mutate((st) => {
         st.degree.semesters = sems(st.degree).filter((s) => s.id !== sem.id);
       });
@@ -110,7 +111,7 @@ function SemCard({
         const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
         if (c) c.itemId = existing.id;
       });
-      ui.toast(`"${name}" 이미 있는 학습 항목과 연결했어요.`, 'ok');
+      toast(`"${name}" 이미 있는 학습 항목과 연결했어요.`, 'ok');
       return;
     }
     const created = makeItem({ source: '수강', name });
@@ -119,7 +120,7 @@ function SemCard({
       const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
       if (c) c.itemId = created.id;
     });
-    ui.toast(`"${name}" 학습 항목에 추가·연결됨 — 주당 시간·챕터·시험을 설정하세요.`, 'ok');
+    toast(`"${name}" 학습 항목에 추가·연결됨 — 주당 시간·챕터·시험을 설정하세요.`, 'ok');
   };
 
   // PL-14 — 학기 집계는 lib/degree.semesterStat 단일 출처. cr=총학점·doneCr=완료학점·inprog=수강중 과목 수.
@@ -392,7 +393,7 @@ function DegreePlan() {
   useEffect(() => {
     if (pct >= 100 && !degreeCele && !celebrated.current) {
       celebrated.current = true; // 마운트당 1회 가드(TodaySignature wasDone 패턴).
-      ui.toast('졸업 요건 충족 — 축하해요!', 'info');
+      toast('졸업 요건 충족 — 축하해요!', 'info');
       mutate((st) => {
         st._degreeCele = true;
       });
@@ -540,14 +541,9 @@ function DegreePlan() {
 
         <div className="mt-4 mb-3.5 grid grid-cols-degree-cats gap-3.5">
           {CATS.map((cat) => {
-            const req =
-              cat === '전공필수'
-                ? d.reqMajorReq
-                : cat === '전공선택'
-                  ? d.reqMajorSel
-                  : cat === '교양'
-                    ? d.reqLiberal
-                    : 0;
+            // ⚠ 삼항 사슬을 여기 다시 쓰지 말 것 — 라벨→요건 매핑의 정본은 `lib/degree.categoryReq`
+            //   하나다(M-8). 종전엔 이 자리에 사본이 있었고 타입이 안 잡아 줬다.
+            const req = categoryReq(d, cat);
             const have = byCat[cat] || 0;
             // PL-6 — 요건 없는 카테고리(req=0, '기타')는 진행바를 채우지 않는다: 학점이 있어도
             // 100%로 가득 차 '충족'처럼 오도되던 문제 제거 → 중립 트랙 + '요건 없음' 라벨.

@@ -1,28 +1,14 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
+import { FIXED_START, FIXED_TODAY, dailyItem, weeklyItem } from './_fixtures';
 import { useApp } from '@/store/useApp';
 import { iso } from '@/lib/utils';
 
 /* Phase 3 — today 탭이 React로 동작: 파생(useSchedule) 카드가 뜨고,
    일일 의식(ritual) 토글이 앱상태에 반영되는지. */
-function renderApp(initialPath: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 /* ⚠ **과목을 심는 것이 계약이다(H14 · 2026-07-26 감사).** 종전엔 `defaults()`(items: []) 위에서
    렌더했는데, 그 상태의 실제 화면은 **콜드 스타트 온보딩**이다 — 즉 이 테스트들은 사용자가
@@ -45,32 +31,40 @@ function renderApp(initialPath: string) {
    스케줄러가 맞다.** 틀린 것은 "주간 과목 하나면 오늘 블록이 있다"고 가정한 시드다.
    → `daily` 과목을 하나 더 심는다. `daily` 는 마감까지 **매일** 고정 분을 확보하므로
    요일·주차와 무관하게 오늘 블록이 최소 하나 있다(실측: 7일 전부 ≥1).
-   ⚠ `_today` 를 못박는 우회로는 **안 통한다**(시도했다): `schedule()` 의 날짜 범위는 실시계에서
-   오고 `todayISO(state)` 만 시드를 따르므로, 둘이 갈려 오늘이 계획 범위 밖으로 나간다.
-   이 파일은 아래에서 이미 같은 교훈을 적어 뒀다 — _"벽시계에 따라 답이 달라지는 단언은 그
-   자체가 결함이다"_ — 그때는 **시각**만 고쳤고 **요일·주차**가 남아 있었다. */
+   ⚠⚠ **위 두 문단의 결론은 절반이 틀렸다 — 실측이 뒤집는다**(2026-08-20 리뷰 M-13).
+   종전엔 여기 *"`_today` 를 못박는 우회로는 안 통한다(시도했다): `schedule()` 의 날짜 범위는
+   실시계에서 오고…"* 라 적혀 있었다. **`lib/scheduler/engine.ts` 에 `new Date()`·`Date.now()`
+   는 0건이다** — 날짜 범위는 `state.startDate` 에서 온다. 갈린 진짜 이유는 `defaults()` 가
+   `startDate: iso(new Date())` 로 실시계를 굽는 것이고, 시드가 `_today` 만 못박고 `startDate`
+   는 안 못박아서였다. 같은 트리의 두 파일이 이미 둘 다 못박고 있었다(`allocBoard`·`dayPlans`).
+   → 이제 `test/_fixtures.appState()` 가 **둘을 함께** 못박는다. 그래서 이 파일은 요일·주차·시각
+   어느 축에서도 안 흔들리고, 위 두 문단이 기록한 두 번의 사고(토요일·저녁)는 재현되지 않는다.
+   ⚠ `daily` 과목은 그대로 심는다 — 주간 과목이 주 예산으로 배분되는 성질은 여전히 참이고,
+   날짜를 고정했어도 "오늘 블록이 최소 하나"를 보장하는 쪽이 단언을 단순하게 만든다. */
 beforeEach(() => {
+  /* ⚠⚠ **`Date` 만 가짜로 세운다** — 상태의 날짜(`startDate`·`_today`)와 **벽시계**가 같은 날을
+     가리켜야 결정적이다. 하나만 고정하면 그 차이가 그대로 결함이 된다(머리주석 ⚠⚠).
+     · `toFake: ['Date']` — `setTimeout` 은 진짜로 둔다. 전부 가짜로 만들면 RTL 의 비동기 대기
+       (`findBy*`)가 영영 안 풀린다.
+     · 시각은 **오후 2시** — 이 화면은 국면(`lib/dayPhase`)에 따라 다른 것을 그리고, 종전 이
+       파일은 그 축을 고정하지 않아 *"저녁에 게이트를 돌렸다면 늘 실패했을"* 상태였다(그 사고가
+       아래 두 번째 ⚠ 로 기록돼 있다). 낮 시간을 고르는 것이 그 기록을 실제로 닫는다. */
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date(`${FIXED_TODAY}T14:00:00`) });
   useApp.getState().mutate((st) => {
     st.rituals = {};
+    st.startDate = FIXED_START;
+    st._today = FIXED_TODAY;
     if (!st.items.some((i) => i.name)) {
-      st.items.push({
-        id: 'seed',
-        name: '테스트 과목',
-        mode: 'weekly',
-        weeklyHours: 5,
-        // 형태는 `schema.ts` 의 `ChapterSchema` 그대로 — `{name, deadline, mastery}` 같은 임의
-        // 형태를 `as never` 로 밀어 넣으면 통과는 하지만 스케줄러가 배치할 것을 못 찾는다.
-        chapters: [
-          { id: 'c1', name: '1장', hours: 3, done: false },
-          { id: 'c2', name: '2장', hours: 3, done: false },
-        ],
-      } as never);
+      st.items.push(weeklyItem({ name: '테스트 과목' }));
       // 요일·주차와 무관하게 오늘 블록을 보장하는 쪽(머리주석 ⚠⚠).
-      st.items.push({ id: 'seed-daily', name: '매일 과목', mode: 'daily', dailyMin: 30, chapters: [] } as never);
+      st.items.push(dailyItem());
     }
   });
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 test('today: React 카드(대시보드 히어로·오늘의 흐름)가 뜨고 #page를 쓰지 않는다', async () => {
   renderApp('/today');

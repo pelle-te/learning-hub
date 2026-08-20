@@ -4,26 +4,13 @@
    빈 큐 폴백 + 회상 카드 흐름(카드 렌더 → 전진 → 세션 완료 리캡).
 ============================================================ */
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
 
-function renderApp(path: string, state?: unknown) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[state === undefined ? path : { pathname: path, state }]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+/** ⚠ 렌더 헬퍼는 `test/_render` 한 벌이다(M-12) — 여기 남는 것은 **location state 전달**뿐이다. */
+const renderRun = (path: string, state?: unknown) => renderApp(path, { state });
 
 afterEach(() => {
   cleanup();
@@ -44,7 +31,7 @@ test('review-run: 복습할 게 없으면 깨끗함 폴백', async () => {
     st.cbms = [];
     st.completions = {};
   });
-  renderApp('/review-run');
+  renderRun('/review-run');
   expect(await screen.findByText('복습할 게 없어요')).toBeInTheDocument();
 });
 
@@ -62,7 +49,7 @@ const press = (key: string) => fireEvent.keyDown(document, { key });
 
 test('review-run: 회상 카드 흐름 — 렌더 → 펼침 → 판정 → 세션 완료', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   expect(await screen.findByText('회상')).toBeInTheDocument();
   // 발치 키캡 바가 카드의 옛 버튼 무리를 대신한다(D-3) — 키캡은 진짜 버튼이다.
   // ⚠ 펼치기 전엔 판정 칩(2)이 **바에 없다** — 있으면 Space 와 같은 일을 하는 칩이 둘이 된다.
@@ -103,7 +90,7 @@ function seedTwoCards() {
 
 test('review-run: 이어하기로 오면 그 카드에서 시작한다(N-7 착지)', async () => {
   seedTwoCards();
-  renderApp('/review-run', { resumeAt: 1 });
+  renderRun('/review-run', { resumeAt: 1 });
   // 1장을 건너뛰고 2번째 카드(유지)에 착지 — 회상 카드는 이미 다른 기기에서 봤다.
   expect(await screen.findByText('유지')).toBeInTheDocument();
   expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '복습 진행 2 / 2');
@@ -116,7 +103,7 @@ test('review-run: 이어하기로 오면 그 카드에서 시작한다(N-7 착�
 
 test('review-run: 그냥 열면 언제나 1장부터 — 이어하기는 기본값이 아니라 의도다', async () => {
   seedTwoCards();
-  renderApp('/review-run');
+  renderRun('/review-run');
   expect(await screen.findByText('회상')).toBeInTheDocument();
   expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '복습 진행 1 / 2');
   expect(screen.queryByText(/다른 기기에서/)).toBeNull();
@@ -127,7 +114,7 @@ test('review-run: 그냥 열면 언제나 1장부터 — 이어하기는 기본�
    "대조 없는 판정 금지"는 어기면 **조용히** 거짓 기록을 만든다(눈에 안 보인다). */
 test('review-run 키: Space 펼치기 → 2 판정 → 완료', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   expect(screen.queryByText('a')).toBeNull(); // 아직 원래 요약은 감춰져 있다
   press(' ');
@@ -138,7 +125,7 @@ test('review-run 키: Space 펼치기 → 2 판정 → 완료', async () => {
 
 test('review-run 키: 펼치기 전 2 는 판정이 아니라 펼치기다(대조 없는 인출 기록 금지)', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   press('2');
   // 세션이 끝나지 않았고, 대신 원래 요약이 펼쳐졌다.
@@ -148,7 +135,7 @@ test('review-run 키: 펼치기 전 2 는 판정이 아니라 펼치기다(대�
 
 test('review-run 키: 1 은 펼치기 전에도 건너뛴다 — 인출로 세지 않는다', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   press('1');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
@@ -157,7 +144,7 @@ test('review-run 키: 1 은 펼치기 전에도 건너뛴다 — 인출로 세�
 
 test('review-run 키: u 는 직전 전진을 되돌린다(빨라진 키의 짝)', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   press('1');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
@@ -185,7 +172,7 @@ test('review-run: 끝낸 챕터가 유지 카드로 뜨고 왜 돌아왔는지 �
       },
     ] as never;
   });
-  renderApp('/review-run');
+  renderRun('/review-run');
   expect(await screen.findByText('유지')).toBeInTheDocument();
   expect(screen.getByText(/끝낸 챕터인데 마지막으로 본 날이 기록에 없어요/)).toBeInTheDocument();
   // 앵커가 없으면 "N일 방치"를 말하지 않는다 — 모르는 것을 아는 척하지 않는다.
@@ -224,7 +211,7 @@ const touches = () => useApp.getState().state.reviewTouches || {};
 
 test('review-run 키: 3 은 앵커를 오늘로 옮긴다 — 화면이 한 약속을 실제로 지킨다', async () => {
   seedOneMaintenance();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('유지');
   expect(touches()['p|역학']).toBeUndefined();
   press('3');
@@ -234,7 +221,7 @@ test('review-run 키: 3 은 앵커를 오늘로 옮긴다 — 화면이 한 약�
 
 test('review-run 키: 2(집중 시작)는 앵커를 옮기지 **않는다** — 세션 시작은 인출 사건이 아니다', async () => {
   seedOneMaintenance();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('유지');
   press('2');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
@@ -244,7 +231,7 @@ test('review-run 키: 2(집중 시작)는 앵커를 옮기지 **않는다** — 
 
 test('review-run 키: 1(건너뛰기)도 앵커를 안 옮긴다', async () => {
   seedOneMaintenance();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('유지');
   press('1');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
@@ -253,7 +240,7 @@ test('review-run 키: 1(건너뛰기)도 앵커를 안 옮긴다', async () => {
 
 test('review-run 키: u 는 앵커까지 되돌린다 — 화면과 모델이 갈리지 않는다', async () => {
   seedOneMaintenance();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('유지');
   press('3');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
@@ -275,7 +262,7 @@ test('review-run 키: u 는 앵커까지 되돌린다 — 화면과 모델이 �
    세션 중에 이미 끝나 있다. */
 test('review-run: 과신 카드가 완주 화면에 이름으로 선다', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   // 펼치기 전 예측 — "떠오를 듯"이라 답하고
   fireEvent.click(screen.getByRole('button', { name: '떠오를 듯' }));
@@ -300,7 +287,7 @@ test('review-run: 못 떠올린 직후 1키로 오답이 남는다(3화면·6클
   useApp.getState().mutate((st) => {
     st.cbms = [];
   });
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   press('1'); // 못 떠올림 — 카드는 **즉시** 전진하고
   // …방금 넘긴 카드의 "왜 막혔나"가 뜬다(모달이 아니라 한 줄).
@@ -318,7 +305,7 @@ test('review-run: 유형을 안 고르고 지나가면 아무것도 안 남는�
   useApp.getState().mutate((st) => {
     st.cbms = [];
   });
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   press('1');
   expect(await screen.findByText('복습 세션 완료')).toBeInTheDocument();
@@ -327,7 +314,7 @@ test('review-run: 유형을 안 고르고 지나가면 아무것도 안 남는�
 
 test('review-run: 예측이 맞았으면 과신 항목이 안 뜬다 — 성공에 마찰을 걸지 않는다', async () => {
   seedOneRetrieval();
-  renderApp('/review-run');
+  renderRun('/review-run');
   await screen.findByText('회상');
   fireEvent.click(screen.getByRole('button', { name: '떠오를 듯' }));
   press(' '); // 펼쳐서 대조

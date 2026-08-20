@@ -1,6 +1,9 @@
 /*! 파이썬 도구 실행 — 4단계-C. `serve.js` `/api/run/:tool`(L637-646 · `runTool` L161-186) 대체.
 
-화이트리스트 11종을 `python <스크립트> <고정인자…> [위치인자]` 로 돌리고 stdout 을 돌려준다.
+화이트리스트 도구(**정본은 아래 `TOOLS`**)를 `python <스크립트> <고정인자…> [위치인자]` 로 돌리고
+stdout 을 돌려준다. ⚠ 종전 이 줄은 "11종"이라 적었는데 그 수는 P10 W4 에서 **7 로 줄었고**
+(같은 파일 아래 `TOOLS` 주석이 "11 → 7"이라 적고 있었다) — 한 파일이 자기와 모순이었다.
+개수를 산문에 손으로 적으면 표류한다: 세고 싶으면 그 상수를 열어라(2026-08-20 리뷰 m-2).
 `shell` 을 쓰지 않으므로(인자 배열 전달) 셸 인젝션 표면이 0인 것은 serve.js 와 같다.
 
 **stdout 파서 6종(serve.js:757-785)은 이식하지 않았다 — 죽은 코드였다.**
@@ -84,6 +87,11 @@ impl Drop for CapGuard<'_> {
 
 /// `/api/run` 의 `MAX_RUNNING = 2`(serve.js:508) 승계.
 static RUN_CAP: Cap = Cap::new(2);
+
+/// 파이썬 인터프리터를 지정하는 환경변수 이름 — **이 앱에서 그 값의 유일한 주입 경로**다.
+/// ⚠ 설정 UI 도 `tauri.conf.json` 도 이 값을 안 다룬다(2026-08-20 리뷰 n-7). 그래서 spawn 실패
+/// 메시지가 이 이름을 직접 말한다 — 안 그러면 사용자가 venv 를 물릴 방법을 알 수 없다.
+const PYTHON_ENV: &str = "PYTHON";
 
 /* ── 화이트리스트 ──────────────────────────────────────────────── */
 
@@ -171,7 +179,7 @@ pub struct Capabilities {
     /// **백엔드를 실제로 쓸 수 있는가.** 셸에선 프로세스가 곧 백엔드라 "떠 있는가"는 늘 참이고,
     /// 그걸 그대로 `true` 로 두면 상수가 되어 **10개 탭의 에러 UI 가 통째로 무력화된다**
     /// (설계 §4-4단계가 경고한 것). 그래서 의미를 **"워크스페이스가 유효한가"** 로 옮겼다 —
-    /// 그게 거짓이면 도구 11종과 산출물 8종이 전부 조용히 빈 결과를 낸다. 즉 이 값이 거짓인 순간이
+    /// 그게 거짓이면 `TOOLS` 의 도구와 `artifact::ARTIFACTS` 의 산출물이 전부 조용히 빈 결과를 낸다. 즉 이 값이 거짓인 순간이
     /// 정확히 프런트가 셋업 안내를 띄워야 하는 순간이다.
     pub ok: bool,
     pub server: String,
@@ -307,10 +315,16 @@ fn run_blocking(py: &str, tool: &'static Tool, extra: Vec<String>, cwd: &Path) -
         Err(e) => {
             return RunOut {
                 ok: false,
-                out: format!("spawn 실패: {e} — python 이 PATH 에 있어야 합니다."),
+                /* ⚠ 주입 경로를 **메시지가 말한다**(n-7). `PYTHON` 은 설정 UI·`tauri.conf.json`·
+                   README 어디에도 없어서, 부모 워크스페이스의 venv 를 써야 하는 사용자가
+                   무엇을 할 수 있는지 알 방법이 없었다. */
+                out: format!(
+                    "spawn 실패: {e} — python 이 PATH 에 있어야 합니다. \
+                     다른 인터프리터(예: 프로젝트 venv)를 쓰려면 환경변수 `{PYTHON_ENV}` 에 그 경로를 넣으세요."
+                ),
                 code: -1,
                 label: tool.label.to_string(),
-            }
+            };
         }
     };
 
@@ -392,7 +406,11 @@ pub async fn run_tool(
     let cwd = crate::workspace::resolve(&app)
         .ok_or("워크스페이스가 설정되지 않았습니다 — 설정 탭에서 폴더를 지정해 주세요.")?;
     let extra = tool_extra_args(subject.as_deref());
-    let py = std::env::var("PYTHON").unwrap_or_else(|_| "python".into());
+    /* ⚠ 파이썬 실행 파일의 **유일한 주입 경로**가 이 환경변수다(설정 UI·`tauri.conf.json`·README
+    어디에도 없다 · 2026-08-20 리뷰 n-7). 부모 워크스페이스의 도구는 대개 전용 venv 를
+    요구하므로 PATH 의 `python` 으로는 `ModuleNotFoundError` 로 떨어질 수 있다 — 그때 사용자가
+    무엇을 할 수 있는지 알아야 하므로 **실패 메시지가 이 경로를 말한다**(`run_blocking` 참조). */
+    let py = std::env::var(PYTHON_ENV).unwrap_or_else(|_| "python".into());
 
     // ⚠ guard 를 **블로킹 작업 안으로** 옮긴다. 여기서 잡고 있다가 await 로 넘기면
     //   자리 점유 구간과 실제 실행 구간이 어긋난다.
@@ -569,7 +587,7 @@ mod tests {
     #[test]
     fn 실_워크스페이스에서_파이썬_도구가_돈다() {
         let cwd = crate::testkit::ws_or_skip!();
-        let py = std::env::var("PYTHON").unwrap_or_else(|_| "python".into());
+        let py = std::env::var(PYTHON_ENV).unwrap_or_else(|_| "python".into());
         let tool = lookup("vault-stats").expect("vault-stats 가 화이트리스트에서 사라졌다");
 
         let out = run_blocking(&py, tool, vec![], &cwd);

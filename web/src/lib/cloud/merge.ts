@@ -26,7 +26,7 @@
 ============================================================ */
 import { batchDb } from '../db/sqlite';
 import { readRows, setDiffBaseline } from '../db/sqlite';
-import { rowsToState } from '../db/rows';
+import { rowsToState, type DbRows } from '../db/rows';
 import { reloadDocs } from '../db/docs';
 import { runExclusive, beginMergeApply } from '../db/write';
 import { clearUndo } from '../db/undoStack';
@@ -45,10 +45,35 @@ import { noteMergedRows } from './outbox';
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
 
 export interface MergeResult {
-  /** 메모리에 실을 새 상태. 호출부가 `applyMerged()` 에 넣어야 완결된다(⚠ `loadState` 아님 · C1). */
-  state: AppState | null;
+  /** 병합 뒤 되읽은 **행 표현**. 실패면 null. 드레인 호출부는 이것만 들고 다니다가 마지막에 한 번
+   *  변환한다(아래 `state` 의 ⚠ 참조). */
+  rows: DbRows | null;
+  /**
+   * 메모리에 실을 새 상태. 호출부가 `applyMerged()` 에 넣어야 완결된다(⚠ `loadState` 아님 · C1).
+   *
+   * ⚠⚠ **지연 변환이다**(2026-08-20 리뷰 m-7). `rowsToState` 는 정본 전량을 `JSON.parse` 하고
+   * 객체를 다시 조립하는데, `run.ts` 의 드레인은 회차마다 이 값을 만들고 **마지막 하나를 뺀
+   * 전부를 즉시 버렸다**(그 파일이 스스로 *"마지막 회차의 상태만 쓴다"* 라고 적어 둔 그 자리다).
+   * 게터로 두면 단발 호출부(`cloud/undo`·`syncController.restoreConflict`)는 종전과 똑같이 쓰고,
+   * 드레인은 `rows` 만 들고 다니다가 루프 뒤에 한 번만 변환할 수 있다.
+   * ⚠ 한 번 읽으면 캐시한다 — 게터를 두 번 읽는 호출부가 생겨도 비용이 두 배가 되지 않는다.
+   */
+  readonly state: AppState | null;
   /** 실제로 적용한 문장 수(0이면 받아올 게 없었다). */
   applied: number;
+}
+
+/** `MergeResult` 를 만든다 — `state` 게터의 지연·캐시 계약이 여기 한 곳에 있다. */
+function mergeResult(rows: DbRows | null, applied: number): MergeResult {
+  let cached: AppState | null | undefined;
+  return {
+    rows,
+    applied,
+    get state(): AppState | null {
+      if (cached === undefined) cached = rows ? rowsToState(rows) : null;
+      return cached;
+    },
+  };
 }
 
 export interface ApplyPullOptions {
@@ -117,7 +142,7 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
     stmts.push({ sql: deleteRowSql(spec.name, key), args: [...keys, t.deletedAt] });
   }
 
-  if (!stmts.length) return { state: null, applied: 0 };
+  if (!stmts.length) return mergeResult(null, 0);
 
   // 적용 건수 = 시도 건수(서버는 바뀐 것만 보내므로 실사용에선 실제 반영 수와 같다).
   const applied = batch.rows.length + batch.tombstones.length;
@@ -151,8 +176,13 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
     if (echo) noteMergedRows(batch.rows);
 
     /* ⚠ 받아온 것에 `docs` 행이 있으면 메모리 사본을 되맞춘다(H1). `docs._cache` 는 부팅에만
-       채워져, 안 하면 폰 `ReadsView` 가 받아온 독후감·미러 산출물을 재시작까지 못 본다. */
-    if (batch.rows.some((r) => r.tbl === 'docs')) await reloadDocs();
+       채워져, 안 하면 폰 `ReadsView` 가 받아온 독후감·미러 산출물을 재시작까지 못 본다.
+       ⚠⚠ **삭제도 포함한다.** 툼스톤만 실린 배치에서 사본을 안 되맞추면 SQLite 에서는 행이
+       사라졌는데 `docGet` 은 지워진 값을 **재시작까지** 계속 돌려준다 — H1 이 고친 것과 정확히
+       같은 형태인데 삭제 축만 빠져 있었다. `contract.ts` 가 *"`docs` 에 삭제를 추가하는 커밋은
+       툼스톤을 같이 넣어야 한다"* 는 조건부 규칙을 세워 뒀지만 그 규칙은 **메모리 사본 무효화까지
+       말하지 않는다** → 그 커밋이 오면 조용히 틀린다. 지금 한 줄이 그때의 진단보다 싸다. */
+    if (batch.rows.some((r) => r.tbl === 'docs') || batch.tombstones.some((t) => t.tbl === 'docs')) await reloadDocs();
 
     /* ⚠ **기준선을 먼저, 상태를 나중에.** 이 순서가 에코를 막는다(머리주석 참조).
        되읽은 행으로 기준선을 세워야 `applyMerged` 의 flush(진행 중 편집이 있을 때만)가 받아온
@@ -170,6 +200,5 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
     return back;
   });
 
-  if (!rows) return { state: null, applied };
-  return { state: rowsToState(rows), applied };
+  return mergeResult(rows, applied);
 }

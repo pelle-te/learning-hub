@@ -18,7 +18,7 @@ import { goalStatus, metricValue } from '@/lib/semesterGoals';
 import { pendingCloseSemesters, semesterReport } from '@/lib/semesterClose';
 import { coverage, coverageKey } from '@/lib/cardCoverage';
 import { dueQuestions, markMet, nextMeetDs } from '@/lib/questions';
-import type { AppState, Question, Semester } from '@/lib/types';
+import type { Question, Semester } from '@/lib/types';
 
 const DS = '2026-08-07';
 

@@ -1,29 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
 import { weekMonOf } from '@/lib/weekAlloc';
 import { todayISO } from '@/lib/utils';
 
 /* items 탭이 React로 동작: 과목/챕터 추가가 store(앱상태)에 반영되는지.
    (Phase 6에서 레거시 globalThis.state 브리지 제거 — 단일 원천은 Zustand 스토어.) */
-function renderApp(initialPath: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 beforeEach(() => {
   useApp.getState().mutate((st) => {

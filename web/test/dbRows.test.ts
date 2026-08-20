@@ -12,7 +12,6 @@ import { stateToRows, rowsToState, ARRAY_SLICES, coalesceStmts, diffRows } from 
 import { defaults, exportSnapshot, RUNTIME_CACHE_KEYS, EPHEMERAL_ONLY_KEYS } from '@/lib/persistence';
 import { chunkedStamp, _resetStamp } from '@/lib/db/stamp';
 import { MAX_BATCH_ITEMS } from '@/lib/cloud/contract';
-import type { AppState } from '@/lib/types';
 
 const roundTrip = (s: AppState): AppState => rowsToState(stateToRows(s));
 

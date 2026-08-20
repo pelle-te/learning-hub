@@ -7,9 +7,9 @@
 ============================================================ */
 import { useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { isDone } from '@/lib/persistence';
-import { toHM, toMin, hLabel, parseISO, DOW_MON, clamp, itemById, ddayInfo, dayDiff } from '@/lib/utils';
+import { BLOCK_SLEEP, toHM, toMin, hLabel, parseISO, DOW_MON, clamp, itemById, ddayInfo, dayDiff } from '@/lib/utils';
 import {
   blocksForWeekday,
   freeWindowsForDay,
@@ -182,7 +182,7 @@ export function DayPlanner({
   // (freeWindowsForWeekday를 쓰던 시절엔 3시에 약속이 있어도 그 자리에 공부 블록을 놓을 수 있었다.)
   const { wake0, wake1, windows } = freeWindowsForDay(state, ds, wd);
   const events = eventsForDay(state, ds);
-  const routine = blocksForWeekday(state, wd).filter((b) => b.type !== '수면');
+  const routine = blocksForWeekday(state, wd).filter((b) => b.type !== BLOCK_SLEEP);
   const capMin = dayStudyMin(state, ds, wd, studyMinByWeekday(state));
 
   const hasSubjects = state.items.some((it) => it.name);
@@ -215,7 +215,7 @@ export function DayPlanner({
   timedTasks.forEach((t) => ms.push(t.start!, t.start! + (t.min || 30)));
   events.forEach((e) => ms.push(e.start, e.start + e.min)); // 새벽 일정도 화면 밖으로 잘리지 않게 union
   routine.forEach((b) => {
-    if (b.type === '수면') return;
+    if (b.type === BLOCK_SLEEP) return;
     ms.push(toMin(b.start), toMin(b.end));
   });
   // 창 **밖**의 일정(새벽 블록 등)은 union해 잘리지 않게 한다 — 안 그러면 화면 밖으로 사라진다.
@@ -259,7 +259,7 @@ export function DayPlanner({
       kind === 'block' ? mutate((st) => placeBlock(st, res, ds, id, at)) : mutate((st) => placeTask(st, id, ds, at)),
     onUnplace: (kind, id) =>
       kind === 'block' ? mutate((st) => unplaceBlock(st, res, ds, id)) : mutate((st) => unplaceTask(st, id)),
-    onNoRoom: () => ui.toast('그 시간대에 빈 자리가 없어요 — 다른 시간에 놓아보세요.', 'warn'),
+    onNoRoom: () => toast('그 시간대에 빈 자리가 없어요 — 다른 시간에 놓아보세요.', 'warn'),
   });
 
   // 키보드 시간박기 대안(§6-4) — 트레이 항목을 첫 가용창 시작에 박되 겹침 해소로 빈칸을 찾는다.
@@ -267,12 +267,12 @@ export function DayPlanner({
     const win = windows.find((w) => w.e - w.s >= Math.min(min, SNAP)) ?? windows[0];
     const at = resolveSlot(occupiedExcept(id), win ? win.s : wake0, min, 1440);
     if (at == null) {
-      ui.toast('빈 시간이 없어요 — 가용시간을 늘리거나 다른 걸 옮기세요.', 'warn');
+      toast('빈 시간이 없어요 — 가용시간을 늘리거나 다른 걸 옮기세요.', 'warn');
       return;
     }
     if (kind === 'block') mutate((st) => placeBlock(st, res, ds, id, at));
     else mutate((st) => placeTask(st, id, ds, at));
-    ui.toast(`${toHM(at)}에 배치`, 'ok');
+    toast(`${toHM(at)}에 배치`, 'ok');
   };
 
   // W13 — 트레이 행 하나가 탭 스톱 하나(종전 3번째 행 ⤵ 까지 Tab 14회). 배선은 `useTrayCursor`.

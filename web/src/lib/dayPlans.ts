@@ -227,36 +227,49 @@ export function resetDay(state: AppState, ds: string): void {
  *  키째 정리한다. 남는 다른 sid의 집계는 sid|type로 분리돼 있어 재계산이 필요 없다.
  *
  *  @returns 정리한 개수(지운 블록 수 + 지운 완료 키 수). state 변형. */
-export function removeSidFromDayPlans(state: AppState, sid: string): number {
-  let n = 0;
+/* ⚠ 두 저장소를 **따로** 훑는다(2026-08-20 리뷰 M-14 원장 축소). 수동 배치와 완료 기록은
+   서로를 모르고 각자 다른 모양으로 그 과목을 담는다 — 한 함수에 뭉치면 중첩 루프 넷이 된다. */
+
+/** 수동 배치에서 그 과목 블록을 뺀다. 빈 manual 날은 **키째** 지운다 — 빈 manual 은 자동
+ *  스케줄이 죽은 상태라 그대로 두면 그날이 통째로 사라진다(`isWeekManaged` 와 같은 함정). */
+function purgeFromPlans(state: AppState, sid: string): number {
   const plans = state.dayPlans;
-  if (plans) {
-    for (const ds in plans) {
-      const dp = plans[ds];
-      if (!dp || dp.mode !== 'manual' || !dp.blocks.length) continue;
-      const before = dp.blocks.length;
-      dp.blocks = dp.blocks.filter((b) => b.sid !== sid);
-      const removed = before - dp.blocks.length;
-      if (!removed) continue;
-      n += removed;
-      if (!dp.blocks.length) delete plans[ds]; // 빈 manual 날 = 자동 스케줄 사망 → 키째 정리
-    }
-  }
-  const comps = state.completions;
-  if (comps) {
-    const prefix = completionKey(sid, '');
-    for (const ds in comps) {
-      const day = comps[ds];
-      if (!day) continue;
-      for (const key in day)
-        if (key.startsWith(prefix)) {
-          delete day[key];
-          n++;
-        }
-      if (!Object.keys(day).length) delete comps[ds];
-    }
+  if (!plans) return 0;
+  let n = 0;
+  for (const ds in plans) {
+    const dp = plans[ds];
+    if (!dp || dp.mode !== 'manual' || !dp.blocks.length) continue;
+    const before = dp.blocks.length;
+    dp.blocks = dp.blocks.filter((b) => b.sid !== sid);
+    const removed = before - dp.blocks.length;
+    if (!removed) continue;
+    n += removed;
+    if (!dp.blocks.length) delete plans[ds];
   }
   return n;
+}
+
+/** 완료 기록에서 그 과목의 키(`sid|type`)를 뺀다. 빈 날은 키째 정리한다. */
+function purgeFromCompletions(state: AppState, sid: string): number {
+  const comps = state.completions;
+  if (!comps) return 0;
+  let n = 0;
+  const prefix = completionKey(sid, '');
+  for (const ds in comps) {
+    const day = comps[ds];
+    if (!day) continue;
+    for (const key in day)
+      if (key.startsWith(prefix)) {
+        delete day[key];
+        n++;
+      }
+    if (!Object.keys(day).length) delete comps[ds];
+  }
+  return n;
+}
+
+export function removeSidFromDayPlans(state: AppState, sid: string): number {
+  return purgeFromPlans(state, sid) + purgeFromCompletions(state, sid);
 }
 
 /** 블록 유형별 기본 길이(분) — 모듈 길이에서 파생. '+ 블록 추가'가 쓰는 프리셋.

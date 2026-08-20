@@ -8,7 +8,7 @@
 import { useEffect } from 'react';
 import { consumeBootFallback, parseState, isPristineState } from '@/lib/persistence';
 import { idbGet, idbLoad, idbPreserveBackup, IDB_BACKUP_KEY } from '@/lib/idb';
-import { ui, io } from '@/shell';
+import { restoreFromIDB, toast } from '@/shell';
 
 export default function BootRecovery() {
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function BootRecovery() {
     if (!fallback) return;
     // 손상 부팅(감사 ③#9): 원본 raw가 CORRUPT_KEY에 보존됐음을 알린다 — 설정 탭에서 파일로 회수 가능.
     if (fallback === 'corrupt')
-      ui.toast(
+      toast(
         '저장 데이터가 손상돼 기본값으로 시작했어요 — 손상 원본은 보존됨(설정 → 데이터에서 내려받기).',
         'warn',
         12000,
@@ -36,9 +36,9 @@ export default function BootRecovery() {
         // 무활동 미러는 그 자체론 복구 가치 0 — 실데이터 세대 백업이 있을 때만 안내
         // (복구 액션(restoreFromIDB)이 백업을 자동 우선한다 · 재검증 ⑩#1).
         if (pristine && !(await idbGet<string>(IDB_BACKUP_KEY).catch(() => null))) return;
-        ui.toast('저장된 백업(IDB)을 찾았어요 — 이전 데이터를 복구할까요?', 'warn', 12000, {
+        toast('저장된 백업(IDB)을 찾았어요 — 이전 데이터를 복구할까요?', 'warn', 12000, {
           label: '복구하기',
-          onAction: () => void io.restoreFromIDB(json),
+          onAction: () => void restoreFromIDB(json),
         });
       })
       .catch(() => {

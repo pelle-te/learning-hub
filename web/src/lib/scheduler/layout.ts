@@ -2,7 +2,7 @@
    scheduler/layout.ts — 하루치 세션을 '시각'에 앉히는 층(엔진이 '무엇을·얼마나'를 정한 뒤).
    피크 시간대 우선 배치 · 자유 구간 차감 · 남는 분(over) 표시까지.
 ============================================================ */
-import { BLOCK_TYPES, toMin } from '../utils';
+import { BLOCK_SLEEP, routineBlockColor, toMin } from '../utils';
 import { eventIntervals } from '../events';
 import { interleaveByKey } from '../spacedReview';
 import { blocksForWeekday, freeWindowsForDay, subtractIntervals } from './windows';
@@ -121,7 +121,7 @@ export function layoutDay(state: AppState, day: Day): LayoutResult {
   order.forEach((it) => placeItem(it, peak && HIGH(it) ? peak : null));
   const tl: TimelineEntry[] = [];
   blocks
-    .filter((b) => b.type !== '수면')
+    .filter((b) => b.type !== BLOCK_SLEEP)
     .forEach((b) => {
       const s = toMin(b.start);
       const e = toMin(b.end);
@@ -140,7 +140,7 @@ export function layoutDay(state: AppState, day: Day): LayoutResult {
           btype: b.type,
           start: ss,
           end: ee,
-          color: BLOCK_TYPES[b.type],
+          color: routineBlockColor(b.type),
         }),
       );
     });

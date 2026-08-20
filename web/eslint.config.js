@@ -92,11 +92,59 @@ export default tseslint.config(
          ReviewRun 인라인 CBMS 는 전제(_"세션 상태기계와 공유 상태 0"_)가 **실측에서 거짓**이고
          (`missId` 를 키보드 게이트 `askingMiss` 와 `undo` 가 읽는다), Graph·CommandPalette 는
          드릴 prop 이 2개·제어값 누출이라 F5 오라클 아래다. **개수가 아니라 오라클이 정한다.** */
-      'sonarjs/cognitive-complexity': ['error', 62],
+      /* ⚠⚠ **62 → 25 로 내린다 — 단, 초과 18개는 기한부 예외로 명시한다**(2026-08-20 리뷰 M-14).
+
+         종전의 문제는 값이 아니라 **형태**였다: 임계가 관측 최댓값 + ε(59 → 62)라 ① 기존 최악
+         함수 18개가 영구 면제되고 ② **신규 코드도 59까지 자유**였다. 즉 게이트가 "더 나빠지지
+         않는다"조차 보장하지 않았다(이미 최악인 수준까지는 언제든 새로 쓸 수 있었다).
+         이 저장소는 같은 상황의 규율을 이미 적어 뒀다 — *"큰 삭제 뒤 한도를 함께 내린다.
+         여유 33%면 게이트가 아무것도 안 지킨다"*(CLAUDE.md W4). 번들 예산엔 적용됐고 여기엔 안 됐다.
+
+         → **새 코드는 25**, 초과분은 아래 override 에 **파일 단위로 열거**한다. 목록에 있다는 것이
+         곧 "여기는 아직 안 갚았다"는 선언이고, 목록에 새 파일을 더하려면 커밋이 필요하므로
+         리뷰에 걸린다(`audit-allowlist.json`·a11y `알려진위반` 과 같은 **기한부 판단** 관용구).
+         ⚠ `max-lines` 는 **안 건드린다** — 재측정하니 한도 727 vs 실측 720 이라 여유 1% 로 이미
+         조여져 있다(리뷰가 이 축을 함께 지적한 것은 과했다 · 실측이 그 지적을 기각한다). */
+      'sonarjs/cognitive-complexity': ['error', 25],
       // ReDoS — 실측 2건을 0단계-F에서 제거했고(vault 프론트매터·quickCapture 챕터) 재발을 막는다.
       // 이건 취향이 아니라 입력이 커지면 멈추는 버그라 임계 없이 error.
       'sonarjs/super-linear-regex': 'error',
     },
+  },
+  /* ── 인지복잡도 **기한부 예외 원장**(M-14 · 2026-08-20) ─────────────────────────
+     위 임계(25)를 넘는 함수를 가진 파일. **목록은 줄어드는 방향으로만 편집한다.**
+
+     ⚠ 착수 당시 16파일 18함수였고, 그날 **8함수로 갚았다**(순수 lib 전량):
+       `lib/db/rows`(56·45→분해) · `lib/persistence`(37·28) · `lib/spacedReview`(45) ·
+       `lib/contentSearch`(30) · `lib/quickCapture`(35) · `lib/dayPlans`(28) · `lib/absence`(26) ·
+       `lib/scheduler/dayPlanOverride`(43) — 여덟 파일이 원장에서 **빠졌다**.
+
+     ## 남은 것이 왜 남았나 — 개수가 아니라 **오라클**이 정한다
+
+     · `lib/scheduler/engine.ts` `schedule()`(50) — 이 파일은 스스로 *"회귀로 동결된 코어"* 라
+       적는다. 독립적인 두 단계(daily 배치·복습 대상 날 고르기)는 이미 뺐고, 남은 50은 phase 4·5
+       (과목 진행 상태 초기화 ↔ 주간 모듈 배분)가 **같은 가변 상태를 주고받는** 부분이다.
+       거기를 가르려면 그 상태를 인자로 흘려야 하고, 그건 "위치만 옮긴다"가 아니라 **설계 변경**이다.
+     · React 컴포넌트 일곱 — `결정로그.md` 2026-08-06 이 F5 남은 후보를 **추출하지 않기로 판정**했다
+       (드릴 prop 2개·제어값 누출·공유 상태 실측). 그 판정을 개수 때문에 뒤집지 않는다.
+       ⚠ 그리고 이쪽은 절단면이 DOM 을 바꿀 수 있어 시각 스냅샷이 안전망이 아니라 **공범**이 된다
+       (`--update-snapshots` 가 깨진 결과를 정답으로 굳힌다 · §15-4 가 두 번 물린 형태).
+
+     재검토 만료: **2026-11-20**. 그때까지 안 줄었으면 이 블록을 지우고 게이트가 깨지게 둔다
+     (판단에 유효기간이 없으면 그건 판단이 아니라 방치다 — SCA 원장이 세운 규율).
+     ⚠ 상한을 62 로 두는 것은 **현 상태 동결**이다(이 파일들 안에서도 더 나빠지지 못한다). */
+  {
+    files: [
+      'src/features/today/TodaySignature.tsx',
+      'src/features/today/FlowRail.tsx',
+      'src/features/schedule/Schedule.tsx',
+      'src/features/schedule/DayPlanner.tsx',
+      'src/features/integrations/TelemetryConsole.tsx',
+      'src/phone/ReviewView.tsx',
+      'src/phone/PhoneApp.tsx',
+      'src/lib/scheduler/engine.ts',
+    ],
+    rules: { 'sonarjs/cognitive-complexity': ['error', 62] },
   },
   /* 파일 크기 래칫 — 임계는 **현재 최댓값**이고 내려가기만 한다.
      주석·빈 줄 제외: 이 저장소는 "왜"를 주석으로 남기는 걸 규약으로 삼는데(결정로그와 짝),
@@ -357,6 +405,24 @@ export default tseslint.config(
               group: ['@/features/*'],
               message:
                 'feature끼리 직접 import 금지 — 같은 feature는 상대경로(./), 공유물은 components/hooks/lib으로 승격하세요.',
+            },
+            /* ⚠⚠ **상대경로 탈출도 막는다**(2026-08-20 리뷰 m-3).
+
+               위 별칭 금지만 있던 동안, 그 옆 주석은 _"cross-feature import는 전부 '@/features/…'
+               별칭을 쓰고"_ 라는 **관습을 전제로** 삼고 있었다. 실측(eslint 프로브)하면 별칭·
+               타입 전용·동적 import 는 전부 잡히는데 `../alloc/Alloc` 만 **에러 0건**이었다.
+               즉 절대규칙 #4 가 한쪽 문법에만 걸려 있었고, 이 저장소엔 이미 하위 폴더를 가진
+               feature 가 있어(`features/ledger/mastery/`) 그 경로가 자연스럽게 나올 자리가 있다.
+
+               패턴 둘: 한 칸 위 형제 feature(`features/day/X` 에서 이웃 폴더로), 그리고 두 칸 위
+               `features` 재진입(`features/ledger/mastery/X` 에서의 탈출).
+               같은 feature 안의 `./shared` 는 안 걸린다. 현재 실제 위반 0 이라 **회귀 방어**다.
+               ⚠ 패턴 문자열을 이 주석에 인용하지 말 것 — 별과 슬래시가 붙으면 블록 주석이 거기서
+                 끝난다(실제로 한 번 물렸다). 값은 바로 아래 `group` 이 정본이다. */
+            {
+              group: ['../*/*', '../../features/*', '../../features/*/**'],
+              message:
+                'feature 밖으로 나가는 상대경로 금지 — 같은 feature 안은 ./, 공유물은 components/hooks/lib으로 승격하세요(별칭 금지와 같은 경계입니다).',
             },
           ],
         },

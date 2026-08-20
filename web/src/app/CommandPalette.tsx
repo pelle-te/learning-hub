@@ -17,7 +17,7 @@ import { MOD_ENTER_LABEL, MOD_K_LABEL } from '@/lib/platform';
 import { markVia } from '@/lib/visits';
 import { Icon } from '@/components/Icon';
 import { parsePlanCommand } from '@/lib/planCommand';
-import { bumpWeeklyHours } from '@/lib/weekAlloc';
+import { applyWeeklyHours } from '@/lib/weekAlloc';
 import { useApp } from '@/store/useApp';
 import type { SemHit, SemKind } from '@/lib/semantic';
 import type { IconName } from '@/lib/iconPaths';
@@ -130,7 +130,9 @@ function NoMatchFallback({ search, suppressed }: { search: string; suppressed: b
    명령 목록은 네이티브 shell/palette(탭+액션)에서. 이동은 React Router, 액션은 shell/actions를 호출.
    open/onOpenChange는 부모(App)가 소유 — 전역 단축키도 거기서. */
 /* ── Q-21 **객체 우선 팔레트** (2026-08-02) ────────────────────────────────────
-   기본 항목이 **48개**(이동 22 + 액션 26)이고 그것들이 콘텐츠 히트와 **평평하게** 섞였다. 즉
+   기본 항목이 **수십 개**(이동 = `ORDERED_TABS` 중 은퇴 제외 + 액션 = `palette.ts` 의 표)이고
+   그것들이 콘텐츠 히트와 **평평하게** 섞였다. ⚠ 종전엔 "48개(이동 22 + 액션 26)"이라 적혀 있었고
+   실측과 달랐다 — 수는 두 상수가 소유한다(2026-08-20 리뷰 n-5). 즉
    ⌘K 를 열면 제일 먼저 보이는 것이 *앱의 IA 를 다시 나열한 목록*이었다 — 레일이 이미 하는 일을
    한 번 더 하고, 정작 사용자가 찾는 객체(과목·챕터·보충·책)는 그 아래로 밀렸다.
 
@@ -449,10 +451,8 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
                 className={`${ITEM} ${CAPTURE}`}
                 onSelect={() => {
                   const c = planCmd.cmd;
-                  mutate((st) => {
-                    const it = st.items.find((i) => i.id === c.sid);
-                    if (it) it.weeklyHours = bumpWeeklyHours(it.weeklyHours, c.deltaH);
-                  });
+                  // M-9 — 찾기·하한·daily 가드는 `lib/weekAlloc.applyWeeklyHours` 가 소유한다.
+                  mutate((st) => void applyWeeklyHours(st, c.sid, { delta: c.deltaH }));
                   finish();
                 }}
               >

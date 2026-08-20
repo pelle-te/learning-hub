@@ -4,7 +4,7 @@
 ============================================================ */
 import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { useRecordEditor } from '@/shell/useRecordEditor';
 import { cbmsBetween, editCbms, delCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
 import { Button } from '@/components/ui';
@@ -52,7 +52,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
      화면 구석에서 뜨고 사라졌고, "무엇이" 바뀌었는지는 말하지 못했다(모션 어휘 `commit`). */
   const submit = () => {
     if (!sid && !chapter.trim() && !note.trim()) {
-      ui.toast('과목·챕터·메모 중 최소 하나는 입력하세요.', 'warn');
+      toast('과목·챕터·메모 중 최소 하나는 입력하세요.', 'warn');
       return;
     }
     addCbms(dsKey, sid, nameOf(state, sid), chapter.trim(), code, note.trim(), conf);

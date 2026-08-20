@@ -23,7 +23,7 @@ import {
   touchReview,
 } from '@/lib/persistence';
 import { addCbms, blankPassRate, buildAnkiCards, setBlankResult } from '@/lib/methodology';
-import type { AppState, KV } from '@/lib/types';
+import type { KV } from '@/lib/types';
 
 function memKV(): KV & { store: Map<string, string> } {
   const m = new Map<string, string>();

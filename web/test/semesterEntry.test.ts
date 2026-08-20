@@ -9,7 +9,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_HOURS_PER_CREDIT, creditRate, rehearsalSteps, simulateSemester } from '@/lib/semesterEntry';
-import type { AppState, Item } from '@/lib/types';
+import type { Item } from '@/lib/types';
 
 const ch = (id: string, hours: number, done = false) => ({ id, name: id, hours, done });
 const it_ = (id: string, chapters: ReturnType<typeof ch>[] = [], over: Partial<Item> = {}): Item =>

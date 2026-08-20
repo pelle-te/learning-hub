@@ -6,7 +6,6 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { BAND_LABEL, chapterCoefficient, chapterStrength, type ChapterStrength } from '@/lib/chapterStrength';
-import type { AppState } from '@/lib/types';
 
 let n = 0;
 const bres = (sid: string, chapter: string, ds: string, passed: boolean) => ({

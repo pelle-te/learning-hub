@@ -11,8 +11,10 @@ import {
   requeue,
   runItemKey,
   type RunItem,
+  cursorOp,
+  landingIndex,
 } from '@/lib/reviewQueue';
-import type { AppState, Day, ScheduleItem } from '@/lib/types';
+import type { Day, ScheduleItem } from '@/lib/types';
 
 const TODAY = '2026-07-04';
 
@@ -191,5 +193,42 @@ describe('anchorOf — 어떤 카드가 복습 앵커를 옮길 수 있나', () 
     };
     // sid 만으로 그 과목의 아무 챕터나 리셋하는 것은 인출 기록이 아니라 오염이다.
     expect(anchorOf(item)).toBeNull();
+  });
+});
+
+/* ============================================================
+   이어하기 커서 판정(M-10 · 2026-08-20) — **두 러너가 같은 규칙을 쓴다**는 것이 요점이다.
+   종전엔 쓰기가 데스크톱에만 있어 커서가 단방향이었고(폰은 읽기만), 그 결과 폰에서 진행한 것이
+   PC 에 안 이어지고 폰에서 끝내도 유령 칩이 TTL 동안 남았다.
+============================================================ */
+describe('cursorOp — 언제 쓰고 언제 지우나', () => {
+  it('마지막 장을 넘기면 **지운다** — 안 지우면 이미 끝낸 큐로 착지하는 유령 칩이 남는다', () => {
+    expect(cursorOp(11, 12)).toEqual({ kind: 'drop' });
+    expect(cursorOp(0, 1)).toEqual({ kind: 'drop' });
+  });
+
+  it('5장마다 쓰고 진행 표기는 **다음 카드** 기준이다', () => {
+    expect(cursorOp(4, 12)).toEqual({ kind: 'write', progress: '6/12' });
+    expect(cursorOp(9, 12)).toEqual({ kind: 'write', progress: '11/12' });
+  });
+
+  it('그 외엔 아무것도 안 한다 — 카드마다 쓰면 한 세션이 아웃박스에 같은 말을 12번 남긴다', () => {
+    expect(cursorOp(0, 12)).toBeNull();
+    expect(cursorOp(3, 12)).toBeNull();
+  });
+
+  it('빈 큐는 drop 이다(쓸 진행이 없다)', () => {
+    expect(cursorOp(0, 0)).toEqual({ kind: 'drop' });
+  });
+});
+
+describe('landingIndex — 이어하기 착지', () => {
+  it('큐가 줄었어도 범위를 벗어나지 않는다', () => {
+    expect(landingIndex(7, 3)).toBe(2);
+    expect(landingIndex(-1, 5)).toBe(0);
+    expect(landingIndex(2, 5)).toBe(2);
+  });
+  it('빈 큐면 0', () => {
+    expect(landingIndex(5, 0)).toBe(0);
   });
 });

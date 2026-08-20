@@ -126,17 +126,11 @@ export function missedSince(blocks: readonly PlannedBlock[], lastDs: string, tod
  * 그건 정보가 아니라 **부재 자체에 대한 지적**이다(방향 §2 (d)의 정반대). 부재 길이는 델타의
  * *맥락*이지 델타가 아니다.
  */
-export function returnBriefing(
-  snap: AbsenceSnapshot,
-  now: AbsenceNow,
-  todayDs: string,
-  /** T-11 — 밖에서 일어난 일. 안 주면 종전 동작 그대로(브라우저·폰이 그 경로다). */
-  outside?: AbsenceOutside | null,
-): ReturnBriefing | null {
-  if (!snap.lastDs) return null;
-  const days = dayDiff(snap.lastDs, todayDs);
-  if (days < ABSENCE_MIN_DAYS) return null;
-
+/* ⚠ **델타 문장 조립을 갈라 둔다**(2026-08-20 리뷰 M-14 원장 축소). 세 축(복습·미완·마감)이
+   각자 `parts`/`aria` 두 배열에 밀어 넣는 형태라 분기가 여섯이었고, 그게 `returnBriefing` 의
+   인지복잡도 대부분이었다. 이 함수는 **말을 만들 뿐** 무엇을 처방할지는 안 정한다 — 그 판단은
+   호출부의 Q-29 순서 규칙이 소유한다(둘을 섞으면 "무엇을 말하나"와 "무엇을 시키나"가 한 덩어리가 된다). */
+function delta(snap: AbsenceSnapshot, now: AbsenceNow): { parts: string[]; aria: string[] } {
   const parts: string[] = [];
   const aria: string[] = [];
   /* 복습은 **늘어난 경우에만** 화살표로 말한다 — 줄었거나 같으면 그건 부재의 결과가 아니다
@@ -156,11 +150,31 @@ export function returnBriefing(
     parts.push(`${now.deadline.name} D-${now.deadline.dday}`);
     aria.push(`가장 가까운 마감은 ${now.deadline.name} D-${now.deadline.dday}`);
   }
-  /* T-11 — **밖에서 한 일**은 위 목록에 섞지 않고 괄호로 뒤에 붙인다. 같은 ` · ` 목록에 넣으면
-     "복습 18 · 미완 3 · 노트 5" 가 되어 *한 일*이 *밀린 일*과 같은 픽셀로 읽힌다(부호가 반대인데). */
+  return { parts, aria };
+}
+
+/** T-11 — **밖에서 한 일**은 위 목록에 섞지 않는다. 같은 ` · ` 목록에 넣으면
+ *  "복습 18 · 미완 3 · 노트 5" 가 되어 *한 일*이 *밀린 일*과 같은 픽셀로 읽힌다(부호가 반대인데). */
+function outsideDid(outside?: AbsenceOutside | null): string[] {
   const did: string[] = [];
   if (outside?.notes) did.push(`노트 ${outside.notes}`);
   if (outside?.ankiCards) did.push(`카드 ${outside.ankiCards}`);
+  return did;
+}
+
+export function returnBriefing(
+  snap: AbsenceSnapshot,
+  now: AbsenceNow,
+  todayDs: string,
+  /** T-11 — 밖에서 일어난 일. 안 주면 종전 동작 그대로(브라우저·폰이 그 경로다). */
+  outside?: AbsenceOutside | null,
+): ReturnBriefing | null {
+  if (!snap.lastDs) return null;
+  const days = dayDiff(snap.lastDs, todayDs);
+  if (days < ABSENCE_MIN_DAYS) return null;
+
+  const { parts, aria } = delta(snap, now);
+  const did = outsideDid(outside);
   if (did.length) {
     const where = outside?.subjects.length ? `${outside.subjects.join('·')} 쪽으로 ` : '';
     aria.push(`그동안 앱 밖에서 ${where}${did.join(', ')}만큼 했습니다`);

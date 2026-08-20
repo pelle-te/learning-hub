@@ -17,7 +17,7 @@
 ============================================================ */
 import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { Button, Pill } from '@/components/ui';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { icsFeedStale, icsFeedUrl, loadIcsFeed, publishIcsFeed, revokeIcsFeed, type IcsFeed } from '@/lib/icsFeed';
@@ -43,17 +43,17 @@ export default function IcsFeedPanel() {
   const publish = (rotate = false): void => {
     const next = publishIcsFeed(state, { rotate });
     setFeed(next);
-    ui.toast(rotate ? '새 주소를 발행했어요 — 옛 주소는 이제 안 열립니다.' : '지금 계획을 발행했어요.', 'ok');
+    toast(rotate ? '새 주소를 발행했어요 — 옛 주소는 이제 안 열립니다.' : '지금 계획을 발행했어요.', 'ok');
   };
   const revoke = (): void => {
     revokeIcsFeed();
     setFeed(loadIcsFeed());
-    ui.toast('구독을 폐기했어요 — 그 주소는 더 이상 열리지 않습니다.', 'info');
+    toast('구독을 폐기했어요 — 그 주소는 더 이상 열리지 않습니다.', 'info');
   };
   const copy = (): void => {
     void navigator.clipboard.writeText(url).then(
-      () => ui.toast('구독 주소를 복사했어요 — 캘린더 앱의 "URL로 구독"에 붙여 넣으세요.', 'ok'),
-      () => ui.toast('복사하지 못했어요 — 주소를 직접 선택해 복사하세요.', 'warn'),
+      () => toast('구독 주소를 복사했어요 — 캘린더 앱의 "URL로 구독"에 붙여 넣으세요.', 'ok'),
+      () => toast('복사하지 못했어요 — 주소를 직접 선택해 복사하세요.', 'warn'),
     );
   };
 

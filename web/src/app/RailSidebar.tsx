@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { navGroups, Icon, type TabMeta } from '@/shell';
 import { railLayout } from '@/shell/railLayout';
@@ -10,6 +11,7 @@ import { useConflicts } from '@/store/useConflicts';
 import { selectNavSignals, selectRiskSummary } from '@/store/selectors';
 import { openBacklog } from '@/lib/methodology';
 import { markVia } from '@/lib/visits';
+import { countableKeys, sinceCount } from '@/lib/since';
 
 /* C-9: 복습 밀림·열린 보충은 review/mastery 탭 안에서만 보여 다른 탭에 있으면 알 길이 없었다.
    → 어디서든 보이는 카운트 배지(발광·펄스 금지).
@@ -113,6 +115,26 @@ export default function RailSidebar() {
   });
   // 나브 상태 신호(N-13) — 계산은 selectors 한 곳, 여기선 표시만. 참조-캐시라 알림마다 불려도 싸다.
   const signals = useApp((st) => selectNavSignals(st.state));
+  /* ⚠⚠ **T-13「지난번 이후」의 소비처가 여기다**(2026-08-20 리뷰 m-4).
+
+     `lib/since.ts` 는 판정을, `app/useMarkSeen.ts` 는 시점을 소유했는데 **그리는 쪽이 없었다** —
+     원래 그 자리였던 `SubTabs` 가 N-14/W5 에서 은퇴하며 함께 걷히지 않았고, 그래서 `seenAt` 은
+     매 내비게이션마다 쓰이면서 **한 번도 읽히지 않는 값**이었다(쓰기만 있는 원장).
+
+     ⚠ `seenAt` 은 `useApp`(동기화 대상)이 아니라 `useUI`(기기별)에 산다 — 그래서 `selectNavSignals`
+     의 `keyed` 캐시 안에서 읽으면 안 된다(캐시 키가 `AppState` 라 무효화가 안 걸린다). 조립을
+     화면에서 하는 것이 그 이유다: 판정=lib · 시점=훅 · 표시=여기, 세 층이 그대로 유지된다.
+     ⚠ 신호가 이미 있는 탭은 **덮지 않는다** — "남은 3"이 "새 2"로 바뀌면 더 급한 말을 잃는다. */
+  const seenAt = useUI((s) => s.ui.seenAt);
+  const sinceState = useApp((st) => st.state);
+  const sinceSignals = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const k of countableKeys()) {
+      const n = sinceCount(sinceState, k, seenAt[k]);
+      if (n != null) out[k] = `새 ${n}`;
+    }
+    return out;
+  }, [sinceState, seenAt]);
   // 동기화 충돌(다른 기기 편집에 덮인 로컬 편집) 대기 수 — 설정 탭 코너 배지(Phase 4).
   const conflictBadge = useConflicts((s) => s.shadows.length);
   const curKey = loc.pathname.split('/')[1] || 'today';
@@ -200,7 +222,8 @@ export default function RailSidebar() {
     const badge = t.key === NAV_BADGE_TAB ? reviewBadge : t.key === 'settings' ? conflictBadge : 0;
     const badgeLabel = isConflict ? `동기화 충돌 ${badge}건` : `복습·보충 ${badge}건 대기`;
     // 접힘 레일엔 글자 자리가 없다 → 신호는 펼침 전용이고 접힘은 배지가 계속 맡는다.
-    const signal = collapsed ? '' : (signals[t.key] ?? '');
+    // ⚠ 기존 신호가 이기고, 없을 때만 「지난번 이후」가 말한다(위 ⚠ 참조).
+    const signal = collapsed ? '' : (signals[t.key] ?? sinceSignals[t.key] ?? '');
     return (
       <button
         key={t.key}
@@ -248,8 +271,11 @@ export default function RailSidebar() {
      아니라 줄 수를 늘리는 것이다(재편 전에도 11개/5그룹 = 2.2 였다).
 
      ⚠⚠ **N-14+N-16(W5 · 2026-08-07)이 그 전제를 뒤집어 헤더를 되살렸다.** 평탄화로 레일이
-     열넷이 됐다 — 즉 E22 가 근거로 든 수(destination 7 · 그룹당 1.75)가 더는 사실이 아니고,
-     청킹이 값을 내는 구간(7+)에 정확히 들어왔다.
+     **두 자릿수**가 됐다 — 즉 E22 가 근거로 든 수(destination 7 · 그룹당 1.75)가 더는 사실이
+     아니고, 청킹이 값을 내는 구간(7+)에 정확히 들어왔다.
+     ⚠ 이 판단의 근거가 되는 수는 **여기 적지 않는다**(2026-08-20 리뷰 n-5): 정본은
+     `shell/tabs.ts` 의 `railCandidates()` 이고, 종전에 손으로 적힌 "열넷"은 실측과 달랐다.
+     판단의 전제가 되는 수를 산문에 굳히면 전제가 조용히 낡는다.
      그런데 **이름이 바뀌었다**: 라벨이 명사(계획·숙련)면 그건 *분류*라 사용자가 외워야 하고,
      질문이면 자기가 지금 묻는 것과 **맞춰 보기만** 하면 된다(N-16 질문 축). 그래서 헤더에
      뜨는 것은 `RAIL_SECTIONS[].question` 이다.

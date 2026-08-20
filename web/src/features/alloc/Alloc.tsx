@@ -12,7 +12,7 @@ import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
-import { io } from '@/shell';
+import { exportICS } from '@/shell';
 import { weekLabel, ddayInfo, hNum, hLabel, iso, addDays, parseISO } from '@/lib/utils';
 import { useTodayISO } from '@/hooks/useTodayISO';
 import { weekAllocTotalMin, weekBudgetMin as weekBudgetMinOf, weekDoneNewMin } from '@/lib/weekAlloc';
@@ -104,7 +104,7 @@ export default function Alloc() {
       ],
       action: !isThisWeek
         ? { label: '이번 주로 →', onClick: weekToday }
-        : { label: '캘린더(.ics) 내보내기', onClick: () => io.exportICS() },
+        : { label: '캘린더(.ics) 내보내기', onClick: () => exportICS() },
     }),
     [weekAllocMin, weekBudgetMin, allocPct, nearestDday, rel],
   );

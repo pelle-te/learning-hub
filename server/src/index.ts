@@ -263,14 +263,24 @@ app.use('/api/*', async (c, next) => {
    무인증 라우트에만 건다. `/api/sync/*` 는 이미 토큰이 필요하고, 거기 걸면 정상 동기화가
    막힐 위험이 방어 이득보다 크다. */
 const AUTH_RATE = { windowSec: 60, max: 20 };
+/** 로컬 카운터 맵의 경성 상한(버킷 수). 넘으면 만료분을 걷고, 그래도 넘으면 통째로 버린다.
+ *  종전엔 프루닝이 만료분만 지워 상한이 사실상 없었다(2026-08-20 리뷰 n-2). */
+const RATE_MAP_MAX = 1000;
 const hits = new Map<string, { start: number; n: number }>();
 
 function rateLimited(bucket: string, now: number): boolean {
   const cur = hits.get(bucket);
   if (!cur || now - cur.start >= AUTH_RATE.windowSec) {
     hits.set(bucket, { start: now, n: 1 });
-    // 맵이 무한히 자라지 않게 — 아이솔레이트 수명이 짧아 이 정도면 충분하다.
-    if (hits.size > 1000) for (const [k, v] of hits) if (now - v.start >= AUTH_RATE.windowSec) hits.delete(k);
+    /* 맵이 무한히 자라지 않게 — 아이솔레이트 수명이 짧아 이 정도면 충분하다.
+       ⚠ 프루닝은 **만료된 것만** 지운다. 창(60s) 안에 서로 다른 IP·경로 조합이 계속 들어오면
+       삭제 대상이 0건이라 상한이 실제로는 없다 — 그리고 이 삽입은 `rateGuard` 의 ①(싼 로컬 컷)
+       이라 **전역 리미터를 타기 전에** 무조건 일어나므로 429 를 받는 트래픽도 맵을 키운다.
+       그때는 통째로 버린다: 잃는 것은 창 하나의 카운터뿐이고 ②의 전역 컷은 그대로 남는다. */
+    if (hits.size > RATE_MAP_MAX) {
+      for (const [k, v] of hits) if (now - v.start >= AUTH_RATE.windowSec) hits.delete(k);
+      if (hits.size > RATE_MAP_MAX) hits.clear();
+    }
     return false;
   }
   cur.n += 1;
@@ -814,60 +824,74 @@ app.get('/api/sync/pull', async (c) => {
   const limit = Math.min(wanted, MAX_BATCH_ITEMS);
 
   const caps: number[] = [];
-  const rows: OutboxRow[] = [];
 
-  for (const [tbl, cols] of Object.entries(TABLE_COLS)) {
-    const sel = [...cols.key, ...cols.data, 'updated_at'].join(',');
-    const toRow = (x: Record<string, unknown>): OutboxRow => ({
-      tbl,
-      key: cols.key.map((k) => String(x[k] ?? '')),
-      data: cols.data.map((d) => x[d]),
-      updatedAt: Number(x['updated_at'] ?? 0),
-    });
-    const page = await readPage<OutboxRow>(
-      (r) => r.updatedAt,
-      async (n) =>
-        (
-          await c.env.DB.prepare(`SELECT ${sel} FROM ${tbl} WHERE updated_at > ? ORDER BY updated_at LIMIT ?`)
-            .bind(since, n)
-            .all<Record<string, unknown>>()
-        ).results.map(toRow),
-      async (stamp) =>
-        (
-          await c.env.DB.prepare(`SELECT ${sel} FROM ${tbl} WHERE updated_at = ?`)
-            .bind(stamp)
-            .all<Record<string, unknown>>()
-        ).results.map(toRow),
-      limit,
-    );
-    rows.push(...page.items);
-    if (page.cap !== null) caps.push(page.cap);
-  }
-
+  /* ⚠⚠ **표를 순차로 읽지 않는다**(2026-08-20 리뷰 m-8). 종전엔 `for … await` 라 pull 1회가
+     **표 수 + 툼스톤**만큼의 직렬 D1 왕복이었고, `run.ts` 의 드레인이 회차마다 그 값을 냈다.
+     클라이언트는 정확히 같은 형태를 M-18 에서 이미 고쳤다(`lib/cloud/outbox.ts` 의 `Promise.all`)
+     — 그 주석의 논거가 여기에도 그대로 성립한다: **이 질의들은 서로를 안 본다.** 전부 같은
+     `since`·`limit` 만 쓰는 독립 SELECT 다. 한쪽만 고쳐진 상태로 남아 있었다.
+     ⚠ 결과 순서는 의미가 없다 — `ceilingOf` 가 `Math.min`/`Math.max` 라 순서 무관이고,
+     `capBatch` 는 스탬프로 자른다. */
   const toTomb = (t: Record<string, unknown>): OutboxTomb => ({
     tbl: String(t['tbl'] ?? ''),
     k1: String(t['k1'] ?? ''),
     k2: String(t['k2'] ?? ''),
     deletedAt: Number(t['deleted_at'] ?? 0),
   });
-  const tombPage = await readPage<OutboxTomb>(
-    (t) => t.deletedAt,
-    async (n) =>
-      (
-        await c.env.DB.prepare(
-          'SELECT tbl,k1,k2,deleted_at FROM tombstones WHERE deleted_at > ? ORDER BY deleted_at LIMIT ?',
-        )
-          .bind(since, n)
-          .all<Record<string, unknown>>()
-      ).results.map(toTomb),
-    async (stamp) =>
-      (
-        await c.env.DB.prepare('SELECT tbl,k1,k2,deleted_at FROM tombstones WHERE deleted_at = ?')
-          .bind(stamp)
-          .all<Record<string, unknown>>()
-      ).results.map(toTomb),
-    limit,
-  );
+
+  const [rowPages, tombPage] = await Promise.all([
+    Promise.all(
+      Object.entries(TABLE_COLS).map(([tbl, cols]) => {
+        const sel = [...cols.key, ...cols.data, 'updated_at'].join(',');
+        const toRow = (x: Record<string, unknown>): OutboxRow => ({
+          tbl,
+          key: cols.key.map((k) => String(x[k] ?? '')),
+          data: cols.data.map((d) => x[d]),
+          updatedAt: Number(x['updated_at'] ?? 0),
+        });
+        return readPage<OutboxRow>(
+          (r) => r.updatedAt,
+          async (n) =>
+            (
+              await c.env.DB.prepare(`SELECT ${sel} FROM ${tbl} WHERE updated_at > ? ORDER BY updated_at LIMIT ?`)
+                .bind(since, n)
+                .all<Record<string, unknown>>()
+            ).results.map(toRow),
+          async (stamp) =>
+            (
+              await c.env.DB.prepare(`SELECT ${sel} FROM ${tbl} WHERE updated_at = ?`)
+                .bind(stamp)
+                .all<Record<string, unknown>>()
+            ).results.map(toRow),
+          limit,
+        );
+      }),
+    ),
+    readPage<OutboxTomb>(
+      (t) => t.deletedAt,
+      async (n) =>
+        (
+          await c.env.DB.prepare(
+            'SELECT tbl,k1,k2,deleted_at FROM tombstones WHERE deleted_at > ? ORDER BY deleted_at LIMIT ?',
+          )
+            .bind(since, n)
+            .all<Record<string, unknown>>()
+        ).results.map(toTomb),
+      async (stamp) =>
+        (
+          await c.env.DB.prepare('SELECT tbl,k1,k2,deleted_at FROM tombstones WHERE deleted_at = ?')
+            .bind(stamp)
+            .all<Record<string, unknown>>()
+        ).results.map(toTomb),
+      limit,
+    ),
+  ]);
+
+  const rows: OutboxRow[] = [];
+  for (const page of rowPages) {
+    rows.push(...page.items);
+    if (page.cap !== null) caps.push(page.cap);
+  }
   const tombstones = [...tombPage.items];
   if (tombPage.cap !== null) caps.push(tombPage.cap);
 

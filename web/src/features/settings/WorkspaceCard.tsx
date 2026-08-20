@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isTauri, pickWorkspace, workspaceStatus, type WorkspaceStatus } from '@/lib/tauri';
 import { Button } from '@/components/ui';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { Icon } from '@/components/Icon';
 
 export default function WorkspaceCard() {
@@ -39,11 +39,11 @@ export default function WorkspaceCard() {
            1회 기동인 **볼트 자동 감시**뿐이다(`vault.rs` 의 watcher).
            이 문구가 뜨는 순간은 신규 사용자가 읽을거리·도구가 전부 막힌 채 서 있는 순간이라,
            틀린 안내의 대가가 "앱을 껐다 켰는데 뭐가 달라졌는지 모름"으로 돌아온다. */
-        ui.toast('워크스페이스 폴더를 저장했어요 — 지금부터 적용돼요(볼트 자동 감시만 다음 실행부터).', 'ok', 6000);
+        toast('워크스페이스 폴더를 저장했어요 — 지금부터 적용돼요(볼트 자동 감시만 다음 실행부터).', 'ok', 6000);
       }
     } catch (e) {
       // Rust가 사유를 담아 거부한다(표지 폴더 없음 등) — 그대로 보여주는 게 가장 친절하다.
-      ui.toast(String((e as Error)?.message || e), 'bad', 8000);
+      toast(String((e as Error)?.message || e), 'bad', 8000);
     } finally {
       setBusy(false);
     }

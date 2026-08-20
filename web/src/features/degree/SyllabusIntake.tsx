@@ -22,7 +22,7 @@
 ============================================================ */
 import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { Button, Pill } from '@/components/ui';
 import { MARK_LABEL, dateOfWeek, draftIsEmpty, parseSyllabus } from '@/lib/syllabusIntake';
 import { setSyllabusMark } from '@/lib/syllabus';
@@ -143,10 +143,7 @@ export default function SyllabusIntake() {
         if (marks.length) target.marks = marks;
       }
     });
-    ui.toast(
-      `주차 ${n.week} · 시험 ${n.exam} · 과제 ${n.task} · 눈금 ${n.mark} 반영됨 — ⌘Z 로 되돌릴 수 있어요.`,
-      'ok',
-    );
+    toast(`주차 ${n.week} · 시험 ${n.exam} · 과제 ${n.task} · 눈금 ${n.mark} 반영됨 — ⌘Z 로 되돌릴 수 있어요.`, 'ok');
     setText('');
     setPicks(null);
   };

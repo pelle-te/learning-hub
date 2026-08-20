@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { addDays, iso, parseISO, fmtShort, DOW_MON, hNum } from '@/lib/utils';
 import {
   allocView,
@@ -302,14 +302,14 @@ export function AllocBoard({
       n = copyPrevWeekAlloc(st, res, weekMon);
     });
     if (n > 0) {
-      ui.toast(`지난 주 배분 ${n}개 과목을 이번 주로 복사했어요.`, 'ok');
+      toast(`지난 주 배분 ${n}개 과목을 이번 주로 복사했어요.`, 'ok');
       sweepChanged(before);
-    } else ui.toast('복사할 지난 주 배분이 없어요(계획 첫 주예요).', 'warn');
+    } else toast('복사할 지난 주 배분이 없어요(계획 첫 주예요).', 'warn');
   };
   const onReset = () => {
     const before = alloc;
     mutate((st) => resetWeekAlloc(st, weekMon));
-    ui.toast('이번 주를 자동 배분으로 되돌렸어요.', 'info');
+    toast('이번 주를 자동 배분으로 되돌렸어요.', 'info');
     sweepChanged(before);
   };
 

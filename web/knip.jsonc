@@ -15,6 +15,20 @@
   // ⚠ `src/phone/main.tsx` 는 명시한다(C-6). knip 은 `index.html` 의 진입점만 자동 인식하는데
   // 폰은 두 번째 HTML 엔트리(`phone.html`)로 들어오므로 그 그래프를 통째로 못 본다 →
   // 화면 5개가 전부 '미사용 파일'로 오진됐다. 워커도 같은 이유다(`new Worker(new URL(...))`).
+  // ⚠⚠ **knip 은 "테스트만 쓰는 프로덕션 모듈"을 원리적으로 못 본다**(2026-08-20 리뷰 m-4).
+  //
+  // 실제로 그 구멍으로 둘이 샜다: `lib/predictionScore.ts`(125줄)와 `lib/since.ts`(65줄)가
+  // **프로덕션 소비처 0** 인 채 살아 있었고 knip 은 두 번 다 조용했다. `since` 쪽이 특히 나빴다 —
+  // 짝인 쓰기 경로(`app/useMarkSeen` → `useUI.seenAt`)는 살아서 **매 내비게이션마다 돌면서
+  // 아무도 안 읽는 값을 영속**하고 있었다(표시를 맡던 `SubTabs` 가 N-14/W5 에 은퇴하며 판정·
+  // 시점만 남았다).
+  //
+  // ⚠ **`test/**` 를 entry 에서 project 로 내려 봤지만 안 통한다**(실측 · 프로브로 확인).
+  //   knip 의 vitest 플러그인이 `test/**/*.test.ts` 를 **자동으로 entry 에 다시 넣기** 때문이다.
+  //   즉 이 목록을 어떻게 적어도 그 축은 안 잡힌다 — 설정으로 고칠 수 있다고 적어 두면 다음
+  //   사람이 같은 시도를 반복한다.
+  // → 집행자는 **`test/invariants.test.ts` 의 불변식**이다(`test/_sources.ts` 의 import 그래프).
+  //   knip 은 나머지(진짜 미사용 파일·export·의존성)를 계속 맡는다.
   "entry": [
     "e2e/**/*.ts",
     "scripts/*.mjs",

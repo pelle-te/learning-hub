@@ -13,7 +13,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { mistakeArchive, mistakeTotals } from '@/lib/mistakes';
 import Mistakes from '@/features/mistakes/Mistakes';
 import { useApp } from '@/store/useApp';
-import type { AppState, Cbms } from '@/lib/types';
+import type { Cbms } from '@/lib/types';
 
 afterEach(() => cleanup());
 

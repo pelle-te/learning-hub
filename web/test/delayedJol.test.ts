@@ -19,7 +19,7 @@ import {
   recordAsk,
   resolveAsk,
 } from '@/lib/delayedJol';
-import type { AppState, JolAsk } from '@/lib/types';
+import type { JolAsk } from '@/lib/types';
 
 const br = (sid: string, chapter: string, ds: string, passed: boolean) =>
   ({ id: `${sid}-${chapter}-${ds}`, ds, sid, name: sid, passed, note: '', chapter }) as never;

@@ -29,6 +29,16 @@ vi.mock('@/lib/cloud/client', () => ({
 /** 모르는 테이블 누계(M-10) — 케이스가 세운 값을 `run.ts` 가 앞뒤로 재서 델타를 만든다. */
 let unknownTotal = 0;
 vi.mock('@/lib/cloud/merge', () => ({ applyPull: (...a: unknown[]) => applyPull(...a) }));
+/* ⚠ **드레인의 계약이 `state` 에서 `rows` 로 옮겨졌다**(m-7 · 2026-08-20). `applyPull` 은 이제
+   되읽은 **행 표현**을 돌려주고 `AppState` 변환은 `run.ts` 가 **루프 뒤 1회**만 한다(종전엔
+   회차마다 정본 전량을 다시 파싱하고 마지막 하나를 뺀 전부를 버렸다).
+   이 파일이 재는 것은 변환이 아니라 *어느 회차의 것을 싣는가* 이므로 변환을 **항등으로** 둔다 —
+   그러면 아래 케이스들의 단언(`toBe(last)`)이 종전과 글자 그대로 같은 뜻을 유지한다. */
+vi.mock('@/lib/db/rows', async (orig) => ({
+  ...(await orig<typeof import('@/lib/db/rows')>()),
+  // ⚠ 부분 mock 이어야 한다 — `contract.ts` 가 같은 모듈에서 `TABLES` 를 든다(통째로 갈면 부팅이 죽는다).
+  rowsToState: (r: unknown) => r,
+}));
 const scanConflicts = vi.fn(async () => []);
 vi.mock('@/lib/cloud/conflictScan', () => ({ scanConflicts: (...a: unknown[]) => scanConflicts(...(a as [])) }));
 
@@ -67,7 +77,7 @@ beforeEach(() => {
   pullChanges.mockReset();
   setDiffBaseline.mockReset();
   scanConflicts.mockClear();
-  applyPull.mockReset().mockImplementation(async (b: OutboxBatch) => ({ applied: b.rows.length, state: null }));
+  applyPull.mockReset().mockImplementation(async (b: OutboxBatch) => ({ applied: b.rows.length, rows: null }));
 });
 
 describe('push 드레인 — 판정은 `more` 다', () => {
@@ -143,7 +153,7 @@ describe('pull 드레인 — 빌 때까지 받는다(종전엔 루프 자체가 
   it('⚠ 메모리에 싣는 상태는 **마지막 회차**의 것이다 — 중간 스냅샷을 실으면 UI 가 갈린다', async () => {
     const mid = { marker: 'mid' } as never;
     const last = { marker: 'last' } as never;
-    applyPull.mockResolvedValueOnce({ applied: 1, state: mid }).mockResolvedValueOnce({ applied: 1, state: last });
+    applyPull.mockResolvedValueOnce({ applied: 1, rows: mid }).mockResolvedValueOnce({ applied: 1, rows: last });
     pullChanges
       .mockResolvedValueOnce(batch(10, 1))
       .mockResolvedValueOnce(batch(20, 1))
@@ -171,7 +181,7 @@ describe('C-1 — 드레인 중 실패는 기준선을 무효화한다', () => {
   });
 
   it('ⓐ 병합에 성공한 회차 **뒤** 요청이 실패하면 기준선을 무효화한다 — 안 하면 다음 편집이 받아온 행을 되돌린다', async () => {
-    applyPull.mockResolvedValue({ applied: 1, state: { marker: 'r1' } as never });
+    applyPull.mockResolvedValue({ applied: 1, rows: { marker: 'r1' } as never });
     // 종료조건이 `n===0` 이라 데이터가 있는 pull 뒤엔 **항상 한 번 더** 묻는다. 그게 실패하는 경로.
     pullChanges.mockResolvedValueOnce(batch(10, 1)).mockRejectedValueOnce(new Error('네트워크'));
 
@@ -183,7 +193,7 @@ describe('C-1 — 드레인 중 실패는 기준선을 무효화한다', () => {
 
   it('ⓑ `applyPull` 이 되읽기 실패로 `state:null` 을 돌려줘도 **앞 회차의 유효 스냅샷을 덮지 않는다**', async () => {
     const first = { marker: 'r1' } as never;
-    applyPull.mockResolvedValueOnce({ applied: 1, state: first }).mockResolvedValueOnce({ applied: 1, state: null }); // 되읽기 실패 — 던지지 않는다
+    applyPull.mockResolvedValueOnce({ applied: 1, rows: first }).mockResolvedValueOnce({ applied: 1, rows: null }); // 되읽기 실패 — 던지지 않는다
     // 종료조건이 `n===0` 이라 데이터가 있는 회차 뒤엔 빈 회차가 하나 더 온다(드레인은 정상 종료).
     pullChanges
       .mockResolvedValueOnce(batch(10, 1))
@@ -196,7 +206,7 @@ describe('C-1 — 드레인 중 실패는 기준선을 무효화한다', () => {
   });
 
   it('정상 드레인은 기준선을 건드리지 않는다 — 무효화가 상시 발생하면 매 동기화가 전량 재독이 된다', async () => {
-    applyPull.mockResolvedValue({ applied: 1, state: { marker: 'ok' } as never });
+    applyPull.mockResolvedValue({ applied: 1, rows: { marker: 'ok' } as never });
     pullChanges.mockResolvedValueOnce(batch(10, 1)).mockResolvedValueOnce(batch(10, 0));
     await syncOnce();
     expect(setDiffBaseline).not.toHaveBeenCalled();

@@ -24,7 +24,6 @@ import {
   todayISO,
   weekLabel,
 } from '@/lib/utils';
-import type { AppState } from '@/lib/types';
 
 describe('iso / parseISO — 로컬 날짜(UTC 밀림 방지)', () => {
   it('iso는 로컬 연·월·일을 0패딩해 YYYY-MM-DD로 만든다', () => {

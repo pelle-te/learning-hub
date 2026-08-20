@@ -43,23 +43,45 @@ export type ContentHit = {
    ⚠ **독서(책) 축이 P10 W4 에서 빠졌다** — 그 화면이 `survey/` 로 갔다. 함께 사라진 것이
    `reads` 인자이고, 그래서 이 함수는 이제 `AppState` 하나만 본다(옛 C-1 의 '팔레트가 열릴 때
    1회 스냅샷' 최적화도 필요 없어졌다 — 스냅샷할 것이 없다). */
-export function contentSearch(query: string, s: AppState, limit = 8): ContentHit[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const cap = limit * 3;
-  const hits: ContentHit[] = [];
-  /* ⚠⚠ **객체가 자기 URL 을 갖는다(W12 · 2026-07-31).** 예전엔 과목·챕터 히트가 전부 `/items`
-     로 갔다 — 처음엔 탭 루트라 "고른 것이 어디 있는지 표시가 없었고", AN-17 이 그 위에
-     `?focus=<itemId>`(스크롤 + 1.5초 하이라이트)를 얹었다. 그 장치는 **"객체에 착지할 화면이
-     없다"의 우회로**였다: 목록에 데려다 놓고 눈으로 찾을 자리를 깜빡여 알려 준 것이다. 그리고
-     바로 아래 주석이 스스로 자백했듯 _"챕터 단위 앵커가 없으니 소속 과목 카드까지가 정직한
-     최선"_ 이었다 — 챕터는 원리적으로 착지 불가였다.
-     이제 둘 다 `/subject/:id` 로 가고, **챕터는 `#ch-<id>` 로 자기 자리에** 선다. */
-  const itemAnchor = (id: string) => '/subject/' + encodeURIComponent(id);
-  const chapterAnchor = (id: string, cid: string) => `${itemAnchor(id)}#ch-${encodeURIComponent(cid)}`;
+/* ⚠ **질의와 무관한 전량 스캔 둘을 참조 캐시로 감싼다**(2026-08-20 리뷰 n-4).
+
+   `openBacklog`(보충 전량 filter)과 `weakSpots`(오답 전량 순회 + Map + 정렬 + slice)는 `q` 에
+   의존하지 않는데, 이 함수는 ⌘K·`/find` 에서 **키 입력마다** 불린다. 즉 같은 결과를 타자 한
+   글자마다 다시 만들고 있었다.
+
+   ⚠ 키는 각 슬라이스의 **참조**다(`scheduler/windows.ts` 의 `wdCache` 와 같은 관용구) — immer 가
+   그 슬라이스를 안 건드린 편집에서는 그대로 재사용되고, 건드리면 자동으로 무효화된다.
+   ⚠ 반환 배열을 호출부가 변형하지 않는다는 전제 위에 있다(아래 루프는 읽기만 한다). */
+let blCache: { src: unknown; v: ReturnType<typeof openBacklog> } | null = null;
+let weakCache: { src: unknown; v: ReturnType<typeof weakSpots> } | null = null;
+const openBacklogCached = (s: AppState): ReturnType<typeof openBacklog> => {
+  if (!blCache || blCache.src !== s.backlog) blCache = { src: s.backlog, v: openBacklog(s) };
+  return blCache.v;
+};
+const weakSpotsCached = (s: AppState): ReturnType<typeof weakSpots> => {
+  if (!weakCache || weakCache.src !== s.cbms) weakCache = { src: s.cbms, v: weakSpots(s) };
+  return weakCache.v;
+};
+
+/* ⚠ **소스마다 함수 하나**(2026-08-20 리뷰 M-14 원장 축소). 종전엔 다섯 스캔이 한 함수 안에
+   순서대로 늘어서 있었고, 그게 인지복잡도의 전부였다(분기가 어려운 게 아니라 **많았다**).
+   각 소스는 서로를 모르고 `q` 와 자기 슬라이스만 본다 — 즉 절단면이 이미 데이터에 있었다.
+   ⚠ `cap` 검사는 호출부(`contentSearch`)가 소유한다: 각 스캐너가 자기 상한을 알면 "전체 몇
+   개까지"라는 규칙이 다섯 벌이 되고, 그게 정확히 이 함수가 피하려던 형태다. */
+
+/** 과목 + 그 챕터. ⚠⚠ **객체가 자기 URL 을 갖는다(W12 · 2026-07-31).** 예전엔 과목·챕터 히트가
+ *  전부 `/items` 로 갔다 — 처음엔 탭 루트라 "고른 것이 어디 있는지 표시가 없었고", AN-17 이 그
+ *  위에 `?focus=<itemId>`(스크롤 + 1.5초 하이라이트)를 얹었다. 그 장치는 **"객체에 착지할 화면이
+ *  없다"의 우회로**였다: 목록에 데려다 놓고 눈으로 찾을 자리를 깜빡여 알려 준 것이다. 그리고 옛
+ *  주석이 스스로 자백했듯 *"챕터 단위 앵커가 없으니 소속 과목 카드까지가 정직한 최선"* 이었다 —
+ *  챕터는 원리적으로 착지 불가였다. 이제 둘 다 `/subject/:id` 로 가고 **챕터는 `#ch-<id>` 로
+ *  자기 자리에** 선다. */
+function subjectHits(s: AppState, q: string): ContentHit[] {
+  const itemAnchor = (id: string): string => '/subject/' + encodeURIComponent(id);
+  const out: ContentHit[] = [];
   for (const it of s.items) {
     if (it.name.toLowerCase().includes(q))
-      hits.push({
+      out.push({
         id: 'c-subj:' + it.id,
         kind: 'subject',
         label: it.name,
@@ -68,62 +90,79 @@ export function contentSearch(query: string, s: AppState, limit = 8): ContentHit
         subject: it.name,
       });
     for (const c of it.chapters || []) {
-      if (hits.length >= cap) break;
       if (c.name.toLowerCase().includes(q))
-        hits.push({
+        out.push({
           id: 'c-chap:' + it.id + ':' + c.id,
           kind: 'chapter',
           label: `${it.name} · ${c.name}`,
-          to: chapterAnchor(it.id, c.id),
+          to: `${itemAnchor(it.id)}#ch-${encodeURIComponent(c.id)}`,
           sid: it.id,
           subject: it.name,
           chapter: c.name,
         });
     }
   }
-  // C-3: 열린 보충 — topic/과목/근거 텍스트를 이미 메모리에 들고 있으나 ⌘K서 못 찾던 것.
-  for (const bl of openBacklog(s)) {
+  return out;
+}
+
+/** C-3: 열린 보충 — topic/과목/근거 텍스트를 이미 메모리에 들고 있으나 ⌘K서 못 찾던 것. */
+function backlogHits(s: AppState, q: string): ContentHit[] {
+  return openBacklogCached(s)
+    .filter((bl) => (bl.topic + ' ' + bl.name + ' ' + bl.note).toLowerCase().includes(q))
+    .map((bl) => ({
+      id: 'c-bl:' + bl.id,
+      kind: 'backlog' as const,
+      label: bl.topic || bl.name || '보충',
+      to: '/day',
+      blId: bl.id,
+    }));
+}
+
+/** C-3: 반복 약점(2회+ 막힌 과목·챕터) → 리뷰 탭. */
+function weakHits(s: AppState, q: string): ContentHit[] {
+  return weakSpotsCached(s)
+    .filter((w) => (w.subject + ' ' + w.chapter).toLowerCase().includes(q))
+    .map((w) => ({
+      id: 'c-weak:' + w.key,
+      kind: 'weak' as const,
+      label: `${w.subject} · ${w.chapter}`,
+      to: '/review',
+      // weakSpots 의 key 는 `sid|chapter` 다 — 이미 갖고 있는 값을 필드로 꺼낸다(되파싱 금지).
+      sid: keySid(w.key),
+      subject: w.subject,
+      chapter: w.chapter,
+    }));
+}
+
+/** 오답 메모(CBMS `note`) — **가장 밀도 높은 자기 텍스트인데 유일하게 검색 밖이었다.**
+ *  "내가 왜 틀렸는지 적어 둔 그것"에 도달하는 경로가 오답 탭을 눈으로 스크롤하는 것뿐이었다.
+ *  ⚠ 목적지는 `?sid=` 로 **과목까지 좁혀** 보낸다 — 조인 키가 과목 id 라 실패가 원리적으로
+ *  없다(챕터 이름 매칭이 아니다). 챕터 단위 앵커는 없으므로 과목까지가 정직한 최선이다. */
+function mistakeHits(s: AppState, q: string): ContentHit[] {
+  return (s.cbms || [])
+    .filter((e) => `${e.note} ${e.name} ${e.chapter}`.toLowerCase().includes(q))
+    .map((e) => ({
+      id: 'c-cbms:' + e.id,
+      kind: 'mistake' as const,
+      label: `${e.name || '?'}${e.chapter ? ' · ' + e.chapter : ''} — ${(e.note || '').slice(0, 40)}`,
+      to: '/mistakes?sid=' + encodeURIComponent(e.sid),
+      sid: e.sid,
+      subject: e.name,
+      chapter: e.chapter,
+    }));
+}
+
+/** 소스 순서 = 결과 순서. **바꾸면 팔레트 첫 줄이 바뀐다** — 과목이 먼저인 것이 Q-21 의 결론이다. */
+const SOURCES = [subjectHits, backlogHits, weakHits, mistakeHits] as const;
+
+export function contentSearch(query: string, s: AppState, limit = 8): ContentHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const cap = limit * 3;
+  const hits: ContentHit[] = [];
+  for (const scan of SOURCES) {
     if (hits.length >= cap) break;
-    if ((bl.topic + ' ' + bl.name + ' ' + bl.note).toLowerCase().includes(q))
-      hits.push({
-        id: 'c-bl:' + bl.id,
-        kind: 'backlog',
-        label: bl.topic || bl.name || '보충',
-        to: '/day',
-        blId: bl.id,
-      });
-  }
-  // C-3: 반복 약점(2회+ 막힌 과목·챕터) → 리뷰 탭.
-  for (const w of weakSpots(s)) {
-    if (hits.length >= cap) break;
-    if ((w.subject + ' ' + w.chapter).toLowerCase().includes(q))
-      hits.push({
-        id: 'c-weak:' + w.key,
-        kind: 'weak',
-        label: `${w.subject} · ${w.chapter}`,
-        to: '/review',
-        // weakSpots 의 key 는 `sid|chapter` 다 — 이미 갖고 있는 값을 필드로 꺼낸다(되파싱 금지).
-        sid: keySid(w.key),
-        subject: w.subject,
-        chapter: w.chapter,
-      });
-  }
-  /* 오답 메모(CBMS `note`) — **가장 밀도 높은 자기 텍스트인데 유일하게 검색 밖이었다.**
-     "내가 왜 틀렸는지 적어 둔 그것"에 도달하는 경로가 오답 탭을 눈으로 스크롤하는 것뿐이었다.
-     ⚠ 목적지는 `?sid=` 로 **과목까지 좁혀** 보낸다 — 조인 키가 과목 id 라 실패가 원리적으로
-       없다(챕터 이름 매칭이 아니다). 챕터 단위 앵커는 없으므로 과목까지가 정직한 최선이다. */
-  for (const e of s.cbms || []) {
-    if (hits.length >= cap) break;
-    if (`${e.note} ${e.name} ${e.chapter}`.toLowerCase().includes(q))
-      hits.push({
-        id: 'c-cbms:' + e.id,
-        kind: 'mistake',
-        label: `${e.name || '?'}${e.chapter ? ' · ' + e.chapter : ''} — ${(e.note || '').slice(0, 40)}`,
-        to: '/mistakes?sid=' + encodeURIComponent(e.sid),
-        sid: e.sid,
-        subject: e.name,
-        chapter: e.chapter,
-      });
+    hits.push(...scan(s, q));
   }
   return hits.slice(0, limit);
 }

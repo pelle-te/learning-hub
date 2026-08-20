@@ -12,7 +12,7 @@ import { frontierNext } from '@/lib/knowledge';
 import { backlogFromWeakSpot, backlogFromRootCause } from '@/lib/promote';
 import { parseCaptureBatch } from '@/lib/quickCapture';
 import { usePrefill } from '@/store/prefill';
-import type { AppState, Cbms } from '@/lib/types';
+import type { Cbms } from '@/lib/types';
 
 const TODAY = '2026-07-08'; // 수 · mondayOf = 2026-07-06 (이번주 07-06~07-12, 지난주 06-29~07-05)
 

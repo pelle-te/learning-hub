@@ -1,28 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
 
 /* 졸업요건 정리 — 졸업 탭(/degree) 안 세그먼트('졸업요건 정리') 뷰.
    SD-2: 하드코딩 샘플을 폐기하고 state.degree(내 학기·과목·성적)로 구동한다.
    레지스트리 분기 + lazy/Suspense + 세그먼트 전환 + 데이터 파생이 맞물리는지 런타임 확인. */
-function renderApp(initialPath: string) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 afterEach(() => cleanup());
 

@@ -38,7 +38,10 @@ import {
   requeue,
   runItemKey,
   type RunItem,
+  cursorOp,
+  landingIndex,
 } from '@/lib/reviewQueue';
+import { writeResume, dropResume } from '@/store/resumeCursor';
 import { touchReview } from '@/lib/persistence';
 import { CBMS_INFO } from '@/lib/methodology';
 import { Icon } from '@/components/Icon';
@@ -70,7 +73,7 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
   const [queue, setQueue] = useState<RunItem[]>(() => buildReviewQueue(state, res.days, today));
   /* N-7 착지 — 큐 길이는 기기마다 다를 수 있으므로 클램프한다(순서는 결정론적이라 근사가
      성립하고, 어긋나면 아래 '처음부터' 가 탈출구다). */
-  const [startedAt] = useState(() => Math.max(0, Math.min(startAt, Math.max(0, queue.length - 1))));
+  const [startedAt] = useState(() => landingIndex(startAt, queue.length));
   const [idx, setIdx] = useState(startedAt);
   const [gotKeys, setGotKeys] = useState<string[]>([]);
   const [revealedAt, setRevealedAt] = useState(-1);
@@ -93,6 +96,14 @@ export default function ReviewView({ startAt = 0 }: { startAt?: number }): React
       setQueue((q) => requeue(q, idx)); // D-1 — 넘긴 카드를 3장 뒤 한 번 더(조건은 lib 이 판단)
     }
     setIdx((i) => i + 1);
+    /* ⚠⚠ **폰도 커서를 쓴다**(M-10 · 2026-08-20). 종전엔 폰이 커서를 **읽기만** 해서 두 가지가
+       조용히 틀렸다: 폰에서 진행한 것이 PC 에 안 이어졌고(같은 카드를 두 번 한다), 폰에서
+       끝내도 `dropResume` 이 안 돌아 유령 이어하기 칩이 TTL 동안 남았다.
+       이 파일 머리주석의 "폰이 이 기능의 주 수혜자다"가 사실이 되려면 쓰기가 있어야 한다.
+       ⚠ 판정은 `lib/reviewQueue.cursorOp` — 데스크톱 러너와 **같은 함수**다. */
+    const op = cursorOp(idx, queue.length);
+    if (op?.kind === 'write') writeResume({ kind: 'review', label: '복습 세션', progress: op.progress });
+    else if (op?.kind === 'drop') dropResume();
   };
   const restart = (): void => {
     setQueue(buildReviewQueue(state, res.days, today));

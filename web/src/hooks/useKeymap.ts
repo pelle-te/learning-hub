@@ -18,7 +18,7 @@
    ⚠ 입력 중(`isTyping`)엔 전부 무시한다 — 단일 문자 키맵의 기본 계약이다.
 ============================================================ */
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import { isTyping } from './interactions';
+import { isTyping } from '@/lib/typing';
 
 export interface KeyBinding {
   /** 실제 `KeyboardEvent.key` 값들(대소문자 구분 없이 비교). 여러 키가 같은 동작이면 함께 적는다. */

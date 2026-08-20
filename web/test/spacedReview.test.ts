@@ -23,7 +23,7 @@ import {
 import { REVIEW_OFFSETS } from '@/lib/utils';
 import { touchReview } from '@/lib/persistence';
 import { freeMinAfter } from '@/lib/scheduler';
-import type { AppState, Day, ScheduleItem } from '@/lib/types';
+import type { Day, ScheduleItem } from '@/lib/types';
 
 const TODAY = '2026-07-04';
 

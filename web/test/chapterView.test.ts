@@ -4,7 +4,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { chapterSnapshot, riskWord } from '@/lib/chapterView';
-import type { AppState, Day, ScheduleItem } from '@/lib/types';
+import type { Day, ScheduleItem } from '@/lib/types';
 
 const TODAY = '2026-07-08';
 const newIt = (sid: string, chapters: string[]): ScheduleItem => ({

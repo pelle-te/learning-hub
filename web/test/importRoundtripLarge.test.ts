@@ -35,7 +35,6 @@ import { storage } from '@/lib/kv';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { backupPayload, importJSON } from '@/shell/actions';
-import type { AppState } from '@/lib/types';
 
 /* ── 결정적 난수 — 표본이 매 실행 달라지면 실패가 재현되지 않는다. ── */
 let _seed = 0x2b3c4d5e;

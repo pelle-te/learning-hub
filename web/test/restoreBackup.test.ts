@@ -22,7 +22,6 @@ vi.mock('@/lib/idb', () => ({
 import { toast } from '@/shell/toast';
 import { idbGet, idbLoad } from '@/lib/idb';
 import { defaults, isPristineState } from '@/lib/persistence';
-import type { AppState } from '@/lib/types';
 import { useApp } from '@/store/useApp';
 import { restoreFromIDB } from '@/shell/actions';
 

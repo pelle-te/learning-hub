@@ -14,7 +14,6 @@ import {
   RESUME_ROUTE,
   ownResume,
 } from '@/lib/resume';
-import type { AppState } from '@/lib/types';
 
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
 const MIN = 60_000;

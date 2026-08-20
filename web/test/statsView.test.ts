@@ -3,7 +3,6 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { buildStreakGrid, radarPoint, radarPolygon, radarRing, streakLevel, type RadarGeom } from '@/lib/statsView';
-import type { AppState } from '@/lib/types';
 
 describe('streakLevel — 강도 임계값(30·60·120)', () => {
   it('경계값을 정확히 가른다', () => {

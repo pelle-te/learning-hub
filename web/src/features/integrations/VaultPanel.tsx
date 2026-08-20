@@ -7,7 +7,7 @@ import LiveRegion from '@/components/LiveRegion';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
-import { actions, ui } from '@/shell';
+import { importVaultSubject, toast } from '@/shell';
 import {
   pickAndScanVault,
   chaptersFromVault,
@@ -129,7 +129,7 @@ export function VaultPanel() {
     setOpen(new Set());
     setPending(null);
     setErr('');
-    ui.toast('볼트 폴더 연동을 해제했어요.', 'info');
+    toast('볼트 폴더 연동을 해제했어요.', 'info');
   };
 
   const toggle = (i: number) =>
@@ -140,20 +140,20 @@ export function VaultPanel() {
       return next;
     });
 
-  /* 임포트 규칙(W4 포함)은 `shell/actions.importVaultSubject` 가 소유한다 — 과목 탭의
+  /* 임포트 규칙(W4 포함)은 `shell/importVaultSubject` 가 소유한다 — 과목 탭의
      볼트 임포트와 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
   const addSubject = (s: VaultSubject) =>
-    actions.importVaultSubject(s, led.data, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
+    importVaultSubject(s, led.data, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
   const addChapter = (s: VaultSubject, c: VaultChapter) => {
     const name = `${s.name} · ${c.name}`;
     if (items.some((x) => x.name === name)) {
-      ui.toast('이미 추가됨', 'warn');
+      toast('이미 추가됨', 'warn');
       return;
     }
     mutate((st) => {
       st.items.push(makeItem({ source: '볼트', name, weeklyHours: 2, chapters: chaptersFromVault([c]) }));
     });
-    ui.toast(`"${name}" 추가됨`, 'ok');
+    toast(`"${name}" 추가됨`, 'ok');
   };
 
   return (

@@ -17,8 +17,17 @@ export const REVIEW_TAIL_OFFSET = 34;
  *  같은 식이 세 곳(engine·dayPlanOverride·dayPlans)에 복제돼 있던 것을 사다리 상수들 옆으로 모은다:
  *  "복습 1블록 ↔ 학습 1모듈"은 부하 환산(N-9 예보 가용선)이 기대는 도메인 규칙이라, 사본이 갈리면
  *  예보의 블록과 계획의 블록이 조용히 다른 것을 세게 된다. */
+/* ⚠ 이 함수 안의 세 숫자에 이름을 준다(2026-08-20 리뷰 m-22). 특히 `120` 은
+   `persistence.defaults()` 와 `scheduler/engine.ts` 에도 리터럴로 있어 **세 벌**이었다 —
+   위 문단이 경고하는 "사본이 갈리면 조용히 다른 것을 센다"가 이 함수 자신에게 적용된 형태다. */
+/** 학습 1모듈의 기본 길이(분) — `state.moduleLen` 미설정 시. 세 소비처가 이 상수를 쓴다. */
+export const DEFAULT_MODULE_MIN = 120;
+/** 복습 1블록이 학습 1모듈에서 차지하는 비율. */
+const REVIEW_BLOCK_RATIO = 0.25;
+/** 복습 블록의 하한(분) — 이보다 짧으면 인출 자체가 성립하지 않는다. */
+const REVIEW_BLOCK_MIN = 15;
 export function reviewBlockMin(moduleLen: number): number {
-  return Math.max(15, Math.round((moduleLen || 120) * 0.25));
+  return Math.max(REVIEW_BLOCK_MIN, Math.round((moduleLen || DEFAULT_MODULE_MIN) * REVIEW_BLOCK_RATIO));
 }
 /* 과목 색 파생 = **OKLCH 생성**(2026-07-24 · 옛 8색 라임 가족 배열 대체).
    id 해시 → **색상(hue)만** 뽑고 명도(L)·채도(C)는 고정해, 딥블랙 캔버스에서 균질하게 밝고 채도
@@ -141,13 +150,41 @@ export function makeItem(partial: Partial<Item> & { name: string }): Item {
  *  그대로 쓰였다. 값·테마별 재정의는 `styles/tokens.css` 가 소유한다.
  *  ⚠ 문자열이 `var(--…)` 형태여야 `scripts/check-tokens.mjs` 의 검사 범위에 들어온다(hex 는
  *  stylelint 도 check-tokens 도 원리적으로 못 본다 — 그게 이 결함이 살아남은 이유다). */
-export const BLOCK_TYPES: Record<string, string> = {
-  수면: 'var(--block-sleep)',
+/* ⚠⚠ **`'수면'` 은 라벨이 아니라 스케줄 전체의 입력이다**(2026-08-20 리뷰 m-13).
+   `scheduler/windows.awakeBounds` 가 이 문자열 하나로 하루의 깨어있는 창을 정한다 — 라벨을
+   다듬으면(`'수면'` → `'취침'`) 어떤 검사도 울지 않고 창이 `[0, 1440]` 이 돼 **새벽 3시에 공부가
+   배정된다**(그 함수 주석이 옛 구현에서 겪은 증상으로 적어 둔 바로 그것). 리터럴을 코드에서
+   떼어 이름을 주면 비교 6곳이 한 상수를 가리키고, 오타는 컴파일 에러가 된다. */
+export const BLOCK_SLEEP = '수면';
+export const BLOCK_CLASS = '수업';
+export const BLOCK_TYPES = {
+  [BLOCK_SLEEP]: 'var(--block-sleep)',
   식사: 'var(--block-meal)',
   취미: 'var(--block-hobby)',
-  수업: 'var(--block-class)',
+  [BLOCK_CLASS]: 'var(--block-class)',
   기타: 'var(--block-etc)',
-};
+} as const satisfies Record<string, string>;
+/** 일과 블록 유형. ⚠ `RoutineBlock.type` 은 옛 저장 호환을 위해 `z.string()` 이다 — 새 코드가
+ *  비교·분기할 때 이 타입을 쓰면 오타가 컴파일에서 걸린다. */
+export type BlockType = keyof typeof BLOCK_TYPES;
+
+/** **일과 블록 유형**의 색 토큰. 모르는 유형은 중립 선색 — 저장값이 `z.string()` 이라 표에 없는
+ *  유형이 올 수 있고(옛 백업·손편집), `undefined` 를 인라인 style 에 넣으면 브라우저마다 다르게
+ *  떨어진다. 폴백에 이름을 주는 것이 이 함수의 전부다.
+ *
+ *  ⚠⚠ 이름이 `blockColor` 가 **아닌** 이유: 이 파일 아래쪽에 이미 그 이름이 있고 그건 *계획
+ *  블록*(세션)의 색이다 — m-24 가 지적한 "같은 이름 다른 도메인"이 실제로 여기서 한 번 더
+ *  일어날 뻔했다. `routine` 접두가 어느 축인지 말한다. */
+export function routineBlockColor(type: string): string {
+  return (BLOCK_TYPES as Record<string, string>)[type] ?? 'var(--line2)';
+}
+
+/** 볼트 순회에서 통째로 건너뛸 폴더명.
+ *  ⚠⚠ **`src-tauri/src/vault.rs` 의 `SKIP` 과 같은 목록이어야 한다** — 셸은 Rust 경로로,
+ *  브라우저 `npm run dev` 는 File System Access 경로로 **각자 자기 목록을 쓴다**(두 목록이
+ *  동시에 살아 있다). 갈리면 같은 볼트에서 노트 수·검증%가 실행 경로에 따라 달라지고, 그 차이가
+ *  `vaultAnchors` 를 타고 복습 사다리까지 간다 — 화면 어디에도 안 적힌다.
+ *  집행자는 `vault.rs` 의 `스킵_목록이_프런트와_같다` 테스트다(주석이 아니라 그쪽이 규약을 지킨다). */
 export const SKIP = new Set(['attachments', 'images', '_assets', '.obsidian', '.trash', '_복습시스템', '_인터랙티브']);
 
 export function rid(): string {

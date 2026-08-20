@@ -4,8 +4,8 @@
    planSignature는 순수·결정적이라 동치성/민감도를 정밀 검증한다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import { schedulerState } from './_fixtures';
 import { buildICS, planSignature } from '@/lib/ics';
-import type { AppState } from '@/lib/types';
 
 let _id = 0;
 const nid = () => 'id' + ++_id;
@@ -18,17 +18,9 @@ function weeklyItem(name: string, weeklyHours: number, chapters: [string, number
     chapters: chapters.map(([cn, h]) => ({ id: nid(), name: cn, hours: h, done: false })),
   };
 }
-function baseState(items: unknown[], over?: Record<string, unknown>): AppState {
-  return {
-    startDate: '2026-06-23',
-    moduleLen: 120,
-    reviewRatio: 20,
-    routine: [], // 빈 일과 = 하루 종일 가용 → 결정적으로 학습 세션이 생긴다
-    dayOverrides: {},
-    items: items || [],
-    ...(over || {}),
-  } as unknown as AppState;
-}
+/** ⚠ 픽스처는 `test/_fixtures` 한 벌이다(M-13) — 종전엔 이 함수가 세 파일에 바이트 동일로
+ *  복제돼 있었고, 날짜 상수가 한쪽만 바뀌면 두 파일이 다른 주(週)를 재게 된다. */
+const baseState = schedulerState;
 
 describe('buildICS — VCALENDAR 구조', () => {
   const ics = buildICS(baseState([weeklyItem('수학', 5, [['1장', 4]])]));

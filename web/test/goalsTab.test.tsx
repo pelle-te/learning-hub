@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { GOALS_KEY } from '@/store/queries';
 import type { GoalsArtifact } from '@/lib/goals';
 
@@ -49,24 +46,14 @@ const GOALS: GoalsArtifact = {
   ],
 };
 
-function renderApp(initialPath: string, seed?: GoalsArtifact) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (seed) qc.setQueryData([...GOALS_KEY], seed);
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+/** ⚠ 렌더 헬퍼는 `test/_render` 한 벌이다(M-12) — 여기 남는 것은 **이 파일 고유의 씨앗**뿐이다. */
+const renderGoals = (initialPath: string, seed?: GoalsArtifact) =>
+  renderApp(initialPath, seed ? { seed: (qc) => qc.setQueryData([...GOALS_KEY], seed) } : {});
 
 afterEach(() => cleanup());
 
 test('내 길 탭: 시드된 goals 트리를 루트 히어로 + 하위목표 카드(학위요건 롤업)로 렌더', async () => {
-  renderApp('/degree?view=path', GOALS);
+  renderGoals('/degree?view=path', GOALS);
   // 루트 성취목표 히어로.
   await waitFor(() => expect(screen.getByText('전파통신 분야 연구원으로 자립')).toBeInTheDocument());
   // 하위목표 카드.
@@ -80,6 +67,6 @@ test('내 길 탭: 시드된 goals 트리를 루트 히어로 + 하위목표 카
 });
 
 test('내 길 탭: 콜드(서버 없음·시드 없음) → 빈 상태로 우아하게', async () => {
-  renderApp('/degree?view=path'); // 시드 없음 → 쿼리 error(retry 없음) → EmptyState
+  renderGoals('/degree?view=path'); // 시드 없음 → 쿼리 error(retry 없음) → EmptyState
   await waitFor(() => expect(screen.getByText('내 길이 아직 안 보여요')).toBeInTheDocument());
 });

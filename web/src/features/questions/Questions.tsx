@@ -38,7 +38,7 @@ import {
 } from '@/lib/questions';
 import { EXAM_LABEL, examsOf } from '@/lib/semester';
 import { rid, todayISO } from '@/lib/utils';
-import { ui } from '@/shell';
+import { commitUndoable, toast } from '@/shell';
 import State from '@/components/State';
 import { Button, Pill } from '@/components/ui';
 import type { Question } from '@/lib/types';
@@ -82,7 +82,7 @@ function Capture({
     let ok = false;
     mutate((st) => void (ok = addQuestion(st, q)));
     if (!ok) {
-      ui.toast('문제 칸이 비어 있어요 — 나머지 셋은 비어도 됩니다.', 'warn');
+      toast('문제 칸이 비어 있어요 — 나머지 셋은 비어도 됩니다.', 'warn');
       return;
     }
     /* 연속 입력이 이 시트의 목적이라 **칸만 비우고 화면을 안 닫는다**(회수 창은 여러 문항을
@@ -334,7 +334,7 @@ export default function Questions() {
                     variant="ghost"
                     aria-label={`문항 "${q.prompt}" 지우기`}
                     onClick={() =>
-                      ui.commitUndoable(`문항 "${q.prompt}" 삭제됨`, () => mutate((st) => removeQuestion(st, q.id)))
+                      commitUndoable(`문항 "${q.prompt}" 삭제됨`, () => mutate((st) => removeQuestion(st, q.id)))
                     }
                   >
                     ✕

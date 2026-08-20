@@ -1,28 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
 
 /* Phase 2 통합 스모크 — React 셸 + 레거시 어댑터가 실제로 맞물리는지(컴파일만이 아니라 런타임).
    '/today'로 들어가 (1) 레거시 render가 #page를 채우고 (2) React Nav가 그룹/탭을 그리며
    (3) 탭 전환이 라우터로 동작함을 jsdom에서 확인. */
-function renderApp(initialPath = '/today') {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 afterEach(() => cleanup());
 

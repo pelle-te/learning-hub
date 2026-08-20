@@ -7,8 +7,8 @@
 ============================================================ */
 import { useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
-import { DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
+import { toastUndoable } from '@/shell';
+import { BLOCK_CLASS, routineBlockColor, DOW, BLOCK_TYPES, rid, toMin } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import type { AppState } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -73,11 +73,11 @@ function ClassList({ dow }: { dow: number }) {
     mutate((st) => {
       st.routine = st.routine.filter((b) => b.id !== id);
     });
-    ui.toastUndoable(`"${name || '수업'}" 삭제됨`);
+    toastUndoable(`"${name || '수업'}" 삭제됨`);
   };
 
   const cls = routine
-    .filter((b) => b.type === '수업' && b.days.includes(dow))
+    .filter((b) => b.type === BLOCK_CLASS && b.days.includes(dow))
     .sort((x, y) => toMin(x.start) - toMin(y.start));
   if (!cls.length)
     return (
@@ -124,7 +124,7 @@ function BlockList() {
     mutate((st) => {
       st.routine = st.routine.filter((b) => b.id !== id);
     });
-    ui.toastUndoable(`"${name || '블록'}" 삭제됨`);
+    toastUndoable(`"${name || '블록'}" 삭제됨`);
   };
   const toggleDay = (id: string, d: number) =>
     upd(id, (b) => {
@@ -154,18 +154,14 @@ function BlockList() {
   const clearTimes = (id: string) => upd(id, (b) => void delete b.times);
 
   const blocks = routine
-    .filter((b) => b.type !== '수업')
+    .filter((b) => b.type !== BLOCK_CLASS)
     .slice()
     .sort((x, y) => toMin(x.start) - toMin(y.start));
-  const blockTypes = Object.keys(BLOCK_TYPES).filter((t) => t !== '수업');
+  const blockTypes = Object.keys(BLOCK_TYPES).filter((t) => t !== BLOCK_CLASS);
   return (
     <>
       {blocks.map((b) => (
-        <div
-          key={b.id}
-          className={BLK}
-          style={{ borderLeftColor: BLOCK_TYPES[b.type] || 'var(--line2)', borderLeftWidth: 3 }}
-        >
+        <div key={b.id} className={BLK} style={{ borderLeftColor: routineBlockColor(b.type), borderLeftWidth: 3 }}>
           <div className={BLK_TOP}>
             <input
               type="text"

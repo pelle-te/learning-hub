@@ -820,7 +820,7 @@ tr[draggable='true']:hover .ds-draghandle {
   margin-top: 1px;
 }
 
-/* ── 칩 — control·mastery·review 공유 ── */
+/* ── 칩 — 원장·숙달도가 공유. (⚠ 옛 주석은 `control` 을 들고 있었다 — P10 W4 에서 사라진 화면이다.) */
 .ds-chip {
   display: inline-block;
   padding: 1px 8px;
@@ -831,7 +831,8 @@ tr[draggable='true']:hover .ds-draghandle {
   color: var(--mut);
 }
 
-/* ── 스크린리더 전용(시각적 숨김) 표준 클립 패턴 — graph·markets·reads 공유 ── */
+/* ── 스크린리더 전용(시각적 숨김) 표준 클립 패턴 — 지식맵·원장이 공유.
+   (⚠ 옛 주석은 `markets`·`reads` 를 들고 있었다 — P10 W4 에서 사라진 화면들이다.) ── */
 .ds-srOnly {
   position: absolute;
   width: 1px;

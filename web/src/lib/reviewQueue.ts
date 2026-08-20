@@ -195,3 +195,47 @@ export function requeue(queue: RunItem[], idx: number): RunItem[] {
   next.splice(at, 0, { ...item, again: true });
   return next;
 }
+
+/* ── 이어하기 커서 판정(N-7) ─────────────────────────────────────────────────
+   ⚠⚠ **이 규칙이 lib 에 있는 이유는 커서가 단방향이었기 때문이다**(2026-08-20 리뷰 M-10).
+
+   커서 **쓰기**가 데스크톱 러너에만 있었다(전 저장소 `writeResume` 호출부 셋 중 러너는 하나).
+   그런데 폰은 커서를 **읽는다**(`phone/PhoneApp` 이 `startAt` 으로 넘긴다). 결과가 둘:
+
+   ① 폰에서 7장 하고 PC 를 열면 **0장부터** 연다 — `lib/resume.ts` 가 이 기능의 존재 이유로 든
+      *"틀리면 같은 걸 두 번 한다"* 를 기능이 절반만 막았다.
+   ② 폰에서 **끝내도** `dropResume()` 이 안 돌아 커서가 TTL(6시간) 동안 살아남는다 → PC·폰 홈에
+      `이어하기 (7/12)` 유령 칩이 뜨고, 누르면 이미 끝낸 큐의 7번째로 착지한다.
+
+   둘 다 **무증상으로 진행된다** — 화면 어디에도 "커서가 한쪽만 쓴다"는 사실이 없다.
+   판정을 여기 두면 두 러너가 같은 규칙을 쓰고, 한쪽만 고쳐지는 일이 구조적으로 사라진다.
+   ⚠ IO(`writeResume`/`dropResume`)는 여전히 호출부 몫이다 — `lib` 은 store 를 모른다. */
+
+/** 커서를 몇 장마다 쓰나. ⚠ 카드마다 쓰면 한 세션이 아웃박스에 12행을 남기고, 그 12행이 말하는
+ *  것은 같은 한 가지("복습 중")다. */
+export const RESUME_EVERY = 5;
+
+export type CursorOp = { kind: 'write'; progress: string } | { kind: 'drop' } | null;
+
+/**
+ * `idx` 번째 카드를 넘긴 **직후** 커서를 어떻게 할지.
+ *
+ * @param idx  방금 넘긴 카드의 0-based 인덱스
+ * @param len  큐 길이
+ *
+ * · 마지막 장을 넘겼으면 **drop**(유령 칩 방지 — 위 ②).
+ * · 그 전이고 `RESUME_EVERY` 의 배수면 **write**(진행 표기는 *다음* 카드 기준).
+ * · 그 외엔 아무것도 안 한다.
+ */
+export function cursorOp(idx: number, len: number): CursorOp {
+  const next = idx + 1;
+  if (next >= len) return { kind: 'drop' };
+  if (next % RESUME_EVERY === 0) return { kind: 'write', progress: `${next + 1}/${len}` };
+  return null;
+}
+
+/** 이어하기로 들어왔을 때의 착지 인덱스 — 큐가 줄었어도 범위를 벗어나지 않는다.
+ *  ⚠ 두 러너가 **글자 그대로 같은 식**을 각자 들고 있었다(M-10). 한 곳이 정본이다. */
+export function landingIndex(startAt: number, len: number): number {
+  return Math.max(0, Math.min(startAt, Math.max(0, len - 1)));
+}

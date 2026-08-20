@@ -31,7 +31,6 @@ import {
 } from '@/lib/db/undoStack';
 import { defaults } from '@/lib/persistence';
 import type { PreImageRow } from '@/lib/db/undoStack';
-import type { AppState } from '@/lib/types';
 
 const st = (recipe: (s: AppState) => void): AppState => {
   const s = defaults();

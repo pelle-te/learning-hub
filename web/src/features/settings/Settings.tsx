@@ -10,7 +10,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
-import { ui, io, actions } from '@/shell';
+import {
+  archiveOld,
+  backupToVault,
+  confirmLossy,
+  downloadCorruptSnapshot,
+  exportJSON,
+  hasCorruptSnapshot,
+  importJSON,
+  resetAll,
+  restoreFromIDB,
+  seedDegreePlan,
+  undoLast,
+} from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
@@ -369,7 +381,7 @@ export default function Settings() {
   // 파일에서 복원 — 숨은 파일 인풋을 버튼이 대리 클릭(importJSON은 HTMLInputElement를 받는다).
   const impRef = useRef<HTMLInputElement>(null);
   // 손상 원본 보존본(CORRUPT_KEY · 감사 ③#9) — 있을 때만 회수 버튼 노출, 내려받으면 정리돼 사라진다.
-  const [hasCorrupt, setHasCorrupt] = useState(() => io.hasCorruptSnapshot());
+  const [hasCorrupt, setHasCorrupt] = useState(() => hasCorruptSnapshot());
 
   // 설정값 1개 변경 — 레거시 setSetting(state[k]=v;persist;render)을 mutate로.
   // (draft 파라미터는 d — store 셀렉터 `s`와 겹치지 않게. 옛 사유였던 CSS 모듈 import `st` 는 C-7 에서 사라졌다.)
@@ -398,11 +410,11 @@ export default function Settings() {
 
   const archiveOldConfirm = async () => {
     /* Q-13 ②단 — 비우기 전에 **파일로 먼저 내려받으므로** 밖에 원본이 남는다(재구성 가능). */
-    const ok = await ui.confirmLossy(
+    const ok = await confirmLossy(
       '6개월 이전의 완료기록·요약·오답·회수된 백로그를 보관 파일(.json)로 내려받고 앱에서 비울까요? (통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)',
       { title: '오래된 기록 정리', okLabel: '정리' },
     );
-    if (ok) io.archiveOld(6);
+    if (ok) archiveOld(6);
   };
 
   return (
@@ -699,10 +711,10 @@ export default function Settings() {
         <ParityLine />
         <VisitLedger />
         <div className="ds-row">
-          <Button sm onClick={() => io.backupToVault()}>
+          <Button sm onClick={() => backupToVault()}>
             <Icon name="folder" /> 볼트 폴더에 백업
           </Button>
-          <Button sm variant="ghost" onClick={() => io.exportJSON()}>
+          <Button sm variant="ghost" onClick={() => exportJSON()}>
             <Icon name="save" /> 파일로 내보내기
           </Button>
           <Button sm variant="ghost" onClick={() => impRef.current?.click()}>
@@ -715,7 +727,7 @@ export default function Settings() {
             ref={impRef}
             onChange={(e) => {
               const el = e.target;
-              if (el.files?.length) actions.importJSON(el);
+              if (el.files?.length) importJSON(el);
               el.value = '';
             }}
             className={S.fileInput}
@@ -723,7 +735,7 @@ export default function Settings() {
           <Button
             sm
             variant="ghost"
-            onClick={() => io.restoreFromIDB()}
+            onClick={() => restoreFromIDB()}
             title="localStorage가 지워졌을 때 IndexedDB 자동 미러에서 복구"
           >
             <Icon name="refresh" /> IndexedDB에서 복구
@@ -733,8 +745,8 @@ export default function Settings() {
               sm
               variant="ghost"
               onClick={() => {
-                io.downloadCorruptSnapshot();
-                setHasCorrupt(io.hasCorruptSnapshot());
+                downloadCorruptSnapshot();
+                setHasCorrupt(hasCorruptSnapshot());
               }}
               title="부팅이 살리지 못해 보존해 둔 손상 원본(raw)을 파일로 회수합니다 — 내려받으면 보존 키를 정리(감사 ③#9)"
             >
@@ -771,7 +783,7 @@ export default function Settings() {
               백업이 {days == null ? '아직 없어요' : `${days}일 지났어요`}. 브라우저 캐시를 지우면 데이터가 사라질 수
               있으니 백업하세요.
             </span>
-            <Button sm onClick={() => io.backupToVault()}>
+            <Button sm onClick={() => backupToVault()}>
               지금 볼트에 백업
             </Button>
           </div>
@@ -784,10 +796,16 @@ export default function Settings() {
         </div>
         {/* 위험구역 — 되돌리기(직전 백업본 복원)·전체 초기화. TopBar ⋯메뉴에만 있던 걸 설정탭에도. */}
         <div className={`ds-row ${S.dangerRow}`}>
-          <Button sm variant="ghost" onClick={() => actions.undoLast()}>
+          {/* ⚠ 종전엔 이 시드가 `defaults()` 에 실려 있어서 **초기화가 빈 상태를 안 만들었다**
+              (m-14). 기본값에서 떼되 버리지 않고 여기로 옮겼다 — 새 기기·초기화 뒤 다시 넣는
+              것이 이 데이터의 유일한 정당한 자리다. */}
+          <Button sm variant="ghost" onClick={() => seedDegreePlan()}>
+            <Icon name="cap" /> 졸업 계획 시드
+          </Button>
+          <Button sm variant="ghost" onClick={() => undoLast()}>
             <Icon name="undo" /> 스냅샷 복원
           </Button>
-          <Button sm danger onClick={() => actions.resetAll()}>
+          <Button sm danger onClick={() => resetAll()}>
             전체 초기화…
           </Button>
         </div>

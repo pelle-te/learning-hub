@@ -3,7 +3,7 @@
    일과(routine) 블록 → 깨어있는 창 → 자유 구간 → 일정(events) 차감 → 요일/날짜별 가용 분.
    엔진(schedule)과 배치(layout)가 모두 이 층 위에서 돈다.
 ============================================================ */
-import { toMin } from '../utils';
+import { BLOCK_SLEEP, toMin } from '../utils';
 import { eventIntervals } from '../events';
 import { taskIntervals, untimedChoreMin } from '../tasks';
 import type { AppState, FreeWindows, RoutineBlock } from '../types';
@@ -49,7 +49,7 @@ export function awakeBounds(blocks: RoutineBlock[]): [number, number] {
   let wake0 = 0;
   let wake1 = 1440;
   blocks
-    .filter((b) => b.type === '수면')
+    .filter((b) => b.type === BLOCK_SLEEP)
     .forEach((b) => {
       const s = toMin(b.start);
       const e = toMin(b.end);
@@ -165,7 +165,12 @@ export function freeWindowsForDay(state: AppState, ds: string, wd: number): Free
  *  ⚠ 옛 이름은 `eventStudyLossMin` 이었다 — N-1 이 과제를 같은 축에 넣으며 이름이 좁아졌다.
  *  이름이 `event` 면 소비처가 "과제는 왜 여기 있나"를 매번 다시 물어야 한다(`railTabs` 개명과 같은 판단). */
 export function dayOccupancyLossMin(state: AppState, ds: string, wd: number): number {
-  if (!dayOccupancy(state, ds).length) return 0; // 점유 없는 날 = 창 계산 자체를 생략(핫패스 비용 0)
+  /* 점유 없는 날은 창 계산 자체를 생략한다.
+     ⚠ 종전 이 줄은 "(핫패스 비용 0)"이라 적었는데 **거짓이었다** — 그 판정인 `dayOccupancy`
+     자체가 `taskIntervals` 를 통해 과제 전량을 스캔하고 있었다(2026-08-20 리뷰 M-3). 지금은
+     `events`·`tasks` 둘 다 날짜 인덱스 조회라 실제로 상수 시간이다. 인덱스를 빼면 이 문장이
+     다시 거짓이 된다 — 그때는 이 주석부터 고쳐라. */
+  if (!dayOccupancy(state, ds).length) return 0;
   return Math.max(0, freeWindowsForWeekday(state, wd).freeMin - freeWindowsForDay(state, ds, wd).freeMin);
 }
 

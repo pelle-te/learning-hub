@@ -5,7 +5,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hashText, cosine, topK, buildCorpus, crossChapterEdges, vectorsFor, type SemEntry } from '@/lib/semantic';
 import { defaults } from '@/lib/persistence';
-import type { AppState } from '@/lib/types';
 
 // vectorsFor(IO) 검증용 — 임베딩·IDB를 목킹(모델명은 mock 접두 변수로 런타임 제어).
 let mockModel = 'model-A';

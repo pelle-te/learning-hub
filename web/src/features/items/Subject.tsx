@@ -21,13 +21,13 @@
    1단계는 **흡수를 하지 않는다** — `ledger`·`mastery` 탭은 그대로 살아 있고 여기선 그 화면들이
    이미 계산하는 파생을 *이 과목 한 줄로* 요약해 보여 주고 딥링크만 건다.
 ============================================================ */
-import { Suspense, lazy, useCallback } from 'react';
+import { Suspense, lazy, useCallback, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useLedger, useKnowledge, usePing } from '@/store/queries';
-import { ui } from '@/shell';
+import { commitUndoable } from '@/shell';
 import { riskChapters } from '@/lib/spacedReview';
 import { subjectRollup, LEDGER_STAGES, STAGE_META } from '@/lib/ledger';
 import { matchSubjectIndex } from '@/lib/subjectMatch';
@@ -36,7 +36,7 @@ import { removeSidFromAlloc, rowSumMin, allocView, weekMonOf } from '@/lib/weekA
 import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { todayISO, hNum, ddayInfo, dayDiff, pctLabel } from '@/lib/utils';
 import { EXAM_LABEL, nextExamOf } from '@/lib/semester';
-import { BAND_LABEL, chapterStrength } from '@/lib/chapterStrength';
+import { BAND_LABEL, chapterStrengths, unseenAt } from '@/lib/chapterStrength';
 import { calibrationLabel, subjectCalibration } from '@/lib/estimateCalibration';
 import { Button, Pill } from '@/components/ui';
 import State from '@/components/State';
@@ -129,7 +129,14 @@ function Retrieval({ sid }: { sid: string }) {
   const res = useSchedule();
   const navigate = useNavigate();
   const today = todayISO(state);
-  const risky = riskChapters(state, res.days || [], today, 100).filter((c) => c.sid === sid);
+  /* ⚠ 메모가 필수다 — 이 컴포넌트는 `useApp((s) => s.state)` 로 루트 참조를 구독하므로 앱의
+     어떤 편집이든 리렌더되고, `riskChapters` 는 그때마다 챕터 전량의 사다리를 다시 판정한다
+     (2026-08-20 리뷰 m-9). 아래 행별 `chapterStrength` 도 같은 이유로 한 번에 접는다. */
+  const risky = useMemo(
+    () => riskChapters(state, res.days || [], today, 100).filter((c) => c.sid === sid),
+    [state, res.days, today, sid],
+  );
+  const strengths = useMemo(() => chapterStrengths(state, today), [state, today]);
   const weak = (state.cbms || []).filter((c) => c.sid === sid);
 
   return (
@@ -142,7 +149,7 @@ function Retrieval({ sid }: { sid: string }) {
               // T-5 챕터 기억 강도 — "언제 봤나"(일수) 옆에 **"얼마나 붙었나"**를 놓는다.
               // ⚠ `unseen` 은 **안 그린다**: 표본 0을 칩으로 그리면 값 부재와 값 0 이 같은 픽셀이
               //   되고, 그게 곧 조용한 거짓말이다(이 파일이 숙달도에서 이미 피한 함정).
-              const st = chapterStrength(state, sid, c.chapter, today);
+              const st = strengths.get(sid + '|' + c.chapter) ?? unseenAt(state, sid, c.chapter, today);
               return (
                 <li key={c.chapter} className="flex items-center gap-2 text-md">
                   <span className="min-w-0 flex-1 truncate">{c.chapter}</span>
@@ -235,7 +242,7 @@ export default function Subject() {
   const removeItem = useCallback(
     (sid: string) => {
       const it = items.find((s) => s.id === sid);
-      ui.commitUndoable(`"${(it && it.name) || '과목'}" 삭제됨 (챕터·진행 기록도 함께)`, () => {
+      commitUndoable(`"${(it && it.name) || '과목'}" 삭제됨 (챕터·진행 기록도 함께)`, () => {
         mutate((st) => {
           st.items = st.items.filter((s) => s.id !== sid);
           removeSidFromAlloc(st, sid); // 참조 무결성 — Items 의 삭제와 **같은 세 줄**이어야 한다

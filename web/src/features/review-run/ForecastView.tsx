@@ -31,7 +31,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { heldReviews, releaseReview } from '@/lib/reviewHold';
 import { dueForecast, pullForwardCandidates, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
 import { addOrMergeBlock } from '@/lib/dayPlans';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { totalDue, dueBySubject, ankiFreshness } from '@/lib/anki';
 import { todayISO, fmtShort, reviewBlockMin, DOW } from '@/lib/utils';
 import State from '@/components/State';
@@ -179,11 +179,7 @@ export default function Forecast() {
         chapters: [p.chapter.chapter],
       });
     });
-    ui.toast(
-      `${short(ds)}에 "${p.chapter.chapter}" 복습 블록을 넣었어요 — 그날은 수동 편집 모드가 됩니다.`,
-      'ok',
-      6000,
-    );
+    toast(`${short(ds)}에 "${p.chapter.chapter}" 복습 블록을 넣었어요 — 그날은 수동 편집 모드가 됩니다.`, 'ok', 6000);
   };
 
   // 예보에 등장하는 과목(색 범례) — 첫 등장 순, 중복 제거.

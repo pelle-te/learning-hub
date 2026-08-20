@@ -55,10 +55,7 @@ const 선언패턴 = [
    바로 그 실패 형태이고, `lib/ledger.ts:50` 이 _"폴백을 되살리지 말 것"_ 이라 못박은 부류다.
 
    즉 검사기가 "TS 문자열 속 토큰"을 본다고 말하면서 **한 문법만** 보고 있었다. */
-const 참조패턴들 = [
-  /var\(\s*(--[a-zA-Z0-9-]+)/g,
-  /getPropertyValue\(\s*['"`](--[a-zA-Z0-9-]+)['"`]/g,
-];
+const 참조패턴들 = [/var\(\s*(--[a-zA-Z0-9-]+)/g, /getPropertyValue\(\s*['"`](--[a-zA-Z0-9-]+)['"`]/g];
 
 /* ⚠ **주석을 걷어낸 뒤 스캔한다**(E24 · 2026-07-30). 이 저장소의 주석은 옛 이름·틀린 이름을
    인용해 *왜 바뀌었는지*를 남기는 문화이고(그게 규약이다), 이 검사기의 탄생 사유 자체가
@@ -124,8 +121,10 @@ if (미정의.length) {
    실사례: 132px 워터마크가 D-5 에서 제거되며 `--ghost-*` 5종과 `--fs-ghost-*` 체인이 통째로
    고아가 됐는데, `tokens.css` 주석은 그대로 그 워터마크를 설명하고 있었다.
 
-   ⚠ **범위는 `tokens.css` 뿐이다.** `tokenBridge.css` 의 `@theme` 항목(`--color-*`·`--text-*`)은
-   Tailwind 가 유틸을 생성해 소비하지 `var()` 로 참조하지 않는다 → 전량 오탐이 된다.
+   ⚠ **이 검사의 범위는 `tokens.css` 뿐이다** — `tokenBridge.css` 의 `@theme` 항목(`--color-*`·
+   `--text-*`)은 Tailwind 가 유틸을 생성해 소비하지 `var()` 로 참조하지 않아 여기서는 전량 오탐이
+   된다. ⚠⚠ 종전 이 줄은 거기서 멈춰 **브리지는 검사할 수 없다**로 읽혔는데, 그게 사각이었다:
+   못 하는 것은 *이 문법으로* 였고 유틸 접미사로는 된다 → **아래 「브리지 고아」가 그 축을 맡는다**.
    ⚠ 예외는 **사유+만료일 원장**이다(SCA·a11y 원장과 같은 규율). 유효기간 없는 예외는 판단이
    아니라 방치다. */
 /* ⚠ 지금은 **비어 있다** — `--fs-spine`(72px)이 유일한 항목이었고 W11(2026-07-31)에서 토큰째
@@ -137,13 +136,37 @@ if (미정의.length) {
    목적이고, 예외는 그때 사유+만료일과 함께 다시 들어온다. */
 const 미사용_원장 = [];
 
+/* ⚠⚠ **역방향 검사의 소비면에는 `test/` 도 든다(2026-08-20).**
+
+   앞의 정방향 검사(미정의 참조)는 `src` 만 보는 것이 옳다 — 거기가 렌더되는 코드다. 그런데
+   **역방향**(안 쓰이는 토큰)에 같은 범위를 쓰면 *테스트가 유일한 소비처인 토큰* 을 고아로 본다.
+
+   실제로 그렇게 물렸다: `--bg2` 는 화면이 직접 안 쓰지만 `test/accentContrast.test.ts` 가
+   **라이트 대비 계약의 밑면**(라이트 배경 4종 중 가장 어두운 면)을 고를 때 읽는다. 지우면 밑면이
+   `--panel2`(더 밝다)로 바뀌어 **a11y 계약이 조용히 느슨해진다** — 게이트는 녹색인 채로. 이
+   검사가 그것을 "지우세요"라고 권했고, 지웠고, 그 테스트가 잡았다.
+
+   즉 *렌더되지 않지만 계약을 진다* 는 세 번째 소비 형태가 있다. 범위를 넓혀 그것을 인정한다.
+   ⚠ 대가는 안다: 테스트만 붙들고 있는 죽은 토큰은 이제 안 잡힌다. 그 부류의 집행자는 **불변식
+     ⑭**(테스트만 import 하는 프로덕션 모듈이 없다)이고, 여기서 또 잡으면 판정이 둘로 갈린다. */
+const 테스트참조 = new Set();
+for (const 파일 of 파일들('test')) {
+  const 본문 = 주석제거(readFileSync(파일, 'utf8'));
+  for (const 패턴 of 참조패턴들) for (const m of 본문.matchAll(패턴)) 테스트참조.add(m[1]);
+  /* 테스트는 `토큰("...", '--bg2')` 처럼 **이름만 문자열로** 넘겨 CSS 를 파싱하기도 한다 —
+     `var(` 도 `getPropertyValue(` 도 아니라 위 두 패턴에 안 걸린다. 따옴표 안의 토큰 이름을
+     함께 걷는다(이 형태를 놓친 것이 `--bg2` 사고의 직접 원인이다). */
+  for (const m of 본문.matchAll(/['"`](--[a-zA-Z0-9-]+)['"`]/g)) 테스트참조.add(m[1]);
+}
+const 쓰인다 = (n) => 참조.has(n) || 테스트참조.has(n);
+
 const tokensCss = 주석제거(readFileSync(join(ROOT, 'styles/tokens.css'), 'utf8'));
 const 토큰선언 = new Set([...tokensCss.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)].map((m) => m[1]));
 const 원장이름 = new Set(미사용_원장.map((r) => r.이름));
 const 만료된 = 미사용_원장.filter((r) => new Date(r.만료) < new Date());
-const 미사용 = [...토큰선언].filter((n) => !참조.has(n) && !원장이름.has(n));
+const 미사용 = [...토큰선언].filter((n) => !쓰인다(n) && !원장이름.has(n));
 // 사문화한 원장 항목(이미 쓰이게 된 것)도 실패다 — 남아 있으면 그게 방치다.
-const 사문화 = 미사용_원장.filter((r) => 참조.has(r.이름) || !토큰선언.has(r.이름));
+const 사문화 = 미사용_원장.filter((r) => 쓰인다(r.이름) || !토큰선언.has(r.이름));
 
 if (미사용.length || 만료된.length || 사문화.length) {
   if (미사용.length) {
@@ -152,7 +175,176 @@ if (미사용.length || 만료된.length || 사문화.length) {
     console.error('\n지우거나(주인 UI 가 사라졌다면) 쓰거나, 사유+만료일과 함께 원장에 올리세요.');
   }
   for (const r of 만료된) console.error(`✗ 미사용 원장 만료: ${r.이름}(만료 ${r.만료}) — 다시 판단할 때다.`);
-  for (const r of 사문화) console.error(`✗ 미사용 원장 사문화: ${r.이름} — 이제 쓰이거나 선언이 없다. 원장에서 빼세요.`);
+  for (const r of 사문화)
+    console.error(`✗ 미사용 원장 사문화: ${r.이름} — 이제 쓰이거나 선언이 없다. 원장에서 빼세요.`);
+  process.exit(1);
+}
+
+/* ── 브리지 고아 — **`@theme` 항목의 주인 UI 가 사라졌다**(2026-08-20 리뷰) ────────────
+   바로 위 역방향 검사는 범위를 `tokens.css` 로 좁히며 그 이유를 이렇게 적었다: *"`tokenBridge.css`
+   의 `@theme` 항목은 Tailwind 가 유틸을 생성해 소비하지 `var()` 로 참조하지 않는다 → 전량
+   오탐이 된다."* **앞 절반은 맞고 결론이 틀렸다.** 오탐이 되는 것은 `var()` **문법으로 찾을 때**
+   뿐이고, 소비 흔적은 다른 문법으로 실재한다 — **유틸 접미사**(`--text-markets-title` 의 소비는
+   JSX 의 `text-markets-title` 이다). 즉 검사가 불가능했던 게 아니라 기법이 없었다.
+
+   그 사각에 실제로 쌓여 있었다: P10 W4(2026-08-07)가 화면 다섯(`control`·`discovery`·`atlas`·
+   `markets`·`reads`)을 삭제했는데 **그 화면들의 브리지 토큰은 남았고**, 이 파일의 주석은 없는
+   UI 를 현재형으로 설명하고 있었다. 위 역방향 검사가 막으려던 실패 형태(_"다음 사람이 죽은
+   이름을 살아 있는 어휘로 읽고 재사용한다"_) 그대로다.
+
+   판정: `var(--이름)` 직접 참조 **또는** 그 네임스페이스가 만드는 **유틸 클래스 이름**이 등장하면
+   살아 있다(`--shadow-seg-on` → `shadow-seg-on` · `--container-runner` → `max-w-runner`).
+
+   ⚠⚠ **접두사까지 봐야 한다 — 접미사만 보면 조용히 통과한다.** 첫 판은 "접미사가 클래스 경계에
+     등장하면 산 것"이었는데, 접미사가 짧으면 아무 문맥에나 걸린다: `--shadow-bar`(접미사 `bar`)·
+     `--container-hint`(`hint`)·`--grid-template-columns-reads`(`reads` ← `'lh:reads'` 문자열)·
+     `--shadow-pop`(`pop` ← `enter-pop`)이 전부 **소비처 0인데 살아 있다고 판정**됐다. 접두사를
+     요구하면 그 넷이 즉시 드러난다 — 그게 이 표가 있는 이유다.
+   ⚠ 그래서 표가 낡으면 **오탐(거짓 실패)** 이 난다. 새 네임스페이스를 브리지에 들이면 여기도
+     함께 늘린다(`--width-*`·`--blur-*` 가 실제로 그렇게 빠져 있었다).
+   ⚠ 클래스 뒤에 단어문자가 오면 다른 이름이다 — `hero-y` 가 `hero-y-today` 안에서 매치하면
+     죽은 토큰이 살아 있는 것으로 보인다(이 검사를 만들 때 그 형태로 한 번 속았다).
+   ⚠ 앞은 안 본다. 변형(`hover:`·`max-mobile:`·`group-hover:`)과 `!`·`-` 접두가 자유롭게 붙는데
+     그 목록을 다시 외우면 표가 둘이 된다 — 클래스 **본체**가 나타나는 것으로 충분하다. */
+const 브리지_원장 = [];
+
+/* 네임스페이스 → 그것이 만드는 유틸 접두사. 값이 `[]` 면 접두사 없이 이름 자체가 클래스다. */
+const 유틸접두사 = {
+  color: [
+    'bg',
+    'text',
+    'border',
+    'border-x',
+    'border-y',
+    'border-t',
+    'border-r',
+    'border-b',
+    'border-l',
+    'outline',
+    'ring',
+    'ring-offset',
+    'divide',
+    'from',
+    'via',
+    'to',
+    'fill',
+    'stroke',
+    'decoration',
+    'caret',
+    'accent',
+    'placeholder',
+    'shadow',
+    'inset-shadow',
+    'inset-ring',
+  ],
+  text: ['text'],
+  shadow: ['shadow', 'inset-shadow', 'drop-shadow', 'text-shadow'],
+  spacing: [
+    'p',
+    'px',
+    'py',
+    'pt',
+    'pr',
+    'pb',
+    'pl',
+    'm',
+    'mx',
+    'my',
+    'mt',
+    'mr',
+    'mb',
+    'ml',
+    'gap',
+    'gap-x',
+    'gap-y',
+    'space-x',
+    'space-y',
+    'w',
+    'h',
+    'size',
+    'min-w',
+    'min-h',
+    'max-w',
+    'max-h',
+    'inset',
+    'inset-x',
+    'inset-y',
+    'top',
+    'right',
+    'bottom',
+    'left',
+    'basis',
+    'indent',
+    'translate-x',
+    'translate-y',
+    'scroll-m',
+    'scroll-p',
+  ],
+  container: ['max-w', 'w', 'min-w'],
+  'grid-template-columns': ['grid-cols'],
+  tracking: ['tracking'],
+  leading: ['leading'],
+  radius: [
+    'rounded',
+    'rounded-t',
+    'rounded-r',
+    'rounded-b',
+    'rounded-l',
+    'rounded-tl',
+    'rounded-tr',
+    'rounded-br',
+    'rounded-bl',
+  ],
+  width: ['w', 'max-w', 'min-w', 'basis'],
+  blur: ['blur', 'backdrop-blur'],
+  brightness: ['brightness', 'backdrop-brightness'],
+  font: ['font'],
+  'transition-duration': ['duration'],
+  breakpoint: [], // 변형(`mobile:`)이라 접두사가 없다 — 아래에서 `이름:` 으로 찾는다
+};
+const 네임스페이스 = Object.keys(유틸접두사).sort((a, b) => b.length - a.length);
+const 단어문자 = (c) => c !== undefined && /[A-Za-z0-9_-]/.test(c);
+
+const 브리지 = 주석제거(readFileSync(join(ROOT, 'styles/tokenBridge.css'), 'utf8'));
+const 테마본문 = 브리지.slice(브리지.indexOf('@theme static'));
+const 테마선언 = [...테마본문.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)].map((m) => m[1]);
+const 소비면 = [...파일들(ROOT), ...파일들('test')]
+  .filter((p) => !p.includes('tokenBridge'))
+  .map((p) => 주석제거(readFileSync(p, 'utf8')))
+  .join('\n');
+
+/** 클래스 본체가 **자기 이름으로 끝나며** 등장하는가(뒤에 단어문자가 오면 다른 이름이다). */
+function 클래스등장(클래스) {
+  for (let i = 소비면.indexOf(클래스); i >= 0; i = 소비면.indexOf(클래스, i + 1)) {
+    if (!단어문자(소비면[i + 클래스.length])) return true;
+  }
+  return false;
+}
+
+function 소비되나(이름) {
+  if (소비면.includes(이름)) return true; // var(--이름) 직접 참조(임의값·JS 읽기)
+  const 벗김 = 이름.slice(2);
+  const ns = 네임스페이스.find((n) => 벗김.startsWith(n + '-'));
+  if (!ns) return 클래스등장(벗김); // 네임스페이스 밖 — 이름 자체가 클래스일 수밖에 없다
+  const 접미사 = 벗김.slice(ns.length + 1);
+  /* 브레이크포인트는 **변형**이라 콜론 뒤에 클래스가 이어진다(`max-narrow:grid-cols-1`) —
+     여기에 "뒤에 단어문자가 오면 다른 이름" 규칙을 적용하면 정상 사용이 통째로 고아로 잡힌다
+     (실측: `--breakpoint-narrow` 가 13곳에서 쓰이는데 실패했다). 콜론 자체가 경계다. */
+  if (ns === 'breakpoint') return 소비면.includes(접미사 + ':');
+  return 유틸접두사[ns].some((p) => 클래스등장(p + '-' + 접미사));
+}
+
+const 브리지원장이름 = new Set(브리지_원장.map((r) => r.이름));
+const 브리지고아 = 테마선언.filter((이름) => !브리지원장이름.has(이름) && !소비되나(이름));
+const 브리지만료 = 브리지_원장.filter((r) => new Date(r.만료) < new Date());
+
+if (브리지고아.length || 브리지만료.length) {
+  if (브리지고아.length) {
+    console.error('✗ `@theme` 에 있는데 소비하는 유틸·참조가 없는 브리지 토큰:\n');
+    for (const 이름 of 브리지고아) console.error(`  ${이름}`);
+    console.error('\n주인 UI 가 사라졌으면 지우세요 — 남으면 주석이 없는 화면을 현재형으로 설명합니다.');
+  }
+  for (const r of 브리지만료) console.error(`✗ 브리지 원장 만료: ${r.이름}(만료 ${r.만료}) — 다시 판단할 때다.`);
   process.exit(1);
 }
 
@@ -170,6 +362,60 @@ if (모듈css.length) {
   for (const p of 모듈css) console.error(`  ${p}`);
   console.error('\n언레이어드라 Tailwind 유틸을 이기고, better-tailwindcss 검사 범위 밖으로 나간다.');
   console.error('스타일은 ① JSX 유틸리티 ② 공유 `ds-*`(styles/ds.css) ③ 앱 크롬(styles/global/) 셋 중 하나여야 한다.');
+  process.exit(1);
+}
+
+/* ── `ds-*` 고아 — **정의됐는데 아무 화면도 안 쓰는 공유 클래스**(2026-08-20 리뷰) ──────────
+   `ds.css` 는 이 부류를 **세 번** 기록하고 매번 지웠다: `.ds-card`(소비처 0 · 은퇴) ·
+   `.ds-muted`(0 · 은퇴) · `.ds-canvas`(0 · D6 에서 삭제). 그 마지막 항목의 주석이 왜 위험한지도
+   적어 뒀다 — _"문서가 코드에 없는 선택지를 광고하면 다음 화면이 그걸 고르려다 아무 효과도 못
+   받는다(그 자체로 조용한 실패다)"_.
+
+   그런데 **그 셋을 잡은 것은 사람이지 기계가 아니었다.** eslint 의 `no-unknown-classes` 는
+   `^ds-` 를 통째로 면제하므로(전역이라 알 수 없다) 반대 방향은 아무도 안 본다. 그래서 넷째가
+   조용히 생겼다: `.ds-sub`(Q-10 · 2026-08-02). 아래 원장이 그것이다.
+
+   ⚠ 판정은 브리지 고아와 같은 규율이다 — 이름 뒤에 단어문자가 오면 다른 클래스다
+     (`ds-caps` 가 `ds-caps-sm` 안에서 매치하면 안 된다). */
+const ds_원장 = [
+  {
+    이름: 'ds-sub',
+    만료: '2026-11-20',
+    사유:
+      '위계의 둘째 축(괘선+들여쓰기)으로 신설(Q-10 · 2026-08-02)됐으나 아직 어느 화면도 안 붙였다. ' +
+      '`ds-canvas` 와 달리 정의에 실체가 있고(대비를 안 깎는 유일한 위계 수단) 근거도 유효하므로 ' +
+      '즉시 삭제하지 않는다 — 다만 **쓸 자리를 지정하지 않은 이름은 같은 드리프트**라는 것이 ' +
+      '`ds.css` 자신의 판정이다. 만료일까지 소비처가 안 생기면 지운다.',
+  },
+];
+
+const dsCss = 주석제거(readFileSync(join(ROOT, 'styles/ds.css'), 'utf8'));
+const ds클래스 = [...new Set([...dsCss.matchAll(/\.(ds-[A-Za-z0-9-]+)/g)].map((m) => m[1]))];
+const ds소비면 = [...파일들(ROOT), ...파일들('test')]
+  .filter((p) => !p.endsWith('ds.css'))
+  .map((p) => 주석제거(readFileSync(p, 'utf8')))
+  .join('\n');
+const ds원장이름 = new Set(ds_원장.map((r) => r.이름));
+
+function ds쓰이나(이름) {
+  for (let i = ds소비면.indexOf(이름); i >= 0; i = ds소비면.indexOf(이름, i + 1)) {
+    if (!단어문자(ds소비면[i + 이름.length])) return true;
+  }
+  return false;
+}
+
+const ds고아 = ds클래스.filter((c) => !ds원장이름.has(c) && !ds쓰이나(c));
+const ds만료 = ds_원장.filter((r) => new Date(r.만료) < new Date());
+const ds사문화 = ds_원장.filter((r) => !ds클래스.includes(r.이름) || ds쓰이나(r.이름));
+
+if (ds고아.length || ds만료.length || ds사문화.length) {
+  if (ds고아.length) {
+    console.error('✗ `ds.css` 에 정의됐는데 쓰는 화면이 없는 클래스:\n');
+    for (const c of ds고아) console.error(`  .${c}`);
+    console.error('\n지우거나 쓰거나, 사유+만료일과 함께 원장에 올리세요(ds.css 가 이미 셋을 그렇게 은퇴시켰다).');
+  }
+  for (const r of ds만료) console.error(`✗ ds 원장 만료: .${r.이름}(만료 ${r.만료}) — 쓸 자리를 정하거나 지울 때다.`);
+  for (const r of ds사문화) console.error(`✗ ds 원장 사문화: .${r.이름} — 이제 쓰이거나 정의가 없다. 원장에서 빼세요.`);
   process.exit(1);
 }
 
@@ -225,7 +471,8 @@ const 카드래칫 = 38;
 /** 표면이 아니라 *컨트롤*인 태그 — 여기 붙은 클래스는 원칙 ④의 대상이 아니다. */
 const 컨트롤태그 = /^(input|button|select|textarea|a|label|option)\b/i;
 const 카드표면 = [];
-const 클래스문자열 = /(?:className\s*=\s*["'`]([^"'`]*)["'`])|(?:^\s*(?:const|let)\s+[A-Z_0-9]+\s*=\s*["'`]([^"'`]*)["'`])/gm;
+const 클래스문자열 =
+  /(?:className\s*=\s*["'`]([^"'`]*)["'`])|(?:^\s*(?:const|let)\s+[A-Z_0-9]+\s*=\s*["'`]([^"'`]*)["'`])/gm;
 for (const p of 파일들(ROOT).filter((f) => /\.tsx?$/.test(f))) {
   const src = readFileSync(p, 'utf8');
   for (const m of src.matchAll(클래스문자열)) {
@@ -264,5 +511,5 @@ if (새파일.length || 깨끗해진.length || 카드표면.length > 카드래�
 }
 
 console.log(
-  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}(원장 ${카드원장.size}파일).`,
+  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · @theme 고아 0(원장 ${브리지_원장.length}건) · ds-* 고아 0(원장 ${ds_원장.length}건) · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}(원장 ${카드원장.size}파일).`,
 );

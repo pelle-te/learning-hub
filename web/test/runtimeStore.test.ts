@@ -11,7 +11,6 @@ import { useApp } from '@/store/useApp';
 import { useRuntime, splitRuntime, mergeRuntime } from '@/store/useRuntime';
 import { selectSchedule } from '@/store/selectors';
 import { KEY } from '@/lib/persistence';
-import type { AppState } from '@/lib/types';
 
 beforeEach(() => {
   localStorage.clear();

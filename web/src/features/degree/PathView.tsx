@@ -9,7 +9,7 @@ import { useMemo } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useGoals, useKnowledge, usePing } from '@/store/queries';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { addBacklog, openBacklog } from '@/lib/methodology';
 import type { Knowledge } from '@/lib/knowledge';
 import {
@@ -270,7 +270,7 @@ function ProjectCard({ p, k }: { p: ProjectView; k: Knowledge | undefined }) {
 
   const seed = (name: string): void => {
     mutate((s) => addBacklog(s, '', '', name, `프로젝트 '${p.node.title}'의 필요지식`));
-    ui.toast(`보충에 담았어요 — ${name}`, 'ok', 4000);
+    toast(`보충에 담았어요 — ${name}`, 'ok', 4000);
   };
 
   /* Q-10 — 비활성은 `ds-past`(채도만 낮춤 · 명도 보존). `opacity-55` 는 카드 안 글자를

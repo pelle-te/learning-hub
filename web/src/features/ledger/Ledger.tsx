@@ -43,7 +43,7 @@ import {
   type SubjectRollup,
 } from '@/lib/ledger';
 import { runTool } from '@/lib/api';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { Button } from '@/components/ui';
 import State from '@/components/State';
 
@@ -388,14 +388,14 @@ function Ledger() {
     try {
       const r = await runTool('ledger-build');
       if (r.ok) {
-        ui.toast('챕터 원장을 다시 빌드했어요.', 'ok');
+        toast('챕터 원장을 다시 빌드했어요.', 'ok');
         await refetch();
       } else {
-        ui.toast((r.out || '').slice(0, 140) || `${needsWorkspace('원장 재빌드에 실패했어요')}.`, 'bad');
+        toast((r.out || '').slice(0, 140) || `${needsWorkspace('원장 재빌드에 실패했어요')}.`, 'bad');
       }
     } catch (e) {
       // H23 — 사유를 버리지 않는다(동시성 캡 소진을 워크스페이스 문제로 말하던 자리).
-      ui.toast(`${toolFailureCopy(e, '원장 재빌드에 실패했어요')}.`, 'bad');
+      toast(`${toolFailureCopy(e, '원장 재빌드에 실패했어요')}.`, 'bad');
     } finally {
       setRebuilding(false);
     }

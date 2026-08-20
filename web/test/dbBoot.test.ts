@@ -47,7 +47,6 @@ import { initAppStore, preloadedState, didMigrate, resetBootState, dbDowngrade }
 import { stateToRows } from '@/lib/db/rows';
 import { defaults, persist } from '@/lib/persistence';
 import { storage } from '@/lib/kv';
-import type { AppState } from '@/lib/types';
 
 /** 활동 흔적이 있는 상태 — 어느 경로가 채택됐는지 marker 로 판별. */
 const marked = (m: string): AppState => {

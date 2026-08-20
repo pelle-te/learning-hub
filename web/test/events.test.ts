@@ -12,7 +12,7 @@ import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
 import { selectSchedule } from '@/store/selectors';
 import { parseISO, rid } from '@/lib/utils';
 import { memKV } from '@/lib/kv';
-import type { AppState, Day, RoutineBlock } from '@/lib/types';
+import type { Day, RoutineBlock } from '@/lib/types';
 
 const DS = '2026-06-23';
 const WD = parseISO(DS).getDay();

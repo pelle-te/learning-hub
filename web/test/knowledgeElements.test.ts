@@ -13,7 +13,6 @@ import {
   tagChapter,
   untagChapter,
 } from '@/lib/knowledgeElements';
-import type { AppState } from '@/lib/types';
 
 const TODAY = '2026-08-07';
 const cb = (ds: string, chapter: string, kc: string[], sid = 'c') =>

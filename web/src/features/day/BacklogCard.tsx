@@ -4,7 +4,7 @@
 ============================================================ */
 import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { useToggleBacklog } from '@/shell/useBacklog';
 import { useRecordEditor } from '@/shell/useRecordEditor';
 import { openBacklog, addBacklog, editBacklog, delBacklog } from '@/lib/methodology';
@@ -61,7 +61,7 @@ export default function BacklogCard() {
      화면 구석에서 뜨고 사라졌고, "무엇이" 바뀌었는지는 말하지 못했다(모션 어휘 `commit`). */
   const submit = () => {
     if (!topic.trim()) {
-      ui.toast('막힌 주제를 적어주세요.', 'warn');
+      toast('막힌 주제를 적어주세요.', 'warn');
       return;
     }
     mutate((st) => addBacklog(st, sid, nameOf(st, sid), topic.trim(), note.trim()));

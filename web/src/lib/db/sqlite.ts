@@ -19,6 +19,7 @@ import {
   coalesceStmts,
   diffRowsDetailed,
   TABLES,
+  toTableData,
   type DbRows,
   type RemovedRow,
   type TableSpec,
@@ -333,10 +334,13 @@ export async function readMaxStamp(): Promise<number> {
 
 /** 마지막으로 DB 에 반영된 행 표현 — 증분 diff 의 기준. 읽기/쓰기 성공 때마다 갱신된다. */
 let _last: DbRows | null = null;
+/** `_last` 의 테이블 표현 캐시(m-5) — 지연 생성하고 쓰기 성공 시 다음 회차 것으로 교체한다. */
+let _lastTables: Record<string, Map<string, unknown[]>> | null = null;
 
 /** 부팅 읽기가 끝난 뒤 기준선을 세운다(그래야 첫 쓰기가 전량 쓰기가 되지 않는다). */
 export function setDiffBaseline(rows: DbRows | null): void {
   _last = rows;
+  _lastTables = null; // 다음 diff 가 지연 생성한다(m-5).
 }
 
 /**
@@ -379,7 +383,11 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
     if (v > maxStamp) maxStamp = v;
     return v;
   };
-  const { stmts, touched, removed, preImages } = diffRowsDetailed(_last, rows, issue);
+  /* ⚠ 기준선의 테이블 표현을 재사용한다(m-5) — `_lastTables` 가 없으면 여기서 한 번 만든다.
+     `_last === null`(기준선 없음 = 전량 쓰기)이면 `null` 을 명시로 넘겨야 한다: `undefined` 는
+     "안 넘겼다"는 뜻이라 `diffRowsDetailed` 가 자기 경로로 되돌아간다. */
+  _lastTables ??= _last ? toTableData(_last) : null;
+  const { stmts, touched, removed, preImages, nextTables } = diffRowsDetailed(_last, rows, issue, _lastTables);
   try {
     /* 한 배치로(H-1). 폰은 한 왕복 + 트랜잭션이라 매 flush(400ms)의 N 왕복이 1 로 접힌다.
        셸은 순차 `execute` 폴백 — 트랜잭션 없이도 diff 방식이 안전하다(머리주석). */
@@ -387,10 +395,12 @@ export async function writeRows(rows: DbRows, stamp?: number | (() => number)): 
     if (db.batch) await db.batch(folded);
     else for (const s of folded) await db.execute(s.sql, s.args);
     _last = rows;
+    _lastTables = nextTables; // 방금 만든 표현을 다음 회차 기준선으로 그대로 넘긴다(m-5)
     return { ok: true, touched, removed, preImages, stamp: maxStamp };
   } catch (e) {
     console.error('[db] 쓰기 실패', e);
     _last = null; // 부분 적용됐을 수 있다 — 다음 쓰기가 DB 를 다시 읽어 기준선을 세우게 한다
+    _lastTables = null;
     /* ⚠ 실패한 쓰기의 pre-image 는 **주지 않는다.** 부분 적용됐을 수 있어 "직전"이 무엇인지
        모르는 상태이고, 그걸 스택에 얹으면 되돌리기가 실제로 없던 상태를 만들어 낸다. */
     return { ok: false, touched: [], removed: [], preImages: [], stamp: 0 };

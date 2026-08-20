@@ -55,10 +55,6 @@
      첫 이식(discovery)에서 되돌렸다. 남은 6곳은 그 feature 를 옮길 때 이 토큰으로 모은다. */
   --font-mono: ui-monospace, monospace;
 
-  /* SubTabs 세그먼트 바탕(C-7 셸 이식 · 규약 1: color-mix 결과는 이름을 준다). 공식이 두 테마
-     동일(반투명 패널)이라 여기 한 번만 둔다 — `var(--panel)` 는 사용 시점에 활성 테마로 해소된다. */
-  --panel-seg: color-mix(in srgb, var(--panel) 50%, transparent);
-
   /* 필름 그레인 텍스처(App 셸 앰비언트 오버레이 · C-7). 긴 data-URI 를 JSX 임의값으로 인라인하면
      내부 `100%25` 가 임의값-금지 룰(%)에 걸린다 → 여기 이름을 줘 `bg-[image:var(--grain)]` 로 쓴다. */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -122,15 +118,15 @@
   --fs-rel-xs: 0.7em;
   --fs-rel-sm: 0.86em;
   --fs-rel-md: 0.92em;
-  /* ── 유동 제목 4단(clamp) — **뷰포트에 따라 자라는 축**이라 px 사다리와 섞이지 않는다 ──────
+  /* ── 유동 제목(clamp) — **뷰포트에 따라 자라는 축**이라 px 사다리와 섞이지 않는다 ──────────
      C-7 이 `clamp()` 를 "사다리 반올림의 예외"로 못박은 그 자리다(고정 px 로 바꾸면 이식이
      아니라 동작 변경이다). W11 이 여기서 한 일은 값이 아니라 **이름**이다: `markets-title`·
      `reader-title` 처럼 *자리*를 가리키던 것을 크기 단으로 바꿔, 새 화면이 자기 이름을 또 만들지
-     않게 한다(그 습관이 57종을 만든 원인이다). */
-  --fs-fluid-sm: clamp(18px, 2.2vw, 23px);
-  --fs-fluid-md: clamp(19px, 2.4vw, 25px);
+     않게 한다(그 습관이 57종을 만든 원인이다).
+     ⚠ **한 칸만 남았다**(2026-08-20). `sm`·`md`·`xl` 은 P10 W4 가 지운 화면들(`markets`·`reads`·
+     `control`)의 제목이 유일한 소비처였다 — `--fs-spine` 과 같은 처리로 지웠다. 여기 "4단"이라
+     적어 두면 사다리가 자기 범위에 대해 거짓말을 한다. 다시 필요해지면 그때 칸을 만든다. */
   --fs-fluid-lg: clamp(22px, 2.6vw, 30px);
-  --fs-fluid-xl: clamp(26px, 4vw, 40px);
 
   --z-nav: 20;
   --z-dropdown: 40;
@@ -225,17 +221,14 @@
 
   --line-acc: color-mix(in srgb, var(--acc) 30%, var(--line));
   --line-acc-strong: color-mix(in srgb, var(--acc) 32%, var(--line));
-  /* 포커스 링 테두리(control 검색바 :focus-within) — line-acc(30%)보다 진한 55%. */
+  /* 포커스 링 테두리(:focus-within 컨테이너) — line-acc(30%)보다 진한 55%. */
   --line-acc-focus: color-mix(in srgb, var(--acc) 55%, var(--line));
-  /* 강조 테두리(atlas 카드/칩 hover·선택) — line-acc(30)와 focus(55) 사이 40%.
+  /* 강조 테두리(카드·칩 hover·선택) — line-acc(30)와 focus(55) 사이 40%.
      원본의 35/40/45% 를 한 칸으로 모은다(2~5% 차는 반올림 허용범위). */
   --line-acc-hover: color-mix(in srgb, var(--acc) 40%, var(--line));
 
-  /* 신호 시안 틴트(atlas 동향 배지·리소스 kind) — badge 15%·kind 13% 를 15% 로 모은다. */
-  --tint-signal: color-mix(in srgb, var(--signal) 15%, transparent);
-  /* 전망 앰버 옅은 배경(atlas futBox) + 그 안 프로세 색(warn 42%↔txt). */
+  /* 전망 앰버 옅은 배경 — 예보·경고 톤 박스. */
   --tint-warn-faint: color-mix(in srgb, var(--warn) 8%, transparent);
-  --warn-on-txt: color-mix(in srgb, var(--warn) 42%, var(--txt));
 
   /* review 시그니처 차트 — 액센트 베이크 배경(radial+linear · oklab)·상단 헤어라인·달성률 글로우.
      그래디언트·발광은 Tailwind 색 유틸로 표현 불가 → 이름을 주고 var() 로 참조(§14-3 성격). */
@@ -275,12 +268,10 @@
   --acc-on-txt: color-mix(in srgb, var(--acc) 70%, var(--txt));
   --tint-acc2-strong: color-mix(in srgb, var(--acc2) 18%, transparent);
   /* acc2 헤어라인 두 세기(goals 이식 · line-acc/-strong 의 acc2 대응) — 프로젝트/가능신호 프레임. */
-  --line-acc2: color-mix(in srgb, var(--acc2) 25%, var(--line));
   --line-acc2-strong: color-mix(in srgb, var(--acc2) 40%, var(--line));
   /* 패널 위 아주 옅은 acc2 워시(goals projCold 배경). transparent 가 아니라 panel 과 섞는다. */
   --panel-acc2-faint: color-mix(in srgb, var(--acc2) 6%, var(--panel));
   --tint-good: color-mix(in srgb, var(--good) 15%, transparent);
-  --tint-learning: color-mix(in srgb, var(--learning) 18%, transparent);
 
   /* ledger(정본 원장) 히어로 밴드 — mastery 히어로에서 violet 층만 뺀 2층(acc 13% radial + acc 7% linear).
      지식맵/폴백 패널은 값이 동일해 --bg-map-panel 을 그대로 공유한다(W23 에서 이름이 역할로 바뀌었다).
@@ -312,16 +303,10 @@
   --tint-warn-soft: color-mix(in srgb, var(--warn) 12%, transparent);
   --line-warn-strong: color-mix(in srgb, var(--warn) 45%, var(--line));
 
-  /* markets(증시 동향) 이식 — 지수 카드 등락 테두리(상승 good/하락 bad 32% line 믹스).
-     상승=good/하락=bad 는 글로벌 관례이되 방향은 ▲▼·부호·aria-label 로도 표기(색 비의존). */
-  --line-good: color-mix(in srgb, var(--good) 32%, var(--line));
+  /* 위험 톤 테두리(bad 32% line) — 예보 경고 상자·설정 경고 타일.
+     ⚠ 짝이던 `--line-good` 은 소비처가 사라져 지웠다(2026-08-20) — 둘을 대칭으로 되살리지 말 것.
+     색만으로 방향을 말하지 않는다는 원칙은 그대로다(▲▼·부호·aria-label 을 함께 쓴다). */
   --line-bad: color-mix(in srgb, var(--bad) 32%, var(--line));
-
-  /* reads(읽을거리) 이식 — 독서 상태 필터 활성 강조. line-acc-mid=활성 테두리(acc 50% ·
-     기존 hover 40↔focus 55 사이 · 5% 초과라 반올림 대신 새 칸) · tint-acc-panel2=활성 배경
-     (panel2 위 acc 12% 워시 · panel-acc-faint 5% 와 다른 세기라 분리). */
-  --line-acc-mid: color-mix(in srgb, var(--acc) 50%, var(--line));
-  --tint-acc-panel2: color-mix(in srgb, var(--acc) 12%, var(--panel2));
 
   /* ── stats(통계) 이식(C-7) ──────────────────────────────────────────────────
      스트릭 히트맵 잔디 5단계·스파크 막대·게이지 발광·과목별 진행 칩. 전부 --acc/--mut/--ink
@@ -544,6 +529,9 @@
 :root,
 :root[data-theme='dark'] {
   --bg: #050506;
+  /* ⚠ 렌더에 직접 쓰이진 않지만 **`test/accentContrast.test.ts` 가 라이트 대비 계약의 밑면을
+     고를 때 읽는다**(라이트 배경 4종 중 가장 어두운 면). 지우면 그 계약이 조용히 느슨해진다
+     — 2026-08-20 에 실제로 지웠다가 그 테스트가 잡았다. */
   --bg2: #0a0b0d;
   --panel: #0e0f13;
   --panel2: #16171c;
@@ -699,7 +687,7 @@
 /* ── 라이트 모드(에디토리얼 대안) — 흰 캔버스 · 인디고-바이올렛 브랜드 · 또렷한 그림자 한 겹 ── */
 :root[data-theme='light'] {
   --bg: #fafbfc;
-  --bg2: #f1f3f6;
+  --bg2: #f1f3f6; /* 라이트 4면 중 가장 어둡다 — 위 다크 블록의 ⚠ 참조(대비 계약의 밑면) */
   --panel: #ffffff;
   --panel2: #f4f6fa;
   --line: #e6e8ee;

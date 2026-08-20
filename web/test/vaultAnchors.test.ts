@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { clearVaultAnchors, setVaultAnchors, vaultAnchorsFrom, vaultAnchorsVersion } from '@/lib/vaultAnchors';
 import { chapterReviews } from '@/lib/spacedReview';
 import { subjectsFromIndex, type VaultScan } from '@/lib/vault';
-import type { AppState, Day, ScheduleItem } from '@/lib/types';
+import type { Day, ScheduleItem } from '@/lib/types';
 
 const TODAY = '2026-07-31';
 const state = (chapters: { name: string; done?: boolean }[]): AppState =>

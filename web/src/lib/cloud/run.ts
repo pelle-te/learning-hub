@@ -25,6 +25,7 @@ import { execDb, selectDb, setDiffBaseline } from '../db/sqlite';
 import { pushOutbox, isPermanent, type PushResult, type CloudTransport } from './push';
 import { makeTransport, pullChanges, readCloudConfig, unknownDroppedTotal } from './client';
 import { applyPull } from './merge';
+import { rowsToState, type DbRows } from '../db/rows';
 import { scanConflicts } from './conflictScan';
 import { batchSize } from './contract';
 import { PULL_MARK_KEY as PULL_MARK } from './outbox';
@@ -147,7 +148,12 @@ async function runSyncOnce(): Promise<SyncResult> {
 
     // ② 그다음 받아온다 — **빌 때까지**. `since` 는 **받기 전용** 워터마크다(머리주석 참조).
     let pulled = 0;
-    let state: SyncResult['state'] = null;
+    /* ⚠ **행 표현만 들고 다닌다 — 변환은 루프 뒤 1회다**(2026-08-20 리뷰 m-7).
+       바로 아래 문단이 이미 *"마지막 회차의 상태만 쓴다"* 라고 적어 뒀는데, 종전엔 `merged.state`
+       를 읽어 회차마다 정본 전량을 `rowsToState` 로 다시 파싱하고 마지막 하나를 뺀 전부를 버렸다
+       (`MAX_PULL_DRAIN` 이 50 이다). `applyPull` 의 `state` 가 지연 게터가 되면서 여기서 `rows`
+       만 보관하면 그 낭비가 사라진다 — 의미론은 한 글자도 안 바뀐다. */
+    let lastRows: DbRows | null = null;
     const conflicts: NonNullable<SyncResult['conflicts']> = [];
     /* ⚠⚠ **충돌 스캔의 기준선은 동기화 *시작* 시점의 마크다 — 회차마다 다시 읽으면 안 된다**
        (H-16 · 2026-08-06 감사).
@@ -197,7 +203,7 @@ async function runSyncOnce(): Promise<SyncResult> {
          호출부가 `applyMerged` 를 부르지 않고, 메모리는 병합-전 · DB 는 병합-후로 갈린다.
          그 어긋남의 대가는 조용하지 않다: 다음 편집의 flush 가 **받아온 행을 되돌리는 upsert 와
          상대 기기 행의 툼스톤**을 만들고, LWW 라 그게 서버까지 이긴다. */
-      if (merged.state) state = merged.state;
+      if (merged.rows) lastRows = merged.rows;
       /* 스냅샷이 안 나온 회차(되읽기 실패) — 기준선은 이 회차에서 안 섰지만(merge.ts 가 `back` 이
          있을 때만 세운다) **DB 는 이미 앞서 갔다.** 기준선을 무효화해 다음 쓰기가 DB 를 재독하게
          만든다. 비싼 선택이 아니고(다음 쓰기 1회의 전량 읽기) 정합이 회복된다.
@@ -209,7 +215,7 @@ async function runSyncOnce(): Promise<SyncResult> {
       status: 'ok',
       push,
       pulled,
-      state,
+      state: lastRows ? rowsToState(lastRows) : null,
       conflicts: conflicts.length ? conflicts : undefined,
       unknownDropped: unknownDropped > 0 ? unknownDropped : undefined,
     };

@@ -11,7 +11,7 @@ import { useSchedule } from '@/store/selectors';
 import { useFlushOnUnmount } from '@/hooks/interactions';
 import { useListCursor } from '@/hooks/useListCursor';
 import DetailDrawer from '@/components/DetailDrawer';
-import { ui } from '@/shell';
+import { toastUndoable } from '@/shell';
 import { Button, NumberField } from '@/components/ui';
 import type { AppState, Chapter, Item } from '@/lib/types';
 import { Icon } from '@/components/Icon';
@@ -128,7 +128,7 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
   const delCh = (i: number) => {
     const nm = chs[i]?.name || '이 챕터';
     upd((it) => void it.chapters.splice(i, 1));
-    ui.toastUndoable(`"${nm}" 챕터 삭제됨`);
+    toastUndoable(`"${nm}" 챕터 삭제됨`);
   };
 
   /* ── A-12(W9 · 2026-08-07) — **일괄 완료·삭제는 한 번의 쓰기다** ────────────────────
@@ -151,12 +151,12 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
         else delete ch.doneDs;
       }
     });
-    ui.toastUndoable(`챕터 ${list.length}개 ${on ? '완료' : '완료 해제'}`);
+    toastUndoable(`챕터 ${list.length}개 ${on ? '완료' : '완료 해제'}`);
   };
   const bulkDel = (list: Chapter[]) => {
     const ids = new Set(list.map((c) => c.id));
     upd((it) => void (it.chapters = it.chapters.filter((c) => !ids.has(c.id))));
-    ui.toastUndoable(`챕터 ${list.length}개 삭제됨`);
+    toastUndoable(`챕터 ${list.length}개 삭제됨`);
   };
 
   const cursor = useListCursor<Chapter>({

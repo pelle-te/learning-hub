@@ -13,7 +13,6 @@ import {
   openTasksForDay,
   inboxTasks,
 } from '@/lib/tasks';
-import type { AppState } from '@/lib/types';
 
 // _today 시드로 doneDs 결정론화(앱의 '오늘' 단일 출처).
 const seed = (): AppState => ({ ...defaults(), _today: '2026-06-23' }) as AppState;

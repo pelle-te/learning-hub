@@ -373,3 +373,33 @@ async function runWrite(state: AppState, captureUndo: boolean): Promise<ParityRe
     return _last;
   }
 }
+
+/* ── 쓰기 실패 재시도 백오프(H5 · 순수) ──────────────────────────────────────
+   ⚠⚠ **이 정책이 순수 함수로 나와 있는 이유는 "검증할 수 없었기 때문"이다**(2026-08-20 리뷰 M-11).
+
+   종전엔 이 수열이 `store/useApp` 의 `create()` 안 지역 클로저였다(`scheduleRetry`). 밖에서 잡을
+   손잡이가 `mutate`/`flushNow` 둘뿐이라 **수열 자체를 단언할 방법이 없었고**, 실측 커버리지가
+   그것을 그대로 보여 줬다: `saveFailure.test.ts` 는 브라우저 가지만 보고 `dbUnavailable.test.ts`
+   는 배너·임시사본만 단언한 뒤 `sleep(600)` 하고 끝난다. `retryMs`·상한·리셋을 건드리는 테스트는
+   **0건**이었다.
+
+   그런데 그 클로저는 자기 주석에 위험을 명시해 뒀다 — *"400ms 고정 재시도는 시간당 9,000회
+   전량 쓰기가 된다."* 즉 누가 승수를 되돌리거나 성공 경로의 리셋을 잘못 옮기면 앱이 조용히
+   초당 재시도로 떨어지는데, 게이트는 그대로 녹색이다.
+
+   ⚠ 정책만 나온다(타이머·스토어는 그대로 호출부 몫이다) — `lib` 은 zustand 를 모른다. */
+
+/** 편집 → 정본 쓰기까지의 디바운스이자 **백오프의 첫 칸**(ms). */
+export const PERSIST_MS = 400;
+/** 백오프 상한(ms). 원인이 영구적이어도 재시도는 계속돼야 하되 **초당이 아니라 30초당**이다. */
+export const PERSIST_RETRY_MAX_MS = 30_000;
+
+/**
+ * 다음 재시도 간격 — `0`(= 아직 실패한 적 없음)에서 시작해 배로 늘고 상한에서 멈춘다.
+ * 성공하면 호출부가 `0` 으로 되돌린다(그래야 다음 실패가 다시 첫 칸부터다).
+ *
+ * 수열: `0 → 400 → 800 → 1600 → … → 30000 → 30000 …`
+ */
+export function nextRetryMs(cur: number): number {
+  return cur ? Math.min(cur * 2, PERSIST_RETRY_MAX_MS) : PERSIST_MS;
+}

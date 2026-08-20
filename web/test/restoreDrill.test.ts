@@ -30,7 +30,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaults, exportSnapshot, migrate, sanitizeImported } from '@/lib/persistence';
 import { diffRows, rowsToState, stateToRows, TABLES } from '@/lib/db/rows';
-import type { AppState } from '@/lib/types';
 
 /** 사용자 데이터가 실제로 들어 있는 상태 — 빈 상태로는 유실을 못 잰다. */
 function populated(): AppState {

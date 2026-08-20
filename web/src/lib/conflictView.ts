@@ -28,12 +28,19 @@ export function tableLabel(tbl: string): string {
   return TBL_LABEL[tbl] ?? tbl;
 }
 
-/** 행 값 배열 → 짧은 미리보기(원시값만이라 안전하게 문자열화 · `rows.ts` 계약). */
+/** 행 값 배열 → 짧은 미리보기(원시값만이라 안전하게 문자열화 · `rows.ts` 계약).
+ *
+ *  ⚠ **빈 칸은 join 앞에서 걸러낸다**(2026-08-20 리뷰 m-17 의 테스트가 잡았다). 종전엔 값을
+ *  `''` 로 바꾼 뒤 그대로 이어 붙여서, 모든 칸이 비어 있는 행이 `'(빈 값)'` 이 아니라
+ *  **`'·  ·'`** 로 렌더됐다 — `.trim()` 은 바깥 공백만 걷고 구분자는 남기기 때문이다.
+ *  값이 없는 것을 "가운뎃점 두 개"로 보여 주는 것은 이 저장소가 반복해 물린 그 형태다
+ *  (값 부재가 화면에서 값처럼 보인다). 중간에 낀 빈 칸도 같은 이유로 뺀다 — 미리보기는
+ *  *어떤 값이었나*를 말하는 자리이지 열 개수를 세는 자리가 아니다. */
 export function previewOf(data: unknown[], max = 90): string {
   const s = data
-    .map((v) => (v == null ? '' : String(v)))
-    .join(' · ')
-    .trim();
+    .map((v) => (v == null ? '' : String(v).trim()))
+    .filter((v) => v !== '')
+    .join(' · ');
   if (!s) return '(빈 값)';
   return s.length > max ? s.slice(0, max) + '…' : s;
 }

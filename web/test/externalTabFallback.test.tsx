@@ -1,28 +1,24 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 
-/* Phase 5 — 서버/외부 탭(integrations·mastery)이 React+TanStack Query로 동작.
-   jsdom엔 serve.js(/api)·AnkiConnect·FS Access가 없으므로 Query는 isError → 우아한 폴백 카드.
-   모두 레거시 #page를 쓰지 않음(전 탭 React화 확인). */
-function renderApp(initialPath: string) {
-  // 각 테스트 격리: 새 QueryClient(캐시 공유 방지) · retry 없음(폴백 빠르게).
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+/* ============================================================
+   externalTabFallback — **백엔드가 없을 때 외부 데이터 탭이 우아하게 안내하는가.**
+
+   ⚠ 옛 이름은 `phase5.test.tsx` 였다(2026-08-20 리뷰 m-19). 시점 라벨은 *무엇을 지키는지*를
+   이름이 말하지 못하고, 실제로 이 파일의 전제 둘이 사문화돼 있었다:
+   · *"jsdom엔 serve.js(/api)가 없으므로"* — `serve.js` 는 **4단계에서 삭제됐다.** 지금 없는 것은
+     그 프로세스가 아니라 **Rust 커맨드**다(브라우저엔 `invoke` 가 없다). 결과는 같지만 이유가 다르고,
+     틀린 이유는 다음 사람을 삭제된 파일로 보낸다.
+   · *"서버/외부 탭(integrations·**mastery**)"* — `mastery` 는 A-19(2026-08-07)에 `role:'retired'` 가
+     됐다(`shell/tabs.ts`). 이 파일은 여전히 그 경로를 렌더하는데, 그건 라우트가 `<Navigate>` 로
+     살아 있기 때문이지 그 탭이 현역이어서가 아니다.
+
+   잠그는 명제: **백엔드가 없어도 흰 화면이 아니라 안내가 뜬다.** Query 는 isError 로 떨어지고
+   화면은 셋업 카드로 폴백한다(`components/State` 의 `kind='error'|'empty'`).
+============================================================ */
 
 afterEach(() => cleanup());
 

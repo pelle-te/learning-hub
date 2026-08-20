@@ -1,7 +1,8 @@
 /*! 워크스페이스 경로 — 1단계 신설 작업(설계 §4-1단계).
 
 `serve.js:32-33` 은 `WORK = path.dirname(__dirname)` 으로 워크스페이스를 **실행 위치에서 추론**한다.
-파이썬 도구 11종이 전부 이 cwd 로 돌고 아티팩트 6종 경로도 여기 기준이다.
+파이썬 도구(`tools::TOOLS`)가 전부 이 cwd 로 돌고 산출물(`artifact::ARTIFACTS`) 경로도 여기 기준이다.
+⚠ 개수를 여기 적지 않는다 — 종전 "11종·6종"은 실제(7·5)와 달랐다(2026-08-20 리뷰 m-2).
 
 Tauri 앱은 설치 경로에 놓이므로 **1단계에서 이미 이 추론이 깨진다**(sidecar serve.js 의 `__dirname`
 이 설치 경로가 됨). 그래서 워크스페이스 경로를 **설정값으로 승격**한다:
@@ -122,7 +123,7 @@ pub fn workspace_status(app: tauri::AppHandle) -> WorkspaceStatus {
 }
 
 /// 사용자가 고른 경로를 확정 저장. 표지가 없으면 거부한다 —
-/// 엉뚱한 폴더를 저장하면 파이썬 도구 11종이 전부 조용히 빈 결과를 낸다(진단이 가장 어려운 실패).
+/// 엉뚱한 폴더를 저장하면 파이썬 도구(`tools::TOOLS`)가 전부 조용히 빈 결과를 낸다(진단이 가장 어려운 실패).
 #[tauri::command]
 pub fn set_workspace(app: tauri::AppHandle, path: String) -> Result<WorkspaceStatus, String> {
     let pb = PathBuf::from(&path);

@@ -62,8 +62,11 @@ function phoneGraphFiles(): Set<string> | null {
   }
 }
 
-// serve.js(:8000)가 백엔드 /api. Vite는 :5173에서 React 셸을 띄우고 /api는 프록시(동일출처처럼).
-// Phase 6: vite-plugin-pwa 정식화 — 셸 precache + 자동 업데이트(stale 캐시 해소). /api는 캐시 제외(NetworkOnly).
+// ⚠ 종전 이 자리에 "serve.js(:8000)가 백엔드 /api … /api는 프록시" 라는 줄이 **현재형으로** 남아(m-20)
+//   있었다(2026-08-20 리뷰 m-20). 그 백엔드도 프록시도 4단계-G 에서 사라졌고 아래 `server:` 블록
+//   주석이 그 사실을 반박하고 있었다 — 같은 파일 안에서 서로 다른 말을 하고 있었던 셈이다.
+//   `npm run dev` 에 백엔드가 없는 이유를 조사하는 사람을 프록시 설정으로 보내던 화석이라 지운다.
+// vite-plugin-pwa — 셸 precache + 자동 업데이트(stale 캐시 해소). /api는 캐시 제외(NetworkOnly).
 // dev에선 SW 비활성(HMR 간섭 회피) — 프로덕션 빌드에서만 SW 생성/등록.
 export default defineConfig({
   plugins: [

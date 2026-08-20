@@ -5,10 +5,15 @@
 ============================================================ */
 import type { Degree } from './types';
 
-/** 과목 구분(카테고리) — 요건 매핑·집계 키. */
-export const CATS = ['전공필수', '전공선택', '교양', '기타'];
+/** 과목 구분(카테고리) — 요건 매핑·집계 키.
+ *  ⚠ `as const` 가 장식이 아니다: 아래 `REQ_FIELD` 가 `Record<DegreeCat, …>` 라 **라벨을 바꾸면
+ *  그 표가 컴파일 에러로 붙잡는다.** 종전엔 `string[]` 이라 라벨 하나만 다듬어도 요건 매핑이
+ *  조용히 `0`(요건 없음)으로 떨어졌다(2026-08-20 리뷰 M-8). */
+export const CATS = ['전공필수', '전공선택', '교양', '기타'] as const;
+export type DegreeCat = (typeof CATS)[number];
 /** 수강 상태. */
-export const STATUSES = ['예정', '수강중', '완료'];
+export const STATUSES = ['예정', '수강중', '완료'] as const;
+export type CourseStatus = (typeof STATUSES)[number];
 
 /** 졸업요건 임계(전자공학과 2020 요람·ABEEK 인증과정) — SSOT 는 부모 goals.json
  *  'degree-requirement' 노드의 `degree_req`, codegen(artifacts.gen)이 파생(감사 2026-07-16 #7 3중화 해소).
@@ -155,9 +160,27 @@ export function gpaForecast(d: Degree, targetGpa: number): GpaForecast {
   return { targetGpa, futureCr, neededAvg, feasible: neededAvg <= 4.5, alreadyMet };
 }
 
-/** 카테고리별 졸업요건 학점(설정값). '기타'는 별도 요건 없음(0). */
+/* ⚠⚠ 카테고리 → 요건 필드의 **매핑표**. 삼항 사슬이 아니라 표인 것이 요점이다(M-8).
+
+   종전엔 이 사슬이 **두 벌**이었다 — 여기와 `features/degree/Degree.tsx` 의 진행바 계산에
+   글자단위로 복제돼 있었고, 이 파일 머리주석은 *"두 뷰가 공유하는 단일 출처"* 라 적고 있었다.
+   그리고 라벨이 타입에 안 묶여 있어서(`CourseSchema.category` 는 `z.string()`) `'교양'` 을
+   `'교양·기초'` 로 다듬으면 **두 벌 모두 조용히 `0` 으로 떨어져** 진행바가 "요건 없음"으로
+   중립화됐다 — 컴파일 에러 0 · 테스트 0.
+
+   `Record<DegreeCat, …>` 는 그 두 가지를 동시에 막는다: 사본이 하나가 되고, 라벨을 바꾸면
+   이 표가 **컴파일 에러**를 낸다. */
+const REQ_FIELD: Record<DegreeCat, 'reqMajorReq' | 'reqMajorSel' | 'reqLiberal' | null> = {
+  전공필수: 'reqMajorReq',
+  전공선택: 'reqMajorSel',
+  교양: 'reqLiberal',
+  기타: null, // 별도 요건 없음
+};
+
+/** 카테고리별 졸업요건 학점(설정값). '기타'와 모르는 라벨은 요건 없음(0). */
 export function categoryReq(d: Degree, cat: string): number {
-  return cat === '전공필수' ? d.reqMajorReq : cat === '전공선택' ? d.reqMajorSel : cat === '교양' ? d.reqLiberal : 0;
+  const f = REQ_FIELD[cat as DegreeCat];
+  return f ? d[f] : 0;
 }
 
 export interface RequirementRow {

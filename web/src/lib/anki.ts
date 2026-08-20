@@ -11,6 +11,14 @@ import { isTauri, shellAnkiConnect, shellAnkiScan } from './tauri';
 
 import { matchSubjectIndex } from './subjectMatch';
 
+/** AnkiConnect 주소 — **브라우저 폴백 전용**이다(셸에서는 `src-tauri/src/anki.rs` 가 중계한다:
+ *  AnkiConnect 가 `Origin` 을 검사하는데 `tauri://` 오리진이 그 화이트리스트에 없다).
+ *  ⚠ 그쪽 `ANKI_CONNECT_URL` 과 **같은 값이어야 한다** — 포트는 애드온 설정으로 바뀔 수 있는
+ *  값인데 지금은 주입 경로가 없다(2026-08-20 리뷰 m-23). 이름을 준 것은 그 사실을 grep 가능하게
+ *  만드는 것까지다: 사용자가 포트를 바꾸는 경로가 필요해지면 두 상수를 함께 설정에서 읽게 한다
+ *  (`src-tauri/src/ollama.rs` 가 `OLLAMA_BASE_URL` 로 이미 그 형태다). */
+const ANKI_CONNECT_URL = 'http://localhost:8765';
+
 export interface AnkiDeck {
   name: string;
   new: number;
@@ -57,7 +65,7 @@ export async function ankiConnect<T = unknown>(action: string, params: Record<st
   const ac = new AbortController();
   const to = setTimeout(() => ac.abort(), 3000);
   try {
-    const res = await fetch('http://localhost:8765', {
+    const res = await fetch(ANKI_CONNECT_URL, {
       method: 'POST',
       body: JSON.stringify({ action, version: 6, params }),
       signal: ac.signal,

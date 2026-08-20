@@ -26,7 +26,7 @@ import { useCallback, useState } from 'react';
 import { checkUpdate, installUpdate, isTauri, type UpdateInfo } from '@/lib/tauri';
 import { readCloudConfig, updateManifestUrl } from '@/lib/cloud/client';
 import { Button } from '@/components/ui';
-import { ui } from '@/shell';
+import { confirmLossy, toast } from '@/shell';
 
 /* ⚠ 엔드포인트를 **매번 설정에서 읽는다**(C3). 빌드 시점 상수가 아닌 이유: 배포처가 사용자
    자신의 Workers 오리진이라 사람마다 다르다. 근거는 `updater.rs` 머리주석이 SSOT. */
@@ -41,11 +41,11 @@ export default function UpdateCard() {
     try {
       const r = await checkUpdate(await endpoint());
       setInfo(r);
-      if (!r.available) ui.toast(`최신 버전입니다 (${r.current})`);
+      if (!r.available) toast(`최신 버전입니다 (${r.current})`);
     } catch (e) {
       /* ⚠ 실패를 삼키지 않는다 — "확인했는데 없음"과 "확인 못 함"은 사용자에게 다른 사실이다.
          엔드포인트 미설정·네트워크 없음이 여기로 온다(`updater.rs` 가 Err 로 올리는 이유). */
-      ui.toast(`업데이트 확인 실패: ${e instanceof Error ? e.message : String(e)}`);
+      toast(`업데이트 확인 실패: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -58,7 +58,7 @@ export default function UpdateCard() {
        포커스 트랩·`isModalOpen()` 키 게이트 밖이었고, 앱에서 가장 파괴적인 확인 하나만 다른
        시각 언어로 떠 있었다. ②단인 이유: 재시작은 못 되돌리지만 **앱은 다시 뜬다.** */
     if (
-      !(await ui.confirmLossy('지금 내려받아 설치하고 앱을 재시작합니다.\n진행 중인 작업이 있으면 먼저 저장하세요.', {
+      !(await confirmLossy('지금 내려받아 설치하고 앱을 재시작합니다.\n진행 중인 작업이 있으면 먼저 저장하세요.', {
         title: '업데이트 설치',
         okLabel: '설치하고 재시작',
       }))
@@ -69,7 +69,7 @@ export default function UpdateCard() {
       await installUpdate(await endpoint());
     } catch (e) {
       setBusy(false);
-      ui.toast(`설치 실패: ${e instanceof Error ? e.message : String(e)}`);
+      toast(`설치 실패: ${e instanceof Error ? e.message : String(e)}`);
     }
   }, []);
 

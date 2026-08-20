@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { actions, io, Icon } from '@/shell';
+import { Icon, backupAt, exportICS, exportJSON, importJSON, resetAll, toggleTheme, undoLast } from '@/shell';
 import { useTheme } from '@/store/selectors';
 import { usePageChrome } from '@/store/usePageChrome';
 import { Num } from '@/components/Num';
@@ -133,7 +133,7 @@ export default function TopBar() {
     const next = !moreOpen;
     if (next) {
       // ⚠ 갱신은 여는 쪽에서만 — 상태 업데이터 안에서 하면 StrictMode 이중 호출에 부작용이 두 번 돈다.
-      const b = actions.backupAt();
+      const b = backupAt();
       setUndoWhen(b ? (b.at == null ? '시각 모름' : agoLabel(b.at, Date.now())) : null);
     }
     setMoreOpen(next);
@@ -209,7 +209,7 @@ export default function TopBar() {
         </button>
         <button
           className={BTN_ICON}
-          onClick={() => actions.toggleTheme()}
+          onClick={() => toggleTheme()}
           title={`테마: ${THEME_NAME[theme]} — 클릭하면 ${THEME_NEXT[theme]}로`}
           aria-label={`테마 전환 (현재 ${THEME_NAME[theme]})`}
         >
@@ -233,7 +233,7 @@ export default function TopBar() {
                 type="button"
                 onClick={() => {
                   close();
-                  io.exportICS();
+                  exportICS();
                 }}
                 title="일회성 스냅샷"
               >
@@ -243,7 +243,7 @@ export default function TopBar() {
                 type="button"
                 onClick={() => {
                   close();
-                  io.exportJSON();
+                  exportJSON();
                 }}
               >
                 <Icon name="download" /> 데이터 내보내기(백업)
@@ -274,7 +274,7 @@ export default function TopBar() {
                 disabled={!undoInfo}
                 onClick={() => {
                   close();
-                  actions.undoLast();
+                  undoLast();
                 }}
                 title={
                   undoInfo
@@ -291,7 +291,7 @@ export default function TopBar() {
                 className="menu-danger"
                 onClick={() => {
                   close();
-                  actions.resetAll();
+                  resetAll();
                 }}
               >
                 <Icon name="trash" /> 전체 초기화…
@@ -307,7 +307,7 @@ export default function TopBar() {
         ref={impRef}
         accept="application/json"
         className="hidden"
-        onChange={(e) => actions.importJSON(e.currentTarget)}
+        onChange={(e) => importJSON(e.currentTarget)}
       />
     </header>
   );

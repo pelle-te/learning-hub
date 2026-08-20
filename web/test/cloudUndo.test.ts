@@ -32,7 +32,7 @@ vi.mock('@/lib/cloud/outbox', async (orig) => {
   return { ...m, noteMergedRows: (...a: Parameters<typeof m.noteMergedRows>) => noteMergedRows(...a) };
 });
 
-import { undoLastWrite } from '@/lib/cloud/undo';
+import { redoLastWrite, undoLastWrite } from '@/lib/cloud/undo';
 import { applyPull } from '@/lib/cloud/merge';
 import { clearUndo, pushUndo, undoDepth } from '@/lib/db/undoStack';
 import { _resetStamp } from '@/lib/db/stamp';
@@ -202,5 +202,110 @@ describe('④ 툼스톤 가드 — 다른 기기가 지운 행', () => {
     const r = await undoLastWrite();
     expect(r).toMatchObject({ restored: 0, skipped: 1, empty: false });
     expect(exec).not.toHaveBeenCalled();
+  });
+});
+
+/* ============================================================
+   ⑤ **되돌리기의 되돌리기**(⇧⌘Z · 2026-08-20 리뷰 M-6).
+
+   이 describe 가 생기기 전까지 이 파일에는 `redo` 라는 문자열이 **한 번도 없었다**(케이스 13개
+   전부 `undoLastWrite` 축). 그래서 "추가 → ⌘Z → ⇧⌘Z" 가 **항상 실패**하는데 게이트가 녹색이었다.
+
+   ⚠ **툼스톤 표를 진짜로 흉내 내야 이 결함이 보인다.** 위 `tombs()` 는 고정 배열을 돌려주므로
+   *역연산이 방금 쓴* 툼스톤이 다음 조회에 안 나타난다 — 그러면 버그가 재현되지 않는다.
+   여기서는 `exec` 로 들어온 `INSERT INTO tombstones` 를 모아 두고 `deleted_at > ?` 로 걸러
+   돌려준다. 그게 실제 DB 가 하는 일이고, 이 결함의 본질이 정확히 "내가 쓴 툼스톤이 내 다음
+   단계의 가드에 걸린다"이기 때문이다.
+============================================================ */
+describe('⑤ redo — 되돌리기가 만든 툼스톤이 자기 재실행을 막지 않는다', () => {
+  /** 실 DB 흉내: `INSERT INTO tombstones` 를 누적하고 `deleted_at > ?` 질의에 그대로 답한다. */
+  const liveTombstones = (): void => {
+    const rows: { tbl: string; k1: string; k2: string; deleted_at: number }[] = [];
+    exec.mockImplementation(async (...a: unknown[]) => {
+      const sql = String(a[0]);
+      const args = (a[1] ?? []) as unknown[];
+      if (/INSERT INTO tombstones/.test(sql)) {
+        rows.push({
+          tbl: String(args[0]),
+          k1: String(args[1]),
+          k2: String(args[2]),
+          deleted_at: Number(args[3]),
+        });
+      }
+      return undefined;
+    });
+    select.mockImplementation(async (q: string, v?: unknown[]) => {
+      if (/FROM tombstones/.test(q)) {
+        const since = Number((v ?? [])[0] ?? 0);
+        return rows.filter((r) => r.deleted_at > since);
+      }
+      if (/FROM settings/.test(q)) return [{ key: 'theme', value: '"dark"' }];
+      /* ⚠ 이 행이 **있어야** redo 가 의미를 갖는다 — `currentImages` 는 `applyPull`(삭제) *앞*
+         에서 돌므로 그 시점의 DB 에는 아직 행이 있다. 여기서 빈 배열을 주면 redo 항목의
+         pre-image 가 `null` 이 되어 "되살리기"가 아니라 "또 삭제"가 되고, 그러면 이 케이스가
+         결함을 통과시킨다(모의가 결함을 가리는 전형적인 형태). */
+      /* ⚠ `WHERE` 가 있는 것만 — 그게 `currentImages` 의 단건 조회다. `readRows()` 의 전량
+         조회(WHERE 없음)까지 이 행을 주면 `rowsToState` 가 다른 열 이름을 기대해 죽는다. */
+      if (/FROM week_alloc/.test(q) && /WHERE/.test(q)) return [{ wk: '2026-08-03', sid: 'sid1', json: '{"m":60}' }];
+      return [];
+    });
+  };
+
+  it('추가 → ⌘Z → ⇧⌘Z 가 실제로 행을 되살린다 (종전엔 100% 실패했다)', async () => {
+    liveTombstones();
+    // "행을 만든 편집" — pre-image 가 null 이다(그 행은 이 쓰기 전에 없었다).
+    pushUndo([{ table: 'week_alloc', key: ['2026-08-03', 'sid1'], vals: null }], 100);
+
+    const undone = await undoLastWrite();
+    expect(undone.restored, '⌘Z 는 그 행을 삭제한다(툼스톤 + DELETE)').toBe(1);
+    expect(sqls().some((s) => /INSERT INTO tombstones/.test(s))).toBe(true);
+
+    exec.mockClear();
+    const redone = await redoLastWrite();
+    expect(
+      redone.skipped,
+      '되돌리기가 방금 찍은 툼스톤이 자기 재실행을 막으면 안 된다 — 그때의 사유 문구는 ' +
+        '"다른 기기가 지웠다"인데 다른 기기는 관여한 적이 없다',
+    ).toBe(0);
+    expect(redone.restored, '⇧⌘Z 가 행을 되살려야 한다').toBe(1);
+    expect(sqls().some((s) => /INSERT INTO week_alloc/.test(s))).toBe(true);
+  });
+
+  it('redo 항목의 툼스톤 가드 기준선은 **역연산의 스탬프**다(원본 쓰기의 것이 아니라)', async () => {
+    liveTombstones();
+    vi.spyOn(Date, 'now').mockReturnValue(9_000);
+    pushUndo([{ table: 'week_alloc', key: ['2026-08-03', 'sid1'], vals: null }], 100);
+    await undoLastWrite();
+
+    // ⌘Z 가 쓴 툼스톤의 스탬프
+    const tombStamp = Number(
+      (exec.mock.calls.find((c) => /INSERT INTO tombstones/.test(String(c[0])))![1] as unknown[])[3],
+    );
+    select.mockClear();
+    await redoLastWrite();
+
+    const guard = select.mock.calls.find((c) => /FROM tombstones/.test(String(c[0])))!;
+    expect(
+      Number((guard[1] as unknown[])[0]),
+      '기준선이 원본 스탬프(100)면 방금 쓴 툼스톤이 언제나 걸린다',
+    ).toBeGreaterThanOrEqual(tombStamp);
+  });
+
+  it('그래도 **다른 기기가 그 뒤에 지운** 행은 되살리지 않는다 — 가드의 원래 의미는 유지된다', async () => {
+    liveTombstones();
+    pushUndo([{ table: 'settings', key: ['theme'], vals: ['theme', '"dark"'] }], 100);
+    await undoLastWrite(); // 값 복원(툼스톤 안 씀)
+
+    // 역연산 뒤에 다른 기기의 삭제가 도착한 상황을 만든다.
+    await exec('INSERT INTO tombstones (tbl,k1,k2,deleted_at) VALUES (?,?,?,?)', [
+      'settings',
+      'theme',
+      '',
+      Number.MAX_SAFE_INTEGER,
+    ]);
+    exec.mockClear();
+    const redone = await redoLastWrite();
+    expect(redone.skipped, '역연산 *이후*의 삭제는 여전히 이겨야 한다').toBe(1);
+    expect(redone.restored).toBe(0);
   });
 });

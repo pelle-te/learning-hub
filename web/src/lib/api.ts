@@ -17,6 +17,12 @@ import {
   shellOllamaRun,
   shellRunTool,
 } from './tauri';
+import type { ArtifactName } from './artifacts.gen';
+
+/** `getArtifact` 가 받을 수 있는 이름 — **파일로 존재하는 산출물만**.
+ *  정본은 `src-tauri/src/artifact.rs` 의 `ARTIFACTS` 이고, `index` 는 스키마 축에만 있어 뺀다
+ *  (근거는 아래 `getArtifact` 머리주석). 두 목록이 갈리는 것을 타입이 잡는다. */
+export type FetchableArtifact = Exclude<ArtifactName, 'index'>;
 
 export interface PingResponse {
   ok: boolean;
@@ -63,9 +69,21 @@ export function getPing(): Promise<PingResponse> {
   return getJSON<PingResponse>('/api/ping');
 }
 
-/** 산출물(읽기 전용) — knowledge | anki | ledger | curriculum | goals | index.
+/** 산출물(읽기 전용) — **셸이 워크스페이스에서 파일로 읽어 오는 것만**.
+ *
+ *  ⚠⚠ **`index` 는 여기 없다**(2026-08-20 리뷰 m-1). 종전 이 줄은 그것을 유효 인자로 광고했는데
+ *  `src-tauri/src/artifact.rs` 의 `ARTIFACTS` 에 그런 항목이 **없다**(그 파일의 테스트 이름 자체가
+ *  `다섯_종이_모두_등록돼_있다` 다). `index` 는 **다른 네임스페이스**에 산다 —
+ *  `artifacts.gen.EXPECTED_SCHEMA_VERSION`(스키마 버전 축)이고, 실제로는 볼트 스캔이 읽은
+ *  `_index.json` 을 `lib/vault.ts` 가 `parseArtifact('index', …)` 로 검증할 때만 쓰인다.
+ *  그 두 목록을 한 문장에 합쳐 놓은 것이 이 주석의 결함이었다.
+ *
+ *  잘못 부르면 증상이 조용하다: Rust 가 `NOT_FOUND` → 아래에서 `HTTP 404` 로 번역 →
+ *  `artifactState.classifyArtifact` 가 **'미생성(empty)'** 으로 분류 → 화면은 "아직 파이프라인이
+ *  안 돌았습니다"를 띄운다. **오류가 정상 빈 상태로 보인다** — 그래서 인자 타입을 좁힌다.
+ *
  *  ⚠ 종전 이 줄은 `discovery`·`reads`·`markets` 도 세었다 — 셋 다 P10 W4 에서 `survey/` 로 갔다
- *  (아티팩트 9종 → 6종 · 불변식 I-4 가 "교양 도메인이 늘어도 이 수는 안 는다"를 잠근다).
+ *  (불변식 I-4 가 "교양 도메인이 늘어도 이 수는 안 는다"를 잠근다).
  *
  *  4단계-B 부터 **셸에선 Rust 커맨드**(`artifact_read`)가 읽고, 브라우저에선 기존 `/api` 를 탄다.
  *  전송이 갈렸어도 **반환 계약과 에러 분류는 하나로 유지**한다 — 미생성·알 수 없는 이름은
@@ -73,7 +91,7 @@ export function getPing(): Promise<PingResponse> {
  *  분류하게 한다. 이 번역을 여기서 하는 이유: 소비처 7개 lib 래퍼와 10개 탭이 분류 규칙을
  *  각자 알면 전송을 바꿀 때마다 그 수만큼 갈라진다. */
 export async function getArtifact<T = unknown>(
-  name: string,
+  name: FetchableArtifact,
 ): Promise<{ ok: boolean; data?: T; raw?: string; error?: string }> {
   if (isTauri()) {
     try {
@@ -90,11 +108,17 @@ export async function getArtifact<T = unknown>(
 
 /** 화이트리스트 도구 실행(지식상태 재빌드·볼트 건강검진 등).
  *
- *  **타임아웃은 백엔드가 소유한다** — Rust `tools.rs` 의 도구별 상한(60~180s)이 프로세스를
+ *  **타임아웃은 백엔드가 소유한다** — Rust `tools.rs` 의 **도구별 상한**(정본 = 그 파일 `TOOLS`
+ *  의 `timeout_ms`)이 프로세스를
  *  트리째 죽이므로 "영원히 도는 스피너"가 원리적으로 없다. 클라이언트 쪽 벽시계는 두지 않는다:
  *  그건 *기다리기를 그만두는* 것일 뿐 프로세스를 멈추지 못해, 실제로는 "화면만 포기하고 CPU 는
  *  계속 도는" 상태를 만든다(옛 185s `AbortSignal` 이 그랬다 — 서버 캡 180s 를 뒤따르는 값이라
  *  백엔드가 사라진 지금은 근거 자체가 없어졌다).
+ *
+ *  ⚠ 종전 이 문단 첫 줄은 상한을 "60~180s" 라 적었는데 **실제 `TOOLS` 에 180s 는 없다** — 그건
+ *  방금 말한 삭제된 서버 캡이고, 이력이어야 할 수가 현재형 문장에 남아 있었다(2026-08-20 리뷰
+ *  m-21). 이 줄이 "얼마나 기다려야 하는가"의 유일한 프런트 문서라 3분 스피너를 정상으로
+ *  오판하게 만든다. 수를 다시 적으면 또 표류하므로 **상수를 가리킨다.**
  *
  *  ⚠ **`opts.signal` 은 도구 실행을 중단시키지 않는다.** `invoke` 가 `AbortSignal` 을 안 받는다.
  *  받아 두는 이유는 호출부(`useCollectTool`)가 이미 넘기고 있어서이고, 진짜 중단이 필요해지면

@@ -113,6 +113,9 @@ async function applyInverse(
   const rows: OutboxRow[] = [];
   const tombstones: OutboxTomb[] = [];
   let skipped = 0;
+  /* ⚠⚠ **이 역연산이 찍은 최대 스탬프** — 반대편 스택의 기준선이 된다(아래 `pushOpposite`).
+     `entry.stamp`(원본 쓰기의 스탬프)를 쓰면 안 되는 이유가 이 변수의 존재 이유 전부다. */
+  let inverseStamp = 0;
   for (const p of entry.rows) {
     const spec = SPEC.get(p.table);
     if (!spec) continue; // 캡처가 이미 걸렀어야 한다(sync 테이블만 담는다 · rows.ts) — 방어적
@@ -124,6 +127,7 @@ async function applyInverse(
       continue;
     }
     const stamp = nextStamp();
+    if (stamp > inverseStamp) inverseStamp = stamp;
     if (p.vals) rows.push({ tbl: p.table, key, data: p.vals.slice(spec.keyLen), updatedAt: stamp });
     // 없던 행 = 이번 쓰기가 만든 행 → 되돌리기는 **삭제**다(툼스톤을 남겨 다른 기기에도 전파된다).
     else tombstones.push({ tbl: p.table, k1, k2, deletedAt: stamp });
@@ -140,7 +144,18 @@ async function applyInverse(
      이다 — 쓰고 나면 영원히 못 읽으므로 **쓰기 전에** 읽어야 한다. 실패해도 무해하다: 아래
      `applyPull` 이 던지면 항목이 그대로 남아 재시도가 성립하고, 반대편 스택에 쌓인 것은 다음
      시도에서 같은 값으로 다시 덮인다. */
-  pushOpposite(await currentImages(rows, tombstones), entry.stamp);
+  /* ⚠⚠ **기준선은 `entry.stamp` 가 아니라 `inverseStamp` 다**(2026-08-20 리뷰 M-6).
+
+     종전엔 원본 쓰기의 스탬프를 그대로 실었는데, 그러면 위 툼스톤 가드(`deleted_at > 항목의
+     스탬프`)에 **이 역연산이 방금 찍은 툼스톤이 언제나 걸린다** — `nextStamp()` 는 단조라
+     항상 `entry.stamp` 보다 크기 때문이다. 결과는 **"추가 → ⌘Z → ⇧⌘Z" 가 100% 실패**하고,
+     그것도 *"다른 기기가 지워 되돌리지 않았어요"* 라는 **거짓 사유**와 함께 항목이 소비된다
+     (`store/undoController.ts` 의 `skipped` 문구 · 다른 기기는 관여한 적이 없다).
+
+     반대 방향 항목의 기준선은 "그 항목이 만들어질 때 세상이 어땠나"여야 하고, 그 시점은
+     원본 쓰기가 아니라 **이 역연산**이다. 그래야 가드가 *역연산 이후에 다른 기기가 내린 삭제*
+     만 잡는다 — 원래 의도한 의미론 그대로. */
+  pushOpposite(await currentImages(rows, tombstones), inverseStamp);
 
   const merged = await applyPull({ since: 0, upto: 0, rows, tombstones }, { echo: false, keepUndo: true });
   drop(entry); // ⚠ 성공한 **뒤에만**. 던지면 항목이 남아 재시도가 성립한다(H2).

@@ -56,9 +56,16 @@ export const OutboxRowSchema = z
   .strictObject({
     tbl: TableNameSchema,
     key: z.array(z.string()),
-    /* `unknown` 을 유지한다 — 열 값은 텍스트·정수가 섞이고(`records.ord` 는 INTEGER),
-       값의 *타입*은 스키마가 아니라 **길이와 위치**가 계약이다. 아래에서 길이를 검사한다. */
-    data: z.array(z.unknown()),
+    /* 열 값은 텍스트·정수가 섞이고(`records.ord` 는 INTEGER) *어느 열이 어느 타입인가*는
+       스키마가 아니라 **길이와 위치**가 계약이다(아래에서 길이를 검사한다).
+       ⚠⚠ 그래도 `unknown` 이면 안 된다(2026-08-20 리뷰 m-10) — 서버가 이 값을 **그대로 D1 `.bind()` 에 넘긴다**
+       (`server/src/index.ts` 의 push 핸들러). D1 은 `null|number|string|boolean|ArrayBuffer`
+       만 받으므로 객체·배열이 섞이면 `bind()` 가 던지고, 그 오류는 `SCHEMA_SKEW` 정규식에도
+       한도 정규식에도 안 걸려 **500** 으로 나간다. 클라이언트는 5xx 를 재시도 대상으로 읽으니
+       백오프 5회 → `failed` → 워터마크 미전진 → **다음 동기화마다 같은 배치로 같은 500** 이다.
+       신뢰 경계에서 원시값만 받으면 그 루프가 400(=`PermanentPushError`)으로 바뀌고 원인에
+       이름이 붙는다. 우리 쪽 생산자(`db/rows.ts` 의 행 표현)는 전부 `string | number` 다. */
+    data: z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])),
     updatedAt: Stamp,
   })
   .check((ctx) => {
@@ -125,16 +132,26 @@ export const OutboxBatchSchema = z
         input: ctx.value,
       });
     }
-    /* ⚠ 상한은 **경고가 아니라 거부**다. 넘는 배치는 서버 CPU 한도에서 어차피 죽는데,
-       거기서 죽으면 원인이 "타임아웃"으로 보여 진단이 어렵다. 여기서 이름 붙여 거부한다. */
-    const total = b.rows.length + b.tombstones.length;
-    if (total > MAX_BATCH_ITEMS) {
-      ctx.issues.push({
-        code: 'custom',
-        message: `배치가 상한을 넘었다: ${total} > ${MAX_BATCH_ITEMS}`,
-        input: ctx.value,
-      });
-    }
+    /* ⚠⚠ **건수 상한은 여기 없다 — `parseOutboxBatch`(송신 전용)가 소유한다.**
+
+       종전엔 이 스키마가 `total > MAX_BATCH_ITEMS` 를 거부했고, `parseInboundBatch` 가 같은
+       스키마를 **수신에도** 썼다. 그런데 서버는 상한을 **정당하게** 넘길 수 있다: 같은 스탬프
+       그룹은 쪼개면 유실이 나므로 `pull.ts` 의 `fetchGroup` 이 통째로 주고, `capBatch` 의
+       `taken > 0` 가드가 첫 그룹을 상한 초과해도 담는다(그 신호 `oversized` 를 pull 라우트가
+       읽지 않는다). 즉 **서버가 계약대로 보낸 것을 클라이언트가 거부**하는 구조였다.
+
+       그때의 귀결이 최악이다 — `pullChanges` 가 던지고 `isPermanent` 는 거짓이라 `run.ts` 가
+       `failed` 로 접는데, 그러면 `commitPullMark` 에 도달하지 못해 **`since` 가 영원히 그
+       자리**다. 다음 트리거마다 같은 배치를 받아 같은 자리에서 죽고 자가복구 경로가 없다.
+
+       도달 조건은 가설이 아니다: `migrations/006_backfill_stamps.sql` 이 7개 테이블의 레거시
+       행 전량을 `updated_at = 1` **상수**로 올린다(시계를 안 쓰는 것은 옳은 결정이다). 그래서
+       레거시 행 전체가 **단일 스탬프 그룹**이고, 그 합이 상한을 넘는 기기에서 두 번째 기기의
+       첫 전량 pull 이 영구 실패한다.
+
+       이건 push 축이 `chunkBatch`(H2)로 이미 고친 결함의 수신 방향 판박이다 — **상한은 보내는
+       쪽 계약**이지 받는 쪽 계약이 아니다. fence·열 개수·k2 규약·스탬프 상한은 한 글자도
+       느슨해지지 않는다(관용은 *건수*에만 있고 *내용*엔 없다). */
     /* fence 계약 — 모든 항목이 (since, upto] 안에 있어야 한다. 밖의 행이 섞이면 워터마크를
        upto 로 전진시키는 순간 그 행이 "보냈다"고 잘못 기록되거나, 반대로 영영 안 올라간다. */
     for (const [i, r] of b.rows.entries()) {
@@ -191,7 +208,10 @@ export type ParsedOutboxBatch = z.infer<typeof OutboxBatchSchema>;
    · `upto` 는 **그대로 전진시킨다** — 버린 것은 "우리가 쓸 수 없는 것"이고, 다시 받아도 또 버린다.
      전진시키지 않으면 그 구간을 영원히 되묻는다(H2/2026-07-24 가 고친 정체와 같은 형태).
    · 그 외 검사는 **한 글자도 느슨해지지 않는다**: 살아남은 항목에 원래의 엄격 스키마를 그대로
-     적용한다(스탬프 상한·열 개수·k2 규약·fence·배치 상한). 관용은 *경계*에만 있고 *내용*엔 없다.
+     적용한다(스탬프 상한·열 개수·k2 규약·fence). 관용은 *경계*에만 있고 *내용*엔 없다.
+   · ⚠ **배치 건수 상한은 애초에 이 스키마에 없다**(`parseOutboxBatch` 가 송신 전용으로 소유).
+     종전 이 줄은 상한을 관용 예외 목록에 넣지 않아 "엄격하게 지킨다"고 말했는데, 그것이 바로
+     pull 을 영구 정지시키던 원인이었다 — 근거는 `OutboxBatchSchema` 안의 ⚠⚠ 블록.
    ============================================================ */
 export function parseInboundBatch(
   input: unknown,
@@ -232,11 +252,12 @@ function issueLine(e: z.core.$ZodError): string {
 
 export function parseOutboxBatch(input: unknown): { ok: true; batch: OutboxBatch } | { ok: false; error: string } {
   const r = OutboxBatchSchema.safeParse(input);
-  if (r.success) return { ok: true, batch: r.data as OutboxBatch };
   // 상위 5개만 — 전량을 늘어놓으면 로그가 페이로드만큼 커진다(`artifacts.ts:52` 와 같은 판단).
-  const issues = r.error.issues
-    .slice(0, 5)
-    .map((i) => `${i.path.join('.') || '(루트)'}: ${i.message}`)
-    .join(' · ');
-  return { ok: false, error: issues };
+  if (!r.success) return { ok: false, error: issueLine(r.error) };
+  /* ⚠ 건수 상한은 **여기**에만 있다(송신 전용). 근거는 `OutboxBatchSchema` 안의 ⚠⚠ 블록 —
+     수신에서 거부하면 그 기기의 pull 이 영구 정지한다. 넘는 배치는 서버 CPU 한도에서 어차피
+     죽는데 거기서 죽으면 원인이 "타임아웃"으로 보이므로, 보내기 전에 이름 붙여 거부한다. */
+  const total = r.data.rows.length + r.data.tombstones.length;
+  if (total > MAX_BATCH_ITEMS) return { ok: false, error: `배치가 상한을 넘었다: ${total} > ${MAX_BATCH_ITEMS}` };
+  return { ok: true, batch: r.data as OutboxBatch };
 }

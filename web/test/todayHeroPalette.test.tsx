@@ -2,10 +2,7 @@
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import TooltipHost from '@/components/Tooltip';
 import { paletteCommands, recordRecent } from '@/shell';
 import { useApp } from '@/store/useApp';
@@ -13,18 +10,6 @@ import { useApp } from '@/store/useApp';
 /* Phase 8 — 신규 기능 회귀 고정:
    - 오늘 대시보드 히어로(주간 달성률 링 + 마감 임박 스트립)
    - 명령 팔레트 최근 명령 LRU(최근 실행이 위로) */
-function renderApp(initialPath = '/today') {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
 
 beforeEach(() => {
   useApp.getState().mutate((st) => {

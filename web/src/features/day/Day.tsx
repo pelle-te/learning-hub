@@ -10,7 +10,7 @@ import { DAY_PATH } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { usePrefill } from '@/store/prefill';
-import { ui, io } from '@/shell';
+import { exportAnkiCards, toast } from '@/shell';
 import { summariesFor, cbmsBetween, openBacklog, activityFeed, setRitual } from '@/lib/methodology';
 import { weeklyRecap } from '@/lib/insights';
 import { shutdownChain } from '@/lib/records';
@@ -83,7 +83,7 @@ function BatchCapture() {
     usePrefill.getState().requestBatch(reqs);
     setText('');
     setOpen(false);
-    ui.toast(`${reqs.length}건 프리필 — 요약 폼이 순차로 채워져요`, 'ok');
+    toast(`${reqs.length}건 프리필 — 요약 폼이 순차로 채워져요`, 'ok');
   };
 
   return (
@@ -261,7 +261,7 @@ export default function Day() {
       ],
       // 무데이터면 빈 파일 데드엔드 → 상단바 액션 자체를 미노출(카드 내부 버튼은 canExport로 별도 가드).
       action:
-        todaySumN || todayCbmsN ? { label: 'Anki 카드(.txt)', onClick: () => io.exportAnkiCards('today') } : undefined,
+        todaySumN || todayCbmsN ? { label: 'Anki 카드(.txt)', onClick: () => exportAnkiCards('today') } : undefined,
     }),
     [sumN, cbmsN, openN, isToday, ds2, todaySumN, todayCbmsN],
   );

@@ -14,7 +14,7 @@
 ============================================================ */
 import { useConflicts, shadowId } from '@/store/useConflicts';
 import { restoreConflict } from '@/store/syncController';
-import { ui } from '@/shell';
+import { confirmLossy } from '@/shell';
 import { Button } from '@/components/ui';
 import type { ConflictShadow } from '@/lib/cloud/conflicts';
 /* ⚠ 라벨·미리보기·시각 표기는 **lib 이 소유한다**(H20) — 폰(`phone/ConflictsView`)이 같은
@@ -25,7 +25,7 @@ function ConflictRow({ c }: { c: ConflictShadow }) {
   const dismiss = useConflicts((s) => s.dismiss);
   // 되살리기는 지금 값(다른 기기 편집)을 옛 로컬 값으로 덮는 실제 데이터 변경 → confirm 으로 가드.
   const restore = async (): Promise<void> => {
-    const ok = await ui.confirmLossy(RESTORE_CONFIRM, { title: '되살리기', okLabel: '되살리기' });
+    const ok = await confirmLossy(RESTORE_CONFIRM, { title: '되살리기', okLabel: '되살리기' });
     if (ok) await restoreConflict(c);
   };
   return (

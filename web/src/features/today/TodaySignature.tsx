@@ -7,7 +7,7 @@
 import { completionKey } from '@/lib/domainKeys';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ui } from '@/shell';
+import { confirmIrreversible, toast } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
@@ -400,7 +400,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   };
   const prefillNode = (e: EnrichedItem): void => {
     usePrefill.getState().request('sum', e.it.sid, ds);
-    ui.toast(`${e.it.name} — 기록 프리필됨`, 'info');
+    toast(`${e.it.name} — 기록 프리필됨`, 'info');
   };
 
   /* ── N-5 하루의 국면 ────────────────────────────────────────────────
@@ -481,7 +481,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const stopTimer = async () => {
     if (timer?.kind === 'break') return stopSession();
     if (
-      await ui.confirmIrreversible('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
+      await confirmIrreversible('집중 세션을 중단할까요? 진행 시간은 기록되지 않아요.', {
         title: '집중 중단',
         okLabel: '중단',
       })
@@ -496,7 +496,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     if (allDone && !wasDone.current) {
       wasDone.current = true;
       setCelebrate(true);
-      ui.toast('오늘 블록 완료!', 'info');
+      toast('오늘 블록 완료!', 'info');
       const id = setTimeout(() => setCelebrate(false), 1400);
       return () => clearTimeout(id);
     }
@@ -510,7 +510,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     const hit = MILE.filter((m) => streak >= m && last < m);
     if (hit.length) {
       const top = Math.max(...hit);
-      ui.toast(`${top}일 연속 — 불씨 살아있어요`, 'info');
+      toast(`${top}일 연속 — 불씨 살아있어요`, 'info');
       mutate((st) => {
         st._lastStreakCele = top;
       });
@@ -537,9 +537,19 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   /* ⚠ 크롬 설정을 **모듈 함수로 뺐다**(W7 · 2026-08-07). A-10·A-13 이 붙으며 이 컴포넌트가
      인지복잡도 래칫(62)을 넘었고, 이 블록은 그 복잡도의 큰 몫이다(중첩 삼항 넷 + 조건부 스프레드).
      응집도 맞다 — "상단 44px 과 리드아웃에 무엇을 세우나" 하나에만 답한다. */
+  /* ⚠⚠ **`cap.slackMin` 이 deps 에 없으면 44px 앵커가 시간을 안 본다**(2026-08-20 리뷰 M-2).
+     `chromeFor` 의 `primary`(= 이 화면 최상위 앵커)는 **오직 `cap.slackMin` 만** 읽는데, `cap` 은
+     `freeMinAfter(freeIntervals, nowMin)` 파생이고 `useAdaptiveTick(30_000)` 이 30초마다 리렌더를
+     강제한다. 즉 **여유는 30초마다 줄어드는데 이펙트는 안 돌아**, 상단 바가 나머지 deps 중 하나가
+     마지막으로 바뀐 시점(대개 마운트)의 값을 하루 종일 붙들고 있었다. *"다음 행동을 가장 많이
+     바꾸는 한 수"* 라는 이 자리의 정의가 시간에 반응하지 않으면 그 값이 없는 것이다.
+     ⚠ 참조가 아니라 **스칼라**로 넣는다 — `cap` 은 매 렌더 새 객체라 참조를 넣으면 이펙트가
+     30초마다 무조건 돌고, 그건 이 목록이 존재하는 이유를 없앤다.
+     ⚠ 이 훅은 계약상 `exhaustive-deps` 를 끈다(`store/usePageChrome` 참조) — 즉 이 손 목록이
+     유일한 방어선이다. 여기에 값을 추가할 때는 `chromeFor` 가 **실제로 읽는 것**을 세어라. */
   usePageChromeEffect(
     () => chromeFor({ cap, streak, todayDone, todayTotal, allDone, hasItems, res, nearestDday, goPlanToday, go }),
-    [todayDone, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
+    [cap.slackMin, todayDone, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
 
   // W20 — 오늘 띄울 인출 카드 **하나**(회전 규칙·근거는 `lib/todaySlots` 머리주석).

@@ -21,7 +21,7 @@ import {
   resolveSlot,
   snap,
 } from '@/lib/dayPlans';
-import type { AppState, Day } from '@/lib/types';
+import type { Day } from '@/lib/types';
 
 // 챕터를 가진 주간 과목 하나 — 스케줄러가 실제로 도는 최소 시드(결정론: startDate·_today 고정).
 const seed = (): AppState =>

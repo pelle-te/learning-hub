@@ -125,10 +125,15 @@ export function subjectsFromIndex(idx: { notes?: IndexNote[] }): VaultSubject[] 
   });
 }
 
+/** 프론트매터를 찾기 위해 읽는 선두 길이(**바이트** — `Blob.slice` 는 바이트 단위다).
+ *  ⚠ `src-tauri/src/vault.rs` 의 `FM_HEAD_BYTES` 와 **같은 값·같은 단위**여야 한다. 종전에 저쪽이
+ *  `chars().take(1600)`(문자)였고 주석은 "동형"이라 적어, 한글 노트에서 최대 3배를 읽었다. */
+const FM_HEAD_BYTES = 1600;
+
 async function readFM(fh: FileSystemFileHandle): Promise<Record<string, string>> {
   try {
     const f = await fh.getFile();
-    const t = (await f.slice(0, 1600).text()) as string;
+    const t = (await f.slice(0, FM_HEAD_BYTES).text()) as string;
     // `\s*\n`이 아니라 `[ \t]*\r?\n` — `\s`가 개행을 포함해 `\s*\n`과 뒤따르는 lazy `[\s\S]*?`가
     // 같은 문자를 두고 겹치면서 백트래킹이 초선형이 된다(sonarjs/super-linear-regex).
     // 문자 클래스를 겹치지 않게 가르면 모호성이 사라지고, 덤으로 CRLF 볼트도 인식한다.

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useApp } from '@/store/useApp';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { ui } from '@/shell';
+import { toast } from '@/shell';
 import { setRitual } from '@/lib/methodology';
 import { isDone } from '@/lib/persistence';
 import { useSchedule } from '@/store/selectors';
@@ -47,18 +47,18 @@ function RitualCard() {
       // 이유만 있고 규모가 없으면 나중에 비교가 안 된다 — 분모를 **같은 순간에** 함께 굳힌다.
       setRitual(st, ds2, 'stopPending', pending);
     });
-    ui.toast('중단 지점 기록됨', 'info');
+    toast('중단 지점 기록됨', 'info');
   };
   const toggle = (key: 'plan' | 'shutdown', on: boolean) => {
     mutate((st) => setRitual(st, ds2, key, on));
-    ui.toast(on ? '기록됨' : '해제됨', 'info');
+    toast(on ? '기록됨' : '해제됨', 'info');
   };
   // '내일 한 줄'은 blur 시 저장(키 입력마다 mutate 방지).
   const saveNote = () => {
     if (note === (r.note || '')) return;
     mutate((st) => setRitual(st, ds2, 'note', note.trim()));
     setJustSaved(true);
-    ui.toast('내일 한 줄 저장됨', 'info');
+    toast('내일 한 줄 저장됨', 'info');
   };
 
   return (

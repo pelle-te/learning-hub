@@ -147,7 +147,8 @@ export default function App() {
   // 옛 하드코딩 FILL_TABS 목록이 TabMeta와 별개 SSOT로 표류하던 문제(L-15) 해소.
   const fillFrame = tabByKey(routeKey)?.fill ?? false;
   const tabs = orderedTabs();
-  // C-8: 라우트 엘리먼트 트리는 불변 TABS의 순수 파생 → 1회만 생성(⌘K 토글·매 내비마다 15개 재구축 방지).
+  // C-8: 라우트 엘리먼트 트리는 불변 TABS의 순수 파생 → 1회만 생성(⌘K 토글·매 내비마다 전량 재구축 방지).
+  // ⚠ 개수를 적지 않는다 — 종전 "15개"는 실측(`orderedTabs()`)과 달랐다(2026-08-20 리뷰 n-5).
   // tabs 참조는 모듈 상수(ORDERED_TABS)라 안정 — deps에 둬도 재생성 안 함.
   const routeEls = useMemo(
     () =>

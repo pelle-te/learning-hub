@@ -8,7 +8,7 @@
    ⚠ 학기가 없으면 **아무것도 안 그린다**: 목표는 학기의 속성이라 담을 그릇이 없다.
 ============================================================ */
 import { useApp } from '@/store/useApp';
-import { ui } from '@/shell';
+import { toastUndoable } from '@/shell';
 import { Button, NumberField, Pill } from '@/components/ui';
 import { GOAL_METRIC, MAX_GOALS, goalStatuses, goalsOf } from '@/lib/semesterGoals';
 import { activeSemester } from '@/lib/semester';
@@ -41,7 +41,7 @@ export default function SemesterGoals() {
     editSem((list) => list.map((g) => (g.id === id ? { ...g, ...patch } : g)));
   const del = (id: string): void => {
     editSem((list) => list.filter((g) => g.id !== id));
-    ui.toastUndoable('목표 삭제됨');
+    toastUndoable('목표 삭제됨');
   };
 
   return (

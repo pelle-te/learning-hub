@@ -1,27 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
+import { renderApp } from './_render';
 import { useApp } from '@/store/useApp';
 
 /* Phase 6 — 레거시 JS 런타임 제거 후 네이티브 셸(shell/*)이 동작하는지:
-   네이티브 토스트·확인 모달·테마 토글·아이콘 나브. globalThis.state(레거시 브리지) 없음. */
-function renderApp(initialPath = '/today') {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+   네이티브 토스트·확인 모달·테마 토글·아이콘 나브. */
 
 beforeEach(() => {
   useApp.getState().mutate((st) => {
@@ -31,9 +16,10 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test('레거시 globalThis.state 브리지가 제거됐다(단일 원천=Zustand)', () => {
-  expect((globalThis as unknown as { state?: unknown }).state).toBeUndefined();
-});
+/* ⚠ **묘비명 하나를 지웠다**(2026-08-20 리뷰 m-19): `expect(globalThis.state).toBeUndefined()`.
+   레거시 브리지가 사라진 뒤로 그 단언은 **영원히 실패할 수 없다** — 아무도 그 전역을 세우지
+   않으므로 코드가 어떻게 바뀌어도 통과한다. 검사처럼 보이는 상수이고, 그런 줄이 하나 있으면
+   케이스 수가 안전을 과장한다. 사실 자체는 이 파일 머리주석이 이력으로 기록한다. */
 
 test('네이티브 레일 나브: 주요 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
   const { container } = renderApp('/today');

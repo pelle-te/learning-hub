@@ -19,7 +19,7 @@ import {
 } from '@/lib/scheduleView';
 import { studyMinByWeekday } from '@/lib/scheduler';
 import { parseISO } from '@/lib/utils';
-import type { AppState, Day, ItemStat, ScheduleItem, ScheduleResult, SessionType } from '@/lib/types';
+import type { Day, ItemStat, ScheduleItem, ScheduleResult, SessionType } from '@/lib/types';
 
 const DS = '2026-06-23'; // 기준일. curMon=이 날, k=0 → date=DS.
 const MON = parseISO(DS);

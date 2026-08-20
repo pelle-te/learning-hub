@@ -13,7 +13,7 @@
       사다리**가 별도 함수로 메운다 — 입력이 '스케줄'이 아니라 '챕터 카탈로그'다.
 ============================================================ */
 import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
-import { chapterCoefficient, chapterStrength } from './chapterStrength';
+import { chapterCoefficient, chapterStrengths, unseenAt, type ChapterStrength } from './chapterStrength';
 import { isDone } from './persistence';
 import { CBMS_ADVANCES_REVIEW } from './methodology';
 import { vaultAnchors } from './vaultAnchors';
@@ -228,15 +228,23 @@ export interface ShiftContext {
 
 /** 위 컨텍스트를 만든다. `chapterReviews`·`examStaleChapters` 가 **같은 것을** 쓴다. */
 export function shiftContext(state: AppState, todayDs: string): ShiftContext {
+  /* ⚠⚠ **강도는 여기서 한 번만 판다**(2026-08-20 리뷰 M-5). 종전엔 `strong`·`coef` 가 클로저라
+     호출 시점마다 `chapterStrength` 를 돌렸고, 그 함수는 매번 `blankResults` 전량을
+     `.filter().sort()` 한다. 게다가 `chapterShift` 는 같은 (sid, chapter)로 **두 필드를 각각**
+     부르므로 챕터당 전량 스캔이 2회였다 — 이 인터페이스의 첫 줄("한 번 만들어 재사용한다 ·
+     과목 스캔 반복 방지")이 정확히 그 두 필드에서만 거짓이었다. 지금은 선언이 곧 구현이다. */
+  const strengths = chapterStrengths(state, todayDs);
+  const at = (sid: string, chapter: string): ChapterStrength =>
+    strengths.get(sid + '|' + chapter) ?? unseenAt(state, sid, chapter, todayDs);
   return {
     failing: failingSids(state, todayDs),
     cbmsByChapter: latestCbmsByChapter(state, todayDs),
     leeches: new Set(leechChapters(state, todayDs, Infinity).map((l) => l.sid + '|' + l.chapter)),
-    strong: (sid, chapter) => chapterStrength(state, sid, chapter, todayDs).band === 'strong',
-    /* ⚠ `strong` 과 **같은 관측**에서 나온다(같은 `chapterStrength`) — 하나는 3구간으로 접고
-       하나는 연속으로 쓴다. 두 축이 서로 다른 표본을 보면 화면이 "붙었다"고 말하면서 사다리는
-       줄어드는 상태가 생긴다. */
-    coef: (sid, chapter) => chapterCoefficient(chapterStrength(state, sid, chapter, todayDs)),
+    strong: (sid, chapter) => at(sid, chapter).band === 'strong',
+    /* ⚠ `strong` 과 **같은 관측**에서 나온다(같은 강도 객체) — 하나는 3구간으로 접고 하나는
+       연속으로 쓴다. 두 축이 서로 다른 표본을 보면 화면이 "붙었다"고 말하면서 사다리는 줄어드는
+       상태가 생긴다. 이제는 같은 Map 항목이라 갈릴 수가 없다. */
+    coef: (sid, chapter) => chapterCoefficient(at(sid, chapter)),
   };
 }
 
@@ -269,11 +277,20 @@ export function chapterShift(
 const TOUCH_TYPES: ReadonlySet<SessionType> = new Set<SessionType>(['new', 'rev', 'blank']);
 
 /** 챕터별 '마지막으로 만진 날' → 경과일·위험도. todayDs 이후(미래) 배치는 무시. 위험 큰 순 정렬. */
-export function chapterReviews(state: AppState, days: Day[], todayDs: string): ChapterReview[] {
-  const last = new Map<
-    string,
-    { ds: string; subject: string; sid: string; color?: string; chapter: string; fromVault?: true }
-  >();
+/** 챕터별 '마지막으로 만진 날' 표. `sid|chapter` → 그 챕터의 최근 앵커. */
+type LastTouch = Map<
+  string,
+  { ds: string; subject: string; sid: string; color?: string; chapter: string; fromVault?: true }
+>;
+
+/* ── 앵커 소스 셋 (2026-08-20 리뷰 M-14 원장 축소) ───────────────────────────────
+   ⚠ **동작·순서는 안 바뀐다**: 스케줄(완료된 세션) → 인출 터치(계획 밖) → 볼트(`reviewed:`).
+   셋은 서로를 모르고 각자 *어떤 기록이 앵커가 되는가* 만 안다 — 종전엔 한 함수 안에 삼중
+   루프째로 겹쳐 있었고 그게 `chapterReviews` 인지복잡도의 대부분이었다. */
+
+/** ① 스케줄에서 **완료된** 터치 세션 → 챕터별 최근일. 미래(`ds > todayDs`)는 무시한다. */
+function anchorsFromSchedule(state: AppState, days: Day[], todayDs: string): LastTouch {
+  const last: LastTouch = new Map();
   for (const d of days) {
     if (d.ds > todayDs) continue;
     for (const it of d.items) {
@@ -287,31 +304,57 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
       }
     }
   }
-  // ReviewRun 챕터 터치(계획 밖 인출) 병합 — 계획 파생 lastDs와 max(감사 #22: 밀린 챕터를
-  // 복습해도 overdue가 안 풀리던 루프). 스캔에 없는 키는 과목 메타를 몰라 건너뜀 — 위험으로
-  // 뜨는 챕터는 완료 이력이 있어 항상 스캔에 존재한다. 미래 ds는 스캔과 동일하게 무시.
+  return last;
+}
+
+/** ② ReviewRun 챕터 터치(계획 밖 인출) 병합 — 계획 파생 lastDs 와 max(감사 #22: 밀린 챕터를
+ *  복습해도 overdue 가 안 풀리던 루프). 스캔에 없는 키는 과목 메타를 몰라 건너뛴다 — 위험으로
+ *  뜨는 챕터는 완료 이력이 있어 항상 스캔에 존재한다. 미래 ds 는 스캔과 동일하게 무시. */
+function mergeRetrievalTouches(last: LastTouch, state: AppState, todayDs: string): void {
   const touches = state.reviewTouches || {};
   for (const k in touches) {
     const ds = touches[k]!;
     const cur = last.get(k);
     if (cur && ds > cur.ds && ds <= todayDs) cur.ds = ds;
   }
-  /* W2 — 볼트 `reviewed:` 앵커 주입. ⚠ **앱 앵커가 아예 없는 챕터에만** 넣는다(`last.has` 가
-     그 가드다) — 볼트 값은 검증 통과일이라 인출 기록을 절대 이기면 안 된다(방향 제약 · 자세한
-     근거는 `lib/vaultAnchors.ts` 머리주석). 끝낸 챕터는 유지 큐가 소유하므로 여기서 뺀다. */
+}
+
+/** ③ 볼트 `reviewed:` 앵커 주입. ⚠ **앱 앵커가 아예 없는 챕터에만** 넣는다(`last.has` 가 그
+ *  가드다) — 볼트 값은 검증 통과일이라 인출 기록을 절대 이기면 안 된다(방향 제약 · 자세한
+ *  근거는 `lib/vaultAnchors.ts` 머리주석). 끝낸 챕터는 유지 큐가 소유하므로 여기서 뺀다. */
+function mergeVaultAnchors(last: LastTouch, state: AppState, todayDs: string): void {
   const anchors = vaultAnchors();
-  if (anchors.size) {
-    for (const it of state.items || []) {
-      for (const ch of it.chapters || []) {
-        if (ch.done) continue;
-        const key = it.id + '|' + ch.name;
-        if (last.has(key)) continue;
-        const ds = anchors.get(key);
-        if (!ds || ds > todayDs) continue;
-        last.set(key, { ds, subject: it.name, sid: it.id, color: it.color, chapter: ch.name, fromVault: true });
-      }
+  if (!anchors.size) return;
+  for (const it of state.items || []) {
+    for (const ch of it.chapters || []) {
+      if (ch.done) continue;
+      const key = it.id + '|' + ch.name;
+      if (last.has(key)) continue;
+      const ds = anchors.get(key);
+      if (!ds || ds > todayDs) continue;
+      last.set(key, { ds, subject: it.name, sid: it.id, color: it.color, chapter: ch.name, fromVault: true });
     }
   }
+}
+
+/** 세 소스를 **선언된 순서로** 합친다. 순서가 규칙이다(뒤가 앞을 조건부로만 보강한다). */
+function lastTouchedByChapter(state: AppState, days: Day[], todayDs: string): LastTouch {
+  const last = anchorsFromSchedule(state, days, todayDs);
+  mergeRetrievalTouches(last, state, todayDs);
+  mergeVaultAnchors(last, state, todayDs);
+  return last;
+}
+
+export function chapterReviews(
+  state: AppState,
+  days: Day[],
+  todayDs: string,
+  /** ⚠ 이미 만들어 둔 컨텍스트가 있으면 넘긴다 — 없으면 여기서 만든다. `examStaleChapters` 가
+   *  자기 `ctx` 를 만든 뒤 이 함수를 불러 **한 호출에 컨텍스트가 두 벌**이던 것을 없앤다
+   *  (2026-08-20 리뷰 M-5). 기본값이 있어 기존 호출부는 한 글자도 안 바뀐다. */
+  sharedCtx?: ShiftContext,
+): ChapterReview[] {
+  const last = lastTouchedByChapter(state, days, todayDs);
   /* ID-10 — 직전 백지가 막힌 과목은 임계를 한 칸 앞당긴다(성패 가중 · 실패 방향만).
      ⚠⚠ **P-3(2026-08-01) — 그 트리거를 챕터의 CBMS 코드가 가른다.** 순서가 규칙이다:
        ① 이 챕터에 최근 CBMS 코드가 있으면 **그것이 결정한다**(지식 결손 계열만 앞당긴다).
@@ -326,7 +369,7 @@ export function chapterReviews(state: AppState, days: Day[], todayDs: string): C
      ⚠ `strong` 은 `chapterStrength` 의 3구간 중 하나일 뿐이다 — `unseen`(표본 0)은 미룸에
      참여하지 않는다. 안 재 본 챕터를 "잘한다"고 가정하면 그게 가장 나쁜 오류다.
      ⚠⚠ 판정 자체는 **`chapterShift` 한 곳**이 소유한다(A-3 시험 앵커가 같은 규칙을 쓴다). */
-  const ctx = shiftContext(state, todayDs);
+  const ctx = sharedCtx ?? shiftContext(state, todayDs);
   const out: ChapterReview[] = [];
   for (const e of last.values()) {
     const daysSince = dayDiff(e.ds, todayDs);
@@ -660,7 +703,7 @@ export function examStaleChapters(state: AppState, days: Day[], todayDs: string,
   const hoursOf = chapterHours(state);
   const base = parseISO(todayDs);
   const out: ExamStale[] = [];
-  for (const ch of chapterReviews(state, days, todayDs)) {
+  for (const ch of chapterReviews(state, days, todayDs, ctx)) {
     // 시험 전(당일 포함)에 걸리는 칸 중 **가장 늦은 것** — 그게 시험 전 마지막 복습이다.
     let bestIn = -1;
     for (const off of FORECAST_OFFSETS) {

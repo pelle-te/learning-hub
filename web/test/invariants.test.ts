@@ -10,7 +10,11 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
+/* ⚠ **스캐너·주석제거기는 여기 한 벌이다**(m-16). 지역 워커를 새로 파지 말 것 —
+   종전엔 11벌이었고 주석 제거기가 4벌·의미 3가지로 갈려 오탐·오검이 동시에 났다.
+   새 불변식을 추가할 때 이 모듈을 쓰면 규율(주석은 검사 대상이 아니다)이 자동 상속된다. */
+import { SRC, aliasOf, cssFiles, filesUnder, importSpecifiers, strip, tsFiles } from './_sources';
 import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
@@ -28,7 +32,6 @@ import {
 import { NAV_SHORTCUTS } from '@/shell/shortcuts';
 // ⚠ 불변식 ③-b 가 ⌘K 도달을 **세어야** 하므로 팔레트 목록을 실제로 읽는다(믿지 않는다).
 import { paletteCommands as basePaletteCommands } from '@/shell/palette';
-import type { AppState } from '@/lib/types';
 
 /* Proxy 내부 접근·상속 프로퍼티 등 슬라이스가 아닌 잡음 키(캐시 입력이 아님). */
 const NOISE = new Set([
@@ -317,14 +320,8 @@ describe('불변식 ③-b 도달 경로(D-4) — 모든 열거가 TABS.role 에�
 ============================================================ */
 describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등재한다', () => {
   const FEATURES = join(process.cwd(), 'src', 'features');
-  function files(dir: string, out: string[] = []): string[] {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) files(p, out);
-      else if (/\.tsx?$/.test(e.name)) out.push(p);
-    }
-    return out;
-  }
+  // 스캐너는 `test/_sources.ts` 한 벌이다(m-16) — 지역 워커를 다시 파지 말 것.
+  const files = (dir: string): string[] => tsFiles(dir);
   const REGISTERS = /(document|window)\.addEventListener\(\s*['"`]keydown/;
   const DECLARES = /useKeymap(Doc)?\s*\(/;
 
@@ -548,18 +545,8 @@ describe('불변식 ④ JS 에서 읽는 CSS 토큰이 tokens.css 에 정의돼 
   const SRC = join(process.cwd(), 'src') + '/';
 
   /** `src/` 전체에서 `getComputedStyle` 을 쓰는 파일 경로. */
-  function readersOfCssVars(): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.tsx?$/.test(e.name) && readFileSync(p, 'utf8').includes('getComputedStyle')) out.push(p);
-      }
-    };
-    walk(SRC);
-    return out;
-  }
+  const readersOfCssVars = (): string[] =>
+    tsFiles(SRC).filter((p) => readFileSync(p, 'utf8').includes('getComputedStyle'));
 
   const tokensCss = readFileSync(join(SRC, 'styles', 'tokens.css'), 'utf8');
   const readers = readersOfCssVars();
@@ -613,20 +600,9 @@ describe('불변식 ⑤ CSS 가 참조하는 --토큰이 정의돼 있다', () =
    *  동적 색이라 정적 선언이 불가능하다(절대규칙 #3 의 구현 · 설계서 §4-6단계). */
   const RUNTIME_INJECTED = new Set(['--seg', '--sub', '--tint']);
 
-  function cssFiles(): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (e.name.endsWith('.css')) out.push(p);
-      }
-    };
-    walk(SRC);
-    return out;
-  }
+  const cssFilesLocal = (): string[] => cssFiles(SRC);
 
-  const files = cssFiles();
+  const files = cssFilesLocal();
   const all = files.map((f) => readFileSync(f, 'utf8')).join('\n');
   // 정의된 것 전부(tokens.css 든 feature 모듈이든 — 지역 변수도 정당한 정의다).
   const defined = new Set([...all.matchAll(/(--[a-z][\w-]*)\s*:/gi)].map((m) => m[1]!));
@@ -700,27 +676,20 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     'toastLife',
   ]);
 
-  function filesUnder(pred: (name: string) => boolean): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (pred(e.name)) out.push(p);
-      }
-    };
-    walk(SRC);
-    return out;
-  }
+  const filesUnderLocal = (pred: (name: string) => boolean): string[] => filesUnder(pred, SRC);
 
   /** ⚠ **주석을 먼저 걷어낸다.** 이 저장소의 주석은 옛 이름·옛 값을 인용해 *왜 바뀌었는지*를
    *  남기는 문화라(그게 규약이다) 원문을 그대로 스캔하면 `@keyframes ds-sp 가 여기 있었다` 같은
    *  묘비명이 위반으로 잡힌다 — 실제로 이 불변식의 첫 실행이 그렇게 실패했다. 검사 대상은
    *  **선언**이고 주석은 선언이 아니다. */
-  const stripComments = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '');
+  /* ⚠ 지역 제거기를 다시 만들지 않는다(m-16) — `test/_sources.ts` 의 `strip` 한 벌이다.
+     종전엔 여기가 **블록 주석만** 지웠고, 아래 세 케이스가 각자 `/\/\/.*$/gm` 를 덧붙였다.
+     그 정규식은 문자열 속 `https://` 뒤까지 잘라 같은 줄의 선언을 **조용히 삭제**한다(오검).
+     공용 `strip` 은 `[^:]` 가드로 그 함정을 피한다 — 불변식 ⑦·⑧이 이미 쓰던 형태다. */
+  const stripComments = strip;
 
-  const cssFiles = filesUnder((n) => n.endsWith('.css'));
-  const tsFiles = filesUnder((n) => /\.tsx?$/.test(n));
+  const cssFiles = filesUnderLocal((n) => n.endsWith('.css'));
+  const tsFiles = filesUnderLocal((n) => /\.tsx?$/.test(n));
   const allCss = cssFiles.map((f) => stripComments(readFileSync(f, 'utf8'))).join('\n');
 
   it('키프레임 이름이 전부 선언된 어휘에 속한다(컴포넌트 이름을 단 키프레임 0)', () => {
@@ -758,7 +727,7 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
   it('JSX 의 animate-[…]·duration-… 길이가 리터럴이 아니다', () => {
     const bad: string[] = [];
     for (const f of tsFiles) {
-      const src = stripComments(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''));
+      const src = stripComments(readFileSync(f, 'utf8'));
       for (const m of src.matchAll(/animate-\[[^\]]*\]/g)) {
         if (/(?<![\w.-])\d+(?:\.\d+)?m?s\b/.test(m[0])) bad.push(`${f.replace(SRC, '')} → ${m[0]}`);
       }
@@ -781,7 +750,7 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     const bridge = readFileSync(join(SRC, 'styles', 'tokenBridge.css'), 'utf8');
     const used = new Set<string>();
     for (const f of tsFiles) {
-      const src = stripComments(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''));
+      const src = stripComments(readFileSync(f, 'utf8'));
       for (const m of src.matchAll(/\bduration-([a-z][\w-]*)/g)) used.add(m[1]!);
     }
     // ⚠ 조용한 통과 방지 — 0개면 정규식이 망가진 것이다.
@@ -804,7 +773,7 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
     const 리터럴 = /\b(cubic-bezier\(|ease-in-out\b|ease-linear\b|(?<![\w-])linear(?![\w-])\s*(?:;|,|\)))/;
     for (const f of [...cssFiles, ...tsFiles]) {
       if (f.endsWith(join('styles', 'tokens.css'))) continue; // 값의 주인
-      const src = stripComments(readFileSync(f, 'utf8').replace(/\/\/.*$/gm, ''));
+      const src = stripComments(readFileSync(f, 'utf8'));
       // 이징이 놓이는 자리만 본다: CSS 의 transition/animation 선언 + JSX 의 ease-*/animate-[…].
       const 자리 = [
         ...[...src.matchAll(/(?:animation|transition)(?:-timing-function)?\s*:\s*([^;{}]+)/g)].map((m) => m[1]!),
@@ -872,21 +841,10 @@ describe('불변식 ⑦ 모션 자제 판정이 lib/motion 밖에 없다', () =>
   const SRC7 = join(process.cwd(), 'src') + '/';
   const OWNER = join(SRC7, 'lib', 'motion.ts');
 
-  function tsFiles(): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.tsx?$/.test(e.name)) out.push(p);
-      }
-    };
-    walk(SRC7);
-    return out;
-  }
+  const tsFilesLocal = (): string[] => tsFiles(SRC7);
 
   it('`.matches` 로 모션 자제를 직접 판정하는 파일이 없다', () => {
-    const offenders = tsFiles()
+    const offenders = tsFilesLocal()
       .filter((p) => p !== OWNER)
       .filter((p) => {
         /* ⚠ **주석을 걷어내고 본다.** 안 그러면 "종전엔 `reduce.matches` 를 읽었다"고 적어 둔
@@ -932,7 +890,7 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
   /** 윈도우 경로 구분자 — 리터럴로 쓰면 이스케이프가 헷갈린다(실제로 두 번 물렸다). */
   const SEP_BS = String.fromCharCode(92);
 
-  function sources(): { path: string; code: string }[] {
+  function sourcesLocal(): { path: string; code: string }[] {
     const out: { path: string; code: string }[] = [];
     const walk = (dir: string): void => {
       for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -952,7 +910,7 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
   }
 
   it('`leading-[…]` 임의값이 없다 — 줄높이는 `--leading-*` 사다리에서 고른다', () => {
-    const bad = sources()
+    const bad = sourcesLocal()
       .flatMap(({ path, code }) => (code.match(/leading-\[[^\]]+\]/g) ?? []).map((m) => `${path}: ${m}`))
       .sort();
     expect(
@@ -962,7 +920,7 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
   });
 
   it('두 자리 이상 z-index 는 `--z-*` 토큰으로만 쓴다(앱 레이어와 겨루는 크기다)', () => {
-    const bad = sources()
+    const bad = sourcesLocal()
       .flatMap(({ path, code }) => (code.match(/\bz-\[(\d{2,})\]|\bz-(\d{2,})\b/g) ?? []).map((m) => `${path}: ${m}`))
       .sort();
     expect(
@@ -978,7 +936,7 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
      ⚠ Tailwind 기본 스케일(`brightness-105` 등)은 막지 않는다 — 그건 이름 있는 사다리다.
        금지 대상은 **임의값**(`brightness-[…]`) 하나다. */
   it('`brightness-[…]` 임의값이 없다 — 강조 세기는 `--brightness-emph*` 두 칸에서 고른다', () => {
-    const bad = sources()
+    const bad = sourcesLocal()
       .flatMap(({ path, code }) => (code.match(/brightness-\[[^\]]+\]/g) ?? []).map((m) => `${path}: ${m}`))
       .sort();
     expect(
@@ -1028,15 +986,7 @@ describe('불변식 ⑫ 폰이 쓰는 ds-* 가 폰 번들에 정의돼 있다', 
   const SRC = join(process.cwd(), 'src') + '/';
   const phoneDir = join(SRC, 'phone');
 
-  function tsxUnder(dir: string): string[] {
-    const out: string[] = [];
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) out.push(...tsxUnder(p));
-      else if (/\.tsx?$/.test(e.name)) out.push(p);
-    }
-    return out;
-  }
+  const tsxUnder = (dir: string): string[] => tsFiles(dir);
 
   /** ⚠ **주석을 걷어낸다 — 반증으로 잡았다.** 이 저장소의 주석은 옛 이름·근거를 인용하는 문화라
    *  `phone.css` 의 `.ds-shed` 설명 문단 자체가 "선언"으로 세어졌다. 선언을 통째로 지우고
@@ -1097,23 +1047,12 @@ const normPath = (p: string): string => p.split(String.fromCharCode(92)).join('/
 
 describe('불변식 ⑨ morph 이름은 lib/motion 의 규약에서만 나온다', () => {
   const SRC = join(process.cwd(), 'src') + '/';
-  function tsFilesOf(): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.(ts|tsx)$/.test(e.name)) out.push(p);
-      }
-    };
-    walk(join(process.cwd(), 'src'));
-    return out;
-  }
-  const tsFiles = tsFilesOf();
+  // 스캐너는 `test/_sources.ts` 한 벌이다(m-16). 지역 이름은 `tsFiles` 를 가리지 않게 바꾼다.
+  const srcTsFiles = tsFiles(SRC);
 
   it('viewTransitionName 에 문자열 리터럴을 직접 넣지 않는다', () => {
     const bad: string[] = [];
-    for (const f of tsFiles) {
+    for (const f of srcTsFiles) {
       if (normPath(f).endsWith('lib/motion.ts')) continue; // 규약 자신
       const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
       // `viewTransitionName: 'x'` / `viewTransitionName = 'x'` 둘 다 잡는다.
@@ -1125,7 +1064,7 @@ describe('불변식 ⑨ morph 이름은 lib/motion 의 규약에서만 나온다
   });
 
   it('규약이 실제로 쓰이고 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
-    const users = tsFiles.filter((f) => {
+    const users = srcTsFiles.filter((f) => {
       if (normPath(f).endsWith('lib/motion.ts')) return false;
       return /\b(applyMorph|morphName)\s*\(/.test(readFileSync(f, 'utf8'));
     });
@@ -1295,7 +1234,11 @@ describe('불변식 ⑬ <input type> 이 전역 폼 스킨에 등재돼 있다',
         const p = join(dir, e.name);
         if (e.isDirectory()) walk(p);
         else if (/\.tsx$/.test(e.name)) {
-          const code = readFileSync(p, 'utf8');
+          /* ⚠⚠ **주석을 걷어낸다**(m-16). 이 불변식만 원문을 그대로 스캔하고 있었다 — 그러면
+             주석에 옛 마크업을 인용하는 순간 위반이 되고, 고치는 유일한 길이 **프로덕션 CSS 를
+             바꾸는 것**이 된다. 이 파일이 네 번이나 "근거를 남길수록 게이트가 빨개지면 그건
+             역인센티브다"라고 못박은 그 규율을, 가장 최근 케이스가 안 받고 있었다. */
+          const code = strip(readFileSync(p, 'utf8'));
           const rel = normPath(p).replace(normPath(SRC13) + '/', '');
           /* JSX 는 속성 안에 `>` 를 품을 수 있다(`onChange={(e) => …}`) → 중괄호 깊이를 세며
              태그 끝을 찾는다. 정규식 하나로 끊으면 타입 속성이 잘려 **거짓 통과**가 된다. */
@@ -1343,5 +1286,106 @@ describe('불변식 ⑬ <input type> 이 전역 폼 스킨에 등재돼 있다',
       [...new Set(bad)],
       `스킨 없는 입력 타입 — styles/global/components.css 의 타입 열거에 추가하거나, 안 받는 것이 의도라면 EXEMPT 에 이유와 함께 적어라:\n${bad.join('\n')}`,
     ).toEqual([]);
+  });
+});
+
+/* ============================================================
+   불변식 ⑭ **테스트만 import 하는 프로덕션 모듈이 없다**(2026-08-20 리뷰 m-4).
+
+   ## 왜 테스트가 집행자인가 — knip 이 원리적으로 못 본다
+
+   `knip.jsonc` 는 `test/**` 를 entry 로 잡는다. 그래서 테스트만 쓰는 `src/` 모듈은 영원히
+   *사용 중*이다. entry 에서 빼 봤지만 **knip 의 vitest 플러그인이 자동으로 다시 넣는다**
+   (프로브로 실측 · 그 파일 머리주석에 적어 뒀다). 즉 설정으로는 못 고치는 축이다.
+
+   실제로 그 구멍으로 둘이 샜다:
+   · `lib/predictionScore.ts`(125줄) — 프로덕션 소비처 0. 삭제됨.
+   · `lib/since.ts`(65줄) — 프로덕션 소비처 0인데 **짝인 쓰기 경로는 살아서 매 내비게이션마다
+     돌고 있었다**(`app/useMarkSeen` → `useUI.seenAt`, 읽는 코드 0곳). 표시를 맡던 `SubTabs` 가
+     N-14/W5 에서 은퇴할 때 판정·시점이 함께 안 걷힌 것이다. 레일 신호로 되살렸다.
+
+   ## ⚠ 무엇을 위반으로 보나
+
+   `src/` 안의 모듈 중 **`src/` 어디에서도 import 되지 않는데 `test/` 에서는 import 되는 것**.
+   진입점·자동 로드 파일은 정의상 `src/` 참조가 없으므로 면제 목록에 둔다 — 면제가 늘어나면
+   그게 곧 "이 검사가 무뎌지고 있다"는 신호이니 사유를 함께 적을 것.
+============================================================ */
+describe('불변식 ⑭ 테스트만 쓰는 프로덕션 모듈이 없다', () => {
+  /** 정의상 `src/` 안에서 참조되지 않는 파일 — 번들러·러너·HTML 이 직접 문다. */
+  const ENTRYPOINTS = new Set([
+    '@/main', // index.html
+    '@/phone/main', // phone.html
+    '@/lib/db/sqlite.worker', // new Worker(new URL(...))
+    '@/vite-env.d', // 타입 선언
+  ]);
+
+  it('src/ 에서 아무도 안 쓰는데 테스트만 쓰는 모듈이 없다', () => {
+    const srcFiles = tsFiles(SRC);
+    const testFiles = filesUnder((n) => /\.tsx?$/.test(n), join(process.cwd(), 'test'));
+
+    const usedInSrc = new Set<string>();
+    for (const f of srcFiles) {
+      for (const spec of importSpecifiers(strip(readFileSync(f, 'utf8')))) {
+        if (spec.startsWith('@/')) usedInSrc.add(spec.replace(/\.tsx?$/, ''));
+        else if (spec.startsWith('.')) {
+          // 상대경로 → 별칭으로 정규화(한 모듈이 두 표기로 세어지지 않게).
+          const abs = join(f, '..', spec).split(sep).join('/');
+          const i = abs.indexOf('/src/');
+          if (i >= 0) usedInSrc.add('@/' + abs.slice(i + 5).replace(/\.tsx?$/, ''));
+        }
+      }
+    }
+
+    const usedInTest = new Set<string>();
+    for (const f of testFiles) {
+      for (const spec of importSpecifiers(strip(readFileSync(f, 'utf8')))) {
+        if (spec.startsWith('@/')) usedInTest.add(spec.replace(/\.tsx?$/, ''));
+      }
+    }
+
+    // ⚠ 조용한 통과 방지 — 그래프가 비면 이 검사는 아무것도 안 잰다.
+    expect(usedInSrc.size, 'src import 그래프가 비었다 — 스캐너가 고장 났다').toBeGreaterThan(50);
+    expect(usedInTest.size, 'test import 그래프가 비었다 — 스캐너가 고장 났다').toBeGreaterThan(50);
+
+    const orphans = srcFiles
+      .map((p) => aliasOf(p))
+      .filter((a) => !ENTRYPOINTS.has(a) && !usedInSrc.has(a) && usedInTest.has(a));
+
+    expect(
+      orphans,
+      '테스트만 import 하는 프로덕션 모듈이다 — 소비처를 만들거나 지워라(knip 은 이 축을 못 본다)',
+    ).toEqual([]);
+  });
+});
+
+/* ============================================================
+   불변식 ⑮ **소스에 원시 NUL 바이트가 없다**(2026-08-20 리뷰 — 정독 중 발견).
+
+   `Map` 키 구분자로 `\x00` 을 쓰는 건 정당한 관용구다(ID 에 나올 수 없는 문자). 문제는 그걸
+   **이스케이프가 아니라 원시 바이트**로 소스에 박은 것이었다 — 세 파일(`lib/visits.ts` ·
+   `dbRowVerify.test.ts` · `dbUnavailable.test.ts`)이 그랬다.
+
+   결과: `.gitattributes` 가 `*.ts text eol=lf` 라 선언해도 **git 의 바이너리 판정이 이긴다**
+   (앞 8000 바이트에 NUL 이 있으면 binary). 그 파일들의 `git diff` 는 영원히
+   `Bin 6024 -> 5979 bytes` 이고 — 즉 **프로덕션 소스 하나를 포함해 셋이 코드리뷰에서
+   보이지 않는 채로 바뀌어 왔다.** 게이트 전량(tsc·eslint·vitest)은 녹색이었다:
+   JS 문자열 리터럴 안의 원시 NUL 은 문법적으로 합법이라 어느 검사기도 볼 이유가 없다.
+
+   런타임 동작은 이스케이프와 **문자 그대로 동일**하다 — 이건 순전히 *도구가 파일을 읽는 방식*
+   의 문제이고, 그래서 정적 검사가 아니라 여기 있다.
+============================================================ */
+describe('불변식 ⑮ 소스에 원시 NUL 이 없다', () => {
+  it('web/src·web/test 어느 파일도 NUL 바이트를 담지 않는다', () => {
+    const roots = [SRC, join(process.cwd(), 'test')];
+    const 오염 = roots
+      .flatMap((r) => filesUnder((n) => /\.(tsx?|css|json)$/.test(n), r))
+      .filter((f) => readFileSync(f).includes(0))
+      .map((f) =>
+        f
+          .slice(process.cwd().length + 1)
+          .split(sep)
+          .join('/'),
+      );
+    expect(오염, '원시 NUL → git 이 바이너리로 보고 diff 를 숨긴다. `\x00` 이스케이프를 쓸 것').toEqual([]);
   });
 });
