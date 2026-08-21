@@ -672,10 +672,13 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
 
   /** 선언된 어휘 접두사. 여기 없는 이름의 키프레임을 만들려면 **어휘를 먼저 늘려야** 한다
    *  (그 판단은 `lib/motion.ts` 머리주석 = 어휘 SSOT 에 남는다). */
-  /* ⚠ **여덟 마디다**(A-17 `shift` · A-18 `deny` 가 W6 에서 붙었다 · 2026-08-07). 이 정규식이
-     어휘의 집행자이므로 여기 늘리는 것이 곧 "어휘를 늘렸다"는 선언이고, 근거는 `lib/motion.ts`
-     머리주석이 진다 — 두 곳이 갈리면 집행자가 SSOT 보다 관대해진다(그 순간 문법이 없어진다). */
-  const VOCAB = /^(enter|shed|shift|deny|live|commit|draw|vt)-/;
+  /* ⚠ **여섯 마디 + `vt`(전이)다.** 이 정규식이 어휘의 집행자이므로 여기 늘리는 것이 곧
+     "어휘를 늘렸다"는 선언이고, 근거는 `lib/motion.ts` 머리주석이 진다 — 두 곳이 갈리면
+     집행자가 SSOT 보다 관대해진다(그 순간 문법이 없어진다).
+     ⚠⚠ **한때 여덟이었다**(A-17 `shift` · A-18 `deny` · 2026-08-07). 둘 다 소비처가 레일 조립
+     화면 하나뿐이었고 그 화면이 은퇴하며 함께 갔다(I027 · 2026-08-22). 집행자를 안 좁히면
+     **없는 마디로 키프레임을 지을 수 있게 되고**, 그건 어휘가 아니라 목록이다. */
+  const VOCAB = /^(enter|shed|live|commit|draw|vt)-/;
   /** 어휘 밖 예외 — 사유가 코드에 적혀 있어야 하고, 늘어나면 그게 곧 문법 붕괴의 신호다. */
   const VOCAB_EXCEPTIONS = new Set([
     // 토스트 되돌리기 창의 남은 시간 바. 움직임이 장식이 아니라 **정보**이고 길이가 런타임값
@@ -814,20 +817,10 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
 
     expect(Number(commitMs![1]), 'COMMIT_MS ≠ --dur-slow — 둘 중 하나만 고쳤다').toBe(Number(durSlow![1]));
 
-    /* A-18(W6) — `DENY_MS` 는 `--dur-fast` 의 복제다. 같은 이유로 같은 방어선이 필요하다:
-       복제가 하나 늘었는데 검사가 안 늘면, 그 순간 이 케이스는 *일부만* 지키는 검사가 된다. */
-    const durFast = /--dur-fast:\s*(\d+)ms/.exec(tokensCss);
-    expect(durFast, 'tokens.css 에 --dur-fast 가 ms 단위로 정의돼 있어야 한다').not.toBeNull();
-    const denyMs = /const DENY_MS = (\d+);/.exec(motionTs);
-    expect(denyMs, 'lib/motion.ts 에 DENY_MS 상수가 있어야 한다').not.toBeNull();
-    expect(Number(denyMs![1]), 'DENY_MS ≠ --dur-fast — 둘 중 하나만 고쳤다').toBe(Number(durFast![1]));
-
-    // A-17(W6) — `SHIFT_MS` 는 `--dur` 의 복제다(위 둘과 같은 논거).
-    const dur = /--dur:\s*(\d+)ms/.exec(tokensCss);
-    expect(dur, 'tokens.css 에 --dur 가 ms 단위로 정의돼 있어야 한다').not.toBeNull();
-    const shiftMs = /const SHIFT_MS = (\d+);/.exec(motionTs);
-    expect(shiftMs, 'lib/motion.ts 에 SHIFT_MS 상수가 있어야 한다').not.toBeNull();
-    expect(Number(shiftMs![1]), 'SHIFT_MS ≠ --dur — 둘 중 하나만 고쳤다').toBe(Number(dur![1]));
+    /* ⚠⚠ 여기 `DENY_MS`(--dur-fast) · `SHIFT_MS`(--dur) 대조 둘이 더 있었다 — **그 두 상수가
+       은퇴했다**(I027 · 2026-08-22 · `lib/motion.ts` 의 어휘 절). 복제가 사라졌으므로 그 방어선도
+       사라진다: 없는 상수를 계속 단언하면 «있어야 한다»가 곧 «되살려라»가 되고, 그건 은퇴를
+       되돌리라는 명령이 검사망에 숨어 있는 형태다. WAAPI 리터럴 복제는 이제 `COMMIT_MS` 하나다. */
   });
 });
 

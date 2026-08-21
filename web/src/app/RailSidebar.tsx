@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { navGroups, Icon, type TabMeta } from '@/shell';
-import { railLayout } from '@/shell/railLayout';
 import SyncLedger from '@/components/SyncLedger';
 import { useSyncLedger } from '@/store/useSyncLedger';
 import { prefetchTab } from '@/features/registry';
@@ -172,12 +171,16 @@ export default function RailSidebar() {
   };
 
   const ledger = useSyncLedger();
-  /* N-17 — 선언된 섹션에 **사용자 취향**(숨김·순서)을 적용한다. 판정은 순수 lib 이 하고
-     여기는 그리기만 한다(전부 숨겨 나브가 비는 사고는 화면으로 "아무 일도 안 일어남"이라
-     조용하므로, 그 규칙은 유닛으로 잠근다 · `shell/railLayout` 머리주석). */
-  const railHidden = useUI((st) => st.ui.railHidden);
-  const railOrder = useUI((st) => st.ui.railOrder);
-  const groups = railLayout(navGroups(), { hidden: railHidden, order: railOrder });
+  /* ⚠⚠ **여기 N-17 「사용자가 조립한 레일」(숨김·순서)이 있었다 — 은퇴했다**(I027 · 2026-08-22).
+     그 노브의 근거는 _"안 쓰는 화면이 매일 눈에 들어온다"_ 였고, 처방은 **강등을 사용자에게
+     넘긴다** 였다. 실측이 그 처방을 반증했다: 2026-08-07 출하 뒤 **15일 · `railHidden` 과
+     `railOrder` 가 둘 다 빈 배열**이었다(그사이 설정 화면 방문은 원장에 있다 — 못 본 게 아니라
+     **접을 이유가 없었다**). 판단이 필요 없는 결정을 판단으로 만들지 않겠다던 노브가, 정작
+     아무 판단도 받지 않은 채 216줄 + 설정 한 절 + 유닛 파일 하나를 지고 있었다.
+     ⚠ **레일을 줄이는 일 자체는 함께 죽지 않았다** — 다만 이 노브는 「무엇을 줄일까」의
+     근거가 되어 주기로 했던 것이고(«무엇을 접었는지가 곧 답»), 그 답이 **빈 배열**이라
+     지금은 근거가 없다. 줄이려면 오염되지 않은 방문 원장(I030 뒤)이 먼저다. */
+  const groups = navGroups();
   const topGroups = groups.filter((g) => g.key !== 'system');
   const bottomGroup = groups.find((g) => g.key === 'system');
 

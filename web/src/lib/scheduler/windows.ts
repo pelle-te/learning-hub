@@ -36,6 +36,28 @@ export function blocksForWeekday(state: AppState, wd: number): RoutineBlock[] {
     })
     .sort((a, b) => toMin(a.start) - toMin(b.start));
 }
+/**
+ * 이 과목에 **묶인 수업**이 한 주에 먹는 분(I013 · 2026-08-22).
+ *
+ * ⚠⚠ **계산이 아니라 표시용이다.** 가용시간 차감은 종전 그대로 `type` 만 보고 돌아간다
+ * (`freeWindowsForWeekday`) — 여기서 스케줄러가 이 값을 쓰기 시작하면 «이름을 붙였더니 계획이
+ * 달라졌다»가 되어, 되돌리기 비용이 이름표 하나의 값을 넘는다. 그 선은 `schema.ts` 의 `sid` 절.
+ * ⚠ 요일 오버라이드(`times[wd]`)를 존중하려고 `blocksForWeekday` 를 지난다 — 원본 `start`/`end`
+ *   를 직접 읽으면 요일마다 시간이 다른 수업에서 조용히 틀린다.
+ * ⚠ 자정을 넘기는 수업은 없다고 본다(수업이다) — 음수가 나오면 0으로 클램프한다.
+ */
+export function weeklyLectureMin(state: AppState, sid: string): number {
+  if (!sid) return 0;
+  let total = 0;
+  for (let wd = 0; wd < 7; wd++) {
+    for (const b of blocksForWeekday(state, wd)) {
+      if (b.sid !== sid) continue;
+      total += Math.max(0, toMin(b.end) - toMin(b.start));
+    }
+  }
+  return total;
+}
+
 /** 깨어있는 시간 [wake0,wake1] — 수면 블록(들)로 결정(없으면 00:00~24:00).
  *  모델: 수면은 하루의 양 끝을 차지하고 자정을 가로지른다 → 깨어있는 구간은 단일 창 [wake0,wake1],
  *  수면은 그 여집합 [wake1,1440]∪[0,wake0]. 수면을 어떻게 입력하든 동일하게 해석한다:

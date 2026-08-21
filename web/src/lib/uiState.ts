@@ -76,8 +76,6 @@ export const UIStateSchema = z.object({
        확정한 것이 PC 의 아침 화면을 바꿀 이유가 없다), 무엇보다 앱 데이터가 아니다.
      ⚠ `{ds,key}` 로 **날짜를 함께** 담는다 — 날짜가 없으면 어제 확정이 오늘 히어로를 붙든다. */
   focusLock: z._default(z.nullable(z.object({ ds: z.string(), key: z.string() })), null),
-  railHidden: z._default(z.array(z.string()), []),
-  railOrder: z._default(z.array(z.string()), []),
   // 나브 표면(Wave⑥) — 스위처 클릭·전역 탭 폴백용 영속값. 라우트가 우선. 옛 저장본은 .default로 학습.
   // Anki 실시간 due 자동 새로고침(2단계-A4) — 원래 AnkiPanel이 'lh:anki-autorefresh' 평문 키를
   // localStorage에 **직접** 쓰던 유일한 kv SSOT 우회였다. 계층 밖이라 백업에도 안 들어갔다

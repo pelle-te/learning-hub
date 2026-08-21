@@ -11,11 +11,15 @@ import { Fragment } from 'react';
 import { ddayInfo } from '@/lib/utils';
 import { ankiFreshness } from '@/lib/anki';
 import { todayShare } from '@/lib/todayShare';
+import { MARK_LABEL } from '@/lib/syllabusIntake';
+import type { MarkDue } from '@/lib/semester';
 import { AnkiTag, S, tone } from './signatureParts';
 
 /** '오늘 밖' 스트립 — 본체에서 뺀 조립부(응집 하나: *오늘 밖에 무엇이 있나*). */
 export function buildBeyondStrip(p: {
   soon: { name: string; dday: number; color?: string }[];
+  /** I010 — 오늘·곧 있는 학사 눈금(휴강·정정 마감·보강). 판정은 `lib/semester.upcomingMarks`. */
+  marks: MarkDue[];
   due: number | null | undefined;
   ankiFresh: ReturnType<typeof ankiFreshness>;
   openBl: number;
@@ -24,7 +28,7 @@ export function buildBeyondStrip(p: {
   shareText: string | null;
   go: (to: string) => void;
 }): React.ReactNode {
-  const { soon, due, ankiFresh, openBl, riskN, share, shareText, go } = p;
+  const { soon, marks, due, ankiFresh, openBl, riskN, share, shareText, go } = p;
   const stripGroups: { key: string; node: React.ReactNode }[] = [];
   if (soon.length)
     stripGroups.push({
@@ -41,6 +45,26 @@ export function buildBeyondStrip(p: {
               </button>
             );
           })}
+        </div>
+      ),
+    });
+  /* ── I010 학사 눈금 — **학기 중에 들어온 것이 오늘에 닿는 유일한 자리** ────────────────
+     종전에 눈금을 그리는 곳은 월 달력과 졸업탭 국면판 둘뿐이었다. 즉 「내일 휴강」을 넣어도
+     *오늘 화면*은 그 사실을 모르고, 그러면 상시 인입구를 만들어도 넣을 이유가 안 생긴다
+     (넣어도 아무 데서도 안 보이므로). 그래서 인입구와 이 자리는 **같은 항목**이다.
+     ⚠ 지난 눈금은 애초에 안 온다 — 그 판정은 `upcomingMarks` 가 소유한다(자책 금지 규율). */
+  if (marks.length)
+    stripGroups.push({
+      key: 'marks',
+      node: (
+        <div className={S.grp}>
+          <span className={S.grpL}>학사일정</span>
+          {marks.map((m) => (
+            <button key={m.mark.id} type="button" className={S.tag} onClick={() => go('/schedule')}>
+              {m.mark.label || MARK_LABEL[m.mark.kind]}{' '}
+              <b className={tone(m.daysLeft === 0)}>{m.daysLeft === 0 ? '오늘' : `D-${m.daysLeft}`}</b>
+            </button>
+          ))}
         </div>
       ),
     });

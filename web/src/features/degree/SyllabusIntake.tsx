@@ -30,7 +30,7 @@ import { addTask } from '@/lib/tasks';
 import { activeSemester, linkableItems } from '@/lib/semester';
 import { MAX_EXAMS } from '@/lib/semester';
 import { rid, todayISO } from '@/lib/utils';
-import type { AcademicMark, Exam, Item } from '@/lib/types';
+import type { AcademicMark, AppState, Exam, Item } from '@/lib/types';
 
 /** 선택 상태 — 초안의 각 줄을 받아들일지. 기본은 **전부 받아들임**(고르는 것이 아니라 *빼는* 것). */
 type Picks = { weeks: Set<number>; exams: Set<number>; tasks: Set<number>; marks: Set<number> };
@@ -84,14 +84,34 @@ export default function SyllabusIntake() {
 
   /** 고른 것을 네 슬라이스에 넣는다. ⚠ 한 번의 `mutate` — ⌘Z 한 번으로 통째로 되돌아간다. */
   const apply = (): void => {
-    if (!item) return;
+    /* ⚠⚠ **종전엔 여기서 과목 없이 통째로 돌아갔다**(`if (!item) return`) — 그래서 «4/6 휴강»
+       한 줄을 붙여도 아무 일이 안 일어났다. 눈금은 **학기의 속성**이지 과목의 것이 아닌데
+       (`lib/semester` 의 N-19 절), 과목 게이트가 그 위에 얹혀 있었던 것이다.
+       학기 중 인입(I010 · 2026-08-22)에서 오는 것은 계획서 한 장이 아니라 **공지 한 줄**이고,
+       그 대부분이 눈금이다 — 즉 이 한 줄이 상시 인입구를 막고 있었다. */
     /* ⚠ 카운터를 **객체 필드**로 둔다 — `let n = 0` + `n++` 는 콜백 안에서 잡히는 순간
        React Compiler 가 바일아웃한다(`compiler-ratchet` 이 그 자리에서 잡았다). 같은 수를
        세면서 최적화를 끄지 않는다. */
     const n = { week: 0, exam: 0, task: 0, mark: 0 };
     mutate((st) => {
-      const it = st.items.find((x) => x.id === item.id);
-      if (!it) return;
+      const it = item ? st.items.find((x) => x.id === item.id) : null;
+      if (it) applySubjectParts(st, it);
+      // ④ 학사 눈금 → 학기(N-19). 같은 날·같은 종류가 이미 있으면 안 넣는다(두 과목 계획서에 같은 눈금).
+      const target = st.degree.semesters.find((s) => s.id === sem?.id);
+      if (target) {
+        const marks: AcademicMark[] = target.marks || [];
+        draft.marks.forEach((m, i) => {
+          if (!p.marks.has(i)) return;
+          if (marks.some((x) => x.ds === m.ds && x.kind === m.kind)) return;
+          marks.push({ id: rid(), kind: m.kind, ds: m.ds, label: m.label });
+          n.mark += 1;
+        });
+        if (marks.length) target.marks = marks;
+      }
+    });
+
+    /** 과목이 있어야 성립하는 셋(주차 · 시험 · 과제). 눈금과 갈라 둔 이유는 위 ⚠⚠. */
+    function applySubjectParts(st: AppState, it: Item): void {
       // ① 주차 진도 → T-17 주차 싱크(챕터를 못 찾은 줄은 조용히 건너뛴다 — 위 matchChapter ⚠).
       draft.weeks.forEach((w, i) => {
         if (!p.weeks.has(i)) return;
@@ -127,22 +147,10 @@ export default function SyllabusIntake() {
       // ③ 과제 → 할 일(N-1 이 이걸 시간 예산으로 읽는다). ⚠ **소요는 안 지어낸다**(창을 못 깎는다).
       draft.tasks.forEach((t, i) => {
         if (!p.tasks.has(i)) return;
-        addTask(st, { title: `${item.name} — ${t.title}`, sid: item.id, ds: t.deadline, deadline: t.deadline });
+        addTask(st, { title: `${it.name} — ${t.title}`, sid: it.id, ds: t.deadline, deadline: t.deadline });
         n.task += 1;
       });
-      // ④ 학사 눈금 → 학기(N-19). 같은 날·같은 종류가 이미 있으면 안 넣는다(두 과목 계획서에 같은 눈금).
-      const target = st.degree.semesters.find((s) => s.id === sem?.id);
-      if (target) {
-        const marks: AcademicMark[] = target.marks || [];
-        draft.marks.forEach((m, i) => {
-          if (!p.marks.has(i)) return;
-          if (marks.some((x) => x.ds === m.ds && x.kind === m.kind)) return;
-          marks.push({ id: rid(), kind: m.kind, ds: m.ds, label: m.label });
-          n.mark += 1;
-        });
-        if (marks.length) target.marks = marks;
-      }
-    });
+    }
     toast(`주차 ${n.week} · 시험 ${n.exam} · 과제 ${n.task} · 눈금 ${n.mark} 반영됨 — ⌘Z 로 되돌릴 수 있어요.`, 'ok');
     setText('');
     setPicks(null);
@@ -165,7 +173,7 @@ export default function SyllabusIntake() {
   return (
     <div className="ds-rule">
       <div className="mb-3 flex flex-wrap items-baseline gap-3">
-        <span className="ds-caps">강의계획서 붙여넣기</span>
+        <span className="ds-caps">계획서·공지 붙여넣기</span>
         {sem ? (
           <Pill tiny>{sem.name || '학기'}</Pill>
         ) : (
@@ -175,24 +183,30 @@ export default function SyllabusIntake() {
         )}
       </div>
 
-      {!items.length ? (
-        <p className="m-0 text-md text-mut">먼저 과목을 만들어야 계획서를 붙일 대상이 생겨요.</p>
-      ) : (
+      {
         <>
+          {/* ⚠ 과목이 없어도 화면을 닫지 않는다(I010) — 학사 눈금은 학기의 것이라 과목 0 에서도
+              들어간다. 종전엔 여기서 통째로 «먼저 과목을 만드세요» 로 끝나 «휴강» 한 줄이
+              들어갈 길이 없었다. */}
           <div className="ds-row mb-2.5">
             <div>
               <label htmlFor="intake-sid">어느 과목</label>
-              <select id="intake-sid" value={sid} onChange={(e) => setSid(e.target.value)}>
-                {items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
+              <select id="intake-sid" value={sid} onChange={(e) => setSid(e.target.value)} disabled={!items.length}>
+                {items.length ? (
+                  items.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">과목 없음 — 학사일정만 들어가요</option>
+                )}
               </select>
             </div>
           </div>
           <label htmlFor="intake-text" className="ds-tiny mb-1 block text-mut">
-            주차표·시험·과제·학사일정이 든 부분을 그대로 붙여 넣으세요(PDF 에서 복사해도 됩니다).
+            개강 첫 주엔 <b>계획서를 통째로</b>, 학기 중엔 <b>공지 한 줄</b>을 그대로 붙여 넣으세요 —{' '}
+            <code>4/6 휴강</code> 처럼 날짜와 낱말만 있으면 읽습니다.
           </label>
           <textarea
             id="intake-text"
@@ -203,7 +217,7 @@ export default function SyllabusIntake() {
             }}
             rows={8}
             className="w-full font-mono text-sm"
-            placeholder={'1주차  오리엔테이션\n8주차 4/20 중간고사\n과제 1 제출 4/27\n수강정정 3/9'}
+            placeholder={'1주차  오리엔테이션\n8주차 4/20 중간고사\n과제 1 제출 4/27\n4/6 휴강 (개교기념일)'}
           />
 
           {text.trim() && (
@@ -263,7 +277,12 @@ export default function SyllabusIntake() {
                 </div>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <Button variant="primary" onClick={apply} disabled={!item || draftIsEmpty(draft)}>
+                {/* ⚠ 과목은 **주차·시험·과제**에만 필요하다 — 눈금만 골랐으면 과목 없이 넣는다(I010). */}
+                <Button
+                  variant="primary"
+                  onClick={apply}
+                  disabled={draftIsEmpty(draft) || (!item && p.marks.size === 0)}
+                >
                   고른 것 반영
                 </Button>
                 {/* 규율 2 — 못 읽은 줄을 숨기지 않는다. */}
@@ -274,7 +293,7 @@ export default function SyllabusIntake() {
             </div>
           )}
         </>
-      )}
+      }
     </div>
   );
 }

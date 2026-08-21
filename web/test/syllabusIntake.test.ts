@@ -81,6 +81,19 @@ describe('parseSyllabus', () => {
     expect(draftIsEmpty(d)).toBe(true);
   });
 
+  /* ── I010 상시 인입 — 학기 중에 오는 것은 계획서 한 장이 아니라 **공지 한 줄**이다 ────── */
+  it('⚠ 공지 한 줄만으로도 눈금이 나온다 — 상시 인입구의 최소 입력', () => {
+    const d = parseSyllabus('4/6 휴강 (개교기념일)', { startDs: '2026-03-02' });
+    expect(d.marks).toEqual([{ kind: 'off', ds: '2026-04-06', label: '휴강 (개교기념일)' }]);
+    expect(d.unparsed).toBe(0);
+  });
+
+  it('공지가 시험 연기면 시험으로 — 눈금보다 우선한다(경로가 달라도 같은 우선순위)', () => {
+    const d = parseSyllabus('중간고사 4/27 로 연기', { startDs: '2026-03-02' });
+    expect(d.exams).toEqual([{ kind: 'mid', date: '2026-04-27', week: null }]);
+    expect(d.marks).toEqual([]);
+  });
+
   it('날짜 없는 시험은 주차만 갖고 들어온다(적용 때 개강일로 환산한다)', () => {
     const d = parseSyllabus('8주차 중간고사', { startDs: START });
     expect(d.exams).toEqual([{ kind: 'mid', date: null, week: 8 }]);

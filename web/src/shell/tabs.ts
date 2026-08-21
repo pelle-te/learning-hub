@@ -519,8 +519,8 @@ export interface NavGroup {
 }
 
 /** 레일에 **설 수 있는** 것 전부 — `destination` + `lens`(N-14 평탄화). 은퇴·명사는 안 선다.
- *  ⚠ *설 수 있는* 이다: 사용자가 접은 것(N-17)은 여기 남아 있고 그리기 직전에 빠진다
- *  (`shell/railLayout`). 숨김은 도달성이 아니라 표시의 문제라 로스터를 안 건드린다. */
+ *  ⚠ 종전 이 자리는 _"사용자가 접은 것(N-17)은 여기 남아 있고 그리기 직전에 빠진다"_ 라 적었다 —
+ *  **그 접기 노브가 은퇴했다**(I027 · 2026-08-22). 지금은 이 목록이 곧 레일이다. */
 function railCandidates(): TabMeta[] {
   return TABS.filter((t) => t.role === 'destination' || t.role === 'lens');
 }

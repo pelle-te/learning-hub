@@ -485,7 +485,9 @@ const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
   /* ⚠ **W8(2026-08-07) — 학기의 입구·출구는 처음부터 여기 있다.** 흡수된 뷰가 아니라 새 뷰지만
      로스터 밖인 것은 같고(`TABS` 는 화면 탭만 안다), 그러면 커버리지가 0이 된다 — §15-4 가
      _"커버리지 0인 화면은 이식 **전에** 스냅샷부터"_ 라 적어 둔 자리다. */
-  { key: 'degree-intake', path: '/degree?view=intake', ready: '강의계획서 붙여넣기' },
+  /* ⚠ ready 문구는 **`.ics` 인입구**(I008)를 겨눈다 — 그 패널이 이 뷰의 **첫 칸**이라,
+     붙여넣기 상자만 보고 있으면 새 패널이 통째로 안 떠도 통과한다. */
+  { key: 'degree-intake', path: '/degree?view=intake', ready: '시간표·학사일정 파일(.ics)' },
   { key: 'degree-close', path: '/degree?view=close', ready: '다음 학기가 배운 것' },
   /* ⚠⚠ **`ledger?view=mastery` 의 ready 커버리지가 0이었다**(2026-08-21 ux 축 · 잔재①).
      A-19(W5 · 2026-08-07)가 `mastery` 를 `TABS` 에서 빼 `ledger` 의 뷰로 내렸는데 여기 한 줄이

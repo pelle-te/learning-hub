@@ -153,6 +153,24 @@ const TASK_WORD = /과제|레포트|리포트|보고서|퀴즈|발표|프로젝�
 const MID_WORD = /중간\s*(고사|시험|평가)/;
 const FINAL_WORD = /기말\s*(고사|시험|평가)/;
 
+/**
+ * 한 줄이 **무엇을 말하는가** — 시험인가 · 눈금인가 · 과제인가.
+ *
+ * ⚠⚠ **이 어휘의 집이 하나여야 한다**(I008 · 2026-08-22). `.ics` 인입구가 생기며 같은 판정이
+ * 두 경로에 필요해졌고, 사본을 두면 **붙여넣기와 파일이 같은 줄을 다르게 읽는** 날이 온다 —
+ * 이 저장소가 손으로 베낀 목록으로 반복해 물린 형태다(오버레이 §1-A). 그래서 `parseSyllabus`
+ * 자신도 이 함수를 지난다.
+ *
+ * ⚠ 우선순위는 **시험 > 과제 > 눈금**이다(`parseSyllabus` 머리주석). 한 줄이 여러 뜻을 가질 때
+ * 어느 목록에 넣을지가 여기서 한 번 정해진다 — 호출부마다 정하면 같은 줄이 두 목록에 든다.
+ */
+export function classifyLine(line: string): { exam: 'mid' | 'final' | null; task: boolean; mark: MarkKind | null } {
+  if (MID_WORD.test(line)) return { exam: 'mid', task: false, mark: null };
+  if (FINAL_WORD.test(line)) return { exam: 'final', task: false, mark: null };
+  if (TASK_WORD.test(line)) return { exam: null, task: true, mark: null };
+  return { exam: null, task: false, mark: MARK_WORDS.find((m) => m.re.test(line))?.kind ?? null };
+}
+
 /** 주차 줄에서 주제만 남긴다(`3주차:` · 앞의 날짜 · 구분자 제거). */
 function topicOf(line: string): string {
   return line
@@ -192,12 +210,11 @@ export function parseSyllabus(text: string, opts: ParseOptions = {}): SyllabusDr
       used = true;
     }
 
-    const isMid = MID_WORD.test(line);
-    const isFinal = FINAL_WORD.test(line);
-    if (isMid || isFinal) {
-      exams.push({ kind: isMid ? 'mid' : 'final', date, week });
+    const what = classifyLine(line);
+    if (what.exam) {
+      exams.push({ kind: what.exam, date, week });
       used = true;
-    } else if (TASK_WORD.test(line) && date) {
+    } else if (what.task && date) {
       // 제목은 날짜·주차를 걷어낸 나머지 — 없으면 '과제'로 둔다(빈 제목은 목록에서 못 고른다).
       const title = topicOf(line)
         .replace(SHORT_DATE, ' ')
@@ -205,12 +222,16 @@ export function parseSyllabus(text: string, opts: ParseOptions = {}): SyllabusDr
         .trim();
       tasks.push({ title: title || '과제', deadline: date });
       used = true;
-    } else {
-      const hit = MARK_WORDS.find((m) => m.re.test(line));
-      if (hit && date) {
-        marks.push({ kind: hit.kind, ds: date, label: topicOf(line).slice(0, 40) || MARK_LABEL[hit.kind] });
-        used = true;
-      }
+    } else if (what.mark && date) {
+      /* ⚠ 짧은 날짜(`4/6`)를 라벨에서 걷는다 — 과제 제목은 이미 그렇게 하는데(위) 눈금만
+         안 하고 있었다. 날짜는 `ds` 가 이미 들고 있으므로 라벨의 날짜는 **중복**이고, 그 중복이
+         오늘 화면의 배지에서 «4/6 휴강 D-3» 처럼 두 번 읽힌다(I010 이 그 배지를 세우며 드러났다). */
+      const label = topicOf(line)
+        .replace(SHORT_DATE, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      marks.push({ kind: what.mark, ds: date, label: label.slice(0, 40) || MARK_LABEL[what.mark] });
+      used = true;
     }
     if (!used) unparsed++;
   }

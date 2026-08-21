@@ -22,9 +22,11 @@ import {
   peekRedo,
   peekUndo,
   preImageBytes,
+  preImageTally,
   pushRedo,
   pushUndo,
   pushUndoFromRedo,
+  resetPreImageTally,
   redoDepth,
   undoBytes,
   undoDepth,
@@ -137,6 +139,45 @@ describe('왕복 속성 — 쓰기 → 되돌리기 → 쓰기 전과 같다', (
     applyPre(model, preImages);
     applyPre(model, preImages); // 멱등이다(같은 값을 다시 쓴다) — "다시 실행"이 아니다
     expect(syncOnly(model)).toEqual(syncOnly(toTableData(before)));
+  });
+});
+
+/* ── I022 최싼검증 — **저널이 질 무게**(2026-08-22 발상 축) ────────────────────────────
+   이 카운터의 요점은 스택과 **다르게 센다**는 것이다: 저널은 버리지 않으므로 축출된 것까지
+   더해야 한다. 스택 크기(`undoBytes`)를 그대로 읽으면 저널 비용을 과소평가하고, 그러면
+   «감당된다»는 답이 예산 상한에 눌린 가짜가 된다. 그 차이를 여기서 잠근다. */
+describe('I022 — pre-image 누계는 축출과 무관하다', () => {
+  const row = (id: string, size: number): PreImageRow => ({
+    table: 'settings',
+    key: [id],
+    vals: [id, 'x'.repeat(size)],
+  });
+
+  beforeEach(() => {
+    resetPreImageTally();
+  });
+
+  it('빈 pre-image 는 누계에도 안 든다 — 항목이 아닌 것은 저널에도 없다', () => {
+    pushUndo([], 1);
+    expect(preImageTally()).toEqual({ bytes: 0, pushes: 0 });
+  });
+
+  it('⚠⚠ 예산 축출로 스택에서 사라져도 **누계는 줄지 않는다**', () => {
+    const BIG = 200_000;
+    for (let i = 0; i < 5; i++) pushUndo([row(`k${i}`, BIG)], i + 1);
+    expect(undoBytes(), '스택은 예산에 눌린다').toBeLessThanOrEqual(UNDO_BYTE_BUDGET);
+    expect(preImageTally().pushes).toBe(5);
+    expect(
+      preImageTally().bytes,
+      '누계를 스택 크기로 읽었다면 여기서 저널 비용을 4배 이상 과소평가한다',
+    ).toBeGreaterThan(UNDO_BYTE_BUDGET);
+  });
+
+  it('다시실행 쪽(pushRedo)은 누계에 안 든다 — 같은 편집을 두 번 세면 안 된다', () => {
+    pushUndo([row('a', 100)], 1);
+    const after = preImageTally();
+    pushRedo([row('b', 100)], 2);
+    expect(preImageTally()).toEqual(after);
   });
 });
 

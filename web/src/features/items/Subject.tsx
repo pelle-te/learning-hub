@@ -37,6 +37,7 @@ import { removeSidFromAlloc, rowSumMin, allocView, weekMonOf } from '@/lib/weekA
 import { removeSidFromDayPlans } from '@/lib/dayPlans';
 import { todayISO, hNum, ddayInfo, dayDiff, pctLabel } from '@/lib/utils';
 import { EXAM_LABEL, nextExamOf } from '@/lib/semester';
+import { weeklyLectureMin } from '@/lib/scheduler';
 import { BAND_LABEL, chapterStrengths, unseenAt } from '@/lib/chapterStrength';
 import { calibrationLabel, subjectCalibration } from '@/lib/estimateCalibration';
 import { Button, Pill } from '@/components/ui';
@@ -220,6 +221,10 @@ export default function Subject() {
   /* Q-5 — 추정 배율. **표본이 얇으면 null 이고 그때는 안 그린다**(값 부재 ≠ 배율 1.0).
      게이트는 `lib/estimateCalibration` 이 소유한다 — 화면이 문턱을 다시 판단하면 화면마다 갈린다. */
   const calib = item ? subjectCalibration(state, item.id) : null;
+  /* I013 — 이 과목의 **수업 시간**. 종전엔 수업이 「가용시간을 깎는 장애물」이기만 해서, 주 10시간을
+     먹는 강의가 과목 화면 어디에도 없었다(실측 2026-08-22). 0이면 안 그린다 — 안 묶인 것이
+     정상이고(교양·전공 밖), 「0 h」는 «수업이 없다»가 아니라 «아직 안 묶였다»라 오독을 만든다. */
+  const lectureMin = item ? weeklyLectureMin(state, item.id) : 0;
 
   /* W22 의 짝 — destination 이 아니어도 **객체 화면은 자기 이름과 수를 크게 말한다**(원칙 ②).
      이 화면의 존재 이유가 "그 과목 지금 어떤가"라 리드아웃이 곧 답의 첫 줄이다. */
@@ -230,6 +235,7 @@ export default function Subject() {
         ? []
         : [
             { label: '이번 주 배분', value: `${hNum(allocMin)} h` },
+            ...(lectureMin ? [{ label: '주간 강의', value: `${hNum(lectureMin)} h` }] : []),
             { label: '약점', value: weakN || '—' },
             ...(calib ? [{ label: '추정 대조', value: calibrationLabel(calib) }] : []),
             // T-1. 다가오는 시험이 있으면 그것이 이 과목의 리드아웃이다("기말"이 아니라 "중간 D-7").

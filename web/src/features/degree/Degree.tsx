@@ -659,12 +659,14 @@ const Goals = lazy(() => import('./PathView'));
    ⚠ 둘 다 **lazy** 다: 인입구는 파서를, 결산은 완료 기록 전수 스캔을 문다. 학점만 보러 온
    방문에 그 코드를 내려받을 이유가 없다(`PathView` 와 같은 판단). */
 const Intake = lazy(() => import('./SyllabusIntake'));
+/** I008 — `.ics` 인입구. 같은 뷰에 사는 이유는 그 파일 머리주석(«학교에서 받은 것을 어디에 넣나»). */
+const CalIntake = lazy(() => import('./CalendarIntake'));
 const Close = lazy(() => import('./SemesterClose'));
 
 type DegView = 'plan' | 'req' | 'intake' | 'close' | typeof DEGREE_PATH_VIEW;
 const VIEWS: { key: DegView; label: string }[] = [
   { key: 'plan', label: '졸업 계획' },
-  { key: 'intake', label: '계획서 인입' },
+  { key: 'intake', label: '학기 인입' },
   { key: 'close', label: '학기 결산' },
   { key: 'req', label: '졸업요건 정리' },
   { key: DEGREE_PATH_VIEW, label: '내 길' },
@@ -733,6 +735,7 @@ export default function Degree() {
         </Suspense>
       ) : view === 'intake' ? (
         <Suspense fallback={<State kind="loading" title="인입구 여는 중…" shape="frame" />}>
+          <CalIntake />
           <Intake />
         </Suspense>
       ) : view === 'close' ? (

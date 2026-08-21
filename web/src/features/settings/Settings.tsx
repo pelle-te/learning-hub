@@ -35,9 +35,9 @@ import WorkspaceCard from './WorkspaceCard';
 import CloudCard from './CloudCard';
 import ConflictsNotice from './ConflictsNotice';
 import UpdateCard from './UpdateCard';
-import RailAssembly from './RailAssembly';
 import VisitLedger from './VisitLedger';
 import { lastParity } from '@/lib/db/write';
+import { preImageTally } from '@/lib/db/undoStack';
 import type { AppState } from '@/lib/types';
 import { Icon } from '@/components/Icon';
 
@@ -339,7 +339,9 @@ export default function Settings() {
           <input type="checkbox" checked={themeAuto} onChange={(e) => setThemeAuto(e.target.checked)} />
           시스템 테마 따라가기 (OS 가 밝기를 바꾸면 앱도 함께 — 끄면 수동 선택 유지)
         </label>
-        <RailAssembly />
+        {/* ⚠⚠ **여기 N-17 「레일 정리」(안 쓰는 화면 접기 · 순서 바꾸기)가 있었다 — 은퇴했다**
+            (I027 · 2026-08-22 발상 축). 실측: 출하 2026-08-07 뒤 **15일 동안 `railHidden`·
+            `railOrder` 가 둘 다 빈 배열**. 근거·되살리는 조건은 `app/RailSidebar.tsx` 의 그 자리 주석. */}
         {/* ⚠⚠ **여기 T-3 상주 트레이 · 자동 시작 · T-6 하루 한 번 알림이 있었다 —
             셋 다 은퇴했다**(I049 · 2026-08-22 발상 축). 근거: 레일 배지·작업표시줄 배지·알림이
             **글자 그대로 같은 식**을 쓰고 있었고, 그 식의 입력이 실물에서 전부 0행이라 두
@@ -684,6 +686,28 @@ function UndoPoints() {
       <div className="ds-tiny mt-1 text-warn">
         이 지점들은 <b>이 기기 안에만</b> 있어요 — 기기가 고장 나면 함께 사라집니다. 진짜 백업은 내보내기(파일)예요.
       </div>
+      <JournalFeasibility />
+    </div>
+  );
+}
+
+/**
+ * I022 최싼검증 — **변경 저널을 지어도 되는가**(2026-08-22 발상 축).
+ *
+ * 항목의 전제는 «하루 저널 바이트가 SQLite 로 감당된다» 였고, 그것을 재는 자리가 여기다.
+ * 되돌리기 스택과 같은 재료(pre-image)를 쓰므로 이 패널 안에 산다 — 따로 두면 «무엇을 재는
+ * 수인가»가 화면에서 사라진다.
+ *
+ * ⚠⚠ **「하루」라 쓰지 않는다.** 이 수는 앱을 켠 뒤 누적이고, 영속하지 않는다(그 이유는
+ * `lib/db/undoStack.ts` 의 그 절 — 표를 먼저 지으면 재려던 것을 재기 전에 지은 셈이 된다).
+ */
+function JournalFeasibility() {
+  const t = preImageTally();
+  if (!t.pushes) return null;
+  return (
+    <div className="ds-tiny mt-1 text-mut tabular-nums">
+      켠 뒤 되돌리기 재료 <b>{(t.bytes / 1024).toFixed(1)}KB</b> · {t.pushes}회 —{' '}
+      <span className="text-mut">이 앱을 쓰는 하루가 변경 저널에 남길 무게예요(누적 · 껐다 켜면 0부터).</span>
     </div>
   );
 }

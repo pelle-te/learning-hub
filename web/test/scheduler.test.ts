@@ -5,7 +5,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { schedulerState } from './_fixtures';
-import { layoutDay, schedule, subjectMastery, sessionTimeMap } from '@/lib/scheduler';
+import { layoutDay, schedule, subjectMastery, sessionTimeMap, weeklyLectureMin } from '@/lib/scheduler';
 import type { Day, ScheduleItem, ScheduleResult } from '@/lib/types';
 
 let _id = 0;
@@ -919,5 +919,41 @@ describe('Q-3 약점 → 배분 배선', () => {
     const { a, b } = twoSubjects();
     const st = baseState([b, a], { graphPriority: false, cbms: cbms(a.id, '약한과목', 'a1', 9) });
     expect(firstSid(schedule(st))).toBe(firstSid(schedule(baseState([b, a]))));
+  });
+});
+
+/* ── I013 — 수업이 어느 과목인가(2026-08-22 발상 축) ────────────────────────────────────
+   ⚠ 이 값은 **표시용**이다. 여기서 잠그는 것 둘: ① 요일 오버라이드를 존중하는가
+   ② **가용시간 계산이 안 바뀌었는가**. ②가 이 항목의 안전선이다 — 이름표를 붙였더니 계획이
+   달라지면 되돌리기 비용이 이름표의 값을 넘는다. */
+describe('I013 — weeklyLectureMin(표시용 · 계산 불변)', () => {
+  const withRoutine = (routine: unknown[]) => baseState([weeklyItem('회로이론', 5)], { routine });
+
+  it('묶인 수업만 센다 — 안 묶인 블록은 0', () => {
+    const st = withRoutine([
+      { ...blk('회로이론', '수업', '09:00', '10:45', [1, 3]), sid: 'S1' },
+      blk('수업', '수업', '13:00', '15:00', [2]), // sid 없음
+    ]);
+    expect(weeklyLectureMin(st, 'S1')).toBe(105 * 2);
+    expect(weeklyLectureMin(st, 'S9')).toBe(0);
+    expect(weeklyLectureMin(st, '')).toBe(0);
+  });
+
+  it('⚠ 요일 오버라이드(times[wd])를 존중한다 — 원본 시각만 읽으면 조용히 틀린다', () => {
+    const st = withRoutine([
+      {
+        ...blk('전자회로2', '수업', '09:00', '10:00', [1, 2]),
+        sid: 'S1',
+        times: { '2': { start: '13:00', end: '16:00' } },
+      },
+    ]);
+    expect(weeklyLectureMin(st, 'S1')).toBe(60 + 180);
+  });
+
+  it('⚠⚠ `sid` 가 붙어도 **가용시간은 그대로다** — 스케줄러는 `type` 만 본다', () => {
+    const routine = [blk('회로이론', '수업', '09:00', '12:00', [1])];
+    const before = schedule(withRoutine(routine));
+    const after = schedule(withRoutine([{ ...routine[0], sid: 'S1' }]));
+    expect(after.days.map((d) => d.items.length)).toEqual(before.days.map((d) => d.items.length));
   });
 });

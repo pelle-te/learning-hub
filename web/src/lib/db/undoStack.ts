@@ -68,6 +68,32 @@ export function preImageBytes(rows: readonly PreImageRow[]): number {
   return n;
 }
 
+/* ── I022 최싼검증 — **변경 저널을 지을 수 있는가**(2026-08-22 발상 축) ────────────────
+   발상 항목 I022 는 _"flush 때 이미 만드는 pre-image 를 표에 남겨 시간축을 만든다"_ 이고, 그
+   전제는 **하루 저널 바이트가 SQLite 로 감당된다** 였다. 그 전제를 재는 가장 싼 방법이 표를
+   짓는 것이 **아니라** 여기서 세는 것이다 — pre-image 는 이미 전량 조립돼 있으므로 새로
+   계산할 것이 0이고, 표를 먼저 지으면 «감당되나»를 표의 비용을 치른 뒤에 알게 된다.
+
+   ⚠⚠ **일부러 영속하지 않는다.** 이 수를 표에 넣는 순간 그것이 곧 저널의 첫 조각이 되고,
+   그러면 재려던 것을 재기 전에 지어 버린 셈이다. 그리고 이 저장소의 관측 원장은 이미 넷인데
+   읽는 곳이 하나였다(I031·I032) — **판정 하나를 위해 다섯째 표를 파지 않는다.**
+   ⚠ 그래서 이 수는 **앱을 켠 뒤 누적**이다. 화면이 그렇게 말해야 한다(「하루」라 적으면 거짓말).
+   ⚠ 축출(예산 초과로 버린 것)도 **더해서** 센다 — 저널은 스택과 달리 버리지 않으므로, 스택의
+     현재 크기를 세면 저널이 실제로 질 무게를 과소평가한다. 그게 이 카운터의 요점이다. */
+let _tallyBytes = 0;
+let _tallyPushes = 0;
+
+/** 이 세션이 조립한 pre-image 총량 — I022 의 전제(«하루 저널이 감당되나»)를 재는 수. */
+export function preImageTally(): { bytes: number; pushes: number } {
+  return { bytes: _tallyBytes, pushes: _tallyPushes };
+}
+
+/* ⚠ 테스트 전용 — 모듈 수준 누적이라 케이스 사이에 샌다. */
+export function resetPreImageTally(): void {
+  _tallyBytes = 0;
+  _tallyPushes = 0;
+}
+
 /* 최신이 **뒤**다(push/pop). 오래된 것을 버릴 때만 앞에서 shift 한다. */
 let _stack: UndoEntry[] = [];
 let _bytes = 0;
@@ -97,6 +123,8 @@ export function pushUndo(rows: PreImageRow[], stamp: number): boolean {
      안 그러면 되돌리기 자신이 자기 다시실행 가지를 지운다. */
   clearRedo();
   const bytes = preImageBytes(rows);
+  _tallyBytes += bytes;
+  _tallyPushes += 1;
   _stack.push({ stamp, rows, bytes });
   _bytes += bytes;
   // 예산 초과 → 오래된 것부터. ⚠ 마지막 하나는 예산을 넘겨도 남긴다(머리주석).

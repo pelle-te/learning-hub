@@ -39,6 +39,7 @@ import { shareLine, todayShare } from '@/lib/todayShare';
 import { buildBeyondStrip } from './BeyondStrip';
 import { S } from './signatureParts';
 import { subjectCalibration } from '@/lib/estimateCalibration';
+import { upcomingMarks } from '@/lib/semester';
 import { useHeroPointer, useAdaptiveTick } from '@/hooks/interactions';
 import { useCommitOnChange } from '@/hooks/useCommitOnChange';
 import { Icon } from '@/components/Icon';
@@ -715,7 +716,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      분기를 다 쥐는 것. 뺀 기준은 *응집*이다: 이 덩어리는 "오늘 밖에 무엇이 있나"라는 한 질문에만
      답한다(히어로·타이머·흐름과 상태를 공유하지 않는다).
      ⚠ 컴포넌트가 아니라 **함수**인 것도 의도다 — 렌더 상태가 없고 인자만으로 결정된다. */
-  const beyondNode = buildBeyondStrip({ soon, due, ankiFresh, openBl, riskN, share, shareText, go });
+  /* I010 — 학사 눈금이 오늘에 닿는다. 창은 **7일**이다: 졸업탭 국면판은 21일을 보지만 그건
+     «학기가 어디쯤인가»의 축이고, 여기는 «오늘 무엇이 다른가»라 3주 뒤 정정 마감이 오늘 줄에
+     서면 그것은 신호가 아니라 배경이 된다. */
+  const marks = upcomingMarks(state, ds, 7);
+  const beyondNode = buildBeyondStrip({ soon, marks, due, ankiFresh, openBl, riskN, share, shareText, go });
 
   return (
     <section className={S.today} aria-label="오늘 대시보드">

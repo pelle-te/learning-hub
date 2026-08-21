@@ -1,5 +1,5 @@
 {
-  "total": 30,
+  "total": 29,
   "files": {
     "src/app/App.tsx": 1,
     "src/app/CommandPalette.tsx": 1,
@@ -18,7 +18,6 @@
     "src/features/settings/Settings.tsx": 2,
     "src/features/settings/UpdateCard.tsx": 1,
     "src/features/settings/WorkspaceCard.tsx": 1,
-    "src/features/today/TodaySignature.tsx": 1,
     "src/phone/ConflictsView.tsx": 1,
     "src/phone/Connect.tsx": 1,
     "src/phone/TodayView.tsx": 1,
