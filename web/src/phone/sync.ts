@@ -23,6 +23,7 @@ export { runSync as sync, syncSoon } from '@/store/syncController';
  *  데스크톱이 `onResult` 로 토스트를 띄우는 것은 **레일에 상시 자리가 없어서**이지 다른 계약이
  *  아니다. 폰에 토스트 호스트를 새로 들이면 그 하나를 위해 표면이 늘어난다. */
 export function installSyncTriggers(): () => void {
-  const opts: SyncTriggerOptions = { onEdit: true, onPagehide: true, live: true };
+  /* ⚠ `live: true`(실시간 poke)가 여기 있었다 — 은퇴했다(I051 · 2026-08-22). */
+  const opts: SyncTriggerOptions = { onEdit: true, onPagehide: true };
   return install(opts);
 }

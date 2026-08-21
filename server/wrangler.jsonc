@@ -80,10 +80,15 @@
     }
   ],
 
-  "durable_objects": {
-    "bindings": [{ "name": "SYNC_HUB", "class_name": "SyncHub" }]
-  },
-  "migrations": [{ "tag": "v1-synchub", "new_sqlite_classes": ["SyncHub"] }],
+  /* ⚠⚠ **Durable Object 바인딩(`SYNC_HUB`)이 여기 있었다 — 실시간 poke 가 은퇴했다**
+     (I051 · 2026-08-22). 바인딩만 지우면 안 된다: Cloudflare 는 이미 배포된 클래스를
+     **`deleted_classes` 마이그레이션 태그로 명시 삭제**해야 하고, 안 그러면 배포가 거절된다.
+     ⚠ 옛 태그(`v1-synchub`)를 지우지 마라 — 태그 목록은 **누적 이력**이고, 지우면 이미 그
+     태그를 적용한 스크립트와 어긋난다. */
+  "migrations": [
+    { "tag": "v1-synchub", "new_sqlite_classes": ["SyncHub"] },
+    { "tag": "v2-drop-synchub", "deleted_classes": ["SyncHub"] }
+  ],
 
   "d1_databases": [
     {

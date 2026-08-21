@@ -34,7 +34,6 @@ import { LOADERS } from '@/features/registry';
 import { tabByKey } from '@/shell/tabs';
 import { ChromeMuteProvider } from '@/store/usePageChrome';
 import { useOverlay } from '@/store/useOverlay';
-import { reportError } from '@/lib/telemetry';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -91,7 +90,6 @@ export default function WorkbenchPane() {
                 next={{ terminal: '닫고 다시 열어 보세요.' }}
               />
             )}
-            onError={(e) => reportError(e, `bench:${key}`)}
           >
             {/* ⚠ 자기 히스토리(위 ②). 주 라우터의 주소는 이 안의 이동에 **흔들리지 않는다**. */}
             <MemoryRouter initialEntries={[bench]}>

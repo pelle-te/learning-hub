@@ -250,10 +250,8 @@ export function _resetToken(): void {
   _access = null;
 }
 
-/** 실시간 WS 가 서브프로토콜로 실을 액세스 토큰(Phase 2). 캐시·갱신은 내부 `accessToken` 이 처리. */
-export function currentAccessToken(cfg: CloudConfig): Promise<string> {
-  return accessToken(cfg);
-}
+/* ⚠ `currentAccessToken`(실시간 WS 가 서브프로토콜로 싣던 토큰)이 여기 있었다 — 그 채널이
+   은퇴했다(I051 · 2026-08-22). 내부 `accessToken` 은 push·pull 이 계속 쓴다. */
 
 async function accessToken(cfg: CloudConfig, force = false): Promise<string> {
   // 만료 30초 전부터 갱신한다 — 요청이 날아가는 중에 만료되는 창을 없앤다.
@@ -389,9 +387,8 @@ export async function pullChanges(cfg: CloudConfig, since: number, limit = 200):
     _unknownDropped += parsed.dropped;
     if (!_unknownReported) {
       _unknownReported = true;
-      void import('../telemetry').then((m) =>
-        m.reportError(new Error(`서버에 이 버전이 모르는 항목이 있다(${parsed.dropped}건)`), 'pull.unknownTable'),
-      );
+      /* ⚠ 종전엔 텔레메트리로 보고했다 — 그 층이 은퇴했다(I052 · 2026-08-22). */
+      console.error(`[cloud] 서버에 이 버전이 모르는 항목이 있다(${parsed.dropped}건)`);
     }
   }
   return parsed.batch;

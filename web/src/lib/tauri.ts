@@ -175,16 +175,11 @@ export async function dbVersionGuard(): Promise<DbGuard | null> {
  *  한다** — 갈리면 트레이 종료와 창 닫기 중 어느 쪽이 이겼는지 사고 때 답할 수 없다.
  *  ⚠ 그 정합은 `test/shellContract.test.ts` 가 **Rust 원본을 파싱해** 대조한다(M-8). */
 export const CLOSE_GUARD_MS = 3000;
-/** 트레이 종료 요청 이벤트 이름 — 정본은 `tray.rs` 의 `TRAY_QUIT`(같은 테스트가 대조한다). */
-export const TRAY_QUIT_EVENT = 'tray:quit';
+/* ⚠ **`TRAY_QUIT_EVENT` 가 여기 있었다 — 트레이가 은퇴했다**(I049 · 2026-08-22). */
 
 export async function installCloseGuard(
   beforeClose: () => Promise<void>,
   timeoutMs = CLOSE_GUARD_MS,
-  /* T-3 상주 모드 — **닫기가 무엇을 뜻하나**는 프런트가 정한다. Rust 로 옮기면 flush 계약이
-     두 곳으로 갈린다(`src-tauri/src/tray.rs` 머리주석). 매번 물어보는 이유는 설정이 세션
-     중에 바뀌기 때문 — 등록 시점의 값을 붙잡으면 켠 직후의 닫기가 옛 동작을 한다. */
-  resident: () => boolean = () => false,
 ): Promise<() => void> {
   if (!isTauri()) return () => {};
   try {
@@ -197,12 +192,8 @@ export async function installCloseGuard(
       } catch {
         /* 저장 실패가 앱을 못 닫게 만들지는 않는다 */
       }
-      /* ⚠ 상주 모드에서도 **flush 는 똑같이 한다** — 숨긴 뒤 강제 종료·크래시가 나면 그
-         쓰기는 영영 없다. 달라지는 것은 마지막 한 줄뿐이다. */
-      if (resident()) {
-        await win.hide();
-        return;
-      }
+      /* ⚠ 종전엔 여기 상주 모드 분기가 있었다(닫으면 숨긴다) — T-3 이 은퇴하며 사라졌다(I049).
+         닫기는 이제 언제나 파괴다. flush 계약은 위 `beforeClose` 그대로다. */
       await win.destroy();
     });
     return un;
@@ -212,57 +203,13 @@ export async function installCloseGuard(
   }
 }
 
-/* ── T-3 상주 트레이 · 자동 시작 ────────────────────────────────────────────
-   ⚠ 둘 다 **기본 꺼짐**이고 켜는 것은 설정의 사용자 결정이다 — 설치만으로 자동 시작을 등록
-   하거나 "닫아도 안 죽는" 프로세스를 만드는 것은 사용자가 안 본 사이의 시스템 상태 변경이다. */
+/* ⚠⚠ **여기 T-3 상주 트레이·자동 시작이 있었다 — 은퇴했다**(I049 · 2026-08-22 발상 축).
 
-/** 트레이 `종료` 구독(셸 전용). 받으면 **호출부가 flush 후 스스로 꺼야 한다** —
- *  Rust 는 3초 뒤 폴백으로 끄고, 그건 저장을 기다려 주지 않는다(`tray.rs` 머리주석). */
-export async function onShellQuit(cb: () => void): Promise<() => void> {
-  if (!isTauri()) return () => {};
-  try {
-    const { listen } = await import('@tauri-apps/api/event');
-    return await listen(TRAY_QUIT_EVENT, () => cb()); // 정본은 src-tauri/src/tray.rs 의 TRAY_QUIT
-  } catch {
-    return () => {};
-  }
-}
-
-/** 창을 실제로 파괴하고 앱을 끝낸다(상주 모드에서 트레이 종료가 부른다). */
-export async function shellQuit(): Promise<void> {
-  if (!isTauri()) return;
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    await getCurrentWindow().destroy();
-  } catch {
-    /* 못 끄면 Rust 폴백이 끈다 — 여기서 더 할 수 있는 일이 없다 */
-  }
-}
-
-/** 자동 시작이 등록돼 있나. 브라우저·실패 시 `false`(모르면 꺼진 것으로 본다). */
-export async function autostartEnabled(): Promise<boolean> {
-  if (!isTauri()) return false;
-  try {
-    const { isEnabled } = await import('@tauri-apps/plugin-autostart');
-    return await isEnabled();
-  } catch {
-    return false;
-  }
-}
-
-/** 자동 시작을 켜거나 끈다. **실제 상태**를 돌려준다 — 요청값을 그대로 믿으면 등록이 조용히
- *  실패했을 때 설정 화면이 거짓을 말한다(레지스트리 쓰기는 정책으로 막힐 수 있다). */
-export async function setAutostart(on: boolean): Promise<boolean> {
-  if (!isTauri()) return false;
-  try {
-    const { enable, disable, isEnabled } = await import('@tauri-apps/plugin-autostart');
-    if (on) await enable();
-    else await disable();
-    return await isEnabled();
-  } catch {
-    return await autostartEnabled();
-  }
-}
+   `onShellQuit`·`shellQuit`·`autostartEnabled`·`setAutostart` 넷. 그 축이 존재한 이유는
+   `tray.rs` 가 스스로 적어 뒀다: *"예약 알림(T-6)은 발사 시각에 프로세스가 살아 있어야 하고,
+   우회가 없다 — 그래서 `T-3 → T-6` 이 원리적 선행"*. **T-6 이 은퇴했으므로 그 선행의 목적지가
+   사라졌다.** 남은 것은 «닫아도 안 죽는 프로세스»뿐이고, 그건 이 앱이 사용자에게 파는 값이
+   아니다. 복구: `git show <이 커밋의 부모>:web/src/lib/tauri.ts`. */
 
 /* ── 미니 HUD 창 모드(N-8) ──────────────────────────────────────────────────
    집중 중 남은 시간 확인이 **alt-tab 2회**였다(`FocusChip` 이 TopBar 안이라 창이 가려지면 같이
@@ -721,101 +668,14 @@ export async function systemIdleSeconds(): Promise<number> {
   }
 }
 
-/* ── Q-30 작업표시줄 오버레이 배지 — **말 걸지 않는 알림**(2026-08-02) ─────────────────
-   이 앱이 사용자에게 먼저 말을 거는 채널은 P-8 이 알림을 고치기 전까지 **0** 이었고, 고친 뒤에도
-   알림은 *말을 건다* — 하던 일을 끊는다. 배지는 그 반대편이다: 작업표시줄 아이콘 위에 작은 수가
-   얹힐 뿐이라 **보러 갔을 때만** 보인다(그래서 로드맵이 이걸 "T-6 의 무해한 형"이라 적었다).
+/* ⚠⚠ **여기 Q-30 작업표시줄 배지(`badgePng`·`shellBadge`)가 있었다 — 은퇴했다**(I049 ·
+   2026-08-22). 소비처였던 `app/useTaskbarBadge` 와 함께 갔고, `capabilities` 의
+   `core:window:allow-set-overlay-icon` 도 그 파일이 예약해 둔 대로 함께 걷었다. */
 
-   ⚠ **Windows 엔 `setBadgeCount` 가 없다** — 그건 macOS 독·Linux 유니티용이고, Windows 의
-   대응물은 작업표시줄 오버레이 아이콘이다(`setOverlayIcon`). 그래서 이 함수가 따로 있다.
-
-   ⚠⚠ **아이콘을 파일로 두지 않는다.** `public/` 에 PNG 를 넣으면 `frontendDist` 를 타고 데스크톱
-   번들에 실리고(예산 축 ④ 번들 오염이 정확히 그 부류를 잡는다), 게다가 수(1·2·…·99+)마다 한 장씩
-   필요해진다. 대신 **캔버스로 그려 PNG 바이트를 만든다** — 산출물 0, 수 제한 0.
-   ⚠ 색은 토큰에서 읽지 않는다. OS 작업표시줄은 앱 테마 밖이고(다크/라이트 어느 쪽 위에도 얹힌다)
-     여기 필요한 것은 *어디서든 보이는* 고대비 한 쌍이다. 액센트를 따라가게 하면 라임 위 흰 글자가
-     밝은 작업표시줄에서 사라진다.
-   ⚠ 실패는 **조용하다** — 배지는 부가 신호다(`shellNotify` 와 같은 판단). 그리고 Windows 밖에선
-     이 API 가 no-op 이거나 거부하는데, 그건 결함이 아니라 플랫폼 사실이다. */
-const BADGE_PX = 32;
-
-/** 배지 PNG 바이트 — 셸 밖(테스트·브라우저)에서도 부를 수 있게 순수하게 둔다. */
-async function badgePng(text: string): Promise<Uint8Array | null> {
-  if (typeof document === 'undefined') return null;
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = BADGE_PX;
-  const g = cv.getContext('2d');
-  if (!g) return null;
-  g.fillStyle = '#c81e2b'; // 경보 적 — 작업표시줄이 밝든 어둡든 흰 글자가 읽힌다
-  g.beginPath();
-  g.arc(BADGE_PX / 2, BADGE_PX / 2, BADGE_PX / 2, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = '#ffffff';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  // 두 자리 이상이면 글자를 줄인다 — 원 밖으로 나가면 수가 아니라 얼룩이 된다.
-  g.font = `bold ${text.length > 2 ? 13 : text.length > 1 ? 17 : 21}px sans-serif`;
-  g.fillText(text, BADGE_PX / 2, BADGE_PX / 2 + 1);
-  const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
-  return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
-}
-
-/**
- * 작업표시줄 배지를 세우거나(`n > 0`) 지운다(`n <= 0`).
- *
- * ⚠ 이 함수가 **호출부의 스로틀을 대신하지 않는다** — 부를 때마다 캔버스를 그리고 IPC 를 탄다.
- * 소비처(`app/useTaskbarBadge`)가 값이 바뀔 때만 부르는 것이 그 계약이다.
- */
-export async function shellBadge(n: number): Promise<void> {
-  if (!isTauri()) return;
-  try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    const w = getCurrentWindow();
-    if (n <= 0) {
-      await w.setOverlayIcon(undefined);
-      return;
-    }
-    const png = await badgePng(n > 99 ? '99+' : String(n));
-    if (png) await w.setOverlayIcon(png);
-  } catch {
-    /* Windows 밖·권한 없음 — 배지는 부가 신호다(`shellNotify` 와 같은 판단) */
-  }
-}
-
-/* ── Q-28 실시간 poke 소켓 중계 — **데스크톱 실시간**(2026-08-02) ─────────────────────────
-   웹뷰의 `WebSocket` 은 CSP(`connect-src 'self' ipc:`)에 원리적으로 막힌다 → 소켓을 Rust 가 소유한다
-   (뉴스·Ollama·Anki·`cloud.rs` 와 **같은 규약**이지 새 예외가 아니다). 정책(백오프·지터·안정 판정·
-   영구 실패)은 전부 `lib/cloud/live.ts` 에 남고, 여기와 `src-tauri/src/live.rs` 는 **소켓 하나의
-   수명**만 안다 — 그 두 파일 머리주석이 왜인지의 SSOT. */
-
-/** Rust 가 올리는 실시간 이벤트. `src-tauri/src/live.rs` 의 `LiveEvent` 와 1:1(태그 = `kind`). */
-export type ShellLiveEvent = { kind: 'open' } | { kind: 'poke' } | { kind: 'close'; reason: string };
-
-/** 소켓을 연다. **한 번만 시도한다** — 재시도는 호출부(`cloud/live.ts`)의 정책이다.
- *  `pingMs` 는 그 정책 값을 그대로 넘긴 것이다(서버 DO 는 클라 주도 keep-alive 를 기대한다). */
-export function shellLiveOpen(url: string, token: string, pingMs: number): Promise<void> {
-  return call<void>('cloud_live_open', { url, token, pingMs });
-}
-
-/** 열려 있는 소켓을 끊는다. Rust 는 **다시 붙지 않는다**(재연결은 호출부 소유). */
-export function shellLiveClose(): Promise<void> {
-  return call<void>('cloud_live_close', {});
-}
-
-/** 실시간 이벤트 구독(셸 전용). 해제 함수를 돌려준다.
- *  ⚠ 이벤트 이름은 `live.rs` 의 `LIVE_EVENT` 와 짝이다 — 갈리면 **조용히 아무 일도 안 일어난다**
- *  (다른 구독 3종과 같은 형태). */
-export async function onShellLive(cb: (ev: ShellLiveEvent) => void): Promise<() => void> {
-  if (!isTauri()) return () => {};
-  try {
-    const { listen } = await import('@tauri-apps/api/event');
-    return await listen<ShellLiveEvent>('cloud-live', (e) => cb(e.payload));
-  } catch {
-    /* 구독 실패 = 실시간이 없다. 그래도 폴백(복귀·편집후 동기화)이 최신성을 지키므로 조용하다 —
-       `cloud/live.ts` 머리주석의 "붙지 못해도 무해하다"가 여기까지 적용된다. */
-    return () => {};
-  }
-}
+/* ⚠⚠ **여기 Q-28 실시간 poke 소켓 중계가 있었다 — 은퇴했다**(I051 · 2026-08-22 발상 축).
+   `ShellLiveEvent`·`shellLiveOpen`·`shellLiveClose`·`onShellLive` 넷. 근거는
+   `store/syncController` 의 그 자리 주석(그 채널 스스로 «정확성의 전제가 아니다»라 적었고,
+   실측은 8일간 동기화할 편집 0건이었다). */
 
 /** AnkiConnect 액션 중계(4단계-F). 브라우저 직통은 셸 오리진이 CORS 화이트리스트에 없어 막힌다. */
 export function shellAnkiConnect<T>(action: string, params: Record<string, unknown>): Promise<T> {
@@ -918,13 +778,4 @@ export function installUpdate(endpoint?: string): Promise<void> {
   return call('install_update', { endpoint: endpoint ?? null }, z.unknown() as z.ZodMiniType<void>);
 }
 
-/** A-6 — 트레이 툴팁을 세운다. 문구는 프런트가 만든다(`lib/reminder.trayTooltip`).
- *  ⚠ 실패는 조용하다 — 트레이는 부가 표면이다(`shellBadge`·`shellNotify` 와 같은 판단). */
-export async function shellTrayTooltip(text: string): Promise<void> {
-  if (!isTauri()) return;
-  try {
-    await call<void>('tray_tooltip', { text });
-  } catch {
-    /* 트레이가 안 섰거나 플랫폼이 다르다 — 앱을 막지 않는다 */
-  }
-}
+/* ⚠ `shellTrayTooltip`(A-6 트레이 툴팁)이 여기 있었다 — 트레이가 은퇴했다(I049). */

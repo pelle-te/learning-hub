@@ -43,27 +43,9 @@ for (const theme of THEMES) {
   }
 }
 
-/* ── 과목 › 구조도 뷰 — **탭이 아니라 뷰가 됐다**(P-19 · 2026-08-01) ────────────────────
-   종전엔 `graph` 가 탭 로스터의 한 원소라 위 루프가 알아서 찍었다. 지금은 `/items` 의 쿼리
-   변형이므로 로스터로는 못 닿는다 — §15-4 가 요구하는 "커버리지 0 인 화면을 만들지 않는다"를
-   지키려면 여기 개별 케이스가 필요하다(안 만들면 뷰 전환이 통째로 시각 게이트 밖이 된다).
-
-   ⚠ `<canvas>` 힘-방향 뷰지만 초기 좌표가 id 해시 시드라 **결정론적**이고(`graphData.ts`:
-     "Math.random 금지 · 스냅샷/테스트 안정") reduced-motion 에선 동기 1회 렌더다.
-   ⚠ 범례의 '의미 연결' 칩은 `semStatus` 가 settle 한 뒤에야 붙는다: 트랙 A 에선 임베딩 커맨드가
-     reject 되어 반드시 'unavailable'(= Ollama 필요) 로 끝나는데, 그 전에 찍으면 칩이 통째로
-     빠진 상을 박는다(실측: 같은 실행에서 dark 는 50노드, light 는 48노드). **존재 단정**으로
-     전이 완료를 보장한다 — 카피가 바뀌면 조용히 통과하지 않고 timeout 으로 시끄럽게 깨진다. */
-for (const theme of THEMES) {
-  test(`items-structure · ${theme}`, async ({ page }) => {
-    await boot(page, theme);
-    await page.goto('/items?view=structure');
-    await expect(page.locator('#main')).toBeVisible();
-    await expect(page.getByText('의미 연결 — Ollama 필요')).toBeVisible();
-    await settle(page);
-    await expect(page).toHaveScreenshot(`items-structure-${theme}.png`, { fullPage: true });
-  });
-}
+/* ⚠ **여기 `items-structure` 케이스 둘이 있었다 — 그 뷰가 삭제됐다**(I044 · 2026-08-22).
+   베이스라인 2장도 함께 지웠다. §15-4 의 「커버리지 0 인 화면을 만들지 않는다」는 화면이
+   사라졌으므로 성립한다 — 케이스만 남기면 그게 곧 죽은 검사다. */
 
 /* ── 컷 카드(P-9) — **초과하는 날에만 존재한다** ─────────────────────────────────────
    공유 `SEED` 는 두 과목이 마감 안에 끝나므로 이 카드가 안 뜬다. 그건 제품이 옳은 것이지만,

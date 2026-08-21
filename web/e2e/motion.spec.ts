@@ -24,9 +24,8 @@ import { SEED, boot, settle } from './_fixtures';
    3. `document.getAnimations()` 의 `currentTime` 을 원하는 ms 로 **직접 세운다**.
    벽시계에 의존하지 않으므로 같은 입력에 같은 픽셀이 나온다.
 
-   ⚠ `AmbientCanvas` 는 CSS 애니가 아니라 RAF 라 위 정지가 안 먹는다 — 모션을 켜는 순간 오로라가
-   매 프레임 달라져 이 파일 전체가 flaky 가 된다. **`fxLite` 로 재우지 않는다**(그 노브는 애니
-   duration 까지 눌러 버린다) — `bootFrozen` 이 캔버스를 **숨겨서** 재운다. 상세는 그 함수 주석.
+   ⚠ 종전 이 자리에 `AmbientCanvas`(RAF 오로라) 를 재우는 절이 있었다 — 그 캔버스가 은퇴했다
+   (I045 · 2026-08-22). 지금 화면에 RAF 로 도는 배경은 없다.
    ⚠ 클립을 좁게 잡는다(`#main`, 또는 대상 크기). 전체 페이지를 찍으면 이 하네스가 레이아웃
    회귀까지 떠안게 되고, 그건 `visual.spec.ts` 의 일이다. **여기서 재는 것은 '지금 어떤 모션이
    어디까지 갔나'** 하나다.
@@ -125,8 +124,9 @@ async function bootFrozen(page: Page): Promise<void> {
      가드 케이스가 그걸 첫 실행에서 잡았다(그 케이스가 없었다면 스냅샷 3장이 조용히 정지
      프레임으로 구워졌을 것이다 — 이 파일이 있으나 마나가 되는 정확한 형태). */
   await page.addInitScript(() => {
-    const css = `*, *::before, *::after { animation-play-state: paused !important; }
-      canvas[aria-hidden='true'] { visibility: hidden !important; }`;
+    /* ⚠ 종전엔 `canvas[aria-hidden='true']`(앰비언트 오로라)도 숨겼다 — 그 캔버스가 은퇴했다
+       (I045 · 2026-08-22). 배경이 정적 CSS 라 RAF 로 흔들릴 것이 없다. */
+    const css = `*, *::before, *::after { animation-play-state: paused !important; }`;
     const put = (): void => {
       if (document.getElementById('e2e-freeze')) return;
       const host = document.head ?? document.documentElement;

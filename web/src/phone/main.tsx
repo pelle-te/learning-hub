@@ -24,7 +24,6 @@ import { enableBrowserDb } from '@/lib/db/sqlite';
 import { initPhoneStore } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';
-import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 // H21 — 종단 폴백. 폰은 SW autoUpdate 때문에 청크 로드 실패의 도달 가능성이 더 높다.
 import { showBootFallback } from '@/lib/bootFallbackScreen';
 
@@ -41,12 +40,10 @@ function Fallback(): React.JSX.Element {
 
 enableBrowserDb();
 
-/* 관측(2026-07-25) — **폰이 이 배선의 주 수혜자다.** 진짜 브라우저·진짜 셀룰러·진짜 기기라
-   데스크톱 셸과 달리 우리가 재현할 수 없는 환경에서 돈다(OPFS 미지원 사설 브라우징, 저사양
-   기기의 wasm 실패, 지하철 회선). 지금까지 그쪽 실패는 전부 침묵이었다.
-   ⚠ 훅을 `initPhoneStore()` **앞에** 건다 — OPFS·wasm 부팅 실패가 정확히 가장 알고 싶은
-   종류인데, 그건 렌더 전이라 아래 `ErrorBoundary` 가 원리적으로 못 잡는다. */
-installGlobalErrorHooks();
+/* ⚠⚠ **여기 전역 오류 훅이 있었다 — 텔레메트리가 은퇴했다**(I052 · 2026-08-22 발상 축).
+   그 주석이 적어 둔 것이 이 삭제의 대가 그대로다: *"폰이 이 배선의 주 수혜자다 — 진짜
+   브라우저·진짜 셀룰러·진짜 기기라 우리가 재현할 수 없는 환경에서 돈다."* OPFS·wasm 부팅
+   실패는 렌더 전이라 `ErrorBoundary` 가 원리적으로 못 잡고, 이제 그쪽은 다시 침묵이다. */
 
 /* 서비스워커 등록 — **폰에서만** 한다(`injectRegister: null` 이라 자동 주입이 없다).
    데이터는 OPFS SQLite 에 있지만 **앱 껍데기가 없으면 아무것도 안 뜬다** — 지하철에서
@@ -55,7 +52,7 @@ installGlobalErrorHooks();
 void import('virtual:pwa-register').then((m) => m.registerSW({ immediate: true })).catch(() => {});
 
 void initPhoneStore()
-  .catch((e: unknown) => reportError(e, 'initPhoneStore'))
+  .catch((e: unknown) => console.error('[boot] initPhoneStore', e))
   .then(async () => {
     const [{ default: PhoneApp }, { default: Connect }, { installSyncTriggers }] = await Promise.all([
       import('./PhoneApp'),
@@ -65,9 +62,7 @@ void initPhoneStore()
     const cfg = await readCloudConfig();
     /* 폰은 **정의상 클라우드에 붙어 있다**(그게 폰 웹앱의 존재 이유다) — 즉 데스크톱과 달리
        전송처가 거의 항상 있다. 미연결(=최초 Connect 화면)일 때만 무동작. */
-    initTelemetry(cfg?.baseUrl ?? null, 'phone');
     setResumeDevice(cfg?.deviceId); // N-7 — 폰이 자기 커서를 쓰고 데스크톱 커서를 읽는다
-    collectWebVitals();
     const connected = cfg !== null;
     const root = createRoot(document.getElementById('root')!);
 
@@ -75,7 +70,7 @@ void initPhoneStore()
       if (ok) installSyncTriggers();
       root.render(
         <StrictMode>
-          <ErrorBoundary FallbackComponent={Fallback} onError={(e) => reportError(e, 'phone-boundary')}>
+          <ErrorBoundary FallbackComponent={Fallback} onError={(e: unknown) => console.error('[phone-boundary]', e)}>
             {ok ? <PhoneApp /> : <Connect onDone={() => render(true)} />}
           </ErrorBoundary>
         </StrictMode>,
@@ -88,6 +83,6 @@ void initPhoneStore()
      청크를 요청하면 그 import 가 죽는다. 그때 종전에는 흰 화면에 버튼이 0개였다 —
      지하철에서 5분 쓰는 화면이 그 상태가 되면 사용자가 할 수 있는 일이 없다. */
   .catch((e: unknown) => {
-    reportError(e, 'phone-boot-chain');
+    console.error('[phone-boot-chain]', e);
     showBootFallback(e);
   });

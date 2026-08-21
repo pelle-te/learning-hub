@@ -176,7 +176,7 @@ export const selectNavSignals: (state: AppState) => Record<string, string> = key
   if (backlog > 0) parts.push(`보충 ${backlog}`);
   /* ⚠⚠ **키가 `journal` 이었다 — 그 탭은 W4(N-12)에서 레일을 떠났다**(2026-08-07 · W8 에서 발견).
      `RailSidebar` 는 `signals[t.key]` 로 **레일에 그려지는 탭**에만 신호를 붙이는데 `journal` 은
-     `role:'retired'`(→ `/day`)라 후보에 없다 → 이 두 문장은 **한 번도 렌더되지 않았다.** 배지가
+     `role:'view'`(옛 `retired`)(→ `/day`)라 후보에 없다 → 이 두 문장은 **한 번도 렌더되지 않았다.** 배지가
      같은 수를 `review-run` 에 이미 옮겨 놓았기 때문에(그 파일의 `NAV_BADGE_TAB`) 화면에서 값이
      사라진 것처럼 보이지 않았고, 그래서 조용했다 — *도달성 손실은 조용하다*의 또 한 판.
      → 배지와 **같은 탭**에 붙인다. 둘이 겹치지 않는 것은 `RailSidebar` 가 이미 보장한다

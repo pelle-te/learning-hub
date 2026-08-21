@@ -125,33 +125,8 @@ test('첫 라우트가 Suspense 폴백을 거치지 않는다 — 부팅 대기 
   expect(gap!, 'React Suspense 억제(≈248ms)가 돌아왔다 — `registry.warmTab` 머리주석 참조').toBeLessThan(50);
 });
 
-/* ⚠ **정지 프레임 게이트가 원리적으로 못 보는 층**(H19 · 2026-08-01). 시각 스냅샷은 손실 *전*
-   프레임을 찍으므로, 컨텍스트가 죽은 뒤 배경이 영구히 비는 상태를 44장이 전부 통과시킨다.
-   그래서 여기서 `WEBGL_lose_context` 로 **직접 강제**한다 — 이 확장은 드라이버가 아니라 WebGL
-   구현이 제공하므로 `--disable-gpu`(SwiftShader) 환경에서도 그대로 동작한다.
-   사용자 PC 에서 실제로 관측된 TDR(화면이 한 번씩 검게 꺼짐)이 이 케이스의 출처다. */
-test('WebGL 컨텍스트를 잃으면 CSS 폴백으로 내려가고, 복구되면 다시 올라온다 (H19)', async ({ page }) => {
-  await page.goto('/today');
-  const canvas = page.locator('canvas[aria-hidden="true"]').first();
-  await expect(canvas).toBeVisible();
-  const bg = () => canvas.evaluate((el: HTMLCanvasElement) => el.style.background);
-
-  /* 전제: 컨텍스트가 실제로 살아 있다. 살아 있으면 인라인 배경이 비어 있다(`alpha:false` 캔버스가
-     불투명하게 덮으므로 폴백을 켜 둘 이유가 없다). 여기서 실패하면 그건 "환경에 WebGL 이 없다"는
-     뜻이고 — 조용히 건너뛰지 않고 시끄럽게 알리는 것이 맞다(아래 두 단언이 무의미해지므로). */
-  expect(await bg()).toBe('');
-
-  await canvas.evaluate((el: HTMLCanvasElement) => {
-    const ext = el.getContext('webgl')?.getExtension('WEBGL_lose_context') ?? null;
-    Reflect.set(window, '__h19lose', ext);
-    ext?.loseContext();
-  });
-  // 손실 → 즉시 폴백(빈 배경으로 남지 않는다).
-  await expect.poll(bg).not.toBe('');
-
-  await page.evaluate(() => {
-    (Reflect.get(window, '__h19lose') as WEBGL_lose_context | null)?.restoreContext();
-  });
-  // 복구 → 폴백 해제 = `buildRig` 가 셰이더를 다시 세웠다는 관측 가능한 증거.
-  await expect.poll(bg).toBe('');
-});
+/* ⚠⚠ **여기 H19(WebGL 컨텍스트 손실 → CSS 폴백 → 복구) 케이스가 있었다 — 그 캔버스가
+   은퇴했다**(I045 · 2026-08-22 발상 축). 이 케이스의 출처는 사용자 PC 에서 실제로 관측된
+   TDR(화면이 한 번씩 검게 꺼짐)이었고, **그 사고가 곧 은퇴의 근거**였다: 장식이 피해를 줬고
+   그걸 막느라 붙은 방어(컨텍스트 복구·가시성 정지·`fxLite` 분기)가 코드를 더 키웠다.
+   배경은 이제 정적 CSS 그라데이션이라 잃을 컨텍스트가 없다. */

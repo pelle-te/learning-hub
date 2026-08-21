@@ -27,57 +27,11 @@
 ============================================================ */
 
 /** `HH:MM` → 자정 기준 분. 형식이 아니면 null(사용자 입력을 신뢰하지 않는다). */
-export function minutesOfDay(hhmm: string): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (h > 23 || min > 59) return null;
-  return h * 60 + min;
-}
+/* ⚠⚠ **여기 알림 발사 판정(`minutesOfDay`·`shouldFire`)이 있었다 — 은퇴했다**(I049 ·
+   2026-08-22 발상 축). 그것을 부르던 `app/useDailyReminder` 와 함께 갔다. 남은 것은
+   **후보 고르기**(`pickReminderLead`) 하나이고, 소비처는 `app/MiniHud`(미니 창의 「지금 이것」
+   한 줄)다 — 그건 말 걸기 채널이 아니라 **열어 놓은 창 안의 리드아웃**이라 남는다. */
 
-export interface ReminderInput {
-  /** 설정된 발사 시각(`HH:MM`). `null` 이면 꺼짐. */
-  at: string | null;
-  /** 마지막으로 쏜 날(ISO). */
-  lastDs: string | null;
-  /** 오늘(ISO). */
-  today: string;
-  /** 지금 시각(자정 기준 분). */
-  nowMin: number;
-  /** 말할 것의 개수(밀린 복습 + 보충). **0 이면 안 쏜다.** */
-  pending: number;
-}
-
-/** 지금 쏴야 하나. 이유를 함께 돌려준다 — 안 쏘는 이유가 화면에서 설명 가능해야 한다. */
-export function shouldFire(i: ReminderInput): { fire: boolean; why: string } {
-  if (!i.at) return { fire: false, why: '꺼짐' };
-  const target = minutesOfDay(i.at);
-  if (target === null) return { fire: false, why: '시각 형식이 아님' };
-  if (i.lastDs === i.today) return { fire: false, why: '오늘 이미 보냄' };
-  if (i.nowMin < target) return { fire: false, why: '아직 시각 전' };
-  /* ⚠ 여기가 이 파일의 요지 — 할 일이 없으면 **말하지 않는다**. "밀린 것 없어요" 한 번이
-     다음 알림의 신뢰를 깎는다(알림 피로는 내용이 아니라 빈도가 만든다). */
-  if (i.pending <= 0) return { fire: false, why: '말할 것이 없음' };
-  return { fire: true, why: '보냄' };
-}
-
-/* ── 본문(A-1 · 2026-08-07) ────────────────────────────────────────────────
-   ⚠⚠ **이 앱이 먼저 거는 유일한 말이 곧 회피 유발자였다.** 종전 본문은 제목 `대기 N건` +
-   본문 `N건 남았어요` 로, **한 알림에 수를 두 번** 말했다. 밖에서 캔 것의 요지가 정확히
-   그것이다 — 밀린 수를 본 순간이 이탈 지점이고("열었더니 밀린 수가 보여서 닫았다"), 그
-   숫자는 **어떤 행동으로도 오늘 안에 0이 될 수 없어서** 마비를 만든다.
-
-   그래서 규칙 하나: **수를 말하지 않고 한 조각을 이름으로 부른다.** 알림이 "무엇을"까지
-   말하면 앱을 여는 행위가 *확인*이 아니라 *시작*이 된다(알림 → 앱 → 판단에서 중간 한 홉이
-   사라진다).
-
-   ⚠ 나머지는 **개수가 아니라 오늘 몫의 언어**로 말한다("오늘은 이거 하나면 충분") — 그게
-   A-10 이 '오늘 밖' 스트립에 거는 것과 같은 화법이고, 두 표면이 다른 말을 하면 안 된다.
-   ⚠ `lead` 가 없으면(이름을 못 뽑는 상태) **그때도 수로 돌아가지 않는다.** 이름을 모르는 것은
-   앱의 사정이지 사용자의 사정이 아니다. */
-
-/** 알림이 가리킬 **첫 행동 하나**. */
 export interface ReminderLead {
   /** 사람이 읽는 한 줄(예: `회로이론 · 3장 변위전류`). */
   label: string;
@@ -125,37 +79,5 @@ export function pickReminderLead(c: ReminderCandidates): { lead: ReminderLead | 
   return { lead: null, rest: 0 };
 }
 
-/**
- * 알림 본문. **수가 아니라 한 조각**을 말한다(A-1).
- *
- * @param lead 첫 행동. `null` 이면 이름 없는 폴백(그래도 수는 안 쓴다).
- * @param rest `lead` 를 뺀 나머지 개수 — **문구에 숫자로 안 들어간다.** 있고 없고만 가른다.
- */
-export function reminderBody(lead: ReminderLead | null, rest = 0): { title: string; body: string } {
-  if (!lead) {
-    return { title: '밀린 것부터 하나만', body: '가장 오래된 것 하나면 오늘 몫은 충분합니다.' };
-  }
-  const dur = typeof lead.min === 'number' && lead.min > 0 ? `${Math.round(lead.min)}분` : null;
-  const tail = rest > 0 ? '오늘은 이거 하나면 충분합니다.' : '이거면 오늘 몫은 끝입니다.';
-  return { title: lead.label, body: dur ? `${dur} — ${tail}` : tail };
-}
-
-/* ── A-6 트레이 툴팁(발산 6회차 · 2026-08-07) ──────────────────────────────
-   ⚠⚠ 상주 모드를 켜면 **정보가 있는 표면이 0이 된다**: 창을 숨기면 작업표시줄 버튼이 사라지고
-   거기 붙은 오버레이 배지(Q-30)도 함께 사라진다. 남는 것은 아무것도 말하지 않는 아이콘 하나다.
-
-   ⚠ 문구를 **여기서** 만드는 이유: A-1(알림)과 **같은 어휘**여야 한다. 두 채널이 같은 사실을
-   다르게 말하면(하나는 "회로이론 3장", 하나는 "대기 3건") 사용자는 둘을 다른 것으로 읽는다.
-   그래서 리드 선택은 `pickReminderLead` 를 그대로 재사용하고, 이 함수는 **조판만** 한다.
-
-   ⚠ 여기서는 **수를 써도 된다.** 알림이 수를 안 쓰는 이유는 *말을 걸기 때문*이고(밀린 수를
-   들이밀면 회피가 된다), 툴팁은 **보러 간 사람에게만** 보인다 — 갔다는 것 자체가 알고 싶다는
-   뜻이다. Q-30 이 배지를 "말 걸지 않는 알림"이라 부른 것과 같은 구분이다. */
-
-/** 트레이 툴팁(여러 줄). 첫 줄은 앱 이름 — OS 가 그 자리를 이름으로 기대한다. */
-export function trayTooltip(lead: ReminderLead | null, pending: number): string {
-  const lines = ['러닝허브'];
-  if (lead) lines.push(lead.min ? `다음 · ${lead.label} (${Math.round(lead.min)}분)` : `다음 · ${lead.label}`);
-  lines.push(pending > 0 ? `대기 ${pending}건` : '대기 없음');
-  return lines.join('\n');
-}
+/* ⚠ **`reminderBody`(알림 문구)·`trayTooltip`(트레이 툴팁)이 여기 있었다 — 둘 다 채널과
+   함께 은퇴했다**(I049 · 2026-08-22). 문구를 만드는 층은 채널이 없으면 존재 이유가 없다. */

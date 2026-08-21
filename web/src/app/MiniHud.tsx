@@ -126,7 +126,7 @@ export default function MiniHud() {
 
    말할 것은 **이미 있다**: 알림(A-1)·트레이 툴팁(A-6)이 쓰는 그 리드다. 세 채널이 같은 함수를
    쓰는 것이 요지 — 하나는 "회로이론 3장"이라 하고 다른 하나는 "대기 3건"이라 하면 사용자는
-   둘을 다른 것으로 읽는다(`lib/reminder.trayTooltip` 주석이 세운 규율).
+   둘을 다른 것으로 읽는다(옛 `lib/reminder.trayTooltip` 주석이 세운 규율 · 그 함수는 I049 로 은퇴).
    ⚠ 여기서도 **수를 안 쓴다.** 알약은 시야 안에 상주하므로 알림과 같은 부류다(말을 건다) —
      밀린 수를 상시 노출하면 그게 곧 A-1 이 없앤 회피 유발자의 영구판이 된다. */
 function ResidentPill({ expand }: { expand: () => Promise<void> }): React.JSX.Element {

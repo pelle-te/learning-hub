@@ -31,7 +31,7 @@ describe('visitKeyOfLocation — 흡수된 화면이 자기 몫을 얻는다', (
   /* 로스터에서 `to` 를 그대로 읽는다 — 뷰 값이 바뀌거나 은퇴 탭이 늘어도 이 케이스가 따라온다
      (`routeLabelOfLocation` 이 손으로 적은 목록을 안 두는 것과 같은 규율). */
   it('⭐ `?view=` 로 흡수된 화면은 **자기 key** 로 센다', () => {
-    for (const key of ['forecast', 'mastery', 'graph']) {
+    for (const key of ['forecast', 'mastery']) {
       const to = tabByKey(key)?.to;
       expect(to, `${key} 는 to 를 가진 은퇴 탭이어야 한다`).toBeTruthy();
       const [path = '', query = ''] = String(to).split('?');

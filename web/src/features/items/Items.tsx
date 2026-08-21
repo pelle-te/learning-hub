@@ -11,7 +11,7 @@
    배분은 '흡수'가 아니라 '미러' — 전 과목 교차 조망(요일 열 합계)은 배치 탭의 배분 보드가 계속 소유하고,
    여기선 lib/weekAlloc 같은 출처로 한 과목의 행만 편집한다. 두 입구, 한 진실.
 ============================================================ */
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useListCursor } from '@/hooks/useListCursor';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -43,27 +43,16 @@ import { VaultImport } from './VaultImport';
 import { SkeletonPanel } from './SkeletonPanel';
 import { AvailRail } from './AvailRail';
 import { Icon } from '@/components/Icon';
-import { STRUCTURE_VIEW } from '@/shell/tabs';
 
-/* ── P-19 — **`graph`(학습 구조도)가 탭에서 이 화면의 뷰로 내려왔다**(2026-08-01) ────────────
-   둘은 **같은 로컬 데이터의 두 시각화**다: 여기가 항목→챕터를 목록으로, 저기가 같은 것을 힘-방향
-   구조도로 그린다(서버 페치 0 · 항상 가용). 그런데 호스트가 갈려 있어서 `plan›과목` 과
-   `train›구조` 라는 **서로 다른 질문의 자리**에 앉아 있었다.
+/* ⚠⚠ **여기 「구조도 뷰」가 있었다 — 은퇴했다**(I044 · 2026-08-22 발상 축).
 
-   ⚠ **파일을 합치지 않는다.** 로드맵이 지적한 교환("탭 하나 줄이려고 파일 하나를 감당 못 하게")을
-   피하는 방법은 단순하다 — 호스트만 바꾸고 컴포넌트는 그대로 둔다. `Items.tsx`(434줄) ·
-   `Graph.tsx`(741줄) 어느 쪽도 안 커지므로 `max-lines`·인지복잡도 래칫을 건드리지 않는다.
-   ⚠ **lazy 다.** 구조도는 캔버스+시뮬레이션이라 무겁고, 목록만 보는 대부분의 방문에서 그 코드를
-   내려받을 이유가 없다. 탭이었을 때 `registry.tsx` 가 해 주던 일을 여기서 그대로 한다.
-   ⚠ E10 이 두 화면을 남긴 판정(_"인접해 보인다고 같은 질문이 아니다"_)은 **뒤집히지 않았다.**
-   저 판정이 가른 짝은 `graph` 대 `mastery`(볼트 산출 개념 히트맵)였고, 그 둘은 여전히 다른
-   호스트에 있다. 여기서 합치는 짝은 `graph` 대 `items` — 같은 로컬 데이터다. */
-const Graph = lazy(() => import('../graph/Graph'));
+   P-19 가 `graph` 탭을 이 화면의 `?view=structure` 로 내렸고, 그 판정(«같은 로컬 데이터의 두
+   시각화»)은 옳았다. 틀린 것은 **그 두 번째 표현이 값을 내는가**였다: 시각 베이스라인 실물이
+   **노드 다섯 개를 화면 가득** 그린다 — 이 앱의 정의인 「한눈에」의 반례이고, 목록이 같은 것을
+   더 조밀하게 말한다. 선수 관계는 텍스트 한 줄이면 된다.
 
-/* 이 화면의 두 뷰. URL 이 정본이다(딥링크·⌘K·옛 `/graph` 리다이렉트가 전부 여기 착지한다).
-   ⚠ 쿼리 값은 `shell/tabs` 가 소유한다(P3) — ⌘K 의 `act:graph` 가 같은 문자열로 이동하므로,
-   여기에 사본을 두면 한쪽만 고쳐졌을 때 팔레트가 조용히 목록 뷰로 착지한다. */
-const STRUCTURE = STRUCTURE_VIEW;
+   지운 것: `features/graph/`(6파일 1,655줄) + 테스트 4파일 + 이 화면의 뷰 토글.
+   복구: `git show <이 커밋의 부모>:web/src/features/graph/Graph.tsx` (형제 파일도 같은 방식). */
 
 /** 빈 여백 대신 한눈 지표 — 과목 수·주당 합계·챕터 진행·가장 가까운 마감.
  *  '오늘'은 벽시계가 아니라 **앱 정본**(todayISO, `_today` 시드 존중)을 호출부에서 받는다 —
@@ -118,22 +107,6 @@ export default function Items() {
   /* 온보딩(W3)이 `?import=1`·`?skeleton=1` 로 **서로 다른 목적지**에 착지한다 — 종전엔 3버튼이
      전부 `/items` 라 "3단계"가 한 화면으로 무너져 있었다. 초기값으로만 읽고(아래 1회 소비),
      그 뒤로는 평범한 토글이다. */
-  /* P-19 뷰 — **URL 이 정본**이다. `useState` 로 두면 옛 `/graph` 딥링크·⌘K·뒤로가기가 착지할
-     자리가 없어지고, 그건 탭을 없앤 대가로 *도달성*을 잃는 것이다(IA 재편의 금지 사항). */
-  const structure = searchParams.get('view') === STRUCTURE;
-  const setView = useCallback(
-    (on: boolean) =>
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (on) next.set('view', STRUCTURE);
-          else next.delete('view');
-          return next;
-        },
-        { replace: true },
-      ),
-    [setSearchParams],
-  );
   const [showSkeleton, setShowSkeleton] = useState(() => searchParams.get('skeleton') === '1');
   const [showImport, setShowImport] = useState(() => searchParams.get('import') === '1');
   // 볼트에 뭐가 있나 — `app/VaultSync` 가 부팅에 채운 캐시만 구독(fetch 0). 빈 상태 위계 판정용(W1).
@@ -300,212 +273,165 @@ export default function Items() {
             과목{n ? ` · ${n}과목` : ''}
           </h2>
           <div className="mt-1 text-hint leading-snug text-mut">
-            {structure ? (
-              <>
-                같은 과목·챕터를 <b className="font-bold text-txt">연결 구조</b>로 봐요. 노드를 끌어 배치하고, 누르면
-                상세가 열려요.
-              </>
-            ) : (
-              <>
-                카드를 누르면 <b className="font-bold text-txt">그 과목의 목표·챕터·요일 배분</b>을 한 창에서 정해요.
-                순서는 드래그 또는 <b className="font-bold text-txt">Alt+↑↓</b>
-                (키보드).
-              </>
-            )}
+            카드를 누르면 <b className="font-bold text-txt">그 과목의 목표·챕터·요일 배분</b>을 한 창에서 정해요. 순서는
+            드래그 또는 <b className="font-bold text-txt">Alt+↑↓</b>
+            (키보드).
           </div>
         </div>
-        {/* P-19 뷰 전환 — **세그먼트 바가 아니라 이 화면 안의 토글**이다. 세그먼트는 "다른 질문의
-            자리"를 뜻하는데 이 둘은 같은 질문의 두 표현이라, 바깥으로 올리면 다시 갈라진다. */}
-        {/* ⚠ **`ds-seg` 를 쓴다 — `aria-pressed` 에는 시각 스타일이 없다**(실렌더로 잡았다 · §15-4).
-            처음엔 ghost 버튼 두 개에 `aria-pressed` 만 달았는데, 이 저장소에는 그 속성에 대응하는
-            CSS 가 **한 줄도 없다**(전역·컴포넌트 통틀어 0건). 스크린리더에는 상태가 가고 눈에는
-            안 가는 형태였다 — 정적 검사·타입 어느 쪽도 못 보는 부류다. 캘린더 뷰 스위치가 쓰는
-            같은 세그로 맞춘다(`ds-on` 이 활성 칸을 액센트로 채운다). */}
-        <div className="ds-seg ml-auto flex-none" role="group" aria-label="보기 전환">
-          {(
-            [
-              [false, '목록'],
-              [true, '구조도'],
-            ] as const
-          ).map(([on, lab]) => (
-            <button
-              key={lab}
-              type="button"
-              aria-pressed={on === structure}
-              className={on === structure ? 'ds-on' : ''}
-              onClick={() => setView(on)}
-            >
-              {lab}
-            </button>
-          ))}
-        </div>
         <div className="flex flex-wrap justify-end gap-2">
-          {!structure && (
-            <Button
-              sm
-              variant="ghost"
-              onClick={() => setShowImport((v) => !v)}
-              aria-pressed={showImport}
-              title="옵시디언 볼트에서 과목을 불러와요(탭 이동 없이)"
-            >
-              <Icon name="folder" /> 불러오기
-            </Button>
-          )}
-          {!structure && (
-            <Button sm variant="primary" onClick={addItem}>
-              + 과목 추가
-            </Button>
-          )}
+          <Button
+            sm
+            variant="ghost"
+            onClick={() => setShowImport((v) => !v)}
+            aria-pressed={showImport}
+            title="옵시디언 볼트에서 과목을 불러와요(탭 이동 없이)"
+          >
+            <Icon name="folder" /> 불러오기
+          </Button>
+          <Button sm variant="primary" onClick={addItem}>
+            + 과목 추가
+          </Button>
         </div>
       </div>
 
-      {/* 구조도 뷰 — 같은 데이터의 두 번째 표현. `lazy` 라 목록만 보는 방문엔 안 내려온다. */}
-      {structure ? (
-        <Suspense
-          fallback={<div className="flex min-h-0 flex-1 items-center justify-center text-mut">구조도 로딩…</div>}
-        >
-          <Graph />
-        </Suspense>
-      ) : (
-        <>
-          {/* 뼈대 스트립 — 상시로는 요약만(가용·수업·일과). 누르면 과목과 **같은 중앙 시트**로 편집기가 뜬다.
+      <>
+        {/* 뼈대 스트립 — 상시로는 요약만(가용·수업·일과). 누르면 과목과 **같은 중앙 시트**로 편집기가 뜬다.
           제자리 펼침을 쓰지 않는 이유는 ItemCard 아코디언을 걷어낸 이유와 같다: 뒤 갤러리가 아래로 밀려
           조망이 깨진다. 같은 탭 안에서 '펼침'과 '시트' 두 어휘를 섞지 않는다(일관성). */}
-          <div className="flex-none px-5.5 max-narrow:px-3.5">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2.5 rounded-md! border-line2! py-2.25! pr-3.5! pl-3.5! text-left text-sm! leading-auto"
-              onClick={() => setShowSkeleton(true)}
-              aria-haspopup="dialog"
-            >
-              <span className="w-3 flex-none text-xs leading-auto text-mut" aria-hidden="true">
-                ›
-              </span>
-              <span className="flex-none text-skel-title font-extrabold tracking-skel text-acc uppercase">뼈대</span>
-              <span className="whitespace-nowrap text-mut tabular-nums">
-                가용 <b className="font-extrabold text-txt">{hLabel(weekFreeMin)}</b>/주
-              </span>
-              <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
-              <span className="whitespace-nowrap text-mut tabular-nums">
-                수업 <b className="font-extrabold text-txt">{classCount}</b>
-              </span>
-              <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
-              <span className="whitespace-nowrap text-mut tabular-nums">
-                일과 <b className="font-extrabold text-txt">{blockCount}</b>
-              </span>
-              <span className="ml-auto text-xs leading-auto whitespace-nowrap text-mut">수업·일과 편집</span>
-            </button>
-          </div>
-
-          <DetailDrawer
-            open={showSkeleton}
-            onClose={() => setShowSkeleton(false)}
-            title="뼈대 — 가용시간·수업·일과"
-            placement="center"
+        <div className="flex-none px-5.5 max-narrow:px-3.5">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2.5 rounded-md! border-line2! py-2.25! pr-3.5! pl-3.5! text-left text-sm! leading-auto"
+            onClick={() => setShowSkeleton(true)}
+            aria-haspopup="dialog"
           >
-            <SkeletonPanel />
-          </DetailDrawer>
+            <span className="w-3 flex-none text-xs leading-auto text-mut" aria-hidden="true">
+              ›
+            </span>
+            <span className="flex-none text-skel-title font-extrabold tracking-skel text-acc uppercase">뼈대</span>
+            <span className="whitespace-nowrap text-mut tabular-nums">
+              가용 <b className="font-extrabold text-txt">{hLabel(weekFreeMin)}</b>/주
+            </span>
+            <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
+            <span className="whitespace-nowrap text-mut tabular-nums">
+              수업 <b className="font-extrabold text-txt">{classCount}</b>
+            </span>
+            <span className="h-3 w-px flex-none bg-line2" aria-hidden="true" />
+            <span className="whitespace-nowrap text-mut tabular-nums">
+              일과 <b className="font-extrabold text-txt">{blockCount}</b>
+            </span>
+            <span className="ml-auto text-xs leading-auto whitespace-nowrap text-mut">수업·일과 편집</span>
+          </button>
+        </div>
 
-          {showImport && (
-            <div className="flex-none pt-2.5 pr-5.5 pb-0 pl-5.5 max-narrow:px-3.5">
-              <VaultImport onClose={() => setShowImport(false)} />
-            </div>
-          )}
+        <DetailDrawer
+          open={showSkeleton}
+          onClose={() => setShowSkeleton(false)}
+          title="뼈대 — 가용시간·수업·일과"
+          placement="center"
+        >
+          <SkeletonPanel />
+        </DetailDrawer>
 
-          <div className="grid min-h-0 flex-1 grid-cols-items-cols max-wide:grid-cols-1 max-wide:overflow-y-auto">
-            {items.length === 0 ? (
-              <div className="px-5.5 pt-1.5 pb-5.5">
-                <div className="ds-rule">
-                  <State
-                    glyph="books"
-                    title="아직 과목이 없어요"
-                    desc={
-                      <>
-                        공부할 과목을 추가하면 <b>주당 목표 시간</b>과 <b>챕터</b>로 스케줄러가 매일 블록을 자동
-                        배치합니다. 옵시디언 볼트나 Anki에서 통째로 불러올 수도 있어요.
-                      </>
-                    }
-                    next={
-                      /* ⚠ **위계가 뒤집혀 있었다(W1 · 2026-07-31).** primary 는 `+ 첫 과목 추가`,
+        {showImport && (
+          <div className="flex-none pt-2.5 pr-5.5 pb-0 pl-5.5 max-narrow:px-3.5">
+            <VaultImport onClose={() => setShowImport(false)} />
+          </div>
+        )}
+
+        <div className="grid min-h-0 flex-1 grid-cols-items-cols max-wide:grid-cols-1 max-wide:overflow-y-auto">
+          {items.length === 0 ? (
+            <div className="px-5.5 pt-1.5 pb-5.5">
+              <div className="ds-rule">
+                <State
+                  glyph="books"
+                  title="아직 과목이 없어요"
+                  desc={
+                    <>
+                      공부할 과목을 추가하면 <b>주당 목표 시간</b>과 <b>챕터</b>로 스케줄러가 매일 블록을 자동
+                      배치합니다. 옵시디언 볼트나 Anki에서 통째로 불러올 수도 있어요.
+                    </>
+                  }
+                  next={
+                    /* ⚠ **위계가 뒤집혀 있었다(W1 · 2026-07-31).** primary 는 `+ 첫 과목 추가`,
                      임포트는 ghost 였다 — 시각적으로 지배적인 버튼이 `새 과목` 하나를 만들고
                      온보딩을 끝내는 막다른 길이었다. 볼트에 실제로 뭔가 있으면 그쪽이 primary. */
-                      <>
-                        <Button
-                          variant={vaultSubjects ? 'primary' : 'default'}
-                          onClick={() => setShowImport(true)}
-                          title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
-                        >
-                          <Icon name="folder" /> 볼트/Anki에서 불러오기
-                          {vaultSubjects > 0 && <span className="ds-tiny"> — 과목 {vaultSubjects}개 대기</span>}
-                        </Button>
-                        <Button variant={vaultSubjects ? 'ghost' : 'primary'} onClick={addItem}>
-                          + 첫 과목 추가
-                        </Button>
-                      </>
-                    }
-                  />
-                </div>
+                    <>
+                      <Button
+                        variant={vaultSubjects ? 'primary' : 'default'}
+                        onClick={() => setShowImport(true)}
+                        title="옵시디언 볼트/Anki를 스캔해 과목을 여기서 바로 불러오세요(탭 이동 없이)"
+                      >
+                        <Icon name="folder" /> 볼트/Anki에서 불러오기
+                        {vaultSubjects > 0 && <span className="ds-tiny"> — 과목 {vaultSubjects}개 대기</span>}
+                      </Button>
+                      <Button variant={vaultSubjects ? 'ghost' : 'primary'} onClick={addItem}>
+                        + 첫 과목 추가
+                      </Button>
+                    </>
+                  }
+                />
               </div>
-            ) : (
-              <div className="grid min-h-0 [scrollbar-width:thin] grid-cols-gallery content-start gap-3.5 overflow-y-auto pt-1.5 pr-4 pb-5.5 pl-5.5 max-wide:overflow-visible max-wide:px-5.5 max-wide:pt-1.5 max-wide:pb-2 max-narrow:grid-cols-1 max-narrow:px-3.5 max-narrow:pt-1.5 max-narrow:pb-4.5">
-                {items.map((s) => (
-                  /* 드래그 재정렬의 키보드 대안이 같은 요소에 있다 — 아래 onKeyDown 의 Alt+↑↓.
+            </div>
+          ) : (
+            <div className="grid min-h-0 [scrollbar-width:thin] grid-cols-gallery content-start gap-3.5 overflow-y-auto pt-1.5 pr-4 pb-5.5 pl-5.5 max-wide:overflow-visible max-wide:px-5.5 max-wide:pt-1.5 max-wide:pb-2 max-narrow:grid-cols-1 max-narrow:px-3.5 max-narrow:pt-1.5 max-narrow:pb-4.5">
+              {items.map((s) => (
+                /* 드래그 재정렬의 키보드 대안이 같은 요소에 있다 — 아래 onKeyDown 의 Alt+↑↓.
                  이 래퍼는 일부러 포커스를 안 받는다(카드마다 탭 스톱을 늘리지 않으려고);
                  키 이벤트는 자식 ItemCard 의 포커스 가능한 헤드(role=button·tabIndex=0)에서
                  버블링돼 도달한다. */
-                  // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-                  <div
-                    key={s.id}
-                    data-item-id={s.id}
-                    ref={galleryCursor.register(s.id)}
-                    onFocusCapture={() => galleryCursor.onItemFocus(s.id)}
-                    className={`cursor-grab rounded-drag transition-opacity duration-fast ease-[var(--ease)]${overId === s.id && dragId !== s.id ? ' outline-2 outline-offset-2 outline-acc outline-dashed' : ''}${dragId === s.id ? ' opacity-45' : ''}`}
-                    draggable
-                    onDragStart={(e) => {
-                      setDragId(s.id);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragEnd={() => {
-                      setDragId(null);
-                      setOverId(null);
-                    }}
-                    onDragOver={(e) => {
-                      if (!dragId) return;
-                      e.preventDefault(); // drop 허용
-                      setOverId(s.id);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (dragId) moveItem(dragId, s.id);
-                      setDragId(null);
-                      setOverId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      // 키보드 재정렬(WCAG 2.1.1) — 카드 안 어디에 포커스가 있든 Alt+↑↓로 순서 이동
-                      // (드래그의 키보드 대안 · 새 tab stop을 만들지 않아 탐색 소음 없음).
-                      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-                      e.preventDefault();
-                      const idx = items.findIndex((x) => x.id === s.id);
-                      const tgt = items[idx + (e.key === 'ArrowDown' ? 1 : -1)];
-                      if (tgt) moveItem(s.id, tgt.id);
-                    }}
-                  >
-                    <ItemCard
-                      item={s}
-                      onOpen={openSubject}
-                      weakCount={weakBySid[s.id]}
-                      allocMin={rowSumMin(alloc[s.id])}
-                      todayIso={todayIso}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+                // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+                <div
+                  key={s.id}
+                  data-item-id={s.id}
+                  ref={galleryCursor.register(s.id)}
+                  onFocusCapture={() => galleryCursor.onItemFocus(s.id)}
+                  className={`cursor-grab rounded-drag transition-opacity duration-fast ease-[var(--ease)]${overId === s.id && dragId !== s.id ? ' outline-2 outline-offset-2 outline-acc outline-dashed' : ''}${dragId === s.id ? ' opacity-45' : ''}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragId(s.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setOverId(null);
+                  }}
+                  onDragOver={(e) => {
+                    if (!dragId) return;
+                    e.preventDefault(); // drop 허용
+                    setOverId(s.id);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragId) moveItem(dragId, s.id);
+                    setDragId(null);
+                    setOverId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    // 키보드 재정렬(WCAG 2.1.1) — 카드 안 어디에 포커스가 있든 Alt+↑↓로 순서 이동
+                    // (드래그의 키보드 대안 · 새 tab stop을 만들지 않아 탐색 소음 없음).
+                    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                    e.preventDefault();
+                    const idx = items.findIndex((x) => x.id === s.id);
+                    const tgt = items[idx + (e.key === 'ArrowDown' ? 1 : -1)];
+                    if (tgt) moveItem(s.id, tgt.id);
+                  }}
+                >
+                  <ItemCard
+                    item={s}
+                    onOpen={openSubject}
+                    weakCount={weakBySid[s.id]}
+                    allocMin={rowSumMin(alloc[s.id])}
+                    todayIso={todayIso}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
-            <AvailRail />
-          </div>
-        </>
-      )}
+          <AvailRail />
+        </div>
+      </>
     </section>
   );
 }

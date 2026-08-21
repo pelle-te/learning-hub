@@ -122,12 +122,9 @@ export function beginMergeApply(): void {
   if (_mergeSessions === 0) {
     /* 삼키지 않는다 — 그러나 던지지도 않는다(병합 도중 예외는 워터마크·기준선 계약을 흔든다).
        관측만 하고 창은 그대로 켠다(안 켜면 flush 가 통과해 받아온 행을 되돌린다 — 더 나쁘다). */
-    void import('../telemetry').then((m) =>
-      m.reportError(
-        new Error('병합 반영 창이 exclusiveMerge 밖에서 열렸다 — 게이트를 우회한 경로가 있다'),
-        'mergeApply.ungated',
-      ),
-    );
+    /* ⚠ 종전엔 텔레메트리로 보고했다 — 그 층이 은퇴했다(I052 · 2026-08-22). 남은 채널은
+       콘솔이고, 그건 dev·셸 로그에서만 보인다(폰 브라우저에서는 아무 데도 안 남는다). */
+    console.error('[db] 병합 반영 창이 exclusiveMerge 밖에서 열렸다 — 게이트를 우회한 경로가 있다');
   }
   _mergeApplyPending = true;
 }

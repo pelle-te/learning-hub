@@ -12,7 +12,6 @@ import {
   NAV_SHORTCUTS,
   vtMove,
 } from '@/shell';
-import { ChapterRedirect, ExamRedirect, WeekRedirect } from './NounRoutes';
 import WorkbenchPane from './WorkbenchPane';
 import { useUI } from '@/store/useUI';
 import { useOverlay } from '@/store/useOverlay';
@@ -21,8 +20,6 @@ import { isTyping } from '@/hooks/interactions';
 import { useVaultAnchorsVersion } from '@/hooks/useVaultAnchors';
 import { useLeaveCursor } from './useLeaveCursor';
 import { useFrameMemory } from './useFrameMemory';
-import { useTaskbarBadge } from './useTaskbarBadge';
-import { useDailyReminder } from './useDailyReminder';
 import { useIdleLedger } from './useIdleLedger';
 import { useMarkSeen } from './useMarkSeen';
 import TopBar from '@/app/TopBar';
@@ -36,7 +33,6 @@ import VaultSync from '@/app/VaultSync';
 import StorageBanner from '@/app/StorageBanner';
 import PinBar from '@/app/PinBar';
 import { routeTitle } from '@/app/docTitle';
-import { reportError } from '@/lib/telemetry';
 import { markVia, recordHop, recordVisit, takeVia } from '@/lib/visits';
 import { onGlobalCapture, onNotifyClick } from '@/lib/tauri';
 import { mark as perfMark } from '@/lib/perf';
@@ -52,7 +48,6 @@ import GlanceMode from '@/app/GlanceMode';
 import DayBufferOverlay from '@/app/DayBufferOverlay';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
-import AmbientCanvas from '@/components/AmbientCanvas';
 import { HudFrame } from '@/components/hud';
 import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
 
@@ -131,11 +126,15 @@ export default function App() {
   /* Q-16 — 성공 렌더의 형상(리드아웃 수·앵커 유무)을 기억해 **다음 진입의 뼈대**가 그 화면을
      닮게 한다. 여기 있는 이유는 `useLeaveCursor` 와 같다(라우트와 스토어가 여기서만 만난다). */
   useFrameMemory(routeKey);
-  /* Q-30 — 작업표시줄 배지. 레일 배지와 **같은 식**을 쓴다(그 훅 머리주석이 이유의 SSOT). */
-  useTaskbarBadge();
-  /* T-6 — 예약 한 발(하루 최대 1회). 배지와 **같은 수**를 쓴다: 셋이 갈리면 알림이 3 이라 하고
-     레일이 5 라 하는 상태가 생긴다. 상주(T-3)가 켜져 있어야 앱을 안 여는 날에도 뜬다. */
-  useDailyReminder();
+  /* ⚠⚠ **여기 「말 걸기 채널」 둘이 있었다 — 은퇴했다**(I049 · 2026-08-22 발상 축).
+     `useTaskbarBadge`(Q-30 작업표시줄 배지)와 `useDailyReminder`(T-6 하루 한 발 알림).
+     근거: 셋(레일 배지·작업표시줄·알림)이 **글자 그대로 같은 식**을 쓰고 있었다 — 같은 수를
+     세 곳에서 말하면 하나가 어긋날 때 사용자는 어느 쪽을 믿을지 모르고, 어긋남은 조용하다.
+     그리고 그 식의 입력이 실물에서 전부 0행이라 **두 채널은 한 번도 말한 적이 없다.**
+     남긴 것은 **레일 배지 하나** — 앱을 열었을 때 보이고, 그게 이 앱이 서 있는 자리다.
+     ⚠ 트레이 상주(T-3)도 함께 갔다: 그 파일이 스스로 *"T-3 → T-6 은 원리적 선행"* 이라 적어
+     뒀고, T-6 이 없으면 상주의 이유가 사라진다.
+     복구: `git show <이 커밋의 부모>:web/src/app/useTaskbarBadge.ts` 외. */
   /* N-8(W3) — 유휴 원장. **알림은 안 쏜다** — 재수신성 트리거의 전제(앱이 떠 있는 채로 자리를
      비우는 구간이 실재하나)를 3일 재는 자다. 근거는 `lib/idleLedger` 머리주석. */
   useIdleLedger();
@@ -167,7 +166,7 @@ export default function App() {
            고치는 형태이고, `palette.ts` 의 `act:graph` 한 줄이 정확히 그래서 재발을 예약했었다
            (Q-22 가 그 사본을 없앤 이유). 착지 경로는 이미 `TabMeta.to` 에 **있다**(불변식 ②가
            은퇴 탭에 그 필드를 강제한다). 여기서는 그걸 읽기만 한다. */
-        if (t.role === 'retired')
+        if (t.role === 'view')
           return <Route key={t.key} path={'/' + t.key} element={<Navigate to={t.to!} replace />} />;
         const ReactTab = getReactTab(t.key);
         /* N-12 — **한 화면에 주소가 둘일 수 있다**(`/day` = 오늘 · `/day/:ds` = 그 하루).
@@ -177,11 +176,7 @@ export default function App() {
            이 경계의 사고는 **특히 조용히 지나간다**(2026-07-25 감사). 어느 탭이 죽었는지를
            컨텍스트로 싣는다 — 그게 없으면 스택만 보고 화면을 못 특정한다. */
         const el = (
-          <ErrorBoundary
-            fallbackRender={(p) => <TabFallback {...p} label={t.label} />}
-            resetKeys={[t.key]}
-            onError={(e) => reportError(e, `tab:${t.key}`)}
-          >
+          <ErrorBoundary fallbackRender={(p) => <TabFallback {...p} label={t.label} />} resetKeys={[t.key]}>
             {ReactTab ? (
               <Suspense fallback={<TabLoading fill={!!t.fill} tabKey={t.key} />}>
                 <TabReady>
@@ -447,13 +442,14 @@ export default function App() {
     <div
       className={`relative isolate grid h-screen transition-[grid-template-columns] duration-base ease-[var(--ease)] max-mobile:h-auto max-mobile:min-h-screen max-mobile:grid-cols-1 ${navCollapsed ? 'grid-cols-shell-collapsed' : 'grid-cols-shell'}`}
     >
-      {/* 앰비언트 배경 — WebGL 오로라 메시(콘텐츠 뒤) + 그 위 필름 그레인. 깊이·"비싼" 질감.
-          그레인: fixed·z-[-1]·pointer 무시 · 노이즈 data-URI(--grain 토큰)를 overlay 로 4% 얹음. */}
-      <AmbientCanvas />
-      <div
-        className="pointer-events-none fixed inset-0 z-[-1] bg-[image:var(--grain)] opacity-[0.04] mix-blend-overlay"
-        aria-hidden="true"
-      />
+      {/* 앰비언트 배경 — **CSS 그라데이션 한 겹**(I045 · 2026-08-22 발상 축).
+          ⚠⚠ 여기 있던 것은 WebGL 오로라 메시(셰이더 · RAF 12fps)와 그 위의 필름 그레인이었다.
+          지운 근거는 취향이 아니라 **실사고**다: 이 장식이 Windows TDR(그래픽 드라이버 리셋)로
+          사용자에게 실제 피해를 줬고, 그걸 막느라 컨텍스트 손실 복구·가시성 정지·`fxLite` 분기가
+          붙어 코드가 더 커졌다(373줄). 그리고 그 방어가 실제로 도는지는 **정지 프레임 게이트가
+          원리적으로 검증할 수 없다**(C032 가 그 사각을 축 밖 이월로 적어 뒀다).
+          폴백은 이미 구현돼 있었다 — 그 세 줄이 이제 유일한 구현이다. */}
+      <div className="pointer-events-none fixed inset-0 z-[-1] bg-[image:var(--ambient)]" aria-hidden="true" />
       {/* 스크린리더/키보드 사용자가 매 탭마다 네비를 통과하지 않도록 본문으로 바로 점프(포커스 전엔 시각 숨김). */}
       <a href="#main" className="skip-link">
         본문 바로가기
@@ -493,10 +489,7 @@ export default function App() {
               <Route
                 path="/subject/:id"
                 element={
-                  <ErrorBoundary
-                    fallbackRender={(p) => <TabFallback {...p} label="과목" />}
-                    onError={(e) => reportError(e, 'tab:subject')}
-                  >
+                  <ErrorBoundary fallbackRender={(p) => <TabFallback {...p} label="과목" />}>
                     <Suspense fallback={<TabLoading fill={false} tabKey="subject" />}>
                       <SubjectPage />
                     </Suspense>
@@ -511,9 +504,8 @@ export default function App() {
                   ⚠ 로스터는 `TABS` 의 `role:'object'` 이고 여기는 **착지**다. 매개변수를 봐야
                   갈 곳이 정해지므로 정적 문자열(`to`)로는 못 적는다 — 그게 `route` 필드를 따로
                   둔 이유이고, 로스터가 주는 것은 *이름*(아나운서·문서 제목)이다. */}
-              <Route path="/chapter/:sid/:chapter" element={<ChapterRedirect />} />
-              <Route path="/week/:ws" element={<WeekRedirect />} />
-              <Route path="/exam/:sid" element={<ExamRedirect />} />
+              {/* ⚠ 명사 주소 셋(`/chapter/*`·`/week/:ws`·`/exam/:sid`)이 여기 있었다 — I047 이
+                  지웠다. 근거는 `shell/tabs.ts` 의 그 자리 주석(만든 뒤 아무도 안 가리켰다). */}
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </HudFrame>

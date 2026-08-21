@@ -9,7 +9,6 @@ import { storage } from '@/lib/kv';
 import { idbMirror } from '@/lib/idb';
 import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
 import { canPin, togglePin as togglePinPure } from '@/lib/pins';
-import { shellNotifyPrime } from '@/lib/tauri';
 import { setInspectDs } from '@/lib/visits';
 
 export interface UIStore {
@@ -22,8 +21,6 @@ export interface UIStore {
   setAnkiAutoRefresh: (on: boolean) => void;
   /** 시스템 테마 따라가기 토글 — 켜는 즉시 ThemeProvider가 현재 OS 값으로 맞춘다. */
   setThemeAuto: (on: boolean) => void;
-  /** T-3 상주 트레이 토글(기기별). 다음 닫기부터 적용된다 — 닫기 가드가 **매번** 이 값을 읽는다. */
-  setTrayResident: (on: boolean) => void;
   /** I030 점검 모드 — `ds` 를 주면 **그 날짜의** 방문·홉을 원장에서 뺀다. `null` 이면 끈다.
    *  ⚠ 날짜를 호출부가 준다(스토어가 시계를 들지 않는다 — 이 저장소의 날짜 관용구). */
   setInspecting: (ds: string | null) => void;
@@ -31,10 +28,6 @@ export interface UIStore {
   setRailLayout: (v: { hidden?: string[]; order?: string[] }) => void;
   /** A-13 — 오늘의 히어로를 확정/해제. `null` 이면 해제(평소 선택으로 돌아간다). */
   setFocusLock: (v: { ds: string; key: string } | null) => void;
-  /** T-6 예약 알림 시각(`HH:MM`) 또는 `null`(끔). 바꾸면 **오늘 몫이 되살아난다**(아래 참조). */
-  setReminderAt: (at: string | null) => void;
-  /** 오늘 몫을 쓴 것으로 표시. ⚠ 알림 전송 **전에** 부른다(`useDailyReminder` 머리주석). */
-  setReminderFired: (ds: string) => void;
   /** T-13 — 이 화면을 오늘 봤다고 표시. 같은 날 두 번째는 아무것도 안 한다(쓰기 낭비 방지). */
   markSeen: (key: string, ds: string) => void;
   /** T-26 — 지금 화면을 고정/해제. 상한 규칙은 `lib/pins.togglePin` 이 소유한다. */
@@ -95,12 +88,6 @@ export const useUI = create<UIStore>()(
         });
         flush();
       },
-      setTrayResident(on) {
-        set((s) => {
-          s.ui.trayResident = on;
-        });
-        flush();
-      },
       setInspecting(ds) {
         set((s) => {
           s.ui.inspectDs = ds;
@@ -123,27 +110,8 @@ export const useUI = create<UIStore>()(
         });
         flush();
       },
-      setReminderAt(at) {
-        set((s) => {
-          s.ui.reminderAt = at;
-          /* ⚠ 시각을 바꾸면 **오늘 몫을 되살린다.** 안 그러면 "9시로 해 놨다가 오늘 이미
-             받았는데 14시로 바꾸면 오늘은 안 온다"가 되고, 사용자는 설정이 안 먹었다고 읽는다.
-             끄는 경우(`null`)엔 그대로 둔다 — 되살릴 대상이 없다. */
-          if (at !== null) s.ui.reminderLastDs = null;
-        });
-        /* ⚠ **켤 때 알림 권한을 미리 받는다**(H-9 · 2026-08-06 감사). 종전엔 `shellNotifyPrime`
-           을 부르는 곳이 **집중 세션뿐**이었다 — 집중을 한 번도 안 쓴 사용자는 권한이 없는
-           채로 이 기능을 켜고, 첫 발화가 조용히 실패한다(그리고 그 실패가 안 보였다).
-           권한 요청은 사용자가 **방금 알림을 켠 순간**이 가장 자연스러운 자리다. */
-        if (at !== null) void shellNotifyPrime();
-        flush();
-      },
-      setReminderFired(ds) {
-        set((s) => {
-          s.ui.reminderLastDs = ds;
-        });
-        flush();
-      },
+      /* ⚠ **여기 `setReminderAt`·`setReminderFired`(T-6)와 `setTrayResident`(T-3)가 있었다 —
+         셋 다 은퇴했다**(I049 · 2026-08-22). 근거는 `app/App.tsx` 의 그 자리 주석. */
       togglePin(to, label, at) {
         if (!canPin(to, label)) return;
         const next = togglePinPure(get().ui.pins, { to, label, at });

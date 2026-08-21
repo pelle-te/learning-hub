@@ -20,9 +20,8 @@
    보조로 준다(`pollMs`). 폰은 폴링을 켜지 않는다.
 ============================================================ */
 import { syncOnce, type SyncResult } from '@/lib/cloud/run';
-import { applyPull } from '@/lib/cloud/merge';
 import { readCloudConfig } from '@/lib/cloud/client';
-import { connectLive, type LiveHandle } from '@/lib/cloud/live';
+import { applyPull } from '@/lib/cloud/merge';
 import { nextStamp } from '@/lib/db/stamp';
 import { endMergeApply, withMergeSession } from '@/lib/db/write';
 import { RUNTIME_CACHE_KEYS } from '@/lib/persistence';
@@ -270,8 +269,8 @@ export interface SyncTriggerOptions {
   /** 각 동기화 결과 콜백(예: `blocked` 토스트). */
   onResult?: (r: SyncResult) => void;
   /** 실시간 poke 채널(Phase 2)을 켠다. **폰만** true — 데스크톱 Tauri 웹뷰는 CSP 로 WS 가 막힌다.
-   *  못 붙어도 무해(폴링·이벤트로 폴백). 켜면 다른 기기 push 를 거의 즉시 받아 pull 한다. */
-  live?: boolean;
+  /* ⚠ `live?: boolean`(실시간 poke 채널)이 여기 있었다 — 은퇴했다(I051 · 2026-08-22).
+     남은 최신성 장치는 복귀·편집후 트리거와 `pollMs` 다(그 셋이 원래 정확성의 전제였다). */
 }
 
 /**
@@ -282,7 +281,7 @@ export interface SyncTriggerOptions {
  * 실행될 수 있다 — 이 가드가 그 창을 닫는다.
  */
 export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
-  const { pollMs, onEdit = true, onPagehide = false, beforeSync, onResult, live = false } = opts;
+  const { pollMs, onEdit = true, onPagehide = false, beforeSync, onResult } = opts;
 
   let _running: Promise<void> | null = null;
   const run = (): void => {
@@ -372,21 +371,11 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   let pollId: ReturnType<typeof setInterval> | null = null;
   if (pollMs) pollId = setInterval(run, pollMs);
 
-  // 실시간 poke 채널(Phase 2 · 폰) — cfg 가 있으면 붙어, 다른 기기 push 를 거의 즉시 받아 pull 한다.
-  // ⚠ 못 붙어도 위 트리거(복귀·편집후·폴링)가 최신성을 보장한다(점진적 향상).
-  let liveHandle: LiveHandle | null = null;
-  let liveDisposed = false;
-  if (live) {
-    void readCloudConfig().then((cfg) => {
-      /* ⚠ `onDead` — 재시도가 무의미해진 상태(기기 폐기·인증 영구 거부)는 **사람이 조치해야**
-         풀린다(H18). 조용히 멈추면 사용자는 실시간이 죽은 줄도 모르고, 계속 재시도하면
-         `/api/token` 을 하루 수천 번 친다. 멈추고 한 번 말한다. */
-      if (cfg && !liveDisposed)
-        liveHandle = connectLive(cfg, run, (reason) => {
-          toast(`실시간 동기화가 중단됐어요 — ${reason}`, 'warn', 12000);
-        });
-    });
-  }
+  /* ⚠⚠ **여기 실시간 poke 채널 연결이 있었다 — 은퇴했다**(I051 · 2026-08-22 발상 축).
+     그 채널은 스스로 «점진적 향상»이라 적었다: *"클라이언트가 붙지 못해도 앱은 기존 이벤트/폴링
+     동기화로 그대로 돈다 — 연결은 최신성을 빠르게 할 뿐 정확성의 전제가 아니다."* 그 문장이
+     은퇴의 근거이기도 하다. 실측: 8일간 동기화할 편집이 **0건**(`tombstones` 0행)이고,
+     비용은 `live.rs` + Durable Object + 클라 648줄이었다. 남은 지연은 **최대 폴링 주기**다. */
 
   run(); // 설치 즉시 1회 — 열었다 = 최신을 보고 싶다.
 
@@ -397,8 +386,6 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
     if (onPagehide) window.removeEventListener('pagehide', onHide);
     unsub?.();
     if (pollId) clearInterval(pollId);
-    liveDisposed = true;
-    liveHandle?.close();
     if (_editTimer) {
       clearTimeout(_editTimer);
       _editTimer = null;

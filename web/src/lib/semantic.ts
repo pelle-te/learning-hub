@@ -262,24 +262,9 @@ export function crossChapterEdges(
   return out.sort((a, b) => b.sim - a.sim).slice(0, maxEdges);
 }
 
-/** 지식맵용 — 챕터를 임베딩해 과목-간 의미 연결 엣지를 만든다. Ollama 불가면 []. */
-export async function semanticChapterEdges(items: AppState['items'], minSim = 0.62, maxEdges = 24): Promise<SemEdge[]> {
-  if (_disabled) return [];
-  const chs: { itemId: string; chapterId: string; text: string }[] = [];
-  for (const it of items || []) {
-    if (!it.name) continue;
-    for (const ch of it.chapters || []) {
-      if (ch.name) chs.push({ itemId: it.id, chapterId: ch.id, text: `${it.name} ${ch.name}` });
-    }
-  }
-  if (chs.length < 2) return [];
-  const vecs = await vectorsFor(chs.map((c) => c.text));
-  if (!vecs) return [];
-  const withVec = chs
-    .map((c, i) => ({ itemId: c.itemId, chapterId: c.chapterId, vec: vecs[i] }))
-    .filter((c): c is { itemId: string; chapterId: string; vec: number[] } => !!c.vec);
-  return crossChapterEdges(withVec, minSim, maxEdges);
-}
+/* ⚠⚠ **`semanticChapterEdges`(지식맵용 챕터-간 의미 연결)가 여기 있었다 — 유일한 소비처인
+   학습 구조도가 삭제됐다**(I044 · 2026-08-22). 챕터 임베딩 자체는 이 파일의 다른 함수가
+   여전히 쓴다 — 사라진 것은 «과목을 가로지르는 엣지를 그린다»는 그 화면의 질문이다. */
 
 /** 의미 검색 — 질의를 임베딩해 코퍼스 상위 k. Ollama 불가·코퍼스 빈 경우 []. */
 export async function semanticSearch(query: string, state: AppState, k = 5): Promise<SemHit[]> {

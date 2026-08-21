@@ -31,10 +31,9 @@ log = "0.4"
 # 5단계-C — 매퍼가 TS 의 `Map`(삽입 순서)과 같은 순서를 내야 5-D 대조가 단순해진다.
 # serde_json 의 preserve_order 가 이미 끌고 오는 크레이트라 새 트리가 생기지 않는다.
 indexmap = "2"
-# ⚠ `tray-icon` 은 T-3(상주 트레이)에서 켰다 — `tauri::tray` 모듈 전체가 이 피처 뒤에 있다
-#   (없으면 `unresolved import tauri::tray`). 이미지 디코딩이 딸려 오므로 트레이를 지우면
-#   이 피처도 함께 지울 것.
-tauri = { version = "2.11.3", features = ["tray-icon"] }
+# ⚠ `tray-icon` 피처가 여기 켜져 있었다 — T-3 상주 트레이가 은퇴하며 껐다(I049 · 2026-08-22).
+#   그 피처는 이미지 디코딩을 딸고 오므로 끄는 것이 곧 바이너리 감축이다.
+tauri = { version = "2.11.3" }
 tauri-plugin-log = "2"
 # 폴더 선택(워크스페이스 경로 설정) — 1단계 신설 작업의 UI 진입점.
 tauri-plugin-dialog = "2"
@@ -91,7 +90,6 @@ tauri-plugin-updater = "2"
 # ⚠ **기본 꺼짐이다.** 사용자가 설정에서 켜야 등록된다 — 설치만으로 자동 시작을 켜는 것은
 #   사용자가 안 본 사이에 시스템 상태를 바꾸는 것이고, 이 앱은 그 형태를 금지한다.
 # ⚠ 데스크톱 전용 블록 — 모바일엔 개념이 없다.
-tauri-plugin-autostart = "2"
 
 # 전역 단축키(E20 · 2026-07-30) — 앱이 포커스가 아닐 때도 캡처 입구를 연다.
 # ⚠ 새 창·새 WebView 를 만들지 않으므로 SQLite 커넥션·부팅 순서·single-instance 계약은 그대로다.

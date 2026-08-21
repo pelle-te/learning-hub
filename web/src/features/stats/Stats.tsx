@@ -18,14 +18,13 @@ import { CountReadout } from '@/components/CountReadout';
 import Trellis from '@/components/Trellis';
 import { weekSeries } from '@/lib/series';
 import { Num } from '@/components/Num';
-import { totalDoneHours, studyStreak } from '@/lib/persistence';
+import { totalDoneHours } from '@/lib/persistence';
 import { cbmsCounts, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence, CBMS_INFO } from '@/lib/methodology';
 import { personalBests } from '@/lib/records';
 import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel } from '@/lib/utils';
-import { buildStreakGrid } from '@/lib/statsView';
 import { sortSubjectsByUrgency } from '@/lib/scheduleView';
+import { riskSummary } from '@/lib/spacedReview';
 import type { ScheduleResult } from '@/lib/types';
-import { Icon } from '@/components/Icon';
 
 const StatsDetail = lazy(() => import('./StatsDetail'));
 
@@ -97,32 +96,8 @@ const S = {
   subjBar: 'h-1.75 overflow-hidden rounded-full bg-track-cat',
   subjFill: 'block h-full rounded-full',
   subjMeta: 'truncate text-xs leading-text text-mut tabular-nums',
-  // 스트릭 히트맵(잔디)
-  hmWrap: 'flex items-start gap-1.5 overflow-x-auto py-1',
-  hmDowWrap: 'flex flex-none flex-col',
-  hmMonthSpacer: 'mb-0.75 h-3.25',
-  hmDow: 'flex flex-none flex-col gap-0.75 text-2xs text-mut',
-  hmDowCell: 'h-3.25 leading-tight',
-  hmGridWrap: 'flex flex-col',
-  hmMonths: 'mb-0.75 flex h-3.25 gap-0.75',
-  hmMonth: 'w-3.25 flex-none overflow-visible text-2xs leading-tight whitespace-nowrap text-mut',
-  hmGrid: 'flex gap-0.75',
-  hmCol: 'flex flex-col gap-0.75',
-  cell: 'size-3.25 flex-none rounded-cell border border-line-soft',
-  cellLg: 'size-2.75 flex-none rounded-cell border border-line-soft',
-  hmFuture: 'bg-panel2 opacity-25',
-  hmLegend: 'mt-2 flex items-center gap-1',
-  hmTable: 'mt-2',
-  hmSummary: 'w-fit cursor-pointer',
-  hmTableScroll: 'mt-2 max-h-60 overflow-auto [scrollbar-width:thin]',
-  hmTableEl: 'border-collapse text-xs leading-text tabular-nums',
-  thCol: 'sticky top-0 border-b border-line-soft bg-panel px-2 py-0.75 text-right font-bold whitespace-nowrap text-txt',
-  thRow: 'border-b border-line-soft px-2 py-0.75 text-left font-semibold whitespace-nowrap text-txt',
-  td: 'border-b border-line-soft px-2 py-0.75 text-right whitespace-nowrap text-mut',
+  // ⚠ 여기 스트릭 히트맵(잔디) 표기 18칸이 있었다 — I046 이 그 화면을 지웠다.
 } as const;
-
-/** 잔디 농도 5단(0~4) — 정적 클래스 맵(§15 부칙 · 동적 조립 금지). L0=panel2·L4=acc, 사이는 acc 파생 잔디. */
-const LVL: Record<number, string> = { 0: 'bg-panel2', 1: 'bg-hm-l1', 2: 'bg-hm-l2', 3: 'bg-hm-l3', 4: 'bg-acc' };
 
 /** 과목 칩 톤 — 정적 맵(진행/반복=중립 · good=정상 · bad=시간부족/마감초과). 테두리는 acc/bad 45% line. */
 const PILL = 'rounded-full border px-2 py-px text-2xs font-bold whitespace-nowrap';
@@ -132,119 +107,15 @@ const PILL_TONE = {
   bad: 'border-line-bad-pill text-bad',
 } as const;
 
-/** 학습 스트릭 히트맵 — 최근 18주 잔디. 메인 화면(bare)과 카드 두 형태로 쓰인다. */
-function StreakHeatmap({ bare }: { bare?: boolean }) {
-  const state = useApp((s) => s.state);
-  // 126개 <td>는 접힌 채로도 상시 렌더됐음 — 열렸을 때만 표를 만들어(lazy) 유휴 비용 제거.
-  const [tableOpen, setTableOpen] = useState(false);
-  const WEEKS = 18;
-  // 그리드 파생(임계값·미래 마스킹·월 라벨)은 순수 lib(buildStreakGrid) — 이 컴포넌트는 마크업만.
-  const { cols, monthLabels, activeDays, totalMin } = buildStreakGrid(state, WEEKS);
-  const heat = (
-    <>
-      {/* ⚠ `tabIndex={0}` + 이름 — axe `scrollable-region-focusable`(2026-07-25). 이 잔디는
-          18주치라 좁은 폭에서 **가로로 스크롤된다.** 안에 포커스 가능한 자식이 하나도 없어서
-          (전부 `<span>` 칸이다) 키보드·스위치 사용자는 잘린 부분을 볼 방법이 아예 없었다.
-          마우스 휠·터치로만 닿는 콘텐츠가 있었던 셈이다. 컨테이너를 포커스 대상으로 만들면
-          화살표키로 스크롤된다(브라우저 기본 동작). 픽셀은 안 바뀐다 — 포커스 링은 :focus-visible
-          이라 스냅샷(비포커스 상태)에 안 나온다. */}
-      <div className={S.hmWrap} tabIndex={0} role="group" aria-label={`최근 ${WEEKS}주 학습 잔디`}>
-        <div className={S.hmDowWrap}>
-          <span className={S.hmMonthSpacer} aria-hidden="true" />
-          <div className={S.hmDow}>
-            {['월', '', '수', '', '금', '', '일'].map((x, i) => (
-              <span key={i} className={S.hmDowCell}>
-                {x}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className={S.hmGridWrap}>
-          <div className={S.hmMonths} aria-hidden="true">
-            {monthLabels.map((lab, ci) => (
-              <span key={ci} className={S.hmMonth}>
-                {lab}
-              </span>
-            ))}
-          </div>
-          <div className={S.hmGrid}>
-            {cols.map((col, ci) => (
-              <div key={ci} className={S.hmCol}>
-                {col.map((c, i) =>
-                  c.l < 0 ? (
-                    <div key={i} className={`${S.cell} ${S.hmFuture}`} />
-                  ) : (
-                    (() => {
-                      const lab = `${c.ds}: ${c.v > 0 ? `${Math.round(c.v)}분` : '학습 없음'}`;
-                      return (
-                        <div key={i} className={`${S.cell} ${LVL[c.l]}`} data-tip={lab} role="img" aria-label={lab} />
-                      );
-                    })()
-                  ),
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className={`${S.hmLegend} ds-tiny text-mut`}>
-        <span>적음</span>
-        {[0, 1, 2, 3, 4].map((l) => (
-          <div key={l} className={`${S.cellLg} ${LVL[l]}`} />
-        ))}
-        <span>많음</span>
-        <span style={{ flex: 1 }} />
-        최근 {WEEKS}주 {activeDays}일 학습 · 총 {Math.round(totalMin / 60)}h
-      </div>
-      {/* 잔디 셀은 탭스톱 폭주 방지로 비포커스(role=img+aria-label) — 대신 키보드/스크린리더용
-          접이식 표(주 × 요일 · 분)로 동일 정보를 순회 없이 읽게. 기본 접힘·비침습. */}
-      <details className={S.hmTable} onToggle={(e) => setTableOpen(e.currentTarget.open)}>
-        <summary className={`${S.hmSummary} ds-tiny text-mut`}>표로 보기 — 주 × 요일(분)</summary>
-        {tableOpen && (
-          <div className={S.hmTableScroll}>
-            <table className={S.hmTableEl}>
-              <thead>
-                <tr>
-                  <th scope="col" className={S.thCol}>
-                    주 시작
-                  </th>
-                  {['월', '화', '수', '목', '금', '토', '일'].map((d) => (
-                    <th key={d} scope="col" className={S.thCol}>
-                      {d}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cols.map((col, ci) => (
-                  <tr key={ci}>
-                    <th scope="row" className={S.thRow}>
-                      {fmtShort(parseISO(col[0]!.ds))}
-                    </th>
-                    {col.map((c, i) => (
-                      <td key={i} className={S.td}>
-                        {c.l < 0 ? '' : c.v > 0 ? Math.round(c.v) : '·'}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </details>
-    </>
-  );
-  if (bare) return heat;
-  return (
-    <div className="ds-rule">
-      <h2>
-        학습 스트릭 <span className="ds-tiny text-mut">— 최근 {WEEKS}주 · 하루 완료량(꾸준함의 리듬)</span>
-      </h2>
-      {heat}
-    </div>
-  );
-}
+/* ⚠⚠ **여기 18주 스트릭 히트맵(`StreakHeatmap`)이 있었다 — 은퇴했다**(I046 · 2026-08-22 발상 축).
+
+   근거: 이 잔디의 입력은 `completions` 인데 실 DB 실측이 **0행**이다 — 즉 이 화면은 실물에서
+   **항상 빈 잔디**를 18주치 그린다. 0 을 크게 그리는 것은 조망이 아니라 죄책감 장치이고, 이
+   앱의 정의(「한눈에」)가 요구하는 것과 반대 방향이다.
+
+   ⚠ 함께 지운 것: 「연속 학습일」·「최장 연속(개인 기록)」 리드아웃과 상단 크롬의 `연속` 칸.
+   ⚠ 크롬의 그 자리는 **「밀린 복습」**이 받는다 — 빈 자리를 남기면 다음 사람이 다시 채운다.
+   복구: `git show <이 커밋의 부모>:web/src/features/stats/Stats.tsx`. */
 
 /** 과목 1행 — 진행 막대 + 마감 상태 필. */
 function SubjectRow({ s, today }: { s: ScheduleResult['itemStat'][number]; today: string }) {
@@ -327,16 +198,16 @@ export default function Stats() {
   const r = useSchedule();
   const navigate = useNavigate();
   const [detailOpen, setDetailOpen] = useState(false);
-  // 포인터 추적 스포트라이트 — 히어로 게이지 패널·발광 스트릭 시그니처가 커서를 따라 발광(틸트 없는 큰 보드).
+  /* 포인터 추적 스포트라이트 — 히어로 게이지 패널이 커서를 따라 발광(틸트 없는 큰 보드).
+     ⚠ 짝이던 `mapRef`(스트릭 발광맵)가 I046 과 함께 사라졌다. */
   const { ref: heroRef, onMouseMove: heroMove, onMouseLeave: heroLeave } = useHeroPointer(0);
-  const { ref: mapRef, onMouseMove: mapMove, onMouseLeave: mapLeave } = useHeroPointer(0);
 
   const totalSchedH = r.itemStat.reduce((t, s) => t + (s.schedH || 0), 0);
   const totalCh = r.itemStat.reduce((t, s) => t + (s.totalCh || 0), 0);
   const doneCh = r.itemStat.reduce((t, s) => t + (s.doneCh || 0), 0);
   const revCount = r.days.reduce((t, d) => t + d.items.filter((i) => i.type === 'rev').length, 0);
   const doneH = totalDoneHours(state);
-  const streak = studyStreak(state);
+  const risk = riskSummary(state, r.days || [], todayISO(state));
   const compRate = totalSchedH > 0 ? Math.min(100, Math.round((doneH / totalSchedH) * 100)) : 0;
 
   // 능동 인출 활동(북극성 출력 지표) = 요약 + 백지 완료 + 모의 완료. (인출카드와 공용 헬퍼 · SSOT)
@@ -370,20 +241,15 @@ export default function Stats() {
     () => ({
       primary: { value: String(compRate), unit: '%', label: '완료율' },
       readouts: [
-        {
-          label: '연속',
-          value: (
-            <>
-              {streak}
-              <small className="text-base14 font-bold text-mut"> 일</small>
-            </>
-          ),
-        },
+        /* I046 — 이 자리는 「연속」이었다. 그 수의 입력(`completions`)이 실물에서 0행이라
+           **항상 0** 이었고, 0 을 자랑하는 자리는 조망이 아니다. 밀린 복습은 같은 크기의
+           칸에 들어가면서 **행동을 부른다**. */
+        { label: '밀린 복습', value: risk.overdue },
         { label: '인출', value: recallActs },
       ],
       action: { label: '＋ 상세 리포트', onClick: () => setDetailOpen(true) },
     }),
-    [compRate, streak, recallActs],
+    [compRate, risk.overdue, recallActs],
   );
 
   if (!r.itemStat.length)
@@ -450,35 +316,28 @@ export default function Stats() {
             </div>
           </div>
           <div className={S.ros}>
-            <Readout value={streak} prefix={<Icon name="flame" />} lab="연속 학습일" />
             <Readout value={doneCh} suffix={<small>/{totalCh}</small>} lab="완료 챕터" />
             <Readout value={recallActs} lab="능동 인출(요약+백지+모의)" />
             <Readout value={revCount} lab="복습 세션(계획)" />
-            {/* 개인 기록(I-6) — 기록이 있을 때만(과장 금지). 최고 집중일은 hLabel(분→시간)로 정적 표기. */}
+            {/* 개인 기록(I-6) — 기록이 있을 때만(과장 금지).
+                ⚠ **「최장 연속」트로피가 여기 있었다 — I046 이 지웠다**(위 히트맵 주석이 근거의
+                SSOT). 남은 「최고 집중일」은 연속성 게임이 아니라 **한 날의 실측**이라 남긴다. */}
             {pb.totalDays > 0 && (
-              <>
-                <Readout value={pb.longestStreak} prefix={<Icon name="trophy" />} lab="최장 연속(개인 기록)" />
-                <div className="ds-ro ds-glow">
-                  <span className="ds-roNum">{hLabel(pb.bestFocusMin)}</span>
-                  <span className="ds-roLab">
-                    최고 집중일{pb.bestFocusDs ? ` · ${fmtShort(parseISO(pb.bestFocusDs))}` : ''}
-                  </span>
-                </div>
-              </>
+              <div className="ds-ro ds-glow">
+                <span className="ds-roNum">{hLabel(pb.bestFocusMin)}</span>
+                <span className="ds-roLab">
+                  최고 집중일{pb.bestFocusDs ? ` · ${fmtShort(parseISO(pb.bestFocusDs))}` : ''}
+                </span>
+              </div>
             )}
           </div>
         </div>
 
-        {/* 3 — 시그니처(스트릭 발광맵 + 인출 판정) */}
+        {/* 3 — 시그니처(인출 판정). ⚠ 여기 위에 스트릭 발광맵이 있었다 — I046 이 지웠다. */}
         <div className={S.signature}>
           <div className={S.sigHead}>
-            <span className={S.sigTitle}>학습 스트릭 — STREAK</span>
-            <span className={S.sigMeta}>꾸준함의 리듬</span>
-          </div>
-          <div ref={mapRef} onMouseMove={mapMove} onMouseLeave={mapLeave} className={`${S.sigMap} ds-spotHost`}>
-            <div className="ds-spotlight" aria-hidden="true" />
-            <div className="ds-aura" aria-hidden="true" />
-            <StreakHeatmap bare />
+            <span className={S.sigTitle}>인출 판정 — VERDICT</span>
+            <span className={S.sigMeta}>약점이 닫히는 방향인가</span>
           </div>
           <div className={S.verdicts}>
             <div className={S.verdict}>

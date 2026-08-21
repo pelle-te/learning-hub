@@ -50,7 +50,8 @@ export const UIStateSchema = z.object({
   ),
   accent: z._default(AccentSchema, 'lime'),
   recentCommands: z._default(z.array(z.string()), []),
-  // 발광 효과 줄이기 — 풀스크린 오로라 셰이더 정지 + 발광 오라 무한 애니 정지(상시 GPU/페인트 절감).
+  /* 발광 효과 줄이기 — 발광 오라 무한 애니 정지(상시 페인트 절감).
+     ⚠ 종전 이 줄은 «풀스크린 오로라 셰이더 정지»를 함께 적었는데 그 셰이더가 은퇴했다(I045). */
   // 기본 false(현 외형 그대로). 옛 저장본엔 없으니 .default로 호환. data-fx="lite"로 cascade.
   fxLite: z._default(z.boolean(), false),
   // 사이드바 접힘 — false=라벨+그룹 펼침(기본), true=60px 아이콘 레일. 옛 저장본 호환 위해 .default.
@@ -61,7 +62,7 @@ export const UIStateSchema = z.object({
      보고 자리를 옮기는 것. 그 답이 다섯 번 반복됐고 매번 근거가 같았다(P10 §1-3).
      여기서는 **사용자가 직접 접는다.** 판단이 필요 없는 결정을 판단으로 만들지 않는다.
 
-     ⚠ **기기별 취향이라 여기다**(`themeAuto`·`trayResident` 와 같은 논증): 폰과 PC 는 화면 수도
+     ⚠ **기기별 취향이라 여기다**(`themeAuto` 와 같은 논증): 폰과 PC 는 화면 수도
      쓰는 화면도 다르다. 앱 데이터로 동기화하면 한 기기의 정리가 다른 기기의 나브를 바꾼다.
      ⚠ **숨김은 도달성 손실이 아니다** — ⌘K·`g` 키·딥링크는 그대로다(레일에서만 접힌다).
      그 구분이 `retired` 와 이것을 가른다: 저긴 앱의 판정, 여긴 그날의 취향이다.
@@ -101,26 +102,13 @@ export const UIStateSchema = z.object({
      ⚠ 수동으로 테마를 고르면 `null` 로 지운다 — 그래야 "고른 값이 다음 OS 변경까지 유지"라는
      기존 계약이 그대로 성립한다(그 계약은 사용자가 못박은 것이다 · 절대규칙 #4). */
   autoTheme: z._default(z.nullable(ThemeSchema), null),
-  /* T-3 상주 트레이 — 창을 닫아도 프로세스가 트레이에 남는다.
-     ⚠ **기기별 취향이라 여기다**(`themeAuto` 와 같은 논증): PC 는 켜 두고 노트북은 끄는 것이
-     자연스럽고, 앱 데이터로 동기화하면 한 기기의 결정이 다른 기기의 프로세스 수명을 바꾼다.
-     ⚠ 자동 시작은 여기 **없다** — 그건 OS 레지스트리가 정본이라 앱이 사본을 들면 둘이 갈린다
-     (실제 상태는 `autostartEnabled()` 로 매번 묻는다 · `lib/tauri.ts`).
-     ⚠ 기본 false = 종전 동작(닫으면 끝난다). */
-  trayResident: z._default(z.boolean(), false),
-  /* T-6 예약 한 발 — 알림을 쏠 시각(`HH:MM`). `null` = 안 쏜다(기본).
-     ⚠ **하루 최대 1회**가 이 항목의 전부다. 여러 발이면 그건 다른 항목(알림 스트림)이고,
-       로드맵이 걸러낸 것(_"같은 사실을 두 번 말할 위험 — 알림 피로의 교과서적 시작"_)이다.
-     ⚠ 기기별이다 — 폰과 PC 가 같은 시각에 각자 쏘면 그게 곧 두 발이다. */
-  reminderAt: z._default(z.nullable(z.string()), null),
-  /* 마지막으로 쏜 날(ISO). "하루 1회"를 지키는 유일한 장치다.
-     ⚠ 영속해야 한다 — 메모리에만 두면 앱을 껐다 켤 때마다 다시 쏜다(상주 모드가 아닌
-       기기에서 하루 여러 발이 되는 정확한 경로). */
-  reminderLastDs: z._default(z.nullable(z.string()), null),
+  /* ⚠⚠ **여기 `trayResident`(T-3)·`reminderAt`·`reminderLastDs`(T-6)가 있었다 — 은퇴했다**
+     (I049 · 2026-08-22 발상 축). 옛 저장본에 남아 있어도 zod 가 모르는 키를 버리므로
+     마이그레이션이 필요 없다(`navSurface` 가 N-6 에서 같은 방식으로 사라졌다). */
   /* T-13 "지난번 이후" — 화면 key → 마지막으로 본 날(ISO).
      ⚠ **기기별이다 · 동기화하지 않는다.** "내가 마지막으로 본 시점"은 이 기기의 *주의*에 대한
        사실이지 앱 데이터가 아니다 — PC 에서 본 것이 폰의 새 것 표시를 지우면 폰 사용자는 본 적
-       없는 것을 본 것으로 처리당한다(`themeAuto`·`trayResident` 와 같은 논증).
+       없는 것을 본 것으로 처리당한다(`themeAuto` 와 같은 논증).
      ⚠ 날짜만 담는다(시각 아님). 같은 날 두 번 여는 것은 델타가 아니다. */
   seenAt: z._default(z.record(z.string(), z.string()), {}),
   /* T-26 핀 슬롯 — 어느 화면이든 고정해 상단에 띄운다.
@@ -133,7 +121,7 @@ export const UIStateSchema = z.object({
      ⚠ 부울이 아니라 날짜인 이유는 `lib/visits` 머리주석이 SSOT: 켜 놓은 것을 잊으면 관측이
        조용히 영원히 멈추고, 그러면 다음 판정자가 **0 을 「안 쓴다」로 읽는다**. 자정에 스스로
        꺼지고, 켜져 있다는 사실이 리드아웃에 날짜로 보인다.
-     ⚠ **기기별이다**(`seenAt`·`trayResident` 와 같은 논증): 점검은 이 기기에서 하는 행위이고,
+     ⚠ **기기별이다**(`seenAt` 과 같은 논증): 점검은 이 기기에서 하는 행위이고,
        동기화하면 PC 의 감사 세션이 폰의 관측까지 멈춘다. */
   inspectDs: z._default(z.nullable(z.string()), null),
 });

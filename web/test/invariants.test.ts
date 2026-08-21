@@ -96,7 +96,7 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
      라우트 패턴*이고, 착지는 기존 화면이 진다(`app/NounRoutes.tsx`). 로더 패리티에 넣으면
      "탭이 아닌 것"에 컴포넌트를 요구하게 되어 A-7 이 없앤 두 번째 표가 다른 형태로 돌아온다.
      대신 아래 케이스가 그만큼을 메운다: **object 는 이름과 라우트를 반드시 갖는다.** */
-  const live = TABS.filter((t) => t.role !== 'retired' && t.role !== 'object');
+  const live = TABS.filter((t) => t.role !== 'view' && t.role !== 'object');
 
   it('두 원천의 탭 키 집합이 정확히 일치한다(은퇴 제외)', () => {
     const loaderKeys = Object.keys(LOADERS).sort();
@@ -104,15 +104,17 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
     expect(loaderKeys).toEqual(tabKeys);
   });
 
-  it('은퇴한 탭은 착지 경로(to)를 갖는다 — 가리킬 곳 없는 은퇴는 삭제다', () => {
-    for (const t of TABS.filter((x) => x.role === 'retired')) {
+  /* ⚠ 어휘가 `retired` → `view` 로 바뀌었다(I048 · 2026-08-22). 계약은 그대로다: 호스트 안의
+     뷰는 **주소를 갖는다** — 가리킬 곳 없는 뷰는 뷰가 아니라 그냥 삭제 대상이다. */
+  it('호스트 안의 뷰는 주소(to)를 갖는다 — 가리킬 곳 없으면 그건 삭제다', () => {
+    for (const t of TABS.filter((x) => x.role === 'view')) {
       expect(t.to, `${t.key} 가 은퇴했는데 to 가 없다`).toBeTruthy();
     }
   });
 
-  it('⭐ 은퇴한 탭도 ⌘K 로 도달한다 — `graph` 가 조용히 사라졌던 그 결함의 집행자', () => {
+  it('⭐ 호스트 안의 뷰도 ⌘K 로 도달한다 — `graph` 가 조용히 사라졌던 그 결함의 집행자', () => {
     const ids = new Set(basePaletteCommands().map((c) => c.id));
-    for (const t of TABS.filter((x) => x.role === 'retired')) {
+    for (const t of TABS.filter((x) => x.role === 'view')) {
       expect(ids.has('tab:' + t.key), `${t.key} 가 ⌘K 에서 사라졌다`).toBe(true);
     }
   });
@@ -136,9 +138,11 @@ describe('불변식 ② LOADERS(registry) ↔ TABS(tabs) 키 패리티', () => {
      (이 저장소는 `/graph` 에서 정확히 그 형태에 물렸다 — 리다이렉트를 손으로 놓고 그게 한 번도
      이기지 못했다). 착지는 매개변수의 함수라 파생시킬 수 없으므로, **대조**로 잠근다. */
   it('명사 주소의 라우트 패턴이 실제로 라우터에 등록돼 있다', () => {
-    const src = ['src/app/App.tsx', 'src/app/NounRoutes.tsx']
-      .map((p) => readFileSync(join(process.cwd(), p), 'utf8'))
-      .join('\n');
+    /* ⚠ 종전엔 `NounRoutes.tsx` 도 읽었다 — **그 파일이 삭제됐다**(I047 · 2026-08-22 · 명사
+       주소 셋이 만든 뒤 아무도 안 가리켰다). 남은 명사(`subject`·`mini`)는 `App.tsx` 가 직접
+       그린다. 파일 목록을 손으로 들고 있으므로, 명사가 다시 늘어 별도 파일이 생기면 여기도
+       늘려야 한다 — 그 사실을 여기 적어 둔다. */
+    const src = readFileSync(join(process.cwd(), 'src/app/App.tsx'), 'utf8');
     for (const t of objectRoutes()) {
       /* `/day/:ds` 처럼 상수로 조립되는 패턴도 있으므로 **첫 세그먼트**로 찾는다 — 문자열 전량
          일치를 요구하면 상수화가 곧 실패가 되고, 그러면 이 검사가 상수화를 벌한다. */
@@ -336,9 +340,12 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
   });
 
   it('전역 키를 거는 feature 가 하나 이상 존재한다(0이면 이 불변식이 아무것도 안 잰다)', () => {
-    // ⚠ 조용한 통과 방지 — 정규식이 망가지거나 경로가 바뀌면 0개가 되고, 그건 녹색이 아니라 고장이다.
+    /* ⚠ 조용한 통과 방지 — 정규식이 망가지거나 경로가 바뀌면 0개가 되고, 그건 녹색이 아니라 고장이다.
+       ⚠⚠ 이 수는 **바닥**이지 실측 개수가 아니다(4 → 3 · I044 가 `graph` 를 지웠다). 화면이
+       줄면 내리는 것이 옳고, 늘 때 따라 올릴 이유는 없다 — 올리면 이 줄이 로스터 사본이 되고,
+       그건 이 저장소가 반복해 물린 «손으로 적은 목록은 표류한다» 그대로다. */
     const registrars = files(FEATURES).filter((p) => REGISTERS.test(readFileSync(p, 'utf8')));
-    expect(registrars.length).toBeGreaterThanOrEqual(4);
+    expect(registrars.length).toBeGreaterThanOrEqual(3);
   });
 
   /* ── ⚠⚠ 앵커 예산(W22 · 2026-07-31) ────────────────────────────────────────────
@@ -1435,7 +1442,7 @@ describe('불변식 ⑰ 마이크로카피가 부르는 탭 이름이 실재한�
      ⚠ 주석은 검사하지 않는다(`strip`) — 근거에 옛 이름을 인용하는 것이 위반이 되면
        그건 이 파일이 네 번 못박은 역인센티브다. */
   const 살아있는이름 = new Set(
-    TABS.filter((t) => t.role !== 'retired').flatMap((t) => [t.label, t.segLabel].filter((x): x is string => !!x)),
+    TABS.filter((t) => t.role !== 'view').flatMap((t) => [t.label, t.segLabel].filter((x): x is string => !!x)),
   );
   const 관용구 = /<b>([^<>{}]{1,14})<\/b>[^\S\n]{0,3}탭/g;
 

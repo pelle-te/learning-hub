@@ -65,9 +65,15 @@ const 참조패턴들 = [/var\(\s*(--[a-zA-Z0-9-]+)/g, /getPropertyValue\(\s*['"
    ⚠ 줄 번호를 보고하므로 **줄바꿈을 보존**하며 지운다(내용만 공백으로).
    ⚠ 같은 이유로 `test/invariants.test.ts` 의 불변식 ⑤·⑥도 같은 처리를 한다 — 검사기가 셋인데
      처리가 갈리면 "어느 검사기가 주석을 보는가"를 사람이 외워야 한다. */
+/* ⚠⚠ **`/*` 앞 글자를 본다 — 안 보면 문자열 속 글롭이 주석을 연다**(I049 실행 중 발견 ·
+   2026-08-22). `GuideView` 의 `<Cmd>exports/*.txt</Cmd>` 가 주석 시작으로 읽혀 그 뒤
+   **파일의 절반이 공백으로 지워졌고**, 그 구간의 `text-learning` 소비가 안 보였다.
+   증상은 «쓰고 있는 토큰이 고아로 잡힌다» 인데, 다른 소비처가 하나라도 있으면 조용하다 —
+   실제로 그 화면이 삭제되기 전까지 몇 달을 조용히 지나갔다. 진짜 주석은 줄머리·공백·`{`
+   뒤에 오고, 글롭은 단어문자 뒤에 온다. */
 function 주석제거(본문) {
   return 본문
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^A-Za-z0-9_])\/\*[\s\S]*?\*\//g, (m, p1) => p1 + m.slice(p1.length).replace(/[^\n]/g, ' '))
     .replace(/(^|[^:'"`\\])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
 }
 
@@ -391,10 +397,38 @@ if (브리지고아.length || 브리지만료.length) {
    ⚠ `text-<이름>` 은 **색이기도 하다**(`text-mut`). 색은 `--color-<이름>` 으로 선언되므로 둘 다 본다. */
 const 구조키워드 = new Set([
   // 정렬·장식(text-)
-  'center', 'left', 'right', 'justify', 'start', 'end', 'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty',
-  'transparent', 'current', 'inherit',
+  'center',
+  'left',
+  'right',
+  'justify',
+  'start',
+  'end',
+  'ellipsis',
+  'clip',
+  'wrap',
+  'nowrap',
+  'balance',
+  'pretty',
+  'transparent',
+  'current',
+  'inherit',
   // 모서리(rounded-) — 방향·극단값
-  'full', 'none', 't', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br', 's', 'e', 'ss', 'se', 'es', 'ee',
+  'full',
+  'none',
+  't',
+  'b',
+  'l',
+  'r',
+  'tl',
+  'tr',
+  'bl',
+  'br',
+  's',
+  'e',
+  'ss',
+  'se',
+  'es',
+  'ee',
 ]);
 /** 사다리 네임스페이스 → 그 접두사가 붙은 클래스가 참조할 수 있는 `@theme` 네임스페이스들.
 
@@ -537,7 +571,7 @@ const 카드원장 = new Set([
      "새 위반"으로 잡히는데, 그건 이 검출기가 옳게 동작한 것이다 — 이름만 갈아 준다. */
   'features/degree/PathView.tsx',
   'features/find/GuideView.tsx',
-  'features/graph/Graph.tsx',
+  /* ⚠ `features/graph/Graph.tsx` 가 여기 있었다 — 그 화면이 삭제됐다(I044 · 2026-08-22). */
   'features/integrations/VaultPanel.tsx',
   'features/items/ItemCard.tsx',
   'features/ledger/Ledger.tsx',

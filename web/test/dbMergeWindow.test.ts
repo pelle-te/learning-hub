@@ -45,8 +45,11 @@ vi.mock('@/lib/db/sqlite', () => ({
   touchedKey: (t: string, k: unknown[]) => [t, ...k].join('|'),
 }));
 
+/* ⚠ 종전엔 `@/lib/telemetry` 를 목으로 세워 보고를 셌다 — 그 층이 은퇴했다(I052 · 2026-08-22).
+   지금 우회 보고의 채널은 **콘솔 하나**이고, 그래서 여기서도 그걸 가로챈다. 재는 것은 같다:
+   «게이트 밖에서 창이 열리면 시끄럽게 운다» — 관측 없는 규율은 다음 리팩터에서 되돌아간다. */
 const reportError = vi.fn();
-vi.mock('@/lib/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
+vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => reportError(...a));
 
 import {
   writeAndVerify,
@@ -146,10 +149,8 @@ describe('M-2 — 우회 검출', () => {
 
   it('게이트 **밖**에서 한 번만 열어도 보고한다 — 종전 판정이 원리적으로 못 보던 경우', async () => {
     beginMergeApply();
-    // 보고는 동적 import 뒤라 다음 틱이다(그 지연이 이 층의 계약이다 — 텔레메트리를 정적으로
-    // 끌어오면 `db/write.ts` 가 부팅 청크에 텔레메트리를 싣는다).
     await vi.waitFor(() => expect(reportError).toHaveBeenCalledTimes(1));
-    expect(String(reportError.mock.calls[0]?.[1])).toContain('ungated');
+    expect(String(reportError.mock.calls[0]?.[0])).toContain('exclusiveMerge');
   });
 
   it('보고해도 창은 켠다 — 안 켜면 flush 가 통과해 받아온 행을 되돌린다', async () => {

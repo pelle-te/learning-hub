@@ -8,8 +8,7 @@
 ============================================================ */
 import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
-import { installCloseGuard, isTauri, onShellQuit, shellQuit } from '@/lib/tauri';
-import { useUI } from '@/store/useUI';
+import { installCloseGuard } from '@/lib/tauri';
 import { installSyncTriggers } from '@/store/syncController';
 import { settleBeforeExit } from '@/store/settleBeforeExit';
 import { exportJSON, toast } from '@/shell';
@@ -22,18 +21,12 @@ export default function StorageGuard() {
   useEffect(() => {
     let un: (() => void) | undefined;
     let dead = false;
-    void installCloseGuard(
-      async () => {
-        /* ⚠ 네 줄짜리 관용구는 **`settleBeforeExit` 하나**다(D004 · 2026-08-21) — 종료 경로가
+    void installCloseGuard(async () => {
+      /* ⚠ 네 줄짜리 관용구는 **`settleBeforeExit` 하나**다(D004 · 2026-08-21) — 종료 경로가
            셋인데 가드가 둘에만 있었고, 사본으로 붙어 있던 것이 그 누락의 형태였다.
            ⚠ 상한은 그 모듈이 진다(1.2초 < 바깥 가드 3초) — 무한 대기는 "앱이 안 닫힌다"의 로컬판이다. */
-        await settleBeforeExit();
-        /* T-3 — 상주 모드면 파괴 대신 숨긴다. **flush 는 위에서 똑같이 끝냈다**: 숨긴 뒤
-         강제 종료·크래시가 나면 그 쓰기는 영영 없다(달라지는 것은 마지막 한 줄뿐). */
-      },
-      3000,
-      () => useUI.getState().ui.trayResident,
-    ).then((u) => {
+      await settleBeforeExit();
+    }, 3000).then((u: () => void) => {
       // 언마운트가 구독 완료보다 빠를 수 있다 — 그때 바로 떼지 않으면 리스너가 샌다(L12-4).
       if (dead) u();
       else un = u;
@@ -44,27 +37,8 @@ export default function StorageGuard() {
     };
   }, []);
 
-  /* T-3 — 트레이 `종료`. 상주 모드에서는 창이 숨어 있어 `onCloseRequested` 가 영영 안 오므로
-     **이 경로가 유일한 정상 종료**다. 위 가드와 같은 순서로 확정한 뒤 스스로 끈다.
-     ⚠ Rust 는 3초 뒤 폴백으로 끄고 그건 저장을 기다려 주지 않는다(`tray.rs`) — 그 값보다
-       늦으면 여기서 하는 일이 무의미해지므로, 위 가드와 **같은 상한**을 쓴다. */
-  useEffect(() => {
-    let un: (() => void) | undefined;
-    let dead = false;
-    void onShellQuit(() => {
-      void (async () => {
-        await settleBeforeExit();
-        await shellQuit();
-      })();
-    }).then((u) => {
-      if (dead) u();
-      else un = u;
-    });
-    return () => {
-      dead = true;
-      un?.();
-    };
-  }, []);
+  /* ⚠ **여기 트레이 `종료` 구독이 있었다 — 트레이가 은퇴했다**(I049 · 2026-08-22). 상주
+     모드에서 창이 숨어 있을 때의 «유일한 정상 종료» 경로였는데, 숨는 모드 자체가 없어졌다. */
 
   /* 클라우드 동기화(C-5) — 구동은 **공용 컨트롤러**가 소유한다(`store/syncController`).
      데스크톱은 폰과 같은 이벤트 트리거(복귀·편집후)를 쓴다. 클라우드에 연결돼 있지
@@ -86,14 +60,8 @@ export default function StorageGuard() {
          구간을 이벤트로 정확히 덮으므로 5분마다 깨어나는 타이머가 필요 없다. */
       onEdit: true,
       onPagehide: false,
-      /* ⚠⚠ **데스크톱 실시간(Q-28 · 2026-08-02).** 종전엔 여기가 꺼져 있었고 그 근거는 CSP 였다 —
-         웹뷰의 `WebSocket` 은 `connect-src 'self' ipc:` 를 못 넘는다. 그래서 PC 는 폰에서 한 편집을
-         **창으로 돌아올 때까지** 못 봤다(`focus` 최소 간격 5분). 소켓이 Rust 로 내려가 그 제약이
-         사라졌으므로 켠다 — 전송만 갈리고 백오프·안정 판정은 폰과 **같은 한 벌**이다
-         (`lib/cloud/live.ts` 머리주석 §전송이 둘, 정책은 하나).
-         ⚠ 셸에서만 켠다. 브라우저 dev·트랙 A 는 클라우드에 연결돼 있지 않은 것이 기본이고,
-           거기서 실시간을 켜면 시각 베이스라인이 네트워크 상태에 의존하게 된다. */
-      live: isTauri(),
+      /* ⚠ `live: isTauri()`(실시간 poke 채널)가 여기 있었다 — 은퇴했다(I051 · 2026-08-22).
+         남은 최신성 장치는 복귀·편집후 트리거다(그 채널 스스로 «정확성의 전제가 아니다»라 적었다). */
       /* ⚠ **산출물 미러(설계 §13-8)가 P10 W4 에서 빠졌다**(2026-08-07). 미러 대상은 `reads`·
          `markets` 둘뿐이었고(그 표의 판정은 "폰에 화면이 있는가"), 둘 다 `survey/` 로 갔다 —
          즉 폰이 볼 산출물이 0이 됐다. `beforeSync` 훅 자체는 컨트롤러에 남아 있으므로 폰 화면이

@@ -145,54 +145,10 @@ describe('⚠⚠ 기기 폐기가 실제로 접근을 끊는다(P0-2)', () => {
     expect((await pull(admin.access, 0)).status, '멀쩡한 기기까지 끊겼다').toBe(200);
   });
 
-  /* ⚠⚠ **열린 실시간 소켓까지 끊는가**(H15 · 2026-07-30 `/감사 근본`).
-
-     종전 구현은 `revoked_at` 만 세우고 DO 에 아무것도 알리지 않았다. Hibernation 소켓은 무기한
-     유지되므로 **폐기된 기기가 `poke` 를 영구히 계속 받았다** — 위 케이스가 잠근 "15분 유예"는
-     이 채널에 아예 적용되지 않았다.
-
-     ⚠ 이 케이스가 **두 쪽을 함께** 잠그는 것이 핵심이다: 태그 없이 `getWebSockets()` 전량을
-     닫아도 "폐기된 소켓이 닫혔다"는 통과한다. 멀쩡한 기기가 살아 있는지를 같이 보지 않으면
-     실시간 동기화를 통째로 끊는 구현이 녹색으로 지나간다. */
-  it('⚠⚠ 폐기가 열린 실시간 소켓을 끊는다 — 그리고 **그 기기 것만**(H15)', async () => {
-    const victim = await enroll('잃어버린폰');
-    const admin = await enroll('PC');
-
-    /* 실제 라우트 그대로 붙는다 — 토큰은 `Sec-WebSocket-Protocol`(P0-2: URL 아닌 헤더). */
-    const open = async (access: string): Promise<WebSocket> => {
-      const r = await SELF.fetch(`${BASE}/api/sync/live`, {
-        headers: { Upgrade: 'websocket', 'Sec-WebSocket-Protocol': access },
-      });
-      expect(r.status, '실시간 소켓 업그레이드가 성립하지 않는다').toBe(101);
-      const ws = r.webSocket;
-      expect(ws, '101 인데 webSocket 이 없다 — 업그레이드 위임이 깨졌다').toBeTruthy();
-      ws!.accept();
-      return ws!;
-    };
-
-    const victimWs = await open(victim.access);
-    const adminWs = await open(admin.access);
-
-    const victimClosed = new Promise<number>((resolve) => {
-      victimWs.addEventListener('close', (e) => resolve(e.code));
-    });
-    let adminClosed = false;
-    adminWs.addEventListener('close', () => {
-      adminClosed = true;
-    });
-
-    const rev = await SELF.fetch(`${BASE}/api/devices/revoke`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${admin.access}` },
-      body: JSON.stringify({ deviceId: victim.deviceId }),
-    });
-    expect(rev.status).toBe(200);
-    const body = (await rev.json()) as { liveClosed?: number };
-    expect(body.liveClosed, '폐기가 DO 에 알리지 않았다 — 소켓이 그대로 산다').toBe(1);
-
-    expect(await victimClosed, '폐기 사유 코드(4003)로 닫히지 않았다').toBe(4003);
-    expect(adminClosed, '멀쩡한 기기 소켓까지 끊었다 — 태그 없이 전량 close 한 구현이다').toBe(false);
-  });
+  /* ⚠⚠ **여기 H15 케이스(폐기가 열린 실시간 소켓을 끊는다)가 있었다 — 그 채널이 은퇴했다**
+     (I051 · 2026-08-22 발상 축). H15 가 고친 결함(«폐기된 기기가 poke 를 영구히 계속 받는다»)은
+     채널이 없으면 성립하지 않는다. 위 케이스(«폐기가 15분 유예 없이 즉시 먹는다»)는 그대로다 —
+     그게 폐기의 본체이고, 소켓은 그 위에 얹혀 있던 두 번째 채널이었다. */
 
   it('기기 목록이 비밀을 노출하지 않는다', async () => {
     const { access } = await enroll();
@@ -356,115 +312,36 @@ describe('스탬프를 서버 시계로 클램프한다(M1)', () => {
   });
 });
 
-/* ── 관측 라우트(2026-07-25) ────────────────────────────────────────────────
-   ⚠ 이 라우트는 **무인증**이다. 그 결정이 옳으려면 두 성질이 실물에서 성립해야 한다:
-   ① 토큰 없이 받아 준다(오류는 인증 전에도 나고, 그게 가장 알고 싶은 종류다)
-   ② 그런데도 **아무것도 저장하지 않는다**(공격이 곧 D1 쿼터 소진이 되지 않게).
-   ②는 정적 검사로 증명할 수 없고 실 D1 위에서만 보인다 — 그래서 여기 있다. */
-describe('클라이언트 텔레메트리(/api/log)', () => {
-  it('인증 없이 받아 준다 — 오류는 토큰이 생기기 전에도 난다', async () => {
-    const r = await SELF.fetch(`${BASE}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'error', name: 'boom', app: 'phone', route: '/today' }),
-    });
-    expect(r.status).toBe(204);
-  });
+/* ⚠ **클라이언트 텔레메트리(`/api/log`) 케이스가 여기 있었다 — 그 라우트가 은퇴했다**
+   (I052 · 2026-08-22). 근거와 그 대가는 `src/index.ts` 의 그 자리 주석이 소유한다. */
 
-  it('⚠ 스키마가 깨져도 204 다 — 400 을 주면 오류 보고가 오류를 낳는 고리가 된다', async () => {
-    const bad = await SELF.fetch(`${BASE}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: '없는종류', name: 'x' }),
-    });
-    expect(bad.status).toBe(204);
-
-    const notJson = await SELF.fetch(`${BASE}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'JSON 아님',
-    });
-    expect(notJson.status).toBe(204);
-  });
-
-  it('⚠ 모르는 필드는 거부한다(.strict) — 신뢰 경계의 규약', async () => {
-    // strict 위반도 위 이유로 204 지만, **저장은 물론 로그 형식도 오염되지 않아야 한다**.
-    const r = await SELF.fetch(`${BASE}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'error', name: 'x', 몰래: '주입' }),
-    });
-    expect(r.status).toBe(204);
-  });
-
-  it('⚠⚠ D1 에 아무것도 쓰지 않는다 — 폭주가 쿼터를 태우지 않게', async () => {
-    const before = await env.DB.prepare('SELECT COUNT(*) AS c FROM settings').first<{ c: number }>();
-    for (let i = 0; i < 5; i++) {
-      await SELF.fetch(`${BASE}/api/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'vital', name: 'LCP', value: 1234.5 }),
-      });
-    }
-    const after = await env.DB.prepare('SELECT COUNT(*) AS c FROM settings').first<{ c: number }>();
-    expect(after?.c, '텔레메트리가 D1 에 썼다 — 설계 위반').toBe(before?.c);
-  });
-
-  it('본문 크기 상한이 이 라우트에도 걸린다', async () => {
-    const r = await SELF.fetch(`${BASE}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'error', name: 'x', detail: 'ㄱ'.repeat(2 * 1024 * 1024) }),
-    });
-    expect(r.status).toBe(413);
-  });
-});
-
-/* ── 레이트 리밋(2026-07-25) ────────────────────────────────────────────────
-   ⚠ 이 동작은 **지금까지 테스트가 없었다.** 무인증 라우트의 유일한 남용 방어인데도
-   "돌 것이다"에 맡겨져 있었다. 2026-07-25 에 주 방어를 `ratelimits` 바인딩으로 옮기면서
-   같이 잠근다 — 바꾼 것에 테스트가 없으면 바꾼 줄도 모른다.
-
-   ⚠ **버킷을 헤더로 격리한다.** 카운터 키는 `${CF-Connecting-IP}:${경로}` 이고 in-memory
-   맵은 아이솔레이트 수명 동안 산다. 헤더를 안 주면 전 테스트가 `unknown:…` 버킷을 공유해
-   이 테스트가 앞뒤 테스트를 429 로 죽인다(그리고 그 실패는 원인이 안 보인다). 전용 IP 를
-   주면 이 테스트만의 버킷이 생겨 순서에 의존하지 않는다.
-
-   ⚠ 테스트 환경에는 `AUTH_LIMITER` 바인딩이 없다 → 여기서 검증되는 것은 **in-memory 폴백**
-   이다. 그게 정확히 폴백을 남겨 둔 이유(로컬·테스트에서 방어가 사라지지 않게)이고,
-   바인딩 경로는 배포 환경에서만 존재하므로 여기서 잴 수 없다. */
+/* ⚠ 대상이 `/api/log` 에서 `/api/enroll/claim` 으로 바뀌었다(I052 가 저 라우트를 지웠다).
+   재는 것은 같다 — **상한과 IP 별 버킷**이지 그 라우트의 성공 코드가 아니다. 그래서 단언도
+   «429 인가 아닌가»로만 본다(잘못된 코드에 대한 응답 코드는 이 케이스의 관심이 아니다). */
 describe('무인증 라우트 레이트 리밋', () => {
+  const 치기 = (ip: string) =>
+    SELF.fetch(`${BASE}/api/enroll/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
+      body: JSON.stringify({ code: 'nope', deviceId: 'flood', name: 'flood' }),
+    });
+
   it('창(60초) 안에서 상한(20)을 넘으면 429 · 넘기 전엔 통과한다', async () => {
     const ip = '203.0.113.9'; // 이 테스트 전용 버킷(TEST-NET-3 · 실제로 안 쓰이는 대역)
-    const hit = () =>
-      SELF.fetch(`${BASE}/api/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip },
-        body: JSON.stringify({ kind: 'error', name: 'flood' }),
-      });
-
     const codes: number[] = [];
-    for (let i = 0; i < 25; i++) codes.push((await hit()).status);
+    for (let i = 0; i < 25; i++) codes.push((await 치기(ip)).status);
 
-    expect(codes.slice(0, 20), '상한 안쪽은 전부 통과해야 한다').toEqual(Array(20).fill(204));
+    expect(
+      codes.slice(0, 20).filter((c) => c === 429),
+      '상한 안쪽은 하나도 막히면 안 된다',
+    ).toEqual([]);
     expect(codes.slice(20), '상한을 넘으면 429 여야 한다').toEqual(Array(5).fill(429));
   });
 
   it('⚠ 버킷은 IP 별로 갈린다 — 한 사람이 다른 사람을 막지 못한다', async () => {
-    const flood = '203.0.113.10';
-    for (let i = 0; i < 25; i++) {
-      await SELF.fetch(`${BASE}/api/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': flood },
-        body: JSON.stringify({ kind: 'error', name: 'flood' }),
-      });
-    }
-    const other = await SELF.fetch(`${BASE}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '203.0.113.11' },
-      body: JSON.stringify({ kind: 'error', name: 'innocent' }),
-    });
-    expect(other.status, '무관한 IP 가 함께 막혔다').toBe(204);
+    for (let i = 0; i < 25; i++) await 치기('203.0.113.10');
+    const other = await 치기('203.0.113.11');
+    expect(other.status, '무관한 IP 가 함께 막혔다').not.toBe(429);
   });
 });
 
@@ -506,101 +383,29 @@ describe('⚠⚠ 스키마 스큐(서버 D1 이 앱보다 낮다)', () => {
   });
 });
 
-/* ============================================================
-   N-7 **ics 구독 피드** — 앱이 밀어올린 `docs` 한 행을 무인증 GET 이 나른다(W8 · 2026-08-07).
+/* ⚠ **N-7 ics 구독 피드 케이스가 여기 있었다 — 그 라우트가 은퇴했다**(I050 · 2026-08-22).
+   근거는 `src/index.ts` 의 그 자리 주석(무인증 공개 GET 이 빈 캘린더를 나르고 있었다). */
 
-   이 층에서만 잡히는 것: **라우팅·미들웨어 순서**. 이 라우트는 `/api/*` 아래인데 인증을
-   요구하지 않는 셋째 예외이고(헬스·로그·여기), 그 예외가 **의도한 것**임을 여기서 잠근다.
-   반대로 잘못된 토큰이 통과하면 그건 개인 데이터 노출이라, 실패 방향도 함께 못박는다.
-============================================================ */
-describe('N-7 ics 구독 피드', () => {
-  const TOKEN = 'a'.repeat(32);
-  const feedRow = (value: unknown, at = 100) => ({
-    tbl: 'docs',
-    key: ['ics:feed'],
-    data: [JSON.stringify(value)],
-    updatedAt: at,
-  });
-
-  it('발행한 피드를 토큰으로 받아온다 — 인증 없이', async () => {
-    const { access } = await enroll();
-    const body = 'BEGIN:VCALENDAR\r\nEND:VCALENDAR';
-    const p = await push(access, {
-      since: 0,
-      upto: 100,
-      rows: [feedRow({ token: TOKEN, body, at: 1, sig: 'x' })],
-      tombstones: [],
-    });
-    expect(p.status).toBe(200);
-
-    const got = await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`);
-    expect(got.status, '캘린더 앱은 Authorization 헤더를 못 싣는다').toBe(200);
-    expect(got.headers.get('content-type')).toMatch(/text\/calendar/);
-    expect(await got.text()).toBe(body);
-    // 확장자 없이도 같은 것을 준다(캘린더 앱마다 형식 판정이 다르다).
-    expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}`)).status).toBe(200);
-  });
-
-  it('⚠⚠ 틀린 토큰·폐기된 피드·형식 위반은 전부 404 — 이유를 가르지 않는다', async () => {
-    const { access } = await enroll();
-    await push(access, {
-      since: 0,
-      upto: 100,
-      rows: [feedRow({ token: TOKEN, body: 'X', at: 1, sig: '' })],
-      tombstones: [],
-    });
-
-    expect((await SELF.fetch(`${BASE}/api/ics/${'b'.repeat(32)}.ics`)).status, '다른 토큰').toBe(404);
-    expect((await SELF.fetch(`${BASE}/api/ics/short.ics`)).status, '형식 위반은 D1 을 두드리지 않는다').toBe(404);
-
-    // 폐기 = 빈 토큰·빈 본문으로 덮어쓴다(툼스톤이 없는 docs 의 "없음" 표현).
-    await push(access, {
-      since: 100,
-      upto: 200,
-      rows: [feedRow({ token: '', body: '', at: 2, sig: '' }, 200)],
-      tombstones: [],
-    });
-    expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`)).status, '폐기 뒤엔 옛 URL 이 죽는다').toBe(404);
-  });
-
-  it('피드가 없으면 404다(가입 여부를 흘리지 않는다)', async () => {
-    expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`)).status).toBe(404);
-  });
-});
-
-/* ============================================================
-   D009(2026-08-21 데이터 축) — **경로가 곧 변수인 라우트엔 상한이 없었다.**
-
-   레이트 버킷이 `${ip}:${pathname}` 인데 `/api/ics/:token` 은 경로 자체가 128비트 난수다.
-   매번 다른 토큰으로 치면 인메모리 `hits` 에도 전역 리미터에도 새 버킷이 잡혀, 그 라우트의
-   머리주석이 방어 ②로 선언한 것(*"이 라우트가 D1 을 두드리는 횟수를 묶는다"*)이 성립하지
-   않았다. 토큰은 `^[0-9a-f]{32}$` 만 통과하면 되므로 **요청마다 D1 SELECT 1회**가 나갔다.
-
-   ⚠ 이 케이스는 **지금 통과하는 것이 곧 결함**인 형태다 — 고치기 전에는 429 가 한 번도
-   안 났다.
-============================================================ */
-describe('레이트 리밋 — 가변 경로가 상한을 빠져나가지 않는다(D009)', () => {
-  const 토큰 = (i: number): string => i.toString(16).padStart(32, '0');
-
-  it('⚠⚠ 매번 다른 ics 토큰으로 쳐도 429 가 난다', async () => {
-    let 마지막 = 0;
-    for (let i = 0; i < 25; i++) {
-      const r = await SELF.fetch(`${BASE}/api/ics/${토큰(i)}.ics`, {
-        headers: { 'CF-Connecting-IP': '203.0.113.9' },
+/* ── 레이트 리밋 — **경로마다 버킷이 갈린다**(D009 의 잔여 계약) ────────────────────────
+   ⚠⚠ **가변 경로 케이스가 여기 있었다 — 그 라우트(`/api/ics/:token`)가 은퇴했다**(I050 ·
+   2026-08-22). 지금 `가변경로` 표는 비어 있고, 그 표가 막던 실패(토큰마다 새 버킷 = 상한이
+   원리적으로 없음)는 **다음 가변 경로가 생길 때** 다시 잴 대상이다.
+   남겨서 잠그는 것은 그 아래 절반 — **한 라우트의 폭주가 다른 라우트의 컷을 휩쓸지 않는다**.
+   그건 라우트가 무엇이든 참이어야 하는 계약이라 지금도 잰다. */
+describe('레이트 리밋 — 라우트마다 버킷이 갈린다(D009)', () => {
+  it('⚠ 무인증 라우트를 소진시켜도 인증 라우트는 자기 컷을 유지한다', async () => {
+    for (let i = 0; i < 40; i++) {
+      await SELF.fetch(`${BASE}/api/enroll/claim`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '203.0.113.9' },
+        body: JSON.stringify({ code: 'nope', deviceId: 'x', name: 'y' }),
       });
-      마지막 = r.status;
-      if (마지막 === 429) break;
     }
-    expect(마지막, '토큰마다 새 버킷이 잡히면 상한이 원리적으로 없다').toBe(429);
-  });
-
-  it('⚠ 그렇다고 라우트를 뭉뚱그리지 않는다 — 인증 라우트는 자기 버킷을 유지한다', async () => {
-    // 위 케이스가 ics 버킷을 이미 소진시켰다. 같은 IP 라도 `/api/token` 은 별개여야 한다.
     const r = await SELF.fetch(`${BASE}/api/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '203.0.113.9' },
       body: JSON.stringify({ deviceId: 'x', refresh: 'y' }),
     });
-    expect(r.status, 'ics 트래픽이 인증 라우트의 컷을 휩쓸면 안 된다').not.toBe(429);
+    expect(r.status, '등록 트래픽이 토큰 라우트의 컷을 휩쓸면 안 된다').not.toBe(429);
   });
 });

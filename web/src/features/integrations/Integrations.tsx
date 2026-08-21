@@ -16,7 +16,6 @@ import TelemetryConsole from './TelemetryConsole';
 import { VaultPanel } from './VaultPanel';
 import { AnkiPanel } from './AnkiPanel';
 import CoveragePanel from './CoveragePanel';
-import IcsFeedPanel from './IcsFeedPanel';
 
 export default function Integrations() {
   // 상단 바 리드아웃 — TelemetryConsole과 같은 캐시(skipToken=fetch 없이 구독) + usePing로 연결 요약만.
@@ -99,7 +98,9 @@ export default function Integrations() {
           </div>
           {/* N-7(W8) — ics 구독 피드. **밖으로 나가는 유일한 읽기 통로**라 연동 현황이 그 집이다. */}
           <div style={{ marginTop: 6 }}>
-            <IcsFeedPanel />
+            {/* ⚠ 여기 `IcsFeedPanel`(살아 있는 ics 구독 피드)이 있었다 — 은퇴했다(I050 · 2026-08-22).
+                근거: 유일한 **무인증 공개 GET** 표면이었고, 그 피드가 나르던 `week_alloc` 이 실물에서
+                0행이라 지금 발행되는 것은 **빈 캘린더**다. 남은 길은 1회 내보내기(`files.rs`). */}
           </div>
         </div>
         {/* 우 — 텔레메트리 조종석(백엔드·볼트·Anki 라이브 채널) */}

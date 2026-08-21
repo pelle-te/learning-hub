@@ -378,7 +378,7 @@ export const SEED = {
 
 /* ⚠ **은퇴한 탭 둘(`goals`·`guide`)이 W9 에서 이 로스터를 떠났다**(2026-08-06).
    경로로 도는 로스터인데 그 경로들은 이제 리다이렉트라, 여기 두면 흡수한 호스트를 **두 번**
-   찍으면서 정작 *뷰 전환*은 여전히 안 본다(`graph` 가 P-19 에서 나간 것과 같은 이유).
+   찍으면서 정작 *뷰 전환*은 여전히 안 본다.
    대신 아래 `A11Y_EXTRA` + `visual.spec.ts` 의 개별 케이스가 **뷰 자체**를 본다. */
 /* T-18 시험 전날 한 장 — **실 볼트 노트에서 그대로 떠 온** 발췌(회로이론 CIRC 05).
    손으로 지어낸 마크업을 쓰면 "우리가 상상한 볼트"를 찍게 된다 — 이 항목의 전제가 *실제 마크업이
@@ -444,9 +444,8 @@ export const TABS = [
      것은 **그 안내가 실제로 그려지는가**다(빈 화면과 고장은 구분돼야 한다). */
   'find',
   'ledger',
-  // ⚠ `graph` 는 **탭이 아니라 `/items?view=structure` 뷰다**(P-19 · 2026-08-01). 로스터는
-  // 경로로 도는데 그 경로는 이제 `items` 의 쿼리 변형이라, 탭 로스터가 아니라 아래 개별
-  // 케이스가 본다(로스터에 두면 `items` 를 두 번 찍고 뷰 전환은 여전히 안 본다).
+  // ⚠ 종전 여기 `graph`(→ `/items?view=structure`) 에 대한 주석이 있었다 — **그 뷰가
+  // 삭제됐다**(I044 · 2026-08-22). 지금 `items` 는 목록 하나뿐이라 예외가 필요 없다.
 ];
 export const THEMES = ['dark', 'light'] as const;
 
@@ -497,15 +496,7 @@ export const A11Y_EXTRA: ExtraScreen[] = [
     },
     ready: (page) => page.getByRole('progressbar').waitFor(),
   },
-  /* ⚠ **과목 › 구조도**(P-19 · 2026-08-01) — 탭이었을 때는 `TABS` 로스터가 알아서 봤는데
-     `/items` 의 쿼리 변형이 되면서 로스터 밖으로 나갔다. 안 넣으면 **탭을 뷰로 내린 대가로
-     a11y 커버리지 2건이 조용히 사라진다**(H6 이 오버레이에서 물린 그 구멍과 같은 형태).
-     캔버스 자체는 `검사()` 가 `exclude('canvas')` 하지만 범례·검색·줌 컨트롤은 그대로 검사된다. */
-  {
-    key: 'items-structure',
-    path: '/items?view=structure',
-    ready: (page) => page.getByRole('searchbox', { name: '학습 구조도 노드 검색' }).waitFor(),
-  },
+  /* ⚠ `items-structure`(과목 › 구조도)가 여기 있었다 — 그 뷰가 삭제됐다(I044 · 2026-08-22). */
   /* W12 객체 축(`/subject/:id`) — **탭이 아니라 라우트**라 `TABS` 에 없다. `/mini` 와 같은 부류이고,
      넣지 않으면 새로 생긴 3열 화면이 a11y 로스터 밖으로 나간다(H6 이 오버레이에서 물린 그 구멍).
      ⚠ id 는 SEED 가 정한다(`m` = 미적분) — 카드를 눌러 여는 대신 직접 가는 것이 결정적이다. */
@@ -639,23 +630,7 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     },
     ready: (page) => page.getByRole('dialog').waitFor(),
   },
-  {
-    /* ⚠ **캔버스 좌표를 클릭하지 않는다**(H6-잔여 · 2026-07-31). 노드 위치는 시뮬레이션 결과라
-       비결정적이지만, 이 화면에는 **노드 검색**이 있고 `runSearch` 가 그대로 `setSel` 한다 —
-       즉 상세를 여는 결정적 경로가 이미 제품 안에 있었다(그리고 그건 키보드 사용자의 경로이기도
-       하다 · 오버레이 a11y 를 재기에 오히려 더 맞는 입구다). */
-    key: 'overlay-graph-detail',
-    path: '/items?view=structure',
-    열기: async (page) => {
-      // ⚠ `type="search"` 는 role 이 **searchbox** 다(textbox 아님 — 실측으로 물렸다).
-      await page.getByRole('searchbox', { name: '학습 구조도 노드 검색' }).fill('미적분');
-      /* ⚠ **`main` 안으로 좁힌다**(A-9 · W4 · 2026-08-07). `찾기` 가 레일의 탭 이름이 되면서
-         페이지 전역에 같은 접근명의 버튼이 둘이 됐고, 이 픽스처가 그 순간 멈췄다(strict 모드).
-         고칠 것은 제품이 아니라 **선택자의 범위**다 — 오버레이를 여는 버튼은 본문 안에 있다. */
-      await page.locator('#main').getByRole('button', { name: '찾기' }).click();
-    },
-    ready: (page) => page.getByRole('dialog').waitFor(),
-  },
+  /* ⚠ 여기 `overlay-graph-detail`(구조도 노드 상세)이 있었다 — 그 화면이 삭제됐다(I044). */
   /* ⚠ '어휘 팝오버' 오버레이가 P10 W4 에서 빠졌다(2026-08-07) — 읽을거리 화면과 함께 갔다.
      H6 이 이 로스터를 만든 근거(*"오버레이는 어느 로스터에도 없었다"*)는 그대로다. */
   {
@@ -785,6 +760,21 @@ export async function bootPhone(page: Page, theme?: 'dark' | 'light'): Promise<v
    **베이스라인 자체가 두 상태를 오갔다** — 종전 임계 2% 가 그걸 통째로 삼키고 있었다.
    `fonts.status==='loaded'` 로 스와프 완료를 단정하고 rAF 두 번으로 그 뒤 리플로우까지 넘긴다. */
 export async function settle(page: Page) {
+  /* ⚠ **문서 로드 완료를 먼저 단정한다.** 실측 형태: 같은 화면이 실행에 따라 **네이티브 폼
+     컨트롤(체크박스·날짜 입력 아이콘)이 그려진 상**과 안 그려진 상으로 갈렸다 — 그건 폰트도
+     레이아웃도 아니고 «아직 다 안 그렸다» 이다. `readyState` 는 그 경계를 직접 말한다. */
+  await page.waitForFunction(() => document.readyState === 'complete');
+  /* ⚠ **패밀리를 이름으로 지목해 강제 로드한다**(I049 실행 중 · 2026-08-22). `status` 는 «지금
+     대기 중인 로드가 없다» 라서 **요청이 시작되기 전에도 참**이다 — 페이지가 빨라지면 그 창으로
+     폴백 폰트 상태가 박힐 수 있다. `fonts.load()` 는 그 이름의 로드를 직접 시작시킨다.
+     ⚠ 이름은 `styles/tokens.css` 의 `@font-face` 와 짝이다 — 갈리면 이 대기가 조용히 무의미해진다. */
+  await page.evaluate(async () => {
+    await Promise.all([
+      document.fonts.load('400 16px "Pretendard Variable"'),
+      document.fonts.load('800 16px "Pretendard Variable"'),
+    ]);
+    await document.fonts.ready;
+  });
   await page.waitForFunction(() => document.fonts.status === 'loaded');
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
 }

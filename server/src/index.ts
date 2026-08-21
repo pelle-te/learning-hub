@@ -57,8 +57,7 @@ interface Env {
    * 미설정이면 브라우저 교차 오리진은 전부 막힌다(닫힘이 기본값).
    */
   HUB_ALLOWED_ORIGINS?: string;
-  /** 실시간 poke 브로드캐스트 DO(Phase 2). push 뒤 다른 기기에 "변경 있음"만 알린다(데이터는 pull). */
-  SYNC_HUB: DurableObjectNamespace;
+  /* ⚠ `SYNC_HUB`(실시간 poke 브로드캐스트 DO)가 여기 있었다 — 은퇴했다(I051 · 2026-08-22). */
   /**
    * 무인증 라우트용 레이트 리미터(`wrangler.jsonc` 의 `ratelimits`).
    *
@@ -304,7 +303,10 @@ function rateLimited(bucket: string, now: number): boolean {
    ⚠ 새 가변 경로를 붙일 때 여기 한 줄이 필요하다. 정규식 하나로 «마지막 세그먼트를 지운다»를
    일반화하지 않는 이유: 그러면 `/api/token` 과 `/api/enroll` 이 같은 버킷이 되어 **의도한
    분리가 조용히 사라진다**(이 표는 «어떤 라우트가 가변인가»를 선언하는 자리다). */
-const 가변경로: readonly [RegExp, string][] = [[/^\/api\/ics\/.+$/, '/api/ics/*']];
+/* ⚠ **지금 비어 있다**(I050 · 2026-08-22). 유일한 항목이던 `/api/ics/*` 가 그 라우트와 함께
+   은퇴했다. 표를 지우지 않는 이유는 위 주석 그대로다 — 다음 가변 경로가 생기는 순간 한 줄이
+   필요하고, 그 자리가 없으면 D009 가 통째로 재발한다(토큰마다 새 버킷 = 상한이 원리적으로 없음). */
+const 가변경로: readonly [RegExp, string][] = [];
 const bucketPath = (pathname: string): string => 가변경로.find(([re]) => re.test(pathname))?.[1] ?? pathname;
 
 const rateGuard: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (c, next) => {
@@ -338,118 +340,29 @@ app.use('/api/token', rateGuard);
 /** 헬스체크 — 비밀도 데이터도 노출하지 않는다. */
 app.get('/api/health', (c) => c.json({ ok: true }));
 
-/* ── N-7 **살아 있는 ics 구독 피드**(W8 · 2026-08-07) ────────────────────────────────
+/* ⚠⚠ **여기 N-7 「살아 있는 ics 구독 피드」 라우트가 있었다 — 은퇴했다**(I050 · 2026-08-22
+   발상 축).
 
-   ## 이 라우트가 서버에서 하는 일의 전부: `docs` 한 행을 읽어 문자열을 돌려준다
+   그 절이 스스로 적어 둔 것: *"인증이 없는 것이 설계다 — 열쇠는 경로 안에 있다."* 방어 셋
+   (추측 불가능성 · 레이트 리밋 · 노출 범위)은 지금도 타당하지만, **그 표면이 나르던 것이
+   비어 있었다**: `week_alloc` 이 실 DB 에서 0행이라 발행되는 것은 빈 캘린더다. 즉 이 앱의
+   유일한 무인증 공개 GET 이 **아무것도 아닌 것을 위해** 열려 있었다.
 
-   계획을 **여기서 계산하지 않는다.** 스케줄러를 서버에 이식하면 계획 규칙이 두 벌이 되고,
-   그건 이 저장소가 `rows.ts` ↔ `rows.rs` 로 이미 두 번 물린 형태다. 앱이 `buildICS()` 로 만든
-   문자열을 `docs['ics:feed']` 에 넣어 **기존 push 경로로** 올리고(새 쓰기 라우트 0), 여기서는
-   그것을 그대로 나른다. 값의 형태는 `web/src/lib/icsFeed.ts` 가 소유한다.
+   ⚠ 캘린더에서 학습 블록을 보는 길이 없어지지는 않는다 — **1회 내보내기**(`files.rs` 의 `.ics`
+   저장)가 남는다. 사라진 것은 *자동으로 갱신되는* 구독뿐이다.
+   복구: `git show <이 커밋의 부모>:server/src/index.ts`. */
 
-   ## ⚠ 인증이 없는 것이 설계다 — 열쇠는 경로 안에 있다
+/* ⚠⚠ **여기 클라이언트 오류·성능 수집 라우트(`/api/log`)와 그 스키마가 있었다 — 은퇴했다**
+   (I052 · 2026-08-22 발상 축).
 
-   캘린더 구독은 **인증 헤더를 못 싣는다**(iCalendar 구독의 표준 형태다: 캘린더 앱이 주기적으로
-   URL 을 GET 한다). 그래서 방어는 셋이다:
-   ① **추측 불가능성** — 토큰은 128비트 난수이고 이 라우트는 그것을 **상수 시간**으로 대조한다.
-   ② **레이트 리밋** — 무인증 라우트라 `/api/enroll/*`·`/api/log` 와 **같은 가드**를 붙인다.
-      토큰 열거를 막는 것이 아니라(128비트는 열거할 수 없다) 이 라우트가 D1 을 두드리는 횟수를
-      묶는 것이다.
-   ③ **노출 범위** — 담기는 것은 학습 블록의 제목·시각뿐이다(성적·오답·메모는 `buildICS` 에 없다).
-   그리고 폐기가 1급 동작이다 — 앱에서 토큰을 새로 뽑으면 옛 URL 은 아래 대조에서 즉시 떨어진다.
+   2026-07-25 감사가 세운 명제(*"배포 전 검증은 여섯 겹인데 배포 후 관측은 0"*)는 지금도 맞다.
+   이 은퇴가 판단한 것은 다른 것이다: **사용자가 개발자 한 명**이라, 이 채널이 나르던 신호는
+   그 사람이 앱 앞에 있을 때 콘솔·화면으로도 온다. 남는 값은 «폰 브라우저에서 난 스택»
+   하나였고, 리포트가 이 항목의 근거를 스스로 «약하다»고 적은 것도 그래서다.
 
-   ⚠ **404 를 두 경우에 함께 준다**(없는 토큰 · 폐기된 피드). 이유를 가르면 그 차이가 곧
-   "이 워크스페이스에 피드가 있다"는 신호가 된다.
-   ⚠ `.ics` 확장자를 **선택적으로** 받는다 — 일부 캘린더 앱은 확장자로 형식을 판정한다. */
-app.use('/api/ics/*', rateGuard);
-app.get('/api/ics/:token', async (c) => {
-  const token = (c.req.param('token') || '').replace(/\.ics$/i, '');
-  /* ⚠ 길이 가드가 먼저다 — 이상한 길이의 토큰으로 D1 을 두드리게 두지 않는다(hex 32자 고정). */
-  if (!/^[0-9a-f]{32}$/.test(token)) return c.text('not found', 404);
-  const row = await c.env.DB.prepare('SELECT value FROM docs WHERE key = ?1')
-    .bind('ics:feed')
-    .first<{ value: string }>();
-  if (!row?.value) return c.text('not found', 404);
-  let feed: { token?: unknown; body?: unknown };
-  try {
-    feed = JSON.parse(row.value) as { token?: unknown; body?: unknown };
-  } catch {
-    return c.text('not found', 404);
-  }
-  const stored = typeof feed.token === 'string' ? feed.token : '';
-  const body = typeof feed.body === 'string' ? feed.body : '';
-  /* ⚠ 상수 시간 비교는 `auth.ts` 의 것을 쓴다 — 리프레시 토큰 대조가 이미 그 함수를 쓰고 있고,
-     두 벌이면 한쪽만 고쳐진다(이 파일이 SQL 사본에서 이미 물린 형태). */
-  if (!stored || !body || !timingSafeEqual(stored, token)) return c.text('not found', 404);
-  return c.body(body, 200, {
-    'Content-Type': 'text/calendar; charset=utf-8',
-    'Content-Disposition': 'inline; filename="learning-hub.ics"',
-  });
-});
-
-/* ── 관측 가능성: 클라이언트 오류·성능 수집(2026-07-25 감사) ────────────────────
-
-   ## 왜 이게 없었는가가 이 저장소의 가장 큰 비대칭이었다
-
-   배포 **전** 검증은 여섯 겹이다(정적·유닛·컴포넌트·트랙A·트랙B·실 workerd 왕복).
-   배포 **후** 관측은 `observability.enabled` 하나였고 그건 **이 워커 자신**만 본다.
-   즉 폰 브라우저나 WebView2 안에서 앱이 죽으면 아무도 모른다 — 사용자가 말해 주기 전까지.
-   래칫들은 *아는 회귀*를 막지만 *모르는 것*을 잡는 층은 통째로 없었다.
-
-   ## ⚠ D1 에 쓰지 않는다 — `console` 로 낸다
-
-   Cloudflare Logs 가 워커의 stdout 을 구조화해 수집한다(`observability.enabled` 가 이미 켜져
-   있다). D1 테이블을 만들지 않은 이유는 셋이다:
-   ① **스키마를 안 건드린다.** `src-tauri/migrations/` 는 D1 과 데스크톱 SQLite 가 **공유**
-      하므로(`wrangler.jsonc`) 여기에 텔레메트리 테이블을 넣으면 **데스크톱 앱 DB 에도** 생긴다.
-   ② **쿼터.** 오류 폭주(렌더 루프)가 곧 D1 일일 한도 소진이 된다 — 레이트 리밋을 D1 카운터로
-      만들지 않은 것과 **같은 이유**이고, 그 판단은 이미 이 파일에 적혀 있다.
-   ③ 이 데이터는 조회 대상이 아니라 **관측 대상**이다. 조인할 일이 없다.
-
-   ## ⚠ 인증을 요구하지 않는다 — 대신 레이트 리밋 + 크기 상한
-
-   오류는 **인증되기 전에도** 난다(부팅 실패가 가장 알고 싶은 종류다). 토큰을 요구하면
-   정작 제일 중요한 신호를 못 받는다. 대신 ① 무인증 라우트용 `rateGuard` 를 붙이고
-   ② 위 `MAX_BODY_BYTES` 가 이미 걸려 있으며 ③ **아무것도 저장하지 않으므로** 남는 비용이
-   로그 한 줄뿐이다. `/api/enroll/*`·`/api/token` 과 같은 취급이다. */
-const TelemetrySchema = z.strictObject({
-  kind: z.enum(['error', 'vital']),
-  /** 오류 메시지 또는 지표 이름(LCP/INP/CLS…). */
-  name: z.string().check(z.minLength(1)).check(z.maxLength(200)),
-  /** 오류 스택(잘린 것) 또는 없음. ⚠ 길이 상한이 곧 개인정보 노출 상한이다. */
-  detail: z.optional(z.string().check(z.maxLength(2000))),
-  /** vital 의 수치. error 면 없음. */
-  value: z.optional(z.number().check(z.refine(Number.isFinite))),
-  /** 어느 화면에서 났나. 전체 URL 이 아니라 **경로만** — 쿼리에 값이 실릴 수 있다. */
-  route: z.optional(z.string().check(z.maxLength(200))),
-  /** 'shell' | 'phone' — 두 엔트리를 구분해야 어디를 고칠지 안다. */
-  app: z.optional(z.enum(['shell', 'phone'])),
-  /** 앱 빌드 식별자(있으면). 어느 버전에서 났는지 없으면 추적이 안 된다. */
-  build: z.optional(z.string().check(z.maxLength(64))),
-});
-
-app.use('/api/log', rateGuard);
-app.post('/api/log', async (c) => {
-  const parsed = await readBody(await c.req.json().catch(() => null), TelemetrySchema);
-  /* ⚠ 검증 실패도 **204** 로 답한다. 이 라우트는 클라이언트가 결과를 보고 뭘 하는 곳이
-     아니고(fire-and-forget), 400 을 주면 오류 보고가 다시 오류를 만드는 고리가 생긴다.
-     대신 서버 로그에는 남긴다 — 계약이 깨진 것도 알아야 할 신호다. */
-  if (!parsed) {
-    console.warn(JSON.stringify({ t: 'telemetry.reject', reason: 'schema' }));
-    return c.body(null, 204);
-  }
-  console.log(
-    JSON.stringify({
-      t: parsed.kind === 'error' ? 'client.error' : 'client.vital',
-      ...parsed,
-      /* ⚠ IP 는 싣지 않는다. 사용자가 한 명인 개인 앱이라 식별에 아무 값이 없고,
-         남기는 순간 로그가 개인정보가 된다. 국가 코드만 — 회선 종류를 가늠하는 데 쓴다. */
-      country: c.req.header('CF-IPCountry') ?? null,
-      at: new Date().toISOString(),
-    }),
-  );
-  return c.body(null, 204);
-});
+   ⚠⚠ **대가를 정확히 적는다**: 렌더 밖 부팅 실패(OPFS·wasm·청크 로드)는 `ErrorBoundary` 가
+   원리적으로 못 잡고, 이제 폰에서는 **아무 데도 안 남는다**. 되살릴 조건은 하나다 —
+   폰이 실제로 쓰이고 있다는 관측(I033)이 나오는 것. 복구: `git show <이 커밋의 부모>:server/src/index.ts`. */
 
 /* ── 온보딩: PC 가 코드를 발급 → 폰이 제출 ───────────────────── */
 
@@ -535,9 +448,8 @@ const requireDevice: MiddlewareHandler<{
   Bindings: Env;
   Variables: Vars;
 }> = async (c, next) => {
-  // ⚠ WebSocket(`/api/sync/live`)은 Bearer 헤더를 실을 수 없어(브라우저 제약) 이 미들웨어를
-  //    통과할 수 없다. 그 경로는 **자체 인증**한다(Sec-WebSocket-Protocol 토큰) — 여기선 비켜준다.
-  if (new URL(c.req.url).pathname === '/api/sync/live') return next();
+  // ⚠ 종전엔 WebSocket(`/api/sync/live`)을 이 미들웨어에서 빼 줬다(그 경로는 자체 인증했다) —
+  //    그 라우트가 은퇴했다(I051 · 2026-08-22). 지금은 예외가 없다.
   const token = bearerFrom(c.req.raw);
   const deviceId = token ? await verifyAccessToken(c.env.HUB_SIGNING_KEY, token, nowSec()) : null;
   if (!deviceId) return c.json({ error: 'unauthorized' }, 401);
@@ -629,71 +541,25 @@ app.post('/api/devices/revoke', async (c) => {
     .run();
   if (!r.meta.changes) return c.json({ error: 'unknown or already revoked device' }, 404);
 
-  /* ⚠⚠ **열려 있는 실시간 소켓도 끊는다(H15 · 2026-07-30 `/감사 근본`).**
-
-     종전엔 이 라우트가 `revoked_at` 만 세웠다. 그런데 `/api/sync/live` 의 소켓은 Hibernation
-     으로 무기한 유지되므로 **폐기된 기기가 `poke` 를 영구히 계속 받았다** — 아래 15분 유예가
-     정직하게 적혀 있는데 이 채널은 그 15분조차 아니었다. 데이터는 못 받지만(pull 은 액세스
-     토큰을 요구하고 `/api/token` 이 폐기를 막는다) **활동 메타데이터**는 계속 흘렀다.
-     ⚠ 실패해도 폐기 자체는 성립한다 — DO 가 안 떠 있을 수도 있고, 그때 소켓도 없다. */
-  let liveClosed = 0;
-  try {
-    const closed = await hub(c.env).fetch(
-      `https://sync-hub.internal/close?device=${encodeURIComponent(body.deviceId)}`,
-      { method: 'POST' },
-    );
-    liveClosed = ((await closed.json()) as { closed?: number }).closed ?? 0;
-  } catch {
-    // 소켓 정리 실패는 폐기를 무르지 않는다(폐기는 이미 DB 에 남았다).
-  }
-
+  /* ⚠ 종전엔 여기서 열린 실시간 소켓도 끊었다(H15) — 그 채널이 은퇴했다(I051 · 2026-08-22).
+     H15 가 고친 결함(«폐기된 기기가 poke 를 영구히 계속 받는다»)은 채널이 없어 성립하지 않는다. */
   return c.json({
     ok: true,
     revoked: body.deviceId,
     accessTokenGraceSec: ACCESS_TTL_SEC,
-    liveClosed,
   });
 });
 
 /* ── 동기화 ──────────────────────────────────────────────────── */
 
-/** 단일 사용자 → 단일 DO 인스턴스. 모든 기기 소켓이 여기 모여, 브로드캐스트가 "내 다른 기기 전부". */
-function hub(env: Env): DurableObjectStub {
-  return env.SYNC_HUB.get(env.SYNC_HUB.idFromName('hub'));
-}
+/* ⚠ `hub(env)`(단일 사용자 → 단일 Durable Object)가 여기 있었다 — I051 이 그 채널을 지웠다. */
 
-/* ── 실시간 poke(Phase 2) ─────────────────────────────────────────
-   WebSocket 으로 "변경 있음"만 실시간 통지한다. **데이터는 여전히 push/pull** 이 옮긴다 —
-   이 채널로는 `poke` 한 글자만 흐른다(받은 기기가 pull). 폴링·포커스 대기를 없앤다.
-
-   ⚠ 인증이 특수하다: 브라우저 WebSocket 은 Authorization 헤더를 못 싣는다. 그래서 액세스 토큰을
-   **`Sec-WebSocket-Protocol` 서브프로토콜**로 받는다(URL 이 아니다 — P0-2 "토큰은 URL 아닌 헤더만"
-   의 연장). 검증(+폐기 확인)은 여기서 하고, 통과하면 DO 로 업그레이드를 위임한다.
-
-   ⚠ 이건 **점진적 향상**이다. 클라이언트가 붙지 못해도(데스크톱 CSP·네트워크) 앱은 기존
-   이벤트/폴링 동기화로 그대로 돈다 — 연결은 최신성을 빠르게 할 뿐, 정확성의 전제가 아니다. */
-app.get('/api/sync/live', async (c) => {
-  if (c.req.header('Upgrade') !== 'websocket') return c.json({ error: 'expected websocket' }, 426);
-  const proto = c.req.header('Sec-WebSocket-Protocol');
-  const token = proto ? proto.split(',')[0]?.trim() : undefined;
-  const deviceId = token ? await verifyAccessToken(c.env.HUB_SIGNING_KEY, token, nowSec()) : null;
-  if (!deviceId) return c.json({ error: 'unauthorized' }, 401);
-  // 폐기 확인 — 민감 경로는 매 연결 확인(requireDevice 와 같은 규율).
-  const row = await c.env.DB.prepare('SELECT revoked_at FROM devices WHERE id = ?')
-    .bind(deviceId)
-    .first<{ revoked_at: number | null }>();
-  if (!row || row.revoked_at !== null) return c.json({ error: 'unauthorized' }, 401);
-
-  /* ⚠ **기기 id 를 헤더로 실어 보낸다(H15).** DO 가 그 값으로 소켓을 태그하고, 나중에 폐기 시
-     "이 기기의 소켓만" 골라 닫는다. 원본 요청을 그대로 넘기면 태그할 값이 없다(종전 구현). */
-  const upgrade = new Request(c.req.raw, { headers: new Headers(c.req.raw.headers) });
-  upgrade.headers.set('X-Device-Id', deviceId);
-  const res = await hub(c.env).fetch(upgrade); // DO 가 101 + webSocket 을 돌려준다
-  // 브라우저가 요청한 서브프로토콜을 응답에 되돌려줘야 연결이 성립한다(선택한 프로토콜 확인).
-  const headers = new Headers(res.headers);
-  if (token) headers.set('Sec-WebSocket-Protocol', token);
-  return new Response(res.body, { status: res.status, webSocket: res.webSocket, headers });
-});
+/* ⚠⚠ **여기 실시간 poke 라우트(`/api/sync/live`)와 그 인증이 있었다 — 은퇴했다**(I051 ·
+   2026-08-22 발상 축). 그 절이 스스로 «점진적 향상»이라 적었고(*"연결은 최신성을 빠르게 할 뿐
+   정확성의 전제가 아니다"*), 실측은 8일간 동기화할 편집 **0건**이었다. 함께 간 것:
+   `syncHub.ts`(Durable Object) · `src-tauri/src/live.rs` · `web/src/lib/cloud/live.ts`.
+   ⚠ 폐기 라우트의 `liveClosed` 도 함께 걷었다 — 닫을 소켓이 없다.
+   복구: `git show <이 커밋의 부모>:server/src/syncHub.ts` 외. */
 
 /**
  * 아웃박스 배치를 받아 정본에 반영한다.
@@ -774,17 +640,8 @@ app.post('/api/sync/push', async (c) => {
 
   if (stmts.length) await c.env.DB.batch(stmts);
 
-  /* 실시간 poke(Phase 2) — 뭔가 반영됐으면 다른 기기에 "변경 있음"을 쏜다. `waitUntil` 로 응답을
-     막지 않는다(브로드캐스트 실패는 무해 — 폴링·포커스가 여전히 받는다). 데이터는 안 싣는다. */
-  if (stmts.length) {
-    c.executionCtx.waitUntil(
-      hub(c.env)
-        .fetch('https://sync-hub.internal/broadcast', { method: 'POST' })
-        .catch(() => {
-          /* 브로드캐스트 실패는 삼킨다 — 실시간은 향상이지 정확성의 전제가 아니다. */
-        }),
-    );
-  }
+  /* ⚠ 여기 실시간 poke 브로드캐스트가 있었다 — 은퇴했다(I051 · 2026-08-22). 그 주석이 스스로
+     적었듯 «실시간은 향상이지 정확성의 전제가 아니다» — 다른 기기는 복귀·편집후·폴링으로 받는다. */
 
   // P2-9 접근 로그(주체 포함). 건수만 — 값은 개인 데이터라 로그에 넣지 않는다.
   console.log(
@@ -1009,6 +866,5 @@ app.onError((err, c) => {
 });
 
 /** ⚠ DO 클래스는 진입 모듈에서 내보내야 런타임이 찾는다(wrangler.jsonc 의 class_name 과 일치). */
-export { SyncHub } from './syncHub';
 
 export default app;

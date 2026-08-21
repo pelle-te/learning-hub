@@ -103,8 +103,10 @@ test('alloc: 열 "가용"이 그날 일정을 차감한 실제 가용을 보여�
   expect(monCap).toBeLessThan(tueCap); // 일정이 있는 월요일만 가용이 깎여야 한다
 });
 
-test('journal: 3문장 요약 저장이 store.summaries에 기록된다', async () => {
-  renderApp('/journal');
+/* ⚠ 경로가 `/journal` 에서 `/day` 로 바뀌었다(I048 · 2026-08-22). `journal` 은 `/day` 를
+   가리키는 **두 번째 이름**이었고, 이름이 둘이면 다음 사람이 「둘은 다르다」로 읽는다. */
+test('day: 3문장 요약 저장이 store.summaries에 기록된다', async () => {
+  renderApp('/day');
   const ta = await screen.findByPlaceholderText(/시변 환경에서/);
   fireEvent.change(ta, { target: { value: '맥스웰 방정식 해석' } });
   fireEvent.click(screen.getByRole('button', { name: '요약 저장' }));
@@ -125,7 +127,9 @@ test('review: 주간 점검 체크가 store.weekly에 저장된다', async () =>
 test('stats: 과목이 있으면 KPI/과목별 진행 표가 뜬다', async () => {
   renderApp('/stats');
   await waitFor(() => expect(screen.getByRole('heading', { name: '과목별 진행' })).toBeInTheDocument());
-  expect(screen.getByText('연속 학습일')).toBeInTheDocument();
+  /* ⚠ 종전엔 「연속 학습일」을 단언했다 — I046 이 그 리드아웃을 지웠다(입력 `completions` 가
+     실물에서 0행이라 **항상 0** 이었다). 같은 자리에 남은 리드아웃으로 바꾼다. */
+  expect(screen.getByText('완료 챕터')).toBeInTheDocument();
 });
 
 test('degree: + 학기 추가가 store.degree.semesters에 들어간다', async () => {

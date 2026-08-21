@@ -40,9 +40,9 @@ function baseCommands(): PaletteCommand[] {
     const seq = SEQ_BY_TAB.get(t.key);
     /* Q-22 — 은퇴한 탭은 **`to` 로 간다**(`key` 가 경로가 아니다). 종전엔 은퇴하면 `TABS` 에서
        통째로 빼서 ⌘K 에서도 사라졌고, 그 구멍을 `act:graph` 한 줄로 손으로 메우고 있었다. */
-    if (t.role === 'retired') {
+    if (t.role === 'view') {
       /* ⚠ 힌트는 **사용자의 언어**여야 한다(U012 · 2026-08-21 ux 축). 종전 `은퇴` 는 이 저장소의
-         내부 어휘(`role:'retired'`)를 그대로 노출한 것이라, 사용자에게는 *"이건 이제 없다"* 로
+         내부 어휘(`role:'view'`(옛 `retired`))를 그대로 노출한 것이라, 사용자에게는 *"이건 이제 없다"* 로
          읽혔다 — 실제로는 살아 있는 화면이고 ⌘K 가 그 유일한 문인데도. 힌트가 말해야 하는 것은
          상태가 아니라 **어디에 있는가**다(호스트 탭 이름). */
       const 호스트 = tabByKey(t.to?.replace(/^\//, '').split('?')[0] ?? '')?.label;
@@ -268,7 +268,7 @@ function baseCommands(): PaletteCommand[] {
     },
     /* ✅ **손으로 놓던 `act:graph` 한 줄이 사라졌다**(Q-22 · 2026-08-02). 종전 주석이 스스로
        _"TABS 에서 화면을 내릴 때마다 여기"_ 라며 **재발을 예약**해 뒀는데, 은퇴에 어휘를 주니
-       (`role:'retired'`) 배열에 남아 있게 되어 위 `tabs` 매핑이 자동으로 줍는다. 불변식 ②의
+       (`role:'view'`(옛 `retired`)) 배열에 남아 있게 되어 위 `tabs` 매핑이 자동으로 줍는다. 불변식 ②의
        "은퇴한 탭도 ⌘K 로 도달한다"가 그것을 집행한다. */
     { id: 'act:reset', kind: 'act', label: '전체 초기화…', hint: '위험', run: A.resetAll },
   ];

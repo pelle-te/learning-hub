@@ -12,7 +12,7 @@ import { renderApp } from './_render';
    · *"jsdom엔 serve.js(/api)가 없으므로"* — `serve.js` 는 **4단계에서 삭제됐다.** 지금 없는 것은
      그 프로세스가 아니라 **Rust 커맨드**다(브라우저엔 `invoke` 가 없다). 결과는 같지만 이유가 다르고,
      틀린 이유는 다음 사람을 삭제된 파일로 보낸다.
-   · *"서버/외부 탭(integrations·**mastery**)"* — `mastery` 는 A-19(2026-08-07)에 `role:'retired'` 가
+   · *"서버/외부 탭(integrations·**mastery**)"* — `mastery` 는 A-19(2026-08-07)에 `role:'view'`(옛 `retired`) 가
      됐다(`shell/tabs.ts`). 이 파일은 여전히 그 경로를 렌더하는데, 그건 라우트가 `<Navigate>` 로
      살아 있기 때문이지 그 탭이 현역이어서가 아니다.
 

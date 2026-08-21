@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계-F 에서 dialog:allow-save 를 추가했다 — `<a download>` 가 WebView2 에서 **예외 없이 아무 파일도 만들지 않는 것**을 실측해, 내보내기 6경로를 저장 대화상자 + save_text_file 로 옮겼기 때문. fs 플러그인은 안 들였다: 쓰기는 커맨드 하나면 되고, 플러그인은 훨씬 넓은 권한을 연다). ⚠ core:window:allow-destroy 는 2단계-C 에서 켰다 — 프런트가 onCloseRequested 로 닫기를 보류하고 비동기 SQL 쓰기를 기다린 뒤 직접 destroy 하기 때문. core:window:default 는 조회 전용이라 이게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 창이 영영 안 닫힌다(1단계 실측). 이 둘은 **항상 같이 간다** — 훅을 지우면 이 권한도 지울 것. ⚠ set-size/set-always-on-top/set-resizable 셋은 N-8(미니 HUD)에서 켰다 — 집중 세션 중 **같은 창**을 알약 크기로 줄이고 항상 위에 두기 위해서다(새 창·새 플러그인 0이라 SQLite 커넥션·종료 가드·single-instance 계약이 그대로다). 크기 조회(innerSize·scaleFactor)는 core:window:default 의 조회 권한으로 이미 되므로 추가하지 않았다 — 복귀 크기는 상수가 아니라 **진입 시 실측값**이라 이 읽기가 기능의 일부다. 미니 모드를 지우면 이 셋도 함께 지울 것. ⚠ core:window:allow-set-overlay-icon 은 Q-30(작업표시줄 배지)에서 켰다 — Windows 엔 setBadgeCount 가 없고(그건 macOS 독/Linux 유니티용) 대응물이 작업표시줄 오버레이 아이콘이다. 새 창·새 플러그인 0 이고, **아이콘은 파일이 아니라 런타임 캔버스 PNG** 라 번들 산출물도 0 이다(public/ 에 두면 frontendDist 를 타고 데스크톱 번들에 실린다 — 예산 축 ④가 잡는 그 부류). 소비처는 web/src/app/useTaskbarBadge.ts 하나이고, 그것을 지우면 이 권한도 지울 것. ⚠ core:window:allow-hide/show 와 autostart 셋은 T-3(상주 트레이)에서 켰다 — 상주 모드의 닫기는 destroy 가 아니라 hide 이고(그 판단은 프런트가 소유한다: flush 계약이 갈리면 안 된다) 재부팅 뒤에도 살아 있어야 T-6(예약 알림)이 원리적으로 성립한다(tauri-plugin-notification 에 스케줄 API 가 없어 발사 시각에 프로세스가 살아 있어야 한다 · v2 문서 확인 2026-08-02). ⚠⚠ 둘 다 **기본 꺼짐**이다 — 설치만으로 자동 시작을 등록하거나 '닫아도 안 죽는' 프로세스를 만드는 것은 사용자가 안 본 사이의 시스템 상태 변경이다. 상주 설정을 지우면 이 넷도 함께 지울 것. ⚠⚠ **JS 소비처가 0인 권한 넷을 걷었다**(D019 · 2026-08-21 데이터 축): `global-shortcut:allow-{register,unregister,is-registered}` 와 `core:window:allow-show`. 전역 단축키를 **등록하는 것은 Rust 다**(`hotkey.rs::register` ← `lib.rs` setup)이고 Rust 경로는 ACL 을 타지 않는다. 창 보이기도 마찬가지로 `tray.rs::show` 가 한다. 즉 이 넷의 유일한 호출자는 **웹뷰의 임의 JS** 였고, 침해되면 `invoke('plugin:global-shortcut|register', …)` 로 시스템 전역 키를 가로채거나 이 앱의 캡처 단축키를 죽일 수 있었다. ⚠ 되살릴 조건은 «JS 에서 단축키를 등록하게 될 때» 하나다 — 그때는 여기와 함께 소비처를 적을 것. ⚠ 이 파일의 다른 모든 항목은 «왜 켰나 / 무엇을 지우면 이것도 지울 것» 을 적고 있었는데 이 넷만 한 줄도 없었다(그 자체가 신호였다).",
+  "description": "러닝허브 메인 창 권한 — 최소 집합만 켠다. 늘릴 땐 왜 필요한지 함께 기록할 것(4단계-F 에서 dialog:allow-save 를 추가했다 — `<a download>` 가 WebView2 에서 **예외 없이 아무 파일도 만들지 않는 것**을 실측해, 내보내기 6경로를 저장 대화상자 + save_text_file 로 옮겼기 때문. fs 플러그인은 안 들였다: 쓰기는 커맨드 하나면 되고, 플러그인은 훨씬 넓은 권한을 연다). ⚠ core:window:allow-destroy 는 2단계-C 에서 켰다 — 프런트가 onCloseRequested 로 닫기를 보류하고 비동기 SQL 쓰기를 기다린 뒤 직접 destroy 하기 때문. core:window:default 는 조회 전용이라 이게 없으면 Tauri 가 닫기를 보류한 채 destroy 가 ACL 에 막혀 창이 영영 안 닫힌다(1단계 실측). 이 둘은 **항상 같이 간다** — 훅을 지우면 이 권한도 지울 것. ⚠ set-size/set-always-on-top/set-resizable 셋은 N-8(미니 HUD)에서 켰다 — 집중 세션 중 **같은 창**을 알약 크기로 줄이고 항상 위에 두기 위해서다(새 창·새 플러그인 0이라 SQLite 커넥션·종료 가드·single-instance 계약이 그대로다). 크기 조회(innerSize·scaleFactor)는 core:window:default 의 조회 권한으로 이미 되므로 추가하지 않았다 — 복귀 크기는 상수가 아니라 **진입 시 실측값**이라 이 읽기가 기능의 일부다. 미니 모드를 지우면 이 셋도 함께 지울 것. ⚠⚠ **여기 있던 권한 다섯(core:window:allow-set-overlay-icon · core:window:allow-hide · autostart 셋)을 걷었다**(I049 · 2026-08-22 발상 축). Q-30 작업표시줄 배지 · T-3 상주 트레이 · T-6 예약 알림이 함께 은퇴했고, 그 권한들이 «무엇을 지우면 이것도 지울 것»으로 지목한 소비처가 정확히 그것들이었다(web/src/app/useTaskbarBadge.ts · 상주 설정). 남긴 notification:* 셋의 소비처는 집중 세션 종료 알림(FocusChip)이다. ⚠⚠ **JS 소비처가 0인 권한 넷을 걷었다**(D019 · 2026-08-21 데이터 축): `global-shortcut:allow-{register,unregister,is-registered}` 와 `core:window:allow-show`. 전역 단축키를 **등록하는 것은 Rust 다**(`hotkey.rs::register` ← `lib.rs` setup)이고 Rust 경로는 ACL 을 타지 않는다. 창 보이기도 마찬가지로 `tray.rs::show` 가 한다. 즉 이 넷의 유일한 호출자는 **웹뷰의 임의 JS** 였고, 침해되면 `invoke('plugin:global-shortcut|register', …)` 로 시스템 전역 키를 가로채거나 이 앱의 캡처 단축키를 죽일 수 있었다. ⚠ 되살릴 조건은 «JS 에서 단축키를 등록하게 될 때» 하나다 — 그때는 여기와 함께 소비처를 적을 것. ⚠ 이 파일의 다른 모든 항목은 «왜 켰나 / 무엇을 지우면 이것도 지울 것» 을 적고 있었는데 이 넷만 한 줄도 없었다(그 자체가 신호였다).",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -14,13 +14,8 @@
     "core:window:allow-set-size",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-resizable",
-    "core:window:allow-set-overlay-icon",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",
-    "notification:allow-notify",
-    "core:window:allow-hide",
-    "autostart:allow-enable",
-    "autostart:allow-disable",
-    "autostart:allow-is-enabled"
+    "notification:allow-notify"
   ]
 }

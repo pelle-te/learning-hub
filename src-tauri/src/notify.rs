@@ -91,7 +91,13 @@ pub fn notify_landing(
             .title(&title)
             .text1(&body)
             .on_activated(move |_| {
-                crate::tray::show(&handle);
+                /* ⚠ 종전엔 `crate::tray::show` 로 창을 되살렸다 — 트레이가 은퇴했다(I049 ·
+                2026-08-22). 상주 모드가 없으므로 창은 숨겨져 있지 않고, 되살리기는 두 줄이다. */
+                use tauri::Manager;
+                if let Some(w) = handle.get_webview_window("main") {
+                    let _ = w.unminimize();
+                    let _ = w.set_focus();
+                }
                 let _ = handle.emit(NOTIFY_CLICK, route.clone());
                 Ok(())
             })

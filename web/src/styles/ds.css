@@ -854,20 +854,9 @@ tr[draggable='true']:hover .ds-draghandle {
   color: var(--mut);
 }
 
-/* ── 스크린리더 전용(시각적 숨김) 표준 클립 패턴 — 지식맵·원장이 공유.
-   (⚠ 옛 주석은 `markets`·`reads` 를 들고 있었다 — P10 W4 에서 사라진 화면들이다.) ── */
-.ds-srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* ⚠ `.ds-srOnly`(스크린리더 전용 클립)가 여기 있었다 — 마지막 소비처였던 학습 구조도가
+   삭제됐다(I044 · 2026-08-22). 이 주석은 이미 한 번 같은 이유로 고쳐진 적이 있다
+   (`markets`·`reads` 가 P10 W4 에서 사라졌을 때) — 이번엔 클래스까지 함께 간다. */
 
 /* ⚠ 옛 `@keyframes ds-sp` 가 여기 있었다 — E24 에서 `live-spin`(회전) 으로 이름이 바뀌고
    `styles/tw.css` 로 옮겨 갔다. 키프레임은 이제 **전부 그 파일 하나**에 있다(어휘 SSOT). */

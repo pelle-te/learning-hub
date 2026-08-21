@@ -9,85 +9,12 @@
    - **형식이 아닌 시각은 안 쏜다.** 사용자 입력이라 신뢰하지 않는다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { minutesOfDay, pickReminderLead, reminderBody, shouldFire } from '@/lib/reminder';
+import { pickReminderLead } from '@/lib/reminder';
 
-const base = { at: '09:00', lastDs: null, today: '2026-08-02', nowMin: 9 * 60, pending: 3 };
-
-describe('minutesOfDay', () => {
-  it('HH:MM 을 분으로', () => {
-    expect(minutesOfDay('09:30')).toBe(570);
-    expect(minutesOfDay('0:05')).toBe(5);
-  });
-  it('형식이 아니면 null — 사용자 입력을 신뢰하지 않는다', () => {
-    expect(minutesOfDay('9시')).toBeNull();
-    expect(minutesOfDay('24:00')).toBeNull();
-    expect(minutesOfDay('09:60')).toBeNull();
-    expect(minutesOfDay('')).toBeNull();
-  });
-});
-
-describe('shouldFire', () => {
-  it('시각이 되고 할 일이 있으면 쏜다', () => {
-    expect(shouldFire(base).fire).toBe(true);
-  });
-  it('오늘 이미 쐈으면 안 쏜다 — 하루 1회가 유일한 계약이다', () => {
-    expect(shouldFire({ ...base, lastDs: '2026-08-02' })).toMatchObject({ fire: false, why: '오늘 이미 보냄' });
-  });
-  it('어제 쏜 것은 오늘을 막지 않는다', () => {
-    expect(shouldFire({ ...base, lastDs: '2026-08-01' }).fire).toBe(true);
-  });
-  it('할 일이 0 이면 안 쏜다 — "밀린 것 없어요"는 정보가 아니라 방해다', () => {
-    expect(shouldFire({ ...base, pending: 0 })).toMatchObject({ fire: false, why: '말할 것이 없음' });
-  });
-  it('시각 전이면 안 쏜다', () => {
-    expect(shouldFire({ ...base, nowMin: 8 * 60 + 59 }).fire).toBe(false);
-  });
-  it('시각을 지나쳐도 쏜다 — 건너뛰면 상주가 아닌 기기는 영원히 못 받는다', () => {
-    expect(shouldFire({ ...base, nowMin: 23 * 60 }).fire).toBe(true);
-  });
-  it('꺼져 있으면 안 쏘고, 형식이 아닌 시각도 안 쏜다', () => {
-    expect(shouldFire({ ...base, at: null })).toMatchObject({ fire: false, why: '꺼짐' });
-    expect(shouldFire({ ...base, at: '아홉시' }).fire).toBe(false);
-  });
-});
-
-describe('reminderBody (A-1)', () => {
-  /* ⚠ 이 describe 의 옛 케이스는 `title === '대기 5건'` 을 **단언**하고 있었다 — 즉 검사망이
-     회피 유발자를 계약으로 굳히고 있었다. 지금은 반대를 잠근다: **대기 수가 어디에도 안 샌다.**
-     ⚠ "숫자가 하나도 없다"로는 못 잠근다 — 챕터명("3장")과 소요("30분")는 정당한 숫자다.
-     잠글 것은 *어떤 숫자든 없는 것*이 아니라 **`rest` 가 문구로 새지 않는 것**이다. */
-
-  it('첫 조각을 이름으로 부르고 소요를 말한다 — 제목은 리드 그 자체다', () => {
-    const r = reminderBody({ label: '회로이론 · 3장 변위전류', min: 30 }, 4);
-    expect(r.title).toBe('회로이론 · 3장 변위전류'); // 꼬리표가 안 붙는다(= 수가 안 샌다)
-    expect(r.body).toContain('30분');
-  });
-
-  it('`rest` 값이 달라도 문구는 안 바뀐다 — 개수는 문장에 안 들어간다', () => {
-    const a = reminderBody({ label: 'A · B', min: 30 }, 2);
-    const b = reminderBody({ label: 'A · B', min: 30 }, 97);
-    expect(a).toEqual(b); // 있고/없고만 가르므로 2와 97은 같은 말이어야 한다
-  });
-
-  it('나머지는 **개수가 아니라 오늘 몫의 언어**로 말한다', () => {
-    const many = reminderBody({ label: 'A · B', min: 30 }, 11);
-    const only = reminderBody({ label: 'A · B', min: 30 }, 0);
-    expect(many.body).toContain('오늘은 이거 하나면');
-    expect(only.body).toContain('오늘 몫은 끝');
-    // 11 이라는 수가 어디에도 안 나온다(소요 30분 말고는 숫자가 없다)
-    expect(many.body.replace('30분', '')).not.toMatch(/\d/);
-  });
-
-  it('소요를 모르면 안 적는다 — 틀린 소요는 없는 소요보다 나쁘다', () => {
-    expect(reminderBody({ label: '회로 · 보충' }).body).not.toMatch(/\d/);
-    expect(reminderBody({ label: '회로 · 보충', min: 0 }).body).not.toMatch(/\d/);
-  });
-
-  it('리드가 없어도 수로 돌아가지 않는다', () => {
-    const r = reminderBody(null, 23);
-    expect(r.title + r.body).not.toMatch(/\d/); // 폴백엔 정당한 숫자가 하나도 없다
-  });
-});
+/* ⚠⚠ **`minutesOfDay`·`shouldFire`·`reminderBody` 케이스가 여기 있었다 — 그 함수들이
+   은퇴했다**(I049 · 2026-08-22 발상 축). 알림 채널이 사라지면 «언제 쏘나»·«뭐라고 쏘나»를
+   재는 층도 함께 사라진다. 남은 `pickReminderLead` 의 소비처는 `app/MiniHud` 하나다 —
+   그건 말 걸기가 아니라 **열어 놓은 창 안의 리드아웃**이다. */
 
 describe('pickReminderLead (A-1)', () => {
   const ch = { subject: '회로이론', chapter: '3장 변위전류' };

@@ -21,7 +21,6 @@ import { queryClient } from '@/lib/queryClient';
 import { initAppStore, dbDowngrade } from '@/lib/db/boot';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';
-import { collectWebVitals, initTelemetry, installGlobalErrorHooks, reportError } from '@/lib/telemetry';
 // H21 — 부팅 체인이 render 에 도달하지 못한 경우의 최후 화면. **의존 0** 이 그 모듈의 계약이다.
 import { showBootFallback } from '@/lib/bootFallbackScreen';
 /* W16 부팅 웨이브 ① — **엔트리 평가 시점**. 이 import 는 SD-7 계약에 안전하다(`lib/perf` 는
@@ -102,15 +101,16 @@ function DowngradeScreen({
    ⚠ `initAppStore()` 는 어떤 이유로도 throw 하지 않는다 — 실패하면 localStorage 폴백으로 뜬다.
    그래도 방어적으로 catch 한다: 여기서 던지면 앱이 영구 백지가 되고 ShellFallback 도 못 잡는다.
    `useApp` 은 이 시점 이후에 import 돼야 한다(모듈 평가 시점에 부팅값을 읽으므로 순서가 계약). */
-/* 관측(2026-07-25) — **전역 훅부터 건다.** 아래 부팅은 렌더 밖이라 어떤 `ErrorBoundary` 도
-   못 잡는데(`lib/utils.ts:84` 가 같은 사실을 적어 뒀다), 지금까지 그쪽이 조용히 죽는 층이었다.
-   `initTelemetry` 로 전송처를 켜기 전에는 훅이 수집만 하고 아무것도 보내지 않는다 —
-   순서가 이래야 부팅 **자체**의 실패도 잡힌다(전송처는 부팅 뒤에야 알 수 있다). */
+/* ⚠⚠ **여기 전역 오류 훅(`installGlobalErrorHooks`)이 있었다 — 텔레메트리가 은퇴했다**
+   (I052 · 2026-08-22 발상 축). 그 층이 잡던 것은 **렌더 밖 부팅 실패**이고, 그건 어떤
+   `ErrorBoundary` 도 원리적으로 못 잡는다(`lib/utils.ts:84`). 즉 이 항목의 대체 경로
+   («`ErrorBoundary` 가 화면에 스택을 그린다»)는 **React 트리 안만** 덮는다 — 부팅 경로는
+   이제 콘솔뿐이고, 폰 브라우저에서는 아무 데도 안 남는다. 리포트가 이 항목의 근거를
+   스스로 «약하다»고 적은 것이 이 대가 때문이다. */
 perfMark('entry');
-installGlobalErrorHooks();
 
 void initAppStore()
-  .catch((e: unknown) => reportError(e, 'initAppStore'))
+  .catch((e: unknown) => console.error('[boot] initAppStore', e))
   .then(async () => {
     /* C2 — 다운그레이드면 여기서 끝난다(앱 모듈을 아예 안 부른다). */
     const down = dbDowngrade();
@@ -122,14 +122,11 @@ void initAppStore()
       );
       return;
     }
-    /* 전송처는 클라우드 설정에서 온다. 미연결이면 `null` → 전 경로 무동작(설계 원칙 ③). */
     await readCloudConfig()
       .then((cfg) => {
-        initTelemetry(cfg?.baseUrl ?? null, 'shell');
         setResumeDevice(cfg?.deviceId); // N-7 이어하기 커서 — 미연결이면 빈 값 = 전 경로 무동작
       })
       .catch(() => {});
-    collectWebVitals();
     // 이 두 줄이 `useApp` 모듈 평가를 처음 유발한다 — 그래서 반드시 위 await 뒤여야 한다.
     const [{ default: App }, { default: ThemeProvider }, { warmTab }] = await Promise.all([
       import('@/app/App'),
@@ -148,7 +145,7 @@ void initAppStore()
       <StrictMode>
         {/* ⚠ `onError` — 종전엔 폴백 UI 만 그리고 **아무것도 기록하지 않았다.** 셸 전체가
             죽는 가장 심각한 경우인데 그 사실이 어디에도 안 남았다(2026-07-25 감사). */}
-        <ErrorBoundary FallbackComponent={ShellFallback} onError={(e) => reportError(e, 'shell-boundary')}>
+        <ErrorBoundary FallbackComponent={ShellFallback} onError={(e: unknown) => console.error('[shell-boundary]', e)}>
           <QueryClientProvider client={queryClient}>
             <BrowserRouter>
               <ThemeProvider>
@@ -165,6 +162,6 @@ void initAppStore()
      그대로다. `ShellFallback` 은 **자기가 렌더되지 못하는 트리 안에** 있어 정의상 못 잡는다 —
      즉 폴백이 있는데 이 경로만 폴백이 없었다. 근거·의존 0 계약은 그 모듈 머리주석이 SSOT. */
   .catch((e: unknown) => {
-    reportError(e, 'boot-chain');
+    console.error('[boot-chain]', e);
     showBootFallback(e);
   });

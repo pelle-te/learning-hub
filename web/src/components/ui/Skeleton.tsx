@@ -7,7 +7,7 @@ import { recallFrame } from '@/lib/frameMemory';
    ── C-7 마지막 티어 이식(Tailwind) ─────────────────────────────────────────
    색 두 단계와 그라데이션은 `tokens.css` 로 올렸다(옛 `.line` 지역 변수 → 절대규칙 #3).
    ⚠ `200% 100%`(background-size)와 그라데이션은 임의값으로 못 적는다(내부 `%` 가 룰에 걸린다)
-   → 토큰 이름으로 참조한다(`--grain`·`--acc-fill` 과 같은 관용구).
+   → 토큰 이름으로 참조한다(`--ambient`·`--acc-fill` 과 같은 관용구).
    키프레임은 전역(`tw.css`) — CSS Modules 가 이름을 스코프해 유틸에서 못 부르던 제약의 잔재다. */
 const LINE =
   'h-3.25 rounded-sm bg-sk-base bg-[image:var(--bg-skeleton)] bg-[length:var(--bg-size-skeleton)] animate-[live-flow_var(--tempo-fast)_var(--ease)_infinite] motion-reduce:animate-none';

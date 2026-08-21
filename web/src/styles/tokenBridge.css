@@ -87,9 +87,6 @@
   /* 위험 톤 테두리(bad 32% line) — 예보 경고 상자·설정 경고 타일. */
   --color-line-bad: var(--line-bad);
   /* stats(통계) — 스트릭 잔디 3단·스파크 막대·과목 칩 테두리(전부 --acc/--mut 파생 · tokens.css 계산). */
-  --color-hm-l1: var(--hm-l1);
-  --color-hm-l2: var(--hm-l2);
-  --color-hm-l3: var(--hm-l3);
   --color-spark-past: var(--spark-past);
   --color-spark-null: var(--spark-null);
   --color-line-acc-pill: var(--line-acc-pill);
@@ -193,7 +190,6 @@
   --leading-snug: 1.4;
   --leading-body: 1.5;
   --leading-text: 1.6;
-  --leading-loose: 1.75;
 
   /* ── ⭐ 중량 사다리 — **선언도 집행자도 0이었다**(U020 · 2026-08-21 ux 축) ──────────
      크기(`--text-*`)·간격(`--sp-*`)·모서리(`--radius-*`)·모션(시간 사다리)에는 전부 사다리가
@@ -473,25 +469,10 @@
   --grid-template-columns-evform: minmax(0, 1.2fr) minmax(0, 1fr) 34px; /* 일정 컴포저 [시각|길이|＋] */
   --grid-template-columns-timeline: 48px 1fr; /* 일 타임라인 거터+열 */
 
-  /* ── graph(지식맵 · 캔버스 크롬) 이식(C-7) ───────────────────────────────────
-     글래스 배경·경고 테두리 색은 이름만 잇는다(tokens.css 계산). 상세 패널 폭(유동 min)·off-ladder
-     반경(닫기 6·액션 8px)·자간(0.14em)·허브 스와치 발광은 사다리 밖 값이라 이름을 준다(§14-3). */
-  --color-panel-glass-82: var(--panel-glass-82);
-  --color-panel-glass-88: var(--panel-glass-88);
-  --color-panel-glass-94: var(--panel-glass-94);
-  --color-panel-glass-96: var(--panel-glass-96);
-  --color-line-warn-mid: var(--line-warn-mid);
-  /* 상세 액션 버튼 배경(acc 12% · today --tint-acc-12 재사용) — button 요소라 bg-tint-acc-12! 로 전역을 이긴다. */
-  --color-tint-acc-12: var(--tint-acc-12);
-  /* 범례 허브 스와치 발광(6px · shadow-dot 8px 과 다른 세기라 분리). */
-  --shadow-hub: 0 0 6px var(--glow);
-  /* 상세 패널 폭 — min(280px, 100%-28px). ledger --container-ledger-detail 과 같은 성격(유동 폭 이름). */
-  --container-graph-detail: min(280px, calc(100% - 28px));
-  /* 상세 닫기(6px)·액션(8px) 버튼 모서리 — r-sm(7) 사다리 밖의 정확값(픽셀 보존). */
-  --radius-detail-x: 6px;
-  --radius-detail-btn: 8px;
-  /* 상세 종류 eyebrow 자간 0.14em — caps(0.16)↔caps-sm(0.12) 사이 한 칸(items --tracking-skel 과 값만 같다). */
-  --tracking-kind: 0.14em;
+  /* ⚠⚠ **여기 graph(지식맵 · 캔버스 크롬) 브리지 열둘이 있었다 — 그 화면이 삭제됐다**
+     (I044 · 2026-08-22). 함께 걷은 것: 스트릭 잔디 3단(`--color-hm-l*` · I046) ·
+     `--color-learning`(옛 학습 색) · `--leading-loose`. 남으면 «주석이 없는 화면을 현재형으로
+     설명하는» 상태가 되고, `check:tokens` 의 브리지 고아 검사가 그것을 막는다. */
 
   /* ── TopBar(셸 티어 3/5) 이식(C-7) ───────────────────────────────────────────
      워드마크·리드아웃 수치는 **브랜드 마크**다 — 사다리 칸이 아니라 설계도 §1-2 가 정한

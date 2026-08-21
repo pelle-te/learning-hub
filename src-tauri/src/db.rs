@@ -362,7 +362,7 @@ pub async fn db_version_guard(app: tauri::AppHandle) -> Result<DbVersionGuard, S
     let applied = applied_max_version_at(&path).await?;
     let bundled = bundled_max_version();
     /* ⚠ 다운그레이드면 드리프트는 안 센다 — 구버전 exe 에서는 «내용이 다르다»가 아니라
-       «모르는 버전이 있다»가 진짜 사실이고, 둘을 함께 말하면 화면이 원인을 흐린다. */
+    «모르는 버전이 있다»가 진짜 사실이고, 둘을 함께 말하면 화면이 원인을 흐린다. */
     let drifted = if is_downgrade(applied, bundled) {
         Vec::new()
     } else {

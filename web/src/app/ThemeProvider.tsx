@@ -54,7 +54,9 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     document.documentElement.setAttribute('data-accent', accent || 'violet');
   }, [accent]);
   useEffect(() => {
-    // 발광 효과 줄이기 — data-fx="lite"면 CSS가 오라 애니를 끄고 AmbientCanvas가 정지(상시 GPU 절감).
+    /* 발광 효과 줄이기 — `data-fx="lite"` 면 CSS 가 오라 애니를 끈다.
+       ⚠ 종전엔 «AmbientCanvas 도 정지» 했는데 그 캔버스가 은퇴했다(I045) — 지금 이 노브가 끄는
+       것은 **CSS 애니뿐**이다. 배경은 이제 정적 그라데이션이라 끌 것이 없다. */
     if (fxLite) document.documentElement.setAttribute('data-fx', 'lite');
     else document.documentElement.removeAttribute('data-fx');
   }, [fxLite]);

@@ -4,7 +4,7 @@
 
    이 저장소는 *"IO 를 섞으면 vitest 에서 검증 불가"* 를 파일을 가르는 1순위 사유로 쓴다. 그런데
    그 사유로 `lib` 에 내려온 뒤 **테스트 트리에서 import 0건**인 모듈이 넷 있었다:
-   `observations`(별도 파일이 담당) · `conflictView` · `perf` · `icsFeed`.
+   `observations`(별도 파일이 담당) · `conflictView` · `perf`.
    여기 셋은 각각 크기가 작아 파일을 셋으로 쪼개면 머리주석이 본문보다 길어진다 — 대신
    **"순수인데 안 검사되던 것"** 이라는 한 가지 사유로 묶는다(`semesterAxis.test.ts` 가 같은 형태로
    자기 묶음을 정당화한다: 대상이 다르면 묶지 않는다, 사유가 같으면 묶는다).
@@ -16,7 +16,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { previewOf, tableLabel, whenLabel, RESTORE_CONFIRM } from '@/lib/conflictView';
 import { BOOT_MARKS, bootWave, mark } from '@/lib/perf';
-import { icsFeedStale, icsFeedUrl, newToken } from '@/lib/icsFeed';
 
 describe('conflictView — 충돌을 사람 말로', () => {
   it('모르는 테이블은 **이름을 지어내지 않고** 그대로 보여준다', () => {
@@ -85,24 +84,4 @@ describe('perf — 부팅 웨이브', () => {
   });
 });
 
-describe('icsFeed — 구독 피드', () => {
-  const st = (over: Partial<AppState> = {}): AppState => ({ items: [], routine: [], ...over }) as AppState;
-
-  it('토큰은 매번 다르다 — 같은 값이 나오면 폐기가 폐기가 아니다', () => {
-    const a = newToken();
-    const b = newToken();
-    expect(a).not.toBe(b);
-    expect(a.length).toBeGreaterThanOrEqual(16);
-  });
-
-  it('URL 은 오리진과 토큰을 그대로 붙인다(끝 슬래시가 겹치지 않는다)', () => {
-    const u = icsFeedUrl('https://x.example', 'tok');
-    expect(u.startsWith('https://x.example/')).toBe(true);
-    expect(u).toContain('tok');
-    expect(u).not.toContain('//api'); // 오리진 뒤 슬래시 중복
-  });
-
-  it('피드가 없으면 stale 이 **아니다** — 없는 것과 낡은 것은 다르다', () => {
-    expect(icsFeedStale(null, st())).toBe(false);
-  });
-});
+/* ⚠ `icsFeed` 케이스가 여기 있었다 — 그 모듈이 삭제됐다(I050 · 2026-08-22). */

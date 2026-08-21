@@ -157,7 +157,8 @@ function 보고문(위반들: 위반항목[], 노드수 = 5): string {
 /** 렌더된 화면 하나를 검사한다 — 로스터 둘이 **같은 판정**을 쓰게 하는 자리. */
 async function 검사(page: import('@playwright/test').Page, 화면: string): Promise<void> {
   const 결과 = await new AxeBuilder({ page })
-    /* 캔버스 기반 화면(graph·AmbientCanvas)은 픽셀이라 axe 가 볼 것이 없다.
+    /* ⚠ 종전 이 자리는 «캔버스 기반 화면(graph·AmbientCanvas)» 을 가리켰다 — **둘 다
+       삭제됐다**(I044·I045 · 2026-08-22). 규칙 자체는 남긴다: 캔버스는 픽셀이라 axe 가 볼 것이 없다.
        제외가 아니라 **분석 대상 축소**다 — 주변 컨트롤은 그대로 검사한다. */
     .exclude('canvas')
     .analyze();
