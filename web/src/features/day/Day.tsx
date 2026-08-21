@@ -271,6 +271,16 @@ export default function Day() {
       <div className="grid h-full min-h-0 grid-cols-journal max-wide:grid-cols-1 max-wide:overflow-y-auto">
         {/* 좌 — 로그(시그니처, fill) + 최근 활동(온디맨드). 선택 날짜를 따라간다. */}
         <div className="flex min-h-0 min-w-0 flex-col px-5.5 pt-5.5 pb-4.5 max-wide:min-h-90">
+          {/* I004 — **그날 실제로 있었던 일**(2026-08-22 발상 축). 이 화면의 다른 것은 전부
+              *산출물*(요약·오답·보충)이라 「계획대로 했나」의 흔적인데, 이 한 줄만 계획을 안 본다.
+              ⚠ **되읽히는 자리가 여기다** — 소비처 없는 기록은 기록이 아니다(이 저장소의 규율).
+              오늘 화면(`일일 의식`)이 받고, 지난 날을 열면 그 날의 것이 여기 보인다.
+              ⚠ 없으면 안 그린다: 빈 칸을 매일 그리면 그게 새 죄책감 더미다(T-10 과 같은 판단). */}
+          {(state.rituals?.[ds2]?.did || '').trim() && (
+            <div className="ds-note mb-2 flex-none">
+              <b className="text-txt">그날 있었던 일</b> — {state.rituals?.[ds2]?.did}
+            </div>
+          )}
           <JournalStream ds={ds2} isToday={isToday} fill />
           <WeeklyRecapCard />
           <ActivityFeed ds2={ds2} />

@@ -30,6 +30,9 @@ export interface VaultScan {
   at: string;
   src: string;
   subjects: VaultSubject[];
+  /** I006 — 원본 노트(파일 이름 포함). 집계는 «몇 개»를, 이것은 «어느 파일»을 답한다.
+   *  ⚠ 옵셔널이다 — 브라우저 폴백 경로(FSA)는 아직 안 싣는다(셸이 배포 진입점이다). */
+  notes?: IndexNote[];
 }
 
 /** 정본 인덱스(_meta/cache/_index.json) 로드 — 없으면 null(호출부가 파일스캔 폴백). */
@@ -57,6 +60,9 @@ export interface IndexNote {
   kind?: string;
   subject?: string;
   folder?: string;
+  /** I006 — 노트 파일 이름. 경계에서 **버리던 필드**였고, 그래서 앱은 노트가 있다는 것을 알면서
+   *  그것을 열 수 없었다(`src-tauri/src/vault.rs` 의 `Note.file` 주석이 근거의 SSOT). */
+  file?: string | null;
   status?: string;
   anki_exported?: boolean;
   /** 검증 통과일(파이프라인). ⚠ **인출일이 아니다** — 위험을 올리는 방향으로만 쓴다(vaultAnchors). */
@@ -267,6 +273,11 @@ export async function scanVaultViaShell(): Promise<VaultScan | null> {
     at: new Date().toLocaleString('ko'),
     src: res.src,
     subjects: subjectsFromIndex({ notes: res.notes as IndexNote[] }),
+    /* I006 — **원본 노트도 함께 싣는다**(2026-08-22). 집계(`subjects`)는 «몇 개인가»를 답하고
+       원본은 «어느 파일인가»를 답한다 — 노트를 열려면 후자가 필요한데, 종전엔 이 경계에서
+       버려졌다. 별도 질의 키를 파지 않는 이유: 두 값의 신선도가 갈리면 «집계는 새 것인데
+       파일 목록은 옛 것» 이 되고 그때 여는 것은 없는 파일이다. */
+    notes: res.notes as IndexNote[],
   };
 }
 
@@ -289,4 +300,28 @@ export function estH(notes: number): number {
 /** 볼트 챕터 → 학습 항목 챕터(예상시간 추정). */
 export function chaptersFromVault(chs: VaultChapter[]): Chapter[] {
   return chs.map((c) => ({ id: rid(), name: c.name, hours: estH(c.notes), done: false }));
+}
+
+/* ── I006 **챕터 → 노트 파일 해석**(2026-08-22 발상 축) ─────────────────────────────────
+
+   앱은 «이 챕터를 공부하라»고 말할 수 있지만 그 일을 **시작시킬 수는 없었다** — 노트를 여는
+   경로가 0이었다. 그 첫 조각이 이 함수다: 블록이 가리키는 챕터가 **어느 파일 하나**인가.
+
+   ⚠⚠ **유일해야 연다.** 여럿이면 `null` 이다 — 어느 것을 여는지 사용자가 모르는 채로 파일이
+   열리면, 그건 «대상을 연다»가 아니라 «아무거나 연다»다. 그 회차의 최싼검증이 정확히
+   *"유일 노트 파일로 해석되는 비율"* 인 것도 그래서다(<60%면 매칭이 먼저다).
+   ⚠ 매칭은 **폴더 경로의 마지막 조각**으로 한다 — `subjectsFromIndex` 가 챕터 이름을 만드는
+   방식(`folder.split('/').slice(1)`)과 **같은 규칙**이어야 한다. 갈리면 화면이 아는 챕터와
+   여기서 찾는 챕터가 다른 것이 되고, 그건 조용하다. */
+
+/** 그 과목·챕터의 노트가 **정확히 하나**면 볼트 상대경로, 아니면 `null`. */
+export function noteRelFor(notes: readonly IndexNote[], subject: string, chapter: string): string | null {
+  const hits = notes.filter((n) => {
+    if (!n.file || (n.subject || '') !== subject) return false;
+    const parts = (n.folder || n.subject || '').split('/');
+    const ch = parts.length > 1 ? parts.slice(1).join('/') : '(과목 루트)';
+    return ch === chapter;
+  });
+  const only = hits.length === 1 ? hits[0] : undefined;
+  return only?.file ? `${only.folder || only.subject || ''}/${only.file}` : null;
 }

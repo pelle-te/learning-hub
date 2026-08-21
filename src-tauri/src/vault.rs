@@ -49,6 +49,15 @@ pub struct Note {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     pub anki_exported: bool,
+    /* ── I006 **집중 시작이 대상을 실제로 연다**(2026-08-22 발상 축) ────────────────────────
+    ⚠⚠ **파일 이름이 없었다.** 이 구조체는 `subject`·`folder` 까지만 나르고 «어느 파일인가»를
+    버렸다 — 그래서 앱은 노트가 있다는 것을 알면서 그것을 **열 수 없었다**(실측: capabilities
+    12종에 opener 없음 · 소스 grep 0). W2 가 «경계에서 필드를 버리지 말 것» 을 적어 둔 그
+    자리에서 한 필드가 더 새고 있었던 셈이다.
+    ⚠ 파일명만 담는다(절대 경로 아님). 경로 조립·검증은 여는 쪽(`files::open_in_vault`)이
+    한 곳에서 하고, 여기는 계속 «해석하지 않는다»(3단계-B 규율). */
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
     /* ⚠⚠ **경계에서 필드를 버리지 말 것(W2 · 2026-07-31).** 인덱스 노트는 17키인데 여기가
     5키만 옮기고 있었고, 버려지는 것 중에 `reviewed`(468건에 날짜가 있다)와 `anki_state` 가
     있었다 — 앱은 "복습 0/0"이라 말하면서 그 답을 아는 파일을 매번 읽고 있었다.
@@ -185,6 +194,7 @@ fn walk_dir(dir: &Path, subject: &str, folder: &str, out: &mut Vec<Note>) {
             out.push(Note {
                 subject: subject.to_string(),
                 folder: folder.to_string(),
+                file: Some(name.clone()),
                 kind: None,
                 status,
                 anki_exported,
@@ -226,6 +236,7 @@ fn notes_from_index(vault: &Path) -> Option<Vec<Note>> {
                     .and_then(|x| x.as_str())
                     .unwrap_or("")
                     .to_string(),
+                file: s(n, "file"),
                 kind: s(n, "kind"),
                 status: s(n, "status"),
                 // 인덱스에선 날짜 문자열이거나 null 이다 — null 이 아니면 내보낸 것.
@@ -390,7 +401,7 @@ pub const SHEET_BYTES_CAP: usize = 64 * 1024;
 ///
 /// ⚠ 이 함수가 없으면 프런트가 보낸 문자열 하나로 디스크 어디든 읽을 수 있다. 폴더 이름은
 /// 사용자 데이터(볼트)에서 오지만, **경계에서 신뢰하지 않는 것**이 규약이다.
-fn safe_join(vault: &Path, rel: &str) -> Option<PathBuf> {
+pub fn safe_join(vault: &Path, rel: &str) -> Option<PathBuf> {
     let mut p = vault.to_path_buf();
     for comp in Path::new(rel).components() {
         match comp {

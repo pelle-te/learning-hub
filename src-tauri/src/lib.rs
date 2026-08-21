@@ -79,6 +79,10 @@ pub fn run() {
         `hotkey::status()` 가 보관하고 `capabilities` 가 프런트로 실어 보낸다 — 조용히 죽지 않는다). */
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        /* I006 — 볼트 노트를 OS 기본 앱으로 연다. 경로 검증은 Rust 가 `vault::safe_join` 으로
+           한 곳에서 하고(`files::open_in_vault`), **JS 에 플러그인 권한을 주지 않는다** —
+           D019 가 걷어낸 형태(«유일한 호출자가 웹뷰의 임의 JS»)를 다시 만들지 않기 위해서다. */
+        .plugin(tauri_plugin_opener::init())
         /* ⚠⚠ **알림(P-8 · 2026-08-01) — 이 앱의 개입 채널은 지금까지 0개였다.**
         `FocusChip` 은 세션이 끝나면 웹 `new Notification(...)` 을 쐈고 그 앞에
         `Notification.permission === 'granted'` 가드가 있었다. 실 셸에서 재 보니(CDP 프로브):
@@ -131,6 +135,7 @@ pub fn run() {
             tools::capabilities,
             anki::anki_connect,
             files::save_text_file,
+            files::open_in_vault,
             // 4단계-I — 볼트 Anki 카드 스캔(폴더 선택 없이).
             anki_scan::anki_scan,
             /* C-5 후속 — 클라우드 HTTP 중계. 웹뷰가 직접 fetch 하면 CSP(C-3)에 막힌다(실측).

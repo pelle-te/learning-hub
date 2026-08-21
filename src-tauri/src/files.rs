@@ -35,6 +35,42 @@ pub fn save_text_file(path: String, contents: String) -> Result<(), String> {
     std::fs::write(p, contents).map_err(|e| format!("저장 실패: {e}"))
 }
 
+/* ── I006 **집중 시작이 대상을 실제로 연다**(2026-08-22 발상 축) ─────────────────────────
+
+   ## 이 앱의 파이프는 전부 단방향이었다
+
+   앱은 «이 챕터를 공부하라»고 말할 수 있지만 **그 일을 시작시킬 수는 없었다** — 노트를 여는
+   경로가 0이었다(실측: capabilities 12종에 opener 없음 · 소스 grep 0). 사용자는 앱에서 이름을
+   읽고 옵시디언·탐색기로 가서 같은 것을 다시 찾는다. 그 왕복이 「집중 시작」의 실제 마찰이다.
+
+   ## ⚠⚠ 임의 경로를 안 연다 — 볼트 안으로 한정한다
+
+   `save_text_file` 은 임의 경로를 쓰지만 그 경로의 출처가 **OS 저장 대화상자**다(위 주석).
+   여기는 다르다: 경로가 **프런트 문자열**이라 그대로 믿으면 «앱을 침해한 JS 가 아무 실행 파일이나
+   연다»가 된다. 그래서 `vault::safe_join` 을 그대로 쓴다 — `..`·절대경로·드라이브 접두를 전부
+   거절하는 그 함수는 이미 노트 읽기의 경계이고, 여는 쪽이 **같은 경계**를 쓰는 것이 요점이다
+   (두 벌이면 한쪽만 고쳐진다).
+   ⚠ 그리고 **파일이 실재할 때만** 연다 — 없는 경로를 OS 에 넘기면 플랫폼마다 다른 일이 일어난다.
+*/
+/// 볼트 상대경로 → 실제 파일 경로. **판정 전부가 여기 있다**(규율 11-2 — `AppHandle` 을 로직에
+/// 섞지 않으면 그 자리가 곧 통합 테스트 진입점이다).
+pub fn resolve_in_vault(vault: &Path, rel: &str) -> Result<std::path::PathBuf, String> {
+    let p = crate::vault::safe_join(vault, rel).ok_or_else(|| "볼트 밖 경로입니다".to_string())?;
+    if !p.is_file() {
+        return Err(format!("파일이 없습니다: {rel}"));
+    }
+    Ok(p)
+}
+
+#[tauri::command]
+pub fn open_in_vault(app: tauri::AppHandle, rel: String) -> Result<(), String> {
+    let vault =
+        crate::vault::vault_dir(&app).ok_or_else(|| "볼트가 설정되지 않았습니다".to_string())?;
+    let p = resolve_in_vault(&vault, &rel)?;
+    tauri_plugin_opener::open_path(p.to_string_lossy().to_string(), None::<&str>)
+        .map_err(|e| format!("열기 실패: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,6 +88,51 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(&f).unwrap(),
             "{\"과목\":\"미적분\"}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /* ▶ I006(2026-08-22 발상 축) — **여는 경로의 경계.** 이 커맨드의 유일한 위험은 «프런트가
+    보낸 문자열 하나로 디스크 어디든 연다» 이고, 그 방어 전부가 `resolve_in_vault` 안에 있다.
+    ⚠ `safe_join` 은 `vault.rs` 가 이미 테스트한다 — 여기서 잠그는 것은 **여는 쪽이 같은 경계를
+    쓴다**는 사실과, «파일이 실재할 때만 연다» 이다(없는 경로를 OS 에 넘기면 플랫폼마다 다르다). */
+    #[test]
+    fn 볼트_밖은_열지_않고_없는_파일도_열지_않는다() {
+        let dir = std::env::temp_dir().join("lh-open-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("회로이론/01 기초")).unwrap();
+        let note = dir.join("회로이론/01 기초/옴의법칙.md");
+        std::fs::write(&note, "안").unwrap();
+        std::fs::write(dir.join("비밀.md"), "밖").unwrap();
+
+        assert_eq!(
+            resolve_in_vault(&dir, "회로이론/01 기초/옴의법칙.md").unwrap(),
+            note,
+            "정상 경로는 그대로 풀린다"
+        );
+        assert!(
+            resolve_in_vault(&dir, "회로이론/../../비밀.md")
+                .unwrap_err()
+                .contains("볼트 밖"),
+            "부모 참조"
+        );
+        assert!(
+            resolve_in_vault(&dir, "/etc/passwd")
+                .unwrap_err()
+                .contains("볼트 밖"),
+            "절대경로"
+        );
+        assert!(
+            resolve_in_vault(&dir, "회로이론/01 기초/없는파일.md")
+                .unwrap_err()
+                .contains("파일이 없습니다"),
+            "없는 파일"
+        );
+        assert!(
+            resolve_in_vault(&dir, "회로이론/01 기초")
+                .unwrap_err()
+                .contains("파일이 없습니다"),
+            "폴더는 파일이 아니다"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

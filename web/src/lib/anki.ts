@@ -251,3 +251,73 @@ export async function ankiReviewedBetween(fromDs: string, toDs: string): Promise
 export function totalCards(decks: AnkiFileDeck[]): number {
   return decks.reduce((t, d) => t + (+d.cards || 0), 0);
 }
+
+/* ── I002 **밖에서 이미 일어난 학습을 받는다** (2026-08-22 발상 축) ─────────────────────────
+
+   ## 이 앱은 Anki 를 「몇 장 남았나」로만 읽었다
+
+   `totalDue`·`dueBySubject` 는 전부 **due**(앞으로 할 것)를 센다. 그런데 이 회차가 실 DB 를
+   열어 본 결과 학습 표가 전부 0행이었다 — 사람은 공부를 했는데 **앱에 도달하는 경로가 없다.**
+   Anki 는 «오늘 몇 장 했나»를 이미 안다. 즉 없던 것은 데이터가 아니라 **입구**다.
+
+   ⚠ `ankiReviewedBetween`(T-11)이 이미 날짜별 총량을 부른다 — **없는 것은 귀속**이다.
+   그 함수는 «밖에서 학습이 있었나» 한 비트만 답하고, 어느 과목이었는지는 못 말한다.
+
+   ## ⚠⚠ 파생하되 **쓰지 않는다** — 승인 줄을 둔다
+
+   여기서 돌려주는 것은 «오늘 이 과목으로 N장 했다» 라는 **관측**이고, 그것을 완료로 반영할지는
+   화면의 한 줄이 묻는다. 조용히 쓰면 두 가지가 나쁘다: ① 사용자가 안 누른 체크가 스스로
+   켜지는 것을 되돌릴 방법이 화면에 없고 ② 매칭이 틀린 날(덱 이름이 바뀐 날) **틀린 완료가
+   조용히 기록된다**. 이 저장소의 매칭은 이름 부분문자열이라 그 가능성이 실재한다(I035).
+
+   ⚠ **Rust 변경 0** — `ankiConnect` 가 액션 이름을 받는 범용 통로다(T-11·T-19 와 같은 근거).
+   ⚠ 못 물어보면 `null` 이고 0 이 아니다(`ankiReviewedBetween` 과 같은 규율).
+   ⚠ 매칭 규칙은 `subjectMatch` 가 소유한다 — `dueBySubject` 와 **같은 규칙**이어야 한다.
+     갈리면 같은 덱이 due 는 회로이론에 붙고 완료는 안 붙는 상태가 생기고, 그건 조용하다. */
+
+/** 오늘 실제로 복습한 카드의 과목별 분해. `null` = 물어볼 수 없었다(Anki 꺼짐 등). */
+export interface AnkiReviewedToday {
+  rows: { sid: string; name: string; n: number }[];
+  /** 어느 과목에도 안 붙은 카드 수 — **숨기지 않는다**(`dueBySubject` 와 같은 규율). */
+  unmatched: number;
+  /** 오늘 복습한 카드 총수(귀속 여부 무관). */
+  total: number;
+}
+
+export async function ankiReviewedTodayBySubject(
+  items: readonly { id: string; name: string }[],
+): Promise<AnkiReviewedToday | null> {
+  try {
+    /* `rated:1` = **오늘** 답한 카드(Anki 의 하루 경계를 그대로 쓴다 — 우리가 자정을 다시
+       정의하면 사용자가 보는 Anki 통계와 어긋난다). */
+    const ids = await ankiConnect<number[]>('findCards', { query: 'rated:1' });
+    if (!Array.isArray(ids)) return null;
+    if (!ids.length) return { rows: [], unmatched: 0, total: 0 };
+    const info = await ankiConnect<{ deckName?: string }[]>('cardsInfo', { cards: ids });
+    if (!Array.isArray(info)) return null;
+    const names = items.map((i) => i.name);
+    const bySid = new Map<string, { sid: string; name: string; n: number }>();
+    let unmatched = 0;
+    for (const c of info) {
+      const deck = typeof c?.deckName === 'string' ? c.deckName : '';
+      const i = deck ? matchSubjectIndex(deck, names) : -1;
+      const it = i >= 0 ? items[i] : undefined;
+      if (!it) {
+        unmatched += 1;
+        continue;
+      }
+      const cur = bySid.get(it.id);
+      if (cur) cur.n += 1;
+      else bySid.set(it.id, { sid: it.id, name: it.name, n: 1 });
+    }
+    const rows = [...bySid.values()].sort((a, b) => b.n - a.n || (a.name < b.name ? -1 : 1));
+    return { rows, unmatched, total: info.length };
+  } catch {
+    return null;
+  }
+}
+
+/** 그 과목이 오늘 Anki 를 했는가 — 화면이 「반영」 줄을 그릴지 가르는 유일한 술어. */
+export function ankiDidToday(r: AnkiReviewedToday | null, sid: string): number {
+  return r?.rows.find((x) => x.sid === sid)?.n ?? 0;
+}

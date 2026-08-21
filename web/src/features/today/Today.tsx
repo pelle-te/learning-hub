@@ -39,6 +39,13 @@ function RitualCard() {
   const res = useSchedule();
   const pending =
     (res.days || []).find((d) => d.ds === ds2)?.items.filter((it) => !isDone(state, ds2, it.sid, it.type)).length ?? 0;
+  /* I004 — **계획을 참조하지 않는 한 줄**(2026-08-22 발상 축). 근거는 `RitualSchema.did` 주석. */
+  const [did, setDid] = useState(r.did || '');
+  const saveDid = () => {
+    if (did === (r.did || '')) return;
+    mutate((st) => setRitual(st, ds2, 'did', did.trim()));
+    toast('오늘 있었던 일 기록됨', 'info');
+  };
   const [stopWhy, setStopWhy] = useState(r.stopWhy || '');
   const saveStopWhy = () => {
     if (stopWhy === (r.stopWhy || '')) return;
@@ -91,6 +98,28 @@ function RitualCard() {
           )}
         </div>
       )}
+      {/* ── I004 오늘 있었던 일 ──────────────────────────────────────────────────────
+          ⚠⚠ **이 칸은 계획을 안 본다.** 이 카드의 다른 칸은 전부 계획을 기준으로 묻는다
+          (체크박스=계획대로 했나 · 아래 `stopWhy`=왜 못 했나 · `note`=내일 뭘 할까). 실측이
+          그 전제를 반증했다 — 학습 표가 전부 0행이다. 계획 밖에서 한 것도, 계획을 통째로
+          갈아엎은 것도 여기 그대로 적힌다.
+          ⚠ **항상 있다**(`pending` 게이트 없음): 다 끝낸 날에도 «무슨 일이 있었나»는 있다. */}
+      <div className="ds-fld" style={{ marginTop: 8 }}>
+        <label htmlFor="ritual-did">
+          오늘 있었던 일 <span className="ds-tiny text-mut">— 계획과 상관없이, 실제로 무슨 일이 있었나</span>
+        </label>
+        <input
+          id="ritual-did"
+          type="text"
+          value={did}
+          onChange={(e) => setDid(e.target.value)}
+          onBlur={saveDid}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+          placeholder="예) 계획은 3장이었는데 2장 예제에 막혀서 거기만 팠다"
+        />
+      </div>
       <div className="ds-fld" style={{ marginTop: 8 }}>
         <label htmlFor="ritual-note">
           내일 한 줄 <span className="ds-tiny text-mut">— 셧다운의 마지막 조각, 내일의 나에게 남기는 메모</span>

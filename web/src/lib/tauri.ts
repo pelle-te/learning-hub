@@ -677,6 +677,19 @@ export async function systemIdleSeconds(): Promise<number> {
    `store/syncController` 의 그 자리 주석(그 채널 스스로 «정확성의 전제가 아니다»라 적었고,
    실측은 8일간 동기화할 편집 0건이었다). */
 
+/**
+ * I006 — 볼트 노트를 OS 기본 앱으로 연다. `rel` 은 **볼트 루트 기준 상대경로**.
+ *
+ * ⚠ 경로 검증은 **Rust 가 한다**(`files::open_in_vault` → `vault::safe_join`). 프런트가
+ * 검증하면 그 검증을 우회하는 다른 호출부가 언제든 생긴다 — 경계는 신뢰 경계에 둔다.
+ * ⚠ 실패는 **던진다**: 「눌렀는데 아무 일도 안 일어남」이 이 저장소가 `<a download>` 에서
+ * 이미 한 번 물린 형태다(`files.rs` 머리주석). 호출부가 토스트로 말한다.
+ */
+export async function shellOpenInVault(rel: string): Promise<void> {
+  if (!isTauri()) throw new Error('셸에서만 열 수 있어요');
+  await call<void>('open_in_vault', { rel });
+}
+
 /** AnkiConnect 액션 중계(4단계-F). 브라우저 직통은 셸 오리진이 CORS 화이트리스트에 없어 막힌다. */
 export function shellAnkiConnect<T>(action: string, params: Record<string, unknown>): Promise<T> {
   return call<T>('anki_connect', { action, params });

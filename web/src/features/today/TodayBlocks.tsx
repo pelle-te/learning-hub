@@ -12,6 +12,10 @@ import { toast } from '@/shell';
 import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
 import { addSummary, blankResultFor, clearBlankResult } from '@/lib/methodology';
+import { ankiDidToday, ankiReviewedTodayBySubject, type AnkiReviewedToday } from '@/lib/anki';
+import { noteRelFor, type VaultScan } from '@/lib/vault';
+import { isTauri, shellOpenInVault } from '@/lib/tauri';
+import { useQuery, skipToken } from '@tanstack/react-query';
 import { toHM, hLabel, fmt, todayISO, blockColor } from '@/lib/utils';
 import { Button, Pill } from '@/components/ui';
 import type { ScheduleItem } from '@/lib/types';
@@ -141,7 +145,35 @@ export function TodayBlocks() {
   const [commitFor, setCommitFor] = useState<string | null>(null);
   // Q-6 — 인라인 3문장 요약이 열린 블록(sid).
   const [sumFor, setSumFor] = useState<string | null>(null);
+  /* I005 — **실제 소요를 되돌려 넣는 줄**이 열린 블록(`sid|type`).
+     `completions[].actualMin` 은 G-1 이 만들었지만 **집중 세션을 완주한 경로에만** 실린다 —
+     손으로 체크하면 없다. 실측: 채움률의 분모가 0이라 `estimateCalibration` 이 원리적으로
+     아무것도 못 잰다(그 파일이 이미 그 한계를 적어 뒀다). 그래서 완료를 켜는 그 자리에서 묻는다.
+     ⚠ **묻고 지나가도 된다** — 안 누르면 종전 그대로 계획 분이 쓰인다(Q-1 커밋 줄과 같은 규율). */
+  const [actualFor, setActualFor] = useState<string | null>(null);
+  /* I006 — **파이프를 양방향으로**(2026-08-22 발상 축). 이 앱은 «이 챕터를 공부하라»고 말할 수
+     있지만 그 일을 **시작시킬 수는 없었다**(노트를 여는 경로 0). 부팅 스캔이 이미 메모리에
+     있으므로 여기서 하는 일은 «이 챕터가 어느 파일 하나인가»를 묻는 것뿐이다.
+     ⚠ 유일할 때만 연다 — 근거는 `lib/vault.noteRelFor` 머리주석. */
+  const vaultNotes = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data?.notes;
+  const openNote = (subject: string, chapter: string) => {
+    const rel = noteRelFor(vaultNotes ?? [], subject, chapter);
+    if (!rel) return;
+    void shellOpenInVault(rel).catch((e: unknown) =>
+      toast('노트를 못 열었어요 — ' + (e instanceof Error ? e.message : String(e)), 'bad', 5000),
+    );
+  };
   const setChapterDone = useApp((s) => s.setChapterDone);
+  /* I002 — **밖에서 이미 일어난 학습을 받는다**(2026-08-22 발상 축). Anki 는 «오늘 몇 장 했나»를
+     이미 아는데 이 앱은 due(앞으로 할 것)만 읽고 있었다. 여기서 그 관측을 끌어와 **완료 반영을
+     제안**한다 — 조용히 쓰지 않는 이유는 `lib/anki.ankiReviewedTodayBySubject` 머리주석.
+     ⚠ 한 번만 묻는다(마운트 1회). 이 값은 블록마다 다시 물을 이유가 없고, `cardsInfo` 는
+     오늘 답한 카드 전량을 나르므로 반복 호출이 싸지 않다. */
+  const [ankiToday, setAnkiToday] = useState<AnkiReviewedToday | null>(null);
+  useEffect(() => {
+    void ankiReviewedTodayBySubject(state.items).then(setAnkiToday);
+    // 과목 목록이 바뀌면 귀속이 달라진다 — 그 외에는 다시 묻지 않는다.
+  }, [state.items]);
   // '오늘 학습' 블록 → 기록 탭으로 과목 사전선택 + 이동.
   const prefill = (form: 'sum' | 'cbms' | 'bl', sid: string) => {
     requestPrefill(form, sid);
@@ -214,6 +246,14 @@ export function TodayBlocks() {
        ⚠ W8 인라인 메모와 **같은 패턴**이다: 먼저 커밋(완료는 이미 기록됨) · 정밀도는 나중.
        모달이 아니라 행 안의 한 줄이라 Esc·트랩이 필요 없다 — 안 만지고 떠나도 잃는 것이 없다. */
     setCommitFor(on && it.type === 'new' && it.chapters?.length ? completionKey(it.sid, it.type) : null);
+    /* I005 — 완료를 켠 순간이 «얼마나 걸렸나»를 물을 유일하게 자연스러운 때다. 끄면 닫는다. */
+    setActualFor(on ? completionKey(it.sid, it.type) : null);
+  };
+
+  /** I005 — 실제 소요를 확정한다. `toggleDone` 의 여섯째 인자가 이미 그 자리다(G-1). */
+  const commitActual = (it: ScheduleItem, min: number) => {
+    toggleDone(ds2, it.sid, it.type, it.min, true, min);
+    setActualFor(null);
   };
 
   const blankPass = (sid: string, name: string) => setBlankResult(ds2, sid, name, true, '', '');
@@ -282,10 +322,48 @@ export function TodayBlocks() {
           </div>
         );
 
+        /* I005 — **실제 소요 한 줄**(2026-08-22 발상 축). 모든 블록 종류에 공통이라 `head` 옆에
+           둔다. 칩으로 받는 이유: 이 값의 쓸모는 `estimateCalibration` 의 **배율**이고 거기에
+           분 단위 정밀도가 필요 없다 — 필요한 것은 «계획보다 길었나 짧았나»의 표본이다.
+           ⚠ 이 줄은 **닫는 버튼이 없다**(Q-1 커밋 줄과 같다): 안 누르고 다른 일을 하면 그대로
+           사라지고, 그때는 종전처럼 계획 분이 쓰인다. 무언가를 강제하지 않는다. */
+        const actualRow = actualFor === completionKey(it.sid, it.type) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <span className="ds-tiny text-mut">얼마나 걸렸어요?</span>
+            {[
+              ['계획대로', it.min],
+              ['−15분', Math.max(5, it.min - 15)],
+              ['+15분', it.min + 15],
+              ['+30분', it.min + 30],
+            ].map(([lab, v]) => (
+              <Button key={lab} sm variant="ghost" onClick={() => commitActual(it, v as number)}>
+                {lab}
+              </Button>
+            ))}
+          </div>
+        );
+
         if (it.type === 'new') {
+          /* I006 — 이 블록이 가리키는 챕터가 **유일한 노트 파일**로 풀리면 그 파일을 여는 문을 준다.
+             ⚠ 안 풀리면 아무것도 안 그린다: 눌러도 아무 일이 없는 버튼을 두는 것이 이 앱이 반복해
+             피한 형태이고, 「해석되는 비율」이 낮다면 그건 **매칭을 먼저 고치라는 신호**다. */
+          const openable =
+            isTauri() && (it.chapters ?? []).map((c) => noteRelFor(vaultNotes ?? [], it.name, c)).filter(Boolean);
           return (
             <div key={key} className="ds-blk">
               {head}
+              {actualRow}
+              {openable && openable.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(it.chapters ?? [])
+                    .filter((c) => noteRelFor(vaultNotes ?? [], it.name, c))
+                    .map((c) => (
+                      <Button key={c} sm variant="ghost" onClick={() => openNote(it.name, c)}>
+                        <Icon name="file" /> {c} 노트 열기
+                      </Button>
+                    ))}
+                </div>
+              )}
               {/* Q-1 진도 커밋 — 이 블록이 덮은 챕터를 **여기서** 끝냈다고 말한다. 계획의 유일한
                   진짜 입력(`chapters[].done`)이 드디어 그것이 만들어지는 자리에 있다. */}
               {commitFor === completionKey(it.sid, it.type) && (
@@ -338,6 +416,7 @@ export function TodayBlocks() {
           return (
             <div key={key} className="ds-blk">
               {head}
+              {actualRow}
               <div className="ds-tiny mt-1.75 leading-body text-mut">
                 <Icon name="pencil" /> 백지 복습 — 아무것도 안 보고 통째로 재구성: 뼈대 마인드맵 → 도식+결론식 → 막힌
                 구간 체크.
@@ -399,12 +478,26 @@ export function TodayBlocks() {
         return (
           <div key={key} className="ds-blk">
             {head}
+            {actualRow}
             {note && <div className="ds-tiny mt-1.75 leading-body text-mut">{note}</div>}
             {ankiLinked && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Button sm variant="ghost" onClick={() => navigate('/integrations')}>
                   <Icon name="cards" /> Anki 열기 →
                 </Button>
+                {/* I002 — **밖에서 일어난 학습을 받는 줄.** 종전엔 이 블록에서 나가는 문(Anki 열기)만
+                    있었고 **돌아오는 길이 없었다** — 카드를 다 하고 와도 앱은 모른다. Anki 가 이미
+                    아는 사실(`rated:1`)을 여기서 말하고, 반영은 **누를 때만** 한다(조용한 쓰기 금지 ·
+                    근거는 `lib/anki.ankiReviewedTodayBySubject` 머리주석).
+                    ⚠ 이미 완료면 안 그린다 — 「이미 한 일을 처방하지 않는다」(U010 과 같은 규율). */}
+                {!done && ankiDidToday(ankiToday, it.sid) > 0 && (
+                  <>
+                    <span className="ds-tiny text-mut">Anki 에서 오늘 {ankiDidToday(ankiToday, it.sid)}장 했어요</span>
+                    <Button sm variant="ghost" onClick={() => onToggle(it, true)}>
+                      완료로 반영
+                    </Button>
+                  </>
+                )}
               </div>
             )}
             {isMock && (
