@@ -52,7 +52,33 @@ function ShellFallback() {
    보이는 앱에서 옛 데이터를 편집한다(= 신버전이 만든 정본과 갈라진다). 그래서 조용한 폴백이
    아니라 화면이고, 여기서 `App`·`ThemeProvider` 를 **import 하지 않는 것**이 방어의 일부다 —
    그 두 줄이 `useApp` 모듈 평가를 유발하고, 그러면 어떤 편집도 없이 쓰기 경로가 살아난다. */
-function DowngradeScreen({ applied, bundled }: { applied: number | null; bundled: number }) {
+function DowngradeScreen({
+  applied,
+  bundled,
+  drifted,
+}: {
+  applied: number | null;
+  bundled: number;
+  drifted: number[];
+}) {
+  /* ⚠ **원인을 뭉치지 말 것**(I039). 두 상태의 처방이 다르다: 다운그레이드는 «업데이트해라»,
+     드리프트는 «이 빌드로는 이 DB 를 못 연다 — 내보낸 파일에서 복구해라». 한 문장으로 합치면
+     사용자는 업데이트를 기다리며 아무것도 못 한다. */
+  if (drifted.length)
+    return (
+      <div className="wrap">
+        <div className="ds-well">
+          <h2>데이터 구조가 이 빌드와 달라요</h2>
+          <p className="text-mut">
+            저장소의 v{drifted.join(', v')} 구조가 지금 실행 중인 앱이 아는 것과 다릅니다. 이대로 열면 데이터가 갈리기
+            때문에 시작을 멈췄어요 — <b>이 데이터를 만든 빌드</b>로 열어 내보내기 한 뒤, 이 빌드에서 가져오세요.
+          </p>
+          <p className="ds-tiny text-mut">
+            개발 중이라면 마이그레이션 SQL 이 적용 후에 편집된 상태입니다(sqlx 는 체크섬으로 이를 거부합니다).
+          </p>
+        </div>
+      </div>
+    );
   return (
     <div className="wrap">
       <div className="ds-well">
@@ -91,7 +117,7 @@ void initAppStore()
     if (down) {
       createRoot(document.getElementById('root')!).render(
         <StrictMode>
-          <DowngradeScreen applied={down.applied} bundled={down.bundled} />
+          <DowngradeScreen applied={down.applied} bundled={down.bundled} drifted={down.drifted} />
         </StrictMode>,
       );
       return;

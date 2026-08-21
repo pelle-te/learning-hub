@@ -80,16 +80,29 @@ export function oklchToHex(L: number, C0: number, hDeg: number): string {
     .join('')}`;
 }
 
-export function colorForId(id: string): string {
-  // FNV-1a 32비트 — 짧고 결정적이며 rid() 같은 짧은 문자열에서도 분포가 고르다.
-  // >>> 0으로 부호 없는 32비트를 유지(자바스크립트 비트연산은 부호 있는 32비트라 음수 방지).
+/**
+ * FNV-1a 32비트 — **이 저장소의 유일한 결정적 해시**.
+ *
+ * 짧고 결정적이며 `rid()` 같은 짧은 문자열에서도 분포가 고르다. `>>> 0` 으로 부호 없는
+ * 32비트를 유지한다(자바스크립트 비트연산은 부호 있는 32비트라 음수가 나온다).
+ *
+ * ⚠ **정체성에서 값을 파생할 때는 이걸 쓴다.** 소비처가 둘이고 둘 다 같은 성질을 산다 —
+ * *같은 입력엔 언제나 같은 값, 저장하지 않아도 재현됨*: 과목 색(`colorForId`)과 복습 due
+ * 흔들기(`spacedReview.chapterFuzz` · I020). 새 해시를 또 만들면 «저장값처럼 다루지 말 것»
+ * 이라는 규율(절대규칙 #3)이 파생마다 다른 근거를 갖게 된다.
+ */
+export function hash32(s: string): number {
   let h = 0x811c9dc5;
-  const s = String(id || '');
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
+  const t = String(s || '');
+  for (let i = 0; i < t.length; i++) {
+    h ^= t.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return oklchToHex(SUBJECT_L, SUBJECT_C, h % 360); // 해시 → 색상환 각도(0~359)
+  return h;
+}
+
+export function colorForId(id: string): string {
+  return oklchToHex(SUBJECT_L, SUBJECT_C, hash32(id) % 360); // 해시 → 색상환 각도(0~359)
 }
 
 /** 과목 색은 '저장값'이 아니라 파생물 — 부팅마다 id 해시 → OKLCH 로 다시 유도한다(colorForId).

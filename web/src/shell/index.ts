@@ -106,6 +106,8 @@ export {
   toggleTheme,
   importJSON,
   undoLast,
+  undoPoints,
+  undoTo,
   backupAt,
   resetAll,
   seedDegreePlan,

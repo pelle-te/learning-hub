@@ -87,7 +87,7 @@ beforeEach(() => {
    **뜨는데 데이터가 옛날 것**이 된다. 그래서 여기서 잠그는 것은 판정값이 아니라 **순서**다. */
 describe('initAppStore — 다운그레이드 가드(C2)', () => {
   it('다운그레이드면 DB 를 열지도 않고 멈춘다(폴백 부팅 금지)', async () => {
-    dbVersionGuard.mockResolvedValue({ applied: 9, bundled: 7, downgraded: true });
+    dbVersionGuard.mockResolvedValue({ applied: 9, bundled: 7, downgraded: true, drifted: [] });
     persist(storage, marked('로컬')); // 폴백이 돌면 이게 실려 나온다 — 그러면 안 된다
     await initAppStore();
     expect(isDbAvailable).not.toHaveBeenCalled();
@@ -95,8 +95,19 @@ describe('initAppStore — 다운그레이드 가드(C2)', () => {
     expect(dbDowngrade()).toMatchObject({ applied: 9, bundled: 7 });
   });
 
+  /* I039(2026-08-22) — **번호는 같은데 내용이 다른 경우.** sqlx 는 그것도 거부하지만 그 실패가
+     `load()` Err 로 나타나 **같은 조용한 폴백**에 착지한다. 탐지는 있었고 보고가 없었다. */
+  it('⚠ 내용 드리프트도 같은 문을 쓴다 — 번호가 같아도 DB 를 열지 않는다', async () => {
+    dbVersionGuard.mockResolvedValue({ applied: 7, bundled: 7, downgraded: false, drifted: [3] });
+    persist(storage, marked('로컬'));
+    await initAppStore();
+    expect(isDbAvailable).not.toHaveBeenCalled();
+    expect(preloadedState()).toBeNull();
+    expect(dbDowngrade()).toMatchObject({ drifted: [3] });
+  });
+
   it('같은 버전이면 평소대로 부팅한다(가드가 정상 경로를 막지 않는다)', async () => {
-    dbVersionGuard.mockResolvedValue({ applied: 7, bundled: 7, downgraded: false });
+    dbVersionGuard.mockResolvedValue({ applied: 7, bundled: 7, downgraded: false, drifted: [] });
     readRows.mockResolvedValue(stateToRows(marked('디비')));
     await initAppStore();
     expect(dbDowngrade()).toBeNull();

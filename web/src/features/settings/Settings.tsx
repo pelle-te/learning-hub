@@ -22,10 +22,13 @@ import {
   restoreFromIDB,
   seedDegreePlan,
   undoLast,
+  undoPoints,
+  undoTo,
 } from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
+import { GENERATIONS } from '@/lib/snapshots';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
@@ -680,7 +683,50 @@ export default function Settings() {
             전체 초기화…
           </Button>
         </div>
+        <UndoPoints />
       </div>
     </section>
+  );
+}
+
+/**
+ * 되돌릴 수 있는 지점(I038 · 2026-08-22) — **세대가 1이라 회수 경로가 자기를 덮고 있었다.**
+ *
+ * 근거·시나리오는 `lib/snapshots.ts` 머리주석이 SSOT. 여기서 지는 것 둘:
+ * ① 목록을 **시각과 함께** 보여 준다 — «되돌리기»가 어디로 가는지 모르면 그건 되돌리기가 아니다
+ *    (`backupAt` 이 ⋯ 메뉴에서 이미 세운 규율의 확장이다).
+ * ② ⚠⚠ **한계를 함께 적는다.** 이 스냅샷은 같은 기기에 있으므로 기기가 부서지면 무의미하다.
+ *    밖의 표본(Anki 백업 문서)도 그 문장을 자기 페이지에 직접 적는다 — 안 적으면 이 기능은
+ *    안전이 아니라 **안전의 착각**을 판다.
+ */
+function UndoPoints() {
+  const [points, setPoints] = useState(() => undoPoints());
+  if (!points.length) return null;
+  const when = (at: number | null): string => (at === null ? '시각 미상' : new Date(at).toLocaleString());
+  return (
+    <div className="ds-foot mt-2">
+      <b>되돌릴 수 있는 지점</b>{' '}
+      <span className="text-mut">· 초기화·가져오기·보관 직전에 자동으로 남아요 · 최대 {GENERATIONS}개</span>
+      <ul className="m-0! mt-1 flex list-none flex-col gap-1 p-0!">
+        {points.map((p) => (
+          <li key={p.key} className="m-0! flex flex-wrap items-center gap-2">
+            <span className="ds-tiny tabular-nums">{when(p.at)}</span>
+            <Button
+              sm
+              variant="ghost"
+              onClick={() => {
+                undoTo(p.key);
+                setPoints(undoPoints());
+              }}
+            >
+              {p.gen === 0 ? '가장 최근으로' : `${p.gen}단계 전으로`}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <div className="ds-tiny mt-1 text-warn">
+        이 지점들은 <b>이 기기 안에만</b> 있어요 — 기기가 고장 나면 함께 사라집니다. 진짜 백업은 내보내기(파일)예요.
+      </div>
+    </div>
   );
 }

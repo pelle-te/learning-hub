@@ -33,9 +33,10 @@
      참이 아니다(별개의 선존 결함이고 이 항목의 범위 밖이다). 화면에는 실제로 참인 것만 적는다 —
      "이번 계획에서 빠지고, 챕터 목록에서 되돌릴 수 있다".
 ============================================================ */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui';
 import { round1 } from '@/lib/utils';
+import { shortfallDelta, simulate } from '@/lib/scheduler';
 import type { AppState, Shortfall } from '@/lib/types';
 
 type Mutate = (recipe: (st: AppState) => void) => void;
@@ -50,14 +51,37 @@ const SHED_MS = 120;
  *  엔진만 보므로 통과하고, 스냅샷은 그 상을 정답으로 굳혔을 것이다. 눈으로 보기 전엔 못 잡는다. */
 const h = (v: number): string => String(round1(v));
 
-export function CutCard({ sf, mutate }: { sf: Shortfall; mutate: Mutate }) {
+export function CutCard({
+  sf,
+  mutate,
+  state,
+  before,
+}: {
+  sf: Shortfall;
+  mutate: Mutate;
+  /** I018 — 시뮬레이션 입력. 화면이 상태를 바꾸지 않는다(`simulate` 가 가지만 복제한다). */
+  state: AppState;
+  /** 패치 **전**의 부족분 전량 — 부수 피해(다른 과목이 새로 열림)를 판정하는 분모. */
+  before: readonly Shortfall[];
+}) {
   // 기본 선택 = 엔진이 규칙대로 고른 최소 접두. 사용자가 그대로 두든 뒤집든 **화면에 규칙이 적혀
   // 있으므로** 결과를 보고 이야기를 지어낼 여지가 없다.
   const [picked, setPicked] = useState<Set<string>>(() => new Set(sf.suggest));
   const [shedding, setShedding] = useState(false);
 
   const pickedH = sf.candidates.filter((c) => picked.has(c.id)).reduce((t, c) => t + c.hours, 0);
-  const covers = pickedH >= sf.gapH - 1e-6;
+  /* ⚠⚠ **`pickedH >= gapH` 는 근사였다**(I018 · 2026-08-22). 배치는 합이 아니다 — 하루 상한 ·
+     복습 예산 · 다른 과목과의 경쟁이 있어서 같은 시간을 빼도 안 닫히거나, 닫히는 대신 **다른
+     과목의 부족분이 새로 열린다.** 엔진이 그 답을 이미 알고 있고 아무도 두 번째로 묻지
+     않았을 뿐이다. 근거 전문은 `lib/scheduler/simulate.ts` 머리주석. */
+  const sim = useMemo(
+    () =>
+      picked.size
+        ? shortfallDelta(before, simulate(state, { defer: { sid: sf.sid, chapterIds: picked } }).shortfalls, sf)
+        : null,
+    [state, before, sf, picked],
+  );
+  const covers = sim?.closed ?? false;
 
   const toggle = (id: string): void =>
     setPicked((p) => {
@@ -127,13 +151,22 @@ export function CutCard({ sf, mutate }: { sf: Shortfall; mutate: Mutate }) {
         <Button sm variant="primary" disabled={picked.size === 0} onClick={commit}>
           이번 범위에서 빼기
         </Button>
+        {/* ⚠ 남은 부족분을 **엔진이 낸 수**(`sim.gapH`)로 말한다. 종전엔 `gapH - pickedH` 라
+            산술이 답했고, 그 둘은 자주 다르다. */}
         <span className="text-xs text-mut">
           {picked.size === 0
             ? '뺄 챕터를 고르세요'
             : covers
               ? `고른 ${h(pickedH)}h 로 부족분이 닫혀요`
-              : `고른 ${h(pickedH)}h — ${h(sf.gapH - pickedH)}h 더 필요해요`}
+              : `고른 ${h(pickedH)}h — 다시 짜 보면 ${h(sim?.gapH ?? sf.gapH)}h 가 남아요`}
         </span>
+        {/* ⚠⚠ 부수 피해를 **먼저** 말한다. 안 그러면 사용자는 챕터를 뺀 다음 다른 카드가 새로
+            뜨는 것을 자기 탓으로 읽는다(그건 이 카드가 만들려던 것의 정반대다). */}
+        {sim && sim.collateral.length > 0 && (
+          <span className="w-full text-xs text-warn">
+            대신 {sim.collateral.map((c) => `${c.name}(${c.examLabel}) +${h(c.addedH)}h`).join(' · ')} 가 부족해져요
+          </span>
+        )}
         <span className="ml-auto text-2xs text-mut">삭제가 아니에요 · 챕터 목록에서 되돌릴 수 있어요</span>
       </footer>
     </section>

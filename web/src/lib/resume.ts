@@ -184,6 +184,21 @@ export interface ResumeNav {
   resumeAt: number;
 }
 
+/**
+ * 임시 학습 세트로 러너를 여는 의도(I043 · 2026-08-22). `ResumeNav` 와 **같은 통로**를 쓴다 —
+ * 위 머리주석의 논거가 그대로 적용된다: 이건 *누른 사람의 의도*이지 화면의 기본값이 아니다.
+ * 진입 경로가 안 실어 나르면 러너는 언제나 정규 큐다.
+ *
+ * ⚠ `preview` 를 **필수**로 둔다(기본값 없음). 옵셔널로 두면 «안 적으면 앵커를 옮긴다» 가
+ * 기본이 되는데, 이 기능의 위험이 정확히 그것이다(정규 스케줄 오염 · `buildAdhocQueue` 머리주석).
+ */
+export interface AdhocNav {
+  /** `sid|chapter` 키 목록. */
+  adhoc: string[];
+  /** 참이면 앵커를 **안 옮긴다**(망각곡선 무변경). */
+  preview: boolean;
+}
+
 export function resumeIndex(cur: ResumeCursor): number | null {
   const m = /^(\d+)\s*\/\s*(\d+)$/.exec(cur.progress ?? '');
   if (!m) return null;

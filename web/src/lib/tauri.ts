@@ -122,6 +122,10 @@ const DbGuardZ = z.object({
   /** 이 빌드가 아는 최대 버전. */
   bundled: z.number(),
   downgraded: z.boolean(),
+  /** I039 — 내용이 달라진 마이그레이션 버전. 비어 있지 않으면 **DB 를 열어선 안 된다**.
+   *  ⚠ `_default([])` 인 이유: 구 배포본의 커맨드엔 이 필드가 없다. 없으면 «드리프트 없음»이
+   *  맞다(그 빌드에서는 판정 자체가 없었으니 새 사실을 지어내면 안 된다). */
+  drifted: z._default(z.array(z.number()), []),
 });
 export type DbGuard = z.infer<typeof DbGuardZ>;
 

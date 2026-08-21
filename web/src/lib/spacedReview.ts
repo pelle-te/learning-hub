@@ -12,7 +12,7 @@
       0이 된다(6개월 전 챕터는 존재하지 않는 것과 같다). 그 구멍은 아래 **유지(maintenance)
       사다리**가 별도 함수로 메운다 — 입력이 '스케줄'이 아니라 '챕터 카탈로그'다.
 ============================================================ */
-import { dayDiff, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
+import { dayDiff, hash32, REVIEW_OFFSETS, REVIEW_TAIL_OFFSET, addDays, iso, parseISO, reviewBlockMin } from './utils';
 import { chapterCoefficient, chapterStrengths, unseenAt, type ChapterStrength } from './chapterStrength';
 import { isDone } from './persistence';
 import { CBMS_ADVANCES_REVIEW } from './methodology';
@@ -82,7 +82,13 @@ const STRONG_OVERDUE_DAYS = REVIEW_TAIL_OFFSET; // 34
  *   계수는 **base·strong 에만** 적용된다.
  * ⚠ 최소 1일 — 계수가 아무리 작아도 "오늘 보고 오늘 또"가 되지 않게.
  */
-export function riskOf(daysSince: number, failing = false, strong = false, coef: number | null = null): ReviewRisk {
+export function riskOf(
+  daysSince: number,
+  failing = false,
+  strong = false,
+  coef: number | null = null,
+  fuzz = 0,
+): ReviewRisk {
   const shift = failing ? 'fail' : strong ? 'strong' : 'base'; // failing 이 strong 을 이긴다(안전 방향)
   let over = shift === 'fail' ? FAIL_OVERDUE_DAYS : shift === 'strong' ? STRONG_OVERDUE_DAYS : OVERDUE_DAYS;
   let due = shift === 'fail' ? FAIL_DUE_DAYS : shift === 'strong' ? STRONG_DUE_DAYS : DUE_DAYS;
@@ -90,9 +96,38 @@ export function riskOf(daysSince: number, failing = false, strong = false, coef:
     over = Math.max(1, Math.round(over * coef));
     due = Math.max(1, Math.round(due * coef));
   }
+  /* I020 평탄화 — 사다리 **전체를** 같은 만큼 민다(칸 간격은 그대로). `failing` 은 안 탄다:
+     `coef` 와 **정확히 같은 이유**로, 방금 막힌 챕터를 하루 늦추는 것은 이 함수 머리주석의
+     안전 방향(위험 쪽으로 틀린다)을 뒤집는다. 근거 전문은 `chapterFuzz`. */
+  if (fuzz && shift !== 'fail') {
+    over = Math.max(1, over + fuzz);
+    due = Math.max(1, Math.min(due + fuzz, over)); // due 가 over 를 넘어서면 사다리가 뒤집힌다
+  }
   if (daysSince >= over) return 'overdue';
   if (daysSince >= due) return 'due';
   return 'fresh';
+}
+
+/* ── 부하 평탄화(I020 · 2026-08-22 발상 축) ────────────────────────────────────
+   ⚠⚠ **같은 날 시작한 챕터는 영원히 같은 날 몰린다.** 이 파일의 임계는 전부 상수라
+   (`DUE_DAYS`·`OVERDUE_DAYS` + 칸 이동 + 계수), 같은 `lastDs` 를 가진 챕터 열 개는 **같은 날
+   한꺼번에** `due` 로 넘어간다. 그리고 한 번 몰린 무리는 함께 복습되어 다시 같은 `lastDs` 를
+   갖는다 — 몰림이 스스로를 재생산한다.
+
+   밖의 대응은 due 를 날짜에 걸쳐 흩는 것이고, 그 문서가 **스스로 못박는 것**이 요점이다:
+   *"재분배지 감면이 아니다"* (docs.ankiweb.net/deck-options.html · 확인 2026-08-22). 총량은
+   그대로이고 어느 날이 물리적으로 불가능해지는 것만 막는다.
+
+   ⚠ **±1일이다.** 폭을 키우면 사다리(1·3·7·16)의 칸 간격 자체를 침범한다 — 3↔7 사이가 4일인데
+   ±2 를 주면 두 칸이 겹쳐 「사다리」라는 말이 뜻을 잃는다.
+   ⚠ **결정적이어야 한다**(난수 금지). 부팅마다 흔들리면 같은 챕터의 due 가 매일 바뀌고,
+   사용자에겐 앱이 마음을 바꾸는 것으로 보인다. 파생 키가 **정체성**(sid|chapter)인 것도
+   과목 색과 같은 이유다(`utils.colorForId` · 절대규칙 #3): 위치로 파생하면 챕터를 하나
+   지웠을 때 뒤 챕터들의 due 가 통째로 밀린다. */
+
+/** 챕터별 결정적 ±1일 흔들기. 소비처는 `riskOf` 의 `fuzz` 하나. */
+export function chapterFuzz(sid: string, chapter: string): number {
+  return (hash32(sid + '|' + chapter) % 3) - 1; // -1 · 0 · +1
 }
 
 /**
@@ -382,7 +417,7 @@ export function chapterReviews(
       chapter: e.chapter,
       lastDs: e.ds,
       daysSince,
-      risk: riskOf(daysSince, failingNow, strongNow, coef),
+      risk: riskOf(daysSince, failingNow, strongNow, coef, chapterFuzz(e.sid, e.chapter)),
       ...(e.fromVault ? { fromVault: true as const } : null),
       ...(ctx.leeches.has(key) ? { leech: true as const } : null),
     });
@@ -714,7 +749,9 @@ export function examStaleChapters(state: AppState, days: Day[], todayDs: string,
     const ageAtExam = untouched ? ch.daysSince + toExam : toExam - bestIn;
     const { failing, strong, coef } = chapterShift(ch.sid, ch.chapter, ctx);
     // I-1 — 시험 앵커도 **같은 계수**를 쓴다(두 곳이 갈리면 오늘 화면과 시험 예보가 다른 말을 한다).
-    const riskAtExam = riskOf(ageAtExam, failing, strong, coef);
+    // I020 — 시험 앵커도 **같은 흔들기**를 쓴다(I-1 계수와 같은 논증: 두 곳이 갈리면 오늘
+    // 화면과 시험 예보가 같은 챕터를 두고 다른 말을 한다).
+    const riskAtExam = riskOf(ageAtExam, failing, strong, coef, chapterFuzz(ch.sid, ch.chapter));
     if (riskAtExam === 'fresh') continue;
     out.push({
       sid: ch.sid,

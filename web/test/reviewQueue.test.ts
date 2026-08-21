@@ -7,9 +7,11 @@ import {
   MAINTENANCE_CAP,
   REQUEUE_GAP,
   anchorOf,
+  buildAdhocQueue,
   buildReviewQueue,
   requeue,
   runItemKey,
+  chapterCopy,
   type RunItem,
   cursorOp,
   landingIndex,
@@ -63,6 +65,20 @@ describe('buildReviewQueue — 밀린 챕터가 과목 인터리빙으로 나온
     // 되돌리기 = 키 삭제 하나. 별도 복원 상태가 없으므로 원래 위험 티어 그대로 복귀한다.
     const back = buildReviewQueue(state, days, TODAY);
     expect(back.filter((x) => x.kind === 'chapter').length).toBe(4);
+  });
+
+  /* ── I040 「오늘은 빼기」 — **큐가 두 시제를 다 먹는다** ────────────────────────────
+     ⚠ 이 케이스가 없으면 가장 나쁜 실패가 통과한다: **버튼은 눌리는데 큐가 그대로**.
+     종전 큐는 `state.reviewHold` 를 직접 읽었고, 판정자를 `reviewPause` 로 옮기지 않으면
+     스누즈가 저장만 되고 아무 일도 안 일어난다. */
+  it('오늘 미룬 챕터는 오늘 큐에서 빠지고 **내일 돌아온다**', () => {
+    const snoozed = { ...state, reviewSnooze: { 'm|m2': TODAY } } as AppState;
+    const chaptersOf = (st: AppState, ds: string): string[] =>
+      buildReviewQueue(st, days, ds)
+        .filter((x) => x.kind === 'chapter')
+        .map((x) => (x.kind === 'chapter' ? x.ch.chapter : ''));
+    expect(chaptersOf(snoozed, TODAY)).toEqual(['m1', 'p1', 'm3']);
+    expect(chaptersOf(snoozed, '2026-07-05')).toContain('m2'); // 자정에 스스로 풀린다
   });
 });
 
@@ -230,5 +246,87 @@ describe('landingIndex — 이어하기 착지', () => {
   });
   it('빈 큐면 0', () => {
     expect(landingIndex(5, 0)).toBe(0);
+  });
+});
+
+/* ============================================================
+   I041 — **만성 실패(leech)의 문구와 처방**(2026-08-22 발상 축).
+
+   `spacedReview` 는 A-4 에서 leech 를 판정하고 앞당김을 멈추면서, 그 자리에
+   *"UI 는 이걸 다른 문구로 그려야 한다 — 표식 없이 빈도만 낮추면 사용자에겐 그냥 「앱이 이
+   챕터를 잊었다」로 보인다"* 고 적어 뒀다. 실측하니 **`leech` 를 읽는 화면이 0개**였다.
+
+   ⚠ 여기서 잠그는 것: ① leech 는 다른 배지·다른 본문을 받는다 ② 그 본문이 «간격이 아니라
+   자료»라고 말한다(더 자주 보여 주자는 말로 읽히면 A-4 의 판정이 뒤집힌다) ③ 유지(maintenance)
+   문구가 leech 보다 먼저다(끝낸 챕터의 설명이 우선 — 그게 «왜 돌아왔나»의 답이다).
+============================================================ */
+describe('I041 — leech 문구', () => {
+  const ch = (over: Record<string, unknown> = {}) =>
+    ({
+      sid: 'm',
+      subject: '수학',
+      chapter: '3장',
+      lastDs: '2026-06-20',
+      daysSince: 14,
+      risk: 'overdue',
+      ...over,
+    }) as never;
+
+  it('leech 는 다른 배지를 받는다 — 「많이 밀림」이 아니다', () => {
+    expect(chapterCopy(ch({ leech: true })).badge).toBe('반복해서 막힘');
+    expect(chapterCopy(ch()).badge).toBe('많이 밀림');
+  });
+
+  it('⚠ 본문이 「간격이 아니라 자료」라고 말한다 — 더 자주 보자는 말로 읽히면 A-4 가 뒤집힌다', () => {
+    const body = chapterCopy(ch({ leech: true })).body;
+    expect(body).toContain('자료');
+    expect(body).not.toContain('망각곡선을 리셋');
+  });
+
+  it('유지 문구가 leech 보다 먼저다 — 끝낸 챕터는 「왜 돌아왔나」가 먼저 답해야 한다', () => {
+    expect(chapterCopy(ch({ leech: true, maintenance: true })).badge).toBe('유지');
+  });
+});
+
+/* ============================================================
+   I043 — **임시 학습 세트**(2026-08-22 발상 축).
+
+   밖의 대응(필터 덱)이 자기 매뉴얼에 *"반복 사용에 부적절"* 을 적어 두는 이유가 이 기능의 설계
+   조건이다: 임의 세트가 **정규 스케줄을 영구히 오염**시키는 것이 그 문서가 경고하는 실패다.
+
+   ⚠ 여기서 잠그는 것:
+   ① 부른 것만 나온다(순서·중복 없음) ② **위험도를 무시한다**(fresh 여도 부르면 온다 —
+   「이 범위만」의 뜻이 그것) ③ **보류·스누즈를 무시한다**(빼 뒀다는 이유로 안 보여 주면 화면이
+   아무 일도 안 한 것처럼 보인다) ④ 회상·착각 카드를 안 섞는다(세트는 세트다).
+   ⚠ 「앵커를 안 옮긴다」는 러너 쪽 계약이라 여기서 못 잰다 — 그 자리는 `ReviewRun.advance` 다.
+============================================================ */
+describe('buildAdhocQueue — 임시 학습 세트(I043)', () => {
+  const days = [day('2026-06-14', [revIt('m', ['m1', 'm2', 'm3']), revIt('p', ['p1'])])];
+  const state = stateWith([
+    ['2026-06-14', 'm', 'new'],
+    ['2026-06-14', 'p', 'new'],
+  ]);
+  const names = (q: RunItem[]): string[] =>
+    q.filter((x) => x.kind === 'chapter').map((x) => (x.kind === 'chapter' ? x.ch.chapter : ''));
+
+  it('부른 챕터만 나온다', () => {
+    expect(names(buildAdhocQueue(state, days, TODAY, ['m|m2', 'p|p1']))).toEqual(['m2', 'p1']);
+  });
+
+  it('빈 목록이면 빈 큐다(정규 큐로 조용히 떨어지지 않는다)', () => {
+    expect(buildAdhocQueue(state, days, TODAY, [])).toEqual([]);
+  });
+
+  it('⚠ 보류·스누즈를 무시한다 — 이름을 대고 부른 챕터를 안 보여 주면 원인이 어디에도 없다', () => {
+    const held = { ...state, reviewHold: { 'm|m2': '2026-07-03' }, reviewSnooze: { 'm|m3': TODAY } } as AppState;
+    expect(names(buildAdhocQueue(held, days, TODAY, ['m|m2', 'm|m3']))).toEqual(['m2', 'm3']);
+  });
+
+  it('회상·착각 카드를 안 섞는다 — 세트는 세트다', () => {
+    expect(buildAdhocQueue(state, days, TODAY, ['m|m1']).every((x) => x.kind === 'chapter')).toBe(true);
+  });
+
+  it('모르는 키는 조용히 빠진다(지워진 챕터를 가리키는 옛 링크)', () => {
+    expect(names(buildAdhocQueue(state, days, TODAY, ['m|없는장', 'm|m1']))).toEqual(['m1']);
   });
 });

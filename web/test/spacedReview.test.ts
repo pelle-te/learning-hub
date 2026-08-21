@@ -3,6 +3,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import {
+  chapterFuzz,
   chapterReviews,
   chapterShift,
   dueForecast,
@@ -170,7 +171,10 @@ describe('spacedReview — CBMS 코드가 복습 사다리를 가른다(P-3)', (
 
 describe('spacedReview — chapterReviews', () => {
   const days = [
-    day('2026-06-18', [newIt('m', '수학', ['1장'])]), // age 16 → overdue (완료)
+    /* ⚠ age 18 이다(16 이 아니라). I020 이 챕터별 ±1일 흔들기를 넣은 뒤로 **경계 정확값은
+       챕터마다 다르다** — 사다리 칸(16)에 정확히 앉힌 fixture 는 그 챕터의 흔들기 부호를
+       그대로 검사하게 되고, 그건 이 케이스가 재려는 것(완료/미래 필터·경과일 계산)이 아니다. */
+    day('2026-06-16', [newIt('m', '수학', ['1장'])]), // age 18 → overdue (완료 · 흔들기 무관)
     day('2026-06-25', [newIt('m', '수학', ['4장'])]), // 미완료 → 제외
     day('2026-06-26', [newIt('m', '수학', ['5장'])]), // age 8 → due (완료)
     day('2026-06-30', [newIt('m', '수학', ['2장'])]), // age 4 → fresh (완료)
@@ -178,7 +182,7 @@ describe('spacedReview — chapterReviews', () => {
     day('2026-07-10', [newIt('m', '수학', ['3장'])]), // 미래 → 무시(완료여도)
   ];
   const state = stateWith([
-    ['2026-06-18', 'm', 'new'],
+    ['2026-06-16', 'm', 'new'],
     ['2026-06-26', 'm', 'new'],
     ['2026-06-30', 'm', 'new'],
     ['2026-07-04', 'p', 'new'],
@@ -190,7 +194,7 @@ describe('spacedReview — chapterReviews', () => {
     const byCh = Object.fromEntries(revs.map((r) => [r.chapter, r]));
     expect(byCh['4장']).toBeUndefined(); // 미완료
     expect(byCh['3장']).toBeUndefined(); // 미래
-    expect(byCh['1장']!.daysSince).toBe(16);
+    expect(byCh['1장']!.daysSince).toBe(18);
     expect(byCh['1장']!.risk).toBe('overdue');
     expect(byCh['5장']!.risk).toBe('due');
     expect(byCh['2장']!.risk).toBe('fresh');
@@ -207,8 +211,8 @@ describe('spacedReview — chapterReviews', () => {
 
   it('reviewTouches(ReviewRun 챕터 터치)가 lastDs를 갱신해 overdue를 푼다 — 감사 #22', () => {
     // 계획상 마지막 완료가 16일 전(overdue)인 챕터를 오늘 ReviewRun으로 인출한 시나리오.
-    const days2 = [day('2026-06-18', [newIt('m', '수학', ['1장'])])];
-    const s2 = stateWith([['2026-06-18', 'm', 'new']]);
+    const days2 = [day('2026-06-16', [newIt('m', '수학', ['1장'])])]; // age 18 — 흔들기 ±1 무관
+    const s2 = stateWith([['2026-06-16', 'm', 'new']]);
     expect(chapterReviews(s2, days2, TODAY)[0]!.risk).toBe('overdue');
     touchReview(s2, 'm', '1장', TODAY);
     const rev = chapterReviews(s2, days2, TODAY)[0]!;
@@ -710,5 +714,61 @@ describe('A-3 examStaleChapters — "그날 내가 이걸 기억하고 있나"',
   it('⚠ 판정은 `riskOf` 를 그대로 쓴다 — "시험용 위험"을 따로 정의하지 않는다', () => {
     const [s] = examStaleChapters(st3, days3, TODAY, '2026-07-25');
     expect(s!.riskAtExam).toBe(riskOf(s!.ageAtExam));
+  });
+});
+
+/* ============================================================
+   I020 — **부하 평탄화**(2026-08-22 발상 축).
+
+   같은 날 시작한 챕터는 임계가 전부 상수라 **같은 날 한꺼번에** due 로 넘어가고, 함께 복습되어
+   다시 같은 `lastDs` 를 갖는다 — 몰림이 스스로를 재생산한다. 여기서 잠그는 것 넷:
+   ① 결정적이다(부팅마다 흔들리면 앱이 마음을 바꾸는 것으로 보인다)
+   ② 실제로 흩어진다(이게 없으면 이 항목은 값이 0이다)
+   ③ **±1 을 넘지 않는다**(사다리 3↔7 간격이 4일이라 ±2 는 칸을 겹친다)
+   ④ **막힌 챕터는 안 탄다**(`coef` 와 같은 안전 방향 — 방금 막힌 것을 하루 늦추지 않는다)
+============================================================ */
+describe('I020 — 복습 due 평탄화', () => {
+  it('결정적이다 — 같은 (과목|챕터) 는 언제나 같은 값', () => {
+    expect(chapterFuzz('m', '1장')).toBe(chapterFuzz('m', '1장'));
+    /* ⚠ 「다른 키면 다른 값」은 **단언할 수 없다** — 칸이 셋뿐이라 충돌이 정상이다.
+       대신 상수가 아님을 본다(상수면 흔들기가 아무것도 안 흩는다). */
+    const vals = new Set(Array.from({ length: 50 }, (_, i) => chapterFuzz('m', `${i}장`)));
+    expect(vals).toEqual(new Set([-1, 0, 1]));
+  });
+
+  it('⚠ ±1 을 넘지 않는다 — 사다리 칸(3↔7)이 4일이라 ±2 는 두 칸을 겹친다', () => {
+    for (let i = 0; i < 200; i++) expect(Math.abs(chapterFuzz('s' + i, 'ch' + i))).toBeLessThanOrEqual(1);
+  });
+
+  it('⭐ 같은 날 시작한 무리가 실제로 사흘에 걸쳐 넘어간다', () => {
+    /* 흔들기가 없으면 이 집합은 전부 같은 날(경과 7일) 한꺼번에 due 가 된다. */
+    const keys = Array.from({ length: 60 }, (_, i) => ['sid' + i, '3장'] as const);
+    const flips = keys.map(([sid, ch]) => {
+      const f = chapterFuzz(sid, ch);
+      // 이 챕터가 처음 due 가 되는 경과일
+      for (let d = 0; d <= 30; d++) if (riskOf(d, false, false, null, f) !== 'fresh') return d;
+      return -1;
+    });
+    expect(new Set(flips).size).toBe(3); // 6·7·8 세 날
+    // 어느 하루도 무리 전체를 받지 않는다
+    const worst = Math.max(...[...new Set(flips)].map((d) => flips.filter((x) => x === d).length));
+    expect(worst).toBeLessThan(keys.length);
+  });
+
+  it('⚠⚠ 막힌 챕터는 흔들지 않는다 — 방금 막힌 것을 하루 늦추면 안전 방향이 뒤집힌다', () => {
+    for (const f of [-1, 0, 1]) {
+      expect(riskOf(3, true, false, null, f)).toBe('due'); // 앞당김이 흔들림에 안 밀린다
+      expect(riskOf(7, true, false, null, f)).toBe('overdue');
+    }
+  });
+
+  it('due 가 overdue 를 넘어서지 않는다(사다리 역전 방어)', () => {
+    for (const f of [-1, 0, 1])
+      for (let d = 0; d <= 40; d++) {
+        const r = riskOf(d, false, false, 0.05, f); // 계수를 극단으로 눌러 두 임계를 붙인다
+        expect(['fresh', 'due', 'overdue']).toContain(r);
+      }
+    // 임계가 붙어도 「due 인데 overdue 가 아닌」 구간이 음수 길이가 되지 않는다
+    expect(riskOf(1, false, false, 0.05, -1)).toBe('overdue');
   });
 });

@@ -27,6 +27,7 @@ import { backupPayload } from '@/lib/backup';
 import { DOCS_FIELD, importDocs } from '@/lib/db/docs';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { dbFallbackSnapshot } from '@/lib/db/fallback';
+import { dropSnapshot, pushSnapshot, readSnapshot, snapshots, type Snapshot } from '@/lib/snapshots';
 
 /* 재수출 — 소비처(볼트 백업·`test/importRoundtripLarge`)의 경로를 안 깨뜨린다. 실체는 `lib/backup`. */
 export { backupPayload };
@@ -81,15 +82,16 @@ function download(filename: string, text: string, mime: string): Promise<boolean
   return Promise.resolve(true);
 }
 
-/** 되돌리기용 1단계 백업(localStorage). 시각도 함께 남긴다 — 아래 `backupAt` 참조. */
+/** 되돌리기용 백업 — **세대 사다리**(I038). 시각도 함께 남긴다(아래 `backupAt`).
+ *  ⚠ 종전엔 칸이 하나라 **두 번째 파괴적 동작이 첫 번째의 백업을 덮었다** — 근거·시나리오는
+ *  `lib/snapshots.ts` 머리주석이 SSOT. 0세대 키는 옛 `BACKUP_KEY` 그대로라 마이그레이션이 없다. */
 export function backupNow(): boolean {
-  try {
-    storage.setItem(BACKUP_KEY, JSON.stringify(st().state));
-    storage.setItem(BACKUP_AT_KEY, String(Date.now()));
-    return true;
-  } catch {
-    return false;
-  }
+  return pushSnapshot(storage, JSON.stringify(st().state), Date.now());
+}
+
+/** 되돌릴 수 있는 지점 전량(최신 순). 화면이 목록을 그리고, 판정은 길이가 한다. */
+export function undoPoints(): Snapshot[] {
+  return snapshots(storage);
 }
 
 /**
@@ -246,9 +248,19 @@ export function importJSON(input: HTMLInputElement): void {
   input.value = '';
 }
 
-/** 되돌리기 — BACKUP_KEY 직전 상태로. */
+/** 되돌리기 — 가장 최근 지점으로. 동작은 종전과 **한 글자도 안 바뀐다**(0세대 = 옛 `BACKUP_KEY`). */
 export function undoLast(): void {
-  const b = storage.getItem(BACKUP_KEY);
+  undoTo(BACKUP_KEY);
+}
+
+/**
+ * 고른 지점으로 되돌린다(I038). `undoLast` 는 0세대를 고른 특수 경우다.
+ *
+ * ⚠ 되돌린 지점은 **지운다**(당겨 채우지 않는다 · `dropSnapshot` 머리주석). 남겨 두면 같은
+ * 지점으로 두 번 돌아갈 수 있다고 읽히는데, 두 번째엔 그 사이의 편집이 이미 사라진 뒤다.
+ */
+export function undoTo(key: string): void {
+  const b = readSnapshot(storage, key);
   if (!b) {
     toast('되돌릴 백업이 없어요 — 삭제·가져오기·초기화 직전에 자동으로 만들어져요.', 'bad');
     return;
@@ -259,13 +271,8 @@ export function undoLast(): void {
     return;
   }
   st().loadState(s);
-  try {
-    storage.removeItem(BACKUP_KEY);
-    storage.removeItem(BACKUP_AT_KEY); // 짝을 남기면 다음 메뉴가 "없는 백업의 시각"을 말한다
-  } catch {
-    /* noop */
-  }
-  toast('직전 상태로 되돌렸어요.', 'ok');
+  dropSnapshot(storage, key); // 짝(시각)을 남기면 다음 메뉴가 "없는 백업의 시각"을 말한다
+  toast('그 지점으로 되돌렸어요.', 'ok');
 }
 
 /** 전체 초기화 — 확인 → 백업 → 기본값. */

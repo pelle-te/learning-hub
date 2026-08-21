@@ -396,7 +396,7 @@ export default function Schedule() {
           알면서 유일한 처방으로 `주당 시간↑`(사용자가 할 수 없는 것)을 내놓고 있었고, 그래서
           액션이 0이었다. 지금은 같은 자리에서 "무엇을 뺄까"를 묻는다. 새 탭 0 · IA 변경 0. */}
       {res.shortfalls.map((sf) => (
-        <CutCard key={sf.sid} sf={sf} mutate={mutate} />
+        <CutCard key={sf.sid} sf={sf} mutate={mutate} state={state} before={res.shortfalls} />
       ))}
 
       {/* 편성 경고 — 뷰(개요/카드) 무관 공통 스트립(카드뷰에서 소실되지 않도록 분기 밖으로 승격). */}

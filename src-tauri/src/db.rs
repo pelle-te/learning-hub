@@ -257,6 +257,90 @@ pub fn is_downgrade(applied: Option<i64>, bundled: i64) -> bool {
     applied.is_some_and(|a| a > bundled)
 }
 
+/* ── 내용 드리프트 가드(I039 · 2026-08-22 발상 축) ────────────────────────────────
+위 가드는 **번호**만 본다. 그런데 이 파일 자신이 다른 자리에서 적어 둔 사실이 있다:
+_"적용된 마이그레이션은 SHA-384 체크섬이 `_sqlx_migrations` 에 남아 매 부팅에 대조된다 —
+주석 한 글자만 바뀌어도 기존 DB 를 못 연다."_ 즉 **번호는 같은데 내용이 다른 경우**는 sqlx 가
+이미 잡는다.
+
+⚠⚠ 문제는 잡은 다음이다. 그 실패는 `run()` 의 Err 이므로 `load()` Err → `getDb()` null →
+**C1 조용한 폴백**에 착지한다 — 위 다운그레이드 절이 *"증상이 「앱이 안 뜬다」가 아니라
+「뜨는데 데이터가 옛날 것」이라 더 나쁘다"* 고 적은 그 경로 그대로다. 그리고 `is_downgrade` 는
+이 경우 **거짓**을 돌리므로(번호는 같거나 작다) 명시적 화면이 안 뜬다.
+
+즉 탐지는 있고 **보고가 없었다.** 여기서 하는 일은 해시를 새로 만드는 것이 아니라, sqlx 가
+이미 들고 있는 체크섬을 **열기 전에** 대조해 같은 화면으로 말하는 것이다.
+
+⚠ 과민성이 대가다 — SQL 파일의 무해한 편집(공백·주석)도 드리프트로 잡힌다. 그건 결함이 아니라
+sqlx 의 계약이고(그 편집을 하면 실제로 DB 가 안 열린다), 이 가드가 없으면 그 사실이 조용한
+폴백 뒤에 숨는다. **정정을 SQL 파일이 아니라 이 파일 주석에 쓰는** 규율이 그래서 있다. */
+
+/// 번들 마이그레이션을 sqlx 표현으로 — **플러그인과 같은 변환**이어야 한다
+/// (`tauri-plugin-sql` lib.rs: `MigrationKind::Up` → `MigrationType::ReversibleUp`, `no_tx:false`).
+///
+/// ⚠ 여기서 어긋나면 체크섬이 달라져 **없는 드리프트를 보고한다** — 그러면 이 가드가 정상
+/// 부팅을 막는 버그가 된다. 변환은 이 한 곳에만 있어야 하고, 테스트도 이 함수를 쓴다.
+pub fn bundled_sqlx() -> Vec<sqlx::migrate::Migration> {
+    use sqlx::migrate::{Migration as SqlxMigration, MigrationType};
+    use std::borrow::Cow;
+    migrations()
+        .into_iter()
+        .map(|m| {
+            SqlxMigration::new(
+                m.version,
+                Cow::Borrowed(m.description),
+                MigrationType::ReversibleUp,
+                Cow::Borrowed(m.sql),
+                false,
+            )
+        })
+        .collect()
+}
+
+/// DB 에 적용된 `(version, checksum)` 전량. 파일이 없거나 표가 없으면 빈 벡터.
+///
+/// ⚠ 읽기 전용으로 연다 — `applied_max_version_at` 과 같은 이유(판정하러 온 길에 파일을
+/// 만들거나 고치면 안 된다).
+pub async fn applied_checksums_at(path: &std::path::Path) -> Vec<(i64, Vec<u8>)> {
+    if !path.exists() {
+        return Vec::new();
+    }
+    let opts = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(true);
+    let Ok(pool) = sqlx::SqlitePool::connect_with(opts).await else {
+        return Vec::new();
+    };
+    let rows: Vec<(i64, Vec<u8>)> =
+        sqlx::query_as("SELECT version, checksum FROM _sqlx_migrations ORDER BY version")
+            .fetch_all(&pool)
+            .await
+            .unwrap_or_default();
+    pool.close().await;
+    rows
+}
+
+/// 드리프트 판정 — **양쪽에 다 있는 버전**만 본다(순수 술어).
+///
+/// ⚠ 한쪽에만 있는 버전은 여기 관심이 아니다: DB 에만 있으면 다운그레이드(`is_downgrade`),
+/// 번들에만 있으면 아직 적용 안 된 새 마이그레이션(정상)이다. 그 둘을 여기서 또 판정하면
+/// 같은 사실에 두 판정자가 생기고, 그건 이 저장소가 반복해 물린 형태다.
+pub fn drifted_versions(
+    applied: &[(i64, Vec<u8>)],
+    bundled: &[sqlx::migrate::Migration],
+) -> Vec<i64> {
+    applied
+        .iter()
+        .filter(|(v, sum)| {
+            bundled
+                .iter()
+                .find(|m| m.version == *v)
+                .is_some_and(|m| m.checksum.as_ref() != sum.as_slice())
+        })
+        .map(|(v, _)| *v)
+        .collect()
+}
+
 /// 부팅 가드 결과 — 프런트가 이 값으로 **명시적 화면**을 띄운다(조용한 폴백 금지).
 #[derive(serde::Serialize)]
 pub struct DbVersionGuard {
@@ -266,6 +350,9 @@ pub struct DbVersionGuard {
     pub bundled: i64,
     /// 다운그레이드인가 — 참이면 **DB 를 열어선 안 된다**.
     pub downgraded: bool,
+    /// 내용이 달라진 마이그레이션 버전(I039). 비어 있지 않으면 **DB 를 열어선 안 된다** —
+    /// 열면 sqlx 가 거부하고 그 실패가 C1 조용한 폴백으로 흘러 «뜨는데 데이터가 옛날 것»이 된다.
+    pub drifted: Vec<i64>,
 }
 
 /// 프런트가 `load()` **앞에** 부른다. 여기서 참이면 프런트는 DB 를 열지 않고 화면으로 말한다.
@@ -274,10 +361,18 @@ pub async fn db_version_guard(app: tauri::AppHandle) -> Result<DbVersionGuard, S
     let path = crate::paths::db_path(&app)?;
     let applied = applied_max_version_at(&path).await?;
     let bundled = bundled_max_version();
+    /* ⚠ 다운그레이드면 드리프트는 안 센다 — 구버전 exe 에서는 «내용이 다르다»가 아니라
+       «모르는 버전이 있다»가 진짜 사실이고, 둘을 함께 말하면 화면이 원인을 흐린다. */
+    let drifted = if is_downgrade(applied, bundled) {
+        Vec::new()
+    } else {
+        drifted_versions(&applied_checksums_at(&path).await, &bundled_sqlx())
+    };
     Ok(DbVersionGuard {
         applied,
         bundled,
         downgraded: is_downgrade(applied, bundled),
+        drifted,
     })
 }
 
@@ -295,25 +390,13 @@ mod tests {
         "docs",
     ];
 
-    /* ⚠ `tauri-plugin-sql` 이 자기 `Migration` 을 sqlx 로 옮기는 것과 **같은 변환**이다
-    (`lib.rs:91` — `MigrationKind::Up` → `MigrationType::ReversibleUp`, `no_tx:false`).
-    여기서 어긋나면 **체크섬이 달라져 다른 실패를 검사하게 된다** — 아래 두 케이스가 전부
-    체크섬 위에 서 있으므로 변환은 한 곳에만 있어야 한다. */
+    /* ⚠ 변환은 **프로덕션 함수 하나**(`super::bundled_sqlx`)가 소유한다(I039 · 2026-08-22).
+    여기 지역 사본이 있었고, 그때도 주석이 *"변환은 한 곳에만 있어야 한다"* 고 적고 있었다 —
+    드리프트 가드가 같은 변환을 필요로 하게 되면서 그 문장이 실제로 청구됐다. */
     fn bundled_sqlx(upto: i64) -> Vec<sqlx::migrate::Migration> {
-        use sqlx::migrate::{Migration as SqlxMigration, MigrationType};
-        use std::borrow::Cow;
-        super::migrations()
+        super::bundled_sqlx()
             .into_iter()
             .filter(|m| m.version <= upto)
-            .map(|m| {
-                SqlxMigration::new(
-                    m.version,
-                    Cow::Borrowed(m.description),
-                    MigrationType::ReversibleUp,
-                    Cow::Borrowed(m.sql),
-                    false,
-                )
-            })
             .collect()
     }
 
@@ -395,6 +478,64 @@ mod tests {
         });
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /* ▶ I039(2026-08-22 발상 축) — **번호는 같은데 내용이 다른 경우.**
+
+    위 C2 케이스와 짝이다: 저기는 «DB 에만 있는 버전»(다운그레이드)을 재고, 여기는 «양쪽에 다
+    있는데 체크섬이 다른 버전»을 잰다. 후자는 sqlx 가 열 때 거부하지만 그 실패가 C1 조용한
+    폴백으로 흘러 **뜨는데 데이터가 옛날 것**이 된다 — 그래서 **열기 전에** 판정해야 한다.
+
+    ⚠ 이 케이스도 우리 코드가 아니라 **sqlx 의 체크섬 계약**을 붙든다: 「SQL 이 바뀌면 체크섬이
+    바뀐다」가 거짓이 되면 이 가드는 남는데 근거가 사라진다. */
+    #[test]
+    fn 번호는_같은데_내용이_다르면_열기_전에_잡는다() {
+        use super::{bundled_sqlx, drifted_versions};
+
+        let bundled = bundled_sqlx();
+        assert!(!bundled.is_empty(), "번들 마이그레이션이 비었다");
+
+        // ① 그대로면 드리프트 0 — 가드가 평소에 조용해야 한다(과민하면 아무도 안 믿는다).
+        let same: Vec<(i64, Vec<u8>)> = bundled
+            .iter()
+            .map(|m| (m.version, m.checksum.to_vec()))
+            .collect();
+        assert!(
+            drifted_versions(&same, &bundled).is_empty(),
+            "안 바뀐 DB 를 드리프트로 잡았다 — 이 가드가 정상 부팅을 막는 버그가 된다"
+        );
+
+        // ② 한 버전의 체크섬만 흔든다 = SQL 이 바뀐 상태.
+        let target = bundled[0].version;
+        let mut drifted = same.clone();
+        drifted[0].1[0] ^= 0xFF;
+        assert_eq!(
+            drifted_versions(&drifted, &bundled),
+            vec![target],
+            "내용이 바뀐 버전을 못 잡았다"
+        );
+
+        // ③ 번들에만 있는 버전(= 아직 적용 안 된 새 마이그레이션)은 드리프트가 아니다.
+        let partial: Vec<(i64, Vec<u8>)> = same.iter().take(1).cloned().collect();
+        assert!(
+            drifted_versions(&partial, &bundled).is_empty(),
+            "적용 안 된 새 마이그레이션을 드리프트로 잡았다"
+        );
+
+        // ④ SQL 을 실제로 한 글자 바꾸면 체크섬이 바뀐다 — 이 가드가 서 있는 전제.
+        use sqlx::migrate::{Migration as SqlxMigration, MigrationType};
+        use std::borrow::Cow;
+        let edited = SqlxMigration::new(
+            bundled[0].version,
+            bundled[0].description.clone(),
+            MigrationType::ReversibleUp,
+            Cow::Owned(format!("{} -- 주석 한 줄", bundled[0].sql)),
+            false,
+        );
+        assert_ne!(
+            edited.checksum, bundled[0].checksum,
+            "SQL 이 바뀌었는데 체크섬이 같다 — sqlx 계약이 바뀌었으면 이 가드의 근거가 사라진다"
+        );
     }
 
     /* ▶ 트랙 B 의 `C-5 — 실 DB 에 updated_at = 0 인 행이 없다` 를 여기로 내렸다.

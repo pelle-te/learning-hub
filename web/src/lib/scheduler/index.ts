@@ -8,6 +8,7 @@
      dayPlanOverride 자동 산출 위에 사용자의 수동 배치 얹기
      engine         본체 schedule() — 위 셋을 조합해 일자별 항목을 만든다
      layout         하루치 세션을 시각에 앉히기
+     simulate       **바꾸기 전에 결과를 본다**(I018) — 패치를 얹고 엔진을 한 번 더 돌린다
 
    이 index가 공개 표면 — 소비처는 계속 `@/lib/scheduler` 하나만 보면 된다.
    (store/selectors의 SCHEDULE_INPUT_KEYS 불변식은 test/invariants.test.ts가 Proxy로 잠근다.)
@@ -17,3 +18,4 @@ export * from './priority';
 export * from './dayPlanOverride';
 export * from './engine';
 export * from './layout';
+export * from './simulate';

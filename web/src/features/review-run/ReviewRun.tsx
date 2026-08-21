@@ -44,9 +44,11 @@ import { touchReview, reviewTouchOf, restoreReviewTouch } from '@/lib/persistenc
 import { toast } from '@/shell/toast';
 import { FORECAST_VIEW } from '@/shell/tabs';
 import { dueForecast, forecastPeak, riskSummary } from '@/lib/spacedReview';
-import { holdReview, isHeld } from '@/lib/reviewHold';
+import { holdReview, reviewPause, snoozeReview } from '@/lib/reviewHold';
+import { usePrefill } from '@/store/prefill';
 import {
   anchorOf,
+  buildAdhocQueue,
   buildReviewQueue,
   cardSpeech,
   chapterCopy,
@@ -56,7 +58,7 @@ import {
   type RunItem,
   cursorOp,
 } from '@/lib/reviewQueue';
-import { type ResumeNav } from '@/lib/resume';
+import { type AdhocNav, type ResumeNav } from '@/lib/resume';
 import { writeResume, dropResume } from '@/store/resumeCursor';
 
 import { CBMS_INFO, CBMS_CODES, addCbms, editCbms } from '@/lib/methodology';
@@ -317,7 +319,14 @@ function ReviewRun() {
   /* 큐는 **세션 시작 시점의 스냅샷**이다(D-1). 재큐가 큐를 늘리므로 상태가 아니면 안 되고,
      파생으로 두면 세션 중 상태 변화(챕터 '집중 시작' → completions 갱신 · 클라우드 pull 병합)가
      발밑에서 큐를 갈아 끼워 `idx` 가 다른 카드를 가리킨다. 다시 열면 다시 만든다. */
-  const [queue, setQueue] = useState<RunItem[]>(() => buildReviewQueue(state, res.days, today));
+  /* I043 — 임시 학습 세트. 진입 경로가 실어 나른 의도가 있으면 그 세트로 큐를 짠다.
+     ⚠ `useState` 초기화 함수 안에서 읽는 이유는 정규 큐와 같다: 큐는 **세션 시작 시점의
+     스냅샷**이고, 파생으로 두면 상태 변화가 발밑에서 큐를 갈아 끼운다. */
+  const navState = useLocation().state as (Partial<ResumeNav> & Partial<AdhocNav>) | null;
+  const adhoc = navState?.adhoc?.length ? { keys: navState.adhoc, preview: navState.preview !== false } : null;
+  const [queue, setQueue] = useState<RunItem[]>(() =>
+    adhoc ? buildAdhocQueue(state, res.days, today, adhoc.keys) : buildReviewQueue(state, res.days, today),
+  );
   /* N-7 착지 — '이어하기 (7/12)' 를 눌러 왔으면 그 자리에서 시작한다.
      ⚠ 이 두 줄이 없던 동안 칩은 진행을 **약속만 하고** 러너는 언제나 0 에서 열렸다. 즉
        `resume.ts` 머리주석이 이 기능의 존재 이유로 든 중복 학습("폰에서 7장 했는데 PC 에서
@@ -326,7 +335,7 @@ function ReviewRun() {
        카드에서 시작한다. 의도는 **진입 경로**(내비 state)가 실어 나른다.
      ⚠ 큐는 이 기기에서 새로 짜이므로 길이가 다를 수 있다 → 클램프. 순서는 결정론적이라
        근사가 성립하고, 어긋나면 아래 '처음부터 보기'가 탈출구다. */
-  const resumeAt = (useLocation().state as ResumeNav | null)?.resumeAt;
+  const resumeAt = navState?.resumeAt;
   const [startedAt] = useState(() =>
     typeof resumeAt === 'number' ? Math.max(0, Math.min(resumeAt, Math.max(0, queue.length - 1))) : 0,
   );
@@ -399,10 +408,13 @@ function ReviewRun() {
            ⚠ 파도가 없으면 **줄을 안 건다**: `0장` 이라 적으면 *예보가 비었다*와 *앞으로 할 일이
            없다*가 같은 문자열이 된다. */
         ...(peak ? [{ label: peak.over ? '파도 · 넘침' : '파도', value: `+${peak.offset}일 ${peak.chapters}장` }] : []),
+        /* I043 — preview 세트임을 **상단 크롬이** 말한다. 카드만 보면 정규 복습과 구분되지
+           않고, 그러면 사용자는 «했는데 사다리가 안 움직인다»를 결함으로 읽는다. */
+        ...(adhoc?.preview ? [{ label: '임시 세트', value: '사다리 무변경' }] : []),
       ],
       action: { label: '오늘 학습', onClick: () => nav('/today') },
     }),
-    [remaining, gotCount, finished, risk.overdue, risk.due, peak?.offset, peak?.chapters, peak?.over],
+    [remaining, gotCount, finished, risk.overdue, risk.due, peak?.offset, peak?.chapters, peak?.over, adhoc?.preview],
   );
 
   /**
@@ -412,7 +424,10 @@ function ReviewRun() {
    */
   const advance = (didIt: boolean, anchor = false) => {
     const cur = queue[idx];
-    const a = anchor && cur ? anchorOf(cur) : null;
+    /* ⚠⚠ **preview 세트는 앵커를 안 옮긴다**(I043). 임의 검색으로 만든 세트가 정규 사다리를
+       영구히 오염시키는 것이 밖의 매뉴얼이 직접 경고하는 실패다 — 그 판정을 여기 한 줄로
+       못박는다(호출부마다 기억하게 두면 한 곳이 반드시 빠진다). */
+    const a = anchor && cur && !adhoc?.preview ? anchorOf(cur) : null;
     // 되돌리기가 앵커까지 물릴 수 있도록 **직전 값을 스냅샷에 함께** 담는다(쓰기 전에 읽는다).
     const snap: RunSnap = { idx, queue, gotKeys, revealedAt, jol, pred };
     if (a) snap.touch = { ...a, prev: reviewTouchOf(state, a.sid, a.chapter) };
@@ -648,7 +663,7 @@ function ReviewRun() {
     .filter((i) => !i.again && i.kind === 'chapter' && !gotKeys.includes(runItemKey(i)))
     .map((i) => (i as Extract<RunItem, { kind: 'chapter' }>).ch)
     .filter((ch, i, arr) => arr.findIndex((x) => x.sid === ch.sid && x.chapter === ch.chapter) === i)
-    .filter((ch) => !isHeld(state, ch.sid, ch.chapter));
+    .filter((ch) => reviewPause(state, ch.sid, ch.chapter, today) === null);
 
   /* P-2 — 방금 넘긴 카드의 "왜 막혔나". 코드 하나로 커밋되고, 그 뒤 메모는 선택이다.
      ⚠ 카드 **위**의 한 줄이다(모달이 아니다) — 러너 흐름을 멈추지 않는 것이 이 위젯의 전부다.
@@ -728,14 +743,32 @@ function ReviewRun() {
               ⚠ 자동 만료를 두지 않는다. 되돌릴 때까지 빠져 있고, 되돌릴 자리는 예보 탭 선반이다. */}
           {missedChapters.length > 0 && (
             <div className="mt-1 flex w-full max-w-runner flex-col gap-1.5 text-left">
+              {/* ⚠⚠ **동사가 둘이다**(I040 · 2026-08-22). 종전엔 미루기가 하나뿐이라 *오늘 컨디션
+                  때문에 못 떠올린 것*과 *당분간 안 볼 것*이 같은 버튼을 눌렀고, 그러면 전자를
+                  누른 챕터가 되돌리기 전까지 큐에서 영영 빠진다. 그래서 사용자는 아무것도 안
+                  누르고 내일 같은 12장을 다시 민다 — P-11 이 없애려던 그 의식이 되살아난다.
+                  ⚠ 「오늘만」은 되돌리기가 없다(자정에 스스로 풀린다). 그 사실을 문장이 말한다. */}
               <p className="m-0! text-xs leading-body text-mut">
-                못 떠올린 {missedChapters.length}개는 <b className="font-bold text-txt">내일 그대로 돌아와요</b>. 당분간
-                안 볼 것은 지금 빼 두세요 — 삭제가 아니고 <b className="font-bold text-txt">복습 예보</b>에서 되돌릴 수
-                있어요.
+                못 떠올린 {missedChapters.length}개는 <b className="font-bold text-txt">내일 그대로 돌아와요</b>. 오늘만
+                넘길지, 당분간 뺄지 고르세요 — 둘 다 삭제가 아니에요.
               </p>
-              <ul className="m-0! flex list-none flex-wrap gap-1.5 p-0!">
+              <ul className="m-0! flex list-none flex-col gap-1.5 p-0!">
                 {missedChapters.map((ch) => (
-                  <li key={`${ch.sid}|${ch.chapter}`} className="m-0!">
+                  <li key={`${ch.sid}|${ch.chapter}`} className="m-0! flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-txt">
+                      {ch.subject} · {ch.chapter}
+                    </span>
+                    <Button
+                      sm
+                      variant="ghost"
+                      onClick={() =>
+                        useApp.getState().mutate((st) => {
+                          snoozeReview(st, ch.sid, ch.chapter, today);
+                        })
+                      }
+                    >
+                      오늘은 빼기
+                    </Button>
                     <Button
                       sm
                       variant="ghost"
@@ -745,11 +778,15 @@ function ReviewRun() {
                         })
                       }
                     >
-                      {ch.subject} · {ch.chapter} 복습에서 빼기
+                      당분간 빼기
                     </Button>
                   </li>
                 ))}
               </ul>
+              <p className="m-0! text-2xs text-mut">
+                「오늘은」은 자정에 스스로 풀려요 · 「당분간」은 <b className="font-bold text-txt">복습 예보</b>에서
+                되돌립니다.
+              </p>
             </div>
           )}
           <div className={ACTS_CENTER}>
@@ -895,8 +932,11 @@ function ReviewRun() {
       {item.kind === 'chapter' && (
         <div className={`ds-well ${CARD_BASE} max-w-runner`} data-kind="chapter" data-risk={item.ch.risk}>
           <div className="flex items-center justify-between gap-2">
+            {/* ⚠ 배지도 **lib 이 소유한다**(I041 · 2026-08-22). 여기 삼항이 `chapterCopy` 의 배지를
+                손으로 재현하고 있었고 — 폰은 `copy.badge` 를 쓰므로 **이미 갈릴 준비가 돼
+                있었다**. H14 가 본문에서 고친 「말이 두 벌」이 배지 축에 남아 있던 형태다. */}
             <span className={BADGE} data-kind="chapter" data-risk={item.ch.risk}>
-              {item.ch.maintenance ? '유지' : item.ch.risk === 'overdue' ? '많이 밀림' : '복습 때'}
+              {chapterCopy(item.ch).badge}
             </span>
             <span className="ds-tiny">
               {step}
@@ -916,6 +956,27 @@ function ReviewRun() {
           {/* ⚠ 문구는 **lib 이 소유한다**(H14) — 폰 러너와 같은 문장이어야 한다. 특히 볼트 유래
               앵커의 구분(W2)이 한쪽에만 있으면 `vaultAnchors.ts` 의 계약이 조용히 깨진다. */}
           <p className="text-mut">{chapterCopy(item.ch).body}</p>
+          {/* I041 — **처방이 갈 자리.** `spacedReview` 는 A-4 에서 «간격이 아니라 자료가 문제»라
+              판정하고 앞당김을 멈추는 데까지 갔는데, 그 판정을 받아 *무엇을 하러 갈지*를 주는
+              화면이 없었다(실측: `leech` 를 읽는 화면 0). 둘 다 **이 챕터를 들고** 간다 —
+              맥락 없이 탭만 열어 주면 사용자가 거기서 다시 챕터를 찾아야 하고, 그러면 안 간다. */}
+          {item.ch.leech && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <Button
+                sm
+                variant="ghost"
+                onClick={() => {
+                  usePrefill.getState().request('bl', item.ch.sid, today, item.ch.chapter);
+                  nav('/day');
+                }}
+              >
+                막힌 지점 적기
+              </Button>
+              <Button sm variant="ghost" onClick={() => nav(`/subject/${item.ch.sid}`)}>
+                챕터 쪼개기 →
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

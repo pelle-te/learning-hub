@@ -25,6 +25,7 @@ import { FIND_GUIDE_VIEW } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { contentSearch, type ContentHit } from '@/lib/contentSearch';
+import { type AdhocNav } from '@/lib/resume';
 import { railTabs } from '@/shell';
 import State from '@/components/State';
 import { Icon } from '@/components/Icon';
@@ -74,6 +75,13 @@ export default function Find() {
   const q = params.get('q') ?? '';
 
   const hits = useMemo(() => (q.trim() ? contentSearch(q, state, LIMIT) : []), [q, state]);
+  /* I043 — 세트가 될 수 있는 것은 **챕터 히트뿐**이다(과목·보충·오답은 카드가 아니다).
+     ⚠ `id` 를 되파싱하지 않는다 — `ContentHit` 이 `sid`·`chapter` 를 필드로 들고 다니는 이유가
+     그것이고(N-1), 그 규율을 여기서 깨면 접두어가 바뀌는 날 조용히 엉뚱한 챕터를 부른다. */
+  const chapterKeys = useMemo(
+    () => hits.filter((h) => h.kind === 'chapter' && h.sid && h.chapter).map((h) => `${h.sid}|${h.chapter}`),
+    [hits],
+  );
   /* 화면 이름도 함께 찾는다 — 내용이 주(主)지만 "그 탭 이름이 뭐였지"도 실재하는 질문이다.
      ⚠ 은퇴한 화면은 여기 안 나온다(`railTabs()` 가 이미 걸러 준다 · Q-22).
      ⚠ N-14(W5) 이후 **렌즈도 나온다** — 레일에 서는 것이 곧 찾을 수 있는 화면이다. */
@@ -187,6 +195,26 @@ export default function Find() {
               </Button>
             </li>
           ))}
+          {/* ⚠⚠ **임시 학습 세트**(I043 · 2026-08-22). "내일 시험이니 이 범위만" 은 실재하는
+              요구인데 이 앱엔 그걸 말할 문법이 없었다(큐는 위험도가 짠다). 밖의 대응(필터 덱)이
+              자기 매뉴얼에 *"반복 사용에 부적절"* 을 적어 두는 이유가 이 기능의 설계 조건이다 —
+              그래서 **기본이 preview** 이고(앵커 무변경), 그 사실을 버튼 옆 문장이 말한다.
+              근거 전문은 `lib/reviewQueue.buildAdhocQueue` 머리주석. */}
+          {chapterKeys.length > 0 && (
+            <li>
+              <div className={`${ROW} flex-wrap items-center gap-2`}>
+                <Button
+                  sm
+                  onClick={() =>
+                    navigate('/review-run', { state: { adhoc: chapterKeys, preview: true } satisfies AdhocNav })
+                  }
+                >
+                  이 결과 {chapterKeys.length}개로 지금 세션
+                </Button>
+                <span className="ds-tiny text-mut">사다리는 안 건드려요(임시) · 정규 복습은 그대로 돌아옵니다</span>
+              </div>
+            </li>
+          )}
           {hits.map((h) => (
             <li key={h.id}>
               <Button variant="ghost" className={ROW} onClick={() => navigate(h.to)}>

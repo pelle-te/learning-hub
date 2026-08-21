@@ -158,10 +158,15 @@ export async function initAppStore(): Promise<void> {
        "조용한 localStorage 폴백"으로 흘러 **뜨는데 데이터가 옛날 것**이 된다. 판정이 참이면
        이 함수는 아무것도 읽지 않고 나가고, `main.tsx` 가 앱 대신 명시적 화면을 띄운다. */
     const guard = await import('../tauri').then((m) => m.dbVersionGuard());
-    if (guard?.downgraded) {
+    /* ⚠ **드리프트도 같은 문을 쓴다**(I039 · 2026-08-22). 「번호는 같은데 내용이 다른」 DB 는
+       sqlx 가 열 때 거부하는데, 그 실패는 위 주석이 말한 **정확히 같은 조용한 폴백**으로
+       흘러간다(뜨는데 데이터가 옛날 것). 탐지는 이미 있었고 **보고가 없었다.** */
+    if (guard?.downgraded || guard?.drifted.length) {
       _downgraded = guard;
       console.error(
-        `[db] 다운그레이드 감지 — DB v${guard.applied} > 이 빌드 v${guard.bundled}. 정상 부팅을 중단합니다.`,
+        guard.downgraded
+          ? `[db] 다운그레이드 감지 — DB v${guard.applied} > 이 빌드 v${guard.bundled}. 정상 부팅을 중단합니다.`
+          : `[db] 마이그레이션 내용 불일치 — v${guard.drifted.join(', v')}. 정상 부팅을 중단합니다.`,
       );
       return;
     }

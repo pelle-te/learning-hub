@@ -14,6 +14,7 @@
 ============================================================ */
 import { chapterReviews, interleaveBySubject, maintenanceReviews, type ChapterReview } from './spacedReview';
 import { pickRetrieval, pickConfidentWrong, type RetrievalCard, type ConfidentWrongCard } from './retrieval';
+import { reviewPause } from './reviewHold';
 import type { AppState, Day } from './types';
 
 export type RunCard =
@@ -72,8 +73,20 @@ export function chapterCopy(ch: ChapterReview): { badge: string; age: string; bo
       body: `끝낸 챕터예요. 마지막으로 본 지 ${ch.daysSince}일(${ch.lastDs}) — 유지 인출로 붙잡아 둡니다.`,
     };
   }
-  const badge = ch.risk === 'overdue' ? '많이 밀림' : '복습 때';
   const age = ` · ${ch.daysSince}일 방치`;
+  /* ⚠⚠ **만성 실패는 다른 문구여야 한다**(I041 · 2026-08-22 발상 축). `spacedReview` 는 A-4 에서
+     leech 판정을 세우며 그 자리에 *"UI 는 이걸 다른 문구로 그려야 한다 — 표식 없이 빈도만
+     낮추면 사용자에겐 그냥 「앱이 이 챕터를 잊었다」로 보이고, 그건 이 항목이 만들려던 것의
+     정반대다"* 라고 적어 뒀다. 실측하니 **`leech` 를 읽는 화면이 저장소에 0개**였다 — 판정은
+     흐르는데 그 끝이 없어서, 앱은 조용히 앞당김만 멈추고 아무 말도 안 하고 있었다.
+     ⚠ 문구가 «자료가 문제»라고 말해야 한다. 간격을 더 만지자는 말이 아니라는 것이 A-4 의 전부다. */
+  if (ch.leech)
+    return {
+      badge: '반복해서 막힘',
+      age,
+      body: `이 챕터는 여러 번 무너졌어요(마지막 ${ch.lastDs}). 더 자주 보여 주는 건 답이 아니에요 — 간격이 아니라 자료를 바꿀 때예요.`,
+    };
+  const badge = ch.risk === 'overdue' ? '많이 밀림' : '복습 때';
   if (ch.fromVault)
     return {
       badge,
@@ -106,14 +119,49 @@ export function buildReviewQueue(state: AppState, days: Day[], today: string): R
      **cap 앞에서** 거른다: cap 뒤에 거르면 뺀 자리가 빈 채로 남아 세션이 조용히 짧아지고,
      그러면 "뺐는데 아무것도 안 달라졌다"가 된다(뺀 만큼 다음 챕터가 올라와야 의미가 있다).
      `risk !== 'fresh'` 필터와 같은 자리인 이유도 같다 — 둘 다 *큐에 들어갈 자격*의 문제다. */
-  const held = (c: ChapterReview): boolean => !!state.reviewHold?.[`${c.sid}|${c.chapter}`];
+  /* ⚠ 판정자는 `reviewPause` **하나**다(I040). 종전엔 여기서 `state.reviewHold` 를 직접 읽었고,
+     시제가 둘이 된 지금 그 형태를 남기면 「오늘만 빼기」가 큐에 안 먹는다 — 그리고 그건
+     **버튼은 눌리는데 아무 일도 안 일어나는** 가장 나쁜 실패다. */
+  const paused = (c: ChapterReview): boolean => reviewPause(state, c.sid, c.chapter, today) !== null;
   // 위험 챕터 전체를 과목 인터리빙 후 cap — riskChapters(cap 먼저)를 쓰지 않는 이유는 위 주석 참고.
-  const risk = chapterReviews(state, days || [], today).filter((c) => c.risk !== 'fresh' && !held(c));
+  const risk = chapterReviews(state, days || [], today).filter((c) => c.risk !== 'fresh' && !paused(c));
   for (const ch of interleaveBySubject(risk).slice(0, REVIEW_CHAPTER_CAP)) q.push({ kind: 'chapter', ch });
   // 유지(끝낸 챕터)는 **맨 뒤**에 상한만큼. 앞에 끼우면 진행 중 overdue 가 밀린다(강등 불변식의 배치판).
-  const keep = maintenanceReviews(state, today).filter((c) => c.risk !== 'fresh' && !held(c));
+  const keep = maintenanceReviews(state, today).filter((c) => c.risk !== 'fresh' && !paused(c));
   for (const ch of interleaveBySubject(keep).slice(0, MAINTENANCE_CAP)) q.push({ kind: 'chapter', ch });
   return q;
+}
+
+/* ── 임시 학습 세트(I043 · 2026-08-22 발상 축) ──────────────────────────────────
+   ⚠⚠ **정규 큐를 오염시키지 않는 것이 이 기능의 전부다.**
+
+   "내일 시험이니 이 범위만" 은 실재하는 요구인데, 이 앱에는 그걸 말할 문법이 없었다 — 큐는
+   위험도가 짜고 사용자는 순서를 못 고른다. 밖의 대응은 필터 덱이고, 그 매뉴얼이 스스로
+   못박는 문장이 이 설계의 핵심이다: *"반복 사용에 부적절하다"*
+   (docs.ankiweb.net/filtered-decks.html · 확인 2026-08-22). 임의 검색으로 만든 세트가 정규
+   스케줄을 **영구히** 오염시키는 것이 그 문서가 경고하는 실패다.
+
+   → 그래서 이 큐는 **preview 가 기본**이다: 카드가 뜨고 넘길 수 있지만 **앵커를 안 옮긴다**
+   (`reviewTouches` 무변경 = 망각곡선이 안 리셋된다). 그 선택을 화면이 말해야 한다.
+
+   ⚠ 보류·스누즈를 **무시한다**(정규 큐와 반대). 사용자가 이름을 대고 부른 챕터를 「빼 뒀다」는
+   이유로 안 보여 주면, 화면은 아무 일도 안 한 것처럼 보이고 원인은 어디에도 안 적힌다.
+   ⚠ 위험도도 무시한다 — `fresh` 여도 부르면 온다. 「이 범위만」의 뜻이 그것이다. */
+
+/** 임시 세트 큐 — `sid|chapter` 키 목록으로 챕터 카드만 만든다(회상·착각 카드는 안 넣는다). */
+export function buildAdhocQueue(state: AppState, days: Day[], today: string, keys: readonly string[]): RunItem[] {
+  const want = new Set(keys);
+  if (!want.size) return [];
+  const pool = [...chapterReviews(state, days || [], today), ...maintenanceReviews(state, today)];
+  const seen = new Set<string>();
+  const out: RunItem[] = [];
+  for (const ch of pool) {
+    const k = `${ch.sid}|${ch.chapter}`;
+    if (!want.has(k) || seen.has(k)) continue;
+    seen.add(k);
+    out.push({ kind: 'chapter', ch });
+  }
+  return out;
 }
 
 /**

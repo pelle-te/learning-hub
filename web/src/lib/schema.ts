@@ -587,6 +587,12 @@ export const AppStateSchema = z.looseObject({
    *  ⚠ 값이 날짜인 것은 선반이 "언제 뺐나"를 말하기 위해서다 — **자동 만료용이 아니다**
    *  (P-9 와 같은 되돌리기 규칙을 공유해야 하고, 거긴 만료가 없다). */
   reviewHold: z.optional(z.record(z.string(), z.string())),
+  /** reviewSnooze[`${sid}|${chapter}`] = ds(미룬 날) — **「오늘은 빼기」**(I040 · 2026-08-22).
+   *  ⚠⚠ `reviewHold` 와 **시제가 다르다**: 저기는 「당분간 안 본다」(자동 만료 없음)이고 여기는
+   *  「오늘만 안 본다」(자정에 스스로 풀린다). 종전엔 미루기가 하나뿐이라 **영구 포기와 하루
+   *  미룸이 같은 버튼**이었고, 그래서 오늘 컨디션 때문에 미룬 챕터가 되돌리기 전까지 큐에서
+   *  영영 빠졌다. 배타성은 `lib/reviewHold` 의 `reviewPause` 한 곳이 판정한다. */
+  reviewSnooze: z.optional(z.record(z.string(), z.string())),
   /** 일일 배치 오버라이드(§4-1) — 키=ds(YYYY-MM-DD). manual인 날은 그날 배치의 진리=사용자.
    *  옵셔널·무마이그레이션(구버전 저장 무손상 로드). RUNTIME_CACHE_KEYS 아님 → 영속·백업·.ics 대상. */
   dayPlans: z.optional(z.record(z.string(), DayPlanSchema)),
