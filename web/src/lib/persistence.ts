@@ -7,7 +7,7 @@
    IDB 미러는 lib/idb.ts, 테마/되돌리기 UI는 store/features가 조립한다.
    부팅/영속은 KV(localStorage 호환)를 주입받아 순수·테스트 가능하게 만든다.
 ============================================================ */
-import { addDays, iso, nowHm, parseISO, rid, todayISO } from './utils';
+import { iso, nowHm, rid, todayISO } from './utils';
 import { DEGREE_REQ } from './degree';
 import { CbmsCodeSchema } from './schema';
 import type { AppState, CompletionEntry, KV, RoutineBlock, SessionType } from './types';
@@ -607,19 +607,8 @@ export function totalDoneHours(state: AppState): number {
   }
   return mins / 60;
 }
-/** 연속 학습일(스트릭): 오늘(또는 어제)부터 거꾸로 완료기록 연속 카운트. */
-export function studyStreak(state: AppState): number {
-  const c = state.completions || {};
-  const has = (ds: string) => c[ds] && Object.keys(c[ds]).length;
-  let cur = parseISO(todayISO(state)); // 앱의 '오늘' 단일 출처(_today 시드 존중) — new Date() 직접 사용 제거.
-  if (!has(iso(cur))) {
-    cur = addDays(cur, -1);
-    if (!has(iso(cur))) return 0;
-  }
-  let n = 0;
-  while (has(iso(cur))) {
-    n++;
-    cur = addDays(cur, -1);
-  }
-  return n;
-}
+/* ⚠⚠ **`studyStreak`(연속 학습일)이 여기 있었다 — 소비처 둘이 함께 은퇴했다**(I046 통계 탭 ·
+   I054 오늘 탭 · 2026-08-22 발상 축). 근거: 그 수의 입력(`completions`)이 실물에서 **0행**이라
+   화면에서 항상 0이었고, 0을 크게 그리는 것은 조망이 아니다. 스트릭 자체가 나쁘다는 판정이
+   아니라 **이 앱에서 그 수가 관측된 적이 없다**는 판정이다 — 입력 파이프(묶음 A)가 채워지면
+   다시 열 수 있고, 그때는 `git show <이 커밋의 부모>:web/src/lib/persistence.ts`. */

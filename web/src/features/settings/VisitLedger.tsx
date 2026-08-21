@@ -28,6 +28,7 @@ import {
 import { idleSample, idleSummary, idleVerdict, type IdleRow } from '@/lib/idleLedger';
 import { aiUsage, aiUsageReady, AI_SAMPLE_MIN_DAYS } from '@/lib/aiUsage';
 import { importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
+import { observationsReady, type ObsAnswer, type ObsQuestion } from '@/lib/observationsQuery';
 import { todayISO } from '@/lib/utils';
 import OrphanDocs from './OrphanDocs';
 
@@ -134,6 +135,7 @@ export default function VisitLedger() {
           <div className="mt-0.5 text-anno">0시 — 6 — 12 — 18 — 23</div>
         </div>
       )}
+      <ObsQuestions />
       <IdleLedger />
       <AiUsageLine />
       <MergeObservations />
@@ -247,6 +249,52 @@ function MergeObservations() {
         <input type="file" accept="application/json,.json" onChange={onFile} aria-label="관측 원장 파일 고르기" />
       </div>
       {msg && <div className="mt-1 text-mut">{msg}</div>}
+    </div>
+  );
+}
+
+/**
+ * I031 — **관측이 막고 있던 결정들**과, 지금 그것을 답할 수 있는가(2026-08-22 발상 축).
+ *
+ * 각 원장의 머리주석은 자기가 막고 있던 결정을 정확히 적어 뒀는데, 실측하면 그 값을 읽는
+ * 곳은 **바로 위 리드아웃 하나**였다 — 즉 「관측이 쌓이면 판정한다」가 판정하는 쪽 없이 돌고
+ * 있었다. 이 목록이 그 자리다: 무엇을 기다리고 있었는지와, 지금 답이 나왔는지.
+ *
+ * ⚠ **판정 문장을 화면이 조립하지 않는다** — `observationsReady` 가 `why` 를 준다. 화면이
+ * 문장을 만들면 «관측 0일»과 «부재 0회»가 같은 회색 문장이 되고, 그 구분이 이 원장의 값이다.
+ */
+const OBS_QUESTIONS: { q: ObsQuestion; label: string }[] = [
+  { q: 'tab-retire', label: '이 탭을 지워도 되나' },
+  { q: 'two-pane', label: '두 페인을 만들 이유가 있나' },
+  { q: 'day-phase', label: '하루의 국면을 화면에 실을 값이 있나' },
+  { q: 'idle-trigger', label: '재수신성 트리거를 만들 이유가 있나' },
+];
+
+function ObsQuestions() {
+  const [answers, setAnswers] = useState<Record<string, ObsAnswer> | null>(null);
+  useEffect(() => {
+    void Promise.all(OBS_QUESTIONS.map(({ q }) => observationsReady(q).then((a) => [q, a] as const))).then((rows) =>
+      setAnswers(Object.fromEntries(rows)),
+    );
+  }, []);
+  if (!answers) return null;
+  return (
+    <div className="ds-tiny mt-2">
+      <b>관측이 답해야 할 것</b> <span className="text-mut">· 무엇을 기다리고 있었나</span>
+      <ul className="m-0! mt-1 flex list-none flex-col gap-1 p-0!">
+        {OBS_QUESTIONS.map(({ q, label }) => {
+          const a = answers[q];
+          if (!a) return null;
+          /* 셋을 가른다: 답 나옴 / 아직 부족 / **아예 못 쟀다**. 마지막을 「부족」으로 접으면
+             이 파일이 막으려는 그 혼동(0 이 「없다」인가 「안 쟀다」인가)을 스스로 저지른다. */
+          const tone = a.unavailable ? 'text-mut' : a.ready ? 'text-acc' : 'text-warn';
+          return (
+            <li key={q} className="m-0!">
+              <span className="text-txt">{label}</span> <span className={tone}>— {a.why}</span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

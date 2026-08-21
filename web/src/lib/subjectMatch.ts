@@ -56,14 +56,38 @@ export function matchSubjectIndex(name: string, candidates: readonly string[]): 
   return best;
 }
 
+/* ── I035 **매칭기를 제안기로 강등한다**(2026-08-22 발상 축) ────────────────────────────
+
+   ⚠⚠ **규칙 ③(부분문자열)은 추측이다 — 그런데 결과가 확정처럼 쓰인다.** 이 파일은 «`물리`↔
+   `물리화학` 같은 오매핑이 배분을 조용히 오염시킨다»는 것을 알고 길이차로 방어했지만, 그
+   방어가 하는 일은 **가장 그럴듯한 추측을 고르는 것**이지 추측을 확정으로 만드는 것이 아니다.
+   그리고 이 규칙은 `masteryNeed` 를 통해 **실제로 배분을 구동한다**(이 파일이 자인).
+
+   → 그래서 «붙었다/안 붙었다» 두 칸을 **셋으로 쪼갠다**: 정확 · **추정** · 없음.
+   추정이 0이 아니면 그 자체가 «이름을 맞추거나 확정하라»는 신호이고, 그 수를 화면이 말한다.
+   ⚠ 규칙 자체는 **안 바꿨다** — 바꾸면 그동안 검증돼 온 배분이 통째로 흔들린다. 바뀐 것은
+   그 결과를 **어떻게 보고하는가**다. */
+
+/** 어떻게 붙었나 — `exact`(정확) · `partial`(추정 = 부분문자열) · `none`. */
+export type MatchKind = 'exact' | 'partial' | 'none';
+
+/** `matchSubjectIndex` 와 **같은 규칙**으로 고르되, 어떻게 골랐는지도 말한다. */
+export function matchSubjectKind(name: string, candidates: readonly string[]): MatchKind {
+  const i = matchSubjectIndex(name, candidates);
+  if (i < 0) return 'none';
+  return normSubject(candidates[i] ?? '') === normSubject(name) ? 'exact' : 'partial';
+}
+
 /** 조인 계측 결과. `unmatched` 는 **질의 쪽**(대개 앱의 과목) 이름이다 — 사용자가 고칠 수 있는 쪽. */
 export interface JoinReport {
   /** 질의 총수(빈 이름 제외). */
   total: number;
-  /** 후보에 붙은 수. */
+  /** 후보에 붙은 수(정확 + 추정). */
   matched: number;
   /** 안 붙은 질의 이름(입력 순서 유지). */
   unmatched: string[];
+  /** I035 — **추정으로 붙은** 질의 이름. 0이 아니면 그 자체가 「확정하라」는 신호다. */
+  partial: string[];
 }
 
 /**
@@ -74,13 +98,18 @@ export interface JoinReport {
  */
 export function subjectJoin(names: readonly string[], candidates: readonly string[]): JoinReport {
   const unmatched: string[] = [];
+  const partial: string[] = [];
   let total = 0;
   let matched = 0;
   for (const n of names) {
     if (!normSubject(n)) continue; // 이름 없는 항목은 셈에서 뺀다(분모를 오염시킨다)
     total++;
-    if (matchSubjectIndex(n, candidates) >= 0) matched++;
-    else unmatched.push(n);
+    const kind = matchSubjectKind(n, candidates);
+    if (kind === 'none') unmatched.push(n);
+    else {
+      matched++;
+      if (kind === 'partial') partial.push(n);
+    }
   }
-  return { total, matched, unmatched };
+  return { total, matched, unmatched, partial };
 }

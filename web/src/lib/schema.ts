@@ -628,7 +628,7 @@ export const AppStateSchema = z.looseObject({
   _icsExport: z.optional(z.unknown()),
   _lastBackupAt: z.optional(z.string()),
   // 축하 모먼트 중복발화 방지 마커 — 영속(RUNTIME_CACHE_KEYS 아님)이라 재로드해도 재발화 안 함.
-  _lastStreakCele: z.optional(z.number()), // 마지막으로 축하한 연속 학습일 임계(7·14·30·50·100)
+  /* ⚠ `_lastStreakCele`(마지막으로 축하한 연속 임계)가 여기 있었다 — 축하가 은퇴했다(I054). */
   _degreeCele: z.optional(z.boolean()), // 졸업요건 100% 축하 완료 플래그
 });
 

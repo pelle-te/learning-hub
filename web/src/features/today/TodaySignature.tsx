@@ -16,7 +16,6 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
 import { usePing, useKnowledge } from '@/store/queries';
-import { studyStreak } from '@/lib/persistence';
 import { focusKey, focusMinutes, type FocusEntry } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
@@ -343,7 +342,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const ankiLive = useRuntime((s) => s.cache._ankiLive);
   const res = useSchedule();
   const toggleDone = useApp((s) => s.toggleDone);
-  const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
   const go = (to: string) => navigate(to, { viewTransition: true });
   const setSchedView = useUI((st) => st.setSchedView);
@@ -410,7 +408,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      판단이 아니라 주의 조망이고, `/schedule` 이 그 질문을 통째로 소유하는 화면이다. 매일 7일을
      순회하던 비용과 `useCountUp` 훅 하나도 같이 없어진다. */
 
-  const streak = studyStreak(state);
   const due = dueOf(ankiLive);
   const ankiFresh = ankiFreshness(ankiLive, ds); // 이 숫자가 오늘 것인가(캐시라 어제 것일 수 있다)
   const openBl = openBacklog(state).length;
@@ -635,20 +632,12 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
     if (!allDone) wasDone.current = false;
   }, [allDone]);
 
-  // PL-9 — streak 마일스톤 최초 돌파 축하(임계별 1회). 영속 마커 _lastStreakCele로 재로드 재발화 방지.
-  useEffect(() => {
-    const MILE = [7, 14, 30, 50, 100];
-    const last = state._lastStreakCele ?? 0;
-    const hit = MILE.filter((m) => streak >= m && last < m);
-    if (hit.length) {
-      const top = Math.max(...hit);
-      toast(`${top}일 연속 — 불씨 살아있어요`, 'info');
-      mutate((st) => {
-        st._lastStreakCele = top;
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streak]);
+  /* ⚠⚠ **여기 PL-9 스트릭 마일스톤 축하가 있었다 — 은퇴했다**(I054 · 2026-08-22 발상 축).
+     I046 이 통계 탭의 게이미피케이션 셋을 지운 짝이다. 근거는 같다: 그 수의 입력(`completions`)이
+     실물에서 **0행**이라 이 축하는 원리적으로 뜬 적이 없고, 뜬다면 그건 «0을 크게 그리는 것»의
+     가장 강한 형태다(축하는 조망이 아니다).
+     ⚠ 영속 마커 `_lastStreakCele` 도 함께 지웠다 — 축하가 없으면 «마지막으로 축하한 임계»가
+     가리킬 것이 없다. 옛 저장본에 남아 있어도 zod 가 모르는 키를 버린다(무마이그레이션). */
 
   // 진행률·연속·마감 + 주 액션을 상단 바로 끌어올림(데모 v6 헤더).
   /* ── E23 하루 신호 기록 ────────────────────────────────────────────────
@@ -680,8 +669,8 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      ⚠ 이 훅은 계약상 `exhaustive-deps` 를 끈다(`store/usePageChrome` 참조) — 즉 이 손 목록이
      유일한 방어선이다. 여기에 값을 추가할 때는 `chromeFor` 가 **실제로 읽는 것**을 세어라. */
   usePageChromeEffect(
-    () => chromeFor({ cap, streak, todayDone, todayTotal, allDone, hasItems, res, nearestDday, goPlanToday, go }),
-    [cap.slackMin, todayDone, streak, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
+    () => chromeFor({ cap, todayDone, todayTotal, allDone, hasItems, res, nearestDday, goPlanToday, go }),
+    [cap.slackMin, todayDone, nearestDday, todayTotal, allDone, hasItems, res.adaptApplied, res.adapt],
   );
 
   // W20 — 오늘 띄울 인출 카드 **하나**(회전 규칙·근거는 `lib/todaySlots` 머리주석).
@@ -961,7 +950,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
 /** 상단 크롬(44px 앵커 + 리드아웃 + 액션) — 위 컴포넌트에서 뺀 설정부. 근거는 그 호출부 주석. */
 function chromeFor(p: {
   cap: ReturnType<typeof dayCapacity>;
-  streak: number;
   todayDone: number;
   todayTotal: number;
   allDone: boolean;
@@ -974,7 +962,7 @@ function chromeFor(p: {
   /* ⚠ `todayDone`·`nearestDday` 는 **deps 로만** 쓰인다(E7 이 그 둘을 상단에서 뗐다 — 각각
      흐름 헤더의 링과 하단 '마감 임박' 이 소유자다). 인자로 받는 이유는 호출부의 deps 와 이
      함수의 입력이 갈리지 않게 하기 위함이고, 그 사실을 여기 적어 둔다. */
-  const { cap, streak, todayTotal, allDone, hasItems, res, goPlanToday, go } = p;
+  const { cap, todayTotal, allDone, hasItems, res, goPlanToday, go } = p;
   return {
     /* ⚠⚠ **Q-2 에서 뒤집혔다(2026-08-02).** 종전 주석은 _"이 화면은 렌즈라 44px 앵커를 세우지
          않는다 — 잊은 것이 아니라 없다고 정한 것이다"_ 였는데, 그 판단의 대가가 뒤늦게 드러났다:
@@ -1002,21 +990,10 @@ function chromeFor(p: {
            무스크롤이라 내려갈 거리가 화면 안이고, 스트립은 E8 에서 *있을 때만* 그린다(0인 날은
            아예 없으므로 마감이 떠 있으면 그 자체가 신호다). */
     readouts: [
-      {
-        label: '연속',
-        // PL-9: streak≥2면 불꽃 아이콘 프리픽스(Stats 탭 `Readout prefix` 와 통일 — 불씨 살아있음 시각화).
-        value: (
-          <>
-            {streak >= 2 && (
-              <>
-                <Icon name="flame" />{' '}
-              </>
-            )}
-            {streak}
-            <small className="text-base14 font-bold text-mut"> 일</small>
-          </>
-        ),
-      },
+      /* ⚠ `연속`(스트릭) 리드아웃이 여기 있었다 — I054 가 지웠다(위 축하 주석이 근거의 SSOT).
+         I046 이 통계 탭에서 같은 자리를 「밀린 복습」에 준 것과 짝이다. 여기서는 그 자리를
+         **비운다**: 이 화면의 상단은 이미 히어로가 «지금 무엇을»을 44px 로 말하고 있고,
+         빈 칸을 급히 채우는 것이 이 저장소가 반복해 온 «표면을 하나 더» 다. */
       /* ⚠ `남은 가용` 리드아웃이 여기 있었다 — **W6 이 흡수했다.** 30px 로 크게 그리면서도
            그 수 혼자서는 "오늘 안에 들어가는가"를 못 말했고(사용자가 남은 계획과 대각선으로
            눈을 이어 뺄셈을 했다), 지금은 히어로 아이브로 아래 한 줄이 두 수를 **판정과 함께**

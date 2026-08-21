@@ -55,13 +55,29 @@ export default function Integrations() {
         { label: 'Anki due', value: live ? due : '—' },
         {
           label: '지식 조인',
-          value: noEngine ? '—' : `${join.matched}/${join.total}`,
-          accent: join.unmatched.length > 0,
+          /* I035 — 추정이 있으면 그 수를 **리드아웃에서부터** 말한다(`9/12 · 추정 2`).
+             숫자 하나로 접으면 «붙었다» 가 «확정됐다» 로 읽힌다. */
+          value: noEngine
+            ? '—'
+            : `${join.matched}/${join.total}${join.partial.length ? ` · 추정 ${join.partial.length}` : ''}`,
+          accent: join.unmatched.length > 0 || join.partial.length > 0,
         },
         { label: '워크스페이스', value: online ? '● 연결됨' : ping.isLoading ? '…' : WORKSPACE_UNSET_SHORT },
       ],
     }),
-    [vault, subjects, live, due, online, ping.isLoading, noEngine, join.matched, join.total, join.unmatched.length],
+    [
+      vault,
+      subjects,
+      live,
+      due,
+      online,
+      ping.isLoading,
+      noEngine,
+      join.matched,
+      join.total,
+      join.unmatched.length,
+      join.partial.length,
+    ],
   );
 
   return (
@@ -84,6 +100,17 @@ export default function Integrations() {
                 <>
                   지식엔진 조인 <strong className="text-txt">{join.matched}</strong>/{join.total}
                   {join.unmatched.length > 0 && <> · 미연결: {join.unmatched.join(', ')}(이름 표기가 다릅니다)</>}
+                  {/* I035 — **추정으로 붙은 것을 따로 말한다**(2026-08-22 발상 축). 부분문자열
+                      매칭은 «가장 그럴듯한 추측»이지 확정이 아닌데, 결과는 `masteryNeed` 를 통해
+                      **배분을 실제로 구동한다**. 「9/12」 한 칸에 뭉뚱그리면 그 추측이 확정처럼
+                      읽히고, 틀린 날에도 화면에 아무 신호가 없다. */}
+                  {join.partial.length > 0 && (
+                    <>
+                      {' '}
+                      · <b className="font-bold text-warn">추정 {join.partial.length}</b>: {join.partial.join(', ')}
+                      (이름이 정확히 같지 않아 부분 일치로 붙였어요 — 표기를 맞추면 확정됩니다)
+                    </>
+                  )}
                 </>
               )}
             </p>
