@@ -1094,39 +1094,29 @@ describe('불변식 ⑨ morph 이름은 lib/motion 의 규약에서만 나온다
    여기서 막는 것은 **어휘가 화면마다 늘어나는 것**이다.
 ──────────────────────────────────────────────────────────────────────────── */
 describe('불변식 ⑩ 화면 하나가 무한 애니를 셋 이상 걸지 않는다', () => {
-  const SRC7 = join(process.cwd(), 'src') + '/';
   /** 화면 파일당 상한. 둘까지가 "이것과 저것이 살아 있다"이고, 셋부터는 배경이다. */
   const LIVE_CAP = 2;
   /** 어휘 정의부·공유 프리미티브는 제외 — 정의는 한 곳에 모여 있는 것이 정상이다. */
   const DEFS = /(styles|components\/ui)\//;
-
-  function tsxFiles(): string[] {
-    const out: string[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (e.name.endsWith('.tsx')) out.push(p);
-      }
-    };
-    walk(join(process.cwd(), 'src'));
-    return out;
-  }
+  /* ⚠ **지역 파일 워커를 지웠다**(V027 · 2026-08-21). m-16 이 11벌의 워커·4벌의 주석제거기를
+     `test/_sources.ts` 한 벌로 접었는데 이 블록만 자기 것을 들고 있었다 — 그리고 주석 제거도
+     **블록 주석만** 걷어서 **줄 주석(`//`) 안의 `animate-[live-*]` 는 위반으로 셌다**.
+     공용 `strip` 은 그 두 문법을 다 걷고 `https://` 오검까지 피한다(그 파일 머리주석이 SSOT). */
+  const 화면들 = tsxFiles().filter((f) => !DEFS.test(aliasOf(f)));
 
   it(`화면 파일당 live-* 등장이 ${LIVE_CAP}회 이하다`, () => {
-    const over: string[] = [];
-    for (const f of tsxFiles()) {
-      const rel = normPath(f).replace(normPath(SRC7), '');
-      if (DEFS.test(rel)) continue;
-      const src = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-      const n = [...src.matchAll(/animate-\[live-[a-z-]+/g)].length;
-      if (n > LIVE_CAP) over.push(`${rel} → ${n}회`);
-    }
+    const over = 화면들
+      .map((f) => ({
+        이름: aliasOf(f),
+        n: [...strip(readFileSync(f, 'utf8')).matchAll(/animate-\[live-[a-z-]+/g)].length,
+      }))
+      .filter((x) => x.n > LIVE_CAP)
+      .map((x) => `${x.이름} → ${x.n}회`);
     expect(over, '무한 애니가 화면에 셋 이상이면 그건 신호가 아니라 배경이다').toEqual([]);
   });
 
   it('live 어휘가 실제로 쓰이고 있다(0이면 이 불변식이 아무것도 안 잰다)', () => {
-    const used = tsxFiles().some((f) => /animate-\[live-[a-z-]+/.test(readFileSync(f, 'utf8')));
+    const used = 화면들.some((f) => /animate-\[live-[a-z-]+/.test(strip(readFileSync(f, 'utf8'))));
     expect(used).toBe(true);
   });
 });
