@@ -5,6 +5,7 @@ import {
   orderedTabs,
   tabByKey,
   routeLabelOfLocation,
+  visitKeyOfLocation,
   railTabs,
   ToastHost,
   ModalHost,
@@ -425,6 +426,10 @@ export default function App() {
 
      ⚠ `await` 하지 않는다. 관측이 내비게이션을 늦추면 관측 대상이 관측 때문에 달라진다.
      브라우저(dev·트랙 A)에선 `recordVisit` 이 통째로 무동작이다. */
+  /* I034 — 원장이 세는 키는 `routeKey`(호스트)가 **아니다**. 은퇴 관용구가 화면을 `?view=` 로
+     내리는데 첫 세그먼트만 세면 흡수된 화면은 자기 몫의 수를 영원히 못 얻는다 — 근거와 전환기
+     주의사항의 SSOT 는 `shell/tabs.ts` 의 `visitKeyOfLocation` 머리주석. */
+  const visitKey = visitKeyOfLocation(pathname, search);
   const firstVisit = useRef(true);
   /* W2 — **직전 경로 한 칸**(발산 6회차). 같은 이펙트에서 세는 것이 요점이다: 홉을 별도
      자리에서 세면 두 원장이 서로 다른 내비게이션 집합을 보게 되고, 그 어긋남은 합계가
@@ -433,10 +438,10 @@ export default function App() {
   useEffect(() => {
     const via = firstVisit.current ? 'boot' : takeVia('link');
     firstVisit.current = false;
-    void recordVisit(routeKey, via);
-    void recordHop(prevKey.current, routeKey);
-    prevKey.current = routeKey;
-  }, [pathname, routeKey]);
+    void recordVisit(visitKey, via);
+    void recordHop(prevKey.current, visitKey);
+    prevKey.current = visitKey;
+  }, [pathname, visitKey]);
 
   return (
     <div

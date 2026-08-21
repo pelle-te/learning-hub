@@ -22,6 +22,7 @@ import SyncLedger from '@/components/SyncLedger';
 import ConflictsView from './ConflictsView';
 import { useSyncLedger } from '@/store/useSyncLedger';
 import CaptureBar from './CaptureBar';
+import ExportBackup from './ExportBackup';
 import { sync } from './sync';
 
 /* ⚠ **`reads`(읽기) 뷰가 P10 W4 에서 빠졌다**(2026-08-07 · 다섯 → 넷). 폰이 데스크톱 6탭 중
@@ -218,6 +219,11 @@ export default function PhoneApp(): React.JSX.Element {
       {/* E14 캡처 바 — 탭바 **위**(엄지 도달권 안, 그러나 내비게이션보다 아래). 이 화면의
           다섯 뷰가 전부 읽기·체크뿐이라 "지하철 5분"에 떠오른 것을 받을 곳이 0이었다. */}
       <CaptureBar />
+
+      {/* I033 — 폰 원장이 밖으로 나가는 유일한 문. **홈에서만** 그린다: 다섯 뷰 전부에 두면
+          매 화면 바닥에 「내보내기」가 붙어 읽기 화면의 마지막 줄을 차지한다. 근거는
+          `ExportBackup` 머리주석(폰 관측이 판정자에게 도달하지 않는다). */}
+      {view === 'today' ? <ExportBackup /> : null}
 
       {/* UX-B1 하단 탭바 — 5탭 스위처가 화면 최상단에 있었다. 폰을 한 손으로 쥐면 거기가
           엄지가 가장 못 닿는 지대다(iOS·안드로이드가 나란히 하단으로 내려간 이유). "지하철에서

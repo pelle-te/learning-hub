@@ -8,6 +8,7 @@
    ⚠ `isTauri()` 가 거짓인 경로(브라우저 `npm run dev`·트랙 A)엔 **백엔드가 없다.** 남아 있는
    `/api` fetch 는 트랙 A 가 invoke 스텁으로 대체하며, 실사용에서 이 가지는 도달하지 않는다.
 ============================================================ */
+import { recordAiCall } from './aiUsage';
 import {
   ARTIFACT_NOT_FOUND,
   artifactRead,
@@ -228,6 +229,10 @@ export function previewFromJsonStream(text: string): string {
    ⚠ 종전 소비는 셋이었다(읽을거리 코치·어휘 · 증시 브리핑) — P10 W4 에서 그 화면들이 갔다.
    `kind` 가 곧 경로 조각이라 브라우저 경로는 `/api/${kind}` 로 그대로 재구성된다. */
 async function aiCall<T>(kind: string, body: Record<string, unknown>, opts?: StreamOpts, streaming = true): Promise<T> {
+  /* I023 — **이 축이 살아 있는가**의 유일한 계기(근거는 `lib/aiUsage` 머리주석). 전송 분기와
+     같은 자리에 두는 이유는 `visits` 와 같다: 화면마다 세게 하면 새 소비처에서 빠뜨리고,
+     빠진 것은 0 으로 보인다 — 그리고 이 축에서 0 의 결론은 «Rust 473줄을 지운다» 이다. */
+  recordAiCall();
   if (isTauri()) return shellOllamaRun<T>(kind, body, opts);
   return streaming ? postStream<T>(`/api/${kind}`, body, opts) : postJSON<T>(`/api/${kind}`, body);
 }
@@ -255,6 +260,7 @@ export function reviewCoach(
 export function embedTexts(
   texts: string[],
 ): Promise<{ ok: boolean; error?: string; model?: string; vectors?: number[][] }> {
+  recordAiCall(); // I023 — 임베딩도 같은 축이다(`aiCall` 을 안 타므로 여기 따로 있다)
   if (isTauri()) return shellOllamaEmbed(texts);
   return postJSON('/api/embed', { texts });
 }

@@ -25,6 +25,25 @@
    ⚠ 힌트에 유효기간을 둔다. `markVia` 후 내비게이션이 실제로 일어나지 않으면(막힌 링크·
    같은 경로 클릭) 그 값이 남아 **다음 내비게이션을 오염**시킨다. 1초를 넘기면 버린다.
 
+   ## ⚠⚠ 점검 트래픽은 사용이 아니다 (I030 · 2026-08-22)
+
+   발상 축 1회차가 실 DB 를 열어 본 결과, **마지막 10홉이 전 화면을 순서대로 도는 형태**였다 —
+   사람이 무엇을 쓰는 기록이 아니라 *감사 세션이 화면을 훑은* 기록이다. 그 행들이 그대로
+   `route_visits` 에 들어가 있고, `shell/tabs.ts` 의 은퇴 규칙은 그 합계를 읽는다. 즉 이 표는
+   **자기 근거를 스스로 오염**시키고 있었고, 그건 위 머리주석이 이미 경고한 순환
+   (*"데이터가 있다는 이유로 더 자신 있게 틀린다"*)이 실제로 발동한 형태다.
+
+   → 점검 모드가 켜진 **그 날짜**의 기록은 아예 남기지 않는다.
+
+   ⚠ **날짜 스코프인 것이 설계다.** 부울 플래그로 두면 켜 놓은 것을 잊어 관측이 조용히
+   영원히 멈추고, 그러면 다음 판정자는 **0 을 "안 쓴다"로 읽는다** — 이 저장소가 반복해서
+   물린 바로 그 형태(«녹색이 회귀 없음이 아니라 안 쟀음을 뜻하는»)를 관측 축에서 재현한다.
+   날짜를 들면 자정에 스스로 꺼지고, 켜져 있다는 사실이 리드아웃에 날짜로 보인다.
+
+   ⚠ 여기서 «지운다»가 아니라 «안 쓴다» 인 것도 의도다. 이미 들어간 오염 행을 소급 삭제하면
+   분모까지 함께 줄어 표본 충족 판정이 뒤집히는데, 그 행들이 관측된 날짜였다는 사실 자체는
+   참이다. 소급 정리는 하지 않는다 — 90일 창이 알아서 밀어낸다.
+
    ⚠ 브라우저(dev·트랙 A)에선 `getDb()` 가 null 이라 통째로 무동작이다 — 트랙 A 시각 베이스라인과
    개발 경로는 이 파일이 없는 것과 똑같이 돈다.
 ============================================================ */
@@ -59,6 +78,8 @@ const HINT_TTL = 1000;
 const KEEP_DAYS = 90;
 
 let _hint: { via: Via; at: number } | null = null;
+/* 점검 모드가 켜진 **날짜**(ds). `null` = 꺼짐. 부울이 아닌 이유는 머리주석. */
+let _inspectDs: string | null = null;
 /* 마지막으로 청소한 날(ds). ⚠⚠ 종전엔 부울이라 **세션당 1회**였고, 데스크톱 셸은 며칠씩 열려
    있으므로 보존창이 `KEEP_DAYS + 세션 길이`로 조용히 늘어났다(H24 · 2026-07-30). 90일이라 적고
    120일을 들고 있는 셈이다 — 날짜를 기억하면 자정을 넘긴 첫 기록이 다시 청소한다(하루 1회 유지). */
@@ -87,6 +108,25 @@ export function takeVia(fallback: Via, now: number = Date.now()): Via {
 export function resetVia(): void {
   _hint = null;
   _prunedOn = null;
+  _inspectDs = null;
+}
+
+/**
+ * 점검 모드를 켠 날짜를 싣는다(`null` = 끔). **그 날짜의 기록만** 건너뛴다.
+ *
+ * ⚠ 이 값의 정본은 `lib/uiState` 의 `inspectDs`(기기별 영속)이고, 여기는 그 사본이다 —
+ * `lib/` 는 스토어를 import 할 수 없으므로 `markVia` 와 같은 «호출부가 알려 준다» 관용구를 쓴다.
+ * 미러링 자리는 `store/useUI` 하나다(부팅 1회 + 토글 시).
+ */
+export function setInspectDs(ds: string | null): void {
+  _inspectDs = ds;
+}
+
+/* 오늘이 점검 중인가 — **내보내지 않는다.** 화면은 영속값(`ui.inspectDs`)을 직접 비교한다:
+   여기 사본은 스토어가 실어 주는 것이라, 화면이 이걸 읽으면 「set 과 미러링 중 어느 쪽이
+   먼저인가」에 그리기가 매달린다. 판정의 소비자는 아래 기록 함수 둘뿐이다. */
+function isInspecting(todayDs: string = todayISO()): boolean {
+  return _inspectDs !== null && _inspectDs === todayDs;
 }
 
 /** 원장 한 줄(요약 읽기용). */
@@ -232,7 +272,7 @@ export async function recordHop(
   todayDs: string = todayISO(),
   hour: number = new Date().getHours(),
 ): Promise<void> {
-  if (!isSqlitePrimary() || !from || from === to) return;
+  if (!isSqlitePrimary() || !from || from === to || isInspecting(todayDs)) return;
   await execDb(
     `INSERT INTO route_hops (from_key, to_key, day, hour, n) VALUES (?, ?, ?, ?, 1)
      ON CONFLICT(from_key, to_key, day, hour) DO UPDATE SET n = n + 1`,
@@ -248,6 +288,10 @@ export async function recordHop(
  */
 export async function recordVisit(key: string, via: Via, todayDs: string = todayISO()): Promise<void> {
   if (!isSqlitePrimary()) return;
+  /* I030 — 점검 중인 날은 **분자도 분모도** 만들지 않는다. 청소(아래)보다 먼저 나가는 것이
+     의도다: 보존창 정리는 점검과 무관하지만, 점검 세션이 그 김에 90일 경계를 밀어 주는 것도
+     «점검이 원장을 바꾼다»의 한 형태다. 점검 세션은 이 표에 **아무 흔적도** 남기지 않는다. */
+  if (isInspecting(todayDs)) return;
   await execDb(
     `INSERT INTO route_visits (key, day, via, n) VALUES (?, ?, ?, 1)
      ON CONFLICT(key, day, via) DO UPDATE SET n = n + 1`,

@@ -129,6 +129,13 @@ export const UIStateSchema = z.object({
      ⚠ 상한(`MAX_PINS`)은 `lib/pins` 가 소유한다 — 스키마에 넣으면 초과분이 **저장 시점에
        거부**되고 사용자는 왜 안 붙었는지 모른다(선수 관계 순환에서 내린 것과 같은 판단). */
   pins: z._default(z.array(z.object({ to: z.string(), label: z.string(), at: z.number() })), []),
+  /* I030 점검 모드 — 이 **날짜**의 방문·홉을 원장에 안 남긴다(`null` = 꺼짐).
+     ⚠ 부울이 아니라 날짜인 이유는 `lib/visits` 머리주석이 SSOT: 켜 놓은 것을 잊으면 관측이
+       조용히 영원히 멈추고, 그러면 다음 판정자가 **0 을 「안 쓴다」로 읽는다**. 자정에 스스로
+       꺼지고, 켜져 있다는 사실이 리드아웃에 날짜로 보인다.
+     ⚠ **기기별이다**(`seenAt`·`trayResident` 와 같은 논증): 점검은 이 기기에서 하는 행위이고,
+       동기화하면 PC 의 감사 세션이 폰의 관측까지 멈춘다. */
+  inspectDs: z._default(z.nullable(z.string()), null),
 });
 export type UIState = z.infer<typeof UIStateSchema>;
 

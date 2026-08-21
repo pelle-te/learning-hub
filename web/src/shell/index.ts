@@ -19,6 +19,7 @@ export {
   tabByKey,
   routeLabelOf,
   routeLabelOfLocation,
+  visitKeyOfLocation,
   sectionOf,
   navGroups,
   railTabs,

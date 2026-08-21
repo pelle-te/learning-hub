@@ -20,7 +20,7 @@ vi.mock('@/lib/db/sqlite', () => ({
   selectDb: (): Promise<unknown[]> => Promise.resolve([]),
 }));
 
-import { markVia, takeVia, resetVia, recordVisit } from '../src/lib/visits';
+import { markVia, takeVia, resetVia, recordVisit, recordHop, setInspectDs } from '../src/lib/visits';
 
 beforeEach(() => {
   resetVia();
@@ -85,5 +85,48 @@ describe('보존 청소 주기(H24)', () => {
   it('⚠ 날이 바뀌면 다시 청소한다 — 셸이 며칠 열려 있어도 90일 창이 유지된다', async () => {
     const sql = await recordAndCollect(['2026-07-30', '2026-07-30', '2026-07-31', '2026-08-01']);
     expect(sql.filter((s) => DEL.test(s))).toHaveLength(3);
+  });
+});
+
+/* ⚠⚠ **점검 트래픽은 사용이 아니다**(I030 · 2026-08-22 발상 축).
+
+   실 DB 의 마지막 10홉이 **전 화면 순회**였다 — 감사 세션이 훑은 기록이 그대로 `route_visits`
+   에 들어가고, `shell/tabs.ts` 의 은퇴 규칙이 그 합계를 읽는다. 관측이 자기 근거를 오염시키는
+   형태이고, 이 파일 머리주석이 이미 경고한 순환의 실현이다.
+
+   ⚠ 아래 넷이 잠그는 계약: ① 켠 날은 방문이 안 남는다 ② 홉도 안 남는다 ③ **청소도 안 돈다**
+   (점검 세션이 90일 경계를 미는 것도 «점검이 원장을 바꾼다»의 한 형태) ④ **날짜가 다르면
+   기록한다** — ④ 가 없으면 «부울로 켜 두고 잊는다»와 구분이 안 되고, 그건 이 노브가 관측을
+   영원히 끄는 함정이 되는 정확한 경로다. */
+describe('점검 모드(I030)', () => {
+  it('점검 중인 날은 방문을 기록하지 않는다', async () => {
+    setInspectDs('2026-08-22');
+    await recordVisit('today', 'rail', '2026-08-22');
+    expect(db.sql).toHaveLength(0);
+  });
+
+  it('점검 중인 날은 홉도 기록하지 않는다', async () => {
+    setInspectDs('2026-08-22');
+    await recordHop('today', 'plan', '2026-08-22');
+    expect(db.sql).toHaveLength(0);
+  });
+
+  it('⚠ 점검 중엔 보존 청소도 안 돈다 — 점검 세션은 이 표에 어떤 흔적도 남기지 않는다', async () => {
+    setInspectDs('2026-08-22');
+    await recordVisit('today', 'rail', '2026-08-22');
+    expect(db.sql.filter((s) => /DELETE FROM route_visits/.test(s))).toHaveLength(0);
+  });
+
+  it('⚠⚠ 날짜가 다르면 정상 기록한다 — 자정에 스스로 꺼져야 「켜 두고 잊는」 함정이 안 된다', async () => {
+    setInspectDs('2026-08-22');
+    await recordVisit('today', 'rail', '2026-08-23');
+    expect(db.sql.some((s) => /INSERT INTO route_visits/.test(s))).toBe(true);
+  });
+
+  it('끄면(null) 다시 기록한다', async () => {
+    setInspectDs('2026-08-22');
+    setInspectDs(null);
+    await recordVisit('today', 'rail', '2026-08-22');
+    expect(db.sql.some((s) => /INSERT INTO route_visits/.test(s))).toBe(true);
   });
 });

@@ -653,11 +653,47 @@ export function objectRoutes(): TabMeta[] {
  * 바뀌어도 따라온다). `retired` 만 보는 게 아니라 `to` 를 가진 전부를 본다.
  */
 export function routeLabelOfLocation(pathname: string, search: string): string {
+  return tabOfLocation(pathname, search)?.label ?? routeLabelOf(pathname.split('/')[1] || 'today');
+}
+
+/** 경로+쿼리가 **로스터의 어느 탭**인가(`?view=` 로 갈라진 것 포함). 없으면 `undefined`. */
+function tabOfLocation(pathname: string, search: string): TabMeta | undefined {
   const view = new URLSearchParams(search).get('view');
-  if (view) {
-    const base = `/${pathname.split('/')[1] || ''}`;
-    const hit = TABS.find((t) => t.to === `${base}?view=${view}`);
-    if (hit) return hit.label;
-  }
-  return routeLabelOf(pathname.split('/')[1] || 'today');
+  if (!view) return undefined;
+  const base = `/${pathname.split('/')[1] || ''}`;
+  return TABS.find((t) => t.to === `${base}?view=${view}`);
+}
+
+/**
+ * **방문 원장이 세는 키**(I034 · 2026-08-22 발상 축).
+ *
+ * ## ⚠⚠ 은퇴 정책이 자기 근거를 원리적으로 파괴하고 있었다
+ *
+ * `App` 은 `route_visits.key` 를 `pathname.split('/')[1]` 로 만든다 — **첫 세그먼트만**. 그런데
+ * 이 파일의 은퇴 관용구는 화면을 지우는 대신 **호스트의 `?view=` 로 내린다**(W9 이 탭 셋을
+ * 그렇게 접었다). 두 규칙을 겹치면 이렇게 된다:
+ *
+ *   화면을 `?view=` 로 내린다 → 그 화면의 방문이 **호스트 이름으로 집계된다** →
+ *   그 화면은 자기 몫의 수를 **다시는 갖지 못한다** → 「관측이 쌓이면 판정한다」가 영원히 안 온다.
+ *
+ * 즉 흡수된 화면은 살릴 근거도 지울 근거도 얻을 수 없는 상태로 고정된다. H-12 가 **이름 축**
+ * 에서 고친 것과 같은 결함이 **관측 축**에 남아 있던 것이다(그때 `routeLabelOfLocation` 이 생겼고,
+ * 이 함수는 그 짝이다).
+ *
+ * ⚠ **카디널리티는 로스터가 묶는다** — 임의의 `?view=` 값을 키로 만들지 않는다. `TABS` 의 `to`
+ * 와 정확히 맞는 것만 그 탭의 `key` 가 되고, 나머지는 호스트로 떨어진다. 그래서 이 표의 키
+ * 어휘는 언제나 **로스터의 부분집합**이고, 은퇴 규칙이 읽는 어휘와 같다.
+ *
+ * ⚠ **전환기 90일 동안 호스트 수치가 과소 집계된다** — 어제까지 `degree` 로 세던 방문이 오늘부터
+ * `goals`·`degree` 로 갈린다. 이건 결함이 아니라 정정이지만, 그 창 안에서 «호스트가 줄었다»를
+ * 은퇴 근거로 읽으면 틀린다. 보존창이 밀어낼 때까지는 **키가 갈린 날짜를 기억하고** 읽어라.
+ *
+ * ⚠ `routeKey`(fill 프레임·나브 활성·`useMarkSeen`)는 **그대로 호스트**다. 그쪽은 «지금 어느
+ * 호스트에 있나»가 맞는 질문이고, 여기는 «무엇을 열었나»가 질문이다. 둘을 한 값으로 합치면
+ * 흡수된 화면에서 레일 활성 표기가 꺼진다.
+ */
+export function visitKeyOfLocation(pathname: string, search: string): string {
+  /* ⚠ `??` 가 아니라 `||` 다 — 루트(`/`)의 첫 세그먼트는 `undefined` 가 아니라 **빈 문자열**이라
+     `??` 로 쓰면 원장에 빈 키가 들어간다(`routeLabelOfLocation` 이 이미 `||` 인 이유와 같다). */
+  return tabOfLocation(pathname, search)?.key ?? (pathname.split('/')[1] || 'today');
 }

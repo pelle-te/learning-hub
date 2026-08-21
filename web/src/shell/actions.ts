@@ -16,17 +16,20 @@ import {
   sanitizeImported,
   parseState,
   defaults,
-  exportSnapshot,
   isPristineState,
   degreeSeed,
 } from '@/lib/persistence';
 import { resolveTheme } from '@/lib/uiState';
 import { routeLabelOf } from './tabs';
-import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
-import { exportObservations, importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
-import { DOCS_FIELD, exportAllDocs, importDocs } from '@/lib/db/docs';
+import { importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
+import { importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
+import { backupPayload } from '@/lib/backup';
+import { DOCS_FIELD, importDocs } from '@/lib/db/docs';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { dbFallbackSnapshot } from '@/lib/db/fallback';
+
+/* 재수출 — 소비처(볼트 백업·`test/importRoundtripLarge`)의 경로를 안 깨뜨린다. 실체는 `lib/backup`. */
+export { backupPayload };
 import { storage } from '@/lib/kv';
 import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData } from '@/lib/methodology';
@@ -181,27 +184,11 @@ export function exportJSON(): void {
   );
 }
 
-/** 백업 페이로드 SSOT — 파일 내보내기와 볼트 백업이 **같은 범위**를 쓰게 한다.
-    (두 곳이 각자 조립하던 탓에 사이드카 추가가 한쪽에만 반영될 수 있었다.)
-    export인 이유: `test/importRoundtripLarge.test.ts`가 **진짜 내보내기 범위**로 왕복을 검증한다.
-    테스트가 페이로드를 자기 손으로 조립하면 "내가 값을 복사했다"만 증명하게 된다(1단계 교훈). */
-/* ⚠ **비동기다**(H-14 · 2026-08-06 감사). 관측 원장(`route_visits`·`day_signals`)은 KV 가 아니라
-   SQL 표라 읽기가 비동기이고, 그 둘이 **어떤 백업에도 없어서** 재설치·오리진 이동 때 0 이
-   됐다(그것을 기다리는 로드맵 판정이 일곱이고 게이트가 관측일 10·방문 30이라 대기가 몇 주다).
-   근거 전문은 `lib/observations.ts` 머리주석이 소유한다. */
-/* ⚠⚠ `docs` 표를 **전량** 싣는다(D005 · 2026-08-21). P10 W4 가 `_reads` 를 걷은 뒤 이 표는
-   **어떤 백업에도 없었다** — 그런데 비어 있지 않았다: 실 DB 에 3행 51,793 B 가 도달 불가인
-   채(읽을 수도 지울 수도 없는데 D1·폰까지 밀린 채) 있었고 그중 하나는 사용자가 쓴 글이었다.
-   살아 있는 세입자(`ics:feed`)도 같은 이유로 재설치에서 사라졌다.
-   ⚠ 회수 경로가 삭제 경로보다 **먼저** 서야 한다는 것이 그 항목 처방의 순서다. */
-export async function backupPayload(s: AppState): Promise<Record<string, unknown>> {
-  return {
-    ...exportSnapshot(s),
-    [LOCAL_EXTRAS_FIELD]: exportLocalExtras(),
-    [OBSERVATIONS_FIELD]: await exportObservations(),
-    [DOCS_FIELD]: await exportAllDocs(),
-  };
-}
+/* ⚠ **`backupPayload` 는 `lib/backup.ts` 로 갔다**(I033 · 2026-08-22). 폰이 같은 범위를 써야
+   하는데(폰 원장이 판정자에게 도달하는 유일한 길) `src/phone/**` 은 `shell` 배럴을 물 수
+   없다 — 그건 취향이 아니라 경계다(§13-0 · H7). 여기 남기면 폰이 자기 페이로드를 따로
+   조립하게 되고, 그 순간 "내보내기 범위"가 두 벌이 되어 사이드카 추가가 한쪽에만 들어간다.
+   그게 이 함수가 애초에 SSOT 로 만들어진 이유였다. 재수출은 아래 `export { backupPayload }`. */
 
 /** 데이터 가져오기 — 파일 → migrate → (백업 후) 통째 교체. */
 export function importJSON(input: HTMLInputElement): void {

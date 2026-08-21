@@ -23,22 +23,9 @@ import {
   seedDegreePlan,
   undoLast,
 } from '@/shell';
-import OrphanDocs from './OrphanDocs';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
-import {
-  visitSummary,
-  visitSample,
-  hasSample,
-  hourHistogram,
-  eveningShare,
-  roundTrips,
-  SAMPLE_MIN,
-  type RoundTrip,
-  type VisitRow,
-} from '@/lib/visits';
-import { idleSample, idleSummary, idleVerdict, type IdleRow } from '@/lib/idleLedger';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
@@ -46,6 +33,7 @@ import CloudCard from './CloudCard';
 import ConflictsNotice from './ConflictsNotice';
 import UpdateCard from './UpdateCard';
 import RailAssembly from './RailAssembly';
+import VisitLedger from './VisitLedger';
 import { lastParity } from '@/lib/db/write';
 import { autostartEnabled, isTauri, setAutostart } from '@/lib/tauri';
 import type { AppState } from '@/lib/types';
@@ -93,125 +81,6 @@ const TONE_TILE = { ok: 'border-line-acc-hover! bg-acc-soft!', warn: 'border-lin
 const TONE_NUM = { ok: 'text-acc!', warn: 'text-bad!' } as const;
 // 액센트 스와치 버튼 선택 상태 — 두 배경 유틸이 한 요소에 겹치지 않게 on/off 로 가른다(no-conflicting-classes 회피).
 const ACC_STATE = { on: 'border-acc! bg-acc-soft!', off: 'bg-transparent!' } as const;
-
-/**
- * 방문 원장 리드아웃(H23 · 2026-07-26 감사) — **소비처가 없는 계측은 계측이 아니다.**
- *
- * `route_visits`(N-11)는 도입 나흘 동안 쓰기만 있고 읽는 곳이 0 이었다. 그 사이 로드맵의 다섯
- * 항목이 이 데이터를 기다렸고, 정작 폰 계측은 **도달조차 못 하고 있었다** — 값을 볼 수 있었다면
- * 첫날에 드러났을 사실이다. 그래서 화려한 화면이 아니라 **원본에 가까운 표**다: 판단(탭 은퇴 등)은
- * 사람이 하고, 여기는 그 입력을 정직하게 보여 주기만 한다(via 를 합치지 않는 것이 그 정직함이다).
- */
-function VisitLedger() {
-  const [rows, setRows] = useState<VisitRow[] | null>(null);
-  /* ⚠ **분모를 함께 보여 준다**(P1/P2 · 2026-08-01). 합계만 보이면 "안 쓴다"와 "안 쟀다"가
-     같은 0 으로 보이고, `shell/tabs.ts` 의 은퇴 규칙이 그 0 을 근거로 탭을 지운다. */
-  const [sample, setSample] = useState<{ days: number; total: number } | null>(null);
-  /* W2(발산 6회차) — 홉 원장. **이 두 줄이 결정 셋을 막고 있던 것**이다: 두 페인(왕복이
-     실재하나) · 시간 조명(하루에 여러 번 여나) · 확정판의 시제(저녁에 여나).
-     ⚠ 여기 보이는 것도 판단이 아니라 **입력**이다 — 위 표와 같은 규율. */
-  const [trips, setTrips] = useState<RoundTrip[] | null>(null);
-  const [hours, setHours] = useState<number[] | null>(null);
-  useEffect(() => {
-    void visitSummary().then(setRows);
-    void visitSample().then(setSample);
-    void roundTrips().then(setTrips);
-    void hourHistogram().then(setHours);
-  }, []);
-  if (!rows?.length) return null;
-  const enough = sample ? hasSample(sample) : false;
-  const peak = hours ? Math.max(...hours) : 0;
-  return (
-    <details className={`ds-foot ${S.bdLine}`}>
-      <summary>방문 원장(최근 14일) — 어디를 얼마나 열었나</summary>
-      {sample && (
-        <div className="ds-tiny mt-1.5">
-          <b>표본</b> — 관측 {sample.days}일 · 총 {sample.total}회{' '}
-          <span className={enough ? 'text-mut' : 'text-warn'}>
-            {enough
-              ? `(기준 ${SAMPLE_MIN.days}일·${SAMPLE_MIN.total}회 충족 — 탭 은퇴 판정 가능)`
-              : `(기준 ${SAMPLE_MIN.days}일·${SAMPLE_MIN.total}회 미달 — 판정 불가. 이 수치로 탭을 지우지 말 것)`}
-          </span>
-        </div>
-      )}
-      <div className="ds-tiny mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-        {rows.slice(0, 16).map((r) => (
-          <span key={`${r.key}:${r.via}`}>
-            {r.key} <span className="text-mut">· {r.via}</span> {r.n}
-          </span>
-        ))}
-      </div>
-      {/* 왕복쌍 — **양방향이 다 있어야** 한 줄이 된다(단방향은 경로이지 왕복이 아니다). */}
-      <div className="ds-tiny mt-2">
-        <b>왕복쌍</b>{' '}
-        {trips?.length ? (
-          <span className="inline-flex flex-wrap gap-x-3 gap-y-1">
-            {trips.slice(0, 6).map((t) => (
-              <span key={`${t.a}:${t.b}`}>
-                {t.a} <span className="text-mut">↔</span> {t.b} {t.n}
-              </span>
-            ))}
-          </span>
-        ) : (
-          <span className="text-mut">아직 없음 — 오간 화면이 없으면 두 페인은 만들 이유가 없다</span>
-        )}
-      </div>
-      {/* 시각 분포 — 24칸. 한 칸에 몰려 있으면 "캔버스가 하루를 싣는" 안은 상수가 된다. */}
-      {hours && peak > 0 && (
-        <div className="ds-tiny mt-2">
-          <b>여는 시각</b> <span className="text-mut">· 저녁(18~24시) {Math.round(eveningShare(hours) * 100)}%</span>
-          <div className="mt-1 flex items-end gap-px" aria-hidden="true">
-            {hours.map((n, h) => (
-              <span
-                key={h}
-                className="w-1.5 bg-acc"
-                style={{ height: `${Math.max(1, Math.round((n / peak) * 16))}px`, opacity: n ? 1 : 0.25 }}
-              />
-            ))}
-          </div>
-          {/* A-15 — 축 눈금은 **주석**이다(읽지 않아도 문장이 성립한다) → 세 번째 값 평면. */}
-          <div className="mt-0.5 text-anno">0시 — 6 — 12 — 18 — 23</div>
-        </div>
-      )}
-      <IdleLedger />
-      <OrphanDocs />
-    </details>
-  );
-}
-
-/**
- * 유휴 원장 리드아웃(N-8 · W3) — **트리거를 만들지 말지의 유일한 근거**.
- *
- * ⚠ 판정 문장을 여기서 조립하지 않는다(`idleVerdict` 가 낸다). 화면이 판정하면 "관측 0일"과
- * "부재 0회"가 같은 회색 문장으로 보이고, 그 구분이 정확히 이 원장의 값이다.
- * ⚠ 같은 `<details>` 안에 두는 이유: 둘 다 **판단의 입력**이지 화면이 아니다. 새 섹션을 파면
- * 설정이 계측 대시보드가 되기 시작한다(그건 이 앱이 다섯 번 강등한 부류다).
- */
-function IdleLedger() {
-  const [rows, setRows] = useState<IdleRow[] | null>(null);
-  const [sample, setSample] = useState<{ days: number; spells: number } | null>(null);
-  useEffect(() => {
-    void idleSummary().then(setRows);
-    void idleSample().then(setSample);
-  }, []);
-  if (!rows || !sample) return null;
-  const v = idleVerdict(rows, sample);
-  return (
-    <div className="ds-tiny mt-2">
-      <b>자리 비움</b> <span className="text-mut">· 5분+ 무입력 · 최근 14일</span>
-      <div className={v.ok ? 'text-mut' : 'text-warn'}>{v.text}</div>
-      {rows.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-          {rows.map((r) => (
-            <span key={r.hour}>
-              {r.hour}시 <span className="text-mut">·</span> {r.n}회 {Math.round(r.sec / 60)}분
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** 저장 경로 진단 한 줄 — 쓴 것과 되읽은 것이 일치하는가(`db/write.ts` 의 되읽기 대조).
     ⚠ 옛 주석은 "2단계-D 이행 구간의 한시적 줄이고 2단계-E 에서 사라진다"고 적고 있었다 —

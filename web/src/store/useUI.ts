@@ -10,6 +10,7 @@ import { idbMirror } from '@/lib/idb';
 import { bootUI, persistUI, pushRecent, type Accent, type SchedView, type UIState } from '@/lib/uiState';
 import { canPin, togglePin as togglePinPure } from '@/lib/pins';
 import { shellNotifyPrime } from '@/lib/tauri';
+import { setInspectDs } from '@/lib/visits';
 
 export interface UIStore {
   ui: UIState;
@@ -23,6 +24,9 @@ export interface UIStore {
   setThemeAuto: (on: boolean) => void;
   /** T-3 상주 트레이 토글(기기별). 다음 닫기부터 적용된다 — 닫기 가드가 **매번** 이 값을 읽는다. */
   setTrayResident: (on: boolean) => void;
+  /** I030 점검 모드 — `ds` 를 주면 **그 날짜의** 방문·홉을 원장에서 뺀다. `null` 이면 끈다.
+   *  ⚠ 날짜를 호출부가 준다(스토어가 시계를 들지 않는다 — 이 저장소의 날짜 관용구). */
+  setInspecting: (ds: string | null) => void;
   /** N-17 — 레일 조립(숨김 목록·선호 순서). 판정은 `shell/railLayout` 이 소유하고 여기는 담기만 한다. */
   setRailLayout: (v: { hidden?: string[]; order?: string[] }) => void;
   /** A-13 — 오늘의 히어로를 확정/해제. `null` 이면 해제(평소 선택으로 돌아간다). */
@@ -54,8 +58,13 @@ export const useUI = create<UIStore>()(
         /* 저장 실패는 무시 — 메모리 상태는 계속 동작 */
       }
     };
+    /* I030 — 부팅 값을 `lib/visits` 에 **한 번** 실어 준다. `lib/` 는 스토어를 import 할 수
+       없으므로(레이어 단방향) 미러링 자리는 여기 하나다. 안 하면 앱을 껐다 켠 순간 점검
+       모드가 조용히 풀리고, 그 세션의 순회가 다시 원장에 들어간다. */
+    const booted = bootUI(storage);
+    setInspectDs(booted.inspectDs);
     return {
-      ui: bootUI(storage),
+      ui: booted,
       setSchedView(v) {
         set((s) => {
           s.ui.schedView = v;
@@ -90,6 +99,13 @@ export const useUI = create<UIStore>()(
         set((s) => {
           s.ui.trayResident = on;
         });
+        flush();
+      },
+      setInspecting(ds) {
+        set((s) => {
+          s.ui.inspectDs = ds;
+        });
+        setInspectDs(ds); // 영속값과 `lib/visits` 의 사본은 **같은 자리에서** 움직인다
         flush();
       },
       /* N-17 — 둘을 한 setter 로 받는 이유: 순서 이동은 숨김을 안 건드리고 그 반대도 마찬가지라
@@ -172,6 +188,7 @@ export const useUI = create<UIStore>()(
         set((s) => {
           s.ui = next;
         });
+        setInspectDs(next.inspectDs); // 가져오기 복원도 점검 모드를 되싣는다(부팅과 같은 계약)
       },
     };
   }),
