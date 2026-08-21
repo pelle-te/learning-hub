@@ -11,6 +11,8 @@ import {
   addSummary,
   archivableCount,
   archiveOldData,
+  ARCHIVE_ARRAY_SPECS,
+  ARCHIVE_EXEMPT,
   recordBreakdown,
   backlogClosedBetween,
   blankPassRate,
@@ -41,6 +43,7 @@ import {
   summaryCount,
   toggleBacklog,
 } from '@/lib/methodology';
+import { ARRAY_SLICES } from '@/lib/db/rows';
 
 const st = (over?: Record<string, unknown>): AppState => ({ items: [], ...(over || {}) }) as unknown as AppState;
 
@@ -353,5 +356,74 @@ describe('summariesFor — 순수 읽기(SD-5 회귀 가드)', () => {
     expect(summariesFor(frozen, '2026-07-01')).toEqual([]);
     // state에 summaries 키를 심지 않는다(예전 지연초기화 부작용 제거).
     expect((frozen as Record<string, unknown>).summaries).toBeUndefined();
+  });
+});
+
+/* ============================================================
+   D008(2026-08-21 데이터 축) — **아홉이 어느 보존 규율에도 없었다.**
+
+   `archivableCount` 와 `archiveOldData` 가 같은 목록을 각자 손으로 들고 있었고, 그 목록은
+   다섯에서 멈춰 있었다. 그 뒤 `ARRAY_SLICES` 는 아홉까지 자랐다 — 그중 `retrievals` 는
+   **무제한 append + 동기화 대상**이라 모든 행이 아웃박스 → D1 → 폰까지 갔다.
+
+   ⚠ 아래 첫 케이스가 이 회차 처방의 본체다. 목록을 **다른 정본(`ARRAY_SLICES`)에서 역산**해
+   대조한다 — 새 슬라이스를 만들면 여기서 빨간불이 뜨고, 사람 기억이 아니라 기계가 센다.
+   면제도 목록이 아니라 **사유가 붙은 표**여야 한다(사유 없는 면제는 방치의 다른 이름이다).
+============================================================ */
+describe('⚠⚠ 보존 규율의 범위가 슬라이스 목록에서 역산된다(D008)', () => {
+  const 다뤄지는것 = new Set<string>(ARCHIVE_ARRAY_SPECS.map((s) => s.slice));
+
+  it('모든 배열 슬라이스가 아카이브 대상이거나 사유 있는 면제다', () => {
+    const 규율밖 = ARRAY_SLICES.filter((s) => !다뤄지는것.has(s) && !(s in ARCHIVE_EXEMPT));
+    expect(규율밖, '어느 보존 규율에도 없다 — 무제한으로 자란다. 대상에 넣거나 사유를 적어라').toEqual([]);
+  });
+
+  it('면제 표가 사문화하지 않았다 — 실존하지도 않는 슬라이스에 사유가 붙어 있으면 실패', () => {
+    const 실존 = new Set<string>([
+      ...ARRAY_SLICES,
+      'weekly',
+      'weekAlloc',
+      'rituals',
+      'dayPlans',
+      'dayOverrides',
+      'resume',
+    ]);
+    expect(Object.keys(ARCHIVE_EXEMPT).filter((k) => !실존.has(k))).toEqual([]);
+  });
+
+  it('대상과 면제가 겹치지 않는다', () => {
+    expect(ARCHIVE_ARRAY_SPECS.filter((s) => s.slice in ARCHIVE_EXEMPT).map((s) => s.slice)).toEqual([]);
+  });
+
+  it('⚠ retrievals 가 실제로 걷힌다 — 이 슬라이스가 D008 의 본체였다', () => {
+    const s = st({
+      _today: '2026-08-21',
+      retrievals: [
+        { id: 'r1', ds: '2026-01-05', sid: 'a', chapter: '1', ms: 900, got: true },
+        { id: 'r2', ds: '2026-08-20', sid: 'a', chapter: '1', ms: 800, got: true },
+      ],
+    });
+    const before = archivableCount(s, 6);
+    const { archive, count } = archiveOldData(structuredClone(s), 6);
+    expect(count, '사전 카운트와 실제가 어긋나면 «정리» 버튼이 거짓말을 한다').toBe(before);
+    expect(archive.retrievals.map((r) => r.id)).toEqual(['r1']);
+  });
+
+  it('⚠ 미완료 할 일은 아무리 오래돼도 안 걷는다 — 그건 기록이 아니라 아직 할 일이다', () => {
+    const s = st({
+      _today: '2026-08-21',
+      tasks: [
+        { id: 't1', title: '옛 미완', ds: '2026-01-05' },
+        { id: 't2', title: '옛 완료', ds: '2026-01-05', done: true, doneDs: '2026-01-06' },
+        { id: 't3', title: '인박스' },
+      ],
+    });
+    const { archive, count } = archiveOldData(s, 6);
+    expect(archive.tasks.map((t) => t.id)).toEqual(['t2']);
+    expect(count).toBe(1);
+    expect(
+      s.tasks?.map((t) => t.id),
+      '미완료와 인박스는 남는다',
+    ).toEqual(['t1', 't3']);
   });
 });

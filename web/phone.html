@@ -6,6 +6,28 @@
          a11y 회귀이고, 이 앱은 성적·일정처럼 자세히 봐야 하는 데이터를 띄운다. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#050506" />
+    <!-- ⚠⚠ **CSP**(D014 · 2026-08-21 데이터 축) — 진입점 둘이 같은 영구 자격증명을 쓰는데
+         정책이 한쪽에만 있었다. 데스크톱은 `tauri.conf.json` 의 `csp` + 그 위에 `cloud.rs`
+         의 호스트 화이트리스트가 있는데, 폰(Workers 오리진)은 **CSP 가 0** 이었다 —
+         `_headers` 파일도 없고, Worker 의 헤더 미들웨어는 `/api/*` 한정이며 자산은
+         `run_worker_first` 때문에 Hono 를 아예 안 거친다. 그 오리진의 OPFS SQLite 에는
+         **회전하지 않는** 리프레시 토큰이 산다(`server/src/index.ts` 의 명시 결정).
+
+         ⚠ 정직하게: 오늘 악용 경로는 없다(`innerHTML|eval` 전수 3건이 전부 정적 상수다).
+         이것이 막는 것은 지금의 오동작이 아니라 **미래 결함의 폭발 반경**이다.
+
+         · `'wasm-unsafe-eval'` 은 장식이 아니다 — 없으면 `sqlite-wasm` 이 인스턴스화에
+           실패해 폰의 로컬 저장이 통째로 죽는다(OPFS 가 이 앱 오프라인 경로의 전부다).
+         · `connect-src 'self'` 로 충분한 이유: 폰은 `location.origin` 을 서버로 쓴다
+           (`phone/Connect.tsx`) — 입력칸이 없어서 다른 오리진이 될 수 없다. ws/wss 도 같은
+           오리진이라 `'self'` 가 덮는다.
+         · `worker-src` 는 SQLite 워커와 PWA 서비스워커 몫이다.
+         ⚠ `frame-ancestors` 는 **meta 에서 무시된다**(사양). 그건 진짜 응답 헤더가 필요하고,
+           그러려면 `_headers` 파일이 자산 워커에 실려야 한다 — 배포 경로가 달라 별건이다. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
     <meta name="description" content="러닝허브 — 폰에서 일정을 보고 할 일을 편집합니다." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="preload" href="/fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin />

@@ -1,0 +1,88 @@
+# ============================================================
+# deny.toml — Cargo 공급망 게이트(D010 · 2026-08-21 데이터 축).
+#
+# ## 왜 생겼나 — 같은 형태의 **네 번째 판**
+#
+# npm 축은 `web/scripts/audit-gate.mjs` 가 세 조건(미등록·만료·사문)으로 잠근다. 그런데
+# **사용자에게 배포되는 바이너리를 만드는 축**(Cargo 645 crate)에는 아무 검사도 없었다 —
+# `cargo audit`·`cargo deny`·`osv-scanner`·`deny.toml` 이 저장소 전체에 0회였다.
+#
+# 그리고 이 저장소는 그 논증을 **이미 썼다**. `ci.yml` 의 SCA 주석: *"종전 공급망 방어는
+# gitleaks 와 Renovate 둘뿐이었고, 그 사이 축이 비어 있었다: 해당하는 CVE 가 들어와도 CI 가
+# 통과시킨다."* 그 논증이 두 생태계 중 하나에만 적용됐다. (Renovate 는 Cargo 도 덮지만
+# `lockFileMaintenance` 는 월 1회 **신선도**이지 권고 게이트가 아니다.)
+#
+# ## 왜 `cargo audit` 이 아니라 `cargo deny` 인가
+#
+# 전자는 락을 그대로 읽는다. 이 저장소의 `Cargo.lock` 은 **피처·타깃 무관**이라 실제로는
+# 컴파일되지 않는 트리(mysql·rsa·rkyv·gtk-rs)까지 적고, 실측하면 그것만으로 20패키지 22행이
+# 나온다. 첫 실행이 빨간불이면 사람은 `|| true` 를 붙인다(audit-gate.mjs 머리주석이 경고한
+# 바로 그 길). `[graph] targets` 로 **실제 빌드 그래프**만 보면 그 잡음이 사라진다.
+#
+# ⚠ 타깃 필터가 이 파일의 계약이다. 이 앱은 Windows 데스크톱 셸 하나로 배포된다
+# (`web/docs/릴리스.md`) — 다른 타깃을 붙이려면 여기부터 늘려야 한다.
+# ⚠ 면제는 **사유 + 재검토일**과 함께 아래 `ignore` 에만 쓴다. npm 원장과 같은 규율이다:
+#   판단에 유효기간이 없으면 그건 판단이 아니라 방치다.
+# ============================================================
+
+[graph]
+targets = ["x86_64-pc-windows-msvc"]
+all-features = false
+
+[advisories]
+version = 2
+# ⚠ `unmaintained = "none"` 로 도망가지 않는다 — 유지보수 중단은 실제 신호다. 다만
+# workspace(직접 의존)만 본다: 이행 의존의 unmaintained 는 우리가 고칠 수 없고, 그것까지
+# 빨간불로 만들면 이 게이트가 첫 주에 무력화된다.
+unmaintained = "workspace"
+yanked = "deny"
+# ⚠⚠ **`unsound` 는 기본이 «none» 이다** — 실측(2026-08-21): 이 줄이 없으면
+# RUSTSEC-2026-0221(event-listener 5.4.1 · `!Send` 태그가 스레드를 넘는다)이 실제 빌드 그래프
+# 안에 있는데도 `advisories ok` 가 나왔다(`-s` 로 재확인: 0 errors, 0 warnings, 0 notes).
+# 즉 이 한 줄이 없으면 이 게이트를 세운 계기였던 D016 을 **이 게이트가 못 잡는다.**
+# `unmaintained` 와 달리 `"all"` 인 이유: 이행 의존의 unsound 도 **우리 프로세스 안에서 돈다**.
+# 이 앱은 sqlx 풀을 멀티스레드 tokio 위에서 돌리므로 그 부류가 정확히 아픈 자리이고, 증상이
+# «가끔 죽는 DB 커넥션» 으로 나타나 추적이 거의 불가능하다.
+unsound = "all"
+
+ignore = [
+  # ── 여기 항목은 전부 [사유 + 재검토일] 을 갖는다. 없는 항목은 추가하지 말 것. ──
+]
+
+[licenses]
+version = 2
+# 배포 바이너리에 실리는 코드의 라이선스. copyleft 가 조용히 섞이는 것을 막는 것이 목적이고,
+# 그건 «지금 무엇이 들어 있나»가 아니라 «무엇이 새로 들어오면 멈추나»의 문제다.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "MPL-2.0",
+  "CC0-1.0",
+  # webpki-roots — 코드가 아니라 **CA 루트 인증서 데이터**의 라이선스다(CDLA = Community Data
+  # License Agreement). Permissive-2.0 은 재배포에 조건을 걸지 않는다. reqwest·rustls 를 쓰는 한
+  # 들어오고, 이 앱은 그 둘로 클라우드 백엔드에 https 로만 붙는다(`cloud.rs`).
+  "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+# ⚠ 우리 크레이트 자신은 `publish = false` 라 `license` 필드가 없다 — 결함이 아니라 사실이다.
+# 다른 crate 에는 규칙이 그대로 적용된다.
+[licenses.private]
+ignore = true
+
+[bans]
+# 같은 crate 의 여러 메이저가 함께 실리는 것은 흔하고(생태계 이행 중) 그 자체는 결함이 아니다.
+# 여기서 막는 것은 **의도적으로 금지한 crate** 뿐이다.
+multiple-versions = "allow"
+wildcards = "deny"
+deny = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

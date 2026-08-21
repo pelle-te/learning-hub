@@ -433,18 +433,96 @@ export function recordCount(state: AppState): number {
   const b = recordBreakdown(state);
   return b.done + b.summaries + b.cbms + b.backlog + b.blank;
 }
-/** 아카이브 가능량(mutation 없는 사전 카운트) — archiveOldData와 동일 cutoff·필터를 count-only로.
+/* ============================================================
+   아카이브 대상 — **한 곳에 선언한다**(D008 · 2026-08-21 데이터 축).
+
+   ## 무엇이 틀렸었나
+
+   `archivableCount` 와 `archiveOldData` 는 같은 목록을 **각자 손으로** 들고 있었고, 그 목록은
+   다섯 슬라이스에서 멈춰 있었다. 그 뒤로 `ARRAY_SLICES` 가 아홉까지 자랐지만 아무도 여기를
+   갱신하지 않았다 — 즉 **아홉이 어느 보존 규율에도 없었다**: `events`·`tasks`·`questions`·
+   `jolAsks`·`retrievals`·`dayPlans`·`dayOverrides`·`rituals`·`weekAlloc`.
+
+   그중 `retrievals` 가 특히 나빴다: 복습 카드를 펼칠 때마다 1행이고 `records`(sync 대상)로
+   가므로 **모든 행이 아웃박스 → D1 → 폰**까지 간다. 상한·프루닝·아카이브가 전부 0이었다
+   (하루 50카드면 연 18,250행 ≈ 2MB 가 로컬·D1·폰 각각).
+
+   부수 효과도 있었다: 설정 화면이 `dataSizeKB`(전량)와 `archivableCount`(다섯)를 나란히
+   그리므로, 아홉이 자란 만큼 두 수가 벌어지고 «정리»를 눌러도 그만큼은 안 준다.
+
+   ## 처방이 목록 추가가 아닌 이유
+
+   손으로 적은 목록은 표류한다 — 이 저장소의 규율인데 문서에만 적용돼 있었다(오버레이 §1-A).
+   그래서 ① 선언을 **하나**로 만들어 두 함수가 같이 돌게 하고 ② `test/methodology.test.ts` 가
+   `ARRAY_SLICES`·`DS_MAP_SLICES` 와 대조해 **새 슬라이스가 규율 밖에 있으면 실패**시킨다.
+   면제도 목록이 아니라 **사유가 붙은 표**다(사유 없는 면제는 방치의 다른 이름이다).
+
+   ⚠ `records` 슬라이스는 `TABLES` 안이라 나중에 걷어도 툼스톤이 정상 전파된다 — 그게 이
+   항목이 Critical 이 아닌 이유이자, 여기서 지워도 안전한 이유다(도달 불가가 되는 `docs` 와
+   결정적으로 다르다).
+============================================================ */
+
+/** 배열 슬라이스 한 종의 아카이브 규칙 — 「그 행의 날짜는 무엇인가」 하나만 정한다. */
+interface ArraySpec {
+  slice: ArchivableArraySlice;
+  /** cutoff 와 비교할 날짜. `undefined` 면 **절대 아카이브하지 않는다**(인박스·미완료). */
+  dsOf: (row: never) => string | undefined;
+}
+
+/** 아카이브가 다루는 배열 슬라이스. ⚠ 여기 없는 `ARRAY_SLICES` 항목은 `면제` 표에 사유가 있어야 한다. */
+export type ArchivableArraySlice =
+  'cbms' | 'backlog' | 'blankResults' | 'events' | 'tasks' | 'questions' | 'jolAsks' | 'retrievals';
+
+const 날짜 = (r: { ds?: string }): string | undefined => r.ds;
+/** 완료된 것만 — 미완료는 아무리 오래돼도 «아직 할 일» 이다(backlog·tasks 공통 규칙). */
+const 완료날짜 = (r: { done?: boolean; doneDs?: string; ds?: string }): string | undefined =>
+  r.done ? (r.doneDs ?? r.ds) : undefined;
+
+export const ARCHIVE_ARRAY_SPECS: readonly ArraySpec[] = [
+  { slice: 'cbms', dsOf: 날짜 },
+  { slice: 'backlog', dsOf: 완료날짜 },
+  { slice: 'blankResults', dsOf: 날짜 },
+  /* 지난 일정은 기록이다 — `ds` 가 필수인 슬라이스라 인박스 개념이 없다. */
+  { slice: 'events', dsOf: 날짜 },
+  /* ⚠ 할 일은 **완료된 것만**. `ds` 가 없는 행은 «언젠가»(인박스)라 날짜로 재면 안 되고,
+     미완료를 걷으면 사용자가 잃는 것이 기록이 아니라 **아직 안 한 일**이다. */
+  { slice: 'tasks', dsOf: 완료날짜 },
+  { slice: 'questions', dsOf: 날짜 },
+  { slice: 'jolAsks', dsOf: 날짜 },
+  /* A-2 인출 지연 원장 — 이 항목이 D008 의 본체다(무제한 append + 동기화 대상이었다). */
+  { slice: 'retrievals', dsOf: 날짜 },
+];
+
+/** 아카이브 밖인 슬라이스와 **그 사유**. 사유 없는 면제는 방치다 — 테스트가 이 표를 대조한다. */
+export const ARCHIVE_EXEMPT: Record<string, string> = {
+  retentionLog: '주별 스냅샷 — 추세 그 자체가 값이라 걷으면 재는 대상이 사라진다',
+  weekly: '과목별 주간 설정 — 기록이 아니라 설정',
+  weekAlloc: '주간 배분 — 스케줄러 **입력**이다(걷으면 과거 주 재계산이 달라진다)',
+  rituals: '하루 의식 — 날짜 키지만 한 줄짜리 설정성 기록이고 `completions` 와 함께 읽힌다',
+  dayPlans: '그날의 계획 배치 — 날짜 키지만 `completions` 의 짝이라 함께 걷어야 뜻이 유지된다',
+  dayOverrides: '동상 — `dayPlans` 와 한 쌍',
+  resume: '기기별 1행(이어하기 커서) — 자라지 않는다',
+};
+
+/** cutoff 이전인가. `undefined` 는 언제나 거짓(= 아카이브 대상 아님). */
+const 이전 = (ds: string | undefined, cutoff: string): boolean => !!ds && ds < cutoff;
+
+const cutoffOf = (state: AppState, monthsKeep: number): string =>
+  iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30)));
+
+/** 아카이브 가능량(mutation 없는 사전 카운트) — `archiveOldData` 와 **같은 선언**에서 돈다.
    블라인드 위험버튼(정리)을 "6개월 이전 N건 보관 가능"으로 승격(N=0이면 정리할 것 없음). */
 export function archivableCount(state: AppState, monthsKeep = 6): number {
-  const cutoff = iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30)));
+  const cutoff = cutoffOf(state, monthsKeep);
   let n = 0;
   const c = state.completions || {};
   for (const ds in c) if (ds < cutoff) n += Object.keys(c[ds]!).length;
   const sm = state.summaries || {};
   for (const ds in sm) if (ds < cutoff) n += sm[ds]!.length;
-  n += (state.cbms || []).filter((e) => e.ds && e.ds < cutoff).length;
-  n += (state.backlog || []).filter((b) => b.done && b.doneDs && b.doneDs < cutoff).length;
-  n += (state.blankResults || []).filter((x) => x.ds && x.ds < cutoff).length;
+  for (const spec of ARCHIVE_ARRAY_SPECS) {
+    const rows = (state[spec.slice] ?? []) as never[];
+    n += rows.filter((r) => 이전(spec.dsOf(r), cutoff)).length;
+  }
   return n;
 }
 export interface ArchiveResult {
@@ -454,14 +532,12 @@ export interface ArchiveResult {
     cutoff: string;
     completions: AppState['completions'];
     summaries: AppState['summaries'];
-    cbms: AppState['cbms'];
-    backlog: AppState['backlog'];
-    blankResults: AppState['blankResults'];
-  };
+  } & { [K in ArchivableArraySlice]: NonNullable<AppState[K]> };
   count: number;
 }
-/** cutoff(기본 6개월) 이전 기록을 archive로 분리하고 state에서 비운다(다운로드는 호출부). */
 /**
+ * cutoff(기본 6개월) 이전 기록을 archive로 분리하고 state에서 비운다(다운로드는 호출부).
+ *
  * `cutoffOverride` 는 **같은 경계를 두 번 계산하지 않기 위한** 인자다(H2 · 2026-07-30).
  *
  * `shell/actions.ts` 의 `archiveOld` 는 이제 ① 사본에서 보관 payload 를 만들고 ② 저장이
@@ -472,17 +548,15 @@ export interface ArchiveResult {
  */
 export function archiveOldData(state: AppState, monthsKeep = 6, cutoffOverride?: string): ArchiveResult {
   // '오늘' 단일 출처(_today 시드 존중). 넘겨받았으면 그 값이 진리다(위 주석).
-  const cutoff = cutoffOverride ?? iso(addDays(parseISO(todayISO(state)), -Math.round(monthsKeep * 30)));
-  const arch: ArchiveResult['archive'] = {
+  const cutoff = cutoffOverride ?? cutoffOf(state, monthsKeep);
+  const arch = {
     schemaVersion: SCHEMA_VERSION,
     archivedAt: new Date().toISOString(),
     cutoff,
     completions: {},
     summaries: {},
-    cbms: [],
-    backlog: [],
-    blankResults: [],
-  };
+  } as ArchiveResult['archive'];
+  for (const spec of ARCHIVE_ARRAY_SPECS) (arch[spec.slice] as unknown[]) = [];
   let n = 0;
   const c = state.completions || {};
   Object.keys(c).forEach((ds) => {
@@ -500,15 +574,13 @@ export function archiveOldData(state: AppState, monthsKeep = 6, cutoffOverride?:
       n += arch.summaries[ds]!.length;
     }
   });
-  arch.cbms = (state.cbms || []).filter((e) => e.ds && e.ds < cutoff);
-  state.cbms = (state.cbms || []).filter((e) => !(e.ds && e.ds < cutoff));
-  n += arch.cbms.length;
-  arch.backlog = (state.backlog || []).filter((b) => b.done && b.doneDs && b.doneDs < cutoff);
-  state.backlog = (state.backlog || []).filter((b) => !(b.done && b.doneDs && b.doneDs < cutoff));
-  n += arch.backlog.length;
-  arch.blankResults = (state.blankResults || []).filter((x) => x.ds && x.ds < cutoff);
-  state.blankResults = (state.blankResults || []).filter((x) => !(x.ds && x.ds < cutoff));
-  n += arch.blankResults.length;
+  for (const spec of ARCHIVE_ARRAY_SPECS) {
+    const rows = (state[spec.slice] ?? []) as never[];
+    const old = rows.filter((r) => 이전(spec.dsOf(r), cutoff));
+    (arch[spec.slice] as unknown[]) = old;
+    (state as Record<string, unknown>)[spec.slice] = rows.filter((r) => !이전(spec.dsOf(r), cutoff));
+    n += old.length;
+  }
   return { archive: arch, count: n };
 }
 

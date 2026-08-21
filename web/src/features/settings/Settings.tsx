@@ -23,6 +23,7 @@ import {
   seedDegreePlan,
   undoLast,
 } from '@/shell';
+import OrphanDocs from './OrphanDocs';
 import { useHeroPointer } from '@/hooks/interactions';
 import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
@@ -173,6 +174,7 @@ function VisitLedger() {
         </div>
       )}
       <IdleLedger />
+      <OrphanDocs />
     </details>
   );
 }
@@ -411,7 +413,7 @@ export default function Settings() {
   const archiveOldConfirm = async () => {
     /* Q-13 ②단 — 비우기 전에 **파일로 먼저 내려받으므로** 밖에 원본이 남는다(재구성 가능). */
     const ok = await confirmLossy(
-      '6개월 이전의 완료기록·요약·오답·회수된 백로그를 보관 파일(.json)로 내려받고 앱에서 비울까요? (통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)',
+      '6개월 이전의 기록을 보관 파일(.json)로 내려받고 앱에서 비울까요? (완료기록·요약·오답·백지·인출지연·문항·JOL 예측 + 완료된 할 일·지난 일정. 통계가 가벼워지고 저장공간을 회수합니다. 보관 파일은 따로 두면 나중에 열람 가능)',
       { title: '오래된 기록 정리', okLabel: '정리' },
     );
     if (ok) archiveOld(6);

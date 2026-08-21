@@ -49,9 +49,10 @@ export interface IdleRow {
    그게 곧 지어낸 데이터다). */
 let spell: { hour: number; ds: string; sec: number } | null = null;
 
-/** 테스트 격리용 — 진행 중 구간을 버린다. */
+/** 테스트 격리용 — 진행 중 구간과 청소 가드를 버린다. */
 export function resetIdleSpell(): void {
   spell = null;
+  _prunedOn = null;
 }
 
 /**
@@ -86,6 +87,15 @@ export async function observeIdle(
   return done.sec;
 }
 
+/** 보존기간(일) — `visits.ts` 의 90일과 같은 자. 이 표도 무한 성장할 이유가 없다. */
+const KEEP_DAYS = 90;
+
+/* **하루 1회** 청소(D013 · 2026-08-21). 자매 둘이 이미 갖고 있던 가드다
+   (`visits.ts:_prunedOn` · `daySignals.ts:_prunedOn`) — 그리고 그건 H24 에서 *부울→날짜*로
+   고친 바로 그 자리다(부울이면 세션당 1회라, 며칠씩 열려 있는 데스크톱 셸에서 보존창이
+   `KEEP_DAYS + 세션 길이`로 조용히 늘어난다). ⚠ 부울로 되돌리지 말 것. */
+let _prunedOn: string | null = null;
+
 /** 원장 갱신 한 줄. **실패해도 조용히 넘어간다**(`visits.recordVisit` 과 같은 계약). */
 async function bump(ds: string, hour: number, n: number, sec: number): Promise<void> {
   if (!isSqlitePrimary()) return;
@@ -94,20 +104,22 @@ async function bump(ds: string, hour: number, n: number, sec: number): Promise<v
      ON CONFLICT(day, hour) DO UPDATE SET n = n + ?, sec = sec + ?`,
     [ds, hour, n, sec, n, sec],
   );
+  /* ⚠⚠ 청소가 **쓰기 경로**에 있다(D013). 종전엔 `idleSummary()` 안에 있었고 그 유일한
+     호출부가 «설정 › 진단» 화면이라, **그 화면을 안 여는 사용자에게 `KEEP_DAYS` 는 한 번도
+     집행되지 않았다.** 자매 둘은 처음부터 쓰기 경로에 달려 있었다 — 읽기는 읽기만 한다. */
+  if (_prunedOn !== ds) {
+    _prunedOn = ds;
+    await execDb(`DELETE FROM idle_spells WHERE day < ?`, [iso(addDays(parseISO(ds), -KEEP_DAYS))]);
+  }
 }
 
-/** 보존기간(일) — `visits.ts` 의 90일과 같은 자. 이 표도 무한 성장할 이유가 없다. */
-const KEEP_DAYS = 90;
-
-/** 최근 `days` 일의 시각별 유휴 구간. 청소도 여기서 한다(읽을 때 하루 1회 · 쓰기 경로를 안 늘린다). */
+/** 최근 `days` 일의 시각별 유휴 구간. ⚠ **읽기는 읽기만 한다** — 청소는 `bump` 가 진다(D013). */
 export async function idleSummary(days = 14, todayDs: string = todayISO()): Promise<IdleRow[]> {
   const from = iso(addDays(parseISO(todayDs), -days));
   const rows = await selectDb<{ hour: number; n: number; sec: number }>(
     `SELECT hour, SUM(n) AS n, SUM(sec) AS sec FROM idle_spells WHERE day >= ? GROUP BY hour ORDER BY hour`,
     [from],
   );
-  const cutoff = iso(addDays(parseISO(todayDs), -KEEP_DAYS));
-  await execDb(`DELETE FROM idle_spells WHERE day < ?`, [cutoff]);
   return (rows ?? []).map((r) => ({ hour: Number(r.hour) || 0, n: Number(r.n) || 0, sec: Number(r.sec) || 0 }));
 }
 

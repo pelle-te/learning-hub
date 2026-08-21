@@ -14,7 +14,11 @@
     "_주석:test": "Rust 유닛 + **실물 통합**(진짜 워크스페이스·볼트·DB). 옛날엔 트랙 B 가 앱을 띄워 재던 것들이 여기 있다 — 근거는 src-tauri/src/testkit.rs 머리주석. ⚠ `--show-output` 은 장식이 아니다(F6 · 2026-08-01): cargo 는 **통과한** 테스트의 stderr 를 캡처하므로 그 플래그 없이는 testkit 의 `skip!` 이 실제로는 조용하고, '녹색인데 아무것도 안 쟀다'가 SKIP 0회로 보인다. 손으로 `cargo test` 를 치면 그 눈이 없다 — 이 스크립트를 쓸 것.",
     "tauri:test": "cargo test --manifest-path src-tauri/Cargo.toml --lib -- --show-output",
     "tauri:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
-    "tauri:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
+    "tauri:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "_주석:tauri:deny": "⚠ **Cargo 645 crate 공급망이 무게이트였다**(D010 · 2026-08-21 데이터 축). npm 축은 audit-gate.mjs 가 세 조건으로 잠그는데, **사용자에게 배포되는 바이너리를 만드는 축**엔 아무 검사도 없었다(cargo audit·cargo deny·osv-scanner·deny.toml 이 저장소 전체에 0회). `cargo audit` 이 아니라 `cargo deny` 인 이유와 타깃 필터·`unsound` 설정의 근거는 src-tauri/deny.toml 머리주석이 SSOT. ⚠ 도구 설치가 필요하다: `cargo install cargo-deny --locked`.",
+    "tauri:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check",
+    "_주석:audit": "⚠ **루트 패키지가 SCA 게이트 밖이었다**(D018 · 2026-08-21 데이터 축). 이 트리는 `@tauri-apps/cli`(+플랫폼 바이너리)와 `husky` 를 지는데, 전자는 **배포 인스톨러를 만드는 도구**이고 `web/scripts/gate.mjs` 가 그 프로세스에 **서명 개인키를 넣는다**. 그 트리에 high 가 뜨면 web·server 어느 원장에도 안 걸리고 게이트는 계속 녹색이었다. 로직은 `web/scripts/audit-gate.mjs` 하나를 **공유**한다(사본 금지) — 원장만 패키지별로 갖는다. `verify` 가 아니라 게이트 full·CI 에 있는 이유는 그 파일 머리주석(레지스트리 네트워크).",
+    "audit": "node web/scripts/audit-gate.mjs --allowlist audit-allowlist.json"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",

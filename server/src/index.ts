@@ -287,9 +287,29 @@ function rateLimited(bucket: string, now: number): boolean {
   return cur.n > AUTH_RATE.max;
 }
 
+/* ⚠⚠ **경로가 곧 변수인 라우트는 세그먼트를 지우고 묶는다**(D009 · 2026-08-21 데이터 축).
+
+   버킷이 `${ip}:${pathname}` 인데 `/api/ics/:token` 은 **경로 자체가 128비트 난수**다. 매번
+   다른 토큰으로 치면 `hits` 에도 `AUTH_LIMITER.limit({key})` 에도 새 버킷이 잡혀 **그 라우트의
+   상한이 원리적으로 없었다** — 위 ②의 근거(*"이 라우트가 D1 을 두드리는 횟수를 묶는 것"*)가
+   정확히 성립하지 않던 자리다. 토큰은 길이 가드를 통과하기만 하면 되므로 **요청마다 D1
+   `SELECT` 1회**가 나갔다.
+
+   귀결이 둘이었고 둘 다 이 라우트 밖으로 번진다:
+   ⓐ D1 일일 읽기 한도 소진 → 클라이언트가 `permanent:true` 로 읽어 push·pull 양쪽 차단 →
+      그날 남은 시간 **전 기기 동기화 정지**.
+   ⓑ `hits` 가 `RATE_MAP_MAX` 를 넘으면 `hits.clear()` 로 통째로 비워져 **`/api/token`·
+      `/api/enroll/*` 의 로컬 컷이 함께 리셋**된다 — 인증 라우트의 1차 방어가 ICS 트래픽에 휩쓸린다.
+
+   ⚠ 새 가변 경로를 붙일 때 여기 한 줄이 필요하다. 정규식 하나로 «마지막 세그먼트를 지운다»를
+   일반화하지 않는 이유: 그러면 `/api/token` 과 `/api/enroll` 이 같은 버킷이 되어 **의도한
+   분리가 조용히 사라진다**(이 표는 «어떤 라우트가 가변인가»를 선언하는 자리다). */
+const 가변경로: readonly [RegExp, string][] = [[/^\/api\/ics\/.+$/, '/api/ics/*']];
+const bucketPath = (pathname: string): string => 가변경로.find(([re]) => re.test(pathname))?.[1] ?? pathname;
+
 const rateGuard: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (c, next) => {
   const ip = c.req.header('CF-Connecting-IP') ?? 'unknown';
-  const bucket = `${ip}:${new URL(c.req.url).pathname}`;
+  const bucket = `${ip}:${bucketPath(new URL(c.req.url).pathname)}`;
 
   // ① 싼 로컬 컷 — 같은 아이솔레이트에서 보이는 명백한 폭주를 바인딩 호출 전에 끊는다.
   if (rateLimited(bucket, nowSec())) return c.json({ error: 'too many requests' }, 429);

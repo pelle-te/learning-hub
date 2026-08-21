@@ -27,7 +27,17 @@ vi.mock('@tauri-apps/plugin-sql', () => ({
   default: { load: async () => ({ execute: exec, select }) },
 }));
 
-import { DOC_KEYS, docGet, docSet, initDocs, _resetDocs } from '@/lib/db/docs';
+import {
+  DOC_KEYS,
+  docDelete,
+  docGet,
+  docSet,
+  exportAllDocs,
+  importDocs,
+  initDocs,
+  unknownDocKeys,
+  _resetDocs,
+} from '@/lib/db/docs';
 import { clearUndo, undoDepth } from '@/lib/db/undoStack';
 
 function enterShell() {
@@ -100,5 +110,88 @@ describe('사용자 저작물 저장소 — 브라우저 폴백', () => {
     expect(docSet('lh_ui_v1', '{"a":1}')).toBe(true);
     expect(docGet('lh_ui_v1')).toBe('{"a":1}');
     expect(exec, '브라우저에서 SQL 을 쳤다').not.toHaveBeenCalled();
+  });
+});
+
+/* ============================================================
+   D005(2026-08-21 데이터 축) — **도달 불가 행이 실 DB 에 51,793 B 있었다.**
+
+   `lh:reads`·`artifact:reads`·`artifact:markets` — P10 W4 에서 화면이 `survey/` 로 가며
+   은퇴한 세입자들이다. 셋 다 ① `DOC_KEYS` 밖이라 **못 읽고** ② 저장소 전체에
+   `DELETE FROM docs` 가 0건이었고 `docs` 는 `TABLES` 밖이라 `diffRows` 도 못 지우고
+   ③ 그런데 `OUTBOX_TABLES` 에 들어 있어 **D1 과 폰까지 밀려 있었다.**
+
+   ⚠ 순서가 처방의 일부다: **회수(①) → 삭제 경로(②) → 보고(③)**. 뒤집으면 사용자가 쓴 글이
+   회수 불가 상태로 사라진다.
+============================================================ */
+describe('D005 도달 불가 docs 행 — 회수·삭제·보고', () => {
+  /** 은퇴한 세입자 셋이 남아 있는 실 DB 를 흉내 낸다. */
+  const 유령 = [
+    { key: 'lh:reads', value: '{"글":"내가 쓴 것"}' },
+    { key: 'artifact:reads', value: 'x'.repeat(40) },
+  ];
+
+  it('① 백업이 미지 키까지 전량 담는다 — 이게 없으면 ②가 사용자 저작물을 지운다', async () => {
+    enterShell();
+    select.mockResolvedValue(유령);
+    expect(await exportAllDocs()).toEqual({
+      'lh:reads': '{"글":"내가 쓴 것"}',
+      'artifact:reads': 'x'.repeat(40),
+    });
+  });
+
+  it('③ 미지 키를 보고한다 — 지우지는 않는다', async () => {
+    enterShell();
+    select.mockResolvedValue([...유령, { key: 'ics:feed', value: '{}' }]);
+    await initDocs();
+    expect(
+      unknownDocKeys().map((d) => d.key),
+      '아는 키는 빠져야 한다',
+    ).toEqual(['lh:reads', 'artifact:reads']);
+    expect(
+      exec.mock.calls.some((c) => /DELETE/.test(String(c[0]))),
+      '앱이 스스로 지우면 안 된다',
+    ).toBe(false);
+  });
+
+  it('⚠⚠ ② 삭제는 **툼스톤을 먼저** 낸다 — 안 그러면 다른 기기가 되살린다', async () => {
+    enterShell();
+    select.mockResolvedValue(유령);
+    await initDocs();
+    exec.mockClear();
+
+    expect(await docDelete('artifact:reads')).toBe(true);
+    const sqls = exec.mock.calls.map((c) => String(c[0]));
+    const t = sqls.findIndex((q) => /tombstones/.test(q));
+    const d = sqls.findIndex((q) => /DELETE FROM docs/.test(q));
+    expect(t, '툼스톤을 안 낸다').toBeGreaterThanOrEqual(0);
+    expect(d, '행을 안 지운다').toBeGreaterThanOrEqual(0);
+    expect(t, '툼스톤이 삭제보다 **먼저** 나가야 한다').toBeLessThan(d);
+    expect(unknownDocKeys().map((x) => x.key)).toEqual(['lh:reads']);
+  });
+
+  it('⚠ 툼스톤을 못 쓰면 행을 지우지 않는다 — 되살아나는 것보다 안 지워지는 편이 낫다', async () => {
+    enterShell();
+    select.mockResolvedValue(유령);
+    await initDocs();
+    exec.mockClear();
+    exec.mockImplementation(async (q: string) => {
+      if (/tombstones/.test(q)) throw new Error('쓰기 실패');
+      return undefined;
+    });
+
+    expect(await docDelete('artifact:reads')).toBe(false);
+    expect(exec.mock.calls.some((c) => /DELETE FROM docs/.test(String(c[0])))).toBe(false);
+    expect(unknownDocKeys().map((x) => x.key)).toContain('artifact:reads');
+  });
+
+  it('가져오기는 **아는 키만** 되살린다 — 미지 키를 되쓰면 그 상태를 재생산한다', async () => {
+    enterShell();
+    select.mockResolvedValue([]);
+    await initDocs();
+    const n = await importDocs({ 'ics:feed': '{"url":"x"}', 'artifact:markets': '옛것', nope: 1 });
+    expect(n).toBe(1);
+    expect(docGet('ics:feed')).toBe('{"url":"x"}');
+    expect(unknownDocKeys()).toEqual([]);
   });
 });

@@ -11,12 +11,16 @@
    ② **지난 세션의 임시 사본**(`dbFallbackAt`) — DB 는 회복됐는데 그 세션 편집이 임시 사본에만
       있다. 부팅은 DB 를 정본으로 삼으므로 그 편집은 화면에 없다 → 파일 회수 경로를 준다.
       ⚠ 자동 병합하지 않는 이유는 `lib/db/fallback.ts` 머리주석이 SSOT.
+   ③ **정본을 아예 못 열었다**(`dbStaleSince` · D006 · 2026-08-21) — 지금 보이는 것이 정본이
+      아니라 낡은 사본이다. ①②와 달리 **편집이 없어도 참**이라 둘 다 침묵하던 자리였고,
+      그동안 앱은 낡은 상태를 정본처럼 보여 줬다. ①보다 뒤인 이유: 편집이 이미 임시본으로
+      떨어졌다면 그쪽이 더 급한 사실이다(①이 이 상태를 포함한다).
 
    ⚠ ①의 조건이 "DB 연결 실패"가 **아니라** "저장이 실제로 임시본으로 떨어졌다"인 이유도
    그 파일이 소유한다(트랙 A 가 그 차이를 즉시 드러냈다 · 편집이 없으면 잃을 것도 없다).
 ============================================================ */
 import { useCallback, useState, useSyncExternalStore } from 'react';
-import { clearDbFallback, dbFallbackAt, isSaveFallback, onSaveFallback } from '@/lib/db/fallback';
+import { clearDbFallback, dbFallbackAt, dbStaleSince, isSaveFallback, onSaveFallback } from '@/lib/db/fallback';
 import { Button } from '@/components/ui/Button';
 import { downloadFallbackSnapshot, exportJSON } from '@/shell';
 
@@ -28,6 +32,8 @@ export default function StorageBanner() {
   // 마커는 부팅 시점 값이면 충분하다(쓰기는 이 세션에서만 일어나고, 그땐 위 `broken` 이 참이라
   // ①이 이긴다). 사용자의 "확인함"만 이 지역 상태를 되돌린다.
   const [fallbackAt, setFallbackAt] = useState<number | null>(dbFallbackAt);
+  /* 부팅 시점에 확정되는 값이라 상태로 들 필요가 없다(`initAppStore` 는 렌더보다 앞이다). */
+  const staleSince = dbStaleSince();
 
   const dismiss = useCallback(() => {
     clearDbFallback();
@@ -40,6 +46,23 @@ export default function StorageBanner() {
         <b>저장소에 연결하지 못했어요</b>
         <span className="min-w-0 flex-1">
           이번 세션의 편집은 <b>임시 저장</b>만 됩니다 — 지금 내보내기로 백업하세요.
+        </span>
+        <Button sm variant="primary" onClick={() => exportJSON()}>
+          내보내기
+        </Button>
+      </div>
+    );
+  }
+
+  /* ③ — DB 를 못 열어 낡은 사본 위에 떠 있다. **편집하기 전에** 말해야 값이 있다:
+     여기서 입력하면 정본과 갈라지고, 되돌리려면 사람이 파일을 열어 대조해야 한다. */
+  if (staleSince != null) {
+    return (
+      <div className="ds-warnbox ds-bad mx-6.5 mt-3 mb-0 flex flex-wrap items-center gap-2" role="alert">
+        <b>저장소를 열지 못했어요</b>
+        <span className="min-w-0 flex-1">
+          지금 보이는 것은 <b>{fmt(staleSince)} 이전의 사본</b>입니다 — 최근 편집이 빠져 있을 수 있어요. 앱을 다시
+          시작해 보고, 그래도 같으면 편집하기 전에 백업하세요.
         </span>
         <Button sm variant="primary" onClick={() => exportJSON()}>
           내보내기

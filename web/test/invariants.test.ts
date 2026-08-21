@@ -1389,3 +1389,42 @@ describe('불변식 ⑮ 소스에 원시 NUL 이 없다', () => {
     expect(오염, '원시 NUL → git 이 바이너리로 보고 diff 를 숨긴다. `\x00` 이스케이프를 쓸 것').toEqual([]);
   });
 });
+
+/* ============================================================
+   불변식 ⑯ **프로세스를 갈아타는 호출 앞에는 저장 확정이 온다**(D004 · 2026-08-21 데이터 축).
+
+   이 앱에는 프로세스가 사라지는 경로가 셋이다: 창 닫기 · 트레이 종료 · 업데이트 설치.
+   앞의 둘은 `StorageGuard` 가 지켰고 세 번째는 **그 관용구를 안 태웠다** — `app.restart()`
+   가 `on_close_requested` 를 태우지 않기 때문이다. 400ms 디바운스에 걸린 편집이 그대로
+   사라졌고, 확인 문구는 *"먼저 저장하세요"* 라고 말하는데 **이 앱에 수동 저장이 없다.**
+
+   근본 원인은 관용구가 **경로마다 사본으로** 붙어 있던 것이다(데이터 축 근본원인 ③).
+   `settleBeforeExit` 가 그 유일한 자리이고, 이 불변식은 **네 번째 경로**를 잡는다.
+
+   ⚠ 검사 대상은 호출 순서가 아니라 **같은 파일이 그 확정을 안다는 것**이다. 순서까지 정적
+   으로 보려면 AST 가 필요하고, 이 저장소의 다른 불변식들과 같은 이유로 그 값은 비용을
+   넘지 않는다 — 여기서 막으려는 것은 «관용구의 존재를 모르고 새 경로를 여는 것» 이다.
+============================================================ */
+describe('불변식 ⑯ 종료 경로는 settleBeforeExit 를 태운다(D004)', () => {
+  /** 프로세스가 돌아오지 않는 호출. `lib/tauri.ts` 는 이것들의 **정의**라 제외한다. */
+  const 종료호출 = /\b(installUpdate|shellQuit)\s*\(/;
+
+  it('그 호출을 하는 파일은 settleBeforeExit 를 함께 부른다', () => {
+    const 위반 = tsFiles()
+      .filter((f) => !f.endsWith(join('lib', 'tauri.ts')))
+      .filter((f) => {
+        const src = strip(readFileSync(f, 'utf8'));
+        return 종료호출.test(src) && !src.includes('settleBeforeExit');
+      })
+      .map((f) => aliasOf(f));
+
+    expect(위반, '프로세스를 갈아타기 전에 저장을 확정하지 않는다 — D004 가 정확히 그 형태였다').toEqual([]);
+  });
+
+  it('그 호출을 하는 파일이 존재한다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    const 소비처 = tsFiles().filter(
+      (f) => !f.endsWith(join('lib', 'tauri.ts')) && 종료호출.test(strip(readFileSync(f, 'utf8'))),
+    );
+    expect(소비처.length).toBeGreaterThan(0);
+  });
+});

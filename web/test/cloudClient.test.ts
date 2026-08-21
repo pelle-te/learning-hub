@@ -238,7 +238,20 @@ describe('받아온 것도 검증한다', () => {
     expect(batch.upto).toBe(600);
   });
 
-  it('**아는** 테이블의 내용이 계약과 다르면 여전히 던진다 — 관용은 경계에만 있다', async () => {
+  /* ⚠⚠ **이 케이스는 D002(2026-08-21 데이터 축)에서 뒤집혔다.**
+
+     옛 단정: *"아는 테이블의 내용이 계약과 다르면 **던진다** — 관용은 경계에만 있다."* 앞 절은
+     지금도 옳지만(밀린 열이 upsert 되면 안 된다) **던지는 것이 처방이 아니었다**: 배치를 통째로
+     거부하면 `commitPullMark` 에 도달하지 못해 그 기기의 **수신이 영구 정지**한다 — H16 이
+     `tbl` 축에서 막으려던 바로 그 결말이 열 축으로 그대로 났다.
+
+     가설이 아니다: 009 가 `summaries` 를 `(sid,ord)` → `(sid,id,ord)` 로 바꿨고, 그 마이그레이션이
+     지시하는 배포 순서가 «D1 먼저, 앱 나중» 이다. 그 창이 정확히 이 경로다.
+
+     새 계약은 `tbl` 축과 **같다**: 그 행만 버리고 · `upto` 는 전진하고 · 버린 건수는
+     `dropped` 로 올라가 텔레메트리와 «업데이트가 필요할 수 있어요» 토스트가 된다(관측 없는
+     관용은 침묵과 같다). 지켜야 할 것 — **밀린 열이 병합되지 않는다** — 은 그대로다. */
+  it('⚠ 아는 테이블이라도 열 개수가 다르면 **그 행만** 버린다(D002) — 병합하지도, 배치를 죽이지도 않는다', async () => {
     queue = [
       { status: 200, body: { accessToken: 'A', expiresIn: 900 } },
       {
@@ -246,13 +259,21 @@ describe('받아온 것도 검증한다', () => {
         body: {
           since: 0,
           upto: 600,
-          // settings 는 데이터 열이 1개인데 2개를 보냈다 → 열이 밀린 채 upsert 되는 부류.
-          rows: [{ tbl: 'settings', key: ['k'], data: ['v', '여분'], updatedAt: 500 }],
+          rows: [
+            // settings 는 데이터 열이 1개인데 2개를 보냈다 → 열이 밀린 채 upsert 되는 부류.
+            { tbl: 'settings', key: ['k'], data: ['v', '여분'], updatedAt: 500 },
+            { tbl: 'settings', key: ['정상'], data: ['v'], updatedAt: 500 },
+          ],
           tombstones: [],
         },
       },
     ];
-    await expect(pullChanges(CFG, 0)).rejects.toThrow(/계약과 다릅니다/);
+    const batch = await pullChanges(CFG, 0);
+    expect(
+      batch.rows.map((r) => r.key[0]),
+      '밀린 행이 병합되면 안 된다',
+    ).toEqual(['정상']);
+    expect(batch.upto, '전진하지 않으면 그 구간을 영원히 되묻는다').toBe(600);
   });
 
   it('정합한 응답은 그대로 통과한다', async () => {

@@ -9,22 +9,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock 은 파일 최상단으로 호이스팅되므로 팩토리가 참조할 값도 함께 호이스팅해야 한다.
-const { readRows, writeRows, isDbAvailable, setDiffBaseline } = vi.hoisted(() => ({
+const { readRows, writeRows, isDbAvailable, setDiffBaseline, selectDb, execDb } = vi.hoisted(() => ({
   readRows: vi.fn(),
   writeRows: vi.fn(),
   isDbAvailable: vi.fn(),
   setDiffBaseline: vi.fn(),
+  // D003 — 이관 완료 마커가 `sync_state` 를 쓴다. 목이 없으면 그 경로가 통째로 안 보인다.
+  selectDb: vi.fn(async () => null),
+  execDb: vi.fn(async () => true),
 }));
 vi.mock('@/lib/db/sqlite', () => ({
   readRows,
   writeRows,
   isDbAvailable,
   setDiffBaseline,
+  selectDb,
+  execDb,
   getDb: vi.fn(),
-  // 4단계-J — 저작물 저장소(db/docs.ts)가 쓰는 통로. 모킹에서 빠지면 initDocs 가 터지는데,
-  // 그 실패가 AppState 프리로드까지 끌고 내려가면 안 된다(boot.ts 가 자체 try 로 끊는다).
-  selectDb: vi.fn(async () => null),
-  execDb: vi.fn(async () => true),
+  // 4단계-J — 저작물 저장소(db/docs.ts)가 쓰는 통로이자 D003 의 마커 통로. 모킹에서 빠지면
+  // initDocs 가 터지는데, 그 실패가 AppState 프리로드까지 끌고 내려가면 안 된다.
   /* C-6/§13-8 — `docs.ts` 의 분기가 `isTauri()` 에서 **`isSqlitePrimary()`** 로 바뀌었다
      (폰은 Tauri 가 아닌데 SQLite 가 정본이다). 모킹에서 빠지면 `initDocs` 가 TypeError 로
      터지고 그 실패가 AppState 프리로드까지 끌고 내려가 **세 케이스가 한꺼번에** 빨간불이
@@ -47,6 +50,7 @@ import { initAppStore, preloadedState, didMigrate, resetBootState, dbDowngrade }
 import { stateToRows } from '@/lib/db/rows';
 import { defaults, persist } from '@/lib/persistence';
 import { storage } from '@/lib/kv';
+import { dbLastOpenedAt, dbStaleSince, setDbStale } from '@/lib/db/fallback';
 
 /** 활동 흔적이 있는 상태 — 어느 경로가 채택됐는지 marker 로 판별. */
 const marked = (m: string): AppState => {
@@ -71,7 +75,10 @@ beforeEach(() => {
      `const { ok } = …` 이 undefined 를 받아 **쓰기 성공이 실패로 읽힌다**. */
   writeRows.mockReset().mockResolvedValue({ ok: true, touched: [], preImages: [], stamp: 0 });
   isDbAvailable.mockReset().mockResolvedValue(true);
+  selectDb.mockReset().mockResolvedValue(null); // 마커 없음 = 기존 설치
+  execDb.mockReset().mockResolvedValue(true);
   dbVersionGuard.mockReset().mockResolvedValue(null); // 기본은 "가드 없음"(구 배포본·브라우저)
+  setDbStale(null); // D006 — 모듈 지역 세션 상태라 케이스 간에 샌다
   asTauri(true);
 });
 
@@ -203,5 +210,103 @@ describe('실패는 전부 localStorage 폴백으로 수렴한다', () => {
     readRows.mockRejectedValue(new Error('디스크 오류'));
     await expect(initAppStore()).resolves.toBeUndefined();
     expect(preloadedState()).toBeNull();
+  });
+});
+
+/* ============================================================
+   D003(2026-08-21 데이터 축) — **부분 이관이 정본이 되는 경로.**
+
+   데스크톱 `writeRows` 는 트랜잭션이 금지돼 있어(sqlx 풀 · `database is locked`) 순차
+   `execute` 다. `TABLES` 순서상 `meta`·`settings` 를 쓴 직후 프로세스가 죽으면 예외가
+   없으므로 `ok:false` 도 안 난다 — 그런데 다음 부팅의 `readRows()` 는 그 `settings` 한 행을
+   보고 non-null 을 주고, 종전 코드는 그걸 **완료된 이관**으로 읽었다.
+   원본은 localStorage 에 그대로 있지만 읽는 경로가 더 이상 없다.
+============================================================ */
+describe('D003 이관 완료 마커 — 부분 이관과 완료를 가른다', () => {
+  it('⚠⚠ 마커가 남아 있으면 부분 DB 를 정본으로 확정하지 않고 이관을 재개한다', async () => {
+    // 지난 부팅이 남긴 절반: settings 만 들어간 DB + 지워지지 않은 마커.
+    const 부분 = stateToRows(marked('부분DB'));
+    readRows.mockResolvedValue(부분);
+    selectDb.mockResolvedValue([{ value: 'started' }]);
+    persist(storage, marked('로컬정본'));
+
+    await initAppStore();
+
+    expect(didMigrate(), '재개했어야 한다').toBe(true);
+    expect(markerOf(preloadedState()), 'localStorage 정본이 이겨야 한다').toBe('로컬정본');
+    // 부분 DB 를 기준선으로 세운다 — diff 가 나머지만 채우므로 멱등이다(전량 재기입이 아니다).
+    expect(setDiffBaseline).toHaveBeenCalledWith(부분);
+  });
+
+  it('마커가 없으면 거동이 종전 그대로다 — 기존 설치에 변화 0', async () => {
+    readRows.mockResolvedValue(stateToRows(marked('DB정본')));
+    selectDb.mockResolvedValue(null);
+    persist(storage, marked('로컬옛것'));
+
+    await initAppStore();
+
+    expect(didMigrate()).toBe(false);
+    expect(markerOf(preloadedState())).toBe('DB정본');
+  });
+
+  it('이관 성공이 마커를 지운다 — 안 지우면 매 부팅이 재개한다', async () => {
+    readRows.mockResolvedValue(null);
+    persist(storage, marked('첫이관'));
+
+    await initAppStore();
+
+    expect(didMigrate()).toBe(true);
+    expect(execDb.mock.calls.some(([sql]) => String(sql).startsWith('DELETE FROM sync_state'))).toBe(true);
+  });
+
+  it('⚠ 쓰기 실패는 마커를 **남긴다** — 다음 부팅이 다시 이관해야 한다', async () => {
+    readRows.mockResolvedValue(null);
+    writeRows.mockResolvedValue({ ok: false, touched: [], preImages: [], stamp: 0 });
+    persist(storage, marked('실패'));
+
+    await initAppStore();
+
+    expect(didMigrate()).toBe(false);
+    expect(execDb.mock.calls.some(([sql]) => String(sql).startsWith('DELETE FROM sync_state'))).toBe(false);
+  });
+});
+
+/* ============================================================
+   D006(2026-08-21) — **DB 를 못 열면 낡은 사본을 조용히 정본처럼 보여 준다.**
+
+   ⚠ 여기서 잠그는 것은 "배너가 뜬다"가 아니라 **"전에 성공한 적이 있을 때만 뜬다"** 다.
+   그 조건이 없으면 트랙 A 에 오폭한다 — 하네스는 `__TAURI_INTERNALS__` 를 심지만
+   `plugin:sql|*` 은 거부하므로 DB 가 영원히 안 열리고, 시각 스냅샷 전량에 경고가 뜬다
+   (C1 이 이미 한 번 물린 함정이다).
+============================================================ */
+describe('D006 낡은 사본 위에 떴다는 사실을 화면이 안다', () => {
+  it('한 번도 못 연 기기(트랙 A·첫 실행)는 조용하다 — 오폭 금지', async () => {
+    isDbAvailable.mockResolvedValue(false);
+    await initAppStore();
+    expect(dbStaleSince()).toBeNull();
+  });
+
+  it('⚠⚠ 전에 열렸던 기기가 못 열면 말한다', async () => {
+    readRows.mockResolvedValue(stateToRows(marked('정상')));
+    await initAppStore(); // ① 정상 부팅 — 개방 성공을 기록한다
+    expect(dbLastOpenedAt()).not.toBeNull();
+
+    resetBootState();
+    setDbStale(null);
+    isDbAvailable.mockResolvedValue(false);
+    await initAppStore(); // ② 다음 부팅에 DB 가 안 열린다
+
+    expect(preloadedState(), 'localStorage 로 폴백한다(종전과 같다)').toBeNull();
+    expect(dbStaleSince(), '그런데 종전엔 아무도 이 사실을 말하지 않았다').toBe(dbLastOpenedAt());
+  });
+
+  it('부팅 읽기가 던져도 같은 판정이다 — 채널이 catch 에만 있으면 안 된다', async () => {
+    readRows.mockResolvedValue(stateToRows(marked('정상')));
+    await initAppStore();
+    resetBootState();
+    setDbStale(null);
+    readRows.mockRejectedValue(new Error('디스크 오류'));
+    await initAppStore();
+    expect(dbStaleSince()).not.toBeNull();
   });
 });

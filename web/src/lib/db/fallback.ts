@@ -86,6 +86,55 @@ export function clearDbFallback(): void {
   }
 }
 
+/* ── **정본을 못 열었다** — 낡은 사본을 정본처럼 보여 주는 경로(D006 · 2026-08-21) ─────
+
+   이관을 마친 사용자의 DB 가 부팅에 안 열리고 그 세션에 **아직 편집이 없으면**, 앱은 아무 말도
+   없이 이관 전 localStorage 스냅샷을 정본처럼 보여 줬다. 안내 채널 셋이 전부 침묵한다:
+   위 `isSaveFallback` 은 저장이 실제로 실패해야 켜지고(편집 전엔 거짓) · `dbFallbackAt` 은
+   **이전 세션의** 마커가 필요하고(첫 발생엔 없다) · `BootRecovery` 는 raw 가 없거나 파싱
+   실패일 때만인데 여기 raw 는 멀쩡하다. `boot.ts` 의 `console.error` 가 이 사실을 정확히
+   아는데 **개발자 채널에만** 있었다.
+
+   ⚠ **"전에 성공한 적이 있을 때만"** 이 판정의 전부다. 그 조건이 없으면 트랙 A 에 오폭한다 —
+   하네스는 `__TAURI_INTERNALS__` 를 심지만 `plugin:sql|*` 은 거부하므로 `isTauri()` 는 참이고
+   DB 는 영원히 안 열린다(위 `_saveFallback` 주석이 기록한 바로 그 함정의 두 번째 판).
+   그래서 **개방 성공을 기록**해 두고, 그 기록이 있는데 못 열릴 때만 말한다. */
+const OK_KEY = KEY + '_dbok';
+
+/** 정본 DB 를 정상적으로 연 시각을 남긴다(부팅 성공 경로에서 1회). */
+export function markDbOpened(at: number = Date.now()): void {
+  try {
+    storage.setItem(OK_KEY, String(at));
+  } catch {
+    /* 못 써도 앱은 정상이다 — 다음 부팅의 배너 판정만 보수적으로(=안 뜸) 기운다. */
+  }
+}
+
+/** 이 기기에서 정본 DB 를 마지막으로 연 시각(ms). 한 번도 못 열었으면 null. */
+export function dbLastOpenedAt(): number | null {
+  try {
+    const raw = storage.getItem(OK_KEY);
+    const n = raw == null ? NaN : Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/* 이번 부팅에서 «전에는 열렸는데 지금 못 열었다» 가 참인가. 모듈 지역 상태인 것이 맞다 —
+   이건 세션의 사실이고, 다음 부팅에 DB 가 열리면 그대로 사라져야 한다. */
+let _staleAt: number | null = null;
+
+/** `initAppStore` 전용 — 개방 실패 + 과거 성공 기록이 있을 때 켠다. */
+export function setDbStale(at: number | null): void {
+  _staleAt = at;
+}
+
+/** 화면에 보이는 것이 정본이 아니라 낡은 사본인가(값은 마지막 정상 개방 시각). */
+export function dbStaleSince(): number | null {
+  return _staleAt;
+}
+
 /** 임시 사본 원본(localStorage `KEY`). 파일 회수용 — 없으면 null. */
 export function dbFallbackSnapshot(): string | null {
   try {

@@ -26,6 +26,7 @@ import { useCallback, useState } from 'react';
 import { checkUpdate, installUpdate, isTauri, type UpdateInfo } from '@/lib/tauri';
 import { readCloudConfig, updateManifestUrl } from '@/lib/cloud/client';
 import { Button } from '@/components/ui';
+import { settleBeforeExit } from '@/store/settleBeforeExit';
 import { confirmLossy, toast } from '@/shell';
 
 /* ⚠ 엔드포인트를 **매번 설정에서 읽는다**(C3). 빌드 시점 상수가 아닌 이유: 배포처가 사용자
@@ -66,6 +67,13 @@ export default function UpdateCard() {
       return;
     setBusy(true);
     try {
+      /* ⚠⚠ **세 번째 종료 경로다**(D004 · 2026-08-21). `installUpdate` 는 `app.restart()` 로
+         프로세스를 갈아타는데 그건 `on_close_requested` 를 태우지 않으므로 `StorageGuard` 의
+         닫기 가드가 **안 뛴다** — 종전엔 400ms 디바운스에 걸려 있던 편집(쓰기 실패 백오프
+         중이면 최대 `PERSIST_RETRY_MAX_MS` 만큼)이 그대로 사라졌다. 위 확인 문구는
+         *"진행 중인 작업이 있으면 먼저 저장하세요"* 라고 말하지만 **이 앱에 수동 저장이 없다.**
+         가드가 뛰든 안 뛰든 확정을 먼저 하는 것이 옳다. */
+      await settleBeforeExit();
       await installUpdate(await endpoint());
     } catch (e) {
       setBusy(false);

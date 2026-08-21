@@ -205,6 +205,9 @@ export type ParsedOutboxBatch = z.infer<typeof OutboxBatchSchema>;
    ## 관용의 범위를 좁게 못박는다
 
    · 모르는 `tbl` 행/툼스톤은 **버린다**(경고와 함께). 우리가 모르는 테이블에 병합할 방법이 없다.
+   · ⚠⚠ **열 개수가 다른 행도 버린다**(D002 · 2026-08-21). 종전엔 이 축이 빠져 있어서, 아는
+     테이블의 열 구성이 바뀌면(009 가 실제로 그랬다) 관용 필터를 통과한 뒤 길이 검사에서
+     **배치 전량이 거부**돼 같은 영구 정지가 났다. 관용을 «한 축만» 덮은 것이 결함이었다.
    · `upto` 는 **그대로 전진시킨다** — 버린 것은 "우리가 쓸 수 없는 것"이고, 다시 받아도 또 버린다.
      전진시키지 않으면 그 구간을 영원히 되묻는다(H2/2026-07-24 가 고친 정체와 같은 형태).
    · 그 외 검사는 **한 글자도 느슨해지지 않는다**: 살아남은 항목에 원래의 엄격 스키마를 그대로
@@ -228,12 +231,34 @@ export function parseInboundBatch(
     .safeParse(input);
   if (!env.success) return { ok: false, error: `서버 응답 봉투가 계약과 다릅니다 — ${issueLine(env.error)}` };
 
-  const known = (v: unknown): boolean => {
+  /* ⚠⚠ **열 개수 축도 관용의 대상이다**(D002 · 2026-08-21 데이터 축).
+
+     종전 필터는 `tbl` 만 봤다. 그래서 «아는 테이블인데 열 구성이 다른» 행은 필터를 통과한 뒤
+     아래 엄격 스키마의 길이 검사에 걸려 **배치 전체가 거부**됐다 — 즉 `known` 이 막으려던
+     바로 그 결말(수신 영구 정지)이 다른 축으로 그대로 났다.
+
+     가설이 아니다. 009 가 `summaries` 를 `['sid','ord','value']` → `['sid','id','ord','value']`
+     로 바꿨고, 그 마이그레이션이 지시하는 배포 순서는 «D1 먼저, 앱 나중»이다. 그 창에서
+     구버전 데스크톱이 pull 하면 정확히 이 경로를 탄다. 스키마 추가만이 아니라 **기존 표의
+     열 변경**도 같은 창을 연다 — 그리고 후자가 실제로 한 번 지나갔다.
+
+     관용의 범위는 종전과 같다: 버리고 · `upto` 는 전진시키고 · 살아남은 것에는 한 글자도
+     느슨하지 않은 검사를 적용한다. */
+  const knownRow = (v: unknown): boolean => {
+    const r = v as { tbl?: unknown; key?: unknown; data?: unknown } | null;
+    const spec = typeof r?.tbl === 'string' ? SPEC.get(r.tbl) : undefined;
+    if (!spec) return false;
+    if (!Array.isArray(r?.key) || r.key.length !== spec.keyLen) return false;
+    return Array.isArray(r?.data) && r.data.length === spec.cols.length - spec.keyLen;
+  };
+  /* 툼스톤은 열 구성이 `(tbl,k1,k2,deletedAt)` 로 고정이라 표의 열이 바뀌어도 형태가 안 변한다
+     — 그래서 여기서는 `tbl` 만 본다(k2 규약은 아래 엄격 스키마가 그대로 지킨다). */
+  const knownTomb = (v: unknown): boolean => {
     const t = (v as { tbl?: unknown } | null)?.tbl;
     return typeof t === 'string' && SPEC.has(t);
   };
-  const rows = env.data.rows.filter(known);
-  const tombstones = env.data.tombstones.filter(known);
+  const rows = env.data.rows.filter(knownRow);
+  const tombstones = env.data.tombstones.filter(knownTomb);
   const dropped = env.data.rows.length - rows.length + (env.data.tombstones.length - tombstones.length);
 
   // 살아남은 것에는 **원래의 엄격 스키마**를 그대로 적용한다.

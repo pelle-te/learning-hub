@@ -10,9 +10,8 @@ import { useEffect } from 'react';
 import { ensureDurableStorage, isQuotaTight, fmtBytes } from '@/lib/durability';
 import { installCloseGuard, isTauri, onShellQuit, shellQuit } from '@/lib/tauri';
 import { useUI } from '@/store/useUI';
-import { whenSettled, waitForMergeWindow } from '@/lib/db/write';
 import { installSyncTriggers } from '@/store/syncController';
-import { useApp } from '@/store/useApp';
+import { settleBeforeExit } from '@/store/settleBeforeExit';
 import { exportJSON, toast } from '@/shell';
 
 export default function StorageGuard() {
@@ -25,15 +24,10 @@ export default function StorageGuard() {
     let dead = false;
     void installCloseGuard(
       async () => {
-        useApp.getState().flushNow(); // 디바운스 건너뛰고 동기 정본부터 확정
-        /* ⚠⚠ **병합창에 닫으면 그 flush 는 아무것도 안 쓴다(H9 · 2026-07-31 `/감사 근본`).**
-         `writeAndVerify` 가 `deferred:true` 로 즉시 반환하고 400ms 타이머를 재예약하는데,
-         `whenSettled()` 는 그 링크가 이미 resolve 됐으므로 **곧바로 통과**하고 창이 파괴된다 —
-         타이머는 영원히 안 뛴다. 즉 이 가드의 존재 이유(비동기 SQL 쓰기가 잘리는 것을 막는다)가
-         정확히 이 경우에만 무력화돼 있었다. 창이 닫히길 짧게 기다렸다 **한 번 더** 확정한다.
-         ⚠ 상한이 계약이다(1.2초 < 바깥 가드 3초) — 무한 대기는 "앱이 안 닫힌다"의 로컬판이다. */
-        if (await waitForMergeWindow()) useApp.getState().flushNow();
-        await whenSettled(); // 그 flush 가 띄운 SQL 쓰기까지 대기
+        /* ⚠ 네 줄짜리 관용구는 **`settleBeforeExit` 하나**다(D004 · 2026-08-21) — 종료 경로가
+           셋인데 가드가 둘에만 있었고, 사본으로 붙어 있던 것이 그 누락의 형태였다.
+           ⚠ 상한은 그 모듈이 진다(1.2초 < 바깥 가드 3초) — 무한 대기는 "앱이 안 닫힌다"의 로컬판이다. */
+        await settleBeforeExit();
         /* T-3 — 상주 모드면 파괴 대신 숨긴다. **flush 는 위에서 똑같이 끝냈다**: 숨긴 뒤
          강제 종료·크래시가 나면 그 쓰기는 영영 없다(달라지는 것은 마지막 한 줄뿐). */
       },
@@ -59,9 +53,7 @@ export default function StorageGuard() {
     let dead = false;
     void onShellQuit(() => {
       void (async () => {
-        useApp.getState().flushNow();
-        if (await waitForMergeWindow()) useApp.getState().flushNow();
-        await whenSettled();
+        await settleBeforeExit();
         await shellQuit();
       })();
     }).then((u) => {

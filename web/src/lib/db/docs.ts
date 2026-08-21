@@ -99,6 +99,17 @@ export async function initDocs(): Promise<void> {
     }
   }
   _cache = map;
+  /* ③ — 미지 키를 **지우지 않고 보고**한다(D005). 실 DB 에 51KB 가 도달 불가인 채 있었고,
+     그 사실을 아는 코드가 어디에도 없었다. 판정은 화면(설정 › 진단)이 `unknownDocKeys()` 로
+     한다 — 여기서 하는 일은 개발자 채널에 한 줄 남기는 것까지다(D006 의 교훈: 개발자 채널
+     **만** 있으면 그건 아무도 모르는 것과 같다. 그래서 화면 쪽 짝을 함께 뒀다). */
+  const 미지 = unknownDocKeys();
+  if (미지.length) {
+    console.warn(
+      `[docs] 알려지지 않은 키 ${미지.length}개(${미지.reduce((a, b) => a + b.bytes, 0)}B) — 설정 › 진단에서 확인하세요.`,
+      미지.map((d) => d.key),
+    );
+  }
 }
 
 /**
@@ -115,6 +126,92 @@ export async function reloadDocs(): Promise<void> {
   const rows = await selectDb<{ key: string; value: string }>('SELECT key, value FROM docs');
   if (!rows) return; // DB 미가용 — 기존 사본 유지(빈 사본으로 덮어 화면을 비우지 않는다)
   _cache = new Map(rows.map((r) => [r.key, r.value]));
+}
+
+/* ============================================================
+   ⚠⚠ **표는 비어 있지 않았다**(D005 · 2026-08-21 데이터 축).
+
+   위 문단은 *"빈 채로 두되 빈 것을 명시한다"* 고 적었는데, 실 DB 를 읽으니 **3행 51,793 B**
+   가 있었다: `lh:reads`(103 B · 사용자 저작물) · `artifact:reads`(40,834 B) ·
+   `artifact:markets`(10,856 B). 셋 다 P10 W4 에서 화면이 `survey/` 로 가며 은퇴한 세입자다.
+
+   그 셋의 상태가 **도달 불가**였다:
+   · 읽을 수 없다 — `DOC_KEYS` 밖이라 `isDocKey` 가 false → `docGet` 이 localStorage 로 흐른다.
+   · 지울 수 없다 — 전 저장소에 `DELETE FROM docs` 가 0건이었고, `docs` 는 `rows.ts` 의
+     `TABLES` 밖이라 `diffRows` 가 DELETE 도 툼스톤도 만들지 못한다.
+   · 그런데 나른다 — `OUTBOX_TABLES` 에 `DOCS_SPEC` 으로 들어 있어 이미 D1 에 밀렸고, pull 이
+     폰 OPFS 로 같은 51KB 를 내린다. 매 부팅에 `initDocs` 가 메모리로도 올린다.
+
+   ## 순서가 처방의 일부다
+
+   ① **회수 먼저**(`exportAllDocs` → 백업 페이로드). ②를 먼저 하면 `lh:reads` — 사용자가 쓴
+      글 — 이 회수 불가 상태로 사라진다. ② 삭제 경로(`docDelete`)는 **툼스톤을 먼저** 낸다
+      (`contract.ts` 가 *"docs 에 삭제를 추가하는 커밋은 툼스톤을 같이 넣어야 한다"* 를 이미
+      규칙으로 못박아 뒀다 — 안 그러면 다른 기기에서 지운 것이 되살아난다). ③ `initDocs` 는
+      미지 키를 **지우지 않고 보고**한다(설정 › 진단).
+   ⚠ 앱이 스스로 지우지 않는 것이 의도다. 판정 근거가 «`DOC_KEYS` 에 없다» 뿐인데, 그 목록은
+     세입자가 오갈 때마다 바뀐다 — 자동 삭제를 달면 다음 리팩터가 사용자 저작물을 지운다.
+============================================================ */
+
+/** 백업 페이로드의 `docs` 필드명. `_local`·`_obs` 와 같은 **추가 키** 관용구. */
+export const DOCS_FIELD = '_docs';
+
+/** 백업용 — `docs` 표 **전량**(미지 키 포함). 회수 경로가 이 함수 하나다. */
+export async function exportAllDocs(): Promise<Record<string, string>> {
+  if (!isSqlitePrimary()) return {};
+  const rows = await selectDb<{ key: string; value: string }>('SELECT key, value FROM docs');
+  return Object.fromEntries((rows ?? []).map((r) => [r.key, r.value]));
+}
+
+/**
+ * 가져오기 — `_docs` 블롭에서 **아는 키만** 되살린다. 복원한 키 수를 돌려준다.
+ *
+ * ⚠ 미지 키를 되쓰지 않는 것이 의도다. 파일에 담는 이유는 **회수**(사람이 읽을 수 있게)이고,
+ * 표에 되돌려 놓으면 도달 불가 행을 그대로 재생산한다 — 그게 D005 가 고치는 상태다.
+ */
+export async function importDocs(v: unknown): Promise<number> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return 0;
+  let n = 0;
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (!isDocKey(k) || typeof val !== 'string') continue;
+    docSet(k, val);
+    n += 1;
+  }
+  return n;
+}
+
+/** `DOC_KEYS` 밖에서 표에 남아 있는 키들(진단 표시용 · 지우지 않는다). */
+export function unknownDocKeys(): { key: string; bytes: number }[] {
+  if (!_cache) return [];
+  return [..._cache.entries()]
+    .filter(([k]) => !isDocKey(k))
+    .map(([key, value]) => ({ key, bytes: new TextEncoder().encode(value).length }));
+}
+
+/**
+ * 저작물 삭제 — **툼스톤을 먼저** 낸다.
+ *
+ * ⚠ 순서가 계약이다. `docs` 는 `TABLES` 밖이라 `diffRows` 가 삭제 사실을 만들어 주지 못하므로,
+ * 여기서 안 내면 다른 기기의 pull 이 그 행을 다시 내려보내 **지운 것이 되살아난다**(G2 금지).
+ * 툼스톤 쓰기가 실패하면 **행을 지우지 않는다** — 되살아나는 것보다 안 지워지는 편이 낫다.
+ */
+export async function docDelete(key: string): Promise<boolean> {
+  if (!isSqlitePrimary()) {
+    storage.removeItem(key);
+    return true;
+  }
+  return runExclusive(async () => {
+    const at = nextStamp();
+    /* `DOCS_SPEC` 의 키는 (key) 하나 — `k2` 는 v3 규약대로 빈 문자열이다. */
+    const marked = await execDb(
+      `INSERT OR REPLACE INTO tombstones (tbl, k1, k2, deleted_at) VALUES ('docs', ?1, '', ?2)`,
+      [key, at],
+    );
+    if (!marked) return false;
+    const gone = await execDb('DELETE FROM docs WHERE key = ?', [key]);
+    if (gone) _cache?.delete(key);
+    return gone;
+  });
 }
 
 /** 저작물 읽기(**동기**) — 셸이면 메모리, 아니면 localStorage. */

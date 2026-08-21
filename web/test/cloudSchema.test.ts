@@ -9,7 +9,7 @@
    한가운데를 자르면 나머지가 영영 안 올라간다(조용한 유실).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { OutboxBatchSchema, TableNameSchema, parseOutboxBatch } from '@/lib/cloud/schema';
+import { OutboxBatchSchema, TableNameSchema, parseInboundBatch, parseOutboxBatch } from '@/lib/cloud/schema';
 import { capBatch, MAX_BATCH_ITEMS, OUTBOX_TABLES, type OutboxRow, type OutboxTomb } from '@/lib/cloud/outbox';
 
 /** 계약을 만족하는 최소 배치. 각 테스트가 여기서 한 군데만 망가뜨린다. */
@@ -205,5 +205,61 @@ describe('스키마와 아웃박스가 같은 계약을 본다', () => {
       expect(r.data.rows[0]!.tbl).toBe('settings');
       expect(r.data.upto).toBe(200);
     }
+  });
+});
+
+/* ============================================================
+   ⚠⚠ **수신 관용**(H16 · D002) — 이 방향은 정책이 정반대다.
+
+   위 케이스들은 «거부가 목적»이지만 `parseInboundBatch`(pull)는 그러면 안 된다: 배치를
+   통째로 거부하면 `pullMark` 가 전진하지 않고, 그 기기의 **수신이 영구 정지**한다(화면은
+   `failed` 토스트 한 줄이고 «다음 시도에 다시»라고 말한다 — 거짓이다).
+
+   ⚠ 이 함수엔 테스트가 **한 건도 없었다**(2026-08-21 실측). H16 이 만든 관용은 `tbl` 축만
+   덮었고, D002 가 발견한 것은 **열 개수 축이 비어 있다**는 것이다 — 그리고 그 축은 가설이
+   아니라 009(`summaries` 를 `(sid,ord)` → `(sid,id,ord)`)로 이미 한 번 지나갔다.
+============================================================ */
+describe('parseInboundBatch — 관용은 경계에만, 내용엔 없다', () => {
+  const 봉투 = (rows: unknown[], tombstones: unknown[] = []) => ({ since: 100, upto: 200, rows, tombstones });
+  const 정상 = { tbl: 'settings', key: ['k'], data: ['{"a":1}'], updatedAt: 150 };
+
+  it('모르는 테이블은 버리고 나머지를 살린다(H16)', () => {
+    const r = parseInboundBatch(봉투([정상, { tbl: '미래표', key: ['x'], data: ['y'], updatedAt: 150 }]));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.dropped).toBe(1);
+    expect(r.batch.rows).toHaveLength(1);
+    expect(r.batch.upto, '버린 구간을 되묻지 않는다 — upto 는 전진한다').toBe(200);
+  });
+
+  it('⚠⚠ 아는 테이블인데 **열 개수가 다르면** 그 행만 버린다(D002)', () => {
+    // 009 이전 구성의 `summaries` 를 신버전 서버가 보내온 형태(열이 하나 늘었다).
+    const 신형 = { tbl: 'summaries', key: ['sid', 'id1'], data: [0, '{}'], updatedAt: 150 };
+    const 구형 = { tbl: 'summaries', key: ['sid'], data: [0, '{}'], updatedAt: 150 };
+    const r = parseInboundBatch(봉투([정상, 구형]));
+    expect(r.ok, '종전엔 배치 전량이 거부돼 수신이 영구 정지했다').toBe(true);
+    if (!r.ok) return;
+    expect(r.dropped).toBe(1);
+    expect(r.batch.rows).toEqual([정상]);
+    // 반대로 계약에 맞는 행은 그대로 통과한다(관용이 내용까지 느슨해지지 않았다).
+    const r2 = parseInboundBatch(봉투([신형]));
+    expect(r2.ok && r2.dropped).toBe(0);
+  });
+
+  it('기본키 개수가 다른 행도 같은 축이다 — 버리되 배치는 살린다', () => {
+    const r = parseInboundBatch(봉투([정상, { tbl: 'settings', key: ['a', 'b'], data: ['{}'], updatedAt: 150 }]));
+    expect(r.ok && r.dropped).toBe(1);
+  });
+
+  it('⚠ 살아남은 항목의 검사는 한 글자도 느슨해지지 않는다 — 이상한 스탬프는 여전히 거부', () => {
+    const r = parseInboundBatch(봉투([{ tbl: 'settings', key: ['k'], data: ['{}'], updatedAt: -1 }]));
+    expect(r.ok, '관용은 *경계*에만 있고 *내용*엔 없다').toBe(false);
+  });
+
+  it('툼스톤은 열 구성이 고정이라 tbl 만 본다 — k2 규약은 엄격 스키마가 지킨다', () => {
+    const ok1 = parseInboundBatch(봉투([], [{ tbl: 'records', k1: 'tasks', k2: 't1', deletedAt: 160 }]));
+    expect(ok1.ok).toBe(true);
+    const bad = parseInboundBatch(봉투([], [{ tbl: 'settings', k1: 'k', k2: '있으면안됨', deletedAt: 160 }]));
+    expect(bad.ok, '단일키 표의 k2 는 빈 문자열이어야 한다(db.rs v3)').toBe(false);
   });
 });

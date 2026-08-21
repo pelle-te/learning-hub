@@ -16,14 +16,41 @@ import { storage } from '../kv';
 import { isTauri } from '../isTauri';
 import type { DbGuard } from '../tauri';
 import { initDocs } from './docs';
+import { dbLastOpenedAt, markDbOpened, setDbStale } from './fallback';
 import type { AppState } from '../types';
 import { rowsToState, stateToRows } from './rows';
-import { isDbAvailable, readMaxStamp, readRows, setDiffBaseline, writeRows } from './sqlite';
+import { execDb, isDbAvailable, readMaxStamp, readRows, selectDb, setDiffBaseline, writeRows } from './sqlite';
 import { chunkedStamp, seedStamp } from './stamp';
 
 /** 최초 이관의 청크 크기 — `MAX_BATCH_ITEMS`(500) 아래로 여유를 두어 단일 스탬프 그룹이
  *  아웃박스 배치 상한을 넘지 않게 한다(C1 · `stamp.ts`·`cloud/contract.ts` 참조). */
 const MIGRATION_STAMP_CHUNK = 400;
+
+/* ⚠⚠ **이관 완료 마커**(D003 · 2026-08-21 데이터 축).
+
+   종전에 「이관됐는가」의 유일한 판정은 `readRows()` 가 non-null 인가였고, 그 함수는
+   **`settings` 또는 `meta` 에 한 행이라도 있으면** non-null 을 준다. 즉 **부분 이관과 완료
+   이관을 구분할 수 없었다.**
+
+   그게 왜 데이터 소실인가: 데스크톱 `writeRows` 는 `db.batch` 가 없어 **순차 `execute`
+   폴백**이고(sqlx 풀에서 `BEGIN` 은 다른 커넥션의 쓰기를 막아 `database is locked` 로 죽는다 —
+   그래서 트랜잭션이 **금지**돼 있다) 문장 순서는 `TABLES` 순이다. `meta`·`settings` 를 쓴
+   직후 프로세스가 죽으면 예외가 없으므로 `ok:false` 경로도 안 탄다. **다음 부팅**은 `settings`
+   행을 보고 non-null → DB 가 정본으로 확정 → 나머지 슬라이스가 화면에서 사라진다.
+   원본은 localStorage 에 그대로 있지만 **그것을 읽는 코드 경로가 더 이상 없다.**
+
+   ⚠ 자리가 `sync_state` 인 것이 처방의 절반이다. `meta` 는 `rows.ts` 매퍼의 소유라 다음
+   flush 의 `diffRemovals` 가 모르는 키를 지운다 — `sync_state` 가 별도 표인 이유가 그것이고
+   (`db.rs` v4), 그래서 내보내기·동기화 대상도 아니다.
+   ⚠ 마커를 **쓰기 전에** 세우고 성공 후 지운다. 재개 시 부분 DB 를 기준선으로 세우면 diff 가
+   나머지만 채우므로 멱등이다. 기존 설치는 마커가 없어 **거동 변화 0**이다. */
+const MIGRATION_MARK = 'migration:localStorage';
+
+/** 이관을 시작해 놓고 끝내지 못한 흔적이 남아 있는가. */
+async function migrationInterrupted(): Promise<boolean> {
+  const r = await selectDb<{ value: string }>('SELECT value FROM sync_state WHERE key = ?', [MIGRATION_MARK]);
+  return !!r?.length;
+}
 
 /* ⚠⚠ **아직 아무것도 안 한 기기의 기본값에 찍는 스탬프 = 0**(C-1 · 2026-07-30 `/감사 근본`).
 
@@ -138,7 +165,7 @@ export async function initAppStore(): Promise<void> {
       );
       return;
     }
-    if (!(await isDbAvailable())) return;
+    if (!(await isDbAvailable())) return flagStaleBoot();
     /* ⚠ **어떤 쓰기보다 먼저** 타임스탬프 발급기에 씨앗을 심는다(C-1). 모듈 지역 변수라
        재시작하면 0 으로 돌아가는데, 그 상태에서 시계가 뒤로 가 있으면 **이미 DB 에 쓴 값보다
        작은 타임스탬프를 발급**해 그 편집이 워터마크 질의에 영영 안 걸린다(`stamp.ts` 참조).
@@ -149,15 +176,24 @@ export async function initAppStore(): Promise<void> {
        첫 렌더보다 늦게 채워지면 사용자에겐 "요약이 사라졌다"로 보인다. */
     await initDocs();
     const rows = await readRows();
-    if (rows) {
+    /* ⚠ 행이 있어도 **마커가 남아 있으면 그건 정본이 아니라 절반이다**(D003). 이 한 줄이
+       없으면 부분 이관이 다음 부팅에 정본으로 확정된다 — 위 `MIGRATION_MARK` 주석 참조. */
+    const 재개 = rows !== null && (await migrationInterrupted());
+    if (rows && !재개) {
       // 증분 diff 의 기준선 — 세우지 않으면 첫 쓰기가 DB 를 한 번 더 읽는다(불필요한 왕복).
       setDiffBaseline(rows);
       _preloaded = rowsToState(rows);
+      markDbOpened(); // D006 — 다음 부팅이 «전에는 열렸다» 를 말할 수 있게 하는 유일한 근거
       return;
     }
-    setDiffBaseline(null); // 빈 DB — 기준선도 비어 있다(전량이 신규 upsert)
-    // 빈 DB — 아직 이관 전이다. localStorage 정본을 읽어 SQLite 로 옮긴다.
-    // boot() 는 손상 시 CORRUPT_KEY 보존 + defaults() 폴백까지 이미 처리한다.
+    /* 빈 DB(기준선 null · 전량이 신규 upsert) 또는 중단된 이관(부분 DB 가 기준선 → diff 가
+       나머지만 채운다 = 멱등). 어느 쪽이든 localStorage 정본을 읽어 SQLite 로 옮긴다.
+       boot() 는 손상 시 CORRUPT_KEY 보존 + defaults() 폴백까지 이미 처리한다. */
+    setDiffBaseline(rows);
+    await execDb('INSERT INTO sync_state (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2', [
+      MIGRATION_MARK,
+      'started',
+    ]);
     const fromLocal = boot(storage);
     /* ⚠ 청크 스탬프로 쓴다 — 수개월치 데이터가 한 스탬프 그룹이 되면 첫 클라우드 연결에서
        아웃박스가 상한(500)에 걸려 영구 차단된다(C1). 청크마다 스탬프를 갈아 다배치로 나간다. */
@@ -168,9 +204,11 @@ export async function initAppStore(): Promise<void> {
     /* ⚠ 스탬프 선택이 이 줄의 전부다 — 근거는 위 `PRISTINE_STAMP` 주석(C-1). */
     const stamp = isPristineState(fromLocal) ? PRISTINE_STAMP : chunkedStamp(MIGRATION_STAMP_CHUNK);
     const { ok } = await writeRows(stateToRows(fromLocal), stamp);
-    if (!ok) return; // 쓰기 실패 — localStorage 경로로 부팅(정본은 아직 거기 있다)
+    if (!ok) return; // 쓰기 실패 — localStorage 경로로 부팅(정본은 아직 거기 있다). 마커는 남긴다.
+    await execDb('DELETE FROM sync_state WHERE key = ?', [MIGRATION_MARK]);
     _preloaded = fromLocal;
     _migrated = true;
+    markDbOpened();
   } catch (e) {
     /* 진단 불가 실패도 폴백으로 흡수한다 — 부팅 실패는 이 앱에서 가장 나쁜 결과다.
        ⚠ 하지만 **조용히** 삼키지는 않는다. 이 catch 가 무음이던 동안, 부팅 읽기가 실패하면
@@ -179,5 +217,15 @@ export async function initAppStore(): Promise<void> {
        (`getDb()` 의 catch 는 같은 이유로 이미 로그를 남기고 있었다 — 여기만 빠져 있었다). */
     console.error('[db] 부팅 읽기 실패 — localStorage 로 폴백합니다(최근 편집이 안 보일 수 있음).', e);
     _preloaded = null;
+    flagStaleBoot();
   }
+}
+
+/* ⚠ **이 사실은 개발자 채널에만 있었다**(D006 · 2026-08-21). 위 `console.error` 는 무엇이
+   틀렸는지 정확히 알면서 콘솔에만 적었고, 화면 셋은 전부 침묵했다 — 같은 설계의 다른
+   가지(C1 배너 · C2 다운그레이드 화면 · 손상 원본 안내)는 전부 화면으로 승격됐는데 이
+   가지만 남아 있었다. 조건과 그 근거는 `fallback.ts` 의 `OK_KEY` 주석이 SSOT. */
+function flagStaleBoot(): void {
+  const 마지막 = dbLastOpenedAt();
+  if (마지막 != null) setDbStale(마지막);
 }

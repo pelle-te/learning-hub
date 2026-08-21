@@ -53,6 +53,20 @@ const ALL = [
      매번 진단이 같다: **"CI 엔 있는데 로컬엔 없다"는 곧 "아무 데도 없다"가 된다.**
      ⚠ 자리가 `audit` 바로 뒤인 것은 규율 그대로다 — 같은 종류의 신호를 붙여 둔다. */
   { name: 'server audit', args: ['run', 'audit', '--prefix', '../server'], mode: 'full' },
+  /* ⚠ **루트 패키지도 SCA 대상이다**(D018 · 2026-08-21 데이터 축). 종전엔 web·server 둘만
+     봤는데, 루트 트리가 `@tauri-apps/cli`(+플랫폼 바이너리)를 지고 **아래 `release:sign` 이
+     그 프로세스에 `TAURI_SIGNING_PRIVATE_KEY` 를 넣는다.** 즉 세 트리 중 유일하게 «비밀을 보는» 트리가
+     게이트 밖이었고, 거기 high 가 떠도 어느 원장에도 안 걸린 채 전량 녹색이 나왔다.
+     `server audit` 옆이 자리인 것은 규율 그대로 — 같은 종류의 신호를 붙여 둔다. */
+  { name: 'root audit', args: ['run', 'audit', '--prefix', '..'], mode: 'full' },
+  /* ⚠⚠ **Cargo 축의 SCA**(D010 · 2026-08-21). 위 셋은 전부 npm 트리이고, 그동안 **645 crate 짜리
+     Cargo 트리는 무게이트**였다 — 그리고 그쪽이 사용자에게 배포되는 exe 를 만든다.
+     `cargo` 가 없는 환경은 아래 rust 단계들과 **같은 조건으로**(`mode:'cargo'`) 통째로 건너뛴다 —
+     web 만 만지는 작업에 Rust 툴체인을 요구하지 않는다. 여기 두는 것은 싼 신호이기 때문이다(~1초).
+     ⚠ 도구가 없으면 **조용히 건너뛰지 않고 빨갛게 죽는다**: `cargo install cargo-deny --locked`.
+     그게 의도다 — 이 저장소가 반복해 물린 형태가 «있는 줄 알았는데 안 돌고 있었다» 이다.
+     근거는 `src-tauri/deny.toml` 머리주석. */
+  { name: 'tauri:deny', args: ['run', 'tauri:deny', '--prefix', '..'], mode: 'cargo' },
   { name: 'build', args: ['run', 'build'], mode: 'full' },
   { name: 'budget', args: ['run', 'budget'], mode: 'full' },
   /* ⚠⚠ **`server verify` 가 어떤 로컬 게이트에도 없었다**(2026-08-01 `/감사 근본` · 패리티 사고).

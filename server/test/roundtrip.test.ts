@@ -567,3 +567,40 @@ describe('N-7 ics 구독 피드', () => {
     expect((await SELF.fetch(`${BASE}/api/ics/${TOKEN}.ics`)).status).toBe(404);
   });
 });
+
+/* ============================================================
+   D009(2026-08-21 데이터 축) — **경로가 곧 변수인 라우트엔 상한이 없었다.**
+
+   레이트 버킷이 `${ip}:${pathname}` 인데 `/api/ics/:token` 은 경로 자체가 128비트 난수다.
+   매번 다른 토큰으로 치면 인메모리 `hits` 에도 전역 리미터에도 새 버킷이 잡혀, 그 라우트의
+   머리주석이 방어 ②로 선언한 것(*"이 라우트가 D1 을 두드리는 횟수를 묶는다"*)이 성립하지
+   않았다. 토큰은 `^[0-9a-f]{32}$` 만 통과하면 되므로 **요청마다 D1 SELECT 1회**가 나갔다.
+
+   ⚠ 이 케이스는 **지금 통과하는 것이 곧 결함**인 형태다 — 고치기 전에는 429 가 한 번도
+   안 났다.
+============================================================ */
+describe('레이트 리밋 — 가변 경로가 상한을 빠져나가지 않는다(D009)', () => {
+  const 토큰 = (i: number): string => i.toString(16).padStart(32, '0');
+
+  it('⚠⚠ 매번 다른 ics 토큰으로 쳐도 429 가 난다', async () => {
+    let 마지막 = 0;
+    for (let i = 0; i < 25; i++) {
+      const r = await SELF.fetch(`${BASE}/api/ics/${토큰(i)}.ics`, {
+        headers: { 'CF-Connecting-IP': '203.0.113.9' },
+      });
+      마지막 = r.status;
+      if (마지막 === 429) break;
+    }
+    expect(마지막, '토큰마다 새 버킷이 잡히면 상한이 원리적으로 없다').toBe(429);
+  });
+
+  it('⚠ 그렇다고 라우트를 뭉뚱그리지 않는다 — 인증 라우트는 자기 버킷을 유지한다', async () => {
+    // 위 케이스가 ics 버킷을 이미 소진시켰다. 같은 IP 라도 `/api/token` 은 별개여야 한다.
+    const r = await SELF.fetch(`${BASE}/api/token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '203.0.113.9' },
+      body: JSON.stringify({ deviceId: 'x', refresh: 'y' }),
+    });
+    expect(r.status, 'ics 트래픽이 인증 라우트의 컷을 휩쓸면 안 된다').not.toBe(429);
+  });
+});

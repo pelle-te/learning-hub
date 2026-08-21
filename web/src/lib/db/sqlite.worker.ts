@@ -28,9 +28,13 @@
    `migrations.ts` 의 목록을 순서대로 적용하고 `_migrations` 에 기록한다. sqlx 의
    `_sqlx_migrations` 와 **이름을 달리한 것이 의도**다 — 체크섬 의미론(SHA-384 대조)이
    다른데 같은 테이블을 쓰면 한쪽이 다른 쪽 기록을 잘못 해석한다.
+
+   ⚠ 본문은 **`migrateSchema.ts` 에 있다**(D001·D011 · 2026-08-21). 이 파일은 모듈
+   최상위에서 `self` 와 wasm 을 잡으므로 노드에서 부를 수 없어, 여기 있는 동안 폰
+   마이그레이션은 한 번도 테스트된 적이 없었다.
 ============================================================ */
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
-import { MIGRATIONS } from './migrations';
+import { migrateSchema } from './migrateSchema';
 
 /** 워커 ↔ 메인 프로토콜. `Response` 를 흉내 내지 않는다(`cloud/client.ts` 의 `Reply` 사상). */
 export type DbRequest =
@@ -70,24 +74,8 @@ async function open(): Promise<boolean> {
     console.error('[db/worker] OPFS 를 쓸 수 없어 인메모리로 내려갑니다. 새로고침하면 캐시가 사라집니다.', e);
     db = new (sqlite3 as unknown as { oo1: { DB: new (p: string, f: string) => Oo1Db } }).oo1.DB(':memory:', 'ct');
   }
-  migrate(db);
+  migrateSchema(db);
   return durable;
-}
-
-function migrate(d: Oo1Db): void {
-  d.exec({ sql: 'CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY, file TEXT NOT NULL)' });
-  const done = new Set(
-    (
-      d.exec({ sql: 'SELECT version FROM _migrations', rowMode: 'object', returnValue: 'resultRows' }) as {
-        version: number;
-      }[]
-    ).map((r) => r.version),
-  );
-  for (const m of MIGRATIONS) {
-    if (done.has(m.version)) continue;
-    d.exec({ sql: m.sql });
-    d.exec({ sql: 'INSERT INTO _migrations (version, file) VALUES (?, ?)', bind: [m.version, m.file] });
-  }
 }
 
 self.onmessage = async (ev: MessageEvent<DbRequest>) => {

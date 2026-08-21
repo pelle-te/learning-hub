@@ -14,6 +14,16 @@
    설계' 착수 게이트 …)이 **처음부터 다시** 쌓아야 한다. 그리고 게이트가 관측일 10·방문 30이라
    그 대기는 몇 주다.
 
+   ## ⚠⚠ 목록이 낡는다 — 논거가 아니라 목록이 (D007 · 2026-08-21)
+
+   위 논거는 지금도 옳다. 낡은 것은 **목록**이었다: 이 모듈이 쓰이고 **다음 날** `route_hops`
+   (010)와 `idle_spells`(011)가 생겼고 둘 다 여기 안 들어왔다. 실측하니 실 DB 의 `route_hops`
+   가 **67행 · 14일 누적**이었고, 내보내기 → 재설치 → 가져오기 하면 그게 0 이 된다.
+
+   그래서 항목을 더하는 것으로 끝내지 않는다 — **집행자를 함께 둔다**(`test/observations.test.ts`).
+   목록은 스키마에서 역산된다: **`updated_at` 열이 없는 표 = 동기화 대상이 아님 = 백업이 유일한
+   연속성 수단**. 새 관측 원장이 생기면 그 대조에서 빨간불이 뜬다.
+
    ## 계약
 
    · 백업 필드는 `_obs` — `_reads`·`_local` 과 같은 **추가 키** 관용구다(구 앱은 모르는 키를
@@ -42,18 +52,38 @@ interface SignalRow {
   anki_due: number;
   due_soon: number;
 }
+interface HopRow {
+  from_key: string;
+  to_key: string;
+  day: string;
+  hour: number;
+  n: number;
+}
+interface IdleRow {
+  day: string;
+  hour: number;
+  n: number;
+  sec: number;
+}
 export interface Observations {
   visits: VisitRow[];
   signals: SignalRow[];
+  hops: HopRow[];
+  idle: IdleRow[];
 }
 
-/** 내보내기 — 두 표를 통째로 담는다(둘 다 상한이 있어 크기가 유계다: 방문 90일·신호 90일). */
+/** 백업이 덮는 관측 원장. ⚠ 집행자가 스키마와 대조한다 — 손으로만 세면 또 낡는다(D007). */
+export const OBSERVATION_TABLES = ['route_visits', 'day_signals', 'route_hops', 'idle_spells'] as const;
+
+/** 내보내기 — 네 표를 통째로 담는다(전부 90일 상한이 있어 크기가 유계다). */
 export async function exportObservations(): Promise<Observations> {
-  if (!(await isDbAvailable())) return { visits: [], signals: [] };
+  if (!(await isDbAvailable())) return { visits: [], signals: [], hops: [], idle: [] };
   const visits = (await selectDb<VisitRow>('SELECT key, day, via, n FROM route_visits')) ?? [];
   const signals =
     (await selectDb<SignalRow>('SELECT ds, pending, overdue, backlog, anki_due, due_soon FROM day_signals')) ?? [];
-  return { visits, signals };
+  const hops = (await selectDb<HopRow>('SELECT from_key, to_key, day, hour, n FROM route_hops')) ?? [];
+  const idle = (await selectDb<IdleRow>('SELECT day, hour, n, sec FROM idle_spells')) ?? [];
+  return { visits, signals, hops, idle };
 }
 
 /** 형태 가드 — 신뢰 불가 파일이므로 행마다 확인한다(하나가 이상해도 나머지는 복원한다). */
@@ -67,33 +97,60 @@ const 글자 = (v: unknown): string => (typeof v === 'string' ? v : '');
  * 관측이 깎이고, 그러면 이 원장이 재는 "충분히 봤는가"가 **뒤로 간다**(게이트가 영영 안 열린다).
  * 신호는 그날의 스냅샷 하나라 마지막 값이 이긴다(같은 날짜의 두 관측은 같은 사실을 잰다).
  */
+/* 표 하나를 복원한다. 갈라 둔 이유가 둘이다: ① 원장이 넷으로 늘며 한 함수의 인지복잡도가
+   래칫을 넘었고(D007) ② 「키가 없으면 건너뛴다 · 실패해도 계속한다」 라는 규칙이 표마다
+   사본으로 있으면 다음 원장이 그중 하나를 빠뜨린다. */
+async function restore<T>(
+  rows: unknown,
+  key: (r: Partial<T>) => boolean,
+  sql: string,
+  args: (r: Partial<T>) => unknown[],
+): Promise<number> {
+  let n = 0;
+  for (const r of Array.isArray(rows) ? (rows as Partial<T>[]) : []) {
+    if (!r || !key(r)) continue;
+    if (await execDb(sql, args(r))) n += 1;
+  }
+  return n;
+}
+
 export async function importObservations(v: unknown): Promise<number> {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return 0;
   if (!(await isDbAvailable())) return 0;
   const src = v as Partial<Observations>;
-  let n = 0;
-  for (const r of Array.isArray(src.visits) ? src.visits : []) {
-    const key = 글자(r?.key);
-    const day = 글자(r?.day);
-    if (!key || !day) continue;
-    const ok = await execDb(
+  const counts = [
+    await restore<VisitRow>(
+      src.visits,
+      (r) => !!글자(r.key) && !!글자(r.day),
       `INSERT INTO route_visits (key, day, via, n) VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT(key, day, via) DO UPDATE SET n = MAX(n, excluded.n)`,
-      [key, day, 글자(r?.via), 수(r?.n)],
-    );
-    if (ok) n += 1;
-  }
-  for (const r of Array.isArray(src.signals) ? src.signals : []) {
-    const ds = 글자(r?.ds);
-    if (!ds) continue;
-    const ok = await execDb(
+      (r) => [글자(r.key), 글자(r.day), 글자(r.via), 수(r.n)],
+    ),
+    /* 신호는 그날의 스냅샷 하나라 마지막 값이 이긴다(같은 날짜의 두 관측은 같은 사실을 잰다). */
+    await restore<SignalRow>(
+      src.signals,
+      (r) => !!글자(r.ds),
       `INSERT INTO day_signals (ds, pending, overdue, backlog, anki_due, due_soon)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(ds) DO UPDATE SET pending = excluded.pending, overdue = excluded.overdue,
            backlog = excluded.backlog, anki_due = excluded.anki_due, due_soon = excluded.due_soon`,
-      [ds, 수(r?.pending), 수(r?.overdue), 수(r?.backlog), 수(r?.anki_due), 수(r?.due_soon)],
-    );
-    if (ok) n += 1;
-  }
-  return n;
+      (r) => [글자(r.ds), 수(r.pending), 수(r.overdue), 수(r.backlog), 수(r.anki_due), 수(r.due_soon)],
+    ),
+    await restore<HopRow>(
+      src.hops,
+      (r) => !!글자(r.from_key) && !!글자(r.to_key) && !!글자(r.day),
+      `INSERT INTO route_hops (from_key, to_key, day, hour, n) VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(from_key, to_key, day, hour) DO UPDATE SET n = MAX(n, excluded.n)`,
+      (r) => [글자(r.from_key), 글자(r.to_key), 글자(r.day), 수(r.hour), 수(r.n)],
+    ),
+    /* `sec`(유휴 누적 초)도 `MAX` 다 — 방문 수와 같은 이유로 깎으면 복원이 아니라 손실이다. */
+    await restore<IdleRow>(
+      src.idle,
+      (r) => !!글자(r.day),
+      `INSERT INTO idle_spells (day, hour, n, sec) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(day, hour) DO UPDATE SET n = MAX(n, excluded.n), sec = MAX(sec, excluded.sec)`,
+      (r) => [글자(r.day), 수(r.hour), 수(r.n), 수(r.sec)],
+    ),
+  ];
+  return counts.reduce((a, b) => a + b, 0);
 }

@@ -24,6 +24,7 @@ import { resolveTheme } from '@/lib/uiState';
 import { routeLabelOf } from './tabs';
 import { exportLocalExtras, importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { exportObservations, importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
+import { DOCS_FIELD, exportAllDocs, importDocs } from '@/lib/db/docs';
 import { idbLoad, idbGet, IDB_BACKUP_KEY, IDB_BACKUP2_KEY } from '@/lib/idb';
 import { dbFallbackSnapshot } from '@/lib/db/fallback';
 import { storage } from '@/lib/kv';
@@ -188,11 +189,17 @@ export function exportJSON(): void {
    SQL 표라 읽기가 비동기이고, 그 둘이 **어떤 백업에도 없어서** 재설치·오리진 이동 때 0 이
    됐다(그것을 기다리는 로드맵 판정이 일곱이고 게이트가 관측일 10·방문 30이라 대기가 몇 주다).
    근거 전문은 `lib/observations.ts` 머리주석이 소유한다. */
+/* ⚠⚠ `docs` 표를 **전량** 싣는다(D005 · 2026-08-21). P10 W4 가 `_reads` 를 걷은 뒤 이 표는
+   **어떤 백업에도 없었다** — 그런데 비어 있지 않았다: 실 DB 에 3행 51,793 B 가 도달 불가인
+   채(읽을 수도 지울 수도 없는데 D1·폰까지 밀린 채) 있었고 그중 하나는 사용자가 쓴 글이었다.
+   살아 있는 세입자(`ics:feed`)도 같은 이유로 재설치에서 사라졌다.
+   ⚠ 회수 경로가 삭제 경로보다 **먼저** 서야 한다는 것이 그 항목 처방의 순서다. */
 export async function backupPayload(s: AppState): Promise<Record<string, unknown>> {
   return {
     ...exportSnapshot(s),
     [LOCAL_EXTRAS_FIELD]: exportLocalExtras(),
     [OBSERVATIONS_FIELD]: await exportObservations(),
+    [DOCS_FIELD]: await exportAllDocs(),
   };
 }
 
@@ -214,6 +221,7 @@ export function importJSON(input: HTMLInputElement): void {
     const obj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
     const localExtras = obj?.[LOCAL_EXTRAS_FIELD];
     const observations = obj?.[OBSERVATIONS_FIELD];
+    const docsBlob = obj?.[DOCS_FIELD];
     const migrated = migrate(parsed);
     if (!migrated) {
       toast('가져오기 실패: 러닝 허브 백업 파일 형식이 아닙니다(필수 항목 누락).', 'bad', 5000);
@@ -230,6 +238,7 @@ export function importJSON(input: HTMLInputElement): void {
     });
     delete (s as Record<string, unknown>)[LOCAL_EXTRAS_FIELD];
     delete (s as Record<string, unknown>)[OBSERVATIONS_FIELD];
+    delete (s as Record<string, unknown>)[DOCS_FIELD];
     if (!(await backupOrConfirm())) return;
     st().loadState(s);
     // 사이드카 KV 복원 → announce({kind:'local'})가 아틀라스·리서치·UI의 메모리 상태를 되읽게 한다.
@@ -237,6 +246,9 @@ export function importJSON(input: HTMLInputElement): void {
     /* 관측 원장(H-14) — 실패해도 가져오기 전체를 막지 않는다. 이건 앱 데이터가 아니라 *관측*이고,
        없으면 판정이 늦어질 뿐 앱은 정상 동작한다(`observations.ts` 의 방문 수 MAX 규칙 참조). */
     if (observations) await importObservations(observations).catch(() => 0);
+    /* D005 — `docs` 는 **아는 키만** 되살린다(`importDocs` 머리주석). 미지 키를 되쓰면 도달
+       불가 행을 재생산하는 것이고, 파일에 담은 이유는 회수지 복원이 아니다. */
+    if (docsBlob) await importDocs(docsBlob).catch(() => 0);
     // UI 스토어는 sync 구독자가 아니다(부팅 시 1회 read) → 복원 후 명시적으로 되읽어야
     // 다음 설정 변경의 flush가 복원된 lh_ui_v1을 메모리 기본값으로 덮지 않는다.
     if (localCount) useUI.getState().reloadUI();

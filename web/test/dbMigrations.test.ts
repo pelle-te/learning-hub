@@ -23,7 +23,7 @@
 ============================================================ */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { MIGRATIONS } from '../src/lib/db/migrations';
 
@@ -157,6 +157,28 @@ describe('⚠⚠ 체크섬 핀 — 기존 마이그레이션은 불변이다', (
 
   it('줄바꿈이 LF 다 — CRLF 로 변환되면 위 체크섬이 전부 깨진다', () => {
     for (const m of all) expect(m.sql, `v${m.version} 에 CRLF 가 섞였다`).not.toContain('\r');
+  });
+});
+
+/* ⚠⚠ D012(2026-08-21 데이터 축) — **폴더와 `db.rs` 가 갈리는 것을 아무도 안 봤다.**
+
+   위 `migrations()` 는 *의도적으로* 글롭을 피하고 `db.rs` 를 거쳐 간다(그 주석의 근거는
+   지금도 옳다: 파일이 있어도 `db.rs` 가 안 가리키면 앱은 그걸 실행하지 않는다).
+   그런데 **D1 쪽은 정확히 반대로 폴더를 글롭한다** — wrangler 의 `migrations_dir` 과
+   `server/test/contract.test.ts` 의 `readdirSync`. 즉 이 폴더가 양쪽의 단일 원천이라는
+   설계 전체가, 「두 목록이 같다」는 **아무도 검사하지 않던 명제**에 매달려 있었다.
+
+   실패 형태: README 절차 ①(파일 추가)만 하고 ②(`db.rs` 에 등록)를 잊는다 → 게이트 전량
+   녹색 · `migrate:remote` 는 **D1 에만** 적용 → 표 재작성형이면 D1 과 로컬이 영구 분기. */
+describe('⚠⚠ 폴더 ↔ db.rs 목록 (D012) — D1 은 폴더를 글롭한다', () => {
+  it('폴더의 .sql 전부가 db.rs 에 등록돼 있고, 그 역도 참이다', () => {
+    const onDisk = readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    expect(
+      all.map((m) => m.file).sort(),
+      '폴더에만 있는 파일은 D1 에 적용되고 로컬에는 안 된다(그 반대도 마찬가지다)',
+    ).toEqual(onDisk);
   });
 });
 

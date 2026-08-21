@@ -5,6 +5,10 @@ description = "러닝허브 — 볼트·Anki·일과를 한눈에 보는 로컬 
 authors = ["jin"]
 license = ""
 repository = ""
+# ⚠ crates.io 에 올리지 않는다 — 이 앱은 NSIS 인스톨러로만 배포된다(`web/docs/릴리스.md`).
+# 명시하는 이유는 D010(2026-08-21): `deny.toml` 의 `[licenses.private] ignore` 가 이 플래그로
+# «비공개 크레이트» 를 판정한다. 없으면 라이선스 게이트가 **우리 자신을** unlicensed 로 막는다.
+publish = false
 edition = "2021"
 rust-version = "1.77.2"
 
