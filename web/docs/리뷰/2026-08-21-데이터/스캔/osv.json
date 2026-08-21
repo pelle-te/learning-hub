@@ -1,0 +1,1694 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "D:/atelier/hub/src-tauri/Cargo.lock",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "atk",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0413"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0413"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0413.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "atk",
+                    "purl": "pkg:cargo/atk"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0413",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/atk"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0413.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "atk-sys",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0416"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0416"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0416.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "atk-sys",
+                    "purl": "pkg:cargo/atk-sys"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0416",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/atk-sys"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0416.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "event-listener",
+            "version": "5.4.1",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2026-0221"
+              ],
+              "aliases": [
+                "RUSTSEC-2026-0221"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [
+                      "memory-corruption",
+                      "thread-safety"
+                    ],
+                    "cvss": null,
+                    "informational": "unsound",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2026-0221.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "event-listener",
+                    "purl": "pkg:cargo/event-listener"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "5.1.0"
+                        },
+                        {
+                          "fixed": "5.4.2"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "Affected versions of `event-listener` unconditionally implement `Send` and\n`Sync` for `StackSlot\u003c'_, T\u003e`, the stack-allocated listener type created\nby the `listener!` macro.\n\nThis allows a `!Send` tag type set via `Event::with_tag` to be moved to\nanother thread and accessed via `StackSlot::wait`, causing a data race in safe\ncode.",
+              "id": "RUSTSEC-2026-0221",
+              "modified": "2026-07-31T12:15:04.629484145Z",
+              "published": "2026-07-13T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/event-listener"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2026-0221.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/smol-rs/event-listener/pull/163"
+                }
+              ],
+              "schema_version": "1.7.5",
+              "summary": "`event-listener` allows `!Send` tags to cross thread boundaries via `StackSlot`"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gdk",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0412"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0412"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0412.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gdk",
+                    "purl": "pkg:cargo/gdk"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0412",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gdk"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0412.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gdk-sys",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0418"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0418"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0418.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gdk-sys",
+                    "purl": "pkg:cargo/gdk-sys"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0418",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gdk-sys"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0418.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gdkwayland-sys",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0411"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0411"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0411.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gdkwayland-sys",
+                    "purl": "pkg:cargo/gdkwayland-sys"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0411",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gdkwayland-sys"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0411.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gdkx11",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0417"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0417"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0417.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gdkx11",
+                    "purl": "pkg:cargo/gdkx11"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0417",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gdkx11"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0417.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gdkx11-sys",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0414"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0414"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0414.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gdkx11-sys",
+                    "purl": "pkg:cargo/gdkx11-sys"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0414",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gdkx11-sys"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0414.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "glib",
+            "version": "0.18.5",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0429",
+                "GHSA-wrw7-89jp-8q8g"
+              ],
+              "aliases": [
+                "GHSA-wrw7-89jp-8q8g",
+                "RUSTSEC-2024-0429"
+              ],
+              "max_severity": "6.9"
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unsound",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0429.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [
+                        "glib::VariantStrIter::last",
+                        "glib::VariantStrIter::next",
+                        "glib::VariantStrIter::next_back",
+                        "glib::VariantStrIter::nth",
+                        "glib::VariantStrIter::nth_back"
+                      ],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "glib",
+                    "purl": "pkg:cargo/glib"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.15.0"
+                        },
+                        {
+                          "fixed": "0.20.0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [
+                "GHSA-wrw7-89jp-8q8g"
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The `VariantStrIter::impl_get` function (called internally by implementations of the `Iterator` and `DoubleEndedIterator` traits for this type) was unsound, resulting in undefined behaviour.\n\nAn immutable reference `\u0026p` to a `*mut libc::c_char` pointer initialized to `NULL` was passed as an argument to a C function that that mutates the pointer behind `\u0026p` in-place (i.e. as an out-argument), which was unsound. After changes in recent versions of the Rust compiler, these unsound writes through `\u0026p` now seem to be completely disregarded when building the `glib` crate with optimizations.\n\nThis subsequently caused all calls of `VariantStrIter::impl_get` to violate the safety requirements of the `std::ffi::CStr::from_ptr` function - which requires its argument to be a valid pointer to a C-style string - resulting in crashes due to `NULL` pointer dereferences.\n\nThis was fixed by passing the out-argument pointer explitly as `\u0026mut p` instead of `\u0026p`.\n\nThis issue has been present since this code was initially added in `glib` v0.15.0. The mismatch in mutability was likely missed (and not raised as an error by the compiler) because the C function wrapped by `VariantStrIter::impl_get` is variadic (`glib_sys::g_variant_get_child`), and the pointer in question is one of the variadic arguments.",
+              "id": "RUSTSEC-2024-0429",
+              "modified": "2025-10-28T06:29:26.473225Z",
+              "published": "2024-03-30T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/glib"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0429.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk-rs-core/pull/1343"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "Unsoundness in `Iterator` and `DoubleEndedIterator` impls for `glib::VariantStrIter`"
+            },
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/12/GHSA-wrw7-89jp-8q8g/GHSA-wrw7-89jp-8q8g.json"
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "glib",
+                    "purl": "pkg:cargo/glib"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.15.0"
+                        },
+                        {
+                          "fixed": "0.20.0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0429"
+              ],
+              "database_specific": {
+                "cwe_ids": [],
+                "github_reviewed": true,
+                "github_reviewed_at": "2024-12-23T20:19:24Z",
+                "nvd_published_at": null,
+                "severity": "MODERATE"
+              },
+              "details": "The `VariantStrIter::impl_get` function (called internally by implementations of the `Iterator` and `DoubleEndedIterator` traits for this type) was unsound, resulting in undefined behaviour.\n\nAn immutable reference `\u0026p` to a `*mut libc::c_char` pointer initialized to `NULL` was passed as an argument to a C function that that mutates the pointer behind `\u0026p` in-place (i.e. as an out-argument), which was unsound. After changes in recent versions of the Rust compiler, these unsound writes through `\u0026p` now seem to be completely disregarded when building the `glib` crate with optimizations.\n\nThis subsequently caused all calls of `VariantStrIter::impl_get` to violate the safety requirements of the `std::ffi::CStr::from_ptr` function - which requires its argument to be a valid pointer to a C-style string - resulting in crashes due to `NULL` pointer dereferences.\n\nThis was fixed by passing the out-argument pointer explitly as `\u0026mut p` instead of `\u0026p`.\n\nThis issue has been present since this code was initially added in `glib` v0.15.0. The mismatch in mutability was likely missed (and not raised as an error by the compiler) because the C function wrapped by `VariantStrIter::impl_get` is variadic (`glib_sys::g_variant_get_child`), and the pointer in question is one of the variadic arguments.\n\n",
+              "id": "GHSA-wrw7-89jp-8q8g",
+              "modified": "2025-10-28T06:29:26.473225Z",
+              "published": "2024-12-23T20:19:24Z",
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk-rs-core/pull/1343"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/gtk-rs/gtk-rs-core"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0429.html"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "severity": [
+                {
+                  "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N",
+                  "type": "CVSS_V4"
+                }
+              ],
+              "summary": "Unsoundness in `Iterator` and `DoubleEndedIterator` impls for `glib::VariantStrIter`"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gtk",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0415"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0415"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0415.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gtk",
+                    "purl": "pkg:cargo/gtk"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0415",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gtk"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0415.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gtk-sys",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0420"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0420"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0420.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gtk-sys",
+                    "purl": "pkg:cargo/gtk-sys"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0420",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gtk-sys"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0420.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "gtk3-macros",
+            "version": "0.18.2",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0419"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0419"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0419.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "gtk3-macros",
+                    "purl": "pkg:cargo/gtk3-macros"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "The gtk-rs GTK3 bindings are no longer maintained.\n\nThe maintainers have archived the repository, and added a note to the crate\ndescription and its README.md that the crates are no longer maintained.\n\nPlease take a look at [gtk4-rs](https://github.com/gtk-rs/gtk4-rs) instead.\n```",
+              "id": "RUSTSEC-2024-0419",
+              "modified": "2024-12-09T12:29:00Z",
+              "published": "2024-03-04T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/gtk3-macros"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0419.html"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/gtk-rs/gtk3-rs/commit/508a69b63a3c5bf73790e0e59101a955847f30d6"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "gtk-rs GTK3 bindings - no longer maintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "proc-macro-error",
+            "version": "1.0.4",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2024-0370"
+              ],
+              "aliases": [
+                "RUSTSEC-2024-0370"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2024-0370.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "proc-macro-error",
+                    "purl": "pkg:cargo/proc-macro-error"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "proc-macro-error's maintainer seems to be unreachable, with no commits for 2 years, no releases pushed for 4 years, and no activity on the GitLab repo or response to email.\n\nproc-macro-error also depends on `syn 1.x`, which may be bringing duplicate dependencies into dependant build trees.\n\n## Possible Alternative(s)\n\n- [manyhow](https://crates.io/crates/manyhow)\n- [proc-macro2-diagnostics](https://github.com/SergioBenitez/proc-macro2-diagnostics)",
+              "id": "RUSTSEC-2024-0370",
+              "modified": "2026-06-07T20:00:03.923932350Z",
+              "published": "2024-09-01T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/proc-macro-error"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2024-0370.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/20"
+                }
+              ],
+              "schema_version": "1.7.5",
+              "summary": "proc-macro-error is unmaintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "rkyv",
+            "version": "0.7.46",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2026-0235"
+              ],
+              "aliases": [
+                "RUSTSEC-2026-0235"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [
+                      "memory-exposure"
+                    ],
+                    "cvss": null,
+                    "informational": null,
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2026-0235.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "rkyv",
+                    "purl": "pkg:cargo/rkyv"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.7.0-pre.2"
+                        },
+                        {
+                          "fixed": "0.8.17"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "Shared pointer validation keyed already-validated pointees by their address and\ntype, but did not include pointer metadata. For unsized pointees, an archive\ncould therefore contain multiple `Rc`, `Arc`, or weak pointers that shared a\ndata address but used different metadata, such as different slice lengths.\n\nOnce the first pointer had been validated, later pointers to the same address\nskipped pointee validation. The safe checked `rkyv::access` API could\nconsequently return a slice with a forged length, allowing safe indexing to\nread out of bounds. The same validation bypass was reachable through checked\ndeserialization with `rkyv::from_bytes`.\n\nVersion 0.8.17 includes pointer metadata in shared pointer validation and\nrejects conflicting metadata. The 0.7 series is also affected but is no\nlonger supported by upstream. Users who process untrusted archives should upgrade\nto 0.8.17 or later.",
+              "id": "RUSTSEC-2026-0235",
+              "modified": "2026-08-04T09:30:04.382146100Z",
+              "published": "2026-05-13T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/rkyv"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2026-0235.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/rkyv/rkyv/issues/670"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/rkyv/rkyv/commit/3c9d07fbff5949261bef38d00ab160b129bd9d3a"
+                }
+              ],
+              "schema_version": "1.8.0",
+              "summary": "Insufficient archive validation can cause out-of-bounds reads in archives containing Rc/Arc"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "rsa",
+            "version": "0.9.10",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2023-0071"
+              ],
+              "aliases": [
+                "CVE-2023-49092",
+                "GHSA-4grx-2x9w-596c",
+                "GHSA-c38w-74pg-36hr",
+                "RUSTSEC-2023-0071"
+              ],
+              "max_severity": "5.9"
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [
+                      "crypto-failure"
+                    ],
+                    "cvss": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                    "informational": null,
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2023-0071.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "rsa",
+                    "purl": "pkg:cargo/rsa"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [
+                "CVE-2023-49092",
+                "GHSA-4grx-2x9w-596c",
+                "GHSA-c38w-74pg-36hr"
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "### Impact\nDue to a non-constant-time implementation, information about the private key is leaked through timing information which is observable over the network. An attacker may be able to use that information to recover the key.\n\n### Patches\nNo patch is yet available, however work is underway to migrate to a fully constant-time implementation.\n\n### Workarounds\nThe only currently available workaround is to avoid using the `rsa` crate in settings where attackers are able to observe timing information, e.g. local use on a non-compromised computer is fine.\n\n### References\nThis vulnerability was discovered as part of the \"[Marvin Attack]\", which revealed several implementations of RSA including OpenSSL had not properly mitigated timing sidechannel attacks.\n\n[Marvin Attack]: https://people.redhat.com/~hkario/marvin/",
+              "id": "RUSTSEC-2023-0071",
+              "modified": "2026-04-25T06:45:06.122559Z",
+              "published": "2023-11-22T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/rsa"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2023-0071.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/RustCrypto/RSA/issues/626"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/RustCrypto/RSA/issues/19#issuecomment-1822995643"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://people.redhat.com/~hkario/marvin/"
+                }
+              ],
+              "schema_version": "1.7.5",
+              "severity": [
+                {
+                  "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                  "type": "CVSS_V3"
+                }
+              ],
+              "summary": "Marvin Attack: potential key recovery through timing sidechannels"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "unic-char-property",
+            "version": "0.9.0",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2025-0081"
+              ],
+              "aliases": [
+                "RUSTSEC-2025-0081"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2025-0081.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "unic-char-property",
+                    "purl": "pkg:cargo/unic-char-property"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.\n\n## Recommended alternatives\n\n- [`icu_properties`](https://crates.io/crates/icu_properties)",
+              "id": "RUSTSEC-2025-0081",
+              "modified": "2025-10-21T11:12:59Z",
+              "published": "2025-10-18T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/unic-char-property"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2025-0081.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/rustsec/advisory-db/issues/2414"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "`unic-char-property` is unmaintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "unic-char-range",
+            "version": "0.9.0",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2025-0075"
+              ],
+              "aliases": [
+                "RUSTSEC-2025-0075"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2025-0075.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "unic-char-range",
+                    "purl": "pkg:cargo/unic-char-range"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.\n\n## Recommended alternatives\n\n- Since version [1.45.0](https://releases.rs/docs/1.45.0/#libraries) Rust [supports](https://github.com/rust-lang/rust/pull/72413/) using `char` with `ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo}` to iterate over a range of codepoints.",
+              "id": "RUSTSEC-2025-0075",
+              "modified": "2025-10-22T14:41:04Z",
+              "published": "2025-10-18T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/unic-char-range"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2025-0075.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/rustsec/advisory-db/issues/2414"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "`unic-char-range` is unmaintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "unic-common",
+            "version": "0.9.0",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2025-0080"
+              ],
+              "aliases": [
+                "RUSTSEC-2025-0080"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2025-0080.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "unic-common",
+                    "purl": "pkg:cargo/unic-common"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.",
+              "id": "RUSTSEC-2025-0080",
+              "modified": "2025-10-21T11:12:59Z",
+              "published": "2025-10-18T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/unic-common"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2025-0080.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/rustsec/advisory-db/issues/2414"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "`unic-common` is unmaintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "unic-ucd-ident",
+            "version": "0.9.0",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2025-0100"
+              ],
+              "aliases": [
+                "RUSTSEC-2025-0100"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2025-0100.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "unic-ucd-ident",
+                    "purl": "pkg:cargo/unic-ucd-ident"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.\n\n## Recommended alternatives\n\n- [`icu_properties`](https://crates.io/crates/icu_properties)\n- [`unicode-ident`](https://crates.io/crates/unicode-ident)",
+              "id": "RUSTSEC-2025-0100",
+              "modified": "2025-10-21T11:12:59Z",
+              "published": "2025-10-18T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/unic-ucd-ident"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2025-0100.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/rustsec/advisory-db/issues/2414"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "`unic-ucd-ident` is unmaintained"
+            }
+          ]
+        },
+        {
+          "package": {
+            "name": "unic-ucd-version",
+            "version": "0.9.0",
+            "ecosystem": "crates.io"
+          },
+          "groups": [
+            {
+              "ids": [
+                "RUSTSEC-2025-0098"
+              ],
+              "aliases": [
+                "RUSTSEC-2025-0098"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "categories": [],
+                    "cvss": null,
+                    "informational": "unmaintained",
+                    "source": "https://github.com/rustsec/advisory-db/blob/osv/crates/RUSTSEC-2025-0098.json"
+                  },
+                  "ecosystem_specific": {
+                    "affected_functions": null,
+                    "affects": {
+                      "arch": [],
+                      "functions": [],
+                      "os": []
+                    }
+                  },
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "unic-ucd-version",
+                    "purl": "pkg:cargo/unic-ucd-version"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0.0.0-0"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              },
+              "details": "All Unicode crates that are part of https://github.com/open-i18n/rust-unic are unmaintained.",
+              "id": "RUSTSEC-2025-0098",
+              "modified": "2025-10-21T11:12:59Z",
+              "published": "2025-10-18T12:00:00Z",
+              "references": [
+                {
+                  "type": "PACKAGE",
+                  "url": "https://crates.io/crates/unic-ucd-version"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://rustsec.org/advisories/RUSTSEC-2025-0098.html"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/rustsec/advisory-db/issues/2414"
+                }
+              ],
+              "schema_version": "1.7.3",
+              "summary": "`unic-ucd-version` is unmaintained"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "experimental_config": {
+    "licenses": {
+      "summary": false,
+      "allowlist": null
+    }
+  }
+}

@@ -1,0 +1,7 @@
+Scanning dir .
+Starting filesystem walk for root: D:\
+Scanned D:\atelier\hub\package-lock.json file and found 13 packages
+Scanned D:\atelier\hub\server\package-lock.json file and found 169 packages
+Scanned D:\atelier\hub\src-tauri\Cargo.lock file and found 645 packages
+Scanned D:\atelier\hub\web\package-lock.json file and found 898 packages
+End status: 81 dirs visited, 856 inodes visited, 4 Extract calls, 123.3908ms elapsed, 123.3908ms wall time
