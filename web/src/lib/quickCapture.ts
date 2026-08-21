@@ -333,5 +333,7 @@ export function fileCapture(state: AppState, raw: string, now: Date): { id: stri
     items,
   );
   if (!rec) return null;
-  return { id: addBacklog(state, rec.sid, rec.name, rec.topic, rec.note), rec };
+  /* I042 — 캡처는 **판정 전**으로 들어온다(마지막 인자). 세 입구가 전부 이 함수를 지나므로
+     그 사실이 한 곳에서 정해진다 — 입구마다 정하면 하나가 반드시 빠진다(G7 이 물린 형태). */
+  return { id: addBacklog(state, rec.sid, rec.name, rec.topic, rec.note, false), rec };
 }

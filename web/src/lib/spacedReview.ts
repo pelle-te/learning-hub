@@ -560,7 +560,7 @@ export function interleaveBySubject(chapters: ChapterReview[]): ChapterReview[] 
 export const FORECAST_HORIZON = 14;
 /* 투영에 쓰는 오프셋 = 간격반복 본 사다리 + 꼬리(34) — riskOf 와 같은 모델이라 '오늘 due' 와
    '앞으로 due' 가 같은 규칙을 공유한다(따로 놀지 않게). */
-const FORECAST_OFFSETS: readonly number[] = [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET];
+export const FORECAST_OFFSETS: readonly number[] = [...REVIEW_OFFSETS, REVIEW_TAIL_OFFSET];
 
 export interface ForecastSubject {
   sid: string;
@@ -639,6 +639,9 @@ export function dueForecast(
   days: Day[],
   todayDs: string,
   horizon: number = FORECAST_HORIZON,
+  /* I019 — **사다리를 인자로 뺀다**(2026-08-22 발상 축). 값을 바꾸기 위해서가 아니라
+     «바꾸면 어떻게 되나»를 그리기 위해서다. 기본값은 종전 그대로라 소비처가 안 바뀐다. */
+  offsets: readonly number[] = FORECAST_OFFSETS,
 ): ForecastDay[] {
   // dayOffset(1..horizon) → 그날 계상된 챕터들
   const buckets = new Map<number, ForecastChapter[]>();
@@ -654,7 +657,7 @@ export function dueForecast(
       else buckets.set(d, [entry]);
     }
   };
-  for (const ch of chapterReviews(state, days, todayDs)) project(ch, FORECAST_OFFSETS);
+  for (const ch of chapterReviews(state, days, todayDs)) project(ch, offsets);
   /* 끝낸 챕터의 유지 복습도 같은 파도다(N-10) — 예보만 그것을 못 보면 "계획엔 있는데 예보엔
      없는 일"이 생긴다. ⚠ **앵커를 아는 것만** 투영한다: 언제 끝냈는지 모르는 챕터는 미래
      날짜를 특정할 수 없고, 모르는 것을 특정 날짜에 그리면 그 날의 가용선 판정까지 거짓이 된다

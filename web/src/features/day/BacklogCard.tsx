@@ -7,8 +7,16 @@ import { useApp } from '@/store/useApp';
 import { toast } from '@/shell';
 import { useToggleBacklog } from '@/shell/useBacklog';
 import { useRecordEditor } from '@/shell/useRecordEditor';
-import { openBacklog, addBacklog, editBacklog, delBacklog } from '@/lib/methodology';
-import { itemById } from '@/lib/utils';
+import {
+  openBacklog,
+  addBacklog,
+  editBacklog,
+  delBacklog,
+  untriagedBacklog,
+  triageBacklog,
+  snoozeBacklog,
+} from '@/lib/methodology';
+import { addDays, iso, itemById, parseISO, todayISO } from '@/lib/utils';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -31,6 +39,13 @@ export default function BacklogCard() {
   usePrefillForm('bl', setSid, topicRef, setTopic);
 
   const open = openBacklog(state);
+  /* I042 — **미분류**(캡처가 판정 없이 넣은 것). 별도 목록이 아니라 같은 백로그의 플래그라,
+     판정을 건너뛰어도 그 항목은 여기 그대로 있다 — 트리아지가 **새 백로그가 되지 않는** 유일한
+     방법이다(근거 전문은 `schema.ts` 의 `BacklogSchema` 주석). */
+  const ds = todayISO(state);
+  const untriaged = untriagedBacklog(state, ds);
+  const later = (b: { id: string }, days: number) =>
+    mutate((st) => snoozeBacklog(st, b.id, iso(addDays(parseISO(ds), days))));
   /* W13 — 기록 탭에서 **행동이 있는 목록**이 여기다(`JournalStream` 은 읽기 전용 파생이라
      커서를 얹어도 동사가 0이다 — 어휘를 닫아 두고 빈 화면에 커서만 주면 침묵이 늘 뿐이다). */
   const cursor = useListCursor<(typeof open)[number]>({
@@ -89,6 +104,35 @@ export default function BacklogCard() {
         <span className="ds-pill ds-good">회수 {closed}</span>
         <span style={{ flex: 1 }} />
       </div>
+      {/* ── I042 미분류 — **나가는 길 셋**(지금 배정 · N일 뒤 · 버림) ─────────────────────
+          ⚠ 캡처는 세 입구(⌘K·미니 HUD·폰)가 전부 판정 없이 백로그로 직행했다. 그러면
+          «지하철에서 떠오른 한 줄»과 «정말 막힌 것»이 같은 무게로 쌓이고, 밖의 표본이 경고하는
+          결말이 온다: *"검증 안 된 유입이 쌓여 백로그 전체가 아무도 안 읽는 목록이 된다."*
+          ⚠⚠ **없으면 아예 안 그린다.** 매일 「판정할 것 0」을 그리면 그게 새 죄책감 더미이고,
+          그건 이 항목이 스스로 경계한 대가(«판정 노동이 의무가 된다») 그대로다. */}
+      {untriaged.length > 0 && (
+        <div className="ds-note mb-2">
+          <div className="ds-tiny mb-1.5">
+            <b className="text-txt">미분류 {untriaged.length}</b> — 캡처가 담아 둔 것이에요. 지금 정하거나 미뤄 두세요.
+          </div>
+          <ul className="m-0! flex list-none flex-col gap-1.5 p-0!">
+            {untriaged.map((b) => (
+              <li key={b.id} className="m-0! flex flex-wrap items-center gap-1.5">
+                <span className="min-w-0 flex-1 truncate text-xs text-txt">{b.topic || b.note}</span>
+                <Button sm variant="ghost" onClick={() => mutate((st) => triageBacklog(st, b.id))}>
+                  지금 볼 것
+                </Button>
+                <Button sm variant="ghost" onClick={() => later(b, 7)}>
+                  7일 뒤
+                </Button>
+                <Button sm variant="ghost" onClick={() => del(b.id)}>
+                  버림
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="ds-fieldgrid">
         <div className="ds-fld">
           <label htmlFor={`${uid}-sid`}>과목</label>

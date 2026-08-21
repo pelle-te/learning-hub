@@ -272,7 +272,16 @@ export function blankPassRate(
 /* ── '보충 필요' 백로그(5절) ──
    ⚠ **id 를 돌려준다**(E2) — 캡처가 곧 커밋이 되면서 "방금 담은 그것"만 되돌릴 수 있어야 했다.
    목록 끝을 지우는 식으로 되돌리면 그 사이에 다른 쓰기가 끼었을 때 엉뚱한 항목이 사라진다. */
-export function addBacklog(state: AppState, sid: string, name: string, topic: string, note: string): string {
+export function addBacklog(
+  state: AppState,
+  sid: string,
+  name: string,
+  topic: string,
+  note: string,
+  /* I042 — 캡처가 만든 것은 **판정 전**이다(`false`). 손으로 만든 보충은 이미 판정된 것이라
+     기본이 `true` 다 — 그 구분이 이 인자의 전부다. */
+  triaged = true,
+): string {
   state.backlog = state.backlog || [];
   const id = rid();
   state.backlog.push({
@@ -285,6 +294,7 @@ export function addBacklog(state: AppState, sid: string, name: string, topic: st
     done: false,
     doneDs: '',
     at: Date.now(),
+    triaged,
   });
   return id;
 }
@@ -311,8 +321,42 @@ export function delBacklog(state: AppState, id: string): void {
 /* ⚠ 입력을 `Pick<AppState,'backlog'>` 로 좁혔다(H17) — 이 함수가 읽는 것이 그 한 슬라이스뿐이고,
    타입이 그 사실을 말하면 호출부가 **전체 상태를 구독하지 않고** 그 조각만 구독할 수 있다.
    전체 상태를 요구하면 셀렉터가 루트를 물게 되고, 그게 무관 쓰기마다 리렌더를 만든다. */
-export function openBacklog(state: Pick<AppState, 'backlog'>): Backlog[] {
-  return (state.backlog || []).filter((b) => !b.done);
+export function openBacklog(state: Pick<AppState, 'backlog'>, todayDs?: string): Backlog[] {
+  /* I042 — 미룬 것은 그 날짜까지 목록에서 빠진다. `todayDs` 를 안 주면 종전 그대로다
+     (호출부가 스무 곳이라, 날짜를 모르는 자리에서 스누즈를 무시하는 편이 안전하다 —
+     그 자리들이 세는 것은 «열린 것의 총량»이지 «오늘 볼 것»이 아니다). */
+  const open = (state.backlog || []).filter((b) => !b.done);
+  return todayDs ? open.filter((b) => !b.snoozeUntil || b.snoozeUntil <= todayDs) : open;
+}
+
+/* ── I042 캡처 트리아지 ───────────────────────────────────────────────────────────────
+   ⚠ **별도 목록을 만들지 않는다.** 미분류는 `triaged:false` 인 열린 보충이고, 그래서 판정을
+   건너뛰어도 그 항목은 여전히 백로그에 있다 — 트리아지가 **새 백로그가 되지 않는 유일한 방법**
+   이다(밖의 표본이 경고한 그 대가). 근거 전문은 `schema.ts` 의 `BacklogSchema` 주석. */
+
+/** 아직 판정 안 된 캡처(오늘 기준). 옛 항목(`triaged` 없음)은 판정된 것으로 읽는다. */
+export function untriagedBacklog(state: Pick<AppState, 'backlog'>, todayDs?: string): Backlog[] {
+  return openBacklog(state, todayDs).filter((b) => b.triaged === false);
+}
+
+/** 판정 완료로 표시(과목을 함께 줄 수 있다 — 「지금 배정」). */
+export function triageBacklog(st: AppState, id: string, sid = '', name = ''): void {
+  const b = (st.backlog || []).find((x) => x.id === id);
+  if (!b) return;
+  b.triaged = true;
+  if (sid) {
+    b.sid = sid;
+    b.name = name;
+  }
+}
+
+/** N일 뒤로 미룬다. **판정도 함께 끝난 것으로 본다** — 「나중에 본다」가 곧 판정이다.
+ *  ⚠ 안 그러면 그 항목이 돌아올 때마다 다시 미분류라, 미루기가 판정 노동을 영구히 되살린다. */
+export function snoozeBacklog(st: AppState, id: string, untilDs: string): void {
+  const b = (st.backlog || []).find((x) => x.id === id);
+  if (!b) return;
+  b.snoozeUntil = untilDs;
+  b.triaged = true;
 }
 export function backlogClosedBetween(state: AppState, fromDs?: string, toDs?: string): number {
   return (state.backlog || []).filter(

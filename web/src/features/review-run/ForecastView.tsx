@@ -30,6 +30,7 @@ import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { heldReviews, releaseReview } from '@/lib/reviewHold';
 import { dueForecast, pullForwardCandidates, FORECAST_HORIZON, type ForecastDay } from '@/lib/spacedReview';
+import { loadCurve, CURVE_HORIZON, TRADEOFF } from '@/lib/loadCurve';
 import { addOrMergeBlock } from '@/lib/dayPlans';
 import { toast } from '@/shell';
 import { totalDue, dueBySubject, ankiFreshness } from '@/lib/anki';
@@ -134,6 +135,10 @@ export default function Forecast() {
   const held = heldReviews(state);
 
   const forecast = useMemo(() => dueForecast(state, res.days || [], today), [state, res.days, today]);
+  /* I019 — **노브를 돌리기 전에 곡선을 본다**(2026-08-22 발상 축). 근거 전문은 `lib/loadCurve`
+     머리주석. 여기가 자리인 이유: 이 화면이 이미 «앞으로 얼마나 오나»를 묻는 화면이고,
+     그 질문의 다음 칸이 «사다리를 바꾸면 어떻게 되나»다. */
+  const curve = useMemo(() => loadCurve(state, res.days || [], today), [state, res.days, today]);
 
   const total = forecast.reduce((t, d) => t + d.chapters, 0);
   const max = forecast.reduce((m, d) => Math.max(m, d.blocks), 0);
@@ -261,6 +266,36 @@ export default function Forecast() {
             </span>
           )}
         </p>
+      )}
+      {/* ── I019 부하 곡선 — **바꾸기 전에 결과를 본다** ────────────────────────────────
+          ⚠⚠ 노브가 아니라 **곡선이 먼저**다(밖의 표본이 세운 순서). 그리고 대가를 함께 판다:
+          «간격을 늘리면 하루 부하는 줄지만 더 많이 잊는다». 그 문장은 `lib/loadCurve.TRADEOFF`
+          가 소유한다 — 화면마다 다르게 말하면 그 경고는 곧 장식이 된다.
+          ⚠ **노브는 없다**(아직). 이 화면이 답하는 것은 «바꾸면 어떻게 되나»이고, 바꾸는 것은
+          그 답을 보고 사람이 결정할 일이다 — 곡선 없이 노브를 먼저 두는 것이 이 항목이
+          막으려는 형태다. ⚠ 두 곡선은 **같은 눈금**이다(`curve.peak`) — 각자 정규화하면
+          «늘리면 낮아진다»가 그림에서 사라지고, 그건 이 기능의 전부다. */}
+      {curve.peak > 1 && (
+        <details className="ds-note m-0! mt-2">
+          <summary className="ds-tiny cursor-pointer">복습 간격을 늘리면 — 앞 {CURVE_HORIZON}일 부하</summary>
+          <div className="mt-1.5 flex items-end gap-px" aria-hidden="true">
+            {curve.now.map((n, i) => (
+              <span key={i} className="flex w-1.5 flex-col justify-end" style={{ height: 28 }}>
+                <span className="w-full bg-acc" style={{ height: `${Math.round((n / curve.peak) * 28)}px` }} />
+              </span>
+            ))}
+          </div>
+          <div className="ds-tiny mt-0.5 text-mut">지금 사다리(1·3·7·16·34)</div>
+          <div className="mt-1.5 flex items-end gap-px" aria-hidden="true">
+            {curve.stretched.map((n, i) => (
+              <span key={i} className="flex w-1.5 flex-col justify-end" style={{ height: 28 }}>
+                <span className="w-full bg-mut" style={{ height: `${Math.round((n / curve.peak) * 28)}px` }} />
+              </span>
+            ))}
+          </div>
+          <div className="ds-tiny mt-0.5 text-mut">한 칸 늘렸을 때</div>
+          <p className="ds-tiny mt-1.5 text-warn">{TRADEOFF.replace(/\*\*/g, '')}</p>
+        </details>
       )}
       {/* ── P-11 보류 선반 — **되돌릴 수 있는 유일한 자리** ─────────────────────────────
           러너에서 뺀 챕터는 큐에서 사라지므로, 여기 목록이 없으면 사용자 입장에서 '보류'와
