@@ -17,7 +17,10 @@ import DayRing from './DayRing';
 
 // Skeleton.module.css → Tailwind 이식(C-7). 요일 막대는 '가용 위에 배분 적재' — 선택/초과 상태로
 // 트랙·채움 색이 갈리므로 정적 맵으로 조합한다(§15 · 동적 조립 금지). 높이는 런타임 인라인.
-const LG_BASE = 'mr-1 inline-block size-2.25 rounded-xs';
+/* ⚠ 모서리는 `--radius-cell`(3px)이다 — 같은 역할(9px 범례 스와치)인 `AllocBoard.swatch` 와
+   **같은 값이어야 한다**(U018 · 2026-08-21 ux 축). 종전엔 여기만 `rounded-xs`(2px)였다:
+   1px 차이는 눈에 안 띄지만, 사다리가 «역할»이 아니라 «누가 먼저 썼나»로 갈렸다는 신호다. */
+const LG_BASE = 'mr-1 inline-block size-2.25 rounded-cell';
 // vertical-align:-1px 은 px 임의값이라 클래스로 못 준다(예외 밖) → 인라인 style 로 남긴다.
 const LG_VALIGN = { verticalAlign: '-1px' };
 const WB_BASE =
@@ -152,8 +155,9 @@ export function AvailRail() {
         </div>
       )}
       <div className="text-xs leading-body text-mut">
+        {/* ⚠ 탭 이름 정본은 `shell/tabs.ts`(U009 · 2026-08-21) — `배치` 라는 탭은 없다. 불변식 ⑰이 잠근다. */}
         깨어있는 시간에서 고정 일과를 빼면 남는 게 공부 가능 시간 — 스케줄러가 이 빈 시간에 블록을 배분합니다. 요일별
-        배분을 과목별로 손보려면 <b>배치</b> 탭의 배분 보드에서 한눈에.
+        배분을 과목별로 손보려면 <b>주간 배분</b> 탭의 배분 보드에서 한눈에.
       </div>
     </aside>
   );

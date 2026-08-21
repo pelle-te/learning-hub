@@ -45,8 +45,11 @@ export default function UpdateCard() {
       if (!r.available) toast(`최신 버전입니다 (${r.current})`);
     } catch (e) {
       /* ⚠ 실패를 삼키지 않는다 — "확인했는데 없음"과 "확인 못 함"은 사용자에게 다른 사실이다.
-         엔드포인트 미설정·네트워크 없음이 여기로 온다(`updater.rs` 가 Err 로 올리는 이유). */
-      toast(`업데이트 확인 실패: ${e instanceof Error ? e.message : String(e)}`);
+         엔드포인트 미설정·네트워크 없음이 여기로 온다(`updater.rs` 가 Err 로 올리는 이유).
+         ⚠⚠ **톤을 명시한다**(U005 · 2026-08-21 ux 축). `toast` 의 두 번째 인자 기본값은 `'ok'`
+         라, 톤을 생략한 이 줄은 세 줄 위 주석이 금지한 바로 그것 — 실패를 **초록 ✓ 아이콘**으로
+         띄우고 있었다. 문장만 정직하고 시각 채널은 정반대를 말한 형태다. */
+      toast(`업데이트 확인 실패: ${e instanceof Error ? e.message : String(e)}`, 'bad', 8000);
     } finally {
       setBusy(false);
     }
@@ -77,7 +80,8 @@ export default function UpdateCard() {
       await installUpdate(await endpoint());
     } catch (e) {
       setBusy(false);
-      toast(`설치 실패: ${e instanceof Error ? e.message : String(e)}`);
+      // ⚠ 톤 명시 — 위 `onCheck` 와 같은 이유(U005). 설치 실패는 이 카드에서 가장 무거운 실패다.
+      toast(`설치 실패: ${e instanceof Error ? e.message : String(e)}`, 'bad', 10000);
     }
   }, []);
 
@@ -101,7 +105,7 @@ export default function UpdateCard() {
       {info?.available && (
         <div className="mt-3 rounded-md border border-line-acc bg-acc-soft p-3">
           <p className="m-0 text-sm font-bold text-txt">
-            새 버전 {info.version} <span className="font-normal text-mut">(현재 {info.current})</span>
+            새 버전 {info.version} <span className="font-body text-mut">(현재 {info.current})</span>
           </p>
           {info.notes && (
             /* 릴리스 노트를 보여 주는 것이 "두 번째 클릭"의 값이다 — 무엇이 바뀌는지 모르고

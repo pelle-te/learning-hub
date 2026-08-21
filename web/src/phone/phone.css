@@ -57,14 +57,12 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-[role='tab']:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: 2px;
-}
+/* ⚠ 여기 있던 `button,input,select,textarea,[role='tab']:focus-visible` 블록을 지웠다
+   (2026-08-21 ux 축 · 잔재②③). ① `[role='tab']` 은 **전 저장소에 0건**이다 — tablist 계약을
+   이행하지 못해 전 화면이 `group`+`aria-pressed` 로 내려갔는데(결정로그) CSS 짝만 남아 배포
+   번들에까지 실리고 있었다. ② 나머지 넷은 바로 위 전역 `:focus-visible` 과 **outline 값이 한
+   글자도 다르지 않다**(`border-radius: 6px` 도 전역이 이미 준다) — 지워도 렌더가 안 바뀐다.
+   되살리려면 `git show HEAD:web/src/styles/global/phone.css`. */
 
 /* ⚠⚠ **`.ds-shed` 재선언 — 폰은 `ds.css` 를 안 문다**(P-17 잔여 · 2026-08-01).
    위 포커스 링과 **정확히 같은 부류의 구멍**이다: 폰 엔트리는 `tokens.css` + 이 파일만 싣고

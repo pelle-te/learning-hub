@@ -35,7 +35,7 @@ export default function Connect({ onDone }: { onDone: () => void }): React.JSX.E
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-txt">러닝허브</h1>
+        <h1 className="text-xl font-title text-txt">러닝허브</h1>
         <p className="mt-2 text-sm text-mut">발급받은 1회용 등록 코드를 입력하세요(서버 관리자가 발급).</p>
       </div>
       <form onSubmit={submit} className="flex flex-col gap-3">

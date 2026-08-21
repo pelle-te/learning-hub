@@ -174,7 +174,8 @@ function RetentionSpark() {
           유지율 추세 <span className="ds-tiny text-mut">— 기억 유지의 출력 지표</span>
         </h2>
         <div className="ds-empty ds-tiny">
-          아직 데이터가 없어요. <b>Anki 현황</b> 탭에서 <b>AnkiConnect 실시간 due</b>를 누르면 그 주의 due가 기록돼요(주
+          {/* ⚠ 탭 이름 정본은 `shell/tabs.ts`(U009) — `Anki 현황` 이라는 탭은 없다. */}
+          아직 데이터가 없어요. <b>연동 현황</b> 탭에서 <b>AnkiConnect 실시간 due</b>를 누르면 그 주의 due가 기록돼요(주
           1회면 충분). due가 꾸준히 줄면 복습 빚이 닫히는 중.
         </div>
       </div>
@@ -248,7 +249,7 @@ function CbmsRadar() {
           오답 분포(CBMS) <span className="ds-tiny text-mut">— 약점 유형의 모양</span>
         </h2>
         <div className="ds-empty ds-tiny">
-          오답을 기록하면(오늘 학습 탭) 유형 분포가 레이더로 보여요. 모양이 작아질수록 약점이 닫히는 중.
+          오답을 기록하면(<b>하루</b> 탭) 유형 분포가 레이더로 보여요. 모양이 작아질수록 약점이 닫히는 중.
         </div>
       </div>
     );

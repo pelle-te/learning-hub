@@ -91,7 +91,7 @@ export default function ConflictsView(): React.JSX.Element | null {
 
   return (
     <section aria-label="동기화 충돌" className="border-b border-line px-3 pb-3">
-      <h2 className="pt-2 text-xs font-bold text-warn">
+      <h2 className="pt-2 text-xs font-heading text-warn">
         동기화 충돌 {shadows.length}건 — 다른 기기 편집에 덮인 내 편집
       </h2>
       <p className="mt-0.5 text-2xs text-mut">

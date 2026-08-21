@@ -29,3 +29,19 @@ if (typeof document !== 'undefined') {
   const { configure } = await import('@testing-library/dom');
   configure({ asyncUtilTimeout: 5_000 });
 }
+
+/* ── `scrollIntoView` 스텁 — **jsdom 이 구현하지 않는 API**(2026-08-21 ux 축) ─────────────
+   U023·U027·U011 이 «현재 위치로 데려간다»를 붙이면서 이 호출이 세 곳에 생겼고(레일의 현재 탭 ·
+   약점 행 앵커 · 챕터 앵커), jsdom 에는 그 메서드가 아예 없어 **컴포넌트 테스트 70건이 통째로
+   TypeError 로 죽었다.**
+
+   ⚠ 프로덕션 코드에 `typeof el.scrollIntoView === 'function'` 가드를 넣는 쪽으로 고치지 않는다:
+   그건 **테스트 환경의 결함을 제품 코드가 떠안는** 형태이고, 그 가드가 늘어나면 나중에 "왜
+   방어하고 있지?"를 아무도 답할 수 없게 된다. 없는 API 는 환경이 채운다.
+   ⚠ 스크롤 위치를 흉내 내지 않는다(no-op) — 이 저장소의 스크롤 계약을 검증하는 것은 실제
+   브라우저를 쓰는 트랙 A 이고(`e2e/a11y.spec.ts` 의 도달성 케이스), jsdom 에는 레이아웃이 없다. */
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {
+    /* no-op — 위 주석 참조 */
+  };
+}

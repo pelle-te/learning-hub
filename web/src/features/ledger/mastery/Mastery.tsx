@@ -17,7 +17,7 @@ import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHeroPointer } from '@/hooks/interactions';
 import { toast } from '@/shell';
 import { fetchKnowledgeArtifact, loadKnowledgeStateFromVault } from '@/lib/knowledge';
-import { classifyArtifact } from '@/lib/artifactState';
+import { artifactErrorCopy, classifyArtifact } from '@/lib/artifactState';
 import { isFsAccessSupported, pickDirectory } from '@/lib/fsAccess';
 import { isTauri } from '@/lib/tauri';
 import { slimKnowState } from '@/lib/scheduler';
@@ -31,31 +31,43 @@ import { pctLabel } from '@/lib/utils';
 import { overallConfidence } from '@/lib/confidence';
 import { Icon } from '@/components/Icon';
 
-function Setup() {
-  // 카드 크롬은 offWrap(발광 패널)이 제공 — 본문은 투명 콘텐츠만(지식맵 패널과 같은 언어).
+/* ⚠⚠ **`components/State` 밖에서 손코딩돼 있었다**(U030 · 2026-08-21 ux 축 · `Ledger` 와 같은
+   결함·같은 처방). E17 이 «성공하지 않은 화면은 State 하나가 그린다»를 세우며 **`next` 를 타입으로
+   필수화**한 것이 요점인데, 그 밖에 있으면 그 강제가 안 걸린다 — 실제로 이 화면의 빈 상태는
+   *"위 «볼트에서 불러오기» 클릭"* 이라 **화면 위쪽을 손가락으로 가리키고** 있었다(그 버튼은
+   히어로 밴드에 있고, 빈 상태에서도 렌더된다 — 즉 데려다줄 수 있는데 안 데려다줬다). */
+function Setup({ onLoad, busy }: { onLoad: () => void; busy: boolean }) {
   return (
-    <div className={`${M.offChild} ${M.stateBody}`}>
-      <h3 className={M.stateH3}>아직 지식상태가 없어요</h3>
-      <ol className="ds-foot" style={{ lineHeight: 1.9 }}>
-        <li>
-          볼트 인덱스 최신화: <code>python pipeline/_도구/벌트DB.py build</code>
-        </li>
-        <li>
-          (선택) 러닝허브 데이터 먹이기: 설정 탭에서 <b>볼트 백업</b>(<code>러닝허브_백업.json</code>) → 엔진이
-          CBMS·백지를 인제스트
-        </li>
-        <li>
-          지식상태 빌드: <code>python pipeline/_도구/지식엔진.py build --export 러닝허브_백업.json</code>
-        </li>
-        <li>
-          위 <b>볼트에서 불러오기</b> 클릭 → 전공 폴더 선택
-        </li>
-      </ol>
-      <div className="ds-foot text-mut">
-        엔진은 선수개념 그래프로 "지금 배울 준비된 것(ZPD)"과 "약점의 근본원인"을 진단합니다. 인출 관측(Anki/CBMS)이
-        쌓일수록 추정이 날카로워집니다.
-      </div>
-    </div>
+    <State
+      kind="empty"
+      glyph="grid"
+      title="아직 지식상태가 없어요"
+      desc={
+        <>
+          <ol className="ds-foot m-0! text-left" style={{ lineHeight: 1.9 }}>
+            <li>
+              볼트 인덱스 최신화: <code>python pipeline/_도구/벌트DB.py build</code>
+            </li>
+            <li>
+              (선택) 러닝허브 데이터 먹이기: 설정 탭에서 <b>볼트 백업</b>(<code>러닝허브_백업.json</code>) → 엔진이
+              CBMS·백지를 인제스트
+            </li>
+            <li>
+              지식상태 빌드: <code>python pipeline/_도구/지식엔진.py build --export 러닝허브_백업.json</code>
+            </li>
+          </ol>
+          <span className="ds-foot text-mut">
+            엔진은 선수개념 그래프로 "지금 배울 준비된 것(ZPD)"과 "약점의 근본원인"을 진단합니다. 인출 관측(Anki/CBMS)이
+            쌓일수록 추정이 날카로워집니다.
+          </span>
+        </>
+      }
+      next={
+        <Button sm variant="primary" onClick={onLoad} disabled={busy}>
+          {busy ? '읽는 중…' : '볼트에서 불러오기'}
+        </Button>
+      }
+    />
   );
 }
 
@@ -137,7 +149,8 @@ export default function Mastery() {
   // 쿼리 에러 분류 — '아직 데이터 없음'(산출물 미생성 404·산출물 부재 메시지·서버 미가동)은 정상적인
   // 무데이터 → 셋업 안내. 백엔드가 살아 있는데(ping 성공) 실패한 경우만 에러 패널로 —
   // 실패를 셋업 뒤에 숨기지 않되, 오프라인(dev/preview 프록시 500 포함)을 장애로 오판하지 않는다.
-  const errMsg = isError ? (error instanceof Error ? error.message : String(error)) : '';
+  // U008 — 원문이 아니라 사용자 문장 + 원문 병기(`Ledger` 와 같은 한 줄).
+  const errMsg = isError ? artifactErrorCopy(error) : '';
   // 산출물 상태 분류는 공용 SSOT(classifyArtifact) — reads·markets와 같은 규칙(오프라인/미생성/진짜에러 구분).
   const realError = classifyArtifact({ hasData: !!k, loading, query: { isError, error }, ping }) === 'error';
 
@@ -234,7 +247,7 @@ export default function Mastery() {
         </div>
       ) : (
         <div className={M.offWrap}>
-          <Setup />
+          <Setup onLoad={() => void loadFromVault()} busy={vaultLoading} />
         </div>
       )}
     </section>

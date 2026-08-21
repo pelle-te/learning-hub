@@ -180,6 +180,30 @@ if (미사용.length || 만료된.length || 사문화.length) {
   process.exit(1);
 }
 
+/* ── 반픽셀 `--fs-*` 래칫(U035 · 2026-08-21 ux 축) ────────────────────────────────────
+   `tokens.css` 머리주석은 오래 «반픽셀 금지»라 선언했는데 68줄 아래에 **5칸이 실재했다**.
+   지우는 것이 답이 아닌 이유는 `stylelint.config.js:17-22` 가 기록한 실사고다(정수로 일괄
+   **상향** → 월 캘린더 셀에서 과목 칩이 잘림). 그래서 계약을 «금지»가 아니라 **«늘지 않는다»**
+   로 바꾸고, 그 계약을 여기서 집행한다 — 선언만 있고 집행이 없으면 흘러내린다는 이 저장소의
+   결론 그대로다.
+   ⚠ 줄이는 방향은 **내림만** 안전하다(행 높이는 남으면 남았지 모자라지 않는다). 줄였으면
+   이 상수를 함께 낮춘다 — 안 낮추면 되돌아와도 안 잡힌다. */
+const 반픽셀_래칫 = 5;
+const 반픽셀 = [...tokensCss.matchAll(/^\s*(--fs-[a-zA-Z0-9-]+):\s*[0-9]+\.5px;/gm)].map((m) => m[1]);
+if (반픽셀.length > 반픽셀_래칫) {
+  console.error(`✗ 반픽셀 --fs-* 칸이 늘었다: ${반픽셀.length} > ${반픽셀_래칫}\n`);
+  for (const 이름 of 반픽셀) console.error(`  ${이름}`);
+  console.error('\n  새 칸은 정수로 만드세요(확대·고DPI 에서 렌더가 흔들린다). 근거는 tokens.css 머리주석.');
+  process.exit(1);
+}
+if (반픽셀.length < 반픽셀_래칫) {
+  console.error(
+    `✗ 반픽셀 --fs-* 칸이 ${반픽셀.length} 로 줄었다(래칫 ${반픽셀_래칫}) — 좋은 일이다. ` +
+      `scripts/check-tokens.mjs 의 \`반픽셀_래칫\` 을 ${반픽셀.length} 로 낮추세요(그래야 되돌아오면 잡힌다).`,
+  );
+  process.exit(1);
+}
+
 /* ── 브리지 고아 — **`@theme` 항목의 주인 UI 가 사라졌다**(2026-08-20 리뷰) ────────────
    바로 위 역방향 검사는 범위를 `tokens.css` 로 좁히며 그 이유를 이렇게 적었다: *"`tokenBridge.css`
    의 `@theme` 항목은 Tailwind 가 유틸을 생성해 소비하지 `var()` 로 참조하지 않는다 → 전량
@@ -284,6 +308,8 @@ const 유틸접두사 = {
   'grid-template-columns': ['grid-cols'],
   tracking: ['tracking'],
   leading: ['leading'],
+  // U020 — 중량 사다리(`--font-weight-heading` → `font-heading`).
+  'font-weight': ['font'],
   radius: [
     'rounded',
     'rounded-t',
@@ -345,6 +371,68 @@ if (브리지고아.length || 브리지만료.length) {
     console.error('\n주인 UI 가 사라졌으면 지우세요 — 남으면 주석이 없는 화면을 현재형으로 설명합니다.');
   }
   for (const r of 브리지만료) console.error(`✗ 브리지 원장 만료: ${r.이름}(만료 ${r.만료}) — 다시 판단할 때다.`);
+  process.exit(1);
+}
+
+/* ── ⭐ **선언 안 됐는데 쓰이는 사다리 칸**(U001 · 2026-08-21 ux 축) ────────────────────
+   위 「브리지 고아」의 **거울상**이다. 저기는 *선언됐는데 안 쓰이는 것*을 잡는데, Tailwind v4
+   에서 진짜 위험한 쪽은 반대다: `@theme` 에 **없는** 이름은 오류가 아니라 **Tailwind 기본값으로
+   조용히 실린다.** 그래서 이 방향은 정의상 고아가 아니고 어느 검사에도 안 걸렸다.
+
+   실측(2026-08-21): `text-base`(21곳)·`rounded-xs`(22)·`text-3xl`(3)·`text-4xl`·`text-5xl` 이
+   그 상태였다. 전부 **rem 기본값**이라, 이 저장소가 px 로 세운 사다리와 단위가 갈려 루트 글꼴을
+   키우면 사다리가 역전했다(U002 · 실측: 루트 20px 에서 `text-base` 20px = `text-xl` 20px).
+
+   그리고 이것이 이 회차의 근본 원인 R1 의 집행자다: 린트는 `text-[16px]` 은 막지만
+   `text-base` 는 통과시킨다 — **같은 16px 인데**. 값을 보는 검사는 여기 하나뿐이다.
+
+   ⚠ 구조 키워드는 사다리가 아니다(`text-center`·`rounded-full`·`leading-none`…). 목록으로
+   빼는 것 말고 방법이 없다 — 늘어나면 여기 적는다.
+   ⚠ `text-<이름>` 은 **색이기도 하다**(`text-mut`). 색은 `--color-<이름>` 으로 선언되므로 둘 다 본다. */
+const 구조키워드 = new Set([
+  // 정렬·장식(text-)
+  'center', 'left', 'right', 'justify', 'start', 'end', 'ellipsis', 'clip', 'wrap', 'nowrap', 'balance', 'pretty',
+  'transparent', 'current', 'inherit',
+  // 모서리(rounded-) — 방향·극단값
+  'full', 'none', 't', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br', 's', 'e', 'ss', 'se', 'es', 'ee',
+]);
+/** 사다리 네임스페이스 → 그 접두사가 붙은 클래스가 참조할 수 있는 `@theme` 네임스페이스들.
+
+    ⚠ **`leading`·`tracking` 은 일부러 뺐다.** 이 검사가 겨누는 것은 *«px 사다리에 rem 칸이
+    섞이는 것»* 인데(U002), 줄높이는 무단위/배수이고 자간은 `em` 이라 루트 글꼴이 바뀌어도
+    **같은 비율로 따라간다** — 단위 충돌이 원리적으로 없다. 넣으면 `tracking-tight` 류
+    내장 이름이 전부 잡혀 노이즈가 신호를 묻는다(a11y 임계를 `serious`+ 로 잡은 것과 같은 판단).
+    ⚠ 대상은 **TS/TSX 만**이다 — CSS 파일에는 `text-align` 같은 **속성 이름**이 있어 클래스로
+    오인된다(실측 6종). 클래스는 JSX 에 산다. */
+const 사다리 = { text: ['text', 'color'], rounded: ['radius'] };
+/** `rounded-t-sm` 처럼 **방향 조각**이 사이에 낀다 — 벗겨 내고 사다리 칸만 본다. */
+const 방향조각 = /^(t|b|l|r|s|e|tl|tr|bl|br|ss|se|es|ee)-/;
+
+const 선언된테마 = new Set(테마선언);
+const 클래스면 = 파일들(ROOT)
+  .filter((p) => /\.tsx?$/.test(p) && !p.includes('tokenBridge'))
+  .map((p) => 주석제거(readFileSync(p, 'utf8')))
+  .join('\n');
+const 미선언사다리 = [];
+for (const [접두, ns들] of Object.entries(사다리)) {
+  /* ⚠ 여는 대괄호는 **경계로 치지 않는다** — `[text-anchor:middle]`·`transition-[text-decoration-color]` 는
+     클래스가 아니라 **임의 속성 문법 안의 CSS 속성 이름**이다(실측 3종). 뒤따르는 `:` 도 같은
+     신호라 함께 막는다. 변형 접두(`hover:`)·`!` 는 경계로 남는다. */
+  const re = new RegExp(`(?:^|[\\s"'\`:!])${접두}-([a-z0-9]+(?:[.-][a-z0-9]+)*)(?![\\w-:])`, 'g');
+  const 본 = new Set();
+  for (const m of 클래스면.matchAll(re)) {
+    const 접미 = m[1].replace(방향조각, '');
+    if (구조키워드.has(접미) || 본.has(접미)) continue;
+    본.add(접미);
+    if (!ns들.some((ns) => 선언된테마.has(`--${ns}-${접미}`))) 미선언사다리.push(`${접두}-${접미}`);
+  }
+}
+
+if (미선언사다리.length) {
+  console.error('✗ `@theme` 에 선언되지 않은 사다리 칸이 쓰이고 있다(= Tailwind 기본값 rem 으로 실린다):\n');
+  for (const c of 미선언사다리) console.error(`  ${c}`);
+  console.error('\n  임의값(`text-[16px]`)만 막고 이걸 통과시키면 집행자가 **값이 아니라 형식**을 막는 것이다(U001).');
+  console.error('  `tokenBridge.css` 의 `@theme` 에 px 로 이름을 주거나, 이미 있는 칸을 쓰세요.');
   process.exit(1);
 }
 
@@ -517,5 +605,5 @@ if (새파일.length || 깨끗해진.length || 카드표면.length > 카드래�
 }
 
 console.log(
-  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · @theme 고아 0(원장 ${브리지_원장.length}건) · ds-* 고아 0(원장 ${ds_원장.length}건) · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}(원장 ${카드원장.size}파일).`,
+  `✓ CSS 변수 참조 ${참조.size}종 전부 정의됨(선언 ${선언.size}종) · tokens.css 미사용 0(원장 ${미사용_원장.length}건) · @theme 고아 0(원장 ${브리지_원장.length}건) · ds-* 고아 0(원장 ${ds_원장.length}건) · 미선언 사다리 칸 0 · 반픽셀 ${반픽셀.length}/${반픽셀_래칫} · *.module.css 0개 · 카드 표면 ${카드표면.length}/${카드래칫}(원장 ${카드원장.size}파일).`,
 );

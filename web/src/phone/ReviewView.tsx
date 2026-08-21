@@ -66,7 +66,7 @@ function NothingDue(): React.JSX.Element {
       <div className="text-5xl" aria-hidden="true">
         ✓
       </div>
-      <h2 className="text-base font-semibold text-txt">복습할 게 없어요</h2>
+      <h2 className="text-base font-heading text-txt">복습할 게 없어요</h2>
       <p className="text-sm text-mut">밀린 챕터도, 다시 인출할 요약·착각도 없습니다.</p>
     </section>
   );
@@ -87,7 +87,7 @@ function SessionDone({
   return (
     <section className="flex flex-col items-center gap-3 p-6 text-center">
       <Icon name="target" className="size-12! stroke-[1.4]" />
-      <h2 className="text-base font-semibold text-txt">복습 세션 완료</h2>
+      <h2 className="text-base font-heading text-txt">복습 세션 완료</h2>
       <p className="text-sm text-mut">
         카드 {cardCount}장 중 <strong className="text-txt">{got}</strong>개를 인출했어요
         {again > 0 ? ` · 놓친 ${again}개는 한 번 더 만났어요` : ''}.
@@ -306,7 +306,7 @@ function RetrievalCard({
           {step} · {item.card.ageDays}일 전 요약
         </span>
       </div>
-      <h2 className="m-0 text-base leading-normal font-semibold text-txt">
+      <h2 className="m-0 text-base leading-normal font-heading text-txt">
         "{item.card.summary.name}" — 보지 않고 스스로 3문장으로 설명해 보세요.
       </h2>
       {revealed ? (
@@ -351,7 +351,7 @@ function ConfidentCard({
           {step} · {CBMS_INFO[item.card.cbms.code].label}
         </span>
       </div>
-      <h2 className="m-0 text-base leading-normal font-semibold text-txt">
+      <h2 className="m-0 text-base leading-normal font-heading text-txt">
         {item.card.cbms.name}
         {item.card.cbms.chapter ? ` · ${item.card.cbms.chapter}` : ''} — 확신했지만 틀렸던 지점. 지금은 설명할 수
         있나요?
@@ -395,7 +395,7 @@ function ChapterCard({
           {copy.age}
         </span>
       </div>
-      <h2 className="m-0 flex items-center gap-2 text-base leading-normal font-semibold text-txt">
+      <h2 className="m-0 flex items-center gap-2 text-base leading-normal font-heading text-txt">
         <span
           className="inline-block size-3 shrink-0 rounded-sm"
           style={{ background: item.ch.color || 'var(--acc)' }}

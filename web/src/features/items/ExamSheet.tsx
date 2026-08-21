@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Item } from '@/lib/types';
 import { vaultNotesText } from '@/lib/tauri';
 import { isTauri } from '@/lib/isTauri';
+import { artifactErrorCopy } from '@/lib/artifactState';
 import { buildSheet, countByKind, SHEET_KINDS, type SheetKind, type SheetNote } from '@/lib/examSheet';
 import { EXAM_LABEL, examScopes, nextExamOf } from '@/lib/semester';
 import { dayDiff, ddayInfo } from '@/lib/utils';
@@ -216,7 +217,7 @@ export default function ExamSheet({ item, todayDs }: { item: Item; todayDs: stri
             kind="error"
             glyph="file"
             title="볼트를 읽지 못했어요"
-            desc={String(q.error)}
+            desc={artifactErrorCopy(q.error)}
             next={
               <Button variant="primary" onClick={() => void q.refetch()}>
                 다시 시도

@@ -312,6 +312,22 @@ export default function Day() {
             <Button sm variant="ghost" onClick={() => stepDay(1)} disabled={isToday} aria-label="다음 날">
               <Icon name="chevronRight" />
             </Button>
+            {/* ⚠ **±1 스테퍼만 있으면 7일 전은 7클릭이다**(U037 · 2026-08-21 ux 축). 이 패널의
+                존재 이유가 «과거 보충» 인데, 실제로 보충하는 날은 «며칠 전»이지 «어제»가 아니다.
+                날짜 입력을 그 옆에 둔다 — 새 어휘가 아니라 **네이티브 컨트롤**이고(`type="date"`
+                는 이 저장소가 이미 시험일·마감에서 쓴다), 키보드·스크린리더 경로가 그대로 온다.
+                ⚠ `max` 로 미래를 막는다 — `stepDay` 가 코드로 막던 규칙을 컨트롤도 알게 한다. */}
+            <input
+              type="date"
+              className="ds-tiny"
+              aria-label="날짜 고르기"
+              value={ds2}
+              max={today}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v <= today) setDs2(v);
+              }}
+            />
             {!isToday && (
               <Button sm variant="ghost" onClick={() => setDs2(today)} style={{ marginLeft: 'auto' }}>
                 오늘로

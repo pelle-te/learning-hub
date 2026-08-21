@@ -31,7 +31,7 @@ import { showBootFallback } from '@/lib/bootFallbackScreen';
 function Fallback(): React.JSX.Element {
   return (
     <main className="p-6">
-      <h1 className="text-base font-semibold text-txt">앱을 시작하지 못했어요</h1>
+      <h1 className="text-base font-title text-txt">앱을 시작하지 못했어요</h1>
       <p className="mt-2 text-sm text-mut">
         새로고침해 보세요. 계속 안 되면 PC 에서 이 기기를 폐기하고 다시 연결하세요.
       </p>

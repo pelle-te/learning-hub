@@ -730,7 +730,8 @@ function ReviewRun() {
             <div className="mt-1 flex w-full max-w-runner flex-col gap-1.5 text-left">
               <p className="m-0! text-xs leading-body text-mut">
                 못 떠올린 {missedChapters.length}개는 <b className="font-bold text-txt">내일 그대로 돌아와요</b>. 당분간
-                안 볼 것은 지금 빼 두세요 — 삭제가 아니고 예보 탭에서 되돌릴 수 있어요.
+                안 볼 것은 지금 빼 두세요 — 삭제가 아니고 <b className="font-bold text-txt">복습 예보</b>에서 되돌릴 수
+                있어요.
               </p>
               <ul className="m-0! flex list-none flex-wrap gap-1.5 p-0!">
                 {missedChapters.map((ch) => (
@@ -754,6 +755,15 @@ function ReviewRun() {
           <div className={ACTS_CENTER}>
             <Button onClick={restart} variant="ghost">
               처음부터
+            </Button>
+            {/* ⚠⚠ **예보로 들어가는 문이 앱 안에 없었다**(U012 · 2026-08-21 ux 축). A-16 이
+                `forecast` 를 이 호스트의 뷰로 내리면서 **나가는 길**(크롬 `action`)만 세우고
+                들어가는 길은 아무 데도 안 세웠다 — 남은 입구는 ⌘K 뿐이었고 그 힌트는 `은퇴` 라
+                적혀 있어 사용자에게는 사라진 화면으로 읽혔다. 그리고 바로 위 문장이
+                *"복습 예보에서 되돌릴 수 있어요"* 라 말하는데 **거기 갈 방법이 없었다.**
+                ⚠ 자리는 완주 화면이다: 오늘 몫이 끝난 순간이 "앞으로 얼마나 오나"를 묻는 때다. */}
+            <Button onClick={() => nav(`/review-run?view=${FORECAST_VIEW}`)} variant="ghost">
+              복습 예보 →
             </Button>
             <Button onClick={() => nav('/today')}>오늘 학습으로</Button>
           </div>

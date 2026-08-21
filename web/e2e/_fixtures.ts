@@ -671,15 +671,52 @@ export const A11Y_OVERLAY: OverlayScreen[] = [
     열기: (page) => page.keyboard.press('Shift+G'),
     ready: (page) => page.getByRole('dialog', { name: '글랜스 모드' }).waitFor(),
   },
+  /* ⚠⚠ **`DetailDrawer` 가 이 로스터 밖이었다**(U014 · 2026-08-21 ux 축). 아래 주석이
+     _"과목 시트가 대표한다"_ 고 적어 뒀는데 그 시트는 W12 에서 **페이지가 됐고**(그래서
+     `overlay-subject-sheet` 케이스가 지워졌다) 대표도 함께 사라졌다 — 남은 소비처 셋
+     (`Stats`·`Items`·`ChapterEditor`)은 그때부터 한 번도 검사되지 않았다.
+     ⚠ `Stats` 를 고른 이유: 드로어가 **크롬 액션**으로 열려 준비가 한 줄이고(다른 둘은 행을
+     먼저 만들거나 펼쳐야 한다), 안이 lazy 청크라 *열려서 실제로 그려졌는가*까지 잰다. */
+  {
+    key: 'overlay-stats-detail',
+    path: '/stats',
+    열기: (page) => page.getByRole('button', { name: /상세 리포트/ }).click(),
+    ready: (page) => page.getByRole('dialog', { name: /학습 리포트/ }).waitFor(),
+  },
+  /* ⚠⚠ **`DayBufferOverlay` 도 밖이었다**(U014). 입구가 ⌘K 명령 하나뿐이라(라우트도 전역 키도
+     없다) *경로로 도는* 두 루프에 원리적으로 안 잡힌다 — `GlanceMode` 가 H-11 에서 빠져 있던
+     것과 같은 이유이고, 그 교훈이 «입구가 키·클릭뿐인 형상»에 아직 다 적용되지 않았다는 뜻이다. */
+  {
+    key: 'overlay-day-buffer',
+    path: '/today',
+    열기: async (page) => {
+      await page.keyboard.press('Control+k');
+      /* ⚠ 질의를 먼저 넣는다 — 팔레트 첫 화면은 최근·상위만 보여서 이 명령이 목록에 없을 수
+         있다(그 상태로 `getByRole('option')` 을 기다리면 타임아웃이 제품 결함처럼 읽힌다). */
+      await page.getByPlaceholder(/명령·탭 검색/).fill('오늘 버퍼');
+      await page
+        .getByRole('option', { name: /오늘 버퍼/ })
+        .first()
+        .click();
+    },
+    ready: (page) => page.getByRole('dialog', { name: '오늘 버퍼' }).waitFor(),
+  },
 ];
 
-/* ⚠ **덮지 못한 오버레이 1종 — 이유를 적어 둔다**(H6 · 2026-07-30 → H6-잔여로 2종 회수 2026-07-31).
+/* ⚠ **덮지 못한 오버레이 — 이유를 적어 둔다**(H6 · 2026-07-30 → H6-잔여로 2종 회수 2026-07-31).
 
    ⚠ **개수를 여기 적지 않는다.** 종전엔 _"선언부는 여덟이고 위 여덟이 그중 일곱을 연다"_ 라
    적혀 있었는데, 그 셈이 `GlanceMode` 를 통째로 빠뜨리고 있었고 그래서 그 화면은 **한 번도
    검사된 적이 없었다**(H-11 · 2026-08-06). 로스터 정본은 **위 배열**이고, 무엇이 빠졌는지는
-   `role="dialog"` 를 grep 해서 대조할 것. `DetailDrawer` 는 과목 시트가 대표한다(챕터 편집기가
-   그 안에 렌더된다). 지금 못 덮는 것 하나:
+   `role="dialog"` 를 grep 해서 대조할 것.
+   ⚠ 종전 이 자리에 _"`DetailDrawer` 는 과목 시트가 대표한다"_ 라 적혀 있었는데 **W12 이후로
+   거짓**이었다(과목 시트가 페이지가 됐고 그 케이스는 지워졌다 · U014 · 2026-08-21) — 그 뒤로
+   드로어는 한 번도 검사되지 않았다. 지금은 `overlay-stats-detail` 이 그 형상을 직접 연다.
+
+   ⚠⚠ 아래 «못 덮는 것»의 근거는 **사문이다**(U014). `Markets` 화면은 P10 W4(2026-08-07)에서
+   `survey/` 로 갔다 — 이 저장소에 그 화면도 그 버튼도 없다. 즉 지금 못 덮는 오버레이는 **0개**다.
+   자리를 비워 두는 대신 이 문단을 남기는 이유는, 다음에 «백엔드가 있어야 열리는 오버레이»가
+   생겼을 때 그것을 여기 적어야 한다는 규율 자체는 유효하기 때문이다. 옛 근거 전문:
 
    · `Markets` AI 브리핑 — 여는 버튼이 `disabled={!online || !indices.length}` 이고 트랙 A 는
      백엔드가 없어 `online=false` 다(실측 `<button disabled>`). 열려면 `capabilities` 커맨드를
@@ -878,4 +915,13 @@ export const SEED_EMPTY = {
   cbms: [],
   degree: { targetTotal: 130, reqMajorReq: 60, reqMajorSel: 30, reqLiberal: 30, semesters: [] },
 };
-export const TABS_EMPTY = ['today', 'schedule', 'items', 'degree', 'day'];
+/* ⚠⚠ **빈 상태 로스터가 손으로 적혀 표류했다**(U031 · 2026-08-21 ux 축).
+   여기 `TABS_EMPTY = ['today','schedule','items','degree','day']` 라는 **별도 배열**이 있었다.
+   빈 상태를 그리는 호출부는 `State kind='empty'` 만 18곳인데 그 다섯 탭만 촬영됐고, 이 목록이
+   마지막으로 갱신된 뒤 탭 로스터는 두 번 바뀌었다(N-12 `journal`→`day` · A-19 `mastery`).
+   즉 «빈 상태 회귀망이 있다»는 사실이 커버리지를 **3분의 1 이하로** 축소 보고하고 있었다.
+
+   → 배열을 **지웠다.** 소비처(`visual.spec.ts`)가 `TABS` 를 시드만 바꿔 그대로 돈다 — 목록이
+   하나면 갈릴 자리가 없고(같은 파일 `A11Y_EXTRA` 주석의 규율), 새 탭이 생기면 빈 상태 스냅샷도
+   자동으로 따라온다. ⚠ 별칭(`export const TABS_EMPTY = TABS`)으로 두지 않는 이유는 knip 이
+   **중복 export** 로 잡기 때문이고, 그 지적이 옳다: 이름이 둘이면 «둘은 다르다»고 읽힌다. */

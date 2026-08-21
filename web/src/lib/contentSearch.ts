@@ -126,7 +126,13 @@ function weakHits(s: AppState, q: string): ContentHit[] {
       id: 'c-weak:' + w.key,
       kind: 'weak' as const,
       label: `${w.subject} · ${w.chapter}`,
-      to: '/review',
+      /* ⚠ **손에 쥔 좌표를 버리지 않는다**(U027 · 2026-08-21 ux 축). 종전엔 그냥 `/review` 라
+         약점을 눌러 도착한 화면에서 그 줄을 눈으로 다시 찾아야 했다 — 검색의 반대말이다.
+         ⚠ `?sid=` 가 아니라 **행 앵커**를 쓴다: 그 화면에는 과목 필터가 없고(`?sid=` 를 읽는 코드가
+         없다 · 넣으면 U011 이 지적한 «아무도 소비하지 않는 딥링크»를 또 만든다) 약점은 과목이
+         아니라 **과목×챕터**라 sid 로는 여전히 좁혀지지 않는다. 착지는 `Review` 가 `useHashTarget`
+         으로 이행한다. */
+      to: `/review#weak-${encodeURIComponent(w.key)}`,
       // weakSpots 의 key 는 `sid|chapter` 다 — 이미 갖고 있는 값을 필드로 꺼낸다(되파싱 금지).
       sid: keySid(w.key),
       subject: w.subject,

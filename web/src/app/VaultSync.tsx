@@ -14,7 +14,7 @@
 ============================================================ */
 import { useEffect } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
-import { scanVaultViaShell, type VaultScan } from '@/lib/vault';
+import { isVaultUnset, scanVaultViaShell, VAULT_ERROR_KEY, type VaultScan } from '@/lib/vault';
 import { isTauri, onVaultChanged } from '@/lib/tauri';
 import { setVaultAnchors, vaultAnchorsFrom } from '@/lib/vaultAnchors';
 import { useApp } from '@/store/useApp';
@@ -29,9 +29,21 @@ export default function VaultSync() {
     if (!isTauri()) return;
     let alive = true;
     let un: (() => void) | undefined;
+    /* ⚠⚠ **스캔 실패를 사용자 표면으로 올린다**(U006 · 2026-08-21 ux 축). 종전엔 `lib/tauri` 가
+       실패를 `null` 로 접었고, 그 자리 주석은 "사용자 표면은 감시 채널이 맡는다"고 적었지만
+       그 채널(`capabilities.vaultWatchError`)을 세우는 곳은 **감시자뿐**이라 스캔 실패는
+       콘솔에만 남았다 — 즉 볼트가 깨져도 앱은 "볼트 비어 있음"으로만 보였다.
+       ⚠ 미설정(`isVaultUnset`)은 실패가 아니다 — 콜드 게이트가 이미 그 상태를 말한다. */
     const load = async () => {
-      const s = await scanVaultViaShell();
-      if (alive && s) qc.setQueryData(['vault'], s);
+      try {
+        const s = await scanVaultViaShell();
+        if (!alive) return;
+        if (s) qc.setQueryData(['vault'], s);
+        qc.setQueryData(VAULT_ERROR_KEY, null);
+      } catch (e) {
+        if (!alive) return;
+        qc.setQueryData(VAULT_ERROR_KEY, isVaultUnset(e) ? null : e instanceof Error ? e.message : String(e));
+      }
     };
     void load();
     void onVaultChanged(() => void load()).then((u) => {

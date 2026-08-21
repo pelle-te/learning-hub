@@ -41,7 +41,7 @@ export default function Trellis({ rows, caption }: { rows: TrellisRow[]; caption
         <div className="ds-caps mb-1.5">
           {caption}
           {/* 척도를 화면에 적는다 — 공유 척도의 값은 "같은 자로 쟀다"는 사실이 보일 때 나온다. */}
-          <span className="ml-1.5 font-normal text-mut">공통 척도 {max.toFixed(1)}</span>
+          <span className="ml-1.5 font-body text-mut">공통 척도 {max.toFixed(1)}</span>
         </div>
       )}
       <ul className="m-0 flex list-none flex-col gap-1 p-0">

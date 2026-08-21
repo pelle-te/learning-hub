@@ -244,6 +244,22 @@ export async function pickAndScanVault(
  *  ⚠ Rust 는 **노트 레코드까지만** 만든다. 집계는 여기 `subjectsFromIndex` 하나가 소유한다 —
  *  3단계-B 에서 집계가 두 벌이라 같은 볼트에서 숫자가 갈리던 결함을 고쳤으니, 언어를 바꿔
  *  세 번째 구현을 만들지 않는다. */
+/** 볼트 스캔 실패의 **쿼리 캐시 자리**(U006). `null` = 지금 문제 없음. */
+export const VAULT_ERROR_KEY = ['vaultError'] as const;
+
+/**
+ * 이 실패가 **"아직 설정 안 됨"** 인가(= 실패가 아니다).
+ *
+ * ⚠ `vault.rs` 의 `vault_scan` 은 폴더 미설정도 `Err("볼트 폴더를 찾지 못했습니다…")` 로 답한다.
+ * 그 갈래를 에러 배너로 올리면 **워크스페이스를 아직 안 정한 신규 사용자에게 장애를 보고**하게
+ * 되고, 그건 `classifyArtifact` 가 SSOT 로 잠근 오분류(미생성을 장애로) 그 자체다. 문자열
+ * 계약인 것이 마음에 안 들지만 `isNotYetError` 가 이미 같은 형태를 쓴다 — 두 벌로 갈리지
+ * 않게 판정을 여기 하나에 둔다.
+ */
+export function isVaultUnset(e: unknown): boolean {
+  return (e instanceof Error ? e.message : String(e ?? '')).includes('볼트 폴더를 찾지 못했');
+}
+
 export async function scanVaultViaShell(): Promise<VaultScan | null> {
   const res = await vaultScan();
   if (!res) return null;

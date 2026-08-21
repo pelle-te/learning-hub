@@ -166,7 +166,16 @@ export default function Find() {
           glyph="search"
           title={`“${q}” 에 걸리는 것이 없어요`}
           desc="더 짧은 단어로 줄여 보세요 — 부분 일치로 찾습니다."
-          next={{ terminal: '검색어를 줄여 보세요.' }}
+          /* ⚠⚠ 여기가 `terminal`(행동 없음)이었다(U024 · 2026-08-21 ux 축). 바로 위 첫 진입
+             상태는 *"그 문은 여기밖에 없다"* 며 매뉴얼 버튼을 세워 뒀는데, **질의를 한 글자라도
+             치면 그 문이 사라졌다** — 아무것도 못 찾은 순간이 «이 시스템이 뭘 할 수 있나»를
+             가장 묻고 싶은 순간인데 정확히 그때 답이 없었다. 화면이 스스로 적어 둔 근거가
+             자기 형제 상태에는 적용되지 않은 형태다. */
+          next={
+            <Button variant="primary" onClick={() => setParams({ view: FIND_GUIDE_VIEW }, { replace: true })}>
+              이 시스템이 할 수 있는 것
+            </Button>
+          }
         />
       ) : (
         <ul className="m-0 flex min-h-0 max-w-160 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0">

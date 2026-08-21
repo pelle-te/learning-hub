@@ -56,7 +56,7 @@ export default function DayView({ ds }: { ds: string }): React.JSX.Element {
 
   return (
     <section className="flex flex-col gap-5 p-4">
-      <h2 className="text-base font-semibold text-txt">{fmt(parseISO(ds))}</h2>
+      <h2 className="text-base font-heading text-txt">{fmt(parseISO(ds))}</h2>
 
       {events.length > 0 ? (
         <div className="flex flex-col gap-2">

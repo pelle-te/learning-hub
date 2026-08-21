@@ -87,7 +87,17 @@ describe('검증이 기존 실패 처리를 바꾸지 않는다', () => {
   it('invoke 가 던지면 여전히 null 로 접는다(파싱이 그 경로를 가로채지 않는다)', async () => {
     invoke.mockRejectedValue(new Error('워크스페이스 없음'));
     expect(await workspaceStatus()).toBeNull();
-    expect(await vaultScan()).toBeNull();
+  });
+
+  /* ⚠⚠ **이 케이스가 뒤집혔다**(U006 · 2026-08-21 ux 축). 종전 단언은 `vaultScan()` 도 `null` 로
+     접는 것이었고, 그 정책은 *"사용자 표면은 감시 채널(`capabilities.vaultWatchError`)이 맡는다"* 는
+     주석에 기대고 있었다 — 그런데 그 값을 세우는 곳은 **감시자뿐**이라 스캔 실패의 사용자 표면은
+     존재한 적이 없었다. 지금은 던지고, `app/VaultSync` 가 받아 `VaultPanel` 이 그린다.
+     ⚠ 「내 수정이 깼다」가 아니라 「옛 계약을 갱신한다」인 경우다(판례 2026-08-21 D002) — 뒤집힌
+     이유를 여기 적는다. 안 적으면 다음 회차가 옛 근거를 읽고 되돌린다. */
+  it('볼트 스캔 실패는 **던진다** — 호출부가 「비었다」와 「읽다 죽었다」를 갈라야 한다', async () => {
+    invoke.mockRejectedValue(new Error('워크스페이스 없음'));
+    await expect(vaultScan()).rejects.toThrow('워크스페이스 없음');
   });
 
   it('브라우저에선 invoke 자체를 부르지 않는다', async () => {

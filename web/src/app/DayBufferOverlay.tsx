@@ -131,7 +131,21 @@ export default function DayBufferOverlay() {
       </div>
       {/* ⚠ `<pre>` 다 — 이 화면의 값은 *조판*이 아니라 **텍스트 그 자체**이고, 그걸 예쁘게
           렌더하면 "복사하면 이대로 나온다"는 약속이 깨진다. */}
-      <pre className="ds-well m-0! w-full max-w-160 flex-1 overflow-auto text-sm leading-relaxed whitespace-pre-wrap">
+      {/* ⚠ **스크롤 컨테이너는 키보드로도 스크롤돼야 한다**(U038 · 2026-08-21 ux 축 · WCAG 2.1.1).
+          `overflow:auto` 만으로는 포커스를 못 받아, 내용이 넘칠 때 마우스 휠·드래그 외에 방법이
+          없었다(이 오버레이엔 다른 포커스 가능 요소가 위쪽 버튼 둘뿐이라 화살표 키가 갈 곳이
+          없다). `tabIndex=0` 이 그 하나로 해결한다 — 브라우저가 스크롤 컨테이너에 포커스를 주면
+          ↑↓·PageUp/Down·Space 가 그대로 동작한다.
+          ⚠ 표식은 **`role="group"`** 이다 — 이 저장소가 스크롤 컨테이너에 쓰기로 정한 어휘이고
+          (`eslint.config.js` 의 `no-noninteractive-tabindex` 옵션이 그 목록을 진다) 이름을 주지
+          않는 것까지가 그 규약이다(이름 없는 group 은 스크린리더가 사실상 무시하므로 잡음
+          랜드마크가 안 생긴다 · `components/hud/HudFrame.tsx` 가 같은 판단을 적어 뒀다).
+          이 오버레이의 이름은 바깥 `dialog` 가 이미 갖고 있다. */}
+      <pre
+        tabIndex={0}
+        role="group"
+        className="ds-well m-0! w-full max-w-160 flex-1 overflow-auto text-sm leading-relaxed whitespace-pre-wrap"
+      >
         {text}
       </pre>
       <p className="ds-tiny mt-2 text-anno">Esc 로 닫기 · 편집은 아직 없습니다(고치고 싶었다면 그게 다음 신호입니다)</p>

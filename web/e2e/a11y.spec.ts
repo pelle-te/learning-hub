@@ -14,8 +14,19 @@ import { A11Y_EXTRA, A11Y_OVERLAY, PHONE_VIEWS, SEED, TABS, boot, bootPhone, set
      않아 모든 버튼·탭·입력에서 포커스 표시가 없었다. 소스에는 아무 오류가 없다.
    · **`role="tablist"` 반쪽 구현** — tabpanel 연결도 화살표 이동도 없이 롤만 선언.
 
-   둘 다 **사람이 손으로** 찾았고, 둘 다 axe 가 렌더된 DOM 에서 초 단위로 잡는 부류다.
-   린트는 소스를 보고 axe 는 **결과물**을 본다 — 대체재가 아니라 다른 층이다.
+   둘 다 **사람이 손으로** 찾았다. 린트는 소스를 보고 axe 는 **결과물**을 본다 — 대체재가
+   아니라 다른 층이다.
+
+   ## ⚠⚠ 그런데 axe 는 저 둘 중 **첫째를 원리적으로 못 잡는다**(U015 · 2026-08-21 ux 축)
+
+   종전 이 자리는 _"둘 다 axe 가 렌더된 DOM 에서 초 단위로 잡는 부류다"_ 라 적었는데, axe-core
+   4.x 의 규칙 목록에 **포커스 표시(`:focus-visible` 링)를 보는 규칙이 없다**(실측). 즉 이
+   파일이 자기 존재 이유로 든 첫 예를 이 파일은 못 본다 — 포커스 링을 전 저장소에서 지워도
+   여기 128 케이스가 전량 녹색이다.
+
+   그래서 그 층의 집행자는 **시각 회귀 쪽**에 있다(`visual.spec.ts` 의 `focus-ring` 케이스 ·
+   Tab 을 한 번 눌러 찍는다). 이 문단을 남기는 이유는, 검사기가 «무엇을 못 보는가»를 안 적으면
+   그 사각이 **검사기가 있다는 사실 자체로 덮이기** 때문이다(리포트 §R1 의 형태).
 
    ## 왜 트랙 A 인가
 
@@ -261,4 +272,116 @@ test('a11y 원장에 기한이 지난 항목이 없다', async () => {
     만료.length,
     `재검토 기한이 지난 a11y 원장 항목 ${만료.length}건 — 고치거나, 다시 판단하고 날짜를 갱신하세요:${만료.join('')}\n`,
   ).toBe(0);
+});
+
+/* ── 리플로우 320px(WCAG 1.4.10) — **한 번도 안 돌던 대역**(U023 · 2026-08-21 ux 축) ──────
+   1.4.10 은 320 CSS px 폭에서 **두 방향 스크롤을 요구하지 않을 것**을 말한다(= 1280px 화면의
+   400% 확대와 같은 대역). 이 저장소의 검증망은 데스크톱 1280×720 과 폰 390 두 점만 봤고
+   그 사이도 아래도 본 적이 없었다 — 실측하면 8경로 중 셋이 가로 스크롤을 만들었고, 더 나쁜 것은
+   **하단 탭바가 탭 9개를 화면 밖에 두고 스크롤도 안 되던 것**이었다(390px 에서도 7개).
+
+   ⚠ 스냅샷을 안 찍는다. 이 장이 묻는 것은 *"어떻게 보이는가"* 가 아니라 **"넘치는가"** 라
+   숫자 하나로 끝나고, 그림으로 굳히면 그 순간의 조판이 정답이 되어 버린다(§1-C).
+   ⚠ 화면 하나에 케이스 하나씩이다 — 한 테스트에서 16화면을 돌면 어느 화면이 깼는지를
+   실패 메시지에서 잃는다. */
+for (const 화면 of 화면들) {
+  test(`reflow · 320px · ${화면.key}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await 띄우기(page, 화면, 'dark');
+    const 넘침 = await page.evaluate(() => {
+      const de = document.documentElement;
+      return { doc: de.scrollWidth, view: de.clientWidth };
+    });
+    expect(
+      넘침.doc,
+      `${화면.key}: 320px 에서 문서가 ${넘침.doc}px 로 넘친다 — 가로 스크롤 없이 읽혀야 한다(1.4.10)`,
+    ).toBeLessThanOrEqual(넘침.view);
+  });
+}
+
+/* 탭바 도달성 — 넘치는 것 자체는 죄가 아니고 **못 닿는 것**이 죄다(U023). 좁은 창에서 레일은
+   하단 탭바가 되고 16칸(704px)은 어차피 안 들어간다 → 그때 스크롤 컨테이너여야 하고,
+   현재 탭이 그 안에서 보여야 한다("지금 어디인가"는 나브의 첫 번째 일이다). */
+test('reflow · 320px 에서 하단 탭바의 모든 탭에 닿을 수 있다', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await boot(page, 'dark', SEED);
+  await page.goto('/settings');
+  await expect(page.locator('#main')).toBeVisible();
+  await a11ySettle(page);
+  const r = await page.evaluate(() => {
+    const nav = document.querySelector('nav')!;
+    const 활성 = document.querySelector('[aria-current="page"]')!;
+    const b = 활성.getBoundingClientRect();
+    return {
+      스크롤가능: nav.scrollWidth > nav.clientWidth ? getComputedStyle(nav).overflowX : 'fits',
+      활성보임: b.left >= -1 && b.right <= document.documentElement.clientWidth + 1,
+    };
+  });
+  expect(['auto', 'scroll', 'fits'], '탭이 넘치는데 스크롤이 안 된다 — 넘친 탭에 닿을 방법이 없다').toContain(
+    r.스크롤가능,
+  );
+  expect(r.활성보임, '현재 탭(설정)이 탭바 밖에 있다 — 「지금 어디인가」가 안 보인다').toBe(true);
+});
+
+/* ── ⭐ 대비 **미측정** 래칫(U003 · 2026-08-21 ux 축) ─────────────────────────────────
+   ## 「위반 0」은 「전부 쟀다」가 아니다
+
+   위 검사들은 `결과.violations` 만 세고 **`결과.incomplete` 를 버린다.** axe 에서 incomplete 는
+   *"규칙을 적용해 봤는데 판정할 수 없었다"* 이고, 대비의 경우 사유가 셋이다 — 배경이 **의사요소**
+   이거나, **배경 이미지**이거나, 다른 요소에 **가려져** 있다. 셋 다 이 저장소의 주력 관용구다
+   (`::before` 로 면·띠를 그리는 자리가 100곳 넘는다).
+
+   실측(2026-08-21 · 다크 13탭): incomplete **620노드**, 그중 `color-contrast` 가 619. 즉 게이트가
+   「대비 위반 0」이라 말하는 동안 **수백 노드는 재지도 못했다**. 이것이 리포트 §R1 이 말한 형태다:
+   0을 보고하는 지표는 **분모를 함께 말해야** 한다.
+
+   ## 왜 「실패」가 아니라 「래칫」인가
+
+   incomplete 를 전부 없애려면 의사요소 관용구를 통째로 갈아야 하고, 그건 이 축의 결정이 아니다
+   (그리고 그 관용구는 §7 에서 «유지» 판정을 받았다). 여기서 막는 것은 **늘어나는 것**이다 —
+   새 화면이 같은 사각을 더 만들면 시끄럽게 깨진다. 값을 줄이면 이 상수도 함께 줄인다(역래칫).
+   ⚠ 이 수를 손으로 어림하지 마라. 실패 메시지가 **실측치를 그대로 준다**. */
+const 미측정_래칫 = 624;
+
+test('대비 미측정(incomplete) 노드가 늘지 않았다', async ({ page }) => {
+  const 사유: Record<string, number> = {};
+  let 합 = 0;
+  for (const 화면 of TABS) {
+    await boot(page, 'dark', SEED);
+    await page.goto('/' + 화면);
+    await a11ySettle(page);
+    const 결과 = await new AxeBuilder({ page }).exclude('canvas').analyze();
+    for (const i of 결과.incomplete) {
+      사유[i.id] = (사유[i.id] ?? 0) + i.nodes.length;
+      합 += i.nodes.length;
+    }
+  }
+  const 내역 = Object.entries(사유)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k} ${v}`)
+    .join(' · ');
+  expect(
+    합,
+    `axe 가 **판정하지 못한** 노드가 ${합}건이다(래칫 ${미측정_래칫}) — ${내역}\n` +
+      `  늘었으면: 새로 생긴 의사요소·배경이미지 위 글자가 대비 검사 밖으로 나갔다는 뜻이다.\n` +
+      `  줄었으면: 좋은 일이다. 이 파일의 \`미측정_래칫\` 을 ${합} 으로 낮추세요(그래야 되돌아오면 잡힌다).\n`,
+  ).toBeLessThanOrEqual(미측정_래칫);
+});
+
+/* 레일 세로 도달성(U036) — 허용 최소 창 높이는 **600**(`src-tauri/tauri.conf.json`)인데 레일
+   내용은 814px 다. 스크롤 컨테이너인 것만으로는 부족하다: 목록 끝의 `설정`·`연동 현황` 은
+   그 상태에서 **처음부터 화면 밖**이라, 현재 탭이 자기 자리로 스크롤돼야 «지금 어디인가»가 산다.
+   ⚠ 배포 기본 창(1440×900)에서는 결함이 아니었다 — 이 케이스가 좁게 겨누는 것은 그 아래 대역이다. */
+test('reflow · 최소 창 높이(600)에서 현재 탭이 레일 안에 보인다', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await boot(page, 'dark', SEED);
+  await page.goto('/settings');
+  await expect(page.locator('#main')).toBeVisible();
+  await a11ySettle(page);
+  const 보임 = await page.evaluate(() => {
+    const nav = document.querySelector('nav')!.getBoundingClientRect();
+    const a = document.querySelector('[aria-current="page"]')!.getBoundingClientRect();
+    return a.top >= nav.top - 1 && a.bottom <= nav.bottom + 1;
+  });
+  expect(보임, '레일이 넘치는데 현재 탭이 그 밖에 있다').toBe(true);
 });

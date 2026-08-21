@@ -22,10 +22,11 @@
    이미 계산하는 파생을 *이 과목 한 줄로* 요약해 보여 주고 딥링크만 건다.
 ============================================================ */
 import { Suspense, lazy, useCallback, useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { useHashTarget } from '@/hooks/useHashTarget';
 import { useLedger, useKnowledge, usePing } from '@/store/queries';
 import { commitUndoable } from '@/shell';
 import { riskChapters } from '@/lib/spacedReview';
@@ -199,6 +200,10 @@ export default function Subject() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const sheet = params.get('view') === SHEET_VIEW;
+  /* U011 — 머리주석이 약속한 `#ch-<id>` 착지를 **실제로** 일으킨다. 그 약속은 2026-07-31 부터
+     적혀 있었지만 `.hash` 를 읽는 코드가 저장소에 0이라 한 번도 안 일어났다.
+     ⚠ 챕터 표가 렌더된 뒤여야 하므로 과목 id·챕터 수를 의존성으로 함께 넘긴다. */
+  const { hash } = useLocation();
   const items = useApp((s) => s.state.items);
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
@@ -211,6 +216,7 @@ export default function Subject() {
   const doneCh = chs.filter((c) => c.done).length;
   const weakN = item ? (weakCountBySid(state)[item.id] ?? 0) : 0;
   const nextExam = item ? nextExamOf(item, today) : null;
+  useHashTarget(sheet ? '' : hash, `${id ?? ''}:${chs.length}`);
   /* Q-5 — 추정 배율. **표본이 얇으면 null 이고 그때는 안 그린다**(값 부재 ≠ 배율 1.0).
      게이트는 `lib/estimateCalibration` 이 소유한다 — 화면이 문턱을 다시 판단하면 화면마다 갈린다. */
   const calib = item ? subjectCalibration(state, item.id) : null;

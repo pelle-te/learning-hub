@@ -13,7 +13,6 @@ import {
   SEED_EMPTY,
   SHEET_NOTE_FIXTURE,
   TABS,
-  TABS_EMPTY,
   THEMES,
   boot,
   bootArtifactPhase,
@@ -108,13 +107,16 @@ for (const theme of THEMES) {
 
 // 빈 상태(신규 사용자) — 데이터 의존 탭이 텅 비지 않고 의도적으로 보이는지.
 for (const theme of THEMES) {
-  for (const tab of TABS_EMPTY) {
+  for (const tab of TABS) {
+    // U031 — 빈 상태도 **같은 탭 로스터**를 돈다(시드만 다르다). 근거는 `_fixtures.ts`.
     test(`${tab} · empty · ${theme}`, async ({ page }) => {
       await boot(page, theme, SEED_EMPTY);
       await page.goto('/' + tab);
       await expect(page.locator('#main')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-      await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+      /* ⚠ 빈 상태만 있는 화면은 `<h2>` 태그가 아니라 `role="heading"`(components/State)이다 —
+         둘 다 받는 셀렉터여야 «본문이 떴는가»를 실제로 묻는다. */
+      await expect(page.locator('#main h2, #main [role="heading"], #main section[aria-label]').first()).toBeVisible();
       await settle(page);
       await expect(page).toHaveScreenshot(`${tab}-empty-${theme}.png`, { fullPage: true });
     });
@@ -503,6 +505,12 @@ const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
      _"커버리지 0인 화면은 이식 **전에** 스냅샷부터"_ 라 적어 둔 자리다. */
   { key: 'degree-intake', path: '/degree?view=intake', ready: '강의계획서 붙여넣기' },
   { key: 'degree-close', path: '/degree?view=close', ready: '다음 학기가 배운 것' },
+  /* ⚠⚠ **`ledger?view=mastery` 의 ready 커버리지가 0이었다**(2026-08-21 ux 축 · 잔재①).
+     A-19(W5 · 2026-08-07)가 `mastery` 를 `TABS` 에서 빼 `ledger` 의 뷰로 내렸는데 여기 한 줄이
+     안 따라왔다. 그 결과 옛 베이스라인 두 장(`mastery-{dark,light}.png`)이 **어떤 테스트도
+     비교하지 않는 고아**로 남아 있었고 — 지우기 전에 이 줄을 먼저 넣는다(§15-4: 커버리지 0인
+     화면을 만들지 않는다). 로딩 상태는 이미 `LOADING_SCREENS` 가 본다. */
+  { key: 'ledger-mastery', path: '/ledger?view=mastery', ready: '정본 원장' },
 ];
 for (const theme of THEMES) {
   for (const v of MERGED_VIEWS) {
@@ -738,4 +746,35 @@ test('shortcuts-help · dark', async ({ page }) => {
   await expect(page.getByRole('dialog').or(page.locator('[aria-label*="단축키"]')).first()).toBeVisible();
   await settle(page);
   await expect(page).toHaveScreenshot('shortcuts-help-dark.png');
+});
+
+/* ── 포커스 링 — **어느 게이트도 못 보던 층**(U015 · 2026-08-21 ux 축) ────────────────────
+   `a11y.spec.ts` 머리주석은 이 파일이 생긴 계기 둘 중 첫째로 *"폰 `:focus-visible` 링 전면
+   부재"* 를 들고 _"둘 다 axe 가 초 단위로 잡는다"_ 고 적었는데 **틀렸다**: axe-core 4.x 에
+   포커스 표시를 보는 규칙이 없다(실측). 그리고 이 파일의 스냅샷 88장은 전부 **포커스가 없는
+   정지 프레임**이다. 즉 포커스 링을 전 저장소에서 지워도 게이트 전량이 녹색이다 — 2026-07-24
+   에 실제로 "중복이니 정리" 한 줄로 그 일이 일어났고 사람이 눈으로 찾았다.
+
+   ⚠ **Tab 을 한 번 누르고 찍는 것**이 이 케이스의 전부다. 어느 요소가 잡히느냐는 중요하지
+     않다(첫 탭 스톱이면 된다) — 이 장이 묻는 것은 *"포커스가 보이는가"* 이고, 링이 사라지면
+     같은 프레임이 통째로 달라진다.
+   ⚠ 데스크톱·폰을 **둘 다** 찍는다: 그 실사고가 폰에서 났고, 폰은 `global/components.css` 를
+     import 하지 않아 두 오리진의 포커스 스타일이 **다른 파일에 산다**(한쪽만 찍으면 반쪽이다). */
+test('focus-ring · desktop', async ({ page }) => {
+  await boot(page, 'dark');
+  await page.goto('/today');
+  await expect(page.locator('#main')).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Tab');
+  // 포커스가 실제로 들어갔는가(빈 프레임을 정답으로 굳히지 않는다).
+  await expect(page.locator('body :focus-visible')).toBeVisible();
+  await expect(page).toHaveScreenshot('focus-ring-desktop.png', { fullPage: false });
+});
+
+test('focus-ring · phone', async ({ page }) => {
+  await bootPhone(page);
+  await settle(page);
+  await page.keyboard.press('Tab');
+  await expect(page.locator('body :focus-visible')).toBeVisible();
+  await expect(page).toHaveScreenshot('focus-ring-phone.png');
 });

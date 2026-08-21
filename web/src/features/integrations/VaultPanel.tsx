@@ -13,6 +13,7 @@ import {
   chaptersFromVault,
   queryVaultPermission,
   requestVaultPermission,
+  VAULT_ERROR_KEY,
   type VaultScan,
   type VaultSubject,
   type VaultChapter,
@@ -31,6 +32,11 @@ export function VaultPanel() {
   // 구독형으로 읽어 연동/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
   const handle = useQuery<FileSystemDirectoryHandle>({ queryKey: ['vaultHandle'], queryFn: skipToken }).data;
+  /* ⚠⚠ **셸의 스캔 실패가 여기로 온다**(U006 · 2026-08-21 ux 축). 셸에는 폴더 연동 버튼이 없어
+     아래 `err` 상태(FSA 경로 전용)에 실릴 길이 없었고, 그래서 볼트를 못 읽는 사실의 사용자
+     표면이 **어디에도 없었다** — `lib/tauri.ts` 주석이 지목한 `capabilities.vaultWatchError` 는
+     감시자만 세운다. 실패는 `app/VaultSync` 가 쿼리 캐시에 적고 이 패널이 그린다(볼트의 집). */
+  const scanErr = useQuery<string | null>({ queryKey: VAULT_ERROR_KEY, queryFn: skipToken }).data ?? null;
   // 원장(W4) — 임포트 직후 "카드까지 갔다"를 물으려면 여기서 실제로 읽어야 한다.
   const led = useLedger();
   const [busy, setBusy] = useState(false);
@@ -156,6 +162,10 @@ export function VaultPanel() {
     toast(`"${name}" 추가됨`, 'ok');
   };
 
+  /* 경로가 둘이라 자리도 둘이었다 — 사용자에겐 "볼트를 못 읽었다" 하나다(FSA 는 `err`,
+     셸은 쿼리 캐시). 그리는 자리를 하나로 접는다. */
+  const 경고 = err || (scanErr ? `볼트를 읽지 못했어요 — ${scanErr}` : '');
+
   return (
     <>
       <div className="ds-rule">
@@ -210,10 +220,10 @@ export function VaultPanel() {
             : "전공 폴더를 고르면 과목→챕터→노트 수와 검증/Anki 상태(YAML)를 읽습니다. 항목 옆 '+스케줄'로 바로 학습 항목에 넣어요. (Chrome/Edge)"}
         </div>
         {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
-        <LiveRegion message={err ?? ''} assertive />
-        {err && (
+        <LiveRegion message={경고 ?? ''} assertive />
+        {경고 && (
           <div className="ds-warnbox" style={{ marginTop: 8 }}>
-            {err}
+            {경고}
           </div>
         )}
         {scan && (

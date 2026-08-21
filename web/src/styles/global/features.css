@@ -57,7 +57,7 @@
   border: 1px solid transparent;
   border-radius: var(--r-sm);
   padding: 9px 11px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--txt);
   font-weight: 500;
 }
@@ -102,7 +102,7 @@
   border-radius: var(--r-md);
   padding: 11px 13px;
   box-shadow: var(--shadow-lg);
-  font-size: 13px;
+  font-size: var(--fs-md);
   line-height: 1.45;
   color: var(--txt);
   /* C-2: 마운트부터 .in이 붙어 트랜지션이 발화하지 않던 것 → .menu(enter-pop)처럼 keyframe으로.
@@ -158,7 +158,7 @@
 .toast .toast-i {
   flex: none;
   font-weight: 800;
-  font-size: 13px;
+  font-size: var(--fs-md);
   margin-top: 1px;
 }
 .toast .toast-m {
@@ -194,7 +194,7 @@
   align-self: center;
   margin-left: 2px;
   padding: 5px 11px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   border-radius: 8px;
   background: var(--acc-soft);
@@ -254,7 +254,7 @@
   animation: enter-pop var(--dur) var(--ease);
 }
 .modal-t {
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 700;
   margin-bottom: 7px;
   letter-spacing: -0.01em;

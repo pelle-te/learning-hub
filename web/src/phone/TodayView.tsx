@@ -114,7 +114,7 @@ export default function TodayView({
   return (
     <section className="flex flex-col gap-4 p-4">
       <header className="flex items-baseline justify-between">
-        <h2 className="text-lg font-bold text-txt">{fmt(parseISO(today))}</h2>
+        <h2 className="text-lg font-heading text-txt">{fmt(parseISO(today))}</h2>
       </header>
 
       {/* 복귀 자리 **하나**(P-1) — 브리핑이 있으면 브리핑, 아니면 아래 이어하기 칩. 스트릭 칸은

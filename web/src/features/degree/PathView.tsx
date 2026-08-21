@@ -25,7 +25,7 @@ import {
   type ProjectView,
 } from '@/lib/goals';
 import State from '@/components/State';
-import { artifactErrorMessage, classifyArtifact } from '@/lib/artifactState';
+import { artifactErrorCopy, classifyArtifact } from '@/lib/artifactState';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -119,7 +119,7 @@ export default function Goals() {
         <State
           kind="error"
           title="내 길을 읽지 못했어요"
-          desc={artifactErrorMessage(goals.error)}
+          desc={artifactErrorCopy(goals.error)}
           next={
             <Button sm variant="primary" onClick={() => void goals.refetch()}>
               다시 시도
@@ -399,7 +399,7 @@ function GoalCard({ node, maxWeight }: { node: GoalTreeNode; maxWeight: number }
               <dt className="text-xs text-mut">{r.label}</dt>
               <dd className="m-0 text-sm font-semibold tabular-nums">
                 {r.credits}
-                <span className="ml-1 text-xs font-normal text-mut">학점</span>
+                <span className="ml-1 text-xs font-body text-mut">학점</span>
               </dd>
             </div>
           ))}

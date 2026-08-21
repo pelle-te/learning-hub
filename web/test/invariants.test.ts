@@ -14,7 +14,7 @@ import { join, sep } from 'node:path';
 /* ⚠ **스캐너·주석제거기는 여기 한 벌이다**(m-16). 지역 워커를 새로 파지 말 것 —
    종전엔 11벌이었고 주석 제거기가 4벌·의미 3가지로 갈려 오탐·오검이 동시에 났다.
    새 불변식을 추가할 때 이 모듈을 쓰면 규율(주석은 검사 대상이 아니다)이 자동 상속된다. */
-import { SRC, aliasOf, cssFiles, filesUnder, importSpecifiers, strip, tsFiles } from './_sources';
+import { SRC, aliasOf, cssFiles, filesUnder, importSpecifiers, strip, tsFiles, tsxFiles } from './_sources';
 import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
@@ -1426,5 +1426,40 @@ describe('불변식 ⑯ 종료 경로는 settleBeforeExit 를 태운다(D004)', 
       (f) => !f.endsWith(join('lib', 'tauri.ts')) && 종료호출.test(strip(readFileSync(f, 'utf8'))),
     );
     expect(소비처.length).toBeGreaterThan(0);
+  });
+});
+
+describe('불변식 ⑰ 마이크로카피가 부르는 탭 이름이 실재한다(U009)', () => {
+  /* ⚠⚠ 이 불변식이 없던 동안 무슨 일이 있었나(2026-08-21 ux 축 U009).
+
+     빈 상태·안내 문구가 사용자를 다른 탭으로 보내는 관용구는 **`<b>이름</b> 탭`** 하나다.
+     그런데 그 이름은 손으로 적혀 있었고 `shell/tabs.ts` 의 로스터와 아무 연결이 없었다 —
+     그래서 N-12(`journal`→`day`)·W4 의 탭 개편이 지나간 뒤에도 문구는 옛 이름에 머물렀고,
+     실측하면 넷 중 **셋이 존재하지 않는 탭**이었다(`학습 기록`·`Anki 현황`·`배치`).
+     사용자에게 이건 단순한 오타가 아니라 **따라갈 수 없는 처방**이다.
+
+     §1-A/§1-B 의 형태 그대로다: 손으로 적은 목록이고 집행자가 없었다. 여기가 그 집행자다.
+
+     ⚠ **은퇴한 탭 이름도 실패**로 본다 — `role:'retired'` 는 ⌘K 로만 닿는 화면이라
+     "그 탭에서 하세요"가 성립하지 않는다(나브·세그먼트 어디에도 그 이름이 안 뜬다).
+     ⚠ 주석은 검사하지 않는다(`strip`) — 근거에 옛 이름을 인용하는 것이 위반이 되면
+       그건 이 파일이 네 번 못박은 역인센티브다. */
+  const 살아있는이름 = new Set(
+    TABS.filter((t) => t.role !== 'retired').flatMap((t) => [t.label, t.segLabel].filter((x): x is string => !!x)),
+  );
+  const 관용구 = /<b>([^<>{}]{1,14})<\/b>[^\S\n]{0,3}탭/g;
+
+  const 언급 = tsxFiles().flatMap((f) => {
+    const code = strip(readFileSync(f, 'utf8'));
+    return [...code.matchAll(관용구)].map((m) => ({ 파일: aliasOf(f), 이름: m[1]!.trim() }));
+  });
+
+  it('`<b>…</b> 탭` 이 가리키는 이름이 전부 살아 있는 탭이다', () => {
+    const 위반 = 언급.filter((x) => !살아있는이름.has(x.이름)).map((x) => `${x.파일}: “${x.이름} 탭”`);
+    expect(위반, `없는(또는 은퇴한) 탭으로 보내는 문구 — 이름 정본은 shell/tabs.ts 다`).toEqual([]);
+  });
+
+  it('그 관용구를 쓰는 문구가 존재한다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    expect(언급.length).toBeGreaterThan(0);
   });
 });

@@ -40,6 +40,8 @@ export function SetupGuide() {
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
 
   const hasSubjects = items.some((i) => i.name);
+  /** U028 — 이름이 붙은 과목만 «만든 것»이다(빈 껍데기로 보내면 2단계가 더 막힌다). */
+  const subjects = items.filter((i) => i.name);
   const hasTargets = setupComplete(items);
   const hasRoutine = (routine || []).length > 0;
   // 볼트가 실제로 무엇을 갖고 있나 — 없으면(브라우저·미설정) 이 줄 자체가 안 나온다.
@@ -71,9 +73,17 @@ export function SetupGuide() {
       ok: hasTargets,
       title: '주당 목표 시간·챕터 설정',
       desc: '과목마다 주당 몇 시간 공부할지와 챕터(순서)를 정하면 블록이 배분됩니다.',
+      /* ⚠ **방금 만든 과목으로 데려간다**(U028 · 2026-08-21 ux 축). 종전엔 조건 없이 `/items`
+         (갤러리)라, 1단계에서 과목을 막 만든 사람이 2단계에서 **자기 과목을 목록에서 다시
+         찾아야** 했다 — 온보딩은 «막힌 지점으로 데려다준다»가 특히 중요한 자리다(D-4).
+         ⚠ 과목이 여럿이면 갤러리가 맞다(어느 것을 고를지는 사람이 정한다). 하나일 때만 좁힌다. */
       actions: (
-        <Button sm variant={hasSubjects ? 'primary' : 'default'} onClick={() => navigate('/items')}>
-          학습 항목에서 설정
+        <Button
+          sm
+          variant={hasSubjects ? 'primary' : 'default'}
+          onClick={() => navigate(subjects.length === 1 ? `/subject/${subjects[0]!.id}` : '/items')}
+        >
+          {subjects.length === 1 ? `‘${subjects[0]!.name}’ 설정하기` : '학습 항목에서 설정'}
         </Button>
       ),
     },

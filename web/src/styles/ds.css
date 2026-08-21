@@ -271,6 +271,11 @@
   box-shadow: var(--shadow-sm);
 }
 .ds-roNum {
+  /* ⚠ 사다리에 24px 칸이 없다(22 ↔ 26) — **유일하게 남은 생 px `font-size`** 다(U034 ·
+     2026-08-21 ux 축 · 나머지 23건은 그날 토큰으로 바꿨다). 여기서 반올림하지 않는 이유:
+     이 값은 리드아웃 숫자라 22 로 내리면 옆 라벨과 위계가 붙고, 26 으로 올리면 카드 높이가
+     바뀐다 — 즉 «사다리에 칸을 더할 것인가»의 문제이고 그건 이 회차의 결정이 아니다. 그때까지
+     이 한 줄이 그 사실의 기록이다(집행자: `check-tokens` 는 CSS 의 생 px 을 안 본다 · 원장 U034). */
   font-size: 24px;
   font-weight: 800;
   line-height: 1;
@@ -279,12 +284,12 @@
   letter-spacing: -0.02em;
 }
 .ds-roNum small {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--mut);
 }
 .ds-roLab {
-  font-size: 10.5px;
+  font-size: var(--fs-caption);
   color: var(--mut);
   font-weight: 600;
   word-break: keep-all;
@@ -303,7 +308,7 @@
   --tint: var(--warn);
   flex: none;
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--ink);
   background: color-mix(in srgb, var(--tint) 9%, transparent);
@@ -343,7 +348,7 @@
   display: inline-block;
   padding: 2px 9px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   background: var(--panel2);
   border: 1px solid var(--line);
@@ -436,7 +441,7 @@
   box-shadow: var(--shadow-md);
 }
 .ds-kpi .ds-v {
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -511,7 +516,7 @@
 }
 .ds-foot {
   margin-top: 7px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--mut);
 }
 
@@ -593,7 +598,7 @@ input.ds-donechk:checked {
   gap: 9px;
   padding: 6px 13px;
   border-bottom: 1px dashed var(--line-soft);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 .ds-tl:last-child {
   border-bottom: none;
@@ -632,14 +637,14 @@ input.ds-donechk:checked {
 }
 .ds-chev {
   color: var(--mut);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   width: 12px;
   text-align: center;
   flex: none;
 }
 .ds-itemname {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-base);
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -692,7 +697,7 @@ input.ds-donechk:checked {
   padding-top: 12px;
 }
 .ds-chapwrap > summary {
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--txt);
   list-style: none;
@@ -724,7 +729,7 @@ input.ds-donechk:checked {
 }
 .ds-bulkwrap > summary {
   color: var(--acc);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 
 /* 드래그 핸들(챕터 정렬) — tr[draggable]는 요소/속성이라 전역으로 남고 .ds-draghandle만 스코프 */
@@ -773,7 +778,7 @@ tr[draggable='true']:hover .ds-draghandle {
   border-left: 3px solid var(--warn);
 }
 .ds-cbmsChip {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   padding: 2px 9px;
   border-radius: 6px;
@@ -812,7 +817,7 @@ tr[draggable='true']:hover .ds-draghandle {
   align-items: flex-start;
   gap: 9px;
   margin: 9px 0;
-  font-size: 13px;
+  font-size: var(--fs-md);
   color: var(--txt);
   cursor: pointer;
 }
@@ -821,6 +826,24 @@ tr[draggable='true']:hover .ds-draghandle {
 }
 
 /* ── 칩 — 원장·숙달도가 공유. (⚠ 옛 주석은 `control` 을 들고 있었다 — P10 W4 에서 사라진 화면이다.) */
+/* ── `.ds-chip` vs `.ds-pill` — **합치지 않는 이유**(U019 · 2026-08-21 ux 축) ───────────
+   리뷰가 둘을 «자기 드리프트 기준 미만인 중복»으로 올렸다(24 vs 16 · 같은 99px 알약). 실측하면
+   **한 축이 진짜로 다르다**:
+
+   | | `.ds-pill` | `.ds-chip` |
+   |---|---|---|
+   | 글자 | `11px` **절대** | `0.78em` **부모 상대** |
+   | 테두리 | `border`(박스를 1px 키운다) | `inset box-shadow`(박스가 그대로) |
+   | 색 | 상속(+`ds-good/warn/bad` 변형) | `--mut` 고정 |
+
+   `em` 이 요점이다: 칩은 **자기가 얹힌 줄의 크기를 따라간다**(밀도가 다른 표 안에서 같은 비율로
+   작아진다). 알약은 어디에 놓이든 11px 인 **독립 배지**다. 둘을 합치면 그중 하나를 잃는다 —
+   합쳐서 `em` 을 고르면 24곳의 배지 크기가 문맥마다 흔들리고, `px` 를 고르면 16곳의 칩이 밀도
+   높은 행에서 튄다. 그리고 테두리 기법 차이는 **레이아웃 차이**다(칩은 1px 을 안 먹는다).
+
+   → 판정: **다른 물건이다.** 다음 회차가 다시 열지 않도록 여기 적는다. 합치려면 먼저
+   *"배지가 문맥 크기를 따라가야 하는가"* 를 정해야 하고, 그건 이 두 클래스가 아니라
+   디자인시스템의 결정이다. */
 .ds-chip {
   display: inline-block;
   padding: 1px 8px;

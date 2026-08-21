@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { navGroups, Icon, type TabMeta } from '@/shell';
 import { railLayout } from '@/shell/railLayout';
@@ -41,11 +41,28 @@ const NAV_BADGE_TAB = 'review-run';
    `!` 가 필요하다(§15-5). 모바일(≤700)은 레일이 하단 탭바로 바뀌는 **세 번째 기하**라 `max-mobile:`
    수식자가 두 변형 위에 얹힌다(원본 미디어쿼리가 두 상태를 함께 덮던 것과 같은 구조).
    `RailSidebar.module.css` 삭제. */
+/* ⚠⚠ **모바일 탭바가 탭을 잘라 먹고 있었다**(U023 · 2026-08-21 ux 축 · `[재현]`).
+   ≤700px 에서 레일은 하단 탭바가 되는데 `justify-around` + `overflow-visible` 이라 **넘치는
+   버튼이 화면 밖으로 나가고 도달할 방법이 없었다.** 실측(내용 폭 696px 고정):
+
+   | 뷰포트 | 화면 밖 탭 |
+   |---|---|
+   | 320px(400% 확대) | **9 / 16** |
+   | 390px(폰 베이스라인) | **7 / 16** — `설정`·`연동 현황` 포함 |
+   | 560px | 3 / 16 |
+
+   즉 「320px 리플로우」로 발견됐지만 **확대만의 문제가 아니었다** — 좁은 창에서는 앱 절반이
+   사라진다. 스크롤로 바꾼다(잘린 것을 손이 닿게 만드는 최소 변경 · 줄바꿈은 640px 화면에서
+   탭바가 세 줄이 되어 본문을 먹는다).
+   ⚠ 스크롤바는 숨긴다 — 44px 터치 타깃 위에 그리면 그 타깃을 깎는다. 대신 아래 이펙트가
+   **활성 탭을 항상 보이는 자리로 데려온다**(스크롤이 가능하다는 사실은 그 움직임이 알린다).
+   ⚠ 검증망은 이 대역을 안 본다: 트랙 A 의 모바일 스냅샷은 390px **4장**뿐이고 전부 `fullPage`
+   라(sticky 를 흐름 위치로 편다) 탭바가 잘리는 그림이 애초에 안 찍힌다. */
 const RAIL =
   /* ⚠ `z-nav` 이었다 — `--z-nav` 는 `@theme` 에 없어 **유틸이 생성되지 않았고**, 빌드 산출
      CSS 에 `.z-nav` 가 0건이었다(실측). 즉 데스크톱 레일이 z-index 없이 DOM 순서에만 기대는
      상태였다. 같은 문자열의 모바일 분기가 이미 쓰는 관용구(`z-[var(--z-dropdown)]`)로 맞춘다. */
-  'z-[var(--z-nav)] row-[1/-1] flex h-screen w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line2 bg-bg [view-transition-name:app-nav] max-mobile:fixed max-mobile:inset-x-0 max-mobile:top-auto max-mobile:bottom-0 max-mobile:z-[var(--z-dropdown)] max-mobile:row-auto max-mobile:h-auto max-mobile:w-auto max-mobile:flex-row max-mobile:items-center max-mobile:justify-around max-mobile:gap-0.5 max-mobile:overflow-visible max-mobile:border-r-0 max-mobile:border-t max-mobile:border-t-line max-mobile:px-2 max-mobile:pt-1.5 max-mobile:pb-[calc(6px+env(safe-area-inset-bottom,0px))]';
+  'z-[var(--z-nav)] row-[1/-1] flex h-screen w-full flex-col overflow-x-hidden overflow-y-auto border-r border-line2 bg-bg [view-transition-name:app-nav] max-mobile:fixed max-mobile:inset-x-0 max-mobile:top-auto max-mobile:bottom-0 max-mobile:z-[var(--z-dropdown)] max-mobile:row-auto max-mobile:h-auto max-mobile:w-auto max-mobile:flex-row max-mobile:items-center max-mobile:justify-start max-mobile:gap-0.5 max-mobile:overflow-x-auto max-mobile:overflow-y-hidden max-mobile:[scrollbar-width:none] max-mobile:border-r-0 max-mobile:border-t max-mobile:border-t-line max-mobile:px-2 max-mobile:pt-1.5 max-mobile:pb-[calc(6px+env(safe-area-inset-bottom,0px))]';
 const RAIL_EXP = 'gap-0.5 px-2.5 pt-3.5 pb-3';
 const RAIL_COL = 'items-center gap-1 px-0 pt-4 pb-3.5 max-mobile:items-center';
 // 브랜드 — 접힘 시 L 칩만, 펼침 시 워드마크 동반. 모바일 바텀바에선 통째로 숨는다.
@@ -213,6 +230,15 @@ export default function RailSidebar() {
        (브라우저가 focus() 를 그대로 수행한다). */
     document.getElementById('rail-' + t.key)?.focus();
   };
+
+  /* U023 — 탭바가 가로로 스크롤되면 **활성 탭이 화면 밖에서 시작할 수 있다**(예: `/settings` 는
+     목록 끝이다). 「지금 어디인가」는 나브의 첫 번째 일이므로 현재 탭을 보이는 자리로 데려온다.
+     ⚠ 세로는 건드리지 않는다(`block: 'nearest'`) — 데스크톱 레일에서도 이 이펙트가 도는데
+     거기서 페이지를 스크롤하면 안 된다. 가로 축만 필요하다. */
+  useEffect(() => {
+    const el = document.getElementById('rail-' + cur);
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [cur]);
 
   const renderBtn = (t: TabMeta) => {
     const i = idxOf(t.key);

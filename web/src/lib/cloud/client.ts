@@ -174,7 +174,7 @@ export async function enrollDevice(baseUrl: string, code: string, name: string):
  * 새 서버가 내 데이터를 영영 못 받는다 — 앱은 "연결됨·최신"이라 말한다(v6 백필이 고친 조용한
  * 유실과 같은 계열, 방향만 재연결 축). 0 부터 다시 push/pull 은 LWW 멱등이라 안전하다.
  */
-export async function disconnectCloud(): Promise<{ serverRevoked: boolean }> {
+export async function disconnectCloud(): Promise<{ serverRevoked: boolean; localCleared: boolean }> {
   let serverRevoked = false;
   try {
     const cfg = await readCloudConfig();
@@ -185,15 +185,21 @@ export async function disconnectCloud(): Promise<{ serverRevoked: boolean }> {
   } catch {
     // 네트워크·인증 실패 — 아래 로컬 삭제는 그대로 진행한다(위 주석 참조).
   }
+  /* ⚠⚠ **로컬 삭제 실패도 돌려준다**(U004 형제 · U007 · 2026-08-21 ux 축). `execDb` 는 실패를
+     `false` 로 접는 계약이라(`db/sqlite.ts`) 여기서 반환값을 안 보면 **DB 가 잠겨 한 줄도 안
+     지워졌는데도** 화면은 "끊었어요" 를 말한다 — 그리고 자격증명이 남았으므로 **다음 부팅에
+     연결이 되살아난다.** 바로 위 문단이 서버 폐기 실패를 삼키지 않는 이유로 적어 둔 것과
+     같은 논거이고, 실패하는 축만 반대다. */
+  let localCleared = true;
   for (const k of [...Object.values(KEYS), WATERMARK_KEY, PULL_MARK_KEY])
-    await execDb('DELETE FROM sync_state WHERE key = ?', [k]);
+    if (!(await execDb('DELETE FROM sync_state WHERE key = ?', [k]))) localCleared = false;
   /* ⚠⚠ **에코 억제표도 함께 비운다**(H-5 · 2026-08-06 감사). 워터마크 둘을 지우는 위 한 줄과
      **같은 이유이고 같은 실패 형태**다: 표가 남으면 "이 행은 서버에서 받은 것"이라는 판정이
      새 백엔드에도 그대로 적용돼, 워터마크를 0 으로 되돌려 놓고도 그 행들이 스캔에서 제외된다
      → 새 서버가 그 데이터를 **영영 못 받는다**(앱은 "연결됨·최신"). 근거 전문은 그 함수 주석. */
   resetMergedEcho();
   _access = null;
-  return { serverRevoked };
+  return { serverRevoked, localCleared };
 }
 
 /* ── 기기 관리(P0-2 폐기) ───────────────────────────────────────

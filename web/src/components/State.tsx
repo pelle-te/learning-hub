@@ -190,7 +190,16 @@ export default function State(props: StateProps) {
                 <Icon name={glyph} className={GLYPH_IC} />
               </div>
             )}
-        <div className={TITLE}>{title}</div>
+        {/* ⚠⚠ **제목이 제목이 아니었다**(2026-08-21 ux 축 · U030 을 고치다 드러났다). 빈 상태만으로
+            이뤄진 화면(`mistakes`·`questions` 의 콜드)은 `#main` 안에 **머리글이 하나도 없다** —
+            스크린리더의 머리글 탐색으로는 그 화면에 무엇이 있는지 알 방법이 없고, 시각 회귀의
+            «본문이 떴는가» 단언(`#main h2, #main section[aria-label]`)도 그 자리에서 멈춘다
+            (실측: 그 넷이 타임아웃으로 죽었다 — 검사가 제품의 구조 결함을 대신 신고한 형태).
+            ⚠ `<h2>` 태그를 쓰지 않는다: 언레이어드 전역 `h2 {}` 가 크기·중량·여백을 걸어 18곳의
+            빈 상태 조판이 통째로 바뀐다. 필요한 것은 **의미**뿐이므로 `role`+`aria-level` 로 준다. */}
+        <div className={TITLE} role="heading" aria-level={2}>
+          {title}
+        </div>
         {desc != null && <div className={DESC}>{desc}</div>}
         {props.kind === 'loading' ? null : isTerminal(props.next) ? (
           <div className={TERMINAL}>{props.next.terminal}</div>

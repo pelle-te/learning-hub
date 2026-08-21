@@ -364,19 +364,18 @@ export async function shellVaultWatchRetry(): Promise<void> {
   await call('vault_watch_retry');
 }
 
-/** 셸에서 볼트를 읽는다. 브라우저면 null(호출부가 File System Access 폴백으로 간다). */
+/** 셸에서 볼트를 읽는다. 브라우저면 null(호출부가 File System Access 폴백으로 간다).
+ *
+ *  ⚠⚠ **실패는 던진다**(U006 · 2026-08-21 ux 축). 종전엔 여기서 `console.error` 만 찍고 `null` 을
+ *  돌려주며 *"사용자 표면은 감시 채널(`capabilities.vaultWatchError`)이 맡는다"* 고 적어 뒀는데,
+ *  그 값을 세우는 곳은 `vault.rs` 의 **감시자뿐**이다(`start_watch` → `set_watch_error`). 즉
+ *  스캔 실패의 사용자 표면은 **구조적으로 존재한 적이 없고**, 주석이 그 사실의 유일한 기록이라
+ *  다음 사람은 주석을 사실로 읽는다(리포트 §R3 의 형태). 던지면 호출부가 "볼트가 비었다"와
+ *  "읽다 죽었다"를 실제로 가를 수 있다 — 미설정(폴더 없음)은 Rust 가 `Ok(빈 목록)` 으로 답하므로
+ *  여기 오는 것은 진짜 실패다. */
 export async function vaultScan(): Promise<VaultNotesFromRust | null> {
   if (!isTauri()) return null;
-  try {
-    return await call('vault_scan', undefined, VaultNotesSchema);
-  } catch (e) {
-    /* 볼트 폴더를 못 찾는 경우 등 — 호출부가 "연결 안 됨"으로 다루게 null.
-       ⚠ **조용히 접지는 않는다**(H7 · 2026-08-01). null 하나로는 "볼트가 비었다"와 "읽다 죽었다"가
-       구분되지 않고, 후자는 원인이 화면 어디에도 안 남는다. 사용자 표면은 감시 채널이 맡는다
-       (`capabilities.vaultWatchError` → `TelemetryConsole`) — 여기는 개발자 절반을 닫는다. */
-    console.error('[vault] 스캔 실패 — 볼트를 읽지 못했습니다.', e);
-    return null;
-  }
+  return await call('vault_scan', undefined, VaultNotesSchema);
 }
 
 /** T-11 — 부재 기간에 **밖에서** 손댄 볼트 노트(mtime 기준). Rust `vault_touched` 와 1:1. */

@@ -17,7 +17,7 @@
 ============================================================ */
 import { useEffect, useState } from 'react';
 import { useApp } from '@/store/useApp';
-import { toast } from '@/shell';
+import { confirmIrreversible, toast } from '@/shell';
 import { Button, Pill } from '@/components/ui';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { icsFeedStale, icsFeedUrl, loadIcsFeed, publishIcsFeed, revokeIcsFeed, type IcsFeed } from '@/lib/icsFeed';
@@ -40,15 +40,34 @@ export default function IcsFeedPanel() {
   const stale = icsFeedStale(feed, state);
   const url = feed?.token && origin ? icsFeedUrl(origin, feed.token) : '';
 
+  /* ⚠⚠ **주소 재발급·폐기는 ③단이다**(U032 · 2026-08-21 ux 축 · 사다리 SSOT `shell/destructive.ts`).
+     판정 기준은 «⌘Z 스택에 들어가나»인데 이 둘은 `mutate` 를 안 거치고(로컬 피드 레코드) 무엇보다
+     **앱 밖의 상태를 바꾼다** — 이미 구독 중인 캘린더 앱들이 그 순간부터 못 읽는다. 그런데
+     확인도 되돌리기도 없이 **한 번의 클릭**이었고, 두 버튼이 다른 버튼들과 나란히 놓여 있다.
+     ⚠ 갱신(`publish()`)은 그대로 둔다 — 그건 같은 주소의 내용만 새로 쓰는 것이라 잃는 것이 없다.
+     확인창의 가치는 희소성에서 나온다는 것이 이 사다리의 요지다(같은 파일 ⚠ 첫째). */
   const publish = (rotate = false): void => {
-    const next = publishIcsFeed(state, { rotate });
-    setFeed(next);
-    toast(rotate ? '새 주소를 발행했어요 — 옛 주소는 이제 안 열립니다.' : '지금 계획을 발행했어요.', 'ok');
+    const 발행 = (): void => {
+      const next = publishIcsFeed(state, { rotate });
+      setFeed(next);
+      toast(rotate ? '새 주소를 발행했어요 — 옛 주소는 이제 안 열립니다.' : '지금 계획을 발행했어요.', 'ok');
+    };
+    if (!rotate) return 발행();
+    void confirmIrreversible(
+      '주소를 새로 발급할까요? 지금 주소로 구독 중인 캘린더는 더 이상 갱신되지 않고, 각 기기에서 새 주소로 다시 등록해야 합니다.',
+      { title: '구독 주소 재발급', okLabel: '재발급' },
+    ).then((ok) => ok && 발행());
   };
   const revoke = (): void => {
-    revokeIcsFeed();
-    setFeed(loadIcsFeed());
-    toast('구독을 폐기했어요 — 그 주소는 더 이상 열리지 않습니다.', 'info');
+    void confirmIrreversible(
+      '구독을 폐기할까요? 구독 중인 캘린더에서 학습 일정이 사라지고, 되살리려면 새 주소를 발행해 각 기기에 다시 등록해야 합니다.',
+      { title: '구독 폐기', okLabel: '폐기' },
+    ).then((ok) => {
+      if (!ok) return;
+      revokeIcsFeed();
+      setFeed(loadIcsFeed());
+      toast('구독을 폐기했어요 — 그 주소는 더 이상 열리지 않습니다.', 'info');
+    });
   };
   const copy = (): void => {
     void navigator.clipboard.writeText(url).then(

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePrefill } from '@/store/prefill';
+import { useUI } from '@/store/useUI';
 import { toast } from '@/shell';
 import { layoutDay, sessionTimeMap } from '@/lib/scheduler';
 import { isDone } from '@/lib/persistence';
@@ -131,6 +132,9 @@ export function TodayBlocks() {
   const mutate = useApp((s) => s.mutate);
   const navigate = useNavigate();
   const requestPrefill = usePrefill((s) => s.request);
+  // U010 — 빈 상태의 처방이 갈린다("과목이 이미 있나"). 뷰 전환은 보내는 쪽 규약(v4).
+  const setSchedView = useUI((st) => st.setSchedView);
+  const hasItems = state.items.length > 0;
   // W8 — 인라인 '막힌 구간' 입력이 열린 행(sid). 모달이 아니라 행 안의 한 줄이다.
   const [noteFor, setNoteFor] = useState<string | null>(null);
   // Q-1 — 진도 커밋 줄이 열린 블록(`sid|type`). 완료를 켠 직후에만 열리고, 끄면 닫힌다.
@@ -152,12 +156,36 @@ export function TodayBlocks() {
   const items = day ? day.items : [];
 
   if (!items.length) {
+    /* ⚠⚠ **이미 한 일을 처방하지 않는다**(U010 · 2026-08-21 ux 축). 종전 문구는 조건 없이
+       *"과목/가용시간을 설정하면"* 이라 말했는데, 과목이 이미 있는 사용자에게 그건 모순이고
+       그가 할 수 있는 일을 하나도 안 알려 준다 — **PL-1 이 정확히 이 결함을 고쳤지만
+       `TodaySignature` 안에서만** 고쳤고, 같은 화면의 이 카드는 안 따라왔다.
+       ⚠ 탭 이름도 함께 고쳤다(U009): `학습 항목`·`일과` 는 둘 다 없는 이름이다
+       (`shell/tabs.ts` 기준 `과목`·`계획`). */
+    const 계획하러 = () => {
+      setSchedView('day'); // 보내는 쪽이 뷰를 먼저 세운다(`TodaySignature.goPlanToday` 와 같은 규약).
+      navigate(`/schedule?ds=${ds2}`);
+    };
     return (
       <div className="ds-rule" id="today-blocks">
         <h2>오늘의 블록</h2>
         <div className="ds-empty">
-          오늘 배치된 블록이 없어요. <b>학습 항목</b>·<b>일과</b> 탭에서 과목/가용시간을 설정하면 여기에 블록이
-          나타납니다.
+          {hasItems ? (
+            <>
+              오늘 배치된 블록이 없어요 — 과목은 있으니 <b>오늘</b>만 비어 있습니다.{' '}
+              <Button sm variant="primary" onClick={계획하러}>
+                오늘 계획 짜기 →
+              </Button>
+            </>
+          ) : (
+            <>
+              오늘 배치된 블록이 없어요. <b>과목</b> 탭에서 과목을, <b>계획</b> 탭에서 가용시간을 설정하면 여기에 블록이
+              나타납니다.{' '}
+              <Button sm variant="primary" onClick={() => navigate('/items')}>
+                학습 항목 설정 →
+              </Button>
+            </>
+          )}
         </div>
       </div>
     );

@@ -5,12 +5,15 @@
    편성/편집은 '졸업 계획' 뷰, 여기는 요건 충족도 진단에 집중(역할 분담).
    집계 로직은 lib/degree(순수·테스트 대상)가 단일 출처.
 ============================================================ */
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
-import { Card, KpiGrid, Kpi, Pill, ProgressBar, Table } from '@/components/ui';
+import { Button, Card, KpiGrid, Kpi, Pill, ProgressBar, Table } from '@/components/ui';
 import State from '@/components/State';
 import { degreeStats, progressPct, requirementRows, retakeCandidates } from '@/lib/degree';
 
 export default function DegreeReq() {
+  // U025 — 빈 상태의 «졸업 계획으로 가기» 는 뷰 파라미터를 지우는 것이다(기본 뷰 = plan).
+  const [, setParams] = useSearchParams();
   const d = useApp((s) => s.state.degree);
   const stats = degreeStats(d);
   const rows = requirementRows(d);
@@ -35,9 +38,18 @@ export default function DegreeReq() {
             자동으로 정리해 드려요.
           </>
         }
-        /* 뷰 전환을 이 컴포넌트가 소유하지 않는다(부모의 세그먼트다) → 버튼 대신 위치를 가리킨다.
-           소유하지 않은 상태를 억지로 조작하는 CTA 는 결국 prop 사슬을 하나 더 만든다. */
-        next={{ terminal: '↑ 졸업 계획 뷰에서 학기·과목을 먼저 입력하세요.' }}
+        /* ⚠⚠ 종전 근거는 **사문이었다**(U025 · 2026-08-21 ux 축): *"뷰 전환을 이 컴포넌트가
+           소유하지 않는다(부모의 세그먼트다) → 버튼 대신 위치를 가리킨다. 소유하지 않은 상태를
+           억지로 조작하는 CTA 는 결국 prop 사슬을 하나 더 만든다."* 그 말이 참이던 시절 뷰는
+           부모의 `useState` 였다. 지금은 **URL 이 뷰를 진다**(`/degree?view=req` · W9) — 즉
+           전환은 아무도 «소유»하지 않고 주소를 바꾸면 되며 prop 사슬도 필요 없다.
+           ⚠ 근거가 사라졌으면 결론도 다시 본다: 이 화면의 유일한 다음 걸음이 **행동을 못 갖는**
+           이유가 이제 없다. `terminal` 은 «할 수 있는 게 없다»를 뜻하는데 여기선 있다. */
+        next={
+          <Button sm variant="primary" onClick={() => setParams({}, { replace: true })}>
+            졸업 계획 입력하러 가기 →
+          </Button>
+        }
       />
     );
   }

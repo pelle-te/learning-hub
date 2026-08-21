@@ -27,7 +27,7 @@ import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { classifyArtifact, needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
+import { artifactErrorCopy, classifyArtifact, needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { openVaultSearch, pctLabel } from '@/lib/utils';
 import {
   LEDGER_STAGES,
@@ -145,9 +145,19 @@ function SubjectRow({
 /** 챕터 상세 — 5단계 체크리스트 + 노트/검증/카드/복습 수치 + 볼트 딥링크. 온디맨드 세부. */
 function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
   const { ch } = sel;
-  // role="dialog"를 선언하면 포커스 관리도 함께 약속하는 것이다 — 예전엔 트랩도 Esc도 없어
-  // 키보드 사용자가 열고 나면 배경으로 새고 닫을 방법이 없었다(DetailDrawer·ShortcutsHelp·Today는
-  // 전부 트랩을 붙였는데 여기만 이탈). 같은 훅으로 계약을 이행한다.
+  /* role="dialog"를 선언하면 포커스 관리도 함께 약속하는 것이다 — 예전엔 트랩도 Esc도 없어
+     키보드 사용자가 열고 나면 배경으로 새고 닫을 방법이 없었다(DetailDrawer·ShortcutsHelp·Today는
+     전부 트랩을 붙였는데 여기만 이탈). 같은 훅으로 계약을 이행한다.
+
+     ⚠⚠ **그런데 `aria-modal="true"` 는 거짓이었다**(U013 · 2026-08-21 ux 축). 이 패널은 우하단
+     귀퉁이에 뜨고 **배경이 그대로 보이고 그대로 클릭된다** — 히트맵 칩을 눌러 상세를 갈아 끼우는
+     것이 이 화면의 사용법이라 그게 의도다(칩 22개가 그대로 살아 있다). `aria-modal` 은 *"나머지
+     문서는 없는 셈 치라"* 를 보조기술에 약속하는 속성이라, 그 상태에서 참이라고 말하면 스크린리더
+     사용자만 배경을 잃는다 — 그리고 화면에는 배경이 멀쩡히 보이므로 **누구도 그 사실을 못 본다.**
+     ⚠ `MiniHud.tsx:54-62` 의 「`inert` 없이 `aria-modal` 을 쓴다」 판정과 충돌하지 않는다:
+       거기는 배경이 **덮여 있고** 여기는 배경이 **살아 있다**. 가르는 것은 관용구가 아니라 사실이다.
+     → **비모달 dialog** 로 정직해진다(role 은 유지 · 트랩과 Esc·복원은 그대로 — Esc 가 있으므로
+       2.1.2 의 「키보드 함정」이 아니고, 트랩은 왔던 칩으로 돌려보내는 장치다). */
   const panelRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(true, panelRef);
   /* E16 — 이 컴포넌트 자체가 조건부 렌더라 마운트 = 열림이다. */
@@ -163,7 +173,6 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
     <div
       className="absolute right-3.5 bottom-2 z-[5] w-full max-w-ledger-detail animate-[enter-rise_var(--dur)_var(--ease)_both] rounded-lg border border-line bg-panel px-4 pt-3.5 pb-4 shadow-detail motion-reduce:animate-none max-wide:fixed max-wide:right-auto max-wide:bottom-3.5 max-wide:left-1/2 max-wide:-translate-x-1/2"
       role="dialog"
-      aria-modal="true"
       aria-label={`${ch.arc} 상세`}
       ref={panelRef}
       tabIndex={-1}
@@ -307,24 +316,40 @@ function Bottleneck({ l: led }: { l: Ledger }) {
   );
 }
 
-function Setup() {
+/* ⚠⚠ **성공하지 않은 화면은 `components/State` 하나가 그린다**(E17) — 이 셋업 화면만 그 밖에서
+   `<h3>` + `<ol>` 로 손코딩돼 있었다(U030 · 2026-08-21 ux 축). 대가가 둘이었다:
+   ① `State` 가 **타입으로 강제하는 `next`(다음 걸음)** 가 없어, 이 화면의 유일한 출구인
+      「원장 재빌드」가 빈 상태 안에 없었다(툴바에만 있고, 툴바는 원장이 있을 때의 언어다).
+   ② `kind='empty'` 가 아니라 그냥 `<div>` 라 **로딩·에러와 시각 언어가 갈렸다**.
+   ⚠ 지시 목록(CLI 두 줄)은 그대로 `desc` 로 넘긴다 — `State.desc` 는 `ReactNode` 다. */
+function Setup({ onRebuild, busy }: { onRebuild: () => void; busy: boolean }) {
   return (
-    <div className="m-auto max-w-off px-1.5 py-2">
-      <h3 className="mt-0! mb-2! text-base! font-extrabold! tracking-tight!">아직 챕터 원장이 없어요</h3>
-      <ol className="ds-foot" style={{ lineHeight: 1.9 }}>
-        <li>
-          원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
-          <span className="text-mut"> (또는 아래 “원장 재빌드” 버튼)</span>
-        </li>
-        <li>
-          한 명령 전체 빌드: <code>python pipeline/_도구/빌드.py</code>
-        </li>
-      </ol>
-      <div className="ds-foot text-mut">
-        원장은 <code>subjects.json</code>(정본 slug·src) + 볼트 인덱스 + Anki 신호를 조인해 과목×챕터의 5단계 진척을
-        집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
-      </div>
-    </div>
+    <State
+      kind="empty"
+      glyph="file"
+      title="아직 챕터 원장이 없어요"
+      desc={
+        <>
+          <ol className="ds-foot m-0! text-left" style={{ lineHeight: 1.9 }}>
+            <li>
+              원장 빌드: <code>python pipeline/_도구/챕터원장.py</code>
+            </li>
+            <li>
+              한 명령 전체 빌드: <code>python pipeline/_도구/빌드.py</code>
+            </li>
+          </ol>
+          <span className="ds-foot text-mut">
+            원장은 <code>subjects.json</code>(정본 slug·src) + 볼트 인덱스 + Anki 신호를 조인해 과목×챕터의 5단계 진척을
+            집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
+          </span>
+        </>
+      }
+      next={
+        <Button sm variant="primary" onClick={onRebuild} disabled={busy}>
+          {busy ? '재빌드 중…' : '원장 재빌드'}
+        </Button>
+      }
+    />
   );
 }
 
@@ -379,7 +404,8 @@ function Ledger() {
   );
 
   const loading = (isLoading || isFetching) && !led;
-  const errMsg = isError ? (error instanceof Error ? error.message : String(error)) : '';
+  // U008 — 원문(`HTTP 500`)이 아니라 사용자 문장 + 원문 병기(`lib/artifactState`가 SSOT).
+  const errMsg = isError ? artifactErrorCopy(error) : '';
   const realError = classifyArtifact({ hasData: !!led, loading, query: { isError, error }, ping }) === 'error';
 
   // 백엔드가 살아 있으면 원장을 재빌드(챕터원장.py)하고 다시 페치 — "단일 출처, 한 명령" 이야기의 실행부.
@@ -509,7 +535,7 @@ function Ledger() {
         </div>
       ) : (
         <div className={OFF_WRAP}>
-          <Setup />
+          <Setup onRebuild={() => void rebuild()} busy={rebuilding} />
         </div>
       )}
     </section>

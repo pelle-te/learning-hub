@@ -3,6 +3,8 @@
    레거시 ui-review.js를 React로 — '공부 방식'을 주 1회 점검:
    계획 vs 실제 · CBMS 분포 · 백로그 회수 · 주간 체크리스트.
 ============================================================ */
+import { useLocation } from 'react-router-dom';
+import { useHashTarget } from '@/hooks/useHashTarget';
 import { weakKey } from '@/lib/domainKeys';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -623,7 +625,15 @@ function WorkbenchCard() {
             {shown.map((c) => {
               const lever = leverFor(c.subject);
               return (
-                <li key={weakKey(c.sid, c.chapter)} className={RISK_ROW} data-risk={c.risk}>
+                /* ⚠ **행이 자기 앵커를 얻는다**(U027 · 2026-08-21 ux 축) — ⌘K·찾기의 약점 히트가
+                   `/review#weak-<sid|챕터>` 로 오면 이 줄에 선다. 착지는 `useHashTarget` 이 한다
+                   (`Subject` 의 챕터 앵커와 같은 관용구 · U011 이 세운 것). */
+                <li
+                  key={weakKey(c.sid, c.chapter)}
+                  id={`weak-${weakKey(c.sid, c.chapter)}`}
+                  className={RISK_ROW}
+                  data-risk={c.risk}
+                >
                   <span className={RISK_DOT} style={{ background: c.color || 'var(--acc)' }} aria-hidden="true" />
                   <span className={RISK_NM}>
                     {c.subject} <small className="ml-1 text-sm font-medium text-mut">{c.chapter}</small>
@@ -700,6 +710,10 @@ function WorkbenchCard() {
 export default function Review() {
   const res = useSchedule();
   const state = useApp((s) => s.state);
+  /* U027 — 약점 히트(`/review#weak-<sid|챕터>`)가 그 행에 착지한다. 워크벤치가 이 화면 아래쪽에
+     있어 앵커 없이 오면 사용자가 그 줄을 눈으로 다시 찾아야 했다. */
+  const { hash } = useLocation();
+  useHashTarget(hash, `${state.cbms?.length ?? 0}:${state.items.length}`);
   const [weekOffset, setWeekOffset] = useState(0);
   // , / . — 이전/다음 주(스케줄 탭과 동일 키).
   // 회고는 과거·현재만 — 미래 주는 데이터가 없어 전부 '달성 0%' 보드다. 앞으로는 이번 주(0)까지만.

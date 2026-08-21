@@ -46,8 +46,10 @@ export const M = {
   subHead: 'mb-1 flex items-center gap-2',
   subNm: 'flex-1 truncate text-md font-bold text-txt',
   msheat: 'flex flex-wrap gap-1',
+  /* ⚠ 히트맵 셀의 모서리는 `--radius-cell`(3px) — `Stats` 의 잔디 셀과 **같은 역할·같은 값**이다
+     (U018). 종전엔 여기만 `rounded-xs`(2px)였고, 두 히트맵이 나란히 놓이는 화면이 실제로 있다. */
   mscell:
-    'size-3.5 cursor-default rounded-xs transition-transform hover:z-[1] hover:scale-[1.55] hover:outline-1 hover:outline-txt',
+    'size-3.5 cursor-default rounded-cell transition-transform hover:z-[1] hover:scale-[1.55] hover:outline-1 hover:outline-txt',
   heatMore: 'h-3.5 self-center rounded-xs! px-1.5! py-0! text-2xs! font-bold! leading-none text-mut! tabular-nums',
   mapFoot: 'mt-1 text-xs text-mut',
 

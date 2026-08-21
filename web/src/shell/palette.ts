@@ -3,7 +3,7 @@
    탭 이동(React Router) + 핵심 데이터/내보내기/백업 액션. tab 항목은 CommandPalette가 navigate,
    act는 run() 호출. 최근 실행한 명령(recent.ts)을 위로 끌어올려 재실행이 빠르다.
 ============================================================ */
-import { orderedTabs } from './tabs';
+import { orderedTabs, tabByKey } from './tabs';
 import { NAV_SHORTCUTS } from './shortcuts';
 import { recentIds } from './recent';
 import * as A from './actions';
@@ -41,7 +41,18 @@ function baseCommands(): PaletteCommand[] {
     /* Q-22 — 은퇴한 탭은 **`to` 로 간다**(`key` 가 경로가 아니다). 종전엔 은퇴하면 `TABS` 에서
        통째로 빼서 ⌘K 에서도 사라졌고, 그 구멍을 `act:graph` 한 줄로 손으로 메우고 있었다. */
     if (t.role === 'retired') {
-      return { id: 'tab:' + t.key, kind: 'act', label: '이동 · ' + t.label, hint: '은퇴', to: t.to };
+      /* ⚠ 힌트는 **사용자의 언어**여야 한다(U012 · 2026-08-21 ux 축). 종전 `은퇴` 는 이 저장소의
+         내부 어휘(`role:'retired'`)를 그대로 노출한 것이라, 사용자에게는 *"이건 이제 없다"* 로
+         읽혔다 — 실제로는 살아 있는 화면이고 ⌘K 가 그 유일한 문인데도. 힌트가 말해야 하는 것은
+         상태가 아니라 **어디에 있는가**다(호스트 탭 이름). */
+      const 호스트 = tabByKey(t.to?.replace(/^\//, '').split('?')[0] ?? '')?.label;
+      return {
+        id: 'tab:' + t.key,
+        kind: 'act',
+        label: '이동 · ' + t.label,
+        hint: 호스트 ? `${호스트} 안` : '화면',
+        to: t.to,
+      };
     }
     return {
       id: 'tab:' + t.key,

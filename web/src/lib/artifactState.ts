@@ -47,9 +47,31 @@ export function classifyArtifact(opts: {
   return 'empty';
 }
 
-/** 에러 패널 메시지 — Error면 message, 아니면 undefined(패널이 기본 문구로 폴백). */
-export function artifactErrorMessage(err: unknown): string | undefined {
-  return err instanceof Error ? err.message : undefined;
+/* ── 오류의 **사용자 표면** 문구(U008 · 2026-08-21 ux 축) ───────────────────────────────
+
+   ⚠⚠ 네 화면(`Ledger`·`Mastery`·`PathView`·`ExamSheet`)이 `State kind="error"` 의 `desc` 에
+   **원문을 그대로** 실었다: `HTTP 500` · `Error: Failed to fetch` · `TypeError: …`. 이 앱의
+   나머지 문장은 전부 사용자 언어인데 실패의 순간에만 개발자 언어가 튀어나오고, 그 문자열은
+   사용자가 할 수 있는 일을 하나도 말하지 않는다.
+
+   ⚠ **원문을 지우지도 않는다.** 지우면 이 저장소가 H23 에서 물린 반대편으로 간다("서버가 사유를
+   정확히 주는데 클라이언트가 한 문장으로 뭉갠다"). 그래서 **번역 + 원문 병기**다 — 앞에 무슨
+   일인지, 괄호에 원문. 분류는 `isNotYetError` 와 같은 재료(HTTP 코드·TypeError)만 본다:
+   메시지 본문을 해석해 분류하려 들면 그 분류가 곧 다음 오진이 된다. */
+export function artifactErrorCopy(err: unknown): string {
+  const raw = (err instanceof Error ? err.message : String(err ?? '')).replace(/^Error:\s*/, '').trim();
+  const 원문 = raw ? ` (${raw.slice(0, 120)})` : '';
+  if (err instanceof TypeError) return `백엔드에 닿지 못했어요 — 앱이 켜져 있는지 확인해 주세요.${원문}`;
+  const code = /^HTTP (\d{3})$/.exec(raw)?.[1];
+  if (code) {
+    const n = Number(code);
+    if (n === 404) return `아직 만들어지지 않은 산출물이에요.${원문}`;
+    if (n === 401 || n === 403) return `읽을 권한이 없어요 — 워크스페이스 설정을 확인해 주세요.${원문}`;
+    if (n === 429) return `요청이 너무 잦아요 — 잠시 뒤 다시 시도해 주세요.${원문}`;
+    if (n >= 500) return `백엔드가 응답하지 못했어요 — 잠시 뒤 다시 시도해 주세요.${원문}`;
+    return `요청이 거절됐어요.${원문}`;
+  }
+  return raw ? `읽는 중에 문제가 생겼어요.${원문}` : '읽는 중에 알 수 없는 문제가 생겼어요.';
 }
 
 /* ============================================================
@@ -75,7 +97,9 @@ export function artifactErrorMessage(err: unknown): string | undefined {
    (2026-08-07). 셋 다 **콜드 게이트를 그리는 화면**이 소비자였는데(`ArtifactGate`·`reads`·
    `markets`·`discovery`·`control`), 그 화면들이 `survey/` 필러로 갔다. 남은 소비자는 칩 하나와
    실패 토스트 둘이라 문장형 공용부가 통째로 고아가 됐다 — E17 이 이 파일을 만든 근거("복제된
-   머리·처방만 모은다")가 소비자 수와 함께 사라진 형태다. 되살리려면 `git show 1c21ad5:`. */
+   머리·처방만 모은다")가 소비자 수와 함께 사라진 형태다. 되살리려면 `git show 1c21ad5:`.
+   ⚠ **`artifactErrorCopy` 는 2026-08-21 에 다시 섰다**(U008) — 옛 것의 복원이 아니라 다른
+   물건이다(옛 것은 콜드 게이트 문장, 이 것은 실패 원문의 번역). 위 `artifactErrorCopy` 참조. */
 /** 워크스페이스 미설정의 **상태 칩** 표현. 칩은 한 낱말이라 문장을 실을 수 없다(같은 뜻, 다른 레지스터). */
 export const WORKSPACE_UNSET_SHORT = '미설정';
 

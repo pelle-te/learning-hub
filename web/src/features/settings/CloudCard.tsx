@@ -36,6 +36,7 @@ import {
 } from '@/lib/cloud/client';
 import { collectOutbox, batchSize } from '@/lib/cloud/outbox';
 import { runSync, lastSync } from '@/store/syncController';
+import type { SyncResult } from '@/lib/cloud/run';
 import { Button } from '@/components/ui';
 import { confirmIrreversible, toast } from '@/shell';
 import { Icon } from '@/components/Icon';
@@ -45,6 +46,34 @@ import { agoLabel } from '@/lib/utils';
    끊겨** 있어서(어제·N일 전이 없다) 같은 `syncedAt` 을 레일은 "어제", 이 카드는 "36시간 전"이라
    말했다. 같은 사실을 두 문장으로 말하는 화면은 둘 중 하나가 틀렸다고 읽힌다.
    렌더 시점이 아니라 **상태 갱신 시점**의 스냅샷이다(아래 `statusAt`). */
+
+/**
+ * 동기화 결과 하나를 **토스트 하나**로 옮긴다(U004 · 2026-08-21 ux 축).
+ *
+ * ⚠⚠ 종전엔 호출부 둘이 각자 `if (r.status === 'failed')` 만 보고 **나머지 전부를 `else`**,
+ * 즉 초록 ✓ 「최신 상태예요」로 접었다. `SyncResult.status` 는 네 갈래이고 그중 `blocked` 는
+ * `run.ts` 가 *"스스로 낫지 않는 실패"* 라 못박은 값이다 — 한도 소진·자격 폐기·계약 위반으로
+ * **그 기기의 편집이 영원히 안 올라가는** 상태인데, 화면은 정반대를 말하고 있었다.
+ *
+ * ⚠ 축이 둘이다: pull 축의 `r.status` 와 push 축의 `r.push.status`. push 만 막히면 전체는
+ * `ok` 라 위 `else` 에 그대로 걸렸다(`useSyncLedger` 는 이미 두 축을 함께 본다 · H3).
+ */
+function syncToast(r: SyncResult, 첫동기화 = false): void {
+  const blocked = r.status === 'blocked' ? r.error : r.push?.status === 'blocked' ? r.push.error : null;
+  if (blocked !== null && blocked !== undefined) {
+    toast(`동기화가 막혔어요 — ${blocked} (다시 시도해도 낫지 않습니다)`, 'bad', 12000);
+    return;
+  }
+  if (r.status === 'failed') {
+    toast(`${첫동기화 ? '첫 동기화에 실패했어요' : '동기화 실패'} — ${r.error ?? ''}`, 'bad', 8000);
+    return;
+  }
+  if (r.status === 'disconnected') {
+    toast('클라우드에 연결돼 있지 않아 아무것도 주고받지 않았어요.', 'warn', 6000);
+    return;
+  }
+  toast(r.pulled ? `${r.pulled}건을 받아왔어요.` : '최신 상태예요.', 'ok', 4000);
+}
 
 export default function CloudCard() {
   const [cfg, setCfg] = useState<CloudConfig | null>(null);
@@ -95,7 +124,7 @@ export default function CloudCard() {
       /* 연결 직후 한 번 돌린다. 5분 주기를 기다리게 하면 "연결했는데 아무 일도 안 난다"로
          보이고, 사용자는 실패로 읽는다. */
       const r = await runSync(); // 병합 결과 메모리 반영은 runSync 가 한다(컨트롤러 계약).
-      if (r.status === 'failed') toast(`첫 동기화에 실패했어요 — ${r.error ?? ''}`, 'warn', 8000);
+      if (r.status !== 'ok' || r.push?.status === 'blocked') syncToast(r, true);
       void refreshStatus();
     } catch (e) {
       // 서버가 준 사유(코드 만료·틀린 주소)를 그대로 보여주는 게 가장 친절하다.
@@ -109,12 +138,21 @@ export default function CloudCard() {
     /* ⚠ 되돌리기 어려운 동작이라 확인을 받는다. 다만 **로컬 데이터는 지우지 않는다** —
        끊는 것은 이 기기의 자격증명뿐이고, 그 사실을 문구로 정확히 말한다. */
     if (!(await confirmIrreversible('이 기기의 클라우드 연결을 끊을까요? 로컬 데이터는 그대로 남습니다.'))) return;
-    const { serverRevoked } = await disconnectCloud();
+    const { serverRevoked, localCleared } = await disconnectCloud();
     setCfg(null);
     setDevices(null);
     /* ⚠ 서버 폐기 실패를 **삼키지 않는다.** 로컬만 지워지고 서버엔 기기가 살아 있으면
-       사용자는 "끊었다"고 믿는데 리프레시 토큰은 여전히 유효하다 — 정확히 반대로 알려 준다. */
-    if (serverRevoked) toast('클라우드 연결을 끊고 서버에서도 이 기기를 폐기했어요.', 'ok', 5000);
+       사용자는 "끊었다"고 믿는데 리프레시 토큰은 여전히 유효하다 — 정확히 반대로 알려 준다.
+       ⚠⚠ **로컬 삭제 실패가 더 나쁘다**(U007). 화면은 이미 `setCfg(null)` 로 "끊김"을 그리는데
+       DB 에 자격증명이 남아 있으면 **다음 부팅에 연결이 되살아난다** — 그 사실을 말하지 않으면
+       사용자는 되살아난 연결을 유령으로 읽는다. 그래서 이 갈래를 가장 먼저 판정한다. */
+    if (!localCleared)
+      toast(
+        '이 기기의 자격증명을 지우지 못했어요 — 앱을 다시 켜면 연결이 되살아납니다. 다시 시도해 주세요.',
+        'bad',
+        12000,
+      );
+    else if (serverRevoked) toast('클라우드 연결을 끊고 서버에서도 이 기기를 폐기했어요.', 'ok', 5000);
     else toast('이 기기에서는 끊었지만 서버 폐기에 실패했어요 — 다른 기기에서 폐기하세요.', 'warn', 10000);
   }, []);
 
@@ -162,8 +200,7 @@ export default function CloudCard() {
     setBusy(true);
     try {
       const r = await runSync(); // 병합 결과 메모리 반영은 runSync 가 한다(컨트롤러 계약).
-      if (r.status === 'failed') toast(`동기화 실패 — ${r.error ?? ''}`, 'bad', 8000);
-      else toast(r.pulled ? `${r.pulled}건을 받아왔어요.` : '최신 상태예요.', 'ok', 4000);
+      syncToast(r);
       void refreshStatus();
     } finally {
       setBusy(false);
@@ -255,6 +292,13 @@ export default function CloudCard() {
               aria-label="등록 코드"
               value={code}
               onChange={(e) => setCode(e.target.value)}
+              /* ⚠ 이 저장소의 관용구다(같은 형태 17곳 · U029 · 2026-08-21 ux 축) — 코드를 붙여넣고
+                 Enter 를 누르는 것이 이 칸에서 가장 자연스러운 동작인데 여기만 빠져 있었다.
+                 ⚠ 조건은 버튼의 `disabled` 와 **같아야 한다**: 안 그러면 Enter 가 버튼이 막는
+                 상태에서 요청을 보낸다(빈 주소로 연결 시도). */
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !busy && url.trim() && code.trim()) void connect();
+              }}
             />
             <Button sm variant="primary" onClick={() => void connect()} disabled={busy || !url.trim() || !code.trim()}>
               연결

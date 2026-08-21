@@ -19,7 +19,7 @@ body {
      ⚠ WebGL 실패 시 폴백은 `AmbientCanvas` 의 `FALLBACK_BG` 가 소유한다(그건 3색이라 원칙 1
      과 어긋나지만, 바꾸면 스냅샷을 태우므로 시각 사이클에서 함께 판단한다). */
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--fs-lg);
   line-height: 1.6;
   letter-spacing: 0.005em;
   -webkit-font-smoothing: antialiased;
@@ -31,19 +31,21 @@ body {
 }
 
 h1 {
-  font-size: 22px;
+  font-size: var(--fs-2xl);
   margin: 0;
   letter-spacing: -0.02em;
-  font-weight: 800;
+  /* U020 — 중량도 사다리에서 온다(`tokenBridge.css` 의 `--font-weight-*`). 이 값이 리터럴로
+     있던 동안 폰의 같은 `<h1>` 은 600 이었다(폰은 이 파일을 안 문다). */
+  font-weight: var(--font-weight-title);
 }
 /* 섹션 제목 — 색을 빼고(가독·위계) accent는 인터랙티브 전용으로 회수.
    한글 제목은 단어 중간 줄바꿈을 막아(keep-all) 리듬을 지킨다. */
 h2 {
-  font-size: 16px;
+  font-size: var(--fs-field);
   color: var(--txt);
   margin: 0 0 13px;
   letter-spacing: -0.015em;
-  font-weight: 700;
+  font-weight: var(--font-weight-heading);
   word-break: keep-all;
 }
 h2 .muted {
@@ -51,9 +53,9 @@ h2 .muted {
   letter-spacing: 0;
 }
 h3 {
-  font-size: 13px;
+  font-size: var(--fs-md);
   margin: 0 0 6px;
-  font-weight: 600;
+  font-weight: var(--font-weight-label);
 }
 /* 라인 아이콘(nav 등) — currentColor 상속, 글자 크기에 비례 */
 .ic {

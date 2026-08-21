@@ -103,7 +103,7 @@ const S = {
   // NumberField <input type=number> — 전역 input 규칙(언레이어)을 이기려 다른 값만 `!`.
   // color/font-size(13)/width 는 전역과 동일 → 클래스 없음. ink≡txt.
   cellInput:
-    'relative z-[1] h-full min-h-12 cursor-text border-0! bg-transparent! px-1! py-0! text-center font-bold tabular-nums placeholder:font-normal placeholder:text-alloc-ph! focus:-outline-offset-2! focus:bg-acc-glow! focus:outline-2 focus:outline-acc',
+    'relative z-[1] h-full min-h-12 cursor-text border-0! bg-transparent! px-1! py-0! text-center font-bold tabular-nums placeholder:font-body placeholder:text-alloc-ph! focus:-outline-offset-2! focus:bg-acc-glow! focus:outline-2 focus:outline-acc',
   // ⚠ overflow-hidden + 자식 relative z-[1] 은 UX-A1 막대 때문이다 — 막대는 절대배치라
   //   비배치 형제(숫자·배지)보다 **위에** 칠해진다. 숫자를 배치요소로 올려야 막대가 배경이 된다.
   budgetCell: `${CELL} sticky right-0 z-[3] flex-col items-end justify-center gap-px overflow-hidden text-right text-md`,
@@ -210,11 +210,16 @@ export function AllocBoard({
      알 방법이 **소스 주석뿐**이었다 — 즉 접근성 경로를 만들고 **발견 가능성을 안 만들었다**
      (그걸 필요로 하는 사용자가 정확히 그것을 못 찾는다). `Items`·`Graph`·`Ledger` 는 이미
      같은 훅으로 자기 키를 치트시트(`?`)에 등재한다 — 이 화면만 그 목록 밖이었다.
-     ⚠ Alt+↑/↓ 는 이 격자가 **일부러 비켜 주는** 키다(행 재정렬이 쓴다) — 그 사실도 함께 적는다. */
+     ⚠⚠ **`Alt + ↑/↓ 과목 행 순서 바꾸기` 가 여기 적혀 있었다 — 이 화면엔 없는 키다**
+     (U033 · 2026-08-21 ux 축 · `[재현]`). 아래 격자 핸들러는 Alt 조합을 **비켜 주기만** 하고
+     (`if (e.altKey …) return`), 그 키를 실제로 받는 곳은 **다른 화면**이다(`ChapterEditor` 의
+     챕터 행 재정렬). 즉 치트시트가 «비켜 준다»를 «지원한다»로 옮겨 적었다.
+     ⚠ 없는 키를 광고하는 것은 **없다고 말하지 않는 것보다 나쁘다** — 키보드로만 쓰는 사용자가
+     그 키를 누르고 아무 일도 안 일어나면 그 사람은 자기 조작을 의심한다. 이 파일이 M-13 에서
+     고친 결함(«경로는 있는데 발견 가능성이 없다»)의 **거울상**이 같은 자리에 생겼다. */
   useKeymapDoc('이 화면 · 배분 보드', [
     { display: '← → ↑ ↓', label: '칸 이동(값 끝에서)' },
     { display: '+ / −', label: '0.5시간씩 늘리기 / 줄이기' },
-    { display: 'Alt + ↑ / ↓', label: '과목 행 순서 바꾸기' },
   ]);
 
   // 드래그 배분(§12-2 예산 칩) — 과목 행을 잡아 요일 칸에 놓으면 그날 +1h. 숫자 입력은 키보드 접근 경로로 병존(WCAG 2.1.1).

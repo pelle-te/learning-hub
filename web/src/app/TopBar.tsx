@@ -29,10 +29,19 @@ import type { IconName } from '@/lib/iconPaths';
    (전역 요소 규칙은 맨 마지막에 함께 — App 의 `skip-link` 와 같은 취급). */
 const BAR =
   'relative z-[var(--z-dropdown)] flex flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
-// 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.
+/* 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.
+
+   ⚠⚠ **`flex-none` 이 없으면 탭마다 다르게 조판된다**(U021 · 2026-08-21 ux 축). 이 `<h1>` 은
+   `BAR`(flex)의 첫 아이템인데 폭 제약이 없어 기본 `flex-shrink:1` 로 줄어든다 — 리드아웃이
+   긴 탭(`schedule`·`alloc`)에서는 형제들이 자리를 다 가져가 워드마크가 **한 글자 폭**까지
+   눌리고 「러/닝/허/브」 네 줄이 된다(실측 h1 높이 40px → **80px**).
+   ⚠ 시각 회귀 88장이 이걸 못 잡았다 — 그 그림이 **베이스라인으로 굳어 있었기** 때문이다.
+   스냅샷은 「지금과 같은가」만 묻는다(오버레이 §1-C).
+   ⚠ 로고는 축약 대상이 아니다: 줄이려면 `max-mobile` 처럼 **다른 조판을 명시**하는 것이지
+   가용 폭에 따라 조용히 무너지는 것이 아니다. */
 const WORDMARK =
-  'text-wordmark! leading-flat font-black! tracking-wordmark! uppercase max-mobile:text-wordmark-sm! max-mobile:leading-none';
-const MARK_PART = 'block max-mobile:inline';
+  'flex-none text-wordmark! leading-flat font-black! tracking-wordmark! uppercase max-mobile:text-wordmark-sm! max-mobile:leading-none';
+const MARK_PART = 'block whitespace-nowrap max-mobile:inline';
 const SUB = 'mt-1.75 text-sm leading-snug tracking-topbar-sub text-mut max-mobile:hidden';
 // 컨텍스트 리드아웃 — 페이지가 주입(진행률·연속·마감).
 const READOUTS = 'mr-2 flex items-start gap-7.5 self-center max-mobile:hidden';
@@ -58,7 +67,11 @@ const PV =
 // Q-10 — `text-mut` 만으로 충분하다. 위에 얹던 `opacity-55` 는 이미 흐린 색을 **한 번 더**
 // 깎아 '—' 를 사실상 안 보이게 했다(값 부재를 못 읽으면 리드아웃이 거짓말이 된다).
 const RV_NULL = 'text-mut';
-const ACTIONS = 'flex items-center gap-2 self-center';
+/* ⚠ **좁은 창에서 줄바꿈한다**(U023 · 2026-08-21 ux 축). `BAR` 는 `max-mobile:flex-wrap` 이라
+   액션 묶음이 다음 줄로 내려가지만, 그 묶음 **안**은 안 접혀서 320px 에서 358px 로 삐져나갔고
+   그만큼 문서에 가로 스크롤이 생겼다(실측 372/320 · WCAG 1.4.10 리플로우). 페이지가 주입하는
+   주 액션 라벨이 길수록 커지는 축이라(「캘린더(.ics) 내보내기」) 고정 폭으로 못 막는다. */
+const ACTIONS = 'flex items-center gap-2 self-center max-mobile:flex-wrap max-mobile:justify-end';
 /* HUD 칩 버튼 — 각진 헤어라인. 전역 button{} 을 이기는 속성 전부 `!` · 폼 컨트롤이라 leading-auto.
    ⚠ **색·보더색·자간은 base 에 두지 않는다**(SubTabs 와 같은 관용구 · 이식 중 실제로 물렸다):
    `bg-transparent!` 와 `bg-acc!` 처럼 **같은 속성 유틸을 겹쳐 붙이면** 클래스 나열 순서가 아니라
