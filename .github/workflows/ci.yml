@@ -274,15 +274,14 @@ jobs:
   shell-build:
     runs-on: windows-latest
     timeout-minutes: 75 # ⚠ 실측 최대 46분 · windows 는 2배 과금이라 기본 360분이면 720 과금분이다
-    # ⚠⚠ **PR 에서는 안 돈다 — 이 잡 하나가 전체 과금분의 73% 다**(30일 실측 1,558/2,141분 ·
-    #   windows 는 2배 과금이다). Dependabot 이 주 1회 npm 의존성 PR 을 여럿 내는데, 그 부류는
-    #   **Rust 트리를 바꾸지 않는다**(`Cargo.lock`·`src-tauri/**` 무변) — 즉 PR 마다 이걸 돌리는
-    #   것은 같은 결과를 비싸게 다시 사는 일이다.
-    #   ⚠ **대가를 명시한다**: 번들·시각 회귀·Rust 린트는 **머지 뒤 master 런**이 처음 본다.
-    #   그래서 되돌릴 거리가 «머지 하나»여야 하고, 이 저장소는 PR 을 쌓아 두지 않으므로 성립한다.
-    #   ⚠ `src-tauri/**` 나 `Cargo.lock` 을 만지는 PR 이 생기면 이 조건을 다시 봐라 —
-    #   그때는 이 잡이 PR 에서 도는 것이 옳다.
-    if: github.event_name != 'schedule' && github.event_name != 'pull_request'
+    # ⚠ **PR 에서도 돈다** — 한때 뺐다가 되돌렸다(2026-08-22).
+    #   뺐던 근거는 «이 잡 하나가 전체 과금분의 73%»(30일 실측 1,558/2,141분 · windows 2배 과금)
+    #   였는데, **저장소가 공개로 바뀌면서 Actions 분 과금 자체가 사라졌다.** 근거가 사라진
+    #   제약을 남겨 두면 그게 곧 «왜 이런지 아무도 모르는 규칙»이 된다.
+    #   ⭐ 그리고 되돌리는 편이 **더 낫다**: 번들 예산 · 시각 회귀 218케이스 · Rust 린트를
+    #   **머지 전에** 본다. 뺐을 때는 그것들을 머지 뒤 master 런이 처음 봤다.
+    #   ⚠ 비용이 다시 제약이 되면(비공개 회귀 등) 첫 후보가 여기다 — 그때 이 주석을 근거로 써라.
+    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
