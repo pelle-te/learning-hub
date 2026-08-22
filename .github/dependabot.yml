@@ -102,6 +102,19 @@ updates:
       server-deps:
         update-types: [minor, patch]
     ignore:
+      # ⚠⚠ **알파를 끌어온다**(2026-08-23 실측 · PR #3). `@cloudflare/vitest-pool-workers 0.22.0`
+      #   은 전이 의존으로 **`miniflare 5.20260815.0-alpha`** 를 가져오고, 그 메이저는
+      #   `new Miniflare()` 생성자를 바꿨다(`workers` 배열 요구 → `modules`·`script`·
+      #   `compatibilityDate`·`assets` 가 `unrecognized_keys`). 실제로 `test/assets.test.ts` 가
+      #   `ERR_VALIDATION` 으로 죽는다.
+      #   ⚠ 마이그레이션 자체가 어려운 게 아니라 **대상이 알파**인 것이 문제다: 이 잡이 지키는
+      #   것은 **인터넷에 노출되고 인증·입력검증을 다루는 유일한 층**이고(`ci.yml` 의 그 잡
+      #   주석), 그 층의 실물 검증(`test:roundtrip`)을 알파 런타임 위에 올리면 «녹색이 무엇을
+      #   뜻하는가»가 흐려진다. 이 저장소가 TS 7·ESLint 10 에서 내린 판단과 **같은 부류**다.
+      #   ⚠ **재시도 조건**: miniflare 5 가 stable 로 나오고 그 pool 이 그것을 물 때. 그때는
+      #   `assets.test.ts` 의 생성자 옵션을 새 형태로 옮기면 된다(에러 메시지가 그대로 안내한다).
+      - dependency-name: '@cloudflare/vitest-pool-workers'
+        versions: ['>=0.22.0']
       # ⚠⚠ **여기 이게 없어서 첫 실행이 PR #4(`typescript 5.9.3 → 7.0.2 in /server`)를 냈다**
       #   (2026-08-22 실측 — 이 파일을 넣자마자 드러났다). web 에만 걸고 server 를 빠뜨린 것이
       #   **D018 이 SCA 에서 루트를 빠뜨렸던 것과 글자 그대로 같은 형태**다(트리가 셋인데 규칙을
