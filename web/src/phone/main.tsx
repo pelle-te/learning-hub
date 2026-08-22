@@ -26,6 +26,9 @@ import { readCloudConfig } from '@/lib/cloud/client';
 import { setResumeDevice } from '@/lib/resume';
 // H21 — 종단 폴백. 폰은 SW autoUpdate 때문에 청크 로드 실패의 도달 가능성이 더 높다.
 import { showBootFallback } from '@/lib/bootFallbackScreen';
+/* ⚠ **데스크톱엔 있고 폰엔 없던 계측**(P026 · 2026-08-23). `lib/perf` 는 `useApp` 을 안 물므로
+   SD-7 부팅 순서 계약을 어기지 않는다(정적 import 로 안전). */
+import { mark as perfMark } from '@/lib/perf';
 
 function Fallback(): React.JSX.Element {
   return (
@@ -37,6 +40,24 @@ function Fallback(): React.JSX.Element {
     </main>
   );
 }
+
+/* ============================================================
+   ⭐ **폰 부팅 웨이브 계측** (P026 · 2026-08-23)
+
+   `browserDb.ts` 의 `CALL_TIMEOUT_MS = 30_000` 은 근거로 *"wasm SQLite 연산은 밀리초대라
+   넉넉히 잡아도 안전"* 이라 적었는데 그것이 **`[추측]`** 이었다 — 폰 워커(wasm + OPFS) 왕복의
+   실지연을 잰 적이 없다. 그리고 잴 수 없던 이유는 **관측 지점이 없어서**였다: 데스크톱
+   `main.tsx` 는 `hub:entry`·`hub:app` 을 찍는데 폰 엔트리는 아무것도 안 찍었다(R3 · 짝).
+
+   여기 `entry` → `app` 사이에 있는 것이 정확히 **`initPhoneStore()` = 워커를 띄우고 OPFS 를
+   잡고 전량을 읽어 오는 구간**이다. 즉 이 웨이브가 왕복의 **상한**을 준다(UI 조립 포함).
+   `e2e/phone.spec.ts` 가 그 수를 읽어 로그로 남기고, 상한 대비 자릿수가 맞는지 단언한다.
+
+   ⚠ **테스트 전용 전역을 심지 않는다**(그 판단은 앞 회차가 이미 내렸다) — 이건 데스크톱이
+   이미 쓰는 **프로덕션 계측**을 짝에 맞춰 붙인 것이고, `performance.mark` 는 브라우저 기본
+   API 라 새 표면이 아니다.
+============================================================ */
+perfMark('entry');
 
 enableBrowserDb();
 
@@ -76,6 +97,7 @@ void initPhoneStore()
         </StrictMode>,
       );
     };
+    perfMark('app'); // 워커 왕복(initPhoneStore)이 끝나고 첫 렌더에 들어간다 — 위 주석 참조
     render(connected);
   })
   /* ⚠⚠ **종단 catch(H21).** 폰은 이 경로의 도달 가능성이 데스크톱보다 **높다**: SW 가

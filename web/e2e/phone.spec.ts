@@ -119,3 +119,41 @@ test.describe('폰 오프라인 껍데기(D-9)', () => {
     expect(urls).not.toContain(await entryChunk(request, '/index.html'));
   });
 });
+
+/* ============================================================
+   ⭐ **워커 왕복의 실지연** (P026 · 2026-08-23)
+
+   `lib/db/browserDb.ts` 의 `CALL_TIMEOUT_MS = 30_000` 은 근거를 *"wasm SQLite 연산은 밀리초대라
+   넉넉히 잡아도 안전"* 이라 적었는데 그게 **`[추측]`** 이었다 — 폰 워커(wasm + OPFS) 왕복을
+   잰 적이 없다. 잴 수 없던 이유는 관측 지점이 없어서였고(폰 엔트리에 부팅 마크가 없었다),
+   `phone/main.tsx` 가 이제 데스크톱과 같은 마크를 찍는다.
+
+   `entry` → `app` 구간이 곧 **`initPhoneStore()`** 다: 워커 기동 + wasm 로드 + OPFS 핸들 +
+   전량 읽기. 즉 이 수는 한 왕복이 아니라 **부팅 전체의 상한**이고, 그래서 «타임아웃 상수가
+   자릿수 단위로 맞는가»를 판정하기에 충분하다(한 왕복은 이보다 작을 수밖에 없다).
+
+   ⚠ **절대 시간에 임계를 걸지 않는다** — 러너·디스크·콜드캐시에 좌우된다. 여기서 묻는 것은
+   «상수가 근거를 갖는가» 하나이고, 그 판정은 **자릿수**로 충분하다. 실측치는 로그로 남긴다
+   (다음 회차가 그 수를 읽고 상수를 조일지 판단한다).
+   ⚠ 마크가 없으면 **통과로 읽지 않는다** — 계량이 죽은 것과 회귀가 없는 것은 다르다
+   (`shell.spec.ts` 의 부팅 계량이 같은 규율을 쓴다).
+============================================================ */
+test('워커 왕복 — 부팅 웨이브가 타임아웃 상수와 자릿수가 맞는다(P026)', async ({ page }) => {
+  await page.goto('/phone');
+  await page.waitForLoadState('networkidle');
+
+  const wave = await page.evaluate(() => {
+    const at = (n: string): number | null => performance.getEntriesByName(n, 'mark')[0]?.startTime ?? null;
+    return { entry: at('hub:entry'), app: at('hub:app') };
+  });
+
+  expect(wave.entry, '`hub:entry` 가 없다 — 폰 계량이 죽었다(P026 의 관측 지점)').not.toBeNull();
+  expect(wave.app, '`hub:app` 이 없다 — initPhoneStore 가 끝나지 못했거나 마크가 빠졌다').not.toBeNull();
+
+  const bootMs = wave.app! - wave.entry!;
+  console.log(`[phone] entry→app(= 워커 기동 + wasm + OPFS + 전량 읽기) ${bootMs.toFixed(1)}ms`);
+
+  /* 30초 상수 대비 **자릿수**만 본다. 부팅 전체가 상한의 1/6 을 넘으면 「밀리초대」라는 근거가
+     무너진 것이고, 그때는 상수가 아니라 **그 주석**을 다시 써야 한다. */
+  expect(bootMs, `부팅 웨이브 ${bootMs.toFixed(0)}ms — CALL_TIMEOUT_MS(30s) 의 근거를 다시 볼 것`).toBeLessThan(5000);
+});
