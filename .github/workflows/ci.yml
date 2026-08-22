@@ -5,7 +5,13 @@
 name: web-ci
 
 on:
+  # ⚠⚠ **`branches` 가 없으면 «모든 브랜치 push» 에 발화한다**(2026-08-22 실측). 이 저장소는
+  #   PR 0 · 브랜치 1 이라 그 사각이 **한 번도 청구되지 않았는데**, Dependabot 을 들이자
+  #   즉시 청구됐다: 봇이 브랜치 일곱을 밀면 `push` 로 일곱 번 + `pull_request` 로 일곱 번,
+  #   즉 **PR 하나당 2런**이다(런당 ~99 과금분 · 월 무료 한도 2,000분).
+  #   → push 는 **master 만** 본다. 브랜치의 검증은 아래 `pull_request` 가 진다(중복 제거).
   push:
+    branches: [master]
     paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', 'package-lock.json', 'audit-allowlist.json', '.github/workflows/ci.yml']
   pull_request:
     paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', 'package-lock.json', 'audit-allowlist.json', '.github/workflows/ci.yml']
@@ -268,7 +274,15 @@ jobs:
   shell-build:
     runs-on: windows-latest
     timeout-minutes: 75 # ⚠ 실측 최대 46분 · windows 는 2배 과금이라 기본 360분이면 720 과금분이다
-    if: github.event_name != 'schedule'
+    # ⚠⚠ **PR 에서는 안 돈다 — 이 잡 하나가 전체 과금분의 73% 다**(30일 실측 1,558/2,141분 ·
+    #   windows 는 2배 과금이다). Dependabot 이 주 1회 npm 의존성 PR 을 여럿 내는데, 그 부류는
+    #   **Rust 트리를 바꾸지 않는다**(`Cargo.lock`·`src-tauri/**` 무변) — 즉 PR 마다 이걸 돌리는
+    #   것은 같은 결과를 비싸게 다시 사는 일이다.
+    #   ⚠ **대가를 명시한다**: 번들·시각 회귀·Rust 린트는 **머지 뒤 master 런**이 처음 본다.
+    #   그래서 되돌릴 거리가 «머지 하나»여야 하고, 이 저장소는 PR 을 쌓아 두지 않으므로 성립한다.
+    #   ⚠ `src-tauri/**` 나 `Cargo.lock` 을 만지는 PR 이 생기면 이 조건을 다시 봐라 —
+    #   그때는 이 잡이 PR 에서 도는 것이 옳다.
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
