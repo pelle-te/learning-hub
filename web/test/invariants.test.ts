@@ -1453,3 +1453,76 @@ describe('불변식 ⑰ 마이크로카피가 부르는 탭 이름이 실재한�
     expect(언급.length).toBeGreaterThan(0);
   });
 });
+
+/* ============================================================
+   불변식 ⑱ — **`?view=` 로 가는 화면은 전부 로스터에 있다**(I025 · 2026-08-22 발상 축)
+
+   ## 무엇이 틀렸었나
+
+   이 저장소의 은퇴·통합 관용구는 화면을 지우는 대신 **호스트의 `?view=` 로 내린다**(W9 이 탭
+   셋을 그렇게 접었다). 그런데 그 화면이 로스터(`TABS`)에 `role:'view'` 로 **등재되지 않으면**
+   셋을 한꺼번에 잃는다:
+
+     ① **이름** — `routeLabelOfLocation` 이 못 찾아 아나운서·문서 제목이 **호스트 이름**을 읽는다
+        (H-12 가 고친 결함의 재발 경로).
+     ② **⌘K** — 팔레트는 로스터를 순회하므로 그 화면으로 가는 문이 **하나도 없다.**
+     ③ **관측** — `visitKeyOfLocation`(I034)이 호스트로 접어 집계한다 → 그 화면은 자기 몫의 수를
+        영원히 못 갖고, 「관측이 쌓이면 판정한다」가 원리적으로 안 온다.
+
+   실측(2026-08-22): 로스터에 있던 것은 `forecast`·`mastery` **둘뿐**이었고, `degree` 의 네 뷰와
+   `find?view=guide` 는 **밖**이었다. 즉 옳은 문법이 12개 중 2개에만 적용돼 있었다.
+
+   ## 무엇을 검사하나
+
+   소스에서 **실제로 그 주소로 보내는 곳**(`?view=` 리터럴 · `setParams({view})`)을 긁어
+   로스터가 그 값을 아는지 본다. 목록을 손으로 적지 않는 것이 요점이다 — 적으면 이 파일이
+   네 번 못박은 그 표류를 스스로 저지른다.
+
+   ⚠ **`role:'object'` 안의 뷰는 면제다**(`/subject/:id?view=sheet`). `to` 는 정적 주소인데 그
+     화면의 주소는 매개변수를 가져 하나가 아니다 — 같은 표에 넣으면 두 어휘가 섞인다.
+============================================================ */
+describe('불변식 ⑱ `?view=` 화면이 로스터에 있다', () => {
+  /** 로스터가 아는 `?view=` 값(호스트별). */
+  const 로스터뷰 = new Set(
+    TABS.filter((t) => t.role === 'view' && t.to?.includes('?view=')).map((t) => {
+      const [host, value] = t.to!.split('?view=');
+      return `${host}|${value}`;
+    }),
+  );
+
+  /** 매개변수를 가진 명사 안의 뷰 — 위 ⚠ 의 면제. 사유 없는 면제는 방치다. */
+  const 면제 = new Map<string, string>([
+    ['sheet', '`/subject/:id` 안의 뷰 — 주소가 매개변수를 가져 정적 `to` 가 없다'],
+  ]);
+
+  it('소스가 보내는 `?view=` 값이 전부 로스터에 있다(또는 사유 있는 면제다)', () => {
+    const 위반: string[] = [];
+    for (const f of tsxFiles()) {
+      const code = strip(readFileSync(f, 'utf8'));
+      /* `to="/degree?view=close"` · `` `/find?view=${X}` `` 두 형태를 본다. 상수 보간은 값을
+         모르므로 **호스트만** 대조한다 — 그 호스트에 등재된 뷰가 하나도 없으면 위반이다. */
+      for (const m of code.matchAll(/['"`]\/([a-z-]+)\?view=([^'"`$}]+)['"`]/g)) {
+        const key = `/${m[1]}|${m[2]}`;
+        if (로스터뷰.has(key) || 면제.has(m[2]!)) continue;
+        위반.push(`${aliasOf(f)}: /${m[1]}?view=${m[2]}`);
+      }
+    }
+    expect(위반, "이 주소로 가면 이름·⌘K·방문 집계를 함께 잃는다 — 로스터에 `role:'view'` 로 등재하라").toEqual([]);
+  });
+
+  it('면제 표가 사문화하지 않았다 — 쓰이지 않는 사유가 남아 있으면 실패', () => {
+    /* ⚠ `.ts` 도 본다 — 뷰 값 상수(`SHEET_VIEW`)의 집이 `shell/tabs.ts` 라, `.tsx` 만 훑으면
+       면제가 «쓰이지 않는다»로 보여 이 케이스가 자기 자신을 오탐한다. */
+    const 쓰임 = new Set<string>();
+    for (const f of [...tsxFiles(), ...tsFiles()]) {
+      const code = strip(readFileSync(f, 'utf8'));
+      for (const m of code.matchAll(/view=([a-z]+)/g)) 쓰임.add(m[1]!);
+      for (const m of code.matchAll(/_VIEW = '([a-z]+)'/g)) 쓰임.add(m[1]!);
+    }
+    expect([...면제.keys()].filter((k) => !쓰임.has(k))).toEqual([]);
+  });
+
+  it('로스터에 실제로 뷰가 있다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    expect(로스터뷰.size).toBeGreaterThan(4);
+  });
+});

@@ -323,6 +323,72 @@ export const TABS: TabMeta[] = [
      `ledger` 다 — 둘 다 **같은 축(과목×진척)의 다른 눈금**이고 데이터 원본까지 같은 볼트 산출물이다.
      ⚠ 파일은 `features/ledger/mastery/` 로 옮겼다(로스터가 바뀌면 파일 배치도 따라간다 · W4 교훈).
      ⚠ 덤: `g m` 충돌이 함께 풀렸다(`mistakes` 와 `mastery` 가 같은 첫 글자였다). */
+  /* ── I025 — **이미 있는 문법을 나머지에 적용한다**(2026-08-22 발상 축) ────────────────────
+     항목은 「하위화면 문법을 라우트 하나로(지금 네 벌)」였고, 최싼검증은 _"경로+쿼리 전 조합에
+     ①이름 ②⌘K ③링 도달을 표로 찍는다"_ 였다. 그 표를 실제로 찍으니 답이 «새 문법을 지어라»가
+     아니었다 — **문법은 이미 옳고, 12개 중 2개에만 적용돼 있었다.**
+
+       조합                          이름   ⌘K   비고
+       /review-run?view=forecast      ✓     ✓    로스터에 `role:'view'` + `to` 가 있다
+       /ledger?view=mastery           ✓     ✓    같음
+       /degree?view=intake            ✗     ✗    ← 로스터 밖
+       /degree?view=close             ✗     ✗    ← 로스터 밖
+       /degree?view=req               ✗     ✗    ← 로스터 밖
+       /degree?view=path              ✗     ✗    ← 로스터 밖
+       /find?view=guide               ✗     ✗    ← 로스터 밖
+
+     ✗ 인 다섯은 셋을 한꺼번에 잃는다: 아나운서가 **호스트 이름**을 읽고(H-12 가 이름 축에서
+     고친 그 결함이 여기 남아 있었다) · ⌘K 에 없고 · **방문 원장이 호스트로 집계한다**(I034 의
+     머리주석이 «그 화면은 자기 몫의 수를 다시는 갖지 못한다»고 적은 그 상태). 즉 살릴 근거도
+     지울 근거도 못 얻는다.
+     ⚠ 링·레일에는 여전히 안 선다 — 그건 `role:'view'` 의 **정의**이고 결함이 아니다.
+     ⚠ `/subject/:id?view=sheet`(T-18)는 여기 못 들어온다: `to` 는 정적 주소인데 그 화면은
+       **매개변수를 가진 명사 안**이라 주소가 하나가 아니다. 그건 `role:'object'` 의 문제이고
+       같은 표에 넣으면 두 어휘가 섞인다 — 남겨 두고 그 사실을 여기 적는다. */
+  {
+    key: 'intake',
+    label: '학기 인입',
+    order: 41,
+    role: 'view',
+    icon: 'inbox',
+    to: '/degree?view=intake',
+  },
+  {
+    key: 'close',
+    label: '학기 결산',
+    order: 42,
+    role: 'view',
+    icon: 'flag',
+    to: '/degree?view=close',
+  },
+  {
+    key: 'req',
+    label: '졸업요건 정리',
+    order: 43,
+    role: 'view',
+    icon: 'check',
+    to: '/degree?view=req',
+  },
+  {
+    key: 'path',
+    label: '내 길 지도',
+    order: 44,
+    role: 'view',
+    /* ⚠ 바에서만 짧다 — ⌘K·아나운서는 `label`(내 길 **지도**)을 쓴다. 세그먼트 안에서는 호스트
+       이름(졸업)이 이미 옆에 있어 '지도'가 중복이고, 밖에서는 '내 길' 만으로 무엇인지 모른다.
+       `segLabel` 이 존재하는 이유가 정확히 이 비대칭이다(N-14 로 소비처가 0이 된 뒤 처음 부활). */
+    segLabel: '내 길',
+    icon: 'target',
+    to: `/degree?view=${DEGREE_PATH_VIEW}`,
+  },
+  {
+    key: 'guide',
+    label: '이 시스템이 할 수 있는 것',
+    order: 6,
+    role: 'view',
+    icon: 'info',
+    to: `/find?view=${FIND_GUIDE_VIEW}`,
+  },
   {
     key: 'mastery',
     label: '숙달도 지도',
@@ -577,6 +643,26 @@ export function sectionOf(key: string): string {
 export function orderedTabs(): TabMeta[] {
   return ORDERED_TABS;
 }
+/**
+ * 이 호스트 안에 사는 뷰들(`role:'view'` · `to` 가 `/{host}?view=…`) — **선언 순서 그대로**.
+ *
+ * ⚠⚠ **이 함수가 있는 이유는 두 번째 원천을 막는 것이다**(I025 · 2026-08-22). D-4 가 "갈 수 있는
+ * 곳의 열거가 다섯 벌"을 하나로 만들었는데, W9 이 탭 셋을 뷰로 접자 같은 바가 **`Degree.tsx` 의
+ * `const VIEWS`(5칸)** 로 feature 안에서 다시 자랐다 — 로스터와 그 배열이 각자 목록을 들고,
+ * 실제로 갈렸다(로스터 쪽엔 그 다섯이 **아예 없었다**). 호스트가 자기 바를 그릴 때 이걸 부르면
+ * 목록이 두 벌이 될 수 없다.
+ * ⚠ 호스트 자신(기본 뷰)은 **여기 없다** — 그건 뷰가 아니라 탭이고, 호출부가 자기 라벨을 안다.
+ */
+export function viewsOfHost(hostKey: string): TabMeta[] {
+  const prefix = `/${hostKey}?view=`;
+  return TABS.filter((t) => t.role === 'view' && t.to?.startsWith(prefix));
+}
+
+/** `to` 의 `?view=` 값(`role:'view'` 전용). 없으면 빈 문자열. */
+export function viewValueOf(t: TabMeta): string {
+  return t.to?.split('?view=')[1] ?? '';
+}
+
 export function tabByKey(key: string): TabMeta | undefined {
   return TAB_BY_KEY.get(key);
 }

@@ -101,7 +101,13 @@ export default function CalendarIntake() {
         if (marks.length) target.marks = marks;
       }
     });
-    toast(`수업 ${n.lecture} · 학사일정 ${n.mark} 반영됨 — ⌘Z 로 되돌릴 수 있어요.`, 'ok');
+    /* ⚠ 위 배지와 같은 이유 — 고른 눈금이 0건으로 끝났으면 **왜** 인지 말한다. */
+    const 눈금막힘 = p.marks.size > 0 && n.mark === 0 && !sem;
+    toast(
+      `수업 ${n.lecture} · 학사일정 ${n.mark} 반영됨 — ⌘Z 로 되돌릴 수 있어요.` +
+        (눈금막힘 ? ' 학사일정은 학기 개강일이 있어야 들어갑니다.' : ''),
+      눈금막힘 ? 'warn' : 'ok',
+    );
     setText('');
     setName('');
     setPicks(null);
@@ -126,9 +132,11 @@ export default function CalendarIntake() {
       <div className="mb-3 flex flex-wrap items-baseline gap-3">
         <span className="ds-caps">시간표·학사일정 파일(.ics)</span>
         {name ? <Pill tiny>{name}</Pill> : null}
+        {/* ⚠ 「학기가 없다」가 아니라 **「개강일이 없다」**가 정확하다 — 학기 항목은 있는데
+            `startDs` 가 비어 있으면 `activeSemester` 가 안 고른다(실 데이터가 그 상태였다). */}
         {!sem && draft.marks.length > 0 ? (
           <Pill tiny tone="warn">
-            학기가 없어 학사일정은 못 넣어요
+            학기 개강일이 없어 학사일정은 못 넣어요 (졸업 계획 → 학기에서 입력)
           </Pill>
         ) : null}
       </div>

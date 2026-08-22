@@ -8,7 +8,7 @@
 ============================================================ */
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DEGREE_PATH_VIEW } from '@/shell/tabs';
+import { DEGREE_PATH_VIEW, tabByKey, viewValueOf, viewsOfHost } from '@/shell/tabs';
 import State from '@/components/State';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -664,12 +664,17 @@ const CalIntake = lazy(() => import('./CalendarIntake'));
 const Close = lazy(() => import('./SemesterClose'));
 
 type DegView = 'plan' | 'req' | 'intake' | 'close' | typeof DEGREE_PATH_VIEW;
+/* ⚠⚠ **여기 `const VIEWS` 5칸이 손으로 적혀 있었다 — 로스터에서 파생한다**(I025 · 2026-08-22).
+   D-4 가 «갈 수 있는 곳의 열거 다섯 벌»을 하나로 만들었는데, W9 이 탭 셋을 뷰로 접자 같은 바가
+   이 파일 안에서 **다시 자랐다.** 그리고 실제로 갈려 있었다: 이 배열의 넷(`intake`·`close`·
+   `req`·`path`)이 `shell/tabs.ts` 로스터에는 **아예 없어서**, 그 화면들은 아나운서 이름도 ⌘K 도
+   자기 방문 집계도 갖지 못했다(H-12·I034 가 각각 이름 축·관측 축에서 고친 그 결함이 여기 남아
+   있었다). 이제 로스터 한 곳이 넷 다 준다.
+   ⚠ 기본 뷰(`plan`)만 여기 남는다 — 그건 뷰가 아니라 **탭 자신**이라 로스터의 `degree` 가 진다. */
+const HOST_VIEWS = viewsOfHost('degree');
 const VIEWS: { key: DegView; label: string }[] = [
-  { key: 'plan', label: '졸업 계획' },
-  { key: 'intake', label: '학기 인입' },
-  { key: 'close', label: '학기 결산' },
-  { key: 'req', label: '졸업요건 정리' },
-  { key: DEGREE_PATH_VIEW, label: '내 길' },
+  { key: 'plan', label: tabByKey('degree')?.label ?? '졸업 계획' },
+  ...HOST_VIEWS.map((t) => ({ key: viewValueOf(t) as DegView, label: t.segLabel ?? t.label })),
 ];
 
 /** 졸업 탭 — 계획(편집)·요건 정리(읽기전용)·내 길(목표 트리)을 세그먼트로 전환. 기본은 '졸업 계획'. */

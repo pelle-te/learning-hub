@@ -11,11 +11,17 @@
    0 인 것이 요점이다 — `usePageChrome` 이 이미 각 화면의 "단 하나의 수"(`primary`)와 보조
    수들(`readouts`)을 갖고 있고, 여기서는 그것을 **크게** 그릴 뿐이다.
 
-   ## ⚠ 로드맵의 검증 조건을 화면이 스스로 답한다
+   ## ⚠ 로드맵의 검증 조건 — **실측했다**(I026 · 2026-08-22)
 
    그 조건은 _"`primary` 가 `null` 아닌 탭이 몇 개인지 센다 — **절반 미만이면 빈 화면**"_ 이었다.
-   `primary` 가 없는 화면에서 이 오버레이를 열면 **그 사실을 말한다**(빈 검은 화면을 띄우지
-   않는다). 즉 이 기능이 값을 내는지 아닌지가 쓰는 순간 드러난다.
+   실측: 크롬을 세우는 화면 **19** 중 `primary: null` 이 **9**(47%)다. 그런데 그 조건을 재는
+   동안 이 화면 자체에 결함이 있었다 — **`readouts` 가 `primary` 분기 안에 중첩돼**, 대표 수가
+   없는 아홉은 보조 수를 갖고 있어도 사과문만 봤다. 즉 «값을 내는가»를 자기가 가진 수를
+   가린 채로 재고 있었다. 지금은 셋을 가른다: 대표 수 · 보조 수 · **둘 다 없을 때만** 사과문.
+
+   ⚠ `primary: null` 은 **위반이 아니다** — «이 화면엔 대표 수가 없다»는 정직한 선언이고
+   `Find.tsx` 가 그 자리에 그렇게 적어 뒀다. 그것을 결함으로 읽어야만 «계약을 축소하라»가
+   성립하는데, 그 독법은 이 저장소가 `null` 에 부여한 뜻과 반대다(원장 I026 닫기 노트).
 
    ## ⚠ `⇧G` 인 이유
 
@@ -79,28 +85,37 @@ export default function GlanceMode() {
         aria-label="글랜스 모드 닫기"
         onClick={() => setOn(false)}
       />
-      {primary ? (
-        <>
-          <div className="text-center">
-            <div className="ds-caps text-mut">{primary.label}</div>
-            <div className="text-display leading-none font-black text-acc tabular-nums">{primary.value}</div>
-          </div>
-          {readouts.length > 0 && (
-            <div className="flex flex-wrap items-baseline justify-center gap-x-8 gap-y-3">
-              {readouts.map((r) => (
-                <div key={r.label} className="text-center">
-                  <div className="ds-caps text-mut">{r.label}</div>
-                  <div className="text-2xl leading-none font-extrabold tabular-nums">{r.value}</div>
-                </div>
-              ))}
+      {/* ⚠⚠ **`readouts` 가 `primary` 분기 **안에** 중첩돼 있었다**(I026 실측 · 2026-08-22).
+          대가는 이랬다: `primary: null` 인 화면이 **19 중 9**(47%)인데, 그 아홉은 보조 수를
+          갖고 있어도 ⇧G 에서 **사과문 한 장**만 봤다. 즉 이 기능이 «값을 내는지»를 스스로
+          검증하겠다던 조건이, 정작 자기가 가진 수를 안 보여 준 채로 측정되고 있었다.
+          ⚠ 그래서 이 항목의 처방(«계약을 축소하고 ⇧G 를 제거») 대신 **결함을 고쳤다** —
+          `primary: null` 은 위반이 아니라 «이 화면엔 대표 수가 없다」는 **정직한 선언**이고
+          (`Find.tsx` 가 그 자리에 그렇게 적어 뒀다), 축소의 근거로 쓰려면 그 선언을 결함으로
+          읽어야 한다. 근거는 원장 I026 닫기 노트. */}
+      {primary && (
+        <div className="text-center">
+          <div className="ds-caps text-mut">{primary.label}</div>
+          <div className="text-display leading-none font-black text-acc tabular-nums">{primary.value}</div>
+        </div>
+      )}
+      {readouts.length > 0 && (
+        <div className="flex flex-wrap items-baseline justify-center gap-x-8 gap-y-3">
+          {readouts.map((r) => (
+            <div key={r.label} className="text-center">
+              <div className="ds-caps text-mut">{r.label}</div>
+              <div className={`${primary ? 'text-2xl' : 'text-display'} leading-none font-extrabold tabular-nums`}>
+                {r.value}
+              </div>
             </div>
-          )}
-        </>
-      ) : (
-        /* ⚠ 빈 검은 화면을 안 띄운다 — 이 기능이 값을 내는지가 여기서 드러난다(머리주석). */
+          ))}
+        </div>
+      )}
+      {/* 대표 수도 보조 수도 없을 때만 — 빈 검은 화면을 안 띄운다(머리주석). */}
+      {!primary && readouts.length === 0 && (
         <p className="max-w-100 text-center text-lg leading-body text-mut">
-          이 화면은 <b>거리에서 읽을 하나의 수</b>를 정해 두지 않았어요. 목적지 화면(오늘·계획·복습 등)에서 열면 그
-          화면의 수가 크게 뜹니다.
+          이 화면은 <b>거리에서 읽을 수</b>를 정해 두지 않았어요. 목적지 화면(오늘·계획·복습 등)에서 열면 그 화면의 수가
+          크게 뜹니다.
         </p>
       )}
       <p className="ds-tiny text-mut">아무 곳이나 누르거나 Esc · ⇧G 로 닫기</p>
