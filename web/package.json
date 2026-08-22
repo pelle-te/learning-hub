@@ -94,7 +94,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.3",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.39.5",
     "eslint-import-resolver-typescript": "^4.4.5",
