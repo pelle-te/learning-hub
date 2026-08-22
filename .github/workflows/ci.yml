@@ -71,8 +71,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # ⚠⚠ **손으로 박은 `node-version: 22` 였다**(O003 · 2026-08-22 운영 축). `web/.nvmrc` 는
           #   저장소에 있는데 **읽는 것이 아무것도 없어서** 선언과 실행이 갈렸고, 그 틈이 2026-08-20
@@ -155,8 +155,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: web/.nvmrc
       # ⚠ `npm ci` 가 없다 — `audit-gate.mjs` 는 순수 Node 이고 `npm audit` 은 lockfile 만 읽는다
@@ -186,7 +186,7 @@ jobs:
     timeout-minutes: 10 # 실측 최대 2.5분
     if: github.event_name != 'schedule'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # 전 이력을 본다 — 지금 지웠어도 과거 커밋에 남아 있으면 유출이다
       - name: gitleaks 설치(버전 핀 + 체크섬 대조)
@@ -225,8 +225,8 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # ⚠⚠ **손으로 박은 `node-version: 22` 였다**(O003 · 2026-08-22 운영 축). `web/.nvmrc` 는
           #   저장소에 있는데 **읽는 것이 아무것도 없어서** 선언과 실행이 갈렸고, 그 틈이 2026-08-20
@@ -283,8 +283,8 @@ jobs:
     #   ⚠ 비용이 다시 제약이 되면(비공개 회귀 등) 첫 후보가 여기다 — 그때 이 주석을 근거로 써라.
     if: github.event_name != 'schedule'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # ⚠⚠ **손으로 박은 `node-version: 22` 였다**(O003 · 2026-08-22 운영 축). `web/.nvmrc` 는
           #   저장소에 있는데 **읽는 것이 아무것도 없어서** 선언과 실행이 갈렸고, 그 틈이 2026-08-20
@@ -446,7 +446,7 @@ jobs:
         working-directory: web
         if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
       # 실패했을 때 **눈으로 볼 수 있어야** 위 판단이 가능하다. 실패 시에만 올린다.
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: playwright-report
