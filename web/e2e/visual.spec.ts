@@ -622,6 +622,46 @@ for (const theme of THEMES) {
   });
 }
 
+/* ── I001 반영 줄 — **커버리지 0으로 태어나지 않게**(2026-08-22 발상 축) ─────────────────
+   `/ledger` 기본 픽스처의 과목(미적분 …)은 원장 픽스처의 과목(통신이론 …)과 이름이 안 맞아
+   미반영이 0이고, 그러면 이 줄은 **정의상 안 그려진다** — 즉 기존 17장이 전부 통과해도 이
+   기능은 한 번도 렌더된 적이 없게 된다. §15-4 가 금지하는 그 형태(«이식 전에 스냅샷부터»)라
+   여기 데이터 있는 상태를 따로 잠근다.
+   ⚠ 기본 SEED 를 안 건드리는 것이 요점이다 — 거기에 통신이론을 넣으면 items·plan·today 등
+   무관한 베이스라인이 통째로 움직인다(그 비용은 이 한 줄의 값을 넘는다). */
+const LEDGER_APPLY_SEED = {
+  ...SEED,
+  items: [
+    ...SEED.items,
+    {
+      id: 'ct',
+      source: '볼트',
+      name: '통신이론',
+      color: '#7bd88f',
+      mode: 'weekly',
+      weeklyHours: 4,
+      dailyMin: 30,
+      deadline: '',
+      chapters: [
+        { id: 'ct1', name: '1 신호와 시스템', hours: 3, done: false },
+        { id: 'ct2', name: '2 푸리에 변환', hours: 3, done: false },
+        { id: 'ct3', name: '3 표본화 정리', hours: 2, done: false },
+      ],
+    },
+  ],
+};
+for (const theme of THEMES) {
+  test(`ledger · 반영 대기 · ${theme}`, async ({ page }) => {
+    await boot(page, theme, LEDGER_APPLY_SEED);
+    await page.goto('/ledger');
+    /* 단언은 **수**를 본다 — 원장이 `carded` 라 말한 둘만 대기여야 한다(셋째는 `carded:false`).
+       줄의 존재만 보면 «전부 대기»로 세는 회귀가 통과한다. */
+    await expect(page.getByRole('button', { name: '2개 반영' })).toBeVisible();
+    await settle(page);
+    await expect(page).toHaveScreenshot(`ledger-apply-${theme}.png`);
+  });
+}
+
 /* ⚠⚠ **로딩을 회귀망에 넣는다(W15 · 2026-07-31).** 종전엔 `mastery · loading · dark` **한 장**
    뿐이었다 — 빈 상태가 12장인데 로딩은 사실상 앱의 한 상태 전체가 시각 게이트 밖이었고,
    그래서 `State kind='loading'` 을 중앙 스피너에서 **골격 프레임**으로 바꾸는 것 같은 변화가

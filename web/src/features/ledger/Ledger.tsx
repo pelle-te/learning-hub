@@ -43,7 +43,9 @@ import {
   type SubjectRollup,
 } from '@/lib/ledger';
 import { runTool } from '@/lib/api';
-import { toast } from '@/shell';
+import { confirmLossy, toast } from '@/shell';
+import { useApp } from '@/store/useApp';
+import { applyCardedDone, ledgerPending, pendingCount, pendingPrompt } from '@/lib/ledgerSeed';
 import { Button } from '@/components/ui';
 import State from '@/components/State';
 
@@ -285,6 +287,70 @@ function Backlog({ l: led }: { l: Ledger }) {
   );
 }
 
+/**
+ * **반영 줄**(I001 · 2026-08-22 발상 축) — 원장이 계획 엔진의 입력이 되는 자리.
+ *
+ * ## 왜 여기 이 줄이 필요한가
+ *
+ * 이 화면은 원장을 **보여 주기만** 했다. 원장→앱 다리는 있었지만 `importVaultSubject` 안,
+ * 즉 **볼트 임포트 순간에만** 놓였다 — 그런데 검증·카드 발급은 임포트와 다른 리듬으로
+ * 계속 일어난다. 실측(2026-08-22): 원장이 `carded 31 / 51` 을 아는데 앱의 `chapters[].done`
+ * 은 **0/51** 이었고, 그 51챕터는 원장과 **100% 이름이 맞았다**. 다리는 있는데 위로 아무것도
+ * 안 지나가고 있었던 것이다.
+ *
+ * ⚠⚠ **자동으로 안 찍는다** — `carded` 는 «카드를 만들었다»이지 «익혔다»가 아니다
+ * (`lib/ledgerSeed.ts` 머리주석이 그 판단의 SSOT). 이 줄이 바꾸는 것은 **언제 물어보는가**
+ * 하나뿐이다: 임포트 1회 → 원장이 앞설 때마다.
+ * ⚠ 미반영이 0이면 **노드 자체가 없다.** 「0건 반영」이 상주하면 그 줄은 곧 배경이 된다.
+ */
+function ApplyToPlan() {
+  const items = useApp((s) => s.state.items);
+  const mutate = useApp((s) => s.mutate);
+  const { data: led } = useLedger();
+  const pending = ledgerPending(led, items);
+  if (!pending.length) return null;
+  const n = pendingCount(pending);
+  const apply = async (): Promise<void> => {
+    /* Q-13 ②단 — 원장이 밖에 그대로 있으니 언제든 다시 맞출 수 있다(재구성 가능). */
+    const ok = await confirmLossy(pendingPrompt(pending), {
+      title: '원장과 맞출까요?',
+      okLabel: `${n}개 끝낸 것으로 표시`,
+      cancelLabel: '그대로 두기',
+    });
+    if (!ok) return;
+    /* ⚠ 카운터를 **객체 필드**로 — 콜백 안의 `let n = 0` 은 React Compiler 를 바일아웃시킨다. */
+    const acc = { marked: 0 };
+    mutate((st) => {
+      for (const p of pending) {
+        const it = st.items.find((x) => x.id === p.sid);
+        if (it) acc.marked += applyCardedDone(it.chapters || [], p.chapters);
+      }
+    });
+    toast(`챕터 ${acc.marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
+  };
+  return (
+    <div className="ds-rule">
+      <h3>
+        <Icon name="check" /> 계획에 반영
+      </h3>
+      <div className="flex flex-col gap-1.5">
+        <span className="ds-kpi">{n}챕터</span>
+        <div className="ds-foot">
+          원장은 <b>카드 발급까지</b> 끝났다고 하는데 앱에는 안 찍혀 있어요
+          {pending.length > 1 ? ` (${pending.length}과목)` : ` (${pending[0]!.subject})`}.
+          <br />
+          찍으면 새로 배울 목록에서 빠지고 유지 복습으로 넘어갑니다.
+        </div>
+        <div>
+          <Button sm variant="primary" onClick={() => void apply()}>
+            {n}개 반영
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 병목 — 인접 단계 통과율이 가장 낮은 지점. "다음에 어디 손대면 크게 진척하나". */
 function Bottleneck({ l: led }: { l: Ledger }) {
   const b = bottleneckStage(led);
@@ -509,6 +575,7 @@ function Ledger() {
           </div>
           {/* 우 — 병목·백로그(다음 행동) */}
           <div className="flex min-h-0 min-w-0 [scrollbar-width:thin] flex-col gap-3 overflow-y-auto pr-0.5">
+            <ApplyToPlan />
             <Bottleneck l={led} />
             <Backlog l={led} />
           </div>

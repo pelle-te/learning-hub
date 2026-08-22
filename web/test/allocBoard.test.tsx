@@ -258,12 +258,15 @@ describe('AllocBoard — 접근성 계약(6단계 JSX 재작성이 가장 잘 �
   it('role=table + 정직한 행/열 수 · 머리글 구조', () => {
     renderBoard();
     const grid = screen.getByRole('table', { name: '주간 배분 보드' });
-    // 행 = 과목 2 + 헤더 + 가용 푸터. 열 = 과목 + 7요일 + 주당.
-    expect(grid).toHaveAttribute('aria-rowcount', '4');
+    /* 행 = 과목 2 + 헤더 + **전공 밖 레인**(I053) + 가용 푸터. 열 = 과목 + 7요일 + 주당.
+       ⚠ 레인이 붙으며 4→5 가 됐다. 이 수를 손으로 적는 것이 이 케이스의 요점이다 —
+         선언(`aria-rowcount`)과 실물(rowheader 수)이 갈리면 SR 이 마지막 행을 «표 밖»으로 읽는다. */
+    expect(grid).toHaveAttribute('aria-rowcount', '5');
     expect(grid).toHaveAttribute('aria-colcount', '9');
     expect(screen.getAllByRole('columnheader')).toHaveLength(9);
-    // rowheader = 과목 2 + '가용' 푸터.
-    expect(screen.getAllByRole('rowheader')).toHaveLength(3);
+    // rowheader = 과목 2 + '전공 밖' + '가용' 푸터.
+    expect(screen.getAllByRole('rowheader')).toHaveLength(4);
+    expect(screen.getByRole('rowheader', { name: /전공 밖/ })).toBeInTheDocument();
     // ⚠ grid 가 아니어야 한다 — 화살표 탐색 계약을 약속해 놓고 이행하지 않으면 SR 사용자가 멈춘다.
     expect(screen.queryByRole('grid')).toBeNull();
   });
@@ -271,7 +274,8 @@ describe('AllocBoard — 접근성 계약(6단계 JSX 재작성이 가장 잘 �
   it('모든 배분 칸이 키보드 탭 스톱(spinbutton)이고 과목·요일이 라벨에 다 실린다', () => {
     renderBoard();
     const inputs = screen.getAllByRole('spinbutton');
-    expect(inputs).toHaveLength(14); // 과목 2 × 요일 7 — 마우스 드래그 없이 전 칸 도달 가능
+    // (과목 2 + 전공 밖 레인 1) × 요일 7 — 마우스 드래그 없이 전 칸 도달 가능.
+    expect(inputs).toHaveLength(21);
     for (const dow of ['월', '화', '수', '목', '금', '토', '일']) {
       expect(cell('물리', dow)).toBeInTheDocument();
     }
@@ -372,7 +376,7 @@ describe('AllocBoard — 경계', () => {
       items: [물리, item({ id: 'anki', name: 'Anki', mode: 'daily' }), item({ id: 'blank', name: '', weeklyHours: 3 })],
     });
     renderBoard();
-    expect(screen.getAllByRole('rowheader')).toHaveLength(2); // 물리 + '가용'
+    expect(screen.getAllByRole('rowheader')).toHaveLength(3); // 물리 + 전공 밖 + '가용'
   });
 
   it('0 입력은 그 칸만 0으로 만든다(다른 칸을 건드리지 않는다)', () => {
@@ -428,7 +432,7 @@ describe('AllocBoard — 경계', () => {
   it('삭제된 과목의 잔존 배분이 있어도 보드는 살아있는 과목만 편집 대상으로 준다', () => {
     seed({ weekAlloc: WeekAllocSchema.parse({ [WK0]: { ghost: [0, 180, 0, 0, 0, 0, 0] } }) });
     renderBoard();
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(14); // 물리·영어 것만
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(21); // (물리·영어 것만
     expect(within(subjectRow('물리')).getByText('6h 남음')).toBeInTheDocument(); // 고아 3h 가 섞이지 않았다
   });
 });

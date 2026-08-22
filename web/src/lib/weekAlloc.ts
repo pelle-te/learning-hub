@@ -100,6 +100,31 @@ export function setAllocCell(
   vec[wd] = Math.max(0, Math.round(mins));
 }
 
+/* ── I053 「전공 밖」 레인 — **승격 없이 쓰는 칸**(2026-08-22 발상 축) ─────────────────────
+   이 셋이 위 `setAllocCell` 과 대칭인데 **`ensureWeekAlloc` 을 안 지난다**. 그것이 요점이다:
+   전공 밖 시간을 `weekAlloc` 의 합성 sid 로 두면 칸 하나를 채우는 순간 그 주가 managed 로
+   승격돼 배치 전체가 자동에서 수동으로 바뀐다(2026-08-22 착수 전 확인). 저장 자리와 그 근거는
+   `schema.ts` 의 `outsideAlloc` 절.
+   ⚠ **스케줄러는 이 값을 안 읽는다.** 하는 일은 배분판의 **분모를 정직하게** 만드는 것뿐이고,
+     그게 부모 규약의 «교양축과 계약 0»을 지키면서 이 축을 말하는 유일한 형태다. */
+
+/** 그 주의 전공 밖 분(7요일). 없으면 0벡터 — **사본을 준다**(호출부의 제자리 변형 차단). */
+export function outsideVec(state: Pick<AppState, 'outsideAlloc'>, wk: string): number[] {
+  const v = state.outsideAlloc?.[wk];
+  return v && v.length === 7 ? v.slice(0, 7) : zeroVec();
+}
+
+/** 전공 밖 칸 설정(분). `weekAlloc` 을 건드리지 않는다(위 ⚠). state 변형. */
+export function setOutsideCell(state: AppState, wk: string, wd: number, mins: number): void {
+  if (wd < 0 || wd > 6) return;
+  state.outsideAlloc = state.outsideAlloc || {};
+  const vec = (state.outsideAlloc[wk] ||= zeroVec());
+  vec[wd] = Math.max(0, Math.round(mins));
+  /* ⚠ 전부 0이면 **키를 지운다** — 안 지우면 «손댔다»의 흔적이 영원히 남아 백업·동기화가
+     빈 주를 계속 나른다(`copyPrevWeekAlloc` 이 빈 managed 주를 안 만드는 것과 같은 규율). */
+  if (vec.every((m) => !m)) delete state.outsideAlloc[wk];
+}
+
 /** 이전 주 배분(명시 or 자동)을 이 주로 스냅샷 복사 — per-week지만 되풀이 편의(§12-2). state 변형.
  *  @returns 복사한 과목 수(0 = **아무것도 쓰지 않음**). 호출부는 0이면 실패 신호를 줘야 한다.
  *  왜 no-op 경로가 필요한가: 계획 **첫 주**에서 누르면 이전 주는 지평 밖이라 allocView가 `{}`를 준다.

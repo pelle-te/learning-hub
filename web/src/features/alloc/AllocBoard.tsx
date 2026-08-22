@@ -20,6 +20,8 @@ import {
   isWeekManaged,
   neglectDaysBySid,
   NEGLECT_DAYS,
+  outsideVec,
+  setOutsideCell,
   resetWeekAlloc,
   rowSumMin,
   setAllocCell,
@@ -263,6 +265,13 @@ export function AllocBoard({
     const mins = Math.max(0, Math.round(hours * 60));
     mutate((st) => setAllocCell(st, res, weekMon, sid, wd, mins));
   };
+  /* I053 — 전공 밖 레인. ⚠ `setCell` 과 **다른 뮤테이터**를 부르는 것이 이 항목의 전부다:
+     `setAllocCell` 은 `ensureWeekAlloc` 을 지나 그 주를 managed 로 승격시킨다(근거는
+     `lib/weekAlloc.ts` 의 I053 절). 여기는 그 경로를 안 지난다. */
+  const outVec = outsideVec(state, weekMon);
+  const setOutside = (wd: number, hours: number) => {
+    mutate((st) => setOutsideCell(st, weekMon, wd, Math.max(0, Math.round(hours * 60))));
+  };
   // 복사 결과를 정직하게 — copyPrevWeekAlloc은 소스가 비면(계획 첫 주 등) **아무것도 쓰지 않고** 0을 준다.
   // 예전엔 그때도 성공 토스트를 띄워 "복사했어요"만 보이고 화면은 그대로인 무음 실패였다.
   /** 툴바 액션이 **실제로 바꾼** 칸을 훑는다(UX-A4). `before` = 액션 직전의 배분 스냅샷.
@@ -323,7 +332,11 @@ export function AllocBoard({
 
   // 열(요일) 합 vs 가용 — 초과 경고용. validSids로 걸러 삭제된 과목의 고아 배분이
   // "보이는 행 합 1h인데 푸터는 4h" 유령을 만들지 않게 한다(표시 단계 방어선).
-  const colMins = cols.map((c) => colSumMin(alloc, c.wd, validSids));
+  /* ⚠⚠ **전공 밖 레인을 더한다**(I053) — 이 한 줄이 항목의 값 전부다. 종전엔 이 푸터가
+     «배분 3h / 가용 6h» 라 말하면서 그 날 실제로 두 시간을 먹은 전공 밖 학습을 **분모에서
+     통째로 빼고** 있었다. 스케줄러는 여전히 이 값을 모른다(계약 0) — 바뀐 것은 **사람이 보는
+     분모**뿐이고, 그게 부모 규약을 지키면서 이 축을 말하는 유일한 형태다(리포트 §7). */
+  const colMins = cols.map((c) => colSumMin(alloc, c.wd, validSids) + (outVec[c.wd] || 0));
 
   // efficacy 안내 — 계획상 챕터를 다 배우게 된 과목(finished)에 배분해도 '새 학습' 블록은 더 안 생긴다
   // (엔진이 챕터 소진으로 판단 · 복습·Anki만 자동). 배분했는데 왜 안 굴러가는지 조용히 두지 않고 짚어준다.
@@ -411,7 +424,9 @@ export function AllocBoard({
           className={S.grid}
           role="table"
           aria-label="주간 배분 보드"
-          aria-rowcount={rows.length + 2}
+          /* 과목 + 헤더 + **전공 밖 레인**(I053) + 가용 푸터. 레인을 안 세면 SR 이 마지막 행을
+             «표 밖»으로 읽는다 — 손으로 적은 수가 실물과 갈리는 그 형태다. */
+          aria-rowcount={rows.length + 3}
           aria-colcount={9}
         >
           {/* 헤더 행 */}
@@ -624,6 +639,58 @@ export function AllocBoard({
               </div>
             );
           })}
+
+          {/* ── I053 「전공 밖」 레인 — **분모를 정직하게**(2026-08-22 발상 축) ───────────────
+              이 앱은 전공(`sources`→`pipeline`)만 센다. 그런데 실측(2026-08-22): 같은 2주에
+              교양축(`survey/`) 커밋이 **131건**이었다 — 즉 앱이 세는 것 옆에서 그만한 학습이
+              일어나는데 배분판은 그 시간을 **분모에서 통째로 빼고** «가용 6h 중 3h 배분» 이라
+              말하고 있었다.
+              ⚠⚠ **데이터를 나르지 않는다.** 부모 규약이 두 축의 계약을 0으로 못박았으므로
+              (`survey` 는 hub 과도 pipeline 과도 계약이 0), 이 칸은 **사람이 손으로 적는다.**
+              자동으로 채우는 순간 그 규약을 어기는 다리가 된다.
+              ⚠ 스케줄러는 이 값을 안 읽는다 — 배치는 100% 종전 그대로다(`schema.ts` 의
+                `outsideAlloc` 절). 바뀌는 것은 **위 푸터의 분모** 하나뿐이다.
+              ⚠ 드래그·예산·방치 배지가 **없다**: 저것들은 전부 «과목» 의 어휘이고 이 줄은
+                과목이 아니다. 같은 장식을 달면 이 줄이 여섯째 과목처럼 읽힌다. */}
+          <div className="contents" role="row">
+            <div
+              className={`${S.rowHead} bg-panel2`}
+              role="rowheader"
+              title="전공 밖 학습(교양·언어 등) — 손으로 적어요. 배치는 안 바뀌고 아래 가용 분모에만 반영됩니다."
+            >
+              <span className={S.swatch} style={{ background: 'var(--mut)' }} />
+              <span className={S.rowName}>전공 밖</span>
+            </div>
+            {cols.map((c) => {
+              const cellMin = outVec[c.wd] || 0;
+              return (
+                <div
+                  key={c.i}
+                  className={`${S.inputCell} ${c.isToday ? 'bg-alloc-today' : 'bg-panel'}${cellMin > 0 ? ' ' + S.before : ''}`}
+                  role="cell"
+                >
+                  {cellMin > 0 && (
+                    <span className={S.fill} style={{ opacity: fillAlpha(cellMin) }} aria-hidden="true" />
+                  )}
+                  <NumberField
+                    className={S.cellInput}
+                    min={0}
+                    step={0.5}
+                    value={cellMin ? +hNum(cellMin) : 0}
+                    emptyValue={0}
+                    placeholder=""
+                    onCommit={(v) => setOutside(c.wd, v)}
+                    aria-label={`전공 밖 · ${c.label}요일 시간`}
+                    title={`전공 밖 · ${c.label} — 시간 입력(0.5 단위)`}
+                  />
+                </div>
+              );
+            })}
+            <div className={`${S.budgetCell} ${BUDGET_BG.none}`} role="cell">
+              <b className={S.budgetB}>{hNum(rowSumMin(outVec))}</b>
+              <span className={`${S.badge} ${BADGE_TONE.none}`}>배치 밖</span>
+            </div>
+          </div>
 
           {/* 가용 푸터 행 — 헤더 행과 마찬가지로 role="row" 래퍼 안에 둔다(예전엔 셀이 표 직속이라 행 구조가 깨졌다). */}
           <div className="contents" role="row">

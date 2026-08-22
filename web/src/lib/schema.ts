@@ -650,6 +650,17 @@ export const AppStateSchema = z.looseObject({
   /** 주간 배분(§12-3) — 키=weekMon(ISO). 배분 있는 주는 스케줄러 new 블록을 이 요일 벡터로 구동(§12-4).
    *  없는 주는 자동(종전 100% 불변). 옵셔널·무마이그레이션. RUNTIME_CACHE_KEYS 아님 → 영속·백업 대상. */
   weekAlloc: z.optional(WeekAllocSchema),
+  /* ── I053 「전공 밖」 레인(2026-08-22 발상 축) ────────────────────────────────────────
+     weekMon(ISO) → 7요일[분]. 배분판이 **전공 밖 학습**(교양축 등)을 한 줄로 안다.
+
+     ⚠⚠ **`weekAlloc` 안에 넣지 않은 것이 이 항목의 전부다.** 거기 합성 sid 로 두면 칸에 값을
+     넣는 순간 `setAllocCell → ensureWeekAlloc` 이 **그 주 전체를 managed 로 승격**시킨다 —
+     «교양 2시간을 적었다»가 그 주 배치를 자동에서 수동으로 바꾼다(2026-08-22 착수 전 확인에서
+     드러난 결합). 별도 키라 그 경로를 아예 안 지난다.
+     ⚠ **스케줄러가 이 값을 안 읽는다** — `SCHEDULE_INPUT_KEYS` 밖이고, 하는 일은 **분모를
+     정직하게** 만드는 것뿐이다(부모 규약의 «교양축과 계약 0»을 지키는 유일한 형태 · 리포트 §7).
+     ⚠ `ROW_SLICES` 에 없으므로 `settings` 한 행으로 간다 — **새 표 0 · D1 DDL 0**. */
+  outsideAlloc: z.optional(z.record(z.string(), z.array(z.number()))),
   // ── 런타임 캐시(영속/내보내기에서 제외 · RUNTIME_CACHE_KEYS) + 테스트 시드 ──
   _today: z.optional(z.string()),
   /** T-8. `_today` 의 시각판 시드 — `nowHm()` 이 존중한다. 테스트·e2e 결정성 전용(런타임 캐시). */

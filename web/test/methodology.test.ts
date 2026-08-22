@@ -383,6 +383,7 @@ describe('⚠⚠ 보존 규율의 범위가 슬라이스 목록에서 역산된�
       ...ARRAY_SLICES,
       'weekly',
       'weekAlloc',
+      'outsideAlloc', // I053
       'rituals',
       'dayPlans',
       'dayOverrides',

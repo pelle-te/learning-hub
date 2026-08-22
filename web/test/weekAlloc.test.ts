@@ -18,11 +18,13 @@ import {
   ensureWeekAlloc,
   isUnschedulable,
   isWeekManaged,
+  outsideVec,
   pruneAlloc,
   removeSidFromAlloc,
   resetWeekAlloc,
   rowSumMin,
   setAllocCell,
+  setOutsideCell,
   weekAllocTotalMin,
   weekBudgetMin,
   weekMonOf,
@@ -392,5 +394,48 @@ describe('주간 배분 — 방치 신호(ID-7 neglectDaysBySid)', () => {
   it('완료 이력 없는 과목은 키 없음(신규 과목을 방치로 안 몬다)', () => {
     expect(neglectDaysBySid({ completions: {} } as never, TODAY)).toEqual({});
     expect(NEGLECT_DAYS).toBe(7);
+  });
+});
+
+/* ── I053 「전공 밖」 레인 — **승격 없이 쓰는 칸**(2026-08-22 발상 축) ─────────────────────
+   이 항목이 한 번 보류됐던 이유가 여기 잠긴다: 합성 sid 로 `weekAlloc` 에 쓰면 칸 하나에
+   «교양 2시간»을 적는 순간 그 주가 managed 로 승격돼 **배치 전체가 자동에서 수동으로** 바뀐다.
+   그래서 검사의 본체는 «값이 들어간다»가 아니라 **«그 주가 여전히 auto 다»** 이다. */
+describe('I053 — 전공 밖 레인은 배분 계약을 안 건드린다', () => {
+  const st = () => schedulerState([]) as unknown as import('@/lib/types').AppState;
+
+  it('⚠⚠ 칸을 채워도 그 주는 **managed 로 승격되지 않는다**', () => {
+    const s = st();
+    setOutsideCell(s, '2026-08-17', 1, 120);
+    expect(outsideVec(s, '2026-08-17')[1]).toBe(120);
+    expect(isWeekManaged(s, '2026-08-17'), '승격되면 그 주 배치가 자동→수동으로 뒤집힌다').toBe(false);
+    expect(s.weekAlloc?.['2026-08-17'], 'weekAlloc 을 아예 안 만든다').toBeUndefined();
+  });
+
+  it('전부 0이 되면 **키를 지운다** — 빈 주가 백업·동기화에 남지 않게', () => {
+    const s = st();
+    setOutsideCell(s, '2026-08-17', 3, 60);
+    expect(s.outsideAlloc?.['2026-08-17']).toBeDefined();
+    setOutsideCell(s, '2026-08-17', 3, 0);
+    expect(s.outsideAlloc?.['2026-08-17']).toBeUndefined();
+  });
+
+  it('없는 주·범위 밖 요일은 조용히 0 · 읽기는 **사본**을 준다(제자리 변형 차단)', () => {
+    const s = st();
+    expect(outsideVec(s, '2026-01-05')).toEqual(zeroVec());
+    setOutsideCell(s, '2026-08-17', 9, 60);
+    setOutsideCell(s, '2026-08-17', -1, 60);
+    expect(s.outsideAlloc?.['2026-08-17']).toBeUndefined();
+    setOutsideCell(s, '2026-08-17', 0, 30);
+    const v = outsideVec(s, '2026-08-17');
+    v[0] = 999;
+    expect(outsideVec(s, '2026-08-17')[0]).toBe(30);
+  });
+
+  it('⚠ 스케줄 산출이 **바뀌지 않는다** — 이 값은 배치의 입력이 아니다', () => {
+    const s = st();
+    const before = schedule(s).days.map((d) => d.items.length);
+    setOutsideCell(s, weekMonOf('2026-08-19'), 2, 180);
+    expect(schedule(s).days.map((d) => d.items.length)).toEqual(before);
   });
 });

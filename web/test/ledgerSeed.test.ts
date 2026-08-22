@@ -4,7 +4,14 @@
    원장이 아는 마지막 관측일이다(오늘로 찍으면 유지 사다리가 34일 동안 통째로 fresh 가 된다).
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
+import {
+  applyCardedDone,
+  cardedChapters,
+  cardedPrompt,
+  ledgerPending,
+  pendingCount,
+  pendingPrompt,
+} from '@/lib/ledgerSeed';
 import type { Ledger } from '@/lib/ledger';
 import type { Chapter } from '@/lib/types';
 
@@ -74,5 +81,53 @@ describe('문구 — "카드까지 갔다"이지 "익혔다"가 아님을 말해
     expect(s).toContain('30');
     expect(s).toContain('49');
     expect(s).toContain('익혔다');
+  });
+});
+
+/* ── I001 — **상시 반영**(2026-08-22 발상 축) ────────────────────────────────────────────
+   위 셋은 임포트 순간에만 돌았다. 원장은 그 뒤로도 자라므로 «앱이 뒤처진 만큼»을 언제든
+   물을 수 있어야 한다. 여기서 잠그는 것: ① 이미 찍힌 것은 안 센다 ② 0건인 과목은 목록에
+   안 넣는다(빈 줄이 상주하면 배경이 된다) ③ 원장에만 있는 과목을 **만들지 않는다**. */
+describe('ledgerPending — 앱이 원장보다 뒤처진 만큼', () => {
+  const items = (over?: Partial<Chapter>[]) => [
+    {
+      id: 's1',
+      name: '과학기술과 법',
+      chapters: [
+        { ...ch('01 법의 가치관'), ...(over?.[0] || {}) },
+        { ...ch('02 헌법과 기본권 총론'), ...(over?.[1] || {}) },
+        { ...ch('03 법률행위와 사적자치'), ...(over?.[2] || {}) },
+      ],
+    },
+  ];
+
+  it('carded 인데 앱에 안 찍힌 것만 — 총수를 함께 센다', () => {
+    const p = ledgerPending(led, items());
+    expect(p).toHaveLength(1);
+    expect(p[0]!.chapters.map((c) => c.name)).toEqual(['01 법의 가치관', '02 헌법과 기본권 총론']);
+    expect(pendingCount(p)).toBe(2);
+  });
+
+  it('⚠ **이미 찍힌 것은 안 센다** — 안 그러면 반영 뒤에도 같은 수가 계속 남는다', () => {
+    const p = ledgerPending(led, items([{ done: true }]));
+    expect(p[0]!.chapters.map((c) => c.name)).toEqual(['02 헌법과 기본권 총론']);
+  });
+
+  it('⚠ 남은 것이 0이면 그 과목은 **목록에 없다**(빈 줄이 상주하지 않게)', () => {
+    expect(ledgerPending(led, items([{ done: true }, { done: true }]))).toEqual([]);
+    expect(pendingCount([])).toBe(0);
+  });
+
+  it('⚠ 원장에만 있는 과목은 만들지 않는다 · 이름 없는 항목은 건너뛴다 · 원장이 없으면 0건', () => {
+    expect(ledgerPending(led, [{ id: 'x', name: '', chapters: [ch('01 법의 가치관')] }])).toEqual([]);
+    expect(ledgerPending(led, [{ id: 'x', name: '전자기학', chapters: [ch('01 법의 가치관')] }])).toEqual([]);
+    expect(ledgerPending(undefined, items())).toEqual([]);
+  });
+
+  it('확인 문구가 **과목별 내역과 「익혔다가 아니다」**를 함께 말한다', () => {
+    const t = pendingPrompt(ledgerPending(led, items()));
+    expect(t).toContain('2개');
+    expect(t).toContain('과학기술과 법 2개');
+    expect(t).toContain("'익혔다'는 뜻이 아니에요");
   });
 });

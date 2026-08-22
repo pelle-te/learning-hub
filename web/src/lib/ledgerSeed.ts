@@ -82,3 +82,64 @@ export function cardedPrompt(subject: string, n: number, total: number): string 
     `'카드를 만들었다'는 뜻이지 '익혔다'는 뜻이 아니에요 — 아직 인출 연습이 필요하면 '아니요'를 고르세요.`
   );
 }
+
+/* ── I001 — **원장이 계획 엔진의 입력이 된다**(2026-08-22 발상 축) ────────────────────────
+   위 셋은 **볼트 임포트 순간**에만 돈다(`shell/actions.importVaultSubject`). 그런데 원장은 그
+   뒤로도 계속 자란다 — 검증이 끝나고 카드가 발급되는 것은 임포트와 무관한 별개의 리듬이다.
+   그래서 임포트 때 「아니요」를 골랐거나, 과목을 **손으로** 만든 사람에게는 그 다리가 한 번도
+   놓이지 않는다.
+
+   실측(2026-08-22): 실 DB 의 과목 5개 중 4개가 원장과 **이름까지 정확히** 맞고 챕터는
+   **51/51 (100%)** 맞는데, 원장은 `verified 35 · carded 31` 을 아는 반면 앱의 `chapters[].done`
+   은 **0/51** 이었다. 즉 다리는 설계돼 있었지만 그 위로 아무것도 안 지나갔다.
+
+   ⚠⚠ **자동 반영은 여기서도 안 한다.** 이유는 이 파일 머리주석 그대로 — `carded` 는 «카드를
+   만들었다»이지 «익혔다»가 아니다. 바뀌는 것은 **언제 물어보는가**뿐이다(임포트 1회 → 상시).
+   그 구분이 이 항목과 「자동 동기화」의 차이이고, 후자는 이 저장소가 명시적으로 거절한 형태다. */
+
+/** 한 과목의 미반영분 — 원장은 카드까지 봤는데 앱에는 안 찍힌 챕터들. */
+export interface LedgerPending {
+  sid: string;
+  subject: string;
+  chapters: CardedChapter[];
+}
+
+/**
+ * 전 과목의 미반영분(순수). 이미 `done` 인 챕터는 애초에 안 담는다.
+ *
+ * ⚠ 과목 이름을 **앱 쪽에서** 원장으로 찾는다(그 반대가 아니다) — 원장에만 있는 과목은 앱의
+ * 학습 대상이 아니고(아직 등록 안 함), 그걸 여기서 만들면 이 모듈이 과목 생성기가 된다.
+ * ⚠ 빈 과목은 결과에 안 넣는다 — 「0건 반영」 줄이 화면에 상주하면 그 줄은 곧 배경이 된다.
+ */
+export function ledgerPending(
+  led: Ledger | undefined | null,
+  items: readonly { id: string; name: string; chapters?: Chapter[] }[],
+): LedgerPending[] {
+  if (!led) return [];
+  const out: LedgerPending[] = [];
+  for (const it of items) {
+    if (!it.name) continue;
+    const chapters = it.chapters || [];
+    const carded = cardedChapters(led, it.name, chapters).filter(
+      (c) => !chapters.find((ch) => ch.name === c.name)?.done,
+    );
+    if (carded.length) out.push({ sid: it.id, subject: it.name, chapters: carded });
+  }
+  return out;
+}
+
+/** 미반영 챕터 총수 — 화면이 한 줄로 말할 수 있게. */
+export function pendingCount(p: readonly LedgerPending[]): number {
+  return p.reduce((n, x) => n + x.chapters.length, 0);
+}
+
+/** 상시 반영의 확인 문구(I001) — 과목이 여럿이라 위와 형상이 다르다. 규율은 같다. */
+export function pendingPrompt(p: readonly LedgerPending[]): string {
+  const lines = p.map((x) => `  · ${x.subject} ${x.chapters.length}개`).join('\n');
+  return (
+    `볼트 원장이 **카드 발급까지 끝났다**고 말하는 챕터가 ${pendingCount(p)}개인데 앱에는 안 찍혀 있어요.\n\n` +
+    `${lines}\n\n` +
+    `끝낸 것으로 표시하면 새로 배울 목록에서 빠지고 유지(복습) 사다리로 넘어갑니다.\n` +
+    `'카드를 만들었다'는 뜻이지 '익혔다'는 뜻이 아니에요 — 아직 인출 연습이 필요하면 '아니요'를 고르세요.`
+  );
+}
