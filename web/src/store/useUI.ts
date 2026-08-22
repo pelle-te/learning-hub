@@ -110,9 +110,9 @@ export const useUI = create<UIStore>()(
         flush();
       },
       markSeen(key, ds) {
-        if (get().ui.seenAt[key] === ds) return; // 같은 날 재방문은 쓰기가 아니다
+        if (get().ui.seenDs[key] === ds) return; // 같은 날 재방문은 쓰기가 아니다
         set((s) => {
-          s.ui.seenAt[key] = ds;
+          s.ui.seenDs[key] = ds;
         });
         flush();
       },

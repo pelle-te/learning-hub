@@ -10,7 +10,7 @@
    ② masteryColor의 명도가 42~52% 하드코딩이라 다크에선 저숙달 빨강이, 라이트에선 고숙달 초록이 묻혔다.
       이제 --mastery-l0/l1 토큰 보간이라 calc()가 유효해야 하고(무효면 선언이 통째로 버려진다) 테마별로 달라야 한다.
 ============================================================ */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './_test';
 
 /** 주어진 테마에서 CSS 값들을 계산된 색으로 해석한다. */
 async function resolve(page: import('@playwright/test').Page, theme: string, decls: string[]) {

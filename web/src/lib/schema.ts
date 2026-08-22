@@ -174,8 +174,15 @@ export const CompletionEntrySchema = z.object({
    *  ⚠ **날짜가 아니라 시각만** 담는다 — 날짜는 이미 `doneDs` 가 갖고 있고, 둘을 한 필드에
    *  합치면 기존 `doneDs` 소비처(복습 사다리 앵커)가 파싱을 다시 해야 한다.
    *  ⚠ 지금은 **아무 화면도 이 값을 안 그린다.** 그게 의도다 — 로드맵 T-8 의 "가장 싼 검증"이
-   *  _"`doneAt` 한 필드만 추가하고 2주 방치"_ 다. 표본이 쌓인 뒤에 무엇을 그릴지 정한다. */
-  doneAt: z.optional(z.string()),
+   *  _"한 필드만 추가하고 2주 방치"_ 다. 표본이 쌓인 뒤에 무엇을 그릴지 정한다.
+   *  ⚠⚠ **이름이 `doneAt` 이었다 — `doneHm` 으로 바꿨다**(C039 · 2026-08-22). 이 저장소에서
+   *  `*At` 은 지배적으로 **epoch ms** 라(선언 28건 중 24) 아무 화면도 안 그리는 이 필드는 특히
+   *  위험했다: 위 주석이 *"표본이 쌓이면 그린다"* 고 **미래의 소비처를 예약**해 두었는데, 그
+   *  사람이 관용구대로 `new Date(entry.doneAt)` 를 쓰면 `'21:40'` 에서 **`Invalid Date`** 가
+   *  나온다. 이름이 `Hm` 이면 그 실수가 성립하지 않는다.
+   *  ⚠ 마이그레이션 0 — 실 DB `completions` **0행**(2026-08-22 읽기 전용 사본으로 실측)이라
+   *  잃을 값이 없다. 값이 쌓인 뒤였다면 이 개명은 이관을 요구했을 것이다. */
+  doneHm: z.optional(z.string()),
 });
 /** completions[ds][`${sid}|${type}`] = {done,min} */
 export const CompletionsSchema = z.record(z.string(), z.record(z.string(), CompletionEntrySchema));
@@ -573,7 +580,7 @@ export const AppStateSchema = z.looseObject({
 
      ⚠ `records` 슬라이스라 **D1 DDL 0 · 서버 zod 0 · 폰 전파 0**(`questions`·`jolAsks` 선례).
      ⚠ **옵셔널이 계약**이다 — 옛 저장·다른 기기 pull 에 이 키가 없다.
-     ⚠ **지금은 아무 화면도 이 값을 안 그린다.** 그게 의도다(`doneAt`(T-8)이 세운 관용구):
+     ⚠ **지금은 아무 화면도 이 값을 안 그린다.** 그게 의도다(`doneHm`(T-8)이 세운 관용구):
      관측 며칠치로 챕터를 줄 세우면 `chapterStrength` 가 이미 거절한 정밀도의 착시가 된다.
      소비처는 표본이 쌓인 뒤에 정한다. */
   retrievals: z.optional(

@@ -1,0 +1,561 @@
+{
+  "duplicates": [
+    {
+      "firstFile": {
+        "end": 213,
+        "endLoc": {
+          "column": 19,
+          "line": 213,
+          "position": 10754
+        },
+        "name": "features\\day\\BacklogCard.tsx",
+        "start": 199,
+        "startLoc": {
+          "column": 19,
+          "line": 199,
+          "position": 10141
+        }
+      },
+      "format": "tsx",
+      "fragment": "              </div>\n              <div className=\"mt-2 flex gap-2\">\n                <Button sm variant=\"primary\" onClick={saveEdit}>\n                  저장\n                </Button>\n                <Button sm variant=\"ghost\" onClick={cancel}>\n                  취소\n                </Button>\n              </div>\n            </div>\n          ) : (\n            /* W13 커서 — 행 하나가 탭 스톱 하나. 어휘는 `useListCursor` 가 7개로 닫는다:\n               여기선 `x` 회수 · `e` 수정 · `d` 삭제. 안쪽 컨트롤은 `tabIndex={-1}` 이라 Tab 이 안 든다. */\n            <div\n              key={b.id}",
+      "lines": 15,
+      "secondFile": {
+        "end": 226,
+        "endLoc": {
+          "column": 22,
+          "line": 226,
+          "position": 10993
+        },
+        "name": "features\\day\\SummaryCard.tsx",
+        "start": 215,
+        "startLoc": {
+          "column": 15,
+          "line": 215,
+          "position": 10637
+        }
+      },
+      "tokens": 62
+    },
+    {
+      "firstFile": {
+        "end": 103,
+        "endLoc": {
+          "column": 7,
+          "line": 103,
+          "position": 5748
+        },
+        "name": "features\\degree\\CalendarIntake.tsx",
+        "start": 91,
+        "startLoc": {
+          "column": 7,
+          "line": 91,
+          "position": 5264
+        }
+      },
+      "format": "tsx",
+      "fragment": "      });\n      const target = st.degree.semesters.find((s) => s.id === sem?.id);\n      if (target) {\n        const marks: AcademicMark[] = target.marks || [];\n        draft.marks.forEach((m, i) => {\n          if (!p.marks.has(i)) return;\n          if (marks.some((x) => x.ds === m.ds && x.kind === m.kind)) return;\n          marks.push({ id: rid(), kind: m.kind, ds: m.ds, label: m.label });\n          n.mark += 1;\n        });\n        if (marks.length) target.marks = marks;\n      }\n    });",
+      "lines": 13,
+      "secondFile": {
+        "end": 111,
+        "endLoc": {
+          "column": 7,
+          "line": 111,
+          "position": 6089
+        },
+        "name": "features\\degree\\SyllabusIntake.tsx",
+        "start": 98,
+        "startLoc": {
+          "column": 38,
+          "line": 98,
+          "position": 5460
+        }
+      },
+      "tokens": 157
+    },
+    {
+      "firstFile": {
+        "end": 133,
+        "endLoc": {
+          "column": 34,
+          "line": 133,
+          "position": 6885
+        },
+        "name": "features\\degree\\CalendarIntake.tsx",
+        "start": 112,
+        "startLoc": {
+          "column": 11,
+          "line": 112,
+          "position": 6212
+        }
+      },
+      "format": "tsx",
+      "fragment": "    setName('');\n    setPicks(null);\n  };\n\n  const row = (kind: keyof Picks, i: number, main: string, meta: string) => (\n    <li key={`${kind}-${i}`} className=\"flex items-center gap-2 py-0.5 text-md\">\n      <input\n        type=\"checkbox\"\n        checked={p[kind].has(i)}\n        onChange={() => toggle(kind, i)}\n        aria-label={`${main} 반영`}\n        className=\"shrink-0\"\n      />\n      <span className=\"min-w-0 flex-1 truncate\">{main}</span>\n      <span className=\"ds-tiny shrink-0 text-mut tabular-nums\">{meta}</span>\n    </li>\n  );\n\n  return (\n    <div className=\"ds-rule\">\n      <div className=\"mb-3 flex flex-wrap items-baseline gap-3\">\n        <span className=\"ds-caps\">시간표·학사일정 파일(.ics)</span>",
+      "lines": 22,
+      "secondFile": {
+        "end": 184,
+        "endLoc": {
+          "column": 34,
+          "line": 184,
+          "position": 9388
+        },
+        "name": "features\\degree\\SyllabusIntake.tsx",
+        "start": 163,
+        "startLoc": {
+          "column": 11,
+          "line": 163,
+          "position": 8715
+        }
+      },
+      "tokens": 150
+    },
+    {
+      "firstFile": {
+        "end": 153,
+        "endLoc": {
+          "column": 4,
+          "line": 153,
+          "position": 7727
+        },
+        "name": "features\\integrations\\AnkiPanel.tsx",
+        "start": 145,
+        "startLoc": {
+          "column": 27,
+          "line": 145,
+          "position": 7455
+        }
+      },
+      "format": "tsx",
+      "fragment": "    if (items.some((s) => s.name === nm)) {\n      toast('이미 추가됨', 'warn');\n      return;\n    }\n    mutate((st) => {\n      st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));\n    });\n    toast(`\"${nm}\" 매일 ${mins}분 복습으로 추가됨`, 'ok');\n  };",
+      "lines": 9,
+      "secondFile": {
+        "end": 90,
+        "endLoc": {
+          "column": 4,
+          "line": 90,
+          "position": 4447
+        },
+        "name": "features\\items\\VaultImport.tsx",
+        "start": 82,
+        "startLoc": {
+          "column": 27,
+          "line": 82,
+          "position": 4175
+        }
+      },
+      "tokens": 68
+    },
+    {
+      "firstFile": {
+        "end": 106,
+        "endLoc": {
+          "column": 7,
+          "line": 106,
+          "position": 5144
+        },
+        "name": "features\\integrations\\VaultPanel.tsx",
+        "start": 91,
+        "startLoc": {
+          "column": 39,
+          "line": 91,
+          "position": 4632
+        }
+      },
+      "format": "tsx",
+      "fragment": "      const r = await pickAndScanVault();\n      if (r) {\n        qc.setQueryData(['vault'], r.scan);\n        qc.setQueryData(['vaultHandle'], r.handle); // Anki 패널이 같은 폴더 재사용\n        idbPut('vaultHandle', r.handle); // 다음 부팅에 재선택 없이 재연결\n        setPending(null);\n      }\n    } catch (e) {\n      setErr((e as Error).message || String(e));\n    } finally {\n      setBusy(false);\n    }\n  };\n\n  // 저장된 핸들로 재연결 — 제스처 안에서 권한 요청 후 스캔(폴더 재선택 없음).\n  const reconnect = async () => {",
+      "lines": 16,
+      "secondFile": {
+        "end": 131,
+        "endLoc": {
+          "column": 7,
+          "line": 131,
+          "position": 5980
+        },
+        "name": "features\\integrations\\VaultPanel.tsx",
+        "start": 116,
+        "startLoc": {
+          "column": 46,
+          "line": 116,
+          "position": 5523
+        }
+      },
+      "tokens": 82
+    },
+    {
+      "firstFile": {
+        "end": 113,
+        "endLoc": {
+          "column": 7,
+          "line": 113,
+          "position": 5620
+        },
+        "name": "features\\items\\ChapterEditor.tsx",
+        "start": 102,
+        "startLoc": {
+          "column": 83,
+          "line": 102,
+          "position": 5415
+        }
+      },
+      "format": "tsx",
+      "fragment": "  const cursorItems = useMemo(() => chs.map((c) => ({ key: c.id, item: c })), [chs]);\n\n  const upd = useCallback(\n    (fn: (it: Item) => void) =>\n      mutate((st) => {\n        const it = st.items.find((x) => x.id === id);\n        if (it) fn(it);\n      }),\n    [mutate, id],\n  );\n\n  const addCh = () => upd((it) => void it.chapters.push({ id: rid(), name: '새 챕터', hours: 2, done: false }));",
+      "lines": 12,
+      "secondFile": {
+        "end": 233,
+        "endLoc": {
+          "column": 7,
+          "line": 233,
+          "position": 12880
+        },
+        "name": "features\\items\\SubjectDefinition.tsx",
+        "start": 220,
+        "startLoc": {
+          "column": 62,
+          "line": 220,
+          "position": 12533
+        }
+      },
+      "tokens": 67
+    },
+    {
+      "firstFile": {
+        "end": 59,
+        "endLoc": {
+          "column": 7,
+          "line": 59,
+          "position": 3264
+        },
+        "name": "features\\items\\VaultImport.tsx",
+        "start": 49,
+        "startLoc": {
+          "column": 32,
+          "line": 49,
+          "position": 2984
+        }
+      },
+      "format": "tsx",
+      "fragment": "        qc.setQueryData(['vault'], r.scan);\n        qc.setQueryData(['vaultHandle'], r.handle); // 연동 탭·Anki가 같은 폴더 재사용\n        idbPut('vaultHandle', r.handle);\n      }\n    } catch (e) {\n      setErr((e as Error).message || String(e));\n    } finally {\n      setBusy('');\n    }\n  };\n  const doScanAnki = async () => {",
+      "lines": 11,
+      "secondFile": {
+        "end": 79,
+        "endLoc": {
+          "column": 7,
+          "line": 79,
+          "position": 3951
+        },
+        "name": "features\\items\\VaultImport.tsx",
+        "start": 66,
+        "startLoc": {
+          "column": 35,
+          "line": 66,
+          "position": 3518
+        }
+      },
+      "tokens": 64
+    },
+    {
+      "firstFile": {
+        "end": 462,
+        "endLoc": {
+          "column": 7,
+          "line": 462,
+          "position": 31146
+        },
+        "name": "features\\review-run\\ReviewRun.tsx",
+        "start": 454,
+        "startLoc": {
+          "column": 4,
+          "line": 454,
+          "position": 30546
+        }
+      },
+      "format": "tsx",
+      "fragment": "    setIdx((i) => i + 1);\n    /* N-7 — 이어하기 커서. **판정은 `lib/reviewQueue.cursorOp` 이 소유한다**(M-10) — 폰 러너와\n       같은 규칙을 쓰기 위해서다(종전엔 쓰기가 데스크톱에만 있어 커서가 단방향이었다). */\n    const op = cursorOp(idx, queue.length);\n    if (op?.kind === 'write') writeResume({ kind: 'review', label: '복습 세션', progress: op.progress });\n    else if (op?.kind === 'drop') dropResume();\n  };\n  /** P-2 — 코드 1키 커밋. 문맥이 sid·과목명·챕터를 이미 알므로 **필드가 4→1** 이 된다. */\n  const commitMiss = (code: CbmsCode) => {",
+      "lines": 9,
+      "secondFile": {
+        "end": 172,
+        "endLoc": {
+          "column": 7,
+          "line": 172,
+          "position": 9323
+        },
+        "name": "phone\\ReviewView.tsx",
+        "start": 162,
+        "startLoc": {
+          "column": 4,
+          "line": 162,
+          "position": 8520
+        }
+      },
+      "tokens": 66
+    },
+    {
+      "firstFile": {
+        "end": 549,
+        "endLoc": {
+          "column": 14,
+          "line": 549,
+          "position": 31329
+        },
+        "name": "lib\\db\\rows.ts",
+        "start": 536,
+        "startLoc": {
+          "column": 19,
+          "line": 536,
+          "position": 31039
+        }
+      },
+      "format": "typescript",
+      "fragment": "    completions: [],\n    dsMaps: { dayOverrides: [], dayPlans: [], rituals: [], resume: [] },\n    arrays: {\n      cbms: [],\n      backlog: [],\n      blankResults: [],\n      retentionLog: [],\n      events: [],\n      tasks: [],\n      questions: [],\n      jolAsks: [],\n      retrievals: [],\n    },\n    summaries: [],",
+      "lines": 14,
+      "secondFile": {
+        "end": 298,
+        "endLoc": {
+          "column": 14,
+          "line": 298,
+          "position": 16388
+        },
+        "name": "lib\\db\\sqlite.ts",
+        "start": 285,
+        "startLoc": {
+          "column": 93,
+          "line": 285,
+          "position": 16098
+        }
+      },
+      "tokens": 77
+    },
+    {
+      "firstFile": {
+        "end": 79,
+        "endLoc": {
+          "column": 38,
+          "line": 79,
+          "position": 3509
+        },
+        "name": "lib\\idb.ts",
+        "start": 71,
+        "startLoc": {
+          "column": 50,
+          "line": 71,
+          "position": 3229
+        }
+      },
+      "format": "typescript",
+      "fragment": "export function idbPut(key: string, value: unknown): Promise<void> {\n  if (typeof indexedDB === 'undefined') return Promise.resolve();\n  return open()\n    .then(\n      (db) =>\n        new Promise<void>((res) => {\n          try {\n            const tx = db.transaction(IDB_STORE, 'readwrite');\n            tx.objectStore(IDB_STORE).put(value, key);",
+      "lines": 9,
+      "secondFile": {
+        "end": 115,
+        "endLoc": {
+          "column": 38,
+          "line": 115,
+          "position": 4571
+        },
+        "name": "lib\\idb.ts",
+        "start": 107,
+        "startLoc": {
+          "column": 34,
+          "line": 107,
+          "position": 4291
+        }
+      },
+      "tokens": 64
+    },
+    {
+      "firstFile": {
+        "end": 137,
+        "endLoc": {
+          "column": 6,
+          "line": 137,
+          "position": 6894
+        },
+        "name": "lib\\mistakes.ts",
+        "start": 126,
+        "startLoc": {
+          "column": 0,
+          "line": 126,
+          "position": 6474
+        }
+      },
+      "format": "typescript",
+      "fragment": "function hashStr(s: string): number {\n  let h = 0;\n  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;\n  return Math.abs(h);\n}\n\n/**\n * 오늘 볼 몇 건 — 정렬 순서 위를 **날짜로 회전하는 창**. 행이 `n` 이하면 그대로 전부.\n *\n * ⚠ 순수·결정론: 벽시계를 안 본다(`todayDs` 를 받는다). 같은 날 여러 번 열어도 같은 창이다.\n */\nexport function todayMistakes(rows: readonly MistakeRow[], todayDs: string, n = TODAY_PICK_N): MistakeRow[] {",
+      "lines": 12,
+      "secondFile": {
+        "end": 27,
+        "endLoc": {
+          "column": 8,
+          "line": 27,
+          "position": 1467
+        },
+        "name": "lib\\retrieval.ts",
+        "start": 20,
+        "startLoc": {
+          "column": 0,
+          "line": 20,
+          "position": 1182
+        }
+      },
+      "tokens": 62
+    },
+    {
+      "firstFile": {
+        "end": 136,
+        "endLoc": {
+          "column": 21,
+          "line": 136,
+          "position": 7107
+        },
+        "name": "lib\\scheduler\\layout.ts",
+        "start": 124,
+        "startLoc": {
+          "column": 30,
+          "line": 124,
+          "position": 6718
+        }
+      },
+      "format": "typescript",
+      "fragment": "    .filter((b) => b.type !== BLOCK_SLEEP)\n    .forEach((b) => {\n      const s = toMin(b.start);\n      const e = toMin(b.end);\n      // 자정 걸침 → 두 세그먼트(end<start인 깨진 항목 방지 — freeWindows 분할과 동일 규칙).\n      const segs: [number, number][] =\n        s <= e\n          ? [[s, e]]\n          : [\n              [s, 1440],\n              [0, e],\n            ];\n      segs.forEach(([ss, ee]) =>",
+      "lines": 13,
+      "secondFile": {
+        "end": 85,
+        "endLoc": {
+          "column": 21,
+          "line": 85,
+          "position": 4194
+        },
+        "name": "lib\\scheduler\\windows.ts",
+        "start": 74,
+        "startLoc": {
+          "column": 30,
+          "line": 74,
+          "position": 3925
+        }
+      },
+      "tokens": 74
+    },
+    {
+      "firstFile": {
+        "end": 65,
+        "endLoc": {
+          "column": 56,
+          "line": 65,
+          "position": 5100
+        },
+        "name": "phone\\phone.css",
+        "start": 54,
+        "startLoc": {
+          "column": 111,
+          "line": 54,
+          "position": 4366
+        }
+      },
+      "format": "css",
+      "fragment": "   `components.css:255-267` 을 그대로 옮긴다 — 두 곳이 갈리지 않게 값이 동일해야 한다. */\n:focus-visible {\n  outline: 2px solid var(--acc);\n  outline-offset: 2px;\n  border-radius: 6px;\n}\n/* ⚠ 여기 있던 `button,input,select,textarea,[role='tab']:focus-visible` 블록을 지웠다\n   (2026-08-21 ux 축 · 잔재②③). ① `[role='tab']` 은 **전 저장소에 0건**이다 — tablist 계약을\n   이행하지 못해 전 화면이 `group`+`aria-pressed` 로 내려갔는데(결정로그) CSS 짝만 남아 배포\n   번들에까지 실리고 있었다. ② 나머지 넷은 바로 위 전역 `:focus-visible` 과 **outline 값이 한\n   글자도 다르지 않다**(`border-radius: 6px` 도 전역이 이미 준다) — 지워도 렌더가 안 바뀐다.\n   되살리려면 `git show HEAD:web/src/styles/global/phone.css`. */",
+      "lines": 12,
+      "secondFile": {
+        "end": 310,
+        "endLoc": {
+          "column": 56,
+          "line": 310,
+          "position": 12860
+        },
+        "name": "styles\\global\\components.css",
+        "start": 299,
+        "startLoc": {
+          "column": 62,
+          "line": 299,
+          "position": 12126
+        }
+      },
+      "tokens": 432
+    },
+    {
+      "firstFile": {
+        "end": 89,
+        "endLoc": {
+          "column": 3,
+          "line": 89,
+          "position": 6507
+        },
+        "name": "phone\\phone.css",
+        "start": 78,
+        "startLoc": {
+          "column": 126,
+          "line": 78,
+          "position": 6223
+        }
+      },
+      "format": "css",
+      "fragment": "   다르게 보인다(포커스 링 주석이 같은 계약을 말한다). 투명도를 쓰지 않는 이유도 그쪽과 같다. */\n.ds-shed {\n  color: var(--mut);\n  filter: saturate(0.35);\n  text-decoration: line-through;\n  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);\n  transition:\n    color var(--dur-fast) var(--ease-shed),\n    filter var(--dur-fast) var(--ease-shed);\n}\n\n/* 폰 전용 바탕 — 셸의 크롬(레일·상단바)이 없으므로 여기가 앱 프레임이다.",
+      "lines": 12,
+      "secondFile": {
+        "end": 232,
+        "endLoc": {
+          "column": 3,
+          "line": 232,
+          "position": 16643
+        },
+        "name": "styles\\ds.css",
+        "start": 221,
+        "startLoc": {
+          "column": 122,
+          "line": 221,
+          "position": 16359
+        }
+      },
+      "tokens": 94
+    }
+  ],
+  "statistics": {
+    "detectionDate": "2026-08-22T01:04:14.765Z",
+    "formats": {
+      "css": {
+        "clones": 2,
+        "duplicatedLines": 22,
+        "duplicatedTokens": 526,
+        "lines": 4173,
+        "newClones": 0,
+        "newDuplicatedLines": 0,
+        "percentage": 0.5271986580397795,
+        "percentageTokens": 0.4563159858073583,
+        "sources": 10,
+        "tokens": 115271
+      },
+      "tsx": {
+        "clones": 8,
+        "duplicatedLines": 99,
+        "duplicatedTokens": 716,
+        "lines": 30084,
+        "newClones": 0,
+        "newDuplicatedLines": 0,
+        "percentage": 0.329078579976067,
+        "percentageTokens": 0.3960878031510001,
+        "sources": 127,
+        "tokens": 180768
+      },
+      "typescript": {
+        "clones": 4,
+        "duplicatedLines": 44,
+        "duplicatedTokens": 277,
+        "lines": 31074,
+        "newClones": 0,
+        "newDuplicatedLines": 0,
+        "percentage": 0.14159747699040998,
+        "percentageTokens": 0.18170964504300025,
+        "sources": 177,
+        "tokens": 152441
+      }
+    },
+    "total": {
+      "clones": 14,
+      "duplicatedLines": 165,
+      "duplicatedTokens": 1519,
+      "lines": 65331,
+      "newClones": 0,
+      "newDuplicatedLines": 0,
+      "percentage": 0.25256004040960645,
+      "percentageTokens": 0.338699607563325,
+      "sources": 314,
+      "tokens": 448480
+    }
+  }
+}

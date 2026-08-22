@@ -1,0 +1,31 @@
+=== TS: catch 블록 총수 ===
+195
+=== TS: 빈 catch / 주석만 catch ===
+6
+--- 목록(상위 30) ---
+web/src\lib\cloud\client.ts:185:catch {
+web/src\lib\cloud\client.ts:186:    // 네트워크·인증 실패 — 아래 로컬 삭제는 그대로 진행한다(위 주석 참조).
+web/src\lib\cloud\client.ts:187:  }
+web/src\lib\quickCapture.ts:242:catch {
+web/src\lib\quickCapture.ts:243:    // 견고성: 어떤 단계든 예외는 삼키고 최소 title만 반환.
+web/src\lib\quickCapture.ts:244:  }
+
+=== TS: non-null 단언 '!' (대략) ===
+web/src\lib\scheduler\dayPlanOverride.ts:1
+web/src\features\today\TodaySignature.tsx:1
+web/src\features\schedule\WeekCalendar.tsx:1
+web/src\features\schedule\DayPlannerEditBar.tsx:1
+web/src\features\items\Subject.tsx:1
+
+=== Rust: unwrap/expect/panic ===
+97
+src-tauri/src\vault.rs:24
+src-tauri/src\db.rs:18
+src-tauri/src\anki_scan.rs:17
+src-tauri/src\hotkey.rs:8
+src-tauri/src\files.rs:7
+src-tauri/src\ollama.rs:6
+src-tauri/src\artifact.rs:6
+src-tauri/src\tools.rs:5
+src-tauri/src\testkit.rs:5
+src-tauri/src\lib.rs:1

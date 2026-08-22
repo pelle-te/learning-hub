@@ -315,9 +315,13 @@ fn run_blocking(py: &str, tool: &'static Tool, extra: Vec<String>, cwd: &Path) -
         Err(e) => {
             return RunOut {
                 ok: false,
-                /* ⚠ 주입 경로를 **메시지가 말한다**(n-7). `PYTHON` 은 설정 UI·`tauri.conf.json`·
-                   README 어디에도 없어서, 부모 워크스페이스의 venv 를 써야 하는 사용자가
-                   무엇을 할 수 있는지 알 방법이 없었다. */
+                /* ⚠ 주입 경로를 **메시지가 말한다**(n-7). 종전엔 `PYTHON` 이 설정 UI·
+                   `tauri.conf.json`·README 어디에도 없어서, 부모 워크스페이스의 venv 를 써야
+                   하는 사용자가 무엇을 할 수 있는지 알 방법이 없었다.
+                   ⚠ **README §실행 이 이제 그것을 적는다**(U040 · 2026-08-22) — 실패한 뒤가
+                   아니라 **실패하기 전에** 읽는 자리다. 이 메시지는 그 짝으로 남는다(둘 다
+                   필요하다: 문서는 «미리», 메시지는 «지금»). 설정 UI 에는 넣지 않았다 —
+                   프로세스 환경변수라 앱이 자기 실행 뒤에 바꿔도 이미 뜬 셸에 안 걸린다. */
                 out: format!(
                     "spawn 실패: {e} — python 이 PATH 에 있어야 합니다. \
                      다른 인터프리터(예: 프로젝트 venv)를 쓰려면 환경변수 `{PYTHON_ENV}` 에 그 경로를 넣으세요."

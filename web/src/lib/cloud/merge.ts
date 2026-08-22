@@ -40,7 +40,7 @@ import {
   upsertRowSql,
   type OutboxBatch,
 } from './contract';
-import { noteMergedRows } from './outbox';
+import { noteMergedRows, noteMergedTombs } from './outbox';
 
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
 
@@ -102,6 +102,33 @@ export interface ApplyPullOptions {
    * 여전히 유효한 근거는 그쪽 머리주석이 갖는다.
    */
   keepUndo?: boolean;
+
+  /**
+   * 병합 뒤 정본을 **되읽어** 기준선을 세울 것인가. 기본 `true`.
+   *
+   * ⚠⚠ **드레인 루프는 `false` 를 준다**(C041 · 2026-08-22 코드 축 1회차). 종전엔 회차마다
+   * `readRows()` 로 **정본 전량**을 다시 읽었고, 그 결과 중 **마지막 것만** 쓰였다 —
+   * `run.ts` 가 *"`applyPull` 은 매번 정본 전량을 다시 읽어 오므로 마지막 것이 곧 누적 결과다"*
+   * 라고 그 사실을 **근거로** 적을 만큼 설계에 알려져 있었다.
+   *
+   * 비용은 선형이 아니라 **제곱**이다: 한 회차 상한이 `MAX_BATCH_ITEMS=500` 이므로 행 N 을 받는
+   * 드레인은 라운드 ≈`N/500+1`, 라운드마다 DB 전량 D행을 읽는다 → **O(N·D/500)**. 전량
+   * 온보딩(N≈D)이면 **O(D²/500)** 이라 데이터가 10배면 낭비가 100배다. 저장소가 스스로 적은
+   * 규모(`write.ts` *"10,380행/0.67MB"*)에서 22라운드 × 10,380 = 228,360 행-읽기 ≈ 21MB IPC 이고
+   * 실제로 필요한 것은 **마지막 1회**뿐이다.
+   * m-7(2026-08-20)이 같은 루프에서 `rowsToState` 를 지연 게터로 빼 절반을 없앴는데 그 아래
+   * `readRows()` 는 그대로 남아 있었다.
+   *
+   * ⚠ 핫패스는 **기기 온보딩 · 전량 복구 · 오래 끊긴 뒤 복귀**다. 일상 편집은 1회차로 끝나
+   * 비용이 0이라, 오늘 실 DB(총 24행)에서는 이 비용이 **관측되지 않는다** — 고치는 이유는
+   * 관측된 느림이 아니라 «분모가 자라면 조용히 제곱이 되는 형태»다.
+   *
+   * ⚠⚠ **`false` 여도 안전 장치는 그대로 선다**: 기준선을 **무효화**하고(`null` = 다음 쓰기가
+   * DB 를 재독한다) 병합 창을 **연다**. 안 그러면 DB 는 병합-후인데 기준선이 병합-전이라,
+   * 그 사이의 flush 가 **받아온 행을 되돌리는 upsert** 를 만든다 — C-1 이 고친 그 형태다.
+   * 되읽기는 드레인이 끝난 뒤 `refreshBaseline()` 이 **한 번** 한다.
+   */
+  readback?: boolean;
 }
 
 /**
@@ -173,7 +200,13 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
     /* 방금 받은 행을 적어 둔다 — 다음 아웃박스 스캔이 이 행들을 **되돌려 올리지 않게**(H31-②).
        정확성 장치가 아니라 유선 절약이고, 표가 비어도 종전 거동일 뿐이다(`outbox.ts` 머리주석).
        ⚠ 합성 배치(되살리기)는 여기 들어오면 안 된다 — `ApplyPullOptions.echo` 주석이 소유한다. */
-    if (echo) noteMergedRows(batch.rows);
+    if (echo) {
+      noteMergedRows(batch.rows);
+      /* ⚠ 툼스톤도 같이 적는다(D024 · 2026-08-22) — 종전엔 행만 적어서 **받아온 삭제가 다음
+         스캔에 되올라갔다.** `outbox.ts` 머리주석이 행에 대해 적어 둔 그 상태가 삭제 축에만
+         남아 있던 것이다. */
+      noteMergedTombs(batch.tombstones);
+    }
 
     /* ⚠ 받아온 것에 `docs` 행이 있으면 메모리 사본을 되맞춘다(H1). `docs._cache` 는 부팅에만
        채워져, 안 하면 폰 `ReadsView` 가 받아온 독후감·미러 산출물을 재시작까지 못 본다.
@@ -183,6 +216,16 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
        툼스톤을 같이 넣어야 한다"* 는 조건부 규칙을 세워 뒀지만 그 규칙은 **메모리 사본 무효화까지
        말하지 않는다** → 그 커밋이 오면 조용히 틀린다. 지금 한 줄이 그때의 진단보다 싸다. */
     if (batch.rows.some((r) => r.tbl === 'docs') || batch.tombstones.some((t) => t.tbl === 'docs')) await reloadDocs();
+
+    /* ⚠ 드레인 회차(C041) — 되읽지 않는다. 그래도 **기준선 무효화 + 병합 창**은 선다:
+       DB 는 이미 병합-후인데 기준선이 병합-전으로 남으면 그 사이 flush 가 받아온 행을 되돌린다.
+       `null` 기준선은 «다음 쓰기가 DB 를 재독한다»는 뜻이고, 이 파일이 되읽기 실패에 대해
+       이미 고른 안전한 응답과 같다. */
+    if (opts.readback === false) {
+      setDiffBaseline(null);
+      beginMergeApply();
+      return null;
+    }
 
     /* ⚠ **기준선을 먼저, 상태를 나중에.** 이 순서가 에코를 막는다(머리주석 참조).
        되읽은 행으로 기준선을 세워야 `applyMerged` 의 flush(진행 중 편집이 있을 때만)가 받아온
@@ -201,4 +244,29 @@ export async function applyPull(batch: OutboxBatch, opts: ApplyPullOptions = {})
   });
 
   return mergeResult(rows, applied);
+}
+
+/**
+ * 정본을 **한 번** 되읽어 기준선을 세운다 — 드레인이 끝난 뒤 `run.ts` 가 부른다(C041).
+ *
+ * ⚠ `applyPull({readback:true})` 의 마지막 문단과 **글자 그대로 같은 일**을 하고, 그래서 그
+ * 문단이 이 함수를 부른다(사본을 두면 «기준선 먼저, 창은 같은 문장에서» 라는 순서 계약이
+ * 두 벌이 된다 — C1 이 그 순서에서 나왔다).
+ *
+ * ⚠ `runExclusive` 안이어야 한다(H4) — 되읽기와 flush 가 같은 직렬화 단위에 있어야 기준선이
+ * 안 세워진 사이에 낡은 메모리가 더 큰 스탬프로 쓰이지 않는다.
+ *
+ * @returns 되읽은 행. `null` 이면 되읽기 실패 — 호출부가 기준선을 무효화한 채로 둔다
+ *          (창도 열지 않는다: `applyMerged` 가 안 불리므로 끌 사람이 없다).
+ */
+export function refreshBaseline(): Promise<DbRows | null> {
+  return runExclusive(async () => {
+    const back = await readRows();
+    if (!back) return null;
+    setDiffBaseline(back);
+    /* 기준선을 세운 **바로 이 순간부터** 메모리 반영까지 flush 를 막는다(C1) — 같은 문장에
+       두어 창의 시작을 원자적으로 만든다. `applyMerged`(성공) 또는 `runSync` finally 가 끈다. */
+    beginMergeApply();
+    return back;
+  });
 }

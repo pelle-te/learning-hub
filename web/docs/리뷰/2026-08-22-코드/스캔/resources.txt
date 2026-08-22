@@ -1,0 +1,20 @@
+=== 리스너·타이머 짝 (web/src, 테스트 제외) ===
+addEventListener           43
+removeEventListener        40
+setInterval                11
+clearInterval              8
+setTimeout                 38
+clearTimeout               23
+requestAnimationFrame      5
+cancelAnimationFrame       4
+new MutationObserver       0
+new ResizeObserver         1
+\.disconnect\(             1
+\.subscribe\(              1
+\.unsubscribe\(            0
+new AbortController        1
+\.abort\(                  1
+
+=== Rust unwrap: 테스트 밖인지 (vault.rs·db.rs) ===
+src-tauri/src/vault.rs:516:     *WATCH_ERR.lock().expect("vault watch err") = v;
+src-tauri/src/vault.rs:524:     WATCH_ERR.lock().expect("vault watch err").clone()

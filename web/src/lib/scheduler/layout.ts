@@ -2,7 +2,7 @@
    scheduler/layout.ts — 하루치 세션을 '시각'에 앉히는 층(엔진이 '무엇을·얼마나'를 정한 뒤).
    피크 시간대 우선 배치 · 자유 구간 차감 · 남는 분(over) 표시까지.
 ============================================================ */
-import { BLOCK_SLEEP, routineBlockColor, toMin } from '../utils';
+import { BLOCK_SLEEP, minuteSegments, routineBlockColor, toMin } from '../utils';
 import { eventIntervals } from '../events';
 import { interleaveByKey } from '../spacedReview';
 import { blocksForWeekday, freeWindowsForDay, subtractIntervals } from './windows';
@@ -123,17 +123,10 @@ export function layoutDay(state: AppState, day: Day): LayoutResult {
   blocks
     .filter((b) => b.type !== BLOCK_SLEEP)
     .forEach((b) => {
-      const s = toMin(b.start);
-      const e = toMin(b.end);
-      // 자정 걸침 → 두 세그먼트(end<start인 깨진 항목 방지 — freeWindows 분할과 동일 규칙).
-      const segs: [number, number][] =
-        s <= e
-          ? [[s, e]]
-          : [
-              [s, 1440],
-              [0, e],
-            ];
-      segs.forEach(([ss, ee]) =>
+      /* 자정 걸침 → 두 세그먼트(end<start 인 깨진 항목 방지). ⚠ 규칙의 집은
+         `utils.minuteSegments` 하나다(C038) — 종전엔 «freeWindows 분할과 동일 규칙»이라는
+         산문이 그 결합을 지고 있었고, 그래서 스케줄러와 타임라인이 갈릴 수 있었다. */
+      minuteSegments(b.start, b.end).forEach(([ss, ee]) =>
         tl.push({
           kind: 'block',
           name: b.name,

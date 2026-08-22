@@ -71,6 +71,29 @@ describe('시간표 — 주 반복이 일과 블록이 된다', () => {
     expect(d.unparsed, '버렸으면 **버렸다고 세야 한다**').toBe(1);
   });
 
+  /* ⚠⚠ C035(2026-08-22) — `COUNT=n` 은 위 `INTERVAL=2` 와 **같은 축의 다른 갈래**였는데
+     한쪽만 막혀 있었다. 3주짜리 보강이 종료 개념 없는 `RoutineBlock` 이 되어 3주 뒤부터
+     매주 그 시간을 영구히 먹고, 재인입이 정상 사용(I010)이라 반입마다 하나씩 쌓였다. */
+  it('⚠⚠ 유한 반복(COUNT=n)은 일과로 안 옮긴다 — 끝난 뒤에도 매주 시간을 먹는다', () => {
+    // ⚠ 제목에 눈금 어휘(「보강」 등)를 쓰지 마라 — 단발 눈금으로 착지해 `unparsed` 가 0이 된다.
+    const d = parseIcs(
+      cal(['SUMMARY:임시 특강', 'DTSTART:20260302T190000', 'RRULE:FREQ=WEEKLY;BYDAY=WE;COUNT=3'].join('\r\n')),
+    );
+    expect(d.lectures, '유한 반복이 상시 일과가 됐다').toEqual([]);
+    expect(d.unparsed, '버렸으면 **버렸다고 세야 한다**').toBe(1);
+  });
+
+  it('⚠ 그 옆칸인 `UNTIL` 은 그대로 통과한다 — 학기 종료 표기이고 뜻이 반대다', () => {
+    const d = parseIcs(
+      cal(
+        ['SUMMARY:정규 강의', 'DTSTART:20260302T090000', 'RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20260620T000000Z'].join(
+          '\r\n',
+        ),
+      ),
+    );
+    expect(d.lectures.map((l) => l.name)).toEqual(['정규 강의']);
+  });
+
   it('⚠ 서수 BYDAY(`2MO` 둘째 월요일)도 주 반복이 아니다', () => {
     const d = parseIcs(
       cal(['SUMMARY:월례회의', 'DTSTART:20260302T090000', 'RRULE:FREQ=WEEKLY;BYDAY=2MO'].join('\r\n')),

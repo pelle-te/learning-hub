@@ -26,6 +26,47 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  /* ⚠⚠ **타입 인지 비동기 린트 두 룰**(C051 · 2026-08-22 코드 축 1회차 · 근본 원인 **R2**).
+
+     ## 무엇이 비어 있었나
+
+     R2 = *"비동기 실패가 어느 층에도 안 걸린다."* 실측 근거 셋이 겹쳐 있었다:
+     · 타입 인지 린트가 **off** — `tseslint.configs.recommended` 는 타입을 안 본다.
+     · `unhandledrejection` 핸들러가 저장소 전체에 **0건**(`lib/telemetry.ts` 가 I052 에 걷혔고,
+       그것을 언급하던 주석만 남아 «어딘가는 보고 있다»고 거짓말했다 — C060 이 그 주석을 지웠다).
+     · e2e 가 `pageerror` 를 검사하지 않는다.
+     즉 떠 있는 Promise 가 조용히 거부되면 **아무 층도 그것을 모른다.**
+
+     그런데 이 저장소는 그 위험을 **알고 있었다**: `void` 표기가 62곳이다(= "이건 의도적
+     fire-and-forget 이다"라는 손 표기). 실측하면 **34곳이 그 표기 없이 새고** 있었다 —
+     즉 규약은 있었고 집행자가 없었다. 이 파일이 반복해 만난 그 형태다.
+
+     ## 왜 두 룰만인가
+
+     `recommendedTypeChecked` 전체를 켜면 수백 건이 쏟아지고, 그 대부분은 이 저장소가 이미
+     `strict` + `noUncheckedIndexedAccess` 로 잡는 축이다. 여기서 사는 것은 **타입 정보가
+     없으면 원리적으로 못 보는 것** 하나뿐이다: «이 표현식이 Promise 인가».
+
+     ## ⚠ `checksVoidReturn.attributes: false` 의 근거 — 그리고 그 대가
+
+     `onClick={async () => …}` 형태가 **69건**이다(전체 위반의 60%). 그 부류를 켜면 이 회차가
+     JSX 핸들러 69개를 재작성하는 회차가 되는데, 그건 R2 가 지목한 «실패가 안 걸린다»와 결이
+     다르다(React 이벤트 핸들러는 그 자체가 경계다). **대가를 정직하게 적는다**: 그 69곳의
+     거부는 여전히 어디에도 안 걸린다. 그 축은 «전역 `unhandledrejection` 한 겹»으로 훨씬 싸게
+     덮이고, 그것이 R2 의 남은 절반이다(원장 참조).
+
+     ## 비용
+
+     실측(2026-08-22): 이 두 룰만 켠 전량 린트가 **22.5초**(`projectService` 프로그램 생성 포함).
+     `verify` 안이고 네트워크를 안 타므로 오프라인 규율(`audit` 을 verify 에서 뺀 근거)에 안 걸린다. */
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
+    },
+  },
   // React Hooks 규칙(rules-of-hooks·exhaustive-deps) + react-compiler 규칙.
   // 컴파일러는 Rules of React를 지킨 컴포넌트만 메모이즈하므로(위반 시 조용히 bail),
   // 이 린트가 위반을 빌드 전에 잡아 자동최적화 적용률을 보장한다(Phase 7 컴파일러 채택 완성).
@@ -172,7 +213,7 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     /* ⚠ **래칫을 745 → 727 로 조였다(H18 · 2026-07-30 `/감사 근본`).**
        규약은 _"임계는 **현재 최댓값**이고 내려가기만 한다"_ 인데, 그새 파일들이 줄어(E17·E24 등)
-       실측 최댓값이 **724** 였다(면제된 `atlasData.ts` 제외 · 권위 측정은 전체-src eslint).
+       실측 최댓값이 **724** 였다(권위 측정은 전체-src eslint).
        즉 래칫이 **21줄 느슨**했고, 그 폭만큼 파일이 조용히 자랄 수 있었다 — 래칫의 유일한 일이
        "더 나빠지지 않는다"인데 그 보장이 21줄 헐거웠던 것이다.
        여유 3줄은 의도다(인지복잡도 래칫 77·여유 0 과 같은 규율 — 넘으면 쪼개라는 뜻). */
@@ -247,12 +288,11 @@ export default tseslint.config(
       ],
     },
   },
-  // atlasData.ts는 진로 아틀라스 시드 **데이터**(779줄)다 — 분할해도 복잡도가 줄지 않는 상수 테이블이라
-  // 크기 래칫의 대상이 아니다(코드가 아니라 데이터라는 것이 예외 사유).
-  {
-    files: ['src/lib/atlasData.ts'],
-    rules: { 'max-lines': 'off' },
-  },
+  /* ⚠ **`src/lib/atlasData.ts` 의 `max-lines: 'off'` 면제가 여기 있었다 — 지웠다**(C050 ·
+     2026-08-22). 그 파일은 P10 W4(2026-08-07)에 `survey/` 필러로 이사했고, 아래 §H14 문단이
+     **같은 이사를 이미 적고 있었다** — 즉 한 설정 파일 안의 자기모순이었다.
+     존재하지 않는 경로에 걸린 면제는 무해하지 않다: 누가 그 경로에 새 파일을 만들면
+     **크기 래칫이 그 파일에 대해 조용히 꺼진다.** 되살릴 일은 없다(대상이 이 저장소 밖이다). */
   {
     files: ['src/**/*.{ts,tsx}'],
     plugins: { boundaries },

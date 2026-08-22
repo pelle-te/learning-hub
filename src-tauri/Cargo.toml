@@ -33,7 +33,7 @@ log = "0.4"
 indexmap = "2"
 # ⚠ `tray-icon` 피처가 여기 켜져 있었다 — T-3 상주 트레이가 은퇴하며 껐다(I049 · 2026-08-22).
 #   그 피처는 이미지 디코딩을 딸고 오므로 끄는 것이 곧 바이너리 감축이다.
-tauri = { version = "2.11.3" }
+tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 # 폴더 선택(워크스페이스 경로 설정) — 1단계 신설 작업의 UI 진입점.
 tauri-plugin-dialog = "2"

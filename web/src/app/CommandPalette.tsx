@@ -201,7 +201,7 @@ export default function CommandPalette({ open, onOpenChange }: { open: boolean; 
      `close()` 에 붙이지 않는 이유: 캡처·Esc 도 그 경로를 지나 내비게이션 없이 닫는다. */
   const go = (to: string) => {
     markVia('palette');
-    navigate(to, { viewTransition: true });
+    void navigate(to, { viewTransition: true });
   };
 
   // 자연어 빠른 캡처 — 입력을 파싱해 날짜·시간·과목·유형을 뽑는다(예: "내일 오후 3시 알고리즘 2챕터 복습").

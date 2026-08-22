@@ -251,7 +251,7 @@ export default function Mistakes() {
         { label: '오답 기록', value: totals.records },
         { label: '확신 오답', value: totals.confident, accent: totals.confident > 0 },
       ],
-      action: { label: '복습 실행', onClick: () => nav('/review-run') },
+      action: { label: '복습 실행', onClick: () => void nav('/review-run') },
     }),
     [totals.spots, totals.records, totals.confident],
   );

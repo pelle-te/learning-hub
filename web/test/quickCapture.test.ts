@@ -133,4 +133,33 @@ describe('quickCapture — title 추출 & 견고성', () => {
     expect(r.title).toBe('asdf qwerty');
     expect(r.dateISO).toBeUndefined();
   });
+
+  /* ⚠ **머리말 원칙 ②(절대 throw 금지)의 집행자가 여기다**(C064 · 2026-08-22).
+     종전엔 `parseCapture` 본문의 `try/catch` 가 그 자리였는데, 감싼 셋이 전부 순수 함수라
+     삼키는 것이 0이었다(= 집행자가 아니라 장식). 걷어내면서 계약을 **관측 가능한 곳**으로
+     옮겼다 — 조용한 삼킴은 진짜 결함까지 지우지만 이 케이스는 그것을 빨갛게 만든다.
+     입력은 파서의 각 갈래(날짜·챕터·과목)를 실제로 밟는 병적 형태를 고른다. */
+  it('어떤 입력에도 던지지 않는다 — 팔레트가 한 글자마다 부르는 자리라 계약이다', () => {
+    const PATHOLOGICAL = [
+      '(((((((((',
+      '[]{}()*+?.^$|',
+      '99999챕터',
+      '내일'.repeat(500),
+      'ch'.repeat(2000),
+      '다음주 삼십칠요일',
+      '0챕터 -1챕터 1e999챕터',
+      '이모지만 EMOJI',
+      '   내일   ',
+      ['내일', '오늘', '모레'].join(String.fromCharCode(10, 9)),
+    ];
+    for (const raw of PATHOLOGICAL) {
+      expect(() => parseCapture(raw, NOW, SUBJECTS), `던졌다: ${JSON.stringify(raw)}`).not.toThrow();
+      expect(() => parseCapture(raw, NOW), `subjects 없이 던졌다: ${JSON.stringify(raw)}`).not.toThrow();
+    }
+  });
+
+  it('그 계약은 subjects 가 병적일 때도 성립한다 — 사용자 과목명은 정규식 메타를 담을 수 있다', () => {
+    const 과목 = ['a(b', '*', '[x]', '', '.'.repeat(200)];
+    expect(() => parseCapture('내일 a(b 3챕터 복습', NOW, 과목)).not.toThrow();
+  });
 });

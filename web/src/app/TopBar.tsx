@@ -304,7 +304,7 @@ export default function TopBar() {
                 className="menu-danger"
                 onClick={() => {
                   close();
-                  resetAll();
+                  void resetAll();
                 }}
               >
                 <Icon name="trash" /> 전체 초기화…

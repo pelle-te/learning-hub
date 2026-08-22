@@ -1,0 +1,15 @@
+web/src/app               22 files    3520 lines
+web/src/components        24 files    1413 lines
+web/src/features          80 files   23507 lines
+web/src/hooks             12 files    1168 lines
+web/src/lib              135 files   25058 lines
+web/src/phone             12 files    1730 lines
+web/src/shell             14 files    2823 lines
+web/src/store             15 files    2131 lines
+web/src/styles             9 files    4048 lines
+web/test                 194 files   28783 lines
+web/e2e                  119 files   96103 lines
+web/scripts               10 files    2309 lines
+src-tauri/src             17 files    4989 lines
+server/src                 3 files    1075 lines
+server/test                4 files     899 lines

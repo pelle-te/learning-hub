@@ -89,7 +89,8 @@ export {
 /* ── io — 부수효과가 본질인 IO/다운로드/FS(내보내기·백업·복구·아카이빙·캘린더 서명) ── */
 /* ── actions — 헤더 ⋯ 메뉴/팔레트가 호출하는 상태 변형 ────────────────────────
    ⚠ `backupAt` 은 읽기만 한다(메뉴가 라벨을 정하기 전에 묻는다).
-   ⚠ `importVaultSubject` 는 입구가 둘(과목 탭·연동 탭)이지만 규칙은 하나다(H22). */
+   ⚠ `importVaultSubject` 는 입구가 둘(과목 탭·연동 탭)이지만 규칙은 하나다(H22).
+   ⚠ `importAnkiDeck` 도 **같은 두 입구**의 같은 형태다 — C037 이 남아 있던 사본 둘을 모았다. */
 export {
   backupNow,
   planSignature,
@@ -111,5 +112,6 @@ export {
   backupAt,
   resetAll,
   seedDegreePlan,
+  importAnkiDeck,
   importVaultSubject,
 } from './actions';

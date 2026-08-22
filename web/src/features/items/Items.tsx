@@ -183,7 +183,7 @@ export default function Items() {
            위해서다 — 기본이 다시 올라가면 이 줄이 그 자리에서 막는다(H20). */
       st.items.push(makeItem({ id, source: '직접', name: '새 과목', weeklyHours: 0 }));
     });
-    navigate(`/subject/${id}`); // 새 과목은 바로 객체 화면을 열어 편집(카드가 아직 없어 morph 없음)
+    void navigate(`/subject/${id}`); // 새 과목은 바로 객체 화면을 열어 편집(카드가 아직 없어 morph 없음)
   }, [mutate, navigate]);
 
   /* ⚠⚠ **`색 재배정` 버튼을 지웠다 — 구조적 no-op 이었다**(P4 · 2026-08-01).
@@ -249,7 +249,7 @@ export default function Items() {
       const el = document.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
       // Q-11 — 이름은 규약이 짓는다(`vt-<entity>-<id>`). reduced-motion 판정도 그 안이다(H19).
       applyMorph(el, 'subject', id);
-      navigate(`/subject/${id}`, { viewTransition: true });
+      void navigate(`/subject/${id}`, { viewTransition: true });
     },
     [navigate],
   );

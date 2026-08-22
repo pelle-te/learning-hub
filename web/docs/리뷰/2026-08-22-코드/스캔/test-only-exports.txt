@@ -1,0 +1,85 @@
+스캐너 건전성: src 모듈 223 · src 명명import 대상 216 · test 명명import 대상 159
+
+== 테스트만 명명 import 하는 프로덕션 export: 158개 / 80모듈 ==
+@/lib/spacedReview                           LEECH_FAILS, chapterFuzz, chapterShift, examStaleChapters, failingSids, leechChapters, riskOf, shiftContext
+@/lib/schema                                 AppStateSchema, ChapterSchema, CompletionsSchema, ItemSchema, RoutineBlockSchema, WeekAllocSchema
+@/lib/semantic                               buildCorpus, cosine, crossChapterEdges, hashText, topK, vectorsFor
+@/lib/db/undoStack                           UNDO_BYTE_BUDGET, preImageBytes, redoDepth, resetPreImageTally, undoBytes, undoDepth
+@/lib/methodology                            ARCHIVE_ARRAY_SPECS, ARCHIVE_EXEMPT, recordCount, setBlankResult, summaryCount
+@/lib/retrievalLatency                       MAX_MS, MIN_MS, retrievalStats, slowButPassing, usable
+@/shell/tabs                                 RAIL_SECTIONS, SUBTAB_GROUPS, navGroups, objectRoutes, railTabs
+@/lib/estimateCalibration                    MIN_FILL, MIN_SAMPLES, recalibratedWeekly, recalibrationPlan
+@/lib/knowledgeElements                      crossChapter, kcOf, kcStats, normKc
+@/lib/ankiLapses                             foldLapses, joinCardsToTags, parseTag
+@/lib/delayedJol                             MIN_DELAY_DAYS, MIN_SAMPLES, resolveAsk
+@/lib/questions                              RECALL_WINDOW_DAYS, questionsForExam, questionsForSubject
+@/lib/semester                               hasExams, marksOf, unlinkedCourses
+@/lib/syllabus                               myThruIdx, suggestExamThru, taughtThruIdx
+@/lib/vault                                  estH, scanVaultFromFiles, subjectsFromIndex
+@/lib/weekAlloc                              deriveAutoAlloc, ensureWeekAlloc, pruneAlloc
+@/shell/actions                              importJSON, restoreFromIDB, toggleBench
+@/app/CommandPalette                         RECENT_KEEP, parsePaletteQuery
+@/lib/absence                                ABSENCE_MIN_DAYS, RETURN_REVIEW_CAP
+@/lib/curriculum                             DEPTH_META, ROLE_META
+@/lib/dayPlans                               ensureManual, snapshotAutoDraft
+@/lib/examSheet                              parseNote, readableMath
+@/lib/focusState                             FOCUS_GRACE_MS, FOCUS_KEY
+@/lib/idleLedger                             IDLE_MIN_SEC, resetIdleSpell
+@/lib/pins                                   MAX_PINS, isPinned
+@/lib/planCommand                            PLAN_GRAMMAR, parseDelta
+@/lib/prereq                                 dependentsOf, prereqsOf
+@/lib/reviewHold                             holdKey, isHeld
+@/lib/reviewQueue                            MAINTENANCE_CAP, REQUEUE_GAP
+@/lib/semesterGoals                          goalStatus, metricValue
+@/lib/series                                 MIN_POINTS, weekTotals
+@/lib/statsView                              buildStreakGrid, streakLevel
+@/lib/subjectMatch                           matchSubjectKind, normSubject
+@/lib/cloud/schema                           OutboxBatchSchema, TableNameSchema
+@/lib/db/boot                                didMigrate, resetBootState
+@/lib/db/docs                                DOC_KEYS, _resetDocs
+@/lib/db/rows                                ARRAY_SLICES, diffRows
+@/lib/db/stamp                               _resetStamp, currentStamp
+@/store/selectors                            SCHEDULE_INPUT_KEYS, selectStudyMinByWeekday
+@/components/ui/NumberField                  NumberField
+@/features/registry                          warmTab
+@/lib/aiUsage                                AI_USAGE_KEY
+@/lib/artifactState                          isNotYetError
+@/lib/cardCoverage                           coverageKey
+@/lib/chapterStrength                        chapterStrength
+@/lib/dayPlanGeometry                        ratio
+@/lib/daySignals                             isQuiet
+@/lib/durability                             QUOTA_WARN_RATIO
+@/lib/events                                 eventMinutesForDay
+@/lib/frameMemory                            forgetFrames
+@/lib/icsParse                               readIcsTime
+@/lib/insights                               dominantCbms
+@/lib/kv                                     memKV
+@/lib/loadCurve                              stretchedOffsets
+@/lib/mistakes                               TODAY_PICK_N
+@/lib/observations                           OBSERVATION_TABLES
+@/lib/perf                                   BOOT_MARKS
+@/lib/phaseRamp                              remainingMin
+@/lib/platform                               isMac
+@/lib/resume                                 RESUME_TTL_MIN
+@/lib/retrieval                              retrievableCount
+@/lib/scheduleView                           subjectUrgency
+@/lib/sidecars                               LOCAL_EXTRA_KEYS
+@/lib/since                                  SINCE_NOISE_MAX
+@/lib/snapshots                              genKey
+@/lib/syllabusIntake                         readDate
+@/lib/tauri                                  NOTIFY_CLICK_EVENT
+@/lib/uiState                                defaultUI
+@/lib/utils                                  oklchToHex
+@/lib/vaultAnchors                           clearVaultAnchors
+@/lib/visits                                 resetVia
+@/lib/cloud/client                           _resetToken
+@/lib/cloud/outbox                           readWatermark
+@/lib/cloud/push                             backoffDelay
+@/lib/db/migrateSchema                       isDowngrade
+@/lib/db/write                               PERSIST_RETRY_MAX_MS
+@/shell/palette                              paletteCommands
+@/shell/vt                                   vtMove
+@/store/queries                              GOALS_KEY
+@/store/undoController                       undoLastEdit
+
+(참고) src 전체 값 export 수: 1137

@@ -558,7 +558,7 @@ export function setDone(
       // T-8 시각 원장 — **완료를 누른 하루 중 시각**. 지금은 어느 화면도 안 그린다(로드맵 T-8 의
       // 가장 싼 검증이 "한 필드만 추가하고 2주 방치"다). 이 한 줄이 없어서 T-5·T-8·T-10 이 전부
       // "표본 대기"로 멈춰 있었다 — 관측을 기다리면서 관측 장치를 안 달고 있었다.
-      doneAt: nowHm(state),
+      doneHm: nowHm(state),
       // 실측은 **있을 때만** 싣는다 — 0/undefined 를 넣으면 "쟀는데 0분"과 "안 쟀다"가 섞인다.
       ...(actualMin && actualMin > 0 ? { actualMin: Math.round(actualMin) } : {}),
     };

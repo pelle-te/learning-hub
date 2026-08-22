@@ -309,3 +309,61 @@ describe('⑤ redo — 되돌리기가 만든 툼스톤이 자기 재실행을 �
     expect(redone.restored).toBe(0);
   });
 });
+
+/* ============================================================
+   P027(2026-08-22) — **`currentImages` 가 행마다 질의를 순차로 냈다.**
+
+   되돌릴 배치가 클수록 IPC 왕복이 그만큼 늘었고(폰은 워커 왕복이다), 그건 사용자가 ⌘Z 를 누른
+   **직후**의 지연이라 가장 눈에 띄는 자리다. 같은 형태를 `C045` 가 `readTouched` 에서 이미
+   고쳤으므로 그 함수를 재사용했다 — 표마다 질의 하나, 키 열마다 `IN`.
+
+   ⚠ 여기서 재는 것은 **모양**이다(시간이 아니라 질의 수). 실 DB 가 작아 시간으로는 아무것도
+   안 보이고, 보이는 것은 «행 수에 비례하는가»다 — `C055` 가 세운 것과 같은 축이다.
+============================================================ */
+describe('P027 되돌리기 pre-image 읽기가 행 수에 비례하지 않는다', () => {
+  it('⚠⚠ 같은 표의 행 여럿이면 질의는 **하나**다 — 종전엔 행마다 하나였다', async () => {
+    const 질의: string[] = [];
+    select.mockImplementation(async (q: string) => {
+      질의.push(q);
+      if (/FROM tombstones/.test(q)) return [];
+      return [];
+    });
+
+    /* 같은 표(week_alloc)의 행 여섯을 되돌린다. */
+    pushUndo(
+      Array.from({ length: 6 }, (_, i) => ({
+        table: 'week_alloc',
+        key: ['2026-08-03', `sid${i}`],
+        vals: null,
+      })),
+      100,
+    );
+    await undoLastWrite();
+
+    const 대상질의 = 질의.filter((q) => /FROM week_alloc/.test(q) && /WHERE/.test(q));
+    expect(대상질의.length, `행마다 질의가 나갔다(${대상질의.length}건) — ⌘Z 직후 지연이 행 수에 비례한다`).toBe(1);
+  });
+
+  it('⚠ 표가 둘이면 둘 — 표마다 하나이지 전체 하나가 아니다(스키마가 다르다)', async () => {
+    const 질의: string[] = [];
+    select.mockImplementation(async (q: string) => {
+      질의.push(q);
+      return [];
+    });
+
+    pushUndo(
+      [
+        { table: 'week_alloc', key: ['2026-08-03', 'sid1'], vals: null },
+        { table: 'week_alloc', key: ['2026-08-03', 'sid2'], vals: null },
+        { table: 'settings', key: ['theme'], vals: null },
+      ],
+      100,
+    );
+    await undoLastWrite();
+
+    const 표별 = new Set(질의.filter((q) => /WHERE/.test(q)).map((q) => /FROM (\w+)/.exec(q)?.[1] ?? ''));
+    expect(표별.has('week_alloc')).toBe(true);
+    expect(표별.has('settings')).toBe(true);
+    expect(질의.filter((q) => /FROM week_alloc/.test(q) && /WHERE/.test(q)).length, '표 안에서 또 쪼개졌다').toBe(1);
+  });
+});

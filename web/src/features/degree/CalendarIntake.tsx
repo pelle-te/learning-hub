@@ -27,11 +27,10 @@ import { useMemo, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { toast } from '@/shell';
 import { Button, Pill } from '@/components/ui';
-import { icsDraftIsEmpty, lectureToBlock, matchLectureSid, parseIcs, type IcsDraft } from '@/lib/icsParse';
+import { applyLectureBlocks, icsDraftIsEmpty, matchLectureSid, parseIcs, type IcsDraft } from '@/lib/icsParse';
 import { MARK_LABEL } from '@/lib/syllabusIntake';
-import { activeSemester, linkableItems } from '@/lib/semester';
-import { BLOCK_CLASS, rid, todayISO } from '@/lib/utils';
-import type { AcademicMark } from '@/lib/types';
+import { activeSemester, applyMarks, linkableItems } from '@/lib/semester';
+import { BLOCK_CLASS, todayISO } from '@/lib/utils';
 
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const allOf = (n: number): Set<number> => new Set(Array.from({ length: n }, (_, i) => i));
@@ -78,28 +77,22 @@ export default function CalendarIntake() {
        바일아웃시킨다(`SyllabusIntake` 가 같은 자리에서 물린 것). */
     const n = { lecture: 0, mark: 0 };
     mutate((st) => {
-      draft.lectures.forEach((l, i) => {
-        if (!p.lectures.has(i)) return;
-        /* ⚠ **같은 블록을 두 번 넣지 않는다.** 학기 중에 파일을 다시 받는 것이 정상 사용이고
-           (I010 — 시간표는 바뀐다), 그때마다 쌓이면 가용시간이 실제보다 적어진다. */
-        const dup = st.routine.some(
-          (b) => b.name === l.name && b.start === l.start && b.end === l.end && b.days.join() === l.days.join(),
-        );
-        if (dup) return;
-        st.routine.push(lectureToBlock(l, BLOCK_CLASS, sidOf.get(l.name)));
-        n.lecture += 1;
-      });
+      /* 규칙(중복 판정 포함)은 `lib/icsParse.applyLectureBlocks` 가 소유한다 — 렌더 없이
+         도달 가능해야 테스트가 닿는다(C068 · 바로 아래 눈금 쪽과 같은 처방). */
+      n.lecture += applyLectureBlocks(
+        st.routine,
+        draft.lectures.filter((_, i) => p.lectures.has(i)),
+        BLOCK_CLASS,
+        (name) => sidOf.get(name),
+      );
       const target = st.degree.semesters.find((s) => s.id === sem?.id);
-      if (target) {
-        const marks: AcademicMark[] = target.marks || [];
-        draft.marks.forEach((m, i) => {
-          if (!p.marks.has(i)) return;
-          if (marks.some((x) => x.ds === m.ds && x.kind === m.kind)) return;
-          marks.push({ id: rid(), kind: m.kind, ds: m.ds, label: m.label });
-          n.mark += 1;
-        });
-        if (marks.length) target.marks = marks;
-      }
+      /* 규칙(중복 판정 포함)은 `lib/semester.applyMarks` 가 소유한다 — 두 인입구가 **같은
+         함수**여야 한다(종전엔 11줄 사본 둘이었고 테스트 0건이었다 · C036). */
+      if (target)
+        n.mark += applyMarks(
+          target,
+          draft.marks.filter((_, i) => p.marks.has(i)),
+        );
     });
     /* ⚠ 위 배지와 같은 이유 — 고른 눈금이 0건으로 끝났으면 **왜** 인지 말한다. */
     const 눈금막힘 = p.marks.size > 0 && n.mark === 0 && !sem;

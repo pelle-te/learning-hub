@@ -1,0 +1,14 @@
+lib/scheduler/engine.ts                       churn=9  
+features/schedule/WeekCalendar.tsx            churn=19 
+lib/cloud/push.ts                             churn=5  
+lib/db/write.ts                               churn=15 
+phone/ReviewView.tsx                          churn=14 
+shell/actions.ts                              churn=43 
+features/schedule/DayPlanner.tsx              churn=22 
+features/today/TodaySignature.tsx             churn=57 
+lib/knowledgeElements.ts                      churn=1  
+lib/vault.ts                                  churn=13 
+app/App.tsx                                   churn=63 
+features/review-run/ReviewRun.tsx             churn=33 
+lib/db/rows.ts                                churn=14 
+lib/semantic.ts                               churn=9  

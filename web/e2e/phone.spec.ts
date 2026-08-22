@@ -17,7 +17,11 @@
 
    ⚠ 스냅샷은 찍지 않는다 — 트랙 B 와 같은 규율이다(베이스라인 두 벌 방지).
 ============================================================ */
-import { expect, test } from '@playwright/test';
+/* ⚠ `./_test` 를 쓴다 — 트랙 A 전량이 비동기 실패를 보는 래퍼다(C067).
+   이 파일은 자기 `pageerror` 리스너를 **따로** 갖는데(아래 `errors`), 그건 «오류 여부»가
+   이 케이스의 **단언 대상**이라 그렇다. 래퍼는 «선언되지 않은 실패가 있으면 실패»이고
+   여기 것은 «이 화면이 오류 없이 뜬다»를 직접 말한다 — 둘은 겹치지 않고 서로를 지운다. */
+import { expect, test } from './_test';
 
 /** OPFS 루트의 최상위 항목 이름들. `installOpfsSAHPoolVfs({name})` 가 여기에 폴더를 만든다. */
 async function opfsEntries(page: import('@playwright/test').Page): Promise<string[]> {

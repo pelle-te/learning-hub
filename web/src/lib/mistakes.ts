@@ -16,6 +16,7 @@
 
    ⚠ 순수·결정론: 벽시계를 안 본다(정렬 키는 기록의 ds). React·DOM 무관.
 ============================================================ */
+import { rotateSeed } from './utils';
 import { CBMS_CODES } from './methodology';
 import type { AppState, CbmsCode } from './types';
 
@@ -122,13 +123,6 @@ export function mistakeArchive(state: AppState, filter?: MistakeFilter): Mistake
      아카이브 전체를 훑는다. 여기서 순위를 새로 매기면 두 화면이 다른 이야기를 한다. */
 export const TODAY_PICK_N = 3;
 
-/** 안정 해시(문자열→비음수 정수) — 같은 날 같은 창, 날이 바뀌면 회전. `retrieval.ts` 와 같은 식. */
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 /**
  * 오늘 볼 몇 건 — 정렬 순서 위를 **날짜로 회전하는 창**. 행이 `n` 이하면 그대로 전부.
  *
@@ -136,7 +130,7 @@ function hashStr(s: string): number {
  */
 export function todayMistakes(rows: readonly MistakeRow[], todayDs: string, n = TODAY_PICK_N): MistakeRow[] {
   if (rows.length <= n) return [...rows];
-  const start = hashStr(todayDs) % rows.length;
+  const start = rotateSeed(todayDs) % rows.length;
   return Array.from({ length: n }, (_, i) => rows[(start + i) % rows.length]!);
 }
 

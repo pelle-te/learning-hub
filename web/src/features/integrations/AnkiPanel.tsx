@@ -10,7 +10,7 @@ import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
-import { exportAnkiCards, toast } from '@/shell';
+import { exportAnkiCards, importAnkiDeck, toast } from '@/shell';
 import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
 import { idbPut } from '@/lib/idb';
@@ -65,7 +65,7 @@ export function AnkiPanel() {
         // 셸엔 핸들 개념이 없다(폴더를 안 물으므로) — 브라우저에서만 공유·영속한다.
         if (r.handle) {
           qc.setQueryData(['vaultHandle'], r.handle);
-          idbPut('vaultHandle', r.handle); // 볼트 패널과 공유 — 다음 부팅 재연결
+          void idbPut('vaultHandle', r.handle); // 볼트 패널과 공유 — 다음 부팅 재연결
         }
       }
     } catch (e) {
@@ -131,8 +131,11 @@ export function AnkiPanel() {
         if (alive) setAutoErr(String((e as Error)?.message || e).slice(0, 120) || '연결 실패');
       }
     };
-    const id = setInterval(refresh, 5 * 60 * 1000);
-    const off = onVisible(refresh);
+    /* ⚠ `void refresh` 는 **함수를 즉시 버리는** 표현식이라 `undefined` 를 넘긴다(C051 자동
+       삽입이 여기서 틀렸다 · 타입이 그것을 잡았다). 감싸는 것이 맞다 — 콜백은 «호출될 때»
+       거부를 버려야지 «등록될 때»가 아니다. */
+    const id = setInterval(() => void refresh(), 5 * 60 * 1000);
+    const off = onVisible(() => void refresh());
     return () => {
       alive = false;
       clearInterval(id);
@@ -140,17 +143,8 @@ export function AnkiPanel() {
     };
   }, [autoRefresh, everConnected, applyLive]);
 
-  const addAnki = (name: string, mins: number) => {
-    const nm = 'Anki: ' + name;
-    if (items.some((s) => s.name === nm)) {
-      toast('이미 추가됨', 'warn');
-      return;
-    }
-    mutate((st) => {
-      st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
-    });
-    toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
-  };
+  /* Anki 임포트 규칙은 `shell/importAnkiDeck` 가 소유한다 — 다른 입구와 **같은 함수**여야
+     한다(종전엔 11줄 사본 둘이었다 · C037 · 바로 위 볼트 쪽이 H22 에서 같은 처방을 받았다). */
 
   const dueBudget = () => {
     if (!live || !live.decks.length) {
@@ -318,7 +312,7 @@ export function AnkiPanel() {
                       <Button
                         sm
                         variant="ghost"
-                        onClick={() => addAnki(jsq(d.file), Math.max(15, Math.round(d.cards * 0.5)))}
+                        onClick={() => importAnkiDeck(jsq(d.file), Math.max(15, Math.round(d.cards * 0.5)))}
                       >
                         +스케줄
                       </Button>
@@ -387,7 +381,7 @@ export function AnkiPanel() {
                       <Button
                         sm
                         variant="ghost"
-                        onClick={() => addAnki(`${jsq(d.name)} (due)`, Math.max(10, Math.round(due * 0.5)))}
+                        onClick={() => importAnkiDeck(`${jsq(d.name)} (due)`, Math.max(10, Math.round(due * 0.5)))}
                       >
                         +스케줄
                       </Button>

@@ -261,7 +261,7 @@ export default function Subject() {
           removeSidFromDayPlans(st, sid);
         });
       });
-      navigate('/items', { replace: true });
+      void navigate('/items', { replace: true });
     },
     [items, mutate, navigate],
   );

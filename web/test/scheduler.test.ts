@@ -957,3 +957,42 @@ describe('I013 — weeklyLectureMin(표시용 · 계산 불변)', () => {
     expect(after.days.map((d) => d.items.length)).toEqual(before.days.map((d) => d.items.length));
   });
 });
+
+/* ============================================================
+   C040(2026-08-22) — **페이스 지평의 손잡이는 `PACE_WEEKS_MAX`(26) 이지 546 이 아니다.**
+
+   `engine.ts` 의 `PACE_HORIZON_MAX = 546` 이 *"18개월 — 페이스/마감 경로"* 라 적혀 있었는데,
+   페이스 경로에서는 **결코 도달하지 않는다**: `endByPace = mondayOf(start) + weeksNeed*7 + 6`
+   이고 `weeksNeed ≤ 26` 이므로 상한이 188일이다. 즉 계획이 26주에서 잘린 것을 고치러 온 사람이
+   그 함수에서 **유일하게 이름과 근거가 붙은 손잡이**를 올려도 아무 일이 안 일어난다.
+
+   아래 두 케이스가 그 산수를 **관측 가능하게** 못박는다 — 주석을 다시 표류시키지 않으려면
+   근거가 실행돼야 한다. ⚠ 이건 «26 이 옳은가»를 재는 것이 아니다(그건 별개 판단이다).
+   재는 것은 «어느 상수가 어느 경로를 자르는가» 하나다.
+============================================================ */
+describe('C040 페이스 지평은 주(週) 상한이 자른다 — 546 은 마감 경로 전용', () => {
+  /** 마감(시험)이 전혀 없고 주간 부하만 극단인 계획. */
+  const 마감없는_거대과목 = () => ({
+    ...baseState(),
+    items: [weeklyItem('거대과목', 1, mkChapters([['ch', 3000]]))],
+  });
+
+  it('마감이 없으면 지평이 188일(26주+6)을 넘지 않는다 — 546 이 아니다', () => {
+    const r = schedule(마감없는_거대과목() as never);
+    /* 3000시간 ÷ 주1시간 = 3000주가 필요하지만 `PACE_WEEKS_MAX` 가 26 으로 자른다.
+       `TODAY_HORIZON_MAX`(표시-only 전방 확장)는 픽스처가 start=today 라 개입하지 않는다. */
+    expect(r.days.length, '페이스 경로가 546 근처까지 갔다 — 자르는 상수가 바뀌었는가').toBeLessThanOrEqual(189);
+    expect(r.days.length, '지평이 무너졌다').toBeGreaterThan(60);
+  });
+
+  it('먼 미래 시험이 있으면 그때 비로소 546 이 자른다 — 그쪽이 그 상수의 경로다', () => {
+    const st = 마감없는_거대과목() as never as { items: { exams?: unknown[] }[]; startDate: string };
+    const 시작 = new Date(st.startDate + 'T00:00:00');
+    const 아주먼 = new Date(시작.getTime() + 4000 * 86400_000);
+    const ds = `${아주먼.getFullYear()}-${String(아주먼.getMonth() + 1).padStart(2, '0')}-${String(아주먼.getDate()).padStart(2, '0')}`;
+    st.items[0]!.exams = [{ id: 'e1', name: '기말', date: ds }];
+    const r = schedule(st as never);
+    expect(r.days.length, '마감 경로가 546 에서 안 잘렸다').toBeLessThanOrEqual(547);
+    expect(r.days.length, '마감 경로가 페이스 상한(188)에 갇혔다 — 두 경로가 뒤섞였다').toBeGreaterThan(200);
+  });
+});

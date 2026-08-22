@@ -25,7 +25,7 @@ describe('bootUI — 부팅/복원', () => {
       ankiAutoRefresh: false,
       themeAuto: false,
       autoTheme: null,
-      seenAt: {},
+      seenDs: {},
       pins: [],
       inspectDs: null,
     });
@@ -67,7 +67,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
       ankiAutoRefresh: false,
       themeAuto: false,
       autoTheme: null,
-      seenAt: {},
+      seenDs: {},
       pins: [],
       inspectDs: null,
     });
@@ -103,7 +103,7 @@ describe('persistUI — 왕복', () => {
       ankiAutoRefresh: false,
       themeAuto: false,
       autoTheme: null,
-      seenAt: {},
+      seenDs: {},
       pins: [],
       inspectDs: null,
     });

@@ -216,10 +216,25 @@ const str = (v: string | number | undefined): string => (v == null ? '' : String
  * NULL 처리 탐지"인데 그건 **행의 성질**이라, 손댄 행만 보면 비용이 O(변경행)으로 떨어지면서
  * 오히려 **매 flush 검증**이 된다 — 더 싸고 탐지력은 오른다.
  *
- * ⚠ 복합키(keyLen=2) 테이블은 **첫 키만 `IN`** 으로 좁히고 정확한 조합은 호출부가 거른다.
- * 행 값 튜플(`WHERE (a,b) IN (VALUES …)`)은 SQLite 가 지원하지만 plugin-sql → sqlx 경로에서
- * 바인딩 거동을 이 저장소가 검증한 적이 없다 — 정본 저장 경로에서 미검증 SQL 문법에 기대지
- * 않는다. 첫 키로 좁히면 과다 인출이 생기지만 그 상한은 "이번에 손댄 서로 다른 첫 키 수"다.
+ * ⚠ 복합키(keyLen=2) 테이블은 **두 키 각각을 `IN`** 으로 건다(곱집합). 행 값 튜플
+ * (`WHERE (a,b) IN (VALUES …)`)은 SQLite 가 지원하지만 plugin-sql → sqlx 경로에서 바인딩
+ * 거동을 이 저장소가 검증한 적이 없다 — 정본 저장 경로에서 미검증 SQL 문법에 기대지 않는다.
+ * 곱집합이라 **과소 인출이 원리적으로 불가능**하고(필요한 조합은 반드시 포함된다) 잉여 행은
+ * 호출부가 완전키로 조회하므로 무해하다.
+ *
+ * ⚠⚠ **종전엔 첫 키만 걸었고, 그 주석이 상한을 잘못 말했다**(C045 · 2026-08-22). *"과다 인출의
+ * 상한은 «이번에 손댄 서로 다른 첫 키 수»"* 라 적혀 있었는데 그건 **바인딩 개수의 상한이지
+ * 반환 행 수의 상한이 아니다.** 그리고 하필 문제가 되는 두 표가 «성장 무제한 슬라이스만 행으로
+ * 쪼갠다»로 선정된 표 전부였다: `records.cols[0] = 'slice'`(카디널리티 **9**) ·
+ * `ds_map.cols[0] = 'slice'`(**4**). 즉 그 둘에서 첫-키 `IN` 은 **슬라이스 전량 인출**로 퇴화한다.
+ * 나머지 넷은 안전했다(`completions`=`ds` · `week_alloc`=`wk` · `summaries`=`sid`).
+ * 규모: 120일치 `dayPlans` 가 쌓인 상태에서 한 날의 블록 하나를 드래그하면 touched 1행(883B)인데
+ * 질의는 `WHERE slice IN ('dayPlans')` → 120행 106KB 를 **400ms 마다** 인출했다.
+ * H6 이 시간축 표본(20회당 1회)을 행축 매회로 바꾼 근거가 *"손댄 행만 보면 O(변경행)"* 이었는데
+ * 이 두 표에서는 **O(슬라이스 전량)** 이라 그 전제가 성립하지 않았다.
+ * ⚠ 바인딩 최악은 400+400=800 으로 `rows.ts` 의 여유선과 같다(호출부가 `probes.length <= 400`).
+ * ⚠ 실측 당시 실 DB 는 `records` 0행·`ds_map` 2행이라 **현재 실비용은 0**이었다 — 고치는 이유는
+ * 관측된 느림이 아니라 «분모가 자라면 조용히 제곱이 되는 형태»다.
  * ⚠ 반환은 `키 → 데이터 열 배열`(`spec.cols` 순서, `updated_at` 제외)이다. 없는 키는 없는
  * 채로 둔다 — 호출부가 "썼는데 안 읽힌다"를 불일치로 판정할 수 있어야 한다.
  */
@@ -239,11 +254,18 @@ export async function readTouched(
   const out = new Map<string, unknown[]>();
   await Promise.all(
     [...bySpec.entries()].map(async ([spec, list]) => {
-      const firsts = [...new Set(list.map((t) => String(t.key[0])))];
-      const rows = await db.select<Row[]>(
-        `SELECT ${spec.cols.join(',')} FROM ${spec.name} WHERE ${spec.cols[0]} IN (${firsts.map(() => '?').join(',')})`,
-        firsts,
-      );
+      /* 키 열마다 `IN` 하나. `keyLen=1` 이면 종전과 같은 질의이고, `keyLen=2` 면 둘째 열이
+         더해져 슬라이스 전량 인출이 사라진다(위 ⚠⚠). */
+      const binds: string[] = [];
+      const where = spec.cols
+        .slice(0, spec.keyLen)
+        .map((col, i) => {
+          const vals = [...new Set(list.map((t) => String(t.key[i])))];
+          binds.push(...vals);
+          return `${col} IN (${vals.map(() => '?').join(',')})`;
+        })
+        .join(' AND ');
+      const rows = await db.select<Row[]>(`SELECT ${spec.cols.join(',')} FROM ${spec.name} WHERE ${where}`, binds);
       for (const r of rows) {
         const vals = spec.cols.map((c) => r[c as keyof Row]);
         out.set(touchedKey(spec.name, vals.slice(0, spec.keyLen)), vals);

@@ -243,8 +243,18 @@ function baseCommands(): PaletteCommand[] {
       hint: '데이터',
       run: () => document.getElementById('imp')?.click(),
     },
-    { id: 'act:vault-backup', kind: 'act', label: '볼트 폴더에 백업', hint: '백업', run: A.backupToVault },
-    { id: 'act:idb-restore', kind: 'act', label: 'IndexedDB에서 복구', hint: '백업', run: A.restoreFromIDB },
+    /* ⚠⚠ `run: void A.f` 로 쓰지 마라 — 그건 **함수를 즉시 버리고 `undefined` 를 넘긴다**
+       (`run?` 이 옵셔널이라 타입도 안 잡는다 → 그 ⌘K 항목이 조용히 무동작이 된다).
+       비동기 액션은 **감싸서** 부른다: 거부를 버리는 지점이 «등록»이 아니라 «호출»이어야 한다.
+       C051(타입 인지 비동기 린트)이 이 셋을 처음 드러냈다. */
+    { id: 'act:vault-backup', kind: 'act', label: '볼트 폴더에 백업', hint: '백업', run: () => void A.backupToVault() },
+    {
+      id: 'act:idb-restore',
+      kind: 'act',
+      label: 'IndexedDB에서 복구',
+      hint: '백업',
+      run: () => void A.restoreFromIDB(),
+    },
     { id: 'act:archive', kind: 'act', label: '오래된 기록 보관·정리', hint: '데이터', run: () => A.archiveOld() },
     /* ⚠ **옛 `act:undo`(= `BACKUP_KEY` 스냅샷 복원)를 이 자리에서 뺐다**(근본① · 2026-08-01).
        라벨이 _"직전 상태로"_ 였는데 그건 거짓이었다 — 스냅샷은 *마지막으로 `backupNow()` 를 부른
@@ -270,7 +280,7 @@ function baseCommands(): PaletteCommand[] {
        _"TABS 에서 화면을 내릴 때마다 여기"_ 라며 **재발을 예약**해 뒀는데, 은퇴에 어휘를 주니
        (`role:'view'`(옛 `retired`)) 배열에 남아 있게 되어 위 `tabs` 매핑이 자동으로 줍는다. 불변식 ②의
        "은퇴한 탭도 ⌘K 로 도달한다"가 그것을 집행한다. */
-    { id: 'act:reset', kind: 'act', label: '전체 초기화…', hint: '위험', run: A.resetAll },
+    { id: 'act:reset', kind: 'act', label: '전체 초기화…', hint: '위험', run: () => void A.resetAll() },
   ];
   return [...tabs, ...acts];
 }

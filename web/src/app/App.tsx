@@ -48,7 +48,7 @@ import GlanceMode from '@/app/GlanceMode';
 import DayBufferOverlay from '@/app/DayBufferOverlay';
 import OnlineStatus from '@/components/OnlineStatus';
 import TooltipHost from '@/components/Tooltip';
-import { HudFrame } from '@/components/hud';
+import HudFrame from '@/components/hud/HudFrame';
 import { SkeletonCard, SkeletonFill, Button } from '@/components/ui';
 
 /* W12 객체 축 — **탭이 아니라 라우트**라 `features/registry` 의 `LOADERS` 밖이다(그 표는
@@ -60,7 +60,10 @@ const SubjectPage = lazy(() => import('@/features/items/Subject'));
    ⚠ N-4 — **어느 탭이 죽었는지를 화면에도 적는다.** 22개 탭이 같은 폴백 한 장을 공유해서
    "이 탭"이 어느 탭인지 말하지 않았는데, 셸은 멀쩡히 살아 있고 나브도 그대로라 사용자는
    무엇이 고장났는지 알 수 없었다(그래서 이 경계의 사고는 특히 조용히 지나간다).
-   `reportError` 는 이미 `tab:<key>` 컨텍스트를 싣고 있었다 — 화면만 그 사실을 몰랐다. */
+   ⚠ 종전 이 자리엔 *"`reportError` 는 이미 `tab:<key>` 컨텍스트를 싣고 있었다"* 가 있었다 —
+   **거짓이 됐다**(C060 · 2026-08-22). `lib/telemetry.ts` 가 I052 에 걷히면서 그 함수도 사라졌고
+   (`rg reportError src` → 이 주석 1건뿐) 지금 **탭 이름을 아는 곳은 이 화면뿐**이다.
+   즉 N-4 의 근거는 "화면만 몰랐다"가 아니라 "이제 화면만 안다"다. */
 function TabFallback({ error, resetErrorBoundary, label }: FallbackProps & { label: string }) {
   return (
     <div className="ds-well">
@@ -243,7 +246,7 @@ export default function App() {
       const from = pathRef.current;
       void enterMini(from, 'capture').then((ok) => {
         if (!ok) return o.setPalette(true);
-        navigate(MINI_PATH, { replace: true });
+        void navigate(MINI_PATH, { replace: true });
         o.setMiniCapture(true);
       });
     };
@@ -260,7 +263,7 @@ export default function App() {
     const landNotify = (route: string): void => {
       if (pathRef.current === MINI_PATH) return;
       markVia('link');
-      navigate(route);
+      void navigate(route);
     };
     const offs: (() => void)[] = [];
     const keep = (f: () => void): void => {
@@ -323,7 +326,7 @@ export default function App() {
       if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
         clearG();
-        navigate(e.key === 'ArrowLeft' ? -1 : 1);
+        void navigate(e.key === 'ArrowLeft' ? -1 : 1);
         return;
       }
       /* 단일키 단축키는 수정자 조합이거나 **떠 있는 층이 하나라도 있으면** 무시한다.
@@ -355,7 +358,7 @@ export default function App() {
         e.preventDefault();
         clearG();
         markVia('key');
-        navigate('/' + visible[n]!.key, { viewTransition: true });
+        void navigate('/' + visible[n]!.key, { viewTransition: true });
         return;
       }
       if (gPending.current) {
@@ -364,7 +367,7 @@ export default function App() {
         if (tab) {
           e.preventDefault();
           markVia('key');
-          navigate('/' + tab, { viewTransition: true });
+          void navigate('/' + tab, { viewTransition: true });
         }
         return;
       }

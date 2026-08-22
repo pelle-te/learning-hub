@@ -1,0 +1,35 @@
+
+> learning-hub-web@0.0.0 report:debt
+> node scripts/report-debt.mjs
+
+=== 코드 부채 리포트 (강제 없음 · 추세 관찰용) ===
+
+레이어별 규모
+  app            22개    2284줄
+  features       80개   18971줄
+  components     24개     789줄
+  hooks          12개     630줄
+  store          15개    1162줄
+  lib           135개   13701줄
+  shell          14개    1505줄
+  main.tsx        1개     108줄
+  phone          11개    1173줄
+  vite-env.d.ts    1개       0줄
+
+features:lib = 1.38 : 1  (18971 / 13701줄)
+
+큰 파일 top 10 (max-lines 래칫 716 · 줄 수는 **근사** — 권위는 npm run lint)
+    725  features/review/Review.tsx ⚠ 근사 초과 → npm run lint 로 확인
+    718  features/review-run/ReviewRun.tsx ⚠ 근사 초과 → npm run lint 로 확인
+    677  features/today/TodaySignature.tsx
+    652  features/degree/Degree.tsx
+    619  features/settings/Settings.tsx
+    573  features/alloc/AllocBoard.tsx
+    562  lib/methodology.ts
+    557  features/schedule/DayPlanner.tsx
+    510  lib/scheduler/engine.ts
+    498  features/stats/StatsDetail.tsx
+
+인지복잡도 (게이트 임계 25 래칫 — 내려가기만 한다)
+  현재 최댓값은 이 명령이 답한다(넘는 게 없으면 여유가 있다는 뜻):
+  npx eslint src --rule '{"sonarjs/cognitive-complexity":["error",25]}'

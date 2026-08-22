@@ -177,7 +177,7 @@ export function TodayBlocks() {
   // '오늘 학습' 블록 → 기록 탭으로 과목 사전선택 + 이동.
   const prefill = (form: 'sum' | 'cbms' | 'bl', sid: string) => {
     requestPrefill(form, sid);
-    navigate('/day');
+    void navigate('/day');
   };
 
   const ds2 = todayISO(state); // '오늘' 단일 출처(_today 시드 존중).
@@ -196,7 +196,7 @@ export function TodayBlocks() {
        (`shell/tabs.ts` 기준 `과목`·`계획`). */
     const 계획하러 = () => {
       setSchedView('day'); // 보내는 쪽이 뷰를 먼저 세운다(`TodaySignature.goPlanToday` 와 같은 규약).
-      navigate(`/schedule?ds=${ds2}`);
+      void navigate(`/schedule?ds=${ds2}`);
     };
     return (
       <div className="ds-rule" id="today-blocks">

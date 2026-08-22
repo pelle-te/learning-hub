@@ -3,7 +3,7 @@
    일과(routine) 블록 → 깨어있는 창 → 자유 구간 → 일정(events) 차감 → 요일/날짜별 가용 분.
    엔진(schedule)과 배치(layout)가 모두 이 층 위에서 돈다.
 ============================================================ */
-import { BLOCK_SLEEP, toMin } from '../utils';
+import { BLOCK_SLEEP, minuteSegments, toMin } from '../utils';
 import { eventIntervals } from '../events';
 import { taskIntervals, untimedChoreMin } from '../tasks';
 import type { AppState, FreeWindows, RoutineBlock } from '../types';
@@ -73,16 +73,7 @@ export function awakeBounds(blocks: RoutineBlock[]): [number, number] {
   blocks
     .filter((b) => b.type === BLOCK_SLEEP)
     .forEach((b) => {
-      const s = toMin(b.start);
-      const e = toMin(b.end);
-      const segs: [number, number][] =
-        s <= e
-          ? [[s, e]]
-          : [
-              [s, 1440],
-              [0, e],
-            ];
-      segs.forEach(([a, c]) => {
+      minuteSegments(b.start, b.end).forEach(([a, c]) => {
         if (a <= 0 && c > wake0) wake0 = c; // 하루 시작에 붙은 수면 → 기상 시각
         if (c >= 1440 && a < wake1) wake1 = a; // 하루 끝에 붙은 수면 → 취침 시각
       });
@@ -113,18 +104,10 @@ function computeFreeWindowsForWeekday(state: AppState, wd: number): FreeWindows 
   const blocks = blocksForWeekday(state, wd);
   const [wake0, wake1] = awakeBounds(blocks);
   const occ = blocks
-    .flatMap((b): [number, number][] => {
-      // 자정을 걸치는 블록(예: 23:00–01:00)은 두 구간으로 분할 — 안 하면 e<s로 걸러져
-      // 그 시간이 '공부 가능'으로 잘못 남는다(수면과 동일 규칙).
-      const s = toMin(b.start);
-      const e = toMin(b.end);
-      return s <= e
-        ? [[s, e]]
-        : [
-            [s, 1440],
-            [0, e],
-          ];
-    })
+    /* 자정을 걸치는 블록(예: 23:00–01:00)은 두 구간으로 분할 — 안 하면 e<s 로 걸러져
+       그 시간이 '공부 가능'으로 잘못 남는다. ⚠ 규칙의 집은 `utils.minuteSegments` 하나다
+       (C038) — 종전엔 «수면과 동일 규칙»이라는 산문이 그 결합을 지고 있었다. */
+    .flatMap((b): [number, number][] => minuteSegments(b.start, b.end))
     .map(([s, e]): [number, number] => [Math.max(wake0, s), Math.min(wake1, e)])
     .filter(([s, e]) => e > s)
     .sort((a, b) => a[0] - b[0]);

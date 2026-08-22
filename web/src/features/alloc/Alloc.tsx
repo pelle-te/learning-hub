@@ -150,7 +150,7 @@ export default function Alloc() {
           // — 받는 쪽 effect에서 setState로 되받으면 캐스케이드 렌더가 된다(린트가 막는 패턴).
           onOpenDay={(dsPick) => {
             setSchedView('day');
-            navigate(`/schedule?ds=${dsPick}`);
+            void navigate(`/schedule?ds=${dsPick}`);
           }}
         />
       </div>

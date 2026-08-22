@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { Icon } from '@/components/Icon';
+import { tabByKey } from '@/shell/tabs';
 
 /* ── C-7 세 번째 이식 ────────────────────────────────────────────────────
    규약은 설계서 §15 가 SSOT. 이 파일에서 처음 만난 것 둘:
@@ -41,9 +42,31 @@ function Say({ children }: { children: ReactNode }) {
 function Cmd({ children }: { children: ReactNode }) {
   return <code className={CMD}>{children}</code>;
 }
-/** 허브 탭 이름(운전석 내 위치 안내). */
-function Tab({ children }: { children: ReactNode }) {
-  return <span className={TAB}>{children}</span>;
+/**
+ * 허브 탭 이름(운전석 내 위치 안내).
+ *
+ * ⚠⚠ **문자열이 아니라 로스터 키를 받는다**(C033 · 2026-08-22). 종전엔 이름이 손으로
+ * 적혀 있었고 `shell/tabs.ts` 와 아무 연결이 없었다 — 실측하면 **없는 탭 다섯을 여덟 번**
+ * 가리키고 있었다(`발견`·`읽을거리`·`탐구 수집`·`증시 동향`·`증시`). 사용자에게 이건 오타가
+ * 아니라 **따라갈 수 없는 처방**이다: 그 이름을 ⌘K 에 치면 0 히트다.
+ * 불변식 ⑰이 정확히 그 형태를 막으려고 서 있었는데, 관용구가 `<b>…</b> 탭` 이라 **같은 뜻의
+ * 전용 컴포넌트를 원리적으로 못 봤다**(근본 원인 R1 — 집행자가 자기 문법만 막는다).
+ * 이제 개명·제거는 **타입 에러**가 된다. 그게 이 시그니처의 값이다.
+ *
+ * ⚠ 표시는 `label` 이다(`segLabel` 이 아니다) — 팔레트(`shell/palette.ts`)가 `t.label` 로
+ * 항목을 만들므로, 매뉴얼이 부르는 이름과 ⌘K 에 쳐 넣을 이름이 같아야 한다.
+ * `role:'view'` 도 정당한 인자다 — 팔레트가 그 셋도 `to` 로 싣는다(Q-22).
+ *
+ * ⚠⚠ **집행자는 타입이 아니라 불변식 ⑰이다.** 리포트의 처방은 `k: TabKey` 유니온이었는데
+ * 이 저장소에 그런 타입이 **없다**(`TabMeta.key` 가 `string` 이고 `TABS` 는 `as const` 가
+ * 아니다 — 그걸 바꾸면 로스터를 읽는 곳 전부가 딸려 온다). 그래서 같은 보장을 게이트 층에
+ * 뒀다: ⑰이 이 파일의 `<Tab k="…" />` 를 긁어 로스터와 대조한다. 아래 `throw` 는 그 뒤의
+ * 마지막 그물이다(개발 중 즉시 눈에 띄게 — 조용히 빈 칩을 그리지 않는다).
+ */
+function Tab({ k }: { k: string }) {
+  const t = tabByKey(k);
+  if (!t) throw new Error(`로스터에 없는 탭이다: ${k}`);
+  return <span className={TAB}>{t.label}</span>;
 }
 
 function Section({
@@ -177,8 +200,9 @@ export default function Guide() {
           <Cmd>python pipeline/_도구/학습신호.py</Cmd> → 지식상태 재빌드 → 허브에 숙달도 반영.
         </How>
         <How label="약점·점검 도구">
-          약점큐(오답·leech) · 파인만(설명으로 이해 점검) · 모의고사(실전문제). 허브 <Tab>복습 실행</Tab>·
-          <Tab>숙달도 지도</Tab>에서 확인.
+          약점큐(오답·leech) · 파인만(설명으로 이해 점검) · 모의고사(실전문제). 허브 <Tab k="review-run" />·
+          <Tab k="mastery" />
+          에서 확인.
         </How>
         <p className={WARN}>
           <Icon name="alert" /> 지금 <b className="text-learning">콜드</b> — Anki 컬렉션 0카드라 인출 신호가 없음.{' '}
@@ -187,38 +211,16 @@ export default function Guide() {
         </p>
       </Section>
 
-      {/* ── ③ 수집·발견 ── */}
-      <Section
-        n="③ "
-        glyph="discovery"
-        title="수집·발견 — 자료 축"
-        what={
-          <>
-            세상의 자료를 내 목표 근처로 모아 "미노트인데 목표 근접"·"두 목표를 잇는 다리개념"을 발견해 사람이 승격한다.
-            기계는 firehose(다량 수집), 사람은 승격(희소·고가치).
-          </>
-        }
-      >
-        <How label="읽을거리·증시">
-          <b>자동</b> — 허브 <Tab>읽을거리</Tab>·<Tab>증시 동향</Tab> 탭을 열면 갱신(안 건드려도 최신).
-        </How>
-        <How label="웹 탐구 수집">
-          허브 <Tab>탐구 수집</Tab> 탭 — Tavily 웹 리서치 잡을 띄우고 진행을 폴링.
-        </How>
-        <How label="본격 발견 루프">
-          소스 allowlist(<Cmd>수집소스.json</Cmd>) 지정 → <Cmd>오케스트레이션.py --run</Cmd> → 다중양식 수집→개론
-          통합→발견.
-          <b> 지금 소스 0 = 콜드</b>(소스를 넣으면 가동).
-        </How>
-        <How label="발견 triage">
-          허브 <Tab>발견</Tab> 탭에서 후보(미개척·다리개념·수집맥락·가능신호)를 <b>승격/기각</b>(사람 결정 → 개론 분해
-          핸드오프).
-        </How>
-      </Section>
-
+      {/* ⚠⚠ **여기 있던 §③「수집·발견 — 자료 축」을 지웠다**(C059 · 2026-08-22).
+         그 절이 부르던 탭 넷(`읽을거리`·`증시 동향`·`탐구 수집`·`발견`)은 `TABS` 에 **0건**이다 —
+         P10 W4(2026-08-07)가 그 화면들을 *은퇴가 아니라 제거*했고(`features/registry.tsx` 의
+         그 문단이 SSOT) 축 자체가 2026-08-21 에 은퇴했다. 부모 `CLAUDE.md` 도 «발견 크로스워크는
+         삭제됐다»라고 못박는다. 즉 이름을 고쳐도 **가리킬 화면이 없다.**
+         ⚠ 수집·교양은 이제 `survey/` 필러가 소유한다 — 이 앱이 소비하는 것은 «학습 대상으로
+         등록된 것의 상태»뿐이다. 되살리려면 `git show 2e28465:web/src/features/find/GuideView.tsx`. */}
       {/* ── ④ 목표·연관성 ── */}
       <Section
-        n="④ "
+        n="③ "
         glyph="compass"
         title="목표·연관성 — 왜 이 순서로 배우나"
         what={
@@ -229,21 +231,21 @@ export default function Guide() {
         }
       >
         <How label="내 길 보기">
-          허브 <Tab>내 길</Tab> 탭 — 전파통신 연구원 자립 트리(<Cmd>goals.json</Cmd> · 손저작).
+          허브 <Tab k="path" /> 탭 — 전파통신 연구원 자립 트리(<Cmd>goals.json</Cmd> · 손저작).
         </How>
         <How label="연관성 켜기">
           핵심 노트 frontmatter에 <code className={K}>goals: [signal-processing, communication-theory]</code> 링크 →
           시퀀싱이 목표 그래디언트로 재정렬(하이브리드 = 핵심만 손 링크 · 나머지는 개념그래프 거리).
         </How>
         <How label="다음 학습 순서">
-          허브 <Tab>숙달도 지도</Tab> → '다음 학습 순서'(선수게이트 + 약점 + ZPD + 삶-연관성 결합 랭크 = 연관성×gap).
+          허브 <Tab k="mastery" /> → '다음 학습 순서'(선수게이트 + 약점 + ZPD + 삶-연관성 결합 랭크 = 연관성×gap).
         </How>
-        <How label="프로젝트·가능신호">
-          <Tab>내 길</Tab> 프로젝트 섹션 + <Tab>발견</Tab> 가능신호 — 분야가 임계 도달하면 "이제 이 프로젝트 가능"
-          (capability-unlock).
+        <How label="프로젝트">
+          <Tab k="path" /> 프로젝트 섹션 — 분야가 임계에 도달하면 "이제 이 프로젝트 가능"(capability-unlock).
+          {/* ⚠ 짝이던 「<발견> 가능신호」는 그 탭과 함께 사라졌다(C059). */}
         </How>
         <How label="엔진 건강">
-          <Tab>숙달도 지도</Tab> → 연관성↑ 노트가 실제로 더 숙달됐나 회고(배분 논지 검증 · 신호 쌓인 뒤 판정).
+          <Tab k="mastery" /> → 연관성↑ 노트가 실제로 더 숙달됐나 회고(배분 논지 검증 · 신호 쌓인 뒤 판정).
         </How>
       </Section>
 
@@ -295,28 +297,14 @@ export default function Guide() {
                 <td className={`${TD} font-semibold whitespace-nowrap`}>챕터 원장 재빌드</td>
                 <td className={`${TD} text-mut`}>과목×챕터 진척</td>
                 <td className={TD}>
-                  <Tab>정본 원장</Tab>
+                  <Tab k="ledger" />
                 </td>
               </tr>
               <tr>
                 <td className={`${TD} font-semibold whitespace-nowrap`}>지시문 품질검사</td>
                 <td className={`${TD} text-mut`}>노트 6차원 회귀</td>
                 <td className={TD}>
-                  <Tab>복습 실행</Tab>
-                </td>
-              </tr>
-              <tr>
-                <td className={`${TD} font-semibold whitespace-nowrap`}>읽을거리·증시 수집</td>
-                <td className={`${TD} text-mut`}>피드 갱신</td>
-                <td className={TD}>
-                  <Tab>읽을거리</Tab>·<Tab>증시</Tab>(자동)
-                </td>
-              </tr>
-              <tr>
-                <td className={`${TD} font-semibold whitespace-nowrap`}>발견 승격·기각</td>
-                <td className={`${TD} text-mut`}>후보 처리</td>
-                <td className={TD}>
-                  <Tab>발견</Tab>
+                  <Tab k="review-run" />
                 </td>
               </tr>
             </tbody>

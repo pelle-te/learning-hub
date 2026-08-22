@@ -19,7 +19,7 @@
       저장하면 자정을 넘길 때마다 낡는다(과목 색이 저장값이 아닌 것과 같은 논증).
 ============================================================ */
 import type { AcademicMark, AppState, Chapter, Course, Exam, Item, Semester } from './types';
-import { dayDiff, todayISO } from './utils';
+import { dayDiff, rid, todayISO } from './utils';
 
 /** 시험 최대 개수(v1). ⚠ **이 상수를 올리는 것이 금도금 미끄럼틀의 첫 걸음이다** — `schema.ts` 의
  *  `ExamSchema` 머리주석이 무엇을 안 만들기로 했는지 적어 뒀다. 올리려면 근거를 들고 그 주석부터. */
@@ -261,6 +261,37 @@ export function itemsOfSemester(state: Pick<AppState, 'items'>, semester: Semest
 export function marksOf(semester: Semester | null): AcademicMark[] {
   if (!semester?.marks?.length) return [];
   return [...semester.marks].sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0));
+}
+
+/**
+ * 학사 눈금을 학기에 **넣는다**. 같은 `(ds, kind)` 는 안 넣는다.
+ *
+ * ⚠⚠ **쓰기가 읽기 곁으로 내려온 이유**(C036 · 2026-08-22). 이 11줄은 두 인입구
+ * (`degree/CalendarIntake.tsx` · `degree/SyllabusIntake.tsx`)에 **글자 그대로**(`diff` 차이
+ * 0줄) 복제돼 있었고, 그 규칙에 닿는 테스트는 **0건**이었다 — 컴포넌트를 렌더하지 않으면
+ * 도달 방법 자체가 없었기 때문이다(근본 원인 R3: 새 표면이 규칙을 `.tsx` 콜백 안에 둔다).
+ *
+ * 대가가 구체적이다: 중복 판정 키가 `(ds, kind)` 라 **같은 날 보강 두 건**(1교시·3교시)이
+ * 오면 지금도 한 건만 들어간다. 그 수정(키에 `label` 을 더하기)이 오면 고치는 사람은 자기가
+ * 연 화면 하나만 고치고, 그 뒤 `.ics` 경로는 두 건 · 붙여넣기 경로는 한 건이 들어간다 —
+ * **같은 학기에 인입 경로에 따라 다른 눈금 집합**이 남는다. `CalendarIntake` 는 강의 블록에
+ * 대해 이미 그 실패를 겪고 주석으로 못박아 뒀다. 게이트는 전량 녹색이었다(테스트가 0이므로).
+ *
+ * ⚠ 읽기(`marksOf`)가 이미 한 곳이 소유하고 있었다 — 규율 1 과 같은 논거다.
+ * ⚠ **`target` 을 제자리에서 고친다**(호출부가 `mutate` 안에서 부른다 · immer draft).
+ *
+ * @returns 실제로 들어간 건수 — 호출부 토스트 카운터가 이 값을 읽는다.
+ */
+export function applyMarks(target: Semester, incoming: readonly Omit<AcademicMark, 'id'>[]): number {
+  const marks: AcademicMark[] = target.marks || [];
+  let n = 0;
+  for (const m of incoming) {
+    if (marks.some((x) => x.ds === m.ds && x.kind === m.kind)) continue;
+    marks.push({ id: rid(), kind: m.kind, ds: m.ds, label: m.label });
+    n += 1;
+  }
+  if (marks.length) target.marks = marks;
+  return n;
 }
 
 /** 눈금 하나 + 남은 일수(D-day). 지난 것은 음수 — **거르지 않는다**(거르는 것은 화면의 판단). */

@@ -60,7 +60,7 @@ export function VaultPanel() {
     initRef.current = true;
     if (qc.getQueryData(['vault'])) return; // 이번 세션에 이미 연동됨(쿼리 캐시 유지)
     let alive = true;
-    (async () => {
+    void (async () => {
       const saved = await idbGet<FileSystemDirectoryHandle>('vaultHandle');
       if (!alive || !saved) return;
       const perm = await queryVaultPermission(saved);
@@ -92,7 +92,7 @@ export function VaultPanel() {
       if (r) {
         qc.setQueryData(['vault'], r.scan);
         qc.setQueryData(['vaultHandle'], r.handle); // Anki 패널이 같은 폴더 재사용
-        idbPut('vaultHandle', r.handle); // 다음 부팅에 재선택 없이 재연결
+        void idbPut('vaultHandle', r.handle); // 다음 부팅에 재선택 없이 재연결
         setPending(null);
       }
     } catch (e) {
@@ -117,7 +117,7 @@ export function VaultPanel() {
       if (r) {
         qc.setQueryData(['vault'], r.scan);
         qc.setQueryData(['vaultHandle'], r.handle);
-        idbPut('vaultHandle', r.handle);
+        void idbPut('vaultHandle', r.handle);
         setPending(null);
       }
     } catch (e) {
@@ -131,7 +131,7 @@ export function VaultPanel() {
   const disconnect = () => {
     qc.removeQueries({ queryKey: ['vault'], exact: true });
     qc.removeQueries({ queryKey: ['vaultHandle'], exact: true });
-    idbDel('vaultHandle');
+    void idbDel('vaultHandle');
     setOpen(new Set());
     setPending(null);
     setErr('');

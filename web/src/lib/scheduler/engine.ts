@@ -110,12 +110,21 @@ export function schedule(state: AppState): ScheduleResult {
     const d = ex.length ? ex[ex.length - 1]!.date : '';
     return d > m ? d : m;
   }, '');
-  let weeksNeed = 8;
+  /* 페이스 경로의 진짜 손잡이 둘. ⚠⚠ **이름이 없었다**(C040 · 2026-08-22): 상한 `26` 은 이
+     함수에서 **유일하게 이름도 주석도 없는 수**였는데(바로 아래 두 상수는 각각 여러 줄짜리
+     근거를 단다) 페이스 경로를 실제로 자르는 것이 그것이다. 그 결과 「300시간 과목을 주 2시간」
+     사용자의 계획이 26주에서 잘렸을 때, 고치러 온 사람은 아래 `PACE_HORIZON_MAX`(주석이
+     *"페이스/마감 경로"* 라 말한다)를 올리고 **아무 변화도 못 본다** — 아래 그 상수 주석 참조.
+     ⚠ 이 회차는 값을 안 바꿨다. 26 이 옳은 상한인지는 **별개 판단**이고, 이 건은
+     «손잡이가 거짓말한다» 이지 «상한이 짧다» 가 아니다. */
+  const PACE_WEEKS_MIN = 8; // 아무리 가벼워도 8주 지평 — 짧은 계획이 하루에 몰리는 것을 막는다
+  const PACE_WEEKS_MAX = 26; // 페이스 경로의 실질 상한(≈ 6개월). 여기가 페이스 지평을 자르는 자리다
+  let weeksNeed = PACE_WEEKS_MIN;
   weeklyRaw.forEach((s) => {
     const th = itemTotalHours(s);
     if (th > 0) weeksNeed = Math.max(weeksNeed, Math.ceil(th / Math.max(0.1, +(s.weeklyHours || 0))));
   });
-  weeksNeed = Math.min(weeksNeed, 26);
+  weeksNeed = Math.min(weeksNeed, PACE_WEEKS_MAX);
   const endByPace = iso(addDays(mondayOf(parseISO(start)), weeksNeed * 7 + 6));
   const endDate = lastDL && lastDL > endByPace ? lastDL : endByPace;
   const today = todayISO(state);
@@ -128,7 +137,12 @@ export function schedule(state: AppState): ScheduleResult {
   //   그 상태로 편집하면 빈 자동초안이 manual로 승격돼 그날이 영구히 빈 계획이 된다.
   //   → 오늘 항은 별도의 넉넉한 상한(약 5년)을 쓴다. 상한을 아예 없애지 않는 이유는 startDate가
   //     쓰레기 값(1970-01-01 등)일 때 수만 일 배열이 생기는 것만 막기 위해서다.
-  const PACE_HORIZON_MAX = 546; // 18개월 — 페이스/마감 경로(편집마다 재계산되므로 짧게)
+  /* ⚠⚠ **이 주석이 페이스 경로에 대해 거짓이었다**(C040 · 2026-08-22). *"페이스/마감 경로"* 라
+     적혀 있었지만 산수로 도달 불가다: `endByPace = mondayOf(start) + weeksNeed*7 + 6` 이고
+     `weeksNeed ≤ PACE_WEEKS_MAX(26)` 이므로 `endByPace − start ≤ 188일` 이다. 546 이 걸리는 것은
+     `lastDL`(시험·마감)이 546일 밖일 때뿐 — 즉 **마감 경로 전용**이다.
+     페이스 쪽을 늘리려면 위 `PACE_WEEKS_MAX` 를 봐라(여기가 아니다). */
+  const PACE_HORIZON_MAX = 546; // 18개월 — **마감(시험) 경로 전용** 상한(편집마다 재계산되므로 짧게)
   const TODAY_HORIZON_MAX = 1826; // 약 5년 — 표시-only 전방 확장의 안전 상한
   const horizon = Math.max(
     6,

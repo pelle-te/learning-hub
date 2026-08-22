@@ -146,6 +146,8 @@ const DAY_CODE: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR
  * 없으면 요일 하나짜리 시간표(주 1회 강의)가 통째로 `unparsed` 로 떨어진다.
  * ⚠ `BYDAY=2MO`(둘째 월요일) 같은 서수는 **주 반복이 아니다** — 일과 블록으로 옮기면 매주
  * 서는 수업이 되어 없는 시간을 지운다. 서수가 붙은 코드는 버린다.
+ * ⚠⚠ `COUNT=n` 은 **유한 반복**이라 같은 이유로 거부한다(C035) — 아래 그 자리 주석 참조.
+ *    `UNTIL` 은 반대다(학기 종료 표기 · 정상 시간표) — 둘을 한 부류로 읽지 마라.
  */
 function weeklyDays(rrule: string | undefined, startWd: number): number[] | null {
   if (!rrule) return null;
@@ -160,6 +162,14 @@ function weeklyDays(rrule: string | undefined, startWd: number): number[] | null
   /* 격주 수업을 매주로 펴면 **없는 수업이 매주 시간을 먹는다** — 가용시간을 깎는 쪽이라 조용히
      틀리면 계획 전체가 눌린다. 주기가 1이 아니면 일과로 옮기지 않는다. */
   if (interval !== 1) return null;
+  /* ⚠⚠ `COUNT=n` 도 같은 축의 다른 갈래다(C035 · 2026-08-22). 3주짜리 보강이
+     `FREQ=WEEKLY;BYDAY=WE;COUNT=3` 으로 오면 `RoutineBlock` 에는 **종료 개념이 없어**
+     3주 뒤부터 없는 수업이 매주 수요일을 영구히 먹는다 — 위 `INTERVAL` 문단이 거부하는
+     것과 글자 그대로 같은 실패이고, 가용시간을 깎는 쪽이라 조용히 틀리면 계획 전체가 눌린다.
+     재인입이 정상 사용(I010)이라 **반입할 때마다 유령 블록이 하나씩 쌓인다.**
+     ⚠ `UNTIL` 은 여기 넣지 마라 — 그건 학기 종료 표기이고 `test/icsParse.test.ts` 에
+     픽스처가 있는 **의도된 통과**다. 「끝이 있다」는 점만 같고 뜻이 반대다. */
+  if (parts.has('COUNT')) return null;
   const byday = parts.get('BYDAY');
   if (!byday) return [startWd];
   const days = byday
@@ -255,6 +265,43 @@ function takeEvent(p: Props, lectures: IcsLecture[], marks: IntakeMark[], exams:
  */
 export function lectureToBlock(l: IcsLecture, type: string, sid?: string): RoutineBlock {
   return { id: rid(), name: l.name, type, start: l.start, end: l.end, days: [...l.days], ...(sid ? { sid } : {}) };
+}
+
+/**
+ * 고른 시간표 강의들을 일과에 **넣는다**. 같은 블록은 안 넣는다. 실제로 들어간 수를 돌려준다.
+ *
+ * ⚠⚠ **쓰기가 `lectureToBlock` 곁으로 내려온 이유**(C068 · 2026-08-22). 이 규칙은
+ * `degree/CalendarIntake.tsx` 의 `mutate` 콜백 **안**에 살았고, 그래서 컴포넌트를 렌더하지
+ * 않으면 도달 방법 자체가 없었다 — 근본 원인 **R3** 의 형태이고 `C036`(학사 눈금)과 **글자
+ * 그대로 같은 짝**이다. 그쪽을 내리면서 이쪽만 남겨 두면 같은 파일에 정반대의 두 선례가 생긴다.
+ *
+ * ⚠ **중복 판정이 규칙의 본체다.** 학기 중에 시간표를 다시 받는 것이 정상 사용이고(I010 —
+ * 시간표는 바뀐다), 그때마다 쌓이면 **가용시간이 실제보다 적어진다**(스케줄러가 그만큼 전부를
+ * 누른다). 이 파일이 `INTERVAL`·`COUNT` 를 거부하는 것과 같은 축의 방어다.
+ *
+ * ⚠ 판정 키는 `(name, start, end, days)` 다 — `sid` 는 **키가 아니다**. 과목 연결이 나중에
+ * 붙거나 떨어져도 같은 수업은 같은 수업이고, `sid` 를 키에 넣으면 연결이 바뀐 뒤 재인입이
+ * **같은 시간에 블록 둘**을 만든다.
+ * ⚠ `routine` 을 제자리에서 고친다(호출부가 `mutate` 안에서 부른다 · immer draft).
+ *
+ * @param sidOf 강의명 → 과목 id. 못 맞추면 `undefined` 를 주면 된다(`matchLectureSid` 참조).
+ */
+export function applyLectureBlocks(
+  routine: RoutineBlock[],
+  lectures: readonly IcsLecture[],
+  type: string,
+  sidOf: (name: string) => string | undefined,
+): number {
+  let n = 0;
+  for (const l of lectures) {
+    const dup = routine.some(
+      (b) => b.name === l.name && b.start === l.start && b.end === l.end && b.days.join() === l.days.join(),
+    );
+    if (dup) continue;
+    routine.push(lectureToBlock(l, type, sidOf(l.name)));
+    n += 1;
+  }
+  return n;
 }
 
 /**

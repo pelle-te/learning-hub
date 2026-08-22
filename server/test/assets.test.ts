@@ -78,7 +78,8 @@ afterAll(async () => {
   await mf?.dispose();
 });
 
-const get = (path: string) => mf.dispatchFetch(`${BASE}${path}`);
+/* ⚠ `redirect: 'manual'` 을 줄 수 있어야 한다 — 루트가 302 를 내는지 보려면 따라가면 안 된다(C047). */
+const get = (path: string, init?: RequestInit) => mf.dispatchFetch(`${BASE}${path}`, init);
 
 describe('⚠⚠ /api/* 가 SPA 폴백에 삼켜지지 않는다(run_worker_first)', () => {
   it.each([
@@ -89,6 +90,14 @@ describe('⚠⚠ /api/* 가 SPA 폴백에 삼켜지지 않는다(run_worker_firs
     '/api/enroll/claim',
     '/api/devices',
     '/api/이런건없다',
+    /* ⚠⚠ **루트가 여기 있는 이유**(C047 · 2026-08-22). 종전엔 SPA 폴백이 `/` 에 **데스크톱
+       엔트리**(`index.html`)를 줬다. 그 엔트리는 `enableBrowserDb()` 를 안 부르므로 브라우저에서
+       `isSqlitePrimary()` 가 거짓이고 저장이 localStorage 로 흐른다 — 아웃박스는 SQLite 만 훑으니
+       **그 편집은 영원히 올라가지 않는다.** 화면엔 아무 표시도 없다. 북마크·주소 자동완성·공유
+       링크로 실제로 도달하는 문이었다. 이제 `run_worker_first` 가 루트를 워커로 보내고 워커가
+       `/phone` 으로 302 한다. ⚠ **여기서 재는 것은 라우팅뿐이다**(사용자 워커는 스텁이다) —
+       302 와 `Location` 자체는 진짜 Hono 를 태우는 `roundtrip.test.ts` 가 잰다. */
+    '/',
   ])('%s → 사용자 워커', async (path) => {
     const r = await get(path);
     /* 418 은 스텁 워커만 낼 수 있는 값이다. 200/text-html 이 오면 자산 워커가 API 를
@@ -99,8 +108,21 @@ describe('⚠⚠ /api/* 가 SPA 폴백에 삼켜지지 않는다(run_worker_firs
 });
 
 describe('정적 자산·SPA 폴백', () => {
-  it('/ 가 index.html 을 준다', async () => {
-    const r = await get('/');
+  /* ⚠⚠ **이 케이스는 «`/` 가 index.html 을 준다» 였다 — 뒤집었다**(C047 · 2026-08-22 코드 축).
+
+     그 단언이 지키던 것은 «루트에서 **데스크톱 SPA** 가 뜬다» 였는데, 데스크톱 엔트리는
+     `enableBrowserDb()` 를 안 부르므로 브라우저에서 `isSqlitePrimary()` 가 거짓이고 저장이
+     localStorage 로 흐른다. 아웃박스는 SQLite 만 훑는다 → **그 편집은 영원히 동기화되지 않는다.**
+     화면에는 아무 표시가 없다. 즉 **테스트가 옛 계약을 지키고 있었다는 것이 그 결함의 절반**이었다.
+     지금 계약은 «루트는 폰으로 보낸다» 이고, 데스크톱 SPA 는 명시 경로에만 열린다. */
+  it('폰 엔트리가 뜬다 — 루트 리다이렉트가 가리키는 곳이 실재해야 한다', async () => {
+    const r = await get('/phone');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('content-type')).toContain('text/html');
+  });
+
+  it('데스크톱 SPA 는 명시 경로에서 계속 열린다 — 문을 옮긴 것이지 닫은 것이 아니다(C047)', async () => {
+    const r = await get('/today');
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toContain('text/html');
     expect(await r.text()).toContain('<!DOCTYPE html>');
@@ -126,7 +148,12 @@ describe('정적 자산·SPA 폴백', () => {
   });
 
   it('해시 붙은 번들이 그대로 나온다', async () => {
-    const r = await get('/index.html');
+    /* ⚠⚠ **`/index.html` 로 읽지 마라**(C047 · 2026-08-22). 자산 워커는 `/index.html` 을
+       **정규 URL `/` 로 307** 하는데, 이제 `/` 는 사용자 워커가 받아 `/phone` 으로 보낸다 —
+       즉 이 오리진에서 `/index.html` 은 더 이상 데스크톱 HTML 을 읽는 길이 아니다.
+       (그 307 을 `dispatchFetch` 가 조용히 따라가던 것이 종전 이 케이스가 통과하던 이유였고,
+       그 사실은 아무 데도 안 적혀 있었다.) SPA 폴백 경로로 읽는다. */
+    const r = await get('/today');
     const html = await r.text();
     /* index.html 이 참조하는 실제 번들을 뽑아 확인한다 — 파일명을 손으로 적으면
        다음 빌드에 깨진다(해시가 바뀐다). */
@@ -152,7 +179,9 @@ describe('⚠ 자산 응답의 캐시 헤더 — "옛 번들 고착"을 막는�
      직접 서빙하는 코드가 필요한데, 얻는 것(304 대신 200)보다 대가가 크다 → **바꾸지 않고
      성질을 여기서 잠근다.** 값이 아니라 **성질**을 단언하는 이유가 이것이다. */
   it('HTML 은 재검증 없이 재사용되지 않는다', async () => {
-    const cc = (await get('/')).headers.get('cache-control') ?? '';
+    /* ⚠ `/` 가 아니라 `/today` 를 쓴다 — 루트는 이제 워커로 간다(C047). 재는 것은 **자산 워커가**
+       HTML 에 붙이는 헤더다. */
+    const cc = (await get('/today')).headers.get('cache-control') ?? '';
     expect(cc, `HTML 이 재검증 없이 캐시된다 — 옛 번들 고착 위험(관측값: "${cc}")`).toMatch(
       /no-store|no-cache|max-age=0|must-revalidate/,
     );
@@ -160,7 +189,7 @@ describe('⚠ 자산 응답의 캐시 헤더 — "옛 번들 고착"을 막는�
 
   it('자산 응답에 API 용 no-store 가 새어 붙지 않는다', async () => {
     /* `no-store` 를 전 응답에 걸면 해시 붙은 번들까지 매번 다시 받는다(폰은 대개 셀룰러다). */
-    const cc = (await get('/')).headers.get('cache-control') ?? '';
+    const cc = (await get('/today')).headers.get('cache-control') ?? '';
     expect(cc).not.toContain('no-store');
   });
 });

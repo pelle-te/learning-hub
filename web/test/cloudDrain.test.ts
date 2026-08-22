@@ -28,7 +28,11 @@ vi.mock('@/lib/cloud/client', () => ({
 }));
 /** 모르는 테이블 누계(M-10) — 케이스가 세운 값을 `run.ts` 가 앞뒤로 재서 델타를 만든다. */
 let unknownTotal = 0;
-vi.mock('@/lib/cloud/merge', () => ({ applyPull: (...a: unknown[]) => applyPull(...a) }));
+const refreshBaseline = vi.fn();
+vi.mock('@/lib/cloud/merge', () => ({
+  applyPull: (...a: unknown[]) => applyPull(...a),
+  refreshBaseline: (...a: unknown[]) => refreshBaseline(...a),
+}));
 /* ⚠ **드레인의 계약이 `state` 에서 `rows` 로 옮겨졌다**(m-7 · 2026-08-20). `applyPull` 은 이제
    되읽은 **행 표현**을 돌려주고 `AppState` 변환은 `run.ts` 가 **루프 뒤 1회**만 한다(종전엔
    회차마다 정본 전량을 다시 파싱하고 마지막 하나를 뺀 전부를 버렸다).
@@ -78,6 +82,9 @@ beforeEach(() => {
   setDiffBaseline.mockReset();
   scanConflicts.mockClear();
   applyPull.mockReset().mockImplementation(async (b: OutboxBatch) => ({ applied: b.rows.length, rows: null }));
+  /* ⚠ **되읽기가 루프 밖으로 나갔다**(C041 · 2026-08-22) — 기본은 «성공»이다. 실패 경로는
+     그 케이스가 직접 갈아 끼운다. */
+  refreshBaseline.mockReset().mockResolvedValue({ marker: 'baseline' });
 });
 
 describe('push 드레인 — 판정은 `more` 다', () => {
@@ -150,16 +157,57 @@ describe('pull 드레인 — 빌 때까지 받는다(종전엔 루프 자체가 
     expect(pullChanges).toHaveBeenCalledTimes(1);
   });
 
-  it('⚠ 메모리에 싣는 상태는 **마지막 회차**의 것이다 — 중간 스냅샷을 실으면 UI 가 갈린다', async () => {
-    const mid = { marker: 'mid' } as never;
-    const last = { marker: 'last' } as never;
-    applyPull.mockResolvedValueOnce({ applied: 1, rows: mid }).mockResolvedValueOnce({ applied: 1, rows: last });
+  /* ⚠⚠ **C041(2026-08-22) — 되읽기가 루프 밖으로 나갔다.**
+
+     종전 계약은 *"메모리에 싣는 상태는 **마지막 회차**의 것"* 이었고, 그 문장이 회차마다 정본
+     **전량**을 읽고 **마지막 하나만 쓰는** 낭비를 *근거로* 삼고 있었다. 비용이 선형이 아니라
+     제곱이다(라운드 ≈`N/500+1` × 라운드마다 D행 → 전량 온보딩이면 `O(D²/500)`).
+     지금은 드레인이 회차마다 **안 읽고**(`readback:false`), 누적 결과를 끝에 **한 번** 읽는다.
+     뜻은 같고 비용이 제곱에서 상수로 떨어진다. 아래 셋이 그 계약이다. */
+  it('⚠⚠ 회차마다 되읽지 않는다 — `readback:false` 로 부른다', async () => {
+    pullChanges
+      .mockResolvedValueOnce(batch(10, 1))
+      .mockResolvedValueOnce(batch(20, 1))
+      .mockResolvedValueOnce(batch(20, 0));
+    await syncOnce();
+    expect(applyPull).toHaveBeenCalledTimes(2);
+    for (const call of applyPull.mock.calls) {
+      expect(call[1], '회차 되읽기가 되살아났다 — pull 이 DB 크기에 제곱이 된다').toMatchObject({
+        readback: false,
+      });
+    }
+  });
+
+  it('⚠⚠ 되읽기는 드레인이 끝난 뒤 **정확히 한 번**이다 — 회차 수와 무관하다', async () => {
+    pullChanges
+      .mockResolvedValueOnce(batch(10, 200))
+      .mockResolvedValueOnce(batch(20, 200))
+      .mockResolvedValueOnce(batch(30, 200))
+      .mockResolvedValueOnce(batch(40, 40))
+      .mockResolvedValueOnce(batch(40, 0));
+    await syncOnce();
+    expect(pullChanges).toHaveBeenCalledTimes(5);
+    expect(refreshBaseline, '회차마다 되읽으면 여기가 4가 된다').toHaveBeenCalledTimes(1);
+  });
+
+  it('메모리에 싣는 상태는 **그 한 번의 되읽기** 결과다 — 중간 스냅샷을 실으면 UI 가 갈린다', async () => {
+    const 누적 = { marker: 'accumulated' } as never;
+    refreshBaseline.mockResolvedValue(누적);
+    /* 회차들은 이제 `rows: null` 을 준다(되읽지 않으므로) — 중간 스냅샷이라는 개념 자체가 없다. */
+    applyPull.mockResolvedValue({ applied: 1, rows: null });
     pullChanges
       .mockResolvedValueOnce(batch(10, 1))
       .mockResolvedValueOnce(batch(20, 1))
       .mockResolvedValueOnce(batch(20, 0));
     const r = await syncOnce();
-    expect(r.state).toBe(last);
+    expect(r.state).toBe(누적);
+  });
+
+  it('⚠ 받은 것이 없으면 되읽지 않는다 — 평시 동기화가 전량 읽기를 타지 않는다', async () => {
+    pullChanges.mockResolvedValue(batch(7, 0));
+    const r = await syncOnce();
+    expect(refreshBaseline).not.toHaveBeenCalled();
+    expect(r.state, '쓴 것이 없으면 메모리와 DB 가 갈리지 않았다').toBeNull();
   });
 });
 
@@ -191,24 +239,42 @@ describe('C-1 — 드레인 중 실패는 기준선을 무효화한다', () => {
     expect(setDiffBaseline, '기준선(병합-후)만 남으면 flush 가 되돌리는 문장을 만든다').toHaveBeenCalledWith(null);
   });
 
-  it('ⓑ `applyPull` 이 되읽기 실패로 `state:null` 을 돌려줘도 **앞 회차의 유효 스냅샷을 덮지 않는다**', async () => {
-    const first = { marker: 'r1' } as never;
-    applyPull.mockResolvedValueOnce({ applied: 1, rows: first }).mockResolvedValueOnce({ applied: 1, rows: null }); // 되읽기 실패 — 던지지 않는다
-    // 종료조건이 `n===0` 이라 데이터가 있는 회차 뒤엔 빈 회차가 하나 더 온다(드레인은 정상 종료).
+  /* ⚠⚠ **C041 이 ⓐ 와 ⓑ 를 한 갈래로 합쳤다**(2026-08-22).
+
+     종전 ⓑ는 «회차마다» 날 수 있었다(되읽기가 회차마다였으므로) — 그래서 «앞 회차의 유효
+     스냅샷을 null 로 덮지 않는다»는 규칙이 루프 안에 필요했다. 지금은 되읽기가 **한 자리**라
+     실패도 한 자리이고, 그 실패는 ⓐ(드레인 중간 실패)와 **같은 상태로 수렴한다**:
+     기준선 `null` + `state:null` + 창 안 열림 → 다음 쓰기가 DB 를 재독해 정합을 회복한다.
+     덮어쓸 «앞 회차의 스냅샷» 자체가 더 이상 존재하지 않는다는 것이 이 단순화의 요점이다. */
+  it('ⓑ 루프 뒤 되읽기가 실패하면 `state:null` + 기준선 무효화 — ⓐ 와 같은 상태로 수렴한다', async () => {
+    refreshBaseline.mockResolvedValue(null); // 되읽기 실패 — 던지지 않는다
     pullChanges
       .mockResolvedValueOnce(batch(10, 1))
       .mockResolvedValueOnce(batch(20, 1))
       .mockResolvedValueOnce(batch(20, 0));
 
     const r = await syncOnce();
-    expect(r.state, 'null 로 덮으면 applyMerged 가 안 불려 ⓐ 와 같은 어긋남이 된다').toBe(first);
+    expect(r.state, '되읽기가 실패하면 메모리에 실을 것이 없다').toBeNull();
     expect(setDiffBaseline, 'DB 는 앞서 갔으므로 재독을 강제한다').toHaveBeenCalledWith(null);
   });
 
-  it('정상 드레인은 기준선을 건드리지 않는다 — 무효화가 상시 발생하면 매 동기화가 전량 재독이 된다', async () => {
-    applyPull.mockResolvedValue({ applied: 1, rows: { marker: 'ok' } as never });
+  it('⚠ 되읽기 실패가 드레인을 «받은 것이 없다»로 보고하지 않는다 — 워터마크는 이미 전진했다', async () => {
+    refreshBaseline.mockResolvedValue(null);
+    pullChanges.mockResolvedValueOnce(batch(10, 3)).mockResolvedValueOnce(batch(10, 0));
+    const r = await syncOnce();
+    expect(r.status, '되읽기 실패로 던지면 catch 가 이것을 failed 로 만든다').toBe('ok');
+    expect(r.pulled, '받은 건수는 사실대로 보고한다').toBe(3);
+  });
+
+  it('정상 드레인이 끝나면 기준선이 **서 있다** — 무효화만 남으면 다음 쓰기가 전량 재독이 된다', async () => {
+    const 누적 = { marker: 'ok' } as never;
+    refreshBaseline.mockResolvedValue(누적);
     pullChanges.mockResolvedValueOnce(batch(10, 1)).mockResolvedValueOnce(batch(10, 0));
-    await syncOnce();
+    const r = await syncOnce();
+    /* ⚠ 드레인 **중**의 무효화는 `merge.ts` 안에서 일어나므로(여기선 mock) 이 층에서 볼 수 없다 —
+       이 층이 잴 수 있는 것은 «끝에 유효한 기준선이 섰는가»이고, 그 신호가 `state` 다.
+       `run.ts` 는 되읽기가 성공하면 `setDiffBaseline(null)` 을 부르지 않는다. */
+    expect(r.state, '끝에 기준선이 안 서면 applyMerged 가 안 불린다').toBe(누적);
     expect(setDiffBaseline).not.toHaveBeenCalled();
   });
 });

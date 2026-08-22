@@ -27,6 +27,7 @@
    (값 부재와 값 0 이 같은 픽셀).
 ============================================================ */
 import type { AppState } from './types';
+import { iso } from './utils';
 
 /** 이 수를 넘으면 표식을 안 준다(머리주석 §요점). 5 는 로드맵이 적어 둔 전제 그대로다. */
 export const SINCE_NOISE_MAX = 5;
@@ -37,11 +38,17 @@ const COUNTERS: Record<string, (s: AppState) => string[]> = {
   mistakes: (s) => (s.cbms || []).map((c) => c.ds),
   // 문항 원장(T-7).
   questions: (s) => (s.questions || []).map((q) => q.ds),
-  // 학습 기록 — 3문장 요약. `at`(epoch ms)뿐이라 ISO 로 맞춘다.
+  /* 학습 기록 — 3문장 요약. `at`(epoch ms)뿐이라 날짜 문자열로 맞춘다.
+     ⚠⚠ **`toISOString()` 을 쓰지 마라**(C043 · 2026-08-22). 그건 UTC 날짜인데 비교 대상인
+     `seenDs` 는 `todayISO()` = **로컬** 이다. KST 00:00–09:00 에 쓴 요약은 전날 날짜가 붙어
+     `ds > seenDs` 를 통과하지 못하고, `seenDs` 는 이미 전진했으므로 **다음 날에도 영영**
+     배지에 안 뜬다. `utils.iso()` 가 정확히 이 함정 때문에 존재한다(그 함수 주석이 SSOT).
+     ⚠ `test/since.test.ts` 가 못 잡았던 이유: 픽스처가 UTC 자정이라 두 표현이 우연히 같았다.
+     지금은 로컬 오전 픽스처 + `TZ` 매트릭스(`vitest.config` 의 `tz` 프로젝트)가 잰다. */
   journal: (s) =>
     Object.values(s.summaries || {})
       .flat()
-      .map((x) => (x.at ? new Date(x.at).toISOString().slice(0, 10) : ''))
+      .map((x) => (x.at ? iso(new Date(x.at)) : ''))
       .filter(Boolean),
 };
 

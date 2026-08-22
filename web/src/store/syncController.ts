@@ -284,8 +284,24 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
   const { pollMs, onEdit = true, onPagehide = false, beforeSync, onResult } = opts;
 
   let _running: Promise<void> | null = null;
+  /* ⚠⚠ **도는 중에 온 트리거를 «한 번»으로 접어 뒤에 잇는다**(C044 · 2026-08-22).
+     종전엔 `if (_running) return;` 하나였고, 그 반환이 **트리거를 버렸다**: `syncSoon` 은
+     타이머가 뛰는 순간 `_editTimer = null` 로 자기를 소비하고 `_activeRun()` 을 부르므로,
+     그 호출이 `_running` 에 막히면 **그 편집의 예약이 어디에도 안 남는다.**
+     폴백 폴링도 없다(`pollMs` 는 호환용이고 데스크톱은 더 이상 주지 않는다 · W24) → 남는 것은
+     `focus`(최소 간격 **5분**) · `online`(전이 이벤트라 안 온다) · 다음 편집뿐이다.
+     실제 구간: 두 번째 기기 온보딩처럼 드레인이 도는 동기화(이 파일이 *"27라운드 × 1.2초 ≈
+     30초"* 라 실측을 적어 뒀다) 중에 편집하면, 이 파일 머리주석이 결함으로 지목한
+     *"편집→다른 기기 반영이 최대 5분 늦었다"* 가 그대로 재현된다.
+     ⚠ **유실이 아니라 지연이다**(워터마크 기반이라 다음 스캔이 반드시 집는다) — 그래서 Minor.
+     ⚠ 큐가 아니라 **부울**인 것이 의도다: 도는 동안 편집이 열 번 와도 뒤에 붙는 실행은 한 번이면
+     충분하고(동기화는 «지금 상태 전부»를 보낸다) 큐로 두면 30초 드레인 뒤에 열 번이 줄 선다. */
+  let _again = false;
   const run = (): void => {
-    if (_running) return; // 이미 도는 중 — 겹쳐 미러/동기화하지 않는다
+    if (_running) {
+      _again = true; // 이미 도는 중 — 겹쳐 돌지 않되 **버리지도 않는다**
+      return;
+    }
     _running = (async () => {
       /* ⚠⚠ **미연결 사용자도 편집마다 이걸 돌리고 있었다**(H-20 · 2026-08-06 감사).
          `beforeSync` 는 산출물 미러(파일 6종 IPC 읽기 + 해시 대조)인데, 그 뒤의 `runSync` 는
@@ -303,6 +319,12 @@ export function installSyncTriggers(opts: SyncTriggerOptions = {}): () => void {
       })
       .finally(() => {
         _running = null;
+        /* 도는 동안 접어 둔 트리거를 지금 잇는다. ⚠ `_again` 을 **먼저** 내린다 — 안 그러면
+           재실행이 자기 플래그를 다시 보고 무한히 이어진다. */
+        if (_again) {
+          _again = false;
+          run();
+        }
       });
   };
   // 편집 디바운스(`syncSoon`)가 이 실행기를 거치게 한다 — beforeSync·겹침 가드를 함께 상속(H5).

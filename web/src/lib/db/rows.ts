@@ -587,9 +587,19 @@ export function rowsToState(rows: DbRows): AppState {
   for (const r of rows.settings) out[r.key] = JSON.parse(r.json);
   for (const r of rows.runtime) out[r.key] = JSON.parse(r.json);
 
-  // 존재했던 행 슬라이스를 **먼저 빈 컨테이너로** 깔아 둔다 — 아래 블록들은 행이 있을 때만
-  // 채우므로, 이게 없으면 `completions: {}` 같은 빈 슬라이스가 undefined 로 되살아난다.
-  const present = new Set(rows.present);
+  /* 존재했던 행 슬라이스를 **먼저 빈 컨테이너로** 깔아 둔다 — 아래 블록들은 행이 있을 때만
+     채우므로, 이게 없으면 `completions: {}` 같은 빈 슬라이스가 undefined 로 되살아난다.
+
+     ⚠⚠ **모르는 이름은 버린다**(D023 · 2026-08-22). `present` 는 DB 에 **문자열로** 저장되므로
+     슬라이스를 개명·제거해도 옛 이름이 그 배열에 남는다. 걸러 내지 않으면 그 이름이
+     `out[k] = {}` 로 **유령 슬라이스**가 되어 `AppState` 에 들어오고, 다음 쓰기에서
+     `stateToRows` 가 그것을 `ROW_SLICES` 밖으로 보아 **`settings` 한 행**으로 만든다 —
+     그 순간 유령이 `sync:true` 표에 올라 **D1 과 모든 기기로 영구히 퍼진다.** 자기 증식이라
+     한 번 생기면 안 사라지고, 화면에는 아무 증상이 없다.
+     ⚠ 읽는 쪽에서 거르므로 **이미 오염된 DB 도 다음 부팅에 스스로 낫는다**(쓰기가 다시 담지
+     않는다). 실측(2026-08-22): 실 DB `present` 11개 전부 정상 — 지금은 예방이다.
+     ⚠ 집행자는 `test/dbRows.test.ts` 의 D023 절이다(왕복 성질). */
+  const present = new Set(rows.present.filter((k) => ROW_SLICES.has(k)));
   for (const k of present) out[k] = (ARRAY_SLICES as readonly string[]).includes(k) ? [] : {};
 
   if (rows.completions.length) {

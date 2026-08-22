@@ -14,6 +14,7 @@ import {
   ARCHIVE_ARRAY_SPECS,
   ARCHIVE_EXEMPT,
   recordBreakdown,
+  recordsSince,
   backlogClosedBetween,
   blankPassRate,
   blankResultFor,
@@ -426,5 +427,63 @@ describe('⚠⚠ 보존 규율의 범위가 슬라이스 목록에서 역산된�
       s.tasks?.map((t) => t.id),
       '미완료와 인박스는 남는다',
     ).toEqual(['t1', 't3']);
+  });
+});
+
+/* ============================================================
+   D022(2026-08-22) — **백업 배너가 「무엇을 잃나」를 말한다.**
+
+   종전 배너는 「N일 전」뿐이었다. 그건 **경과 시간**이지 위험의 크기가 아니다 — 한 달 전
+   백업이어도 그 뒤에 아무것도 안 썼으면 잃을 것이 0이고, 어제 백업이어도 오늘 30건을 썼으면
+   그게 위험이다. 사람이 «백업할까»를 판단하는 재료는 후자다.
+
+   ⚠ 날짜 축이 슬라이스마다 다르다(`completions` 는 키가 `ds` · `summaries` 는 `at`(epoch ms) ·
+   나머지는 `ds` 필드) — 하나로 접으면 「시각 없는 것」을 자정으로 반올림하게 되고 그건 `C043`
+   이 물린 부류다. 아래 케이스들이 두 축을 따로 밟는다.
+============================================================ */
+describe('recordsSince — 마지막 백업 뒤에 생긴 기록 수(D022)', () => {
+  const 상태 = (o: Record<string, unknown>): AppState => st(o);
+
+  it('백업 이력이 없으면 **전량**이다 — 앱에만 있는 것이 전부다', () => {
+    const st = 상태({
+      cbms: [
+        { id: 'a', ds: '2026-01-01' },
+        { id: 'b', ds: '2026-08-01' },
+      ] as never,
+    });
+    expect(recordsSince(st, undefined)).toBe(2);
+  });
+
+  it('백업 **뒤**에 생긴 것만 센다', () => {
+    const st = 상태({
+      cbms: [
+        { id: 'a', ds: '2026-08-01' },
+        { id: 'b', ds: '2026-08-20' },
+      ] as never,
+    });
+    expect(recordsSince(st, '2026-08-10T00:00:00.000Z')).toBe(1);
+  });
+
+  it('⚠ `summaries` 는 `at`(epoch ms) 축으로 센다 — `ds` 로 접으면 자정 반올림이 생긴다', () => {
+    const 기준 = new Date(2026, 7, 10, 12, 0).toISOString();
+    const st = 상태({
+      summaries: {
+        s: [
+          { id: 'x', sid: 's', name: 'n', s1: '', s2: '', s3: '', at: new Date(2026, 7, 10, 9, 0).getTime() },
+          { id: 'y', sid: 's', name: 'n', s1: '', s2: '', s3: '', at: new Date(2026, 7, 10, 18, 0).getTime() },
+        ],
+      } as never,
+    });
+    expect(recordsSince(st, 기준), '같은 날 오전/오후를 못 가르면 축이 접힌 것이다').toBe(1);
+  });
+
+  it('`completions` 는 날짜 키로 센다', () => {
+    const st = 상태({ completions: { '2026-08-01': { a: 1 }, '2026-08-20': { b: 1, c: 1 } } as never });
+    expect(recordsSince(st, '2026-08-10T00:00:00.000Z')).toBe(2);
+  });
+
+  it('잘못된 백업 시각은 **전량**으로 떨어진다 — 조용히 0을 보고하지 않는다', () => {
+    const st = 상태({ cbms: [{ id: 'a', ds: '2026-08-01' }] as never });
+    expect(recordsSince(st, 'not-a-date'), '파싱 실패를 0으로 읽으면 「안전하다」고 거짓말한다').toBe(1);
   });
 });

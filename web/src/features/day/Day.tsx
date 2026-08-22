@@ -208,7 +208,7 @@ export default function Day() {
   const isToday = ds2 === today;
   const setDs2 = (next: string): void => {
     // 오늘이면 파라미터 없는 주소로 접는다 — 그 주소의 뜻이 "오늘"이다.
-    navigate(next === today ? DAY_PATH : `${DAY_PATH}/${next}`, { replace: true });
+    void navigate(next === today ? DAY_PATH : `${DAY_PATH}/${next}`, { replace: true });
   };
   // C-10: 빠른 캡처가 파싱한 날짜로 기록 탭을 이동(백필). nonce 변화 시점에만 반응(usePrefillForm과 같은 규율).
   // 로컬 setState는 컴파일러 set-state-in-effect에 걸려(usePrefillForm의 prop setter는 불투명해 통과) setTimeout 비동기 커밋으로 회피.

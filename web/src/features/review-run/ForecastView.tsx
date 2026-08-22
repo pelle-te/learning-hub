@@ -210,7 +210,7 @@ export default function Forecast() {
           : // ⚠ 낡은 캐시를 '오늘 due' 라 부르지 않는다 — Anki due 는 날이 바뀌면 통째로 갈린다.
             { label: ankiFresh?.stale ? 'Anki due · 옛 값' : 'Anki 오늘 due', value: ankiDue == null ? '—' : ankiDue },
       ],
-      action: { label: '복습 실행', onClick: () => nav('/review-run') },
+      action: { label: '복습 실행', onClick: () => void nav('/review-run') },
     }),
     [total, peak?.offset, peak?.blocks, overDays.length, ankiDue, ankiFresh?.stale],
   );

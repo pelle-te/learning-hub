@@ -50,7 +50,7 @@ export default function FocusChip() {
   const [now, setNow] = useState(() => Date.now());
   /** 접기 — 창 조작이 성공했을 때만 라우팅한다(반쪽 상태 금지 · `miniMode` 머리주석). */
   const foldToMini = async (): Promise<void> => {
-    if (await enterMini(location.pathname)) navigate(MINI_PATH);
+    if (await enterMini(location.pathname)) void navigate(MINI_PATH);
   };
   const doneKey = useRef<number | null>(null);
 
@@ -170,7 +170,7 @@ export default function FocusChip() {
     /* ⚠ 창 복원이 실패하면 **라우팅하지 않는다**(H9) — 알약 크기 그대로 다른 화면으로 넘어가면
        나갈 문(알약의 확장 버튼)까지 사라져 재시작 외 탈출이 없다. 알약에 머물면 다시 누를 수 있다. */
     void exitMini().then((back) => {
-      if (back) navigate(back, { replace: true });
+      if (back) void navigate(back, { replace: true });
       else toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
     });
   }, [inMini, session, navigate]);

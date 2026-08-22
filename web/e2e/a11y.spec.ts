@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './_test';
 import AxeBuilder from '@axe-core/playwright';
 import { A11Y_EXTRA, A11Y_OVERLAY, PHONE_VIEWS, SEED, TABS, boot, bootPhone, settle } from './_fixtures';
 

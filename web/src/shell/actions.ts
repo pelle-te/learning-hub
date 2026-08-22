@@ -170,7 +170,7 @@ export function downloadFallbackSnapshot(): void {
     toast('임시 저장본이 없어요.', 'warn');
     return;
   }
-  download('러닝허브_임시저장본.json', raw, 'application/json');
+  void download('러닝허브_임시저장본.json', raw, 'application/json');
 }
 
 /** 데이터 내보내기(.json) — 런타임 캐시는 뺀 스냅샷 + 앱 상태 밖 로컬 키(_local: UI 설정 등).
@@ -383,7 +383,7 @@ export function planSignature(): string {
 /** 캘린더(.ics) 내보내기 + 신선도 스탬프. */
 export function exportICS(): void {
   const s = st().state;
-  download(`러닝허브_${s.startDate}.ics`, buildICS(s), 'text/calendar;charset=utf-8');
+  void download(`러닝허브_${s.startDate}.ics`, buildICS(s), 'text/calendar;charset=utf-8');
   // plan-무관 캐시 — useRuntime 소유(state 참조 불변 → selectSchedule 재계산 없음, B1/B3).
   useRuntime.getState().set('_icsExport', { at: new Date().toISOString(), sig: sigOf(s) });
 }
@@ -506,7 +506,7 @@ export function exportAnkiCards(scope: ExportScope): void {
     return;
   }
   const head = ['#separator:Tab', '#html:true', '#tags column:3'];
-  download(
+  void download(
     `러닝허브_카드_${scope === 'all' ? '전체' : SCOPE_TAG[scope]}.txt`,
     head.concat(lines).join('\n'),
     'text/plain;charset=utf-8',
@@ -533,7 +533,11 @@ export function exportSummaryNotes(scope: ExportScope): void {
     );
     return;
   }
-  download(`러닝허브_요약노트_${scope === 'all' ? '전체' : SCOPE_TAG[scope]}.md`, md, 'text/markdown;charset=utf-8');
+  void download(
+    `러닝허브_요약노트_${scope === 'all' ? '전체' : SCOPE_TAG[scope]}.md`,
+    md,
+    'text/markdown;charset=utf-8',
+  );
   toast('요약 노트(.md)를 내려받았어요. 옵시디언 볼트에 넣어 개념 노트·카드와 연결하세요.', 'ok', 4600);
 }
 
@@ -572,6 +576,32 @@ export function toggleBench(): void {
   const cur = window.location.pathname + window.location.search;
   const { bench, setBench } = useOverlay.getState();
   setBench(bench === cur ? null : cur);
+}
+
+/**
+ * Anki 덱을 매일 복습 항목으로 들인다. **입구가 둘**(연동 탭 `AnkiPanel` · 과목 탭 `VaultImport`)
+ * 이지만 규칙은 하나다 — 바로 아래 `importVaultSubject` 가 H22 에서 세운 관용구 그대로다.
+ *
+ * ⚠⚠ **종전엔 11줄 사본 둘이었다**(C037 · 2026-08-22 · `diff` 결과 차이는 람다 인자 이름 한
+ * 글자뿐이었다 · 테스트 0건). 같은 자리의 짝은 H22 가 이미 모아 놨는데 이쪽만 남아 있었다.
+ * 대가가 구체적이다: 중복 판정이 `name === 'Anki: ' + name` 인데, 접두를 떼거나 `source:'Anki'`
+ * 기준으로 바꾸면 **고친 화면 하나만** 바뀐다 → 과목 탭에서 덱을 넣은 뒤 연동 탭에서 같은 덱을
+ * 넣으면 판정이 빗나가 `mode:'daily'` 항목이 둘 생기고, 스케줄러가 그 `dailyMin` 을 **두 번**
+ * 예산에 넣는다(매일 배정 시간이 조용히 두 배). 타입·린트·번들 전부 통과한다.
+ *
+ * @returns 실제로 들였으면 true(호출부가 후속 UI 를 정할 수 있게 · 지금은 둘 다 안 쓴다).
+ */
+export function importAnkiDeck(name: string, mins: number): boolean {
+  const nm = 'Anki: ' + name;
+  if (st().state.items.some((x) => x.name === nm)) {
+    toast('이미 추가됨', 'warn');
+    return false;
+  }
+  st().mutate((state) => {
+    state.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
+  });
+  toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
+  return true;
 }
 
 export async function importVaultSubject(s: VaultSubject, ledger: Ledger | undefined, tail: string): Promise<void> {

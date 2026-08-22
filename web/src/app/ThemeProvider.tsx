@@ -12,8 +12,20 @@ import { useUI } from '@/store/useUI';
    손으로 벤 색은 원본이 바뀌어도 안 따라온다. 파생하면 그 부류가 원천 봉쇄된다(절대규칙 #3 의
    "색은 저장값이 아니다"가 여기에도 그대로 걸린다). 같은 관용구가 `Settings.readAccentPreviews`
    에 이미 있다.
-   ⚠ 폴백을 남기는 이유: `getComputedStyle` 이 빈 문자열을 줄 수 있는 시점(SSR·초기 프레임)이
-   있고, 그때 `content=""` 를 쓰면 브라우저가 기본 크롬으로 떨어진다. */
+   ⚠⚠ **여기 적혀 있던 폴백 근거가 거짓이었다**(V033 · 2026-08-22 코드 축 실행). 종전 문구는
+   *"`getComputedStyle` 이 빈 문자열을 줄 수 있는 시점(**SSR·초기 프레임**)이 있고"* 였는데,
+   `lib/ledger.ts:51-63` 이 정반대를 못박아 뒀다: *"'SSR 안전'·'토큰 로드 전'은 **이 앱에 없는
+   상황**이다(토큰 CSS 는 `main.tsx` 의 첫 import 다)."* 그리고 이 함수는 `useEffect` 안에서만
+   불린다 — 그 시점엔 토큰이 이미 서 있다.
+
+   즉 `getPropertyValue('--bg')` 가 빈 문자열을 주는 **실제 조건은 «그 토큰이 없다» 하나**이고,
+   그건 폴백이 덮을 일이 아니라 **시끄럽게 실패해야 할 일**이다 — `lib/ledger.ts` 가 기록한
+   그 사고(`--panel-2` 하이픈 오타 → 죽은 hex 로 조용히 렌더 → 라이트에서 의미 역전이 몇 달)와
+   같은 형태다. 집행자는 이미 있다: **불변식 ④**(JS 가 읽는 토큰이 `tokens.css` 에 있는가).
+
+   ⚠ **그래서 폴백을 지금 지우지는 않았다** — 지우면 토큰 소실 시 `content=""` 가 되어 OS 기본
+   크롬으로 떨어지고, 그 트레이드오프는 «시끄럽게 실패»의 형태를 고르는 **별개 판단**이다.
+   `scripts/_hexcheck.mjs` 의 원장에 사유+만료일(2026-11-30)로 올려 뒀다 — 그날 다시 판단한다. */
 const META_FALLBACK: Record<string, string> = { dark: '#050506', light: '#fafbfc' };
 
 function bgColorFor(theme: string): string {

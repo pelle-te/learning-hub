@@ -8,12 +8,12 @@ import LiveRegion from '@/components/LiveRegion';
 import { useState } from 'react';
 import { useQuery, useQueryClient, skipToken } from '@tanstack/react-query';
 import { useApp } from '@/store/useApp';
-import { importVaultSubject, toast } from '@/shell';
+import { importAnkiDeck, importVaultSubject } from '@/shell';
 import { pickAndScanVault, type VaultScan, type VaultSubject } from '@/lib/vault';
 import { isTauri } from '@/lib/tauri';
 import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
-import { makeItem, jsq } from '@/lib/utils';
+import { jsq } from '@/lib/utils';
 import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -25,7 +25,6 @@ const VAULT_NAME = 'min-w-0 flex-1 truncate text-md font-bold';
 
 export function VaultImport({ onClose }: { onClose?: () => void }) {
   const qc = useQueryClient();
-  const mutate = useApp((s) => s.mutate);
   const items = useApp((s) => s.state.items);
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
   const anki = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
@@ -48,7 +47,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
       if (r) {
         qc.setQueryData(['vault'], r.scan);
         qc.setQueryData(['vaultHandle'], r.handle); // 연동 탭·Anki가 같은 폴더 재사용
-        idbPut('vaultHandle', r.handle);
+        void idbPut('vaultHandle', r.handle);
       }
     } catch (e) {
       setErr((e as Error).message || String(e));
@@ -65,7 +64,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
       if (r) {
         qc.setQueryData(['ankiFile'], r.scan);
         qc.setQueryData(['vaultHandle'], r.handle);
-        idbPut('vaultHandle', r.handle);
+        void idbPut('vaultHandle', r.handle);
       }
     } catch (e) {
       setErr((e as Error).message || String(e));
@@ -77,17 +76,8 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   /* 임포트 규칙(W4 포함)은 `shell/importVaultSubject` 가 소유한다 — 연동 탭의
      볼트 패널과 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
   const addSubject = (s: VaultSubject) => importVaultSubject(s, led.data, '주당 시간·마감을 조정하세요.');
-  const addAnki = (name: string, mins: number) => {
-    const nm = 'Anki: ' + name;
-    if (items.some((x) => x.name === nm)) {
-      toast('이미 추가됨', 'warn');
-      return;
-    }
-    mutate((st) => {
-      st.items.push(makeItem({ source: 'Anki', name: nm, mode: 'daily', dailyMin: mins }));
-    });
-    toast(`"${nm}" 매일 ${mins}분 복습으로 추가됨`, 'ok');
-  };
+  /* Anki 임포트 규칙은 `shell/importAnkiDeck` 가 소유한다 — 다른 입구와 **같은 함수**여야
+     한다(종전엔 11줄 사본 둘이었다 · C037 · 바로 위 볼트 쪽이 H22 에서 같은 처방을 받았다). */
 
   return (
     <div className="ds-rule" style={{ marginBottom: 14 }}>
@@ -175,7 +165,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
                   sm
                   variant={added ? 'ghost' : 'primary'}
                   disabled={added}
-                  onClick={() => addAnki(jsq(d.file), Math.max(15, Math.round(d.cards * 0.5)))}
+                  onClick={() => importAnkiDeck(jsq(d.file), Math.max(15, Math.round(d.cards * 0.5)))}
                 >
                   {added ? '추가됨' : '+ 매일복습'}
                 </Button>

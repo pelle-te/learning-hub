@@ -412,7 +412,7 @@ function ReviewRun() {
            않고, 그러면 사용자는 «했는데 사다리가 안 움직인다»를 결함으로 읽는다. */
         ...(adhoc?.preview ? [{ label: '임시 세트', value: '사다리 무변경' }] : []),
       ],
-      action: { label: '오늘 학습', onClick: () => nav('/today') },
+      action: { label: '오늘 학습', onClick: () => void nav('/today') },
     }),
     [remaining, gotCount, finished, risk.overdue, risk.due, peak?.offset, peak?.chapters, peak?.over, adhoc?.preview],
   );
@@ -563,7 +563,7 @@ function ReviewRun() {
       setMissId(null);
       undo();
     },
-    abort: () => nav('/today'),
+    abort: () => void nav('/today'),
   });
 
   /* ── A-2 인출 지연(발산 6회차 · 2026-08-07) ─────────────────────────────────
@@ -967,7 +967,7 @@ function ReviewRun() {
                 variant="ghost"
                 onClick={() => {
                   usePrefill.getState().request('bl', item.ch.sid, today, item.ch.chapter);
-                  nav('/day');
+                  void nav('/day');
                 }}
               >
                 막힌 지점 적기

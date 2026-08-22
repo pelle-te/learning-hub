@@ -87,7 +87,7 @@ export default function MiniHud() {
      들고 있는 것이 이 화면이라, 여기서 라우팅해 버리면 그 문이 사라진다. */
   const expand = async (): Promise<void> => {
     const back = await exitMini();
-    if (back) navigate(back, { replace: true });
+    if (back) void navigate(back, { replace: true });
     else toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
   };
 
@@ -98,7 +98,7 @@ export default function MiniHud() {
     setCapture(false);
     if (miniMode() !== 'capture') return;
     const back = await exitMini();
-    if (back) navigate(back, { replace: true });
+    if (back) void navigate(back, { replace: true });
     else toast('창을 되돌리지 못했어요 — 펼치기로 다시 시도해 주세요.', 'bad');
   };
 
@@ -145,7 +145,7 @@ function ResidentPill({ expand }: { expand: () => Promise<void> }): React.JSX.El
      "말한 것"과 "간 곳"이 어긋난다(알림 착지가 고친 것과 같은 어긋남). */
   const go = async (): Promise<void> => {
     if (!(await exitMini())) return toast('창을 되돌리지 못했어요 — 다시 시도해 주세요.', 'bad');
-    navigate(lead?.route ?? '/today', { replace: true });
+    void navigate(lead?.route ?? '/today', { replace: true });
   };
   return (
     <>

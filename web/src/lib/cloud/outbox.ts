@@ -134,6 +134,24 @@ const _merged = new Map<string, number>();
 const MERGED_CAP = 50_000;
 
 const mergedKey = (tbl: string, key: string[]): string => `${tbl}|${key[0] ?? ''}|${key[1] ?? ''}`;
+/* 툼스톤은 **같은 표 이름의 행과 키가 겹치므로** 이름공간을 가른다(D024). 안 가르면 «그 행을
+   받았다»가 «그 행의 삭제를 받았다»를 지우고, 반대도 마찬가지다 — 둘은 다른 사실이다. */
+const TOMB_NS = 'tomb#';
+
+/**
+ * 병합이 방금 받은 **툼스톤**을 적어 둔다(D024 · 2026-08-22).
+ *
+ * ⚠⚠ **위 머리주석의 논거가 행에만 적용돼 있었다.** 툼스톤은 `noteMergedRows` 의 대상이 아니라
+ * 받은 삭제가 다음 스캔에서 **그대로 되올라갔다** — 행에 대해 «초기 대량 동기화에서 받은 만큼을
+ * 그대로 다시 올린다» 고 적어 둔 그 상태가 삭제 축에는 남아 있었다. 안전 논거도 **같다**:
+ * 키(`tbl,k1,k2`)와 `deletedAt` 이 **둘 다 정확히 일치**할 때만 건너뛰고, `applyPull` 이
+ * 원격 스탬프로 `seedStamp` 하므로 그 뒤의 로컬 삭제는 반드시 더 큰 값을 받는다.
+ * ⚠ 같은 실패 안전(fail-open)이다 — 표가 비면 종전처럼 한 번 에코할 뿐 정확성은 그대로다.
+ */
+export function noteMergedTombs(tombs: readonly { tbl: string; k1: string; k2: string; deletedAt: number }[]): void {
+  if (_merged.size + tombs.length > MERGED_CAP) _merged.clear();
+  for (const t of tombs) _merged.set(mergedKey(TOMB_NS + t.tbl, [t.k1, t.k2]), t.deletedAt);
+}
 
 /** 병합이 방금 쓴 행들을 적어 둔다(`merge.ts` 가 부른다). 같은 키는 마지막 스탬프가 이긴다. */
 export function noteMergedRows(rows: readonly { tbl: string; key: string[]; updatedAt: number }[]): void {
@@ -238,12 +256,16 @@ async function scanOutbox(since?: number): Promise<OutboxScan | null> {
 
   if (tombs == null) return null;
 
-  const tombstones: OutboxTomb[] = tombs.map((t) => ({
-    tbl: String(t['tbl'] ?? ''),
-    k1: String(t['k1'] ?? ''),
-    k2: String(t['k2'] ?? ''),
-    deletedAt: Number(t['deleted_at'] ?? 0),
-  }));
+  /* ⚠ 행과 **같은 규칙**으로 에코를 막는다(D024) — 키와 `deletedAt` 이 둘 다 정확히 일치하는
+     것만 건너뛴다. 로컬 삭제가 걸릴 수 없는 이유는 `noteMergedTombs` 주석이 소유한다. */
+  const tombstones: OutboxTomb[] = tombs
+    .map((t) => ({
+      tbl: String(t['tbl'] ?? ''),
+      k1: String(t['k1'] ?? ''),
+      k2: String(t['k2'] ?? ''),
+      deletedAt: Number(t['deleted_at'] ?? 0),
+    }))
+    .filter((t) => _merged.get(mergedKey(TOMB_NS + t.tbl, [t.k1, t.k2])) !== t.deletedAt);
 
   const capped = capBatch(rows, tombstones, fence);
   return {

@@ -536,3 +536,59 @@ describe('복합키 — 경계가 애매해지지 않는다(H31-③)', () => {
     expect(sids).toEqual(['a', 'ab']);
   });
 });
+
+/* ============================================================
+   D023(2026-08-22) — **`meta.present` 의 선언과 실물이 갈릴 수 있었다.**
+
+   `present` 는 «이 슬라이스가 **있었다**(행이 0개여도)»를 남기는 배열이고, 그게 없으면
+   `completions: {}` 같은 빈 슬라이스가 왕복에서 `undefined` 로 되살아난다. 필요한 장치다.
+
+   ## 무엇이 위험했나 — 유령이 **자기 증식**한다
+
+   `present` 는 DB 에 **문자열 배열**로 저장된다. 슬라이스를 개명·제거하면 옛 이름이 거기 남고,
+   `rowsToState` 가 그 이름을 그대로 `out[k] = {}` 로 깔았다. 그러면:
+
+     ① 유령 슬라이스가 `AppState` 에 들어온다 →
+     ② 다음 쓰기에서 `stateToRows` 가 `ROW_SLICES` 밖으로 보아 **`settings` 한 행**으로 만든다 →
+     ③ `settings` 는 `sync:true` 라 그 유령이 **D1 과 모든 기기로 영구히 퍼진다.**
+
+   화면에는 아무 증상이 없고, 한 번 생기면 스스로 없어지지 않는다. 그리고 **아무 검사도
+   그것을 안 봤다** — 그게 이 항목이었다.
+
+   실측(2026-08-22): 실 DB 의 `present` 11개는 전부 `ROW_SLICES` 안이다. 지금은 **예방**이고,
+   읽는 쪽에서 거르므로 이미 오염된 DB 도 다음 부팅에 스스로 낫는다.
+============================================================ */
+describe('D023 meta.present — 모르는 슬라이스 이름은 되살리지 않는다', () => {
+  it('⚠⚠ 유령 이름이 `AppState` 로 새지 않는다 — 새면 `settings` 행이 되어 D1 까지 간다', () => {
+    const rows = stateToRows(defaults());
+    rows.present = [...rows.present, 'oldSliceName', 'graphNodes'];
+    const back = rowsToState(rows) as unknown as Record<string, unknown>;
+    expect(back.oldSliceName, '유령 슬라이스가 상태에 들어왔다').toBeUndefined();
+    expect(back.graphNodes).toBeUndefined();
+  });
+
+  it('아는 이름은 **행이 0개여도** 되살아난다 — 이 배열의 존재 이유가 그것이다', () => {
+    const st = { ...defaults(), completions: {} } as never;
+    const back = rowsToState(stateToRows(st)) as unknown as Record<string, unknown>;
+    expect(back.completions, '빈 슬라이스가 undefined 로 되살아났다(왕복이 데이터 유실이 된다)').toEqual({});
+  });
+
+  it('배열 슬라이스는 `[]`, 지도 슬라이스는 `{}` 로 깔린다 — 컨테이너 종류가 뒤집히면 소비처가 죽는다', () => {
+    const rows = stateToRows(defaults());
+    rows.present = [...new Set([...rows.present, ARRAY_SLICES[0]!, 'completions'])];
+    const back = rowsToState(rows) as unknown as Record<string, unknown>;
+    expect(Array.isArray(back[ARRAY_SLICES[0]!])).toBe(true);
+    expect(Array.isArray(back.completions)).toBe(false);
+  });
+
+  it('⚠ 유령을 넣은 왕복이 **두 바퀴**를 돌아도 안 늘어난다 — 자기 증식 경로가 닫혔다', () => {
+    const rows = stateToRows(defaults());
+    rows.present = [...rows.present, 'ghost'];
+    const 한바퀴 = stateToRows(rowsToState(rows));
+    expect(한바퀴.present, 'present 에 유령이 남았다').not.toContain('ghost');
+    expect(
+      한바퀴.settings.map((r) => r.key),
+      '유령이 settings 행으로 승격됐다 — 여기서부터 D1 으로 나간다',
+    ).not.toContain('ghost');
+  });
+});

@@ -101,6 +101,28 @@ export function hash32(s: string): number {
   return h;
 }
 
+/**
+ * 회전 시드 — 문자열 → 비음수 정수. **`hash32` 와 다른 축이다**(섞으면 안 된다).
+ *
+ * 쓰임은 *"같은 날 같은 창, 날이 바뀌면 회전"* 이다(`mistakes.todayPick` · `retrieval` 카드).
+ * 입력이 `날짜|id` 라 이웃한 입력이 이웃하지 않은 값을 내기만 하면 되고, 여기서 사는 성질은
+ * **분포**가 아니라 **결정성**이다 — 그래서 FNV(`hash32`)와 다른 싼 식(×31)을 쓴다.
+ *
+ * ⚠⚠ **두 파일이 이 11줄을 서로의 사본으로 들고 있었다**(C046 · 2026-08-22 · `mistakes.ts` 의
+ * 주석이 스스로 *"`retrieval.ts` 와 같은 식"* 이라 적어 그 결합을 **산문으로** 지고 있었다).
+ * `Math.imul` 을 쓰는 자리가 넷 · 알고리즘이 둘이었고, `hash32` 머리주석이 *"새 해시를 또
+ * 만들면 파생마다 다른 근거를 갖게 된다"* 고 규약을 선언했는데 **집행자가 0**이었다.
+ * 이제 불변식 ㉑ 이 `Math.imul` 을 이 파일 밖에서 막는다.
+ *
+ * ⚠ `hash32` 로 통합하지 **않는다** — 축이 다르다. 같은 축의 크기 차이가 아니라 다른 성질을
+ * 사는 두 함수이고, 합치면 색·복습 흔들기의 분포 튜닝이 「오늘의 창」을 함께 흔든다.
+ */
+export function rotateSeed(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
 export function colorForId(id: string): string {
   return oklchToHex(SUBJECT_L, SUBJECT_C, hash32(id) % 360); // 해시 → 색상환 각도(0~359)
 }
@@ -252,6 +274,33 @@ export function toMin(t: string): number {
   const [h, m] = t.split(':').map(Number) as [number, number?];
   // 시(hour)가 비거나 비수치("":30`)면 NaN 전파를 막는다 — 옛 `toMinLocal` 의 `(h||0)` 흡수와 동치.
   return (Number.isFinite(h) ? h : 0) * 60 + (m || 0);
+}
+/**
+ * 블록 `[start, end]` → 분 구간들. 자정을 걸치면 **둘로 쪼갠다**.
+ *
+ * ⚠⚠ **한 벌인 것이 요점이다**(C038 · 2026-08-22). 이 규칙은 세 곳에 글자 그대로 복제돼
+ * 있었고(`scheduler/windows.ts` 둘 · `scheduler/layout.ts` 하나) 셋을 잇는 것은 **산문뿐**
+ * 이었다(*"freeWindows 분할과 동일 규칙"* · *"수면과 동일 규칙"*). 셋 다 지역 상수라
+ * 컴파일러가 못 본다.
+ *
+ * ⚠ 이 부류는 **이미 한 번 청구됐다**: `windows.ts` 가 *"옛 구현은 sleep[0] 만 보고 …
+ * `23:00–07:00` 한 칸을 통째로 놓쳐 **심야에 공부를 배정하는 버그**가 있었다"* 라고 적어 뒀다.
+ * 다음 번은 이렇게 온다 — `s === e` 를 「종일」로 읽어야 하는 요구가 오면 `windows.ts` 의 두
+ * 벌은 함께 고쳐지고 `layout.ts` 의 셋째는 다른 파일·다른 관심사라 남는다. 그러면 **스케줄러가
+ * 점유로 뺀 시간을 타임라인은 폭 0 으로 그린다**(비어 보이는데 아무것도 안 배정되는 칸).
+ *
+ * ⚠ 지금 `s === e` 는 **폭 0 한 구간**이다(종일이 아니다). 바꾸려면 여기 한 곳만 고치면 되고,
+ * 그게 이 함수가 존재하는 이유다.
+ */
+export function minuteSegments(start: string, end: string): [number, number][] {
+  const s = toMin(start);
+  const e = toMin(end);
+  return s <= e
+    ? [[s, e]]
+    : [
+        [s, 1440],
+        [0, e],
+      ];
 }
 export function toHM(m: number): string {
   m = Math.round(m);

@@ -16,6 +16,7 @@ import State from '@/components/State';
 import { selectFinishGains, useSchedule, useStudyMinByWeekday } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { exportICS, planSignature } from '@/shell';
+import { SPAN_PARAM, SPANS, type SchedSpan } from '@/shell/tabs';
 import {
   iso,
   parseISO,
@@ -164,11 +165,33 @@ export default function Schedule() {
   // Alloc과 글자까지 같은 복제였다(useWeekOffset이 단일 출처). 내부 상태가 '오늘 기준 상대 주'라
   // startDate/_today가 바뀌어도 자동 리베이스된다.
   const { prev: weekPrev, next: weekNext, weekToday, isThisWeek, offsetLabel, weekMon } = useWeekOffset(state);
-  // 뷰 선택은 UI 설정 단일 store(useUI)가 소유 — 영속·IDB미러 일관(localStorage 직접 접근 제거).
-  const schedView = useUI((s) => s.ui.schedView);
-  const setView = useUI((s) => s.setSchedView);
+  /* 뷰 선택 — **주소가 이긴다**(C029 · 2026-08-22). 영속값(`useUI.schedView`)은 주소가 말이 없을
+     때의 기본값으로만 남는다(그 값을 지우면 "지난번 보기"가 사라지므로 유지가 맞다).
+
+     ⚠⚠ **왜 바꿨나**: 종전엔 영속 토글 하나뿐이라 `/schedule?ds=…` 로 오는 딥링크가 «지난번
+     아무 뷰»에 떨어졌다. 그 대가를 **보내는 쪽이 기억**하는 것으로 막고 있었다 —
+     `TodaySignature.goPlanToday` 가 내비게이션 **전에** `setSchedView('day')` 를 부르는 한 줄.
+     즉 새 딥링크 입구가 생길 때마다 그 한 줄을 기억해야 했고, 안 하면 조용히 다른 화면이 뜬다
+     (N-12 가 `journal`→`day` 에서 «보고 있는 날을 `useState` 에서 URL 로» 꺼낸 것과 같은 논거).
+
+     ⚠ 이름이 `view` 가 **아니다.** 이 저장소에서 `?view=` 는 «호스트 안의 다른 화면»이고
+     불변식 ⑱이 그 값이 로스터에 있기를 요구한다. 일·주·월은 **같은 화면의 다른 기간**이라
+     로스터 행이 아니다 — 세 개를 등재하면 ⌘K 와 방문 집계가 뷰가 아닌 것으로 부풀고,
+     면제로 빼면 ⑱이 그만큼 헐거워진다. 그래서 다른 이름(`span`)을 쓴다. */
+  const persistedView = useUI((s) => s.ui.schedView);
+  const setPersistedView = useUI((s) => s.setSchedView);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const spanParam = searchParams.get(SPAN_PARAM);
+  const schedView = SPANS.includes(spanParam as SchedSpan) ? (spanParam as SchedSpan) : persistedView;
+  /* 세그먼트를 누르면 **주소와 영속값을 함께** 바꾼다 — 주소는 이 방문의 사실이고 영속값은
+     다음 방문의 기본이다. `replace` 인 이유: 보기 전환은 뒤로가기 스택에 쌓일 사건이 아니다. */
+  const setView = (v: SchedSpan): void => {
+    setPersistedView(v);
+    const next = new URLSearchParams(searchParams);
+    next.set(SPAN_PARAM, v);
+    setSearchParams(next, { replace: true });
+  };
   // 보드 위 스포트라이트(틸트 없음 — 큰 패널). 구조분해로 ref-접근 린트 회피.
   const { ref: boardRef, onMouseMove: boardMove, onMouseLeave: boardLeave } = useHeroPointer(0);
 

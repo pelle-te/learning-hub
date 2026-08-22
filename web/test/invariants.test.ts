@@ -9,12 +9,12 @@
       한쪽만 추가 시 런타임 "알 수 없는 탭" 카드 or 죽은 로더.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 /* ⚠ **스캐너·주석제거기는 여기 한 벌이다**(m-16). 지역 워커를 새로 파지 말 것 —
    종전엔 11벌이었고 주석 제거기가 4벌·의미 3가지로 갈려 오탐·오검이 동시에 났다.
    새 불변식을 추가할 때 이 모듈을 쓰면 규율(주석은 검사 대상이 아니다)이 자동 상속된다. */
-import { SRC, aliasOf, cssFiles, filesUnder, importSpecifiers, strip, tsFiles, tsxFiles } from './_sources';
+import { SRC, aliasOf, cssFiles, filesUnder, importSpecifiers, sources, strip, tsFiles, tsxFiles } from './_sources';
 import { schedule } from '@/lib/scheduler';
 import { defaults } from '@/lib/persistence';
 import { SCHEDULE_INPUT_KEYS } from '@/store/selectors';
@@ -30,6 +30,7 @@ import {
   tabByKey,
 } from '@/shell/tabs';
 import { NAV_SHORTCUTS } from '@/shell/shortcuts';
+import { ANCHOR_TAB_ROUTES, CONTENT_ANCHORS } from '@/lib/contentAnchors';
 // ⚠ 불변식 ③-b 가 ⌘K 도달을 **세어야** 하므로 팔레트 목록을 실제로 읽는다(믿지 않는다).
 import { paletteCommands as basePaletteCommands } from '@/shell/palette';
 
@@ -529,8 +530,12 @@ describe('불변식 ③-c 전역 키를 거는 feature 는 치트시트에 등�
    으로 지목한 항목이다. Tailwind 의 `@theme` 는 **미사용으로 보이는 토큰을 트리셰이킹**
    하는데, 아래 파일들은 토큰을 **JS 에서만** 읽으므로 Tailwind 눈에는 안 쓰이는 것으로 보인다.
 
-   그리고 그 셋은 **전부 폴백값을 갖고 있다**(`Graph.tsx` 의 `|| fb` · `AmbientCanvas` 의
-   `|| [0.02,…]`). 즉 토큰이 사라져도 **에러가 안 나고 틀린 색으로 렌더된다.**
+   그리고 그것들은 **전부 폴백값을 갖고 있다**(예: `Settings.tsx` 의 `|| fallback[a]` ·
+   `lib/motion.ts` 의 `|| 'currentColor'`). 즉 토큰이 사라져도 **에러가 안 나고 틀린 색으로
+   렌더된다.**
+   ⚠ 파일 이름을 이 문단에 세지 마라(C061 · 2026-08-22) — 종전엔 «그 셋 … `Graph.tsx` ·
+   `AmbientCanvas`» 였는데 둘 다 은퇴했고 그새 `lib/motion.ts` 가 늘었다. 아래 구현은 이미
+   **찾아서** 판다(그게 이 테스트의 설계다) — 낡은 것은 주석뿐이었다.
 
    더 나쁜 것은 시각 게이트가 이걸 못 잡는다는 점이다 — 0단계-G 에서 실증됐다:
    `maxDiffPixelRatio: 0.02` + 단일 계열 팔레트라 **과목 색 전량 교체가 스냅샷 59장을
@@ -834,8 +839,9 @@ describe('불변식 ⑥ 모션 어휘·시간 사다리', () => {
    ⚠ 이 불변식이 없으면 재발이 **조용하다** — 새 컴포넌트가 `matchMedia('(prefers-reduced-motion…')`
    를 한 줄 부르는 순간 그 화면만 앱 설정을 모르게 되고, 정적 검사도 스냅샷도 그걸 못 본다
    (모션 자제 사용자의 화면에서만 다르게 보인다).
-   ⚠ **MediaQueryList 를 만드는 것 자체는 막지 않는다** — 변화를 *듣는* 것은 정당하다
-   (`AmbientCanvas`·`Graph` 가 그렇게 쓴다). 막는 것은 그 `.matches` 를 **판정으로 읽는 것**이다.
+   ⚠ **MediaQueryList 를 만드는 것 자체는 막지 않는다** — 변화를 *듣는* 것은 정당하다.
+   막는 것은 그 `.matches` 를 **판정으로 읽는 것**이다.
+   (예로 들던 `AmbientCanvas`·`Graph` 는 둘 다 은퇴했다 — 예시를 지웠고 규칙은 그대로다 · C061)
 ============================================================ */
 describe('불변식 ⑦ 모션 자제 판정이 lib/motion 밖에 없다', () => {
   const SRC7 = join(process.cwd(), 'src') + '/';
@@ -890,24 +896,14 @@ describe('불변식 ⑧ 줄높이·스태킹이 사다리를 벗어나지 않는
   /** 윈도우 경로 구분자 — 리터럴로 쓰면 이스케이프가 헷갈린다(실제로 두 번 물렸다). */
   const SEP_BS = String.fromCharCode(92);
 
-  function sourcesLocal(): { path: string; code: string }[] {
-    const out: { path: string; code: string }[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.tsx?$/.test(e.name)) {
-          // 주석은 걷어낸다 — 근거를 남길수록 게이트가 빨개지면 그건 역인센티브다(불변식 ⑦과 같은 이유).
-          const code = readFileSync(p, 'utf8')
-            .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/(^|[^:])\/\/.*$/gm, '$1');
-          out.push({ path: p.slice(SRC8.length).split(SEP_BS).join('/'), code });
-        }
-      }
-    };
-    walk(SRC8);
-    return out;
-  }
+  /* ⚠ **공용 `sources()` 를 쓴다**(V027 · 2026-08-22). 여기 15줄짜리 지역 워커가 있었는데
+     `test/_sources.ts` 의 `sources()` 와 **하는 일이 같았다**(재귀 순회 + 주석 제거).
+     ⑩이 2026-08-21 에 같은 정리를 받았고 남은 셋(⑧·⑪·⑬)이 이월돼 있었다.
+     사본을 두면 «주석을 어떻게 걷는가»가 불변식마다 갈리고, 그건 실제로 갈려 있었다 —
+     ⑪은 **줄 맨 앞의 줄 주석만** 지워 줄 끝 주석을 못 걷었고, ⑬은 m-16 때까지 아예 원문을 봤다.
+     경로 모양만 이 불변식의 것으로 맞춘다(`src/` 기준 상대). */
+  const sourcesLocal = (): { path: string; code: string }[] =>
+    sources().map(({ path, code }) => ({ path: path.slice(SRC8.length).split(SEP_BS).join('/'), code }));
 
   it('`leading-[…]` 임의값이 없다 — 줄높이는 `--leading-*` 사다리에서 고른다', () => {
     const bad = sourcesLocal()
@@ -1143,30 +1139,22 @@ describe('불변식 ⑪ confirm 직접 호출이 사다리 밖에 없다', () =>
   /** 어휘의 정의부 둘 — 여기서만 `confirm(` 이 등장하는 것이 정상이다. */
   const LADDER = ['shell/modal.tsx', 'shell/destructive.ts'];
 
-  function sources11(): { rel: string; code: string }[] {
-    const out: { rel: string; code: string }[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.(ts|tsx)$/.test(e.name))
-          out.push({ rel: normPath(p).replace(normPath(SRC11), ''), code: readFileSync(p, 'utf8') });
-      }
-    };
-    walk(join(process.cwd(), 'src'));
-    return out;
-  }
-
-  /* ⚠ 주석을 걷어낸 뒤 본다 — 이 저장소는 *왜 그렇게 했는지*를 주석에 옛 코드로 인용하는
+  /* ⚠⚠ **공용 `sources()`·`strip` 을 쓴다**(V027 · 2026-08-22). 여기엔 지역 워커 **와**
+     지역 `strip` 이 둘 다 있었고, 그 지역 `strip` 은 줄 주석을 **줄 맨 앞의 것만** 지워
+     **줄 끝 주석(`foo(); // confirm(…)`)을 못 걷었다** — 공용 것은 앞 글자를 되돌리는 형태라 그것도 걷고
+     `http://` 를 안 자른다. 즉 사본이 «주석을 걷는다»는 같은 말을 하면서 다른 일을 하고 있었다.
+     ⚠ 주석을 걷는 이유는 그대로다: 이 저장소는 *왜 그렇게 했는지*를 주석에 옛 코드로 인용하는
      습관이 있어(⑤·⑥이 같은 처리를 하는 이유), 근거를 남길수록 빨개지면 역인센티브가 된다. */
-  const strip = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const sources11 = (): { rel: string; code: string }[] =>
+    sources().map(({ path, code }) => ({ rel: normPath(path).replace(normPath(SRC11), ''), code }));
 
   it('사다리 정의부 밖에서 confirm( 을 부르지 않는다', () => {
     const bad: string[] = [];
     for (const { rel, code } of sources11()) {
       if (LADDER.includes(rel)) continue;
       // `confirmLossy(`·`confirmIrreversible(` 는 사다리 어휘다 — 뒤에 영문자가 오면 통과.
-      const hits = [...strip(code).matchAll(/(?<![A-Za-z])confirm\((?!\s*['"`]?\s*\))/g)];
+      // `code` 는 `sources()` 가 이미 주석을 걷어 준다(V027) — 여기서 또 걷지 않는다.
+      const hits = [...code.matchAll(/(?<![A-Za-z])confirm\((?!\s*['"`]?\s*\))/g)];
       if (hits.length) bad.push(`${rel} → ${hits.length}회`);
     }
     expect(bad, '파괴적 동작은 shell/destructive 의 세 마디로만 말한다(그 파일 머리주석)').toEqual([]);
@@ -1219,37 +1207,32 @@ describe('불변식 ⑬ <input type> 이 전역 폼 스킨에 등재돼 있다',
   /** `src/**` 의 모든 `<input …>` 여는 태그. */
   function inputTags(): { rel: string; tag: string }[] {
     const out: { rel: string; tag: string }[] = [];
-    const walk = (dir: string): void => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (/\.tsx$/.test(e.name)) {
-          /* ⚠⚠ **주석을 걷어낸다**(m-16). 이 불변식만 원문을 그대로 스캔하고 있었다 — 그러면
-             주석에 옛 마크업을 인용하는 순간 위반이 되고, 고치는 유일한 길이 **프로덕션 CSS 를
-             바꾸는 것**이 된다. 이 파일이 네 번이나 "근거를 남길수록 게이트가 빨개지면 그건
-             역인센티브다"라고 못박은 그 규율을, 가장 최근 케이스가 안 받고 있었다. */
-          const code = strip(readFileSync(p, 'utf8'));
-          const rel = normPath(p).replace(normPath(SRC13) + '/', '');
-          /* JSX 는 속성 안에 `>` 를 품을 수 있다(`onChange={(e) => …}`) → 중괄호 깊이를 세며
+    /* ⚠⚠ **주석을 걷어낸다**(m-16). 이 불변식만 원문을 그대로 스캔하고 있었다 — 그러면
+       주석에 옛 마크업을 인용하는 순간 위반이 되고, 고치는 유일한 길이 **프로덕션 CSS 를
+       바꾸는 것**이 된다. 이 파일이 네 번이나 "근거를 남길수록 게이트가 빨개지면 그건
+       역인센티브다"라고 못박은 그 규율을, 가장 최근 케이스가 안 받고 있었다.
+       ⚠ 걷는 일도 순회하는 일도 **`sources()` 한 곳이 한다**(V027 · 2026-08-22) — 여기 있던
+       지역 워커가 ⑧·⑪ 의 것과 사본 셋이었고, 그 셋의 주석 처리가 실제로 갈려 있었다. */
+    for (const { path: p, code } of sources()) {
+      if (!/\.tsx$/.test(p)) continue;
+      const rel = normPath(p).replace(normPath(SRC13) + '/', '');
+      /* JSX 는 속성 안에 `>` 를 품을 수 있다(`onChange={(e) => …}`) → 중괄호 깊이를 세며
              태그 끝을 찾는다. 정규식 하나로 끊으면 타입 속성이 잘려 **거짓 통과**가 된다. */
-          for (const m of code.matchAll(/<input\b/g)) {
-            let depth = 0;
-            let end = m.index;
-            for (let j = m.index; j < code.length; j++) {
-              const c = code[j];
-              if (c === '{') depth++;
-              else if (c === '}') depth--;
-              else if (c === '>' && depth === 0) {
-                end = j;
-                break;
-              }
-            }
-            out.push({ rel, tag: code.slice(m.index, end + 1) });
+      for (const m of code.matchAll(/<input\b/g)) {
+        let depth = 0;
+        let end = m.index;
+        for (let j = m.index; j < code.length; j++) {
+          const c = code[j];
+          if (c === '{') depth++;
+          else if (c === '}') depth--;
+          else if (c === '>' && depth === 0) {
+            end = j;
+            break;
           }
         }
+        out.push({ rel, tag: code.slice(m.index, end + 1) });
       }
-    };
-    walk(SRC13);
+    }
     return out;
   }
 
@@ -1291,7 +1274,7 @@ describe('불변식 ⑬ <input type> 이 전역 폼 스킨에 등재돼 있다',
    실제로 그 구멍으로 둘이 샜다:
    · `lib/predictionScore.ts`(125줄) — 프로덕션 소비처 0. 삭제됨.
    · `lib/since.ts`(65줄) — 프로덕션 소비처 0인데 **짝인 쓰기 경로는 살아서 매 내비게이션마다
-     돌고 있었다**(`app/useMarkSeen` → `useUI.seenAt`, 읽는 코드 0곳). 표시를 맡던 `SubTabs` 가
+     돌고 있었다**(`app/useMarkSeen` → `useUI.seenDs`(당시 이름 `seenAt`), 읽는 코드 0곳). 표시를 맡던 `SubTabs` 가
      N-14/W5 에서 은퇴할 때 판정·시점이 함께 안 걷힌 것이다. 레일 신호로 되살렸다.
 
    ## ⚠ 무엇을 위반으로 보나
@@ -1433,24 +1416,55 @@ describe('불변식 ⑰ 마이크로카피가 부르는 탭 이름이 실재한�
      ⚠ **은퇴한 탭 이름도 실패**로 본다 — `role:'retired'` 는 ⌘K 로만 닿는 화면이라
      "그 탭에서 하세요"가 성립하지 않는다(나브·세그먼트 어디에도 그 이름이 안 뜬다).
      ⚠ 주석은 검사하지 않는다(`strip`) — 근거에 옛 이름을 인용하는 것이 위반이 되면
-       그건 이 파일이 네 번 못박은 역인센티브다. */
+       그건 이 파일이 네 번 못박은 역인센티브다.
+
+     ## ⚠⚠ 2026-08-22(C033) — **자기 문법만 막고 같은 뜻의 다른 표기를 못 봤다**
+
+     위 관용구가 잡는 것은 `<b>이름</b> 탭` 하나였다. 그런데 `find/GuideView.tsx` 는 같은 일을
+     **전용 컴포넌트**(`<Tab>읽을거리</Tab>`)로 하고 있었고, 실측하면 **없는 탭 다섯을 여덟 번**
+     가리켰다(`발견`·`읽을거리`·`탐구 수집`·`증시 동향`·`증시` — P10 W4 가 제거한 화면들이다).
+     즉 이 불변식이 서 있는 동안에도 그 파일은 통째로 사각이었다. 코드 축 1회차가 이것을
+     **근본 원인 R1**(집행자가 자기 문법을 막고 같은 뜻의 다른 표기를 못 본다)로 세웠고,
+     여기가 그 첫 처방이다 — 문법을 하나 더 아는 것.
+
+     처방의 나머지 절반은 그 파일 쪽이다: `Tab` 이 **이름 대신 로스터 키**를 받게 바꿨다.
+     그래서 아래 검사는 두 축이다 — ① 옛 텍스트 형태가 **되돌아오지 않는가**(`<Tab>이름</Tab>`)
+     ② 키 형태(`<Tab k="…" />`)가 **로스터에 실재하는 키인가**.
+     ⚠ ②는 `role:'view'` 를 허용한다(①·`<b>…</b> 탭` 과 다르다): 팔레트가 그 셋도 `to` 로
+     싣고(Q-22 · `shell/palette.ts`) 불변식 ⑱이 로스터 등재를 집행하므로 «그 화면으로 가라»가
+     ⌘K 로 실제로 성립한다. 은퇴 어휘가 아니라 **호스트 안의 화면**이라는 것이 차이다. */
   const 살아있는이름 = new Set(
     TABS.filter((t) => t.role !== 'view').flatMap((t) => [t.label, t.segLabel].filter((x): x is string => !!x)),
   );
-  const 관용구 = /<b>([^<>{}]{1,14})<\/b>[^\S\n]{0,3}탭/g;
+  const 관용구 = /<b>([^<>{}]{1,14})<\/b>[^\S\n]{0,3}탭|<Tab>([^<>{}]{1,14})<\/Tab>/g;
+  const 키관용구 = /<Tab\s+k=["']([\w-]+)["']/g;
+  const 로스터키 = new Set(TABS.map((t) => t.key));
 
-  const 언급 = tsxFiles().flatMap((f) => {
-    const code = strip(readFileSync(f, 'utf8'));
-    return [...code.matchAll(관용구)].map((m) => ({ 파일: aliasOf(f), 이름: m[1]!.trim() }));
-  });
+  const 소스 = tsxFiles().map((f) => ({ 파일: aliasOf(f), code: strip(readFileSync(f, 'utf8')) }));
 
-  it('`<b>…</b> 탭` 이 가리키는 이름이 전부 살아 있는 탭이다', () => {
+  const 언급 = 소스.flatMap(({ 파일, code }) =>
+    [...code.matchAll(관용구)].map((m) => ({ 파일, 이름: (m[1] ?? m[2]!).trim() })),
+  );
+  const 키언급 = 소스.flatMap(({ 파일, code }) => [...code.matchAll(키관용구)].map((m) => ({ 파일, 키: m[1]! })));
+
+  it('`<b>…</b> 탭` · `<Tab>…</Tab>` 이 가리키는 이름이 전부 살아 있는 탭이다', () => {
     const 위반 = 언급.filter((x) => !살아있는이름.has(x.이름)).map((x) => `${x.파일}: “${x.이름} 탭”`);
     expect(위반, `없는(또는 은퇴한) 탭으로 보내는 문구 — 이름 정본은 shell/tabs.ts 다`).toEqual([]);
   });
 
-  it('그 관용구를 쓰는 문구가 존재한다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
-    expect(언급.length).toBeGreaterThan(0);
+  it('`<Tab k="…" />` 의 키가 전부 로스터에 있다 — 개명·제거가 조용히 지나가지 않게', () => {
+    const 위반 = 키언급.filter((x) => !로스터키.has(x.키)).map((x) => `${x.파일}: <Tab k="${x.키}" />`);
+    expect(위반, `로스터에 없는 키 — 정본은 shell/tabs.ts 의 TABS 다`).toEqual([]);
+  });
+
+  it('두 관용구 중 적어도 하나를 쓰는 문구가 존재한다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    expect(언급.length + 키언급.length).toBeGreaterThan(0);
+  });
+
+  /* ⚠ 키 형태가 **0이 되면** 이 불변식의 절반이 조용히 잠든다 — 그건 `GuideView` 가 옛
+     텍스트 형태로 되돌아갔다는 뜻일 수 있다(C033 이 고친 바로 그 상태). 분모를 함께 센다. */
+  it('키 형태가 실제로 쓰이고 있다 — C033 의 처방이 살아 있는지의 분모', () => {
+    expect(키언급.length, '`<Tab k="…" />` 가 0이다 — 이름 문자열로 되돌아갔는지 확인하라').toBeGreaterThan(0);
   });
 });
 
@@ -1524,5 +1538,438 @@ describe('불변식 ⑱ `?view=` 화면이 로스터에 있다', () => {
 
   it('로스터에 실제로 뷰가 있다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
     expect(로스터뷰.size).toBeGreaterThan(4);
+  });
+});
+
+/* ============================================================
+   불변식 ⑲ — **UTC 표현으로 날짜를 자르지 않는다**(C043 · 2026-08-22 코드 축 1회차)
+
+   ## 무엇이 틀렸었나
+
+   `lib/since.ts` 의 저널 카운터 한 줄만 `new Date(x.at).toISOString().slice(0, 10)` 이었다.
+   그런데 비교 대상인 `seenDs` 는 `todayISO()` = **로컬** 날짜다. KST 00:00–09:00 에 쓴 3문장
+   요약은 전날 날짜가 붙어 `ds > seenDs` 를 통과하지 못했고, `seenDs` 는 이미 전진했으므로
+   **다음 날에도 영영** 레일 배지에 안 떴다.
+
+   `utils.ts` 의 `iso()` 가 정확히 이 함정 때문에 존재하고 그 주석이 *"toISOString()은 UTC라
+   KST 등에서 하루가 밀린다"* 라고 적어 뒀는데, 규약이 주석에만 있어서 한 줄이 새어 나갔다.
+
+   ## ⚠ 이 불변식과 시간대 매트릭스는 짝이다 — 하나만으로는 부족하다
+
+   · 여기(문법) — `toISOString()` 에서 **날짜만 꺼내는 두 관용구**를 소스 전량에서 막는다.
+     지금 위반 0이고, 0을 **잠그는** 것이 목적이다(C058 과 같은 형태 — 지금 지켜지는 규율을
+     아무도 안 지키고 있는 상태를 끝낸다).
+   · 짝(표본) — `vitest.tz.config.ts` 의 `tz-east`/`tz-west` 가 **행동**을 잰다. 실측:
+     결함이 있는 코드로 `TZ=UTC` 는 8/8 통과(판별력 0)였고 매트릭스는 양방향 모두 실패했다.
+
+   ⚠ **전체 `toISOString()` 을 막지 않는다.** 타임스탬프를 통째로 저장하는 것은 정당하고
+   실제로 그 용법이 넷 있다(`methodology.ts` 둘 · `shell/actions.ts` 둘 — 백업·내보내기 시각).
+   막는 것은 **UTC 문자열에서 날짜 부분을 꺼내 로컬 날짜와 섞는 것** 하나다.
+============================================================ */
+describe('불변식 ⑲ UTC 표현에서 날짜를 잘라 쓰지 않는다(C043)', () => {
+  const SRC19 = join(process.cwd(), 'src') + '/';
+  /** `.toISOString()` 뒤에 곧바로 날짜만 꺼내는 두 관용구. */
+  const 관용구19 = /toISOString\(\)\s*\.\s*(?:slice\(\s*0\s*,\s*10\s*\)|split\(\s*['"]T['"]\s*\)\s*\[\s*0\s*\])/;
+
+  it('`toISOString().slice(0,10)` · `.split("T")[0]` 이 src 에 없다 — 로컬 날짜는 utils.iso() 다', () => {
+    const 위반 = [...tsFiles(SRC19), ...tsxFiles()]
+      .filter((p) => 관용구19.test(strip(readFileSync(p, 'utf8'))))
+      .map(aliasOf);
+    expect(위반, 'UTC 날짜와 로컬 날짜(`todayISO`)를 섞으면 시간대에 따라 하루가 밀린다 — `iso(d)` 를 써라').toEqual(
+      [],
+    );
+  });
+
+  it('`utils.iso()` 가 실재한다 — 대안이 없으면 이 금지는 처방이 아니라 방해다', () => {
+    const utils = readFileSync(join(SRC19, 'lib', 'utils.ts'), 'utf8');
+    expect(utils, '금지의 짝인 함수가 사라졌다').toMatch(/export function iso\(/);
+  });
+});
+
+/* ============================================================
+   불변식 ⑳ — **`*At` 은 시점이다**(C039 · 2026-08-22 코드 축 1회차)
+
+   ## 무엇이 틀렸었나
+
+   `*At` 접미사가 **네 뜻**으로 쓰이고 있었다. 선언 28건 전수: epoch ms **24** · `HH:MM` 1
+   (`schema.doneAt`) · `YYYY-MM-DD` 1(`uiState.seenAt`) · 0-based 인덱스 2. 반면 `*Ds` 는
+   31어휘·600여 회가 **전량** `YYYY-MM-DD` 로 지켜진다 — 즉 이 저장소에 규약은 있었고 한쪽만
+   샜다. 더 나쁜 것은 `uiState.ts` 가 스스로 *"⚠ 날짜만 담는다(시각 아님)"* 라고 적었다는
+   점이다: **작성자가 이름이 거짓임을 알고 개명 대신 주석을 달았다.**
+
+   대가는 다음 소비처가 치른다. `since.ts` 가 `ds > seenDs` 로 **문자열 비교**를 하므로,
+   두 번째 소비처를 다는 사람이 지배적 관용구(`*At` = epoch ms)를 적용하면
+   `Date.now()` → 배지가 전 이력을 영구히 「새 것」으로 세고, `toISOString()` → 오늘 것이
+   통째로 빠진다. 둘 다 zod(`record(string, string)`)를 통과하고 게이트가 녹색이다.
+   `doneAt` 은 더 예약된 형태였다 — 스키마 주석이 *"표본이 쌓이면 그린다"* 며 미래의 소비처를
+   명시적으로 예약했는데, 그 사람이 `new Date(entry.doneAt)` 를 쓰면 `'21:40'` 에서
+   **`Invalid Date`** 가 나온다.
+
+   ## 무엇을 검사하나
+
+   zod 스키마의 `*At` 필드가 **`z.number()`(epoch ms)** 이거나 **사유 있는 면제**인지 본다.
+   면제는 «전체 ISO 타임스탬프» 하나뿐이고, 그것도 여기 사유를 적어야 통과한다.
+   ⚠ 이름을 세지 않는다 — 파일을 파싱해서 판다(손 목록은 이 파일이 다섯 번 못박은 그 표류다).
+============================================================ */
+describe('불변식 ⑳ zod 스키마의 `*At` 은 시점(epoch ms)이다(C039)', () => {
+  const SRC20 = join(process.cwd(), 'src', 'lib') + '/';
+
+  /** 사유 있는 면제 — 전체 ISO 타임스탬프를 문자열로 담는 자리. 사유 없는 면제는 방치다. */
+  const 면제20 = new Map<string, string>([
+    ['_lastBackupAt', '전체 ISO 타임스탬프(`new Date().toISOString()`) — 시점이 맞고 경과일 계산에만 쓴다'],
+  ]);
+
+  /** `이름: z.…` 선언에서 `*At` 인 것만. 값 표현식은 그 줄 끝까지. */
+  const 선언 = (): { 파일: string; 이름: string; 값: string }[] => {
+    const out: { 파일: string; 이름: string; 값: string }[] = [];
+    for (const p of [join(SRC20, 'schema.ts'), join(SRC20, 'uiState.ts')]) {
+      for (const line of strip(readFileSync(p, 'utf8')).split('\n')) {
+        const m = /^\s*(_?[a-z][A-Za-z0-9]*At)\??:\s*(z\..*)$/.exec(line);
+        if (m) out.push({ 파일: aliasOf(p), 이름: m[1]!, 값: m[2]! });
+      }
+    }
+    return out;
+  };
+
+  it('`*At` 필드가 z.number() 이거나 사유 있는 면제다', () => {
+    const 위반 = 선언()
+      .filter((d) => !면제20.has(d.이름) && !/z\.(optional\(z\.)?number\b/.test(d.값))
+      .map((d) => `${d.파일}: ${d.이름} = ${d.값.trim()}`);
+    expect(위반, '`*At` 은 이 저장소에서 epoch ms 다 — 날짜는 `*Ds`, 시각은 `*Hm` 을 써라').toEqual([]);
+  });
+
+  it('면제 표가 사문화하지 않았다 — 사라진 필드의 사유가 남아 있으면 실패', () => {
+    const 이름들 = new Set(선언().map((d) => d.이름));
+    expect([...면제20.keys()].filter((k) => !이름들.has(k))).toEqual([]);
+  });
+
+  it('실제로 `*At` 선언을 찾고 있다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    expect(선언().length).toBeGreaterThan(0);
+  });
+});
+
+/* ============================================================
+   불변식 ㉑ — **정체성 해시는 `lib/utils` 한 곳이 소유한다**(C046 · 2026-08-22 코드 축 1회차)
+
+   ## 무엇이 틀렸었나
+
+   `utils.ts` 의 `hash32` 머리주석이 규약을 **선언**한다: *"정체성에서 값을 파생할 때는 이걸
+   쓴다 … 새 해시를 또 만들면 파생마다 다른 근거를 갖게 된다."* 그런데 실측하면
+   `Math.imul` 을 쓰는 자리가 **넷 · 알고리즘이 둘**이었다:
+
+   · `semesterFingerprint.hash01` — `hash32` 의 **비트 사본**(상수 `2166136261`·`16777619` 가
+     `0x811c9dc5`·`0x01000193` 이다).
+   · `mistakes.hashStr` ↔ `retrieval.hashStr` — 서로의 사본(×31). 결합을 지던 것은
+     *"`retrieval.ts` 와 같은 식"* 이라는 **산문 한 줄**이었다.
+
+   집행자는 0이었다(`rg "Math.imul|hash32" test/invariants.test.ts eslint.config.js` → 0건).
+   즉 규약은 주석에만 있었고 **이미 세 번 어겨져 있었다.**
+
+   ## 왜 Minor 였고, 그럼에도 왜 잠그나
+
+   넷 다 결정론적이고 **현재 출력이 갈린 곳은 없다** — 청구되는 것은 다음 변경의 비용이다.
+   `hash32` 는 `chapterFuzz`(복습 due ±1일)와 `colorForId` 를 동시에 먹이고, 그 주석이
+   *"노브만 바꾸면 다음 부팅에 전부 갱신된다"* 를 근거로 승수 교체를 **장려한다**. 그때
+   사본만 옛 알고리즘에 남으면 두 화면이 같은 id 에 대해 다른 이야기를 시작하고, 어느 검사도
+   울지 않는다.
+
+   ## 축이 둘이라는 것이 규약의 일부다
+
+   `hash32`(FNV — 분포를 산다)와 `rotateSeed`(×31 — 결정성만 산다)는 **다른 축**이라 합치지
+   않는다. 합치면 색 분포 튜닝이 「오늘의 창」 회전을 함께 흔든다. 둘 다 집은 `lib/utils` 다.
+============================================================ */
+describe('불변식 ㉑ Math.imul(해시)이 lib/utils 밖에 없다(C046)', () => {
+  const SRC21 = join(process.cwd(), 'src') + '/';
+  const OWNER21 = join(SRC21, 'lib', 'utils.ts');
+
+  it('`Math.imul` 을 쓰는 파일이 `lib/utils.ts` 하나다', () => {
+    const 위반 = [...tsFiles(SRC21), ...tsxFiles()]
+      .filter((p) => p !== OWNER21 && /Math\.imul/.test(strip(readFileSync(p, 'utf8'))))
+      .map(aliasOf);
+    expect(
+      위반,
+      '새 해시를 또 만들면 파생마다 다른 근거를 갖는다 — `hash32`(정체성) 또는 `rotateSeed`(회전)를 써라',
+    ).toEqual([]);
+  });
+
+  it('두 축이 실재한다 — 이름만 남고 구현이 사라지면 이 금지가 처방이 아니라 방해다', () => {
+    const utils = readFileSync(OWNER21, 'utf8');
+    expect(utils, '정체성 축(FNV)이 사라졌다').toMatch(/export function hash32\(/);
+    expect(utils, '회전 축(×31)이 사라졌다').toMatch(/export function rotateSeed\(/);
+  });
+
+  it('⚠ 두 축을 합치지 않았다 — 상수가 갈려 있는 것이 의도다', () => {
+    const utils = strip(readFileSync(OWNER21, 'utf8'));
+    expect(utils, 'FNV prime 이 사라졌다 — 정체성 축이 회전 축으로 접혔는가').toMatch(/0x01000193/);
+    expect(utils, '회전 승수가 사라졌다 — 회전 축이 정체성 축으로 접혔는가').toMatch(/Math\.imul\(h, 31\)/);
+  });
+});
+
+/* ============================================================
+   불변식 ㉒ — **⌘K 내용 검색의 목적지가 로스터와 이어져 있다**(C048 · 2026-08-22 코드 축 1회차)
+
+   ## 무엇이 틀렸었나
+
+   `lib/contentSearch.ts` 안에서 목적지가 **다섯 자리 · 네 관용구**로 조립됐다(지역 화살표 헬퍼 ·
+   헬퍼+템플릿 · 생 리터럴 · `+` 연결). 그중 셋(`/day`·`/review`·`/mistakes`)은 `shell/tabs.ts`
+   와 **연결이 0**이었다. 이 저장소는 실제로 탭 키를 갈아 왔다(`journal`→`day` · `graph` 은퇴 ·
+   `guide` 삭제 후 부활) — 개명이 오면 그 셋은 **컴파일도 린트도 통과한 채** 남고,
+   `App.tsx` 의 `<Route path="*" element={<Navigate to="/today"/>}/>` 가 ⌘K 히트를 전부 오늘
+   화면으로 착지시킨다. 사용자에겐 *"⌘K 가 엉뚱한 데로 간다"* 이고, 불변식 ⑱은 `?view=` 만
+   보므로 원리적으로 사각이다.
+
+   ## 처방이 왜 두 조각인가
+
+   리포트의 처방은 *"탭 경로를 로스터에서 읽는다"* 였는데 **레이어가 그것을 막는다**:
+   `lib → lib` 만 허용이라(boundaries) `lib/contentSearch` 가 `shell/tabs` 를 부를 수 없다.
+   그 경계는 옳다(순수 규칙이 셸을 끌면 폰 번들·테스트가 함께 무거워진다). 그래서:
+   ① `lib/contentAnchors.ts` — 목적지가 **한 관용구 · 한 자리**(고칠 곳이 하나다).
+   ② 여기 — 그 표의 경로를 **로스터와 대조**한다. 테스트는 레이어 밖이라 둘 다 볼 수 있다.
+============================================================ */
+describe('불변식 ㉒ 내용 검색 목적지가 로스터의 경로와 같다(C048)', () => {
+  const 경로of = (t: (typeof TABS)[number]): string => t.route ?? t.to ?? '/' + t.key;
+
+  it('`ANCHOR_TAB_ROUTES` 의 키가 전부 로스터에 있다', () => {
+    const 로스터키 = new Set(TABS.map((t) => t.key));
+    expect(Object.keys(ANCHOR_TAB_ROUTES).filter((k) => !로스터키.has(k))).toEqual([]);
+  });
+
+  it('⚠⚠ 그 경로가 로스터가 말하는 경로와 **글자 그대로** 같다 — 개명이 여기서 빨간불이 된다', () => {
+    const 불일치 = Object.entries(ANCHOR_TAB_ROUTES)
+      .map(([key, route]) => {
+        const t = TABS.find((x) => x.key === key);
+        return t && 경로of(t) !== route ? `${key}: 앵커 ${route} ≠ 로스터 ${경로of(t)}` : '';
+      })
+      .filter(Boolean);
+    expect(불일치, '⌘K 히트가 `*` 라우트를 타 오늘 화면으로 착지한다 — lib/contentAnchors 를 맞춰라').toEqual([]);
+  });
+
+  it('⚠ `contentSearch` 가 목적지를 직접 짓지 않는다 — 관용구가 다시 갈리는 것을 막는다', () => {
+    const code = strip(readFileSync(join(process.cwd(), 'src', 'lib', 'contentSearch.ts'), 'utf8'));
+    const 생경로 = [...code.matchAll(/to:\s*[`'"]\//g)].length;
+    expect(생경로, '`to:` 에 생 경로 리터럴이 돌아왔다 — CONTENT_ANCHORS 를 써라').toBe(0);
+  });
+
+  it('표가 실제로 쓰이고 있다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    expect(Object.keys(ANCHOR_TAB_ROUTES).length).toBeGreaterThan(2);
+    expect(Object.keys(CONTENT_ANCHORS).length).toBeGreaterThan(3);
+  });
+});
+
+/* ============================================================
+   불변식 ㉓ — **뷰 콜백 안 도메인 로직 래칫**(C057 · 2026-08-22 코드 축 1회차)
+
+   ## 왜 이 축인가 — 근본 원인 R3 의 집행자
+
+   코드 축 1회차가 세운 근본 원인 셋 중 **R3** 은 *"새 표면은 규칙을 컴포넌트 안에 두고
+   테스트를 안 붙인다"* 였다. 표본이 `C036` 이다: 학사 눈금 인입 규칙 11줄이 두 화면에
+   **글자 그대로** 복제돼 있었고 그 규칙에 닿는 테스트가 **0건**이었다 — 컴포넌트를 렌더하지
+   않으면 도달 방법 자체가 없었기 때문이다. 그리고 게이트는 전량 녹색이었다(테스트가 0이므로).
+
+   `mutate((st) => …)` 콜백이 길어지는 것이 그 형태의 관측 가능한 신호다: 상태를 바꾸는 **규칙**이
+   렌더 트리 안에 살고 있다는 뜻이고, 거기서는 유닛 테스트가 원리적으로 못 닿는다.
+
+   ## 무엇을 하나 — 그리고 무엇을 안 하나
+
+   "더 나빠지지 않는다"만 보장한다(이 저장소의 래칫 규율 그대로 · `eslint.config.js` 의
+   `max-lines`·`cognitive-complexity` 와 같은 계약). ⚠ **임계는 현재 최댓값이고 내려가기만 한다.**
+   ⚠ 짧은 콜백을 금지하지 않는다 — `st.items.push(x)` 한 줄은 규칙이 아니라 배선이다.
+   ⚠ 6줄이라는 «좋음»의 기준을 강제하지 않는다(실측 10건이 그 위에 있고, 그걸 지금 다 옮기는 것은
+   이 회차의 범위가 아니다). 대신 그 수를 **함께 세어** 추세가 보이게 한다.
+
+   실측(2026-08-22): `.tsx` 안 `mutate((` **120곳** · 6줄 초과 **10** · 최댓값 **16**
+   (`degree/CalendarIntake.tsx` — C036 이 그 안의 11줄을 `lib/semester.applyMarks` 로 내린 뒤의 값).
+============================================================ */
+describe('불변식 ㉓ 뷰 콜백 안 도메인 로직이 더 자라지 않는다(C057)', () => {
+  /**
+   * ⚠ 현재 최댓값(주석·빈 줄 제외). **내려가기만 한다** — 올리려면 왜 규칙이 렌더 안에 있어야
+   * 하는지 여기 적어라.
+   *
+   * 이력(전부 `degree/CalendarIntake.tsx` 의 같은 콜백): **22** → `C036` 이 학사 눈금 규칙을
+   * `lib/semester.applyMarks` 로 → **17** → `C068` 이 강의 블록 중복 판정을
+   * `lib/icsParse.applyLectureBlocks` 로 → **14**. 짝인 `SyllabusIntake` 도 15 → 10.
+   *
+   * ⚠⚠ 세는 법이 두 번 틀렸다가 고쳐졌다. ① 임계를 **포맷 전** 실측(16)으로 잡았다가
+   * `format` 이 한 줄 호출을 5줄로 접어 **이 래칫이 스스로 빨간불**이 됐다. ② 그 뒤에도
+   * **주석을 세고 있어서**, 규칙을 `lib` 으로 내리고 «왜 내렸는지» 적으면 그 문단이 줄 수를
+   * 도로 올렸다 — 근거를 적는 쪽이 벌을 받는 형태다. 지금은 `strip` 뒤에 센다(위 헬퍼 주석).
+   * ⚠ 아래 「임계가 최댓값에 붙어 있다」 케이스가 두 번 다 이것을 잡았다 — 그 케이스를 지우지 마라.
+   */
+  const MUTATE_MAX = 14;
+
+  /**
+   * `.tsx` 의 `mutate((` 콜백 본문 줄 수 — 괄호 균형으로 끝을 찾는다(중첩 함수 포함).
+   *
+   * ⚠⚠ **주석을 걷고 센다**(`strip`). 안 걷으면 «규칙을 왜 `lib` 으로 내렸는지» 적는 문단이
+   * 그 자리의 줄 수를 올려 **근거를 적는 쪽이 벌을 받는다** — 이 파일이 네 번 못박은 역인센티브다
+   * (불변식 ⑰이 같은 이유로 `strip` 한다). 실제로 C068 에서 물렸다: 규칙 8줄을 통째로 `lib` 으로
+   * 내렸는데 그 자리에 남긴 2줄짜리 근거 주석 때문에 래칫이 20 → 17 밖에 안 내려갔다.
+   * ⚠ 빈 줄도 안 센다 — 포매터가 만드는 것이고 «규칙의 크기»가 아니다.
+   */
+  const 콜백들 = (): { 파일: string; 줄수: number; 줄: number }[] => {
+    const out: { 파일: string; 줄수: number; 줄: number }[] = [];
+    for (const f of tsxFiles()) {
+      const code = readFileSync(f, 'utf8');
+      for (const m of code.matchAll(/\bmutate\(\(/g)) {
+        let depth = 0;
+        let j = m.index;
+        for (; j < code.length; j++) {
+          if (code[j] === '(') depth += 1;
+          else if (code[j] === ')' && --depth === 0) break;
+        }
+        out.push({
+          파일: aliasOf(f),
+          /* 주석·빈 줄을 걷은 뒤의 «실제 규칙 줄 수». `strip` 은 파일 단위 헬퍼라 조각에 그대로 쓴다. */
+          줄수: strip(code.slice(m.index, j))
+            .split('\n')
+            .filter((x) => x.trim()).length,
+          줄: code.slice(0, m.index).split('\n').length,
+        });
+      }
+    }
+    return out;
+  };
+
+  it(`가장 긴 \`mutate\` 콜백이 ${MUTATE_MAX}줄 이하다 — 규칙은 lib 로 내려야 테스트가 닿는다`, () => {
+    const 넘는것 = 콜백들()
+      .filter((c) => c.줄수 > MUTATE_MAX)
+      .map((c) => `${c.파일}:${c.줄} (${c.줄수}줄)`);
+    expect(넘는것, 'R3 — 렌더 안의 규칙은 유닛 테스트가 원리적으로 못 닿는다(C036 이 그 표본이다)').toEqual([]);
+  });
+
+  it('⚠ 임계가 현재 최댓값에 붙어 있다 — 여유가 크면 래칫이 아무것도 안 지킨다', () => {
+    const 최댓값 = Math.max(...콜백들().map((c) => c.줄수));
+    expect(최댓값, `임계 ${MUTATE_MAX} 인데 실측 ${최댓값} — 규약대로 임계를 내려라`).toBeGreaterThan(MUTATE_MAX - 4);
+  });
+
+  it('실제로 콜백을 찾고 있다 — 0이면 이 래칫이 아무것도 안 잰다', () => {
+    expect(콜백들().length).toBeGreaterThan(50);
+  });
+});
+
+/* ============================================================
+   불변식 ㉔ — **`src/` 에 dev/prod 분기가 없다**(C058 · 2026-08-22 코드 축 1회차)
+
+   ## 왜 «지금 0인 것»을 잠그나
+
+   React 가 `test --prod` 를 요구하는 이유의 우리 판이다: 개발 빌드와 배포 빌드의 **동작이
+   갈리면** 전 게이트가 녹색인 채로 사용자에게만 다른 앱이 간다. 이 저장소의 검증망은 그
+   비대칭에 특히 약하다 — 트랙 A 는 `vite preview`(프로덕션 번들)지만 `npm run dev` 로 보는 것은
+   dev 번들이고, `tauri:dev` 는 `devCsp`(느슨)에 오리진이 `localhost:5173` 이다.
+   즉 «dev 에서만 도는 코드»가 생기면 그것을 보는 층이 **하나도 없다**.
+
+   실측(2026-08-22): `import.meta.env.DEV|PROD|MODE` · `process.env.NODE_ENV` 분기가 `src/` 에
+   **0건**이다. 규율이 지켜지고 있는데 **아무도 안 지키고 있었다** — 이 파일이 반복해 세운 형태
+   (선언은 있는데 집행자가 0)의 반대 축이고, 0을 잠그는 것이 가장 싸다.
+
+   ⚠ **빌드 설정은 대상이 아니다**(`vite.config.ts`·`eslint.config.js`) — 거기서 모드를 보는 것은
+   정의상 옳다. 막는 것은 **런타임 코드가 자기 모드를 아는 것**이다.
+============================================================ */
+describe('불변식 ㉔ 런타임 코드에 dev/prod 분기가 없다(C058)', () => {
+  const 분기 = /import\.meta\.env\.(DEV|PROD|MODE)\b|process\.env\.NODE_ENV/;
+
+  it('`src/` 에 모드 분기가 0건이다 — 갈리면 어느 층도 그 차이를 못 본다', () => {
+    const 위반 = [...tsFiles(join(process.cwd(), 'src') + '/'), ...tsxFiles()]
+      .filter((p) => 분기.test(strip(readFileSync(p, 'utf8'))))
+      .map(aliasOf);
+    expect(위반, 'dev 에서만 도는 코드는 트랙 A(프로덕션 번들)도 트랙 B(릴리스 exe)도 못 본다').toEqual([]);
+  });
+});
+
+/* ============================================================
+   불변식 ㉕ — **치트시트가 없는 키를 광고하지 않는다**(C025 · 2026-08-22)
+
+   ## 무엇이 열려 있었나
+
+   `useKeymapDoc` 은 **선언만** 하는 경로다(리스너 없음). 그 훅 자신이 대가를 명시해 뒀다:
+   *"이 경로는 **선언과 구현이 여전히 두 곳**이라 표류할 수 있다."* U033 이 그 표류를 실제로
+   청구했고(없는 키가 `?` 에 떠 있었다), **집행자는 0**이었다.
+
+   ## 왜 「구현했는가」가 아니라 「언급하는가」인가 — 실측이 그렇게 시켰다
+
+   같은 파일 안에서도 키를 다루는 관용구가 **셋 이상**이다(실측):
+   · `e.key === 'ArrowUp'`(`AllocBoard`·`Items`) · `case 'Escape'`(`Ledger`)
+   · `keys.push({ k: '1', … })` 표(`ReviewRun`) · `verbs` 파생(`useListCursor`)
+   즉 «구현했는가»를 판정하려 들면 이 검사 자신이 **근본 원인 R1**(집행자가 자기 문법만 막는다)에
+   빠진다 — 새 관용구가 생길 때마다 조용히 사각이 생기고, 그건 이 파일이 다섯 번 물린 형태다.
+
+   그래서 훨씬 약하지만 **오탐이 0인** 관계를 잰다: *광고한 키는 그 파일이 최소한 언급은 한다.*
+   U033 이 청구한 실패(«그 파일 어디에도 없는 키를 광고») 는 이것으로 잡히고, 관용구가 늘어도
+   안 깨진다. ⚠ **이 검사가 통과한다고 «그 키가 동작한다»는 뜻이 아니다** — 그 축은 e2e 의 몫이다.
+============================================================ */
+describe('불변식 ㉕ useKeymapDoc 이 광고하는 키를 그 파일이 언급한다(C025)', () => {
+  /** 치트시트 표기 → 소스에 나타날 수 있는 토큰들. 하나라도 있으면 통과. */
+  const 별칭: Record<string, string[]> = {
+    Esc: ['Escape', 'Esc'],
+    Space: [' ', 'Space'],
+    Enter: ['Enter'],
+    Backspace: ['Backspace', 'Delete'],
+    Tab: ['Tab'],
+    '↑': ['ArrowUp'],
+    '↓': ['ArrowDown'],
+    '←': ['ArrowLeft'],
+    '→': ['ArrowRight'],
+    '+': ['+'],
+    '−': ['-'],
+    '/': [],
+    Alt: ['alt', 'Alt'],
+    Shift: ['shift', 'Shift'],
+  };
+
+  /** 그 파일이 **키로서** 다루는 토큰 — 관용구 넷의 합집합(실측으로 모은 것이다). */
+  const 처리키 = (code: string): Set<string> => {
+    const out = new Set<string>();
+    const add = (v?: string): void => void (v && out.add(v.toLowerCase()));
+    for (const m of code.matchAll(/\.key\s*===\s*'([^']+)'/g)) add(m[1]); // e.key === 'ArrowUp'
+    for (const m of code.matchAll(/\bcase\s*'([^']+)'/g)) add(m[1]); // switch (e.key)
+    for (const m of code.matchAll(/\bk:\s*'([^']+)'/g)) add(m[1]); // keys.push({ k: '1' })
+    for (const m of code.matchAll(/\bkeys:\s*\[([^\]]*)\]/g))
+      // useKeymap({ keys: [...] })
+      for (const t of m[1]!.matchAll(/'([^']+)'/g)) add(t[1]);
+    /* 이름 붙은 키 상수 — `export const MARK_KEY = 'm'`(`useListCursor`). 다섯째 관용구이고,
+       아래 「처리 집합이 비어 있지 않다」가 아니라 **이 줄이 없어서** 실제로 오탐이 났다. */
+    for (const m of code.matchAll(/\b[A-Z][A-Z0-9_]*_KEYS?\s*=\s*'([^']+)'/g)) add(m[1]);
+    return out;
+  };
+
+  const 광고 = (): { 파일: string; display: string; code: string }[] => {
+    const out: { 파일: string; display: string; code: string }[] = [];
+    for (const { path, code } of sources()) {
+      if (!code.includes('useKeymapDoc(')) continue;
+      for (const m of code.matchAll(/display:\s*'([^']+)'/g)) {
+        out.push({ 파일: aliasOf(path), display: m[1]!, code });
+      }
+    }
+    return out;
+  };
+
+  /** 광고 한 칸이 그 파일의 처리 집합에 걸리는가. 걸리는 토큰이 **하나라도** 있으면 통과. */
+  const 걸린다 = (display: string, handled: Set<string>): boolean =>
+    display
+      .split(/[\s/]+/)
+      .filter(Boolean)
+      .flatMap((t) => 별칭[t] ?? [t])
+      .some((cand) => handled.has(cand.toLowerCase()));
+
+  it('광고한 키를 그 파일이 **키로서** 다룬다 — 없는 키를 `?` 가 가르치지 않게', () => {
+    const 위반 = 광고()
+      .filter(({ display, code }) => !걸린다(display, 처리키(code)))
+      .map(({ 파일, display }) => `${파일}: “${display}”`);
+    expect(위반, '치트시트가 그 파일이 안 다루는 키를 광고한다(U033 이 청구한 형태)').toEqual([]);
+  });
+
+  it('실제로 광고를 찾고 있다 — 0이면 이 불변식이 아무것도 안 잰다', () => {
+    expect(광고().length, '`useKeymapDoc` 의 `display` 를 하나도 못 뽑았다').toBeGreaterThan(8);
+  });
+
+  /* ⚠⚠ **관용구가 늘면 이 검사는 조용히 눈이 먼다.** 위 `처리키` 는 실측으로 모은 넷이고,
+     다섯째가 생기면 그 파일의 처리 집합이 비어 광고가 전부 «안 다룬다»로 보인다 — 그건 시끄러운
+     실패라 괜찮다. 반대 방향이 위험하다: 파일이 통째로 빠지면 **아무것도 안 재면서 초록**이다.
+     그래서 «광고가 있는 파일은 처리 집합도 비어 있지 않다»를 분모로 함께 잰다. */
+  it('광고하는 파일마다 처리 집합이 비어 있지 않다 — 관용구가 늘어 눈이 멀면 여기서 잡힌다', () => {
+    const 빈파일 = [...new Map(광고().map((a) => [a.파일, a.code])).entries()]
+      .filter(([, code]) => 처리키(code).size === 0)
+      .map(([파일]) => 파일);
+    expect(빈파일, '이 파일의 키 관용구를 `처리키` 가 못 읽는다 — 새 관용구를 거기 더하라').toEqual([]);
   });
 });

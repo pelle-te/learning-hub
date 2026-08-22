@@ -31,10 +31,11 @@ import {
   type PreImageRow,
   type UndoEntry,
 } from '../db/undoStack';
-import { selectDb } from '../db/sqlite';
+import { readTouched, selectDb, touchedKey } from '../db/sqlite';
 import { nextStamp } from '../db/stamp';
 import { applyPull } from './merge';
 import { OUTBOX_TABLES, tableCols, type OutboxRow, type OutboxTomb } from './contract';
+import type { TableSpec } from '../db/rows';
 import type { AppState } from '../types';
 
 const SPEC = new Map(OUTBOX_TABLES.map((t) => [t.name, t]));
@@ -174,19 +175,27 @@ async function currentImages(rows: readonly OutboxRow[], tombs: readonly OutboxT
     ...rows.map((r) => ({ tbl: r.tbl, key: r.key.map(String) })),
     ...tombs.map((t) => ({ tbl: t.tbl, key: [t.k1, t.k2] })),
   ];
-  const out: PreImageRow[] = [];
-  for (const t of targets) {
-    const spec = SPEC.get(t.tbl);
-    if (!spec) continue;
-    const { key } = tableCols(spec);
-    const keyVals = key.map((_, i) => t.key[i] ?? '');
-    const where = key.map((k) => `${k} = ?`).join(' AND ');
-    const got = await selectDb<Record<string, unknown>>(
-      `SELECT ${spec.cols.join(',')} FROM ${spec.name} WHERE ${where}`,
-      keyVals,
-    );
-    const row = got?.[0];
-    out.push({ table: spec.name, key: keyVals, vals: row ? spec.cols.map((c) => row[c]) : null });
-  }
-  return out;
+  /* ⚠⚠ **행마다 질의 하나를 순차로 await 했다**(P027 · 2026-08-22). 되돌릴 배치가 클수록
+     그만큼 IPC 왕복이 늘었고(폰은 워커 왕복이다), 그건 사용자가 ⌘Z 를 누른 **직후**의 지연이라
+     가장 눈에 띄는 자리다. 같은 형태를 `C045` 가 `readTouched` 에서 이미 고쳤으므로 **그 함수를
+     그대로 쓴다** — 표마다 질의 하나로 접히고, 키 열마다 `IN` 이라 과다 인출도 없다.
+     ⚠ 사본을 만들지 않는 것이 요점이다: 「방금 쓴 행만 되읽는다」는 규칙이 두 벌이 되면
+     한쪽만 고쳐진다(이 회차가 `C036`·`C037`·`C038` 에서 세 번 만난 형태). */
+  const 요청 = targets
+    .map((t) => {
+      const spec = SPEC.get(t.tbl);
+      if (!spec) return null;
+      const { key } = tableCols(spec);
+      return { spec, table: spec.name, key: key.map((_, i) => t.key[i] ?? '') };
+    })
+    .filter((x): x is { spec: TableSpec; table: string; key: string[] } => x !== null);
+
+  const 읽음 = await readTouched(요청.map(({ table, key }) => ({ table, key })));
+  return 요청.map(({ spec, table, key }) => {
+    const vals = 읽음?.get(touchedKey(table, key));
+    /* ⚠ 없는 행은 `vals: null` 이다(위 ⚠) — `readTouched` 는 «없으면 없는 채로» 두므로 그
+       구분이 그대로 보존된다. `undefined`(DB 미가용)와 «행이 없다»가 같은 값이 되지 않게
+       `읽음` 자체가 null 이면 전부 null 로 떨어지고, 그건 종전 `selectDb` 실패와 같은 거동이다. */
+    return { table, key, vals: vals ? spec.cols.map((_, i) => vals[i]) : null };
+  });
 }

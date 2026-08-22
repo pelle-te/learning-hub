@@ -27,10 +27,10 @@ import { Button, Pill } from '@/components/ui';
 import { MARK_LABEL, dateOfWeek, draftIsEmpty, parseSyllabus } from '@/lib/syllabusIntake';
 import { setSyllabusMark } from '@/lib/syllabus';
 import { addTask } from '@/lib/tasks';
-import { activeSemester, linkableItems } from '@/lib/semester';
+import { activeSemester, applyMarks, linkableItems } from '@/lib/semester';
 import { MAX_EXAMS } from '@/lib/semester';
 import { rid, todayISO } from '@/lib/utils';
-import type { AcademicMark, AppState, Exam, Item } from '@/lib/types';
+import type { AppState, Exam, Item } from '@/lib/types';
 
 /** 선택 상태 — 초안의 각 줄을 받아들일지. 기본은 **전부 받아들임**(고르는 것이 아니라 *빼는* 것). */
 type Picks = { weeks: Set<number>; exams: Set<number>; tasks: Set<number>; marks: Set<number> };
@@ -98,16 +98,13 @@ export default function SyllabusIntake() {
       if (it) applySubjectParts(st, it);
       // ④ 학사 눈금 → 학기(N-19). 같은 날·같은 종류가 이미 있으면 안 넣는다(두 과목 계획서에 같은 눈금).
       const target = st.degree.semesters.find((s) => s.id === sem?.id);
-      if (target) {
-        const marks: AcademicMark[] = target.marks || [];
-        draft.marks.forEach((m, i) => {
-          if (!p.marks.has(i)) return;
-          if (marks.some((x) => x.ds === m.ds && x.kind === m.kind)) return;
-          marks.push({ id: rid(), kind: m.kind, ds: m.ds, label: m.label });
-          n.mark += 1;
-        });
-        if (marks.length) target.marks = marks;
-      }
+      /* 규칙(중복 판정 포함)은 `lib/semester.applyMarks` 가 소유한다 — 두 인입구가 **같은
+         함수**여야 한다(종전엔 11줄 사본 둘이었고 테스트 0건이었다 · C036). */
+      if (target)
+        n.mark += applyMarks(
+          target,
+          draft.marks.filter((_, i) => p.marks.has(i)),
+        );
     });
 
     /** 과목이 있어야 성립하는 셋(주차 · 시험 · 과제). 눈금과 갈라 둔 이유는 위 ⚠⚠. */

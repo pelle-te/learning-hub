@@ -26,7 +26,7 @@ import {
   undoTo,
 } from '@/shell';
 import { useHeroPointer } from '@/hooks/interactions';
-import { dataSizeKB, recordBreakdown, archivableCount } from '@/lib/methodology';
+import { dataSizeKB, recordBreakdown, recordsSince, archivableCount } from '@/lib/methodology';
 import { ACCENTS, type Accent } from '@/lib/uiState';
 import { GENERATIONS } from '@/lib/snapshots';
 import { Button, NumberField } from '@/components/ui';
@@ -114,6 +114,10 @@ function ParityLine() {
 }
 
 /** 액센트 스와치 미리보기색 — tokens.css [data-accent] 프리셋의 --acc를 직접 읽어 파생(하드코딩 SSOT 위반 제거).
+    ⚠ `fallback` 의 hex 넷은 `ThemeProvider.META_FALLBACK` 과 **같은 판단 대기 중**이다(V033 ·
+    2026-08-22): `getPropertyValue` 가 빈 문자열을 주는 실제 조건은 «그 토큰이 없다» 하나이고,
+    그건 불변식 ④가 이미 게이트에서 잡는다. `typeof document === 'undefined'` 가드도 이 앱에
+    SSR 이 없으므로 사문이다. 지울지는 별개 판단이라 `scripts/_hexcheck.mjs` 원장(만료 2026-11-30).
     '테마 무관 대표 네온'을 위해 다크 테마 기준으로 계산한다(라이트에서도 스와치는 같은 네온).
     프리셋 규칙이 :root를 겨냥하므로 documentElement 속성을 잠깐 바꿔 읽고 즉시 원복 — 동기 실행이라
     중간 프레임은 페인트되지 않아 깜빡임이 없다. 향후 토큰 재튜닝이 스와치에 자동 반영된다. */
@@ -269,7 +273,15 @@ export default function Settings() {
   );
   const recs = bd.done + bd.summaries + bd.cbms + bd.backlog + bd.blank;
   const archN = archivableCount(state);
-  const backupLine = days == null ? '볼트 백업 기록 없음' : days === 0 ? '볼트 백업: 오늘' : `볼트 백업: ${days}일 전`;
+  /* ⚠⚠ **「무엇을 잃나」를 말한다**(D022 · 2026-08-22). 종전엔 「N일 전」뿐이었는데 그건 경과
+     시간이지 **위험의 크기**가 아니다 — 한 달 전 백업이어도 그 뒤에 안 썼으면 잃을 것이 없고,
+     어제 백업이어도 오늘 30건을 썼으면 그게 위험이다. 사람이 «백업할까»를 판단하는 재료는 후자다.
+     ⚠ 0건이면 **수를 안 붙인다** — 「0건이 로컬에만」은 안심이 아니라 소음이고, 이 저장소가
+     반복해 지운 «값 부재와 값 0 을 같은 픽셀로 그리는» 형태다. */
+  const atRisk = recordsSince(state, state._lastBackupAt as string | undefined);
+  const riskTail = atRisk > 0 ? ` · ${atRisk}건이 앱에만` : '';
+  const backupLine =
+    (days == null ? '볼트 백업 기록 없음' : days === 0 ? '볼트 백업: 오늘' : `볼트 백업: ${days}일 전`) + riskTail;
 
   const archiveOldConfirm = async () => {
     /* Q-13 ②단 — 비우기 전에 **파일로 먼저 내려받으므로** 밖에 원본이 남는다(재구성 가능). */

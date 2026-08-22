@@ -64,6 +64,7 @@ import {
   readWatermark,
   batchSize,
   noteMergedRows,
+  noteMergedTombs,
   resetMergedEcho,
   OUTBOX_TABLES,
 } from '@/lib/cloud/outbox';
@@ -489,6 +490,42 @@ describe('에코 억제 — 방금 받은 행을 되돌려 올리지 않는다(H
 
     const batch = await collectOutbox(100);
     expect(batch!.rows, '받은 행을 그대로 되올리면 초기 동기화가 두 배 든다').toHaveLength(0);
+  });
+
+  /* ⚠⚠ **D024(2026-08-22) — 이 절의 논거가 행에만 적용돼 있었다.**
+
+     머리주석이 *"초기 대량 동기화에서 받은 만큼을 그대로 다시 올린다"* 를 결함으로 적고 행에
+     대해 고쳤는데, **툼스톤은 대상이 아니었다** — 받아온 삭제가 다음 스캔에 되올라갔다.
+     안전 논거는 글자 그대로 같다(키 + `deletedAt` 이 **둘 다** 일치할 때만 건너뛴다). */
+  it('병합으로 받은 그 **삭제**는 다음 스캔에서 빠진다(D024)', async () => {
+    tables.set('tombstones', [{ tbl: 'records', k1: 'tasks', k2: 't9', deleted_at: 120 }]);
+    seedStamp(200);
+    noteMergedTombs([{ tbl: 'records', k1: 'tasks', k2: 't9', deletedAt: 120 }]);
+
+    const batch = await collectOutbox(100);
+    expect(batch!.tombstones, '받은 삭제를 그대로 되올리면 삭제 축이 두 배 든다').toHaveLength(0);
+  });
+
+  it('⚠ 삭제도 **스탬프가 다르면 안 건너뛴다** — 내가 그 뒤에 지운 것이다', async () => {
+    tables.set('tombstones', [{ tbl: 'records', k1: 'tasks', k2: 't9', deleted_at: 121 }]);
+    seedStamp(200);
+    noteMergedTombs([{ tbl: 'records', k1: 'tasks', k2: 't9', deletedAt: 120 }]); // 받은 건 120
+
+    const batch = await collectOutbox(100);
+    expect(batch!.tombstones, '내 삭제를 에코로 오인하면 그건 조용한 유실이다').toHaveLength(1);
+  });
+
+  it('⚠⚠ 행과 툼스톤이 **서로를 지우지 않는다** — 같은 키라도 다른 사실이다', async () => {
+    /* 같은 `(tbl,k1,k2)` 에 대해 «행을 받았다»와 «그 행의 삭제를 받았다»는 다른 사건이다.
+       이름공간을 안 가르면 하나가 다른 하나의 기록을 덮어 **에코 억제가 엉뚱한 쪽에 걸린다.** */
+    tables.set('tombstones', [{ tbl: 'settings', k1: 'k', k2: '', deleted_at: 150 }]);
+    tables.set('settings', [{ key: 'k', value: '{"a":1}', updated_at: 150 }]);
+    seedStamp(200);
+    noteMergedRows([{ tbl: 'settings', key: ['k'], updatedAt: 150 }]); // 행만 받았다고 적는다
+
+    const batch = await collectOutbox(100);
+    expect(batch!.rows, '행은 에코라 빠져야 한다').toHaveLength(0);
+    expect(batch!.tombstones, '삭제는 안 받았는데 행 기록이 그것까지 지웠다').toHaveLength(1);
   });
 
   it('⚠ **스탬프가 다르면 안 건너뛴다** — 내가 그 뒤에 고친 것이다', async () => {

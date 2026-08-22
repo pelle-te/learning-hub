@@ -473,6 +473,33 @@ export function recordBreakdown(state: AppState): {
     blank: (state.blankResults || []).length,
   };
 }
+/**
+ * 마지막 볼트 백업 **뒤에 생긴** 기록 수 — 「무엇을 잃나」의 수치(D022 · 2026-08-22).
+ *
+ * ⚠⚠ **배너가 「N일 전」만 말하고 있었다.** 그건 경과 시간이지 **위험의 크기**가 아니다 —
+ * 한 달 전 백업이어도 그 뒤에 아무것도 안 썼으면 잃을 것이 없고, 어제 백업이어도 오늘 30건을
+ * 썼으면 그게 위험이다. 사람이 «백업할까»를 판단하는 재료는 후자다.
+ *
+ * ⚠ `at` 이 없으면(백업 이력 없음) **전량**을 돌려준다 — 그 경우 앱에만 있는 것이 전부다.
+ * ⚠ 날짜 축이 슬라이스마다 다르다: `completions` 는 키가 `ds`(날짜), `summaries` 는 `at`(epoch ms),
+ *   나머지 셋은 `ds` 필드다. 하나로 접지 않고 각자의 축을 쓴다 — 접으면 «시각이 없는 것»을
+ *   자정으로 반올림하게 되고, 그건 이 저장소가 `C043` 에서 물린 부류다.
+ * ⚠ **순수 함수다**(렌더 없이 도달 가능) — 근본 원인 R3 의 규율.
+ */
+export function recordsSince(state: AppState, at?: string): number {
+  const t = at ? new Date(at).getTime() : NaN;
+  if (!at || Number.isNaN(t)) return recordCount(state);
+  const ds0 = iso(new Date(t)); // 로컬 날짜 — `todayISO`·`ds` 필드와 같은 축(C043)
+  let n = 0;
+  const c = state.completions || {};
+  for (const k in c) if (k > ds0) n += Object.keys(c[k]!).length;
+  const s = state.summaries || {};
+  for (const k in s) n += s[k]!.filter((x) => (x.at ?? 0) > t).length;
+  for (const arr of [state.cbms, state.backlog, state.blankResults])
+    n += (arr || []).filter((r) => String((r as { ds?: string }).ds ?? '') > ds0).length;
+  return n;
+}
+
 export function recordCount(state: AppState): number {
   const b = recordBreakdown(state);
   return b.done + b.summaries + b.cbms + b.backlog + b.blank;

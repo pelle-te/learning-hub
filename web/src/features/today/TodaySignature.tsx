@@ -8,6 +8,7 @@ import { completionKey } from '@/lib/domainKeys';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { confirmIrreversible, toast } from '@/shell';
+import { SPAN_PARAM } from '@/shell/tabs';
 import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
@@ -344,8 +345,11 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const res = useSchedule();
   const toggleDone = useApp((s) => s.toggleDone);
   const navigate = useNavigate();
-  const go = (to: string) => navigate(to, { viewTransition: true });
-  const setSchedView = useUI((st) => st.setSchedView);
+  /* ⚠ 반환을 **명시로 `void`** 로 만든다(C051 · 2026-08-22). `navigate` 는 Promise 를 주는데
+     이 값을 받는 계약(`:289`·`:965`)은 `(to: string) => void` 다 — 즉 타입이 이미 «떠 있는
+     Promise» 를 말하고 있었고, 타입 인지 린트를 켜기 전까지 아무도 그것을 못 봤다.
+     한 곳에서 닫으면 두 소비처(`chromeFor`·`buildBeyondStrip`)가 함께 낫는다. */
+  const go = (to: string): void => void navigate(to, { viewTransition: true });
   // "오늘 계획 짜기" — 목적지를 **결정론적으로** 고정한다. 예전엔 `/plan-host`로만 보내 캘린더의
   // 영속 뷰(schedView·기본 week)에 그대로 떨어졌다 → '오늘'을 요청했는데 주 격자(혹은 지난번 아무 뷰)가
   // 열려 첫 화면이 매번 달랐다(재설계 사상 "0.5초에 요지" 위반).
@@ -354,8 +358,10 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   // 일반 진입(나브 '계획'·⌘K·g p)은 여전히 영속 뷰를 존중한다(v4 "기본 착지=캘린더 주 뷰") — 결정론은
   // 의도가 '오늘'로 명시된 이 경로에만 건다.
   const goPlanToday = () => {
-    setSchedView('day');
-    go(`/schedule?ds=${todayISO(state)}`); // '오늘'은 앱 단일 출처(_today 시드 존중) — new Date() 금지
+    /* ⚠⚠ 종전엔 여기서 `setSchedView('day')` 를 **먼저** 불렀다 — 뷰가 영속 토글이라 주소로는
+       말할 방법이 없었기 때문이다. C029 가 그 상태를 **주소로 올렸으므로**(`?span=`) 이제
+       의도가 링크 안에 전부 들어간다: 새 딥링크 입구가 생겨도 «그 한 줄»을 기억할 필요가 없다. */
+    void go(`/schedule?ds=${todayISO(state)}&${SPAN_PARAM}=day`); // '오늘'은 앱 단일 출처(_today 시드 존중)
   };
 
   // 히어로 포인터 추적 — 스포트라이트(--mx/--my) + 3D 틸트(--tiltX/Y). 정본 훅(interactions) 공유.

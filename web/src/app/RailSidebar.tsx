@@ -134,23 +134,23 @@ export default function RailSidebar() {
   /* ⚠⚠ **T-13「지난번 이후」의 소비처가 여기다**(2026-08-20 리뷰 m-4).
 
      `lib/since.ts` 는 판정을, `app/useMarkSeen.ts` 는 시점을 소유했는데 **그리는 쪽이 없었다** —
-     원래 그 자리였던 `SubTabs` 가 N-14/W5 에서 은퇴하며 함께 걷히지 않았고, 그래서 `seenAt` 은
+     원래 그 자리였던 `SubTabs` 가 N-14/W5 에서 은퇴하며 함께 걷히지 않았고, 그래서 `seenDs` 는
      매 내비게이션마다 쓰이면서 **한 번도 읽히지 않는 값**이었다(쓰기만 있는 원장).
 
-     ⚠ `seenAt` 은 `useApp`(동기화 대상)이 아니라 `useUI`(기기별)에 산다 — 그래서 `selectNavSignals`
+     ⚠ `seenDs` 는 `useApp`(동기화 대상)이 아니라 `useUI`(기기별)에 산다 — 그래서 `selectNavSignals`
      의 `keyed` 캐시 안에서 읽으면 안 된다(캐시 키가 `AppState` 라 무효화가 안 걸린다). 조립을
      화면에서 하는 것이 그 이유다: 판정=lib · 시점=훅 · 표시=여기, 세 층이 그대로 유지된다.
      ⚠ 신호가 이미 있는 탭은 **덮지 않는다** — "남은 3"이 "새 2"로 바뀌면 더 급한 말을 잃는다. */
-  const seenAt = useUI((s) => s.ui.seenAt);
+  const seenDs = useUI((s) => s.ui.seenDs);
   const sinceState = useApp((st) => st.state);
   const sinceSignals = useMemo(() => {
     const out: Record<string, string> = {};
     for (const k of countableKeys()) {
-      const n = sinceCount(sinceState, k, seenAt[k]);
+      const n = sinceCount(sinceState, k, seenDs[k]);
       if (n != null) out[k] = `새 ${n}`;
     }
     return out;
-  }, [sinceState, seenAt]);
+  }, [sinceState, seenDs]);
   // 동기화 충돌(다른 기기 편집에 덮인 로컬 편집) 대기 수 — 설정 탭 코너 배지(Phase 4).
   const conflictBadge = useConflicts((s) => s.shadows.length);
   const curKey = loc.pathname.split('/')[1] || 'today';
@@ -167,7 +167,7 @@ export default function RailSidebar() {
      한정 전역 상태였고, 그런 상태는 없을수록 좋다). */
   const go = (key: string, animate = true) => {
     markVia('rail');
-    navigate('/' + key, { viewTransition: animate });
+    void navigate('/' + key, { viewTransition: animate });
   };
 
   const ledger = useSyncLedger();

@@ -47,7 +47,14 @@
   "assets": {
     "directory": "../web/dist",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    /* ⚠⚠ **`"/"` 가 여기 있는 이유**(C047 · 2026-08-22 코드 축 1회차). SPA 폴백은 루트에
+       **데스크톱 엔트리**(`index.html`)를 준다. 그런데 데스크톱 엔트리는 `isSqlitePrimary()`
+       를 켜지 않으므로 브라우저에서 뜨면 **localStorage 백엔드**로 돈다 — 완전히 동작하는
+       것처럼 보이는 앱이 뜨고, 아웃박스는 SQLite 만 훑으므로 거기서 한 편집은 **영원히
+       올라가지 않는다.** 화면에 아무 표시가 없다. CLAUDE.md 가 명시한 바로 그 실패가
+       «문이 하나 더 있어서» 성립했다(북마크·주소 자동완성·공유 링크로 실제로 도달한다).
+       → 루트는 워커가 받아 `/phone` 으로 보낸다. 데스크톱 SPA 는 명시 경로에만 둔다. */
+    "run_worker_first": ["/api/*", "/"]
     // binding 은 두지 않는다 — 사용자 워커가 자산을 직접 꺼내 줄 일이 없다(자산 워커가 전담).
   },
 

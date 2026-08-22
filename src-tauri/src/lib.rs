@@ -30,8 +30,11 @@ mod hotkey;
 mod notify;
 mod ollama;
 mod paths;
-/// T-3 — 상주 트레이. **T-6(예약 알림)의 원리적 선행**(그 파일 머리주석).
-#[cfg(desktop)]
+/* ⚠ **여기 있던 `/// T-3 — 상주 트레이.` doc comment 와 그 아래 `#[cfg(desktop)]` 을 지웠다**
+(C062 · 2026-08-22). I049 가 `mod tray;` 만 걷어서 둘이 **다음 항목인 `mod testkit` 에 붙어**
+있었다 — 즉 rustdoc 이 테스트 헬퍼를 「상주 트레이」라 부르고, `#[cfg(desktop)]` 이
+`#[cfg(test)]` 와 겹쳐 걸려 있었다. 데스크톱 빌드에서는 무해했지만 두 속성이 한 항목을
+수식하던 것은 우연이다. 되살리려면 `git show <I049 이전>:src-tauri/src/tray.rs`. */
 /* 통합 테스트 공용 헬퍼(2026-07-20 층 재배치). 트랙 B 에 잘못 올라가 있던 실물 검사들이
 여기 헬퍼를 딛고 `cargo test` 로 내려왔다 — 근거는 `testkit.rs` 머리주석. */
 #[cfg(test)]

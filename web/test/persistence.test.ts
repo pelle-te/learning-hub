@@ -322,20 +322,20 @@ describe('T-8 시각 원장 — 완료에 하루 중 시각이 붙는다', () =>
   const st = (over: Record<string, unknown> = {}) =>
     ({ completions: {}, _today: '2026-08-02', ...over }) as unknown as AppState;
 
-  it('완료를 체크하면 doneAt(HH:MM)이 기록된다', () => {
+  it('완료를 체크하면 doneHm(HH:MM)이 기록된다', () => {
     const s = st({ _nowHm: '21:40' });
     setDone(s, '2026-08-02', 'sub1', 'new', 120, true);
     expect(s.completions['2026-08-02']!['sub1|new']).toMatchObject({
       done: true,
       doneDs: '2026-08-02',
-      doneAt: '21:40',
+      doneHm: '21:40',
     });
   });
 
   it('_nowHm 시드가 없으면 벽시계 HH:MM 형식이다', () => {
     const s = st();
     setDone(s, '2026-08-02', 'sub1', 'new', 120, true);
-    expect(s.completions['2026-08-02']!['sub1|new']!.doneAt).toMatch(/^\d{2}:\d{2}$/);
+    expect(s.completions['2026-08-02']!['sub1|new']!.doneHm).toMatch(/^\d{2}:\d{2}$/);
   });
 
   it('체크 해제는 종전대로 항목을 지운다 — 이 조각은 완료 의미를 안 건드린다', () => {

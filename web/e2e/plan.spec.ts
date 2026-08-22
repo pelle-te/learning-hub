@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './_test';
+import type { Page } from '@playwright/test';
 
 /* 계획 탭 **동작(behavior)** e2e — 시각 스냅샷(visual.spec.ts)이 못 잡는 '배선'을 덮는다.
    감사 결론: lib(weekAlloc·dayPlans·scheduleView)은 Func 100%인데 그 로직을 UI에 잇는 배선은 0%.

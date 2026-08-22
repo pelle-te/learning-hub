@@ -7,20 +7,13 @@
    ① 결정적: 같은 날엔 같은 카드(날짜 해시로 인덱스) → 하루 단위로만 회전, 테스트가 벽시계에 안 흔들림.
    ② 인출다움: 같은 날 쓴 요약은 회상이 아니므로 minAgeDays(기본 2일) 이상만. 없으면 1일↑로 완화.
 ============================================================ */
-import { dayDiff } from './utils';
+import { dayDiff, rotateSeed } from './utils';
 import type { AppState, Cbms, Summary } from './types';
 
 export interface RetrievalCard {
   ds: string; // 요약을 쓴 날(YYYY-MM-DD)
   ageDays: number; // 오늘로부터 경과일
   summary: Summary; // {id,sid,name,s1,s2,s3}
-}
-
-/** 안정 해시(문자열→비음수 정수) — 같은 날 같은 카드, 날이 바뀌면 회전. */
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
 }
 
 /** 후보 수집 — minAge일 이상 지난 내 요약을 (ds, summary)로 평탄화. 결정적 정렬(ds→id). */
@@ -44,7 +37,7 @@ export function pickRetrieval(state: AppState, todayDs: string, minAgeDays = 2):
   let cands = candidates(state, todayDs, minAgeDays);
   if (!cands.length && minAgeDays > 1) cands = candidates(state, todayDs, 1);
   if (!cands.length) return null;
-  const pick = cands[hashStr(todayDs) % cands.length]!;
+  const pick = cands[rotateSeed(todayDs) % cands.length]!;
   return { ds: pick.ds, ageDays: dayDiff(pick.ds, todayDs), summary: pick.summary };
 }
 
@@ -70,7 +63,7 @@ export function pickConfidentWrong(state: AppState, todayDs: string, minAgeDays 
     })
     .sort((a, b) => (a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : a.id < b.id ? -1 : 1));
   if (!rows.length) return null;
-  const pick = rows[hashStr(todayDs) % rows.length]!;
+  const pick = rows[rotateSeed(todayDs) % rows.length]!;
   return { cbms: pick, ageDays: dayDiff(pick.ds, todayDs) };
 }
 

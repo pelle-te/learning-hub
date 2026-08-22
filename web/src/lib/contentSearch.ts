@@ -13,6 +13,7 @@
    (⚠ 짝인 `verbsFor` 는 **여기 오지 않는다** — mutate·toast·navigate 를 엮는 진짜 액션이라
      `shell` 이 제자리다. 옮겨야 할 것은 "찾기"지 "하기"가 아니었다.)
 ============================================================ */
+import { CONTENT_ANCHORS } from './contentAnchors';
 import { keySid } from '@/lib/domainKeys';
 import { openBacklog } from '@/lib/methodology';
 import { weakSpots } from '@/lib/insights';
@@ -77,7 +78,6 @@ const weakSpotsCached = (s: AppState): ReturnType<typeof weakSpots> => {
  *  챕터는 원리적으로 착지 불가였다. 이제 둘 다 `/subject/:id` 로 가고 **챕터는 `#ch-<id>` 로
  *  자기 자리에** 선다. */
 function subjectHits(s: AppState, q: string): ContentHit[] {
-  const itemAnchor = (id: string): string => '/subject/' + encodeURIComponent(id);
   const out: ContentHit[] = [];
   for (const it of s.items) {
     if (it.name.toLowerCase().includes(q))
@@ -85,7 +85,7 @@ function subjectHits(s: AppState, q: string): ContentHit[] {
         id: 'c-subj:' + it.id,
         kind: 'subject',
         label: it.name,
-        to: itemAnchor(it.id),
+        to: CONTENT_ANCHORS.subject(it.id),
         sid: it.id,
         subject: it.name,
       });
@@ -95,7 +95,7 @@ function subjectHits(s: AppState, q: string): ContentHit[] {
           id: 'c-chap:' + it.id + ':' + c.id,
           kind: 'chapter',
           label: `${it.name} · ${c.name}`,
-          to: `${itemAnchor(it.id)}#ch-${encodeURIComponent(c.id)}`,
+          to: CONTENT_ANCHORS.chapter(it.id, c.id),
           sid: it.id,
           subject: it.name,
           chapter: c.name,
@@ -113,7 +113,7 @@ function backlogHits(s: AppState, q: string): ContentHit[] {
       id: 'c-bl:' + bl.id,
       kind: 'backlog' as const,
       label: bl.topic || bl.name || '보충',
-      to: '/day',
+      to: CONTENT_ANCHORS.backlog(),
       blId: bl.id,
     }));
 }
@@ -132,7 +132,7 @@ function weakHits(s: AppState, q: string): ContentHit[] {
          없다 · 넣으면 U011 이 지적한 «아무도 소비하지 않는 딥링크»를 또 만든다) 약점은 과목이
          아니라 **과목×챕터**라 sid 로는 여전히 좁혀지지 않는다. 착지는 `Review` 가 `useHashTarget`
          으로 이행한다. */
-      to: `/review#weak-${encodeURIComponent(w.key)}`,
+      to: CONTENT_ANCHORS.weak(w.key),
       // weakSpots 의 key 는 `sid|chapter` 다 — 이미 갖고 있는 값을 필드로 꺼낸다(되파싱 금지).
       sid: keySid(w.key),
       subject: w.subject,
@@ -151,7 +151,7 @@ function mistakeHits(s: AppState, q: string): ContentHit[] {
       id: 'c-cbms:' + e.id,
       kind: 'mistake' as const,
       label: `${e.name || '?'}${e.chapter ? ' · ' + e.chapter : ''} — ${(e.note || '').slice(0, 40)}`,
-      to: '/mistakes?sid=' + encodeURIComponent(e.sid),
+      to: CONTENT_ANCHORS.mistake(e.sid),
       sid: e.sid,
       subject: e.name,
       chapter: e.chapter,

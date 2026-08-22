@@ -215,32 +215,35 @@ export function parseCapture(raw: string, now: Date, subjects?: string[]): Captu
   const result: CaptureResult = { title: '' };
   const strips: string[] = [];
 
-  try {
-    // 날짜
-    const d = matchDate(raw, now);
-    if (d) {
-      result.dateISO = d.dateISO;
-      result.dateLabel = d.label;
-      strips.push(d.strip);
-    }
+  /* ⚠ **여기 있던 `try/catch` 를 걷었다**(C064 · 2026-08-22). 머리말 원칙 ②(절대 throw 금지)의
+     집행자로 놓여 있었지만, `try` 안의 셋(`matchDate`·`matchChapter`·`matchSubject`)은 전부
+     정규식과 배열만 쓰는 순수 함수라 **삼키는 것이 0** 이었다 — 즉 집행자가 아니라 장식이었고,
+     그 자리에 있는 동안 다음 사람에게 "여기는 던질 수 있다"고 거짓말했다.
+     ⚠⚠ 원칙 ②는 폐기가 아니라 **관측 가능한 자리로 옮겼다**: `test/quickCapture.test.ts` 의
+     「어떤 입력에도 던지지 않는다」가 그 계약을 잰다. 조용히 삼키면 진짜 결함도 함께 사라지지만,
+     테스트는 그것을 **빨갛게** 만든다. */
+  // 날짜
+  const d = matchDate(raw, now);
+  if (d) {
+    result.dateISO = d.dateISO;
+    result.dateLabel = d.label;
+    strips.push(d.strip);
+  }
 
-    // 챕터
-    const c = matchChapter(raw);
-    if (c) {
-      result.chapter = c.chapter;
-      strips.push(c.strip);
-    }
+  // 챕터
+  const c = matchChapter(raw);
+  if (c) {
+    result.chapter = c.chapter;
+    strips.push(c.strip);
+  }
 
-    // 과목
-    if (subjects && subjects.length) {
-      const sub = matchSubject(raw, subjects);
-      if (sub) {
-        result.subject = sub.subject;
-        strips.push(sub.strip);
-      }
+  // 과목
+  if (subjects && subjects.length) {
+    const sub = matchSubject(raw, subjects);
+    if (sub) {
+      result.subject = sub.subject;
+      strips.push(sub.strip);
     }
-  } catch {
-    // 견고성: 어떤 단계든 예외는 삼키고 최소 title만 반환.
   }
 
   // title — 매칭 substring을 긴 것부터 걷어내고 공백 정리. 비면 raw로 폴백.

@@ -24,7 +24,7 @@
 import { execDb, selectDb, setDiffBaseline } from '../db/sqlite';
 import { pushOutbox, isPermanent, type PushResult, type CloudTransport } from './push';
 import { makeTransport, pullChanges, readCloudConfig, unknownDroppedTotal } from './client';
-import { applyPull } from './merge';
+import { applyPull, refreshBaseline } from './merge';
 import { rowsToState, type DbRows } from '../db/rows';
 import { scanConflicts } from './conflictScan';
 import { batchSize } from './contract';
@@ -187,28 +187,39 @@ async function runSyncOnce(): Promise<SyncResult> {
       const round = await scanConflicts(incoming, scanSince);
       if (round?.length) conflicts.push(...round);
 
-      // ④ 병합. 기준선 정리까지 `applyPull` 이 하고, 메모리 반영은 호출부 몫이다.
-      const merged = await applyPull(incoming);
+      /* ④ 병합. 메모리 반영은 호출부 몫이다.
+         ⚠⚠ **`readback:false` 다**(C041 · 2026-08-22). 종전엔 회차마다 `applyPull` 이 정본
+         **전량**을 되읽었고 그중 마지막 것만 쓰였다 — 아래 ⚠ 문단이 그 낭비를 *근거*로 삼고
+         있었다. 비용이 O(N·D/500)(전량 온보딩이면 D²/500)이라 데이터가 10배면 낭비가 100배다.
+         이제 되읽기는 드레인이 끝난 뒤 `refreshBaseline()` 이 **한 번** 한다.
+         ⚠ 회차마다 서는 것은 그대로다: **기준선 무효화 + 병합 창**(`merge.ts` 의 `readback` 주석) —
+         즉 이 루프가 도는 동안 flush 는 계속 막혀 있고, 창은 `applyMerged` 나 아래 finally 가 끈다. */
+      const merged = await applyPull(incoming, { readback: false });
       /* ⚠ **병합이 끝난 뒤에만** 마크를 전진시킨다. 순서가 반대면 병합 실패 시 그 구간을
          영영 다시 안 받는다 — C-1 의 "전송 성공 뒤에만 워터마크" 계약과 같은 규율이다. */
       await commitPullMark(incoming.upto);
       pulled += merged.applied;
-      /* ⚠ **마지막 회차의 상태만 쓴다.** `applyPull` 은 매번 정본 전량을 다시 읽어 오므로
-         마지막 것이 곧 누적 결과다 — 중간 스냅샷을 메모리에 싣지 않는 것이 요점이다(그게
-         "UI 가 갈린 중간 상태로 30초"의 원인이었다).
+    }
 
-         ⚠⚠ **`null` 로는 덮지 않는다**(C-1 · 2026-08-06 감사 · 실패 형태 ⓑ). `applyPull` 은
-         되읽기(`readRows`)가 실패하면 **던지지 않고 `state:null` 을 돌려준다** — 그런데 종전엔
-         그 null 이 앞 회차의 **유효한** 스냅샷을 덮었다. 그러면 드레인 끝에 `state:null` 이라
-         호출부가 `applyMerged` 를 부르지 않고, 메모리는 병합-전 · DB 는 병합-후로 갈린다.
-         그 어긋남의 대가는 조용하지 않다: 다음 편집의 flush 가 **받아온 행을 되돌리는 upsert 와
-         상대 기기 행의 툼스톤**을 만들고, LWW 라 그게 서버까지 이긴다. */
-      if (merged.rows) lastRows = merged.rows;
-      /* 스냅샷이 안 나온 회차(되읽기 실패) — 기준선은 이 회차에서 안 섰지만(merge.ts 가 `back` 이
-         있을 때만 세운다) **DB 는 이미 앞서 갔다.** 기준선을 무효화해 다음 쓰기가 DB 를 재독하게
-         만든다. 비싼 선택이 아니고(다음 쓰기 1회의 전량 읽기) 정합이 회복된다.
-         ⚠ **드레인을 끊지는 않는다** — 끊으면 H4 가 세운 "한 동기화가 끝까지 비운다"를 되돌리게
-         되고, 뒤 회차가 성공하면 그쪽이 기준선·스냅샷을 정상으로 다시 세운다. */ else setDiffBaseline(null);
+    /* ⚠⚠ **되읽기는 드레인이 끝난 뒤 한 번이다**(C041 · 2026-08-22).
+
+       종전엔 회차마다 정본 전량을 읽고 **마지막 것만** 썼다 — 그리고 이 자리의 주석이 그 낭비를
+       *"마지막 것이 곧 누적 결과다"* 라는 **근거로** 쓰고 있었다(설계에 알려진 낭비였다).
+       지금은 누적 결과를 여기서 한 번 읽는다. 뜻은 같고 비용이 제곱에서 상수로 떨어진다.
+
+       ⚠ **`pulled === 0` 이면 읽지 않는다.** 아무것도 안 썼으면 메모리와 DB 가 갈리지 않았고,
+       `state:null` 이면 호출부가 `applyMerged` 를 안 부른다(종전 «빈 배치» 경로와 같다).
+
+       ⚠⚠ **되읽기 실패(C-1 형태 ⓑ)와 드레인 중간 실패(형태 ⓐ)가 여기서 한 갈래로 합쳐진다.**
+       종전엔 ⓑ가 «회차마다» 날 수 있어 `else setDiffBaseline(null)` 이 루프 안에 있었는데,
+       이제 되읽기가 한 자리라 실패도 한 자리다: 기준선은 이미 `null` 이고(회차마다 무효화했다)
+       창도 안 연다 → 다음 쓰기가 DB 를 재독해 정합을 회복한다. 아래 `catch` 의 ⓐ 처리와
+       **같은 상태**로 수렴하는 것이 요점이다.
+       ⚠ 여기서 던지지 않는다 — DB 는 이미 병합-후이고 워터마크도 전진했으므로, 예외로 빠지면
+       `catch` 가 그것을 «받은 것이 없다»로 보고하게 된다(있었다). */
+    if (pulled > 0) {
+      lastRows = await refreshBaseline();
+      if (!lastRows) setDiffBaseline(null);
     }
     const unknownDropped = unknownDroppedTotal() - droppedBefore;
     return {

@@ -56,13 +56,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('사용자 저작물 저장소 — 세입자 (N-7 이 P10 W4 의 0 을 되돌렸다)', () => {
+describe('사용자 저작물 저장소 — 세입자 (다시 0 · I050 이 `ics:feed` 를 걷었다)', () => {
   it('레지스트리가 곧 SQLite·동기화 경로의 도달성이다', () => {
-    /* ⚠⚠ 이 배열은 **비어 있었다**(P10 W4 · 화면 다섯이 필러로 이사하며 세입자가 0 이 됐다).
-       그 상태의 대가는 `DocKey` 가 `never` 라 이 표가 *동작상* 얇은 localStorage 래퍼였던 것이다.
-       N-7(W8)이 첫 세입자를 들였다 — ics 피드는 **서버가 읽을 수 있는 곳**에 있어야 하는데
-       `docs` 가 D1 까지 동기화되는 유일한 자유 KV 다. 새 테이블·마이그레이션·인증 경로가 0. */
-    expect([...DOC_KEYS]).toEqual(['ics:feed']);
+    /* ⚠⚠ 이 배열은 세 번 뒤집혔다: P10 W4 에 **0**(화면 다섯이 `survey/` 로 이사) → N-7·W8 이
+       `ics:feed` 를 들임 → **I050 이 그 피드를 라우트째 걷어 다시 0**(2026-08-22 · C042).
+       0 의 대가는 `DocKey` 가 `never` 라 이 표가 *동작상* 얇은 localStorage 래퍼가 되는 것이다.
+       ⚠ 그래서 이 단언은 **개수가 아니라 상태**를 잰다 — 다음 세입자가 한 줄 들어오는 순간
+       빨개지고, 그때 `git show 1c21ad5:web/test/docs.test.ts` 의 셋(동기 읽기 · 1회 이관 ·
+       ⌘Z pre-image)을 되살리면 된다. 그 신호가 이 케이스의 존재 이유다. */
+    expect([...DOC_KEYS]).toEqual([]);
   });
 
   it('셸에서도 모든 키가 localStorage 로 흐르고 SQL 은 안 나간다', async () => {
@@ -142,11 +144,15 @@ describe('D005 도달 불가 docs 행 — 회수·삭제·보고', () => {
 
   it('③ 미지 키를 보고한다 — 지우지는 않는다', async () => {
     enterShell();
-    select.mockResolvedValue([...유령, { key: 'ics:feed', value: '{}' }]);
+    select.mockResolvedValue(유령);
     await initDocs();
+    /* ⚠ **레지스트리가 비어 있는 지금은 표의 모든 행이 미지 키다**(C042 · I050 이 `ics:feed`
+       를 걷었다). 종전 이 케이스는 아는 키 하나를 섞어 «아는 키는 빠진다»를 함께 쟀는데,
+       섞을 아는 키가 없다 — 없는 세입자를 흉내 내면 무대장치가 되므로(이 파일 머리주석)
+       지금 참인 것만 잰다. 다음 세입자가 들어오면 그 필터 축을 여기서 되살려라. */
     expect(
       unknownDocKeys().map((d) => d.key),
-      '아는 키는 빠져야 한다',
+      '표에 남은 행이 전부 보고돼야 한다',
     ).toEqual(['lh:reads', 'artifact:reads']);
     expect(
       exec.mock.calls.some((c) => /DELETE/.test(String(c[0]))),
@@ -189,9 +195,17 @@ describe('D005 도달 불가 docs 행 — 회수·삭제·보고', () => {
     enterShell();
     select.mockResolvedValue([]);
     await initDocs();
+    exec.mockClear();
+    /* 레지스트리가 비었으므로 «아는 키»가 0이다 → 백업이 아무리 많은 키를 담고 있어도 표로
+       되돌아가는 것은 0 이어야 한다. ⚠ 이 단언이 지키는 것은 개수가 아니라 **방향**이다:
+       회수(파일에 담기)는 전량이고 복원은 레지스트리가 아는 것뿐이다. 뒤집히면 D005 가 고친
+       도달 불가 행을 백업/복원 왕복이 매번 재생산한다. */
     const n = await importDocs({ 'ics:feed': '{"url":"x"}', 'artifact:markets': '옛것', nope: 1 });
-    expect(n).toBe(1);
-    expect(docGet('ics:feed')).toBe('{"url":"x"}');
+    expect(n).toBe(0);
     expect(unknownDocKeys()).toEqual([]);
+    expect(
+      exec.mock.calls.filter(([q]) => String(q).includes('INSERT OR REPLACE INTO docs')),
+      '미지 키가 표로 되돌아갔다 — 도달 불가 행의 재생산이다',
+    ).toHaveLength(0);
   });
 });
