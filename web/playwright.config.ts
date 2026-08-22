@@ -84,6 +84,11 @@ export default defineConfig({
      녹색이 "회귀 없음"이 아니라 "안 쟀음"을 뜻하게 된다.
 
      대가는 회당 preview 기동 몇 초다. 검증망이 거짓말하는 것보다 싸다. */
+  /* ⚠ **떠도는 preview 를 먼저 거둔다**(O035 · 2026-08-23). 남은 서버가 이 저장소의
+     `node_modules` 안 네이티브 바이너리를 쥐면 **`npm ci` 가 EPERM 으로 죽는다**(실측:
+     node_modules 가 반쯤 지워졌다). 트랙 B 의 `ensureNoStrayShell()` 과 같은 자리이고,
+     범위를 이 저장소 것으로 좁히는 근거는 `e2e/_strayPreview.ts` 머리주석이 갖는다. */
+  globalSetup: './e2e/_strayPreview.ts',
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',
     url: 'http://localhost:4173',

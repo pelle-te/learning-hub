@@ -46,6 +46,18 @@
   // 사문화된 예외가 남는 경로가 정확히 이것이다(a11y 원장의 사문화 사유와 같은 부류).
   "ignoreDependencies": ["lint-staged", "stylelint-config-standard"],
 
+  // ⚠ **OS 기본 명령은 «미등록 바이너리»로 잡힌다.** `e2e/_strayPreview.ts`(O035)가 떠도는
+  // preview 를 거두려고 `taskkill` 을 부른다 — Windows 기본 제공이라 `package.json` 에 올릴
+  // 대상이 아니다. 이 저장소는 **Windows 단일 타깃**이고(설계 §6) 그 모듈은
+  // `process.platform !== 'win32'` 면 즉시 반환한다.
+  // ⚠⚠ `powershell` 은 **일부러 뺐다**(2026-08-23): 넣었더니 knip 이 «Remove from
+  // ignoreBinaries» 힌트를 냈다 — 즉 knip 은 그건 이미 안다. 아래 `ignoreDependencies` 의
+  // `tailwindcss` 주석이 적은 그 함정(**힌트는 통과 옆에 떠서 게이트가 안 잡는다**)을
+  // 그대로 만든 셈이라, 힌트가 말하는 대로 걷었다.
+  // ⚠ 이 목록을 늘릴 때는 **왜 설치 대상이 아닌지**를 함께 적어라 — 안 적으면 다음 회차가
+  // 「의존성을 빠뜨린 것」과 구분하지 못한다.
+  "ignoreBinaries": ["taskkill"],
+
   "ignoreExportsUsedInFile": true,
 
   // artifacts.gen.ts는 gen-artifacts.mjs가 만드는 **생성물**이다 — 아티팩트마다 타입을 일괄
