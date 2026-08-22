@@ -13,13 +13,20 @@
 - ~~**단일 출처(브라우저 배포)**~~ — **은퇴(2단계-E · 2026-07-19).** 앱 데이터 정본이 SQLite 로 옮겨졌고 브라우저엔 SQLite 가 없다. `npm run dev` 와 시각 회귀 테스트는 localStorage 폴백으로 계속 돌지만, 그건 **개발·검증 경로**이지 사용자 실행 경로가 아니다.
 
 **파이썬 인터프리터** — 셸이 파이썬 도구를 돌릴 때 기본은 **`PATH` 의 `python`** 이다. 다른
-인터프리터를 쓰려면(대개 **부모 워크스페이스의 venv**) 환경변수 **`PYTHON`** 에 그 경로를 넣는다:
+인터프리터를 쓰려면(대개 **부모 워크스페이스의 venv**) 환경변수 **`LEARNING_HUB_PYTHON`** 에
+그 경로를 넣는다:
 
 ```
 # 예 — 이 워크스페이스의 venv 를 쓴다
-set PYTHON=D:/atelier/pipeline/.venv/Scripts/python.exe   # cmd
-$env:PYTHON = 'D:/atelier/pipeline/.venv/Scripts/python.exe'  # PowerShell
+set LEARNING_HUB_PYTHON=D:/atelier/pipeline/.venv/Scripts/python.exe   # cmd
+$env:LEARNING_HUB_PYTHON = 'D:/atelier/pipeline/.venv/Scripts/python.exe'  # PowerShell
 ```
+
+> ⚠ **이름이 `PYTHON` 에서 바뀌었다**(C069 · 2026-08-22). 옛 이름은 이름공간이 없어서 다른
+> 도구·셸 프로필이 세워 둔 값을 이 앱이 **의도치 않게** 집을 수 있었고, 그 오작동은 조용하다
+> (파이썬이 뜨긴 뜬다). 이 저장소는 같은 규율을 이미 `LEARNING_HUB_E2E_DATA_DIR` 에 적용해
+> 두었고(`src-tauri/src/paths.rs`), 그게 한쪽에만 적용돼 있었다.
+> **옛 `PYTHON` 도 계속 읽는다**(하위 호환) — 둘 다 있으면 새 이름이 이긴다.
 
 > ⚠ 이 워크스페이스에는 **`python3` 이 없다**(Microsoft Store 스텁이 뜬다) — 부모 `CLAUDE.md` 의
 > 「이 머신의 사실」 절이 그 사정을 소유한다. 도구가 `spawn 실패` 를 내면 그 메시지 자체가 이

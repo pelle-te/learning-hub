@@ -335,11 +335,23 @@ export interface VaultTouched {
   count: number;
   /** 표본(Rust 상한 64개). 브리핑은 과목 이름 두어 개만 쓴다. */
   notes: { subject?: string; folder?: string }[];
+  /**
+   * 읽지 못한 폴더 수(O021 · 2026-08-22 운영 축).
+   *
+   * ⚠⚠ **`count` 를 이 값 없이 읽으면 안 된다.** 순회는 못 읽은 하위 트리를 조용히 건너뛰므로
+   * `count: 0` 은 「밖에서 아무것도 안 했다」와 「200개 중 3개 폴더를 못 봤다」를 **같은 값으로**
+   * 그린다. 이 파일이 바로 아래에서 *"실패는 null 이고 0 이 아니다"* 라 적은 그 규율의
+   * **부분 실패판**이다 — 그쪽은 전량 실패만 가렸다.
+   * ⚠ 옛 셸(이 필드가 없는 빌드)이 붙을 수 있으므로 **옵셔널**이다. 없으면 「모른다」이지 0 이
+   * 아니고, `looseObject` 계약이 그 하위 호환을 이미 진다.
+   */
+  unreadable?: number;
 }
 
 const VaultTouchedSchema = z.looseObject({
   count: z.number(),
   notes: z.array(z.looseObject({})),
+  unreadable: z.optional(z.number()),
 }) as z.ZodMiniType<VaultTouched>;
 
 /**

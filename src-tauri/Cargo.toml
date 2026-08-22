@@ -110,3 +110,20 @@ windows-sys = { version = "0.59", features = [
   "Win32_System_SystemInformation",
   "Win32_UI_Input_KeyboardAndMouse",
 ] }
+# ── 개발 프로필 — **디스크만 쓰는 비용을 잘라 낸다**(O023 · 2026-08-22 운영 축) ────────────
+#
+# `[profile.*]` 절이 **하나도 없어서** 645 crate 전부가 full debuginfo 로 컴파일됐고, 실측
+# `src-tauri/target` 이 **33 GB**(debug 29 GB — `deps` 14 GB · `incremental` 13 GB)였다.
+# 그리고 CLAUDE.md 가 *"`tauri:dev` 를 한 번 띄워 세션 내내 유지"* 를 규약으로 두므로 계속 자란다.
+#
+# ⚠ **대가를 적어 둔다**: 의존 crate **내부** 패닉의 백트레이스에서 줄번호가 사라진다. 우리 코드
+#   (`learning-hub`)는 `line-tables-only` 라 파일:줄이 남으므로, 실제로 잃는 것은 «남의 코드
+#   안쪽»뿐이다. 그걸 봐야 하는 상황이 오면 이 절을 잠시 지우고 다시 빌드하면 된다 —
+#   디스크와 달리 **되돌릴 수 있는 결정**이다.
+# ⚠ 돈이 0이고(로컬 디스크) `cargo clean` 이라는 탈출구가 있어 Minor 였다. 그럼에도 고치는
+#   이유는 이 축이 **아무 계기판도 없이** 자라기 때문이다(비용 표에서 유일하게 상한이 없던 축).
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

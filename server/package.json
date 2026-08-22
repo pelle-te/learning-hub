@@ -11,6 +11,8 @@
     "_주석:predeploy": "⚠ **순서를 계약이 아니라 의존으로 만든다**(C1 · 2026-08-01). wrangler 의 assets.directory 는 ../web/dist 라 배포되는 자산은 마지막 `npm run build` 산출물이고, 인스톨러는 릴리스.md §2-4 대로 `release:stage` 가 배포 **직전에만** 넣는다. 그 두 줄이 절차서에만 있던 동안 2026-08-01 배포가 스테이징을 건너뛰어 `/updates/*.exe` 가 전부 SPA 폴백 HTML(1433 B)을 줬다 — 매니페스트는 살아 있고 서명도 유효한데 **가리키는 파일이 없어** v0.2.0 사용자가 minisign 검증에 실패했다. release:stage 는 실패하면 배포를 막으므로(매니페스트가 가리키는 파일 존재 + signature 비어있지 않음) 이 훅이 곧 배포 전 판정이다. ⚠ 그래서 `npx wrangler deploy` 를 직접 치지 말 것 — 훅을 건너뛴다.",
     "predeploy": "npm --prefix ../web run build && npm --prefix ../web run release:stage",
     "deploy": "wrangler deploy",
+    "_주석:postdeploy": "⚠ **predeploy 의 짝**(O011 · 2026-08-22 운영 축). C1 의 처방은 «순서를 계약이 아니라 의존으로» 였고 그것이 predeploy 훅인데, **배포 후 절반은 그 처방을 못 받았다** — 릴리스.md §2-4 ④가 「⚠ 이 줄을 건너뛰지 마라」라 적은 `npm run release:verify` 는 여전히 사람의 기억이었다. predeploy 가 잡는 것은 «dist 안에 매니페스트가 가리키는 파일이 있는가» 뿐이라, wrangler 가 자산을 부분 업로드하거나 옛 dist 를 올리면 predeploy 는 녹색인 채로 프로덕션 /updates/*.exe 가 다시 SPA 폴백 HTML 을 준다. ⚠ 정적 자산 요청은 run_worker_first 밖이라 **워커를 안 탄다** → app.onError 에도 Workers Logs 에도 0줄이다. 즉 그 상태는 사용자가 업데이트를 눌러 minisign 이 깨질 때까지 관측되지 않는다(2026-08-01 에 v0.2.0 사용자가 정확히 그랬다).",
+    "postdeploy": "npm --prefix ../web run release:verify",
     "test": "vitest run",
     "format:check": "prettier --check \"*.ts\" \"src/**/*.ts\" \"test/**/*.ts\"",
     "format": "prettier --write \"*.ts\" \"src/**/*.ts\" \"test/**/*.ts\"",

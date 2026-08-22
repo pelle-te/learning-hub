@@ -22,7 +22,7 @@ import { execDb, isSqlitePrimary, selectDb } from '../db/sqlite';
 // ⚠ 부팅 경로 — `isTauri` 는 초소형 모듈에서, `cloudHttp` 는 셸 분기 안에서 동적으로(H7).
 import { isTauri } from '../isTauri';
 import { PermanentPushError, type CloudTransport } from './push';
-import { PULL_MARK_KEY, WATERMARK_KEY, resetMergedEcho } from './outbox';
+import { LAST_OK_KEY, PULL_MARK_KEY, WATERMARK_KEY, resetMergedEcho } from './outbox';
 // ⚠ 지연 import 로 바꾸지 말 것 — 근거는 `push.ts` 의 같은 import 위 주석(실측 0.3KB).
 import { parseInboundBatch } from './schema';
 import type { OutboxBatch } from './contract';
@@ -191,7 +191,10 @@ export async function disconnectCloud(): Promise<{ serverRevoked: boolean; local
      연결이 되살아난다.** 바로 위 문단이 서버 폐기 실패를 삼키지 않는 이유로 적어 둔 것과
      같은 논거이고, 실패하는 축만 반대다. */
   let localCleared = true;
-  for (const k of [...Object.values(KEYS), WATERMARK_KEY, PULL_MARK_KEY])
+  /* ⚠ `LAST_OK_KEY` 도 함께 지운다(O008). 남겨 두면 새 백엔드에 붙인 직후 «3주째 안 되고
+     있어요»가 뜬다 — 옛 연결의 성공 시각이 새 연결의 침묵을 재는 기준이 되기 때문이다.
+     워터마크 둘을 여기서 지우는 것과 **같은 이유**(연결이 갈리면 진행 기록도 갈린다). */
+  for (const k of [...Object.values(KEYS), WATERMARK_KEY, PULL_MARK_KEY, LAST_OK_KEY])
     if (!(await execDb('DELETE FROM sync_state WHERE key = ?', [k]))) localCleared = false;
   /* ⚠⚠ **에코 억제표도 함께 비운다**(H-5 · 2026-08-06 감사). 워터마크 둘을 지우는 위 한 줄과
      **같은 이유이고 같은 실패 형태**다: 표가 남으면 "이 행은 서버에서 받은 것"이라는 판정이

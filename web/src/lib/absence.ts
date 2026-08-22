@@ -68,6 +68,14 @@ export interface AbsenceOutside {
   subjects: string[];
   /** 부재 기간에 복습한 Anki 카드 수. 모르면 null. */
   ankiCards: number | null;
+  /**
+   * 볼트에서 **읽지 못한** 폴더 수(O021 · 2026-08-22 운영 축). 0 이면 전량을 봤다.
+   *
+   * ⚠ `notes` 와 함께 읽어야 한다: 이 값이 0 이 아니면 `notes` 는 **하한**이지 사실이 아니다.
+   * 종전엔 그 구분이 없어서 과목 폴더 하나가 재동기화 중일 때 화면이 「밖에서 바뀐 노트 없음」
+   * 이라고 말했다 — 「모른다」를 「없다」로 그리는, 이 저장소가 반복해 물린 형태다.
+   */
+  unreadable: number;
 }
 
 /** 문장에 이름을 대는 과목 수 상한. 셋을 넘기면 그건 문장이 아니라 목록이다. */
@@ -157,7 +165,9 @@ function delta(snap: AbsenceSnapshot, now: AbsenceNow): { parts: string[]; aria:
  *  "복습 18 · 미완 3 · 노트 5" 가 되어 *한 일*이 *밀린 일*과 같은 픽셀로 읽힌다(부호가 반대인데). */
 function outsideDid(outside?: AbsenceOutside | null): string[] {
   const did: string[] = [];
-  if (outside?.notes) did.push(`노트 ${outside.notes}`);
+  /* ⚠ 일부를 못 읽었으면 **수를 단정하지 않는다**(O021). `노트 5` 와 `노트 5+` 의 차이는
+     장식이 아니라, 「이게 전부다」라는 주장을 하느냐 마느냐다. */
+  if (outside?.notes) did.push(`노트 ${outside.notes}${outside.unreadable ? '+' : ''}`);
   if (outside?.ankiCards) did.push(`카드 ${outside.ankiCards}`);
   return did;
 }
@@ -245,7 +255,14 @@ export async function loadOutside(lastDs: string, todayDs: string): Promise<Abse
     .slice(0, OUTSIDE_SUBJECTS)
     .map(([s]) => s);
 
-  return { notes: touched ? touched.count : null, subjects, ankiCards };
+  return {
+    notes: touched ? touched.count : null,
+    subjects,
+    ankiCards,
+    /* ⚠ 조회 자체가 실패했으면(`touched === null`) 그건 이미 `notes: null` 이 말한다 —
+       여기서 또 세면 같은 사실을 두 번 말하게 된다. 0 으로 둔다. */
+    unreadable: touched?.unreadable ?? 0,
+  };
 }
 
 export async function loadAbsence(todayDs: string = todayISO()): Promise<AbsenceSnapshot> {

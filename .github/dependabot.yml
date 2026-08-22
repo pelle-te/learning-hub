@@ -1,0 +1,103 @@
+# ============================================================
+# dependabot.yml — 의존성 갱신 자동화 (O004 · 2026-08-22 운영 축)
+#
+# ## 왜 Renovate 를 이걸로 바꿨나 — **34일 · 월요일 5회 · 0회 실행**
+#
+# `.github/renovate.json` 이 2026-07-19(`86a527a`)부터 있었고 설정 자체는 정교했다(그룹 9개 ·
+# 0.x 자동머지 제외 · `pinDigests`). 그런데 실측하면 그 사이 **한 번도 안 돌았다**: 저자 503커밋의
+# 저자가 `jin` 하나(봇 0) · PR 0(merged 포함) · 이슈 0 · 원격 브랜치 `master` 하나.
+# Renovate 는 **GitHub App** 이라 저장소 밖 설정에 실행이 걸려 있고, 그 앱이 안 붙어 있으면
+# **설정 파일과 실행을 구분할 방법이 없다** — 그게 34일을 몰랐던 이유 그 자체다.
+#
+# 귀결이 실측된다: `ci.yml` 이 *"갱신은 Renovate 가 SHA 와 주석을 함께 올린다"* 고 적는데 실제
+# 핀은 `actions/checkout v4.4.0`(최신 v7.0.1) · `setup-node v4.4.0`(v7.0.0) ·
+# `upload-artifact v4.6.2`(v7.0.1) — **셋 다 3 메이저 뒤처졌고** 러너는 이미
+# `Node 20 is being deprecated` 를 로그에 찍고 있었다.
+#
+# ⭐ **Dependabot 을 고른 이유는 기능이 아니라 «실행 흔적»이다.** GitHub 내장이라 앱 설치도
+# 토큰도 없고, 돌면 **PR 이 생기고 Insights › Dependency graph 에 로그가 남는다** — 즉
+# 「설정돼 있다」와 「돌고 있다」가 **구분 가능해진다.** 진보 표 5행(*"자동화가 「돌았다」를
+# 스스로 증명한다"*)이 요구한 성질이 그것이고, `freshness.mjs` 의 「봇 활동」 행이 그 증명을
+# 게이트에서 읽는다.
+#
+# ⚠ **대가를 적어 둔다 — Renovate 에 있고 여기 없는 것:**
+#   · **자동 머지가 없다.** Dependabot 자체는 automerge 를 안 한다(별도 워크플로가 필요하고,
+#     그건 `contents: write` 권한을 CI 에 주는 일이다 — 지금 `permissions: contents: read` 인
+#     이 저장소가 일부러 안 하는 것). → 패치·마이너도 사람이 누른다. 1인 저장소라 감당된다.
+#   · **`lockFileMaintenance` 가 없다.** 대신 아래 주간 스케줄이 lock 을 함께 올린다.
+#   · **`matchCurrentVersion: /^0/` 같은 조건부 규칙이 없다.** 0.x 를 따로 다루는 규율은
+#     `groups` 로 못 옮기므로 **사람이 PR 에서 판단한다**(원래도 automerge 제외였다).
+# ⚠ **유지되는 것**: 액션 SHA 핀(`github-actions` 생태계 + `versioning-strategy` 무관하게
+#   Dependabot 이 SHA 와 뒤 주석 버전을 함께 올린다) · 생태계별 그룹 · 주 1회 주기.
+# ============================================================
+version: 2
+updates:
+  # ── GitHub Actions — SHA 핀의 유일한 갱신 경로 ──────────────────────────────
+  # ⚠ `ci.yml:40-44` 가 «액션은 SHA 로 핀 고정한다»를 규율로 두었고, 핀을 걸면 갱신이 사람 손으로
+  #   돌아온다. 그 손을 대신하는 것이 이 항목이다 — 여기가 죽으면 핀이 곧 **동결**이 된다
+  #   (실측: 그 상태로 3 메이저 뒤처졌다).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: '06:00', timezone: Asia/Seoul }
+    labels: [deps, github-actions]
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns: ['*']
+
+  # ── npm 트리 셋 ─────────────────────────────────────────────────────────────
+  # ⚠ **셋 다 본다.** 루트(`@tauri-apps/cli` — 배포 인스톨러를 만들고 서명 개인키를 보는 트리) ·
+  #   web · server(wrangler 가 배포 자격증명을 다루므로 devDependency 도 신뢰면이다).
+  #   D018 이 SCA 에서 루트를 빠뜨렸던 것과 **같은 형태의 누락**을 여기서 미리 막는다.
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday, time: '06:00', timezone: Asia/Seoul }
+    labels: [deps, root]
+    open-pull-requests-limit: 3
+    groups:
+      root-deps:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly, day: monday, time: '06:00', timezone: Asia/Seoul }
+    labels: [deps]
+    open-pull-requests-limit: 5
+    groups:
+      # ⚠ 묶음의 근거는 전부 **함께 안 올리면 깨지는 관계**다(Renovate 설정에서 그대로 옮겼다).
+      react: # 버전이 갈리면 런타임 경고 + 훅 오작동
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      vite: # 플러그인이 코어 major 에 묶여 있어 따로 올리면 peer 충돌
+        patterns: ['vite', '@vitejs/plugin-react', 'vite-plugin-pwa']
+      vitest: # coverage-v8 이 vitest 내부 API 를 쓴다 — 버전이 **정확히** 같아야 한다
+        patterns: ['vitest', '@vitest/coverage-v8']
+      eslint: # flat config 규약을 공유한다
+        patterns: ['eslint', '@eslint/*', 'typescript-eslint', 'eslint-plugin-*', 'eslint-import-resolver-*']
+      # 나머지는 패치·마이너를 한 묶음으로 — 리뷰 시간을 major 에만 쓴다는 규율은 그대로다.
+      # ⚠ `@playwright/test` 는 **일부러 어느 묶음에도 안 넣는다**: npm 패키지와 브라우저
+      #   바이너리(CI 의 `playwright install`)가 짝이고 **시각 스냅샷 베이스라인이 렌더 변화에
+      #   민감하다.** 다른 갱신과 섞이면 스냅샷 깨짐의 원인이 엉킨다 → major 는 자동으로 단독
+      #   PR 이고, 아래 `minor-patch` 가 그것까지 삼키지 않도록 `exclude-patterns` 를 둔다.
+      minor-patch:
+        update-types: [minor, patch]
+        exclude-patterns: ['@playwright/test']
+    ignore:
+      # ⚠⚠ **생태계 차단이라 우리 코드 문제가 아니다**(2026-07-25 실측 · SCA 원장이 SSOT).
+      #   TS 7 은 typecheck·build 를 통과하지만 `typescript-eslint` 전 버전이 TS7 을 지원하지
+      #   않고(peer `<6.1.0`) 하드 크래시한다 → **레이어 경계 린트(절대규칙 #2)가 죽는다.**
+      #   ESLint 10 은 `eslint-plugin-jsx-a11y`(peer `^9`) 하나가 막는다. 둘 다 롤백했다.
+      #   ⚠ **다시 조사하지 마라** — 재시도 조건은 SCA 원장에 적혀 있다. PR 이 반복해 올라오면
+      #   그 결정을 매번 다시 하게 된다(그게 이 두 줄의 목적이다).
+      - dependency-name: typescript
+        versions: ['>=7']
+      - dependency-name: eslint
+        versions: ['>=10']
+
+  - package-ecosystem: npm
+    directory: /server
+    schedule: { interval: weekly, day: monday, time: '06:00', timezone: Asia/Seoul }
+    labels: [deps, server]
+    open-pull-requests-limit: 3
+    groups:
+      server-deps:
+        update-types: [minor, patch]

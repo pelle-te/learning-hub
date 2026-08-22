@@ -304,6 +304,17 @@ pub struct VaultTouched {
     pub count: usize,
     /// 표본(최대 [`TOUCHED_CAP`]개). 브리핑은 과목 이름 두어 개만 쓰므로 전량이 필요 없다.
     pub notes: Vec<TouchedNote>,
+    /// 읽지 못한 폴더 수.
+    ///
+    /// ⚠⚠ **이게 없어서 부분 실패가 「변경 0」과 같은 화면이었다**(O021 · 2026-08-22 운영 축).
+    /// 아래 두 순회는 `let Ok(entries) = read_dir(dir) else { return; }` 로 **조용히 되돌아가고**
+    /// 그 사실을 아무 데도 안 남겼다. 과목 폴더 하나가 OneDrive 재동기화 중이면 그 하위 트리가
+    /// 통째로 빠지는데 화면은 「밖에서 바뀐 노트 없음」 — **200개 중 3개 실패**와 **정말 아무것도
+    /// 안 바뀜**이 글자 하나 다르지 않다.
+    ///
+    /// ⭐ **짝은 이미 있었다**(R3): `lib/anki.ts` 는 `{ rows, unmatched, total }` 로 부분 실패를
+    /// 이미 센다. 관용구는 있었고 한쪽에만 적용돼 있었다.
+    pub unreadable: usize,
 }
 
 /// 표본 상한. 방학에 볼트를 통째로 손보면 500개가 넘을 수 있는데, 그 경우에도 화면이 쓰는 것은
@@ -317,8 +328,11 @@ pub fn touched_since_at(vault: &Path, since_ms: u64) -> VaultTouched {
     let mut out = VaultTouched {
         count: 0,
         notes: Vec::new(),
+        unreadable: 0,
     };
     let Ok(top) = std::fs::read_dir(vault) else {
+        // ⚠ 루트를 못 읽은 것은 「변경 0」이 아니라 **아무것도 못 봤다**(O021).
+        out.unreadable += 1;
         return out;
     };
     for subj in top.flatten() {
@@ -333,6 +347,9 @@ pub fn touched_since_at(vault: &Path, since_ms: u64) -> VaultTouched {
 
 fn walk_touched(dir: &Path, subject: &str, folder: &str, since_ms: u64, out: &mut VaultTouched) {
     let Ok(entries) = std::fs::read_dir(dir) else {
+        /* ⚠ 조용히 되돌아가지 않는다(O021) — 이 한 줄이 「이 하위 트리를 통째로 못 봤다」를
+        「여기엔 바뀐 게 없다」로 바꾸고 있었다. 순회는 계속한다(읽은 것은 여전히 유효하다). */
+        out.unreadable += 1;
         return;
     };
     for e in entries.flatten() {
@@ -367,9 +384,11 @@ fn modified_ms(path: &Path) -> Option<u64> {
 pub fn vault_touched(app: tauri::AppHandle, since_ms: u64) -> VaultTouched {
     match vault_dir(&app) {
         Some(v) => touched_since_at(&v, since_ms),
+        // ⚠ 볼트 **미설정**은 읽기 실패가 아니다 — `unreadable` 은 0 이 맞다(위 doc).
         None => VaultTouched {
             count: 0,
             notes: Vec::new(),
+            unreadable: 0,
         },
     }
 }
@@ -580,16 +599,54 @@ pub fn start_watch(app: tauri::AppHandle) {
 /// 필터이고 그 어느 것도 창을 필요로 하지 않는다.
 ///
 /// `on_change` 가 `false` 를 돌려주면 루프를 끝낸다 — 테스트가 유한하게 끝나기 위한 출구다.
-pub fn watch_with(dir: &Path, mut on_change: impl FnMut() -> bool) -> Result<(), String> {
+pub fn watch_with(dir: &Path, on_change: impl FnMut() -> bool) -> Result<(), String> {
+    watch_with_every(dir, std::time::Duration::from_secs(30), on_change)
+}
+
+/// `watch_with` + **사망 확인 주기 주입**(O010 · 2026-08-22 운영 축).
+///
+/// ⚠ 주기가 인자인 이유는 `AppHandle` 을 뺀 이유와 **같다**: 안 그러면 「감시가 죽으면
+/// 관측되는가」를 재는 데 30초가 든다. 실사용은 위 30초, 테스트는 밀리초를 준다.
+/// 이 값은 **폴링 주기가 아니다** — 변경 감지는 notify 가 즉시 깨우고(`recv_timeout` 은
+/// 이벤트가 오면 바로 반환한다), 이 주기는 «아직 살아 있나»만 확인한다.
+pub fn watch_with_every(
+    dir: &Path,
+    dead_check: std::time::Duration,
+    mut on_change: impl FnMut() -> bool,
+) -> Result<(), String> {
     use notify::{RecursiveMode, Watcher};
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
     let (tx, rx) = mpsc::channel::<()>();
+    /* ⚠⚠ **감시 «사망»을 나르는 채널 — 종전엔 그 사실이 통째로 버려졌다**(O010 · 2026-08-22 운영 축).
+    아래 클로저가 `if let Ok(ev) = res { … }` 였고 **else 팔이 없었다.** 그래서 notify 가
+    콜백으로 보내는 `Err` 이벤트가 사라졌고, `set_watch_error(Some(..))` 에 도달하는 경로는
+    `recommended_watcher()`·`watch()` 의 **초기 호출 실패 둘뿐**이었다.
+
+    실패 시나리오: 볼트가 OneDrive/네트워크 드라이브에 있고 마운트가 끊긴다(또는 폴더 rename)
+    → `ReadDirectoryChangesW` 실패 → notify 가 `Err` 를 콜백으로 보낸다 → **버려진다** →
+    `tx` 는 살아 있으므로 `rx.recv()` 가 영원히 대기 → `capabilities.vaultWatchError = null`
+    → 연동 탭의 그 칸이 **안 그려지고**, 「감시 다시 걸기」 액션이 그 칸에만 달려 있어
+    **복구 경로에도 도달할 수 없다.** 사용자에게 「볼트가 조용하다」와 「감시가 죽었다」가
+    다시 구분되지 않는다 — 이 파일이 «고쳤다»고 선언한 상태 그대로다.
+
+    ⭐ **관용구는 이미 있었고 한쪽에만 적용돼 있었다**(R3 · 짝): `hotkey.rs` 는 등록 실패를
+    삼키지 않고 `capabilities.hotkeyError` 로 올린다. 여기도 같은 형태로 올린다 —
+    새 개념 0, 채널 하나. */
+    let (etx, erx) = mpsc::channel::<String>();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         // 내용이 아니라 **변화가 있었다는 사실만** 보낸다 — 프런트는 어차피 전체를 다시 읽는다.
         // 이벤트 종류로 분기하면 플랫폼별 차이(윈도우의 중복 발화 등)를 떠안게 된다.
-        if let Ok(ev) = res {
+        let ev = match res {
+            Ok(ev) => ev,
+            /* ⚠ **버리지 않는다** — 감시가 «시작한 뒤에» 죽는 경로는 이 팔뿐이다(위 주석). */
+            Err(e) => {
+                let _ = etx.send(e.to_string());
+                return;
+            }
+        };
+        {
             // 파생·시스템 폴더 변경은 무시 — 파이프라인이 `_meta/` 를 자주 건드려서
             // 그대로 두면 감시가 사실상 상시 발화가 된다. 단 정본 인덱스만은 예외다.
             let interesting = ev.paths.iter().any(|p| {
@@ -611,11 +668,43 @@ pub fn watch_with(dir: &Path, mut on_change: impl FnMut() -> bool) -> Result<(),
     그대로 흘리면 프런트가 저장 한 번에 스캔을 여러 번 돈다. 마지막 이벤트로부터
     조용해질 때까지 기다렸다가 **한 번만** 알린다. */
     const QUIET: Duration = Duration::from_millis(700);
+    /* ⚠ 첫 대기가 종전엔 `rx.recv()` **무한 대기**였다(O010). 감시가 죽으면 이벤트가 영원히
+    안 오므로 그 자리에서 **영구히 잠든다** — 그래서 `dead_check` 마다 깨어나 ① 오류 채널을
+    확인하고 ② 대상 폴더가 아직 있는지 본다. 근거는 `watch_with_every` 의 doc. */
+    /* ⚠⚠ **`exists()` 로 재지 않는다 — Windows 에서 거짓 음성이 난다**(실측 2026-08-22).
+    감시 중인 폴더를 지우면 열린 핸들 때문에 «삭제 보류» 상태가 되고, **이름은 남아 있어서**
+    `Path::exists()` 가 계속 `true` 를 준다. 그 상태에서 열어 보면 실패한다(`ACCESS_DENIED`).
+    즉 물어야 할 것은 «이름이 있나»가 아니라 **«아직 읽을 수 있나»** 다 — 그리고 후자가
+    이 감시의 유용성 그 자체이기도 하다(못 읽는 폴더의 감시는 살아 있어도 쓸모가 없다).
+    ⚠ **연속 2회**를 요구한다. 일시적 오류(재동기화 중인 OneDrive · 순간적 잠금)로 감시를
+    걷으면 스스로 낫는 상태에 사용자를 부르게 된다 — 이 저장소가 «거짓 경보는 곧 무시되는
+    경보» 라 반복해 적은 형태다. */
+    let mut 연속실패 = 0u8;
     loop {
-        // 첫 이벤트까지는 무한 대기(폴링 없음).
-        if rx.recv().is_err() {
-            return Ok(()); // 송신부가 사라졌다 = 앱 종료
+        // 첫 이벤트까지 대기. ⚠ 무한 대기가 아니다 — `watch_with_every` doc 참조.
+        loop {
+            if let Ok(msg) = erx.try_recv() {
+                return Err(msg); // 감시가 죽었다 — 호출부가 `vaultWatchError` 로 올린다
+            }
+            match rx.recv_timeout(dead_check) {
+                Ok(()) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    /* ⚠ 폴더가 사라지거나 마운트가 끊긴 것을 notify 가 `Err` 로 **안 알려 줄 수도
+                    있다**(플랫폼마다 다르다). 그 경우 감시는 살아 있지만 영영 아무것도 못 본다 —
+                    관측 가능한 형태로 바꾼다. */
+                    if std::fs::read_dir(dir).is_err() {
+                        연속실패 += 1;
+                        if 연속실패 >= 2 {
+                            return Err(format!("감시 대상을 읽을 수 없습니다: {}", dir.display()));
+                        }
+                    } else {
+                        연속실패 = 0;
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()), // 송신부가 사라졌다 = 앱 종료
+            }
         }
+        연속실패 = 0; // 이벤트가 왔다 = 살아 있다
         let mut last = Instant::now();
         while last.elapsed() < QUIET {
             match rx.recv_timeout(QUIET) {
@@ -874,6 +963,71 @@ mod tests {
         );
         // 노트 레코드가 실제로 채워졌는가 — 과목이 전부 비면 파싱이 죽은 것이다.
         assert!(out.notes.iter().any(|n| !n.subject.is_empty()));
+    }
+
+    /* ── ⭐ **감시 사망이 관측되는가**(O010 · 2026-08-22 운영 축) ─────────────────────
+    이 파일은 `:506-512` 에서 「볼트가 조용하다」와 「감시가 죽었다」를 구분하게 만들었다고
+    선언했는데, 실제로는 **초기 호출 실패 둘**만 그 채널에 닿았다. 시작한 뒤에 죽는 경로는
+    클로저의 `if let Ok(ev)` 가 통째로 삼켰고, `tx` 가 살아 있어 `rx.recv()` 는 영원히
+    대기했다 — 즉 **복구 버튼이 달린 칸 자체가 안 그려졌다.**
+
+    ⚠ notify 에게 `Err` 를 억지로 내게 하는 것은 플랫폼 의존이라 여기서 안 한다. 대신
+    **관측 가능한 같은 상태**(감시 대상이 사라졌다)를 만들어 루프가 `Err` 로 **빠져나오는지**
+    잰다. 이게 이 결함의 형태다: 나오느냐 영영 잠드느냐. */
+    /* ⭐ **부분 실패가 「변경 0」과 구분되는가**(O021 · 2026-08-22 운영 축).
+    두 순회가 `let Ok(entries) = read_dir(dir) else { return; }` 로 조용히 되돌아가고 그 사실을
+    아무 데도 안 남겼다 — 과목 폴더 하나가 재동기화 중이면 그 하위 트리가 통째로 빠지는데
+    화면은 「밖에서 바뀐 노트 없음」이다.
+    ⚠ 폴더를 「못 읽게」 만드는 이식성 있는 방법이 없으므로(권한 API 가 플랫폼마다 다르다)
+    **읽을 수 없는 경로**를 루트로 줘서 같은 형태를 만든다: 존재하지 않는 볼트. */
+    #[test]
+    fn 읽지_못한_폴더는_변경_0_과_구분된다() {
+        let 없는볼트 = std::env::temp_dir().join(format!("lh-vault-없음-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&없는볼트);
+        let out = touched_since_at(&없는볼트, 0);
+        assert_eq!(out.count, 0);
+        assert!(
+            out.unreadable > 0,
+            "못 읽었는데 「변경 0」과 같은 값을 냈다 — 이것이 O021 의 형태다"
+        );
+
+        // 짝: 정상 볼트는 `unreadable` 이 0 이다(이 축이 상시 켜져 있으면 경고가 곧 죽는다).
+        let d = tmp();
+        write(&d, "수학/1장/n.md", "본문");
+        let ok = touched_since_at(&d, 0);
+        assert_eq!(
+            ok.unreadable, 0,
+            "멀쩡한 볼트에서 읽기 실패를 세면 오탐이다"
+        );
+        assert_eq!(ok.count, 1);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn 감시_대상이_사라지면_영영_잠들지_않고_오류로_끝난다() {
+        let d = tmp();
+        std::fs::create_dir_all(d.join("수학")).unwrap();
+
+        let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+        let dir = d.clone();
+        let h = std::thread::spawn(move || {
+            let r = watch_with_every(&dir, std::time::Duration::from_millis(50), || true);
+            let _ = tx.send(r);
+        });
+
+        // 감시가 실제로 걸린 뒤에 지운다 — 시작 실패(이미 관측되던 경로)와 섞이지 않게.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        std::fs::remove_dir_all(&d).unwrap();
+
+        let got = rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("감시 루프가 돌아오지 않았다 — 이것이 O010 의 형태다(영영 잠든다)");
+        let msg = got.expect_err("감시 대상이 사라졌는데 Ok 로 끝났다 — 호출부가 오류를 못 올린다");
+        assert!(
+            msg.contains("읽을 수 없습니다"),
+            "사유가 사용자에게 전달될 문장이어야 한다: {msg}"
+        );
+        h.join().unwrap();
     }
 
     #[test]

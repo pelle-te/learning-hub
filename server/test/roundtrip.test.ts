@@ -122,6 +122,23 @@ describe('온보딩 → 동기화 왕복', () => {
     const r = await SELF.fetch(`${BASE}/api/health`);
     expect(r.headers.get('Cache-Control')).toBe('no-store');
   });
+
+  /* ⭐ **로그의 소비자**(O033 · 2026-08-22 운영 축). `observability` 는 켜져 있고 `onError` 가
+     `{ev:'unhandled'}` 로 구조화까지 하는데 **읽는 사람이 없었다**: `tail_consumers` 0 ·
+     Logpush 0 · Free 보존 3일. 즉 사흘 안에 대시보드를 열지 않으면 아무 일도 없었던 것이 된다.
+     ⚠ 여기서 잠그는 것은 «수가 맞는가»가 아니라 **«그 자리가 존재하고 형태가 계약대로인가»** 다 —
+     수 자체는 isolate 지역이라(그 라우트 주석) 테스트가 단정할 수 있는 값이 아니다. */
+  it('/api/health 가 최근 5xx 를 말한다 — 수집만 하고 아무도 안 읽는 신호를 없앤다', async () => {
+    const r = await SELF.fetch(`${BASE}/api/health`);
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { ok: boolean; recent5xx?: Record<string, unknown> };
+    expect(j.ok).toBe(true);
+    expect(j.recent5xx, '「최근 5xx」를 말하는 자리가 사라졌다 — 그러면 로그의 소비자가 다시 0이다').toBeDefined();
+    /* ⚠ 필드 이름이 계약이다: `count` 만 있으면 «언제부터»를 못 말한다(O008 이 동기화에서
+       고친 것과 **같은 형태**의 결함이 여기 생기지 않게 잠근다). */
+    expect(Object.keys(j.recent5xx!).sort()).toEqual(['count', 'firstAt', 'lastAt', 'lastMsg']);
+    expect(typeof j.recent5xx!.count).toBe('number');
+  });
 });
 
 describe('⚠⚠ 기기 폐기가 실제로 접근을 끊는다(P0-2)', () => {

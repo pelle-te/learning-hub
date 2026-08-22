@@ -109,6 +109,16 @@ function DowngradeScreen({
    스스로 «약하다»고 적은 것이 이 대가 때문이다. */
 perfMark('entry');
 
+/* ⭐ **프런트 실패를 디스크로 잇는다**(O007 · 2026-08-22 운영 축). 바로 위 문단이 «부팅 경로는
+   이제 콘솔뿐» 이라 적은 그 대가의 절반을 데스크톱에서 되돌린다 — Rust 는 릴리스에서 파일
+   싱크를 이미 갖고 있었고 프런트만 거기 닿는 길이 없었다(`console.error` 38곳이 증발).
+   ⚠ **`initAppStore()` 보다 먼저**여야 한다: 부팅 읽기 실패(`boot.ts:223`)가 이 다리가 나르려는
+   대표 사례이고, 나중에 걸면 그 줄을 놓친다.
+   ⚠ **await 하지 않는다** — 관측이 첫 페인트를 늦추면 안 된다. 셸이 아니면 즉시 반환하고,
+   플러그인 로드 실패도 스스로 삼킨다(`lib/log.ts`).
+   ⚠ 동적 import 는 SD-7 부팅 순서 계약이다(정적으로 끌면 그래프가 예측 불가해진다). */
+void import('@/lib/log').then((m) => m.bridgeConsole());
+
 void initAppStore()
   .catch((e: unknown) => console.error('[boot] initAppStore', e))
   .then(async () => {

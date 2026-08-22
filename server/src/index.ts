@@ -338,7 +338,48 @@ app.use('/api/enroll/*', rateGuard);
 app.use('/api/token', rateGuard);
 
 /** 헬스체크 — 비밀도 데이터도 노출하지 않는다. */
-app.get('/api/health', (c) => c.json({ ok: true }));
+/* ============================================================
+   ⭐ **로그의 소비자**(O033 · 2026-08-22 운영 축) — 수집 ≠ 관측
+
+   `wrangler.jsonc` 의 `observability.enabled` 는 켜져 있고 아래 `onError` 가 `{ev:'unhandled'}`
+   로 **구조화까지 해 둔다.** 그런데 실측하면 그 신호를 **읽는 사람이 없다**: `tail_consumers`
+   **0** · Logpush **0** · Free 플랜 보존 **3일**. 즉 사흘 지나면 사라지고, 그 안에 누가
+   대시보드를 열지 않으면 아무 일도 없었던 것이 된다.
+   Google SRE Book 이 *"수집되지만 어떤 대시보드에도 노출되지 않고 어떤 알림도 쓰지 않는
+   신호는 **삭제 후보**"* 라 부른 상태 그대로다.
+
+   ## 왜 D1 에 안 쌓나 — 이 파일이 이미 답을 적어 뒀다
+
+   ① 마이그레이션이 데스크톱 SQLite 와 **공유**라 테이블이 앱 DB 에도 생긴다
+   ② 오류 폭주가 곧 **D1 쿼터 소진**이다(장애 때 장애를 키운다)
+   ③ 조인할 일 없는 관측 데이터다
+   → 그래서 **격리 지역 메모리**다. 새 인프라 0 · 쓰기 0 · 쿼터 0.
+
+   ## ⚠⚠ 이 수의 한계를 정확히 적는다 — 「모른다」를 「0」으로 읽지 않기 위해
+
+   Workers 는 요청을 여러 isolate 에 나눠 태우고 isolate 는 **언제든 재활용된다.** 따라서 이
+   카운터는 **「이 isolate 가 살아 있는 동안 본 5xx」** 이고, 전역 합계도 아니고 영속도 아니다.
+   `0` 은 「사고가 없었다」가 **아니라** 「이 isolate 는 못 봤다」이다.
+   그럼에도 값이 있는 이유: **장애는 대개 지속된다.** 지금 5xx 가 나고 있으면 어느 isolate 를
+   때려도 곧 0 이 아니게 된다 — 즉 이 수가 겨누는 것은 사후 집계가 아니라 **「지금 무슨 일이
+   벌어지고 있는가」** 다. 그리고 그 질문에 답할 수 있는 자리가 종전엔 **하나도 없었다.**
+============================================================ */
+/** 이 isolate 가 본 5xx. ⚠ 전역 합계가 아니다(위 주석) — 필드 이름이 그 사실을 말하게 둔다. */
+const isolate5xx = {
+  count: 0,
+  firstAt: null as number | null,
+  lastAt: null as number | null,
+  lastMsg: null as string | null,
+};
+
+app.get('/api/health', (c) =>
+  c.json({
+    ok: true,
+    /* ⚠ 사고 사유는 **잘라서** 싣는다 — 이 라우트는 무인증이라 내부 SQL·경로가 새면 안 된다.
+       (같은 규율이 `onError` 의 `detail` 문구에도 걸려 있다.) */
+    recent5xx: isolate5xx,
+  }),
+);
 
 /* ⚠⚠ **루트(`/`)는 폰으로 보낸다**(C047 · 2026-08-22 코드 축 1회차).
 
@@ -839,6 +880,15 @@ app.get('/api/sync/pull', async (c) => {
    ⚠ 한도 오류의 **정확한 문구는 Cloudflare 가 소유**하고 우리가 고정할 수 없다 → 문자열
    휴리스틱이다. 그래서 판정이 틀렸을 때의 방향을 안전한 쪽으로 잡는다: 못 알아보면 500(재시도
    가능)이다. 한도인데 500 을 주면 예전과 같고, 한도가 아닌데 429 를 주면 **동기화가 멈춘 채
+   ⭐ **그 표류를 관측할 수 있게 됐다**(D025 · 2026-08-22 운영 축 실행). 종전 이 휴리스틱의
+   진짜 문제는 «틀릴 수 있다»가 아니라 **«틀린 것을 알 방법이 없다»** 였다: Cloudflare 가 문구를
+   바꾸면 한도 오류가 조용히 500 으로 떨어지고, 클라이언트는 그것을 *일시 오류*로 읽어 영구
+   백오프를 돈다 — 즉 **증상이 「느려짐」이라 아무도 안 본다.**
+   이제 위 `isolate5xx.lastMsg` 가 그 순간의 **실제 문자열**을 `/api/health` 에 남긴다(O033).
+   ⚠ **그래서 이 정규식을 고치는 절차가 생겼다**: 동기화가 멈췄는데 사유를 모르겠으면
+   `/api/health` 의 `recent5xx.lastMsg` 를 읽고, 거기 한도 문구가 보이면 아래 패턴에 더한다.
+   그 전에는 그 문자열을 볼 방법 자체가 없었다(Free 보존 3일 · `tail_consumers` 0).
+
    사용자에게 잘못 알린다** — 후자가 더 나쁘다.
    ⚠ `permanent: true` 는 클라이언트가 읽는 **계약**이다(`cloud/client.ts` 의 push 분기).
       레이트 리미터의 429 와 구분해야 하므로 상태코드만으로 판정하지 않는다. */
@@ -859,7 +909,21 @@ const SCHEMA_SKEW = /no such (column|table)|has no column named|unknown column/i
 app.onError((err, c) => {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(JSON.stringify({ ev: 'unhandled', msg: msg.slice(0, 300) }));
+  /* ⭐ 로그에만 남기지 않는다 — **읽을 수 있는 자리**에도 남긴다(O033 · `/api/health`).
+     ⚠ 아래 두 분기(400 schema · 429 limit)는 5xx 가 아니므로 여기서 세면 과대집계다.
+        그런데 **먼저 세야** 사유 문자열을 잡을 수 있으므로, 세어 두고 그 분기에서 되돌린다. */
+  isolate5xx.count += 1;
+  isolate5xx.firstAt ??= Date.now();
+  isolate5xx.lastAt = Date.now();
+  isolate5xx.lastMsg = msg.slice(0, 120);
+  /** 5xx 가 아닌 것으로 판명됐을 때 되돌린다 — 「모른다」보다 「틀린 수」가 나쁘다. */
+  const 되돌린다 = (): void => {
+    isolate5xx.count -= 1;
+    isolate5xx.lastMsg = null;
+    if (isolate5xx.count === 0) isolate5xx.firstAt = null;
+  };
   if (SCHEMA_SKEW.test(msg)) {
+    되돌린다();
     return c.json(
       {
         error: 'schema',
@@ -872,6 +936,7 @@ app.onError((err, c) => {
     );
   }
   if (/daily limit|quota|exceeded|too many (rows|writes)/i.test(msg)) {
+    되돌린다();
     return c.json(
       {
         error: 'limit',

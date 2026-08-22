@@ -6,10 +6,29 @@ name: web-ci
 
 on:
   push:
-    paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', 'package-lock.json', 'audit-allowlist.json', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', '.github/workflows/ci.yml']
+    paths: ['web/**', 'src-tauri/**', 'server/**', 'package.json', 'package-lock.json', 'audit-allowlist.json', '.github/workflows/ci.yml']
+  # ⚠⚠ **시간이 흐르는 것만으로 참이 바뀌는 게이트가 넷 있다**(O005 · 2026-08-22 운영 축):
+  #   ① `npm run audit` ×3(새 CVE 는 코드 변경 없이 나타난다) ② `npm run tauri:deny`(Cargo
+  #   advisory DB) ③ `audit-allowlist.json` 의 `재검토` 만료 ④ `a11y.spec.ts` 의 `알려진위반` 만료.
+  #   넷 다 push 에만 걸려 있어서 **2026-08-08~20 사이 12일간 어떤 SCA 도 돌지 않았다.**
+  #   이 저장소는 같은 형태에 세 번 물렸고 진단은 매번 «CI 엔 있는데 로컬엔 없다» 였다 —
+  #   이번 것은 그 변주다: **«양쪽에 다 있는데 시간 축이 없다.»**
+  #   ⚠ 무거운 잡(windows 2배 과금)은 스케줄에서 뺀다. 도는 것은 아래 `freshness` 하나다.
+  schedule: [{ cron: '0 20 * * *' }] # KST 05:00
   workflow_dispatch: {}
+
+# ⚠⚠ **같은 ref 의 앞선 런은 취소한다**(O017 · 2026-08-22 운영 축). 30일 실측에서 **426 과금분**
+#   (전체의 19.9% · 무료 한도의 21%)이 «이미 갈아엎힌 커밋»에 쓰였다 — 2026-08-07 에는 4분 8초
+#   사이 push 3회가 각각 완주해 shell-build 만 122 과금분을 냈고 트리에 남은 것은 마지막 커밋
+#   하나였다.
+#   ⚠ **대가를 명시한다: 중간 커밋은 검증되지 않는다.** 이 저장소는 PR 0 · 브랜치 1 · 전부
+#   master 직push 라 트리에 남는 것이 마지막 커밋뿐이고 그 런이 같은 상태를 그대로 덮는다 —
+#   «덜 검사한다»가 아니라 **«같은 트리를 한 번만 검사한다»** 이다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 # ── 공급망(M-6 · 2026-08-06 감사) ────────────────────────────────────────────────
 #
@@ -22,7 +41,12 @@ on:
 #   실행할 수 있다. 이 저장소는 이미 그 판단을 한 번 했다 — gitleaks 를 마켓플레이스 액션 대신
 #   *버전 핀 + 체크섬 대조한 릴리스 바이너리*로 받는다(아래 secret-scan 주석). 그 규율이 나머지
 #   다섯 액션에는 적용돼 있지 않았다. 뒤 주석의 버전은 사람이 읽기 위한 것이고 **정본은 SHA** 다.
-#   갱신은 Renovate 가 SHA 와 주석을 함께 올린다.
+#   갱신은 **Dependabot** 이 SHA 와 주석을 함께 올린다(`.github/dependabot.yml`).
+#   ⚠⚠ 종전 이 줄은 «Renovate 가 올린다» 였는데 **그건 34일 · 월요일 5회 동안 한 번도 참이
+#   아니었다**(O004 · 2026-08-22 운영 축): 봇 커밋 0 · PR 0 · 이슈 0. 그 결과 위 세 액션이
+#   **3 메이저씩 뒤처졌고** 러너가 `Node 20 is being deprecated` 를 찍고 있었다.
+#   즉 핀이 «갱신 경로가 있는 고정»이 아니라 **동결**이 돼 있었다. 바꾼 이유와 대가는
+#   `dependabot.yml` 머리주석이 SSOT — 요지는 «Dependabot 은 돌면 흔적이 남는다» 이다.
 permissions:
   contents: read
 
@@ -31,6 +55,12 @@ jobs:
   # 린트·타입·테스트는 Rust 툴체인이 필요 없고, windows 러너는 2배 과금이다.
   build-test:
     runs-on: ubuntu-latest
+    # ⚠ **`timeout-minutes` 가 네 잡 어디에도 없었다**(O022 · 2026-08-22). 기본값은 **360분**이라
+    #   한 잡이 걸리면 그것만으로 월 무료 한도의 36%(windows 는 2배 과금이라 그 이상)를 태운다.
+    #   그리고 이 워크플로는 «멈춰서 기다리는» 부류의 실패를 이미 낸 전력이 있다(`a11y.spec.ts` 의
+    #   30초 타임아웃 · 큐에 16일 갇힌 런). 값은 30일 실측 최대치 + 여유다.
+    timeout-minutes: 20 # 실측 최대 9.0분
+    if: github.event_name != 'schedule' # 시간 축 게이트는 아래 freshness 잡이 진다(O005)
     defaults:
       run:
         working-directory: web
@@ -38,12 +68,18 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          # ⚠⚠ **손으로 박은 `node-version: 22` 였다**(O003 · 2026-08-22 운영 축). `web/.nvmrc` 는
+          #   저장소에 있는데 **읽는 것이 아무것도 없어서** 선언과 실행이 갈렸고, 그 틈이 2026-08-20
+          #   이후 CI 실패 그 자체였다: `test/observations.test.ts` 가 로컬 Node 24 에서는 통과하고
+          #   러너 Node 22 에서는 `Cannot bundle Node.js built-in "node:sqlite"` 로 죽었다
+          #   (`node:sqlite` 가 22 의 `builtinModules` 에 없어 vite 가 외부화하지 못한다).
+          #   즉 **로컬 게이트 전량 녹색이 CI 녹색을 원리적으로 보장하지 않았다.**
+          node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       # SCA — **알려진 CVE 게이트**(2026-07-25 감사). 종전 공급망 방어는 gitleaks(시크릿이 새는가)와
-      # Renovate(의존성이 낡는가) 둘뿐이었고, 그 사이 축이 비어 있었다: *해당하는 CVE 가 들어와도
+      # 의존성 갱신 봇(의존성이 낡는가) 둘뿐이었고, 그 사이 축이 비어 있었다: *해당하는 CVE 가 들어와도
       # CI 가 통과시킨다*. 실측 시점 web 14건 전부 high 였고 그중 react-router 는 사용자에게
       # 실제 배포되는 의존성이다. ⚠ `npm audit --audit-level=high` 한 줄을 쓰지 않는 이유는
       # audit-gate.mjs 머리주석에 있다(상향 픽스가 없는 항목이 있어 그 형태는 즉시 빨간불 →
@@ -72,18 +108,64 @@ jobs:
       # hub 단독 체크아웃엔 부모 스키마가 없어 graceful skip 이라 CI 추가 실익 없음(의도적 제외).
       - run: npm run format:check
       - run: npm run test:coverage
-      - run: npm run build
+      # ⚠⚠ **여기부터가 폭포 차단 구간이다**(O002 · 2026-08-22 운영 축). 종전엔 `test:coverage` 가
+      #   죽으면 아래 다섯이 **전부 skipped** 였고, 그래서 **번들 예산·스모크·a11y 가 2026-08-20
+      #   이후 CI 에서 한 줄도 안 돌았다** — 원인은 UI 회귀가 아니라 무관한 vitest 환경 문제(O003)
+      #   였는데 관계없는 축 셋이 함께 침묵했다.
+      #   이건 새 형태가 아니다: 아래 shell-build 주석이 C2 를 회고하며 *"가장 나쁜 귀결은 이
+      #   스텝이 아니라 그 다음이었다 … `npm run e2e` 174케이스가 전부 skipped"* 라 적었는데,
+      #   **그때 처방은 `shell-build` 에만 갔다.** `build-test` 는 폭포를 끊는 장치를 한 번도
+      #   받은 적이 없다(짝 · R3).
+      #   규율: **서로 독립인 축은 각자 돌고, `build` 산출물에 의존하는 것만 게이팅한다.**
+      #   `!cancelled()` 이지 `always()` 가 아니다 — 취소(concurrency)에는 따라 멈춰야 한다.
+      - id: build
+        run: npm run build
+        if: ${{ !cancelled() }}
       # 번들 예산 게이트 — 빌드 직후 dist/assets를 gzip으로 재어 청크/총합 상한 초과를 잡는다.
       - run: npm run budget
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
       # Playwright 스모크(시각 비교 없음 → OS 독립적, 안정). 빌드물(dist)을 preview로 띄워 검사.
       # 비주얼 회귀(visual.spec)는 win32 베이스라인이라 CI(ubuntu)서 제외 — 로컬/수동 유지.
       - run: npx playwright install --with-deps chromium
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
       - run: npm run e2e:smoke
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
       # a11y(axe) — 스모크와 같은 이유로 CI 에 든다: **OS 독립적**이다(픽셀 비교가 없고
       # 접근성 트리·계산된 스타일만 본다). 도입 즉시 실제 결함 4종을 잡았다 —
       # 다크 기본 테마에서 검색 입력 글자가 안 보이던 것(대비 1.09:1) 포함.
       # ⚠ 이 잡이 ubuntu 인데 통과하는 것이 정상이다. 시각 회귀만 win32 베이스라인 문제다.
       - run: npm run e2e:a11y
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+
+  # ── 시간 축 게이트(O005 · 2026-08-22 운영 축) ─────────────────────────────────
+  # ⚠⚠ **여기 있는 것은 «코드가 안 바뀌어도 참이 바뀌는» 검사뿐이다.** 위 잡들과 중복이 아니라
+  #   **시제가 다르다**: push 게이트는 «이 커밋이 괜찮은가»를 묻고 이 잡은 «오늘도 여전히
+  #   괜찮은가»를 묻는다. 12일간 SCA 0회가 아무 술어도 위반하지 않던 것이 이 잡의 존재 이유다.
+  # ⚠ **무거운 것을 여기 넣지 마라.** windows 러너는 2배 과금이고 이 잡은 매일 돈다 —
+  #   `tauri:deny`(Cargo advisory)를 넣고 싶어지겠지만 그건 windows 툴체인을 끌어온다.
+  #   npm 축 셋만으로 30일 실측 사각(12일)의 대부분이 덮인다.
+  freshness:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: web/.nvmrc
+      # ⚠ `npm ci` 가 없다 — `audit-gate.mjs` 는 순수 Node 이고 `npm audit` 은 lockfile 만 읽는다
+      #   (위 `build-test` 의 루트 audit 이 이미 같은 근거로 설치 없이 돈다).
+      - run: npm run audit
+        working-directory: web
+      - run: npm run audit # 루트 — 서명 개인키를 보는 유일한 트리(D018)
+      - run: npm run audit
+        working-directory: server
+      # ⚠ 시간 축 계기판(O006·O030). `gh` 를 쓰므로 토큰을 넘긴다 — 없으면 그 행은
+      #   「모른다」로 남고 조용히 통과하지 않는다(스크립트 머리주석).
+      - run: npm run freshness
+        working-directory: web
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   # 시크릿 스캔 — 설계서 §5-2 가 "인증 자료를 다루기 시작하는데 시크릿 스캔이 없다"고 적은 항목.
   # C-4 로 실제로 그 자료가 생겼다(HUB_SIGNING_KEY·HUB_ADMIN_KEY·리프레시 토큰). 이 저장소가
@@ -95,6 +177,8 @@ jobs:
   #   **버전을 핀 고정한 릴리스 바이너리**를 받아 돈다(체크섬까지 대조). 신뢰면이 늘지 않는다.
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # 실측 최대 2.5분
+    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -129,6 +213,8 @@ jobs:
   #   ubuntu 로 충분하다(workerd 는 OS 독립적이고 GUI 가 없다).
   cloud-server:
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # 실측 최대 2.8분
+    if: github.event_name != 'schedule'
     defaults:
       run:
         working-directory: server
@@ -136,7 +222,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          # ⚠⚠ **손으로 박은 `node-version: 22` 였다**(O003 · 2026-08-22 운영 축). `web/.nvmrc` 는
+          #   저장소에 있는데 **읽는 것이 아무것도 없어서** 선언과 실행이 갈렸고, 그 틈이 2026-08-20
+          #   이후 CI 실패 그 자체였다: `test/observations.test.ts` 가 로컬 Node 24 에서는 통과하고
+          #   러너 Node 22 에서는 `Cannot bundle Node.js built-in "node:sqlite"` 로 죽었다
+          #   (`node:sqlite` 가 22 의 `builtinModules` 에 없어 vite 가 외부화하지 못한다).
+          #   즉 **로컬 게이트 전량 녹색이 CI 녹색을 원리적으로 보장하지 않았다.**
+          node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: |
             server/package-lock.json
@@ -175,11 +267,19 @@ jobs:
   #     `/게이트`가 이미 준다. CI 는 "컴파일·린트·번들이 되는가"까지만 책임진다.
   shell-build:
     runs-on: windows-latest
+    timeout-minutes: 75 # ⚠ 실측 최대 46분 · windows 는 2배 과금이라 기본 360분이면 720 과금분이다
+    if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          # ⚠⚠ **손으로 박은 `node-version: 22` 였다**(O003 · 2026-08-22 운영 축). `web/.nvmrc` 는
+          #   저장소에 있는데 **읽는 것이 아무것도 없어서** 선언과 실행이 갈렸고, 그 틈이 2026-08-20
+          #   이후 CI 실패 그 자체였다: `test/observations.test.ts` 가 로컬 Node 24 에서는 통과하고
+          #   러너 Node 22 에서는 `Cannot bundle Node.js built-in "node:sqlite"` 로 죽었다
+          #   (`node:sqlite` 가 22 의 `builtinModules` 에 없어 vite 가 외부화하지 못한다).
+          #   즉 **로컬 게이트 전량 녹색이 CI 녹색을 원리적으로 보장하지 않았다.**
+          node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
       # ⚠ `@stable` 은 **태그가 아니라 브랜치**다(이 액션은 브랜치 이름으로 툴체인을 고른다) →
@@ -193,6 +293,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: src-tauri
+          # ⚠⚠ **기본은 «잡이 실패하면 캐시를 저장하지 않는다»** 이고, 이 잡은 **마지막 스텝에서**
+          #   죽는 전력이 있다(2026-08-21 두 런 연속 · `Post Run rust-cache` 가 둘 다 skipped).
+          #   그 결과 캐시가 한 번도 안 채워져 다음 런도 콜드로 돌았다 — CI 가 빨간 동안
+          #   `Cargo.lock` 이 바뀌면 **매 런 전량 재컴파일**이다(O018).
+          cache-on-failure: true
       # 루트와 web 양쪽 설치가 필요하다: `tauri:*` 는 **루트 스크립트**라 루트의 @tauri-apps/cli 를
       # 쓰고, `tauri:build` 의 beforeBuildCommand(`npm --prefix web run build`)는 web 의존성을 쓴다.
       - run: npm ci
@@ -204,13 +309,34 @@ jobs:
       # (*"해당하는 CVE 가 들어와도 CI 가 통과시킨다"*)이 두 생태계 중 **npm 에만** 적용돼 있었고,
       # 사용자에게 배포되는 exe 를 만드는 645 crate 짜리 축은 어느 쪽(CI·로컬)에도 없었다.
       # 설정과 그 근거(타깃 필터 · `unsound = "all"`)는 `src-tauri/deny.toml` 머리주석이 SSOT.
-      # ⚠ 전용 액션(`EmbarkStudios/cargo-deny-action`) 대신 `cargo install` 인 이유가 둘이다:
-      #   ① 이 잡은 **windows-latest** 다(위 러너 선택 근거 참조) — 그 액션은 리눅스 바이너리를
-      #      내려받는 형태라 여기서 안 돈다. ② 위 `rust-cache@v2.9.2` 가 `~/.cargo/bin` 을
-      #      캐시하므로 첫 실행 이후는 사실상 공짜다. 그리고 **로컬 게이트와 같은 명령**
-      #      (`npm run tauri:deny`)을 쓰는 것이 이 저장소의 규율이다 — 로컬과 CI 가 다른 명령을
-      #      쓰면 «CI 엔 있는데 로컬엔 없다» 가 다시 생긴다.
-      - run: cargo install cargo-deny --locked
+      # ⚠ 전용 액션(`EmbarkStudios/cargo-deny-action`)을 쓰지 않는 이유는 그대로다 — 이 잡은
+      #   **windows-latest** 이고 그 액션은 리눅스 바이너리를 받는 형태다. 그리고 **로컬 게이트와
+      #   같은 명령**(`npm run tauri:deny`)을 쓰는 것이 이 저장소의 규율이다.
+      #
+      # ⚠⚠ **바뀐 것은 «어떻게 설치하나» 다**(O018 · 2026-08-22 운영 축). 종전 주석은
+      #   *"rust-cache 가 `~/.cargo/bin` 을 캐시하므로 첫 실행 이후는 사실상 공짜다"* 라
+      #   단언했는데 **관측이 정반대였다**: 2026-08-21 두 런이 각각 소스에서 전량 컴파일해
+      #   `cargo install cargo-deny` 에 **4분01초 / 4분34초**(합 17.2 과금분)를 썼고 잡은 결함은
+      #   **0** 이다. 원인은 위 `cache-on-failure` 주석에 있다.
+      #   → 같은 워크플로의 `secret-scan` 이 이미 쓰는 관용구(**버전 핀 + 릴리스 바이너리 +
+      #     체크섬 대조**)로 통일한다. 그 주석이 적은 *"신뢰면이 늘지 않는다"* 가 여기도 그대로
+      #     적용되고, cargo-deny 는 그 관용구가 요구하는 것을 전부 낸다. 절감 ~9 과금분/런.
+      #   ⚠⚠ **`sha256sum -c <파일>` 을 그대로 쓸 수 없다** — 이 프로젝트의 `.sha256` 은 해시
+      #     **한 덩어리만**(대문자 · 파일명 없음) 담는다. 그 도구는 `<해시>  <파일명>` 두 열을
+      #     요구하므로 줄을 **직접 조립**한다. gitleaks 가 이름 불일치로 도입 이래 0회 돌았던
+      #     것과 같은 함정의 다른 얼굴이다(C2) — 그래서 아래는 실측으로 확인한 형태다.
+      - name: cargo-deny 설치(버전 핀 + 체크섬 대조)
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER=0.20.2
+          D="cargo-deny-${VER}-x86_64-pc-windows-msvc"
+          BASE="https://github.com/EmbarkStudios/cargo-deny/releases/download/${VER}"
+          curl -sSL --fail -o "${D}.tar.gz" "${BASE}/${D}.tar.gz"
+          curl -sSL --fail -o "${D}.tar.gz.sha256" "${BASE}/${D}.tar.gz.sha256"
+          echo "$(tr 'A-Z' 'a-z' < "${D}.tar.gz.sha256" | tr -d '[:space:]')  ${D}.tar.gz" | sha256sum -c -
+          tar -xzf "${D}.tar.gz" --strip-components=1 -C "$USERPROFILE/.cargo/bin" "${D}/cargo-deny.exe"
+          cargo deny --version
       - run: npm run tauri:deny
       # Windows 전용 계약(taskkill /T 손자 정리 · WebView2)은 이제 **Rust 쪽에 있다** —
       # `cargo test` 가 위 tauri:clippy 와 같은 잡에서 돈다. 4단계-G 에서 serve.js 와 함께

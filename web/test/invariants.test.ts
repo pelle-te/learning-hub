@@ -1973,3 +1973,127 @@ describe('불변식 ㉕ useKeymapDoc 이 광고하는 키를 그 파일이 언�
     expect(빈파일, '이 파일의 키 관용구를 `처리키` 가 못 읽는다 — 새 관용구를 거기 더하라').toEqual([]);
   });
 });
+
+/* ============================================================
+   불변식 ㉖ — **로컬과 CI 가 같은 런타임을 쓴다** (O003 · 2026-08-22 운영 축)
+
+   ## 왜 이게 불변식이 됐나
+
+   `web/.nvmrc` 는 저장소에 있었고 CI 는 `node-version: 22` 를 **세 곳에 손으로 박고 있었다.**
+   그 둘을 잇는 것이 아무것도 없어서 선언과 실행이 갈렸고, **그 틈이 2026-08-20 이후 CI 실패
+   그 자체였다**: `test/observations.test.ts` 가 로컬 Node 24 에서는 통과하고 러너 Node 22 에서는
+   `Cannot bundle Node.js built-in "node:sqlite"` 로 죽었다. 즉 **로컬 게이트 전량 녹색이 CI
+   녹색을 원리적으로 보장하지 않았다** — 이 저장소가 «CI 엔 있는데 로컬엔 없다» 로 세 번 물린
+   것의 네 번째 변주다(이번엔 «양쪽에 다 있는데 버전이 다르다»).
+
+   ## 두 축을 잰다 — §1-B 의 규율대로 «값» 이 아니라 «문법» 을 막는다
+
+   ① `.nvmrc` 를 **읽는 자리가 실재한다**(`node-version-file`) 그리고 손으로 박은
+      `node-version:` 이 **하나도 없다**. 값이 22 냐 24 냐를 재지 않는 이유는 그것이 바뀌는
+      값이기 때문이다 — 막아야 하는 것은 «두 원천» 이라는 형태다.
+   ② jsdom 프라그마를 단 테스트가 `node:` 빌트인을 들지 않는다. 그 조합이 정확히 위 실패의
+      기계적 형태이고, 여기서 걸리면 러너 버전과 무관하게 로컬에서 빨간불이 된다.
+
+   ⚠ 이 검사가 통과한다고 «두 런타임이 같다» 는 뜻은 아니다 — 개발자 PC 의 실제 Node 는
+   여기서 못 잰다(`process.version` 을 단언하면 다른 버전을 쓰는 순간 게이트가 방해가 된다).
+   잠그는 것은 **선언이 한 곳뿐이라는 것**이다.
+============================================================ */
+describe('불변식 ㉖ 런타임 선언이 한 곳이다(O003)', () => {
+  const CI = (): string => readFileSync(join(process.cwd(), '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+
+  it('`.nvmrc` 가 실재하고 값이 하나다 — 분모가 없으면 아래 둘이 아무것도 안 잰다', () => {
+    const v = readFileSync(join(process.cwd(), '.nvmrc'), 'utf8').trim();
+    expect(v, '`web/.nvmrc` 가 비었다').toMatch(/^\d+(\.\d+)*$/);
+  });
+
+  it('CI 가 `.nvmrc` 를 읽는다 — `node-version-file` 이 setup-node 마다 있다', () => {
+    const ci = CI();
+    const 읽는곳 = [...ci.matchAll(/node-version-file:\s*(\S+)/g)].map((m) => m[1]);
+    const setupNode = [...ci.matchAll(/uses:\s*actions\/setup-node@/g)].length;
+    expect(setupNode, 'setup-node 를 하나도 못 찾았다 — 이 검사가 대상을 잃었다').toBeGreaterThan(0);
+    expect(읽는곳.length, 'setup-node 마다 `node-version-file` 이 있어야 한다').toBe(setupNode);
+    expect(new Set(읽는곳), '`.nvmrc` 원천이 갈렸다').toEqual(new Set(['web/.nvmrc']));
+  });
+
+  it('⚠ 손으로 박은 `node-version:` 이 0건이다 — 그게 갈림의 형태였다', () => {
+    const 박힘 = [...CI().matchAll(/^\s*node-version:\s*(\S+)/gm)].map((m) => m[0].trim());
+    expect(박힘, 'CI 가 런타임 버전을 직접 적는다 — `node-version-file` 로 바꿔라').toEqual([]);
+  });
+
+  /* ⚠ 프라그마는 **줄 주석**이라 `strip()` 이 지운다 — 그래서 원문에서 «줄 첫머리의 지시문»
+     형태로만 찾는다. 블록 주석 안의 언급(이 규칙을 설명하는 문장)까지 잡으면 규칙을 문서화한
+     파일이 그 규칙을 위반한 것이 된다. 실제로 첫 구현이 그랬다. */
+  const jsdom테스트 = (): { 이름: string; code: string }[] =>
+    filesUnder((n) => /\.test\.tsx?$/.test(n), join(process.cwd(), 'test'))
+      .map((f) => ({ 이름: f.slice(f.lastIndexOf(sep) + 1), code: readFileSync(f, 'utf8') }))
+      .filter(({ code }) => /^[ \t]*\/\/[ \t]*@vitest-environment[ \t]+jsdom/m.test(code));
+
+  /* jsdom 환경에서 **외부화되는 것이 실측된** `node:` 빌트인. 여기 있는 것만 든다.
+     ⚠ 새로 하나 들이려면 이 표에 적어라 — 그것은 «러너 Node 에서도 외부화되는지 확인했다»는
+     뜻이다. `node:sqlite` 는 여기 없고, 없는 것이 옳다(Node 22 의 `builtinModules` 에 없어
+     vite 가 번들하려 들었고 그게 CI 를 이틀간 빨간불로 만들었다). */
+  const 허용빌트인 = new Set(['node:fs', 'node:path']);
+
+  it('jsdom 테스트가 허용된 `node:` 빌트인만 든다 — 아니면 답이 러너 버전에 달린다', () => {
+    const 목록 = jsdom테스트();
+    expect(목록.length, 'jsdom 테스트를 하나도 못 찾았다 — 이 검사가 대상을 잃었다').toBeGreaterThan(0);
+    const 위반 = 목록.flatMap(({ 이름, code }) =>
+      [...strip(code).matchAll(/from\s+'(node:[a-z/]+)'/g)]
+        .map((m) => m[1]!)
+        .filter((spec) => !허용빌트인.has(spec))
+        .map((spec) => `${이름}: ${spec}`),
+    );
+    expect(위반, 'jsdom 환경은 `node:` 를 번들하려 든다 — node 환경으로 옮기거나 허용표에 근거와 함께 적어라').toEqual(
+      [],
+    );
+  });
+
+  it('허용표가 사문화하지 않았다 — 아무도 안 쓰는 면제가 남아 있으면 실패', () => {
+    const 쓰임 = new Set(
+      jsdom테스트().flatMap(({ code }) => [...strip(code).matchAll(/from\s+'(node:[a-z/]+)'/g)].map((m) => m[1]!)),
+    );
+    expect(
+      [...허용빌트인].filter((b) => !쓰임.has(b)),
+      '쓰이지 않는 허용 항목 — 지워라',
+    ).toEqual([]);
+  });
+});
+
+/* ============================================================
+   불변식 ㉗ — **제품 버전의 원천이 둘이고 손으로 맞춘다** (V035 · 2026-08-22 규약 축)
+
+   `릴리스.md §2-1` 이 *"버전 올리기 — **두 곳이 같아야 한다**"* 라 적고 두 경로를 나열한다:
+   `src-tauri/tauri.conf.json` 과 `src-tauri/Cargo.toml`. 그런데 **그 규약의 집행자가 없었다** —
+   즉 «두 곳이 같아야 한다」가 절차서의 문장 하나에 걸려 있었다.
+
+   어긋나면 무슨 일이 나나: 업데이터는 **`tauri.conf.json` 의 버전**을 «현재 버전»으로 보고
+   `latest.json` 과 비교한다. Cargo 쪽이 낮으면 인스톨러 파일명·제품 메타는 옛 번호인데
+   업데이터는 새 번호로 판단한다 → 「새 버전이 있다」고 잘못 말하거나 반대로 **침묵한다.**
+   그리고 침묵은 이 저장소가 H-13 에서 **나흘을 몰랐던** 바로 그 형태다.
+
+   ⚠ **루트·web 의 `0.0.0` 은 결함이 아니다.** 둘 다 `private` 패키지이고 npm 에 발행되지
+   않으므로 `0.0.0` 은 «발행 안 함»의 관용 표기다. 제품 버전과 **다른 축**이라 여기서 재지
+   않는다 — 셋을 한 축으로 읽으면 「원천 셋」이라는 잘못된 진단이 나온다(실제로 그렇게 올라왔다).
+============================================================ */
+describe('불변식 ㉗ 제품 버전 원천이 서로 같다(V035)', () => {
+  const 루트 = (p: string): string => readFileSync(join(process.cwd(), '..', p), 'utf8');
+
+  it('`tauri.conf.json` 과 `Cargo.toml` 의 버전이 같다 — 절차서가 손으로 지키던 규약', () => {
+    const conf = JSON.parse(루트('src-tauri/tauri.conf.json')).version as string;
+    /* ⚠ `[package]` 절의 첫 `version` 만 본다 — 의존성에도 `version =` 이 널렸다. */
+    const cargo = /\[package\][\s\S]*?^version\s*=\s*"([^"]+)"/m.exec(루트('src-tauri/Cargo.toml'))?.[1];
+    expect(conf, 'tauri.conf.json 에 version 이 없다').toMatch(/^\d+\.\d+\.\d+/);
+    expect(cargo, 'Cargo.toml `[package]` 에서 version 을 못 읽었다 — 이 검사가 대상을 잃었다').toBeDefined();
+    expect(cargo, `릴리스.md §2-1 이 요구하는 두 곳이 갈렸다(conf ${conf} · cargo ${cargo})`).toBe(conf);
+  });
+
+  it('⚠ 배포 매니페스트가 있으면 그것도 같다 — 어긋나면 업데이터가 조용히 침묵한다', () => {
+    /* `release-verify.mjs` 가 배포 **시점**에 같은 것을 보지만, 그건 «릴리스한다»고 선언한
+       순간에만 돈다 — 그리고 **선언하지 않는 것**이 H-13 의 형태였다. 여기는 매 게이트다. */
+    const conf = JSON.parse(루트('src-tauri/tauri.conf.json')).version as string;
+    const m = JSON.parse(readFileSync(join(process.cwd(), 'public/updates/latest.json'), 'utf8')) as {
+      version: string;
+    };
+    expect(m.version, `매니페스트 ${m.version} ≠ 소스 ${conf}`).toBe(conf);
+  });
+});

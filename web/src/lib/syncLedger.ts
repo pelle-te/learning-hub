@@ -9,6 +9,72 @@
    그래서 셋으로 나뉜다 — **판정=lib(여기)** · **읽기=store/useSyncLedger** · **그리기=components**.
 ============================================================ */
 import { agoLabel } from './utils';
+import type { SyncResult } from './cloud/run';
+
+/* ============================================================
+   ⭐ **«성공했는가»의 판정을 여기 한 벌만 둔다** (O009 · 2026-08-22 운영 축)
+
+   ## 왜 옮겼나 — 같은 판정이 두 곳에 있었고 한쪽이 틀렸다
+
+   `syncController` 의 `_lastSync` 는 doc 이 스스로 적었듯 **«마지막 동기화 *시도* 기록»** 이고
+   `disconnected` 가 아닌 모든 결과에 세워진다. 그런데 `features/settings/CloudCard` 는 그 값을
+   `setSyncedAt(lastSync()?.at)` 로 **그대로** 읽어 «마지막 동기화 방금 · 최신 상태(대기 없음)»
+   라고 그렸다 — 즉 이 PC 가 다른 기기에서 폐기됐거나 D1 일일 한도가 소진돼 `syncOnce` 가
+   `{status:'blocked'}` 를 **반환**(던지지 않는다)해도 화면은 「방금 · 최신」이다.
+   **몇 주째 아무것도 못 받는 기기가 최신이라고 말한다.**
+
+   `store/useSyncLedger` 는 같은 질문에 **옳게** 답하고 있었다(`status==='ok' && !blocked`).
+   즉 R3(«처방이 발견된 자리에만 적용되고 짝을 안 찾는다»)의 전형이다 — 그리고 이 파일의
+   머리주석이 이미 그 규율을 적어 뒀다: **판정=lib · 읽기=store · 그리기=components.**
+   판정이 store 안에 있는 한 두 번째 소비자는 그것을 못 쓰고 자기 판정을 다시 짓는다.
+============================================================ */
+
+/** `syncController.lastSync()` 가 주는 모양. lib 은 store 를 import 할 수 없으므로 구조로 받는다. */
+export interface SyncAttempt {
+  at: number;
+  result: SyncResult;
+}
+
+/**
+ * 재시도가 무의미한 중단 사유. 없으면 null.
+ *
+ * ⚠ **출처가 둘이다**(H5) — push 축은 `push.status`, pull 축은 바깥 `status`. 하나만 보면
+ * 아웃박스가 빈 상태에서 한도가 소진됐을 때 중단이 통째로 안 보인다.
+ */
+export function blockedReason(ls: SyncAttempt | null): string | null {
+  if (ls?.result.push?.status === 'blocked') return ls.result.push.error ?? '알 수 없는 이유';
+  if (ls?.result.status === 'blocked') return ls.result.error ?? '알 수 없는 이유';
+  return null;
+}
+
+/**
+ * 마지막으로 **성공한** 동기화 시각. 시도만 했으면 null.
+ *
+ * ⚠ `blocked` 는 성공이 아니다 — pull 이 됐더라도 **내 편집은 하나도 안 올라갔고**
+ * 워터마크가 안 움직였다.
+ */
+export function okAt(ls: SyncAttempt | null): number | null {
+  return ls && ls.result.status === 'ok' && blockedReason(ls) === null ? ls.at : null;
+}
+
+/**
+ * 「다음 시도에 낫는다」가 더 이상 참이 아니게 되는 경계(일).
+ *
+ * ⚠ 볼트 백업의 7일보다 **짧다**. 백업은 사람이 눌러야 도는 경로라 일주일이 정상 간격이지만,
+ * 동기화는 편집·포커스·복귀마다 도는 경로다 — 3일이면 트리거 넷이 전부 헛돌았다는 뜻이다.
+ */
+export const STALE_DAYS = 3;
+
+/** 경과일. 성공 기록이 없으면 null(= 「모른다」이지 「0일」이 아니다). */
+export function staleDaysOf(lastOk: number | null, now: number): number | null {
+  if (lastOk == null) return null;
+  return Math.max(0, Math.floor((now - lastOk) / 86_400_000));
+}
+
+/** 시도는 했는데 실패했나(중단과 구분한다 — 실패는 다음 시도에 스스로 낫는다). */
+export function attemptFailed(ls: SyncAttempt | null): boolean {
+  return ls?.result.status === 'failed';
+}
 
 export interface Ledger {
   online: boolean;
@@ -37,6 +103,19 @@ export interface Ledger {
    * 덮으면 사용자는 네트워크가 돌아오기를 기다리며 계속 편집한다.
    */
   blocked: string | null;
+  /**
+   * 마지막 성공으로부터 며칠 지났나. 모르면 null(= 한 번도 성공한 적 없거나 DB 미가용).
+   *
+   * ⚠⚠ **이 축이 없어서 «언제부터»를 영원히 알 수 없었다**(O008 · 2026-08-22 운영 축).
+   * `at` 은 **이번 세션의** 성공 시각이라 앱을 껐다 켜면 null 이 된다 — 그래서 3주째 실패
+   * 중인 기기의 첫 시도가 실패하면 화면은 «동기화 실패 — 다음 시도에 다시 올려요» 이고,
+   * 그 문장은 **첫 실패와 글자 하나 다르지 않다.** 며칠 만에 아는가: **영원히 모른다.**
+   * 이 값은 `sync_state` 에 영속되므로 재시작을 넘는다(`outbox.LAST_OK_KEY`).
+   *
+   * ⚠ **임계는 볼트 백업(7일)보다 짧다.** 동기화는 하루에도 수십 번 돌아야 하는 경로라
+   * 7일이면 이미 손쓸 시점을 한참 지난다 — 3일로 잡는다(`STALE_DAYS`).
+   */
+  staleDays: number | null;
   /**
    * **이 세션에서 아직 한 번도 동기화가 끝나지 않았다**(Q-23 · 2026-08-02).
    *
@@ -79,13 +158,19 @@ export function ledgerLine(led: Ledger, now: number): { text: string; warn: bool
   const text = !led.online
     ? `오프라인 — 편집 ${led.pending ?? 0}건은 이 기기에 저장돼 있어요`
     : led.failed
-      ? /* ⚠ 대기가 없으면 **건수를 말하지 않는다**(H3). 종전엔 늘 "편집 0건이 대기 중이에요"라
+      ? /* ⚠⚠ **경과가 먼저다**(O008 · 2026-08-22). «다음 시도에 다시 올려요» 는 자기치유를
+           함의하는데, 3일 넘게 안 되고 있으면 그건 참이 아니다 — 그 상태는 사람이 봐야 풀린다.
+           볼트 백업이 `days >= 7` 을 `stale` 로 판정하고 「무엇을 잃나」까지 붙이는 것과 같은
+           형태이고, 동기화만 그 짝이 없었다(R3).
+           ⚠ 대기가 없으면 **건수를 말하지 않는다**(H3). 종전엔 늘 "편집 0건이 대기 중이에요"라
            적었는데, 0건 대기는 사실이 아니라 잡음이다 — 그리고 이 원장의 존재 이유가 "숫자가
            있으면 말하고 없으면 침묵한다"이다. 실제로 폰 헤더에서 그 문구가 보이기 시작하며
            드러났다(H3 의 구독이 붙기 전까지는 이 분기가 화면에 도달한 적이 없었다). */
-        waiting
-        ? `동기화 실패 — 편집 ${led.pending}건이 대기 중이에요`
-        : '동기화 실패 — 다음 시도에 다시 올려요'
+        led.staleDays != null && led.staleDays >= STALE_DAYS
+        ? `동기화가 ${led.staleDays}일째 안 되고 있어요 — 설정 › 클라우드에서 확인해 주세요`
+        : waiting
+          ? `동기화 실패 — 편집 ${led.pending}건이 대기 중이에요`
+          : '동기화 실패 — 다음 시도에 다시 올려요'
       : waiting
         ? `올리는 중 — ${led.pending}건 대기`
         : led.at != null

@@ -21,6 +21,8 @@
 ============================================================ */
 import { syncOnce, type SyncResult } from '@/lib/cloud/run';
 import { readCloudConfig } from '@/lib/cloud/client';
+import { commitLastOk } from '@/lib/cloud/outbox';
+import { okAt } from '@/lib/syncLedger';
 import { applyPull } from '@/lib/cloud/merge';
 import { nextStamp } from '@/lib/db/stamp';
 import { endMergeApply, withMergeSession } from '@/lib/db/write';
@@ -119,6 +121,14 @@ async function runSyncInner(): Promise<SyncResult> {
     // 아니라 남기지 않는다. 설정 카드가 "마지막 동기화 N분 전"으로 읽는다.
     if (r.status !== 'disconnected') {
       _lastSync = { at: Date.now(), result: r };
+      /* ⚠⚠ **성공만 디스크에 남긴다**(O008 · 2026-08-22 운영 축). `_lastSync` 는 모듈 지역
+         상태라 새로고침마다 0 으로 돌아가고, 그래서 «방금 한 번 실패»와 «3주 연속 실패»가
+         같은 문구로 그려졌다. 판정은 `lib/syncLedger.okAt` 한 벌이 소유한다(O009 와 같은 값).
+         ⚠ 실패는 안 적는다 — 세려는 것은 «실패 횟수»가 아니라 **«마지막으로 됐던 때»** 다.
+         전자는 재시도 정책에 따라 뜻이 바뀌고 후자는 안 바뀐다.
+         ⚠ 쓰기 실패를 삼킨다: 관측이 동기화를 해치지 않는다(아래 구독 루프와 같은 규율). */
+      const ok = okAt(_lastSync);
+      if (ok !== null) void commitLastOk(ok).catch(() => {});
       // 구독자에게 알린다(원장 갱신 등). 구독자 하나가 던져도 다른 구독자와 동기화를 막지 않는다.
       for (const cb of _resultSubs) {
         try {

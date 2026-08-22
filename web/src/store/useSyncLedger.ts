@@ -10,11 +10,11 @@
 ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { lastSync, onSyncResult } from './syncController';
-import { collectOutbox } from '@/lib/cloud/outbox';
+import { collectOutbox, readLastOk } from '@/lib/cloud/outbox';
 import { readCloudConfig } from '@/lib/cloud/client';
 import { batchSize } from '@/lib/cloud/contract';
 import { onVisible, onHidden } from '@/lib/visibility';
-import type { Ledger } from '@/lib/syncLedger';
+import { attemptFailed, blockedReason, okAt, staleDaysOf, type Ledger } from '@/lib/syncLedger';
 
 /** 30초 — 상대시각("3분 전")이 어긋나 보이지 않을 만큼만. 이 값이 DB 를 두드리지는 않는다. */
 const TICK_MS = 30_000;
@@ -26,6 +26,7 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     at: null,
     failed: false,
     blocked: null,
+    staleDays: null,
     /* ⚠ **초깃값이 `false` 인 것이 계약이다**(Q-23). `true` 로 두면 클라우드를 안 붙인 사용자도
        첫 프레임에 "확인 중"을 보고, 그건 영원히 끝나지 않는다 — 아래 첫 읽기가 자격증명을 확인한
        **뒤에만** 켠다. 이 앱은 클라우드 없이도 완결된다는 것이 그 침묵의 근거다. */
@@ -53,27 +54,30 @@ export function useSyncLedger(): { led: Ledger; now: number } {
     } catch {
       /* 셀 수 없으면 모른다고 둔다 — 관측이 앱을 해치지 않는다. */
     }
-    /* ⚠ `blocked` 는 `SyncResult.status` 가 아니라 **`push.status`** 에서 온다(H3).
-       `runSyncOnce` 는 push 가 막혀도 pull 이 되면 `'ok'` 를 돌려주므로, 바깥 status 만 보면
-       중단이 통째로 안 보인다 — 그게 원장이 "올리는 중"을 무한히 말하던 경로다. */
-    /* ⚠ **축이 둘이다(H5 · 2026-07-31)** — pull 축의 재시도 불가 실패는 바깥 `status` 로 온다
-       (`run.ts` 의 `SyncResult.status` 주석). 하나만 보면 아웃박스가 빈 상태에서 한도가 소진됐을 때
-       "다음 시도에 다시 올려요"라는 **거짓 위로**가 나간다. */
-    const blocked =
-      ls?.result.push?.status === 'blocked'
-        ? (ls.result.push.error ?? '알 수 없는 이유')
-        : ls?.result.status === 'blocked'
-          ? (ls.result.error ?? '알 수 없는 이유')
-          : null;
+    /* ⚠ 이 세 판정(중단 사유 · 성공 시각 · 실패)은 **`lib/syncLedger` 가 소유한다**(O009 ·
+       2026-08-22). 종전엔 여기 지역 구현이 있었고 `CloudCard` 가 그것을 못 써서 자기 판정을
+       다시 지었는데 **그쪽이 틀렸다**(시도를 성공으로 그렸다). 규율은 이 파일 머리주석에
+       이미 있었다 — 판정=lib · 읽기=여기 · 그리기=components. */
+    const blocked = blockedReason(ls);
+    /* ⚠ **디스크에서 읽는다 — 세션 상태가 아니다**(O008). 이 한 줄이 「방금 한 번 실패」와
+       「3주 연속 실패」를 가른다. `collectOutbox` 와 같은 규율으로 실패를 삼킨다(모르면 null:
+       관측이 앱을 해치지 않고, 「모른다」를 「0일」로 그리지도 않는다). */
+    let lastOk: number | null = null;
+    try {
+      lastOk = await readLastOk();
+    } catch {
+      /* 못 읽으면 모른다 — 경과를 0 으로 꾸미지 않는다. */
+    }
     setLed({
       online: navigator.onLine,
       pending,
       /* ⚠ 중단됐으면 "언제 성공했나"를 말하지 않는다 — pull 은 성공했더라도 **내 편집은 하나도
          안 올라갔다.** 여기서 `ls.at` 을 주면 "· 방금 동기화" 로 읽힐 수 있는데(blocked 문구가
          이기긴 하지만) 원장이 서로 모순되는 두 사실을 들고 있게 된다. */
-      at: ls && ls.result.status === 'ok' && !blocked ? ls.at : null,
-      failed: ls?.result.status === 'failed',
+      at: okAt(ls),
+      failed: attemptFailed(ls),
       blocked,
+      staleDays: staleDaysOf(lastOk, Date.now()),
       /* 클라우드가 붙어 있는데 **이번 세션에 결과가 하나도 없다** = 첫 확인이 아직 안 끝났다.
          `_lastSync` 는 모듈 상태라 새로고침마다 null 로 돌아온다(그게 "이번 세션"의 정의다). */
       checking: cloud && ls === null,

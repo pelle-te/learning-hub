@@ -63,6 +63,63 @@ if (existsSync(CONF)) {
   console.log(`  ok 소스 ↔ 매니페스트 버전 ${src}`);
 }
 
+/* ⚠⚠ **서명 「키 신원」을 보는 축이 0개였다**(O001 · 2026-08-22 운영 축 · Critical).
+
+   아래 `:서명 ↔ 로컬 .sig` 축은 «매니페스트의 signature 가 로컬 .sig 와 같은가» 만 본다.
+   그런데 **둘 다 같은 잘못된 키에서 나왔으면 그 축은 통과한다.** 클라이언트가 실제로 대조하는
+   것은 배포본에 구워진 `tauri.conf.json` 의 `pubkey` 인데, 이 검사기는 그 파일의 `pubkey` 를
+   **한 번도 읽지 않았다**(전체에서 0건 — 실측).
+
+   실패 시나리오: 키를 재생성했거나 다른 기기/옛 백업의 키를 썼다 → `tauri:build` 통과(**어떤
+   유효한 minisign 키로도 서명된다**) → `release:stage` 통과(signature 가 비어 있지 않다) →
+   `release:verify` **통과** → 그런데 **전 사용자가 minisign 검증에 실패한다.** 그리고 이 앱은
+   부팅 시 자동 확인을 하지 않으므로(`updater.rs` 의 의도된 설계) **사용자가 설정에서 누르기
+   전까지 아무도 모른다.** C1(폴백 HTML)과 같은 «매니페스트는 살아 있는데 전달이 죽었다» 인데,
+   C1 은 이 검사기가 잡고 이쪽은 잡는 축이 없었다.
+
+   ⚠ 이 축은 **네트워크 앞**에 둔다 — 배포를 내보내기 전에 죽는 것이 요점이다.
+   minisign 바이트 배치: `[0..2]=알고리즘 · [2..10]=key id · 그 뒤=키/서명 본체`. 공개키와
+   서명 둘 다 «주석 줄 + base64 줄» 이라 **마지막 줄**을 뽑아 디코드한다.
+   (알고리즘은 공개키 `Ed` · 서명 `ED`(prehashed)로 **다른 것이 정상**이다 — key id 만 본다.) */
+const keyIdOf = (b64) => {
+  /* ⚠ **줄 번호로 집지 마라.** 공개키 블록은 2줄(주석 + 키)인데 서명 블록은 **3줄**이다
+     (주석 + 서명 + `trusted comment: timestamp:… file:…`). `.pop()` 은 서명에서 그 마지막
+     주석 줄을 집어 **엉뚱한 key id 를 낸다** — 이 구현의 첫 판이 실제로 그랬고, 멀쩡한 키를
+     불일치라 신고했다. 주석 줄을 이름으로 걸러 내는 것이 두 형태 모두에 옳다. */
+  const line = Buffer.from(b64, 'base64')
+    .toString('utf8')
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l && !/^(un)?trusted comment:/.test(l));
+  if (!line) throw new Error('minisign 블록에서 base64 본체 줄을 못 찾았다');
+  return Buffer.from(line, 'base64').subarray(2, 10).toString('hex');
+};
+if (existsSync(CONF)) {
+  const pubkey = JSON.parse(readFileSync(CONF, 'utf8')).plugins?.updater?.pubkey;
+  if (!pubkey) {
+    console.error('❌ tauri.conf.json 에 `plugins.updater.pubkey` 가 없다 — 대조할 신뢰 기준이 없다.');
+    process.exit(1);
+  }
+  const want = keyIdOf(pubkey);
+  const 대상 = Object.entries(local.platforms ?? {}).filter(([, p]) => p.signature);
+  /* ⚠ 분모를 단언한다 — 서명이 하나도 없으면 아래 루프가 조용히 통과한다(이 저장소가
+     "녹색인데 아무것도 안 쟀다"로 반복해 물린 형태). */
+  if (대상.length === 0) {
+    console.error('❌ 매니페스트에 signature 를 가진 플랫폼이 하나도 없다 — 서명 축이 아무것도 안 잰다.');
+    process.exit(1);
+  }
+  for (const [platform, p] of 대상) {
+    const got = keyIdOf(p.signature);
+    if (got !== want) {
+      console.error(`❌ ${platform}: 서명 키 ${got} ≠ 배포본이 신뢰하는 키 ${want}`);
+      console.error('   → 이대로 내면 **모든 클라이언트가 업데이트를 거부한다**(그리고 아무도 모른다).');
+      console.error('   → `src-tauri/.updater-key` 가 배포본의 pubkey 와 짝인지 확인할 것 — 절차는 `docs/릴리스.md`.');
+      process.exit(1);
+    }
+  }
+  console.log(`  ok 서명 키 신원 ${want} (플랫폼 ${대상.length})`);
+}
+
 /** 오리진은 매니페스트의 `url` 에서 뽑는다 — 값을 두 벌로 두지 않는다. */
 const first = Object.values(local.platforms ?? {})[0];
 const origin = first?.url ? new URL(first.url).origin : null;

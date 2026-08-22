@@ -79,6 +79,45 @@ export {
 export const WATERMARK_KEY = 'watermark';
 /** 받기 전용 워터마크("어디까지 받았나"). 발급/커밋은 `run.ts` 가, 삭제는 `client.ts` 가 한다. */
 export const PULL_MARK_KEY = 'cloud:pullMark';
+/**
+ * 마지막으로 **완전히 성공한** 동기화 시각(epoch ms 문자열).
+ *
+ * ⚠⚠ **동기화 실패에 「언제부터」와 「몇 번째」가 없었다**(O008 · 2026-08-22 운영 축).
+ * `syncController` 의 `_lastSync` 는 **모듈 지역 상태**라 `useSyncLedger` 가 스스로 적었듯
+ * *"새로고침마다 null 로 돌아온다"*. 그래서 3주째 실패 중인 기기가 앱을 껐다 켜면 첫 시도
+ * 실패 → 원장 `{at:null, failed:true}` → 문구 «동기화 실패 — 다음 시도에 다시 올려요» 다.
+ * **그 한 문장이 「방금 한 번 실패」와 「3주 연속 실패」를 같은 픽셀로 그린다.**
+ *
+ * ⭐ **같은 앱이 같은 질문에 이미 답을 갖고 있었다**(R3 · 짝): 볼트 백업은 `_lastBackupAt` 을
+ * 앱 스키마에 **영속**하고 `days >= 7` 을 `stale` 로 판정하며 「무엇을 잃나」까지 붙인다
+ * (`Settings.tsx`). 동기화만 그 짝이 없었다 — 이 키가 그 짝이다.
+ *
+ * ⚠ 자리가 `sync_state` 인 것이 계약의 일부다: 기기 로컬이고 **내보내기·동기화 대상이 아니다**
+ * (`client.ts:11` 이 그 배제가 «별도 테이블이라 구조적으로 보장된다»고 적은 그 자리).
+ * 다른 기기의 성공 시각으로 이 기기의 침묵을 덮으면 이 값의 뜻이 통째로 사라진다.
+ */
+export const LAST_OK_KEY = 'cloud:lastOkAt';
+
+/** 마지막 성공 시각. 없으면 null = **「한 번도 성공한 적 없다」와 「모른다」를 함께** 뜻한다. */
+export async function readLastOk(): Promise<number | null> {
+  const rows = await selectDb<{ value: string }>('SELECT value FROM sync_state WHERE key = ?', [LAST_OK_KEY]);
+  const n = Number(rows?.[0]?.value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * 성공 시각을 적는다.
+ *
+ * ⚠ 워터마크와 같은 이유로 **뒤로 가지 않는다**(`MAX`). 시계가 뒤로 튀거나(수동 변경·NTP)
+ * 늦게 도착한 결과가 앞선 성공을 덮으면 «며칠째»가 갑자기 늘어나 거짓 경보가 된다.
+ */
+export async function commitLastOk(at: number): Promise<boolean> {
+  return execDb(
+    `INSERT INTO sync_state (key, value) VALUES (?1, ?2)
+       ON CONFLICT(key) DO UPDATE SET value = MAX(CAST(value AS INTEGER), CAST(?2 AS INTEGER))`,
+    [LAST_OK_KEY, String(at)],
+  );
+}
 
 /** 현재 워터마크. 없거나 DB 미가용이면 0 = "아무것도 안 보냈다"(전량이 대상). */
 export async function readWatermark(): Promise<number> {

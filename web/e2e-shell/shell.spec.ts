@@ -28,7 +28,7 @@
 
    스냅샷은 안 찍는다(픽셀 회귀는 트랙 A 의 몫 — 베이스라인 두 벌 방지).
 ============================================================ */
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
@@ -428,4 +428,68 @@ test('부팅 계량 — 실 WebView2 에서도 첫 라우트가 Suspense 폴백�
   expect(gap, 'React Suspense 억제(≈248ms)가 WebView2 에서 살아 있다 — `registry.warmTab` 머리주석 참조').toBeLessThan(
     50,
   );
+});
+
+/* ============================================================
+   ⭐ **프런트 실패가 디스크에 남는가**(O007 · 2026-08-22 운영 축)
+
+   ## 왜 여기여야만 하나 (이 파일의 남는 기준 그대로)
+
+   이 다리는 **WebView2 안에서만 존재한다**: `isTauri()` 가 참이어야 걸리고, Rust 파일 싱크에
+   닿으려면 `@tauri-apps/plugin-log` 의 IPC 와 `capabilities` 의 `log:default` ACL 이 **둘 다**
+   살아 있어야 한다. 트랙 A(Chromium + `vite preview`)에는 그 셋이 전부 없고 `cargo test` 에는
+   프런트가 없다 — 즉 **다른 어느 층도 원리적으로 못 본다.**
+
+   ## 무엇이 없어서 이 케이스가 생겼나
+
+   실측(2026-08-22): 프런트 `console.error` **38곳/15파일**이 릴리스에서 **증발**했다. Rust 는
+   `LevelFilter::Warn` + 파일 싱크를 이미 갖고 있었고 프런트에서 거기 닿는 경로가 셋 다 없었다
+   (플러그인 미설치 · ACL 없음 · devtools 0). 사용자가 "저장이 안 돼요" 라 할 때 첨부할
+   `learning-hub.log` 에 **프런트 줄이 0** 이었다.
+
+   ⚠ **정적 검사로는 이 셋 중 어느 것도 못 잡는다** — 플러그인을 지워도 `import()` 가 실패를
+   삼키고(그게 의도다: 로그가 앱을 멈추면 처방이 병보다 나쁘다), ACL 을 빼도 호출이 조용히
+   거부된다. **둘 다 화면상 정상**이다. 그래서 「파일이 자랐는가」를 직접 본다.
+   ⚠ 로그 폴더는 SD-6 override 를 탄다(`paths.rs::log_dir`) — 이 케이스는 **사용자의 실제
+   로그를 만지지 않는다.** 그 라우팅을 O007 이 함께 넣은 이유가 이것이다.
+============================================================ */
+test('프런트 `console.error` 가 로그 **파일**까지 간다(O007)', async () => {
+  const shell = await sharedShell();
+  /* ⚠⚠ **파일 이름을 짐작하지 마라.** `TargetKind::Folder { file_name: None }` 의 기본값은
+     DB 이름이 아니라 **`productName`** 이라 실물은 `러닝허브.log` 다(첫 판이 `learning-hub.log`
+     로 찾다가 «다리가 죽었다»고 잘못 신고했다 — 다리는 멀쩡했다). 폴더에서 **찾는다**. */
+  const 로그찾기 = (): string | null => {
+    const d = e2eDataDir();
+    if (!existsSync(d)) return null;
+    const f = readdirSync(d).find((n) => n.toLowerCase().endsWith('.log'));
+    return f ? path.join(d, f) : null;
+  };
+
+  /* ⚠ 마커에 난수를 안 쓴다 — 실패 메시지가 재현 가능해야 한다. 대신 이 케이스만 쓰는 문구라
+     다른 줄과 안 섞인다. */
+  const 마커 = 'O007-트랙B-마커: 프런트에서 낸 오류';
+  await shell.page.evaluate((m) => console.error(m), 마커);
+
+  /* 싱크는 비동기(IPC 왕복 + 파일 쓰기)라 잠깐 기다린다. ⚠ 고정 sleep 이 아니라 **폴링**이다 —
+     느린 러너에서 고정값은 flaky 의 근원이고, 이 저장소가 이미 그것으로 물렸다(a11y 30초). */
+  let 본문 = '';
+  let 로그: string | null = null;
+  for (let i = 0; i < 40; i++) {
+    로그 = 로그찾기();
+    본문 = 로그 ? readFileSync(로그, 'utf8') : '';
+    if (본문.includes(마커)) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  expect(
+    본문,
+    `프런트 오류가 로그 파일에 안 남았다(${로그 ?? e2eDataDir() + ' 안에 .log 없음'}) — 셋 중 하나가 죽었다: ` +
+      '`@tauri-apps/plugin-log` 설치 · `capabilities` 의 `log:default` · `main.tsx` 의 `bridgeConsole()`. ' +
+      '⚠ 셋 다 **실패를 조용히 삼키므로** 화면상으로는 정상으로 보인다.',
+  ).toContain(마커);
+
+  /* ⚠ 짝: 원본 콘솔이 살아 있어야 한다 — 다리가 출력을 **가로채고 끝내면** devtools·트랙 A 에서
+     오류가 사라진다(관측이 관측 대상을 해친다). 여기서는 함수가 여전히 호출 가능한지만 본다. */
+  const 살아있음 = await shell.page.evaluate(() => typeof console.error === 'function');
+  expect(살아있음, '`console.error` 가 함수가 아니게 됐다 — 다리가 콘솔을 망가뜨렸다').toBe(true);
 });

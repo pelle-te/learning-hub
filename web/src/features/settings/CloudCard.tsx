@@ -41,6 +41,7 @@ import { Button } from '@/components/ui';
 import { confirmIrreversible, toast } from '@/shell';
 import { Icon } from '@/components/Icon';
 import { agoLabel } from '@/lib/utils';
+import { blockedReason, okAt } from '@/lib/syncLedger';
 
 /* ⚠ 상대 시각 사본을 지웠다(H16 · 2026-08-01) — 여기 있던 `relTime` 은 사다리가 **시간에서
    끊겨** 있어서(어제·N일 전이 없다) 같은 `syncedAt` 을 레일은 "어제", 이 카드는 "36시간 전"이라
@@ -93,10 +94,21 @@ export default function CloudCard() {
      눈을 피하고 있었을 뿐이다). */
   const [statusAt, setStatusAt] = useState<number>(0);
 
+  /* ⚠⚠ **중단 사유는 상태다** — «최신 상태»라는 말이 거짓이 되는 유일한 조건이라 함께 든다. */
+  const [blocked, setBlocked] = useState<string | null>(null);
+
   const refreshStatus = useCallback(async () => {
     const b = await collectOutbox(); // ⚠ 스캔 1회(펜스 스탬프를 하나 소모하지만 단조라 무해)
     setPending(b ? batchSize(b) : null);
-    setSyncedAt(lastSync()?.at ?? null);
+    /* ⚠⚠ **`lastSync().at` 은 «시도» 시각이다**(O009 · 2026-08-22 운영 축). 그 필드의 doc 이
+       스스로 *"마지막 동기화 **시도** 기록"* 이라 적었고 `disconnected` 가 아닌 모든 결과에
+       세워진다. 종전엔 그것을 그대로 `syncedAt` 에 넣어서, 이 PC 가 폐기됐거나 D1 한도가
+       소진돼 `syncOnce` 가 `{status:'blocked'}` 를 **반환**해도 이 카드가 «마지막 동기화 방금 ·
+       최신 상태(대기 없음)» 라고 말했다 — **몇 주째 아무것도 못 받는 기기가 최신이라고 한다.**
+       ⚠ 같은 파일 세 줄 위의 `syncToast` 는 U004 가 이미 고쳤다(R3 · 짝). */
+    const ls = lastSync();
+    setSyncedAt(okAt(ls));
+    setBlocked(blockedReason(ls));
     setStatusAt(Date.now());
   }, []);
 
@@ -241,7 +253,11 @@ export default function CloudCard() {
           {/* 관측성 readout(§14 발전 #4) — 마지막 동기화 시각 + 아직 안 올라간 건수. */}
           <div className="ds-foot ds-tiny">
             {syncedAt ? `마지막 동기화 ${agoLabel(syncedAt, statusAt)}` : '아직 동기화 전'}
-            {pending != null && (pending > 0 ? ` · 올릴 것 ${pending}건 대기` : ' · 최신 상태(대기 없음)')}
+            {/* ⚠ 중단 중에는 «최신 상태»를 말하지 않는다 — 아웃박스가 비어 있어도 그건 «올릴
+                것이 없다»가 아니라 «워터마크가 안 움직였다» 이다(원장과 같은 규율). */}
+            {blocked
+              ? ` · 동기화 중단 — ${blocked}`
+              : pending != null && (pending > 0 ? ` · 올릴 것 ${pending}건 대기` : ' · 최신 상태(대기 없음)')}
           </div>
 
           {/* ⚠ 기기 목록 = **분실 대응 수단**. 폰을 잃으면 여기서 그 기기만 끊는다. */}

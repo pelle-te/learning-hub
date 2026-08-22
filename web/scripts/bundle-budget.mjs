@@ -35,6 +35,7 @@
    ⚠ 넷의 공통점: **앞의 축이 녹색이어도 뒤의 축이 잡는 것이 따로 있다.** 축을 하나로 합치려
       할 때마다 이 목록을 먼저 읽을 것 — 셋 다 "기존 축이 못 보는 것"으로 생겼다.
 ============================================================ */
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { join, relative } from 'node:path';
@@ -320,6 +321,52 @@ console.log('\n--- 번들 오염(배포용 바이너리가 dist 에 있는가) -
     console.log('      → release-assets/ 로 옮기고, 배포 직전에만 `npm run release:stage`.');
   } else {
     console.log('  ok  없음');
+  }
+}
+
+/* ── 축 ⑤ — **저장소 바이트**(O019 · 2026-08-22 운영 축) ────────────────────────────
+   ①~④는 전부 **배포되는** 바이트만 본다. 그런데 이 저장소가 실제로 임계에 닿은 축은 그게
+   아니었다: 도달 가능 blob 이 30일에 **194.8 MB → 804.6 MB (+313%)** 였고, 그 증가의 **83%가
+   시각 베이스라인 재생성**이다(작업트리 실물은 110장 29 MB — 즉 **파일당 평균 23벌**이 이력에
+   쌓였다). 원격은 이미 609 MB 이고 GitHub 권고는 **1 GB 미만**이다.
+
+   ⚠⚠ **git 이력은 append-only 라 「나중에 정리」가 성립하지 않는다.** 이 축이 다른 넷과
+   다른 점이 그것이다 — ①~④는 초과해도 다음 커밋에서 되돌리면 사라지는데, 여기서 넘긴 바이트는
+   히스토리 재작성 없이는 안 없어진다. 그래서 **예산이 아니라 래칫**이고, 넘으면 처방은
+   「줄여라」가 아니라 **「무엇이 이력에 들어가고 있는지 보라」** 다.
+
+   ⚠ 이 파일 머리주석이 축을 넷으로 늘린 논거(*"앞의 축이 녹색이어도 뒤의 축이 잡는 것이
+   따로 있다"*)가 정확히 여기 미적용이었다: 게이트가 «배포 번들 gzip KB» 는 1 KB 단위로
+   지키면서 매달 600 MB 씩 영구히 쌓이는 축에는 아무 말도 안 했다. */
+console.log('\n--- 저장소 바이트(이력 · append-only) ---');
+{
+  /* 실측 645 MiB(pack 608.1 + loose 37.0 · 2026-08-22) + 여유 ~8%.
+     ⚠ 이 값을 올릴 때는 **왜 늘었는지** 함께 적어라. 그냥 올리면 이 축은 아무것도 안 지킨다. */
+  const REPO_MIB = 700;
+  try {
+    const co = Object.fromEntries(
+      execFileSync('git', ['count-objects', '-v'], { encoding: 'utf8' })
+        .trim()
+        .split('\n')
+        .map((l) => l.split(': ')),
+    );
+    // `size`·`size-pack` 은 **KiB** 단위다(git 문서).
+    const mib = (Number(co['size']) + Number(co['size-pack'])) / 1024;
+    if (!Number.isFinite(mib)) throw new Error('git count-objects 출력을 못 읽었다');
+    const pct = Math.round((mib / REPO_MIB) * 100);
+    console.log(`      ${mib.toFixed(0)} MiB / ${REPO_MIB} MiB (${pct}%)`);
+    if (mib > REPO_MIB) {
+      failed = true;
+      console.log('OVER  저장소 이력이 예산을 넘었다 — **되돌릴 수 없는 바이트다.**');
+      console.log('      → 무엇이 쌓이는지 보라: `git count-objects -v` + 시각 베이스라인 재생성 빈도.');
+      console.log('      → 실측상 증가의 83%가 `web/e2e` 스냅샷이다(전량 재생성 1회 = 110장).');
+    } else {
+      console.log('  ok  예산 내');
+    }
+  } catch (e) {
+    /* ⚠ **조용히 건너뛰지 않는다.** git 이 없는 환경(배포 tarball 등)은 이 축을 못 재는데,
+       그걸 「통과」로 그리면 «녹색인데 아무것도 안 쟀다»가 된다. 모른다고 말하고 넘어간다. */
+    console.log(`      – 못 쟀다(${e instanceof Error ? e.message : e}) — 「예산 내」가 아니라 「모른다」다.`);
   }
 }
 

@@ -54,8 +54,11 @@ const ALL = [
      ⚠ 자리가 `audit` 바로 뒤인 것은 규율 그대로다 — 같은 종류의 신호를 붙여 둔다. */
   { name: 'server audit', args: ['run', 'audit', '--prefix', '../server'], mode: 'full' },
   /* ⚠ **루트 패키지도 SCA 대상이다**(D018 · 2026-08-21 데이터 축). 종전엔 web·server 둘만
-     봤는데, 루트 트리가 `@tauri-apps/cli`(+플랫폼 바이너리)를 지고 **아래 `release:sign` 이
-     그 프로세스에 `TAURI_SIGNING_PRIVATE_KEY` 를 넣는다.** 즉 세 트리 중 유일하게 «비밀을 보는» 트리가
+     봤는데, 루트 트리가 `@tauri-apps/cli`(+플랫폼 바이너리)를 지고 **아래 `tauri:build` 단계가
+     그 프로세스에 `TAURI_SIGNING_PRIVATE_KEY` 를 넣는다**(이 파일 하단의 `env` 조립).
+     ⚠ 종전 이 줄은 `release:sign` 이라 적었는데 **그런 단계는 이 파일에도 `package.json` 에도
+     없다**(V036 · 2026-08-22 규약 축). 즉 근거가 존재하지 않는 것을 가리키고 있었다.
+     즉 세 트리 중 유일하게 «비밀을 보는» 트리가
      게이트 밖이었고, 거기 high 가 떠도 어느 원장에도 안 걸린 채 전량 녹색이 나왔다.
      `server audit` 옆이 자리인 것은 규율 그대로 — 같은 종류의 신호를 붙여 둔다. */
   { name: 'root audit', args: ['run', 'audit', '--prefix', '..'], mode: 'full' },
@@ -67,6 +70,14 @@ const ALL = [
      그게 의도다 — 이 저장소가 반복해 물린 형태가 «있는 줄 알았는데 안 돌고 있었다» 이다.
      근거는 `src-tauri/deny.toml` 머리주석. */
   { name: 'tauri:deny', args: ['run', 'tauri:deny', '--prefix', '..'], mode: 'cargo' },
+  /* ⚠⚠ **시간 축의 유일한 게이트**(O006·O030·O031·O032 · 2026-08-22 운영 축). 위 단계는 전부
+     «이 커밋이 괜찮은가»를 묻는다 — 그런데 이 저장소가 실제로 다친 방식은 그게 아니었다:
+     배포가 **14일 · 15커밋** 미도달이고, CI 가 **2런 연속 실패한 채 이틀**이고, 큐에 **16일
+     갇힌 런**이 있었고, Renovate 가 **34일 0회** 였다. 넷 다 로그에는 남아 있고 넷 다 아무도
+     몰랐다 — «늦었다»를 판정하는 술어가 어디에도 없었기 때문이다(근본 원인 R1).
+     ⚠ 자리가 `audit` 계열 **뒤**인 것은 규율 그대로다(같은 종류의 신호를 붙여 둔다) — 그리고
+     둘 다 네트워크를 타므로 `full` 이다. 근거 전문은 `scripts/freshness.mjs` 머리주석. */
+  { name: 'freshness', args: ['run', 'freshness'], mode: 'full' },
   { name: 'build', args: ['run', 'build'], mode: 'full' },
   { name: 'budget', args: ['run', 'budget'], mode: 'full' },
   /* ⚠⚠ **`server verify` 가 어떤 로컬 게이트에도 없었다**(2026-08-01 `/감사 근본` · 패리티 사고).

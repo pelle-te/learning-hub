@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 /* ============================================================
    observations.test.ts — **백업의 범위**를 잠근다(2026-08-20 리뷰 m-17).
 
@@ -11,6 +10,21 @@
 
    ⚠ **분모를 먼저 단언한다.** 빈 결과를 성공으로 읽으면 이 파일이 정확히 그 결함을 통과시킨다
    (이 저장소가 "녹색인데 아무것도 안 쟀다"로 반복해 물린 형태).
+
+   ## ⚠⚠ 이 파일에 `@vitest-environment jsdom` 을 다시 달지 마라 (O003 · 2026-08-22 운영 축)
+
+   달려 있었고, **그것이 CI 를 이틀간 빨간불로 만든 원인이었다.** 프라그마는 이 파일을 vite 의
+   *client* 환경으로 옮기는데, 그 환경은 `noExternal` 이라 아래 `node:sqlite` 를 **번들하려 든다**.
+   그게 되느냐 마느냐는 러너의 Node 버전에 달려 있다 — `node:sqlite` 가 `builtinModules` 에
+   들어온 24 에서는 외부화되고(로컬 통과), 22 에서는
+   `Cannot bundle Node.js built-in "node:sqlite"` 로 죽는다(CI 실패). 즉 **로컬 게이트 녹색이
+   CI 녹색을 보장하지 않는 통로**가 이 한 줄이었다.
+
+   이 파일이 jsdom 에서 쓰던 DOM 은 `window` **하나뿐**이고 그것도 `isTauri()` 를 참으로
+   만들려는 것이다(`lib/isTauri.ts` 는 `typeof window !== 'undefined'` 를 본다) — node 환경에서
+   `globalThis.window` 를 세우면 같은 값을 얻는다. 환경을 통째로 바꿀 이유가 없었다.
+   ⚠ 짝: `.nvmrc` 를 CI 가 읽게 한 것이 **근본** 처방이고(선언과 실행이 갈려 있었다), 이건
+   그 통로 자체를 없앤 **국소** 처방이다. 둘 다 한다 — 이 저장소가 반복해 물린 형태라서.
 ============================================================ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -68,7 +82,9 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 beforeEach(() => {
-  (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+  /* ⚠ node 환경이다 — `window` 를 여기서 만든다(위 머리주석: jsdom 을 쓰지 않는 이유). */
+  (globalThis as unknown as Record<string, unknown>).window ??= {};
+  (globalThis.window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
   visits.clear();
   signals.clear();
   hops.clear();
@@ -77,7 +93,7 @@ beforeEach(() => {
   select.mockClear();
 });
 afterEach(() => {
-  delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+  delete (globalThis.window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
   vi.restoreAllMocks();
 });
 

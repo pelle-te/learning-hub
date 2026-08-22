@@ -181,9 +181,21 @@ pub fn run() {
                     } else {
                         log::LevelFilter::Warn
                     })
-                    .target(tauri_plugin_log::Target::new(
-                        tauri_plugin_log::TargetKind::LogDir { file_name: None },
-                    ))
+                    /* ⚠ override 가 있으면 **그 폴더**에 쓴다(SD-6 · O007). 트랙 B 가 프런트
+                    로그 다리를 검사하려면 로그 파일을 읽어야 하는데, 기본 경로면 그것이
+                    **사용자의 실제 로그**다 — `paths.rs` 가 존재하는 이유가 정확히 그 부류다.
+                    미설정이면 종전 그대로 `LogDir` 이다(배포본 경로 무변). */
+                    .target(match crate::paths::log_dir() {
+                        Some(d) => tauri_plugin_log::Target::new(
+                            tauri_plugin_log::TargetKind::Folder {
+                                path: d,
+                                file_name: None,
+                            },
+                        ),
+                        None => tauri_plugin_log::Target::new(
+                            tauri_plugin_log::TargetKind::LogDir { file_name: None },
+                        ),
+                    })
                     .target(tauri_plugin_log::Target::new(
                         tauri_plugin_log::TargetKind::Stdout,
                     ))

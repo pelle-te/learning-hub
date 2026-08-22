@@ -115,23 +115,23 @@ describe('T-11 밖에서 일어난 일 — 부호가 반대인 사실', () => {
   const QUIET: AbsenceNow = { review: 0, missed: 0, deadline: null };
 
   it('⭐ 앱 안이 평온해도 밖에서 한 일이 있으면 그린다 — 그게 이 항목의 요지다', () => {
-    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: ['회로이론'], ankiCards: 120 })!;
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: ['회로이론'], ankiCards: 120, unreadable: 0 })!;
     expect(b.line).toBe('4일 비었어요 (밖에서 노트 5 · 카드 120)');
   });
 
   it('⚠ 밀린 것 목록에 섞지 않는다 — 부호가 반대인 사실이 같은 픽셀로 읽히면 안 된다', () => {
-    const b = returnBriefing(snap, NOW, TODAY, { notes: 5, subjects: [], ankiCards: null })!;
+    const b = returnBriefing(snap, NOW, TODAY, { notes: 5, subjects: [], ankiCards: null, unreadable: 0 })!;
     // 무너진 것은 ` — ` 뒤 목록, 한 일은 괄호 안. 둘이 한 목록에 들어가면 이 단언이 깨진다.
     expect(b.line).toBe('4일 비었어요 — 복습 32→71 · 미완 6 · 전자기 D-6 (밖에서 노트 5)');
   });
 
   it('⚠⚠ 모르는 것(null)은 0 으로 접지 않는다 — Anki 가 꺼져 있는 것과 "안 했다"는 다른 사실', () => {
-    const b = returnBriefing(snap, QUIET, TODAY, { notes: null, subjects: [], ankiCards: null });
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: null, subjects: [], ankiCards: null, unreadable: 0 });
     expect(b).toBeNull(); // 할 말이 하나도 없다 = 안 그린다(0 을 지어내지 않았다는 뜻)
   });
 
   it('밖에서만 일이 있으면 처방은 진도 반영 — 마감·복습·미완을 이기지는 않는다', () => {
-    const outside = { notes: 5, subjects: ['회로이론'], ankiCards: null };
+    const outside = { notes: 5, subjects: ['회로이론'], ankiCards: null, unreadable: 0 };
     expect(returnBriefing(snap, QUIET, TODAY, outside)!.advice).toContain('진도에 반영');
     // 마감이 있으면 여전히 마감이 이긴다(이미 한 일이 아직 안 온 마감보다 급할 수 없다)
     const urgent: AbsenceNow = { review: 0, missed: 0, deadline: { name: '전자기', dday: 2 } };
@@ -139,8 +139,36 @@ describe('T-11 밖에서 일어난 일 — 부호가 반대인 사실', () => {
   });
 
   it('과목 이름은 칩이 아니라 풀어 쓴 문장에만 — 13px 안에 이름을 더 넣지 않는다', () => {
-    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: ['회로이론', '전자기학'], ankiCards: 0 })!;
+    const b = returnBriefing(snap, QUIET, TODAY, {
+      notes: 5,
+      subjects: ['회로이론', '전자기학'],
+      ankiCards: 0,
+      unreadable: 0,
+    })!;
     expect(b.line).not.toContain('회로이론');
     expect(b.aria).toContain('회로이론·전자기학 쪽으로');
+  });
+});
+
+/* ⭐ **부분 실패는 「없다」가 아니다** (O021 · 2026-08-22 운영 축)
+
+   `vault_touched` 의 순회는 못 읽은 하위 트리를 조용히 건너뛴다 — 과목 폴더 하나가 OneDrive
+   재동기화 중이면 그 트리가 통째로 빠지는데 화면은 「밖에서 바뀐 노트 없음」이었다. 즉
+   **200개 중 3개 실패**와 **정말 아무것도 안 바뀜**이 글자 하나 다르지 않았다.
+   Rust 쪽이 이제 `unreadable` 을 세고, 여기서는 그 사실이 **문장에 도달하는지**를 잰다. */
+describe('O021 — 일부를 못 읽었으면 수를 단정하지 않는다', () => {
+  const snap = { lastDs: '2026-07-28', thenReview: 32 };
+  const TODAY = '2026-08-01';
+  const QUIET: AbsenceNow = { review: 0, missed: 0, deadline: null };
+
+  it('못 읽은 폴더가 있으면 `+` 가 붙는다 — 「이게 전부다」라는 주장을 하지 않는다', () => {
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: [], ankiCards: null, unreadable: 3 })!;
+    expect(b.line).toContain('노트 5+');
+  });
+
+  it('전량을 읽었으면 `+` 가 없다 — 이 표식이 상시 켜져 있으면 곧 무시된다', () => {
+    const b = returnBriefing(snap, QUIET, TODAY, { notes: 5, subjects: [], ankiCards: null, unreadable: 0 })!;
+    expect(b.line).toContain('노트 5)');
+    expect(b.line).not.toContain('노트 5+');
   });
 });

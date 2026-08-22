@@ -91,7 +91,29 @@ static RUN_CAP: Cap = Cap::new(2);
 /// 파이썬 인터프리터를 지정하는 환경변수 이름 — **이 앱에서 그 값의 유일한 주입 경로**다.
 /// ⚠ 설정 UI 도 `tauri.conf.json` 도 이 값을 안 다룬다(2026-08-20 리뷰 n-7). 그래서 spawn 실패
 /// 메시지가 이 이름을 직접 말한다 — 안 그러면 사용자가 venv 를 물릴 방법을 알 수 없다.
-const PYTHON_ENV: &str = "PYTHON";
+///
+/// ## ⚠⚠ 이름공간이 없었다 (C069 · 2026-08-22)
+///
+/// 종전 이름은 **`PYTHON`** 이었다. 그 규율은 이 저장소가 이미 갖고 있다 — `paths.rs:25` 가
+/// `LEARNING_HUB_E2E_DATA_DIR` 을 두며 *"이름이 … **사용자의 평상 환경에 우연히 존재할 이름이**
+/// 아니다"* 라고 근거를 적어 뒀다. 그런데 그 규율이 **한쪽에만** 적용돼 있었다(R3 · 짝).
+/// `PYTHON` 은 흔한 이름이라 다른 도구·셸 프로필이 세워 둘 수 있고, 그러면 이 앱이 **사용자가
+/// 의도하지 않은 인터프리터**로 도구를 돌린다 — 그리고 그 오작동은 조용하다(파이썬이 뜨긴 뜬다).
+const PYTHON_ENV: &str = "LEARNING_HUB_PYTHON";
+
+/// 옛 이름 — **하위 호환으로만** 읽는다.
+///
+/// ⚠ 지우지 마라(당장은): `README.md` 가 이 이름으로 안내해 왔으므로 사용자 환경에 이미
+/// 세워져 있을 수 있고, 조용히 무시하면 «어제까지 되던 것이 안 된다»가 된다.
+/// ⚠ 우선순위는 **새 이름이 위**다 — 둘 다 있으면 이름공간을 가진 쪽이 이긴다.
+const PYTHON_ENV_LEGACY: &str = "PYTHON";
+
+/// 쓸 파이썬 경로. 새 이름 → 옛 이름 → `python` 순.
+fn python_exe() -> String {
+    std::env::var(PYTHON_ENV)
+        .or_else(|_| std::env::var(PYTHON_ENV_LEGACY))
+        .unwrap_or_else(|_| "python".into())
+}
 
 /* ── 화이트리스트 ──────────────────────────────────────────────── */
 
@@ -324,7 +346,7 @@ fn run_blocking(py: &str, tool: &'static Tool, extra: Vec<String>, cwd: &Path) -
                    프로세스 환경변수라 앱이 자기 실행 뒤에 바꿔도 이미 뜬 셸에 안 걸린다. */
                 out: format!(
                     "spawn 실패: {e} — python 이 PATH 에 있어야 합니다. \
-                     다른 인터프리터(예: 프로젝트 venv)를 쓰려면 환경변수 `{PYTHON_ENV}` 에 그 경로를 넣으세요."
+                     다른 인터프리터(예: 프로젝트 venv)를 쓰려면 환경변수 `{PYTHON_ENV}` 에 그 경로를 넣으세요." 
                 ),
                 code: -1,
                 label: tool.label.to_string(),
@@ -414,7 +436,7 @@ pub async fn run_tool(
     어디에도 없다 · 2026-08-20 리뷰 n-7). 부모 워크스페이스의 도구는 대개 전용 venv 를
     요구하므로 PATH 의 `python` 으로는 `ModuleNotFoundError` 로 떨어질 수 있다 — 그때 사용자가
     무엇을 할 수 있는지 알아야 하므로 **실패 메시지가 이 경로를 말한다**(`run_blocking` 참조). */
-    let py = std::env::var(PYTHON_ENV).unwrap_or_else(|_| "python".into());
+    let py = python_exe();
 
     // ⚠ guard 를 **블로킹 작업 안으로** 옮긴다. 여기서 잡고 있다가 await 로 넘기면
     //   자리 점유 구간과 실제 실행 구간이 어긋난다.
@@ -591,7 +613,7 @@ mod tests {
     #[test]
     fn 실_워크스페이스에서_파이썬_도구가_돈다() {
         let cwd = crate::testkit::ws_or_skip!();
-        let py = std::env::var(PYTHON_ENV).unwrap_or_else(|_| "python".into());
+        let py = python_exe();
         let tool = lookup("vault-stats").expect("vault-stats 가 화이트리스트에서 사라졌다");
 
         let out = run_blocking(&py, tool, vec![], &cwd);

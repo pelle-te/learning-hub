@@ -93,12 +93,25 @@ npx wrangler whoami    # 계정 이메일 + Account ID 가 나와야 한다
 
 ### 3-1. DB 생성
 
+> ⚠⚠ **이 절은 이미 지나간 절차다 — 실물 DB 는 `learning-hub` 하나다**(O013 · 2026-08-22 운영 축).
+> 이 런북은 DB 를 `hub-prod`/`hub-dev` 두 벌로 부르는데, `server/wrangler.jsonc` 의
+> `database_name` 은 **`learning-hub`** 이고 그것 하나뿐이다. 그 이름으로 친 명령은
+> `Couldn't find DB named hub-prod` 로 **즉시 죽는다.**
+>
+> ⭐ **한쪽만 고쳐진 짝이었다**: `server/package.json` 의 `migrate:local`/`migrate:remote` 는
+> **맞는 이름**을 쓴다. 스크립트가 된 절차는 고쳐졌고 **문서에만 남은 절차**(create·export·
+> migrations list)는 안 고쳐졌다. 그리고 이 명령들이 필요한 순간은 **정확히 급할 때**다
+> (계정 정지 · D1 유실 — §8-3 이 «사전 통지 미확인»이라 적었다).
+>
+> ⛔ **이름을 문서에 다시 손으로 적지 마라** — 그게 표류의 원인이었다. 정본은
+> `server/wrangler.jsonc` 의 `database_name` 이고, 적용은 아래 §3-4 의 **스크립트**가 진다.
+
 ```powershell
-npx wrangler d1 create hub-prod
-npx wrangler d1 create hub-dev
+# 새 계정·새 프로젝트를 세울 때만. 이름은 wrangler.jsonc 의 database_name 과 같아야 한다.
+npx wrangler d1 create learning-hub
 ```
 
-출력의 `database_id` 를 `wrangler.jsonc` 에 붙인다(§7-2). 무료 플랜은 **DB 10개**까지라 dev/prod 두 벌은 여유롭다(§10).
+출력의 `database_id` 를 `wrangler.jsonc` 에 붙인다. 무료 플랜은 **DB 10개**까지라 여유롭다(§10).
 
 ### 3-2. ⚠ 스키마 두 벌 문제 — 이 저장소는 이미 두 번 물렸다
 
@@ -160,21 +173,29 @@ src-tauri/migrations/
 
 ### 3-4. 적용
 
+**스크립트를 쓴다 — DB 이름을 손으로 치지 않는다**(O013):
+
 ```powershell
-npx wrangler d1 migrations list  hub-dev  --remote
-npx wrangler d1 migrations apply hub-dev  --remote
-npx wrangler d1 migrations apply hub-prod --remote
+cd server
+npm run migrate:local    # 로컬 miniflare DB
+npm run migrate:remote   # 실 D1
+```
+
+목록만 보려면(스크립트가 없는 유일한 형태):
+
+```powershell
+npx wrangler d1 migrations list learning-hub --remote
 ```
 
 ⚠ **`--remote` 를 빼면 로컬 miniflare DB 에 적용된다.** dev 루프에선 그게 맞지만, "적용했는데 왜 안 보이지"의 1순위 원인이다.
 
-⚠ **바인딩 이름(`DB`) 이 아니라 DB 이름(`hub-prod`)으로 불러라.** 바인딩은 환경마다 같은 이름으로 다른 DB 를 가리키므로 실수로 prod 에 적용된다. 공식 문서도 이걸 권한다.
+⚠ **바인딩 이름(`DB`) 이 아니라 DB 이름으로 불러라.** 바인딩은 설정마다 다른 DB 를 가리킬 수 있다. 공식 문서도 이걸 권한다.
 
 ### 3-5. 검증 — 두 벌이 실제로 같은가
 
 ```powershell
-# ① D1 의 실제 스키마 덤프
-npx wrangler d1 export hub-prod --remote --no-data --output=.\schema-d1.sql
+# ① D1 의 실제 스키마 덤프 (⚠ DB 이름은 wrangler.jsonc 의 database_name — O013)
+npx wrangler d1 export learning-hub --remote --no-data --output=.\schema-d1.sql
 
 # ② 로컬 Tauri DB 의 스키마 (앱을 한 번 띄운 뒤)
 sqlite3 "$env:APPDATA\<앱데이터경로>\learning-hub.db" ".schema" > .\schema-local.sql
@@ -368,49 +389,37 @@ Worker 는 TypeScript 다. `web/src/lib/schema.ts` 의 zod 를 **import 해서 �
 
 ## 7. 배포 · 롤백 · 환경 분리
 
-### 7-1. 환경 분리
+### 7-1. 환경 — **하나다**
 
-`wrangler.jsonc` 의 `env` 로 dev/prod 를 가른다. **각각 다른 D1 · 다른 Secret · 다른 URL** 이다.
+> ⚠⚠ **이 절은 dev/prod 두 벌을 전제로 쓰였는데 실물은 `learning-hub` 하나다**(O014 ·
+> 2026-08-22 운영 축). `server/wrangler.jsonc` 에 **`env` 블록이 없다**(전량 실측 — `name` ·
+> `assets` · `ratelimits` · `migrations` · `d1_databases` 뿐). 그래서 이 런북 곳곳의
+> `--env prod` 는 **`No environment found in configuration with name "prod"` 로 죽는다.**
+> 가장 나쁜 것은 그게 **롤백**에도 걸려 있었다는 점이다 — 워커 장애의 유일한 즉시 복구
+> 수단인데, 급할 때 처음 쳐 보면 실패한다.
+>
+> **처방은 «환경을 새로 만든다»가 아니라 «문서를 실물에 맞춘다»** 다. 환경을 가르면 D1 하나 ·
+> 시크릿 한 벌 · 확인 절차 한 벌이 늘고, 1인 앱에서 그 값은 §0-1 이 기각한 «인위적 노동»이다.
+> ⚠ **대가를 적어 둔다**: 그러므로 `npm run deploy` 는 **사용자 데이터 정본 + 업데이터 자산을
+> 쥔 그 워커로 바로 나간다.** 안전망은 환경 분리가 아니라 `predeploy`(배포 전 스테이징 검사) ·
+> `postdeploy`(배포 후 도달 확인 · O011) · 아래 §7-2 의 `rollback` 셋이다.
 
-```jsonc
-{
-  "name": "hub-api",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-07-19",
-  "d1_databases": [
-    { "binding": "DB", "database_name": "hub-dev", "database_id": "…", "migrations_dir": "../src-tauri/migrations" },
-  ],
-  "env": {
-    "prod": {
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "hub-prod",
-          "database_id": "…",
-          "migrations_dir": "../src-tauri/migrations",
-        },
-      ],
-    },
-  },
-}
+```powershell
+npx wrangler dev            # 로컬 (miniflare + 로컬 D1)
+cd server; npm run deploy   # → 실 워커. ⚠ predeploy/postdeploy 훅이 붙어 있다(아래 §7-6)
 ```
 
 > ⚠ **`compatibility_date` 를 박아라.** 안 박으면 런타임 동작이 시간에 따라 바뀐다 — 이 저장소가 GPU 를 `--disable-gpu` 로 핀 고정한 것과 같은 이유다(재현 가능성).
->
-> ⚠ **기본(무 env) 타깃을 prod 로 두지 마라.** `wrangler deploy` 를 무심코 치면 그게 나간다. 기본은 dev, prod 는 **명시적으로만**.
-
-```powershell
-npx wrangler dev                    # 로컬 (miniflare + 로컬 D1)
-npx wrangler deploy                 # → dev
-npx wrangler deploy --env prod      # → prod (의도적으로 한 단어 더 친다)
-```
 
 ### 7-2. 롤백
 
 ```powershell
-npx wrangler deployments list --env prod
-npx wrangler rollback <DEPLOYMENT_ID> --env prod
+npx wrangler deployments list
+npx wrangler rollback <DEPLOYMENT_ID>
 ```
+
+> ⚠⚠ **`--env prod` 를 붙이지 마라 — 그 환경은 존재하지 않는다**(§7-1 · O014). 종전 이 두 줄이
+> 그 플래그를 달고 있었고, 그래서 **장애 중에 치는 첫 명령이 죽었다.**
 
 > ⚠ **롤백은 코드만 되돌린다. D1 마이그레이션은 안 되돌아간다.** 이게 이 절의 유일한 진짜 함정이다.
 >
@@ -431,8 +440,12 @@ npx wrangler rollback <DEPLOYMENT_ID> --env prod
 - `deploy` 후 `https://<워커>.<서브도메인>.workers.dev/api/health` 가 **JSON** `{"ok":true}` **(HTTPS 자동 — §10)**
   - ⚠ **본문까지 본다.** 상태코드만 보면 폴백 HTML 도 200 이라 구분이 안 된다.
 - **평문 폴백 확인**: `http://…/api/health` 가 **HTTPS 로 리다이렉트되거나 거부**돼야 한다. ⚠ 200 이 평문으로 오면 P0-1 위반이다 — Oracle 런북 §5-4 의 그 검증은 호스트가 바뀌어도 **그대로 유효하다**
-- `deployments list` 에 두 환경이 **분리돼** 보인다
-- prod D1 에 dev 데이터가 **없다** ← 이걸 꼭 확인해라. 바인딩 이름이 같아서 섞기 쉽다
+
+<!-- ⛔ **두 줄을 지웠다**(O027 · 2026-08-22): «deployments list 에 두 환경이 분리돼 보인다» ·
+     «prod D1 에 dev 데이터가 없다». 환경이 하나뿐이라(§7-1) **원리적으로 만족할 수 없는
+     검사**였고, 잴 수 없는 검사는 통과한 척한다. 되살리려면 먼저 `wrangler.jsonc` 에 `env` 를
+     만들어라 — 그 판단과 대가는 §7-1 에 적혀 있다. -->
+
 - **정적 자산(C-6)** — `/` 와 `/plan` 이 200 `text/html`, `/api/health` 가 JSON. 절차와 함정은 **§7-6**
 - **업데이터 자산(C1 · 2026-08-01)** — `/updates/<인스톨러>.exe` 가 **`application/octet-stream`**
 
@@ -479,15 +492,6 @@ curl.exe -sI "https://<워커>.workers.dev/updates/러닝허브_0.3.0_x64-setup.
 
 D1 카운터로 만들지 않은 이유(변함없음): 공격받는 동안 **카운터 쓰기가 그 자체로 D1 일일 한도를 태운다** — 막으려던 것을 방어가 대신 하게 된다(§8-2 가 지목한 실패 모드). `/api/log` 를 무저장으로 만든 것도 같은 판단이다(§7-7).
 
-### 7-7. 클라이언트 텔레메트리(`/api/log`) — 배포 후를 보는 유일한 창
-
-2026-07-25 감사 전까지 **배포 후 관측이 0** 이었다: 배포 전 검증은 여섯 겹인데(정적·유닛·컴포넌트·트랙A·트랙B·실 workerd 왕복) `ErrorBoundary` 셋은 폴백 UI 만 그리고 아무것도 기록하지 않았고, `observability.enabled` 는 **워커 자신**만 본다. 폰 브라우저나 WebView2 안에서 앱이 죽으면 사용자가 말해 주기 전까지 아무도 몰랐다.
-
-- **저장소 없음.** `console.log(JSON.stringify(...))` → Cloudflare Logs 가 수집한다(`observability.enabled` 가 이미 켜져 있다). D1 을 안 쓰는 이유 셋은 `server/src/index.ts` 의 라우트 주석이 SSOT — 요약하면 ① 마이그레이션이 데스크톱 SQLite 와 **공유**라 테이블이 앱 DB 에도 생긴다 ② 오류 폭주가 곧 D1 쿼터 소진 ③ 조인할 일 없는 관측 데이터다.
-- **무인증.** 오류는 토큰이 생기기 전에도 나고 그게 가장 알고 싶은 종류다. 대가는 레이트 리밋(§7-5) + 1MB 본문 상한 + 무저장.
-- **보는 법**: 대시보드 → Workers & Pages → `learning-hub` → **Logs**. 필터는 `t` 필드 — `client.error` · `client.vital` · `telemetry.reject`.
-- ⚠ **개인정보를 싣지 않는다**: IP 를 기록하지 않고(국가 코드만), 전체 URL 이 아니라 **경로만**, 문자열은 클라이언트·서버 양쪽에서 독립적으로 자른다(200/2000자).
-
 ### 7-6. 정적 자산(폰 웹앱) 배포 — **같은 오리진**에서 나간다 (C-6)
 
 C-6 부터 폰 웹앱을 **API 와 같은 Workers 오리진**에서 서빙한다. 별도 호스팅(Pages·Netlify)을 두지 않는 이유는 설계서 §9-1 과 같다 — 오리진이 갈리면 **CORS·인증·배포가 두 벌**이 되고, 그 둘을 동기화하는 일이 새 작업으로 남는다.
@@ -505,13 +509,19 @@ C-6 부터 폰 웹앱을 **API 와 같은 Workers 오리진**에서 서빙한다
 #### 배포 절차 — ⚠ **순서가 있다**
 
 ```powershell
-cd web;    npm run build       # ① dist 재생성 — 이게 실제로 배포되는 물건이다
-cd ..\server; npm run verify   # ② 게이트(자산 라우팅 검사 포함)
-npx wrangler deploy            # → dev   (자산은 wrangler 가 함께 올린다)
-npx wrangler deploy --env prod # → prod
+cd server
+npm run verify   # ① 게이트(자산 라우팅 검사 포함)
+npm run deploy   # ② predeploy(build + release:stage) → wrangler deploy → postdeploy(release:verify)
 ```
 
-> ⚠ **①을 빼먹으면 옛 화면이 배포된다.** CLAUDE.md 절대규칙 1("Tauri 셸이 prebuilt `web/dist/` 를 로드한다 → 소스 수정 후 반드시 빌드")이 **클라우드에도 그대로 적용된다** — 이제 같은 `dist` 를 데스크톱 셸과 폰이 **함께** 본다. `wrangler deploy` 는 `web` 빌드를 자동으로 돌려 주지 않는다(`npm run tauri:build` 와 다른 점이다).
+> ⚠⚠ **`npx wrangler deploy` 를 직접 치지 마라 — 훅을 건너뛴다**(O012 · 2026-08-22 운영 축).
+> `릴리스.md` 가 그 금지를 ⚠⚠ 로 못박았는데 **이 런북은 세 곳에서 그 명령을 직접 지시하고
+> 있었고**, 그중 하나는 훅이 소유하게 된 `npm run build` 줄까지 손 절차로 되돌려 적었다.
+> 귀결이 구체적이다: 「폰 화면이 안 바뀐다」로 이 절만 보고 따라간 사람은 `release:stage` 를
+> 건너뛰고 `/updates/*.exe` 가 다시 1433 B SPA 폴백이 된다 — **`릴리스.md` 를 열 이유가 없는
+> 작업에서 업데이터가 죽는다.**
+>
+> ⚠ 빌드는 이제 `predeploy` 가 소유한다(옛 ① 줄을 지운 이유다). 그래도 그 규율은 유효하다: CLAUDE.md 절대규칙 1("Tauri 셸이 prebuilt `web/dist/` 를 로드한다 → 소스 수정 후 반드시 빌드")이 **클라우드에도 그대로 적용된다** — 이제 같은 `dist` 를 데스크톱 셸과 폰이 **함께** 본다. **`npx wrangler deploy` 는 `web` 빌드를 자동으로 돌려 주지 않는다** — 그것을 사람의 기억이 아니라 의존으로 만든 것이 `predeploy` 훅이고, 그래서 직접 치면 안 되는 것이다(C1).
 >
 > ⚠⚠ **`../web/dist` 가 없거나 비어도 배포는 "성공"한다**(실측). wrangler·miniflare 는 조용히 자산 0개로 동작한다 — 즉 API 는 멀쩡한데 **폰만 안 뜬다**. 아래 확인을 건너뛰지 마라.
 
@@ -568,6 +578,15 @@ curl.exe -sI https://<워커>.workers.dev/updates/<인스톨러>.exe  # applicat
 > ⚠ 세 번째가 `<!DOCTYPE html>` 을 뱉으면 `run_worker_first` 가 안 먹은 것이다. 두 번째가 404 면 `not_found_handling` 이 안 먹은 것이다. **폰으로 직접 열어 보기 전에 이 세 줄을 먼저 쳐라.**
 >
 > ⚠⚠ **네 번째는 상태코드를 보면 안 된다** — `not_found_handling` 이 그 경로에도 걸려 있어 존재하지 않는 exe 도 200 을 준다. 판정은 **content-type** 이다(C1 · §7-3).
+
+### 7-7. 클라이언트 텔레메트리(`/api/log`) — 배포 후를 보는 유일한 창
+
+2026-07-25 감사 전까지 **배포 후 관측이 0** 이었다: 배포 전 검증은 여섯 겹인데(정적·유닛·컴포넌트·트랙A·트랙B·실 workerd 왕복) `ErrorBoundary` 셋은 폴백 UI 만 그리고 아무것도 기록하지 않았고, `observability.enabled` 는 **워커 자신**만 본다. 폰 브라우저나 WebView2 안에서 앱이 죽으면 사용자가 말해 주기 전까지 아무도 몰랐다.
+
+- **저장소 없음.** `console.log(JSON.stringify(...))` → Cloudflare Logs 가 수집한다(`observability.enabled` 가 이미 켜져 있다). D1 을 안 쓰는 이유 셋은 `server/src/index.ts` 의 라우트 주석이 SSOT — 요약하면 ① 마이그레이션이 데스크톱 SQLite 와 **공유**라 테이블이 앱 DB 에도 생긴다 ② 오류 폭주가 곧 D1 쿼터 소진 ③ 조인할 일 없는 관측 데이터다.
+- **무인증.** 오류는 토큰이 생기기 전에도 나고 그게 가장 알고 싶은 종류다. 대가는 레이트 리밋(§7-5) + 1MB 본문 상한 + 무저장.
+- **보는 법**: 대시보드 → Workers & Pages → `learning-hub` → **Logs**. 필터는 `t` 필드 — `client.error` · `client.vital` · `telemetry.reject`.
+- ⚠ **개인정보를 싣지 않는다**: IP 를 기록하지 않고(국가 코드만), 전체 URL 이 아니라 **경로만**, 문자열은 클라이언트·서버 양쪽에서 독립적으로 자른다(200/2000자).
 
 ---
 
@@ -716,23 +735,12 @@ Oracle 안이 이렇게 지적했다: _"Workers+D1 을 택했다면 D1 스키마
 
 ---
 
-## 실시간 poke (Phase 2 · Durable Object)
-
-한 기기 push → 다른 기기 즉시 pull 하도록 "변경 있음"만 실시간 통지한다(데이터는 여전히 push/pull). `server/src/syncHub.ts` 의 `SyncHub` DO 하나가 모든 기기 WebSocket 을 쥐고, `/api/sync/live` 가 인증 후 위임한다.
-
-**배포(사용자 손 필요):**
-
-1. `cd web && npm run build` (자산 선행) → `cd server && npx wrangler deploy`. `wrangler.jsonc` 의 `durable_objects` 바인딩 + `migrations`(`new_sqlite_classes: ["SyncHub"]`)를 wrangler 가 첫 배포에서 적용한다.
-2. ⚠ **SQLite 백드 DO 라야 무료 플랜에서 뜬다**(`new_sqlite_classes`). 배포가 `new_classes` 유료를 요구하면 그건 마이그레이션 오타다.
-3. 확인: 폰에서 앱을 두 기기로 열고 한쪽에서 편집 → 다른 쪽이 폴링(최대 5분)을 기다리지 않고 갱신되면 산다. 브라우저 콘솔에 `wss://…/api/sync/live` 연결이 보인다.
-
-**설계상 성질(중요):**
-
-- **점진적 향상** — WS 가 못 붙어도(배포 전·네트워크·CSP) 앱은 기존 이벤트/폴링 동기화로 그대로 돈다. 정확성의 전제가 아니라 최신성의 향상이다.
-- **폰만 켠다** — 데스크톱 Tauri 웹뷰는 CSP `connect-src 'self' ipc:` 로 이 WS 가 막힌다(`phone/sync.ts` 가 `live:true`, StorageGuard 는 안 켬).
-- **인증** — 브라우저 WS 는 Authorization 헤더 불가라 액세스 토큰을 `Sec-WebSocket-Protocol` 로 싣는다(URL 아님 · P0-2 연장). Worker 가 검증+폐기 확인 후 DO 로 위임한다.
-
----
+<!-- ⛔ **§실시간 poke(Durable Object) 절을 지웠다**(O025 · 2026-08-22 운영 축 · 🧹 잔재).
+     그 기능은 I051 에서 은퇴했다 — `server/src/syncHub.ts` 가 **없고**(src 는 auth·index·pull
+     셋뿐), `wrangler.jsonc:97` 이 `deleted_classes:["SyncHub"]` 로 **명시 삭제**를 선언하며,
+     `server/src/index.ts:576-581` 이 은퇴 사실과 복구법을 코드 곁에 적어 뒀다.
+     이 절은 «사용자 손 필요» 배포 절차 셋을 **살아 있는 지시로** 적고 있었다.
+     복구: `git show 187cd78:web/docs/cloudflare-런북.md` (그리고 코드는 index.ts 주석이 안내). -->
 
 ## 부록 A — 설계서 §6 보안 항목 매핑
 
