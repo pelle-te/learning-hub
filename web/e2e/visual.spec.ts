@@ -21,6 +21,63 @@ import {
   settle,
 } from './_fixtures';
 
+/* ============================================================
+   ⭐ **본문 샷은 `#main` 으로 좁힌다** (U042 · 2026-08-22 ux/운영 축)
+
+   ## 왜 — 소스 일곱 줄이 베이스라인 104장을 다시 썼다
+
+   실측(30일): 스냅샷 PNG 쓰기 **1,807건 / 67커밋**, 상위 커밋들이 **110장 중 ~100장**을 다시
+   썼다. 그 커밋들을 열어 보면 원인이 분명하다 — `5acace3`(IA 재편 · 탭 24→21)은 **소스 7파일 ·
+   스타일 0파일**을 고치고 **PNG 104장**을 재생성했다. 전체 페이지 샷은 **공유 크롬**(레일·헤더·
+   서브탭)을 포함하므로, 탭 로스터가 바뀌면 **모든 화면의 베이스라인이 함께 움직인다.**
+
+   그 바이트는 **되돌릴 수 없다**: git 이력은 append-only 라 «나중에 정리»가 성립하지 않는다
+   (예산 축 ⑤가 그것을 잰다 — 현재 645/700 MiB).
+
+   ## 무엇을 바꿨나
+
+   본문 샷의 대상을 `page`(fullPage) → **`#main`** 으로 좁힌다. 그러면 레일·헤더 변경이
+   **본문 베이스라인을 건드리지 않는다.** 실측 바이트도 함께 준다: `#main` 은 전체의
+   **49~73%**(today 73% · schedule 49% · stats 71% · 폭 1064/1280).
+
+   ## ⚠⚠ 크롬 커버리지를 잃지 않는다 — 아래 `chrome · <theme>` 이 그 자리다
+
+   좁히기만 하면 **레일·헤더·서브탭이 어느 스냅샷에도 안 남는다**(그게 이 변경의 유일한 위험이다).
+   그래서 전체 페이지 샷을 **전용 케이스 둘**로 남긴다. 크롬이 바뀌면 그 둘이 깨지고, 본문 26장은
+   조용하다 — 바로 그 분리가 이 항목의 전부다.
+   ⚠ 그 밖에도 전체 페이지로 남는 것들이 있다(오버레이·포커스링·폰·`skeleton-open`): 그것들은
+   **크롬 자체가 대상**이라 좁히면 검사가 사라진다. 좁히는 것은 «본문을 보는 샷»뿐이다.
+============================================================ */
+/** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+  await expect(page.locator('#main')).toHaveScreenshot(name);
+};
+
+/* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+
+   ⚠⚠ **전체 페이지로 찍으면 아무것도 안 잠근다**(2026-08-22 실측 — 첫 판이 그랬다).
+   `maxDiffPixelRatio: 0.005` 는 **이미지 전체에 대한 비율**이라, 1280×720 에서 임계가 4,608px 다.
+   레일 행이 통째로 밀리는 변경(= churn 을 일으킨 `5acace3` 의 형태)을 전체 페이지 샷에 넣으면
+   그 픽셀이 **희석돼 임계 아래로 떨어진다.** 실제로 레일 라벨을 두 줄로 만들어 밀어 봤더니
+   `chrome-dark`·`chrome-light` **둘 다 통과**했고, 엉뚱하게 `shortcuts-help`(오버레이라 화면이
+   어두워져 상대적으로 레일이 도드라진다) 하나만 깨졌다. 즉 **탐지가 우연에 걸려 있었다.**
+
+   → 크롬을 **자기 크기로** 찍는다. 레일 변화는 레일 이미지의 큰 비율이라 임계를 확실히 넘고,
+   이미지도 작아 이력 비용이 낮다. 같은 논리가 이 저장소의 다른 곳에도 이미 있다 —
+   `motion.spec` 의 맥동이 «자기 클립»을 쓰는 이유가 정확히 이 희석 문제다.
+   ⚠ 대표 한 탭이면 충분하다: 크롬은 탭마다 다르지 않다(그게 «공유» 크롬의 정의다). */
+for (const theme of THEMES) {
+  test(`chrome · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/today');
+    await expect(page.locator('#main')).toBeVisible();
+    await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
+    await settle(page);
+    await expect(page.locator('nav[aria-label="주요 메뉴"]')).toHaveScreenshot(`chrome-rail-${theme}.png`);
+    await expect(page.locator('header').first()).toHaveScreenshot(`chrome-header-${theme}.png`);
+  });
+}
+
 for (const theme of THEMES) {
   for (const tab of TABS) {
     test(`${tab} · ${theme}`, async ({ page }) => {
@@ -39,7 +96,7 @@ for (const theme of THEMES) {
       // 카피가 바뀌면 timeout 으로 시끄럽게 깨진다.
       if (tab === 'integrations') await expect(page.getByText('워크스페이스 설정 필요(설정 탭)')).toBeVisible();
       await settle(page);
-      await expect(page).toHaveScreenshot(`${tab}-${theme}.png`, { fullPage: true });
+      await shotMain(page, `${tab}-${theme}.png`);
     });
   }
 }
@@ -84,7 +141,7 @@ for (const theme of THEMES) {
     // 존재 단정 — 카드가 안 뜨면 timeout 으로 시끄럽게 깨진다(빈 화면을 조용히 굳히지 않는다).
     await expect(page.getByRole('region', { name: '미적분 범위 조정' })).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`schedule-cut-${theme}.png`, { fullPage: true });
+    await shotMain(page, `schedule-cut-${theme}.png`);
   });
 }
 
@@ -101,7 +158,7 @@ for (const theme of THEMES) {
          둘 다 받는 셀렉터여야 «본문이 떴는가»를 실제로 묻는다. */
       await expect(page.locator('#main h2, #main [role="heading"], #main section[aria-label]').first()).toBeVisible();
       await settle(page);
-      await expect(page).toHaveScreenshot(`${tab}-empty-${theme}.png`, { fullPage: true });
+      await shotMain(page, `${tab}-empty-${theme}.png`);
     });
   }
 }
@@ -163,7 +220,7 @@ for (const theme of THEMES) {
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('#main h2').first()).toBeVisible(); // 막대 화면(빈 상태 아님)
     await settle(page);
-    await expect(page).toHaveScreenshot(`forecast-full-${theme}.png`, { fullPage: true });
+    await shotMain(page, `forecast-full-${theme}.png`);
   });
 }
 
@@ -186,7 +243,7 @@ test('today · onthisday · dark', async ({ page }) => {
   await expect(page.locator('#main')).toBeVisible();
   await expect(page.getByText('4주 전 오늘', { exact: false })).toBeVisible(); // 회고 줄 렌더 확인
   await settle(page);
-  await expect(page).toHaveScreenshot('today-onthisday-dark.png', { fullPage: true });
+  await shotMain(page, 'today-onthisday-dark.png');
 });
 
 /* N-5 하루의 국면 — **늦은 시각의 today**.
@@ -201,7 +258,7 @@ test('today · closing · dark', async ({ page }) => {
   await expect(page.locator('#main')).toBeVisible();
   await expect(page.getByText('하루 닫기', { exact: false })).toBeVisible();
   await settle(page);
-  await expect(page).toHaveScreenshot('today-closing-dark.png', { fullPage: true });
+  await shotMain(page, 'today-closing-dark.png');
 });
 
 // 액센트 노브 — UI설정(lh_ui_v1) accent를 바꾸면 네온이 통째로 교체되는지(--acc 파생 cascade).
@@ -224,7 +281,7 @@ test('stats · accent-lime', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-accent', 'lime');
   await expect(page.locator('#main h2, #main section[aria-label]').first()).toBeVisible();
   await settle(page);
-  await expect(page).toHaveScreenshot('stats-accent-lime.png', { fullPage: true });
+  await shotMain(page, 'stats-accent-lime.png');
 });
 
 // 주간 배분 보드(재개편 v2 §12) — 계획의 중심. schedView='alloc' 시드로 배치 세그먼트가 과목×요일 매트릭스를
@@ -248,7 +305,7 @@ for (const theme of THEMES) {
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`alloc-board-${theme}.png`, { fullPage: true });
+    await shotMain(page, `alloc-board-${theme}.png`);
   });
 }
 
@@ -296,7 +353,7 @@ test('alloc-board · neglect · dark', async ({ page }) => {
   await expect(page.getByRole('table', { name: '주간 배분 보드' })).toBeVisible();
   await expect(page.getByLabel(/일째 손 안 댐/).first()).toBeVisible(); // 방치 배지 렌더 확인(글리프→아이콘 이후 라벨로)
   await settle(page);
-  await expect(page).toHaveScreenshot('alloc-board-neglect-dark.png', { fullPage: true });
+  await shotMain(page, 'alloc-board-neglect-dark.png');
 });
 
 /* 드롭 가능 프리뷰(UX-A2) — 과목 행을 잡은 동안에만 존재하는 상태라 **정지 스냅샷으로는 원리적으로
@@ -326,7 +383,7 @@ test('alloc-board · drag-preview · dark', async ({ page }) => {
   await row.getByRole('cell').nth(3).dispatchEvent('dragover', { dataTransfer: dt }); // 목요일 칸
   await expect(row.getByRole('cell').nth(3)).toHaveClass(/outline-acc/); // 드롭 상태 진입 확인
   await settle(page);
-  await expect(page).toHaveScreenshot('alloc-board-drag-dark.png', { fullPage: true });
+  await shotMain(page, 'alloc-board-drag-dark.png');
 });
 
 /* 복습 러너(C-7 Tailwind 이식) — **이 화면은 시각 커버리지가 0이었다.** 그 상태에서 이식했더니
@@ -357,7 +414,7 @@ for (const theme of THEMES) {
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.getByRole('progressbar')).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`review-run-${theme}.png`, { fullPage: true });
+    await shotMain(page, `review-run-${theme}.png`);
   });
 }
 
@@ -380,7 +437,7 @@ for (const theme of THEMES) {
     await expect(page.getByRole('heading', { name: /원장/ })).toBeVisible();
     await expect(page.getByRole('heading', { name: /복습 위험/ })).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`subject-${theme}.png`, { fullPage: true });
+    await shotMain(page, `subject-${theme}.png`);
   });
 }
 
@@ -442,7 +499,7 @@ for (const view of ['month', 'day'] as const) {
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.locator('#main section[aria-label]').first()).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`calendar-${view}-dark.png`, { fullPage: true });
+    await shotMain(page, `calendar-${view}-dark.png`);
   });
 }
 
@@ -505,7 +562,7 @@ for (const theme of THEMES) {
       await expect(page.locator('#main')).toBeVisible();
       await expect(page.getByText(v.ready).first()).toBeVisible();
       await settle(page);
-      await expect(page).toHaveScreenshot(`${v.key}-${theme}.png`, { fullPage: true });
+      await shotMain(page, `${v.key}-${theme}.png`);
     });
   }
 }
@@ -524,7 +581,7 @@ for (const theme of THEMES) {
     await expect(page.locator('#main')).toBeVisible();
     await expect(page.getByRole('button', { name: '검색어 지우기' })).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`find-results-${theme}.png`, { fullPage: true });
+    await shotMain(page, `find-results-${theme}.png`);
   });
 }
 
@@ -619,7 +676,7 @@ for (const theme of THEMES) {
        `next` 를 필수로 요구하므로(E17) 이 조합은 정의상 유일하다. */
     await expect(page.getByRole('alert').filter({ hasText: '다시 시도' })).toBeVisible();
     await settle(page);
-    await expect(page).toHaveScreenshot(`ledger-error-${theme}.png`);
+    await shotMain(page, `ledger-error-${theme}.png`);
   });
 }
 
@@ -691,7 +748,7 @@ for (const theme of THEMES) {
       // 로딩은 스스로 알린다(role=status) — 이 단언이 곧 E17 의 계약이다(형상이 무엇이든 유지된다).
       await expect(page.getByRole('status').first()).toBeAttached();
       await settle(page);
-      await expect(page).toHaveScreenshot(`${sc.key}-loading-${theme}.png`);
+      await shotMain(page, `${sc.key}-loading-${theme}.png`);
     });
   }
 }
