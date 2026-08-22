@@ -17,13 +17,10 @@ export { Icon } from '@/components/Icon';
 export {
   orderedTabs,
   tabByKey,
-  routeLabelOf,
   routeLabelOfLocation,
   visitKeyOfLocation,
-  sectionOf,
   navGroups,
   railTabs,
-  RAIL_SECTIONS,
   type TabMeta,
   type NavGroup,
   type TabRole,
@@ -92,7 +89,6 @@ export {
    ⚠ `importVaultSubject` 는 입구가 둘(과목 탭·연동 탭)이지만 규칙은 하나다(H22).
    ⚠ `importAnkiDeck` 도 **같은 두 입구**의 같은 형태다 — C037 이 남아 있던 사본 둘을 모았다. */
 export {
-  backupNow,
   planSignature,
   exportICS,
   exportJSON,

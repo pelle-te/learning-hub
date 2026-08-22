@@ -66,7 +66,6 @@ export {
   capBatch,
   MAX_BATCH_ITEMS,
   OUTBOX_TABLES,
-  tableCols,
   type OutboxBatch,
   type OutboxRow,
   type OutboxTomb,

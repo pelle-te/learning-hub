@@ -10,7 +10,9 @@
 ============================================================ */
 import { installSyncTriggers as install, type SyncTriggerOptions } from '@/store/syncController';
 
-export { runSync as sync, syncSoon } from '@/store/syncController';
+/* ⚠ `syncSoon` 은 여기서 다시 내보내지 않는다(2026-08-23) — 폰 소비처가 없고,
+   쓰는 쪽은 `@/store/syncController` 에서 직접 가져간다. */
+export { runSync as sync } from '@/store/syncController';
 
 /** 부팅 시 1회 설치(연결된 뒤 `main.tsx` 가 부른다). 폰은 폴링을 켜지 않고, 이탈 시 push 한다.
  *  ⚠ **실시간 poke(`live`)는 폰만 켠다**(Phase 2) — 폰은 Workers 오리진의 동일출처 WS 라 붙는다.
