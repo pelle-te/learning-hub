@@ -303,8 +303,18 @@ jobs:
       - run: npm ci
       - run: npm ci
         working-directory: web
+      # ⚠⚠ **여기부터 폭포 차단**(O002 의 짝 · 2026-08-22 러너에서 즉시 청구됐다).
+      #   `build-test` 에는 폭포 차단을 넣으면서 **이 잡에는 안 넣었고**, 바로 그 런에서
+      #   cargo-deny 설치 한 줄이 죽어 **다섯 스텝이 통째로 skipped** 됐다(`tauri:deny` ·
+      #   `tauri:test` · 번들 · playwright · **`npm run e2e` 시각 회귀 218케이스**).
+      #   C2 가 *"가장 나쁜 귀결은 이 스텝이 아니라 그 다음이었다"* 라 적은 형태 그대로다 —
+      #   즉 이 회차가 고친 결함을 **같은 회차에서 다시 겪었다.** 짝을 찾는 규율(R3)은
+      #   남의 코드에만 적용되는 것이 아니다.
+      #   ⚠ `always()` 가 아니라 `!cancelled()` 다 — `concurrency` 취소에는 따라 멈춘다.
       - run: npm run tauri:fmt
+        if: ${{ !cancelled() }}
       - run: npm run tauri:clippy
+        if: ${{ !cancelled() }}
       # ⚠⚠ **Cargo 축의 SCA**(D010 · 2026-08-21 데이터 축). 이 워크플로의 SCA 주석이 든 논증
       # (*"해당하는 CVE 가 들어와도 CI 가 통과시킨다"*)이 두 생태계 중 **npm 에만** 적용돼 있었고,
       # 사용자에게 배포되는 exe 를 만드는 645 crate 짜리 축은 어느 쪽(CI·로컬)에도 없었다.
@@ -327,6 +337,7 @@ jobs:
       #     것과 같은 함정의 다른 얼굴이다(C2) — 그래서 아래는 실측으로 확인한 형태다.
       - name: cargo-deny 설치(버전 핀 + 체크섬 대조)
         shell: bash
+        if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
           VER=0.20.2
@@ -335,9 +346,18 @@ jobs:
           curl -sSL --fail -o "${D}.tar.gz" "${BASE}/${D}.tar.gz"
           curl -sSL --fail -o "${D}.tar.gz.sha256" "${BASE}/${D}.tar.gz.sha256"
           echo "$(tr 'A-Z' 'a-z' < "${D}.tar.gz.sha256" | tr -d '[:space:]')  ${D}.tar.gz" | sha256sum -c -
-          tar -xzf "${D}.tar.gz" --strip-components=1 -C "$USERPROFILE/.cargo/bin" "${D}/cargo-deny.exe"
+          # ⚠⚠ **`-C` 에 윈도 경로를 그대로 주지 마라**(2026-08-22 러너 실측). GNU tar 는
+          #   `C:` 를 **원격 호스트 지정**으로 읽고 역슬래시 구분자도 못 다뤄서
+          #   `Cannot open: No such file or directory` 로 죽는다.
+          #   `$USERPROFILE`·`$CARGO_HOME` 은 **둘 다 윈도 경로**다 → `cygpath -u` 로 옮긴다.
+          #   ⚠ 첫 판이 정확히 이걸로 죽었다: 로컬에서 내려받기·체크섬·tar 레이아웃까지
+          #     확인했는데 **`-C` 대상만 POSIX 임시폴더**였다 — 안 재본 부분이 깨졌다.
+          DEST="$(cygpath -u "${CARGO_HOME:-$USERPROFILE/.cargo}")/bin"
+          mkdir -p "$DEST"
+          tar -xzf "${D}.tar.gz" --strip-components=1 -C "$DEST" "${D}/cargo-deny.exe"
           cargo deny --version
       - run: npm run tauri:deny
+        if: ${{ !cancelled() }}
       # Windows 전용 계약(taskkill /T 손자 정리 · WebView2)은 이제 **Rust 쪽에 있다** —
       # `cargo test` 가 위 tauri:clippy 와 같은 잡에서 돈다. 4단계-G 에서 serve.js 와 함께
       # `npm run test -- serve` 를 지웠다(그 26케이스의 처지는 설계 문서 대조표 참조).
@@ -356,6 +376,7 @@ jobs:
       #   → 스위치를 켜서 **그 6종만** 명시적으로 끄고, 건너뛴 사실은 `--show-output` 으로
       #   로그에 남긴다. 스위치는 자기 자신도 검사한다(실물이 잡히는데 켜져 있으면 실패).
       - run: npm run tauri:test
+        if: ${{ !cancelled() }}
         env:
           LEARNING_HUB_NO_REAL_ENV: '1'
       # tauri build 는 `web` 빌드를 자동 선행한다(beforeBuildCommand) → 번들까지 실제로 만들어 본다.
@@ -378,6 +399,8 @@ jobs:
       #   ⚠ 그래서 **이 스텝은 "업데이트를 낼 수 있는가"를 검증하지 않는다.** 그건 로컬
       #     릴리스 절차(`릴리스.md`)와 배포 후 content-type 확인(C1)이 계속 소유한다.
       - name: 번들 — 일회용 서명키(CI 전용 · 진짜 키는 로컬에만 있다)
+        id: bundle
+        if: ${{ !cancelled() }}
         run: |
           npm run tauri -- signer generate -w ci-updater.key -p "" --force
           $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content ci-updater.key -Raw
@@ -404,8 +427,11 @@ jobs:
       #   낮추거나 Playwright 도커 이미지로 양쪽을 통일하는 쪽이 맞다.
       - run: npx playwright install --with-deps chromium
         working-directory: web
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
+      # ⚠ 이것만 **번들에 의존한다** — `tauri:build` 가 `web` 빌드를 선행하므로 그 dist 를 띄운다.
       - run: npm run e2e
         working-directory: web
+        if: ${{ !cancelled() && steps.bundle.outcome == 'success' }}
       # 실패했을 때 **눈으로 볼 수 있어야** 위 판단이 가능하다. 실패 시에만 올린다.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
