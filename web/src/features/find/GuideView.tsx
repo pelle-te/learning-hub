@@ -333,7 +333,7 @@ export default function Guide() {
       </Section>
 
       <p className="mt-4 text-xs leading-relaxed text-mut">
-        이 안내는 정적 참조입니다 — 상세 규약은 <code className={REF}>pipeline/스타일가이드.md</code> ·{' '}
+        이 안내는 정적 참조입니다 — 상세 규약은 <code className={REF}>pipeline/규약/스타일가이드.md</code> ·{' '}
         <code className={REF}>knowledge/CLAUDE.md</code> · <code className={REF}>docs/북극성-비전.md</code>.
       </p>
     </section>
