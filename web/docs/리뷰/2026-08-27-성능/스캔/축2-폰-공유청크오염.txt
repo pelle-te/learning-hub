@@ -1,0 +1,13 @@
+현행(엔트리 둘) 폰 초기 js gz KB: 85.7 [
+  'assets/phone-D-ypGc7v.js',
+  'assets/rolldown-runtime-hePW80VL.js',
+  'assets/perf-ClCsuNlB.js',
+  'assets/react-Bjbf4p2i.js'
+]
+폰 단독 빌드   폰 초기 js gz KB: 82.0 [
+  'assets/phone-BW_UUNYh.js',
+  'assets/rolldown-runtime-hePW80VL.js',
+  'assets/react-DEzNc_Z3.js',
+  'assets/schemas-BULG7JdS.js'
+]
+차이(폰이 지금 더 받는 양) gz KB: 3.7

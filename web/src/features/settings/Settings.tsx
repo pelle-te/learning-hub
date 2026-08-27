@@ -7,7 +7,7 @@
    월드클래스 라운드(AmbientCanvas 언어) — 폼이 본질인 유틸 탭의 괴리감 해소: 상단 시네마틱
    상태 밴드(백업·저장·기록을 카운트업 리드아웃으로)로 제품의 같은 피부·살아있는 감각을 입힘.
 ============================================================ */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import {
@@ -121,8 +121,17 @@ function ParityLine() {
     '테마 무관 대표 네온'을 위해 다크 테마 기준으로 계산한다(라이트에서도 스와치는 같은 네온).
     프리셋 규칙이 :root를 겨냥하므로 documentElement 속성을 잠깐 바꿔 읽고 즉시 원복 — 동기 실행이라
     중간 프레임은 페인트되지 않아 깜빡임이 없다. 향후 토큰 재튜닝이 스와치에 자동 반영된다. */
+/* 파생이 실패했을 때의 값. ⚠ **실측상 파생 결과 4개가 이 상수와 글자 그대로 같았다**
+   (P037 · 2026-08-27) — 그래서 첫 프레임에 이걸 써도 화면은 한 픽셀도 안 바뀐다. */
+const ACC_FALLBACK: Record<Accent, string> = {
+  violet: '#9b8cff',
+  lime: '#b6f23a',
+  cyan: '#4dd9e8',
+  amber: '#ffb454',
+};
+
 function readAccentPreviews(): Record<Accent, string> {
-  const fallback: Record<Accent, string> = { violet: '#9b8cff', lime: '#b6f23a', cyan: '#4dd9e8', amber: '#ffb454' };
+  const fallback = ACC_FALLBACK;
   if (typeof document === 'undefined') return fallback;
   const root = document.documentElement;
   const prevTheme = root.getAttribute('data-theme');
@@ -141,8 +150,24 @@ function readAccentPreviews(): Record<Accent, string> {
   else root.setAttribute('data-accent', prevAccent);
   return out;
 }
-/** 액센트 스와치 미리보기색 + 라벨. tokens.css [data-accent] 프리셋과 1:1(파생). */
-const ACC_PREVIEW: Record<Accent, string> = readAccentPreviews();
+/* ⚠⚠ **모듈 스코프에서 부르지 않는다**(P037 · 2026-08-27 성능 축). 종전엔
+   `const ACC_PREVIEW = readAccentPreviews()` 가 모듈 상수라, **Settings 청크가 평가되는 순간
+   = 탭 전환 도중** 메인 스레드에서 돌았다. 그 함수는 `documentElement` 의 속성을 4회 바꾸며
+   `getComputedStyle(root).getPropertyValue('--acc')` 를 4회 부른다 = **강제 동기 스타일
+   재계산 4회**. 실측 **28.1 ms(1x) / 220.9 ms(4x)** 이고 4x 프로파일에서 `getPropertyValue`
+   자체가 389.4 ms(20.5%)로 잡혔다. 비용은 DOM 노드 수·토큰 수에 비례해 자란다.
+   ⭐ 파생이라는 계약(토큰을 재튜닝하면 스와치가 따라온다)은 **그대로 유지**하고, 시점만
+   첫 페인트 뒤로 옮긴다 — 첫 프레임은 `ACC_FALLBACK` 이고 그 값이 실측상 파생 결과와 같다. */
+function useAccentPreviews(): Record<Accent, string> {
+  const [preview, setPreview] = useState<Record<Accent, string>>(ACC_FALLBACK);
+  useEffect(() => {
+    /* rAF = 「이 전환의 첫 페인트 뒤」. 여기서 재계산이 나도 전환은 이미 끝나 있다. */
+    const id = requestAnimationFrame(() => setPreview(readAccentPreviews()));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return preview;
+}
+/** 액센트 스와치 라벨. tokens.css [data-accent] 프리셋과 1:1. */
 const ACC_LABEL: Record<Accent, string> = { violet: '바이올렛', lime: '라임', cyan: '시안', amber: '앰버' };
 
 /** 최근 백업 경과일(state._lastBackupAt) — 렌더 전용(변형 없음). */
@@ -238,6 +263,7 @@ export default function Settings() {
   const state = useApp((s) => s.state);
   const mutate = useApp((s) => s.mutate);
   const accent = useUI((s) => s.ui.accent);
+  const accPreview = useAccentPreviews();
   const setAccent = useUI((s) => s.setAccent);
   const fxLite = useUI((s) => s.ui.fxLite);
   const setFxLite = useUI((s) => s.setFxLite);
@@ -334,7 +360,7 @@ export default function Settings() {
               <span
                 aria-hidden="true"
                 className={S.accSwatch}
-                style={{ background: ACC_PREVIEW[a], boxShadow: `0 0 8px ${ACC_PREVIEW[a]}` }}
+                style={{ background: accPreview[a], boxShadow: `0 0 8px ${accPreview[a]}` }}
               />
               {ACC_LABEL[a]}
             </button>

@@ -22,6 +22,7 @@
    이 케이스의 **단언 대상**이라 그렇다. 래퍼는 «선언되지 않은 실패가 있으면 실패»이고
    여기 것은 «이 화면이 오류 없이 뜬다»를 직접 말한다 — 둘은 겹치지 않고 서로를 지운다. */
 import { expect, test } from './_test';
+import { 계단인가, 기준선기록 } from './_perfBaseline';
 
 /** OPFS 루트의 최상위 항목 이름들. `installOpfsSAHPoolVfs({name})` 가 여기에 폴더를 만든다. */
 async function opfsEntries(page: import('@playwright/test').Page): Promise<string[]> {
@@ -152,6 +153,17 @@ test('워커 왕복 — 부팅 웨이브가 타임아웃 상수와 자릿수가 
 
   const bootMs = wave.app! - wave.entry!;
   console.log(`[phone] entry→app(= 워커 기동 + wasm + OPFS + 전량 읽기) ${bootMs.toFixed(1)}ms`);
+
+  /* ⭐ **위 문단이 말한 「다음 회차」가 읽을 수 있게 남긴다**(P033 · 2026-08-27). 종전엔 로그가
+     전부여서 2026-08-27 성능 회차가 그 수를 **읽지 못했다** — 「실측치는 로그로 남긴다」가
+     실제로는 「남기지 않는다」였다. 절대 임계는 그대로 안 걸고(자릿수 판정은 아래가 진다)
+     계단만 잡는다. */
+  const 이전 = 기준선기록('phone-boot', { bootMs });
+  if (이전)
+    expect(
+      계단인가(bootMs, 이전.bootMs),
+      `부팅 웨이브 ${bootMs.toFixed(1)}ms — 직전 회차 ${이전.bootMs.toFixed(1)}ms 대비 계단식 증가다(docs/성능/기준선.json).`,
+    ).toBe(false);
 
   /* 30초 상수 대비 **자릿수**만 본다. 부팅 전체가 상한의 1/6 을 넘으면 「밀리초대」라는 근거가
      무너진 것이고, 그때는 상수가 아니라 **그 주석**을 다시 써야 한다. */

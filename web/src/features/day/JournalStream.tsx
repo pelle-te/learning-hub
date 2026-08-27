@@ -15,9 +15,8 @@
 import { useApp } from '@/store/useApp';
 import { useListCursor, type ListCursor } from '@/hooks/useListCursor';
 import { useHeroPointer, useCountUp } from '@/hooks/interactions';
-import { summariesFor, cbmsBetween, CBMS_INFO } from '@/lib/methodology';
+import { cbmsBetween, cbmsInfo, summariesFor } from '@/lib/methodology';
 import { itemById, hhmm, openVaultSearch } from '@/lib/utils';
-import type { CbmsCode } from '@/lib/types';
 
 // fill 시그니처 보드 델타 — 'ds-board' 를 발광 보드로(회색 카드 탈피). 배경/헤어라인/애니는 공유 토큰.
 /* Q-14 — 노치 HUD 통일. `ds-board` 위에 얹던 `rounded-lg!` 를 `ds-frame` 으로 바꾼다(둥근
@@ -190,7 +189,7 @@ export default function JournalStream({
             );
           })}
           {cbms.map((e) => {
-            const inf = CBMS_INFO[e.code as CbmsCode] || { label: '?', color: 'var(--mut)' };
+            const inf = cbmsInfo(e.code);
             return (
               <StreamRow key={`c-${e.id}`} cursor={cursor} k={`c-${e.id}`}>
                 <span className={`${NODE} rounded-full bg-bg shadow-node-ring`} />

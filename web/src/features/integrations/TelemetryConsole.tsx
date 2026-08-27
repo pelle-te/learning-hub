@@ -125,9 +125,15 @@ function readouts(
     due: live ? totalDue(live.decks) : 0,
     cards: file ? totalCards(file.decks) : 0,
     quietLine: quiet && quiet.observed > 0 ? `최근 ${quiet.observed}일 관측 중 조용한 날 ${quiet.quiet}일` : null,
+    /* ⚠⚠ **네이티브 칸을 앞에 세운다**(P035 · 2026-08-27). 종전 이 줄은 `wave.total` 을
+       「부팅」이라 불렀는데 그건 웹 층 안쪽뿐이고, 실측 중앙 881 ms 중 **508 ms(58%)가 그
+       앞**이었다 — 네이티브 기동이 500 ms 느려져도 이 리드아웃은 안 움직였다.
+       ⚠ 셸이 아니면 `nativeToOrigin` 이 null 이고 그 칸은 **안 그린다**(0 으로 안 채운다 —
+       프로세스가 없는 것과 0 ms 인 것은 다르다). */
     waveLine:
       wave.total != null
-        ? `부팅 ${wave.total}ms(엔트리→App ${wave.entryToApp ?? '?'} · App→첫 화면 ${wave.appToData ?? '?'})`
+        ? (wave.nativeToOrigin != null ? `기동 ${wave.nativeToOrigin}ms + ` : '') +
+          `부팅 ${wave.total}ms(엔트리→App ${wave.entryToApp ?? '?'} · App→첫 화면 ${wave.appToData ?? '?'})`
         : null,
   };
 }

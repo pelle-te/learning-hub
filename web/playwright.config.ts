@@ -16,7 +16,10 @@ import killStrayPreview from './e2e/_strayPreview';
    않아, 「자기 서버를 죽인다」(2026-08-23 실사고)가 원리적으로 불가능하다. 그래도 그 파일의
    생성 시각 가드 ③은 **그대로 둔다** — 사람이 옆 터미널에서 띄운 것까지 이 자리가 보게 되므로,
    가드를 걷으면 그때 죽는 것은 남의 것이다. */
-killStrayPreview();
+/* ⚠ **포트를 넘긴다**(P047 · 2026-08-28). 이 값이 아래 `webServer.command`·`url` 과 같아야
+   한다 — 갈리면 이 청소부는 조용히 아무것도 안 죽인다(그래서 상수 하나로 묶는다). */
+const PREVIEW_PORT = 4173;
+killStrayPreview(PREVIEW_PORT);
 
 /* Playwright — 비주얼 회귀 + 스모크(Phase 6 도입).
    `vite preview`(dist 서빙)를 webServer로 띄워 빌드물을 그대로 검사.

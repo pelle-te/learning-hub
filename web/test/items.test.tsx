@@ -19,7 +19,7 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 test('items: React 탭으로 렌더되고 #page를 쓰지 않는다', async () => {
-  renderApp('/items');
+  await renderApp('/items');
   // 계획 재개편 v3 — 탭 이름이 '학습 항목' → '과목'(뼈대 병합).
   await waitFor(() => expect(screen.getByRole('heading', { name: /^과목/ })).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
@@ -27,7 +27,7 @@ test('items: React 탭으로 렌더되고 #page를 쓰지 않는다', async () =
 });
 
 test('items: 과목 추가가 store(앱상태)에 반영된다', async () => {
-  renderApp('/items');
+  await renderApp('/items');
   const addBtn = await screen.findByRole('button', { name: '+ 과목 추가' });
   fireEvent.click(addBtn);
 
@@ -51,7 +51,7 @@ test('items: 챕터 추가가 해당 과목에 들어간다', async () => {
       },
     ];
   });
-  renderApp('/items');
+  await renderApp('/items');
 
   // 과목 줄을 눌러 펼친다.
   fireEvent.click(await screen.findByText('미적분'));
@@ -83,7 +83,7 @@ test('items: 챕터 이름은 타이핑 중엔 상태를 안 건드리고 blur �
       },
     ];
   });
-  renderApp('/items');
+  await renderApp('/items');
 
   fireEvent.click(await screen.findByText('미적분'));
   const input = await screen.findByLabelText('챕터 이름');
@@ -145,7 +145,7 @@ test('items: 과목을 지우면 그 sid의 주간 배분도 함께 사라진다
     // managed 주 — 두 과목 모두 월요일(wd=1)에 배분해 둔다.
     st.weekAlloc = { [wk]: { sdel: [0, 180, 0, 0, 0, 0, 0], skeep: [0, 60, 0, 0, 0, 0, 0] } };
   });
-  renderApp('/items');
+  await renderApp('/items');
 
   await deleteSubjectViaUI('삭제될과목');
 
@@ -171,7 +171,7 @@ test('items: 시트에서 과목 이름·주당 시간 수정이 store에 반영
       },
     ];
   });
-  renderApp('/items');
+  await renderApp('/items');
 
   fireEvent.click(await screen.findByText('옛이름'));
   fireEvent.change(await screen.findByLabelText('과목 이름'), { target: { value: '새이름' } });
@@ -203,7 +203,7 @@ test('items: 챕터 완료 체크가 doneDs(끝낸 날)를 남기고, 해제하�
       },
     ];
   });
-  renderApp('/items');
+  await renderApp('/items');
   fireEvent.click(await screen.findByText('미적분'));
   const done = await screen.findByRole('checkbox', { name: '완료' });
 
@@ -240,7 +240,7 @@ test('items: 주당 목표 시간을 비운 채 떠나도 0h로 확정되지 않
       },
     ];
   });
-  renderApp('/items');
+  await renderApp('/items');
 
   fireEvent.click(await screen.findByText('선형대수'));
   const field = await screen.findByLabelText('주당 목표 시간');

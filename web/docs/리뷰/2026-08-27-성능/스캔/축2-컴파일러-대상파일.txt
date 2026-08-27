@@ -1,0 +1,25 @@
+React Compiler 가 실제로 최적화(CompileSuccess)한 파일
+  .tsx : 116 / 127
+  .ts  : 21 / 188
+--- 최적화된 .ts 목록 ---
+  src/app/useFrameMemory.ts  [useFrameMemory]
+  src/app/useIdleLedger.ts  [useIdleLedger]
+  src/app/useLeaveCursor.ts  [useLeaveCursor]
+  src/app/useMarkSeen.ts  [useMarkSeen]
+  src/features/schedule/useTrayCursor.ts  [useTrayCursor]
+  src/hooks/interactions.ts  [useCountUp,useNowMin,useAdaptiveTick,useFlushOnUnmount,useWeekNavKeys,useHeroPointer]
+  src/hooks/useCommitOnChange.ts  [useCommitOnChange]
+  src/hooks/useFocusTrap.ts  [useFocusTrap]
+  src/hooks/useFormSubmit.ts  [useFormSubmit]
+  src/hooks/useHashTarget.ts  [useHashTarget]
+  src/hooks/useKeymap.ts  [useActiveKeymaps,useKeymapDoc,useKeymap]
+  src/hooks/useListCursor.ts  [useListCursor]
+  src/hooks/useScrollLock.ts  [useScrollLock]
+  src/hooks/useSwipe.ts  [useSwipe]
+  src/hooks/useTodayISO.ts  [useTodayISO]
+  src/hooks/useVaultAnchors.ts  [useVaultAnchorsVersion]
+  src/hooks/useWeekOffset.ts  [useWeekOffset]
+  src/shell/useBacklog.ts  [useToggleBacklog]
+  src/shell/useRecordEditor.ts  [useRecordEditor]
+  src/store/queries.ts  [usePing,useLedger,useKnowledge,useCurriculum,useGoals]
+  src/store/selectors.ts  [useSchedule,useTheme,useStudyMinByWeekday]

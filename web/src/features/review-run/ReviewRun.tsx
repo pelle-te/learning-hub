@@ -61,7 +61,7 @@ import {
 import { type AdhocNav, type ResumeNav } from '@/lib/resume';
 import { writeResume, dropResume } from '@/store/resumeCursor';
 
-import { CBMS_INFO, CBMS_CODES, addCbms, editCbms } from '@/lib/methodology';
+import { addCbms, CBMS_CODES, cbmsInfo, editCbms } from '@/lib/methodology';
 import { addRetrieval, setRetrievalGot } from '@/lib/retrievalLatency';
 import type { CbmsCode } from '@/lib/types';
 import { jolSummary, overconfidentCards, type JolEntry } from '@/lib/insights';
@@ -263,7 +263,7 @@ function buildKeys(d: {
       keys.push({
         k: code.toLowerCase(),
         cap: code,
-        label: CBMS_INFO[code].label,
+        label: cbmsInfo(code).label,
         quiet: true,
         run: () => d.commitMiss(code),
       });
@@ -686,9 +686,9 @@ function ReviewRun() {
               type="button"
               className={MISS_BTN}
               onClick={() => commitMiss(code)}
-              aria-label={`${CBMS_INFO[code].label}으로 남기기 (단축키 ${code})`}
+              aria-label={`${cbmsInfo(code).label}으로 남기기 (단축키 ${code})`}
             >
-              <b className={KEYCAP}>{code}</b> {CBMS_INFO[code].label}
+              <b className={KEYCAP}>{code}</b> {cbmsInfo(code).label}
             </button>
           ))}
         </>
@@ -910,7 +910,7 @@ function ReviewRun() {
               착각 재확인
             </span>
             <span className="ds-tiny">
-              {step} · {item.card.ageDays}일 전 · {CBMS_INFO[item.card.cbms.code].label}
+              {step} · {item.card.ageDays}일 전 · {cbmsInfo(item.card.cbms.code).label}
             </span>
           </div>
           <h2 className={PROMPT}>
@@ -921,7 +921,7 @@ function ReviewRun() {
           {revealed ? (
             <div className={REVEAL}>
               <p className="whitespace-pre-wrap">{item.card.cbms.note || '(메모 없음)'}</p>
-              <p className="ds-tiny">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
+              <p className="ds-tiny">처방: {cbmsInfo(item.card.cbms.code).tip}</p>
             </div>
           ) : (
             <p className="text-mut">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>

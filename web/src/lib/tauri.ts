@@ -302,6 +302,19 @@ const VaultNotesSchema = z.looseObject({
    둘 다 원인이 일시적인 경우가 흔하다(단축키 선점 · 폴더 잠금·네트워크 드라이브 끊김) —
    그때 맞는 처방은 재시작이 아니라 **다시 걸기**다. 근거 전문은 Rust 쪽 두 커맨드 주석이 갖는다. */
 
+/** 네이티브 프로세스 기동 시각(Unix epoch ms). 브라우저·폰이면 null — **프로세스가 없다**.
+ *
+ *  ⚠ 값 부재를 0 으로 섞지 않는다(`lib/perf.ts` 의 규율). 실패해도 던지지 않는다: 계량이
+ *  부팅을 죽이면 본말전도이고, 이 값이 없을 때의 올바른 화면은 «그 칸이 비는 것» 이다. */
+export async function shellBootStartMs(): Promise<number | null> {
+  if (!isTauri()) return null;
+  try {
+    return (await call<number | null>('boot_process_start_ms')) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** 전역 캡처 단축키 등록 재시도. 성공하면 true, 실패하면 사유를 던진다. */
 export async function shellHotkeyRetry(): Promise<void> {
   if (!isTauri()) return;

@@ -1,0 +1,38 @@
+# 축3 — 시간 축 예산 전수 조사 (grep 증거)
+
+## 존재하는 시간 단언 3건 (전부 [읽음] · 파일 열어 확인)
+1. web/e2e/smoke.spec.ts:125
+   expect(gap).toBeLessThan(50)   gap = hub:app → hub:first-data
+   성격: **회귀 임계**. 고치기 전 260ms · 고친 뒤 0ms 대. Suspense 억제 회귀 전용.
+   CI: build-test 의 e2e:smoke 로 매 push 실행.
+2. web/e2e-shell/shell.spec.ts:428
+   같은 gap, 같은 임계 50ms — 실 WebView2.
+   entry→app 과 total 은 425~427 에서 console.log 만 하고 **단언 없음**.
+   CI: shell-build(windows) · 로컬은 cargo 있을 때만.
+3. web/e2e/phone.spec.ts:158
+   expect(bootMs).toBeLessThan(5000)   bootMs = hub:entry → hub:app
+   성격: **행 감지기/자릿수 점검**. 파일 자신이 135행에서
+   "⚠ 절대 시간에 임계를 걸지 않는다" 라고 명시. CALL_TIMEOUT_MS(30s)의 1/6.
+   실측치는 154행에서 console.log 로만 남는다.
+
+## 없는 것 (grep 후 확인)
+- LCP / INP / CLS / web-vitals / lighthouse / PerformanceObserver
+  → web/src, web/e2e, web/scripts, server, src-tauri 전량 0건
+    (dist-scan 산출물과 tokenBridge.css 의 `grid-template-columns-cls` 오탐 제외)
+- 탭 전환 지연 상한: 0건
+- 서버 p95/p99: server/src, server/test 0건 (Date.now 는 전부 스탬프 스큐 검증용)
+- 렌더 프레임 예산: 0건 (motion.spec 은 픽셀 비교이지 시간 측정이 아니다)
+- 벤치 회귀 임계: web/scripts, server, src-tauri 에 bench/profile 스크립트 0개
+
+## timeout 이지 예산이 아닌 것 (구분해서 셈)
+- playwright.config.ts:111 webServer timeout 120s · shell.config timeout 90s/expect 15s
+- src-tauri: cloud.rs TIMEOUT 20s · ollama.rs 90/120/60s · anki.rs 3s · tools.rs timeout_ms
+- web/e2e: swfix 20s · plan 5s · _strayPreview 20s/10s
+  → 전부 **행 감지기**. 회귀를 잡는 임계가 아니다.
+
+## 계측은 있는데 임계가 없다
+web/src/lib/perf.ts — hub:entry / hub:app / hub:first-data 3마크 + measure.
+소비처: TelemetryConsole.tsx:118 (화면 표시) · 위 3개 spec (그중 2개는 gap 만 단언).
+entry→app · total 은 어디에도 단언되지 않고 보존되지도 않는다.
+playwright reporter 는 CI 에서 'list' — stdout 뿐. upload-artifact 는 shell-build 의
+인스톨러용 1건. web/docs/성능/ 디렉터리 없음 → 지난 수치 보존 0.

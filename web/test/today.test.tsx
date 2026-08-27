@@ -67,7 +67,7 @@ afterEach(() => {
 });
 
 test('today: React 카드(대시보드 히어로·오늘의 흐름)가 뜨고 #page를 쓰지 않는다', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
   // 단일 초점 히어로 — kicker(지금/다음/오늘 할 일·오늘 학습).
   const hero = screen.getByLabelText('오늘 대시보드');
@@ -81,7 +81,7 @@ test('today: React 카드(대시보드 히어로·오늘의 흐름)가 뜨고 #p
 });
 
 test('today: 아침 계획 의식 토글이 store.rituals에 기록된다', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   // 의식·블록 상세는 단일 화면 대시보드의 "＋ 블록 상세 · 일일 의식" 패널 안에 있음 — 먼저 연다.
   fireEvent.click(await screen.findByRole('button', { name: /일일 의식/ }));
   const cb = await screen.findByRole('checkbox', { name: /아침 계획/ });
@@ -97,7 +97,7 @@ test('today: ID-5 오늘의 모양 — 완료·요약 있으면 셧다운 회고
     st.completions = { [ds]: { 'm|new': { done: true, min: 60 }, 'p|new': { done: true, min: 30 } } };
     st.summaries = { [ds]: [{ id: 'a', sid: 'm', name: '미적분', s1: 'x', s2: 'y', s3: '극한의 정의를 다시 정리' }] };
   });
-  renderApp('/today');
+  await renderApp('/today');
   fireEvent.click(await screen.findByRole('button', { name: /일일 의식/ })); // 상세 오버레이 열기
   /* ⚠⚠ **오버레이 안으로 범위를 좁힌다 — 안 좁히면 이 테스트는 저녁에만 깨진다.**
      '오늘의 모양'은 두 곳에서 렌더된다: 여기 의식 카드(`Today.tsx` · 잴 것이 있으면 언제나)와
@@ -133,7 +133,7 @@ test('today: 마감·Anki·보충이 전부 비면 하단 스트립이 통째로
     st.cbms = [];
     delete st._ankiLive;
   });
-  renderApp('/today');
+  await renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
   const hero = screen.getByLabelText('오늘 대시보드');
   // 0을 말하는 문구가 하나도 없다 — 있으면 그게 매일 반복되는 소음이다.

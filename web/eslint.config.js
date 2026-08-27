@@ -22,6 +22,12 @@ export default tseslint.config(
       'playwright.config.ts',
       'test-results/**',
       'playwright-report/**',
+      /* ⚠ `docs/` 는 앱 소스가 아니라 **기록**이다(2026-08-27). `/리뷰` 회차가 재현용 스캔
+         스크립트를 `docs/리뷰/<회차>/스캔/*.mjs` 로 남기는데(리포트의 「재측정」 줄이 그걸
+         이름으로 부른다), 그건 브라우저·노드 전역을 그대로 쓰는 일회용 하네스라 앱 린트
+         규칙이 성립하지 않는다. 성능 축 1회차가 40여 개를 남기며 `npm run lint` 를
+         **통째로 빨갛게** 만들었다 — 게이트가 리뷰의 증거물을 결함으로 읽은 것이다. */
+      'docs/**',
     ],
   },
   js.configs.recommended,

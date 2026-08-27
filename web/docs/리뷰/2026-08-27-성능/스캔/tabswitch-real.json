@@ -1,0 +1,51 @@
+{
+  "scale": "real",
+  "fcp": 364,
+  "lcp": 12492,
+  "bootLongtasks": [[241.6, 85]],
+  "cold": [
+    { "tab": "today", "ms": 44.8, "nodes": 23 },
+    { "tab": "schedule", "ms": 110.9, "nodes": 154 },
+    { "tab": "items", "ms": 128.3, "nodes": 266 },
+    { "tab": "day", "ms": 153.4, "nodes": 176 },
+    { "tab": "degree", "ms": 127.1, "nodes": 207 },
+    { "tab": "stats", "ms": 145, "nodes": 122 },
+    { "tab": "settings", "ms": 184.9, "nodes": 184 },
+    { "tab": "integrations", "ms": 55.6, "nodes": 68 },
+    { "tab": "review", "ms": 78.3, "nodes": 126 },
+    { "tab": "mistakes", "ms": 94.9, "nodes": 518 },
+    { "tab": "questions", "ms": 65.6, "nodes": 51 },
+    { "tab": "find", "ms": 73.5, "nodes": 20 },
+    { "tab": "ledger", "ms": 65.7, "nodes": 188 }
+  ],
+  "warm": [
+    { "tab": "today", "ms": 47.2, "nodes": 23 },
+    { "tab": "schedule", "ms": 52.2, "nodes": 154 },
+    { "tab": "items", "ms": 62.6, "nodes": 266 },
+    { "tab": "day", "ms": 54.1, "nodes": 176 },
+    { "tab": "degree", "ms": 126.1, "nodes": 207 },
+    { "tab": "stats", "ms": 272, "nodes": 122 },
+    { "tab": "settings", "ms": 128.6, "nodes": 188 },
+    { "tab": "integrations", "ms": 49.7, "nodes": 68 },
+    { "tab": "review", "ms": 66, "nodes": 126 },
+    { "tab": "mistakes", "ms": 66.9, "nodes": 518 },
+    { "tab": "questions", "ms": 49.6, "nodes": 51 },
+    { "tab": "find", "ms": 44.3, "nodes": 20 },
+    { "tab": "ledger", "ms": 56.1, "nodes": 188 }
+  ],
+  "warm2": [
+    { "tab": "today", "ms": 43.9, "nodes": 23 },
+    { "tab": "schedule", "ms": 61.3, "nodes": 154 },
+    { "tab": "items", "ms": 44.6, "nodes": 266 },
+    { "tab": "day", "ms": 60.8, "nodes": 176 },
+    { "tab": "degree", "ms": 51.8, "nodes": 207 },
+    { "tab": "stats", "ms": 109.2, "nodes": 122 },
+    { "tab": "settings", "ms": 130.4, "nodes": 188 },
+    { "tab": "integrations", "ms": 61.1, "nodes": 68 },
+    { "tab": "review", "ms": 52.7, "nodes": 126 },
+    { "tab": "mistakes", "ms": 94.5, "nodes": 518 },
+    { "tab": "questions", "ms": 55.1, "nodes": 51 },
+    { "tab": "find", "ms": 44.1, "nodes": 20 },
+    { "tab": "ledger", "ms": 61.3, "nodes": 188 }
+  ]
+}

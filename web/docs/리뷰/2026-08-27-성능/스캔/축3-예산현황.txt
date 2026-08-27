@@ -1,0 +1,31 @@
+# 축3 — 예산 축별 현재/한도/여유 (2026-08-27 실측)
+
+축① 엔트리별 초기 로드 (gzip KB)
+  index.html  js   107.4 / 124    여유 13.4%
+  index.html  css   31.2 / 37     여유 15.7%
+  phone.html  js    85.9 / 98     여유 12.3%
+  phone.html  css    9.9 / 12     여유 17.5%
+축② 데스크톱 부팅 웨이브 (gzip KB)
+  js  221.7 / 250                 여유 11.3%
+축③ 플랫폼별 전체 산출물 (gzip KB)
+  desktop js  502.2 / 555         여유  9.5%
+  desktop css  31.2 / 38          여유 17.9%
+  phone   js  304.5 / 348         여유 12.5%
+  phone   css   9.9 / 12.5        여유 20.8%
+  phone   wasm 392.5 / 450        여유 12.8%
+축④ 번들 오염
+  릴리스 바이너리 0 — ok
+  ⚠ 감시 확장자 = .exe .msi .dmg .deb .appimage .zip .sig 뿐
+축⑤ 저장소 이력 바이트
+  657 MiB / 700 MiB  (94%)        여유  6.1%
+  30일 신규 blob: 4186개 / 517.5 MiB (총량의 79%)
+  그중 e2e 스냅샷: 1501개 / 443.1 MiB (증가분의 86%)
+  작업트리 실물: visual 110장 21MB + motion 4장 1MB = 22MB
+  → 이력이 작업트리의 약 20배. 30일 커밋 176.
+
+# 어느 축도 재지 않는 바이트 (실측)
+  dist/fonts/PretendardVariable.woff2  2,057,688 B (1.96 MB)
+    · index.html:11 · phone.html:33 에서 rel=preload (양쪽 엔트리 최고 우선순위)
+    · 축①②③은 매니페스트 그래프 + .js/.css/.wasm 확장자만 본다
+    · 축④의 BINARY 목록에 .woff2 없음
+    · 데스크톱 첫 전송 138.6 KB(js+css gz) 대비 폰트가 93.5%

@@ -68,7 +68,7 @@ async function expectLandedOnToday(영속: 'week' | 'month') {
 
 test('히어로 CTA "오늘 계획 짜기" → 영속 뷰가 month여도 캘린더 일 뷰 + 오늘로 착지', async () => {
   useUI.getState().setSchedView('month'); // 지난번에 월 뷰를 보다 나간 사용자
-  renderApp('/today');
+  await renderApp('/today');
 
   // 히어로 CTA(캡션 '캘린더 · 오늘')를 상단 바 액션·레일 칩과 구분해 집는다.
   const cap = await screen.findByText('캘린더 · 오늘 →');
@@ -78,7 +78,7 @@ test('히어로 CTA "오늘 계획 짜기" → 영속 뷰가 month여도 캘린�
 
 test('상단 바 액션 "오늘 계획 짜기 →"도 같은 목적지(일 뷰 · 오늘)', async () => {
   useUI.getState().setSchedView('week'); // 기본값(v4 "기본 착지=캘린더 주 뷰")에서 출발해도
-  renderApp('/today');
+  await renderApp('/today');
 
   fireEvent.click(await screen.findByRole('button', { name: '오늘 계획 짜기 →' }));
   await expectLandedOnToday('week');
@@ -86,7 +86,7 @@ test('상단 바 액션 "오늘 계획 짜기 →"도 같은 목적지(일 뷰 �
 
 test('?ds= 딥링크는 그 날짜로 열린다(초기값으로만 흡수)', async () => {
   useUI.getState().setSchedView('day');
-  renderApp('/schedule?ds=2026-01-05');
+  await renderApp('/schedule?ds=2026-01-05');
 
   await waitFor(() => expect(screen.getByLabelText('이전 날')).toBeInTheDocument());
   expect(screen.getByText('1/5')).toBeInTheDocument();

@@ -33,7 +33,7 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 test('오늘 히어로: 대시보드 + 주간 달성률 링 + 마감 임박 과목', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
   const hero = screen.getByLabelText('오늘 대시보드');
   // 단일 초점 히어로 — kicker(E8 이후 '이번 주' 지표는 스트립에서 빠졌다)

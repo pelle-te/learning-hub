@@ -62,7 +62,12 @@
 
   // artifacts.gen.ts는 gen-artifacts.mjs가 만드는 **생성물**이다 — 아티팩트마다 타입을 일괄
   // 방출하므로 일부가 미소비인 게 정상이고, 소유자는 codegen:check이지 knip이 아니다.
-  "ignore": ["src/lib/artifacts.gen.ts"],
+  // ⚠ `docs/**` 는 앱 소스가 아니라 **기록**이다(2026-08-27). `/리뷰` 회차가 남기는 재현용
+  // 스캔 스크립트(`docs/리뷰/<회차>/스캔/*`)는 일회용 하네스라 `package.json` 의 의존성 그래프에
+  // 속하지 않는데, knip 은 그것을 «미등록 의존성»으로 읽는다(성능 축 1회차의 `cloudflare` 가
+  // 그랬다). 리포트의 「재측정」 줄이 그 파일들을 이름으로 부르므로 **지울 수 없고**, 앱의
+  // 죽은 코드 축과도 무관하다 — 그래서 보지 않는다(eslint 도 같은 이유로 `docs/**` 를 뺐다).
+  "ignore": ["src/lib/artifacts.gen.ts", "docs/**"],
 
   "rules": {
     // 미사용 *타입* 내보내기는 끈다 — schema.ts의 20개 스키마가 같은 파일에서 `z.infer`로

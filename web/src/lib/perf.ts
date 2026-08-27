@@ -57,12 +57,32 @@ function measure(label: string, from: string, to: string): void {
 }
 
 export interface BootWave {
+  /** 프로세스 기동 → WebView2 문서 시작(ms). **셸이 아니면 null**(프로세스가 없다). */
+  nativeToOrigin: number | null;
   /** 엔트리 → App 마운트(ms). 모르면 null. */
   entryToApp: number | null;
   /** App 마운트 → 첫 실데이터(ms). */
   appToData: number | null;
-  /** 엔트리 → 첫 실데이터(ms) — 사용자가 체감하는 '앱이 떴다'. */
+  /** 엔트리 → 첫 실데이터(ms) — 웹 층이 본 '앱이 떴다'. */
   total: number | null;
+}
+
+/* ⚠⚠ **웹 층 안쪽만 재면 「부팅」의 42% 다**(P035 · 2026-08-27 성능 축). 아래 마크 셋은 전부
+   `performance.timeOrigin` 안쪽이고, 그 원점은 **WebView2 문서가 시작된 뒤**다. 실 셸 3회 실측
+   중앙: spawn→origin **508 ms** · origin→entry 71 · entry→app 196 · app→first-data 42 =
+   총 881 ms 중 **508(58%)이 이 모듈 밖**이었다. 네이티브 기동이 500 ms 느려져도 리드아웃은
+   한 자릿수도 안 움직였다 — 「부팅 웨이브」라는 이름이 그만큼 넓은 것을 가리키지 않았다.
+
+   ⚠ **이 모듈은 의존 0 을 유지한다**(머리주석의 계약). 그래서 여기서 커맨드를 부르지 않고,
+   셸 진입점이 값을 **밀어 넣는다**. 브라우저·폰에서는 아무도 안 밀어 넣으므로 null 로 남고,
+   그게 옳은 답이다(프로세스가 없다).
+   ⚠ 단위는 **Unix epoch ms** 여야 한다 — `performance.timeOrigin` 과 같은 축이라 뺄셈이 성립한다.
+      단조 시계를 넣으면 두 축을 못 잇는다(Rust 쪽 `boot.rs` 가 같은 계약을 적고 테스트로 잠근다). */
+let nativeStartEpochMs: number | null = null;
+
+/** 셸 진입점이 부른다(`main.tsx`). null 이면 무동작 — 한 번 들어온 값을 지우지 않는다. */
+export function setNativeStart(epochMs: number | null): void {
+  if (epochMs != null && Number.isFinite(epochMs)) nativeStartEpochMs = epochMs;
 }
 
 /**
@@ -82,7 +102,7 @@ export interface BootWave {
  * 읽히고, 이 값은 사람이 보는 리드아웃이다.
  */
 export function bootWave(): BootWave {
-  if (!ok()) return { entryToApp: null, appToData: null, total: null };
+  if (!ok()) return { nativeToOrigin: null, entryToApp: null, appToData: null, total: null };
   const at = (id: string): number | null => {
     const e = performance.getEntriesByName(id, 'mark');
     return e.length ? e[0]!.startTime : null;
@@ -93,6 +113,10 @@ export function bootWave(): BootWave {
   const span = (from: number | null, to: number | null): number | null =>
     from == null || to == null ? null : Math.max(0, Math.round(to - from));
   return {
+    /* ⚠ `timeOrigin` 은 epoch ms 라 그대로 뺀다. 음수는 다른 칸과 같은 이유로 0 으로 접는다
+       (시계 보정이 그 사이에 끼면 음수가 될 수 있고, 그건 「기동이 음수 ms」가 아니다). */
+    nativeToOrigin:
+      nativeStartEpochMs == null ? null : Math.max(0, Math.round(performance.timeOrigin - nativeStartEpochMs)),
     entryToApp: span(entry, app),
     appToData: span(app, data),
     total: span(entry, data),

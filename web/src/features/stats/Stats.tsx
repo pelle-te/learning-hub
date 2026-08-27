@@ -19,7 +19,7 @@ import Trellis from '@/components/Trellis';
 import { weekSeries } from '@/lib/series';
 import { Num } from '@/components/Num';
 import { totalDoneHours } from '@/lib/persistence';
-import { cbmsCounts, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence, CBMS_INFO } from '@/lib/methodology';
+import { cbmsCounts, cbmsInfo, cbmsTop, cbmsTrend, cbmsTrendGlyph, recallEvidence } from '@/lib/methodology';
 import { personalBests } from '@/lib/records';
 import { parseISO, fmtShort, todayISO, dayDiff, ddayInfo, hLabel } from '@/lib/utils';
 import { sortSubjectsByUrgency } from '@/lib/scheduleView';
@@ -348,12 +348,12 @@ export default function Stats() {
               </span>
             </div>
             <div className={S.verdict}>
-              <span className={S.vIcon} style={{ color: top ? CBMS_INFO[top.code]?.color : undefined }}>
+              <span className={S.vIcon} style={{ color: top ? cbmsInfo(top.code).color : undefined }}>
                 {top ? `${top.code} ${top.n}` : '—'}
               </span>
               <span className={S.vText} style={{ flex: 1 }}>
                 <b className="text-txt">주된 약점</b>{' '}
-                {top ? `${CBMS_INFO[top.code]?.label || ''}(전체 ${top.total}건)` : '오답 기록 없음'}
+                {top ? `${cbmsInfo(top.code).label}(전체 ${top.total}건)` : '오답 기록 없음'}
                 {top && (
                   <>
                     <div className={S.weakBar}>
@@ -361,7 +361,7 @@ export default function Stats() {
                         className={S.weakFill}
                         style={{
                           width: `${Math.round((top.n / top.total) * 100)}%`,
-                          background: CBMS_INFO[top.code]?.color || 'var(--acc)',
+                          background: cbmsInfo(top.code).color,
                         }}
                       />
                     </div>

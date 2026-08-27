@@ -119,6 +119,17 @@ perfMark('entry');
    ⚠ 동적 import 는 SD-7 부팅 순서 계약이다(정적으로 끌면 그래프가 예측 불가해진다). */
 void import('@/lib/log').then((m) => m.bridgeConsole());
 
+/* ⭐ **네이티브 기동 구간을 계량 안으로 들인다**(P035 · 2026-08-27 성능 축). `perfMark('entry')`
+   위쪽 — 프로세스 spawn 부터 WebView2 문서 시작까지 — 이 실측 중앙 **508 ms**(총 부팅 881 ms 의
+   58%)인데 어떤 마크도 그 구간을 안 봤다.
+   ⚠ **await 하지 않는다** — 계량이 첫 페인트를 늦추면 안 된다(위 `bridgeConsole` 과 같은 규율).
+   ⚠ 브라우저·폰이면 `shellBootStartMs()` 가 null 을 주고 그 칸은 비어 있게 남는다(프로세스가 없다).
+   ⚠ 동적 import 는 SD-7 부팅 순서 계약이다. */
+void import('@/lib/tauri').then(async (m) => {
+  const { setNativeStart } = await import('@/lib/perf');
+  setNativeStart(await m.shellBootStartMs());
+});
+
 void initAppStore()
   .catch((e: unknown) => console.error('[boot] initAppStore', e))
   .then(async () => {
@@ -150,6 +161,15 @@ void initAppStore()
        폴백 자체가 안 뜨고 억제할 대상도 사라진다.
        ⚠ 라우트 키 산출은 `App.tsx:109` 와 **같은 식**이다(둘이 갈리면 엉뚱한 청크를 덥힌다).
        ⚠ `warmTab` 이 상한을 갖는다 — 최악이 "이득 없음"이지 "흰 화면"이 아니게. */
+    /* ⚠⚠ **주소를 렌더 전에 정규화한다**(P028 · 2026-08-27 실측). 데스크톱 셸은 언제나
+       `tauri://localhost/` 로 뜬다 — `tauri.conf.json` 창 설정에 `url` 이 없다. 그런데 `/` 는
+       `App.tsx` 의 `<Route path="/" element={<Navigate to="/today" replace />} />` 라 **첫 커밋에
+       탭이 없고**, 바로 아래 `warmTab` 이 덥힌 컴포넌트가 두 번째 커밋에서야 쓰인다. 그 한 커밋이
+       「본문 없는 셸」을 페인트한다: preview 실측 `hub:app`→`hub:first-data` 가 `/` 에서 p50
+       **37.9ms**(4x CPU **182.8ms**) 인데 `/today` 직행은 같은 커밋에서 **−1.3ms**(4x −7.8ms) 다.
+       즉 2026-08-01 이 260ms 를 없앤 그 최적화가 **앱이 실제로 쓰는 진입점에서만 상쇄돼 있었다.**
+       ⚠ `App.tsx` 의 그 Route 는 **남긴다** — 뒤로가기·딥링크가 `/` 로 돌아오는 경로의 안전망이다. */
+    if (window.location.pathname === '/') history.replaceState(null, '', '/today');
     await warmTab(window.location.pathname.split('/')[1] || 'today');
     createRoot(document.getElementById('root')!).render(
       <StrictMode>

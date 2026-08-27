@@ -1,0 +1,216 @@
+{
+  "현재": {
+    "total": 1.2019,
+    "rows": [
+      {
+        "key": "find",
+        "sum": 0.0142,
+        "header": 78,
+        "mainY": 78
+      },
+      {
+        "key": "today",
+        "sum": 0.0294,
+        "header": 102,
+        "mainY": 102
+      },
+      {
+        "key": "review-run",
+        "sum": 0.0118,
+        "header": 102,
+        "mainY": 102
+      },
+      {
+        "key": "schedule",
+        "sum": 0.006,
+        "header": 102,
+        "mainY": 102
+      },
+      {
+        "key": "alloc",
+        "sum": 0.0003,
+        "header": 102,
+        "mainY": 102
+      },
+      {
+        "key": "items",
+        "sum": 0.0826,
+        "header": 88,
+        "mainY": 88
+      },
+      {
+        "key": "degree",
+        "sum": 0.0386,
+        "header": 88,
+        "mainY": 88
+      },
+      {
+        "key": "stats",
+        "sum": 0.1802,
+        "header": 102,
+        "mainY": 102
+      },
+      {
+        "key": "day",
+        "sum": 0.0016,
+        "header": 102,
+        "mainY": 102
+      },
+      {
+        "key": "review",
+        "sum": 0.0663,
+        "header": 88,
+        "mainY": 88
+      },
+      {
+        "key": "mistakes",
+        "sum": 0.0848,
+        "header": 102,
+        "mainY": 176
+      },
+      {
+        "key": "questions",
+        "sum": 0.0032,
+        "header": 102,
+        "mainY": 176
+      },
+      {
+        "key": "ledger",
+        "sum": 0.013,
+        "header": 78,
+        "mainY": 152
+      },
+      {
+        "key": "settings",
+        "sum": 0.0281,
+        "header": 78,
+        "mainY": 152
+      },
+      {
+        "key": "integrations",
+        "sum": 0.1376,
+        "header": 88,
+        "mainY": 162
+      },
+      {
+        "key": "find",
+        "sum": 0.0172,
+        "header": 78,
+        "mainY": 152
+      },
+      {
+        "key": "schedule",
+        "sum": 0.487,
+        "header": 102,
+        "mainY": 176
+      }
+    ]
+  },
+  "헤더고정": {
+    "total": 0.8217,
+    "rows": [
+      {
+        "key": "find",
+        "sum": 0.0113,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "today",
+        "sum": 0.0145,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "review-run",
+        "sum": 0.0119,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "schedule",
+        "sum": 0.006,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "alloc",
+        "sum": 0.0003,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "items",
+        "sum": 0.0052,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "degree",
+        "sum": 0.0342,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "stats",
+        "sum": 0.1555,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "day",
+        "sum": 0.0017,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "review",
+        "sum": 0.0032,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "mistakes",
+        "sum": 0.0033,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "questions",
+        "sum": 0.0032,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "ledger",
+        "sum": 0.0001,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "settings",
+        "sum": 0.0269,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "integrations",
+        "sum": 0.1274,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "find",
+        "sum": 0.0113,
+        "header": 110,
+        "mainY": 184
+      },
+      {
+        "key": "schedule",
+        "sum": 0.4057,
+        "header": 110,
+        "mainY": 184
+      }
+    ]
+  }
+}

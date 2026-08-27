@@ -1,0 +1,29 @@
+# 축3 — 예산이 실제로 깨지는가 (재현)
+
+## 실험 1: 인위적 초과 → exit 1 확인
+plant: dist/assets/zzz-probe-unattributed.js (귀속 불가)
+plant: dist/assets/sqlite-probe-big.js (랜덤 90.4 KB gz → OFF_MANIFEST 로 phone 귀속)
+결과:
+  ❌ 어느 플랫폼에도 귀속되지 않는 산출물: assets/zzz-probe-unattributed.js
+  OVER  [폰] js total 394.9 / 348
+  RESULT: ❌ 예산 초과
+  REAL EXIT=1
+원복 후: AFTER CLEANUP EXIT=0
+→ 판정: 축 ③ 크기 가드와 귀속 가드 **둘 다 살아 있다.**
+
+## 실험 2: 우회로 — gzip 만 재는 축을 통과하며 파싱 비용만 키운다
+plant: dist/assets/sqlite-bypass-probe.js
+  raw = 7.10 MB   gz = 21.3 KB   ratio = 342:1
+결과:
+  [폰] ok js total 325.7 / 348
+  RESULT: ✅ 예산 내      EXIT=0
+파싱+실행 실측(node v8, vm.runInNewContext, 이 머신):
+  run1 445ms (콜드)  run2 86ms  run3 61ms
+→ 판정: **7.10 MB 의 JS 를 폰 번들에 넣고도 예산 게이트는 녹색이다.**
+   축 ①②③ 전부 gzip 바이트만 재고 raw/파싱/실행은 어느 축도 안 본다.
+
+## 실험 3: 축 ⑤(저장소 이력)가 CI 에서 무엇을 보는가
+전체 이력:      size-pack 656.03 MiB → 축 ⑤ 판정 657/700 (94%)
+depth-1 객체집합: HEAD 트리 blob 841개 = 비압축 33.2 MiB
+→ actions/checkout 기본(fetch-depth:1) 아래에서 축 ⑤ 는 약 4% 를 보고한다.
+   build-test 잡의 checkout 에는 fetch-depth:0 이 없다(ci.yml:74).

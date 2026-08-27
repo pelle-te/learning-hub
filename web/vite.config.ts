@@ -38,9 +38,27 @@ const PHONE_EXTRA = /^assets\/sqlite.*\.(?:js|wasm)$/; // 워커·wasm(그래프
 const PHONE_PRECACHE_SKIP = /^assets\/sqlite3-worker1-/;
 const PHONE_SHELL = new Set(['phone.html', 'icon.svg', 'manifest.webmanifest']);
 
+/* ⚠⚠ **`dist` 를 하드코딩하지 않는다**(P045 · 2026-08-28 코드 축). 아래 그래프 탐색은 빌드
+   산출물의 매니페스트를 읽는데, 그 경로가 `'dist/.vite/manifest.json'` 으로 박혀 있었다.
+   `--outDir` 이 다르면 **그 빌드의 매니페스트가 아니라 지난 빌드의 것**을 읽고, 해시 파일명이
+   안 맞으니 그래프가 통째로 빗나가 precache 가 **조용히 축소된다** —
+   재현(2026-08-28): 정상 `dist` **43 entries** 인데 `--outDir dist-alt` 는 **29 entries**.
+   실패 모드가 「빌드가 깨진다」가 아니라 **「오프라인에서만 반쪽인 SW 를 배포한다」** 라
+   가장 늦게 발견되는 자리다. 그래서 vite 가 해석한 값을 그대로 받는다. */
+let 해석된outDir: string | null = null;
+const outDir캡처 = {
+  name: 'hub:outdir-capture',
+  configResolved(c: { root: string; build: { outDir: string } }) {
+    해석된outDir = path.resolve(c.root, c.build.outDir);
+  },
+};
+
 function phoneGraphFiles(): Set<string> | null {
   try {
-    const m = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'dist/.vite/manifest.json'), 'utf8')) as Record<
+    /* ⚠ 폴백을 두지 않는다 — `configResolved` 가 안 돌았다면 그건 우리가 모르는 상태이고,
+       거기서 `dist` 를 추측하면 정확히 이 항목이 고친 결함으로 되돌아간다. */
+    if (!해석된outDir) return null;
+    const m = JSON.parse(readFileSync(path.join(해석된outDir, '.vite/manifest.json'), 'utf8')) as Record<
       string,
       { file?: string; css?: string[]; assets?: string[]; imports?: string[]; dynamicImports?: string[] }
     >;
@@ -70,6 +88,8 @@ function phoneGraphFiles(): Set<string> | null {
 // dev에선 SW 비활성(HMR 간섭 회피) — 프로덕션 빌드에서만 SW 생성/등록.
 export default defineConfig({
   plugins: [
+    // P045 — vite 가 해석한 outDir 를 잡아 둔다(위 phoneGraphFiles 머리주석이 근거).
+    outDir캡처,
     react(),
     // React Compiler(React 19) — 컴포넌트를 빌드타임에 자동 메모이제이션.
     // 수동 memo/useMemo/useCallback 없이도 불필요한 리렌더를 제거(프레임워크 최대 활용).
@@ -122,7 +142,13 @@ export default defineConfig({
               if (PHONE_PRECACHE_SKIP.test(url)) return false;
               return graph.has(url) || PHONE_EXTRA.test(url);
             });
-            const warnings = graph ? [] : ['[pwa] dist/.vite/manifest.json 을 못 읽어 폰 셸만 precache 했습니다.'];
+            /* ⚠ 경로를 **실제로 읽은 자리**로 말한다(P045). 종전엔 메시지가 `dist/…` 라고 단정해,
+               `--outDir` 이 다른 빌드에서 그 문장 자체가 오답을 가리켰다. */
+            const warnings = graph
+              ? []
+              : [
+                  `[pwa] ${해석된outDir ?? '(outDir 미해석)'}/.vite/manifest.json 을 못 읽어 폰 셸만 precache 했습니다.`,
+                ];
             return { manifest: keep, warnings };
           },
         ],
@@ -235,6 +261,18 @@ export default defineConfig({
        (데스크톱 사용자는 폰 청크를 안 받고, 그 반대도 마찬가지). 파일명 prefix 추측 대신
        그래프를 따라가야 정확하다. */
     manifest: true,
+    /* ⚠⚠ **소스맵은 «끄고 켠다»가 아니라 «프로파일링 모드»다**(P044 · 2026-08-28 코드 축).
+
+       prod 번들에 소스맵이 없어서 **어떤 CPU 프로파일도 함수 단위 귀속이 불가능했다** — 성능 축
+       1회차가 그 벽에 **두 번** 막혔고, 매번 `vite.config.ts` 사본을 손으로 만들어 우회했다
+       (그 흔적이 `docs/리뷰/2026-08-27-성능/스캔/축2-scan.*.vite.config.ts` 다). 즉 이 저장소에서
+       「어느 함수가 느린가」를 묻는 비용이 **설정 파일을 포크하는 것**이었다.
+
+       그렇다고 항상 켤 수는 없다: `.map` 은 dist 에 남아 tauri `frontendDist`·wrangler 자산으로
+       **그대로 배포되고**(1.7 MB 매핑분), 우리 소스를 그대로 공개한다.
+       → 기본은 끄고 **환경변수로 켠다**(`npm run build:profile`). 게이트가 도는 빌드는 언제나
+         꺼진 쪽이고, 프로파일링 산출물은 예산 축이 **시끄럽게 잡는다**(그 dist 는 배포 불가다). */
+    sourcemap: !!process.env.HUB_SOURCEMAP,
     // vendor 청크 분할 — 자주 안 바뀌는 의존성을 별도 파일로 빼 브라우저 캐시 적중률↑.
     // 옛 단일 365KB index.js → react 코어(안정)·라우팅/상태/스키마(vendor)·앱 코드로 3분할.
     /* ⚠ 엔트리가 둘이다(C-6). `index.html` = 데스크톱 셸, `phone.html` = 폰 웹앱.

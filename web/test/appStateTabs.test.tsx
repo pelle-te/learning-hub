@@ -37,7 +37,7 @@ afterEach(() => cleanup());
 
 // 계획 재개편 v4 — 캘린더 세그먼트는 [일·주·월]만 소유하고, 배분은 /alloc 독립 세그먼트로 승격됐다.
 test('schedule: 캘린더 세그먼트가 일/주/월 뷰를 전환한다(#page 미사용)', async () => {
-  renderApp('/schedule');
+  await renderApp('/schedule');
   // 기본 = 주 뷰(배분이 빠지며 캘린더가 계획의 첫 착지)
   await waitFor(() => expect(screen.getByRole('button', { name: '주' })).toHaveAttribute('aria-pressed', 'true'));
   expect(document.getElementById('page')).toBeNull();
@@ -60,7 +60,7 @@ test('schedule: 캘린더 세그먼트가 일/주/월 뷰를 전환한다(#page 
 // 스트립을 먼저 펼쳐야 '+ 블록 추가'가 나온다.
 // ⚠ 옛 `/routine` 리다이렉트 shim 은 D-4 에서 은퇴했다 — 여기서 직접 /items 를 연다.
 test('items: 뼈대 + 블록 추가가 store.routine에 들어간다', async () => {
-  renderApp('/items');
+  await renderApp('/items');
   fireEvent.click(await screen.findByRole('button', { name: /수업·일과 편집/ }));
   const add = await screen.findByRole('button', { name: '+ 블록 추가' });
   fireEvent.click(add);
@@ -71,7 +71,7 @@ test('items: 뼈대 + 블록 추가가 store.routine에 들어간다', async () 
 // 이 보드는 셀마다 입력이 tab stop인 평범한 표라 그 계약을 이행하지 않는다(거짓 계약 제거).
 // 단언도 "표가 있다"에서 "요일 열머리글과 편집 가능한 셀이 있다"로 승격한다.
 test('alloc: 배분 세그먼트가 과목×요일 보드를 표 시맨틱으로 렌더한다', async () => {
-  renderApp('/alloc');
+  await renderApp('/alloc');
   const board = await screen.findByRole('table', { name: '주간 배분 보드' });
   expect(board).toBeInTheDocument();
   // 요일 헤더는 열머리글이자 일 편집기를 여는 버튼(role 오버라이드로 버튼 의미를 덮지 않는다).
@@ -90,7 +90,7 @@ test('alloc: 열 "가용"이 그날 일정을 차감한 실제 가용을 보여�
   useApp.getState().mutate((st) => {
     st.events = [{ id: 'ev1', ds: evDs, name: '종일 워크숍', start: 9 * 60, min: 8 * 60 }];
   });
-  renderApp('/alloc');
+  await renderApp('/alloc');
   const board = await screen.findByRole('table', { name: '주간 배분 보드' });
   const caps = within(board)
     .getAllByRole('cell')
@@ -106,7 +106,7 @@ test('alloc: 열 "가용"이 그날 일정을 차감한 실제 가용을 보여�
 /* ⚠ 경로가 `/journal` 에서 `/day` 로 바뀌었다(I048 · 2026-08-22). `journal` 은 `/day` 를
    가리키는 **두 번째 이름**이었고, 이름이 둘이면 다음 사람이 「둘은 다르다」로 읽는다. */
 test('day: 3문장 요약 저장이 store.summaries에 기록된다', async () => {
-  renderApp('/day');
+  await renderApp('/day');
   const ta = await screen.findByPlaceholderText(/시변 환경에서/);
   fireEvent.change(ta, { target: { value: '맥스웰 방정식 해석' } });
   fireEvent.click(screen.getByRole('button', { name: '요약 저장' }));
@@ -115,7 +115,7 @@ test('day: 3문장 요약 저장이 store.summaries에 기록된다', async () =
 });
 
 test('review: 주간 점검 체크가 store.weekly에 저장된다', async () => {
-  renderApp('/review');
+  await renderApp('/review');
   const cbs = await screen.findAllByRole('checkbox');
   fireEvent.click(cbs[0]);
   await waitFor(() => {
@@ -125,7 +125,7 @@ test('review: 주간 점검 체크가 store.weekly에 저장된다', async () =>
 });
 
 test('stats: 과목이 있으면 KPI/과목별 진행 표가 뜬다', async () => {
-  renderApp('/stats');
+  await renderApp('/stats');
   await waitFor(() => expect(screen.getByRole('heading', { name: '과목별 진행' })).toBeInTheDocument());
   /* ⚠ 종전엔 「연속 학습일」을 단언했다 — I046 이 그 리드아웃을 지웠다(입력 `completions` 가
      실물에서 0행이라 **항상 0** 이었다). 같은 자리에 남은 리드아웃으로 바꾼다. */
@@ -133,14 +133,14 @@ test('stats: 과목이 있으면 KPI/과목별 진행 표가 뜬다', async () =
 });
 
 test('degree: + 학기 추가가 store.degree.semesters에 들어간다', async () => {
-  renderApp('/degree');
+  await renderApp('/degree');
   const add = await screen.findByRole('button', { name: '+ 학기 추가' });
   fireEvent.click(add);
   await waitFor(() => expect(useApp.getState().state.degree.semesters.length).toBe(1));
 });
 
 test('settings: 모듈 길이 변경이 store에 반영된다', async () => {
-  renderApp('/settings');
+  await renderApp('/settings');
   const input = await screen.findByLabelText('모듈 길이 (시간)');
   fireEvent.change(input, { target: { value: '3' } });
   await waitFor(() => expect(useApp.getState().state.moduleLen).toBe(180));

@@ -1,0 +1,26 @@
+{
+  "x10": [
+    ["gc)", "1203.4ms", "92.5%"],
+    ["App-QiIZAMvy.js", "41.5ms", "3.2%"],
+    ["react-Bjbf4p2i.js", "34.3ms", "2.6%"],
+    ["selectors-BDU-b6jo.js", "7.1ms", "0.5%"],
+    ["main-Co96bBQe.js", "4.5ms", "0.3%"],
+    ["perf-ClCsuNlB.js", "3.2ms", "0.2%"],
+    ["useApp-C4KnQaMw.js", "2.6ms", "0.2%"],
+    ["Schedule-B11nwXib.js", "1.9ms", "0.1%"],
+    ["scheduleView-Dxdswcm5.js", "0.6ms", "0%"],
+    ["usePageChrome-BqirOQWZ.js", "0.6ms", "0%"]
+  ],
+  "x50": [
+    ["gc)", "758.1ms", "57.9%"],
+    ["selectors-BDU-b6jo.js", "380.7ms", "29.1%"],
+    ["App-QiIZAMvy.js", "92.6ms", "7.1%"],
+    ["react-Bjbf4p2i.js", "46.9ms", "3.6%"],
+    ["perf-ClCsuNlB.js", "12.9ms", "1%"],
+    ["Schedule-B11nwXib.js", "9ms", "0.7%"],
+    ["scheduleView-Dxdswcm5.js", "1.9ms", "0.1%"],
+    ["main-Co96bBQe.js", "1.3ms", "0.1%"],
+    ["useApp-C4KnQaMw.js", "1.3ms", "0.1%"],
+    ["Icon-Bu7HDk5w.js", "0.6ms", "0%"]
+  ]
+}

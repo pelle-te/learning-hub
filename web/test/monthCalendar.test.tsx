@@ -8,28 +8,17 @@
    측정값: contentH 72px vs boxH 48px = 24px 넘침 → 고친 뒤 -2px(여유).
 ============================================================ */
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ThemeProvider from '@/app/ThemeProvider';
-import App from '@/app/App';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
+import { renderApp } from './_render';
 import { iso, todayISO } from '@/lib/utils';
 
-function renderMonth() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/schedule']}>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
+/* ⚠ 셸 렌더는 **공용 헬퍼**를 쓴다(P051 · 2026-08-28). 여기 사본이 있으면 그 헬퍼가
+   렌더 전에 하는 일(탭 청크 덥히기 = Suspense 대기 제거)을 이 파일만 못 받는다 —
+   이 저장소가 `_render.tsx` 를 만든 이유가 «12줄이 17개 파일에 복사돼 있었다» 였다. */
+const renderMonth = () => renderApp('/schedule');
 
 const mkItem = (id: string, name: string, deadline: string) => ({
   id,
@@ -57,7 +46,7 @@ test('월 칸: 마감이 여러 개여도 캡을 넘긴 만큼 "+N개 더"로 �
     st.tasks = [];
   });
 
-  renderMonth();
+  await renderMonth();
   // 그 날 칸 = 마감 3개. MAX_CHIPS(2)를 넘으므로 나머지 1개는 "+1개 더"로 드러나야 한다.
   const cell = await screen.findByRole('button', { name: new RegExp('마감 미적분, 일반물리, 전자기학') });
   expect(within(cell).getByText(/\+1개 더/)).toBeInTheDocument();

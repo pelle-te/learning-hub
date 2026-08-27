@@ -28,7 +28,7 @@ import type { IconName } from '@/lib/iconPaths';
    ⚠ 메뉴(`.menu`/`.menu-sep`/`.menu-danger`)는 **전역 앱크롬 클래스**라 이 티어에서 건드리지 않는다
    (전역 요소 규칙은 맨 마지막에 함께 — App 의 `skip-link` 와 같은 취급). */
 const BAR =
-  'relative z-[var(--z-dropdown)] flex flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
+  'relative z-[var(--z-dropdown)] flex min-h-topbar flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:min-h-0 max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
 /* 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.
 
    ⚠⚠ **`flex-none` 이 없으면 탭마다 다르게 조판된다**(U021 · 2026-08-21 ux 축). 이 `<h1>` 은

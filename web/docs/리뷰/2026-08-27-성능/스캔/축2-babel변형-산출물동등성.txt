@@ -1,0 +1,5 @@
+dist-A         raw 2926.7 gz 1089.4 | 동일 48 다름 52 한쪽만 0 
+dist-B         raw 2932.8 gz 1092.2 | 동일 73 다름 27 한쪽만 0 
+dist-C         raw 2926.7 gz 1089.4 | 동일 48 다름 52 한쪽만 0 
+dist-nobabel   raw 2735.0 gz 1003.8 | 동일 19 다름 81 한쪽만 0 
+dist(base)     raw 2932.1 gz 1092.1

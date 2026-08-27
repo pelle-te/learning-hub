@@ -23,7 +23,7 @@ import { renderApp } from './_render';
 afterEach(() => cleanup());
 
 test('mastery: 지식상태가 없으면(/api 없음) 셋업 안내로 폴백하고 #page를 안 쓴다', async () => {
-  renderApp('/mastery');
+  await renderApp('/mastery');
   await waitFor(() => expect(screen.getByRole('heading', { name: /숙달도 지도/ })).toBeInTheDocument());
   // /api/artifact/knowledge 실패 → 셋업 카드.
   await waitFor(() => expect(screen.getByText('아직 지식상태가 없어요')).toBeInTheDocument());
@@ -34,7 +34,7 @@ test('mastery: 지식상태가 없으면(/api 없음) 셋업 안내로 폴백하
    이 파일이 잠그던 것은 *"서버/외부 의존 탭이 백엔드 없이도 우아하게 안내한다"* 이고, 그 계약은
    남은 둘(`mastery`·`integrations`)이 계속 진다. */
 test('integrations: 볼트·Anki 두 패널이 렌더된다(#page 미사용)', async () => {
-  renderApp('/integrations');
+  await renderApp('/integrations');
   await waitFor(() => expect(screen.getByRole('heading', { name: '옵시디언 볼트 현황' })).toBeInTheDocument());
   expect(screen.getByRole('heading', { name: 'Anki 현황' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /AnkiConnect 실시간 due/ })).toBeInTheDocument();

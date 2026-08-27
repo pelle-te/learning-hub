@@ -31,7 +31,7 @@ test('forecast: 완료 챕터가 없으면 EmptyState로 폴백', async () => {
     st.items = [];
     st.completions = {};
   });
-  renderApp('/review-run?view=forecast');
+  await renderApp('/review-run?view=forecast');
   // lazy 로드 → Suspense 해제까지 findBy로 대기.
   expect(await screen.findByText('다가오는 복습 파도가 아직 없어요')).toBeInTheDocument();
   // 상단 리드아웃(페이지 크롬)이 주입된다 — 실제 셸에 마운트됐다는 관측 가능한 증거.
@@ -63,7 +63,7 @@ test('forecast: 가용을 넘는 날이 있으면 초과 스트립과 앞당길 
     st.completions = { '2026-07-08': { 'p|new': { done: true, min: 120 } } } as never;
     st.dayOverrides = { '2026-07-09': 0.5 } as never; // 그날 가용 30분 = 복습 1블록
   });
-  renderApp('/review-run?view=forecast');
+  await renderApp('/review-run?view=forecast');
   // 초과 스트립 — 날짜·부하·가용을 같은 단위로 말한다.
   const strip = await screen.findByRole('status', { name: '가용 초과' });
   expect(strip).toHaveTextContent('7/9');

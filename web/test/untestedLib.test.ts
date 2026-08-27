@@ -15,7 +15,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { previewOf, tableLabel, whenLabel, RESTORE_CONFIRM } from '@/lib/conflictView';
-import { BOOT_MARKS, bootWave, mark } from '@/lib/perf';
+import { BOOT_MARKS, bootWave, mark, setNativeStart } from '@/lib/perf';
 
 describe('conflictView — 충돌을 사람 말로', () => {
   it('모르는 테이블은 **이름을 지어내지 않고** 그대로 보여준다', () => {
@@ -49,7 +49,36 @@ describe('conflictView — 충돌을 사람 말로', () => {
 describe('perf — 부팅 웨이브', () => {
   it('마크가 없으면 **null** 이다(0 이 아니다 — 안 잰 것과 0ms 는 다르다)', () => {
     vi.spyOn(performance, 'getEntriesByName').mockReturnValue([]);
-    expect(bootWave()).toEqual({ entryToApp: null, appToData: null, total: null });
+    expect(bootWave()).toEqual({ nativeToOrigin: null, entryToApp: null, appToData: null, total: null });
+    vi.restoreAllMocks();
+  });
+
+  /* ⚠ **셸이 아니면 `nativeToOrigin` 은 null 이다**(P035 · 2026-08-27). 프로세스가 없는 것과
+     기동이 0 ms 인 것은 다르고, 이 값은 사람이 보는 리드아웃이다 — 0 을 그리면 «네이티브 기동이
+     공짜» 라고 말하는 셈이 된다. 브라우저·폰에서는 아무도 `setNativeStart` 를 안 부른다. */
+  it('네이티브 기동 시각을 안 밀어 넣으면 그 칸은 null 이다(0 이 아니다)', () => {
+    const at: Record<string, number> = {
+      [BOOT_MARKS.entry]: 10,
+      [BOOT_MARKS.app]: 20,
+      [BOOT_MARKS.firstData]: 30,
+    };
+    vi.spyOn(performance, 'getEntriesByName').mockImplementation(
+      (n: string) => (at[n] == null ? [] : [{ startTime: at[n] } as PerformanceEntry]) as PerformanceEntryList,
+    );
+    expect(bootWave().nativeToOrigin, '셸이 아닌데 기동 구간이 채워졌다').toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('밀어 넣으면 `timeOrigin` 과 같은 축에서 뺀다 — 단위가 epoch ms 라는 계약', () => {
+    setNativeStart(performance.timeOrigin - 500);
+    const at: Record<string, number> = { [BOOT_MARKS.entry]: 10, [BOOT_MARKS.app]: 20, [BOOT_MARKS.firstData]: 30 };
+    vi.spyOn(performance, 'getEntriesByName').mockImplementation(
+      (n: string) => (at[n] == null ? [] : [{ startTime: at[n] } as PerformanceEntry]) as PerformanceEntryList,
+    );
+    expect(bootWave().nativeToOrigin).toBe(500);
+    /* 단조 시계를 넣는 실수 — 그러면 `timeOrigin`(epoch)에서 빼서 **1970년 이래의 ms** 가 나온다.
+       그건 음수가 아니라 터무니없이 큰 양수라 «0 으로 접기» 가드가 못 잡는다. Rust 쪽
+       `boot.rs` 의 epoch 범위 테스트가 그 축을 잠그고, 여기는 계약을 문서로 남긴다. */
     vi.restoreAllMocks();
   });
 

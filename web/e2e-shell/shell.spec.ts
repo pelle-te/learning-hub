@@ -40,6 +40,7 @@ import {
   sharedShell,
   type Shell,
 } from './shellApp';
+import { 계단인가, 기준선기록 } from '../e2e/_perfBaseline';
 
 test.afterAll(async () => {
   await closeSharedShell();
@@ -405,8 +406,12 @@ test('미니 HUD — 접기가 창을 알약으로 줄이고, 펼치기가 원�
    다르게 나타날 수 있다.
 
    ⚠ **임계는 대기(gap)에만 건다.** 절대 부팅 시간은 러너·디스크·콜드캐시에 좌우되지만, 이 결함이
-   만든 것은 **아무것도 안 하면서 기다리는 시간**이라 그 축은 하드웨어에 둔감하다(고치기 전 260ms ·
-   고친 뒤 0ms 대 — 5배 이상 벌어져 있다).
+   만든 것은 **아무것도 안 하면서 기다리는 시간**이라 그 축은 하드웨어에 둔감하다.
+   ⚠⚠ **여기 있던 「고친 뒤 0ms 대 · 5배 이상 이격」은 2026-08-01 Chrome 실측이고 WebView2 에서
+   거짓이었다**(P050 · 2026-08-27). 실 셸 9회가 39~72.5ms(중앙 46)로 임계 50 을 걸치고
+   있었고, 전량 실행에서 실제로 빨간불이 떴다. 원인은 노이즈가 아니라 **진입점**이었다 —
+   셸은 `/` 로 뜨는데 `/` 가 `<Navigate>` 라 첫 커밋에 탭이 없었다(P028). `main.tsx` 가 렌더 전에
+   주소를 정규화하면서 그 한 커밋이 사라졌고, **그러고 나서야 이 임계가 의미를 갖는다.**
    ⚠ 마크가 없으면 **통과로 읽지 않는다** — 계량이 죽은 것과 회귀가 없는 것은 다르다. */
 test('부팅 계량 — 실 WebView2 에서도 첫 라우트가 Suspense 폴백을 안 거친다', async () => {
   const shell = await sharedShell();
@@ -422,9 +427,37 @@ test('부팅 계량 — 실 WebView2 에서도 첫 라우트가 Suspense 폴백�
 
   const gap = wave.data! - wave.app!;
   const total = wave.data! - wave.entry!;
+  const entryToApp = wave.app! - wave.entry!;
   console.log(
-    `[boot] entry→app ${(wave.app! - wave.entry!).toFixed(1)}ms · app→first-data ${gap.toFixed(1)}ms · total ${total.toFixed(1)}ms`,
+    `[boot] entry→app ${entryToApp.toFixed(1)}ms · app→first-data ${gap.toFixed(1)}ms · total ${total.toFixed(1)}ms`,
   );
+
+  /* ⭐ **웹 층 앞의 구간도 잰다**(P035 · 2026-08-27). 위 셋은 전부 `performance.timeOrigin`
+     안쪽이고 그 원점은 WebView2 문서가 시작된 **뒤**다 — 실측 중앙으로 총 881 ms 중 508 ms(58%)가
+     그 앞이었다. `boot::stamp()` 가 `run()` 첫 줄에서 epoch ms 를 찍고 여기서 그 축을 확인한다.
+     ⚠ 절대 임계가 아니라 **자릿수와 부호**를 본다: 0 보다 크고 10초보다 작으면 「같은 축에서
+     제대로 뺐다」는 뜻이고, 단조 시계를 잘못 주면 이 단언이 즉시 깨진다(수십 년 ms 가 나온다). */
+  const native = await shell.page.evaluate(async () => {
+    const w = (window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string) => Promise<unknown> } })
+      .__TAURI_INTERNALS__;
+    const start = (await w.invoke('boot_process_start_ms')) as number | null;
+    return start == null ? null : performance.timeOrigin - start;
+  });
+  expect(native, '`boot_process_start_ms` 가 null 이다 — 계량이 죽었다(P035 의 관측 지점)').not.toBeNull();
+  console.log(`[boot] native→origin ${native!.toFixed(1)}ms`);
+  expect(native!, 'epoch ms 축이 아니다 — 단조 시계를 준 것 같다(boot.rs 계약)').toBeGreaterThan(0);
+  expect(native!, `native→origin ${native!.toFixed(0)}ms — 자릿수가 틀렸다`).toBeLessThan(10_000);
+
+  /* ⭐ **재고 버리지 않는다**(P033 · 2026-08-27). 종전엔 위 한 줄이 전부라 다음 회차가 그 수를
+     읽을 방법이 없었다 — `entry→app` 이 200ms 늘어도 아무 술어도 위반하지 않았다.
+     ⚠ 절대 임계는 여전히 안 건다(위 문단의 판단 그대로). 여기서 잡는 것은 **계단**이다. */
+  const 이전 = 기준선기록('shell-boot', { nativeToOrigin: native!, entryToApp, gap, total });
+  if (이전)
+    expect(
+      계단인가(entryToApp, 이전.entryToApp),
+      `entry→app ${entryToApp.toFixed(1)}ms — 직전 회차 ${이전.entryToApp.toFixed(1)}ms 대비 계단식 증가다. ` +
+        '하드웨어 잡음은 이 폭에 안 닿는다(docs/성능/기준선.json).',
+    ).toBe(false);
   expect(gap, 'React Suspense 억제(≈248ms)가 WebView2 에서 살아 있다 — `registry.warmTab` 머리주석 참조').toBeLessThan(
     50,
   );

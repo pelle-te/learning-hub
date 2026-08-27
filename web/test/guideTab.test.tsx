@@ -14,7 +14,7 @@ import { renderApp } from './_render';
 afterEach(() => cleanup());
 
 test('안내 탭: 히어로 + 세 축 섹션 + 도구 표를 정적으로 렌더(serve.js 무관)', async () => {
-  renderApp('/find?view=guide');
+  await renderApp('/find?view=guide');
   await waitFor(() => expect(screen.getByText('이 시스템이 할 수 있는 것 · 하는 법')).toBeInTheDocument());
   /* 축 섹션 제목. ⚠⚠ **「수집·발견 — 자료 축」이 여기 있었다 — 지웠다**(C059 · 2026-08-22):
      그 절이 부르던 탭 넷(`읽을거리`·`증시 동향`·`탐구 수집`·`발견`)이 `TABS` 에 0건이었고,

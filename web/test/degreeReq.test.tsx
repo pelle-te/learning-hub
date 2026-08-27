@@ -31,7 +31,7 @@ test('졸업요건 정리: 내 degree 데이터로 요건 충족·재수강 후�
       ],
     };
   });
-  renderApp('/degree');
+  await renderApp('/degree');
 
   // 기본은 '졸업 계획' — 세그먼트로 '졸업요건 정리'로 전환.
   fireEvent.click(await screen.findByRole('button', { name: '졸업요건 정리' }));
@@ -59,7 +59,7 @@ test('졸업요건 정리: 과목이 하나도 없으면 EmptyState로 안내', 
       semesters: [{ id: 's0', name: '2026-1학기', courses: [] }],
     };
   });
-  renderApp('/degree');
+  await renderApp('/degree');
   fireEvent.click(await screen.findByRole('button', { name: '졸업요건 정리' }));
   expect(await screen.findByText('아직 등록된 과목이 없어요')).toBeInTheDocument();
 });

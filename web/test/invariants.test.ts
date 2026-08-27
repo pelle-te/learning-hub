@@ -2165,6 +2165,10 @@ describe('불변식 ㉘ 이력을 읽는 잡이 전체 이력을 받는다', () 
      ① 설정이 청소부를 **모듈 스코프**에서 부른다(= `webServer` 기동 전)
      ② 그 청소부가 **`globalSetup` 으로 걸려 있지 않다**(그 자리가 이 결함의 원인이었다)
      ③ 청소부에 **env 센티널 가드**가 있다(재평가가 자기 서버를 죽이던 자리)
+     ④ 청소부가 **포트를 인자로 받고**, 설정이 넘기는 값이 `webServer` 가 바인딩하는 값과 같다
+        (P047 · 2026-08-28 — 종전엔 포트를 안 봐서 **다른 포트의 멀쩡한 preview 를 죽였다**:
+         성능 회차에서 `:4173`·`:4174` 가, 재현에서 `:4176` 이 끊겼다. 두 값이 갈리면 이 가드는
+         조용히 아무것도 안 죽인다 — 그래서 「같다」를 여기서 잠근다)
 ============================================================ */
 describe('불변식 ㉙ 떠도는 preview 청소가 webServer 보다 먼저 돈다(O038)', () => {
   const CFG = (): string => readFileSync(join(process.cwd(), 'playwright.config.ts'), 'utf8');
@@ -2179,7 +2183,21 @@ describe('불변식 ㉙ 떠도는 preview 청소가 webServer 보다 먼저 돈�
     const cfg = strip(CFG());
     expect(cfg, '청소부를 import 하지 않는다').toMatch(/import\s+killStrayPreview\s+from/);
     /* 줄 첫머리 호출 = 모듈 스코프. `defineConfig({…})` 안이면 들여쓰기가 붙는다. */
-    expect(cfg, '모듈 스코프 호출이 없다 — 그러면 `webServer` 보다 늦게 돈다').toMatch(/^killStrayPreview\(\);/m);
+    /* ⚠ 인자를 허용한다 — P047 이 포트를 넘기게 바꿨다(그 값의 일치는 ④가 잠근다). */
+    expect(cfg, '모듈 스코프 호출이 없다 — 그러면 `webServer` 보다 늦게 돈다').toMatch(/^killStrayPreview\([^)]*\);/m);
+  });
+
+  it('④ 청소부가 포트를 받고, 그 값이 `webServer` 가 바인딩하는 포트와 같다(P047)', () => {
+    const cfg = strip(CFG());
+    const 넘긴값 = /killStrayPreview\(\s*([A-Za-z0-9_]+)\s*\)/.exec(cfg)?.[1];
+    expect(넘긴값, '포트를 안 넘긴다 — 그러면 청소부가 무엇을 막는지 모른 채 죽인다').toBeTruthy();
+    const 포트 = /^\d+$/.test(넘긴값!)
+      ? Number(넘긴값)
+      : Number(new RegExp(`const\\s+${넘긴값}\\s*=\\s*(\\d+)`).exec(cfg)?.[1]);
+    expect(Number.isInteger(포트), `\`${넘긴값}\` 의 값을 못 읽었다`).toBe(true);
+    expect(cfg, `webServer.command 가 :${포트} 를 안 쓴다 — 두 값이 갈렸다`).toContain(`--port ${포트}`);
+    expect(cfg, `webServer.url 이 :${포트} 를 안 쓴다 — 두 값이 갈렸다`).toContain(`:${포트}`);
+    expect(REAPER(), '청소부가 포트를 인자로 안 받는다').toMatch(/killStrayPreview\(\s*port\s*:\s*number/);
   });
 
   it('② 청소부가 `globalSetup` 에 걸려 있지 않다 — 그 자리가 O038 의 원인이었다', () => {
@@ -2195,5 +2213,112 @@ describe('불변식 ㉙ 떠도는 preview 청소가 webServer 보다 먼저 돈�
     expect(r, 'env 센티널이 없다 — 워커 재평가 때 우리 `webServer` 를 죽인다').toMatch(
       /process\.env\[[^\]]+\]\s*=\s*'1'/,
     );
+  });
+});
+
+/* ============================================================
+   불변식 ㉚ — **폰 precache 그래프가 산출물 폴더를 추측하지 않는다**(P045 · 2026-08-28)
+
+   `vite.config.ts` 의 `phoneGraphFiles()` 는 빌드 매니페스트를 읽어 «폰이 실제로 참조하는 것»
+   만 precache 에 남긴다(D-9). 그 경로가 `'dist/.vite/manifest.json'` 으로 **박혀 있었다.**
+   `--outDir` 이 다르면 그 빌드의 매니페스트가 아니라 **지난 빌드의 것**을 읽고, 해시 파일명이
+   안 맞으니 그래프가 빗나가 precache 가 조용히 축소된다 —
+   재현(2026-08-28): 정상 `dist` **43 entries** vs `--outDir dist-alt` **29 entries**.
+
+   ⚠⚠ 이 결함의 실패 모드는 「빌드가 깨진다」가 아니라 **「오프라인에서만 반쪽인 SW 를
+   배포한다」** 다. 정적 검사도 e2e 도 온라인에서 도므로 어느 층도 안 본다 — 그래서 여기 있다.
+
+   ## 무엇을 잠그나 — 값이 아니라 **출처**
+     ① `phoneGraphFiles` 가 매니페스트 경로에 `dist` 를 문자열로 쓰지 않는다
+     ② vite 가 해석한 `build.outDir` 을 받는 통로(`configResolved`)가 실재한다
+     ③ 그 통로가 플러그인으로 **등록돼 있다**(정의만 하고 안 꽂으면 ②가 사문이다)
+============================================================ */
+describe('불변식 ㉚ 폰 precache 그래프가 outDir 를 추측하지 않는다(P045)', () => {
+  const VITE = (): string => readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8');
+
+  it('대상이 실재한다 — 분모가 없으면 아래 셋이 아무것도 안 잰다', () => {
+    expect(VITE(), 'vite.config.ts 를 못 읽었다').toContain('phoneGraphFiles');
+    expect(VITE(), 'manifestTransforms 가 없다 — 이 그래프의 소비처가 사라졌다').toContain('manifestTransforms');
+  });
+
+  it('① 매니페스트 경로에 산출물 폴더 이름을 박지 않는다', () => {
+    const src = strip(VITE());
+    const 하드코딩 = /['"`][^'"`]*\bdist\b[^'"`]*\.vite[^'"`]*['"`]/.test(src) || /['"`]dist\//.test(src);
+    expect(하드코딩, "`'dist/...'` 를 문자열로 쓰고 있다 — `--outDir` 이 다르면 지난 빌드를 읽는다").toBe(false);
+  });
+
+  it('② vite 가 해석한 outDir 을 받는 통로가 있다', () => {
+    const src = strip(VITE());
+    expect(src, '`configResolved` 가 없다 — 해석된 outDir 을 받을 자리가 없다').toContain('configResolved');
+    expect(src, 'build.outDir 을 읽지 않는다').toMatch(/build\s*[.:][\s\S]{0,40}outDir/);
+  });
+
+  it('③ 그 통로가 플러그인으로 실제 등록돼 있다 — 정의만 하면 사문이다', () => {
+    const src = strip(VITE());
+    const 이름 = /const\s+([A-Za-z0-9_가-힣]+)\s*=\s*\{\s*[\s\S]{0,120}?configResolved/.exec(src)?.[1];
+    expect(이름, 'configResolved 를 가진 플러그인 객체를 못 찾았다').toBeTruthy();
+    const plugins = /plugins:\s*\[([\s\S]*?)\n\s*\],/.exec(src)?.[1] ?? '';
+    expect(plugins, `\`${이름}\` 가 plugins 배열에 없다 — 훅이 안 돈다`).toContain(이름!);
+  });
+});
+
+/* ============================================================
+   불변식 ㉛ — **셸 렌더가 Suspense 를 기다리지 않는다**(P051 · 2026-08-28)
+
+   `App` 을 렌더하는 케이스는 첫 라우트가 `React.lazy` 라 Suspense 를 탄다. v8 커버리지 계측이
+   붙으면 그 청크 import+평가가 RTL 의 대기 예산을 넘고, 그 예산의 상대는 **옆에서 도는 것**이라
+   얼마를 줘도 넘길 수 있다 — 실제로 1,000 → 5,000 ms 로 두 번 올렸고 두 번 흘러내렸다.
+
+   실측 A/B(2026-08-28 · 같은 트리 · CPU 100% 합성 부하):
+   **고치기 전 10 failed / 199 · 고친 뒤 199 passed**(부하 없이 돌리면 둘 다 통과한다 —
+   그래서 이 결함은 «가끔 빨간불»이 아니라 **판별 비용**으로 나타난다).
+
+   처방은 예산을 또 올리는 것이 아니라 **대기를 없애는 것**이고, 그건 제품이 이미 쓰는
+   관용구다(`main.tsx` 의 `warmTab` · P028).
+
+   ## 무엇을 잠그나 — 값이 아니라 **경로**
+     ① 공용 헬퍼가 렌더 전에 `warmTab` 을 부른다
+     ② 그 헬퍼가 **async** 다(동기면 덥히기가 렌더보다 늦어 아무 효과가 없다)
+     ③ 테스트가 `<App />` 을 **직접** 렌더하지 않는다 — 사본은 ①을 못 받는다
+        (`monthCalendar` 가 실제로 그 사본이었다)
+     ④ ①을 `test/_setup.ts` 전역으로 옮기지 않았다 — 그러면 레지스트리 import 가 `useApp`
+        모듈 평가를 유발해 **SD-7 부팅 순서 계약**이 깨진다(시도했고 db·cloud 8개가 깨졌다)
+============================================================ */
+describe('불변식 ㉛ 셸 렌더가 Suspense 를 기다리지 않는다(P051)', () => {
+  const RENDER = (): string => readFileSync(join(process.cwd(), 'test', '_render.tsx'), 'utf8');
+  const SETUP = (): string => readFileSync(join(process.cwd(), 'test', '_setup.ts'), 'utf8');
+
+  it('대상이 실재한다 — 분모가 없으면 아래 넷이 아무것도 안 잰다', () => {
+    expect(RENDER(), 'test/_render.tsx 를 못 읽었다').toContain('renderApp');
+  });
+
+  it('① 공용 헬퍼가 렌더 전에 탭 청크를 덥힌다', () => {
+    const src = strip(RENDER());
+    expect(src, 'warmTab 을 안 부른다 — 첫 라우트가 Suspense 를 그대로 탄다').toContain('warmTab');
+    const 덥힘 = src.indexOf('warmTab');
+    const 렌더 = src.indexOf('return render(');
+    expect(덥힘 >= 0 && 렌더 >= 0 && 덥힘 < 렌더, '덥히기가 render 뒤에 있다 — 순서가 곧 이 처방이다').toBe(true);
+  });
+
+  it('② `renderApp` 이 async 다 — 동기면 덥히기가 렌더보다 늦는다', () => {
+    expect(strip(RENDER()), 'renderApp 이 async 가 아니다').toMatch(/export\s+async\s+function\s+renderApp/);
+  });
+
+  it('③ 테스트가 `<App />` 을 직접 렌더하지 않는다 — 사본은 ①을 못 받는다', () => {
+    const 사본: string[] = [];
+    for (const p of filesUnder((n) => n.endsWith('.tsx'), join(process.cwd(), 'test'))) {
+      if (p.replace(/\\/g, '/').endsWith('test/_render.tsx')) continue;
+      if (/<App\s*\/>/.test(strip(readFileSync(p, 'utf8')))) 사본.push(p.replace(/\\/g, '/').split('/test/')[1]!);
+    }
+    expect(사본, `\`<App />\` 를 직접 그린다 — \`renderApp\` 을 쓸 것: ${사본.join(', ')}`).toEqual([]);
+  });
+
+  it('④ 덥히기를 `_setup.ts` 전역으로 옮기지 않았다 — SD-7 부팅 순서 계약을 깬다', () => {
+    const setup = strip(SETUP());
+    expect(
+      setup,
+      '`_setup.ts` 가 features/registry 를 import 한다 — `useApp` 이 `initAppStore` 보다 먼저 평가된다',
+    ).not.toContain('features/registry');
+    expect(setup, '`_setup.ts` 가 warmTab 을 부른다 — 같은 이유로 안 된다').not.toContain('warmTab');
   });
 });

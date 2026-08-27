@@ -39,7 +39,7 @@ afterEach(() => cleanup());
    **라우트가 안 바뀌는 것**, 그리고 Enter 로는 실제로 바뀌는 것. 한쪽만 검사하면 "아무것도
    안 하는 화살표"도 통과한다. */
 test('레일 나브: ArrowRight 는 포커스만 옮기고 라우트를 바꾸지 않는다(수동 활성)', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   expect(today).toHaveAttribute('aria-current', 'page');
 
@@ -53,7 +53,7 @@ test('레일 나브: ArrowRight 는 포커스만 옮기고 라우트를 바꾸�
 });
 
 test('레일 나브: 포커스를 옮긴 뒤 Enter 가 실제로 활성화한다(도달성은 유지)', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'ArrowRight' });
   await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-review-run')));
@@ -65,7 +65,7 @@ test('레일 나브: 포커스를 옮긴 뒤 Enter 가 실제로 활성화한다
 });
 
 test('레일 나브: End 는 마지막 항목으로 포커스를 옮긴다', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   const today = await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(today, { key: 'End' });
   /* roving 대상 = 레일의 모든 줄(섹션 순 · 하단 시스템 섹션 포함). ⚠ N-14 이후 마지막은
@@ -80,7 +80,7 @@ test('레일 나브: End 는 마지막 항목으로 포커스를 옮긴다', asy
    ⚠ `today` 에서 시작하던 옛 형태를 되살리지 말 것: 지금 `today` 는 첫 항목이 아니라
    `find` 로 한 칸 갈 뿐이고, 그러면 이 케이스가 **순환을 안 재게 된다**(공허한 통과). */
 test('레일 나브: ArrowLeft 가 첫 항목에서 마지막으로 순환한다', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   const first = await screen.findByRole('button', { name: /찾기/ });
   fireEvent.keyDown(first, { key: 'ArrowLeft' });
   await waitFor(() => expect(document.activeElement).toBe(document.getElementById('rail-integrations')));
@@ -90,13 +90,13 @@ test('레일 나브: ArrowLeft 가 첫 항목에서 마지막으로 순환한다
 test('단축키: ]는 레일의 다음 줄(today → 복습), [는 이전(today → 찾기)', async () => {
   // 주의: MemoryRouter는 window.location을 안 바꾸므로 항상 today 기준 1홉만 검증(실 BrowserRouter는 정상).
   // N-14 — 링은 **레일에 보이는 순서**를 돈다: 찾기 · 오늘 · 복습 · 계획 · …
-  const { unmount } = renderApp('/today');
+  const { unmount } = await renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: ']' });
   await waitFor(() => expect(document.getElementById('rail-review-run')).toHaveAttribute('aria-current', 'page'));
   unmount();
 
-  renderApp('/today');
+  await renderApp('/today');
   await screen.findByRole('button', { name: /오늘 학습/ });
   fireEvent.keyDown(document.body, { key: '[' });
   /* D-4 — 링이 **레일과 같은 목록**(destination)을 돈다. 예전엔 전역 목록을 돌아 학습 화면에서
@@ -112,7 +112,7 @@ test('레일 나브: 접기 토글이 사이드바를 접고 펼친다(navCollap
   useUI.setState((s) => {
     s.ui.navCollapsed = false;
   });
-  renderApp('/today');
+  await renderApp('/today');
   const toggle = await screen.findByRole('button', { name: '사이드바 접기' });
   expect(toggle).toHaveAttribute('aria-pressed', 'false');
   fireEvent.click(toggle);
@@ -126,7 +126,7 @@ test('레일 나브: 접기 토글이 사이드바를 접고 펼친다(navCollap
 });
 
 test('모달: 포커스 복원 + aria 라벨링(role=dialog)', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   const trigger = await screen.findByRole('button', { name: /명령 팔레트 열기/ });
   trigger.focus();
   expect(document.activeElement).toBe(trigger);

@@ -1,0 +1,320 @@
+[
+  {
+    "screen": "today·완료토글",
+    "path": "/today",
+    "reps": 10,
+    "n": 10,
+    "latencies": [72, 56, 40, 72, 56, 40, 48, 48, 56, 64],
+    "stat": {
+      "n": 10,
+      "min": 40,
+      "p50": 56,
+      "p75": 64,
+      "p95": 72,
+      "max": 72
+    },
+    "worst": [
+      {
+        "name": "pointerover",
+        "t": 1966,
+        "id": 0,
+        "dur": 72,
+        "delay": 1.1,
+        "proc": 0.5,
+        "present": 70.4
+      },
+      {
+        "name": "pointerenter",
+        "t": 1966,
+        "id": 0,
+        "dur": 72,
+        "delay": 1.6,
+        "proc": 0,
+        "present": 70.4
+      },
+      {
+        "name": "pointerenter",
+        "t": 1966,
+        "id": 0,
+        "dur": 72,
+        "delay": 1.6,
+        "proc": 0,
+        "present": 70.4
+      },
+      {
+        "name": "pointerenter",
+        "t": 1966,
+        "id": 0,
+        "dur": 72,
+        "delay": 1.6,
+        "proc": 0,
+        "present": 70.4
+      }
+    ]
+  },
+  {
+    "screen": "today·⌘K열기",
+    "path": "/today",
+    "reps": 8,
+    "n": 24,
+    "latencies": [72, 56, 96, 80, 48, 72, 72, 48, 56, 128, 40, 40, 72, 40, 40, 72, 40, 104, 80, 72, 120, 80, 48, 56],
+    "stat": {
+      "n": 24,
+      "min": 40,
+      "p50": 72,
+      "p75": 80,
+      "p95": 120,
+      "max": 128
+    },
+    "worst": [
+      {
+        "name": "keyup",
+        "t": 4671,
+        "id": 6700,
+        "dur": 128,
+        "delay": 1.5,
+        "proc": 0,
+        "present": 126.5
+      },
+      {
+        "name": "keydown",
+        "t": 7886,
+        "id": 6777,
+        "dur": 120,
+        "delay": 0.4,
+        "proc": 13,
+        "present": 106.6
+      },
+      {
+        "name": "keydown",
+        "t": 6916,
+        "id": 6756,
+        "dur": 104,
+        "delay": 0.5,
+        "proc": 6.9,
+        "present": 96.6
+      },
+      {
+        "name": "keydown",
+        "t": 2323,
+        "id": 6651,
+        "dur": 96,
+        "delay": 0.2,
+        "proc": 9.9,
+        "present": 85.9
+      }
+    ]
+  },
+  {
+    "screen": "today·⌘K타이핑",
+    "path": "/today",
+    "reps": 10,
+    "n": 12,
+    "latencies": [112, 112, 56, 48, 72, 64, 88, 80, 64, 96, 96, 80],
+    "stat": {
+      "n": 12,
+      "min": 48,
+      "p50": 80,
+      "p75": 96,
+      "p95": 112,
+      "max": 112
+    },
+    "worst": [
+      {
+        "name": "keyup",
+        "t": 1945,
+        "id": 9738,
+        "dur": 112,
+        "delay": 0,
+        "proc": 0.2,
+        "present": 111.8
+      },
+      {
+        "name": "keyup",
+        "t": 1946,
+        "id": 9731,
+        "dur": 112,
+        "delay": 1.8,
+        "proc": 0.1,
+        "present": 110.1
+      },
+      {
+        "name": "beforeinput",
+        "t": 3442,
+        "id": 0,
+        "dur": 104,
+        "delay": 0,
+        "proc": 0,
+        "present": 104
+      },
+      {
+        "name": "input",
+        "t": 3443,
+        "id": 0,
+        "dur": 104,
+        "delay": 0.2,
+        "proc": 4.9,
+        "present": 98.9
+      }
+    ]
+  },
+  {
+    "screen": "alloc·셀입력",
+    "path": "/alloc",
+    "reps": 10,
+    "n": 20,
+    "latencies": [24, 48, 48, 40, 32, 24, 40, 32, 40, 32, 32, 24, 32, 32, 32, 24, 32, 24, 32, 24],
+    "stat": {
+      "n": 20,
+      "min": 24,
+      "p50": 32,
+      "p75": 40,
+      "p95": 48,
+      "max": 48
+    },
+    "worst": [
+      {
+        "name": "keydown",
+        "t": 1995,
+        "id": 3741,
+        "dur": 48,
+        "delay": 0,
+        "proc": 0.6,
+        "present": 47.4
+      },
+      {
+        "name": "keypress",
+        "t": 1995,
+        "id": 3741,
+        "dur": 48,
+        "delay": 0.6,
+        "proc": 15.5,
+        "present": 31.9
+      },
+      {
+        "name": "beforeinput",
+        "t": 1996,
+        "id": 0,
+        "dur": 48,
+        "delay": 0,
+        "proc": 0,
+        "present": 48
+      },
+      {
+        "name": "input",
+        "t": 1997,
+        "id": 0,
+        "dur": 48,
+        "delay": 0.1,
+        "proc": 11.7,
+        "present": 36.2
+      }
+    ]
+  },
+  {
+    "screen": "review-run·다음카드",
+    "path": "/review-run",
+    "reps": 10,
+    "n": 1,
+    "latencies": [16],
+    "stat": {
+      "n": 1,
+      "min": 16,
+      "p50": 16,
+      "p75": 16,
+      "p95": 16,
+      "max": 16
+    },
+    "worst": [
+      {
+        "name": "pointerover",
+        "t": 1842,
+        "id": 0,
+        "dur": 16,
+        "delay": 0.7,
+        "proc": 0.5,
+        "present": 14.8
+      },
+      {
+        "name": "pointerenter",
+        "t": 1842,
+        "id": 0,
+        "dur": 16,
+        "delay": 1.2,
+        "proc": 0,
+        "present": 14.8
+      },
+      {
+        "name": "pointerenter",
+        "t": 1842,
+        "id": 0,
+        "dur": 16,
+        "delay": 1.2,
+        "proc": 0,
+        "present": 14.8
+      },
+      {
+        "name": "pointerenter",
+        "t": 1842,
+        "id": 0,
+        "dur": 16,
+        "delay": 1.2,
+        "proc": 0,
+        "present": 14.8
+      }
+    ]
+  },
+  {
+    "screen": "day·오답추가입력",
+    "path": "/day",
+    "reps": 8,
+    "n": 8,
+    "latencies": [48, 32, 40, 32, 32, 32, 32, 40],
+    "stat": {
+      "n": 8,
+      "min": 32,
+      "p50": 32,
+      "p75": 40,
+      "p95": 48,
+      "max": 48
+    },
+    "worst": [
+      {
+        "name": "pointerover",
+        "t": 1839,
+        "id": 0,
+        "dur": 48,
+        "delay": 0.1,
+        "proc": 0.4,
+        "present": 47.5
+      },
+      {
+        "name": "pointerenter",
+        "t": 1839,
+        "id": 0,
+        "dur": 48,
+        "delay": 0.5,
+        "proc": 0,
+        "present": 47.5
+      },
+      {
+        "name": "pointerenter",
+        "t": 1839,
+        "id": 0,
+        "dur": 48,
+        "delay": 0.5,
+        "proc": 0.1,
+        "present": 47.4
+      },
+      {
+        "name": "pointerenter",
+        "t": 1839,
+        "id": 0,
+        "dur": 48,
+        "delay": 0.6,
+        "proc": 0,
+        "present": 47.4
+      }
+    ]
+  }
+]

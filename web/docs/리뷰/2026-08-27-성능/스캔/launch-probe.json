@@ -1,0 +1,29 @@
+[
+  {
+    "cdpAt": 1311,
+    "spawn→timeOrigin(네이티브 기동 + WebView2 문서 시작)": 938,
+    "timeOrigin→hub:entry": 63,
+    "entry→app": 196,
+    "app→first-data": 46,
+    "timeOrigin→FCP": 476,
+    "총 spawn→first-data": 1243
+  },
+  {
+    "cdpAt": 470,
+    "spawn→timeOrigin(네이티브 기동 + WebView2 문서 시작)": 463,
+    "timeOrigin→hub:entry": 71,
+    "entry→app": 170,
+    "app→first-data": 39,
+    "timeOrigin→FCP": 408,
+    "총 spawn→first-data": 743
+  },
+  {
+    "cdpAt": 537,
+    "spawn→timeOrigin(네이티브 기동 + WebView2 문서 시작)": 508,
+    "timeOrigin→hub:entry": 110,
+    "entry→app": 221,
+    "app→first-data": 42,
+    "timeOrigin→FCP": 368,
+    "총 spawn→first-data": 881
+  }
+]

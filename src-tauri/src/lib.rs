@@ -15,6 +15,8 @@
 mod anki;
 mod anki_scan;
 mod artifact;
+/// P035 — 네이티브 기동 시각(웹 `timeOrigin` 앞의 508 ms 를 계량 안으로 들인다).
+mod boot;
 mod cloud;
 mod db;
 mod files;
@@ -46,6 +48,10 @@ mod workspace;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    /* ⚠ **첫 줄이 자리다**(P035). 재려는 것이 «이 아래 전부» 이므로, 플러그인 등록이나 창 생성
+    뒤로 밀리면 그만큼이 계량에서 빠진다 — 그게 이 모듈이 고치려는 결함 그 자체다. */
+    boot::stamp();
+
     let mut builder = tauri::Builder::default();
 
     // 두 번째 실행은 새 창을 만들지 않고 기존 창을 깨운다 —
@@ -110,6 +116,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // SD-6 — 프런트가 **백엔드가 마이그레이션한 그 DB** 를 열게 한다(값 두 벌 금지).
             paths::db_url_cmd,
+            // P035 — 웹 `timeOrigin` 앞 구간(실측 중앙 508ms · 총 부팅의 58%)을 프런트가 읽는다.
+            boot::boot_process_start_ms,
             /* C2 — 프런트가 DB 를 **열기 전에** 다운그레이드인지 묻는다. 조용한 폴백이면
             "뜨는데 데이터가 옛날 것"이 되기 때문(근거는 db.rs 의 가드 절 주석). */
             db::db_version_guard,

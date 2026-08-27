@@ -625,3 +625,11 @@
   --brightness-emph: 1.08; /* 큰 면 — 카드·세그먼트·CTA */
   --brightness-emph-strong: 1.15; /* 작은 마커 — 막대·점·칩 */
 }
+
+/* 상단바 최소 높이(P038) — 값의 정본은 `tokens.css` 의 `--h-topbar` 다.
+   ⚠ Tailwind v4 의 `min-h-*` 네임스페이스는 **`--min-height-*`** 다. 틀리면 유틸이
+   **생성되지 않고** 조용히 무효가 된다(위 `--brightness-*` 문단이 적은 그 함정 · E24 의
+   `duration-*` 이 실제로 그렇게 물렸다). 그래서 `check:tokens` 가 브리지 누락을 잡는다. */
+@theme {
+  --min-height-topbar: var(--h-topbar);
+}

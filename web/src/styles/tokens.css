@@ -44,14 +44,32 @@
    • --z-*   : 스태킹 레이어(값이 흩어져 충돌나는 것 방지 — 의미명으로 단일화). */
 /* ── 폰트(자체 호스팅) ──────────────────────────────────────────────
    Pretendard 가변폰트 — 한글·라틴·숫자를 한 패밀리로(시스템폰트 "기본값 SaaS" 인상 탈피).
-   public/fonts에 두어 오프라인 PWA에서도 동작(vite-plugin-pwa가 woff2를 precache).
-   font-display:swap — 폰트 로드 전엔 시스템 폴백으로 즉시 렌더(FOIT 회피). */
+   font-display:swap — 폰트 로드 전엔 시스템 폴백으로 즉시 렌더(FOIT 회피).
+
+   ⚠⚠ **두 페이스로 갈려 있다**(P029 · 2026-08-27). 경계는 **한글 음절(U+AC00-D7A3)이냐 아니냐**
+   하나이고, 그 한 줄이 2,009 KB 중 **1,657 KB** 를 갈라낸다. 두 페이스 다 `swap` 이라 첫 페인트를
+   붙잡지 않고, 폰은 아예 선불하지 않는다(`phone.html` 이 그 근거를 진다 · Slow 4G FCP 14,376 →
+   8,796 ms). 생성·검증은 `npm run font:subset`(그 스크립트가 SSOT).
+   ⚠ **`unicode-range` 를 손으로 좁히지 마라** — 앱은 → ↑ ≤ ✓ ⌘ ① ▸ ● 같은 기호 50종을 실제로
+   렌더한다. 「라틴만」으로 좁힌 처방이 그걸 전부 시스템 폰트로 떨궜을 것이다(판례 2026-08-27).
+   ⚠ 종전 이 자리에 *"vite-plugin-pwa가 woff2를 precache"* 라 적혀 있었는데 **사실이 아니었다**
+   (P049): `vite.config.ts` 의 workbox 는 폰트를 precache 에서 **명시적으로 뺐고**, 오프라인은
+   런타임 캐시가 덮는다. 그 거짓 문장이 위 진단을 가리는 자리에 있었다. */
 @font-face {
   font-family: 'Pretendard Variable';
   font-weight: 45 920;
   font-style: normal;
   font-display: swap;
-  src: url('/fonts/PretendardVariable.woff2') format('woff2-variations');
+  src: url('/fonts/Pretendard-base.woff2') format('woff2-variations');
+  unicode-range: U+0-ABFF, U+D7A4-10FFFF; /* = 한글 음절의 여집합(글자 목록이 아니라 여집합인 것이 계약) */
+}
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Pretendard-hangul.woff2') format('woff2-variations');
+  unicode-range: U+AC00-D7A3; /* ⚠ 폰에서 preload 하지 않는다 — vite.config.ts 의 그 판단 그대로 */
 }
 
 :root {
@@ -155,6 +173,14 @@
   --fs-fluid-lg: clamp(22px, 2.6vw, 30px);
 
   --z-nav: 20;
+  /* ⚠⚠ **상단바 높이 — 탭마다 갈려 있었다**(P038 · 2026-08-27). `BAR` 에 높이 제약이 없어
+     리드아웃 유무·줄수로 형상이 갈아 끼워졌고, 실측 **78 / 88 / 102 px** 세 값이었다
+     (레일 15탭 순회 레이아웃 이동량 합 1.2019). 즉 탭을 옮길 때마다 **본문 위 모서리가
+     24 px 튄다** — 성능 결함이라기보다(진짜 클릭은 `hadRecentInput` 이라 CWV CLS 집계분 0)
+     **탭마다 프레임 상단이 다른 자리에 선다**는 시각 일관성 문제다.
+     ⚠ 가장 큰 값으로 맞춘다 — 작은 쪽으로 맞추면 리드아웃 3~4칸이 잘린다.
+     ⚠ `max-mobile:` 분기는 이 값을 **안 쓴다**(`flex-wrap` + 다른 패딩이라 안 맞는다). */
+  --h-topbar: 102px;
   --z-dropdown: 40;
   --z-modal: 70;
   /* ⚠⚠ **토스트는 모달 **위**다(H11 · 2026-07-31 `/감사 근본`).** 종전 60 은 `--z-modal`(70)

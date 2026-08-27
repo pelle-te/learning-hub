@@ -73,7 +73,7 @@ test('오프라인(워크스페이스 미설정): 셋업 안내로 폴백한다'
       return jsonRes({ ok: false, error: 'off' }, false);
     }),
   );
-  renderApp('/ledger');
+  await renderApp('/ledger');
   await waitFor(() => expect(screen.getByText('아직 챕터 원장이 없어요')).toBeInTheDocument());
 });
 
@@ -86,7 +86,7 @@ test('원장 데이터 → 과목 행·백로그 렌더, 셀 클릭 시 챕터 �
       return jsonRes({ ok: false }, false);
     }),
   );
-  renderApp('/ledger');
+  await renderApp('/ledger');
 
   // 과목 행(매트릭스) + 백로그 칩
   await waitFor(() => expect(screen.getByText('과기법')).toBeInTheDocument());

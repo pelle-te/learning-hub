@@ -1,0 +1,232 @@
+[
+  {
+    "screen": "today·완료토글",
+    "path": "/today",
+    "reps": 10,
+    "n": 0,
+    "latencies": [],
+    "stat": null,
+    "worst": []
+  },
+  {
+    "screen": "today·⌘K열기",
+    "path": "/today",
+    "reps": 8,
+    "n": 24,
+    "latencies": [80, 88, 32, 128, 128, 56, 88, 48, 48, 40, 40, 40, 80, 40, 56, 80, 40, 48, 40, 80, 48, 80, 80, 64],
+    "stat": {
+      "n": 24,
+      "min": 32,
+      "p50": 56,
+      "p75": 80,
+      "p95": 128,
+      "max": 128
+    },
+    "worst": [
+      {
+        "name": "keyup",
+        "t": 2688,
+        "id": 6229,
+        "dur": 128,
+        "delay": 0.8,
+        "proc": 0,
+        "present": 127.2
+      },
+      {
+        "name": "keyup",
+        "t": 2690,
+        "id": 6222,
+        "dur": 128,
+        "delay": 0,
+        "proc": 0,
+        "present": 128
+      },
+      {
+        "name": "keyup",
+        "t": 1786,
+        "id": 6208,
+        "dur": 88,
+        "delay": 0.2,
+        "proc": 0.1,
+        "present": 87.7
+      },
+      {
+        "name": "keyup",
+        "t": 3619,
+        "id": 6243,
+        "dur": 88,
+        "delay": 0,
+        "proc": 0,
+        "present": 88
+      }
+    ]
+  },
+  {
+    "screen": "today·⌘K타이핑",
+    "path": "/today",
+    "reps": 10,
+    "n": 12,
+    "latencies": [128, 128, 80, 72, 96, 64, 88, 80, 88, 64, 96, 88],
+    "stat": {
+      "n": 12,
+      "min": 64,
+      "p50": 88,
+      "p75": 96,
+      "p95": 128,
+      "max": 128
+    },
+    "worst": [
+      {
+        "name": "beforeinput",
+        "t": 5318,
+        "id": 0,
+        "dur": 144,
+        "delay": 0,
+        "proc": 0,
+        "present": 144
+      },
+      {
+        "name": "input",
+        "t": 5318,
+        "id": 0,
+        "dur": 144,
+        "delay": 0.2,
+        "proc": 4,
+        "present": 139.8
+      },
+      {
+        "name": "keyup",
+        "t": 1826,
+        "id": 8523,
+        "dur": 128,
+        "delay": 0.1,
+        "proc": 0.1,
+        "present": 127.8
+      },
+      {
+        "name": "keyup",
+        "t": 1828,
+        "id": 8516,
+        "dur": 128,
+        "delay": 0,
+        "proc": 0.1,
+        "present": 127.9
+      }
+    ]
+  },
+  {
+    "screen": "alloc·셀입력",
+    "path": "/alloc",
+    "reps": 10,
+    "n": 20,
+    "latencies": [40, 40, 16, 24, 16, 24, 24, 32, 24, 24, 16, 32, 24, 16, 32, 24, 24, 24, 24, 16],
+    "stat": {
+      "n": 20,
+      "min": 16,
+      "p50": 24,
+      "p75": 32,
+      "p95": 40,
+      "max": 40
+    },
+    "worst": [
+      {
+        "name": "pointerover",
+        "t": 1942,
+        "id": 0,
+        "dur": 40,
+        "delay": 0.4,
+        "proc": 0.6,
+        "present": 39
+      },
+      {
+        "name": "pointerenter",
+        "t": 1942,
+        "id": 0,
+        "dur": 40,
+        "delay": 1,
+        "proc": 0,
+        "present": 39
+      },
+      {
+        "name": "pointerenter",
+        "t": 1942,
+        "id": 0,
+        "dur": 40,
+        "delay": 1,
+        "proc": 0,
+        "present": 39
+      },
+      {
+        "name": "pointerenter",
+        "t": 1942,
+        "id": 0,
+        "dur": 40,
+        "delay": 1,
+        "proc": 0,
+        "present": 39
+      }
+    ]
+  },
+  {
+    "screen": "review-run·다음카드",
+    "path": "/review-run",
+    "reps": 10,
+    "n": 0,
+    "latencies": [],
+    "stat": null,
+    "worst": []
+  },
+  {
+    "screen": "day·오답추가입력",
+    "path": "/day",
+    "reps": 8,
+    "n": 8,
+    "latencies": [32, 32, 24, 32, 40, 24, 32, 24],
+    "stat": {
+      "n": 8,
+      "min": 24,
+      "p50": 32,
+      "p75": 32,
+      "p95": 40,
+      "max": 40
+    },
+    "worst": [
+      {
+        "name": "beforeinput",
+        "t": 2085,
+        "id": 0,
+        "dur": 56,
+        "delay": 0,
+        "proc": 0,
+        "present": 56
+      },
+      {
+        "name": "input",
+        "t": 2086,
+        "id": 0,
+        "dur": 56,
+        "delay": 0.4,
+        "proc": 1.2,
+        "present": 54.4
+      },
+      {
+        "name": "beforeinput",
+        "t": 2090,
+        "id": 0,
+        "dur": 48,
+        "delay": 0,
+        "proc": 0,
+        "present": 48
+      },
+      {
+        "name": "input",
+        "t": 2090,
+        "id": 0,
+        "dur": 48,
+        "delay": 0.1,
+        "proc": 0.5,
+        "present": 47.4
+      }
+    ]
+  }
+]

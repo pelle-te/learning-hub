@@ -1,0 +1,8 @@
+L500|500|pull_rt=2|pull_ms=31|worst_rt_ms=16|max_body_bytes=160207|pulled=500
+ROW|500|push_rt=1|push_ms=100|push_ms_per_rt=100.0|pull_rt=4|pull_ms=52|pull_ms_per_rt=13.0|pulled=500|pull_limit=200
+L500|2000|pull_rt=5|pull_ms=93|worst_rt_ms=21|max_body_bytes=163269|pulled=2000
+ROW|2000|push_rt=4|push_ms=263|push_ms_per_rt=65.8|pull_rt=11|pull_ms=184|pull_ms_per_rt=16.7|pulled=2000|pull_limit=200
+L500|5000|pull_rt=11|pull_ms=258|worst_rt_ms=27|max_body_bytes=163269|pulled=5000
+ROW|5000|push_rt=10|push_ms=763|push_ms_per_rt=76.3|pull_rt=26|pull_ms=448|pull_ms_per_rt=17.2|pulled=5000|pull_limit=200
+L500|10000|pull_rt=21|pull_ms=1023|worst_rt_ms=102|max_body_bytes=163269|pulled=10000
+ROW|10000|push_rt=20|push_ms=2010|push_ms_per_rt=100.5|pull_rt=51|pull_ms=1728|pull_ms_per_rt=33.9|pulled=10000|pull_limit=200

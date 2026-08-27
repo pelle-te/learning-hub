@@ -25,6 +25,7 @@ import { PermanentPushError, type CloudTransport } from './push';
 import { LAST_OK_KEY, PULL_MARK_KEY, WATERMARK_KEY, resetMergedEcho } from './outbox';
 // ⚠ 지연 import 로 바꾸지 말 것 — 근거는 `push.ts` 의 같은 import 위 주석(실측 0.3KB).
 import { parseInboundBatch } from './schema';
+import { MAX_BATCH_ITEMS } from './contract';
 import type { OutboxBatch } from './contract';
 
 /* ── 전송 분기 ───────────────────────────────────────────────────
@@ -350,8 +351,16 @@ export function unknownDroppedTotal(): number {
  *
  * ⚠ **받아온 것도 검증한다.** 네트워크를 건너온 데이터이고, "우리 서버니까"는 신뢰 경계에서
  * 통하는 근거가 아니다(`cloud/schema.ts` 머리주석).
- */
-export async function pullChanges(cfg: CloudConfig, since: number, limit = 200): Promise<OutboxBatch> {
+ *
+ * ⚠⚠ **기본 배치가 200 이었다 — 근거가 어디에도 적힌 적 없다**(P036 · 2026-08-27 성능 축).
+ * 서버는 `Math.min(wanted, MAX_BATCH_ITEMS)` 로 **500 까지** 받고 push 는 이미 500 단위인데,
+ * pull 만 200 이라 같은 데이터에 **2.5배 왕복**이 들었다(한쪽만 고쳐진 짝).
+ * 실측(실 workerd + D1): 10,000행 pull 왕복 **51 → 21(−59%) · 1,728 → 1,023 ms** ·
+ * 5,000행 26 → 11왕복 · `limit=500` 최대 응답 본문 **163 KB**(1 MB 상한의 16%) · 최악 단일
+ * 왕복 102 ms. 셀룰러(RTT 300 ms)의 5,000행 온보딩이면 7.8초 → 3.3초다.
+ * ⚠ 상한을 여기 **숫자로 다시 적지 않는다** — `MAX_BATCH_ITEMS` 가 정본이고, 그 값이 바뀌면
+ * 서버·push·pull 이 함께 움직여야 한다(손으로 베낀 200 이 정확히 그 반대였다). */
+export async function pullChanges(cfg: CloudConfig, since: number, limit = MAX_BATCH_ITEMS): Promise<OutboxBatch> {
   const res = await authed(cfg, `/api/sync/pull?since=${since}&limit=${limit}`);
   /* ⚠⚠ **수신 축에도 같은 분류가 필요하다(H5 · 2026-07-31 `/감사 근본`).** `app.onError` 는
      **전역**이라 pull 라우트에도 `429 + {permanent:true}` 를 준다. 그런데 종전엔 push 분기만

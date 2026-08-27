@@ -22,7 +22,7 @@ afterEach(() => cleanup());
    케이스 수가 안전을 과장한다. 사실 자체는 이 파일 머리주석이 이력으로 기록한다. */
 
 test('네이티브 레일 나브: 주요 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
-  const { container } = renderApp('/today');
+  const { container } = await renderApp('/today');
   // 레일 사이드바는 1차 탭을 평면 리스트로 노출(그룹 계층 폐기). 라벨 정확 일치.
   // 주간 스케줄은 '계획' 호스트로 흡수(hidden) → 나브엔 '계획'. 통계는 그대로 1차 노출.
   await waitFor(() => expect(screen.getByRole('button', { name: '계획' })).toBeInTheDocument());
@@ -32,7 +32,7 @@ test('네이티브 레일 나브: 주요 탭 + 라인 아이콘(svg.ic)이 렌�
 });
 
 test('테마 토글: <html data-theme> 다크↔라이트 + 토스트', async () => {
-  renderApp('/today');
+  await renderApp('/today');
   const btn = await screen.findByRole('button', { name: /테마 전환/ });
   fireEvent.click(btn); // light → dark (세피아 폐기 — 2테마 토글)
   await waitFor(() => expect(document.documentElement.getAttribute('data-theme')).toBe('dark'));
@@ -58,7 +58,7 @@ test('확인 모달: 전체 초기화 → 취소하면 데이터가 유지된다
       },
     ];
   });
-  renderApp('/today');
+  await renderApp('/today');
   fireEvent.click(await screen.findByRole('button', { name: '데이터·백업 메뉴' }));
   fireEvent.click(await screen.findByRole('button', { name: /전체 초기화/ })); // menu role 제거(디스클로저 패턴)
   // 네이티브 모달이 열린다.

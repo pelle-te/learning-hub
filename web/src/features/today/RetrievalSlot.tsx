@@ -20,7 +20,7 @@
 ============================================================ */
 import { useState } from 'react';
 import { Icon } from '@/components/Icon';
-import { CBMS_INFO } from '@/lib/methodology';
+import { cbmsInfo } from '@/lib/methodology';
 import type { ConfidentWrongCard, RetrievalCard } from '@/lib/retrieval';
 import type { RetrievalSlot as RetrievalSlotKind } from '@/lib/todaySlots';
 
@@ -98,7 +98,7 @@ function ConfWrong({ card, n, onGo }: { card: ConfidentWrongCard; n: number; onG
           <Icon name="alert" /> 착각 재확인
         </span>
         <span className={S.meta}>
-          {card.ageDays}일 전 · {CBMS_INFO[card.cbms.code].label}
+          {card.ageDays}일 전 · {cbmsInfo(card.cbms.code).label}
           {n > 1 ? ` · 외 ${n - 1}` : ''}
         </span>
       </div>

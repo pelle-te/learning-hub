@@ -6,15 +6,14 @@
     <meta name="theme-color" content="#050506" />
     <meta name="description" content="러닝허브 — 오늘 할 일에 집중하는 학습 플래너. 계획·복습·일정은 자동으로." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <!-- 본문 폰트(2MB 가변 Pretendard)를 CSS 파싱 전에 미리 받아 늦은 스왑(리플로우/CLS) 제거.
-         @font-face의 font-display:swap와 짝 — 폴백→Pretendard 전환을 최대한 앞당긴다. -->
-    <link
-      rel="preload"
-      href="/fonts/PretendardVariable.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <!-- 본문 폰트를 CSS 파싱 전에 미리 받아 늦은 스왑(리플로우/CLS) 제거.
+         @font-face의 font-display:swap와 짝 — 폴백→Pretendard 전환을 최대한 앞당긴다.
+         ⚠ **여기는 폰과 달리 두 페이스를 다 선불한다**(P029 · 2026-08-27). 데스크톱 셸은
+         `tauri://` 오리진이라 청크가 네트워크가 아니라 **로컬 파일**로 오고(한글 페이스 읽기
+         실측 36.5 ms), 폰의 근거였던 «첫 방문이 셀룰러» 가 여기엔 없다. 한쪽만 선불하면
+         본문 한글이 시스템 폴백으로 한 번 그려졌다 바뀐다 — 그건 이 오리진에선 순손해다. -->
+    <link rel="preload" href="/fonts/Pretendard-base.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Pretendard-hangul.woff2" as="font" type="font/woff2" crossorigin />
     <title>러닝허브</title>
   </head>
   <body>

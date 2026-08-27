@@ -116,6 +116,47 @@ export const CBMS_INFO: Record<CbmsCode, { label: string; tip: string; color: st
    `['C','B','M','S','T']`/`Object.keys(CBMS_INFO)`를 재선언하던 드리프트 위험을 봉쇄. */
 export const CBMS_CODES = Object.keys(CBMS_INFO) as CbmsCode[];
 
+/* ⚠⚠ **`CBMS_INFO[code]` 를 직접 색인하지 마라 — 이 함수를 써라**(P043 · 2026-08-28 데이터 축).
+
+   ## 무엇이 문제였나 — 타입이 총함수라고 거짓말한다
+
+   `cbms[].code` 의 타입은 `CbmsCode` 라 TS 는 `CBMS_INFO[code]` 가 **항상 값을 준다**고 본다.
+   그런데 그 타입은 **런타임에 아무도 강제하지 않는다**: `AppStateSchema` 는 한 번도 `.parse`
+   되지 않고(`persistence.ts` 머리주석), 열거를 거르는 `sanitizeCbms` 는 **가져오기 경로에서만**
+   돈다. 즉 localStorage 정본에 열거 밖 코드가 있으면 그대로 렌더까지 온다.
+   재현(2026-08-28): `code: 'X'` 한 건으로 `mistakes` 화면이
+   **`TypeError: Cannot read properties of undefined (reading 'tip')`** 로 죽는다.
+
+   그리고 이건 «있을 수 없는 값» 이 아니다. **더 새 버전이 여섯 번째 코드를 만들면** 구버전이
+   그 데이터를 읽는 순간이 정확히 이 상황이다 — 클라우드 동기화가 있는 앱의 정상 시나리오다.
+
+   ## 왜 부팅에서 «거르지» 않는가 — 그게 더 나쁘다
+
+   처방으로 «부팅 경로에도 `sanitizeCbms` 를 걸자»가 자연스러워 보이지만 **하지 않았다.**
+   부팅 시점의 그 데이터는 **정본**이고, 거기서 레코드를 지우면 그 삭제가 SQLite·클라우드로
+   그대로 밀려 나간다 — 위 시나리오(구버전이 신버전 데이터를 연다)에서 **사용자의 오답 기록이
+   영구히 사라진다.** 화면 하나가 죽는 것보다 나쁘다. 가져오기 경로가 «거르기» 인 것은 그쪽이
+   **신뢰 불가 파일**이고 정본이 아니기 때문이다(그 함수 주석이 그 구분을 이미 적고 있다).
+
+   → 그래서 처방은 **렌더를 총함수로 만드는 것**이다. 모르는 코드는 지우지 않고 «미분류»로 그린다.
+
+   ⚠ 인자가 `string` 인 것이 계약이다. `CbmsCode` 로 받으면 호출부에서 다시 «타입이 보장한다»는
+   착각이 서고, 그 착각이 이 결함의 원인이었다.
+
+   ⚠⚠ **`??` 로 폴백하면 안 된다 — 첫 판이 그렇게 썼고 회귀 테스트가 잡았다**(2026-08-28).
+   `CBMS_INFO['toString']` 은 **프로토타입 체인의 함수**를 준다. nullish 가 아니므로 `??` 는
+   안 타고, 호출부는 `.label` 이 `undefined` 인 값을 받아 **같은 자리에서 다시 죽는다.**
+   `'constructor'`·`'valueOf'` 도 같다. 소유 키인지 물어야 한다. */
+export function cbmsInfo(code: string): { label: string; tip: string; color: string } {
+  return Object.hasOwn(CBMS_INFO, code)
+    ? CBMS_INFO[code as CbmsCode]
+    : {
+        label: '미분류',
+        tip: '이 버전이 모르는 코드예요 — 더 새 버전에서 남긴 기록일 수 있습니다.',
+        color: 'var(--mut)',
+      };
+}
+
 /* ── P-3 복습 사다리를 **앞당기는** 유형(2026-08-01) ──────────────────────────
    여기까지 CBMS 코드는 **아무것도 안 바꿨다**: 5분류 + 코드별 처방까지 갖춰 놓고
    `grep cbms lib/scheduler/ lib/spacedReview.ts` 가 **0건**이었다. 즉 사용자가 매번 고르던
@@ -409,7 +450,7 @@ export function buildAnkiCards(state: AppState, fromDs?: string, toDs?: string):
   (state.cbms || []).forEach((e) => {
     if (fromDs && e.ds < fromDs) return;
     if (toDs && e.ds > toDs) return;
-    const inf = CBMS_INFO[e.code] || { label: '', tip: '' };
+    const inf = cbmsInfo(e.code);
     const front = _cf((e.name ? '[' + e.name + '] ' : '') + (e.chapter || '') + ' — 어디서 왜 막혔나?');
     const back = _cf((e.note || '(메모 없음)') + '\n처방(' + e.code + ' ' + inf.label + '): ' + inf.tip);
     lines.push([front, back, '오답::' + e.code].join('\t'));

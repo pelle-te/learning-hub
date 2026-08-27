@@ -15,7 +15,7 @@ test('stats: 항목이 없으면 EmptyState로 폴백(#page 미사용)', async (
   useApp.getState().mutate((st) => {
     st.items = [];
   });
-  renderApp('/stats');
+  await renderApp('/stats');
   // Stats는 lazy 로드 → Suspense 해제까지 findBy로 대기.
   expect(await screen.findByText('아직 통계가 없어요')).toBeInTheDocument();
 });
@@ -36,7 +36,7 @@ test('stats: 상세 리포트 드로어를 열면 차트 위젯들이 마운트�
       },
     ];
   });
-  renderApp('/stats');
+  await renderApp('/stats');
   fireEvent.click(await screen.findByText(/상세 리포트/)); // lazy 로드 대기 후 페이지 크롬 액션 → 드로어 open
   expect(await screen.findByText(/인출 증거/)).toBeInTheDocument(); // RetrievalCard
   expect(screen.getByText('주별 학습시간')).toBeInTheDocument(); // WeeklyBars 섹션

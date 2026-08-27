@@ -19,7 +19,9 @@ import { useApp } from '@/store/useApp';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import {
+  CBMS_CODES,
   cbmsCounts,
+  cbmsInfo,
   cbmsTrend,
   cbmsTrendGlyph,
   confRate,
@@ -27,8 +29,6 @@ import {
   recallEvidence,
   retentionNudge,
   retentionTrend,
-  CBMS_INFO,
-  CBMS_CODES,
 } from '@/lib/methodology';
 import { seasonPace } from '@/lib/records';
 import { parseISO, fmtShort, hLabel, DOW, round1 } from '@/lib/utils';
@@ -288,7 +288,7 @@ function CbmsRadar() {
           />
           {vals.map((v, i) => {
             const [x, y] = pt(i, R * (v / max));
-            const lab = `${codes[i]} ${CBMS_INFO[codes[i]!]?.label || ''}: ${v}건`;
+            const lab = `${codes[i]} ${cbmsInfo(codes[i]!).label}: ${v}건`;
             return (
               <circle
                 key={i}
@@ -306,7 +306,7 @@ function CbmsRadar() {
           })}
           {codes.map((k, i) => {
             const [x, y] = pt(i, R + 15);
-            const c = CBMS_INFO[k]?.color || 'var(--mut)';
+            const c = cbmsInfo(k).color;
             return (
               <text
                 key={k}
@@ -325,7 +325,7 @@ function CbmsRadar() {
         </svg>
         <div style={{ flex: 1, minWidth: 160 }}>
           {codes.map((k) => {
-            const info = CBMS_INFO[k];
+            const info = cbmsInfo(k);
             const v = cnt[k] || 0;
             const pctv = total ? Math.round((v / total) * 100) : 0;
             return (

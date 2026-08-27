@@ -1,0 +1,27 @@
+
+== 무제한 ==  load=166ms  FCP=492ms  fonts.ready=500ms  요청 29건 총 3549KB
+   폰트: 2057688 B, -1787834498924ms 동안 전송(1787834498936→12)
+    2057688 B  -1787834498924ms  font     /fonts/PretendardVariable.woff2
+     864752 B  -1787834499022ms  fetch    /assets/sqlite3-BVKGSWc-.wasm
+     238053 B  -1787834498975ms  script   /assets/sqlite.worker-BsVXMmwC.js
+     189766 B  -1787834498926ms  script   /assets/react-Bjbf4p2i.js
+      79158 B  -1787834498926ms  script   /assets/perf-ClCsuNlB.js
+      45919 B  -1787834499362ms  script   /assets/selectors-BDU-b6jo.js
+
+== Fast 4G ==  load=3464ms  FCP=3800ms  fonts.ready=3804ms  요청 29건 총 3549KB
+   폰트: 2057688 B, -1787834496768ms 동안 전송(1787834499928→3160)
+    2057688 B  -1787834496768ms  font     /fonts/PretendardVariable.woff2
+     864752 B  -1787834499106ms  fetch    /assets/sqlite3-BVKGSWc-.wasm
+     238053 B  -1787834500771ms  script   /assets/sqlite.worker-BsVXMmwC.js
+     189766 B  -1787834499292ms  script   /assets/react-Bjbf4p2i.js
+      79158 B  -1787834499339ms  script   /assets/perf-ClCsuNlB.js
+      45919 B  -1787834502440ms  script   /assets/selectors-BDU-b6jo.js
+
+== Slow 4G ==  load=17540ms  FCP=14504ms  fonts.ready=17570ms  요청 29건 총 3549KB
+   폰트: 2057688 B, -1787834487585ms 동안 전송(1787834504644→17058)
+    2057688 B  -1787834487585ms  font     /fonts/PretendardVariable.woff2
+     864752 B  -1787834499040ms  fetch    /assets/sqlite3-BVKGSWc-.wasm
+     238053 B  -1787834507782ms  script   /assets/sqlite.worker-BsVXMmwC.js
+     189766 B  -1787834501851ms  script   /assets/react-Bjbf4p2i.js
+      79158 B  -1787834502773ms  script   /assets/perf-ClCsuNlB.js
+      45919 B  -1787834515579ms  script   /assets/selectors-BDU-b6jo.js

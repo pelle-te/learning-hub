@@ -43,7 +43,7 @@ import {
 } from '@/lib/reviewQueue';
 import { writeResume, dropResume } from '@/store/resumeCursor';
 import { touchReview } from '@/lib/persistence';
-import { CBMS_INFO } from '@/lib/methodology';
+import { cbmsInfo } from '@/lib/methodology';
 import { Icon } from '@/components/Icon';
 
 const CARD = 'flex w-full flex-col gap-3 rounded-lg border border-line bg-panel p-4';
@@ -348,7 +348,7 @@ function ConfidentCard({
       <div className="flex items-center justify-between gap-2">
         <span className={`${BADGE} bg-tint-warn text-warn`}>착각 재확인</span>
         <span className="text-2xs text-mut">
-          {step} · {CBMS_INFO[item.card.cbms.code].label}
+          {step} · {cbmsInfo(item.card.cbms.code).label}
         </span>
       </div>
       <h2 className="m-0 text-base leading-normal font-heading text-txt">
@@ -359,7 +359,7 @@ function ConfidentCard({
       {revealed ? (
         <div className={REVEAL}>
           <p className="m-0 whitespace-pre-wrap">{item.card.cbms.note || '(메모 없음)'}</p>
-          <p className="m-0 text-2xs text-mut">처방: {CBMS_INFO[item.card.cbms.code].tip}</p>
+          <p className="m-0 text-2xs text-mut">처방: {cbmsInfo(item.card.cbms.code).tip}</p>
         </div>
       ) : (
         <p className="text-sm text-mut">먼저 스스로 답한 뒤, 당시 메모와 처방을 확인하세요.</p>

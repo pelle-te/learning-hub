@@ -9,7 +9,7 @@ import { keySid, weakKey } from './domainKeys';
 import { addDays, iso, parseISO } from './utils';
 import { completionMin } from './persistence';
 import {
-  CBMS_INFO,
+  cbmsInfo,
   backlogClosedBetween,
   blankPassRate,
   cbmsBetween,
@@ -98,7 +98,7 @@ export function weeklyInsights(state: AppState, weekMonDs: string): Insight[] {
   // ① 지배적 오답 유형 — 처방(CBMS_INFO.tip)까지.
   const dom = dominantCbms(cbmsCounts(state, ds0, ds6));
   if (dom) {
-    const inf = CBMS_INFO[dom.code];
+    const inf = cbmsInfo(dom.code);
     out.push({
       kind: 'cbms',
       tone: 'warn',

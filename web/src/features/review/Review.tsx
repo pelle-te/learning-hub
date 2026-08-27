@@ -17,13 +17,13 @@ import { useHeroPointer, useWeekNavKeys, useFlushOnUnmount } from '@/hooks/inter
 import { useSchedule } from '@/store/selectors';
 import { isDone } from '@/lib/persistence';
 import {
-  cbmsCounts,
-  cbmsTop,
-  CBMS_INFO,
-  CBMS_CODES,
-  openBacklog,
-  backlogClosedBetween,
   addBacklog,
+  backlogClosedBetween,
+  CBMS_CODES,
+  cbmsCounts,
+  cbmsInfo,
+  cbmsTop,
+  openBacklog,
   setWeeklyCheck,
   setWeeklyNote,
 } from '@/lib/methodology';
@@ -229,9 +229,9 @@ function CbmsDistCard({ cnt }: { cnt: Record<CbmsCode, number> }) {
       <>
         가장 많은 코드{' '}
         <b>
-          {top.code}({CBMS_INFO[top.code].label})
+          {top.code}({cbmsInfo(top.code).label})
         </b>{' '}
-        — {CBMS_INFO[top.code].tip}
+        — {cbmsInfo(top.code).tip}
       </>
     );
   }
@@ -241,7 +241,7 @@ function CbmsDistCard({ cnt }: { cnt: Record<CbmsCode, number> }) {
         오답 CBMS 분포 <span className="ds-tiny text-mut">— 약점의 분포</span>
       </h2>
       {CBMS_CODES.map((c) => {
-        const inf = CBMS_INFO[c];
+        const inf = cbmsInfo(c);
         const n = cnt[c];
         return (
           <div key={c} className="ds-cbmsRow">
@@ -451,7 +451,7 @@ function CoachCard({ ds0 }: { ds0: string }) {
                         {w.subject} — {w.chapter}
                       </b>
                       <span className={WEAK_META}>
-                        {w.count}회 · {w.codes.map((c) => CBMS_INFO[c].label).join('·')}
+                        {w.count}회 · {w.codes.map((c) => cbmsInfo(c).label).join('·')}
                       </span>
                       <span className={WEAK_ACTIONS}>
                         <button

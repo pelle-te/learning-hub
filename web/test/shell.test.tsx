@@ -23,7 +23,7 @@ function seedSubject(): void {
 
 test('React 셸이 마운트되고 today(React화) 탭 + 나브 + 팔레트 버튼이 뜬다', async () => {
   seedSubject();
-  renderApp('/today');
+  await renderApp('/today');
 
   // today는 Phase 3에서 React화 → 레거시 #page 대신 React 컨텐츠(대시보드 히어로).
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
@@ -42,7 +42,7 @@ test('React 셸이 마운트되고 today(React화) 탭 + 나브 + 팔레트 버�
 test('탭 전환: 숙달도 지도(Phase 5 React화) 탭은 #page를 쓰지 않는다', async () => {
   // Phase 5까지 전 탭 React화 — integrations·control·mastery도 React(TanStack Query).
   // 레거시 render(#page) 경로를 쓰는 등록 탭은 더 이상 없음(어댑터 mountTab은 폴백으로만 잔존).
-  renderApp('/mastery');
+  await renderApp('/mastery');
   await waitFor(() => expect(screen.getByRole('heading', { name: /숙달도 지도/ })).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
 });

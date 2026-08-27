@@ -1,0 +1,1072 @@
+{
+  "find": {
+    "firstMut": {
+      "n": 5,
+      "min": 14.4,
+      "p50": 20.4,
+      "p75": 20.5,
+      "p95": 31.3,
+      "max": 31.3
+    },
+    "settled": {
+      "n": 5,
+      "min": 14.4,
+      "p50": 20.4,
+      "p75": 20.5,
+      "p95": 31.3,
+      "max": 31.3
+    },
+    "painted": {
+      "n": 5,
+      "min": 19.6,
+      "p50": 38.4,
+      "p75": 47.8,
+      "p95": 55,
+      "max": 55
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 13,
+      "p50": 13,
+      "p75": 13,
+      "p95": 13,
+      "max": 13
+    },
+    "url": "/find",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 1450,
+        "v": 0.0025,
+        "srcs": ["DIV.flex.items-center.gap-2.self-center"]
+      },
+      {
+        "t": 1462,
+        "v": 0.013,
+        "srcs": ["SECTION.flex.h-full.flex-col.gap-3.5"]
+      }
+    ]
+  },
+  "today": {
+    "firstMut": {
+      "n": 5,
+      "min": 4.4,
+      "p50": 6.3,
+      "p75": 6.6,
+      "p95": 7.7,
+      "max": 7.7
+    },
+    "settled": {
+      "n": 5,
+      "min": 5.4,
+      "p50": 7.6,
+      "p75": 8,
+      "p95": 9.6,
+      "max": 9.6
+    },
+    "painted": {
+      "n": 5,
+      "min": 12.3,
+      "p50": 24.4,
+      "p75": 27.3,
+      "p95": 34.1,
+      "max": 34.1
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 13,
+      "p50": 13,
+      "p75": 13,
+      "p95": 13,
+      "max": 13
+    },
+    "url": "/today",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 1964,
+        "v": 0.0025,
+        "srcs": ["DIV.flex.items-center.gap-2.self-center"]
+      },
+      {
+        "t": 1978,
+        "v": 0.0156,
+        "srcs": [
+          "DIV.relative.h-full.min-h-0",
+          "DIV.pointer-events-none.absolute.bottom-[var(--aura-bottom)].left-[var(--aura-left)]"
+        ]
+      }
+    ]
+  },
+  "review-run": {
+    "firstMut": {
+      "n": 5,
+      "min": 24.4,
+      "p50": 34.1,
+      "p75": 34.2,
+      "p95": 45.4,
+      "max": 45.4
+    },
+    "settled": {
+      "n": 5,
+      "min": 28.8,
+      "p50": 38.5,
+      "p75": 41.1,
+      "p95": 61.5,
+      "max": 61.5
+    },
+    "painted": {
+      "n": 5,
+      "min": 33.1,
+      "p50": 54.6,
+      "p75": 74.3,
+      "p95": 81.6,
+      "max": 81.6
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 12,
+      "p50": 12,
+      "p75": 12,
+      "p95": 12,
+      "max": 12
+    },
+    "url": "/review-run",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 2473,
+        "v": 0.0221,
+        "srcs": ["MAIN.flex.min-h-0.flex-1.px-6.5", "DIV.flex.items-center.gap-2.self-center"]
+      }
+    ]
+  },
+  "schedule": {
+    "firstMut": {
+      "n": 5,
+      "min": 24.4,
+      "p50": 29.9,
+      "p75": 32.5,
+      "p95": 36.8,
+      "max": 36.8
+    },
+    "settled": {
+      "n": 5,
+      "min": 28.1,
+      "p50": 32.8,
+      "p75": 35.8,
+      "p95": 40.3,
+      "max": 40.3
+    },
+    "painted": {
+      "n": 5,
+      "min": 48.5,
+      "p50": 61,
+      "p75": 61.4,
+      "p95": 64.1,
+      "max": 64.1
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 18,
+      "p50": 18,
+      "p75": 18,
+      "p95": 18,
+      "max": 18
+    },
+    "url": "/schedule",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 2979,
+        "v": 0.0024,
+        "srcs": [
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.flex.flex-col.gap-1.max-mobile:hidden",
+          "DIV.mr-2.flex.items-start.gap-7.5"
+        ]
+      }
+    ]
+  },
+  "alloc": {
+    "firstMut": {
+      "n": 5,
+      "min": 25.1,
+      "p50": 31.3,
+      "p75": 37.7,
+      "p95": 38.9,
+      "max": 38.9
+    },
+    "settled": {
+      "n": 5,
+      "min": 31.2,
+      "p50": 39.8,
+      "p75": 43.4,
+      "p95": 44,
+      "max": 44
+    },
+    "painted": {
+      "n": 5,
+      "min": 46.3,
+      "p50": 60.4,
+      "p75": 73.2,
+      "p95": 73.6,
+      "max": 73.6
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 17,
+      "p50": 17,
+      "p75": 17,
+      "p95": 17,
+      "max": 17
+    },
+    "url": "/alloc",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 3505,
+        "v": 0.0003,
+        "srcs": ["DIV.flex.flex-col.gap-1.max-mobile:hidden", "DIV.mr-2.flex.items-start.gap-7.5"]
+      }
+    ]
+  },
+  "items": {
+    "firstMut": {
+      "n": 5,
+      "min": 23.3,
+      "p50": 30.2,
+      "p75": 31.9,
+      "p95": 36.4,
+      "max": 36.4
+    },
+    "settled": {
+      "n": 5,
+      "min": 27.6,
+      "p50": 40,
+      "p75": 40.8,
+      "p95": 41.4,
+      "max": 41.4
+    },
+    "painted": {
+      "n": 5,
+      "min": 45.5,
+      "p50": 57.5,
+      "p75": 60.1,
+      "p95": 61,
+      "max": 61
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0.1,
+      "p50": 0.1,
+      "p75": 0.1,
+      "p95": 0.1,
+      "max": 0.1
+    },
+    "muts": {
+      "n": 5,
+      "min": 22,
+      "p50": 22,
+      "p75": 22,
+      "p95": 22,
+      "max": 22
+    },
+    "url": "/items",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 4037,
+        "v": 0.0823,
+        "srcs": [
+          "MAIN.flex.min-h-0.flex-1.px-6.5",
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.mr-2.flex.items-start.gap-7.5"
+        ]
+      }
+    ]
+  },
+  "degree": {
+    "firstMut": {
+      "n": 5,
+      "min": 23,
+      "p50": 31.3,
+      "p75": 45.7,
+      "p95": 47.3,
+      "max": 47.3
+    },
+    "settled": {
+      "n": 5,
+      "min": 29.5,
+      "p50": 36.4,
+      "p75": 55.2,
+      "p95": 59.8,
+      "max": 59.8
+    },
+    "painted": {
+      "n": 5,
+      "min": 40,
+      "p50": 63.3,
+      "p75": 72.1,
+      "p95": 76.5,
+      "max": 76.5
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 27,
+      "p50": 27,
+      "p75": 27,
+      "p95": 27,
+      "max": 27
+    },
+    "url": "/degree",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 4562,
+        "v": 0.021,
+        "srcs": [
+          "DIV.min-w-0",
+          "DIV.ds-rule",
+          "DIV.mr-2.flex.items-start.gap-7.5",
+          "DIV.ds-rule",
+          "SPAN.absolute.top-3.25.right-2.left-2"
+        ]
+      }
+    ]
+  },
+  "stats": {
+    "firstMut": {
+      "n": 5,
+      "min": 21.7,
+      "p50": 23.6,
+      "p75": 26.6,
+      "p95": 30.6,
+      "max": 30.6
+    },
+    "settled": {
+      "n": 5,
+      "min": 27.6,
+      "p50": 27.9,
+      "p75": 30.7,
+      "p95": 36.5,
+      "max": 36.5
+    },
+    "painted": {
+      "n": 5,
+      "min": 34.2,
+      "p50": 49.9,
+      "p75": 50,
+      "p95": 59.9,
+      "max": 59.9
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0.2,
+      "p50": 0.2,
+      "p75": 0.2,
+      "p95": 0.2,
+      "max": 0.2
+    },
+    "muts": {
+      "n": 5,
+      "min": 26,
+      "p50": 26,
+      "p75": 26,
+      "p95": 26,
+      "max": 26
+    },
+    "url": "/stats",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 5066,
+        "v": 0.1195,
+        "srcs": ["DIV.hud-fill"]
+      },
+      {
+        "t": 5073,
+        "v": 0.0605,
+        "srcs": [
+          "MAIN.flex.min-h-0.flex-1.px-6.5",
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.mr-2.flex.items-start.gap-7.5"
+        ]
+      }
+    ]
+  },
+  "day": {
+    "firstMut": {
+      "n": 5,
+      "min": 34.7,
+      "p50": 45.4,
+      "p75": 50.2,
+      "p95": 56,
+      "max": 56
+    },
+    "settled": {
+      "n": 5,
+      "min": 40.9,
+      "p50": 51.3,
+      "p75": 56.8,
+      "p95": 62.5,
+      "max": 62.5
+    },
+    "painted": {
+      "n": 5,
+      "min": 49.7,
+      "p50": 68.9,
+      "p75": 70.2,
+      "p95": 78.1,
+      "max": 78.1
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 15,
+      "p50": 15,
+      "p75": 15,
+      "p95": 15,
+      "max": 15
+    },
+    "url": "/day",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 5608,
+        "v": 0.0051,
+        "srcs": [
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.flex.flex-col.gap-1.max-mobile:hidden",
+          "DIV.mr-2.flex.items-start.gap-7.5"
+        ]
+      }
+    ]
+  },
+  "review": {
+    "firstMut": {
+      "n": 5,
+      "min": 24,
+      "p50": 29.2,
+      "p75": 35.1,
+      "p95": 39.7,
+      "max": 39.7
+    },
+    "settled": {
+      "n": 5,
+      "min": 28.3,
+      "p50": 34.4,
+      "p75": 41.2,
+      "p95": 50.6,
+      "max": 50.6
+    },
+    "painted": {
+      "n": 5,
+      "min": 47.3,
+      "p50": 57.6,
+      "p75": 60.1,
+      "p95": 69.2,
+      "max": 69.2
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 18,
+      "p50": 18,
+      "p75": 18,
+      "p95": 18,
+      "max": 18
+    },
+    "url": "/review",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 6144,
+        "v": 0.047,
+        "srcs": [
+          "MAIN.flex.min-h-0.flex-1.px-6.5",
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.mr-2.flex.items-start.gap-7.5"
+        ]
+      }
+    ]
+  },
+  "mistakes": {
+    "firstMut": {
+      "n": 5,
+      "min": 13.6,
+      "p50": 13.9,
+      "p75": 15.6,
+      "p95": 55.2,
+      "max": 55.2
+    },
+    "settled": {
+      "n": 5,
+      "min": 17.7,
+      "p50": 19,
+      "p75": 22.8,
+      "p95": 58.2,
+      "max": 58.2
+    },
+    "painted": {
+      "n": 5,
+      "min": 38.3,
+      "p50": 41.7,
+      "p75": 46.3,
+      "p95": 72.9,
+      "max": 72.9
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 19,
+      "p50": 19,
+      "p75": 19,
+      "p95": 19,
+      "max": 19
+    },
+    "url": "/mistakes",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 6697,
+        "v": 0.046,
+        "srcs": [
+          "MAIN.flex.min-h-0.flex-1.px-6.5",
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.mr-2.flex.items-start.gap-7.5"
+        ]
+      }
+    ]
+  },
+  "questions": {
+    "firstMut": {
+      "n": 5,
+      "min": 12.8,
+      "p50": 17.1,
+      "p75": 17.4,
+      "p95": 17.7,
+      "max": 17.7
+    },
+    "settled": {
+      "n": 5,
+      "min": 15.6,
+      "p50": 18.6,
+      "p75": 18.9,
+      "p95": 19.1,
+      "max": 19.1
+    },
+    "painted": {
+      "n": 5,
+      "min": 36.1,
+      "p50": 38,
+      "p75": 41.4,
+      "p95": 46,
+      "max": 46
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 19,
+      "p50": 19,
+      "p75": 19,
+      "p95": 19,
+      "max": 19
+    },
+    "url": "/questions",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 7179,
+        "v": 0.0025,
+        "srcs": [
+          "DIV.flex.items-center.gap-2.self-center",
+          "DIV.flex.flex-col.gap-1.max-mobile:hidden",
+          "DIV.flex.flex-col.gap-1"
+        ]
+      }
+    ]
+  },
+  "ledger": {
+    "firstMut": {
+      "n": 5,
+      "min": 10.8,
+      "p50": 12,
+      "p75": 15.4,
+      "p95": 22.1,
+      "max": 22.1
+    },
+    "settled": {
+      "n": 5,
+      "min": 12.6,
+      "p50": 17.7,
+      "p75": 19.4,
+      "p95": 25.7,
+      "max": 25.7
+    },
+    "painted": {
+      "n": 5,
+      "min": 17,
+      "p50": 38.6,
+      "p75": 49.4,
+      "p95": 56.2,
+      "max": 56.2
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 16,
+      "p50": 16,
+      "p75": 16,
+      "p95": 16,
+      "max": 16
+    },
+    "url": "/ledger",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 7696,
+        "v": 0.013,
+        "srcs": [
+          "MAIN.flex.min-h-0.flex-1.px-6.5",
+          "DIV.ds-warnbox.ds-bad.mx-6.5.mt-3",
+          "DIV.flex.items-center.gap-2.self-center"
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "firstMut": {
+      "n": 5,
+      "min": 100.7,
+      "p50": 131.9,
+      "p75": 134.8,
+      "p95": 140.6,
+      "max": 140.6
+    },
+    "settled": {
+      "n": 5,
+      "min": 120.1,
+      "p50": 149.8,
+      "p75": 155.8,
+      "p95": 158.3,
+      "max": 158.3
+    },
+    "painted": {
+      "n": 5,
+      "min": 134.6,
+      "p50": 159.7,
+      "p75": 175.6,
+      "p95": 179.4,
+      "max": 179.4
+    },
+    "tbt": {
+      "n": 5,
+      "min": 2,
+      "p50": 16,
+      "p75": 24,
+      "p95": 26,
+      "max": 26
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 52,
+      "p50": 66,
+      "p75": 74,
+      "p95": 76,
+      "max": 76
+    },
+    "cls": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "muts": {
+      "n": 5,
+      "min": 15,
+      "p50": 15,
+      "p75": 15,
+      "p95": 15,
+      "max": 15
+    },
+    "url": "/settings",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 8352,
+        "v": 0.0236,
+        "srcs": ["SECTION.flex.min-w-0.flex-col.gap-4", "DIV", "::before"]
+      }
+    ]
+  },
+  "integrations": {
+    "firstMut": {
+      "n": 5,
+      "min": 15.8,
+      "p50": 19,
+      "p75": 19.5,
+      "p95": 23.1,
+      "max": 23.1
+    },
+    "settled": {
+      "n": 5,
+      "min": 20.7,
+      "p50": 23.7,
+      "p75": 24.5,
+      "p95": 27.3,
+      "max": 27.3
+    },
+    "painted": {
+      "n": 5,
+      "min": 39.5,
+      "p50": 43.8,
+      "p75": 47.6,
+      "p95": 52.9,
+      "max": 52.9
+    },
+    "tbt": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "maxLongtask": {
+      "n": 5,
+      "min": 0,
+      "p50": 0,
+      "p75": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "cls": {
+      "n": 5,
+      "min": 0.1,
+      "p50": 0.1,
+      "p75": 0.1,
+      "p95": 0.1,
+      "max": 0.1
+    },
+    "muts": {
+      "n": 5,
+      "min": 18,
+      "p50": 18,
+      "p75": 18,
+      "p95": 18,
+      "max": 18
+    },
+    "url": "/integrations",
+    "errors": [],
+    "worstShifts": [
+      {
+        "t": 8873,
+        "v": 0.1097,
+        "srcs": ["DIV.hud-fill"]
+      },
+      {
+        "t": 8884,
+        "v": 0.0279,
+        "srcs": [
+          "MAIN.flex.min-h-0.flex-1.px-6.5",
+          "DIV.ds-warnbox.ds-bad.mx-6.5.mt-3",
+          "DIV.flex.items-center.gap-2.self-center"
+        ]
+      }
+    ]
+  }
+}

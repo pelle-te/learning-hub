@@ -6,7 +6,7 @@ import { useId, useRef, useState } from 'react';
 import { useApp } from '@/store/useApp';
 import { toast } from '@/shell';
 import { useRecordEditor } from '@/shell/useRecordEditor';
-import { cbmsBetween, editCbms, delCbms, CBMS_INFO, CBMS_CODES } from '@/lib/methodology';
+import { CBMS_CODES, cbmsBetween, cbmsInfo, delCbms, editCbms } from '@/lib/methodology';
 import { Button } from '@/components/ui';
 import { commit } from '@/lib/motion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -98,7 +98,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
           <select id={`${uid}-code`} value={code} onChange={(e) => setCode(e.target.value as CbmsCode)}>
             {CBMS_CODES.map((c) => (
               <option key={c} value={c}>
-                {c} — {CBMS_INFO[c].label}
+                {c} — {cbmsInfo(c).label}
               </option>
             ))}
           </select>
@@ -133,7 +133,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
       {today.length ? (
         today.map((e) => {
           // H25 — 미지 코드 폴백도 토큰이어야 한다(라이트에서 #888 은 3.05:1 로 AA 미달이었다).
-          const inf = CBMS_INFO[e.code] || { label: '?', tip: '', color: 'var(--mut)' };
+          const inf = cbmsInfo(e.code);
           if (editId === e.id) {
             return (
               <div key={e.id} className="ds-rec border-line-acc-hover! bg-tint-acc-faint!">
@@ -158,7 +158,7 @@ export default function CbmsCard({ ds: dsKey }: { ds: string }) {
                     >
                       {CBMS_CODES.map((c) => (
                         <option key={c} value={c}>
-                          {c} — {CBMS_INFO[c].label}
+                          {c} — {cbmsInfo(c).label}
                         </option>
                       ))}
                     </select>

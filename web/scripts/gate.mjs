@@ -113,7 +113,25 @@ const ALL = [
      ⚠ 자리는 `tauri:check` **뒤, `tauri:build` 앞**이다: 컴파일이 깨졌으면 테스트도 못 돌고,
      테스트가 깨졌으면 수 분짜리 번들을 만들 이유가 없다(싼 신호부터 소진). */
   { name: 'cargo test', args: ['run', 'tauri:test', '--prefix', '..'], mode: 'cargo' },
-  { name: 'tauri:build', args: ['run', 'tauri:build', '--prefix', '..'], mode: 'cargo' },
+  /* ⚠⚠ **`beforeBuildCommand` 를 게이트에서만 끈다**(P034 · 2026-08-27 성능 축).
+     위 `build` 단계가 같은 회차에서 이미 `web/dist` 를 냈고, 그 사이 단계들(budget·server
+     verify·e2e)은 전부 dist 를 **읽기만** 한다. 그런데 `tauri.conf.json` 의
+     `beforeBuildCommand: "npm --prefix web run build"` 가 같은 빌드를 **한 번 더** 돌린다 —
+     실측 웜 **16.0 s** · 콜드 **44.4 s**, 그리고 그 산출물은 첫 번째와 동일하므로 **어떤 검사도
+     그 시간을 소비하지 않는다.**
+     ⚠ 안전한 이유는 아래 `실행가능()` 이 준다: `mode:'cargo'` 조건(`!quick && hasCargo`)은
+     `mode:'full'` 조건(`!quick`)의 **부분집합**이라, 이 단계가 도는 회차엔 `build` 가 반드시
+     먼저 돌았다. 단독 `npm run tauri:build` 는 그대로 자기 빌드를 한다.
+     ⚠ 실증(2026-08-27): `--config '{"build":{"beforeBuildCommand":"exit 0"}}'` 은
+     `Running beforeBuildCommand` 를 찍고, 빈 문자열은 **그 줄이 사라진다**(건너뛴다).
+     ⚠⚠ **인라인 JSON 이 아니라 파일로 준다.** 이 스포너는 `shell: true` 라 Windows cmd 가
+     인자 속 따옴표를 먹어 `{build:{beforeBuildCommand:}}` 가 되고 tauri 가 파싱에서 죽는다
+     (2026-08-28 실측 — 게이트가 그 단계에서 빨갛게 멈췄다). 파일 경로엔 따옴표가 없다. */
+  {
+    name: 'tauri:build',
+    args: ['run', 'tauri:build', '--prefix', '..', '--', '--config', 'src-tauri/tauri.gate.conf.json'],
+    mode: 'cargo',
+  },
   /* 트랙 B(`e2e:shell`)는 **빌드된 exe 를 검사 대상으로 삼으므로 반드시 `tauri:build` 뒤**다 —
      순서가 뒤집히면 옛 exe 를 검사해 "통과"가 거짓이 된다. */
   { name: 'e2e:shell', args: ['run', 'e2e:shell'], mode: 'cargo' },

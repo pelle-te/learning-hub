@@ -1,0 +1,74 @@
+
+> learning-hub-web@0.0.0 budget
+> node scripts/bundle-budget.mjs
+
+=== BUNDLE BUDGET (gzip KB · 엔트리별 초기 로드) ===
+
+--- 데스크톱 셸 (index.html) ---
+      57.6  assets/react-Bjbf4p2i.js
+      26.5  assets/perf-ClCsuNlB.js
+      22.8  assets/main-Co96bBQe.js
+      0.4  assets/rolldown-runtime-hePW80VL.js
+  ok  js total 107.4 / 124
+      27.7  assets/main-aPatGVJx.css
+      3.6  assets/perf-CPqr6d7H.css
+  ok  css total 31.2 / 37
+
+--- 폰 웹앱 (phone.html) ---
+      57.6  assets/react-Bjbf4p2i.js
+      26.5  assets/perf-ClCsuNlB.js
+      1.3  assets/phone-D-ypGc7v.js
+      0.4  assets/rolldown-runtime-hePW80VL.js
+  ok  js total 85.9 / 98
+      6.4  assets/phone-CjFU3xX3.css
+      3.6  assets/perf-CPqr6d7H.css
+  ok  css total 9.9 / 12
+
+--- 데스크톱 부팅 웨이브(엔트리 + App) ---
+      39.2  assets/App-QiIZAMvy.js  (App 웨이브에서 추가)
+      16.9  assets/selectors-BDU-b6jo.js  (App 웨이브에서 추가)
+      14.6  assets/useApp-C4KnQaMw.js  (App 웨이브에서 추가)
+      11.3  assets/shell-gtPfjemw.js  (App 웨이브에서 추가)
+      3.4  assets/syncController-Bk4tx_9B.js  (App 웨이브에서 추가)
+      3.2  assets/tauri-BKvDHOYk.js  (App 웨이브에서 추가)
+      3.1  assets/useQuery-DkEnzc-3.js  (App 웨이브에서 추가)
+      3.0  assets/ui-DO0kpvwf.js  (App 웨이브에서 추가)
+      2.6  assets/prefill-BNeZn0MR.js  (App 웨이브에서 추가)
+      2.3  assets/quickCapture-TYjOT6HT.js  (App 웨이브에서 추가)
+      1.8  assets/vault-CwOFNtFf.js  (App 웨이브에서 추가)
+      1.8  assets/registry-N-ABSfP7.js  (App 웨이브에서 추가)
+      1.7  assets/promote-TuUhUdlO.js  (App 웨이브에서 추가)
+      1.6  assets/interactions-BN_pXF1r.js  (App 웨이브에서 추가)
+      1.4  assets/State-CqcehWZw.js  (App 웨이브에서 추가)
+      1.0  assets/settleBeforeExit-HGfMtiKP.js  (App 웨이브에서 추가)
+      1.0  assets/useSyncLedger-DrQDOYdG.js  (App 웨이브에서 추가)
+      0.9  assets/useKeymap-D_v8Xopr.js  (App 웨이브에서 추가)
+      0.7  assets/useScrollLock-D0fF9tLB.js  (App 웨이브에서 추가)
+      0.6  assets/dayCapacity-CJAM09K0.js  (App 웨이브에서 추가)
+      0.6  assets/artifacts-CTwSgZHR.js  (App 웨이브에서 추가)
+      0.3  assets/usePageChrome-BqirOQWZ.js  (App 웨이브에서 추가)
+      0.3  assets/Icon-Bu7HDk5w.js  (App 웨이브에서 추가)
+      0.3  assets/Num-CJXA3PfF.js  (App 웨이브에서 추가)
+      0.3  assets/LiveRegion-CE7_sXJy.js  (App 웨이브에서 추가)
+      0.2  assets/resumeCursor-DXBdbCkS.js  (App 웨이브에서 추가)
+  ok  js total 221.7 / 250
+
+--- 플랫폼별 전체 산출물(지연 청크·워커·wasm 포함) ---
+
+  [데스크톱]
+  ok  js total 502.2 / 555
+  ok  css total 31.2 / 38
+
+  [폰]
+  ok  js total 304.5 / 348
+  ok  css total 9.9 / 12.5
+  ok  wasm total 392.5 / 450
+
+--- 번들 오염(배포용 바이너리가 dist 에 있는가) ---
+  ok  없음
+
+--- 저장소 바이트(이력 · append-only) ---
+      657 MiB / 700 MiB (94%)
+  ok  예산 내
+
+RESULT: ✅ 예산 내

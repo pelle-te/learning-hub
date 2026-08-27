@@ -40,8 +40,39 @@ export interface RenderAppOptions {
   state?: unknown;
 }
 
-/** 셸 전체(라우터 + 레일 + TopBar + lazy 탭). **셸을 검사할 때만** 쓴다. */
-export function renderApp(initialPath = '/today', opts: RenderAppOptions = {}) {
+/**
+ * 셸 전체(라우터 + 레일 + TopBar + lazy 탭). **셸을 검사할 때만** 쓴다.
+ *
+ * ⭐⭐ **`await` 가 필요하다 — 렌더 전에 탭 청크를 덥힌다**(P051 · 2026-08-28 코드 축).
+ *
+ * ## 왜 — 게이트가 머신 부하에 종속돼 있었다
+ *
+ * 첫 라우트가 `React.lazy` 라 이 헬퍼는 **Suspense 를 탄다**. v8 커버리지 계측이 붙으면 그 청크의
+ * import+평가가 길어져 RTL 의 `findBy*` 대기 예산을 넘긴다. 2026-07-30 이 그 부류를 진단하며
+ * 예산을 1,000 → 5,000 ms 로 올렸는데 **두 번째로 흘러내렸다**: 2026-08-28 실측에서 같은 트리를
+ * 다섯 번 돌려 실패 파일이 **8 · 7 · 5 · 4 · 1 · 0** 으로 매번 달랐다(옆에서 도는 브라우저가
+ * CPU 97% 를 쓰는 동안 vitest import 가 136 s → 236 s). 단독 실행은 전부 통과한다.
+ *
+ * ⚠ 진짜 대가는 빨간불이 아니라 **판별 비용**이다 — 실패를 보고 자기 변경을 의심해 `git stash`
+ * 로 두 번 확인해야 했고(베이스라인도 같은 부하에서 8개가 떨어졌다) 그게 한 시간이었다.
+ *
+ * ## 왜 예산을 또 올리지 않는가
+ *
+ * 예산의 상대는 **옆에서 도는 것**이라 얼마를 줘도 넘길 수 있다. 두 번 올려 두 번 흘러내린 노브를
+ * 세 번째로 올리는 것은 처방이 아니다. 대기가 원인이므로 **대기를 없앤다.**
+ * ⭐ 새 발명이 아니다 — `main.tsx` 가 부팅에서 하는 그대로다(`warmTab` 으로 첫 라우트의 lazy 를
+ * 렌더 전에 확정 · 2026-08-01 의 260 ms 이자 P028 이 진입점을 고친 자리). 테스트가 제품의 부팅
+ * 의미론을 따르게 한 것뿐이다.
+ *
+ * ⚠⚠ **`test/_setup.ts` 에서 전역으로 덥히지 마라 — 시도했고 8개가 깨졌다.** 레지스트리를 import
+ * 하면 `useApp` 모듈이 평가되고, 그건 SD-7 부팅 순서 계약을 깬다(`main.tsx` 가 명시적으로 금지하는
+ * 그것). `dbBoot`·`bootRecovery` 계열이 정확히 그 순서를 검사한다. 이 자리는 안전하다 — 그 여덟은
+ * `renderApp` 을 쓰지 않는다.
+ * ⚠ 덥히기 실패는 삼킨다: 그러면 **옛 경로(Suspense 대기)로 그대로 돌아간다**.
+ */
+export async function renderApp(initialPath = '/today', opts: RenderAppOptions = {}) {
+  /* 라우트 키 산출은 `main.tsx`·`App.tsx` 와 **같은 식**이다(갈리면 엉뚱한 청크를 덥힌다). */
+  await import('@/features/registry').then((m) => m.warmTab(initialPath.split('/')[1] || 'today')).catch(() => {});
   const client = qc();
   opts.seed?.(client);
   const entry = opts.state === undefined ? initialPath : { pathname: initialPath, state: opts.state };

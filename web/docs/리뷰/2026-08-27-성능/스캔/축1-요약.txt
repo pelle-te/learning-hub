@@ -1,0 +1,19 @@
+축 1 — 체감 (/리뷰 성능 2026-08-27 기준선 회차)
+계측기: Playwright + Chromium(--disable-gpu) · vite preview :4174 · dist md5(App)=88e27f6d… (회차 내내 불변)
+뷰포트 1440×900(= src-tauri/tauri.conf.json 창 크기) · 저장 백엔드 = localStorage(브라우저 프록시)
+
+■ 프록시/실물
+  · 데스크톱 실물 = Tauri WebView2 + tauri://localhost/ + SQLite. 여기 수치는 Chromium+HTTP+localStorage 프록시다.
+  · 프레젠테이션 지연(present)이 헤드리스·GPU 없음에서 크게 잡힌다 → INP 절대값은 상한, JS proc 만 신뢰.
+  · 폰(phone.html·wasm+OPFS)은 따로 잼(축1-폰부팅.json).
+
+■ 하네스 함정(다음 회차용)
+  · page.clock.install()/setFixedTime() 은 performance.mark 를 없앤다 → 앱의 부팅 웨이브 계량이 통째로 무동작.
+    (실측: 시계 있으면 마크 0개, 없으면 3개.) 그래서 이 회차는 시계를 안 쓰고 시드 날짜를 실제 오늘로 밀었다.
+  · playwright.config.ts 최상단 killStrayPreview() 가 남의 vite preview 도 죽인다 — 회차 중 :4174 가 한 번 끊겼다.
+  · e2e 로스터를 N배로 부풀릴 때 cbms.code 는 반드시 C/B/M/S/T — 그 밖이면 review·mistakes 가 렌더에서 죽는다.
+
+파일: 축1-boot.json 축1-AB.json 축1-AB-cpu4x.json 축1-루트수정시뮬-cpu{1,4}x.json
+      축1-탭전환-cpu*.json 축1-헤더높이.json 축1-순회시프트.json 축1-CLS귀속.json 축1-프레임샘플.json
+      축1-INP-cpu*.json 축1-액센트프리뷰.json 축1-수정시뮬.json 축1-규모스윕.json
+      축1-프로파일-cpu4x-scale10.json 축1-프로파일-청크별.json 축1-schedule프로파일.json 축1-폰부팅.json

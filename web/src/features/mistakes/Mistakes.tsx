@@ -24,7 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { mistakeArchive, mistakeTotals, todayMistakes, type MistakeRow } from '@/lib/mistakes';
-import { CBMS_INFO, CBMS_CODES, addBacklog } from '@/lib/methodology';
+import { addBacklog, CBMS_CODES, cbmsInfo } from '@/lib/methodology';
 import { chapterKc, knownKc, tagChapter, untagChapter } from '@/lib/knowledgeElements';
 import { openVaultSearch, todayISO, vaultQuery } from '@/lib/utils';
 import { toast } from '@/shell';
@@ -142,7 +142,7 @@ function KcTags({
 }
 
 function CodeChip({ code, n }: { code: CbmsCode; n?: number }) {
-  const info = CBMS_INFO[code];
+  const info = cbmsInfo(code);
   return (
     <span className={CODE_CHIP} style={{ background: 'var(--panel2)', color: info.color }} title={info.tip}>
       {info.label}
@@ -191,7 +191,7 @@ function MistakeCard({
       {action && (
         <p className={ACTION}>
           <span aria-hidden="true">→ </span>
-          {CBMS_INFO[row.topCode].tip}
+          {cbmsInfo(row.topCode).tip}
         </p>
       )}
       {row.notes.slice(0, NOTE_CAP).map((n) => (
@@ -294,7 +294,7 @@ export default function Mistakes() {
   });
   const seed = (row: MistakeRow) => {
     const topic = row.chapter || row.subject;
-    mutate((st) => addBacklog(st, row.sid, row.subject, topic, `오답 ${row.count}회 · ${CBMS_INFO[row.topCode].tip}`));
+    mutate((st) => addBacklog(st, row.sid, row.subject, topic, `오답 ${row.count}회 · ${cbmsInfo(row.topCode).tip}`));
     toast(`보충에 담았어요 — ${topic}`, 'ok', 4000);
   };
 
@@ -336,9 +336,9 @@ export default function Mistakes() {
             className={`${CHIP} ${code === c ? CHIP_ON : ''}`}
             onClick={() => setCode(code === c ? '' : c)}
             aria-pressed={code === c}
-            title={CBMS_INFO[c].tip}
+            title={cbmsInfo(c).tip}
           >
-            {CBMS_INFO[c].label}
+            {cbmsInfo(c).label}
           </button>
         ))}
       </div>

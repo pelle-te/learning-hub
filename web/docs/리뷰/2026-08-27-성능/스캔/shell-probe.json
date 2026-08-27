@@ -1,0 +1,121 @@
+{
+  "attachMs": 2431,
+  "boot": {
+    "marks": {
+      "entry": 101.29999999701977,
+      "app": 631.2999999970198,
+      "data": 702.6999999992549
+    },
+    "domInteractive": 54.7,
+    "domContentLoaded": 102.6,
+    "loadEnd": 181,
+    "paint": [
+      ["first-paint", 228],
+      ["first-contentful-paint", 664]
+    ],
+    "resourceCount": 112,
+    "top": [
+      {
+        "n": "plugin%3Asql%7Cselect",
+        "d": 104.9,
+        "sz": 0
+      },
+      {
+        "n": "plugin%3Asql%7Cload",
+        "d": 97.5,
+        "sz": 0
+      },
+      {
+        "n": "PretendardVariable.woff2",
+        "d": 36.5,
+        "sz": 2057688
+      },
+      {
+        "n": "plugin%3Asql%7Cselect",
+        "d": 28.7,
+        "sz": 0
+      },
+      {
+        "n": "tauri-BKvDHOYk.js",
+        "d": 22,
+        "sz": 8080
+      },
+      {
+        "n": "react-Bjbf4p2i.js",
+        "d": 18.6,
+        "sz": 189766
+      },
+      {
+        "n": "plugin%3Asql%7Cexecute",
+        "d": 18.1,
+        "sz": 0
+      },
+      {
+        "n": "plugin%3Asql%7Cselect",
+        "d": 17.8,
+        "sz": 0
+      },
+      {
+        "n": "plugin%3Asql%7Cselect",
+        "d": 17.7,
+        "sz": 0
+      },
+      {
+        "n": "plugin%3Asql%7Cexecute",
+        "d": 17.5,
+        "sz": 0
+      },
+      {
+        "n": "plugin%3Asql%7Cexecute",
+        "d": 16.9,
+        "sz": 0
+      },
+      {
+        "n": "vault_scan",
+        "d": 16.5,
+        "sz": 0
+      }
+    ],
+    "nodes": 300,
+    "href": "http://tauri.localhost/today",
+    "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 Edg/151.0.0.0",
+    "hw": 16
+  },
+  "ipc": {
+    "dbUrl": {
+      "cmd": "db_url_cmd",
+      "n": 50,
+      "p50": 1.2,
+      "min": 1,
+      "max": 5.1,
+      "mean": 1.468
+    },
+    "caps": {
+      "cmd": "capabilities",
+      "n": 20,
+      "p50": 1.5,
+      "min": 1.4,
+      "max": 3.5,
+      "mean": 1.79
+    },
+    "guard": {
+      "cmd": "db_version_guard",
+      "n": 20,
+      "p50": 3.3,
+      "min": 2.9,
+      "max": 13.3,
+      "mean": 4.095
+    },
+    "log": {
+      "cmd": "plugin:log|log",
+      "n": 50,
+      "p50": 1.1,
+      "min": 0.9,
+      "max": 1.6,
+      "mean": 1.134
+    }
+  },
+  "sql": {
+    "skipped": "TypeError: Failed to fetch dynamically imported module: http://tauri.localhost/assets/http://tauri.localhost/assets/main-BpuT2VUT.js"
+  }
+}

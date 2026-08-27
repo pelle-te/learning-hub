@@ -1,0 +1,8 @@
+| 총 행 | readRows SQL 합(ms) | 최대 단일 질의 | readMaxStamp(ms) | 결과 행 수 |
+|---|---|---|---|---|
+| 817 | 1.27 | records 0.83 | 0.04 | {"meta":0,"settings":0.05,"runtime_cache":0,"completions":0.15,"ds_map":0.08,"records":0.83,"summaries":0.12,"week_alloc":0.04} |
+| 3141 | 5.57 | records 4.01 | 0.04 | {"meta":0,"settings":0.05,"runtime_cache":0,"completions":0.62,"ds_map":0.32,"records":4.01,"summaries":0.45,"week_alloc":0.12} |
+| 7791 | 13.07 | records 9.07 | 0.04 | {"meta":0,"settings":0.04,"runtime_cache":0,"completions":1.63,"ds_map":0.85,"records":9.07,"summaries":1.15,"week_alloc":0.34} |
+| 15541 | 26.12 | records 17.97 | 0.04 | {"meta":0,"settings":0.05,"runtime_cache":0,"completions":3.37,"ds_map":1.74,"records":17.97,"summaries":2.27,"week_alloc":0.71} |
+| 38791 | 81.20 | records 60.10 | 0.04 | {"meta":0,"settings":0.05,"runtime_cache":0,"completions":9.07,"ds_map":4.58,"records":60.1,"summaries":5.87,"week_alloc":1.52} |
+| 77541 | 175.67 | records 127.86 | 0.03 | {"meta":0,"settings":0.05,"runtime_cache":0,"completions":21.21,"ds_map":9.8,"records":127.86,"summaries":13.18,"week_alloc":3.56} |

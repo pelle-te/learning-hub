@@ -333,6 +333,9 @@ const 유틸접두사 = {
   brightness: ['brightness', 'backdrop-brightness'],
   font: ['font'],
   'transition-duration': ['duration'],
+  // P038 — 상단바 최소 높이(`--min-height-topbar` → `min-h-topbar`). ⚠ v4 의 `min-h-*` 는
+  //   `--spacing-*` 이 아니라 **`--min-height-*`** 를 읽는다(이름을 틀리면 유틸이 안 생긴다).
+  'min-height': ['min-h'],
   breakpoint: [], // 변형(`mobile:`)이라 접두사가 없다 — 아래에서 `이름:` 으로 찾는다
 };
 const 네임스페이스 = Object.keys(유틸접두사).sort((a, b) => b.length - a.length);

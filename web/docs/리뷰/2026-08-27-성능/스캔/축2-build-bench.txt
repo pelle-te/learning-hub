@@ -1,0 +1,15 @@
+run1 base built in 16.32s | plugin-babel transform (88%, 17.9s, 312 calls)
+run1 A built in 11.27s | plugin-babel transform (89%, 19.3s, 127 calls)
+run1 B built in 16.78s | plugin-babel transform (90%, 15.8s, 312 calls)
+run1 C built in 14.04s | plugin-babel transform (87%, 12.1s, 127 calls)
+run1 none built in 1.79s | 
+run2 base built in 16.00s | plugin-babel transform (89%, 16.0s, 312 calls)
+run2 A built in 15.47s | plugin-babel transform (87%, 14.1s, 127 calls)
+run2 B built in 21.19s | plugin-babel transform (89%, 14.1s, 312 calls)
+run2 C built in 14.69s | plugin-babel transform (86%, 13.3s, 127 calls)
+run2 none built in 2.04s | 
+run3 base built in 19.02s | plugin-babel transform (85%, 11.3s, 312 calls)
+run3 A built in 13.29s | plugin-babel transform (87%, 15.5s, 127 calls)
+run3 B built in 21.65s | plugin-babel transform (91%, 16.4s, 312 calls)
+run3 C built in 15.88s | plugin-babel transform (87%, 14.1s, 127 calls)
+run3 none built in 2.12s | 
