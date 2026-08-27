@@ -1,5 +1,23 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import killStrayPreview from './e2e/_strayPreview';
+
+/* ⚠⚠ **여기서 부른다 — `globalSetup` 은 너무 늦다**(O038 · 2026-08-27).
+
+   O035 가 이 청소부를 `globalSetup` 에 걸었는데, `_strayPreview.ts` 머리주석이 **스스로
+   적어 둔 사실**이 그 자리를 무효로 만든다: *Playwright 는 `globalSetup` 보다 `webServer` 를
+   먼저 띄운다.* 그래서 떠도는 preview 가 4173 을 쥐고 있으면 **`webServer` 가 먼저 바인딩에
+   실패**하고(`reuseExistingServer: false` + `--strictPort`), 런은 청소부가 한 줄도 돌기 전에
+   죽는다. 2026-08-27 게이트가 실제로 그렇게 죽었고, 재현하면 청소부 메시지가 **0줄**이다 —
+   조건을 못 맞춘 게 아니라 **안 돈 것**이다.
+
+   설정 모듈은 `webServer` 기동보다 먼저 평가되므로(그 정의를 읽어야 띄운다) 이 자리가 유일하게
+   이른 자리다. ⭐ 그리고 여기가 **더 안전하다**: 이 시점엔 우리 `webServer` 가 아직 존재하지도
+   않아, 「자기 서버를 죽인다」(2026-08-23 실사고)가 원리적으로 불가능하다. 그래도 그 파일의
+   생성 시각 가드 ③은 **그대로 둔다** — 사람이 옆 터미널에서 띄운 것까지 이 자리가 보게 되므로,
+   가드를 걷으면 그때 죽는 것은 남의 것이다. */
+killStrayPreview();
+
 /* Playwright — 비주얼 회귀 + 스모크(Phase 6 도입).
    `vite preview`(dist 서빙)를 webServer로 띄워 빌드물을 그대로 검사.
    /api 프록시는 dev 전용이라 preview엔 없음 → 외부 탭(control/mastery/integrations)은 우아한 폴백을 찍는다. */
@@ -84,11 +102,8 @@ export default defineConfig({
      녹색이 "회귀 없음"이 아니라 "안 쟀음"을 뜻하게 된다.
 
      대가는 회당 preview 기동 몇 초다. 검증망이 거짓말하는 것보다 싸다. */
-  /* ⚠ **떠도는 preview 를 먼저 거둔다**(O035 · 2026-08-23). 남은 서버가 이 저장소의
-     `node_modules` 안 네이티브 바이너리를 쥐면 **`npm ci` 가 EPERM 으로 죽는다**(실측:
-     node_modules 가 반쯤 지워졌다). 트랙 B 의 `ensureNoStrayShell()` 과 같은 자리이고,
-     범위를 이 저장소 것으로 좁히는 근거는 `e2e/_strayPreview.ts` 머리주석이 갖는다. */
-  globalSetup: './e2e/_strayPreview.ts',
+  /* ⚠ 떠도는 preview 청소는 **이 파일 최상단**이 한다(O038) — `globalSetup` 은 `webServer`
+     보다 늦어서 포트 충돌을 못 막았다. 위 주석 참조. */
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',
     url: 'http://localhost:4173',

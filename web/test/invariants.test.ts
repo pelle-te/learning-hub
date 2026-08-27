@@ -2147,3 +2147,53 @@ describe('불변식 ㉘ 이력을 읽는 잡이 전체 이력을 받는다', () 
     );
   });
 });
+
+/* ============================================================
+   불변식 ㉙ — **떠도는 preview 청소가 `webServer` 보다 먼저 돈다**(O038 · 2026-08-27)
+
+   O035 는 청소부를 `globalSetup` 에 걸었는데, `_strayPreview.ts` 가 **스스로 적어 둔 순서**가
+   그 자리를 무효로 만든다: Playwright 는 `globalSetup` 보다 `webServer` 를 **먼저** 띄운다.
+   그래서 stray 가 4173 을 쥐면 `webServer` 가 먼저 바인딩에 실패하고 청소부는 **한 줄도 안
+   돈다**(재현 시 메시지 0줄 — 조건을 못 맞춘 게 아니라 미실행이다). 2026-08-27 게이트가 물렸다.
+
+   ⚠⚠ 그리고 고치는 과정에서 **같은 사고가 형태를 바꿔 되살아났다**: 설정 모듈을 워커가 다시
+   import 하면 `RUN_STARTED` 가 우리 `webServer` 보다 **나중**이 되어 자기 서버를 죽인다
+   (실측: 정리 메시지 두 줄 + `ERR_CONNECTION_REFUSED`). 그래서 **env 센티널**로 한 번만 돈다 —
+   모듈 스코프 변수로는 못 막는다(프로세스가 다르면 그 변수도 새로 난다).
+
+   ## 무엇을 잠그나 — 값이 아니라 **자리와 가드**
+     ① 설정이 청소부를 **모듈 스코프**에서 부른다(= `webServer` 기동 전)
+     ② 그 청소부가 **`globalSetup` 으로 걸려 있지 않다**(그 자리가 이 결함의 원인이었다)
+     ③ 청소부에 **env 센티널 가드**가 있다(재평가가 자기 서버를 죽이던 자리)
+============================================================ */
+describe('불변식 ㉙ 떠도는 preview 청소가 webServer 보다 먼저 돈다(O038)', () => {
+  const CFG = (): string => readFileSync(join(process.cwd(), 'playwright.config.ts'), 'utf8');
+  const REAPER = (): string => readFileSync(join(process.cwd(), 'e2e', '_strayPreview.ts'), 'utf8');
+
+  it('대상이 실재한다 — 분모가 없으면 아래 셋이 아무것도 안 잰다', () => {
+    expect(CFG(), 'playwright.config.ts 를 못 읽었다').toContain('webServer');
+    expect(REAPER(), '_strayPreview.ts 를 못 읽었다').toContain('killStrayPreview');
+  });
+
+  it('① 설정이 청소부를 모듈 스코프에서 부른다 — `webServer` 보다 먼저', () => {
+    const cfg = strip(CFG());
+    expect(cfg, '청소부를 import 하지 않는다').toMatch(/import\s+killStrayPreview\s+from/);
+    /* 줄 첫머리 호출 = 모듈 스코프. `defineConfig({…})` 안이면 들여쓰기가 붙는다. */
+    expect(cfg, '모듈 스코프 호출이 없다 — 그러면 `webServer` 보다 늦게 돈다').toMatch(/^killStrayPreview\(\);/m);
+  });
+
+  it('② 청소부가 `globalSetup` 에 걸려 있지 않다 — 그 자리가 O038 의 원인이었다', () => {
+    const gs = [...strip(CFG()).matchAll(/globalSetup:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]!);
+    expect(
+      gs.filter((v) => v.includes('_strayPreview')),
+      '`globalSetup` 은 `webServer` 뒤에 돈다 — 포트 충돌을 못 막는다',
+    ).toEqual([]);
+  });
+
+  it('③ 청소부에 재진입 가드가 있다 — 워커 재평가가 자기 서버를 죽였다', () => {
+    const r = strip(REAPER());
+    expect(r, 'env 센티널이 없다 — 워커 재평가 때 우리 `webServer` 를 죽인다').toMatch(
+      /process\.env\[[^\]]+\]\s*=\s*'1'/,
+    );
+  });
+});
