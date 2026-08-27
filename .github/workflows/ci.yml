@@ -156,6 +156,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # ⚠⚠ **이 잡만 전체 이력이 필요하다**(2026-08-27). `checkout` 의 기본은
+          #   `fetch-depth: 1` 인데 `freshness` 의 세 축 중 **둘이 커밋 이력을 읽는다** —
+          #   그 위에서 두 축이 **반대 방향으로 동시에 거짓말했다**: 봇 활동이 「0건 → 9999」로
+          #   **5일 연속 빨간불**을 냈고(2026-08-22~26), 같은 얕음이 배포 축의 커밋 수를
+          #   17→1 로 깎아 `n >= 10` 즉시실패를 **조용히 해제**했다. 거짓 빨강이 거짓 초록을
+          #   덮고 있었던 셈이다.
+          # ⚠ 위 `build-test` 등에는 넣지 않는다 — 그 잡들은 트리만 보고 이력을 안 읽는다.
+          #   516커밋짜리 저장소라 이 잡 하나의 전체 클론은 싸다.
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: web/.nvmrc
