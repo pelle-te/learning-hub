@@ -67,7 +67,7 @@ function Row({ c }: { c: ConflictShadow }): React.JSX.Element {
           type="button"
           disabled={busy}
           onClick={() => (arm ? void restore() : setArm(true))}
-          className={`${BTN} bg-tint-warn text-warn enabled:hover:brightness-110`}
+          className={`${BTN} bg-tint-warn text-warn-on-soft enabled:hover:brightness-110`}
         >
           {arm ? '정말 되살리기' : '되살리기'}
         </button>

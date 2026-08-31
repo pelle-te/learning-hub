@@ -28,8 +28,10 @@ test('React 셸이 마운트되고 today(React화) 탭 + 나브 + 팔레트 버�
   // today는 Phase 3에서 React화 → 레거시 #page 대신 React 컨텐츠(대시보드 히어로).
   await waitFor(() => expect(screen.getByLabelText('오늘 대시보드')).toBeInTheDocument());
 
-  // React 레일 사이드바: 1차 탭(오늘 학습/계획/내 길…)을 평면 리스트로 노출.
-  // 주간 스케줄·학습 항목·가용시간은 '계획' 호스트로 흡수(hidden) → 나브엔 '계획' 한 줄.
+  /* React 레일 사이드바가 1차 탭을 노출한다.
+     ⚠ **여기서 재는 것은 «DOM 에 있다»이지 «보인다»가 아니다**(축 접기 · 2026-08-28). 데스크톱
+     에선 `계획` 이 접힌 축 안이라 CSS 로 숨는데, jsdom 은 Tailwind 를 로드하지 않으므로 이
+     케이스는 그 차이를 못 본다 — 가시성·아코디언 계약은 `railAxis.test.tsx` 가 잰다. */
   /* ⚠ 접근 가능한 이름에 **상태 신호가 붙는다**(N-13 나브 배지 — 과목이 있으면 "남은 N").
      정확 일치로 잡으면 신호가 뜨는 순간 이 스모크가 깨진다. 여기서 볼 것은 항목의 존재다. */
   expect(screen.getByRole('button', { name: /오늘 학습/ })).toBeInTheDocument();
@@ -39,10 +41,14 @@ test('React 셸이 마운트되고 today(React화) 탭 + 나브 + 팔레트 버�
   expect(screen.getByRole('button', { name: /명령 팔레트 열기/ })).toBeInTheDocument();
 });
 
-test('탭 전환: 숙달도 지도(Phase 5 React화) 탭은 #page를 쓰지 않는다', async () => {
-  // Phase 5까지 전 탭 React화 — integrations·control·mastery도 React(TanStack Query).
-  // 레거시 render(#page) 경로를 쓰는 등록 탭은 더 이상 없음(어댑터 mountTab은 폴백으로만 잔존).
-  await renderApp('/mastery');
-  await waitFor(() => expect(screen.getByRole('heading', { name: /숙달도 지도/ })).toBeInTheDocument());
+test('탭 전환: 정본 원장 탭은 #page를 쓰지 않는다', async () => {
+  /* ⚠ 종전 이 단언은 `/mastery`(숙달도 지도)로 돌았다. 그 화면이 2026-08-29 에 은퇴해
+     (부모 목적 정정 · 지식상태 생산자 삭제) 같은 호스트인 `/ledger` 로 옮겼다 — 재는 것은
+     **React 탭이 레거시 `#page` 경로를 안 쓴다**이지 어느 탭이냐가 아니므로 증명력은 같다. */
+  await renderApp('/ledger');
+  /* ⚠ `level: 2` 로 좁힌다 — 2026-08-31 부터 셸이 **라우트 이름을 `<h1 class="sr-only">`** 로도
+     그린다(U065: 표제 축으로 «지금 어디인가»를 되찾게). 레벨을 안 주면 같은 이름이 둘이라
+     쿼리가 모호해지고, 이 케이스가 묻는 것은 **탭 본문의 표제**이므로 레벨이 곧 그 뜻이다. */
+  await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: /정본 원장/ })).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
 });

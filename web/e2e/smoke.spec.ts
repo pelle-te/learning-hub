@@ -17,9 +17,15 @@ test('앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다', 
   await page.goto('/today');
   await expect(page.getByLabel('오늘 대시보드')).toBeVisible();
 
-  // 레일 사이드바: 1차 탭(통계)으로 직접 이동(라우트 내비 = button + aria-current, ARIA tablist 아님).
-  await page.getByRole('button', { name: '통계' }).click();
+  /* 레일 사이드바로 탭 이동(라우트 내비 = button + aria-current, ARIA tablist 아님).
+     ⚠⚠ **좌표가 바뀌었다 — 축 접기(2026-08-28).** `통계` 는 이제 접힌 축 안이라 `/today` 에서
+     직접 누를 수 없다. 대신 그 축의 **헤더**가 얼굴로 데려간다(= 같은 1클릭). 이 케이스가 재는
+     명제는 그대로다: *레일에서 한 번 눌러 다른 화면으로 간다.*
+     ⚠ 헤더가 «접기 토글»로 퇴화하면 여기서 URL 이 안 바뀌어 즉시 빨개진다 — 그게 이 좌표
+     이동의 값이다(빈손으로 끝나는 클릭 금지). */
+  await page.getByRole('button', { name: /무엇을 아는가/ }).click();
   await expect(page).toHaveURL(/\/stats$/);
+  await expect(page.getByRole('button', { name: /무엇을 아는가/ })).toHaveAttribute('aria-expanded', 'true');
 
   /* D-8 전이 방향 — 애니 자체는 정지 프레임 스냅샷에 안 잡히지만, **어느 문법이 골라졌는지**는
      `<html data-vt>` 로 관측 가능하다. 이게 없으면 방향 문법 전체가 "돌고 있다고 믿는" 층이 된다.

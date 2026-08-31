@@ -20,7 +20,7 @@ import {
   degreeSeed,
 } from '@/lib/persistence';
 import { resolveTheme } from '@/lib/uiState';
-import { routeLabelOf } from './tabs';
+import { routeLabelOfLocation } from './tabs';
 import { importLocalExtras, LOCAL_EXTRAS_FIELD } from '@/lib/sidecars';
 import { importObservations, OBSERVATIONS_FIELD } from '@/lib/observations';
 import { backupPayload } from '@/lib/backup';
@@ -558,11 +558,19 @@ export function runCloseout(): void {
 /** 빠른 캡처가 파서에 넘길 과목 스냅샷(id·name). */
 /* T-26 — 지금 화면 고정/해제. ⚠ 경로·라벨을 **부를 때** 읽는다(모듈 로드 시점이 아니라):
    팔레트 명령 목록은 열 때 한 번 만들어지므로, 여기서 값을 굳히면 "지금" 화면이 아니라
-   *팔레트를 처음 연* 화면이 고정된다. 상한 규칙은 `lib/pins` 가 소유한다. */
+   *팔레트를 처음 연* 화면이 고정된다. 상한 규칙은 `lib/pins` 가 소유한다.
+
+   ⚠⚠ **쿼리까지 싣는다**(U047 · 2026-08-31). 종전엔 `pathname` 만 실어서 `?view=` 로 갈라지는
+   화면이 전부 호스트로 접혔다 — 바로 아래 `toggleBench` 는 **같은 이유로 이미 쿼리를 싣고 그
+   근거까지 적어 뒀는데** 형제인 이쪽만 안 따라왔다(한쪽만 고쳐진 짝). 대가는 둘이었다:
+   ① `/degree?view=close` 를 고정하면 라벨이 「졸업 계획」이고 눌러도 계획 뷰가 열린다
+   ② 같은 호스트의 둘째 뷰를 고정하면 `isPinned('/degree')` 가 참이라 **첫 핀이 조용히 지워진다**
+     (`MAX_PINS=4` 인데 `?view=` 호스트당 실질 상한이 1이 된다).
+   라벨도 `routeLabelOfLocation` 으로 올린다 — 그쪽이 뷰의 이름을 이미 안다. */
 export function toggleCurrentPin(): void {
-  const to = window.location.pathname;
-  const key = to.split('/')[1] || 'today';
-  useUI.getState().togglePin(to, routeLabelOf(key), Date.now());
+  const { pathname, search } = window.location;
+  const to = pathname + search;
+  useUI.getState().togglePin(to, routeLabelOfLocation(pathname, search), Date.now());
 }
 
 /* ── N-13 작업대 — **지금 화면을 옆에 붙든다**(W9 · 2026-08-07) ──────────────────────

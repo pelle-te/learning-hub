@@ -9,15 +9,14 @@ import { getPing, type PingResponse } from '@/lib/api';
 import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
 import { slimKnowState } from '@/lib/scheduler';
 import { fetchLedgerArtifact, type Ledger } from '@/lib/ledger';
-import { fetchCurriculumArtifact, type Curriculum } from '@/lib/curriculum';
-import { fetchGoalsArtifact, type GoalsArtifact } from '@/lib/goals';
+// ⛔ `curriculum` 임포트가 2026-08-29 에 빠졌다 — 그 훅의 유일 소비처(숙달도 지도)가 은퇴했다.
 import { useApp } from './useApp';
 
 export const KNOWLEDGE_KEY = ['knowledge'] as const;
-export const CURRICULUM_KEY = ['curriculum'] as const;
+// ⛔ `CURRICULUM_KEY` 가 2026-08-29 에 사라졌다(유일 소비처 `useCurriculum` 이 은퇴 · 아티팩트 자체는 살아 있다).
 export const LEDGER_KEY = ['ledger'] as const;
 export const PING_KEY = ['ping'] as const;
-export const GOALS_KEY = ['goals'] as const;
+// ⛔ `GOALS_KEY` 가 2026-08-29 에 사라졌다(goals 계약 은퇴).
 
 /* ⚠ **여섯 키가 P10 W4 에서 사라졌다**(2026-08-07): `reads`·`markets`·`research-jobs`·
    `atlas-news`·`discovery`. 다섯 훅과 그 소비 화면이 `survey/` 필러로 갔다 — 이 파일이
@@ -56,26 +55,13 @@ export function useKnowledge(enabled = true) {
   });
 }
 
-/** 커리큘럼 프론티어(/api/artifact/curriculum) — 숙달도 지도의 '다음 학습 순서'(단계③ 적응형 시퀀싱).
- *  워크스페이스가 없거나 산출물 미생성이면 isError(retry 없음) → 소비처가 조용히 생략(패널 렌더 skip). */
-export function useCurriculum(enabled = true) {
-  return useQuery<Curriculum>({
-    queryKey: CURRICULUM_KEY,
-    enabled,
-    queryFn: fetchCurriculumArtifact,
-    retry: false,
-    staleTime: 60_000,
-  });
-}
+/* ⛔ 2026-08-29 — `useCurriculum()` 이 사라졌다. 유일 소비처가 「숙달도 지도」의 `NextActions`
+   (다음 학습 순서 = 부모 커리큘럼 단계③ 적응형 시퀀싱)였는데, 그 단계가 부모에서 삭제되고
+   (목적 정정 · 범위 밖) 이 화면도 함께 은퇴했다.
+   ⚠ `curriculum` **아티팩트 자체는 살아 있다**(v5 = 커버리지 + 선수 엣지 = 생산 진척). 다시
+   읽고 싶으면 이 훅을 되살려라 — 사라진 것은 훅이 아니라 *그 훅을 부르던 화면*이다. */
 
-/** 내 길(goals · /api/artifact/goals) — 목표 트리(내 길 지도) · 노트→목표 연관성 앵커(P9 Phase 6).
- *  손저작 계약이라 항상 실재 · 워크스페이스가 없으면 isError(retry 없음) → 소비처가 조용히 생략. */
-export function useGoals(enabled = true) {
-  return useQuery<GoalsArtifact>({
-    queryKey: GOALS_KEY,
-    enabled,
-    queryFn: fetchGoalsArtifact,
-    retry: false,
-    staleTime: 60_000,
-  });
-}
+/* ⛔⛔ 2026-08-29 — `useGoals()` 가 사라졌다. 부모의 손저작 목표 계약(goals.json)이 **생산자째
+   삭제**됐다(pipeline 목적 정정: 「전공 교재 → 원자형 노트」만 진다 · 삶-연관성 배분은 범위 밖).
+   소비처였던 `features/degree/PathView.tsx` 와 `lib/goals.ts` 도 함께 은퇴했다.
+   ⚠ 졸업요건 숫자는 죽지 않았다 — `src/lib/degree.contract.json`(hub 소유)으로 내려왔다. */

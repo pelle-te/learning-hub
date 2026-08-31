@@ -46,11 +46,15 @@ const outPath = join(root, 'src', 'lib', 'artifacts.gen.ts');
    그래서 이 배열이 스키마 디렉터리를 스캔하지 않고 **명시 목록**인 것이 여기서 값을 한다. */
 const ARTIFACTS = [
   ['index', 'index.schema.json'],
-  ['knowledge', 'knowledge.schema.json'],
   ['ledger', 'ledger.schema.json'],
-  ['anki', 'anki.schema.json'],
   ['curriculum', 'curriculum.schema.json'],
-  ['goals', 'goals.schema.json'],
+  // ⛔⛔ 2026-08-29 — `knowledge`·`anki`·`goals` 셋이 여기서 빠졌다. **부모가 그 스키마를 지웠다**
+  //   (pipeline 목적 정정: 「전공 교재 → 원자형 노트」만 진다 · 숙달도 추정·복습 신호·삶-연관성
+  //   배분은 범위 밖이라 생산자 `지식엔진.py`·`학습신호.py`·`goals.py` 가 삭제됐다).
+  //   ⚠ 위 주석의 «부모의 스키마 파일은 지우지 않았다» 는 그 셋에 대해 **더는 참이 아니다**.
+  //   ⚠⚠ hub 의 소비 표면(숙달도·경로 탭 등)은 **지우지 않았다** — 공급자가 사라졌을 뿐이고,
+  //     그 표면을 은퇴시킬지 hub 이 스스로 생산할지는 hub 원장이 정한다.
+  //   복구(부모 저장소): `git show 은퇴/학습층-2026-08-29:knowledge/_meta/contract/schemas/<파일>`
 ];
 
 function die(msg) {
@@ -158,18 +162,20 @@ for (const [name, file] of ARTIFACTS) {
 if (!ledgerStages) die('ledger 스키마를 처리하지 못함.');
 
 // ── DEGREE_REQ 생성물화 (감사 2026-07-16 #7 · 졸업요건 임계 3중화 해소) ──────────
-// SSOT = 부모 goals.json 'degree-requirement' 노드의 degree_req(P9 Phase 2 데이터 흡수의 완성).
-// 과거: degree.ts 리터럴 + goals.json + 졸업요건_정리.md 3중 → 여기서 생성해 hub 소비를 리와이어.
-// 숫자 변경은 goals.json 한 곳 → npm run codegen (드리프트는 codegen:check 가 게이트 RED).
-const goalsPath = join(schemasDir, '..', 'goals.json');
-if (!existsSync(goalsPath)) die(`goals.json 없음(${goalsPath}) — DEGREE_REQ 생성 불가.`);
-const goalsData = JSON.parse(readFileSync(goalsPath, 'utf-8'));
-const degreeNode = (goalsData.nodes || []).find((n) => n && typeof n.degree_req === 'object');
-if (!degreeNode) die('goals.json 에 degree_req 보유 노드 없음 — DEGREE_REQ 생성 불가.');
+// ⛔⛔ 2026-08-29 — SSOT 가 **부모에서 hub 으로 내려왔다**. 종전 원천은 부모
+//   `knowledge/_meta/contract/goals.json` 의 'degree-requirement' 노드였는데 그 계약이 pipeline
+//   목적 정정으로 삭제됐다(pipeline 은 「전공 교재 → 원자형 노트」만 진다).
+//   ⭐ **졸업요건은 삶-연관성 배분과 다른 것**이다 — 학위 트래커는 hub 의 본업이고 pipeline 의
+//   일이었던 적이 없다. 그래서 함께 사라지는 대신 소유가 옳은 자리로 왔다.
+//   ⚠ 3중화 해소(감사 #7)는 그대로다 — 숫자는 계약 한 곳, 소비는 이 생성물 한 곳.
+const degreePath = join(root, 'src', 'lib', 'degree.contract.json');
+if (!existsSync(degreePath)) die(`degree.contract.json 없음(${degreePath}) — DEGREE_REQ 생성 불가.`);
+const degreeReq = JSON.parse(readFileSync(degreePath, 'utf-8')).degree_req;
+if (!degreeReq || typeof degreeReq !== 'object') die('degree.contract.json 에 degree_req 없음.');
 const DEGREE_KEYS = ['targetTotal', 'reqMajorReq', 'reqMajorSel', 'reqLiberal'];
 for (const k of DEGREE_KEYS)
-  if (typeof degreeNode.degree_req[k] !== 'number') die(`goals.json degree_req.${k} 가 숫자가 아님.`);
-const degreeLines = DEGREE_KEYS.map((k) => `  ${k}: ${degreeNode.degree_req[k]},`).join('\n');
+  if (typeof degreeReq[k] !== 'number') die(`degree.contract.json degree_req.${k} 가 숫자가 아님.`);
+const degreeLines = DEGREE_KEYS.map((k) => `  ${k}: ${degreeReq[k]},`).join('\n');
 
 // ── 파일 조립 ────────────────────────────────────────────────────────────────
 const versionLines = ARTIFACTS.map(([n]) => `  ${n}: ${versions[n]},`).join('\n');

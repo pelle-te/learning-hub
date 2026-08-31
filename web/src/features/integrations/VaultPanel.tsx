@@ -13,6 +13,7 @@ import {
   chaptersFromVault,
   queryVaultPermission,
   requestVaultPermission,
+  scanVaultViaShell,
   VAULT_ERROR_KEY,
   type VaultScan,
   type VaultSubject,
@@ -22,11 +23,13 @@ import { isTauri } from '@/lib/tauri';
 import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
 import { useLedger } from '@/store/queries';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 
 export function VaultPanel() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const mutate = useApp((s) => s.mutate);
   const items = useApp((s) => s.state.items);
   // 구독형으로 읽어 연동/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
@@ -166,6 +169,24 @@ export function VaultPanel() {
      셸은 쿼리 캐시). 그리는 자리를 하나로 접는다. */
   const 경고 = err || (scanErr ? `볼트를 읽지 못했어요 — ${scanErr}` : '');
 
+  /* 셸의 재시도 — `VaultSync` 가 부팅·감시에서 쓰는 것과 **같은 경로**를 그대로 부른다
+     (U056). 여기에 두 번째 스캔 관용구를 만들면 실패 처리가 두 벌이 된다. */
+  /* ⚠ `finally` 를 쓰지 않는다 — React Compiler 가 `TryStatement with a finalizer` 를 아직
+     못 낮춰서 **파일 전체가 바일아웃된다**(`compiler-ratchet` 이 28→29 로 잡았다). 이 파일은
+     이미 같은 이유로 둘을 지고 있어 셋째를 더하지 않는다. `catch` 끝에서 한 번 더 부르는
+     쪽이 한 줄 늘지만 컴파일을 유지한다. */
+  const 셸다시스캔 = async () => {
+    setBusy(true);
+    try {
+      const s = await scanVaultViaShell();
+      if (s) qc.setQueryData(['vault'], s);
+      qc.setQueryData(VAULT_ERROR_KEY, null);
+    } catch (e) {
+      qc.setQueryData(VAULT_ERROR_KEY, e instanceof Error ? e.message : String(e));
+    }
+    setBusy(false);
+  };
+
   return (
     <>
       <div className="ds-rule">
@@ -221,9 +242,26 @@ export function VaultPanel() {
         </div>
         {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
         <LiveRegion message={경고 ?? ''} assertive />
+        {/* ⚠⚠ **셸에서 볼트를 못 읽으면 누를 것이 하나도 없었다**(U056 · 2026-08-31). 위 행동
+            버튼 셋이 전부 `!isTauri()` 로 게이트돼 있는데 **배포 실물은 셸 하나뿐**이라, 사용자는
+            *"볼트를 읽지 못했어요 — <Rust 원문>"* 한 줄을 보고 재시도도 설정으로 가는 문도 없이
+            멈췄다. 그리고 이 자리가 셸 볼트 실패의 **유일한 사용자 표면**이다.
+            ⚠ `State` 의 `next` 필수화가 여기까지 오지 않는다 — 패널 안이라 `State` 를 안 쓰기
+            때문이고(CLAUDE.md 가 그 범위를 의도로 적어 뒀다), 그 대가가 여기서 청구된 형태다.
+            그래서 **경고 박스가 자기 행동을 진다**: 다시 스캔(셸) + 워크스페이스 확인(항상). */}
         {경고 && (
           <div className="ds-warnbox" style={{ marginTop: 8 }}>
             {경고}
+            <div className="ds-row mt-2.5">
+              {isTauri() && (
+                <Button sm variant="primary" disabled={busy} onClick={() => void 셸다시스캔()}>
+                  <Icon name="refresh" /> 다시 스캔
+                </Button>
+              )}
+              <Button sm variant="ghost" onClick={() => navigate('/settings')}>
+                워크스페이스 확인 →
+              </Button>
+            </div>
           </div>
         )}
         {scan && (

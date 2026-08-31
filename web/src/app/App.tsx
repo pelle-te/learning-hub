@@ -6,6 +6,7 @@ import {
   tabByKey,
   routeLabelOfLocation,
   visitKeyOfLocation,
+  recordVisitAsRecent,
   railTabs,
   ToastHost,
   ModalHost,
@@ -27,6 +28,7 @@ import RailSidebar from '@/app/RailSidebar';
 import BootRecovery from '@/app/BootRecovery';
 import MiniHud from '@/app/MiniHud';
 import { MINI_PATH, enterMini } from '@/lib/miniMode';
+import { artifactErrorCopy } from '@/lib/artifactState';
 import { singleKeyBlocked } from '@/shell/keyGate';
 import StorageGuard from '@/app/StorageGuard';
 import VaultSync from '@/app/VaultSync';
@@ -64,14 +66,26 @@ const SubjectPage = lazy(() => import('@/features/items/Subject'));
    **거짓이 됐다**(C060 · 2026-08-22). `lib/telemetry.ts` 가 I052 에 걷히면서 그 함수도 사라졌고
    (`rg reportError src` → 이 주석 1건뿐) 지금 **탭 이름을 아는 곳은 이 화면뿐**이다.
    즉 N-4 의 근거는 "화면만 몰랐다"가 아니라 "이제 화면만 안다"다. */
+/* ⚠ **여기도 U008 의 규율 안이다**(U043 · 2026-08-31). 종전엔 `String(error.message)` 를 그대로
+   실어 사용자가 *"Cannot read properties of undefined (reading 'color')"* 를 읽었다 — 산출물
+   화면 넷에서 이미 없앤 개발자 언어가 **경계 폴백에만 남아 있던 것**이고, 하필 여기가 그 언어가
+   가장 자주 새는 자리다(탭 하나가 죽으면 무조건 이 화면이다).
+   ⚠ 「다시 시도」는 남기되 **혼자 두지 않는다.** 결정적 렌더 예외(계약 불일치·정의되지 않은
+   조회)는 재시도로 낫지 않으므로, 사용자를 그 탭에 가둬 두지 않는 문을 곁에 준다. */
 function TabFallback({ error, resetErrorBoundary, label }: FallbackProps & { label: string }) {
+  const navigate = useNavigate();
   return (
     <div className="ds-well">
       <h2>{label ? `‘${label}’ 탭에서 오류가 발생했어요` : '이 탭에서 오류가 발생했어요'}</h2>
-      <p className="ds-tiny text-mut">{String((error as Error)?.message || error)}</p>
-      <Button variant="primary" sm onClick={resetErrorBoundary}>
-        다시 시도
-      </Button>
+      <p className="ds-tiny text-mut">{artifactErrorCopy(error)}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button variant="primary" sm onClick={resetErrorBoundary}>
+          다시 시도
+        </Button>
+        <Button variant="ghost" sm onClick={() => navigate('/today')}>
+          오늘 학습으로 →
+        </Button>
+      </div>
     </div>
   );
 }
@@ -435,6 +449,9 @@ export default function App() {
   const prevKey = useRef<string | null>(null);
   useEffect(() => {
     const via = firstVisit.current ? 'boot' : takeVia('link');
+    /* U076 — 방문을 ⌘K 의 「최근」에도 싣는다. 첫 진입(boot)은 «내가 간 곳» 이 아니라
+       «앱이 연 곳» 이라 뺀다. 근거는 `shell/recent.ts` 의 `recordVisitAsRecent`. */
+    if (!firstVisit.current) recordVisitAsRecent(visitKey);
     firstVisit.current = false;
     void recordVisit(visitKey, via);
     void recordHop(prevKey.current, visitKey);
@@ -457,6 +474,15 @@ export default function App() {
       <a href="#main" className="skip-link">
         본문 바로가기
       </a>
+      {/* 이 화면의 표제(U065 · 2026-08-31) — 종전엔 앱의 유일한 `<h1>` 이 `TopBar` 워드마크라
+          **모든 화면에서 「러닝 허브」**였고, 스크린리더로 «지금 어디인가»를 표제 축으로 되찾을
+          수 없었다(아나운서는 한 번 읽히고 끝난다).
+          ⚠ 시각 숨김인 이유: 화면들은 이미 자기 `<h2>` 로 조판이 서 있고, 거기에 보이는 `<h1>`
+          을 하나 더 얹으면 **모든 화면의 레이아웃이 바뀐다** — 이 항목이 고치려는 것은 조판이
+          아니라 표제 축이다. `role="heading"` 이 아니라 진짜 `h1` 인 것도 같은 이유다.
+          ⚠ 아나운서와 **자리를 나눈다**: 라이브 리전은 다시 읽히는 것이 일이고 표제는 가만히
+          있는 것이 일이라, 한 노드에 둘을 겸하면 전환마다 표제가 재낭독된다. */}
+      <h1 className="sr-only">{routeLabel}</h1>
       {/* 라우트 아나운서 — 뷰 전환을 스크린리더에 polite로 알림(시각 숨김). document.title과 짝. */}
       <div className="sr-only" role="status" aria-live="polite">
         {routeLabel}

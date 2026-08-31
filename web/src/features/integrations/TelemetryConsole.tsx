@@ -1,6 +1,8 @@
 /* ============================================================
    TelemetryConsole — 연동 텔레메트리(연동 시그니처). 백엔드·볼트·Anki 연결을
-   라이브 채널 리드아웃으로(● ONLINE/IDLE/OFFLINE). 시스템 폴더 /api 연동의 "조종석".
+   라이브 채널 리드아웃으로(● ONLINE/IDLE/OFFLINE). 셸 커맨드 연동의 "조종석".
+   ⚠ 첫 채널 라벨이 `SERVE.JS` 였다(U085 · 2026-08-31 정정) — 그 Node 백엔드는 **4단계에 삭제**됐고
+   저장소 전체에 0건인데, OFFLINE 을 본 사용자가 존재하지 않는 것을 찾아 나서게 했다.
    상태는 Query 캐시 구독(enabled:false로 fetch 없이 읽기) + usePing. 순수 표현에 가깝되 상태는 store/query에서.
 ============================================================ */
 import { useEffect, useState } from 'react';
@@ -167,7 +169,7 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
     <div className={`ds-board${vertical ? ' mb-0! flex h-full flex-col' : ''}`}>
       <div className="mb-3.5 flex items-baseline justify-between">
         <span className="ds-caps">연동 텔레메트리 — TELEMETRY</span>
-        {!vertical && <span className="text-2xs text-mut">시스템 폴더 /api · 볼트 · Anki 조종석</span>}
+        {!vertical && <span className="text-2xs text-mut">셸 커맨드 · 볼트 · Anki 조종석</span>}
       </div>
       {quietLine && <p className="mt-0 mb-3 text-2xs text-mut">{quietLine}</p>}
       {waveLine && <p className="mt-0 mb-3 text-2xs text-mut tabular-nums">{waveLine}</p>}
@@ -175,13 +177,13 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
         className={vertical ? 'flex min-h-0 flex-1 flex-col gap-3' : 'grid grid-cols-3 gap-2.5 max-mobile:grid-cols-1'}
       >
         <Channel
-          label="SERVE.JS"
+          label="백엔드"
           status={serve}
           vertical={vertical}
           value={serve === 'online' ? <>{ping.data?.tools.length ?? 0}</> : '—'}
           sub={
             serve === 'online'
-              ? `도구 · ${ping.data?.work || '/api'}`
+              ? `도구 · ${ping.data?.work || '워크스페이스'}`
               : serve === 'probing'
                 ? '연결 확인 중'
                 : '워크스페이스 설정 필요(설정 탭)'

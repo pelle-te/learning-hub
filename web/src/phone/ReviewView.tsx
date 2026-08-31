@@ -346,7 +346,7 @@ function ConfidentCard({
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between gap-2">
-        <span className={`${BADGE} bg-tint-warn text-warn`}>착각 재확인</span>
+        <span className={`${BADGE} bg-tint-warn text-warn-on-soft`}>착각 재확인</span>
         <span className="text-2xs text-mut">
           {step} · {cbmsInfo(item.card.cbms.code).label}
         </span>
@@ -389,7 +389,9 @@ function ChapterCard({
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between gap-2">
-        <span className={`${BADGE} ${item.ch.risk === 'overdue' ? 'bg-tint-bad text-bad' : ''}`}>{copy.badge}</span>
+        <span className={`${BADGE} ${item.ch.risk === 'overdue' ? 'bg-tint-bad text-bad-on-soft' : ''}`}>
+          {copy.badge}
+        </span>
         <span className="text-2xs text-mut">
           {step}
           {copy.age}

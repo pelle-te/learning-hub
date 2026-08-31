@@ -21,7 +21,10 @@ afterEach(() => cleanup());
 test('items: React 탭으로 렌더되고 #page를 쓰지 않는다', async () => {
   await renderApp('/items');
   // 계획 재개편 v3 — 탭 이름이 '학습 항목' → '과목'(뼈대 병합).
-  await waitFor(() => expect(screen.getByRole('heading', { name: /^과목/ })).toBeInTheDocument());
+  /* ⚠ `level: 2` 로 좁힌다 — 2026-08-31 부터 셸이 **라우트 이름을 `<h1 class="sr-only">`** 로도
+     그린다(U065: 표제 축으로 «지금 어디인가»를 되찾게). 레벨을 안 주면 같은 이름이 둘이라
+     쿼리가 모호해지고, 이 케이스가 묻는 것은 **탭 본문의 표제**이므로 레벨이 곧 그 뜻이다. */
+  await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: /^과목/ })).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
   expect(screen.getByText(/아직 과목이 없어요/)).toBeInTheDocument();
 });

@@ -38,7 +38,7 @@ import {
 } from '@/lib/questions';
 import { EXAM_LABEL, examsOf } from '@/lib/semester';
 import { rid, todayISO } from '@/lib/utils';
-import { commitUndoable, toast } from '@/shell';
+import { commitUndoable, toast, glyphOf } from '@/shell';
 import State from '@/components/State';
 import { Button, Pill } from '@/components/ui';
 import type { Question } from '@/lib/types';
@@ -195,7 +195,7 @@ export default function Questions() {
     return (
       <State
         kind="empty"
-        glyph="notebook"
+        glyph={glyphOf('questions')}
         title="과목이 아직 없어요"
         desc="문항은 과목에 붙습니다 — 과목을 먼저 만들면 여기서 문제를 모을 수 있어요."
         next={
@@ -307,7 +307,7 @@ export default function Questions() {
       {mine.length === 0 ? (
         <State
           kind="empty"
-          glyph="notebook"
+          glyph={glyphOf('questions')}
           title="이 과목의 문항이 아직 없어요"
           desc="시험 직후·문제를 푼 직후가 가장 싸게 적히는 순간이에요."
           next={{ terminal: '위 칸에 바로 적으면 됩니다.' }}

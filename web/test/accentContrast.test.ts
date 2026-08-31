@@ -26,6 +26,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { aliasOf, strip, tsxFiles } from './_sources';
 
 const CSS = readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8');
 
@@ -107,5 +108,95 @@ describe('--acc-on-soft — 액센트 틴트 위 글자가 라이트 4종 전부
       );
       expect(최악, `다크 ${이름} 이 4.5 미만 — 라이트처럼 값을 갈라야 한다`).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+/* ============================================================
+   **틴트 위 글자 짝을 소스에서 역산한다** (U080 · 2026-08-31)
+
+   ## 왜 이 절이 생겼나
+
+   위 블록은 `--acc` 하나를 손으로 지목해 잰다. 그래서 «어느 색이 자기 틴트 위에 글자로
+   쓰이는가»를 **사람이 기억**해야 했고, 그 사이로 `--warn`·`--bad` 가 빠졌다(U050 · 라이트에서
+   3.41 / 3.23). `tokens.css` 의 H5 표는 `--good`·`--acc2`·`--learning`·`--signal` 만 자기 틴트
+   위에서 4.5 를 맞췄는데, **코드는 그 넷 말고도 두 색을 틴트 위에 썼다.**
+
+   ⚠ 「라이트 대비 전 화면」 e2e 게이트가 왜 못 잡았나: **로스터는 화면 단위인데 결함은 상태
+   단위다**(방치 배지는 7일 조건이 시드에서 안 서고, 동기화 충돌 행은 충돌이 있어야 뜬다).
+   렌더로는 원리적으로 못 닿는 층이라 여기가 자리다.
+
+   ## 무엇을 하나 — 토큰 정의가 아니라 **소스의 짝**을 본다
+
+   `.tsx` 에서 **같은 className 문자열 안에 `bg-tint-X…` 와 `text-Y`** 가 함께 있는 자리를 뽑아
+   그 짝을 4면 × 알파 전부에서 계산한다. 목록을 손으로 적지 않는 것이 요점이다 — 적으면 그것이
+   곧 다음 표류이고, 이 결함이 바로 그렇게 태어났다.
+============================================================ */
+describe('틴트 위 글자 — 소스에서 역산한 짝이 전부 AA(4.5:1)', () => {
+  /* ⚠⚠ **알파를 이름에서 추측하지 않는다 — 정의에서 읽는다.** 처음엔 접미사 표
+     (`-faint`≈9% · `-soft`=12% · 맨이름=20%)를 손으로 적었는데, 실물은 `--tint-acc2` 14% ·
+     `--tint-acc-faint` 7% · `--tint-acc-8` 8% 로 **셋 다 달랐다.** 손으로 적은 표가 곧 다음
+     표류라는 것이 이 회차의 근본 원인이고, 그 표를 이 검사 안에서 저지를 뻔했다. */
+  /* ⚠⚠ 위 `토큰()` 을 쓰지 않는다 — 그건 **셀렉터 뒤 첫 `}` 까지만** 본다. 틴트 선언은
+     그보다 아래에 있어 `undefined` 가 돌아왔고, 그래서 이 검사가 **U050 의 실결함을 되심어도
+     초록이었다**(공허한 통과 — 이 저장소가 반복해 물린 부류를 검사 자신이 저지른 형태다).
+     틴트는 테마와 무관하다(테마 변수의 `color-mix` 라 값이 한 벌뿐) → 파일 전역에서 찾는다. */
+  const 알파_틴트 = (틴트: string): { 원색: string; 알파: number } | undefined => {
+    const m = new RegExp(`--${틴트}:\\s*color-mix\\(in srgb,\\s*var\\((--[a-z0-9-]+)\\)\\s*([\\d.]+)%`).exec(CSS);
+    return m ? { 원색: m[1]!, 알파: Number(m[2]) / 100 } : undefined;
+  };
+
+  /** 소스에서 `bg-tint-<X>` + `text-<Y>` 가 **같은 클래스 문자열 안**에 있는 짝. */
+  function 짝들(): { 파일: string; 틴트: string; 글자: string }[] {
+    const 결과: { 파일: string; 틴트: string; 글자: string }[] = [];
+    for (const f of tsxFiles()) {
+      const code = strip(readFileSync(f, 'utf8'));
+      /* 한 문자열 리터럴(또는 템플릿 조각) 단위로 자른다 — 파일 전체에서 짝을 지으면
+         서로 다른 요소의 클래스가 엮여 있지도 않은 조합을 신고한다. */
+      for (const m of code.matchAll(/['"`]([^'"`\n]{0,400})['"`]/g)) {
+        const chunk = m[1]!;
+        const 틴트 = /(?:^|[\s:])bg-(tint-[a-z0-9-]+)/.exec(chunk)?.[1];
+        if (!틴트) continue;
+        /* ⚠⚠ **`text-*` 를 전부 모은다 — 처음 하나가 아니다.** 이 검사를 세울 때 실제로
+           물렸다: `bg-tint-warn … text-2xs … text-warn` 에서 첫 매치는 **크기 유틸**
+           (`text-2xs`)이라 토큰을 못 찾고 `continue` 로 빠졌고, 그래서 U050 의 실결함을
+           되심었는데도 **초록이었다**(공허한 통과). 크기·정렬 유틸은 아래 `색of` 가
+           값을 못 읽어 자연히 건너뛰어진다. */
+        for (const t of chunk.matchAll(/(?:^|[\s:])text-([a-z0-9-]+)/g))
+          결과.push({ 파일: aliasOf(f), 틴트, 글자: t[1]! });
+      }
+    }
+    return 결과;
+  }
+
+  /** 토큰 이름 → 색. 값이 hex 가 아니면(파생·color-mix) undefined — 호출부가 건너뛴다. */
+  const 색of = (셀렉터: string, 이름: string): RGB | undefined => {
+    const v = 토큰(셀렉터, 이름.startsWith('--') ? 이름 : `--${이름}`);
+    return v && /^#[0-9a-f]{6}$/i.test(v) ? hex(v) : undefined;
+  };
+
+  const 관측 = 짝들();
+
+  it('스캐너가 실제로 짝을 찾는다 — 「0건 통과」를 막는 바닥', () => {
+    /* ⚠ 래칫이 아니다. 짝을 정당하게 줄였으면 내려도 된다 — 지키는 것은 「살아 있다」 하나다. */
+    expect(관측.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('라이트에서 각 짝이 4면 전부 4.5:1 이상이다', () => {
+    const 위반: string[] = [];
+    for (const { 파일, 틴트, 글자 } of 관측) {
+      const 정의 = 알파_틴트(틴트);
+      const 원색 = 정의 && 색of(라이트(null), 정의.원색);
+      const 글자색 = 색of(라이트(null), 글자);
+      // 값을 못 읽는 것(크기·정렬 유틸 · 파생 색)은 **조용히 건너뛴다** — 위 바닥이 공허를 막는다.
+      if (!정의 || !원색 || !글자색) continue;
+      for (const 면 of 라이트면) {
+        const r = 대비(글자색, 합성(원색, 정의.알파, 면));
+        if (r < 4.5) 위반.push(`${파일}: bg-${틴트}(${정의.알파 * 100}%) + text-${글자} → ${r.toFixed(2)}`);
+      }
+    }
+    expect(
+      [...new Set(위반)].sort(),
+      '틴트 위 글자가 AA 미만이다 — `--<색>-on-soft` 를 만들어 라이트에서만 가르는 것이 이 저장소의 관용구다',
+    ).toEqual([]);
   });
 });

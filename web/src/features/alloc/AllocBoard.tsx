@@ -114,7 +114,7 @@ const S = {
   badge: 'relative z-[1] text-2xs',
   // ID-7 방치 배지 — 행 이름 뒤 우측 정렬 warn 핀. 예산 배지(우측 셀)와 위계·위치가 달라 오독 없다.
   neglect:
-    'ml-auto flex-none rounded-full bg-tint-warn px-1.5 py-0.5 text-2xs font-bold whitespace-nowrap text-warn tabular-nums',
+    'ml-auto flex-none rounded-full bg-tint-warn px-1.5 py-0.5 text-2xs font-bold whitespace-nowrap text-warn-on-soft tabular-nums',
   footHead: `${CELL} sticky left-0 z-[3] rounded-bl-base bg-panel2 text-2xs font-extrabold tracking-widest text-mut uppercase`,
   footCell: `${CELL} relative justify-center gap-0.75 overflow-hidden text-sm leading-text text-mut`,
   footNum: 'relative z-[1] font-extrabold tabular-nums',
@@ -173,6 +173,9 @@ const SWEEP_HOLD_MS = 900;
  * 1차원 은유라, 요일 축을 넘어가면 사용자가 "월요일로 돌아왔다"를 예상하지 못한다. 끝에서 멈추는
  * 편이 W3C APG 격자 패턴의 기본이기도 하다.
  */
+/** 「전공 밖」 행의 격자 좌표 id — 실 과목 id 와 안 겹치게 접두어를 준다(U064). */
+const OUTSIDE_ROW = '__outside__';
+
 function gridId(
   sid: string,
   wd: number,
@@ -241,6 +244,51 @@ export function AllocBoard({
   }, []);
 
   const rows = weeklyItems(state); // 배분 대상=주간(new) 과목. 술어는 weekAlloc이 단일 소유(복붙 필터 제거).
+  /* ⚠⚠ **격자 이동의 행 목록은 `rows` 가 아니다**(U064 · 2026-08-31). 치트시트가 광고하는
+     ←↑↓→ 이동이 마지막 행(「전공 밖」 · I053)에 **안 닿았다** — 그 행의 입력에 `data-cell` 도
+     `onKeyDown` 도 없었기 때문이다. 같은 격자에서 **두 입력 경로가 다른 규칙을 말하는** 형태이고
+     (마우스는 닿고 키보드는 못 닿는다), 치트시트가 그중 한쪽만 보고 쓰였다.
+     ⚠ `rows` 자체에 넣지 않는다 — 그건 «배분 대상 과목» 의 목록이고 예산·방치·드래그가 전부
+     그 뜻에 기대 있다(바로 아래 그 행 주석이 _"과목이 아니다"_ 를 못박는다). 이동만을 위한
+     별도 목록을 둔다. */
+  const 격자행 = [...rows, { id: OUTSIDE_ROW }];
+
+  /* 셀 키보드 — 격자 이동(←↑↓→) + 값 조정(+/-). **한 벌이다**: 종전엔 과목 행 안에 인라인
+     람다로만 있었고 「전공 밖」 행은 통째로 빠져 있었다(U064). 두 벌로 만들면 다음 행이 또
+     빠지므로 호출부가 «어느 행인가»만 넘긴다.
+     ⚠ `+`/`-` 는 0.5h — 드래그의 `DROP_STEP` 과 같은 눈금이라 두 입력 경로가 다른 단위를 말하지
+     않는다. ⚠ Alt+↑↓ 는 행 재정렬이 쓰므로 수식 키가 눌린 이벤트는 통과시킨다. */
+  const 셀키 = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    rowId: string,
+    wd: number,
+    cellMin: number,
+    set: (v: number) => void,
+  ) => {
+    if (e.altKey || e.metaKey || e.ctrlKey) return;
+    const step = e.key === '+' || e.key === '=' ? 0.5 : e.key === '-' ? -0.5 : 0;
+    if (step) {
+      e.preventDefault();
+      set(Math.max(0, +hNum(cellMin) + step));
+      return;
+    }
+    const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    if (!dx && !dy) return;
+    /* ⚠ ←/→ 는 숫자 입력의 캐럿 이동이기도 하다 — **캐럿이 끝에 있을 때만** 격자 이동으로
+       해석한다(안 그러면 값 안에서 커서를 못 옮긴다). */
+    const el = e.currentTarget;
+    if (dx) {
+      const at = el.selectionStart ?? 0;
+      if (dx < 0 && at > 0) return;
+      if (dx > 0 && at < el.value.length) return;
+    }
+    const next = document.querySelector<HTMLInputElement>(`[data-cell="${gridId(rowId, wd, dx, dy, 격자행, cols)}"]`);
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    next.select();
+  };
   const validSids = new Set(rows.map((it) => it.id)); // 삭제된 과목의 고아 배분이 열 합을 부풀리지 않게
   const managed = isWeekManaged(state, weekMon);
   const alloc = allocView(state, res, weekMon); // managed면 명시값, 아니면 자동 파생 스냅샷
@@ -578,34 +626,7 @@ export function AllocBoard({
                              뺏으면 기존 사용자의 근육 기억을 깨뜨린다. 화살표는 **덧붙임**이다.
                            ⚠ `+`/`-` 는 0.5h 씩 — 드래그의 `DROP_STEP` 과 같은 눈금이라
                              두 입력 경로가 다른 단위를 말하지 않는다. */
-                        onKeyDown={(e) => {
-                          if (e.altKey || e.metaKey || e.ctrlKey) return; // Alt+↑↓ 는 행 재정렬이 쓴다
-                          const step = e.key === '+' || e.key === '=' ? 0.5 : e.key === '-' ? -0.5 : 0;
-                          if (step) {
-                            e.preventDefault();
-                            setCell(it.id, c.wd, Math.max(0, +hNum(cellMin) + step));
-                            return;
-                          }
-                          const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-                          const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-                          if (!dx && !dy) return;
-                          // ⚠ ←/→ 는 숫자 입력의 캐럿 이동이기도 하다 — **캐럿이 끝에 있을 때만**
-                          //   격자 이동으로 해석한다(안 그러면 값 안에서 커서를 못 옮긴다).
-                          const el = e.currentTarget;
-                          if (dx) {
-                            const at = el.selectionStart ?? 0;
-                            const len = el.value.length;
-                            if (dx < 0 && at > 0) return;
-                            if (dx > 0 && at < len) return;
-                          }
-                          const next = document.querySelector<HTMLInputElement>(
-                            `[data-cell="${gridId(it.id, c.wd, dx, dy, rows, cols)}"]`,
-                          );
-                          if (!next) return;
-                          e.preventDefault();
-                          next.focus();
-                          next.select();
-                        }}
+                        onKeyDown={(e) => 셀키(e, it.id, c.wd, cellMin, (v) => setCell(it.id, c.wd, v))}
                         data-cell={`${it.id}:${c.wd}`}
                         aria-label={`${it.name} · ${c.label}요일 배분(시간)`}
                         title={`${it.name} · ${c.label} — 시간 입력(0.5 단위 · ←↑↓→ 이동 · +/- 조정)`}
@@ -680,8 +701,12 @@ export function AllocBoard({
                     emptyValue={0}
                     placeholder=""
                     onCommit={(v) => setOutside(c.wd, v)}
+                    /* U064 — 위 과목 행과 **같은 규칙**이다(격자 이동 · +/- 0.5h). 이 행만 빠져
+                       있어서 치트시트가 광고한 이동이 마지막 행에 안 닿았다. */
+                    onKeyDown={(e) => 셀키(e, OUTSIDE_ROW, c.wd, cellMin, (v) => setOutside(c.wd, v))}
+                    data-cell={`${OUTSIDE_ROW}:${c.wd}`}
                     aria-label={`전공 밖 · ${c.label}요일 시간`}
-                    title={`전공 밖 · ${c.label} — 시간 입력(0.5 단위)`}
+                    title={`전공 밖 · ${c.label} — 시간 입력(0.5 단위 · ←↑↓→ 이동 · +/- 조정)`}
                   />
                 </div>
               );

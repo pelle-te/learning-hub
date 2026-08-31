@@ -9,17 +9,14 @@ import * as z from 'zod/mini';
 /** 각 아티팩트가 기대하는 `_schemaVersion`(부모 스키마 const 파생). 불일치는 artifacts.ts 가 경고. */
 export const EXPECTED_SCHEMA_VERSION = {
   index: 1,
-  knowledge: 2,
   ledger: 1,
-  anki: 1,
-  curriculum: 4,
-  goals: 1,
+  curriculum: 5,
 } as const;
 
 export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
 
 /** 챕터 생애 5단계(ledger 스키마 stage_counts.propertyNames.enum 파생 · 챕터원장.py STAGES 와 동일 SSOT). */
-export const LEDGER_STAGES = ['sourced', 'noted', 'verified', 'carded', 'reviewed'] as const;
+export const LEDGER_STAGES = ['sourced', 'noted', 'verified', 'carded'] as const;
 export type LedgerStage = (typeof LEDGER_STAGES)[number];
 
 /** 졸업요건 임계(전자공학 2020 요람·ABEEK) — 부모 goals.json 'degree-requirement' 노드
@@ -64,48 +61,13 @@ export const indexArtifactSchema = z.looseObject({
 });
 export type IndexArtifact = z.infer<typeof indexArtifactSchema>;
 
-/** `knowledge.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
-export const knowledgeArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(2),
-  generated: z.string(),
-  n_notes: z.number(),
-  overall: z.nullable(z.number()),
-  states: z.optional(z.record(z.string(), z.unknown())),
-  calibration: z.optional(z.record(z.string(), z.unknown())),
-  model: z.optional(z.record(z.string(), z.unknown())),
-  gaps: z.optional(z.array(z.unknown())),
-  subjects: z.array(
-    z.looseObject({
-      subject: z.string(),
-      n: z.number(),
-      mastery: z.nullable(z.number()),
-      weak: z.optional(z.number()),
-      unknown: z.optional(z.number()),
-      mastered: z.optional(z.number()),
-      concepts: z.optional(z.array(z.unknown())),
-      measured: z.optional(z.number()),
-    }),
-  ),
-  frontier: z.array(
-    z.looseObject({
-      basename: z.string(),
-      title: z.optional(z.string()),
-      subject: z.string(),
-      p_eff: z.number(),
-      prereq_in: z.optional(z.number()),
-    }),
-  ),
-  evidence_coverage: z.optional(z.record(z.string(), z.unknown())),
-});
-export type KnowledgeArtifact = z.infer<typeof knowledgeArtifactSchema>;
-
 /** `ledger.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
 export const ledgerArtifactSchema = z.looseObject({
   _schemaVersion: z.literal(1),
   generated: z.string(),
   generated_by: z.optional(z.string()),
   n_chapters: z.number(),
-  stage_counts: z.record(z.enum(['sourced', 'noted', 'verified', 'carded', 'reviewed']), z.unknown()),
+  stage_counts: z.record(z.enum(['sourced', 'noted', 'verified', 'carded']), z.unknown()),
   backlog: z.optional(z.record(z.string(), z.unknown())),
   subjects: z.record(
     z.string(),
@@ -121,33 +83,9 @@ export const ledgerArtifactSchema = z.looseObject({
 });
 export type LedgerArtifact = z.infer<typeof ledgerArtifactSchema>;
 
-/** `anki.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
-export const ankiArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(1),
-  generated_by: z.string(),
-  lapse_th: z.optional(z.number()),
-  n_cards: z.number(),
-  n_orphan: z.number(),
-  orphan_rate: z.optional(z.number()),
-  vault_uid_coverage: z.optional(z.number()),
-  top_orphan: z.optional(z.array(z.looseObject({ prefix: z.string(), cards: z.number() }))),
-  notes: z.record(
-    z.string(),
-    z.looseObject({
-      cards: z.number(),
-      max_lapse: z.optional(z.number()),
-      lapses: z.optional(z.number()),
-      trap_cards: z.optional(z.number()),
-      trap_lapses: z.optional(z.number()),
-      misconception: z.optional(z.nullable(z.string())),
-    }),
-  ),
-});
-export type AnkiArtifact = z.infer<typeof ankiArtifactSchema>;
-
 /** `curriculum.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
 export const curriculumArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(4),
+  _schemaVersion: z.literal(5),
   generated: z.string(),
   generated_by: z.optional(z.string()),
   overall: z.looseObject({
@@ -160,12 +98,6 @@ export const curriculumArtifactSchema = z.looseObject({
     authored_edges: z.optional(z.number()),
     suggested_edges: z.optional(z.number()),
     next_up: z.optional(z.number()),
-    sequencing: z.optional(z.number()),
-    relevance_active: z.optional(z.boolean()),
-    time_budget_hours: z.optional(z.number()),
-    allocated_arcs: z.optional(z.number()),
-    deferred_arcs: z.optional(z.number()),
-    allocated_hours: z.optional(z.number()),
   }),
   backlog: z.optional(
     z.looseObject({
@@ -185,43 +117,6 @@ export const curriculumArtifactSchema = z.looseObject({
         status: z.string(),
       }),
     ),
-  ),
-  sequencing: z.optional(
-    z.array(
-      z.looseObject({
-        arc_id: z.string(),
-        slug: z.optional(z.string()),
-        arc: z.optional(z.string()),
-        status: z.optional(z.string()),
-        reason: z.enum(['remediate', 'zpd', 'frontier']),
-        score: z.number(),
-        mastery: z.optional(z.nullable(z.number())),
-        weak_notes: z.optional(z.number()),
-        zpd_notes: z.optional(z.number()),
-        note_count: z.optional(z.number()),
-        unlocks: z.optional(z.number()),
-        relevance: z.optional(z.number()),
-        target_depth: z.optional(z.nullable(z.string())),
-        priority: z.optional(z.number()),
-        goal: z.optional(z.nullable(z.string())),
-        역할: z.optional(z.nullable(z.string())),
-        est_effort: z.optional(z.number()),
-        allocated: z.optional(z.boolean()),
-        defer_reason: z.optional(z.nullable(z.string())),
-      }),
-    ),
-  ),
-  engine_health: z.optional(
-    z.looseObject({
-      status: z.enum(['cold', 'measuring']),
-      evidenced_notes: z.optional(z.number()),
-      by_relevance: z.optional(
-        z.record(
-          z.string(),
-          z.looseObject({ n: z.optional(z.number()), mean_mastery: z.optional(z.nullable(z.number())) }),
-        ),
-      ),
-    }),
   ),
   subjects: z.array(
     z.looseObject({
@@ -256,40 +151,9 @@ export const curriculumArtifactSchema = z.looseObject({
 });
 export type CurriculumArtifact = z.infer<typeof curriculumArtifactSchema>;
 
-/** `goals.schema.json` 경계 shape(생성). 스키마가 관대하므로 loose 한 곳은 타입도 loose. */
-export const goalsArtifactSchema = z.looseObject({
-  _schemaVersion: z.literal(1),
-  nodes: z.array(
-    z.looseObject({
-      id: z.string(),
-      kind: z.enum(['goal', 'project']),
-      title: z.string(),
-      weight: z.number(),
-      active: z.boolean(),
-      parent: z.nullable(z.string()),
-      degree_req: z.optional(
-        z.looseObject({
-          targetTotal: z.optional(z.number()),
-          reqMajorReq: z.optional(z.number()),
-          reqMajorSel: z.optional(z.number()),
-          reqLiberal: z.optional(z.number()),
-        }),
-      ),
-      분야: z.optional(z.string()),
-      산출물: z.optional(z.string()),
-      필요지식: z.optional(z.array(z.string())),
-      capability임계: z.optional(z.number()),
-    }),
-  ),
-});
-export type GoalsArtifact = z.infer<typeof goalsArtifactSchema>;
-
 /** 이름 → 경계 zod 스키마(런타임 검증·소비처 선택 사용). */
 export const ARTIFACT_SCHEMAS = {
   index: indexArtifactSchema,
-  knowledge: knowledgeArtifactSchema,
   ledger: ledgerArtifactSchema,
-  anki: ankiArtifactSchema,
   curriculum: curriculumArtifactSchema,
-  goals: goalsArtifactSchema,
 } as const;

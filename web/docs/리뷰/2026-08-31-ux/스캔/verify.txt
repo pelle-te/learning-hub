@@ -1,0 +1,84 @@
+
+> learning-hub-web@0.0.0 verify
+> npm run codegen:check && npm run typecheck && npm run lint && npm run lint:css && npm run check:tokens && npm run compiler:ratchet && npm run format:check && npm run knip && npm run test:coverage && npm run test:tz
+
+
+> learning-hub-web@0.0.0 codegen:check
+> node scripts/gen-artifacts.mjs --check
+
+✓ artifacts.gen.ts 최신(스키마 정합).
+
+> learning-hub-web@0.0.0 typecheck
+> tsc -b --noEmit
+
+
+> learning-hub-web@0.0.0 lint
+> eslint .
+
+
+> learning-hub-web@0.0.0 lint:css
+> stylelint "src/**/*.css"
+
+
+> learning-hub-web@0.0.0 check:tokens
+> node scripts/check-tokens.mjs
+
+✓ CSS 변수 참조 318종 전부 정의됨(선언 596종) · tokens.css 미사용 0(원장 0건) · @theme 고아 0(원장 0건) · ds-* 고아 0(원장 0건) · 미선언 사다리 칸 0 · 반픽셀 5/5 · *.module.css 0개 · 카드 표면 17/21(원장 11파일) · TS 생 hex 0(원장 2파일).
+
+> learning-hub-web@0.0.0 compiler:ratchet
+> node scripts/compiler-ratchet.mjs
+
+=== REACT COMPILER 바일아웃 ===
+  파일 307 중 21개 · 총 28건
+
+✅ 기준선 이하 (28 이하 유지 · 현재 28)
+
+> learning-hub-web@0.0.0 format:check
+> prettier --check "src/**/*.{ts,tsx,css}" "test/**/*.{ts,tsx}"
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> learning-hub-web@0.0.0 knip
+> knip
+
+[e2e] 떠도는 vite preview 정리 — PID 15848 (O035)
+Configuration hints (2)
+taskkill    knip.jsonc  Remove from ignoreBinaries                                   
+.css        knip.jsonc  Compiled extension excluded by project (imports not followed)
+
+> learning-hub-web@0.0.0 test:coverage
+> vitest run --coverage
+
+
+ RUN  v4.1.11 D:/atelier/hub/web
+      Coverage enabled with v8
+
+
+ Test Files  196 passed (196)
+      Tests  2238 passed (2238)
+   Start at  13:13:53
+   Duration  15.46s (transform 11.96s, setup 9.50s, import 33.43s, tests 39.29s, environment 66.51s)
+
+ % Coverage report from v8
+
+=============================== Coverage summary ===============================
+Statements   : 74.08% ( 11815/15947 )
+Branches     : 62.81% ( 7604/12106 )
+Functions    : 64.39% ( 2971/4614 )
+Lines        : 76.05% ( 9886/12999 )
+================================================================================
+
+> learning-hub-web@0.0.0 test:tz
+> vitest run -c vitest.tz.config.ts
+
+
+ RUN  v4.1.11 D:/atelier/hub/web
+
+
+ Test Files  18 passed (18)
+      Tests  534 passed (534)
+   Start at  13:14:10
+   Duration  694ms (transform 2.91s, setup 479ms, import 4.33s, tests 299ms, environment 2ms)
+
+exit=0

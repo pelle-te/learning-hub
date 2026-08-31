@@ -16,10 +16,12 @@ import {
   TABS,
   THEMES,
   boot,
+  bootNoArtifacts,
   bootArtifactPhase,
   bootPhone,
   settle,
 } from './_fixtures';
+import { glyphOf } from '../src/shell/tabs';
 
 /* ============================================================
    ⭐ **본문 샷은 `#main` 으로 좁힌다** (U042 · 2026-08-22 ux/운영 축)
@@ -75,6 +77,25 @@ for (const theme of THEMES) {
     await settle(page);
     await expect(page.locator('nav[aria-label="주요 메뉴"]')).toHaveScreenshot(`chrome-rail-${theme}.png`);
     await expect(page.locator('header').first()).toHaveScreenshot(`chrome-header-${theme}.png`);
+  });
+}
+
+/* ⭐ **접힘 레일 — 시각 커버리지가 0장이었다**(U072 · 2026-08-31).
+
+   접힘은 **라벨이 없는 유일한 모드**라 위계를 마크로만 말해야 하는데, 그 상태를 찍는 프레임이
+   한 장도 없었다. 그래서 「무게 3단」이 접힘에서 통째로 꺼져 있었던 것이 눈에 안 띄었다
+   (`iconClass` 의 조건이 `!collapsed && …` 였다 — 처방이 가장 필요한 곳에서 처방이 꺼진 형태).
+   ⚠ 크롬만 찍는다 — 본문은 위 `chrome` 케이스와 같은 이유로 이 축의 관심이 아니다. */
+for (const theme of THEMES) {
+  test(`chrome · rail-collapsed · ${theme}`, async ({ page }) => {
+    await boot(page, theme);
+    await page.goto('/today');
+    await expect(page.locator('#main')).toBeVisible();
+    await page.getByRole('button', { name: '사이드바 접기' }).click();
+    // 접혔다는 관측 가능한 증거 — 픽셀보다 이 단언이 먼저다(빈 프레임을 정답으로 굳히지 않는다).
+    await expect(page.locator('nav[aria-label="주요 메뉴"]')).toHaveAttribute('data-collapsed', 'true');
+    await settle(page);
+    await expect(page.locator('nav[aria-label="주요 메뉴"]')).toHaveScreenshot(`chrome-rail-collapsed-${theme}.png`);
   });
 }
 
@@ -161,6 +182,60 @@ for (const theme of THEMES) {
       await shotMain(page, `${tab}-empty-${theme}.png`);
     });
   }
+}
+
+/* ── ⭐ **화면의 정체성 마크가 레일과 갈리지 않는다** (U089 · 2026-08-31) ─────────────────
+
+   `U054` 가 실측한 불일치 넷(`questions` 레일 `archive` ↔ 화면 `notebook` · `mistakes`
+   `bandage` ↔ `alert` · `ledger` 는 **한 화면에 셋**)은 «화면 전체를 대표하는 마크»가 레일의
+   그것과 다른 상태다. 접힘 레일에는 라벨이 없어 **자리를 마크로 외우는 것**이 설계 전제라
+   (`RailSidebar`), 화면 안이 다른 마크를 보이면 그 전제가 되돌려진다.
+
+   ⛔⛔ **소스 스캔으로는 두 번 실패했다**(그 기록은 `test/icons.test.ts` 가 갖는다): 전면 금지는
+   안쪽 카드·페이저의 마크(`chevronLeft`·`sleep`)까지 잡고, 「로스터 마크인데 자기 탭 것이
+   아니면」은 **거짓 양성 35건**이었다. 필요한 판정이 «이 마크가 화면 전체를 대표하는가» 인데
+   그건 구조가 아니라 **의미**라 정적으로 못 가른다.
+
+   ⭐ **런타임엔 구조적이다.** 빈 시드로 탭을 열었을 때 `#main` 안의 빈 상태 마크가 **정확히
+   하나**면, 그게 곧 그 화면의 정체성 마크다(안쪽 패널이 여럿 그리는 화면은 그 판정이 성립하지
+   않으므로 **건너뛴다** — 모르는 것을 아는 척하지 않는다). 그 하나를 로스터와 대조한다.
+   ⚠ 이미 도는 `${tab}-empty` 루프와 **같은 시드**를 쓰되 스냅샷은 안 찍는다(픽셀이 아니라
+   이름을 재는 축이다). */
+test('빈 상태의 정체성 마크가 레일 마크와 같다', async ({ page }) => {
+  const 불일치: string[] = [];
+  const 건너뜀: string[] = [];
+  for (const tab of TABS) {
+    await boot(page, 'dark', SEED_EMPTY);
+    await page.goto('/' + tab);
+    await expect(page.locator('#main')).toBeVisible();
+    const marks = await page
+      .locator('#main [data-glyph]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-glyph') ?? ''));
+    if (marks.length !== 1) {
+      건너뜀.push(`${tab}(${marks.length})`);
+      continue;
+    }
+    const 레일 = glyphOf(tab);
+    if (marks[0] !== 레일) 불일치.push(`${tab}: 화면 "${marks[0]}" ↔ 레일 "${레일}"`);
+  }
+  /* 공허 방지 — 전부 건너뛰면 이 검사는 아무것도 안 잰다(「0건 통과」의 바닥). */
+  expect(TABS.length - 건너뜀.length, `잰 화면이 없다(건너뜀: ${건너뜀.join(' ')})`).toBeGreaterThanOrEqual(3);
+  expect(불일치.sort(), '접힘 레일에서 다른 줄의 마크로 읽힌다 — glyphOf(<탭키>) 로 파생하라').toEqual([]);
+});
+
+/* ⭐ **진짜 빈 원장**(U063 · 2026-08-31) — 위 `${tab}-empty` 루프가 원리적으로 못 찍는 화면.
+   `Ledger` 의 `Setup` 은 이 앱에서 **유일하게 CLI 두 줄을 처방하는** 화면이라, 부모 도구가
+   개명·삭제되면 가장 먼저 낡는다(이번 회차의 `U045` 가 그 부류다). 그런데 산출물 스텁이 늘
+   resolve 해서 커버리지가 **0** 이었다 — 근거는 `bootNoArtifacts` 머리주석. */
+for (const theme of THEMES) {
+  test(`ledger · setup · ${theme}`, async ({ page }) => {
+    await bootNoArtifacts(page, theme);
+    await page.goto('/ledger');
+    // 존재 단정 — 셋업 화면이 안 뜨면(예: 분류가 `error` 로 바뀌면) 시끄럽게 깨진다.
+    await expect(page.getByText('원장 빌드')).toBeVisible();
+    await settle(page);
+    await shotMain(page, `ledger-setup-${theme}.png`);
+  });
 }
 
 /* 복습 부하 예보(ID-1) — 막대 차트 실렌더(§15-4). 공유 SEED 는 완료 챕터가 done 처리라 예보가
@@ -538,7 +613,6 @@ for (const theme of THEMES) {
    ① 그 뷰가 실제로 그려지는가(리다이렉트만 되고 호스트 기본 뷰가 뜨면 조용한 도달성 손실이다)
    ② 세그먼트 바에 **자기 칸이 눌린 상태로** 서는가(눌린 칸이 없으면 사용자는 어디 있는지 모른다). */
 const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
-  { key: 'degree-path', path: '/degree?view=path', ready: '내 길' },
   { key: 'find-guide', path: '/find?view=guide', ready: '이 시스템이 할 수 있는 것' },
   /* ⚠ **W8(2026-08-07) — 학기의 입구·출구는 처음부터 여기 있다.** 흡수된 뷰가 아니라 새 뷰지만
      로스터 밖인 것은 같고(`TABS` 는 화면 탭만 안다), 그러면 커버리지가 0이 된다 — §15-4 가
@@ -547,12 +621,15 @@ const MERGED_VIEWS: { key: string; path: string; ready: string }[] = [
      붙여넣기 상자만 보고 있으면 새 패널이 통째로 안 떠도 통과한다. */
   { key: 'degree-intake', path: '/degree?view=intake', ready: '시간표·학사일정 파일(.ics)' },
   { key: 'degree-close', path: '/degree?view=close', ready: '다음 학기가 배운 것' },
-  /* ⚠⚠ **`ledger?view=mastery` 의 ready 커버리지가 0이었다**(2026-08-21 ux 축 · 잔재①).
-     A-19(W5 · 2026-08-07)가 `mastery` 를 `TABS` 에서 빼 `ledger` 의 뷰로 내렸는데 여기 한 줄이
-     안 따라왔다. 그 결과 옛 베이스라인 두 장(`mastery-{dark,light}.png`)이 **어떤 테스트도
-     비교하지 않는 고아**로 남아 있었고 — 지우기 전에 이 줄을 먼저 넣는다(§15-4: 커버리지 0인
-     화면을 만들지 않는다). 로딩 상태는 이미 `LOADING_SCREENS` 가 본다. */
-  { key: 'ledger-mastery', path: '/ledger?view=mastery', ready: '정본 원장' },
+  /* ⛔⛔ **`degree-path`·`ledger-mastery` 가 여기 있었다 — 2026-08-31 에 지웠다**(U049·U082).
+     두 화면은 2026-08-29 에 은퇴했는데 이 로스터가 안 따라와서, 각각 다른 방식으로 거짓말을 했다:
+     · `degree-path` — `ready` 30초 타임아웃. 죽은 행 하나가 **스펙 다섯을 태웠다**(시끄러워서 옳다).
+     · `ledger-mastery` — **초록으로 다른 화면을 검사했다.** `ready: '정본 원장'` 이 호스트 기본 뷰의
+       문구라 리다이렉트된 `/ledger` 를 그대로 통과시켰고, 그래서 `e2e:update` 를 돌리는 순간
+       **`/ledger` 의 사본이 「숙달도 지도」라는 이름으로 굳을 참**이었다.
+     ⚠ 바로 위 문단이 직전 회차에 «어떤 테스트도 비교하지 않는 고아 두 장»을 고친 기록이다 —
+     같은 형태가 한 회차 만에 재발했고, 이번엔 **고아가 아니라 위장**이었다는 것만 다르다.
+     복구: `git show HEAD:web/e2e/visual.spec.ts` */
 ];
 for (const theme of THEMES) {
   for (const v of MERGED_VIEWS) {
@@ -734,11 +811,13 @@ for (const theme of THEMES) {
    표본이 0이다** — 다시 생기면 여기 한 줄이다. 종전엔 이 축 전체가 **1장**이었다. */
 const LOADING_SCREENS: { key: string; artifact: string; path: string }[] = [
   { key: 'ledger', artifact: 'ledger', path: '/ledger' },
-  // A-19(W5) — `mastery` 는 이제 `ledger` 의 뷰다. `goals` 와 같은 이유로 착지 주소를 쓴다
-  // (탭 경로로 두면 리다이렉트 뒤 **다른 화면의 로딩**을 찍는다).
-  { key: 'mastery', artifact: 'knowledge', path: '/ledger?view=mastery' },
-  // W9 — `goals` 는 이제 `degree` 의 뷰다. 경로를 안 고치면 리다이렉트 뒤 **다른 화면의 로딩**을 찍는다.
-  { key: 'goals', artifact: 'goals', path: '/degree?view=path' },
+  /* ⛔ **`mastery`·`goals` 로딩 케이스 둘을 지웠다**(U049 · 2026-08-31). 두 산출물의 생산자가
+     은퇴해 그 커맨드가 한 번도 안 불리고, 스텁이 안 걸려 **로딩 상태 자체가 안 뜬다.**
+     ⚠⚠ **그래서 로딩 시각 커버리지가 3 → 1 로 줄었다.** 이 사실을 여기 적는 이유는 위 문단이
+     _"셋째 부류의 표본이 0이다 — 다시 생기면 여기 한 줄"_ 이라 적어 둔 것과 같다: 줄어든 것을
+     적어 두지 않으면 다음 회차가 「1장이면 충분한가」를 물을 근거를 잃는다.
+     ⚠ `indeterminate` 형상(끝을 모르는 대기)의 표본이 `goals` 하나였으므로 **그 형상은 지금
+     표본이 0이다** — 그 형상을 쓰는 화면이 생기면 여기 한 줄이다. */
 ];
 for (const theme of THEMES) {
   for (const sc of LOADING_SCREENS) {
@@ -851,6 +930,34 @@ test('focus-ring · desktop', async ({ page }) => {
   // 포커스가 실제로 들어갔는가(빈 프레임을 정답으로 굳히지 않는다).
   await expect(page.locator('body :focus-visible')).toBeVisible();
   await expect(page).toHaveScreenshot('focus-ring-desktop.png', { fullPage: false });
+});
+
+/* ⭐ **스킵 링크의 보이는 상태 — 두 베이스라인 어디에도 없었다**(U067 · 2026-08-31).
+
+   위 케이스는 「무언가에 링이 보인다」만 재고 **무엇에** 인지는 안 쟀다. 그 사각에서 실제로
+   갈릴 수 있는 것이 스킵 링크다: `base.css` 가 _"포커스 전엔 화면 밖, Tab 으로 닿으면 좌상단에
+   나타남"_ 을 계약으로 적어 뒀는데, **그 나타난 상태를 찍는 프레임이 한 장도 없었다.**
+   `transform: translateY(-160%)` 한 줄이 지워져도(또는 `:focus` 가 `:focus-visible` 로 바뀌어도)
+   전 게이트가 녹색이다 — 포커스 링 케이스가 잡는 요소는 레일 버튼이라 그 층을 안 지난다.
+
+   ⚠⚠ **`Tab` 한 번으로 잡지 않는다.** 순차 포커스 순서 자체는 옳다(스킵 링크를 포커스하고
+   `Tab` 하면 레일 첫 줄로 간다 — 실측). 그런데 하네스에서 `body` 상태의 `Tab` 은 문서 처음이
+   아니라 다른 시작점에서 출발해 **레일 버튼**을 잡는다. 그 차이를 케이스로 재려 들면 앱이
+   아니라 하네스를 재는 것이 되므로, **계약을 직접 단언한다**: 포커스가 가면 보이는가. */
+test('focus-ring · skip-link', async ({ page }) => {
+  await boot(page, 'dark');
+  await page.goto('/today');
+  await expect(page.locator('#main')).toBeVisible();
+  await settle(page);
+  const skip = page.locator('.skip-link');
+  await skip.focus();
+  // 정체성 — 무엇에 링이 있는지를 단언한다(위 케이스가 원리적으로 못 하는 것).
+  await expect(skip).toHaveText('본문 바로가기');
+  await expect(skip).toBeFocused();
+  /* 화면 안으로 들어왔는가 — 이것이 `base.css` 의 계약이다. 픽셀보다 이 단언이 먼저인 이유:
+     스냅샷은 "어딘가 달라졌다"만 말하고, 이 줄은 **무엇이 깨졌는지**를 말한다. */
+  await expect.poll(() => skip.evaluate((el) => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
+  await expect(page).toHaveScreenshot('focus-ring-skip-link.png', { fullPage: false });
 });
 
 test('focus-ring · phone', async ({ page }) => {

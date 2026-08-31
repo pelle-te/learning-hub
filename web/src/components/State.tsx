@@ -186,7 +186,12 @@ export default function State(props: StateProps) {
         {kind === 'loading'
           ? SPIN
           : glyph != null && (
-              <div className={GLYPH}>
+              /* `data-glyph` — 이 마크가 **무엇인지**를 렌더 결과가 스스로 말한다(U089 · 2026-08-31).
+                 「화면의 정체성 마크가 레일과 갈리지 않는가」는 소스 스캔으로는 못 가른다(의미이지
+                 구조가 아니다 — 안쪽 카드의 마크까지 잡거나 일반 동사에서 거짓 양성 35건이 났다).
+                 그런데 **런타임엔 구조적이다**: 화면 전체가 빈 상태일 때 거기 뜬 마크가 곧 그
+                 화면의 정체성이다. 그 대조를 `e2e/visual.spec.ts` 가 한다. */
+              <div className={GLYPH} data-glyph={glyph}>
                 <Icon name={glyph} className={GLYPH_IC} />
               </div>
             )}

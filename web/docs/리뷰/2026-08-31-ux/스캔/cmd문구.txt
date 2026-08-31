@@ -1,0 +1,8 @@
+exports/*.txt
+knowledge/_탐구/
+sources/
+검사.sh --fast
+벌트DB.py build
+벌트DB.py health
+지식엔진.py build
+학습신호.py

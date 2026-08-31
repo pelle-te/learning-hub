@@ -1,11 +1,12 @@
 /* ============================================================
    Guide(안내) — 탭: 📖 이 시스템이 할 수 있는 것 · 하는 법 (전역 매뉴얼).
-   삶-연관 개인 지식 엔진의 세 축(학습·수집·목표)과 각 작업의 '무엇/어떻게'를 한곳에.
+   이 시스템이 하는 일(전공 교재 → 원자형 노트)과 각 작업의 '무엇/어떻게'를 한곳에. ⛔ 종전 «세 축(학습·수집·목표)» 은 2026-08-29 에 하나로 줄었다.
    순수 참조(정적) — 백엔드와 무관하게 항상 렌더. 명령·트리거는 실제 repo 근거(지시문/도구/Rust `tools.rs` TOOLS).
    레이어: store(usePageChrome)만 소비. app/다른 feature import 금지(boundaries).
 ============================================================ */
 import type { ReactNode } from 'react';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { usePing } from '@/store/queries';
 import { Icon } from '@/components/Icon';
 import { tabByKey } from '@/shell/tabs';
 
@@ -112,18 +113,22 @@ function How({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function Guide() {
+  const toolN = usePing().data?.tools.length ?? null;
   usePageChromeEffect(
     () => ({
       /* W22/H3 — `primary` 는 **필수 키**다(`store/usePageChrome.ts` 머리주석). 이 화면은 렌즈라
          44px 앵커를 세우지 않는다 — 잊은 것이 아니라 없다고 정한 것이다. */
       primary: null,
       readouts: [
-        { label: '핵심 축', value: 3 },
+        { label: '핵심 축', value: 1 }, // ⛔ 3 → 1(2026-08-29): 수집은 survey 로, 연관성·숙달도는 부모 목적 정정으로 나갔다.
         { label: '저작 지시문', value: 13 },
-        { label: '허브 도구', value: 11 },
+        /* ⛔ **손으로 적지 마라**(U045 · 2026-08-31). 여기 「11」이라 적혀 있는 동안 실물은 7 이었고
+           그중 둘은 부모에 없는 스크립트를 가리켰다 — 그래서 이 수는 능력 탐지가 알리는 **실물**에서
+           읽는다(`capabilities.tools` = `tools.rs` 의 `TOOLS`). 미연결이면 리드아웃에 안 싣는다. */
+        ...(toolN == null ? [] : [{ label: '허브 도구', value: toolN }]),
       ],
     }),
-    [],
+    [toolN],
   );
 
   return (
@@ -135,10 +140,12 @@ export default function Guide() {
             깊다. 굵기 유틸은 픽셀 보존용(전역 h1=800 · h2=700). */}
         <h2 className="mt-1! mb-2! text-xl! font-extrabold tracking-tight!">이 시스템이 할 수 있는 것 · 하는 법</h2>
         <p className="m-0 max-w-prose text-sm leading-relaxed text-mut">
-          <b className="text-txt">삶-연관 개인 지식 엔진</b> — 교재를 노트로 만들어(<b className="text-txt">학습</b>),
-          세상을 모아(<b className="text-txt">수집</b>), 내 목표에 맞춰 (<b className="text-txt">연관성</b>) 배운다. 세
-          축이 한 운전석에서 돈다. 각 작업은 <b className="text-txt">Claude에게 말로</b> 시키거나 (지시문을 읽고 실행),
-          터미널 명령/허브 탭에서 실행한다.
+          <b className="text-txt">전공 교재를 원자형 노트로</b> — 교재를 개념 단위로 쪼개 검증하고, 실전문제와 Anki
+          카드를 낸다. 각 작업은 <b className="text-txt">Claude에게 말로</b> 시키거나(지시문을 읽고 실행), 터미널
+          명령/허브 탭에서 실행한다.
+          {/* ⛔ 2026-08-29 — 종전 이 문단은 «삶-연관 개인 지식 엔진 … 세 축(학습·수집·연관성)이 한 운전석에서 돈다»
+              였다. 셋 중 둘이 죽었다: 수집은 2026-08-21 에(survey 로 갔다), 연관성·숙달도는 이번에 부모 목적
+              정정으로. **남은 축은 하나**이고, 그러면 그건 축이 아니라 그냥 이 시스템이 하는 일이다. */}
         </p>
       </header>
 
@@ -184,11 +191,11 @@ export default function Guide() {
       <Section
         n="② "
         glyph="refresh"
-        title="복습 — Anki 신호 루프"
+        title="복습 — 카드까지가 이 시스템의 몫"
         what={
           <>
-            검증된 노트 → Anki 카드 → 간격반복 복습 → <b>인출 신호</b> → 지식엔진이 숙달·약점을 갱신. 이 신호가 "무엇을
-            얼마나 깊이" 배분의 연료다.
+            검증된 노트 → Anki 카드 → <b>Anki 에 import</b>(사람). 복습 자체는 Anki 가 진다 — 이 시스템은{' '}
+            <b>카드를 만드는 데까지</b>다.
           </>
         }
       >
@@ -196,18 +203,15 @@ export default function Guide() {
           <Say>"(과목) (챕터) Anki"</Say>(<code className={REF}>지시문4</code>) → <Cmd>exports/*.txt</Cmd> →{' '}
           <b>Anki에 import</b>(사람). 카드는 필수/보조 2티어 태깅.
         </How>
-        <How label="신호 갱신">
-          <Cmd>python pipeline/_도구/학습신호.py</Cmd> → 지식상태 재빌드 → 허브에 숙달도 반영.
-        </How>
         <How label="약점·점검 도구">
-          약점큐(오답·leech) · 파인만(설명으로 이해 점검) · 모의고사(실전문제). 허브 <Tab k="review-run" />·
-          <Tab k="mastery" />
+          모의고사(실전문제)는 그대로. 허브 <Tab k="review-run" />
           에서 확인.
         </How>
         <p className={WARN}>
-          <Icon name="alert" /> 지금 <b className="text-learning">콜드</b> — Anki 컬렉션 0카드라 인출 신호가 없음.{' '}
-          <b className="text-learning">카드 재연결(사람 + Anki)</b>이 신호의 출발점이다 (자동화 불가).{' '}
-          <code className={REF}>pipeline/안내/카드_재연결_런북.md</code> 참고.
+          <Icon name="alert" /> <b className="text-learning">2026-08-29 — 학습 신호 축이 은퇴했다.</b> 부모(pipeline)가
+          목적을 「전공 교재 → 원자형 노트」로 좁히면서 복습 신호·숙달도 추정이 범위 밖이 됐고, 그 도구들(학습신호 ·
+          약점큐 · 파인만)과 카드 재연결 런북이 함께 삭제됐다. <b>카드 생성(지시문4)과 실전문제는 그대로다</b> — 사라진
+          것은 «복습이 얼마나 됐나»를 되받는 경로뿐이다.
         </p>
       </Section>
 
@@ -218,36 +222,14 @@ export default function Guide() {
          삭제됐다»라고 못박는다. 즉 이름을 고쳐도 **가리킬 화면이 없다.**
          ⚠ 수집·교양은 이제 `survey/` 필러가 소유한다 — 이 앱이 소비하는 것은 «학습 대상으로
          등록된 것의 상태»뿐이다. 되살리려면 `git show 2e28465:web/src/features/find/GuideView.tsx`. */}
-      {/* ── ④ 목표·연관성 ── */}
-      <Section
-        n="③ "
-        glyph="compass"
-        title="목표·연관성 — 왜 이 순서로 배우나"
-        what={
-          <>
-            내 길(goals)에 대한 <b>연관성</b>이 학습의 깊이·순서를 배분한다 — "연관성만큼의 깊이로 학습"(북극성). ①②를
-            묶는 연결 축.
-          </>
-        }
-      >
-        <How label="내 길 보기">
-          허브 <Tab k="path" /> 탭 — 전파통신 연구원 자립 트리(<Cmd>goals.json</Cmd> · 손저작).
-        </How>
-        <How label="연관성 켜기">
-          핵심 노트 frontmatter에 <code className={K}>goals: [signal-processing, communication-theory]</code> 링크 →
-          시퀀싱이 목표 그래디언트로 재정렬(하이브리드 = 핵심만 손 링크 · 나머지는 개념그래프 거리).
-        </How>
-        <How label="다음 학습 순서">
-          허브 <Tab k="mastery" /> → '다음 학습 순서'(선수게이트 + 약점 + ZPD + 삶-연관성 결합 랭크 = 연관성×gap).
-        </How>
-        <How label="프로젝트">
-          <Tab k="path" /> 프로젝트 섹션 — 분야가 임계에 도달하면 "이제 이 프로젝트 가능"(capability-unlock).
-          {/* ⚠ 짝이던 「<발견> 가능신호」는 그 탭과 함께 사라졌다(C059). */}
-        </How>
-        <How label="엔진 건강">
-          <Tab k="mastery" /> → 연관성↑ 노트가 실제로 더 숙달됐나 회고(배분 논지 검증 · 신호 쌓인 뒤 판정).
-        </How>
-      </Section>
+      {/* ⛔⛔ 2026-08-29 — 여기 있던 「③ 목표·연관성 — 왜 이 순서로 배우나」 절이 통째로 사라졌다.
+          그 절이 가리키던 것 전부가 은퇴했다: 「내 길 지도」 탭(`?view=path`) · 「숙달도 지도」 탭 ·
+          노트 frontmatter `goals:` 링크 · 삶-연관성 결합 랭크 · 엔진 건강 회고.
+          부모(pipeline)가 목적을 「전공 교재 → 원자형 노트」로 좁히면서 그 축의 계약·생산자·화면이
+          함께 나갔다(삶-연관성 배분은 이제 아무 저장소의 일도 아니다).
+          ⚠ **이 절을 되살리지 마라 — 가리킬 화면이 없다.** 바로 위 ②의 「발견·수집」 절이 같은
+            이유로 먼저 죽었고, 그 문단이 남긴 교훈이 정확히 이것이다(이름을 고쳐도 대상이 없다).
+          복구(부모 저장소): 태그 `은퇴/학습층-2026-08-29`. */}
 
       {/* ── 허브 도구(제어판) ── */}
       <Section
@@ -266,13 +248,6 @@ export default function Guide() {
             </thead>
             <tbody>
               <tr>
-                <td className={`${TD} font-semibold whitespace-nowrap`}>지식상태 재빌드</td>
-                <td className={`${TD} text-mut`}>선수그래프·ZPD·숙달 재계산</td>
-                <td className={TD}>
-                  <Cmd>지식엔진.py build</Cmd>
-                </td>
-              </tr>
-              <tr>
                 <td className={`${TD} font-semibold whitespace-nowrap`}>인덱스/DB 재생성</td>
                 <td className={`${TD} text-mut`}>볼트 스캔 → _vault.db</td>
                 <td className={TD}>
@@ -284,13 +259,6 @@ export default function Guide() {
                 <td className={`${TD} text-mut`}>고아·죽은링크·stale 진단</td>
                 <td className={TD}>
                   <Cmd>벌트DB.py health</Cmd>
-                </td>
-              </tr>
-              <tr>
-                <td className={`${TD} font-semibold whitespace-nowrap`}>Anki 학습신호</td>
-                <td className={`${TD} text-mut`}>인출 신호 갱신</td>
-                <td className={TD}>
-                  <Cmd>학습신호.py</Cmd>
                 </td>
               </tr>
               <tr>
@@ -322,10 +290,6 @@ export default function Guide() {
           <li>
             <Cmd>벌트DB.py build</Cmd> — 인덱스/DB 재생성
           </li>
-          <li>
-            <Cmd>지식엔진.py build</Cmd> — 지식상태(숙달·프런티어)
-          </li>
-          <li>연관성·커리큘럼 재생성 — 시퀀싱(다음 학습 순서)</li>
         </ol>
         <p className={NOTE}>
           게이트: <Cmd>검사.sh --fast</Cmd>(단일 진입점). 허브는 산출물을 읽어 자동 반영 — 빌드 후 탭 새로고침.

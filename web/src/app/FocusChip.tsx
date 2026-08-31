@@ -37,7 +37,7 @@ const STOP =
   // ⚠ radius·padding 은 **건드리지 않는다** — 원본 `.stopBtn`/`.body` 가 그 속성을 선언하지 않아
   //    언레이어드 전역 `button{}`(radius 7px · padding 8/13px)을 그대로 받고 있었다. 유틸로 0 을
   //    박으면 '이식'이 아니라 변경이다(칩은 overflow-hidden 이라 radius 차이가 눈엔 거의 안 보인다).
-  'inline-flex w-7.5 items-center justify-center border-0! border-l! border-l-line-acc! bg-transparent! text-2xs! leading-auto text-mut! hover:bg-tint-acc-8! hover:text-bad! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
+  'inline-flex w-7.5 items-center justify-center border-0! border-l! border-l-line-acc! bg-transparent! text-2xs! leading-auto text-mut! hover:bg-tint-acc-8! hover:text-bad-on-soft! focus-visible:outline-2 focus-visible:outline-acc focus-visible:-outline-offset-2';
 
 const fmt = mmss; // 표기 규약은 lib/utils 가 단일 원천(CT-S3)
 

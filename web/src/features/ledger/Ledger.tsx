@@ -19,13 +19,13 @@
    전역 요소 규칙을 이기는 `!`(control §15-7): h2 히어로 제목·셋업/에러 h3·셀/딥링크 버튼(border/padding/radius).
    런타임 색 주입(퍼널 채움·셀·범례 스와치·단계 점 = style={{ background }})은 절대규칙 #3 구현이라 인라인 유지.
 ============================================================ */
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { MASTERY_VIEW } from '@/shell/tabs';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { useKeymapDoc } from '@/hooks/useKeymap';
 import { useLedger, usePing } from '@/store/queries';
+import { useSearchParams } from 'react-router-dom';
 import { usePageChromeEffect } from '@/store/usePageChrome';
+import { useStripUnknownView } from '@/hooks/useStripUnknownView';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { artifactErrorCopy, classifyArtifact, needsWorkspace, toolFailureCopy } from '@/lib/artifactState';
 import { openVaultSearch, pctLabel } from '@/lib/utils';
@@ -43,7 +43,7 @@ import {
   type SubjectRollup,
 } from '@/lib/ledger';
 import { runTool } from '@/lib/api';
-import { confirmLossy, toast } from '@/shell';
+import { confirmLossy, toast, glyphOf } from '@/shell';
 import { useApp } from '@/store/useApp';
 import { applyCardedDone, ledgerPending, pendingCount, pendingPrompt } from '@/lib/ledgerSeed';
 import { Button } from '@/components/ui';
@@ -369,13 +369,13 @@ function Bottleneck({ l: led }: { l: Ledger }) {
         <div className="ds-foot">
           직전 단계 <b>{b.from}</b>챕터 중 <b>{b.passed}</b>만 {m.label} 통과 — <b>{gap}</b>챕터 대기.
           <br />
+          {/* ⛔ `reviewed` 분기가 2026-08-29 에 빠졌다 — 부모 ledger 스키마에서 그 단계가
+              사라졌다(pipeline 목적 정정: 복습은 범위 밖 · STAGES 5 → 4). */}
           {b.stage === 'verified'
             ? '검증 파이프라인(지시문7)을 돌리면 가장 크게 진척합니다.'
             : b.stage === 'carded'
               ? 'Anki 카드 생성이 다음 레버입니다.'
-              : b.stage === 'reviewed'
-                ? '인출(복습) 관측이 쌓이면 숙달도까지 살아납니다.'
-                : '노트 작성이 다음 레버입니다.'}
+              : '노트 작성이 다음 레버입니다.'}
         </div>
       </div>
     </div>
@@ -392,7 +392,7 @@ function Setup({ onRebuild, busy }: { onRebuild: () => void; busy: boolean }) {
   return (
     <State
       kind="empty"
-      glyph="file"
+      glyph={glyphOf('ledger')}
       title="아직 챕터 원장이 없어요"
       desc={
         <>
@@ -405,8 +405,8 @@ function Setup({ onRebuild, busy }: { onRebuild: () => void; busy: boolean }) {
             </li>
           </ol>
           <span className="ds-foot text-mut">
-            원장은 <code>subjects.json</code>(정본 slug·src) + 볼트 인덱스 + Anki 신호를 조인해 과목×챕터의 5단계 진척을
-            집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
+            원장은 <code>subjects.json</code>(정본 slug·src)과 볼트 인덱스를 조인해 과목×챕터의 {LEDGER_STAGES.length}
+            단계 진척을 집계합니다. 워크스페이스가 설정돼 있으면 자동으로 불러옵니다.
           </span>
         </>
       }
@@ -423,25 +423,21 @@ function Setup({ onRebuild, busy }: { onRebuild: () => void; busy: boolean }) {
    `Find`·`Degree`·`ReviewRun` 이 흡수한 화면을 띄우는 것과 같은 관용구다(lazy — 원장 청크에
    히트맵을 싣지 않는다). ⚠ 분기를 **껍데기**가 한다: 이 화면은 훅이 여럿이라 중간 조기 반환을
    놓으면 뷰를 오갈 때 훅 순서가 갈린다(`ReviewRun` 이 같은 이유로 같은 형태를 썼다). */
-const MasteryView = lazy(() => import('./mastery/Mastery'));
+/* ⛔⛔ 2026-08-29 — 「숙달도 지도」 뷰가 사라졌다. 그 화면이 읽던 지식상태 산출물이 **생산자째
+   삭제**됐다(pipeline 목적 정정: 「전공 교재 → 원자형 노트」만 진다 · 숙달도 추정은 범위 밖).
+   ▣ 삭제 시점 실측이 판단을 뒷받침한다: 숙달값은 서로 다른 값이 **넷**뿐이었고 (작성 상태 ×
+     카드 유무)의 결정론적 함수였다 — 관측이 0이라 사후분포가 전량 사전분포였다. 즉 그 히트맵이
+     보여 주던 것은 숙달도가 아니라 **작성 상태**였고, 그건 이 원장 화면이 이미 보여 준다.
+   함께 은퇴: `mastery/{Mastery,KnowledgeMap,NextActions}.tsx`·`classes.ts` · 로스터 행.
+   ⚠⚠ **`useKnowledge` 는 은퇴하지 않았다**(U084 · 2026-08-31 정정). 이 줄이 그렇게 적혀 있었는데
+   `Review`·`TodaySignature`·`Subject` 가 아직 부른다 — 이 주석을 근거로 지우면 세 화면이 죽는다.
+   실제로 걷힌 것은 **공급자**(`fetchKnowledgeArtifact` 가 항상 throw)이지 훅이 아니다. */
 
 export default function LedgerHost() {
+  /* 이 호스트에 남은 뷰는 **0** 이다(「숙달도 지도」가 나가면서). 그래도 `?view=mastery` 를 든
+     북마크·이력이 실재하므로, 착지한 화면과 주소를 맞춘다 — 근거는 훅 머리주석(U048). */
   const [params, setParams] = useSearchParams();
-  if (params.get('view') === MASTERY_VIEW)
-    return (
-      <div className="flex min-h-0 flex-col">
-        {/* ⚠ 돌아가는 문이 **화면 안에** 있어야 한다 — 세그먼트 바가 은퇴해(N-14) 뷰에서 나가는
-            길이 브라우저 뒤로가기뿐이면 그건 막다른 골목이다(`Find` 가 같은 판단을 적어 뒀다). */}
-        <div className="flex-none px-6 pt-4">
-          <Button sm variant="ghost" onClick={() => setParams({}, { replace: true })}>
-            ← 정본 원장
-          </Button>
-        </div>
-        <Suspense fallback={<div className="ds-well">숙달도 지도 여는 중…</div>}>
-          <MasteryView />
-        </Suspense>
-      </div>
-    );
+  useStripUnknownView(params, setParams, []);
   return <Ledger />;
 }
 
@@ -512,11 +508,22 @@ function Ledger() {
                 생성 {led.generated || '—'} · 과목 {rolls.length} · 챕터 {led.n_chapters}
               </>
             ) : (
-              '과목×챕터의 5단계 파이프라인 진척을 한 화면에'
+              `과목×챕터의 ${LEDGER_STAGES.length}단계 파이프라인 진척을 한 화면에`
             )}
           </span>
         </div>
-        {led && <Funnel l={led} />}
+        {/* ⚠⚠ **히어로가 로딩→ready 에서 +27px 자랐다**(U061 · 2026-08-31 · 베이스라인 두 장을
+            픽셀 스캔해 116 → 143). `State shape='frame'` 이 없애려던 바로 그 점프인데, 히어로는
+            프레임 **밖**이라 그 처방이 여기까지 오지 않았다 — 아래 본문은 골격이 자리를 잡아
+            주는데 위 밴드만 나중에 부풀었다.
+            처방은 골격을 하나 더 그리는 것이 아니라 **퍼널의 자리를 로딩 중에도 잡는 것**이다
+            (같은 `h-23`·`min-w-55`). 빈 자리는 아무것도 안 그린다 — 로딩 표시는 오른쪽
+            「로드 중」이 이미 하고 있고, 여기에 스피너를 하나 더 두면 같은 사실을 두 번 말한다. */}
+        {led ? (
+          <Funnel l={led} />
+        ) : (
+          <div className="h-23 min-w-55 flex-1 max-wide:order-3 max-wide:w-full" aria-hidden />
+        )}
         <div className="ml-auto flex flex-col items-end gap-2 max-wide:items-start">
           {loading && (
             <span className="text-xs text-mut tabular-nums">

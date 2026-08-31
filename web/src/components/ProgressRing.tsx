@@ -24,7 +24,7 @@ export function ProgressRing({
   className?: string;
   trackClassName?: string;
   arcClassName?: string;
-  /** 잠정값 — 획을 흐리게(P-12). 판정은 `lib/confidence.ts` 가, 그리기만 여기가 한다.
+  /** 잠정값 — 획을 흐리게(P-12). ⛔ 판정을 하던 `lib/confidence.ts` 는 2026-08-29 에 은퇴했다(숙달도 축 · 목적 정정). 여기는 그리기만 한다.
    *
    *  ⚠ **그라데이션 페이드가 아니라 균일 투명이다.** 로드맵은 stroke 그라데이션을 적었는데 두
    *  가지가 막았다: ① `strokeDasharray` 는 **호 길이 자체에 이미 쓰이고 있어** 대시로는 불확실성을

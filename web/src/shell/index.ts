@@ -21,6 +21,8 @@ export {
   visitKeyOfLocation,
   navGroups,
   railTabs,
+  hostHintOf,
+  glyphOf,
   type TabMeta,
   type NavGroup,
   type TabRole,
@@ -38,7 +40,7 @@ export {
   type ContentHit,
   type HitVerb,
 } from './verbs';
-export { recordRecent } from './recent';
+export { recordRecent, recordVisitAsRecent } from './recent';
 export { NAV_SHORTCUTS, GLOBAL_SHORTCUTS, type NavShortcut } from './shortcuts';
 
 /* ============================================================

@@ -8,7 +8,7 @@
 ============================================================ */
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DEGREE_PATH_VIEW, tabByKey, viewValueOf, viewsOfHost } from '@/shell/tabs';
+import { tabByKey, viewValueOf, viewsOfHost } from '@/shell/tabs';
 import State from '@/components/State';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
@@ -17,6 +17,7 @@ import { colorForId, rid, makeItem } from '@/lib/utils';
 import { investedBySubject, semesterFingerprint } from '@/lib/semesterFingerprint';
 import { linkableItems } from '@/lib/semester';
 import { useCountUp } from '@/hooks/interactions';
+import { useStripUnknownView } from '@/hooks/useStripUnknownView';
 import { Button, NumberField } from '@/components/ui';
 import { ProgressRing } from '@/components/ProgressRing';
 import type { AppState, Degree as DegreeT } from '@/lib/types';
@@ -650,7 +651,7 @@ function DegreePlan() {
    ⚠⚠ **뷰가 URL 에 있다**(종전엔 `useState`). 은퇴한 `goals` 탭의 착지 경로가
    `/degree?view=path` 이므로, 상태가 메모리에만 있으면 그 리다이렉트가 **기본 뷰(졸업 계획)에
    착지**한다 — 화면은 떴는데 찾던 것이 없는, 가장 알아채기 어려운 형태의 도달성 손실이다. */
-const Goals = lazy(() => import('./PathView'));
+// ⛔ `const Goals = lazy(() => import('./PathView'))` 가 2026-08-29 에 사라졌다(공급자 은퇴).
 
 /* ⚠⚠ **W8(2026-08-07) — 학기의 입구와 출구가 여기 붙는다**(N-2 인입구 · N-3 결산).
    왜 새 탭이 아닌가: 둘 다 **학기라는 명사**의 두 끝이고, 그 명사의 회계를 쥔 화면이 여기다.
@@ -663,7 +664,7 @@ const Intake = lazy(() => import('./SyllabusIntake'));
 const CalIntake = lazy(() => import('./CalendarIntake'));
 const Close = lazy(() => import('./SemesterClose'));
 
-type DegView = 'plan' | 'req' | 'intake' | 'close' | typeof DEGREE_PATH_VIEW;
+type DegView = 'plan' | 'req' | 'intake' | 'close';
 /* ⚠⚠ **여기 `const VIEWS` 5칸이 손으로 적혀 있었다 — 로스터에서 파생한다**(I025 · 2026-08-22).
    D-4 가 «갈 수 있는 곳의 열거 다섯 벌»을 하나로 만들었는데, W9 이 탭 셋을 뷰로 접자 같은 바가
    이 파일 안에서 **다시 자랐다.** 그리고 실제로 갈려 있었다: 이 배열의 넷(`intake`·`close`·
@@ -708,6 +709,8 @@ export default function Degree() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('view');
   const view: DegView = VIEWS.some((v) => v.key === raw) ? (raw as DegView) : 'plan';
+  /* 모르는 뷰(은퇴한 `path` · 오타 · 옛 북마크)는 **주소에서 걷는다** — 근거는 훅 머리주석. */
+  useStripUnknownView(params, setParams, HOST_VIEWS.map(viewValueOf));
   return (
     <div className="min-w-0">
       <div className="mb-4 flex items-center gap-3.5">
@@ -734,11 +737,12 @@ export default function Degree() {
           ))}
         </div>
       </div>
-      {view === DEGREE_PATH_VIEW ? (
-        <Suspense fallback={<State kind="loading" title="내 길 여는 중…" shape="frame" />}>
-          <Goals />
-        </Suspense>
-      ) : view === 'intake' ? (
+      {/* ⛔ `path`(내 길 지도) 분기가 2026-08-29 에 사라졌다 — 부모 goals 계약이 생산자째 삭제됐다
+          (pipeline 목적 정정). 로스터 행도 함께 나갔다.
+          ⚠ 종전 이 줄은 *"이 뷰로 오는 경로 자체가 없다"* 고 적었는데 **거짓이었다**(U048) —
+          북마크·브라우저 이력·e2e 로스터·⌘K 최근이 `?view=path` 를 들고 있다. 위
+          `useStripUnknownView` 가 그 주소를 정직하게 만든다(화면과 주소가 같은 말을 한다). */}
+      {view === 'intake' ? (
         <Suspense fallback={<State kind="loading" title="인입구 여는 중…" shape="frame" />}>
           <CalIntake />
           <Intake />

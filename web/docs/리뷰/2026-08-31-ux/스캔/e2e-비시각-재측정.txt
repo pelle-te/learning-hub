@@ -1,0 +1,467 @@
+
+Running 108 tests using 1 worker
+
+[1/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · today
+[2/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · schedule
+[3/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · items
+[4/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · day
+[5/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree
+[6/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · stats
+[7/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · settings
+[8/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · integrations
+[9/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · review
+[10/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · mistakes
+[11/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · questions
+[12/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · find
+[13/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · ledger
+[14/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · alloc
+[15/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · review-run
+[16/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · subject
+[17/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree-path
+[18/108] (retries) [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree-path (retry #1)
+  1) [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree-path ──────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.call (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at 띄우기 (D:\atelier\hub\web\e2e\a11y.spec.ts:193:9)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:201:5
+
+    Error Context: test-results\a11y-a11y-·-degree-path-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.call (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at 띄우기 (D:\atelier\hub\web\e2e\a11y.spec.ts:193:9)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:201:5
+
+    Error Context: test-results\a11y-a11y-·-degree-path-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\a11y-a11y-·-degree-path-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\a11y-a11y-·-degree-path-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[19/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · find-guide
+[20/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree-intake
+[21/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree-close
+[22/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · subject-sheet
+[23/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · ledger-mastery
+[24/108] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · review-run-forecast
+[25/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · today
+[26/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · schedule
+[27/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · items
+[28/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · day
+[29/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree
+[30/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · stats
+[31/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · settings
+[32/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · integrations
+[33/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · review
+[34/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · mistakes
+[35/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · questions
+[36/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · find
+[37/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · ledger
+[38/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · alloc
+[39/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · review-run
+[40/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · subject
+[41/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree-path
+[42/108] (retries) [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree-path (retry #1)
+  2) [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree-path ─────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.call (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at 띄우기 (D:\atelier\hub\web\e2e\a11y.spec.ts:193:9)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:213:5
+
+    Error Context: test-results\a11y-a11y-·-대비-·-light-·-degree-path-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.call (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at 띄우기 (D:\atelier\hub\web\e2e\a11y.spec.ts:193:9)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:213:5
+
+    Error Context: test-results\a11y-a11y-·-대비-·-light-·-degree-path-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\a11y-a11y-·-대비-·-light-·-degree-path-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\a11y-a11y-·-대비-·-light-·-degree-path-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[43/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · find-guide
+[44/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree-intake
+[45/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree-close
+[46/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · subject-sheet
+[47/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · ledger-mastery
+[48/108] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · review-run-forecast
+[49/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-palette
+[50/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-shortcuts
+[51/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-today-more
+[52/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail
+[53/108] (retries) [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail (retry #1)
+  3) [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail ────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '안테나 1 방사 원리 — noted' })
+
+
+       at _fixtures.ts:611
+
+      609 |     /* ⚠ 칩의 접근명은 `<과목> <챕터> — <단계>` 다. `aria-label*="—"` 로 잡으면 상단 바의
+      610 |        "오늘 학습 — 남은 1" 이 먼저 걸린다(실측) — 부분일치 셀렉터의 전형적 오조준이다. */
+    > 611 |     열기: (page) => page.getByRole('button', { name: '안테나 1 방사 원리 — noted' }).click(),
+          |                                                                             ^
+      612 |     ready: (page) => page.getByRole('dialog', { name: /상세$/ }).waitFor(),
+      613 |   },
+      614 |   {
+        at Object.열기 (D:\atelier\hub\web\e2e\_fixtures.ts:611:77)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:232:14
+
+    Error Context: test-results\a11y-a11y-·-overlay-ledger-detail-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '안테나 1 방사 원리 — noted' })
+
+
+       at _fixtures.ts:611
+
+      609 |     /* ⚠ 칩의 접근명은 `<과목> <챕터> — <단계>` 다. `aria-label*="—"` 로 잡으면 상단 바의
+      610 |        "오늘 학습 — 남은 1" 이 먼저 걸린다(실측) — 부분일치 셀렉터의 전형적 오조준이다. */
+    > 611 |     열기: (page) => page.getByRole('button', { name: '안테나 1 방사 원리 — noted' }).click(),
+          |                                                                             ^
+      612 |     ready: (page) => page.getByRole('dialog', { name: /상세$/ }).waitFor(),
+      613 |   },
+      614 |   {
+        at Object.열기 (D:\atelier\hub\web\e2e\_fixtures.ts:611:77)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:232:14
+
+    Error Context: test-results\a11y-a11y-·-overlay-ledger-detail-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\a11y-a11y-·-overlay-ledger-detail-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\a11y-a11y-·-overlay-ledger-detail-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[54/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-confirm
+[55/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-glance
+[56/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-stats-detail
+[57/108] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-day-buffer
+[58/108] [chromium] › e2e\a11y.spec.ts:242:1 › a11y · mini
+[59/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 홈 · dark
+[60/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 일 · dark
+[61/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 주 · dark
+[62/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 복습 · dark
+[63/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 홈 · light
+[64/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 일 · light
+[65/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 주 · light
+[66/108] [chromium] › e2e\a11y.spec.ts:257:5 › a11y · phone · 복습 · light
+[67/108] [chromium] › e2e\a11y.spec.ts:268:1 › a11y 원장에 기한이 지난 항목이 없다
+[68/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · today
+[69/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · schedule
+[70/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · items
+[71/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · day
+[72/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree
+[73/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · stats
+[74/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · settings
+[75/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · integrations
+[76/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · review
+[77/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · mistakes
+[78/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · questions
+[79/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · find
+[80/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · ledger
+[81/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · alloc
+[82/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · review-run
+[83/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · subject
+[84/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree-path
+[85/108] (retries) [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree-path (retry #1)
+  4) [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree-path ────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.call (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at 띄우기 (D:\atelier\hub\web\e2e\a11y.spec.ts:193:9)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:291:5
+
+    Error Context: test-results\a11y-reflow-·-320px-·-degree-path-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.call (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at 띄우기 (D:\atelier\hub\web\e2e\a11y.spec.ts:193:9)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:291:5
+
+    Error Context: test-results\a11y-reflow-·-320px-·-degree-path-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\a11y-reflow-·-320px-·-degree-path-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\a11y-reflow-·-320px-·-degree-path-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[86/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · find-guide
+[87/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree-intake
+[88/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree-close
+[89/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · subject-sheet
+[90/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · ledger-mastery
+[91/108] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · review-run-forecast
+[92/108] [chromium] › e2e\a11y.spec.ts:306:1 › reflow · 320px 에서 하단 탭바의 모든 탭에 닿을 수 있다
+[93/108] [chromium] › e2e\a11y.spec.ts:361:1 › 대비 미측정(incomplete) 노드가 늘지 않았다
+[94/108] [chromium] › e2e\a11y.spec.ts:391:1 › reflow · 최소 창 높이(600)에서 현재 탭이 레일 안에 보인다
+[95/108] [chromium] › e2e\asyncErrors.spec.ts:27:1 › ⚠⚠ 전 화면을 도는 동안 잡히지 않은 비동기 실패가 0이다 (R2 의 셋째 축)
+[96/108] (retries) [chromium] › e2e\asyncErrors.spec.ts:27:1 › ⚠⚠ 전 화면을 도는 동안 잡히지 않은 비동기 실패가 0이다 (R2 의 셋째 축) (retry #1)
+  5) [chromium] › e2e\asyncErrors.spec.ts:27:1 › ⚠⚠ 전 화면을 도는 동안 잡히지 않은 비동기 실패가 0이다 (R2 의 셋째 축) ─────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.ready (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at D:\atelier\hub\web\e2e\asyncErrors.spec.ts:33:45
+
+    Error Context: test-results\asyncErrors-⚠⚠-전-화면을-도는-동안-잡히지-않은-비동기-실패가-0이다-R2-의-셋째-축--chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.ready (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at D:\atelier\hub\web\e2e\asyncErrors.spec.ts:33:45
+
+    Error Context: test-results\asyncErrors-⚠⚠-전-화면을-도는-동안-잡히지-않은-비동기-실패가-0이다-R2-의-셋째-축--chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\asyncErrors-⚠⚠-전-화면을-도는-동안-잡히지-않은-비동기-실패가-0이다-R2-의-셋째-축--chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\asyncErrors-⚠⚠-전-화면을-도는-동안-잡히지-않은-비동기-실패가-0이다-R2-의-셋째-축--chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[97/108] [chromium] › e2e\asyncErrors.spec.ts:41:1 › ⚠⚠ 감시가 진짜로 잡는다 — 일부러 던져 확인한다(조용한 통과 방어)
+[98/108] [chromium] › e2e\phone.spec.ts:39:3 › 폰 웹앱 › 뜬다 · 콘솔 오류가 없다 · OPFS 저장소가 실제로 생긴다
+[99/108] [chromium] › e2e\phone.spec.ts:63:3 › 폰 웹앱 › 새로고침해도 OPFS 저장소가 남는다(오프라인 캐시의 전제)
+[100/108] [chromium] › e2e\phone.spec.ts:71:3 › 폰 웹앱 › 데스크톱 셸은 브라우저 SQLite 를 켜지 않는다(트랙 A 회귀 방지)
+[101/108] [chromium] › e2e\phone.spec.ts:102:3 › 폰 오프라인 껍데기(D-9) › sw.js precache 가 폰 그래프를 담고 데스크톱 청크는 빼놓는다
+[102/108] [chromium] › e2e\phone.spec.ts:142:1 › 워커 왕복 — 부팅 웨이브가 타임아웃 상수와 자릿수가 맞는다(P026)
+[chromium] › e2e\phone.spec.ts:142:1 › 워커 왕복 — 부팅 웨이브가 타임아웃 상수와 자릿수가 맞는다(P026)
+[phone] entry→app(= 워커 기동 + wasm + OPFS + 전량 읽기) 140.8ms
+
+[103/108] [chromium] › e2e\plan.spec.ts:91:1 › 배분 셀에 넣은 값이 승격되고 새로고침 후에도 남는다
+[104/108] [chromium] › e2e\plan.spec.ts:145:1 › 트레이 항목을 ⤵로 타임라인에 배치하고 Alt+↓로 시각을 옮긴다
+[105/108] [chromium] › e2e\plan.spec.ts:189:1 › 배분 보드에서 요일을 열면 캘린더가 그 날짜의 일 뷰로 착지한다
+[106/108] [chromium] › e2e\smoke.spec.ts:6:1 › 앱이 뜨고 레일 나브로 탭 이동 + ⌘K 팔레트가 열린다
+[107/108] [chromium] › e2e\smoke.spec.ts:64:1 › 테마 토글이 <html data-theme>를 바꾼다(다크 기본 → 라이트)
+[108/108] [chromium] › e2e\smoke.spec.ts:87:1 › 치트시트가 떠 있으면 `g` 시퀀스가 뒤의 탭을 바꾸지 않는다 (H10)
+[109/108] [chromium] › e2e\smoke.spec.ts:125:1 › 첫 라우트가 Suspense 폴백을 거치지 않는다 — 부팅 대기 0
+[110/108] [chromium] › e2e\swfix.spec.ts:26:1 › 폰을 먼저 열어도 웹 루트가 웹으로 남는다(navigateFallback 범위)
+[chromium] › e2e\swfix.spec.ts:26:1 › 폰을 먼저 열어도 웹 루트가 웹으로 남는다(navigateFallback 범위)
+ROOT TEXT: "본문 바로가기\n오늘 학습\nL\n러닝 허브\n찾기\n오늘 학습\n복습\n언제 얼마나 할까?\n무엇을 아는가?\n설정\n연동 현황\n러닝\n허브\n오늘 할 일에 집중해"
+
+[111/108] [chromium] › e2e\themeColor.spec.ts:36:1 › 테마 색 토큰이 라이트/다크에서 서로 다른 값으로 해석된다
+[112/108] [chromium] › e2e\typography.spec.ts:32:1 › ⚠⚠ 브랜드 워드마크의 조판이 **어느 화면에서도 같다** — 가용 폭에 따라 무너지지 않는다
+[113/108] (retries) [chromium] › e2e\typography.spec.ts:32:1 › ⚠⚠ 브랜드 워드마크의 조판이 **어느 화면에서도 같다** — 가용 폭에 따라 무너지지 않는다 (retry #1)
+  6) [chromium] › e2e\typography.spec.ts:32:1 › ⚠⚠ 브랜드 워드마크의 조판이 **어느 화면에서도 같다** — 가용 폭에 따라 무너지지 않는다 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.ready (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at D:\atelier\hub\web\e2e\typography.spec.ts:39:45
+
+    Error Context: test-results\typography-⚠⚠-브랜드-워드마크의-조판이-어느-화면에서도-같다-—-가용-폭에-따라-무너지지-않는다-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.waitFor: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByText('내 길 · 성취목표') to be visible
+
+
+       at _fixtures.ts:519
+
+      517 |     path: '/degree?view=path',
+      518 |     // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
+    > 519 |     ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
+          |                                                   ^
+      520 |   },
+      521 |   {
+      522 |     key: 'find-guide',
+        at Object.ready (D:\atelier\hub\web\e2e\_fixtures.ts:519:51)
+        at D:\atelier\hub\web\e2e\typography.spec.ts:39:45
+
+    Error Context: test-results\typography-⚠⚠-브랜드-워드마크의-조판이-어느-화면에서도-같다-—-가용-폭에-따라-무너지지-않는다-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\typography-⚠⚠-브랜드-워드마크의-조판이-어느-화면에서도-같다-—-가용-폭에-따라-무너지지-않는다-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\typography-⚠⚠-브랜드-워드마크의-조판이-어느-화면에서도-같다-—-가용-폭에-따라-무너지지-않는다-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[114/108] [chromium] › e2e\typography.spec.ts:77:1 › ⚠ 이 검사가 실제로 붕괴를 잡는다 — 폭을 뺏어 확인한다(조용한 통과 방어)
+  6 failed
+    [chromium] › e2e\a11y.spec.ts:200:3 › a11y · degree-path ───────────────────────────────────────
+    [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · degree-path ──────────────────────────
+    [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail ─────────────────────────────
+    [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · degree-path ─────────────────────────────
+    [chromium] › e2e\asyncErrors.spec.ts:27:1 › ⚠⚠ 전 화면을 도는 동안 잡히지 않은 비동기 실패가 0이다 (R2 의 셋째 축) ──────
+    [chromium] › e2e\typography.spec.ts:32:1 › ⚠⚠ 브랜드 워드마크의 조판이 **어느 화면에서도 같다** — 가용 폭에 따라 무너지지 않는다 
+  102 passed (8.2m)

@@ -16,7 +16,6 @@ import { useSchedule, selectTodayFocus, selectRiskSummary } from '@/store/select
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useFocus } from '@/store/useFocus';
 import { usePrefill } from '@/store/prefill';
-import { usePing, useKnowledge } from '@/store/queries';
 import { focusKey, focusMinutes, type FocusEntry } from '@/lib/focusState';
 import { openBacklog } from '@/lib/methodology';
 import { recordDaySignal, pruneDaySignals } from '@/lib/daySignals';
@@ -29,7 +28,6 @@ import RetrievalSlot from './RetrievalSlot';
 import { deadlineDdays, indexDays } from '@/lib/scheduleView';
 import { totalDue, ankiFreshness } from '@/lib/anki';
 import { pickRetrieval, pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
-import { frontierNext } from '@/lib/knowledge';
 import { onThisDay } from '@/lib/records';
 import { dayShape } from '@/lib/insights';
 import type { AppState } from '@/lib/types';
@@ -197,11 +195,6 @@ function lockedKeyFor(lock: { ds: string; key: string } | null | undefined, ds: 
   return lock && lock.ds === ds ? lock.key : null;
 }
 
-/** 프런티어 표시명 — 제목이 없으면 파일명, 그것도 없으면 빈 문자열(그러면 호출부가 안 그린다). */
-function frontierLabel(f: { title?: string; basename?: string } | null | undefined): string {
-  return f?.title || f?.basename || '';
-}
-
 /** Anki due 합 — 캐시가 아예 없으면(`decks` 부재) **null 이지 0 이 아니다**. 0 으로 그리면
  *  "복습할 게 없다"가 되는데 사실은 "모른다"이고, 이 화면은 그 둘을 다르게 말한다. */
 function dueOf(live: { decks?: unknown } | null | undefined): number | null {
@@ -279,7 +272,7 @@ function timerView(
  *  ⚠ **momentum 을 셧다운 뒤로 옮기지 않았다** — 셧다운을 안 누르는 사용자에게 영원히 안 보이게
  *  되고, 그건 `dayPhase.ts` 가 경고한 함정을 반대 방향으로 밟는 것이다(자리를 옮기는 게 아니라
  *  **수를 줄이는** 것이 이 안이다). */
-const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/day', frontier: '/mastery' };
+const NEXT_TO: Record<string, string> = { review: '/review-run', backlog: '/day' };
 
 function HeroSubline(p: {
   todayTotal: number;
@@ -448,12 +441,6 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
      초당 한 번 돌고 있었다. 캐시 키가 `reviewTouches`·볼트 앵커 버전까지 포함하므로 값도 더 정확하다. */
   const risk = selectRiskSummary(state);
   const riskN = risk.overdue + risk.due;
-  // I-8 — 프런티어 다음 추천(지식엔진 frontier). 백엔드 사용 가능 시에만 페치(mastery와 KNOWLEDGE_KEY 캐시 공유,
-  // 신규 IO 최소). 후보 없거나 미연결이면 frontier=null → 렌더 안 함.
-  const ping = usePing();
-  const know = useKnowledge(ping.isSuccess).data;
-  const frontier = frontierNext(know);
-  const frontierTitle = frontierLabel(frontier);
   // I-10 — 착각 재확인 카드: conf('확신했지만 틀림') 선 과거 오답 1건(날짜 해시로 하루 회전). 후보 없으면 null.
   const confWrong = pickConfidentWrong(state, ds);
   const confWrongN = confWrong ? confidentWrongCount(state, ds) : 0;
@@ -693,7 +680,7 @@ export function TodaySignature({ onOpenMore }: { onOpenMore: (focus?: 'ritual') 
   const emptyDay = flowNodes.length === 0;
 
   // W19 — 완료 날의 **다음 걸음 하나**(우선순위·근거는 `lib/todaySlots` 머리주석).
-  const nextStep = pickNextStep(riskN, openBl, frontierTitle);
+  const nextStep = pickNextStep(riskN, openBl);
   /* ── A-10(W7) — **적재량이 아니라 오늘 몫** ────────────────────────────────────────
      이 화면은 `freeLeftMin` 을 이미 알면서도 세 신호를 **적재량**으로 말했다(`복습 12개 밀림`).
      그 12는 어떤 행동으로도 오늘 안에 0이 될 수 없어 **마비를 만든다** — 알림(A-1)이 정확히

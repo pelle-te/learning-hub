@@ -31,7 +31,8 @@ describe('visitKeyOfLocation — 흡수된 화면이 자기 몫을 얻는다', (
   /* 로스터에서 `to` 를 그대로 읽는다 — 뷰 값이 바뀌거나 은퇴 탭이 늘어도 이 케이스가 따라온다
      (`routeLabelOfLocation` 이 손으로 적은 목록을 안 두는 것과 같은 규율). */
   it('⭐ `?view=` 로 흡수된 화면은 **자기 key** 로 센다', () => {
-    for (const key of ['forecast', 'mastery']) {
+    // ⛔ 'mastery' 가 2026-08-29 에 빠졌다(그 뷰 은퇴 · 부모 목적 정정).
+    for (const key of ['forecast']) {
       const to = tabByKey(key)?.to;
       expect(to, `${key} 는 to 를 가진 은퇴 탭이어야 한다`).toBeTruthy();
       const [path = '', query = ''] = String(to).split('?');
@@ -47,9 +48,9 @@ describe('visitKeyOfLocation — 흡수된 화면이 자기 몫을 얻는다', (
 
   /* H-12(이름 축)와 I034(관측 축)는 **같은 표를 읽는 짝**이다. 한쪽만 고치면 다시 갈린다. */
   it('이름과 키가 같은 판정을 쓴다 — 이름이 흡수된 화면을 말하면 키도 그 화면이다', () => {
-    const to = String(tabByKey('mastery')?.to);
+    const to = String(tabByKey('forecast')?.to);
     const [path = '', query = ''] = to.split('?');
-    expect(routeLabelOfLocation(path, `?${query}`)).toBe(tabByKey('mastery')?.label);
-    expect(visitKeyOfLocation(path, `?${query}`)).toBe('mastery');
+    expect(routeLabelOfLocation(path, `?${query}`)).toBe(tabByKey('forecast')?.label);
+    expect(visitKeyOfLocation(path, `?${query}`)).toBe('forecast');
   });
 });

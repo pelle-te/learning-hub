@@ -38,18 +38,17 @@
   --color-on-acc: var(--on-acc);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  /* 틴트 위 글자 전용(U050) — `text-warn-on-soft` · `text-bad-on-soft`. 근거는 `tokens.css` 라이트 블록. */
+  --color-warn-on-soft: var(--warn-on-soft);
+  --color-bad-on-soft: var(--bad-on-soft);
   --color-good: var(--good);
   --color-learning: var(--learning);
   /* 파생 의미론 색 — 계산은 tokens.css 가 하고 여기는 이름만 잇는다(C-7). */
   --color-line-acc: var(--line-acc);
   --color-line-acc-strong: var(--line-acc-strong);
-  --color-acc-on-txt: var(--acc-on-txt);
   /* 액센트 틴트 위의 액센트 글자 — `text-acc` 가 아니라 이것을 쓴다(근거는 tokens.css 의 표). */
   --color-acc-on-soft: var(--acc-on-soft);
   --color-tint-acc2: var(--tint-acc2);
-  --color-tint-acc2-strong: var(--tint-acc2-strong);
-  --color-line-acc2-strong: var(--line-acc2-strong);
-  --color-panel-acc2-faint: var(--panel-acc2-faint);
   --color-line-acc-focus: var(--line-acc-focus);
   --color-line-acc-hover: var(--line-acc-hover);
   --color-tint-warn-faint: var(--tint-warn-faint);
@@ -57,8 +56,9 @@
   --color-panel-acc-faint: var(--panel-acc-faint);
   --color-tint-bad-faint: var(--tint-bad-faint);
   --color-fill-plan: var(--fill-plan);
-  /* mastery(숙달도 지도) */
-  --color-panel-warn-faint: var(--panel-warn-faint);
+  /* ⚠ 「mastery(숙달도 지도)」라는 절 머리였다 — 그 화면은 2026-08-29 에 은퇴했고 아래 다섯은
+     다른 화면들이 계속 쓴다(U055 · 2026-08-31). 절을 화면 이름으로 나누면 그 화면이 죽을 때
+     남은 항목들이 **고아처럼 보인다** — 지우면 안 되는 것이 지울 것처럼 읽히는 형태다. */
   --color-line-warn: var(--line-warn);
   --color-line-soft: var(--line-soft);
   --color-tint-line2: var(--tint-line2);
@@ -133,17 +133,11 @@
   --container-runner: 720px;
   --container-runner-narrow: 560px;
   --container-guide: 900px;
-  /* 라벨 컬럼 min-width(goals) — `em` 이라 폰트에 상대적이다(사다리 칸이 아니라 이름 붙인
-     상대 크기 · 규약 3 과 같은 이유). 임의값(`min-w-[4.5em]`)은 린트가 막으므로 이름을 준다. */
-  --container-wval: 2.5em;
-  --container-projk: 4.5em;
-
-  /* auto-fill 카드 그리드(goals) — `grid-cols-[repeat(auto-fill,minmax(240px,1fr))]` 임의값
-     대신 테마 항목(규약 2 · guide 의 `--grid-template-columns-guide` 와 같은 처리). */
-  --grid-template-columns-goals: repeat(auto-fill, minmax(240px, 1fr));
-  /* review·mastery 2컬럼 — 본문(유동) + 사이드(고정 420px). 값 동일하나 feature 별로 둔다. */
+  /* ⛔ **선언 0인 주석 둘을 지웠다**(U055 · 2026-08-31): 「라벨 컬럼 min-width(goals)」와
+     「auto-fill 카드 그리드(goals)」 — 2026-08-29 에 선언만 빠지고 설명이 남아 있었다.
+     복구: `git show HEAD:web/src/styles/tokenBridge.css` */
+  /* review 2컬럼 — 본문(유동) + 사이드(고정 420px). 값 동일하나 feature 별로 둔다. */
   --grid-template-columns-review: minmax(0, 1fr) 420px;
-  --grid-template-columns-mastery: minmax(0, 1fr) 420px;
   /* ledger 2컬럼 — 매트릭스(유동) + 행동(고정 380px). 챕터 상세 오버레이 폭 상한(min(360px,82%)). */
   --grid-template-columns-ledger: minmax(0, 1fr) 380px;
   --container-ledger-detail: min(360px, 82%);
@@ -217,24 +211,26 @@
   --text-lg: var(--fs-lg);
   --text-xl: var(--fs-xl);
   --text-2xl: var(--fs-2xl);
-  /* journal 빈 로그 글리프 — 큰 디스플레이 크기(--fs-display 44px · 위계용 사다리 밖 값). */
+  /* 빈 로그 글리프 등 — 큰 디스플레이 크기(`--fs-display` 44px · 위계용 사다리 밖 값). */
   --text-display: var(--fs-display);
   /* 유동 스케일 — 사다리 칸이 아니라 **이름 붙은 반응형 크기**다(tokens.css 참조). */
   --text-runner-prompt: var(--fs-runner-prompt);
   --text-runner-mark: var(--fs-runner-mark);
-  /* mastery 히어로 제목(clamp) · 개념행 이름·점 글자(em 상대) — 사다리 밖이라 이름을 준다. */
+  /* 히어로 제목(clamp) — 사다리 밖이라 이름을 준다. ⚠ 「mastery 히어로」라 적혀 있었는데 그
+     화면은 은퇴했다(U055); 지금 소비처는 원장 히어로다. 화면 이름을 라벨에 넣지 않는다. */
   --text-hero-title: var(--fs-fluid-lg);
-  --text-concept-nm: var(--fs-rel-md);
-  --text-msdot: var(--fs-rel-xs);
-  /* 본문 14px(=fs-base) — 팔레트 라벨·배분 보조 수치 등. Tailwind 내장 `text-base`(16px)와 이름이
-     겹쳐 그 이름을 못 쓴다(겹치면 기존 text-base 사용처가 통째로 14px 로 줄어든다). 별명을 준다. */
-  --text-base14: var(--fs-base);
+  /* 본문 14px(=`--fs-body`) — 팔레트 라벨·배분 보조 수치 등. Tailwind 내장 `text-base`(16px)와
+     이름이 겹쳐 그 이름을 못 쓴다(겹치면 기존 text-base 사용처가 통째로 14px 로 줄어든다).
+     ⚠ 유틸 이름은 `text-base14` 그대로 둔다 — **호출부 20곳의 개명은 이 항목의 범위가 아니고**,
+     혼동의 근원이었던 «같은 접미사 두 값»은 원천 쪽 개명(`--fs-base` → `--fs-body`)으로 이미
+     끊겼다(U073). 남은 것은 유틸 이름 하나이고 그건 값을 하나만 가리킨다. */
+  --text-base14: var(--fs-body);
   /* ── 내장 이름을 **px 로 못박는다**(U002) ──────────────────────────────────────────
      아래 넷은 이 저장소가 쓰면서 **선언한 적 없는** 칸이라 Tailwind 기본값(rem)으로 실렸다.
      위 `--spacing` 과 같은 이유로 px 로 고정한다 — 값은 기본 루트(16px)에서의 계산값 그대로라
      **픽셀이 안 바뀐다**. 여기 적어 두는 두 번째 이유는 이제 이 이름들이 **검사에 잡힌다**는
      것이다(`check-tokens.mjs` 의 미선언 사다리 검사 · U001). */
-  --text-base: 16px; /* 21곳 — ⚠ `--fs-base`(14px)와 다른 값이다. 14px 은 `text-base14`. */
+  --text-base: 16px; /* 21곳 — 본문 14px 은 `--fs-body` → 유틸 `text-base14`. */
   --text-3xl: 30px; /* 3곳 — 위계용 큰 수치(`--fs-hero` 와 같은 값) */
   --text-4xl: 36px; /* 1곳 — 집중 HUD 시계 */
   --text-5xl: 48px; /* 1곳 — 폰 완주 글리프 */
@@ -314,14 +310,13 @@
   --tracking-title: -0.02em;
   --tracking-price: -0.01em;
 
-  /* mastery 히어로 밴드 간격·좌우 패딩(clamp 유동값). ledger 히어로도 --spacing-hero-gap 을 공유(값 동일). */
+  /* 히어로 밴드 간격·좌우 패딩(clamp 유동값) — 지금 소비처는 원장 히어로다(U055 정정). */
   --spacing-hero-gap: clamp(18px, 3vw, 38px);
   --spacing-hero-px: clamp(20px, 2.6vw, 30px);
   /* ledger 퍼널 5단계 막대 사이 간격(clamp 유동값). */
   --spacing-funnel-gap: clamp(10px, 1.8vw, 22px);
 
   /* 폭 상한 — 원장의 비활성 안내 블록. 임의값(`max-w-[620px]`) 대신 이름. */
-  --container-off: 620px;
 
   /* 소형 대문자 태그 자간 0.04em(일 계획 트레이·받은칸 머리글) — 내장 tracking 사다리
      (wide 0.025 / wider 0.05) 밖의 정확한 값이라 이름을 준다(caps 계열과 같은 논리). */
@@ -391,7 +386,7 @@
 
   /* items 타이포 — 링 중앙 디스플레이(46/19px)·눈금(8px)·과목명(19/17px)·반픽셀 라벨
      (12.5/10.5/9.5/11.5px). 전부 --fs-* 사다리 밖의 정확값이라 이름을 준다(§14-3 · 픽셀 보존). */
-  --text-ring-num: var(--fs-display-lg);
+  --text-ring-num: var(--fs-display); /* 46 → 44 (U074 · 사다리 칸 하나를 접었다) */
   --text-ring-num-unit: var(--fs-title-sm);
   --text-ring-tick: var(--fs-nano);
   --text-ring-pct-unit: var(--fs-micro);
@@ -406,6 +401,14 @@
   --tracking-skel: 0.14em;
   --tracking-mode-sub: 0.06em;
   /* items 반경 — 드래그 래퍼(14px)·요일 칩/막대(8px)·일과 블록/요일별 그리드(9px). r-sm(7)↔r-lg(16) 사다리 밖. */
+  /* 14px 반경 — 이 값에 이름이 **셋**이었다(`drag`·`empty-glyph`·`palette` · U070·U088 ·
+     2026-08-31). 셋 다 같은 픽셀인데 이름이 나르던 것은 «어떤 모양인가»가 아니라 **«어느 화면에서
+     처음 만들어졌는가»** 였고, 그러면 새 화면은 자기 이름을 또 만드는 것이 항상 옳은 선택이 된다
+     (반경 이름 17이 값 12를 가리키게 된 기전 그대로). 하나로 접고 나머지 둘은 **별칭**이다 —
+     픽셀 0 변화이고 호출부(`rounded-drag`·`rounded-empty-glyph`·`rounded-palette`)도 안 건드린다.
+     ⚠ 별칭을 남기는 이유: 셋이 **나중에 갈릴 수 있는 다른 역할**이긴 하다(드래그 카드 · 빈 상태
+     글리프 · 팔레트 시트). 지금 갈려 있지 않다는 사실만 한 곳에 모아 두면, 갈라야 할 때 무엇을
+     갈랐는지가 보인다. 값을 손으로 세 번 적는 것과는 다르다. */
   --radius-drag: 14px;
   --radius-chip: 8px;
   --radius-blk: 9px;
@@ -509,6 +512,7 @@
      접힘/펼침 두 벌 기하가 한 컴포넌트에 있다. 반픽셀 폰트(13.5/12.5/10.5)는 정수 사다리 밖이라
      이름을 준다(eslint 임의값 금지의 예고된 예외 ① — 값으로 쓰지 말고 이름으로). 반경 9/8px 는
      기존 --radius-blk/--radius-chip 과 값이 같지만 의미가 달라 별칭을 둔다(graph --tracking-kind 선례). */
+  --text-rail-lead: var(--fs-lg); /* 나브 **선두 3행**(매일 여는 축) — 무게 3단의 1단 */
   --text-rail-item: var(--fs-label); /* 나브 행 라벨 */
   --text-rail-head: var(--fs-caption); /* 그룹 헤더 · 배지 */
   --radius-rail: 9px; /* 나브 행 · 토글 */
@@ -561,7 +565,7 @@
   --text-empty-glyph: var(--fs-display); /* 44px */
   --text-empty-title: var(--fs-hero); /* 30px */
   --tracking-empty-title: -0.01em;
-  --radius-empty-glyph: 14px;
+  --radius-empty-glyph: var(--radius-drag); /* = 14px · 위 14px 절 참조 */
 
   /* OnlineStatus — 배지 폭 상한(뷰포트 - 좌우 16px). `max-w-[calc(100vw-32px)]` 는
      임의 수치 금지에 걸리므로 이름으로 옮긴다. */
@@ -603,7 +607,7 @@
   --color-tint-acc-6: var(--tint-acc-6);
   --container-palette: 640px;
   --width-palette: 92vw;
-  --radius-palette: 14px;
+  --radius-palette: var(--radius-drag); /* = 14px · 위 14px 절 참조 */
   --blur-palette: 2px;
   --spacing-palette-y: 18vh; /* 시트 상단 오프셋 — top-* 는 spacing 스케일을 읽는다 */
   --spacing-palette-list: 50vh; /* 목록 최대 높이 */

@@ -35,6 +35,7 @@ import { tabByKey } from '@/shell/tabs';
 import { ChromeMuteProvider } from '@/store/usePageChrome';
 import { useOverlay } from '@/store/useOverlay';
 import State from '@/components/State';
+import { artifactErrorCopy } from '@/lib/artifactState';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 
@@ -86,7 +87,7 @@ export default function WorkbenchPane() {
               <State
                 kind="error"
                 title={`${label} 를 못 그렸어요`}
-                desc={String(p.error)}
+                desc={artifactErrorCopy(p.error)}
                 next={{ terminal: '닫고 다시 열어 보세요.' }}
               />
             )}

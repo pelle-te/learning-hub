@@ -51,7 +51,7 @@ describe('subjectRollup — 과목 롤업', () => {
     expect(r.reached.noted).toBe(3);
     expect(r.reached.verified).toBe(2); // a, c
     expect(r.reached.carded).toBe(1); // c
-    expect(r.reached.reviewed).toBe(0);
+    // ⛔ `reviewed` 단언이 2026-08-29 에 빠졌다 — 그 단계가 은퇴했다(부모 스키마 파생).
   });
 
   it('furthestDist는 furthest 값별 챕터 수(planned 포함)', () => {
@@ -62,12 +62,12 @@ describe('subjectRollup — 과목 롤업', () => {
     expect(r.furthestDist.verified).toBe(0);
   });
 
-  it('progress = Σ(stageIndex+1)/(total*5) — 0..1', () => {
-    // reviewed(idx4→5) + planned(idx-1→0) = 5 / (2*5) = 0.5
-    const s = subject([ch('a', 'reviewed'), ch('b', 'planned')]);
+  it('progress = Σ(stageIndex+1)/(total*4) — 0..1', () => {
+    // carded(idx3→4) + planned(idx-1→0) = 4 / (2*4) = 0.5  ⛔ reviewed 은퇴로 분모가 5→4
+    const s = subject([ch('a', 'carded'), ch('b', 'planned')]);
     expect(subjectRollup('과목', s).progress).toBeCloseTo(0.5, 6);
-    // 전부 reviewed → 1.0, 전부 planned → 0
-    expect(subjectRollup('x', subject([ch('a', 'reviewed')])).progress).toBe(1);
+    // 전부 carded → 1.0, 전부 planned → 0
+    expect(subjectRollup('x', subject([ch('a', 'carded')])).progress).toBe(1);
     expect(subjectRollup('x', subject([ch('a', 'planned')])).progress).toBe(0);
   });
 
@@ -98,7 +98,7 @@ function mkLedger(subjects: Record<string, LedgerSubject>): Ledger {
 describe('subjectRollups — 정렬', () => {
   it('진척 낮은 과목이 먼저(손볼 곳 우선), 동률이면 챕터 많은 순', () => {
     const led = mkLedger({
-      앞선: subject([ch('a', 'reviewed'), ch('b', 'carded')]),
+      앞선: subject([ch('a', 'carded'), ch('b', 'verified')]),
       뒤진: subject([ch('c', 'noted')]),
       중간: subject([ch('d', 'verified'), ch('e', 'verified')]),
     });
@@ -110,7 +110,8 @@ describe('subjectRollups — 정렬', () => {
 
 describe('bottleneckStage — 병목', () => {
   it('인접 단계 통과율이 가장 낮은 지점을 고른다', () => {
-    // noted 10 전부, verified 2만(통과율 0.2=최저), carded 2, reviewed 0
+    /* ⛔ 2026-08-29 — 종전 답은 `reviewed`(from carded 2 → 0/2 = 0)였다. 그 단계가 은퇴해
+       사슬이 carded 에서 끝나므로 이제 최저는 **verified**(from noted 10 → 2/10 = 0.2)다. */
     const led = mkLedger({
       s: subject([
         ...Array.from({ length: 8 }, (_, i) => ch(`n${i}`, 'noted')),
@@ -119,11 +120,9 @@ describe('bottleneckStage — 병목', () => {
       ]),
     });
     const b = bottleneckStage(led)!;
-    // noted=10, verified=2 → ratio 0.2 최저(reviewed=0/carded=2 ratio 0이지만 carded from verified... 확인)
-    // reviewed: from carded(2) → 0/2 = 0 이 실제 최저
-    expect(b.stage).toBe('reviewed');
-    expect(b.passed).toBe(0);
-    expect(b.from).toBe(2);
+    expect(b.stage).toBe('verified');
+    expect(b.passed).toBe(2);
+    expect(b.from).toBe(10);
   });
 
   it('직전 단계가 0이면 그 단계는 건너뛴다(0 나눗셈 방어)', () => {
@@ -141,15 +140,15 @@ describe('bottleneckStage — 병목', () => {
 describe('stageIndex / furthestColor', () => {
   it('stageIndex: 5단계 0..4, planned -1', () => {
     expect(stageIndex('sourced')).toBe(0);
-    expect(stageIndex('reviewed')).toBe(4);
+    expect(stageIndex('carded')).toBe(3);
     expect(stageIndex('planned')).toBe(-1);
   });
   it('furthestColor: planned는 회색, 각 단계는 STAGE_META 색', () => {
     expect(furthestColor('planned')).toBe(PLANNED_COLOR);
     expect(furthestColor('verified')).toBe(STAGE_META.verified.color);
   });
-  it('STAGE_META는 5단계 전부 라벨·색을 가진다', () => {
-    expect(LEDGER_STAGES.length).toBe(5); // 분모 — 비면 아래 순회가 공허하게 통과한다(2026-07-31 감사 F3)
+  it('STAGE_META는 4단계 전부 라벨·색을 가진다', () => {
+    expect(LEDGER_STAGES.length).toBe(4); // 분모 — 비면 아래 순회가 공허하게 통과한다(2026-07-31 감사 F3)
     for (const s of LEDGER_STAGES) {
       expect(STAGE_META[s].label).toBeTruthy();
       expect(STAGE_META[s].color).toBeTruthy();

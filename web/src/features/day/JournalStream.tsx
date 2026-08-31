@@ -210,7 +210,9 @@ export default function JournalStream({
           {blanks.map((b) => (
             <StreamRow key={`bl-${b.id}`} cursor={cursor} k={`bl-${b.id}`}>
               <span className={`${NODE} rounded-full bg-bg shadow-node-ring`} />
-              <span className={`${KIND} ${b.passed ? 'bg-tint-good text-good' : 'bg-tint-warn-soft text-warn'}`}>
+              <span
+                className={`${KIND} ${b.passed ? 'bg-tint-good text-good' : 'bg-tint-warn-soft text-warn-on-soft'}`}
+              >
                 {b.passed ? '백지 통과' : '백지 막힘'}
               </span>
               <span

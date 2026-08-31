@@ -1,0 +1,6 @@
+
+Running 2 tests using 1 worker
+
+[1/2] [chromium] › e2e\visual.spec.ts:83:5 › today · dark
+[2/2] [chromium] › e2e\visual.spec.ts:83:5 › items · dark
+  2 passed (2.6s)

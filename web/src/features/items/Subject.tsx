@@ -13,13 +13,15 @@
    (`?sid=` 를 받는 화면은 `Mistakes` 하나였다).
 
    ## 구조 — 상단 리드아웃 + 3열
-   [챕터·정의 | 앎(원장 5단계 + 숙달) | 인출·오답(sid 고정)].
+   [챕터·정의 | 앎(원장 단계) | 인출·오답(sid 고정)].
    챕터는 `#ch-<id>` 앵커를 얻는다 — ⌘K 의 챕터 히트가 처음으로 **자기 자리**에 착지한다.
 
-   ⚠ 자기비평(로드맵에 적힌 그대로 남긴다): 과목이 10개 미만이면 교차 매트릭스(ledger·mastery
-   히트맵)가 객체 화면보다 빠르고, 그러면 이 층은 클릭을 하나 더 만드는 것뿐일 수 있다. 그래서
-   1단계는 **흡수를 하지 않는다** — `ledger`·`mastery` 탭은 그대로 살아 있고 여기선 그 화면들이
+   ⚠ 자기비평(로드맵에 적힌 그대로 남긴다): 과목이 10개 미만이면 교차 매트릭스(원장 히트맵)가
+   객체 화면보다 빠르고, 그러면 이 층은 클릭을 하나 더 만드는 것뿐일 수 있다. 그래서
+   1단계는 **흡수를 하지 않는다** — `ledger` 탭은 그대로 살아 있고 여기선 그 화면이
    이미 계산하는 파생을 *이 과목 한 줄로* 요약해 보여 주고 딥링크만 건다.
+   ⚠ 「숙달도」 열은 2026-08-29 은퇴와 함께 사라졌다(그 탭도 · U044) — 위 문단의 `mastery` 는
+   **2026-07-31 당시의 관측 기록**이라 그대로 둔다.
 ============================================================ */
 import { Suspense, lazy, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -27,7 +29,7 @@ import { useApp } from '@/store/useApp';
 import { useSchedule } from '@/store/selectors';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { useHashTarget } from '@/hooks/useHashTarget';
-import { useLedger, useKnowledge, usePing } from '@/store/queries';
+import { useLedger } from '@/store/queries';
 import { commitUndoable } from '@/shell';
 import { riskChapters } from '@/lib/spacedReview';
 import { subjectRollup, LEDGER_STAGES, STAGE_META } from '@/lib/ledger';
@@ -35,7 +37,7 @@ import { matchSubjectIndex } from '@/lib/subjectMatch';
 import { weakCountBySid } from '@/lib/insights';
 import { removeSidFromAlloc, rowSumMin, allocView, weekMonOf } from '@/lib/weekAlloc';
 import { removeSidFromDayPlans } from '@/lib/dayPlans';
-import { todayISO, hNum, ddayInfo, dayDiff, pctLabel } from '@/lib/utils';
+import { todayISO, hNum, ddayInfo, dayDiff } from '@/lib/utils';
 import { EXAM_LABEL, nextExamOf } from '@/lib/semester';
 import { weeklyLectureMin } from '@/lib/scheduler';
 import { BAND_LABEL, chapterStrengths, unseenAt } from '@/lib/chapterStrength';
@@ -54,21 +56,16 @@ const ExamSheet = lazy(() => import('./ExamSheet'));
 const COL = 'flex min-h-0 min-w-0 flex-col gap-3.5 overflow-y-auto [scrollbar-width:thin]';
 const CARD_T = 'mb-2! ds-caps';
 
-/** 앎 컬럼 — 원장 5단계(이 과목) + 지식엔진 숙달. **계산은 각 lib 이 이미 소유한다.** */
+/** 앎 컬럼 — 원장 단계(이 과목). **계산은 각 lib 이 이미 소유한다.**
+ *  ⚠ 「숙달도 — 지식엔진」 카드는 2026-08-31 에 걷었다(U044): 생산자가 은퇴해 그 값은 영영 안 오는데
+ *  카드는 「아직 관측이 없어요」라 말해 기다리라는 뜻이 됐다. 죽은 것을 콜드로 그리지 않는다. */
 function Knowing({ name }: { name: string }) {
   const led = useLedger();
-  const ping = usePing();
-  const know = useKnowledge(ping.isSuccess).data;
   const navigate = useNavigate();
 
   const names = Object.keys(led.data?.subjects || {});
   const li = matchSubjectIndex(name, names);
   const roll = li >= 0 ? subjectRollup(names[li]!, led.data!.subjects[names[li]!]!) : null;
-
-  const kSubs = know?.subjects || [];
-  const kNames = kSubs.map((s) => s.subject);
-  const ki = matchSubjectIndex(name, kNames);
-  const mastery = ki >= 0 ? (kSubs[ki]?.mastery ?? null) : null;
 
   return (
     <div className={COL}>
@@ -104,21 +101,6 @@ function Knowing({ name }: { name: string }) {
           </>
         ) : (
           <p className="ds-tiny text-mut">볼트 원장에 이 과목이 아직 없어요(워크스페이스·빌드 필요).</p>
-        )}
-      </div>
-      <div className="ds-rule">
-        <h3 className={CARD_T}>숙달도 — 지식엔진</h3>
-        {mastery != null ? (
-          <>
-            <div className="text-2xl font-extrabold tabular-nums">{pctLabel(mastery)}</div>
-            <Button sm variant="ghost" className="mt-2" onClick={() => navigate('/mastery')}>
-              숙달도 지도 →
-            </Button>
-          </>
-        ) : (
-          /* ⚠ "0%" 로 그리지 않는다 — 값 부재와 값 0 이 같은 픽셀이 되면 그게 곧 조용한 거짓말이다
-             (`visits.ts` 가 물린 "쌓이고 있다는 믿음만 쌓인다"와 같은 부류). */
-          <p className="ds-tiny text-mut">아직 관측이 없어요 — 지식엔진이 이 과목을 아직 모릅니다.</p>
         )}
       </div>
     </div>

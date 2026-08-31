@@ -501,7 +501,7 @@ export default function Settings() {
           </div>
           <div className="ds-fld">
             <div className={S.subLabel} id="set-graph-prio">
-              그래프 우선순위 <span className="ds-tiny text-mut">(지식엔진 숙달도로 배분 보정 · 설계 B)</span>
+              그래프 우선순위 <span className="ds-tiny text-mut">(과목 숙달도로 배분 보정 · 설계 B)</span>
             </div>
             <div className={S.fldBody} role="group" aria-labelledby="set-graph-prio">
               <label className={`ds-chkRow ${S.chkFlush}`}>
@@ -510,9 +510,16 @@ export default function Settings() {
                   checked={state.graphPriority}
                   onChange={(e) => set('graphPriority', e.target.checked)}
                 />{' '}
+                {/* ⚠⚠ **없는 탭을 처방하고 있었다**(U044 · 2026-08-31). 종전 문구는 *"숙달도 지도
+                    **탭에서** 지식상태를 먼저 불러와야 작동"* 이었는데 그 탭은 2026-08-29 에
+                    은퇴했다 — 사용자가 따라갈 곳이 없는 지시다. 그리고 **평문이라 불변식 ⑰의
+                    사각이었다**(그 집행자는 `<Tab>`·`<b>…</b> 탭` 태그 문법 셋만 본다 · 회차 R2).
+                    ⚠ 스위치 자체는 안 건드린다 — 스케줄러(`lib/scheduler/priority.ts`)가 아직
+                    이 값을 읽고, 그 입력(`_knowState`)이 은퇴 이전 스냅샷으로 남아 있는 문제는
+                    **데이터 축의 별도 항목**이다(이 회차의 축 밖 이월). 여기서 고치는 것은
+                    화면이 하는 말이지 배치 동작이 아니다. */}
                 <span>
-                  같은 마감 긴급도면 <b>숙달 낮은(약한) 과목을 먼저</b> 배치. 숙달도 지도 탭에서 지식상태를 먼저
-                  불러와야 작동(없으면 영향 0).
+                  같은 마감 긴급도면 <b>숙달 낮은(약한) 과목을 먼저</b> 배치. 숙달도 값이 없으면 영향 0입니다.
                 </span>
               </label>
             </div>

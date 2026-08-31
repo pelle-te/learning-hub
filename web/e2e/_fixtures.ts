@@ -22,126 +22,26 @@ import { type Page } from '@playwright/test';
 
 export const FIXED = new Date('2026-06-15T09:00:00');
 
-// 내 길(goals) — 손저작 goals.json 을 고정 fixture 로(P9 Phase 6 · 실 계약과 동형 · 결정론 캡처).
-export const GOALS_FIXTURE = {
-  _schemaVersion: 1,
-  nodes: [
-    {
-      id: 'research-independence',
-      kind: 'goal',
-      title: '전파통신 분야 연구원으로 자립',
-      weight: 1.0,
-      active: true,
-      parent: null,
-    },
-    {
-      id: 'communication-theory',
-      kind: 'goal',
-      title: '통신이론',
-      weight: 1.0,
-      active: true,
-      parent: 'research-independence',
-    },
-    {
-      id: 'signal-processing',
-      kind: 'goal',
-      title: '신호처리',
-      weight: 0.95,
-      active: true,
-      parent: 'research-independence',
-    },
-    {
-      id: 'research-skills',
-      kind: 'goal',
-      title: '논문·실험 역량',
-      weight: 0.9,
-      active: true,
-      parent: 'research-independence',
-    },
-    { id: 'rf-circuits', kind: 'goal', title: 'RF회로', weight: 0.85, active: true, parent: 'research-independence' },
-    { id: 'antennas', kind: 'goal', title: '안테나', weight: 0.8, active: true, parent: 'research-independence' },
-    {
-      id: 'degree-requirement',
-      kind: 'goal',
-      title: '전자공학 학위요건 충족',
-      weight: 0.5,
-      active: true,
-      parent: 'research-independence',
-      degree_req: { targetTotal: 128, reqMajorReq: 41, reqMajorSel: 27, reqLiberal: 51 },
-    },
-  ],
-};
+/* ⛔⛔ **`GOALS_FIXTURE`·`KNOWLEDGE_FIXTURE` 가 여기 있었다 — 2026-08-31 에 지웠다**(U049·U082).
+   두 산출물의 **생산자가 부모에서 삭제**됐고(2026-08-29 · 목적 정정), 앱 쪽 페치는 이제 즉시
+   진다. 그런데 이 스텁들은 계속 그것을 **먹이고 있었다** — 즉 트랙 A 의 전 베이스라인이
+   «더는 발생할 수 없는 데이터 상태»를 찍고 있었다는 뜻이다.
+   ⚠ 이건 「안 쓰는 상수」 정리가 아니라 **검증망이 실물과 갈린 것**이다: 스냅샷이 계속 초록인
+   채로 실물 화면이 다른 것을 그린다(이 저장소가 §15-4 에서 이미 물린 부류).
+   복구: `git show HEAD:web/e2e/_fixtures.ts` */
 
-/* 지식상태(knowledge) — 숙달도 지도·주간리뷰가 소비. 로컬 serve.js 가 켜진 채 기록하면 라이브 볼트
-   데이터(노트 수·생성일)가 스냅샷에 새어들어 다음 환경에서 RED(mastery 회귀의 실제 원인이었음).
-   고정 fixture 로 봉인 — 데이터 있는 상태를 결정론 캡처(옛 reads/markets 와 같은 규율 · P8 E-3). */
-export const KNOWLEDGE_FIXTURE = {
-  _schemaVersion: 1,
-  generated: '2026-06-15T08:00:00',
-  n_notes: 42,
-  overall: 0.55,
-  states: { mastered: 12, learning: 18, weak: 6, unknown: 6 },
-  subjects: [
-    {
-      subject: '기초 수학',
-      mastery: 0.62,
-      n: 18,
-      weak: 2,
-      unknown: 2,
-      concepts: [
-        { title: '극한과 연속', basename: '극한과 연속', p_eff: 0.9, state: 'mastered' },
-        { title: '도함수의 응용', basename: '도함수의 응용', p_eff: 0.7, state: 'learning', frontier: true },
-        { title: '적분 기법', basename: '적분 기법', p_eff: 0.35, state: 'weak', weak: true, root_cause: '부분적분' },
-        { title: '급수 수렴판정', basename: '급수 수렴판정', p_eff: 0.1, state: 'unknown' },
-      ],
-    },
-    {
-      subject: '선형대수',
-      mastery: 0.48,
-      n: 14,
-      weak: 3,
-      unknown: 2,
-      concepts: [
-        { title: '가우스 소거', basename: '가우스 소거', p_eff: 0.85, state: 'mastered' },
-        { title: '벡터공간', basename: '벡터공간', p_eff: 0.55, state: 'learning' },
-        {
-          title: '고유값 분해',
-          basename: '고유값 분해',
-          p_eff: 0.3,
-          state: 'weak',
-          weak: true,
-          root_cause: '벡터공간',
-        },
-      ],
-    },
-  ],
-  frontier: [
-    { basename: '도함수의 응용', title: '도함수의 응용', subject: '기초 수학', p_eff: 0.7, prereq_in: 4 },
-    { basename: '벡터공간', title: '벡터공간', subject: '선형대수', p_eff: 0.55, prereq_in: 3 },
-  ],
-  gaps: [
-    { title: '적분 기법', basename: '적분 기법', subject: '기초 수학', p_eff: 0.35, root_cause: '부분적분' },
-    { title: '고유값 분해', basename: '고유값 분해', subject: '선형대수', p_eff: 0.3, root_cause: '벡터공간' },
-  ],
-  calibration: {
-    n_errors: 9,
-    confident_wrong: 2,
-    overconfidence_rate: 0.22,
-    blank_total: 10,
-    blank_pass: 7,
-    blank_pass_rate: 0.7,
-  },
-};
-
-/* 정본 원장(ledger) — 과목×챕터 5단계 파이프라인. C-7 Tailwind 이식 전 시각 커버리지가 0이었다
-   (mastery 처럼 볼트 산출물에 그려지므로 트랙 A 에선 목업 없이는 '셋업 안내'만 뜬다). 이식이
-   퍼널·매트릭스·병목·백로그를 통째로 픽셀 교체하므로 그 전에 데이터 있는 상태를 잠근다(§15-4). */
 export const LEDGER_FIXTURE = {
   _schemaVersion: 1,
   generated: '2026-06-15T08:00:00',
   generated_by: '챕터원장.py',
   n_chapters: 10,
-  stage_counts: { sourced: 10, noted: 8, verified: 3, carded: 5, reviewed: 2 },
+  /* ⚠⚠ **`reviewed` 단계를 걷었다**(U043 · 2026-08-31). 부모 `챕터원장.py` 의 `STAGES` 는
+     2026-08-29 부터 **4단계**이고 실 산출물에 `"furthest": "reviewed"` 는 0건인데, 이 픽스처만
+     **옛 5단계 계약**을 들고 있었다. 그게 무해했던 이유는 `lib/ledger.ts` 의 경계가 넓어서
+     (`z.string()`) 그냥 통과시켰기 때문이고, 같은 넓이가 `/ledger` 를 탭째 죽이는 경로였다.
+     ⭐ 경계를 조이자 **이 픽스처가 먼저 걸렸다** — 즉 검증망이 «더는 발생할 수 없는 데이터»를
+     먹이고 있었다는 증거이고, 그건 이 회차가 `goals`·`knowledge` 픽스처에서 지운 것과 같은 부류다. */
+  stage_counts: { sourced: 10, noted: 8, verified: 3, carded: 5 },
   backlog: { unprocessed_src: ['전자기학', '마이크로파'], subjects_without_src: ['안테나'] },
   subjects: {
     통신이론: {
@@ -162,8 +62,8 @@ export const LEDGER_FIXTURE = {
           cards: 12,
           reps: 40,
           reviewed_recent: '2026-06-10',
-          milestones: { sourced: true, noted: true, verified: true, carded: true, reviewed: true },
-          furthest: 'reviewed',
+          milestones: { sourced: true, noted: true, verified: true, carded: true },
+          furthest: 'carded',
         },
         {
           chapter_id: 'ct-2',
@@ -176,7 +76,7 @@ export const LEDGER_FIXTURE = {
           cards: 8,
           reps: 12,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: true, carded: true, reviewed: false },
+          milestones: { sourced: true, noted: true, verified: true, carded: true },
           furthest: 'carded',
         },
         {
@@ -190,7 +90,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: false, carded: false, reviewed: false },
+          milestones: { sourced: true, noted: true, verified: false, carded: false },
           furthest: 'noted',
         },
         {
@@ -204,7 +104,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: false, verified: false, carded: false, reviewed: false },
+          milestones: { sourced: true, noted: false, verified: false, carded: false },
           furthest: 'sourced',
         },
       ],
@@ -227,7 +127,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: true, carded: false, reviewed: false },
+          milestones: { sourced: true, noted: true, verified: true, carded: false },
           furthest: 'verified',
         },
         {
@@ -241,7 +141,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: false, carded: false, reviewed: false },
+          milestones: { sourced: true, noted: true, verified: false, carded: false },
           furthest: 'noted',
         },
         {
@@ -255,7 +155,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: false, noted: false, verified: false, carded: false, reviewed: false },
+          milestones: { sourced: false, noted: false, verified: false, carded: false },
           furthest: 'planned',
         },
       ],
@@ -278,7 +178,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: false, carded: false, reviewed: false },
+          milestones: { sourced: true, noted: true, verified: false, carded: false },
           furthest: 'noted',
         },
         {
@@ -292,7 +192,7 @@ export const LEDGER_FIXTURE = {
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: false, noted: false, verified: false, carded: false, reviewed: false },
+          milestones: { sourced: false, noted: false, verified: false, carded: false },
           furthest: 'planned',
         },
       ],
@@ -512,16 +412,14 @@ export const A11Y_EXTRA: ExtraScreen[] = [
      `items-structure` 와 정확히 같은 이유로 여기 있다: 뷰는 `TABS` 로스터 밖이라, 안 넣으면
      **탭을 접은 대가로 a11y 커버리지가 조용히 사라진다.**
      ⚠ 셋째였던 `discovery-atlas` 는 P10 W4 에서 빠졌다 — 흡수한 호스트째로 `survey/` 로 갔다. */
-  {
-    key: 'degree-path',
-    path: '/degree?view=path',
-    // 히어로가 실제로 그려졌다는 증거 — 세그먼트가 눌린 것만으로는 뷰가 렌더됐다고 못 한다.
-    ready: (page) => page.getByText('내 길 · 성취목표').waitFor(),
-  },
+  /* ⛔ **`ready` 로 `h1` 을 쓰지 않는다**(U049 · 2026-08-31). 이 앱의 `<h1>` 은 `TopBar` 워드마크
+     하나뿐이라 **모든 화면에서 잡힌다** — 즉 그 단언은 「셸이 떴다」이지 「이 뷰가 떴다」가
+     아니다. 실제로 그 형태의 케이스 하나가 리다이렉트된 남의 화면을 **초록으로** 검사하고 있었다.
+     대신 그 뷰만 갖는 표제를 쓴다. */
   {
     key: 'find-guide',
     path: '/find?view=guide',
-    ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
+    ready: (page) => page.getByRole('heading', { name: /이 시스템이 할 수 있는 것/ }).waitFor(),
   },
   /* ⚠ **W8(2026-08-07)** — 학기 인입구·결산. 흡수 뷰들과 같은 이유로 여기 있다(로스터 밖이라
      안 넣으면 아무도 안 본다). 인입구는 **폼이 많은 화면**이라 a11y 표면이 넓다(라벨·체크박스). */
@@ -535,6 +433,13 @@ export const A11Y_EXTRA: ExtraScreen[] = [
     path: '/degree?view=close',
     ready: (page) => page.getByText('다음 학기가 배운 것').waitFor(),
   },
+  /* ⚠ **`req` 만 두 커버리지 로스터 어디에도 없었다**(U066 · 2026-08-31) — `role:'view'` 넷 중
+     셋은 여기 있었고 이것만 빠져 있었다. 이제 불변식 ⑱의 짝이 그 표류를 막는다(`invariants.test.ts`). */
+  {
+    key: 'degree-req',
+    path: '/degree?view=req',
+    ready: (page) => page.getByText('졸업요건 충족 현황').waitFor(),
+  },
   {
     key: 'subject-sheet',
     path: '/subject/m?view=sheet',
@@ -545,19 +450,18 @@ export const A11Y_EXTRA: ExtraScreen[] = [
      조용히 사라진다**(로스터에서 뺐으니 아무도 안 본다).
      ⚠ 시계를 미는 이유는 `review-run` 과 같다 — 파도가 없으면 빈 화면이고 그건 거의 아무것도
      안 잰다. */
-  /* ⚠ **A-19(W5)** — `mastery` → `ledger` 의 뷰. 위 흡수 뷰들과 같은 이유로 여기 있다. */
-  {
-    key: 'ledger-mastery',
-    path: '/ledger?view=mastery',
-    ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
-  },
   {
     key: 'review-run-forecast',
     path: '/review-run?view=forecast',
     prep: async (page) => {
       await page.clock.install({ time: new Date('2026-09-01T09:00:00') });
     },
-    ready: (page) => page.getByRole('heading', { level: 1 }).first().waitFor(),
+    /* 위 `find-guide` 와 같은 이유로 `h1` 을 안 쓴다(U049). ⚠ 표제(`h2`)로도 못 잡는다 —
+       **이 시드에선 파도가 0이라 빈 상태가 뜬다**(위 «시계를 미는 이유» 문단이 기대한 것과
+       다르다 · 실측). 즉 이 케이스는 지금까지 줄곧 **빈 상태를 검사해 왔다.** 그래서 두 상태가
+       공유하는 **화면의 이름**(`section[aria-label]`)을 본다 — 그게 「그 화면이 떴다」의 정직한
+       최소 증거다. 파도가 있는 상태를 재려면 `visual.spec` 의 `SEED_FORECAST` 가 필요하다. */
+    ready: (page) => page.locator('section[aria-label="복습 부하 예보"]').waitFor(),
   },
 ];
 
@@ -807,11 +711,7 @@ export async function boot(page: Page, theme: string, seed: object = SEED, at: D
         transformCallback: (cb: unknown) => cb,
       };
     },
-    {
-      goals: GOALS_FIXTURE,
-      knowledge: KNOWLEDGE_FIXTURE,
-      ledger: LEDGER_FIXTURE,
-    } as Record<string, unknown>,
+    { ledger: LEDGER_FIXTURE } as Record<string, unknown>,
   );
   await page.clock.install({ time: at });
   await page.addInitScript(
@@ -878,17 +778,97 @@ export async function bootArtifactPhase(
         transformCallback: (cb: unknown) => cb,
       };
     },
-    [
-      {
-        goals: GOALS_FIXTURE,
-        knowledge: KNOWLEDGE_FIXTURE,
-        ledger: LEDGER_FIXTURE,
-      } as Record<string, unknown>,
-      target,
-      phase,
-    ] as const,
+    [{ ledger: LEDGER_FIXTURE } as Record<string, unknown>, target, phase] as const,
   );
 }
+
+/* ============================================================
+   `bootNoArtifacts` — **산출물까지 비운 진짜 빈 원장**(U063 · 2026-08-31).
+
+   ## 왜 필요했나 — `-empty-` 26장 중 셋이 자기 짝의 사본이었다
+
+   `${tab}-empty` 는 **앱 상태만** 비우는데(`SEED_EMPTY`), `boot()` 의 스텁은 산출물을 **언제나
+   resolve** 한다. 그래서 산출물로 그려지는 화면은 빈 시드에서도 **같은 그림**이 된다. 실측:
+   `ledger-empty-{dark,light}` 와 `find-empty-light` 가 각자의 짝과 **바이트 단위로 동일**했다
+   (해시까지 같다) — 아무것도 새로 재지 않는 두 번째 사본 셋.
+
+   그 대가가 정확히 어디에 청구됐나: `Ledger` 의 **진짜 빈 상태**(`Setup` — 이 앱에서 유일하게
+   CLI 두 줄을 처방하는, 그래서 **가장 낡기 쉬운** 화면)의 커버리지가 **0** 이다.
+
+   ## 어떻게
+
+   스텁이 `HTTP 404` 로 **reject** 한다 → `isNotYetError` 가 참 → `classifyArtifact` 가 `empty` 로
+   분류 → `State kind="empty"` 가 뜬다. 즉 앱의 판정 경로를 그대로 타고 들어가는 것이지,
+   화면을 손으로 그리는 것이 아니다.
+============================================================ */
+export async function bootNoArtifacts(page: Page, theme: string, seed: object = SEED_EMPTY, at: Date = FIXED) {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+      invoke: (cmd: string) =>
+        cmd === 'artifact_read'
+          ? Promise.reject(new Error('HTTP 404'))
+          : Promise.reject(new Error('NOT_FOUND e2e 스텁 — 이 커맨드는 목업되지 않았습니다')),
+      transformCallback: (cb: unknown) => cb,
+    };
+  });
+  await page.clock.install({ time: at });
+  await page.addInitScript(
+    ([s, th]) => {
+      try {
+        localStorage.setItem('study_planner_v3', JSON.stringify({ ...(s as object), theme: th }));
+      } catch {
+        /* noop */
+      }
+    },
+    [seed, theme] as const,
+  );
+}
+
+/* ============================================================
+   `SEED_MONTH_CHIPS` — **칩이 실제로 들어찬 월 달력**(U090 · 2026-08-31).
+
+   ## 왜 필요했나 — 사고가 났던 조건을 재현하는 시드가 없었다
+
+   `stylelint.config.js` 가 기록한 실사고: 반픽셀 폰트를 정수로 **상향**했더니 월 캘린더
+   `.cell`(고정 행 높이 + `overflow:hidden`)에서 0.5px 커진 만큼 칩 행이 눌려 **과목 칩이 통째로
+   잘렸다.** 그런데 공유 `SEED` 로 월 뷰를 띄우면 **42칸에 칩이 0개**다(실측) — 즉 그 사고를
+   재현할 수 있는 상태가 검증망에 **없었고**, 「넘침 0」은 안전의 증거가 아니라 **아무것도 안
+   쟀다는 증거**였다. `U069`(반픽셀 반올림)가 정확히 여기서 막혔다.
+
+   ## 무엇을 담나 — 「가장 빽빽한 날」이 요점이다
+
+   칩 공급원은 넷이다(`MonthCalendar`): 시험(마감) · 학사 눈금 · 일정 · 할 일. 한 칸에 **캡
+   (`MAX_CHIPS`)을 넘기도록** 몰아넣어 «+N개 더» 줄까지 세우고, 이웃 칸에는 종류별로 하나씩
+   흩어 **각 칩 종류의 조판**도 프레임에 든다.
+   ⚠ 날짜는 `FIXED`(2026-06-15)가 속한 달에 둔다 — 다른 달에 두면 첫 화면에 안 보인다.
+   ⚠ 공유 `SEED` 를 **안 건드린다**: 그러면 베이스라인 전량이 흔들린다(`SEED_FORECAST` 가
+   같은 이유로 자기 시드를 갖는다).
+============================================================ */
+export const SEED_MONTH_CHIPS = {
+  ...SEED,
+  items: [
+    {
+      ...(SEED.items[0] as object),
+      /* 한 칸에 시험 둘 — 「마감이 여럿인 날」이 잘림 사고의 원본 형상이다. */
+      exams: [
+        { id: 'ex-mid', kind: 'mid', date: '2026-06-17' },
+        { id: 'ex-fin', kind: 'final', date: '2026-06-17' },
+      ],
+    },
+    ...SEED.items.slice(1),
+  ],
+  events: [
+    { id: 'ev1', ds: '2026-06-17', start: 600, min: 90, title: '스터디 모임' },
+    { id: 'ev2', ds: '2026-06-17', start: 840, min: 60, title: '병원 예약' },
+    { id: 'ev3', ds: '2026-06-11', start: 540, min: 120, title: '학과 특강' },
+  ],
+  tasks: [
+    { id: 'tk1', ds: '2026-06-17', title: '실험 보고서 제출' },
+    { id: 'tk2', ds: '2026-06-17', title: '조별과제 자료 정리' },
+    { id: 'tk3', ds: '2026-06-23', title: '도서 반납' },
+  ],
+};
 
 export const SEED_EMPTY = {
   schemaVersion: 3,

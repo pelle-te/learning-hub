@@ -475,13 +475,3 @@ export function ddayInfo(dday: number): { lab: string; cls: string } {
   const cls = dday < 0 ? 'bad' : dday <= 7 ? 'warn' : '';
   return { lab, cls };
 }
-/** 유효숙달 p∈[0,1] → 색(빨강 낮음→호박→초록). kind==='unknown'이면 회색(데이터 없음).
- *  명도는 토큰(--mastery-l0/--mastery-l1)에서 읽어 테마별로 갈린다 — 예전엔 42~52%로 고정이라
- *  다크에선 저숙달 빨강이(2.84:1), 라이트에선 고숙달 초록이(2.05:1) 각각 묻혔다. 램프 자체(빨강→초록)는
- *  색각이상에 취약하므로 호출부는 색만으로 정보를 전달하지 말 것(툴팁·수치 병기 — 현재 두 곳 다 준수). */
-export function masteryColor(p: number, kind?: string): string {
-  if (kind === 'unknown') return 'var(--line)';
-  const t = clamp(p, 0, 1);
-  const h = Math.round(t * 120);
-  return `hsl(${h} 62% calc(var(--mastery-l0) + (var(--mastery-l1) - var(--mastery-l0)) * ${t.toFixed(3)}))`;
-}

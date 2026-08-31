@@ -61,7 +61,7 @@ export default function DegreeReq() {
           내 <b>졸업 계획</b> 데이터로 계산한 요건 대비 이수 현황입니다. 학기·과목·성적을 수정하면 즉시 반영돼요.
         </div>
         <div className="mt-3.5 mb-1">
-          <ProgressBar pct={pct} color="var(--good)" />
+          <ProgressBar pct={pct} color="var(--good)" label={`졸업 학점 진행 — ${earned}/${d.targetTotal}학점`} />
         </div>
         <div className="mt-1.5 text-sm text-mut">
           이수 {earned} / 졸업 {d.targetTotal}학점 ({pct}%) · 남은 {remain}학점

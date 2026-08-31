@@ -273,8 +273,8 @@
 .ds-roNum {
   /* ⚠ 종전 이 자리는 **생 px `font-size: 24px`** 이었다 — 사다리에 22 ↔ 26 사이 칸이 없어서다
      (U034 가 나머지 23건을 토큰으로 바꾼 뒤 저장소에 마지막으로 남은 하나). U039 가 그 칸을
-     `--fs-3xl` 로 더해 해소했다(2026-08-22) — 값은 **한 픽셀도 안 바뀐다**. */
-  font-size: var(--fs-3xl);
+     `--fs-ro`(당시 이름 `--fs-3xl`)로 더해 해소했다(2026-08-22) — 값은 **한 픽셀도 안 바뀐다**. */
+  font-size: var(--fs-ro);
   font-weight: 800;
   line-height: 1;
   color: var(--ink);
@@ -642,7 +642,7 @@ input.ds-donechk:checked {
 }
 .ds-itemname {
   font-weight: 600;
-  font-size: var(--fs-base);
+  font-size: var(--fs-body);
   flex: 1;
   min-width: 0;
   white-space: nowrap;

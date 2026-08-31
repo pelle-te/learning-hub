@@ -59,7 +59,7 @@ export const SHEET_VIEW = 'sheet';
    셋 다 `role:'view'`(옛 `retired`) 의 `to` 가 가리키는 값이라, 사본을 만들면 **은퇴 탭이 호스트의 기본
    뷰에 착지**한다(조용한 도달성 손실 — 화면은 떴는데 찾던 것이 없다). 여기가 정본이다. */
 /** `/degree` — 내 길 지도(옛 `goals` 탭). */
-export const DEGREE_PATH_VIEW = 'path';
+// ⛔ `DEGREE_PATH_VIEW` 가 2026-08-29 에 사라졌다 — 그 뷰가 은퇴했다(부모 goals 계약 삭제).
 /** `/find` — 이 시스템이 할 수 있는 것(옛 `guide` 탭). */
 export const FIND_GUIDE_VIEW = 'guide';
 
@@ -78,7 +78,7 @@ export type SchedSpan = (typeof SPANS)[number];
 /** `/review-run` — 앞 14일 복습 파도(옛 `forecast` 탭 · A-16 · 2026-08-07). 위 둘과 같은 이유로 여기가 정본. */
 export const FORECAST_VIEW = 'forecast';
 /** `/ledger` — 볼트 산출 개념 히트맵(옛 `mastery` 탭 · A-19 · 2026-08-07). 위와 같은 이유로 여기가 정본. */
-export const MASTERY_VIEW = 'mastery';
+// ⛔ `MASTERY_VIEW` 가 2026-08-29 에 사라졌다 — 그 뷰가 은퇴했다(부모 지식상태 생산자 삭제).
 
 export type TabRole = 'destination' | 'lens' | 'view' | 'object';
 
@@ -164,7 +164,7 @@ export const TABS: TabMeta[] = [
     order: 22,
     role: 'lens',
     segLabel: '배분',
-    icon: 'calendar',
+    icon: 'balance',
     fill: true,
   },
   // 졸업 계획 — 스케줄 세그먼트에서 독립 탭으로 승격(주간 운영과 학기 단위 계획은 리듬이 달라 나브에 직접 노출).
@@ -178,7 +178,7 @@ export const TABS: TabMeta[] = [
     order: 40,
     role: 'lens',
     segLabel: '과목',
-    icon: 'file',
+    icon: 'books',
     fill: true,
   },
   // ── 숙련(train) — '내가 뭘 아는가·무엇을 익힐까' ──
@@ -254,7 +254,12 @@ export const TABS: TabMeta[] = [
     order: 72,
     role: 'destination',
     segLabel: '복습 실행',
-    icon: 'refresh',
+    /* ⚠ `brain` 이었다 — 2026-08-31 에 `cards` 로 바꿨다(U068). 20px(레일 크기)에서 좌우 로브가
+       `12 3`↔`12 21` 이음매를 공유해 **팔각형 + 세로바**로 뭉갰다: 접힘 레일에서 이 줄을
+       구분하는 유일한 마크인데 그 크기에서 형태가 사라진다. 그리고 그 마크는 2026-08-29 트리가
+       새로 들인 것이라(`refresh`→`brain`) 굳기 전에 되돌리는 편이 싸다.
+       `cards` 는 이미 있고(복습 = 카드) 같은 섹션 안에서 유일하다(단사성은 `icons.test.ts`). */
+    icon: 'cards',
     fill: true,
   },
   /* ID-9 오답 노트 — 전 기간 CBMS·백지 실패 아카이브. **독립 나브 탭이 아니라 기록 호스트의
@@ -267,7 +272,7 @@ export const TABS: TabMeta[] = [
     label: '오답 노트',
     order: 74,
     role: 'lens',
-    icon: 'notebook',
+    icon: 'bandage',
     fill: true,
   },
   /* T-7 문항 원장 + T-2 시험 회수 창(2026-08-02). 오답 노트 **옆**이지 안이 아니다:
@@ -278,7 +283,7 @@ export const TABS: TabMeta[] = [
     label: '문항',
     order: 76,
     role: 'lens',
-    icon: 'notebook',
+    icon: 'archive',
     fill: true,
   },
   {
@@ -382,18 +387,13 @@ export const TABS: TabMeta[] = [
     icon: 'check',
     to: '/degree?view=req',
   },
-  {
-    key: 'path',
-    label: '내 길 지도',
-    order: 44,
-    role: 'view',
-    /* ⚠ 바에서만 짧다 — ⌘K·아나운서는 `label`(내 길 **지도**)을 쓴다. 세그먼트 안에서는 호스트
-       이름(졸업)이 이미 옆에 있어 '지도'가 중복이고, 밖에서는 '내 길' 만으로 무엇인지 모른다.
-       `segLabel` 이 존재하는 이유가 정확히 이 비대칭이다(N-14 로 소비처가 0이 된 뒤 처음 부활). */
-    segLabel: '내 길',
-    icon: 'target',
-    to: `/degree?view=${DEGREE_PATH_VIEW}`,
-  },
+  /* ⛔⛔ 2026-08-29 — 「내 길 지도」(`/degree?view=path`) 로스터 행이 사라졌다.
+     그 화면은 부모의 손저작 목표 계약(goals.json)을 렌더했는데 **그 계약이 생산자째 삭제**됐다
+     (pipeline 목적 정정: 「전공 교재 → 원자형 노트」만 진다 · 삶-연관성 배분은 범위 밖).
+     즉 «아직 콜드»가 아니라 **영원히 안 채워지는** 화면이 됐고, 이 저장소는 그런 표면을 은퇴시킨다.
+     ⭐ 호스트인 `degree` 탭은 **남는다** — 졸업요건은 hub 의 본업이고, 그 임계 숫자는
+        `src/lib/degree.contract.json` 으로 내려와 살아 있다.
+     복구(부모 저장소): `git show 은퇴/학습층-2026-08-29:knowledge/_meta/contract/goals.json` */
   {
     key: 'guide',
     label: '이 시스템이 할 수 있는 것',
@@ -402,15 +402,11 @@ export const TABS: TabMeta[] = [
     icon: 'info',
     to: `/find?view=${FIND_GUIDE_VIEW}`,
   },
-  {
-    key: 'mastery',
-    label: '숙달도 지도',
-    order: 85,
-    role: 'view',
-    segLabel: '숙달',
-    icon: 'grid',
-    to: `/ledger?view=${MASTERY_VIEW}`,
-  },
+  /* ⛔⛔ 2026-08-29 — 「숙달도 지도」(`/ledger?view=mastery`) 로스터 행이 사라졌다.
+     그 화면이 읽던 지식상태 산출물이 **생산자째 삭제**됐다(pipeline 목적 정정 · 숙달도 추정은
+     범위 밖). ▣ 실측: 숙달값은 서로 다른 값이 **넷**뿐이었고 (작성 상태 × 카드 유무)의 결정론적
+     함수였다 — 히트맵이 보여 주던 것은 숙달도가 아니라 **작성 상태**였고 그건 원장이 이미 준다.
+     ⭐ 호스트인 `ledger` 탭은 남는다. 복구(부모 저장소): 태그 `은퇴/학습층-2026-08-29`. */
   /* ⚠⚠ **`graph`(학습 구조도)가 여기 있었다 — 삭제됐다**(I044 · 2026-08-22 발상 축).
      P-19 가 탭에서 `/items?view=structure` 로 내렸고 Q-22 가 은퇴 어휘로 ⌘K 도달성을 살렸는데,
      이번에 잰 것은 **그 화면이 값을 내는가**였다: 시각 베이스라인 실물이 **노드 다섯 개를 화면
@@ -557,7 +553,24 @@ const TAB_BY_KEY = new Map(TABS.map((t) => [t.key, t]));
 
    ⚠ `role` 은 죽지 않았다 — 뜻이 좁아졌다: `destination` 은 **그 질문의 얼굴**(섹션 첫 줄),
    `lens` 는 같은 질문에 답하는 이웃. 레일에는 둘 다 선다.
-   ⚠ 순서가 곧 판단이다. 섹션 안은 *답하는 순서*로 둔다(무엇부터 보나 → 그 다음). */
+   ⚠ 순서가 곧 판단이다. 섹션 안은 *답하는 순서*로 둔다(무엇부터 보나 → 그 다음).
+
+   ## ⚠⚠ 2026-08-28 — 섹션이 **접힌다**(축 접기). 위 문단들을 이렇게 읽어라
+
+   평탄화가 옳았다는 것은 그대로다 — 바뀐 것은 **레일이 전량을 상시 보여야 하는가**이다.
+   화면이 늘며 상시 15줄이 됐고, 사용자 판정은 *"탭이 계속 늘어날 수 있는데 지금도 가독성이
+   떨어진다"* 였다. 그래서 `RailSidebar` 가 이 표를 **아코디언**으로 그린다: 상시 축(`now`) +
+   현재 축 하나 + 바닥 칩(`system`).
+
+   ⛔ **이것을 「세그먼트 바의 부활」로 읽지 마라** — 위 문단이 은퇴시킨 그것과 다른 점이 셋이다:
+   ① 목록이 여전히 **한 곳**이다(두 층에 나눠 적지 않는다 · `lastLens` 같은 기억 장치가 없다)
+   ② 열림은 **라우트의 파생**이라 «어느 렌즈가 어느 호스트 밑인가»를 외울 일이 없다
+   ③ 도달성이 안 줄었다 — 헤더 클릭이 곧 그 축의 얼굴로 가는 이동이고, `[`/`]` 링과 ⌘K 는
+      접힘과 **무관하게** 전부를 돈다. 2클릭이 되는 것은 «다른 축의 렌즈»뿐이고, 그건 평탄화
+      이전엔 «모든 렌즈»였다.
+   ⚠ 그 대신 이 표에 **성장 규칙**이 생겼다(불변식 ㉜): 축 ≤ 5 · 축마다 얼굴(`destination`)
+   정확히 하나 · 한 축 ≤ 6줄. 넘치면 상한을 올리지 말고 **호스트 안의 `role:'view'` 로 접거나
+   축을 쪼개라**(=새 질문을 세워라). 그게 «새 화면 = 새 레일 줄»을 끊는 자리다. */
 export interface RailSection {
   key: string;
   /** 레일 헤더에 그대로 뜨는 **질문**. 분류명이 아니다(N-16). */
@@ -659,9 +672,43 @@ export function sectionOf(key: string): string {
   return RAIL_SECTIONS.find((s) => s.tabs.includes(key))?.key ?? key;
 }
 
+/**
+ * 그 화면의 **마크** — 로스터가 정본이다(U054 · 2026-08-31).
+ *
+ * ⚠⚠ 화면이 자기 빈 상태·히어로에 `glyph=` 를 직접 적으면 **레일에서 보이는 마크와 화면 안에서
+ * 보이는 마크가 갈린다.** 실측 불일치 넷: `questions`(레일 `archive` ↔ 화면 `notebook`) ·
+ * `mistakes`(`bandage` ↔ `alert`) · `ledger`(레일 `grid` ↔ 히어로 `notebook` ↔ 빈 상태 `file` —
+ * **한 화면에 셋**) · 그리고 2026-08-29 트리가 `questions` 의 맞던 짝을 새로 깼다.
+ * `State.tsx` 가 `glyph: IconName` 을 도입한 이유가 _"같은 개념이 화면마다 다른 글리프로 갈렸다"_
+ * 인데, **이름으로 바꾼 것이 갈림을 막지는 않았다** — 이름은 오타를 막지 정합을 막지 않는다.
+ *
+ * ⚠ 이게 왜 결함인가: 접힘 레일에는 라벨이 없어 **자리를 마크로 외우는 것**이 설계 전제인데
+ * (`RailSidebar.tsx`), 화면 안이 다른 마크를 보이면 그 전제를 되돌린다.
+ * 집행자는 `test/icons.test.ts` — 로스터 밖 글리프 리터럴과 **단사성**(같은 레일 섹션의 두 행이
+ * 같은 마크를 쓰지 않는다)을 함께 잠근다.
+ */
+export function glyphOf(key: string): IconName {
+  return tabByKey(key)?.icon ?? 'file';
+}
+
 /** 표시 순서대로 정렬된 탭(모듈 로드 시 1회 계산된 상수 반환 — 제자리 변형 금지). */
 export function orderedTabs(): TabMeta[] {
   return ORDERED_TABS;
+}
+
+/**
+ * `role:'view'` 화면의 **어디에 있는가** 힌트 — 「<호스트 탭 이름> 안」.
+ *
+ * ⚠ 힌트는 **사용자의 언어**여야 한다(U012 · 2026-08-21). 내부 어휘(`은퇴`)를 노출하면
+ * *"이건 이제 없다"* 로 읽히는데 실제로는 살아 있는 화면이다 — 말해야 하는 것은 상태가 아니라
+ * **자리**다.
+ * ⚠⚠ 이 함수가 `palette.ts` 안에 인라인으로 있었다(U046 · 2026-08-31). 「찾기」가 같은 다섯
+ * 화면을 담게 되면서 어휘가 **두 벌이 될 뻔한** 자리라 여기로 올렸다 — 같은 사실에 어휘를
+ * 두 벌 만들지 않는다.
+ */
+export function hostHintOf(t: TabMeta): string {
+  const 호스트 = tabByKey(t.to?.replace(/^\//, '').split('?')[0] ?? '')?.label;
+  return 호스트 ? `${호스트} 안` : '화면';
 }
 /**
  * 이 호스트 안에 사는 뷰들(`role:'view'` · `to` 가 `/{host}?view=…`) — **선언 순서 그대로**.

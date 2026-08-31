@@ -118,8 +118,8 @@ const REVEAL = 'm-0 grid gap-2 rounded-md border border-line bg-tint-acc-faint p
 /* 배지 색은 data-* 변형으로 — 옛 `.badge[data-kind='confident']` 의 직역이다. */
 const BADGE =
   'rounded-full bg-tint-acc px-2 py-1 text-xs font-bold tracking-wide text-acc-on-soft whitespace-nowrap ' +
-  'data-[kind=confident]:bg-tint-warn data-[kind=confident]:text-warn ' +
-  'data-[risk=overdue]:bg-tint-bad data-[risk=overdue]:text-bad';
+  'data-[kind=confident]:bg-tint-warn data-[kind=confident]:text-warn-on-soft ' +
+  'data-[risk=overdue]:bg-tint-bad data-[risk=overdue]:text-bad-on-soft';
 
 /** P-2 커밋 **뒤**의 선택 메모 한 줄 — W8 `BlankNoteField` 와 같은 계약이다.
  *  ⚠ 취소 버튼이 없다: 기록은 이미 커밋됐고 이건 정밀도만 올린다. 안 적고 떠나도 잃는 것이 0.
@@ -281,12 +281,23 @@ function buildKeys(d: {
 const ForecastView = lazy(() => import('./ForecastView'));
 
 export default function ReviewRunHost() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   if (params.get('view') === FORECAST_VIEW)
     return (
-      <Suspense fallback={<div className="ds-well">불러오는 중…</div>}>
-        <ForecastView />
-      </Suspense>
+      <div className="flex min-h-0 flex-col">
+        {/* ⚠ 돌아가는 문이 **화면 안에** 있어야 한다(U059 · 2026-08-31). 레일의 「복습」 줄은 이미
+            `aria-current="page"` 라 사용자는 그것을 누르지 않는다 — 은퇴 흡수가 만드는 전형적인
+            막다른 골목이고, 형제 둘(`Find`·`Degree`)이 **같은 자리에 같은 문**을 이미 달아 뒀다.
+            흡수한 호스트가 셋인데 문이 둘이었던 것이지, 새 관용구를 만드는 것이 아니다. */}
+        <div className="flex-none px-6 pt-4">
+          <Button sm variant="ghost" onClick={() => setParams({}, { replace: true })}>
+            ← 복습 실행
+          </Button>
+        </div>
+        <Suspense fallback={<div className="ds-well">불러오는 중…</div>}>
+          <ForecastView />
+        </Suspense>
+      </div>
     );
   return <ReviewRun />;
 }

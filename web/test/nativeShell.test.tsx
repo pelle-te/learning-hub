@@ -23,8 +23,9 @@ afterEach(() => cleanup());
 
 test('네이티브 레일 나브: 주요 탭 + 라인 아이콘(svg.ic)이 렌더된다', async () => {
   const { container } = await renderApp('/today');
-  // 레일 사이드바는 1차 탭을 평면 리스트로 노출(그룹 계층 폐기). 라벨 정확 일치.
-  // 주간 스케줄은 '계획' 호스트로 흡수(hidden) → 나브엔 '계획'. 통계는 그대로 1차 노출.
+  /* 레일 사이드바가 1차 탭과 인라인 아이콘을 낸다. 라벨 정확 일치.
+     ⚠ 축 접기(2026-08-28) 뒤로 `계획`·`통계` 는 접힌 축 **안**이라 데스크톱에선 CSS 로 숨는다 —
+     이 스모크가 재는 것은 렌더 여부이고, 접힘/펼침 계약은 `railAxis.test.tsx` 소관이다. */
   await waitFor(() => expect(screen.getByRole('button', { name: '계획' })).toBeInTheDocument());
   expect(screen.getByRole('button', { name: '통계' })).toBeInTheDocument();
   // 아이콘은 dangerouslySetInnerHTML로 주입한 인라인 svg.ic.

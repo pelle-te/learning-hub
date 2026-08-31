@@ -124,16 +124,13 @@ pub struct Tool {
     pub timeout_ms: u64,
 }
 
-/// 화이트리스트 도구. 옛 serve.js `TOOLS`(L59-72)의 자리 — **11 → 7**(P10 W4).
+/// 화이트리스트 도구. 옛 serve.js `TOOLS`(L59-72)의 자리 — **11 → 7**(P10 W4) → **5**(U087).
+///
+/// ⚠ **개수를 문서에 베끼지 마라** — 아래 `#[test]` 가 `TOOLS.len()` 을 잰다. `GuideView` 의
+/// 리드아웃이 「11」이라 적힌 채로 실물이 7 이었고, 그중 둘은 부모에 **없는 스크립트**를 가리켰다.
+/// 2026-08-31 에 `knowledge-build`(지식엔진.py) · `anki-signal`(학습신호.py) 둘을 걷었다 —
+/// 부모가 목적을 좁히며 두 스크립트를 삭제했으므로(2026-08-29) 눌러도 `can't open file` 이다.
 pub const TOOLS: &[(&str, Tool)] = &[
-    (
-        "knowledge-build",
-        Tool {
-            cmd: &["pipeline/_도구/지식엔진.py", "build"],
-            label: "지식상태 재빌드",
-            timeout_ms: 120_000,
-        },
-    ),
     (
         "vault-health",
         Tool {
@@ -164,14 +161,6 @@ pub const TOOLS: &[(&str, Tool)] = &[
             cmd: &["pipeline/_도구/지시문평가.py", "eval"],
             label: "지시문 품질 회귀검사",
             timeout_ms: 120_000,
-        },
-    ),
-    (
-        "anki-signal",
-        Tool {
-            cmd: &["pipeline/_도구/학습신호.py"],
-            label: "Anki 학습신호 갱신",
-            timeout_ms: 60_000,
         },
     ),
     (
@@ -530,15 +519,13 @@ mod tests {
     /* ── 화이트리스트·인자 정제 ── */
 
     #[test]
-    fn 일곱_종이_모두_등록돼_있다() {
-        assert_eq!(TOOLS.len(), 7);
+    fn 다섯_종이_모두_등록돼_있다() {
+        assert_eq!(TOOLS.len(), 5);
         for k in [
-            "knowledge-build",
             "vault-health",
             "vault-stats",
             "index-build",
             "eval",
-            "anki-signal",
             "ledger-build",
         ] {
             assert!(lookup(k).is_some(), "{k} 누락");
@@ -553,8 +540,12 @@ mod tests {
         프런트(`Control`·`Integrations`)가 이 목록으로 실행 가능한 도구를 그리므로,
         키가 바뀌면 버튼이 조용히 사라진다. */
         let keys: Vec<String> = TOOLS.iter().map(|(k, _)| (*k).to_string()).collect();
-        assert_eq!(keys.len(), 7);
-        assert!(keys.contains(&"knowledge-build".to_string()));
+        assert_eq!(keys.len(), 5);
+        assert!(keys.contains(&"ledger-build".to_string()));
+        // ⚠ 은퇴한 둘이 다시 들어오면 RED — 부모에 스크립트가 없다(U087 · 2026-08-31).
+        assert!(!keys
+            .iter()
+            .any(|k| k == "knowledge-build" || k == "anki-signal"));
         // ⚠ 수집 계열 4종은 P10 W4 에서 빠졌다 — **이 단언이 그 경계를 지킨다**(다시 들어오면 RED).
         assert!(!keys
             .iter()

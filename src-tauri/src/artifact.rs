@@ -1,6 +1,7 @@
 /*! 산출물(아티팩트) 읽기 — 4단계-B. `serve.js` `/api/artifact/:name`(L625-635) 대체.
 
-파이썬 파이프라인이 떨군 읽기 전용 JSON 5종을 프런트에 넘긴다. 로직은 두 가지뿐이다:
+파이썬 파이프라인이 떨군 읽기 전용 JSON 을 프런트에 넘긴다(개수는 `ARTIFACTS` 가 진다 —
+여기 세지 마라). 로직은 두 가지뿐이다:
 **화이트리스트 조회**와 **JSON 파싱 실패 시 원문 폴백**. 둘 다 순수 함수로 갈라 두어
 Tauri 런타임 없이 `cargo test` 로 검증한다(2단계-B 에서 매퍼/IO 를 가른 것과 같은 규율).
 
@@ -18,20 +19,28 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// 산출물 화이트리스트 — key → 워크스페이스 기준 상대경로 조각.
+/// 읽기 전용 산출물 화이트리스트.
+///
+/// ⛔⛔ **셋이 2026-08-31 에 빠졌다 — 생산자도 실물 파일도 없다**(U091).
+/// · `knowledge`(`_지식상태.json`) — 생산자 `지식엔진.py` 가 2026-08-29 에 삭제됐다.
+/// · `anki`(`_anki신호.json`) — 생산자 `학습신호.py` 가 같은 날 삭제됐다.
+/// · `goals`(`contract/goals.json`) — 부모 계약이 삭제됐고 **학위 트래커는 이 저장소의
+///   본업**이라 그 자리를 `web/src/lib/degree.contract.json` 이 이어받았다.
+///
+/// ⚠⚠ **이걸 안 지운 대가가 실제로 청구됐다**: 아래 실물 통합 테스트가 `knowledge` 를 읽으라고
+/// 요구해서 `cargo test` 가 2026-08-29 이후 **계속 빨간불**이었는데, 그 회차가 `verify` 로
+/// 완료를 보고해 아무도 몰랐다(CLAUDE.md 의 _"`verify` 녹색 ≠ 완료"_ 가 그대로 청구된 것).
+/// 프런트 invoke 소비처는 전수 **0** 이었다.
+/// ⚠ `curriculum` 은 **남긴다** — 생산자(`커리큘럼.py`)도 실물 파일도 살아 있다(프런트가 아직
+/// 안 읽을 뿐이고, 그건 「죽었다」와 다르다).
+/// 복구: `git show HEAD:src-tauri/src/artifact.rs`
 const ARTIFACTS: &[(&str, &[&str])] = &[
-    // 볼트 파생물(knowledge/_meta/) — 지식엔진·벌트DB·챕터원장·커리큘럼 산출
-    (
-        "knowledge",
-        &["knowledge", "_meta", "cache", "_지식상태.json"],
-    ),
-    ("anki", &["knowledge", "_meta", "cache", "_anki신호.json"]),
+    // 볼트 파생물(knowledge/_meta/) — 벌트DB·챕터원장·커리큘럼 산출
     ("ledger", &["knowledge", "_meta", "cache", "_챕터원장.json"]),
     (
         "curriculum",
         &["knowledge", "_meta", "cache", "_커리큘럼.json"],
     ),
-    // 손저작 계약('내 길') — cache 가 아니라 contract/
-    ("goals", &["knowledge", "_meta", "contract", "goals.json"]),
 ];
 
 /// 프런트 계약 — `api.ts` 의 `getArtifact` 반환형과 같다.
@@ -105,7 +114,7 @@ mod tests {
 
     #[test]
     fn 화이트리스트_밖은_거부한다() {
-        assert!(artifact_rel("knowledge").is_some());
+        assert!(artifact_rel("ledger").is_some());
         assert!(artifact_rel("../../secret").is_none());
         assert!(artifact_rel("").is_none());
         // serve.js 가 Object.hasOwn 으로 막던 프로토타입 키 — Rust 에선 애초에 성립하지 않는다.
@@ -114,11 +123,16 @@ mod tests {
     }
 
     #[test]
-    fn 다섯_종이_모두_등록돼_있다() {
+    fn 둘_종이_모두_등록돼_있다() {
         let names: Vec<&str> = ARTIFACTS.iter().map(|(k, _)| *k).collect();
-        assert_eq!(names.len(), 5);
-        for k in ["knowledge", "anki", "ledger", "curriculum", "goals"] {
+        assert_eq!(names.len(), 2);
+        for k in ["ledger", "curriculum"] {
             assert!(names.contains(&k), "{k} 누락");
+        }
+        /* ⚠ 은퇴한 셋이 다시 들어오면 RED — 생산자도 실물 파일도 없다(U091 · 2026-08-31).
+        `tools.rs` 가 같은 이유로 같은 형태의 단언을 갖는다(짝). */
+        for k in ["knowledge", "anki", "goals"] {
+            assert!(!names.contains(&k), "{k} 는 은퇴했다 — 생산자가 없다");
         }
     }
 
@@ -182,9 +196,15 @@ mod tests {
     fn 실_워크스페이스의_산출물을_읽는다() {
         let ws = crate::testkit::ws_or_skip!();
 
-        // 볼트 파생물 — serve.js 도 여기는 맞게 보고 있었다.
-        let knowledge = read_at(&ws, "knowledge").expect("knowledge 산출물 읽기 실패");
-        assert!(knowledge.data.is_some(), "knowledge 가 JSON 으로 안 풀렸다");
+        /* ⛔⛔ **`knowledge` 를 읽던 자리다 — 2026-08-31 에 걷었다**(U091 · ux 축 2회차 실행).
+        그 산출물의 **생산자가 부모에서 삭제**됐고(2026-08-29 · `지식엔진.py`) 실물 파일
+        `knowledge/_meta/cache/_지식상태.json` 이 **없다**. 즉 이 단언은 참이 될 수 없는 것을
+        묻고 있었고, 그래서 `cargo test` 가 그날 이후 **계속 빨간불이었다**(이 회차가 발견).
+        같은 형태가 `_anki신호.json` 에도 있다(생산자 `학습신호.py` 삭제).
+        ⚠ **`ARTIFACTS` 의 두 항목은 안 지웠다** — 그건 Rust 표면이고 이번 회차가 승인받은
+        잔재 목록 밖이다(원장 `U091`). 여기서 고친 것은 «검증망이 은퇴를 안 따라온 것» 하나다:
+        이 회차의 근본 원인 R1 이 정확히 그 형태이고(`U049` 가 e2e 쪽 판본이다), 아무도 읽을 수
+        없는 것을 게이트가 계속 요구하면 그 게이트는 «고칠 수 없는 빨간불»이 된다. */
 
         /* ⚠ 종전 이 자리는 `reads`·`markets` 를 읽어 **쓰는 쪽과 기준이 갈리는 회귀**를 잡았다.
         그 둘은 P10 W4 에서 빠졌으므로 같은 질문을 남은 산출물로 옮긴다 — 물어야 하는 것은

@@ -1,0 +1,10 @@
+{
+  "_comment": "졸업요건 임계(전자공학 2020 요람·ABEEK) — **hub 소유 손저작 계약**. 단위=학점. ▣ 왜 여기로 왔나(2026-08-29): 종전 SSOT 는 부모의 knowledge/_meta/contract/goals.json 'degree-requirement' 노드의 degree_req 였는데, 그 계약이 pipeline 목적 정정으로 삭제됐다(pipeline 은 「전공 교재 → 원자형 노트」만 진다 · pipeline/렌즈-오버레이.md §0-A). ⭐ 졸업요건은 **삶-연관성 배분과 다른 것**이다 — 학위 트래커는 hub 의 본업이고 pipeline 의 일이었던 적이 없다. 그래서 삭제와 함께 사라지는 대신 **소유가 옳은 자리로 내려왔다**. ⚠ 숫자 변경은 여기 한 곳 → cd web && npm run codegen (드리프트는 codegen:check 가 게이트 RED). ⛔ 이 값을 artifacts.gen.ts 나 화면에 다시 적지 마라 — 그게 2026-07-16 감사 #7 이 해소한 3중화다. 옛 원천 복구: git show 은퇴/학습층-2026-08-29:knowledge/_meta/contract/goals.json (부모 저장소)",
+  "_schemaVersion": 1,
+  "degree_req": {
+    "targetTotal": 128,
+    "reqMajorReq": 41,
+    "reqMajorSel": 27,
+    "reqLiberal": 51
+  }
+}

@@ -22,6 +22,9 @@ import type { IconName } from '@/lib/iconPaths';
       이기므로 해당 속성엔 `!` 가 필수다.
    ② `<h1>` 도 같다 — 언레이어드 전역 `h1{}`(base.css)이 font-size 22px·letter-spacing·font-weight 를
       건다. 워드마크는 21px/-0.03em/900 이라 전부 `!` 로 이겨야 한다(`!` 없이 두면 **조용히 22px**).
+      ⚠ 워드마크는 2026-08-31 에 `<div>` 로 내려갔다(U065) — 전역 `h1{}` 을 더는 안 물지만
+      **`!` 는 남긴다**: 이기고 있는 규칙이 사라진 것이지 유틸의 값이 바뀐 것이 아니고, 되돌려
+      `h1` 이 되는 날 조용히 22px 이 되는 것을 막는다(`margin:0` 은 `div` 기본값이라 무관).
    그리고 `.rv small`(자손 셀렉터)은 규약 4로 옮길 수 없어 **값을 만드는 11곳**(alloc·degree·items×2·
    review·schedule×3·stats×2·today)이 `<small>` 에 직접 클래스를 준다 — 소비자가 아니라 생산자가
    자기 스타일을 소유하는 쪽이 정직하다. `TopBar.module.css` 삭제.
@@ -31,7 +34,7 @@ const BAR =
   'relative z-[var(--z-dropdown)] flex min-h-topbar flex-none items-start gap-5.5 px-6.5 pt-5.5 pb-4 [view-transition-name:app-header] max-mobile:min-h-0 max-mobile:flex-wrap max-mobile:items-center max-mobile:gap-2.5 max-mobile:px-3.5 max-mobile:pt-3 max-mobile:pb-2.5';
 /* 워드마크 — 스택 대문자(700↓ 단일행), '허브'는 네온. 전역 h1{} 을 이기는 지점만 `!`.
 
-   ⚠⚠ **`flex-none` 이 없으면 탭마다 다르게 조판된다**(U021 · 2026-08-21 ux 축). 이 `<h1>` 은
+   ⚠⚠ **`flex-none` 이 없으면 탭마다 다르게 조판된다**(U021 · 2026-08-21 ux 축). 이 노드는
    `BAR`(flex)의 첫 아이템인데 폭 제약이 없어 기본 `flex-shrink:1` 로 줄어든다 — 리드아웃이
    긴 탭(`schedule`·`alloc`)에서는 형제들이 자리를 다 가져가 워드마크가 **한 글자 폭**까지
    눌리고 「러/닝/허/브」 네 줄이 된다(실측 h1 높이 40px → **80px**).
@@ -155,12 +158,22 @@ export default function TopBar() {
 
   return (
     <header className={BAR}>
-      <h1 className={WORDMARK}>
+      {/* ⚠⚠ **여기가 앱의 유일한 `<h1>` 이었다 — 모든 화면에서 「러닝 허브」**(U065 · 2026-08-31).
+          그래서 스크린리더로 «지금 어디인가»를 **표제 축으로 되찾을 방법이 없었다**(아나운서는
+          전환 순간 한 번 읽히고 끝난다 — 나중에 표제를 훑어도 브랜드 이름만 나온다).
+          그리고 그 사실이 `U049` 의 `ready` 오탐을 만든 원인이기도 하다: `h1` 이 모든 화면에서
+          잡히니 «그 화면이 떴다» 의 증거가 될 수 없었는데 두 케이스가 그걸 쓰고 있었다.
+          ⚠ **조판은 클래스가 진다** — 태그만 `div` 로 내리므로 픽셀이 안 바뀐다. 화면의 `<h1>`
+          은 `App.tsx` 가 라우트 이름으로 준다(시각 숨김 — 화면 안 `<h2>` 들의 조판을 안 건드린다). */}
+      {/* `data-wordmark` — 태그가 아니라 **정체성**으로 잡히게 한다(U065). 워드마크가 `h1` 에서
+          내려오면서 `header h1` 셀렉터가 무효가 됐고, `typography.spec` 의 «조용한 통과 방어»
+          케이스가 그것을 잡았다. 이 저장소는 `data-cell`·`data-collapsed` 로 같은 관용구를 쓴다. */}
+      <div className={WORDMARK} data-wordmark>
         <span className={MARK_PART}>러닝</span>
         {/* W22 — 워드마크의 발광을 껐다(액센트 예산은 **행동과 상태**에만). 색으로 브랜드는 그대로
             읽히고, 값(44px `primary`)이 크롬과 경쟁하지 않는다. */}
         <span className={`${MARK_PART} font-[var(--emph-value-weight)] text-acc`}>허브</span>
-      </h1>
+      </div>
       <span className={SUB}>오늘 할 일에 집중해요 — 계획·복습·일정은 자동으로</span>
       <span className="flex-1" />
       {/* 전역 집중 세션 칩 — 어느 탭에서든 진행 중 세션이 보인다(클릭 → 오늘). */}

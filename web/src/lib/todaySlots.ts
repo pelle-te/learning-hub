@@ -32,27 +32,25 @@ export function pickRetrievalSlot(hasConf: boolean, hasRecall: boolean, dayOfMon
 
 /** 완료 화면의 다음 걸음 한 개. `kind` 로만 말하고 목적지·문구는 호출부가 안다(lib 은 라우트를 모른다). */
 export interface NextStep {
-  kind: 'review' | 'backlog' | 'frontier';
+  kind: 'review' | 'backlog';
   label: string;
   aria: string;
 }
 
 /**
- * 우선순위는 "지금 행동을 바꾸는 것" 순이다: 밀린 복습 > 열린 보충 > 다음 개념 추천.
+ * 우선순위는 "지금 행동을 바꾸는 것" 순이다: 밀린 복습 > 열린 보충.
  *
  * ⚠ 사슬 순서가 반증 불가능한 숨은 가중치라는 것은 로드맵 🧊 가 지적한 형태다. 여기서 사슬을
- * 허용하는 조건은 **후보 셋이 전부 화면에 다른 자리를 갖고 있다**는 것이다(W18 의 '오늘 밖'
- * 구역 · 레일 · 숙달도 탭) — 사슬이 무엇을 가리키든 나머지가 화면에서 사라지지 않는다.
+ * 허용하는 조건은 **후보 전부가 화면에 다른 자리를 갖고 있다**는 것이다(W18 의 '오늘 밖'
+ * 구역 · 레일) — 사슬이 무엇을 가리키든 나머지가 화면에서 사라지지 않는다.
+ *
+ * ⚠⚠ **셋째 후보(`frontier` — 다음 개념 추천)는 2026-08-31 에 걷었다**(U044·U086). 그 값의
+ * 생산자(지식엔진)가 은퇴해 `frontierTitle` 은 영구히 빈 문자열이었고, 착지처로 적어 둔
+ * 「숙달도 탭」은 라우터에 없어 `*` 가 `/today` 로 삼켰다 — 즉 위 조건이 이미 깨져 있었다.
  */
-export function pickNextStep(riskN: number, openBacklogN: number, frontierTitle: string): NextStep | null {
+export function pickNextStep(riskN: number, openBacklogN: number): NextStep | null {
   if (riskN > 0) return { kind: 'review', label: `복습 위험 ${riskN}`, aria: `밀린 복습 ${riskN}개 — 복습 세션으로` };
   if (openBacklogN > 0)
     return { kind: 'backlog', label: `보충 ${openBacklogN} 회수`, aria: `열린 보충 ${openBacklogN}건 — 기록으로` };
-  if (frontierTitle)
-    return {
-      kind: 'frontier',
-      label: `다음에 이거 · ${frontierTitle}`,
-      aria: `다음 추천 개념 ${frontierTitle} — 숙달도로`,
-    };
   return null;
 }

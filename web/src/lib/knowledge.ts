@@ -4,8 +4,6 @@
    _meta/cache/_지식상태.json(FS Access). 둘 다 같은 Knowledge 모양을 돌려준다.
    TanStack Query가 캐시/로딩/에러를 소유(설계도 §1-B). 서버 JSON이라 필드는 느슨(전부 옵셔널).
 ============================================================ */
-import { getArtifact } from './api';
-import { parseArtifact } from './artifacts';
 
 export interface KnowledgeConcept {
   title?: string;
@@ -93,24 +91,21 @@ export function frontierNext(k: Knowledge | undefined): KnowledgeFrontier | null
   return [...f].sort((a, b) => (b.prereq_in || 0) - (a.prereq_in || 0))[0]!;
 }
 
-/** 산출물(읽기 전용) — 없으면 throw(Query isError로 폴백 안내). */
+/* ⛔⛔ 2026-08-29 — **공급자가 은퇴했다.** 지식상태 산출물을 만들던 `지식엔진.py` 와 그 경계
+   스키마가 부모에서 삭제됐다(pipeline 목적 정정: 「전공 교재 → 원자형 노트」만 진다 ·
+   숙달도 추정은 범위 밖). 그래서 아래 둘은 **네트워크·디스크를 두드리지 않고 즉시 진다** —
+   없는 것을 찾아 헤매는 것보다 이유를 말하고 빨리 지는 편이 정직하다.
+
+   ⚠ **이 모듈이 통째로 죽은 것은 아니다.** 순수 헬퍼(`frontierNext`·`rootCauseRollup`)와 타입은
+   `Review`·`TodaySignature`·`Subject`·`confidence` 가 여전히 import 하고, 그쪽은 데이터가 없으면
+   조용히 생략하도록 이미 짜여 있다(콜드 축퇴). **그 패널들이 영영 콜드로 남는 것을 어떻게 할지는
+   hub 원장의 별도 항목**이다 — 이번 회차는 «두 화면»만 은퇴시켰다.
+   복구(부모 저장소): 태그 `은퇴/학습층-2026-08-29`. */
+const 은퇴사유 = '지식상태 산출물은 은퇴했습니다 — 생산자가 삭제됐고 다시 채워지지 않습니다.';
+
+/** @deprecated 공급자 은퇴(2026-08-29) — 항상 throw. 소비처는 isError 를 콜드로 다룬다. */
 export async function fetchKnowledgeArtifact(): Promise<Knowledge> {
-  const j = await getArtifact<Knowledge>('knowledge');
-  if (!j || !j.ok || !j.data) throw new Error('지식상태 산출물(knowledge)을 찾지 못했어요.');
-  parseArtifact('knowledge', j.data); // 버전 + 모양 드리프트 경고(비차단)
-  return j.data;
+  throw new Error(은퇴사유);
 }
 
-/** 볼트 폴더에서 _meta/cache/_지식상태.json 로드 — 못 찾으면 null(아직 build 안 함). */
-export async function loadKnowledgeStateFromVault(handle: FileSystemDirectoryHandle): Promise<Knowledge | null> {
-  try {
-    const meta = await handle.getDirectoryHandle('_meta');
-    const aud = await meta.getDirectoryHandle('cache'); // P7 Phase 3: 감사→cache(파생)
-    const fh = await aud.getFileHandle('_지식상태.json');
-    const k = JSON.parse(await (await fh.getFile()).text()) as Knowledge;
-    parseArtifact('knowledge', k); // 버전 + 모양 드리프트 경고(비차단)
-    return k;
-  } catch {
-    return null;
-  }
-}
+// ⛔ `loadKnowledgeStateFromVault` 도 함께 사라졌다(소비처가 「숙달도 지도」뿐이었다).

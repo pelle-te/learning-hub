@@ -80,8 +80,15 @@ test('라우팅 — 탭 이동이 셸 안에서 동작한다(히스토리 라우
      조용히 거짓 통과한다. */
   const href = () => shell.page.evaluate(() => location.href);
   const before = await href();
-  // 나브 항목은 링크가 아니라 button 이다(RailSidebar renderBtn) — role 을 틀리면 안 잡힌다.
-  await shell.page.getByRole('button', { name: /통계/ }).first().click();
+  /* 나브 항목은 링크가 아니라 button 이다(RailSidebar renderBtn) — role 을 틀리면 안 잡힌다.
+     ⚠⚠ **좌표가 바뀌었다 — 축 접기(2026-08-28).** `통계` 는 접힌 축 안이라 `/today` 에서 보이지
+     않는다(종전엔 상시 15줄이라 아무 줄이나 눌러도 됐다). 그 축의 **헤더**를 누르면 얼굴인
+     `통계` 로 이동한다 — 아래 `route_visits` 단언이 `via='rail'` 을 그대로 요구하므로, 헤더가
+     `go()` 를 안 타고 접기만 하는 형태로 퇴화하면 여기서 즉시 잡힌다. */
+  await shell.page
+    .getByRole('button', { name: /무엇을 아는가/ })
+    .first()
+    .click();
   await expect.poll(href, { timeout: 10_000 }).not.toBe(before);
   // 라우팅 후에도 앱이 살아 있는가(라우터 오류로 백지가 되는 것을 잡는다).
   await expect(shell.page.locator('main').first()).toBeVisible();

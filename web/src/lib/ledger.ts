@@ -1,7 +1,7 @@
 /* ============================================================
    ledger — 정본 축(과목×챕터 원장)의 웹 소비 레이어. 순수·IO 분리.
    원본: pipeline/_도구/챕터원장.py → knowledge/_meta/cache/_챕터원장.json (산출물 `ledger` /api/artifact/ledger).
-   원장은 각 챕터가 5단계 생애(sourced→noted→verified→carded→reviewed)에서 "얼마나 멀리 갔나"를
+   원장은 각 챕터가 4단계 생애(sourced→noted→verified→carded · reviewed 는 2026-08-29 은퇴)에서 "얼마나 멀리 갔나"를
    집계한다 — 흩어져 있던 볼트 파이프라인 진척을 한 화면에 모으는 단일 출처(통합 4단계).
    이 파일은 타입·페치·순수 파생만. 렌더는 features/ledger가 소유(React 무관).
 ============================================================ */
@@ -70,7 +70,7 @@ export const STAGE_META: Record<LedgerStage, { label: string; glyph: IconName; c
      테마와 무관하게 고정색이었다. 파란 계열의 실제 토큰은 `--signal` 이다. */
   verified: { label: '검증', glyph: 'check', color: 'var(--signal)', desc: '개념 노트 검증 통과' },
   carded: { label: '카드', glyph: 'cards', color: 'var(--learning)', desc: 'Anki 카드 발급' },
-  reviewed: { label: '복습', glyph: 'refresh', color: 'var(--good)', desc: '최근 인출(복습) 관측' },
+  // ⛔ `reviewed` 단계가 2026-08-29 에 빠졌다 — 부모 ledger 스키마에서 사라졌다(복습 = 범위 밖).
 };
 
 /**
@@ -104,27 +104,26 @@ export interface SubjectRollup {
   reached: Record<LedgerStage, number>;
   /** furthest가 각 값인 챕터 수(planned 포함) — 히트맵 요약. */
   furthestDist: Record<Furthest, number>;
-  /** 진척 점수 = Σ stageIndex(furthest)+1 / (total*5) — 0..1. 과목 정렬 키. */
+  /** 진척 점수 = Σ stageIndex(furthest)+1 / (total*4) — 0..1. 과목 정렬 키. */
   progress: number;
   srcPresent: boolean;
 }
 
 /** 과목 1개의 롤업(정렬·요약용, 순수). */
 export function subjectRollup(name: string, s: LedgerSubject): SubjectRollup {
-  const reached: Record<LedgerStage, number> = { sourced: 0, noted: 0, verified: 0, carded: 0, reviewed: 0 };
+  const reached: Record<LedgerStage, number> = { sourced: 0, noted: 0, verified: 0, carded: 0 };
   const furthestDist: Record<Furthest, number> = {
     planned: 0,
     sourced: 0,
     noted: 0,
     verified: 0,
     carded: 0,
-    reviewed: 0,
   };
   let scoreSum = 0;
   for (const ch of s.chapters) {
     for (const st of LEDGER_STAGES) if (ch.milestones[st]) reached[st]++;
     furthestDist[ch.furthest]++;
-    scoreSum += stageIndex(ch.furthest) + 1; // planned→0, reviewed→5
+    scoreSum += stageIndex(ch.furthest) + 1; // planned→0, carded→4
   }
   const total = s.chapters.length;
   return {
@@ -134,7 +133,7 @@ export function subjectRollup(name: string, s: LedgerSubject): SubjectRollup {
     total,
     reached,
     furthestDist,
-    progress: total ? scoreSum / (total * 5) : 0,
+    progress: total ? scoreSum / (total * 4) : 0,
     srcPresent: s.src_present,
   };
 }
@@ -162,10 +161,33 @@ export function bottleneckStage(l: Ledger): { stage: LedgerStage; passed: number
   return worst ? { stage: worst.stage, passed: worst.passed, from: worst.from } : null;
 }
 
+/* ⚠⚠ **경계가 넓으면 화면이 탭째 죽는다**(U043 · 2026-08-31).
+
+   zod 경계는 `furthest: z.optional(z.nullable(z.string()))` — **아무 문자열이나 통과**시키는데,
+   TS 는 `Furthest = LedgerStage | 'planned'` 라는 좁은 유니온을 믿고 `STAGE_META[f].color` 를
+   가드 없이 읽는다. 2026-08-29 에 `reviewed` 가 그 표에서 빠졌으므로, 그 값을 가진 원장이
+   오면 `undefined.color` → TypeError → **`/ledger`(상시 도달 탭)가 통째로 `TabFallback`** 이다.
+   발화 조건은 옛 캐시·백업 복원·부모 롤백이다(오늘의 실 산출물엔 0건).
+
+   ⛔ **조용한 폴백으로 고치지 않는다.** 모르는 단계를 `planned` 로 접으면 화면은 뜨지만
+   *틀린 진척*을 말하고, 그건 이 저장소가 반복해 물린 「침묵하는 거짓」이다. 대신 **시끄럽게
+   거절한다** — `classifyArtifact` 가 `error` 로 분류하고, 이미 있는 `State kind="error"` +
+   「원장 재빌드」가 그대로 처방이 된다. 즉 새 표면을 만들지 않고 있는 길로 착지시킨다. */
+function 모르는단계들(l: Ledger): string[] {
+  const 아는것 = new Set<string>([...LEDGER_STAGES, 'planned']);
+  const 본것 = new Set<string>();
+  for (const s of Object.values(l.subjects || {}))
+    for (const c of s.chapters || []) if (c.furthest && !아는것.has(c.furthest)) 본것.add(c.furthest);
+  return [...본것].sort();
+}
+
 /** 서버(/api/artifact/ledger)에서 챕터 원장 페치. 미생성/오프라인이면 throw(우아 안내는 소비처). */
 export async function fetchLedgerArtifact(): Promise<Ledger> {
   const j = await getArtifact<Ledger>('ledger');
   if (!j || !j.ok || !j.data) throw new Error('챕터 원장 산출물(ledger)을 찾지 못했어요.');
   parseArtifact('ledger', j.data); // 버전 + 모양 드리프트 경고(비차단)
+  const 모름 = 모르는단계들(j.data);
+  if (모름.length)
+    throw new Error(`원장이 앱보다 옛 계약이에요 — 모르는 단계 ${모름.join('·')}. 원장을 다시 빌드해 주세요.`);
   return j.data;
 }

@@ -27,7 +27,7 @@ import { mistakeArchive, mistakeTotals, todayMistakes, type MistakeRow } from '@
 import { addBacklog, CBMS_CODES, cbmsInfo } from '@/lib/methodology';
 import { chapterKc, knownKc, tagChapter, untagChapter } from '@/lib/knowledgeElements';
 import { openVaultSearch, todayISO, vaultQuery } from '@/lib/utils';
-import { toast } from '@/shell';
+import { toast, glyphOf } from '@/shell';
 import State from '@/components/State';
 import { Button } from '@/components/ui';
 import type { CbmsCode } from '@/lib/types';
@@ -263,7 +263,7 @@ export default function Mistakes() {
     return (
       <section className={WRAP}>
         <State
-          glyph="alert"
+          glyph={glyphOf('mistakes')}
           title="아직 오답 기록이 없어요"
           desc={
             <>

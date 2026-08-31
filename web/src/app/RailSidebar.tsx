@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { navGroups, Icon, type TabMeta } from '@/shell';
+import { navGroups, Icon, type NavGroup, type TabMeta } from '@/shell';
 import SyncLedger from '@/components/SyncLedger';
 import { useSyncLedger } from '@/store/useSyncLedger';
 import { prefetchTab } from '@/features/registry';
@@ -22,6 +22,11 @@ import { countableKeys, sinceCount } from '@/lib/since';
    적었다(_"인출 축의 대기 숫자가 기록 탭에 붙어 있다"_).
    → `review-run`(복습 실행 · 인출 축의 얼굴 · W17 이 destination 으로 올린 그 화면)으로 옮긴다. */
 const NAV_BADGE_TAB = 'review-run';
+
+/* 아코디언 밖에 사는 축 둘 — **상시**(매일 여는 것)와 **바닥 칩**(저빈도 운영).
+   키는 `RAIL_SECTIONS` 의 것이고, 실재는 불변식 ㉜이 지킨다(오타면 축 하나가 조용히 사라진다). */
+const LEAD_SECTION = 'now';
+const FOOT_SECTION = 'system';
 
 /* RailSidebar — 라벨+그룹 접이식 사이드바(설계도 §1-2 확장).
    - 펼침(기본): 그룹 헤더(계획·자료·분석·설정) 아래 아이콘+라벨 행. 탭이 늘어도 청킹으로 스캔 가능.
@@ -76,21 +81,66 @@ const WORD = 'text-lg leading-text font-extrabold tracking-title whitespace-nowr
 const GROUPS = 'flex flex-col gap-0.5 max-mobile:contents';
 const GROUPS_COL = 'items-center gap-1';
 const GROUP = 'flex flex-col gap-0.5 max-mobile:contents';
+/* ⚠⚠ **섹션 간 여백이 죽어 있었다**(2026-08-28). `HEAD` 가 `mt-3 … first:mt-0` 을 함께 들었는데,
+   펼침에서 구분선이 안 그려지므로 `h2` 는 **언제나 그룹의 첫 자식**이다 → `first:mt-0` 이 항상
+   이겨 12px 이 한 번도 렌더되지 않았다. 즉 15줄이 2px 간격(`GROUPS` 의 gap)으로 붙어 있었고,
+   그게 "밀도가 높다"의 절반이다. 여백의 주인을 **그룹 컨테이너**로 옮긴다 — 컨테이너는 형제
+   순서를 알므로 `first:` 가 뜻대로 동작한다(첫 그룹만 붙는다). */
+const GROUP_GAP = 'mt-3 first:mt-0 max-mobile:mt-0';
 const GROUP_COL = 'items-center';
-/* 섹션 헤더(펼침 전용 · N-16) — **질문**이 뜬다. 저채도·작은 글자로 항목보다 뒤로 물리되
-   섹션 사이 간격(mt)이 경계를 만든다. ⚠ 첫 섹션은 브랜드 바로 아래라 위 간격을 안 준다. */
-const HEAD = 'mt-3 mb-0.5 px-2.5 text-rail-head font-extrabold tracking-widest text-mut first:mt-0 max-mobile:hidden';
-// 구분선은 접힘 전용.
+/* ── 축 헤더 = disclosure 버튼(2026-08-28) ───────────────────────────────────
+   ⚠⚠ 종전엔 `<h2 aria-hidden>` 캡션 10.5px 이었다. 항목이 상시 15줄이던 시절엔 헤더가 **먼지**로
+   물러나 있는 게 맞았지만, 축을 접는 순간 헤더가 **주역**이 된다 — 쉬는 상태에서 사용자가 읽는
+   것이 그 세 줄이다. 그래서 13.5px 로 올리고 조작 가능한 버튼이 됐다.
+   ⚠ 질문(N-16)은 그대로다 — 분류명이 아니라 «내가 지금 묻는 것»과 맞춰 보는 문장이다. */
+const HEAD_BTN =
+  'group relative flex w-full items-center gap-2 rounded-rail! border! border-transparent! bg-transparent! px-2.5! py-2! text-left text-rail-item! leading-auto font-bold! transition-[color,background] duration-fast ease-[var(--ease)] hover:bg-panel2! hover:text-ink! focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:hidden';
+const HEAD_OPEN = 'text-ink!';
+const HEAD_SHUT = 'text-mut!';
+// 셰브런 — 열림이면 90° 돈다. `chevronDown` 이 로스터에 없어서 회전으로 만든다(어휘를 안 늘린다).
+const IC_CHEV = 'size-4! [stroke-width:2]! flex-none transition-transform duration-fast ease-[var(--ease)]';
+const IC_CHEV_OPEN = 'rotate-90';
+/* 접힌 축의 알약 — **접기의 위험은 «안 보이니 잊는다»이고 해독제는 도달성이 아니라 신호다.**
+   그 축 안에서 «말할 것이 있는 화면»의 수를 센다(밀린 복습 · 다시 만날 문항 · 지난번 이후 새것). */
+const HEAD_PILL =
+  'ml-auto h-4 min-w-4 flex-none rounded-rail-chip bg-tint-acc-panel-20 px-1 text-center text-rail-head leading-4 font-extrabold text-acc-on-soft';
+/* 축의 화면들. ⚠ 접혀도 **DOM 에서 빼지 않는다** — 모바일(≤700)에선 레일이 하단 탭바이고 거기엔
+   축·아코디언이라는 개념이 없다. `hidden` 은 데스크톱에서만 걸리고 `max-mobile:contents` 가
+   그 아래에서 되돌린다(탭바 멤버십 불변). */
+const SEC = 'flex flex-col gap-0.5 max-mobile:contents';
+const SEC_SHUT = 'hidden max-mobile:contents';
+// 구분선: 접힘=짧은 중앙선 · 펼침=선두 3행 아래 한 줄(질문 헤더가 없는 경계를 대신 긋는다).
 const DIVIDER = 'my-1 h-px w-6 flex-none bg-line2 max-mobile:hidden';
+const DIVIDER_EXP = 'mt-2.5 h-px w-full flex-none bg-line2 max-mobile:hidden';
 const SPACER = 'min-h-2 flex-1 max-mobile:hidden';
 // 탭 버튼 — 펼침=아이콘+라벨 행, 접힘=42px 아이콘 칩. 모바일=44px 터치 타깃.
+/* ⚠ **글꼴 크기·굵기는 base 가 안 갖는다**(무게 3단 · 2026-08-28) — 단마다 다르고, 한 속성을
+   base 와 변형에 나눠 두면 방출 순서로 갈린다(이 파일이 배경색에서 이미 물린 형태). */
 const ITEM =
-  'group relative flex items-center rounded-rail! border! border-transparent! text-left text-rail-item! leading-auto font-semibold! transition-[color,background,box-shadow] duration-fast ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:h-auto! max-mobile:min-h-11 max-mobile:w-auto! max-mobile:min-w-11 max-mobile:justify-center max-mobile:gap-0 max-mobile:px-0! max-mobile:py-0!';
+  'group relative flex items-center rounded-rail! border! border-transparent! text-left leading-auto transition-[color,background,box-shadow] duration-fast ease-[var(--ease)] focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:h-auto! max-mobile:min-h-11 max-mobile:w-auto! max-mobile:min-w-11 max-mobile:justify-center max-mobile:gap-0 max-mobile:px-0! max-mobile:py-0!';
 // ⚠ 배경·색은 **변형이 통째로 소유한다** — base 에 `bg-transparent!`/`text-mut!` 를 두고 ON 에서
 //    덮으려 하면 방출 순서로 갈려 활성 표시가 통째로 죽는다(이 이식에서 실제로 물렸다).
 const ITEM_OFF = 'bg-transparent! text-mut! hover:bg-panel2! hover:text-ink!';
-const ITEM_EXP = 'w-full gap-2.75 px-2.5! py-2!';
-const ITEM_COL = 'size-10.5 justify-center gap-0 px-0! py-0!';
+/* 선두 3행은 비활성에서도 **정색**이다 — 이 레일의 계층은 크기 하나가 아니라 «크기 × 색»이고,
+   나머지 12행이 `text-mut` 이라 그 대비가 곧 "매일 여는 것"의 표식이 된다.
+   ⚠ OFF/ON 은 **배타적으로** 붙으므로(삼항) `!` 끼리 부딪히지 않는다. */
+const ITEM_OFF_LEAD = 'bg-transparent! text-ink! hover:bg-panel2!';
+/* ── 무게 3단(2026-08-28) ────────────────────────────────────────────────────
+   ⚠⚠ 종전엔 15행이 **픽셀 단위로 동일**했다(13.5px semibold · 20px 아이콘 · `text-mut`).
+   그러면 매일 여는 `오늘 학습`과 달마다 여는 `정본 원장`이 같은 무게라, 눈이 자리를 외우지
+   못하고 매번 15개 라벨을 **읽는다**. 줄을 지우지 않고 고칠 수 있는 것이 이것이다 —
+   도달성은 그대로 두고 **서식만** 빈도를 따라가게 한다.
+   단은 새 축이 아니라 `RAIL_SECTIONS` 에서 파생한다(IA 원천을 둘로 만들지 않는다):
+   `now`=선두 · `system`=바닥 칩 · 나머지=본문.
+   ⚠ 본문 단을 **작게 만들지 않았다** — 13.5px 그대로다. 가독성 불만에 글자를 줄여 답하면
+   같은 불만을 더 나쁘게 되돌려받는다. 줄인 것은 **행 높이**(py-2 → py-1.5)뿐이다. */
+const ITEM_LEAD = 'w-full gap-2.75 px-2.5! py-2.5! text-rail-lead! font-bold!';
+const ITEM_EXP = 'w-full gap-2.5 py-2! pr-2.5! pl-4! text-rail-item! font-semibold!';
+const ITEM_COL = 'size-10.5 justify-center gap-0 px-0! py-0! text-rail-item! font-semibold!';
+/* 바닥 칩(펼침 전용) — 저빈도 운영 화면 둘은 **줄을 안 쓴다**. 라벨은 플라이아웃이 맡는다.
+   ⚠ `size-9` 에 `!` 를 안 붙인 것이 의도다 — 모바일 탭바의 `min-h-11`·`h-auto!` 가 이겨야
+   44px 터치 타깃이 유지된다(접힘 `size-10.5` 가 이미 쓰는 관용구). */
+const ITEM_CHIP = 'size-9 justify-center gap-0 px-0! py-0! text-rail-item! font-semibold!';
 // ⚠ 글자는 `text-acc` 가 아니라 **`text-acc-on-soft`** 다 — 액센트 틴트는 *같은 색을 흐리게 깐
 //    배경*이라 라이트에서 원색 액센트를 얹으면 대비가 무너진다(라이트 4종 전부 4.04 이하였다 ·
 //    근거·수치는 `tokens.css` 의 표). 다크에선 같은 값이므로 픽셀이 안 바뀐다.
@@ -100,23 +150,75 @@ const BADGE =
   'pointer-events-none absolute top-0.75 right-1.25 h-4 min-w-4 rounded-rail-chip bg-tint-acc-panel-20 px-1 text-center text-rail-head leading-4 font-extrabold text-acc-on-soft';
 // 라벨 — 펼침=흐름 텍스트(생략표), 접힘=hover 플라이아웃(모바일은 숨김).
 const LABEL = 'overflow-hidden text-ellipsis whitespace-nowrap max-mobile:hidden';
+const LABEL_CHIP =
+  'pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-[var(--z-dropdown)] -translate-x-1/2 translate-y-1 rounded-rail-chip border border-line bg-panel px-2.5 py-1 text-sm leading-auto font-bold whitespace-nowrap text-ink opacity-0 shadow-md transition-[opacity,transform] duration-fast ease-[var(--ease)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 max-mobile:hidden';
 const LABEL_COL =
   'pointer-events-none absolute top-1/2 left-[calc(100%+8px)] z-[var(--z-dropdown)] -translate-y-1/2 -translate-x-1 rounded-rail-chip border border-line bg-panel px-2.75 py-1.5 text-sm leading-auto font-bold tracking-topbar-sub whitespace-nowrap text-ink opacity-0 shadow-md transition-[opacity,transform] duration-fast ease-[var(--ease)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100 max-mobile:hidden';
 // 접기/펼치기 토글 — 하단(모바일 숨김).
 const TOGGLE =
   'flex items-center rounded-rail! border! border-transparent! bg-transparent! text-md! leading-auto font-semibold! text-mut! transition-[color,background] duration-fast ease-[var(--ease)] hover:bg-panel2! hover:text-ink! focus-visible:outline-2 focus-visible:outline-acc focus-visible:outline-offset-2 max-mobile:hidden';
-const TOGGLE_EXP = 'mt-1 w-full gap-2.75 px-2.5! py-2!';
 const TOGGLE_COL = 'mt-1.5 size-10.5 justify-center gap-0 px-0! py-0!';
 // 아이콘 크기·굵기(원본 `.item :global(.ic)`) — Icon 이 className 을 받는다(§15-5 재사용 자산).
 // ⚠ 굵기도 `!` 가 필요하다 — 전역 `.ic{stroke-width:2}`(base.css)는 **언레이어드**라 유틸이 못 이긴다.
 //    `!` 없이 두면 아이콘이 조용히 2px 로 굵어진다(레일 아이콘 20개 전부 · 실렌더 확인이 잡았다).
 const IC_ITEM = 'size-5! [stroke-width:1.7]!';
+/* 본문 단 아이콘 — 18px. ⚠ 모바일 탭바는 아이콘만 보이는 유일한 표면이라 **원래 크기를
+   유지한다**(거기서 줄이면 계층이 아니라 그냥 작아진 것이 된다). */
+const IC_ITEM_SM = 'size-4.5! max-mobile:size-5! [stroke-width:1.7]!';
 /* 상태 슬롯(N-13) — 라벨 아래 한 줄. 배지(숫자 하나)가 말하지 못하던 **무엇이** 밀렸는지를 적는다.
    ⚠ 펼침에서만 뜬다(접힘 42px 레일엔 글자가 들어갈 자리가 없다 · 그쪽은 배지가 계속 맡는다).
    ⚠ 절제: 발광·색 없이 저채도 한 줄이다. 신호는 **있을 때만** 그려지므로 존재 자체가 강조다. */
 const SIGNAL =
   'block overflow-hidden text-ellipsis whitespace-nowrap text-rail-head font-bold text-mut max-mobile:hidden';
 const IC_TOGGLE = 'size-4.5! [stroke-width:1.7]!';
+/* 바닥 줄 — 시스템 칩 둘 + (오른쪽 끝) 접기 토글. 모바일에선 `contents` 로 풀려 칩들이 탭바의
+   형제가 된다(탭바 멤버십은 안 바뀐다). */
+const FOOT = 'mt-1 flex items-center gap-1 px-1.5 max-mobile:contents';
+const TOGGLE_CHIP = 'ml-auto size-9 justify-center gap-0 px-0! py-0!';
+
+/** 행이 어느 단인가. `RAIL_SECTIONS` 에서 파생하므로 IA 원천이 늘지 않는다(위 ITEM_LEAD 주석). */
+type Tier = 'lead' | 'body' | 'chip';
+
+/* ⚠ 클래스 조립을 컴포넌트 밖에 두는 것은 취향이 아니다 — 단이 셋이라 삼항이 겹치고, 안에
+   두면 `renderBtn` 이 인지복잡도 래칫(25)을 넘는다. 순수 함수라 여기가 제 자리이기도 하다. */
+function itemClass(tier: Tier, collapsed: boolean, active: boolean): string {
+  const geo = collapsed ? ITEM_COL : tier === 'lead' ? ITEM_LEAD : tier === 'chip' ? ITEM_CHIP : ITEM_EXP;
+  const skin = active ? ITEM_ON : !collapsed && tier === 'lead' ? ITEM_OFF_LEAD : ITEM_OFF;
+  return `${ITEM} ${geo} ${skin}`;
+}
+
+/** 본문 단만 한 눈금 작다(모바일 탭바는 IC_ITEM_SM 안에서 원래 크기로 되돌린다).
+ *
+ *  ⚠⚠ **접힘에서 무게 3단이 통째로 꺼져 있었다**(U072 · 2026-08-31). 종전 조건이
+ *  `!collapsed && tier === 'body'` 라, 접히면 세 단이 전부 `ITEM_COL` + `IC_ITEM` 으로 **같은
+ *  크기**가 됐다 — 하필 접힘이 **라벨이 없는 유일한 모드**이고, 그러니까 위계를 마크로만
+ *  말해야 하는 곳이다. 즉 처방이 가장 필요한 자리에서 처방이 꺼졌다.
+ *  ⚠ 크기(터치 타깃 `size-10.5`)는 안 건드린다 — 바뀌는 것은 **아이콘 눈금**뿐이고, 그건 펼침
+ *  레일이 이미 쓰는 채널이라 새 어휘가 아니다.
+ *  ⚠ 모바일 탭바는 `IC_ITEM_SM` 안의 `max-mobile:size-5` 가 원래 크기로 되돌린다(위 상수 주석) —
+ *  거기선 아이콘만 보이므로 줄이면 계층이 아니라 그냥 작아진 것이 된다. 그 예외는 그대로다.
+ *  ⚠ 그래서 인자에서 `collapsed` 가 빠졌다 — 조건이 접힘과 무관해졌으므로 받을 이유가 없다. */
+function iconClass(tier: Tier): string {
+  return tier === 'body' ? IC_ITEM_SM : IC_ITEM;
+}
+
+/* roving 대상의 **순서** — 보이는 것만. 접힌 축의 줄은 `display:none` 이라 브라우저가 포커스를
+   안 주므로, 목록에 넣어 두면 화살표가 «아무 일도 안 하는 칸»을 돈다.
+   ⚠ 컴포넌트 밖인 이유는 인지복잡도 래칫(25)이다 — 순수 함수라 여기가 제 자리이기도 하다. */
+function visibleFocusIds(groups: NavGroup[], collapsed: boolean, isOpen: (key: string) => boolean): string[] {
+  const ids = (g: NavGroup) => g.tabs.map((t) => 'rail-' + t.key);
+  if (collapsed) return groups.flatMap(ids);
+  const out: string[] = [];
+  for (const g of groups) {
+    if (g.key === LEAD_SECTION || g.key === FOOT_SECTION) {
+      out.push(...ids(g));
+      continue;
+    }
+    out.push('rail-sec-' + g.key);
+    if (isOpen(g.key)) out.push(...ids(g));
+  }
+  return out;
+}
 
 export default function RailSidebar() {
   const navigate = useNavigate();
@@ -180,14 +282,44 @@ export default function RailSidebar() {
      ⚠ **레일을 줄이는 일 자체는 함께 죽지 않았다** — 다만 이 노브는 「무엇을 줄일까」의
      근거가 되어 주기로 했던 것이고(«무엇을 접었는지가 곧 답»), 그 답이 **빈 배열**이라
      지금은 근거가 없다. 줄이려면 오염되지 않은 방문 원장(I030 뒤)이 먼저다. */
-  const groups = navGroups();
-  const topGroups = groups.filter((g) => g.key !== 'system');
-  const bottomGroup = groups.find((g) => g.key === 'system');
+  /* ── 축 접기(2026-08-28) ──────────────────────────────────────────────────
+     ⚠⚠ **평탄한 레일은 화면 수와 함께 자란다** — W5 평탄화 이후 «새 화면 = 새 레일 줄»이
+     기본값이었고 15줄이 됐다. 그 축을 끊는다: 레일은 **모든 화면의 목록**이 아니라 **작업 세트**다.
+     전량 열거의 집은 `찾기`(guide 흡수)와 ⌘K 이고, 링(`[`/`]`)은 접힘과 무관하게 계속 전부를
+     돈다 — 즉 **도달성은 하나도 줄지 않는다**(줄어드는 것은 «상시 읽어야 하는 줄»뿐이다).
 
-  // roving tabindex 대상 = 모든 나브 탭(그룹 순서대로 평면화). 활성 탭이 목록에 없으면(예외) 첫 버튼을 tab stop으로.
-  const flat = groups.flatMap((g) => g.tabs);
-  const idxOf = (key: string) => flat.findIndex((t) => t.key === key);
-  const hasActive = flat.some((t) => t.key === cur);
+     ⚠ **열림 상태를 저장하지 않는다.** 열린 축 = **현재 축**이고, 그게 전부다. 상태를 두면
+     ① 두 축이 동시에 열려 다시 15줄이 되고 ② 사용자가 접어 둔 것과 라우트가 어긋나 «내가 지금
+     어디인가»가 흐려진다. 순수 파생이라 되돌릴 상태 자체가 없다(I027 이 남긴 교훈 — 판단이
+     필요 없는 결정을 노브로 만들지 않는다).
+     ⚠ 그래서 헤더 클릭은 **접기 토글이 아니라 그 축의 얼굴로 가는 이동**이다(빈손으로 끝나는
+     클릭을 만들지 않는다). 얼굴은 로스터가 이미 안다 — 축마다 `destination` 하나다. */
+  const groups = navGroups();
+  const leadGroup = groups.find((g) => g.key === LEAD_SECTION);
+  const axisGroups = groups.filter((g) => g.key !== LEAD_SECTION && g.key !== FOOT_SECTION);
+  const bottomGroup = groups.find((g) => g.key === FOOT_SECTION);
+  /* ⚠⚠ **객체 라우트(`/subject/:id`)는 어느 축에도 없다**(U058 · 2026-08-31). 그대로 두면
+     `curSection` 이 `undefined` 가 되어 **두 축이 동시에 닫히고**, 과목을 열고 닫을 때마다 레일
+     9줄이 점멸한다 — 이 앱에서 가장 잦은 객체 상호작용이다. 접기 설계가 내건 보장(_"열림은
+     라우트의 파생"_)이 성립하지 않는 유일한 구간이었다.
+
+     ⚠ 리포트의 처방은 «직전 축을 이어 쓴다» 였지만 **그대로 쓰지 않았다.** ① 그건 렌더 중
+     `ref` 를 읽는 형태가 되고, 이 저장소는 React Compiler 전제라 `react-hooks/refs` 가 그것을
+     **error 로 막는다**(실제로 막혔다). ② 더 중요하게, 그 안은 «어디서 왔는가» 에 의존해서
+     **같은 화면이 경로마다 다른 축을 연다** — 새로고침하면 또 달라진다.
+     → **객체의 집을 정적으로 정한다.** 과목 상세는 「과목」 탭의 객체이므로 그 축이 곧 답이고,
+     이건 상태가 아니라 파생이라 되돌릴 것도 저장할 것도 없다(설계가 못박은 규율 그대로). */
+  const 객체의집: Record<string, string> = { subject: 'items' };
+  const 축키 = 객체의집[cur] ?? cur;
+  const curSection = groups.find((g) => g.tabs.some((t) => t.key === 축키))?.key;
+  // 접힘(42px 아이콘 레일)엔 헤더가 들어갈 폭이 없다 → 거기선 평탄한 옛 형태 그대로다.
+  const isOpen = (key: string) => collapsed || key === curSection;
+  /** 그 축의 얼굴. 로스터의 `destination` 이 곧 얼굴이라 새 필드를 안 만든다(불변식 ㉜이 지킨다). */
+  const faceOf = (g: NavGroup) => g.tabs.find((t) => t.role === 'destination') ?? g.tabs[0]!;
+
+  const focusIds = visibleFocusIds(groups, collapsed, isOpen);
+  // 활성 탭이 목록에 없으면(명사 주소·접힌 축) 첫 버튼을 tab stop 으로.
+  const tabStop = focusIds.includes('rail-' + cur) ? 'rail-' + cur : focusIds[0];
 
   /* roving: ↑↓/←→/Home/End 로 **포커스만** 옮긴다(H10 · 2026-07-30 `/감사 근본`).
 
@@ -205,33 +337,34 @@ export default function RailSidebar() {
        "무엇을 실제로 쓰는가"의 답이 조용히 부풀려진다.
 
      활성화는 버튼의 네이티브 동작(Enter/Space)이 이미 소유한다 — 여기서 뺀 것은 그 중복뿐이다. */
-  const onKey = (idx: number) => (e: React.KeyboardEvent) => {
+  const onKey = (id: string) => (e: React.KeyboardEvent) => {
+    const idx = focusIds.indexOf(id);
+    if (idx < 0) return;
     let next = -1;
     switch (e.key) {
       case 'ArrowDown':
       case 'ArrowRight':
-        next = (idx + 1) % flat.length;
+        next = (idx + 1) % focusIds.length;
         break;
       case 'ArrowUp':
       case 'ArrowLeft':
-        next = (idx - 1 + flat.length) % flat.length;
+        next = (idx - 1 + focusIds.length) % focusIds.length;
         break;
       case 'Home':
         next = 0;
         break;
       case 'End':
-        next = flat.length - 1;
+        next = focusIds.length - 1;
         break;
       default:
         return;
     }
     e.preventDefault();
-    const t = flat[next]!;
     /* 포커스만 옮긴다 — `go()` 를 부르지 않는 것이 H10 의 전부다. roving tabindex 이므로
        `tabIndex` 는 `cur` 이 아니라 **DOM 포커스**를 따라야 하는데, 그 계산은 아래
        `renderBtn` 이 `activeKey`(=현재 라우트)로 하고 있어 포커스 이동 자체는 막지 않는다
        (브라우저가 focus() 를 그대로 수행한다). */
-    document.getElementById('rail-' + t.key)?.focus();
+    document.getElementById(focusIds[next]!)?.focus();
   };
 
   /* U023 — 탭바가 가로로 스크롤되면 **활성 탭이 화면 밖에서 시작할 수 있다**(예: `/settings` 는
@@ -243,8 +376,8 @@ export default function RailSidebar() {
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [cur]);
 
-  const renderBtn = (t: TabMeta) => {
-    const i = idxOf(t.key);
+  const renderBtn = (t: TabMeta, tier: Tier = 'body') => {
+    const id = 'rail-' + t.key;
     const active = cur === t.key;
     // 배지 두 종류: journal=복습·보충 대기 · settings=동기화 충돌 대기. 라벨도 각각.
     const isConflict = t.key === 'settings' && conflictBadge > 0;
@@ -256,20 +389,22 @@ export default function RailSidebar() {
     return (
       <button
         key={t.key}
-        id={'rail-' + t.key}
+        id={id}
         type="button"
         aria-current={active ? 'page' : undefined}
         aria-label={badge > 0 ? `${t.label} — ${badgeLabel}` : signal ? `${t.label} — ${signal}` : t.label}
-        tabIndex={active || (!hasActive && i === 0) ? 0 : -1}
-        className={`${ITEM} ${collapsed ? ITEM_COL : ITEM_EXP} ${active ? ITEM_ON : ITEM_OFF}`}
-        onKeyDown={onKey(i)}
+        tabIndex={id === tabStop ? 0 : -1}
+        className={itemClass(tier, collapsed, active)}
+        onKeyDown={onKey(id)}
         onMouseEnter={() => prefetchTab(t.key)}
         onFocus={() => prefetchTab(t.key)}
         onClick={() => go(t.key)}
       >
-        <Icon name={t.icon} className={IC_ITEM} />
+        <Icon name={t.icon} className={iconClass(tier)} />
         {collapsed ? (
           <span className={LABEL_COL}>{t.label}</span>
+        ) : tier === 'chip' ? (
+          <span className={LABEL_CHIP}>{t.label}</span>
         ) : (
           /* 라벨 + 상태 한 줄(N-13). 신호가 없으면 줄 자체가 없다 — 빈 줄을 그려 두면 높이가
              늘 흔들리고, "평온엔 아무것도 안 그린다"가 레이아웃에서 배신당한다. */
@@ -312,22 +447,75 @@ export default function RailSidebar() {
        없는 것보다 나쁘다(H12 가 동기화 문구에서 내린 것과 같은 판정).
      ⚠ SR 에는 `aria-label` 로 같은 질문을 준다 — 시각 사용자에게 보이는 경계이므로 이번엔
        "보이지 않는 그룹을 SR 에만 알리는" 문제가 아니다(E22 가 뗀 이유가 바로 그것이었다). */
-  const renderGroup = (g: { key: string; label: string; tabs: TabMeta[] }, showSep: boolean) => (
+  /** 그 축 안에서 «말할 것이 있는 화면»의 수. 접혔을 때만 쓴다(펼치면 각 줄이 스스로 말한다). */
+  const pendingIn = (g: NavGroup) =>
+    g.tabs.filter(
+      (t) =>
+        (signals[t.key] ?? sinceSignals[t.key]) ||
+        (t.key === NAV_BADGE_TAB && reviewBadge > 0) ||
+        (t.key === 'settings' && conflictBadge > 0),
+    ).length;
+
+  /* ⚠ **선두 축은 헤더도 접기도 없다** — 매일 여는 셋이라 상시다. 그 경계는 구분선이 긋는다.
+     (N-16 의 질문 «지금 뭐부터?» 는 SR 에 `aria-label` 로 계속 간다 — 시각적으로는 맞춰 볼
+     것도 없이 그 답 자체라 캡션 한 줄을 더 읽히지 않는다.) */
+  const renderLead = (g: NavGroup) => (
     <div
       key={g.key}
-      className={`${GROUP} ${collapsed ? GROUP_COL : ''}`}
+      className={`${GROUP} ${collapsed ? GROUP_COL : GROUP_GAP}`}
       role={collapsed ? undefined : 'group'}
       aria-label={collapsed ? undefined : g.label}
     >
-      {showSep && collapsed && <div className={DIVIDER} aria-hidden="true" />}
-      {!collapsed && (
-        <h2 className={HEAD} aria-hidden="true">
-          {g.label}
-        </h2>
-      )}
-      {g.tabs.map(renderBtn)}
+      {g.tabs.map((t) => renderBtn(t, 'lead'))}
+      {!collapsed && <div className={DIVIDER_EXP} aria-hidden="true" />}
     </div>
   );
+
+  /* 축 하나 = 헤더(disclosure) + 그 축의 화면들.
+     ⚠ 헤더 클릭은 **접기 토글이 아니다** — 그 축의 얼굴로 이동하고, 그 결과로 열린다(열림은
+     라우트의 파생이다). 이미 그 축에 있으면 얼굴로 돌아간다.
+     ⚠ hover 로는 안 펼친다 — 포인터가 스칠 때 레일이 튀는 것이 「편함」을 가장 크게 깎는다. */
+  const renderAxis = (g: NavGroup) => {
+    const open = isOpen(g.key);
+    const n = open ? 0 : pendingIn(g);
+    return (
+      <div key={g.key} className={`${GROUP} ${collapsed ? GROUP_COL : GROUP_GAP}`}>
+        {collapsed ? (
+          <div className={DIVIDER} aria-hidden="true" />
+        ) : (
+          <button
+            id={'rail-sec-' + g.key}
+            type="button"
+            className={`${HEAD_BTN} ${open ? HEAD_OPEN : HEAD_SHUT}`}
+            aria-expanded={open}
+            aria-controls={'rail-sec-body-' + g.key}
+            aria-label={n > 0 ? `${g.label} — 신호 ${n}개` : g.label}
+            tabIndex={'rail-sec-' + g.key === tabStop ? 0 : -1}
+            onKeyDown={onKey('rail-sec-' + g.key)}
+            onMouseEnter={() => prefetchTab(faceOf(g).key)}
+            onFocus={() => prefetchTab(faceOf(g).key)}
+            onClick={() => go(faceOf(g).key)}
+          >
+            <Icon name="chevronRight" className={`${IC_CHEV} ${open ? IC_CHEV_OPEN : ''}`} />
+            <span className={LABEL}>{g.label}</span>
+            {n > 0 && (
+              <span className={HEAD_PILL} aria-hidden="true">
+                {n > 99 ? '99+' : n}
+              </span>
+            )}
+          </button>
+        )}
+        <div
+          id={'rail-sec-body-' + g.key}
+          className={collapsed || open ? `${SEC} ${collapsed ? GROUP_COL : ''}` : SEC_SHUT}
+          role={collapsed ? undefined : 'group'}
+          aria-label={collapsed ? undefined : g.label}
+        >
+          {g.tabs.map((t) => renderBtn(t, 'body'))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <nav className={`${RAIL} ${collapsed ? RAIL_COL : RAIL_EXP}`} aria-label="주요 메뉴" data-collapsed={collapsed}>
@@ -336,7 +524,10 @@ export default function RailSidebar() {
         {!collapsed && <span className={WORD}>러닝 허브</span>}
       </div>
 
-      <div className={`${GROUPS} ${collapsed ? GROUPS_COL : ''}`}>{topGroups.map((g, i) => renderGroup(g, i > 0))}</div>
+      <div className={`${GROUPS} ${collapsed ? GROUPS_COL : ''}`}>
+        {leadGroup && renderLead(leadGroup)}
+        {axisGroups.map(renderAxis)}
+      </div>
       <div className={SPACER} />
       {/* E12 — 데스크톱도 자기 동기화 상태를 말한다. 폰 헤더와 **같은 컴포넌트·같은 판정**이라
           두 기기가 서로 다른 조건에서 침묵할 수 없다(달라지는 것은 여백뿐).
@@ -345,17 +536,39 @@ export default function RailSidebar() {
             **상시 라이브 리전까지 함께 사라졌다**: 접힘을 쓰는 사용자는 "동기화 중단"을 시각으로도
             스크린리더로도 못 받았고, 접힘은 영속 설정이라 그 침묵이 항구적이었다. */}
       <SyncLedger {...ledger} hideText={collapsed} className="px-2.5 pb-1.5" />
-      {bottomGroup && renderGroup(bottomGroup, true)}
-      <button
-        type="button"
-        className={`${TOGGLE} ${collapsed ? TOGGLE_COL : TOGGLE_EXP}`}
-        aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
-        aria-pressed={collapsed}
-        onClick={toggleNav}
-      >
-        <Icon name="panelLeft" className={IC_TOGGLE} />
-        {!collapsed && <span className={LABEL}>접기</span>}
-      </button>
+      {/* ⚠ 저빈도 운영 화면 둘은 **줄이 아니라 칩**이다(2026-08-28) — 상시 노출은 유지하되
+          "매일 여는 것"과 같은 형상을 쓰지 않는다. 접힘 레일에선 이미 칩이므로 그대로 둔다.
+          ⚠⚠ 1280×720 에서 레일 콘텐츠가 **뷰포트를 넘어** `연동 현황`·접기 토글이 스크롤
+          아래에 있었다(스냅샷 실측 · 스크롤바는 숨김이라 넘쳤다는 신호조차 없었다). 이 줄과
+          위 행 높이 축소가 그 넘침을 걷는다. */}
+      {bottomGroup &&
+        (collapsed ? (
+          renderAxis(bottomGroup)
+        ) : (
+          <div className={FOOT} role="group" aria-label={bottomGroup.label}>
+            {bottomGroup.tabs.map((t) => renderBtn(t, 'chip'))}
+            <button
+              type="button"
+              className={`${TOGGLE} ${TOGGLE_CHIP}`}
+              aria-label="사이드바 접기"
+              aria-pressed={false}
+              onClick={toggleNav}
+            >
+              <Icon name="panelLeft" className={IC_TOGGLE} />
+            </button>
+          </div>
+        ))}
+      {collapsed && (
+        <button
+          type="button"
+          className={`${TOGGLE} ${TOGGLE_COL}`}
+          aria-label="사이드바 펼치기"
+          aria-pressed
+          onClick={toggleNav}
+        >
+          <Icon name="panelLeft" className={IC_TOGGLE} />
+        </button>
+      )}
     </nav>
   );
 }

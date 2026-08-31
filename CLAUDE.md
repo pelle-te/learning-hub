@@ -30,7 +30,7 @@
 >
 > - **배포**는 Tauri 셸뿐이다. 옛 브라우저 실행 경로(serve.js + Chrome `--app`)는 2단계-E에서 **은퇴**했다 — 정본이 SQLite로 갔는데 브라우저엔 SQLite가 없어, 그 경로로 띄우면 *갈라진 상태*가 된다.
 > - ⚠ **저장 백엔드가 셋이다**(C-6): 셸=SQLite(plugin-sql) · **폰=SQLite(wasm+OPFS, 워커)** · dev/트랙 A=localStorage. 폰 것은 **`enableBrowserDb()` 로 명시 opt-in** 이고 폰 진입점만 부른다 — 무조건 켜면 dev 와 트랙 A 시각 베이스라인이 통째로 백엔드를 갈아탄다. 그래서 저장 경로의 조건은 `isTauri()` 가 아니라 **`isSqlitePrimary()`** 다(폰은 Tauri 가 아닌데 SQLite 가 정본 — 이걸 틀리면 폰 편집이 아웃박스에 안 걸려 **영원히 동기화되지 않는다**).
-> - **`npm run dev` 와 트랙 A(시각 베이스라인 전량)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 산출물 5종만 invoke 스텁으로 목업한다.
+> - **`npm run dev` 와 트랙 A(시각 베이스라인 전량)는 브라우저**라 계속 localStorage 백엔드로 돈다. 이 폴백을 없애면 개발과 시각 검증망이 함께 죽으므로 **의도적으로 남긴 것**이다(`lib/tauri.ts` 의 `isTauri()` 분기 · `lib/db/boot.ts`). 단 4단계 이후 **백엔드 기능(산출물·도구·AI)은 브라우저에서 동작하지 않는다** — 트랙 A 는 그중 **산출물만** invoke 스텁으로 목업한다(개수를 여기 세지 마라 — `e2e/_fixtures.ts` 의 스텁 목록이 정본이고, 2026-08-31 에 `goals`·`knowledge` 픽스처가 빠지며 실제로 줄었다).
 > - ⚠ **오리진이 갈려 데이터는 자동 이관되지 않는다.** Chrome에서 쓰던 데이터가 있으면 반드시 기존 앱에서 내보내기 → 셸에서 가져오기. 셸 자신의 localStorage(1단계에 쓰던 것)는 **첫 부팅에 SQLite로 1회 자동 이관**된다(`initAppStore`).
 
 ## 절대 규칙 (반복 실수 방지 — 매번 물림)
@@ -81,6 +81,13 @@ npm run e2e:a11y # a11y — axe-core 로 렌더된 DOM 을 검사(`serious`+`cri
                  #   (W9 이 탭 셋을 뷰로 접으며 그 뷰 셋을 `A11Y_EXTRA` 에 넣었다).
                  #   ⑤ 폰(전 뷰×2테마) ⑥ **리플로우 320px**(넘침 + 탭바·레일 도달성 · ux 축)
                  #   ⑦ **대비 미측정 래칫** — 「위반 0」의 분모를 함께 센다(axe 의 `incomplete`).
+                 #   ⑧ **SC 2.4.11 Focus Not Obscured**(AA · U079 · 2026-08-31) — 320px 에서 포커스가
+                 #     고정 탭바에 가려지는가. axe 에 그 규칙이 **없고**(4.x 실측) 정지 프레임엔
+                 #     포커스가 없어 시각 축도 원리적으로 못 본다. 판정은 `elementFromPoint` 자기확인.
+                 #   ⚠⚠ **①·⑦의 로스터가 2026-08-31 에 갈려 있었다**(U051·U052): 구조·대비·리플로우는
+                 #     `화면들`(전량)을 도는데 **⑦만 `TABS`(13)** 를 돌았고, `TABS` 항목엔 `ready` 계약이
+                 #     아예 없어 **탭이 통째로 죽어도 axe 가 초록**이었다(실증). 둘 다 닫혔다 —
+                 #     즉 그 이전의 「a11y 위반 0」은 분모가 이것보다 작았다.
                  #   넓히자마자 실결함 3계열이 나왔다(라이트 시맨틱 토큰 5종 ·
                  #   `AllocBoard`·`Ledger` 의 컨테이너 `opacity` 가 자기 글자를 2.5:1 로 떨군 것).
                  #   ⚠ **컨테이너 `opacity` 로 "흐리게"를 표현하지 말 것** — 통과 최솟값이 0.8~0.95라
@@ -249,11 +256,12 @@ web/src/
 src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
               **hotkey.rs=전역 캡처 단축키(E20 · 등록 실패를 `capabilities.hotkeyError` 로 관측)** ·
               **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 7종+RAII 동시성 캡 ·
-              ollama.rs=AI(Channel 스트리밍 · 프롬프트 빌더는 회고 코치 1종) · artifact.rs=산출물 5종 ·
+              ollama.rs=AI(Channel 스트리밍 · 프롬프트 빌더는 회고 코치 1종) · artifact.rs=산출물 화이트리스트 ·
               files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
-              ⚠ **개수를 여기 손으로 적었으므로 표류한다** — 정본은 각 파일의 `TOOLS`·`ARTIFACTS`
-              상수이고, `tools.rs`·`artifact.rs` 의 `#[test]` 가 그 수를 단언한다(P10 W4 에서
-              11→7 · 8→5 로 바뀌며 이 줄이 실제로 낡았다).
+              ⚠⚠ **개수를 여기 손으로 적지 마라 — 이 줄은 실제로 두 번 낡았다.** 정본은 각 파일의
+              `TOOLS`·`ARTIFACTS` 상수이고 `#[test]` 가 그 수를 단언한다. P10 W4 가 11→7 · 8→5 로
+              바꿨고, **2026-08-31 이 다시 7→5 · 5→2 로 바꿨다**(U087·U091 — 부모가 목적을 좁히며
+              생산자를 지운 것들이 표면에 남아 있었다).
               ⚠ **여는 포트가 없다**(4단계). 1단계의 '고아 sidecar 선점' 로직은 serve.js 와 함께
               사라졌다 — 포트를 물고 남을 프로세스 자체가 없어졌기 때문. `single-instance`는 유지.
               ⚠⚠ **알림은 `tauri-plugin-notification` 이다 — 웹 `Notification` 을 쓰지 말 것**(P-8 ·

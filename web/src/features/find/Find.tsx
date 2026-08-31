@@ -15,7 +15,7 @@
 
    ## ⚠ 여기서 검색 규칙을 새로 만들지 않는다
 
-   `contentSearch` 가 이미 객체 6종(과목·챕터·책·보충·약점·오답)을 인덱싱한다. 여기서 자체
+   `contentSearch` 가 이미 객체 다섯(과목·챕터·보충·약점·오답)을 인덱싱한다. 여기서 자체
    필터를 짜면 팔레트와 이 화면이 **같은 질의에 다르게 답하고**, 그때 어느 쪽이 규칙인지 말할 수
    없다. 늘어난 것은 결과 개수 상한 하나뿐이다(화면이 넓으니 더 보여 준다).
 ============================================================ */
@@ -26,7 +26,7 @@ import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { contentSearch, type ContentHit } from '@/lib/contentSearch';
 import { type AdhocNav } from '@/lib/resume';
-import { railTabs } from '@/shell';
+import { orderedTabs, hostHintOf } from '@/shell';
 import State from '@/components/State';
 import { Icon } from '@/components/Icon';
 import { Button, Pill } from '@/components/ui';
@@ -54,6 +54,11 @@ const KIND_LABEL: Record<ContentHit['kind'], string> = {
   weak: '약점',
   mistake: '오답',
 };
+
+/* 광고 문구는 **인덱스에서 파생한다**(U057 · 2026-08-31). 손으로 적었더니 `reads`(읽을거리)가
+   2026-08-07 에 `survey/` 로 이사한 뒤로도 두 자리에 남아, 책 제목을 친 사용자가 「걸리는 것이
+   없어요」를 «내 데이터가 사라졌다»로 읽게 했다 — 오타가 아니라 **잘못된 기대의 생산**이다. */
+const KIND_ADS = Object.values(KIND_LABEL).join('·');
 
 /* ⚠⚠ **`guide`(안내)가 이 화면의 두 번째 뷰가 됐다 — 은퇴가 여기서 닫힌다**(W9 · 2026-08-06).
 
@@ -83,10 +88,15 @@ export default function Find() {
     [hits],
   );
   /* 화면 이름도 함께 찾는다 — 내용이 주(主)지만 "그 탭 이름이 뭐였지"도 실재하는 질문이다.
-     ⚠ 은퇴한 화면은 여기 안 나온다(`railTabs()` 가 이미 걸러 준다 · Q-22).
-     ⚠ N-14(W5) 이후 **렌즈도 나온다** — 레일에 서는 것이 곧 찾을 수 있는 화면이다. */
+     ⚠⚠ **`railTabs()` 였다**(U046 · 2026-08-31). 레일에 자기 줄을 갖는 것만 돌려주므로
+     `role:'view'` 다섯(`forecast`·`intake`·`close`·`req`·`guide`)이 **통째로 빠졌다** — 「결산」을
+     치면 *"걸리는 것이 없어요"* 가 뜨는데 그 화면은 `/degree?view=close` 에 살아 있고 ⌘K 는 잘 찾는다.
+     하필 `RailSidebar` 가 축 접기를 정당화하며 _"전량 열거의 집은 **찾기**와 ⌘K"_ 라 적어 뒀으니,
+     그 두 집 중 하나가 다섯을 안 담고 있었던 것이다. `orderedTabs()` 는 `role:'object'` 를 이미
+     거르므로(`ORDERED_TABS`) 바꿔야 할 것은 이 한 줄뿐이다.
+     ⚠ 착지는 `t.to` 로 한다 — 뷰의 `key` 는 **경로가 아니다**(⌘K 가 Q-22 에서 같은 것에 물렸다). */
   const screens = useMemo(
-    () => (q.trim() ? railTabs().filter((t) => t.label.toLowerCase().includes(q.trim().toLowerCase())) : []),
+    () => (q.trim() ? orderedTabs().filter((t) => t.label.toLowerCase().includes(q.trim().toLowerCase())) : []),
     [q],
   );
 
@@ -136,7 +146,7 @@ export default function Find() {
             value={q}
             /* ⚠ `autoFocus` 는 린트가 (옳게) 막는다 — 스크린리더 사용자를 화면 중간으로 순간이동
                시킨다. 이 화면은 ⌘K 와 달리 **머무는** 곳이라 자동 포커스의 이득도 작다. */
-            placeholder="과목·챕터·보충·약점·오답·읽을거리"
+            placeholder={KIND_ADS}
             onChange={(e) => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })}
           />
           {/* 네이티브 지우기 X 는 전역에서 껐다(테마 토큰을 안 탄다) → 앱이 자기 것으로 준다.
@@ -159,7 +169,7 @@ export default function Find() {
           kind="empty"
           glyph="search"
           title="내용으로 찾습니다"
-          desc="탭 이름이 아니라 과목·챕터·보충·약점·오답·읽을거리를 직접 찾아요. ⌘K 와 같은 규칙이지만, 여기선 결과가 남아 있어 여러 개를 훑을 수 있습니다."
+          desc={`탭 이름이 아니라 ${KIND_ADS}을 직접 찾아요. ⌘K 와 같은 규칙이지만, 여기선 결과가 남아 있어 여러 개를 훑을 수 있습니다.`}
           /* ⚠ 종전엔 `terminal`(행동 없음)이었다. 매뉴얼이 이 화면으로 들어오면서 **행동이
              생겼다** — 그리고 그 문은 여기밖에 없다(은퇴한 탭은 나브에 안 선다). */
           next={
@@ -189,9 +199,11 @@ export default function Find() {
         <ul className="m-0 flex min-h-0 max-w-160 flex-1 [scrollbar-width:thin] list-none flex-col gap-1.5 overflow-y-auto p-0">
           {screens.map((t) => (
             <li key={`s-${t.key}`}>
-              <Button variant="ghost" className={ROW} onClick={() => navigate('/' + t.key)}>
+              <Button variant="ghost" className={ROW} onClick={() => navigate(t.to ?? '/' + t.key)}>
                 <Pill tiny>화면</Pill>
                 <span className="ml-2">{t.label}</span>
+                {/* 힌트 어휘는 ⌘K 것을 그대로 쓴다 — 같은 사실에 어휘를 두 벌 만들지 않는다. */}
+                {t.role === 'view' && <span className="ml-2 text-2xs text-mut">{hostHintOf(t)}</span>}
               </Button>
             </li>
           ))}

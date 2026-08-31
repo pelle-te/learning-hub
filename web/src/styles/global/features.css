@@ -260,7 +260,7 @@
   letter-spacing: -0.01em;
 }
 .modal-b {
-  font-size: var(--fs-base);
+  font-size: var(--fs-body);
   line-height: 1.6;
   color: var(--txt);
   white-space: pre-wrap;

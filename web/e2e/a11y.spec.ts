@@ -180,7 +180,22 @@ type 검사화면 = {
   prep?: (page: import('@playwright/test').Page) => Promise<void>;
   ready?: (page: import('@playwright/test').Page) => Promise<unknown>;
 };
-const 화면들: 검사화면[] = [...TABS.map((t) => ({ key: t, path: '/' + t })), ...A11Y_EXTRA];
+/* ⚠⚠ **`TABS` 13화면에 `ready` 계약이 없었다**(U051 · 2026-08-31). 바로 아래 `띄우기` 가
+   _"빈 화면은 axe 가 통과해도 아무것도 증명하지 못한다"_ 고 적어 두고, 로스터의 **절반 이상**이
+   그 계약 밖이었다. 실증: `/ledger` 가 계약 불일치로 탭째 죽은 상태에서 `a11y · ledger` 가
+   **통과**했다 — 에러 경계 화면(제목 + 버튼)은 접근성으로 흠잡을 데가 없기 때문이다.
+   즉 이 로스터의 단위가 「경로가 뜬다」였지 **「그 화면이다」가 아니었다.**
+
+   ⚠ 가장 싼 형태는 **탭 본문이 실제로 그려졌다**를 재는 것이다(`visual.spec` 이 쓰는 것과 같은
+   관용구). 화면마다 문구를 손으로 적으면 그 목록이 곧 다음 표류이므로, 구조 노드를 본다.
+   ⛔ **`h1`·`#main`·랜드마크를 `ready` 로 쓰지 마라** — `TopBar`·`RailSidebar` 가 모든 화면에
+   그리므로 **어느 화면에서나 잡힌다**(그게 `ledger-mastery` 가 초록으로 남의 화면을 검사한
+   기전이다 · U049). 아래 `A11Y_EXTRA` 의 `find-guide`·`review-run-forecast` 도 같은 형태라
+   함께 좁혔다. */
+const 탭_본문_떴나 = (page: import('@playwright/test').Page) =>
+  page.locator('#main h2, #main section[aria-label], #main [role="table"]').first().waitFor();
+
+const 화면들: 검사화면[] = [...TABS.map((t) => ({ key: t, path: '/' + t, ready: 탭_본문_떴나 })), ...A11Y_EXTRA];
 
 /** 화면을 띄우고 axe 가 볼 수 있는 상태까지 데려간다.
     ⚠ `ready` 가 있는 화면은 **실제 콘텐츠가 떴음**을 먼저 단정한다 — 빈 화면은 컨트롤도
@@ -324,6 +339,47 @@ test('reflow · 320px 에서 하단 탭바의 모든 탭에 닿을 수 있다', 
   expect(r.활성보임, '현재 탭(설정)이 탭바 밖에 있다 — 「지금 어디인가」가 안 보인다').toBe(true);
 });
 
+/* ── ⭐ **SC 2.4.11 Focus Not Obscured (Minimum)** — AA (U079 · 2026-08-31) ────────────────
+
+   좁은 창에서는 하단 탭바가 `position:fixed` 로 떠 있고 본문은 `max-mobile:pb-16`(64px)으로
+   자리를 비운다. 그런데 **키보드 포커스가 그 아래로 들어가는 것은 여백이 막지 못한다** —
+   여백은 «문서 끝» 을 밀 뿐이고, 포커스 이동은 브라우저가 요소를 **뷰포트 안**으로만 스크롤하지
+   «고정 요소에 안 가리게» 스크롤하지 않기 때문이다. 그 순간 사용자는 자기가 어디에 있는지
+   모르는 채 타이핑하게 된다.
+
+   ⚠ 저장소 전체에 **`scroll-padding` 이 0건**이다(실측) — 그게 이 SC 의 표준 처방이다.
+   ⚠ 이 검사는 스냅샷이 원리적으로 못 본다: 정지 프레임엔 포커스가 없고, 있어도 «가려졌는가»는
+     좌표 비교이지 픽셀 비교가 아니다. axe 에도 이 규칙이 없다(4.x 실측 · `focus-ring` 케이스가
+     같은 이유로 시각 축에 산다).
+   ⚠ **판정은 `elementFromPoint` 로 자기확인한다** — 요소 사각형이 탭바와 겹치는지만 보면
+     `pointer-events:none` 인 장식까지 «가림» 으로 세고, 그러면 검사가 규약보다 넓어진다. */
+test('SC 2.4.11 — 320px 에서 포커스가 고정 탭바에 가려지지 않는다', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await boot(page, 'dark', SEED);
+  await page.goto('/settings');
+  await expect(page.locator('#main')).toBeVisible();
+  await a11ySettle(page);
+  const 가려진: string[] = [];
+  for (let i = 0; i < 20; i++) {
+    await page.keyboard.press('Tab');
+    const r = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const b = el.getBoundingClientRect();
+      if (b.width === 0 || b.height === 0) return null;
+      /* 요소의 **중심점**에서 실제로 무엇이 잡히는가. 자기 자신(또는 자손)이면 안 가려진 것이다. */
+      const top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      if (!top || el === top || el.contains(top) || top.contains(el)) return null;
+      return `${el.tagName}${el.getAttribute('aria-label') ? `[${el.getAttribute('aria-label')}]` : ''} ← ${top.tagName}`;
+    });
+    if (r) 가려진.push(r);
+  }
+  expect(
+    [...new Set(가려진)].sort(),
+    '포커스 받은 요소가 다른 것에 가려진다 — `scroll-padding-bottom` 으로 고정 탭바만큼 비켜야 한다(SC 2.4.11)',
+  ).toEqual([]);
+});
+
 /* ── ⭐ 대비 **미측정** 래칫(U003 · 2026-08-21 ux 축) ─────────────────────────────────
    ## 「위반 0」은 「전부 쟀다」가 아니다
 
@@ -342,7 +398,15 @@ test('reflow · 320px 에서 하단 탭바의 모든 탭에 닿을 수 있다', 
    (그리고 그 관용구는 §7 에서 «유지» 판정을 받았다). 여기서 막는 것은 **늘어나는 것**이다 —
    새 화면이 같은 사각을 더 만들면 시끄럽게 깨진다. 값을 줄이면 이 상수도 함께 줄인다(역래칫).
    ⚠ 이 수를 손으로 어림하지 마라. 실패 메시지가 **실측치를 그대로 준다**. */
-const 미측정_래칫 = 624;
+/* ⚠⚠ **624 → 901 은 회귀가 아니라 「분모가 자란 것」이다**(U052 · 2026-08-31). 종전 이 루프는
+   `TABS`(13화면)만 돌았고 — 「위반 0」의 분모를 세라고 세운 장치가 **자기 분모를 로스터의 절반으로
+   축소**하고 있었다 — 이제 `화면들` 전량을 돈다. 빠져 있던 것이 하필 의사요소 밀도가 가장 높은
+   화면들이었다(`alloc` 의 `::before` 채움 셀 · `review-run` · `subject` · 오버레이 · `/mini` · 폰).
+   ⛔ **다음 회차가 이 증가를 「나빠졌다」로 읽지 마라** — 같은 코드에 대해 **처음으로 다 센 것**이다.
+   내역도 그때 갈렸다: 종전엔 `color-contrast` 뿐이었는데 이제 `form-field-multiple-labels` 가 1건
+   보인다(넓힌 화면에서 온 것 · 위반이 아니라 미측정이다).
+   ⚠ 이 수를 손으로 어림하지 마라. 실패 메시지가 **실측치를 그대로 준다**. */
+const 미측정_래칫 = 901;
 
 /* ⚠⚠ **화면당 예산 — 이 케이스가 CI 를 이틀간 빨간불로 만들었다**(U041 · 2026-08-22 운영 축).
 
@@ -358,14 +422,17 @@ const 미측정_래칫 = 624;
    봤으므로 8초는 두 배 여유다. `+20초` 는 브라우저 기동 등 화면 수와 무관한 고정비. */
 const 화면당_예산_MS = 8_000;
 
+/* ⚠⚠ **이 래칫만 `TABS`(13)를 돌았다 — 로스터는 그보다 훨씬 크다**(U052 · 2026-08-31).
+   구조·라이트 대비·리플로우 세 루프는 `화면들` 을 도는데 「위반 0」의 **분모를 세라고 세운
+   장치**가 자기 분모를 로스터의 절반으로 축소하고 있었다. 빠진 것이 하필 의사요소 밀도가
+   가장 높은 화면들이다: `alloc`(`::before` 채움 셀) · `review-run` · `subject` · 오버레이 ·
+   `/mini` · 폰. 이제 `화면들` 을 돌고 `띄우기()` 를 재사용한다(prep·ready 가 따라온다). */
 test('대비 미측정(incomplete) 노드가 늘지 않았다', async ({ page }) => {
-  test.setTimeout(TABS.length * 화면당_예산_MS + 20_000);
+  test.setTimeout(화면들.length * 화면당_예산_MS + 20_000);
   const 사유: Record<string, number> = {};
   let 합 = 0;
-  for (const 화면 of TABS) {
-    await boot(page, 'dark', SEED);
-    await page.goto('/' + 화면);
-    await a11ySettle(page);
+  for (const 화면 of 화면들) {
+    await 띄우기(page, 화면, 'dark');
     const 결과 = await new AxeBuilder({ page }).exclude('canvas').analyze();
     for (const i of 결과.incomplete) {
       사유[i.id] = (사유[i.id] ?? 0) + i.nodes.length;

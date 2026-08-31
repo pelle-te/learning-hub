@@ -1,0 +1,893 @@
+
+Running 19 tests using 1 worker
+
+[1/19] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · ledger
+[2/19] [chromium] › e2e\a11y.spec.ts:200:3 › a11y · ledger-mastery
+[3/19] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · ledger
+[4/19] [chromium] › e2e\a11y.spec.ts:212:3 › a11y · 대비 · light · ledger-mastery
+[5/19] [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail
+[6/19] (retries) [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail (retry #1)
+  1) [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail ────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '안테나 1 방사 원리 — noted' })
+
+
+       at _fixtures.ts:611
+
+      609 |     /* ⚠ 칩의 접근명은 `<과목> <챕터> — <단계>` 다. `aria-label*="—"` 로 잡으면 상단 바의
+      610 |        "오늘 학습 — 남은 1" 이 먼저 걸린다(실측) — 부분일치 셀렉터의 전형적 오조준이다. */
+    > 611 |     열기: (page) => page.getByRole('button', { name: '안테나 1 방사 원리 — noted' }).click(),
+          |                                                                             ^
+      612 |     ready: (page) => page.getByRole('dialog', { name: /상세$/ }).waitFor(),
+      613 |   },
+      614 |   {
+        at Object.열기 (D:\atelier\hub\web\e2e\_fixtures.ts:611:77)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:232:14
+
+    Error Context: test-results\a11y-a11y-·-overlay-ledger-detail-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: '안테나 1 방사 원리 — noted' })
+
+
+       at _fixtures.ts:611
+
+      609 |     /* ⚠ 칩의 접근명은 `<과목> <챕터> — <단계>` 다. `aria-label*="—"` 로 잡으면 상단 바의
+      610 |        "오늘 학습 — 남은 1" 이 먼저 걸린다(실측) — 부분일치 셀렉터의 전형적 오조준이다. */
+    > 611 |     열기: (page) => page.getByRole('button', { name: '안테나 1 방사 원리 — noted' }).click(),
+          |                                                                             ^
+      612 |     ready: (page) => page.getByRole('dialog', { name: /상세$/ }).waitFor(),
+      613 |   },
+      614 |   {
+        at Object.열기 (D:\atelier\hub\web\e2e\_fixtures.ts:611:77)
+        at D:\atelier\hub\web\e2e\a11y.spec.ts:232:14
+
+    Error Context: test-results\a11y-a11y-·-overlay-ledger-detail-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\a11y-a11y-·-overlay-ledger-detail-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\a11y-a11y-·-overlay-ledger-detail-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[7/19] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · ledger
+[8/19] [chromium] › e2e\a11y.spec.ts:289:3 › reflow · 320px · ledger-mastery
+[9/19] [chromium] › e2e\visual.spec.ts:83:5 › ledger · dark
+[10/19] (retries) [chromium] › e2e\visual.spec.ts:83:5 › ledger · dark (retry #1)
+  2) [chromium] › e2e\visual.spec.ts:83:5 › ledger · dark ──────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      26628 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-dark.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-dark.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:99:13
+
+    attachment #1: ledger-dark (image/png) ─────────────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-dark-chromium-win32.png
+    Received: test-results\visual-ledger-·-dark-chromium\ledger-dark-actual.png
+    Diff:     test-results\visual-ledger-·-dark-chromium\ledger-dark-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-dark-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      26628 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-dark.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-dark.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:99:13
+
+    attachment #1: ledger-dark (image/png) ─────────────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-dark-chromium-win32.png
+    Received: test-results\visual-ledger-·-dark-chromium-retry1\ledger-dark-actual.png
+    Diff:     test-results\visual-ledger-·-dark-chromium-retry1\ledger-dark-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-dark-chromium-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-·-dark-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-·-dark-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[11/19] [chromium] › e2e\visual.spec.ts:83:5 › ledger · light
+[12/19] (retries) [chromium] › e2e\visual.spec.ts:83:5 › ledger · light (retry #1)
+  3) [chromium] › e2e\visual.spec.ts:83:5 › ledger · light ─────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      25040 pixels (ratio 0.04 of all image pixels) are different.
+
+      Snapshot: ledger-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-light.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:99:13
+
+    attachment #1: ledger-light (image/png) ────────────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-light-chromium-win32.png
+    Received: test-results\visual-ledger-·-light-chromium\ledger-light-actual.png
+    Diff:     test-results\visual-ledger-·-light-chromium\ledger-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-light-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      25040 pixels (ratio 0.04 of all image pixels) are different.
+
+      Snapshot: ledger-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-light.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:99:13
+
+    attachment #1: ledger-light (image/png) ────────────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-light-chromium-win32.png
+    Received: test-results\visual-ledger-·-light-chromium-retry1\ledger-light-actual.png
+    Diff:     test-results\visual-ledger-·-light-chromium-retry1\ledger-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-light-chromium-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-·-light-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-·-light-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[13/19] [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · dark
+[14/19] (retries) [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · dark (retry #1)
+  4) [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · dark ─────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      26628 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-empty-dark.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-empty-dark.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:161:13
+
+    attachment #1: ledger-empty-dark (image/png) ───────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-empty-dark-chromium-win32.png
+    Received: test-results\visual-ledger-·-empty-·-dark-chromium\ledger-empty-dark-actual.png
+    Diff:     test-results\visual-ledger-·-empty-·-dark-chromium\ledger-empty-dark-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-empty-·-dark-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      26628 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-empty-dark.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-empty-dark.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 26628 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:161:13
+
+    attachment #1: ledger-empty-dark (image/png) ───────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-empty-dark-chromium-win32.png
+    Received: test-results\visual-ledger-·-empty-·-dark-chromium-retry1\ledger-empty-dark-actual.png
+    Diff:     test-results\visual-ledger-·-empty-·-dark-chromium-retry1\ledger-empty-dark-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-empty-·-dark-chromium-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-·-empty-·-dark-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-·-empty-·-dark-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[15/19] [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · light
+[16/19] (retries) [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · light (retry #1)
+  5) [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · light ────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      25040 pixels (ratio 0.04 of all image pixels) are different.
+
+      Snapshot: ledger-empty-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-empty-light.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:161:13
+
+    attachment #1: ledger-empty-light (image/png) ──────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-empty-light-chromium-win32.png
+    Received: test-results\visual-ledger-·-empty-·-light-chromium\ledger-empty-light-actual.png
+    Diff:     test-results\visual-ledger-·-empty-·-light-chromium\ledger-empty-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-empty-·-light-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      25040 pixels (ratio 0.04 of all image pixels) are different.
+
+      Snapshot: ledger-empty-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-empty-light.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 25040 pixels (ratio 0.04 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:161:13
+
+    attachment #1: ledger-empty-light (image/png) ──────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-empty-light-chromium-win32.png
+    Received: test-results\visual-ledger-·-empty-·-light-chromium-retry1\ledger-empty-light-actual.png
+    Diff:     test-results\visual-ledger-·-empty-·-light-chromium-retry1\ledger-empty-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-·-empty-·-light-chromium-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-·-empty-·-light-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-·-empty-·-light-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[17/19] [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · dark
+[18/19] (retries) [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · dark (retry #1)
+  6) [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · dark ─────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      31102 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-mastery-dark.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-mastery-dark.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 31102 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 31102 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:565:13
+
+    attachment #1: ledger-mastery-dark (image/png) ─────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-mastery-dark-chromium-win32.png
+    Received: test-results\visual-ledger-mastery-·-dark-chromium\ledger-mastery-dark-actual.png
+    Diff:     test-results\visual-ledger-mastery-·-dark-chromium\ledger-mastery-dark-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-mastery-·-dark-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      31102 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-mastery-dark.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-mastery-dark.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 31102 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 31102 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:565:13
+
+    attachment #1: ledger-mastery-dark (image/png) ─────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-mastery-dark-chromium-win32.png
+    Received: test-results\visual-ledger-mastery-·-dark-chromium-retry1\ledger-mastery-dark-actual.png
+    Diff:     test-results\visual-ledger-mastery-·-dark-chromium-retry1\ledger-mastery-dark-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-mastery-·-dark-chromium-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-mastery-·-dark-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-mastery-·-dark-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[19/19] [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · light
+[20/19] (retries) [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · light (retry #1)
+  7) [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · light ────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      28360 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-mastery-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-mastery-light.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 28360 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 28360 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:565:13
+
+    attachment #1: ledger-mastery-light (image/png) ────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-mastery-light-chromium-win32.png
+    Received: test-results\visual-ledger-mastery-·-light-chromium\ledger-mastery-light-actual.png
+    Diff:     test-results\visual-ledger-mastery-·-light-chromium\ledger-mastery-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-mastery-·-light-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toHaveScreenshot(expected) failed
+
+    Locator: locator('#main')
+      28360 pixels (ratio 0.05 of all image pixels) are different.
+
+      Snapshot: ledger-mastery-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(ledger-mastery-light.png)" with timeout 5000ms
+        - verifying given screenshot expectation
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - 28360 pixels (ratio 0.05 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - waiting for locator('#main')
+        - locator resolved to <main id="main" tabindex="-1" class="flex min-h-0 flex-1 px-6.5 pt-0 pb-6.5 focus:outline-none max-mobile:px-3 max-mobile:pb-6">…</main>
+      - taking element screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - attempting scroll into view action
+        - waiting for element to be stable
+      - captured a stable screenshot
+      - 28360 pixels (ratio 0.05 of all image pixels) are different.
+
+
+      51 | /** 본문만 찍는다. 크롬 변경이 이 베이스라인을 건드리지 않는 것이 요점이다(U042). */
+      52 | const shotMain = async (page: import('@playwright/test').Page, name: string): Promise<void> => {
+    > 53 |   await expect(page.locator('#main')).toHaveScreenshot(name);
+         |                                       ^
+      54 | };
+      55 |
+      56 | /* 크롬 잠금 — 레일과 헤더를 **각각** 찍는다.
+        at shotMain (D:\atelier\hub\web\e2e\visual.spec.ts:53:39)
+        at D:\atelier\hub\web\e2e\visual.spec.ts:565:13
+
+    attachment #1: ledger-mastery-light (image/png) ────────────────────────────────────────────────
+    Expected: e2e\visual.spec.ts-snapshots\ledger-mastery-light-chromium-win32.png
+    Received: test-results\visual-ledger-mastery-·-light-chromium-retry1\ledger-mastery-light-actual.png
+    Diff:     test-results\visual-ledger-mastery-·-light-chromium-retry1\ledger-mastery-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\visual-ledger-mastery-·-light-chromium-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-mastery-·-light-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-mastery-·-light-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[21/19] [chromium] › e2e\visual.spec.ts:666:3 › ledger · error · dark
+[22/19] [chromium] › e2e\visual.spec.ts:666:3 › ledger · error · light
+[23/19] [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · dark
+[24/19] (retries) [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · dark (retry #1)
+  8) [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · dark ─────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: '2개 반영' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('button', { name: '2개 반영' })
+
+
+      715 |     /* 단언은 **수**를 본다 — 원장이 `carded` 라 말한 둘만 대기여야 한다(셋째는 `carded:false`).
+      716 |        줄의 존재만 보면 «전부 대기»로 세는 회귀가 통과한다. */
+    > 717 |     await expect(page.getByRole('button', { name: '2개 반영' })).toBeVisible();
+          |                                                               ^
+      718 |     await settle(page);
+      719 |     await expect(page).toHaveScreenshot(`ledger-apply-${theme}.png`);
+      720 |   });
+        at D:\atelier\hub\web\e2e\visual.spec.ts:717:63
+
+    Error Context: test-results\visual-ledger-·-반영-대기-·-dark-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: '2개 반영' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('button', { name: '2개 반영' })
+
+
+      715 |     /* 단언은 **수**를 본다 — 원장이 `carded` 라 말한 둘만 대기여야 한다(셋째는 `carded:false`).
+      716 |        줄의 존재만 보면 «전부 대기»로 세는 회귀가 통과한다. */
+    > 717 |     await expect(page.getByRole('button', { name: '2개 반영' })).toBeVisible();
+          |                                                               ^
+      718 |     await settle(page);
+      719 |     await expect(page).toHaveScreenshot(`ledger-apply-${theme}.png`);
+      720 |   });
+        at D:\atelier\hub\web\e2e\visual.spec.ts:717:63
+
+    Error Context: test-results\visual-ledger-·-반영-대기-·-dark-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-·-반영-대기-·-dark-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-·-반영-대기-·-dark-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[25/19] [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · light
+[26/19] (retries) [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · light (retry #1)
+  9) [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · light ────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: '2개 반영' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('button', { name: '2개 반영' })
+
+
+      715 |     /* 단언은 **수**를 본다 — 원장이 `carded` 라 말한 둘만 대기여야 한다(셋째는 `carded:false`).
+      716 |        줄의 존재만 보면 «전부 대기»로 세는 회귀가 통과한다. */
+    > 717 |     await expect(page.getByRole('button', { name: '2개 반영' })).toBeVisible();
+          |                                                               ^
+      718 |     await settle(page);
+      719 |     await expect(page).toHaveScreenshot(`ledger-apply-${theme}.png`);
+      720 |   });
+        at D:\atelier\hub\web\e2e\visual.spec.ts:717:63
+
+    Error Context: test-results\visual-ledger-·-반영-대기-·-light-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: '2개 반영' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('button', { name: '2개 반영' })
+
+
+      715 |     /* 단언은 **수**를 본다 — 원장이 `carded` 라 말한 둘만 대기여야 한다(셋째는 `carded:false`).
+      716 |        줄의 존재만 보면 «전부 대기»로 세는 회귀가 통과한다. */
+    > 717 |     await expect(page.getByRole('button', { name: '2개 반영' })).toBeVisible();
+          |                                                               ^
+      718 |     await settle(page);
+      719 |     await expect(page).toHaveScreenshot(`ledger-apply-${theme}.png`);
+      720 |   });
+        at D:\atelier\hub\web\e2e\visual.spec.ts:717:63
+
+    Error Context: test-results\visual-ledger-·-반영-대기-·-light-chromium-retry1\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\visual-ledger-·-반영-대기-·-light-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\visual-ledger-·-반영-대기-·-light-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[27/19] [chromium] › e2e\visual.spec.ts:745:5 › ledger · loading · dark
+[28/19] [chromium] › e2e\visual.spec.ts:745:5 › ledger · loading · light
+  9 failed
+    [chromium] › e2e\a11y.spec.ts:228:3 › a11y · overlay-ledger-detail ─────────────────────────────
+    [chromium] › e2e\visual.spec.ts:83:5 › ledger · dark ───────────────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:83:5 › ledger · light ──────────────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · dark ──────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:152:5 › ledger · empty · light ─────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · dark ──────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:559:5 › ledger-mastery · light ─────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · dark ──────────────────────────────────
+    [chromium] › e2e\visual.spec.ts:712:3 › ledger · 반영 대기 · light ─────────────────────────────────
+  10 passed (1.8m)

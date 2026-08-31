@@ -6,7 +6,13 @@ import { A11Y_EXTRA, TABS, boot, settle } from './_fixtures';
 
    ## 무엇이 틀렸었나 — 스냅샷 88장이 붕괴를 정답으로 굳혔다
 
-   `app/TopBar.tsx` 의 워드마크 `<h1>` 이 `BAR`(flex)의 첫 아이템인데 폭 제약이 없어 기본
+   ⚠ 워드마크는 2026-08-31 에 `<h1>` 에서 `<div data-wordmark>` 로 내려갔다(U065 — 앱의 유일한
+   `h1` 이 모든 화면에서 「러닝 허브」라 표제 축으로 «지금 어디인가»를 되찾을 수 없었다). 그래서
+   이 파일의 셀렉터는 **태그가 아니라 `data-wordmark`** 다. ⭐ 그 전환에서 아래 «조용한 통과 방어»
+   케이스가 실제로 값을 했다: `header h1` 이 0건이 되자 위 루프는 `continue` 로 전부 건너뛰어
+   **초록이었을 것**인데, 그 케이스가 «검사가 죽었다»를 잡았다.
+
+   `app/TopBar.tsx` 의 워드마크가 `BAR`(flex)의 첫 아이템인데 폭 제약이 없어 기본
    `flex-shrink:1` 로 줄었다. 리드아웃이 긴 탭(`schedule`·`alloc`)에서는 형제들이 자리를 다
    가져가 워드마크가 **한 글자 폭**까지 눌려 「러/닝/허/브」 **네 줄**이 됐다(실측 h1 높이
    40px → **80px**). U021 이 `flex-none` 으로 고쳤다.
@@ -39,7 +45,7 @@ test('⚠⚠ 브랜드 워드마크의 조판이 **어느 화면에서도 같다
     if ('ready' in 화면 && 화면.ready) await 화면.ready(page);
     await settle(page);
 
-    const h1 = page.locator('header h1').first();
+    const h1 = page.locator('header [data-wordmark]').first();
     if ((await h1.count()) === 0) continue; // 크롬이 없는 화면(`/mini` 등)은 대상이 아니다
     const box = await h1.boundingBox();
     측정.push({ 화면: 화면.key, 높이: Math.round(box?.height ?? 0) });
@@ -63,7 +69,7 @@ test('⚠⚠ 브랜드 워드마크의 조판이 **어느 화면에서도 같다
      ⚠ 워드마크 전체가 두 줄인 것은 **설계다**(「러닝」/「허브」 스택 · 모바일은 `inline`) —
      그래서 «전체 줄 수»로도 재지 않는다. */
   const 넘침 = await page
-    .locator('header h1')
+    .locator('header [data-wordmark]')
     .first()
     .evaluate((el) => [...el.children].map((c) => Math.round(c.scrollWidth - c.clientWidth)));
   expect(넘침.length, '워드마크가 조각으로 안 나뉘어 있다 — 이 단언이 아무것도 안 잰다').toBeGreaterThan(0);
@@ -85,7 +91,7 @@ test('⚠ 이 검사가 실제로 붕괴를 잡는다 — 폭을 뺏어 확인�
   await settle(page);
 
   const 넘침 = await page
-    .locator('header h1')
+    .locator('header [data-wordmark]')
     .first()
     .evaluate((el) => {
       // 폭을 한 글자로 조인다 = 형제가 자리를 다 가져간 상태의 재현.

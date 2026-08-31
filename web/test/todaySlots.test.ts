@@ -20,14 +20,17 @@ describe('pickRetrievalSlot — 하루 한 장(회전)', () => {
 });
 
 describe('pickNextStep — 완료 화면의 다음 걸음 하나', () => {
-  it('행동을 바꾸는 것부터: 밀린 복습 > 열린 보충 > 다음 개념', () => {
-    expect(pickNextStep(3, 5, '적분')?.kind).toBe('review');
-    expect(pickNextStep(0, 5, '적분')?.kind).toBe('backlog');
-    expect(pickNextStep(0, 0, '적분')?.kind).toBe('frontier');
-    expect(pickNextStep(0, 0, '')).toBeNull();
+  it('행동을 바꾸는 것부터: 밀린 복습 > 열린 보충', () => {
+    expect(pickNextStep(3, 5)?.kind).toBe('review');
+    expect(pickNextStep(0, 5)?.kind).toBe('backlog');
+    /* ⚠ 셋째 후보(`frontier` — 다음 개념 추천)는 2026-08-31 에 걷혔다(U044·U086): 생산자인
+       지식엔진이 은퇴해 그 값이 영구히 비었고, 착지처로 적힌 「숙달도 탭」은 라우터에 없어
+       `*` 가 `/today` 로 삼켰다 — 즉 사슬을 허용하던 조건(후보 전부가 화면에 자기 자리를
+       갖는다)이 이미 깨져 있었다. 근거는 `lib/todaySlots.ts` 머리주석. */
+    expect(pickNextStep(0, 0)).toBeNull();
   });
   it('라벨에 수가 들어간다 — "있다"가 아니라 "몇 개"가 행동을 정한다', () => {
-    expect(pickNextStep(3, 0, '')?.label).toContain('3');
-    expect(pickNextStep(0, 7, '')?.label).toContain('7');
+    expect(pickNextStep(3, 0)?.label).toContain('3');
+    expect(pickNextStep(0, 7)?.label).toContain('7');
   });
 });
