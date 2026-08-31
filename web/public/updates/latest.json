@@ -1,11 +1,11 @@
 {
-  "version": "0.5.1",
-  "notes": "**찾기 화면의 입력 칸이 제대로 보입니다.**\n\n· 검색 칸이 앱 테마를 안 입은 **브라우저 기본 흰 상자**로 나오고 있었습니다. 앱 어디에도 없는 모양이라 그 화면만 낡아 보였고, 폭도 손가락 하나 크기였습니다. 이제 다른 입력 칸과 같은 모양 · 같은 크기이고 왼쪽에 돋보기, 오른쪽에 **지우기** 버튼이 붙습니다.\n· 같은 원인으로 **설정 › 클라우드의 서버 주소 칸**도 바로 아래 등록 코드 칸과 다르게 생겨 있었습니다. 함께 맞췄습니다.\n· 찾기 결과가 **가운데로 몰려** 있었고 과목 이름이 항목 이름에 달라붙어 나왔습니다(`미적분미적분`). 이제 왼쪽에 이름, 오른쪽에 과목입니다.\n\n화면이 바뀐 것은 이게 전부입니다 — 데이터·계획·복습 규칙은 하나도 건드리지 않았습니다.",
-  "pub_date": "2026-08-08T03:36:43.365Z",
+  "version": "0.5.2",
+  "notes": "**화면 둘이 사라졌고, 남은 화면들이 거짓말을 멈췄습니다.**\n\n· **「숙달도 지도」와 「내 길 지도」가 없어졌습니다.** 두 화면이 그리던 값을 만들던 도구가\n  없어졌기 때문입니다(그 값은 앞으로도 안 옵니다). 챕터가 얼마나 갔는지는 **정본 원장**이\n  계속 말해 줍니다 — 사라진 것은 지도이지 진척이 아닙니다.\n· 같은 이유로 **「아직 관측이 없어요」처럼 기다리라는 뜻으로 읽히던 자리들**을 걷었습니다.\n  과목 화면의 숙달도 칸 · 연동 화면의 「볼트를 재빌드하면 연결됩니다」 · 설정의 안내 문구가\n  그것들입니다. 기다려도 오지 않는 것을 기다리게 하지 않으려는 것입니다.\n· **안내 화면이 시키던 명령 두 개가 실재하지 않았습니다.** 지웠습니다.\n\n**고친 것**\n\n· **정본 원장 탭이 통째로 오류 화면이 되는 경우**를 막았습니다. 옛 형식의 원장을 읽으면\n  일어났고, 이제는 「원장을 다시 빌드해 주세요」라고 말합니다.\n· **찾기**가 화면 다섯(예보·인입구·결산·졸업요건·안내)을 이제 찾습니다. 전에는 이름을 쳐도\n  「걸리는 것이 없어요」가 나왔습니다.\n· **이 화면 고정**이 세부 화면을 기억합니다. 전에는 「결산」을 고정해도 졸업 계획이 열렸고,\n  같은 탭의 둘째 화면을 고정하면 첫 핀이 조용히 사라졌습니다.\n· 없어진 화면 주소로 들어가면 **주소창이 실제로 열린 화면과 같아집니다**(북마크가 스스로 낫습니다).\n· **밝은 테마에서 주황·빨강 글씨**가 옅은 배경 위에서 읽기 어려웠습니다(동기화 충돌의\n  「되살리기」 버튼 포함). 진하게 맞췄습니다.\n· 과목 상세를 열고 닫을 때 **왼쪽 목록이 접혔다 펴지며 깜빡이던 것**을 없앴습니다.\n· 배분 보드의 **「전공 밖」 줄에 화살표 이동이 닿지 않던 것**을 고쳤습니다.\n· 볼트를 읽지 못했을 때 **누를 것이 하나도 없던 화면**에 「다시 스캔」과 설정으로 가는 문을 뒀습니다.\n\n**읽어 주는 기능 · 좁은 창**\n\n· 화면마다 제목이 「러닝 허브」 하나여서 스크린리더로 지금 어디인지 알 수 없었습니다.\n· 좁은 창에서 **입력 칸이 하단 탭바에 가려진 채 타이핑되던 것**을 고쳤습니다.\n\n⚠ 되돌릴 수 없는 변경은 없습니다 — 데이터·계획·복습 규칙은 건드리지 않았습니다.\n다만 앱 업데이트 자체는 되돌릴 수 없습니다(옛 버전 설치는 다운그레이드 차단에 막힙니다).",
+  "pub_date": "2026-08-31T10:44:03.182784Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbHVEcjB0TlEzR0l3YUc5ZGJRWENpSGQ5ZHYxT0Z5eWNUdUxyRmovVGhML2Q1ZnJxQjdWMGdBeVpSeHkzQmxCR0tlSVRWZHRGWDMzMjRONitvMTZnelFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2MTU5ODQyCWZpbGU665+s64ud7ZeI67iMXzAuNS4xX3g2NC1zZXR1cC5leGUKYVVic1Q2d1BIK2RMbHdvQWxBWXhHTWpCYUdMRW9INElXZVlyM1VLS29Sa2psS2NsTTJnVWw4dndvMFU3VzY3cUF5WmpmRFk2YlErcWtYYTNJcXI0RHc9PQo=",
-      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.5.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZzN2SkVSMm5ZbGlFclk3Vm9MSHZwSERkbGsxOHVJbWVxb0lSczI4TUg3ZlhxQ3R1WjRQc0hrVzk2elh4ZFF1TTlJemt4bGIvZmdWTGEwMjgrMlpub0tJRENFL3FKZlFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4MTcyOTkyCWZpbGU665+s64ud7ZeI67iMXzAuNS4yX3g2NC1zZXR1cC5leGUKc29HeVM3VHEwSm9wZy9SUEZERUFaWGw2dE5scXh5K2l0aDF4bG5Ga253MDcwL3pEbXBJam5oeW1ReGU1R1plVklIbE1hYjdyRFNzWkZ4UWNheUtKREE9PQo=",
+      "url": "https://learning-hub.atelier-cd0301.workers.dev/updates/%EB%9F%AC%EB%8B%9D%ED%97%88%EB%B8%8C_0.5.2_x64-setup.exe"
     }
   }
 }
