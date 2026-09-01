@@ -176,10 +176,6 @@ export default function Guide() {
           <Say>"(과목) (챕터) 평가"</Say> → 6차원 루브릭 채점(<code className={REF}>지시문8</code> · 읽기전용 · 지시문
           바꾸기 전후 델타 측정).
         </How>
-        <How label="교재 없이 웹으로">
-          <Say>"(주제) 리서치"</Say> → 출처 신뢰도 분류·교차검증 → <Cmd>knowledge/_탐구/</Cmd>(
-          <code className={REF}>지시문11</code> · 교재 볼트와 분리).
-        </How>
         <p className={NOTE}>
           규칙: <code className={K}>status: verified</code> 노트만 카드·출제 대상. 검증 최종판정은{' '}
           <b className="text-txt">나</b>
