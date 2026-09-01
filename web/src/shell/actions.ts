@@ -36,8 +36,6 @@ import { buildICS, planSignature as sigOf } from '@/lib/ics';
 import { buildAnkiCards, buildSummaryNotes, archiveOldData } from '@/lib/methodology';
 import { iso, makeItem, mondayOf, rid, todayISO } from '@/lib/utils';
 import { chaptersFromVault, type VaultSubject } from '@/lib/vault';
-import { applyCardedDone, cardedChapters, cardedPrompt } from '@/lib/ledgerSeed';
-import type { Ledger } from '@/lib/ledger';
 import { isFsAccessSupported, pickDirectory, requestPermission } from '@/lib/fsAccess';
 import type { AppState, Theme } from '@/lib/types';
 import { isTauri, shellSaveFile, shellSaveInWorkspace } from '@/lib/tauri';
@@ -612,7 +610,7 @@ export function importAnkiDeck(name: string, mins: number): boolean {
   return true;
 }
 
-export async function importVaultSubject(s: VaultSubject, ledger: Ledger | undefined, tail: string): Promise<void> {
+export async function importVaultSubject(s: VaultSubject, tail: string): Promise<void> {
   const items = st().state.items;
   if (items.some((x) => x.name === s.name)) {
     toast('이미 추가된 항목입니다.', 'warn');
@@ -624,22 +622,9 @@ export async function importVaultSubject(s: VaultSubject, ledger: Ledger | undef
     state.items.push(makeItem({ id, source: '볼트', name: s.name, chapters }));
   });
   toast(`"${s.name}" 추가됨 — 챕터 ${chapters.length}개. ${tail}`, 'ok');
-  /* W4 — 임포트는 모든 챕터를 `done:false` 로 만들어 **가짜 백로그**를 세운다. 원장은 같은
-     챕터에 대해 `carded` 를 이미 아는데, 자동으로 찍으면 안 익힌 챕터가 조용히 유지 큐로
-     내려간다 → **한 번 묻고 사람이 판단한다**(근거는 `lib/ledgerSeed.ts` 머리주석). */
-  const carded = cardedChapters(ledger, s.name, chapters);
-  if (!carded.length) return;
-  /* Q-13 ②단 — 원장이 밖에 그대로 있으니 언제든 다시 맞출 수 있다(재구성 가능). */
-  const ok = await confirmLossy(cardedPrompt(s.name, carded.length, chapters.length), {
-    title: '원장과 맞출까요?',
-    okLabel: `${carded.length}개 끝낸 것으로 표시`,
-    cancelLabel: '그대로 두기',
-  });
-  if (!ok) return;
-  let marked = 0;
-  st().mutate((state) => {
-    const it = state.items.find((x) => x.id === id);
-    if (it) marked = applyCardedDone(it.chapters || [], carded);
-  });
-  toast(`챕터 ${marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
+  /* ⚰ **W4 의 「원장과 맞추기」 물음은 여기 있었고, X074 에서 걷였다**(2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)).
+     임포트는 모든 챕터를 `done:false` 로 만들어 가짜 백로그를 세우는데, 그걸 깎아 줄 근거가
+     원장의 `milestones.carded` 하나였다. 그 자가 사라졌으므로 이 물음은 **영원히 0건**이다.
+     ⛔ `verified` 로 갈아끼지 마라 — 「검증했다」와 「끝냈다」는 다른 주장이고, 조용히 갈아끼면
+     안 익힌 챕터가 유지 큐로 내려간다(W4 가 막으려 했던 바로 그 사고). */
 }

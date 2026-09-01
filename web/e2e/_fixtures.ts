@@ -41,7 +41,7 @@ export const LEDGER_FIXTURE = {
      (`z.string()`) 그냥 통과시켰기 때문이고, 같은 넓이가 `/ledger` 를 탭째 죽이는 경로였다.
      ⭐ 경계를 조이자 **이 픽스처가 먼저 걸렸다** — 즉 검증망이 «더는 발생할 수 없는 데이터»를
      먹이고 있었다는 증거이고, 그건 이 회차가 `goals`·`knowledge` 픽스처에서 지운 것과 같은 부류다. */
-  stage_counts: { sourced: 10, noted: 8, verified: 3, carded: 5 },
+  stage_counts: { sourced: 10, noted: 8, verified: 3 },
   backlog: { unprocessed_src: ['전자기학', '마이크로파'], subjects_without_src: ['안테나'] },
   subjects: {
     통신이론: {
@@ -58,12 +58,11 @@ export const LEDGER_FIXTURE = {
           concept: 3,
           status: { verified: 4, drafted: 1, raw: 0, 구버전: 0 },
           verified_ratio: 0.8,
-          carded_notes: 4,
           cards: 12,
           reps: 40,
           reviewed_recent: '2026-06-10',
-          milestones: { sourced: true, noted: true, verified: true, carded: true },
-          furthest: 'carded',
+          milestones: { sourced: true, noted: true, verified: true },
+          furthest: 'verified',
         },
         {
           chapter_id: 'ct-2',
@@ -72,12 +71,11 @@ export const LEDGER_FIXTURE = {
           concept: 2,
           status: { verified: 3, drafted: 1, raw: 0, 구버전: 0 },
           verified_ratio: 0.75,
-          carded_notes: 3,
           cards: 8,
           reps: 12,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: true, carded: true },
-          furthest: 'carded',
+          milestones: { sourced: true, noted: true, verified: true },
+          furthest: 'verified',
         },
         {
           chapter_id: 'ct-3',
@@ -86,11 +84,10 @@ export const LEDGER_FIXTURE = {
           concept: 1,
           status: { verified: 0, drafted: 2, raw: 0, 구버전: 0 },
           verified_ratio: 0,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: false, carded: false },
+          milestones: { sourced: true, noted: true, verified: false },
           furthest: 'noted',
         },
         {
@@ -100,11 +97,10 @@ export const LEDGER_FIXTURE = {
           concept: 0,
           status: { verified: 0, drafted: 0, raw: 0, 구버전: 0 },
           verified_ratio: 0,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: false, verified: false, carded: false },
+          milestones: { sourced: true, noted: false, verified: false },
           furthest: 'sourced',
         },
       ],
@@ -123,11 +119,10 @@ export const LEDGER_FIXTURE = {
           concept: 2,
           status: { verified: 2, drafted: 1, raw: 0, 구버전: 0 },
           verified_ratio: 0.6,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: true, carded: false },
+          milestones: { sourced: true, noted: true, verified: true },
           furthest: 'verified',
         },
         {
@@ -137,11 +132,10 @@ export const LEDGER_FIXTURE = {
           concept: 1,
           status: { verified: 0, drafted: 2, raw: 0, 구버전: 0 },
           verified_ratio: 0,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: false, carded: false },
+          milestones: { sourced: true, noted: true, verified: false },
           furthest: 'noted',
         },
         {
@@ -151,11 +145,10 @@ export const LEDGER_FIXTURE = {
           concept: 0,
           status: { verified: 0, drafted: 0, raw: 0, 구버전: 0 },
           verified_ratio: 0,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: false, noted: false, verified: false, carded: false },
+          milestones: { sourced: false, noted: false, verified: false },
           furthest: 'planned',
         },
       ],
@@ -174,11 +167,10 @@ export const LEDGER_FIXTURE = {
           concept: 0,
           status: { verified: 0, drafted: 1, raw: 0, 구버전: 0 },
           verified_ratio: 0,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: true, noted: true, verified: false, carded: false },
+          milestones: { sourced: true, noted: true, verified: false },
           furthest: 'noted',
         },
         {
@@ -188,11 +180,10 @@ export const LEDGER_FIXTURE = {
           concept: 0,
           status: { verified: 0, drafted: 0, raw: 0, 구버전: 0 },
           verified_ratio: 0,
-          carded_notes: 0,
           cards: 0,
           reps: 0,
           reviewed_recent: null,
-          milestones: { sourced: false, noted: false, verified: false, carded: false },
+          milestones: { sourced: false, noted: false, verified: false },
           furthest: 'planned',
         },
       ],
@@ -258,14 +249,25 @@ export const SEED = {
     reqMajorReq: 60,
     reqMajorSel: 30,
     reqLiberal: 30,
+    /* ⚠ 상태가 **과목 → 학기**로 올라가며 두 학기로 갈렸다(2026-08-31). 종전엔 한 학기 안에
+       완료 1 + 수강중 1 이 섞여 있었는데 그 상태는 이제 불가능하다 — 학기는 한 상태다.
+       ⭐ **날짜로 판정되게 둔다**(`status` 폴백이 아니라): 그래야 이 시드가 새 모델의 **정본
+       경로**(날짜 파생)를 검사한다. 폴백 축은 유닛(`degree.test.ts`)이 따로 덮는다.
+       ⚠ `FIXED`(2026-06-15) 기준이다 — 시계를 옮기면 이 학기들의 상태가 바뀐다. */
     semesters: [
       {
         id: 's1',
         name: '2026-1학기',
-        courses: [
-          { id: 'co1', name: '미적분학', credits: 3, category: '전공필수', status: '완료', grade: 'A+' },
-          { id: 'co2', name: '일반물리', credits: 3, category: '전공필수', status: '수강중', grade: '' },
-        ],
+        startDs: '2026-03-02',
+        endDs: '2026-06-14', // FIXED 하루 전 종강 → 완료
+        courses: [{ id: 'co1', name: '미적분학', credits: 3, category: '전공필수', grade: 'A+' }],
+      },
+      {
+        id: 's2',
+        name: '2026-여름',
+        startDs: '2026-06-15', // FIXED 당일 개강 → 수강중
+        endDs: '2026-08-20',
+        courses: [{ id: 'co2', name: '일반물리', credits: 3, category: '전공필수', grade: '' }],
       },
     ],
   },
@@ -384,6 +386,18 @@ export const A11Y_EXTRA: ExtraScreen[] = [
       });
     },
     ready: (page) => page.getByRole('table', { name: '주간 배분 보드' }).waitFor(),
+  },
+  /* ⚠⚠ **계획 › 일 뷰가 커버리지 로스터에 통째로 없었다**(2026-08-31 · 사용자 신고에서 드러남).
+     `TABS` 의 `'schedule'` 은 `/schedule` 로 가고 그건 **주 뷰**다(기간은 `?span=` 이 정한다 —
+     `Schedule.tsx` 머리주석). 그래서 `DayPlanner`(트레이 추가 컴포저 · 타임라인 · 편집바)는
+     **어느 a11y 케이스도 한 번도 연 적이 없었다.**
+     실증: 그 뷰의 인라인 입력 둘이 «치는 동안 검정 위 검정»(1.10:1)이었는데 세 겹 전부 초록이었고,
+     고친 뒤 검사기를 세워 **되심어 봐도 초록이었다** — 검사기가 아니라 **로스터**가 그 화면을
+     안 갖고 있었기 때문이다. 「0건」의 분모를 먼저 세라(오버레이 §1-B)의 로스터판. */
+  {
+    key: 'schedule-day',
+    path: '/schedule?span=day',
+    ready: (page) => page.getByLabel('자유 할 일 추가').waitFor(),
   },
   {
     key: 'review-run',

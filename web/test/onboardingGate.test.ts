@@ -21,6 +21,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeItem } from '@/lib/utils';
 import { setupComplete } from '@/features/today/SetupGuide';
+import type { AppState } from '@/lib/schema';
 
 const items = (...xs: ReturnType<typeof makeItem>[]): AppState['items'] => xs as AppState['items'];
 
@@ -48,7 +49,9 @@ describe('생성부는 사용자가 정하지 않은 목표를 만들지 않는�
 
   it('볼트 임포트는 챕터가 곧 목표다 — 그 경로는 막히면 안 된다', () => {
     expect(
-      setupComplete(items(makeItem({ source: '볼트', name: '회로이론', chapters: [{ id: 'c1', name: '1장' }] }))),
+      setupComplete(
+        items(makeItem({ source: '볼트', name: '회로이론', chapters: [{ id: 'c1', name: '1장' } as never] })),
+      ),
     ).toBe(true);
   });
 });

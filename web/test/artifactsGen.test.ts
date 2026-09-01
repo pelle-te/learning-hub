@@ -25,9 +25,10 @@ describe('artifacts.gen — 생성 상수', () => {
     });
   });
 
-  /* ⛔ 2026-08-29 — `reviewed` 가 빠져 4단계다(복습 관측 = 범위 밖 · 부모 ledger 스키마 파생). */
-  it('LEDGER_STAGES 는 챕터 생애 4단계(순서 = furthest 진척)', () => {
-    expect([...LEDGER_STAGES]).toEqual(['sourced', 'noted', 'verified', 'carded']);
+  /* ⛔ `reviewed` 가 2026-08-29 에, `carded` 가 2026-09-01 에 빠져 **3단계**다
+     (복습 관측·카드 발급 = 범위 밖 · 부모 ledger 스키마 파생 · 태그 `은퇴/anki-2026-09-01`). */
+  it('LEDGER_STAGES 는 챕터 생애 3단계(순서 = furthest 진척)', () => {
+    expect([...LEDGER_STAGES]).toEqual(['sourced', 'noted', 'verified']);
   });
 
   it('ARTIFACT_SCHEMAS 레지스트리가 모든 아티팩트 이름을 덮는다', () => {

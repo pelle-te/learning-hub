@@ -10,6 +10,7 @@ import { clearVaultAnchors, setVaultAnchors, vaultAnchorsFrom, vaultAnchorsVersi
 import { chapterReviews } from '@/lib/spacedReview';
 import { subjectsFromIndex, type VaultScan } from '@/lib/vault';
 import type { Day, ScheduleItem } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const TODAY = '2026-07-31';
 const state = (chapters: { name: string; done?: boolean }[]): AppState =>

@@ -18,15 +18,24 @@ test('졸업요건 정리: 내 degree 데이터로 요건 충족·재수강 후�
       reqMajorReq: 60,
       reqMajorSel: 30,
       reqLiberal: 30,
+      /* ⚠ 상태가 **과목 → 학기**로 올라가며 픽스처가 두 학기로 갈렸다(2026-08-31).
+         종전엔 한 학기 안에 완료 2 + 수강중 1 이 섞여 있었는데 그 상태는 이제 불가능하다.
+         집계값은 그대로다: 이수 6(전공필수) · 수강중 3 · F 하나(재수강 필수). */
       semesters: [
         {
           id: 's1',
           name: '2026-1학기',
+          status: '완료',
           courses: [
-            { id: 'c1', name: '미적분학', credits: 3, category: '전공필수', status: '완료', grade: 'A+' },
-            { id: 'c2', name: '반도체공학', credits: 3, category: '전공필수', status: '완료', grade: 'F' },
-            { id: 'c3', name: '일반물리', credits: 3, category: '전공선택', status: '수강중', grade: '' },
+            { id: 'c1', name: '미적분학', credits: 3, category: '전공필수', grade: 'A+' },
+            { id: 'c2', name: '반도체공학', credits: 3, category: '전공필수', grade: 'F' },
           ],
+        },
+        {
+          id: 's2',
+          name: '2026-2학기',
+          status: '수강중',
+          courses: [{ id: 'c3', name: '일반물리', credits: 3, category: '전공선택', grade: '' }],
         },
       ],
     };

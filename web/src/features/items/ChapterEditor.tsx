@@ -407,7 +407,8 @@ export function ChapterEditor({ item, mutate }: { item: Item; mutate: Mutate }) 
                 <dd className="m-0 font-bold">
                   노트 {vault.notes}
                   {vault.verified ? <span className="ds-tiny text-mut">{` · 검증 ${vault.verified}`}</span> : null}
-                  {vault.cards ? <span className="ds-tiny text-mut">{` · 카드 ${vault.cards}`}</span> : null}
+                  {/* ⚰ `vault.cards` 를 걷였다(X074 · 2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)) — 볼트 산출물이 이제 카드를
+                      모른다. ⛔ 「카드 0」을 그리는 것으로 대체하지 마라 — 못 재는 것과 0 은 다르다. */}
                 </dd>
                 <dt className="text-mut">파이프라인</dt>
                 <dd className="m-0 font-bold">

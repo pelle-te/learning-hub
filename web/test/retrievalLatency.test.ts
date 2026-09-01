@@ -3,6 +3,7 @@
    잠그는 것: ① 문턱 밖은 **버린다**(눌러 담지 않는다) ② 중앙값(평균 아님) ③ "통과하지만 느린".
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import type { AppState } from '@/lib/schema';
 import {
   MAX_MS,
   MIN_MS,

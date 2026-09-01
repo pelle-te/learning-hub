@@ -78,13 +78,14 @@ describe('chapterSnapshot — 앱이 스스로 쓴 값만(조인 실패가 불�
 ============================================================ */
 import { chapterVault } from '@/lib/chapterView';
 import type { Ledger } from '@/lib/ledger';
+import type { AppState } from '@/lib/schema';
 
 const LED = {
   _schemaVersion: 1,
   generated: '',
   generated_by: '',
   n_chapters: 1,
-  stage_counts: { sourced: 1, noted: 1, verified: 0, carded: 0, reviewed: 0 },
+  stage_counts: { sourced: 1, noted: 1, verified: 0 },
   backlog: { unprocessed_src: [], subjects_without_src: [] },
   subjects: {
     회로이론: {
@@ -101,12 +102,13 @@ const LED = {
           concept: 5,
           status: { verified: 4, drafted: 3, raw: 0, 구버전: 0 },
           verified_ratio: 0.57,
-          carded_notes: 4,
-          cards: 21,
-          reps: 0,
+          // ⚰ C036(2026-08-31): `cards: 21`·`reps: 0` 이 여기 있었다 — 부모에서 두 값은
+          //   **구조적으로 영원히 0**이라(생산자 삭제 · 실측 51챕터 전부 0) 계약에서 뺐다.
+          //   ⚠ 이 픽스처가 `cards: 21` 이라는 **실물에 없는 수**를 들고 있었던 것 자체가
+          //     그 필드가 죽은 줄 아무도 몰랐다는 증거다(골든이 거짓을 동결하고 있었다).
           reviewed_recent: '2026-07-11',
-          milestones: { sourced: true, noted: true, verified: false, carded: true, reviewed: false },
-          furthest: 'carded',
+          milestones: { sourced: true, noted: true, verified: true },
+          furthest: 'verified',
         },
       ],
     },
@@ -116,7 +118,8 @@ const LED = {
 describe('N-2 2단계 — 볼트 조인은 성립할 때만 존재한다', () => {
   it('과목·챕터가 붙으면 원장의 사실을 그대로 싣는다(재계산 0)', () => {
     const v = chapterVault(LED, '회로이론', '01 회로 변수')!;
-    expect(v).toEqual({ notes: 7, verified: 4, cards: 21, furthest: 'carded', reviewedRecent: '2026-07-11' });
+    // ⚰ X074: 그 대체원천(`carded_notes`)마저 은퇴해 `cards` 자체가 뷰에서 빠졌다.
+    expect(v).toEqual({ notes: 7, verified: 4, furthest: 'verified', reviewedRecent: '2026-07-11' });
   });
 
   it('⭐ 챕터 이름이 갈리면 **null** — 빈칸을 그리지 않는다(1단계 유보의 취지)', () => {

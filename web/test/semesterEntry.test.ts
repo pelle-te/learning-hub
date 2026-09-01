@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_HOURS_PER_CREDIT, creditRate, rehearsalSteps, simulateSemester } from '@/lib/semesterEntry';
 import type { Item } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const ch = (id: string, hours: number, done = false) => ({ id, name: id, hours, done });
 const it_ = (id: string, chapters: ReturnType<typeof ch>[] = [], over: Partial<Item> = {}): Item =>
@@ -97,7 +98,7 @@ describe('simulateSemester', () => {
   it('주 수를 학기 날짜에서 파생한다 — 15주를 박아 두지 않는다', () => {
     const st = app({ items: [], degree: { semesters: [sem] } as never });
     expect(simulateSemester(st, sem, '2026-08-02').weeks).toBe(15);
-    const short = { ...sem, endDs: '2026-10-06' } as never;
+    const short = { ...(sem as object), endDs: '2026-10-06' } as never;
     expect(simulateSemester(st, short, '2026-08-02').weeks).toBe(5);
   });
 });

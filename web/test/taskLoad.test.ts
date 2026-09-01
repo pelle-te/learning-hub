@@ -17,6 +17,7 @@ import { simulateSemester } from '@/lib/semesterEntry';
 import { taskIntervals, untimedChoreMin } from '@/lib/tasks';
 import { defaults } from '@/lib/persistence';
 import type { Task } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 /** 2026-08-07 은 금요일(wd=5). */
 const DS = '2026-08-07';

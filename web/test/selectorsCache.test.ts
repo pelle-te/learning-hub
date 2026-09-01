@@ -15,6 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaults } from '@/lib/persistence';
 import { selectSchedule, selectFinishGains, selectNavSignals, selectRiskSummary } from '@/store/selectors';
+import type { AppState } from '@/lib/schema';
 
 /** `_today` 시드가 **없는** 상태 — 프로덕션과 같은 조건(migrate 가 지우므로). */
 const noSeed = (): AppState => {

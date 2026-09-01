@@ -183,7 +183,10 @@ test('items: 시트에서 과목 이름·주당 시간 수정이 store에 반영
   // 주당 목표 스텝퍼(+0.5h) — 시트가 소유한 유일한 시간 편집 입구.
   /* ⚠ N-1(W8) 이후 같은 화면에 `h` 스텝퍼가 **둘**이다(진도 · 주당 과제). 진도 쪽은 접근명이
      그대로이고 과제 쪽이 `주당 과제 h …` 로 좁혀졌다 — 정확 일치로 그 구분을 여기서 잠근다. */
-  fireEvent.click(screen.getByRole('button', { name: 'h 늘리기', exact: true }));
+  /* ⚠⚠ `{ name: 'h 늘리기', exact: true }` 였다 — **`exact` 는 `getByRole` 의 옵션이 아니라
+     조용히 무시된다**(V068 이 타입 검사를 켜자 드러났다). 즉 위 주석의 «정확 일치로 잠근다»가
+     거짓이었고, 실제로는 부분 일치라 `주당 과제 h 늘리기` 와도 맞을 수 있었다. 정규식으로 잠근다. */
+  fireEvent.click(screen.getByRole('button', { name: /^h 늘리기$/ }));
   await waitFor(() => expect(useApp.getState().state.items[0]!.weeklyHours).toBe(3.5));
 });
 

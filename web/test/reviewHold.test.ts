@@ -6,6 +6,7 @@
 ============================================================ */
 import { describe, it, expect } from 'vitest';
 import { holdKey, isHeld, holdReview, releaseReview, heldReviews, snoozeReview, reviewPause } from '@/lib/reviewHold';
+import type { AppState } from '@/lib/schema';
 
 const st = (over: Partial<AppState> = {}): AppState =>
   ({ items: [{ id: 's1', name: '회로이론', mode: 'weekly', chapters: [] }], ...over }) as unknown as AppState;

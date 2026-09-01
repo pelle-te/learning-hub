@@ -224,9 +224,11 @@ export function AnkiPanel() {
           <div style={{ flex: 2 }} />
         </div>
         <div className="ds-foot">
-          카드 스캔: 정본 _meta/cache/_index.json의 덱 목록(검사.sh --index 생성)을 읽음. 없으면 anki/*.txt 폴더 폴백.
-          실시간: Anki 실행 + AnkiConnect 애드온 필요(localhost:8765). <b>카드 생성</b>: 그동안 적은 3문장 요약·반복
-          오답을 import용 초안(.txt)으로 — Anki에서 추리고 손질(큐레이션).
+          <b>볼트 카드 스캔·카드 생성은 2026-09-01 에 은퇴했습니다</b> — 부모(pipeline)가 Anki 축을
+          닫으면서 그 스캔이 읽던 덱 매니페스트와 카드 파일이 모두 사라졌습니다.
+          다시 스캔해도 「0장」이 나오면 그건 카드가 없다는 뜻이 아니라 **셀 수 없다는 뜻**입니다
+          (복구: 부모 태그 `은퇴/anki-2026-09-01`). 지금 카드를 아는 곳은 <b>Anki 앱 자신</b>뿐이니
+          아래 <b>AnkiConnect 실시간 due</b> 를 쓰세요(Anki 실행 + 애드온 필요 · localhost:8765).
         </div>
         {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
         <LiveRegion message={err ?? ''} assertive />

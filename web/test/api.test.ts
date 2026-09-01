@@ -32,10 +32,14 @@ describe('getJSON 계열 — 성공/HTTP오류/네트워크실패', () => {
     });
     await expect(getPing()).rejects.toThrow('ECONNREFUSED');
   });
+  /* ⚠⚠ **인자가 `'knowledge'` 였다 — 2026-08-29 에 은퇴한 이름이다**(V068 · 2026-09-01).
+     이 케이스는 그 뒤로도 계속 초록이었는데, `test/` 가 **어느 타입 검사에도 안 걸렸기**
+     때문이다(`tsconfig.app.json` 의 `include:["src"]`). 즉 «없는 계약을 먹여도 통과하는
+     테스트»가 살아 있었다 — 검증망이 검증 대상보다 낡은 형태다. */
   it('getArtifact는 이름을 URL 인코딩해 호출한다', async () => {
     const f = stubFetch(async () => res({ ok: true, data: {} }));
-    await getArtifact('knowledge');
-    expect(f).toHaveBeenCalledWith('/api/artifact/knowledge');
+    await getArtifact('ledger');
+    expect(f).toHaveBeenCalledWith('/api/artifact/ledger');
   });
 });
 

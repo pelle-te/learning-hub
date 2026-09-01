@@ -4,11 +4,12 @@
    `integrations` 가 호스트에서 렌즈로 내려가며 이 탭은 **앎 호스트**로 옮겨졌고, 그 페어는
    더 이상 존재하지 않는다. 배치의 정본은 `shell/tabs.ts` 의 `SUBTAB_GROUPS` — 여기 사본을
    두면 다음 IA 개편에 또 낡는다.
-   과목×챕터의 5단계 파이프라인(sourced→noted→verified→carded→reviewed) 진척을 한 화면에.
+   과목×챕터 파이프라인 진척을 한 화면에. ⛔ 단계 **수를 여기 적지 마라** — 이 줄은 두 번 낡았다(5단계 → 4 → 3).
+   정본은 `LEDGER_STAGES`(부모 스키마 파생) 하나다.
    원본: 산출물 `ledger` ← knowledge/_meta/cache/_챕터원장.json (챕터원장.py). 통합 4단계 소비.
    흩어져 있던 볼트 생산 진척(진척 14곳)을 단일 출처로 모은다 — "각 과목이 파이프라인 어디까지 왔나".
 
-   today 재설계 사상: 상단 리드아웃(챕터·검증·카드) · fill 프레임 · 히어로 퍼널 · 온디맨드 챕터 세부.
+   today 재설계 사상: 상단 리드아웃(챕터·검증) · fill 프레임 · 히어로 퍼널 · 온디맨드 챕터 세부.
    데이터 원본은 볼트 빌드 산출물(읽기전용) — 워크스페이스가 설정돼 있으면 자동, 오프라인이면 안내(mastery와 동형).
 
    ── C-7 아홉 번째 이식(ledger) — Tailwind ─────────────────────────────────────
@@ -43,9 +44,7 @@ import {
   type SubjectRollup,
 } from '@/lib/ledger';
 import { runTool } from '@/lib/api';
-import { confirmLossy, toast, glyphOf } from '@/shell';
-import { useApp } from '@/store/useApp';
-import { applyCardedDone, ledgerPending, pendingCount, pendingPrompt } from '@/lib/ledgerSeed';
+import { toast, glyphOf } from '@/shell';
 import { Button } from '@/components/ui';
 import State from '@/components/State';
 
@@ -134,7 +133,7 @@ function SubjectRow({
               ch.furthest === 'planned' ? 'border! border-line!' : 'border-0!'
             }`}
             style={{ background: furthestColor(ch.furthest) }}
-            data-tip={`${ch.arc}  ·  ${STAGE_META[ch.furthest === 'planned' ? 'sourced' : ch.furthest]?.label ?? '미착수'}${ch.furthest === 'planned' ? '(미착수)' : ''}  ·  노트 ${ch.notes}·카드 ${ch.cards}`}
+            data-tip={`${ch.arc}  ·  ${STAGE_META[ch.furthest === 'planned' ? 'sourced' : ch.furthest]?.label ?? '미착수'}${ch.furthest === 'planned' ? '(미착수)' : ''}  ·  노트 ${ch.notes}`}
             aria-label={`${roll.subject} ${ch.arc} — ${ch.furthest}`}
             onClick={() => onPick(ch)}
           />
@@ -228,10 +227,12 @@ function Detail({ sel, onClose }: { sel: Sel; onClose: () => void }) {
         <span>
           검증률 <b className="text-txt tabular-nums">{pctLabel(ch.verified_ratio)}</b>
         </span>
-        <span>
-          카드 <b className="text-txt tabular-nums">{ch.cards}</b>
-          {ch.reps ? <span className="text-mut"> · {ch.reps}회</span> : null}
-        </span>
+        {/* ⚰⚰ C036 의 대체값까지 죽었다(X074 · 2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)).
+            2026-08-31 에 이 자리는 죽은 `ch.cards`·`ch.reps` 를 「살아 있는」 `carded_notes`(31/51 비영)
+            로 갈아끼웠다 — 그 갈아끼운 값이 하루 뒤 사라졌다. 부모가 판정 근거(`anki_exported`)를
+            노트 345편에서 걷어 전 챕터 0 이 되자, **0 을 내보내는 것 자체가 거짓**이라 단계 모델에서
+            통째 걷었다. ⭐ 이 줄을 되살리려면 **생산자를 먼저 세워라** — 지금 카드를 아는 곳은
+            이 저장소가 아니라 사용자의 Anki 앱(AnkiConnect)뿐이다. */}
         {ch.reviewed_recent ? (
           <span>
             최근 복습 <b className="text-txt tabular-nums">{ch.reviewed_recent}</b>
@@ -287,69 +288,12 @@ function Backlog({ l: led }: { l: Ledger }) {
   );
 }
 
-/**
- * **반영 줄**(I001 · 2026-08-22 발상 축) — 원장이 계획 엔진의 입력이 되는 자리.
- *
- * ## 왜 여기 이 줄이 필요한가
- *
- * 이 화면은 원장을 **보여 주기만** 했다. 원장→앱 다리는 있었지만 `importVaultSubject` 안,
- * 즉 **볼트 임포트 순간에만** 놓였다 — 그런데 검증·카드 발급은 임포트와 다른 리듬으로
- * 계속 일어난다. 실측(2026-08-22): 원장이 `carded 31 / 51` 을 아는데 앱의 `chapters[].done`
- * 은 **0/51** 이었고, 그 51챕터는 원장과 **100% 이름이 맞았다**. 다리는 있는데 위로 아무것도
- * 안 지나가고 있었던 것이다.
- *
- * ⚠⚠ **자동으로 안 찍는다** — `carded` 는 «카드를 만들었다»이지 «익혔다»가 아니다
- * (`lib/ledgerSeed.ts` 머리주석이 그 판단의 SSOT). 이 줄이 바꾸는 것은 **언제 물어보는가**
- * 하나뿐이다: 임포트 1회 → 원장이 앞설 때마다.
- * ⚠ 미반영이 0이면 **노드 자체가 없다.** 「0건 반영」이 상주하면 그 줄은 곧 배경이 된다.
- */
-function ApplyToPlan() {
-  const items = useApp((s) => s.state.items);
-  const mutate = useApp((s) => s.mutate);
-  const { data: led } = useLedger();
-  const pending = ledgerPending(led, items);
-  if (!pending.length) return null;
-  const n = pendingCount(pending);
-  const apply = async (): Promise<void> => {
-    /* Q-13 ②단 — 원장이 밖에 그대로 있으니 언제든 다시 맞출 수 있다(재구성 가능). */
-    const ok = await confirmLossy(pendingPrompt(pending), {
-      title: '원장과 맞출까요?',
-      okLabel: `${n}개 끝낸 것으로 표시`,
-      cancelLabel: '그대로 두기',
-    });
-    if (!ok) return;
-    /* ⚠ 카운터를 **객체 필드**로 — 콜백 안의 `let n = 0` 은 React Compiler 를 바일아웃시킨다. */
-    const acc = { marked: 0 };
-    mutate((st) => {
-      for (const p of pending) {
-        const it = st.items.find((x) => x.id === p.sid);
-        if (it) acc.marked += applyCardedDone(it.chapters || [], p.chapters);
-      }
-    });
-    toast(`챕터 ${acc.marked}개를 끝낸 것으로 표시했어요 — 유지 복습 큐로 넘어갑니다.`, 'ok');
-  };
-  return (
-    <div className="ds-rule">
-      <h3>
-        <Icon name="check" /> 계획에 반영
-      </h3>
-      <div className="flex flex-col gap-1.5">
-        <span className="ds-kpi">{n}챕터</span>
-        <div className="ds-foot">
-          원장은 <b>카드 발급까지</b> 끝났다고 하는데 앱에는 안 찍혀 있어요
-          {pending.length > 1 ? ` (${pending.length}과목)` : ` (${pending[0]!.subject})`}.
-          <br />
-          찍으면 새로 배울 목록에서 빠지고 유지 복습으로 넘어갑니다.
-        </div>
-        <div>
-          <Button sm variant="primary" onClick={() => void apply()}>
-            {n}개 반영
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ⚰ **「반영 줄」(I001 · 2026-08-22 발상 축)은 여기 있었고, X074 에서 걷였다** (2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)).
+   그 줄은 「원장은 `carded 31/51` 을 아는데 앱의 `chapters[].done` 은 0/51」이라는 **간격**을 물어보는
+   물건이었다. 그 간격을 재는 자(`milestones.carded`)가 사라졌으므로 줄은 영원히 **물을 것이 0건**이다 —
+   즉 렌더되지 않는 채 `carded` 를 광고하는 죽은 코드가 된다. `lib/ledgerSeed.ts` 도 함께 지웠다.
+   ⭐ 되살리려면 「끝내다」의 자를 먼저 정하라 — `verified` 로 갈아끼는 것은 의미가 다른 주장이다. */
+
 
 /** 병목 — 인접 단계 통과율이 가장 낮은 지점. "다음에 어디 손대면 크게 진척하나". */
 function Bottleneck({ l: led }: { l: Ledger }) {
@@ -369,13 +313,11 @@ function Bottleneck({ l: led }: { l: Ledger }) {
         <div className="ds-foot">
           직전 단계 <b>{b.from}</b>챕터 중 <b>{b.passed}</b>만 {m.label} 통과 — <b>{gap}</b>챕터 대기.
           <br />
-          {/* ⛔ `reviewed` 분기가 2026-08-29 에 빠졌다 — 부모 ledger 스키마에서 그 단계가
+          {/* ⛔ `reviewed` 분기가 2026-08-29 에, `carded` 분기가 2026-09-01 에 빠졌다 — 부모 ledger 스키마에서 그 단계가
               사라졌다(pipeline 목적 정정: 복습은 범위 밖 · STAGES 5 → 4). */}
           {b.stage === 'verified'
             ? '검증 파이프라인(지시문7)을 돌리면 가장 크게 진척합니다.'
-            : b.stage === 'carded'
-              ? 'Anki 카드 생성이 다음 레버입니다.'
-              : '노트 작성이 다음 레버입니다.'}
+            : '노트 작성이 다음 레버입니다.'}
         </div>
       </div>
     </div>
@@ -429,9 +371,13 @@ function Setup({ onRebuild, busy }: { onRebuild: () => void; busy: boolean }) {
      카드 유무)의 결정론적 함수였다 — 관측이 0이라 사후분포가 전량 사전분포였다. 즉 그 히트맵이
      보여 주던 것은 숙달도가 아니라 **작성 상태**였고, 그건 이 원장 화면이 이미 보여 준다.
    함께 은퇴: `mastery/{Mastery,KnowledgeMap,NextActions}.tsx`·`classes.ts` · 로스터 행.
-   ⚠⚠ **`useKnowledge` 는 은퇴하지 않았다**(U084 · 2026-08-31 정정). 이 줄이 그렇게 적혀 있었는데
-   `Review`·`TodaySignature`·`Subject` 가 아직 부른다 — 이 주석을 근거로 지우면 세 화면이 죽는다.
-   실제로 걷힌 것은 **공급자**(`fetchKnowledgeArtifact` 가 항상 throw)이지 훅이 아니다. */
+   ⚠ **`useKnowledge` 는 은퇴하지 않았다** — 걷힌 것은 **공급자**(`fetchKnowledgeArtifact` 가 항상
+   throw)이지 훅이 아니다. 다만 **소비처는 `Review` 하나**다(`Review.tsx:388`).
+   ⛔⛔ **이 줄이 «`Review`·`TodaySignature`·`Subject` 가 아직 부른다 → 지우면 세 화면이 죽는다»라
+   적고 있었다 — 셋 중 둘이 거짓**이었다(V080 · 2026-09-01 실측 · `rg "useKnowledge" src/`).
+   그리고 근거로 인용한 **`U084` 는 존재하지 않는 원장 ID** 였다(V084) — 원장의 `U084` 는 다른
+   항목이고, 이 정정을 담은 항목은 실제로는 없었다. ⚠ **원장 ID 를 인용할 때는 그 ID 가 그 원장에
+   있는지 보고 적어라** — 없는 근거는 «검증된 것»처럼 읽혀서 다음 사람이 안 재 본다. */
 
 export default function LedgerHost() {
   /* 이 호스트에 남은 뷰는 **0** 이다(「숙달도 지도」가 나가면서). 그래도 `?view=mastery` 를 든
@@ -459,7 +405,6 @@ function Ledger() {
         : [
             { label: '챕터', value: led.n_chapters, accent: true },
             { label: '검증', value: led.stage_counts.verified },
-            { label: '카드', value: led.stage_counts.carded },
           ],
     }),
     [led],
@@ -582,7 +527,6 @@ function Ledger() {
           </div>
           {/* 우 — 병목·백로그(다음 행동) */}
           <div className="flex min-h-0 min-w-0 [scrollbar-width:thin] flex-col gap-3 overflow-y-auto pr-0.5">
-            <ApplyToPlan />
             <Bottleneck l={led} />
             <Backlog l={led} />
           </div>

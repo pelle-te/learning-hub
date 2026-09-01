@@ -125,7 +125,11 @@ export function degreeSeed(): AppState['degree'] {
   ];
 
   return {
-    // 요건 임계는 lib/degree.DEGREE_REQ가 단일 출처(볼트 졸업요건_정리.md 미러) — 여기 리터럴 재기입 금지.
+    /* 요건 임계는 `lib/degree.DEGREE_REQ` 가 단일 출처 — 여기 리터럴 재기입 금지.
+       ⚠ **원천이 「볼트 `졸업요건_정리.md` 미러」라 적혀 있었다**(V067 · 2026-09-01). 그 파일은
+       워크스페이스 어디에도 없고(2026-08-06 실측), SSOT 는 2026-08-29 에 이 저장소의 계약
+       **`src/lib/degree.contract.json`** 으로 이사했다 — 학위 트래커는 hub 의 본업이고 부모의
+       일이었던 적이 없다. 그 문구를 믿으면 볼트를 고치러 가서 **아무것도 못 찾는다.** */
     ...DEGREE_REQ,
     semesters: [
       { id: rid(), name: '이수 완료', courses: completed },
@@ -292,6 +296,45 @@ function backfillDegree(s: Record<string, unknown>, d: AppState): void {
   if (!hasCourses && untouchedReqs) s.degree = d.degree;
 }
 
+/* ============================================================
+   ⭐ **과목 상태 → 학기 상태 롤업** (2026-08-31 · 사용자 판정 · 무손실)
+
+   상태가 과목에서 학기로 올라갔다(논거는 `lib/degree.ts` 의 그 절). 이 함수는 **옛 저장을
+   읽을 때마다** 돌면서 과목마다 흩어져 있던 상태를 학기 하나로 접는다.
+
+   ## ⚠⚠ 왜 「성적 유무」 폴백만으로는 안 되는가 — 이게 이 개편의 유일한 데이터 위험이었다
+
+   성적을 **안 넣고 「완료」로만 찍어 둔 학기**가 흔하다(사용자 신고 케이스가 정확히 그랬다:
+   「이수 완료」 학기에 85학점). 파생 규칙 ③(성적이 다 있으면 완료)만 있으면 그 학기는
+   «예정» 이 되고 **이수 85학점이 통째로 증발한다.** 그래서 옛 값을 버리지 않고 옮긴다.
+
+   ## 롤업 규칙 — 보수적으로, 학점을 잃지 않는 쪽으로
+
+   하나라도 '완료' 가 있으면 **완료**(가장 흔한 형태: 지난 학기에 일부만 성적이 들어온 상태.
+   여기서 «수강중» 을 고르면 그 학기 학점이 `earned` 에서 빠진다 — 잃는 쪽을 피한다).
+   아니고 하나라도 '수강중' 이면 **수강중**. 그 밖은 **예정**.
+
+   ⚠ **날짜가 있는 학기는 건드리지 않는다** — 날짜가 정본이므로 `status` 를 심어도 무시되고,
+   심어 두면 나중에 날짜를 지웠을 때 낡은 값이 되살아난다.
+   ⚠ **이미 `status` 가 있으면 덮지 않는다** — 사람이 고쳤을 수 있고, 이 함수는 매 로드마다 돈다.
+   ⚠ `c.status` 는 **지우지 않는다**(강등이지 제거가 아니다 · `schema.ts` 의 그 필드 주석).
+     지우면 이 마이그레이션이 멱등성을 잃고, 옛 백업을 되가져올 때 되돌릴 근거가 사라진다.
+============================================================ */
+export function migrateSemesterStatus(s: Record<string, unknown>): void {
+  const dg = s.degree as { semesters?: Record<string, unknown>[] } | undefined;
+  if (!dg || !Array.isArray(dg.semesters)) return;
+  for (const sem of dg.semesters) {
+    if (!sem || typeof sem !== 'object') continue;
+    if (sem.startDs || sem.status) continue; // 날짜가 정본 · 이미 정해진 것은 존중
+    const courses = Array.isArray(sem.courses) ? (sem.courses as Record<string, unknown>[]) : [];
+    if (!courses.length) continue;
+    const 상태들 = courses.map((c) => (c && typeof c === 'object' ? c.status : undefined));
+    if (상태들.includes('완료')) sem.status = '완료';
+    else if (상태들.includes('수강중')) sem.status = '수강중';
+    // 전부 '예정'(또는 값 없음)이면 아무것도 안 심는다 — 파생 규칙 ③이 같은 답을 낸다.
+  }
+}
+
 /** 불러온 데이터에 새 필드 채우기(구버전 호환). 무효 입력은 null. 동작은 레거시와 동일. */
 export function migrate(input: unknown): AppState | null {
   if (!input || typeof input !== 'object') return null;
@@ -301,6 +344,9 @@ export function migrate(input: unknown): AppState | null {
   s.schemaVersion = SCHEMA_VERSION;
   fillDefaults(s, d);
   backfillDegree(s, d);
+  /* ⚠ `backfillDegree` **뒤**가 자리다 — 그쪽이 조건에 따라 `s.degree` 를 통째로 갈아끼우므로,
+     앞에서 롤업하면 그 결과가 버려진다(그리고 빈 기본값엔 옮길 상태가 없다). */
+  migrateSemesterStatus(s);
   /* _today·_nowHm 은 테스트 시드 — 평소 데이터엔 없어야 한다(가져온 파일에 묻어오면 제거).
      ⚠ `_nowHm`(T-8)도 같은 규약이다. 빠뜨리면 시드가 실데이터에 눌러앉아 모든 완료 시각이
      고정값으로 기록된다 — 그러면 T-8 이 쌓으려는 표본이 통째로 거짓이 된다. */

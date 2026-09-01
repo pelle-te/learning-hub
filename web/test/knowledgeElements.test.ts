@@ -3,6 +3,7 @@
    잠그는 것: ① **번짐**이 정렬 1순위 ② `crossChapter` 가 폐기 조건이다 ③ 자동 정규화 안 함.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import type { AppState } from '@/lib/schema';
 import {
   chapterKc,
   crossChapter,

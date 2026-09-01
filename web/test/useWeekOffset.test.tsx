@@ -4,9 +4,11 @@
    ① 절대/상대 오프셋 계약 ② startDate 변경 리베이스(복제 시절엔 useState 초기화뿐이라 어긋났다)
    ③ 오프셋 라벨 경계 ④ maxRel 클램프(리뷰 변종: 미래 주 금지)를 겨눈다.
 ============================================================ */
-import { act, render, renderHook } from '@testing-library/react';
+// ⚠ `render` 는 아래에서 **지역으로 다시 선언**한다 — 같은 이름을 import 하면 충돌이다(V068).
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useWeekOffset, type WeekOffsetOpts } from '@/hooks/useWeekOffset';
+import type { AppState } from '@/lib/schema';
 
 /** 결정적 '오늘' — _today가 앱의 단일 출처(todayISO 경유). 2026-06-17(수) → 그 주 월요일 06-15. */
 const state = (startDate: string, today = '2026-06-17') =>

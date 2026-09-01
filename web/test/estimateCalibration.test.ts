@@ -5,6 +5,7 @@
    "채움률 ≥15% 확인 선행"을 단 것을, 사람의 기억이 아니라 코드가 지키는지 잠근다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import type { AppState } from '@/lib/schema';
 import {
   MIN_FILL,
   MIN_SAMPLES,

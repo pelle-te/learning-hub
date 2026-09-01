@@ -12,6 +12,7 @@ import { stateToRows, rowsToState, ARRAY_SLICES, coalesceStmts, diffRows } from 
 import { defaults, exportSnapshot, RUNTIME_CACHE_KEYS, EPHEMERAL_ONLY_KEYS } from '@/lib/persistence';
 import { chunkedStamp, _resetStamp } from '@/lib/db/stamp';
 import { MAX_BATCH_ITEMS } from '@/lib/cloud/contract';
+import type { AppState } from '@/lib/schema';
 
 const roundTrip = (s: AppState): AppState => rowsToState(stateToRows(s));
 
@@ -111,8 +112,9 @@ describe('⚠⚠ C-3 — 행 키가 위치에 흔들리지 않는다', () => {
       .map((s) => `${s.args[0]}|${s.args[1]}`);
 
   const withSummaries = (list: { id: string; s1: string }[]): AppState => {
-    const s = defaults() as AppState & Record<string, unknown>;
-    s.summaries = { math: list };
+    const s = defaults() as AppState;
+    // ⚠ 부분 픽스처 — 이 케이스는 `id`·`s1` 만 읽는다(매퍼의 왕복만 본다).
+    s.summaries = { math: list as never };
     return s as AppState;
   };
 
@@ -189,7 +191,8 @@ describe('I1 — passthrough 필드가 살아남는다', () => {
 
   it('레코드 안의 모르는 필드도 보존된다(열로 펼치지 않는 이유)', () => {
     const s = defaults() as AppState & Record<string, unknown>;
-    s.cbms = [{ id: 'c1', ds: 'd', sid: 's', name: 'n', chapter: 'c', code: 'C', note: '', 실험필드: 42 }];
+    // ⚠ `실험필드` 는 **일부러** 계약 밖이다 — 이 케이스의 요지가 «모르는 필드도 보존된다» 다.
+    s.cbms = [{ id: 'c1', ds: 'd', sid: 's', name: 'n', chapter: 'c', code: 'C', note: '', 실험필드: 42 } as never];
     const back = roundTrip(s as AppState) as unknown as { cbms: Record<string, unknown>[] };
     expect(back.cbms[0]!.실험필드).toBe(42);
   });
@@ -269,7 +272,7 @@ describe('대용량 표본 — 규모에서도 동형', () => {
   it('완료 500일·cbms 800건 규모가 바이트 동일하게 왕복한다', () => {
     const s = defaults() as AppState & Record<string, unknown>;
     const ds = (n: number): string => new Date(Date.UTC(2026, 0, 1 + n)).toISOString().slice(0, 10);
-    const comp: Record<string, Record<string, unknown>> = {};
+    const comp: AppState['completions'] = {};
     for (let d = 0; d < 500; d++) comp[ds(d)] = { 'a|new': { done: true, min: 60 }, 'b|rev': { done: false, min: 30 } };
     s.completions = comp;
     s.cbms = Array.from({ length: 800 }, (_, i) => ({
@@ -290,7 +293,7 @@ describe('대용량 표본 — 규모에서도 동형', () => {
   it('⚠ 증분 diff — 한 건만 바뀌면 문장도 한 건이다(편집당 전량 재직렬화 해소)', () => {
     const s = defaults() as AppState & Record<string, unknown>;
     const ds = (n: number): string => new Date(Date.UTC(2026, 0, 1 + n)).toISOString().slice(0, 10);
-    const comp: Record<string, Record<string, unknown>> = {};
+    const comp: AppState['completions'] = {};
     for (let d = 0; d < 500; d++) comp[ds(d)] = { 'a|new': { done: true, min: 60 } };
     s.completions = comp;
     const before = stateToRows(s as AppState);

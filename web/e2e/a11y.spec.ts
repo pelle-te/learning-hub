@@ -1,6 +1,7 @@
 import { test, expect } from './_test';
 import AxeBuilder from '@axe-core/playwright';
-import { A11Y_EXTRA, A11Y_OVERLAY, PHONE_VIEWS, SEED, TABS, boot, bootPhone, settle } from './_fixtures';
+import { 원장판정, 원장메시지 } from '../scripts/ledger-rules.mjs';
+import { A11Y_EXTRA, A11Y_OVERLAY, PHONE_VIEWS, SEED, TABS, THEMES, boot, bootPhone, settle } from './_fixtures';
 
 /* ============================================================
    a11y.spec.ts — 접근성 자동검증(axe-core) · 트랙 A.
@@ -118,11 +119,20 @@ async function a11ySettle(page: import('@playwright/test').Page): Promise<void> 
 type 결과노드 = { target: unknown[]; html: string; failureSummary?: string };
 type 위반항목 = { id: string; impact?: string | null; help: string; helpUrl: string; nodes: 결과노드[] };
 
+/** 원장 키가 이번 회차에 **실제로 위반이었는가** — ③ 역래칫의 입력(V078 · 2026-09-01).
+ *  ⚠ 관측하지 않은 키는 여기 안 들어온다. 「모른다」를 「해소됐다」로 읽으면 원장이 조용히
+ *  비워지고, 그게 이 저장소가 반복해 물린 «0건인데 아무것도 안 쟀다» 다. */
+const 원장관측: Record<string, boolean> = {};
+
 /** 원장을 적용해 **남은 노드가 있는 위반만** 돌려준다(위 `노드` 주석). */
 function 원장적용(화면: string, 위반들: 위반항목[]): 위반항목[] {
+  /* ③ 의 관측 — 이 화면에 걸린 원장 키를 «봤다(위반 아님)» 로 열어 두고, 아래에서 실제
+     위반을 만나면 true 로 덮는다. 이 줄이 없으면 역래칫은 분모가 0이라 영원히 침묵한다. */
+  for (const 키 of Object.keys(알려진위반)) if (키.startsWith(`${화면} :: `)) 원장관측[키] ??= false;
   const 남은: 위반항목[] = [];
   for (const v of 위반들) {
     const 기록 = 알려진위반[`${화면} :: ${v.id}`];
+    if (기록) 원장관측[`${화면} :: ${v.id}`] = true;
     if (!기록) {
       남은.push(v);
       continue;
@@ -273,22 +283,14 @@ for (const theme of ['dark', 'light'] as const) {
       await bootPhone(page, theme);
       await page.getByRole('group', { name: '화면 전환' }).getByRole('button', { name: view }).click();
       await a11ySettle(page);
-      await 검사(page, `phone-${theme}`);
+      /* ⚠ 원장 키에 **뷰 이름을 싣는다**(V074 · 2026-09-01). 종전엔 `phone-${theme}` 하나여서
+         **한 뷰의 면제가 같은 테마의 폰 뷰 전체를 덮었다** — 다른 화면은 전부 화면 단위 키인데
+         여기만 화면**군** 단위였고, 이 파일 머리주석이 «원장은 **노드 단위**다» 로 못박은 규율의
+         정반대다. 원장이 비어 있어 오늘의 실효는 0 이지만, 채우는 순간 조용히 넓게 덮는다. */
+      await 검사(page, `phone-${view}-${theme}`);
     });
   }
 }
-
-/* 원장 만료 — 판단에 유효기간을 강제한다(SCA 게이트와 같은 장치).
-   ⚠ 이게 없으면 위의 두 항목은 "영원히 알려진 위반"이 되고, 그건 규칙을 끈 것과 같다. */
-test('a11y 원장에 기한이 지난 항목이 없다', async () => {
-  const 만료 = Object.entries(알려진위반)
-    .filter(([, v]) => v.재검토 < 오늘)
-    .map(([k, v]) => `\n  · ${k} — 기한 ${v.재검토} (오늘 ${오늘})\n    ${v.사유}`);
-  expect(
-    만료.length,
-    `재검토 기한이 지난 a11y 원장 항목 ${만료.length}건 — 고치거나, 다시 판단하고 날짜를 갱신하세요:${만료.join('')}\n`,
-  ).toBe(0);
-});
 
 /* ── 리플로우 320px(WCAG 1.4.10) — **한 번도 안 돌던 대역**(U023 · 2026-08-21 ux 축) ──────
    1.4.10 은 320 CSS px 폭에서 **두 방향 스크롤을 요구하지 않을 것**을 말한다(= 1280px 화면의
@@ -380,6 +382,162 @@ test('SC 2.4.11 — 320px 에서 포커스가 고정 탭바에 가려지지 않�
   ).toEqual([]);
 });
 
+/* ── ⭐ **입력은 「치는 동안」 읽혀야 한다** (2026-08-31 · 사용자 신고) ────────────────────
+
+   `global/components.css` 의 텍스트 스킨은 **타입 열거**로 걸리는데(그 파일 머리주석 · 불변식 ⑬),
+   포커스 규칙은 타입을 안 가리고 `background` 를 칠하고 있었다. 그래서 스킨을 못 받은
+   **타입 없는 `<input>`** 은 포커스되는 순간 배경만 `--panel`(#0e0f13)이 되고 `color` 는 UA
+   기본(검정)으로 남아 **글자를 치는 동안에만 검정 위 검정**이 됐다 — 실측 **1.10:1**.
+   계획 › 일 뷰의 「할 일」·「일정」 칸 둘이 그 상태였고 사용자가 신고했다.
+
+   ## 왜 기존 세 겹이 전부 초록이었나 — 이 케이스가 메우는 사각
+
+   · **시각 스냅샷**: 정지 프레임엔 **포커스가 없다**(오버레이 §1-C). 누르기 전엔 UA 기본 상자라
+     멀쩡해 보였고, 실제로 이 수정 뒤에도 `visual -g schedule` 7/7 이 **그대로 통과**했다
+     (변화가 0.5% 임계 아래다 — 「통과」가 「안 바뀌었다」가 아닌 그 부류).
+   · **axe**: 무스킨 입력은 흰 배경 + 검은 글자라 대비를 **더 잘** 통과한다(불변식 ⑬ 머리주석이
+     이미 적어 둔 함정). 그리고 axe 는 `:focus` 상태를 만들지 않는다.
+   · **불변식 ⑬**: 단위가 «`<input type>` 이 스킨에 등재됐나»라 **타입 없는 입력은 그물 밖**이다.
+
+   → 그래서 판정을 **실렌더 + 포커스 + 계산된 색**으로 내린다. 로스터는 위 `화면들` 을 그대로
+     쓴다(두 벌로 베끼면 그 목록이 곧 표류한다).
+   ⚠⚠ **계산된 색 문자열을 정규식으로 파싱하지 마라.** 첫 구현이 그랬다가 거짓 양성 **23건**이
+     나왔다 — 이 저장소는 `oklab(0 0 0 / 0)`(투명)과 `color(srgb 0.30 0.49 0.06 / 0.14)`(반투명
+     틴트)를 실제로 쓰는데, `\d+` 로 뽑으면 전자는 «검정», 후자는 «0.3/0.49/0.06 = 거의 검정»이
+     된다. 그래서 **캔버스에 실제로 칠해 rgba 를 되읽고**, 조상 배경을 **알파 합성**한다.
+     (배경이 투명인 입력이 이 앱엔 흔하다 — 배분 보드의 시간 칸 21개가 전부 그렇다.)
+   ⚠ 이 케이스는 **되심어 빨간지를 확인했다**: `text-txt`/`bg-panel2` 를 떼면 1.10:1 로 즉시 빨개진다.
+     (판례 2026-08-31 — 집행자를 세우면 그 자리에서 빨간지를 대조하라.) */
+const 휘도 = (rgb: number[]): number => {
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const 색대비 = (a: number[], b: number[]): number => {
+  const [hi, lo] = [휘도(a), 휘도(b)].sort((p, q) => q - p) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/* ⚠⚠ **이 두 케이스만 재시도를 끈다.** `playwright.config.ts` 는 `retries: 1` 이고 그 파일
+   스스로 _"`retries: 1` 이 그 비결정성을 **flaky-녹색으로 가린다**"_ 고 적어 뒀다. 시각 회귀엔
+   그 완충이 값하지만 **이건 정확성 검사**다 — 되심기 검증에서 실측: 결함을 심으면 1회차는
+   빨갛고 재시도는 초록이라 런 전체가 `flaky`(exit 0)로 끝났다. 즉 재시도를 켠 채로는 이
+   집행자가 **결함을 게이트에 통과시킨다**. 못 재면 못 잰 대로 시끄럽게 실패해야 한다. */
+test.describe('입력 포커스 대비', () => {
+  test.describe.configure({ retries: 0 }); // ⚠ 이 블록만 — 파일 최상위에 두면 a11y 전량의 완충이 사라진다
+
+  for (const theme of THEMES) {
+    test(`입력이 포커스된 상태에서도 글자가 읽힌다 · ${theme}`, async ({ page }) => {
+      const 낮은대비: string[] = [];
+      /* ⚠ 포커스를 못 준 칸 — «못 쟀다» 를 «괜찮다» 로 접지 않는다(freshness.mjs 의 규율). */
+      const 못잰것: string[] = [];
+      const 화면별: Record<string, number> = {};
+      for (const 화면 of 화면들) {
+        await 띄우기(page, 화면, theme);
+        /* ⚠⚠ **화면 하나를 한 번의 `evaluate` 로 통째로 잰다.** 처음엔 요소마다
+         `isVisible()`→`focus()`→`evaluate()` 로 왕복했는데, 그 사이에 목록·포커스가 흔들려
+         되심기 검증이 **flaky** 로 떴다(1회차 빨강 · 재시도 초록 = 게이트가 못 믿을 상태).
+         한 태스크 안에서 포커스와 측정을 끝내면 그 경합이 원리적으로 사라진다. */
+        화면별[화면.key] = await page.evaluate(() => {
+          /** CSS 색 문자열 → [r,g,b,a] (0~255, a 는 0~1). 캔버스가 파서다 — 어떤 표기든 받는다. */
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = 1;
+          const g2 = cv.getContext('2d', { willReadFrequently: true })!;
+          const rgba = (v: string): [number, number, number, number] => {
+            g2.clearRect(0, 0, 1, 1);
+            g2.fillStyle = '#000';
+            g2.fillStyle = v; // 무효면 직전 값(#000, 불투명)이 남는다
+            g2.fillRect(0, 0, 1, 1);
+            const d = g2.getImageData(0, 0, 1, 1).data;
+            return [d[0]!, d[1]!, d[2]!, d[3]! / 255];
+          };
+          /** top 을 bottom 위에 얹는다(source-over). */
+          const over = (
+            t: [number, number, number, number],
+            b: [number, number, number, number],
+          ): [number, number, number, number] => {
+            const a = t[3] + b[3] * (1 - t[3]);
+            if (a === 0) return [0, 0, 0, 0];
+            const c = (i: 0 | 1 | 2): number => (t[i] * t[3] + b[i] * b[3] * (1 - t[3])) / a;
+            return [c(0), c(1), c(2), a];
+          };
+          const 바탕0 = rgba(getComputedStyle(document.body).backgroundColor);
+          /* 텍스트를 치는 칸만 본다 — 체크박스·라디오·파일·색은 글자가 없다. */
+          const sel =
+            '#main input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]), #main textarea';
+          const out: { id: string; fg: number[]; bg: number[]; 포커스됨: boolean }[] = [];
+          for (const node of document.querySelectorAll(sel)) {
+            const el2 = node as HTMLElement;
+            /* ⚠ `offsetWidth` 만으로는 부족했다 — **닫힌 `<details>` 안의 입력**(트레이의 「언젠가」
+             인박스는 비면 접힌다)이 그 검사를 통과하고 `focus()` 는 안 걸려, 시드 상태에 따라
+             회차마다 결과가 갈렸다(되심기 검증에서 flaky 로 드러난 진짜 원인). `checkVisibility`
+             는 `content-visibility`·닫힌 details·`visibility` 를 함께 본다. */
+            if (
+              !el2.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) ||
+              (el2 as HTMLInputElement).disabled
+            )
+              continue;
+            el2.focus(); // 같은 태스크 — 아래 getComputedStyle 이 곧바로 `:focus` 를 본다
+            /* ⚠ 포커스가 실제로 걸렸는지 자기확인한다 — 안 걸렸으면 «포커스 안 된 상태»를 재고
+             조용히 통과한다(그게 이 검사가 잡으려는 것과 정확히 반대다). */
+            const 포커스됨 = document.activeElement === el2 && el2.matches(':focus');
+            let acc: [number, number, number, number] = [0, 0, 0, 0];
+            let p: HTMLElement | null = el2;
+            while (p && acc[3] < 0.999) {
+              acc = over(acc, rgba(getComputedStyle(p).backgroundColor));
+              p = p.parentElement;
+            }
+            const bg = over(acc, [바탕0[0], 바탕0[1], 바탕0[2], 1]);
+            /* 글자색도 반투명일 수 있다 — 해결된 배경 위에 얹어 실제로 보이는 색을 만든다. */
+            const fg = over(rgba(getComputedStyle(el2).color), bg);
+            out.push({
+              id: el2.getAttribute('aria-label') ?? el2.getAttribute('placeholder') ?? el2.tagName,
+              fg: [fg[0], fg[1], fg[2]],
+              bg: [bg[0], bg[1], bg[2]],
+              포커스됨,
+            });
+          }
+          (window as unknown as { __잰것: typeof out }).__잰것 = out;
+          return out.length;
+        });
+        const 잰것 = await page.evaluate(
+          () =>
+            (window as unknown as { __잰것: { id: string; fg: number[]; bg: number[]; 포커스됨: boolean }[] }).__잰것,
+        );
+        const 짧게 = (c: number[]): string => `rgb(${c.map((v) => Math.round(v)).join(',')})`;
+        for (const m of 잰것) {
+          if (!m.포커스됨) {
+            못잰것.push(`${화면.key} › "${m.id}"`);
+            continue;
+          }
+          const r = 색대비(m.fg, m.bg);
+          if (r < 4.5) 낮은대비.push(`${화면.key} › "${m.id}" ${r.toFixed(2)}:1 (${짧게(m.fg)} on ${짧게(m.bg)})`);
+        }
+      }
+      /* ⚠⚠ 분모를 **화면별로** 단언한다 — 총합만 보면 한 화면이 통째로 안 떠도 다른 화면의
+       개수가 그것을 메워 «위반 0» 이 «그 화면을 못 봤다» 가 된다. 되심기 검증에서 실제로
+       그 형태로 초록이 나왔다(계획 › 일 뷰가 로스터에 없었을 때). 오버레이 §1-B 의 「분모를 물어라」. */
+      expect(못잰것.sort(), '포커스를 못 준 칸이 있다 — 이 상태로 통과하면 검사가 아무것도 증명하지 못한다').toEqual(
+        [],
+      );
+      expect(
+        화면별['schedule-day'],
+        '계획 › 일 뷰의 인라인 입력을 못 쟀다 — 이 화면이 이 검사의 계기다',
+      ).toBeGreaterThan(0);
+      expect(
+        Object.values(화면별).reduce((a, b) => a + b, 0),
+        '입력을 하나도 못 찾았다 — 셀렉터가 죽었거나 시드가 화면을 안 채웠다',
+      ).toBeGreaterThan(5);
+      expect(
+        [...new Set(낮은대비)].sort(),
+        '포커스된 입력의 글자가 배경과 구분되지 않는다 — 치는 동안 안 보인다',
+      ).toEqual([]);
+    });
+  }
+});
+
 /* ── ⭐ 대비 **미측정** 래칫(U003 · 2026-08-21 ux 축) ─────────────────────────────────
    ## 「위반 0」은 「전부 쟀다」가 아니다
 
@@ -406,7 +564,28 @@ test('SC 2.4.11 — 320px 에서 포커스가 고정 탭바에 가려지지 않�
    내역도 그때 갈렸다: 종전엔 `color-contrast` 뿐이었는데 이제 `form-field-multiple-labels` 가 1건
    보인다(넓힌 화면에서 온 것 · 위반이 아니라 미측정이다).
    ⚠ 이 수를 손으로 어림하지 마라. 실패 메시지가 **실측치를 그대로 준다**. */
-const 미측정_래칫 = 901;
+/* ⚠⚠ **901 → 961 도 회귀가 아니라 또 「분모가 자란 것」이다**(2026-08-31 · 같은 날 오후).
+   `A11Y_EXTRA` 에 **`schedule-day`(계획 › 일 뷰)** 가 들어왔다 — 그 화면은 `TABS` 의
+   `'schedule'`(주 뷰)에 가려 **어느 a11y 케이스도 한 번도 연 적이 없었다**(그 상수의 주석 참조).
+   ⭐ **귀속을 가정하지 않고 쟀다**: 그 한 화면만 로스터에서 빼고 돌리면 **901 이하로 통과**하고,
+   되돌리면 961 이다. 즉 +60 은 전부 새로 보이기 시작한 화면 몫이고 기존 화면은 한 건도 안 늘었다.
+   ⛔ 다음 회차가 이 증가를 「나빠졌다」로 읽지 마라 — 같은 코드에 대해 **처음으로 그 화면을 센 것**이다. */
+/* ⚠ **961 → 964 는 UI 가 는 것이다**(2026-08-31 · 학기 단위 상태 개편). 졸업 화면의 학기 카드가
+   시드에서 **하나 → 둘**이 됐고(상태가 학기의 것이 되며 한 학기 안 혼재가 불가능해졌다) 카드마다
+   **상태 셀렉트 + 설명 한 줄**이 붙었다. 귀속: 이 두 회차 사이에 **로스터는 그대로**이고 바뀐
+   코드가 졸업 모델·시드뿐이라 +3 은 그 화면 몫이다. ⚠ 다음에 이 수를 올릴 땐 **무엇이 늘었는지
+   한 줄로 대라** — 근거 없이 올리는 래칫은 래칫이 아니다. */
+const 미측정_래칫 = 964;
+/* ⚠⚠ **역래칫의 여유**(V073 · 2026-09-01). 종전엔 «늘면 실패» **한 방향뿐**이었다 — 줄어도
+   아무도 안 알렸다. 그런데 이 장치의 존재 이유가 정확히 «「위반 0」의 분모가 조용히 줄어드는
+   것을 막는 것» 이라, 실측이 700 으로 떨어져도 래칫이 964 로 남으면 **새 미측정 264개가 침묵으로
+   흡수된다.** 한 방향만 잠근 래칫은 절반이 열려 있다.
+   ⛔ 그렇다고 `합 === 래칫` 으로 못박지 않는다 — 이 수는 화면 로스터가 자랄 때마다 움직이고
+   렌더 타이밍에 따라 몇 노드가 흔들린다. **여유 밖으로 벗어나면** 실패시킨다.
+   ⚠ 「통과 옆에 경고를 띄운다」(`compiler-ratchet.mjs` 의 형태)를 안 쓴 이유: 이 저장소가
+   `knip.jsonc` 에 그 함정을 두 번 적어 뒀다 — **힌트는 통과 옆에 떠서 게이트가 안 잡는다**
+   (`V083` 이 그렇게 사문화된 예외였다). 조이는 것이 한 줄이므로 실패가 옳다. */
+const 미측정_여유 = 40;
 
 /* ⚠⚠ **화면당 예산 — 이 케이스가 CI 를 이틀간 빨간불로 만들었다**(U041 · 2026-08-22 운영 축).
 
@@ -449,6 +628,14 @@ test('대비 미측정(incomplete) 노드가 늘지 않았다', async ({ page })
       `  늘었으면: 새로 생긴 의사요소·배경이미지 위 글자가 대비 검사 밖으로 나갔다는 뜻이다.\n` +
       `  줄었으면: 좋은 일이다. 이 파일의 \`미측정_래칫\` 을 ${합} 으로 낮추세요(그래야 되돌아오면 잡힌다).\n`,
   ).toBeLessThanOrEqual(미측정_래칫);
+  /* ③ 역래칫 — 줄었으면 래칫을 조여라. 안 조이면 그 차이가 새 미측정의 침묵 여유가 된다. */
+  expect(
+    합,
+    `axe 미측정이 ${합} 으로 줄었다(래칫 ${미측정_래칫} · 여유 ${미측정_여유}). **좋은 일이지만 ` +
+      `그대로 두면 그 차이만큼이 새 미측정의 침묵 여유가 된다** — 이 파일의 \`미측정_래칫\` 을 ` +
+      `${합} 으로 낮추고, 무엇이 줄었는지 한 줄로 적으세요.
+`,
+  ).toBeGreaterThan(미측정_래칫 - 미측정_여유);
 });
 
 /* 레일 세로 도달성(U036) — 허용 최소 창 높이는 **600**(`src-tauri/tauri.conf.json`)인데 레일
@@ -467,4 +654,30 @@ test('reflow · 최소 창 높이(600)에서 현재 탭이 레일 안에 보인�
     return a.top >= nav.top - 1 && a.bottom <= nav.bottom + 1;
   });
   expect(보임, '레일이 넘치는데 현재 탭이 그 밖에 있다').toBe(true);
+});
+
+/* 원장의 세 규칙 — **판정은 `scripts/ledger-rules.mjs` 한 벌이 진다**(V078·V096 · 2026-09-01).
+   ⚠⚠ 종전엔 여기 ②(만료)**만** 있었다. `freshness.mjs` 머리주석이 _"세 가지가 전부 실패
+   조건이다(**그 파일들과 같다**)"_ 라 단언하는데 이 파일에 대해 **거짓**이었다 — ③(역래칫)이
+   없었다. 실해가 구체적이다: `원장적용` 은 원장 항목이 있으면 그 화면·그 규칙의 위반을 **전부
+   삼키므로**, 고친 뒤에도 항목이 남으면 **새 위반이 그 아래로 조용히 들어간다.**
+   ⛔ 그래서 처방이 「여기 ③을 한 벌 더 짠다」가 아니었다 — 네 번째 사본을 만들면 다음 회차에
+   또 하나가 모자란다. 판정을 **공유 모듈**로 올렸다(V096: 새 형식 금지).
+   ⚠ 이 케이스는 **다른 케이스들이 돈 뒤에** 판정한다(`원장관측` 이 그때 채워진다) — 파일 끝에
+   두는 것이 그 순서를 만든다. Playwright 는 선언 순서로 돌린다. */
+/* ⚠⚠ **재시도를 끈다 — 안 끄면 ③이 재시도에서 조용히 초록이 된다**(2026-09-01 되심기에서 잡혔다).
+   `원장관측` 은 **다른 케이스들이 돌면서** 채우는 모듈 상태인데, Playwright 는 실패한 케이스만
+   새 워커에서 다시 돌린다. 그러면 관측이 비어 판정이 **보류**로 떨어지고(= 「모른다」),
+   원장이 실물과 갈렸는데도 통과한다. 실측: 첫 실행 ❌ → retry #1 ✅.
+   ⭐ 「모른다 ≠ 괜찮다」 규율을 지키려고 넣은 보류 분기가, 재시도와 만나 정확히 그 반대를
+   만들어 낸 자리다 — 규율 자체는 옳고 **격리가 빠져 있었다**. */
+test.describe('원장 대조', () => {
+  /* ⚠ **이 블록만** 재시도를 끈다 — 파일 최상위에 두면 a11y 전량의 완충이 사라진다
+     (`:429` 가 같은 함정을 이미 적어 뒀고, 2026-09-01 에 그대로 밟았다). */
+  test.describe.configure({ retries: 0 });
+
+  test('a11y 원장이 실물과 갈리지 않았다 (② 만료 · ③ 역래칫)', () => {
+    const 판정 = 원장판정({ 원장: 알려진위반, 상태: 원장관측, 오늘 });
+    expect(판정.ok, 원장메시지('a11y', 판정, 알려진위반)).toBe(true);
+  });
 });

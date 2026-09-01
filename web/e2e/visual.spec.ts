@@ -1,5 +1,4 @@
 import { test, expect } from './_test';
-import type { Page } from '@playwright/test';
 
 /* 비주얼 회귀 — 앱상태 탭들을 다크(기본)/라이트 2테마로 스크린샷(에디토리얼 다크 리디자인·세피아 폐기).
    결정성: ① 고정 시드(localStorage) ② 고정 시각(page.clock) — '오늘'·D-day·스트릭이 날짜에 안 흔들리게.
@@ -764,38 +763,11 @@ for (const theme of THEMES) {
    여기 데이터 있는 상태를 따로 잠근다.
    ⚠ 기본 SEED 를 안 건드리는 것이 요점이다 — 거기에 통신이론을 넣으면 items·plan·today 등
    무관한 베이스라인이 통째로 움직인다(그 비용은 이 한 줄의 값을 넘는다). */
-const LEDGER_APPLY_SEED = {
-  ...SEED,
-  items: [
-    ...SEED.items,
-    {
-      id: 'ct',
-      source: '볼트',
-      name: '통신이론',
-      color: '#7bd88f',
-      mode: 'weekly',
-      weeklyHours: 4,
-      dailyMin: 30,
-      deadline: '',
-      chapters: [
-        { id: 'ct1', name: '1 신호와 시스템', hours: 3, done: false },
-        { id: 'ct2', name: '2 푸리에 변환', hours: 3, done: false },
-        { id: 'ct3', name: '3 표본화 정리', hours: 2, done: false },
-      ],
-    },
-  ],
-};
-for (const theme of THEMES) {
-  test(`ledger · 반영 대기 · ${theme}`, async ({ page }) => {
-    await boot(page, theme, LEDGER_APPLY_SEED);
-    await page.goto('/ledger');
-    /* 단언은 **수**를 본다 — 원장이 `carded` 라 말한 둘만 대기여야 한다(셋째는 `carded:false`).
-       줄의 존재만 보면 «전부 대기»로 세는 회귀가 통과한다. */
-    await expect(page.getByRole('button', { name: '2개 반영' })).toBeVisible();
-    await settle(page);
-    await expect(page).toHaveScreenshot(`ledger-apply-${theme}.png`);
-  });
-}
+/* ⛔⛔ **「원장 반영 대기」 시각 케이스 둘을 지웠다**(X074 · 2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)).
+   그 화면(`ApplyToPlan`)은 원장의 `milestones.carded` 와 앱의 `chapters[].done` 사이 간격을
+   물어보는 줄이었고, 그 간격을 재는 자가 부모에서 사라졌다 — 화면과 함께 은퇴한다.
+   ⚠⚠ **그만큼 시각 커버리지가 줄었다**(U049 가 로딩 3→1 을 적어 둔 것과 같은 이유로 적어 둔다:
+   줄어든 것을 적지 않으면 다음 회차가 「충분한가」를 물을 근거를 잃는다). */
 
 /* ⚠⚠ **로딩을 회귀망에 넣는다(W15 · 2026-07-31).** 종전엔 `mastery · loading · dark` **한 장**
    뿐이었다 — 빈 상태가 12장인데 로딩은 사실상 앱의 한 상태 전체가 시각 게이트 밖이었고,

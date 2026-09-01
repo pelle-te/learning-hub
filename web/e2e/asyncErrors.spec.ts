@@ -22,7 +22,17 @@ import { A11Y_EXTRA, TABS, boot, settle } from './_fixtures';
    ⚠ 트랙 A(Chromium + `vite preview`)라 **WebView2 에서만 나는 것은 못 본다**(트랙 B 의 몫).
 ============================================================ */
 
-const 화면들 = [...TABS.map((t) => ({ key: t, path: '/' + t })), ...A11Y_EXTRA];
+/* ⚠ 배열 타입을 **명시한다**(V068 · 2026-09-01). `TABS.map(...)` 과 `A11Y_EXTRA` 를 그냥 이으면
+   합집합 타입이 되어 `'prep' in 화면 && 화면.prep(page)` 가 **호출 불가**로 잡힌다. 이 파일이
+   어느 타입 검사에도 안 걸려 있어서 그 사실이 드러난 적이 없었다(`a11y.spec.ts` 는 같은 자리에
+   이미 `검사화면[]` 을 적어 두고 있었다 — 관용구가 한 곳에만 있었던 것이다). */
+type 순회화면 = {
+  key: string;
+  path: string;
+  prep?: (page: import('@playwright/test').Page) => Promise<void>;
+  ready?: (page: import('@playwright/test').Page) => Promise<unknown>;
+};
+const 화면들: 순회화면[] = [...TABS.map((t) => ({ key: t, path: '/' + t })), ...A11Y_EXTRA];
 
 test('⚠⚠ 전 화면을 도는 동안 잡히지 않은 비동기 실패가 0이다 (R2 의 셋째 축)', async ({ page }) => {
   await boot(page, 'dark');

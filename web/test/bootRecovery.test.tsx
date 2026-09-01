@@ -24,13 +24,15 @@ import { idbGet, idbLoad, idbPreserveBackup } from '@/lib/idb';
 import { memKV } from '@/lib/kv';
 import { boot, defaults, persist } from '@/lib/persistence';
 import BootRecovery from '@/app/BootRecovery';
+import type { AppState } from '@/lib/schema';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 /** 활동 흔적이 있는 상태 — defaults-동형(pristine) 가드(재검증 ⑩#1·#2)에 걸리지 않는 미러. */
 const active = (): AppState => {
-  const s = defaults() as AppState & { completions: Record<string, Record<string, { done: boolean }>> };
-  s.completions['2026-07-01'] = { 'sub|study': { done: true } };
+  const s = defaults() as AppState;
+  // ⚠ 이 케이스는 «완료가 있다»만 본다 — 나머지 필드는 안 읽으므로 부분 픽스처임을 캐스트로 적는다.
+  s.completions['2026-07-01'] = { 'sub|study': { done: true } as never };
   return s;
 };
 

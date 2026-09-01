@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { phaseRamp, remainingMin, staleSemesterLinks } from '@/lib/phaseRamp';
 import type { Item } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const ch = (id: string, hours: number, done = false, deferred = false) => ({ id, name: id, hours, done, deferred });
 const it_ = (id: string, chapters: ReturnType<typeof ch>[] = []): Item =>

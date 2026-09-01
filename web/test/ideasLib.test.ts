@@ -8,11 +8,12 @@ import { confTrend } from '@/lib/methodology';
 import { onThisDay, personalBests, seasonPace, shutdownChain } from '@/lib/records';
 import { pickConfidentWrong, confidentWrongCount } from '@/lib/retrieval';
 import { jolSummary, weeklyRecap } from '@/lib/insights';
-import { frontierNext } from '@/lib/knowledge';
+
 import { backlogFromWeakSpot, backlogFromRootCause } from '@/lib/promote';
 import { parseCaptureBatch } from '@/lib/quickCapture';
 import { usePrefill } from '@/store/prefill';
 import type { Cbms } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const TODAY = '2026-07-08'; // 수 · mondayOf = 2026-07-06 (이번주 07-06~07-12, 지난주 06-29~07-05)
 
@@ -221,19 +222,10 @@ describe('weeklyRecap (I-12)', () => {
   });
 });
 
-describe('frontierNext (I-8)', () => {
-  it('prereq_in 최대 프런티어·빈값 null', () => {
-    const k = {
-      frontier: [
-        { title: 'A', prereq_in: 2 },
-        { title: 'B', prereq_in: 5 },
-      ],
-    };
-    expect(frontierNext(k)?.title).toBe('B');
-    expect(frontierNext(undefined)).toBeNull();
-    expect(frontierNext({ frontier: [] })).toBeNull();
-  });
-});
+/* ⛔ `frontierNext` 케이스는 지웠다(V081 · 2026-09-01) — 그 함수의 **프로덕션 호출부가 0** 이었고,
+   읽던 `frontier` 배열은 2026-08-29 에 **생산자째 삭제**됐다. ⚠ 남겨 두면 나쁜 쪽으로 작동한다:
+   `knip.jsonc` 가 `test/**` 를 entry 로 두므로 **이 케이스가 그 함수를 「쓰인다」로 만들어**
+   죽은 export 를 가려 준다. 테스트가 코드를 살려 두는 형태다. */
 
 describe('백로그 시드 (I-1)', () => {
   it('반복 약점 → 씨앗', () => {

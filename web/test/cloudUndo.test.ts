@@ -19,8 +19,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
-const exec = vi.fn(async () => undefined);
-const select = vi.fn(async (q: string) => (/FROM settings/.test(q) ? [{ key: 'theme', value: '"dark"' }] : []));
+/* ⚠ **모의의 시그니처를 명시한다**(V068 · 2026-09-01). `vi.fn(async () => undefined)` 로 두면
+   `mock.calls` 가 `[][]` 라 `c[1]` 을 읽는 자리마다 타입이 깨진다 — 그런데 이 파일은 **어느 타입
+   검사에도 안 걸려 있어서** 그 사실이 드러난 적이 없었다(`tsconfig.app.json` 의 `include:["src"]`).
+   실인자를 적어 두면 «이 모의가 무엇을 흉내내는가»가 서명 한 줄로 남는다. */
+const exec = vi.fn(async (_q: string, _args?: unknown[]): Promise<unknown> => undefined);
+const select = vi.fn(async (q: string, _args?: unknown[]): Promise<Record<string, unknown>[]> =>
+  /FROM settings/.test(q) ? [{ key: 'theme', value: '"dark"' }] : [],
+);
 vi.mock('@tauri-apps/plugin-sql', () => ({
   default: { load: async () => ({ execute: exec, select }) },
 }));
@@ -37,7 +43,7 @@ import { applyPull } from '@/lib/cloud/merge';
 import { clearUndo, pushUndo, undoDepth } from '@/lib/db/undoStack';
 import { _resetStamp } from '@/lib/db/stamp';
 
-const sqls = (): string[] => exec.mock.calls.map((c) => String((c as unknown[])[0]));
+const sqls = (): string[] => exec.mock.calls.map((c) => String(c[0]));
 
 beforeEach(() => {
   (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};

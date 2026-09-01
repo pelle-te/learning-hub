@@ -84,7 +84,12 @@ const DP = {
   trayHead: 'flex-none text-xs leading-text font-extrabold tracking-tag text-mut uppercase',
   addWrap: 'flex flex-none flex-col gap-1.5',
   addRowTask: 'flex flex-none flex-nowrap items-stretch gap-1.5',
-  addInput: 'min-w-0 rounded-md! py-1.75! focus-visible:outline-offset-1!',
+  /* ⚠ **배경·글자색을 자기가 진다** — 타입 없는 `<input>` 이라 `global/components.css` 의
+     텍스트 스킨(타입 열거)에 안 걸린다. 종전엔 모양만 있어서 UA 기본 글자색(검정)으로 렌더됐고,
+     포커스 시 전역 규칙이 배경만 `--panel`(다크)로 칠해 **치는 동안 글자가 안 보였다**
+     (2026-08-31 사용자 신고). 스킨을 통째로 받지 않는 이유는 그쪽이 폭 100%·8px 패딩을 함께
+     들고 오기 때문이다(그 파일 머리주석 · 불변식 ⑬). */
+  addInput: 'min-w-0 rounded-md! border border-line bg-panel2 py-1.75! text-txt focus-visible:outline-offset-1!',
   addSel: 'min-w-0 rounded-md! px-1! py-1.5! text-sm! leading-auto focus-visible:outline-offset-1!',
   addBtn: 'w-8.5 flex-none rounded-md! text-base! leading-auto font-extrabold! text-acc! motion-reduce:transition-none',
   repeatOn: 'border-acc-glow! bg-acc-soft!',
@@ -115,8 +120,9 @@ const DP = {
   editBar:
     'mt-2.5 flex flex-none flex-wrap items-center gap-2.5 rounded-md bg-panel px-3 py-2 shadow-[var(--shadow-inset-acc-glow)]',
   editName: 'mr-auto max-w-2/5 truncate text-md font-extrabold text-txt',
+  /* ⚠ `addInput` 과 같은 이유로 배경·글자색을 자기가 진다(타입 없는 `<input>`). */
   editTitle:
-    'grow shrink basis-35 min-w-0 max-w-2/5 mr-auto px-1.75! py-1.25! font-extrabold! focus-visible:outline-offset-1!',
+    'grow shrink basis-35 min-w-0 max-w-2/5 mr-auto rounded-md border border-line bg-panel2 px-1.75! py-1.25! font-extrabold! text-txt focus-visible:outline-offset-1!',
   editField: 'inline-flex! flex-none items-center gap-1.25 whitespace-nowrap font-bold!',
   // DayPlannerCards 와 공유(인박스 항목이 씀) — 동일 문자열 복제(각 파일 독립 린트).
   trayRow:

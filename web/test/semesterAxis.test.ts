@@ -19,6 +19,7 @@ import { pendingCloseSemesters, semesterReport } from '@/lib/semesterClose';
 import { coverage, coverageKey } from '@/lib/cardCoverage';
 import { dueQuestions, markMet, nextMeetDs } from '@/lib/questions';
 import type { Question, Semester } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const DS = '2026-08-07';
 
@@ -100,9 +101,14 @@ describe('③ N-3 학기 결산', () => {
     expect(rep.missingGrades.map((c) => c.id)).toEqual(['co1']);
   });
 
-  it("'예정' 과목은 성적 할 일이 아니다(지워지지 않는 잔소리를 만들지 않는다)", () => {
+  /* ⚠ 판정이 **과목 → 학기**로 올라갔다(2026-08-31). 종전엔 `courses[0].status = '예정'` 로
+     과목 하나만 바꿨는데, 상태는 이제 학기의 것이라 **아직 시작 안 한 학기**로 민다.
+     (같은 것을 새 모델로 적은 것이지 다른 것을 재는 게 아니다: 둘 다 «성적을 기대할 수 없는
+     시점의 과목을 할 일로 세지 않는다»를 잠근다.) */
+  it("'예정' 학기의 과목은 성적 할 일이 아니다(지워지지 않는 잔소리를 만들지 않는다)", () => {
     const s = state();
-    s.degree.semesters[0]!.courses[0]!.status = '예정';
+    s.degree.semesters[0]!.startDs = '2026-09-01'; // DS(2026-08-07) 보다 뒤 → 예정
+    s.degree.semesters[0]!.endDs = '2027-01-20';
     expect(semesterReport(s, s.degree.semesters[0]!, DS).missingGrades).toEqual([]);
   });
 

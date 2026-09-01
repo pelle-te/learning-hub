@@ -2,6 +2,7 @@
    resume.test.ts — 이어하기 커서(N-7)의 판정 규칙. 전부 순수 함수라 여기서 전량 덮인다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import type { AppState } from '@/lib/schema';
 import {
   latestResume,
   putResume,

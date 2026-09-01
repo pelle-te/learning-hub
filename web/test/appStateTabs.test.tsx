@@ -88,7 +88,8 @@ test('alloc: 열 "가용"이 그날 일정을 차감한 실제 가용을 보여�
   const mon = mondayOf(new Date());
   const evDs = iso(mon); // 이 주 월요일에만 8시간짜리 일정
   useApp.getState().mutate((st) => {
-    st.events = [{ id: 'ev1', ds: evDs, name: '종일 워크숍', start: 9 * 60, min: 8 * 60 }];
+    // ⚠ 이벤트의 제목 필드는 `title` 이다(`name` 아님) — V068 이 켜지며 드러난 오타.
+    st.events = [{ id: 'ev1', ds: evDs, title: '종일 워크숍', start: 9 * 60, min: 8 * 60 }];
   });
   await renderApp('/alloc');
   const board = await screen.findByRole('table', { name: '주간 배분 보드' });

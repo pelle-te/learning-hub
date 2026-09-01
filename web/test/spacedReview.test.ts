@@ -25,6 +25,7 @@ import { REVIEW_OFFSETS } from '@/lib/utils';
 import { touchReview } from '@/lib/persistence';
 import { freeMinAfter } from '@/lib/scheduler';
 import type { Day, ScheduleItem } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const TODAY = '2026-07-04';
 
@@ -517,7 +518,13 @@ describe('spacedReview — 유지 큐(N-10 · 끝낸 챕터가 사라지지 않�
    *  안 나타나므로, 유지 스캔이 **스케줄과 무관하게** 동작하는 것이 이 기능의 요점이다. */
   const catalog = (chs: { name: string; done: boolean; doneDs?: string }[]): AppState =>
     ({
-      items: [{ id: 'p', name: '물리', chapters: chs.map((c) => ({ id: c.name, name: c.name, hours: 2, ...c })) }],
+      items: [
+        {
+          id: 'p',
+          name: '물리', // ⚠ `...c` 가 뒤에 오므로 `name` 은 c 의 것이 이긴다 — 앞의 `name` 은 죽은 지정이었다(V068).
+          chapters: chs.map((c) => ({ id: c.name, hours: 2, ...c })),
+        },
+      ],
     }) as unknown as AppState;
 
   it('스케줄이 비어도 끝낸 챕터를 찾는다 — 진행 중 챕터는 여기 없다', () => {

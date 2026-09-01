@@ -23,6 +23,7 @@ const led = (p: Partial<Ledger>): Ledger => ({
   failed: false,
   blocked: null,
   checking: false, // Q-23 — 기본은 "확인 중 아님"(클라우드 미연결이 이 앱의 완결된 상태다)
+  staleDays: null, // ⚠ `Ledger` 의 **필수** 필드인데 이 빌더가 안 채우고 있었다(V068).
   ...p,
 });
 

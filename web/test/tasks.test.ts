@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaults } from '@/lib/persistence';
+import type { AppState } from '@/lib/schema';
 import {
   addTask,
   updateTask,
@@ -112,13 +113,13 @@ describe('Task.deadline — 왕복', () => {
     const st = seed();
     const t = addTask(st, { title: '보고서', ds: '2026-07-29' });
     updateTask(st, t.id, { deadline: '2026-08-05' });
-    expect(st.tasks.find((x) => x.id === t.id)?.deadline).toBe('2026-08-05');
+    expect(st.tasks!.find((x) => x.id === t.id)?.deadline).toBe('2026-08-05');
   });
 
   it('빈 문자열로 지울 수 있다 — 넣기만 되고 못 지우면 그것도 반쪽이다', () => {
     const st = seed();
     const t = addTask(st, { title: '보고서', ds: '2026-07-29', deadline: '2026-08-05' });
     updateTask(st, t.id, { deadline: '' });
-    expect(st.tasks.find((x) => x.id === t.id)?.deadline).toBe('');
+    expect(st.tasks!.find((x) => x.id === t.id)?.deadline).toBe('');
   });
 });

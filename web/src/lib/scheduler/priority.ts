@@ -14,21 +14,12 @@ export function itemTotalHours(it: Item): number {
 }
 
 /* ── 그래프 우선순위(B): 지식엔진 과목 숙달도를 배분에 역연동(약한 과목 먼저) ── */
-/** _knowState write-through 슬림화(감사 2026-07-16 ②#25) — 스케줄러(subjectMastery)가 읽는 건
- *  subjects[].{subject,mastery}뿐인데 전체 Knowledge(노트별 concepts 배열 포함)를 state에 넣으면
- *  매 400ms flush 직렬화 비용 + localStorage 5MB 쿼터를 잠식한다(볼트 수천 노트 시 수백 KB~MB).
- *  전체 아티팩트는 react-query 캐시(['knowledge'])가 소유 — state엔 스케줄 입력만. */
-export function slimKnowState(k: unknown): { subjects: { subject: string; mastery: number }[] } {
-  const subjects = (k as { subjects?: unknown })?.subjects;
-  if (!Array.isArray(subjects)) return { subjects: [] };
-  const out: { subject: string; mastery: number }[] = [];
-  for (const s of subjects) {
-    const subject = (s as { subject?: unknown })?.subject;
-    const mastery = (s as { mastery?: unknown })?.mastery;
-    if (typeof subject === 'string' && typeof mastery === 'number') out.push({ subject, mastery });
-  }
-  return { subjects: out };
-}
+/* ⛔ `slimKnowState` 는 지웠다(V082 · 2026-09-01). **유일한 호출부가 도달 불가 코드**였다 —
+   `store/queries.ts` 의 write-through 가 항상 throw 하는 fetch 뒤에 있었고, 그 fetch 의 생산자는
+   2026-08-29 에 삭제됐다. 즉 이 함수는 **한 번도 다시 불릴 수 없었다.**
+   ⚠ 아래 `state._knowState` 를 읽는 쪽은 **그대로 둔다** — 저장된 값(은퇴 이전 스냅샷)이 실재하고
+   배분이 그것을 읽는다. 쓰는 쪽만 죽은 것이지 읽는 쪽이 죽은 것이 아니다.
+   복구: `git show 1813662:web/src/lib/scheduler/priority.ts`. */
 
 /** 과목의 최신 백지복습 결과(②#23) — true=통과 · false=실패 · null=기록 없음(ds 사전순 최신). */
 export function latestBlank(state: AppState, sid: string): boolean | null {

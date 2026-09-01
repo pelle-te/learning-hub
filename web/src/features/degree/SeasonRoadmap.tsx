@@ -35,12 +35,16 @@ export default function SeasonRoadmap({
   list,
   targetTotal,
   earned,
+  today,
   openIds,
   onToggle,
 }: {
   list: DegreeSemester[];
   targetTotal: number;
   earned: number;
+  /** 오늘(ISO) — 학기 상태가 날짜 파생이라 필요하다. ⚠ 여기서 `todayISO()` 를 부르지 마라:
+   *  이 컴포넌트는 **순수 표현**이고, 시계를 스스로 읽으면 부모와 다른 날을 그릴 수 있다. */
+  today: string;
   openIds: Set<string>;
   onToggle: (id: string) => void;
 }) {
@@ -48,7 +52,7 @@ export default function SeasonRoadmap({
      "다 됐다"고 했다. 이 값은 스파인 채움이 아니라 **텍스트**다(채움은 아래 `fillPct`). */
   const pct = targetTotal > 0 ? Math.round((earned / targetTotal) * 100) : 0;
   // 진행 노드 비율 — 완료 학기까지 스파인을 채움(시각적 "어디까지 왔나").
-  const doneCount = list.filter((sm) => semesterStat(sm).phase === 'done').length;
+  const doneCount = list.filter((sm) => semesterStat(sm, today).phase === 'done').length;
   const fillPct = list.length > 1 ? (doneCount / (list.length - 1)) * 100 : doneCount ? 100 : 0;
 
   return (
@@ -75,10 +79,10 @@ export default function SeasonRoadmap({
             />
           </span>
           {list.map((sm) => {
-            const { tot, done, inprog, phase, pct: spct } = semesterStat(sm);
+            const { tot, done, inprog, phase, pct: spct } = semesterStat(sm, today);
             const open = openIds.has(sm.id);
             // PL-8 — 학기 GPA(완료·점수 성적만). null이면 병기 생략(성적 없는 학기).
-            const g = semesterGpa(sm);
+            const g = semesterGpa(sm, today);
             return (
               <button
                 key={sm.id}

@@ -16,7 +16,7 @@ export const EXPECTED_SCHEMA_VERSION = {
 export type ArtifactName = keyof typeof EXPECTED_SCHEMA_VERSION;
 
 /** 챕터 생애 5단계(ledger 스키마 stage_counts.propertyNames.enum 파생 · 챕터원장.py STAGES 와 동일 SSOT). */
-export const LEDGER_STAGES = ['sourced', 'noted', 'verified', 'carded'] as const;
+export const LEDGER_STAGES = ['sourced', 'noted', 'verified'] as const;
 export type LedgerStage = (typeof LEDGER_STAGES)[number];
 
 /** 졸업요건 임계(전자공학 2020 요람·ABEEK) — 부모 goals.json 'degree-requirement' 노드
@@ -35,8 +35,6 @@ export const indexArtifactSchema = z.looseObject({
   n_notes: z.number(),
   n_flags: z.optional(z.number()),
   n_tier_hint: z.optional(z.number()),
-  anki_cards: z.optional(z.number()),
-  anki: z.array(z.looseObject({ file: z.string(), cards: z.number() })),
   notes: z.array(
     z.looseObject({
       path: z.string(),
@@ -48,9 +46,7 @@ export const indexArtifactSchema = z.looseObject({
       type: z.optional(z.nullable(z.string())),
       role: z.optional(z.nullable(z.string())),
       kind: z.string(),
-      anki_exported: z.optional(z.nullable(z.string())),
       reviewed: z.optional(z.nullable(z.string())),
-      anki_state: z.string(),
       tier: z.optional(z.nullable(z.string())),
       prereq_in: z.number(),
       tier_hint: z.optional(z.nullable(z.string())),
@@ -67,7 +63,7 @@ export const ledgerArtifactSchema = z.looseObject({
   generated: z.string(),
   generated_by: z.optional(z.string()),
   n_chapters: z.number(),
-  stage_counts: z.record(z.enum(['sourced', 'noted', 'verified', 'carded']), z.unknown()),
+  stage_counts: z.record(z.enum(['sourced', 'noted', 'verified']), z.unknown()),
   backlog: z.optional(z.record(z.string(), z.unknown())),
   subjects: z.record(
     z.string(),

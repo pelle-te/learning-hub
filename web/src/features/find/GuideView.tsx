@@ -194,14 +194,14 @@ export default function Guide() {
         title="복습 — 카드까지가 이 시스템의 몫"
         what={
           <>
-            검증된 노트 → Anki 카드 → <b>Anki 에 import</b>(사람). 복습 자체는 Anki 가 진다 — 이 시스템은{' '}
-            <b>카드를 만드는 데까지</b>다.
+            <b>2026-09-01 에 은퇴했습니다.</b> 부모(pipeline)가 Anki 축을 닫으면서 카드
+            생산·내보내기가 사라졌습니다. 이미 만든 카드는 Anki 앱 안에 그대로 있습니다.
           </>
         }
       >
-        <How label="카드 생성">
-          <Say>"(과목) (챕터) Anki"</Say>(<code className={REF}>지시문4</code>) → <Cmd>exports/*.txt</Cmd> →{' '}
-          <b>Anki에 import</b>(사람). 카드는 필수/보조 2티어 태깅.
+        <How label="카드 생성(은퇴)">
+          종전에는 <Say>"(과목) (챕터) Anki"</Say> 로 카드 초안을 내보내 <b>Anki에 import</b> 했습니다.
+          그 지시문도 그 폴더도 <b>지금은 없습니다</b> — 복구는 부모 태그 <code className={REF}>은퇴/anki-2026-09-01</code>.
         </How>
         <How label="약점·점검 도구">
           모의고사(실전문제)는 그대로. 허브 <Tab k="review-run" />

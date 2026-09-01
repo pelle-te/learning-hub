@@ -25,6 +25,7 @@ import {
   unlinkedCourses,
 } from '@/lib/semester';
 import type { Item, Semester } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const ch = (id: string, hours = 1) => ({ id, name: id, hours, done: false });
 const item = (over: Partial<Item> = {}): Item =>

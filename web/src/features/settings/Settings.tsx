@@ -32,6 +32,7 @@ import { GENERATIONS } from '@/lib/snapshots';
 import { Button, NumberField } from '@/components/ui';
 import { CountReadout } from '@/components/CountReadout';
 import WorkspaceCard from './WorkspaceCard';
+import ToolsCard from './ToolsCard';
 import CloudCard from './CloudCard';
 import ConflictsNotice from './ConflictsNotice';
 import UpdateCard from './UpdateCard';
@@ -561,6 +562,10 @@ export default function Settings() {
 
       {/* Tauri 셸에서만 렌더(브라우저에선 null) — 1단계에서 승격된 워크스페이스 경로 설정. */}
       <WorkspaceCard />
+
+      {/* V079 — 누를 자리가 없던 파이썬 도구 넷. 워크스페이스 카드 **바로 아래**인 것이 요점이다:
+          이 도구들의 대표 실패가 «워크스페이스 미설정» 이라, 실패했을 때 볼 곳이 곁에 있어야 한다. */}
+      <ToolsCard />
 
       {/* C-5 — 클라우드 동기화(여러 기기에서 편집). 연결 전에는 아무 요청도 나가지 않는다. */}
       <CloudCard />

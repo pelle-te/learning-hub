@@ -3,6 +3,7 @@
    여러 탭(오늘·통계·스케줄·캘린더)이 공유하므로, 경계값을 고정해 드리프트를 막는다.
 ============================================================ */
 import { describe, expect, it } from 'vitest';
+import type { AppState } from '@/lib/schema';
 import {
   addDays,
   agoLabel,

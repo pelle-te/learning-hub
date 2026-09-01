@@ -23,6 +23,7 @@ import {
 } from '@/lib/persistence';
 import { addCbms, blankPassRate, buildAnkiCards, setBlankResult } from '@/lib/methodology';
 import type { KV } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 function memKV(): KV & { store: Map<string, string> } {
   const m = new Map<string, string>();

@@ -7,6 +7,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { colorForId, oklchToHex, makeItem, refineItemColors } from '@/lib/utils';
+import type { AppState } from '@/lib/schema';
 
 const HEX = /^#[0-9a-f]{6}$/;
 

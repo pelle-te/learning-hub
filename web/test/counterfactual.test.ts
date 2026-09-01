@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { completionMin, setDone } from '@/lib/persistence';
 import { selectFinishGains } from '@/store/selectors';
 import { schedule } from '@/lib/scheduler';
+import type { AppState } from '@/lib/schema';
 
 describe('G-1 — 회고가 읽는 분은 실측 우선, 없으면 계획', () => {
   it('실측이 있으면 실측을 쓴다(체크박스가 아니라 실제로 집중한 시간)', () => {

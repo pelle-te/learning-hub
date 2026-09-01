@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { schedulerState } from './_fixtures';
 import { buildICS, planSignature } from '@/lib/ics';
+import type { AppState } from '@/lib/schema';
 
 let _id = 0;
 const nid = () => 'id' + ++_id;

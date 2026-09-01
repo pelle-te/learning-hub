@@ -39,7 +39,8 @@ import { markDbFallback, setSaveFallback } from './fallback'; // C2 — 저작�
    `DOCS_SPEC.sync` · 아웃박스 · ⌘Z 프리이미지 · pull 뒤 `reloadDocs`). 세입자가 없다고 그것을
    걷으면 스키마 마이그레이션 + 서버 계약 + 왕복 테스트가 한 벌 더 필요한데, 그건 W4 의 범위
    (화면·아티팩트·Rust)가 아니고 되돌리기도 비싸다. 그래서 **빈 채로 두되 빈 것을 명시**한다.
-   존치 근거·재검토일은 `docs/유예_원장.md` — 다음 저작물 키가 생기면 여기 한 줄이면 된다.
+   존치 근거·재검토일은 **부모** `../docs/유예_원장.md`(hub 안에는 없다 · V091) — 다음 저작물
+   키가 생기면 여기 한 줄이면 된다.
 
    ⚠ 빈 배열의 대가: `DocKey` 가 `never` 라 `docGet`/`docSet` 은 **전량 localStorage 로 흐른다**.
    즉 지금 이 파일은 *동작상* 얇은 KV 래퍼이고, SQLite 경로는 세입자가 돌아오는 순간 다시 산다.

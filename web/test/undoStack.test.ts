@@ -33,6 +33,7 @@ import {
 } from '@/lib/db/undoStack';
 import { defaults } from '@/lib/persistence';
 import type { PreImageRow } from '@/lib/db/undoStack';
+import type { AppState } from '@/lib/schema';
 
 const st = (recipe: (s: AppState) => void): AppState => {
   const s = defaults();
@@ -78,7 +79,7 @@ describe('캡처 — 무엇을 담는가', () => {
 
   it('⚠ 새로 생긴 행은 `vals:null` 이다 — 되돌리기가 **삭제**여야 한다', () => {
     const a = stateToRows(defaults());
-    const b = stateToRows(st((s) => void (s.weekAlloc = { '2026-08-03': { sid1: 120 } })));
+    const b = stateToRows(st((s) => void (s.weekAlloc = { '2026-08-03': { sid1: [120] } })));
     const pre = diffRowsDetailed(a, b, 1).preImages.filter((p) => p.table === 'week_alloc');
     expect(pre).toHaveLength(1);
     expect(pre[0]!.vals).toBeNull();
@@ -105,13 +106,13 @@ describe('왕복 속성 — 쓰기 → 되돌리기 → 쓰기 전과 같다', (
   const scenarios: [string, (s: AppState) => void][] = [
     ['설정 값 변경', (s) => void (s.theme = 'light')],
     ['배열 추가', (s) => void (s.tasks = [{ id: 'n1', title: '새 할일', done: false } as never])],
-    ['주간 배분 1칸', (s) => void (s.weekAlloc = { '2026-08-03': { a: 60 } })],
+    ['주간 배분 1칸', (s) => void (s.weekAlloc = { '2026-08-03': { a: [60] } })],
     ['완료 체크', (s) => void (s.completions = { '2026-08-03': { 'a|study': { min: 30 } as never } })],
     ['요약 추가', (s) => void (s.summaries = { '2026-08-03': [{ id: 's1', name: 'A' } as never] })],
   ];
   const base = st((s) => {
     s.tasks = [{ id: 't0', title: '기존', done: false } as never];
-    s.weekAlloc = { '2026-07-27': { a: 30 } };
+    s.weekAlloc = { '2026-07-27': { a: [30] } };
     s.summaries = { '2026-07-27': [{ id: 's0', name: 'Z' } as never] };
   });
 

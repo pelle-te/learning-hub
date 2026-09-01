@@ -7,6 +7,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { SINCE_NOISE_MAX, countableKeys, sinceCount } from '@/lib/since';
+import type { AppState } from '@/lib/schema';
 
 const cbms = (ds: string, i: number) =>
   ({ id: `c${i}`, ds, sid: 's', name: 's', chapter: 'c', code: 'C', note: '' }) as never;

@@ -14,7 +14,7 @@ describe('bootUI — 부팅/복원', () => {
   });
   it('저장된 UIState를 그대로 읽는다', () => {
     const kv = memKV();
-    persistUI(kv, { schedView: 'week', accent: 'lime', recentCommands: ['a', 'b'], fxLite: false });
+    persistUI(kv, { schedView: 'week', accent: 'lime', recentCommands: ['a', 'b'], fxLite: false } as never);
     expect(bootUI(kv)).toEqual({
       schedView: 'week',
       accent: 'lime',
@@ -91,7 +91,7 @@ describe('bootUI — 구 산재 키 흡수(1회 마이그레이션)', () => {
 describe('persistUI — 왕복', () => {
   it('persist→boot 왕복이 동일 상태를 보존하고 JSON을 반환한다', () => {
     const kv = memKV();
-    const json = persistUI(kv, { schedView: 'month', accent: 'cyan', recentCommands: ['cmd'], fxLite: true });
+    const json = persistUI(kv, { schedView: 'month', accent: 'cyan', recentCommands: ['cmd'], fxLite: true } as never);
     expect(JSON.parse(json)).toEqual({ schedView: 'month', accent: 'cyan', recentCommands: ['cmd'], fxLite: true });
     expect(bootUI(kv)).toEqual({
       schedView: 'month',
@@ -161,7 +161,7 @@ describe('accent — 액센트 노브 영속', () => {
   });
   it('저장된 액센트를 읽고, 잘못된 값은 기본 lime으로 폴백', () => {
     const kv = memKV();
-    persistUI(kv, { schedView: 'week', accent: 'amber', recentCommands: [] });
+    persistUI(kv, { schedView: 'week', accent: 'amber', recentCommands: [] } as never);
     expect(bootUI(kv).accent).toBe('amber');
     kv.setItem(UI_KEY, JSON.stringify({ schedView: 'week', accent: 'turbo', recentCommands: [] }));
     expect(bootUI(kv).accent).toBe('lime'); // 스키마 미스 → 전체 기본값 폴백

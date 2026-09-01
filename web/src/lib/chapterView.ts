@@ -102,7 +102,6 @@ export interface ChapterVault {
   /** 그중 `status: verified`. */
   verified: number;
   /** Anki 로 나간 카드 수. */
-  cards: number;
   /** 5단계 중 가장 멀리 간 곳. */
   furthest: Furthest;
   /** 마지막 검증 통과일(파이프라인). 없으면 null — **인출일이 아니다.** */
@@ -127,7 +126,8 @@ export function chapterVault(led: Ledger | undefined | null, subject: string, ch
   return {
     notes: ch.notes,
     verified: ch.status?.verified ?? 0,
-    cards: ch.cards,
+    // ⚰ `cards` 를 걷였다(X074 · 2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)). C036 에서 영원히 0 인 `ch.cards` 를
+    //   버리고 갈아끼운 대체값 `carded_notes` 까지 부모가 걷었다 — 볼트 산출물은 이제 카드를 모른다.
     furthest: ch.furthest,
     reviewedRecent: ch.reviewed_recent || null,
   };

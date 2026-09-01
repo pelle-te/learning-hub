@@ -16,7 +16,19 @@ import {
 afterEach(() => vi.unstubAllGlobals());
 
 /* ── 가짜 File System Access 핸들 빌더 ── */
-type FakeHandle = ReturnType<typeof file> | ReturnType<typeof dir>;
+/* ⚠⚠ **`ReturnType<typeof dir>` 로는 적을 수 없다 — 순환이다**(V068 · 2026-09-01).
+   `dir` 은 인자로 `Record<string, FakeHandle>` 을 받으므로 그 반환 타입 추론이 `FakeHandle` 을
+   요구하고, `FakeHandle` 이 다시 그 추론을 요구한다(TS2456). **디렉터리 쪽만 인터페이스로 명시**해
+   고리를 끊는다 — `file` 쪽은 자기를 참조하지 않으므로 추론 그대로 둔다.
+   ⚠ 이 파일이 어느 타입 검사에도 안 걸려 있어서 이 순환이 드러난 적이 없었다. */
+type FakeFile = ReturnType<typeof file>;
+interface FakeDir {
+  kind: 'directory';
+  entries: () => AsyncGenerator<[string, FakeHandle]>;
+  getDirectoryHandle: (name: string) => Promise<FakeDir>;
+  getFileHandle: (name: string) => Promise<FakeFile>;
+}
+type FakeHandle = FakeFile | FakeDir;
 function file(content: string) {
   return {
     kind: 'file' as const,
@@ -26,7 +38,7 @@ function file(content: string) {
     }),
   };
 }
-function dir(children: Record<string, FakeHandle>) {
+function dir(children: Record<string, FakeHandle>): FakeDir {
   return {
     kind: 'directory' as const,
     entries: async function* () {
@@ -96,7 +108,7 @@ describe('estH / chaptersFromVault — 순수 변환', () => {
     expect(estH(7)).toBe(4); // round(3.5)=4
   });
   it('chaptersFromVault는 학습항목 챕터(done=false·예상시간)로 변환', () => {
-    const chs = chaptersFromVault([{ name: '1장', notes: 10, verified: 0, exported: 0, legacy: 0, wip: 0 }]);
+    const chs = chaptersFromVault([{ name: '1장', notes: 10, verified: 0, exported: 0, legacy: 0, wip: 0 } as never]);
     expect(chs).toHaveLength(1);
     expect(chs[0]).toMatchObject({ name: '1장', hours: 5, done: false });
     expect(typeof chs[0].id).toBe('string');

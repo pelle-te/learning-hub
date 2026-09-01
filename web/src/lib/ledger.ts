@@ -1,13 +1,15 @@
 /* ============================================================
    ledger — 정본 축(과목×챕터 원장)의 웹 소비 레이어. 순수·IO 분리.
    원본: pipeline/_도구/챕터원장.py → knowledge/_meta/cache/_챕터원장.json (산출물 `ledger` /api/artifact/ledger).
-   원장은 각 챕터가 4단계 생애(sourced→noted→verified→carded · reviewed 는 2026-08-29 은퇴)에서 "얼마나 멀리 갔나"를
-   집계한다 — 흩어져 있던 볼트 파이프라인 진척을 한 화면에 모으는 단일 출처(통합 4단계).
+   원장은 각 챕터가 **`LEDGER_STAGES` 가 말하는 생애**에서 "얼마나 멀리 갔나"를 집계한다 —
+   흘어져 있던 볼트 파이프라인 진척을 한 화면에 모으는 단일 출처.
+   ⛔ 단계 **수를 이 주석에 적지 마라** — 두 번 낡았다: `reviewed` 는 2026-08-29 에, `carded` 는
+   2026-09-01 에 부모 스키마에서 사라졌다(2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)).
    이 파일은 타입·페치·순수 파생만. 렌더는 features/ledger가 소유(React 무관).
 ============================================================ */
 import { getArtifact } from './api';
 import { parseArtifact } from './artifacts';
-// 5단계(furthest 순서)는 부모 ledger 스키마에서 생성 — 손유지 복제 제거(챕터원장.py STAGES와 동일 SSOT).
+// 단계 목록(furthest 순서)은 부모 ledger 스키마에서 생성 — 손유지 복제 제거(챕터원장.py STAGES와 동일 SSOT).
 import { LEDGER_STAGES, type LedgerStage } from './artifacts.gen';
 import type { IconName } from '@/lib/iconPaths';
 export { LEDGER_STAGES, type LedgerStage };
@@ -21,9 +23,13 @@ export interface LedgerChapter {
   concept: number;
   status: { verified: number; drafted: number; raw: number; 구버전: number };
   verified_ratio: number;
-  carded_notes: number;
-  cards: number;
-  reps: number;
+  // ⚰ C036 의 대체값 `carded_notes` 도 걷였다(X074 · 2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)).
+  //   부모가 판정 근거(`anki_exported`)를 노트 345편에서 걷어 전 챕터 0 이 되자, **0 을 내보내는
+  //   것 자체가 거짓을 하류에 먹이는 일**이라 단계 모델에서 통째 걷혔다(`stage_counts.carded` 도).
+  //   ⛔ 되살리려면 **생산자를 먼저 세워라** — 카드는 실재하지만 그걸 아는 곳은 사용자의
+  //   Anki 앱(AnkiConnect)이지 이 저장소의 산출물이 아니다.
+  //   ⚠ 아래 `reviewed_recent` 는 **살아 있다** — Anki 복습이 아니라 노트 프런트매터 `reviewed:`
+  //     날짜다(실측 36/51 비null). 이름이 비슷하다고 함께 걷지 마라.
   reviewed_recent: string | null;
   milestones: Record<LedgerStage, boolean>;
   furthest: Furthest;
@@ -69,8 +75,9 @@ export const STAGE_META: Record<LedgerStage, { label: string; glyph: IconName; c
   /* ⚠ `--sky` 는 **정의된 적이 없는 이름**이었다(H20 · 2026-07-26 감사) — 폴백 hex 로만 그려져
      테마와 무관하게 고정색이었다. 파란 계열의 실제 토큰은 `--signal` 이다. */
   verified: { label: '검증', glyph: 'check', color: 'var(--signal)', desc: '개념 노트 검증 통과' },
-  carded: { label: '카드', glyph: 'cards', color: 'var(--learning)', desc: 'Anki 카드 발급' },
-  // ⛔ `reviewed` 단계가 2026-08-29 에 빠졌다 — 부모 ledger 스키마에서 사라졌다(복습 = 범위 밖).
+  // ⛔ `reviewed` 단계가 2026-08-29 에, `carded` 단계가 2026-09-01 에 부모 ledger 스키마에서
+  //    사라졌다(복습·카드 = 범위 밖 · 2026-09-01 부모 Anki 축 은퇴(태그 `은퇴/anki-2026-09-01`)). ⛔ 손으로 단계를 다시 넣지 마라 —
+  //    키 집합의 정본은 `LEDGER_STAGES` 이고, 어긋나면 타입이 먼저 울어준다.
 };
 
 /**
@@ -90,7 +97,7 @@ export function furthestColor(f: Furthest): string {
   return f === 'planned' ? PLANNED_COLOR : STAGE_META[f].color;
 }
 
-/** furthest 단계 인덱스(0..4), planned=-1. 정렬·진척 비교에 사용. */
+/** furthest 단계 인덱스(0..`LEDGER_STAGES.length`-1), planned=-1. 정렬·진척 비교에 사용. */
 export function stageIndex(f: Furthest): number {
   return f === 'planned' ? -1 : LEDGER_STAGES.indexOf(f);
 }
@@ -111,19 +118,18 @@ export interface SubjectRollup {
 
 /** 과목 1개의 롤업(정렬·요약용, 순수). */
 export function subjectRollup(name: string, s: LedgerSubject): SubjectRollup {
-  const reached: Record<LedgerStage, number> = { sourced: 0, noted: 0, verified: 0, carded: 0 };
+  const reached: Record<LedgerStage, number> = { sourced: 0, noted: 0, verified: 0 };
   const furthestDist: Record<Furthest, number> = {
     planned: 0,
     sourced: 0,
     noted: 0,
     verified: 0,
-    carded: 0,
   };
   let scoreSum = 0;
   for (const ch of s.chapters) {
     for (const st of LEDGER_STAGES) if (ch.milestones[st]) reached[st]++;
     furthestDist[ch.furthest]++;
-    scoreSum += stageIndex(ch.furthest) + 1; // planned→0, carded→4
+    scoreSum += stageIndex(ch.furthest) + 1; // planned→0, 마지막 단계→LEDGER_STAGES.length
   }
   const total = s.chapters.length;
   return {
@@ -133,7 +139,9 @@ export function subjectRollup(name: string, s: LedgerSubject): SubjectRollup {
     total,
     reached,
     furthestDist,
-    progress: total ? scoreSum / (total * 4) : 0,
+    /* ⛔ 분모의 4 는 상수가 아니라 **단계 수**였다 — X074 에서 드러났다. 단계가 4→3 으로
+       줄었을 때 이 줄만 낡으면 진척률이 **영원히 75% 를 못 넘고**, 과목 정렬이 조용히 틀린다. */
+    progress: total ? scoreSum / (total * LEDGER_STAGES.length) : 0,
     srcPresent: s.src_present,
   };
 }

@@ -29,9 +29,21 @@ textarea {
    **처음부터 그랬던 것**은 스냅샷의 사각이다) → 집행자는 **불변식 ⑬**(`test/invariants.test.ts`)
    이고, 새 타입이 나타나면 여기 등재되거나 예외 목록에 근거를 적기 전까지 게이트가 빨개진다.
 
-   ⚠ **뒤집지 않는다**(`input:not([type='checkbox'], …)`). 타입이 **없는** `<input>` 이 10곳
-   있고(스케줄 인라인 추가·폰 캡처·ics 주소 등) 전부 자기 유틸리티로 형상을 갖는다 — 뒤집으면
-   그 열이 통째로 이 스킨(폭 100% · 패널 배경 · 8px 패딩)을 뒤집어쓴다. 열거인 것이 의도다. */
+   ⚠ **뒤집지 않는다**(`input:not([type='checkbox'], …)`). 타입이 **없는** `<input>` 이 여럿
+   있고(스케줄 인라인 추가·폰 캡처·ics 주소 등) 뒤집으면 그 열이 통째로 이 스킨(폭 100% ·
+   패널 배경 · 8px 패딩)을 뒤집어쓴다. 열거인 것이 의도다.
+
+   ⚠⚠ **그런데 이 문단이 근거로 든 «전부 자기 유틸리티로 형상을 갖는다» 가 거짓이었다**
+   (2026-08-31 · 사용자 신고). 폰 셋은 실제로 `bg-panel text-txt` 를 직접 갖는데 **계획›일과의
+   넷은 모양만 갖고 배경도 글자색도 없었다**(`DayPlanner` 의 `addInput`·`editTitle`).
+   그 상태에서 **아래 `:focus` 가 타입을 안 가리고 `background` 를 칠했다** — 즉 스킨을 못 받은
+   입력이 포커스되는 순간 배경만 `--panel`(다크 #0e0f13)이 되고 `color` 는 UA 기본(검정)으로
+   남아 **글자를 치는 동안에만 검정 위 검정**이 됐다. 누르기 전엔 멀쩡해 보여 스냅샷도 못 봤다.
+   → 처방은 인스턴스 넷이 아니라 **기전**이다: `background` 를 위 열거와 같은 범위로 좁혀,
+   스킨을 못 받은 입력은 **UA 기본 그대로**(읽히는 상태) 남게 한다. 넷에는 자기 배경·글자색을
+   줬다(그래서 이제 이 문단의 근거가 참이다).
+   ⚠ `border-color`·`box-shadow` 는 계속 전역이다 — 그 둘은 배경 없이도 해롭지 않고,
+   포커스 가시성(SC 2.4.7)은 스킨 유무와 무관하게 모든 입력에 있어야 한다. */
 input[type='text'],
 input[type='search'],
 input[type='url'],
@@ -68,8 +80,22 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--acc);
-  background: var(--panel);
   box-shadow: 0 0 0 3px var(--acc-soft);
+}
+/* ⚠ 포커스 배경은 **스킨을 받은 것에만** 칠한다(위 머리주석 2026-08-31). 목록이 위와 같아야
+   한다 — 갈리면 이 결함이 되돌아온다. 집행자는 불변식 ⑬-B. */
+input[type='text']:focus,
+input[type='search']:focus,
+input[type='url']:focus,
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='tel']:focus,
+input[type='number']:focus,
+input[type='date']:focus,
+input[type='time']:focus,
+select:focus,
+textarea:focus {
+  background: var(--panel);
 }
 /* `type='search'` 의 네이티브 지우기 X 제거 — UA 가 그리는 회색 비트맵이라 **테마 토큰을 안 타고**
    다크에서 사실상 안 보인다(위 스피너 제거와 같은 부류의 '투박한 기본'). 지우기가 필요한 화면은

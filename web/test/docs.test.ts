@@ -13,7 +13,7 @@
    줄도 안 나간다.** 이게 중요한 이유는 배관이 *조용히* 죽지 않았음을 여기서 말해 두어야
    하기 때문이다 — 다음 저작물 키가 `DOC_KEYS` 에 한 줄 들어오는 순간 이 단언들이 빨개지고,
    그때 위 셋을 `git show 1c21ad5:web/test/docs.test.ts` 에서 되살리면 된다.
-   존치 근거·재검토일은 `docs/유예_원장.md`.
+   존치 근거·재검토일은 **부모** `../docs/유예_원장.md`(hub 안에는 없다 · V091).
 ============================================================ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,7 +21,8 @@ const invoke = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
 /** plugin-sql 을 가짜 DB 로 — 실제 SQL 대신 호출을 기록한다. */
-const exec = vi.fn(async () => undefined);
+/* ⚠ 모의의 시그니처를 명시한다(V068) — 없으면 `mock.calls` 가 `[][]` 라 인자를 못 읽는다. */
+const exec = vi.fn(async (_q: string, _args?: unknown[]): Promise<unknown> => undefined);
 const select = vi.fn<(q: string, v?: unknown[]) => Promise<unknown>>(async () => []);
 vi.mock('@tauri-apps/plugin-sql', () => ({
   default: { load: async () => ({ execute: exec, select }) },

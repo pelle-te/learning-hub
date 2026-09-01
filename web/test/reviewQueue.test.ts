@@ -17,6 +17,7 @@ import {
   landingIndex,
 } from '@/lib/reviewQueue';
 import type { Day, ScheduleItem } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const TODAY = '2026-07-04';
 

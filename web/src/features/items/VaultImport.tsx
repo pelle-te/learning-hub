@@ -14,7 +14,6 @@ import { isTauri } from '@/lib/tauri';
 import { pickAndScanAnki, type AnkiFile } from '@/lib/anki';
 import { idbPut } from '@/lib/idb';
 import { jsq } from '@/lib/utils';
-import { useLedger } from '@/store/queries';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 
@@ -29,7 +28,6 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
   const scan = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
   const anki = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
   // 원장(W4) — 임포트 직후 "카드까지 갔다"를 물으려면 여기서 실제로 읽어야 한다(구독만으론 비어 있다).
-  const led = useLedger();
   const [busy, setBusy] = useState<'' | 'vault' | 'anki'>('');
   const [err, setErr] = useState('');
 
@@ -75,7 +73,7 @@ export function VaultImport({ onClose }: { onClose?: () => void }) {
 
   /* 임포트 규칙(W4 포함)은 `shell/importVaultSubject` 가 소유한다 — 연동 탭의
      볼트 패널과 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
-  const addSubject = (s: VaultSubject) => importVaultSubject(s, led.data, '주당 시간·마감을 조정하세요.');
+  const addSubject = (s: VaultSubject) => importVaultSubject(s, '주당 시간·마감을 조정하세요.');
   /* Anki 임포트 규칙은 `shell/importAnkiDeck` 가 소유한다 — 다른 입구와 **같은 함수**여야
      한다(종전엔 11줄 사본 둘이었다 · C037 · 바로 위 볼트 쪽이 H22 에서 같은 처방을 받았다). */
 

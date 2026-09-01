@@ -10,19 +10,23 @@ import { useApp } from '@/store/useApp';
 import { Button, Card, KpiGrid, Kpi, Pill, ProgressBar, Table } from '@/components/ui';
 import State from '@/components/State';
 import { degreeStats, progressPct, requirementRows, retakeCandidates } from '@/lib/degree';
+import { todayISO } from '@/lib/utils';
 
 export default function DegreeReq() {
   // U025 — 빈 상태의 «졸업 계획으로 가기» 는 뷰 파라미터를 지우는 것이다(기본 뷰 = plan).
   const [, setParams] = useSearchParams();
   const d = useApp((s) => s.state.degree);
-  const stats = degreeStats(d);
-  const rows = requirementRows(d);
-  const retakes = retakeCandidates(d);
+  /* ⚠ `_today` 시드를 존중한다 — 학기 상태가 **날짜 파생**이 된 뒤로 이 한 줄이 없으면
+     e2e·테스트가 실시계로 갈라진다(`semesterPhase` 가 같은 이유로 같은 형태를 쓴다). */
+  const today = useApp((s) => todayISO(s.state));
+  const stats = degreeStats(d, today);
+  const rows = requirementRows(d, today);
+  const retakes = retakeCandidates(d, today);
   const totalCourses = d.semesters.reduce((n, s) => n + s.courses.length, 0);
 
   const earned = stats.earned;
   const remain = Math.max(0, d.targetTotal - earned);
-  const pct = progressPct(d);
+  const pct = progressPct(d, today);
   const unmet = rows.filter((r) => r.req && !r.met).length;
   const mustRetake = retakes.some((r) => r.mandatory);
 

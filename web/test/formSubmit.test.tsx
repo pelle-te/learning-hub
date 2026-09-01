@@ -79,7 +79,8 @@ test('한 줄 칸의 맨 Enter 제출은 그대로다 — 기존 계약 회귀',
 
 test('편집 폼에서 Esc 가 취소한다 — 세 카드 모두 없던 계약', () => {
   useApp.getState().mutate((s) => {
-    s.backlog = [{ id: 'b1', ds: DS, sid: 'em', name: '전자기학', topic: '원본 주제', note: '', done: false }];
+    // ⚠ 부분 픽스처 — 이 케이스는 Esc 취소만 본다(`doneDs` 는 안 읽는다).
+    s.backlog = [{ id: 'b1', ds: DS, sid: 'em', name: '전자기학', topic: '원본 주제', note: '', done: false } as never];
   });
   render(<BacklogCard />);
   fireEvent.click(screen.getByTitle('수정'));

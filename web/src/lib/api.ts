@@ -74,7 +74,9 @@ export function getPing(): Promise<PingResponse> {
  *
  *  ⚠⚠ **`index` 는 여기 없다**(2026-08-20 리뷰 m-1). 종전 이 줄은 그것을 유효 인자로 광고했는데
  *  `src-tauri/src/artifact.rs` 의 `ARTIFACTS` 에 그런 항목이 **없다**(그 파일의 테스트 이름 자체가
- *  `다섯_종이_모두_등록돼_있다` 다). `index` 는 **다른 네임스페이스**에 산다 —
+ *  `둘_종이_모두_등록돼_있다` 다 — ⚠ 이 주석이 «다섯」이라 적고 있었다(V091 부류 · V066 ·
+ *  2026-08-31): `U091` 이 산출물을 5→2 로 줄였는데 **그 수를 인용한 주석이 안 따라왔다**).
+ *  `index` 는 **다른 네임스페이스**에 산다 —
  *  `artifacts.gen.EXPECTED_SCHEMA_VERSION`(스키마 버전 축)이고, 실제로는 볼트 스캔이 읽은
  *  `_index.json` 을 `lib/vault.ts` 가 `parseArtifact('index', …)` 로 검증할 때만 쓰인다.
  *  그 두 목록을 한 문장에 합쳐 놓은 것이 이 주석의 결함이었다.

@@ -20,6 +20,7 @@ import { selectSchedule, selectStudyMinByWeekday } from '@/store/selectors';
 import { isWeekManaged } from '@/lib/weekAlloc';
 import { ItemSchema, WeekAllocSchema } from '@/lib/schema';
 import type { Item } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 /* 주 고정 — startDate 가 월요일이라 첫 주 월요일(=weekAlloc 키) 이 그대로 WK0. */
 const WK0 = '2026-06-22'; // 월

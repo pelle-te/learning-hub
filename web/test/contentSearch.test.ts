@@ -35,7 +35,8 @@ function seeded() {
       sid: 'i1',
       name: '선형대수',
       chapter: '고유값',
-      code: 'C1',
+      // ⚠ `'C1'` 이었다 — CBMS 코드 어휘(`C|B|M|S|T`) 밖이고 이 케이스는 그 값을 안 읽는다(V068).
+      code: 'C',
       note: '대각화 조건을 헷갈렸다',
     },
   ] as typeof base.cbms;

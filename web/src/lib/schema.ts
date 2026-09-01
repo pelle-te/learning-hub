@@ -378,7 +378,15 @@ export const CourseSchema = z.object({
   name: z.string(),
   credits: z.number(),
   category: z.string(),
-  status: z.string(),
+  /** ⛔ **강등됐다**(2026-08-31 · 사용자 판정) — 상태는 이제 **학기**의 것이다(`Semester.status` ·
+   *  정본 논거는 `lib/degree.ts` 의 「상태는 과목이 아니라 학기의 것이다」 절).
+   *  옵셔널로 남기는 이유는 이 저장소의 «지우지 않는다 — 도달성만 회수» 규율이다:
+   *  `migrateSemesterStatus` 가 **이 값을 읽어 학기로 롤업**하므로, 지우면 옛 백업을 가져올 때
+   *  이수 학점이 증발한다. ⚠ **새 코드는 읽지 마라** — 집행자는 불변식 ㉝. */
+  status: z.optional(z.string()),
+  /** 철회·드롭 — 학점·GPA 어디에도 안 들지만 **기록은 남는다**. 상태 축과 직교인 것이 요점이다
+   *  (「듣다 말았다」는 학기가 아니라 그 과목의 성질이라, 상태에 섞으면 학기로 접을 수 없다). */
+  dropped: z.optional(z.boolean()),
   grade: z.optional(z.string()),
   /** T-1. **두 우주를 잇는 유일한 다리** — 실행 쪽 `Item.id`. 링크는 **한 방향**이다(회계 → 실행):
    *  양방향으로 두면 갈라질 수 있고, 갈라지면 어느 쪽이 정본인지 말할 수 없다. 역방향 조회는
@@ -437,9 +445,17 @@ export const SemesterSchema = z.object({
   goals: z.optional(z.array(SemesterGoalSchema)),
   /** T-1. 학기의 **시작·종료 날짜**(ISO). 종전엔 학기에 날짜가 아예 없어서 "지금이 학기 중인가
    *  방학인가"를 앱이 **원리적으로 알 수 없었다** — 그래서 모든 화면이 *지금 상태*만 그렸고
-   *  시간축이 수개월인 것이 0 이었다(각도 3 의 관측). 둘 다 옵셔널 — 옛 저장 무마이그레이션. */
+   *  시간축이 수개월인 것이 0 이었다(각도 3 의 관측). 둘 다 옵셔널 — 옛 저장 무마이그레이션.
+   *  ⭐ 2026-08-31 부터 이 둘이 **학기 상태의 정본**이다(`degree.semesterStatus` ①). */
   startDs: z.optional(z.string()),
   endDs: z.optional(z.string()),
+  /** 학기 상태의 **폴백**(`'예정'|'수강중'|'완료'`) — 날짜가 없을 때만 쓰인다.
+   *
+   *  ⚠ 날짜가 있으면 **무시된다.** 그게 이 필드가 「두 번째 정본」이 되지 않는 이유다 — 우선순위
+   *  없이 나란히 두면 종강일과 상태가 어긋난 학기가 생기고, 그게 이 개편이 없앤 결함이다.
+   *  ⚠ 비워 두는 것이 좋은 경로다. 값이 있는 학기는 대개 **옛 과목 상태에서 옮겨 온 것**이거나
+   *  (마이그레이션) 날짜를 아직 안 넣은 것이다 — 날짜를 넣는 순간 이 값은 조용히 물러난다. */
+  status: z.optional(z.string()),
 });
 export const DegreeSchema = z.object({
   targetTotal: z.number(),

@@ -41,9 +41,9 @@ describe('getArtifact — 셸(Rust 커맨드) 경로', () => {
     vi.stubGlobal('fetch', f);
     invoke.mockResolvedValue({ ok: true, data: { a: 1 } });
 
-    const r = await getArtifact('knowledge');
+    const r = await getArtifact('ledger');
 
-    expect(invoke).toHaveBeenCalledWith('artifact_read', { name: 'knowledge' });
+    expect(invoke).toHaveBeenCalledWith('artifact_read', { name: 'ledger' });
     expect(f).not.toHaveBeenCalled();
     expect(r.data).toEqual({ a: 1 });
   });
@@ -51,7 +51,7 @@ describe('getArtifact — 셸(Rust 커맨드) 경로', () => {
   it('파싱 실패 원문(raw)도 그대로 넘어온다', async () => {
     enterShell();
     invoke.mockResolvedValue({ ok: true, raw: '깨진 내용{{' });
-    await expect(getArtifact('anki')).resolves.toMatchObject({ ok: true, raw: '깨진 내용{{' });
+    await expect(getArtifact('curriculum')).resolves.toMatchObject({ ok: true, raw: '깨진 내용{{' });
   });
 
   it("NOT_FOUND 는 'HTTP 404' 로 번역돼 '미생성'으로 분류된다", async () => {
@@ -83,9 +83,9 @@ describe('getArtifact — 브라우저 폴백', () => {
     const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, data: {} }) }));
     vi.stubGlobal('fetch', f);
 
-    await getArtifact('goals');
+    await getArtifact('ledger');
 
-    expect(f).toHaveBeenCalledWith('/api/artifact/goals');
+    expect(f).toHaveBeenCalledWith('/api/artifact/ledger');
     expect(invoke).not.toHaveBeenCalled();
   });
 });
@@ -121,7 +121,10 @@ describe('runTool — 셸(Rust 커맨드) 경로 · 4단계-C', () => {
   });
 
   it('셸이 아니면 기존 /api 를 탄다', async () => {
-    const f = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, out: '', code: 0 }) }));
+    const f = vi.fn(async (_url: string, _init?: unknown) => ({
+      ok: true,
+      json: async () => ({ ok: true, out: '', code: 0 }),
+    }));
     vi.stubGlobal('fetch', f);
     await runTool('vault-stats');
     expect(f.mock.calls[0]![0]).toBe('/api/run/vault-stats');
@@ -204,7 +207,7 @@ describe('Ollama — 셸(Rust 커맨드 + Channel) 경로 · 4단계-E', () => {
   });
 
   it('셸이 아니면 기존 /api 를 탄다', async () => {
-    const f = vi.fn(async () => ({
+    const f = vi.fn(async (_url: string, _init?: unknown) => ({
       ok: true,
       status: 200,
       headers: { get: () => 'application/json' },

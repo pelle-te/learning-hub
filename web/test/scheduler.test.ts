@@ -973,7 +973,7 @@ describe('I013 — weeklyLectureMin(표시용 · 계산 불변)', () => {
 describe('C040 페이스 지평은 주(週) 상한이 자른다 — 546 은 마감 경로 전용', () => {
   /** 마감(시험)이 전혀 없고 주간 부하만 극단인 계획. */
   const 마감없는_거대과목 = () => ({
-    ...baseState(),
+    ...baseState([]), // ⚠ `schedulerState(items, over?)` — 인자 없이 부르면 타입이 깨진다(V068).
     items: [weeklyItem('거대과목', 1, mkChapters([['ch', 3000]]))],
   });
 

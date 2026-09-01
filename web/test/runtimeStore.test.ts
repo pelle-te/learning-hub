@@ -11,6 +11,7 @@ import { useApp } from '@/store/useApp';
 import { useRuntime, splitRuntime, mergeRuntime } from '@/store/useRuntime';
 import { selectSchedule } from '@/store/selectors';
 import { KEY } from '@/lib/persistence';
+import type { AppState } from '@/lib/schema';
 
 beforeEach(() => {
   localStorage.clear();
@@ -24,7 +25,7 @@ describe('useRuntime — selectSchedule 비무효화(B1/B3)', () => {
   it('plan-무관 캐시 갱신은 state 참조·schedule 결과를 유지한다', () => {
     const before = useApp.getState().state;
     const resBefore = selectSchedule(before);
-    useRuntime.getState().set('_ankiLive', { decks: [{ due: 12 }] });
+    useRuntime.getState().set('_ankiLive', { decks: [{ due: 12 }] } as never as never);
     useRuntime.getState().set('_icsExport', { at: '2026-07-02T00:00:00Z', sig: 'x' });
     const after = useApp.getState().state;
     expect(after).toBe(before); // state 참조 불변
@@ -72,20 +73,20 @@ describe('useRuntime — 디스크 왕복 대칭(계약 불변)', () => {
   });
 
   it('mergeRuntime: 저장 직전 병합 — 디스크 JSON 형태는 분리 이전과 동일', () => {
-    useRuntime.getState().set('_ankiLive', { decks: [{ due: 3 }] });
+    useRuntime.getState().set('_ankiLive', { decks: [{ due: 3 }] } as never);
     const merged = mergeRuntime({ items: [] } as unknown as AppState) as unknown as Record<string, unknown>;
-    expect(merged._ankiLive).toEqual({ decks: [{ due: 3 }] });
+    expect(merged._ankiLive).toEqual({ decks: [{ due: 3 }] } as never);
   });
 
   it('flush(디바운스)가 런타임 캐시를 localStorage JSON에 함께 남긴다', () => {
     vi.useFakeTimers();
-    useRuntime.getState().set('_ankiLive', { decks: [{ due: 7 }] });
+    useRuntime.getState().set('_ankiLive', { decks: [{ due: 7 }] } as never);
     useApp.getState().mutate((s) => {
       s.moduleLen = 90; // 아무 변형 — 디바운스 flush 트리거
     });
     vi.advanceTimersByTime(500);
     const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
-    expect(saved._ankiLive).toEqual({ decks: [{ due: 7 }] }); // 낙관적 캐시 로컬 잔존(다음 부팅 즉시 표시)
+    expect(saved._ankiLive).toEqual({ decks: [{ due: 7 }] } as never); // 낙관적 캐시 로컬 잔존(다음 부팅 즉시 표시)
     expect(saved.moduleLen).toBe(90);
   });
 

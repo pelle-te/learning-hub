@@ -13,7 +13,7 @@ import State from '@/components/State';
 import { useApp } from '@/store/useApp';
 import { usePageChromeEffect } from '@/store/usePageChrome';
 import { commitUndoable, toast, toastUndoable } from '@/shell';
-import { colorForId, rid, makeItem } from '@/lib/utils';
+import { colorForId, rid, makeItem, todayISO } from '@/lib/utils';
 import { investedBySubject, semesterFingerprint } from '@/lib/semesterFingerprint';
 import { linkableItems } from '@/lib/semester';
 import { useCountUp } from '@/hooks/interactions';
@@ -30,6 +30,7 @@ import {
   progressPct,
   semesterGpa,
   semesterStat,
+  semesterStatus,
   gpaForecast,
   type DegreeSemester,
   type DegreeCourse,
@@ -50,10 +51,13 @@ function SemCard({
   open,
   onToggle,
   itemOpts,
+  today,
 }: {
   sem: DegreeSemester;
   open: boolean;
   onToggle: (id: string) => void;
+  /** 오늘(ISO) — 부모가 한 번 읽어 내려준다(자식이 시계를 스스로 읽지 않는다). */
+  today: string;
   /** T-1 연결 셀렉트의 선택지. ⚠ **부모가 한 번 구독해 내려준다** — 카드마다 `items` 를 구독하면
    *  무관한 항목 편집에 전 학기 카드가 재렌더된다(PL-15 가 피하려던 바로 그 형태). */
   itemOpts: { id: string; name: string }[];
@@ -70,7 +74,6 @@ function SemCard({
         name: '새 과목',
         credits: 3,
         category: '전공선택',
-        status: '예정',
         grade: '',
       });
     });
@@ -85,6 +88,20 @@ function SemCard({
     mutate((st) => {
       const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
       if (c) (c as unknown as Record<string, string | number>)[k] = v;
+    });
+  /** 불리언 플래그(철회) — `updCourse` 는 `string | number` 라 별도. 값 축이 다르면 함수도 다르다. */
+  const updCourseFlag = (cid: string, k: 'dropped', v: boolean) =>
+    mutate((st) => {
+      const c = findSem(st, sem.id)?.courses.find((x) => x.id === cid);
+      if (c) c[k] = v;
+    });
+  /** 학기 상태 — 날짜가 있으면 그것이 정본이라 이 값은 무시된다(`degree.semesterStatus`). */
+  const updSemStatus = (v: string) =>
+    mutate((st) => {
+      const t = findSem(st, sem.id);
+      if (!t) return;
+      if (v) t.status = v;
+      else delete t.status; // 「자동」 = 필드를 지운다(빈 문자열을 남기면 파생이 안 산다)
     });
   /* Q-13 ①단 — 확인창을 뗐다. `mutate` 는 ⌘Z 스택에 pre-image 를 남기므로 이미 되돌릴 수
      있었는데, 종전엔 **확인창을 띄우고 나서** "⌘Z 로 되돌리기"를 알렸다(같은 안전장치 이중 과금).
@@ -125,12 +142,14 @@ function SemCard({
   };
 
   // PL-14 — 학기 집계는 lib/degree.semesterStat 단일 출처. cr=총학점·doneCr=완료학점·inprog=수강중 과목 수.
-  const st = semesterStat(sem);
+  const st = semesterStat(sem, today);
   const cr = st.tot;
   const doneCr = st.done;
   const inprog = st.inprogCount;
   // PL-8 — 학기 GPA(완료·점수 성적만). 성적 없는 학기는 null → pill 미표시(노이즈 방지).
-  const g = semesterGpa(sem);
+  const g = semesterGpa(sem, today);
+  /** 지금 이 학기가 무엇으로 판정되는가 — 셀렉트가 날짜에 잠겼을 때 그 답을 보여 준다. */
+  const 파생상태 = semesterStatus(sem, today);
 
   const header = (
     <div
@@ -200,6 +219,27 @@ function SemCard({
               onChange={(e) => updSem('endDs', e.target.value)}
             />
           </div>
+          {/* ⭐ **학기 상태 — 과목마다 찍던 것을 여기 하나로 접었다**(2026-08-31 · 사용자 판정).
+              ⚠ 날짜가 있으면 **날짜가 이긴다**. 그때 이 칸을 살려 두면 「둘 중 뭐가 맞나」가
+              다시 생기므로 **비활성 + 파생값 표시**로 바꾼다 — 화면이 우선순위를 말하게 한다. */}
+          <div className="ds-fld">
+            <label htmlFor={`sem-status-${sem.id}`}>상태</label>
+            <select
+              id={`sem-status-${sem.id}`}
+              value={sem.startDs ? 파생상태 : sem.status || ''}
+              disabled={!!sem.startDs}
+              onChange={(e) => updSemStatus(e.target.value)}
+              aria-describedby={sem.startDs ? `sem-status-hint-${sem.id}` : undefined}
+            >
+              <option value="">자동 (성적으로 판단)</option>
+              {STATUSES.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+            <small id={`sem-status-hint-${sem.id}`} className="mt-1 block text-2xs text-mut">
+              {sem.startDs ? '개강·종강일이 정합니다' : '날짜를 넣으면 자동으로 바뀝니다'}
+            </small>
+          </div>
         </div>
         <div className="ds-chaptbl">
           <table>
@@ -208,7 +248,7 @@ function SemCard({
                 <th style={{ width: '34%' }}>과목</th>
                 <th>학점</th>
                 <th>구분</th>
-                <th>상태</th>
+                <th>철회</th>
                 <th>성적</th>
                 <th>학습 항목</th>
                 <th />
@@ -247,16 +287,19 @@ function SemCard({
                         ))}
                       </select>
                     </td>
+                    {/* ⭐ 여기 있던 **과목 상태 셀렉트가 사라졌다**(2026-08-31) — 상태는 학기의
+                        것이고 이 카드 머리의 셀렉트 하나가 그것을 소유한다. 대신 이 칸은
+                        **철회**를 진다: 상태 축과 직교라 학기로 접히지 않는 유일한 것이다. */}
                     <td>
-                      <select
-                        value={c.status}
-                        onChange={(e) => updCourse(c.id, 'status', e.target.value)}
-                        aria-label="상태"
-                      >
-                        {STATUSES.map((x) => (
-                          <option key={x}>{x}</option>
-                        ))}
-                      </select>
+                      <label className="ds-tiny flex items-center gap-1.5 whitespace-nowrap text-mut">
+                        <input
+                          type="checkbox"
+                          checked={!!c.dropped}
+                          onChange={(e) => updCourseFlag(c.id, 'dropped', e.target.checked)}
+                          aria-label={`${c.name || '과목'} 철회`}
+                        />
+                        철회
+                      </label>
                     </td>
                     <td>
                       {/* 자유입력은 오타(P/S 등)가 GPA에서 조용히 누락됐다 → GRADE_POINTS 키 선택으로 고정. */}
@@ -293,7 +336,11 @@ function SemCard({
                       </select>
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      {!c.itemId && (c.status === '수강중' || c.status === '예정') && (
+                      {/* ⚠ 종전엔 `c.status === '수강중' || c.status === '예정'` 이었다 — 상태가
+                          학기로 올라가며 **새 과목엔 `c.status` 가 아예 없어져** 그 조건이 항상
+                          거짓이 되고 이 버튼이 영영 안 떴다(2026-08-31 · 이 개편이 만든 회귀).
+                          판정을 학기로 올린다: 끝난 학기의 과목을 이제 와 학습 항목으로 만들 일은 없다. */}
+                      {!c.itemId && 파생상태 !== '완료' && !c.dropped && (
                         <Button sm variant="ghost" title="학습 항목으로" onClick={() => courseToItem(c.id, c.name)}>
                           <Icon name="inbox" />
                         </Button>
@@ -366,10 +413,14 @@ function DegreePlan() {
     setOpenSems((prev) => new Set(prev).add(id));
   };
 
-  const stats = degreeStats(d);
+  /* ⚠ `_today` 시드를 존중한다 — 학기 상태가 **날짜 파생**이 된 뒤로 이 한 줄이 없으면
+     e2e·테스트가 실시계로 갈라진다. 자식(SemCard·SeasonRoadmap)에도 **내려준다** — 각자
+     시계를 읽으면 한 화면 안에서 다른 날을 그릴 수 있다(PL-15 가 `itemOpts` 에 쓴 논거와 같다). */
+  const today = useApp((s) => todayISO(s.state));
+  const stats = degreeStats(d, today);
   const { earned, inprog, planned, byCat, gpa, gradedCr, semDone } = stats;
   const remain = Math.max(0, d.targetTotal - earned);
-  const pct = progressPct(d); // 정의는 lib 하나 — 세 화면이 같은 답을 말한다
+  const pct = progressPct(d, today); // 정의는 lib 하나 — 세 화면이 같은 답을 말한다
   const shownPct = useCountUp(Math.min(100, pct)); // 링 기하만 클램프(숫자는 진실을 그대로)
   const list = sems(d);
   // T-1. 연결 셀렉트의 선택지 — **여기서 한 번만** 구독한다(PL-15 · 카드마다 구독하면 무관한 항목
@@ -387,7 +438,7 @@ function DegreePlan() {
   // PL-17 — 목표 GPA 역산. 기본값은 현재 GPA를 0.5 단위 올림(없으면 4.0). 저장은 d.targetGpa(옵셔널).
   const defaultTargetGpa = gpa != null ? Math.min(4.5, Math.ceil(gpa * 2) / 2) : 4.0;
   const targetGpa = d.targetGpa ?? defaultTargetGpa;
-  const fc = gpaForecast(d, targetGpa);
+  const fc = gpaForecast(d, targetGpa, today);
 
   // PL-10 — 졸업 요건 100% 최초 충족 축하(1회). 영속 마커 _degreeCele로 재로드 재발화 방지.
   // 재하락(pct<100)해도 마커는 리셋하지 않는다(1회성 모먼트). 링은 짧게 발광 플래시(≤1.4s, reduced-motion 백스톱).
@@ -439,7 +490,14 @@ function DegreePlan() {
       {/* N-18(W8) — 목표는 국면 **바로 아래**다: 국면이 "지금 어디쯤"이고 목표가 "그래서 어디로".
           학기가 없으면 스스로 사라진다(담을 그릇이 없다). */}
       <SemesterGoals />
-      <SeasonRoadmap list={list} targetTotal={d.targetTotal} earned={earned} openIds={openSems} onToggle={toggle} />
+      <SeasonRoadmap
+        list={list}
+        targetTotal={d.targetTotal}
+        earned={earned}
+        today={today}
+        openIds={openSems}
+        onToggle={toggle}
+      />
 
       {/* 졸업 현황 — 진행 링 + 게이지 히어로(이수·평점·남은·예상) + 카테고리 바. */}
       <div className="ds-rule">
@@ -529,12 +587,18 @@ function DegreePlan() {
               <span className="text-mut">남은 과목이 없어요.</span>
             ) : (
               <>
-                남은 <b className="font-extrabold">{fc.futureCr}</b>학점을 평균{' '}
+                {/* ⚠ 「남은」이 위 게이지와 **같은 수**여야 한다 — 종전엔 여기만 «입력해 둔 학점»
+                    이라 네 줄 사이로 43 과 18 이 같은 말을 달고 있었다(lib/degree.gpaForecast 머리주석). */}
+                졸업까지 남은 <b className="font-extrabold">{fc.futureCr}</b>학점을 평균{' '}
                 <b className="font-extrabold" style={{ color: fc.feasible ? 'var(--good)' : 'var(--bad)' }}>
                   {fc.neededAvg.toFixed(2)}
                 </b>
                 점으로 이수하면 목표 달성
                 {!fc.feasible && <span style={{ color: 'var(--bad)' }}> · 만점으로도 도달 어려움</span>}
+                {/* 분모를 밝힌다 — 안 밝히면 "왜 18이 아니라 43이지?"가 다시 생긴다. */}
+                {fc.plannedCr < fc.futureCr && (
+                  <span className="text-mut"> · 그중 계획에 넣어 둔 건 {fc.plannedCr}학점</span>
+                )}
               </>
             )}
           </div>
@@ -635,7 +699,7 @@ function DegreePlan() {
       </div>
 
       {list.map((s) => (
-        <SemCard key={s.id} sem={s} open={openSems.has(s.id)} onToggle={toggle} itemOpts={itemOpts} />
+        <SemCard key={s.id} sem={s} open={openSems.has(s.id)} onToggle={toggle} itemOpts={itemOpts} today={today} />
       ))}
     </>
   );

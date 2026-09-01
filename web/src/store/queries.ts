@@ -7,10 +7,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPing, type PingResponse } from '@/lib/api';
 import { fetchKnowledgeArtifact, type Knowledge } from '@/lib/knowledge';
-import { slimKnowState } from '@/lib/scheduler';
 import { fetchLedgerArtifact, type Ledger } from '@/lib/ledger';
 // ⛔ `curriculum` 임포트가 2026-08-29 에 빠졌다 — 그 훅의 유일 소비처(숙달도 지도)가 은퇴했다.
-import { useApp } from './useApp';
+// ⛔ `slimKnowState`·`useApp` 임포트는 2026-09-01 에 빠졌다 — 유일 사용처가 **도달 불가**
+//    write-through 였다(V082). 그것이 지워지자 이 모듈은 스토어를 쓰지 않는다.
 
 export const KNOWLEDGE_KEY = ['knowledge'] as const;
 // ⛔ `CURRICULUM_KEY` 가 2026-08-29 에 사라졌다(유일 소비처 `useCurriculum` 이 은퇴 · 아티팩트 자체는 살아 있다).
@@ -45,13 +45,13 @@ export function useKnowledge(enabled = true) {
     queryKey: KNOWLEDGE_KEY,
     enabled,
     retry: false,
-    queryFn: async () => {
-      const k = await fetchKnowledgeArtifact();
-      // 슬림 write-through(감사 ②#25) — state엔 스케줄러 입력({subject,mastery})만.
-      // 전체 아티팩트(개념 배열 포함)는 이 Query 캐시가 소유(매 flush 직렬화·쿼터 잠식 방지).
-      useApp.getState().setRuntimeCache('_knowState', slimKnowState(k));
-      return k;
-    },
+    /* ⛔ **write-through 를 지웠다 — 도달 불가였다**(V082 · 2026-09-01). 첫 줄
+       `fetchKnowledgeArtifact()` 는 2026-08-29 이후 **항상 throw** 하므로(생산자 삭제) 그 아래
+       `setRuntimeCache('_knowState', …)` 는 **결코 실행되지 않았다.** 남겨 두면 «이 쿼리가
+       스케줄러 입력을 갱신한다»는 거짓 인상을 준다.
+       ⚠ **저장된 `_knowState` 는 안 지운다** — 스케줄러(`priority.ts`)가 여전히 읽고, 그것이
+       은퇴 이전 스냅샷으로 남아 있는 문제는 `Settings.tsx` 가 이미 말한다(별도 항목). */
+    queryFn: () => fetchKnowledgeArtifact(),
   });
 }
 

@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { addPrereq, dependentsOf, prereqChain, prereqGaps, prereqsOf, removePrereq } from '@/lib/prereq';
 import type { Item } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const ch = (id: string, done = false, deferred = false) => ({ id, name: id, hours: 1, done, deferred });
 const it_ = (id: string, over: Partial<Item> = {}): Item =>

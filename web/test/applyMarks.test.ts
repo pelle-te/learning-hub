@@ -62,7 +62,9 @@ describe('applyMarks — 학사 눈금 인입의 단일 정본', () => {
   });
 
   it('이미 있던 눈금을 보존한다 — 인입이 기존 목록을 갈아엎지 않는다', () => {
-    const s = 학기([{ id: 'old', kind: '개강', ds: '2026-03-02', label: '' }]);
+    /* ⚠ `kind:'개강'` 은 학기 눈금 어휘(`fix|drop|off|makeup`) 밖이다 — **보존만 보는** 케이스라
+       값의 의미는 안 쓴다. 캐스트로 그 의도를 적는다(V068 이 타입 검사를 켜며 드러났다). */
+    const s = 학기([{ id: 'old', kind: '개강', ds: '2026-03-02', label: '' }] as never);
     applyMarks(s, [눈금('2026-03-10', '정정마감')]);
     expect(marksOf(s).map((m) => m.id)).toContain('old');
     expect(marksOf(s)).toHaveLength(2);

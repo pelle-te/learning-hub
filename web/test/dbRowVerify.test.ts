@@ -72,6 +72,7 @@ vi.mock('@/lib/tauri', async (orig) => ({
 }));
 
 import { defaults } from '@/lib/persistence';
+import type { AppState } from '@/lib/schema';
 
 async function freshWrite() {
   vi.resetModules();

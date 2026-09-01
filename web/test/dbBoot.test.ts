@@ -16,7 +16,7 @@ const { readRows, writeRows, isDbAvailable, setDiffBaseline, selectDb, execDb } 
   setDiffBaseline: vi.fn(),
   // D003 — 이관 완료 마커가 `sync_state` 를 쓴다. 목이 없으면 그 경로가 통째로 안 보인다.
   selectDb: vi.fn(async () => null),
-  execDb: vi.fn(async () => true),
+  execDb: vi.fn(async (_sql: string, _args?: unknown[]) => true),
 }));
 vi.mock('@/lib/db/sqlite', () => ({
   readRows,
@@ -51,6 +51,7 @@ import { stateToRows } from '@/lib/db/rows';
 import { defaults, persist } from '@/lib/persistence';
 import { storage } from '@/lib/kv';
 import { dbLastOpenedAt, dbStaleSince, setDbStale } from '@/lib/db/fallback';
+import type { AppState } from '@/lib/schema';
 
 /** 활동 흔적이 있는 상태 — 어느 경로가 채택됐는지 marker 로 판별. */
 const marked = (m: string): AppState => {
@@ -238,7 +239,7 @@ describe('D003 이관 완료 마커 — 부분 이관과 완료를 가른다', (
     // 지난 부팅이 남긴 절반: settings 만 들어간 DB + 지워지지 않은 마커.
     const 부분 = stateToRows(marked('부분DB'));
     readRows.mockResolvedValue(부분);
-    selectDb.mockResolvedValue([{ value: 'started' }]);
+    selectDb.mockResolvedValue([{ value: 'started' }] as never);
     persist(storage, marked('로컬정본'));
 
     await initAppStore();

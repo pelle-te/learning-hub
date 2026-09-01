@@ -22,7 +22,6 @@ import {
 import { isTauri } from '@/lib/tauri';
 import { idbGet, idbPut, idbDel } from '@/lib/idb';
 import { makeItem } from '@/lib/utils';
-import { useLedger } from '@/store/queries';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -41,7 +40,6 @@ export function VaultPanel() {
      감시자만 세운다. 실패는 `app/VaultSync` 가 쿼리 캐시에 적고 이 패널이 그린다(볼트의 집). */
   const scanErr = useQuery<string | null>({ queryKey: VAULT_ERROR_KEY, queryFn: skipToken }).data ?? null;
   // 원장(W4) — 임포트 직후 "카드까지 갔다"를 물으려면 여기서 실제로 읽어야 한다.
-  const led = useLedger();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState<Set<number>>(() => new Set());
@@ -152,7 +150,7 @@ export function VaultPanel() {
   /* 임포트 규칙(W4 포함)은 `shell/importVaultSubject` 가 소유한다 — 과목 탭의
      볼트 임포트와 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
   const addSubject = (s: VaultSubject) =>
-    importVaultSubject(s, led.data, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
+    importVaultSubject(s, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
   const addChapter = (s: VaultSubject, c: VaultChapter) => {
     const name = `${s.name} · ${c.name}`;
     if (items.some((x) => x.name === name)) {

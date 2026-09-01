@@ -33,6 +33,7 @@ import { NAV_SHORTCUTS } from '@/shell/shortcuts';
 import { ANCHOR_TAB_ROUTES, CONTENT_ANCHORS } from '@/lib/contentAnchors';
 // ⚠ 불변식 ③-b 가 ⌘K 도달을 **세어야** 하므로 팔레트 목록을 실제로 읽는다(믿지 않는다).
 import { paletteCommands as basePaletteCommands } from '@/shell/palette';
+import type { AppState } from '@/lib/schema';
 
 /* Proxy 내부 접근·상속 프로퍼티 등 슬라이스가 아닌 잡음 키(캐시 입력이 아님). */
 const NOISE = new Set([

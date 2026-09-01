@@ -20,6 +20,7 @@ import {
   resolveAsk,
 } from '@/lib/delayedJol';
 import type { JolAsk } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 const br = (sid: string, chapter: string, ds: string, passed: boolean) =>
   ({ id: `${sid}-${chapter}-${ds}`, ds, sid, name: sid, passed, note: '', chapter }) as never;

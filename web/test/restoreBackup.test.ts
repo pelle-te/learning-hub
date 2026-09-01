@@ -24,11 +24,13 @@ import { idbGet, idbLoad } from '@/lib/idb';
 import { defaults, isPristineState } from '@/lib/persistence';
 import { useApp } from '@/store/useApp';
 import { restoreFromIDB } from '@/shell/actions';
+import type { AppState } from '@/lib/schema';
 
 /** 활동 흔적(완료 기록)이 있는 상태 — marker로 어느 스냅샷이 채택됐는지 판별. */
 const active = (marker: string): AppState => {
-  const s = defaults() as AppState & { completions: Record<string, Record<string, { done: boolean }>> };
-  s.completions[marker] = { 'sub|study': { done: true } };
+  const s = defaults() as AppState;
+  // ⚠ 부분 픽스처 — 이 케이스는 «그 마커가 남았나»만 본다(V068).
+  s.completions[marker] = { 'sub|study': { done: true } as never };
   return s;
 };
 const adoptedMarker = (m: string): boolean =>

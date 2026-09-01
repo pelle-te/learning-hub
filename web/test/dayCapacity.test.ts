@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { dayCapacity } from '@/lib/dayCapacity';
 import { untimedChoreMin } from '@/lib/tasks';
+import type { AppState } from '@/lib/schema';
 
 const b = (key: string, start: number | null, min: number, done = false) => ({ key, start, min, done });
 

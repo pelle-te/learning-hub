@@ -14,6 +14,7 @@ import { mistakeArchive, mistakeTotals } from '@/lib/mistakes';
 import Mistakes from '@/features/mistakes/Mistakes';
 import { useApp } from '@/store/useApp';
 import type { Cbms } from '@/lib/types';
+import type { AppState } from '@/lib/schema';
 
 afterEach(() => cleanup());
 

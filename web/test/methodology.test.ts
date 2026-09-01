@@ -45,6 +45,7 @@ import {
   toggleBacklog,
 } from '@/lib/methodology';
 import { ARRAY_SLICES } from '@/lib/db/rows';
+import type { AppState } from '@/lib/schema';
 
 const st = (over?: Record<string, unknown>): AppState => ({ items: [], ...(over || {}) }) as unknown as AppState;
 

@@ -7,8 +7,9 @@
 ============================================================ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const error = vi.fn(async () => {});
-const warn = vi.fn(async () => {});
+/* ⚠ 모의의 시그니처를 명시한다(V068) — 없으면 `mock.calls` 가 `[][]` 라 인자를 못 읽는다. */
+const error = vi.fn(async (..._a: unknown[]) => {});
+const warn = vi.fn(async (..._a: unknown[]) => {});
 vi.mock('@tauri-apps/plugin-log', () => ({ error, warn }));
 
 const 원본 = { error: console.error, warn: console.warn, log: console.log };

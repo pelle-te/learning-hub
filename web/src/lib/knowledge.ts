@@ -83,23 +83,28 @@ export function rootCauseRollup(k: Knowledge | undefined, cap = 5): { cause: str
     .slice(0, cap);
 }
 
-/** 다음에 배울 프런티어 1개(I-8) — prereq_in('이걸 배우면 N개가 풀린다') 최대인 개념. 매몰자산 최대 해제.
-   frontier 배열은 지식엔진이 이미 산출(신규 IO 0). 후보 없으면 null. */
-export function frontierNext(k: Knowledge | undefined): KnowledgeFrontier | null {
-  const f = (k?.frontier || []).filter((x) => x.title || x.basename);
-  if (!f.length) return null;
-  return [...f].sort((a, b) => (b.prereq_in || 0) - (a.prereq_in || 0))[0]!;
-}
+/* ⛔ `frontierNext` 는 지웠다(V081 · 2026-09-01) — **프로덕션 호출부가 0** 이었다(테스트만).
+   knip 이 못 본 이유가 요점이다: `knip.jsonc` 가 `test/**` 를 **entry** 로 두므로 테스트에서만
+   쓰이는 export 도 «쓰인다»로 세고, 불변식 ⑭는 **모듈** 단위라 소비자 하나 있는 모듈 안의
+   죽은 export 는 그물 밖이다. 그리고 그 함수가 읽던 `frontier` 배열은 **생산자째 삭제**됐다
+   (2026-08-29) — 즉 되살릴 입력도 없다. 복구: `git show 1813662:web/src/lib/knowledge.ts`. */
 
 /* ⛔⛔ 2026-08-29 — **공급자가 은퇴했다.** 지식상태 산출물을 만들던 `지식엔진.py` 와 그 경계
    스키마가 부모에서 삭제됐다(pipeline 목적 정정: 「전공 교재 → 원자형 노트」만 진다 ·
    숙달도 추정은 범위 밖). 그래서 아래 둘은 **네트워크·디스크를 두드리지 않고 즉시 진다** —
    없는 것을 찾아 헤매는 것보다 이유를 말하고 빨리 지는 편이 정직하다.
 
-   ⚠ **이 모듈이 통째로 죽은 것은 아니다.** 순수 헬퍼(`frontierNext`·`rootCauseRollup`)와 타입은
-   `Review`·`TodaySignature`·`Subject`·`confidence` 가 여전히 import 하고, 그쪽은 데이터가 없으면
-   조용히 생략하도록 이미 짜여 있다(콜드 축퇴). **그 패널들이 영영 콜드로 남는 것을 어떻게 할지는
-   hub 원장의 별도 항목**이다 — 이번 회차는 «두 화면»만 은퇴시켰다.
+   ⚠ **이 모듈이 통째로 죽은 것은 아니다 — 다만 산 것은 하나뿐이다.** `Review` 가
+   `rootCauseRollup`(근본원인 롤업)을 부르고, `store/queries.ts` 가 `fetchKnowledgeArtifact` 와
+   타입을 쓴다. 그 패널은 데이터가 없으면 조용히 생략하도록 짜여 있다(콜드 축퇴).
+   ⛔⛔ **여기 «`Review`·`TodaySignature`·`Subject`·`confidence` 넷»이라 적혀 있었다 — 넷 중 셋이
+   거짓이었다**(V080 · 2026-09-01 실측): `TodaySignature`·`Subject` 는 이 모듈을 **참조한 적이
+   없고** `lib/confidence.ts` 는 **파일 자체가 없다**. 그 문장의 사본이 `Ledger.tsx` 와 hub 원장에도
+   있어 **셋이었고**, 셋 다 «지우면 세 화면이 죽는다»로 **정리를 얼리고 있었다** — 규약 축이 R3 로
+   이름 붙인 형태다(**낡은 경고는 낡은 안내보다 나쁘다**: 낡은 안내는 잘못 하게 만들고, 낡은
+   경고는 **옳은 일을 못 하게** 만든다).
+   ⚠ 세는 법을 여기 적지 마라 — `rg "from '@/lib/knowledge'" src/` 가 답한다.
+   **그 패널이 영영 콜드로 남는 것을 어떻게 할지는** hub 원장의 별도 항목이다.
    복구(부모 저장소): 태그 `은퇴/학습층-2026-08-29`. */
 const 은퇴사유 = '지식상태 산출물은 은퇴했습니다 — 생산자가 삭제됐고 다시 채워지지 않습니다.';
 

@@ -108,7 +108,7 @@ function adherencePct(state: AppState, sem: Semester, ds: string): number | null
 export function metricValue(state: AppState, sem: Semester, metric: GoalMetric, ds: string): number | null {
   switch (metric) {
     case 'gpa':
-      return semesterGpa(sem);
+      return semesterGpa(sem, ds);
     case 'hours':
       return Math.round((investedMin(state, sem) / 60) * 10) / 10;
     case 'chapters':

@@ -35,6 +35,7 @@ import { storage } from '@/lib/kv';
 import { useApp } from '@/store/useApp';
 import { useUI } from '@/store/useUI';
 import { backupPayload, importJSON } from '@/shell/actions';
+import type { AppState } from '@/lib/schema';
 
 /* ── 결정적 난수 — 표본이 매 실행 달라지면 실패가 재현되지 않는다. ── */
 let _seed = 0x2b3c4d5e;
@@ -88,7 +89,7 @@ function bigState(): AppState {
   s.completions = comp;
 
   // 일일 배치 — 400일
-  const plans: Record<string, unknown> = {};
+  const plans: AppState['dayPlans'] = {};
   for (let d = 0; d < 400; d++) {
     plans[ds(d)] = {
       mode: d % 3 ? 'auto' : 'manual',

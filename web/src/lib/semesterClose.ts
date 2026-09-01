@@ -23,7 +23,7 @@
 ============================================================ */
 import type { AppState, Course, Item, Semester } from './types';
 import { itemOfCourse } from './semester';
-import { GRADE_POINTS, semesterGpa, semesterStat } from './degree';
+import { GRADE_POINTS, semesterGpa, semesterStat, semesterStatus } from './degree';
 import { dayDiff, todayISO } from './utils';
 
 /** 결산 한 줄 — 과목 하나. */
@@ -114,10 +114,16 @@ export function semesterReport(state: AppState, semester: Semester, ds = todayIS
     totalPlannedH,
     ratio: totalPlannedH > 0 ? Math.round((totalInvestedH / totalPlannedH) * 100) / 100 : null,
     hoursPerCredit: hpc == null ? null : r1(hpc),
-    gpa: semesterGpa(semester),
-    /* ⚠ '예정' 과목은 성적이 없는 것이 정상이다 — 결산의 할 일 목록에 넣으면 매 학기 지워지지
-       않는 잔소리가 된다(`rehearsalSteps` 가 세운 *줄어드는 목록* 규율). */
-    missingGrades: (semester.courses || []).filter((c) => c.status !== '예정' && !(c.grade && c.grade in GRADE_POINTS)),
+    gpa: semesterGpa(semester, ds),
+    /* ⚠ '예정' **학기**의 과목은 성적이 없는 것이 정상이다 — 결산의 할 일 목록에 넣으면 매 학기
+       지워지지 않는 잔소리가 된다(`rehearsalSteps` 가 세운 *줄어드는 목록* 규율).
+       ⚠ 판정이 과목 → **학기** 로 올라갔다(2026-08-31): 종전엔 `c.status !== '예정'` 이라
+       같은 학기 안에서 과목마다 갈렸는데, 학기가 예정이면 그 안의 무엇도 성적을 기대할 수 없다.
+       철회한 과목도 뺀다 — 안 들은 과목의 성적을 물을 이유가 없다. */
+    missingGrades:
+      semesterStatus(semester, ds) === '예정'
+        ? []
+        : (semester.courses || []).filter((c) => !c.dropped && !(c.grade && c.grade in GRADE_POINTS)),
     ended: !!semester.endDs && dayDiff(semester.endDs, ds) > 0,
   };
 }
@@ -131,6 +137,6 @@ export function semesterReport(state: AppState, semester: Semester, ds = todayIS
 export function pendingCloseSemesters(state: AppState, ds = todayISO(state)): Semester[] {
   return (state.degree?.semesters || [])
     .filter((s) => s.endDs && dayDiff(s.endDs, ds) > 0)
-    .filter((s) => semesterStat(s).tot > 0 && semesterReport(state, s, ds).missingGrades.length > 0)
+    .filter((s) => semesterStat(s, ds).tot > 0 && semesterReport(state, s, ds).missingGrades.length > 0)
     .sort((a, b) => (a.endDs! < b.endDs! ? 1 : -1));
 }

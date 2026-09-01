@@ -24,7 +24,12 @@ const nid = (): string => 'sim' + ++_id;
 const chapters = (n: number, hours = 2): { id: string; name: string; hours: number; done: boolean }[] =>
   Array.from({ length: n }, (_, i) => ({ id: nid(), name: 'c' + i, hours, done: false }));
 
-function tight(): ScheduleItem & Record<string, unknown> {
+/** 이 파일의 픽스처는 `chapters` 를 **객체 배열**로 든다(`ScheduleItem` 의 선언은 `string[]`).
+ *  ⚠ 캐스트를 호출부마다 흩지 말고 여기 한 번만 적는다 — V068 이 타입 검사를 켜자 같은 캐스트가
+ *  **세 곳에서 각각 틀린 채로** 드러났다(`as { id }[]` 는 `string[] | undefined` 에서 못 간다). */
+type 픽스처과목 = Omit<ScheduleItem, 'chapters'> & { id: string; chapters: { id: string }[] };
+
+function tight(): 픽스처과목 {
   return {
     id: nid(),
     name: '빡센과목',
@@ -32,7 +37,7 @@ function tight(): ScheduleItem & Record<string, unknown> {
     weeklyHours: 4,
     chapters: chapters(20),
     deadline: '2026-06-30',
-  } as unknown as ScheduleItem & Record<string, unknown>;
+  } as unknown as 픽스처과목;
 }
 
 const stateOf = (...items: unknown[]): AppState => schedulerState(items as never[]);
@@ -41,7 +46,7 @@ describe('simulate — 미리보기가 상태를 건드리지 않는다', () => 
   it('⚠⚠ 입력 state 가 변하지 않는다(챕터의 deferred 가 진짜로 안 찍힌다)', () => {
     const it = tight();
     const st = stateOf(it);
-    const ids = new Set([(it.chapters as { id: string }[])[0]!.id]);
+    const ids = new Set([it.chapters[0]!.id]);
     const snapshot = JSON.stringify(st);
     simulate(st, { defer: { sid: it.id, chapterIds: ids } });
     expect(JSON.stringify(st)).toBe(snapshot);
@@ -58,7 +63,7 @@ describe('simulate — 미리보기가 상태를 건드리지 않는다', () => 
   it('결정적이다 — 엔진이 부작용 없이 반복 호출된다(이 항목의 전제)', () => {
     const it = tight();
     const st = stateOf(it);
-    const ids = new Set((it.chapters as { id: string }[]).slice(0, 5).map((c) => c.id));
+    const ids = new Set(it.chapters.slice(0, 5).map((c) => c.id));
     const a = simulate(st, { defer: { sid: it.id, chapterIds: ids } });
     const b = simulate(st, { defer: { sid: it.id, chapterIds: ids } });
     expect(JSON.stringify(a.shortfalls)).toBe(JSON.stringify(b.shortfalls));
@@ -105,7 +110,7 @@ describe('simulate — 예산', () => {
   it('20회 반복이 사용자 입력마다 돌려도 되는 규모다(상한은 넉넉히)', () => {
     const it = tight();
     const st = stateOf(it);
-    const ids = new Set((it.chapters as { id: string }[]).slice(0, 5).map((c) => c.id));
+    const ids = new Set(it.chapters.slice(0, 5).map((c) => c.id));
     const t0 = performance.now();
     for (let i = 0; i < 20; i++) simulate(st, { defer: { sid: it.id, chapterIds: ids } });
     const ms = performance.now() - t0;

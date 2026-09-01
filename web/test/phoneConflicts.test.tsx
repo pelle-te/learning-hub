@@ -14,7 +14,7 @@ import '@testing-library/jest-dom/vitest';
 
 /* ⚠ `vi.mock` 은 호이스팅되므로 팩토리가 모듈 스코프 변수를 **참조할 수 없다** —
    `vi.hoisted` 로 그 변수를 함께 끌어올린다(vitest 계약). */
-const { restore } = vi.hoisted(() => ({ restore: vi.fn(async () => {}) }));
+const { restore } = vi.hoisted(() => ({ restore: vi.fn(async (_row?: unknown) => {}) }));
 vi.mock('@/store/syncController', () => ({ restoreConflict: restore }));
 
 import ConflictsView from '@/phone/ConflictsView';
