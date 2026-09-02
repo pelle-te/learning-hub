@@ -149,8 +149,7 @@ export function VaultPanel() {
 
   /* 임포트 규칙(W4 포함)은 `shell/importVaultSubject` 가 소유한다 — 과목 탭의
      볼트 임포트와 **같은 함수**여야 한다(종전엔 28줄 사본 둘이었다 · H22). */
-  const addSubject = (s: VaultSubject) =>
-    importVaultSubject(s, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
+  const addSubject = (s: VaultSubject) => importVaultSubject(s, '학습 항목 탭에서 주당 시간·마감 조정하세요.');
   const addChapter = (s: VaultSubject, c: VaultChapter) => {
     const name = `${s.name} · ${c.name}`;
     if (items.some((x) => x.name === name)) {
@@ -276,9 +275,10 @@ export function VaultPanel() {
           {scan.subjects.map((s, si) => {
             // 노트 0개면 0/0=NaN → 헤더·진행바가 'NaN%'가 된다. 0%로 가드.
             const vp = s.notes ? Math.round((s.verified / s.notes) * 100) : 0;
-            const ep = s.notes ? Math.round((s.exported / s.notes) * 100) : 0;
-            // Anki 미출력 = 노트는 있으나 아직 카드가 안 만들어진 것(볼트↔Anki 커버리지 갭). 파생 산술만.
-            const uncovered = Math.max(0, s.notes - s.exported);
+            /* ⛔ 여기 있던 「Anki n(p%) · 미출력 m」을 걷었다(V098 · 2026-09-01). 원천
+               (`anki_exported`)이 부모의 Anki 축 은퇴로 사라져 **언제나 0** 이었고, 그러면
+               `미출력` 은 노트 전량이 된다 — 「카드가 하나도 없다」로 읽히는 거짓이었다.
+               근거·복구는 `lib/vault.ts` 머리주석. */
             const isOpen = open.has(si);
             return (
               <div key={si} className="mb-2.25 overflow-hidden rounded-md border border-line bg-panel">
@@ -298,8 +298,7 @@ export function VaultPanel() {
                   <b style={{ flex: 1 }}>{s.name}</b>
                   <span className="ds-tiny text-mut">
                     노트 {s.notes} · 검증 {s.verified}({vp}%){s.wip ? ` · 진행중 ${s.wip}` : ''}
-                    {s.legacy ? ` · 구버전 ${s.legacy}` : ''} · Anki {s.exported}({ep}%)
-                    {uncovered > 0 ? ` · 미출력 ${uncovered}` : ''}
+                    {s.legacy ? ` · 구버전 ${s.legacy}` : ''}
                   </span>
                   <Button
                     sm
@@ -326,7 +325,7 @@ export function VaultPanel() {
                           <span className="ds-tiny text-mut">
                             {c.notes}노트 · 검증 {c.verified}
                             {c.wip ? ` · 진행중 ${c.wip}` : ''}
-                            {c.legacy ? ` · 구버전 ${c.legacy}` : ''} · Anki {c.exported}
+                            {c.legacy ? ` · 구버전 ${c.legacy}` : ''}
                           </span>
                           <Button sm variant="ghost" onClick={() => addChapter(s, c)}>
                             +단일

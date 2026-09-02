@@ -1,17 +1,11 @@
 /* ============================================================
-   anki.test.ts — Anki 연동의 에러 경로(Vitest). AnkiConnect(미실행·타임아웃·error)와
-   폴더 선택(미지원·취소)의 우아한 실패를 검증 — 외부 의존이라 fetch·window를 stub.
+   anki.test.ts — Anki 연동의 에러 경로(Vitest). AnkiConnect(미실행·타임아웃·error)의
+   우아한 실패를 검증 — 외부 의존이라 fetch를 stub.
+   ⛔ 「볼트 카드 스캔」(폴더 선택 실패 경로 · `totalCards`)의 케이스들은 그 입구가 2026-09-01 에
+      은퇴하며 함께 걷혔다(C072) — 근거는 `src/lib/anki.ts` 머리주석.
 ============================================================ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  ankiConnect,
-  ankiFreshness,
-  fetchAnkiLive,
-  pickAndScanAnki,
-  totalCards,
-  totalDue,
-  dueBySubject,
-} from '@/lib/anki';
+import { ankiConnect, ankiFreshness, fetchAnkiLive, totalDue, dueBySubject } from '@/lib/anki';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -25,21 +19,6 @@ describe('totalDue — 순수 합산', () => {
   });
   it('숫자가 아닌 값은 0으로 본다(방어적)', () => {
     expect(totalDue([{ name: 'a', new: undefined as unknown as number, learn: 1, review: 2, total: 3 }])).toBe(3);
-  });
-});
-
-describe('totalCards — 파일덱 카드 합', () => {
-  it('덱들의 cards를 더한다', () => {
-    expect(
-      totalCards([
-        { file: 'a', subj: '수학', cards: 12 },
-        { file: 'b', subj: '물리', cards: 8 },
-      ]),
-    ).toBe(20);
-    expect(totalCards([])).toBe(0);
-  });
-  it('숫자가 아닌 값은 0으로 본다(방어적)', () => {
-    expect(totalCards([{ file: 'a', subj: '수학', cards: undefined as unknown as number }])).toBe(0);
   });
 });
 
@@ -91,21 +70,6 @@ describe('fetchAnkiLive — deckNames→getDeckStats 매핑', () => {
     vi.stubGlobal('fetch', fetchMock);
     const live = await fetchAnkiLive();
     expect(live.decks).toEqual([{ name: '수학', new: 1, learn: 2, review: 3, total: 9 }]);
-  });
-});
-
-describe('pickAndScanAnki — 폴더 선택 실패 경로', () => {
-  it('showDirectoryPicker 미지원 브라우저면 안내와 함께 throw', async () => {
-    vi.stubGlobal('window', {}); // picker 없음
-    await expect(pickAndScanAnki()).rejects.toThrow('지원하지 않아요');
-  });
-  it('사용자가 폴더 선택을 취소하면 null을 반환한다', async () => {
-    vi.stubGlobal('window', {
-      showDirectoryPicker: vi.fn(async () => {
-        throw Object.assign(new Error('cancel'), { name: 'AbortError' });
-      }),
-    });
-    await expect(pickAndScanAnki()).resolves.toBeNull();
   });
 });
 

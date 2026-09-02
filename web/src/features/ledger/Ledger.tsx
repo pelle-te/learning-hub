@@ -294,7 +294,6 @@ function Backlog({ l: led }: { l: Ledger }) {
    즉 렌더되지 않는 채 `carded` 를 광고하는 죽은 코드가 된다. `lib/ledgerSeed.ts` 도 함께 지웠다.
    ⭐ 되살리려면 「끝내다」의 자를 먼저 정하라 — `verified` 로 갈아끼는 것은 의미가 다른 주장이다. */
 
-
 /** 병목 — 인접 단계 통과율이 가장 낮은 지점. "다음에 어디 손대면 크게 진척하나". */
 function Bottleneck({ l: led }: { l: Ledger }) {
   const b = bottleneckStage(led);

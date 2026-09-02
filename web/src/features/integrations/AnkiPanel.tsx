@@ -1,8 +1,11 @@
 /* ============================================================
-   AnkiPanel — Anki 현황(볼트 _anki 파일 + AnkiConnect). Phase 5 · 서버/외부.
-   카드 스캔/실시간 due는 Query 캐시(['ankiFile']/['ankiLive']) — persist X. 단, 실시간 due는
+   AnkiPanel — Anki 현황(AnkiConnect). Phase 5 · 서버/외부.
+   실시간 due는 Query 캐시(['ankiLive']) — persist X. 단,
    ① 오늘 탭 KPI가 읽도록 state._ankiLive로 write-through ② 주별 due 스냅샷(retentionLog)은
    앱 데이터라 recordRetentionSnapshot으로 persist(설계도 §1-B).
+
+   ⛔ **「볼트 카드 스캔」과 그 결과 표는 2026-09-01 에 은퇴했다**(C072) — 읽던 두 원천이 모두
+      사라져 「0장」이라는 거짓만 냈다. 근거는 `lib/anki.ts` 머리주석.
 ============================================================ */
 import LiveRegion from '@/components/LiveRegion';
 import { useCallback, useEffect, useState } from 'react';
@@ -11,9 +14,8 @@ import { useApp } from '@/store/useApp';
 import { useRuntime } from '@/store/useRuntime';
 import { useUI } from '@/store/useUI';
 import { exportAnkiCards, importAnkiDeck, toast } from '@/shell';
-import { pickAndScanAnki, fetchAnkiLive, totalDue, totalCards, type AnkiFile, type AnkiLive } from '@/lib/anki';
+import { fetchAnkiLive, totalDue, type AnkiLive } from '@/lib/anki';
 import { recordRetentionSnapshot } from '@/lib/methodology';
-import { idbPut } from '@/lib/idb';
 import { onVisible } from '@/lib/visibility';
 import { makeItem, clamp, jsq, hhmm } from '@/lib/utils';
 import { Button } from '@/components/ui';
@@ -25,9 +27,8 @@ export function AnkiPanel() {
   const setAnkiLive = useRuntime((s) => s.set); // plan-무관 캐시 — state 참조를 갈지 않음(B1/B3)
   const items = useApp((s) => s.state.items);
   // 구독형으로 읽어 연결/해제 시 패널이 즉시 반응(skipToken = fetch 없이 캐시만 구독).
-  const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
   const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], queryFn: skipToken }).data;
-  const [busy, setBusy] = useState<'' | 'file' | 'live'>('');
+  const [busy, setBusy] = useState<'' | 'live'>('');
   const [err, setErr] = useState('');
   // 실시간 due 자동 새로고침 — 연결돼 있을 때 5분마다 + 탭 복귀 시 재조회(로컬 설정).
   // 2단계-A4: 예전엔 여기서 localStorage를 **직접** 만졌다(유일한 kv SSOT 우회 · 백업 누락).
@@ -43,36 +44,10 @@ export function AnkiPanel() {
      것이었다 — `useCollectTool.lastError` 가 같은 계열에서 이미 쓴 처방을 그대로 옮긴다. */
   const [autoErr, setAutoErr] = useState<string | null>(null);
 
-  // 개별 해제 — 각 연동을 독립적으로 끊는다(다른 채널엔 영향 없음).
-  const clearFile = () => {
-    qc.removeQueries({ queryKey: ['ankiFile'], exact: true });
-    toast('Anki 카드 스캔을 비웠어요.', 'info');
-  };
   const clearLive = () => {
     qc.removeQueries({ queryKey: ['ankiLive'], exact: true });
     setAnkiLive('_ankiLive', null); // 오늘 탭 due KPI도 초기화
     toast('실시간 due 연결을 해제했어요.', 'info');
-  };
-
-  const scanFiles = async () => {
-    setErr('');
-    setBusy('file');
-    try {
-      const handle = qc.getQueryData<FileSystemDirectoryHandle>(['vaultHandle']);
-      const r = await pickAndScanAnki(handle);
-      if (r) {
-        qc.setQueryData(['ankiFile'], r.scan);
-        // 셸엔 핸들 개념이 없다(폴더를 안 물으므로) — 브라우저에서만 공유·영속한다.
-        if (r.handle) {
-          qc.setQueryData(['vaultHandle'], r.handle);
-          void idbPut('vaultHandle', r.handle); // 볼트 패널과 공유 — 다음 부팅 재연결
-        }
-      }
-    } catch (e) {
-      setErr((e as Error).message || String(e));
-    } finally {
-      setBusy('');
-    }
   };
 
   // 실시간 due 반영 — 쿼리 캐시 + 오늘 탭 KPI(_ankiLive) + 주별 유지율 스냅샷. 수동/자동 공용.
@@ -177,13 +152,6 @@ export function AnkiPanel() {
     );
   };
 
-  // 파일 스캔 결과: 과목별 묶기
-  const bySubj: Record<string, AnkiFile['decks']> = {};
-  (file?.decks || []).forEach((d) => {
-    (bySubj[d.subj] = bySubj[d.subj] || []).push(d);
-  });
-  const grandDecks = (file?.decks || []).length;
-  const grandCards = totalCards(file?.decks ?? []);
   const dueTot = live ? totalDue(live.decks) : 0;
 
   return (
@@ -191,17 +159,6 @@ export function AnkiPanel() {
       <div className="ds-rule">
         <h2>Anki 현황</h2>
         <div className="ds-row">
-          <Button sm disabled={busy === 'file'} onClick={scanFiles}>
-            {busy === 'file' ? (
-              <>
-                <span className="ds-spin" /> 스캔 중
-              </>
-            ) : (
-              <>
-                <Icon name="folder" /> 볼트 카드 스캔
-              </>
-            )}
-          </Button>
           <Button sm disabled={busy === 'live'} onClick={goLive}>
             {busy === 'live' ? (
               <>
@@ -223,29 +180,21 @@ export function AnkiPanel() {
           </Button>
           <div style={{ flex: 2 }} />
         </div>
+        {/* ⚠ 종전 이 각주는 「볼트 카드 스캔·**카드 생성**이 은퇴했다」고 적었는데, 바로 위
+            「요약·오답 → 카드(.txt)」 버튼은 **앱 자신의 요약·오답**에서 카드를 만들어 지금도
+            동작한다(부모의 `exports/` 와 무관하다). 은퇴한 것은 **볼트 파일을 세던 입구**뿐이다. */}
         <div className="ds-foot">
-          <b>볼트 카드 스캔·카드 생성은 2026-09-01 에 은퇴했습니다</b> — 부모(pipeline)가 Anki 축을
-          닫으면서 그 스캔이 읽던 덱 매니페스트와 카드 파일이 모두 사라졌습니다.
-          다시 스캔해도 「0장」이 나오면 그건 카드가 없다는 뜻이 아니라 **셀 수 없다는 뜻**입니다
-          (복구: 부모 태그 `은퇴/anki-2026-09-01`). 지금 카드를 아는 곳은 <b>Anki 앱 자신</b>뿐이니
-          아래 <b>AnkiConnect 실시간 due</b> 를 쓰세요(Anki 실행 + 애드온 필요 · localhost:8765).
+          <b>볼트 카드 스캔은 2026-09-01 에 은퇴했습니다</b> — 부모(pipeline)가 Anki 축을 닫으면서 그 스캔이 읽던 덱
+          매니페스트와 카드 파일이 모두 사라졌습니다(복구: 부모 태그 <code>은퇴/anki-2026-09-01</code>). 지금{' '}
+          <b>카드가 몇 장인지 아는 곳은 Anki 앱 자신</b>뿐이니 위 <b>AnkiConnect 실시간 due</b> 를 쓰세요(Anki 실행 +
+          애드온 필요 · localhost:8765).
+          <b>요약·오답 → 카드(.txt)</b> 는 앱 안의 기록에서 만들므로 그대로 씁니다.
         </div>
         {/* ⚠ 리전은 **상시 마운트**한다(H19) — 조건부로 넣으면 리전과 텍스트가 동시에 삽입돼 AT 에 따라 공지가 씹힌다. */}
         <LiveRegion message={err ?? ''} assertive />
         {err && (
           <div className="ds-warnbox" style={{ marginTop: 8 }}>
             {err}
-          </div>
-        )}
-        {file && (
-          <div className="ds-tiny text-mut" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>
-              <Icon name="folder" /> 카드 스캔: {file.at}
-              {file.src ? ' · ' + file.src : ''}
-            </span>
-            <Button sm variant="ghost" danger onClick={clearFile} title="카드 스캔 결과 비우기">
-              ✕ 해제
-            </Button>
           </div>
         )}
         {live && (
@@ -282,64 +231,6 @@ export function AnkiPanel() {
           </div>
         )}
       </div>
-
-      {file && (
-        <div className="ds-rule">
-          <h3>볼트 카드(파일 기준)</h3>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">과목</th>
-                <th scope="col">덱</th>
-                <th scope="col">카드</th>
-                <th scope="col" />
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(bySubj).map(([s, dks]) =>
-                dks.map((d, i) => (
-                  <tr key={d.file}>
-                    {i === 0 && (
-                      <th rowSpan={dks.length} scope="rowgroup">
-                        <b>{s}</b>
-                        <br />
-                        <span className="ds-tiny text-mut">{totalCards(dks)}장</span>
-                      </th>
-                    )}
-                    <th className="ds-tiny" scope="row">
-                      {d.file}
-                    </th>
-                    <td>{d.cards}</td>
-                    <td>
-                      <Button
-                        sm
-                        variant="ghost"
-                        onClick={() => importAnkiDeck(jsq(d.file), Math.max(15, Math.round(d.cards * 0.5)))}
-                      >
-                        +스케줄
-                      </Button>
-                    </td>
-                  </tr>
-                )),
-              )}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2}>
-                  <b>합계</b> · {grandDecks}덱
-                </td>
-                <td>
-                  <b>{grandCards}</b>
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-          <div className="ds-foot">
-            '+스케줄'은 해당 덱을 '매일 복습' 항목으로 추가합니다(예상 분 = 카드수×0.5, 수정 가능).
-          </div>
-        </div>
-      )}
 
       {live && (
         <div className="ds-rule">

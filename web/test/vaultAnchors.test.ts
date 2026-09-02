@@ -23,18 +23,19 @@ const day = (ds: string, items: ScheduleItem[]): Day =>
 
 afterEach(() => clearVaultAnchors());
 
-describe('subjectsFromIndex — 17키 중 버리던 것을 챕터 집계로 올린다', () => {
-  it('reviewed 는 챕터 안에서 최댓값(가장 최근), anki_state=stale 은 센다', () => {
+describe('subjectsFromIndex — 버리던 것을 챕터 집계로 올린다', () => {
+  /* ⛔ 이 케이스가 `anki_state=stale` 도 함께 셌다 — 그 축은 V098(2026-09-01)에 걷혔다.
+     원천이 `_index.json` 에서 사라져 **언제나 0** 이었고, 자기 선언 타입이라 tsc 는 초록이었다. */
+  it('reviewed 는 챕터 안에서 최댓값(가장 최근)', () => {
     const s = subjectsFromIndex({
       notes: [
-        { subject: '회로이론', folder: '회로이론/01 변수', reviewed: '2026-07-01', anki_state: 'ok', prereq_in: 3 },
-        { subject: '회로이론', folder: '회로이론/01 변수', reviewed: '2026-07-09', anki_state: 'stale', prereq_in: 8 },
-        { subject: '회로이론', folder: '회로이론/02 소자', anki_state: 'none' },
+        { subject: '회로이론', folder: '회로이론/01 변수', reviewed: '2026-07-01', prereq_in: 3 },
+        { subject: '회로이론', folder: '회로이론/01 변수', reviewed: '2026-07-09', prereq_in: 8 },
+        { subject: '회로이론', folder: '회로이론/02 소자' },
       ],
     });
     const chs = s[0]!.chapters;
     expect(chs[0]!.reviewedRecent).toBe('2026-07-09');
-    expect(chs[0]!.ankiStale).toBe(1);
     expect(chs[0]!.prereqIn).toBe(8);
     // 아무 노트도 reviewed 를 안 가지면 ''(= 앵커 없음)이지 오늘이 아니다.
     expect(chs[1]!.reviewedRecent).toBe('');

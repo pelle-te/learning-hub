@@ -61,10 +61,10 @@ const asHandle = (d: FakeHandle) => d as unknown as FileSystemDirectoryHandle;
 const fm = (status: string, anki = false) => `---\nstatus: ${status}${anki ? '\nanki_exported: true' : ''}\n---\n본문`;
 
 describe('subjectsFromIndex — 정본 인덱스 집계', () => {
-  it('과목→챕터로 notes·verified·exported·legacy·wip를 센다', () => {
+  it('과목→챕터로 notes·verified·legacy·wip를 센다', () => {
     const out = subjectsFromIndex({
       notes: [
-        { subject: '수학', folder: '수학/미적분', status: 'verified', anki_exported: true },
+        { subject: '수학', folder: '수학/미적분', status: 'verified' },
         { subject: '수학', folder: '수학/미적분', status: 'drafted' }, // wip
         { subject: '수학', folder: '수학/미적분', status: '' }, // status 없음 → legacy
       ],
@@ -72,10 +72,9 @@ describe('subjectsFromIndex — 정본 인덱스 집계', () => {
     expect(out).toHaveLength(1);
     const s = out[0];
     expect(s.name).toBe('수학');
-    expect({ notes: s.notes, verified: s.verified, exported: s.exported, legacy: s.legacy, wip: s.wip }).toEqual({
+    expect({ notes: s.notes, verified: s.verified, legacy: s.legacy, wip: s.wip }).toEqual({
       notes: 3,
       verified: 1,
-      exported: 1,
       legacy: 1,
       wip: 1,
     });
@@ -108,7 +107,7 @@ describe('estH / chaptersFromVault — 순수 변환', () => {
     expect(estH(7)).toBe(4); // round(3.5)=4
   });
   it('chaptersFromVault는 학습항목 챕터(done=false·예상시간)로 변환', () => {
-    const chs = chaptersFromVault([{ name: '1장', notes: 10, verified: 0, exported: 0, legacy: 0, wip: 0 } as never]);
+    const chs = chaptersFromVault([{ name: '1장', notes: 10, verified: 0, legacy: 0, wip: 0 } as never]);
     expect(chs).toHaveLength(1);
     expect(chs[0]).toMatchObject({ name: '1장', hours: 5, done: false });
     expect(typeof chs[0].id).toBe('string');
@@ -136,7 +135,7 @@ describe('scanVaultFromFiles — .md 직접 스캔(폴백)', () => {
     const tree = dir({
       수학: dir({
         미적분: dir({
-          'n1.md': file(fm('verified', true)),
+          'n1.md': file(fm('verified')),
           'n2.md': file(fm('')), // status 없음 → legacy
           'MOC.md': file(fm('verified')), // MOC 제외
         }),
@@ -152,7 +151,6 @@ describe('scanVaultFromFiles — .md 직접 스캔(폴백)', () => {
     expect(s.verified).toBe(1);
     expect(s.legacy).toBe(1);
     expect(s.wip).toBe(1);
-    expect(s.exported).toBe(1);
     // 과목 루트 노트는 이제 인덱스 경로와 **같이** '(과목 루트)' 챕터로 잡힌다.
     // 예전 폴백은 챕터 없이 과목 합계에만 더해 두 경로의 챕터 목록이 달랐다(수렴).
     expect(s.chapters.map((c) => c.name)).toEqual(['미적분', '(과목 루트)']);

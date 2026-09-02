@@ -14,7 +14,8 @@
    · 산출물 경로       → `artifact.rs` (실 워크스페이스)
    · 파이썬 도구       → `tools.rs`    (실 cwd·인코딩·파이프)
    · 볼트 읽기·감시    → `vault.rs`    (실 볼트 + notify 실발화)
-   · Anki 덱 스캔      → `anki_scan.rs`(실 볼트)
+   · ⚠ 'Anki 덱 스캔'(`anki_scan.rs`)은 2026-09-01 에 사라졌다 — 부모가 Anki 축을 은퇴하며
+     그 스캔이 읽던 두 원천(`_index.json.anki`·`anki/*.txt`)이 모두 없어졌다(C072).
    · ⚠ '탐구 잡 이력·중단'(`research.rs`)은 P10 W4 에서 사라졌다 — 그 모듈이 `survey/` 로 갔다.
    · 서버·WAL 동시성   → `server.rs`   (진짜 소켓 + 쓰기 풀 보유 중 읽기)
    · 실 DB 스탬프      → `db.rs`       (updated_at=0 검사)

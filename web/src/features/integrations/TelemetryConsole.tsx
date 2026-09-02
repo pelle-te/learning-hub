@@ -10,7 +10,7 @@ import { useQuery, skipToken } from '@tanstack/react-query';
 import { bootWave } from '@/lib/perf';
 import { quietSummary } from '@/lib/daySignals';
 import { usePing } from '@/store/queries';
-import { totalDue, totalCards, type AnkiLive, type AnkiFile } from '@/lib/anki';
+import { totalDue, type AnkiLive } from '@/lib/anki';
 import type { VaultScan } from '@/lib/vault';
 import { Button } from '@/components/ui';
 import { shellHotkeyRetry, shellVaultWatchRetry } from '@/lib/tauri';
@@ -113,7 +113,6 @@ function readouts(
   ping: ReturnType<typeof usePing>,
   vault: VaultScan | undefined,
   live: AnkiLive | undefined,
-  file: AnkiFile | undefined,
   quiet: { observed: number; quiet: number } | null,
 ) {
   const hotkeyErr = ping.data?.hotkeyError ?? null;
@@ -125,7 +124,6 @@ function readouts(
     vaultWatchErr: ping.data?.vaultWatchError ?? null,
     vaultNotes: vault ? vault.subjects.reduce((t, x) => t + x.notes, 0) : 0,
     due: live ? totalDue(live.decks) : 0,
-    cards: file ? totalCards(file.decks) : 0,
     quietLine: quiet && quiet.observed > 0 ? `최근 ${quiet.observed}일 관측 중 조용한 날 ${quiet.quiet}일` : null,
     /* ⚠⚠ **네이티브 칸을 앞에 세운다**(P035 · 2026-08-27). 종전 이 줄은 `wave.total` 을
        「부팅」이라 불렀는데 그건 웹 층 안쪽뿐이고, 실측 중앙 881 ms 중 **508 ms(58%)가 그
@@ -155,13 +153,11 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
   //  enabled:false와 달리 queryFn 누락 경고를 내지 않음(읽기전용 캐시 구독의 정석).
   const vault = useQuery<VaultScan>({ queryKey: ['vault'], queryFn: skipToken }).data;
   const live = useQuery<AnkiLive>({ queryKey: ['ankiLive'], queryFn: skipToken }).data;
-  const file = useQuery<AnkiFile>({ queryKey: ['ankiFile'], queryFn: skipToken }).data;
 
-  const { serve, hotkeyErr, hotkeyShown, vaultWatchErr, vaultNotes, due, cards, quietLine, waveLine } = readouts(
+  const { serve, hotkeyErr, hotkeyShown, vaultWatchErr, vaultNotes, due, quietLine, waveLine } = readouts(
     ping,
     vault,
     live,
-    file,
     quiet,
   );
 
@@ -200,14 +196,8 @@ export default function TelemetryConsole({ vertical }: { vertical?: boolean }) {
           label="ANKI"
           status={live ? 'online' : 'idle'}
           vertical={vertical}
-          value={live ? due : file ? cards : '—'}
-          sub={
-            live
-              ? `오늘 due · 덱 ${live.decks.length}`
-              : file
-                ? `카드(파일) · 덱 ${file.decks.length}`
-                : 'AnkiConnect 대기'
-          }
+          value={live ? due : '—'}
+          sub={live ? `오늘 due · 덱 ${live.decks.length}` : 'AnkiConnect 대기'}
         />
         {/* ⚠ 전역 캡처 단축키(E20) — **등록 실패가 조용히 죽지 않게 하는 표면**이다. 전역 조합은
             OS 전체에서 한 앱만 가질 수 있어 다른 앱이 선점하면 등록이 실패하는데, 그걸 삼키면

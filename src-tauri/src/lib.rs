@@ -13,7 +13,6 @@
 여기 등록한 커맨드가 그 유일한 대응면이다.
 */
 mod anki;
-mod anki_scan;
 mod artifact;
 /// P035 — 네이티브 기동 시각(웹 `timeOrigin` 앞의 508 ms 를 계량 안으로 들인다).
 mod boot;
@@ -148,7 +147,6 @@ pub fn run() {
             files::save_text_file,
             files::open_in_vault,
             // 4단계-I — 볼트 Anki 카드 스캔(폴더 선택 없이).
-            anki_scan::anki_scan,
             /* C-5 후속 — 클라우드 HTTP 중계. 웹뷰가 직접 fetch 하면 CSP(C-3)에 막힌다(실측).
             뉴스·Ollama·Anki 와 같은 규약: 외부로 나가는 연결은 전부 Rust 가 소유한다. */
             cloud::cloud_http,

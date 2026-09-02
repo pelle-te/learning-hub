@@ -2,6 +2,14 @@
    vault.ts — 옵시디언 볼트 현황(File System Access API) — 서버/외부 데이터.
    정본 _meta/cache/_index.json(검사.sh --index 산출)을 우선 소비하고, 없으면 .md 직접 스캔.
    순수 계산 + FS 읽기만(앱 상태에 복제 X). TanStack Query가 스캔 결과를 캐시(설계도 §1-B).
+
+   ⛔ **`exported`(=`anki_exported`)·`ankiStale`(=`anki_state`) 축을 걷었다**(V098 · 2026-09-01).
+      부모가 Anki 축을 은퇴하며 그 두 필드가 `_index.json` 에서 사라졌는데, 여기 인터페이스가
+      **자기 선언 타입**이라 `tsc` 는 초록인 채로 두 수가 **영원히 0** 이 됐다. 대가는 조용하지
+      않았다: `VaultPanel` 이 과목마다 「Anki 0(0%) · 미출력 <전체 노트수>」를 그렸다 —
+      「카드가 하나도 없다」로 읽히는데 실제 뜻은 「셀 수 없다」였다(실측 671노트 전량).
+      ⚠ 이 파일이 W2 에서 배운 규율(_"경계에서 필드를 버리지 말 것"_)의 **반대 짝**이다:
+      원천이 사라진 필드를 남겨 두면 «버림»이 아니라 **거짓**이 된다.
 ============================================================ */
 import { SKIP, rid } from './utils';
 import { dirEntries, pickDirectory, queryPermission, requestPermission } from './fsAccess';
@@ -13,13 +21,10 @@ export interface VaultChapter {
   name: string;
   notes: number;
   verified: number;
-  exported: number;
   legacy: number;
   wip: number;
   /** 이 챕터 노트들의 `reviewed:` 중 **가장 최근**(없으면 ''). 볼트가 아는 유일한 망각 시계다(W2). */
   reviewedRecent: string;
-  /** `anki_state === 'stale'` 인 노트 수 — 노트는 고쳤는데 카드가 안 따라온 것. */
-  ankiStale: number;
   /** 이 챕터에서 `prereq_in`(이걸 알면 몇 개가 풀리나) 최댓값. */
   prereqIn: number;
 }
@@ -36,9 +41,7 @@ export interface VaultScan {
 }
 
 /** 정본 인덱스(_meta/cache/_index.json) 로드 — 없으면 null(호출부가 파일스캔 폴백). */
-export async function loadVaultIndex(
-  handle: FileSystemDirectoryHandle,
-): Promise<{ notes?: unknown[]; anki?: unknown[] } | null> {
+export async function loadVaultIndex(handle: FileSystemDirectoryHandle): Promise<{ notes?: unknown[] } | null> {
   try {
     const meta = await handle.getDirectoryHandle('_meta');
     const aud = await meta.getDirectoryHandle('cache'); // P7 Phase 3: 감사→cache(파생)
@@ -52,8 +55,10 @@ export async function loadVaultIndex(
 }
 
 /* ⚠⚠ **경계에서 필드를 버리지 말 것(W2 · 2026-07-31).** 종전엔 17키 중 5키만 뽑았고, 증발하는
-   것 중에 **`reviewed`(468건에 날짜가 있다)** 와 **`anki_state`** 가 있었다 — 앱은 "복습 0/0"이라
-   말하면서 그 답을 아는 파일을 매번 읽고 있었다. 인덱스 스키마(`artifacts.gen.ts` `indexArtifactSchema`)
+   것 중에 **`reviewed`(468건에 날짜가 있다)** 와 `anki_state` 가 있었다 — 앱은 "복습 0/0"이라
+   말하면서 그 답을 아는 파일을 매번 읽고 있었다.
+   ⚠ 그중 `anki_state`·`anki_exported` 는 **2026-09-01 에 원천이 사라져 걷었다**(V098 · 머리주석).
+     이 규율의 짝은 «원천이 죽은 필드는 버리는 게 아니라 **거짓이 되므로 지운다**» 이다. 인덱스 스키마(`artifacts.gen.ts` `indexArtifactSchema`)
    는 이 필드를 **이미 전부** 알고 있었으므로, 여기 좁은 인터페이스가 유일한 병목이었다.
    ⚠ 필드를 늘려도 **집계는 여전히 이 파일 하나**가 소유한다(Rust 는 레코드까지만 · 3단계-B 규율). */
 export interface IndexNote {
@@ -64,11 +69,8 @@ export interface IndexNote {
    *  그것을 열 수 없었다(`src-tauri/src/vault.rs` 의 `Note.file` 주석이 근거의 SSOT). */
   file?: string | null;
   status?: string;
-  anki_exported?: boolean;
   /** 검증 통과일(파이프라인). ⚠ **인출일이 아니다** — 위험을 올리는 방향으로만 쓴다(vaultAnchors). */
   reviewed?: string | null;
-  /** 'ok' | 'none' | 'stale' — 노트↔카드 동기 상태. */
-  anki_state?: string | null;
   /** 이 노트를 선행으로 삼는 노트 수(링크 인입). */
   prereq_in?: number;
   tier_hint?: string | null;
@@ -80,7 +82,7 @@ export interface IndexNote {
 /** _index.json.notes → 과목→챕터 집계. status=null=구버전(verified와 구분 · A-2). */
 export function subjectsFromIndex(idx: { notes?: IndexNote[] }): VaultSubject[] {
   const bySubj: Record<string, VaultSubject & { _ch: Record<string, VaultChapter> }> = {};
-  const zero = { notes: 0, verified: 0, exported: 0, legacy: 0, wip: 0, reviewedRecent: '', ankiStale: 0, prereqIn: 0 };
+  const zero = { notes: 0, verified: 0, legacy: 0, wip: 0, reviewedRecent: '', prereqIn: 0 };
   for (const n of idx.notes || []) {
     if (n.kind === '실전문제') continue; // 실전문제는 검증%·노트수 분모에서 제외(대시보드 isProb와 정합)
     const sj = n.subject || '?';
@@ -92,10 +94,6 @@ export function subjectsFromIndex(idx: { notes?: IndexNote[] }): VaultSubject[] 
     const rv = n.reviewed || '';
     if (rv > C.reviewedRecent) C.reviewedRecent = rv;
     if (rv > S.reviewedRecent) S.reviewedRecent = rv;
-    if (n.anki_state === 'stale') {
-      C.ankiStale++;
-      S.ankiStale++;
-    }
     const pin = +(n.prereq_in || 0);
     if (pin > C.prereqIn) C.prereqIn = pin;
     if (pin > S.prereqIn) S.prereqIn = pin;
@@ -103,16 +101,11 @@ export function subjectsFromIndex(idx: { notes?: IndexNote[] }): VaultSubject[] 
     const ver = st === 'verified';
     const leg = !st;
     const wip = !!st && !ver; // raw/drafted(파이프라인 진행중)
-    const exp = !!n.anki_exported;
     C.notes++;
     S.notes++;
     if (ver) {
       C.verified++;
       S.verified++;
-    }
-    if (exp) {
-      C.exported++;
-      S.exported++;
     }
     if (leg) {
       C.legacy++;
@@ -195,11 +188,8 @@ async function notesFromFiles(handle: FileSystemDirectoryHandle): Promise<IndexN
           subject,
           folder,
           status: fm.status,
-          // ⚠ 값은 boolean 이 아니라 **날짜 문자열**이다(실측: `anki_exported: 2026-07-11`).
-          //    존재 자체가 "내보냄"이므로 truthy 판정이 맞다 — boolean 으로 파싱하려 들면 안 된다.
-          anki_exported: !!fm.anki_exported,
           // W2 — 폴백도 같은 레코드를 만든다(인덱스 경로와 모양이 갈리면 같은 볼트에서 숫자가 갈린다).
-          // ⚠ `anki_state`·`prereq_in` 은 프론트매터에 없다(파이프라인 파생) — 폴백에선 원리적으로 모른다.
+          // ⚠ `prereq_in` 은 프론트매터에 없다(파이프라인 파생) — 폴백에선 원리적으로 모른다.
           reviewed: fm.reviewed || '',
         });
       }

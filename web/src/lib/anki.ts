@@ -1,13 +1,17 @@
 /* ============================================================
-   anki.ts — Anki 현황(볼트 _anki 파일 + AnkiConnect) — 서버/외부 데이터.
-   ① 볼트 카드 스캔: 정본 _index.json.anki 매니페스트 우선, 없으면 anki/ 폴더 .txt 폴백.
-   ② 실시간 due: AnkiConnect(localhost:8765, deckNames+getDeckStats).
+   anki.ts — Anki 현황(AnkiConnect) — 서버/외부 데이터.
+   실시간 due: AnkiConnect(localhost:8765, deckNames+getDeckStats).
    순수 fetch만 — 앱 상태에 복제 X. TanStack Query가 캐시/로딩/에러 소유(설계도 §1-B).
+
+   ⛔ **볼트 카드 스캔(옛 ①)은 2026-09-01 에 은퇴했다**(C072). 부모(pipeline)가 Anki 축을 닫으며
+      그 스캔이 읽던 **두 원천이 모두 사라졌다**: `_index.json` 의 `anki` 매니페스트와 `anki/`
+      폴더의 `.txt`. 남겨 두면 이 입구는 「0장」이라는 **거짓만 만든다** — 0 은 「카드가 없다」로
+      읽히는데 실제 뜻은 「셀 수 없다」였다. 카드를 아는 곳은 이제 **Anki 앱 자신**뿐이고,
+      그 경로가 아래 AnkiConnect 다. 복구: `git show 은퇴/anki-2026-09-01` (부모) ·
+      hub 쪽 코드는 `git show ffd13ec:web/src/lib/anki.ts`.
 ============================================================ */
 import { iso } from './utils';
-import { loadVaultIndex } from './vault';
-import { dirEntries, pickDirectory } from './fsAccess';
-import { isTauri, shellAnkiConnect, shellAnkiScan } from './tauri';
+import { isTauri, shellAnkiConnect } from './tauri';
 
 import { matchSubjectIndex } from './subjectMatch';
 
@@ -34,6 +38,11 @@ export interface AnkiLive {
    *  날짜를 모르고, 그때는 **모른다고 말한다**(아래 `ankiFreshness`). */
   ds?: string;
 }
+/** 옛 볼트 카드 스캔이 남긴 저장본의 형태 — **생산자는 없다**(C072 · 2026-09-01 은퇴).
+ *  지우지 않는 이유는 `useRuntime.RuntimeCache._ankiFile` 이 이 타입을 쓰고, 그 슬롯이
+ *  `persistence.EPHEMERAL_ONLY_KEYS` **가드의 타입 짝**이기 때문이다(그 목록을 지우면 옛
+ *  localStorage 의 볼트 경로가 `settings` 행이 되어 D1 으로 나간다 — 그 주석이 SSOT).
+ *  즉 이건 죽은 타입이 아니라 **과거 데이터의 형태 선언**이다. */
 export interface AnkiFileDeck {
   file: string;
   subj: string;
@@ -43,11 +52,6 @@ export interface AnkiFile {
   at: string;
   src: string;
   decks: AnkiFileDeck[];
-}
-
-interface IndexAnki {
-  file: string;
-  cards: number;
 }
 
 /** AnkiConnect 단일 호출 — Anki 미실행/방화벽 시 3초 타임아웃(무한대기 방지). */
@@ -117,52 +121,6 @@ export function ankiFreshness(
   if (!live.ds) return { stale: true, label: '마지막 확인 시각을 몰라요' };
   if (live.ds === todayDs) return { stale: false, label: '오늘 확인함' };
   return { stale: true, label: `${live.ds}에 확인한 값이에요` };
-}
-
-/** 볼트 카드 스캔 — `_index.json` 의 anki 매니페스트 우선, 없으면 `anki/` 폴더 `.txt` 폴백.
- *  취소 시 null.
- *
- *  ⚠ **셸에선 폴더를 묻지 않는다**(4단계-I) — 워크스페이스를 이미 알기 때문이다. 3단계가 볼트
- *  노트 읽기에서 없앤 마찰을 여기서도 없앤 것이고, FSA 가 깨져서가 아니다(WebView2 에서
- *  `showDirectoryPicker` 는 실제로 동작한다 — 트랙 B 프로브로 확인). 그래서 셸 경로는
- *  `handle` 이 **null** 이다: 되물을 핸들이라는 개념 자체가 없다. */
-export async function pickAndScanAnki(
-  existing?: FileSystemDirectoryHandle,
-): Promise<{ scan: AnkiFile; handle: FileSystemDirectoryHandle | null } | null> {
-  if (isTauri()) {
-    const r = await shellAnkiScan<{ src: string; decks: AnkiFileDeck[] }>();
-    return { scan: { at: new Date().toLocaleString('ko'), src: r.src, decks: r.decks }, handle: null };
-  }
-  let handle = existing;
-  if (!handle) {
-    const picked = await pickDirectory(); // 미지원이면 FsUnsupportedError, 취소면 null
-    if (!picked) return null;
-    handle = picked;
-  }
-  let decks: AnkiFileDeck[] = [];
-  let src = '';
-  const idx = await loadVaultIndex(handle);
-  if (idx && Array.isArray(idx.anki) && idx.anki.length) {
-    decks = (idx.anki as IndexAnki[]).map((a) => ({
-      file: a.file.replace(/\.txt$/, ''),
-      subj: a.file.split('_')[0] ?? '',
-      cards: a.cards,
-    }));
-    src = '_index.json';
-  } else {
-    let ank: FileSystemDirectoryHandle | null = null;
-    for await (const [n, e] of dirEntries(handle))
-      if ((n === 'anki' || n === '_anki') && e.kind === 'directory') ank = e as FileSystemDirectoryHandle;
-    if (!ank) throw new Error('정본 _index.json도 anki 폴더도 못 찾았어요. 전공(볼트) 폴더를 선택하세요.');
-    for await (const [fn, fh] of dirEntries(ank)) {
-      if (fh.kind !== 'file' || !fn.endsWith('.txt')) continue;
-      const t = await (await (fh as FileSystemFileHandle).getFile()).text();
-      const cards = t.split('\n').filter((l) => l.trim() && !l.startsWith('#')).length;
-      decks.push({ file: fn.replace('.txt', ''), subj: fn.split('_')[0] ?? '', cards });
-    }
-    src = 'anki/ 폴더';
-  }
-  return { scan: { at: new Date().toLocaleString('ko'), src, decks }, handle };
 }
 
 /** 덱들의 오늘 풀 due 합(new+learn+review). */
@@ -245,11 +203,6 @@ export async function ankiReviewedBetween(fromDs: string, toDs: string): Promise
   } catch {
     return null;
   }
-}
-
-/** 볼트 카드 파일덱들의 총 카드 수 합 — totalDue와 대칭. 인라인 reduce 3중복 수렴(SR-11). */
-export function totalCards(decks: AnkiFileDeck[]): number {
-  return decks.reduce((t, d) => t + (+d.cards || 0), 0);
 }
 
 /* ── I002 **밖에서 이미 일어난 학습을 받는다** (2026-08-22 발상 축) ─────────────────────────

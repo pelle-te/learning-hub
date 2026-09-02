@@ -140,9 +140,9 @@ export default function Guide() {
             깊다. 굵기 유틸은 픽셀 보존용(전역 h1=800 · h2=700). */}
         <h2 className="mt-1! mb-2! text-xl! font-extrabold tracking-tight!">이 시스템이 할 수 있는 것 · 하는 법</h2>
         <p className="m-0 max-w-prose text-sm leading-relaxed text-mut">
-          <b className="text-txt">전공 교재를 원자형 노트로</b> — 교재를 개념 단위로 쪼개 검증하고, 실전문제와 Anki
-          카드를 낸다. 각 작업은 <b className="text-txt">Claude에게 말로</b> 시키거나(지시문을 읽고 실행), 터미널
-          명령/허브 탭에서 실행한다.
+          <b className="text-txt">전공 교재를 원자형 노트로</b> — 교재를 개념 단위로 쪼개 검증하고, 실전문제를 낸다. 각
+          작업은 <b className="text-txt">Claude에게 말로</b> 시키거나(지시문을 읽고 실행), 터미널 명령/허브 탭에서
+          실행한다.
           {/* ⛔ 2026-08-29 — 종전 이 문단은 «삶-연관 개인 지식 엔진 … 세 축(학습·수집·연관성)이 한 운전석에서 돈다»
               였다. 셋 중 둘이 죽었다: 수집은 2026-08-21 에(survey 로 갔다), 연관성·숙달도는 이번에 부모 목적
               정정으로. **남은 축은 하나**이고, 그러면 그건 축이 아니라 그냥 이 시스템이 하는 일이다. */}
@@ -156,17 +156,17 @@ export default function Guide() {
         title="전공 학습 — 교재를 노트로"
         what={
           <>
-            과목 교재(mineru→<Cmd>sources/</Cmd>)를 원자 개념노트로 만들어 실전문제 + Anki로 학습한다. 이게 엔진의 심장.
-            과목: <b>기초수학 BMATH · 선형대수 LINA · 과학기술과법 STLAW</b>.
+            과목 교재(mineru→<Cmd>sources/</Cmd>)를 원자 개념노트로 만들어 실전문제로 학습한다. 이게 엔진의 심장. 과목:{' '}
+            <b>기초수학 BMATH · 선형대수 LINA · 과학기술과법 STLAW</b>.
           </>
         }
       >
         <How label="한 챕터 통째">
-          <Say>"(과목) (챕터) 돌려줘"</Say> → 재작성→검증→시각화→출제→Anki→링크패스를 단계별 격리로 실행(
+          <Say>"(과목) (챕터) 돌려줘"</Say> → 재작성→검증→시각화→출제→링크패스를 단계별 격리로 실행(
           <code className={REF}>지시문_파이프라인</code>).
         </How>
         <How label="개별 단계만">
-          <Say>"(과목) (챕터) Anki만"</Say> 처럼 → 해당 <code className={REF}>지시문N</code> 단독 실행.
+          <Say>"(과목) (챕터) 검증만"</Say> 처럼 → 해당 <code className={REF}>지시문N</code> 단독 실행.
         </How>
         <How label="기존 노트 개선">
           <Say>"(과목) (챕터) 리팩터링"</Say> → 갭 분석 리포트 → <b>내 승인</b> → 패치(
@@ -177,7 +177,7 @@ export default function Guide() {
           바꾸기 전후 델타 측정).
         </How>
         <p className={NOTE}>
-          규칙: <code className={K}>status: verified</code> 노트만 카드·출제 대상. 검증 최종판정은{' '}
+          규칙: <code className={K}>status: verified</code> 노트만 출제 대상. 검증 최종판정은{' '}
           <b className="text-txt">나</b>
           (에이전트가 임의로 해소하지 않음).
         </p>
@@ -187,17 +187,17 @@ export default function Guide() {
       <Section
         n="② "
         glyph="refresh"
-        title="복습 — 카드까지가 이 시스템의 몫"
+        title="복습 — 카드는 더 이상 이 시스템의 몫이 아니다"
         what={
           <>
-            <b>2026-09-01 에 은퇴했습니다.</b> 부모(pipeline)가 Anki 축을 닫으면서 카드
-            생산·내보내기가 사라졌습니다. 이미 만든 카드는 Anki 앱 안에 그대로 있습니다.
+            <b>2026-09-01 에 은퇴했습니다.</b> 부모(pipeline)가 Anki 축을 닫으면서 카드 생산·내보내기가 사라졌습니다.
+            이미 만든 카드는 Anki 앱 안에 그대로 있습니다.
           </>
         }
       >
         <How label="카드 생성(은퇴)">
-          종전에는 <Say>"(과목) (챕터) Anki"</Say> 로 카드 초안을 내보내 <b>Anki에 import</b> 했습니다.
-          그 지시문도 그 폴더도 <b>지금은 없습니다</b> — 복구는 부모 태그 <code className={REF}>은퇴/anki-2026-09-01</code>.
+          종전에는 <Say>"(과목) (챕터) Anki"</Say> 로 카드 초안을 내보내 <b>Anki에 import</b> 했습니다. 그 지시문도 그
+          폴더도 <b>지금은 없습니다</b> — 복구는 부모 태그 <code className={REF}>은퇴/anki-2026-09-01</code>.
         </How>
         <How label="약점·점검 도구">
           모의고사(실전문제)는 그대로. 허브 <Tab k="review-run" />
@@ -206,8 +206,10 @@ export default function Guide() {
         <p className={WARN}>
           <Icon name="alert" /> <b className="text-learning">2026-08-29 — 학습 신호 축이 은퇴했다.</b> 부모(pipeline)가
           목적을 「전공 교재 → 원자형 노트」로 좁히면서 복습 신호·숙달도 추정이 범위 밖이 됐고, 그 도구들(학습신호 ·
-          약점큐 · 파인만)과 카드 재연결 런북이 함께 삭제됐다. <b>카드 생성(지시문4)과 실전문제는 그대로다</b> — 사라진
-          것은 «복습이 얼마나 됐나»를 되받는 경로뿐이다.
+          약점큐 · 파인만)과 카드 재연결 런북이 함께 삭제됐다. <b>실전문제는 그대로다.</b>
+          {/* ⛔ 이 줄은 «카드 생성(지시문4)과 실전문제는 그대로다» 였다 — 2026-09-01 부모의 Anki
+              은퇴 뒤에도 안 따라온 문장이라 **바로 위 절과 정면으로 모순**했고, `지시문4` 는
+              부모 저장소에 실재하지 않는다(실측: 0·1·2·3·5·6·7·8·9·10). */}
         </p>
       </Section>
 
