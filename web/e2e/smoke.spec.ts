@@ -1,5 +1,5 @@
 import { test, expect } from './_test';
-import { boot } from './_fixtures';
+import { boot, pressGlobalKey } from './_fixtures';
 
 /* 스모크 — 실제 빌드물(dist)에서 셸·나브·라우팅·팔레트·폴백이 동작하는지(베이스라인 불필요). */
 
@@ -95,8 +95,10 @@ test('치트시트가 떠 있으면 `g` 시퀀스가 뒤의 탭을 바꾸지 않
   await expect(page.getByLabel('오늘 대시보드')).toBeVisible();
   await expect(page).toHaveURL(/\/today$/);
 
-  await page.keyboard.press('?');
-  await expect(page.getByRole('dialog').first()).toBeVisible();
+  /* ⚠ `pressGlobalKey` — 단일키 리스너는 `App` 동적 청크가 실행돼야 붙어 **삼켜질 수 있다**
+     (U093 · 실측 2/12 @ workers=4). 여기 단언은 `.or()` 가 없어 삼켜지면 **시끄럽게** 죽지만
+     (visual 쪽과 달리 틀린 화면을 굽지는 않았다) flaky 인 것은 같으므로 같은 헬퍼를 쓴다. */
+  await pressGlobalKey(page, '?', page.getByRole('dialog').first());
 
   // 치트시트에 적힌 그대로: `g` 그다음 `a`(= 통계 · SEQ_OVERRIDE). 열려 있는 동안엔 먹으면 안 된다.
   await page.keyboard.press('g');

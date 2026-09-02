@@ -19,6 +19,7 @@ import {
   bootArtifactPhase,
   bootPhone,
   settle,
+  pressGlobalKey,
 } from './_fixtures';
 import { glyphOf } from '../src/shell/tabs';
 
@@ -874,9 +875,20 @@ test('shortcuts-help · dark', async ({ page }) => {
   await boot(page, 'dark');
   await page.goto('/today');
   await settle(page);
-  await page.keyboard.press('?');
-  // 열렸다는 것을 단언한 뒤 찍는다 — 안 열린 화면을 정답으로 굽지 않게(§15-4).
-  await expect(page.getByRole('dialog').or(page.locator('[aria-label*="단축키"]')).first()).toBeVisible();
+  /* ⚠ `pressGlobalKey` 로 누른다 — 단일키 리스너는 `App` 동적 청크가 실행돼야 붙는데
+     `settle()` 은 그 창을 못 덮어 **키가 조용히 삼켜진다**(실측 2/12 · 근거는 그 헬퍼 머리주석). */
+  await pressGlobalKey(page, '?', page.getByRole('dialog', { name: '키보드 단축키' }));
+  /* ⚠⚠ **이 단언은 아무것도 안 지키고 있었다**(U093 · 2026-09-02). 옛 형태
+     `getByRole('dialog').or(locator('[aria-label*="단축키"]')).first()` 의 그 셀렉터는 **셋**에
+     매칭된다 — `TopBar` 의 `?` 버튼(`키보드 단축키 보기`) · `KeycapBar`(`이 화면의 단축키`) ·
+     그리고 진짜 다이얼로그. 앞의 둘은 **`/today` 에 항상 떠 있으므로** `.first()` 는 다이얼로그가
+     열렸든 말든 참이다. 실제로 `?` 가 삼켜진 실행에서 **다이얼로그가 없는 `/today` 화면이
+     찍혔고**, 단언은 통과했다(`--workers=4` 로 12회 돌려 2회 재현).
+     ⭐ **바로 이 파일의 `ledger · error` 가 2026-08-01 에 같은 `.or()` 로 물려 좁혔고**, 그 주석이
+     _"이 단언은 원래부터 자기가 무엇을 보는지 몰랐다"_ 라 적었다 — 형제 케이스에 그 판례가
+     적용되지 않았다. 지금은 `A11Y_OVERLAY` 의 `overlay-shortcuts` 와 **같은 로케이터**를 쓴다
+     (이름으로 지목하면 유일하다 · `ShortcutsHelp` 의 `aria-label` 이 그 계약). */
+  await expect(page.getByRole('dialog', { name: '키보드 단축키' })).toBeVisible();
   await settle(page);
   await expect(page).toHaveScreenshot('shortcuts-help-dark.png');
 });

@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /* ============================================================
    _fixtures.ts — e2e 공용 시드·fixture·부팅 헬퍼.
@@ -677,6 +677,38 @@ export async function bootPhone(page: Page, theme?: 'dark' | 'light'): Promise<v
    안정화는 그 사이에 끼어들 수 있어(실측: 16 병렬에서 2/16 이 스와프 전 상태로 박혔다)
    **베이스라인 자체가 두 상태를 오갔다** — 종전 임계 2% 가 그걸 통째로 삼키고 있었다.
    `fonts.status==='loaded'` 로 스와프 완료를 단정하고 rAF 두 번으로 그 뒤 리플로우까지 넘긴다. */
+/* ============================================================
+   단일키 전역 단축키를 **확실히** 누른다 (U093 · 2026-09-02)
+
+   ## 왜 필요한가 — `settle()` 은 「앱이 키를 듣는가」를 말하지 않는다
+
+   `?`·`g`·`[`/`]` 는 `App.tsx` 의 `useEffect` 가 `document` 에 붙이는 리스너가 받는다. 그런데
+   `main.tsx` 는 `App` 을 **동적 import** 하므로(SD-7 부팅 순서 계약) `document.readyState` 가
+   `complete` 가 되는 시점은 그 청크가 실행되기 **전**일 수 있다. `settle()` 이 기다리는 것은
+   문서·폰트·2 rAF 뿐이라 그 창을 못 덮는다 — 즉 **키가 조용히 삼켜진다.**
+
+   실측(`--workers=4` · 12회): 병렬 부하에서 **2회** 삼켜졌다. 그리고 그때 시각 케이스는
+   «다이얼로그 없는 `/today`» 를 찍었는데도 **통과했다** — 그 단언이 `.or()` 로 항상 떠 있는
+   버튼까지 매칭했기 때문이다(U093 의 본체). 즉 이 저장소는 **삼켜진 키 + 헐거운 단언**의
+   곱으로 «틀린 화면을 정답으로 굽는» 문턱에 있었다.
+
+   ## 왜 재시도인가 — 대기할 신호가 없다
+
+   리스너 등록은 **관측 가능한 표면을 안 만든다**(DOM 에도 window 에도 흔적이 없다). 그래서
+   «준비를 기다린다» 가 불가능하고, 남는 것은 «눌러 보고 확인한다» 뿐이다.
+   ⚠ **토글 안전이 계약이다** — `?` 는 토글이라 무조건 다시 누르면 열린 것을 **닫는다.**
+   그래서 `ready` 가 아직 거짓일 때만 누른다. 이 형태면 리스너가 영영 안 붙어도 조용히 통과하지
+   않고 `toPass` 타임아웃으로 **시끄럽게 죽는다**(조용한 skip 금지 규율).
+   ⛔ `ready` 로 «항상 떠 있는 것»을 주지 마라 — 그러면 이 함수는 한 번 누르고 끝나는 것과
+   같아지고, U093 이 그대로 되살아난다. **이름으로 지목한 오버레이 자신**을 줘라.
+============================================================ */
+export async function pressGlobalKey(page: Page, key: string, ready: Locator): Promise<void> {
+  await expect(async () => {
+    if (!(await ready.isVisible())) await page.keyboard.press(key);
+    await expect(ready).toBeVisible({ timeout: 700 });
+  }).toPass({ timeout: 10_000 });
+}
+
 export async function settle(page: Page) {
   /* ⚠ **문서 로드 완료를 먼저 단정한다.** 실측 형태: 같은 화면이 실행에 따라 **네이티브 폼
      컨트롤(체크박스·날짜 입력 아이콘)이 그려진 상**과 안 그려진 상으로 갈렸다 — 그건 폰트도
