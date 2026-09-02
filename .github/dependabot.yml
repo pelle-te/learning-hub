@@ -99,6 +99,18 @@ updates:
       #   (O039 · `freshness.mjs` 봇 축이 이제 그 포화를 잰다).
       - dependency-name: '@eslint/js'
         versions: ['>=10']
+      # ⚠⚠ **Babel 8 은 React Compiler 의 자동 메모를 조용히 깎는다**(O042 · 2026-09-02 실측).
+      #   `@babel/core 8.0.1` 로 올리고 `verify` 를 돌리면 **컴파일러 바일아웃이 28 → 42**(13 파일이
+      #   0 → 1~3)로 뛴다. `babel-plugin-react-compiler@1.0.0` 이 Babel 8 을 아직 못 무는 것이고,
+      #   증상이 **에러가 아니라 침묵**이라는 것이 요점이다 — 타입체크·린트·테스트 2263 은 전부
+      #   초록이고 **메모만 사라진다.** `compiler:ratchet`(래칫) 하나가 잡았다.
+      #   ⚠ 「한도만 올리는 건 처방이 아니다」와 같은 이유로 **`--write` 로 기준선을 올리지 마라** —
+      #   그러면 이 회귀를 정답으로 굳힌다.
+      #   ⚠ **재시도 조건**: `babel-plugin-react-compiler` 가 Babel 8 을 peer 로 선언하는 판을 내면.
+      #   그때 되돌리는 법은 `npm i -D @babel/core@^8` 뒤 `npm run verify` 의 바일아웃 수를 보는 것
+      #   하나다(28 이하면 이 줄을 지운다).
+      - dependency-name: '@babel/core'
+        versions: ['>=8']
 
   - package-ecosystem: npm
     directory: /server
