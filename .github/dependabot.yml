@@ -89,6 +89,12 @@ updates:
       #   ESLint 10 은 `eslint-plugin-jsx-a11y`(peer `^9`) 하나가 막는다. 둘 다 롤백했다.
       #   ⚠ **다시 조사하지 마라** — 재시도 조건은 SCA 원장에 적혀 있다. PR 이 반복해 올라오면
       #   그 결정을 매번 다시 하게 된다(그게 이 두 줄의 목적이다).
+      # ⭐ **TS 6 은 취했다**(O043 · 2026-09-02). 위 문단이 근거로 든 `typescript-eslint` peer 가
+      #   `>=4.8.4 <6.1.0` 이라 **6 은 범위 안**이다 — 막는 것은 7 뿐이고, 그 사실이 종전엔
+      #   「TS 는 5.9 에 묶여 있다」로 읽혔다. web·server 를 **함께** 6.0.3 으로 올렸다(둘을
+      #   갈라 올리면 `server/tsconfig.json` 이 무는 web 소스 넷을 두 메이저가 컴파일한다).
+      #   실측: 게이트 한 바퀴 초록 · 유일한 걸림돌은 `phone.spec.ts` 의 `@ts-expect-error` 가
+      #   **lib.dom 이 따라잡아 사문이 된 것**이었다(`TS2578`).
       - dependency-name: typescript
         versions: ['>=7']
       - dependency-name: eslint
@@ -141,7 +147,11 @@ updates:
       #   파일 넷**을 직접 문다(`cloud/contract.ts`·`cloud/schema.ts`·`db/rows.ts`·`persistence.ts`).
       #   즉 server 만 TS 7 로 올리면 **같은 파일을 두 메이저가 컴파일**하게 되고, 그건 이
       #   저장소가 `rows.ts` ↔ `rows.rs` 로 두 번 물린 divergence 의 타입체커판이다.
-      #   재시도 조건은 web 쪽과 같다 — SCA 원장이 SSOT.
+      #   재시도 조건은 web 쪽과 같다.
+      #   ⭐ **그래서 두 트리를 함께 올린다**(O043 · 2026-09-02): TS 6 은 web·server 동시에 갔다.
+      #   이 항목이 계속 `>=7` 인 것은 옳다 — 6 은 양쪽이 같은 커밋에서 움직였으므로 divergence 가
+      #   없다. ⚠ **다음에 메이저를 취할 때도 「한쪽만」은 안 된다** — 봇은 트리마다 PR 을 내므로
+      #   그 조율은 사람이 한다(그것이 PR #11 을 단독 머지하면 안 됐던 이유다).
       - dependency-name: typescript
         versions: ['>=7']
 

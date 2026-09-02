@@ -29,7 +29,11 @@ async function opfsEntries(page: import('@playwright/test').Page): Promise<strin
   return page.evaluate(async () => {
     const root = await navigator.storage.getDirectory();
     const out: string[] = [];
-    // @ts-expect-error — entries() 는 표준이지만 lib.dom 타입이 아직 안 따라온다
+    /* ⚠ 여기 `@ts-expect-error` 가 있었다 — «entries() 는 표준인데 lib.dom 이 안 따라온다».
+       **TS 6.0 의 lib.dom 이 따라잡았고**(O043 · 2026-09-02), 그러자 억제 자체가
+       `TS2578 Unused '@ts-expect-error'` 로 **빨갛게 죽었다.** ⭐ 그게 `@ts-ignore` 가 아니라
+       `@ts-expect-error` 를 쓰는 이유다 — 사유가 사라지면 스스로 알린다(`@ts-ignore` 였으면
+       조용히 사문으로 남았다). 이 저장소가 「판단에 유효기간」을 요구하는 그 규율의 타입판. */
     for await (const [name] of root.entries()) out.push(String(name));
     return out;
   });
