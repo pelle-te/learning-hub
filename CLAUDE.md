@@ -50,10 +50,14 @@
 ## 게이트 (원커맨드 · `cd web` 후)
 
 ```
-npm run verify   # codegen:check + typecheck + lint + lint:css + **check:tokens** + format:check + knip + test:coverage
+npm run verify   # codegen:check + typecheck + lint + lint:css + **check:tokens** + **compiler:ratchet** +
+                 #   format:check + knip + test:coverage + **test:tz**
                  #   ⚠ `check:tokens` 가 이 목록에서 빠져 있었다(2026-07-30 감사). H20 이 만든,
                  #   **TS 문자열 속 미정의 `var(--x)`** 의 유일한 검출기다(stylelint 는 CSS 만 본다).
                  #   목록을 손으로 베끼면 이렇게 드리프트한다 — 정본은 `package.json` 이다.
+                 #   ⚠⚠ **그리고 이 줄이 두 번째로 낡았다**(V042 · 2026-08-31): 위 경고를 단 채
+                 #   `compiler:ratchet`(React Compiler 바일아웃 래칫)·`test:tz`(시간대 매트릭스)가
+                 #   빠져 있었다. 경고문은 집행자가 아니다 — 그 자리는 `V092` 가 진다.
 npm run audit    # SCA — 알려진 CVE 게이트(2026-07-25). ⚠ **server 쪽도 함께 돈다**(`npm run gate` 가
                  #   `server audit` 을 별도 단계로 가진다 · 2026-08-06 편입). 종전엔 web 만 돌고 server 는
                  #   "CI 가 쥔다"였는데, 그 CI 잡이 5일간 안 돌아 `undici` high 5건이 로컬 녹색 뒤에
@@ -154,7 +158,7 @@ npm run tauri:deny   # 루트에서 — Cargo 공급망 SCA(D010 · 2026-08-21).
 cd server && npm run verify   # 클라우드 백엔드 — typecheck + format + 계약(SQL) + 왕복(실 workerd·D1)
                               # ⚠ **이제 `npm run gate`(full) 안에 있다**(2026-08-01 `/감사 근본`).
                               #   여기 남기는 이유는 단독 실행. `build` **뒤**가 자리다 —
-                              #   `test/assets.test.ts` 가 `../web/dist` 를 실 miniflare 로 잰다.
+                              #   `server/test/assets.test.ts` 가 `../web/dist` 를 실 miniflare 로 잰다.
 ```
 
 - ⚠ **`server/` 게이트를 빼먹지 말 것.** 인터넷에 노출되고 **인증·입력검증을 다루는** 유일한 층인데, 2026-07-20 감사 전까지 **CI 도 로컬 게이트도 안 돌고 있었다.**
@@ -178,7 +182,7 @@ cd server && npm run verify   # 클라우드 백엔드 — typecheck + format + 
   - `next` 는 **필수**이고 타입이 `undefined` 를 **막는다**(`ReactNode` 를 쓰면 `next={undefined}` 가 통과해 필수화가 무력해진다 — 실제로 그 구멍으로 하나가 새고 있었다). 행동이 없으면 `{ terminal: '왜 없는지' }`.
   - 콜드 게이트 문구는 `WORKSPACE_UNSET`·`workspaceHint(gains)`·`needsWorkspace(what)` — **공통부만** 공유하고 "이 화면이 얻는 것"은 호출부가 준다.
 - ⚠ **`commit`(내 행동이 반영됨)은 값 쪽이 소유한다** — `hooks/useCommitOnChange(value)`(E15). 뮤테이션에 DOM 을 알리면 `store` 가 배치를 알게 되어 레이어 규율이 깨지고, 입구가 여럿인 값(⌘K·키보드·폰·**클라우드 pull**)마다 붙여야 한다. 값 쪽에 붙이면 한 번에 전부 덮인다.
-- **`npm run report:debt`** — 인지복잡도·파일 크기·features:lib 비율을 **강제 없이** 출력(추세 관찰용). 하드 게이트는 래칫 2개(`cognitive-complexity` · `max-lines`)뿐이고 — **값은 여기 적지 않는다**(`eslint.config.js` 가 정본 · 여기 730 이라 적혀 있던 동안 실제로는 745 였다. `report-debt.mjs` 가 같은 손베낌으로 물려 임계를 게이트에서 읽게 고친 이력이 있는데, 이 문서가 그 다음 사본이었다) "더 나빠지지 않는다"만 보장한다.
+- **`npm run report:debt`** — 인지복잡도·파일 크기·features:lib 비율을 **강제 없이** 출력(추세 관찰용). 하드 게이트는 래칫 **셋**(`cognitive-complexity` · `max-lines` · **`compiler:ratchet`** = React Compiler 바일아웃 수)이고 — **값은 여기 적지 않는다**(`eslint.config.js` 가 정본 · 여기 730 이라 적혀 있던 동안 실제로는 745 였다. `report-debt.mjs` 가 같은 손베낌으로 물려 임계를 게이트에서 읽게 고친 이력이 있는데, 이 문서가 그 다음 사본이었다) "더 나빠지지 않는다"만 보장한다.
 
 - **e2e 스냅샷 함정:** `--update-snapshots`을 **값 없이** 주면 기본이 `changed` — **실패한 것만** 다시 쓴다. 임계(현재 0.5%) 아래로 드리프트한 낡은 베이스라인은 재생성도 경고도 없이 **통과**한다(§15-7 이 이걸로 몇 달을 잃었다). → `npm run e2e:update` 는 `=all --workers=1` 로 못박혀 있고 **설정 둘(기본 + 모션)을 이어 돈다** — 정본은 `web/package.json`(값 없는 형태를 쓰지 말 것 · 단일 워커는 웹폰트 스와프 상태를 베이스라인에 굽지 않기 위한 것). ⚠ 모션까지 도는 이유: 검사(`e2e`)는 설정 둘인데 재생성이 기본 하나뿐이면 **그 차이만큼은 고칠 수 없는 실패**로 남는다(2026-08-01 아이콘 이식에서 모션 4장이 그랬다). 전량이 아니라 일부만 다시 쓰려면 `-g` 로 **제목을 좁히고 `=all` 은 유지**한다. flaky 근절 위해 GPU는 `--disable-gpu`로 핀 고정돼 있다(건드리지 말 것).
   - ⚠ **재생성 대상은 "실패한 것"이 아니라 "그 UI 가 보이는 스냅샷 전부"다.** 네온 채움 복원(2026-07-24)에서 실패는 10장이었지만 실제로 바뀐 화면은 **24장**이었다 — 14장이 임계 아래로 조용히 통과 중이었다.
@@ -243,6 +247,13 @@ web/src/
   lib/        순수 로직·IO(api·scheduler·anki·vault·schema…). 최하위, React 무관(훅은 hooks/).
   lib/db/     **앱 데이터 정본(SQLite · 2단계~)**. rows.ts=AppState↔행 **순수** 매퍼(Tauri 없이 전량
               테스트) · sqlite.ts=SQL만(로직 없음) · boot.ts=부팅 읽기+localStorage 1회 이관 · write.ts=정본 쓰기+되읽기 대조(옛 dual.ts).
+              ⚠ **여기 넷만 적혀 있었다 — 실물은 12 다**(V044·V045 · 2026-08-31). 빠져 있던 여덟이
+              하필 **두 축**이었다: ⓐ **폰 경로**(browserDb.ts=워커의 메인스레드 절반 ·
+              sqlite.worker.ts=워커 안 · migrations.ts=브라우저가 적용할 목록 · migrateSchema.ts=폰
+              스키마 이행) ⓑ **AppState 밖**(docs.ts=사용자 저작물 · stamp.ts=단조증가 동기화
+              타임스탬프 · undoStack.ts=전역 ⌘Z pre-image · fallback.ts=정본이 죽은 세션의 임시 사본
+              마커). 즉 이 지도만 읽으면 **폰이 없는 앱**으로 보인다 — `isSqlitePrimary()` 를 틀리게
+              만드는 상류다.
               ⚠ **트랜잭션 금지** — sqlx 커넥션 풀이라 별도 execute로 부른 BEGIN이 다른 커넥션의 쓰기를
               막아 `database is locked`로 죽는다(실측). 증분 upsert가 대신 안전을 준다(DB가 비는 창이 없다).
               스키마 DDL의 단일 원천은 **`src-tauri/src/db.rs`**(프런트가 DDL을 들면 배포본마다 갈린다).
@@ -253,9 +264,16 @@ web/src/
               프런트에서 그 커맨드를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2)이고,
               전송 분기(셸/브라우저)는 **모듈당 한 곳**이다(`api.ts`·`cloud/client.ts`·`anki.ts` —
               2026-07-26 감사에서 "api.ts 안에만"이 사실과 달라 정정).
-src-tauri/    Tauri 2 셸(1단계~). workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
+src-tauri/    Tauri 2 셸(1단계~). ⚠ **아래는 9 개만 적고 있었다 — 실물은 18 이다**(V044 ·
+              2026-08-31). 빠진 것 중 **`cloud.rs`·`notify.rs` 가 특히 위험**했다: 전자는 인터넷으로
+              나가는 **유일한 중계**(C-5 가 정확히 그 경로에서 났다)이고 후자는 P-8 이 세운 알림
+              착지다 — 지도에 없으면 그 층을 안 거치는 코드가 다시 태어난다.
+              **더 있는 것**: anki_scan.rs(볼트 Anki 스캔) · boot.rs(네이티브 기동 시각 · P035) ·
+              paths.rs(앱 데이터 위치 SSOT · SD-6) · updater.rs(엔드포인트는 런타임 · C3) ·
+              testkit.rs(통합 테스트 헬퍼 · 머리주석이 그 SSOT) · lib.rs·main.rs.
+              workspace.rs=워크스페이스 경로 · **db.rs=SQLite 스키마(SSOT)** ·
               **hotkey.rs=전역 캡처 단축키(E20 · 등록 실패를 `capabilities.hotkeyError` 로 관측)** ·
-              **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 7종+RAII 동시성 캡 ·
+              **vault.rs=볼트 읽기+notify 감시(3단계)** · **tools.rs=파이썬 도구 화이트리스트+RAII 동시성 캡 ·
               ollama.rs=AI(Channel 스트리밍 · 프롬프트 빌더는 회고 코치 1종) · artifact.rs=산출물 화이트리스트 ·
               files.rs=내보내기 저장 · anki.rs=AnkiConnect 중계**(4단계). 프런트에서 invoke를 부르는 곳은 **`web/src/lib/tauri.ts` 하나**(불변식 I2).
               ⚠⚠ **개수를 여기 손으로 적지 마라 — 이 줄은 실제로 두 번 낡았다.** 정본은 각 파일의

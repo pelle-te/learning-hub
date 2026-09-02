@@ -1,7 +1,28 @@
 #!/usr/bin/env sh
-# web/ 변경이 스테이징됐을 때만 품질 게이트를 돈다.
-# (문서·serve.js·수집물만 커밋하면 통과 — web 무관 커밋을 막지 않는다.)
-changed=$(git diff --cached --name-only --diff-filter=ACM)
+# ⚠⚠ **시크릿 검사는 `^web/` 조건 밖이다**(V069 · 2026-08-31). 이 저장소는 **PUBLIC** 이고,
+# 시크릿은 `web/` 에만 떨어지지 않는다(`src-tauri/`·`server/`·루트 설정·문서 어디든). 그리고
+# 커밋된 뒤에 도는 CI 는 «알려 주는 것»이지 «막는 것»이 아니다 — 여기가 막는 자리다.
+# ⚠ 스테이징된 diff 만 본다(~수백 ms). 이력 전체는 게이트 full 의 `secret-scan` 이 진다.
+if command -v gitleaks >/dev/null 2>&1; then
+  (cd web && npm run secret-scan:staged --silent) || {
+    echo "[pre-commit] ✗ 스테이징에 시크릿으로 보이는 것이 있습니다 — 커밋 중단"
+    echo "             오탐이면 그 줄 끝에 'gitleaks:allow' 를 달거나 .gitleaksignore 에 사유와 함께 올리세요."
+    exit 1
+  }
+else
+  # ⚠ 조용히 건너뛰지 않는다 — 이 저장소가 반복해 물린 형태가 «있는 줄 알았는데 안 돌고 있었다» 다.
+  echo "[pre-commit] ⚠ gitleaks 가 없어 시크릿 검사를 건너뜁니다 — 설치를 권합니다(winget install gitleaks)."
+fi
+
+# ⚠⚠⚠ **`-c core.quotepath=false` 를 빼지 마라**(O041 회차 실측 · 2026-09-02). 기본값이 `true` 라
+#   비-ASCII 경로가 `"web/docs/\354\233\220\354\236\245.md"` 처럼 **따옴표로 감싸여** 나온다 —
+#   그러면 앞의 `"` 때문에 아래 `^web/`·`^.claude/` 가 **한 줄도 안 걸린다.** 즉 한글 파일만 담긴
+#   커밋(이 저장소 문서의 대부분)은 종전에도 **아무 검사를 안 받고 지나갔다.** O041 의 새 분기를
+#   되심기로 검증하다 드러났다(브랜치를 넓혔는데도 훅이 초록이었다). `CLAUDE.md` 규칙 #5 가 같은
+#   이유로 이미 이 플래그를 못박고 있었는데, 훅 자신은 안 쓰고 있었다.
+changed=$(git -c core.quotepath=false diff --cached --name-only --diff-filter=ACM)
+
+# web/ 변경이 스테이징됐을 때 품질 게이트를 돈다.
 if printf '%s\n' "$changed" | grep -q '^web/'; then
   echo "[pre-commit] web 변경 감지 → lint-staged · typecheck · test"
   (
@@ -11,6 +32,35 @@ if printf '%s\n' "$changed" | grep -q '^web/'; then
     npm run test
   ) || {
     echo "[pre-commit] ✗ 검증 실패 — 커밋 중단 (수정 후 다시 커밋하세요)"
+    exit 1
+  }
+
+# ⚠⚠ **문서만 담긴 커밋은 게이트를 한 번도 안 지나갔다**(V094 · 2026-09-01). 위 조건이 `^web/`
+#   하나여서 `CLAUDE.md`·`README.md`·`src-tauri/**` 만 고친 커밋은 **아무 검사도 안 받았다** —
+#   그런데 규약 축 1회차가 연 발견의 절반이 그 파일들이었다(안내가 없는 것을 가리키는 부류).
+#   이제 그런 커밋도 `docsFacts.test.ts` 하나는 지난다(경로·명령·`ds-*`·verify 목록 실재).
+# ⚠ **전량이 아니라 그 케이스만 돈다** — 문서 한 줄에 typecheck+전 테스트를 요구하면 사람이
+#   `--no-verify` 를 쓰기 시작하고, 그러면 훅을 통째로 잃는다(게이트를 잃는 가장 흔한 경로).
+# ⚠⚠⚠ **이 훅 자신과 `.claude/` 는 어느 검사도 안 받고 있었다**(O041 · 2026-09-02). 위 두 조건이
+#   `^web/` 와 «md·src-tauri·.github» 뿐이라 **훅 스크립트·`.claude/hooks/*.sh`·루트 설정**이
+#   그물 밖이었다 — 하필 **게이트를 거는 층 자신**이다. 셸 스크립트에 구문 오류가 실리면 그다음
+#   `git commit` 마다 이 훅이 죽고(`.claude/hooks` 면 PreToolUse 가 죽고), 그때는 검사가 하나
+#   줄어드는 것이 아니라 **통째로 사라진다.** 그래서 `sh -n`(구문만 · ~10ms)이 여기 있다.
+# ⚠ **작업트리가 아니라 스테이징된 내용**(`git show :파일`)을 본다 — 부분 스테이징에서 초록이
+#   거짓이 되지 않게. 이 저장소는 «있는 줄 알았는데 안 돌고 있었다» 에 반복해 물렸다.
+elif printf '%s\n' "$changed" | grep -qE '\.md$|^src-tauri/|^\.github/|^\.claude/|^\.husky/'; then
+  echo "[pre-commit] 문서·셸 변경 감지 → sh -n · docsFacts (안내가 가리키는 것이 실재하는가)"
+  printf '%s\n' "$changed" | grep -E '\.sh$|^\.husky/[a-z-]+$' | while IFS= read -r f; do
+    git show ":$f" | sh -n - || {
+      echo "[pre-commit] ✗ $f 에 셸 구문 오류가 있습니다 — 커밋 중단"
+      echo "             이 파일은 커밋된 순간부터 매 커밋(또는 매 툴콜)에서 실행됩니다."
+      exit 1
+    }
+  done || exit 1
+  (cd web && npx --no-install vitest run test/docsFacts.test.ts) || {
+    echo "[pre-commit] ✗ 안내가 없는 것을 가리킵니다 — 커밋 중단"
+    echo "             경로·명령이 옮겨졌으면 문서를 고치고, 일부러 부재를 적은 것이면"
+    echo "             web/test/docsFacts.test.ts 의 면제 표에 **사유와 함께** 올리세요."
     exit 1
   }
 fi

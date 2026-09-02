@@ -1,0 +1,13 @@
+package.json: 15 scripts
+web/package.json: 43 scripts
+server/package.json: 16 scripts
+
+문서 62개 스캔
+=== 문서가 부르는데 어느 package.json 에도 없는 스크립트 ===
+  npm run X   <- 1곳
+      .\web\docs\판례.md:111
+
+=== 전체 스크립트 ===
+package.json | _주석:audit _주석:build:fast _주석:tauri:deny _주석:test audit prepare tauri tauri:build tauri:build:fast tauri:check tauri:clippy tauri:deny tauri:dev tauri:fmt tauri:test
+web/package.json | _주석:check:tokens _주석:e2e _주석:e2e:motion:update _주석:e2e:update _주석:freshness _주석:release:stage _주석:test:tz audit budget budget:repo build build:profile check:tokens codegen codegen:check compiler:ratchet dev e2e e2e:a11y e2e:motion e2e:motion:update e2e:shell e2e:smoke e2e:update font:subset format format:check freshness gate knip lint lint:css preview release:stage release:verify report:debt scaffold-tab test test:coverage test:tz test:watch typecheck verify
+server/package.json | _주석:audit _주석:postdeploy _주석:predeploy audit deploy dev format format:check migrate:local migrate:remote postdeploy predeploy test test:roundtrip typecheck verify

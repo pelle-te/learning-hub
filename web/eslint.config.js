@@ -12,13 +12,15 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import betterTailwind from 'eslint-plugin-better-tailwindcss';
 
 export default tseslint.config(
-  // e2e(Playwright)는 별도 러너·tsconfig 밖 → 앱 lint에서 제외(Playwright가 자체 처리).
+  /* ⚠⚠ **여기 «e2e 는 Playwright 가 자체 처리» 라 적혀 있었다 — 사실이 아니다**(V072 ·
+     2026-09-01). Playwright 는 **린트하지 않고**, `eslint-plugin-playwright` 는 이 저장소에
+     없다. 그리고 «tsconfig 밖» 이라는 나머지 절반도 `V068` 이 닫았다(`tsconfig.test.json`).
+     즉 검증망의 절반(visual·a11y·motion·asyncErrors·smoke)이 **린트 0 · 타입 0** 이었다. */
   {
     ignores: [
       'dist',
       'dev-dist',
       'node_modules',
-      'e2e/**',
       'playwright.config.ts',
       'test-results/**',
       'playwright-report/**',
@@ -695,6 +697,21 @@ export default tseslint.config(
             },
           ],
         },
+      ],
+    },
+  },
+
+  /* ── 검증망(test·e2e·e2e-shell) — **린트를 받되, 모의의 미사용 인자는 허용한다**(V072 · V068) ──
+     ⚠ 이 저장소의 모의는 «무엇을 흉내내는가»를 **서명으로** 적는다(`(_q: string, _args?: unknown[])`).
+     그 인자를 본문에서 안 쓰는 것이 정상이고 — 오히려 **적어 두는 것이 계약의 기록**이다.
+     그래서 `_` 접두를 미사용 허용으로 둔다(TS 의 `noUnusedParameters` 도 같은 규약이다).
+     ⛔ 이 블록에 다른 완화를 더하지 마라 — 검증망을 린트 밖에 두었던 것이 `V072` 였다. */
+  {
+    files: ['test/**/*.{ts,tsx}', 'e2e/**/*.ts', 'e2e-shell/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
     },
   },

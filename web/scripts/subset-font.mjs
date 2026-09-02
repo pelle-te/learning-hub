@@ -26,7 +26,39 @@ import { dirname, join } from 'node:path';
 const web = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(web, 'fonts-src/PretendardVariable.woff2');
 const OUT = join(web, 'public/fonts');
-const PY = process.env.FONT_PYTHON ?? 'C:/Users/a1g2a/AppData/Local/Programs/Python/Python314/python.exe';
+/* ⚠⚠ **여기에 홈 절대경로가 박혀 있었다**(`C:/Users/<사용자>/…/Python314/python.exe` · V088 ·
+   2026-08-31) — 저장소 전체에서 소스에 홈 경로가 박힌 **유일한** 자리였고, 이 저장소는 **PUBLIC**
+   이다. 다른 머신에서는 `ENOENT` 로 죽었고, 그 메시지는 `FONT_PYTHON` 도 `fontTools`/`brotli`
+   전제도 말하지 않았다(머리주석에만 있었다 — `tools.rs:329` 가 «문서는 «미리», 메시지는 «지금»»
+   으로 갈라 둔 바로 그 구분이 여기엔 안 갔다). */
+const PY = process.env.FONT_PYTHON ?? 'python';
+
+/** 인터프리터와 전제(fontTools·brotli)를 **돌리기 전에** 확인하고, 실패하면 처방을 준다. */
+function 파이썬_확인() {
+  try {
+    execFileSync(PY, ['-c', 'import fontTools, brotli'], { stdio: 'pipe' });
+  } catch (e) {
+    const 이유 = e?.code === 'ENOENT' ? `그 실행 파일이 없습니다.` : `실행은 되지만 fontTools 또는 brotli 가 없습니다.`;
+    console.error(
+      [
+        ``,
+        `✗ 폰트 서브셋을 돌릴 파이썬을 못 찾았습니다: ${PY}`,
+        `  → ${이유}`,
+        ``,
+        `  할 것:`,
+        `    1) 인터프리터 지정 — FONT_PYTHON=<python 경로> npm run font:subset`,
+        `    2) 전제 설치     — <python> -m pip install fonttools brotli`,
+        ``,
+        `  ⚠ 이 저장소의 venv 가 아니라 **시스템 파이썬**입니다(CLAUDE.md 「이 머신의 사실」).`,
+        `  ⚠ 산출물(public/fonts/*.woff2)은 커밋돼 있으므로, 폰트를 바꾸는 것이 아니라면 이`,
+        `    스크립트를 돌릴 필요가 없습니다 — 빌드는 파이썬에 의존하지 않습니다.`,
+        ``,
+      ].join('\n'),
+    );
+    process.exit(1);
+  }
+}
+파이썬_확인();
 const HANGUL = 'U+AC00-D7A3';
 
 /* base 의 유니코드 목록은 **원본 cmap 에서 뽑는다**(손으로 적은 범위가 아니라). 그래야
@@ -51,9 +83,21 @@ sys.stdout.write(','.join(f'U+{a:04X}' if a==b else f'U+{a:04X}-{b:04X}' for a,b
 );
 
 const subset = (unicodes, out) =>
-  execFileSync(PY, ['-m', 'fontTools.subset', SRC, '--flavor=woff2', '--layout-features=*', `--unicodes=${unicodes}`, `--output-file=${out}`], {
-    stdio: 'inherit',
-  });
+  execFileSync(
+    PY,
+    [
+      '-m',
+      'fontTools.subset',
+      SRC,
+      '--flavor=woff2',
+      '--layout-features=*',
+      `--unicodes=${unicodes}`,
+      `--output-file=${out}`,
+    ],
+    {
+      stdio: 'inherit',
+    },
+  );
 
 subset(restRanges, join(OUT, 'Pretendard-base.woff2'));
 subset(HANGUL, join(OUT, 'Pretendard-hangul.woff2'));

@@ -1,0 +1,39 @@
+검사 329건 · 미실재 9종
+
+✗ shell/icons.tsx
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/protocols/새탭추가.md:17
+   ← .claude/agents/feature-scaffolder.md:15
+
+✗ 2026-08-20-코드/리포트.md
+   실제 동명 파일: ['web/docs/리뷰/2026-08-20-코드/리포트.md', 'web/docs/리뷰/2026-08-21-ux/리포트.md', 'web/docs/리뷰/2026-08-21-데이터/리포트.md', 'web/docs/리뷰/2026-08-22-발상/리포트.md', 'web/docs/리뷰/2026-08-22-운영/리포트.md', 'web/docs/리뷰/2026-08-22-코드/리포트.md', 'web/docs/리뷰/2026-08-27-성능/리포트.md', 'web/docs/리뷰/2026-08-31-ux/리포트.md']
+   ← web/docs/렌즈-오버레이.md:391
+
+✗ contract/goals.json
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/원장.md:11
+
+✗ features/degree/shared.tsx
+   실제 동명 파일: ['web/src/features/day/shared.tsx']
+   ← web/docs/원장.md:409
+
+✗ lib/telemetry.ts
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/원장.md:400
+
+✗ mastery/
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/원장.md:16
+
+✗ server/src/syncHub.ts
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/cloudflare-런북.md:739
+
+✗ src-tauri/src/rows.rs
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/cloudflare-런북.md:379
+
+✗ web/src/features/newtab/
+   실제 동명 파일: 저장소 어디에도 없음
+   ← web/docs/protocols/새탭추가.md:26
+

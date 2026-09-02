@@ -113,7 +113,16 @@ jobs:
       # 포맷 위반이 --no-verify·웹UI 커밋으로 들어오면 CI 가 통과시켰다. codegen:check 는
       # hub 단독 체크아웃엔 부모 스키마가 없어 graceful skip 이라 CI 추가 실익 없음(의도적 제외).
       - run: npm run format:check
+      # compiler:ratchet — **React Compiler 가 몇 곳에서 바일아웃하는가**의 래칫(H-6).
+      # ⚠⚠ **`verify` 구성요소인데 CI 에만 25일간 빠져 있었다**(V070 · 2026-08-31). 위의
+      # `lint:css`·`knip`·`format:check` 주석 셋이 **전부 같은 사고를 기록해 둔 자리**인데
+      # (2026-07-16 → 2026-07-26 → …) 네 번째가 같은 모양으로 왔다. 손으로 나열하는 한 온다.
+      - run: npm run compiler:ratchet
       - run: npm run test:coverage
+      # test:tz — 시간대 매트릭스(C052). `TZ=UTC` 에서는 UTC 날짜와 로컬 날짜가 같아 이 부류의
+      # 판별력이 0 이다(C043 이 몇 달 살아남은 이유). CI 는 정확히 그 UTC 기계다 — 즉 **이 스텝이
+      # 빠진 CI 는 날짜 버그를 원리적으로 못 본다.** 9일간 빠져 있었다(V070).
+      - run: npm run test:tz
       # ⚠⚠ **여기부터가 폭포 차단 구간이다**(O002 · 2026-08-22 운영 축). 종전엔 `test:coverage` 가
       #   죽으면 아래 다섯이 **전부 skipped** 였고, 그래서 **번들 예산·스모크·a11y 가 2026-08-20
       #   이후 CI 에서 한 줄도 안 돌았다** — 원인은 UI 회귀가 아니라 무관한 vitest 환경 문제(O003)
@@ -235,8 +244,14 @@ jobs:
           grep "${TARBALL}" checksums.txt | sha256sum -c -
           tar -xzf "${TARBALL}" gitleaks
           ./gitleaks version
+      # ⛔ **`detect` 는 8.x 에서 deprecated 별칭이다**(V097 · 2026-09-01). 8.30.1 `--help` 실측:
+      #   남은 서브커맨드는 `dir`·`git`·`stdin` 뿐이다. 별칭이 걷히는 날 **이 잡이 죽는데**,
+      #   시크릿 축은 «안 돌고 있었다»가 가장 비싼 자리다(그리고 이 잡은 도입 이래 파일명
+      #   불일치로 스캔을 0회 돈 전력이 있다 — 바로 위 주석).
+      # ⚠ 로컬 짝은 `web/package.json` 의 `secret-scan`(이력) · `secret-scan:staged`(pre-commit).
+      #   **같은 서브커맨드를 쓰도록 맞춰 둔다** — 갈리면 「로컬은 초록인데 CI 만 빨강」이 된다.
       - name: 스캔
-        run: ./gitleaks detect --source . --redact --verbose --exit-code 1
+        run: ./gitleaks git . --redact --verbose --exit-code 1
 
   # 클라우드 백엔드(Cloudflare Worker) — **종전까지 CI 가 전혀 안 돌던 폴더다**(2026-07-20 감사).
   # 워크플로 상단 paths 에 `server/**` 가 없었고 잡도 없어서, 인터넷에 노출되는 코드가

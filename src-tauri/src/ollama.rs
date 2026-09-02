@@ -169,7 +169,8 @@ pub fn build(kind: &str, body: &Value) -> Result<Spec, String> {
         /* ⚠ **셋이 P10 W4 에서 빠졌다**(2026-08-07): `reads/coach`(내 요약 채점) ·
         `reads/vocab`(단어 뜻) · `markets/brief`(증시 해설). 소비 화면이 `survey/` 로 갔고,
         그 사이트는 Ollama 를 안 문다(D5: 규모가 다르다) — 즉 프롬프트를 옮긴 것이 아니라
-        **기능이 이번 이사에서 빠진 것**이고, 그 사실은 `docs/유예_원장.md` 에 행으로 있다. */
+        **기능이 이번 이사에서 빠진 것**이고, 그 사실은 **부모** `../docs/유예_원장.md` 에 행으로
+        있다(hub 안에는 없다 · V091). */
         _ => Err(format!("알 수 없는 AI 경로: {kind}")),
     }
 }

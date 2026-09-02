@@ -49,6 +49,22 @@ ignore = [
   # ── 여기 항목은 전부 [사유 + 재검토일] 을 갖는다. 없는 항목은 추가하지 말 것. ──
 ]
 
+# ⚠⚠ **`osv-scanner` 와 이 자는 서로 다른 것을 센다 — 수가 어긋나도 놀라지 마라**
+#   (부모 원장 X014 · 2026-08-31 실측 · 부모가 이 어긋남을 「CVE 20건」이라 올렸다).
+#   · `osv-scanner scan source --lockfile Cargo.lock` → **19건**. 그건 **락파일**을 읽고,
+#     락파일은 **전 플랫폼**의 의존을 담는다.
+#   · `cargo deny check advisories` → **ok**. 이쪽은 **이 타깃의 빌드 그래프**를 읽는다.
+#   실측으로 가른 결과(`cargo tree -i <crate> --target x86_64-pc-windows-msvc`):
+#     `glib`·`rsa`·`rkyv`·`gtk`·`atk`·`gdk*` → **"nothing to print"** = 윈도우 빌드에 안 들어온다.
+#     GTK3 계열 9건은 리눅스 전용 백엔드고, 이 앱이 나가는 곳은 윈도우다.
+#   그래프 안에 실재하는 것은 `unic-*` 5건뿐이고 전부 **unmaintained · 상향 픽스 없음**(`--`)이라
+#   위 `unmaintained = "workspace"` 정책이 **의도적으로** 뺀다(그 근거는 그 줄에 적혀 있다).
+#   ⛔ 그러니 osv 의 수를 이 저장소의 「미해결 취약점 수」로 읽지 마라 —
+#     **뿌리와 타깃을 먼저 정하고 세라.** 그리고 이 둘 중 배포되는 것을 재는 자는 이쪽이다.
+#   ▣ 상향 픽스가 있는 둘(`glib` 0.18.5→0.20.0 · `rkyv` 0.7.46→0.8.17)은 **못 올린다** —
+#     `cargo update -p glib -p rkyv` 가 `Locking 0 packages` 를 낸다(부모가 semver 로 묶는다).
+#     둘 다 **Tauri v2 이관**에 묶여 있고, 그건 이 저장소의 별건이다.
+
 [licenses]
 version = 2
 # 배포 바이너리에 실리는 코드의 라이선스. copyleft 가 조용히 섞이는 것을 막는 것이 목적이고,

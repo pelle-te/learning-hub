@@ -2,7 +2,7 @@
 
 이 폴더의 `.sql` 이 **로컬 SQLite 와 클라우드 D1 양쪽의 원천**이다.
 
-- **로컬(Tauri)**: `src/db.rs` 가 `include_str!` 로 읽어 `tauri-plugin-sql` 에 넘긴다. 버전·설명·순서는 거기서 선언한다.
+- **로컬(Tauri)**: `src-tauri/src/db.rs` 가 `include_str!` 로 읽어 `tauri-plugin-sql` 에 넘긴다. 버전·설명·순서는 거기서 선언한다.
 - **클라우드(Cloudflare D1)**: wrangler 가 `migrations_dir` 로 이 폴더를 본다. D1 이 SQLite 라 **같은 DDL 이 그대로 간다.**
 
 두 벌을 만들지 않는 이유는 이 저장소가 `rows.ts` ↔ `rows.rs` 쌍둥이로 **이미 두 번 물렸기** 때문이다. 생성기 + `codegen:check` 를 쓰지 않은 이유는 **원본을 공유할 수 있으면 생성하지 않는다**는 것 — 생성은 원본 공유가 불가능할 때의 차선책이다(`web/scripts/gen-artifacts.mjs` 가 그 경우다. 원본이 부모 저장소에 있다).
@@ -22,7 +22,7 @@ sqlx 마이그레이터가 각 마이그레이션의 **SHA-384 를 `_sqlx_migrat
 **새 버전을 추가한다.** 기존 파일은 손대지 않는다.
 
 1. `NNN_이름.sql` 을 새로 만든다 (LF · 편집기 자동 포맷 주의)
-2. `src/db.rs` 의 `migrations()` 에 `Migration { version: N, … include_str!(…) }` 을 추가한다
+2. `src-tauri/src/db.rs` 의 `migrations()` 에 `Migration { version: N, … include_str!(…) }` 을 추가한다
 3. `web/test/dbMigrations.test.ts` 를 돌린다 — 새 버전은 핀이 없어 통과하고, **기존 파일을 건드렸다면 여기서 잡힌다**
 4. 배포 후에는 그 버전도 핀에 추가한다
 

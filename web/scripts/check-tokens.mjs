@@ -683,15 +683,15 @@ const 충돌 = [...fs사다리].filter(([k, v]) => text사다리.has(k) && text�
 if (충돌.length) {
   console.error('✗ 같은 접미사가 두 사다리에서 다른 값이다 — 한 레시피가 조용히 갈린다:\n');
   for (const [k, v] of 충돌) console.error(`  --fs-${k}: ${v}px  ↔  --text-${k}: ${text사다리.get(k)}px`);
-  console.error(
-    '\n  ⚠ 값을 맞추지 말고 **이름을 역할로** 바꿔라(`--fs-3xl` → `--fs-ro` · `--fs-base` → `--fs-body`).',
-  );
+  console.error('\n  ⚠ 값을 맞추지 말고 **이름을 역할로** 바꿔라(`--fs-3xl` → `--fs-ro` · `--fs-base` → `--fs-body`).');
   console.error('    값을 맞추면 픽셀이 바뀌고, 그건 이 검사가 요구하는 것이 아니다.');
   process.exit(1);
 }
 /* ⚠ 공허 방지 — 두 사다리 중 하나라도 안 읽히면 위 검사는 영원히 0건이다. */
 if (fs사다리.size < 5 || text사다리.size < 3) {
-  console.error(`✗ 크기 사다리 스캐너가 죽었다(fs ${fs사다리.size} · text ${text사다리.size}) — 정규식이 실물과 갈렸다.`);
+  console.error(
+    `✗ 크기 사다리 스캐너가 죽었다(fs ${fs사다리.size} · text ${text사다리.size}) — 정규식이 실물과 갈렸다.`,
+  );
   process.exit(1);
 }
 
@@ -764,9 +764,7 @@ for (const 파일 of ['src/styles/tokens.css', 'src/styles/tokenBridge.css']) {
 if (고아주석.length) {
   console.error('✗ 설명할 대상이 없는 주석 — 토큰은 지웠는데 설명이 남았다:\n');
   for (const x of 고아주석) console.error(`  ${x}`);
-  console.error(
-    '\n  ⚠ 남길 이유가 있으면(묘비명) **왜 지웠는지 + 복구 한 줄**을 적어라 — 「… 가 여기 있었다」.',
-  );
+  console.error('\n  ⚠ 남길 이유가 있으면(묘비명) **왜 지웠는지 + 복구 한 줄**을 적어라 — 「… 가 여기 있었다」.');
   console.error('    설명만 남으면 다음 사람이 없는 칸을 쓰고, Tailwind v4 는 그것을 조용히 기본값으로 싣는다.');
   process.exit(1);
 }

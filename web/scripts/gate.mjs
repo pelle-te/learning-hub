@@ -78,6 +78,15 @@ const ALL = [
      ⚠ 자리가 `audit` 계열 **뒤**인 것은 규율 그대로다(같은 종류의 신호를 붙여 둔다) — 그리고
      둘 다 네트워크를 타므로 `full` 이다. 근거 전문은 `scripts/freshness.mjs` 머리주석. */
   { name: 'freshness', args: ['run', 'freshness'], mode: 'full' },
+  /* ⚠⚠ **저장소가 PUBLIC 인데 시크릿 스캔이 여기 없었다**(V069 · 2026-08-31). CI 에는
+     `secret-scan` 잡이 있다 — 그런데 이 파일 위쪽 `server audit` 주석이 세 번의 전력을 들어
+     **"CI 엔 있는데 로컬엔 없다"는 곧 "아무 데도 없다"** 라 못박아 뒀다. 네 번째였다.
+     비대칭이 특히 나쁜 축인 이유: 시크릿은 **push 되는 순간 이미 유출**이라, 커밋 뒤에 도는
+     CI 는 «알려 주는 것»이지 «막는 것»이 아니다. 여기가 막는 자리다.
+     ⚠ `full` 인 것은 `audit` 계열과 같은 근거 — 다만 네트워크가 아니라 **외부 도구**를 탄다.
+     ⚠ 도구가 없으면 조용히 건너뛰지 않고 빨갛게 죽는다(`tauri:deny` 와 같은 규율).
+     실측 4.9초 / 529커밋 · 근거는 `package.json` 의 `_주석:secret-scan`. */
+  { name: 'secret-scan', args: ['run', 'secret-scan'], mode: 'full' },
   { name: 'build', args: ['run', 'build'], mode: 'full' },
   { name: 'budget', args: ['run', 'budget'], mode: 'full' },
   /* ⚠⚠ **`server verify` 가 어떤 로컬 게이트에도 없었다**(2026-08-01 `/감사 근본` · 패리티 사고).

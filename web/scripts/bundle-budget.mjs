@@ -77,7 +77,13 @@ const BUDGETS = {
 
    ⚠ 이 축은 데스크톱에만 있다. 폰은 `phone.html` 엔트리가 자기 앱을 직접 물어(SD-7 은
    데스크톱 셸의 계약이다) 축 ①이 이미 전부를 본다. */
-const WAVE = { entry: 'index.html', then: 'src/app/App.tsx', js: 250, rawJs: 720, label: '데스크톱 부팅 웨이브(엔트리 + App)' };
+const WAVE = {
+  entry: 'index.html',
+  then: 'src/app/App.tsx',
+  js: 250,
+  rawJs: 720,
+  label: '데스크톱 부팅 웨이브(엔트리 + App)',
+};
 /* ⚠ `rawJs` 720 = 실측 **624.7** + 여유 ~15%(P031 · 2026-08-27). 이 축에 raw 천장이 있어야 하는
    이유는 위 `raw` 헬퍼 머리주석이 진다 — 한 줄로: **gz 는 이 축이 재려는 것을 못 잰다.** */
 /* ⚠ 250 의 근거: 실측 **216.1**(2026-08-07 · P10 W4 후) + 여유 ~15%.
@@ -390,12 +396,15 @@ console.log('\n--- 번들 오염(배포용 바이너리가 dist 에 있는가) -
   if (found.length) {
     failed = true;
     const maps = found.filter((f) => f.p.endsWith('.map')).length;
-    console.log(`OVER  배포되면 안 되는 파일 ${found.length}개가 dist 에 있다 — 이대로 tauri:build 하면 번들에 실린다.`);
+    console.log(
+      `OVER  배포되면 안 되는 파일 ${found.length}개가 dist 에 있다 — 이대로 tauri:build 하면 번들에 실린다.`,
+    );
     if (maps)
       console.log(
         `      → 그중 ${maps}개가 소스맵이다: \`npm run build:profile\` 의 산출물이라면 프로파일 뒤 \`npm run build\` 로 되돌릴 것(P044).`,
       );
-    if (found.length - maps > 0) console.log('      → 릴리스 바이너리는 release-assets/ 로. 배포 직전에만 `npm run release:stage`.');
+    if (found.length - maps > 0)
+      console.log('      → 릴리스 바이너리는 release-assets/ 로. 배포 직전에만 `npm run release:stage`.');
   } else {
     console.log('  ok  없음');
   }
@@ -505,43 +514,43 @@ console.log('\n--- 정적 자산(폰트·아이콘 · 전송 바이트 KB) ---')
    따로 있다"*)가 정확히 여기 미적용이었다: 게이트가 «배포 번들 gzip KB» 는 1 KB 단위로
    지키면서 매달 600 MB 씩 영구히 쌓이는 축에는 아무 말도 안 했다. */
 function repoAxis() {
-console.log('\n--- 저장소 바이트(이력 · append-only) ---');
-if (!RUN_REPO_AXIS) {
-  /* 조용히 건너뛰지 않는다 — 「예산 내」가 아니라 「여기선 못 잰다」다(P032). */
-  console.log('      – 건너뜀: CI 는 얕은 클론이라 이 축을 못 잰다(depth-1 실측 25 MiB / 실제 657).');
-  console.log('        이 축은 `freshness` 잡의 `npm run budget:repo` 가 진다.');
-  return;
-}
-{
-  /* 실측 645 MiB(pack 608.1 + loose 37.0 · 2026-08-22) + 여유 ~8%.
-     ⚠ 이 값을 올릴 때는 **왜 늘었는지** 함께 적어라. 그냥 올리면 이 축은 아무것도 안 지킨다. */
-  const REPO_MIB = 700;
-  try {
-    const co = Object.fromEntries(
-      execFileSync('git', ['count-objects', '-v'], { encoding: 'utf8' })
-        .trim()
-        .split('\n')
-        .map((l) => l.split(': ')),
-    );
-    // `size`·`size-pack` 은 **KiB** 단위다(git 문서).
-    const mib = (Number(co['size']) + Number(co['size-pack'])) / 1024;
-    if (!Number.isFinite(mib)) throw new Error('git count-objects 출력을 못 읽었다');
-    const pct = Math.round((mib / REPO_MIB) * 100);
-    console.log(`      ${mib.toFixed(0)} MiB / ${REPO_MIB} MiB (${pct}%)`);
-    if (mib > REPO_MIB) {
-      failed = true;
-      console.log('OVER  저장소 이력이 예산을 넘었다 — **되돌릴 수 없는 바이트다.**');
-      console.log('      → 무엇이 쌓이는지 보라: `git count-objects -v` + 시각 베이스라인 재생성 빈도.');
-      console.log('      → 실측상 증가의 83%가 `web/e2e` 스냅샷이다(전량 재생성 1회 = 110장).');
-    } else {
-      console.log('  ok  예산 내');
-    }
-  } catch (e) {
-    /* ⚠ **조용히 건너뛰지 않는다.** git 이 없는 환경(배포 tarball 등)은 이 축을 못 재는데,
-       그걸 「통과」로 그리면 «녹색인데 아무것도 안 쟀다»가 된다. 모른다고 말하고 넘어간다. */
-    console.log(`      – 못 쟀다(${e instanceof Error ? e.message : e}) — 「예산 내」가 아니라 「모른다」다.`);
+  console.log('\n--- 저장소 바이트(이력 · append-only) ---');
+  if (!RUN_REPO_AXIS) {
+    /* 조용히 건너뛰지 않는다 — 「예산 내」가 아니라 「여기선 못 잰다」다(P032). */
+    console.log('      – 건너뜀: CI 는 얕은 클론이라 이 축을 못 잰다(depth-1 실측 25 MiB / 실제 657).');
+    console.log('        이 축은 `freshness` 잡의 `npm run budget:repo` 가 진다.');
+    return;
   }
-}
+  {
+    /* 실측 645 MiB(pack 608.1 + loose 37.0 · 2026-08-22) + 여유 ~8%.
+     ⚠ 이 값을 올릴 때는 **왜 늘었는지** 함께 적어라. 그냥 올리면 이 축은 아무것도 안 지킨다. */
+    const REPO_MIB = 700;
+    try {
+      const co = Object.fromEntries(
+        execFileSync('git', ['count-objects', '-v'], { encoding: 'utf8' })
+          .trim()
+          .split('\n')
+          .map((l) => l.split(': ')),
+      );
+      // `size`·`size-pack` 은 **KiB** 단위다(git 문서).
+      const mib = (Number(co['size']) + Number(co['size-pack'])) / 1024;
+      if (!Number.isFinite(mib)) throw new Error('git count-objects 출력을 못 읽었다');
+      const pct = Math.round((mib / REPO_MIB) * 100);
+      console.log(`      ${mib.toFixed(0)} MiB / ${REPO_MIB} MiB (${pct}%)`);
+      if (mib > REPO_MIB) {
+        failed = true;
+        console.log('OVER  저장소 이력이 예산을 넘었다 — **되돌릴 수 없는 바이트다.**');
+        console.log('      → 무엇이 쌓이는지 보라: `git count-objects -v` + 시각 베이스라인 재생성 빈도.');
+        console.log('      → 실측상 증가의 83%가 `web/e2e` 스냅샷이다(전량 재생성 1회 = 110장).');
+      } else {
+        console.log('  ok  예산 내');
+      }
+    } catch (e) {
+      /* ⚠ **조용히 건너뛰지 않는다.** git 이 없는 환경(배포 tarball 등)은 이 축을 못 재는데,
+       그걸 「통과」로 그리면 «녹색인데 아무것도 안 쟀다»가 된다. 모른다고 말하고 넘어간다. */
+      console.log(`      – 못 쟀다(${e instanceof Error ? e.message : e}) — 「예산 내」가 아니라 「모른다」다.`);
+    }
+  }
 }
 
 repoAxis();

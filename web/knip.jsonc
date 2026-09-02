@@ -54,9 +54,20 @@
   // ignoreBinaries» 힌트를 냈다 — 즉 knip 은 그건 이미 안다. 아래 `ignoreDependencies` 의
   // `tailwindcss` 주석이 적은 그 함정(**힌트는 통과 옆에 떠서 게이트가 안 잡는다**)을
   // 그대로 만든 셈이라, 힌트가 말하는 대로 걷었다.
+  // ⛔⛔ **그리고 `taskkill` 도 같은 힌트를 내고 있었다 — 규율이 세 항목 중 둘에만 갔다**
+  // (V083 · 2026-08-31). 즉 바로 위 두 문단이 「사문화된 예외가 남는 경로가 정확히 이것이다」라
+  // 적어 둔 그 경로에, **이 파일 자신의 세 번째 항목이 앉아 있었다.** 걷고 확인했다: `npx knip`
+  // exit 0 · 힌트 2 → 1. `taskkill` 은 여전히 `e2e/_strayPreview.ts`·`e2e-shell/shellApp.ts` 가
+  // 부르지만 knip 이 그것을 이미 안다.
   // ⚠ 이 목록을 늘릴 때는 **왜 설치 대상이 아닌지**를 함께 적어라 — 안 적으면 다음 회차가
-  // 「의존성을 빠뜨린 것」과 구분하지 못한다.
-  "ignoreBinaries": ["taskkill"],
+  // 「의존성을 빠뜨린 것」과 구분하지 못한다. 그리고 **넣기 전에 빼고 한 번 돌려 봐라**:
+  // knip 이 이미 아는 것을 넣으면 그 순간부터 사문이다.
+  // ⭐ `gitleaks` — **외부 도구라 `package.json` 에 올릴 대상이 아니다**(V069 · 2026-08-31).
+  // `cargo-deny` 와 같은 부류다: 설치는 사람이 하고(`winget install gitleaks`), 없으면 게이트가
+  // 조용히 건너뛰지 않고 빨갛게 죽는다. npm 의존성으로 만들 방법이 없다(Go 바이너리).
+  // ⚠ 이 항목은 **위 규율대로 «빼고 먼저 돌려 본» 결과 필요해서** 넣은 것이다 — `npx knip` 이
+  // `Unlisted binaries: gitleaks` 로 실패했다. `taskkill` 은 정확히 그 반대였다(빼도 통과).
+  "ignoreBinaries": ["gitleaks"],
 
   "ignoreExportsUsedInFile": true,
 

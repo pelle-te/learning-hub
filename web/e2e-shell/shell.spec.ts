@@ -33,12 +33,14 @@ import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
+  clearShellFailures,
   closeShell,
   closeSharedShell,
   e2eDataDir,
   ensureNoStrayShell,
   launchShell,
   sharedShell,
+  shellFailures,
   type Shell,
 } from './shellApp';
 import { 계단인가, 기준선기록 } from '../e2e/_perfBaseline';
@@ -46,6 +48,24 @@ import { 계단인가, 기준선기록 } from '../e2e/_perfBaseline';
 test.afterAll(async () => {
   await closeSharedShell();
   await ensureNoStrayShell();
+});
+
+/* ⚠⚠ **비동기 실패 감시 — 트랙 A 가 넘긴 축을 여기서 받는다**(V071 · 2026-09-01).
+   `e2e/_test.ts` 가 _"WebView2 에서만 나는 것은 트랙 B 의 몫"_ 이라 적어 두었는데 **받은 데가
+   없었다**(`pageerror`·`unhandledrejection` 전수 0건). 이 저장소가 실물에서만 죽은 사고 넷
+   (P-8 알림 · C-5 CSP · 2단계 저장 · pull 페이지네이션)이 전부 그 사각에 있었다.
+
+   ⚠ **훅으로 건다 — 케이스마다 손으로 부르면 새 케이스가 빠진다**(손 목록은 표류한다는
+   이 저장소의 규율 그대로 · 트랙 A 도 `auto` 픽스처로 같은 선택을 했다).
+   ⚠ 공유 셸이라 케이스 **앞에서 비운다** — 안 비우면 앞 케이스의 실패가 뒤 케이스로 번져
+   «어느 케이스가 깼는지»를 못 읽는다. */
+test.beforeEach(async () => {
+  clearShellFailures(await sharedShell());
+});
+
+test.afterEach(async () => {
+  const 관측 = shellFailures(await sharedShell()).map((f) => `[${f.kind}] ${f.text}`);
+  expect(관측, 'WebView2 안에서 잡히지 않은 비동기 실패 — 트랙 A 는 이 층을 원리적으로 못 본다(V071)').toEqual([]);
 });
 
 /** 웹뷰 안에서 커맨드를 부른다 — 던지면 봉투로 받아 단언에 쓴다. */

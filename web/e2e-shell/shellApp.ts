@@ -68,6 +68,60 @@ export interface Shell {
   pid: number;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   비동기 실패 감시 — **트랙 B 가 넘겨받았다고 적혀 있던 축**(V071 · 2026-09-01)
+   ══════════════════════════════════════════════════════════════════════════
+   `e2e/_test.ts` 가 트랙 A 전량에 `pageerror`·`unhandledrejection` 감시를 씌우면서
+   _"WebView2 에서만 나는 것은 원리적으로 못 본다 — **그건 트랙 B 의 몫이다**"_ 라 축을
+   넘겼다. 그런데 **받은 데가 없었다**: `rg "pageerror|unhandledrejection" e2e-shell/` → **0건**.
+
+   ⚠⚠ 이 사각이 비싼 이유는 `tauri://` 오리진에서만 나는 실패가 **이 저장소의 실제 사고 부류**
+   이기 때문이다 — P-8(웹 `Notification` 이 항상 denied) · C-5(CSP) · 2단계 저장 · pull
+   페이지네이션. 넷 다 «정적 검사 전량 녹색인데 실물에서 죽는» 형태였고, 넷 다 사용자 앞에서
+   드러났다.
+
+   ## 트랙 A 와 다른 점 — `addInitScript` 를 못 쓴다
+   CDP 로 **이미 떠 있는** 페이지에 붙으므로 부팅보다 먼저 스크립트를 심을 수 없다. 그래서
+   붙은 뒤부터의 거부를 잡는다(부팅 중 거부는 못 본다 — **그 한계를 적어 두는 것이 규율이다**).
+   `pageerror` 는 CDP 이벤트라 그런 제약이 없다. */
+export interface ShellFailure {
+  kind: 'pageerror' | 'rejection';
+  text: string;
+}
+const 실패 = new WeakMap<Shell, ShellFailure[]>();
+
+/** 지금까지 이 셸에서 잡힌 비동기 실패(케이스가 직접 볼 때). */
+export function shellFailures(shell: Shell): ShellFailure[] {
+  return 실패.get(shell) ?? [];
+}
+
+/** 케이스 사이에 비운다 — 공유 셸이라 안 비우면 앞 케이스의 실패가 뒤로 번진다.
+ *  ⚠⚠ **배열을 갈아끼우지 말고 비운다.** 리스너 클로저가 **처음 배열을 캡처**하고 있어서
+ *  `실패.set(shell, [])` 로 바꾸면 그 뒤로 수집이 전부 옛 배열로 들어가고 **이 감시가 통째로
+ *  침묵한다.** 2026-09-01 되심기에서 정확히 그렇게 잡혔다 — 심은 거부도, 직접 호출도, 동기
+ *  예외도 전부 `[]` 였다(= 세우자마자 「공허한 초록」이었다). */
+export function clearShellFailures(shell: Shell): void {
+  const out = 실패.get(shell);
+  if (out) out.length = 0;
+}
+
+async function 감시부착(shell: Shell): Promise<void> {
+  const out: ShellFailure[] = [];
+  실패.set(shell, out);
+  shell.page.on('pageerror', (e) => out.push({ kind: 'pageerror', text: e.message }));
+  await shell.page.exposeFunction('__reportShellRejection', (text: string) => {
+    out.push({ kind: 'rejection', text });
+  });
+  /* ⚠ `evaluate` 다(`addInitScript` 가 아니다) — 위 주석의 제약. 이미 뜬 문서에 지금 건다. */
+  await shell.page.evaluate(() => {
+    window.addEventListener('unhandledrejection', (e) => {
+      const r: unknown = e.reason;
+      const msg = r instanceof Error ? `${r.name}: ${r.message}` : String(r);
+      (window as unknown as { __reportShellRejection?: (s: string) => void }).__reportShellRejection?.(msg);
+    });
+  });
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /* ── 공유 셸 ────────────────────────────────────────────────────────────────
@@ -123,7 +177,9 @@ export async function launchShell(): Promise<Shell> {
   const browser = await connectWithRetry(30_000);
   const page = await resolveAppPage(browser, 30_000);
 
-  return { page, browser, proc, pid: proc.pid! };
+  const shell: Shell = { page, browser, proc, pid: proc.pid! };
+  await 감시부착(shell); // V071 — 트랙 B 가 넘겨받았다고 적혀 있던 축을 실제로 받는다.
+  return shell;
 }
 
 /**
