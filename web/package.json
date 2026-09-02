@@ -66,7 +66,8 @@
   },
   "_주석:overrides": "이행 의존성의 CVE 를 픽스 버전으로 끌어올린다 — SCA 원장(audit-allowlist.json)은 **픽스가 없을 때만** 쓰는 도구이므로, 올릴 수 있으면 여기가 자리다(server/package.json 의 undici 와 같은 형태).",
   "overrides": {
-    "js-yaml": "^4.3.1"
+    "js-yaml": "^4.3.1",
+    "fast-uri": "^3.1.7"
   },
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
