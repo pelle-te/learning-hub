@@ -459,7 +459,7 @@ test('부팅 계량 — 실 WebView2 에서도 첫 라우트가 Suspense 폴백�
   /* ⭐ **재고 버리지 않는다**(P033 · 2026-08-27). 종전엔 위 한 줄이 전부라 다음 회차가 그 수를
      읽을 방법이 없었다 — `entry→app` 이 200ms 늘어도 아무 술어도 위반하지 않았다.
      ⚠ 절대 임계는 여전히 안 건다(위 문단의 판단 그대로). 여기서 잡는 것은 **계단**이다. */
-  const 이전 = 기준선기록('shell-boot', { nativeToOrigin: native!, entryToApp, gap, total });
+  const 이전 = 기준선기록('shell-boot', { nativeToOrigin: native!, entryToApp, gap, total }, ['entryToApp']);
   if (이전)
     expect(
       계단인가(entryToApp, 이전.entryToApp),

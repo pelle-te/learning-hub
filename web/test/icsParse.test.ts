@@ -29,7 +29,11 @@ describe('readIcsTime — 벽시계와 UTC 를 가른다', () => {
   it('⚠ `Z` 는 UTC 다 — 로컬로 환산한다(파일이 벽시계가 아니라고 명시한 값)', () => {
     const t = readIcsTime('20260302T000000Z')!;
     const local = new Date(Date.UTC(2026, 2, 2, 0, 0, 0));
-    expect(t.min).toBe(local.getHours() * 60 + local.getMinutes());
+    /* ⚠ `ds` 도 함께 잰다(C073 · 2026-09-02). 종전엔 `min` 만 봐서, `ds` 를 UTC 날짜 그대로 돌려주는
+       회귀가 서쪽 TZ(`tz-west` · LA)에서 **하루 틀린 채** 초록이었다 — 자정 UTC 는 그쪽에서 전날이다.
+       이 파일은 `vitest.tz.config.ts` 매트릭스 안이라 그 축이 실제로 돈다. */
+    const ds = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, '0')}-${String(local.getDate()).padStart(2, '0')}`;
+    expect(t).toEqual({ ds, min: local.getHours() * 60 + local.getMinutes() });
   });
 
   it('형태가 아니면 null — 지어내지 않는다', () => {

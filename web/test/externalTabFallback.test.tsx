@@ -3,6 +3,7 @@ import { afterEach, expect, test } from 'vitest';
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { renderApp } from './_render';
+import { WORKSPACE_UNSET_SHORT } from '@/lib/artifactState';
 
 /* ============================================================
    externalTabFallback — **백엔드가 없을 때 외부 데이터 탭이 우아하게 안내하는가.**
@@ -33,5 +34,8 @@ test('integrations: 볼트·Anki 두 패널이 렌더된다(#page 미사용)', a
   await waitFor(() => expect(screen.getByRole('heading', { name: '옵시디언 볼트 현황' })).toBeInTheDocument());
   expect(screen.getByRole('heading', { name: 'Anki 현황' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /AnkiConnect 실시간 due/ })).toBeInTheDocument();
+  /* ⚠ 「안내가 뜬다」를 주장하면서 안내 문구는 안 재고 있었다(C073 · 2026-09-02) — 헤딩·버튼만 봐서
+     `WORKSPACE_UNSET_SHORT` 를 빈 문자열로 바꿔도 초록이었다. 폴백의 실체는 그 문구다. */
+  await waitFor(() => expect(screen.getByText(WORKSPACE_UNSET_SHORT)).toBeInTheDocument());
   expect(document.getElementById('page')).toBeNull();
 });

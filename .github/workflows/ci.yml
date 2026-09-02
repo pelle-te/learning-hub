@@ -180,16 +180,25 @@ jobs:
       #   (위 `build-test` 의 루트 audit 이 이미 같은 근거로 설치 없이 돈다).
       - run: npm run audit
         working-directory: web
+      # ⚠⚠ **이 잡의 스텝은 서로 독립인데 폭포로 묶여 있었다**(O039 · 2026-09-02 실측 — 런
+      #   `33565859127`: 새 advisory 로 위 `audit` 이 failure → 아래 넷 **전부 skipped**, 데드맨이
+      #   그날 아무것도 안 쟀다). 새 CVE 는 시간 축의 가장 흔한 사건이라 정확히 그날 신선도를 봐야
+      #   한다. `build-test` 가 O002 로 가진 `!cancelled()` 가 이 잡에만 없었다(짝이 한쪽만 고쳐진
+      #   형태). dist 의존이 0 이라 조건은 취소 하나면 된다.
       # 축 5(저장소 바이트 · append-only) — 여기가 그 축의 자리다(P032). 위 `fetch-depth: 0` 이
       # 그 전제이고, dist 도 `npm ci` 도 필요 없다(`--repo-only` 가 git 만 읽는다).
       - run: npm run budget:repo
+        if: ${{ !cancelled() }}
         working-directory: web
       - run: npm run audit # 루트 — 서명 개인키를 보는 유일한 트리(D018)
+        if: ${{ !cancelled() }}
       - run: npm run audit
+        if: ${{ !cancelled() }}
         working-directory: server
       # ⚠ 시간 축 계기판(O006·O030). `gh` 를 쓰므로 토큰을 넘긴다 — 없으면 그 행은
       #   「모른다」로 남고 조용히 통과하지 않는다(스크립트 머리주석).
       - run: npm run freshness
+        if: ${{ !cancelled() }}
         working-directory: web
         env:
           GH_TOKEN: ${{ github.token }}

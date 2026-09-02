@@ -111,18 +111,30 @@ describe('writeRows — k번째 문장에서 죽었을 때(C056)', () => {
   });
 
   it('⚠ 어느 k 에서 끊겨도 DELETE 가 앞서지 않는다 — 「DB 가 비는 순간이 없다」의 실제 내용', async () => {
-    /* 기준선에 셋이 있고 새 상태엔 하나만 남는다 → upsert 1 + delete 2 가 나올 수 있는 모양. */
+    /* 기준선에 셋이 있고 새 상태엔 하나만 남는다 → upsert 1 + delete 2 가 나올 수 있는 모양.
+       ⚠⚠ 종전 단언은 «DELETE 가 있으면 upsert 도 ≥1» 이었고 upsert 판정이 `/INSERT|REPLACE|UPDATE/`
+       였다(C073 · 2026-09-02). 그런데 `settings` 는 동기화 표라 삭제마다 **툼스톤 문장**이 나가고 그
+       SQL 이 `INSERT OR REPLACE INTO tombstones …` 라 **툼스톤이 upsert 로 세어졌다** — 순서가
+       `[툼스톤, 툼스톤, DELETE, upsert]` 로 뒤집혀도 초록이었다. 게다가 DELETE 를 한 번도 못 봐도
+       단언 0개로 통과했다. 이제 **순서**(첫 DELETE 가 마지막 진짜 upsert 뒤)와 **분모**를 함께 잰다. */
+    const isUp = (q: string) => /^\s*(INSERT|UPDATE)/i.test(q) && !/INTO\s+tombstones/i.test(q);
+    const isDel = (q: string) => /^\s*DELETE/i.test(q);
+    let sawDel = false;
     for (let k = 1; k <= 6; k++) {
       setDiffBaseline(rows({ a: '1', b: '2', c: '3' }));
       실행.sql = [];
       실행.failAt = k;
       await writeRows(rows({ a: '9' }));
-      const del = 실행.sql.filter((q) => /^\s*DELETE/i.test(q)).length;
-      const up = 실행.sql.filter((q) => /INSERT|REPLACE|UPDATE/i.test(q)).length;
+      const firstDel = 실행.sql.findIndex(isDel);
+      const lastUp = 실행.sql.map(isUp).lastIndexOf(true);
+      if (firstDel < 0) continue;
+      sawDel = true;
       /* 요구는 «비는 순간이 없다» 이므로, 끊긴 지점까지 나간 문장이 전부 DELETE 이기만 하면 안 된다.
          diff 방식은 upsert 를 먼저 내므로 이 성질이 성립한다 — 순서가 뒤집히면 여기서 잡힌다. */
-      if (del > 0) expect(up, `k=${k}: DELETE 가 upsert 보다 앞서 나갔다 — 표가 비는 창이 생긴다`).toBeGreaterThan(0);
+      expect(lastUp, `k=${k}: DELETE 앞에 진짜 upsert 가 없다 — 표가 비는 창이 생긴다`).toBeGreaterThanOrEqual(0);
+      expect(firstDel, `k=${k}: DELETE 가 upsert 보다 앞서 나갔다 — 표가 비는 창이 생긴다`).toBeGreaterThan(lastUp);
     }
+    expect(sawDel, '삭제 문장이 한 번도 안 나왔다 — 이 루프가 아무것도 안 쟀다').toBe(true);
   });
 
   it('⚠ 마지막 문장에서 죽어도 같은 계약이다 — k 가 끝일 때만 통과하는 방어가 아니다', async () => {

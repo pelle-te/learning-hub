@@ -208,7 +208,11 @@ describe('V079 — 도구 로스터 (커맨드 ↔ 누를 자리)', () => {
 
   it('화면이 부르는 도구는 전부 셸에 등록돼 있다 (반대 방향)', () => {
     const r = new Set(rust도구());
-    const 없음 = [...호출부()].filter((t) => !r.has(t) && /^(vault|index|ledger|eval)/.test(t));
+    /* ⚠ 여기 `/^(vault|index|ledger|eval)/` 접두 필터가 있었다(C073 · 2026-09-02) — **두 번째 손목록**이다.
+       `호출부()` 의 이름은 전부 `ToolsCard` 로스터에서 오므로 거를 이유가 되는 이름이 저장소에 없고,
+       그 필터 때문에 `notes-rebuild` 같은 새 키를 로스터에만 넣으면 이 케이스가 초록인 채 런타임
+       `NOT_FOUND` 로 죽었다. */
+    const 없음 = [...호출부()].filter((t) => !r.has(t));
     // 실패하면: 그 버튼은 런타임에 `NOT_FOUND` 로 죽는다(타입도 게이트도 안 잡는다).
     expect(없음).toEqual([]);
   });

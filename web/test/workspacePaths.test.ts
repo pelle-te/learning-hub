@@ -42,7 +42,9 @@ import { existsSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { SRC, sources, strip } from './_sources';
 
-/** 부모 워크스페이스의 최상위 이름들 — 화면은 이 이름으로 시작하는 경로를 글자 그대로 쓴다. */
+/** 부모 워크스페이스의 최상위 이름들 — 화면은 이 이름으로 시작하는 경로를 글자 그대로 쓴다.
+ *  ⚠ `exports` 는 **2026-09-01 에 은퇴한 필러**다(부모 Anki 축 은퇴). 목록에서 빼지 않는 이유: 화면이
+ *  그 경로를 다시 말하기 시작하면 ②가 «부모에 없다»로 잡아야 한다 — 빼면 그 문구가 보이지 않는다. */
 const 필러 = ['pipeline', 'knowledge', 'survey', 'sources', 'exports', 'docs'] as const;
 
 /* ⚠ 왼쪽 경계가 핵심이다: `web/docs/원장.md` 의 `docs/` 에 걸리면 안 된다. UI 문구의 `docs/` 는

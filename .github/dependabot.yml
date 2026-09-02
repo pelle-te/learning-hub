@@ -93,6 +93,12 @@ updates:
         versions: ['>=7']
       - dependency-name: eslint
         versions: ['>=10']
+      # ⚠ `@eslint/js` 는 `eslint` 와 메이저를 같이 간다 — 위 한 줄만 있으면 봇이 `@eslint/js 10`
+      #   을 따로 올려 그 결정을 다시 시킨다(2026-09-02 실측 PR #15 · 08-22 이래 열림). 그 PR 이
+      #   `/web` 한도 5 를 채운 다섯 중 하나였고, 한도가 차면 **patch·보안 상향까지 조용히 멈춘다**
+      #   (O039 · `freshness.mjs` 봇 축이 이제 그 포화를 잰다).
+      - dependency-name: '@eslint/js'
+        versions: ['>=10']
 
   - package-ecosystem: npm
     directory: /server
@@ -126,3 +132,17 @@ updates:
       #   재시도 조건은 web 쪽과 같다 — SCA 원장이 SSOT.
       - dependency-name: typescript
         versions: ['>=7']
+
+  # ⚠⚠ **네 번째 트리가 빠져 있었다**(O039 · 2026-09-02). 위 머리주석이 «npm 트리 셋»을 D018 형
+  #   누락의 예방이라 적는데, 사용자에게 **배포되는 exe** 를 만드는 `src-tauri`(Cargo.lock ·
+  #   645 crate)가 같은 형태로 없었다. `tauri:deny` 가 advisory 를 빨갛게 잡아도 **올리는 손이
+  #   없으면** 40행이 말한 «핀이 곧 동결»이 Rust 쪽에서 재현된다.
+  #   ⚠ PR 마다 `shell-build`(windows 러너)가 붙는다 — 공개 저장소라 과금 0. 비공개로 돌아가면
+  #   이 블록의 한도가 첫 조정 후보다(운영 축 비용 절).
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule: { interval: weekly, day: monday, time: '06:00', timezone: Asia/Seoul }
+    open-pull-requests-limit: 2
+    groups:
+      cargo-deps:
+        patterns: ['*']

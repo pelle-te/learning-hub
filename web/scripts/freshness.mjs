@@ -38,6 +38,7 @@
 ============================================================ */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { 원장판정, 원장메시지 } from './ledger-rules.mjs';
 
 const 하루 = 86_400_000;
 const 지금 = Date.now();
@@ -89,8 +90,15 @@ const 얕음 = 명령('git', ['rev-parse', '--is-shallow-repository']) === 'true
    판단이다* (`릴리스.md §2-5` — 그 배포는 되돌릴 수 없다). **2026-08-31 에 v0.5.2 를 배포하며
    해소됐고, 이 파일의 역래칫이 그 사실을 먼저 알렸다** — 항목이 남아 있는 것만으로 게이트가
    깨진다. 그게 이 원장의 설계다: 해소된 판단이 남으면 그건 판단이 아니라 방치다.
-   ⚠ 새 항목을 넣을 땐 **사유 + 재검토일**이 함께여야 한다(SCA 원장과 같은 규율). */
-const 보류 = {};
+   ⚠ 새 항목을 넣을 땐 **사유 + 재검토일**이 함께여야 한다(SCA 원장과 같은 규율).
+   ⚠ 2026-09-02 에 하나가 들어왔다 — 봇 축이 처음으로 **한도 포화**를 재기 시작한 날이고, 그 다섯
+   PR 을 여닫는 것은 사용자 판단이라 여기서 못 고친다. 재검토일은 다음 월요일 봇 실행 뒤. */
+const 보류 = {
+  '의존성 갱신(봇 활동)': {
+    사유: '/web 한도 5 가 08-22 이래 major PR 다섯(#12~#16)으로 포화 — 여닫는 판단은 사용자 몫. `@eslint/js>=10` 은 ignore 에 올렸다(ESLint 10 차단의 짝)',
+    재검토: '2026-09-09',
+  },
+};
 
 /* ============================================================
    기대 주기 표 — **이 파일의 본체다**
@@ -133,9 +141,25 @@ const 경로들 = [
     이름: 'CI 마지막 성공',
     하한일: 7,
     재기() {
-      const j = 명령('gh', ['run', 'list', '-L', '20', '--json', 'conclusion,updatedAt,status']);
+      /* ⚠⚠ **브랜치·워크플로·이벤트를 거르지 않으면 `runs[0]` 이 master 의 상태가 아니다**(O039 ·
+         2026-09-02 실측): Dependabot PR 의 `pull_request` 런(알파 miniflare · 매주 리베이스)이
+         failure 로 맨 위에 서면 master 가 녹색인데 «미해결 빨간불»로 실패하고(거짓 빨강 · 매주
+         재발), 반대로 `dynamic` 런의 success 가 master push 실패 뒤에 오면 빨간불이 **거짓 초록**
+         이 된다. 재는 것은 «master 에 푸시된 것의 CI» 하나다. */
+      const j = 명령('gh', [
+        'run',
+        'list',
+        '-L',
+        '20',
+        '--branch',
+        'master',
+        '--workflow',
+        'web-ci',
+        '--json',
+        'conclusion,updatedAt,status,event',
+      ]);
       if (!j) return null;
-      const runs = JSON.parse(j);
+      const runs = JSON.parse(j).filter((r) => r.event !== 'pull_request');
       if (!runs.length) return null;
       const ok = runs.find((r) => r.conclusion === 'success');
       /* ⚠⚠ **「마지막 성공」과 「지금 빨간불인가」는 다른 사실이다**(O032). 전자만 보면
@@ -172,12 +196,69 @@ const 경로들 = [
       const out = 명령('git', ['log', '-1', '--format=%at', '--author=bot', '--all']);
       if (out === null) return null;
       const at = Number(out) * 1000;
-      return Number.isFinite(at) && at > 0
-        ? { 지연일: 일(at), 상세: `마지막 봇 커밋 ${new Date(at).toISOString().slice(0, 10)}` }
-        : { 지연일: 9999, 상세: '봇 커밋 0건 — 자동화가 도는 흔적이 없다' };
+      const 흔적 =
+        Number.isFinite(at) && at > 0
+          ? { 지연일: 일(at), 상세: `마지막 봇 커밋 ${new Date(at).toISOString().slice(0, 10)}` }
+          : { 지연일: 9999, 상세: '봇 커밋 0건 — 자동화가 도는 흔적이 없다' };
+      return { ...흔적, 즉시실패: 봇포화() };
     },
   },
 ];
+
+/* ⚠⚠ **«설정돼 있다 ≠ 돌고 있다»의 두 번째 형태**(O039 · 2026-09-02 실측): `/web` 의
+   `open-pull-requests-limit: 5` 가 08-22 이래 열린 major PR 다섯으로 **포화**돼 있었고, Dependabot 은
+   한도에 닿으면 새 PR 을 만들지 않는다 — 즉 patch·minor·보안 상향이 조용히 멈춘 채 위 축은
+   «마지막 봇 커밋 10일 · ok»라 말했다(재는 것이 커밋이지 한도가 아니었다). 한도는 손목록이 아니라
+   `dependabot.yml` 에서 읽는다 — 그 파일이 바뀌면 여기가 따라간다. */
+function 봇한도() {
+  let y;
+  try {
+    y = readFileSync(new URL('../../.github/dependabot.yml', import.meta.url), 'utf8');
+  } catch {
+    return [];
+  }
+  const 항목 = [];
+  for (const blk of y.split(/\n(?=\s*- package-ecosystem:)/)) {
+    const eco = blk.match(/package-ecosystem:\s*([\w-]+)/)?.[1];
+    const dir = blk.match(/\bdirectory:\s*(\S+)/)?.[1];
+    const lim = Number(blk.match(/open-pull-requests-limit:\s*(\d+)/)?.[1]);
+    if (!eco || !dir || !Number.isFinite(lim)) continue;
+    항목.push({ eco: eco === 'npm' ? 'npm_and_yarn' : eco.replace(/-/g, '_'), dir, lim });
+  }
+  return 항목;
+}
+/** 열린 봇 PR 이 어느 (생태계·디렉터리)의 한도에 찼는가 — 찼으면 사유, 아니면 `null`, gh 가 없으면 「모른다」(`null`). */
+function 봇포화() {
+  const j = 명령('gh', [
+    'pr',
+    'list',
+    '--author',
+    'app/dependabot',
+    '--state',
+    'open',
+    '-L',
+    '100',
+    '--json',
+    'headRefName',
+  ]);
+  if (!j) return null;
+  const 항목 = 봇한도();
+  const 개수 = new Map(항목.map((h) => [h, 0]));
+  for (const { headRefName: ref } of JSON.parse(j)) {
+    /* 브랜치 형태 `dependabot/<생태계>/<디렉터리>/<패키지>-<버전>` — 루트(`/`)는 디렉터리 조각이 없어
+       같은 생태계의 나머지가 루트다(가장 긴 디렉터리가 이긴다). */
+    const 후보 = 항목.filter(
+      (h) =>
+        ref.startsWith(`dependabot/${h.eco}/`) &&
+        (h.dir === '/' || ref.startsWith(`dependabot/${h.eco}/${h.dir.replace(/^\//, '')}/`)),
+    );
+    if (!후보.length) continue;
+    const 주인 = 후보.reduce((a, b) => (b.dir.length > a.dir.length ? b : a));
+    개수.set(주인, 개수.get(주인) + 1);
+  }
+  const 포화 = 항목.filter((h) => 개수.get(h) >= h.lim).map((h) => `${h.eco} ${h.dir} ${개수.get(h)}/${h.lim}`);
+  return 포화.length ? `열린 봇 PR 이 한도에 찼다(${포화.join(' · ')}) — 새 갱신이 안 열린다. 판단하거나 닫아라` : null;
+}
 
 let 실패 = false;
 let 모름 = 0;
@@ -209,30 +290,24 @@ for (const 행 of 경로들) {
      이 저장소가 반복해 물린 «0건인데 아무것도 안 재는 검사» 그 자체다. */
   const 나쁨 = Boolean(늦음 || r.즉시실패);
   const 면제 = 보류[행.이름];
-  const 만료 = 면제 && Date.parse(면제.재검토) < 지금;
   본[행.이름] = 나쁨;
   console.log(
-    `  ${나쁨 ? (면제 && !만료 ? '⏳' : '❌') : 'ok'} ${행.이름}: ${r.지연일}일 (하한 ${행.하한일}일) · ${r.상세}${r.즉시실패 ? ` · ${r.즉시실패}` : ''}`,
+    `  ${나쁨 ? (면제 ? '⏳' : '❌') : 'ok'} ${행.이름}: ${r.지연일}일 (하한 ${행.하한일}일) · ${r.상세}${r.즉시실패 ? ` · ${r.즉시실패}` : ''}`,
   );
-  if (나쁨 && 면제 && !만료) {
-    console.log(`      ⏳ 보류(재검토 ${면제.재검토}) — ${면제.사유}`);
-    continue;
-  }
-  if (나쁨 && 만료) {
-    console.error(`      ❌ 보류가 만료됐다(${면제.재검토}) — 판단을 갱신하거나 고쳐라.`);
-    실패 = true;
-    continue;
-  }
-  if (나쁨) 실패 = true;
+  if (나쁨 && !면제) 실패 = true;
 }
 
-/* ③ 역래칫 — 지연이 사라졌는데 원장에 남아 있으면 실패. 원장이 실물과 갈리면 다음 사람이
-   «이건 원래 있던 거겠지» 하고 넘긴다(`audit-gate.mjs` 가 같은 근거로 같은 검사를 갖는다). */
-for (const [이름, 면제] of Object.entries(보류)) {
-  if (본[이름] === false) {
-    console.error(`❌ 보류 항목 「${이름}」이 이미 해소됐다 — 원장에서 지워라(사유: ${면제.사유.slice(0, 40)}…).`);
-    실패 = true;
-  }
+/* ②·③ 만료·역래칫 — **판정은 `ledger-rules.mjs` 한 벌이 진다**(V078·V096).
+   ⚠⚠ 이 파일은 머리주석에 «그 모듈을 부른다»고 적어 놓고 **실제로는 안 부르고 있었다**(O039 ·
+   2026-09-02 실측 · import 는 `child_process`·`fs` 둘뿐): 여기 있던 사본은 `Date.parse(재검토) < Date.now()`
+   라 재검토 **당일 09:00 KST 부터** 만료였고, 모듈은 `재검토 < 오늘`(당일은 유효)이라 같은 날짜가
+   두 원장에서 하루 다르게 판정됐다 — V096 이 «사본 금지»를 세운 날 그대로 깨져 있던 셈이다.
+   ⚠ 만료된 보류는 ⏳ 가 아니라 아래 메시지로 빨개진다(위 줄의 ⏳ 는 «원장에 있다»만 뜻한다). */
+const 판정 = 원장판정({ 원장: 보류, 상태: 본 });
+for (const 이름 of 판정.적용) console.log(`      ⏳ 보류(재검토 ${보류[이름].재검토}) — ${보류[이름].사유}`);
+if (!판정.ok) {
+  console.error(원장메시지('freshness', 판정, 보류));
+  실패 = true;
 }
 
 if (모름) console.log(`\n⚠ ${모름}개 축을 관측하지 못했다 — 이 실행은 그만큼 덜 봤다.`);

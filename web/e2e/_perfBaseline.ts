@@ -42,16 +42,30 @@ const 읽기 = (): 장부 => {
 
 /**
  * 이번 회차의 값을 기록하고, **같은 호스트의 직전 값**을 돌려준다.
- * 임계 판정은 호출부가 한다 — 축마다 무엇이 계단인지 다르기 때문이다.
+ * 실패 단언은 호출부가 한다 — 축마다 어느 키가 계단인지 다르기 때문이다(`감시키`).
+ *
+ * ⚠⚠ **계단이면 기록하지 않는다**(V099 · 2026-09-02). 종전엔 판정 **전에** 무조건 덮어써서, 회귀 커밋
+ * 뒤 1회차는 빨갛고(기준선 86 → 파일엔 200) **재실행하면 200 대 200 이라 초록**이었다 — 이 저장소가
+ * «verify 4건 실패 → 재실행 전량 통과»를 flaky 로 읽는 문화를 CLAUDE.md 에 적어 둔 터라, P033 이 세운
+ * 가드가 재실행 한 번에 무장 해제됐다. 저장소 자신의 래칫 관용구(`compiler-ratchet.mjs` 의 `--write`)와
+ * 같은 방향으로 맞춘다: 계단이면 파일을 안 올리고, 기준선을 **일부러** 새로 세울 때만 `PERF_BASELINE_WRITE=1`.
  */
-export function 기준선기록(축: string, ms: Record<string, number>): Record<string, number> | null {
+export function 기준선기록(
+  축: string,
+  ms: Record<string, number>,
+  감시키: string[] = Object.keys(ms),
+): Record<string, number> | null {
   const 장부 = 읽기();
   const 이전 = 장부[축];
   const host = process.env.COMPUTERNAME ?? process.env.HOSTNAME ?? '?';
-  장부[축] = { at: new Date().toISOString(), host, ms };
-  mkdirSync(dirname(파일), { recursive: true });
-  writeFileSync(파일, JSON.stringify(장부, null, 2) + '\n', 'utf8');
-  return 이전 && 이전.host === host ? 이전.ms : null;
+  const 비교 = 이전 && 이전.host === host ? 이전.ms : null;
+  const 계단 = !!비교 && 감시키.some((k) => k in 비교 && k in ms && 계단인가(ms[k]!, 비교[k]!));
+  if (!계단 || process.env.PERF_BASELINE_WRITE === '1') {
+    장부[축] = { at: new Date().toISOString(), host, ms };
+    mkdirSync(dirname(파일), { recursive: true });
+    writeFileSync(파일, JSON.stringify(장부, null, 2) + '\n', 'utf8');
+  }
+  return 비교;
 }
 
 /** 계단식 회귀 판정 — 잡음은 통과시키고 계단은 잡는다(배수 1.5 + 절대 여유 20 ms). */

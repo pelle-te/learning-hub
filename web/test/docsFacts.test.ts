@@ -49,21 +49,27 @@ const WEB = join(HUB, 'web');
 
 /* ⚠ 아카이브·회차 산출물 — **그 시점의 스냅샷이라 낡는 것이 정상이다**(머리주석 참조).
    ⛔ 여기에 「고치기 귀찮은 문서」를 넣지 마라. 기준은 하나다: **그 문서가 「지금」을 주장하는가.** */
-const 제외 = [
-  '원장-아카이브', // 닫힌 항목 — 닫힐 당시의 사실
-  '로드맵.md', // 2026-08-20 아카이브(672 KiB)
-  '평가기록', // 채점 회차 기록
+/* ⚠ **디렉터리는 이름 정확 일치, 파일도 이름 정확 일치**(C073 · 2026-09-02). 종전엔 한 목록을
+   `e.name.includes(x)` 로 걸러서 `'리뷰'` 가 **`리뷰템플릿.md`**(살아 있는 안내 · 매 회차 읽는 템플릿)
+   까지 삼켰다 — 그 문서에 없는 `npm run x`·경로가 들어가도 ①②③이 분모에서 조용히 뺐다.
+   부분 문자열 제외는 «귀찮은 문서를 넣는 자리»가 아니라도 이렇게 새는 것을 만든다. */
+const 제외디렉터리 = new Set([
   '리뷰', // `docs/리뷰/**` — 회차 산출물(대장·리포트·스캔)
   '_아카이브',
   'node_modules',
   '.git',
   'target',
   'dist',
-];
+]);
+const 제외파일 = new Set([
+  '원장-아카이브.md', // 닫힌 항목 — 닫힐 당시의 사실
+  '로드맵.md', // 2026-08-20 아카이브(672 KiB)
+  '평가기록.md', // 채점 회차 기록
+]);
 
 function 문서들(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (제외.some((x) => e.name.includes(x))) continue;
+    if (e.isDirectory() ? 제외디렉터리.has(e.name) : 제외파일.has(e.name)) continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) 문서들(p, out);
     else if (e.name.endsWith('.md')) out.push(p);
@@ -202,7 +208,10 @@ describe('문서의 사실 주장 — 기계 대조 (V092·V093)', () => {
     const 블록 = 열거.join(' ');
     expect(블록).not.toContain('⚠'); // 산문이 섞이면 이 검사는 무의미해진다
     // 실패하면: `package.json` 의 verify 에 단계가 늘었는데 CLAUDE.md 의 **열거 줄**이 안 따라왔다.
-    expect(단계.filter((s) => !블록.includes(s))).toEqual([]);
+    /* ⚠ 토큰 단위로 댄다(C073 · 2026-09-02). `블록.includes(s)` 는 부분 문자열이라 열거에서 `lint`
+       를 지워도 `lint:css` 안에서 찾아 초록이었다 — 실측으로 되심어 확인했다. */
+    const 토큰 = new Set(블록.match(/[a-z][a-z0-9:_-]*/g) ?? []);
+    expect(단계.filter((s) => !토큰.has(s))).toEqual([]);
   });
 
   it('면제 표가 사문화하지 않았다 — 해소됐는데 남아 있으면 실패 (역래칫)', () => {

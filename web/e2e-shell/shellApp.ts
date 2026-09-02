@@ -8,7 +8,7 @@
       `CloseRequested` 를 건너뛰어 **검사 대상인 flush 경로 자체를 우회**해 버린다.
 ============================================================ */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type Page } from '@playwright/test';
@@ -29,9 +29,37 @@ const CDP_PORT = 9222;
    함께 옮겨간다 — 원래 한 폴더에 있는 삼형제다.
 
    ⚠ 폴더는 **실행마다 새로** 만든다. 재사용하면 앞선 실행의 상태가 다음 실행의 전제가 되어,
-   "혼자 돌리면 통과하는데 전체로 돌리면 실패"가 생긴다(그리고 그 반대도). 임시 폴더라
-   OS 가 알아서 치우므로 정리 코드도 필요 없다. */
-const dataDir = mkdtempSync(path.join(os.tmpdir(), 'lh-e2e-'));
+   "혼자 돌리면 통과하는데 전체로 돌리면 실패"가 생긴다(그리고 그 반대도).
+
+   ⚠⚠ 여기 _"임시 폴더라 OS 가 알아서 치우므로 정리 코드도 필요 없다"_ 라 적혀 있었다(O040 ·
+   2026-09-02). **Windows 는 `%TEMP%` 를 스스로 안 치운다**(Storage Sense 기본 off) — 실측
+   13일간 **161개 · 14 MB** 가 쌓였다. 거짓 전제가 정리를 얼린 형태라 주석부터 지웠다.
+   정리는 두 시제다: ① 이번 폴더는 **워커 프로세스 종료 때**(`closeSharedShell` 이 아니다 —
+   케이스가 닫은 뒤에도 `e2eDataDir()` 안의 로그를 읽는다 · `shell.spec.ts`) ② 앞선 실행이
+   못 치운 것(exe 가 아직 파일을 물고 있으면 ①이 진다)은 **다음 기동이** 쓸어 낸다 — 단
+   **하루 넘게 묵은 것만**. 다른 세션이 동시에 트랙 B 를 돌릴 수 있고, 그 살아 있는 폴더를
+   지우면 남의 케이스가 죽는다. */
+const DATA_DIR_PREFIX = 'lh-e2e-';
+const STALE_MS = 24 * 60 * 60 * 1000;
+const dataDir = mkdtempSync(path.join(os.tmpdir(), DATA_DIR_PREFIX));
+sweepStaleDataDirs();
+process.on('exit', () => rmSync(dataDir, { recursive: true, force: true }));
+
+function sweepStaleDataDirs(): void {
+  const tmp = os.tmpdir();
+  const now = Date.now();
+  for (const name of readdirSync(tmp)) {
+    if (!name.startsWith(DATA_DIR_PREFIX)) continue;
+    const full = path.join(tmp, name);
+    if (full === dataDir) continue;
+    try {
+      if (!statSync(full).isDirectory() || now - statSync(full).mtimeMs < STALE_MS) continue;
+      rmSync(full, { recursive: true, force: true });
+    } catch {
+      /* 남이 물고 있으면 다음 기동이 다시 본다 — 하네스가 여기서 죽을 이유는 없다 */
+    }
+  }
+}
 
 export interface Shell {
   page: Page;
