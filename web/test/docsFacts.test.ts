@@ -42,6 +42,7 @@
 ============================================================ */
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
 const HUB = join(import.meta.dirname, '..', '..');
@@ -120,6 +121,34 @@ const 루트접두 = ['web/', 'src-tauri/', 'server/', '.github/', '.husky/', '.
    **초록**이었다). ⭐ 그 자체가 이 저장소의 규율을 한 번 더 증명한다: **되심기가 초록이면
    「관대하다」가 아니라 「표본이 틀렸다」거나 「검사기의 단위가 좁다」를 먼저 의심하라.** */
 
+/* ⚠⚠ **`.gitignore` 된 경로는 이 축 밖이다**(2026-09-02 · CI 가 처음 알렸다).
+   `existsSync` 만 보면 «있느냐»가 **환경마다 다르다**: `web/docs/릴리스.md` 가 가리키는
+   `src-tauri/.updater-key.pub` 는 gitignore 라 개발자 머신엔 있고 **새 체크아웃엔 없다.**
+   그래서 이 케이스는 로컬 초록 · CI 빨강이었고, 하필 **이 파일이 CI 에서 처음 돈 회차**에
+   드러났다(규약 축 1회차가 만들었지만 그 커밋이 오늘까지 push 되지 않았다).
+   ⭐ 문서는 **틀리지 않았다** — 그 키 파일은 «일부러 저장소에 없는 것»이고 릴리스 문서가 그것을
+   설명하는 것이 옳다. 즉 고칠 곳은 문서도 면제표도 아니라 **검사기의 단위**였다.
+   ⛔ `경로면제` 로 처리하면 안 된다: 그 표의 역래칫이 «이제 실재하면 빼라»를 단언하는데,
+   이 파일은 **로컬에선 실재**하므로 그 케이스가 개발자 머신에서 빨개진다(면제와 무시는 다른 축이다).
+   ⚠ 판정 입력이 **커밋된 `.gitignore`** 라 두 환경에서 같은 답이 나온다. git 을 못 쓰면 빈
+   집합을 돌려 종전대로 판정한다 — 조용히 통과시키지 않는다. */
+function 무시된경로(후보: string[]): Set<string> {
+  if (!후보.length) return new Set();
+  const r = spawnSync('git', ['check-ignore', '--stdin'], {
+    cwd: HUB,
+    input: [...new Set(후보)].join('\n'),
+    encoding: 'utf8',
+  });
+  // exit 0 = 하나 이상 무시됨 · 1 = 하나도 안 무시됨 · 그 외(128 등) = git 을 못 씀
+  if (r.status !== 0 && r.status !== 1) return new Set();
+  return new Set(
+    (r.stdout ?? '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean),
+  );
+}
+
 /** 없는 것을 **일부러** 가리키는 자리 — 사유 없는 면제는 방치다. */
 const 경로면제: Record<string, string> = {
   'src-tauri/src/rows.rs':
@@ -169,16 +198,20 @@ describe('문서의 사실 주장 — 기계 대조 (V092·V093)', () => {
   });
 
   it('② 안내가 가리키는 저장소 경로가 전부 실재한다 (또는 사유 있는 면제다)', () => {
-    const 위반: string[] = [];
+    const 후보: { 출처: string; 경로: string }[] = [];
     for (const { path, text } of 문서) {
       for (const m of text.matchAll(/`([\p{L}\p{N}_./-]+)`/gu)) {
         const 경로 = m[1].replace(/[.,;]+$/, '');
         if (!루트접두.some((a) => 경로.startsWith(a))) continue;
         if (경로.includes('*') || !/\.\w+$/.test(경로)) continue; // 글롭·디렉터리는 이 축이 아니다
         if (경로면제[경로]) continue;
-        if (!existsSync(join(HUB, 경로))) 위반.push(`${path} → ${경로}`);
+        후보.push({ 출처: path, 경로 });
       }
     }
+    const 무시 = 무시된경로(후보.map((c) => c.경로));
+    const 위반 = 후보
+      .filter((c) => !무시.has(c.경로) && !existsSync(join(HUB, c.경로)))
+      .map((c) => `${c.출처} → ${c.경로}`);
     // 실패하면: 파일이 옮겨졌거나 지워졌다. 문서를 고치거나, 일부러 부재를 적은 것이면 `경로면제` 에 **사유와 함께** 올리세요.
     expect(위반).toEqual([]);
   });
