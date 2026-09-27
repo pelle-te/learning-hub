@@ -21,7 +21,7 @@
     "audit": "node web/scripts/audit-gate.mjs --allowlist audit-allowlist.json"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4",
+    "@tauri-apps/cli": "^2.11.5",
     "husky": "^9.1.7"
   }
 }
